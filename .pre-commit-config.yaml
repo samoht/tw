@@ -1,0 +1,15 @@
+repos:
+  - repo: local
+    hooks:
+      - id: dune-format
+        name: Auto format with dune
+        entry: dune fmt --auto
+        language: system
+        files: ^$
+        stages: [pre-commit]
+
+      - id: remove-claude-attribution
+        name: Remove Claude attribution from commit message
+        entry: python3 .hooks/remove-claude-lines.py
+        language: system
+        stages: [commit-msg]
