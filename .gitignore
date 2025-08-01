@@ -1,0 +1,48 @@
+# OCaml build artifacts
+_build/
+*.install
+
+# Merlin and OCaml tooling
+.merlin
+.ocamlformat-ignore
+*.annot
+*.cmo
+*.cma
+*.cmi
+*.a
+*.o
+*.cmx
+*.cmxs
+*.cmxa
+
+# Editor and system files
+*~
+\#*\#
+.#*
+.DS_Store
+*.swp
+*.swo
+
+# Dune local files
+.dune-workspace.local
+
+# Test artifacts
+_tests/
+*.coverage
+
+# Documentation
+_doc/
+*.odocl
+
+# opam local switch
+_opam/
+
+# Temporary files
+*.tmp
+temp_*/
+
+# Node.js
+node_modules/
+package.json
+package-lock.json
+.npm/
