@@ -56,64 +56,55 @@ let rec files path patterns =
   else []
 
 (* Main command implementation *)
+let reset_flag flag ~default =
+  match flag with `Enable -> true | `Disable -> false | `Default -> default
+
+let process_single_class class_str flag minify =
+  let reset = reset_flag flag ~default:false in
+  let tw_styles = parse_classes class_str in
+  match tw_styles with
+  | [] -> `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
+  | styles ->
+      let stylesheet = Tw.to_css ~reset styles in
+      print_endline (Tw.Css.to_string ~minify stylesheet);
+      `Ok ()
+
+let collect_files paths =
+  List.concat_map
+    (fun path ->
+      if Sys.file_exists path then
+        if Sys.is_directory path then
+          files path [ ".html"; ".ml"; ".re"; ".jsx"; ".tsx" ]
+        else [ path ]
+      else [])
+    paths
+
+let process_files paths flag minify =
+  let reset = reset_flag flag ~default:true in
+  try
+    let all_files = collect_files paths in
+    let all_classes =
+      List.concat_map extract_classes_from_file all_files
+      |> List.sort_uniq String.compare
+    in
+    let tw_styles =
+      List.concat_map
+        (fun classes_str ->
+          try parse_classes classes_str with Failure _ -> [])
+        all_classes
+    in
+    let stylesheet = Tw.to_css ~reset tw_styles in
+    print_endline (Tw.Css.to_string ~minify stylesheet);
+    `Ok ()
+  with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))
+
 let tw_main single_class reset_flag minify paths =
   match single_class with
-  | Some class_str -> (
-      (* Generate CSS for a single class - no reset by default unless
-         overridden *)
-      let reset =
-        match reset_flag with
-        | `Enable -> true
-        | `Disable -> false
-        | `Default -> false (* no reset by default for single class *)
-      in
-      let tw_styles = parse_classes class_str in
-      match tw_styles with
-      | [] -> `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
-      | styles ->
-          let stylesheet = Tw.to_css ~reset styles in
-          print_endline (Tw.stylesheet_to_string ~minify stylesheet);
-          `Ok ())
+  | Some class_str -> process_single_class class_str reset_flag minify
   | None -> (
-      (* Scan files and directories - reset enabled by default unless
-         overridden *)
-      let reset =
-        match reset_flag with
-        | `Enable -> true
-        | `Disable -> false
-        | `Default -> true (* reset by default for file scanning *)
-      in
       match paths with
       | [] -> `Error (true, "Either provide -s <class> or file/directory paths")
-      | paths -> (
-          try
-            let all_files =
-              List.concat_map
-                (fun path ->
-                  if Sys.file_exists path then
-                    if Sys.is_directory path then
-                      files path [ ".html"; ".ml"; ".re"; ".jsx"; ".tsx" ]
-                    else [ path ]
-                  else [])
-                paths
-            in
-
-            let all_classes =
-              List.concat_map extract_classes_from_file all_files
-              |> List.sort_uniq String.compare
-            in
-
-            let tw_styles =
-              List.concat_map
-                (fun classes_str ->
-                  try parse_classes classes_str with Failure _ -> [])
-                all_classes
-            in
-
-            let stylesheet = Tw.to_css ~reset tw_styles in
-            print_endline (Tw.stylesheet_to_string ~minify stylesheet);
-            `Ok ()
-          with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))))
+      | paths -> process_files paths reset_flag minify)
 
 (* Command-line arguments *)
 let single_flag =

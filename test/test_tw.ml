@@ -127,7 +127,7 @@ let generate_tailwind_css ?(minify = false) classnames =
 (** Generate CSS using our Tw implementation *)
 let generate_tw_css ?(minify = false) tw_styles =
   let stylesheet = to_css tw_styles in
-  stylesheet_to_string ~minify stylesheet
+  Css.to_string ~minify stylesheet
 
 (** Extract utility class CSS from full Tailwind output *)
 let extract_utility_classes css classnames =
@@ -744,7 +744,7 @@ let tailwind_cache_minified = ref None
 (** Generate all Tailwind CSS at once *)
 let generate_all_tailwind_css ?(minify = false) () =
   let all_styles = all_test_styles () in
-  let all_classnames = List.map to_string all_styles in
+  let all_classnames = List.map pp all_styles in
 
   (* Create a key from the classnames to ensure cache validity *)
   let cache_key = String.concat "," (List.sort String.compare all_classnames) in
@@ -762,7 +762,7 @@ let generate_all_tailwind_css ?(minify = false) () =
 (** Check 1:1 mapping with non-minified Tailwind - uses cached CSS *)
 let check_exact_match tw_style =
   try
-    let classname = to_string tw_style in
+    let classname = pp tw_style in
     (* Generate non-minified CSS for accurate comparison *)
     let tw_css = exact_css (generate_tw_css ~minify:false [ tw_style ]) in
     let tailwind_full_css =
@@ -942,7 +942,7 @@ let test_extended_color_palette () =
 (** Test class name generation for extended colors *)
 let test_extended_color_class_names () =
   let test_class_name tw expected =
-    let actual = to_string tw in
+    let actual = pp tw in
     Alcotest.check string ("class name for " ^ expected) expected actual
   in
 
@@ -960,7 +960,7 @@ let test_extended_color_class_names () =
 (** Test Black and White colors don't include shades in class names *)
 let test_black_white_class_names () =
   let test_class_name tw expected =
-    let actual = to_string tw in
+    let actual = pp tw in
     Alcotest.check string ("class name for " ^ expected) expected actual
   in
 
@@ -975,7 +975,7 @@ let test_black_white_class_names () =
 let test_css_property_generation () =
   let test_css_contains tw expected_property expected_value =
     let stylesheet = to_css [ tw ] in
-    let css_str = stylesheet_to_string stylesheet in
+    let css_str = Css.to_string stylesheet in
     let property_str = expected_property ^ ": " ^ expected_value in
     Alcotest.check bool
       ("CSS contains " ^ property_str)
@@ -1001,7 +1001,7 @@ let test_css_property_generation () =
 (** Test responsive modifiers *)
 let test_responsive_modifiers () =
   let test_class_name tw expected =
-    let actual = to_string tw in
+    let actual = pp tw in
     Alcotest.check string ("responsive class " ^ expected) expected actual
   in
 
@@ -1013,7 +1013,7 @@ let test_responsive_modifiers () =
 (** Test state modifiers *)
 let test_state_modifiers () =
   let test_class_name tw expected =
-    let actual = to_string tw in
+    let actual = pp tw in
     Alcotest.check string ("state modifier " ^ expected) expected actual
   in
 
@@ -1026,7 +1026,7 @@ let test_state_modifiers () =
 let test_css_prelude () =
   (* Test that our CSS reset/prelude matches expected structure *)
   let stylesheet = to_css [] in
-  let css = stylesheet_to_string ~minify:false stylesheet in
+  let css = Css.to_string ~minify:false stylesheet in
 
   (* Check for reset styles *)
   let expected_reset_patterns =
@@ -1060,7 +1060,7 @@ let test_exact_css_match () =
   List.iter
     (fun (tw_style, expected) ->
       let stylesheet = to_css [ tw_style ] in
-      let css = stylesheet_to_string ~minify:false stylesheet in
+      let css = Css.to_string ~minify:false stylesheet in
       (* Extract just the utility class part (skip prelude) *)
       let lines = String.split_on_char '\n' css in
       let rec skip_prelude = function
@@ -1078,7 +1078,7 @@ let test_exact_css_match () =
         Fmt.epr "Expected:\n%s\n" expected;
         Fmt.epr "Actual:\n%s\n" actual_utility;
         Fmt.epr "========================\n";
-        failf "CSS output doesn't match exactly for %s" (to_string tw_style)))
+        failf "CSS output doesn't match exactly for %s" (pp tw_style)))
     test_cases
 
 let check_minification_pattern ramen_minified (pattern, should_exist) =
@@ -1104,7 +1104,7 @@ let test_minification_rules () =
 
   (* Get our minified output *)
   let stylesheet = to_css all_styles in
-  let tw_minified = stylesheet_to_string ~minify:true stylesheet in
+  let tw_minified = Css.to_string ~minify:true stylesheet in
 
   (* Check size difference *)
   let tailwind_len = String.length tailwind_utilities in
@@ -1131,105 +1131,128 @@ let test_minification_rules () =
 
   List.iter (check_minification_pattern tw_minified) test_cases
 
+(** Helper to find end of CSS rule *)
+let rule_end css start = Astring.String.find_sub ~start ~sub:"}" css
+
+(** Helper to extract a CSS rule for a given selector *)
+let extract_rule selector css =
+  try
+    let selector_with_space = selector ^ " {" in
+    match Astring.String.find_sub ~sub:selector_with_space css with
+    | None -> None
+    | Some idx -> (
+        let start = idx + String.length selector_with_space in
+        match rule_end css start with
+        | None -> None
+        | Some end_idx -> Some (String.sub css start (end_idx - start)))
+  with Invalid_argument _ | Not_found -> None
+
+(** Helper to check key properties in prose CSS *)
+let check_prose_properties tw_props =
+  let key_props = [ "color:"; "max-width:"; "font-size:"; "line-height:" ] in
+  List.iter
+    (fun prop ->
+      if not (Astring.String.is_infix ~affix:prop tw_props) then
+        Alcotest.failf "Missing property %s in .prose" prop)
+    key_props
+
+(** Helper to check if selector exists in CSS *)
+let check_selector_present tw_css classname selector =
+  let has_selector = Astring.String.is_infix ~affix:selector tw_css in
+  if not has_selector then
+    Alcotest.failf "Prose CSS missing selector %s in class %s" selector
+      classname
+
+(** Test a prose style with expected selectors *)
+let test_prose_style style expected_selectors =
+  try
+    let classname = pp style in
+    let tw_css = to_css ~reset:false [ style ] |> Css.to_string ~minify:false in
+    let _tailwind_css = generate_tailwind_css ~minify:false [ classname ] in
+
+    (* Check that key selectors are present *)
+    List.iter (check_selector_present tw_css classname) expected_selectors;
+
+    (* Compare base prose properties if this is the base prose class *)
+    if classname = "prose" then
+      match extract_rule ".prose" tw_css with
+      | Some tw_props -> check_prose_properties tw_props
+      | None -> ()
+  with e ->
+    Alcotest.failf "Prose CSS comparison failed for %s: %s" (pp style)
+      (Printexc.to_string e)
+
 (** Test comprehensive prose CSS comparison with Tailwind *)
 let test_prose_css_comparison () =
-  (* Test basic prose styles *)
-  let test_prose_style style expected_selectors =
-    try
-      let classname = to_string style in
-      let tw_css = to_css ~reset:false [style] |> stylesheet_to_string ~minify:false in
-      let tailwind_css = generate_tailwind_css ~minify:false [classname] in
-      
-      (* Check that key selectors are present *)
-      List.iter (fun selector ->
-        let has_selector = Astring.String.is_infix ~affix:selector tw_css in
-        if not has_selector then
-          Alcotest.failf "Prose CSS missing selector %s in class %s" selector classname
-      ) expected_selectors;
-      
-      (* Extract specific rules for comparison *)
-      let extract_rule selector css =
-        try
-          let selector_with_space = selector ^ " {" in
-          match Astring.String.find_sub ~sub:selector_with_space css with
-          | Some idx ->
-              let start = idx + String.length selector_with_space in
-              (match Astring.String.find_sub ~start ~sub:"}" css with
-               | Some end_idx -> Some (String.sub css start (end_idx - start))
-               | None -> None)
-          | None -> None
-        with Invalid_argument _ | Not_found -> None
-      in
-      
-      (* Compare base prose properties *)
-      if classname = "prose" then begin
-        let tw_prose = extract_rule ".prose" tw_css in
-        let tailwind_prose = extract_rule ".prose" tailwind_css in
-        match tw_prose, tailwind_prose with
-        | Some tw_props, Some _tailwind_props ->
-            (* Check for key properties *)
-            let key_props = ["color:"; "max-width:"; "font-size:"; "line-height:"] in
-            List.iter (fun prop ->
-              if not (Astring.String.is_infix ~affix:prop tw_props) then
-                Alcotest.failf "Missing property %s in .prose" prop
-            ) key_props
-        | _ -> ()
-      end
-    with e -> 
-      Alcotest.failf "Prose CSS comparison failed for %s: %s" 
-        (to_string style) (Printexc.to_string e)
-  in
-  
   (* Test each prose variant with expected selectors *)
-  test_prose_style prose [".prose"; ".prose h1"; ".prose h2"; ".prose p"; ".prose a"; 
-                          ".prose code"; ".prose pre"; ".prose ul"; ".prose blockquote"];
-  test_prose_style prose_sm [".prose-sm"; ".prose-sm h1"; ".prose-sm p"];
-  test_prose_style prose_lg [".prose-lg"; ".prose-lg h1"; ".prose-lg p"];
-  test_prose_style prose_gray [".prose-gray"];
-  test_prose_style prose_slate [".prose-slate"]
+  test_prose_style prose
+    [
+      ".prose";
+      ".prose h1";
+      ".prose h2";
+      ".prose p";
+      ".prose a";
+      ".prose code";
+      ".prose pre";
+      ".prose ul";
+      ".prose blockquote";
+    ];
+  test_prose_style prose_sm [ ".prose-sm"; ".prose-sm h1"; ".prose-sm p" ];
+  test_prose_style prose_lg [ ".prose-lg"; ".prose-lg h1"; ".prose-lg p" ];
+  test_prose_style prose_gray [ ".prose-gray" ];
+  test_prose_style prose_slate [ ".prose-slate" ]
 
 (** Test prose with modifiers *)
 let test_prose_with_modifiers () =
   (* Test responsive modifiers with prose *)
-  let responsive_prose = on_sm [prose] in
-  let class_name = to_string responsive_prose in
+  let responsive_prose = on_sm [ prose ] in
+  let class_name = pp responsive_prose in
   Alcotest.(check string) "responsive prose" "sm:prose" class_name;
-  
+
   (* Hover modifier should work with prose *)
-  let hover_prose = on_hover [prose] in 
-  let hover_class = to_string hover_prose in
+  let hover_prose = on_hover [ prose ] in
+  let hover_class = pp hover_prose in
   Alcotest.(check string) "hover prose" "hover:prose" hover_class;
-  
+
   (* Test CSS generation for responsive prose *)
-  let css = to_css ~reset:false [responsive_prose] |> stylesheet_to_string ~minify:false in
-  Alcotest.(check bool) "has media query" true 
+  let css =
+    to_css ~reset:false [ responsive_prose ] |> Css.to_string ~minify:false
+  in
+  Alcotest.(check bool)
+    "has media query" true
     (Astring.String.is_infix ~affix:"@media" css);
   (* Debug: print first 500 chars of CSS to see what's generated *)
   if not (Astring.String.is_infix ~affix:"prose" css) then
-    Alcotest.failf "CSS output missing 'prose' (first 500 chars):\n%s" 
+    Alcotest.failf "CSS output missing 'prose' (first 500 chars):\n%s"
       (String.sub css 0 (Int.min 500 (String.length css)));
   (* The prose rules should be in the media query *)
   let has_prose = Astring.String.is_infix ~affix:"prose" css in
   Alcotest.(check bool) "has prose in media" true has_prose
 
-(** Test prose variant combinations *)  
+(** Test prose variant combinations *)
 let test_prose_variant_combinations () =
   (* Multiple prose classes together *)
-  let combined = to_classes [prose; prose_lg; prose_gray] in
-  Alcotest.(check string) "multiple prose classes" "prose prose-lg prose-gray" combined;
-  
+  let combined = to_classes [ prose; prose_lg; prose_gray ] in
+  Alcotest.(check string)
+    "multiple prose classes" "prose prose-lg prose-gray" combined;
+
   (* Test CSS generation for combined prose *)
-  let css = to_css ~reset:false [prose; prose_lg] |> stylesheet_to_string ~minify:false in
-  
+  let css =
+    to_css ~reset:false [ prose; prose_lg ] |> Css.to_string ~minify:false
+  in
+
   (* Both base prose and size variant should be present *)
-  Alcotest.(check bool) "has base prose" true
+  Alcotest.(check bool)
+    "has base prose" true
     (Astring.String.is_infix ~affix:".prose {" css);
-  Alcotest.(check bool) "has prose-lg" true  
+  Alcotest.(check bool)
+    "has prose-lg" true
     (Astring.String.is_infix ~affix:".prose-lg {" css);
-    
+
   (* Test that prose can be combined with other utilities *)
-  let with_utilities = to_classes [prose; mx auto; max_w (xl_3)] in
-  Alcotest.(check string) "prose with utilities" "prose mx-auto max-w-3xl" with_utilities
+  let with_utilities = to_classes [ prose; mx auto; max_w xl_3 ] in
+  Alcotest.(check string)
+    "prose with utilities" "prose mx-auto max-w-3xl" with_utilities
 
 let test_scroll_snap () =
   let styles =
@@ -1253,10 +1276,10 @@ let test_scroll_snap () =
 
   List.iter
     (fun style ->
-      let class_name = to_class style in
+      let class_name = pp style in
       (* Generate CSS and verify it contains the expected class selector *)
       let stylesheet = to_css ~reset:false [ style ] in
-      let css_output = stylesheet_to_string ~minify:false stylesheet in
+      let css_output = Css.to_string ~minify:false stylesheet in
 
       (* The CSS should contain the class selector *)
       let expected_selector = "." ^ class_name in
@@ -1306,7 +1329,7 @@ let test_data_attributes () =
   List.iter
     (fun (tw_style, expected) ->
       let stylesheet = to_css [ tw_style ] in
-      let css = stylesheet_to_string ~minify:false stylesheet in
+      let css = Css.to_string ~minify:false stylesheet in
       (* Extract just the utility class part (skip prelude) *)
       let lines = String.split_on_char '\n' css in
       let rec skip_prelude = function
@@ -1358,13 +1381,13 @@ let test_dynamic_inline_styles () =
 
 (** Helper function for roundtrip testing *)
 let test_roundtrip style =
-  let class_str = to_string style in
+  let class_str = pp style in
   match of_string class_str with
   | Error (`Msg msg) ->
       Alcotest.fail
         (Fmt.str "Failed to parse generated class '%s': %s" class_str msg)
   | Ok parsed_style ->
-      let parsed_class_str = to_string parsed_style in
+      let parsed_class_str = pp parsed_style in
       Alcotest.check string
         (Fmt.str "Roundtrip for %s" class_str)
         class_str parsed_class_str
@@ -1392,8 +1415,21 @@ let test_of_string_roundtrip_spacing () =
 (** Test of_string roundtrip for typography styles *)
 let test_of_string_roundtrip_typography () =
   let styles =
-    [ text_lg; text_center; font_bold; italic; underline; leading_tight;
-      prose; prose_sm; prose_lg; prose_xl; prose_2xl; prose_gray; prose_slate ]
+    [
+      text_lg;
+      text_center;
+      font_bold;
+      italic;
+      underline;
+      leading_tight;
+      prose;
+      prose_sm;
+      prose_lg;
+      prose_xl;
+      prose_2xl;
+      prose_gray;
+      prose_slate;
+    ]
   in
   List.iter test_roundtrip styles
 
@@ -1584,7 +1620,7 @@ let test_generated_styles_valid () =
   Random.init 42;
   for _ = 1 to 100 do
     let style = Generators.gen_style () in
-    let class_name = to_string style in
+    let class_name = pp style in
     Alcotest.check Alcotest.bool "class name not empty" true
       (String.length class_name > 0);
     (* Basic validation: no spaces in single classes *)
@@ -1599,8 +1635,8 @@ let test_css_deterministic () =
   Random.init 42;
   for _ = 1 to 50 do
     let styles = Generators.gen_style_list (1 + Random.int 10) in
-    let css1 = to_css ~reset:false styles |> stylesheet_to_string in
-    let css2 = to_css ~reset:false styles |> stylesheet_to_string in
+    let css1 = to_css ~reset:false styles |> Css.to_string in
+    let css2 = to_css ~reset:false styles |> Css.to_string in
     Alcotest.check Alcotest.string "CSS generation is deterministic" css1 css2
   done
 
@@ -1610,8 +1646,8 @@ let test_minification_always_smaller () =
   for _ = 1 to 50 do
     let styles = Generators.gen_style_list (1 + Random.int 20) in
     let stylesheet = to_css ~reset:false styles in
-    let normal = stylesheet_to_string ~minify:false stylesheet in
-    let minified = stylesheet_to_string ~minify:true stylesheet in
+    let normal = Css.to_string ~minify:false stylesheet in
+    let minified = Css.to_string ~minify:true stylesheet in
     Alcotest.check Alcotest.bool "minified <= normal size" true
       (String.length minified <= String.length normal)
   done
@@ -1622,15 +1658,13 @@ let test_style_combination () =
   for _ = 1 to 20 do
     let styles1 = Generators.gen_style_list (1 + Random.int 5) in
     let styles2 = Generators.gen_style_list (1 + Random.int 5) in
-    let css1 = to_css ~reset:false styles1 |> stylesheet_to_string in
-    let combined =
-      to_css ~reset:false (styles1 @ styles2) |> stylesheet_to_string
-    in
+    let css1 = to_css ~reset:false styles1 |> Css.to_string in
+    let combined = to_css ~reset:false (styles1 @ styles2) |> Css.to_string in
 
     (* Combined should contain classes from both *)
     List.iter
       (fun style ->
-        let class_name = "." ^ to_string style in
+        let class_name = "." ^ pp style in
         if Astring.String.is_infix ~affix:class_name css1 then
           Alcotest.check Alcotest.bool "combined contains class from first set"
             true
@@ -1661,8 +1695,8 @@ let test_responsive_modifier_parsing () =
       match of_string input with
       | Error (`Msg msg) -> Alcotest.failf "Failed to parse '%s': %s" input msg
       | Ok parsed ->
-          let expected_str = to_string expected in
-          let parsed_str = to_string parsed in
+          let expected_str = pp expected in
+          let parsed_str = pp parsed in
           Alcotest.check string
             (Fmt.str "Parse '%s'" input)
             expected_str parsed_str)
@@ -1729,7 +1763,7 @@ let test_of_string_random_valid () =
     let cls = Generators.sample valid_classes in
     match of_string cls with
     | Ok style ->
-        let cls' = to_string style in
+        let cls' = pp style in
         Alcotest.check Alcotest.string "roundtrip preserves class" cls cls'
     | Error (`Msg msg) -> failf "Failed to parse valid class %s: %s" cls msg
   done
@@ -1802,8 +1836,8 @@ let test_css_minification () =
     ]
   in
   let stylesheet = to_css ~reset:false styles in
-  let normal = stylesheet_to_string ~minify:false stylesheet in
-  let minified = stylesheet_to_string ~minify:true stylesheet in
+  let normal = Css.to_string ~minify:false stylesheet in
+  let minified = Css.to_string ~minify:true stylesheet in
 
   (* Minified should be smaller than normal *)
   Alcotest.check bool "minified is smaller than normal" true
@@ -1854,7 +1888,8 @@ let comprehensive_tests =
     test_case "minification rules" `Quick test_minification_rules;
     test_case "prose css comparison" `Slow test_prose_css_comparison;
     test_case "prose with modifiers" `Quick test_prose_with_modifiers;
-    test_case "prose variant combinations" `Quick test_prose_variant_combinations;
+    test_case "prose variant combinations" `Quick
+      test_prose_variant_combinations;
     test_case "scroll snap" `Quick test_scroll_snap;
     test_case "data attributes" `Quick test_data_attributes;
     test_case "inline styles" `Quick test_inline_styles;

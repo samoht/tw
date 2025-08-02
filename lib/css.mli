@@ -304,7 +304,7 @@ val rule : selector:string -> property list -> rule
 val selector : rule -> string
 (** [selector rule] returns the selector of a CSS rule. *)
 
-val properties : rule -> property list  
+val properties : rule -> property list
 (** [properties rule] returns the properties of a CSS rule. *)
 
 val media : condition:string -> rule list -> media_query
