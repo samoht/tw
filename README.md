@@ -1,18 +1,16 @@
 # tw - Type-Safe CSS Generation for OCaml
 
 `tw` is a CSS generation library and command-line tool for OCaml,
-inspired by Tailwind CSS. It provides a type-safe DSL for
-utility-first CSS with minimal runtime overhead.
+inspired by [Tailwind CSS](https://tailwindcss.com/).
+It provides a type-safe DSL for utility-first CSS with minimal runtime overhead,
+working seamlessly on both server-side and client-side with the same code.
 
 ## Features
 
-- Type-safe CSS generation with compile-time validation
-- Lightweight DSL without Printf/Format dependencies for smaller js_of_ocaml bundles
-- Command-line tool for CSS extraction from source files
-- Responsive modifiers and pseudo-class support
-- Prose typography support (similar to @tailwindcss/typography)
-- Comprehensive utility classes: colors, spacing, borders, shadows, transforms, and more
-- Compatible with js_of_ocaml for dynamic style generation in browsers
+- Type-safe CSS generation with compile-time guarantees
+- Command-line tool for extracting classes from source files
+- Responsive modifiers, pseudo-classes, and typography utilities
+- Works seamlessly with js_of_ocaml for dynamic client-side styling
 - Test utilities for comparing output with real Tailwind CSS
 
 ## Installation
@@ -23,13 +21,7 @@ opam install tw
 
 ## Command-Line Usage
 
-Generate CSS for a single class:
-```bash
-tw -s bg-blue-500
-tw -s "sm:text-black lg:text-white" --minify
-```
-
-Extract classes from files and generate a stylesheet:
+Generate CSS for specific classes:
 ```bash
 tw index.html src/
 tw src/ > styles.css
@@ -88,10 +80,9 @@ let article_styles = [
 let prose_css = to_css article_styles |> stylesheet_to_string
 ```
 
-### JavaScript Usage with js_of_ocaml
+### Dynamic Styling with js_of_ocaml
 
-`tw` is designed to work well with js_of_ocaml, avoiding heavy
-dependencies like Format to keep bundle sizes small:
+`tw` avoids heavy dependencies like Format to keep bundle sizes small:
 
 ```ocaml
 (* Dynamic style generation in the browser *)
@@ -112,6 +103,12 @@ The main module provides:
 - `Tw.stylesheet_to_string : ?minify:bool -> Tw.Css.stylesheet -> string` - Serialize CSS
 
 See the [API documentation](https://ocaml.org/p/tw/latest/doc/index.html) for details.
+
+## Acknowledgments
+
+This project is inspired by [Tailwind CSS](https://tailwindcss.com/), a utility-first CSS framework. Tailwind CSS is licensed under the [MIT License](https://github.com/tailwindlabs/tailwindcss/blob/master/LICENSE).
+
+Please consider [supporting the original Tailwind CSS project](https://tailwindcss.com/sponsor) or purchasing [Tailwind Plus](https://tailwindcss.com/plus).
 
 ## Contributing
 
