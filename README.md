@@ -100,17 +100,21 @@ let update_theme dark_mode =
 
 ## HTML Generation with tw.html
 
-The `tw.html` library provides type-safe HTML generation with integrated Tailwind CSS support. It automatically collects all Tailwind classes used in your HTML tree and can generate the required CSS.
+The `tw.html` library provides type-safe HTML generation with
+integrated Tailwind CSS support. It automatically collects all
+Tailwind classes used in your HTML tree and can generate the required
+CSS.
 
 ### Complete Page Generation
 
-The most powerful feature is the `page` function that generates complete HTML pages with integrated CSS:
+The most powerful feature is the `page` function that generates
+complete HTML pages with integrated CSS:
 
 ```ocaml
 open Tw_html
 
-let my_page = 
-  page 
+let my_page =
+  page
     ~title:"My Beautiful Page"
     ~meta:[("description", "A page built with tw.html")]
     ~tw_css:"main.css"  (* CSS filename - automatically linked in HTML head *)
@@ -126,7 +130,7 @@ let my_page =
             txt "Welcome to my site"
           ]
         ];
-        
+
         main [
           div ~tw:Tw.[grid; grid_cols 2; gap (int 6)] [
             article ~tw:Tw.[bg white; rounded lg; shadow md; p (int 6)] [
@@ -137,7 +141,7 @@ let my_page =
                 txt "This article demonstrates how tw.html automatically collects all Tailwind classes and generates the corresponding CSS."
               ]
             ];
-            
+
             aside ~tw:Tw.[bg ~shade:50 blue; rounded lg; p (int 4)] [
               h3 ~tw:Tw.[font_medium; mb (int 2)] [ txt "Quick Links" ];
               ul ~tw:Tw.[space_y (int 2)] [
@@ -147,7 +151,7 @@ let my_page =
             ]
           ]
         ];
-        
+
         footer ~tw:Tw.[mt (int 12); pt (int 6); border_t; text_center] [
           p ~tw:Tw.[text ~shade:500 gray] [
             txt "© 2024 My Site. Built with OCaml and Tailwind CSS."
@@ -157,20 +161,20 @@ let my_page =
     ]
 
 (* Extract HTML and CSS *)
-let () = 
+let () =
   let html_str = html my_page in
   let (css_filename, css_stylesheet) = css my_page in
   let css_str = Tw.Css.to_string ~minify:true css_stylesheet in
-  
+
   (* Write files *)
   let oc_html = open_out "index.html" in
   output_string oc_html html_str;
   close_out oc_html;
-  
+
   let oc_css = open_out css_filename in
   output_string oc_css css_str;
   close_out oc_css;
-  
+
   Printf.printf "Generated index.html and %s\n" css_filename
 ```
 
@@ -187,7 +191,7 @@ let button ?(variant=`Primary) ~onclick children =
     | `Secondary -> Tw.[bg ~shade:200 gray; text ~shade:800 gray; on_hover [bg ~shade:300 gray]]
     | `Danger -> Tw.[bg red; text white; on_hover [bg ~shade:700 red]]
   in
-  button 
+  button
     ~at:[At.onclick onclick]
     ~tw:Tw.(px (int 4) :: py (int 2) :: rounded md :: font_medium :: styles)
     children
@@ -199,7 +203,7 @@ let card ~title children =
   ]
 
 (* Usage *)
-let my_component = 
+let my_component =
   card ~title:"User Profile" [
     p [txt "Welcome back!"];
     div ~tw:Tw.[flex; gap (int 2); mt (int 4)] [
@@ -211,13 +215,29 @@ let my_component =
 
 ### Key Features
 
-- **Automatic CSS Generation**: All Tailwind classes are automatically collected and CSS is generated
-- **Type Safety**: Full OCaml type checking for HTML structure and attributes
+- **Automatic CSS Generation**: All Tailwind classes are automatically
+    collected and CSS is generated
+- **Type Safety**: Full OCaml type checking for HTML structure and
+    attributes
 - **Component Composition**: Build reusable components with integrated styling
-- **Complete HTML5 Support**: All HTML5 elements and attributes with proper typing
-- **Accessibility**: Built-in support for ARIA attributes and semantic HTML
+- **Complete HTML5 Support**: All HTML5 elements and attributes with
+    proper typing
+- **Accessibility**: Built-in support for ARIA attributes and semantic
+    HTML
 
-For more examples and API details, see the [tw.html documentation](https://ocaml.org/p/tw.html/latest/doc/index.html).
+For more examples and API details, see the [tw.html
+documentation](https://ocaml.org/p/tw.html/latest/doc/index.html).
+
+## Examples
+
+The `examples/` directory contains complete examples demonstrating
+tw.html usage.
+
+Run the example:
+```bash
+dune exec examples/simple_page.exe
+# Generates simple_page.html and simple.css in current directory
+```
 
 ## API
 
