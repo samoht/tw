@@ -1635,9 +1635,10 @@ val prose_slate : t
 (** Slate prose color theme. *)
 
 val prose_stylesheet : unit -> Css.stylesheet
-(** [prose_stylesheet ()] generates a complete prose stylesheet with all typography rules.
-    This includes descendant selectors for all HTML elements (h1-h6, p, a, strong,
-    em, code, pre, blockquote, ul, ol, li, etc.) and all size variants.
+(** [prose_stylesheet ()] generates a complete prose stylesheet with all
+    typography rules. This includes descendant selectors for all HTML elements
+    (h1-h6, p, a, strong, em, code, pre, blockquote, ul, ol, li, etc.) and all
+    size variants.
 
     Usage:
     {[
@@ -1658,9 +1659,6 @@ val line_clamp : int -> t
 
 (** {1 Class Generation & Internals} *)
 
-val to_class : t -> string
-(** [to_class style] generates a class name from a style. *)
-
 val to_classes : t list -> string
 (** [to_classes styles] converts your style list to a CSS class string. This is
     the main function you'll use with HTML elements.
@@ -1671,8 +1669,8 @@ val to_classes : t list -> string
       button ~at:[ At.class_ (to_classes button_styles) ] [ txt "Click" ]
     ]} *)
 
-val to_string : t -> string
-(** [to_string style] converts a single style to a class string. *)
+val pp : t -> string
+(** [pp style] generates a class name from a style. *)
 
 val of_string : string -> (t, [ `Msg of string ]) result
 (** [of_string class_str] parses a Tailwind class string into a style.
@@ -1692,9 +1690,6 @@ val classes_to_string : t list -> string
 
 val color_to_string : color -> string
 (** [color_to_string c] converts a color to its string representation. *)
-
-val pp : t Pp.t
-(** [pp t] pretty-prints Tailwind class [t]. *)
 
 (** {2 CSS Generation}
 
@@ -1787,15 +1782,6 @@ val to_css : ?reset:bool -> t list -> Css.stylesheet
 
     Use this to generate your main stylesheet for inclusion in HTML [<head>]. *)
 
-val stylesheet_to_string : ?minify:bool -> Css.stylesheet -> string
-(** [stylesheet_to_string ?minify stylesheet] converts a CSS stylesheet to
-    string.
-
-    @param minify Whether to minify the CSS output (default: [false])
-
-    This is useful when you need to output the result of [to_css] as a string.
-*)
-
 val aspect_ratio : float -> float -> t
 (** [aspect_ratio width height] maintains element proportions.
 
@@ -1820,4 +1806,34 @@ val clip_path : string -> t
             h (int 6);
           ]
         []
+    ]} *)
+
+(** {1 HTML Integration} *)
+
+(** HTML generation with integrated Tailwind CSS support.
+
+    This module provides type-safe HTML generation with seamless integration of
+    Tailwind CSS classes. It automatically collects all Tailwind classes used in
+    your HTML tree and can generate the required CSS.
+
+    {b Example:}
+    {[
+      open Tw.Html
+
+      let card =
+        div
+          ~tw:[ bg white; rounded lg; shadow md; p (int 6) ]
+          [
+            h2 ~tw:[ text xl; font_bold; mb (int 4) ] [ txt "Card Title" ];
+            p ~tw:[ text gray ~shade:600 ] [ txt "Card content goes here." ];
+            a
+              ~at:[ At.href "#" ]
+              ~tw:[ text blue ~shade:500; on_hover [ underline ] ]
+              [ txt "Learn more" ];
+          ]
+
+      (* Generate complete page with CSS *)
+      let html, css =
+        page ~title:"My Page" []
+          [ div ~tw:[ container; mx auto; py (int 8) ] [ card ] ]
     ]} *)

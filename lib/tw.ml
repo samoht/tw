@@ -2,6 +2,11 @@
 
 open Css
 
+(** {1 Core Types} *)
+
+type breakpoint = [ `Sm | `Md | `Lg | `Xl | `Xl_2 ]
+(** Responsive breakpoints *)
+
 (** A Tailwind utility modifier *)
 type modifier =
   | Hover
@@ -10,7 +15,7 @@ type modifier =
   | Disabled
   | Group_hover
   | Dark
-  | Responsive of string
+  | Responsive of breakpoint
   | Peer_hover
   | Peer_focus
   | Peer_checked
@@ -31,8 +36,6 @@ type t =
   | Prose of Prose.t
   | Modified of modifier * t
   | Group of t list
-
-(** {1 Core Types} *)
 
 (* Abstract color type *)
 type color =
@@ -71,6 +74,146 @@ type shadow = [ size | `Inner ]
 
 (* Re-export CSS module *)
 module Css = Css
+
+(** {1 CSS Generation} *)
+
+(* Internal helper to extract CSS properties from a style *)
+let rec to_css_properties = function
+  | Style (_class_name, props) -> props
+  | Prose variant ->
+      (* For inline styles, we can only use the base prose properties, not the
+         descendant selectors like .prose h1 *)
+      Prose.to_base_properties variant
+  | Modified (_modifier, t) -> to_css_properties t
+  | Group styles -> List.concat_map to_css_properties styles
+
+(* Helper to convert breakpoint to string *)
+let string_of_breakpoint = function
+  | `Sm -> "sm"
+  | `Md -> "md"
+  | `Lg -> "lg"
+  | `Xl -> "xl"
+  | `Xl_2 -> "2xl"
+
+(* Helper to get breakpoint for responsive prefix *)
+let responsive_breakpoint = function
+  | "sm" -> "640px"
+  | "md" -> "768px"
+  | "lg" -> "1024px"
+  | "xl" -> "1280px"
+  | "2xl" -> "1536px"
+  | _ -> "0px"
+
+(* Extract selector and properties from a single Tw style *)
+let extract_selector_props tw =
+  let rec extract = function
+    | Style (class_name, props) -> [ ("." ^ class_name, props) ]
+    | Prose variant ->
+        (* Convert prose rules to selector/props pairs *)
+        Prose.to_css_rules variant
+        |> List.map (fun rule -> (Css.selector rule, Css.properties rule))
+    | Modified (modifier, t) ->
+        let base = extract t in
+        List.map
+          (fun (selector, props) ->
+            match modifier with
+            | Hover -> (selector ^ ":hover", props)
+            | Focus -> (selector ^ ":focus", props)
+            | Active -> (selector ^ ":active", props)
+            | Disabled -> (selector ^ ":disabled", props)
+            | Group_hover -> (".group:hover " ^ selector, props)
+            | Group_focus -> (".group:focus " ^ selector, props)
+            | Peer_hover -> (".peer:hover ~ " ^ selector, props)
+            | Peer_focus -> (".peer:focus ~ " ^ selector, props)
+            | Peer_checked -> (".peer:checked ~ " ^ selector, props)
+            | Aria_checked -> (selector ^ "[aria-checked=\"true\"]", props)
+            | Aria_expanded -> (selector ^ "[aria-expanded=\"true\"]", props)
+            | Aria_selected -> (selector ^ "[aria-selected=\"true\"]", props)
+            | Aria_disabled -> (selector ^ "[aria-disabled=\"true\"]", props)
+            | Data_state value ->
+                (selector ^ "[data-state=\"" ^ value ^ "\"]", props)
+            | Data_variant value ->
+                (selector ^ "[data-variant=\"" ^ value ^ "\"]", props)
+            | Data_active -> (selector ^ "[data-active]", props)
+            | Data_inactive -> (selector ^ "[data-inactive]", props)
+            | Data_custom (key, value) ->
+                (selector ^ "[data-" ^ key ^ "=\"" ^ value ^ "\"]", props)
+            | Dark ->
+                ("@media (prefers-color-scheme: dark) { " ^ selector, props)
+            | Responsive breakpoint ->
+                let prefix = string_of_breakpoint breakpoint in
+                ( "@media (min-width: "
+                  ^ responsive_breakpoint prefix
+                  ^ ") { " ^ selector,
+                  props ))
+          base
+    | Group styles -> List.concat_map extract styles
+  in
+  extract tw
+
+(* Group properties by selector *)
+let group_by_selector rules =
+  List.fold_left
+    (fun acc (selector, props) ->
+      let existing = try List.assoc selector acc with Not_found -> [] in
+      (selector, existing @ props) :: List.remove_assoc selector acc)
+    [] rules
+
+(* Base reset CSS rules *)
+let reset_rules =
+  [
+    Css.rule ~selector:"*"
+      [ Css.margin "0"; Css.padding "0"; Css.box_sizing "border-box" ];
+    Css.rule ~selector:"body"
+      [
+        Css.font_size "16px";
+        Css.line_height "1.5";
+        Css.color "#374151";
+        Css.font_family
+          "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica \
+           Neue', Arial, sans-serif";
+      ];
+  ]
+
+(* Check if prose styles are being used *)
+let uses_prose tw_classes =
+  let rec check = function
+    | Style (_, _) -> false
+    | Prose _ -> true
+    | Modified (_, t) -> check t
+    | Group styles -> List.exists check styles
+  in
+  List.exists check tw_classes
+
+(* Generate CSS rules for all used Tw classes *)
+let to_css ?(reset = true) tw_classes =
+  let all_rules =
+    tw_classes |> List.concat_map extract_selector_props |> group_by_selector
+  in
+  let rules =
+    List.map
+      (fun (selector, props) ->
+        Css.rule ~selector (Css.deduplicate_properties props))
+      all_rules
+  in
+  let final_rules =
+    if reset then
+      (* Include prose CSS variables in reset if prose is being used *)
+      let prose_reset =
+        if uses_prose tw_classes then
+          [ Css.rule ~selector:":root" Prose.css_variables ]
+        else []
+      in
+      reset_rules @ prose_reset @ rules
+    else rules
+  in
+  Css.stylesheet final_rules
+
+(* Convert Tw styles to inline style attribute value *)
+let to_inline_style styles =
+  let all_props = List.concat_map to_css_properties styles in
+  let deduped = Css.deduplicate_properties all_props in
+  Css.properties_to_inline_style deduped
 
 (** {1 Helper Functions} *)
 
@@ -730,129 +873,6 @@ let sticky = Style ("sticky", [ position "sticky" ])
 
 (** {1 CSS Generation} *)
 
-(* Internal helper to extract CSS properties from a style *)
-let rec to_css_properties = function
-  | Style (_class_name, props) -> props
-  | Prose variant ->
-      (* For inline styles, we can only use the base prose properties, not the
-         descendant selectors like .prose h1 *)
-      Prose.to_base_properties variant
-  | Modified (_modifier, t) -> to_css_properties t
-  | Group styles -> List.concat_map to_css_properties styles
-
-(* Helper to get breakpoint for responsive prefix *)
-let responsive_breakpoint = function
-  | "sm" -> "640px"
-  | "md" -> "768px"
-  | "lg" -> "1024px"
-  | "xl" -> "1280px"
-  | "2xl" -> "1536px"
-  | _ -> "0px"
-
-(* Extract selector and properties from a single Tw style *)
-let extract_selector_props tw =
-  let rec extract = function
-    | Style (class_name, props) -> [ ("." ^ class_name, props) ]
-    | Prose variant ->
-        (* Convert prose rules to selector/props pairs *)
-        Prose.to_css_rules variant
-        |> List.map (fun rule -> (Css.selector rule, Css.properties rule))
-    | Modified (modifier, t) ->
-        let base = extract t in
-        List.map
-          (fun (selector, props) ->
-            match modifier with
-            | Hover -> (selector ^ ":hover", props)
-            | Focus -> (selector ^ ":focus", props)
-            | Active -> (selector ^ ":active", props)
-            | Disabled -> (selector ^ ":disabled", props)
-            | Group_hover -> (".group:hover " ^ selector, props)
-            | Group_focus -> (".group:focus " ^ selector, props)
-            | Peer_hover -> (".peer:hover ~ " ^ selector, props)
-            | Peer_focus -> (".peer:focus ~ " ^ selector, props)
-            | Peer_checked -> (".peer:checked ~ " ^ selector, props)
-            | Aria_checked -> (selector ^ "[aria-checked=\"true\"]", props)
-            | Aria_expanded -> (selector ^ "[aria-expanded=\"true\"]", props)
-            | Aria_selected -> (selector ^ "[aria-selected=\"true\"]", props)
-            | Aria_disabled -> (selector ^ "[aria-disabled=\"true\"]", props)
-            | Data_state value ->
-                (selector ^ "[data-state=\"" ^ value ^ "\"]", props)
-            | Data_variant value ->
-                (selector ^ "[data-variant=\"" ^ value ^ "\"]", props)
-            | Data_active -> (selector ^ "[data-active]", props)
-            | Data_inactive -> (selector ^ "[data-inactive]", props)
-            | Data_custom (key, value) ->
-                (selector ^ "[data-" ^ key ^ "=\"" ^ value ^ "\"]", props)
-            | Dark ->
-                ("@media (prefers-color-scheme: dark) { " ^ selector, props)
-            | Responsive prefix ->
-                ( "@media (min-width: "
-                  ^ responsive_breakpoint prefix
-                  ^ ") { " ^ selector,
-                  props ))
-          base
-    | Group styles -> List.concat_map extract styles
-  in
-  extract tw
-
-(* Group properties by selector *)
-let group_by_selector rules =
-  List.fold_left
-    (fun acc (selector, props) ->
-      let existing = try List.assoc selector acc with Not_found -> [] in
-      (selector, existing @ props) :: List.remove_assoc selector acc)
-    [] rules
-
-(* Base reset CSS rules *)
-let reset_rules =
-  [
-    rule ~selector:"*" [ margin "0"; padding "0"; box_sizing "border-box" ];
-    rule ~selector:"body"
-      [
-        font_size "16px";
-        line_height "1.5";
-        color "#374151";
-        font_family
-          "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica \
-           Neue', Arial, sans-serif";
-      ];
-  ]
-
-(* Check if prose styles are being used *)
-let uses_prose tw_classes =
-  let rec check = function
-    | Style (_, _) -> false
-    | Prose _ -> true
-    | Modified (_, t) -> check t
-    | Group styles -> List.exists check styles
-  in
-  List.exists check tw_classes
-
-(* Generate CSS rules for all used Tw classes *)
-let to_css ?(reset = true) tw_classes =
-  let all_rules =
-    tw_classes |> List.concat_map extract_selector_props |> group_by_selector
-  in
-  let rules =
-    List.map
-      (fun (selector, props) -> rule ~selector (deduplicate_properties props))
-      all_rules
-  in
-  let final_rules =
-    if reset then
-      (* Include prose CSS variables in reset if prose is being used *)
-      let prose_reset =
-        if uses_prose tw_classes then
-          [ rule ~selector:":root" Prose.css_variables ]
-        else []
-      in
-      reset_rules @ prose_reset @ rules
-    else rules
-  in
-  stylesheet final_rules
-
-let stylesheet_to_string ?minify stylesheet = Css.to_string ?minify stylesheet
-
 let neg_mt s =
   let class_name = "-mt-" ^ pp_spacing_suffix s in
   Style (class_name, [ margin_top ("-" ^ pp_spacing s) ])
@@ -1366,23 +1386,23 @@ let validate_no_nested_responsive styles =
 
 let on_sm styles =
   validate_no_nested_responsive styles;
-  Group (List.map (fun t -> Modified (Responsive "sm", t)) styles)
+  Group (List.map (fun t -> Modified (Responsive `Sm, t)) styles)
 
 let on_md styles =
   validate_no_nested_responsive styles;
-  Group (List.map (fun t -> Modified (Responsive "md", t)) styles)
+  Group (List.map (fun t -> Modified (Responsive `Md, t)) styles)
 
 let on_lg styles =
   validate_no_nested_responsive styles;
-  Group (List.map (fun t -> Modified (Responsive "lg", t)) styles)
+  Group (List.map (fun t -> Modified (Responsive `Lg, t)) styles)
 
 let on_xl styles =
   validate_no_nested_responsive styles;
-  Group (List.map (fun t -> Modified (Responsive "xl", t)) styles)
+  Group (List.map (fun t -> Modified (Responsive `Xl, t)) styles)
 
 let on_2xl styles =
   validate_no_nested_responsive styles;
-  Group (List.map (fun t -> Modified (Responsive "2xl", t)) styles)
+  Group (List.map (fun t -> Modified (Responsive `Xl_2, t)) styles)
 
 let bg_gradient_to_b =
   Style
@@ -1838,11 +1858,11 @@ let to_color ?(shade = 500) color =
 let color_to_string = color_name
 
 (* Class generation functions *)
-let rec to_class = function
+let rec pp = function
   | Style (class_name, _) -> class_name
   | Prose variant -> Prose.to_class variant
   | Modified (modifier, t) -> (
-      let base_class = to_class t in
+      let base_class = pp t in
       match modifier with
       | Hover -> "hover:" ^ base_class
       | Focus -> "focus:" ^ base_class
@@ -1864,21 +1884,14 @@ let rec to_class = function
       | Data_custom (key, value) ->
           "data-[" ^ key ^ "=" ^ value ^ "]:" ^ base_class
       | Dark -> "dark:" ^ base_class
-      | Responsive prefix -> prefix ^ ":" ^ base_class)
-  | Group styles -> styles |> List.map to_class |> String.concat " "
+      | Responsive breakpoint ->
+          string_of_breakpoint breakpoint ^ ":" ^ base_class)
+  | Group styles -> styles |> List.map pp |> String.concat " "
 
-let to_classes styles = styles |> List.map to_class |> String.concat " "
-let to_string t = to_class t
+let to_classes styles = styles |> List.map pp |> String.concat " "
 let classes_to_string = to_classes
 
-(* Pretty printing *)
-let pp t = to_string t
-
-(* Convert Tw styles to inline style attribute value *)
-let to_inline_style styles =
-  let all_props = List.concat_map to_css_properties styles in
-  let deduped = Css.deduplicate_properties all_props in
-  Css.properties_to_inline_style deduped
+(* to_inline_style is now included from Core module *)
 
 (* Prose utilities for beautiful typography *)
 let prose = Prose Base
@@ -1895,8 +1908,17 @@ module Prose = Prose
 (* Generate complete prose stylesheet *)
 let prose_stylesheet () =
   (* Generate CSS for all prose variants *)
-  let all_variants = [Prose.Base; Prose.Sm; Prose.Lg; Prose.Xl; Prose.Xl2; 
-                      Prose.Gray; Prose.Slate] in
+  let all_variants =
+    [
+      Prose.Base;
+      Prose.Sm;
+      Prose.Lg;
+      Prose.Xl;
+      Prose.Xl2;
+      Prose.Gray;
+      Prose.Slate;
+    ]
+  in
   let all_rules = List.concat_map Prose.to_css_rules all_variants in
   (* Add CSS variables to root *)
   let root_rule = Css.rule ~selector:":root" Prose.css_variables in
@@ -2251,7 +2273,7 @@ let of_string class_str =
     (* Prose classes *)
     | [ "prose" ] -> Ok prose
     | [ "prose"; "sm" ] -> Ok prose_sm
-    | [ "prose"; "lg" ] -> Ok prose_lg  
+    | [ "prose"; "lg" ] -> Ok prose_lg
     | [ "prose"; "xl" ] -> Ok prose_xl
     | [ "prose"; "2xl" ] -> Ok prose_2xl
     | [ "prose"; "gray" ] -> Ok prose_gray
