@@ -46,8 +46,8 @@ open Tw
 let button_styles = [
   bg ~shade:500 blue;
   text white;
-  px (int 4);
-  py (int 2);
+  px 4;
+  py 2;
   rounded md;
 ]
 
@@ -61,9 +61,9 @@ let css = to_css button_styles |> Css.to_string
 let responsive_button = [
   bg ~shade:500 blue;
   on_hover [ bg ~shade:700 blue ];
-  on_sm [ px (int 2) ];
-  on_md [ px (int 4) ];
-  on_lg [ px (int 6) ];
+  on_sm [ px 2 ];
+  on_md [ px 4 ];
+  on_lg [ px 6 ];
 ]
 ```
 
@@ -75,8 +75,8 @@ let article_styles = [
   prose;           (* Base prose styles *)
   prose_lg;        (* Larger variant *)
   prose_slate;     (* Slate color theme *)
-  max_w xl_4;
-  mx auto;
+  max_w_4xl;
+  mx_auto;
 ]
 
 (* Inline usage *)
@@ -124,17 +124,17 @@ let my_page =
     ]
     (* Body content *)
     [
-      div ~tw:Tw.[container; mx auto; py (int 8)] [
-        header ~tw:Tw.[mb (int 8)] [
+      div ~tw:Tw.[max_w_4xl; mx_auto; py 8] [
+        header ~tw:Tw.[mb 8] [
           h1 ~tw:Tw.[text_3xl; font_bold; text_center] [
             txt "Welcome to my site"
           ]
         ];
 
         main [
-          div ~tw:Tw.[grid; grid_cols 2; gap (int 6)] [
-            article ~tw:Tw.[bg white; rounded lg; shadow md; p (int 6)] [
-              h2 ~tw:Tw.[text_xl; font_semibold; mb (int 4)] [
+          div ~tw:Tw.[grid; grid_cols 2; gap 6] [
+            article ~tw:Tw.[bg white; rounded lg; shadow md; p 6] [
+              h2 ~tw:Tw.[text_xl; font_semibold; mb 4] [
                 txt "Article Title"
               ];
               p ~tw:Tw.[text ~shade:600 gray; leading_relaxed] [
@@ -142,9 +142,9 @@ let my_page =
               ]
             ];
 
-            aside ~tw:Tw.[bg ~shade:50 blue; rounded lg; p (int 4)] [
-              h3 ~tw:Tw.[font_medium; mb (int 2)] [ txt "Quick Links" ];
-              ul ~tw:Tw.[space_y (int 2)] [
+            aside ~tw:Tw.[bg ~shade:50 blue; rounded lg; p 4] [
+              h3 ~tw:Tw.[font_medium; mb 2] [ txt "Quick Links" ];
+              ul ~tw:Tw.[space_y 2] [
                 li [ a ~at:[At.href "/about"] ~tw:Tw.[text blue; on_hover [underline]] [ txt "About" ] ];
                 li [ a ~at:[At.href "/contact"] ~tw:Tw.[text blue; on_hover [underline]] [ txt "Contact" ] ];
               ]
@@ -152,7 +152,7 @@ let my_page =
           ]
         ];
 
-        footer ~tw:Tw.[mt (int 12); pt (int 6); border_t; text_center] [
+        footer ~tw:Tw.[mt 12; pt 6; border_t; text_center] [
           p ~tw:Tw.[text ~shade:500 gray] [
             txt "© 2024 My Site. Built with OCaml and Tailwind CSS."
           ]
@@ -193,12 +193,12 @@ let button ?(variant=`Primary) ~onclick children =
   in
   button
     ~at:[At.onclick onclick]
-    ~tw:Tw.(px (int 4) :: py (int 2) :: rounded md :: font_medium :: styles)
+    ~tw:Tw.(px 4 :: py 2 :: rounded md :: font_medium :: styles)
     children
 
 let card ~title children =
-  div ~tw:Tw.[bg white; rounded lg; shadow md; p (int 6)] [
-    h3 ~tw:Tw.[text_lg; font_semibold; mb (int 4)] [txt title];
+  div ~tw:Tw.[bg white; rounded lg; shadow md; p 6] [
+    h3 ~tw:Tw.[text_lg; font_semibold; mb 4] [txt title];
     div children
   ]
 
@@ -206,7 +206,7 @@ let card ~title children =
 let my_component =
   card ~title:"User Profile" [
     p [txt "Welcome back!"];
-    div ~tw:Tw.[flex; gap (int 2); mt (int 4)] [
+    div ~tw:Tw.[flex; gap 2; mt 4] [
       button ~variant:`Primary ~onclick:"saveProfile()" [txt "Save"];
       button ~variant:`Secondary ~onclick:"cancel()" [txt "Cancel"];
     ]

@@ -180,25 +180,25 @@ let extract_utility_classes css classnames =
 let spacing_test_styles =
   [
     (* Basic spacing - comprehensive *)
-    p (int 0);
-    p (int 1);
-    p (int 4);
-    m (int 0);
-    m (int 2);
-    m auto;
-    px (int 6);
-    py (int 3);
-    pt (int 1);
-    pr (int 8);
-    pb (int 12);
-    pl (int 16);
-    mx (int 0);
-    mx auto;
-    my (int 10);
-    mt (int 20);
-    mr (int 24);
-    mb (int 56);
-    ml (int 6);
+    p 0;
+    p 1;
+    p 4;
+    m 0;
+    m 2;
+    m_auto;
+    px 6;
+    py 3;
+    pt 1;
+    pr 8;
+    pb 12;
+    pl 16;
+    mx 0;
+    mx_auto;
+    my 10;
+    mt 20;
+    mr 24;
+    mb 56;
+    ml 6;
   ]
 
 let color_test_styles =
@@ -236,28 +236,28 @@ let display_test_styles =
 let sizing_test_styles =
   [
     (* Sizing - comprehensive *)
-    w (int 0);
-    w (int 4);
-    w (int 96);
-    w fit;
-    w full;
-    min_w min;
-    min_w max;
-    h (int 0);
-    h (int 8);
-    h fit;
-    h full;
-    min_w (int 0);
-    min_w full;
-    max_w xs;
-    max_w sm;
-    max_w md;
-    max_w lg;
-    max_w xl;
-    max_w xl_2;
-    max_w xl_7;
-    max_w full;
-    max_w none;
+    w 0;
+    w 4;
+    w 96;
+    w_fit;
+    w_full;
+    min_w_min;
+    min_w_max;
+    h 0;
+    h 8;
+    h_fit;
+    h_full;
+    min_w 0;
+    min_w_full;
+    max_w_xs;
+    max_w_sm;
+    max_w_md;
+    max_w_lg;
+    max_w_xl;
+    max_w_2xl;
+    max_w_7xl;
+    max_w_full;
+    max_w_none;
   ]
 
 let typography_test_styles =
@@ -306,18 +306,18 @@ let responsive_test_styles =
     on_xl [ hidden ];
     on_xl [ flex ];
     (* Spacing *)
-    on_sm [ p (int 4) ];
-    on_sm [ m (int 2) ];
-    on_sm [ px (int 6) ];
-    on_sm [ py (int 3) ];
-    on_md [ m (int 6) ];
-    on_md [ p (int 8) ];
-    on_md [ mt (int 4) ];
-    on_md [ mb (int 10) ];
-    on_lg [ p (int 12) ];
-    on_lg [ mx auto ];
-    on_xl [ m (int 0) ];
-    on_xl [ p (int 16) ];
+    on_sm [ p 4 ];
+    on_sm [ m 2 ];
+    on_sm [ px 6 ];
+    on_sm [ py 3 ];
+    on_md [ m 6 ];
+    on_md [ p 8 ];
+    on_md [ mt 4 ];
+    on_md [ mb 10 ];
+    on_lg [ p 12 ];
+    on_lg [ mx_auto ];
+    on_xl [ m 0 ];
+    on_xl [ p 16 ];
     (* Typography *)
     on_sm [ text_sm ];
     on_sm [ font_normal ];
@@ -328,21 +328,21 @@ let responsive_test_styles =
     on_xl [ text_xl ];
     on_xl [ font_bold ];
     (* Width/Height *)
-    on_sm [ w full ];
-    on_sm [ h (int 32) ];
-    on_md [ w (int 64) ];
-    on_md [ h full ];
-    on_lg [ w (int 96) ];
-    on_lg [ max_w xl_4 ];
-    on_xl [ w screen ];
-    on_xl [ min_h screen ];
+    on_sm [ w_full ];
+    on_sm [ h 32 ];
+    on_md [ w 64 ];
+    on_md [ h_full ];
+    on_lg [ w 96 ];
+    on_lg [ max_w_4xl ];
+    on_xl [ w_screen ];
+    on_xl [ min_h_screen ];
     (* Flexbox *)
     on_sm [ flex_row ];
     on_sm [ items_center ];
     on_sm [ justify_between ];
     on_md [ flex_col ];
     on_md [ items_start ];
-    on_md [ gap (int 4) ];
+    on_md [ gap 4 ];
     on_lg [ flex_row_reverse ];
     on_lg [ justify_evenly ];
     on_xl [ flex_wrap ];
@@ -513,9 +513,9 @@ let grid_test_styles =
     grid_cols 2;
     grid_cols 3;
     grid_cols 12;
-    gap (int 4);
-    gap_x (int 2);
-    gap_y (int 6);
+    gap 4;
+    gap_x 2;
+    gap_y 6;
   ]
 
 let layout_test_styles =
@@ -792,20 +792,20 @@ let check_exact_match tw_style =
 let check tw_style = check_exact_match tw_style
 
 let test_tailwind_basic_spacing () =
-  check (p (int 4));
-  check (m (int 2));
-  check (px (int 6));
-  check (py (int 3));
-  check (pt (int 1));
-  check (pr (int 8));
-  check (pb (int 12));
-  check (pl (int 16));
-  check (mx (int 0));
-  check (my (int 10));
-  check (mt (int 20));
-  check (mr (int 24));
-  check (mb (int 56));
-  check (ml (int 6))
+  check (p 4);
+  check (m 2);
+  check (px 6);
+  check (py 3);
+  check (pt 1);
+  check (pr 8);
+  check (pb 12);
+  check (pl 16);
+  check (mx 0);
+  check (my 10);
+  check (mt 20);
+  check (mr 24);
+  check (mb 56);
+  check (ml 6)
 
 let test_tailwind_color_classes () =
   check (bg white);
@@ -828,13 +828,13 @@ let test_tailwind_display_classes () =
   check hidden
 
 let test_tailwind_sizing () =
-  check (w (int 4));
-  check (h (int 8));
-  check (w fit);
-  check (w full);
-  check (h fit);
-  check (h full);
-  check (min_w (int 0))
+  check (w 4);
+  check (h 8);
+  check w_fit;
+  check w_full;
+  check h_fit;
+  check h_full;
+  check (min_w 0)
 
 let test_tailwind_typography () =
   check text_xs;
@@ -852,8 +852,8 @@ let test_tailwind_responsive () =
   check (on_md [ block ]);
   check (on_lg [ flex ]);
   check (on_xl [ hidden ]);
-  check (on_sm [ p (int 4) ]);
-  check (on_md [ m (int 6) ])
+  check (on_sm [ p 4 ]);
+  check (on_md [ m 6 ])
 
 let test_tailwind_states () =
   check (on_hover [ bg white ]);
@@ -900,7 +900,7 @@ let test_tailwind_responsive_breakpoints () =
   check (on_lg [ grid ]);
   check (on_xl [ hidden ]);
   check (on_sm [ text_lg ]);
-  check (on_md [ p (int 8) ]);
+  check (on_md [ p 8 ]);
   check (on_lg [ bg ~shade:500 sky ])
 
 let test_tailwind_layout () =
@@ -993,10 +993,10 @@ let test_css_property_generation () =
     "border-color" "rgb(134 239 172 / var(--tw-border-opacity))";
 
   (* Test spacing properties *)
-  test_css_contains (p (int 4)) "padding" "1rem";
-  test_css_contains (m (int 0)) "margin" "0";
-  test_css_contains (px (int 6)) "padding-left" "1.5rem";
-  test_css_contains (py (int 2)) "padding-top" "0.5rem"
+  test_css_contains (p 4) "padding" "1rem";
+  test_css_contains (m 0) "margin" "0";
+  test_css_contains (px 6) "padding-left" "1.5rem";
+  test_css_contains (py 2) "padding-top" "0.5rem"
 
 (** Test responsive modifiers *)
 let test_responsive_modifiers () =
@@ -1007,7 +1007,7 @@ let test_responsive_modifiers () =
 
   test_class_name (on_sm [ bg ~shade:500 red ]) "sm:bg-red-500";
   test_class_name (on_md [ text ~shade:600 blue ]) "md:text-blue-600";
-  test_class_name (on_lg [ p (int 8) ]) "lg:p-8";
+  test_class_name (on_lg [ p 8 ]) "lg:p-8";
   test_class_name (on_xl [ flex ]) "xl:flex"
 
 (** Test state modifiers *)
@@ -1050,8 +1050,8 @@ let test_exact_css_match () =
   (* This ensures our CSS generation is exactly correct *)
   let test_cases =
     [
-      (p (int 0), ".p-0 {\n  padding: 0;\n}");
-      (m auto, ".m-auto {\n  margin: auto;\n}");
+      (p 0, ".p-0 {\n  padding: 0;\n}");
+      (m_auto, ".m-auto {\n  margin: auto;\n}");
       (opacity 100, ".opacity-100 {\n  opacity: 1;\n}");
       (flex, ".flex {\n  display: flex;\n}");
     ]
@@ -1250,7 +1250,7 @@ let test_prose_variant_combinations () =
     (Astring.String.is_infix ~affix:".prose-lg {" css);
 
   (* Test that prose can be combined with other utilities *)
-  let with_utilities = to_classes [ prose; mx auto; max_w xl_3 ] in
+  let with_utilities = to_classes [ prose; mx_auto; max_w_3xl ] in
   Alcotest.(check string)
     "prose with utilities" "prose mx-auto max-w-3xl" with_utilities
 
@@ -1353,7 +1353,7 @@ let test_data_attributes () =
 
 (* CSS Generation tests *)
 let test_inline_styles () =
-  let styles = [ bg blue; text white; p (int 4); m (int 2); rounded md ] in
+  let styles = [ bg blue; text white; p 4; m 2; rounded md ] in
   let inline = to_inline_style styles in
   (* Check that inline styles are generated *)
   Alcotest.check bool "has background-color" true
@@ -1370,7 +1370,7 @@ let test_inline_styles () =
 let test_dynamic_inline_styles () =
   (* Test dynamic style generation *)
   let dynamic_width = 42 in
-  let styles = [ w (int dynamic_width); bg ~shade:300 gray; p (int 2) ] in
+  let styles = [ w dynamic_width; bg ~shade:300 gray; p 2 ] in
   let inline = to_inline_style styles in
 
   (* Check that dynamic value is included *)
@@ -1407,9 +1407,7 @@ let test_of_string_roundtrip_colors () =
 
 (** Test of_string roundtrip for spacing styles *)
 let test_of_string_roundtrip_spacing () =
-  let styles =
-    [ p (int 4); px (int 2); py (int 8); m auto; mx (int 4); gap (int 6) ]
-  in
+  let styles = [ p 4; px 2; py 8; m_auto; mx 4; gap 6 ] in
   List.iter test_roundtrip styles
 
 (** Test of_string roundtrip for typography styles *)
@@ -1447,10 +1445,10 @@ let test_of_string_roundtrip_layout () =
       justify_between;
       flex_col;
       flex_1;
-      w full;
-      h screen;
-      max_w xl_2;
-      min_h (int 10);
+      w_full;
+      h_screen;
+      max_w_2xl;
+      min_h 10;
     ]
   in
   List.iter test_roundtrip styles
@@ -1471,7 +1469,7 @@ let test_of_string_roundtrip_effects () =
       on_sm [ text_xl ];
       on_sm [ bg ~shade:500 red ];
       on_md [ text ~shade:600 blue ];
-      on_lg [ p (int 8) ];
+      on_lg [ p 8 ];
       on_xl [ flex ];
       on_2xl [ grid ];
       on_hover [ text white ];
@@ -1519,24 +1517,6 @@ module Generators = struct
   let gen_spacing_int () =
     sample [ 0; 1; 2; 3; 4; 5; 6; 8; 10; 12; 16; 20; 24; 32; 40; 48; 56; 64 ]
 
-  let gen_spacing () =
-    match Random.int 3 with
-    | 0 -> one_px
-    | 1 -> full
-    | _ -> int (gen_spacing_int ())
-
-  let gen_margin () = match Random.int 4 with 0 -> auto | _ -> gen_spacing ()
-  let gen_size () = sample [ none; xs; sm; md; lg; xl; xl_2; xl_3 ]
-
-  let gen_scale () =
-    match Random.int 6 with
-    | 0 -> gen_spacing ()
-    | 1 -> gen_size ()
-    | 2 -> screen
-    | 3 -> min
-    | 4 -> max
-    | _ -> fit
-
   let gen_simple_style () =
     match Random.int 20 with
     | 0 -> block
@@ -1569,30 +1549,65 @@ module Generators = struct
     | _ -> border_color ?shade color
 
   let gen_spacing_style () =
-    let spacing = gen_spacing () in
-    match Random.int 8 with
-    | 0 -> p spacing
-    | 1 -> px spacing
-    | 2 -> py spacing
-    | 3 -> pt spacing
-    | 4 -> gap spacing
-    | 5 ->
-        let margin_val = gen_margin () in
-        m margin_val
-    | 6 ->
-        let margin_val = gen_margin () in
-        mx margin_val
+    match Random.int 20 with
+    | 0 | 1 | 2 ->
+        let spacing_int = gen_spacing_int () in
+        p spacing_int
+    | 3 | 4 ->
+        let spacing_int = gen_spacing_int () in
+        px spacing_int
+    | 5 | 6 ->
+        let spacing_int = gen_spacing_int () in
+        py spacing_int
+    | 7 -> p_px
+    | 8 -> p_full
+    | 9 ->
+        let spacing_int = gen_spacing_int () in
+        m spacing_int
+    | 10 ->
+        let spacing_int = gen_spacing_int () in
+        mx spacing_int
+    | 11 -> m_auto
+    | 12 -> mx_auto
+    | 13 -> my_auto
+    | 14 ->
+        let spacing_int = gen_spacing_int () in
+        gap spacing_int
+    | 15 -> gap_px
+    | 16 ->
+        let spacing_int = gen_spacing_int () in
+        pt spacing_int
     | _ ->
-        let margin_val = gen_margin () in
-        my margin_val
+        let spacing_int = gen_spacing_int () in
+        pb spacing_int
 
   let gen_size_style () =
-    let scale = gen_scale () in
-    match Random.int 4 with
-    | 0 -> w scale
-    | 1 -> h scale
-    | 2 -> min_w scale
-    | _ -> min_h scale
+    match Random.int 20 with
+    | 0 | 1 | 2 ->
+        let scale_int = gen_spacing_int () in
+        w scale_int
+    | 3 | 4 ->
+        let scale_int = gen_spacing_int () in
+        h scale_int
+    | 5 -> w_full
+    | 6 -> w_screen
+    | 7 -> w_min
+    | 8 -> h_full
+    | 9 -> h_screen
+    | 10 ->
+        let scale_int = gen_spacing_int () in
+        min_w scale_int
+    | 11 -> min_w_full
+    | 12 -> min_h_screen
+    | 13 ->
+        let scale_int = gen_spacing_int () in
+        max_w scale_int
+    | 14 -> max_w_2xl
+    | 15 -> max_w_4xl
+    | 16 -> max_w_full
+    | _ ->
+        let scale_int = gen_spacing_int () in
+        max_h scale_int
 
   let gen_prose_style () =
     match Random.int 7 with
@@ -1679,7 +1694,7 @@ let test_responsive_modifier_parsing () =
     [
       ("sm:text-black", on_sm [ text black ]);
       ("md:bg-blue-500", on_md [ bg ~shade:500 blue ]);
-      ("lg:p-8", on_lg [ p (int 8) ]);
+      ("lg:p-8", on_lg [ p 8 ]);
       ("xl:flex", on_xl [ flex ]);
       ("2xl:grid", on_2xl [ grid ]);
       ("hover:text-white", on_hover [ text white ]);
@@ -1775,7 +1790,7 @@ let test_css_property_deduplication () =
     [
       bg ~shade:500 red;
       (* first bg *)
-      p (int 4);
+      p 4;
       bg ~shade:700 blue;
       (* second bg - should override first *)
       text white;
@@ -1797,7 +1812,7 @@ let test_css_property_deduplication () =
 (** Test inline style generation *)
 let test_css_inline_style_generation () =
   let styles =
-    [ bg ~shade:500 blue; text white; p (int 4); rounded md; opacity 75 ]
+    [ bg ~shade:500 blue; text white; p 4; rounded md; opacity 75 ]
   in
   let inline_style = to_inline_style styles in
 
@@ -1826,14 +1841,7 @@ let test_css_inline_style_generation () =
 (** Test CSS minification *)
 let test_css_minification () =
   let styles =
-    [
-      bg ~shade:500 blue;
-      text white;
-      p (int 4);
-      m (int 2);
-      rounded lg;
-      shadow md;
-    ]
+    [ bg ~shade:500 blue; text white; p 4; m 2; rounded lg; shadow md ]
   in
   let stylesheet = to_css ~reset:false styles in
   let normal = Css.to_string ~minify:false stylesheet in

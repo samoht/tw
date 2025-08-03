@@ -9,7 +9,7 @@ let test_txt () =
   check string "text content" "Hello World" html_str
 
 let test_element_creation () =
-  let div = div ~tw:Tw.[ p (int 4); bg white ] [ txt "Content" ] in
+  let div = div ~tw:Tw.[ p 4; bg white ] [ txt "Content" ] in
   let html_str = to_string div in
 
   check bool "is div element" true
@@ -63,7 +63,7 @@ let test_nesting () =
 let test_to_tw () =
   let elem =
     div
-      ~tw:Tw.[ p (int 4); bg white; text ~shade:900 gray; rounded lg ]
+      ~tw:Tw.[ p 4; bg white; text ~shade:900 gray; rounded lg ]
       [ span ~tw:Tw.[ font_bold ] [ txt "Text" ] ]
   in
 
@@ -75,7 +75,7 @@ let test_to_tw () =
     (List.exists (fun tw -> Tw.pp tw = "font-bold") tw_classes)
 
 let test_pp () =
-  let elem = div ~tw:Tw.[ p (int 2) ] [ txt "Test" ] in
+  let elem = div ~tw:Tw.[ p 2 ] [ txt "Test" ] in
   let pp_output = pp elem in
 
   check bool "pp contains element tag" true

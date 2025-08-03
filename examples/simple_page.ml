@@ -15,14 +15,14 @@ let simple_page =
     (* Body content *)
     [
       div
-        ~tw:Tw.[ min_h screen; bg ~shade:50 gray ]
+        ~tw:Tw.[ min_h_screen; bg ~shade:50 gray ]
         [
           (* Header *)
           header
-            ~tw:Tw.[ bg white; shadow sm; py (int 4) ]
+            ~tw:Tw.[ bg white; shadow sm; py 4 ]
             [
               div
-                ~tw:Tw.[ max_w xl_4; mx auto; px (int 4) ]
+                ~tw:Tw.[ max_w_4xl; mx_auto; px 4 ]
                 [
                   h1
                     ~tw:Tw.[ text_2xl; font_bold; text ~shade:800 gray ]
@@ -31,30 +31,24 @@ let simple_page =
             ];
           (* Main content *)
           main
-            ~tw:Tw.[ flex_1; py (int 8) ]
+            ~tw:Tw.[ flex_1; py 8 ]
             [
               div
-                ~tw:Tw.[ max_w xl_2; mx auto; px (int 4) ]
+                ~tw:Tw.[ max_w_2xl; mx_auto; px 4 ]
                 [
                   (* Hero section *)
                   section
-                    ~tw:Tw.[ text_center; mb (int 12) ]
+                    ~tw:Tw.[ text_center; mb 12 ]
                     [
                       h2
                         ~tw:
-                          Tw.
-                            [
-                              text_4xl;
-                              font_bold;
-                              text ~shade:900 gray;
-                              mb (int 4);
-                            ]
+                          Tw.[ text_4xl; font_bold; text ~shade:900 gray; mb 4 ]
                         [ txt "Type-Safe HTML with Tw" ];
                       p
                         ~tw:
                           Tw.
                             [
-                              text_lg; text ~shade:600 gray; max_w xl_2; mx auto;
+                              text_lg; text ~shade:600 gray; max_w_2xl; mx_auto;
                             ]
                         [
                           txt
@@ -67,11 +61,7 @@ let simple_page =
                     ~tw:
                       Tw.
                         [
-                          grid;
-                          grid_cols 1;
-                          on_md [ grid_cols 3 ];
-                          gap (int 8);
-                          mb (int 12);
+                          grid; grid_cols 1; on_md [ grid_cols 3 ]; gap 8; mb 12;
                         ]
                     [
                       (* Card 1 *)
@@ -79,30 +69,26 @@ let simple_page =
                         ~tw:
                           Tw.
                             [
-                              bg white;
-                              rounded lg;
-                              shadow md;
-                              p (int 6);
-                              text_center;
+                              bg white; rounded lg; shadow md; p 6; text_center;
                             ]
                         [
                           div
                             ~tw:
                               Tw.
                                 [
-                                  w (int 12);
-                                  h (int 12);
+                                  w 12;
+                                  h 12;
                                   bg ~shade:100 blue;
                                   rounded full;
-                                  mx auto;
-                                  mb (int 4);
+                                  mx_auto;
+                                  mb 4;
                                   flex;
                                   items_center;
                                   justify_center;
                                 ]
                             [ span ~tw:Tw.[ text_2xl ] [ txt "🎨" ] ];
                           h3
-                            ~tw:Tw.[ text_lg; font_semibold; mb (int 2) ]
+                            ~tw:Tw.[ text_lg; font_semibold; mb 2 ]
                             [ txt "Beautiful Design" ];
                           p
                             ~tw:Tw.[ text ~shade:600 gray ]
@@ -117,30 +103,26 @@ let simple_page =
                         ~tw:
                           Tw.
                             [
-                              bg white;
-                              rounded lg;
-                              shadow md;
-                              p (int 6);
-                              text_center;
+                              bg white; rounded lg; shadow md; p 6; text_center;
                             ]
                         [
                           div
                             ~tw:
                               Tw.
                                 [
-                                  w (int 12);
-                                  h (int 12);
+                                  w 12;
+                                  h 12;
                                   bg ~shade:100 green;
                                   rounded full;
-                                  mx auto;
-                                  mb (int 4);
+                                  mx_auto;
+                                  mb 4;
                                   flex;
                                   items_center;
                                   justify_center;
                                 ]
                             [ span ~tw:Tw.[ text_2xl ] [ txt "🛡️" ] ];
                           h3
-                            ~tw:Tw.[ text_lg; font_semibold; mb (int 2) ]
+                            ~tw:Tw.[ text_lg; font_semibold; mb 2 ]
                             [ txt "Type Safety" ];
                           p
                             ~tw:Tw.[ text ~shade:600 gray ]
@@ -155,30 +137,26 @@ let simple_page =
                         ~tw:
                           Tw.
                             [
-                              bg white;
-                              rounded lg;
-                              shadow md;
-                              p (int 6);
-                              text_center;
+                              bg white; rounded lg; shadow md; p 6; text_center;
                             ]
                         [
                           div
                             ~tw:
                               Tw.
                                 [
-                                  w (int 12);
-                                  h (int 12);
+                                  w 12;
+                                  h 12;
                                   bg ~shade:100 purple;
                                   rounded full;
-                                  mx auto;
-                                  mb (int 4);
+                                  mx_auto;
+                                  mb 4;
                                   flex;
                                   items_center;
                                   justify_center;
                                 ]
                             [ span ~tw:Tw.[ text_2xl ] [ txt "⚡" ] ];
                           h3
-                            ~tw:Tw.[ text_lg; font_semibold; mb (int 2) ]
+                            ~tw:Tw.[ text_lg; font_semibold; mb 2 ]
                             [ txt "Fast Development" ];
                           p
                             ~tw:Tw.[ text ~shade:600 gray ]
@@ -191,21 +169,13 @@ let simple_page =
                     ];
                   (* CTA section *)
                   section
-                    ~tw:
-                      Tw.
-                        [
-                          bg white;
-                          rounded lg;
-                          shadow sm;
-                          p (int 8);
-                          text_center;
-                        ]
+                    ~tw:Tw.[ bg white; rounded lg; shadow sm; p 8; text_center ]
                     [
                       h3
-                        ~tw:Tw.[ text_2xl; font_bold; mb (int 4) ]
+                        ~tw:Tw.[ text_2xl; font_bold; mb 4 ]
                         [ txt "Ready to get started?" ];
                       p
-                        ~tw:Tw.[ text ~shade:600 gray; mb (int 6) ]
+                        ~tw:Tw.[ text ~shade:600 gray; mb 6 ]
                         [
                           txt
                             "Install tw.html and start building beautiful, \
@@ -218,7 +188,7 @@ let simple_page =
                               flex;
                               flex_col;
                               on_sm [ flex_row ];
-                              gap (int 4);
+                              gap 4;
                               justify_center;
                             ]
                         [
@@ -229,8 +199,8 @@ let simple_page =
                                 [
                                   bg blue;
                                   text white;
-                                  px (int 6);
-                                  py (int 3);
+                                  px 6;
+                                  py 3;
                                   rounded md;
                                   font_medium;
                                   on_hover [ bg ~shade:700 blue ];
@@ -249,8 +219,8 @@ let simple_page =
                                 [
                                   bg ~shade:200 gray;
                                   text ~shade:800 gray;
-                                  px (int 6);
-                                  py (int 3);
+                                  px 6;
+                                  py 3;
                                   rounded md;
                                   font_medium;
                                   on_hover [ bg ~shade:300 gray ];
@@ -264,10 +234,10 @@ let simple_page =
             ];
           (* Footer *)
           footer
-            ~tw:Tw.[ bg white; border_t; py (int 6); mt (int 12) ]
+            ~tw:Tw.[ bg white; border_t; py 6; mt 12 ]
             [
               div
-                ~tw:Tw.[ max_w xl_4; mx auto; px (int 4); text_center ]
+                ~tw:Tw.[ max_w_4xl; mx_auto; px 4; text_center ]
                 [
                   p
                     ~tw:Tw.[ text ~shade:500 gray ]
