@@ -654,14 +654,6 @@ let pp_margin_suffix : margin -> string = function
   | `Auto -> "auto"
   | #spacing as s -> pp_spacing_suffix s
 
-let pp_max_scale_suffix : max_scale -> string = function
-  | #size as s -> pp_size_suffix s
-  | `Xl_4 -> "4xl"
-  | `Xl_5 -> "5xl"
-  | `Xl_6 -> "6xl"
-  | `Xl_7 -> "7xl"
-  | #scale as s -> pp_scale_suffix s
-
 (** Format float for CSS - ensures leading zero and removes trailing dot *)
 let css_float f =
   let s = string_of_float f in
@@ -697,120 +689,380 @@ let pp_scale : scale -> string = function
   | #spacing as s -> pp_spacing s
   | #size as s -> pp_size s
 
-let pp_max_scale : max_scale -> string = function
-  | `None -> "none"
-  | `Xs -> "20rem"
-  | `Sm -> "24rem"
-  | `Md -> "28rem"
-  | `Lg -> "32rem"
-  | `Xl -> "36rem"
-  | `Xl_2 -> "42rem"
-  | `Xl_3 -> "48rem"
-  | `Xl_4 -> "56rem"
-  | `Xl_5 -> "64rem"
-  | `Xl_6 -> "72rem"
-  | `Xl_7 -> "80rem"
-  | #scale as s -> pp_scale s
-
 (** {1 Spacing} *)
 
-let p s =
+(* Helper function for creating spacing values from int *)
+let int_to_spacing n = `Val (float_of_int n *. 0.25)
+
+(* Spacing functions accept int for rem-based values *)
+let p n =
+  let s = int_to_spacing n in
   let class_name = "p-" ^ pp_spacing_suffix s in
   Style (class_name, [ padding (pp_spacing s) ])
 
-let px s =
+let px n =
+  let s = int_to_spacing n in
   let v = pp_spacing s in
   let class_name = "px-" ^ pp_spacing_suffix s in
   Style (class_name, [ padding_left v; padding_right v ])
 
-let py s =
+let py n =
+  let s = int_to_spacing n in
   let v = pp_spacing s in
   let class_name = "py-" ^ pp_spacing_suffix s in
   Style (class_name, [ padding_bottom v; padding_top v ])
 
-let pt s =
+let pt n =
+  let s = int_to_spacing n in
   let class_name = "pt-" ^ pp_spacing_suffix s in
   Style (class_name, [ padding_top (pp_spacing s) ])
 
-let pr s =
+let pr n =
+  let s = int_to_spacing n in
   let class_name = "pr-" ^ pp_spacing_suffix s in
   Style (class_name, [ padding_right (pp_spacing s) ])
 
-let pb s =
+let pb n =
+  let s = int_to_spacing n in
   let class_name = "pb-" ^ pp_spacing_suffix s in
   Style (class_name, [ padding_bottom (pp_spacing s) ])
 
-let pl s =
+let pl n =
+  let s = int_to_spacing n in
   let class_name = "pl-" ^ pp_spacing_suffix s in
   Style (class_name, [ padding_left (pp_spacing s) ])
 
-let m m =
+(* Special variant functions for padding *)
+let p_px = Style ("p-px", [ padding "1px" ])
+let p_full = Style ("p-full", [ padding "100%" ])
+
+let p_rem f =
+  let s = `Val f in
+  let class_name = "p-" ^ pp_spacing_suffix s in
+  Style (class_name, [ padding (pp_spacing s) ])
+
+let px_px = Style ("px-px", [ padding_left "1px"; padding_right "1px" ])
+let px_full = Style ("px-full", [ padding_left "100%"; padding_right "100%" ])
+
+let px_rem f =
+  let s = `Val f in
+  let v = pp_spacing s in
+  let class_name = "px-" ^ pp_spacing_suffix s in
+  Style (class_name, [ padding_left v; padding_right v ])
+
+let py_px = Style ("py-px", [ padding_top "1px"; padding_bottom "1px" ])
+let py_full = Style ("py-full", [ padding_top "100%"; padding_bottom "100%" ])
+
+let py_rem f =
+  let s = `Val f in
+  let v = pp_spacing s in
+  let class_name = "py-" ^ pp_spacing_suffix s in
+  Style (class_name, [ padding_bottom v; padding_top v ])
+
+let pt_px = Style ("pt-px", [ padding_top "1px" ])
+let pt_full = Style ("pt-full", [ padding_top "100%" ])
+
+let pt_rem f =
+  let s = `Val f in
+  let class_name = "pt-" ^ pp_spacing_suffix s in
+  Style (class_name, [ padding_top (pp_spacing s) ])
+
+let pr_px = Style ("pr-px", [ padding_right "1px" ])
+let pr_full = Style ("pr-full", [ padding_right "100%" ])
+
+let pr_rem f =
+  let s = `Val f in
+  let class_name = "pr-" ^ pp_spacing_suffix s in
+  Style (class_name, [ padding_right (pp_spacing s) ])
+
+let pb_px = Style ("pb-px", [ padding_bottom "1px" ])
+let pb_full = Style ("pb-full", [ padding_bottom "100%" ])
+
+let pb_rem f =
+  let s = `Val f in
+  let class_name = "pb-" ^ pp_spacing_suffix s in
+  Style (class_name, [ padding_bottom (pp_spacing s) ])
+
+let pl_px = Style ("pl-px", [ padding_left "1px" ])
+let pl_full = Style ("pl-full", [ padding_left "100%" ])
+
+let pl_rem f =
+  let s = `Val f in
+  let class_name = "pl-" ^ pp_spacing_suffix s in
+  Style (class_name, [ padding_left (pp_spacing s) ])
+
+(* Margin functions *)
+let m n =
+  let s = int_to_spacing n in
+  let m = (s :> margin) in
   let class_name = "m-" ^ pp_margin_suffix m in
   Style (class_name, [ margin (pp_margin m) ])
 
-let mx m =
+let mx n =
+  let s = int_to_spacing n in
+  let m = (s :> margin) in
   let v = pp_margin m in
   let class_name = "mx-" ^ pp_margin_suffix m in
   Style (class_name, [ margin_left v; margin_right v ])
 
-let my m =
+let my n =
+  let s = int_to_spacing n in
+  let m = (s :> margin) in
   let v = pp_margin m in
   let class_name = "my-" ^ pp_margin_suffix m in
   Style (class_name, [ margin_bottom v; margin_top v ])
 
-let mt m =
+let mt n =
+  let s = int_to_spacing n in
+  let m = (s :> margin) in
   let class_name = "mt-" ^ pp_margin_suffix m in
   Style (class_name, [ margin_top (pp_margin m) ])
 
-let mr m =
+let mr n =
+  let s = int_to_spacing n in
+  let m = (s :> margin) in
   let class_name = "mr-" ^ pp_margin_suffix m in
   Style (class_name, [ margin_right (pp_margin m) ])
 
-let mb m =
+let mb n =
+  let s = int_to_spacing n in
+  let m = (s :> margin) in
   let class_name = "mb-" ^ pp_margin_suffix m in
   Style (class_name, [ margin_bottom (pp_margin m) ])
 
-let ml m =
+let ml n =
+  let s = int_to_spacing n in
+  let m = (s :> margin) in
   let class_name = "ml-" ^ pp_margin_suffix m in
   Style (class_name, [ margin_left (pp_margin m) ])
 
-let gap s =
+(* Special variant functions for margin *)
+let m_auto = Style ("m-auto", [ margin "auto" ])
+let m_px = Style ("m-px", [ margin "1px" ])
+let m_full = Style ("m-full", [ margin "100%" ])
+
+let m_rem f =
+  let s = `Val f in
+  let class_name = "m-" ^ pp_spacing_suffix s in
+  Style (class_name, [ margin (pp_spacing s) ])
+
+let mx_auto = Style ("mx-auto", [ margin_left "auto"; margin_right "auto" ])
+let mx_px = Style ("mx-px", [ margin_left "1px"; margin_right "1px" ])
+let mx_full = Style ("mx-full", [ margin_left "100%"; margin_right "100%" ])
+
+let mx_rem f =
+  let s = `Val f in
+  let v = pp_spacing s in
+  let class_name = "mx-" ^ pp_spacing_suffix s in
+  Style (class_name, [ margin_left v; margin_right v ])
+
+let my_auto = Style ("my-auto", [ margin_top "auto"; margin_bottom "auto" ])
+let my_px = Style ("my-px", [ margin_top "1px"; margin_bottom "1px" ])
+let my_full = Style ("my-full", [ margin_top "100%"; margin_bottom "100%" ])
+
+let my_rem f =
+  let s = `Val f in
+  let v = pp_spacing s in
+  let class_name = "my-" ^ pp_spacing_suffix s in
+  Style (class_name, [ margin_bottom v; margin_top v ])
+
+let mt_auto = Style ("mt-auto", [ margin_top "auto" ])
+let mt_px = Style ("mt-px", [ margin_top "1px" ])
+let mt_full = Style ("mt-full", [ margin_top "100%" ])
+
+let mt_rem f =
+  let s = `Val f in
+  let class_name = "mt-" ^ pp_spacing_suffix s in
+  Style (class_name, [ margin_top (pp_spacing s) ])
+
+let mr_auto = Style ("mr-auto", [ margin_right "auto" ])
+let mr_px = Style ("mr-px", [ margin_right "1px" ])
+let mr_full = Style ("mr-full", [ margin_right "100%" ])
+
+let mr_rem f =
+  let s = `Val f in
+  let class_name = "mr-" ^ pp_spacing_suffix s in
+  Style (class_name, [ margin_right (pp_spacing s) ])
+
+let mb_auto = Style ("mb-auto", [ margin_bottom "auto" ])
+let mb_px = Style ("mb-px", [ margin_bottom "1px" ])
+let mb_full = Style ("mb-full", [ margin_bottom "100%" ])
+
+let mb_rem f =
+  let s = `Val f in
+  let class_name = "mb-" ^ pp_spacing_suffix s in
+  Style (class_name, [ margin_bottom (pp_spacing s) ])
+
+let ml_auto = Style ("ml-auto", [ margin_left "auto" ])
+let ml_px = Style ("ml-px", [ margin_left "1px" ])
+let ml_full = Style ("ml-full", [ margin_left "100%" ])
+
+let ml_rem f =
+  let s = `Val f in
+  let class_name = "ml-" ^ pp_spacing_suffix s in
+  Style (class_name, [ margin_left (pp_spacing s) ])
+
+(* Gap functions *)
+let gap n =
+  let s = int_to_spacing n in
   let class_name = "gap-" ^ pp_spacing_suffix s in
   Style (class_name, [ gap (pp_spacing s) ])
 
-let gap_x s =
+let gap_x n =
+  let s = int_to_spacing n in
   let class_name = "gap-x-" ^ pp_spacing_suffix s in
   Style (class_name, [ column_gap (pp_spacing s) ])
 
-let gap_y s =
+let gap_y n =
+  let s = int_to_spacing n in
   let class_name = "gap-y-" ^ pp_spacing_suffix s in
   Style (class_name, [ row_gap (pp_spacing s) ])
 
+(* Gap variants *)
+let gap_px = Style ("gap-px", [ Css.gap "1px" ])
+let gap_full = Style ("gap-full", [ Css.gap "100%" ])
+
+let gap_rem n =
+  Style
+    ("gap-" ^ string_of_float n ^ "rem", [ Css.gap (string_of_float n ^ "rem") ])
+
+let gap_x_px = Style ("gap-x-px", [ column_gap "1px" ])
+let gap_x_full = Style ("gap-x-full", [ column_gap "100%" ])
+
+let gap_x_rem n =
+  Style
+    ( "gap-x-" ^ string_of_float n ^ "rem",
+      [ column_gap (string_of_float n ^ "rem") ] )
+
+let gap_y_px = Style ("gap-y-px", [ row_gap "1px" ])
+let gap_y_full = Style ("gap-y-full", [ row_gap "100%" ])
+
+let gap_y_rem n =
+  Style
+    ( "gap-y-" ^ string_of_float n ^ "rem",
+      [ row_gap (string_of_float n ^ "rem") ] )
+
 (** {1 Sizing} *)
 
-let w (s : scale) =
+let int_to_scale n = `Val (float_of_int n *. 0.25)
+
+let w n =
+  let s = int_to_scale n in
   let class_name = "w-" ^ pp_scale_suffix s in
   Style (class_name, [ width (pp_scale s) ])
 
-let h (s : scale) =
+let h n =
+  let s = int_to_scale n in
   let class_name = "h-" ^ pp_scale_suffix s in
-  match s with
-  | `Screen -> Style (class_name, [ height "100vh" ])
-  | _ -> Style (class_name, [ height (pp_scale s) ])
+  Style (class_name, [ height (pp_scale s) ])
 
-let min_w (s : scale) =
+let min_w n =
+  let s = int_to_scale n in
   let class_name = "min-w-" ^ pp_scale_suffix s in
   Style (class_name, [ min_width (pp_scale s) ])
 
-let min_h (s : scale) =
+let min_h n =
+  let s = int_to_scale n in
   let class_name = "min-h-" ^ pp_scale_suffix s in
-  match s with
-  | `Screen -> Style (class_name, [ min_height "100vh" ])
-  | _ -> Style (class_name, [ min_height (pp_scale s) ])
+  Style (class_name, [ min_height (pp_scale s) ])
 
-let max_w (mw : max_scale) =
-  let class_name = "max-w-" ^ pp_max_scale_suffix mw in
-  Style (class_name, [ max_width (pp_max_scale mw) ])
+let max_w n =
+  let s = int_to_scale n in
+  let class_name = "max-w-" ^ pp_scale_suffix s in
+  Style (class_name, [ max_width (pp_scale s) ])
+
+let max_h n =
+  let s = int_to_scale n in
+  let class_name = "max-h-" ^ pp_scale_suffix s in
+  Style (class_name, [ max_height (pp_scale s) ])
+
+(* Width variants *)
+let w_px = Style ("w-px", [ width "1px" ])
+let w_auto = Style ("w-auto", [ width "auto" ])
+let w_full = Style ("w-full", [ width "100%" ])
+let w_screen = Style ("w-screen", [ width "100vw" ])
+let w_min = Style ("w-min", [ width "min-content" ])
+let w_max = Style ("w-max", [ width "max-content" ])
+let w_fit = Style ("w-fit", [ width "fit-content" ])
+
+let w_rem n =
+  Style ("w-" ^ string_of_float n ^ "rem", [ width (string_of_float n ^ "rem") ])
+
+(* Height variants *)
+let h_px = Style ("h-px", [ height "1px" ])
+let h_auto = Style ("h-auto", [ height "auto" ])
+let h_full = Style ("h-full", [ height "100%" ])
+let h_screen = Style ("h-screen", [ height "100vh" ])
+let h_min = Style ("h-min", [ height "min-content" ])
+let h_max = Style ("h-max", [ height "max-content" ])
+let h_fit = Style ("h-fit", [ height "fit-content" ])
+
+let h_rem n =
+  Style
+    ("h-" ^ string_of_float n ^ "rem", [ height (string_of_float n ^ "rem") ])
+
+(* Min width variants *)
+let min_w_px = Style ("min-w-px", [ min_width "1px" ])
+let min_w_full = Style ("min-w-full", [ min_width "100%" ])
+let min_w_min = Style ("min-w-min", [ min_width "min-content" ])
+let min_w_max = Style ("min-w-max", [ min_width "max-content" ])
+let min_w_fit = Style ("min-w-fit", [ min_width "fit-content" ])
+
+let min_w_rem n =
+  Style
+    ( "min-w-" ^ string_of_float n ^ "rem",
+      [ min_width (string_of_float n ^ "rem") ] )
+
+(* Min height variants *)
+let min_h_px = Style ("min-h-px", [ min_height "1px" ])
+let min_h_full = Style ("min-h-full", [ min_height "100%" ])
+let min_h_screen = Style ("min-h-screen", [ min_height "100vh" ])
+let min_h_min = Style ("min-h-min", [ min_height "min-content" ])
+let min_h_max = Style ("min-h-max", [ min_height "max-content" ])
+let min_h_fit = Style ("min-h-fit", [ min_height "fit-content" ])
+
+let min_h_rem n =
+  Style
+    ( "min-h-" ^ string_of_float n ^ "rem",
+      [ min_height (string_of_float n ^ "rem") ] )
+
+(* Max width special scale variants *)
+let max_w_px = Style ("max-w-px", [ max_width "1px" ])
+let max_w_none = Style ("max-w-none", [ max_width "none" ])
+let max_w_xs = Style ("max-w-xs", [ max_width "20rem" ])
+let max_w_sm = Style ("max-w-sm", [ max_width "24rem" ])
+let max_w_md = Style ("max-w-md", [ max_width "28rem" ])
+let max_w_lg = Style ("max-w-lg", [ max_width "32rem" ])
+let max_w_xl = Style ("max-w-xl", [ max_width "36rem" ])
+let max_w_2xl = Style ("max-w-2xl", [ max_width "42rem" ])
+let max_w_3xl = Style ("max-w-3xl", [ max_width "48rem" ])
+let max_w_4xl = Style ("max-w-4xl", [ max_width "56rem" ])
+let max_w_5xl = Style ("max-w-5xl", [ max_width "64rem" ])
+let max_w_6xl = Style ("max-w-6xl", [ max_width "72rem" ])
+let max_w_7xl = Style ("max-w-7xl", [ max_width "80rem" ])
+let max_w_full = Style ("max-w-full", [ max_width "100%" ])
+let max_w_min = Style ("max-w-min", [ max_width "min-content" ])
+let max_w_max = Style ("max-w-max", [ max_width "max-content" ])
+let max_w_fit = Style ("max-w-fit", [ max_width "fit-content" ])
+
+let max_w_rem n =
+  Style
+    ( "max-w-" ^ string_of_float n ^ "rem",
+      [ max_width (string_of_float n ^ "rem") ] )
+
+(* Max height variants *)
+let max_h_px = Style ("max-h-px", [ max_height "1px" ])
+let max_h_none = Style ("max-h-none", [ max_height "none" ])
+let max_h_full = Style ("max-h-full", [ max_height "100%" ])
+let max_h_screen = Style ("max-h-screen", [ max_height "100vh" ])
+let max_h_min = Style ("max-h-min", [ max_height "min-content" ])
+let max_h_max = Style ("max-h-max", [ max_height "max-content" ])
+let max_h_fit = Style ("max-h-fit", [ max_height "fit-content" ])
+
+let max_h_rem n =
+  Style
+    ( "max-h-" ^ string_of_float n ^ "rem",
+      [ max_height (string_of_float n ^ "rem") ] )
 
 (** {1 Typography} *)
 
@@ -888,12 +1140,6 @@ let neg_mb s =
 let neg_ml s =
   let class_name = "-ml-" ^ pp_spacing_suffix s in
   Style (class_name, [ margin_left ("-" ^ pp_spacing s) ])
-
-let max_h s =
-  let class_name = "max-h-" ^ pp_scale_suffix s in
-  match s with
-  | `Screen -> Style (class_name, [ max_height "100vh" ])
-  | _ -> Style (class_name, [ max_height (pp_scale s) ])
 
 let text_base = Style ("text-base", [ font_size "1rem"; line_height "1.5rem" ])
 let text_lg = Style ("text-lg", [ font_size "1.125rem"; line_height "1.75rem" ])
@@ -1958,23 +2204,6 @@ let color_of_string = function
   | "rose" -> Ok rose
   | color -> Error (`Msg ("Unknown color: " ^ color))
 
-let spacing_of_string s =
-  match s with
-  | "px" -> Ok one_px
-  | "full" -> Ok full
-  | n -> (
-      match int_of_string_opt n with
-      | None -> Error (`Msg ("Invalid spacing: " ^ s))
-      | Some n -> Ok (int n))
-
-let margin_of_string s =
-  match s with
-  | "auto" -> Ok auto
-  | _ -> (
-      match spacing_of_string s with
-      | Ok sp -> Ok (sp :> margin)
-      | Error _ as e -> e)
-
 let size_of_string = function
   | "none" -> Ok none
   | "xs" -> Ok xs
@@ -1986,33 +2215,6 @@ let size_of_string = function
   | "3xl" -> Ok xl_3
   | "full" -> Ok full
   | s -> Error (`Msg ("Unknown size: " ^ s))
-
-let scale_of_string s =
-  match s with
-  | "full" -> Ok full
-  | "screen" -> Ok screen
-  | "min" -> Ok min
-  | "max" -> Ok max
-  | "fit" -> Ok fit
-  | n -> (
-      (* Try to parse as spacing (integer) first *)
-      match spacing_of_string n with
-      | Ok sp -> Ok (sp :> scale)
-      | Error _ -> Error (`Msg ("Invalid scale value: " ^ s)))
-
-let max_scale_of_string s =
-  match scale_of_string s with
-  | Ok sc -> Ok (sc :> max_scale)
-  | Error _ -> (
-      (* Try additional max_scale values *)
-      match s with
-      | "2xl" -> Ok xl_2
-      | "3xl" -> Ok xl_3
-      | "4xl" -> Ok xl_4
-      | "5xl" -> Ok xl_5
-      | "6xl" -> Ok xl_6
-      | "7xl" -> Ok xl_7
-      | _ -> Error (`Msg ("Invalid max scale value: " ^ s)))
 
 let text_size_of_string = function
   | "xs" -> Ok text_xs
@@ -2140,6 +2342,117 @@ let apply_modifiers modifiers base_style =
       | _ -> acc (* ignore unknown modifiers for now *))
     base_style modifiers
 
+(* Helper functions for parsing *)
+let parse_spacing_variant prefix px_var full_var int_fn = function
+  | [ p; "px" ] when p = prefix -> Ok px_var
+  | [ p; "full" ] when p = prefix -> Ok full_var
+  | [ p; n ] when p = prefix ->
+      let name =
+        if prefix = "p" then "padding"
+        else if prefix = "px" then "padding-x"
+        else if prefix = "py" then "padding-y"
+        else "padding-" ^ String.sub prefix 1 (String.length prefix - 1)
+      in
+      parse_positive_int name n >|= int_fn
+  | _ -> Error (`Msg "")
+
+let parse_margin_variant prefix auto_var int_fn = function
+  | [ p; "auto" ] when p = prefix -> Ok auto_var
+  | [ p; n ] when p = prefix ->
+      let name =
+        if prefix = "m" then "margin"
+        else if prefix = "mx" then "margin-x"
+        else if prefix = "my" then "margin-y"
+        else "margin-" ^ String.sub prefix 1 (String.length prefix - 1)
+      in
+      parse_positive_int name n >|= int_fn
+  | _ -> Error (`Msg "")
+
+let parse_width_variant = function
+  | [ "w"; "full" ] -> Ok w_full
+  | [ "w"; "screen" ] -> Ok w_screen
+  | [ "w"; "min" ] -> Ok w_min
+  | [ "w"; "max" ] -> Ok w_max
+  | [ "w"; "fit" ] -> Ok w_fit
+  | [ "w"; "px" ] -> Ok w_px
+  | [ "w"; "auto" ] -> Ok w_auto
+  | [ "w"; n ] -> parse_positive_int "width" n >|= w
+  | _ -> Error (`Msg "")
+
+let parse_height_variant = function
+  | [ "h"; "full" ] -> Ok h_full
+  | [ "h"; "screen" ] -> Ok h_screen
+  | [ "h"; "min" ] -> Ok h_min
+  | [ "h"; "max" ] -> Ok h_max
+  | [ "h"; "fit" ] -> Ok h_fit
+  | [ "h"; "px" ] -> Ok h_px
+  | [ "h"; "auto" ] -> Ok h_auto
+  | [ "h"; n ] -> parse_positive_int "height" n >|= h
+  | _ -> Error (`Msg "")
+
+let parse_gap_variant = function
+  | [ "gap"; "px" ] -> Ok gap_px
+  | [ "gap"; "full" ] -> Ok gap_full
+  | [ "gap"; n ] -> parse_positive_int "gap" n >|= gap
+  | [ "gap"; "x"; "px" ] -> Ok gap_x_px
+  | [ "gap"; "x"; "full" ] -> Ok gap_x_full
+  | [ "gap"; "x"; n ] -> parse_positive_int "gap-x" n >|= gap_x
+  | [ "gap"; "y"; "px" ] -> Ok gap_y_px
+  | [ "gap"; "y"; "full" ] -> Ok gap_y_full
+  | [ "gap"; "y"; n ] -> parse_positive_int "gap-y" n >|= gap_y
+  | _ -> Error (`Msg "")
+
+let parse_min_width_variant = function
+  | [ "min"; "w"; "full" ] -> Ok min_w_full
+  | [ "min"; "w"; "min" ] -> Ok min_w_min
+  | [ "min"; "w"; "max" ] -> Ok min_w_max
+  | [ "min"; "w"; "fit" ] -> Ok min_w_fit
+  | [ "min"; "w"; "px" ] -> Ok min_w_px
+  | [ "min"; "w"; n ] -> parse_positive_int "min-width" n >|= min_w
+  | _ -> Error (`Msg "")
+
+let parse_min_height_variant = function
+  | [ "min"; "h"; "full" ] -> Ok min_h_full
+  | [ "min"; "h"; "screen" ] -> Ok min_h_screen
+  | [ "min"; "h"; "min" ] -> Ok min_h_min
+  | [ "min"; "h"; "max" ] -> Ok min_h_max
+  | [ "min"; "h"; "fit" ] -> Ok min_h_fit
+  | [ "min"; "h"; "px" ] -> Ok min_h_px
+  | [ "min"; "h"; n ] -> parse_positive_int "min-height" n >|= min_h
+  | _ -> Error (`Msg "")
+
+let parse_max_width_variant = function
+  | [ "max"; "w"; "none" ] -> Ok max_w_none
+  | [ "max"; "w"; "xs" ] -> Ok max_w_xs
+  | [ "max"; "w"; "sm" ] -> Ok max_w_sm
+  | [ "max"; "w"; "md" ] -> Ok max_w_md
+  | [ "max"; "w"; "lg" ] -> Ok max_w_lg
+  | [ "max"; "w"; "xl" ] -> Ok max_w_xl
+  | [ "max"; "w"; "2xl" ] -> Ok max_w_2xl
+  | [ "max"; "w"; "3xl" ] -> Ok max_w_3xl
+  | [ "max"; "w"; "4xl" ] -> Ok max_w_4xl
+  | [ "max"; "w"; "5xl" ] -> Ok max_w_5xl
+  | [ "max"; "w"; "6xl" ] -> Ok max_w_6xl
+  | [ "max"; "w"; "7xl" ] -> Ok max_w_7xl
+  | [ "max"; "w"; "full" ] -> Ok max_w_full
+  | [ "max"; "w"; "min" ] -> Ok max_w_min
+  | [ "max"; "w"; "max" ] -> Ok max_w_max
+  | [ "max"; "w"; "fit" ] -> Ok max_w_fit
+  | [ "max"; "w"; "px" ] -> Ok max_w_px
+  | [ "max"; "w"; n ] -> parse_positive_int "max-width" n >|= max_w
+  | _ -> Error (`Msg "")
+
+let parse_max_height_variant = function
+  | [ "max"; "h"; "full" ] -> Ok max_h_full
+  | [ "max"; "h"; "screen" ] -> Ok max_h_screen
+  | [ "max"; "h"; "min" ] -> Ok max_h_min
+  | [ "max"; "h"; "max" ] -> Ok max_h_max
+  | [ "max"; "h"; "fit" ] -> Ok max_h_fit
+  | [ "max"; "h"; "px" ] -> Ok max_h_px
+  | [ "max"; "h"; "none" ] -> Ok max_h_none
+  | [ "max"; "h"; n ] -> parse_positive_int "max-height" n >|= max_h
+  | _ -> Error (`Msg "")
+
 (* Parse a single class string into a Tw.t *)
 let of_string class_str =
   let modifiers, base_class = parse_modifiers class_str in
@@ -2171,114 +2484,120 @@ let of_string class_str =
     | [ "border"; "transparent" ] -> Ok border_transparent
     | [ "border"; "current" ] -> Ok border_current
     | [ "border"; color ] -> color_of_string color >|= border_color
-    | [ "p"; n ] -> spacing_of_string n >|= p
-    | [ "px"; n ] -> spacing_of_string n >|= px
-    | [ "py"; n ] -> spacing_of_string n >|= py
-    | [ "pt"; n ] -> spacing_of_string n >|= pt
-    | [ "pr"; n ] -> spacing_of_string n >|= pr
-    | [ "pb"; n ] -> spacing_of_string n >|= pb
-    | [ "pl"; n ] -> spacing_of_string n >|= pl
-    | [ "m"; n ] -> margin_of_string n >|= m
-    | [ "mx"; n ] -> margin_of_string n >|= mx
-    | [ "my"; n ] -> margin_of_string n >|= my
-    | [ "mt"; n ] -> margin_of_string n >|= mt
-    | [ "mr"; n ] -> margin_of_string n >|= mr
-    | [ "mb"; n ] -> margin_of_string n >|= mb
-    | [ "ml"; n ] -> margin_of_string n >|= ml
-    | [ "w"; n ] -> scale_of_string n >|= w
-    | [ "h"; n ] -> scale_of_string n >|= h
-    | [ "min"; "w"; n ] -> scale_of_string n >|= min_w
-    | [ "min"; "h"; n ] -> scale_of_string n >|= min_h
-    | [ "max"; "w"; n ] -> max_scale_of_string n >|= max_w
-    | [ "max"; "h"; n ] -> scale_of_string n >|= max_h
-    | [ "gap"; n ] -> spacing_of_string n >|= gap
-    | [ "gap"; "x"; n ] -> spacing_of_string n >|= gap_x
-    | [ "gap"; "y"; n ] -> spacing_of_string n >|= gap_y
-    | [ "flex" ] -> Ok flex
-    | [ "flex"; "col" ] -> Ok flex_col
-    | [ "flex"; "row" ] -> Ok flex_row
-    | [ "flex"; "wrap" ] -> Ok flex_wrap
-    | [ "flex"; "nowrap" ] -> Ok flex_nowrap
-    | [ "flex"; "1" ] -> Ok flex_1
-    | [ "flex"; "auto" ] -> Ok flex_auto
-    | [ "flex"; "initial" ] -> Ok flex_initial
-    | [ "flex"; "none" ] -> Ok flex_none
-    | [ "block" ] -> Ok block
-    | [ "inline" ] -> Ok inline
-    | [ "inline"; "block" ] -> Ok inline_block
-    | [ "inline"; "grid" ] -> Ok inline_grid
-    | [ "grid" ] -> Ok grid
-    | [ "grid"; "cols"; n ] -> parse_positive_int "grid cols" n >|= grid_cols
-    | [ "grid"; "rows"; n ] -> parse_positive_int "grid rows" n >|= grid_rows
-    | [ "hidden" ] -> Ok hidden
-    | [ "rounded" ] -> Ok (rounded md)
-    | [ "rounded"; size ] -> size_of_string size >|= rounded
-    | [ "shadow" ] -> shadow_of_string ""
-    | [ "shadow"; size ] -> shadow_of_string size
-    | [ "ring" ] -> Ok (ring `Default)
-    | [ "ring"; "0" ] -> Ok (ring `None)
-    | [ "ring"; "1" ] -> Ok (ring `Xs)
-    | [ "ring"; "2" ] -> Ok (ring `Sm)
-    | [ "ring"; "3" ] -> Ok (ring `Md)
-    | [ "ring"; "4" ] -> Ok (ring `Lg)
-    | [ "ring"; "8" ] -> Ok (ring `Xl)
-    | [ "items"; "center" ] -> Ok items_center
-    | [ "items"; "start" ] -> Ok items_start
-    | [ "items"; "end" ] -> Ok items_end
-    | [ "items"; "stretch" ] -> Ok items_stretch
-    | [ "items"; "baseline" ] -> Ok items_baseline
-    | [ "justify"; "center" ] -> Ok justify_center
-    | [ "justify"; "start" ] -> Ok justify_start
-    | [ "justify"; "end" ] -> Ok justify_end
-    | [ "justify"; "between" ] -> Ok justify_between
-    | [ "justify"; "around" ] -> Ok justify_around
-    | [ "justify"; "evenly" ] -> Ok justify_evenly
-    | [ "font"; "thin" ] -> Ok font_thin
-    | [ "font"; "light" ] -> Ok font_light
-    | [ "font"; "normal" ] -> Ok font_normal
-    | [ "font"; "medium" ] -> Ok font_medium
-    | [ "font"; "semibold" ] -> Ok font_semibold
-    | [ "font"; "bold" ] -> Ok font_bold
-    | [ "font"; "extrabold" ] -> Ok font_extrabold
-    | [ "font"; "black" ] -> Ok font_black
-    | [ "font"; "sans" ] -> Ok font_sans
-    | [ "font"; "serif" ] -> Ok font_serif
-    | [ "font"; "mono" ] -> Ok font_mono
-    | [ "italic" ] -> Ok italic
-    | [ "not"; "italic" ] -> Ok not_italic
-    | [ "underline" ] -> Ok underline
-    | [ "no"; "underline" ] -> Ok no_underline
-    | [ "leading"; "none" ] -> Ok leading_none
-    | [ "leading"; "tight" ] -> Ok leading_tight
-    | [ "leading"; "snug" ] -> Ok leading_snug
-    | [ "leading"; "normal" ] -> Ok leading_normal
-    | [ "leading"; "relaxed" ] -> Ok leading_relaxed
-    | [ "leading"; "loose" ] -> Ok leading_loose
-    | [ "leading"; n ] -> leading_of_string n
-    | [ "relative" ] -> Ok relative
-    | [ "absolute" ] -> Ok absolute
-    | [ "fixed" ] -> Ok fixed
-    | [ "sticky" ] -> Ok sticky
-    | [ "static" ] -> Ok static
-    | [ "opacity"; n ] -> parse_bounded_int "Opacity" 0 100 n >|= opacity
-    | [ "transition" ] -> Ok transition_all
-    | [ "transition"; "none" ] -> Ok transition_none
-    | [ "transition"; "all" ] -> Ok transition_all
-    | [ "transition"; "colors" ] -> Ok transition_colors
-    | [ "transition"; "opacity" ] -> Ok transition_opacity
-    | [ "transition"; "shadow" ] -> Ok transition_shadow
-    | [ "transition"; "transform" ] -> Ok transition_transform
-    | [ "duration"; n ] -> parse_positive_int "duration" n >|= duration
-    | [ "scale"; n ] -> parse_positive_int "scale" n >|= scale
-    (* Prose classes *)
-    | [ "prose" ] -> Ok prose
-    | [ "prose"; "sm" ] -> Ok prose_sm
-    | [ "prose"; "lg" ] -> Ok prose_lg
-    | [ "prose"; "xl" ] -> Ok prose_xl
-    | [ "prose"; "2xl" ] -> Ok prose_2xl
-    | [ "prose"; "gray" ] -> Ok prose_gray
-    | [ "prose"; "slate" ] -> Ok prose_slate
-    | _ -> Error (`Msg ("Unknown class: " ^ class_str))
+    | parts -> (
+        (* Try parsing with helper functions *)
+        (match parts with
+        | "p" :: _ -> parse_spacing_variant "p" p_px p_full p parts
+        | "px" :: _ -> parse_spacing_variant "px" px_px px_full px parts
+        | "py" :: _ -> parse_spacing_variant "py" py_px py_full py parts
+        | "pt" :: _ -> parse_spacing_variant "pt" pt_px pt_full pt parts
+        | "pr" :: _ -> parse_spacing_variant "pr" pr_px pr_full pr parts
+        | "pb" :: _ -> parse_spacing_variant "pb" pb_px pb_full pb parts
+        | "pl" :: _ -> parse_spacing_variant "pl" pl_px pl_full pl parts
+        | "m" :: _ -> parse_margin_variant "m" m_auto m parts
+        | "mx" :: _ -> parse_margin_variant "mx" mx_auto mx parts
+        | "my" :: _ -> parse_margin_variant "my" my_auto my parts
+        | "mt" :: _ -> parse_margin_variant "mt" mt_auto mt parts
+        | "mr" :: _ -> parse_margin_variant "mr" mr_auto mr parts
+        | "mb" :: _ -> parse_margin_variant "mb" mb_auto mb parts
+        | "ml" :: _ -> parse_margin_variant "ml" ml_auto ml parts
+        | "w" :: _ -> parse_width_variant parts
+        | "h" :: _ -> parse_height_variant parts
+        | "gap" :: _ -> parse_gap_variant parts
+        | "min" :: "w" :: _ -> parse_min_width_variant parts
+        | "min" :: "h" :: _ -> parse_min_height_variant parts
+        | "max" :: "w" :: _ -> parse_max_width_variant parts
+        | "max" :: "h" :: _ -> parse_max_height_variant parts
+        | _ -> Error (`Msg ""))
+        <|>
+        match parts with
+        | [ "flex" ] -> Ok flex
+        | [ "flex"; "col" ] -> Ok flex_col
+        | [ "flex"; "row" ] -> Ok flex_row
+        | [ "flex"; "wrap" ] -> Ok flex_wrap
+        | [ "flex"; "nowrap" ] -> Ok flex_nowrap
+        | [ "flex"; "1" ] -> Ok flex_1
+        | [ "flex"; "auto" ] -> Ok flex_auto
+        | [ "flex"; "initial" ] -> Ok flex_initial
+        | [ "flex"; "none" ] -> Ok flex_none
+        | [ "block" ] -> Ok block
+        | [ "inline" ] -> Ok inline
+        | [ "inline"; "block" ] -> Ok inline_block
+        | [ "inline"; "grid" ] -> Ok inline_grid
+        | [ "grid" ] -> Ok grid
+        | [ "grid"; "cols"; n ] ->
+            parse_positive_int "grid cols" n >|= grid_cols
+        | [ "grid"; "rows"; n ] ->
+            parse_positive_int "grid rows" n >|= grid_rows
+        | [ "hidden" ] -> Ok hidden
+        | [ "rounded" ] -> Ok (rounded md)
+        | [ "rounded"; size ] -> size_of_string size >|= rounded
+        | [ "shadow" ] -> shadow_of_string ""
+        | [ "shadow"; size ] -> shadow_of_string size
+        | [ "ring" ] -> Ok (ring `Default)
+        | [ "ring"; "0" ] -> Ok (ring `None)
+        | [ "ring"; "1" ] -> Ok (ring `Xs)
+        | [ "ring"; "2" ] -> Ok (ring `Sm)
+        | [ "ring"; "3" ] -> Ok (ring `Md)
+        | [ "ring"; "4" ] -> Ok (ring `Lg)
+        | [ "ring"; "8" ] -> Ok (ring `Xl)
+        | [ "items"; "center" ] -> Ok items_center
+        | [ "items"; "start" ] -> Ok items_start
+        | [ "items"; "end" ] -> Ok items_end
+        | [ "items"; "stretch" ] -> Ok items_stretch
+        | [ "items"; "baseline" ] -> Ok items_baseline
+        | [ "justify"; "center" ] -> Ok justify_center
+        | [ "justify"; "start" ] -> Ok justify_start
+        | [ "justify"; "end" ] -> Ok justify_end
+        | [ "justify"; "between" ] -> Ok justify_between
+        | [ "justify"; "around" ] -> Ok justify_around
+        | [ "justify"; "evenly" ] -> Ok justify_evenly
+        | [ "font"; "thin" ] -> Ok font_thin
+        | [ "font"; "light" ] -> Ok font_light
+        | [ "font"; "normal" ] -> Ok font_normal
+        | [ "font"; "medium" ] -> Ok font_medium
+        | [ "font"; "semibold" ] -> Ok font_semibold
+        | [ "font"; "bold" ] -> Ok font_bold
+        | [ "font"; "extrabold" ] -> Ok font_extrabold
+        | [ "font"; "black" ] -> Ok font_black
+        | [ "font"; "sans" ] -> Ok font_sans
+        | [ "font"; "serif" ] -> Ok font_serif
+        | [ "font"; "mono" ] -> Ok font_mono
+        | [ "italic" ] -> Ok italic
+        | [ "not"; "italic" ] -> Ok not_italic
+        | [ "underline" ] -> Ok underline
+        | [ "no"; "underline" ] -> Ok no_underline
+        | [ "leading"; "none" ] -> Ok leading_none
+        | [ "leading"; "tight" ] -> Ok leading_tight
+        | [ "leading"; "snug" ] -> Ok leading_snug
+        | [ "leading"; "normal" ] -> Ok leading_normal
+        | [ "leading"; "relaxed" ] -> Ok leading_relaxed
+        | [ "leading"; "loose" ] -> Ok leading_loose
+        | [ "leading"; n ] -> leading_of_string n
+        | [ "relative" ] -> Ok relative
+        | [ "absolute" ] -> Ok absolute
+        | [ "fixed" ] -> Ok fixed
+        | [ "sticky" ] -> Ok sticky
+        | [ "static" ] -> Ok static
+        | [ "opacity"; n ] -> parse_bounded_int "Opacity" 0 100 n >|= opacity
+        | [ "transition" ] -> Ok transition_all
+        | [ "transition"; "none" ] -> Ok transition_none
+        | [ "transition"; "all" ] -> Ok transition_all
+        | [ "transition"; "colors" ] -> Ok transition_colors
+        | [ "transition"; "opacity" ] -> Ok transition_opacity
+        | [ "transition"; "shadow" ] -> Ok transition_shadow
+        | [ "transition"; "transform" ] -> Ok transition_transform
+        | [ "duration"; n ] -> parse_positive_int "duration" n >|= duration
+        | [ "scale"; n ] -> parse_positive_int "scale" n >|= scale
+        (* Prose classes *)
+        | [ "prose" ] -> Ok prose
+        | [ "prose"; "sm" ] -> Ok prose_sm
+        | [ "prose"; "lg" ] -> Ok prose_lg
+        | [ "prose"; "xl" ] -> Ok prose_xl
+        | [ "prose"; "2xl" ] -> Ok prose_2xl
+        | [ "prose"; "gray" ] -> Ok prose_gray
+        | [ "prose"; "slate" ] -> Ok prose_slate
+        | _ -> Error (`Msg ("Unknown class: " ^ class_str)))
   in
   match base_result with
   | Error _ as e -> e

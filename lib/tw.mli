@@ -45,9 +45,9 @@
             (* white text *)
 
             (* Spacing: padding of 1rem vertical, 2rem horizontal *)
-            py (int 4);
+            py 4;
             (* 4 * 0.25rem = 1rem *)
-            px (int 8);
+            px 8;
             (* 8 * 0.25rem = 2rem *)
 
             (* Typography and borders *)
@@ -63,7 +63,7 @@
             (* smooth color transitions *)
 
             (* Responsive design *)
-            on_sm [ px (int 6) ];
+            on_sm [ px 6 ];
             (* less padding on small screens *)
           ]
         in
@@ -198,15 +198,17 @@ val rose : color
 val int : int -> [> `Val of float ]
 (** [int n] creates spacing values: n × 0.25rem.
 
+    {b Note:} Most spacing and scale functions now accept int directly. Use this
+    constructor only when you need to pass spacing to functions that still
+    require the old API.
+
     Common values:
     - [int 0]: 0
     - [int 1]: 0.25rem (4px)
     - [int 2]: 0.5rem (8px)
     - [int 4]: 1rem (16px) - base unit
     - [int 8]: 2rem (32px)
-    - [int 16]: 4rem (64px)
-
-    This is the primary way to create consistent spacing. *)
+    - [int 16]: 4rem (64px) *)
 
 val one_px : [> `Px ]
 (** [one_px] is exactly 1 pixel spacing. *)
@@ -392,61 +394,212 @@ val to_color : ?shade:int -> color -> t
     @see <https://tailwindcss.com/docs/space> Space Between
     @see <https://tailwindcss.com/docs/gap> Gap *)
 
-val p : spacing -> t
-(** [p spacing] sets padding (inner spacing) on all sides.
+val p : int -> t
+(** [p n] sets padding (inner spacing) on all sides using Tailwind scale (n ×
+    0.25rem).
 
     Examples:
-    - [p (int 4)]: 1rem padding on all sides
-    - [p (int 0)]: Remove all padding
-    - [p full]: Padding equal to parent width (rarely used). *)
+    - [p 4]: 1rem padding on all sides
+    - [p 0]: Remove all padding
+    - [p 8]: 2rem padding on all sides *)
 
-val px : spacing -> t
-(** [px spacing] sets horizontal padding (left and right). Common for buttons
-    and cards to have more horizontal than vertical padding. *)
+val px : int -> t
+(** [px n] sets horizontal padding (left and right). Common for buttons and
+    cards to have more horizontal than vertical padding. *)
 
-val py : spacing -> t
-(** [py spacing] sets vertical padding (top and bottom). Often smaller than
-    horizontal padding for better proportions. *)
+val py : int -> t
+(** [py n] sets vertical padding (top and bottom). Often smaller than horizontal
+    padding for better proportions. *)
 
-val pt : spacing -> t
-(** [pt spacing] sets top padding. *)
+val pt : int -> t
+(** [pt n] sets top padding. *)
 
-val pr : spacing -> t
-(** [pr spacing] sets right padding. *)
+val pr : int -> t
+(** [pr n] sets right padding. *)
 
-val pb : spacing -> t
-(** [pb spacing] sets bottom padding. *)
+val pb : int -> t
+(** [pb n] sets bottom padding. *)
 
-val pl : spacing -> t
-(** [pl spacing] sets left padding. *)
+val pl : int -> t
+(** [pl n] sets left padding. *)
 
-val m : margin -> t
-(** [m margin] sets margin (outer spacing) on all sides.
+(** {2 Special padding variants} *)
+
+val p_px : t
+(** [p_px] sets 1px padding on all sides. *)
+
+val p_full : t
+(** [p_full] sets 100% padding on all sides (rarely used). *)
+
+val p_rem : float -> t
+(** [p_rem f] sets custom padding in rem units. *)
+
+val px_px : t
+(** [px_px] sets 1px horizontal padding. *)
+
+val px_full : t
+(** [px_full] sets 100% horizontal padding. *)
+
+val px_rem : float -> t
+(** [px_rem f] sets custom horizontal padding in rem units. *)
+
+val py_px : t
+(** [py_px] sets 1px vertical padding. *)
+
+val py_full : t
+(** [py_full] sets 100% vertical padding. *)
+
+val py_rem : float -> t
+(** [py_rem f] sets custom vertical padding in rem units. *)
+
+val pt_px : t
+(** [pt_px] sets 1px top padding. *)
+
+val pt_full : t
+(** [pt_full] sets 100% top padding. *)
+
+val pt_rem : float -> t
+(** [pt_rem f] sets custom top padding in rem units. *)
+
+val pr_px : t
+(** [pr_px] sets 1px right padding. *)
+
+val pr_full : t
+(** [pr_full] sets 100% right padding. *)
+
+val pr_rem : float -> t
+(** [pr_rem f] sets custom right padding in rem units. *)
+
+val pb_px : t
+(** [pb_px] sets 1px bottom padding. *)
+
+val pb_full : t
+(** [pb_full] sets 100% bottom padding. *)
+
+val pb_rem : float -> t
+(** [pb_rem f] sets custom bottom padding in rem units. *)
+
+val pl_px : t
+(** [pl_px] sets 1px left padding. *)
+
+val pl_full : t
+(** [pl_full] sets 100% left padding. *)
+
+val pl_rem : float -> t
+(** [pl_rem f] sets custom left padding in rem units. *)
+
+val m : int -> t
+(** [m n] sets margin (outer spacing) on all sides using Tailwind scale (n ×
+    0.25rem).
 
     Examples:
-    - [m (int 4)]: 1rem margin on all sides
-    - [m (int 0)]: Remove all margins
-    - [m auto]: Center element if it has a defined width. *)
+    - [m 4]: 1rem margin on all sides
+    - [m 0]: Remove all margins *)
 
-val mx : margin -> t
-(** [mx margin] sets horizontal margin (left and right). [mx auto] centers block
-    elements horizontally. *)
+val mx : int -> t
+(** [mx n] sets horizontal margin (left and right). *)
 
-val my : margin -> t
-(** [my margin] sets vertical margin (top and bottom). Useful for spacing
-    between sections. *)
+val my : int -> t
+(** [my n] sets vertical margin (top and bottom). Useful for spacing between
+    sections. *)
 
-val mt : margin -> t
-(** [mt margin] sets top margin. *)
+val mt : int -> t
+(** [mt n] sets top margin. *)
 
-val mr : margin -> t
-(** [mr margin] sets right margin. *)
+val mr : int -> t
+(** [mr n] sets right margin. *)
 
-val mb : margin -> t
-(** [mb margin] sets bottom margin. *)
+val mb : int -> t
+(** [mb n] sets bottom margin. *)
 
-val ml : margin -> t
-(** [ml margin] sets left margin. *)
+val ml : int -> t
+(** [ml n] sets left margin. *)
+
+(** {2 Special margin variants} *)
+
+val m_auto : t
+(** [m_auto] sets auto margins on all sides (centers if width is defined). *)
+
+val m_px : t
+(** [m_px] sets 1px margin on all sides. *)
+
+val m_full : t
+(** [m_full] sets 100% margin on all sides. *)
+
+val m_rem : float -> t
+(** [m_rem f] sets custom margin in rem units. *)
+
+val mx_auto : t
+(** [mx_auto] centers block elements horizontally. *)
+
+val mx_px : t
+(** [mx_px] sets 1px horizontal margin. *)
+
+val mx_full : t
+(** [mx_full] sets 100% horizontal margin. *)
+
+val mx_rem : float -> t
+(** [mx_rem f] sets custom horizontal margin in rem units. *)
+
+val my_auto : t
+(** [my_auto] sets auto vertical margins. *)
+
+val my_px : t
+(** [my_px] sets 1px vertical margin. *)
+
+val my_full : t
+(** [my_full] sets 100% vertical margin. *)
+
+val my_rem : float -> t
+(** [my_rem f] sets custom vertical margin in rem units. *)
+
+val mt_auto : t
+(** [mt_auto] sets auto top margin. *)
+
+val mt_px : t
+(** [mt_px] sets 1px top margin. *)
+
+val mt_full : t
+(** [mt_full] sets 100% top margin. *)
+
+val mt_rem : float -> t
+(** [mt_rem f] sets custom top margin in rem units. *)
+
+val mr_auto : t
+(** [mr_auto] sets auto right margin. *)
+
+val mr_px : t
+(** [mr_px] sets 1px right margin. *)
+
+val mr_full : t
+(** [mr_full] sets 100% right margin. *)
+
+val mr_rem : float -> t
+(** [mr_rem f] sets custom right margin in rem units. *)
+
+val mb_auto : t
+(** [mb_auto] sets auto bottom margin. *)
+
+val mb_px : t
+(** [mb_px] sets 1px bottom margin. *)
+
+val mb_full : t
+(** [mb_full] sets 100% bottom margin. *)
+
+val mb_rem : float -> t
+(** [mb_rem f] sets custom bottom margin in rem units. *)
+
+val ml_auto : t
+(** [ml_auto] sets auto left margin. *)
+
+val ml_px : t
+(** [ml_px] sets 1px left margin. *)
+
+val ml_full : t
+(** [ml_full] sets 100% left margin. *)
+
+val ml_rem : float -> t
+(** [ml_rem f] sets custom left margin in rem units. *)
 
 val neg_mt : spacing -> t
 (** [neg_mt spacing] pulls element upward with negative margin. Useful for
@@ -461,14 +614,14 @@ val neg_mb : spacing -> t
 val neg_ml : spacing -> t
 (** [neg_ml spacing] pulls element leftward with negative margin. *)
 
-val gap : spacing -> t
-(** [gap spacing] sets spacing between items in flex/grid containers. More
-    modern and flexible than using margins on children.
+val gap : int -> t
+(** [gap n] sets spacing between items in flex/grid containers using Tailwind
+    scale. More modern and flexible than using margins on children.
 
     Example:
     {[
       div
-        ~tw:[ flex; gap (int 4) ]
+        ~tw:[ flex; gap 4 ]
         [
           (* All children will have 1rem space between them *)
           button [ txt "Save" ];
@@ -476,52 +629,249 @@ val gap : spacing -> t
         ]
     ]} *)
 
-val gap_x : spacing -> t
-(** [gap_x spacing] sets only horizontal gaps in flex/grid containers. *)
+val gap_x : int -> t
+(** [gap_x n] sets only horizontal gaps in flex/grid containers. *)
 
-val gap_y : spacing -> t
-(** [gap_y spacing] sets only vertical gaps in flex/grid containers. *)
+val gap_y : int -> t
+(** [gap_y n] sets only vertical gaps in flex/grid containers. *)
+
+(** {2 Special gap variants} *)
+
+val gap_px : t
+(** [gap_px] sets 1px gap between items. *)
+
+val gap_full : t
+(** [gap_full] sets 100% gap between items. *)
+
+val gap_rem : float -> t
+(** [gap_rem f] sets custom gap in rem units. *)
+
+val gap_x_px : t
+(** [gap_x_px] sets 1px horizontal gap. *)
+
+val gap_x_full : t
+(** [gap_x_full] sets 100% horizontal gap. *)
+
+val gap_x_rem : float -> t
+(** [gap_x_rem f] sets custom horizontal gap in rem units. *)
+
+val gap_y_px : t
+(** [gap_y_px] sets 1px vertical gap. *)
+
+val gap_y_full : t
+(** [gap_y_full] sets 100% vertical gap. *)
+
+val gap_y_rem : float -> t
+(** [gap_y_rem f] sets custom vertical gap in rem units. *)
 
 (** {1 Sizing}
     @see <https://tailwindcss.com/docs/width> Width and Height *)
 
-val w : scale -> t
-(** [w scale] sets element width.
+val w : int -> t
+(** [w n] sets element width using Tailwind scale (n × 0.25rem).
 
     Common patterns:
-    - [w full]: 100% of parent width
-    - [w (int 24)]: Fixed width of 6rem (96px)
-    - [w screen]: Full viewport width
-    - [w max]: Shrink to content width
-    - [w (rem 20.0)]: Custom width in rem. *)
+    - [w 24]: Fixed width of 6rem (96px)
+    - [w 0]: Zero width Use variants for special cases like [w_full],
+      [w_screen], etc. *)
 
-val h : scale -> t
-(** [h scale] sets element height.
+val h : int -> t
+(** [h n] sets element height using Tailwind scale (n × 0.25rem).
 
     Common patterns:
-    - [h full]: 100% of parent height
-    - [h screen]: Full viewport height (great for hero sections)
-    - [h (int 16)]: Fixed height of 4rem (64px)
-    - [h auto]: Height based on content (default). *)
+    - [h 16]: Fixed height of 4rem (64px)
+    - [h 0]: Zero height Use variants for special cases like [h_full],
+      [h_screen], etc. *)
 
-val min_w : scale -> t
-(** [min_w scale] sets minimum width. *)
+val min_w : int -> t
+(** [min_w n] sets minimum width using Tailwind scale. *)
 
-val min_h : scale -> t
-(** [min_h scale] sets minimum height using the scale. *)
+val min_h : int -> t
+(** [min_h n] sets minimum height using Tailwind scale. *)
 
-val max_w : max_scale -> t
-(** [max_w scale] sets maximum width - element won't grow beyond this.
+val max_w : int -> t
+(** [max_w n] sets maximum width using Tailwind scale. For named sizes, use
+    variants like [max_w_md], [max_w_xl], etc. *)
 
-    Common for readable content:
-    - [max_w md]: ~28rem - for cards and small containers
-    - [max_w xl_2]: ~42rem - optimal for article text (65-75 characters)
-    - [max_w xl_4]: ~56rem - for wider content sections
-    - [max_w full]: Allow full width
-    - [max_w screen]: Never exceed viewport width. *)
+val max_h : int -> t
+(** [max_h n] sets maximum height using Tailwind scale. *)
 
-val max_h : scale -> t
-(** [max_h scale] sets maximum height using the scale. *)
+(** {2 Special width variants} *)
+
+val w_px : t
+(** [w_px] sets 1px width. *)
+
+val w_full : t
+(** [w_full] sets 100% of parent width. *)
+
+val w_screen : t
+(** [w_screen] sets full viewport width. *)
+
+val w_min : t
+(** [w_min] shrinks to minimum content width. *)
+
+val w_max : t
+(** [w_max] expands to maximum content width. *)
+
+val w_fit : t
+(** [w_fit] uses fit-content sizing. *)
+
+val w_auto : t
+(** [w_auto] uses auto width (default). *)
+
+val w_rem : float -> t
+(** [w_rem f] sets custom width in rem units. *)
+
+(** {2 Special height variants} *)
+
+val h_px : t
+(** [h_px] sets 1px height. *)
+
+val h_full : t
+(** [h_full] sets 100% of parent height. *)
+
+val h_screen : t
+(** [h_screen] sets full viewport height (great for hero sections). *)
+
+val h_min : t
+(** [h_min] shrinks to minimum content height. *)
+
+val h_max : t
+(** [h_max] expands to maximum content height. *)
+
+val h_fit : t
+(** [h_fit] uses fit-content sizing. *)
+
+val h_auto : t
+(** [h_auto] uses auto height (default). *)
+
+val h_rem : float -> t
+(** [h_rem f] sets custom height in rem units. *)
+
+(** {2 Special min-width variants} *)
+
+val min_w_px : t
+(** [min_w_px] sets 1px minimum width. *)
+
+val min_w_full : t
+(** [min_w_full] sets 100% minimum width. *)
+
+val min_w_min : t
+(** [min_w_min] sets min-content minimum width. *)
+
+val min_w_max : t
+(** [min_w_max] sets max-content minimum width. *)
+
+val min_w_fit : t
+(** [min_w_fit] sets fit-content minimum width. *)
+
+val min_w_rem : float -> t
+(** [min_w_rem f] sets custom minimum width in rem units. *)
+
+(** {2 Special min-height variants} *)
+
+val min_h_px : t
+(** [min_h_px] sets 1px minimum height. *)
+
+val min_h_full : t
+(** [min_h_full] sets 100% minimum height. *)
+
+val min_h_screen : t
+(** [min_h_screen] sets viewport minimum height. *)
+
+val min_h_min : t
+(** [min_h_min] sets min-content minimum height. *)
+
+val min_h_max : t
+(** [min_h_max] sets max-content minimum height. *)
+
+val min_h_fit : t
+(** [min_h_fit] sets fit-content minimum height. *)
+
+val min_h_rem : float -> t
+(** [min_h_rem f] sets custom minimum height in rem units. *)
+
+(** {2 Special max-width variants} *)
+
+val max_w_px : t
+(** [max_w_px] sets 1px maximum width. *)
+
+val max_w_full : t
+(** [max_w_full] allows full width. *)
+
+val max_w_min : t
+(** [max_w_min] sets min-content maximum width. *)
+
+val max_w_max : t
+(** [max_w_max] sets max-content maximum width. *)
+
+val max_w_fit : t
+(** [max_w_fit] sets fit-content maximum width. *)
+
+val max_w_none : t
+(** [max_w_none] removes maximum width constraint. *)
+
+val max_w_xs : t
+(** [max_w_xs] sets 20rem maximum width. *)
+
+val max_w_sm : t
+(** [max_w_sm] sets 24rem maximum width. *)
+
+val max_w_md : t
+(** [max_w_md] sets 28rem maximum width - for cards and small containers. *)
+
+val max_w_lg : t
+(** [max_w_lg] sets 32rem maximum width. *)
+
+val max_w_xl : t
+(** [max_w_xl] sets 36rem maximum width. *)
+
+val max_w_2xl : t
+(** [max_w_2xl] sets 42rem maximum width - optimal for article text. *)
+
+val max_w_3xl : t
+(** [max_w_3xl] sets 48rem maximum width. *)
+
+val max_w_4xl : t
+(** [max_w_4xl] sets 56rem maximum width - for wider content sections. *)
+
+val max_w_5xl : t
+(** [max_w_5xl] sets 64rem maximum width. *)
+
+val max_w_6xl : t
+(** [max_w_6xl] sets 72rem maximum width. *)
+
+val max_w_7xl : t
+(** [max_w_7xl] sets 80rem maximum width. *)
+
+val max_w_rem : float -> t
+(** [max_w_rem f] sets custom maximum width in rem units. *)
+
+(** {2 Special max-height variants} *)
+
+val max_h_px : t
+(** [max_h_px] sets 1px maximum height. *)
+
+val max_h_full : t
+(** [max_h_full] allows full height. *)
+
+val max_h_screen : t
+(** [max_h_screen] sets viewport maximum height. *)
+
+val max_h_min : t
+(** [max_h_min] sets min-content maximum height. *)
+
+val max_h_max : t
+(** [max_h_max] sets max-content maximum height. *)
+
+val max_h_fit : t
+(** [max_h_fit] sets fit-content maximum height. *)
+
+val max_h_none : t
+(** [max_h_none] removes maximum height constraint. *)
+
+val max_h_rem : float -> t
+(** [max_h_rem f] sets custom maximum height in rem units. *)
 
 (** {1 Layout}
     @see <https://tailwindcss.com/docs/display> Display

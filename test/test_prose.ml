@@ -18,7 +18,7 @@ let test_combinations () =
   let with_theme = to_classes [ prose; prose_slate ] in
   Alcotest.(check string) "prose with theme" "prose prose-slate" with_theme;
 
-  let complex = to_classes [ prose; prose_xl; prose_gray; mx auto ] in
+  let complex = to_classes [ prose; prose_xl; prose_gray; mx_auto ] in
   Alcotest.(check string)
     "complex prose" "prose prose-xl prose-gray mx-auto" complex
 
