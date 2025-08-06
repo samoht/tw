@@ -8,7 +8,7 @@
 
     - {b Utility-first}: Instead of writing CSS classes with multiple
       properties, you compose small, single-purpose utilities (e.g., [bg blue]
-      for background color, [p (int 4)] for padding)
+      for background color, [p 4] for padding)
 
     - {b Type-safe}: The OCaml compiler catches errors like misspelled utilities
       or invalid value combinations at compile time
@@ -25,8 +25,8 @@
 
     {1:units Units and Scales}
 
-    - {b Spacing}: The [int] constructor creates values in 0.25rem increments.
-      [int 4] = 1rem = 16px (by default)
+    - {b Spacing}: Integer values create spacing in 0.25rem increments. [4] =
+      1rem = 16px (by default)
     - {b Sizes}: Predefined sizes like [sm], [md], [lg] provide consistent
       scaling
     - {b Colors}: Colors use an optional shade parameter (50-900) where higher
@@ -86,40 +86,6 @@ type t
 type color
 (** Abstract type for colors. Use color constructors like [red], [blue], etc.
     Colors can have shades from 50 (lightest) to 900 (darkest). *)
-
-type size = [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full ]
-(** Standard size scale used consistently across the library:
-    - [`None]: 0 (removes the property)
-    - [`Xs]: extra small
-    - [`Sm]: small
-    - [`Md]: medium (usually the default)
-    - [`Lg]: large
-    - [`Xl] to [`Xl_3]: extra large sizes
-    - [`Full]: 100% of parent *)
-
-type spacing = [ `Px | `Full | `Val of float ]
-(** Scale for spacing utilities (padding, margin, gap):
-    - [`Px]: exactly 1 pixel
-    - [`Full]: 100% of parent
-    - [`Val f]: custom value where f is in rem units *)
-
-type margin = [ spacing | `Auto ]
-(** Same as spacing but includes [`Auto] for automatic margins (centering). *)
-
-type scale = [ spacing | size | `Screen | `Min | `Max | `Fit ]
-(** Extended scale for width/height:
-    - Includes all spacing and size values
-    - [`Screen]: 100vw or 100vh (viewport width/height)
-    - [`Min]: min-content
-    - [`Max]: max-content
-    - [`Fit]: fit-content *)
-
-type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
-(** Scale for max-width including larger sizes for wide containers. *)
-
-type shadow = [ size | `Inner ]
-(** Shadow intensities from subtle to dramatic, plus [`Inner] for inset shadows.
-*)
 
 (** {1 Color Constructors} *)
 
@@ -189,118 +155,15 @@ val pink : color
 val rose : color
 (** Warm pink color family. *)
 
-(** {1 Value Constructors} *)
-
-(** {2 Spacing Constructors}
-
-    These create values for spacing utilities like padding, margin, and gaps. *)
-
-val int : int -> [> `Val of float ]
-(** [int n] creates spacing values: n × 0.25rem.
-
-    {b Note:} Most spacing and scale functions now accept int directly. Use this
-    constructor only when you need to pass spacing to functions that still
-    require the old API.
-
-    Common values:
-    - [int 0]: 0
-    - [int 1]: 0.25rem (4px)
-    - [int 2]: 0.5rem (8px)
-    - [int 4]: 1rem (16px) - base unit
-    - [int 8]: 2rem (32px)
-    - [int 16]: 4rem (64px) *)
-
-val one_px : [> `Px ]
-(** [one_px] is exactly 1 pixel spacing. *)
-
-val rem : float -> [> `Val of float ]
-(** [rem f] creates a custom spacing value in rem units. *)
-
-val full : [> `Full ]
-(** [full] is 100% of parent container. *)
-
-(** {2 Margin Constructors}
-
-    Additional constructors for margin utilities (includes all spacing
-    constructors). *)
-
-val auto : [> `Auto ]
-(** [auto] creates automatic margins that center elements horizontally. *)
-
-(** {2 Size Constructors}
-
-    Constructors for width/height utilities (includes all spacing constructors).
-*)
-
-val screen : [> `Screen ]
-(** [screen] is full viewport size (100vw for width, 100vh for height). *)
-
-val min : [> `Min ]
-(** [min] is min-content sizing (shrinks to minimum needed). *)
-
-val max : [> `Max ]
-(** [max] is max-content sizing (expands to natural width). *)
-
-val fit : [> `Fit ]
-(** [fit] is fit-content sizing (uses available space but not more than
-    max-content). *)
-
-(** {2 Standard Size Scale}
-
-    Named size values used consistently across the design system. *)
-
-val none : [> `None ]
-(** [none] removes the property or sets it to zero. *)
-
-val xs : [> `Xs ]
-(** [xs] is extra small size in the design scale. *)
-
-val sm : [> `Sm ]
-(** [sm] is small size in the design scale. *)
-
-val md : [> `Md ]
-(** [md] is medium size in the design scale. *)
-
-val lg : [> `Lg ]
-(** [lg] is large size in the design scale. *)
-
-val xl : [> `Xl ]
-(** [xl] is extra large size in the design scale. *)
-
-val xl_2 : [> `Xl_2 ]
-(** [xl_2] is 2x extra large size in the design scale. *)
-
-val xl_3 : [> `Xl_3 ]
-(** [xl_3] is 3x extra large size in the design scale. *)
-
-val xl_4 : [> `Xl_4 ]
-(** [xl_4] is 4x extra large size in the design scale. *)
-
-val xl_5 : [> `Xl_5 ]
-(** [xl_5] is 5x extra large size in the design scale. *)
-
-val xl_6 : [> `Xl_6 ]
-(** [xl_6] is 6x extra large size in the design scale. *)
-
-val xl_7 : [> `Xl_7 ]
-(** [xl_7] is 7x extra large size in the design scale. *)
-
-(** {2 Effect Constructors}
-
-    Specialized constructors for effects like shadows. *)
-
-val inner : [> `Inner ]
-(** [inner] creates inset shadows that appear inside the element. *)
-
 (** {1 Color & Background} *)
 
-val bg : ?shade:int -> color -> t
-(** [bg ?shade color] sets the background color.
+val bg : color -> int -> t
+(** [bg color shade] sets the background color with a specific shade.
 
     Examples:
-    - [bg blue]: Default blue background
-    - [bg ~shade:100 gray]: Light gray background
-    - [bg ~shade:900 slate]: Very dark slate background
+    - [bg blue 500]: Medium blue background
+    - [bg gray 100]: Light gray background
+    - [bg slate 900]: Very dark slate background
 
     Shades range from 50 (lightest) to 900 (darkest). *)
 
@@ -312,14 +175,81 @@ val bg_current : t
     [text ~shade:500 blue], the background will also be blue-500. Useful for
     icons and decorative elements that should match text. *)
 
-val text : ?shade:int -> color -> t
-(** [text ?shade color] sets text color.
+val bg_black : t
+(** Black background. Same as {!bg} {!black}. *)
+
+val bg_white : t
+(** White background. Same as {!bg} {!white}. *)
+
+val bg_gray : t
+(** Default gray background. Same as [bg gray]. *)
+
+val bg_slate : t
+(** Default slate background. Same as [bg slate]. *)
+
+val bg_zinc : t
+(** Default zinc background. Same as [bg zinc]. *)
+
+val bg_red : t
+(** Default red background. Same as [bg red]. *)
+
+val bg_orange : t
+(** Default orange background. Same as [bg orange]. *)
+
+val bg_amber : t
+(** Default amber background. Same as [bg amber]. *)
+
+val bg_yellow : t
+(** Default yellow background. Same as [bg yellow]. *)
+
+val bg_lime : t
+(** Default lime background. Same as [bg lime]. *)
+
+val bg_green : t
+(** Default green background. Same as [bg green]. *)
+
+val bg_emerald : t
+(** Default emerald background. Same as [bg emerald]. *)
+
+val bg_teal : t
+(** Default teal background. Same as [bg teal]. *)
+
+val bg_cyan : t
+(** Default cyan background. Same as [bg cyan]. *)
+
+val bg_sky : t
+(** Default sky background. Same as [bg sky]. *)
+
+val bg_blue : t
+(** Default blue background. Same as [bg blue]. *)
+
+val bg_indigo : t
+(** Default indigo background. Same as [bg indigo]. *)
+
+val bg_violet : t
+(** Default violet background. Same as [bg violet]. *)
+
+val bg_purple : t
+(** Default purple background. Same as [bg purple]. *)
+
+val bg_fuchsia : t
+(** Default fuchsia background. Same as [bg fuchsia]. *)
+
+val bg_pink : t
+(** Default pink background. Same as [bg pink]. *)
+
+val bg_rose : t
+(** Default rose background. Same as [bg rose]. *)
+
+val text : color -> int -> t
+(** [text color shade] sets text color.
 
     Examples:
-    - [text black]: Pure black text
-    - [text ~shade:600 gray]: Dark gray for body text
-    - [text ~shade:500 gray]: Medium gray for secondary text
-    - [text ~shade:700 blue]: Dark blue for links
+    - [text black 100]: Pure black text (black doesn't use shades, so value is
+      ignored)
+    - [text gray 600]: Dark gray for body text
+    - [text gray 500]: Medium gray for secondary text
+    - [text blue 700]: Dark blue for links
 
     Higher shade numbers (700-900) ensure readability on light backgrounds. *)
 
@@ -330,8 +260,74 @@ val text_current : t
 (** Explicitly sets text color to "currentColor" (the inherited text color).
     This is rarely needed since text naturally inherits color from parents. *)
 
-val border_color : ?shade:int -> color -> t
-(** [border_color ?shade color] creates a border color with optional shade. *)
+val text_black : t
+(** Black text. Same as [text black 500]. *)
+
+val text_white : t
+(** White text. Same as [text white 500]. *)
+
+val text_gray : t
+(** Default gray text. Same as [text gray 500]. *)
+
+val text_slate : t
+(** Default slate text. Same as [text slate 500]. *)
+
+val text_zinc : t
+(** Default zinc text. Same as [text zinc 500]. *)
+
+val text_blue : t
+(** Default blue text. Same as [text blue 500]. *)
+
+val text_red : t
+(** Default red text. Same as [text red 500]. *)
+
+val text_orange : t
+(** Default orange text. Same as [text orange 500]. *)
+
+val text_amber : t
+(** Default amber text. Same as [text amber 500]. *)
+
+val text_yellow : t
+(** Default yellow text. Same as [text yellow 500]. *)
+
+val text_lime : t
+(** Default lime text. Same as [text lime 500]. *)
+
+val text_green : t
+(** Default green text. Same as [text green 500]. *)
+
+val text_emerald : t
+(** Default emerald text. Same as [text emerald 500]. *)
+
+val text_teal : t
+(** Default teal text. Same as [text teal 500]. *)
+
+val text_cyan : t
+(** Default cyan text. Same as [text cyan 500]. *)
+
+val text_sky : t
+(** Default sky text. Same as [text sky 500]. *)
+
+val text_indigo : t
+(** Default indigo text. Same as [text indigo 500]. *)
+
+val text_violet : t
+(** Default violet text. Same as [text violet 500]. *)
+
+val text_purple : t
+(** Default purple text. Same as [text purple 500]. *)
+
+val text_fuchsia : t
+(** Default fuchsia text. Same as [text fuchsia 500]. *)
+
+val text_pink : t
+(** Default pink text. Same as [text pink 500]. *)
+
+val text_rose : t
+(** Default rose text. Same as [text rose 500]. *)
+
+val border_color : color -> int -> t
+(** [border_color color shade] creates a border color with a specific shade. *)
 
 val border_transparent : t
 (** Transparent border. *)
@@ -339,7 +335,7 @@ val border_transparent : t
 val border_current : t
 (** Sets border color to match the text color. For example:
     {[
-      div ~tw:[ text ~shade:600 red; border `Default; border_current ]
+      div ~tw:[ text ~shade:600 red; border xs; border_current ]
       (* Border will be red-600, same as the text *)
     ]}
 
@@ -382,11 +378,11 @@ val bg_gradient_to_l : t
 val bg_gradient_to_tl : t
 (** Creates a gradient from bottom-right to top-left. *)
 
-val from_color : ?shade:int -> color -> t
-(** [from_color ?shade c] sets the starting color of a gradient. *)
+val from_color : color -> int -> t
+(** [from_color color shade] sets the starting color of a gradient. *)
 
-val to_color : ?shade:int -> color -> t
-(** [to_color ?shade c] sets the ending color of a gradient. *)
+val to_color : color -> int -> t
+(** [to_color color shade] sets the ending color of a gradient. *)
 
 (** {1 Spacing}
     @see <https://tailwindcss.com/docs/padding> Padding
@@ -423,16 +419,13 @@ val pb : int -> t
 val pl : int -> t
 (** [pl n] sets left padding. *)
 
-(** {2 Special padding variants} *)
+(** {2 Special padding values} *)
 
 val p_px : t
 (** [p_px] sets 1px padding on all sides. *)
 
 val p_full : t
-(** [p_full] sets 100% padding on all sides (rarely used). *)
-
-val p_rem : float -> t
-(** [p_rem f] sets custom padding in rem units. *)
+(** [p_full] sets 100% padding on all sides. *)
 
 val px_px : t
 (** [px_px] sets 1px horizontal padding. *)
@@ -440,17 +433,11 @@ val px_px : t
 val px_full : t
 (** [px_full] sets 100% horizontal padding. *)
 
-val px_rem : float -> t
-(** [px_rem f] sets custom horizontal padding in rem units. *)
-
 val py_px : t
 (** [py_px] sets 1px vertical padding. *)
 
 val py_full : t
 (** [py_full] sets 100% vertical padding. *)
-
-val py_rem : float -> t
-(** [py_rem f] sets custom vertical padding in rem units. *)
 
 val pt_px : t
 (** [pt_px] sets 1px top padding. *)
@@ -458,17 +445,11 @@ val pt_px : t
 val pt_full : t
 (** [pt_full] sets 100% top padding. *)
 
-val pt_rem : float -> t
-(** [pt_rem f] sets custom top padding in rem units. *)
-
 val pr_px : t
 (** [pr_px] sets 1px right padding. *)
 
 val pr_full : t
 (** [pr_full] sets 100% right padding. *)
-
-val pr_rem : float -> t
-(** [pr_rem f] sets custom right padding in rem units. *)
 
 val pb_px : t
 (** [pb_px] sets 1px bottom padding. *)
@@ -476,17 +457,11 @@ val pb_px : t
 val pb_full : t
 (** [pb_full] sets 100% bottom padding. *)
 
-val pb_rem : float -> t
-(** [pb_rem f] sets custom bottom padding in rem units. *)
-
 val pl_px : t
 (** [pl_px] sets 1px left padding. *)
 
 val pl_full : t
 (** [pl_full] sets 100% left padding. *)
-
-val pl_rem : float -> t
-(** [pl_rem f] sets custom left padding in rem units. *)
 
 val m : int -> t
 (** [m n] sets margin (outer spacing) on all sides using Tailwind scale (n ×
@@ -515,104 +490,57 @@ val mb : int -> t
 val ml : int -> t
 (** [ml n] sets left margin. *)
 
-(** {2 Special margin variants} *)
+(** {2 Common margin utilities} *)
 
 val m_auto : t
 (** [m_auto] sets auto margins on all sides (centers if width is defined). *)
 
-val m_px : t
-(** [m_px] sets 1px margin on all sides. *)
-
-val m_full : t
-(** [m_full] sets 100% margin on all sides. *)
-
-val m_rem : float -> t
-(** [m_rem f] sets custom margin in rem units. *)
-
 val mx_auto : t
-(** [mx_auto] centers block elements horizontally. *)
-
-val mx_px : t
-(** [mx_px] sets 1px horizontal margin. *)
-
-val mx_full : t
-(** [mx_full] sets 100% horizontal margin. *)
-
-val mx_rem : float -> t
-(** [mx_rem f] sets custom horizontal margin in rem units. *)
+(** [mx_auto] centers block elements horizontally. Very commonly used. *)
 
 val my_auto : t
 (** [my_auto] sets auto vertical margins. *)
 
-val my_px : t
-(** [my_px] sets 1px vertical margin. *)
-
-val my_full : t
-(** [my_full] sets 100% vertical margin. *)
-
-val my_rem : float -> t
-(** [my_rem f] sets custom vertical margin in rem units. *)
-
 val mt_auto : t
-(** [mt_auto] sets auto top margin. *)
-
-val mt_px : t
-(** [mt_px] sets 1px top margin. *)
-
-val mt_full : t
-(** [mt_full] sets 100% top margin. *)
-
-val mt_rem : float -> t
-(** [mt_rem f] sets custom top margin in rem units. *)
+(** [mt_auto] pushes element to bottom by setting auto top margin. *)
 
 val mr_auto : t
-(** [mr_auto] sets auto right margin. *)
-
-val mr_px : t
-(** [mr_px] sets 1px right margin. *)
-
-val mr_full : t
-(** [mr_full] sets 100% right margin. *)
-
-val mr_rem : float -> t
-(** [mr_rem f] sets custom right margin in rem units. *)
+(** [mr_auto] pushes element to left by setting auto right margin. *)
 
 val mb_auto : t
-(** [mb_auto] sets auto bottom margin. *)
-
-val mb_px : t
-(** [mb_px] sets 1px bottom margin. *)
-
-val mb_full : t
-(** [mb_full] sets 100% bottom margin. *)
-
-val mb_rem : float -> t
-(** [mb_rem f] sets custom bottom margin in rem units. *)
+(** [mb_auto] pushes element to top by setting auto bottom margin. *)
 
 val ml_auto : t
-(** [ml_auto] sets auto left margin. *)
+(** [ml_auto] pushes element to right by setting auto left margin. *)
 
-val ml_px : t
-(** [ml_px] sets 1px left margin. *)
+val neg_mt : int -> t
+(** [neg_mt n] pulls element upward with negative margin using Tailwind scale.
+    Useful for overlapping elements or compensating for padding.
 
-val ml_full : t
-(** [ml_full] sets 100% left margin. *)
+    Example: [neg_mt 4] creates -1rem top margin. *)
 
-val ml_rem : float -> t
-(** [ml_rem f] sets custom left margin in rem units. *)
+val neg_mr : int -> t
+(** [neg_mr n] pulls element rightward with negative margin. *)
 
-val neg_mt : spacing -> t
-(** [neg_mt spacing] pulls element upward with negative margin. Useful for
-    overlapping elements or compensating for padding. *)
+val neg_mb : int -> t
+(** [neg_mb n] pulls element (and following content) upward. *)
 
-val neg_mr : spacing -> t
-(** [neg_mr spacing] pulls element rightward with negative margin. *)
+val neg_ml : int -> t
+(** [neg_ml n] pulls element leftward with negative margin. *)
 
-val neg_mb : spacing -> t
-(** [neg_mb spacing] pulls element (and following content) upward. *)
+(** {2 Special negative margin variants} *)
 
-val neg_ml : spacing -> t
-(** [neg_ml spacing] pulls element leftward with negative margin. *)
+val neg_mt_px : t
+(** [neg_mt_px] creates -1px top margin. *)
+
+val neg_mr_px : t
+(** [neg_mr_px] creates -1px right margin. *)
+
+val neg_mb_px : t
+(** [neg_mb_px] creates -1px bottom margin. *)
+
+val neg_ml_px : t
+(** [neg_ml_px] creates -1px left margin. *)
 
 val gap : int -> t
 (** [gap n] sets spacing between items in flex/grid containers using Tailwind
@@ -635,34 +563,13 @@ val gap_x : int -> t
 val gap_y : int -> t
 (** [gap_y n] sets only vertical gaps in flex/grid containers. *)
 
-(** {2 Special gap variants} *)
+(** {2 Special gap values} *)
 
 val gap_px : t
 (** [gap_px] sets 1px gap between items. *)
 
 val gap_full : t
 (** [gap_full] sets 100% gap between items. *)
-
-val gap_rem : float -> t
-(** [gap_rem f] sets custom gap in rem units. *)
-
-val gap_x_px : t
-(** [gap_x_px] sets 1px horizontal gap. *)
-
-val gap_x_full : t
-(** [gap_x_full] sets 100% horizontal gap. *)
-
-val gap_x_rem : float -> t
-(** [gap_x_rem f] sets custom horizontal gap in rem units. *)
-
-val gap_y_px : t
-(** [gap_y_px] sets 1px vertical gap. *)
-
-val gap_y_full : t
-(** [gap_y_full] sets 100% vertical gap. *)
-
-val gap_y_rem : float -> t
-(** [gap_y_rem f] sets custom vertical gap in rem units. *)
 
 (** {1 Sizing}
     @see <https://tailwindcss.com/docs/width> Width and Height *)
@@ -696,182 +603,64 @@ val max_w : int -> t
 val max_h : int -> t
 (** [max_h n] sets maximum height using Tailwind scale. *)
 
-(** {2 Special width variants} *)
-
-val w_px : t
-(** [w_px] sets 1px width. *)
+(** {2 Common size utilities} *)
 
 val w_full : t
-(** [w_full] sets 100% of parent width. *)
-
-val w_screen : t
-(** [w_screen] sets full viewport width. *)
-
-val w_min : t
-(** [w_min] shrinks to minimum content width. *)
-
-val w_max : t
-(** [w_max] expands to maximum content width. *)
-
-val w_fit : t
-(** [w_fit] uses fit-content sizing. *)
-
-val w_auto : t
-(** [w_auto] uses auto width (default). *)
-
-val w_rem : float -> t
-(** [w_rem f] sets custom width in rem units. *)
-
-(** {2 Special height variants} *)
-
-val h_px : t
-(** [h_px] sets 1px height. *)
+(** [w_full] sets 100% of parent width. Very commonly used. *)
 
 val h_full : t
-(** [h_full] sets 100% of parent height. *)
+(** [h_full] sets 100% of parent height. Very commonly used. *)
 
-val h_screen : t
-(** [h_screen] sets full viewport height (great for hero sections). *)
-
-val h_min : t
-(** [h_min] shrinks to minimum content height. *)
-
-val h_max : t
-(** [h_max] expands to maximum content height. *)
+val w_fit : t
+(** [w_fit] uses fit-content sizing. Common for buttons and chips. *)
 
 val h_fit : t
-(** [h_fit] uses fit-content sizing. *)
+(** [h_fit] uses fit-content sizing for height. *)
 
-val h_auto : t
-(** [h_auto] uses auto height (default). *)
+val w_screen : t
+(** [w_screen] sets width to full viewport width (100vw). *)
 
-val h_rem : float -> t
-(** [h_rem f] sets custom height in rem units. *)
+val h_screen : t
+(** [h_screen] sets height to full viewport height (100vh). *)
 
-(** {2 Special min-width variants} *)
+val w_min : t
+(** [w_min] sets width to min-content (minimum intrinsic size). *)
 
-val min_w_px : t
-(** [min_w_px] sets 1px minimum width. *)
+val h_min : t
+(** [h_min] sets height to min-content (minimum intrinsic size). *)
 
-val min_w_full : t
-(** [min_w_full] sets 100% minimum width. *)
+val w_max : t
+(** [w_max] sets width to max-content (maximum intrinsic size). *)
 
-val min_w_min : t
-(** [min_w_min] sets min-content minimum width. *)
-
-val min_w_max : t
-(** [min_w_max] sets max-content minimum width. *)
-
-val min_w_fit : t
-(** [min_w_fit] sets fit-content minimum width. *)
-
-val min_w_rem : float -> t
-(** [min_w_rem f] sets custom minimum width in rem units. *)
-
-(** {2 Special min-height variants} *)
-
-val min_h_px : t
-(** [min_h_px] sets 1px minimum height. *)
-
-val min_h_full : t
-(** [min_h_full] sets 100% minimum height. *)
+val h_max : t
+(** [h_max] sets height to max-content (maximum intrinsic size). *)
 
 val min_h_screen : t
-(** [min_h_screen] sets viewport minimum height. *)
+(** [min_h_screen] sets viewport minimum height. Common for hero sections. *)
 
-val min_h_min : t
-(** [min_h_min] sets min-content minimum height. *)
+val min_w_full : t
+(** [min_w_full] sets minimum width to 100% of parent. *)
 
-val min_h_max : t
-(** [min_h_max] sets max-content minimum height. *)
-
-val min_h_fit : t
-(** [min_h_fit] sets fit-content minimum height. *)
-
-val min_h_rem : float -> t
-(** [min_h_rem f] sets custom minimum height in rem units. *)
-
-(** {2 Special max-width variants} *)
-
-val max_w_px : t
-(** [max_w_px] sets 1px maximum width. *)
-
-val max_w_full : t
-(** [max_w_full] allows full width. *)
-
-val max_w_min : t
-(** [max_w_min] sets min-content maximum width. *)
-
-val max_w_max : t
-(** [max_w_max] sets max-content maximum width. *)
-
-val max_w_fit : t
-(** [max_w_fit] sets fit-content maximum width. *)
-
-val max_w_none : t
-(** [max_w_none] removes maximum width constraint. *)
-
-val max_w_xs : t
-(** [max_w_xs] sets 20rem maximum width. *)
-
-val max_w_sm : t
-(** [max_w_sm] sets 24rem maximum width. *)
-
-val max_w_md : t
-(** [max_w_md] sets 28rem maximum width - for cards and small containers. *)
-
-val max_w_lg : t
-(** [max_w_lg] sets 32rem maximum width. *)
-
-val max_w_xl : t
-(** [max_w_xl] sets 36rem maximum width. *)
+val min_h_full : t
+(** [min_h_full] sets minimum height to 100% of parent. *)
 
 val max_w_2xl : t
-(** [max_w_2xl] sets 42rem maximum width - optimal for article text. *)
+(** [max_w_2xl] sets 42rem maximum width. Common for article text. *)
 
 val max_w_3xl : t
-(** [max_w_3xl] sets 48rem maximum width. *)
+(** [max_w_3xl] sets 48rem maximum width. Common for content sections. *)
 
 val max_w_4xl : t
-(** [max_w_4xl] sets 56rem maximum width - for wider content sections. *)
+(** [max_w_4xl] sets 56rem maximum width. Common for content sections. *)
 
-val max_w_5xl : t
-(** [max_w_5xl] sets 64rem maximum width. *)
+val max_w_none : t
+(** [max_w_none] removes the maximum width constraint. *)
 
-val max_w_6xl : t
-(** [max_w_6xl] sets 72rem maximum width. *)
-
-val max_w_7xl : t
-(** [max_w_7xl] sets 80rem maximum width. *)
-
-val max_w_rem : float -> t
-(** [max_w_rem f] sets custom maximum width in rem units. *)
-
-(** {2 Special max-height variants} *)
-
-val max_h_px : t
-(** [max_h_px] sets 1px maximum height. *)
+val max_w_full : t
+(** [max_w_full] sets maximum width to 100% of parent. *)
 
 val max_h_full : t
-(** [max_h_full] allows full height. *)
-
-val max_h_screen : t
-(** [max_h_screen] sets viewport maximum height. *)
-
-val max_h_min : t
-(** [max_h_min] sets min-content maximum height. *)
-
-val max_h_max : t
-(** [max_h_max] sets max-content maximum height. *)
-
-val max_h_fit : t
-(** [max_h_fit] sets fit-content maximum height. *)
-
-val max_h_none : t
-(** [max_h_none] removes maximum height constraint. *)
-
-val max_h_rem : float -> t
-(** [max_h_rem f] sets custom maximum height in rem units. *)
+(** [max_h_full] sets maximum height to 100% of parent. *)
 
 (** {1 Layout}
     @see <https://tailwindcss.com/docs/display> Display
@@ -895,9 +684,7 @@ val flex : t
 
     Example:
     {[
-      div
-        ~tw:[ flex; items_center; gap (int 4) ]
-        [ icon; span [ txt "Dashboard" ] ]
+      div ~tw:[ flex; items_center; gap 4 ] [ icon; span [ txt "Dashboard" ] ]
     ]} *)
 
 val inline_flex : t
@@ -1029,7 +816,7 @@ val grid_cols : int -> t
     {[
       (* 3-column card layout *)
       div
-        ~tw:[ grid; grid_cols 3; gap (int 4) ]
+        ~tw:[ grid; grid_cols 3; gap 4 ]
         [
           card1;
           card2;
@@ -1257,28 +1044,38 @@ val antialiased : t
 (** Enables antialiased font smoothing for better text rendering. This is
     usually the default but can be explicitly set. *)
 
-type width = [ size | `Default ]
-(** Width options for borders and rings:
-    - [`None]: 0px
-    - [`Xs]: 1px
-    - [`Sm]: 2px
-    - [`Default] or [`Md]: 3px (default for rings), 1px (default for borders)
-    - [`Lg]: 4px
-    - [`Xl]: 8px *)
-
 (** {1 Borders}
     @see <https://tailwindcss.com/docs/border-width> Borders *)
 
-val border : width -> t
-(** [border width] sets border width on all sides. Default is 1px when using
-    [`Default].
+val border : t
+(** Default border (1px). Same as {!border_xs}. *)
 
-    The border color defaults to the current text color. To set a specific
-    color:
-    - Use [border_color]: [border `Default; border_color ~shade:200 gray]
-    - Use [border_current] to explicitly use text color:
-      [text blue; border `Default; border_current]
-    - Use [border_transparent] for invisible borders that preserve spacing. *)
+val border_none : t
+(** No border (0px). *)
+
+val border_xs : t
+(** Extra small border (1px). Same as {!border}. *)
+
+val border_sm : t
+(** Small border (2px). *)
+
+val border_md : t
+(** Medium border (4px). *)
+
+val border_lg : t
+(** Large border (4px). *)
+
+val border_xl : t
+(** Extra large border (8px). *)
+
+val border_2xl : t
+(** 2x large border (8px). *)
+
+val border_3xl : t
+(** 3x large border (8px). *)
+
+val border_full : t
+(** Full border (8px). *)
 
 val border_t : t
 (** Top border (1px). *)
@@ -1292,15 +1089,32 @@ val border_b : t
 val border_l : t
 (** Left border (1px). *)
 
-val rounded : size -> t
-(** [rounded size] sets corner roundness.
+val rounded_none : t
+(** Sharp corners (0px). *)
 
-    Common values:
-    - [rounded none]: Sharp corners (0px)
-    - [rounded sm]: Subtle rounding (2px)
-    - [rounded md]: Medium rounding (6px)
-    - [rounded lg]: Noticeably rounded (8px)
-    - [rounded full]: Fully rounded (9999px) - makes circles/pills. *)
+val rounded_sm : t
+(** Subtle rounding (2px). *)
+
+val rounded : t
+(** Default rounding (4px). Same as {!rounded_md}. *)
+
+val rounded_md : t
+(** Medium rounding (6px). *)
+
+val rounded_lg : t
+(** Noticeably rounded (8px). *)
+
+val rounded_xl : t
+(** Extra rounded (12px). *)
+
+val rounded_2xl : t
+(** 2x rounded (16px). *)
+
+val rounded_3xl : t
+(** 3x rounded (24px). *)
+
+val rounded_full : t
+(** Fully rounded (9999px) - makes circles/pills. *)
 
 val border_collapse : t
 (** Collapse table borders. *)
@@ -1316,15 +1130,29 @@ val border_spacing : int -> t
     @see <https://tailwindcss.com/docs/blur> Filters
     @see <https://tailwindcss.com/docs/backdrop-blur> Backdrop Filters *)
 
-val shadow : shadow -> t
-(** [shadow s] adds drop shadow for depth and elevation.
+val shadow_none : t
+(** Remove shadow. *)
 
-    Common values:
-    - [shadow sm]: Subtle shadow for cards
-    - [shadow md]: Default shadow for raised elements
-    - [shadow lg]: Strong shadow for modals, dropdowns
-    - [shadow none]: Remove shadow
-    - [shadow inner]: Inset shadow for pressed/sunken effect. *)
+val shadow_sm : t
+(** Subtle shadow for cards. *)
+
+val shadow : t
+(** Default shadow. Same as {!shadow_md}. *)
+
+val shadow_md : t
+(** Medium shadow. Same as {!shadow}. *)
+
+val shadow_lg : t
+(** Large shadow for modals, dropdowns. *)
+
+val shadow_xl : t
+(** Extra large shadow. *)
+
+val shadow_2xl : t
+(** 2x large shadow. *)
+
+val shadow_inner : t
+(** Inset shadow for pressed/sunken effect. *)
 
 val opacity : int -> t
 (** [opacity n] controls transparency (0-100).
@@ -1335,17 +1163,35 @@ val opacity : int -> t
 val outline_none : t
 (** Remove outline. *)
 
-val ring : width -> t
-(** [ring width] adds an outline ring of the specified width. Rings use
-    box-shadow and don't affect layout.
+val ring_none : t
+(** Remove ring. *)
 
-    By default, rings are blue with 50% opacity. To customize:
-    - Use [ring_color] to change color: [ring `Sm; ring_color ~shade:500 purple]
-    - Rings are often used for focus states: [on_focus [ ring `Md ]]
+val ring_xs : t
+(** Extra small ring (1px). *)
+
+val ring_sm : t
+(** Small ring (2px). *)
+
+val ring : t
+(** Default ring (3px). Same as {!ring_md}. *)
+
+val ring_md : t
+(** Medium ring (3px). Same as {!ring}. *)
+
+val ring_lg : t
+(** Large ring (4px). *)
+
+val ring_xl : t
+(** Extra large ring (8px). *)
+
+(** Rings use box-shadow and don't affect layout. By default, rings are blue
+    with 50% opacity. To customize:
+    - Use [ring_color] to change color: [ring_sm; ring_color purple 500]
+    - Rings are often used for focus states: [on_focus [ ring ]]
     - Unlike borders, rings don't take up space in the layout. *)
 
-val ring_color : ?shade:int -> color -> t
-(** [ring_color ?shade color] sets the color of outline rings. *)
+val ring_color : color -> int -> t
+(** [ring_color color shade] sets the color of outline rings. *)
 
 val isolate : t
 (** Creates a new stacking context to isolate z-index behavior. Useful to
@@ -1357,8 +1203,32 @@ val brightness : int -> t
 val contrast : int -> t
 (** [contrast n] sets contrast filter (0-200, where 100 is normal). *)
 
-val blur : size -> t
-(** [blur size] sets the blur filter. *)
+val blur_none : t
+(** No blur. *)
+
+val blur_xs : t
+(** Extra small blur (2px). *)
+
+val blur_sm : t
+(** Small blur (4px). *)
+
+val blur : t
+(** Default blur (8px). Same as {!blur_md}. *)
+
+val blur_md : t
+(** Medium blur (12px). *)
+
+val blur_lg : t
+(** Large blur (16px). *)
+
+val blur_xl : t
+(** Extra large blur (24px). *)
+
+val blur_2xl : t
+(** 2x large blur (40px). *)
+
+val blur_3xl : t
+(** 3x large blur (64px). *)
 
 val grayscale : int -> t
 (** [grayscale n] sets the grayscale filter (0-100). *)
@@ -1404,8 +1274,32 @@ val backdrop_saturate : int -> t
 (** [backdrop_saturate n] sets backdrop saturation filter (0-200, where 100 is
     normal). *)
 
-val backdrop_blur : size -> t
-(** [backdrop_blur size] applies blur filter to content behind element. *)
+val backdrop_blur_none : t
+(** No backdrop blur. *)
+
+val backdrop_blur_xs : t
+(** Extra small backdrop blur (2px). *)
+
+val backdrop_blur_sm : t
+(** Small backdrop blur (4px). *)
+
+val backdrop_blur : t
+(** Default backdrop blur (8px). Same as {!backdrop_blur_md}. *)
+
+val backdrop_blur_md : t
+(** Medium backdrop blur (12px). *)
+
+val backdrop_blur_lg : t
+(** Large backdrop blur (16px). *)
+
+val backdrop_blur_xl : t
+(** Extra large backdrop blur (24px). *)
+
+val backdrop_blur_2xl : t
+(** 2x large backdrop blur (40px). *)
+
+val backdrop_blur_3xl : t
+(** 3x large backdrop blur (64px). *)
 
 (** {1 Transitions & Animations}
     @see <https://tailwindcss.com/docs/animation> Animations *)
@@ -1780,17 +1674,12 @@ val focus_visible : t
 (** Shows focus ring only for keyboard navigation, not mouse clicks. This
     provides better UX by showing focus indicators only when needed. *)
 
-val active : t -> t
-(** [active style] applies style on active state. *)
-
 val on_active : t list -> t
-(** [on_active styles] applies multiple styles on active state. *)
-
-val disabled : t -> t
-(** [disabled style] applies style when disabled. *)
+(** [on_active styles] applies styles when the element is being actively
+    interacted with (e.g., button being pressed). *)
 
 val on_disabled : t list -> t
-(** [on_disabled styles] applies multiple styles when disabled. *)
+(** [on_disabled styles] applies styles when the element is disabled. *)
 
 val on_group_hover : t list -> t
 (** [on_group_hover styles] applies styles to this element when its parent with
@@ -1804,11 +1693,10 @@ val on_group_focus : t list -> t
     the [group] class is focused. The parent must have the [group] class for
     this to work. *)
 
-val dark : t -> t
-(** [dark style] applies style in dark mode. *)
-
 val on_dark : t list -> t
-(** [on_dark styles] applies multiple styles in dark mode. *)
+(** [on_dark styles] applies styles when dark mode is enabled. Dark mode is
+    typically controlled by a [dark] class on the HTML element or by system
+    preferences. *)
 
 val on_sm : t list -> t
 (** [on_sm styles] applies styles on small screens and up (640px+).
@@ -1878,33 +1766,17 @@ val on_peer_focus : t list -> t
 (** [on_peer_focus styles] applies styles when a sibling peer element is
     focused. *)
 
-val peer_checked : t -> t
-(** [peer_checked style] applies style when a sibling peer checkbox/radio is
-    checked. *)
-
 val on_peer_checked : t list -> t
 (** [on_peer_checked styles] applies multiple styles when a sibling peer
     checkbox/radio is checked. *)
-
-val aria_checked : t -> t
-(** [aria_checked style] applies style when aria-checked="true". Useful for
-    custom checkbox/radio styling with proper accessibility. *)
 
 val on_aria_checked : t list -> t
 (** [on_aria_checked styles] applies multiple styles when aria-checked="true".
 *)
 
-val aria_expanded : t -> t
-(** [aria_expanded style] applies style when aria-expanded="true". Common for
-    accordions, dropdowns, and collapsible sections. *)
-
 val on_aria_expanded : t list -> t
 (** [on_aria_expanded styles] applies multiple styles when aria-expanded="true".
 *)
-
-val aria_selected : t -> t
-(** [aria_selected style] applies style when aria-selected="true". Used in
-    custom select menus, tabs, and list selections. *)
 
 val on_aria_selected : t list -> t
 (** [on_aria_selected styles] applies multiple styles when aria-selected="true".
@@ -2027,7 +1899,7 @@ val of_string : string -> (t, [ `Msg of string ]) result
 
     Example:
     {[
-      of_string "bg-blue-500" = Ok (bg ~shade:500 blue)
+      of_string "bg-blue-500" = Ok (bg_blue)
       of_string "p-4" = Ok (p (int 4))
       of_string "text-center" = Ok text_center
       of_string "unknown-class" = Error (`Msg "Unknown class: unknown-class")
@@ -2063,8 +1935,7 @@ val to_inline_style : t list -> string
     {[
       (* Create inline styles *)
       let inline_styles =
-        to_inline_style
-          [ bg ~shade:100 blue; p (int 4); rounded md; text white ]
+        to_inline_style [ bg blue 100; p 4; rounded_md; text_white ]
       in
 
       (* Use in HTML *)
@@ -2156,34 +2027,4 @@ val clip_path : string -> t
             h (int 6);
           ]
         []
-    ]} *)
-
-(** {1 HTML Integration} *)
-
-(** HTML generation with integrated Tailwind CSS support.
-
-    This module provides type-safe HTML generation with seamless integration of
-    Tailwind CSS classes. It automatically collects all Tailwind classes used in
-    your HTML tree and can generate the required CSS.
-
-    {b Example:}
-    {[
-      open Tw.Html
-
-      let card =
-        div
-          ~tw:[ bg white; rounded lg; shadow md; p (int 6) ]
-          [
-            h2 ~tw:[ text xl; font_bold; mb (int 4) ] [ txt "Card Title" ];
-            p ~tw:[ text gray ~shade:600 ] [ txt "Card content goes here." ];
-            a
-              ~at:[ At.href "#" ]
-              ~tw:[ text blue ~shade:500; on_hover [ underline ] ]
-              [ txt "Learn more" ];
-          ]
-
-      (* Generate complete page with CSS *)
-      let html, css =
-        page ~title:"My Page" []
-          [ div ~tw:[ container; mx auto; py (int 8) ] [ card ] ]
     ]} *)

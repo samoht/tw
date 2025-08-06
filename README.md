@@ -1,16 +1,23 @@
-# tw - Type-Safe CSS Generation for OCaml
+# tw - OCaml DSL for Utility-First CSS
 
-`tw` is a CSS generation library and command-line tool for OCaml,
-inspired by [Tailwind CSS](https://tailwindcss.com/).
-It provides a type-safe DSL for utility-first CSS with minimal runtime overhead,
-working seamlessly on both server-side and client-side with the same code.
+`tw` is a pure OCaml implementation of utility-first CSS, using the same
+class names as Tailwind CSS but with compile-time type safety. Write
+styles like `bg blue`, `p 4`, and `on_hover [bg ~shade:700 blue]`
+instead of strings. The companion `tw.html` library provides type-safe
+HTML generation with integrated CSS, working seamlessly on both
+server-side and client-side.
 
 ## Features
 
-- Type-safe CSS generation with compile-time guarantees
-- Command-line tool for extracting classes from source files
+For (OCaml) library users:
+
+- Type-safe HTML+CSS generation with compile-time guarantees
 - Responsive modifiers, pseudo-classes, and typography utilities
 - Works seamlessly with js_of_ocaml for dynamic client-side styling
+
+For (non-OCaml) CLI users:
+
+- Command-line tool for extracting classes from source files
 - Test utilities for comparing output with real Tailwind CSS
 
 ## Installation
@@ -38,6 +45,17 @@ Options:
 
 ## Library Usage
 
+### Key Differences from Tailwind CSS
+
+While `tw` uses the same class names as Tailwind CSS, it has some
+important differences:
+
+1. **Type-safe API**: Instead of strings, `tw` uses OCaml functions
+2. **Simplified spacing**: Functions like `p`, `mx`, `gap` accept
+   integers directly (e.g., `p 4` instead of `p-4`)
+3. **Pure OCaml**: No JavaScript, PostCSS, or Node.js dependencies
+4. **Compile-time guarantees**: Invalid classes are caught at compile time
+
 ### Basic Example
 
 ```ocaml
@@ -46,9 +64,17 @@ open Tw
 let button_styles = [
   bg ~shade:500 blue;
   text white;
-  px 4;
-  py 2;
+  px 4;        (* Generates "px-4" = 1rem horizontal padding *)
+  py 2;        (* Generates "py-2" = 0.5rem vertical padding *)
   rounded md;
+]
+
+(* Special variants for non-numeric values *)
+let special_styles = [
+  m_auto;      (* margin: auto *)
+  w_full;      (* width: 100% *)
+  h_screen;    (* height: 100vh *)
+  gap_px;      (* gap: 1px *)
 ]
 
 (* Convert to CSS *)
@@ -101,9 +127,9 @@ let update_theme dark_mode =
 ## HTML Generation with tw.html
 
 The `tw.html` library provides type-safe HTML generation with
-integrated Tailwind CSS support. It automatically collects all
-Tailwind classes used in your HTML tree and can generate the required
-CSS.
+integrated CSS support using `tw` classes. It automatically collects
+all `tw` utility classes used in your HTML tree and generates the
+required CSS.
 
 ### Complete Page Generation
 
@@ -138,7 +164,7 @@ let my_page =
                 txt "Article Title"
               ];
               p ~tw:Tw.[text ~shade:600 gray; leading_relaxed] [
-                txt "This article demonstrates how tw.html automatically collects all Tailwind classes and generates the corresponding CSS."
+                txt "This article demonstrates how tw.html automatically collects all utility classes and generates the corresponding CSS."
               ]
             ];
 
@@ -154,7 +180,7 @@ let my_page =
 
         footer ~tw:Tw.[mt 12; pt 6; border_t; text_center] [
           p ~tw:Tw.[text ~shade:500 gray] [
-            txt "© 2024 My Site. Built with OCaml and Tailwind CSS."
+            txt "© 2024 My Site. Built with OCaml and tw.html."
           ]
         ]
       ]
@@ -215,7 +241,7 @@ let my_component =
 
 ### Key Features
 
-- **Automatic CSS Generation**: All Tailwind classes are automatically
+- **Automatic CSS Generation**: All `tw` utility classes are automatically
     collected and CSS is generated
 - **Type Safety**: Full OCaml type checking for HTML structure and
     attributes
@@ -239,24 +265,48 @@ dune exec examples/simple_page.exe
 # Generates simple_page.html and simple.css in current directory
 ```
 
-## API
+## API Reference
+
+### Core Functions
 
 The main module provides:
-- `Tw.of_string : string -> (Tw.t, string) result` - Parse a Tailwind class string
+- `Tw.of_string : string -> (Tw.t, string) result` - Parse utility class strings (e.g., "p-4", "bg-blue-500")
 - `Tw.to_css : ?reset:bool -> Tw.t list -> Tw.Css.stylesheet` - Generate CSS from styles
 - `Tw.Css.to_string : ?minify:bool -> Tw.Css.stylesheet -> string` - Serialize CSS
 
-See the [API documentation](https://ocaml.org/p/tw/latest/doc/index.html) for details.
+### Spacing Functions
+
+All spacing functions accept integers (which map to rem values):
+- `p`, `px`, `py`, `pt`, `pr`, `pb`, `pl` - Padding (e.g., `p 4` = 1rem)
+- `m`, `mx`, `my`, `mt`, `mr`, `mb`, `ml` - Margin (e.g., `m 2` = 0.5rem)
+- `gap`, `gap_x`, `gap_y` - Gap for flexbox/grid
+
+Special variants:
+- `*_auto` - Auto margins (e.g., `mx_auto` for centering)
+- `*_px` - 1px values (e.g., `p_px`, `gap_px`)
+- `*_full` - 100% values (e.g., `w_full`, `h_full`)
+
+### Size Functions
+
+Width and height functions also accept integers:
+- `w`, `h` - Width/height (e.g., `w 64` = 16rem)
+- `min_w`, `min_h`, `max_w`, `max_h` - Min/max dimensions
+
+See the [API documentation](https://ocaml.org/p/tw/latest/doc/index.html) for the complete reference.
 
 ## Acknowledgments
 
+### Tailwind CSS Inspiration
+
 This project is inspired by [Tailwind CSS](https://tailwindcss.com/),
-a utility-first CSS framework. Tailwind CSS is licensed under the [MIT
-License](https://github.com/tailwindlabs/tailwindcss/blob/master/LICENSE).
+a utility-first CSS framework. While `tw` uses the same class names
+and utility-first approach, it is a completely separate OCaml
+implementation, not a wrapper or binding. Tailwind CSS is licensed
+under the [MIT License](https://github.com/tailwindlabs/tailwindcss/blob/master/LICENSE).
 
 Please consider [supporting the original Tailwind CSS
-project](https://tailwindcss.com/sponsor) or purchasing [Tailwind
-Plus](https://tailwindcss.com/plus).
+project](https://tailwindcss.com/sponsor) if you find the utility-first
+approach valuable.
 
 The HTML generation module includes a minimal implementation adapted
 from [htmlit](https://github.com/dbuenzli/htmlit) by Daniel

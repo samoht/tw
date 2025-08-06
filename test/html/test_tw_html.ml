@@ -9,7 +9,7 @@ let test_txt () =
   check string "text content" "Hello World" html_str
 
 let test_element_creation () =
-  let div = div ~tw:Tw.[ p 4; bg white ] [ txt "Content" ] in
+  let div = div ~tw:Tw.[ p 4; bg_white ] [ txt "Content" ] in
   let html_str = to_string div in
 
   check bool "is div element" true
@@ -23,7 +23,7 @@ let test_attributes () =
   let link =
     a
       ~at:[ At.href "/about"; At.title "About page" ]
-      ~tw:Tw.[ text ~shade:600 blue; on_hover [ underline ] ]
+      ~tw:Tw.[ text blue 600; on_hover [ underline ] ]
       [ txt "About" ]
   in
   let html_str = to_string link in
@@ -63,7 +63,7 @@ let test_nesting () =
 let test_to_tw () =
   let elem =
     div
-      ~tw:Tw.[ p 4; bg white; text ~shade:900 gray; rounded lg ]
+      ~tw:Tw.[ p 4; bg_white; text gray 900; rounded_lg ]
       [ span ~tw:Tw.[ font_bold ] [ txt "Text" ] ]
   in
 
