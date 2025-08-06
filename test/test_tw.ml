@@ -204,20 +204,20 @@ let spacing_test_styles =
 let color_test_styles =
   [
     (* Color classes - all variants *)
-    bg white;
-    bg black;
+    bg_white;
+    bg_black;
     bg_transparent;
     bg_current;
-    text ~shade:900 gray;
+    text gray 900;
     text_transparent;
     text_current;
-    border_color ~shade:200 gray;
+    border_color gray 200;
     border_transparent;
     border_current;
-    bg ~shade:500 gray;
-    bg ~shade:600 sky;
-    text ~shade:400 yellow;
-    border_color ~shade:600 teal;
+    bg gray 500;
+    bg sky 600;
+    text yellow 400;
+    border_color teal 600;
   ]
 
 let display_test_styles =
@@ -241,21 +241,15 @@ let sizing_test_styles =
     w 96;
     w_fit;
     w_full;
-    min_w_min;
-    min_w_max;
+    min_w_full;
+    w_max;
     h 0;
     h 8;
     h_fit;
     h_full;
     min_w 0;
     min_w_full;
-    max_w_xs;
-    max_w_sm;
-    max_w_md;
-    max_w_lg;
-    max_w_xl;
     max_w_2xl;
-    max_w_7xl;
     max_w_full;
     max_w_none;
   ]
@@ -357,27 +351,27 @@ let responsive_test_styles =
     on_lg [ fixed ];
     on_xl [ sticky ];
     (* Colors *)
-    on_sm [ bg white ];
-    on_sm [ text black ];
-    on_md [ bg ~shade:100 gray ];
-    on_md [ text ~shade:700 blue ];
-    on_lg [ bg ~shade:500 sky ];
-    on_lg [ border_color ~shade:300 gray ];
-    on_xl [ bg black ];
-    on_xl [ text white ];
+    on_sm [ bg_white ];
+    on_sm [ text_black ];
+    on_md [ bg gray 100 ];
+    on_md [ text blue 700 ];
+    on_lg [ bg sky 500 ];
+    on_lg [ border_color gray 300 ];
+    on_xl [ bg_black ];
+    on_xl [ text_white ];
     (* Borders *)
-    on_sm [ border `Default ];
-    on_sm [ rounded md ];
-    on_md [ border `Lg ];
-    on_md [ rounded lg ];
+    on_sm [ border_xs ];
+    on_sm [ rounded_md ];
+    on_md [ border_lg ];
+    on_md [ rounded_lg ];
     on_lg [ border_t ];
-    on_lg [ rounded full ];
-    on_xl [ border `None ];
+    on_lg [ rounded_full ];
+    on_xl [ border_none ];
     (* Effects *)
-    on_sm [ shadow sm ];
-    on_md [ shadow md ];
-    on_lg [ shadow lg ];
-    on_xl [ shadow none ];
+    on_sm [ shadow_sm ];
+    on_md [ shadow_md ];
+    on_lg [ shadow_lg ];
+    on_xl [ shadow_none ];
     on_sm [ opacity 75 ];
     on_md [ opacity 100 ];
     (* Overflow *)
@@ -391,62 +385,62 @@ let states_test_styles =
   [
     (* States - comprehensive coverage *)
     (* Hover states *)
-    on_hover [ bg white ];
-    on_hover [ text ~shade:700 blue ];
-    on_hover [ border_color ~shade:400 gray ];
-    on_hover [ shadow lg ];
+    on_hover [ bg_white ];
+    on_hover [ text blue 700 ];
+    on_hover [ border_color gray 400 ];
+    on_hover [ shadow_lg ];
     on_hover [ opacity 80 ];
     on_hover [ scale 105 ];
     on_hover [ translate_y (-1) ];
     (* Focus states *)
-    on_focus [ bg ~shade:500 sky ];
+    on_focus [ bg sky 500 ];
     on_focus [ outline_none ];
-    on_focus [ ring `Lg ];
-    on_focus [ ring_color ~shade:400 blue ];
-    on_focus [ border_color ~shade:500 blue ];
-    on_focus [ shadow md ];
+    on_focus [ ring_lg ];
+    on_focus [ ring_color blue 400 ];
+    on_focus [ border_color blue 500 ];
+    on_focus [ shadow_md ];
     (* Active states *)
-    on_active [ text ~shade:900 gray ];
-    on_active [ bg ~shade:200 gray ];
+    on_active [ text gray 900 ];
+    on_active [ bg gray 200 ];
     on_active [ scale 95 ];
-    on_active [ shadow sm ];
+    on_active [ shadow_sm ];
     (* Disabled states *)
     on_disabled [ opacity 50 ];
     on_disabled [ cursor_not_allowed ];
-    on_disabled [ bg ~shade:100 gray ];
-    on_disabled [ text ~shade:400 gray ];
+    on_disabled [ bg gray 100 ];
+    on_disabled [ text gray 400 ];
     (* Group states *)
-    on_group_hover [ bg ~shade:100 blue ];
-    on_group_hover [ text ~shade:700 blue ];
-    on_group_focus [ ring `Md ];
+    on_group_hover [ bg blue 100 ];
+    on_group_hover [ text blue 700 ];
+    on_group_focus [ ring ];
     (* Peer states *)
-    on_peer_hover [ text ~shade:600 green ];
-    on_peer_focus [ bg ~shade:50 green ];
-    on_peer_checked [ text ~shade:700 green ];
+    on_peer_hover [ text green 600 ];
+    on_peer_focus [ bg green 50 ];
+    on_peer_checked [ text green 700 ];
     (* ARIA states *)
     on_aria_expanded [ rotate 180 ];
-    on_aria_selected [ bg ~shade:100 blue ];
-    on_aria_checked [ bg ~shade:500 green ];
+    on_aria_selected [ bg blue 100 ];
+    on_aria_checked [ bg green 500 ];
     on_aria_disabled [ opacity 40 ];
     (* Data attribute states *)
-    on_data_active [ bg ~shade:200 blue ];
-    on_data_inactive [ bg ~shade:50 gray ];
+    on_data_active [ bg blue 200 ];
+    on_data_inactive [ bg gray 50 ];
   ]
 
 let borders_test_styles =
   [
     (* Borders - comprehensive *)
-    rounded none;
-    rounded sm;
-    rounded md;
-    rounded lg;
-    rounded xl;
-    rounded full;
-    border `Default;
-    border `None;
-    border `Sm;
-    border `Lg;
-    border `Xl;
+    rounded_none;
+    rounded_sm;
+    rounded_md;
+    rounded_lg;
+    rounded_xl;
+    rounded_full;
+    border_xs;
+    border_none;
+    border_sm;
+    border_lg;
+    border_xl;
     border_t;
     border_r;
     border_b;
@@ -456,12 +450,12 @@ let borders_test_styles =
 let shadows_test_styles =
   [
     (* Shadows *)
-    shadow sm;
-    shadow md;
-    shadow lg;
-    shadow xl;
-    shadow none;
-    shadow inner;
+    shadow_sm;
+    shadow_md;
+    shadow_lg;
+    shadow_xl;
+    shadow_none;
+    shadow_inner;
   ]
 
 let prose_test_styles =
@@ -582,26 +576,27 @@ let misc_test_styles =
 let extended_colors_test_styles =
   [
     (* Extended colors - all 10 new colors *)
-    bg ~shade:50 slate;
-    bg ~shade:500 zinc;
-    bg ~shade:900 orange;
-    text ~shade:100 amber;
-    text ~shade:600 lime;
-    border_color ~shade:300 emerald;
-    border_color ~shade:700 cyan;
-    bg ~shade:400 violet;
-    text ~shade:800 fuchsia;
-    bg ~shade:200 rose;
+    bg slate 50;
+    bg zinc 500;
+    bg orange 900;
+    text amber 100;
+    text lime 600;
+    border_color emerald 300;
+    border_color cyan 700;
+    bg violet 400;
+    text fuchsia 800;
+    bg rose 200;
+    bg sky 500;
   ]
 
 let filter_test_styles =
   [
     (* Filters *)
-    blur sm;
-    blur md;
-    blur lg;
-    blur xl;
-    blur none;
+    blur_sm;
+    blur_md;
+    blur_lg;
+    blur_xl;
+    blur_none;
     brightness 50;
     brightness 100;
     brightness 150;
@@ -620,9 +615,9 @@ let filter_test_styles =
     hue_rotate 0;
     hue_rotate 180;
     (* Backdrop filters *)
-    backdrop_blur sm;
-    backdrop_blur md;
-    backdrop_blur lg;
+    backdrop_blur_sm;
+    backdrop_blur_md;
+    backdrop_blur_lg;
     backdrop_brightness 50;
     backdrop_brightness 100;
     backdrop_contrast 125;
@@ -675,10 +670,10 @@ let gradient_test_styles =
     bg_gradient_to_bl;
     bg_gradient_to_l;
     bg_gradient_to_tl;
-    from_color ~shade:100 blue;
-    from_color ~shade:500 purple;
-    to_color ~shade:500 pink;
-    to_color ~shade:900 red;
+    from_color blue 100;
+    from_color purple 500;
+    to_color pink 500;
+    to_color red 900;
   ]
 
 let special_test_styles =
@@ -808,14 +803,14 @@ let test_tailwind_basic_spacing () =
   check (ml 6)
 
 let test_tailwind_color_classes () =
-  check (bg white);
-  check (text ~shade:900 gray);
+  check bg_white;
+  check (text gray 900);
   (* Using consistent API: border should work like bg and text *)
-  check (border_color ~shade:200 gray);
-  check (bg ~shade:500 gray);
-  check (bg ~shade:600 sky);
-  check (text ~shade:400 yellow);
-  check (border_color ~shade:600 teal)
+  check (border_color gray 200);
+  check (bg gray 500);
+  check (bg sky 600);
+  check (text yellow 400);
+  check (border_color teal 600)
 
 let test_tailwind_display_classes () =
   check block;
@@ -856,23 +851,23 @@ let test_tailwind_responsive () =
   check (on_md [ m 6 ])
 
 let test_tailwind_states () =
-  check (on_hover [ bg white ]);
-  check (on_focus [ bg ~shade:500 sky ]);
-  check (on_active [ text ~shade:900 gray ])
+  check (on_hover [ bg_white ]);
+  check (on_focus [ bg sky 500 ]);
+  check (on_active [ text gray 900 ])
 
 let test_tailwind_borders () =
-  check (rounded md);
-  check (rounded lg);
-  check (rounded full);
-  check (border `Default);
-  check (border `Sm);
-  check (border `Lg)
+  check rounded_md;
+  check rounded_lg;
+  check rounded_full;
+  check border_xs;
+  check border_sm;
+  check border_lg
 
 let test_tailwind_shadows () =
-  check (shadow sm);
-  check (shadow md);
-  check (shadow lg);
-  check (shadow none)
+  check shadow_sm;
+  check shadow_md;
+  check shadow_lg;
+  check shadow_none
 
 let test_tailwind_prose () =
   check prose;
@@ -901,7 +896,7 @@ let test_tailwind_responsive_breakpoints () =
   check (on_xl [ hidden ]);
   check (on_sm [ text_lg ]);
   check (on_md [ p 8 ]);
-  check (on_lg [ bg ~shade:500 sky ])
+  check (on_lg [ bg sky 500 ])
 
 let test_tailwind_layout () =
   check relative;
@@ -928,16 +923,16 @@ let string_contains_substring haystack needle =
 (** Test extended color palette *)
 let test_extended_color_palette () =
   (* Test all new colors with various shades *)
-  check (bg ~shade:50 slate);
-  check (bg ~shade:500 zinc);
-  check (bg ~shade:900 orange);
-  check (text ~shade:100 amber);
-  check (text ~shade:600 lime);
-  check (border_color ~shade:300 emerald);
-  check (border_color ~shade:700 cyan);
-  check (bg ~shade:400 violet);
-  check (text ~shade:800 fuchsia);
-  check (bg ~shade:200 rose)
+  check (bg slate 50);
+  check (bg zinc 500);
+  check (bg orange 900);
+  check (text amber 100);
+  check (text lime 600);
+  check (border_color emerald 300);
+  check (border_color cyan 700);
+  check (bg violet 400);
+  check (text fuchsia 800);
+  check (bg rose 200)
 
 (** Test class name generation for extended colors *)
 let test_extended_color_class_names () =
@@ -946,16 +941,16 @@ let test_extended_color_class_names () =
     Alcotest.check string ("class name for " ^ expected) expected actual
   in
 
-  test_class_name (bg ~shade:500 slate) "bg-slate-500";
-  test_class_name (text ~shade:600 zinc) "text-zinc-600";
-  test_class_name (border_color ~shade:300 orange) "border-orange-300";
-  test_class_name (bg ~shade:700 amber) "bg-amber-700";
-  test_class_name (text ~shade:200 lime) "text-lime-200";
-  test_class_name (border_color ~shade:800 emerald) "border-emerald-800";
-  test_class_name (bg ~shade:100 cyan) "bg-cyan-100";
-  test_class_name (text ~shade:900 violet) "text-violet-900";
-  test_class_name (border_color ~shade:400 fuchsia) "border-fuchsia-400";
-  test_class_name (bg ~shade:50 rose) "bg-rose-50"
+  test_class_name (bg slate 500) "bg-slate-500";
+  test_class_name (text zinc 600) "text-zinc-600";
+  test_class_name (border_color orange 300) "border-orange-300";
+  test_class_name (bg amber 700) "bg-amber-700";
+  test_class_name (text lime 200) "text-lime-200";
+  test_class_name (border_color emerald 800) "border-emerald-800";
+  test_class_name (bg cyan 100) "bg-cyan-100";
+  test_class_name (text violet 900) "text-violet-900";
+  test_class_name (border_color fuchsia 400) "border-fuchsia-400";
+  test_class_name (bg rose 50) "bg-rose-50"
 
 (** Test Black and White colors don't include shades in class names *)
 let test_black_white_class_names () =
@@ -964,12 +959,12 @@ let test_black_white_class_names () =
     Alcotest.check string ("class name for " ^ expected) expected actual
   in
 
-  test_class_name (bg black) "bg-black";
-  test_class_name (bg white) "bg-white";
-  test_class_name (text black) "text-black";
-  test_class_name (text white) "text-white";
-  test_class_name (border_color black) "border-black";
-  test_class_name (border_color white) "border-white"
+  test_class_name bg_black "bg-black";
+  test_class_name bg_white "bg-white";
+  test_class_name text_black "text-black";
+  test_class_name text_white "text-white";
+  test_class_name (border_color black 500) "border-black";
+  test_class_name (border_color white 500) "border-white"
 
 (** Test CSS property generation works correctly *)
 let test_css_property_generation () =
@@ -984,13 +979,12 @@ let test_css_property_generation () =
   in
 
   (* Test color properties *)
-  test_css_contains (bg ~shade:500 red) "background-color"
+  test_css_contains (bg red 500) "background-color"
     "rgb(239 68 68 / var(--tw-bg-opacity))";
-  test_css_contains (text ~shade:600 blue) "color"
+  test_css_contains (text blue 600) "color"
     "rgb(37 99 235 / var(--tw-text-opacity))";
-  test_css_contains
-    (border_color ~shade:300 green)
-    "border-color" "rgb(134 239 172 / var(--tw-border-opacity))";
+  test_css_contains (border_color green 300) "border-color"
+    "rgb(134 239 172 / var(--tw-border-opacity))";
 
   (* Test spacing properties *)
   test_css_contains (p 4) "padding" "1rem";
@@ -1005,8 +999,8 @@ let test_responsive_modifiers () =
     Alcotest.check string ("responsive class " ^ expected) expected actual
   in
 
-  test_class_name (on_sm [ bg ~shade:500 red ]) "sm:bg-red-500";
-  test_class_name (on_md [ text ~shade:600 blue ]) "md:text-blue-600";
+  test_class_name (on_sm [ bg red 500 ]) "sm:bg-red-500";
+  test_class_name (on_md [ text blue 600 ]) "md:text-blue-600";
   test_class_name (on_lg [ p 8 ]) "lg:p-8";
   test_class_name (on_xl [ flex ]) "xl:flex"
 
@@ -1017,10 +1011,10 @@ let test_state_modifiers () =
     Alcotest.check string ("state modifier " ^ expected) expected actual
   in
 
-  test_class_name (on_hover [ bg ~shade:700 gray ]) "hover:bg-gray-700";
-  test_class_name (on_focus [ text ~shade:500 sky ]) "focus:text-sky-500";
+  test_class_name (on_hover [ bg gray 700 ]) "hover:bg-gray-700";
+  test_class_name (on_focus [ text sky 500 ]) "focus:text-sky-500";
   test_class_name
-    (on_active [ border_color ~shade:400 teal ])
+    (on_active [ border_color teal 400 ])
     "active:border-teal-400"
 
 let test_css_prelude () =
@@ -1309,12 +1303,12 @@ let test_data_attributes () =
     [
       ( data_state "open" block,
         ".block[data-state=\"open\"] {\n  display: block;\n}" );
-      ( data_variant "primary" (bg white),
+      ( data_variant "primary" bg_white,
         ".bg-white[data-variant=\"primary\"] {\n\
         \  --tw-bg-opacity: 1;\n\
         \  background-color: rgb(255 255 255 / var(--tw-bg-opacity));\n\
          }" );
-      ( on_data_active [ text white ],
+      ( on_data_active [ text_white ],
         ".text-white[data-active] {\n\
         \  --tw-text-opacity: 1;\n\
         \  color: rgb(255 255 255 / var(--tw-text-opacity));\n\
@@ -1353,7 +1347,7 @@ let test_data_attributes () =
 
 (* CSS Generation tests *)
 let test_inline_styles () =
-  let styles = [ bg blue; text white; p 4; m 2; rounded md ] in
+  let styles = [ bg_blue; text_white; p 4; m 2; rounded_md ] in
   let inline = to_inline_style styles in
   (* Check that inline styles are generated *)
   Alcotest.check bool "has background-color" true
@@ -1370,7 +1364,7 @@ let test_inline_styles () =
 let test_dynamic_inline_styles () =
   (* Test dynamic style generation *)
   let dynamic_width = 42 in
-  let styles = [ w dynamic_width; bg ~shade:300 gray; p 2 ] in
+  let styles = [ w dynamic_width; bg sky 300; p 2 ] in
   let inline = to_inline_style styles in
 
   (* Check that dynamic value is included *)
@@ -1395,13 +1389,7 @@ let test_roundtrip style =
 (** Test of_string roundtrip for color styles *)
 let test_of_string_roundtrip_colors () =
   let styles =
-    [
-      bg blue;
-      bg ~shade:500 blue;
-      text white;
-      text ~shade:700 gray;
-      border_color ~shade:300 red;
-    ]
+    [ bg_blue; bg sky 500; text_white; text_blue; border_color gray 300 ]
   in
   List.iter test_roundtrip styles
 
@@ -1457,26 +1445,26 @@ let test_of_string_roundtrip_layout () =
 let test_of_string_roundtrip_effects () =
   let styles =
     [
-      border `Default;
-      rounded lg;
-      shadow md;
+      border_xs;
+      rounded_lg;
+      shadow_md;
       opacity 50;
       transition_colors;
       duration 300;
       scale 105;
-      on_hover [ bg ~shade:700 blue ];
-      on_focus [ ring `Md ];
+      on_hover [ bg blue 700 ];
+      on_focus [ ring_md ];
       on_sm [ text_xl ];
-      on_sm [ bg ~shade:500 red ];
-      on_md [ text ~shade:600 blue ];
+      on_sm [ bg red 500 ];
+      on_md [ text blue 600 ];
       on_lg [ p 8 ];
       on_xl [ flex ];
       on_2xl [ grid ];
-      on_hover [ text white ];
-      on_focus [ bg ~shade:500 sky ];
-      on_active [ text ~shade:900 gray ];
+      on_hover [ text_white ];
+      on_focus [ bg sky 500 ];
+      on_active [ text gray 900 ];
       on_disabled [ opacity 50 ];
-      on_dark [ bg gray ];
+      on_dark [ bg_gray ];
     ]
   in
   List.iter test_roundtrip styles
@@ -1542,11 +1530,11 @@ module Generators = struct
 
   let gen_color_style () =
     let color = gen_color () in
-    let shade = if Random.bool () then Some (gen_shade ()) else None in
+    let shade = gen_shade () in
     match Random.int 3 with
-    | 0 -> bg ?shade color
-    | 1 -> text ?shade color
-    | _ -> border_color ?shade color
+    | 0 -> bg color shade
+    | 1 -> text color shade
+    | _ -> border_color color shade
 
   let gen_spacing_style () =
     match Random.int 20 with
@@ -1692,16 +1680,16 @@ let test_responsive_modifier_parsing () =
   (* Test all responsive breakpoints *)
   let test_cases =
     [
-      ("sm:text-black", on_sm [ text black ]);
-      ("md:bg-blue-500", on_md [ bg ~shade:500 blue ]);
+      ("sm:text-black", on_sm [ text_black ]);
+      ("md:bg-blue-500", on_md [ bg blue 500 ]);
       ("lg:p-8", on_lg [ p 8 ]);
       ("xl:flex", on_xl [ flex ]);
       ("2xl:grid", on_2xl [ grid ]);
-      ("hover:text-white", on_hover [ text white ]);
-      ("focus:bg-sky-500", on_focus [ bg ~shade:500 sky ]);
-      ("active:text-gray-900", on_active [ text ~shade:900 gray ]);
+      ("hover:text-white", on_hover [ text_white ]);
+      ("focus:bg-sky-500", on_focus [ bg sky 500 ]);
+      ("active:text-gray-900", on_active [ text gray 900 ]);
       ("disabled:opacity-50", on_disabled [ opacity 50 ]);
-      ("dark:bg-gray", on_dark [ bg gray ]);
+      ("dark:bg-gray", on_dark [ bg_gray ]);
     ]
   in
 
@@ -1788,13 +1776,13 @@ let test_css_property_deduplication () =
   (* Test that duplicate properties are removed, keeping the last one *)
   let styles =
     [
-      bg ~shade:500 red;
+      bg red 500;
       (* first bg *)
       p 4;
-      bg ~shade:700 blue;
+      bg blue 700;
       (* second bg - should override first *)
-      text white;
-      bg black;
+      text_white;
+      bg_black;
       (* third bg - should override second *)
     ]
   in
@@ -1811,9 +1799,7 @@ let test_css_property_deduplication () =
 
 (** Test inline style generation *)
 let test_css_inline_style_generation () =
-  let styles =
-    [ bg ~shade:500 blue; text white; p 4; rounded md; opacity 75 ]
-  in
+  let styles = [ bg blue 500; text_white; p 4; rounded_md; opacity 75 ] in
   let inline_style = to_inline_style styles in
 
   (* Check that all expected CSS properties are present *)
@@ -1841,7 +1827,7 @@ let test_css_inline_style_generation () =
 (** Test CSS minification *)
 let test_css_minification () =
   let styles =
-    [ bg ~shade:500 blue; text white; p 4; m 2; rounded lg; shadow md ]
+    [ bg blue 500; text_white; p 4; m 2; rounded_lg; shadow_md ]
   in
   let stylesheet = to_css ~reset:false styles in
   let normal = Css.to_string ~minify:false stylesheet in

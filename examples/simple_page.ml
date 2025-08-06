@@ -15,17 +15,17 @@ let simple_page =
     (* Body content *)
     [
       div
-        ~tw:Tw.[ min_h_screen; bg ~shade:50 gray ]
+        ~tw:Tw.[ min_h_screen; bg gray 50 ]
         [
           (* Header *)
           header
-            ~tw:Tw.[ bg white; shadow sm; py 4 ]
+            ~tw:Tw.[ bg_white; shadow_sm; py 4 ]
             [
               div
                 ~tw:Tw.[ max_w_4xl; mx_auto; px 4 ]
                 [
                   h1
-                    ~tw:Tw.[ text_2xl; font_bold; text ~shade:800 gray ]
+                    ~tw:Tw.[ text_2xl; font_bold; text gray 800 ]
                     [ txt "Welcome to tw.html" ];
                 ];
             ];
@@ -42,13 +42,13 @@ let simple_page =
                     [
                       h2
                         ~tw:
-                          Tw.[ text_4xl; font_bold; text ~shade:900 gray; mb 4 ]
+                          Tw.[ text_4xl; font_bold; text gray 900; mb 4 ]
                         [ txt "Type-Safe HTML with Tw" ];
                       p
                         ~tw:
                           Tw.
                             [
-                              text_lg; text ~shade:600 gray; max_w_2xl; mx_auto;
+                              text_lg; text gray 600; max_w_2xl; mx_auto;
                             ]
                         [
                           txt
@@ -69,7 +69,7 @@ let simple_page =
                         ~tw:
                           Tw.
                             [
-                              bg white; rounded lg; shadow md; p 6; text_center;
+                              bg_white; rounded_lg; shadow_md; p 6; text_center;
                             ]
                         [
                           div
@@ -78,8 +78,8 @@ let simple_page =
                                 [
                                   w 12;
                                   h 12;
-                                  bg ~shade:100 blue;
-                                  rounded full;
+                                  bg blue 100;
+                                  rounded_full;
                                   mx_auto;
                                   mb 4;
                                   flex;
@@ -91,7 +91,7 @@ let simple_page =
                             ~tw:Tw.[ text_lg; font_semibold; mb 2 ]
                             [ txt "Beautiful Design" ];
                           p
-                            ~tw:Tw.[ text ~shade:600 gray ]
+                            ~tw:Tw.[ text gray 600 ]
                             [
                               txt
                                 "Craft stunning UIs with Tw's TailwindCSS-like \
@@ -103,7 +103,7 @@ let simple_page =
                         ~tw:
                           Tw.
                             [
-                              bg white; rounded lg; shadow md; p 6; text_center;
+                              bg_white; rounded_lg; shadow_md; p 6; text_center;
                             ]
                         [
                           div
@@ -112,8 +112,8 @@ let simple_page =
                                 [
                                   w 12;
                                   h 12;
-                                  bg ~shade:100 green;
-                                  rounded full;
+                                  bg green 100;
+                                  rounded_full;
                                   mx_auto;
                                   mb 4;
                                   flex;
@@ -125,7 +125,7 @@ let simple_page =
                             ~tw:Tw.[ text_lg; font_semibold; mb 2 ]
                             [ txt "Type Safety" ];
                           p
-                            ~tw:Tw.[ text ~shade:600 gray ]
+                            ~tw:Tw.[ text gray 600 ]
                             [
                               txt
                                 "Catch errors at compile time with OCaml's \
@@ -137,7 +137,7 @@ let simple_page =
                         ~tw:
                           Tw.
                             [
-                              bg white; rounded lg; shadow md; p 6; text_center;
+                              bg_white; rounded_lg; shadow_md; p 6; text_center;
                             ]
                         [
                           div
@@ -146,8 +146,8 @@ let simple_page =
                                 [
                                   w 12;
                                   h 12;
-                                  bg ~shade:100 purple;
-                                  rounded full;
+                                  bg purple 100;
+                                  rounded_full;
                                   mx_auto;
                                   mb 4;
                                   flex;
@@ -159,7 +159,7 @@ let simple_page =
                             ~tw:Tw.[ text_lg; font_semibold; mb 2 ]
                             [ txt "Fast Development" ];
                           p
-                            ~tw:Tw.[ text ~shade:600 gray ]
+                            ~tw:Tw.[ text gray 600 ]
                             [
                               txt
                                 "Build responsive pages quickly with \
@@ -169,13 +169,13 @@ let simple_page =
                     ];
                   (* CTA section *)
                   section
-                    ~tw:Tw.[ bg white; rounded lg; shadow sm; p 8; text_center ]
+                    ~tw:Tw.[ bg_white; rounded_lg; shadow_sm; p 8; text_center ]
                     [
                       h3
                         ~tw:Tw.[ text_2xl; font_bold; mb 4 ]
                         [ txt "Ready to get started?" ];
                       p
-                        ~tw:Tw.[ text ~shade:600 gray; mb 6 ]
+                        ~tw:Tw.[ text gray 600; mb 6 ]
                         [
                           txt
                             "Install tw.html and start building beautiful, \
@@ -197,13 +197,13 @@ let simple_page =
                             ~tw:
                               Tw.
                                 [
-                                  bg blue;
-                                  text white;
+                                  bg_blue;
+                                  text_white;
                                   px 6;
                                   py 3;
-                                  rounded md;
+                                  rounded_md;
                                   font_medium;
-                                  on_hover [ bg ~shade:700 blue ];
+                                  on_hover [ bg blue 700 ];
                                   transition_all;
                                   duration 200;
                                 ]
@@ -217,13 +217,13 @@ let simple_page =
                             ~tw:
                               Tw.
                                 [
-                                  bg ~shade:200 gray;
-                                  text ~shade:800 gray;
+                                  bg gray 200;
+                                  text gray 800;
                                   px 6;
                                   py 3;
-                                  rounded md;
+                                  rounded_md;
                                   font_medium;
-                                  on_hover [ bg ~shade:300 gray ];
+                                  on_hover [ bg gray 300 ];
                                   transition_all;
                                   duration 200;
                                 ]
@@ -234,13 +234,13 @@ let simple_page =
             ];
           (* Footer *)
           footer
-            ~tw:Tw.[ bg white; border_t; py 6; mt 12 ]
+            ~tw:Tw.[ bg_white; border_t; py 6; mt 12 ]
             [
               div
                 ~tw:Tw.[ max_w_4xl; mx_auto; px 4; text_center ]
                 [
                   p
-                    ~tw:Tw.[ text ~shade:500 gray ]
+                    ~tw:Tw.[ text gray 500 ]
                     [ txt "Built with ❤️ using OCaml and Tw" ];
                 ];
             ];
