@@ -341,6 +341,72 @@ val border_current : t
 
     This is the default behavior in Tailwind v4, but can be explicitly set. *)
 
+val border_black : t
+(** Black border. Same as [border_color black 500]. *)
+
+val border_white : t
+(** White border. Same as [border_color white 500]. *)
+
+val border_gray : t
+(** Default gray border. Same as [border_color gray 500]. *)
+
+val border_slate : t
+(** Default slate border. Same as [border_color slate 500]. *)
+
+val border_zinc : t
+(** Default zinc border. Same as [border_color zinc 500]. *)
+
+val border_red : t
+(** Default red border. Same as [border_color red 500]. *)
+
+val border_orange : t
+(** Default orange border. Same as [border_color orange 500]. *)
+
+val border_amber : t
+(** Default amber border. Same as [border_color amber 500]. *)
+
+val border_yellow : t
+(** Default yellow border. Same as [border_color yellow 500]. *)
+
+val border_lime : t
+(** Default lime border. Same as [border_color lime 500]. *)
+
+val border_green : t
+(** Default green border. Same as [border_color green 500]. *)
+
+val border_emerald : t
+(** Default emerald border. Same as [border_color emerald 500]. *)
+
+val border_teal : t
+(** Default teal border. Same as [border_color teal 500]. *)
+
+val border_cyan : t
+(** Default cyan border. Same as [border_color cyan 500]. *)
+
+val border_sky : t
+(** Default sky border. Same as [border_color sky 500]. *)
+
+val border_blue : t
+(** Default blue border. Same as [border_color blue 500]. *)
+
+val border_indigo : t
+(** Default indigo border. Same as [border_color indigo 500]. *)
+
+val border_violet : t
+(** Default violet border. Same as [border_color violet 500]. *)
+
+val border_purple : t
+(** Default purple border. Same as [border_color purple 500]. *)
+
+val border_fuchsia : t
+(** Default fuchsia border. Same as [border_color fuchsia 500]. *)
+
+val border_pink : t
+(** Default pink border. Same as [border_color pink 500]. *)
+
+val border_rose : t
+(** Default rose border. Same as [border_color rose 500]. *)
+
 val bg_gradient_to_b : t
 (** Creates a gradient from top to bottom. Must be used with from_color and
     to_color.
@@ -397,7 +463,7 @@ val p : int -> t
     Examples:
     - [p 4]: 1rem padding on all sides
     - [p 0]: Remove all padding
-    - [p 8]: 2rem padding on all sides *)
+    - [p 8]: 2rem padding on all sides. *)
 
 val px : int -> t
 (** [px n] sets horizontal padding (left and right). Common for buttons and
@@ -469,7 +535,7 @@ val m : int -> t
 
     Examples:
     - [m 4]: 1rem margin on all sides
-    - [m 0]: Remove all margins *)
+    - [m 0]: Remove all margins. *)
 
 val mx : int -> t
 (** [mx n] sets horizontal margin (left and right). *)
@@ -809,6 +875,121 @@ val justify_evenly : t
 (** Distributes items evenly with equal space between and around all items. All
     gaps including edges are the same size. *)
 
+(** {2 Align Content (Multi-line Flex/Grid)} *)
+
+val content_start : t
+(** Aligns lines/rows to the start of the container's cross axis. For flex containers
+    with multiple lines or grid containers with multiple rows. *)
+
+val content_end : t
+(** Aligns lines/rows to the end of the container's cross axis. *)
+
+val content_center : t
+(** Centers lines/rows along the container's cross axis. *)
+
+val content_between : t
+(** Distributes lines/rows evenly - first at start, last at end. *)
+
+val content_around : t
+(** Distributes lines/rows evenly with equal space around each. *)
+
+val content_evenly : t
+(** Distributes lines/rows evenly with equal space between and around all. *)
+
+val content_stretch : t
+(** Stretches lines/rows to fill the container's cross axis. *)
+
+(** {2 Place Content (Grid Shorthand)} *)
+
+val place_content_start : t
+(** Aligns content to start in both axes. Shorthand for align-content and justify-content. *)
+
+val place_content_end : t
+(** Aligns content to end in both axes. *)
+
+val place_content_center : t
+(** Centers content in both axes. Perfect for centering grid content. *)
+
+val place_content_between : t
+(** Distributes content with space between in both axes. *)
+
+val place_content_around : t
+(** Distributes content with space around in both axes. *)
+
+val place_content_evenly : t
+(** Distributes content evenly in both axes. *)
+
+val place_content_stretch : t
+(** Stretches content to fill both axes. *)
+
+(** {2 Place Items (Grid Shorthand)} *)
+
+val place_items_start : t
+(** Aligns items to start in both axes. Shorthand for align-items and justify-items. *)
+
+val place_items_end : t
+(** Aligns items to end in both axes. *)
+
+val place_items_center : t
+(** Centers items in both axes. Common for centering grid items. *)
+
+val place_items_stretch : t
+(** Stretches items to fill both axes (default). *)
+
+(** {2 Self Alignment} *)
+
+val self_auto : t
+(** Uses parent's align-items value (default). *)
+
+val self_start : t
+(** Aligns item to the start of the container's cross axis. *)
+
+val self_end : t
+(** Aligns item to the end of the container's cross axis. *)
+
+val self_center : t
+(** Centers item along the container's cross axis. *)
+
+val self_baseline : t
+(** Aligns item along text baseline. *)
+
+val self_stretch : t
+(** Stretches item to fill the container's cross axis. *)
+
+(** {2 Justify Self (Grid Items)} *)
+
+val justify_self_auto : t
+(** Uses parent's justify-items value (default). *)
+
+val justify_self_start : t
+(** Aligns item to the start of its grid area. *)
+
+val justify_self_end : t
+(** Aligns item to the end of its grid area. *)
+
+val justify_self_center : t
+(** Centers item within its grid area. *)
+
+val justify_self_stretch : t
+(** Stretches item to fill its grid area. *)
+
+(** {2 Place Self (Grid Shorthand)} *)
+
+val place_self_auto : t
+(** Uses parent's place-items value. Shorthand for align-self and justify-self. *)
+
+val place_self_start : t
+(** Aligns to start in both axes. *)
+
+val place_self_end : t
+(** Aligns to end in both axes. *)
+
+val place_self_center : t
+(** Centers in both axes. *)
+
+val place_self_stretch : t
+(** Stretches to fill both axes. *)
+
 val grid_cols : int -> t
 (** [grid_cols n] creates a grid with n equal columns.
 
@@ -972,6 +1153,57 @@ val line_through : t
 
 val no_underline : t
 (** Remove text decoration. *)
+
+(** {2 Text Transform} *)
+
+val uppercase : t
+(** Transform text to UPPERCASE. Useful for labels, badges, and emphasis. *)
+
+val lowercase : t
+(** Transform text to lowercase. Less common but useful for specific designs. *)
+
+val capitalize : t
+(** Capitalize The First Letter Of Each Word. Good for titles and headings. *)
+
+val normal_case : t
+(** Remove text transformation (default). Use to override parent text-transform. *)
+
+(** {2 Text Decoration Style} *)
+
+val underline_solid : t
+(** Sets text decoration style to solid (default). *)
+
+val underline_double : t
+(** Sets text decoration style to double line. *)
+
+val underline_dotted : t
+(** Sets text decoration style to dotted line. *)
+
+val underline_dashed : t
+(** Sets text decoration style to dashed line. *)
+
+val underline_wavy : t
+(** Sets text decoration style to wavy line. Good for spell check indicators. *)
+
+(** {2 Text Underline Offset} *)
+
+val underline_offset_auto : t
+(** Sets text underline offset to auto (browser default). *)
+
+val underline_offset_0 : t
+(** Sets text underline offset to 0 (underline touches text). *)
+
+val underline_offset_1 : t
+(** Sets text underline offset to 1px. *)
+
+val underline_offset_2 : t
+(** Sets text underline offset to 2px. *)
+
+val underline_offset_4 : t
+(** Sets text underline offset to 4px. *)
+
+val underline_offset_8 : t
+(** Sets text underline offset to 8px. *)
 
 val text_left : t
 (** Left-aligned text. *)

@@ -29,6 +29,9 @@ type property_name =
   | Font_style
   | Text_align
   | Text_decoration
+  | Text_decoration_style
+  | Text_underline_offset
+  | Text_transform
   | Letter_spacing
   | White_space
   | Display
@@ -40,6 +43,12 @@ type property_name =
   | Flex_shrink
   | Align_items
   | Justify_content
+  | Align_content
+  | Align_self
+  | Justify_self
+  | Place_content
+  | Place_items
+  | Place_self
   | Grid_template_columns
   | Grid_template_rows
   | Border_width
@@ -123,6 +132,9 @@ let font_weight value = (Font_weight, value)
 let font_style value = (Font_style, value)
 let text_align value = (Text_align, value)
 let text_decoration value = (Text_decoration, value)
+let text_decoration_style value = (Text_decoration_style, value)
+let text_underline_offset value = (Text_underline_offset, value)
+let text_transform value = (Text_transform, value)
 let letter_spacing value = (Letter_spacing, value)
 let white_space value = (White_space, value)
 let display value = (Display, value)
@@ -134,6 +146,12 @@ let flex_grow value = (Flex_grow, value)
 let flex_shrink value = (Flex_shrink, value)
 let align_items value = (Align_items, value)
 let justify_content value = (Justify_content, value)
+let align_content value = (Align_content, value)
+let align_self value = (Align_self, value)
+let justify_self value = (Justify_self, value)
+let place_content value = (Place_content, value)
+let place_items value = (Place_items, value)
+let place_self value = (Place_self, value)
 let grid_template_columns value = (Grid_template_columns, value)
 let grid_template_rows value = (Grid_template_rows, value)
 let border_width value = (Border_width, value)
@@ -220,6 +238,9 @@ let property_name_to_string = function
   | Font_style -> "font-style"
   | Text_align -> "text-align"
   | Text_decoration -> "text-decoration"
+  | Text_decoration_style -> "text-decoration-style"
+  | Text_underline_offset -> "text-underline-offset"
+  | Text_transform -> "text-transform"
   | Letter_spacing -> "letter-spacing"
   | White_space -> "white-space"
   | Display -> "display"
@@ -231,6 +252,12 @@ let property_name_to_string = function
   | Flex_shrink -> "flex-shrink"
   | Align_items -> "align-items"
   | Justify_content -> "justify-content"
+  | Align_content -> "align-content"
+  | Align_self -> "align-self"
+  | Justify_self -> "justify-self"
+  | Place_content -> "place-content"
+  | Place_items -> "place-items"
+  | Place_self -> "place-self"
   | Grid_template_columns -> "grid-template-columns"
   | Grid_template_rows -> "grid-template-rows"
   | Border_width -> "border-width"

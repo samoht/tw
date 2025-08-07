@@ -665,6 +665,30 @@ let border_transparent =
 let border_current =
   Style ("border-current", [ Css.border_color "currentColor" ])
 
+(* Default border colors - using shade 500 *)
+let border_black = border_color Black 500
+let border_white = border_color White 500
+let border_gray = border_color Gray 500
+let border_slate = border_color Slate 500
+let border_zinc = border_color Zinc 500
+let border_red = border_color Red 500
+let border_orange = border_color Orange 500
+let border_amber = border_color Amber 500
+let border_yellow = border_color Yellow 500
+let border_lime = border_color Lime 500
+let border_green = border_color Green 500
+let border_emerald = border_color Emerald 500
+let border_teal = border_color Teal 500
+let border_cyan = border_color Cyan 500
+let border_sky = border_color Sky 500
+let border_blue = border_color Blue 500
+let border_indigo = border_color Indigo 500
+let border_violet = border_color Violet 500
+let border_purple = border_color Purple 500
+let border_fuchsia = border_color Fuchsia 500
+let border_pink = border_color Pink 500
+let border_rose = border_color Rose 500
+
 let pp_spacing_suffix : spacing -> string = function
   | `Px -> "px"
   | `Full -> "full"
@@ -1105,6 +1129,52 @@ let justify_end = Style ("justify-end", [ justify_content "flex-end" ])
 let justify_center = Style ("justify-center", [ justify_content "center" ])
 let justify_around = Style ("justify-around", [ justify_content "space-around" ])
 let justify_evenly = Style ("justify-evenly", [ justify_content "space-evenly" ])
+
+(* Align content utilities - for multi-line flex/grid containers *)
+let content_start = Style ("content-start", [ Css.align_content "flex-start" ])
+let content_end = Style ("content-end", [ Css.align_content "flex-end" ])
+let content_center = Style ("content-center", [ Css.align_content "center" ])
+let content_between = Style ("content-between", [ Css.align_content "space-between" ])
+let content_around = Style ("content-around", [ Css.align_content "space-around" ])
+let content_evenly = Style ("content-evenly", [ Css.align_content "space-evenly" ])
+let content_stretch = Style ("content-stretch", [ Css.align_content "stretch" ])
+
+(* Place content utilities - shorthand for align-content and justify-content in Grid *)
+let place_content_start = Style ("place-content-start", [ Css.place_content "start" ])
+let place_content_end = Style ("place-content-end", [ Css.place_content "end" ])
+let place_content_center = Style ("place-content-center", [ Css.place_content "center" ])
+let place_content_between = Style ("place-content-between", [ Css.place_content "space-between" ])
+let place_content_around = Style ("place-content-around", [ Css.place_content "space-around" ])
+let place_content_evenly = Style ("place-content-evenly", [ Css.place_content "space-evenly" ])
+let place_content_stretch = Style ("place-content-stretch", [ Css.place_content "stretch" ])
+
+(* Place items utilities - shorthand for align-items and justify-items in Grid *)
+let place_items_start = Style ("place-items-start", [ Css.place_items "start" ])
+let place_items_end = Style ("place-items-end", [ Css.place_items "end" ])
+let place_items_center = Style ("place-items-center", [ Css.place_items "center" ])
+let place_items_stretch = Style ("place-items-stretch", [ Css.place_items "stretch" ])
+
+(* Place self utilities - shorthand for align-self and justify-self *)
+let place_self_auto = Style ("place-self-auto", [ Css.place_self "auto" ])
+let place_self_start = Style ("place-self-start", [ Css.place_self "start" ])
+let place_self_end = Style ("place-self-end", [ Css.place_self "end" ])
+let place_self_center = Style ("place-self-center", [ Css.place_self "center" ])
+let place_self_stretch = Style ("place-self-stretch", [ Css.place_self "stretch" ])
+
+(* Align self utilities *)
+let self_auto = Style ("self-auto", [ Css.align_self "auto" ])
+let self_start = Style ("self-start", [ Css.align_self "flex-start" ])
+let self_end = Style ("self-end", [ Css.align_self "flex-end" ])
+let self_center = Style ("self-center", [ Css.align_self "center" ])
+let self_baseline = Style ("self-baseline", [ Css.align_self "baseline" ])
+let self_stretch = Style ("self-stretch", [ Css.align_self "stretch" ])
+
+(* Justify self utilities - for Grid items *)
+let justify_self_auto = Style ("justify-self-auto", [ Css.justify_self "auto" ])
+let justify_self_start = Style ("justify-self-start", [ Css.justify_self "start" ])
+let justify_self_end = Style ("justify-self-end", [ Css.justify_self "end" ])
+let justify_self_center = Style ("justify-self-center", [ Css.justify_self "center" ])
+let justify_self_stretch = Style ("justify-self-stretch", [ Css.justify_self "stretch" ])
 
 let grid_cols n =
   let class_name = "grid-cols-" ^ string_of_int n in
@@ -1620,6 +1690,27 @@ let antialiased =
       [
         webkit_font_smoothing "antialiased"; moz_osx_font_smoothing "grayscale";
       ] )
+
+(* Text transformation utilities *)
+let uppercase = Style ("uppercase", [ Css.text_transform "uppercase" ])
+let lowercase = Style ("lowercase", [ Css.text_transform "lowercase" ])
+let capitalize = Style ("capitalize", [ Css.text_transform "capitalize" ])
+let normal_case = Style ("normal-case", [ Css.text_transform "none" ])
+
+(* Text decoration style utilities *)
+let underline_solid = Style ("underline-solid", [ Css.text_decoration_style "solid" ])
+let underline_double = Style ("underline-double", [ Css.text_decoration_style "double" ])
+let underline_dotted = Style ("underline-dotted", [ Css.text_decoration_style "dotted" ])
+let underline_dashed = Style ("underline-dashed", [ Css.text_decoration_style "dashed" ])
+let underline_wavy = Style ("underline-wavy", [ Css.text_decoration_style "wavy" ])
+
+(* Text underline offset utilities *)
+let underline_offset_auto = Style ("underline-offset-auto", [ Css.text_underline_offset "auto" ])
+let underline_offset_0 = Style ("underline-offset-0", [ Css.text_underline_offset "0" ])
+let underline_offset_1 = Style ("underline-offset-1", [ Css.text_underline_offset "1px" ])
+let underline_offset_2 = Style ("underline-offset-2", [ Css.text_underline_offset "2px" ])
+let underline_offset_4 = Style ("underline-offset-4", [ Css.text_underline_offset "4px" ])
+let underline_offset_8 = Style ("underline-offset-8", [ Css.text_underline_offset "8px" ])
 
 (* Additional functions needed *)
 let aspect_ratio width height =
@@ -2148,13 +2239,13 @@ let shadow_of_string = function
   | "" -> Ok shadow (* default shadow *)
   | s -> Error (`Msg ("Unknown shadow size: " ^ s))
 
-let parse_positive_int name s =
+let int_of_string_positive name s =
   match int_of_string_opt s with
   | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
   | Some n when n >= 0 -> Ok n
   | Some _ -> Error (`Msg (name ^ " must be non-negative: " ^ s))
 
-let parse_bounded_int name min max s =
+let int_of_string_bounded name min max s =
   match int_of_string_opt s with
   | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
   | Some n when n >= min && n <= max -> Ok n
@@ -2197,7 +2288,7 @@ let shade_of_string s =
   | Some shade -> Ok shade
 
 (* Parse modifiers (responsive, states) from class string *)
-let parse_modifiers class_str =
+let modifiers_of_string class_str =
   let parts = String.split_on_char ':' class_str in
   match List.rev parts with
   | [] -> ([], class_str)
@@ -2252,7 +2343,7 @@ let apply_modifiers modifiers base_style =
     base_style modifiers
 
 (* Helper functions for parsing *)
-let parse_spacing_variant prefix px_var full_var int_fn = function
+let spacing_of_string prefix px_var full_var int_fn = function
   | [ p; "px" ] when p = prefix -> Ok px_var
   | [ p; "full" ] when p = prefix -> Ok full_var
   | [ p; n ] when p = prefix ->
@@ -2262,10 +2353,10 @@ let parse_spacing_variant prefix px_var full_var int_fn = function
         else if prefix = "py" then "padding-y"
         else "padding-" ^ String.sub prefix 1 (String.length prefix - 1)
       in
-      parse_positive_int name n >|= int_fn
+      int_of_string_positive name n >|= int_fn
   | _ -> Error (`Msg "")
 
-let parse_margin_variant prefix auto_var int_fn = function
+let margin_of_string prefix auto_var int_fn = function
   | [ p; "auto" ] when p = prefix -> Ok auto_var
   | [ p; n ] when p = prefix ->
       let name =
@@ -2274,10 +2365,10 @@ let parse_margin_variant prefix auto_var int_fn = function
         else if prefix = "my" then "margin-y"
         else "margin-" ^ String.sub prefix 1 (String.length prefix - 1)
       in
-      parse_positive_int name n >|= int_fn
+      int_of_string_positive name n >|= int_fn
   | _ -> Error (`Msg "")
 
-let parse_width_variant = function
+let width_of_string = function
   | [ "w"; "full" ] -> Ok w_full
   | [ "w"; "screen" ] -> Ok (w' screen)
   | [ "w"; "min" ] -> Ok (w' min)
@@ -2285,10 +2376,10 @@ let parse_width_variant = function
   | [ "w"; "fit" ] -> Ok w_fit
   | [ "w"; "px" ] -> Ok (w' one_px)
   | [ "w"; "auto" ] -> Ok (w' none)
-  | [ "w"; n ] -> parse_positive_int "width" n >|= w
+  | [ "w"; n ] -> int_of_string_positive "width" n >|= w
   | _ -> Error (`Msg "")
 
-let parse_height_variant = function
+let height_of_string = function
   | [ "h"; "full" ] -> Ok h_full
   | [ "h"; "screen" ] -> Ok (h' screen)
   | [ "h"; "min" ] -> Ok (h' min)
@@ -2296,41 +2387,41 @@ let parse_height_variant = function
   | [ "h"; "fit" ] -> Ok (h' fit)
   | [ "h"; "px" ] -> Ok (h' one_px)
   | [ "h"; "auto" ] -> Ok (h' none)
-  | [ "h"; n ] -> parse_positive_int "height" n >|= h
+  | [ "h"; n ] -> int_of_string_positive "height" n >|= h
   | _ -> Error (`Msg "")
 
-let parse_gap_variant = function
+let gap_of_string = function
   | [ "gap"; "px" ] -> Ok (gap' `Px)
   | [ "gap"; "full" ] -> Ok (gap' `Full)
-  | [ "gap"; n ] -> parse_positive_int "gap" n >|= gap
+  | [ "gap"; n ] -> int_of_string_positive "gap" n >|= gap
   | [ "gap"; "x"; "px" ] -> Ok (gap_x' `Px)
   | [ "gap"; "x"; "full" ] -> Ok (gap_x' `Full)
-  | [ "gap"; "x"; n ] -> parse_positive_int "gap-x" n >|= gap_x
+  | [ "gap"; "x"; n ] -> int_of_string_positive "gap-x" n >|= gap_x
   | [ "gap"; "y"; "px" ] -> Ok (gap_y' `Px)
   | [ "gap"; "y"; "full" ] -> Ok (gap_y' `Full)
-  | [ "gap"; "y"; n ] -> parse_positive_int "gap-y" n >|= gap_y
+  | [ "gap"; "y"; n ] -> int_of_string_positive "gap-y" n >|= gap_y
   | _ -> Error (`Msg "")
 
-let parse_min_width_variant = function
+let min_width_of_string = function
   | [ "min"; "w"; "full" ] -> Ok (min_w' full)
   | [ "min"; "w"; "min" ] -> Ok (min_w' min)
   | [ "min"; "w"; "max" ] -> Ok (min_w' max)
   | [ "min"; "w"; "fit" ] -> Ok (min_w' fit)
   | [ "min"; "w"; "px" ] -> Ok (min_w' one_px)
-  | [ "min"; "w"; n ] -> parse_positive_int "min-width" n >|= min_w
+  | [ "min"; "w"; n ] -> int_of_string_positive "min-width" n >|= min_w
   | _ -> Error (`Msg "")
 
-let parse_min_height_variant = function
+let min_height_of_string = function
   | [ "min"; "h"; "full" ] -> Ok (min_h' full)
   | [ "min"; "h"; "screen" ] -> Ok (min_h' screen)
   | [ "min"; "h"; "min" ] -> Ok (min_h' min)
   | [ "min"; "h"; "max" ] -> Ok (min_h' max)
   | [ "min"; "h"; "fit" ] -> Ok (min_h' fit)
   | [ "min"; "h"; "px" ] -> Ok (min_h' one_px)
-  | [ "min"; "h"; n ] -> parse_positive_int "min-height" n >|= min_h
+  | [ "min"; "h"; n ] -> int_of_string_positive "min-height" n >|= min_h
   | _ -> Error (`Msg "")
 
-let parse_max_width_variant = function
+let max_width_of_string = function
   | [ "max"; "w"; "none" ] -> Ok (max_w' none)
   | [ "max"; "w"; "xs" ] -> Ok (max_w' xs)
   | [ "max"; "w"; "sm" ] -> Ok (max_w' sm)
@@ -2348,10 +2439,10 @@ let parse_max_width_variant = function
   | [ "max"; "w"; "max" ] -> Ok (max_w' max)
   | [ "max"; "w"; "fit" ] -> Ok (max_w' fit)
   | [ "max"; "w"; "px" ] -> Ok (max_w' one_px)
-  | [ "max"; "w"; n ] -> parse_positive_int "max-width" n >|= max_w
+  | [ "max"; "w"; n ] -> int_of_string_positive "max-width" n >|= max_w
   | _ -> Error (`Msg "")
 
-let parse_max_height_variant = function
+let max_height_of_string = function
   | [ "max"; "h"; "full" ] -> Ok (max_h' full)
   | [ "max"; "h"; "screen" ] -> Ok (max_h' screen)
   | [ "max"; "h"; "min" ] -> Ok (max_h' min)
@@ -2359,166 +2450,184 @@ let parse_max_height_variant = function
   | [ "max"; "h"; "fit" ] -> Ok (max_h' fit)
   | [ "max"; "h"; "px" ] -> Ok (max_h' one_px)
   | [ "max"; "h"; "none" ] -> Ok (max_h' none)
-  | [ "max"; "h"; n ] -> parse_positive_int "max-height" n >|= max_h
+  | [ "max"; "h"; n ] -> int_of_string_positive "max-height" n >|= max_h
+  | _ -> Error (`Msg "")
+
+(* Parse color-related classes *)
+let color_classes_of_string = function
+  | [ "bg"; "transparent" ] -> Ok bg_transparent
+  | [ "bg"; "current" ] -> Ok bg_current
+  | [ "bg"; color; shade ] ->
+      color_of_string color >>= fun color ->
+      shade_of_string shade >|= fun shade -> bg color shade
+  | [ "bg"; color ] -> color_of_string color >|= fun color -> bg color 500
+  | [ "text"; "transparent" ] -> Ok text_transparent
+  | [ "text"; "current" ] -> Ok text_current
+  | [ "text"; "center" ] -> Ok text_center
+  | [ "text"; "left" ] -> Ok text_left
+  | [ "text"; "right" ] -> Ok text_right
+  | [ "text"; "justify" ] -> Ok text_justify
+  | [ "text"; color; shade ] ->
+      color_of_string color >>= fun color ->
+      shade_of_string shade >|= fun shade -> text color shade
+  | [ "text"; single ] ->
+      (* Try size first, then color *)
+      text_size_of_string single
+      <|> (color_of_string single >|= fun color -> text color 500)
+  | [ "border" ] -> Ok border
+  | [ "border"; color; shade ] ->
+      color_of_string color >>= fun color ->
+      shade_of_string shade >|= fun shade -> border_color color shade
+  | [ "border"; "transparent" ] -> Ok border_transparent
+  | [ "border"; "current" ] -> Ok border_current
+  | [ "border"; color ] ->
+      color_of_string color >|= fun c -> border_color c 500
+  | _ -> Error (`Msg "")
+
+(* Parse layout and typography classes *)
+let layout_typography_of_string = function
+  | [ "flex" ] -> Ok flex
+  | [ "flex"; "col" ] -> Ok flex_col
+  | [ "flex"; "row" ] -> Ok flex_row
+  | [ "flex"; "wrap" ] -> Ok flex_wrap
+  | [ "flex"; "nowrap" ] -> Ok flex_nowrap
+  | [ "flex"; "1" ] -> Ok flex_1
+  | [ "flex"; "auto" ] -> Ok flex_auto
+  | [ "flex"; "initial" ] -> Ok flex_initial
+  | [ "flex"; "none" ] -> Ok flex_none
+  | [ "block" ] -> Ok block
+  | [ "inline" ] -> Ok inline
+  | [ "inline"; "block" ] -> Ok inline_block
+  | [ "inline"; "grid" ] -> Ok inline_grid
+  | [ "grid" ] -> Ok grid
+  | [ "grid"; "cols"; n ] ->
+      int_of_string_positive "grid cols" n >|= grid_cols
+  | [ "grid"; "rows"; n ] ->
+      int_of_string_positive "grid rows" n >|= grid_rows
+  | [ "hidden" ] -> Ok hidden
+  | [ "items"; "center" ] -> Ok items_center
+  | [ "items"; "start" ] -> Ok items_start
+  | [ "items"; "end" ] -> Ok items_end
+  | [ "items"; "stretch" ] -> Ok items_stretch
+  | [ "items"; "baseline" ] -> Ok items_baseline
+  | [ "justify"; "center" ] -> Ok justify_center
+  | [ "justify"; "start" ] -> Ok justify_start
+  | [ "justify"; "end" ] -> Ok justify_end
+  | [ "justify"; "between" ] -> Ok justify_between
+  | [ "justify"; "around" ] -> Ok justify_around
+  | [ "justify"; "evenly" ] -> Ok justify_evenly
+  | [ "font"; "thin" ] -> Ok font_thin
+  | [ "font"; "light" ] -> Ok font_light
+  | [ "font"; "normal" ] -> Ok font_normal
+  | [ "font"; "medium" ] -> Ok font_medium
+  | [ "font"; "semibold" ] -> Ok font_semibold
+  | [ "font"; "bold" ] -> Ok font_bold
+  | [ "font"; "extrabold" ] -> Ok font_extrabold
+  | [ "font"; "black" ] -> Ok font_black
+  | [ "font"; "sans" ] -> Ok font_sans
+  | [ "font"; "serif" ] -> Ok font_serif
+  | [ "font"; "mono" ] -> Ok font_mono
+  | [ "italic" ] -> Ok italic
+  | [ "not"; "italic" ] -> Ok not_italic
+  | [ "underline" ] -> Ok underline
+  | [ "no"; "underline" ] -> Ok no_underline
+  | [ "leading"; "none" ] -> Ok leading_none
+  | [ "leading"; "tight" ] -> Ok leading_tight
+  | [ "leading"; "snug" ] -> Ok leading_snug
+  | [ "leading"; "normal" ] -> Ok leading_normal
+  | [ "leading"; "relaxed" ] -> Ok leading_relaxed
+  | [ "leading"; "loose" ] -> Ok leading_loose
+  | [ "leading"; n ] -> leading_of_string n
+  | _ -> Error (`Msg "")
+
+(* Parse utility and effect classes *)
+let utility_classes_of_string = function
+  | [ "rounded" ] -> Ok rounded
+  | [ "rounded"; size ] -> (
+      match size with
+      | "none" -> Ok rounded_none
+      | "sm" -> Ok rounded_sm
+      | "md" -> Ok rounded_md
+      | "lg" -> Ok rounded_lg
+      | "xl" -> Ok rounded_xl
+      | "2xl" -> Ok rounded_2xl
+      | "3xl" -> Ok rounded_3xl
+      | "full" -> Ok rounded_full
+      | s -> Error (`Msg ("Unknown rounded size: " ^ s)))
+  | [ "shadow" ] -> shadow_of_string ""
+  | [ "shadow"; size ] -> shadow_of_string size
+  | [ "ring" ] -> Ok ring
+  | [ "ring"; "0" ] -> Ok ring_none
+  | [ "ring"; "1" ] -> Ok ring_xs
+  | [ "ring"; "2" ] -> Ok ring_sm
+  | [ "ring"; "3" ] -> Ok ring_md
+  | [ "ring"; "4" ] -> Ok ring_lg
+  | [ "ring"; "8" ] -> Ok ring_xl
+  | [ "relative" ] -> Ok relative
+  | [ "absolute" ] -> Ok absolute
+  | [ "fixed" ] -> Ok fixed
+  | [ "sticky" ] -> Ok sticky
+  | [ "static" ] -> Ok static
+  | [ "opacity"; n ] -> int_of_string_bounded "Opacity" 0 100 n >|= opacity
+  | [ "transition" ] -> Ok transition_all
+  | [ "transition"; "none" ] -> Ok transition_none
+  | [ "transition"; "all" ] -> Ok transition_all
+  | [ "transition"; "colors" ] -> Ok transition_colors
+  | [ "transition"; "opacity" ] -> Ok transition_opacity
+  | [ "transition"; "shadow" ] -> Ok transition_shadow
+  | [ "transition"; "transform" ] -> Ok transition_transform
+  | [ "duration"; n ] -> int_of_string_positive "duration" n >|= duration
+  | [ "scale"; n ] -> int_of_string_positive "scale" n >|= scale
+  | [ "prose" ] -> Ok prose
+  | [ "prose"; "sm" ] -> Ok prose_sm
+  | [ "prose"; "lg" ] -> Ok prose_lg
+  | [ "prose"; "xl" ] -> Ok prose_xl
+  | [ "prose"; "2xl" ] -> Ok prose_2xl
+  | [ "prose"; "gray" ] -> Ok prose_gray
+  | [ "prose"; "slate" ] -> Ok prose_slate
   | _ -> Error (`Msg "")
 
 (* Parse a single class string into a Tw.t *)
 let of_string class_str =
-  let modifiers, base_class = parse_modifiers class_str in
+  let modifiers, base_class = modifiers_of_string class_str in
   let parts = String.split_on_char '-' base_class in
   let base_result =
-    match parts with
-    | [ "bg"; "transparent" ] -> Ok bg_transparent
-    | [ "bg"; "current" ] -> Ok bg_current
-    | [ "bg"; color; shade ] ->
-        color_of_string color >>= fun color ->
-        shade_of_string shade >|= fun shade -> bg color shade
-    | [ "bg"; color ] -> color_of_string color >|= fun color -> bg color 500
-    | [ "text"; "transparent" ] -> Ok text_transparent
-    | [ "text"; "current" ] -> Ok text_current
-    | [ "text"; "center" ] -> Ok text_center
-    | [ "text"; "left" ] -> Ok text_left
-    | [ "text"; "right" ] -> Ok text_right
-    | [ "text"; "justify" ] -> Ok text_justify
-    | [ "text"; color; shade ] ->
-        color_of_string color >>= fun color ->
-        shade_of_string shade >|= fun shade -> text color shade
-    | [ "text"; single ] ->
-        (* Try size first, then color *)
-        text_size_of_string single
-        <|> (color_of_string single >|= fun color -> text color 500)
-    | [ "border" ] -> Ok border
-    | [ "border"; color; shade ] ->
-        color_of_string color >>= fun color ->
-        shade_of_string shade >|= fun shade -> border_color color shade
-    | [ "border"; "transparent" ] -> Ok border_transparent
-    | [ "border"; "current" ] -> Ok border_current
-    | [ "border"; color ] ->
-        color_of_string color >|= fun c -> border_color c 500
-    | parts -> (
-        (* Try parsing with helper functions *)
-        (match parts with
-        | "p" :: _ -> parse_spacing_variant "p" p_px p_full p parts
-        | "px" :: _ -> parse_spacing_variant "px" px_px px_full px parts
-        | "py" :: _ -> parse_spacing_variant "py" py_px py_full py parts
-        | "pt" :: _ -> parse_spacing_variant "pt" pt_px pt_full pt parts
-        | "pr" :: _ -> parse_spacing_variant "pr" pr_px pr_full pr parts
-        | "pb" :: _ -> parse_spacing_variant "pb" pb_px pb_full pb parts
-        | "pl" :: _ -> parse_spacing_variant "pl" pl_px pl_full pl parts
-        | "m" :: _ -> parse_margin_variant "m" m_auto m parts
-        | "mx" :: _ -> parse_margin_variant "mx" mx_auto mx parts
-        | "my" :: _ -> parse_margin_variant "my" my_auto my parts
-        | "mt" :: _ -> parse_margin_variant "mt" mt_auto mt parts
-        | "mr" :: _ -> parse_margin_variant "mr" mr_auto mr parts
-        | "mb" :: _ -> parse_margin_variant "mb" mb_auto mb parts
-        | "ml" :: _ -> parse_margin_variant "ml" ml_auto ml parts
-        | "w" :: _ -> parse_width_variant parts
-        | "h" :: _ -> parse_height_variant parts
-        | "gap" :: _ -> parse_gap_variant parts
-        | "min" :: "w" :: _ -> parse_min_width_variant parts
-        | "min" :: "h" :: _ -> parse_min_height_variant parts
-        | "max" :: "w" :: _ -> parse_max_width_variant parts
-        | "max" :: "h" :: _ -> parse_max_height_variant parts
-        | _ -> Error (`Msg ""))
-        <|>
-        match parts with
-        | [ "flex" ] -> Ok flex
-        | [ "flex"; "col" ] -> Ok flex_col
-        | [ "flex"; "row" ] -> Ok flex_row
-        | [ "flex"; "wrap" ] -> Ok flex_wrap
-        | [ "flex"; "nowrap" ] -> Ok flex_nowrap
-        | [ "flex"; "1" ] -> Ok flex_1
-        | [ "flex"; "auto" ] -> Ok flex_auto
-        | [ "flex"; "initial" ] -> Ok flex_initial
-        | [ "flex"; "none" ] -> Ok flex_none
-        | [ "block" ] -> Ok block
-        | [ "inline" ] -> Ok inline
-        | [ "inline"; "block" ] -> Ok inline_block
-        | [ "inline"; "grid" ] -> Ok inline_grid
-        | [ "grid" ] -> Ok grid
-        | [ "grid"; "cols"; n ] ->
-            parse_positive_int "grid cols" n >|= grid_cols
-        | [ "grid"; "rows"; n ] ->
-            parse_positive_int "grid rows" n >|= grid_rows
-        | [ "hidden" ] -> Ok hidden
-        | [ "rounded" ] -> Ok rounded
-        | [ "rounded"; size ] -> (
-            match size with
-            | "none" -> Ok rounded_none
-            | "sm" -> Ok rounded_sm
-            | "md" -> Ok rounded_md
-            | "lg" -> Ok rounded_lg
-            | "xl" -> Ok rounded_xl
-            | "2xl" -> Ok rounded_2xl
-            | "3xl" -> Ok rounded_3xl
-            | "full" -> Ok rounded_full
-            | s -> Error (`Msg ("Unknown rounded size: " ^ s)))
-        | [ "shadow" ] -> shadow_of_string ""
-        | [ "shadow"; size ] -> shadow_of_string size
-        | [ "ring" ] -> Ok ring
-        | [ "ring"; "0" ] -> Ok ring_none
-        | [ "ring"; "1" ] -> Ok ring_xs
-        | [ "ring"; "2" ] -> Ok ring_sm
-        | [ "ring"; "3" ] -> Ok ring_md
-        | [ "ring"; "4" ] -> Ok ring_lg
-        | [ "ring"; "8" ] -> Ok ring_xl
-        | [ "items"; "center" ] -> Ok items_center
-        | [ "items"; "start" ] -> Ok items_start
-        | [ "items"; "end" ] -> Ok items_end
-        | [ "items"; "stretch" ] -> Ok items_stretch
-        | [ "items"; "baseline" ] -> Ok items_baseline
-        | [ "justify"; "center" ] -> Ok justify_center
-        | [ "justify"; "start" ] -> Ok justify_start
-        | [ "justify"; "end" ] -> Ok justify_end
-        | [ "justify"; "between" ] -> Ok justify_between
-        | [ "justify"; "around" ] -> Ok justify_around
-        | [ "justify"; "evenly" ] -> Ok justify_evenly
-        | [ "font"; "thin" ] -> Ok font_thin
-        | [ "font"; "light" ] -> Ok font_light
-        | [ "font"; "normal" ] -> Ok font_normal
-        | [ "font"; "medium" ] -> Ok font_medium
-        | [ "font"; "semibold" ] -> Ok font_semibold
-        | [ "font"; "bold" ] -> Ok font_bold
-        | [ "font"; "extrabold" ] -> Ok font_extrabold
-        | [ "font"; "black" ] -> Ok font_black
-        | [ "font"; "sans" ] -> Ok font_sans
-        | [ "font"; "serif" ] -> Ok font_serif
-        | [ "font"; "mono" ] -> Ok font_mono
-        | [ "italic" ] -> Ok italic
-        | [ "not"; "italic" ] -> Ok not_italic
-        | [ "underline" ] -> Ok underline
-        | [ "no"; "underline" ] -> Ok no_underline
-        | [ "leading"; "none" ] -> Ok leading_none
-        | [ "leading"; "tight" ] -> Ok leading_tight
-        | [ "leading"; "snug" ] -> Ok leading_snug
-        | [ "leading"; "normal" ] -> Ok leading_normal
-        | [ "leading"; "relaxed" ] -> Ok leading_relaxed
-        | [ "leading"; "loose" ] -> Ok leading_loose
-        | [ "leading"; n ] -> leading_of_string n
-        | [ "relative" ] -> Ok relative
-        | [ "absolute" ] -> Ok absolute
-        | [ "fixed" ] -> Ok fixed
-        | [ "sticky" ] -> Ok sticky
-        | [ "static" ] -> Ok static
-        | [ "opacity"; n ] -> parse_bounded_int "Opacity" 0 100 n >|= opacity
-        | [ "transition" ] -> Ok transition_all
-        | [ "transition"; "none" ] -> Ok transition_none
-        | [ "transition"; "all" ] -> Ok transition_all
-        | [ "transition"; "colors" ] -> Ok transition_colors
-        | [ "transition"; "opacity" ] -> Ok transition_opacity
-        | [ "transition"; "shadow" ] -> Ok transition_shadow
-        | [ "transition"; "transform" ] -> Ok transition_transform
-        | [ "duration"; n ] -> parse_positive_int "duration" n >|= duration
-        | [ "scale"; n ] -> parse_positive_int "scale" n >|= scale
-        (* Prose classes *)
-        | [ "prose" ] -> Ok prose
-        | [ "prose"; "sm" ] -> Ok prose_sm
-        | [ "prose"; "lg" ] -> Ok prose_lg
-        | [ "prose"; "xl" ] -> Ok prose_xl
-        | [ "prose"; "2xl" ] -> Ok prose_2xl
-        | [ "prose"; "gray" ] -> Ok prose_gray
-        | [ "prose"; "slate" ] -> Ok prose_slate
-        | _ -> Error (`Msg ("Unknown class: " ^ class_str)))
+    (* Try color classes first *)
+    color_classes_of_string parts
+    <|>
+    (* Try spacing/sizing with helper functions *)
+    (match parts with
+    | "p" :: _ -> spacing_of_string "p" p_px p_full p parts
+    | "px" :: _ -> spacing_of_string "px" px_px px_full px parts
+    | "py" :: _ -> spacing_of_string "py" py_px py_full py parts
+    | "pt" :: _ -> spacing_of_string "pt" pt_px pt_full pt parts
+    | "pr" :: _ -> spacing_of_string "pr" pr_px pr_full pr parts
+    | "pb" :: _ -> spacing_of_string "pb" pb_px pb_full pb parts
+    | "pl" :: _ -> spacing_of_string "pl" pl_px pl_full pl parts
+    | "m" :: _ -> margin_of_string "m" m_auto m parts
+    | "mx" :: _ -> margin_of_string "mx" mx_auto mx parts
+    | "my" :: _ -> margin_of_string "my" my_auto my parts
+    | "mt" :: _ -> margin_of_string "mt" mt_auto mt parts
+    | "mr" :: _ -> margin_of_string "mr" mr_auto mr parts
+    | "mb" :: _ -> margin_of_string "mb" mb_auto mb parts
+    | "ml" :: _ -> margin_of_string "ml" ml_auto ml parts
+    | "w" :: _ -> width_of_string parts
+    | "h" :: _ -> height_of_string parts
+    | "gap" :: _ -> gap_of_string parts
+    | "min" :: "w" :: _ -> min_width_of_string parts
+    | "min" :: "h" :: _ -> min_height_of_string parts
+    | "max" :: "w" :: _ -> max_width_of_string parts
+    | "max" :: "h" :: _ -> max_height_of_string parts
+    | _ -> Error (`Msg ""))
+    <|>
+    (* Try layout and typography classes *)
+    layout_typography_of_string parts
+    <|>
+    (* Try utility classes *)
+    utility_classes_of_string parts
+    <|>
+    (* Unknown class *)
+    Error (`Msg ("Unknown class: " ^ class_str))
   in
   match base_result with
   | Error _ as e -> e
