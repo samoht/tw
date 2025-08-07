@@ -1134,32 +1134,59 @@ let justify_evenly = Style ("justify-evenly", [ justify_content "space-evenly" ]
 let content_start = Style ("content-start", [ Css.align_content "flex-start" ])
 let content_end = Style ("content-end", [ Css.align_content "flex-end" ])
 let content_center = Style ("content-center", [ Css.align_content "center" ])
-let content_between = Style ("content-between", [ Css.align_content "space-between" ])
-let content_around = Style ("content-around", [ Css.align_content "space-around" ])
-let content_evenly = Style ("content-evenly", [ Css.align_content "space-evenly" ])
+
+let content_between =
+  Style ("content-between", [ Css.align_content "space-between" ])
+
+let content_around =
+  Style ("content-around", [ Css.align_content "space-around" ])
+
+let content_evenly =
+  Style ("content-evenly", [ Css.align_content "space-evenly" ])
+
 let content_stretch = Style ("content-stretch", [ Css.align_content "stretch" ])
 
-(* Place content utilities - shorthand for align-content and justify-content in Grid *)
-let place_content_start = Style ("place-content-start", [ Css.place_content "start" ])
-let place_content_end = Style ("place-content-end", [ Css.place_content "end" ])
-let place_content_center = Style ("place-content-center", [ Css.place_content "center" ])
-let place_content_between = Style ("place-content-between", [ Css.place_content "space-between" ])
-let place_content_around = Style ("place-content-around", [ Css.place_content "space-around" ])
-let place_content_evenly = Style ("place-content-evenly", [ Css.place_content "space-evenly" ])
-let place_content_stretch = Style ("place-content-stretch", [ Css.place_content "stretch" ])
+(* Place content utilities - shorthand for align-content and justify-content in
+   Grid *)
+let place_content_start =
+  Style ("place-content-start", [ Css.place_content "start" ])
 
-(* Place items utilities - shorthand for align-items and justify-items in Grid *)
+let place_content_end = Style ("place-content-end", [ Css.place_content "end" ])
+
+let place_content_center =
+  Style ("place-content-center", [ Css.place_content "center" ])
+
+let place_content_between =
+  Style ("place-content-between", [ Css.place_content "space-between" ])
+
+let place_content_around =
+  Style ("place-content-around", [ Css.place_content "space-around" ])
+
+let place_content_evenly =
+  Style ("place-content-evenly", [ Css.place_content "space-evenly" ])
+
+let place_content_stretch =
+  Style ("place-content-stretch", [ Css.place_content "stretch" ])
+
+(* Place items utilities - shorthand for align-items and justify-items in
+   Grid *)
 let place_items_start = Style ("place-items-start", [ Css.place_items "start" ])
 let place_items_end = Style ("place-items-end", [ Css.place_items "end" ])
-let place_items_center = Style ("place-items-center", [ Css.place_items "center" ])
-let place_items_stretch = Style ("place-items-stretch", [ Css.place_items "stretch" ])
+
+let place_items_center =
+  Style ("place-items-center", [ Css.place_items "center" ])
+
+let place_items_stretch =
+  Style ("place-items-stretch", [ Css.place_items "stretch" ])
 
 (* Place self utilities - shorthand for align-self and justify-self *)
 let place_self_auto = Style ("place-self-auto", [ Css.place_self "auto" ])
 let place_self_start = Style ("place-self-start", [ Css.place_self "start" ])
 let place_self_end = Style ("place-self-end", [ Css.place_self "end" ])
 let place_self_center = Style ("place-self-center", [ Css.place_self "center" ])
-let place_self_stretch = Style ("place-self-stretch", [ Css.place_self "stretch" ])
+
+let place_self_stretch =
+  Style ("place-self-stretch", [ Css.place_self "stretch" ])
 
 (* Align self utilities *)
 let self_auto = Style ("self-auto", [ Css.align_self "auto" ])
@@ -1171,10 +1198,17 @@ let self_stretch = Style ("self-stretch", [ Css.align_self "stretch" ])
 
 (* Justify self utilities - for Grid items *)
 let justify_self_auto = Style ("justify-self-auto", [ Css.justify_self "auto" ])
-let justify_self_start = Style ("justify-self-start", [ Css.justify_self "start" ])
+
+let justify_self_start =
+  Style ("justify-self-start", [ Css.justify_self "start" ])
+
 let justify_self_end = Style ("justify-self-end", [ Css.justify_self "end" ])
-let justify_self_center = Style ("justify-self-center", [ Css.justify_self "center" ])
-let justify_self_stretch = Style ("justify-self-stretch", [ Css.justify_self "stretch" ])
+
+let justify_self_center =
+  Style ("justify-self-center", [ Css.justify_self "center" ])
+
+let justify_self_stretch =
+  Style ("justify-self-stretch", [ Css.justify_self "stretch" ])
 
 let grid_cols n =
   let class_name = "grid-cols-" ^ string_of_int n in
@@ -1698,19 +1732,39 @@ let capitalize = Style ("capitalize", [ Css.text_transform "capitalize" ])
 let normal_case = Style ("normal-case", [ Css.text_transform "none" ])
 
 (* Text decoration style utilities *)
-let underline_solid = Style ("underline-solid", [ Css.text_decoration_style "solid" ])
-let underline_double = Style ("underline-double", [ Css.text_decoration_style "double" ])
-let underline_dotted = Style ("underline-dotted", [ Css.text_decoration_style "dotted" ])
-let underline_dashed = Style ("underline-dashed", [ Css.text_decoration_style "dashed" ])
-let underline_wavy = Style ("underline-wavy", [ Css.text_decoration_style "wavy" ])
+let underline_solid =
+  Style ("underline-solid", [ Css.text_decoration_style "solid" ])
+
+let underline_double =
+  Style ("underline-double", [ Css.text_decoration_style "double" ])
+
+let underline_dotted =
+  Style ("underline-dotted", [ Css.text_decoration_style "dotted" ])
+
+let underline_dashed =
+  Style ("underline-dashed", [ Css.text_decoration_style "dashed" ])
+
+let underline_wavy =
+  Style ("underline-wavy", [ Css.text_decoration_style "wavy" ])
 
 (* Text underline offset utilities *)
-let underline_offset_auto = Style ("underline-offset-auto", [ Css.text_underline_offset "auto" ])
-let underline_offset_0 = Style ("underline-offset-0", [ Css.text_underline_offset "0" ])
-let underline_offset_1 = Style ("underline-offset-1", [ Css.text_underline_offset "1px" ])
-let underline_offset_2 = Style ("underline-offset-2", [ Css.text_underline_offset "2px" ])
-let underline_offset_4 = Style ("underline-offset-4", [ Css.text_underline_offset "4px" ])
-let underline_offset_8 = Style ("underline-offset-8", [ Css.text_underline_offset "8px" ])
+let underline_offset_auto =
+  Style ("underline-offset-auto", [ Css.text_underline_offset "auto" ])
+
+let underline_offset_0 =
+  Style ("underline-offset-0", [ Css.text_underline_offset "0" ])
+
+let underline_offset_1 =
+  Style ("underline-offset-1", [ Css.text_underline_offset "1px" ])
+
+let underline_offset_2 =
+  Style ("underline-offset-2", [ Css.text_underline_offset "2px" ])
+
+let underline_offset_4 =
+  Style ("underline-offset-4", [ Css.text_underline_offset "4px" ])
+
+let underline_offset_8 =
+  Style ("underline-offset-8", [ Css.text_underline_offset "8px" ])
 
 (* Additional functions needed *)
 let aspect_ratio width height =
@@ -2480,8 +2534,7 @@ let color_classes_of_string = function
       shade_of_string shade >|= fun shade -> border_color color shade
   | [ "border"; "transparent" ] -> Ok border_transparent
   | [ "border"; "current" ] -> Ok border_current
-  | [ "border"; color ] ->
-      color_of_string color >|= fun c -> border_color c 500
+  | [ "border"; color ] -> color_of_string color >|= fun c -> border_color c 500
   | _ -> Error (`Msg "")
 
 (* Parse layout and typography classes *)
@@ -2500,10 +2553,8 @@ let layout_typography_of_string = function
   | [ "inline"; "block" ] -> Ok inline_block
   | [ "inline"; "grid" ] -> Ok inline_grid
   | [ "grid" ] -> Ok grid
-  | [ "grid"; "cols"; n ] ->
-      int_of_string_positive "grid cols" n >|= grid_cols
-  | [ "grid"; "rows"; n ] ->
-      int_of_string_positive "grid rows" n >|= grid_rows
+  | [ "grid"; "cols"; n ] -> int_of_string_positive "grid cols" n >|= grid_cols
+  | [ "grid"; "rows"; n ] -> int_of_string_positive "grid rows" n >|= grid_rows
   | [ "hidden" ] -> Ok hidden
   | [ "items"; "center" ] -> Ok items_center
   | [ "items"; "start" ] -> Ok items_start

@@ -1013,9 +1013,7 @@ let test_state_modifiers () =
 
   test_class_name (on_hover [ bg gray 700 ]) "hover:bg-gray-700";
   test_class_name (on_focus [ text sky 500 ]) "focus:text-sky-500";
-  test_class_name
-    (on_active [ border_color teal 400 ])
-    "active:border-teal-400"
+  test_class_name (on_active [ border_color teal 400 ]) "active:border-teal-400"
 
 let test_css_prelude () =
   (* Test that our CSS reset/prelude matches expected structure *)
@@ -1826,9 +1824,7 @@ let test_css_inline_style_generation () =
 
 (** Test CSS minification *)
 let test_css_minification () =
-  let styles =
-    [ bg blue 500; text_white; p 4; m 2; rounded_lg; shadow_md ]
-  in
+  let styles = [ bg blue 500; text_white; p 4; m 2; rounded_lg; shadow_md ] in
   let stylesheet = to_css ~reset:false styles in
   let normal = Css.to_string ~minify:false stylesheet in
   let minified = Css.to_string ~minify:true stylesheet in

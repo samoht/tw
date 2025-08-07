@@ -24,19 +24,11 @@ let hero_section =
         ~tw:Tw.[ text_4xl; font_bold; text gray 900; mb 4 ]
         [ txt "Type-Safe HTML with Tw" ];
       p
-        ~tw:
-          Tw.
-            [
-              text_lg;
-              text gray 600;
-              max_w_2xl;
-              mx_auto;
-              leading_relaxed;
-            ]
+        ~tw:Tw.[ text_lg; text gray 600; max_w_2xl; mx_auto; leading_relaxed ]
         [
           txt
-            "Write HTML and CSS using OCaml's type system. Get \
-             compile-time guarantees and auto-completion for free.";
+            "Write HTML and CSS using OCaml's type system. Get compile-time \
+             guarantees and auto-completion for free.";
         ];
     ]
 
@@ -84,20 +76,20 @@ let features_section =
         [
           feature_card ~icon:"🎨" ~title:"Tailwind-Compatible"
             ~description:
-              "Use familiar Tw utility classes with compile-time \
-               safety. No more typos in class names!";
+              "Use familiar Tw utility classes with compile-time safety. No \
+               more typos in class names!";
           feature_card ~icon:"⚡" ~title:"Automatic CSS Generation"
             ~description:
               "Generates optimized CSS containing only the classes you \
                actually use. No dead code!";
           feature_card ~icon:"🔒" ~title:"Type-Safe"
             ~description:
-              "OCaml's type system ensures your HTML is well-formed and \
-               your CSS classes exist.";
+              "OCaml's type system ensures your HTML is well-formed and your \
+               CSS classes exist.";
           feature_card ~icon:"🚀" ~title:"Fast"
             ~description:
-              "Compile-time generation means zero runtime overhead. Your \
-               pages load instantly.";
+              "Compile-time generation means zero runtime overhead. Your pages \
+               load instantly.";
         ];
     ]
 
@@ -149,8 +141,8 @@ let cta_section =
         ~tw:Tw.[ text_lg; text gray 600; mb 8 ]
         [
           txt
-            "Install tw.html from opam and start building type-safe web \
-             pages today!";
+            "Install tw.html from opam and start building type-safe web pages \
+             today!";
         ];
       div
         ~tw:Tw.[ flex; justify_center; gap 4 ]
@@ -202,9 +194,7 @@ let hover_effect_card =
           cursor_pointer;
         ]
     [
-      h3
-        ~tw:Tw.[ font_semibold; mb 2 ]
-        [ txt "Hover Effect" ];
+      h3 ~tw:Tw.[ font_semibold; mb 2 ] [ txt "Hover Effect" ];
       p
         ~tw:Tw.[ text gray 600; text_sm ]
         [ txt "Hover over this card to see it scale and lift." ];
@@ -212,59 +202,23 @@ let hover_effect_card =
 
 let dark_mode_card =
   div
-    ~tw:
-      Tw.
-        [
-          bg_white;
-          on_dark [ bg gray 800 ];
-          p 4;
-          rounded_lg;
-          shadow_sm;
-        ]
+    ~tw:Tw.[ bg_white; on_dark [ bg gray 800 ]; p 4; rounded_lg; shadow_sm ]
     [
       h3
-        ~tw:
-          Tw.
-            [
-              font_semibold;
-              mb 2;
-              text gray 900;
-              on_dark [ text_white ];
-            ]
+        ~tw:Tw.[ font_semibold; mb 2; text gray 900; on_dark [ text_white ] ]
         [ txt "Dark Mode" ];
       p
-        ~tw:
-          Tw.
-            [
-              text gray 600;
-              on_dark [ text gray 300 ];
-              text_sm;
-            ]
-        [
-          txt
-            "This card adapts to your system's dark mode \
-             preference.";
-        ];
+        ~tw:Tw.[ text gray 600; on_dark [ text gray 300 ]; text_sm ]
+        [ txt "This card adapts to your system's dark mode preference." ];
     ]
 
 let animation_card =
   div
     ~tw:Tw.[ bg_white; p 4; rounded_lg; shadow_sm ]
     [
-      h3
-        ~tw:Tw.[ font_semibold; mb 2 ]
-        [ txt "Animation" ];
+      h3 ~tw:Tw.[ font_semibold; mb 2 ] [ txt "Animation" ];
       div
-        ~tw:
-          Tw.
-            [
-              w 8;
-              h 8;
-              bg blue 500;
-              rounded_full;
-              mx_auto;
-              animate_pulse;
-            ]
+        ~tw:Tw.[ w 8; h 8; bg blue 500; rounded_full; mx_auto; animate_pulse ]
         [];
       p
         ~tw:Tw.[ text gray 600; text_sm; mt 2 ]
@@ -281,11 +235,7 @@ let interactive_section =
         [ txt "Interactive Examples" ];
       div
         ~tw:Tw.[ grid; grid_cols 1; on_lg [ grid_cols 3 ]; gap 4 ]
-        [
-          hover_effect_card;
-          dark_mode_card;
-          animation_card;
-        ];
+        [ hover_effect_card; dark_mode_card; animation_card ];
     ]
 
 (* Footer component *)
@@ -295,11 +245,7 @@ let footer_section =
     [
       div
         ~tw:Tw.[ max_w_4xl; mx_auto; px 4; text_center ]
-        [
-          p
-            ~tw:Tw.[ text gray 500 ]
-            [ txt "Built with ❤️ using OCaml and Tw" ];
-        ];
+        [ p ~tw:Tw.[ text gray 500 ] [ txt "Built with ❤️ using OCaml and Tw" ] ];
     ]
 
 (* Main page assembly *)
@@ -342,7 +288,7 @@ let main =
 let () =
   let html_str = html main in
   let css_filename, css_stylesheet = css main in
-  let css_str = Tw.Css.to_string ~minify:false css_stylesheet in
+  let css_str = Tw.Css.to_string ~minify:true css_stylesheet in
 
   (* Write HTML file *)
   let oc_html = open_out "simple_page.html" in
