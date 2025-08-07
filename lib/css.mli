@@ -103,6 +103,15 @@ val text_align : string -> property
 val text_decoration : string -> property
 (** [text_decoration value] sets the CSS text-decoration property to value. *)
 
+val text_decoration_style : string -> property
+(** [text_decoration_style value] sets the CSS text-decoration-style property to value. *)
+
+val text_underline_offset : string -> property
+(** [text_underline_offset value] sets the CSS text-underline-offset property to value. *)
+
+val text_transform : string -> property
+(** [text_transform value] sets the CSS text-transform property to value. *)
+
 val letter_spacing : string -> property
 (** [letter_spacing value] sets the CSS letter-spacing property to value. *)
 
@@ -135,6 +144,24 @@ val align_items : string -> property
 
 val justify_content : string -> property
 (** [justify_content value] sets the CSS justify-content property to value. *)
+
+val align_content : string -> property
+(** [align_content value] sets the CSS align-content property to value. *)
+
+val align_self : string -> property
+(** [align_self value] sets the CSS align-self property to value. *)
+
+val justify_self : string -> property
+(** [justify_self value] sets the CSS justify-self property to value. *)
+
+val place_content : string -> property
+(** [place_content value] sets the CSS place-content property to value. *)
+
+val place_items : string -> property
+(** [place_items value] sets the CSS place-items property to value. *)
+
+val place_self : string -> property
+(** [place_self value] sets the CSS place-self property to value. *)
 
 val grid_template_columns : string -> property
 (** [grid_template_columns value] sets the CSS grid-template-columns property to
