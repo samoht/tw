@@ -412,7 +412,7 @@ type page = { html : string; css : Tw.Css.stylesheet; tw_css : string }
 
 let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css head_content
     body_content =
-  (* Build the complete HTML structure *)
+  (* Build HTML tree with placeholder for CSS link *)
   let meta_charset = meta ~at:[ At.charset charset ] () in
   let meta_tags =
     meta_charset
@@ -421,17 +421,41 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css head_content
            meta ~at:[ At.name name; At.content content ] ())
          meta_list
   in
-  let css_link = link ~at:[ At.rel "stylesheet"; At.href tw_css ] () in
+
+  (* Create the body and collect all Tw styles *)
+  let body_element = body body_content in
+  let all_tw = to_tw body_element in
+
+  (* Add styles from head content *)
+  let all_tw = all_tw @ List.concat_map to_tw head_content in
+
+  (* Generate CSS and compute MD5 hash for cache busting *)
+  let css_stylesheet = Tw.to_css all_tw in
+  let css_string = Tw.Css.to_string ~minify:true css_stylesheet in
+
+  (* Compute MD5 hash of the CSS content for cache busting *)
+  let css_hash =
+    let digest = Digest.string css_string in
+    (* Convert first 8 bytes of MD5 to hex string *)
+    let hex = Digest.to_hex digest in
+    String.sub hex 0 8
+  in
+
+  (* Add cache busting query parameter to CSS URL *)
+  let css_url_with_hash = Printf.sprintf "%s?v=%s" tw_css css_hash in
+
+  (* Build final HTML with cache-busted CSS link *)
+  let css_link =
+    link ~at:[ At.rel "stylesheet"; At.href css_url_with_hash ] ()
+  in
   let head_children =
     meta_tags
     @ (match title_text with Some t -> [ title [ txt t ] ] | None -> [])
     @ [ css_link ] @ head_content
   in
   let html_tree =
-    root ~at:[ At.lang lang ] [ head head_children; body body_content ]
+    root ~at:[ At.lang lang ] [ head head_children; body_element ]
   in
-  let all_tw = to_tw html_tree in
-  let css_stylesheet = Tw.to_css all_tw in
   let html_string = to_string ~doctype:true html_tree in
   { html = html_string; css = css_stylesheet; tw_css }
 

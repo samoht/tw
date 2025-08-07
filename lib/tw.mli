@@ -878,8 +878,8 @@ val justify_evenly : t
 (** {2 Align Content (Multi-line Flex/Grid)} *)
 
 val content_start : t
-(** Aligns lines/rows to the start of the container's cross axis. For flex containers
-    with multiple lines or grid containers with multiple rows. *)
+(** Aligns lines/rows to the start of the container's cross axis. For flex
+    containers with multiple lines or grid containers with multiple rows. *)
 
 val content_end : t
 (** Aligns lines/rows to the end of the container's cross axis. *)
@@ -902,7 +902,8 @@ val content_stretch : t
 (** {2 Place Content (Grid Shorthand)} *)
 
 val place_content_start : t
-(** Aligns content to start in both axes. Shorthand for align-content and justify-content. *)
+(** Aligns content to start in both axes. Shorthand for align-content and
+    justify-content. *)
 
 val place_content_end : t
 (** Aligns content to end in both axes. *)
@@ -925,7 +926,8 @@ val place_content_stretch : t
 (** {2 Place Items (Grid Shorthand)} *)
 
 val place_items_start : t
-(** Aligns items to start in both axes. Shorthand for align-items and justify-items. *)
+(** Aligns items to start in both axes. Shorthand for align-items and
+    justify-items. *)
 
 val place_items_end : t
 (** Aligns items to end in both axes. *)
@@ -976,7 +978,8 @@ val justify_self_stretch : t
 (** {2 Place Self (Grid Shorthand)} *)
 
 val place_self_auto : t
-(** Uses parent's place-items value. Shorthand for align-self and justify-self. *)
+(** Uses parent's place-items value. Shorthand for align-self and justify-self.
+*)
 
 val place_self_start : t
 (** Aligns to start in both axes. *)
@@ -1166,7 +1169,8 @@ val capitalize : t
 (** Capitalize The First Letter Of Each Word. Good for titles and headings. *)
 
 val normal_case : t
-(** Remove text transformation (default). Use to override parent text-transform. *)
+(** Remove text transformation (default). Use to override parent text-transform.
+*)
 
 (** {2 Text Decoration Style} *)
 

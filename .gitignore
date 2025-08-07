@@ -45,4 +45,8 @@ temp_*/
 node_modules/
 package.json
 package-lock.json
-.npm/
+.npm/# Generated files
+examples/simple.css
+examples/simple_page.html
+examples/*.css
+examples/*.html

@@ -1,4 +1,3 @@
 (executable
- (public_name tw-simple-page)
  (name simple_page)
  (libraries tw tw.html))

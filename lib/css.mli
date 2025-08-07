@@ -104,10 +104,12 @@ val text_decoration : string -> property
 (** [text_decoration value] sets the CSS text-decoration property to value. *)
 
 val text_decoration_style : string -> property
-(** [text_decoration_style value] sets the CSS text-decoration-style property to value. *)
+(** [text_decoration_style value] sets the CSS text-decoration-style property to
+    value. *)
 
 val text_underline_offset : string -> property
-(** [text_underline_offset value] sets the CSS text-underline-offset property to value. *)
+(** [text_underline_offset value] sets the CSS text-underline-offset property to
+    value. *)
 
 val text_transform : string -> property
 (** [text_transform value] sets the CSS text-transform property to value. *)
