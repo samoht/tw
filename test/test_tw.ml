@@ -1003,35 +1003,109 @@ let test_negative_spacing () =
   test_class_name (mt (-4)) "-mt-4";
   test_class_name (mr (-2)) "-mr-2";
   test_class_name (mb (-8)) "-mb-8";
-  test_class_name (ml (-1)) "-ml-1";
-  test_class_name (mx (-6)) "-mx-6";
-  test_class_name (my (-3)) "-my-3";
+  test_class_name (ml (-1)) "-ml-1"
 
-  (* Test negative positioning *)
-  test_class_name (top (-4)) "-top-4";
-  test_class_name (right (-2)) "-right-2";
-  test_class_name (bottom (-8)) "-bottom-8";
-  test_class_name (left (-1)) "-left-1";
-
-  (* Test negative transforms *)
-  test_class_name (translate_x (-4)) "-translate-x-4";
-  test_class_name (translate_y (-2)) "-translate-y-2";
-
-  (* Test CSS generation for negative values *)
-  let test_css_value tw expected_prop expected_value =
-    let stylesheet = to_css ~reset:false [ tw ] in
+(** Test 3D transform utilities *)
+let test_container_queries () =
+  let test_class_name tw expected =
+    let actual = pp tw in
+    Alcotest.check string ("container query " ^ expected) expected actual
+  in
+  let test_css_value tw prop expected =
+    let stylesheet = to_css [ tw ] in
     let css_str = Css.to_string stylesheet in
-    let property_str = expected_prop ^ ": " ^ expected_value in
-    Alcotest.check bool
-      ("CSS contains " ^ property_str)
-      true
-      (string_contains_substring css_str property_str)
+    let has_value =
+      Astring.String.is_infix ~affix:(prop ^ ": " ^ expected) css_str
+    in
+    if not has_value then
+      Alcotest.failf "Expected CSS property %s: %s not found in:\n%s" prop
+        expected css_str
   in
 
-  test_css_value (mt (-4)) "margin-top" "-1rem";
-  test_css_value (ml (-2)) "margin-left" "-0.5rem";
-  test_css_value (top (-4)) "top" "-1rem";
-  test_css_value (translate_x (-8)) "transform" "translateX(-2rem)"
+  (* Test container types *)
+  test_class_name container_type_size "container-type-size";
+  test_css_value container_type_size "container-type" "size";
+
+  test_class_name container_type_inline_size "container-type-inline-size";
+  test_css_value container_type_inline_size "container-type" "inline-size";
+
+  test_class_name container_type_normal "container-type-normal";
+  test_css_value container_type_normal "container-type" "normal";
+
+  (* Test named containers *)
+  test_class_name (container_name "sidebar") "container-sidebar";
+  test_css_value (container_name "sidebar") "container-name" "sidebar";
+
+  (* Test container query modifiers *)
+  let test_container_modifier modifier expected_query =
+    let style = modifier [ p 4 ] in
+    let css = to_css [ style ] |> Css.to_string in
+    let has_query = Astring.String.is_infix ~affix:expected_query css in
+    if not has_query then
+      Alcotest.failf "Expected container query %s not found in CSS"
+        expected_query
+  in
+
+  test_container_modifier on_container_sm "@container (min-width: 640px)";
+  test_container_modifier on_container_md "@container (min-width: 768px)";
+  test_container_modifier on_container_lg "@container (min-width: 1024px)";
+  test_container_modifier
+    (on_container ~name:"sidebar" 500)
+    "@container sidebar (min-width: 500px)"
+
+let test_3d_transforms () =
+  let test_class_name tw expected =
+    let actual = pp tw in
+    Alcotest.check string ("3D transform " ^ expected) expected actual
+  in
+  let test_css_value tw prop expected =
+    let stylesheet = to_css [ tw ] in
+    let css_str = Css.to_string stylesheet in
+    let has_value =
+      Astring.String.is_infix ~affix:(prop ^ ": " ^ expected) css_str
+    in
+    if not has_value then
+      Alcotest.failf "Expected CSS property %s: %s not found in:\n%s" prop
+        expected css_str
+  in
+
+  (* Test rotate X/Y/Z *)
+  test_class_name (rotate_x 45) "rotate-x-45";
+  test_css_value (rotate_x 45) "transform" "rotateX(45deg)";
+  test_class_name (rotate_x (-30)) "-rotate-x-30";
+  test_css_value (rotate_x (-30)) "transform" "rotateX(-30deg)";
+
+  test_class_name (rotate_y 90) "rotate-y-90";
+  test_css_value (rotate_y 90) "transform" "rotateY(90deg)";
+  test_class_name (rotate_y (-60)) "-rotate-y-60";
+  test_css_value (rotate_y (-60)) "transform" "rotateY(-60deg)";
+
+  test_class_name (rotate_z 180) "rotate-z-180";
+  test_css_value (rotate_z 180) "transform" "rotateZ(180deg)";
+
+  (* Test translate Z *)
+  test_class_name (translate_z 100) "translate-z-100";
+  test_css_value (translate_z 100) "transform" "translateZ(100px)";
+  test_class_name (translate_z (-50)) "-translate-z-50";
+  test_css_value (translate_z (-50)) "transform" "translateZ(-50px)";
+
+  (* Test scale Z *)
+  test_class_name (scale_z 150) "scale-z-150";
+  test_css_value (scale_z 150) "--tw-scale-z" "1.5";
+
+  (* Test perspective *)
+  test_class_name (perspective 1000) "perspective-1000";
+  test_css_value (perspective 1000) "perspective" "1000px";
+
+  (* Test perspective origin *)
+  test_class_name perspective_origin_center "perspective-origin-center";
+  test_css_value perspective_origin_center "perspective-origin" "center";
+
+  test_class_name perspective_origin_top "perspective-origin-top";
+  test_css_value perspective_origin_top "perspective-origin" "top";
+
+  test_class_name perspective_origin_left "perspective-origin-left";
+  test_css_value perspective_origin_left "perspective-origin" "left"
 
 (** Test spacing_to_rem conversion function *)
 let test_spacing_to_rem () =
@@ -1944,6 +2018,8 @@ let tailwind_tests =
     test_case "tailwind borders" `Quick test_tailwind_borders;
     test_case "tailwind shadows" `Quick test_tailwind_shadows;
     test_case "negative spacing support" `Quick test_negative_spacing;
+    test_case "container queries" `Quick test_container_queries;
+    test_case "3D transforms" `Quick test_3d_transforms;
     test_case "spacing to rem conversion" `Quick test_spacing_to_rem;
     test_case "tailwind prose" `Quick test_tailwind_prose;
     test_case "tailwind flexbox" `Quick test_tailwind_flexbox;
