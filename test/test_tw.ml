@@ -992,6 +992,52 @@ let test_css_property_generation () =
   test_css_contains (px 6) "padding-left" "1.5rem";
   test_css_contains (py 2) "padding-top" "0.5rem"
 
+(** Test spacing_to_rem conversion function *)
+let test_spacing_to_rem () =
+  let test_spacing_value n expected_css =
+    (* Create a padding style with the given spacing value *)
+    let style = p n in
+    let stylesheet = to_css ~reset:false [ style ] in
+    let css_str = Css.to_string stylesheet in
+    let expected_property = "padding: " ^ expected_css in
+    Alcotest.check bool
+      (Printf.sprintf "p %d generates padding: %s" n expected_css)
+      true
+      (string_contains_substring css_str expected_property)
+  in
+
+  (* Test hardcoded values *)
+  test_spacing_value 0 "0";
+  test_spacing_value 1 "0.25rem";
+  test_spacing_value 2 "0.5rem";
+  test_spacing_value 3 "0.75rem";
+  test_spacing_value 4 "1rem";
+  test_spacing_value 6 "1.5rem";
+  test_spacing_value 8 "2rem";
+  test_spacing_value 10 "2.5rem";
+  test_spacing_value 12 "3rem";
+  test_spacing_value 16 "4rem";
+  test_spacing_value 20 "5rem";
+  test_spacing_value 24 "6rem";
+  test_spacing_value 56 "14rem";
+
+  (* Test fallback formula: n * 0.25rem *)
+  test_spacing_value 5 "1.25rem";
+  (* 5 * 0.25 = 1.25 *)
+  test_spacing_value 7 "1.75rem";
+  (* 7 * 0.25 = 1.75 *)
+  test_spacing_value 9 "2.25rem";
+  (* 9 * 0.25 = 2.25 *)
+  test_spacing_value 32 "8rem";
+  (* 32 * 0.25 = 8.0 *)
+  test_spacing_value 40 "10rem";
+  (* 40 * 0.25 = 10.0 *)
+  test_spacing_value 64 "16rem";
+  (* 64 * 0.25 = 16.0 *)
+  test_spacing_value 80 "20rem";
+  (* 80 * 0.25 = 20.0 *)
+  test_spacing_value 96 "24rem" (* 96 * 0.25 = 24.0 *)
+
 (** Test responsive modifiers *)
 let test_responsive_modifiers () =
   let test_class_name tw expected =
@@ -1856,6 +1902,7 @@ let tailwind_tests =
     test_case "tailwind states" `Quick test_tailwind_states;
     test_case "tailwind borders" `Quick test_tailwind_borders;
     test_case "tailwind shadows" `Quick test_tailwind_shadows;
+    test_case "spacing to rem conversion" `Quick test_spacing_to_rem;
     test_case "tailwind prose" `Quick test_tailwind_prose;
     test_case "tailwind flexbox" `Quick test_tailwind_flexbox;
     test_case "tailwind responsive breakpoints" `Quick
