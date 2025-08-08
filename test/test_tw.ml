@@ -1381,6 +1381,119 @@ let test_tailwind_compatibility () =
   test_tailwind_class_format "to-gradient" "to-red-800"
     (to_color ~shade:800 red)
 
+(* Test peer selectors work like Tailwind *)
+let test_peer_selectors () =
+  let test_exact_match name html_expected tw_style css_expected =
+    let actual_html = pp tw_style in
+    let actual_css = to_css [ tw_style ] |> Css.to_string in
+
+    Alcotest.check string (name ^ " HTML") html_expected actual_html;
+    if not (Astring.String.is_infix ~affix:css_expected actual_css) then
+      Alcotest.failf "%s: CSS selector '%s' not found" name css_expected;
+    Printf.printf "✓ %s: HTML='%s' ↔ CSS has '%s'\n" name actual_html
+      css_expected
+  in
+
+  (* Peer selectors need the same fix as group-hover *)
+  test_exact_match "peer-hover" "peer-hover:text-blue-500"
+    (on_peer_hover [ text blue 500 ])
+    ".peer:hover ~ .peer-hover\\:text-blue-500";
+
+  test_exact_match "peer-focus" "peer-focus:bg-yellow-200"
+    (on_peer_focus [ bg yellow 200 ])
+    ".peer:focus ~ .peer-focus\\:bg-yellow-200"
+
+(* Test CSS property values match Tailwind *)
+let test_css_property_correctness () =
+  let test_css_property name tw_style expected_property expected_value_pattern =
+    let css = to_css [ tw_style ] |> Css.to_string in
+    let property_pattern =
+      Re.Perl.compile_pat
+        (Printf.sprintf "%s:\\s*%s" expected_property expected_value_pattern)
+    in
+
+    if not (Re.execp property_pattern css) then
+      Alcotest.failf "%s: Expected CSS property pattern '%s: %s' not found" name
+        expected_property expected_value_pattern
+  in
+
+  (* Test actual CSS values match Tailwind's *)
+  test_css_property "text-blue-500" (text blue 500) "color" "rgb.59 130 246";
+  test_css_property "bg-red-600" (bg red 600) "background-color" "rgb.220 38 38";
+  test_css_property "p-4" (p 4) "padding" "1rem";
+  test_css_property "m-8" (m 8) "margin" "2rem";
+  test_css_property "opacity-50" (opacity 50) "opacity" "0.5";
+  ()
+
+(* Test complex nested modifier combinations *)
+let test_complex_modifier_nesting () =
+  (* Test that nested modifiers generate correct compound selectors *)
+  let test_nested name html_expected tw_style =
+    let actual_html = pp tw_style in
+    Alcotest.check string (name ^ " nested HTML") html_expected actual_html
+  in
+
+  (* Responsive + group-hover *)
+  test_nested "sm:group-hover" "sm:group-hover:text-blue-500"
+    (on_sm [ on_group_hover [ text blue 500 ] ]);
+
+  (* Dark + hover *)
+  test_nested "dark:hover" "dark:hover:bg-gray-800"
+    (on_dark [ on_hover [ bg gray 800 ] ])
+
+(* Test ARIA attribute selectors *)
+let test_aria_selectors () =
+  let test_exact_match name html_expected tw_style css_expected =
+    let actual_html = pp tw_style in
+    let actual_css = to_css [ tw_style ] |> Css.to_string in
+
+    Alcotest.check string (name ^ " HTML") html_expected actual_html;
+    if not (Astring.String.is_infix ~affix:css_expected actual_css) then
+      Alcotest.failf "%s: CSS selector '%s' not found in CSS:\n%s" name
+        css_expected actual_css;
+    Printf.printf "✓ %s: HTML='%s' ↔ CSS has '%s'\n" name actual_html
+      css_expected
+  in
+
+  (* ARIA selectors should follow Tailwind pattern *)
+  test_exact_match "aria-checked" "aria-checked:text-green-500"
+    (on_aria_checked [ text green 500 ])
+    ".aria-checked\\:text-green-500[aria-checked=\"true\"]";
+
+  test_exact_match "aria-disabled" "aria-disabled:opacity-50"
+    (on_aria_disabled [ opacity 50 ])
+    ".aria-disabled\\:opacity-50[aria-disabled=\"true\"]";
+
+  test_exact_match "aria-expanded" "aria-expanded:rotate-180"
+    (on_aria_expanded [ rotate 180 ])
+    ".aria-expanded\\:rotate-180[aria-expanded=\"true\"]";
+
+  test_exact_match "aria-selected" "aria-selected:bg-blue-100"
+    (on_aria_selected [ bg blue 100 ])
+    ".aria-selected\\:bg-blue-100[aria-selected=\"true\"]"
+
+(* Test data attribute selectors *)
+let test_data_selectors () =
+  let test_exact_match name html_expected tw_style css_expected =
+    let actual_html = pp tw_style in
+    let actual_css = to_css [ tw_style ] |> Css.to_string in
+
+    Alcotest.check string (name ^ " HTML") html_expected actual_html;
+    if not (Astring.String.is_infix ~affix:css_expected actual_css) then
+      Alcotest.failf "%s: CSS selector '%s' not found" name css_expected;
+    Printf.printf "✓ %s: HTML='%s' ↔ CSS has '%s'\n" name actual_html
+      css_expected
+  in
+
+  (* Data attributes - verify they work correctly *)
+  test_exact_match "data-active" "data-[active]:bg-blue-100"
+    (on_data_active [ bg blue 100 ])
+    ".data-\\[active\\]\\:bg-blue-100[data-active]";
+
+  test_exact_match "data-inactive" "data-[inactive]:opacity-50"
+    (on_data_inactive [ opacity 50 ])
+    ".data-\\[inactive\\]\\:opacity-50[data-inactive]"
+
 let test_3d_transforms () =
   let test_class_name tw expected =
     let actual = pp tw in
@@ -1796,12 +1909,12 @@ let test_data_attributes () =
         \  background-color: rgb(255 255 255 / var(--tw-bg-opacity));\n\
          }" );
       ( on_data_active [ text_white ],
-        ".text-white[data-active] {\n\
+        ".data-\\[active\\]\\:text-white[data-active] {\n\
         \  --tw-text-opacity: 1;\n\
         \  color: rgb(255 255 255 / var(--tw-text-opacity));\n\
          }" );
       ( on_data_inactive [ hidden ],
-        ".hidden[data-inactive] {\n  display: none;\n}" );
+        ".data-\\[inactive\\]\\:hidden[data-inactive] {\n  display: none;\n}" );
       ( data_custom "theme" "dark" flex,
         ".flex[data-theme=\"dark\"] {\n  display: flex;\n}" );
     ]
@@ -2354,6 +2467,11 @@ let tailwind_tests =
     test_case "HTML/CSS regression tests" `Quick test_html_css_regression;
     test_case "Real Tailwind equivalence" `Quick test_real_tailwind_equivalence;
     test_case "Tailwind compatibility" `Quick test_tailwind_compatibility;
+    test_case "Peer selectors" `Quick test_peer_selectors;
+    test_case "CSS property correctness" `Quick test_css_property_correctness;
+    test_case "Complex modifier nesting" `Quick test_complex_modifier_nesting;
+    test_case "ARIA selectors" `Quick test_aria_selectors;
+    test_case "Data selectors" `Quick test_data_selectors;
     test_case "3D transforms" `Quick test_3d_transforms;
     test_case "spacing to rem conversion" `Quick test_spacing_to_rem;
     test_case "tailwind prose" `Quick test_tailwind_prose;
