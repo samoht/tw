@@ -171,19 +171,31 @@ let extract_selector_props tw =
             | Disabled -> (".disabled\\:" ^ base_class ^ ":disabled", props)
             | Group_hover -> (".group:hover .group-hover\\:" ^ base_class, props)
             | Group_focus -> (".group:focus .group-focus\\:" ^ base_class, props)
-            | Peer_hover -> (".peer:hover ~ " ^ selector, props)
-            | Peer_focus -> (".peer:focus ~ " ^ selector, props)
-            | Peer_checked -> (".peer:checked ~ " ^ selector, props)
-            | Aria_checked -> (selector ^ "[aria-checked=\"true\"]", props)
-            | Aria_expanded -> (selector ^ "[aria-expanded=\"true\"]", props)
-            | Aria_selected -> (selector ^ "[aria-selected=\"true\"]", props)
-            | Aria_disabled -> (selector ^ "[aria-disabled=\"true\"]", props)
+            | Peer_hover -> (".peer:hover ~ .peer-hover\\:" ^ base_class, props)
+            | Peer_focus -> (".peer:focus ~ .peer-focus\\:" ^ base_class, props)
+            | Peer_checked ->
+                (".peer:checked ~ .peer-checked\\:" ^ base_class, props)
+            | Aria_checked ->
+                ( ".aria-checked\\:" ^ base_class ^ "[aria-checked=\"true\"]",
+                  props )
+            | Aria_expanded ->
+                ( ".aria-expanded\\:" ^ base_class ^ "[aria-expanded=\"true\"]",
+                  props )
+            | Aria_selected ->
+                ( ".aria-selected\\:" ^ base_class ^ "[aria-selected=\"true\"]",
+                  props )
+            | Aria_disabled ->
+                ( ".aria-disabled\\:" ^ base_class ^ "[aria-disabled=\"true\"]",
+                  props )
             | Data_state value ->
                 (selector ^ "[data-state=\"" ^ value ^ "\"]", props)
             | Data_variant value ->
                 (selector ^ "[data-variant=\"" ^ value ^ "\"]", props)
-            | Data_active -> (selector ^ "[data-active]", props)
-            | Data_inactive -> (selector ^ "[data-inactive]", props)
+            | Data_active ->
+                (".data-\\[active\\]\\:" ^ base_class ^ "[data-active]", props)
+            | Data_inactive ->
+                ( ".data-\\[inactive\\]\\:" ^ base_class ^ "[data-inactive]",
+                  props )
             | Data_custom (key, value) ->
                 (selector ^ "[data-" ^ key ^ "=\"" ^ value ^ "\"]", props)
             | Dark ->
