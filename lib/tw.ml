@@ -1091,31 +1091,6 @@ let sticky = Style ("sticky", [ position "sticky" ])
 
 (** {1 CSS Generation} *)
 
-let neg_mt n =
-  let s = int n in
-  let class_name = "-mt-" ^ pp_spacing_suffix s in
-  Style (class_name, [ margin_top ("-" ^ pp_spacing s) ])
-
-let neg_mr n =
-  let s = int n in
-  let class_name = "-mr-" ^ pp_spacing_suffix s in
-  Style (class_name, [ margin_right ("-" ^ pp_spacing s) ])
-
-let neg_mb n =
-  let s = int n in
-  let class_name = "-mb-" ^ pp_spacing_suffix s in
-  Style (class_name, [ margin_bottom ("-" ^ pp_spacing s) ])
-
-let neg_ml n =
-  let s = int n in
-  let class_name = "-ml-" ^ pp_spacing_suffix s in
-  Style (class_name, [ margin_left ("-" ^ pp_spacing s) ])
-
-(* Negative margin special variants *)
-let neg_mt_px = Style ("-mt-px", [ margin_top "-1px" ])
-let neg_mr_px = Style ("-mr-px", [ margin_right "-1px" ])
-let neg_mb_px = Style ("-mb-px", [ margin_bottom "-1px" ])
-let neg_ml_px = Style ("-ml-px", [ margin_left "-1px" ])
 let text_base = Style ("text-base", [ font_size "1rem"; line_height "1.5rem" ])
 let text_lg = Style ("text-lg", [ font_size "1.125rem"; line_height "1.75rem" ])
 
