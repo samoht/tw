@@ -579,35 +579,6 @@ val mb_auto : t
 val ml_auto : t
 (** [ml_auto] pushes element to right by setting auto left margin. *)
 
-val neg_mt : int -> t
-(** [neg_mt n] pulls element upward with negative margin using Tailwind scale.
-    Useful for overlapping elements or compensating for padding.
-
-    Example: [neg_mt 4] creates -1rem top margin. *)
-
-val neg_mr : int -> t
-(** [neg_mr n] pulls element rightward with negative margin. *)
-
-val neg_mb : int -> t
-(** [neg_mb n] pulls element (and following content) upward. *)
-
-val neg_ml : int -> t
-(** [neg_ml n] pulls element leftward with negative margin. *)
-
-(** {2 Special negative margin variants} *)
-
-val neg_mt_px : t
-(** [neg_mt_px] creates -1px top margin. *)
-
-val neg_mr_px : t
-(** [neg_mr_px] creates -1px right margin. *)
-
-val neg_mb_px : t
-(** [neg_mb_px] creates -1px bottom margin. *)
-
-val neg_ml_px : t
-(** [neg_ml_px] creates -1px left margin. *)
-
 val gap : int -> t
 (** [gap n] sets spacing between items in flex/grid containers using Tailwind
     scale. More modern and flexible than using margins on children.
