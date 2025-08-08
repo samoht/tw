@@ -82,6 +82,7 @@ type color =
   | Fuchsia
   | Pink
   | Rose
+  | Hex of string (* hex color like "#1da1f2" or "1da1f2" *)
 
 (* Common size variants used across multiple utilities *)
 type size = [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full ]
@@ -277,6 +278,8 @@ let color_to_hex color shade =
   (* Basic colors *)
   | Black, _ -> "#000000"
   | White, _ -> "#ffffff"
+  | Hex hex, _ ->
+      if String.length hex > 0 && String.get hex 0 = '#' then hex else "#" ^ hex
   | Gray, 50 -> "#f9fafb"
   | Gray, 100 -> "#f3f4f6"
   | Gray, 200 -> "#e5e7eb"
@@ -503,6 +506,7 @@ let color_to_hex color shade =
         | Fuchsia -> "Fuchsia"
         | Pink -> "Pink"
         | Rose -> "Rose"
+        | Hex h -> "[" ^ h ^ "]"
       in
       let err_unknown_color color shade =
         Pp.str
@@ -553,6 +557,13 @@ let color_name = function
   | Fuchsia -> "fuchsia"
   | Pink -> "pink"
   | Rose -> "rose"
+  | Hex hex ->
+      let h =
+        if String.length hex > 0 && String.get hex 0 = '#' then
+          String.sub hex 1 (String.length hex - 1)
+        else hex
+      in
+      "[" ^ h ^ "]"
 
 (* Color constructors *)
 let black = Black
@@ -577,6 +588,7 @@ let purple = Purple
 let fuchsia = Fuchsia
 let pink = Pink
 let rose = Rose
+let of_hex hex = Hex hex
 
 (* Value constructors *)
 
@@ -610,6 +622,7 @@ let bg color shade =
   let class_name =
     match color with
     | Black | White -> Pp.str [ "bg-"; color_name color ]
+    | Hex _ -> Pp.str [ "bg-"; color_name color ]
     | _ -> Pp.str [ "bg-"; color_name color; "-"; string_of_int shade ]
   in
   let hex = color_to_hex color shade in
@@ -652,6 +665,7 @@ let text color shade =
   let class_name =
     match color with
     | Black | White -> Pp.str [ "text-"; color_name color ]
+    | Hex _ -> Pp.str [ "text-"; color_name color ]
     | _ -> Pp.str [ "text-"; color_name color; "-"; string_of_int shade ]
   in
   let hex = color_to_hex color shade in
@@ -694,6 +708,7 @@ let border_color color shade =
   let class_name =
     match color with
     | Black | White -> Pp.str [ "border-"; color_name color ]
+    | Hex _ -> Pp.str [ "border-"; color_name color ]
     | _ -> Pp.str [ "border-"; color_name color; "-"; string_of_int shade ]
   in
   let hex = color_to_hex color shade in
@@ -1896,6 +1911,61 @@ let bg_gradient_to_tl =
           "linear-gradient(to top left, var(--tw-gradient-stops))";
       ] )
 
+(** Gradient color stops *)
+let from_color ?(shade = 500) color =
+  let rgb = hex_to_rgb (color_to_hex color shade) in
+  let class_name =
+    match color with
+    | Black | White -> "from-" ^ color_name color
+    | Hex _ -> "from-" ^ color_name color
+    | _ -> Pp.str [ "from-"; color_name color; "-"; string_of_int shade ]
+  in
+  Style
+    ( class_name,
+      [
+        property "--tw-gradient-from"
+          (Pp.str [ "rgb("; rgb; " / var(--tw-from-opacity, 1))" ]);
+        property "--tw-gradient-to" (Pp.str [ "rgb("; rgb; " / 0)" ]);
+        property "--tw-gradient-stops"
+          "var(--tw-gradient-from), var(--tw-gradient-to)";
+      ] )
+
+let via_color ?(shade = 500) color =
+  let rgb = hex_to_rgb (color_to_hex color shade) in
+  let class_name =
+    match color with
+    | Black | White -> "via-" ^ color_name color
+    | Hex _ -> "via-" ^ color_name color
+    | _ -> Pp.str [ "via-"; color_name color; "-"; string_of_int shade ]
+  in
+  Style
+    ( class_name,
+      [
+        property "--tw-gradient-to" (Pp.str [ "rgb("; rgb; " / 0)" ]);
+        property "--tw-gradient-stops"
+          (Pp.str
+             [
+               "var(--tw-gradient-from), rgb(";
+               rgb;
+               " / var(--tw-via-opacity, 1)), var(--tw-gradient-to)";
+             ]);
+      ] )
+
+let to_color ?(shade = 500) color =
+  let rgb = hex_to_rgb (color_to_hex color shade) in
+  let class_name =
+    match color with
+    | Black | White -> "to-" ^ color_name color
+    | Hex _ -> "to-" ^ color_name color
+    | _ -> Pp.str [ "to-"; color_name color; "-"; string_of_int shade ]
+  in
+  Style
+    ( class_name,
+      [
+        property "--tw-gradient-to"
+          (Pp.str [ "rgb("; rgb; " / var(--tw-to-opacity, 1))" ]);
+      ] )
+
 let antialiased =
   Style
     ( "antialiased",
@@ -2322,25 +2392,6 @@ let on_aria_selected styles =
 let data_state value style = Modified (Data_state value, style)
 let data_variant value style = Modified (Data_variant value, style)
 let data_custom key value style = Modified (Data_custom (key, value), style)
-
-let from_color color shade =
-  let class_name =
-    match color with
-    | Black | White -> "from-" ^ color_name color
-    | _ -> Pp.str [ "from-"; color_name color; "-"; string_of_int shade ]
-  in
-  (* CSS variables for gradients, skip for now *)
-  Style (class_name, [])
-
-let to_color color shade =
-  let class_name =
-    match color with
-    | Black | White -> "to-" ^ color_name color
-    | _ -> Pp.str [ "to-"; color_name color; "-"; string_of_int shade ]
-  in
-  (* CSS variables for gradients, skip for now *)
-  Style (class_name, [])
-
 let color_to_string = color_name
 
 (* Class generation functions *)

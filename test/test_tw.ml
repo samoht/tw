@@ -670,10 +670,10 @@ let gradient_test_styles =
     bg_gradient_to_bl;
     bg_gradient_to_l;
     bg_gradient_to_tl;
-    from_color blue 100;
-    from_color purple 500;
-    to_color pink 500;
-    to_color red 900;
+    from_color ~shade:100 blue;
+    from_color ~shade:500 purple;
+    to_color ~shade:500 pink;
+    to_color ~shade:900 red;
   ]
 
 let special_test_styles =
@@ -1052,6 +1052,68 @@ let test_container_queries () =
   test_container_modifier
     (on_container ~name:"sidebar" 500)
     "@container sidebar (min-width: 500px)"
+
+let test_hex_colors () =
+  let test_class_name tw expected =
+    let actual = pp tw in
+    Alcotest.check string ("hex color " ^ expected) expected actual
+  in
+  let test_css_value tw prop expected =
+    let stylesheet = to_css [ tw ] in
+    let css_str = Css.to_string stylesheet in
+    let has_value =
+      Astring.String.is_infix ~affix:(prop ^ ": " ^ expected) css_str
+    in
+    if not has_value then
+      Alcotest.failf "Expected CSS property %s: %s not found in:\n%s" prop
+        expected css_str
+  in
+
+  (* Test hex color in backgrounds *)
+  test_class_name (bg (of_hex "#1da1f2") 0) "bg-[1da1f2]";
+  test_css_value (bg (of_hex "#1da1f2") 0) "background-color" "rgb(29 161 242";
+
+  (* Test hex with text *)
+  test_class_name (text (of_hex "ff5733") 0) "text-[ff5733]";
+  test_css_value (text (of_hex "ff5733") 0) "color" "rgb(255 87 51";
+
+  (* Test hex in borders *)
+  test_class_name (border_color (of_hex "#00ff00") 0) "border-[00ff00]";
+  test_css_value
+    (border_color (of_hex "#00ff00") 0)
+    "border-color" "rgb(0 255 0"
+
+let test_gradient_stops () =
+  let test_class_name tw expected =
+    let actual = pp tw in
+    Alcotest.check string ("gradient " ^ expected) expected actual
+  in
+  let test_css_contains tw substring =
+    let stylesheet = to_css [ tw ] in
+    let css_str = Css.to_string stylesheet in
+    if not (Astring.String.is_infix ~affix:substring css_str) then
+      Alcotest.failf "Expected substring '%s' not found in CSS:\n%s" substring
+        css_str
+  in
+
+  (* Test from_color *)
+  test_class_name (from_color blue) "from-blue-500";
+  test_class_name (from_color ~shade:300 blue) "from-blue-300";
+  test_css_contains (from_color blue) "--tw-gradient-from";
+
+  (* Test via_color *)
+  test_class_name (via_color purple) "via-purple-500";
+  test_class_name (via_color ~shade:700 purple) "via-purple-700";
+  test_css_contains (via_color purple) "--tw-gradient-stops";
+
+  (* Test to_color *)
+  test_class_name (to_color pink) "to-pink-500";
+  test_class_name (to_color ~shade:200 pink) "to-pink-200";
+  test_css_contains (to_color pink) "--tw-gradient-to";
+
+  (* Test with hex colors *)
+  test_class_name (from_color (of_hex "#ff1493")) "from-[ff1493]";
+  test_class_name (to_color (of_hex "00bfff")) "to-[00bfff]"
 
 let test_3d_transforms () =
   let test_class_name tw expected =
@@ -2019,6 +2081,8 @@ let tailwind_tests =
     test_case "tailwind shadows" `Quick test_tailwind_shadows;
     test_case "negative spacing support" `Quick test_negative_spacing;
     test_case "container queries" `Quick test_container_queries;
+    test_case "hex colors" `Quick test_hex_colors;
+    test_case "gradient stops" `Quick test_gradient_stops;
     test_case "3D transforms" `Quick test_3d_transforms;
     test_case "spacing to rem conversion" `Quick test_spacing_to_rem;
     test_case "tailwind prose" `Quick test_tailwind_prose;
