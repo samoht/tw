@@ -2100,7 +2100,7 @@ val prose_stylesheet : unit -> Css.stylesheet
 
     Usage:
     {[
-      let prose_css = prose_stylesheet () |> Css.to_string in
+      let prose_css = prose_stylesheet () |> Css.to_string ~minify:true in
       (* Include this CSS in your page to enable full prose functionality *)
     ]} *)
 
