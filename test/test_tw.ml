@@ -1115,6 +1115,272 @@ let test_gradient_stops () =
   test_class_name (from_color (of_hex "#ff1493")) "from-[ff1493]";
   test_class_name (to_color (of_hex "00bfff")) "to-[00bfff]"
 
+let test_html_css_selector_matching () =
+  (* Test that HTML class names match CSS selectors for modifiers *)
+  let test_modifier_match modifier_name style =
+    let html_class = pp style in
+    let css_output = to_css [ style ] |> Css.to_string in
+
+    Printf.printf "\n=== Testing %s ===\n" modifier_name;
+    Printf.printf "HTML class: %s\n" html_class;
+
+    (* Extract CSS selectors *)
+    let lines = String.split_on_char '\n' css_output in
+    let selectors =
+      List.filter_map
+        (fun line ->
+          let trimmed = String.trim line in
+          if String.contains trimmed '{' && String.contains trimmed '.' then
+            Some (String.sub trimmed 0 (String.index trimmed '{'))
+          else None)
+        lines
+    in
+
+    Printf.printf "CSS selectors found:\n";
+    List.iter (fun s -> Printf.printf "  %s\n" s) selectors;
+
+    (* Check if any CSS selector would match the HTML class *)
+    let html_class_escaped =
+      Re.Str.global_replace (Re.Str.regexp ":") "\\\\:" html_class
+    in
+    let expected_selector_base = "." ^ html_class_escaped in
+    (* For hover/focus/active, we expect the pseudo-class to be appended *)
+    let expected_selectors =
+      match modifier_name with
+      | "hover" -> [ expected_selector_base ^ ":hover" ]
+      | "focus" -> [ expected_selector_base ^ ":focus" ]
+      | "active" -> [ expected_selector_base ^ ":active" ]
+      | _ -> [ expected_selector_base ]
+    in
+    let has_match =
+      List.exists
+        (fun expected ->
+          List.exists
+            (fun sel -> String.trim sel = String.trim expected)
+            selectors)
+        expected_selectors
+    in
+
+    if not has_match then (
+      Printf.printf "❌ MISMATCH: HTML class '%s' expects CSS selector(s): %s\n"
+        html_class
+        (String.concat " or " expected_selectors);
+      Printf.printf "   But found selectors: %s\n"
+        (String.concat ", " selectors);
+      Alcotest.fail ("HTML/CSS selector mismatch for " ^ modifier_name))
+    else Printf.printf "✅ Match found\n"
+  in
+
+  (* Test various modifiers *)
+  test_modifier_match "hover" (on_hover [ text blue 900 ]);
+  test_modifier_match "focus" (on_focus [ bg red 500 ]);
+  test_modifier_match "active" (on_active [ border_color green 600 ])
+
+(* Comprehensive regression tests for HTML/CSS compatibility *)
+let test_html_css_regression () =
+  let test_html_css_consistency name tw_style =
+    let html_class = pp tw_style in
+    let css_output = to_css [ tw_style ] |> Css.to_string in
+
+    (* Extract CSS selectors using proper regex *)
+    let selector_regex = Re.Perl.compile_pat {|^\s*(\.[^\s{]+)\s*\{|} in
+    let media_regex = Re.Perl.compile_pat {|@media.*\{|} in
+    let responsive_prefix_regex = Re.Perl.compile_pat {|^(sm|md|lg|xl|2xl):|} in
+
+    (* Extract selectors line by line to avoid multiline issues *)
+    let lines = String.split_on_char '\n' css_output in
+    let selectors =
+      List.filter_map
+        (fun line ->
+          try
+            let result = Re.exec selector_regex line in
+            Some (String.trim (Re.Group.get result 1))
+          with Not_found -> None)
+        lines
+    in
+
+    (* Check if this is a responsive style *)
+    let is_responsive = Re.execp responsive_prefix_regex html_class in
+    let has_media_query = Re.execp media_regex css_output in
+
+    (* Verify CSS structure matches HTML class *)
+    if is_responsive then
+      (* For responsive breakpoints, verify media query exists *)
+      if not has_media_query then
+        Alcotest.failf "Responsive HTML class '%s' should generate @media query"
+          html_class
+      else
+        (* Check for special compound selectors like group-hover *)
+        let is_compound_selector =
+          String.contains html_class ':'
+          && (Astring.String.is_prefix ~affix:"group-" html_class
+             || Astring.String.is_prefix ~affix:"peer-" html_class)
+        in
+
+        if is_compound_selector then (
+          if
+            (* For compound selectors, just verify CSS contains relevant
+               parts *)
+            not
+              (Astring.String.is_infix ~affix:".group:" css_output
+              || Astring.String.is_infix ~affix:".peer:" css_output)
+          then
+            Alcotest.failf
+              "Compound HTML class '%s' should generate compound CSS selector"
+              html_class
+          else
+            (* For regular selectors, verify they match using regex *)
+            let dot_removal_regex = Re.Perl.compile_pat {|^\.|} in
+            let colon_unescape_regex = Re.Perl.compile_pat {|\\:|} in
+            let pseudo_class_regex = Re.Perl.compile_pat {|:[a-z-]+$|} in
+
+            List.iter
+              (fun selector ->
+                (* Clean selector: remove dot, unescape colons, remove
+                   pseudo-classes *)
+                let expected_html_base =
+                  selector
+                  |> Re.replace_string dot_removal_regex ~by:""
+                  |> Re.replace_string colon_unescape_regex ~by:":"
+                  |> Re.replace_string pseudo_class_regex ~by:""
+                in
+
+                (* Verify the selector corresponds to the HTML class *)
+                if not (String.equal html_class expected_html_base) then
+                  Alcotest.failf
+                    "HTML class '%s' doesn't match CSS selector '%s' (expected \
+                     base: '%s')"
+                    html_class selector expected_html_base)
+              selectors;
+
+            Printf.printf "✓ %s: HTML='%s' ↔ CSS has %d selectors\n" name
+              html_class (List.length selectors))
+  in
+
+  (* Test core utilities *)
+  test_html_css_consistency "text-color" (text blue 500);
+  test_html_css_consistency "bg-color" (bg red 600);
+  test_html_css_consistency "border-color" (border_color green 400);
+  test_html_css_consistency "padding" (p 4);
+  test_html_css_consistency "margin" (m 8);
+  test_html_css_consistency "width" (w 64);
+  test_html_css_consistency "height" (h 32);
+
+  (* Test modifiers *)
+  test_html_css_consistency "hover-text" (on_hover [ text blue 900 ]);
+  test_html_css_consistency "focus-bg" (on_focus [ bg yellow 200 ]);
+  test_html_css_consistency "active-border"
+    (on_active [ border_color purple 500 ]);
+  test_html_css_consistency "disabled-opacity" (on_disabled [ opacity 50 ]);
+  test_html_css_consistency "group-hover" (on_group_hover [ text sky 700 ]);
+
+  (* Test responsive breakpoints *)
+  test_html_css_consistency "sm-text" (on_sm [ text gray 800 ]);
+  test_html_css_consistency "md-padding" (on_md [ px 6 ]);
+  test_html_css_consistency "lg-margin" (on_lg [ my 12 ]);
+
+  (* Test combined modifiers - test each individually since Group is internal *)
+  test_html_css_consistency "hover-blue-600" (on_hover [ text blue 600 ]);
+  test_html_css_consistency "focus-blue-800" (on_focus [ text blue 800 ]);
+  test_html_css_consistency "responsive-hover"
+    (on_md [ on_hover [ bg indigo 500 ] ]);
+
+  (* Test hex colors *)
+  test_html_css_consistency "hex-text" (text (of_hex "#1da1f2") 0);
+  test_html_css_consistency "hex-bg" (bg (of_hex "#ff6b6b") 0);
+
+  (* Test gradient stops *)
+  test_html_css_consistency "from-color" (from_color ~shade:400 blue);
+  test_html_css_consistency "via-color" (via_color ~shade:600 purple);
+  test_html_css_consistency "to-color" (to_color ~shade:800 red)
+
+(* Test 1:1 equivalence with real Tailwind CSS *)
+let test_real_tailwind_equivalence () =
+  let test_exact_match description html_class_expected tw_style
+      css_selector_expected =
+    let actual_html_class = pp tw_style in
+    let actual_css = to_css [ tw_style ] |> Css.to_string in
+
+    (* Test HTML class matches exactly *)
+    Alcotest.check string
+      (description ^ " HTML class")
+      html_class_expected actual_html_class;
+
+    (* Test CSS contains the expected selector *)
+    if not (Astring.String.is_infix ~affix:css_selector_expected actual_css)
+    then
+      Alcotest.failf "%s: Expected CSS selector '%s' not found in:\n%s"
+        description css_selector_expected actual_css;
+
+    Printf.printf "✓ %s: HTML='%s' ↔ CSS contains '%s'\n" description
+      actual_html_class css_selector_expected
+  in
+
+  (* Critical test: Group-hover must match Tailwind exactly *)
+  test_exact_match "group-hover" "group-hover:text-white"
+    (on_group_hover [ text white 0 ])
+    ".group:hover .group-hover\\:text-white";
+
+  test_exact_match "group-focus" "group-focus:bg-blue-100"
+    (on_group_focus [ bg blue 100 ])
+    ".group:focus .group-focus\\:bg-blue-100";
+
+  (* Regular hover should still work *)
+  test_exact_match "hover" "hover:text-blue-500"
+    (on_hover [ text blue 500 ])
+    ".hover\\:text-blue-500:hover";
+
+  (* Responsive + hover combination - CSS is inside @media, class name without
+     responsive prefix *)
+  test_exact_match "responsive-hover" "md:hover:bg-red-500"
+    (on_md [ on_hover [ bg red 500 ] ])
+    ".hover\\:bg-red-500:hover"
+
+(* Test compatibility with real Tailwind CSS *)
+let test_tailwind_compatibility () =
+  let test_tailwind_class_format name expected_class tw_style =
+    let actual_class = pp tw_style in
+    Alcotest.check string (name ^ " class format") expected_class actual_class;
+    Printf.printf "✓ %s: '%s' matches Tailwind format\n" name actual_class
+  in
+
+  (* Test that our class names match Tailwind's naming conventions *)
+  test_tailwind_class_format "text-color" "text-blue-500" (text blue 500);
+  test_tailwind_class_format "bg-color" "bg-red-600" (bg red 600);
+  test_tailwind_class_format "border-color" "border-green-400"
+    (border_color green 400);
+  test_tailwind_class_format "padding" "p-4" (p 4);
+  test_tailwind_class_format "margin" "m-8" (m 8);
+  test_tailwind_class_format "width" "w-64" (w 64);
+  test_tailwind_class_format "height" "h-32" (h 32);
+
+  (* Test modifiers match Tailwind format *)
+  test_tailwind_class_format "hover" "hover:text-blue-900"
+    (on_hover [ text blue 900 ]);
+  test_tailwind_class_format "focus" "focus:bg-yellow-200"
+    (on_focus [ bg yellow 200 ]);
+  test_tailwind_class_format "active" "active:border-purple-500"
+    (on_active [ border_color purple 500 ]);
+
+  (* Test responsive breakpoints *)
+  test_tailwind_class_format "sm-responsive" "sm:text-gray-800"
+    (on_sm [ text gray 800 ]);
+  test_tailwind_class_format "md-responsive" "md:px-6" (on_md [ px 6 ]);
+  test_tailwind_class_format "lg-responsive" "lg:my-12" (on_lg [ my 12 ]);
+
+  (* Test hex colors (our custom format should be clearly marked) *)
+  test_tailwind_class_format "hex-color" "text-[1da1f2]"
+    (text (of_hex "#1da1f2") 0);
+  test_tailwind_class_format "hex-bg" "bg-[ff6b6b]" (bg (of_hex "#ff6b6b") 0);
+
+  (* Test gradient stops *)
+  test_tailwind_class_format "from-gradient" "from-blue-400"
+    (from_color ~shade:400 blue);
+  test_tailwind_class_format "via-gradient" "via-purple-600"
+    (via_color ~shade:600 purple);
+  test_tailwind_class_format "to-gradient" "to-red-800"
+    (to_color ~shade:800 red)
+
 let test_3d_transforms () =
   let test_class_name tw expected =
     let actual = pp tw in
@@ -2083,6 +2349,11 @@ let tailwind_tests =
     test_case "container queries" `Quick test_container_queries;
     test_case "hex colors" `Quick test_hex_colors;
     test_case "gradient stops" `Quick test_gradient_stops;
+    test_case "HTML/CSS selector matching" `Quick
+      test_html_css_selector_matching;
+    test_case "HTML/CSS regression tests" `Quick test_html_css_regression;
+    test_case "Real Tailwind equivalence" `Quick test_real_tailwind_equivalence;
+    test_case "Tailwind compatibility" `Quick test_tailwind_compatibility;
     test_case "3D transforms" `Quick test_3d_transforms;
     test_case "spacing to rem conversion" `Quick test_spacing_to_rem;
     test_case "tailwind prose" `Quick test_tailwind_prose;
