@@ -695,7 +695,7 @@ let pp_spacing_suffix : spacing -> string = function
   | `Rem f ->
       (* Convert rem values back to Tailwind scale *)
       let n = int_of_float (f /. 0.25) in
-      string_of_int n
+      string_of_int (abs n)
 
 let pp_size_suffix : size -> string = function
   | `None -> "none"
@@ -851,14 +851,50 @@ let ml' (m : margin) =
   let class_name = "ml-" ^ pp_margin_suffix m in
   Style (class_name, [ margin_left (pp_margin m) ])
 
-(* Int-based margin functions (convenience wrappers) *)
-let m n = m' (int n)
-let mx n = mx' (int n)
-let my n = my' (int n)
-let mt n = mt' (int n)
-let mr n = mr' (int n)
-let mb n = mb' (int n)
-let ml n = ml' (int n)
+(* Int-based margin functions - now support negative values *)
+let m n =
+  let s = int n in
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "m-" ^ pp_spacing_suffix s in
+  Style (class_name, [ margin (pp_margin s) ])
+
+let mx n =
+  let s = int n in
+  let v = pp_margin s in
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "mx-" ^ pp_spacing_suffix s in
+  Style (class_name, [ margin_left v; margin_right v ])
+
+let my n =
+  let s = int n in
+  let v = pp_margin s in
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "my-" ^ pp_spacing_suffix s in
+  Style (class_name, [ margin_bottom v; margin_top v ])
+
+let mt n =
+  let s = int n in
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "mt-" ^ pp_spacing_suffix s in
+  Style (class_name, [ margin_top (pp_margin s) ])
+
+let mr n =
+  let s = int n in
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "mr-" ^ pp_spacing_suffix s in
+  Style (class_name, [ margin_right (pp_margin s) ])
+
+let mb n =
+  let s = int n in
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "mb-" ^ pp_spacing_suffix s in
+  Style (class_name, [ margin_bottom (pp_margin s) ])
+
+let ml n =
+  let s = int n in
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "ml-" ^ pp_spacing_suffix s in
+  Style (class_name, [ margin_left (pp_margin s) ])
 
 (* Common margin utilities *)
 let m_auto = m' `Auto
@@ -1224,19 +1260,23 @@ let inset_x_0 = Style ("inset-x-0", [ left "0"; right "0" ])
 let inset_y_0 = Style ("inset-y-0", [ bottom "0"; top "0" ])
 
 let top n =
-  let class_name = "top-" ^ string_of_int n in
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "top-" ^ string_of_int (abs n) in
   Style (class_name, [ top (spacing_to_rem n) ])
 
 let right n =
-  let class_name = "right-" ^ string_of_int n in
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "right-" ^ string_of_int (abs n) in
   Style (class_name, [ right (spacing_to_rem n) ])
 
 let bottom n =
-  let class_name = "bottom-" ^ string_of_int n in
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "bottom-" ^ string_of_int (abs n) in
   Style (class_name, [ bottom (spacing_to_rem n) ])
 
 let left n =
-  let class_name = "left-" ^ string_of_int n in
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "left-" ^ string_of_int (abs n) in
   Style (class_name, [ left (spacing_to_rem n) ])
 
 let z n =
@@ -1427,11 +1467,13 @@ let rotate n =
   Style (class_name, [ transform ("rotate(" ^ string_of_int n ^ "deg)") ])
 
 let translate_x n =
-  let class_name = "translate-x-" ^ string_of_int n in
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "translate-x-" ^ string_of_int (abs n) in
   Style (class_name, [ transform ("translateX(" ^ spacing_to_rem n ^ ")") ])
 
 let translate_y n =
-  let class_name = "translate-y-" ^ string_of_int n in
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "translate-y-" ^ string_of_int (abs n) in
   Style (class_name, [ transform ("translateY(" ^ spacing_to_rem n ^ ")") ])
 
 let cursor_auto = Style ("cursor-auto", [ cursor "auto" ])
@@ -1762,8 +1804,7 @@ let underline_offset_8 =
 (* Additional functions needed *)
 let aspect_ratio width height =
   let class_name =
-    Pp.str
-      [ "aspect-["; Pp.float width; "/"; Pp.float height; "]" ]
+    Pp.str [ "aspect-["; Pp.float width; "/"; Pp.float height; "]" ]
   in
   (* aspect-ratio isn't widely supported in CSS yet, skip for now *)
   Style (class_name, [])
@@ -1855,8 +1896,7 @@ let backdrop_brightness n =
     ( class_name,
       [
         backdrop_filter
-          (Pp.str
-             [ "brightness("; Pp.float (float_of_int n /. 100.); ")" ]);
+          (Pp.str [ "brightness("; Pp.float (float_of_int n /. 100.); ")" ]);
       ] )
 
 let backdrop_contrast n =
@@ -1865,8 +1905,7 @@ let backdrop_contrast n =
     ( class_name,
       [
         backdrop_filter
-          (Pp.str
-             [ "contrast("; Pp.float (float_of_int n /. 100.); ")" ]);
+          (Pp.str [ "contrast("; Pp.float (float_of_int n /. 100.); ")" ]);
       ] )
 
 let backdrop_opacity n =
@@ -1884,8 +1923,7 @@ let backdrop_saturate n =
     ( class_name,
       [
         backdrop_filter
-          (Pp.str
-             [ "saturate("; Pp.float (float_of_int n /. 100.); ")" ]);
+          (Pp.str [ "saturate("; Pp.float (float_of_int n /. 100.); ")" ]);
       ] )
 
 let backdrop_blur_internal = function
