@@ -992,6 +992,47 @@ let test_css_property_generation () =
   test_css_contains (px 6) "padding-left" "1.5rem";
   test_css_contains (py 2) "padding-top" "0.5rem"
 
+(** Test negative spacing support *)
+let test_negative_spacing () =
+  let test_class_name tw expected =
+    let actual = pp tw in
+    Alcotest.check string ("negative spacing " ^ expected) expected actual
+  in
+
+  (* Test negative margins *)
+  test_class_name (mt (-4)) "-mt-4";
+  test_class_name (mr (-2)) "-mr-2";
+  test_class_name (mb (-8)) "-mb-8";
+  test_class_name (ml (-1)) "-ml-1";
+  test_class_name (mx (-6)) "-mx-6";
+  test_class_name (my (-3)) "-my-3";
+
+  (* Test negative positioning *)
+  test_class_name (top (-4)) "-top-4";
+  test_class_name (right (-2)) "-right-2";
+  test_class_name (bottom (-8)) "-bottom-8";
+  test_class_name (left (-1)) "-left-1";
+
+  (* Test negative transforms *)
+  test_class_name (translate_x (-4)) "-translate-x-4";
+  test_class_name (translate_y (-2)) "-translate-y-2";
+
+  (* Test CSS generation for negative values *)
+  let test_css_value tw expected_prop expected_value =
+    let stylesheet = to_css ~reset:false [ tw ] in
+    let css_str = Css.to_string stylesheet in
+    let property_str = expected_prop ^ ": " ^ expected_value in
+    Alcotest.check bool
+      ("CSS contains " ^ property_str)
+      true
+      (string_contains_substring css_str property_str)
+  in
+
+  test_css_value (mt (-4)) "margin-top" "-1rem";
+  test_css_value (ml (-2)) "margin-left" "-0.5rem";
+  test_css_value (top (-4)) "top" "-1rem";
+  test_css_value (translate_x (-8)) "transform" "translateX(-2rem)"
+
 (** Test spacing_to_rem conversion function *)
 let test_spacing_to_rem () =
   let test_spacing_value n expected_css =
@@ -1902,6 +1943,7 @@ let tailwind_tests =
     test_case "tailwind states" `Quick test_tailwind_states;
     test_case "tailwind borders" `Quick test_tailwind_borders;
     test_case "tailwind shadows" `Quick test_tailwind_shadows;
+    test_case "negative spacing support" `Quick test_negative_spacing;
     test_case "spacing to rem conversion" `Quick test_spacing_to_rem;
     test_case "tailwind prose" `Quick test_tailwind_prose;
     test_case "tailwind flexbox" `Quick test_tailwind_flexbox;
