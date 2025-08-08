@@ -477,7 +477,7 @@ let spacing_to_rem = function
   | 20 -> "5rem"
   | 24 -> "6rem"
   | 56 -> "14rem"
-  | n -> string_of_int n ^ "rem"
+  | n -> string_of_float (float_of_int n *. 0.25) ^ "rem"
 
 (** {1 Public API} *)
 
