@@ -155,6 +155,10 @@ val pink : color
 val rose : color
 (** Warm pink color family. *)
 
+val of_hex : string -> color
+(** [of_hex "#1da1f2"] creates a custom color from a hex string. The # prefix is
+    optional. *)
+
 (** {1 Color & Background} *)
 
 val bg : color -> int -> t
@@ -444,11 +448,29 @@ val bg_gradient_to_l : t
 val bg_gradient_to_tl : t
 (** Creates a gradient from bottom-right to top-left. *)
 
-val from_color : color -> int -> t
-(** [from_color color shade] sets the starting color of a gradient. *)
+val from_color : ?shade:int -> color -> t
+(** [from_color ~shade:400 blue] sets the starting color of a gradient. Default
+    shade is 500. Works with gradient direction utilities like bg_gradient_to_r.
 
-val to_color : color -> int -> t
-(** [to_color color shade] sets the ending color of a gradient. *)
+    Example:
+    {[
+      div
+        ~tw:
+          [
+            bg_gradient_to_r;
+            from_color ~shade:400 blue;
+            to_color ~shade:600 purple;
+          ]
+    ]} *)
+
+val via_color : ?shade:int -> color -> t
+(** [via_color purple] sets the middle color of a gradient. Default shade is
+    500. Creates a three-color gradient when used with from_color and to_color.
+*)
+
+val to_color : ?shade:int -> color -> t
+(** [to_color ~shade:600 pink] sets the ending color of a gradient. Default
+    shade is 500. *)
 
 (** {1 Spacing}
     @see <https://tailwindcss.com/docs/padding> Padding

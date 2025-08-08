@@ -8,11 +8,10 @@ let parse_classes ?(warn = true) classes_str =
   in
   List.filter_map
     (fun cls ->
-      match Tw.of_string cls with 
-      | Ok style -> Some style 
-      | Error _ -> 
-          if warn then 
-            Printf.eprintf "Warning: Unknown class '%s'\n" cls;
+      match Tw.of_string cls with
+      | Ok style -> Some style
+      | Error _ ->
+          if warn then Printf.eprintf "Warning: Unknown class '%s'\n" cls;
           None)
     class_names
 
@@ -103,11 +102,11 @@ let process_files paths flag minify quiet =
           in
           List.filter_map
             (fun cls ->
-              match Tw.of_string cls with 
-              | Ok style -> 
+              match Tw.of_string cls with
+              | Ok style ->
                   known_classes := cls :: !known_classes;
-                  Some style 
-              | Error _ -> 
+                  Some style
+              | Error _ ->
                   unknown_classes := cls :: !unknown_classes;
                   if not quiet then
                     Printf.eprintf "Warning: Unknown class '%s'\n" cls;
@@ -117,25 +116,23 @@ let process_files paths flag minify quiet =
     in
     let stylesheet = Tw.to_css ~reset tw_styles in
     print_endline (Tw.Css.to_string ~minify stylesheet);
-    
+
     (* Print statistics to stderr *)
-    if not quiet && !unknown_classes <> [] then begin
+    if (not quiet) && !unknown_classes <> [] then (
       let total = List.length !known_classes + List.length !unknown_classes in
       let unknown_count = List.length !unknown_classes in
       let unique_unknown = !unknown_classes |> List.sort_uniq String.compare in
       Printf.eprintf "\n--- Statistics ---\n";
       Printf.eprintf "Total classes found: %d\n" total;
       Printf.eprintf "Successfully parsed: %d\n" (List.length !known_classes);
-      Printf.eprintf "Unknown classes: %d (%.1f%%)\n" 
-        unknown_count 
+      Printf.eprintf "Unknown classes: %d (%.1f%%)\n" unknown_count
         (float_of_int unknown_count /. float_of_int total *. 100.0);
       if List.length unique_unknown <= 20 then
         Printf.eprintf "Unknown: %s\n" (String.concat ", " unique_unknown)
       else
-        Printf.eprintf "Unknown (first 20): %s...\n" 
-          (String.concat ", " (List.filteri (fun i _ -> i < 20) unique_unknown))
-    end;
-    
+        Printf.eprintf "Unknown (first 20): %s...\n"
+          (String.concat ", " (List.filteri (fun i _ -> i < 20) unique_unknown)));
+
     `Ok ()
   with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))
 
@@ -204,6 +201,8 @@ let cmd =
   let info = Cmd.info "tw" ~version:"0.1.0" ~doc ~man in
   Cmd.v info
     Term.(
-      ret (const tw_main $ single_flag $ reset_flag $ minify_flag $ quiet_flag $ paths_arg))
+      ret
+        (const tw_main $ single_flag $ reset_flag $ minify_flag $ quiet_flag
+       $ paths_arg))
 
 let () = exit (Cmd.eval cmd)
