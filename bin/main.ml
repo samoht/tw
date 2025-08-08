@@ -1,14 +1,19 @@
 open Cmdliner
 
 (* Parse a space-separated string of classes *)
-let parse_classes classes_str =
+let parse_classes ?(warn = true) classes_str =
   let class_names =
     String.split_on_char ' ' classes_str
     |> List.filter (fun s -> String.length s > 0)
   in
   List.filter_map
     (fun cls ->
-      match Tw.of_string cls with Ok style -> Some style | Error _ -> None)
+      match Tw.of_string cls with 
+      | Ok style -> Some style 
+      | Error _ -> 
+          if warn then 
+            Printf.eprintf "Warning: Unknown class '%s'\n" cls;
+          None)
     class_names
 
 (* Extract class names from files *)
@@ -61,7 +66,7 @@ let reset_flag flag ~default =
 
 let process_single_class class_str flag minify =
   let reset = reset_flag flag ~default:false in
-  let tw_styles = parse_classes class_str in
+  let tw_styles = parse_classes ~warn:false class_str in
   match tw_styles with
   | [] -> `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
   | styles ->
@@ -79,7 +84,7 @@ let collect_files paths =
       else [])
     paths
 
-let process_files paths flag minify =
+let process_files paths flag minify quiet =
   let reset = reset_flag flag ~default:true in
   try
     let all_files = collect_files paths in
@@ -87,24 +92,60 @@ let process_files paths flag minify =
       List.concat_map extract_classes_from_file all_files
       |> List.sort_uniq String.compare
     in
+    let unknown_classes = ref [] in
+    let known_classes = ref [] in
     let tw_styles =
       List.concat_map
         (fun classes_str ->
-          try parse_classes classes_str with Failure _ -> [])
+          let class_names =
+            String.split_on_char ' ' classes_str
+            |> List.filter (fun s -> String.length s > 0)
+          in
+          List.filter_map
+            (fun cls ->
+              match Tw.of_string cls with 
+              | Ok style -> 
+                  known_classes := cls :: !known_classes;
+                  Some style 
+              | Error _ -> 
+                  unknown_classes := cls :: !unknown_classes;
+                  if not quiet then
+                    Printf.eprintf "Warning: Unknown class '%s'\n" cls;
+                  None)
+            class_names)
         all_classes
     in
     let stylesheet = Tw.to_css ~reset tw_styles in
     print_endline (Tw.Css.to_string ~minify stylesheet);
+    
+    (* Print statistics to stderr *)
+    if not quiet && !unknown_classes <> [] then begin
+      let total = List.length !known_classes + List.length !unknown_classes in
+      let unknown_count = List.length !unknown_classes in
+      let unique_unknown = !unknown_classes |> List.sort_uniq String.compare in
+      Printf.eprintf "\n--- Statistics ---\n";
+      Printf.eprintf "Total classes found: %d\n" total;
+      Printf.eprintf "Successfully parsed: %d\n" (List.length !known_classes);
+      Printf.eprintf "Unknown classes: %d (%.1f%%)\n" 
+        unknown_count 
+        (float_of_int unknown_count /. float_of_int total *. 100.0);
+      if List.length unique_unknown <= 20 then
+        Printf.eprintf "Unknown: %s\n" (String.concat ", " unique_unknown)
+      else
+        Printf.eprintf "Unknown (first 20): %s...\n" 
+          (String.concat ", " (List.filteri (fun i _ -> i < 20) unique_unknown))
+    end;
+    
     `Ok ()
   with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))
 
-let tw_main single_class reset_flag minify paths =
+let tw_main single_class reset_flag minify quiet paths =
   match single_class with
   | Some class_str -> process_single_class class_str reset_flag minify
   | None -> (
       match paths with
       | [] -> `Error (true, "Either provide -s <class> or file/directory paths")
-      | paths -> process_files paths reset_flag minify)
+      | paths -> process_files paths reset_flag minify quiet)
 
 (* Command-line arguments *)
 let single_flag =
@@ -126,6 +167,10 @@ let reset_flag =
 let minify_flag =
   let doc = "Minify the generated CSS output" in
   Arg.(value & flag & info [ "minify" ] ~doc)
+
+let quiet_flag =
+  let doc = "Suppress warnings about unknown classes" in
+  Arg.(value & flag & info [ "q"; "quiet" ] ~doc)
 
 let paths_arg =
   let doc = "Files or directories to scan for Tailwind classes" in
@@ -159,6 +204,6 @@ let cmd =
   let info = Cmd.info "tw" ~version:"0.1.0" ~doc ~man in
   Cmd.v info
     Term.(
-      ret (const tw_main $ single_flag $ reset_flag $ minify_flag $ paths_arg))
+      ret (const tw_main $ single_flag $ reset_flag $ minify_flag $ quiet_flag $ paths_arg))
 
 let () = exit (Cmd.eval cmd)
