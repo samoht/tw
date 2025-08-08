@@ -727,17 +727,10 @@ let pp_margin_suffix : margin -> string = function
   | `Auto -> "auto"
   | #spacing as s -> pp_spacing_suffix s
 
-(** Format float for CSS - ensures leading zero and removes trailing dot *)
-let css_float f =
-  let s = string_of_float f in
-  let s = if String.starts_with ~prefix:"." s then "0" ^ s else s in
-  if String.ends_with ~suffix:"." s then String.sub s 0 (String.length s - 1)
-  else s
-
 let pp_spacing : spacing -> string = function
   | `Px -> "1px"
   | `Full -> "100%"
-  | `Rem f -> if f = 0.0 then "0" else Pp.str [ css_float f; "rem" ]
+  | `Rem f -> if f = 0.0 then "0" else Pp.str [ Pp.float f; "rem" ]
 
 let pp_margin : margin -> string = function
   | `Auto -> "auto"
@@ -1395,7 +1388,7 @@ let opacity n =
   let value =
     if n = 0 then "0"
     else if n = 100 then "1"
-    else string_of_float (float_of_int n /. 100.0)
+    else Pp.float (float_of_int n /. 100.0)
   in
   Style (class_name, [ opacity value ])
 
@@ -1770,7 +1763,7 @@ let underline_offset_8 =
 let aspect_ratio width height =
   let class_name =
     Pp.str
-      [ "aspect-["; string_of_float width; "/"; string_of_float height; "]" ]
+      [ "aspect-["; Pp.float width; "/"; Pp.float height; "]" ]
   in
   (* aspect-ratio isn't widely supported in CSS yet, skip for now *)
   Style (class_name, [])
@@ -1802,12 +1795,12 @@ let transform_gpu = Style ("transform-gpu", [ Css.transform "translateZ(0)" ])
 
 let brightness n =
   let class_name = "brightness-" ^ string_of_int n in
-  let value = string_of_float (float_of_int n /. 100.0) in
+  let value = Pp.float (float_of_int n /. 100.0) in
   Style (class_name, [ filter ("brightness(" ^ value ^ ")") ])
 
 let contrast n =
   let class_name = "contrast-" ^ string_of_int n in
-  let value = string_of_float (float_of_int n /. 100.0) in
+  let value = Pp.float (float_of_int n /. 100.0) in
   Style (class_name, [ filter ("contrast(" ^ value ^ ")") ])
 
 let blur_internal = function
@@ -1833,22 +1826,22 @@ let blur_3xl = blur_internal `Xl_3
 
 let grayscale n =
   let class_name = if n = 0 then "grayscale-0" else "grayscale" in
-  let value = string_of_float (float_of_int n /. 100.0) in
+  let value = Pp.float (float_of_int n /. 100.0) in
   Style (class_name, [ filter ("grayscale(" ^ value ^ ")") ])
 
 let saturate n =
   let class_name = "saturate-" ^ string_of_int n in
-  let value = string_of_float (float_of_int n /. 100.0) in
+  let value = Pp.float (float_of_int n /. 100.0) in
   Style (class_name, [ filter ("saturate(" ^ value ^ ")") ])
 
 let sepia n =
   let class_name = if n = 0 then "sepia-0" else "sepia" in
-  let value = string_of_float (float_of_int n /. 100.0) in
+  let value = Pp.float (float_of_int n /. 100.0) in
   Style (class_name, [ filter ("sepia(" ^ value ^ ")") ])
 
 let invert n =
   let class_name = if n = 0 then "invert-0" else "invert" in
-  let value = string_of_float (float_of_int n /. 100.0) in
+  let value = Pp.float (float_of_int n /. 100.0) in
   Style (class_name, [ filter ("invert(" ^ value ^ ")") ])
 
 let hue_rotate n =
@@ -1863,7 +1856,7 @@ let backdrop_brightness n =
       [
         backdrop_filter
           (Pp.str
-             [ "brightness("; string_of_float (float_of_int n /. 100.); ")" ]);
+             [ "brightness("; Pp.float (float_of_int n /. 100.); ")" ]);
       ] )
 
 let backdrop_contrast n =
@@ -1873,7 +1866,7 @@ let backdrop_contrast n =
       [
         backdrop_filter
           (Pp.str
-             [ "contrast("; string_of_float (float_of_int n /. 100.); ")" ]);
+             [ "contrast("; Pp.float (float_of_int n /. 100.); ")" ]);
       ] )
 
 let backdrop_opacity n =
@@ -1882,7 +1875,7 @@ let backdrop_opacity n =
     ( class_name,
       [
         backdrop_filter
-          (Pp.str [ "opacity("; string_of_float (float_of_int n /. 100.); ")" ]);
+          (Pp.str [ "opacity("; Pp.float (float_of_int n /. 100.); ")" ]);
       ] )
 
 let backdrop_saturate n =
@@ -1892,7 +1885,7 @@ let backdrop_saturate n =
       [
         backdrop_filter
           (Pp.str
-             [ "saturate("; string_of_float (float_of_int n /. 100.); ")" ]);
+             [ "saturate("; Pp.float (float_of_int n /. 100.); ")" ]);
       ] )
 
 let backdrop_blur_internal = function
@@ -1965,8 +1958,8 @@ let scale n =
   Style
     ( class_name,
       [
-        property "--tw-scale-x" (string_of_float value);
-        property "--tw-scale-y" (string_of_float value);
+        property "--tw-scale-x" (Pp.float value);
+        property "--tw-scale-y" (Pp.float value);
         Css.transform
           "translate(var(--tw-translate-x), var(--tw-translate-y)) \
            rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) \
@@ -2323,7 +2316,7 @@ let leading_of_string n =
   | Some value ->
       let rem_value = value /. 4.0 in
       let class_name = Pp.str [ "leading-"; n ] in
-      let css_value = Pp.str [ string_of_float rem_value; "rem" ] in
+      let css_value = Pp.str [ Pp.float rem_value; "rem" ] in
       Ok (Style (class_name, [ line_height css_value ]))
 
 (* Helper for Result.bind-like operation *)
