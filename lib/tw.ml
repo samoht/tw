@@ -1,11 +1,23 @@
-(** A type-safe, ergonomic DSL for Tailwind CSS using nominal types. *)
+(** A type-safe, ergonomic DSL for Tailwind CSS using nominal types.
+
+    This library takes inspiration from Tailwind CSS v3's utility-first approach
+    while leveraging OCaml's type system for compile-time safety. We cherry-pick
+    concepts that work well with OCaml and add our own innovations where
+    appropriate.
+
+    Key design decisions:
+    - Pure OCaml implementation without external CSS dependencies
+    - Type-safe API that prevents invalid CSS at compile time
+    - Simplified spacing functions that accept integers directly
+    - Support for modern CSS features like container queries and 3D transforms
+    - Minimal bundle size for js_of_ocaml by avoiding Format module *)
 
 open Css
 
 (** {1 Core Types} *)
 
 type breakpoint = [ `Sm | `Md | `Lg | `Xl | `Xl_2 ]
-(** Responsive breakpoints *)
+(** Responsive breakpoints matching Tailwind's default scale *)
 
 (** A Tailwind utility modifier *)
 type modifier =
@@ -24,11 +36,20 @@ type modifier =
   | Aria_expanded
   | Aria_selected
   | Aria_disabled
-  | Data_state of string (* data-state="value" *)
-  | Data_variant of string (* data-variant="value" *)
-  | Data_active (* data-active="true" or data-active *)
-  | Data_inactive (* data-inactive="true" or data-inactive *)
-  | Data_custom of string * string (* data-{key}="{value}" *)
+  | Data_state of string
+  | Data_variant of string
+  | Data_active
+  | Data_inactive
+  | Data_custom of string * string
+  | Container of container_query
+
+and container_query =
+  | Container_sm
+  | Container_md
+  | Container_lg
+  | Container_xl
+  | Container_2xl
+  | Container_named of string * int
 
 (** A Tailwind utility class with its name and CSS properties *)
 type t =
@@ -95,6 +116,29 @@ let string_of_breakpoint = function
   | `Xl -> "xl"
   | `Xl_2 -> "2xl"
 
+(* Helper to convert container query to CSS prefix *)
+let container_query_to_css_prefix = function
+  | Container_sm -> "@container (min-width: 640px)"
+  | Container_md -> "@container (min-width: 768px)"
+  | Container_lg -> "@container (min-width: 1024px)"
+  | Container_xl -> "@container (min-width: 1280px)"
+  | Container_2xl -> "@container (min-width: 1536px)"
+  | Container_named ("", width) ->
+      Printf.sprintf "@container (min-width: %dpx)" width
+  | Container_named (name, width) ->
+      Printf.sprintf "@container %s (min-width: %dpx)" name width
+
+(* Helper to convert container query to class prefix *)
+let container_query_to_class_prefix = function
+  | Container_sm -> "@container-sm"
+  | Container_md -> "@container-md"
+  | Container_lg -> "@container-lg"
+  | Container_xl -> "@container-xl"
+  | Container_2xl -> "@container-2xl"
+  | Container_named ("", width) -> "@container-" ^ string_of_int width
+  | Container_named (name, width) ->
+      "@container-" ^ name ^ "-" ^ string_of_int width
+
 (* Helper to get breakpoint for responsive prefix *)
 let responsive_breakpoint = function
   | "sm" -> "640px"
@@ -145,7 +189,10 @@ let extract_selector_props tw =
                 ( "@media (min-width: "
                   ^ responsive_breakpoint prefix
                   ^ ") { " ^ selector,
-                  props ))
+                  props )
+            | Container query ->
+                let query_str = container_query_to_css_prefix query in
+                (query_str ^ " { " ^ selector, props))
           base
     | Group styles -> List.concat_map extract styles
   in
@@ -1476,6 +1523,127 @@ let translate_y n =
   let class_name = prefix ^ "translate-y-" ^ string_of_int (abs n) in
   Style (class_name, [ transform ("translateY(" ^ spacing_to_rem n ^ ")") ])
 
+(** 3D Transform utilities - inspired by modern CSS capabilities
+
+    While Tailwind CSS traditionally focused on 2D transforms, modern CSS
+    supports full 3D transformations. These utilities enable sophisticated
+    animations and visual effects like card flips, 3D rotations, and depth. We
+    include these as they represent useful CSS features that complement OCaml's
+    approach to building interactive UIs. *)
+
+let rotate_x n =
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "rotate-x-" ^ string_of_int (abs n) in
+  Style (class_name, [ transform ("rotateX(" ^ string_of_int n ^ "deg)") ])
+
+let rotate_y n =
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "rotate-y-" ^ string_of_int (abs n) in
+  Style (class_name, [ transform ("rotateY(" ^ string_of_int n ^ "deg)") ])
+
+let rotate_z n =
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "rotate-z-" ^ string_of_int (abs n) in
+  Style (class_name, [ transform ("rotateZ(" ^ string_of_int n ^ "deg)") ])
+
+let translate_z n =
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "translate-z-" ^ string_of_int (abs n) in
+  Style (class_name, [ transform ("translateZ(" ^ string_of_int n ^ "px)") ])
+
+let scale_z n =
+  let value = float_of_int n /. 100.0 in
+  let class_name = "scale-z-" ^ string_of_int n in
+  Style
+    ( class_name,
+      [
+        property "--tw-scale-z" (Pp.float value);
+        transform
+          "translate(var(--tw-translate-x), var(--tw-translate-y)) \
+           translateZ(var(--tw-translate-z, 0)) rotate(var(--tw-rotate)) \
+           rotateX(var(--tw-rotate-x, 0)) rotateY(var(--tw-rotate-y, 0)) \
+           rotateZ(var(--tw-rotate-z, 0)) skewX(var(--tw-skew-x)) \
+           skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) \
+           scaleY(var(--tw-scale-y)) scaleZ(var(--tw-scale-z, 1))";
+      ] )
+
+let perspective n =
+  let class_name = "perspective-" ^ string_of_int n in
+  let value = if n = 0 then "none" else string_of_int n ^ "px" in
+  Style (class_name, [ property "perspective" value ])
+
+let perspective_origin_center =
+  Style ("perspective-origin-center", [ property "perspective-origin" "center" ])
+
+let perspective_origin_top =
+  Style ("perspective-origin-top", [ property "perspective-origin" "top" ])
+
+let perspective_origin_bottom =
+  Style ("perspective-origin-bottom", [ property "perspective-origin" "bottom" ])
+
+let perspective_origin_left =
+  Style ("perspective-origin-left", [ property "perspective-origin" "left" ])
+
+let perspective_origin_right =
+  Style ("perspective-origin-right", [ property "perspective-origin" "right" ])
+
+let transform_style_3d =
+  Style ("transform-style-3d", [ property "transform-style" "preserve-3d" ])
+
+let transform_style_flat =
+  Style ("transform-style-flat", [ property "transform-style" "flat" ])
+
+let backface_visible =
+  Style ("backface-visible", [ property "backface-visibility" "visible" ])
+
+let backface_hidden =
+  Style ("backface-hidden", [ property "backface-visibility" "hidden" ])
+
+(** Container query utilities - inspired by modern CSS capabilities
+
+    Container queries allow elements to respond to their container's size rather
+    than the viewport. This is particularly useful for component-based design
+    where a component might be used in different sized containers. While
+    Tailwind CSS v4 includes container queries, we implement them here as
+    they're a valuable CSS feature that works well with OCaml's approach. *)
+let container_type_size =
+  Style ("container-type-size", [ property "container-type" "size" ])
+
+let container_type_inline_size =
+  Style
+    ("container-type-inline-size", [ property "container-type" "inline-size" ])
+
+let container_type_normal =
+  Style ("container-type-normal", [ property "container-type" "normal" ])
+
+let container_name name =
+  Style ("container-" ^ name, [ property "container-name" name ])
+
+(* Container query breakpoints *)
+let on_container_sm styles =
+  Group (List.map (fun t -> Modified (Container Container_sm, t)) styles)
+
+let on_container_md styles =
+  Group (List.map (fun t -> Modified (Container Container_md, t)) styles)
+
+let on_container_lg styles =
+  Group (List.map (fun t -> Modified (Container Container_lg, t)) styles)
+
+let on_container_xl styles =
+  Group (List.map (fun t -> Modified (Container Container_xl, t)) styles)
+
+let on_container_2xl styles =
+  Group (List.map (fun t -> Modified (Container Container_2xl, t)) styles)
+
+(* Named container queries - using on_container as the user suggested *)
+let on_container ?name min_width styles =
+  let query =
+    match name with
+    | None -> Container (Container_named ("", min_width))
+    | Some n -> Container (Container_named (n, min_width))
+  in
+  Group (List.map (fun t -> Modified (query, t)) styles)
+
 let cursor_auto = Style ("cursor-auto", [ cursor "auto" ])
 let cursor_default = Style ("cursor-default", [ cursor "default" ])
 let cursor_pointer = Style ("cursor-pointer", [ cursor "pointer" ])
@@ -2228,7 +2396,9 @@ let rec pp = function
           "data-[" ^ key ^ "=" ^ value ^ "]:" ^ base_class
       | Dark -> "dark:" ^ base_class
       | Responsive breakpoint ->
-          string_of_breakpoint breakpoint ^ ":" ^ base_class)
+          string_of_breakpoint breakpoint ^ ":" ^ base_class
+      | Container query ->
+          container_query_to_class_prefix query ^ ":" ^ base_class)
   | Group styles -> styles |> List.map pp |> String.concat " "
 
 let to_classes styles = styles |> List.map pp |> String.concat " "

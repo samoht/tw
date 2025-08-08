@@ -1617,6 +1617,101 @@ val transform_none : t
 val transform_gpu : t
 (** Use GPU acceleration for transforms. *)
 
+(** {2 3D Transform Utilities}
+
+    Utilities for 3D transformations, inspired by modern CSS capabilities. These
+    work best with perspective and transform-style preserve-3d. *)
+
+val rotate_x : int -> t
+(** [rotate_x n] rotates element around X-axis by n degrees. Positive values
+    tilt element away from viewer at top. *)
+
+val rotate_y : int -> t
+(** [rotate_y n] rotates element around Y-axis by n degrees. Positive values
+    rotate element clockwise when viewed from above. *)
+
+val rotate_z : int -> t
+(** [rotate_z n] rotates element around Z-axis by n degrees. Equivalent to
+    regular rotate, positive values rotate clockwise. *)
+
+val translate_z : int -> t
+(** [translate_z n] moves element along Z-axis (toward/away from viewer).
+    Positive values move element closer, negative values move it away. *)
+
+val scale_z : int -> t
+(** [scale_z n] scales element along Z-axis for 3D effects. Requires
+    transform-style: preserve-3d on parent. *)
+
+val perspective : int -> t
+(** [perspective n] sets perspective distance in pixels for 3D transforms. Lower
+    values create more dramatic 3D effects. Common values: 500-2000. *)
+
+val perspective_origin_center : t
+(** Sets perspective origin to center (default). *)
+
+val perspective_origin_top : t
+(** Sets perspective origin to top, making 3D transforms appear from above. *)
+
+val perspective_origin_bottom : t
+(** Sets perspective origin to bottom, making 3D transforms appear from below.
+*)
+
+val perspective_origin_left : t
+(** Sets perspective origin to left side. *)
+
+val perspective_origin_right : t
+(** Sets perspective origin to right side. *)
+
+val transform_style_3d : t
+(** Preserve 3D positioning of child elements. Required for nested 3D
+    transforms. *)
+
+val transform_style_flat : t
+(** Flatten child elements into parent's plane (default). *)
+
+val backface_visible : t
+(** Show element's back face when rotated (default). *)
+
+val backface_hidden : t
+(** Hide element's back face when rotated. Useful for card flip effects. *)
+
+(** {2 Container Query Utilities}
+
+    Container queries allow elements to respond to their container's size rather
+    than the viewport. Inspired by modern CSS capabilities. *)
+
+val container_type_size : t
+(** Enable container queries based on both width and height. *)
+
+val container_type_inline_size : t
+(** Enable container queries based on inline size (width in horizontal writing).
+*)
+
+val container_type_normal : t
+(** Disable container queries (default). *)
+
+val container_name : string -> t
+(** [container_name "sidebar"] names a container for targeted queries. *)
+
+val on_container_sm : t list -> t
+(** Apply styles when container is ≥640px wide. *)
+
+val on_container_md : t list -> t
+(** Apply styles when container is ≥768px wide. *)
+
+val on_container_lg : t list -> t
+(** Apply styles when container is ≥1024px wide. *)
+
+val on_container_xl : t list -> t
+(** Apply styles when container is ≥1280px wide. *)
+
+val on_container_2xl : t list -> t
+(** Apply styles when container is ≥1536px wide. *)
+
+val on_container : ?name:string -> int -> t list -> t
+(** [on_container 500 styles] applies styles when container is ≥500px.
+    [on_container ~name:"sidebar" 500 styles] targets a named container. *)
+
 val animate_none : t
 (** No animation. *)
 

@@ -1,11 +1,15 @@
 # tw - OCaml DSL for Utility-First CSS
 
-`tw` is a pure OCaml implementation of utility-first CSS, using the same
-class names as Tailwind CSS but with compile-time type safety. Write
-styles like `bg blue`, `p 4`, and `on_hover [bg ~shade:700 blue]`
-instead of strings. The companion `tw.html` library provides type-safe
-HTML generation with integrated CSS, working seamlessly on both
+`tw` is a pure OCaml implementation of utility-first CSS, inspired by
+Tailwind CSS v3 concepts but designed specifically for OCaml's type system.
+Write styles like `bg_blue`, `p 4`, and `on_hover [bg blue 700]`
+with compile-time type safety. The companion `tw.html` library provides
+type-safe HTML generation with integrated CSS, working seamlessly on both
 server-side and client-side.
+
+**Note**: While `tw` is inspired by Tailwind CSS v3, it is not a direct
+port. We cherry-pick concepts that work well with OCaml's type system and
+add our own innovations where it makes sense.
 
 ## Features
 
