@@ -161,13 +161,16 @@ let extract_selector_props tw =
         let base = extract t in
         List.map
           (fun (selector, props) ->
+            let base_class =
+              String.sub selector 1 (String.length selector - 1)
+            in
             match modifier with
-            | Hover -> (selector ^ ":hover", props)
-            | Focus -> (selector ^ ":focus", props)
-            | Active -> (selector ^ ":active", props)
-            | Disabled -> (selector ^ ":disabled", props)
-            | Group_hover -> (".group:hover " ^ selector, props)
-            | Group_focus -> (".group:focus " ^ selector, props)
+            | Hover -> (".hover\\:" ^ base_class ^ ":hover", props)
+            | Focus -> (".focus\\:" ^ base_class ^ ":focus", props)
+            | Active -> (".active\\:" ^ base_class ^ ":active", props)
+            | Disabled -> (".disabled\\:" ^ base_class ^ ":disabled", props)
+            | Group_hover -> (".group:hover .group-hover\\:" ^ base_class, props)
+            | Group_focus -> (".group:focus .group-focus\\:" ^ base_class, props)
             | Peer_hover -> (".peer:hover ~ " ^ selector, props)
             | Peer_focus -> (".peer:focus ~ " ^ selector, props)
             | Peer_checked -> (".peer:checked ~ " ^ selector, props)
