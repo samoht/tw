@@ -83,6 +83,8 @@ type color =
   | Pink
   | Rose
   | Hex of string (* hex color like "#1da1f2" or "1da1f2" *)
+  | Rgb of { red : int; green : int; blue : int }
+(* RGB values where each channel is 0-255 *)
 
 (* Common size variants used across multiple utilities *)
 type size = [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full ]
@@ -327,50 +329,46 @@ let to_inline_style styles =
 
 (** {1 Helper Functions} *)
 
-(** Convert hex color to rgb format *)
+(** Convert hex color to rgb format - now only handles hex strings *)
 let hex_to_rgb hex =
-  (* Check if it's already in rgb format *)
-  if String.starts_with ~prefix:"rgb(" hex then
-    (* Extract RGB values from "rgb(r,g,b)" format *)
-    let rgb_str = String.sub hex 4 (String.length hex - 5) in
-    (* Remove "rgb(" and ")" *)
-    let parts = String.split_on_char ',' rgb_str in
-    match parts with
-    | [ r; g; b ] -> String.trim r ^ " " ^ String.trim g ^ " " ^ String.trim b
-    | _ -> failwith ("Invalid RGB format: " ^ hex)
-  else
-    (* Handle hex format *)
-    let hex =
-      if String.length hex > 0 && String.get hex 0 = '#' then
-        String.sub hex 1 (String.length hex - 1)
-      else hex
-    in
-    if String.length hex = 3 then
-      (* Handle 3-character hex like "f0f" *)
-      let r = String.sub hex 0 1 in
-      let g = String.sub hex 1 1 in
-      let b = String.sub hex 2 1 in
-      let r_int = int_of_string ("0x" ^ r ^ r) in
-      let g_int = int_of_string ("0x" ^ g ^ g) in
-      let b_int = int_of_string ("0x" ^ b ^ b) in
-      string_of_int r_int ^ " " ^ string_of_int g_int ^ " "
-      ^ string_of_int b_int
-    else if String.length hex = 6 then
-      (* Handle 6-character hex *)
-      let r = int_of_string ("0x" ^ String.sub hex 0 2) in
-      let g = int_of_string ("0x" ^ String.sub hex 2 2) in
-      let b = int_of_string ("0x" ^ String.sub hex 4 2) in
-      string_of_int r ^ " " ^ string_of_int g ^ " " ^ string_of_int b
-    else failwith ("Invalid hex format: " ^ hex)
+  (* Strip # prefix if present *)
+  let hex =
+    if String.length hex > 0 && String.get hex 0 = '#' then
+      String.sub hex 1 (String.length hex - 1)
+    else hex
+  in
+  if String.length hex = 3 then
+    (* Handle 3-character hex like "f0f" *)
+    let r = String.sub hex 0 1 in
+    let g = String.sub hex 1 1 in
+    let b = String.sub hex 2 1 in
+    let r_int = int_of_string ("0x" ^ r ^ r) in
+    let g_int = int_of_string ("0x" ^ g ^ g) in
+    let b_int = int_of_string ("0x" ^ b ^ b) in
+    Pp.str
+      [
+        string_of_int r_int; " "; string_of_int g_int; " "; string_of_int b_int;
+      ]
+  else if String.length hex = 6 then
+    (* Handle 6-character hex *)
+    let r = int_of_string ("0x" ^ String.sub hex 0 2) in
+    let g = int_of_string ("0x" ^ String.sub hex 2 2) in
+    let b = int_of_string ("0x" ^ String.sub hex 4 2) in
+    Pp.str [ string_of_int r; " "; string_of_int g; " "; string_of_int b ]
+  else failwith ("Invalid hex format: " ^ hex)
 
+(** Convert any color to RGB space-separated string format (e.g., "255 0 0") *)
 let color_to_hex color shade =
   match (color, shade) with
   (* Basic colors *)
   | Black, _ -> "#000000"
   | White, _ -> "#ffffff"
   | Hex hex, _ ->
-      (* Return as-is for both hex and rgb formats *)
+      (* Return as-is for hex formats *)
       hex
+  | Rgb _, _ ->
+      (* RGB colors don't have a hex representation, this shouldn't be called *)
+      failwith "RGB colors should use color_to_rgb_string instead"
   | Gray, 50 -> "#f9fafb"
   | Gray, 100 -> "#f3f4f6"
   | Gray, 200 -> "#e5e7eb"
@@ -598,12 +596,33 @@ let color_to_hex color shade =
         | Pink -> "Pink"
         | Rose -> "Rose"
         | Hex h -> "[" ^ h ^ "]"
+        | Rgb { red; green; blue } ->
+            Pp.str
+              [
+                "[rgb(";
+                string_of_int red;
+                ",";
+                string_of_int green;
+                ",";
+                string_of_int blue;
+                ")]";
+              ]
       in
       let err_unknown_color color shade =
         Pp.str
           [ "Unknown color combination: "; color; " "; string_of_int shade ]
       in
       failwith (err_unknown_color color_name shade)
+
+let color_to_rgb_string color shade =
+  match color with
+  | Rgb { red; green; blue } ->
+      Pp.str
+        [ string_of_int red; " "; string_of_int green; " "; string_of_int blue ]
+  | _ ->
+      (* For non-RGB colors, get hex value and convert *)
+      let hex = color_to_hex color shade in
+      hex_to_rgb hex
 
 let spacing_to_rem = function
   | 0 -> "0"
@@ -655,6 +674,17 @@ let color_name = function
         else hex
       in
       "[" ^ h ^ "]"
+  | Rgb { red; green; blue } ->
+      Pp.str
+        [
+          "[rgb(";
+          string_of_int red;
+          ",";
+          string_of_int green;
+          ",";
+          string_of_int blue;
+          ")]";
+        ]
 
 (* Color constructors *)
 let black = Black
@@ -688,7 +718,7 @@ let hex s =
   Hex s
 
 let rgb r g b =
-  (* Create RGB color in format Tailwind expects for arbitrary values *)
+  (* Create RGB color with validated channel values *)
   let validate_channel v name =
     if v < 0 || v > 255 then
       invalid_arg
@@ -697,7 +727,7 @@ let rgb r g b =
   validate_channel r "red";
   validate_channel g "green";
   validate_channel b "blue";
-  Hex (Printf.sprintf "rgb(%d,%d,%d)" r g b)
+  Rgb { red = r; green = g; blue = b }
 
 (* Value constructors *)
 
@@ -731,11 +761,10 @@ let bg color shade =
   let class_name =
     match color with
     | Black | White -> Pp.str [ "bg-"; color_name color ]
-    | Hex _ -> Pp.str [ "bg-"; color_name color ]
+    | Hex _ | Rgb _ -> Pp.str [ "bg-"; color_name color ]
     | _ -> Pp.str [ "bg-"; color_name color; "-"; string_of_int shade ]
   in
-  let hex = color_to_hex color shade in
-  let rgb = hex_to_rgb hex in
+  let rgb = color_to_rgb_string color shade in
   Style
     ( class_name,
       [
@@ -774,11 +803,10 @@ let text color shade =
   let class_name =
     match color with
     | Black | White -> Pp.str [ "text-"; color_name color ]
-    | Hex _ -> Pp.str [ "text-"; color_name color ]
+    | Hex _ | Rgb _ -> Pp.str [ "text-"; color_name color ]
     | _ -> Pp.str [ "text-"; color_name color; "-"; string_of_int shade ]
   in
-  let hex = color_to_hex color shade in
-  let rgb = hex_to_rgb hex in
+  let rgb = color_to_rgb_string color shade in
   Style
     ( class_name,
       [
@@ -817,11 +845,10 @@ let border_color color shade =
   let class_name =
     match color with
     | Black | White -> Pp.str [ "border-"; color_name color ]
-    | Hex _ -> Pp.str [ "border-"; color_name color ]
+    | Hex _ | Rgb _ -> Pp.str [ "border-"; color_name color ]
     | _ -> Pp.str [ "border-"; color_name color; "-"; string_of_int shade ]
   in
-  let hex = color_to_hex color shade in
-  let rgb = hex_to_rgb hex in
+  let rgb = color_to_rgb_string color shade in
   Style
     ( class_name,
       [
@@ -2022,11 +2049,11 @@ let bg_gradient_to_tl =
 
 (** Gradient color stops *)
 let from_color ?(shade = 500) color =
-  let rgb = hex_to_rgb (color_to_hex color shade) in
+  let rgb = color_to_rgb_string color shade in
   let class_name =
     match color with
     | Black | White -> "from-" ^ color_name color
-    | Hex _ -> "from-" ^ color_name color
+    | Hex _ | Rgb _ -> "from-" ^ color_name color
     | _ -> Pp.str [ "from-"; color_name color; "-"; string_of_int shade ]
   in
   Style
@@ -2040,11 +2067,11 @@ let from_color ?(shade = 500) color =
       ] )
 
 let via_color ?(shade = 500) color =
-  let rgb = hex_to_rgb (color_to_hex color shade) in
+  let rgb = color_to_rgb_string color shade in
   let class_name =
     match color with
     | Black | White -> "via-" ^ color_name color
-    | Hex _ -> "via-" ^ color_name color
+    | Hex _ | Rgb _ -> "via-" ^ color_name color
     | _ -> Pp.str [ "via-"; color_name color; "-"; string_of_int shade ]
   in
   Style
@@ -2061,11 +2088,11 @@ let via_color ?(shade = 500) color =
       ] )
 
 let to_color ?(shade = 500) color =
-  let rgb = hex_to_rgb (color_to_hex color shade) in
+  let rgb = color_to_rgb_string color shade in
   let class_name =
     match color with
     | Black | White -> "to-" ^ color_name color
-    | Hex _ -> "to-" ^ color_name color
+    | Hex _ | Rgb _ -> "to-" ^ color_name color
     | _ -> Pp.str [ "to-"; color_name color; "-"; string_of_int shade ]
   in
   Style
