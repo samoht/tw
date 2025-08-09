@@ -155,9 +155,23 @@ val pink : color
 val rose : color
 (** Warm pink color family. *)
 
-val of_hex : string -> color
-(** [of_hex "#1da1f2"] creates a custom color from a hex string. The # prefix is
-    optional. *)
+val hex : string -> color
+(** [hex "#1da1f2"] creates a custom color from a hex string. The # prefix is
+    optional.
+
+    Examples:
+    - [hex "#1da1f2"] - Twitter blue with # prefix
+    - [hex "ff5733"] - Orange without # prefix
+    - [hex "#f0f"] - 3-character hex codes are supported *)
+
+val rgb : int -> int -> int -> color
+(** [rgb r g b] creates a custom color from RGB values (0-255).
+
+    Examples:
+    - [rgb 29 161 242] - Twitter blue
+    - [rgb 255 87 51] - Orange
+
+    Raises [Invalid_argument] if any channel value is outside 0-255 range. *)
 
 (** {1 Color & Background} *)
 

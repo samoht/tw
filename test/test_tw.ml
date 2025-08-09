@@ -1070,18 +1070,38 @@ let test_hex_colors () =
   in
 
   (* Test hex color in backgrounds *)
-  test_class_name (bg (of_hex "#1da1f2") 0) "bg-[1da1f2]";
-  test_css_value (bg (of_hex "#1da1f2") 0) "background-color" "rgb(29 161 242";
+  test_class_name (bg (hex "#1da1f2") 0) "bg-[1da1f2]";
+  test_css_value (bg (hex "#1da1f2") 0) "background-color" "rgb(29 161 242";
 
   (* Test hex with text *)
-  test_class_name (text (of_hex "ff5733") 0) "text-[ff5733]";
-  test_css_value (text (of_hex "ff5733") 0) "color" "rgb(255 87 51";
+  test_class_name (text (hex "ff5733") 0) "text-[ff5733]";
+  test_css_value (text (hex "ff5733") 0) "color" "rgb(255 87 51";
 
   (* Test hex in borders *)
-  test_class_name (border_color (of_hex "#00ff00") 0) "border-[00ff00]";
-  test_css_value
-    (border_color (of_hex "#00ff00") 0)
-    "border-color" "rgb(0 255 0"
+  test_class_name (border_color (hex "#00ff00") 0) "border-[00ff00]";
+  test_css_value (border_color (hex "#00ff00") 0) "border-color" "rgb(0 255 0";
+
+  (* Test rgb function *)
+  test_class_name (bg (rgb 29 161 242) 0) "bg-[rgb(29,161,242)]";
+  test_css_value (bg (rgb 29 161 242) 0) "background-color" "rgb(29 161 242";
+
+  test_class_name (text (rgb 255 87 51) 0) "text-[rgb(255,87,51)]";
+  test_css_value (text (rgb 255 87 51) 0) "color" "rgb(255 87 51";
+
+  (* Test rgb edge cases *)
+  test_class_name (bg (rgb 0 0 0) 0) "bg-[rgb(0,0,0)]";
+  test_class_name (bg (rgb 255 255 255) 0) "bg-[rgb(255,255,255)]";
+
+  (* Test invalid RGB values raise exception *)
+  (try
+     let _ = rgb 256 0 0 in
+     Alcotest.fail "rgb with value > 255 should raise Invalid_argument"
+   with Invalid_argument _ -> ());
+
+  try
+    let _ = rgb 0 (-1) 0 in
+    Alcotest.fail "rgb with negative value should raise Invalid_argument"
+  with Invalid_argument _ -> ()
 
 let test_gradient_stops () =
   let test_class_name tw expected =
@@ -1112,8 +1132,8 @@ let test_gradient_stops () =
   test_css_contains (to_color pink) "--tw-gradient-to";
 
   (* Test with hex colors *)
-  test_class_name (from_color (of_hex "#ff1493")) "from-[ff1493]";
-  test_class_name (to_color (of_hex "00bfff")) "to-[00bfff]"
+  test_class_name (from_color (hex "#ff1493")) "from-[ff1493]";
+  test_class_name (to_color (hex "00bfff")) "to-[00bfff]"
 
 let test_html_css_selector_matching () =
   (* Test that HTML class names match CSS selectors for modifiers *)
@@ -1286,8 +1306,8 @@ let test_html_css_regression () =
     (on_md [ on_hover [ bg indigo 500 ] ]);
 
   (* Test hex colors *)
-  test_html_css_consistency "hex-text" (text (of_hex "#1da1f2") 0);
-  test_html_css_consistency "hex-bg" (bg (of_hex "#ff6b6b") 0);
+  test_html_css_consistency "hex-text" (text (hex "#1da1f2") 0);
+  test_html_css_consistency "hex-bg" (bg (hex "#ff6b6b") 0);
 
   (* Test gradient stops *)
   test_html_css_consistency "from-color" (from_color ~shade:400 blue);
@@ -1370,8 +1390,8 @@ let test_tailwind_compatibility () =
 
   (* Test hex colors (our custom format should be clearly marked) *)
   test_tailwind_class_format "hex-color" "text-[1da1f2]"
-    (text (of_hex "#1da1f2") 0);
-  test_tailwind_class_format "hex-bg" "bg-[ff6b6b]" (bg (of_hex "#ff6b6b") 0);
+    (text (hex "#1da1f2") 0);
+  test_tailwind_class_format "hex-bg" "bg-[ff6b6b]" (bg (hex "#ff6b6b") 0);
 
   (* Test gradient stops *)
   test_tailwind_class_format "from-gradient" "from-blue-400"
