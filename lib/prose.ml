@@ -197,9 +197,11 @@ let base_misc_rules selector =
     rule ~selector:(selector " a")
       [
         color "var(--tw-prose-links)";
-        text_decoration "underline";
+        text_decoration "none";
         font_weight "500";
+        property "transition" "color 0.2s ease";
       ];
+    rule ~selector:(selector " a:hover") [ color "rgb(37 99 235)" ];
     rule ~selector:(selector " blockquote")
       [
         font_weight "500";
