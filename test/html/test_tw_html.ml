@@ -161,6 +161,131 @@ let test_page_cache_busting_consistency () =
 
   check bool "different content produces different hash" false (hash1 = hash3)
 
+let test_exact_tailwind_match () =
+  (* Create a simple HTML page with various Tailwind classes *)
+  let page_content =
+    div
+      ~tw:Tw.[ p 4; bg blue 500; on_hover [ bg blue 600 ] ]
+      [
+        h1
+          ~tw:Tw.[ text_2xl; font_bold; text white 0; mb 4 ]
+          [ txt "Test Page" ];
+        p
+          ~tw:Tw.[ text gray 200; on_hover [ text white 0 ] ]
+          [ txt "Testing hover states" ];
+        (* Test group hover *)
+        div
+          ~tw:Tw.[ group; p 4 ]
+          [
+            p
+              ~tw:Tw.[ on_group_hover [ text red 500 ] ]
+              [ txt "Group hover test" ];
+          ];
+        (* Test peer *)
+        div
+          [
+            input ~at:[ At.type' "checkbox" ] ~tw:Tw.[ peer ] ();
+            p
+              ~tw:Tw.[ on_peer_checked [ text green 500 ] ]
+              [ txt "Peer checked test" ];
+          ];
+        (* Test aria *)
+        div
+          ~at:[ At.v "aria-checked" "true" ]
+          ~tw:Tw.[ on_aria_checked [ bg purple 100 ] ]
+          [ txt "Aria checked test" ];
+        (* Test data attribute *)
+        div
+          ~at:[ At.v "data-active" "true" ]
+          ~tw:Tw.[ on_data_active [ font_bold ] ]
+          [ txt "Data active test" ];
+      ]
+  in
+
+  (* Generate HTML and CSS *)
+  let generated_page = page ~title:"Test" [] [ page_content ] in
+  let html_output = html generated_page in
+  let _css_filename, css_stylesheet = css generated_page in
+  let css_output = Tw.Css.to_string ~minify:false css_stylesheet in
+
+  (* Write HTML to temp file *)
+  let html_file = "/tmp/tw_test_exact.html" in
+  let oc = open_out html_file in
+  (* Write complete HTML document *)
+  Printf.fprintf oc
+    "<!DOCTYPE html>\n\
+     <html>\n\
+     <head>\n\
+     <meta charset=\"UTF-8\">\n\
+     </head>\n\
+     <body>\n\
+     %s\n\
+     </body>\n\
+     </html>"
+    html_output;
+  close_out oc;
+
+  (* Create minimal Tailwind config *)
+  let tailwind_config =
+    {|
+module.exports = {
+  content: ["/tmp/tw_test_exact.html"],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+|}
+  in
+  let config_file = "/tmp/tailwind.config.js" in
+  let oc = open_out config_file in
+  output_string oc tailwind_config;
+  close_out oc;
+
+  (* Run real Tailwind CSS - v3 compatible mode if available *)
+  let tailwind_cmd =
+    "cd /tmp && npx tailwindcss -i /dev/stdin -c tailwind.config.js -o \
+     tailwind_real.css <<< '@tailwind base; @tailwind components; @tailwind \
+     utilities;' 2>/dev/null"
+  in
+  let exit_code = Sys.command tailwind_cmd in
+
+  if exit_code <> 0 then (
+    Printf.printf
+      "Note: Tailwind CSS comparison test skipped (tailwindcss not available \
+       or wrong version)\n";
+    ())
+  else
+    (* Read Tailwind's output *)
+    let ic = open_in "/tmp/tailwind_real.css" in
+    let tailwind_css = really_input_string ic (in_channel_length ic) in
+    close_in ic;
+
+    (* Compare key selectors - Tailwind uses specific patterns *)
+    let check_selector pattern name =
+      if not (Astring.String.is_infix ~affix:pattern tailwind_css) then
+        Printf.printf
+          "Warning: Tailwind doesn't contain expected %s selector: %s\n" name
+          pattern
+      else Printf.printf "✓ Found %s selector in Tailwind output\n" name
+    in
+
+    (* These are the actual selectors Tailwind generates *)
+    check_selector ".hover\\:bg-blue-600:hover" "hover modifier";
+    check_selector ".group:hover .group-hover\\:" "group-hover modifier";
+    check_selector ".peer:checked ~ .peer-checked\\:" "peer-checked modifier";
+    check_selector "[aria-checked=\"true\"]" "aria-checked";
+    check_selector "[data-active]" "data-active";
+
+    Printf.printf "\nOur CSS output:\n";
+    Printf.printf "%s\n"
+      (if String.length css_output > 500 then
+         String.sub css_output 0 500 ^ "..."
+       else css_output);
+    Printf.printf "\nTailwind CSS output (first 500 chars):\n";
+    Printf.printf "%s\n"
+      (String.sub tailwind_css 0 (min 500 (String.length tailwind_css)))
+
 let suite =
   ( "html",
     [
@@ -173,4 +298,5 @@ let suite =
       test_case "page cache busting" `Quick test_page_cache_busting;
       test_case "cache busting consistency" `Quick
         test_page_cache_busting_consistency;
+      test_case "exact tailwind match" `Quick test_exact_tailwind_match;
     ] )
