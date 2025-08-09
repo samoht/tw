@@ -329,11 +329,39 @@ let to_inline_style styles =
 
 (** Convert hex color to rgb format *)
 let hex_to_rgb hex =
-  let hex = if String.get hex 0 = '#' then String.sub hex 1 6 else hex in
-  let r = int_of_string ("0x" ^ String.sub hex 0 2) in
-  let g = int_of_string ("0x" ^ String.sub hex 2 2) in
-  let b = int_of_string ("0x" ^ String.sub hex 4 2) in
-  Pp.str [ string_of_int r; " "; string_of_int g; " "; string_of_int b ]
+  (* Check if it's already in rgb format *)
+  if String.starts_with ~prefix:"rgb(" hex then
+    (* Extract RGB values from "rgb(r,g,b)" format *)
+    let rgb_str = String.sub hex 4 (String.length hex - 5) in
+    (* Remove "rgb(" and ")" *)
+    let parts = String.split_on_char ',' rgb_str in
+    match parts with
+    | [ r; g; b ] -> String.trim r ^ " " ^ String.trim g ^ " " ^ String.trim b
+    | _ -> failwith ("Invalid RGB format: " ^ hex)
+  else
+    (* Handle hex format *)
+    let hex =
+      if String.length hex > 0 && String.get hex 0 = '#' then
+        String.sub hex 1 (String.length hex - 1)
+      else hex
+    in
+    if String.length hex = 3 then
+      (* Handle 3-character hex like "f0f" *)
+      let r = String.sub hex 0 1 in
+      let g = String.sub hex 1 1 in
+      let b = String.sub hex 2 1 in
+      let r_int = int_of_string ("0x" ^ r ^ r) in
+      let g_int = int_of_string ("0x" ^ g ^ g) in
+      let b_int = int_of_string ("0x" ^ b ^ b) in
+      string_of_int r_int ^ " " ^ string_of_int g_int ^ " "
+      ^ string_of_int b_int
+    else if String.length hex = 6 then
+      (* Handle 6-character hex *)
+      let r = int_of_string ("0x" ^ String.sub hex 0 2) in
+      let g = int_of_string ("0x" ^ String.sub hex 2 2) in
+      let b = int_of_string ("0x" ^ String.sub hex 4 2) in
+      string_of_int r ^ " " ^ string_of_int g ^ " " ^ string_of_int b
+    else failwith ("Invalid hex format: " ^ hex)
 
 let color_to_hex color shade =
   match (color, shade) with
@@ -341,7 +369,8 @@ let color_to_hex color shade =
   | Black, _ -> "#000000"
   | White, _ -> "#ffffff"
   | Hex hex, _ ->
-      if String.length hex > 0 && String.get hex 0 = '#' then hex else "#" ^ hex
+      (* Return as-is for both hex and rgb formats *)
+      hex
   | Gray, 50 -> "#f9fafb"
   | Gray, 100 -> "#f3f4f6"
   | Gray, 200 -> "#e5e7eb"
@@ -650,7 +679,25 @@ let purple = Purple
 let fuchsia = Fuchsia
 let pink = Pink
 let rose = Rose
-let of_hex hex = Hex hex
+
+let hex s =
+  let s =
+    if String.starts_with ~prefix:"#" s then String.sub s 1 (String.length s - 1)
+    else s
+  in
+  Hex s
+
+let rgb r g b =
+  (* Create RGB color in format Tailwind expects for arbitrary values *)
+  let validate_channel v name =
+    if v < 0 || v > 255 then
+      invalid_arg
+        (Printf.sprintf "rgb: %s value %d must be between 0 and 255" name v)
+  in
+  validate_channel r "red";
+  validate_channel g "green";
+  validate_channel b "blue";
+  Hex (Printf.sprintf "rgb(%d,%d,%d)" r g b)
 
 (* Value constructors *)
 
