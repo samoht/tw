@@ -202,9 +202,10 @@ let extract_selector_props tw =
                 ("@media (prefers-color-scheme: dark) { " ^ selector, props)
             | Responsive breakpoint ->
                 let prefix = string_of_breakpoint breakpoint in
+                (* Create the selector with media query prefix for grouping *)
                 ( "@media (min-width: "
                   ^ responsive_breakpoint prefix
-                  ^ ") { " ^ selector,
+                  ^ ") " ^ selector,
                   props )
             | Container query ->
                 let query_str = container_query_to_css_prefix query in
@@ -253,12 +254,58 @@ let to_css ?(reset = true) tw_classes =
   let all_rules =
     tw_classes |> List.concat_map extract_selector_props |> group_by_selector
   in
+  (* Separate media query rules from regular rules *)
+  let is_media_query selector = String.starts_with ~prefix:"@media" selector in
+  let regular_rules, media_rules =
+    List.partition (fun (sel, _) -> not (is_media_query sel)) all_rules
+  in
+
+  (* Create regular CSS rules *)
   let rules =
     List.map
       (fun (selector, props) ->
         Css.rule ~selector (Css.deduplicate_properties props))
-      all_rules
+      regular_rules
   in
+
+  (* Group media query rules by their condition *)
+  let media_queries_map =
+    List.fold_left
+      (fun acc (selector, props) ->
+        if String.starts_with ~prefix:"@media (min-width:" selector then
+          (* Extract the media condition and actual selector *)
+          let idx = String.index selector ')' in
+          let condition = String.sub selector 0 (idx + 1) in
+          let actual_selector =
+            let rest =
+              String.sub selector (idx + 1) (String.length selector - idx - 1)
+            in
+            String.trim rest
+          in
+          let rules = try List.assoc condition acc with Not_found -> [] in
+          (condition, (actual_selector, props) :: rules)
+          :: List.remove_assoc condition acc
+        else acc)
+      [] media_rules
+  in
+
+  (* Create media query objects *)
+  let media_queries =
+    List.map
+      (fun (condition, rule_list) ->
+        let rules =
+          List.map
+            (fun (sel, props) ->
+              Css.rule ~selector:sel (Css.deduplicate_properties props))
+            rule_list
+        in
+        let media_condition =
+          String.sub condition 7 (String.length condition - 7)
+        in
+        Css.media ~condition:media_condition rules)
+      media_queries_map
+  in
+
   let final_rules =
     if reset then
       (* Include prose CSS variables in reset if prose is being used *)
@@ -270,7 +317,7 @@ let to_css ?(reset = true) tw_classes =
       reset_rules @ prose_reset @ rules
     else rules
   in
-  Css.stylesheet final_rules
+  Css.stylesheet ~media_queries final_rules
 
 (* Convert Tw styles to inline style attribute value *)
 let to_inline_style styles =
