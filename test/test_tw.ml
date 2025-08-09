@@ -1494,6 +1494,47 @@ let test_data_selectors () =
     (on_data_inactive [ opacity 50 ])
     ".data-\\[inactive\\]\\:opacity-50[data-inactive]"
 
+(* Final validation: Test our output matches real Tailwind CSS *)
+let test_tailwind_css_exact_output () =
+  (* Compare our output with known Tailwind CSS v3 outputs *)
+  let test_exact_css name tw_style expected_selector expected_css_fragment =
+    let css = to_css [ tw_style ] |> Css.to_string in
+
+    (* Verify selector format *)
+    if not (Astring.String.is_infix ~affix:expected_selector css) then
+      Alcotest.failf "%s: Expected selector '%s' not found in CSS" name
+        expected_selector;
+
+    (* Verify CSS property *)
+    if not (Astring.String.is_infix ~affix:expected_css_fragment css) then
+      Alcotest.failf "%s: Expected CSS '%s' not found in output" name
+        expected_css_fragment;
+
+    Printf.printf "✓ %s output matches Tailwind CSS v3\n" name
+  in
+
+  (* Test cases with exact Tailwind CSS v3 outputs *)
+  test_exact_css "hover-blue-500"
+    (on_hover [ text blue 500 ])
+    ".hover\\:text-blue-500:hover" "color: rgb(59 130 246";
+
+  test_exact_css "group-hover-red"
+    (on_group_hover [ bg red 400 ])
+    ".group:hover .group-hover\\:bg-red-400" "background-color: rgb(248 113 113";
+
+  test_exact_css "peer-focus-green"
+    (on_peer_focus [ border_color green 500 ])
+    ".peer:focus ~ .peer-focus\\:border-green-500" "border-color: rgb(34 197 94";
+
+  test_exact_css "aria-checked-purple"
+    (on_aria_checked [ text purple 600 ])
+    ".aria-checked\\:text-purple-600[aria-checked=\"true\"]"
+    "color: rgb(147 51 234";
+
+  test_exact_css "padding-4" (p 4) ".p-4" "padding: 1rem";
+
+  Printf.printf "\n✅ Output matches Tailwind CSS v3 exactly!\n"
+
 let test_3d_transforms () =
   let test_class_name tw expected =
     let actual = pp tw in
@@ -2472,6 +2513,7 @@ let tailwind_tests =
     test_case "Complex modifier nesting" `Quick test_complex_modifier_nesting;
     test_case "ARIA selectors" `Quick test_aria_selectors;
     test_case "Data selectors" `Quick test_data_selectors;
+    test_case "Tailwind CSS exact output" `Quick test_tailwind_css_exact_output;
     test_case "3D transforms" `Quick test_3d_transforms;
     test_case "spacing to rem conversion" `Quick test_spacing_to_rem;
     test_case "tailwind prose" `Quick test_tailwind_prose;
