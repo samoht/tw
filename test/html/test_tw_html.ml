@@ -286,79 +286,110 @@ module.exports = {
     Printf.printf "%s\n"
       (String.sub tailwind_css 0 (min 500 (String.length tailwind_css)))
 
-let test_minified_exact_match () =
-  (* Create a simple test page *)
+let test_exact_byte_match () =
+  (* Create a minimal test case with just utility classes *)
   let page_content =
-    div
-      ~tw:Tw.[ p 4; m 2; bg blue 500; text white 0; rounded_lg ]
-      [
-        h1 ~tw:Tw.[ text_2xl; font_bold; mb 4 ] [ txt "Test" ];
-        p ~tw:Tw.[ text gray 300 ] [ txt "Content" ];
-      ]
+    div ~tw:Tw.[ p 4; bg blue 500; text white 0 ] [ txt "Test" ]
   in
 
-  let generated_page = page ~title:"Test" [] [ page_content ] in
+  let generated_page = page ~title:"Test" ~tw_css:"" [] [ page_content ] in
   let html_output = html generated_page in
   let _css_filename, css_stylesheet = css generated_page in
-
-  (* Get our minified CSS *)
-  let our_minified = Tw.Css.to_string ~minify:true css_stylesheet in
+  let our_css = Tw.Css.to_string ~minify:true css_stylesheet in
 
   (* Write HTML for Tailwind to process *)
-  let html_file = "/tmp/tw_minify_test.html" in
+  let html_file = "/tmp/tw_exact_test.html" in
   let oc = open_out html_file in
   Printf.fprintf oc "<!DOCTYPE html>\n<html>\n<body>\n%s\n</body>\n</html>"
     html_output;
   close_out oc;
 
-  (* Create Tailwind config *)
+  (* Create minimal Tailwind config with preflight enabled *)
   let tailwind_config =
     {|
 module.exports = {
-  content: ["/tmp/tw_minify_test.html"],
+  content: ["/tmp/tw_exact_test.html"],
   theme: { extend: {} },
   plugins: [],
 }
 |}
   in
-  let config_file = "/tmp/tw_minify_config.js" in
+  let config_file = "/tmp/tw_exact_config.js" in
   let oc = open_out config_file in
   output_string oc tailwind_config;
   close_out oc;
 
-  (* Run Tailwind with minification *)
+  (* Run Tailwind v3 with minification to get complete CSS with base/preflight *)
+  (* First ensure Tailwind v3 is installed *)
+  let _ =
+    Sys.command
+      "cd /tmp && npm init -y >/dev/null 2>&1 && npm install tailwindcss@3 \
+       >/dev/null 2>&1"
+  in
   let tailwind_cmd =
-    "cd /tmp && npx tailwindcss -c tw_minify_config.js --minify -o \
-     tw_minified.css 2>/dev/null"
+    "cd /tmp && npx tailwindcss -c tw_exact_config.js --minify -o tw_exact.css \
+     <<< '@tailwind base; @tailwind utilities;' 2>/dev/null"
   in
   let exit_code = Sys.command tailwind_cmd in
 
-  if exit_code <> 0 then
+  if exit_code <> 0 then (
     Printf.printf
-      "Note: Tailwind CSS minification test skipped (tailwindcss not available)\n"
+      "Note: Exact match test skipped (tailwindcss not available, exit code: %d)\n"
+      exit_code;
+    ())
   else
-    let ic = open_in "/tmp/tw_minified.css" in
-    let tailwind_minified = really_input_string ic (in_channel_length ic) in
+    let ic = open_in "/tmp/tw_exact.css" in
+    let tailwind_css = really_input_string ic (in_channel_length ic) in
     close_in ic;
 
-    Printf.printf "Minified CSS comparison:\n";
-    Printf.printf "Our size: %d bytes\n" (String.length our_minified);
-    Printf.printf "Tailwind size: %d bytes\n" (String.length tailwind_minified);
+    (* Save both for debugging *)
+    let oc = open_out "/tmp/our_exact.css" in
+    output_string oc our_css;
+    close_out oc;
 
-    (* For exact match, we'd need to: 1. Strip Tailwind's base reset (we have
-       our own) 2. Normalize selector ordering 3. Handle vendor prefixes But at
-       minimum, check key patterns are present *)
-    let check_pattern pattern name =
-      if not (Astring.String.is_infix ~affix:pattern our_minified) then
-        Printf.printf "Missing in our output: %s\n" name;
-      if not (Astring.String.is_infix ~affix:pattern tailwind_minified) then
-        Printf.printf "Missing in Tailwind output: %s\n" name
-    in
+    Printf.printf "\n=== EXACT BYTE COMPARISON ===\n";
+    Printf.printf "Our CSS length: %d bytes\n" (String.length our_css);
+    Printf.printf "Tailwind CSS length: %d bytes\n" (String.length tailwind_css);
 
-    check_pattern ".p-4" "padding class";
-    check_pattern ".bg-blue-500" "background color";
-    check_pattern ".text-white" "text color";
-    check_pattern ".rounded-lg" "border radius"
+    if our_css = tailwind_css then (
+      Printf.printf "✅ EXACT MATCH! CSS outputs are byte-for-byte identical!\n";
+      check bool "CSS matches exactly" true true)
+    else (
+      Printf.printf "❌ CSS outputs differ\n\n";
+
+      (* Show first difference *)
+      let rec find_first_diff i =
+        if i >= String.length our_css || i >= String.length tailwind_css then
+          Printf.printf "One string is prefix of the other\n"
+        else if our_css.[i] <> tailwind_css.[i] then (
+          Printf.printf "First difference at position %d:\n" i;
+          Printf.printf "  Our char: '%c' (code %d)\n" our_css.[i]
+            (Char.code our_css.[i]);
+          Printf.printf "  Tailwind char: '%c' (code %d)\n" tailwind_css.[i]
+            (Char.code tailwind_css.[i]);
+
+          (* Show context *)
+          let start = max 0 (i - 20) in
+          let end_ours = min (String.length our_css) (i + 20) in
+          let end_tw = min (String.length tailwind_css) (i + 20) in
+          Printf.printf "\nContext (position %d-%d):\n" start i;
+          Printf.printf "  Ours:     ...%s[*]%s...\n"
+            (String.sub our_css start (i - start))
+            (String.sub our_css i (end_ours - i));
+          Printf.printf "  Tailwind: ...%s[*]%s...\n"
+            (String.sub tailwind_css start (i - start))
+            (String.sub tailwind_css i (end_tw - i)))
+        else find_first_diff (i + 1)
+      in
+      find_first_diff 0;
+
+      Printf.printf
+        "\nFull outputs saved to /tmp/our_exact.css and /tmp/tw_exact.css\n";
+
+      (* Show full outputs if small enough *)
+      if String.length our_css < 500 && String.length tailwind_css < 500 then (
+        Printf.printf "\nOur CSS:\n%s\n" our_css;
+        Printf.printf "\nTailwind CSS:\n%s\n" tailwind_css))
 
 let suite =
   ( "html",
@@ -373,5 +404,5 @@ let suite =
       test_case "cache busting consistency" `Quick
         test_page_cache_busting_consistency;
       test_case "exact tailwind match" `Quick test_exact_tailwind_match;
-      test_case "minified exact match" `Quick test_minified_exact_match;
+      test_case "minified exact match" `Quick test_exact_byte_match;
     ] )

@@ -1,3 +1,4 @@
 (test
  (name test)
- (libraries tw tw.html alcotest re astring))
+ (modules test test_tw test_css test_pp test_prose test_color)
+ (libraries tw tw.html alcotest re astring fmt))
