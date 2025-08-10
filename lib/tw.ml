@@ -42,6 +42,18 @@ type modifier =
   | Data_inactive
   | Data_custom of string * string
   | Container of container_query
+  (* New v4 variants *)
+  | Not of modifier (* not-* variant for negation *)
+  | Has of string (* has-* variant for :has() pseudo-class *)
+  | Group_has of string (* group-has-* variant *)
+  | Peer_has of string (* peer-has-* variant *)
+  | Starting (* starting variant for @starting-style *)
+  | Focus_within (* focus-within variant *)
+  | Focus_visible (* focus-visible variant *)
+  | Motion_safe (* motion-safe variant *)
+  | Motion_reduce (* motion-reduce variant *)
+  | Contrast_more (* contrast-more variant *)
+  | Contrast_less (* contrast-less variant *)
 
 and container_query =
   | Container_sm
@@ -59,32 +71,7 @@ type t =
   | Group of t list
 
 (* Abstract color type *)
-type color =
-  | Black
-  | White
-  | Gray
-  | Slate
-  | Zinc
-  | Red
-  | Orange
-  | Amber
-  | Yellow
-  | Lime
-  | Green
-  | Emerald
-  | Teal
-  | Cyan
-  | Sky
-  | Blue
-  | Indigo
-  | Violet
-  | Purple
-  | Fuchsia
-  | Pink
-  | Rose
-  | Hex of string (* hex color like "#1da1f2" or "1da1f2" *)
-  | Rgb of { red : int; green : int; blue : int }
-(* RGB values where each channel is 0-255 *)
+type color = Color.t
 
 (* Common size variants used across multiple utilities *)
 type size = [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full ]
@@ -130,6 +117,518 @@ let container_query_to_css_prefix = function
       Printf.sprintf "@container (min-width: %dpx)" width
   | Container_named (name, width) ->
       Printf.sprintf "@container %s (min-width: %dpx)" name width
+
+(* Extract used color and spacing values from tw_classes *)
+type used_values = {
+  colors : (string * int) list; (* (color_name, shade) pairs *)
+  spacings : int list; (* spacing values used *)
+  text_sizes : string list; (* text sizes used like "sm", "lg" *)
+  font_weights : string list; (* font weights used like "bold", "semibold" *)
+  radii : string list; (* border radius values used *)
+  fonts : string list; (* font families used like "sans", "serif", "mono" *)
+  transitions : bool; (* whether transition utilities are used *)
+}
+
+let extract_used_values tw_classes =
+  let rec extract acc = function
+    | Style (class_name, _) ->
+        (* Parse class name to find what resources are used *)
+        let parts = String.split_on_char '-' class_name in
+
+        (* Colors: bg-*, text-*, border-*, ring-*, etc. *)
+        if
+          String.starts_with ~prefix:"bg-" class_name
+          || String.starts_with ~prefix:"text-" class_name
+          || String.starts_with ~prefix:"border-" class_name
+          || String.starts_with ~prefix:"ring-" class_name
+          || String.starts_with ~prefix:"from-" class_name
+          || String.starts_with ~prefix:"via-" class_name
+          || String.starts_with ~prefix:"to-" class_name
+        then
+          match parts with
+          | [ "text"; color; _ ]
+            when color = "xs" || color = "sm" || color = "base" || color = "lg"
+                 || color = "xl" || color = "2xl" || color = "3xl"
+                 || color = "4xl" || color = "5xl" || color = "6xl"
+                 || color = "7xl" || color = "8xl" || color = "9xl" ->
+              (* This is actually a text size, not a color *)
+              { acc with text_sizes = color :: acc.text_sizes }
+          | [ _; color; shade ] -> (
+              try
+                let shade_int = int_of_string shade in
+                { acc with colors = (color, shade_int) :: acc.colors }
+              with _ -> acc)
+          | [ _; color ]
+            when color = "black" || color = "white" || color = "transparent" ->
+              { acc with colors = (color, 0) :: acc.colors }
+          | _ -> acc (* Text sizes: text-xs, text-sm, etc. *)
+        else if String.starts_with ~prefix:"text-" class_name then
+          match parts with
+          | [ "text"; size ]
+            when size = "xs" || size = "sm" || size = "base" || size = "lg"
+                 || size = "xl"
+                 || String.starts_with ~prefix:"2xl" size
+                 || String.starts_with ~prefix:"3xl" size
+                 || String.starts_with ~prefix:"4xl" size
+                 || String.starts_with ~prefix:"5xl" size
+                 || String.starts_with ~prefix:"6xl" size
+                 || String.starts_with ~prefix:"7xl" size
+                 || String.starts_with ~prefix:"8xl" size
+                 || String.starts_with ~prefix:"9xl" size ->
+              { acc with text_sizes = size :: acc.text_sizes }
+          | _ -> acc (* Font weights and families: font-bold, font-sans, etc. *)
+        else if String.starts_with ~prefix:"font-" class_name then
+          match parts with
+          | [ "font"; value ]
+            when value = "sans" || value = "serif" || value = "mono" ->
+              { acc with fonts = value :: acc.fonts }
+          | [ "font"; weight ] ->
+              { acc with font_weights = weight :: acc.font_weights }
+          | _ -> acc (* Transitions *)
+        else if
+          String.starts_with ~prefix:"transition" class_name
+          || String.starts_with ~prefix:"duration-" class_name
+          || String.starts_with ~prefix:"ease-" class_name
+        then { acc with transitions = true }
+          (* Border radius: rounded-*, rounded-sm, etc. *)
+        else if String.starts_with ~prefix:"rounded" class_name then
+          match parts with
+          | [ "rounded" ] ->
+              { acc with radii = "" :: acc.radii } (* default radius *)
+          | [ "rounded"; radius ] -> { acc with radii = radius :: acc.radii }
+          | _ -> acc (* Spacing: p-*, m-*, gap-*, space-* *)
+        else if
+          String.starts_with ~prefix:"p-" class_name
+          || String.starts_with ~prefix:"m-" class_name
+          || String.starts_with ~prefix:"gap-" class_name
+          || String.starts_with ~prefix:"space-" class_name
+          || String.starts_with ~prefix:"w-" class_name
+          || String.starts_with ~prefix:"h-" class_name
+        then
+          match parts with
+          | [ _; spacing ] -> (
+              try
+                let spacing_int = int_of_string spacing in
+                { acc with spacings = spacing_int :: acc.spacings }
+              with _ -> (
+                (* Handle special cases *)
+                match spacing with
+                | "px" ->
+                    { acc with spacings = -1 :: acc.spacings }
+                    (* Use -1 for px *)
+                | "0.5" ->
+                    { acc with spacings = -2 :: acc.spacings }
+                    (* Use -2 for 0.5 *)
+                | "1.5" ->
+                    { acc with spacings = -3 :: acc.spacings }
+                    (* Use -3 for 1.5 *)
+                | "2.5" ->
+                    { acc with spacings = -4 :: acc.spacings }
+                    (* Use -4 for 2.5 *)
+                | "3.5" ->
+                    { acc with spacings = -5 :: acc.spacings }
+                    (* Use -5 for 3.5 *)
+                | _ -> acc))
+          | _ -> acc
+        else acc
+    | Modified (_, t) -> extract acc t
+    | Group styles -> List.fold_left extract acc styles
+    | Prose _ -> acc (* Prose handles its own styles *)
+  in
+  let used =
+    List.fold_left extract
+      {
+        colors = [];
+        spacings = [];
+        text_sizes = [];
+        font_weights = [];
+        radii = [];
+        fonts = [];
+        transitions = false;
+      }
+      tw_classes
+  in
+  (* Remove duplicates *)
+  {
+    colors = List.sort_uniq compare used.colors;
+    spacings = List.sort_uniq compare used.spacings;
+    text_sizes = List.sort_uniq compare used.text_sizes;
+    font_weights = List.sort_uniq compare used.font_weights;
+    radii = List.sort_uniq compare used.radii;
+    fonts = List.sort_uniq compare used.fonts;
+    transitions = used.transitions;
+  }
+
+(* Generate complete Tailwind v4 theme as CSS variables *)
+let generate_theme_variables () =
+  (* Always include all theme variables - no tracking needed *)
+  let base_vars =
+    [
+      (* Fonts *)
+      Css.property "--font-sans"
+        "ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe \
+         UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"";
+      Css.property "--font-serif"
+        "ui-serif, Georgia, Cambria, \"Times New Roman\", Times, serif";
+      Css.property "--font-mono"
+        "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation \
+         Mono\", \"Courier New\", monospace";
+      (* Spacing scale *)
+      (* Fonts *)
+      Css.property "--font-sans"
+        "ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe \
+         UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"";
+      Css.property "--font-serif"
+        "ui-serif, Georgia, Cambria, \"Times New Roman\", Times, serif";
+      Css.property "--font-mono"
+        "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation \
+         Mono\", \"Courier New\", monospace";
+      (* Spacing scale *)
+      Css.property "--spacing-0" "0";
+      Css.property "--spacing-px" "1px";
+      Css.property "--spacing-0.5" "0.125rem";
+      Css.property "--spacing-1" "0.25rem";
+      Css.property "--spacing-1.5" "0.375rem";
+      Css.property "--spacing-2" "0.5rem";
+      Css.property "--spacing-2.5" "0.625rem";
+      Css.property "--spacing-3" "0.75rem";
+      Css.property "--spacing-3.5" "0.875rem";
+      Css.property "--spacing-4" "1rem";
+      Css.property "--spacing-5" "1.25rem";
+      Css.property "--spacing-6" "1.5rem";
+      Css.property "--spacing-7" "1.75rem";
+      Css.property "--spacing-8" "2rem";
+      Css.property "--spacing-9" "2.25rem";
+      Css.property "--spacing-10" "2.5rem";
+      Css.property "--spacing-11" "2.75rem";
+      Css.property "--spacing-12" "3rem";
+      Css.property "--spacing-14" "3.5rem";
+      Css.property "--spacing-16" "4rem";
+      Css.property "--spacing-20" "5rem";
+      Css.property "--spacing-24" "6rem";
+      Css.property "--spacing-28" "7rem";
+      Css.property "--spacing-32" "8rem";
+      Css.property "--spacing-36" "9rem";
+      Css.property "--spacing-40" "10rem";
+      Css.property "--spacing-44" "11rem";
+      Css.property "--spacing-48" "12rem";
+      Css.property "--spacing-52" "13rem";
+      Css.property "--spacing-56" "14rem";
+      Css.property "--spacing-60" "15rem";
+      Css.property "--spacing-64" "16rem";
+      Css.property "--spacing-72" "18rem";
+      Css.property "--spacing-80" "20rem";
+      Css.property "--spacing-96" "24rem";
+      (* Common values *)
+      Css.property "--spacing" "0.25rem";
+      (* Base spacing unit *)
+      Css.property "--default-transition-duration" "150ms";
+      Css.property "--default-transition-timing-function"
+        "cubic-bezier(0.4, 0, 0.2, 1)";
+      Css.property "--default-font-family" "var(--font-sans)";
+      Css.property "--default-mono-font-family" "var(--font-mono)";
+      (* Text sizes *)
+      Css.property "--text-xs" "0.75rem";
+      Css.property "--text-sm" "0.875rem";
+      Css.property "--text-base" "1rem";
+      Css.property "--text-lg" "1.125rem";
+      Css.property "--text-xl" "1.25rem";
+      Css.property "--text-2xl" "1.5rem";
+      Css.property "--text-3xl" "1.875rem";
+      Css.property "--text-4xl" "2.25rem";
+      Css.property "--text-5xl" "3rem";
+      Css.property "--text-6xl" "3.75rem";
+      Css.property "--text-7xl" "4.5rem";
+      Css.property "--text-8xl" "6rem";
+      Css.property "--text-9xl" "8rem";
+      (* Font weights *)
+      Css.property "--font-thin" "100";
+      Css.property "--font-extralight" "200";
+      Css.property "--font-light" "300";
+      Css.property "--font-normal" "400";
+      Css.property "--font-medium" "500";
+      Css.property "--font-semibold" "600";
+      Css.property "--font-bold" "700";
+      Css.property "--font-extrabold" "800";
+      Css.property "--font-black" "900";
+      (* Border radius *)
+      Css.property "--radius-none" "0";
+      Css.property "--radius-sm" "0.125rem";
+      Css.property "--radius" "0.25rem";
+      Css.property "--radius-md" "0.375rem";
+      Css.property "--radius-lg" "0.5rem";
+      Css.property "--radius-xl" "0.75rem";
+      Css.property "--radius-2xl" "1rem";
+      Css.property "--radius-3xl" "1.5rem";
+      Css.property "--radius-full" "9999px";
+    ]
+  in
+
+  (* Generate color variables for all Tailwind colors *)
+  (* This should iterate through all colors and shades *)
+  let color_vars =
+    let colors =
+      [
+        "gray";
+        "slate";
+        "zinc";
+        "neutral";
+        "stone";
+        "red";
+        "orange";
+        "amber";
+        "yellow";
+        "lime";
+        "green";
+        "emerald";
+        "teal";
+        "cyan";
+        "sky";
+        "blue";
+        "indigo";
+        "violet";
+        "purple";
+        "fuchsia";
+        "pink";
+        "rose";
+      ]
+    in
+    let shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900; 950 ] in
+    let generate_color_var color shade =
+      let var_name = Pp.str [ "--color-"; color; "-"; string_of_int shade ] in
+      match Color.TailwindColors.get_color color shade with
+      | Some value -> Some (Css.property var_name value)
+      | None -> (
+          (* Fallback: generate from hex if available *)
+          try
+            let color_t = Color.of_string color in
+            Some (Css.property var_name (Color.to_oklch_css color_t shade))
+          with _ -> None)
+    in
+    List.concat_map
+      (fun color ->
+        List.filter_map (fun shade -> generate_color_var color shade) shades)
+      colors
+    @ [
+        Css.property "--color-black" "#000";
+        Css.property "--color-white" "#fff";
+        Css.property "--color-transparent" "transparent";
+      ]
+  in
+
+  base_vars @ color_vars
+
+(* Helper function to convert spacing value to rem *)
+let spacing_value_to_rem = function
+  | -5 -> "0.875rem" (* 3.5 *)
+  | -4 -> "0.625rem" (* 2.5 *)
+  | -3 -> "0.375rem" (* 1.5 *)
+  | -2 -> "0.125rem" (* 0.5 *)
+  | -1 -> "1px" (* px *)
+  | 0 -> "0"
+  | 1 -> "0.25rem"
+  | 2 -> "0.5rem"
+  | 3 -> "0.75rem"
+  | 4 -> "1rem"
+  | 5 -> "1.25rem"
+  | 6 -> "1.5rem"
+  | 7 -> "1.75rem"
+  | 8 -> "2rem"
+  | 9 -> "2.25rem"
+  | 10 -> "2.5rem"
+  | 11 -> "2.75rem"
+  | 12 -> "3rem"
+  | 14 -> "3.5rem"
+  | 16 -> "4rem"
+  | 20 -> "5rem"
+  | 24 -> "6rem"
+  | 28 -> "7rem"
+  | 32 -> "8rem"
+  | 36 -> "9rem"
+  | 40 -> "10rem"
+  | 44 -> "11rem"
+  | 48 -> "12rem"
+  | 52 -> "13rem"
+  | 56 -> "14rem"
+  | 60 -> "15rem"
+  | 64 -> "16rem"
+  | 72 -> "18rem"
+  | 80 -> "20rem"
+  | 96 -> "24rem"
+  | _ -> "1rem" (* fallback *)
+
+(* JIT (Just-In-Time) version: Generate only the CSS variables actually used *)
+let generate_theme_variables_jit tw_classes =
+  let used = extract_used_values tw_classes in
+
+  (* Only include font variables that are used *)
+  let font_vars =
+    List.filter_map
+      (fun font ->
+        match font with
+        | "sans" ->
+            Some
+              (Css.property "--font-sans"
+                 "ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \
+                  \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color \
+                  Emoji\"")
+        | "serif" ->
+            Some
+              (Css.property "--font-serif"
+                 "ui-serif, Georgia, Cambria, \"Times New Roman\", Times, serif")
+        | "mono" ->
+            Some
+              (Css.property "--font-mono"
+                 "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \
+                  \"Liberation Mono\", \"Courier New\", monospace")
+        | _ -> None)
+      used.fonts
+  in
+
+  (* Only include transition variables if transitions are used *)
+  let transition_vars =
+    if used.transitions then
+      [
+        Css.property "--default-transition-duration" "150ms";
+        Css.property "--default-transition-timing-function"
+          "cubic-bezier(0.4, 0, 0.2, 1)";
+      ]
+    else []
+  in
+
+  (* Base spacing unit - only if spacing is used *)
+  let spacing_base_var =
+    if used.spacings <> [] then [ Css.property "--spacing" "0.25rem" ] else []
+  in
+
+  (* Default font family variables - only if fonts are used *)
+  let default_font_vars =
+    if List.mem "sans" used.fonts then
+      [ Css.property "--default-font-family" "var(--font-sans)" ]
+    else
+      []
+      @
+      if List.mem "mono" used.fonts then
+        [ Css.property "--default-mono-font-family" "var(--font-mono)" ]
+      else []
+  in
+
+  (* Only include used spacing values *)
+  let spacing_vars =
+    List.filter_map
+      (fun spacing ->
+        let name =
+          match spacing with
+          | -5 -> "--spacing-3.5"
+          | -4 -> "--spacing-2.5"
+          | -3 -> "--spacing-1.5"
+          | -2 -> "--spacing-0.5"
+          | -1 -> "--spacing-px"
+          | n when n >= 0 && n <= 96 -> "--spacing-" ^ string_of_int n
+          | _ -> ""
+        in
+        if name <> "" then
+          let value = spacing_value_to_rem spacing in
+          Some (Css.property name value)
+        else None)
+      used.spacings
+  in
+
+  (* Only include used color values *)
+  let color_vars =
+    List.filter_map
+      (fun (color, shade) ->
+        match color with
+        | "black" -> Some (Css.property "--color-black" "#000")
+        | "white" -> Some (Css.property "--color-white" "#fff")
+        | "transparent" ->
+            Some (Css.property "--color-transparent" "transparent")
+        | _ when shade > 0 -> (
+            let var_name =
+              Pp.str [ "--color-"; color; "-"; string_of_int shade ]
+            in
+            match Color.TailwindColors.get_color color shade with
+            | Some value -> Some (Css.property var_name value)
+            | None -> (
+                (* Try to generate from color module *)
+                try
+                  let color_t = Color.of_string color in
+                  Some
+                    (Css.property var_name (Color.to_oklch_css color_t shade))
+                with _ -> None))
+        | _ -> None)
+      (List.sort_uniq compare used.colors)
+  in
+
+  (* Only include used text sizes *)
+  let text_size_vars =
+    List.filter_map
+      (fun size ->
+        let name, value =
+          match size with
+          | "xs" -> ("--text-xs", "0.75rem")
+          | "sm" -> ("--text-sm", "0.875rem")
+          | "base" -> ("--text-base", "1rem")
+          | "lg" -> ("--text-lg", "1.125rem")
+          | "xl" -> ("--text-xl", "1.25rem")
+          | "2xl" -> ("--text-2xl", "1.5rem")
+          | "3xl" -> ("--text-3xl", "1.875rem")
+          | "4xl" -> ("--text-4xl", "2.25rem")
+          | "5xl" -> ("--text-5xl", "3rem")
+          | "6xl" -> ("--text-6xl", "3.75rem")
+          | "7xl" -> ("--text-7xl", "4.5rem")
+          | "8xl" -> ("--text-8xl", "6rem")
+          | "9xl" -> ("--text-9xl", "8rem")
+          | _ -> ("", "")
+        in
+        if name <> "" then Some (Css.property name value) else None)
+      used.text_sizes
+  in
+
+  (* Only include used font weights *)
+  let font_weight_vars =
+    List.filter_map
+      (fun weight ->
+        let name, value =
+          match weight with
+          | "thin" -> ("--font-thin", "100")
+          | "extralight" -> ("--font-extralight", "200")
+          | "light" -> ("--font-light", "300")
+          | "normal" -> ("--font-normal", "400")
+          | "medium" -> ("--font-medium", "500")
+          | "semibold" -> ("--font-semibold", "600")
+          | "bold" -> ("--font-bold", "700")
+          | "extrabold" -> ("--font-extrabold", "800")
+          | "black" -> ("--font-black", "900")
+          | _ -> ("", "")
+        in
+        if name <> "" then Some (Css.property name value) else None)
+      used.font_weights
+  in
+
+  (* Only include used border radius values *)
+  let radius_vars =
+    List.filter_map
+      (fun radius ->
+        let name, value =
+          match radius with
+          | "none" -> ("--radius-none", "0")
+          | "sm" -> ("--radius-sm", "0.125rem")
+          | "" -> ("--radius", "0.25rem") (* default rounded *)
+          | "md" -> ("--radius-md", "0.375rem")
+          | "lg" -> ("--radius-lg", "0.5rem")
+          | "xl" -> ("--radius-xl", "0.75rem")
+          | "2xl" -> ("--radius-2xl", "1rem")
+          | "3xl" -> ("--radius-3xl", "1.5rem")
+          | "full" -> ("--radius-full", "9999px")
+          | _ -> ("", "")
+        in
+        if name <> "" then Some (Css.property name value) else None)
+      used.radii
+  in
+
+  font_vars @ transition_vars @ spacing_base_var @ default_font_vars
+  @ spacing_vars @ color_vars @ text_size_vars @ font_weight_vars @ radius_vars
 
 (* Helper to convert container query to class prefix *)
 let container_query_to_class_prefix = function
@@ -211,7 +710,54 @@ let extract_selector_props tw =
                   props )
             | Container query ->
                 let query_str = container_query_to_css_prefix query in
-                (query_str ^ " { " ^ selector, props))
+                (query_str ^ " { " ^ selector, props)
+            (* New v4 modifiers *)
+            | Not modifier ->
+                (* Recursively apply the Not modifier *)
+                let inner_selectors =
+                  extract (Modified (modifier, Style (base_class, [])))
+                in
+                List.map
+                  (fun (inner_sel, _) ->
+                    let cleaned =
+                      String.sub inner_sel 1 (String.length inner_sel - 1)
+                    in
+                    (".not-" ^ cleaned ^ ":not(" ^ inner_sel ^ ")", props))
+                  inner_selectors
+                |> List.hd
+            | Has selector_str ->
+                ( ".has-\\[" ^ selector_str ^ "\\]\\:" ^ base_class ^ ":has("
+                  ^ selector_str ^ ")",
+                  props )
+            | Group_has selector_str ->
+                ( ".group:has(" ^ selector_str ^ ") .group-has-\\["
+                  ^ selector_str ^ "\\]\\:" ^ base_class,
+                  props )
+            | Peer_has selector_str ->
+                ( ".peer:has(" ^ selector_str ^ ") ~ .peer-has-\\["
+                  ^ selector_str ^ "\\]\\:" ^ base_class,
+                  props )
+            | Starting -> ("@starting-style { ." ^ base_class, props)
+            | Focus_within ->
+                (".focus-within\\:" ^ base_class ^ ":focus-within", props)
+            | Focus_visible ->
+                (".focus-visible\\:" ^ base_class ^ ":focus-visible", props)
+            | Motion_safe ->
+                ( "@media (prefers-reduced-motion: no-preference) { \
+                   .motion-safe\\:" ^ base_class,
+                  props )
+            | Motion_reduce ->
+                ( "@media (prefers-reduced-motion: reduce) { .motion-reduce\\:"
+                  ^ base_class,
+                  props )
+            | Contrast_more ->
+                ( "@media (prefers-contrast: more) { .contrast-more\\:"
+                  ^ base_class,
+                  props )
+            | Contrast_less ->
+                ( "@media (prefers-contrast: less) { .contrast-less\\:"
+                  ^ base_class,
+                  props ))
           base
     | Group styles -> List.concat_map extract styles
   in
@@ -226,18 +772,31 @@ let group_by_selector rules =
     [] rules
 
 (* Base reset CSS rules *)
-let reset_rules =
+(* Simple, clean reset rules for Tailwind v4 *)
+let generate_reset_rules () =
   [
-    Css.rule ~selector:"*"
-      [ Css.margin "0"; Css.padding "0"; Css.box_sizing "border-box" ];
-    Css.rule ~selector:"body"
+    (* Base reset *)
+    Css.rule ~selector:"*, ::before, ::after"
       [
-        Css.font_size "16px";
+        Css.box_sizing "border-box";
+        Css.margin "0";
+        Css.padding "0";
+        Css.property "border" "0 solid";
+      ];
+    Css.rule ~selector:"html, :host"
+      [
         Css.line_height "1.5";
-        Css.color "#374151";
-        Css.font_family
-          "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica \
-           Neue', Arial, sans-serif";
+        Css.property "-webkit-text-size-adjust" "100%";
+        Css.font_family "var(--default-font-family)";
+      ];
+    Css.rule ~selector:"body" [ Css.margin "0"; Css.line_height "inherit" ];
+    Css.rule ~selector:"h1, h2, h3, h4, h5, h6"
+      [ Css.font_size "inherit"; Css.font_weight "inherit" ];
+    Css.rule ~selector:"a"
+      [ Css.color "inherit"; Css.text_decoration "inherit" ];
+    Css.rule ~selector:"img, video"
+      [
+        Css.display "block"; Css.property "max-width" "100%"; Css.height "auto";
       ];
   ]
 
@@ -251,8 +810,11 @@ let uses_prose tw_classes =
   in
   List.exists check tw_classes
 
+(* Re-export Color module *)
+module Color = Color
+
 (* Generate CSS rules for all used Tw classes *)
-let to_css ?(reset = true) tw_classes =
+let to_css ?(reset = true) ?(jit = false) tw_classes =
   let all_rules =
     tw_classes |> List.concat_map extract_selector_props |> group_by_selector
   in
@@ -308,18 +870,49 @@ let to_css ?(reset = true) tw_classes =
       media_queries_map
   in
 
-  let final_rules =
-    if reset then
-      (* Include prose CSS variables in reset if prose is being used *)
-      let prose_reset =
-        if uses_prose tw_classes then
-          [ Css.rule ~selector:":root" Prose.css_variables ]
-        else []
-      in
-      reset_rules @ prose_reset @ rules
-    else rules
-  in
-  Css.stylesheet ~media_queries final_rules
+  (* Build the complete stylesheet with layers - just like Tailwind v4 *)
+  if reset then
+    (* Theme layer with CSS variables - JIT mode includes only used variables *)
+    let theme_vars =
+      if jit then generate_theme_variables_jit tw_classes
+      else generate_theme_variables ()
+    in
+    let theme_layer =
+      Css.layered_rules ~layer:Css.Theme
+        [ Css.rule ~selector:":root, :host" theme_vars ]
+    in
+
+    (* Base layer with reset rules *)
+    let base_layer =
+      Css.layered_rules ~layer:Css.Base (generate_reset_rules ())
+    in
+
+    (* Utilities layer with the actual utility classes *)
+    let utilities_layer = Css.layered_rules ~layer:Css.Utilities rules in
+
+    (* Add prose styles if needed *)
+    let layers =
+      if uses_prose tw_classes then
+        let prose_rules =
+          tw_classes
+          |> List.filter_map (function
+               | Prose variant -> Some (Prose.to_css_rules variant)
+               | _ -> None)
+          |> List.concat
+        in
+        [
+          theme_layer;
+          base_layer;
+          utilities_layer;
+          Css.layered_rules ~layer:Css.Utilities prose_rules;
+        ]
+      else [ theme_layer; base_layer; utilities_layer ]
+    in
+
+    Css.stylesheet ~layers ~media_queries []
+  else
+    (* No reset - just utilities *)
+    Css.stylesheet ~media_queries rules
 
 (* Convert Tw styles to inline style attribute value *)
 let to_inline_style styles =
@@ -330,299 +923,10 @@ let to_inline_style styles =
 (** {1 Helper Functions} *)
 
 (** Convert hex color to rgb format - now only handles hex strings *)
-let hex_to_rgb hex =
-  (* Strip # prefix if present *)
-  let hex =
-    if String.length hex > 0 && String.get hex 0 = '#' then
-      String.sub hex 1 (String.length hex - 1)
-    else hex
-  in
-  if String.length hex = 3 then
-    (* Handle 3-character hex like "f0f" *)
-    let r = String.sub hex 0 1 in
-    let g = String.sub hex 1 1 in
-    let b = String.sub hex 2 1 in
-    let r_int = int_of_string ("0x" ^ r ^ r) in
-    let g_int = int_of_string ("0x" ^ g ^ g) in
-    let b_int = int_of_string ("0x" ^ b ^ b) in
-    Pp.str
-      [
-        string_of_int r_int; " "; string_of_int g_int; " "; string_of_int b_int;
-      ]
-  else if String.length hex = 6 then
-    (* Handle 6-character hex *)
-    let r = int_of_string ("0x" ^ String.sub hex 0 2) in
-    let g = int_of_string ("0x" ^ String.sub hex 2 2) in
-    let b = int_of_string ("0x" ^ String.sub hex 4 2) in
-    Pp.str [ string_of_int r; " "; string_of_int g; " "; string_of_int b ]
-  else failwith ("Invalid hex format: " ^ hex)
 
 (** Convert any color to RGB space-separated string format (e.g., "255 0 0") *)
-let color_to_hex color shade =
-  match (color, shade) with
-  (* Basic colors *)
-  | Black, _ -> "#000000"
-  | White, _ -> "#ffffff"
-  | Hex hex, _ ->
-      (* Return as-is for hex formats *)
-      hex
-  | Rgb _, _ ->
-      (* RGB colors don't have a hex representation, this shouldn't be called *)
-      failwith "RGB colors should use color_to_rgb_string instead"
-  | Gray, 50 -> "#f9fafb"
-  | Gray, 100 -> "#f3f4f6"
-  | Gray, 200 -> "#e5e7eb"
-  | Gray, 300 -> "#d1d5db"
-  | Gray, 400 -> "#9ca3af"
-  | Gray, 500 -> "#6b7280"
-  | Gray, 600 -> "#4b5563"
-  | Gray, 700 -> "#374151"
-  | Gray, 800 -> "#1f2937"
-  | Gray, 900 -> "#111827"
-  (* Extended color palette *)
-  | Slate, 50 -> "#f8fafc"
-  | Slate, 100 -> "#f1f5f9"
-  | Slate, 200 -> "#e2e8f0"
-  | Slate, 300 -> "#cbd5e1"
-  | Slate, 400 -> "#94a3b8"
-  | Slate, 500 -> "#64748b"
-  | Slate, 600 -> "#475569"
-  | Slate, 700 -> "#334155"
-  | Slate, 800 -> "#1e293b"
-  | Slate, 900 -> "#0f172a"
-  | Zinc, 50 -> "#fafafa"
-  | Zinc, 100 -> "#f4f4f5"
-  | Zinc, 200 -> "#e4e4e7"
-  | Zinc, 300 -> "#d4d4d8"
-  | Zinc, 400 -> "#a1a1aa"
-  | Zinc, 500 -> "#71717a"
-  | Zinc, 600 -> "#52525b"
-  | Zinc, 700 -> "#3f3f46"
-  | Zinc, 800 -> "#27272a"
-  | Zinc, 900 -> "#18181b"
-  | Red, 50 -> "#fef2f2"
-  | Red, 100 -> "#fee2e2"
-  | Red, 200 -> "#fecaca"
-  | Red, 300 -> "#fca5a5"
-  | Red, 400 -> "#f87171"
-  | Red, 500 -> "#ef4444"
-  | Red, 600 -> "#dc2626"
-  | Red, 700 -> "#b91c1c"
-  | Red, 800 -> "#991b1b"
-  | Red, 900 -> "#7f1d1d"
-  | Orange, 50 -> "#fff7ed"
-  | Orange, 100 -> "#ffedd5"
-  | Orange, 200 -> "#fed7aa"
-  | Orange, 300 -> "#fdba74"
-  | Orange, 400 -> "#fb923c"
-  | Orange, 500 -> "#f97316"
-  | Orange, 600 -> "#ea580c"
-  | Orange, 700 -> "#c2410c"
-  | Orange, 800 -> "#9a3412"
-  | Orange, 900 -> "#7c2d12"
-  | Amber, 50 -> "#fffbeb"
-  | Amber, 100 -> "#fef3c7"
-  | Amber, 200 -> "#fde68a"
-  | Amber, 300 -> "#fcd34d"
-  | Amber, 400 -> "#fbbf24"
-  | Amber, 500 -> "#f59e0b"
-  | Amber, 600 -> "#d97706"
-  | Amber, 700 -> "#b45309"
-  | Amber, 800 -> "#92400e"
-  | Amber, 900 -> "#78350f"
-  | Yellow, 50 -> "#fefce8"
-  | Yellow, 100 -> "#fef9c3"
-  | Yellow, 200 -> "#fef08a"
-  | Yellow, 300 -> "#fde047"
-  | Yellow, 400 -> "#facc15"
-  | Yellow, 500 -> "#eab308"
-  | Yellow, 600 -> "#ca8a04"
-  | Yellow, 700 -> "#a16207"
-  | Yellow, 800 -> "#854d0e"
-  | Yellow, 900 -> "#713f12"
-  | Lime, 50 -> "#f7fee7"
-  | Lime, 100 -> "#ecfccb"
-  | Lime, 200 -> "#d9f99d"
-  | Lime, 300 -> "#bef264"
-  | Lime, 400 -> "#a3e635"
-  | Lime, 500 -> "#84cc16"
-  | Lime, 600 -> "#65a30d"
-  | Lime, 700 -> "#4d7c0f"
-  | Lime, 800 -> "#365314"
-  | Lime, 900 -> "#1a2e05"
-  | Green, 50 -> "#f0fdf4"
-  | Green, 100 -> "#dcfce7"
-  | Green, 200 -> "#bbf7d0"
-  | Green, 300 -> "#86efac"
-  | Green, 400 -> "#4ade80"
-  | Green, 500 -> "#22c55e"
-  | Green, 600 -> "#16a34a"
-  | Green, 700 -> "#15803d"
-  | Green, 800 -> "#166534"
-  | Green, 900 -> "#14532d"
-  | Emerald, 50 -> "#ecfdf5"
-  | Emerald, 100 -> "#d1fae5"
-  | Emerald, 200 -> "#a7f3d0"
-  | Emerald, 300 -> "#6ee7b7"
-  | Emerald, 400 -> "#34d399"
-  | Emerald, 500 -> "#10b981"
-  | Emerald, 600 -> "#059669"
-  | Emerald, 700 -> "#047857"
-  | Emerald, 800 -> "#065f46"
-  | Emerald, 900 -> "#064e3b"
-  | Teal, 50 -> "#f0fdfa"
-  | Teal, 100 -> "#ccfbf1"
-  | Teal, 200 -> "#99f6e4"
-  | Teal, 300 -> "#5eead4"
-  | Teal, 400 -> "#2dd4bf"
-  | Teal, 500 -> "#14b8a6"
-  | Teal, 600 -> "#0d9488"
-  | Teal, 700 -> "#0f766e"
-  | Teal, 800 -> "#115e59"
-  | Teal, 900 -> "#134e4a"
-  | Cyan, 50 -> "#ecfeff"
-  | Cyan, 100 -> "#cffafe"
-  | Cyan, 200 -> "#a5f3fc"
-  | Cyan, 300 -> "#67e8f9"
-  | Cyan, 400 -> "#22d3ee"
-  | Cyan, 500 -> "#06b6d4"
-  | Cyan, 600 -> "#0891b2"
-  | Cyan, 700 -> "#0e7490"
-  | Cyan, 800 -> "#155e75"
-  | Cyan, 900 -> "#164e63"
-  | Sky, 50 -> "#f0f9ff"
-  | Sky, 100 -> "#e0f2fe"
-  | Sky, 200 -> "#bae6fd"
-  | Sky, 300 -> "#7dd3fc"
-  | Sky, 400 -> "#38bdf8"
-  | Sky, 500 -> "#0ea5e9"
-  | Sky, 600 -> "#0284c7"
-  | Sky, 700 -> "#0369a1"
-  | Sky, 800 -> "#075985"
-  | Sky, 900 -> "#0c4a6e"
-  | Blue, 50 -> "#eff6ff"
-  | Blue, 100 -> "#dbeafe"
-  | Blue, 200 -> "#bfdbfe"
-  | Blue, 300 -> "#93c5fd"
-  | Blue, 400 -> "#60a5fa"
-  | Blue, 500 -> "#3b82f6"
-  | Blue, 600 -> "#2563eb"
-  | Blue, 700 -> "#1d4ed8"
-  | Blue, 800 -> "#1e40af"
-  | Blue, 900 -> "#1e3a8a"
-  | Indigo, 50 -> "#eef2ff"
-  | Indigo, 100 -> "#e0e7ff"
-  | Indigo, 200 -> "#c7d2fe"
-  | Indigo, 300 -> "#a5b4fc"
-  | Indigo, 400 -> "#818cf8"
-  | Indigo, 500 -> "#6366f1"
-  | Indigo, 600 -> "#4f46e5"
-  | Indigo, 700 -> "#4338ca"
-  | Indigo, 800 -> "#3730a3"
-  | Indigo, 900 -> "#312e81"
-  | Violet, 50 -> "#f5f3ff"
-  | Violet, 100 -> "#ede9fe"
-  | Violet, 200 -> "#ddd6fe"
-  | Violet, 300 -> "#c4b5fd"
-  | Violet, 400 -> "#a78bfa"
-  | Violet, 500 -> "#8b5cf6"
-  | Violet, 600 -> "#7c3aed"
-  | Violet, 700 -> "#6d28d9"
-  | Violet, 800 -> "#5b21b6"
-  | Violet, 900 -> "#4c1d95"
-  | Purple, 50 -> "#faf5ff"
-  | Purple, 100 -> "#f3e8ff"
-  | Purple, 200 -> "#e9d5ff"
-  | Purple, 300 -> "#d8b4fe"
-  | Purple, 400 -> "#c084fc"
-  | Purple, 500 -> "#a855f7"
-  | Purple, 600 -> "#9333ea"
-  | Purple, 700 -> "#7e22ce"
-  | Purple, 800 -> "#6b21a8"
-  | Purple, 900 -> "#581c87"
-  | Fuchsia, 50 -> "#fdf4ff"
-  | Fuchsia, 100 -> "#fae8ff"
-  | Fuchsia, 200 -> "#f5d0fe"
-  | Fuchsia, 300 -> "#f0abfc"
-  | Fuchsia, 400 -> "#e879f9"
-  | Fuchsia, 500 -> "#d946ef"
-  | Fuchsia, 600 -> "#c026d3"
-  | Fuchsia, 700 -> "#a21caf"
-  | Fuchsia, 800 -> "#86198f"
-  | Fuchsia, 900 -> "#701a75"
-  | Pink, 50 -> "#fdf2f8"
-  | Pink, 100 -> "#fce7f3"
-  | Pink, 200 -> "#fbcfe8"
-  | Pink, 300 -> "#f9a8d4"
-  | Pink, 400 -> "#f472b6"
-  | Pink, 500 -> "#ec4899"
-  | Pink, 600 -> "#db2777"
-  | Pink, 700 -> "#be185d"
-  | Pink, 800 -> "#9d174d"
-  | Pink, 900 -> "#831843"
-  | Rose, 50 -> "#fff1f2"
-  | Rose, 100 -> "#ffe4e6"
-  | Rose, 200 -> "#fecdd3"
-  | Rose, 300 -> "#fda4af"
-  | Rose, 400 -> "#fb7185"
-  | Rose, 500 -> "#f43f5e"
-  | Rose, 600 -> "#e11d48"
-  | Rose, 700 -> "#be123c"
-  | Rose, 800 -> "#9f1239"
-  | Rose, 900 -> "#881337"
-  | color, shade ->
-      let color_name =
-        match color with
-        | Black -> "Black"
-        | White -> "White"
-        | Gray -> "Gray"
-        | Slate -> "Slate"
-        | Zinc -> "Zinc"
-        | Red -> "Red"
-        | Orange -> "Orange"
-        | Amber -> "Amber"
-        | Yellow -> "Yellow"
-        | Lime -> "Lime"
-        | Green -> "Green"
-        | Emerald -> "Emerald"
-        | Teal -> "Teal"
-        | Cyan -> "Cyan"
-        | Sky -> "Sky"
-        | Blue -> "Blue"
-        | Indigo -> "Indigo"
-        | Violet -> "Violet"
-        | Purple -> "Purple"
-        | Fuchsia -> "Fuchsia"
-        | Pink -> "Pink"
-        | Rose -> "Rose"
-        | Hex h -> "[" ^ h ^ "]"
-        | Rgb { red; green; blue } ->
-            Pp.str
-              [
-                "[rgb(";
-                string_of_int red;
-                ",";
-                string_of_int green;
-                ",";
-                string_of_int blue;
-                ")]";
-              ]
-      in
-      let err_unknown_color color shade =
-        Pp.str
-          [ "Unknown color combination: "; color; " "; string_of_int shade ]
-      in
-      failwith (err_unknown_color color_name shade)
 
-let color_to_rgb_string color shade =
-  match color with
-  | Rgb { red; green; blue } ->
-      Pp.str
-        [ string_of_int red; " "; string_of_int green; " "; string_of_int blue ]
-  | _ ->
-      (* For non-RGB colors, get hex value and convert *)
-      let hex = color_to_hex color shade in
-      hex_to_rgb hex
+let color_to_rgb_string color shade = Color.to_rgb_string color shade
 
 let spacing_to_rem = function
   | 0 -> "0"
@@ -644,90 +948,35 @@ let spacing_to_rem = function
 
 (** {1 Colors} *)
 
-let color_name = function
-  | Black -> "black"
-  | White -> "white"
-  | Gray -> "gray"
-  | Slate -> "slate"
-  | Zinc -> "zinc"
-  | Red -> "red"
-  | Orange -> "orange"
-  | Amber -> "amber"
-  | Yellow -> "yellow"
-  | Lime -> "lime"
-  | Green -> "green"
-  | Emerald -> "emerald"
-  | Teal -> "teal"
-  | Cyan -> "cyan"
-  | Sky -> "sky"
-  | Blue -> "blue"
-  | Indigo -> "indigo"
-  | Violet -> "violet"
-  | Purple -> "purple"
-  | Fuchsia -> "fuchsia"
-  | Pink -> "pink"
-  | Rose -> "rose"
-  | Hex hex ->
-      let h =
-        if String.length hex > 0 && String.get hex 0 = '#' then
-          String.sub hex 1 (String.length hex - 1)
-        else hex
-      in
-      "[" ^ h ^ "]"
-  | Rgb { red; green; blue } ->
-      Pp.str
-        [
-          "[rgb(";
-          string_of_int red;
-          ",";
-          string_of_int green;
-          ",";
-          string_of_int blue;
-          ")]";
-        ]
+let color_name color = Color.to_name color
 
 (* Color constructors *)
-let black = Black
-let white = White
-let gray = Gray
-let slate = Slate
-let zinc = Zinc
-let red = Red
-let orange = Orange
-let amber = Amber
-let yellow = Yellow
-let lime = Lime
-let green = Green
-let emerald = Emerald
-let teal = Teal
-let cyan = Cyan
-let sky = Sky
-let blue = Blue
-let indigo = Indigo
-let violet = Violet
-let purple = Purple
-let fuchsia = Fuchsia
-let pink = Pink
-let rose = Rose
-
-let hex s =
-  let s =
-    if String.starts_with ~prefix:"#" s then String.sub s 1 (String.length s - 1)
-    else s
-  in
-  Hex s
-
-let rgb r g b =
-  (* Create RGB color with validated channel values *)
-  let validate_channel v name =
-    if v < 0 || v > 255 then
-      invalid_arg
-        (Printf.sprintf "rgb: %s value %d must be between 0 and 255" name v)
-  in
-  validate_channel r "red";
-  validate_channel g "green";
-  validate_channel b "blue";
-  Rgb { red = r; green = g; blue = b }
+let black = Color.black
+let white = Color.white
+let gray = Color.gray
+let slate = Color.slate
+let zinc = Color.zinc
+let neutral = Color.neutral
+let stone = Color.stone
+let red = Color.red
+let orange = Color.orange
+let amber = Color.amber
+let yellow = Color.yellow
+let lime = Color.lime
+let green = Color.green
+let emerald = Color.emerald
+let teal = Color.teal
+let cyan = Color.cyan
+let sky = Color.sky
+let blue = Color.blue
+let indigo = Color.indigo
+let violet = Color.violet
+let purple = Color.purple
+let fuchsia = Color.fuchsia
+let pink = Color.pink
+let rose = Color.rose
+let hex s = Color.hex s
+let rgb r g b = Color.rgb r g b
 
 (* Value constructors *)
 
@@ -759,10 +1008,9 @@ let xl_7 = `Xl_7
 
 let bg color shade =
   let class_name =
-    match color with
-    | Black | White -> Pp.str [ "bg-"; color_name color ]
-    | Hex _ | Rgb _ -> Pp.str [ "bg-"; color_name color ]
-    | _ -> Pp.str [ "bg-"; color_name color; "-"; string_of_int shade ]
+    if Color.is_base_color color || Color.is_custom_color color then
+      Pp.str [ "bg-"; color_name color ]
+    else Pp.str [ "bg-"; color_name color; "-"; string_of_int shade ]
   in
   let rgb = color_to_rgb_string color shade in
   Style
@@ -776,35 +1024,36 @@ let bg_transparent = Style ("bg-transparent", [ background_color "transparent" ]
 let bg_current = Style ("bg-current", [ background_color "currentColor" ])
 
 (* Default color backgrounds - using shade 500 *)
-let bg_black = bg Black 500
-let bg_white = bg White 500
-let bg_gray = bg Gray 500
-let bg_slate = bg Slate 500
-let bg_zinc = bg Zinc 500
-let bg_red = bg Red 500
-let bg_orange = bg Orange 500
-let bg_amber = bg Amber 500
-let bg_yellow = bg Yellow 500
-let bg_lime = bg Lime 500
-let bg_green = bg Green 500
-let bg_emerald = bg Emerald 500
-let bg_teal = bg Teal 500
-let bg_cyan = bg Cyan 500
-let bg_sky = bg Sky 500
-let bg_blue = bg Blue 500
-let bg_indigo = bg Indigo 500
-let bg_violet = bg Violet 500
-let bg_purple = bg Purple 500
-let bg_fuchsia = bg Fuchsia 500
-let bg_pink = bg Pink 500
-let bg_rose = bg Rose 500
+let bg_black = bg black 500
+let bg_white = bg white 500
+let bg_gray = bg gray 500
+let bg_slate = bg slate 500
+let bg_zinc = bg zinc 500
+let bg_neutral = bg neutral 500
+let bg_stone = bg stone 500
+let bg_red = bg red 500
+let bg_orange = bg orange 500
+let bg_amber = bg amber 500
+let bg_yellow = bg yellow 500
+let bg_lime = bg lime 500
+let bg_green = bg green 500
+let bg_emerald = bg emerald 500
+let bg_teal = bg teal 500
+let bg_cyan = bg cyan 500
+let bg_sky = bg sky 500
+let bg_blue = bg blue 500
+let bg_indigo = bg indigo 500
+let bg_violet = bg violet 500
+let bg_purple = bg purple 500
+let bg_fuchsia = bg fuchsia 500
+let bg_pink = bg pink 500
+let bg_rose = bg rose 500
 
 let text color shade =
   let class_name =
-    match color with
-    | Black | White -> Pp.str [ "text-"; color_name color ]
-    | Hex _ | Rgb _ -> Pp.str [ "text-"; color_name color ]
-    | _ -> Pp.str [ "text-"; color_name color; "-"; string_of_int shade ]
+    if Color.is_base_color color || Color.is_custom_color color then
+      Pp.str [ "text-"; color_name color ]
+    else Pp.str [ "text-"; color_name color; "-"; string_of_int shade ]
   in
   let rgb = color_to_rgb_string color shade in
   Style
@@ -818,35 +1067,36 @@ let text_transparent = Style ("text-transparent", [ Css.color "transparent" ])
 let text_current = Style ("text-current", [ Css.color "currentColor" ])
 
 (* Default text colors - using shade 500 *)
-let text_black = text Black 500
-let text_white = text White 500
-let text_gray = text Gray 500
-let text_slate = text Slate 500
-let text_zinc = text Zinc 500
-let text_red = text Red 500
-let text_orange = text Orange 500
-let text_amber = text Amber 500
-let text_yellow = text Yellow 500
-let text_lime = text Lime 500
-let text_green = text Green 500
-let text_emerald = text Emerald 500
-let text_teal = text Teal 500
-let text_cyan = text Cyan 500
-let text_sky = text Sky 500
-let text_blue = text Blue 500
-let text_indigo = text Indigo 500
-let text_violet = text Violet 500
-let text_purple = text Purple 500
-let text_fuchsia = text Fuchsia 500
-let text_pink = text Pink 500
-let text_rose = text Rose 500
+let text_black = text black 500
+let text_white = text white 500
+let text_gray = text gray 500
+let text_slate = text slate 500
+let text_zinc = text zinc 500
+let text_neutral = text neutral 500
+let text_stone = text stone 500
+let text_red = text red 500
+let text_orange = text orange 500
+let text_amber = text amber 500
+let text_yellow = text yellow 500
+let text_lime = text lime 500
+let text_green = text green 500
+let text_emerald = text emerald 500
+let text_teal = text teal 500
+let text_cyan = text cyan 500
+let text_sky = text sky 500
+let text_blue = text blue 500
+let text_indigo = text indigo 500
+let text_violet = text violet 500
+let text_purple = text purple 500
+let text_fuchsia = text fuchsia 500
+let text_pink = text pink 500
+let text_rose = text rose 500
 
 let border_color color shade =
   let class_name =
-    match color with
-    | Black | White -> Pp.str [ "border-"; color_name color ]
-    | Hex _ | Rgb _ -> Pp.str [ "border-"; color_name color ]
-    | _ -> Pp.str [ "border-"; color_name color; "-"; string_of_int shade ]
+    if Color.is_base_color color || Color.is_custom_color color then
+      Pp.str [ "border-"; color_name color ]
+    else Pp.str [ "border-"; color_name color; "-"; string_of_int shade ]
   in
   let rgb = color_to_rgb_string color shade in
   Style
@@ -864,28 +1114,30 @@ let border_current =
   Style ("border-current", [ Css.border_color "currentColor" ])
 
 (* Default border colors - using shade 500 *)
-let border_black = border_color Black 500
-let border_white = border_color White 500
-let border_gray = border_color Gray 500
-let border_slate = border_color Slate 500
-let border_zinc = border_color Zinc 500
-let border_red = border_color Red 500
-let border_orange = border_color Orange 500
-let border_amber = border_color Amber 500
-let border_yellow = border_color Yellow 500
-let border_lime = border_color Lime 500
-let border_green = border_color Green 500
-let border_emerald = border_color Emerald 500
-let border_teal = border_color Teal 500
-let border_cyan = border_color Cyan 500
-let border_sky = border_color Sky 500
-let border_blue = border_color Blue 500
-let border_indigo = border_color Indigo 500
-let border_violet = border_color Violet 500
-let border_purple = border_color Purple 500
-let border_fuchsia = border_color Fuchsia 500
-let border_pink = border_color Pink 500
-let border_rose = border_color Rose 500
+let border_black = border_color black 500
+let border_white = border_color white 500
+let border_gray = border_color gray 500
+let border_slate = border_color slate 500
+let border_zinc = border_color zinc 500
+let border_neutral = border_color neutral 500
+let border_stone = border_color stone 500
+let border_red = border_color red 500
+let border_orange = border_color orange 500
+let border_amber = border_color amber 500
+let border_yellow = border_color yellow 500
+let border_lime = border_color lime 500
+let border_green = border_color green 500
+let border_emerald = border_color emerald 500
+let border_teal = border_color teal 500
+let border_cyan = border_color cyan 500
+let border_sky = border_color sky 500
+let border_blue = border_color blue 500
+let border_indigo = border_color indigo 500
+let border_violet = border_color violet 500
+let border_purple = border_color purple 500
+let border_fuchsia = border_color fuchsia 500
+let border_pink = border_color pink 500
+let border_rose = border_color rose 500
 
 let pp_spacing_suffix : spacing -> string = function
   | `Px -> "px"
@@ -1829,9 +2081,8 @@ let ring_xl = ring_internal `Xl
 
 let ring_color color shade =
   let class_name =
-    match color with
-    | Black | White -> Pp.str [ "ring-"; color_name color ]
-    | _ -> Pp.str [ "ring-"; color_name color; "-"; string_of_int shade ]
+    if Color.is_base_color color then Pp.str [ "ring-"; color_name color ]
+    else Pp.str [ "ring-"; color_name color; "-"; string_of_int shade ]
   in
   Style (class_name, [])
 
@@ -1936,6 +2187,42 @@ let on_group_focus styles =
   Group (List.map (fun t -> Modified (Group_focus, t)) styles)
 
 let on_dark styles = Group (List.map (fun t -> Modified (Dark, t)) styles)
+
+(* New Tailwind v4 modifiers *)
+(* The not_ function should be used with other modifiers, not standalone *)
+let not_ modifier_fn =
+  match modifier_fn with
+  | Modified (mod_type, inner) -> Modified (Not mod_type, inner)
+  | _ -> modifier_fn (* If not a modifier, return as-is *)
+
+let has selector styles =
+  Group (List.map (fun t -> Modified (Has selector, t)) styles)
+
+let group_has selector styles =
+  Group (List.map (fun t -> Modified (Group_has selector, t)) styles)
+
+let peer_has selector styles =
+  Group (List.map (fun t -> Modified (Peer_has selector, t)) styles)
+
+let on_focus_within styles =
+  Group (List.map (fun t -> Modified (Focus_within, t)) styles)
+
+let on_focus_visible styles =
+  Group (List.map (fun t -> Modified (Focus_visible, t)) styles)
+
+let motion_safe styles =
+  Group (List.map (fun t -> Modified (Motion_safe, t)) styles)
+
+let motion_reduce styles =
+  Group (List.map (fun t -> Modified (Motion_reduce, t)) styles)
+
+let contrast_more styles =
+  Group (List.map (fun t -> Modified (Contrast_more, t)) styles)
+
+let contrast_less styles =
+  Group (List.map (fun t -> Modified (Contrast_less, t)) styles)
+
+let starting styles = Group (List.map (fun t -> Modified (Starting, t)) styles)
 
 (* Additional on_* functions for consistency *)
 let on_peer_hover styles =
@@ -2051,10 +2338,9 @@ let bg_gradient_to_tl =
 let from_color ?(shade = 500) color =
   let rgb = color_to_rgb_string color shade in
   let class_name =
-    match color with
-    | Black | White -> "from-" ^ color_name color
-    | Hex _ | Rgb _ -> "from-" ^ color_name color
-    | _ -> Pp.str [ "from-"; color_name color; "-"; string_of_int shade ]
+    if Color.is_base_color color || Color.is_custom_color color then
+      "from-" ^ color_name color
+    else Pp.str [ "from-"; color_name color; "-"; string_of_int shade ]
   in
   Style
     ( class_name,
@@ -2069,10 +2355,9 @@ let from_color ?(shade = 500) color =
 let via_color ?(shade = 500) color =
   let rgb = color_to_rgb_string color shade in
   let class_name =
-    match color with
-    | Black | White -> "via-" ^ color_name color
-    | Hex _ | Rgb _ -> "via-" ^ color_name color
-    | _ -> Pp.str [ "via-"; color_name color; "-"; string_of_int shade ]
+    if Color.is_base_color color || Color.is_custom_color color then
+      "via-" ^ color_name color
+    else Pp.str [ "via-"; color_name color; "-"; string_of_int shade ]
   in
   Style
     ( class_name,
@@ -2090,10 +2375,9 @@ let via_color ?(shade = 500) color =
 let to_color ?(shade = 500) color =
   let rgb = color_to_rgb_string color shade in
   let class_name =
-    match color with
-    | Black | White -> "to-" ^ color_name color
-    | Hex _ | Rgb _ -> "to-" ^ color_name color
-    | _ -> Pp.str [ "to-"; color_name color; "-"; string_of_int shade ]
+    if Color.is_base_color color || Color.is_custom_color color then
+      "to-" ^ color_name color
+    else Pp.str [ "to-"; color_name color; "-"; string_of_int shade ]
   in
   Style
     ( class_name,
@@ -2560,7 +2844,19 @@ let rec pp = function
       | Responsive breakpoint ->
           string_of_breakpoint breakpoint ^ ":" ^ base_class
       | Container query ->
-          container_query_to_class_prefix query ^ ":" ^ base_class)
+          container_query_to_class_prefix query ^ ":" ^ base_class
+      (* New v4 modifiers *)
+      | Not _modifier -> "not-" ^ base_class (* Simplified for class names *)
+      | Has selector -> "has-[" ^ selector ^ "]:" ^ base_class
+      | Group_has selector -> "group-has-[" ^ selector ^ "]:" ^ base_class
+      | Peer_has selector -> "peer-has-[" ^ selector ^ "]:" ^ base_class
+      | Starting -> "starting:" ^ base_class
+      | Focus_within -> "focus-within:" ^ base_class
+      | Focus_visible -> "focus-visible:" ^ base_class
+      | Motion_safe -> "motion-safe:" ^ base_class
+      | Motion_reduce -> "motion-reduce:" ^ base_class
+      | Contrast_more -> "contrast-more:" ^ base_class
+      | Contrast_less -> "contrast-less:" ^ base_class)
   | Group styles -> styles |> List.map pp |> String.concat " "
 
 let to_classes styles = styles |> List.map pp |> String.concat " "

@@ -104,6 +104,12 @@ val slate : color
 val zinc : color
 (** Neutral gray with modern feel. *)
 
+val neutral : color
+(** True neutral gray. *)
+
+val stone : color
+(** Warm gray with brown undertones. *)
+
 val red : color
 (** Classic red color family. *)
 
@@ -208,6 +214,12 @@ val bg_slate : t
 val bg_zinc : t
 (** Default zinc background. Same as [bg zinc]. *)
 
+val bg_neutral : t
+(** Default neutral background. Same as [bg neutral]. *)
+
+val bg_stone : t
+(** Default stone background. Same as [bg stone]. *)
+
 val bg_red : t
 (** Default red background. Same as [bg red]. *)
 
@@ -293,6 +305,12 @@ val text_slate : t
 val text_zinc : t
 (** Default zinc text. Same as [text zinc 500]. *)
 
+val text_neutral : t
+(** Default neutral text. Same as [text neutral 500]. *)
+
+val text_stone : t
+(** Default stone text. Same as [text stone 500]. *)
+
 val text_blue : t
 (** Default blue text. Same as [text blue 500]. *)
 
@@ -373,6 +391,12 @@ val border_slate : t
 
 val border_zinc : t
 (** Default zinc border. Same as [border_color zinc 500]. *)
+
+val border_neutral : t
+(** Default neutral border. Same as [border_color neutral 500]. *)
+
+val border_stone : t
+(** Default stone border. Same as [border_color stone 500]. *)
 
 val border_red : t
 (** Default red border. Same as [border_color red 500]. *)
@@ -2036,6 +2060,54 @@ val on_dark : t list -> t
     typically controlled by a [dark] class on the HTML element or by system
     preferences. *)
 
+(** {2 New Tailwind v4 Modifiers} *)
+
+val not_ : t -> t
+(** [not_ style] applies a style when the condition is NOT met. This is the
+    negation operator for other modifiers. Example: [not_ on_hover] applies when
+    NOT hovering. *)
+
+val has : string -> t list -> t
+(** [has selector styles] applies styles when the element contains a descendant
+    matching the given CSS selector. Uses the :has() pseudo-class. Example:
+    [has "img" styles] applies when the element contains an img. *)
+
+val group_has : string -> t list -> t
+(** [group_has selector styles] applies styles when the parent group contains a
+    descendant matching the selector. *)
+
+val peer_has : string -> t list -> t
+(** [peer_has selector styles] applies styles when a peer element contains a
+    descendant matching the selector. *)
+
+val on_focus_within : t list -> t
+(** [on_focus_within styles] applies styles when the element or any of its
+    descendants has focus. Useful for form field containers. *)
+
+val on_focus_visible : t list -> t
+(** [on_focus_visible styles] applies styles only when focus is visible
+    (typically keyboard navigation, not mouse clicks). *)
+
+val motion_safe : t list -> t
+(** [motion_safe styles] applies styles only when the user has NOT requested
+    reduced motion. Use for animations that might cause discomfort. *)
+
+val motion_reduce : t list -> t
+(** [motion_reduce styles] applies styles when the user prefers reduced motion.
+    Use to provide alternatives to animations. *)
+
+val contrast_more : t list -> t
+(** [contrast_more styles] applies styles when the user prefers higher contrast.
+*)
+
+val contrast_less : t list -> t
+(** [contrast_less styles] applies styles when the user prefers lower contrast.
+*)
+
+val starting : t list -> t
+(** [starting styles] applies styles as the starting point for entry animations.
+    Uses @starting-style for smooth transitions when elements are added to the DOM. *)
+
 val on_sm : t list -> t
 (** [on_sm styles] applies styles on small screens and up (640px+).
     Mobile-first: base styles apply to mobile, these override for larger
@@ -2327,10 +2399,18 @@ module Prose = Prose
 
     Usage: [div ~tw:[prose; Prose.lg] [...]] *)
 
-val to_css : ?reset:bool -> t list -> Css.stylesheet
-(** [to_css ?reset styles] generates a CSS stylesheet for the given styles.
+module Color = Color
+(** Color conversion utilities for Tailwind v4 compatibility
+
+    Provides OKLCH color space conversion and Tailwind v4 color values. *)
+
+val to_css : ?reset:bool -> ?jit:bool -> t list -> Css.stylesheet
+(** [to_css ?reset ?jit styles] generates a CSS stylesheet for the given styles.
 
     @param reset Whether to include CSS reset rules (default: [true])
+    @param jit
+      Whether to use Just-In-Time compilation to only generate CSS variables for
+      used utilities (default: [false])
 
     When [reset=true] (default), includes:
     - CSS reset rules (normalize margins/padding, set box-sizing, base

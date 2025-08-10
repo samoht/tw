@@ -14,8 +14,30 @@ type rule
 type media_query
 (** Abstract type for media queries *)
 
+type container_query
+(** Abstract type for container queries *)
+
+type starting_style
+(** Abstract type for @starting-style rules *)
+
+type supports_query
+(** Abstract type for @supports rules *)
+
+type layer =
+  | Properties
+  | Theme
+  | Base
+  | Components
+  | Utilities  (** CSS layer types for Tailwind v4 *)
+
+type layered_rules
+(** Abstract type for rules within a layer *)
+
 type stylesheet
 (** Abstract type for stylesheets *)
+
+type at_property
+(** Abstract type for @property rules *)
 
 (** {1 Property Constructors} *)
 
@@ -339,8 +361,39 @@ val properties : rule -> property list
 val media : condition:string -> rule list -> media_query
 (** [media ~condition rules] creates a media query. *)
 
-val stylesheet : ?media_queries:media_query list -> rule list -> stylesheet
-(** [stylesheet ?media_queries rules] creates a stylesheet. *)
+val container : ?name:string -> condition:string -> rule list -> container_query
+(** [container ?name ~condition rules] creates a container query. *)
+
+val starting_style : rule list -> starting_style
+(** [starting_style rules] creates @starting-style rules for entry animations. *)
+
+val supports : condition:string -> rule list -> supports_query
+(** [supports ~condition rules] creates a @supports query. *)
+
+val at_property :
+  name:string ->
+  syntax:string ->
+  initial_value:string ->
+  ?inherits:bool ->
+  unit ->
+  at_property
+(** [at_property ~name ~syntax ?inherits ~initial_value] creates a @property rule for custom properties. *)
+
+val layered_rules : layer:layer -> rule list -> layered_rules
+(** [layered_rules ~layer rules] creates rules within a specific CSS layer. *)
+
+val stylesheet :
+  ?layers:layered_rules list ->
+  ?media_queries:media_query list ->
+  ?container_queries:container_query list ->
+  ?starting_styles:starting_style list ->
+  ?supports_queries:supports_query list ->
+  ?at_properties:at_property list ->
+  rule list ->
+  stylesheet
+(** [stylesheet ?layers ?media_queries ?container_queries ?starting_styles
+     ?supports_queries ?at_properties rules] creates a stylesheet with optional
+    layers and at-rules. *)
 
 (** {1 Rendering} *)
 
@@ -350,6 +403,9 @@ val to_string : ?minify:bool -> stylesheet -> string
 val property_name_to_string : property_name -> string
 (** [property_name_to_string prop] converts a property name to its CSS string
     representation. *)
+
+val property_value : property -> string
+(** [property_value prop] extracts the value from a property. *)
 
 (** {1 Utilities} *)
 

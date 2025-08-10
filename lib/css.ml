@@ -204,10 +204,44 @@ let scroll_behavior value = (Scroll_behavior, value)
 let property name value = (Custom name, value)
 
 type rule = { selector : string; properties : property list }
-type media_query = { condition : string; rules : rule list }
-type stylesheet = { rules : rule list; media_queries : media_query list }
+type media_query = { media_condition : string; media_rules : rule list }
+
+type container_query = {
+  container_name : string option;
+  container_condition : string;
+  container_rules : rule list;
+}
+
+type starting_style = { starting_rules : rule list }
+
+type supports_query = {
+  supports_condition : string;
+  supports_rules : rule list;
+}
+
+type at_property = {
+  name : string;
+  syntax : string;
+  inherits : bool;
+  initial_value : string;
+}
+
+type layer = Properties | Theme | Base | Components | Utilities
+type layered_rules = { layer : layer; rules : rule list }
+
+type stylesheet = {
+  layers : layered_rules list;
+  rules : rule list;
+  media_queries : media_query list;
+  container_queries : container_query list;
+  starting_styles : starting_style list;
+  supports_queries : supports_query list;
+  at_properties : at_property list;
+}
 
 (** {1 Creation} *)
+
+let property_value (_, value) = value
 
 let property_name_to_string = function
   | Background_color -> "background-color"
@@ -312,8 +346,39 @@ let property_name_to_string = function
 let rule ~selector properties = { selector; properties }
 let selector rule = rule.selector
 let properties rule = rule.properties
-let media ~condition rules = { condition; rules }
-let stylesheet ?(media_queries = []) rules = { rules; media_queries }
+
+let media ~condition rules =
+  { media_condition = condition; media_rules = rules }
+
+let container ?name ~condition rules =
+  {
+    container_name = name;
+    container_condition = condition;
+    container_rules = rules;
+  }
+
+let starting_style rules = { starting_rules = rules }
+
+let supports ~condition rules =
+  { supports_condition = condition; supports_rules = rules }
+
+let at_property ~name ~syntax ~initial_value ?(inherits = true) () =
+  { name; syntax; inherits; initial_value }
+
+let layered_rules ~layer rules = { layer; rules }
+
+let stylesheet ?(layers = []) ?(media_queries = []) ?(container_queries = [])
+    ?(starting_styles = []) ?(supports_queries = []) ?(at_properties = []) rules
+    =
+  {
+    layers;
+    rules;
+    media_queries;
+    container_queries;
+    starting_styles;
+    supports_queries;
+    at_properties;
+  }
 
 (** {1 Utilities} *)
 
@@ -457,36 +522,192 @@ let render_formatted_media_rule rule =
   in
   Pp.str [ "  "; rule.selector; " {\n"; Pp.lines props; "\n  }" ]
 
+let layer_to_string = function
+  | Properties -> "properties"
+  | Theme -> "theme"
+  | Base -> "base"
+  | Components -> "components"
+  | Utilities -> "utilities"
+
 let to_string ?(minify = false) stylesheet =
-  if minify then
-    let rules = merge_rules stylesheet.rules |> merge_by_properties in
-    let rule_strings = List.map render_minified_rule rules in
-    let media_strings =
-      stylesheet.media_queries
-      |> List.map (fun (mq : media_query) ->
+  let render_layer layer_rules =
+    let layer_name = layer_to_string layer_rules.layer in
+    let rules = layer_rules.rules in
+
+    if minify then
+      let merged_rules = merge_rules rules |> merge_by_properties in
+      let rules_str =
+        merged_rules |> List.map render_minified_rule |> String.concat ""
+      in
+      "@layer " ^ layer_name ^ "{" ^ rules_str ^ "}"
+    else
+      let rules_str =
+        rules |> List.map render_formatted_rule |> String.concat "\n"
+      in
+      "@layer " ^ layer_name ^ " {\n" ^ rules_str ^ "\n}"
+  in
+
+  (* Add Tailwind v4 header comment and layer declarations *)
+  let header =
+    if minify then
+      "/*! tailwindcss v4.1.11 | MIT License | https://tailwindcss.com */"
+    else "/*! tailwindcss v4.1.11 | MIT License | https://tailwindcss.com */\n"
+  in
+
+  let layer_declarations =
+    if List.length stylesheet.layers > 0 then
+      if minify then "@layer properties;@layer theme,base,components,utilities;"
+      else "@layer properties;\n@layer theme, base, components, utilities;\n"
+    else ""
+  in
+
+  (* Render layered rules *)
+  let layer_strings = stylesheet.layers |> List.map render_layer in
+
+  (* Render non-layered rules *)
+  let rule_strings =
+    if minify then
+      let rules = merge_rules stylesheet.rules |> merge_by_properties in
+      List.map render_minified_rule rules
+    else List.map render_formatted_rule stylesheet.rules
+  in
+
+  (* Render @property rules *)
+  let at_property_strings =
+    stylesheet.at_properties
+    |> List.map (fun (prop : at_property) ->
+           if minify then
+             Pp.str
+               [
+                 "@property ";
+                 prop.name;
+                 "{syntax:";
+                 prop.syntax;
+                 ";inherits:";
+                 (if prop.inherits then "true" else "false");
+                 ";initial-value:";
+                 prop.initial_value;
+                 "}";
+               ]
+           else
+             Pp.lines
+               [
+                 Pp.str [ "@property "; prop.name; " {" ];
+                 Pp.str [ "  syntax: "; prop.syntax; ";" ];
+                 Pp.str
+                   [
+                     "  inherits: ";
+                     (if prop.inherits then "true" else "false");
+                     ";";
+                   ];
+                 Pp.str [ "  initial-value: "; prop.initial_value; ";" ];
+                 "}";
+               ])
+  in
+
+  (* Render @starting-style rules *)
+  let starting_style_strings =
+    stylesheet.starting_styles
+    |> List.map (fun (ss : starting_style) ->
+           if minify then
              let rules_str =
-               mq.rules |> merge_rules |> merge_by_properties
+               ss.starting_rules |> merge_rules |> merge_by_properties
                |> List.map render_minified_rule
                |> String.concat ""
              in
-             "@media " ^ mq.condition ^ "{" ^ rules_str ^ "}")
-    in
-    String.concat "" (rule_strings @ media_strings)
-  else
-    let rule_strings = List.map render_formatted_rule stylesheet.rules in
-    let media_strings =
-      stylesheet.media_queries
-      |> List.map (fun (mq : media_query) ->
+             "@starting-style{" ^ rules_str ^ "}"
+           else
              let rules_str =
-               mq.rules
+               ss.starting_rules
+               |> List.map render_formatted_rule
+               |> String.concat "\n"
+             in
+             Pp.lines [ "@starting-style {"; Pp.indent 2 rules_str; "}" ])
+  in
+
+  (* Render @container queries *)
+  let container_strings =
+    stylesheet.container_queries
+    |> List.map (fun (cq : container_query) ->
+           let container_rule =
+             match cq.container_name with
+             | Some name -> "@container " ^ name ^ " " ^ cq.container_condition
+             | None -> "@container " ^ cq.container_condition
+           in
+           if minify then
+             let rules_str =
+               cq.container_rules |> merge_rules |> merge_by_properties
+               |> List.map render_minified_rule
+               |> String.concat ""
+             in
+             container_rule ^ "{" ^ rules_str ^ "}"
+           else
+             let rules_str =
+               cq.container_rules
+               |> List.map render_formatted_media_rule
+               |> String.concat "\n"
+             in
+             Pp.lines
+               [ Pp.str [ container_rule; " {" ]; Pp.indent 2 rules_str; "}" ])
+  in
+
+  (* Render @supports queries *)
+  let supports_strings =
+    stylesheet.supports_queries
+    |> List.map (fun (sq : supports_query) ->
+           if minify then
+             let rules_str =
+               sq.supports_rules |> merge_rules |> merge_by_properties
+               |> List.map render_minified_rule
+               |> String.concat ""
+             in
+             "@supports " ^ sq.supports_condition ^ "{" ^ rules_str ^ "}"
+           else
+             let rules_str =
+               sq.supports_rules
                |> List.map render_formatted_media_rule
                |> String.concat "\n"
              in
              Pp.lines
                [
-                 Pp.str [ "@media "; mq.condition; " {" ];
+                 Pp.str [ "@supports "; sq.supports_condition; " {" ];
                  Pp.indent 2 rules_str;
                  "}";
                ])
-    in
-    String.concat "\n\n" (rule_strings @ media_strings)
+  in
+
+  (* Render media queries *)
+  let media_strings =
+    stylesheet.media_queries
+    |> List.map (fun (mq : media_query) ->
+           if minify then
+             let rules_str =
+               mq.media_rules |> merge_rules |> merge_by_properties
+               |> List.map render_minified_rule
+               |> String.concat ""
+             in
+             "@media " ^ mq.media_condition ^ "{" ^ rules_str ^ "}"
+           else
+             let rules_str =
+               mq.media_rules
+               |> List.map render_formatted_media_rule
+               |> String.concat "\n"
+             in
+             Pp.lines
+               [
+                 Pp.str [ "@media "; mq.media_condition; " {" ];
+                 Pp.indent 2 rules_str;
+                 "}";
+               ])
+  in
+
+  (* Combine all parts *)
+  let all_parts =
+    [ header; layer_declarations ]
+    @ at_property_strings @ layer_strings @ rule_strings
+    @ starting_style_strings @ container_strings @ supports_strings
+    @ media_strings
+  in
+
+  if minify then String.concat "" all_parts
+  else String.concat "\n" (List.filter (fun s -> s <> "") all_parts)
