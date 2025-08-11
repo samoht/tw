@@ -100,7 +100,7 @@ let test_tailwind_colors () =
         Alcotest.(check string)
           (Fmt.str "%s-%d" name shade)
           expected_oklch oklch_str
-    | None -> Alcotest.fail (Fmt.str "%s-%d: Color not found" name shade)
+    | None -> Alcotest.failf "%s-%d: Color not found" name shade
   in
 
   test_color "gray" 50 "oklch(98.5% 0.002 247.839)";
@@ -174,7 +174,7 @@ let test_color_accuracy () =
         Alcotest.(check bool)
           (Fmt.str "%s - hue accuracy (%.1f vs %.1f)" name oklch.h expected_h)
           true (diff_h <= tolerance_h)
-    | None -> Alcotest.fail (Fmt.str "Failed to parse hex color %s" hex_str)
+    | None -> Alcotest.failf "Failed to parse hex color %s" hex_str
   in
 
   (* Test with reasonable tolerances *)
