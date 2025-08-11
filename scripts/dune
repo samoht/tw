@@ -1,0 +1,3 @@
+(executable
+ (name compare_css)
+ (libraries re))

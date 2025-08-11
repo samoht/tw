@@ -291,7 +291,7 @@ let () =
   let css_str = Tw.Css.to_string ~minify:true css_stylesheet in
 
   (* Write HTML file *)
-  let oc_html = open_out "simple_page.html" in
+  let oc_html = open_out "simple.html" in
   output_string oc_html html_str;
   close_out oc_html;
 
@@ -302,7 +302,7 @@ let () =
 
   (* Use simpler output *)
   print_endline "Generated:";
-  print_endline "  - simple_page.html";
+  print_endline "  - simple.html";
   print_string "  - ";
   print_endline css_filename;
-  print_endline "\nOpen simple_page.html in your browser to see the result!"
+  print_endline "\nOpen simple.html in your browser to see the result!"
