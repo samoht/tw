@@ -197,7 +197,7 @@ let () =
 
   (* Combine all examples into a page *)
   let demo_page =
-    page ~title:"Tailwind CSS v4 Features Demo" []
+    page ~title:"Tailwind CSS v4 Features Demo" ~tw_css:"v4.css" []
       [
         div
           ~tw:Tw.[ max_w_4xl; mx_auto; p 8; flex; flex_col; gap 8 ]
@@ -266,17 +266,21 @@ let () =
 
   (* Generate CSS *)
   let css_file, stylesheet = css demo_page in
-
-  (* Output the HTML *)
   let html_string = html demo_page in
-  print_endline "=== Generated HTML ===";
-  print_endline html_string;
-
-  (* Show CSS statistics *)
   let css_string = Tw.Css.to_string ~minify:true stylesheet in
-  print_endline "\n=== CSS Statistics ===";
-  print_string "CSS file: ";
-  print_endline css_file;
-  print_string "CSS size (minified with JIT): ";
+
+  (* Write HTML file *)
+  let oc_html = open_out "v4.html" in
+  output_string oc_html html_string;
+  close_out oc_html;
+
+  (* Write CSS file *)
+  let oc_css = open_out css_file in
+  output_string oc_css css_string;
+  close_out oc_css;
+
+  (* Output info *)
+  print_endline "Generated v4.html and v4.css";
+  print_string "CSS size: ";
   print_int (String.length css_string);
   print_endline " bytes"
