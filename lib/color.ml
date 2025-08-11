@@ -160,7 +160,7 @@ let hex_to_rgb hex =
       let b = int_of_string ("0x" ^ String.sub hex_str 4 2) in
       Some { r; g; b }
     else None
-  with _ -> None
+  with Invalid_argument _ | Failure _ -> None
 
 (** Convert RGB to hex string *)
 let rgb_to_hex rgb = Printf.sprintf "#%02x%02x%02x" rgb.r rgb.g rgb.b

@@ -157,7 +157,7 @@ let extract_used_values tw_classes =
               try
                 let shade_int = int_of_string shade in
                 { acc with colors = (color, shade_int) :: acc.colors }
-              with _ -> acc)
+              with Invalid_argument _ | Failure _ -> acc)
           | [ _; color ]
             when color = "black" || color = "white" || color = "transparent" ->
               { acc with colors = (color, 0) :: acc.colors }
@@ -210,7 +210,7 @@ let extract_used_values tw_classes =
               try
                 let spacing_int = int_of_string spacing in
                 { acc with spacings = spacing_int :: acc.spacings }
-              with _ -> (
+              with Invalid_argument _ | Failure _ -> (
                 (* Handle special cases *)
                 match spacing with
                 | "px" ->
@@ -403,7 +403,7 @@ let generate_theme_variables () =
           try
             let color_t = Color.of_string color in
             Some (Css.property var_name (Color.to_oklch_css color_t shade))
-          with _ -> None)
+          with Invalid_argument _ | Failure _ | Not_found -> None)
     in
     List.concat_map
       (fun color ->
@@ -555,7 +555,7 @@ let generate_theme_variables_jit tw_classes =
                   let color_t = Color.of_string color in
                   Some
                     (Css.property var_name (Color.to_oklch_css color_t shade))
-                with _ -> None))
+                with Invalid_argument _ | Failure _ | Not_found -> None))
         | _ -> None)
       (List.sort_uniq compare used.colors)
   in
