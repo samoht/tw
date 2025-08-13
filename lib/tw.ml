@@ -638,7 +638,7 @@ let bg color shade =
     (* Direct arbitrary value - no CSS variable *)
     let direct_value =
       match color with
-      | Color.Hex h -> if String.starts_with ~prefix:"#" h then h else "#" ^ h
+      | Color.Hex h -> h
       | Color.Rgb { red; green; blue } ->
           Pp.str
             [
@@ -711,7 +711,7 @@ let text color shade =
     (* Direct arbitrary value - no CSS variable *)
     let direct_value =
       match color with
-      | Color.Hex h -> if String.starts_with ~prefix:"#" h then h else "#" ^ h
+      | Color.Hex h -> h
       | Color.Rgb { red; green; blue } ->
           Pp.str
             [
@@ -784,7 +784,7 @@ let border_color color shade =
     (* Direct arbitrary value - no CSS variable *)
     let direct_value =
       match color with
-      | Color.Hex h -> if String.starts_with ~prefix:"#" h then h else "#" ^ h
+      | Color.Hex h -> h
       | Color.Rgb { red; green; blue } ->
           Pp.str
             [
@@ -1544,7 +1544,7 @@ type width = size
 let border_internal (w : width) =
   let width_px, class_suffix =
     match w with
-    | `None -> ("0px", "-0")
+    | `None -> ("0", "-0")
     | `Xs -> ("1px", "" (* Default border is 1px *))
     | `Sm -> ("2px", "-2")
     | `Md -> ("4px", "-4" (* For borders, Md maps to 4px *))
@@ -1639,21 +1639,21 @@ let rounded_full = rounded_internal `Full
 let shadow_value : shadow -> string = function
   | `None -> "0 0 #0000"
   | `Sm ->
-      "0 1px 3px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 1px 2px -1px \
-       var(--tw-shadow-color, rgb(0 0 0 / 0.1))"
+      "0 1px 3px 0 var(--tw-shadow-color, #0000001a), 0 1px 2px -1px \
+       var(--tw-shadow-color, #0000001a)"
   | `Md ->
-      "0 4px 6px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 2px 4px -2px \
-       var(--tw-shadow-color, rgb(0 0 0 / 0.1))"
+      "0 4px 6px -1px var(--tw-shadow-color, #0000001a), 0 2px 4px -2px \
+       var(--tw-shadow-color, #0000001a)"
   | `Lg ->
-      "0 10px 15px -3px var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 4px 6px \
-       -4px var(--tw-shadow-color, rgb(0 0 0 / 0.1))"
+      "0 10px 15px -3px var(--tw-shadow-color, #0000001a), 0 4px 6px -4px \
+       var(--tw-shadow-color, #0000001a)"
   | `Xl ->
-      "0 20px 25px -5px var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 8px 10px \
-       -6px var(--tw-shadow-color, rgb(0 0 0 / 0.1))"
-  | `Xl_2 -> "0 25px 50px -12px var(--tw-shadow-color, rgb(0 0 0 / 0.25))"
-  | `Inner -> "inset 0 2px 4px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.06))"
-  | `Xs -> "0 1px 1px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.05))"
-  | `Xl_3 -> "0 35px 60px -15px var(--tw-shadow-color, rgb(0 0 0 / 0.35))"
+      "0 20px 25px -5px var(--tw-shadow-color, #0000001a), 0 8px 10px -6px \
+       var(--tw-shadow-color, #0000001a)"
+  | `Xl_2 -> "0 25px 50px -12px var(--tw-shadow-color, #00000040)"
+  | `Inner -> "inset 0 2px 4px 0 var(--tw-shadow-color, #0000000f)"
+  | `Xs -> "0 1px 1px 0 var(--tw-shadow-color, #0000000d)"
+  | `Xl_3 -> "0 35px 60px -15px var(--tw-shadow-color, #00000059)"
   | `Full -> "0 0 0 0 #0000" (* no shadow, same as none *)
 
 let pp_shadow_suffix : shadow -> string = function
@@ -1707,7 +1707,7 @@ let shadow_inner = shadow_internal `Inner
 
 let opacity n =
   let class_name = "opacity-" ^ string_of_int n in
-  let value = string_of_int n ^ "%" in
+  let value = if n = 0 then "0" else string_of_int n ^ "%" in
   style class_name [ opacity value ]
 
 let transition_none = style "transition-none" [ transition "none" ]
@@ -1737,7 +1737,7 @@ let transition_transform =
 
 let rotate n =
   let class_name = "rotate-" ^ string_of_int n in
-  style class_name [ transform ("rotate(" ^ string_of_int n ^ "deg)") ]
+  style class_name [ property "rotate" (string_of_int n ^ "deg") ]
 
 let translate_x n =
   let prefix = if n < 0 then "-" else "" in
@@ -2442,12 +2442,12 @@ let ease_in_out =
 
 (** Transform utilities *)
 let scale n =
-  let value = float_of_int n /. 100.0 in
+  let value = string_of_int n ^ "%" in
   let class_name = "scale-" ^ string_of_int n in
   style class_name
     [
-      property "--tw-scale-x" (Pp.float value);
-      property "--tw-scale-y" (Pp.float value);
+      property "--tw-scale-x" value;
+      property "--tw-scale-y" value;
       Css.transform
         "translate(var(--tw-translate-x), var(--tw-translate-y)) \
          rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) \
