@@ -632,20 +632,43 @@ let bg color shade =
       Pp.str [ "bg-"; color_name color ]
     else Pp.str [ "bg-"; color_name color; "-"; string_of_int shade ]
   in
-  (* Use CSS variable reference instead of direct OKLCH value *)
-  let var_ref =
-    if Color.is_base_color color || Color.is_custom_color color then
-      Pp.str [ "var(--color-"; color_name color; ")" ]
-    else
-      Pp.str [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
-  in
-  (* Track the color variable requirement *)
-  let color_var =
-    if Color.is_base_color color || Color.is_custom_color color then
-      Css.Color (color_name color, None)
-    else Css.Color (color_name color, Some shade)
-  in
-  style_with_vars class_name [ background_color var_ref ] [ color_var ]
+  (* For custom colors (hex, rgb, oklch), use direct values; for others use CSS
+     variables *)
+  if Color.is_custom_color color then
+    (* Direct arbitrary value - no CSS variable *)
+    let direct_value =
+      match color with
+      | Color.Hex h -> if String.starts_with ~prefix:"#" h then h else "#" ^ h
+      | Color.Rgb { red; green; blue } ->
+          Pp.str
+            [
+              "rgb(";
+              string_of_int red;
+              ",";
+              string_of_int green;
+              ",";
+              string_of_int blue;
+              ")";
+            ]
+      | Color.Oklch oklch -> Color.oklch_to_css oklch
+      | _ -> Color.to_oklch_css color shade (* Fallback *)
+    in
+    style class_name [ background_color direct_value ]
+  else
+    (* Use CSS variable reference *)
+    let var_ref =
+      if Color.is_base_color color then
+        Pp.str [ "var(--color-"; color_name color; ")" ]
+      else
+        Pp.str
+          [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
+    in
+    (* Track the color variable requirement *)
+    let color_var =
+      if Color.is_base_color color then Css.Color (color_name color, None)
+      else Css.Color (color_name color, Some shade)
+    in
+    style_with_vars class_name [ background_color var_ref ] [ color_var ]
 
 let bg_transparent = style "bg-transparent" [ background_color "transparent" ]
 let bg_current = style "bg-current" [ background_color "currentColor" ]
@@ -682,20 +705,43 @@ let text color shade =
       Pp.str [ "text-"; color_name color ]
     else Pp.str [ "text-"; color_name color; "-"; string_of_int shade ]
   in
-  (* Use CSS variable reference instead of direct OKLCH value *)
-  let var_ref =
-    if Color.is_base_color color || Color.is_custom_color color then
-      Pp.str [ "var(--color-"; color_name color; ")" ]
-    else
-      Pp.str [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
-  in
-  (* Track the color variable requirement *)
-  let color_var =
-    if Color.is_base_color color || Color.is_custom_color color then
-      Css.Color (color_name color, None)
-    else Css.Color (color_name color, Some shade)
-  in
-  style_with_vars class_name [ Css.color var_ref ] [ color_var ]
+  (* For custom colors (hex, rgb, oklch), use direct values; for others use CSS
+     variables *)
+  if Color.is_custom_color color then
+    (* Direct arbitrary value - no CSS variable *)
+    let direct_value =
+      match color with
+      | Color.Hex h -> if String.starts_with ~prefix:"#" h then h else "#" ^ h
+      | Color.Rgb { red; green; blue } ->
+          Pp.str
+            [
+              "rgb(";
+              string_of_int red;
+              ",";
+              string_of_int green;
+              ",";
+              string_of_int blue;
+              ")";
+            ]
+      | Color.Oklch oklch -> Color.oklch_to_css oklch
+      | _ -> Color.to_oklch_css color shade (* Fallback *)
+    in
+    style class_name [ Css.color direct_value ]
+  else
+    (* Use CSS variable reference *)
+    let var_ref =
+      if Color.is_base_color color then
+        Pp.str [ "var(--color-"; color_name color; ")" ]
+      else
+        Pp.str
+          [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
+    in
+    (* Track the color variable requirement *)
+    let color_var =
+      if Color.is_base_color color then Css.Color (color_name color, None)
+      else Css.Color (color_name color, Some shade)
+    in
+    style_with_vars class_name [ Css.color var_ref ] [ color_var ]
 
 let text_transparent = style "text-transparent" [ Css.color "transparent" ]
 let text_current = style "text-current" [ Css.color "currentColor" ]
@@ -732,20 +778,43 @@ let border_color color shade =
       Pp.str [ "border-"; color_name color ]
     else Pp.str [ "border-"; color_name color; "-"; string_of_int shade ]
   in
-  (* Use CSS variable reference instead of direct OKLCH value *)
-  let var_ref =
-    if Color.is_base_color color || Color.is_custom_color color then
-      Pp.str [ "var(--color-"; color_name color; ")" ]
-    else
-      Pp.str [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
-  in
-  (* Track the color variable requirement *)
-  let color_var =
-    if Color.is_base_color color || Color.is_custom_color color then
-      Css.Color (color_name color, None)
-    else Css.Color (color_name color, Some shade)
-  in
-  style_with_vars class_name [ Css.border_color var_ref ] [ color_var ]
+  (* For custom colors (hex, rgb, oklch), use direct values; for others use CSS
+     variables *)
+  if Color.is_custom_color color then
+    (* Direct arbitrary value - no CSS variable *)
+    let direct_value =
+      match color with
+      | Color.Hex h -> if String.starts_with ~prefix:"#" h then h else "#" ^ h
+      | Color.Rgb { red; green; blue } ->
+          Pp.str
+            [
+              "rgb(";
+              string_of_int red;
+              ",";
+              string_of_int green;
+              ",";
+              string_of_int blue;
+              ")";
+            ]
+      | Color.Oklch oklch -> Color.oklch_to_css oklch
+      | _ -> Color.to_oklch_css color shade (* Fallback *)
+    in
+    style class_name [ Css.border_color direct_value ]
+  else
+    (* Use CSS variable reference *)
+    let var_ref =
+      if Color.is_base_color color then
+        Pp.str [ "var(--color-"; color_name color; ")" ]
+      else
+        Pp.str
+          [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
+    in
+    (* Track the color variable requirement *)
+    let color_var =
+      if Color.is_base_color color then Css.Color (color_name color, None)
+      else Css.Color (color_name color, Some shade)
+    in
+    style_with_vars class_name [ Css.border_color var_ref ] [ color_var ]
 
 let border_transparent =
   style "border-transparent" [ Css.border_color "transparent" ]
@@ -1168,7 +1237,7 @@ let flex_wrap_reverse =
   style "flex-wrap-reverse" [ Css.flex_wrap "wrap-reverse" ]
 
 let flex_nowrap = style "flex-nowrap" [ Css.flex_wrap "nowrap" ]
-let flex_1 = style "flex-1" [ Css.flex "1 1 0%" ]
+let flex_1 = style "flex-1" [ Css.flex "1" ]
 let flex_auto = style "flex-auto" [ Css.flex "1 1 auto" ]
 let flex_initial = style "flex-initial" [ Css.flex "0 1 auto" ]
 let flex_none = style "flex-none" [ Css.flex "none" ]
@@ -1427,22 +1496,26 @@ let inset_y_0 = style "inset-y-0" [ bottom "0"; top "0" ]
 let top n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "top-" ^ string_of_int (abs n) in
-  style class_name [ top (spacing_to_rem n) ]
+  let value = Pp.str [ "calc(var(--spacing) * "; string_of_int (abs n); ")" ] in
+  style_with_vars class_name [ top value ] [ Css.Spacing (abs n) ]
 
 let right n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "right-" ^ string_of_int (abs n) in
-  style class_name [ right (spacing_to_rem n) ]
+  let value = Pp.str [ "calc(var(--spacing) * "; string_of_int (abs n); ")" ] in
+  style_with_vars class_name [ right value ] [ Css.Spacing (abs n) ]
 
 let bottom n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "bottom-" ^ string_of_int (abs n) in
-  style class_name [ bottom (spacing_to_rem n) ]
+  let value = Pp.str [ "calc(var(--spacing) * "; string_of_int (abs n); ")" ] in
+  style_with_vars class_name [ bottom value ] [ Css.Spacing (abs n) ]
 
 let left n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "left-" ^ string_of_int (abs n) in
-  style class_name [ left (spacing_to_rem n) ]
+  let value = Pp.str [ "calc(var(--spacing) * "; string_of_int (abs n); ")" ] in
+  style_with_vars class_name [ left value ] [ Css.Spacing (abs n) ]
 
 let z n =
   let class_name = "z-" ^ string_of_int n in
@@ -1634,11 +1707,7 @@ let shadow_inner = shadow_internal `Inner
 
 let opacity n =
   let class_name = "opacity-" ^ string_of_int n in
-  let value =
-    if n = 0 then "0"
-    else if n = 100 then "1"
-    else Pp.float (float_of_int n /. 100.0)
-  in
+  let value = string_of_int n ^ "%" in
   style class_name [ opacity value ]
 
 let transition_none = style "transition-none" [ transition "none" ]
@@ -2087,51 +2156,68 @@ let bg_gradient_to_tl =
 
 (** Gradient color stops *)
 let from_color ?(shade = 500) color =
-  let rgb = color_to_rgb_string color shade in
   let class_name =
     if Color.is_base_color color || Color.is_custom_color color then
       "from-" ^ color_name color
     else Pp.str [ "from-"; color_name color; "-"; string_of_int shade ]
   in
+  let color_var =
+    if Color.is_base_color color || Color.is_custom_color color then
+      Pp.str [ "var(--color-"; color_name color; ")" ]
+    else
+      Pp.str [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
+  in
   style class_name
     [
-      property "--tw-gradient-from"
-        (Pp.str [ "rgb("; rgb; " / var(--tw-from-opacity, 1))" ]);
-      property "--tw-gradient-to" (Pp.str [ "rgb("; rgb; " / 0)" ]);
+      property "--tw-gradient-from" color_var;
       property "--tw-gradient-stops"
-        "var(--tw-gradient-from), var(--tw-gradient-to)";
+        "var(--tw-gradient-via-stops, var(--tw-gradient-position), \
+         var(--tw-gradient-from) var(--tw-gradient-from-position), \
+         var(--tw-gradient-to) var(--tw-gradient-to-position))";
     ]
 
 let via_color ?(shade = 500) color =
-  let rgb = color_to_rgb_string color shade in
   let class_name =
     if Color.is_base_color color || Color.is_custom_color color then
       "via-" ^ color_name color
     else Pp.str [ "via-"; color_name color; "-"; string_of_int shade ]
   in
+  let color_var =
+    if Color.is_base_color color || Color.is_custom_color color then
+      Pp.str [ "var(--color-"; color_name color; ")" ]
+    else
+      Pp.str [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
+  in
   style class_name
     [
-      property "--tw-gradient-to" (Pp.str [ "rgb("; rgb; " / 0)" ]);
-      property "--tw-gradient-stops"
-        (Pp.str
-           [
-             "var(--tw-gradient-from), rgb(";
-             rgb;
-             " / var(--tw-via-opacity, 1)), var(--tw-gradient-to)";
-           ]);
+      property "--tw-gradient-via" color_var;
+      property "--tw-gradient-via-stops"
+        "var(--tw-gradient-position), var(--tw-gradient-from) \
+         var(--tw-gradient-from-position), var(--tw-gradient-via) \
+         var(--tw-gradient-via-position), var(--tw-gradient-to) \
+         var(--tw-gradient-to-position)";
+      property "--tw-gradient-stops" "var(--tw-gradient-via-stops)";
     ]
 
 let to_color ?(shade = 500) color =
-  let rgb = color_to_rgb_string color shade in
   let class_name =
     if Color.is_base_color color || Color.is_custom_color color then
       "to-" ^ color_name color
     else Pp.str [ "to-"; color_name color; "-"; string_of_int shade ]
   in
+  let color_var =
+    if Color.is_base_color color || Color.is_custom_color color then
+      Pp.str [ "var(--color-"; color_name color; ")" ]
+    else
+      Pp.str [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
+  in
   style class_name
     [
-      property "--tw-gradient-to"
-        (Pp.str [ "rgb("; rgb; " / var(--tw-to-opacity, 1))" ]);
+      property "--tw-gradient-to" color_var;
+      property "--tw-gradient-stops"
+        "var(--tw-gradient-via-stops, var(--tw-gradient-position), \
+         var(--tw-gradient-from) var(--tw-gradient-from-position), \
+         var(--tw-gradient-to) var(--tw-gradient-to-position))";
     ]
 
 let antialiased =
