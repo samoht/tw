@@ -67,7 +67,7 @@ let generate_tailwind_css ?(minify = false) classnames =
   let cmd =
     Printf.sprintf
       "cd %s && npx tailwindcss -i input.css -o output.css --content \
-       input.html%s 2>/dev/null"
+       input.html%s --optimize 2>/dev/null"
       temp_dir minify_flag
   in
   let exit_code = Sys.command cmd in
