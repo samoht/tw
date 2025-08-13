@@ -63,9 +63,10 @@ and container_query =
   | Container_2xl
   | Container_named of string * int
 
-(** A Tailwind utility class with its name and CSS properties *)
+(** A Tailwind utility class with its name, CSS properties, and required
+    variables *)
 type t =
-  | Style of string * Css.property list
+  | Style of { name : string; props : Css.property list; vars : Css.var list }
   | Prose of Prose.t
   | Modified of modifier * t
   | Group of t list
@@ -86,17 +87,148 @@ type shadow = [ size | `Inner ]
 (* Re-export CSS module *)
 module Css = Css
 
+(** {1 Helpers} *)
+
+(* Helper to create a style with no variable requirements *)
+let style name props = Style { name; props; vars = [] }
+
+(* Helper to create a style with variable requirements *)
+let style_with_vars name props vars = Style { name; props; vars }
+
 (** {1 CSS Generation} *)
 
 (* Internal helper to extract CSS properties from a style *)
 let rec to_css_properties = function
-  | Style (_class_name, props) -> props
+  | Style { props; _ } -> props
   | Prose variant ->
       (* For inline styles, we can only use the base prose properties, not the
          descendant selectors like .prose h1 *)
       Prose.to_base_properties variant
   | Modified (_modifier, t) -> to_css_properties t
   | Group styles -> List.concat_map to_css_properties styles
+
+(* Extract all CSS variables required by styles *)
+let rec extract_css_vars = function
+  | Style { vars; _ } -> vars
+  | Prose _variant -> [] (* Prose has its own variable handling *)
+  | Modified (_modifier, t) -> extract_css_vars t
+  | Group styles -> List.concat_map extract_css_vars styles
+
+(* Generate CSS variables from Css.var list - new type-safe approach *)
+let generate_vars_from_types vars =
+  let dedup_vars =
+    List.sort_uniq
+      Css.(
+        fun v1 v2 ->
+          match (v1, v2) with
+          | Color (name1, shade1), Color (name2, shade2) ->
+              let cmp = String.compare name1 name2 in
+              if cmp = 0 then Option.compare Int.compare shade1 shade2 else cmp
+          | Spacing n1, Spacing n2 -> Int.compare n1 n2
+          | Font f1, Font f2 -> String.compare f1 f2
+          | Text_size s1, Text_size s2 -> String.compare s1 s2
+          | Font_weight w1, Font_weight w2 -> String.compare w1 w2
+          | Radius r1, Radius r2 -> String.compare r1 r2
+          | Transition, Transition -> 0
+          | Custom (n1, v1), Custom (n2, v2) ->
+              let cmp = String.compare n1 n2 in
+              if cmp = 0 then String.compare v1 v2 else cmp
+          | _ -> Stdlib.compare v1 v2)
+      vars
+  in
+
+  List.filter_map
+    (function
+      | Css.Color (name, Some shade) ->
+          (* Handle arbitrary color values with brackets like [1da1f2] or
+             [rgb(...)] *)
+          if
+            String.starts_with ~prefix:"[" name
+            && String.ends_with ~suffix:"]" name
+          then
+            let color_value = String.sub name 1 (String.length name - 2) in
+            (* Try to parse as different color formats *)
+            let oklch_css =
+              if String.starts_with ~prefix:"rgb(" color_value then
+                (* Handle RGB function like rgb(29,161,242) *)
+                let rgb_part =
+                  String.sub color_value 4 (String.length color_value - 5)
+                in
+                let parts =
+                  String.split_on_char ',' rgb_part |> List.map String.trim
+                in
+                match parts with
+                | [ r; g; b ] -> (
+                    try
+                      let ri = int_of_string r
+                      and gi = int_of_string g
+                      and bi = int_of_string b in
+                      let color = Color.rgb ri gi bi in
+                      Color.to_oklch_css color 0
+                    with _ -> "#" ^ color_value (* fallback *))
+                | _ -> "#" ^ color_value
+              else
+                (* Handle hex colors *)
+                let hex_with_hash =
+                  if String.starts_with ~prefix:"#" color_value then color_value
+                  else "#" ^ color_value
+                in
+                Color.hex_to_oklch_css hex_with_hash
+            in
+            Some
+              (Css.property
+                 ("--color-" ^ name ^ "-" ^ string_of_int shade)
+                 oklch_css)
+          else
+            let color = Color.of_string name in
+            Some
+              (Css.property
+                 ("--color-" ^ name ^ "-" ^ string_of_int shade)
+                 (Color.to_oklch_css color shade))
+      | Css.Color (name, None) ->
+          (* Handle arbitrary color values with brackets like [1da1f2] or
+             [rgb(...)] *)
+          if
+            String.starts_with ~prefix:"[" name
+            && String.ends_with ~suffix:"]" name
+          then
+            let color_value = String.sub name 1 (String.length name - 2) in
+            (* Try to parse as different color formats *)
+            let oklch_css =
+              if String.starts_with ~prefix:"rgb(" color_value then
+                (* Handle RGB function like rgb(29,161,242) *)
+                let rgb_part =
+                  String.sub color_value 4 (String.length color_value - 5)
+                in
+                let parts =
+                  String.split_on_char ',' rgb_part |> List.map String.trim
+                in
+                match parts with
+                | [ r; g; b ] -> (
+                    try
+                      let ri = int_of_string r
+                      and gi = int_of_string g
+                      and bi = int_of_string b in
+                      let color = Color.rgb ri gi bi in
+                      Color.to_oklch_css color 0
+                    with _ -> "#" ^ color_value (* fallback *))
+                | _ -> "#" ^ color_value
+              else
+                (* Handle hex colors *)
+                let hex_with_hash =
+                  if String.starts_with ~prefix:"#" color_value then color_value
+                  else "#" ^ color_value
+                in
+                Color.hex_to_oklch_css hex_with_hash
+            in
+            Some (Css.property ("--color-" ^ name) oklch_css)
+          else
+            let color = Color.of_string name in
+            Some
+              (Css.property ("--color-" ^ name) (Color.to_oklch_css color 500))
+      | Css.Spacing 1 -> Some (Css.property "--spacing" "0.25rem")
+      | _ -> None (* Add other variable types as needed *))
+    dedup_vars
 
 (* Helper to convert breakpoint to string *)
 let string_of_breakpoint = function
@@ -118,519 +250,7 @@ let container_query_to_css_prefix = function
   | Container_named (name, width) ->
       Printf.sprintf "@container %s (min-width: %dpx)" name width
 
-(* Extract used color and spacing values from tw_classes *)
-type used_values = {
-  colors : (string * int) list; (* (color_name, shade) pairs *)
-  spacings : int list; (* spacing values used *)
-  text_sizes : string list; (* text sizes used like "sm", "lg" *)
-  font_weights : string list; (* font weights used like "bold", "semibold" *)
-  radii : string list; (* border radius values used *)
-  fonts : string list; (* font families used like "sans", "serif", "mono" *)
-  transitions : bool; (* whether transition utilities are used *)
-}
-
-let extract_used_values tw_classes =
-  let rec extract acc = function
-    | Style (class_name, _) ->
-        (* Parse class name to find what resources are used *)
-        let parts = String.split_on_char '-' class_name in
-
-        (* Colors: bg-*, text-*, border-*, ring-*, etc. *)
-        if
-          String.starts_with ~prefix:"bg-" class_name
-          || String.starts_with ~prefix:"text-" class_name
-          || String.starts_with ~prefix:"border-" class_name
-          || String.starts_with ~prefix:"ring-" class_name
-          || String.starts_with ~prefix:"from-" class_name
-          || String.starts_with ~prefix:"via-" class_name
-          || String.starts_with ~prefix:"to-" class_name
-        then
-          match parts with
-          | [ "text"; color; _ ]
-            when color = "xs" || color = "sm" || color = "base" || color = "lg"
-                 || color = "xl" || color = "2xl" || color = "3xl"
-                 || color = "4xl" || color = "5xl" || color = "6xl"
-                 || color = "7xl" || color = "8xl" || color = "9xl" ->
-              (* This is actually a text size, not a color *)
-              { acc with text_sizes = color :: acc.text_sizes }
-          | [ _; color; shade ] -> (
-              try
-                let shade_int = int_of_string shade in
-                { acc with colors = (color, shade_int) :: acc.colors }
-              with Invalid_argument _ | Failure _ -> acc)
-          | [ _; color ]
-            when color = "black" || color = "white" || color = "transparent" ->
-              { acc with colors = (color, 0) :: acc.colors }
-          | _ -> acc (* Text sizes: text-xs, text-sm, etc. *)
-        else if String.starts_with ~prefix:"text-" class_name then
-          match parts with
-          | [ "text"; size ]
-            when size = "xs" || size = "sm" || size = "base" || size = "lg"
-                 || size = "xl"
-                 || String.starts_with ~prefix:"2xl" size
-                 || String.starts_with ~prefix:"3xl" size
-                 || String.starts_with ~prefix:"4xl" size
-                 || String.starts_with ~prefix:"5xl" size
-                 || String.starts_with ~prefix:"6xl" size
-                 || String.starts_with ~prefix:"7xl" size
-                 || String.starts_with ~prefix:"8xl" size
-                 || String.starts_with ~prefix:"9xl" size ->
-              { acc with text_sizes = size :: acc.text_sizes }
-          | _ -> acc (* Font weights and families: font-bold, font-sans, etc. *)
-        else if String.starts_with ~prefix:"font-" class_name then
-          match parts with
-          | [ "font"; value ]
-            when value = "sans" || value = "serif" || value = "mono" ->
-              { acc with fonts = value :: acc.fonts }
-          | [ "font"; weight ] ->
-              { acc with font_weights = weight :: acc.font_weights }
-          | _ -> acc (* Transitions *)
-        else if
-          String.starts_with ~prefix:"transition" class_name
-          || String.starts_with ~prefix:"duration-" class_name
-          || String.starts_with ~prefix:"ease-" class_name
-        then { acc with transitions = true }
-          (* Border radius: rounded-*, rounded-sm, etc. *)
-        else if String.starts_with ~prefix:"rounded" class_name then
-          match parts with
-          | [ "rounded" ] ->
-              { acc with radii = "" :: acc.radii } (* default radius *)
-          | [ "rounded"; radius ] -> { acc with radii = radius :: acc.radii }
-          | _ -> acc (* Spacing: p-*, m-*, gap-*, space-* *)
-        else if
-          String.starts_with ~prefix:"p-" class_name
-          || String.starts_with ~prefix:"m-" class_name
-          || String.starts_with ~prefix:"gap-" class_name
-          || String.starts_with ~prefix:"space-" class_name
-          || String.starts_with ~prefix:"w-" class_name
-          || String.starts_with ~prefix:"h-" class_name
-        then
-          match parts with
-          | [ _; spacing ] -> (
-              try
-                let spacing_int = int_of_string spacing in
-                { acc with spacings = spacing_int :: acc.spacings }
-              with Invalid_argument _ | Failure _ -> (
-                (* Handle special cases *)
-                match spacing with
-                | "px" ->
-                    { acc with spacings = -1 :: acc.spacings }
-                    (* Use -1 for px *)
-                | "0.5" ->
-                    { acc with spacings = -2 :: acc.spacings }
-                    (* Use -2 for 0.5 *)
-                | "1.5" ->
-                    { acc with spacings = -3 :: acc.spacings }
-                    (* Use -3 for 1.5 *)
-                | "2.5" ->
-                    { acc with spacings = -4 :: acc.spacings }
-                    (* Use -4 for 2.5 *)
-                | "3.5" ->
-                    { acc with spacings = -5 :: acc.spacings }
-                    (* Use -5 for 3.5 *)
-                | _ -> acc))
-          | _ -> acc
-        else acc
-    | Modified (_, t) -> extract acc t
-    | Group styles -> List.fold_left extract acc styles
-    | Prose _ -> acc (* Prose handles its own styles *)
-  in
-  let used =
-    List.fold_left extract
-      {
-        colors = [];
-        spacings = [];
-        text_sizes = [];
-        font_weights = [];
-        radii = [];
-        fonts = [];
-        transitions = false;
-      }
-      tw_classes
-  in
-  (* Remove duplicates *)
-  {
-    colors = List.sort_uniq compare used.colors;
-    spacings = List.sort_uniq compare used.spacings;
-    text_sizes = List.sort_uniq compare used.text_sizes;
-    font_weights = List.sort_uniq compare used.font_weights;
-    radii = List.sort_uniq compare used.radii;
-    fonts = List.sort_uniq compare used.fonts;
-    transitions = used.transitions;
-  }
-
-(* Generate complete Tailwind v4 theme as CSS variables *)
-let generate_theme_variables () =
-  (* Always include all theme variables - no tracking needed *)
-  let base_vars =
-    [
-      (* Fonts *)
-      Css.property "--font-sans"
-        "ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe \
-         UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"";
-      Css.property "--font-serif"
-        "ui-serif, Georgia, Cambria, \"Times New Roman\", Times, serif";
-      Css.property "--font-mono"
-        "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation \
-         Mono\", \"Courier New\", monospace";
-      (* Spacing scale *)
-      (* Fonts *)
-      Css.property "--font-sans"
-        "ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe \
-         UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"";
-      Css.property "--font-serif"
-        "ui-serif, Georgia, Cambria, \"Times New Roman\", Times, serif";
-      Css.property "--font-mono"
-        "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation \
-         Mono\", \"Courier New\", monospace";
-      (* Spacing scale *)
-      Css.property "--spacing-0" "0";
-      Css.property "--spacing-px" "1px";
-      Css.property "--spacing-0.5" "0.125rem";
-      Css.property "--spacing-1" "0.25rem";
-      Css.property "--spacing-1.5" "0.375rem";
-      Css.property "--spacing-2" "0.5rem";
-      Css.property "--spacing-2.5" "0.625rem";
-      Css.property "--spacing-3" "0.75rem";
-      Css.property "--spacing-3.5" "0.875rem";
-      Css.property "--spacing-4" "1rem";
-      Css.property "--spacing-5" "1.25rem";
-      Css.property "--spacing-6" "1.5rem";
-      Css.property "--spacing-7" "1.75rem";
-      Css.property "--spacing-8" "2rem";
-      Css.property "--spacing-9" "2.25rem";
-      Css.property "--spacing-10" "2.5rem";
-      Css.property "--spacing-11" "2.75rem";
-      Css.property "--spacing-12" "3rem";
-      Css.property "--spacing-14" "3.5rem";
-      Css.property "--spacing-16" "4rem";
-      Css.property "--spacing-20" "5rem";
-      Css.property "--spacing-24" "6rem";
-      Css.property "--spacing-28" "7rem";
-      Css.property "--spacing-32" "8rem";
-      Css.property "--spacing-36" "9rem";
-      Css.property "--spacing-40" "10rem";
-      Css.property "--spacing-44" "11rem";
-      Css.property "--spacing-48" "12rem";
-      Css.property "--spacing-52" "13rem";
-      Css.property "--spacing-56" "14rem";
-      Css.property "--spacing-60" "15rem";
-      Css.property "--spacing-64" "16rem";
-      Css.property "--spacing-72" "18rem";
-      Css.property "--spacing-80" "20rem";
-      Css.property "--spacing-96" "24rem";
-      (* Common values *)
-      Css.property "--spacing" "0.25rem";
-      (* Base spacing unit *)
-      Css.property "--default-transition-duration" "150ms";
-      Css.property "--default-transition-timing-function"
-        "cubic-bezier(0.4, 0, 0.2, 1)";
-      Css.property "--default-font-family" "var(--font-sans)";
-      Css.property "--default-mono-font-family" "var(--font-mono)";
-      (* Text sizes *)
-      Css.property "--text-xs" "0.75rem";
-      Css.property "--text-sm" "0.875rem";
-      Css.property "--text-base" "1rem";
-      Css.property "--text-lg" "1.125rem";
-      Css.property "--text-xl" "1.25rem";
-      Css.property "--text-2xl" "1.5rem";
-      Css.property "--text-3xl" "1.875rem";
-      Css.property "--text-4xl" "2.25rem";
-      Css.property "--text-5xl" "3rem";
-      Css.property "--text-6xl" "3.75rem";
-      Css.property "--text-7xl" "4.5rem";
-      Css.property "--text-8xl" "6rem";
-      Css.property "--text-9xl" "8rem";
-      (* Font weights *)
-      Css.property "--font-thin" "100";
-      Css.property "--font-extralight" "200";
-      Css.property "--font-light" "300";
-      Css.property "--font-normal" "400";
-      Css.property "--font-medium" "500";
-      Css.property "--font-semibold" "600";
-      Css.property "--font-bold" "700";
-      Css.property "--font-extrabold" "800";
-      Css.property "--font-black" "900";
-      (* Border radius *)
-      Css.property "--radius-none" "0";
-      Css.property "--radius-sm" "0.125rem";
-      Css.property "--radius" "0.25rem";
-      Css.property "--radius-md" "0.375rem";
-      Css.property "--radius-lg" "0.5rem";
-      Css.property "--radius-xl" "0.75rem";
-      Css.property "--radius-2xl" "1rem";
-      Css.property "--radius-3xl" "1.5rem";
-      Css.property "--radius-full" "9999px";
-    ]
-  in
-
-  (* Generate color variables for all Tailwind colors *)
-  (* This should iterate through all colors and shades *)
-  let color_vars =
-    let colors =
-      [
-        "gray";
-        "slate";
-        "zinc";
-        "neutral";
-        "stone";
-        "red";
-        "orange";
-        "amber";
-        "yellow";
-        "lime";
-        "green";
-        "emerald";
-        "teal";
-        "cyan";
-        "sky";
-        "blue";
-        "indigo";
-        "violet";
-        "purple";
-        "fuchsia";
-        "pink";
-        "rose";
-      ]
-    in
-    let shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900; 950 ] in
-    let generate_color_var color shade =
-      let var_name = Pp.str [ "--color-"; color; "-"; string_of_int shade ] in
-      match Color.TailwindColors.get_color color shade with
-      | Some value -> Some (Css.property var_name value)
-      | None -> (
-          (* Fallback: generate from hex if available *)
-          try
-            let color_t = Color.of_string color in
-            Some (Css.property var_name (Color.to_oklch_css color_t shade))
-          with Invalid_argument _ | Failure _ | Not_found -> None)
-    in
-    List.concat_map
-      (fun color ->
-        List.filter_map (fun shade -> generate_color_var color shade) shades)
-      colors
-    @ [
-        Css.property "--color-black" "#000";
-        Css.property "--color-white" "#fff";
-        Css.property "--color-transparent" "transparent";
-      ]
-  in
-
-  base_vars @ color_vars
-
-(* Helper function to convert spacing value to rem *)
-let spacing_value_to_rem = function
-  | -5 -> "0.875rem" (* 3.5 *)
-  | -4 -> "0.625rem" (* 2.5 *)
-  | -3 -> "0.375rem" (* 1.5 *)
-  | -2 -> "0.125rem" (* 0.5 *)
-  | -1 -> "1px" (* px *)
-  | 0 -> "0"
-  | 1 -> "0.25rem"
-  | 2 -> "0.5rem"
-  | 3 -> "0.75rem"
-  | 4 -> "1rem"
-  | 5 -> "1.25rem"
-  | 6 -> "1.5rem"
-  | 7 -> "1.75rem"
-  | 8 -> "2rem"
-  | 9 -> "2.25rem"
-  | 10 -> "2.5rem"
-  | 11 -> "2.75rem"
-  | 12 -> "3rem"
-  | 14 -> "3.5rem"
-  | 16 -> "4rem"
-  | 20 -> "5rem"
-  | 24 -> "6rem"
-  | 28 -> "7rem"
-  | 32 -> "8rem"
-  | 36 -> "9rem"
-  | 40 -> "10rem"
-  | 44 -> "11rem"
-  | 48 -> "12rem"
-  | 52 -> "13rem"
-  | 56 -> "14rem"
-  | 60 -> "15rem"
-  | 64 -> "16rem"
-  | 72 -> "18rem"
-  | 80 -> "20rem"
-  | 96 -> "24rem"
-  | _ -> "1rem" (* fallback *)
-
-(* JIT (Just-In-Time) version: Generate only the CSS variables actually used *)
-let generate_theme_variables_jit tw_classes =
-  let used = extract_used_values tw_classes in
-
-  (* Only include font variables that are used *)
-  let font_vars =
-    List.filter_map
-      (fun font ->
-        match font with
-        | "sans" ->
-            Some
-              (Css.property "--font-sans"
-                 "ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \
-                  \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color \
-                  Emoji\"")
-        | "serif" ->
-            Some
-              (Css.property "--font-serif"
-                 "ui-serif, Georgia, Cambria, \"Times New Roman\", Times, serif")
-        | "mono" ->
-            Some
-              (Css.property "--font-mono"
-                 "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \
-                  \"Liberation Mono\", \"Courier New\", monospace")
-        | _ -> None)
-      used.fonts
-  in
-
-  (* Only include transition variables if transitions are used *)
-  let transition_vars =
-    if used.transitions then
-      [
-        Css.property "--default-transition-duration" "150ms";
-        Css.property "--default-transition-timing-function"
-          "cubic-bezier(0.4, 0, 0.2, 1)";
-      ]
-    else []
-  in
-
-  (* Base spacing unit - only if spacing is used *)
-  let spacing_base_var =
-    if used.spacings <> [] then [ Css.property "--spacing" "0.25rem" ] else []
-  in
-
-  (* Default font family variables - only if fonts are used *)
-  let default_font_vars =
-    if List.mem "sans" used.fonts then
-      [ Css.property "--default-font-family" "var(--font-sans)" ]
-    else
-      []
-      @
-      if List.mem "mono" used.fonts then
-        [ Css.property "--default-mono-font-family" "var(--font-mono)" ]
-      else []
-  in
-
-  (* Only include used spacing values *)
-  let spacing_vars =
-    List.filter_map
-      (fun spacing ->
-        let name =
-          match spacing with
-          | -5 -> "--spacing-3.5"
-          | -4 -> "--spacing-2.5"
-          | -3 -> "--spacing-1.5"
-          | -2 -> "--spacing-0.5"
-          | -1 -> "--spacing-px"
-          | n when n >= 0 && n <= 96 -> "--spacing-" ^ string_of_int n
-          | _ -> ""
-        in
-        if name <> "" then
-          let value = spacing_value_to_rem spacing in
-          Some (Css.property name value)
-        else None)
-      used.spacings
-  in
-
-  (* Only include used color values *)
-  let color_vars =
-    List.filter_map
-      (fun (color, shade) ->
-        match color with
-        | "black" -> Some (Css.property "--color-black" "#000")
-        | "white" -> Some (Css.property "--color-white" "#fff")
-        | "transparent" ->
-            Some (Css.property "--color-transparent" "transparent")
-        | _ when shade > 0 -> (
-            let var_name =
-              Pp.str [ "--color-"; color; "-"; string_of_int shade ]
-            in
-            match Color.TailwindColors.get_color color shade with
-            | Some value -> Some (Css.property var_name value)
-            | None -> (
-                (* Try to generate from color module *)
-                try
-                  let color_t = Color.of_string color in
-                  Some
-                    (Css.property var_name (Color.to_oklch_css color_t shade))
-                with Invalid_argument _ | Failure _ | Not_found -> None))
-        | _ -> None)
-      (List.sort_uniq compare used.colors)
-  in
-
-  (* Only include used text sizes *)
-  let text_size_vars =
-    List.filter_map
-      (fun size ->
-        let name, value =
-          match size with
-          | "xs" -> ("--text-xs", "0.75rem")
-          | "sm" -> ("--text-sm", "0.875rem")
-          | "base" -> ("--text-base", "1rem")
-          | "lg" -> ("--text-lg", "1.125rem")
-          | "xl" -> ("--text-xl", "1.25rem")
-          | "2xl" -> ("--text-2xl", "1.5rem")
-          | "3xl" -> ("--text-3xl", "1.875rem")
-          | "4xl" -> ("--text-4xl", "2.25rem")
-          | "5xl" -> ("--text-5xl", "3rem")
-          | "6xl" -> ("--text-6xl", "3.75rem")
-          | "7xl" -> ("--text-7xl", "4.5rem")
-          | "8xl" -> ("--text-8xl", "6rem")
-          | "9xl" -> ("--text-9xl", "8rem")
-          | _ -> ("", "")
-        in
-        if name <> "" then Some (Css.property name value) else None)
-      used.text_sizes
-  in
-
-  (* Only include used font weights *)
-  let font_weight_vars =
-    List.filter_map
-      (fun weight ->
-        let name, value =
-          match weight with
-          | "thin" -> ("--font-thin", "100")
-          | "extralight" -> ("--font-extralight", "200")
-          | "light" -> ("--font-light", "300")
-          | "normal" -> ("--font-normal", "400")
-          | "medium" -> ("--font-medium", "500")
-          | "semibold" -> ("--font-semibold", "600")
-          | "bold" -> ("--font-bold", "700")
-          | "extrabold" -> ("--font-extrabold", "800")
-          | "black" -> ("--font-black", "900")
-          | _ -> ("", "")
-        in
-        if name <> "" then Some (Css.property name value) else None)
-      used.font_weights
-  in
-
-  (* Only include used border radius values *)
-  let radius_vars =
-    List.filter_map
-      (fun radius ->
-        let name, value =
-          match radius with
-          | "none" -> ("--radius-none", "0")
-          | "sm" -> ("--radius-sm", "0.125rem")
-          | "" -> ("--radius", "0.25rem") (* default rounded *)
-          | "md" -> ("--radius-md", "0.375rem")
-          | "lg" -> ("--radius-lg", "0.5rem")
-          | "xl" -> ("--radius-xl", "0.75rem")
-          | "2xl" -> ("--radius-2xl", "1rem")
-          | "3xl" -> ("--radius-3xl", "1.5rem")
-          | "full" -> ("--radius-full", "9999px")
-          | _ -> ("", "")
-        in
-        if name <> "" then Some (Css.property name value) else None)
-      used.radii
-  in
-
-  font_vars @ transition_vars @ spacing_base_var @ default_font_vars
-  @ spacing_vars @ color_vars @ text_size_vars @ font_weight_vars @ radius_vars
-
-(* Helper to convert container query to class prefix *)
+(* Generate CSS variables from the collected requirements *)
 let container_query_to_class_prefix = function
   | Container_sm -> "@container-sm"
   | Container_md -> "@container-md"
@@ -653,7 +273,7 @@ let responsive_breakpoint = function
 (* Extract selector and properties from a single Tw style *)
 let extract_selector_props tw =
   let rec extract = function
-    | Style (class_name, props) -> [ ("." ^ class_name, props) ]
+    | Style { name = class_name; props; _ } -> [ ("." ^ class_name, props) ]
     | Prose variant ->
         (* Convert prose rules to selector/props pairs *)
         Prose.to_css_rules variant
@@ -706,7 +326,8 @@ let extract_selector_props tw =
                 (* Create the selector with media query prefix for grouping *)
                 ( "@media (min-width: "
                   ^ responsive_breakpoint prefix
-                  ^ ") " ^ selector,
+                  ^ ") ." ^ prefix ^ "\\:"
+                  ^ String.sub selector 1 (String.length selector - 1),
                   props )
             | Container query ->
                 let query_str = container_query_to_css_prefix query in
@@ -715,7 +336,7 @@ let extract_selector_props tw =
             | Not modifier ->
                 (* Recursively apply the Not modifier *)
                 let inner_selectors =
-                  extract (Modified (modifier, Style (base_class, [])))
+                  extract (Modified (modifier, style base_class []))
                 in
                 List.map
                   (fun (inner_sel, _) ->
@@ -785,6 +406,7 @@ let generate_reset_rules () =
       ];
     Css.rule ~selector:"html, :host"
       [
+        Css.font_size "16px";
         Css.line_height "1.5";
         Css.property "-webkit-text-size-adjust" "100%";
         Css.font_family "var(--default-font-family)";
@@ -803,7 +425,7 @@ let generate_reset_rules () =
 (* Check if prose styles are being used *)
 let uses_prose tw_classes =
   let rec check = function
-    | Style (_, _) -> false
+    | Style _ -> false
     | Prose _ -> true
     | Modified (_, t) -> check t
     | Group styles -> List.exists check styles
@@ -814,7 +436,7 @@ let uses_prose tw_classes =
 module Color = Color
 
 (* Generate CSS rules for all used Tw classes *)
-let to_css ?(reset = true) ?(jit = false) tw_classes =
+let to_css ?(reset = true) tw_classes =
   let all_rules =
     tw_classes |> List.concat_map extract_selector_props |> group_by_selector
   in
@@ -872,11 +494,9 @@ let to_css ?(reset = true) ?(jit = false) tw_classes =
 
   (* Build the complete stylesheet with layers - just like Tailwind v4 *)
   if reset then
-    (* Theme layer with CSS variables - JIT mode includes only used variables *)
-    let theme_vars =
-      if jit then generate_theme_variables_jit tw_classes
-      else generate_theme_variables ()
-    in
+    (* Theme layer with CSS variables - JIT mode (only used variables) *)
+    let all_vars = List.concat_map extract_css_vars tw_classes in
+    let theme_vars = generate_vars_from_types all_vars in
     let theme_layer =
       Css.layered_rules ~layer:Css.Theme
         [ Css.rule ~selector:":root, :host" theme_vars ]
@@ -1012,16 +632,23 @@ let bg color shade =
       Pp.str [ "bg-"; color_name color ]
     else Pp.str [ "bg-"; color_name color; "-"; string_of_int shade ]
   in
-  let rgb = color_to_rgb_string color shade in
-  Style
-    ( class_name,
-      [
-        property "--tw-bg-opacity" "1";
-        background_color (Pp.str [ "rgb("; rgb; " / var(--tw-bg-opacity))" ]);
-      ] )
+  (* Use CSS variable reference instead of direct OKLCH value *)
+  let var_ref =
+    if Color.is_base_color color || Color.is_custom_color color then
+      Pp.str [ "var(--color-"; color_name color; ")" ]
+    else
+      Pp.str [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
+  in
+  (* Track the color variable requirement *)
+  let color_var =
+    if Color.is_base_color color || Color.is_custom_color color then
+      Css.Color (color_name color, None)
+    else Css.Color (color_name color, Some shade)
+  in
+  style_with_vars class_name [ background_color var_ref ] [ color_var ]
 
-let bg_transparent = Style ("bg-transparent", [ background_color "transparent" ])
-let bg_current = Style ("bg-current", [ background_color "currentColor" ])
+let bg_transparent = style "bg-transparent" [ background_color "transparent" ]
+let bg_current = style "bg-current" [ background_color "currentColor" ]
 
 (* Default color backgrounds - using shade 500 *)
 let bg_black = bg black 500
@@ -1055,16 +682,23 @@ let text color shade =
       Pp.str [ "text-"; color_name color ]
     else Pp.str [ "text-"; color_name color; "-"; string_of_int shade ]
   in
-  let rgb = color_to_rgb_string color shade in
-  Style
-    ( class_name,
-      [
-        property "--tw-text-opacity" "1";
-        Css.color (Pp.str [ "rgb("; rgb; " / var(--tw-text-opacity))" ]);
-      ] )
+  (* Use CSS variable reference instead of direct OKLCH value *)
+  let var_ref =
+    if Color.is_base_color color || Color.is_custom_color color then
+      Pp.str [ "var(--color-"; color_name color; ")" ]
+    else
+      Pp.str [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
+  in
+  (* Track the color variable requirement *)
+  let color_var =
+    if Color.is_base_color color || Color.is_custom_color color then
+      Css.Color (color_name color, None)
+    else Css.Color (color_name color, Some shade)
+  in
+  style_with_vars class_name [ Css.color var_ref ] [ color_var ]
 
-let text_transparent = Style ("text-transparent", [ Css.color "transparent" ])
-let text_current = Style ("text-current", [ Css.color "currentColor" ])
+let text_transparent = style "text-transparent" [ Css.color "transparent" ]
+let text_current = style "text-current" [ Css.color "currentColor" ]
 
 (* Default text colors - using shade 500 *)
 let text_black = text black 500
@@ -1098,20 +732,25 @@ let border_color color shade =
       Pp.str [ "border-"; color_name color ]
     else Pp.str [ "border-"; color_name color; "-"; string_of_int shade ]
   in
-  let rgb = color_to_rgb_string color shade in
-  Style
-    ( class_name,
-      [
-        property "--tw-border-opacity" "1";
-        Css.border_color
-          (Pp.str [ "rgb("; rgb; " / var(--tw-border-opacity))" ]);
-      ] )
+  (* Use CSS variable reference instead of direct OKLCH value *)
+  let var_ref =
+    if Color.is_base_color color || Color.is_custom_color color then
+      Pp.str [ "var(--color-"; color_name color; ")" ]
+    else
+      Pp.str [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
+  in
+  (* Track the color variable requirement *)
+  let color_var =
+    if Color.is_base_color color || Color.is_custom_color color then
+      Css.Color (color_name color, None)
+    else Css.Color (color_name color, Some shade)
+  in
+  style_with_vars class_name [ Css.border_color var_ref ] [ color_var ]
 
 let border_transparent =
-  Style ("border-transparent", [ Css.border_color "transparent" ])
+  style "border-transparent" [ Css.border_color "transparent" ]
 
-let border_current =
-  Style ("border-current", [ Css.border_color "currentColor" ])
+let border_current = style "border-current" [ Css.border_color "currentColor" ]
 
 (* Default border colors - using shade 500 *)
 let border_black = border_color black 500
@@ -1180,7 +819,9 @@ let pp_margin_suffix : margin -> string = function
 let pp_spacing : spacing -> string = function
   | `Px -> "1px"
   | `Full -> "100%"
-  | `Rem f -> if f = 0.0 then "0" else Pp.str [ Pp.float f; "rem" ]
+  | `Rem f ->
+      let n = int_of_float (f /. 0.25) in
+      Pp.str [ "calc(var(--spacing) * "; string_of_int n; ")" ]
 
 let pp_margin : margin -> string = function
   | `Auto -> "auto"
@@ -1214,36 +855,56 @@ let pp_max_scale : max_scale -> string = function
 
 (** {1 Spacing} *)
 
+(* Helper to extract spacing variables from spacing types *)
+let spacing_vars = function
+  | `Rem _ -> [ Css.Spacing 1 ] (* Track spacing variable for calc() *)
+  | _ -> []
+
+(* Helper to extract spacing variables from scale types *)
+let scale_vars = function
+  | `Rem _ -> [ Css.Spacing 1 ] (* Track spacing variable for calc() *)
+  | _ -> []
+
+(* Helper to extract spacing variables from margin types *)
+let margin_vars = function
+  | `Rem _ -> [ Css.Spacing 1 ] (* Track spacing variable for calc() *)
+  | _ -> []
+
 (* Typed spacing functions with ' suffix *)
 let p' (s : spacing) =
   let class_name = "p-" ^ pp_spacing_suffix s in
-  Style (class_name, [ padding (pp_spacing s) ])
+  let value = pp_spacing s in
+  style_with_vars class_name [ padding value ] (spacing_vars s)
 
 let px' (s : spacing) =
   let v = pp_spacing s in
   let class_name = "px-" ^ pp_spacing_suffix s in
-  Style (class_name, [ padding_left v; padding_right v ])
+  style_with_vars class_name [ padding_inline v ] (spacing_vars s)
 
 let py' (s : spacing) =
   let v = pp_spacing s in
   let class_name = "py-" ^ pp_spacing_suffix s in
-  Style (class_name, [ padding_bottom v; padding_top v ])
+  style_with_vars class_name [ padding_block v ] (spacing_vars s)
 
 let pt' (s : spacing) =
   let class_name = "pt-" ^ pp_spacing_suffix s in
-  Style (class_name, [ padding_top (pp_spacing s) ])
+  let value = pp_spacing s in
+  style_with_vars class_name [ padding_top value ] (spacing_vars s)
 
 let pr' (s : spacing) =
   let class_name = "pr-" ^ pp_spacing_suffix s in
-  Style (class_name, [ padding_right (pp_spacing s) ])
+  let value = pp_spacing s in
+  style_with_vars class_name [ padding_right value ] (spacing_vars s)
 
 let pb' (s : spacing) =
   let class_name = "pb-" ^ pp_spacing_suffix s in
-  Style (class_name, [ padding_bottom (pp_spacing s) ])
+  let value = pp_spacing s in
+  style_with_vars class_name [ padding_bottom value ] (spacing_vars s)
 
 let pl' (s : spacing) =
   let class_name = "pl-" ^ pp_spacing_suffix s in
-  Style (class_name, [ padding_left (pp_spacing s) ])
+  let value = pp_spacing s in
+  style_with_vars class_name [ padding_left value ] (spacing_vars s)
 
 (* Int-based spacing functions (convenience wrappers) *)
 let p n = p' (int n)
@@ -1273,78 +934,83 @@ let pl_full = pl' `Full
 (* Typed margin functions with ' suffix *)
 let m' (m : margin) =
   let class_name = "m-" ^ pp_margin_suffix m in
-  Style (class_name, [ margin (pp_margin m) ])
+  let value = pp_margin m in
+  style_with_vars class_name [ margin value ] (margin_vars m)
 
 let mx' (m : margin) =
   let v = pp_margin m in
   let class_name = "mx-" ^ pp_margin_suffix m in
-  Style (class_name, [ margin_left v; margin_right v ])
+  style_with_vars class_name [ margin_inline v ] (margin_vars m)
 
 let my' (m : margin) =
   let v = pp_margin m in
   let class_name = "my-" ^ pp_margin_suffix m in
-  Style (class_name, [ margin_bottom v; margin_top v ])
+  style_with_vars class_name [ margin_block v ] (margin_vars m)
 
 let mt' (m : margin) =
   let class_name = "mt-" ^ pp_margin_suffix m in
-  Style (class_name, [ margin_top (pp_margin m) ])
+  let value = pp_margin m in
+  style_with_vars class_name [ margin_top value ] (margin_vars m)
 
 let mr' (m : margin) =
   let class_name = "mr-" ^ pp_margin_suffix m in
-  Style (class_name, [ margin_right (pp_margin m) ])
+  let value = pp_margin m in
+  style_with_vars class_name [ margin_right value ] (margin_vars m)
 
 let mb' (m : margin) =
   let class_name = "mb-" ^ pp_margin_suffix m in
-  Style (class_name, [ margin_bottom (pp_margin m) ])
+  let value = pp_margin m in
+  style_with_vars class_name [ margin_bottom value ] (margin_vars m)
 
 let ml' (m : margin) =
   let class_name = "ml-" ^ pp_margin_suffix m in
-  Style (class_name, [ margin_left (pp_margin m) ])
+  let value = pp_margin m in
+  style_with_vars class_name [ margin_left value ] (margin_vars m)
 
 (* Int-based margin functions - now support negative values *)
 let m n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "m-" ^ pp_spacing_suffix s in
-  Style (class_name, [ margin (pp_margin s) ])
+  style class_name [ margin (pp_margin s) ]
 
 let mx n =
   let s = int n in
   let v = pp_margin s in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mx-" ^ pp_spacing_suffix s in
-  Style (class_name, [ margin_left v; margin_right v ])
+  style class_name [ margin_inline v ]
 
 let my n =
   let s = int n in
   let v = pp_margin s in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "my-" ^ pp_spacing_suffix s in
-  Style (class_name, [ margin_bottom v; margin_top v ])
+  style class_name [ margin_block v ]
 
 let mt n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mt-" ^ pp_spacing_suffix s in
-  Style (class_name, [ margin_top (pp_margin s) ])
+  style class_name [ margin_top (pp_margin s) ]
 
 let mr n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mr-" ^ pp_spacing_suffix s in
-  Style (class_name, [ margin_right (pp_margin s) ])
+  style class_name [ margin_right (pp_margin s) ]
 
 let mb n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mb-" ^ pp_spacing_suffix s in
-  Style (class_name, [ margin_bottom (pp_margin s) ])
+  style class_name [ margin_bottom (pp_margin s) ]
 
 let ml n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "ml-" ^ pp_spacing_suffix s in
-  Style (class_name, [ margin_left (pp_margin s) ])
+  style class_name [ margin_left (pp_margin s) ]
 
 (* Common margin utilities *)
 let m_auto = m' `Auto
@@ -1358,15 +1024,18 @@ let ml_auto = ml' `Auto
 (* Typed gap functions with ' suffix *)
 let gap' (s : spacing) =
   let class_name = "gap-" ^ pp_spacing_suffix s in
-  Style (class_name, [ gap (pp_spacing s) ])
+  let value = pp_spacing s in
+  style_with_vars class_name [ gap value ] (spacing_vars s)
 
 let gap_x' (s : spacing) =
   let class_name = "gap-x-" ^ pp_spacing_suffix s in
-  Style (class_name, [ column_gap (pp_spacing s) ])
+  let value = pp_spacing s in
+  style_with_vars class_name [ column_gap value ] (spacing_vars s)
 
 let gap_y' (s : spacing) =
   let class_name = "gap-y-" ^ pp_spacing_suffix s in
-  Style (class_name, [ row_gap (pp_spacing s) ])
+  let value = pp_spacing s in
+  style_with_vars class_name [ row_gap value ] (spacing_vars s)
 
 (* Int-based gap functions (convenience wrappers) *)
 let gap n = gap' (int n)
@@ -1377,32 +1046,43 @@ let gap_y n = gap_y' (int n)
 let gap_px = gap' `Px
 let gap_full = gap' `Full
 
+(* Space between utilities *)
+let space_x n =
+  let class_name = "space-x-" ^ string_of_int n in
+  style class_name [ margin_left (spacing_to_rem n) ]
+
+let space_y n =
+  let class_name = "space-y-" ^ string_of_int n in
+  style class_name [ margin_top (spacing_to_rem n) ]
+
 (** {1 Sizing} *)
 
 (* Typed scale functions with ' suffix *)
 let w' (s : scale) =
   let class_name = "w-" ^ pp_scale_suffix s in
-  Style (class_name, [ width (pp_scale s) ])
+  let value = pp_scale s in
+  style_with_vars class_name [ width value ] (scale_vars s)
 
 let h' (s : scale) =
   let class_name = "h-" ^ pp_scale_suffix s in
-  Style (class_name, [ height (pp_scale s) ])
+  let value = pp_scale s in
+  style_with_vars class_name [ height value ] (scale_vars s)
 
 let min_w' (s : scale) =
   let class_name = "min-w-" ^ pp_scale_suffix s in
-  Style (class_name, [ min_width (pp_scale s) ])
+  style class_name [ min_width (pp_scale s) ]
 
 let min_h' (s : scale) =
   let class_name = "min-h-" ^ pp_scale_suffix s in
-  Style (class_name, [ min_height (pp_scale s) ])
+  style class_name [ min_height (pp_scale s) ]
 
 let max_w' (s : max_scale) =
   let class_name = "max-w-" ^ pp_max_scale_suffix s in
-  Style (class_name, [ max_width (pp_max_scale s) ])
+  style class_name [ max_width (pp_max_scale s) ]
 
 let max_h' (s : max_scale) =
   let class_name = "max-h-" ^ pp_max_scale_suffix s in
-  Style (class_name, [ max_height (pp_max_scale s) ])
+  style class_name [ max_height (pp_max_scale s) ]
 
 (* Int-based scale functions (convenience wrappers) *)
 let w n = w' (int n)
@@ -1435,58 +1115,80 @@ let max_h_full = max_h' `Full (* Maximum height 100% *)
 
 (** {1 Typography} *)
 
-let text_xs = Style ("text-xs", [ font_size "0.75rem"; line_height "1rem" ])
-let text_sm = Style ("text-sm", [ font_size "0.875rem"; line_height "1.25rem" ])
-let text_xl = Style ("text-xl", [ font_size "1.25rem"; line_height "1.75rem" ])
-let text_2xl = Style ("text-2xl", [ font_size "1.5rem"; line_height "2rem" ])
-let text_center = Style ("text-center", [ text_align "center" ])
+let text_xs =
+  style "text-xs"
+    [
+      font_size "var(--text-xs)";
+      line_height "var(--tw-leading, var(--text-xs--line-height))";
+    ]
+
+let text_sm =
+  style "text-sm"
+    [
+      font_size "var(--text-sm)";
+      line_height "var(--tw-leading, var(--text-sm--line-height))";
+    ]
+
+let text_xl =
+  style "text-xl"
+    [
+      font_size "var(--text-xl)";
+      line_height "var(--tw-leading, var(--text-xl--line-height))";
+    ]
+
+let text_2xl =
+  style "text-2xl"
+    [
+      font_size "var(--text-2xl)";
+      line_height "var(--tw-leading, var(--text-2xl--line-height))";
+    ]
+
+let text_center = style "text-center" [ text_align "center" ]
 
 (** {1 Layout} *)
 
-let block = Style ("block", [ display "block" ])
-let inline = Style ("inline", [ display "inline" ])
-let inline_block = Style ("inline-block", [ display "inline-block" ])
-let hidden = Style ("hidden", [ display "none" ])
+let block = style "block" [ display "block" ]
+let inline = style "inline" [ display "inline" ]
+let inline_block = style "inline-block" [ display "inline-block" ]
+let hidden = style "hidden" [ display "none" ]
 
 (** {1 Flexbox} *)
 
-let flex = Style ("flex", [ display "flex" ])
-let flex_shrink_0 = Style ("flex-shrink-0", [ Css.flex_shrink "0" ])
-let flex_col = Style ("flex-col", [ flex_direction "column" ])
-let flex_row = Style ("flex-row", [ flex_direction "row" ])
-let flex_wrap = Style ("flex-wrap", [ Css.flex_wrap "wrap" ])
-
-let flex_row_reverse =
-  Style ("flex-row-reverse", [ flex_direction "row-reverse" ])
+let flex = style "flex" [ display "flex" ]
+let flex_shrink_0 = style "flex-shrink-0" [ Css.flex_shrink "0" ]
+let flex_col = style "flex-col" [ flex_direction "column" ]
+let flex_row = style "flex-row" [ flex_direction "row" ]
+let flex_wrap = style "flex-wrap" [ Css.flex_wrap "wrap" ]
+let flex_row_reverse = style "flex-row-reverse" [ flex_direction "row-reverse" ]
 
 let flex_col_reverse =
-  Style ("flex-col-reverse", [ flex_direction "column-reverse" ])
+  style "flex-col-reverse" [ flex_direction "column-reverse" ]
 
 let flex_wrap_reverse =
-  Style ("flex-wrap-reverse", [ Css.flex_wrap "wrap-reverse" ])
+  style "flex-wrap-reverse" [ Css.flex_wrap "wrap-reverse" ]
 
-let flex_nowrap = Style ("flex-nowrap", [ Css.flex_wrap "nowrap" ])
-let flex_1 = Style ("flex-1", [ Css.flex "1 1 0%" ])
-let flex_auto = Style ("flex-auto", [ Css.flex "1 1 auto" ])
-let flex_initial = Style ("flex-initial", [ Css.flex "0 1 auto" ])
-let flex_none = Style ("flex-none", [ Css.flex "none" ])
-let flex_grow = Style ("flex-grow", [ Css.flex_grow "1" ])
-let flex_grow_0 = Style ("flex-grow-0", [ Css.flex_grow "0" ])
-let flex_shrink = Style ("flex-shrink", [ Css.flex_shrink "1" ])
+let flex_nowrap = style "flex-nowrap" [ Css.flex_wrap "nowrap" ]
+let flex_1 = style "flex-1" [ Css.flex "1 1 0%" ]
+let flex_auto = style "flex-auto" [ Css.flex "1 1 auto" ]
+let flex_initial = style "flex-initial" [ Css.flex "0 1 auto" ]
+let flex_none = style "flex-none" [ Css.flex "none" ]
+let flex_grow = style "flex-grow" [ Css.flex_grow "1" ]
+let flex_grow_0 = style "flex-grow-0" [ Css.flex_grow "0" ]
+let flex_shrink = style "flex-shrink" [ Css.flex_shrink "1" ]
 
 (* center *)
 
-let items_center = Style ("items-center", [ align_items "center" ])
+let items_center = style "items-center" [ align_items "center" ]
 
 let justify_between =
-  Style ("justify-between", [ justify_content "space-between" ])
+  style "justify-between" [ justify_content "space-between" ]
 
 (** {1 Positioning} *)
 
-let relative = Style ("relative", [ position "relative" ])
-let absolute = Style ("absolute", [ position "absolute" ])
-let fixed = Style ("fixed", [ position "fixed" ])
-let sticky = Style ("sticky", [ position "sticky" ])
+let relative = style "relative" [ position "relative" ]
+let absolute = style "absolute" [ position "absolute" ]
+let fixed = style "fixed" [ position "fixed" ]
+let sticky = style "sticky" [ position "sticky" ]
 
 (* Borders *)
 
@@ -1494,226 +1196,282 @@ let sticky = Style ("sticky", [ position "sticky" ])
 
 (** {1 CSS Generation} *)
 
-let text_base = Style ("text-base", [ font_size "1rem"; line_height "1.5rem" ])
-let text_lg = Style ("text-lg", [ font_size "1.125rem"; line_height "1.75rem" ])
+let text_base =
+  style "text-base"
+    [
+      font_size "var(--text-base)";
+      line_height "var(--tw-leading, var(--text-base--line-height))";
+    ]
+
+let text_lg =
+  style "text-lg"
+    [
+      font_size "var(--text-lg)";
+      line_height "var(--tw-leading, var(--text-lg--line-height))";
+    ]
 
 let text_3xl =
-  Style ("text-3xl", [ font_size "1.875rem"; line_height "2.25rem" ])
+  style "text-3xl"
+    [
+      font_size "var(--text-3xl)";
+      line_height "var(--tw-leading, var(--text-3xl--line-height))";
+    ]
 
-let text_4xl = Style ("text-4xl", [ font_size "2.25rem"; line_height "2.5rem" ])
-let text_5xl = Style ("text-5xl", [ font_size "3rem"; line_height "1" ])
-let font_thin = Style ("font-thin", [ font_weight "100" ])
-let font_light = Style ("font-light", [ font_weight "300" ])
-let font_normal = Style ("font-normal", [ font_weight "400" ])
-let font_medium = Style ("font-medium", [ font_weight "500" ])
-let font_semibold = Style ("font-semibold", [ font_weight "600" ])
-let font_bold = Style ("font-bold", [ font_weight "700" ])
-let font_extrabold = Style ("font-extrabold", [ font_weight "800" ])
-let font_black = Style ("font-black", [ font_weight "900" ])
+let text_4xl =
+  style "text-4xl"
+    [
+      font_size "var(--text-4xl)";
+      line_height "var(--tw-leading, var(--text-4xl--line-height))";
+    ]
+
+let text_5xl =
+  style "text-5xl"
+    [
+      font_size "var(--text-5xl)";
+      line_height "var(--tw-leading, var(--text-5xl--line-height))";
+    ]
+
+let font_thin =
+  style_with_vars "font-thin"
+    [
+      Css.property "--tw-font-weight" "var(--font-weight-thin)";
+      font_weight "var(--font-weight-thin)";
+    ]
+    []
+
+let font_light =
+  style_with_vars "font-light"
+    [
+      Css.property "--tw-font-weight" "var(--font-weight-light)";
+      font_weight "var(--font-weight-light)";
+    ]
+    []
+
+let font_normal =
+  style_with_vars "font-normal"
+    [
+      Css.property "--tw-font-weight" "var(--font-weight-normal)";
+      font_weight "var(--font-weight-normal)";
+    ]
+    []
+
+let font_medium =
+  style_with_vars "font-medium"
+    [
+      Css.property "--tw-font-weight" "var(--font-weight-medium)";
+      font_weight "var(--font-weight-medium)";
+    ]
+    []
+
+let font_semibold =
+  style_with_vars "font-semibold"
+    [
+      Css.property "--tw-font-weight" "var(--font-weight-semibold)";
+      font_weight "var(--font-weight-semibold)";
+    ]
+    []
+
+let font_bold =
+  style_with_vars "font-bold"
+    [
+      Css.property "--tw-font-weight" "var(--font-weight-bold)";
+      font_weight "var(--font-weight-bold)";
+    ]
+    []
+
+let font_extrabold =
+  style_with_vars "font-extrabold"
+    [
+      Css.property "--tw-font-weight" "var(--font-weight-extrabold)";
+      font_weight "var(--font-weight-extrabold)";
+    ]
+    []
+
+let font_black =
+  style_with_vars "font-black"
+    [
+      Css.property "--tw-font-weight" "var(--font-weight-black)";
+      font_weight "var(--font-weight-black)";
+    ]
+    []
 
 (* Font family utilities *)
-let font_sans =
-  Style
-    ( "font-sans",
-      [
-        font_family
-          "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe \
-           UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, \
-           'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto \
-           Color Emoji'";
-      ] )
-
-let font_serif =
-  Style
-    ( "font-serif",
-      [
-        font_family
-          "ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif";
-      ] )
-
-let font_mono =
-  Style
-    ( "font-mono",
-      [
-        font_family
-          "ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation \
-           Mono', Menlo, monospace";
-      ] )
-
-let italic = Style ("italic", [ font_style "italic" ])
-let not_italic = Style ("not-italic", [ font_style "normal" ])
-let underline = Style ("underline", [ text_decoration "underline" ])
-let line_through = Style ("line-through", [ text_decoration "line-through" ])
-let no_underline = Style ("no-underline", [ text_decoration "none" ])
-let text_left = Style ("text-left", [ text_align "left" ])
-let text_right = Style ("text-right", [ text_align "right" ])
-let text_justify = Style ("text-justify", [ text_align "justify" ])
-let leading_none = Style ("leading-none", [ line_height "1" ])
-let leading_tight = Style ("leading-tight", [ line_height "1.25" ])
-let leading_snug = Style ("leading-snug", [ line_height "1.375" ])
-let leading_normal = Style ("leading-normal", [ line_height "1.5" ])
-let leading_relaxed = Style ("leading-relaxed", [ line_height "1.625" ])
-let leading_loose = Style ("leading-loose", [ line_height "2" ])
-let leading_6 = Style ("leading-6", [ line_height "1.5rem" ])
-let tracking_tighter = Style ("tracking-tighter", [ letter_spacing "-0.05em" ])
-let tracking_tight = Style ("tracking-tight", [ letter_spacing "-0.025em" ])
-let tracking_normal = Style ("tracking-normal", [ letter_spacing "0" ])
-let tracking_wide = Style ("tracking-wide", [ letter_spacing "0.025em" ])
-let tracking_wider = Style ("tracking-wider", [ letter_spacing "0.05em" ])
-let tracking_widest = Style ("tracking-widest", [ letter_spacing "0.1em" ])
-let whitespace_normal = Style ("whitespace-normal", [ white_space "normal" ])
-let whitespace_nowrap = Style ("whitespace-nowrap", [ white_space "nowrap" ])
-let whitespace_pre = Style ("whitespace-pre", [ white_space "pre" ])
-
-let whitespace_pre_line =
-  Style ("whitespace-pre-line", [ white_space "pre-line" ])
-
-let whitespace_pre_wrap =
-  Style ("whitespace-pre-wrap", [ white_space "pre-wrap" ])
-
-let inline_flex = Style ("inline-flex", [ display "inline-flex" ])
-let grid = Style ("grid", [ display "grid" ])
-let inline_grid = Style ("inline-grid", [ display "inline-grid" ])
-let items_start = Style ("items-start", [ align_items "flex-start" ])
-let items_end = Style ("items-end", [ align_items "flex-end" ])
-let items_baseline = Style ("items-baseline", [ align_items "baseline" ])
-let items_stretch = Style ("items-stretch", [ align_items "stretch" ])
-let justify_start = Style ("justify-start", [ justify_content "flex-start" ])
-let justify_end = Style ("justify-end", [ justify_content "flex-end" ])
-let justify_center = Style ("justify-center", [ justify_content "center" ])
-let justify_around = Style ("justify-around", [ justify_content "space-around" ])
-let justify_evenly = Style ("justify-evenly", [ justify_content "space-evenly" ])
+let font_sans = style "font-sans" [ font_family "var(--font-sans)" ]
+let font_serif = style "font-serif" [ font_family "var(--font-serif)" ]
+let font_mono = style "font-mono" [ font_family "var(--font-mono)" ]
+let italic = style "italic" [ font_style "italic" ]
+let not_italic = style "not-italic" [ font_style "normal" ]
+let underline = style "underline" [ text_decoration "underline" ]
+let line_through = style "line-through" [ text_decoration "line-through" ]
+let no_underline = style "no-underline" [ text_decoration "none" ]
+let text_left = style "text-left" [ text_align "left" ]
+let text_right = style "text-right" [ text_align "right" ]
+let text_justify = style "text-justify" [ text_align "justify" ]
+let leading_none = style "leading-none" [ line_height "1" ]
+let leading_tight = style "leading-tight" [ line_height "1.25" ]
+let leading_snug = style "leading-snug" [ line_height "1.375" ]
+let leading_normal = style "leading-normal" [ line_height "1.5" ]
+let leading_relaxed = style "leading-relaxed" [ line_height "1.625" ]
+let leading_loose = style "leading-loose" [ line_height "2" ]
+let leading_6 = style "leading-6" [ line_height "1.5rem" ]
+let tracking_tighter = style "tracking-tighter" [ letter_spacing "-0.05em" ]
+let tracking_tight = style "tracking-tight" [ letter_spacing "-0.025em" ]
+let tracking_normal = style "tracking-normal" [ letter_spacing "0" ]
+let tracking_wide = style "tracking-wide" [ letter_spacing "0.025em" ]
+let tracking_wider = style "tracking-wider" [ letter_spacing "0.05em" ]
+let tracking_widest = style "tracking-widest" [ letter_spacing "0.1em" ]
+let whitespace_normal = style "whitespace-normal" [ white_space "normal" ]
+let whitespace_nowrap = style "whitespace-nowrap" [ white_space "nowrap" ]
+let whitespace_pre = style "whitespace-pre" [ white_space "pre" ]
+let whitespace_pre_line = style "whitespace-pre-line" [ white_space "pre-line" ]
+let whitespace_pre_wrap = style "whitespace-pre-wrap" [ white_space "pre-wrap" ]
+let inline_flex = style "inline-flex" [ display "inline-flex" ]
+let grid = style "grid" [ display "grid" ]
+let inline_grid = style "inline-grid" [ display "inline-grid" ]
+let items_start = style "items-start" [ align_items "flex-start" ]
+let items_end = style "items-end" [ align_items "flex-end" ]
+let items_baseline = style "items-baseline" [ align_items "baseline" ]
+let items_stretch = style "items-stretch" [ align_items "stretch" ]
+let justify_start = style "justify-start" [ justify_content "flex-start" ]
+let justify_end = style "justify-end" [ justify_content "flex-end" ]
+let justify_center = style "justify-center" [ justify_content "center" ]
+let justify_around = style "justify-around" [ justify_content "space-around" ]
+let justify_evenly = style "justify-evenly" [ justify_content "space-evenly" ]
 
 (* Align content utilities - for multi-line flex/grid containers *)
-let content_start = Style ("content-start", [ Css.align_content "flex-start" ])
-let content_end = Style ("content-end", [ Css.align_content "flex-end" ])
-let content_center = Style ("content-center", [ Css.align_content "center" ])
+let content_start = style "content-start" [ Css.align_content "flex-start" ]
+let content_end = style "content-end" [ Css.align_content "flex-end" ]
+let content_center = style "content-center" [ Css.align_content "center" ]
 
 let content_between =
-  Style ("content-between", [ Css.align_content "space-between" ])
+  style "content-between" [ Css.align_content "space-between" ]
 
-let content_around =
-  Style ("content-around", [ Css.align_content "space-around" ])
-
-let content_evenly =
-  Style ("content-evenly", [ Css.align_content "space-evenly" ])
-
-let content_stretch = Style ("content-stretch", [ Css.align_content "stretch" ])
+let content_around = style "content-around" [ Css.align_content "space-around" ]
+let content_evenly = style "content-evenly" [ Css.align_content "space-evenly" ]
+let content_stretch = style "content-stretch" [ Css.align_content "stretch" ]
 
 (* Place content utilities - shorthand for align-content and justify-content in
    Grid *)
 let place_content_start =
-  Style ("place-content-start", [ Css.place_content "start" ])
+  style "place-content-start" [ Css.place_content "start" ]
 
-let place_content_end = Style ("place-content-end", [ Css.place_content "end" ])
+let place_content_end = style "place-content-end" [ Css.place_content "end" ]
 
 let place_content_center =
-  Style ("place-content-center", [ Css.place_content "center" ])
+  style "place-content-center" [ Css.place_content "center" ]
 
 let place_content_between =
-  Style ("place-content-between", [ Css.place_content "space-between" ])
+  style "place-content-between" [ Css.place_content "space-between" ]
 
 let place_content_around =
-  Style ("place-content-around", [ Css.place_content "space-around" ])
+  style "place-content-around" [ Css.place_content "space-around" ]
 
 let place_content_evenly =
-  Style ("place-content-evenly", [ Css.place_content "space-evenly" ])
+  style "place-content-evenly" [ Css.place_content "space-evenly" ]
 
 let place_content_stretch =
-  Style ("place-content-stretch", [ Css.place_content "stretch" ])
+  style "place-content-stretch" [ Css.place_content "stretch" ]
 
 (* Place items utilities - shorthand for align-items and justify-items in
    Grid *)
-let place_items_start = Style ("place-items-start", [ Css.place_items "start" ])
-let place_items_end = Style ("place-items-end", [ Css.place_items "end" ])
-
-let place_items_center =
-  Style ("place-items-center", [ Css.place_items "center" ])
+let place_items_start = style "place-items-start" [ Css.place_items "start" ]
+let place_items_end = style "place-items-end" [ Css.place_items "end" ]
+let place_items_center = style "place-items-center" [ Css.place_items "center" ]
 
 let place_items_stretch =
-  Style ("place-items-stretch", [ Css.place_items "stretch" ])
+  style "place-items-stretch" [ Css.place_items "stretch" ]
 
 (* Place self utilities - shorthand for align-self and justify-self *)
-let place_self_auto = Style ("place-self-auto", [ Css.place_self "auto" ])
-let place_self_start = Style ("place-self-start", [ Css.place_self "start" ])
-let place_self_end = Style ("place-self-end", [ Css.place_self "end" ])
-let place_self_center = Style ("place-self-center", [ Css.place_self "center" ])
-
-let place_self_stretch =
-  Style ("place-self-stretch", [ Css.place_self "stretch" ])
+let place_self_auto = style "place-self-auto" [ Css.place_self "auto" ]
+let place_self_start = style "place-self-start" [ Css.place_self "start" ]
+let place_self_end = style "place-self-end" [ Css.place_self "end" ]
+let place_self_center = style "place-self-center" [ Css.place_self "center" ]
+let place_self_stretch = style "place-self-stretch" [ Css.place_self "stretch" ]
 
 (* Align self utilities *)
-let self_auto = Style ("self-auto", [ Css.align_self "auto" ])
-let self_start = Style ("self-start", [ Css.align_self "flex-start" ])
-let self_end = Style ("self-end", [ Css.align_self "flex-end" ])
-let self_center = Style ("self-center", [ Css.align_self "center" ])
-let self_baseline = Style ("self-baseline", [ Css.align_self "baseline" ])
-let self_stretch = Style ("self-stretch", [ Css.align_self "stretch" ])
+let self_auto = style "self-auto" [ Css.align_self "auto" ]
+let self_start = style "self-start" [ Css.align_self "flex-start" ]
+let self_end = style "self-end" [ Css.align_self "flex-end" ]
+let self_center = style "self-center" [ Css.align_self "center" ]
+let self_baseline = style "self-baseline" [ Css.align_self "baseline" ]
+let self_stretch = style "self-stretch" [ Css.align_self "stretch" ]
 
 (* Justify self utilities - for Grid items *)
-let justify_self_auto = Style ("justify-self-auto", [ Css.justify_self "auto" ])
-
-let justify_self_start =
-  Style ("justify-self-start", [ Css.justify_self "start" ])
-
-let justify_self_end = Style ("justify-self-end", [ Css.justify_self "end" ])
+let justify_self_auto = style "justify-self-auto" [ Css.justify_self "auto" ]
+let justify_self_start = style "justify-self-start" [ Css.justify_self "start" ]
+let justify_self_end = style "justify-self-end" [ Css.justify_self "end" ]
 
 let justify_self_center =
-  Style ("justify-self-center", [ Css.justify_self "center" ])
+  style "justify-self-center" [ Css.justify_self "center" ]
 
 let justify_self_stretch =
-  Style ("justify-self-stretch", [ Css.justify_self "stretch" ])
+  style "justify-self-stretch" [ Css.justify_self "stretch" ]
 
 let grid_cols n =
   let class_name = "grid-cols-" ^ string_of_int n in
-  Style
-    ( class_name,
-      [
-        grid_template_columns ("repeat(" ^ string_of_int n ^ ", minmax(0, 1fr))");
-      ] )
+  style class_name
+    [
+      grid_template_columns ("repeat(" ^ string_of_int n ^ ", minmax(0, 1fr))");
+    ]
 
 let grid_rows n =
   let class_name = "grid-rows-" ^ string_of_int n in
-  Style
-    ( class_name,
-      [ grid_template_rows ("repeat(" ^ string_of_int n ^ ", minmax(0, 1fr))") ]
-    )
+  style class_name
+    [ grid_template_rows ("repeat(" ^ string_of_int n ^ ", minmax(0, 1fr))") ]
 
-let static = Style ("static", [ position "static" ])
-let inset_0 = Style ("inset-0", [ top "0"; right "0"; bottom "0"; left "0" ])
-let inset_x_0 = Style ("inset-x-0", [ left "0"; right "0" ])
-let inset_y_0 = Style ("inset-y-0", [ bottom "0"; top "0" ])
+let static = style "static" [ position "static" ]
+let inset_0 = style "inset-0" [ top "0"; right "0"; bottom "0"; left "0" ]
+let inset_x_0 = style "inset-x-0" [ left "0"; right "0" ]
+let inset_y_0 = style "inset-y-0" [ bottom "0"; top "0" ]
 
 let top n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "top-" ^ string_of_int (abs n) in
-  Style (class_name, [ top (spacing_to_rem n) ])
+  style class_name [ top (spacing_to_rem n) ]
 
 let right n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "right-" ^ string_of_int (abs n) in
-  Style (class_name, [ right (spacing_to_rem n) ])
+  style class_name [ right (spacing_to_rem n) ]
 
 let bottom n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "bottom-" ^ string_of_int (abs n) in
-  Style (class_name, [ bottom (spacing_to_rem n) ])
+  style class_name [ bottom (spacing_to_rem n) ]
 
 let left n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "left-" ^ string_of_int (abs n) in
-  Style (class_name, [ left (spacing_to_rem n) ])
+  style class_name [ left (spacing_to_rem n) ]
 
 let z n =
   let class_name = "z-" ^ string_of_int n in
-  Style (class_name, [ z_index (string_of_int n) ])
+  style class_name [ z_index (string_of_int n) ]
+
+(* Inset utilities *)
+let inset n =
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "inset-" ^ string_of_int (abs n) in
+  let value = spacing_to_rem n in
+  style class_name
+    [ Css.top value; Css.right value; Css.bottom value; Css.left value ]
+
+(* Fractional position utilities *)
+let top_1_2 = style "top-1/2" [ Css.top "50%" ]
+let left_1_2 = style "left-1/2" [ Css.left "50%" ]
+
+let neg_translate_x_1_2 =
+  style "-translate-x-1/2" [ transform "translateX(-50%)" ]
+
+let neg_translate_y_1_2 =
+  style "-translate-y-1/2" [ transform "translateY(-50%)" ]
 
 type width = size
 
 let border_internal (w : width) =
   let width_px, class_suffix =
     match w with
-    | `None -> ("0", "-0")
+    | `None -> ("0px", "-0")
     | `Xs -> ("1px", "" (* Default border is 1px *))
     | `Sm -> ("2px", "-2")
     | `Md -> ("4px", "-4" (* For borders, Md maps to 4px *))
@@ -1724,7 +1482,8 @@ let border_internal (w : width) =
     | `Full -> ("8px", "-8")
   in
   let class_name = "border" ^ class_suffix in
-  Style (class_name, [ border_width width_px ])
+  style class_name
+    [ border_style "var(--tw-border-style)"; border_width width_px ]
 
 let border_none = border_internal `None
 let border_xs = border_internal `Xs
@@ -1736,10 +1495,31 @@ let border_xl = border_internal `Xl
 let border_2xl = border_internal `Xl_2
 let border_3xl = border_internal `Xl_3
 let border_full = border_internal `Full
-let border_t = Style ("border-t", [ border_top_width "1px" ])
-let border_r = Style ("border-r", [ border_right_width "1px" ])
-let border_b = Style ("border-b", [ border_bottom_width "1px" ])
-let border_l = Style ("border-l", [ border_left_width "1px" ])
+let border_t = style "border-t" [ border_top_width "1px" ]
+let border_r = style "border-r" [ border_right_width "1px" ]
+let border_b = style "border-b" [ border_bottom_width "1px" ]
+let border_l = style "border-l" [ border_left_width "1px" ]
+
+(* Border styles *)
+let border_solid =
+  style "border-solid"
+    [ Css.property "--tw-border-style" "solid"; border_style "solid" ]
+
+let border_dashed =
+  style "border-dashed"
+    [ Css.property "--tw-border-style" "dashed"; border_style "dashed" ]
+
+let border_dotted =
+  style "border-dotted"
+    [ Css.property "--tw-border-style" "dotted"; border_style "dotted" ]
+
+let border_double =
+  style "border-double"
+    [ Css.property "--tw-border-style" "double"; border_style "double" ]
+
+let border_none_style =
+  style "border-none"
+    [ Css.property "--tw-border-style" "none"; border_style "none" ]
 
 let rounded_value : size -> string = function
   | `None -> "0"
@@ -1765,7 +1545,13 @@ let pp_rounded_suffix : size -> string = function
 
 let rounded_internal r =
   let class_name = "rounded-" ^ pp_rounded_suffix r in
-  Style (class_name, [ border_radius (rounded_value r) ])
+  let var_name =
+    match r with
+    | `None -> "0" (* rounded-none uses 0 directly *)
+    | `Full -> "calc(infinity * 1px)" (* rounded-full uses infinity in v4 *)
+    | _ -> "var(--radius-" ^ pp_rounded_suffix r ^ ")"
+  in
+  style class_name [ border_radius var_name ]
 
 let rounded_none = rounded_internal `None
 let rounded_sm = rounded_internal `Sm
@@ -1779,17 +1565,22 @@ let rounded_full = rounded_internal `Full
 
 let shadow_value : shadow -> string = function
   | `None -> "0 0 #0000"
-  | `Sm -> "0 1px 2px 0 #0000000d" (* rgba(0,0,0,0.05) = #0000000d *)
+  | `Sm ->
+      "0 1px 3px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 1px 2px -1px \
+       var(--tw-shadow-color, rgb(0 0 0 / 0.1))"
   | `Md ->
-      "0 4px 6px -1px #0000001a,0 2px 4px -2px #0000000f" (* 0.1 and 0.06 *)
+      "0 4px 6px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 2px 4px -2px \
+       var(--tw-shadow-color, rgb(0 0 0 / 0.1))"
   | `Lg ->
-      "0 10px 15px -3px #0000001a,0 4px 6px -4px #0000000d" (* 0.1 and 0.05 *)
+      "0 10px 15px -3px var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 4px 6px \
+       -4px var(--tw-shadow-color, rgb(0 0 0 / 0.1))"
   | `Xl ->
-      "0 20px 25px -5px #0000001a,0 8px 10px -6px #0000000a" (* 0.1 and 0.04 *)
-  | `Xl_2 -> "0 25px 50px -12px #00000040" (* 0.25 *)
-  | `Inner -> "inset 0 2px 4px 0 #0000000f" (* 0.06 *)
-  | `Xs -> "0 1px 1px 0 #0000000a" (* extra small *)
-  | `Xl_3 -> "0 35px 60px -15px #00000059" (* extra extra large *)
+      "0 20px 25px -5px var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 8px 10px \
+       -6px var(--tw-shadow-color, rgb(0 0 0 / 0.1))"
+  | `Xl_2 -> "0 25px 50px -12px var(--tw-shadow-color, rgb(0 0 0 / 0.25))"
+  | `Inner -> "inset 0 2px 4px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.06))"
+  | `Xs -> "0 1px 1px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.05))"
+  | `Xl_3 -> "0 35px 60px -15px var(--tw-shadow-color, rgb(0 0 0 / 0.35))"
   | `Full -> "0 0 0 0 #0000" (* no shadow, same as none *)
 
 let pp_shadow_suffix : shadow -> string = function
@@ -1824,20 +1615,13 @@ let shadow_colored_value : shadow -> string = function
 
 let shadow_internal s =
   let class_name = "shadow-" ^ pp_shadow_suffix s in
-  (* For modern Tailwind, shadows use CSS custom properties *)
-  (* Note: Tailwind will automatically merge the box-shadow property for classes that share it *)
-  let custom_props =
-    [
-      property "--tw-shadow" (shadow_value s);
-      property "--tw-shadow-colored" (shadow_colored_value s);
-    ]
-  in
+  let custom_props = [ property "--tw-shadow" (shadow_value s) ] in
   let box_shadow_prop =
     box_shadow
-      "var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 \
-       #0000),var(--tw-shadow)"
+      "var(--tw-inset-shadow), var(--tw-inset-ring-shadow), \
+       var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)"
   in
-  Style (class_name, custom_props @ [ box_shadow_prop ])
+  style class_name (custom_props @ [ box_shadow_prop ])
 
 let shadow_none = shadow_internal `None
 let shadow_sm = shadow_internal `Sm
@@ -1855,51 +1639,46 @@ let opacity n =
     else if n = 100 then "1"
     else Pp.float (float_of_int n /. 100.0)
   in
-  Style (class_name, [ opacity value ])
+  style class_name [ opacity value ]
 
-let transition_none = Style ("transition-none", [ transition "none" ])
+let transition_none = style "transition-none" [ transition "none" ]
 
 let transition_all =
-  Style
-    ("transition-all", [ transition "all 150ms cubic-bezier(0.4, 0, 0.2, 1)" ])
+  style "transition-all" [ transition "all 150ms cubic-bezier(0.4, 0, 0.2, 1)" ]
 
 let transition_colors =
-  Style
-    ( "transition-colors",
-      [
-        transition
-          "background-color, border-color, color, fill, stroke 150ms \
-           cubic-bezier(0.4, 0, 0.2, 1)";
-      ] )
+  style "transition-colors"
+    [
+      transition
+        "background-color, border-color, color, fill, stroke 150ms \
+         cubic-bezier(0.4, 0, 0.2, 1)";
+    ]
 
 let transition_opacity =
-  Style
-    ( "transition-opacity",
-      [ transition "opacity 150ms cubic-bezier(0.4, 0, 0.2, 1)" ] )
+  style "transition-opacity"
+    [ transition "opacity 150ms cubic-bezier(0.4, 0, 0.2, 1)" ]
 
 let transition_shadow =
-  Style
-    ( "transition-shadow",
-      [ transition "box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1)" ] )
+  style "transition-shadow"
+    [ transition "box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1)" ]
 
 let transition_transform =
-  Style
-    ( "transition-transform",
-      [ transition "transform 150ms cubic-bezier(0.4, 0, 0.2, 1)" ] )
+  style "transition-transform"
+    [ transition "transform 150ms cubic-bezier(0.4, 0, 0.2, 1)" ]
 
 let rotate n =
   let class_name = "rotate-" ^ string_of_int n in
-  Style (class_name, [ transform ("rotate(" ^ string_of_int n ^ "deg)") ])
+  style class_name [ transform ("rotate(" ^ string_of_int n ^ "deg)") ]
 
 let translate_x n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "translate-x-" ^ string_of_int (abs n) in
-  Style (class_name, [ transform ("translateX(" ^ spacing_to_rem n ^ ")") ])
+  style class_name [ transform ("translateX(" ^ spacing_to_rem n ^ ")") ]
 
 let translate_y n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "translate-y-" ^ string_of_int (abs n) in
-  Style (class_name, [ transform ("translateY(" ^ spacing_to_rem n ^ ")") ])
+  style class_name [ transform ("translateY(" ^ spacing_to_rem n ^ ")") ]
 
 (** 3D Transform utilities - inspired by modern CSS capabilities
 
@@ -1912,70 +1691,69 @@ let translate_y n =
 let rotate_x n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "rotate-x-" ^ string_of_int (abs n) in
-  Style (class_name, [ transform ("rotateX(" ^ string_of_int n ^ "deg)") ])
+  style class_name [ transform ("rotateX(" ^ string_of_int n ^ "deg)") ]
 
 let rotate_y n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "rotate-y-" ^ string_of_int (abs n) in
-  Style (class_name, [ transform ("rotateY(" ^ string_of_int n ^ "deg)") ])
+  style class_name [ transform ("rotateY(" ^ string_of_int n ^ "deg)") ]
 
 let rotate_z n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "rotate-z-" ^ string_of_int (abs n) in
-  Style (class_name, [ transform ("rotateZ(" ^ string_of_int n ^ "deg)") ])
+  style class_name [ transform ("rotateZ(" ^ string_of_int n ^ "deg)") ]
 
 let translate_z n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "translate-z-" ^ string_of_int (abs n) in
-  Style (class_name, [ transform ("translateZ(" ^ string_of_int n ^ "px)") ])
+  style class_name [ transform ("translateZ(" ^ string_of_int n ^ "px)") ]
 
 let scale_z n =
   let value = float_of_int n /. 100.0 in
   let class_name = "scale-z-" ^ string_of_int n in
-  Style
-    ( class_name,
-      [
-        property "--tw-scale-z" (Pp.float value);
-        transform
-          "translate(var(--tw-translate-x), var(--tw-translate-y)) \
-           translateZ(var(--tw-translate-z, 0)) rotate(var(--tw-rotate)) \
-           rotateX(var(--tw-rotate-x, 0)) rotateY(var(--tw-rotate-y, 0)) \
-           rotateZ(var(--tw-rotate-z, 0)) skewX(var(--tw-skew-x)) \
-           skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) \
-           scaleY(var(--tw-scale-y)) scaleZ(var(--tw-scale-z, 1))";
-      ] )
+  style class_name
+    [
+      property "--tw-scale-z" (Pp.float value);
+      transform
+        "translate(var(--tw-translate-x), var(--tw-translate-y)) \
+         translateZ(var(--tw-translate-z, 0)) rotate(var(--tw-rotate)) \
+         rotateX(var(--tw-rotate-x, 0)) rotateY(var(--tw-rotate-y, 0)) \
+         rotateZ(var(--tw-rotate-z, 0)) skewX(var(--tw-skew-x)) \
+         skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) \
+         scaleY(var(--tw-scale-y)) scaleZ(var(--tw-scale-z, 1))";
+    ]
 
 let perspective n =
   let class_name = "perspective-" ^ string_of_int n in
   let value = if n = 0 then "none" else string_of_int n ^ "px" in
-  Style (class_name, [ property "perspective" value ])
+  style class_name [ property "perspective" value ]
 
 let perspective_origin_center =
-  Style ("perspective-origin-center", [ property "perspective-origin" "center" ])
+  style "perspective-origin-center" [ property "perspective-origin" "center" ]
 
 let perspective_origin_top =
-  Style ("perspective-origin-top", [ property "perspective-origin" "top" ])
+  style "perspective-origin-top" [ property "perspective-origin" "top" ]
 
 let perspective_origin_bottom =
-  Style ("perspective-origin-bottom", [ property "perspective-origin" "bottom" ])
+  style "perspective-origin-bottom" [ property "perspective-origin" "bottom" ]
 
 let perspective_origin_left =
-  Style ("perspective-origin-left", [ property "perspective-origin" "left" ])
+  style "perspective-origin-left" [ property "perspective-origin" "left" ]
 
 let perspective_origin_right =
-  Style ("perspective-origin-right", [ property "perspective-origin" "right" ])
+  style "perspective-origin-right" [ property "perspective-origin" "right" ]
 
 let transform_style_3d =
-  Style ("transform-style-3d", [ property "transform-style" "preserve-3d" ])
+  style "transform-style-3d" [ property "transform-style" "preserve-3d" ]
 
 let transform_style_flat =
-  Style ("transform-style-flat", [ property "transform-style" "flat" ])
+  style "transform-style-flat" [ property "transform-style" "flat" ]
 
 let backface_visible =
-  Style ("backface-visible", [ property "backface-visibility" "visible" ])
+  style "backface-visible" [ property "backface-visibility" "visible" ]
 
 let backface_hidden =
-  Style ("backface-hidden", [ property "backface-visibility" "hidden" ])
+  style "backface-hidden" [ property "backface-visibility" "hidden" ]
 
 (** Container query utilities - inspired by modern CSS capabilities
 
@@ -1985,17 +1763,16 @@ let backface_hidden =
     Tailwind CSS v4 includes container queries, we implement them here as
     they're a valuable CSS feature that works well with OCaml's approach. *)
 let container_type_size =
-  Style ("container-type-size", [ property "container-type" "size" ])
+  style "container-type-size" [ property "container-type" "size" ]
 
 let container_type_inline_size =
-  Style
-    ("container-type-inline-size", [ property "container-type" "inline-size" ])
+  style "container-type-inline-size" [ property "container-type" "inline-size" ]
 
 let container_type_normal =
-  Style ("container-type-normal", [ property "container-type" "normal" ])
+  style "container-type-normal" [ property "container-type" "normal" ]
 
 let container_name name =
-  Style ("container-" ^ name, [ property "container-name" name ])
+  style ("container-" ^ name) [ property "container-name" name ]
 
 (* Container query breakpoints *)
 let on_container_sm styles =
@@ -2022,24 +1799,19 @@ let on_container ?name min_width styles =
   in
   Group (List.map (fun t -> Modified (query, t)) styles)
 
-let cursor_auto = Style ("cursor-auto", [ cursor "auto" ])
-let cursor_default = Style ("cursor-default", [ cursor "default" ])
-let cursor_pointer = Style ("cursor-pointer", [ cursor "pointer" ])
-let cursor_wait = Style ("cursor-wait", [ cursor "wait" ])
-let cursor_move = Style ("cursor-move", [ cursor "move" ])
-let cursor_not_allowed = Style ("cursor-not-allowed", [ cursor "not-allowed" ])
-let select_none = Style ("select-none", [ user_select "none" ])
-let select_text = Style ("select-text", [ user_select "text" ])
-let select_all = Style ("select-all", [ user_select "all" ])
-let select_auto = Style ("select-auto", [ user_select "auto" ])
-
-let pointer_events_none =
-  Style ("pointer-events-none", [ pointer_events "none" ])
-
-let pointer_events_auto =
-  Style ("pointer-events-auto", [ pointer_events "auto" ])
-
-let outline_none = Style ("outline-none", [ outline "none" ])
+let cursor_auto = style "cursor-auto" [ cursor "auto" ]
+let cursor_default = style "cursor-default" [ cursor "default" ]
+let cursor_pointer = style "cursor-pointer" [ cursor "pointer" ]
+let cursor_wait = style "cursor-wait" [ cursor "wait" ]
+let cursor_move = style "cursor-move" [ cursor "move" ]
+let cursor_not_allowed = style "cursor-not-allowed" [ cursor "not-allowed" ]
+let select_none = style "select-none" [ user_select "none" ]
+let select_text = style "select-text" [ user_select "text" ]
+let select_all = style "select-all" [ user_select "all" ]
+let select_auto = style "select-auto" [ user_select "auto" ]
+let pointer_events_none = style "pointer-events-none" [ pointer_events "none" ]
+let pointer_events_auto = style "pointer-events-auto" [ pointer_events "auto" ]
+let outline_none = style "outline-none" [ outline "none" ]
 
 let ring_internal (w : width) =
   let width, class_suffix =
@@ -2061,15 +1833,14 @@ let ring_internal (w : width) =
     if width = "0" then "0 0 #0000"
     else "0 0 0 " ^ width ^ " var(--tw-ring-color)"
   in
-  Style
-    ( class_name,
-      [
-        property "--tw-ring-color" "rgb(59 130 246 / 0.5)";
-        box_shadow
-          "var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 \
-           #0000),var(--tw-shadow,0 0 #0000)";
-        property "--tw-ring-shadow" shadow_value;
-      ] )
+  style class_name
+    [
+      property "--tw-ring-color" "rgb(59 130 246 / 0.5)";
+      box_shadow
+        "var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 \
+         #0000),var(--tw-shadow,0 0 #0000)";
+      property "--tw-ring-shadow" shadow_value;
+    ]
 
 let ring_none = ring_internal `None
 let ring_xs = ring_internal `Xs
@@ -2084,93 +1855,88 @@ let ring_color color shade =
     if Color.is_base_color color then Pp.str [ "ring-"; color_name color ]
     else Pp.str [ "ring-"; color_name color; "-"; string_of_int shade ]
   in
-  Style (class_name, [])
+  style class_name []
 
-let isolate = Style ("isolate", [ display "isolate" ])
-let overflow_auto = Style ("overflow-auto", [ overflow "auto" ])
-let overflow_hidden = Style ("overflow-hidden", [ overflow "hidden" ])
-let overflow_visible = Style ("overflow-visible", [ overflow "visible" ])
-let overflow_scroll = Style ("overflow-scroll", [ overflow "scroll" ])
+let isolate = style "isolate" [ display "isolate" ]
+let overflow_auto = style "overflow-auto" [ overflow "auto" ]
+let overflow_hidden = style "overflow-hidden" [ overflow "hidden" ]
+let overflow_visible = style "overflow-visible" [ overflow "visible" ]
+let overflow_scroll = style "overflow-scroll" [ overflow "scroll" ]
 
 (* Overflow variants *)
-let overflow_x_auto = Style ("overflow-x-auto", [ overflow_x "auto" ])
-let overflow_x_hidden = Style ("overflow-x-hidden", [ overflow_x "hidden" ])
-let overflow_x_visible = Style ("overflow-x-visible", [ overflow_x "visible" ])
-let overflow_x_scroll = Style ("overflow-x-scroll", [ overflow_x "scroll" ])
-let overflow_y_auto = Style ("overflow-y-auto", [ overflow_y "auto" ])
-let overflow_y_hidden = Style ("overflow-y-hidden", [ overflow_y "hidden" ])
-let overflow_y_visible = Style ("overflow-y-visible", [ overflow_y "visible" ])
-let overflow_y_scroll = Style ("overflow-y-scroll", [ overflow_y "scroll" ])
+let overflow_x_auto = style "overflow-x-auto" [ overflow_x "auto" ]
+let overflow_x_hidden = style "overflow-x-hidden" [ overflow_x "hidden" ]
+let overflow_x_visible = style "overflow-x-visible" [ overflow_x "visible" ]
+let overflow_x_scroll = style "overflow-x-scroll" [ overflow_x "scroll" ]
+let overflow_y_auto = style "overflow-y-auto" [ overflow_y "auto" ]
+let overflow_y_hidden = style "overflow-y-hidden" [ overflow_y "hidden" ]
+let overflow_y_visible = style "overflow-y-visible" [ overflow_y "visible" ]
+let overflow_y_scroll = style "overflow-y-scroll" [ overflow_y "scroll" ]
 
 (* Scroll snap utilities *)
-let snap_none = Style ("snap-none", [ scroll_snap_type "none" ])
+let snap_none = style "snap-none" [ scroll_snap_type "none" ]
 
 let snap_x =
-  Style ("snap-x", [ scroll_snap_type "x var(--tw-scroll-snap-strictness)" ])
+  style "snap-x" [ scroll_snap_type "x var(--tw-scroll-snap-strictness)" ]
 
 let snap_y =
-  Style ("snap-y", [ scroll_snap_type "y var(--tw-scroll-snap-strictness)" ])
+  style "snap-y" [ scroll_snap_type "y var(--tw-scroll-snap-strictness)" ]
 
 let snap_both =
-  Style
-    ("snap-both", [ scroll_snap_type "both var(--tw-scroll-snap-strictness)" ])
+  style "snap-both" [ scroll_snap_type "both var(--tw-scroll-snap-strictness)" ]
 
 let snap_mandatory =
-  Style
-    ("snap-mandatory", [ property "--tw-scroll-snap-strictness" "mandatory" ])
+  style "snap-mandatory" [ property "--tw-scroll-snap-strictness" "mandatory" ]
 
 let snap_proximity =
-  Style
-    ("snap-proximity", [ property "--tw-scroll-snap-strictness" "proximity" ])
+  style "snap-proximity" [ property "--tw-scroll-snap-strictness" "proximity" ]
 
-let snap_start = Style ("snap-start", [ scroll_snap_align "start" ])
-let snap_end = Style ("snap-end", [ scroll_snap_align "end" ])
-let snap_center = Style ("snap-center", [ scroll_snap_align "center" ])
-let snap_align_none = Style ("snap-align-none", [ scroll_snap_align "none" ])
-let snap_normal = Style ("snap-normal", [ scroll_snap_stop "normal" ])
-let snap_always = Style ("snap-always", [ scroll_snap_stop "always" ])
-let scroll_auto = Style ("scroll-auto", [ scroll_behavior "auto" ])
-let scroll_smooth = Style ("scroll-smooth", [ scroll_behavior "smooth" ])
-let object_contain = Style ("object-contain", [ object_fit "contain" ])
-let object_cover = Style ("object-cover", [ object_fit "cover" ])
-let object_fill = Style ("object-fill", [ object_fit "fill" ])
-let object_none = Style ("object-none", [ object_fit "none" ])
-let object_scale_down = Style ("object-scale-down", [ object_fit "scale-down" ])
+let snap_start = style "snap-start" [ scroll_snap_align "start" ]
+let snap_end = style "snap-end" [ scroll_snap_align "end" ]
+let snap_center = style "snap-center" [ scroll_snap_align "center" ]
+let snap_align_none = style "snap-align-none" [ scroll_snap_align "none" ]
+let snap_normal = style "snap-normal" [ scroll_snap_stop "normal" ]
+let snap_always = style "snap-always" [ scroll_snap_stop "always" ]
+let scroll_auto = style "scroll-auto" [ scroll_behavior "auto" ]
+let scroll_smooth = style "scroll-smooth" [ scroll_behavior "smooth" ]
+let object_contain = style "object-contain" [ object_fit "contain" ]
+let object_cover = style "object-cover" [ object_fit "cover" ]
+let object_fill = style "object-fill" [ object_fit "fill" ]
+let object_none = style "object-none" [ object_fit "none" ]
+let object_scale_down = style "object-scale-down" [ object_fit "scale-down" ]
 
 let sr_only =
-  Style
-    ( "sr-only",
-      [
-        position "absolute";
-        width "1px";
-        height "1px";
-        padding "0";
-        margin "-1px";
-        overflow "hidden";
-        clip "rect(0, 0, 0, 0)";
-        white_space "nowrap";
-        border_width "0";
-      ] )
+  style "sr-only"
+    [
+      position "absolute";
+      width "1px";
+      height "1px";
+      padding "0";
+      margin "-1px";
+      overflow "hidden";
+      clip "rect(0, 0, 0, 0)";
+      white_space "nowrap";
+      border_width "0";
+    ]
 
 let not_sr_only =
-  Style
-    ( "not-sr-only",
-      [
-        position "static";
-        width "auto";
-        height "auto";
-        padding "0";
-        margin "0";
-        overflow "visible";
-        clip "auto";
-        white_space "normal";
-      ] )
+  style "not-sr-only"
+    [
+      position "static";
+      width "auto";
+      height "auto";
+      padding "0";
+      margin "0";
+      overflow "visible";
+      clip "auto";
+      white_space "normal";
+    ]
 
 (* Responsive and state modifiers *)
 
 let focus_visible =
-  Style
-    ("focus-visible", [ outline "2px solid transparent"; outline_offset "2px" ])
+  style "focus-visible"
+    [ outline "2px solid transparent"; outline_offset "2px" ]
 
 (* New on_ style modifiers that take lists *)
 let on_hover styles = Group (List.map (fun t -> Modified (Hover, t)) styles)
@@ -2278,61 +2044,46 @@ let on_2xl styles =
   Group (List.map (fun t -> Modified (Responsive `Xl_2, t)) styles)
 
 let bg_gradient_to_b =
-  Style
-    ( "bg-gradient-to-b",
-      [
-        background_image "linear-gradient(to bottom, var(--tw-gradient-stops))";
-      ] )
+  style "bg-gradient-to-b"
+    [ background_image "linear-gradient(to bottom, var(--tw-gradient-stops))" ]
 
 let bg_gradient_to_br =
-  Style
-    ( "bg-gradient-to-br",
-      [
-        background_image
-          "linear-gradient(to bottom right, var(--tw-gradient-stops))";
-      ] )
+  style "bg-gradient-to-br"
+    [
+      background_image
+        "linear-gradient(to bottom right, var(--tw-gradient-stops))";
+    ]
 
 let bg_gradient_to_t =
-  Style
-    ( "bg-gradient-to-t",
-      [ background_image "linear-gradient(to top, var(--tw-gradient-stops))" ]
-    )
+  style "bg-gradient-to-t"
+    [ background_image "linear-gradient(to top, var(--tw-gradient-stops))" ]
 
 let bg_gradient_to_tr =
-  Style
-    ( "bg-gradient-to-tr",
-      [
-        background_image
-          "linear-gradient(to top right, var(--tw-gradient-stops))";
-      ] )
+  style "bg-gradient-to-tr"
+    [
+      background_image "linear-gradient(to top right, var(--tw-gradient-stops))";
+    ]
 
 let bg_gradient_to_r =
-  Style
-    ( "bg-gradient-to-r",
-      [ background_image "linear-gradient(to right, var(--tw-gradient-stops))" ]
-    )
+  style "bg-gradient-to-r"
+    [ background_image "linear-gradient(to right, var(--tw-gradient-stops))" ]
 
 let bg_gradient_to_bl =
-  Style
-    ( "bg-gradient-to-bl",
-      [
-        background_image
-          "linear-gradient(to bottom left, var(--tw-gradient-stops))";
-      ] )
+  style "bg-gradient-to-bl"
+    [
+      background_image
+        "linear-gradient(to bottom left, var(--tw-gradient-stops))";
+    ]
 
 let bg_gradient_to_l =
-  Style
-    ( "bg-gradient-to-l",
-      [ background_image "linear-gradient(to left, var(--tw-gradient-stops))" ]
-    )
+  style "bg-gradient-to-l"
+    [ background_image "linear-gradient(to left, var(--tw-gradient-stops))" ]
 
 let bg_gradient_to_tl =
-  Style
-    ( "bg-gradient-to-tl",
-      [
-        background_image
-          "linear-gradient(to top left, var(--tw-gradient-stops))";
-      ] )
+  style "bg-gradient-to-tl"
+    [
+      background_image "linear-gradient(to top left, var(--tw-gradient-stops))";
+    ]
 
 (** Gradient color stops *)
 let from_color ?(shade = 500) color =
@@ -2342,15 +2093,14 @@ let from_color ?(shade = 500) color =
       "from-" ^ color_name color
     else Pp.str [ "from-"; color_name color; "-"; string_of_int shade ]
   in
-  Style
-    ( class_name,
-      [
-        property "--tw-gradient-from"
-          (Pp.str [ "rgb("; rgb; " / var(--tw-from-opacity, 1))" ]);
-        property "--tw-gradient-to" (Pp.str [ "rgb("; rgb; " / 0)" ]);
-        property "--tw-gradient-stops"
-          "var(--tw-gradient-from), var(--tw-gradient-to)";
-      ] )
+  style class_name
+    [
+      property "--tw-gradient-from"
+        (Pp.str [ "rgb("; rgb; " / var(--tw-from-opacity, 1))" ]);
+      property "--tw-gradient-to" (Pp.str [ "rgb("; rgb; " / 0)" ]);
+      property "--tw-gradient-stops"
+        "var(--tw-gradient-from), var(--tw-gradient-to)";
+    ]
 
 let via_color ?(shade = 500) color =
   let rgb = color_to_rgb_string color shade in
@@ -2359,18 +2109,17 @@ let via_color ?(shade = 500) color =
       "via-" ^ color_name color
     else Pp.str [ "via-"; color_name color; "-"; string_of_int shade ]
   in
-  Style
-    ( class_name,
-      [
-        property "--tw-gradient-to" (Pp.str [ "rgb("; rgb; " / 0)" ]);
-        property "--tw-gradient-stops"
-          (Pp.str
-             [
-               "var(--tw-gradient-from), rgb(";
-               rgb;
-               " / var(--tw-via-opacity, 1)), var(--tw-gradient-to)";
-             ]);
-      ] )
+  style class_name
+    [
+      property "--tw-gradient-to" (Pp.str [ "rgb("; rgb; " / 0)" ]);
+      property "--tw-gradient-stops"
+        (Pp.str
+           [
+             "var(--tw-gradient-from), rgb(";
+             rgb;
+             " / var(--tw-via-opacity, 1)), var(--tw-gradient-to)";
+           ]);
+    ]
 
 let to_color ?(shade = 500) color =
   let rgb = color_to_rgb_string color shade in
@@ -2379,60 +2128,55 @@ let to_color ?(shade = 500) color =
       "to-" ^ color_name color
     else Pp.str [ "to-"; color_name color; "-"; string_of_int shade ]
   in
-  Style
-    ( class_name,
-      [
-        property "--tw-gradient-to"
-          (Pp.str [ "rgb("; rgb; " / var(--tw-to-opacity, 1))" ]);
-      ] )
+  style class_name
+    [
+      property "--tw-gradient-to"
+        (Pp.str [ "rgb("; rgb; " / var(--tw-to-opacity, 1))" ]);
+    ]
 
 let antialiased =
-  Style
-    ( "antialiased",
-      [
-        webkit_font_smoothing "antialiased"; moz_osx_font_smoothing "grayscale";
-      ] )
+  style "antialiased"
+    [ webkit_font_smoothing "antialiased"; moz_osx_font_smoothing "grayscale" ]
 
 (* Text transformation utilities *)
-let uppercase = Style ("uppercase", [ Css.text_transform "uppercase" ])
-let lowercase = Style ("lowercase", [ Css.text_transform "lowercase" ])
-let capitalize = Style ("capitalize", [ Css.text_transform "capitalize" ])
-let normal_case = Style ("normal-case", [ Css.text_transform "none" ])
+let uppercase = style "uppercase" [ Css.text_transform "uppercase" ]
+let lowercase = style "lowercase" [ Css.text_transform "lowercase" ]
+let capitalize = style "capitalize" [ Css.text_transform "capitalize" ]
+let normal_case = style "normal-case" [ Css.text_transform "none" ]
 
 (* Text decoration style utilities *)
 let underline_solid =
-  Style ("underline-solid", [ Css.text_decoration_style "solid" ])
+  style "underline-solid" [ Css.text_decoration_style "solid" ]
 
 let underline_double =
-  Style ("underline-double", [ Css.text_decoration_style "double" ])
+  style "underline-double" [ Css.text_decoration_style "double" ]
 
 let underline_dotted =
-  Style ("underline-dotted", [ Css.text_decoration_style "dotted" ])
+  style "underline-dotted" [ Css.text_decoration_style "dotted" ]
 
 let underline_dashed =
-  Style ("underline-dashed", [ Css.text_decoration_style "dashed" ])
+  style "underline-dashed" [ Css.text_decoration_style "dashed" ]
 
-let underline_wavy =
-  Style ("underline-wavy", [ Css.text_decoration_style "wavy" ])
+let underline_wavy = style "underline-wavy" [ Css.text_decoration_style "wavy" ]
 
 (* Text underline offset utilities *)
 let underline_offset_auto =
-  Style ("underline-offset-auto", [ Css.text_underline_offset "auto" ])
+  style "underline-offset-auto" [ Css.text_underline_offset "auto" ]
 
 let underline_offset_0 =
-  Style ("underline-offset-0", [ Css.text_underline_offset "0" ])
+  style "underline-offset-0" [ Css.text_underline_offset "0" ]
 
 let underline_offset_1 =
-  Style ("underline-offset-1", [ Css.text_underline_offset "1px" ])
+  style "underline-offset-1" [ Css.text_underline_offset "1px" ]
 
 let underline_offset_2 =
-  Style ("underline-offset-2", [ Css.text_underline_offset "2px" ])
+  style "underline-offset-2" [ Css.text_underline_offset "2px" ]
 
 let underline_offset_4 =
-  Style ("underline-offset-4", [ Css.text_underline_offset "4px" ])
+  style "underline-offset-4" [ Css.text_underline_offset "4px" ]
 
 let underline_offset_8 =
-  Style ("underline-offset-8", [ Css.text_underline_offset "8px" ])
+  style "underline-offset-8" [ Css.text_underline_offset "8px" ]
 
 (* Additional functions needed *)
 let aspect_ratio width height =
@@ -2440,53 +2184,52 @@ let aspect_ratio width height =
     Pp.str [ "aspect-["; Pp.float width; "/"; Pp.float height; "]" ]
   in
   (* aspect-ratio isn't widely supported in CSS yet, skip for now *)
-  Style (class_name, [])
+  style class_name []
 
 let clip_path _value =
   (* clip-path is a modern CSS property, skip for now *)
-  Style ("clip-path-custom", [])
+  style "clip-path-custom" []
 
 let transform =
-  Style
-    ( "transform",
-      [
-        property "--tw-translate-x" "0";
-        property "--tw-translate-y" "0";
-        property "--tw-rotate" "0";
-        property "--tw-skew-x" "0";
-        property "--tw-skew-y" "0";
-        property "--tw-scale-x" "1";
-        property "--tw-scale-y" "1";
-        transform
-          "translateX(var(--tw-translate-x)) translateY(var(--tw-translate-y)) \
-           rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) \
-           skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) \
-           scaleY(var(--tw-scale-y))";
-      ] )
+  style "transform"
+    [
+      property "--tw-translate-x" "0";
+      property "--tw-translate-y" "0";
+      property "--tw-rotate" "0";
+      property "--tw-skew-x" "0";
+      property "--tw-skew-y" "0";
+      property "--tw-scale-x" "1";
+      property "--tw-scale-y" "1";
+      transform
+        "translateX(var(--tw-translate-x)) translateY(var(--tw-translate-y)) \
+         rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) \
+         skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) \
+         scaleY(var(--tw-scale-y))";
+    ]
 
-let transform_none = Style ("transform-none", [ Css.transform "none" ])
-let transform_gpu = Style ("transform-gpu", [ Css.transform "translateZ(0)" ])
+let transform_none = style "transform-none" [ Css.transform "none" ]
+let transform_gpu = style "transform-gpu" [ Css.transform "translateZ(0)" ]
 
 let brightness n =
   let class_name = "brightness-" ^ string_of_int n in
   let value = Pp.float (float_of_int n /. 100.0) in
-  Style (class_name, [ filter ("brightness(" ^ value ^ ")") ])
+  style class_name [ filter ("brightness(" ^ value ^ ")") ]
 
 let contrast n =
   let class_name = "contrast-" ^ string_of_int n in
   let value = Pp.float (float_of_int n /. 100.0) in
-  Style (class_name, [ filter ("contrast(" ^ value ^ ")") ])
+  style class_name [ filter ("contrast(" ^ value ^ ")") ]
 
 let blur_internal = function
-  | `None -> Style ("blur-none", [ filter "blur(0)" ])
-  | `Xs -> Style ("blur-xs", [ filter "blur(2px)" ])
-  | `Sm -> Style ("blur-sm", [ filter "blur(4px)" ])
-  | `Md -> Style ("blur", [ filter "blur(8px)" ])
-  | `Lg -> Style ("blur-lg", [ filter "blur(16px)" ])
-  | `Xl -> Style ("blur-xl", [ filter "blur(24px)" ])
-  | `Xl_2 -> Style ("blur-2xl", [ filter "blur(40px)" ])
-  | `Xl_3 -> Style ("blur-3xl", [ filter "blur(64px)" ])
-  | `Full -> Style ("blur-full", [ filter "blur(9999px)" ])
+  | `None -> style "blur-none" [ filter "blur(0)" ]
+  | `Xs -> style "blur-xs" [ filter "blur(2px)" ]
+  | `Sm -> style "blur-sm" [ filter "blur(4px)" ]
+  | `Md -> style "blur" [ filter "blur(8px)" ]
+  | `Lg -> style "blur-lg" [ filter "blur(16px)" ]
+  | `Xl -> style "blur-xl" [ filter "blur(24px)" ]
+  | `Xl_2 -> style "blur-2xl" [ filter "blur(40px)" ]
+  | `Xl_3 -> style "blur-3xl" [ filter "blur(64px)" ]
+  | `Full -> style "blur-full" [ filter "blur(9999px)" ]
 
 let blur_none = blur_internal `None
 let blur_xs = blur_internal `Xs
@@ -2501,74 +2244,70 @@ let blur_3xl = blur_internal `Xl_3
 let grayscale n =
   let class_name = if n = 0 then "grayscale-0" else "grayscale" in
   let value = Pp.float (float_of_int n /. 100.0) in
-  Style (class_name, [ filter ("grayscale(" ^ value ^ ")") ])
+  style class_name [ filter ("grayscale(" ^ value ^ ")") ]
 
 let saturate n =
   let class_name = "saturate-" ^ string_of_int n in
   let value = Pp.float (float_of_int n /. 100.0) in
-  Style (class_name, [ filter ("saturate(" ^ value ^ ")") ])
+  style class_name [ filter ("saturate(" ^ value ^ ")") ]
 
 let sepia n =
   let class_name = if n = 0 then "sepia-0" else "sepia" in
   let value = Pp.float (float_of_int n /. 100.0) in
-  Style (class_name, [ filter ("sepia(" ^ value ^ ")") ])
+  style class_name [ filter ("sepia(" ^ value ^ ")") ]
 
 let invert n =
   let class_name = if n = 0 then "invert-0" else "invert" in
   let value = Pp.float (float_of_int n /. 100.0) in
-  Style (class_name, [ filter ("invert(" ^ value ^ ")") ])
+  style class_name [ filter ("invert(" ^ value ^ ")") ]
 
 let hue_rotate n =
   let class_name = "hue-rotate-" ^ string_of_int n in
   let value = string_of_int n ^ "deg" in
-  Style (class_name, [ filter ("hue-rotate(" ^ value ^ ")") ])
+  style class_name [ filter ("hue-rotate(" ^ value ^ ")") ]
 
 let backdrop_brightness n =
   let class_name = Pp.str [ "backdrop-brightness-"; string_of_int n ] in
-  Style
-    ( class_name,
-      [
-        backdrop_filter
-          (Pp.str [ "brightness("; Pp.float (float_of_int n /. 100.); ")" ]);
-      ] )
+  style class_name
+    [
+      backdrop_filter
+        (Pp.str [ "brightness("; Pp.float (float_of_int n /. 100.); ")" ]);
+    ]
 
 let backdrop_contrast n =
   let class_name = Pp.str [ "backdrop-contrast-"; string_of_int n ] in
-  Style
-    ( class_name,
-      [
-        backdrop_filter
-          (Pp.str [ "contrast("; Pp.float (float_of_int n /. 100.); ")" ]);
-      ] )
+  style class_name
+    [
+      backdrop_filter
+        (Pp.str [ "contrast("; Pp.float (float_of_int n /. 100.); ")" ]);
+    ]
 
 let backdrop_opacity n =
   let class_name = Pp.str [ "backdrop-opacity-"; string_of_int n ] in
-  Style
-    ( class_name,
-      [
-        backdrop_filter
-          (Pp.str [ "opacity("; Pp.float (float_of_int n /. 100.); ")" ]);
-      ] )
+  style class_name
+    [
+      backdrop_filter
+        (Pp.str [ "opacity("; Pp.float (float_of_int n /. 100.); ")" ]);
+    ]
 
 let backdrop_saturate n =
   let class_name = Pp.str [ "backdrop-saturate-"; string_of_int n ] in
-  Style
-    ( class_name,
-      [
-        backdrop_filter
-          (Pp.str [ "saturate("; Pp.float (float_of_int n /. 100.); ")" ]);
-      ] )
+  style class_name
+    [
+      backdrop_filter
+        (Pp.str [ "saturate("; Pp.float (float_of_int n /. 100.); ")" ]);
+    ]
 
 let backdrop_blur_internal = function
-  | `None -> Style ("backdrop-blur-none", [ backdrop_filter "blur(0)" ])
-  | `Xs -> Style ("backdrop-blur-xs", [ backdrop_filter "blur(2px)" ])
-  | `Sm -> Style ("backdrop-blur-sm", [ backdrop_filter "blur(4px)" ])
-  | `Md -> Style ("backdrop-blur", [ backdrop_filter "blur(8px)" ])
-  | `Lg -> Style ("backdrop-blur-lg", [ backdrop_filter "blur(12px)" ])
-  | `Xl -> Style ("backdrop-blur-xl", [ backdrop_filter "blur(16px)" ])
-  | `Xl_2 -> Style ("backdrop-blur-2xl", [ backdrop_filter "blur(24px)" ])
-  | `Xl_3 -> Style ("backdrop-blur-3xl", [ backdrop_filter "blur(40px)" ])
-  | `Full -> Style ("backdrop-blur-full", [ backdrop_filter "blur(9999px)" ])
+  | `None -> style "backdrop-blur-none" [ backdrop_filter "blur(0)" ]
+  | `Xs -> style "backdrop-blur-xs" [ backdrop_filter "blur(2px)" ]
+  | `Sm -> style "backdrop-blur-sm" [ backdrop_filter "blur(4px)" ]
+  | `Md -> style "backdrop-blur" [ backdrop_filter "blur(8px)" ]
+  | `Lg -> style "backdrop-blur-lg" [ backdrop_filter "blur(12px)" ]
+  | `Xl -> style "backdrop-blur-xl" [ backdrop_filter "blur(16px)" ]
+  | `Xl_2 -> style "backdrop-blur-2xl" [ backdrop_filter "blur(24px)" ]
+  | `Xl_3 -> style "backdrop-blur-3xl" [ backdrop_filter "blur(40px)" ]
+  | `Full -> style "backdrop-blur-full" [ backdrop_filter "blur(9999px)" ]
 
 let backdrop_blur_none = backdrop_blur_internal `None
 let backdrop_blur_xs = backdrop_blur_internal `Xs
@@ -2581,218 +2320,201 @@ let backdrop_blur_2xl = backdrop_blur_internal `Xl_2
 let backdrop_blur_3xl = backdrop_blur_internal `Xl_3
 
 (* Animation utilities *)
-let animate_none = Style ("animate-none", [ animation "none" ])
-
-let animate_spin =
-  Style ("animate-spin", [ animation "spin 1s linear infinite" ])
+let animate_none = style "animate-none" [ animation "none" ]
+let animate_spin = style "animate-spin" [ animation "spin 1s linear infinite" ]
 
 let animate_ping =
-  Style
-    ("animate-ping", [ animation "ping 1s cubic-bezier(0, 0, 0.2, 1) infinite" ])
+  style "animate-ping"
+    [ animation "ping 1s cubic-bezier(0, 0, 0.2, 1) infinite" ]
 
 let animate_pulse =
-  Style
-    ( "animate-pulse",
-      [ animation "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" ] )
+  style "animate-pulse"
+    [ animation "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" ]
 
-let animate_bounce = Style ("animate-bounce", [ animation "bounce 1s infinite" ])
+let animate_bounce = style "animate-bounce" [ animation "bounce 1s infinite" ]
 
 (* Transition utilities *)
 let duration n =
   let class_name = "duration-" ^ string_of_int n in
   let value = string_of_int n ^ "ms" in
-  Style (class_name, [ property "transition-duration" value ])
+  style class_name [ property "transition-duration" value ]
 
 let ease_linear =
-  Style ("ease-linear", [ property "transition-timing-function" "linear" ])
+  style "ease-linear" [ property "transition-timing-function" "linear" ]
 
 let ease_in =
-  Style
-    ( "ease-in",
-      [ property "transition-timing-function" "cubic-bezier(0.4, 0, 1, 1)" ] )
+  style "ease-in"
+    [ property "transition-timing-function" "cubic-bezier(0.4, 0, 1, 1)" ]
 
 let ease_out =
-  Style
-    ( "ease-out",
-      [ property "transition-timing-function" "cubic-bezier(0, 0, 0.2, 1)" ] )
+  style "ease-out"
+    [ property "transition-timing-function" "cubic-bezier(0, 0, 0.2, 1)" ]
 
 let ease_in_out =
-  Style
-    ( "ease-in-out",
-      [ property "transition-timing-function" "cubic-bezier(0.4, 0, 0.2, 1)" ]
-    )
+  style "ease-in-out"
+    [ property "transition-timing-function" "cubic-bezier(0.4, 0, 0.2, 1)" ]
 
 (** Transform utilities *)
 let scale n =
   let value = float_of_int n /. 100.0 in
   let class_name = "scale-" ^ string_of_int n in
-  Style
-    ( class_name,
-      [
-        property "--tw-scale-x" (Pp.float value);
-        property "--tw-scale-y" (Pp.float value);
-        Css.transform
-          "translate(var(--tw-translate-x), var(--tw-translate-y)) \
-           rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) \
-           skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) \
-           scaleY(var(--tw-scale-y))";
-      ] )
+  style class_name
+    [
+      property "--tw-scale-x" (Pp.float value);
+      property "--tw-scale-y" (Pp.float value);
+      Css.transform
+        "translate(var(--tw-translate-x), var(--tw-translate-y)) \
+         rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) \
+         skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) \
+         scaleY(var(--tw-scale-y))";
+    ]
 
 (* Appearance utilities *)
-let appearance_none = Style ("appearance-none", [ appearance "none" ])
+let appearance_none = style "appearance-none" [ appearance "none" ]
 
 (* Resize utilities *)
-let resize_none = Style ("resize-none", [ Css.resize "none" ])
-let resize_y = Style ("resize-y", [ Css.resize "vertical" ])
-let resize_x = Style ("resize-x", [ Css.resize "horizontal" ])
-let resize = Style ("resize", [ Css.resize "both" ])
+let resize_none = style "resize-none" [ Css.resize "none" ]
+let resize_y = style "resize-y" [ Css.resize "vertical" ]
+let resize_x = style "resize-x" [ Css.resize "horizontal" ]
+let resize = style "resize" [ Css.resize "both" ]
 
 (* Will-change utilities *)
 let will_change_auto =
-  Style ("will-change-auto", [ property "will-change" "auto" ])
+  style "will-change-auto" [ property "will-change" "auto" ]
 
 let will_change_scroll =
-  Style ("will-change-scroll", [ property "will-change" "scroll-position" ])
+  style "will-change-scroll" [ property "will-change" "scroll-position" ]
 
 let will_change_contents =
-  Style ("will-change-contents", [ property "will-change" "contents" ])
+  style "will-change-contents" [ property "will-change" "contents" ]
 
 let will_change_transform =
-  Style ("will-change-transform", [ property "will-change" "transform" ])
+  style "will-change-transform" [ property "will-change" "transform" ]
 
 (* Contain utilities *)
-let contain_none = Style ("contain-none", [ property "contain" "none" ])
-let contain_content = Style ("contain-content", [ property "contain" "content" ])
-let contain_layout = Style ("contain-layout", [ property "contain" "layout" ])
-let contain_paint = Style ("contain-paint", [ property "contain" "paint" ])
-let contain_size = Style ("contain-size", [ property "contain" "size" ])
+let contain_none = style "contain-none" [ property "contain" "none" ]
+let contain_content = style "contain-content" [ property "contain" "content" ]
+let contain_layout = style "contain-layout" [ property "contain" "layout" ]
+let contain_paint = style "contain-paint" [ property "contain" "paint" ]
+let contain_size = style "contain-size" [ property "contain" "size" ]
 
 (* Object position utilities *)
-let object_top = Style ("object-top", [ property "object-position" "top" ])
-let object_right = Style ("object-right", [ property "object-position" "right" ])
+let object_top = style "object-top" [ property "object-position" "top" ]
+let object_right = style "object-right" [ property "object-position" "right" ]
 
 let object_bottom =
-  Style ("object-bottom", [ property "object-position" "bottom" ])
+  style "object-bottom" [ property "object-position" "bottom" ]
 
-let object_left = Style ("object-left", [ property "object-position" "left" ])
+let object_left = style "object-left" [ property "object-position" "left" ]
 
 let object_center =
-  Style ("object-center", [ property "object-position" "center" ])
+  style "object-center" [ property "object-position" "center" ]
 
 (* Table utilities *)
-let table_auto = Style ("table-auto", [ table_layout "auto" ])
-let table_fixed = Style ("table-fixed", [ table_layout "fixed" ])
-
-let border_collapse =
-  Style ("border-collapse", [ Css.border_collapse "collapse" ])
-
-let border_separate =
-  Style ("border-separate", [ Css.border_collapse "separate" ])
+let table_auto = style "table-auto" [ table_layout "auto" ]
+let table_fixed = style "table-fixed" [ table_layout "fixed" ]
+let border_collapse = style "border-collapse" [ Css.border_collapse "collapse" ]
+let border_separate = style "border-separate" [ Css.border_collapse "separate" ]
 
 let border_spacing n =
   let value = spacing_to_rem n in
-  Style ("border-spacing-" ^ string_of_int n, [ border_spacing value ])
+  style ("border-spacing-" ^ string_of_int n) [ border_spacing value ]
 
 (* Form utilities - equivalent to @tailwindcss/forms plugin *)
 let form_input =
-  Style
-    ( "form-input",
-      [
-        appearance "none";
-        background_color "white";
-        Css.border_color "rgb(209 213 219)";
-        border_width "1px";
-        border_radius "0.375rem";
-        padding_top "0.5rem";
-        padding_right "0.75rem";
-        padding_bottom "0.5rem";
-        padding_left "0.75rem";
-        font_size "1rem";
-        line_height "1.5rem";
-        property "outline" "2px solid transparent";
-        property "outline-offset" "2px";
-      ] )
+  style "form-input"
+    [
+      appearance "none";
+      background_color "white";
+      Css.border_color "rgb(209 213 219)";
+      border_width "1px";
+      border_radius "0.375rem";
+      padding_top "0.5rem";
+      padding_right "0.75rem";
+      padding_bottom "0.5rem";
+      padding_left "0.75rem";
+      font_size "1rem";
+      line_height "1.5rem";
+      property "outline" "2px solid transparent";
+      property "outline-offset" "2px";
+    ]
 
 let form_textarea =
-  Style
-    ( "form-textarea",
-      [
-        appearance "none";
-        background_color "white";
-        Css.border_color "rgb(209 213 219)";
-        border_width "1px";
-        border_radius "0.375rem";
-        padding_top "0.5rem";
-        padding_right "0.75rem";
-        padding_bottom "0.5rem";
-        padding_left "0.75rem";
-        font_size "1rem";
-        line_height "1.5rem";
-        Css.resize "vertical";
-      ] )
+  style "form-textarea"
+    [
+      appearance "none";
+      background_color "white";
+      Css.border_color "rgb(209 213 219)";
+      border_width "1px";
+      border_radius "0.375rem";
+      padding_top "0.5rem";
+      padding_right "0.75rem";
+      padding_bottom "0.5rem";
+      padding_left "0.75rem";
+      font_size "1rem";
+      line_height "1.5rem";
+      Css.resize "vertical";
+    ]
 
 let form_select =
-  Style
-    ( "form-select",
-      [
-        appearance "none";
-        background_color "white";
-        Css.border_color "rgb(209 213 219)";
-        border_width "1px";
-        border_radius "0.375rem";
-        padding_top "0.5rem";
-        padding_right "2.5rem";
-        padding_bottom "0.5rem";
-        padding_left "0.75rem";
-        font_size "1rem";
-        line_height "1.5rem";
-        background_image
-          "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' \
-           fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' \
-           stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' \
-           d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")";
-        background_position "right 0.5rem center";
-        background_repeat "no-repeat";
-        background_size "1.5em 1.5em";
-      ] )
+  style "form-select"
+    [
+      appearance "none";
+      background_color "white";
+      Css.border_color "rgb(209 213 219)";
+      border_width "1px";
+      border_radius "0.375rem";
+      padding_top "0.5rem";
+      padding_right "2.5rem";
+      padding_bottom "0.5rem";
+      padding_left "0.75rem";
+      font_size "1rem";
+      line_height "1.5rem";
+      background_image
+        "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' \
+         fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' \
+         stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' \
+         d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")";
+      background_position "right 0.5rem center";
+      background_repeat "no-repeat";
+      background_size "1.5em 1.5em";
+    ]
 
 let form_checkbox =
-  Style
-    ( "form-checkbox",
-      [
-        appearance "none";
-        width "1rem";
-        height "1rem";
-        background_color "white";
-        Css.border_color "rgb(209 213 219)";
-        border_width "1px";
-        border_radius "0.25rem";
-        Css.color "rgb(59 130 246)";
-        Css.flex_shrink "0";
-        display "inline-block";
-        vertical_align "middle";
-      ] )
+  style "form-checkbox"
+    [
+      appearance "none";
+      width "1rem";
+      height "1rem";
+      background_color "white";
+      Css.border_color "rgb(209 213 219)";
+      border_width "1px";
+      border_radius "0.25rem";
+      Css.color "rgb(59 130 246)";
+      Css.flex_shrink "0";
+      display "inline-block";
+      vertical_align "middle";
+    ]
 
 let form_radio =
-  Style
-    ( "form-radio",
-      [
-        appearance "none";
-        width "1rem";
-        height "1rem";
-        background_color "white";
-        Css.border_color "rgb(209 213 219)";
-        border_width "1px";
-        border_radius "100%";
-        Css.color "rgb(59 130 246)";
-        Css.flex_shrink "0";
-        display "inline-block";
-        vertical_align "middle";
-      ] )
+  style "form-radio"
+    [
+      appearance "none";
+      width "1rem";
+      height "1rem";
+      background_color "white";
+      Css.border_color "rgb(209 213 219)";
+      border_width "1px";
+      border_radius "100%";
+      Css.color "rgb(59 130 246)";
+      Css.flex_shrink "0";
+      display "inline-block";
+      vertical_align "middle";
+    ]
 
 (* Peer and group utilities *)
-let peer = Style ("peer", []) (* Marker class for peer relationships *)
-let group = Style ("group", []) (* Marker class for group relationships *)
+let peer = style "peer" [] (* Marker class for peer relationships *)
+let group = style "group" [] (* Marker class for group relationships *)
 
 (* Peer modifiers *)
 let on_peer_checked styles =
@@ -2814,9 +2536,26 @@ let data_variant value style = Modified (Data_variant value, style)
 let data_custom key value style = Modified (Data_custom (key, value), style)
 let color_to_string = color_name
 
+(* Helper function for breakpoint conversion *)
+let string_of_breakpoint = function
+  | `Sm -> "sm"
+  | `Md -> "md"
+  | `Lg -> "lg"
+  | `Xl -> "xl"
+  | `Xl_2 -> "2xl"
+
+(* Convert breakpoint to media query min-width *)
+let responsive_breakpoint = function
+  | "sm" -> "640px"
+  | "md" -> "768px"
+  | "lg" -> "1024px"
+  | "xl" -> "1280px"
+  | "2xl" -> "1536px"
+  | _ -> "768px" (* Default to md *)
+
 (* Class generation functions *)
 let rec pp = function
-  | Style (class_name, _) -> class_name
+  | Style { name = class_name; _ } -> class_name
   | Prose variant -> Prose.to_class variant
   | Modified (modifier, t) -> (
       let base_class = pp t in
@@ -2898,8 +2637,8 @@ let prose_stylesheet () =
 (* Line clamp utility function *)
 let line_clamp n =
   let class_name = "line-clamp-" ^ string_of_int n in
-  if n = 0 then Style ("line-clamp-none", [ webkit_line_clamp "none" ])
-  else Style (class_name, [ webkit_line_clamp (string_of_int n) ])
+  if n = 0 then style "line-clamp-none" [ webkit_line_clamp "none" ]
+  else style class_name [ webkit_line_clamp (string_of_int n) ]
 
 (* Opacity utilities *)
 
@@ -2983,7 +2722,7 @@ let leading_of_string n =
       let rem_value = value /. 4.0 in
       let class_name = Pp.str [ "leading-"; n ] in
       let css_value = Pp.str [ Pp.float rem_value; "rem" ] in
-      Ok (Style (class_name, [ line_height css_value ]))
+      Ok (style class_name [ line_height css_value ])
 
 (* Helper for Result.bind-like operation *)
 let ( >>= ) r f = match r with Error _ as e -> e | Ok x -> f x

@@ -279,8 +279,5 @@ let () =
   output_string oc_css css_string;
   close_out oc_css;
 
-  (* Output info *)
-  print_endline "Generated v4.html and v4.css";
-  print_string "CSS size: ";
-  print_int (String.length css_string);
-  print_endline " bytes"
+  (* Silent during build - no output *)
+  ()

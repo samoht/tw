@@ -1,0 +1,31 @@
+(executable
+ (name main)
+ (libraries tw tw.html))
+
+; Generate HTML/CSS for v4 example
+
+(rule
+ (targets v4.html v4.css)
+ (deps main.exe)
+ (action
+  (run ./main.exe))
+ (mode
+  (promote (until-clean))))
+
+; Generate Tailwind CSS for v4 example
+
+(rule
+ (targets v4.tailwind.css)
+ (deps v4.html)
+ (action
+  (run npx tailwindcss --content %{deps} -o %{targets} --minify))
+ (mode
+  (promote (until-clean))))
+
+; Test rule that runs comparison
+
+(rule
+ (alias runtest)
+ (deps v4.css v4.tailwind.css ../../scripts/compare_css.exe)
+ (action
+  (run ../../scripts/compare_css.exe v4.css v4.tailwind.css)))

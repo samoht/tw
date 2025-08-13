@@ -1,5 +1,19 @@
 (** Color conversion utilities for Tailwind v4 compatibility *)
 
+type rgb = {
+  r : int;  (** Red channel (0-255) *)
+  g : int;  (** Green channel (0-255) *)
+  b : int;  (** Blue channel (0-255) *)
+}
+(** RGB color representation *)
+
+type oklch = {
+  l : float;  (** Lightness (0-100) *)
+  c : float;  (** Chroma (0-0.4+) *)
+  h : float;  (** Hue (0-360) *)
+}
+(** OKLCH color representation *)
+
 (** Abstract color type matching Tw.color *)
 type t =
   | Black
@@ -28,20 +42,7 @@ type t =
   | Rose
   | Hex of string
   | Rgb of { red : int; green : int; blue : int }
-
-type rgb = {
-  r : int;  (** Red channel (0-255) *)
-  g : int;  (** Green channel (0-255) *)
-  b : int;  (** Blue channel (0-255) *)
-}
-(** RGB color representation *)
-
-type oklch = {
-  l : float;  (** Lightness (0-100) *)
-  c : float;  (** Chroma (0-0.4+) *)
-  h : float;  (** Hue (0-360) *)
-}
-(** OKLCH color representation *)
+  | Oklch of oklch (* Add OKLCH as a primary color type *)
 
 (** Convert RGB to linear RGB (remove gamma correction) *)
 let linearize_channel c =
@@ -64,6 +65,7 @@ let rgb_to_oklch rgb =
   let b_lin = linearize_channel rgb.b in
 
   (* Convert to OKLab using the standard matrix *)
+  (* M1: linear RGB to LMS *)
   let l =
     (0.4122214708 *. r_lin) +. (0.5363325363 *. g_lin) +. (0.0514459929 *. b_lin)
   in
@@ -81,7 +83,7 @@ let rgb_to_oklch rgb =
   let m' = cbrt m in
   let s' = cbrt s in
 
-  (* Convert to Lab coordinates *)
+  (* M2: LMS' to Lab coordinates *)
   let ok_l =
     (0.2104542553 *. l') +. (0.7936177850 *. m') -. (0.0040720468 *. s')
   in
@@ -149,9 +151,12 @@ let hex_to_rgb hex =
     let len = String.length hex_str in
     if len = 3 then
       (* Short form: #RGB -> #RRGGBB *)
-      let r = int_of_string ("0x" ^ String.make 2 hex_str.[0]) in
-      let g = int_of_string ("0x" ^ String.make 2 hex_str.[1]) in
-      let b = int_of_string ("0x" ^ String.make 2 hex_str.[2]) in
+      let r_char = String.make 1 hex_str.[0] in
+      let g_char = String.make 1 hex_str.[1] in
+      let b_char = String.make 1 hex_str.[2] in
+      let r = int_of_string ("0x" ^ r_char ^ r_char) in
+      let g = int_of_string ("0x" ^ g_char ^ g_char) in
+      let b = int_of_string ("0x" ^ b_char ^ b_char) in
       Some { r; g; b }
     else if len = 6 then
       (* Full form: #RRGGBB *)
@@ -163,13 +168,18 @@ let hex_to_rgb hex =
   with Invalid_argument _ | Failure _ -> None
 
 (** Convert RGB to hex string *)
-let rgb_to_hex rgb = Printf.sprintf "#%02x%02x%02x" rgb.r rgb.g rgb.b
+let rgb_to_hex rgb =
+  let to_hex_byte n =
+    let hex = "0123456789abcdef" in
+    String.make 1 hex.[n / 16] ^ String.make 1 hex.[n mod 16]
+  in
+  Pp.str [ "#"; to_hex_byte rgb.r; to_hex_byte rgb.g; to_hex_byte rgb.b ]
 
 (** Format OKLCH for CSS *)
 let oklch_to_css oklch =
-  let l_str = string_of_float (Float.round (oklch.l *. 10.0) /. 10.0) in
-  let c_str = string_of_float (Float.round (oklch.c *. 1000.0) /. 1000.0) in
-  let h_str = string_of_float (Float.round (oklch.h *. 1000.0) /. 1000.0) in
+  let l_str = Pp.float_n 1 oklch.l in
+  let c_str = Pp.float_n 3 oklch.c in
+  let h_str = Pp.float_n 3 oklch.h in
   Pp.str [ "oklch("; l_str; "% "; c_str; " "; h_str; ")" ]
 
 (** Convert hex color to OKLCH CSS string *)
@@ -178,337 +188,336 @@ let hex_to_oklch_css hex =
   | Some rgb -> oklch_to_css (rgb_to_oklch rgb)
   | None -> hex (* Fallback to original hex if parsing fails *)
 
-(** Predefined Tailwind v4 color values in OKLCH *)
 module TailwindColors = struct
   (* These are the actual OKLCH values used by Tailwind v4 *)
   let gray =
     [
-      (50, "oklch(98.5% 0.002 247.839)");
-      (100, "oklch(96.7% 0.003 264.542)");
-      (200, "oklch(92.8% 0.006 264.531)");
-      (300, "oklch(87.2% 0.01 258.338)");
-      (400, "oklch(65.1% 0.016 264.436)");
-      (500, "oklch(55.1% 0.027 264.364)");
-      (600, "oklch(44.6% 0.03 256.802)");
-      (700, "oklch(37.3% 0.034 259.733)");
-      (800, "oklch(27.8% 0.033 256.848)");
-      (900, "oklch(21% 0.034 264.665)");
-      (950, "oklch(13.1% 0.022 264.436)");
+      (50, { l = 98.5; c = 0.002; h = 247.839 });
+      (100, { l = 96.7; c = 0.003; h = 264.542 });
+      (200, { l = 92.8; c = 0.006; h = 264.531 });
+      (300, { l = 87.2; c = 0.01; h = 258.338 });
+      (400, { l = 65.1; c = 0.016; h = 264.436 });
+      (500, { l = 55.1; c = 0.027; h = 264.364 });
+      (600, { l = 44.6; c = 0.03; h = 256.802 });
+      (700, { l = 37.3; c = 0.034; h = 259.733 });
+      (800, { l = 27.8; c = 0.033; h = 256.848 });
+      (900, { l = 21.0; c = 0.034; h = 264.665 });
+      (950, { l = 13.1; c = 0.022; h = 264.436 });
     ]
 
   let blue =
     [
-      (50, "oklch(97.1% 0.014 237.021)");
-      (100, "oklch(93.2% 0.032 255.585)");
-      (200, "oklch(86.8% 0.061 251.813)");
-      (300, "oklch(80.9% 0.105 251.813)");
-      (400, "oklch(70.7% 0.165 254.624)");
-      (500, "oklch(62.3% 0.214 259.815)");
-      (600, "oklch(54.6% 0.245 262.881)");
-      (700, "oklch(48.8% 0.243 264.376)");
-      (800, "oklch(40.1% 0.19 264.828)");
-      (900, "oklch(37.9% 0.146 265.522)");
-      (950, "oklch(26.5% 0.136 269.055)");
+      (50, { l = 97.1; c = 0.014; h = 237.021 });
+      (100, { l = 93.2; c = 0.032; h = 255.585 });
+      (200, { l = 86.8; c = 0.061; h = 251.813 });
+      (300, { l = 80.9; c = 0.105; h = 251.813 });
+      (400, { l = 70.7; c = 0.165; h = 254.624 });
+      (500, { l = 62.3; c = 0.214; h = 259.815 });
+      (600, { l = 54.6; c = 0.245; h = 262.881 });
+      (700, { l = 48.8; c = 0.243; h = 264.376 });
+      (800, { l = 40.1; c = 0.19; h = 264.828 });
+      (900, { l = 37.9; c = 0.146; h = 265.522 });
+      (950, { l = 26.5; c = 0.136; h = 269.055 });
     ]
 
   let red =
     [
-      (50, "oklch(95.8% 0.019 17.331)");
-      (100, "oklch(91.9% 0.037 17.175)");
-      (200, "oklch(84.4% 0.073 19.692)");
-      (300, "oklch(75.8% 0.133 21.276)");
-      (400, "oklch(68.8% 0.191 24.342)");
-      (500, "oklch(63.7% 0.237 25.331)");
-      (600, "oklch(57.7% 0.245 27.325)");
-      (700, "oklch(51.4% 0.204 27.245)");
-      (800, "oklch(44.4% 0.177 26.899)");
-      (900, "oklch(40.5% 0.147 28.067)");
-      (950, "oklch(26.9% 0.097 28.428)");
+      (50, { l = 95.8; c = 0.019; h = 17.331 });
+      (100, { l = 91.9; c = 0.037; h = 17.175 });
+      (200, { l = 84.4; c = 0.073; h = 19.692 });
+      (300, { l = 75.8; c = 0.133; h = 21.276 });
+      (400, { l = 68.8; c = 0.191; h = 24.342 });
+      (500, { l = 63.7; c = 0.237; h = 25.331 });
+      (600, { l = 57.7; c = 0.245; h = 27.325 });
+      (700, { l = 51.4; c = 0.204; h = 27.245 });
+      (800, { l = 44.4; c = 0.177; h = 26.899 });
+      (900, { l = 40.5; c = 0.147; h = 28.067 });
+      (950, { l = 26.9; c = 0.097; h = 28.428 });
     ]
 
   let slate =
     [
-      (50, "oklch(98.6% 0.003 247.839)");
-      (100, "oklch(96.9% 0.005 264.542)");
-      (200, "oklch(93.1% 0.01 264.531)");
-      (300, "oklch(87.6% 0.017 258.338)");
-      (400, "oklch(71.3% 0.028 256.802)");
-      (500, "oklch(58.7% 0.036 257.311)");
-      (600, "oklch(46.5% 0.043 257.362)");
-      (700, "oklch(39.3% 0.045 256.848)");
-      (800, "oklch(29.1% 0.041 257.284)");
-      (900, "oklch(20.4% 0.025 264.665)");
-      (950, "oklch(13.2% 0.017 264.436)");
+      (50, { l = 98.6; c = 0.003; h = 247.839 });
+      (100, { l = 96.9; c = 0.005; h = 264.542 });
+      (200, { l = 93.1; c = 0.01; h = 264.531 });
+      (300, { l = 87.6; c = 0.017; h = 258.338 });
+      (400, { l = 71.3; c = 0.028; h = 256.802 });
+      (500, { l = 58.7; c = 0.036; h = 257.311 });
+      (600, { l = 46.5; c = 0.043; h = 257.362 });
+      (700, { l = 39.3; c = 0.045; h = 256.848 });
+      (800, { l = 29.1; c = 0.041; h = 257.284 });
+      (900, { l = 20.4; c = 0.025; h = 264.665 });
+      (950, { l = 13.2; c = 0.017; h = 264.436 });
     ]
 
   let zinc =
     [
-      (50, "oklch(98.5% 0.002 247.839)");
-      (100, "oklch(96.5% 0.003 264.542)");
-      (200, "oklch(92.5% 0.004 264.531)");
-      (300, "oklch(86.9% 0.007 258.338)");
-      (400, "oklch(69.8% 0.01 264.436)");
-      (500, "oklch(56.8% 0.014 264.364)");
-      (600, "oklch(45.2% 0.016 256.802)");
-      (700, "oklch(38.4% 0.017 264.364)");
-      (800, "oklch(28.1% 0.015 256.848)");
-      (900, "oklch(20.8% 0.011 264.665)");
-      (950, "oklch(13.1% 0.007 264.436)");
+      (50, { l = 98.5; c = 0.002; h = 247.839 });
+      (100, { l = 96.5; c = 0.003; h = 264.542 });
+      (200, { l = 92.5; c = 0.004; h = 264.531 });
+      (300, { l = 86.9; c = 0.007; h = 258.338 });
+      (400, { l = 69.8; c = 0.01; h = 264.436 });
+      (500, { l = 56.8; c = 0.014; h = 264.364 });
+      (600, { l = 45.2; c = 0.016; h = 256.802 });
+      (700, { l = 38.4; c = 0.017; h = 264.364 });
+      (800, { l = 28.1; c = 0.015; h = 256.848 });
+      (900, { l = 20.8; c = 0.011; h = 264.665 });
+      (950, { l = 13.1; c = 0.007; h = 264.436 });
     ]
 
   let neutral =
     [
-      (50, "oklch(98.5% 0 0)");
-      (100, "oklch(96.5% 0 0)");
-      (200, "oklch(92.8% 0 0)");
-      (300, "oklch(87.3% 0 0)");
-      (400, "oklch(70.4% 0 0)");
-      (500, "oklch(57.2% 0 0)");
-      (600, "oklch(45.7% 0 0)");
-      (700, "oklch(38.5% 0 0)");
-      (800, "oklch(28.3% 0 0)");
-      (900, "oklch(21.1% 0 0)");
-      (950, "oklch(13.4% 0 0)");
+      (50, { l = 98.5; c = 0.0; h = 0.0 });
+      (100, { l = 96.5; c = 0.0; h = 0.0 });
+      (200, { l = 92.8; c = 0.0; h = 0.0 });
+      (300, { l = 87.3; c = 0.0; h = 0.0 });
+      (400, { l = 70.4; c = 0.0; h = 0.0 });
+      (500, { l = 57.2; c = 0.0; h = 0.0 });
+      (600, { l = 45.7; c = 0.0; h = 0.0 });
+      (700, { l = 38.5; c = 0.0; h = 0.0 });
+      (800, { l = 28.3; c = 0.0; h = 0.0 });
+      (900, { l = 21.1; c = 0.0; h = 0.0 });
+      (950, { l = 13.4; c = 0.0; h = 0.0 });
     ]
 
   let stone =
     [
-      (50, "oklch(98.5% 0.002 106.424)");
-      (100, "oklch(96.4% 0.003 106.424)");
-      (200, "oklch(92.5% 0.005 106.424)");
-      (300, "oklch(87.1% 0.008 106.424)");
-      (400, "oklch(70.1% 0.01 106.424)");
-      (500, "oklch(56.9% 0.013 106.424)");
-      (600, "oklch(45.4% 0.011 106.424)");
-      (700, "oklch(38.8% 0.01 106.424)");
-      (800, "oklch(28.2% 0.007 106.424)");
-      (900, "oklch(21.3% 0.004 106.424)");
-      (950, "oklch(13.1% 0.002 106.424)");
+      (50, { l = 98.5; c = 0.002; h = 106.424 });
+      (100, { l = 96.4; c = 0.003; h = 106.424 });
+      (200, { l = 92.5; c = 0.005; h = 106.424 });
+      (300, { l = 87.1; c = 0.008; h = 106.424 });
+      (400, { l = 70.1; c = 0.01; h = 106.424 });
+      (500, { l = 56.9; c = 0.013; h = 106.424 });
+      (600, { l = 45.4; c = 0.011; h = 106.424 });
+      (700, { l = 38.8; c = 0.01; h = 106.424 });
+      (800, { l = 28.2; c = 0.007; h = 106.424 });
+      (900, { l = 21.3; c = 0.004; h = 106.424 });
+      (950, { l = 13.1; c = 0.002; h = 106.424 });
     ]
 
   let orange =
     [
-      (50, "oklch(97.8% 0.015 73.368)");
-      (100, "oklch(95.5% 0.03 73.684)");
-      (200, "oklch(90.5% 0.063 73.639)");
-      (300, "oklch(84.1% 0.115 69.638)");
-      (400, "oklch(77% 0.17 62.843)");
-      (500, "oklch(71.3% 0.189 53.067)");
-      (600, "oklch(65.5% 0.176 41.239)");
-      (700, "oklch(54.8% 0.147 39.021)");
-      (800, "oklch(45.8% 0.12 38.172)");
-      (900, "oklch(38.7% 0.099 39.432)");
-      (950, "oklch(25.8% 0.067 38.766)");
+      (50, { l = 97.8; c = 0.015; h = 73.368 });
+      (100, { l = 95.5; c = 0.03; h = 73.684 });
+      (200, { l = 90.5; c = 0.063; h = 73.639 });
+      (300, { l = 84.1; c = 0.115; h = 69.638 });
+      (400, { l = 77.0; c = 0.17; h = 62.843 });
+      (500, { l = 71.3; c = 0.189; h = 53.067 });
+      (600, { l = 65.5; c = 0.176; h = 41.239 });
+      (700, { l = 54.8; c = 0.147; h = 39.021 });
+      (800, { l = 45.8; c = 0.12; h = 38.172 });
+      (900, { l = 38.7; c = 0.099; h = 39.432 });
+      (950, { l = 25.8; c = 0.067; h = 38.766 });
     ]
 
   let amber =
     [
-      (50, "oklch(98.7% 0.016 95.277)");
-      (100, "oklch(96.8% 0.041 95.644)");
-      (200, "oklch(92.8% 0.089 95.334)");
-      (300, "oklch(87.5% 0.15 94.634)");
-      (400, "oklch(82.3% 0.2 91.605)");
-      (500, "oklch(77.3% 0.189 86.047)");
-      (600, "oklch(69.7% 0.17 79.287)");
-      (700, "oklch(59.4% 0.147 73.483)");
-      (800, "oklch(49.5% 0.122 69.28)");
-      (900, "oklch(41.5% 0.102 66.343)");
-      (950, "oklch(28.2% 0.071 62.428)");
+      (50, { l = 98.7; c = 0.016; h = 95.277 });
+      (100, { l = 96.8; c = 0.041; h = 95.644 });
+      (200, { l = 92.8; c = 0.089; h = 95.334 });
+      (300, { l = 87.5; c = 0.15; h = 94.634 });
+      (400, { l = 82.3; c = 0.2; h = 91.605 });
+      (500, { l = 77.3; c = 0.189; h = 86.047 });
+      (600, { l = 69.7; c = 0.17; h = 79.287 });
+      (700, { l = 59.4; c = 0.147; h = 73.483 });
+      (800, { l = 49.5; c = 0.122; h = 69.28 });
+      (900, { l = 41.5; c = 0.102; h = 66.343 });
+      (950, { l = 28.2; c = 0.071; h = 62.428 });
     ]
 
   let yellow =
     [
-      (50, "oklch(98.8% 0.019 96.68)");
-      (100, "oklch(97.6% 0.046 97.138)");
-      (200, "oklch(94.8% 0.105 97.438)");
-      (300, "oklch(90.5% 0.175 96.723)");
-      (400, "oklch(86.3% 0.206 94.781)");
-      (500, "oklch(80.4% 0.191 91.605)");
-      (600, "oklch(72.7% 0.169 87.334)");
-      (700, "oklch(61.7% 0.142 83.453)");
-      (800, "oklch(51.5% 0.118 79.483)");
-      (900, "oklch(43.2% 0.099 75.3)");
-      (950, "oklch(28.5% 0.066 71.709)");
+      (50, { l = 98.8; c = 0.019; h = 96.68 });
+      (100, { l = 97.6; c = 0.046; h = 97.138 });
+      (200, { l = 94.8; c = 0.105; h = 97.438 });
+      (300, { l = 90.5; c = 0.175; h = 96.723 });
+      (400, { l = 86.3; c = 0.206; h = 94.781 });
+      (500, { l = 80.4; c = 0.191; h = 91.605 });
+      (600, { l = 72.7; c = 0.169; h = 87.334 });
+      (700, { l = 61.7; c = 0.142; h = 83.453 });
+      (800, { l = 51.5; c = 0.118; h = 79.483 });
+      (900, { l = 43.2; c = 0.099; h = 75.3 });
+      (950, { l = 28.5; c = 0.066; h = 71.709 });
     ]
 
   let lime =
     [
-      (50, "oklch(97.9% 0.02 118.604)");
-      (100, "oklch(95.5% 0.05 119.552)");
-      (200, "oklch(90.8% 0.117 119.772)");
-      (300, "oklch(85.1% 0.192 120.298)");
-      (400, "oklch(77.9% 0.235 121.721)");
-      (500, "oklch(71.8% 0.213 122.766)");
-      (600, "oklch(60.7% 0.177 124.321)");
-      (700, "oklch(50.7% 0.145 125.521)");
-      (800, "oklch(41.7% 0.115 125.366)");
-      (900, "oklch(36.3% 0.094 125.638)");
-      (950, "oklch(24.3% 0.064 125.808)");
+      (50, { l = 97.9; c = 0.02; h = 118.604 });
+      (100, { l = 95.5; c = 0.05; h = 119.552 });
+      (200, { l = 90.8; c = 0.117; h = 119.772 });
+      (300, { l = 85.1; c = 0.192; h = 120.298 });
+      (400, { l = 77.9; c = 0.235; h = 121.721 });
+      (500, { l = 71.8; c = 0.213; h = 122.766 });
+      (600, { l = 60.7; c = 0.177; h = 124.321 });
+      (700, { l = 50.7; c = 0.145; h = 125.521 });
+      (800, { l = 41.7; c = 0.115; h = 125.366 });
+      (900, { l = 36.3; c = 0.094; h = 125.638 });
+      (950, { l = 24.3; c = 0.064; h = 125.808 });
     ]
 
   let green =
     [
-      (50, "oklch(97.6% 0.017 155.826)");
-      (100, "oklch(94.5% 0.04 154.449)");
-      (200, "oklch(88.8% 0.089 153.713)");
-      (300, "oklch(81.2% 0.152 151.363)");
-      (400, "oklch(71.2% 0.209 149.579)");
-      (500, "oklch(63.2% 0.19 149.214)");
-      (600, "oklch(54.2% 0.157 149.579)");
-      (700, "oklch(46.7% 0.127 150.069)");
-      (800, "oklch(38.8% 0.101 150.592)");
-      (900, "oklch(33.6% 0.082 151.566)");
-      (950, "oklch(22.1% 0.055 152.535)");
+      (50, { l = 97.6; c = 0.017; h = 155.826 });
+      (100, { l = 94.5; c = 0.04; h = 154.449 });
+      (200, { l = 88.8; c = 0.089; h = 153.713 });
+      (300, { l = 81.2; c = 0.152; h = 151.363 });
+      (400, { l = 71.2; c = 0.209; h = 149.579 });
+      (500, { l = 63.2; c = 0.19; h = 149.214 });
+      (600, { l = 54.2; c = 0.157; h = 149.579 });
+      (700, { l = 46.7; c = 0.127; h = 150.069 });
+      (800, { l = 38.8; c = 0.101; h = 150.592 });
+      (900, { l = 33.6; c = 0.082; h = 151.566 });
+      (950, { l = 22.1; c = 0.055; h = 152.535 });
     ]
 
   let emerald =
     [
-      (50, "oklch(96.9% 0.021 167.214)");
-      (100, "oklch(93.2% 0.051 166.113)");
-      (200, "oklch(86.2% 0.111 164.15)");
-      (300, "oklch(77.3% 0.184 162.545)");
-      (400, "oklch(67.3% 0.223 160.804)");
-      (500, "oklch(58.7% 0.196 160.116)");
-      (600, "oklch(50.2% 0.163 160.804)");
-      (700, "oklch(43.5% 0.132 162.567)");
-      (800, "oklch(36.6% 0.105 163.227)");
-      (900, "oklch(31.6% 0.085 164.665)");
-      (950, "oklch(20.8% 0.056 166.113)");
+      (50, { l = 96.9; c = 0.021; h = 167.214 });
+      (100, { l = 93.2; c = 0.051; h = 166.113 });
+      (200, { l = 86.2; c = 0.111; h = 164.15 });
+      (300, { l = 77.3; c = 0.184; h = 162.545 });
+      (400, { l = 67.3; c = 0.223; h = 160.804 });
+      (500, { l = 58.7; c = 0.196; h = 160.116 });
+      (600, { l = 50.2; c = 0.163; h = 160.804 });
+      (700, { l = 43.5; c = 0.132; h = 162.567 });
+      (800, { l = 36.6; c = 0.105; h = 163.227 });
+      (900, { l = 31.6; c = 0.085; h = 164.665 });
+      (950, { l = 20.8; c = 0.056; h = 166.113 });
     ]
 
   let teal =
     [
-      (50, "oklch(97.5% 0.014 182.513)");
-      (100, "oklch(94.2% 0.037 180.584)");
-      (200, "oklch(88.5% 0.084 180.726)");
-      (300, "oklch(80.7% 0.141 181.181)");
-      (400, "oklch(70.5% 0.17 182.085)");
-      (500, "oklch(60.8% 0.152 183.292)");
-      (600, "oklch(51.4% 0.127 184.699)");
-      (700, "oklch(44.3% 0.105 185.802)");
-      (800, "oklch(37.5% 0.084 186.735)");
-      (900, "oklch(32.9% 0.068 187.915)");
-      (950, "oklch(22.5% 0.047 188.251)");
+      (50, { l = 97.5; c = 0.014; h = 182.513 });
+      (100, { l = 94.2; c = 0.037; h = 180.584 });
+      (200, { l = 88.5; c = 0.084; h = 180.726 });
+      (300, { l = 80.7; c = 0.141; h = 181.181 });
+      (400, { l = 70.5; c = 0.17; h = 182.085 });
+      (500, { l = 60.8; c = 0.152; h = 183.292 });
+      (600, { l = 51.4; c = 0.127; h = 184.699 });
+      (700, { l = 44.3; c = 0.105; h = 185.802 });
+      (800, { l = 37.5; c = 0.084; h = 186.735 });
+      (900, { l = 32.9; c = 0.068; h = 187.915 });
+      (950, { l = 22.5; c = 0.047; h = 188.251 });
     ]
 
   let cyan =
     [
-      (50, "oklch(96.9% 0.017 200.119)");
-      (100, "oklch(93.7% 0.042 199.956)");
-      (200, "oklch(87.2% 0.093 200.065)");
-      (300, "oklch(79.2% 0.154 200.651)");
-      (400, "oklch(68.9% 0.182 202.267)");
-      (500, "oklch(59.6% 0.16 204.054)");
-      (600, "oklch(50.9% 0.135 205.765)");
-      (700, "oklch(44.1% 0.111 207.562)");
-      (800, "oklch(37.9% 0.089 209.135)");
-      (900, "oklch(33.5% 0.072 210.732)");
-      (950, "oklch(23.5% 0.051 211.682)");
+      (50, { l = 96.9; c = 0.017; h = 200.119 });
+      (100, { l = 93.7; c = 0.042; h = 199.956 });
+      (200, { l = 87.2; c = 0.093; h = 200.065 });
+      (300, { l = 79.2; c = 0.154; h = 200.651 });
+      (400, { l = 68.9; c = 0.182; h = 202.267 });
+      (500, { l = 59.6; c = 0.16; h = 204.054 });
+      (600, { l = 50.9; c = 0.135; h = 205.765 });
+      (700, { l = 44.1; c = 0.111; h = 207.562 });
+      (800, { l = 37.9; c = 0.089; h = 209.135 });
+      (900, { l = 33.5; c = 0.072; h = 210.732 });
+      (950, { l = 23.5; c = 0.051; h = 211.682 });
     ]
 
   let sky =
     [
-      (50, "oklch(97.5% 0.013 214.57)");
-      (100, "oklch(94.1% 0.031 214.334)");
-      (200, "oklch(88.2% 0.071 213.337)");
-      (300, "oklch(80.9% 0.127 213.292)");
-      (400, "oklch(71.2% 0.184 213.524)");
-      (500, "oklch(63% 0.195 214.884)");
-      (600, "oklch(54.9% 0.174 218.364)");
-      (700, "oklch(48.2% 0.142 221.723)");
-      (800, "oklch(41.8% 0.116 224.283)");
-      (900, "oklch(36.9% 0.095 225.937)");
-      (950, "oklch(25.7% 0.066 228.06)");
+      (50, { l = 97.5; c = 0.013; h = 214.57 });
+      (100, { l = 94.1; c = 0.031; h = 214.334 });
+      (200, { l = 88.2; c = 0.071; h = 213.337 });
+      (300, { l = 80.9; c = 0.127; h = 213.292 });
+      (400, { l = 71.2; c = 0.184; h = 213.524 });
+      (500, { l = 63.0; c = 0.195; h = 214.884 });
+      (600, { l = 54.9; c = 0.174; h = 218.364 });
+      (700, { l = 48.2; c = 0.142; h = 221.723 });
+      (800, { l = 41.8; c = 0.116; h = 224.283 });
+      (900, { l = 36.9; c = 0.095; h = 225.937 });
+      (950, { l = 25.7; c = 0.066; h = 228.06 });
     ]
 
   let indigo =
     [
-      (50, "oklch(96.4% 0.015 272.314)");
-      (100, "oklch(93.1% 0.034 272.937)");
-      (200, "oklch(86.8% 0.069 274.039)");
-      (300, "oklch(79.4% 0.116 274.713)");
-      (400, "oklch(70.5% 0.165 276.935)");
-      (500, "oklch(60.9% 0.194 281.288)");
-      (600, "oklch(53.4% 0.19 285.786)");
-      (700, "oklch(47.5% 0.169 287.163)");
-      (800, "oklch(40.5% 0.138 287.999)");
-      (900, "oklch(35.9% 0.111 288.494)");
-      (950, "oklch(24.1% 0.074 288.846)");
+      (50, { l = 96.4; c = 0.015; h = 272.314 });
+      (100, { l = 93.1; c = 0.034; h = 272.937 });
+      (200, { l = 86.8; c = 0.069; h = 274.039 });
+      (300, { l = 79.4; c = 0.116; h = 274.713 });
+      (400, { l = 70.5; c = 0.165; h = 276.935 });
+      (500, { l = 60.9; c = 0.194; h = 281.288 });
+      (600, { l = 53.4; c = 0.19; h = 285.786 });
+      (700, { l = 47.5; c = 0.169; h = 287.163 });
+      (800, { l = 40.5; c = 0.138; h = 287.999 });
+      (900, { l = 35.9; c = 0.111; h = 288.494 });
+      (950, { l = 24.1; c = 0.074; h = 288.846 });
     ]
 
   let violet =
     [
-      (50, "oklch(96.5% 0.016 293.756)");
-      (100, "oklch(93.5% 0.035 294.588)");
-      (200, "oklch(87.8% 0.073 295.112)");
-      (300, "oklch(80.7% 0.127 295.484)");
-      (400, "oklch(72.1% 0.187 296.424)");
-      (500, "oklch(64.3% 0.221 298.781)");
-      (600, "oklch(56.9% 0.216 301.685)");
-      (700, "oklch(51.2% 0.19 303.418)");
-      (800, "oklch(43.5% 0.157 304.252)");
-      (900, "oklch(38.3% 0.127 304.935)");
-      (950, "oklch(26.8% 0.088 305.612)");
+      (50, { l = 96.5; c = 0.016; h = 293.756 });
+      (100, { l = 93.5; c = 0.035; h = 294.588 });
+      (200, { l = 87.8; c = 0.073; h = 295.112 });
+      (300, { l = 80.7; c = 0.127; h = 295.484 });
+      (400, { l = 72.1; c = 0.187; h = 296.424 });
+      (500, { l = 64.3; c = 0.221; h = 298.781 });
+      (600, { l = 56.9; c = 0.216; h = 301.685 });
+      (700, { l = 51.2; c = 0.19; h = 303.418 });
+      (800, { l = 43.5; c = 0.157; h = 304.252 });
+      (900, { l = 38.3; c = 0.127; h = 304.935 });
+      (950, { l = 26.8; c = 0.088; h = 305.612 });
     ]
 
   let purple =
     [
-      (50, "oklch(98.2% 0.01 314.533)");
-      (100, "oklch(95.8% 0.024 315.433)");
-      (200, "oklch(91.3% 0.052 315.802)");
-      (300, "oklch(84.7% 0.093 315.921)");
-      (400, "oklch(76.5% 0.144 316.192)");
-      (500, "oklch(68.5% 0.188 316.766)");
-      (600, "oklch(61.2% 0.187 317.705)");
-      (700, "oklch(53.6% 0.164 318.736)");
-      (800, "oklch(44.6% 0.135 319.397)");
-      (900, "oklch(37.5% 0.11 319.968)");
-      (950, "oklch(26.9% 0.079 320.38)");
+      (50, { l = 98.2; c = 0.01; h = 314.533 });
+      (100, { l = 95.8; c = 0.024; h = 315.433 });
+      (200, { l = 91.3; c = 0.052; h = 315.802 });
+      (300, { l = 84.7; c = 0.093; h = 315.921 });
+      (400, { l = 76.5; c = 0.144; h = 316.192 });
+      (500, { l = 68.5; c = 0.188; h = 316.766 });
+      (600, { l = 61.2; c = 0.187; h = 317.705 });
+      (700, { l = 53.6; c = 0.164; h = 318.736 });
+      (800, { l = 44.6; c = 0.135; h = 319.397 });
+      (900, { l = 37.5; c = 0.11; h = 319.968 });
+      (950, { l = 26.9; c = 0.079; h = 320.38 });
     ]
 
   let fuchsia =
     [
-      (50, "oklch(98.2% 0.012 328.363)");
-      (100, "oklch(95.9% 0.029 328.734)");
-      (200, "oklch(91.7% 0.064 328.704)");
-      (300, "oklch(85.5% 0.117 328.717)");
-      (400, "oklch(77.8% 0.184 329.146)");
-      (500, "oklch(70.2% 0.231 329.893)");
-      (600, "oklch(62.2% 0.223 330.771)");
-      (700, "oklch(53.9% 0.194 331.642)");
-      (800, "oklch(45.3% 0.162 332.288)");
-      (900, "oklch(38.7% 0.134 332.791)");
-      (950, "oklch(27.5% 0.095 333.137)");
+      (50, { l = 98.2; c = 0.012; h = 328.363 });
+      (100, { l = 95.9; c = 0.029; h = 328.734 });
+      (200, { l = 91.7; c = 0.064; h = 328.704 });
+      (300, { l = 85.5; c = 0.117; h = 328.717 });
+      (400, { l = 77.8; c = 0.184; h = 329.146 });
+      (500, { l = 70.2; c = 0.231; h = 329.893 });
+      (600, { l = 62.2; c = 0.223; h = 330.771 });
+      (700, { l = 53.9; c = 0.194; h = 331.642 });
+      (800, { l = 45.3; c = 0.162; h = 332.288 });
+      (900, { l = 38.7; c = 0.134; h = 332.791 });
+      (950, { l = 27.5; c = 0.095; h = 333.137 });
     ]
 
   let pink =
     [
-      (50, "oklch(97.5% 0.014 343.195)");
-      (100, "oklch(95.2% 0.03 343.166)");
-      (200, "oklch(90.2% 0.063 343.394)");
-      (300, "oklch(83.6% 0.115 344.056)");
-      (400, "oklch(74.6% 0.18 346.054)");
-      (500, "oklch(66.5% 0.227 349.761)");
-      (600, "oklch(58.5% 0.225 354.112)");
-      (700, "oklch(50.5% 0.195 357.196)");
-      (800, "oklch(42.5% 0.163 358.892)");
-      (900, "oklch(37.1% 0.135 359.732)");
-      (950, "oklch(25.8% 0.093 0.223)");
+      (50, { l = 97.5; c = 0.014; h = 343.195 });
+      (100, { l = 95.2; c = 0.03; h = 343.166 });
+      (200, { l = 90.2; c = 0.063; h = 343.394 });
+      (300, { l = 83.6; c = 0.115; h = 344.056 });
+      (400, { l = 74.6; c = 0.18; h = 346.054 });
+      (500, { l = 66.5; c = 0.227; h = 349.761 });
+      (600, { l = 58.5; c = 0.225; h = 354.112 });
+      (700, { l = 50.5; c = 0.195; h = 357.196 });
+      (800, { l = 42.5; c = 0.163; h = 358.892 });
+      (900, { l = 37.1; c = 0.135; h = 359.732 });
+      (950, { l = 25.8; c = 0.093; h = 0.223 });
     ]
 
   let rose =
     [
-      (50, "oklch(97.8% 0.01 14.096)");
-      (100, "oklch(95.5% 0.024 13.219)");
-      (200, "oklch(90.9% 0.054 11.847)");
-      (300, "oklch(84.7% 0.104 10.449)");
-      (400, "oklch(76.7% 0.169 8.861)");
-      (500, "oklch(68% 0.219 7.574)");
-      (600, "oklch(59.5% 0.217 5.342)");
-      (700, "oklch(51.5% 0.189 3.813)");
-      (800, "oklch(43.2% 0.159 2.599)");
-      (900, "oklch(38.1% 0.132 1.829)");
-      (950, "oklch(26.9% 0.093 1.145)");
+      (50, { l = 97.8; c = 0.01; h = 14.096 });
+      (100, { l = 95.5; c = 0.024; h = 13.219 });
+      (200, { l = 90.9; c = 0.054; h = 11.847 });
+      (300, { l = 84.7; c = 0.104; h = 10.449 });
+      (400, { l = 76.7; c = 0.169; h = 8.861 });
+      (500, { l = 68.0; c = 0.219; h = 7.574 });
+      (600, { l = 59.5; c = 0.217; h = 5.342 });
+      (700, { l = 51.5; c = 0.189; h = 3.813 });
+      (800, { l = 43.2; c = 0.159; h = 2.599 });
+      (900, { l = 38.1; c = 0.132; h = 1.829 });
+      (950, { l = 26.9; c = 0.093; h = 1.145 });
     ]
 
   let get_color color_name shade =
@@ -538,7 +547,9 @@ module TailwindColors = struct
       | "rose" -> rose
       | _ -> []
     in
-    List.assoc_opt shade color_map
+    match List.assoc_opt shade color_map with
+    | Some oklch -> Some (oklch_to_css oklch)
+    | None -> None
 end
 
 (* Convert string name to color type *)
@@ -595,16 +606,56 @@ let fuchsia = Fuchsia
 let pink = Pink
 let rose = Rose
 let hex s = Hex s
-let rgb r g b = Rgb { red = r; green = g; blue = b }
+
+let rgb r g b =
+  if r < 0 || r > 255 then
+    invalid_arg
+      (Pp.str [ "RGB red value "; string_of_int r; " out of range [0-255]" ]);
+  if g < 0 || g > 255 then
+    invalid_arg
+      (Pp.str [ "RGB green value "; string_of_int g; " out of range [0-255]" ]);
+  if b < 0 || b > 255 then
+    invalid_arg
+      (Pp.str [ "RGB blue value "; string_of_int b; " out of range [0-255]" ]);
+  Rgb { red = r; green = g; blue = b }
+
+(* Helper function to get OKLCH color data directly *)
+let get_oklch_direct color_name shade =
+  let color_map =
+    match String.lowercase_ascii color_name with
+    | "gray" -> TailwindColors.gray
+    | "slate" -> TailwindColors.slate
+    | "zinc" -> TailwindColors.zinc
+    | "neutral" -> TailwindColors.neutral
+    | "stone" -> TailwindColors.stone
+    | "red" -> TailwindColors.red
+    | "orange" -> TailwindColors.orange
+    | "amber" -> TailwindColors.amber
+    | "yellow" -> TailwindColors.yellow
+    | "lime" -> TailwindColors.lime
+    | "green" -> TailwindColors.green
+    | "emerald" -> TailwindColors.emerald
+    | "teal" -> TailwindColors.teal
+    | "cyan" -> TailwindColors.cyan
+    | "sky" -> TailwindColors.sky
+    | "blue" -> TailwindColors.blue
+    | "indigo" -> TailwindColors.indigo
+    | "violet" -> TailwindColors.violet
+    | "purple" -> TailwindColors.purple
+    | "fuchsia" -> TailwindColors.fuchsia
+    | "pink" -> TailwindColors.pink
+    | "rose" -> TailwindColors.rose
+    | _ -> []
+  in
+  List.assoc_opt shade color_map
 
 (* Convert color to hex for a given shade *)
 let to_hex color shade =
-  match (color, shade) with
-  (* Basic colors *)
-  | Black, _ -> "#000000"
-  | White, _ -> "#ffffff"
-  | Hex h, _ -> h
-  | Rgb { red; green; blue }, _ ->
+  match color with
+  | Black -> "#000000"
+  | White -> "#ffffff"
+  | Hex h -> h
+  | Rgb { red; green; blue } ->
       let to_hex_digit n =
         let hex = "0123456789abcdef" in
         String.make 1 hex.[n]
@@ -613,98 +664,148 @@ let to_hex color shade =
         Pp.str [ to_hex_digit (b / 16); to_hex_digit (b mod 16) ]
       in
       Pp.str [ "#"; byte_to_hex red; byte_to_hex green; byte_to_hex blue ]
-  (* Gray shades *)
-  | Gray, 50 -> "#f9fafb"
-  | Gray, 100 -> "#f3f4f6"
-  | Gray, 200 -> "#e5e7eb"
-  | Gray, 300 -> "#d1d5db"
-  | Gray, 400 -> "#9ca3af"
-  | Gray, 500 -> "#6b7280"
-  | Gray, 600 -> "#4b5563"
-  | Gray, 700 -> "#374151"
-  | Gray, 800 -> "#1f2937"
-  | Gray, 900 -> "#111827"
-  (* Blue shades *)
-  | Blue, 50 -> "#eff6ff"
-  | Blue, 100 -> "#dbeafe"
-  | Blue, 200 -> "#bfdbfe"
-  | Blue, 300 -> "#93c5fd"
-  | Blue, 400 -> "#60a5fa"
-  | Blue, 500 -> "#3b82f6"
-  | Blue, 600 -> "#2563eb"
-  | Blue, 700 -> "#1d4ed8"
-  | Blue, 800 -> "#1e40af"
-  | Blue, 900 -> "#1e3a8a"
-  (* Red shades *)
-  | Red, 50 -> "#fef2f2"
-  | Red, 100 -> "#fee2e2"
-  | Red, 200 -> "#fecaca"
-  | Red, 300 -> "#fca5a5"
-  | Red, 400 -> "#f87171"
-  | Red, 500 -> "#ef4444"
-  | Red, 600 -> "#dc2626"
-  | Red, 700 -> "#b91c1c"
-  | Red, 800 -> "#991b1b"
-  | Red, 900 -> "#7f1d1d"
-  (* Add more colors as needed - for now use gray as fallback *)
-  | _, _ -> "#6b7280"
+  | Oklch oklch ->
+      let rgb = oklch_to_rgb oklch in
+      rgb_to_hex rgb
+  | _ -> (
+      (* For named colors, get OKLCH from TailwindColors and convert to RGB then
+         hex *)
+      let color_name =
+        match color with
+        | Gray -> "gray"
+        | Slate -> "slate"
+        | Zinc -> "zinc"
+        | Neutral -> "neutral"
+        | Stone -> "stone"
+        | Red -> "red"
+        | Orange -> "orange"
+        | Amber -> "amber"
+        | Yellow -> "yellow"
+        | Lime -> "lime"
+        | Green -> "green"
+        | Emerald -> "emerald"
+        | Teal -> "teal"
+        | Cyan -> "cyan"
+        | Sky -> "sky"
+        | Blue -> "blue"
+        | Indigo -> "indigo"
+        | Violet -> "violet"
+        | Purple -> "purple"
+        | Fuchsia -> "fuchsia"
+        | Pink -> "pink"
+        | Rose -> "rose"
+        | _ -> ""
+      in
+      match get_oklch_direct color_name shade with
+      | Some oklch ->
+          let rgb = oklch_to_rgb oklch in
+          rgb_to_hex rgb
+      | None -> "#000000" (* Fallback *))
 
 (* Convert color to OKLCH CSS string for a given shade *)
 let to_oklch_css color shade =
-  match
-    TailwindColors.get_color
-      (match color with
-      | Black -> "black"
-      | White -> "white"
-      | Gray -> "gray"
-      | Slate -> "slate"
-      | Zinc -> "zinc"
-      | Neutral -> "neutral"
-      | Stone -> "stone"
-      | Red -> "red"
-      | Orange -> "orange"
-      | Amber -> "amber"
-      | Yellow -> "yellow"
-      | Lime -> "lime"
-      | Green -> "green"
-      | Emerald -> "emerald"
-      | Teal -> "teal"
-      | Cyan -> "cyan"
-      | Sky -> "sky"
-      | Blue -> "blue"
-      | Indigo -> "indigo"
-      | Violet -> "violet"
-      | Purple -> "purple"
-      | Fuchsia -> "fuchsia"
-      | Pink -> "pink"
-      | Rose -> "rose"
-      | Hex h -> hex_to_oklch_css h
-      | Rgb { red; green; blue } ->
-          rgb_to_oklch { r = red; g = green; b = blue } |> oklch_to_css)
-      shade
-  with
-  | Some value -> value
-  | None ->
-      (* Fallback to hex conversion *)
-      let hex_val = to_hex color shade in
-      hex_to_oklch_css hex_val
+  match color with
+  | Black -> "oklch(0% 0 0)"
+  | White -> "oklch(100% 0 0)"
+  | Oklch oklch -> oklch_to_css oklch
+  | Hex h -> hex_to_oklch_css h
+  | Rgb { red; green; blue } ->
+      rgb_to_oklch { r = red; g = green; b = blue } |> oklch_to_css
+  | _ -> (
+      (* For named colors, get from TailwindColors *)
+      let color_name =
+        match color with
+        | Gray -> "gray"
+        | Slate -> "slate"
+        | Zinc -> "zinc"
+        | Neutral -> "neutral"
+        | Stone -> "stone"
+        | Red -> "red"
+        | Orange -> "orange"
+        | Amber -> "amber"
+        | Yellow -> "yellow"
+        | Lime -> "lime"
+        | Green -> "green"
+        | Emerald -> "emerald"
+        | Teal -> "teal"
+        | Cyan -> "cyan"
+        | Sky -> "sky"
+        | Blue -> "blue"
+        | Indigo -> "indigo"
+        | Violet -> "violet"
+        | Purple -> "purple"
+        | Fuchsia -> "fuchsia"
+        | Pink -> "pink"
+        | Rose -> "rose"
+        | _ -> ""
+      in
+      match TailwindColors.get_color color_name shade with
+      | Some value -> value
+      | None -> "oklch(0% 0 0)" (* Fallback *))
 
-(* Convert color to RGB string for a given shade *)
+(* Convert color to RGB space-separated values for a given shade *)
 let to_rgb_string color shade =
-  let hex_val = to_hex color shade in
-  match hex_to_rgb hex_val with
-  | Some { r; g; b } ->
+  match color with
+  | Black -> "0 0 0"
+  | White -> "255 255 255"
+  | Rgb { red; green; blue } ->
+      Pp.str
+        [ string_of_int red; " "; string_of_int green; " "; string_of_int blue ]
+  | Hex h -> (
+      match hex_to_rgb h with
+      | Some { r; g; b } ->
+          Pp.str [ string_of_int r; " "; string_of_int g; " "; string_of_int b ]
+      | None -> failwith (Pp.str [ "Failed to parse hex color: "; h ]))
+  | Oklch oklch ->
+      let rgb = oklch_to_rgb oklch in
       Pp.str
         [
-          "rgb(";
-          string_of_int r;
+          string_of_int rgb.r;
           " ";
-          string_of_int g;
+          string_of_int rgb.g;
           " ";
-          string_of_int b;
-          ")";
+          string_of_int rgb.b;
         ]
-  | None -> "rgb(0 0 0)" (* Fallback to black *)
+  | _ -> (
+      (* For named colors, get OKLCH from TailwindColors and convert to RGB *)
+      let color_name =
+        match color with
+        | Gray -> "gray"
+        | Slate -> "slate"
+        | Zinc -> "zinc"
+        | Neutral -> "neutral"
+        | Stone -> "stone"
+        | Red -> "red"
+        | Orange -> "orange"
+        | Amber -> "amber"
+        | Yellow -> "yellow"
+        | Lime -> "lime"
+        | Green -> "green"
+        | Emerald -> "emerald"
+        | Teal -> "teal"
+        | Cyan -> "cyan"
+        | Sky -> "sky"
+        | Blue -> "blue"
+        | Indigo -> "indigo"
+        | Violet -> "violet"
+        | Purple -> "purple"
+        | Fuchsia -> "fuchsia"
+        | Pink -> "pink"
+        | Rose -> "rose"
+        | _ -> ""
+      in
+      match get_oklch_direct color_name shade with
+      | Some oklch ->
+          let rgb = oklch_to_rgb oklch in
+          Pp.str
+            [
+              string_of_int rgb.r;
+              " ";
+              string_of_int rgb.g;
+              " ";
+              string_of_int rgb.b;
+            ]
+      | None -> "0 0 0" (* Fallback *))
 
 (* Get the name of a color as a string *)
 let to_name = function
@@ -732,7 +833,13 @@ let to_name = function
   | Fuchsia -> "fuchsia"
   | Pink -> "pink"
   | Rose -> "rose"
-  | Hex h -> Pp.str [ "["; h; "]" ]
+  | Hex h ->
+      let h_stripped =
+        if String.starts_with ~prefix:"#" h then
+          String.sub h 1 (String.length h - 1)
+        else h
+      in
+      Pp.str [ "["; h_stripped; "]" ]
   | Rgb { red; green; blue } ->
       Pp.str
         [
@@ -744,9 +851,20 @@ let to_name = function
           string_of_int blue;
           ")]";
         ]
+  | Oklch oklch ->
+      Pp.str
+        [
+          "[oklch(";
+          Printf.sprintf "%.1f" oklch.l;
+          "%,";
+          Printf.sprintf "%.3f" oklch.c;
+          ",";
+          Printf.sprintf "%.3f" oklch.h;
+          ")]";
+        ]
 
 (* Check if a color is black or white *)
 let is_base_color = function Black | White -> true | _ -> false
 
-(* Check if a color is a custom color (hex or rgb) *)
-let is_custom_color = function Hex _ | Rgb _ -> true | _ -> false
+(* Check if a color is a custom color (hex, rgb, or oklch) *)
+let is_custom_color = function Hex _ | Rgb _ | Oklch _ -> true | _ -> false

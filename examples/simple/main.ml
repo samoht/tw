@@ -300,9 +300,5 @@ let () =
   output_string oc_css css_str;
   close_out oc_css;
 
-  (* Use simpler output *)
-  print_endline "Generated:";
-  print_endline "  - simple.html";
-  print_string "  - ";
-  print_endline css_filename;
-  print_endline "\nOpen simple.html in your browser to see the result!"
+  (* Silent during build - no output *)
+  ()

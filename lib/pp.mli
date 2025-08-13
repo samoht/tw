@@ -61,3 +61,7 @@ val int : int -> string
 
 val float : float -> string
 (** [float f] formats a float without trailing dots. *)
+
+val float_n : int -> float -> string
+(** [float_n decimals f] formats a float with n decimal places. Whole numbers
+    are formatted without decimal point. Trailing zeros are removed. *)

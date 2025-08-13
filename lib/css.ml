@@ -1,19 +1,34 @@
 (** CSS generation utilities *)
 
+type var =
+  | Color of string * int option (* color name and optional shade *)
+  | Spacing of int (* spacing value *)
+  | Font of string (* font family *)
+  | Text_size of string (* text size *)
+  | Font_weight of string (* font weight *)
+  | Radius of string (* border radius *)
+  | Transition (* transition timing *)
+  | Custom of string * string (* custom variable name and value *)
+
 type property_name =
   | Background_color
   | Color
   | Border_color
+  | Border_style
   | Padding
   | Padding_left
   | Padding_right
   | Padding_bottom
   | Padding_top
+  | Padding_inline
+  | Padding_block
   | Margin
   | Margin_left
   | Margin_right
   | Margin_top
   | Margin_bottom
+  | Margin_inline
+  | Margin_block
   | Gap
   | Column_gap
   | Row_gap
@@ -107,16 +122,21 @@ type property = property_name * string
 let background_color value = (Background_color, value)
 let color value = (Color, value)
 let border_color value = (Border_color, value)
+let border_style value = (Border_style, value)
 let padding value = (Padding, value)
 let padding_left value = (Padding_left, value)
 let padding_right value = (Padding_right, value)
 let padding_bottom value = (Padding_bottom, value)
 let padding_top value = (Padding_top, value)
+let padding_inline value = (Padding_inline, value)
+let padding_block value = (Padding_block, value)
 let margin value = (Margin, value)
 let margin_left value = (Margin_left, value)
 let margin_right value = (Margin_right, value)
 let margin_top value = (Margin_top, value)
 let margin_bottom value = (Margin_bottom, value)
+let margin_inline value = (Margin_inline, value)
+let margin_block value = (Margin_block, value)
 let gap value = (Gap, value)
 let column_gap value = (Column_gap, value)
 let row_gap value = (Row_gap, value)
@@ -247,16 +267,21 @@ let property_name_to_string = function
   | Background_color -> "background-color"
   | Color -> "color"
   | Border_color -> "border-color"
+  | Border_style -> "border-style"
   | Padding -> "padding"
   | Padding_left -> "padding-left"
   | Padding_right -> "padding-right"
   | Padding_bottom -> "padding-bottom"
   | Padding_top -> "padding-top"
+  | Padding_inline -> "padding-inline"
+  | Padding_block -> "padding-block"
   | Margin -> "margin"
   | Margin_left -> "margin-left"
   | Margin_right -> "margin-right"
   | Margin_top -> "margin-top"
   | Margin_bottom -> "margin-bottom"
+  | Margin_inline -> "margin-inline"
+  | Margin_block -> "margin-block"
   | Gap -> "gap"
   | Column_gap -> "column-gap"
   | Row_gap -> "row-gap"
@@ -548,14 +573,20 @@ let to_string ?(minify = false) stylesheet =
   in
 
   (* Add Tailwind v4 header comment and layer declarations *)
+  (* Only add header when we have layers (i.e., when using reset) *)
+  let has_layers = List.length stylesheet.layers > 0 in
+
   let header =
-    if minify then
-      "/*! tailwindcss v4.1.11 | MIT License | https://tailwindcss.com */"
-    else "/*! tailwindcss v4.1.11 | MIT License | https://tailwindcss.com */\n"
+    if has_layers then
+      if minify then
+        "/*! tailwindcss v4.1.11 | MIT License | https://tailwindcss.com */"
+      else
+        "/*! tailwindcss v4.1.11 | MIT License | https://tailwindcss.com */\n"
+    else ""
   in
 
   let layer_declarations =
-    if List.length stylesheet.layers > 0 then
+    if has_layers then
       if minify then "@layer properties;@layer theme,base,components,utilities;"
       else "@layer properties;\n@layer theme, base, components, utilities;\n"
     else ""
