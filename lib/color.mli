@@ -1,5 +1,19 @@
 (** Color conversion utilities for Tailwind v4 compatibility *)
 
+type rgb = {
+  r : int;  (** Red channel (0-255) *)
+  g : int;  (** Green channel (0-255) *)
+  b : int;  (** Blue channel (0-255) *)
+}
+(** RGB color representation *)
+
+type oklch = {
+  l : float;  (** Lightness (0-100) *)
+  c : float;  (** Chroma (0-0.4+) *)
+  h : float;  (** Hue (0-360) *)
+}
+(** OKLCH color representation *)
+
 (** Color type *)
 type t =
   | Black
@@ -28,20 +42,7 @@ type t =
   | Rose
   | Hex of string
   | Rgb of { red : int; green : int; blue : int }
-
-type rgb = {
-  r : int;  (** Red channel (0-255) *)
-  g : int;  (** Green channel (0-255) *)
-  b : int;  (** Blue channel (0-255) *)
-}
-(** RGB color representation *)
-
-type oklch = {
-  l : float;  (** Lightness (0-100) *)
-  c : float;  (** Chroma (0-0.4+) *)
-  h : float;  (** Hue (0-360) *)
-}
-(** OKLCH color representation *)
+  | Oklch of oklch (* OKLCH as a primary color type *)
 
 (** {1 Conversion Functions} *)
 

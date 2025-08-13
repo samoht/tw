@@ -62,3 +62,25 @@ let float f =
   let s = string_of_float f in
   if String.ends_with ~suffix:"." s then String.sub s 0 (String.length s - 1)
   else s
+
+(** Format float with n decimal places *)
+let float_n decimals f =
+  let multiplier = Float.pow 10.0 (float_of_int decimals) in
+  let rounded = Float.round (f *. multiplier) /. multiplier in
+  (* Check if it's a whole number *)
+  if Float.is_integer rounded then int (int_of_float rounded)
+  else
+    (* Format with the specified precision *)
+    let whole = int_of_float (Float.floor rounded) in
+    let frac_value = (rounded -. Float.floor rounded) *. multiplier in
+    let frac_int = int_of_float (Float.round frac_value) in
+    if frac_int = 0 then int whole
+    else
+      let frac_str = string_of_int frac_int in
+      (* Pad with leading zeros if needed *)
+      let padded_frac =
+        let len = String.length frac_str in
+        if len < decimals then String.make (decimals - len) '0' ^ frac_str
+        else frac_str
+      in
+      str [ int whole; "."; padded_frac ]

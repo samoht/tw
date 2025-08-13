@@ -1,4 +1,7 @@
-(** Script to compare our generated CSS with Tailwind v4 *)
+(** Script to compare two CSS files Usage: compare_css.exe <css_file1>
+    <css_file2> *)
+
+open Fmt
 
 let read_file path =
   try
@@ -6,118 +9,81 @@ let read_file path =
     let content = really_input_string ic (in_channel_length ic) in
     close_in ic;
     Some content
-  with _ -> None
+  with Sys_error msg ->
+    epr "Error reading %s: %s@." path msg;
+    None
 
-let normalize_css css =
-  (* Remove comments and normalize whitespace *)
-  css
-  |> Re.replace_string
-       (Re.compile
-          (Re.seq
-             [ Re.str "/*"; Re.rep (Re.compl [ Re.char '*' ]); Re.str "*/" ]))
-       ~by:""
-  |> Re.replace_string (Re.compile (Re.rep1 Re.space)) ~by:" "
-  |> String.trim
+let strip_tailwind_header css =
+  (* Strip the Tailwind header comment if present *)
+  let header_re =
+    Re.compile
+      (Re.seq
+         [
+           Re.str "/*! tailwindcss";
+           Re.rep (Re.compl [ Re.char '*' ]);
+           Re.str "*/";
+         ])
+  in
+  Re.replace_string header_re ~by:"" css
 
-let compare_files our_file tw_file name =
-  match (read_file our_file, read_file tw_file) with
-  | Some our_css, Some tw_css ->
-      let our_normalized = normalize_css our_css in
-      let tw_normalized = normalize_css tw_css in
-      if our_normalized = tw_normalized then (
-        Printf.printf "  ✓ %s matches Tailwind v4\n" name;
-        true)
-      else (
-        Printf.printf "  ✗ %s differs from Tailwind v4\n" name;
-        Printf.printf "    To debug: diff %s %s\n" our_file tw_file;
-        false)
-  | None, _ ->
-      Printf.printf "  ✗ Could not read %s\n" our_file;
-      false
-  | _, None ->
-      Printf.printf "  ⚠ Tailwind CSS not generated for %s\n" name;
-      true
-
-let list_files dir pattern =
-  try
-    Sys.readdir dir |> Array.to_list
-    |> List.filter (fun f -> Re.execp (Re.compile (Re.Perl.re pattern)) f)
-  with _ -> []
-
-let get_base_name file =
-  (* Extract base name from file, e.g., "simple_page.html" -> "simple_page" *)
-  try
-    let dot_pos = String.rindex file '.' in
-    String.sub file 0 dot_pos
-  with Not_found -> file
-
-let find_matching_css html_file css_files =
-  (* Find CSS file that matches the HTML file by base name *)
-  let html_base = get_base_name html_file in
-  List.find_opt
-    (fun css_file ->
-      let css_base = get_base_name css_file in
-      css_base = html_base)
-    css_files
+let compare_css css1 css2 =
+  (* Direct byte-for-byte comparison after trimming *)
+  String.equal (String.trim css1) (String.trim css2)
 
 let () =
-  print_endline "Comparing generated CSS with Tailwind v4...";
+  (* Parse command line arguments *)
+  let args = Array.to_list Sys.argv |> List.tl in
 
-  (* Check if Tailwind is available *)
-  let has_tailwind =
-    Sys.command
-      "command -v npx >/dev/null 2>&1 && npx tailwindcss --version >/dev/null \
-       2>&1"
-    = 0
-  in
+  match args with
+  | [ css_file1; css_file2 ] ->
+      (* Check if files exist *)
+      if not (Sys.file_exists css_file1) then (
+        epr "Error: CSS file '%s' does not exist@." css_file1;
+        exit 1);
 
-  if not has_tailwind then (
-    print_endline "  ⚠ Skipping comparison (Tailwind CSS not installed)";
-    exit 0);
+      if not (Sys.file_exists css_file2) then (
+        epr "Error: CSS file '%s' does not exist@." css_file2;
+        exit 1);
 
-  (* Discover all HTML and CSS files in examples directory *)
-  let html_files = list_files "examples" "\\.html$" in
-  let css_files = list_files "examples" "\\.css$" in
+      pr "Comparing %s with %s@." css_file1 css_file2;
 
-  if html_files = [] then (
-    print_endline "  ⚠ No HTML files found to compare";
-    exit 0);
+      (* Read first CSS file *)
+      let css1 =
+        match read_file css_file1 with Some css -> css | None -> exit 1
+      in
 
-  let all_match = ref true in
+      (* Read second CSS file *)
+      let css2 =
+        match read_file css_file2 with Some css -> css | None -> exit 1
+      in
 
-  (* Process each HTML file *)
-  List.iter
-    (fun html_file ->
-      match find_matching_css html_file css_files with
-      | Some css_file ->
-          let base = get_base_name html_file in
-          let tw_css = base ^ "_tailwind.css" in
+      (* Strip Tailwind header comment from both files *)
+      let css1 = strip_tailwind_header css1 in
+      let css2 = strip_tailwind_header css2 in
 
-          (* Generate Tailwind CSS *)
-          let cmd =
-            Printf.sprintf
-              "cd examples && npx tailwindcss --content './%s' -o %s \
-               2>/dev/null"
-              html_file tw_css
-          in
+      (* Compare *)
+      let identical = compare_css css1 css2 in
 
-          if Sys.command cmd = 0 then
-            let result =
-              compare_files ("examples/" ^ css_file) ("examples/" ^ tw_css) base
-            in
-            all_match := !all_match && result
-          else (
-            Printf.printf "  ✗ Failed to generate Tailwind CSS for %s\n" base;
-            all_match := false)
-      | None ->
-          Printf.printf "  ⚠ No matching CSS file found for %s (skipping)\n"
-            html_file)
-    html_files;
+      if identical then pr "✓ CSS files are identical@."
+      else (
+        pr "✗ CSS files differ@.";
+        pr "@.To see the differences, run:@.";
+        pr "  diff -u %s %s@." css_file1 css_file2);
 
-  if !all_match then (
-    print_endline "";
-    print_endline "✓ All CSS outputs match Tailwind v4!")
-  else (
-    print_endline "";
-    print_endline "✗ Some CSS outputs differ from Tailwind v4";
-    exit 1)
+      (* Exit with appropriate code *)
+      exit (if identical then 0 else 1)
+  | [ "--help" ] | [ "-h" ] ->
+      pr "Usage: %s <css_file1> <css_file2>@.@." Sys.argv.(0);
+      pr "Compare two CSS files for byte-for-byte equality.@.@.";
+      pr "Arguments:@.";
+      pr "  css_file1    First CSS file@.";
+      pr "  css_file2    Second CSS file@.@.";
+      pr "Note: Tailwind header comments are automatically stripped.@.@.";
+      pr "Example:@.";
+      pr "  %s examples/simple.css examples/simple.tailwind.css@." Sys.argv.(0);
+      exit 0
+  | _ ->
+      epr "Error: Invalid arguments@.";
+      epr "Usage: %s <css_file1> <css_file2>@." Sys.argv.(0);
+      epr "Run '%s --help' for more information@." Sys.argv.(0);
+      exit 1

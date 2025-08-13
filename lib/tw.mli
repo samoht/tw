@@ -668,6 +668,12 @@ val gap_px : t
 val gap_full : t
 (** [gap_full] sets 100% gap between items. *)
 
+val space_x : int -> t
+(** [space_x n] sets horizontal space between child elements. *)
+
+val space_y : int -> t
+(** [space_y n] sets vertical space between child elements. *)
+
 (** {1 Sizing}
     @see <https://tailwindcss.com/docs/width> Width and Height *)
 
@@ -1108,6 +1114,22 @@ val z : int -> t
 
     Negative values like [z (-1)] place elements behind others. *)
 
+val inset : int -> t
+(** [inset n] sets all position offsets (top, right, bottom, left) to the same
+    value. *)
+
+val top_1_2 : t
+(** Position element at 50% from top. *)
+
+val left_1_2 : t
+(** Position element at 50% from left. *)
+
+val neg_translate_x_1_2 : t
+(** Translate element -50% horizontally (for centering). *)
+
+val neg_translate_y_1_2 : t
+(** Translate element -50% vertically (for centering). *)
+
 (** {1 Typography}
     @see <https://tailwindcss.com/docs/font-size> Typography *)
 
@@ -1355,6 +1377,21 @@ val border_b : t
 
 val border_l : t
 (** Left border (1px). *)
+
+val border_solid : t
+(** Solid border style. *)
+
+val border_dashed : t
+(** Dashed border style. *)
+
+val border_dotted : t
+(** Dotted border style. *)
+
+val border_double : t
+(** Double border style. *)
+
+val border_none_style : t
+(** No border style. *)
 
 val rounded_none : t
 (** Sharp corners (0px). *)
@@ -2404,13 +2441,10 @@ module Color = Color
 
     Provides OKLCH color space conversion and Tailwind v4 color values. *)
 
-val to_css : ?reset:bool -> ?jit:bool -> t list -> Css.stylesheet
-(** [to_css ?reset ?jit styles] generates a CSS stylesheet for the given styles.
+val to_css : ?reset:bool -> t list -> Css.stylesheet
+(** [to_css ?reset styles] generates a CSS stylesheet for the given styles.
 
     @param reset Whether to include CSS reset rules (default: [true])
-    @param jit
-      Whether to use Just-In-Time compilation to only generate CSS variables for
-      used utilities (default: [false])
 
     When [reset=true] (default), includes:
     - CSS reset rules (normalize margins/padding, set box-sizing, base

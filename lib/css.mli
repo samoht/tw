@@ -2,6 +2,17 @@
 
 (** {1 Types} *)
 
+type var =
+  | Color of string * int option (* color name and optional shade *)
+  | Spacing of int (* spacing value *)
+  | Font of string (* font family *)
+  | Text_size of string (* text size *)
+  | Font_weight of string (* font weight *)
+  | Radius of string (* border radius *)
+  | Transition (* transition timing *)
+  | Custom of string * string (* custom variable name and value *)
+      (** CSS variable requirements *)
+
 type property_name
 (** Abstract type for CSS property names *)
 
@@ -48,6 +59,8 @@ val color : string -> property
 (** [color value] sets the CSS color property to value. *)
 
 val border_color : string -> property
+
+val border_style : string -> property
 (** [border_color value] sets the CSS border-color property to value. *)
 
 val padding : string -> property
@@ -65,6 +78,12 @@ val padding_bottom : string -> property
 val padding_top : string -> property
 (** [padding_top value] sets the CSS padding-top property to value. *)
 
+val padding_inline : string -> property
+(** [padding_inline value] sets the CSS padding-inline property to value. *)
+
+val padding_block : string -> property
+(** [padding_block value] sets the CSS padding-block property to value. *)
+
 val margin : string -> property
 (** [margin value] sets the CSS margin property to value. *)
 
@@ -79,6 +98,12 @@ val margin_top : string -> property
 
 val margin_bottom : string -> property
 (** [margin_bottom value] sets the CSS margin-bottom property to value. *)
+
+val margin_inline : string -> property
+(** [margin_inline value] sets the CSS margin-inline property to value. *)
+
+val margin_block : string -> property
+(** [margin_block value] sets the CSS margin-block property to value. *)
 
 val gap : string -> property
 (** [gap value] sets the CSS gap property to value. *)
