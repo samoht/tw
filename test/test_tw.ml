@@ -84,7 +84,7 @@ let generate_tailwind_css ?(minify = false) classnames =
       ^ String.concat " " classnames)
 
 let generate_tw_css ?(minify = false) styles =
-  let stylesheet = to_css ~reset:false styles in
+  let stylesheet = to_css ~reset:true styles in
   Css.to_string ~minify stylesheet
 
 let strip_header css =

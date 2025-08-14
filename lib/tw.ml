@@ -558,11 +558,8 @@ let to_css ?(reset = true) tw_classes =
 
     Css.stylesheet ~layers []
   else
-    (* No reset - just utilities with media queries *)
-    let utilities_layer =
-      Css.layered_rules ~layer:Css.Utilities ~media_queries rules
-    in
-    Css.stylesheet ~layers:[ utilities_layer ] []
+    (* No reset - just raw rules and media queries, no layers *)
+    Css.stylesheet ~layers:[] ~media_queries rules
 
 (* Convert Tw styles to inline style attribute value *)
 let to_inline_style styles =
