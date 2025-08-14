@@ -84,48 +84,47 @@ let generate_tailwind_css ?(minify = false) classnames =
       ^ String.concat " " classnames)
 
 let generate_tw_css ?(minify = false) styles =
-  let stylesheet = to_css styles in
+  let stylesheet = to_css ~reset:false styles in
   Css.to_string ~minify stylesheet
 
-let extract_utility_classes css =
-  (* Extract utilities layer content *)
-  let lines = String.split_on_char '\n' css in
-  let in_utilities = ref false in
-  let result = Buffer.create 1024 in
-  List.iter
-    (fun line ->
-      if
-        String.contains line '@'
-        && Astring.String.is_infix ~affix:"utilities" line
-      then in_utilities := true
-      else if
-        String.contains line '@'
-        && not (Astring.String.is_infix ~affix:"utilities" line)
-      then in_utilities := false
-      else if !in_utilities && String.trim line <> "" then
-        Buffer.add_string result (String.trim line ^ "\n"))
-    lines;
-  String.trim (Buffer.contents result)
+let strip_header css =
+  (* Remove the Tailwind CSS header comment if present *)
+  let header_pattern = "/*! tailwindcss" in
+  if String.starts_with ~prefix:header_pattern css then
+    (* Find the end of the comment *)
+    match String.index_opt css '/' with
+    | Some slash_pos when slash_pos > 0 -> (
+        (* Look for the closing star-slash after the header comment *)
+        match String.index_from_opt css (slash_pos + 1) '/' with
+        | Some end_slash
+          when end_slash > 0 && end_slash > slash_pos
+               && String.get css (end_slash - 1) = '*' ->
+            String.sub css (end_slash + 1) (String.length css - end_slash - 1)
+            |> String.trim
+        | _ -> css)
+    | _ -> css
+  else css
 
 let check_exact_match tw_style =
   try
     let classname = pp tw_style in
-    let tw_css = exact_css (generate_tw_css ~minify:false [ tw_style ]) in
-    let tailwind_css =
-      exact_css (generate_tailwind_css ~minify:false [ classname ])
+    let tw_css =
+      generate_tw_css ~minify:false [ tw_style ] |> strip_header |> String.trim
     in
-    let tailwind_utility_css = extract_utility_classes tailwind_css in
-    let tw_utility_css = extract_utility_classes tw_css in
+    let tailwind_css =
+      generate_tailwind_css ~minify:false [ classname ]
+      |> strip_header |> String.trim
+    in
 
-    if tw_utility_css <> tailwind_utility_css then (
-      Fmt.epr "\n=== UTILITY CSS MISMATCH for %s ===\n" classname;
-      Fmt.epr "Tw utility CSS:\n%s\n" tw_utility_css;
-      Fmt.epr "Tailwind utility CSS:\n%s\n" tailwind_utility_css;
+    if tw_css <> tailwind_css then (
+      Fmt.epr "\n=== CSS MISMATCH for %s ===\n" classname;
+      Fmt.epr "=== Our output ===\n%s\n" tw_css;
+      Fmt.epr "=== Tailwind output ===\n%s\n" tailwind_css;
       Fmt.epr "===============================\n");
 
     Alcotest.check string
-      (Fmt.str "%s utility CSS exact match" classname)
-      tailwind_utility_css tw_utility_css
+      (Fmt.str "%s CSS exact match" classname)
+      tailwind_css tw_css
   with
   | Failure msg -> fail ("Test setup failed: " ^ msg)
   | exn -> fail ("Unexpected error: " ^ Printexc.to_string exn)

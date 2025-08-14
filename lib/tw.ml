@@ -263,12 +263,12 @@ let container_query_to_class_prefix = function
 
 (* Helper to get breakpoint for responsive prefix *)
 let responsive_breakpoint = function
-  | "sm" -> "640px"
-  | "md" -> "768px"
-  | "lg" -> "1024px"
-  | "xl" -> "1280px"
-  | "2xl" -> "1536px"
-  | _ -> "0px"
+  | "sm" -> "40rem" (* 640px / 16 = 40rem *)
+  | "md" -> "48rem" (* 768px / 16 = 48rem *)
+  | "lg" -> "64rem" (* 1024px / 16 = 64rem *)
+  | "xl" -> "80rem" (* 1280px / 16 = 80rem *)
+  | "2xl" -> "96rem" (* 1536px / 16 = 96rem *)
+  | _ -> "0rem"
 
 (* Extract selector and properties from a single Tw style *)
 let extract_selector_props tw =
@@ -446,12 +446,25 @@ let to_css ?(reset = true) tw_classes =
     List.partition (fun (sel, _) -> not (is_media_query sel)) all_rules
   in
 
+  (* Separate hover rules from regular rules *)
+  let is_hover_rule selector =
+    String.contains selector ':'
+    && String.contains selector 'h'
+    && String.contains selector 'o'
+    && String.contains selector 'v'
+    && String.contains selector 'e'
+    && String.contains selector 'r'
+  in
+  let non_hover_rules, hover_rules =
+    List.partition (fun (sel, _) -> not (is_hover_rule sel)) regular_rules
+  in
+
   (* Create regular CSS rules *)
   let rules =
     List.map
       (fun (selector, props) ->
         Css.rule ~selector (Css.deduplicate_properties props))
-      regular_rules
+      non_hover_rules
   in
 
   (* Group media query rules by their condition *)
@@ -473,6 +486,18 @@ let to_css ?(reset = true) tw_classes =
           :: List.remove_assoc condition acc
         else acc)
       [] media_rules
+  in
+
+  (* Add hover rules to media query map *)
+  let media_queries_map =
+    if hover_rules = [] then media_queries_map
+    else
+      let hover_condition = "@media (hover: hover)" in
+      let existing_hover_rules =
+        try List.assoc hover_condition media_queries_map with Not_found -> []
+      in
+      (hover_condition, hover_rules @ existing_hover_rules)
+      :: List.remove_assoc hover_condition media_queries_map
   in
 
   (* Create media query objects *)
@@ -507,8 +532,10 @@ let to_css ?(reset = true) tw_classes =
       Css.layered_rules ~layer:Css.Base (generate_reset_rules ())
     in
 
-    (* Utilities layer with the actual utility classes *)
-    let utilities_layer = Css.layered_rules ~layer:Css.Utilities rules in
+    (* Utilities layer with the actual utility classes AND media queries *)
+    let utilities_layer =
+      Css.layered_rules ~layer:Css.Utilities ~media_queries rules
+    in
 
     (* Add prose styles if needed *)
     let layers =
@@ -529,10 +556,13 @@ let to_css ?(reset = true) tw_classes =
       else [ theme_layer; base_layer; utilities_layer ]
     in
 
-    Css.stylesheet ~layers ~media_queries []
+    Css.stylesheet ~layers []
   else
-    (* No reset - just utilities *)
-    Css.stylesheet ~media_queries rules
+    (* No reset - just utilities with media queries *)
+    let utilities_layer =
+      Css.layered_rules ~layer:Css.Utilities ~media_queries rules
+    in
+    Css.stylesheet ~layers:[ utilities_layer ] []
 
 (* Convert Tw styles to inline style attribute value *)
 let to_inline_style styles =
@@ -1621,7 +1651,7 @@ let rounded_internal r =
   let var_name =
     match r with
     | `None -> "0" (* rounded-none uses 0 directly *)
-    | `Full -> "calc(infinity * 1px)" (* rounded-full uses infinity in v4 *)
+    | `Full -> "3.40282e38px" (* rounded-full uses max float in v4 *)
     | _ -> "var(--radius-" ^ pp_rounded_suffix r ^ ")"
   in
   style class_name [ border_radius var_name ]
@@ -2632,12 +2662,12 @@ let string_of_breakpoint = function
 
 (* Convert breakpoint to media query min-width *)
 let responsive_breakpoint = function
-  | "sm" -> "640px"
-  | "md" -> "768px"
-  | "lg" -> "1024px"
-  | "xl" -> "1280px"
-  | "2xl" -> "1536px"
-  | _ -> "768px" (* Default to md *)
+  | "sm" -> "40rem" (* 640px / 16 = 40rem *)
+  | "md" -> "48rem" (* 768px / 16 = 48rem *)
+  | "lg" -> "64rem" (* 1024px / 16 = 64rem *)
+  | "xl" -> "80rem" (* 1280px / 16 = 80rem *)
+  | "2xl" -> "96rem" (* 1536px / 16 = 96rem *)
+  | _ -> "48rem" (* Default to md *)
 
 (* Class generation functions *)
 let rec pp = function

@@ -247,7 +247,14 @@ type at_property = {
 }
 
 type layer = Properties | Theme | Base | Components | Utilities
-type layered_rules = { layer : layer; rules : rule list }
+
+type layered_rules = {
+  layer : layer;
+  rules : rule list;
+  media_queries : media_query list;
+  container_queries : container_query list;
+  supports_queries : supports_query list;
+}
 
 type stylesheet = {
   layers : layered_rules list;
@@ -390,7 +397,9 @@ let supports ~condition rules =
 let at_property ~name ~syntax ~initial_value ?(inherits = true) () =
   { name; syntax; inherits; initial_value }
 
-let layered_rules ~layer rules = { layer; rules }
+let layered_rules ~layer ?(media_queries = []) ?(container_queries = [])
+    ?(supports_queries = []) rules =
+  { layer; rules; media_queries; container_queries; supports_queries }
 
 let stylesheet ?(layers = []) ?(media_queries = []) ?(container_queries = [])
     ?(starting_styles = []) ?(supports_queries = []) ?(at_properties = []) rules
@@ -558,18 +567,112 @@ let to_string ?(minify = false) stylesheet =
   let render_layer layer_rules =
     let layer_name = layer_to_string layer_rules.layer in
     let rules = layer_rules.rules in
+    let media_queries = layer_rules.media_queries in
+    let container_queries = layer_rules.container_queries in
+    let supports_queries = layer_rules.supports_queries in
 
     if minify then
       let merged_rules = merge_rules rules |> merge_by_properties in
       let rules_str =
         merged_rules |> List.map render_minified_rule |> String.concat ""
       in
-      "@layer " ^ layer_name ^ "{" ^ rules_str ^ "}"
+      (* Render media queries within the layer *)
+      let media_str =
+        media_queries
+        |> List.map (fun mq ->
+               let mq_rules_str =
+                 mq.media_rules |> merge_rules |> merge_by_properties
+                 |> List.map render_minified_rule
+                 |> String.concat ""
+               in
+               "@media " ^ mq.media_condition ^ "{" ^ mq_rules_str ^ "}")
+        |> String.concat ""
+      in
+      (* Render container queries within the layer *)
+      let container_str =
+        container_queries
+        |> List.map (fun cq ->
+               let container_rule =
+                 match cq.container_name with
+                 | Some name ->
+                     "@container " ^ name ^ " " ^ cq.container_condition
+                 | None -> "@container " ^ cq.container_condition
+               in
+               let cq_rules_str =
+                 cq.container_rules |> merge_rules |> merge_by_properties
+                 |> List.map render_minified_rule
+                 |> String.concat ""
+               in
+               container_rule ^ "{" ^ cq_rules_str ^ "}")
+        |> String.concat ""
+      in
+      (* Render supports queries within the layer *)
+      let supports_str =
+        supports_queries
+        |> List.map (fun sq ->
+               let sq_rules_str =
+                 sq.supports_rules |> merge_rules |> merge_by_properties
+                 |> List.map render_minified_rule
+                 |> String.concat ""
+               in
+               "@supports " ^ sq.supports_condition ^ "{" ^ sq_rules_str ^ "}")
+        |> String.concat ""
+      in
+      "@layer " ^ layer_name ^ "{" ^ rules_str ^ media_str ^ container_str
+      ^ supports_str ^ "}"
     else
       let rules_str =
         rules |> List.map render_formatted_rule |> String.concat "\n"
       in
-      "@layer " ^ layer_name ^ " {\n" ^ rules_str ^ "\n}"
+      (* Render media queries within the layer *)
+      let media_str =
+        media_queries
+        |> List.map (fun mq ->
+               let mq_rules_str =
+                 mq.media_rules
+                 |> List.map render_formatted_media_rule
+                 |> String.concat "\n"
+               in
+               "@media " ^ mq.media_condition ^ " {\n" ^ mq_rules_str ^ "\n}")
+        |> String.concat "\n"
+      in
+      (* Render container queries within the layer *)
+      let container_str =
+        container_queries
+        |> List.map (fun cq ->
+               let container_rule =
+                 match cq.container_name with
+                 | Some name ->
+                     "@container " ^ name ^ " " ^ cq.container_condition
+                 | None -> "@container " ^ cq.container_condition
+               in
+               let cq_rules_str =
+                 cq.container_rules
+                 |> List.map render_formatted_media_rule
+                 |> String.concat "\n"
+               in
+               container_rule ^ " {\n" ^ cq_rules_str ^ "\n}")
+        |> String.concat "\n"
+      in
+      (* Render supports queries within the layer *)
+      let supports_str =
+        supports_queries
+        |> List.map (fun sq ->
+               let sq_rules_str =
+                 sq.supports_rules
+                 |> List.map render_formatted_media_rule
+                 |> String.concat "\n"
+               in
+               "@supports " ^ sq.supports_condition ^ " {\n" ^ sq_rules_str
+               ^ "\n}")
+        |> String.concat "\n"
+      in
+      let all_content =
+        [ rules_str; media_str; container_str; supports_str ]
+        |> List.filter (fun s -> s <> "")
+        |> String.concat "\n"
+      in
+      "@layer " ^ layer_name ^ " {\n" ^ all_content ^ "\n}"
   in
 
   (* Add Tailwind v4 header comment and layer declarations *)
