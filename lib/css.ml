@@ -690,8 +690,8 @@ let to_string ?(minify = false) stylesheet =
 
   let layer_declarations =
     if has_layers then
-      if minify then "@layer properties;@layer theme,base,components,utilities;"
-      else "@layer properties;\n@layer theme, base, components, utilities;\n"
+      if minify then "@layer theme,base,components,utilities;"
+      else "@layer theme, base, components, utilities;\n"
     else ""
   in
 
