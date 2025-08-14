@@ -404,8 +404,16 @@ val at_property :
   at_property
 (** [at_property ~name ~syntax ?inherits ~initial_value] creates a @property rule for custom properties. *)
 
-val layered_rules : layer:layer -> rule list -> layered_rules
-(** [layered_rules ~layer rules] creates rules within a specific CSS layer. *)
+val layered_rules :
+  layer:layer ->
+  ?media_queries:media_query list ->
+  ?container_queries:container_query list ->
+  ?supports_queries:supports_query list ->
+  rule list ->
+  layered_rules
+(** [layered_rules ~layer ?media_queries ?container_queries ?supports_queries
+     rules] creates rules within a specific CSS layer with optional nested
+    at-rules. *)
 
 val stylesheet :
   ?layers:layered_rules list ->
