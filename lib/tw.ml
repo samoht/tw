@@ -866,8 +866,6 @@ let to_inline_style styles =
 
 (** Convert any color to RGB space-separated string format (e.g., "255 0 0") *)
 
-let color_to_rgb_string color shade = Color.to_rgb_string color shade
-
 let spacing_to_rem = function
   | 0 -> "0"
   | 1 -> "0.25rem"
@@ -1914,17 +1912,6 @@ let border_none_style =
   style "border-none"
     [ Css.property "--tw-border-style" "none"; border_style "none" ]
 
-let rounded_value : size -> string = function
-  | `None -> "0"
-  | `Sm -> "0.125rem"
-  | `Md -> "0.375rem"
-  | `Lg -> "0.5rem"
-  | `Xl -> "0.75rem"
-  | `Xl_2 -> "1rem"
-  | `Xl_3 -> "1.5rem"
-  | `Full -> "9999px"
-  | `Xs -> "0.0625rem"
-
 let pp_rounded_suffix : size -> string = function
   | `None -> "none"
   | `Sm -> "sm"
@@ -1987,24 +1974,6 @@ let pp_shadow_suffix : shadow -> string = function
   | `Xs -> "xs"
   | `Xl_3 -> "3xl"
   | `Full -> "full"
-
-let shadow_colored_value : shadow -> string = function
-  | `None -> "0 0 #0000"
-  | `Sm -> "0 1px 2px 0 var(--tw-shadow-color)"
-  | `Md ->
-      "0 4px 6px -1px var(--tw-shadow-color),0 2px 4px -2px \
-       var(--tw-shadow-color)"
-  | `Lg ->
-      "0 10px 15px -3px var(--tw-shadow-color),0 4px 6px -4px \
-       var(--tw-shadow-color)"
-  | `Xl ->
-      "0 20px 25px -5px var(--tw-shadow-color),0 8px 10px -6px \
-       var(--tw-shadow-color)"
-  | `Xl_2 -> "0 25px 50px -12px var(--tw-shadow-color)"
-  | `Inner -> "inset 0 2px 4px 0 var(--tw-shadow-color)"
-  | `Xs -> "0 1px 1px 0 var(--tw-shadow-color)"
-  | `Xl_3 -> "0 35px 60px -15px var(--tw-shadow-color)"
-  | `Full -> "0 0 #0000"
 
 let shadow_internal s =
   let class_name = "shadow-" ^ pp_shadow_suffix s in
@@ -2949,15 +2918,6 @@ let string_of_breakpoint = function
   | `Lg -> "lg"
   | `Xl -> "xl"
   | `Xl_2 -> "2xl"
-
-(* Convert breakpoint to media query min-width *)
-let responsive_breakpoint = function
-  | "sm" -> "40rem" (* 640px / 16 = 40rem *)
-  | "md" -> "48rem" (* 768px / 16 = 48rem *)
-  | "lg" -> "64rem" (* 1024px / 16 = 64rem *)
-  | "xl" -> "80rem" (* 1280px / 16 = 80rem *)
-  | "2xl" -> "96rem" (* 1536px / 16 = 96rem *)
-  | _ -> "48rem" (* Default to md *)
 
 (* Class generation functions *)
 let rec pp = function
