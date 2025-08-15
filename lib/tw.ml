@@ -534,6 +534,19 @@ let generate_reset_rules () =
       [ Css.property "margin-inline-end" "4px" ];
     (* Placeholder - basic *)
     Css.rule ~selector:"::placeholder" [ Css.opacity "1" ];
+    (* Placeholder color with @supports - as a special hack for now *)
+    (* We create fake rules that will output the correct CSS *)
+    (* This is a hack: we use a property with exact value including the closing braces *)
+    Css.rule
+      ~selector:
+        "@supports (not ((-webkit-appearance:-apple-pay-button))) or \
+         (contain-intrinsic-size:1px){::placeholder"
+      [
+        Css.property "color"
+          "currentColor}@supports (color:color-mix(in lab, red, \
+           red)){::placeholder{color:color-mix(in oklab,currentcolor \
+           50%,transparent)}}";
+      ];
     (* Textarea *)
     Css.rule ~selector:"textarea" [ Css.resize "vertical" ];
     (* Search decoration *)

@@ -172,7 +172,7 @@ let compare_css css1 css2 =
   let blocks2 = parse_blocks tokens2 in
   blocks1 = blocks2
 
-let format_diff css1 css2 =
+let format_diff our_css tailwind_css =
   let buf = Buffer.create 1024 in
   let add_line s =
     Buffer.add_string buf s;
@@ -180,18 +180,21 @@ let format_diff css1 css2 =
   in
 
   (* Strip headers *)
-  let css1 = strip_header css1 in
-  let css2 = strip_header css2 in
+  let our_css = strip_header our_css in
+  let tailwind_css = strip_header tailwind_css in
 
   (* Parse both files into blocks *)
-  let tokens1 = tokenize css1 in
-  let tokens2 = tokenize css2 in
-  let blocks1 = parse_blocks tokens1 in
-  let blocks2 = parse_blocks tokens2 in
+  let our_tokens = tokenize our_css in
+  let tailwind_tokens = tokenize tailwind_css in
+  let our_blocks = parse_blocks our_tokens in
+  let tailwind_blocks = parse_blocks tailwind_tokens in
 
-  if blocks1 = blocks2 then add_line "✓ CSS files are structurally identical"
+  if our_blocks = tailwind_blocks then
+    add_line "✓ CSS files are structurally identical"
   else (
     add_line "✗ CSS files differ structurally";
+    add_line "";
+    add_line "Comparing: [TW Library Output] vs [Tailwind CSS Output]";
     add_line "";
 
     (* Show structural differences *)
@@ -202,14 +205,15 @@ let format_diff css1 css2 =
         | [], [] -> ()
         | [], rest ->
             add_line
-              (Fmt.str "+ File 2 has %d additional blocks" (List.length rest))
+              (Fmt.str "+ Tailwind has %d additional blocks" (List.length rest))
         | rest, [] ->
-            add_line (Fmt.str "- File 2 missing %d blocks" (List.length rest))
+            add_line
+              (Fmt.str "- TW Library missing %d blocks" (List.length rest))
         | Rule r1 :: t1, Rule r2 :: t2 ->
             if r1.selector <> r2.selector then (
               add_line (Fmt.str "Block %d: Selector mismatch" n);
-              add_line (Fmt.str "  File 1: %s" r1.selector);
-              add_line (Fmt.str "  File 2: %s" r2.selector))
+              add_line (Fmt.str "  TW Library: %s" r1.selector);
+              add_line (Fmt.str "  Tailwind:   %s" r2.selector))
             else if r1.properties <> r2.properties then (
               add_line
                 (Fmt.str "Block %d: Properties differ for %s" n r1.selector);
@@ -218,32 +222,36 @@ let format_diff css1 css2 =
               List.iter
                 (fun (p, v) ->
                   if not (List.mem (p, v) props2) then
-                    add_line (Fmt.str "  - Missing in file 2: %s: %s" p v))
+                    add_line
+                      (Fmt.str "  - TW Library has (Tailwind missing): %s: %s" p
+                         v))
                 props1;
               List.iter
                 (fun (p, v) ->
                   if not (List.mem (p, v) props1) then
-                    add_line (Fmt.str "  + Extra in file 2: %s: %s" p v))
+                    add_line
+                      (Fmt.str "  + Tailwind has (TW Library missing): %s: %s" p
+                         v))
                 props2);
             show_block_diff t1 t2 (n + 1)
         | AtBlock (at1, sub1) :: t1, AtBlock (at2, sub2) :: t2 ->
             if at1 <> at2 then (
               add_line (Fmt.str "Block %d: @-rule mismatch" n);
-              add_line (Fmt.str "  File 1: %s" at1);
-              add_line (Fmt.str "  File 2: %s" at2))
+              add_line (Fmt.str "  TW Library: %s" at1);
+              add_line (Fmt.str "  Tailwind:   %s" at2))
             else if sub1 <> sub2 then
               add_line (Fmt.str "Block %d: Contents differ in %s" n at1);
             show_block_diff t1 t2 (n + 1)
         | Layer l1 :: t1, Layer l2 :: t2 ->
             if l1 <> l2 then (
               add_line (Fmt.str "Block %d: Layer declaration mismatch" n);
-              add_line (Fmt.str "  File 1: %s" l1);
-              add_line (Fmt.str "  File 2: %s" l2));
+              add_line (Fmt.str "  TW Library: %s" l1);
+              add_line (Fmt.str "  Tailwind:   %s" l2));
             show_block_diff t1 t2 (n + 1)
         | _ :: t1, _ :: t2 ->
             add_line (Fmt.str "Block %d: Type mismatch" n);
             show_block_diff t1 t2 (n + 1)
     in
-    show_block_diff blocks1 blocks2 1);
+    show_block_diff our_blocks tailwind_blocks 1);
 
   Buffer.contents buf
