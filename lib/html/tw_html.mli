@@ -393,7 +393,7 @@ val page :
 val html : page -> string
 (** [html page] extracts the HTML string from a page result. *)
 
-val css : page -> string * Tw.Css.stylesheet
+val css : page -> string * Tw.Css.t
 (** [css page] extracts the CSS filename and stylesheet from a page result. *)
 
 (** {1 Livereload module}

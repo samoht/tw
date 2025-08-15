@@ -393,33 +393,193 @@ let group_by_selector rules =
     [] rules
 
 (* Base reset CSS rules *)
-(* Simple, clean reset rules for Tailwind v4 *)
+(* Exact match with Tailwind v4.1.11 base reset order *)
 let generate_reset_rules () =
   [
-    (* Base reset *)
-    Css.rule ~selector:"*, ::before, ::after"
+    (* Universal reset *)
+    Css.rule ~selector:"*, :after, :before, ::backdrop"
       [
         Css.box_sizing "border-box";
+        Css.property "border" "0 solid";
         Css.margin "0";
         Css.padding "0";
-        Css.property "border" "0 solid";
       ];
+    (* File selector button - first occurrence *)
+    Css.rule ~selector:"::file-selector-button"
+      [
+        Css.box_sizing "border-box";
+        Css.property "border" "0 solid";
+        Css.margin "0";
+        Css.padding "0";
+      ];
+    (* HTML and host *)
     Css.rule ~selector:"html, :host"
       [
-        Css.font_size "16px";
-        Css.line_height "1.5";
         Css.property "-webkit-text-size-adjust" "100%";
-        Css.font_family "var(--default-font-family)";
+        Css.property "tab-size" "4";
+        Css.line_height "1.5";
+        Css.font_family
+          "var(--default-font-family, ui-sans-serif, system-ui, sans-serif, \
+           \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \
+           \"Noto Color Emoji\")";
+        Css.property "font-feature-settings"
+          "var(--default-font-feature-settings, normal)";
+        Css.property "font-variation-settings"
+          "var(--default-font-variation-settings, normal)";
+        Css.property "-webkit-tap-highlight-color" "transparent";
       ];
-    Css.rule ~selector:"body" [ Css.margin "0"; Css.line_height "inherit" ];
+    (* Horizontal rule *)
+    Css.rule ~selector:"hr"
+      [
+        Css.height "0";
+        Css.color "inherit";
+        Css.property "border-top-width" "1px";
+      ];
+    (* Abbreviations *)
+    Css.rule ~selector:"abbr:where([title])"
+      [
+        Css.property "-webkit-text-decoration" "underline dotted";
+        Css.text_decoration "underline dotted";
+      ];
+    (* Headings *)
     Css.rule ~selector:"h1, h2, h3, h4, h5, h6"
       [ Css.font_size "inherit"; Css.font_weight "inherit" ];
+    (* Links *)
     Css.rule ~selector:"a"
-      [ Css.color "inherit"; Css.text_decoration "inherit" ];
-    Css.rule ~selector:"img, video"
       [
-        Css.display "block"; Css.property "max-width" "100%"; Css.height "auto";
+        Css.color "inherit";
+        Css.property "-webkit-text-decoration" "inherit";
+        Css.property "-webkit-text-decoration" "inherit";
+        Css.property "-webkit-text-decoration" "inherit";
+        Css.text_decoration "inherit";
       ];
+    (* Bold elements *)
+    Css.rule ~selector:"b, strong" [ Css.font_weight "bolder" ];
+    (* Code elements *)
+    Css.rule ~selector:"code, kbd, samp, pre"
+      [
+        Css.font_family
+          "var(--default-mono-font-family, ui-monospace, SFMono-Regular, \
+           Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", \
+           monospace)";
+        Css.property "font-feature-settings"
+          "var(--default-mono-font-feature-settings, normal)";
+        Css.property "font-variation-settings"
+          "var(--default-mono-font-variation-settings, normal)";
+        Css.font_size "1em";
+      ];
+    (* Small text *)
+    Css.rule ~selector:"small" [ Css.font_size "80%" ];
+    (* Sub and sup *)
+    Css.rule ~selector:"sub, sup"
+      [
+        Css.vertical_align "baseline";
+        Css.font_size "75%";
+        Css.line_height "0";
+        Css.position "relative";
+      ];
+    Css.rule ~selector:"sub" [ Css.bottom "-.25em" ];
+    Css.rule ~selector:"sup" [ Css.top "-.5em" ];
+    (* Table *)
+    Css.rule ~selector:"table"
+      [
+        Css.property "text-indent" "0";
+        Css.property "border-color" "inherit";
+        Css.border_collapse "collapse";
+      ];
+    (* Firefox focusring *)
+    Css.rule ~selector:":-moz-focusring" [ Css.outline "auto" ];
+    (* Progress *)
+    Css.rule ~selector:"progress" [ Css.vertical_align "baseline" ];
+    (* Summary *)
+    Css.rule ~selector:"summary" [ Css.display "list-item" ];
+    (* Lists *)
+    Css.rule ~selector:"ol, ul, menu" [ Css.property "list-style" "none" ];
+    (* Media elements *)
+    Css.rule ~selector:"img, svg, video, canvas, audio, iframe, embed, object"
+      [ Css.vertical_align "middle"; Css.display "block" ];
+    Css.rule ~selector:"img, video"
+      [ Css.property "max-width" "100%"; Css.height "auto" ];
+    (* Form elements *)
+    Css.rule ~selector:"button, input, select, optgroup, textarea"
+      [
+        Css.property "font" "inherit";
+        Css.property "font-feature-settings" "inherit";
+        Css.property "font-variation-settings" "inherit";
+        Css.property "letter-spacing" "inherit";
+        Css.color "inherit";
+        Css.opacity "1";
+        Css.background_color "#0000";
+        Css.border_radius "0";
+      ];
+    (* File selector button - second occurrence with font properties *)
+    Css.rule ~selector:"::file-selector-button"
+      [
+        Css.property "font" "inherit";
+        Css.property "font-feature-settings" "inherit";
+        Css.property "font-variation-settings" "inherit";
+        Css.property "letter-spacing" "inherit";
+        Css.color "inherit";
+        Css.opacity "1";
+        Css.background_color "#0000";
+        Css.border_radius "0";
+      ];
+    (* Select with optgroup *)
+    Css.rule ~selector:":where(select:is([multiple], [size])) optgroup"
+      [ Css.font_weight "bolder" ];
+    Css.rule ~selector:":where(select:is([multiple], [size])) optgroup option"
+      [ Css.property "padding-inline-start" "20px" ];
+    (* File selector button - third occurrence with margin *)
+    Css.rule ~selector:"::file-selector-button"
+      [ Css.property "margin-inline-end" "4px" ];
+    (* Placeholder - basic *)
+    Css.rule ~selector:"::placeholder" [ Css.opacity "1" ];
+    (* Textarea *)
+    Css.rule ~selector:"textarea" [ Css.resize "vertical" ];
+    (* Search decoration *)
+    Css.rule ~selector:"::-webkit-search-decoration"
+      [ Css.property "-webkit-appearance" "none" ];
+    (* Webkit datetime inputs *)
+    Css.rule ~selector:"::-webkit-date-and-time-value"
+      [ Css.property "min-height" "1lh"; Css.text_align "inherit" ];
+    Css.rule ~selector:"::-webkit-datetime-edit" [ Css.display "inline-flex" ];
+    Css.rule ~selector:"::-webkit-datetime-edit-fields-wrapper"
+      [ Css.padding "0" ];
+    Css.rule ~selector:"::-webkit-datetime-edit"
+      [ Css.property "padding-block" "0" ];
+    Css.rule ~selector:"::-webkit-datetime-edit-year-field"
+      [ Css.property "padding-block" "0" ];
+    Css.rule ~selector:"::-webkit-datetime-edit-month-field"
+      [ Css.property "padding-block" "0" ];
+    Css.rule ~selector:"::-webkit-datetime-edit-day-field"
+      [ Css.property "padding-block" "0" ];
+    Css.rule ~selector:"::-webkit-datetime-edit-hour-field"
+      [ Css.property "padding-block" "0" ];
+    Css.rule ~selector:"::-webkit-datetime-edit-minute-field"
+      [ Css.property "padding-block" "0" ];
+    Css.rule ~selector:"::-webkit-datetime-edit-second-field"
+      [ Css.property "padding-block" "0" ];
+    Css.rule ~selector:"::-webkit-datetime-edit-millisecond-field"
+      [ Css.property "padding-block" "0" ];
+    Css.rule ~selector:"::-webkit-datetime-edit-meridiem-field"
+      [ Css.property "padding-block" "0" ];
+    (* Firefox-specific *)
+    Css.rule ~selector:":-moz-ui-invalid" [ Css.box_shadow "none" ];
+    (* Button-like inputs *)
+    Css.rule
+      ~selector:
+        "button, input:where([type=button], [type=reset], [type=submit])"
+      [ Css.appearance "button" ];
+    (* File selector button - fourth occurrence with appearance *)
+    Css.rule ~selector:"::file-selector-button" [ Css.appearance "button" ];
+    (* Webkit spin buttons *)
+    Css.rule ~selector:"::-webkit-inner-spin-button" [ Css.height "auto" ];
+    Css.rule ~selector:"::-webkit-outer-spin-button" [ Css.height "auto" ];
+    (* Hidden elements *)
+    Css.rule ~selector:"[hidden]:where(:not([hidden=until-found]))"
+      [ Css.display "none!important" ];
+    (* Placeholder styling with @supports - added as a raw rule string for now *)
+    (* This needs to be added as part of the base layer but after the main rules *)
   ]
 
 (* Check if prose styles are being used *)
@@ -519,18 +679,98 @@ let to_css ?(reset = true) tw_classes =
 
   (* Build the complete stylesheet with layers - just like Tailwind v4 *)
   if reset then
+    (* Extract which Tailwind CSS variables are actually used *)
+    let rec extract_tw_vars style =
+      match style with
+      | Style { props; _ } -> Css.tw_vars props
+      | Modified (_, t) -> extract_tw_vars t
+      | Group styles -> List.concat_map extract_tw_vars styles
+      | Prose _ -> []
+    in
+
+    let used_tw_vars =
+      tw_classes
+      |> List.concat_map extract_tw_vars
+      |> List.sort_uniq String.compare
+    in
+
+    let needs_tw_properties = used_tw_vars <> [] in
+
+    (* Properties layer - only if needed and only with used variables *)
+    let properties_layer_opt =
+      if needs_tw_properties then
+        let var_init_value = function
+          | "--tw-leading" -> "initial"
+          | "--tw-font-weight" -> "initial"
+          | "--tw-shadow" | "--tw-inset-shadow" | "--tw-ring-shadow"
+          | "--tw-inset-ring-shadow" | "--tw-ring-offset-shadow" ->
+              "0 0 #0000"
+          | "--tw-shadow-color" | "--tw-inset-shadow-color" | "--tw-ring-color"
+          | "--tw-inset-ring-color" | "--tw-ring-inset" | "--tw-duration" ->
+              "initial"
+          | "--tw-shadow-alpha" | "--tw-inset-shadow-alpha" -> "100%"
+          | "--tw-ring-offset-width" -> "0px"
+          | "--tw-ring-offset-color" -> "#fff"
+          | "--tw-scale-x" | "--tw-scale-y" | "--tw-scale-z" -> "1"
+          | _ -> "initial"
+        in
+        let properties =
+          used_tw_vars
+          |> List.map (fun var -> Css.property var (var_init_value var))
+        in
+        Some
+          (Css.layered_rules ~layer:Css.Properties
+             ~supports_queries:
+               [
+                 Css.supports
+                   ~condition:
+                     "(((-webkit-hyphens:none)) and (not \
+                      (margin-trim:inline))) or ((-moz-orient:inline) and (not \
+                      (color:rgb(from red r g b))))"
+                   [
+                     Css.rule ~selector:"*, :before, :after, ::backdrop"
+                       properties;
+                   ];
+               ]
+             [])
+      else None
+    in
+
     (* Theme layer with CSS variables - JIT mode (only used variables) *)
     let all_vars = List.concat_map extract_css_vars tw_classes in
     let theme_vars = generate_vars_from_types all_vars in
+
+    (* Add font family variables that Tailwind v4 includes - fonts come first *)
+    let font_vars =
+      [
+        Css.property "--font-sans"
+          "ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \
+           \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"";
+        Css.property "--font-mono"
+          "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation \
+           Mono\", \"Courier New\", monospace";
+      ]
+    in
+
+    let theme_vars_with_fonts =
+      font_vars @ theme_vars
+      @ [
+          Css.property "--default-font-family" "var(--font-sans)";
+          Css.property "--default-mono-font-family" "var(--font-mono)";
+        ]
+    in
+
     let theme_layer =
       Css.layered_rules ~layer:Css.Theme
-        [ Css.rule ~selector:":root, :host" theme_vars ]
+        [ Css.rule ~selector:":root, :host" theme_vars_with_fonts ]
     in
 
     (* Base layer with reset rules *)
-    let base_layer =
-      Css.layered_rules ~layer:Css.Base (generate_reset_rules ())
-    in
+    let base_rules = generate_reset_rules () in
+    let base_layer = Css.layered_rules ~layer:Css.Base base_rules in
+
+    (* Components layer - standard Tailwind v4 layer *)
+    let components_layer = Css.layered_rules ~layer:Css.Components [] in
 
     (* Utilities layer with the actual utility classes AND media queries *)
     let utilities_layer =
@@ -538,7 +778,10 @@ let to_css ?(reset = true) tw_classes =
     in
 
     (* Add prose styles if needed *)
-    let layers =
+    let base_layers =
+      [ theme_layer; base_layer; components_layer; utilities_layer ]
+    in
+    let layers_with_prose =
       if uses_prose tw_classes then
         let prose_rules =
           tw_classes
@@ -547,16 +790,66 @@ let to_css ?(reset = true) tw_classes =
                | _ -> None)
           |> List.concat
         in
-        [
-          theme_layer;
-          base_layer;
-          utilities_layer;
-          Css.layered_rules ~layer:Css.Utilities prose_rules;
-        ]
-      else [ theme_layer; base_layer; utilities_layer ]
+        base_layers @ [ Css.layered_rules ~layer:Css.Utilities prose_rules ]
+      else base_layers
     in
 
-    Css.stylesheet ~layers []
+    (* Add properties layer if needed *)
+    let layers =
+      match properties_layer_opt with
+      | Some props_layer -> props_layer :: layers_with_prose
+      | None -> layers_with_prose
+    in
+
+    (* Create @property declarations only if needed *)
+    let at_properties =
+      if needs_tw_properties then
+        [
+          Css.at_property ~name:"--tw-leading" ~syntax:"\"*\"" ~initial_value:""
+            ~inherits:false ();
+          Css.at_property ~name:"--tw-font-weight" ~syntax:"\"*\""
+            ~initial_value:"" ~inherits:false ();
+          Css.at_property ~name:"--tw-shadow" ~syntax:"\"*\""
+            ~initial_value:"0 0 #0000" ~inherits:false ();
+          Css.at_property ~name:"--tw-shadow-color" ~syntax:"\"*\""
+            ~initial_value:"" ~inherits:false ();
+          Css.at_property ~name:"--tw-shadow-alpha" ~syntax:"\"<percentage>\""
+            ~initial_value:"100%" ~inherits:false ();
+          Css.at_property ~name:"--tw-inset-shadow" ~syntax:"\"*\""
+            ~initial_value:"0 0 #0000" ~inherits:false ();
+          Css.at_property ~name:"--tw-inset-shadow-color" ~syntax:"\"*\""
+            ~initial_value:"" ~inherits:false ();
+          Css.at_property ~name:"--tw-inset-shadow-alpha"
+            ~syntax:"\"<percentage>\"" ~initial_value:"100%" ~inherits:false ();
+          Css.at_property ~name:"--tw-ring-color" ~syntax:"\"*\""
+            ~initial_value:"" ~inherits:false ();
+          Css.at_property ~name:"--tw-ring-shadow" ~syntax:"\"*\""
+            ~initial_value:"0 0 #0000" ~inherits:false ();
+          Css.at_property ~name:"--tw-inset-ring-color" ~syntax:"\"*\""
+            ~initial_value:"" ~inherits:false ();
+          Css.at_property ~name:"--tw-inset-ring-shadow" ~syntax:"\"*\""
+            ~initial_value:"0 0 #0000" ~inherits:false ();
+          Css.at_property ~name:"--tw-ring-inset" ~syntax:"\"*\""
+            ~initial_value:"" ~inherits:false ();
+          Css.at_property ~name:"--tw-ring-offset-width" ~syntax:"\"<length>\""
+            ~initial_value:"0" ~inherits:false ();
+          Css.at_property ~name:"--tw-ring-offset-color" ~syntax:"\"*\""
+            ~initial_value:"#fff" ~inherits:false ();
+          Css.at_property ~name:"--tw-ring-offset-shadow" ~syntax:"\"*\""
+            ~initial_value:"0 0 #0000" ~inherits:false ();
+          Css.at_property ~name:"--tw-duration" ~syntax:"\"*\""
+            ~initial_value:"" ~inherits:false ();
+          Css.at_property ~name:"--tw-scale-x" ~syntax:"\"*\""
+            ~initial_value:"1" ~inherits:false ();
+          Css.at_property ~name:"--tw-scale-y" ~syntax:"\"*\""
+            ~initial_value:"1" ~inherits:false ();
+          Css.at_property ~name:"--tw-scale-z" ~syntax:"\"*\""
+            ~initial_value:"1" ~inherits:false ();
+        ]
+      else []
+    in
+
+    Css.stylesheet ~layers ~at_properties []
   else
     (* No reset - just raw rules and media queries, no layers *)
     Css.stylesheet ~layers:[] ~media_queries rules

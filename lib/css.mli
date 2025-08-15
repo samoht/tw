@@ -44,8 +44,8 @@ type layer =
 type layered_rules
 (** Abstract type for rules within a layer *)
 
-type stylesheet
-(** Abstract type for stylesheets *)
+type t
+(** Abstract type for CSS stylesheets *)
 
 type at_property
 (** Abstract type for @property rules *)
@@ -423,15 +423,17 @@ val stylesheet :
   ?supports_queries:supports_query list ->
   ?at_properties:at_property list ->
   rule list ->
-  stylesheet
+  t
 (** [stylesheet ?layers ?media_queries ?container_queries ?starting_styles
      ?supports_queries ?at_properties rules] creates a stylesheet with optional
     layers and at-rules. *)
 
 (** {1 Rendering} *)
 
-val to_string : ?minify:bool -> stylesheet -> string
-(** [to_string ?minify stylesheet] renders a complete stylesheet to CSS. *)
+val to_string : ?minify:bool -> ?preserve_order:bool -> t -> string
+(** [to_string ?minify ?preserve_order stylesheet] renders a complete stylesheet
+    to CSS. If [preserve_order] is true, rules are kept in their original order
+    without merging. *)
 
 val property_name_to_string : property_name -> string
 (** [property_name_to_string prop] converts a property name to its CSS string
@@ -441,6 +443,10 @@ val property_value : property -> string
 (** [property_value prop] extracts the value from a property. *)
 
 (** {1 Utilities} *)
+
+val tw_vars : property list -> string list
+(** [tw_vars properties] extracts all Tailwind CSS variable names from a list of
+    properties, returning them sorted and deduplicated. *)
 
 val deduplicate_properties : property list -> property list
 (** [deduplicate_properties properties] removes duplicate properties, keeping

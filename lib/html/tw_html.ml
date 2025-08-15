@@ -408,7 +408,7 @@ let path ?at ?tw children = el_with_tw "path" ?at ?tw children
 let line ?at ?tw children = el_with_tw "line" ?at ?tw children
 
 (* Type for page generation result *)
-type page = { html : string; css : Tw.Css.stylesheet; tw_css : string }
+type page = { html : string; css : Tw.Css.t; tw_css : string }
 
 let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css head_content
     body_content =

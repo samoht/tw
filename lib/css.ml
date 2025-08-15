@@ -256,7 +256,7 @@ type layered_rules = {
   supports_queries : supports_query list;
 }
 
-type stylesheet = {
+type t = {
   layers : layered_rules list;
   rules : rule list;
   media_queries : media_query list;
@@ -416,6 +416,16 @@ let stylesheet ?(layers = []) ?(media_queries = []) ?(container_queries = [])
 
 (** {1 Utilities} *)
 
+(** Extract Tailwind CSS variables from properties *)
+let tw_vars properties =
+  List.filter_map
+    (fun (prop_name, _) ->
+      match property_name_to_string prop_name with
+      | name when String.starts_with ~prefix:"--tw-" name -> Some name
+      | _ -> None)
+    properties
+  |> List.sort_uniq String.compare
+
 let deduplicate_properties props =
   (* Keep last occurrence of each property while preserving order *)
   let seen = Hashtbl.create 16 in
@@ -512,6 +522,26 @@ let minify_value v =
   (* Special case: plain "0" or "1" should stay as is *)
   if v = "0" || v = "1" then v
   else
+    let v =
+      (* Remove spaces after commas (for font-family lists) *)
+      Re.replace_string (Re.compile (Re.str ", ")) ~by:"," v
+    in
+    let v =
+      (* Remove spaces in calc expressions *)
+      if String.contains v '(' && String.contains v ')' then
+        Re.replace_string (Re.compile (Re.str " * ")) ~by:"*" v
+        |> Re.replace_string (Re.compile (Re.str " + ")) ~by:"+"
+        |> Re.replace_string (Re.compile (Re.str " - ")) ~by:"-"
+        |> Re.replace_string (Re.compile (Re.str " / ")) ~by:"/"
+      else v
+    in
+    (* Remove leading 0 from decimals in oklch values and measurements *)
+    (* Handle oklch values specially - replace " 0." with " ." *)
+    let v =
+      if String.contains v 'o' && String.contains v 'k' then
+        Re.replace_string (Re.compile (Re.str " 0.")) ~by:" ." v
+      else v
+    in
     (* Remove leading 0 from decimals but preserve units - e.g., "0.5rem" ->
        ".5rem" *)
     let decimal_re =
@@ -563,7 +593,7 @@ let layer_to_string = function
   | Components -> "components"
   | Utilities -> "utilities"
 
-let to_string ?(minify = false) stylesheet =
+let to_string ?(minify = false) ?(preserve_order = false) stylesheet =
   let render_layer layer_rules =
     let layer_name = layer_to_string layer_rules.layer in
     let rules = layer_rules.rules in
@@ -572,7 +602,12 @@ let to_string ?(minify = false) stylesheet =
     let supports_queries = layer_rules.supports_queries in
 
     if minify then
-      let merged_rules = merge_rules rules |> merge_by_properties in
+      let merged_rules =
+        (* Always preserve order for base layer to match Tailwind v4's exact
+           reset order *)
+        if preserve_order || layer_rules.layer = Base then rules
+        else merge_rules rules |> merge_by_properties
+      in
       let rules_str =
         merged_rules |> List.map render_minified_rule |> String.concat ""
       in
@@ -675,28 +710,52 @@ let to_string ?(minify = false) stylesheet =
       "@layer " ^ layer_name ^ " {\n" ^ all_content ^ "\n}"
   in
 
-  (* Add Tailwind v4 header comment and layer declarations *)
-  (* Only add header when we have layers (i.e., when using reset) *)
-  let has_layers = List.length stylesheet.layers > 0 in
-
+  (* Add tw library header *)
   let header =
-    if has_layers then
-      if minify then
-        "/*! tailwindcss v4.1.11 | MIT License | https://tailwindcss.com */"
-      else
-        "/*! tailwindcss v4.1.11 | MIT License | https://tailwindcss.com */\n"
-    else ""
+    if List.length stylesheet.layers > 0 then Version.header ^ "\n" else ""
   in
 
-  let layer_declarations =
-    if has_layers then
-      if minify then "@layer theme,base,components,utilities;"
-      else "@layer theme, base, components, utilities;\n"
-    else ""
-  in
+  (* No layer declarations - Tailwind v4 doesn't use them *)
+  let layer_declarations = "" in
 
   (* Render layered rules *)
-  let layer_strings = stylesheet.layers |> List.map render_layer in
+  (* Special handling for empty components and utilities layers *)
+  let has_empty_components_and_utilities =
+    List.exists
+      (fun layer ->
+        layer.layer = Components && layer.rules = [] && layer.media_queries = []
+        && layer.container_queries = []
+        && layer.supports_queries = [])
+      stylesheet.layers
+    && List.exists
+         (fun layer ->
+           layer.layer = Utilities && layer.rules = []
+           && layer.media_queries = []
+           && layer.container_queries = []
+           && layer.supports_queries = [])
+         stylesheet.layers
+  in
+
+  let layer_strings =
+    if has_empty_components_and_utilities && minify then
+      (* Filter out empty components and utilities, will add combined
+         declaration later *)
+      stylesheet.layers
+      |> List.filter (fun layer ->
+             (not (layer.layer = Components || layer.layer = Utilities))
+             || layer.rules <> [] || layer.media_queries <> []
+             || layer.container_queries <> []
+             || layer.supports_queries <> [])
+      |> List.map render_layer
+    else stylesheet.layers |> List.map render_layer
+  in
+
+  (* Add combined empty layer declaration if needed *)
+  let empty_layers_decl =
+    if has_empty_components_and_utilities && minify then
+      [ "@layer components,utilities;" ]
+    else []
+  in
 
   (* Render non-layered rules *)
   let rule_strings =
@@ -838,7 +897,7 @@ let to_string ?(minify = false) stylesheet =
   (* Combine all parts *)
   let all_parts =
     [ header; layer_declarations ]
-    @ at_property_strings @ layer_strings @ rule_strings
+    @ at_property_strings @ layer_strings @ empty_layers_decl @ rule_strings
     @ starting_style_strings @ container_strings @ supports_strings
     @ media_strings
   in

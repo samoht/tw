@@ -7,131 +7,76 @@
 open Alcotest
 open Tw
 
-(* ===== INFRASTRUCTURE (keep from original) ===== *)
-
-let exact_css css = String.trim css
-
-let write_file path content =
-  let oc = open_out path in
-  output_string oc content;
-  close_out oc
-
-let tailwind_files temp_dir classnames =
-  let html_content =
-    Fmt.str
-      {|<!DOCTYPE html>
-<html>
-<head></head>
-<body>
-  <div class="%s"></div>
-</body>
-</html>|}
-      (String.concat " " classnames)
-  in
-  let input_css_content = "@import \"tailwindcss\";" in
-  write_file (Filename.concat temp_dir "input.html") html_content;
-  write_file (Filename.concat temp_dir "input.css") input_css_content
-
-let version_checked = ref false
-
-let check_tailwindcss_available () =
-  if !version_checked then ()
-  else (
-    version_checked := true;
-    let binary_check = Sys.command "which npx > /dev/null 2>&1" in
-    if binary_check <> 0 then
-      failwith "npx not found in PATH.\nPlease install Node.js and npm.";
-    let temp_file = Filename.temp_file "tw_version" ".txt" in
-    let version_cmd = "npx tailwindcss --help 2>&1 | head -1 > " ^ temp_file in
-    let exit_code = Sys.command version_cmd in
-    if exit_code = 0 then (
-      let ic = open_in temp_file in
-      let version_line = input_line ic in
-      close_in ic;
-      Sys.remove temp_file;
-      if not (String.contains version_line '4') then
-        failwith
-          (Fmt.str
-             "Expected Tailwind CSS v4.x but found: %s\n\
-              Please install v4:\n\
-              npm install -D tailwindcss"
-             version_line))
-    else failwith "Failed to check tailwindcss version.")
-
-let generate_tailwind_css ?(minify = false) classnames =
-  check_tailwindcss_available ();
-  let temp_dir = "temp_tailwind_test" in
-  let _ = Sys.command (Fmt.str "mkdir -p %s" temp_dir) in
-  tailwind_files temp_dir classnames;
-  let minify_flag = if minify then " --minify" else "" in
-  let cmd =
-    Printf.sprintf
-      "cd %s && npx tailwindcss -i input.css -o output.css --content \
-       input.html%s --optimize 2>/dev/null"
-      temp_dir minify_flag
-  in
-  let exit_code = Sys.command cmd in
-  if exit_code = 0 then (
-    let output_file = Filename.concat temp_dir "output.css" in
-    let ic = open_in output_file in
-    let content = really_input_string ic (in_channel_length ic) in
-    close_in ic;
-    let _ = Sys.command "rm -rf temp_tailwind_test" in
-    content)
-  else
-    failwith
-      ("Failed to generate Tailwind CSS for classes: "
-      ^ String.concat " " classnames)
-
-let generate_tw_css ?(minify = false) styles =
+let generate_tw_css ?(minify = false) ?(preserve_order = false) styles =
   let stylesheet = to_css ~reset:true styles in
-  Css.to_string ~minify stylesheet
+  Css.to_string ~minify ~preserve_order stylesheet
 
-let strip_header css =
-  (* Remove the Tailwind CSS header comment if present *)
-  let header_pattern = "/*! tailwindcss" in
-  if String.starts_with ~prefix:header_pattern css then
-    (* Find the end of the comment *)
-    match String.index_opt css '/' with
-    | Some slash_pos when slash_pos > 0 -> (
-        (* Look for the closing star-slash after the header comment *)
-        match String.index_from_opt css (slash_pos + 1) '/' with
-        | Some end_slash
-          when end_slash > 0 && end_slash > slash_pos
-               && String.get css (end_slash - 1) = '*' ->
-            String.sub css (end_slash + 1) (String.length css - end_slash - 1)
-            |> String.trim
-        | _ -> css)
-    | _ -> css
-  else css
+let generate_tailwind_css = Test_lib.Tailwind_gen.generate
 
-let check_exact_match tw_style =
+let check_exact_match tw_styles =
   try
-    let classname = pp tw_style in
+    let tw_styles = match tw_styles with [] -> [] | styles -> styles in
+    let classnames = List.map pp tw_styles in
     let tw_css =
-      generate_tw_css ~minify:false [ tw_style ] |> strip_header |> String.trim
+      generate_tw_css ~minify:true tw_styles
+      |> Test_lib.Css_compare.strip_header |> String.trim
     in
     let tailwind_css =
-      generate_tailwind_css ~minify:false [ classname ]
-      |> strip_header |> String.trim
+      generate_tailwind_css ~minify:true classnames
+      |> Test_lib.Css_compare.strip_header |> String.trim
+    in
+
+    let test_name =
+      match classnames with [] -> "empty" | names -> String.concat " " names
     in
 
     if tw_css <> tailwind_css then (
-      Fmt.epr "\n=== CSS MISMATCH for %s ===\n" classname;
-      Fmt.epr "=== Our output ===\n%s\n" tw_css;
-      Fmt.epr "=== Tailwind output ===\n%s\n" tailwind_css;
+      Fmt.epr "\n=== CSS MISMATCH for %s ===\n" test_name;
+
+      (* Use the CSS comparison library for better diffs *)
+      let diff_output = Test_lib.Css_compare.format_diff tw_css tailwind_css in
+      Fmt.epr "%s\n" diff_output;
+
+      (* Also use detailed debugging *)
+      (match Test_lib.Css_debug.find_first_diff tw_css tailwind_css with
+      | Some (_pos, desc, context) ->
+          Fmt.epr "\nFirst difference: %s\n%s\n" desc context
+      | None -> ());
+
+      (* Save for inspection if needed *)
+      (* let save_path = Test_lib.Css_debug.save_for_inspection 
+        ~our_css:tw_css ~tailwind_css ~test_name in
+      Fmt.epr "\n%s\n" save_path; *)
       Fmt.epr "===============================\n");
 
     Alcotest.check string
-      (Fmt.str "%s CSS exact match" classname)
+      (Fmt.str "%s CSS exact match" test_name)
       tailwind_css tw_css
   with
   | Failure msg -> fail ("Test setup failed: " ^ msg)
   | exn -> fail ("Unexpected error: " ^ Printexc.to_string exn)
 
-let check tw_style = check_exact_match tw_style
+let check tw_style = check_exact_match [ tw_style ]
+let check_list tw_styles = check_exact_match tw_styles
 
 (* ===== CORE TESTS (renamed to shorter names) ===== *)
+
+let empty_test () =
+  (* Test with no styles to see base output *)
+  check_list []
+
+let multiple_classes () =
+  (* Test with multiple classes together *)
+  check_list [ p 4; m 2; bg blue 500; text white 0 ];
+  check_list [ flex; items_center; justify_center; gap 4 ];
+  check_list [ rounded_lg; shadow_md; p 6 ]
+
+let responsive_classes () =
+  (* Test responsive modifiers with multiple classes *)
+  check_list [ p 4; on_md [ p 8 ]; on_lg [ p 12 ] ];
+  check_list
+    [ text_sm; on_sm [ text_base ]; on_md [ text_lg ]; on_lg [ text_xl ] ];
+  check_list [ hidden; on_sm [ block ]; on_md [ flex ] ]
 
 let basic_spacing () =
   check (p 4);
@@ -380,6 +325,9 @@ let style_combination () =
 
 let core_tests =
   [
+    test_case "empty test" `Quick empty_test;
+    test_case "multiple classes" `Quick multiple_classes;
+    test_case "responsive classes" `Quick responsive_classes;
     test_case "basic spacing" `Quick basic_spacing;
     test_case "color classes" `Quick color_classes;
     test_case "display classes" `Quick display_classes;
