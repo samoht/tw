@@ -29,10 +29,10 @@ type container_query
 (** Abstract type for container queries *)
 
 type starting_style
-(** Abstract type for @starting-style rules *)
+(** Abstract type for [@starting-style] rules *)
 
 type supports_query
-(** Abstract type for @supports rules *)
+(** Abstract type for [@supports] rules *)
 
 type layer =
   | Properties
@@ -48,7 +48,7 @@ type t
 (** Abstract type for CSS stylesheets *)
 
 type at_property
-(** Abstract type for @property rules *)
+(** Abstract type for [@property] rules *)
 
 (** {1 Property Constructors} *)
 
@@ -390,10 +390,11 @@ val container : ?name:string -> condition:string -> rule list -> container_query
 (** [container ?name ~condition rules] creates a container query. *)
 
 val starting_style : rule list -> starting_style
-(** [starting_style rules] creates @starting-style rules for entry animations. *)
+(** [starting_style rules] creates [@starting-style] rules for entry animations.
+*)
 
 val supports : condition:string -> rule list -> supports_query
-(** [supports ~condition rules] creates a @supports query. *)
+(** [supports ~condition rules] creates a [@supports] query. *)
 
 val at_property :
   name:string ->
@@ -402,7 +403,8 @@ val at_property :
   ?inherits:bool ->
   unit ->
   at_property
-(** [at_property ~name ~syntax ?inherits ~initial_value] creates a @property rule for custom properties. *)
+(** [at_property ~name ~syntax ?inherits ~initial_value] creates a [@property]
+    rule for custom properties. *)
 
 val layered_rules :
   layer:layer ->
