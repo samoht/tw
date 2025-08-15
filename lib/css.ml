@@ -523,8 +523,13 @@ let minify_value v =
   if v = "0" || v = "1" then v
   else
     let v =
-      (* Remove spaces after commas (for font-family lists) *)
-      Re.replace_string (Re.compile (Re.str ", ")) ~by:"," v
+      (* Remove spaces after commas (for font-family lists) - but not in
+         color-mix *)
+      if
+        String.starts_with ~prefix:"color-mix" v
+        || Re.execp (Re.compile (Re.str "color-mix(")) v
+      then v (* Don't minify color-mix values *)
+      else Re.replace_string (Re.compile (Re.str ", ")) ~by:"," v
     in
     let v =
       (* Remove spaces in calc expressions *)
