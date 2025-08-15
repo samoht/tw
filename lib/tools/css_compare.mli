@@ -11,13 +11,15 @@ type token =
   | Comma
 
 val token_to_string : token -> string
-(** Convert a token to a string representation for debugging *)
+(** [token_to_string token] converts a token to a string representation for
+    debugging. *)
 
 val strip_header : string -> string
-(** Strip header comments from CSS *)
+(** [strip_header css] strips header comments from CSS. *)
 
 val compare_css : string -> string -> bool
-(** Compare two CSS strings structurally *)
+(** [compare_css css1 css2] compares two CSS strings structurally. *)
 
 val format_diff : string -> string -> string
-(** Format differences between two CSS strings as human-readable text *)
+(** [format_diff css1 css2] formats differences between two CSS strings as
+    human-readable text. *)

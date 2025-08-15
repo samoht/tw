@@ -83,7 +83,7 @@ let collect_files paths =
       else [])
     paths
 
-let process_files paths flag minify quiet =
+let process_files paths flag ~minify ~quiet =
   let reset = reset_flag flag ~default:true in
   try
     let all_files = collect_files paths in
@@ -136,13 +136,13 @@ let process_files paths flag minify quiet =
     `Ok ()
   with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))
 
-let tw_main single_class reset_flag minify quiet paths =
+let tw_main single_class reset_flag ~minify ~quiet paths =
   match single_class with
   | Some class_str -> process_single_class class_str reset_flag minify
   | None -> (
       match paths with
       | [] -> `Error (true, "Either provide -s <class> or file/directory paths")
-      | paths -> process_files paths reset_flag minify quiet)
+      | paths -> process_files paths reset_flag ~minify ~quiet)
 
 (* Command-line arguments *)
 let single_flag =
@@ -202,7 +202,7 @@ let cmd =
   Cmd.v info
     Term.(
       ret
-        (const tw_main $ single_flag $ reset_flag $ minify_flag $ quiet_flag
-       $ paths_arg))
+        (const (fun s r m q -> tw_main s r ~minify:m ~quiet:q)
+        $ single_flag $ reset_flag $ minify_flag $ quiet_flag $ paths_arg))
 
 let () = exit (Cmd.eval cmd)

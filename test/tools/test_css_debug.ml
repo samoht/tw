@@ -34,7 +34,7 @@ let test_write_temp_css () =
   let path = write_temp_css "test" css in
   check bool "temp file created" true (Sys.file_exists path);
   (* Clean up *)
-  try Sys.remove path with _ -> ()
+  try Sys.remove path with Sys_error _ -> ()
 
 let tests =
   [

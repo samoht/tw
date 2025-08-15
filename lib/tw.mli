@@ -2441,6 +2441,9 @@ module Color = Color
 
     Provides OKLCH color space conversion and Tailwind v4 color values. *)
 
+module Version = Version
+(** Version information for the tw library. *)
+
 val to_css : ?reset:bool -> t list -> Css.t
 (** [to_css ?reset styles] generates a CSS stylesheet for the given styles.
 
