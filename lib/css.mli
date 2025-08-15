@@ -396,6 +396,11 @@ val starting_style : rule list -> starting_style
 val supports : condition:string -> rule list -> supports_query
 (** [supports ~condition rules] creates a [@supports] query. *)
 
+val supports_nested :
+  condition:string -> rule list -> supports_query list -> supports_query
+(** [supports_nested ~condition rules nested_queries] creates a [@supports]
+    query with nested [@supports] queries. *)
+
 val at_property :
   name:string ->
   syntax:string ->
