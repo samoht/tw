@@ -234,9 +234,13 @@ type container_query = {
 
 type starting_style = { starting_rules : rule list }
 
-type supports_query = {
+type supports_content =
+  | SupportRules of rule list
+  | SupportNested of rule list * supports_query list
+
+and supports_query = {
   supports_condition : string;
-  supports_rules : rule list;
+  supports_content : supports_content;
 }
 
 type at_property = {
@@ -392,7 +396,13 @@ let container ?name ~condition rules =
 let starting_style rules = { starting_rules = rules }
 
 let supports ~condition rules =
-  { supports_condition = condition; supports_rules = rules }
+  { supports_condition = condition; supports_content = SupportRules rules }
+
+let supports_nested ~condition rules nested_queries =
+  {
+    supports_condition = condition;
+    supports_content = SupportNested (rules, nested_queries);
+  }
 
 let at_property ~name ~syntax ~initial_value ?(inherits = true) () =
   { name; syntax; inherits; initial_value }
@@ -523,12 +533,14 @@ let minify_value v =
   if v = "0" || v = "1" then v
   else
     let v =
-      (* Remove spaces after commas (for font-family lists) - but not in
-         color-mix *)
+      (* Remove spaces after commas in specific contexts *)
+      (* Keep spaces in: color functions like rgb(), hsl(), color-mix() *)
       if
-        String.starts_with ~prefix:"color-mix" v
-        || Re.execp (Re.compile (Re.str "color-mix(")) v
-      then v (* Don't minify color-mix values *)
+        Re.execp
+          (Re.compile
+             (Re.str "\\b(rgb|rgba|hsl|hsla|color-mix|oklab|oklch)\\s*\\("))
+          v
+      then v (* Don't remove spaces in color functions *)
       else Re.replace_string (Re.compile (Re.str ", ")) ~by:"," v
     in
     let v =
@@ -598,7 +610,38 @@ let layer_to_string = function
   | Components -> "components"
   | Utilities -> "utilities"
 
-let to_string ?(minify = false) ?(preserve_order = false) stylesheet =
+let rec render_supports_content ~minify content =
+  match content with
+  | SupportRules rules ->
+      if minify then
+        rules |> merge_rules |> merge_by_properties
+        |> List.map render_minified_rule
+        |> String.concat ""
+      else rules |> List.map render_formatted_media_rule |> String.concat "\n"
+  | SupportNested (rules, nested_queries) ->
+      let rules_str =
+        if minify then
+          rules |> merge_rules |> merge_by_properties
+          |> List.map render_minified_rule
+          |> String.concat ""
+        else rules |> List.map render_formatted_media_rule |> String.concat "\n"
+      in
+      let nested_str =
+        nested_queries
+        |> List.map (fun nsq ->
+               let content_str =
+                 render_supports_content ~minify nsq.supports_content
+               in
+               if minify then
+                 "@supports " ^ nsq.supports_condition ^ "{" ^ content_str ^ "}"
+               else
+                 "@supports " ^ nsq.supports_condition ^ " {\n" ^ content_str
+                 ^ "\n}")
+        |> String.concat (if minify then "" else "\n")
+      in
+      if minify then rules_str ^ nested_str else rules_str ^ "\n" ^ nested_str
+
+and to_string ?(minify = false) ?(preserve_order = false) stylesheet =
   let render_layer layer_rules =
     let layer_name = layer_to_string layer_rules.layer in
     let rules = layer_rules.rules in
@@ -651,9 +694,7 @@ let to_string ?(minify = false) ?(preserve_order = false) stylesheet =
         supports_queries
         |> List.map (fun sq ->
                let sq_rules_str =
-                 sq.supports_rules |> merge_rules |> merge_by_properties
-                 |> List.map render_minified_rule
-                 |> String.concat ""
+                 render_supports_content ~minify:true sq.supports_content
                in
                "@supports " ^ sq.supports_condition ^ "{" ^ sq_rules_str ^ "}")
         |> String.concat ""
@@ -699,9 +740,7 @@ let to_string ?(minify = false) ?(preserve_order = false) stylesheet =
         supports_queries
         |> List.map (fun sq ->
                let sq_rules_str =
-                 sq.supports_rules
-                 |> List.map render_formatted_media_rule
-                 |> String.concat "\n"
+                 render_supports_content ~minify:false sq.supports_content
                in
                "@supports " ^ sq.supports_condition ^ " {\n" ^ sq_rules_str
                ^ "\n}")
@@ -855,16 +894,12 @@ let to_string ?(minify = false) ?(preserve_order = false) stylesheet =
     |> List.map (fun (sq : supports_query) ->
            if minify then
              let rules_str =
-               sq.supports_rules |> merge_rules |> merge_by_properties
-               |> List.map render_minified_rule
-               |> String.concat ""
+               render_supports_content ~minify:true sq.supports_content
              in
              "@supports " ^ sq.supports_condition ^ "{" ^ rules_str ^ "}"
            else
              let rules_str =
-               sq.supports_rules
-               |> List.map render_formatted_media_rule
-               |> String.concat "\n"
+               render_supports_content ~minify:false sq.supports_content
              in
              Pp.lines
                [
