@@ -193,3 +193,5 @@ let tests =
     ("Edge cases", `Quick, test_edge_cases);
     ("Color accuracy", `Quick, test_color_accuracy);
   ]
+
+let suite = ("color", tests)

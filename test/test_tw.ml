@@ -358,5 +358,5 @@ let core_tests =
     test_case "style combination" `Quick style_combination;
   ]
 
-let suite = ("core_tests", core_tests)
+let suite = ("tw", core_tests)
 let () = run "tw" [ suite ]
