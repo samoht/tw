@@ -1,4 +1,4 @@
 (** Test suite for Color module *)
 
-val tests : unit Alcotest.test_case list
-(** [tests] is the list of test cases for the Color module. *)
+val suite : string * unit Alcotest.test_case list
+(** [suite] is the test suite for the Color module. *)
