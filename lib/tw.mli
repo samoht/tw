@@ -2303,7 +2303,7 @@ val prose_gray : t
 val prose_slate : t
 (** Slate prose color theme. *)
 
-val prose_stylesheet : unit -> Css.stylesheet
+val prose_stylesheet : unit -> Css.t
 (** [prose_stylesheet ()] generates a complete prose stylesheet with all
     typography rules. This includes descendant selectors for all HTML elements
     (h1-h6, p, a, strong, em, code, pre, blockquote, ul, ol, li, etc.) and all
@@ -2441,7 +2441,7 @@ module Color = Color
 
     Provides OKLCH color space conversion and Tailwind v4 color values. *)
 
-val to_css : ?reset:bool -> t list -> Css.stylesheet
+val to_css : ?reset:bool -> t list -> Css.t
 (** [to_css ?reset styles] generates a CSS stylesheet for the given styles.
 
     @param reset Whether to include CSS reset rules (default: [true])

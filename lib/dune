@@ -1,5 +1,5 @@
 (library
  (public_name tw)
  (name tw)
- (modules tw css pp color prose)
- (libraries re))
+ (modules tw css pp color prose version)
+ (libraries re dune-build-info))

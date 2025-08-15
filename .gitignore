@@ -45,8 +45,9 @@ temp_*/
 node_modules/
 package.json
 package-lock.json
-.npm/# Generated files
-examples/simple.css
-examples/simple_page.html
-examples/*.css
-examples/*.html
+.npm/
+
+# Generated example files
+examples/**/*.css
+examples/**/*.html
+examples/**/*.tailwind.css

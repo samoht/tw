@@ -1,6 +1,6 @@
 (test
  (name test)
- (libraries tw tw.html alcotest re astring fmt))
+ (libraries tw tw.html alcotest re astring fmt test_lib))
 
 (executable
  (name test_hex)
