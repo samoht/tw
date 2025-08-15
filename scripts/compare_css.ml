@@ -18,13 +18,13 @@ let () =
   | [ file1; file2 ] -> (
       match (read_file file1, read_file file2) with
       | Some css1, Some css2 ->
-          if Test_lib.Css_compare.compare_css css1 css2 then (
+          if Tw_tools.Css_compare.compare_css css1 css2 then (
             Fmt.pr "✓ CSS files are structurally identical@.";
             exit 0)
           else (
             Fmt.pr "✗ CSS files differ structurally@.@.";
             (* Show detailed diff *)
-            let diff = Test_lib.Css_compare.format_diff css1 css2 in
+            let diff = Tw_tools.Css_compare.format_diff css1 css2 in
             Fmt.pr "%s@." diff;
             exit 1)
       | _ -> exit 1)

@@ -11,7 +11,7 @@ let generate_tw_css ?(minify = false) ?(preserve_order = false) styles =
   let stylesheet = to_css ~reset:true styles in
   Css.to_string ~minify ~preserve_order stylesheet
 
-let generate_tailwind_css = Test_lib.Tailwind_gen.generate
+let generate_tailwind_css = Tw_tools.Tailwind_gen.generate
 
 let check_exact_match tw_styles =
   try
@@ -19,11 +19,11 @@ let check_exact_match tw_styles =
     let classnames = List.map pp tw_styles in
     let tw_css =
       generate_tw_css ~minify:true tw_styles
-      |> Test_lib.Css_compare.strip_header |> String.trim
+      |> Tw_tools.Css_compare.strip_header |> String.trim
     in
     let tailwind_css =
       generate_tailwind_css ~minify:true classnames
-      |> Test_lib.Css_compare.strip_header |> String.trim
+      |> Tw_tools.Css_compare.strip_header |> String.trim
     in
 
     let test_name =
@@ -34,17 +34,17 @@ let check_exact_match tw_styles =
       Fmt.epr "\n=== CSS MISMATCH for %s ===\n" test_name;
 
       (* Use the CSS comparison library for better diffs *)
-      let diff_output = Test_lib.Css_compare.format_diff tw_css tailwind_css in
+      let diff_output = Tw_tools.Css_compare.format_diff tw_css tailwind_css in
       Fmt.epr "%s\n" diff_output;
 
       (* Also use detailed debugging *)
-      (match Test_lib.Css_debug.find_first_diff tw_css tailwind_css with
+      (match Tw_tools.Css_debug.find_first_diff tw_css tailwind_css with
       | Some (_pos, desc, context) ->
           Fmt.epr "\nFirst difference: %s\n%s\n" desc context
       | None -> ());
 
       (* Save for inspection if needed *)
-      (* let save_path = Test_lib.Css_debug.save_for_inspection 
+      (* let save_path = Tw_tools.Css_debug.save_for_inspection 
         ~our_css:tw_css ~tailwind_css ~test_name in
       Fmt.epr "\n%s\n" save_path; *)
       Fmt.epr "===============================\n");
