@@ -165,7 +165,7 @@ let generate_vars_from_types vars =
                       and bi = int_of_string b in
                       let color = Color.rgb ri gi bi in
                       Color.to_oklch_css color 0
-                    with _ -> "#" ^ color_value (* fallback *))
+                    with Failure _ -> "#" ^ color_value (* fallback *))
                 | _ -> "#" ^ color_value
               else
                 (* Handle hex colors *)
@@ -211,7 +211,7 @@ let generate_vars_from_types vars =
                       and bi = int_of_string b in
                       let color = Color.rgb ri gi bi in
                       Color.to_oklch_css color 0
-                    with _ -> "#" ^ color_value (* fallback *))
+                    with Failure _ -> "#" ^ color_value (* fallback *))
                 | _ -> "#" ^ color_value
               else
                 (* Handle hex colors *)
@@ -2980,6 +2980,9 @@ let prose_slate = Prose Slate
 
 (* Expose Prose module for convenient access *)
 module Prose = Prose
+
+(* Expose Version module for convenient access *)
+module Version = Version
 
 (* Generate complete prose stylesheet *)
 let prose_stylesheet () =

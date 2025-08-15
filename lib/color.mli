@@ -72,29 +72,76 @@ val of_string : string -> t
 (** [of_string s] converts string name to color type. *)
 
 val black : t
+(** [black] is the black color (0, 0, 0). *)
+
 val white : t
+(** [white] is the white color (255, 255, 255). *)
+
 val gray : t
+(** [gray] is the base gray color. *)
+
 val slate : t
+(** [slate] is the base slate color. *)
+
 val zinc : t
+(** [zinc] is the base zinc color. *)
+
 val neutral : t
+(** [neutral] is the base neutral color. *)
+
 val stone : t
+(** [stone] is the base stone color. *)
+
 val red : t
+(** [red] is the base red color. *)
+
 val orange : t
+(** [orange] is the base orange color. *)
+
 val amber : t
+(** [amber] is the base amber color. *)
+
 val yellow : t
+(** [yellow] is the base yellow color. *)
+
 val lime : t
+(** [lime] is the base lime color. *)
+
 val green : t
+(** [green] is the base green color. *)
+
 val emerald : t
+(** [emerald] is the base emerald color. *)
+
 val teal : t
+(** [teal] is the base teal color. *)
+
 val cyan : t
+(** [cyan] is the base cyan color. *)
+
 val sky : t
+(** [sky] is the base sky color. *)
+
 val blue : t
+(** [blue] is the base blue color. *)
+
 val indigo : t
+(** [indigo] is the base indigo color. *)
+
 val violet : t
+(** [violet] is the base violet color. *)
+
 val purple : t
+(** [purple] is the base purple color. *)
+
 val fuchsia : t
+(** [fuchsia] is the base fuchsia color. *)
+
 val pink : t
+(** [pink] is the base pink color. *)
+
 val rose : t
+(** [rose] is the base rose color. *)
 
 val hex : string -> t
 (** [hex s] creates color from hex string. *)
@@ -123,7 +170,7 @@ val is_base_color : t -> bool
     shade). *)
 
 val is_custom_color : t -> bool
-(** Check if a color is a custom color (hex or rgb) *)
+(** [is_custom_color color] checks if a color is a custom color (hex or rgb). *)
 
 (** {1 Tailwind Colors} *)
 

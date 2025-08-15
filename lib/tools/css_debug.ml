@@ -86,7 +86,7 @@ let detailed_diff css1 css2 =
     try
       Sys.remove file1;
       Sys.remove file2
-    with _ -> ()
+    with Sys_error _ -> ()
   in
 
   (* Register cleanup with at_exit to ensure files are removed *)
