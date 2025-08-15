@@ -1,3 +1,3 @@
 (executable
  (name compare_css)
- (libraries test_lib fmt))
+ (libraries tw_tools fmt))

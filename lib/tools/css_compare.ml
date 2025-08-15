@@ -165,11 +165,23 @@ let parse_blocks tokens =
   in
   parse_blocks [] tokens
 
+let rec normalize_blocks = function
+  | [] -> []
+  | Rule { selector; properties } :: rest ->
+      (* Sort properties by key for comparison *)
+      let sorted_props =
+        List.sort (fun (k1, _) (k2, _) -> String.compare k1 k2) properties
+      in
+      Rule { selector; properties = sorted_props } :: normalize_blocks rest
+  | AtBlock (at, nested) :: rest ->
+      AtBlock (at, normalize_blocks nested) :: normalize_blocks rest
+  | Layer l :: rest -> Layer l :: normalize_blocks rest
+
 let compare_css css1 css2 =
   let tokens1 = tokenize css1 in
   let tokens2 = tokenize css2 in
-  let blocks1 = parse_blocks tokens1 in
-  let blocks2 = parse_blocks tokens2 in
+  let blocks1 = parse_blocks tokens1 |> normalize_blocks in
+  let blocks2 = parse_blocks tokens2 |> normalize_blocks in
   blocks1 = blocks2
 
 let format_diff our_css tailwind_css =
