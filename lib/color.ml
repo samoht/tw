@@ -705,8 +705,8 @@ let to_hex color shade =
 (* Convert color to OKLCH CSS string for a given shade *)
 let to_oklch_css color shade =
   match color with
-  | Black -> "oklch(0% 0 0)"
-  | White -> "oklch(100% 0 0)"
+  | Black -> "#000"
+  | White -> "#fff"
   | Oklch oklch -> oklch_to_css oklch
   | Hex h -> hex_to_oklch_css h
   | Rgb { red; green; blue } ->
@@ -861,6 +861,56 @@ let to_name = function
           ",";
           Printf.sprintf "%.3f" oklch.h;
           ")]";
+        ]
+
+(* Pretty printer for colors *)
+let pp = function
+  | Black -> "Black"
+  | White -> "White"
+  | Gray -> "Gray"
+  | Slate -> "Slate"
+  | Zinc -> "Zinc"
+  | Neutral -> "Neutral"
+  | Stone -> "Stone"
+  | Red -> "Red"
+  | Orange -> "Orange"
+  | Amber -> "Amber"
+  | Yellow -> "Yellow"
+  | Lime -> "Lime"
+  | Green -> "Green"
+  | Emerald -> "Emerald"
+  | Teal -> "Teal"
+  | Cyan -> "Cyan"
+  | Sky -> "Sky"
+  | Blue -> "Blue"
+  | Indigo -> "Indigo"
+  | Violet -> "Violet"
+  | Purple -> "Purple"
+  | Fuchsia -> "Fuchsia"
+  | Pink -> "Pink"
+  | Rose -> "Rose"
+  | Hex s -> Pp.str [ "Hex("; s; ")" ]
+  | Rgb { red; green; blue } ->
+      Pp.str
+        [
+          "Rgb(";
+          string_of_int red;
+          ",";
+          string_of_int green;
+          ",";
+          string_of_int blue;
+          ")";
+        ]
+  | Oklch { l; c; h } ->
+      Pp.str
+        [
+          "Oklch(";
+          string_of_float l;
+          ",";
+          string_of_float c;
+          ",";
+          string_of_float h;
+          ")";
         ]
 
 (* Check if a color is black or white *)

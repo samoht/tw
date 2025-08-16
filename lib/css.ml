@@ -243,6 +243,8 @@ and supports_query = {
   supports_content : supports_content;
 }
 
+type rule_or_nested = Rule of rule | NestedSupports of supports_query
+
 type at_property = {
   name : string;
   syntax : string;
@@ -254,7 +256,7 @@ type layer = Properties | Theme | Base | Components | Utilities
 
 type layered_rules = {
   layer : layer;
-  rules : rule list;
+  rules : rule_or_nested list;
   media_queries : media_query list;
   container_queries : container_query list;
   supports_queries : supports_query list;
@@ -407,6 +409,9 @@ let supports_nested ~condition rules nested_queries =
 let at_property ~name ~syntax ~initial_value ?(inherits = true) () =
   { name; syntax; inherits; initial_value }
 
+let rule_to_nested rule = Rule rule
+let supports_to_nested supports = NestedSupports supports
+
 let layered_rules ~layer ?(media_queries = []) ?(container_queries = [])
     ?(supports_queries = []) rules =
   { layer; rules; media_queries; container_queries; supports_queries }
@@ -428,13 +433,56 @@ let stylesheet ?(layers = []) ?(media_queries = []) ?(container_queries = [])
 
 (** Extract Tailwind CSS variables from properties *)
 let tw_vars properties =
-  List.filter_map
-    (fun (prop_name, _) ->
-      match property_name_to_string prop_name with
-      | name when String.starts_with ~prefix:"--tw-" name -> Some name
-      | _ -> None)
-    properties
-  |> List.sort_uniq String.compare
+  (* Extract variables that are set (custom properties) *)
+  let set_vars =
+    List.filter_map
+      (fun (prop_name, _) ->
+        match property_name_to_string prop_name with
+        | name when String.starts_with ~prefix:"--tw-" name -> Some name
+        | _ -> None)
+      properties
+  in
+  (* Extract variables that are referenced in values *)
+  let rec extract_vars_from_value value acc pos =
+    if pos >= String.length value then acc
+    else
+      try
+        let var_pos = String.index_from value pos 'v' in
+        if
+          var_pos + 4 <= String.length value
+          && String.sub value var_pos 4 = "var("
+        then
+          (* Found var( *)
+          let var_start = var_pos + 4 in
+          match String.index_from value var_start ')' with
+          | exception Not_found -> acc
+          | end_paren ->
+              let var_content =
+                String.sub value var_start (end_paren - var_start)
+              in
+              (* Extract just the variable name *)
+              let var_name =
+                match String.index var_content ',' with
+                | exception Not_found -> String.trim var_content
+                | comma -> String.trim (String.sub var_content 0 comma)
+              in
+              let acc' =
+                if
+                  String.length var_name > 5
+                  && String.sub var_name 0 5 = "--tw-"
+                then var_name :: acc
+                else acc
+              in
+              extract_vars_from_value value acc' (end_paren + 1)
+        else extract_vars_from_value value acc (var_pos + 1)
+      with Not_found -> acc
+  in
+  let referenced_vars =
+    List.concat_map
+      (fun (_, value) -> extract_vars_from_value value [] 0)
+      properties
+  in
+  set_vars @ referenced_vars |> List.sort_uniq String.compare
 
 let deduplicate_properties props =
   (* Keep last occurrence of each property while preserving order *)
@@ -454,22 +502,31 @@ let properties_to_inline_style props =
   |> String.concat "; "
 
 let merge_rules rules =
-  (* Group rules by selector *)
-  let tbl = Hashtbl.create 16 in
-  List.iter
-    (fun rule ->
-      let existing =
-        try Hashtbl.find tbl rule.selector with Not_found -> []
-      in
-      Hashtbl.replace tbl rule.selector (existing @ rule.properties))
-    rules;
-
-  (* Create merged rules *)
-  Hashtbl.fold
-    (fun selector properties acc ->
-      { selector; properties = deduplicate_properties properties } :: acc)
-    tbl []
-  |> List.sort (fun a b -> String.compare a.selector b.selector)
+  (* Group rules by selector while preserving first occurrence order *)
+  let rec merge_helper acc seen = function
+    | [] -> List.rev acc
+    | rule :: rest ->
+        if List.mem rule.selector seen then
+          (* Selector already seen, merge properties into existing rule *)
+          let acc' =
+            List.map
+              (fun r ->
+                if r.selector = rule.selector then
+                  { r with properties = r.properties @ rule.properties }
+                else r)
+              acc
+          in
+          merge_helper acc' seen rest
+        else
+          (* New selector, add to acc and mark as seen *)
+          merge_helper
+            ({ rule with properties = deduplicate_properties rule.properties }
+            :: acc)
+            (rule.selector :: seen) rest
+  in
+  merge_helper [] [] rules
+  |> List.map (fun r ->
+         { r with properties = deduplicate_properties r.properties })
 
 (* Merge rules with identical properties into combined selectors *)
 let merge_by_properties rules =
@@ -650,14 +707,44 @@ and to_string ?(minify = false) ?(preserve_order = false) stylesheet =
     let supports_queries = layer_rules.supports_queries in
 
     if minify then
-      let merged_rules =
-        (* Always preserve order for base layer to match Tailwind v4's exact
-           reset order *)
-        if preserve_order || layer_rules.layer = Base then rules
-        else merge_rules rules |> merge_by_properties
+      (* Render rule_or_nested items *)
+      let render_rule_or_nested = function
+        | Rule r -> render_minified_rule r
+        | NestedSupports sq ->
+            let sq_content =
+              render_supports_content ~minify:true sq.supports_content
+            in
+            "@supports " ^ sq.supports_condition ^ "{" ^ sq_content ^ "}"
       in
+
       let rules_str =
-        merged_rules |> List.map render_minified_rule |> String.concat ""
+        (* For base and utilities layers, preserve exact order *)
+        if
+          preserve_order || layer_rules.layer = Base
+          || layer_rules.layer = Utilities
+        then rules |> List.map render_rule_or_nested |> String.concat ""
+        else
+          (* For other layers, separate rules from nested supports *)
+          let regular_rules, nested_supports =
+            List.partition_map
+              (function
+                | Rule r -> Either.Left r | NestedSupports sq -> Either.Right sq)
+              rules
+          in
+          let merged_rules = merge_rules regular_rules |> merge_by_properties in
+          let rules_part =
+            merged_rules |> List.map render_minified_rule |> String.concat ""
+          in
+          let supports_part =
+            nested_supports
+            |> List.map (fun sq ->
+                   let sq_content =
+                     render_supports_content ~minify:true sq.supports_content
+                   in
+                   "@supports " ^ sq.supports_condition ^ "{" ^ sq_content ^ "}")
+            |> String.concat ""
+          in
+          rules_part ^ supports_part
       in
       (* Render media queries within the layer *)
       let media_str =
@@ -699,11 +786,26 @@ and to_string ?(minify = false) ?(preserve_order = false) stylesheet =
                "@supports " ^ sq.supports_condition ^ "{" ^ sq_rules_str ^ "}")
         |> String.concat ""
       in
-      "@layer " ^ layer_name ^ "{" ^ rules_str ^ media_str ^ container_str
-      ^ supports_str ^ "}"
+      (* If layer is completely empty, render as declaration only *)
+      if
+        rules_str = "" && media_str = "" && container_str = ""
+        && supports_str = ""
+      then "@layer " ^ layer_name ^ ";"
+      else
+        "@layer " ^ layer_name ^ "{" ^ rules_str ^ media_str ^ container_str
+        ^ supports_str ^ "}"
     else
+      (* Render rule_or_nested items for non-minified output *)
+      let render_rule_or_nested_formatted = function
+        | Rule r -> render_formatted_rule r
+        | NestedSupports sq ->
+            let sq_content =
+              render_supports_content ~minify:false sq.supports_content
+            in
+            "@supports " ^ sq.supports_condition ^ " {\n" ^ sq_content ^ "\n}"
+      in
       let rules_str =
-        rules |> List.map render_formatted_rule |> String.concat "\n"
+        rules |> List.map render_rule_or_nested_formatted |> String.concat "\n"
       in
       (* Render media queries within the layer *)
       let media_str =
@@ -751,7 +853,9 @@ and to_string ?(minify = false) ?(preserve_order = false) stylesheet =
         |> List.filter (fun s -> s <> "")
         |> String.concat "\n"
       in
-      "@layer " ^ layer_name ^ " {\n" ^ all_content ^ "\n}"
+      (* If layer is completely empty, render as declaration only *)
+      if all_content = "" then "@layer " ^ layer_name ^ ";"
+      else "@layer " ^ layer_name ^ " {\n" ^ all_content ^ "\n}"
   in
 
   (* Add tw library header *)
@@ -944,3 +1048,5 @@ and to_string ?(minify = false) ?(preserve_order = false) stylesheet =
 
   if minify then String.concat "" all_parts
   else String.concat "\n" (List.filter (fun s -> s <> "") all_parts)
+
+let pp stylesheet = to_string ~minify:false ~preserve_order:false stylesheet
