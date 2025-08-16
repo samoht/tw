@@ -531,7 +531,7 @@ let to_css ?(reset = true) tw_classes =
   let media_queries_map =
     if hover_rules = [] then media_queries_map
     else
-      let hover_condition = "@media (hover: hover)" in
+      let hover_condition = "@media (hover:hover)" in
       let existing_hover_rules =
         try List.assoc hover_condition media_queries_map with Not_found -> []
       in
