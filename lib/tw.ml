@@ -226,7 +226,7 @@ let generate_vars_from_types vars =
             let color = Color.of_string name in
             Some
               (Css.property ("--color-" ^ name) (Color.to_oklch_css color 500))
-      | Css.Spacing 1 -> Some (Css.property "--spacing" "0.25rem")
+      | Css.Spacing _ -> Some (Css.property "--spacing" "0.25rem")
       | _ -> None (* Add other variable types as needed *))
     dedup_vars
 
@@ -389,7 +389,8 @@ let group_by_selector rules =
   List.fold_left
     (fun acc (selector, props) ->
       let existing = try List.assoc selector acc with Not_found -> [] in
-      (selector, existing @ props) :: List.remove_assoc selector acc)
+      let without = List.remove_assoc selector acc in
+      without @ [ (selector, existing @ props) ])
     [] rules
 
 (* Base reset CSS rules *)
@@ -694,6 +695,70 @@ let to_css ?(reset = true) tw_classes =
       |> List.sort_uniq String.compare
     in
 
+    (* Tailwind uses a canonical order for variables within property families.
+       Variables must be declared in a specific sequence for composed
+       properties. *)
+    let canonical_var_order =
+      [
+        (* Shadow family - component variables first, then composition *)
+        "--tw-shadow";
+        "--tw-shadow-color";
+        "--tw-shadow-alpha";
+        "--tw-inset-shadow";
+        "--tw-inset-shadow-color";
+        "--tw-inset-shadow-alpha";
+        "--tw-ring-color";
+        "--tw-ring-shadow";
+        "--tw-inset-ring-color";
+        "--tw-inset-ring-shadow";
+        "--tw-ring-inset";
+        "--tw-ring-offset-width";
+        "--tw-ring-offset-color";
+        "--tw-ring-offset-shadow";
+        (* Transform family *)
+        "--tw-translate-x";
+        "--tw-translate-y";
+        "--tw-rotate";
+        "--tw-skew-x";
+        "--tw-skew-y";
+        "--tw-scale-x";
+        "--tw-scale-y";
+        "--tw-scale-z";
+        (* Filter family *)
+        "--tw-blur";
+        "--tw-brightness";
+        "--tw-contrast";
+        "--tw-grayscale";
+        "--tw-hue-rotate";
+        "--tw-invert";
+        "--tw-saturate";
+        "--tw-sepia";
+        "--tw-drop-shadow";
+        (* Other variables *)
+        "--tw-leading";
+        "--tw-font-weight";
+        "--tw-duration";
+      ]
+    in
+
+    (* Sort variables according to canonical order *)
+    let sort_vars vars =
+      let order_map =
+        List.mapi (fun i var -> (var, i)) canonical_var_order
+        |> List.to_seq |> Hashtbl.of_seq
+      in
+      let get_order var =
+        match Hashtbl.find_opt order_map var with
+        | Some idx -> idx
+        | None ->
+            999
+            + String.compare var "" (* Unknown vars go last, alphabetically *)
+      in
+      List.sort (fun a b -> Int.compare (get_order a) (get_order b)) vars
+    in
+
+    let used_tw_vars = sort_vars used_tw_vars in
+
     let needs_tw_properties = used_tw_vars <> [] in
 
     (* Properties layer - only if needed and only with used variables *)
@@ -762,19 +827,229 @@ let to_css ?(reset = true) tw_classes =
 
     let theme_layer =
       Css.layered_rules ~layer:Css.Theme
-        [ Css.rule ~selector:":root, :host" theme_vars_with_fonts ]
+        [
+          Css.rule_to_nested
+            (Css.rule ~selector:":root, :host" theme_vars_with_fonts);
+        ]
     in
 
     (* Base layer with reset rules *)
     let base_rules = generate_reset_rules () in
-    let base_layer = Css.layered_rules ~layer:Css.Base base_rules in
+
+    (* Split the base rules to insert @supports after ::placeholder rule *)
+    let rec split_after_placeholder acc = function
+      | [] -> (List.rev acc, [])
+      | h :: t ->
+          if Css.selector h = "::placeholder" then (List.rev (h :: acc), t)
+          else split_after_placeholder (h :: acc) t
+    in
+    let before_placeholder, after_placeholder =
+      split_after_placeholder [] base_rules
+    in
+
+    (* Create placeholder @supports block *)
+    let placeholder_supports =
+      Css.supports_nested
+        ~condition:
+          "(not ((-webkit-appearance:-apple-pay-button))) or \
+           (contain-intrinsic-size:1px)"
+        [ Css.rule ~selector:"::placeholder" [ Css.color "currentColor" ] ]
+        [
+          Css.supports ~condition:"(color:color-mix(in lab, red, red))"
+            [
+              Css.rule ~selector:"::placeholder"
+                [
+                  Css.property "color"
+                    "color-mix(in oklab,currentcolor 50%,transparent)";
+                ];
+            ];
+        ]
+    in
+
+    (* Build base layer with rules and nested @supports in correct order *)
+    let base_layer_content =
+      (before_placeholder |> List.map Css.rule_to_nested)
+      @ [ Css.supports_to_nested placeholder_supports ]
+      @ (after_placeholder |> List.map Css.rule_to_nested)
+    in
+    let base_layer = Css.layered_rules ~layer:Css.Base base_layer_content in
 
     (* Components layer - standard Tailwind v4 layer *)
     let components_layer = Css.layered_rules ~layer:Css.Components [] in
 
     (* Utilities layer with the actual utility classes AND media queries *)
+    (* Tailwind v4 uses conflict-aware grouping for CSS rule ordering.
+       Utilities are grouped by which CSS properties they can conflict with,
+       ensuring proper specificity resolution. More specific utilities override
+       shorthand ones within each group. *)
+
+    (* Conflict-aware utility sorter based on Tailwind v4's approach *)
+    let get_conflict_group selector =
+      (* Extract the class name from selector (e.g., ".p-4" -> "p-4") *)
+      let core =
+        if String.starts_with ~prefix:"." selector then
+          String.sub selector 1 (String.length selector - 1)
+        else selector
+      in
+
+      (* Helper: check if string starts with prefix *)
+      let starts prefix s =
+        let lp = String.length prefix and ls = String.length s in
+        ls >= lp && String.sub s 0 lp = prefix
+      in
+
+      (* Conflict groups: (group_priority, intra_group_specificity) Lower
+         numbers = earlier in output Based on Tailwind v4's actual output
+         order *)
+
+      (* 0xx: layout/display *)
+      if core = "hidden" then (10, 3) (* later than display values *)
+      else if
+        List.exists
+          (fun p -> starts p core)
+          [
+            "block";
+            "inline";
+            "inline-";
+            "flex";
+            "grid";
+            "table";
+            "contents";
+            "flow-root";
+          ]
+      then (10, 1)
+      else if
+        List.exists
+          (fun p -> starts p core)
+          [ "static"; "fixed"; "absolute"; "relative"; "sticky" ]
+      then (11, 0)
+        (* 1xx: margin - comes BEFORE background in Tailwind's order *)
+      else if starts "m-" core || starts "-m-" core then (100, 0)
+      else if
+        starts "mx-" core || starts "my-" core || starts "-mx-" core
+        || starts "-my-" core
+      then (100, 1)
+      else if
+        List.exists
+          (fun p -> starts p core)
+          [ "mt-"; "mr-"; "mb-"; "ml-"; "-mt-"; "-mr-"; "-mb-"; "-ml-" ]
+      then (100, 2)
+        (* 2xx: background & color utilities - comes BETWEEN margin and
+           padding *)
+      else if
+        List.exists
+          (fun p -> starts p core)
+          [ "bg-"; "from-"; "via-"; "to-" (* gradients *) ]
+      then (200, 0) (* 3xx: padding - comes AFTER background *)
+      else if starts "p-" core then (300, 0)
+      else if starts "px-" core || starts "py-" core then (300, 1)
+      else if
+        List.exists (fun p -> starts p core) [ "pt-"; "pr-"; "pb-"; "pl-" ]
+      then (300, 2) (* 4xx: typography including text colors *)
+      else if
+        List.exists
+          (fun p -> starts p core)
+          [
+            "font-";
+            "text-";
+            "tracking-";
+            "leading-";
+            "whitespace-";
+            "break-";
+            "list-";
+            "content-";
+          ]
+      then (400, 0) (* 5xx: borders *)
+      else if
+        List.exists (fun p -> starts p core) [ "border"; "rounded"; "outline-" ]
+      then (500, 0) (* 6xx: sizing *)
+      else if
+        List.exists
+          (fun p -> starts p core)
+          [ "w-"; "h-"; "min-w-"; "min-h-"; "max-w-"; "max-h-" ]
+      then (600, 0) (* 7xx: effects, transforms, transitions *)
+      else if
+        List.exists
+          (fun p -> starts p core)
+          [
+            "shadow-";
+            "shadow";
+            "opacity-";
+            "mix-blend-";
+            "background-blend-";
+            "transform";
+            "translate-";
+            "scale-";
+            "rotate-";
+            "skew-";
+            "transition";
+            "duration-";
+            "ease-";
+            "delay-";
+            "animate-";
+          ]
+      then (700, 0) (* 8xx: misc / accessibility / interop *)
+      else if
+        List.exists
+          (fun p -> starts p core)
+          [
+            "cursor-";
+            "select-";
+            "pointer-events-";
+            "sr-";
+            "appearance-";
+            "accent-";
+            "caret-";
+            "resize-";
+            "scroll-";
+            "overflow-";
+            "overscroll-";
+          ]
+      then (800, 0) (* 9xx: flexbox/grid specifics *)
+      else if
+        List.exists
+          (fun p -> starts p core)
+          [
+            "flex-";
+            "grow";
+            "shrink";
+            "basis-";
+            "order-";
+            "grid-cols-";
+            "col-";
+            "grid-rows-";
+            "row-";
+            "grid-flow-";
+            "auto-cols-";
+            "auto-rows-";
+            "justify-";
+            "items-";
+            "content-";
+            "self-";
+            "place-";
+            "gap-";
+            "space-";
+          ]
+      then (900, 0) (* 10xx: container, prose *)
+      else if core = "container" || starts "prose" core then (1000, 0)
+      (* fallback bucket *)
+        else (9999, 0)
+    in
+
+    (* Sort rules with stable sort to preserve order within groups *)
+    let sorted_rules =
+      List.stable_sort
+        (fun r1 r2 ->
+          let group1, sub1 = get_conflict_group (Css.selector r1) in
+          let group2, sub2 = get_conflict_group (Css.selector r2) in
+          let group_cmp = Int.compare group1 group2 in
+          if group_cmp <> 0 then group_cmp
+          else Int.compare sub1 sub2 (* Compare specificity within group *))
+        rules
+    in
     let utilities_layer =
-      Css.layered_rules ~layer:Css.Utilities ~media_queries rules
+      Css.layered_rules ~layer:Css.Utilities ~media_queries
+        (sorted_rules |> List.map Css.rule_to_nested)
     in
 
     (* Add prose styles if needed *)
@@ -790,7 +1065,11 @@ let to_css ?(reset = true) tw_classes =
                | _ -> None)
           |> List.concat
         in
-        base_layers @ [ Css.layered_rules ~layer:Css.Utilities prose_rules ]
+        base_layers
+        @ [
+            Css.layered_rules ~layer:Css.Utilities
+              (prose_rules |> List.map Css.rule_to_nested);
+          ]
       else base_layers
     in
 
@@ -801,55 +1080,8 @@ let to_css ?(reset = true) tw_classes =
       | None -> layers_with_prose
     in
 
-    (* Create @property declarations only if needed *)
-    let at_properties =
-      if needs_tw_properties then
-        [
-          Css.at_property ~name:"--tw-leading" ~syntax:"\"*\"" ~initial_value:""
-            ~inherits:false ();
-          Css.at_property ~name:"--tw-font-weight" ~syntax:"\"*\""
-            ~initial_value:"" ~inherits:false ();
-          Css.at_property ~name:"--tw-shadow" ~syntax:"\"*\""
-            ~initial_value:"0 0 #0000" ~inherits:false ();
-          Css.at_property ~name:"--tw-shadow-color" ~syntax:"\"*\""
-            ~initial_value:"" ~inherits:false ();
-          Css.at_property ~name:"--tw-shadow-alpha" ~syntax:"\"<percentage>\""
-            ~initial_value:"100%" ~inherits:false ();
-          Css.at_property ~name:"--tw-inset-shadow" ~syntax:"\"*\""
-            ~initial_value:"0 0 #0000" ~inherits:false ();
-          Css.at_property ~name:"--tw-inset-shadow-color" ~syntax:"\"*\""
-            ~initial_value:"" ~inherits:false ();
-          Css.at_property ~name:"--tw-inset-shadow-alpha"
-            ~syntax:"\"<percentage>\"" ~initial_value:"100%" ~inherits:false ();
-          Css.at_property ~name:"--tw-ring-color" ~syntax:"\"*\""
-            ~initial_value:"" ~inherits:false ();
-          Css.at_property ~name:"--tw-ring-shadow" ~syntax:"\"*\""
-            ~initial_value:"0 0 #0000" ~inherits:false ();
-          Css.at_property ~name:"--tw-inset-ring-color" ~syntax:"\"*\""
-            ~initial_value:"" ~inherits:false ();
-          Css.at_property ~name:"--tw-inset-ring-shadow" ~syntax:"\"*\""
-            ~initial_value:"0 0 #0000" ~inherits:false ();
-          Css.at_property ~name:"--tw-ring-inset" ~syntax:"\"*\""
-            ~initial_value:"" ~inherits:false ();
-          Css.at_property ~name:"--tw-ring-offset-width" ~syntax:"\"<length>\""
-            ~initial_value:"0" ~inherits:false ();
-          Css.at_property ~name:"--tw-ring-offset-color" ~syntax:"\"*\""
-            ~initial_value:"#fff" ~inherits:false ();
-          Css.at_property ~name:"--tw-ring-offset-shadow" ~syntax:"\"*\""
-            ~initial_value:"0 0 #0000" ~inherits:false ();
-          Css.at_property ~name:"--tw-duration" ~syntax:"\"*\""
-            ~initial_value:"" ~inherits:false ();
-          Css.at_property ~name:"--tw-scale-x" ~syntax:"\"*\""
-            ~initial_value:"1" ~inherits:false ();
-          Css.at_property ~name:"--tw-scale-y" ~syntax:"\"*\""
-            ~initial_value:"1" ~inherits:false ();
-          Css.at_property ~name:"--tw-scale-z" ~syntax:"\"*\""
-            ~initial_value:"1" ~inherits:false ();
-        ]
-      else []
-    in
-
-    Css.stylesheet ~layers ~at_properties []
+    (* Don't add empty Properties layer *)
+    Css.stylesheet ~layers ~media_queries []
   else
     (* No reset - just raw rules and media queries, no layers *)
     Css.stylesheet ~layers:[] ~media_queries rules
@@ -1359,45 +1591,53 @@ let m n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "m-" ^ pp_spacing_suffix s in
-  style class_name [ margin (pp_margin s) ]
+  style_with_vars class_name [ margin (pp_margin s) ] [ Css.Spacing (abs n) ]
 
 let mx n =
   let s = int n in
   let v = pp_margin s in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mx-" ^ pp_spacing_suffix s in
-  style class_name [ margin_inline v ]
+  style_with_vars class_name [ margin_inline v ] [ Css.Spacing (abs n) ]
 
 let my n =
   let s = int n in
   let v = pp_margin s in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "my-" ^ pp_spacing_suffix s in
-  style class_name [ margin_block v ]
+  style_with_vars class_name [ margin_block v ] [ Css.Spacing (abs n) ]
 
 let mt n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mt-" ^ pp_spacing_suffix s in
-  style class_name [ margin_top (pp_margin s) ]
+  style_with_vars class_name
+    [ margin_top (pp_margin s) ]
+    [ Css.Spacing (abs n) ]
 
 let mr n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mr-" ^ pp_spacing_suffix s in
-  style class_name [ margin_right (pp_margin s) ]
+  style_with_vars class_name
+    [ margin_right (pp_margin s) ]
+    [ Css.Spacing (abs n) ]
 
 let mb n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mb-" ^ pp_spacing_suffix s in
-  style class_name [ margin_bottom (pp_margin s) ]
+  style_with_vars class_name
+    [ margin_bottom (pp_margin s) ]
+    [ Css.Spacing (abs n) ]
 
 let ml n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "ml-" ^ pp_spacing_suffix s in
-  style class_name [ margin_left (pp_margin s) ]
+  style_with_vars class_name
+    [ margin_left (pp_margin s) ]
+    [ Css.Spacing (abs n) ]
 
 (* Common margin utilities *)
 let m_auto = m' `Auto

@@ -2447,6 +2447,40 @@ module Version = Version
 val to_css : ?reset:bool -> t list -> Css.t
 (** [to_css ?reset styles] generates a CSS stylesheet for the given styles.
 
+    The generated CSS follows Tailwind's layering and ordering conventions:
+
+    {b 1. Layer Order:}
+    - {i base}: resets, preflight styles, and semantic element defaults
+    - {i components}: component classes (e.g., container or plugin-provided)
+    - {i utilities}: atomic utility classes (p-4, bg-red-500, etc.)
+
+    {b 2. Utility Ordering (within utilities layer):} Utilities are sorted by
+    category in the following order:
+    - {i Layout}: position, display, float, clear, isolation, object-fit,
+      overflow, overscroll
+    - {i Flexbox & Grid}: flex properties, grid properties, gap, order,
+      place-content/items/self
+    - {i Spacing}: padding, margin, space-between
+    - {i Sizing}: width, height, min/max dimensions
+    - {i Typography}: font-family, font-size, font-weight, letter-spacing,
+      line-height, text properties
+    - {i Backgrounds}: background-color, background-image, gradients
+    - {i Borders}: border-width, border-color, border-radius, border-style
+    - {i Effects}: box-shadow, opacity, mix-blend-mode
+    - {i Filters}: filter, backdrop-filter, blur, brightness, contrast
+    - {i Tables}: border-collapse, border-spacing, table-layout
+    - {i Transitions & Animation}: transition, duration, timing, delay,
+      animation
+    - {i Transforms}: scale, rotate, translate, skew
+    - {i Interactivity}: cursor, user-select, resize, scroll-behavior
+    - {i SVG}: fill, stroke
+    - {i Accessibility}: sr-only, not-sr-only
+
+    Within each category, utilities maintain a stable order. Variants (hover:,
+    sm:, etc.) are applied with responsive breakpoints in ascending order (sm →
+    md → lg → xl → 2xl) and state modifiers in Tailwind's predetermined priority
+    order.
+
     @param reset Whether to include CSS reset rules (default: [true])
 
     When [reset=true] (default), includes:

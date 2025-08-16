@@ -22,6 +22,9 @@ type property
 type rule
 (** Abstract type for CSS rules *)
 
+type rule_or_nested
+(** Abstract type for rules or nested content *)
+
 type media_query
 (** Abstract type for media queries *)
 
@@ -46,6 +49,9 @@ type layered_rules
 
 type t
 (** Abstract type for CSS stylesheets *)
+
+val pp : t -> string
+(** [pp  stylesheet] pretty-prints a CSS stylesheet. *)
 
 type at_property
 (** Abstract type for [@property] rules *)
@@ -383,6 +389,13 @@ val selector : rule -> string
 val properties : rule -> property list
 (** [properties rule] returns the properties of a CSS rule. *)
 
+val rule_to_nested : rule -> rule_or_nested
+(** [rule_to_nested rule] converts a rule to a rule_or_nested. *)
+
+val supports_to_nested : supports_query -> rule_or_nested
+(** [supports_to_nested supports] converts a supports query to a rule_or_nested.
+*)
+
 val media : condition:string -> rule list -> media_query
 (** [media ~condition rules] creates a media query. *)
 
@@ -416,7 +429,7 @@ val layered_rules :
   ?media_queries:media_query list ->
   ?container_queries:container_query list ->
   ?supports_queries:supports_query list ->
-  rule list ->
+  rule_or_nested list ->
   layered_rules
 (** [layered_rules ~layer ?media_queries ?container_queries ?supports_queries
      rules] creates rules within a specific CSS layer with optional nested

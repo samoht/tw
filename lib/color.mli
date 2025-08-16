@@ -44,6 +44,9 @@ type t =
   | Rgb of { red : int; green : int; blue : int }
   | Oklch of oklch (* OKLCH as a primary color type *)
 
+val pp : t -> string
+(** [pp color] pretty-prints a color. *)
+
 (** {1 Conversion Functions} *)
 
 val rgb_to_oklch : rgb -> oklch

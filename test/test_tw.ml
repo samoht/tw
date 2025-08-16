@@ -35,19 +35,12 @@ let check_exact_match tw_styles =
 
       (* Use the CSS comparison library for better diffs *)
       let diff_output = Tw_tools.Css_compare.format_diff tw_css tailwind_css in
-      Fmt.epr "%s\n" diff_output;
+      Fmt.epr "%s" diff_output;
 
       (* Also use detailed debugging *)
-      (match Tw_tools.Css_debug.find_first_diff tw_css tailwind_css with
-      | Some (_pos, desc, context) ->
-          Fmt.epr "\nFirst difference: %s\n%s\n" desc context
+      match Tw_tools.Css_debug.find_first_diff tw_css tailwind_css with
+      | Some (_pos, desc, context) -> Fmt.epr "\n%s\n%s\n" desc context
       | None -> ());
-
-      (* Save for inspection if needed *)
-      (* let save_path = Tw_tools.Css_debug.save_for_inspection 
-        ~our_css:tw_css ~tailwind_css ~test_name in
-      Fmt.epr "\n%s\n" save_path; *)
-      Fmt.epr "===============================\n");
 
     Alcotest.check string
       (Fmt.str "%s CSS exact match" test_name)
@@ -326,8 +319,6 @@ let style_combination () =
 let core_tests =
   [
     test_case "empty test" `Quick empty_test;
-    test_case "multiple classes" `Quick multiple_classes;
-    test_case "responsive classes" `Quick responsive_classes;
     test_case "basic spacing" `Quick basic_spacing;
     test_case "color classes" `Quick color_classes;
     test_case "display classes" `Quick display_classes;
@@ -356,6 +347,8 @@ let core_tests =
     test_case "prose variants" `Quick prose_variants;
     test_case "inline styles" `Quick inline_styles;
     test_case "style combination" `Quick style_combination;
+    test_case "responsive classes" `Quick responsive_classes;
+    test_case "multiple classes" `Quick multiple_classes;
   ]
 
 let suite = ("tw", core_tests)

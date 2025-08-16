@@ -76,6 +76,52 @@ let tokenize css =
     loop start_pos false 0
   in
 
+  let skip_comment pos =
+    if pos + 1 < len && css.[pos] = '/' && css.[pos + 1] = '*' then
+      let rec find_end p =
+        if p + 1 >= len then len
+        else if css.[p] = '*' && css.[p + 1] = '/' then p + 2
+        else find_end (p + 1)
+      in
+      Some (find_end (pos + 2))
+    else None
+  in
+
+  let read_at_rule pos =
+    let end_pos = read_until_char [ '{'; ';' ] (pos + 1) in
+    let at_rule = String.sub css pos (end_pos - pos) |> String.trim in
+    (AtRule at_rule, end_pos)
+  in
+
+  let find_colon_pos start_pos =
+    let rec loop p =
+      if p >= len then None
+      else
+        match css.[p] with
+        | ':' -> Some p
+        | '{' | '}' | ';' -> None
+        | _ -> loop (p + 1)
+    in
+    loop start_pos
+  in
+
+  let read_property_or_selector pos =
+    match find_colon_pos pos with
+    | Some cpos when cpos > pos ->
+        (* It's a property *)
+        let prop = String.sub css pos (cpos - pos) |> String.trim in
+        let value_end = read_property_value (cpos + 1) in
+        let value =
+          String.sub css (cpos + 1) (value_end - cpos - 1) |> String.trim
+        in
+        (Some (Property (prop, value)), value_end)
+    | _ ->
+        (* It's a selector *)
+        let end_pos = read_until_char [ '{'; '}'; ';'; ',' ] pos in
+        let text = String.sub css pos (end_pos - pos) |> String.trim in
+        if text <> "" then (Some (Selector text), end_pos) else (None, end_pos)
+  in
+
   let rec tokenize_impl acc pos =
     let pos = skip_whitespace pos in
     if pos >= len then List.rev acc
@@ -85,47 +131,20 @@ let tokenize css =
       | '}' -> tokenize_impl (CloseBrace :: acc) (pos + 1)
       | ';' -> tokenize_impl (Semicolon :: acc) (pos + 1)
       | ',' -> tokenize_impl (Comma :: acc) (pos + 1)
-      | '/' when pos + 1 < len && css.[pos + 1] = '*' ->
-          (* Skip comments *)
-          let rec find_end p =
-            if p + 1 >= len then len
-            else if css.[p] = '*' && css.[p + 1] = '/' then p + 2
-            else find_end (p + 1)
-          in
-          tokenize_impl acc (find_end (pos + 2))
+      | '/' -> (
+          match skip_comment pos with
+          | Some new_pos -> tokenize_impl acc new_pos
+          | None -> (
+              match read_property_or_selector pos with
+              | Some token, new_pos -> tokenize_impl (token :: acc) new_pos
+              | None, new_pos -> tokenize_impl acc new_pos))
       | '@' ->
-          (* Read at-rule *)
-          let end_pos = read_until_char [ '{'; ';' ] (pos + 1) in
-          let at_rule = String.sub css pos (end_pos - pos) |> String.trim in
-          tokenize_impl (AtRule at_rule :: acc) end_pos
+          let token, new_pos = read_at_rule pos in
+          tokenize_impl (token :: acc) new_pos
       | _ -> (
-          (* Try to read property or selector *)
-          let colon_pos = ref None in
-          let rec find_colon p =
-            if p >= len then ()
-            else
-              match css.[p] with
-              | ':' -> colon_pos := Some p
-              | '{' | '}' | ';' -> ()
-              | _ -> find_colon (p + 1)
-          in
-          find_colon pos;
-
-          match !colon_pos with
-          | Some cpos when cpos > pos ->
-              (* It's a property *)
-              let prop = String.sub css pos (cpos - pos) |> String.trim in
-              let value_end = read_property_value (cpos + 1) in
-              let value =
-                String.sub css (cpos + 1) (value_end - cpos - 1) |> String.trim
-              in
-              tokenize_impl (Property (prop, value) :: acc) value_end
-          | _ ->
-              (* It's a selector *)
-              let end_pos = read_until_char [ '{'; '}'; ';'; ',' ] pos in
-              let text = String.sub css pos (end_pos - pos) |> String.trim in
-              if text <> "" then tokenize_impl (Selector text :: acc) end_pos
-              else tokenize_impl acc end_pos)
+          match read_property_or_selector pos with
+          | Some token, new_pos -> tokenize_impl (token :: acc) new_pos
+          | None, new_pos -> tokenize_impl acc new_pos)
   in
   tokenize_impl [] 0
 
@@ -191,6 +210,24 @@ let format_diff our_css tailwind_css =
     Buffer.add_char buf '\n'
   in
 
+  (* Extract version info from headers for better labels *)
+  let get_version css =
+    if String.starts_with ~prefix:"/* tw v" css then
+      let end_idx = try String.index_from css 7 ' ' with Not_found -> 20 in
+      "tw v" ^ String.sub css 7 (min (end_idx - 7) 20)
+    else if String.starts_with ~prefix:"/* ≈ tailwindcss" css then "tailwind"
+    else "unknown"
+  in
+
+  let tw_label =
+    let v = get_version our_css in
+    if v = "unknown" then "tw" else v
+  in
+  let tailwind_label =
+    let v = get_version tailwind_css in
+    if v = "unknown" then "tailwind" else v
+  in
+
   (* Strip headers *)
   let our_css = strip_header our_css in
   let tailwind_css = strip_header tailwind_css in
@@ -204,9 +241,6 @@ let format_diff our_css tailwind_css =
   if our_blocks = tailwind_blocks then
     add_line "✓ CSS files are structurally identical"
   else (
-    add_line "✗ CSS files differ structurally";
-    add_line "";
-    add_line "Comparing: [TW Library Output] vs [Tailwind CSS Output]";
     add_line "";
 
     (* Show structural differences *)
@@ -217,15 +251,16 @@ let format_diff our_css tailwind_css =
         | [], [] -> ()
         | [], rest ->
             add_line
-              (Fmt.str "+ Tailwind has %d additional blocks" (List.length rest))
+              (Fmt.str "+ %s has %d additional blocks" tailwind_label
+                 (List.length rest))
         | rest, [] ->
             add_line
-              (Fmt.str "- TW Library missing %d blocks" (List.length rest))
+              (Fmt.str "- %s missing %d blocks" tw_label (List.length rest))
         | Rule r1 :: t1, Rule r2 :: t2 ->
             if r1.selector <> r2.selector then (
               add_line (Fmt.str "Block %d: Selector mismatch" n);
-              add_line (Fmt.str "  TW Library: %s" r1.selector);
-              add_line (Fmt.str "  Tailwind:   %s" r2.selector))
+              add_line (Fmt.str "  %s: %s" tw_label r1.selector);
+              add_line (Fmt.str "  %s: %s" tailwind_label r2.selector))
             else if r1.properties <> r2.properties then (
               add_line
                 (Fmt.str "Block %d: Properties differ for %s" n r1.selector);
@@ -235,30 +270,30 @@ let format_diff our_css tailwind_css =
                 (fun (p, v) ->
                   if not (List.mem (p, v) props2) then
                     add_line
-                      (Fmt.str "  - TW Library has (Tailwind missing): %s: %s" p
-                         v))
+                      (Fmt.str "  - %s has (%s missing): %s: %s" tw_label
+                         tailwind_label p v))
                 props1;
               List.iter
                 (fun (p, v) ->
                   if not (List.mem (p, v) props1) then
                     add_line
-                      (Fmt.str "  + Tailwind has (TW Library missing): %s: %s" p
-                         v))
+                      (Fmt.str "  + %s has (%s missing): %s: %s" tailwind_label
+                         tw_label p v))
                 props2);
             show_block_diff t1 t2 (n + 1)
         | AtBlock (at1, sub1) :: t1, AtBlock (at2, sub2) :: t2 ->
             if at1 <> at2 then (
               add_line (Fmt.str "Block %d: @-rule mismatch" n);
-              add_line (Fmt.str "  TW Library: %s" at1);
-              add_line (Fmt.str "  Tailwind:   %s" at2))
+              add_line (Fmt.str "  %s: %s" tw_label at1);
+              add_line (Fmt.str "  %s: %s" tailwind_label at2))
             else if sub1 <> sub2 then
               add_line (Fmt.str "Block %d: Contents differ in %s" n at1);
             show_block_diff t1 t2 (n + 1)
         | Layer l1 :: t1, Layer l2 :: t2 ->
             if l1 <> l2 then (
               add_line (Fmt.str "Block %d: Layer declaration mismatch" n);
-              add_line (Fmt.str "  TW Library: %s" l1);
-              add_line (Fmt.str "  Tailwind:   %s" l2));
+              add_line (Fmt.str "  %s: %s" tw_label l1);
+              add_line (Fmt.str "  %s: %s" tailwind_label l2));
             show_block_diff t1 t2 (n + 1)
         | _ :: t1, _ :: t2 ->
             add_line (Fmt.str "Block %d: Type mismatch" n);
