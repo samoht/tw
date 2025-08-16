@@ -552,34 +552,6 @@ module TailwindColors = struct
     | None -> None
 end
 
-(* Convert string name to color type *)
-let of_string = function
-  | "black" -> Black
-  | "white" -> White
-  | "gray" -> Gray
-  | "slate" -> Slate
-  | "zinc" -> Zinc
-  | "neutral" -> Neutral
-  | "stone" -> Stone
-  | "red" -> Red
-  | "orange" -> Orange
-  | "amber" -> Amber
-  | "yellow" -> Yellow
-  | "lime" -> Lime
-  | "green" -> Green
-  | "emerald" -> Emerald
-  | "teal" -> Teal
-  | "cyan" -> Cyan
-  | "sky" -> Sky
-  | "blue" -> Blue
-  | "indigo" -> Indigo
-  | "violet" -> Violet
-  | "purple" -> Purple
-  | "fuchsia" -> Fuchsia
-  | "pink" -> Pink
-  | "rose" -> Rose
-  | s -> failwith ("Unknown color: " ^ s)
-
 (* Color constructors *)
 let black = Black
 let white = White
@@ -618,89 +590,6 @@ let rgb r g b =
     invalid_arg
       (Pp.str [ "RGB blue value "; string_of_int b; " out of range [0-255]" ]);
   Rgb { red = r; green = g; blue = b }
-
-(* Helper function to get OKLCH color data directly *)
-let get_oklch_direct color_name shade =
-  let color_map =
-    match String.lowercase_ascii color_name with
-    | "gray" -> TailwindColors.gray
-    | "slate" -> TailwindColors.slate
-    | "zinc" -> TailwindColors.zinc
-    | "neutral" -> TailwindColors.neutral
-    | "stone" -> TailwindColors.stone
-    | "red" -> TailwindColors.red
-    | "orange" -> TailwindColors.orange
-    | "amber" -> TailwindColors.amber
-    | "yellow" -> TailwindColors.yellow
-    | "lime" -> TailwindColors.lime
-    | "green" -> TailwindColors.green
-    | "emerald" -> TailwindColors.emerald
-    | "teal" -> TailwindColors.teal
-    | "cyan" -> TailwindColors.cyan
-    | "sky" -> TailwindColors.sky
-    | "blue" -> TailwindColors.blue
-    | "indigo" -> TailwindColors.indigo
-    | "violet" -> TailwindColors.violet
-    | "purple" -> TailwindColors.purple
-    | "fuchsia" -> TailwindColors.fuchsia
-    | "pink" -> TailwindColors.pink
-    | "rose" -> TailwindColors.rose
-    | _ -> []
-  in
-  List.assoc_opt shade color_map
-
-(* Convert color to hex for a given shade *)
-let to_hex color shade =
-  match color with
-  | Black -> "#000000"
-  | White -> "#ffffff"
-  | Hex h -> h
-  | Rgb { red; green; blue } ->
-      let to_hex_digit n =
-        let hex = "0123456789abcdef" in
-        String.make 1 hex.[n]
-      in
-      let byte_to_hex b =
-        Pp.str [ to_hex_digit (b / 16); to_hex_digit (b mod 16) ]
-      in
-      Pp.str [ "#"; byte_to_hex red; byte_to_hex green; byte_to_hex blue ]
-  | Oklch oklch ->
-      let rgb = oklch_to_rgb oklch in
-      rgb_to_hex rgb
-  | _ -> (
-      (* For named colors, get OKLCH from TailwindColors and convert to RGB then
-         hex *)
-      let color_name =
-        match color with
-        | Gray -> "gray"
-        | Slate -> "slate"
-        | Zinc -> "zinc"
-        | Neutral -> "neutral"
-        | Stone -> "stone"
-        | Red -> "red"
-        | Orange -> "orange"
-        | Amber -> "amber"
-        | Yellow -> "yellow"
-        | Lime -> "lime"
-        | Green -> "green"
-        | Emerald -> "emerald"
-        | Teal -> "teal"
-        | Cyan -> "cyan"
-        | Sky -> "sky"
-        | Blue -> "blue"
-        | Indigo -> "indigo"
-        | Violet -> "violet"
-        | Purple -> "purple"
-        | Fuchsia -> "fuchsia"
-        | Pink -> "pink"
-        | Rose -> "rose"
-        | _ -> ""
-      in
-      match get_oklch_direct color_name shade with
-      | Some oklch ->
-          let rgb = oklch_to_rgb oklch in
-          rgb_to_hex rgb
-      | None -> "#000000" (* Fallback *))
 
 (* Convert color to OKLCH CSS string for a given shade *)
 let to_oklch_css color shade =
@@ -742,70 +631,6 @@ let to_oklch_css color shade =
       match TailwindColors.get_color color_name shade with
       | Some value -> value
       | None -> "oklch(0% 0 0)" (* Fallback *))
-
-(* Convert color to RGB space-separated values for a given shade *)
-let to_rgb_string color shade =
-  match color with
-  | Black -> "0 0 0"
-  | White -> "255 255 255"
-  | Rgb { red; green; blue } ->
-      Pp.str
-        [ string_of_int red; " "; string_of_int green; " "; string_of_int blue ]
-  | Hex h -> (
-      match hex_to_rgb h with
-      | Some { r; g; b } ->
-          Pp.str [ string_of_int r; " "; string_of_int g; " "; string_of_int b ]
-      | None -> failwith (Pp.str [ "Failed to parse hex color: "; h ]))
-  | Oklch oklch ->
-      let rgb = oklch_to_rgb oklch in
-      Pp.str
-        [
-          string_of_int rgb.r;
-          " ";
-          string_of_int rgb.g;
-          " ";
-          string_of_int rgb.b;
-        ]
-  | _ -> (
-      (* For named colors, get OKLCH from TailwindColors and convert to RGB *)
-      let color_name =
-        match color with
-        | Gray -> "gray"
-        | Slate -> "slate"
-        | Zinc -> "zinc"
-        | Neutral -> "neutral"
-        | Stone -> "stone"
-        | Red -> "red"
-        | Orange -> "orange"
-        | Amber -> "amber"
-        | Yellow -> "yellow"
-        | Lime -> "lime"
-        | Green -> "green"
-        | Emerald -> "emerald"
-        | Teal -> "teal"
-        | Cyan -> "cyan"
-        | Sky -> "sky"
-        | Blue -> "blue"
-        | Indigo -> "indigo"
-        | Violet -> "violet"
-        | Purple -> "purple"
-        | Fuchsia -> "fuchsia"
-        | Pink -> "pink"
-        | Rose -> "rose"
-        | _ -> ""
-      in
-      match get_oklch_direct color_name shade with
-      | Some oklch ->
-          let rgb = oklch_to_rgb oklch in
-          Pp.str
-            [
-              string_of_int rgb.r;
-              " ";
-              string_of_int rgb.g;
-              " ";
-              string_of_int rgb.b;
-            ]
-      | None -> "0 0 0" (* Fallback *))
 
 (* Get the name of a color as a string *)
 let to_name = function

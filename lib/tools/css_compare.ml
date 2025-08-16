@@ -18,15 +18,6 @@ type token =
   | Semicolon
   | Comma
 
-let token_to_string = function
-  | Selector s -> Fmt.str "Selector(%s)" s
-  | Property (p, v) -> Fmt.str "Property(%s: %s)" p v
-  | OpenBrace -> "{"
-  | CloseBrace -> "}"
-  | AtRule s -> Fmt.str "@%s" s
-  | Semicolon -> ";"
-  | Comma -> ","
-
 let tokenize css =
   let len = String.length css in
   let rec skip_whitespace pos =
