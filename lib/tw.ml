@@ -107,129 +107,6 @@ let rec to_css_properties = function
   | Modified (_modifier, t) -> to_css_properties t
   | Group styles -> List.concat_map to_css_properties styles
 
-(* Extract all CSS variables required by styles *)
-let rec extract_css_vars = function
-  | Style { vars; _ } -> vars
-  | Prose _variant -> [] (* Prose has its own variable handling *)
-  | Modified (_modifier, t) -> extract_css_vars t
-  | Group styles -> List.concat_map extract_css_vars styles
-
-(* Generate CSS variables from Css.var list - new type-safe approach *)
-let generate_vars_from_types vars =
-  let dedup_vars =
-    List.sort_uniq
-      Css.(
-        fun v1 v2 ->
-          match (v1, v2) with
-          | Color (name1, shade1), Color (name2, shade2) ->
-              let cmp = String.compare name1 name2 in
-              if cmp = 0 then Option.compare Int.compare shade1 shade2 else cmp
-          | Spacing n1, Spacing n2 -> Int.compare n1 n2
-          | Font f1, Font f2 -> String.compare f1 f2
-          | Text_size s1, Text_size s2 -> String.compare s1 s2
-          | Font_weight w1, Font_weight w2 -> String.compare w1 w2
-          | Radius r1, Radius r2 -> String.compare r1 r2
-          | Transition, Transition -> 0
-          | Custom (n1, v1), Custom (n2, v2) ->
-              let cmp = String.compare n1 n2 in
-              if cmp = 0 then String.compare v1 v2 else cmp
-          | _ -> Stdlib.compare v1 v2)
-      vars
-  in
-
-  List.filter_map
-    (function
-      | Css.Color (name, Some shade) ->
-          (* Handle arbitrary color values with brackets like [1da1f2] or
-             [rgb(...)] *)
-          if
-            String.starts_with ~prefix:"[" name
-            && String.ends_with ~suffix:"]" name
-          then
-            let color_value = String.sub name 1 (String.length name - 2) in
-            (* Try to parse as different color formats *)
-            let oklch_css =
-              if String.starts_with ~prefix:"rgb(" color_value then
-                (* Handle RGB function like rgb(29,161,242) *)
-                let rgb_part =
-                  String.sub color_value 4 (String.length color_value - 5)
-                in
-                let parts =
-                  String.split_on_char ',' rgb_part |> List.map String.trim
-                in
-                match parts with
-                | [ r; g; b ] -> (
-                    try
-                      let ri = int_of_string r
-                      and gi = int_of_string g
-                      and bi = int_of_string b in
-                      let color = Color.rgb ri gi bi in
-                      Color.to_oklch_css color 0
-                    with Failure _ -> "#" ^ color_value (* fallback *))
-                | _ -> "#" ^ color_value
-              else
-                (* Handle hex colors *)
-                let hex_with_hash =
-                  if String.starts_with ~prefix:"#" color_value then color_value
-                  else "#" ^ color_value
-                in
-                Color.hex_to_oklch_css hex_with_hash
-            in
-            Some
-              (Css.property
-                 ("--color-" ^ name ^ "-" ^ string_of_int shade)
-                 oklch_css)
-          else
-            let color = Color.of_string name in
-            Some
-              (Css.property
-                 ("--color-" ^ name ^ "-" ^ string_of_int shade)
-                 (Color.to_oklch_css color shade))
-      | Css.Color (name, None) ->
-          (* Handle arbitrary color values with brackets like [1da1f2] or
-             [rgb(...)] *)
-          if
-            String.starts_with ~prefix:"[" name
-            && String.ends_with ~suffix:"]" name
-          then
-            let color_value = String.sub name 1 (String.length name - 2) in
-            (* Try to parse as different color formats *)
-            let oklch_css =
-              if String.starts_with ~prefix:"rgb(" color_value then
-                (* Handle RGB function like rgb(29,161,242) *)
-                let rgb_part =
-                  String.sub color_value 4 (String.length color_value - 5)
-                in
-                let parts =
-                  String.split_on_char ',' rgb_part |> List.map String.trim
-                in
-                match parts with
-                | [ r; g; b ] -> (
-                    try
-                      let ri = int_of_string r
-                      and gi = int_of_string g
-                      and bi = int_of_string b in
-                      let color = Color.rgb ri gi bi in
-                      Color.to_oklch_css color 0
-                    with Failure _ -> "#" ^ color_value (* fallback *))
-                | _ -> "#" ^ color_value
-              else
-                (* Handle hex colors *)
-                let hex_with_hash =
-                  if String.starts_with ~prefix:"#" color_value then color_value
-                  else "#" ^ color_value
-                in
-                Color.hex_to_oklch_css hex_with_hash
-            in
-            Some (Css.property ("--color-" ^ name) oklch_css)
-          else
-            let color = Color.of_string name in
-            Some
-              (Css.property ("--color-" ^ name) (Color.to_oklch_css color 500))
-      | Css.Spacing _ -> Some (Css.property "--spacing" "0.25rem")
-      | _ -> None (* Add other variable types as needed *))
-    dedup_vars
-
 (* Helper to convert breakpoint to string *)
 let string_of_breakpoint = function
   | `Sm -> "sm"
@@ -681,107 +558,26 @@ let to_css ?(reset = true) tw_classes =
   (* Build the complete stylesheet with layers - just like Tailwind v4 *)
   if reset then
     (* Extract which Tailwind CSS variables are actually used *)
-    let rec extract_tw_vars style =
+    (* Collect all properties from all styles to analyze variable usage *)
+    let rec collect_all_props style =
       match style with
-      | Style { props; _ } -> Css.tw_vars props
-      | Modified (_, t) -> extract_tw_vars t
-      | Group styles -> List.concat_map extract_tw_vars styles
+      | Style { props; _ } -> props
+      | Modified (_, t) -> collect_all_props t
+      | Group styles -> List.concat_map collect_all_props styles
       | Prose _ -> []
     in
 
-    let used_tw_vars =
-      tw_classes
-      |> List.concat_map extract_tw_vars
-      |> List.sort_uniq String.compare
-    in
+    let all_props = tw_classes |> List.concat_map collect_all_props in
 
-    (* Tailwind uses a canonical order for variables within property families.
-       Variables must be declared in a specific sequence for composed
-       properties. *)
-    let canonical_var_order =
-      [
-        (* Shadow family - component variables first, then composition *)
-        "--tw-shadow";
-        "--tw-shadow-color";
-        "--tw-shadow-alpha";
-        "--tw-inset-shadow";
-        "--tw-inset-shadow-color";
-        "--tw-inset-shadow-alpha";
-        "--tw-ring-color";
-        "--tw-ring-shadow";
-        "--tw-inset-ring-color";
-        "--tw-inset-ring-shadow";
-        "--tw-ring-inset";
-        "--tw-ring-offset-width";
-        "--tw-ring-offset-color";
-        "--tw-ring-offset-shadow";
-        (* Transform family *)
-        "--tw-translate-x";
-        "--tw-translate-y";
-        "--tw-rotate";
-        "--tw-skew-x";
-        "--tw-skew-y";
-        "--tw-scale-x";
-        "--tw-scale-y";
-        "--tw-scale-z";
-        (* Filter family *)
-        "--tw-blur";
-        "--tw-brightness";
-        "--tw-contrast";
-        "--tw-grayscale";
-        "--tw-hue-rotate";
-        "--tw-invert";
-        "--tw-saturate";
-        "--tw-sepia";
-        "--tw-drop-shadow";
-        (* Other variables *)
-        "--tw-leading";
-        "--tw-font-weight";
-        "--tw-duration";
-      ]
-    in
+    (* Analyze variable usage to determine what properties layer is needed *)
+    let var_tally = Var.analyze_properties all_props in
 
-    (* Sort variables according to canonical order *)
-    let sort_vars vars =
-      let order_map =
-        List.mapi (fun i var -> (var, i)) canonical_var_order
-        |> List.to_seq |> Hashtbl.of_seq
-      in
-      let get_order var =
-        match Hashtbl.find_opt order_map var with
-        | Some idx -> idx
-        | None ->
-            999
-            + String.compare var "" (* Unknown vars go last, alphabetically *)
-      in
-      List.sort (fun a b -> Int.compare (get_order a) (get_order b)) vars
-    in
-
-    let used_tw_vars = sort_vars used_tw_vars in
-
-    let needs_tw_properties = used_tw_vars <> [] in
-
-    (* Properties layer - only if needed and only with used variables *)
+    (* Properties layer - only if needed based on composition groups *)
     let properties_layer_opt =
-      if needs_tw_properties then
-        let var_init_value = function
-          | "--tw-leading" -> "initial"
-          | "--tw-font-weight" -> "initial"
-          | "--tw-shadow" | "--tw-inset-shadow" | "--tw-ring-shadow"
-          | "--tw-inset-ring-shadow" | "--tw-ring-offset-shadow" ->
-              "0 0 #0000"
-          | "--tw-shadow-color" | "--tw-inset-shadow-color" | "--tw-ring-color"
-          | "--tw-inset-ring-color" | "--tw-ring-inset" | "--tw-duration" ->
-              "initial"
-          | "--tw-shadow-alpha" | "--tw-inset-shadow-alpha" -> "100%"
-          | "--tw-ring-offset-width" -> "0px"
-          | "--tw-ring-offset-color" -> "#fff"
-          | "--tw-scale-x" | "--tw-scale-y" | "--tw-scale-z" -> "1"
-          | _ -> "initial"
-        in
-        let properties =
-          used_tw_vars
-          |> List.map (fun var -> Css.property var (var_init_value var))
+      let properties = Var.generate_properties_layer var_tally in
+      if properties <> [] then
+        let css_props =
+          List.map (fun (var, value) -> Css.property var value) properties
         in
         Some
           (Css.layered_rules ~layer:Css.Properties
@@ -794,7 +590,7 @@ let to_css ?(reset = true) tw_classes =
                       (color:rgb(from red r g b))))"
                    [
                      Css.rule ~selector:"*, :before, :after, ::backdrop"
-                       properties;
+                       css_props;
                    ];
                ]
              [])
@@ -802,8 +598,87 @@ let to_css ?(reset = true) tw_classes =
     in
 
     (* Theme layer with CSS variables - JIT mode (only used variables) *)
-    let all_vars = List.concat_map extract_css_vars tw_classes in
-    let theme_vars = generate_vars_from_types all_vars in
+    (* Extract all CSS variables referenced in properties *)
+    let referenced_var_names =
+      tw_classes
+      |> List.concat_map (fun tw ->
+             let selector_props = extract_selector_props tw in
+             List.concat_map
+               (fun (_, props) -> Css.all_vars props)
+               selector_props)
+      |> List.sort_uniq String.compare
+    in
+
+    (* Generate values for theme variables *)
+    let theme_generated_vars =
+      referenced_var_names
+      |> List.concat_map (fun var_name ->
+             match var_name with
+             | "--spacing" -> [ Css.property "--spacing" "0.25rem" ]
+             | "--text-xs" ->
+                 [
+                   Css.property "--text-xs" "0.75rem";
+                   Css.property "--text-xs--line-height" "calc(1/.75)";
+                 ]
+             | "--text-sm" ->
+                 [
+                   Css.property "--text-sm" "0.875rem";
+                   Css.property "--text-sm--line-height" "calc(1.25/.875)";
+                 ]
+             | "--text-base" ->
+                 [
+                   Css.property "--text-base" "1rem";
+                   Css.property "--text-base--line-height" "calc(1.5/1)";
+                 ]
+             | "--text-lg" ->
+                 [
+                   Css.property "--text-lg" "1.125rem";
+                   Css.property "--text-lg--line-height" "calc(1.75/1.125)";
+                 ]
+             | "--text-xl" ->
+                 [
+                   Css.property "--text-xl" "1.25rem";
+                   Css.property "--text-xl--line-height" "calc(1.75/1.25)";
+                 ]
+             | "--text-2xl" ->
+                 [
+                   Css.property "--text-2xl" "1.5rem";
+                   Css.property "--text-2xl--line-height" "calc(2/1.5)";
+                 ]
+             | "--text-3xl" ->
+                 [
+                   Css.property "--text-3xl" "1.875rem";
+                   Css.property "--text-3xl--line-height" "calc(2.25/1.875)";
+                 ]
+             | "--text-4xl" ->
+                 [
+                   Css.property "--text-4xl" "2.25rem";
+                   Css.property "--text-4xl--line-height" "calc(2.5/2.25)";
+                 ]
+             | "--text-5xl" ->
+                 [
+                   Css.property "--text-5xl" "3rem";
+                   Css.property "--text-5xl--line-height" "1";
+                 ]
+             | "--font-weight-thin" ->
+                 [ Css.property "--font-weight-thin" "100" ]
+             | "--font-weight-light" ->
+                 [ Css.property "--font-weight-light" "300" ]
+             | "--font-weight-normal" ->
+                 [ Css.property "--font-weight-normal" "400" ]
+             | "--font-weight-medium" ->
+                 [ Css.property "--font-weight-medium" "500" ]
+             | "--font-weight-semibold" ->
+                 [ Css.property "--font-weight-semibold" "600" ]
+             | "--font-weight-bold" ->
+                 [ Css.property "--font-weight-bold" "700" ]
+             | "--font-weight-extrabold" ->
+                 [ Css.property "--font-weight-extrabold" "800" ]
+             | "--font-weight-black" ->
+                 [ Css.property "--font-weight-black" "900" ]
+             | _ -> [])
+      |> List.sort_uniq compare
+    in
 
     (* Add font family variables that Tailwind v4 includes - fonts come first *)
     let font_vars =
@@ -818,7 +693,7 @@ let to_css ?(reset = true) tw_classes =
     in
 
     let theme_vars_with_fonts =
-      font_vars @ theme_vars
+      font_vars @ theme_generated_vars
       @ [
           Css.property "--default-font-family" "var(--font-sans)";
           Css.property "--default-mono-font-family" "var(--font-mono)";
@@ -1697,19 +1572,21 @@ let h' (s : scale) =
 
 let min_w' (s : scale) =
   let class_name = "min-w-" ^ pp_scale_suffix s in
-  style class_name [ min_width (pp_scale s) ]
+  style_with_vars class_name [ min_width (pp_scale s) ] (scale_vars s)
 
 let min_h' (s : scale) =
   let class_name = "min-h-" ^ pp_scale_suffix s in
-  style class_name [ min_height (pp_scale s) ]
+  style_with_vars class_name [ min_height (pp_scale s) ] (scale_vars s)
 
 let max_w' (s : max_scale) =
   let class_name = "max-w-" ^ pp_max_scale_suffix s in
-  style class_name [ max_width (pp_max_scale s) ]
+  let vars = match s with #scale as sc -> scale_vars sc | _ -> [] in
+  style_with_vars class_name [ max_width (pp_max_scale s) ] vars
 
 let max_h' (s : max_scale) =
   let class_name = "max-h-" ^ pp_max_scale_suffix s in
-  style class_name [ max_height (pp_max_scale s) ]
+  let vars = match s with #scale as sc -> scale_vars sc | _ -> [] in
+  style_with_vars class_name [ max_height (pp_max_scale s) ] vars
 
 (* Int-based scale functions (convenience wrappers) *)
 let w n = w' (int n)

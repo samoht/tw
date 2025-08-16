@@ -275,6 +275,12 @@ type t = {
 (** {1 Creation} *)
 
 let property_value (_, value) = value
+let property_name (prop_name, _) = prop_name
+
+let is_custom_property (prop_name, _) =
+  match prop_name with
+  | Custom name -> String.starts_with ~prefix:"--" name
+  | _ -> false
 
 let property_name_to_string = function
   | Background_color -> "background-color"
@@ -431,6 +437,45 @@ let stylesheet ?(layers = []) ?(media_queries = []) ?(container_queries = [])
 
 (** {1 Utilities} *)
 
+(** Extract all CSS variables referenced in properties (for theme layer) *)
+let all_vars properties =
+  let rec extract_vars_from_value value acc pos =
+    if pos >= String.length value then acc
+    else
+      try
+        let var_pos = String.index_from value pos 'v' in
+        if
+          var_pos + 4 <= String.length value
+          && String.sub value var_pos 4 = "var("
+        then
+          (* Found var( *)
+          let var_start = var_pos + 4 in
+          match String.index_from value var_start ')' with
+          | exception Not_found -> acc
+          | end_paren ->
+              let var_content =
+                String.sub value var_start (end_paren - var_start)
+              in
+              (* Extract just the variable name *)
+              let var_name =
+                match String.index var_content ',' with
+                | exception Not_found -> String.trim var_content
+                | comma -> String.trim (String.sub var_content 0 comma)
+              in
+              let acc' =
+                if String.length var_name > 2 && String.sub var_name 0 2 = "--"
+                then var_name :: acc
+                else acc
+              in
+              extract_vars_from_value value acc' (end_paren + 1)
+        else extract_vars_from_value value acc (var_pos + 1)
+      with Not_found -> acc
+  in
+  List.concat_map
+    (fun (_, value) -> extract_vars_from_value value [] 0)
+    properties
+  |> List.sort_uniq String.compare
+
 (** Extract Tailwind CSS variables from properties *)
 let tw_vars properties =
   (* Extract variables that are set (custom properties) *)
@@ -467,9 +512,7 @@ let tw_vars properties =
                 | comma -> String.trim (String.sub var_content 0 comma)
               in
               let acc' =
-                if
-                  String.length var_name > 5
-                  && String.sub var_name 0 5 = "--tw-"
+                if String.length var_name > 2 && String.sub var_name 0 2 = "--"
                 then var_name :: acc
                 else acc
               in
@@ -482,7 +525,10 @@ let tw_vars properties =
       (fun (_, value) -> extract_vars_from_value value [] 0)
       properties
   in
-  set_vars @ referenced_vars |> List.sort_uniq String.compare
+  (* Only return --tw- variables for properties layer initialization *)
+  set_vars @ referenced_vars
+  |> List.sort_uniq String.compare
+  |> List.filter (fun var -> String.starts_with ~prefix:"--tw-" var)
 
 let deduplicate_properties props =
   (* Keep last occurrence of each property while preserving order *)

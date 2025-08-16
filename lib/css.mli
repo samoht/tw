@@ -462,11 +462,22 @@ val property_name_to_string : property_name -> string
 val property_value : property -> string
 (** [property_value prop] extracts the value from a property. *)
 
+val property_name : property -> property_name
+(** [property_name prop] extracts the property name from a property. *)
+
+val is_custom_property : property -> bool
+(** [is_custom_property prop] returns true if the property is a CSS custom
+    property (starts with --). *)
+
 (** {1 Utilities} *)
 
+val all_vars : property list -> string list
+(** [all_vars properties] extracts all CSS variable names referenced in property
+    values, returning them sorted and deduplicated. *)
+
 val tw_vars : property list -> string list
-(** [tw_vars properties] extracts all Tailwind CSS variable names from a list of
-    properties, returning them sorted and deduplicated. *)
+(** [tw_vars properties] extracts Tailwind CSS variable names (--tw- prefix)
+    from a list of properties, returning them sorted and deduplicated. *)
 
 val deduplicate_properties : property list -> property list
 (** [deduplicate_properties properties] removes duplicate properties, keeping
