@@ -146,6 +146,9 @@ val hex : string -> t
 val rgb : int -> int -> int -> t
 (** [rgb r g b] creates color from RGB values. *)
 
+val of_string : string -> t
+(** [of_string name] converts a color name string to a color type. *)
+
 (** {1 Color Conversion} *)
 
 val to_oklch_css : t -> int -> string
