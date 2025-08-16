@@ -579,6 +579,34 @@ let pink = Pink
 let rose = Rose
 let hex s = Hex s
 
+(* Convert string name to color type *)
+let of_string = function
+  | "black" -> Black
+  | "white" -> White
+  | "gray" -> Gray
+  | "slate" -> Slate
+  | "zinc" -> Zinc
+  | "neutral" -> Neutral
+  | "stone" -> Stone
+  | "red" -> Red
+  | "orange" -> Orange
+  | "amber" -> Amber
+  | "yellow" -> Yellow
+  | "lime" -> Lime
+  | "green" -> Green
+  | "emerald" -> Emerald
+  | "teal" -> Teal
+  | "cyan" -> Cyan
+  | "sky" -> Sky
+  | "blue" -> Blue
+  | "indigo" -> Indigo
+  | "violet" -> Violet
+  | "purple" -> Purple
+  | "fuchsia" -> Fuchsia
+  | "pink" -> Pink
+  | "rose" -> Rose
+  | s -> failwith ("Unknown color: " ^ s)
+
 let rgb r g b =
   if r < 0 || r > 255 then
     invalid_arg

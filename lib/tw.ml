@@ -676,6 +676,36 @@ let to_css ?(reset = true) tw_classes =
                  [ Css.property "--font-weight-extrabold" "800" ]
              | "--font-weight-black" ->
                  [ Css.property "--font-weight-black" "900" ]
+             | var_name when String.starts_with ~prefix:"--color-" var_name -> (
+                 (* Handle color variables *)
+                 let color_part =
+                   String.sub var_name 8 (String.length var_name - 8)
+                 in
+                 (* Check if it's a base color (no shade) or with shade *)
+                 match String.split_on_char '-' color_part with
+                 | [ color_name ] ->
+                     (* Base color like --color-white or --color-black *)
+                     if color_name = "white" then
+                       [ Css.property "--color-white" "#fff" ]
+                     else if color_name = "black" then
+                       [ Css.property "--color-black" "#000" ]
+                     else [] (* Other base colors need shade *)
+                 | color_parts -> (
+                     (* Try to extract shade from the end *)
+                     match List.rev color_parts with
+                     | shade_str :: rev_color_parts -> (
+                         try
+                           let shade = int_of_string shade_str in
+                           let color_name =
+                             String.concat "-" (List.rev rev_color_parts)
+                           in
+                           let color = Color.of_string color_name in
+                           [
+                             Css.property var_name
+                               (Color.to_oklch_css color shade);
+                           ]
+                         with _ -> [])
+                     | _ -> []))
              | _ -> [])
       |> List.sort_uniq compare
     in
