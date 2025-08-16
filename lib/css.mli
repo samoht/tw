@@ -399,13 +399,6 @@ val supports_to_nested : supports_query -> rule_or_nested
 val media : condition:string -> rule list -> media_query
 (** [media ~condition rules] creates a media query. *)
 
-val container : ?name:string -> condition:string -> rule list -> container_query
-(** [container ?name ~condition rules] creates a container query. *)
-
-val starting_style : rule list -> starting_style
-(** [starting_style rules] creates [@starting-style] rules for entry animations.
-*)
-
 val supports : condition:string -> rule list -> supports_query
 (** [supports ~condition rules] creates a [@supports] query. *)
 
@@ -413,16 +406,6 @@ val supports_nested :
   condition:string -> rule list -> supports_query list -> supports_query
 (** [supports_nested ~condition rules nested_queries] creates a [@supports]
     query with nested [@supports] queries. *)
-
-val at_property :
-  name:string ->
-  syntax:string ->
-  initial_value:string ->
-  ?inherits:bool ->
-  unit ->
-  at_property
-(** [at_property ~name ~syntax ?inherits ~initial_value] creates a [@property]
-    rule for custom properties. *)
 
 val layered_rules :
   layer:layer ->
@@ -474,10 +457,6 @@ val is_custom_property : property -> bool
 val all_vars : property list -> string list
 (** [all_vars properties] extracts all CSS variable names referenced in property
     values, returning them sorted and deduplicated. *)
-
-val tw_vars : property list -> string list
-(** [tw_vars properties] extracts Tailwind CSS variable names (--tw- prefix)
-    from a list of properties, returning them sorted and deduplicated. *)
 
 val deduplicate_properties : property list -> property list
 (** [deduplicate_properties properties] removes duplicate properties, keeping

@@ -10,10 +10,6 @@ type token =
   | Semicolon
   | Comma
 
-val token_to_string : token -> string
-(** [token_to_string token] converts a token to a string representation for
-    debugging. *)
-
 val strip_header : string -> string
 (** [strip_header css] strips header comments from CSS. *)
 

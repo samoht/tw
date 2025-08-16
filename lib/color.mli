@@ -64,15 +64,9 @@ val rgb_to_hex : rgb -> string
 val oklch_to_css : oklch -> string
 (** [oklch_to_css oklch] formats OKLCH for CSS. *)
 
-val hex_to_oklch_css : string -> string
-(** [hex_to_oklch_css hex] converts hex color to OKLCH CSS string. *)
-
 (** {1 Tailwind Colors} *)
 
 (** {1 Color Constructors} *)
-
-val of_string : string -> t
-(** [of_string s] converts string name to color type. *)
 
 val black : t
 (** [black] is the black color (0, 0, 0). *)
@@ -154,16 +148,9 @@ val rgb : int -> int -> int -> t
 
 (** {1 Color Conversion} *)
 
-val to_hex : t -> int -> string
-(** [to_hex color shade] converts color to hex string for a given shade. *)
-
 val to_oklch_css : t -> int -> string
 (** [to_oklch_css color shade] converts color to OKLCH CSS string for a given
     shade. *)
-
-val to_rgb_string : t -> int -> string
-(** [to_rgb_string color shade] converts color to RGB string for a given shade.
-*)
 
 val to_name : t -> string
 (** [to_name color] gets the name of a color as a string. *)

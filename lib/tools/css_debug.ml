@@ -70,30 +70,6 @@ let extract_rule css selector =
       try Some (String.trim (Re.Group.get groups 1)) with Not_found -> None)
   | None -> None
 
-(** Compare two CSS strings and show detailed differences *)
-let detailed_diff css1 css2 =
-  let file1 = write_temp_css "tw_our" css1 in
-  let file2 = write_temp_css "tw_tailwind" css2 in
-
-  (* First try structural comparison *)
-  let structural_diff = Css_compare.format_diff css1 css2 in
-
-  (* Also prepare raw diff command for user *)
-  let diff_cmd = Fmt.str "diff -u %s %s" file1 file2 in
-
-  (* Cleanup function to remove temporary files *)
-  let cleanup () =
-    try
-      Sys.remove file1;
-      Sys.remove file2
-    with Sys_error _ -> ()
-  in
-
-  (* Register cleanup with at_exit to ensure files are removed *)
-  at_exit cleanup;
-
-  (structural_diff, diff_cmd, cleanup)
-
 (** Find the first difference between two CSS strings *)
 let find_first_diff css1 css2 =
   let len1 = String.length css1 in
@@ -171,34 +147,3 @@ let find_first_diff css1 css2 =
       | None -> loop (i + 1)
   in
   loop 0
-
-(** Debug helper to save CSS for manual inspection *)
-let save_for_inspection ~our_css ~tailwind_css ~test_name =
-  let timestamp = Unix.time () |> int_of_float |> string_of_int in
-  let dir = Fmt.str "/tmp/tw_test_%s_%s" test_name timestamp in
-  let _ = Sys.command (Fmt.str "mkdir -p %s" dir) in
-
-  let our_file = Fmt.str "%s/our.css" dir in
-  let tailwind_file = Fmt.str "%s/tailwind.css" dir in
-  let our_formatted = Fmt.str "%s/our_formatted.css" dir in
-  let tailwind_formatted = Fmt.str "%s/tailwind_formatted.css" dir in
-
-  (* Write raw CSS *)
-  let oc = open_out our_file in
-  output_string oc our_css;
-  close_out oc;
-
-  let oc = open_out tailwind_file in
-  output_string oc tailwind_css;
-  close_out oc;
-
-  (* Write formatted CSS *)
-  let oc = open_out our_formatted in
-  output_string oc (format_css our_css);
-  close_out oc;
-
-  let oc = open_out tailwind_formatted in
-  output_string oc (format_css tailwind_css);
-  close_out oc;
-
-  Fmt.str "CSS saved for inspection in %s" dir
