@@ -197,3 +197,10 @@ let generate_properties_layer (t : tally) : (string * string) list =
 
   group_defaults @ special_vars
   |> List.sort_uniq (fun (k1, _) (k2, _) -> String.compare k1 k2)
+
+(* Get variables that need @property rules *)
+let needs_at_property (t : tally) : string list =
+  S.fold
+    (fun v acc -> match v with "--tw-font-weight" -> v :: acc | _ -> acc)
+    t.assigned []
+  |> List.sort_uniq String.compare

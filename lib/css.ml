@@ -403,6 +403,9 @@ let supports_nested ~condition rules nested_queries =
     supports_content = SupportNested (rules, nested_queries);
   }
 
+let at_property ~name ~syntax ~initial_value ?(inherits = false) () =
+  { name; syntax; inherits; initial_value }
+
 let rule_to_nested rule = Rule rule
 let supports_to_nested supports = NestedSupports supports
 
@@ -898,7 +901,7 @@ and to_string ?(minify = false) ?(preserve_order = false) stylesheet =
     stylesheet.at_properties
     |> List.map (fun (prop : at_property) ->
            if minify then
-             Pp.str
+             let parts =
                [
                  "@property ";
                  prop.name;
@@ -906,12 +909,14 @@ and to_string ?(minify = false) ?(preserve_order = false) stylesheet =
                  prop.syntax;
                  ";inherits:";
                  (if prop.inherits then "true" else "false");
-                 ";initial-value:";
-                 prop.initial_value;
-                 "}";
                ]
+               @ (if prop.initial_value = "" then []
+                  else [ ";initial-value:"; prop.initial_value ])
+               @ [ "}" ]
+             in
+             Pp.str parts
            else
-             Pp.lines
+             let lines =
                [
                  Pp.str [ "@property "; prop.name; " {" ];
                  Pp.str [ "  syntax: "; prop.syntax; ";" ];
@@ -921,9 +926,13 @@ and to_string ?(minify = false) ?(preserve_order = false) stylesheet =
                      (if prop.inherits then "true" else "false");
                      ";";
                    ];
-                 Pp.str [ "  initial-value: "; prop.initial_value; ";" ];
-                 "}";
-               ])
+               ]
+               @ (if prop.initial_value = "" then []
+                  else
+                    [ Pp.str [ "  initial-value: "; prop.initial_value; ";" ] ])
+               @ [ "}" ]
+             in
+             Pp.lines lines)
   in
 
   (* Render @starting-style rules *)
@@ -1021,9 +1030,8 @@ and to_string ?(minify = false) ?(preserve_order = false) stylesheet =
   (* Combine all parts *)
   let all_parts =
     [ header; layer_declarations ]
-    @ at_property_strings @ layer_strings @ empty_layers_decl @ rule_strings
-    @ starting_style_strings @ container_strings @ supports_strings
-    @ media_strings
+    @ layer_strings @ empty_layers_decl @ rule_strings @ starting_style_strings
+    @ container_strings @ supports_strings @ media_strings @ at_property_strings
   in
 
   if minify then String.concat "" all_parts

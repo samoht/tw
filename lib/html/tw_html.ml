@@ -442,7 +442,7 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css head_content
   in
 
   (* Add cache busting query parameter to CSS URL *)
-  let css_url_with_hash = Printf.sprintf "%s?v=%s" tw_css css_hash in
+  let css_url_with_hash = String.concat "" [ tw_css; "?v="; css_hash ] in
 
   (* Build final HTML with cache-busted CSS link *)
   let css_link =
