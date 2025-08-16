@@ -123,9 +123,10 @@ let container_query_to_css_prefix = function
   | Container_xl -> "@container (min-width: 1280px)"
   | Container_2xl -> "@container (min-width: 1536px)"
   | Container_named ("", width) ->
-      Printf.sprintf "@container (min-width: %dpx)" width
+      Pp.str [ "@container (min-width: "; string_of_int width; "px)" ]
   | Container_named (name, width) ->
-      Printf.sprintf "@container %s (min-width: %dpx)" name width
+      Pp.str
+        [ "@container "; name; " (min-width: "; string_of_int width; "px)" ]
 
 (* Generate CSS variables from the collected requirements *)
 let container_query_to_class_prefix = function
@@ -599,7 +600,7 @@ let to_css ?(reset = true) tw_classes =
 
     (* Theme layer with CSS variables - JIT mode (only used variables) *)
     (* Extract all CSS variables referenced in properties *)
-    let referenced_var_names =
+    let directly_referenced_vars =
       tw_classes
       |> List.concat_map (fun tw ->
              let selector_props = extract_selector_props tw in
@@ -609,9 +610,65 @@ let to_css ?(reset = true) tw_classes =
       |> List.sort_uniq String.compare
     in
 
+    (* Theme variables that always exist and may reference other variables *)
+    let default_font_props =
+      [
+        Css.property "--default-font-family" "var(--font-sans)";
+        Css.property "--default-mono-font-family" "var(--font-mono)";
+      ]
+    in
+
+    (* Recursively resolve variable dependencies *)
+    (* This function takes a list of properties and finds all vars they reference *)
+    let rec resolve_all_var_deps props_to_analyze seen_vars =
+      let new_vars =
+        props_to_analyze
+        |> List.concat_map (fun prop -> Css.all_vars [ prop ])
+        |> List.filter (fun v -> not (List.mem v seen_vars))
+        |> List.sort_uniq String.compare
+      in
+      if new_vars = [] then seen_vars
+      else
+        (* For each new var, we need to check if we need to generate a property
+           for it *)
+        let new_props =
+          new_vars
+          |> List.filter_map (fun var ->
+                 match var with
+                 | "--font-sans" ->
+                     Some
+                       (Css.property "--font-sans"
+                          "ui-sans-serif, system-ui, sans-serif, \"Apple Color \
+                           Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \
+                           \"Noto Color Emoji\"")
+                 | "--font-serif" ->
+                     Some
+                       (Css.property "--font-serif"
+                          "ui-serif, Georgia, Cambria, \"Times New Roman\", \
+                           Times, serif")
+                 | "--font-mono" ->
+                     Some
+                       (Css.property "--font-mono"
+                          "ui-monospace, SFMono-Regular, Menlo, Monaco, \
+                           Consolas, \"Liberation Mono\", \"Courier New\", \
+                           monospace")
+                 | _ -> None)
+        in
+        resolve_all_var_deps new_props (seen_vars @ new_vars)
+    in
+
+    (* Start with default font props and resolve their dependencies *)
+    let vars_from_defaults = resolve_all_var_deps default_font_props [] in
+
+    (* Combine all referenced variables *)
+    let all_referenced_vars =
+      directly_referenced_vars @ vars_from_defaults
+      |> List.sort_uniq String.compare
+    in
+
     (* Generate values for theme variables *)
     let theme_generated_vars =
-      referenced_var_names
+      all_referenced_vars
       |> List.concat_map (fun var_name ->
              match var_name with
              | "--spacing" -> [ Css.property "--spacing" "0.25rem" ]
@@ -710,24 +767,54 @@ let to_css ?(reset = true) tw_classes =
       |> List.sort_uniq compare
     in
 
-    (* Add font family variables that Tailwind v4 includes - fonts come first *)
+    (* Determine which font variables to include based on what's referenced *)
+    let font_names_to_include =
+      all_referenced_vars
+      |> List.filter_map (fun var ->
+             match var with
+             | "--font-sans" -> Some ("sans", var)
+             | "--font-serif" -> Some ("serif", var)
+             | "--font-mono" -> Some ("mono", var)
+             | _ -> None)
+    in
+
+    (* Canonical Tailwind order for built-in fonts *)
+    let canonical_font_order name =
+      match name with "sans" -> 0 | "serif" -> 1 | "mono" -> 2 | _ -> 1000
+    in
+
+    (* Sort by canonical order *)
+    let font_names_to_include =
+      font_names_to_include
+      |> List.sort_uniq (fun (a, _) (b, _) ->
+             let order_a = canonical_font_order a in
+             let order_b = canonical_font_order b in
+             if order_a <> order_b then compare order_a order_b else compare a b)
+    in
+
+    (* Generate the font property declarations *)
     let font_vars =
-      [
-        Css.property "--font-sans"
-          "ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \
-           \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"";
-        Css.property "--font-mono"
-          "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation \
-           Mono\", \"Courier New\", monospace";
-      ]
+      font_names_to_include
+      |> List.map (fun (_, var_name) ->
+             match var_name with
+             | "--font-sans" ->
+                 Css.property "--font-sans"
+                   "ui-sans-serif, system-ui, sans-serif, \"Apple Color \
+                    Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto \
+                    Color Emoji\""
+             | "--font-serif" ->
+                 Css.property "--font-serif"
+                   "ui-serif, Georgia, Cambria, \"Times New Roman\", Times, \
+                    serif"
+             | "--font-mono" ->
+                 Css.property "--font-mono"
+                   "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \
+                    \"Liberation Mono\", \"Courier New\", monospace"
+             | _ -> failwith "Unexpected font variable")
     in
 
     let theme_vars_with_fonts =
-      font_vars @ theme_generated_vars
-      @ [
-          Css.property "--default-font-family" "var(--font-sans)";
-          Css.property "--default-mono-font-family" "var(--font-mono)";
-        ]
+      font_vars @ theme_generated_vars @ default_font_props
     in
 
     let theme_layer =
@@ -985,8 +1072,22 @@ let to_css ?(reset = true) tw_classes =
       | None -> layers_with_prose
     in
 
+    (* Generate @property rules for variables that need them *)
+    let at_properties =
+      Var.needs_at_property var_tally
+      |> List.map (fun var_name ->
+             match var_name with
+             | "--tw-font-weight" ->
+                 Css.at_property ~name:var_name ~syntax:"\"*\""
+                   ~initial_value:"" ~inherits:false ()
+             | _ ->
+                 (* Default for other variables if needed *)
+                 Css.at_property ~name:var_name ~syntax:"\"*\""
+                   ~initial_value:"" ~inherits:false ())
+    in
+
     (* Don't add empty Properties layer *)
-    Css.stylesheet ~layers ~media_queries []
+    Css.stylesheet ~layers ~media_queries ~at_properties []
   else
     (* No reset - just raw rules and media queries, no layers *)
     Css.stylesheet ~layers:[] ~media_queries rules

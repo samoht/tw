@@ -407,6 +407,16 @@ val supports_nested :
 (** [supports_nested ~condition rules nested_queries] creates a [@supports]
     query with nested [@supports] queries. *)
 
+val at_property :
+  name:string ->
+  syntax:string ->
+  initial_value:string ->
+  ?inherits:bool ->
+  unit ->
+  at_property
+(** [at_property ~name ~syntax ~initial_value ?inherits ()] creates a
+    [@property] rule for custom properties. *)
+
 val layered_rules :
   layer:layer ->
   ?media_queries:media_query list ->
