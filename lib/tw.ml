@@ -202,7 +202,7 @@ let extract_selector_props tw =
             | Responsive breakpoint ->
                 let prefix = string_of_breakpoint breakpoint in
                 (* Create the selector with media query prefix for grouping *)
-                ( "@media (min-width: "
+                ( "@media (min-width:"
                   ^ responsive_breakpoint prefix
                   ^ ") ." ^ prefix ^ "\\:"
                   ^ String.sub selector 1 (String.length selector - 1),
@@ -1087,7 +1087,8 @@ let to_css ?(reset = true) tw_classes =
     in
 
     (* Don't add empty Properties layer *)
-    Css.stylesheet ~layers ~media_queries ~at_properties []
+    (* Media queries are already included in the utilities layer, don't duplicate *)
+    Css.stylesheet ~layers ~at_properties []
   else
     (* No reset - just raw rules and media queries, no layers *)
     Css.stylesheet ~layers:[] ~media_queries rules
