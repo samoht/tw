@@ -81,21 +81,22 @@ let defaults_for_group = function
         ("--tw-backdrop-opacity", "");
       ]
   | RingShadow ->
+      (* Canonical order for shadow/ring variables *)
       [
         ("--tw-shadow", "0 0 #0000");
-        ("--tw-inset-shadow", "0 0 #0000");
-        ("--tw-ring-shadow", "0 0 #0000");
-        ("--tw-inset-ring-shadow", "0 0 #0000");
-        ("--tw-ring-offset-shadow", "0 0 #0000");
         ("--tw-shadow-color", "initial");
-        ("--tw-inset-shadow-color", "initial");
-        ("--tw-ring-color", "initial");
-        ("--tw-inset-ring-color", "initial");
-        ("--tw-ring-inset", "initial");
         ("--tw-shadow-alpha", "100%");
+        ("--tw-inset-shadow", "0 0 #0000");
+        ("--tw-inset-shadow-color", "initial");
         ("--tw-inset-shadow-alpha", "100%");
+        ("--tw-ring-color", "initial");
+        ("--tw-ring-shadow", "0 0 #0000");
+        ("--tw-inset-ring-color", "initial");
+        ("--tw-inset-ring-shadow", "0 0 #0000");
+        ("--tw-ring-inset", "initial");
         ("--tw-ring-offset-width", "0px");
         ("--tw-ring-offset-color", "#fff");
+        ("--tw-ring-offset-shadow", "0 0 #0000");
       ]
   | Gradient ->
       [
@@ -219,29 +220,91 @@ let generate_properties_layer (t : tally) : (string * string) list =
       t.assigned []
   in
 
-  group_defaults @ special_vars
-  |> List.sort_uniq (fun (k1, _) (k2, _) -> String.compare k1 k2)
+  (* Preserve canonical order - don't sort, just deduplicate *)
+  let seen = Hashtbl.create 32 in
+  let deduplicated =
+    List.filter
+      (fun (k, _) ->
+        if Hashtbl.mem seen k then false
+        else (
+          Hashtbl.add seen k ();
+          true))
+      (group_defaults @ special_vars)
+  in
+  deduplicated
+
+(* Canonical order for @property rules *)
+let canonical_property_order =
+  [
+    "--tw-font-weight";
+    "--tw-border-style";
+    "--tw-shadow";
+    "--tw-shadow-color";
+    "--tw-shadow-alpha";
+    "--tw-inset-shadow";
+    "--tw-inset-shadow-color";
+    "--tw-inset-shadow-alpha";
+    "--tw-ring-color";
+    "--tw-ring-shadow";
+    "--tw-inset-ring-color";
+    "--tw-inset-ring-shadow";
+    "--tw-ring-inset";
+    "--tw-ring-offset-width";
+    "--tw-ring-offset-color";
+    "--tw-ring-offset-shadow";
+  ]
 
 (* Get variables that need @property rules *)
 let needs_at_property (t : tally) : string list =
   (* Collect all variables that need @property rules *)
   let all_vars = S.union t.assigned t.fallback_refs in
 
-  S.fold
-    (fun v acc ->
-      match v with
-      (* Font weight always needs @property when used *)
-      | "--tw-font-weight" -> v :: acc
-      (* Border style needs @property when referenced but not assigned *)
-      | "--tw-border-style" when not (S.mem v t.assigned) -> v :: acc
-      (* All shadow/ring variables need @property when used *)
-      | "--tw-shadow" | "--tw-shadow-color" | "--tw-shadow-alpha"
-      | "--tw-inset-shadow" | "--tw-inset-shadow-color"
-      | "--tw-inset-shadow-alpha" | "--tw-ring-color" | "--tw-ring-shadow"
-      | "--tw-inset-ring-color" | "--tw-inset-ring-shadow" | "--tw-ring-inset"
-      | "--tw-ring-offset-width" | "--tw-ring-offset-color"
-      | "--tw-ring-offset-shadow" ->
-          v :: acc
-      | _ -> acc)
-    all_vars []
-  |> List.sort_uniq String.compare
+  (* Check if RingShadow group is needed *)
+  let needs_ring_shadow =
+    S.exists
+      (fun v ->
+        match v with
+        | "--tw-shadow" | "--tw-shadow-color" | "--tw-shadow-alpha"
+        | "--tw-inset-shadow" | "--tw-inset-shadow-color"
+        | "--tw-inset-shadow-alpha" | "--tw-ring-color" | "--tw-ring-shadow"
+        | "--tw-inset-ring-color" | "--tw-inset-ring-shadow" | "--tw-ring-inset"
+        | "--tw-ring-offset-width" | "--tw-ring-offset-color"
+        | "--tw-ring-offset-shadow" ->
+            true
+        | _ -> false)
+      all_vars
+  in
+
+  let needed =
+    (* If RingShadow group is needed, include ALL shadow/ring variables *)
+    let base_needed =
+      if needs_ring_shadow then
+        List.fold_left
+          (fun acc v ->
+            match v with
+            | "--tw-shadow" | "--tw-shadow-color" | "--tw-shadow-alpha"
+            | "--tw-inset-shadow" | "--tw-inset-shadow-color"
+            | "--tw-inset-shadow-alpha" | "--tw-ring-color" | "--tw-ring-shadow"
+            | "--tw-inset-ring-color" | "--tw-inset-ring-shadow"
+            | "--tw-ring-inset" | "--tw-ring-offset-width"
+            | "--tw-ring-offset-color" | "--tw-ring-offset-shadow" ->
+                S.add v acc
+            | _ -> acc)
+          S.empty canonical_property_order
+      else S.empty
+    in
+
+    (* Add other needed variables *)
+    S.fold
+      (fun v acc ->
+        match v with
+        (* Font weight always needs @property when used *)
+        | "--tw-font-weight" -> S.add v acc
+        (* Border style needs @property when referenced but not assigned *)
+        | "--tw-border-style" when not (S.mem v t.assigned) -> S.add v acc
+        | _ -> acc)
+      all_vars base_needed
+  in
+
+  (* Filter canonical order list to only include needed vars *)
+  List.filter (fun v -> S.mem v needed) canonical_property_order
