@@ -1080,6 +1080,9 @@ let to_css ?(reset = true) tw_classes =
              | "--tw-font-weight" ->
                  Css.at_property ~name:var_name ~syntax:"\"*\""
                    ~initial_value:"" ~inherits:false ()
+             | "--tw-border-style" ->
+                 Css.at_property ~name:var_name ~syntax:"\"*\""
+                   ~initial_value:"solid" ~inherits:false ()
              | _ ->
                  (* Default for other variables if needed *)
                  Css.at_property ~name:var_name ~syntax:"\"*\""
