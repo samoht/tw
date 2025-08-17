@@ -1,5 +1,10 @@
 (** CSS generation utilities *)
 
+(* Simple string formatting utilities *)
+let pr ?(sep = "") segments = String.concat sep segments
+let lines segments = pr ~sep:"\n" segments
+let indent n s = String.make n ' ' ^ s
+
 type var =
   | Color of string * int option (* color name and optional shade *)
   | Spacing of int (* spacing value *)
@@ -631,24 +636,23 @@ let render_minified_rule rule =
     |> List.map (fun (prop_name, value) ->
            property_name_to_string prop_name ^ ":" ^ minify_value value)
   in
-  Pp.str [ selector; "{"; Pp.sep ";" props; "}" ]
+  pr [ selector; "{"; pr ~sep:";" props; "}" ]
 
 let render_formatted_rule rule =
   let props =
     rule.properties
     |> List.map (fun (prop_name, value) ->
-           Pp.str [ "  "; property_name_to_string prop_name; ": "; value; ";" ])
+           pr [ "  "; property_name_to_string prop_name; ": "; value; ";" ])
   in
-  Pp.lines [ Pp.str [ rule.selector; " {" ]; Pp.lines props; "}" ]
+  lines [ pr [ rule.selector; " {" ]; lines props; "}" ]
 
 let render_formatted_media_rule rule =
   let props =
     rule.properties
     |> List.map (fun (prop_name, value) ->
-           Pp.str
-             [ "    "; property_name_to_string prop_name; ": "; value; ";" ])
+           pr [ "    "; property_name_to_string prop_name; ": "; value; ";" ])
   in
-  Pp.str [ "  "; rule.selector; " {\n"; Pp.lines props; "\n  }" ]
+  pr [ "  "; rule.selector; " {\n"; lines props; "\n  }" ]
 
 let layer_to_string = function
   | Properties -> "properties"
@@ -921,13 +925,13 @@ and to_string ?(minify = false) ?(preserve_order = false) stylesheet =
                   else [ ";initial-value:"; prop.initial_value ])
                @ [ "}" ]
              in
-             Pp.str parts
+             pr parts
            else
-             let lines =
+             let line_list =
                [
-                 Pp.str [ "@property "; prop.name; " {" ];
-                 Pp.str [ "  syntax: "; prop.syntax; ";" ];
-                 Pp.str
+                 pr [ "@property "; prop.name; " {" ];
+                 pr [ "  syntax: "; prop.syntax; ";" ];
+                 pr
                    [
                      "  inherits: ";
                      (if prop.inherits then "true" else "false");
@@ -935,11 +939,10 @@ and to_string ?(minify = false) ?(preserve_order = false) stylesheet =
                    ];
                ]
                @ (if prop.initial_value = "" then []
-                  else
-                    [ Pp.str [ "  initial-value: "; prop.initial_value; ";" ] ])
+                  else [ pr [ "  initial-value: "; prop.initial_value; ";" ] ])
                @ [ "}" ]
              in
-             Pp.lines lines)
+             lines line_list)
   in
 
   (* Render @starting-style rules *)
@@ -959,7 +962,7 @@ and to_string ?(minify = false) ?(preserve_order = false) stylesheet =
                |> List.map render_formatted_rule
                |> String.concat "\n"
              in
-             Pp.lines [ "@starting-style {"; Pp.indent 2 rules_str; "}" ])
+             lines [ "@starting-style {"; indent 2 rules_str; "}" ])
   in
 
   (* Render @container queries *)
@@ -984,8 +987,7 @@ and to_string ?(minify = false) ?(preserve_order = false) stylesheet =
                |> List.map render_formatted_media_rule
                |> String.concat "\n"
              in
-             Pp.lines
-               [ Pp.str [ container_rule; " {" ]; Pp.indent 2 rules_str; "}" ])
+             lines [ pr [ container_rule; " {" ]; indent 2 rules_str; "}" ])
   in
 
   (* Render @supports queries *)
@@ -1001,10 +1003,10 @@ and to_string ?(minify = false) ?(preserve_order = false) stylesheet =
              let rules_str =
                render_supports_content ~minify:false sq.supports_content
              in
-             Pp.lines
+             lines
                [
-                 Pp.str [ "@supports "; sq.supports_condition; " {" ];
-                 Pp.indent 2 rules_str;
+                 pr [ "@supports "; sq.supports_condition; " {" ];
+                 indent 2 rules_str;
                  "}";
                ])
   in
@@ -1026,10 +1028,10 @@ and to_string ?(minify = false) ?(preserve_order = false) stylesheet =
                |> List.map render_formatted_media_rule
                |> String.concat "\n"
              in
-             Pp.lines
+             lines
                [
-                 Pp.str [ "@media "; mq.media_condition; " {" ];
-                 Pp.indent 2 rules_str;
+                 pr [ "@media "; mq.media_condition; " {" ];
+                 indent 2 rules_str;
                  "}";
                ])
   in
@@ -1045,3 +1047,6 @@ and to_string ?(minify = false) ?(preserve_order = false) stylesheet =
   else String.concat "\n" (List.filter (fun s -> s <> "") all_parts)
 
 let pp stylesheet = to_string ~minify:false ~preserve_order:false stylesheet
+
+(* Expose Version module *)
+module Version = Version

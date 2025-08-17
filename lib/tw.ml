@@ -3395,9 +3395,6 @@ let prose_slate = Prose Slate
 (* Expose Prose module for convenient access *)
 module Prose = Prose
 
-(* Expose Version module for convenient access *)
-module Version = Version
-
 (* Generate complete prose stylesheet *)
 let prose_stylesheet () =
   (* Generate CSS for all prose variants *)
