@@ -15,22 +15,22 @@ type t =
 (** Default prose CSS variables for theming *)
 let css_variables =
   [
-    property "--tw-prose-body" "rgb(55 65 81)";
-    property "--tw-prose-headings" "rgb(17 24 39)";
-    property "--tw-prose-lead" "rgb(75 85 99)";
-    property "--tw-prose-links" "rgb(17 24 39)";
-    property "--tw-prose-bold" "rgb(17 24 39)";
-    property "--tw-prose-counters" "rgb(107 114 128)";
-    property "--tw-prose-bullets" "rgb(209 213 219)";
-    property "--tw-prose-hr" "rgb(229 231 235)";
-    property "--tw-prose-quotes" "rgb(17 24 39)";
-    property "--tw-prose-quote-borders" "rgb(229 231 235)";
-    property "--tw-prose-captions" "rgb(107 114 128)";
-    property "--tw-prose-code" "rgb(17 24 39)";
-    property "--tw-prose-pre-code" "rgb(229 231 235)";
-    property "--tw-prose-pre-bg" "rgb(55 65 81)";
-    property "--tw-prose-th-borders" "rgb(209 213 219)";
-    property "--tw-prose-td-borders" "rgb(229 231 235)";
+    declaration "--tw-prose-body" "rgb(55 65 81)";
+    declaration "--tw-prose-headings" "rgb(17 24 39)";
+    declaration "--tw-prose-lead" "rgb(75 85 99)";
+    declaration "--tw-prose-links" "rgb(17 24 39)";
+    declaration "--tw-prose-bold" "rgb(17 24 39)";
+    declaration "--tw-prose-counters" "rgb(107 114 128)";
+    declaration "--tw-prose-bullets" "rgb(209 213 219)";
+    declaration "--tw-prose-hr" "rgb(229 231 235)";
+    declaration "--tw-prose-quotes" "rgb(17 24 39)";
+    declaration "--tw-prose-quote-borders" "rgb(229 231 235)";
+    declaration "--tw-prose-captions" "rgb(107 114 128)";
+    declaration "--tw-prose-code" "rgb(17 24 39)";
+    declaration "--tw-prose-pre-code" "rgb(229 231 235)";
+    declaration "--tw-prose-pre-bg" "rgb(55 65 81)";
+    declaration "--tw-prose-th-borders" "rgb(209 213 219)";
+    declaration "--tw-prose-td-borders" "rgb(229 231 235)";
   ]
 
 (** Convert prose variant to CSS class name *)
@@ -93,14 +93,14 @@ let base_text_rules selector =
       [ margin_top "1.25em"; margin_bottom "1.25em" ];
     rule ~selector:(selector " ol")
       [
-        property "list-style-type" "decimal";
+        declaration "list-style-type" "decimal";
         margin_top "1.25em";
         margin_bottom "1.25em";
         padding_left "1.625em";
       ];
     rule ~selector:(selector " ul")
       [
-        property "list-style-type" "disc";
+        declaration "list-style-type" "disc";
         margin_top "1.25em";
         margin_bottom "1.25em";
         padding_left "1.625em";
@@ -114,8 +114,9 @@ let base_code_rules selector =
   [
     rule ~selector:(selector " code")
       [ color "var(--tw-prose-code)"; font_weight "600"; font_size "0.875em" ];
-    rule ~selector:(selector " code::before") [ property "content" "\"\\`\"" ];
-    rule ~selector:(selector " code::after") [ property "content" "\"\\`\"" ];
+    rule ~selector:(selector " code::before")
+      [ declaration "content" "\"\\`\"" ];
+    rule ~selector:(selector " code::after") [ declaration "content" "\"\\`\"" ];
     rule ~selector:(selector " pre")
       [
         color "var(--tw-prose-pre-code)";
@@ -144,8 +145,12 @@ let base_code_rules selector =
         font_family "inherit";
         line_height "inherit";
       ];
-    rule ~selector:(selector " pre code::before") [ property "content" "none" ];
-    rule ~selector:(selector " pre code::after") [ property "content" "none" ];
+    rule
+      ~selector:(selector " pre code::before")
+      [ declaration "content" "none" ];
+    rule
+      ~selector:(selector " pre code::after")
+      [ declaration "content" "none" ];
   ]
 
 (* Table styles *)
@@ -164,7 +169,7 @@ let base_table_rules selector =
     rule ~selector:(selector " thead")
       [
         border_bottom_width "1px";
-        property "border-bottom-color" "var(--tw-prose-th-borders)";
+        declaration "border-bottom-color" "var(--tw-prose-th-borders)";
       ];
     rule ~selector:(selector " thead th")
       [
@@ -178,7 +183,7 @@ let base_table_rules selector =
     rule ~selector:(selector " tbody tr")
       [
         border_bottom_width "1px";
-        property "border-bottom-color" "var(--tw-prose-td-borders)";
+        declaration "border-bottom-color" "var(--tw-prose-td-borders)";
       ];
     rule ~selector:(selector " tbody tr:last-child") [ border_bottom_width "0" ];
     rule ~selector:(selector " tbody td")
@@ -199,7 +204,7 @@ let base_misc_rules selector =
         color "var(--tw-prose-links)";
         text_decoration "none";
         font_weight "500";
-        property "transition" "color 0.2s ease";
+        declaration "transition" "color 0.2s ease";
       ];
     rule ~selector:(selector " a:hover") [ color "rgb(37 99 235)" ];
     rule ~selector:(selector " blockquote")
@@ -207,22 +212,22 @@ let base_misc_rules selector =
         font_weight "500";
         font_style "italic";
         color "var(--tw-prose-quotes)";
-        property "border-left-width" "0.25rem";
-        property "border-left-color" "var(--tw-prose-quote-borders)";
-        property "quotes" "\"\\201C\"\"\\201D\"\"\\2018\"\"\\2019\"";
+        declaration "border-left-width" "0.25rem";
+        declaration "border-left-color" "var(--tw-prose-quote-borders)";
+        declaration "quotes" "\"\\201C\"\"\\201D\"\"\\2018\"\"\\2019\"";
         margin_top "1.6em";
         margin_bottom "1.6em";
         padding_left "1em";
       ];
     rule
       ~selector:(selector " blockquote p:first-of-type::before")
-      [ property "content" "open-quote" ];
+      [ declaration "content" "open-quote" ];
     rule
       ~selector:(selector " blockquote p:last-of-type::after")
-      [ property "content" "close-quote" ];
+      [ declaration "content" "close-quote" ];
     rule ~selector:(selector " hr")
       [
-        property "border-color" "var(--tw-prose-hr)";
+        declaration "border-color" "var(--tw-prose-hr)";
         border_top_width "1px";
         margin_top "3em";
         margin_bottom "3em";
@@ -347,22 +352,22 @@ let gray_color_rules =
   [
     rule ~selector:".prose-gray"
       [
-        property "--tw-prose-body" "rgb(107 114 128)";
-        property "--tw-prose-headings" "rgb(31 41 55)";
-        property "--tw-prose-lead" "rgb(75 85 99)";
-        property "--tw-prose-links" "rgb(31 41 55)";
-        property "--tw-prose-bold" "rgb(31 41 55)";
-        property "--tw-prose-counters" "rgb(107 114 128)";
-        property "--tw-prose-bullets" "rgb(209 213 219)";
-        property "--tw-prose-hr" "rgb(229 231 235)";
-        property "--tw-prose-quotes" "rgb(31 41 55)";
-        property "--tw-prose-quote-borders" "rgb(229 231 235)";
-        property "--tw-prose-captions" "rgb(156 163 175)";
-        property "--tw-prose-code" "rgb(31 41 55)";
-        property "--tw-prose-pre-code" "rgb(229 231 235)";
-        property "--tw-prose-pre-bg" "rgb(31 41 55)";
-        property "--tw-prose-th-borders" "rgb(209 213 219)";
-        property "--tw-prose-td-borders" "rgb(229 231 235)";
+        declaration "--tw-prose-body" "rgb(107 114 128)";
+        declaration "--tw-prose-headings" "rgb(31 41 55)";
+        declaration "--tw-prose-lead" "rgb(75 85 99)";
+        declaration "--tw-prose-links" "rgb(31 41 55)";
+        declaration "--tw-prose-bold" "rgb(31 41 55)";
+        declaration "--tw-prose-counters" "rgb(107 114 128)";
+        declaration "--tw-prose-bullets" "rgb(209 213 219)";
+        declaration "--tw-prose-hr" "rgb(229 231 235)";
+        declaration "--tw-prose-quotes" "rgb(31 41 55)";
+        declaration "--tw-prose-quote-borders" "rgb(229 231 235)";
+        declaration "--tw-prose-captions" "rgb(156 163 175)";
+        declaration "--tw-prose-code" "rgb(31 41 55)";
+        declaration "--tw-prose-pre-code" "rgb(229 231 235)";
+        declaration "--tw-prose-pre-bg" "rgb(31 41 55)";
+        declaration "--tw-prose-th-borders" "rgb(209 213 219)";
+        declaration "--tw-prose-td-borders" "rgb(229 231 235)";
       ];
   ]
 
@@ -370,22 +375,22 @@ let slate_color_rules =
   [
     rule ~selector:".prose-slate"
       [
-        property "--tw-prose-body" "rgb(100 116 139)";
-        property "--tw-prose-headings" "rgb(15 23 42)";
-        property "--tw-prose-lead" "rgb(71 85 105)";
-        property "--tw-prose-links" "rgb(15 23 42)";
-        property "--tw-prose-bold" "rgb(15 23 42)";
-        property "--tw-prose-counters" "rgb(100 116 139)";
-        property "--tw-prose-bullets" "rgb(203 213 225)";
-        property "--tw-prose-hr" "rgb(226 232 240)";
-        property "--tw-prose-quotes" "rgb(15 23 42)";
-        property "--tw-prose-quote-borders" "rgb(226 232 240)";
-        property "--tw-prose-captions" "rgb(148 163 184)";
-        property "--tw-prose-code" "rgb(15 23 42)";
-        property "--tw-prose-pre-code" "rgb(226 232 240)";
-        property "--tw-prose-pre-bg" "rgb(30 41 59)";
-        property "--tw-prose-th-borders" "rgb(203 213 225)";
-        property "--tw-prose-td-borders" "rgb(226 232 240)";
+        declaration "--tw-prose-body" "rgb(100 116 139)";
+        declaration "--tw-prose-headings" "rgb(15 23 42)";
+        declaration "--tw-prose-lead" "rgb(71 85 105)";
+        declaration "--tw-prose-links" "rgb(15 23 42)";
+        declaration "--tw-prose-bold" "rgb(15 23 42)";
+        declaration "--tw-prose-counters" "rgb(100 116 139)";
+        declaration "--tw-prose-bullets" "rgb(203 213 225)";
+        declaration "--tw-prose-hr" "rgb(226 232 240)";
+        declaration "--tw-prose-quotes" "rgb(15 23 42)";
+        declaration "--tw-prose-quote-borders" "rgb(226 232 240)";
+        declaration "--tw-prose-captions" "rgb(148 163 184)";
+        declaration "--tw-prose-code" "rgb(15 23 42)";
+        declaration "--tw-prose-pre-code" "rgb(226 232 240)";
+        declaration "--tw-prose-pre-bg" "rgb(30 41 59)";
+        declaration "--tw-prose-th-borders" "rgb(203 213 225)";
+        declaration "--tw-prose-td-borders" "rgb(226 232 240)";
       ];
   ]
 

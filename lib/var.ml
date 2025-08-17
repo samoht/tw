@@ -128,8 +128,8 @@ let analyze_properties props =
   List.iter
     (fun prop ->
       if Css.is_custom_property prop then
-        let prop_name = Css.property_name prop in
-        let name = Css.property_name_to_string prop_name in
+        let prop_name = Css.declaration_property prop in
+        let name = Css.string_of_property prop_name in
         if String.starts_with ~prefix:"--tw-" name then
           tally := record_assignment name !tally)
     props;
@@ -165,7 +165,7 @@ let analyze_properties props =
 
   List.iter
     (fun prop ->
-      let value = Css.property_value prop in
+      let value = Css.declaration_value prop in
       extract_refs value 0)
     props;
 
