@@ -224,26 +224,24 @@ let generate_properties_layer (t : tally) : (string * string) list =
 
 (* Get variables that need @property rules *)
 let needs_at_property (t : tally) : string list =
-  (* --tw-font-weight always needs @property when used (assigned or
-     referenced) *)
-  let font_weight_vars =
-    S.fold
-      (fun v acc -> match v with "--tw-font-weight" -> v :: acc | _ -> acc)
-      t.assigned []
-  in
+  (* Collect all variables that need @property rules *)
+  let all_vars = S.union t.assigned t.fallback_refs in
 
-  (* Only need @property for other variables that are referenced but NOT
-     assigned *)
-  let unassigned_refs = S.diff t.fallback_refs t.assigned in
-  let other_vars =
-    S.fold
-      (fun v acc ->
-        match v with
-        | "--tw-border-style" ->
-            v :: acc
-            (* Border style needs @property if referenced but not assigned *)
-        | _ -> acc)
-      unassigned_refs []
-  in
-
-  font_weight_vars @ other_vars |> List.sort_uniq String.compare
+  S.fold
+    (fun v acc ->
+      match v with
+      (* Font weight always needs @property when used *)
+      | "--tw-font-weight" -> v :: acc
+      (* Border style needs @property when referenced but not assigned *)
+      | "--tw-border-style" when not (S.mem v t.assigned) -> v :: acc
+      (* All shadow/ring variables need @property when used *)
+      | "--tw-shadow" | "--tw-shadow-color" | "--tw-shadow-alpha"
+      | "--tw-inset-shadow" | "--tw-inset-shadow-color"
+      | "--tw-inset-shadow-alpha" | "--tw-ring-color" | "--tw-ring-shadow"
+      | "--tw-inset-ring-color" | "--tw-inset-ring-shadow" | "--tw-ring-inset"
+      | "--tw-ring-offset-width" | "--tw-ring-offset-color"
+      | "--tw-ring-offset-shadow" ->
+          v :: acc
+      | _ -> acc)
+    all_vars []
+  |> List.sort_uniq String.compare
