@@ -733,6 +733,12 @@ let to_css ?(reset = true) tw_classes =
                  [ Css.property "--font-weight-extrabold" "800" ]
              | "--font-weight-black" ->
                  [ Css.property "--font-weight-black" "900" ]
+             | "--radius-sm" -> [ Css.property "--radius-sm" ".25rem" ]
+             | "--radius-md" -> [ Css.property "--radius-md" ".375rem" ]
+             | "--radius-lg" -> [ Css.property "--radius-lg" ".5rem" ]
+             | "--radius-xl" -> [ Css.property "--radius-xl" ".75rem" ]
+             | "--radius-2xl" -> [ Css.property "--radius-2xl" "1rem" ]
+             | "--radius-3xl" -> [ Css.property "--radius-3xl" "1.5rem" ]
              | var_name when String.starts_with ~prefix:"--color-" var_name -> (
                  (* Handle color variables *)
                  let color_part =
