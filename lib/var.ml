@@ -224,15 +224,26 @@ let generate_properties_layer (t : tally) : (string * string) list =
 
 (* Get variables that need @property rules *)
 let needs_at_property (t : tally) : string list =
-  (* Only need @property for variables that are referenced but NOT assigned *)
-  let unassigned_refs = S.diff t.fallback_refs t.assigned in
+  (* --tw-font-weight always needs @property when used (assigned or
+     referenced) *)
+  let font_weight_vars =
+    S.fold
+      (fun v acc -> match v with "--tw-font-weight" -> v :: acc | _ -> acc)
+      t.assigned []
+  in
 
-  S.fold
-    (fun v acc ->
-      match v with
-      | "--tw-border-style" ->
-          v :: acc
-          (* Border style needs @property if referenced but not assigned *)
-      | _ -> acc)
-    unassigned_refs []
-  |> List.sort_uniq String.compare
+  (* Only need @property for other variables that are referenced but NOT
+     assigned *)
+  let unassigned_refs = S.diff t.fallback_refs t.assigned in
+  let other_vars =
+    S.fold
+      (fun v acc ->
+        match v with
+        | "--tw-border-style" ->
+            v :: acc
+            (* Border style needs @property if referenced but not assigned *)
+        | _ -> acc)
+      unassigned_refs []
+  in
+
+  font_weight_vars @ other_vars |> List.sort_uniq String.compare
