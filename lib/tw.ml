@@ -1229,34 +1229,34 @@ let to_css ?(reset = true) tw_classes =
       |> List.map (fun var_name ->
              match var_name with
              | "--tw-font-weight" ->
-                 Css.at_property ~name:var_name ~syntax:"\"*\""
-                   ~initial_value:"" ~inherits:false ()
+                 Css.at_property ~name:var_name ~syntax:"*" ~initial_value:""
+                   ~inherits:false ()
              | "--tw-border-style" ->
-                 Css.at_property ~name:var_name ~syntax:"\"*\""
+                 Css.at_property ~name:var_name ~syntax:"*"
                    ~initial_value:"solid" ~inherits:false ()
              (* Shadow variables *)
              | "--tw-shadow" | "--tw-inset-shadow" | "--tw-ring-shadow"
              | "--tw-inset-ring-shadow" | "--tw-ring-offset-shadow" ->
-                 Css.at_property ~name:var_name ~syntax:"\"*\""
+                 Css.at_property ~name:var_name ~syntax:"*"
                    ~initial_value:"0 0 #0000" ~inherits:false ()
              | "--tw-shadow-color" | "--tw-inset-shadow-color"
              | "--tw-ring-color" | "--tw-inset-ring-color" | "--tw-ring-inset"
                ->
-                 Css.at_property ~name:var_name ~syntax:"\"*\""
-                   ~initial_value:"" ~inherits:false ()
+                 Css.at_property ~name:var_name ~syntax:"*" ~initial_value:""
+                   ~inherits:false ()
              | "--tw-shadow-alpha" | "--tw-inset-shadow-alpha" ->
-                 Css.at_property ~name:var_name ~syntax:"\"<percentage>\""
+                 Css.at_property ~name:var_name ~syntax:"<percentage>"
                    ~initial_value:"100%" ~inherits:false ()
              | "--tw-ring-offset-width" ->
-                 Css.at_property ~name:var_name ~syntax:"\"<length>\""
+                 Css.at_property ~name:var_name ~syntax:"<length>"
                    ~initial_value:"0" ~inherits:false ()
              | "--tw-ring-offset-color" ->
-                 Css.at_property ~name:var_name ~syntax:"\"*\""
+                 Css.at_property ~name:var_name ~syntax:"*"
                    ~initial_value:"#fff" ~inherits:false ()
              | _ ->
                  (* Default for other variables if needed *)
-                 Css.at_property ~name:var_name ~syntax:"\"*\""
-                   ~initial_value:"" ~inherits:false ())
+                 Css.at_property ~name:var_name ~syntax:"*" ~initial_value:""
+                   ~inherits:false ())
     in
 
     (* Don't add empty Properties layer *)
