@@ -7,9 +7,9 @@
 open Alcotest
 open Tw
 
-let generate_tw_css ?(minify = false) ?(preserve_order = false) styles =
+let generate_tw_css ?(minify = false) styles =
   let stylesheet = to_css ~reset:true styles in
-  Css.to_string ~minify ~preserve_order stylesheet
+  Css.to_string ~minify stylesheet
 
 let generate_tailwind_css = Tw_tools.Tailwind_gen.generate
 
