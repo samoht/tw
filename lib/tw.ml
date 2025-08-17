@@ -66,7 +66,11 @@ and container_query =
 (** A Tailwind utility class with its name, CSS properties, and required
     variables *)
 type t =
-  | Style of { name : string; props : Css.property list; vars : Css.var list }
+  | Style of {
+      name : string;
+      props : Css.declaration list;
+      vars : Css.var list;
+    }
   | Prose of Prose.t
   | Modified of modifier * t
   | Group of t list
@@ -148,12 +152,16 @@ let responsive_breakpoint = function
 
 (* Type to represent structured CSS rule output *)
 type rule_output =
-  | Regular of string * Css.property list (* selector, properties *)
+  | Regular of string * Css.declaration list (* selector, properties *)
   | MediaQuery of
-      string * string * Css.property list (* condition, selector, properties *)
+      string
+      * string
+      * Css.declaration list (* condition, selector, properties *)
   | ContainerQuery of
-      string * string * Css.property list (* condition, selector, properties *)
-  | StartingStyle of string * Css.property list (* selector, properties *)
+      string
+      * string
+      * Css.declaration list (* condition, selector, properties *)
+  | StartingStyle of string * Css.declaration list (* selector, properties *)
 
 (* Extract selector and properties from a single Tw style *)
 let extract_selector_props tw =
@@ -164,7 +172,7 @@ let extract_selector_props tw =
         (* Convert prose rules to selector/props pairs *)
         Prose.to_css_rules variant
         |> List.map (fun rule ->
-               Regular (Css.selector rule, Css.properties rule))
+               Regular (Css.selector rule, Css.declarations rule))
     | Modified (modifier, t) ->
         let base = extract t in
         List.concat_map
@@ -395,7 +403,7 @@ let generate_reset_rules () =
     Css.rule ~selector:"*, :after, :before, ::backdrop"
       [
         Css.box_sizing "border-box";
-        Css.property "border" "0 solid";
+        Css.declaration "border" "0 solid";
         Css.margin "0";
         Css.padding "0";
       ];
@@ -403,37 +411,37 @@ let generate_reset_rules () =
     Css.rule ~selector:"::file-selector-button"
       [
         Css.box_sizing "border-box";
-        Css.property "border" "0 solid";
+        Css.declaration "border" "0 solid";
         Css.margin "0";
         Css.padding "0";
       ];
     (* HTML and host *)
     Css.rule ~selector:"html, :host"
       [
-        Css.property "-webkit-text-size-adjust" "100%";
-        Css.property "tab-size" "4";
+        Css.declaration "-webkit-text-size-adjust" "100%";
+        Css.declaration "tab-size" "4";
         Css.line_height "1.5";
         Css.font_family
           "var(--default-font-family, ui-sans-serif, system-ui, sans-serif, \
            \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \
            \"Noto Color Emoji\")";
-        Css.property "font-feature-settings"
+        Css.declaration "font-feature-settings"
           "var(--default-font-feature-settings, normal)";
-        Css.property "font-variation-settings"
+        Css.declaration "font-variation-settings"
           "var(--default-font-variation-settings, normal)";
-        Css.property "-webkit-tap-highlight-color" "transparent";
+        Css.declaration "-webkit-tap-highlight-color" "transparent";
       ];
     (* Horizontal rule *)
     Css.rule ~selector:"hr"
       [
         Css.height "0";
         Css.color "inherit";
-        Css.property "border-top-width" "1px";
+        Css.declaration "border-top-width" "1px";
       ];
     (* Abbreviations *)
     Css.rule ~selector:"abbr:where([title])"
       [
-        Css.property "-webkit-text-decoration" "underline dotted";
+        Css.declaration "-webkit-text-decoration" "underline dotted";
         Css.text_decoration "underline dotted";
       ];
     (* Headings *)
@@ -443,9 +451,9 @@ let generate_reset_rules () =
     Css.rule ~selector:"a"
       [
         Css.color "inherit";
-        Css.property "-webkit-text-decoration" "inherit";
-        Css.property "-webkit-text-decoration" "inherit";
-        Css.property "-webkit-text-decoration" "inherit";
+        Css.declaration "-webkit-text-decoration" "inherit";
+        Css.declaration "-webkit-text-decoration" "inherit";
+        Css.declaration "-webkit-text-decoration" "inherit";
         Css.text_decoration "inherit";
       ];
     (* Bold elements *)
@@ -457,9 +465,9 @@ let generate_reset_rules () =
           "var(--default-mono-font-family, ui-monospace, SFMono-Regular, \
            Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", \
            monospace)";
-        Css.property "font-feature-settings"
+        Css.declaration "font-feature-settings"
           "var(--default-mono-font-feature-settings, normal)";
-        Css.property "font-variation-settings"
+        Css.declaration "font-variation-settings"
           "var(--default-mono-font-variation-settings, normal)";
         Css.font_size "1em";
       ];
@@ -478,8 +486,8 @@ let generate_reset_rules () =
     (* Table *)
     Css.rule ~selector:"table"
       [
-        Css.property "text-indent" "0";
-        Css.property "border-color" "inherit";
+        Css.declaration "text-indent" "0";
+        Css.declaration "border-color" "inherit";
         Css.border_collapse "collapse";
       ];
     (* Firefox focusring *)
@@ -489,19 +497,19 @@ let generate_reset_rules () =
     (* Summary *)
     Css.rule ~selector:"summary" [ Css.display "list-item" ];
     (* Lists *)
-    Css.rule ~selector:"ol, ul, menu" [ Css.property "list-style" "none" ];
+    Css.rule ~selector:"ol, ul, menu" [ Css.declaration "list-style" "none" ];
     (* Media elements *)
     Css.rule ~selector:"img, svg, video, canvas, audio, iframe, embed, object"
       [ Css.vertical_align "middle"; Css.display "block" ];
     Css.rule ~selector:"img, video"
-      [ Css.property "max-width" "100%"; Css.height "auto" ];
+      [ Css.declaration "max-width" "100%"; Css.height "auto" ];
     (* Form elements *)
     Css.rule ~selector:"button, input, select, optgroup, textarea"
       [
-        Css.property "font" "inherit";
-        Css.property "font-feature-settings" "inherit";
-        Css.property "font-variation-settings" "inherit";
-        Css.property "letter-spacing" "inherit";
+        Css.declaration "font" "inherit";
+        Css.declaration "font-feature-settings" "inherit";
+        Css.declaration "font-variation-settings" "inherit";
+        Css.declaration "letter-spacing" "inherit";
         Css.color "inherit";
         Css.opacity "1";
         Css.background_color "#0000";
@@ -510,10 +518,10 @@ let generate_reset_rules () =
     (* File selector button - second occurrence with font properties *)
     Css.rule ~selector:"::file-selector-button"
       [
-        Css.property "font" "inherit";
-        Css.property "font-feature-settings" "inherit";
-        Css.property "font-variation-settings" "inherit";
-        Css.property "letter-spacing" "inherit";
+        Css.declaration "font" "inherit";
+        Css.declaration "font-feature-settings" "inherit";
+        Css.declaration "font-variation-settings" "inherit";
+        Css.declaration "letter-spacing" "inherit";
         Css.color "inherit";
         Css.opacity "1";
         Css.background_color "#0000";
@@ -523,41 +531,41 @@ let generate_reset_rules () =
     Css.rule ~selector:":where(select:is([multiple], [size])) optgroup"
       [ Css.font_weight "bolder" ];
     Css.rule ~selector:":where(select:is([multiple], [size])) optgroup option"
-      [ Css.property "padding-inline-start" "20px" ];
+      [ Css.declaration "padding-inline-start" "20px" ];
     (* File selector button - third occurrence with margin *)
     Css.rule ~selector:"::file-selector-button"
-      [ Css.property "margin-inline-end" "4px" ];
+      [ Css.declaration "margin-inline-end" "4px" ];
     (* Placeholder - basic *)
     Css.rule ~selector:"::placeholder" [ Css.opacity "1" ];
     (* Textarea *)
     Css.rule ~selector:"textarea" [ Css.resize "vertical" ];
     (* Search decoration *)
     Css.rule ~selector:"::-webkit-search-decoration"
-      [ Css.property "-webkit-appearance" "none" ];
+      [ Css.declaration "-webkit-appearance" "none" ];
     (* Webkit datetime inputs *)
     Css.rule ~selector:"::-webkit-date-and-time-value"
-      [ Css.property "min-height" "1lh"; Css.text_align "inherit" ];
+      [ Css.declaration "min-height" "1lh"; Css.text_align "inherit" ];
     Css.rule ~selector:"::-webkit-datetime-edit" [ Css.display "inline-flex" ];
     Css.rule ~selector:"::-webkit-datetime-edit-fields-wrapper"
       [ Css.padding "0" ];
     Css.rule ~selector:"::-webkit-datetime-edit"
-      [ Css.property "padding-block" "0" ];
+      [ Css.declaration "padding-block" "0" ];
     Css.rule ~selector:"::-webkit-datetime-edit-year-field"
-      [ Css.property "padding-block" "0" ];
+      [ Css.declaration "padding-block" "0" ];
     Css.rule ~selector:"::-webkit-datetime-edit-month-field"
-      [ Css.property "padding-block" "0" ];
+      [ Css.declaration "padding-block" "0" ];
     Css.rule ~selector:"::-webkit-datetime-edit-day-field"
-      [ Css.property "padding-block" "0" ];
+      [ Css.declaration "padding-block" "0" ];
     Css.rule ~selector:"::-webkit-datetime-edit-hour-field"
-      [ Css.property "padding-block" "0" ];
+      [ Css.declaration "padding-block" "0" ];
     Css.rule ~selector:"::-webkit-datetime-edit-minute-field"
-      [ Css.property "padding-block" "0" ];
+      [ Css.declaration "padding-block" "0" ];
     Css.rule ~selector:"::-webkit-datetime-edit-second-field"
-      [ Css.property "padding-block" "0" ];
+      [ Css.declaration "padding-block" "0" ];
     Css.rule ~selector:"::-webkit-datetime-edit-millisecond-field"
-      [ Css.property "padding-block" "0" ];
+      [ Css.declaration "padding-block" "0" ];
     Css.rule ~selector:"::-webkit-datetime-edit-meridiem-field"
-      [ Css.property "padding-block" "0" ];
+      [ Css.declaration "padding-block" "0" ];
     (* Firefox-specific *)
     Css.rule ~selector:":-moz-ui-invalid" [ Css.box_shadow "none" ];
     (* Button-like inputs *)
@@ -625,7 +633,7 @@ let to_css ?(reset = true) tw_classes =
   let rules =
     List.map
       (fun (selector, props) ->
-        Css.rule ~selector (Css.deduplicate_properties props))
+        Css.rule ~selector (Css.deduplicate_declarations props))
       non_hover_rules
   in
 
@@ -661,7 +669,7 @@ let to_css ?(reset = true) tw_classes =
         let rules =
           List.map
             (fun (sel, props) ->
-              Css.rule ~selector:sel (Css.deduplicate_properties props))
+              Css.rule ~selector:sel (Css.deduplicate_declarations props))
             rule_list
         in
         Css.media ~condition rules)
@@ -688,7 +696,7 @@ let to_css ?(reset = true) tw_classes =
         let rules =
           List.map
             (fun (sel, props) ->
-              Css.rule ~selector:sel (Css.deduplicate_properties props))
+              Css.rule ~selector:sel (Css.deduplicate_declarations props))
             rule_list
         in
         Css.container ~condition rules)
@@ -717,7 +725,7 @@ let to_css ?(reset = true) tw_classes =
       let properties = Var.generate_properties_layer var_tally in
       if properties <> [] then
         let css_props =
-          List.map (fun (var, value) -> Css.property var value) properties
+          List.map (fun (var, value) -> Css.declaration var value) properties
         in
         Some
           (Css.layered_rules ~layer:Css.Properties
@@ -758,8 +766,8 @@ let to_css ?(reset = true) tw_classes =
     (* Theme variables that always exist and may reference other variables *)
     let default_font_props =
       [
-        Css.property "--default-font-family" "var(--font-sans)";
-        Css.property "--default-mono-font-family" "var(--font-mono)";
+        Css.declaration "--default-font-family" "var(--font-sans)";
+        Css.declaration "--default-mono-font-family" "var(--font-mono)";
       ]
     in
 
@@ -782,18 +790,18 @@ let to_css ?(reset = true) tw_classes =
                  match var with
                  | "--font-sans" ->
                      Some
-                       (Css.property "--font-sans"
+                       (Css.declaration "--font-sans"
                           "ui-sans-serif, system-ui, sans-serif, \"Apple Color \
                            Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \
                            \"Noto Color Emoji\"")
                  | "--font-serif" ->
                      Some
-                       (Css.property "--font-serif"
+                       (Css.declaration "--font-serif"
                           "ui-serif, Georgia, Cambria, \"Times New Roman\", \
                            Times, serif")
                  | "--font-mono" ->
                      Some
-                       (Css.property "--font-mono"
+                       (Css.declaration "--font-mono"
                           "ui-monospace, SFMono-Regular, Menlo, Monaco, \
                            Consolas, \"Liberation Mono\", \"Courier New\", \
                            monospace")
@@ -816,74 +824,74 @@ let to_css ?(reset = true) tw_classes =
       all_referenced_vars
       |> List.concat_map (fun var_name ->
              match var_name with
-             | "--spacing" -> [ Css.property "--spacing" "0.25rem" ]
+             | "--spacing" -> [ Css.declaration "--spacing" "0.25rem" ]
              | "--text-xs" ->
                  [
-                   Css.property "--text-xs" "0.75rem";
-                   Css.property "--text-xs--line-height" "calc(1/.75)";
+                   Css.declaration "--text-xs" "0.75rem";
+                   Css.declaration "--text-xs--line-height" "calc(1/.75)";
                  ]
              | "--text-sm" ->
                  [
-                   Css.property "--text-sm" "0.875rem";
-                   Css.property "--text-sm--line-height" "calc(1.25/.875)";
+                   Css.declaration "--text-sm" "0.875rem";
+                   Css.declaration "--text-sm--line-height" "calc(1.25/.875)";
                  ]
              | "--text-base" ->
                  [
-                   Css.property "--text-base" "1rem";
-                   Css.property "--text-base--line-height" "calc(1.5/1)";
+                   Css.declaration "--text-base" "1rem";
+                   Css.declaration "--text-base--line-height" "calc(1.5/1)";
                  ]
              | "--text-lg" ->
                  [
-                   Css.property "--text-lg" "1.125rem";
-                   Css.property "--text-lg--line-height" "calc(1.75/1.125)";
+                   Css.declaration "--text-lg" "1.125rem";
+                   Css.declaration "--text-lg--line-height" "calc(1.75/1.125)";
                  ]
              | "--text-xl" ->
                  [
-                   Css.property "--text-xl" "1.25rem";
-                   Css.property "--text-xl--line-height" "calc(1.75/1.25)";
+                   Css.declaration "--text-xl" "1.25rem";
+                   Css.declaration "--text-xl--line-height" "calc(1.75/1.25)";
                  ]
              | "--text-2xl" ->
                  [
-                   Css.property "--text-2xl" "1.5rem";
-                   Css.property "--text-2xl--line-height" "calc(2/1.5)";
+                   Css.declaration "--text-2xl" "1.5rem";
+                   Css.declaration "--text-2xl--line-height" "calc(2/1.5)";
                  ]
              | "--text-3xl" ->
                  [
-                   Css.property "--text-3xl" "1.875rem";
-                   Css.property "--text-3xl--line-height" "calc(2.25/1.875)";
+                   Css.declaration "--text-3xl" "1.875rem";
+                   Css.declaration "--text-3xl--line-height" "calc(2.25/1.875)";
                  ]
              | "--text-4xl" ->
                  [
-                   Css.property "--text-4xl" "2.25rem";
-                   Css.property "--text-4xl--line-height" "calc(2.5/2.25)";
+                   Css.declaration "--text-4xl" "2.25rem";
+                   Css.declaration "--text-4xl--line-height" "calc(2.5/2.25)";
                  ]
              | "--text-5xl" ->
                  [
-                   Css.property "--text-5xl" "3rem";
-                   Css.property "--text-5xl--line-height" "1";
+                   Css.declaration "--text-5xl" "3rem";
+                   Css.declaration "--text-5xl--line-height" "1";
                  ]
              | "--font-weight-thin" ->
-                 [ Css.property "--font-weight-thin" "100" ]
+                 [ Css.declaration "--font-weight-thin" "100" ]
              | "--font-weight-light" ->
-                 [ Css.property "--font-weight-light" "300" ]
+                 [ Css.declaration "--font-weight-light" "300" ]
              | "--font-weight-normal" ->
-                 [ Css.property "--font-weight-normal" "400" ]
+                 [ Css.declaration "--font-weight-normal" "400" ]
              | "--font-weight-medium" ->
-                 [ Css.property "--font-weight-medium" "500" ]
+                 [ Css.declaration "--font-weight-medium" "500" ]
              | "--font-weight-semibold" ->
-                 [ Css.property "--font-weight-semibold" "600" ]
+                 [ Css.declaration "--font-weight-semibold" "600" ]
              | "--font-weight-bold" ->
-                 [ Css.property "--font-weight-bold" "700" ]
+                 [ Css.declaration "--font-weight-bold" "700" ]
              | "--font-weight-extrabold" ->
-                 [ Css.property "--font-weight-extrabold" "800" ]
+                 [ Css.declaration "--font-weight-extrabold" "800" ]
              | "--font-weight-black" ->
-                 [ Css.property "--font-weight-black" "900" ]
-             | "--radius-sm" -> [ Css.property "--radius-sm" ".25rem" ]
-             | "--radius-md" -> [ Css.property "--radius-md" ".375rem" ]
-             | "--radius-lg" -> [ Css.property "--radius-lg" ".5rem" ]
-             | "--radius-xl" -> [ Css.property "--radius-xl" ".75rem" ]
-             | "--radius-2xl" -> [ Css.property "--radius-2xl" "1rem" ]
-             | "--radius-3xl" -> [ Css.property "--radius-3xl" "1.5rem" ]
+                 [ Css.declaration "--font-weight-black" "900" ]
+             | "--radius-sm" -> [ Css.declaration "--radius-sm" ".25rem" ]
+             | "--radius-md" -> [ Css.declaration "--radius-md" ".375rem" ]
+             | "--radius-lg" -> [ Css.declaration "--radius-lg" ".5rem" ]
+             | "--radius-xl" -> [ Css.declaration "--radius-xl" ".75rem" ]
+             | "--radius-2xl" -> [ Css.declaration "--radius-2xl" "1rem" ]
+             | "--radius-3xl" -> [ Css.declaration "--radius-3xl" "1.5rem" ]
              | var_name when String.starts_with ~prefix:"--color-" var_name -> (
                  (* Handle color variables *)
                  let color_part =
@@ -894,9 +902,9 @@ let to_css ?(reset = true) tw_classes =
                  | [ color_name ] ->
                      (* Base color like --color-white or --color-black *)
                      if color_name = "white" then
-                       [ Css.property "--color-white" "#fff" ]
+                       [ Css.declaration "--color-white" "#fff" ]
                      else if color_name = "black" then
-                       [ Css.property "--color-black" "#000" ]
+                       [ Css.declaration "--color-black" "#000" ]
                      else [] (* Other base colors need shade *)
                  | color_parts -> (
                      (* Try to extract shade from the end *)
@@ -909,7 +917,7 @@ let to_css ?(reset = true) tw_classes =
                            in
                            let color = Color.of_string color_name in
                            [
-                             Css.property var_name
+                             Css.declaration var_name
                                (Color.to_oklch_css color shade);
                            ]
                          with _ -> [])
@@ -949,16 +957,16 @@ let to_css ?(reset = true) tw_classes =
       |> List.map (fun (_, var_name) ->
              match var_name with
              | "--font-sans" ->
-                 Css.property "--font-sans"
+                 Css.declaration "--font-sans"
                    "ui-sans-serif, system-ui, sans-serif, \"Apple Color \
                     Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto \
                     Color Emoji\""
              | "--font-serif" ->
-                 Css.property "--font-serif"
+                 Css.declaration "--font-serif"
                    "ui-serif, Georgia, Cambria, \"Times New Roman\", Times, \
                     serif"
              | "--font-mono" ->
-                 Css.property "--font-mono"
+                 Css.declaration "--font-mono"
                    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \
                     \"Liberation Mono\", \"Courier New\", monospace"
              | _ -> failwith "Unexpected font variable")
@@ -1002,7 +1010,7 @@ let to_css ?(reset = true) tw_classes =
             [
               Css.rule ~selector:"::placeholder"
                 [
-                  Css.property "color"
+                  Css.declaration "color"
                     "color-mix(in oklab,currentcolor 50%,transparent)";
                 ];
             ];
@@ -1261,17 +1269,26 @@ let to_css ?(reset = true) tw_classes =
 
     (* Don't add empty Properties layer *)
     (* Media queries and container queries are already included in the utilities layer, don't duplicate *)
-    Css.stylesheet ~layers ~at_properties []
+    let items =
+      List.map (fun l -> Css.Layer l) layers
+      @ List.map (fun a -> Css.At_property a) at_properties
+    in
+    Css.stylesheet items
   else
     (* No reset - just raw rules, media queries, and container queries, no
        layers *)
-    Css.stylesheet ~layers:[] ~media_queries ~container_queries rules
+    let items =
+      List.map (fun r -> Css.Rule r) rules
+      @ List.map (fun m -> Css.Media m) media_queries
+      @ List.map (fun c -> Css.Container c) container_queries
+    in
+    Css.stylesheet items
 
 (* Convert Tw styles to inline style attribute value *)
 let to_inline_style styles =
   let all_props = List.concat_map to_css_properties styles in
-  let deduped = Css.deduplicate_properties all_props in
-  Css.properties_to_inline_style deduped
+  let deduped = Css.deduplicate_declarations all_props in
+  Css.inline_style_of_declarations deduped
 
 (** {1 Helper Functions} *)
 
@@ -2044,7 +2061,7 @@ let text_5xl =
 let font_thin =
   style_with_vars "font-thin"
     [
-      Css.property "--tw-font-weight" "var(--font-weight-thin)";
+      Css.declaration "--tw-font-weight" "var(--font-weight-thin)";
       font_weight "var(--font-weight-thin)";
     ]
     []
@@ -2052,7 +2069,7 @@ let font_thin =
 let font_light =
   style_with_vars "font-light"
     [
-      Css.property "--tw-font-weight" "var(--font-weight-light)";
+      Css.declaration "--tw-font-weight" "var(--font-weight-light)";
       font_weight "var(--font-weight-light)";
     ]
     []
@@ -2060,7 +2077,7 @@ let font_light =
 let font_normal =
   style_with_vars "font-normal"
     [
-      Css.property "--tw-font-weight" "var(--font-weight-normal)";
+      Css.declaration "--tw-font-weight" "var(--font-weight-normal)";
       font_weight "var(--font-weight-normal)";
     ]
     []
@@ -2068,7 +2085,7 @@ let font_normal =
 let font_medium =
   style_with_vars "font-medium"
     [
-      Css.property "--tw-font-weight" "var(--font-weight-medium)";
+      Css.declaration "--tw-font-weight" "var(--font-weight-medium)";
       font_weight "var(--font-weight-medium)";
     ]
     []
@@ -2076,7 +2093,7 @@ let font_medium =
 let font_semibold =
   style_with_vars "font-semibold"
     [
-      Css.property "--tw-font-weight" "var(--font-weight-semibold)";
+      Css.declaration "--tw-font-weight" "var(--font-weight-semibold)";
       font_weight "var(--font-weight-semibold)";
     ]
     []
@@ -2084,7 +2101,7 @@ let font_semibold =
 let font_bold =
   style_with_vars "font-bold"
     [
-      Css.property "--tw-font-weight" "var(--font-weight-bold)";
+      Css.declaration "--tw-font-weight" "var(--font-weight-bold)";
       font_weight "var(--font-weight-bold)";
     ]
     []
@@ -2092,7 +2109,7 @@ let font_bold =
 let font_extrabold =
   style_with_vars "font-extrabold"
     [
-      Css.property "--tw-font-weight" "var(--font-weight-extrabold)";
+      Css.declaration "--tw-font-weight" "var(--font-weight-extrabold)";
       font_weight "var(--font-weight-extrabold)";
     ]
     []
@@ -2100,7 +2117,7 @@ let font_extrabold =
 let font_black =
   style_with_vars "font-black"
     [
-      Css.property "--tw-font-weight" "var(--font-weight-black)";
+      Css.declaration "--tw-font-weight" "var(--font-weight-black)";
       font_weight "var(--font-weight-black)";
     ]
     []
@@ -2317,23 +2334,23 @@ let border_l = style "border-l" [ border_left_width "1px" ]
 (* Border styles *)
 let border_solid =
   style "border-solid"
-    [ Css.property "--tw-border-style" "solid"; border_style "solid" ]
+    [ Css.declaration "--tw-border-style" "solid"; border_style "solid" ]
 
 let border_dashed =
   style "border-dashed"
-    [ Css.property "--tw-border-style" "dashed"; border_style "dashed" ]
+    [ Css.declaration "--tw-border-style" "dashed"; border_style "dashed" ]
 
 let border_dotted =
   style "border-dotted"
-    [ Css.property "--tw-border-style" "dotted"; border_style "dotted" ]
+    [ Css.declaration "--tw-border-style" "dotted"; border_style "dotted" ]
 
 let border_double =
   style "border-double"
-    [ Css.property "--tw-border-style" "double"; border_style "double" ]
+    [ Css.declaration "--tw-border-style" "double"; border_style "double" ]
 
 let border_none_style =
   style "border-none"
-    [ Css.property "--tw-border-style" "none"; border_style "none" ]
+    [ Css.declaration "--tw-border-style" "none"; border_style "none" ]
 
 let pp_rounded_suffix : size -> string = function
   | `None -> "none"
@@ -2400,7 +2417,7 @@ let pp_shadow_suffix : shadow -> string = function
 
 let shadow_internal s =
   let class_name = "shadow-" ^ pp_shadow_suffix s in
-  let custom_props = [ property "--tw-shadow" (shadow_value s) ] in
+  let custom_props = [ Css.declaration "--tw-shadow" (shadow_value s) ] in
   let box_shadow_prop =
     box_shadow
       "var(--tw-inset-shadow), var(--tw-inset-ring-shadow), \
@@ -2449,7 +2466,7 @@ let transition_transform =
 
 let rotate n =
   let class_name = "rotate-" ^ string_of_int n in
-  style class_name [ property "rotate" (string_of_int n ^ "deg") ]
+  style class_name [ Css.declaration "rotate" (string_of_int n ^ "deg") ]
 
 let translate_x n =
   let prefix = if n < 0 then "-" else "" in
@@ -2494,7 +2511,7 @@ let scale_z n =
   let class_name = "scale-z-" ^ string_of_int n in
   style class_name
     [
-      property "--tw-scale-z" (Pp.float value);
+      Css.declaration "--tw-scale-z" (Pp.float value);
       transform
         "translate(var(--tw-translate-x), var(--tw-translate-y)) \
          translateZ(var(--tw-translate-z, 0)) rotate(var(--tw-rotate)) \
@@ -2507,34 +2524,38 @@ let scale_z n =
 let perspective n =
   let class_name = "perspective-" ^ string_of_int n in
   let value = if n = 0 then "none" else string_of_int n ^ "px" in
-  style class_name [ property "perspective" value ]
+  style class_name [ Css.declaration "perspective" value ]
 
 let perspective_origin_center =
-  style "perspective-origin-center" [ property "perspective-origin" "center" ]
+  style "perspective-origin-center"
+    [ Css.declaration "perspective-origin" "center" ]
 
 let perspective_origin_top =
-  style "perspective-origin-top" [ property "perspective-origin" "top" ]
+  style "perspective-origin-top" [ Css.declaration "perspective-origin" "top" ]
 
 let perspective_origin_bottom =
-  style "perspective-origin-bottom" [ property "perspective-origin" "bottom" ]
+  style "perspective-origin-bottom"
+    [ Css.declaration "perspective-origin" "bottom" ]
 
 let perspective_origin_left =
-  style "perspective-origin-left" [ property "perspective-origin" "left" ]
+  style "perspective-origin-left"
+    [ Css.declaration "perspective-origin" "left" ]
 
 let perspective_origin_right =
-  style "perspective-origin-right" [ property "perspective-origin" "right" ]
+  style "perspective-origin-right"
+    [ Css.declaration "perspective-origin" "right" ]
 
 let transform_style_3d =
-  style "transform-style-3d" [ property "transform-style" "preserve-3d" ]
+  style "transform-style-3d" [ Css.declaration "transform-style" "preserve-3d" ]
 
 let transform_style_flat =
-  style "transform-style-flat" [ property "transform-style" "flat" ]
+  style "transform-style-flat" [ Css.declaration "transform-style" "flat" ]
 
 let backface_visible =
-  style "backface-visible" [ property "backface-visibility" "visible" ]
+  style "backface-visible" [ Css.declaration "backface-visibility" "visible" ]
 
 let backface_hidden =
-  style "backface-hidden" [ property "backface-visibility" "hidden" ]
+  style "backface-hidden" [ Css.declaration "backface-visibility" "hidden" ]
 
 (** Container query utilities - inspired by modern CSS capabilities
 
@@ -2544,16 +2565,17 @@ let backface_hidden =
     Tailwind CSS v4 includes container queries, we implement them here as
     they're a valuable CSS feature that works well with OCaml's approach. *)
 let container_type_size =
-  style "container-type-size" [ property "container-type" "size" ]
+  style "container-type-size" [ Css.declaration "container-type" "size" ]
 
 let container_type_inline_size =
-  style "container-type-inline-size" [ property "container-type" "inline-size" ]
+  style "container-type-inline-size"
+    [ Css.declaration "container-type" "inline-size" ]
 
 let container_type_normal =
-  style "container-type-normal" [ property "container-type" "normal" ]
+  style "container-type-normal" [ Css.declaration "container-type" "normal" ]
 
 let container_name name =
-  style ("container-" ^ name) [ property "container-name" name ]
+  style ("container-" ^ name) [ Css.declaration "container-name" name ]
 
 (* Container query breakpoints *)
 let on_container_sm styles = Modified (Container Container_sm, Group styles)
@@ -2607,11 +2629,11 @@ let ring_internal (w : width) =
   in
   style class_name
     [
-      property "--tw-ring-color" "rgb(59 130 246 / 0.5)";
+      Css.declaration "--tw-ring-color" "rgb(59 130 246 / 0.5)";
       box_shadow
         "var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 \
          #0000),var(--tw-shadow,0 0 #0000)";
-      property "--tw-ring-shadow" shadow_value;
+      Css.declaration "--tw-ring-shadow" shadow_value;
     ]
 
 let ring_none = ring_internal `None
@@ -2658,10 +2680,12 @@ let snap_both =
   style "snap-both" [ scroll_snap_type "both var(--tw-scroll-snap-strictness)" ]
 
 let snap_mandatory =
-  style "snap-mandatory" [ property "--tw-scroll-snap-strictness" "mandatory" ]
+  style "snap-mandatory"
+    [ Css.declaration "--tw-scroll-snap-strictness" "mandatory" ]
 
 let snap_proximity =
-  style "snap-proximity" [ property "--tw-scroll-snap-strictness" "proximity" ]
+  style "snap-proximity"
+    [ Css.declaration "--tw-scroll-snap-strictness" "proximity" ]
 
 let snap_start = style "snap-start" [ scroll_snap_align "start" ]
 let snap_end = style "snap-end" [ scroll_snap_align "end" ]
@@ -2872,8 +2896,8 @@ let from_color ?(shade = 500) color =
   in
   style class_name
     [
-      property "--tw-gradient-from" color_var;
-      property "--tw-gradient-stops"
+      Css.declaration "--tw-gradient-from" color_var;
+      Css.declaration "--tw-gradient-stops"
         "var(--tw-gradient-via-stops, var(--tw-gradient-position), \
          var(--tw-gradient-from) var(--tw-gradient-from-position), \
          var(--tw-gradient-to) var(--tw-gradient-to-position))";
@@ -2893,13 +2917,13 @@ let via_color ?(shade = 500) color =
   in
   style class_name
     [
-      property "--tw-gradient-via" color_var;
-      property "--tw-gradient-via-stops"
+      Css.declaration "--tw-gradient-via" color_var;
+      Css.declaration "--tw-gradient-via-stops"
         "var(--tw-gradient-position), var(--tw-gradient-from) \
          var(--tw-gradient-from-position), var(--tw-gradient-via) \
          var(--tw-gradient-via-position), var(--tw-gradient-to) \
          var(--tw-gradient-to-position)";
-      property "--tw-gradient-stops" "var(--tw-gradient-via-stops)";
+      Css.declaration "--tw-gradient-stops" "var(--tw-gradient-via-stops)";
     ]
 
 let to_color ?(shade = 500) color =
@@ -2916,8 +2940,8 @@ let to_color ?(shade = 500) color =
   in
   style class_name
     [
-      property "--tw-gradient-to" color_var;
-      property "--tw-gradient-stops"
+      Css.declaration "--tw-gradient-to" color_var;
+      Css.declaration "--tw-gradient-stops"
         "var(--tw-gradient-via-stops, var(--tw-gradient-position), \
          var(--tw-gradient-from) var(--tw-gradient-from-position), \
          var(--tw-gradient-to) var(--tw-gradient-to-position))";
@@ -2982,13 +3006,13 @@ let clip_path _value =
 let transform =
   style "transform"
     [
-      property "--tw-translate-x" "0";
-      property "--tw-translate-y" "0";
-      property "--tw-rotate" "0";
-      property "--tw-skew-x" "0";
-      property "--tw-skew-y" "0";
-      property "--tw-scale-x" "1";
-      property "--tw-scale-y" "1";
+      Css.declaration "--tw-translate-x" "0";
+      Css.declaration "--tw-translate-y" "0";
+      Css.declaration "--tw-rotate" "0";
+      Css.declaration "--tw-skew-x" "0";
+      Css.declaration "--tw-skew-y" "0";
+      Css.declaration "--tw-scale-x" "1";
+      Css.declaration "--tw-scale-y" "1";
       transform
         "translateX(var(--tw-translate-x)) translateY(var(--tw-translate-y)) \
          rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) \
@@ -3126,22 +3150,29 @@ let animate_bounce = style "animate-bounce" [ animation "bounce 1s infinite" ]
 let duration n =
   let class_name = "duration-" ^ string_of_int n in
   let value = string_of_int n ^ "ms" in
-  style class_name [ property "transition-duration" value ]
+  style class_name [ Css.declaration "transition-duration" value ]
 
 let ease_linear =
-  style "ease-linear" [ property "transition-timing-function" "linear" ]
+  style "ease-linear" [ Css.declaration "transition-timing-function" "linear" ]
 
 let ease_in =
   style "ease-in"
-    [ property "transition-timing-function" "cubic-bezier(0.4, 0, 1, 1)" ]
+    [
+      Css.declaration "transition-timing-function" "cubic-bezier(0.4, 0, 1, 1)";
+    ]
 
 let ease_out =
   style "ease-out"
-    [ property "transition-timing-function" "cubic-bezier(0, 0, 0.2, 1)" ]
+    [
+      Css.declaration "transition-timing-function" "cubic-bezier(0, 0, 0.2, 1)";
+    ]
 
 let ease_in_out =
   style "ease-in-out"
-    [ property "transition-timing-function" "cubic-bezier(0.4, 0, 0.2, 1)" ]
+    [
+      Css.declaration "transition-timing-function"
+        "cubic-bezier(0.4, 0, 0.2, 1)";
+    ]
 
 (** Transform utilities *)
 let scale n =
@@ -3149,8 +3180,8 @@ let scale n =
   let class_name = "scale-" ^ string_of_int n in
   style class_name
     [
-      property "--tw-scale-x" value;
-      property "--tw-scale-y" value;
+      Css.declaration "--tw-scale-x" value;
+      Css.declaration "--tw-scale-y" value;
       Css.transform
         "translate(var(--tw-translate-x), var(--tw-translate-y)) \
          rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) \
@@ -3169,35 +3200,43 @@ let resize = style "resize" [ Css.resize "both" ]
 
 (* Will-change utilities *)
 let will_change_auto =
-  style "will-change-auto" [ property "will-change" "auto" ]
+  style "will-change-auto" [ Css.declaration "will-change" "auto" ]
 
 let will_change_scroll =
-  style "will-change-scroll" [ property "will-change" "scroll-position" ]
+  style "will-change-scroll" [ Css.declaration "will-change" "scroll-position" ]
 
 let will_change_contents =
-  style "will-change-contents" [ property "will-change" "contents" ]
+  style "will-change-contents" [ Css.declaration "will-change" "contents" ]
 
 let will_change_transform =
-  style "will-change-transform" [ property "will-change" "transform" ]
+  style "will-change-transform" [ Css.declaration "will-change" "transform" ]
 
 (* Contain utilities *)
-let contain_none = style "contain-none" [ property "contain" "none" ]
-let contain_content = style "contain-content" [ property "contain" "content" ]
-let contain_layout = style "contain-layout" [ property "contain" "layout" ]
-let contain_paint = style "contain-paint" [ property "contain" "paint" ]
-let contain_size = style "contain-size" [ property "contain" "size" ]
+let contain_none = style "contain-none" [ Css.declaration "contain" "none" ]
+
+let contain_content =
+  style "contain-content" [ Css.declaration "contain" "content" ]
+
+let contain_layout =
+  style "contain-layout" [ Css.declaration "contain" "layout" ]
+
+let contain_paint = style "contain-paint" [ Css.declaration "contain" "paint" ]
+let contain_size = style "contain-size" [ Css.declaration "contain" "size" ]
 
 (* Object position utilities *)
-let object_top = style "object-top" [ property "object-position" "top" ]
-let object_right = style "object-right" [ property "object-position" "right" ]
+let object_top = style "object-top" [ Css.declaration "object-position" "top" ]
+
+let object_right =
+  style "object-right" [ Css.declaration "object-position" "right" ]
 
 let object_bottom =
-  style "object-bottom" [ property "object-position" "bottom" ]
+  style "object-bottom" [ Css.declaration "object-position" "bottom" ]
 
-let object_left = style "object-left" [ property "object-position" "left" ]
+let object_left =
+  style "object-left" [ Css.declaration "object-position" "left" ]
 
 let object_center =
-  style "object-center" [ property "object-position" "center" ]
+  style "object-center" [ Css.declaration "object-position" "center" ]
 
 (* Table utilities *)
 let table_auto = style "table-auto" [ table_layout "auto" ]
@@ -3224,8 +3263,8 @@ let form_input =
       padding_left "0.75rem";
       font_size "1rem";
       line_height "1.5rem";
-      property "outline" "2px solid transparent";
-      property "outline-offset" "2px";
+      Css.declaration "outline" "2px solid transparent";
+      Css.declaration "outline-offset" "2px";
     ]
 
 let form_textarea =
@@ -3412,7 +3451,7 @@ let prose_stylesheet () =
   let all_rules = List.concat_map Prose.to_css_rules all_variants in
   (* Add CSS variables to root *)
   let root_rule = Css.rule ~selector:":root" Prose.css_variables in
-  Css.stylesheet (root_rule :: all_rules)
+  Css.stylesheet (List.map (fun r -> Css.Rule r) (root_rule :: all_rules))
 
 (* Line clamp utility function *)
 let line_clamp n =

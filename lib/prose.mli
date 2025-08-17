@@ -57,7 +57,7 @@ val to_css_rules : t -> Css.rule list
     - [.prose p] - styles all paragraphs inside prose
     - etc. *)
 
-val to_base_properties : t -> Css.property list
+val to_base_properties : t -> Css.declaration list
 (** [to_base_properties variant] returns base CSS properties for inline styles.
 
     Returns the CSS properties that apply to the prose container itself, not the
@@ -68,7 +68,7 @@ val to_base_properties : t -> Css.property list
     - [Lg] returns font size and line height adjustments
     - [Gray] returns empty list (only affects CSS variables) *)
 
-val css_variables : Css.property list
+val css_variables : Css.declaration list
 (** Default prose CSS variables for theming
 
     These CSS custom properties control the color scheme:
