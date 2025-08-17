@@ -403,6 +403,13 @@ let supports_nested ~condition rules nested_queries =
     supports_content = SupportNested (rules, nested_queries);
   }
 
+let container ?(name = None) ~condition rules =
+  {
+    container_name = name;
+    container_condition = condition;
+    container_rules = rules;
+  }
+
 let at_property ~name ~syntax ~initial_value ?(inherits = false) () =
   { name; syntax; inherits; initial_value }
 

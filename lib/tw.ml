@@ -117,27 +117,25 @@ let string_of_breakpoint = function
 
 (* Helper to convert container query to CSS prefix *)
 let container_query_to_css_prefix = function
-  | Container_sm -> "@container (min-width: 640px)"
-  | Container_md -> "@container (min-width: 768px)"
-  | Container_lg -> "@container (min-width: 1024px)"
-  | Container_xl -> "@container (min-width: 1280px)"
-  | Container_2xl -> "@container (min-width: 1536px)"
+  | Container_sm -> "@container (min-width:24rem)"
+  | Container_md -> "@container (min-width:28rem)"
+  | Container_lg -> "@container (min-width:32rem)"
+  | Container_xl -> "@container (min-width:36rem)"
+  | Container_2xl -> "@container (min-width:42rem)"
   | Container_named ("", width) ->
-      Pp.str [ "@container (min-width: "; string_of_int width; "px)" ]
+      Pp.str [ "@container (min-width:"; string_of_int width; "px)" ]
   | Container_named (name, width) ->
-      Pp.str
-        [ "@container "; name; " (min-width: "; string_of_int width; "px)" ]
+      Pp.str [ "@container "; name; " (min-width:"; string_of_int width; "px)" ]
 
 (* Generate CSS variables from the collected requirements *)
 let container_query_to_class_prefix = function
-  | Container_sm -> "@container-sm"
-  | Container_md -> "@container-md"
-  | Container_lg -> "@container-lg"
-  | Container_xl -> "@container-xl"
-  | Container_2xl -> "@container-2xl"
-  | Container_named ("", width) -> "@container-" ^ string_of_int width
-  | Container_named (name, width) ->
-      "@container-" ^ name ^ "-" ^ string_of_int width
+  | Container_sm -> "@sm"
+  | Container_md -> "@md"
+  | Container_lg -> "@lg"
+  | Container_xl -> "@xl"
+  | Container_2xl -> "@2xl"
+  | Container_named ("", width) -> "@" ^ string_of_int width ^ "px"
+  | Container_named (name, width) -> "@" ^ name ^ "/" ^ string_of_int width
 
 (* Helper to get breakpoint for responsive prefix *)
 let responsive_breakpoint = function
@@ -148,127 +146,245 @@ let responsive_breakpoint = function
   | "2xl" -> "96rem" (* 1536px / 16 = 96rem *)
   | _ -> "0rem"
 
+(* Type to represent structured CSS rule output *)
+type rule_output =
+  | Regular of string * Css.property list (* selector, properties *)
+  | MediaQuery of
+      string * string * Css.property list (* condition, selector, properties *)
+  | ContainerQuery of
+      string * string * Css.property list (* condition, selector, properties *)
+  | StartingStyle of string * Css.property list (* selector, properties *)
+
 (* Extract selector and properties from a single Tw style *)
 let extract_selector_props tw =
   let rec extract = function
-    | Style { name = class_name; props; _ } -> [ ("." ^ class_name, props) ]
+    | Style { name = class_name; props; _ } ->
+        [ Regular ("." ^ class_name, props) ]
     | Prose variant ->
         (* Convert prose rules to selector/props pairs *)
         Prose.to_css_rules variant
-        |> List.map (fun rule -> (Css.selector rule, Css.properties rule))
+        |> List.map (fun rule ->
+               Regular (Css.selector rule, Css.properties rule))
     | Modified (modifier, t) ->
         let base = extract t in
-        List.map
-          (fun (selector, props) ->
-            let base_class =
-              String.sub selector 1 (String.length selector - 1)
-            in
-            match modifier with
-            | Hover -> (".hover\\:" ^ base_class ^ ":hover", props)
-            | Focus -> (".focus\\:" ^ base_class ^ ":focus", props)
-            | Active -> (".active\\:" ^ base_class ^ ":active", props)
-            | Disabled -> (".disabled\\:" ^ base_class ^ ":disabled", props)
-            | Group_hover -> (".group:hover .group-hover\\:" ^ base_class, props)
-            | Group_focus -> (".group:focus .group-focus\\:" ^ base_class, props)
-            | Peer_hover -> (".peer:hover ~ .peer-hover\\:" ^ base_class, props)
-            | Peer_focus -> (".peer:focus ~ .peer-focus\\:" ^ base_class, props)
-            | Peer_checked ->
-                (".peer:checked ~ .peer-checked\\:" ^ base_class, props)
-            | Aria_checked ->
-                ( ".aria-checked\\:" ^ base_class ^ "[aria-checked=\"true\"]",
-                  props )
-            | Aria_expanded ->
-                ( ".aria-expanded\\:" ^ base_class ^ "[aria-expanded=\"true\"]",
-                  props )
-            | Aria_selected ->
-                ( ".aria-selected\\:" ^ base_class ^ "[aria-selected=\"true\"]",
-                  props )
-            | Aria_disabled ->
-                ( ".aria-disabled\\:" ^ base_class ^ "[aria-disabled=\"true\"]",
-                  props )
-            | Data_state value ->
-                (selector ^ "[data-state=\"" ^ value ^ "\"]", props)
-            | Data_variant value ->
-                (selector ^ "[data-variant=\"" ^ value ^ "\"]", props)
-            | Data_active ->
-                (".data-\\[active\\]\\:" ^ base_class ^ "[data-active]", props)
-            | Data_inactive ->
-                ( ".data-\\[inactive\\]\\:" ^ base_class ^ "[data-inactive]",
-                  props )
-            | Data_custom (key, value) ->
-                (selector ^ "[data-" ^ key ^ "=\"" ^ value ^ "\"]", props)
-            | Dark ->
-                ("@media (prefers-color-scheme: dark) { " ^ selector, props)
-            | Responsive breakpoint ->
-                let prefix = string_of_breakpoint breakpoint in
-                (* Create the selector with media query prefix for grouping *)
-                ( "@media (min-width:"
-                  ^ responsive_breakpoint prefix
-                  ^ ") ." ^ prefix ^ "\\:"
-                  ^ String.sub selector 1 (String.length selector - 1),
-                  props )
-            | Container query ->
-                let query_str = container_query_to_css_prefix query in
-                (query_str ^ " { " ^ selector, props)
-            (* New v4 modifiers *)
-            | Not modifier ->
-                (* Recursively apply the Not modifier *)
-                let inner_selectors =
-                  extract (Modified (modifier, style base_class []))
+        List.concat_map
+          (fun rule_out ->
+            match rule_out with
+            | Regular (selector, props) -> (
+                let base_class =
+                  String.sub selector 1 (String.length selector - 1)
                 in
-                List.map
-                  (fun (inner_sel, _) ->
-                    let cleaned =
-                      String.sub inner_sel 1 (String.length inner_sel - 1)
+                match modifier with
+                | Hover ->
+                    [ Regular (".hover\\:" ^ base_class ^ ":hover", props) ]
+                | Focus ->
+                    [ Regular (".focus\\:" ^ base_class ^ ":focus", props) ]
+                | Active ->
+                    [ Regular (".active\\:" ^ base_class ^ ":active", props) ]
+                | Disabled ->
+                    [
+                      Regular (".disabled\\:" ^ base_class ^ ":disabled", props);
+                    ]
+                | Group_hover ->
+                    [
+                      Regular
+                        (".group:hover .group-hover\\:" ^ base_class, props);
+                    ]
+                | Group_focus ->
+                    [
+                      Regular
+                        (".group:focus .group-focus\\:" ^ base_class, props);
+                    ]
+                | Peer_hover ->
+                    [
+                      Regular
+                        (".peer:hover ~ .peer-hover\\:" ^ base_class, props);
+                    ]
+                | Peer_focus ->
+                    [
+                      Regular
+                        (".peer:focus ~ .peer-focus\\:" ^ base_class, props);
+                    ]
+                | Peer_checked ->
+                    [
+                      Regular
+                        (".peer:checked ~ .peer-checked\\:" ^ base_class, props);
+                    ]
+                | Aria_checked ->
+                    [
+                      Regular
+                        ( ".aria-checked\\:" ^ base_class
+                          ^ "[aria-checked=\"true\"]",
+                          props );
+                    ]
+                | Aria_expanded ->
+                    [
+                      Regular
+                        ( ".aria-expanded\\:" ^ base_class
+                          ^ "[aria-expanded=\"true\"]",
+                          props );
+                    ]
+                | Aria_selected ->
+                    [
+                      Regular
+                        ( ".aria-selected\\:" ^ base_class
+                          ^ "[aria-selected=\"true\"]",
+                          props );
+                    ]
+                | Aria_disabled ->
+                    [
+                      Regular
+                        ( ".aria-disabled\\:" ^ base_class
+                          ^ "[aria-disabled=\"true\"]",
+                          props );
+                    ]
+                | Data_state value ->
+                    [
+                      Regular
+                        (selector ^ "[data-state=\"" ^ value ^ "\"]", props);
+                    ]
+                | Data_variant value ->
+                    [
+                      Regular
+                        (selector ^ "[data-variant=\"" ^ value ^ "\"]", props);
+                    ]
+                | Data_active ->
+                    [
+                      Regular
+                        ( ".data-\\[active\\]\\:" ^ base_class ^ "[data-active]",
+                          props );
+                    ]
+                | Data_inactive ->
+                    [
+                      Regular
+                        ( ".data-\\[inactive\\]\\:" ^ base_class
+                          ^ "[data-inactive]",
+                          props );
+                    ]
+                | Data_custom (key, value) ->
+                    [
+                      Regular
+                        ( selector ^ "[data-" ^ key ^ "=\"" ^ value ^ "\"]",
+                          props );
+                    ]
+                | Dark ->
+                    [
+                      MediaQuery
+                        ("(prefers-color-scheme: dark)", selector, props);
+                    ]
+                | Responsive breakpoint ->
+                    let prefix = string_of_breakpoint breakpoint in
+                    let condition =
+                      "(min-width:" ^ responsive_breakpoint prefix ^ ")"
                     in
-                    (".not-" ^ cleaned ^ ":not(" ^ inner_sel ^ ")", props))
-                  inner_selectors
-                |> List.hd
-            | Has selector_str ->
-                ( ".has-\\[" ^ selector_str ^ "\\]\\:" ^ base_class ^ ":has("
-                  ^ selector_str ^ ")",
-                  props )
-            | Group_has selector_str ->
-                ( ".group:has(" ^ selector_str ^ ") .group-has-\\["
-                  ^ selector_str ^ "\\]\\:" ^ base_class,
-                  props )
-            | Peer_has selector_str ->
-                ( ".peer:has(" ^ selector_str ^ ") ~ .peer-has-\\["
-                  ^ selector_str ^ "\\]\\:" ^ base_class,
-                  props )
-            | Starting -> ("@starting-style { ." ^ base_class, props)
-            | Focus_within ->
-                (".focus-within\\:" ^ base_class ^ ":focus-within", props)
-            | Focus_visible ->
-                (".focus-visible\\:" ^ base_class ^ ":focus-visible", props)
-            | Motion_safe ->
-                ( "@media (prefers-reduced-motion: no-preference) { \
-                   .motion-safe\\:" ^ base_class,
-                  props )
-            | Motion_reduce ->
-                ( "@media (prefers-reduced-motion: reduce) { .motion-reduce\\:"
-                  ^ base_class,
-                  props )
-            | Contrast_more ->
-                ( "@media (prefers-contrast: more) { .contrast-more\\:"
-                  ^ base_class,
-                  props )
-            | Contrast_less ->
-                ( "@media (prefers-contrast: less) { .contrast-less\\:"
-                  ^ base_class,
-                  props ))
+                    let sel = "." ^ prefix ^ "\\:" ^ base_class in
+                    [ MediaQuery (condition, sel, props) ]
+                | Container query ->
+                    let prefix = container_query_to_class_prefix query in
+                    let escaped_class = ".\\" ^ prefix ^ "\\:" ^ base_class in
+                    let condition = container_query_to_css_prefix query in
+                    (* Extract just the condition part after @container *)
+                    let cond =
+                      if String.starts_with ~prefix:"@container " condition then
+                        String.sub condition 11 (String.length condition - 11)
+                      else "(min-width: 0)"
+                    in
+                    [ ContainerQuery (cond, escaped_class, props) ]
+                (* New v4 modifiers *)
+                | Not modifier -> (
+                    (* Recursively apply the Not modifier *)
+                    let inner_rules =
+                      extract (Modified (modifier, style base_class []))
+                    in
+                    match inner_rules with
+                    | Regular (inner_sel, _) :: _ ->
+                        let cleaned =
+                          String.sub inner_sel 1 (String.length inner_sel - 1)
+                        in
+                        [
+                          Regular
+                            ( ".not-" ^ cleaned ^ ":not(" ^ inner_sel ^ ")",
+                              props );
+                        ]
+                    | _ -> [ Regular (selector, props) ])
+                | Has selector_str ->
+                    [
+                      Regular
+                        ( ".has-\\[" ^ selector_str ^ "\\]\\:" ^ base_class
+                          ^ ":has(" ^ selector_str ^ ")",
+                          props );
+                    ]
+                | Group_has selector_str ->
+                    [
+                      Regular
+                        ( ".group:has(" ^ selector_str ^ ") .group-has-\\["
+                          ^ selector_str ^ "\\]\\:" ^ base_class,
+                          props );
+                    ]
+                | Peer_has selector_str ->
+                    [
+                      Regular
+                        ( ".peer:has(" ^ selector_str ^ ") ~ .peer-has-\\["
+                          ^ selector_str ^ "\\]\\:" ^ base_class,
+                          props );
+                    ]
+                | Starting -> [ StartingStyle ("." ^ base_class, props) ]
+                | Focus_within ->
+                    [
+                      Regular
+                        ( ".focus-within\\:" ^ base_class ^ ":focus-within",
+                          props );
+                    ]
+                | Focus_visible ->
+                    [
+                      Regular
+                        ( ".focus-visible\\:" ^ base_class ^ ":focus-visible",
+                          props );
+                    ]
+                | Motion_safe ->
+                    [
+                      MediaQuery
+                        ( "(prefers-reduced-motion: no-preference)",
+                          ".motion-safe\\:" ^ base_class,
+                          props );
+                    ]
+                | Motion_reduce ->
+                    [
+                      MediaQuery
+                        ( "(prefers-reduced-motion: reduce)",
+                          ".motion-reduce\\:" ^ base_class,
+                          props );
+                    ]
+                | Contrast_more ->
+                    [
+                      MediaQuery
+                        ( "(prefers-contrast: more)",
+                          ".contrast-more\\:" ^ base_class,
+                          props );
+                    ]
+                | Contrast_less ->
+                    [
+                      MediaQuery
+                        ( "(prefers-contrast: less)",
+                          ".contrast-less\\:" ^ base_class,
+                          props );
+                    ])
+            | _ -> [ rule_out ])
           base
     | Group styles -> List.concat_map extract styles
   in
   extract tw
 
-(* Group properties by selector *)
-let group_by_selector rules =
+(* Group properties by selector for Regular rules *)
+let group_regular_rules rules =
   List.fold_left
-    (fun acc (selector, props) ->
-      let existing = try List.assoc selector acc with Not_found -> [] in
-      let without = List.remove_assoc selector acc in
-      without @ [ (selector, existing @ props) ])
+    (fun acc rule ->
+      match rule with
+      | Regular (selector, props) ->
+          let existing = try List.assoc selector acc with Not_found -> [] in
+          let without = List.remove_assoc selector acc in
+          without @ [ (selector, existing @ props) ]
+      | _ -> acc)
     [] rules
 
 (* Base reset CSS rules *)
@@ -476,14 +592,21 @@ module Color = Color
 
 (* Generate CSS rules for all used Tw classes *)
 let to_css ?(reset = true) tw_classes =
-  let all_rules =
-    tw_classes |> List.concat_map extract_selector_props |> group_by_selector
+  let all_rules = tw_classes |> List.concat_map extract_selector_props in
+  (* Separate rules by type *)
+  let regular_rules, media_rules, container_rules, _starting_rules =
+    List.fold_left
+      (fun (reg, media, cont, start) rule ->
+        match rule with
+        | Regular _ -> (rule :: reg, media, cont, start)
+        | MediaQuery _ -> (reg, rule :: media, cont, start)
+        | ContainerQuery _ -> (reg, media, rule :: cont, start)
+        | StartingStyle _ -> (reg, media, cont, rule :: start))
+      ([], [], [], []) all_rules
   in
-  (* Separate media query rules from regular rules *)
-  let is_media_query selector = String.starts_with ~prefix:"@media" selector in
-  let regular_rules, media_rules =
-    List.partition (fun (sel, _) -> not (is_media_query sel)) all_rules
-  in
+
+  (* Group regular rules by selector *)
+  let grouped_regular = group_regular_rules regular_rules in
 
   (* Separate hover rules from regular rules *)
   let is_hover_rule selector =
@@ -495,7 +618,7 @@ let to_css ?(reset = true) tw_classes =
     && String.contains selector 'r'
   in
   let non_hover_rules, hover_rules =
-    List.partition (fun (sel, _) -> not (is_hover_rule sel)) regular_rules
+    List.partition (fun (sel, _) -> not (is_hover_rule sel)) grouped_regular
   in
 
   (* Create regular CSS rules *)
@@ -509,21 +632,13 @@ let to_css ?(reset = true) tw_classes =
   (* Group media query rules by their condition *)
   let media_queries_map =
     List.fold_left
-      (fun acc (selector, props) ->
-        if String.starts_with ~prefix:"@media (min-width:" selector then
-          (* Extract the media condition and actual selector *)
-          let idx = String.index selector ')' in
-          let condition = String.sub selector 0 (idx + 1) in
-          let actual_selector =
-            let rest =
-              String.sub selector (idx + 1) (String.length selector - idx - 1)
-            in
-            String.trim rest
-          in
-          let rules = try List.assoc condition acc with Not_found -> [] in
-          (condition, (actual_selector, props) :: rules)
-          :: List.remove_assoc condition acc
-        else acc)
+      (fun acc rule ->
+        match rule with
+        | MediaQuery (condition, selector, props) ->
+            let rules = try List.assoc condition acc with Not_found -> [] in
+            (condition, (selector, props) :: rules)
+            :: List.remove_assoc condition acc
+        | _ -> acc)
       [] media_rules
   in
 
@@ -531,7 +646,7 @@ let to_css ?(reset = true) tw_classes =
   let media_queries_map =
     if hover_rules = [] then media_queries_map
     else
-      let hover_condition = "@media (hover:hover)" in
+      let hover_condition = "(hover:hover)" in
       let existing_hover_rules =
         try List.assoc hover_condition media_queries_map with Not_found -> []
       in
@@ -549,11 +664,35 @@ let to_css ?(reset = true) tw_classes =
               Css.rule ~selector:sel (Css.deduplicate_properties props))
             rule_list
         in
-        let media_condition =
-          String.sub condition 7 (String.length condition - 7)
-        in
-        Css.media ~condition:media_condition rules)
+        Css.media ~condition rules)
       media_queries_map
+  in
+
+  (* Group container query rules by their condition *)
+  let container_queries_map =
+    List.fold_left
+      (fun acc rule ->
+        match rule with
+        | ContainerQuery (condition, selector, props) ->
+            let rules = try List.assoc condition acc with Not_found -> [] in
+            (condition, (selector, props) :: rules)
+            :: List.remove_assoc condition acc
+        | _ -> acc)
+      [] container_rules
+  in
+
+  (* Create container query objects *)
+  let container_queries =
+    List.map
+      (fun (condition, rule_list) ->
+        let rules =
+          List.map
+            (fun (sel, props) ->
+              Css.rule ~selector:sel (Css.deduplicate_properties props))
+            rule_list
+        in
+        Css.container ~condition rules)
+      container_queries_map
   in
 
   (* Build the complete stylesheet with layers - just like Tailwind v4 *)
@@ -605,7 +744,13 @@ let to_css ?(reset = true) tw_classes =
       |> List.concat_map (fun tw ->
              let selector_props = extract_selector_props tw in
              List.concat_map
-               (fun (_, props) -> Css.all_vars props)
+               (fun rule ->
+                 match rule with
+                 | Regular (_, props)
+                 | MediaQuery (_, _, props)
+                 | ContainerQuery (_, _, props)
+                 | StartingStyle (_, props) ->
+                     Css.all_vars props)
                selector_props)
       |> List.sort_uniq String.compare
     in
@@ -1046,7 +1191,7 @@ let to_css ?(reset = true) tw_classes =
         rules
     in
     let utilities_layer =
-      Css.layered_rules ~layer:Css.Utilities ~media_queries
+      Css.layered_rules ~layer:Css.Utilities ~media_queries ~container_queries
         (sorted_rules |> List.map Css.rule_to_nested)
     in
 
@@ -1115,11 +1260,12 @@ let to_css ?(reset = true) tw_classes =
     in
 
     (* Don't add empty Properties layer *)
-    (* Media queries are already included in the utilities layer, don't duplicate *)
+    (* Media queries and container queries are already included in the utilities layer, don't duplicate *)
     Css.stylesheet ~layers ~at_properties []
   else
-    (* No reset - just raw rules and media queries, no layers *)
-    Css.stylesheet ~layers:[] ~media_queries rules
+    (* No reset - just raw rules, media queries, and container queries, no
+       layers *)
+    Css.stylesheet ~layers:[] ~media_queries ~container_queries rules
 
 (* Convert Tw styles to inline style attribute value *)
 let to_inline_style styles =
@@ -2410,20 +2556,11 @@ let container_name name =
   style ("container-" ^ name) [ property "container-name" name ]
 
 (* Container query breakpoints *)
-let on_container_sm styles =
-  Group (List.map (fun t -> Modified (Container Container_sm, t)) styles)
-
-let on_container_md styles =
-  Group (List.map (fun t -> Modified (Container Container_md, t)) styles)
-
-let on_container_lg styles =
-  Group (List.map (fun t -> Modified (Container Container_lg, t)) styles)
-
-let on_container_xl styles =
-  Group (List.map (fun t -> Modified (Container Container_xl, t)) styles)
-
-let on_container_2xl styles =
-  Group (List.map (fun t -> Modified (Container Container_2xl, t)) styles)
+let on_container_sm styles = Modified (Container Container_sm, Group styles)
+let on_container_md styles = Modified (Container Container_md, Group styles)
+let on_container_lg styles = Modified (Container Container_lg, Group styles)
+let on_container_xl styles = Modified (Container Container_xl, Group styles)
+let on_container_2xl styles = Modified (Container Container_2xl, Group styles)
 
 (* Named container queries - using on_container as the user suggested *)
 let on_container ?name min_width styles =
