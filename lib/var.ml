@@ -8,6 +8,7 @@ type feature_group =
   | Backdrop
   | RingShadow
   | Gradient
+  | Border
   | Other (* catch-all; usually no properties layer *)
 
 (* Map each --tw- variable to its feature group *)
@@ -36,6 +37,7 @@ let group_of_var (v : string) : feature_group =
   | "--tw-gradient-stops" | "--tw-gradient-from-position"
   | "--tw-gradient-via-position" | "--tw-gradient-to-position" ->
       Gradient
+  | "--tw-border-style" -> Border
   | "--tw-font-weight" | "--tw-leading" ->
       Other (* These get special handling *)
   | _ -> Other
@@ -101,6 +103,7 @@ let defaults_for_group = function
         ("--tw-gradient-to", "transparent");
         ("--tw-gradient-stops", "var(--tw-gradient-from), var(--tw-gradient-to)");
       ]
+  | Border -> [ ("--tw-border-style", "solid") ]
   | Other -> []
 
 (* Collect usages while compiling utilities *)
@@ -169,13 +172,34 @@ let analyze_properties props =
 
 (* Decide which groups actually need a properties layer *)
 let groups_needing_layer (t : tally) : feature_group list =
-  (* Group the assigned vars, ignore fallback-only vars *)
+  (* Only include groups for variables that are referenced but NOT assigned *)
+  let unassigned_refs = S.diff t.fallback_refs t.assigned in
+
+  (* Check which groups need initialization based on unassigned references *)
   let groups =
     S.fold
-      (fun v acc -> match group_of_var v with Other -> acc | g -> g :: acc)
+      (fun v acc ->
+        match v with
+        | "--tw-border-style" ->
+            Border
+            :: acc (* Border style needs init if referenced but not assigned *)
+        | _ -> ( match group_of_var v with Other -> acc | g -> g :: acc))
+      unassigned_refs []
+  in
+
+  (* Also include groups for assigned variables that are composition groups (not
+     Border) *)
+  let assigned_groups =
+    S.fold
+      (fun v acc ->
+        match group_of_var v with
+        | Border -> acc (* Don't add Border group for assignments *)
+        | Other -> acc
+        | g -> g :: acc)
       t.assigned []
   in
-  groups |> List.sort_uniq compare
+
+  groups @ assigned_groups |> List.sort_uniq compare
 
 (* Generate properties layer initializers for needed groups *)
 let generate_properties_layer (t : tally) : (string * string) list =
@@ -200,7 +224,15 @@ let generate_properties_layer (t : tally) : (string * string) list =
 
 (* Get variables that need @property rules *)
 let needs_at_property (t : tally) : string list =
+  (* Only need @property for variables that are referenced but NOT assigned *)
+  let unassigned_refs = S.diff t.fallback_refs t.assigned in
+
   S.fold
-    (fun v acc -> match v with "--tw-font-weight" -> v :: acc | _ -> acc)
-    t.assigned []
+    (fun v acc ->
+      match v with
+      | "--tw-border-style" ->
+          v :: acc
+          (* Border style needs @property if referenced but not assigned *)
+      | _ -> acc)
+    unassigned_refs []
   |> List.sort_uniq String.compare
