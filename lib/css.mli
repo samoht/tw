@@ -407,6 +407,10 @@ val supports_nested :
 (** [supports_nested ~condition rules nested_queries] creates a [@supports]
     query with nested [@supports] queries. *)
 
+val container :
+  ?name:string option -> condition:string -> rule list -> container_query
+(** [container ?name ~condition rules] creates a container query. *)
+
 val at_property :
   name:string ->
   syntax:string ->
