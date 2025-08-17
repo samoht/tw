@@ -1,5 +1,5 @@
 (* Tests for CSS module *)
-open Tw.Css
+open Css
 
 let test_property_creation () =
   let _color_prop = color "red" in

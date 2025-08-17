@@ -479,3 +479,13 @@ val deduplicate_properties : property list -> property list
 val properties_to_inline_style : property list -> string
 (** [properties_to_inline_style properties] converts a list of properties to an
     inline style string. *)
+
+(** {1 Version Information} *)
+
+module Version : sig
+  val version : string
+  (** The version string of the library *)
+
+  val header : string
+  (** CSS comment header with version information *)
+end

@@ -1,4 +1,5 @@
 (library
  (public_name tw)
  (name tw)
- (libraries re dune-build-info))
+ (libraries css re)
+ (modules_without_implementation version))
