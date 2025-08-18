@@ -577,7 +577,26 @@ let purple = Purple
 let fuchsia = Fuchsia
 let pink = Pink
 let rose = Rose
-let hex s = Hex s
+
+let hex s =
+  (* Check if the string is actually an RGB value like "rgb(29,161,242)" *)
+  if String.starts_with ~prefix:"rgb(" s && String.ends_with ~suffix:")" s then
+    (* Parse RGB string and convert to hex *)
+    try
+      let inner = String.sub s 4 (String.length s - 5) in
+      (* Remove "rgb(" and ")" *)
+      let parts = String.split_on_char ',' inner |> List.map String.trim in
+      match parts with
+      | [ r_str; g_str; b_str ] ->
+          let r = int_of_string r_str in
+          let g = int_of_string g_str in
+          let b = int_of_string b_str in
+          (* Convert RGB to hex *)
+          let hex_str = Printf.sprintf "#%02x%02x%02x" r g b in
+          Hex hex_str
+      | _ -> Hex s (* Fallback if parsing fails *)
+    with _ -> Hex s (* Fallback if parsing fails *)
+  else Hex s
 
 (* Convert string name to color type *)
 let of_string = function
