@@ -1419,8 +1419,8 @@ let bg color shade =
     in
     (* Track the color variable requirement *)
     let color_var =
-      if Color.is_base_color color then Css.Color (color_name color, None)
-      else Css.Color (color_name color, Some shade)
+      if Color.is_base_color color then Css.color_var (color_name color)
+      else Css.color_var ~shade (color_name color)
     in
     style_with_vars class_name
       [ Css.declaration "background-color" var_ref ]
@@ -1494,8 +1494,8 @@ let text color shade =
     in
     (* Track the color variable requirement *)
     let color_var =
-      if Color.is_base_color color then Css.Color (color_name color, None)
-      else Css.Color (color_name color, Some shade)
+      if Color.is_base_color color then Css.color_var (color_name color)
+      else Css.color_var ~shade (color_name color)
     in
     style_with_vars class_name [ Css.declaration "color" var_ref ] [ color_var ]
 
@@ -1567,8 +1567,8 @@ let border_color color shade =
     in
     (* Track the color variable requirement *)
     let color_var =
-      if Color.is_base_color color then Css.Color (color_name color, None)
-      else Css.Color (color_name color, Some shade)
+      if Color.is_base_color color then Css.color_var (color_name color)
+      else Css.color_var ~shade (color_name color)
     in
     style_with_vars class_name
       [ Css.declaration "border-color" var_ref ]
@@ -1648,7 +1648,7 @@ let spacing_to_length : spacing -> Css.length = function
   | `Full -> Css.Pct 100.0
   | `Rem f ->
       let n = int_of_float (f /. 0.25) in
-      Css.Calc (Expr (Var (Css.Spacing 1), Mult, CalcNum (float_of_int n)))
+      Css.Calc (Expr (Var (Css.Spacing 1), Mult, Calc_num (float_of_int n)))
 
 let margin_to_length : margin -> Css.length = function
   | `Auto -> Css.Auto
@@ -2340,14 +2340,14 @@ let grid_cols n =
   style class_name
     [
       Css.grid_template_columns
-        (Css.Repeat (n, Css.MinMax (Css.Px 0, Css.Fr 1.)));
+        (Css.Repeat (n, Css.Min_max (Css.Px 0, Css.Fr 1.)));
     ]
 
 let grid_rows n =
   let class_name = "grid-rows-" ^ string_of_int n in
   style class_name
     [
-      Css.grid_template_rows (Css.Repeat (n, Css.MinMax (Css.Px 0, Css.Fr 1.)));
+      Css.grid_template_rows (Css.Repeat (n, Css.Min_max (Css.Px 0, Css.Fr 1.)));
     ]
 
 let static = style "static" [ Css.position Css.Static ]
@@ -2400,11 +2400,11 @@ let left_1_2 = style "left-1/2" [ Css.left "50%" ]
 
 let neg_translate_x_1_2 =
   style "-translate-x-1/2"
-    [ Css.transform [ Css.TranslateX (Css.Pct (-50.0)) ] ]
+    [ Css.transform [ Css.Translate_x (Css.Pct (-50.0)) ] ]
 
 let neg_translate_y_1_2 =
   style "-translate-y-1/2"
-    [ Css.transform [ Css.TranslateY (Css.Pct (-50.0)) ] ]
+    [ Css.transform [ Css.Translate_y (Css.Pct (-50.0)) ] ]
 
 type width = size
 
@@ -2596,13 +2596,13 @@ let translate_x n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "translate-x-" ^ string_of_int (abs n) in
   let len = if n = 0 then Css.Zero else Css.Rem (float_of_int n *. 0.25) in
-  style class_name [ Css.transform [ Css.TranslateX len ] ]
+  style class_name [ Css.transform [ Css.Translate_x len ] ]
 
 let translate_y n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "translate-y-" ^ string_of_int (abs n) in
   let len = if n = 0 then Css.Zero else Css.Rem (float_of_int n *. 0.25) in
-  style class_name [ Css.transform [ Css.TranslateY len ] ]
+  style class_name [ Css.transform [ Css.Translate_y len ] ]
 
 (** 3D Transform utilities - inspired by modern CSS capabilities
 
@@ -2615,22 +2615,22 @@ let translate_y n =
 let rotate_x n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "rotate-x-" ^ string_of_int (abs n) in
-  style class_name [ Css.transform [ Css.RotateX (Css.Deg (float_of_int n)) ] ]
+  style class_name [ Css.transform [ Css.Rotate_x (Css.Deg (float_of_int n)) ] ]
 
 let rotate_y n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "rotate-y-" ^ string_of_int (abs n) in
-  style class_name [ Css.transform [ Css.RotateY (Css.Deg (float_of_int n)) ] ]
+  style class_name [ Css.transform [ Css.Rotate_y (Css.Deg (float_of_int n)) ] ]
 
 let rotate_z n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "rotate-z-" ^ string_of_int (abs n) in
-  style class_name [ Css.transform [ Css.RotateZ (Css.Deg (float_of_int n)) ] ]
+  style class_name [ Css.transform [ Css.Rotate_z (Css.Deg (float_of_int n)) ] ]
 
 let translate_z n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "translate-z-" ^ string_of_int (abs n) in
-  style class_name [ Css.transform [ Css.TranslateZ (Css.Px n) ] ]
+  style class_name [ Css.transform [ Css.Translate_z (Css.Px n) ] ]
 
 let scale_z n =
   let value = float_of_int n /. 100.0 in
@@ -2640,26 +2640,28 @@ let scale_z n =
       Css.declaration "--tw-scale-z" (Pp.float value);
       Css.transform
         [
-          Css.TranslateVar
+          Css.Translate_var
             {
               var_name = "tw-translate-x, var(--tw-translate-y";
               fallback = None;
             };
-          Css.TranslateZ
-            (Css.Calc (Css.Var (Css.Custom ("tw-translate-z", "0"))));
-          Css.RotateVar { var_name = "tw-rotate"; fallback = None };
-          Css.RotateX
-            (Css.AngleVar { var_name = "tw-rotate-x"; fallback = Some 0.0 });
-          Css.RotateY
-            (Css.AngleVar { var_name = "tw-rotate-y"; fallback = Some 0.0 });
-          Css.RotateZ
-            (Css.AngleVar { var_name = "tw-rotate-z"; fallback = Some 0.0 });
-          Css.SkewVar
+          Css.Translate_z
+            (Css.Calc (Css.Var (Css.custom_var "tw-translate-z" "0")));
+          Css.Rotate_var { var_name = "tw-rotate"; fallback = None };
+          Css.Rotate_x
+            (Css.Angle_var { var_name = "tw-rotate-x"; fallback = Some 0.0 });
+          Css.Rotate_y
+            (Css.Angle_var { var_name = "tw-rotate-y"; fallback = Some 0.0 });
+          Css.Rotate_z
+            (Css.Angle_var { var_name = "tw-rotate-z"; fallback = Some 0.0 });
+          Css.Skew_var
             { var_name = "tw-skew-x) skewY(var(--tw-skew-y"; fallback = None };
-          Css.ScaleX (Css.ScaleVar { var_name = "tw-scale-x"; fallback = None });
-          Css.ScaleY (Css.ScaleVar { var_name = "tw-scale-y"; fallback = None });
-          Css.ScaleZ
-            (Css.ScaleVar { var_name = "tw-scale-z"; fallback = Some 1.0 });
+          Css.Scale_x
+            (Css.Scale_var { var_name = "tw-scale-x"; fallback = None });
+          Css.Scale_y
+            (Css.Scale_var { var_name = "tw-scale-y"; fallback = None });
+          Css.Scale_z
+            (Css.Scale_var { var_name = "tw-scale-z"; fallback = Some 1.0 });
         ];
     ]
 
@@ -3200,7 +3202,7 @@ let transform_none =
   style "transform-none" [ Css.transform [ Css.Transform_none ] ]
 
 let transform_gpu =
-  style "transform-gpu" [ Css.transform [ Css.TranslateZ Css.Zero ] ]
+  style "transform-gpu" [ Css.transform [ Css.Translate_z Css.Zero ] ]
 
 let brightness n =
   let class_name = "brightness-" ^ string_of_int n in
