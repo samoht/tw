@@ -26,12 +26,12 @@ type modifier =
   | Active
   | Disabled
   | Group_hover
+  | Group_focus
   | Dark
   | Responsive of breakpoint
   | Peer_hover
   | Peer_focus
   | Peer_checked
-  | Group_focus
   | Aria_checked
   | Aria_expanded
   | Aria_selected
@@ -42,7 +42,6 @@ type modifier =
   | Data_inactive
   | Data_custom of string * string
   | Container of container_query
-  (* New v4 variants *)
   | Not of modifier (* not-* variant for negation *)
   | Has of string (* has-* variant for :has() pseudo-class *)
   | Group_has of string (* group-has-* variant *)
@@ -63,14 +62,15 @@ and container_query =
   | Container_2xl
   | Container_named of string * int
 
+(** Tailwind CSS variable types - specific to Tailwind's design system *)
+type var = Color of { name : string; shade : int option } | Spacing of int
+
+let color_var ?shade name = Color { name; shade }
+
 (** A Tailwind utility class with its name, CSS properties, and required
     variables *)
 type t =
-  | Style of {
-      name : string;
-      props : Css.declaration list;
-      vars : Css.var list;
-    }
+  | Style of { name : string; props : Css.declaration list; vars : var list }
   | Prose of Prose.t
   | Modified of modifier * t
   | Group of t list
@@ -1459,13 +1459,13 @@ let bg color shade =
           [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
     in
     (* Track the color variable requirement *)
-    let color_var =
-      if Color.is_base_color color then Css.color_var (color_name color)
-      else Css.color_var ~shade (color_name color)
+    let var =
+      if Color.is_base_color color then color_var (color_name color)
+      else color_var ~shade (color_name color)
     in
     style_with_vars class_name
       [ Css.declaration "background-color" var_ref ]
-      [ color_var ]
+      [ var ]
 
 let bg_transparent = style "bg-transparent" [ background_color Transparent ]
 let bg_current = style "bg-current" [ background_color Current ]
@@ -1546,11 +1546,11 @@ let text color shade =
           [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
     in
     (* Track the color variable requirement *)
-    let color_var =
-      if Color.is_base_color color then Css.color_var (color_name color)
-      else Css.color_var ~shade (color_name color)
+    let var =
+      if Color.is_base_color color then color_var (color_name color)
+      else color_var ~shade (color_name color)
     in
-    style_with_vars class_name [ Css.declaration "color" var_ref ] [ color_var ]
+    style_with_vars class_name [ Css.declaration "color" var_ref ] [ var ]
 
 let text_transparent = style "text-transparent" [ Css.color Transparent ]
 let text_current = style "text-current" [ Css.color Current ]
@@ -1631,13 +1631,13 @@ let border_color color shade =
           [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
     in
     (* Track the color variable requirement *)
-    let color_var =
-      if Color.is_base_color color then Css.color_var (color_name color)
-      else Css.color_var ~shade (color_name color)
+    let var =
+      if Color.is_base_color color then color_var (color_name color)
+      else color_var ~shade (color_name color)
     in
     style_with_vars class_name
       [ Css.declaration "border-color" var_ref ]
-      [ color_var ]
+      [ var ]
 
 let border_transparent =
   style "border-transparent" [ Css.border_color Transparent ]
@@ -1881,7 +1881,7 @@ let m n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "m-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ Css.margin len ] [ Css.Spacing (abs n) ]
+  style_with_vars class_name [ Css.margin len ] [ Spacing (abs n) ]
 
 let mx n =
   let s = int n in
@@ -1902,28 +1902,28 @@ let mt n =
   let len = spacing_to_length s in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mt-" ^ pp_spacing_suffix s in
-  style_with_vars class_name [ Css.margin_top len ] [ Css.Spacing (abs n) ]
+  style_with_vars class_name [ Css.margin_top len ] [ Spacing (abs n) ]
 
 let mr n =
   let s = int n in
   let len = spacing_to_length s in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mr-" ^ pp_spacing_suffix s in
-  style_with_vars class_name [ Css.margin_right len ] [ Css.Spacing (abs n) ]
+  style_with_vars class_name [ Css.margin_right len ] [ Spacing (abs n) ]
 
 let mb n =
   let s = int n in
   let len = spacing_to_length s in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mb-" ^ pp_spacing_suffix s in
-  style_with_vars class_name [ Css.margin_bottom len ] [ Css.Spacing (abs n) ]
+  style_with_vars class_name [ Css.margin_bottom len ] [ Spacing (abs n) ]
 
 let ml n =
   let s = int n in
   let len = spacing_to_length s in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "ml-" ^ pp_spacing_suffix s in
-  style_with_vars class_name [ Css.margin_left len ] [ Css.Spacing (abs n) ]
+  style_with_vars class_name [ Css.margin_left len ] [ Spacing (abs n) ]
 
 (* Common margin utilities *)
 let m_auto = m' `Auto
@@ -2453,7 +2453,7 @@ let top n =
            Css.Mult,
            Css.Calc_num (float_of_int (abs n)) ))
   in
-  style_with_vars class_name [ Css.top value ] [ Css.Spacing (abs n) ]
+  style_with_vars class_name [ Css.top value ] [ Spacing (abs n) ]
 
 let right n =
   let prefix = if n < 0 then "-" else "" in
@@ -2465,7 +2465,7 @@ let right n =
            Css.Mult,
            Css.Calc_num (float_of_int (abs n)) ))
   in
-  style_with_vars class_name [ Css.right value ] [ Css.Spacing (abs n) ]
+  style_with_vars class_name [ Css.right value ] [ Spacing (abs n) ]
 
 let bottom n =
   let prefix = if n < 0 then "-" else "" in
@@ -2477,7 +2477,7 @@ let bottom n =
            Css.Mult,
            Css.Calc_num (float_of_int (abs n)) ))
   in
-  style_with_vars class_name [ Css.bottom value ] [ Css.Spacing (abs n) ]
+  style_with_vars class_name [ Css.bottom value ] [ Spacing (abs n) ]
 
 let left n =
   let prefix = if n < 0 then "-" else "" in
@@ -2489,7 +2489,7 @@ let left n =
            Css.Mult,
            Css.Calc_num (float_of_int (abs n)) ))
   in
-  style_with_vars class_name [ Css.left value ] [ Css.Spacing (abs n) ]
+  style_with_vars class_name [ Css.left value ] [ Spacing (abs n) ]
 
 let z n =
   let class_name = "z-" ^ string_of_int n in
@@ -2508,7 +2508,7 @@ let inset n =
   in
   style_with_vars class_name
     [ Css.top value; Css.right value; Css.bottom value; Css.left value ]
-    [ Css.Spacing (abs n) ]
+    [ Spacing (abs n) ]
 
 (* Fractional position utilities *)
 let top_1_2 = style "top-1/2" [ Css.top (Pct 50.0) ]
@@ -3223,7 +3223,7 @@ let from_color ?(shade = 500) color =
       "from-" ^ color_name color
     else Pp.str [ "from-"; color_name color; "-"; string_of_int shade ]
   in
-  let color_var =
+  let var_str =
     if Color.is_base_color color || Color.is_custom_color color then
       Pp.str [ "var(--color-"; color_name color; ")" ]
     else
@@ -3231,7 +3231,7 @@ let from_color ?(shade = 500) color =
   in
   style class_name
     [
-      Css.declaration "--tw-gradient-from" color_var;
+      Css.declaration "--tw-gradient-from" var_str;
       Css.declaration "--tw-gradient-stops"
         "var(--tw-gradient-via-stops, var(--tw-gradient-position), \
          var(--tw-gradient-from) var(--tw-gradient-from-position), \
@@ -3244,7 +3244,7 @@ let via_color ?(shade = 500) color =
       "via-" ^ color_name color
     else Pp.str [ "via-"; color_name color; "-"; string_of_int shade ]
   in
-  let color_var =
+  let var_str =
     if Color.is_base_color color || Color.is_custom_color color then
       Pp.str [ "var(--color-"; color_name color; ")" ]
     else
@@ -3252,7 +3252,7 @@ let via_color ?(shade = 500) color =
   in
   style class_name
     [
-      Css.declaration "--tw-gradient-via" color_var;
+      Css.declaration "--tw-gradient-via" var_str;
       Css.declaration "--tw-gradient-via-stops"
         "var(--tw-gradient-position), var(--tw-gradient-from) \
          var(--tw-gradient-from-position), var(--tw-gradient-via) \
@@ -3267,7 +3267,7 @@ let to_color ?(shade = 500) color =
       "to-" ^ color_name color
     else Pp.str [ "to-"; color_name color; "-"; string_of_int shade ]
   in
-  let color_var =
+  let var_str =
     if Color.is_base_color color || Color.is_custom_color color then
       Pp.str [ "var(--color-"; color_name color; ")" ]
     else
@@ -3275,7 +3275,7 @@ let to_color ?(shade = 500) color =
   in
   style class_name
     [
-      Css.declaration "--tw-gradient-to" color_var;
+      Css.declaration "--tw-gradient-to" var_str;
       Css.declaration "--tw-gradient-stops"
         "var(--tw-gradient-via-stops, var(--tw-gradient-position), \
          var(--tw-gradient-from) var(--tw-gradient-from-position), \
