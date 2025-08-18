@@ -2981,7 +2981,7 @@ let ring_color color shade =
   in
   style class_name []
 
-let isolate = style "isolate" [ Css.isolation "isolate" ]
+let isolate = style "isolate" [ Css.isolation Css.Isolate ]
 let overflow_auto = style "overflow-auto" [ Css.overflow Css.Auto ]
 let overflow_hidden = style "overflow-hidden" [ Css.overflow Css.Hidden ]
 let overflow_visible = style "overflow-visible" [ Css.overflow Css.Visible ]
@@ -3004,17 +3004,19 @@ let overflow_y_visible =
 let overflow_y_scroll = style "overflow-y-scroll" [ Css.overflow_y Css.Scroll ]
 
 (* Scroll snap utilities *)
-let snap_none = style "snap-none" [ Css.scroll_snap_type "none" ]
+let snap_none = style "snap-none" [ Css.scroll_snap_type Css.None ]
 
 let snap_x =
-  style "snap-x" [ Css.scroll_snap_type "x var(--tw-scroll-snap-strictness)" ]
+  style "snap-x"
+    [ Css.scroll_snap_type (X_var "var(--tw-scroll-snap-strictness)") ]
 
 let snap_y =
-  style "snap-y" [ Css.scroll_snap_type "y var(--tw-scroll-snap-strictness)" ]
+  style "snap-y"
+    [ Css.scroll_snap_type (Y_var "var(--tw-scroll-snap-strictness)") ]
 
 let snap_both =
   style "snap-both"
-    [ Css.scroll_snap_type "both var(--tw-scroll-snap-strictness)" ]
+    [ Css.scroll_snap_type (Both_var "var(--tw-scroll-snap-strictness)") ]
 
 let snap_mandatory =
   style "snap-mandatory"
@@ -3024,14 +3026,14 @@ let snap_proximity =
   style "snap-proximity"
     [ Css.declaration "--tw-scroll-snap-strictness" "proximity" ]
 
-let snap_start = style "snap-start" [ Css.scroll_snap_align "start" ]
-let snap_end = style "snap-end" [ Css.scroll_snap_align "end" ]
-let snap_center = style "snap-center" [ Css.scroll_snap_align "center" ]
-let snap_align_none = style "snap-align-none" [ Css.scroll_snap_align "none" ]
-let snap_normal = style "snap-normal" [ Css.scroll_snap_stop "normal" ]
-let snap_always = style "snap-always" [ Css.scroll_snap_stop "always" ]
-let scroll_auto = style "scroll-auto" [ Css.scroll_behavior "auto" ]
-let scroll_smooth = style "scroll-smooth" [ Css.scroll_behavior "smooth" ]
+let snap_start = style "snap-start" [ Css.scroll_snap_align Css.Start ]
+let snap_end = style "snap-end" [ Css.scroll_snap_align Css.End ]
+let snap_center = style "snap-center" [ Css.scroll_snap_align Css.Center ]
+let snap_align_none = style "snap-align-none" [ Css.scroll_snap_align Css.None ]
+let snap_normal = style "snap-normal" [ Css.scroll_snap_stop Css.Normal ]
+let snap_always = style "snap-always" [ Css.scroll_snap_stop Css.Always ]
+let scroll_auto = style "scroll-auto" [ Css.scroll_behavior Css.Auto ]
+let scroll_smooth = style "scroll-smooth" [ Css.scroll_behavior Css.Smooth ]
 let object_contain = style "object-contain" [ Css.object_fit Contain ]
 let object_cover = style "object-cover" [ Css.object_fit Cover ]
 let object_fill = style "object-fill" [ Css.object_fit Fill ]
@@ -3296,8 +3298,8 @@ let to_color ?(shade = 500) color =
 let antialiased =
   style "antialiased"
     [
-      Css.webkit_font_smoothing "antialiased";
-      Css.moz_osx_font_smoothing "grayscale";
+      Css.webkit_font_smoothing Antialiased;
+      Css.moz_osx_font_smoothing Grayscale;
     ]
 
 (* Text transformation utilities *)
@@ -3308,18 +3310,18 @@ let normal_case = style "normal-case" [ Css.text_transform None ]
 
 (* Text decoration style utilities *)
 let underline_solid =
-  style "underline-solid" [ Css.text_decoration_style "solid" ]
+  style "underline-solid" [ Css.text_decoration_style Solid ]
 
 let underline_double =
-  style "underline-double" [ Css.text_decoration_style "double" ]
+  style "underline-double" [ Css.text_decoration_style Double ]
 
 let underline_dotted =
-  style "underline-dotted" [ Css.text_decoration_style "dotted" ]
+  style "underline-dotted" [ Css.text_decoration_style Dotted ]
 
 let underline_dashed =
-  style "underline-dashed" [ Css.text_decoration_style "dashed" ]
+  style "underline-dashed" [ Css.text_decoration_style Dashed ]
 
-let underline_wavy = style "underline-wavy" [ Css.text_decoration_style "wavy" ]
+let underline_wavy = style "underline-wavy" [ Css.text_decoration_style Wavy ]
 
 (* Text underline offset utilities *)
 let underline_offset_auto =
