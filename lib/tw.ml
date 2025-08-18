@@ -402,7 +402,7 @@ let generate_reset_rules () =
     (* Universal reset *)
     Css.rule ~selector:"*, :after, :before, ::backdrop"
       [
-        Css.box_sizing "border-box";
+        Css.box_sizing Border_box;
         Css.declaration "border" "0 solid";
         Css.margin Zero;
         Css.padding Zero;
@@ -410,7 +410,7 @@ let generate_reset_rules () =
     (* File selector button - first occurrence *)
     Css.rule ~selector:"::file-selector-button"
       [
-        Css.box_sizing "border-box";
+        Css.box_sizing Border_box;
         Css.declaration "border" "0 solid";
         Css.margin Zero;
         Css.padding Zero;
@@ -422,9 +422,23 @@ let generate_reset_rules () =
         Css.declaration "tab-size" "4";
         Css.line_height (Num 1.5);
         Css.font_family
-          "var(--default-font-family, ui-sans-serif, system-ui, sans-serif, \
-           \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \
-           \"Noto Color Emoji\")";
+          [
+            Css.Var
+              {
+                name = "default-font-family";
+                fallback =
+                  Some
+                    [
+                      Css.Ui_sans_serif;
+                      Css.System_ui;
+                      Css.Sans_serif;
+                      Css.Apple_color_emoji;
+                      Css.Segoe_ui_emoji;
+                      Css.Segoe_ui_symbol;
+                      Css.Noto_color_emoji;
+                    ];
+              };
+          ];
         Css.declaration "font-feature-settings"
           "var(--default-font-feature-settings, normal)";
         Css.declaration "font-variation-settings"
@@ -462,9 +476,24 @@ let generate_reset_rules () =
     Css.rule ~selector:"code, kbd, samp, pre"
       [
         Css.font_family
-          "var(--default-mono-font-family, ui-monospace, SFMono-Regular, \
-           Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", \
-           monospace)";
+          [
+            Css.Var
+              {
+                name = "default-mono-font-family";
+                fallback =
+                  Some
+                    [
+                      Css.Ui_monospace;
+                      Css.SFMono_regular;
+                      Css.Menlo;
+                      Css.Monaco;
+                      Css.Consolas;
+                      Css.Liberation_mono;
+                      Css.Courier_new;
+                      Css.Monospace;
+                    ];
+              };
+          ];
         Css.declaration "font-feature-settings"
           "var(--default-mono-font-feature-settings, normal)";
         Css.declaration "font-variation-settings"
@@ -481,8 +510,8 @@ let generate_reset_rules () =
         Css.line_height Zero;
         Css.position Relative;
       ];
-    Css.rule ~selector:"sub" [ Css.bottom "-.25em" ];
-    Css.rule ~selector:"sup" [ Css.top "-.5em" ];
+    Css.rule ~selector:"sub" [ Css.bottom (Em (-0.25)) ];
+    Css.rule ~selector:"sup" [ Css.top (Em (-0.5)) ];
     (* Table *)
     Css.rule ~selector:"table"
       [
@@ -511,7 +540,7 @@ let generate_reset_rules () =
         Css.declaration "font-variation-settings" "inherit";
         Css.declaration "letter-spacing" "inherit";
         Css.color Inherit;
-        Css.opacity "1";
+        Css.opacity 1.0;
         Css.background_color Transparent;
         Css.border_radius Zero;
       ];
@@ -523,7 +552,7 @@ let generate_reset_rules () =
         Css.declaration "font-variation-settings" "inherit";
         Css.declaration "letter-spacing" "inherit";
         Css.color Inherit;
-        Css.opacity "1";
+        Css.opacity 1.0;
         Css.background_color Transparent;
         Css.border_radius Zero;
       ];
@@ -536,9 +565,9 @@ let generate_reset_rules () =
     Css.rule ~selector:"::file-selector-button"
       [ Css.declaration "margin-inline-end" "4px" ];
     (* Placeholder - basic *)
-    Css.rule ~selector:"::placeholder" [ Css.opacity "1" ];
+    Css.rule ~selector:"::placeholder" [ Css.opacity 1.0 ];
     (* Textarea *)
-    Css.rule ~selector:"textarea" [ Css.resize "vertical" ];
+    Css.rule ~selector:"textarea" [ Css.resize Vertical ];
     (* Search decoration *)
     Css.rule ~selector:"::-webkit-search-decoration"
       [ Css.declaration "-webkit-appearance" "none" ];
@@ -575,9 +604,9 @@ let generate_reset_rules () =
     Css.rule
       ~selector:
         "button, input:where([type=button], [type=reset], [type=submit])"
-      [ Css.appearance "button" ];
+      [ Css.appearance Button ];
     (* File selector button - fourth occurrence with appearance *)
-    Css.rule ~selector:"::file-selector-button" [ Css.appearance "button" ];
+    Css.rule ~selector:"::file-selector-button" [ Css.appearance Button ];
     (* Webkit spin buttons *)
     Css.rule ~selector:"::-webkit-inner-spin-button" [ Css.height Auto ];
     Css.rule ~selector:"::-webkit-outer-spin-button" [ Css.height Auto ];
@@ -1783,12 +1812,12 @@ let m' (m : margin) =
 let mx' (m : margin) =
   let v = margin_to_length m in
   let class_name = "mx-" ^ pp_margin_suffix m in
-  style_with_vars class_name [ Css.margin_inline_length v ] (margin_vars m)
+  style_with_vars class_name [ Css.margin_inline v ] (margin_vars m)
 
 let my' (m : margin) =
   let v = margin_to_length m in
   let class_name = "my-" ^ pp_margin_suffix m in
-  style_with_vars class_name [ Css.margin_block_length v ] (margin_vars m)
+  style_with_vars class_name [ Css.margin_block v ] (margin_vars m)
 
 let mt' (m : margin) =
   let class_name = "mt-" ^ pp_margin_suffix m in
@@ -1823,14 +1852,14 @@ let mx n =
   let len = spacing_to_length s in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mx-" ^ pp_spacing_suffix s in
-  style_with_vars class_name [ Css.margin_inline_length len ] (spacing_vars s)
+  style_with_vars class_name [ Css.margin_inline len ] (spacing_vars s)
 
 let my n =
   let s = int n in
   let len = spacing_to_length s in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "my-" ^ pp_spacing_suffix s in
-  style_with_vars class_name [ Css.margin_block_length len ] (spacing_vars s)
+  style_with_vars class_name [ Css.margin_block len ] (spacing_vars s)
 
 let mt n =
   let s = int n in
@@ -1908,13 +1937,25 @@ let space_y n =
 (* Typed scale functions with ' suffix *)
 let w' (s : scale) =
   let class_name = "w-" ^ pp_scale_suffix s in
-  let len = scale_to_length s in
-  style_with_vars class_name [ Css.width len ] (scale_vars s)
+  let decl =
+    match s with
+    | `Fit -> Css.declaration "width" "fit-content"
+    | `Min -> Css.declaration "width" "min-content"
+    | `Max -> Css.declaration "width" "max-content"
+    | _ -> Css.width (scale_to_length s)
+  in
+  style_with_vars class_name [ decl ] (scale_vars s)
 
 let h' (s : scale) =
   let class_name = "h-" ^ pp_scale_suffix s in
-  let len = scale_to_length s in
-  style_with_vars class_name [ Css.height len ] (scale_vars s)
+  let decl =
+    match s with
+    | `Fit -> Css.declaration "height" "fit-content"
+    | `Min -> Css.declaration "height" "min-content"
+    | `Max -> Css.declaration "height" "max-content"
+    | _ -> Css.height (scale_to_length s)
+  in
+  style_with_vars class_name [ decl ] (scale_vars s)
 
 let min_w' (s : scale) =
   let class_name = "min-w-" ^ pp_scale_suffix s in
@@ -2008,33 +2049,33 @@ let text_center = style "text-center" [ Css.text_align Css.Center ]
 let block = style "block" [ Css.display Css.Block ]
 let inline = style "inline" [ Css.display Css.Inline ]
 let inline_block = style "inline-block" [ Css.display Css.Inline_block ]
-let hidden = style "hidden" [ Css.display Css.Display_none ]
+let hidden = style "hidden" [ Css.display Css.None ]
 
 (** {1 Flexbox} *)
 
 let flex = style "flex" [ Css.display Css.Flex ]
-let flex_shrink_0 = style "flex-shrink-0" [ Css.flex_shrink "0" ]
-let flex_col = style "flex-col" [ Css.flex_direction Css.Column ]
-let flex_row = style "flex-row" [ Css.flex_direction Css.Row ]
-let flex_wrap = style "flex-wrap" [ Css.flex_wrap "wrap" ]
+let flex_shrink_0 = style "flex-shrink-0" [ Css.Flex.shrink 0.0 ]
+let flex_col = style "flex-col" [ Css.Flex.direction Css.Column ]
+let flex_row = style "flex-row" [ Css.Flex.direction Css.Row ]
+let flex_wrap = style "flex-wrap" [ Css.Flex.wrap Css.Wrap ]
 
 let flex_row_reverse =
-  style "flex-row-reverse" [ Css.flex_direction Css.Row_reverse ]
+  style "flex-row-reverse" [ Css.Flex.direction Css.Row_reverse ]
 
 let flex_col_reverse =
-  style "flex-col-reverse" [ Css.flex_direction Css.Column_reverse ]
+  style "flex-col-reverse" [ Css.Flex.direction Css.Column_reverse ]
 
 let flex_wrap_reverse =
-  style "flex-wrap-reverse" [ Css.flex_wrap "wrap-reverse" ]
+  style "flex-wrap-reverse" [ Css.Flex.wrap Css.Wrap_reverse ]
 
-let flex_nowrap = style "flex-nowrap" [ Css.flex_wrap "nowrap" ]
-let flex_1 = style "flex-1" [ Css.flex "1" ]
-let flex_auto = style "flex-auto" [ Css.flex "1 1 auto" ]
-let flex_initial = style "flex-initial" [ Css.flex "0 1 auto" ]
-let flex_none = style "flex-none" [ Css.flex "none" ]
-let flex_grow = style "flex-grow" [ Css.flex_grow "1" ]
-let flex_grow_0 = style "flex-grow-0" [ Css.flex_grow "0" ]
-let flex_shrink = style "flex-shrink" [ Css.flex_shrink "1" ]
+let flex_nowrap = style "flex-nowrap" [ Css.Flex.wrap Css.Nowrap ]
+let flex_1 = style "flex-1" [ Css.Flex.flex (Css.Grow 1.0) ]
+let flex_auto = style "flex-auto" [ Css.Flex.flex Css.Auto ]
+let flex_initial = style "flex-initial" [ Css.Flex.flex Css.Initial ]
+let flex_none = style "flex-none" [ Css.Flex.flex Css.None ]
+let flex_grow = style "flex-grow" [ Css.Flex.grow 1.0 ]
+let flex_grow_0 = style "flex-grow-0" [ Css.Flex.grow 0.0 ]
+let flex_shrink = style "flex-shrink" [ Css.Flex.shrink 1.0 ]
 
 (* center *)
 
@@ -2161,17 +2202,23 @@ let font_black =
     []
 
 (* Font family utilities *)
-let font_sans = style "font-sans" [ font_family "var(--font-sans)" ]
-let font_serif = style "font-serif" [ font_family "var(--font-serif)" ]
-let font_mono = style "font-mono" [ Css.font_family "var(--font-mono)" ]
+let font_sans =
+  style "font-sans"
+    [ font_family [ Css.Var { name = "font-sans"; fallback = None } ] ]
+
+let font_serif =
+  style "font-serif"
+    [ font_family [ Css.Var { name = "font-serif"; fallback = None } ] ]
+
+let font_mono =
+  style "font-mono"
+    [ Css.font_family [ Css.Var { name = "font-mono"; fallback = None } ] ]
+
 let italic = style "italic" [ Css.font_style Css.Italic ]
 let not_italic = style "not-italic" [ Css.font_style Css.Font_normal ]
 let underline = style "underline" [ Css.text_decoration Css.Underline ]
 let line_through = style "line-through" [ Css.text_decoration Css.Line_through ]
-
-let no_underline =
-  style "no-underline" [ Css.text_decoration Css.Text_decoration_none ]
-
+let no_underline = style "no-underline" [ Css.text_decoration Css.None ]
 let text_left = style "text-left" [ Css.text_align Css.Left ]
 let text_right = style "text-right" [ Css.text_align Css.Right ]
 let text_justify = style "text-justify" [ Css.text_align Css.Justify ]
@@ -2337,7 +2384,7 @@ let grid_cols n =
   let class_name = "grid-cols-" ^ string_of_int n in
   style class_name
     [
-      Css.grid_template_columns
+      Css.Grid.template_columns
         (Css.Repeat (n, Css.Min_max (Css.Px 0, Css.Fr 1.)));
     ]
 
@@ -2345,56 +2392,88 @@ let grid_rows n =
   let class_name = "grid-rows-" ^ string_of_int n in
   style class_name
     [
-      Css.grid_template_rows (Css.Repeat (n, Css.Min_max (Css.Px 0, Css.Fr 1.)));
+      Css.Grid.template_rows (Css.Repeat (n, Css.Min_max (Css.Px 0, Css.Fr 1.)));
     ]
 
 let static = style "static" [ Css.position Css.Static ]
 
 let inset_0 =
-  style "inset-0" [ Css.top "0"; Css.right "0"; Css.bottom "0"; Css.left "0" ]
+  style "inset-0"
+    [ Css.top Zero; Css.right Zero; Css.bottom Zero; Css.left Zero ]
 
-let inset_x_0 = style "inset-x-0" [ Css.left "0"; Css.right "0" ]
-let inset_y_0 = style "inset-y-0" [ Css.bottom "0"; Css.top "0" ]
+let inset_x_0 = style "inset-x-0" [ Css.left Zero; Css.right Zero ]
+let inset_y_0 = style "inset-y-0" [ Css.bottom Zero; Css.top Zero ]
 
 let top n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "top-" ^ string_of_int (abs n) in
-  let value = Pp.str [ "calc(var(--spacing) * "; string_of_int (abs n); ")" ] in
+  let value =
+    Css.Calc
+      (Css.Expr
+         ( Css.Calc_var "--spacing",
+           Css.Mult,
+           Css.Calc_num (float_of_int (abs n)) ))
+  in
   style_with_vars class_name [ Css.top value ] [ Css.Spacing (abs n) ]
 
 let right n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "right-" ^ string_of_int (abs n) in
-  let value = Pp.str [ "calc(var(--spacing) * "; string_of_int (abs n); ")" ] in
+  let value =
+    Css.Calc
+      (Css.Expr
+         ( Css.Calc_var "--spacing",
+           Css.Mult,
+           Css.Calc_num (float_of_int (abs n)) ))
+  in
   style_with_vars class_name [ Css.right value ] [ Css.Spacing (abs n) ]
 
 let bottom n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "bottom-" ^ string_of_int (abs n) in
-  let value = Pp.str [ "calc(var(--spacing) * "; string_of_int (abs n); ")" ] in
+  let value =
+    Css.Calc
+      (Css.Expr
+         ( Css.Calc_var "--spacing",
+           Css.Mult,
+           Css.Calc_num (float_of_int (abs n)) ))
+  in
   style_with_vars class_name [ Css.bottom value ] [ Css.Spacing (abs n) ]
 
 let left n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "left-" ^ string_of_int (abs n) in
-  let value = Pp.str [ "calc(var(--spacing) * "; string_of_int (abs n); ")" ] in
+  let value =
+    Css.Calc
+      (Css.Expr
+         ( Css.Calc_var "--spacing",
+           Css.Mult,
+           Css.Calc_num (float_of_int (abs n)) ))
+  in
   style_with_vars class_name [ Css.left value ] [ Css.Spacing (abs n) ]
 
 let z n =
   let class_name = "z-" ^ string_of_int n in
-  style class_name [ Css.z_index (string_of_int n) ]
+  style class_name [ Css.z_index n ]
 
 (* Inset utilities *)
 let inset n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "inset-" ^ string_of_int (abs n) in
-  let value = spacing_to_rem n in
-  style class_name
+  let value =
+    Css.Calc
+      (Css.Expr
+         ( Css.Calc_var "--spacing",
+           Css.Mult,
+           Css.Calc_num (float_of_int (abs n)) ))
+  in
+  style_with_vars class_name
     [ Css.top value; Css.right value; Css.bottom value; Css.left value ]
+    [ Css.Spacing (abs n) ]
 
 (* Fractional position utilities *)
-let top_1_2 = style "top-1/2" [ Css.top "50%" ]
-let left_1_2 = style "left-1/2" [ Css.left "50%" ]
+let top_1_2 = style "top-1/2" [ Css.top (Pct 50.0) ]
+let left_1_2 = style "left-1/2" [ Css.left (Pct 50.0) ]
 
 let neg_translate_x_1_2 =
   style "-translate-x-1/2"
@@ -2466,10 +2545,7 @@ let border_double =
 
 let border_none_style =
   style "border-none"
-    [
-      Css.declaration "--tw-border-style" "none";
-      Css.border_style Css.Border_none;
-    ]
+    [ Css.declaration "--tw-border-style" "none"; Css.border_style Css.None ]
 
 let pp_rounded_suffix : size -> string = function
   | `None -> "none"
@@ -2488,7 +2564,8 @@ let rounded_internal r =
     match r with
     | `None -> Css.border_radius Css.Zero
     | `Full ->
-        Css.border_radius (Css.Px 999999) (* Large value for full rounding *)
+        Css.declaration "border-radius"
+          "3.40282e38px" (* Max float value for full rounding *)
     | _ ->
         Css.declaration "border-radius"
           ("var(--radius-" ^ pp_rounded_suffix r ^ ")")
@@ -2558,33 +2635,78 @@ let shadow_inner = shadow_internal `Inner
 
 let opacity n =
   let class_name = "opacity-" ^ string_of_int n in
-  let value = if n = 0 then "0" else string_of_int n ^ "%" in
-  style class_name [ opacity value ]
+  let value = float_of_int n /. 100.0 in
+  style class_name [ Css.opacity value ]
 
-let transition_none = style "transition-none" [ transition "none" ]
+let transition_none =
+  style "transition-none" [ Css.transition (Css.Simple (Css.None, Css.S 0.0)) ]
 
 let transition_all =
-  style "transition-all" [ transition "all 150ms cubic-bezier(0.4, 0, 0.2, 1)" ]
+  style "transition-all"
+    [
+      Css.transition
+        (Css.With_timing
+           (Css.All, Css.Ms 150, Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
+    ]
 
 let transition_colors =
   style "transition-colors"
     [
-      transition
-        "background-color, border-color, color, fill, stroke 150ms \
-         cubic-bezier(0.4, 0, 0.2, 1)";
+      Css.transition
+        (Css.Multiple
+           [
+             Css.With_timing
+               ( Css.Property "background-color",
+                 Css.Ms 150,
+                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
+             Css.With_timing
+               ( Css.Property "border-color",
+                 Css.Ms 150,
+                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
+             Css.With_timing
+               ( Css.Property "color",
+                 Css.Ms 150,
+                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
+             Css.With_timing
+               ( Css.Property "fill",
+                 Css.Ms 150,
+                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
+             Css.With_timing
+               ( Css.Property "stroke",
+                 Css.Ms 150,
+                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
+           ]);
     ]
 
 let transition_opacity =
   style "transition-opacity"
-    [ transition "opacity 150ms cubic-bezier(0.4, 0, 0.2, 1)" ]
+    [
+      Css.transition
+        (Css.With_timing
+           ( Css.Property "opacity",
+             Css.Ms 150,
+             Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) ));
+    ]
 
 let transition_shadow =
   style "transition-shadow"
-    [ transition "box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1)" ]
+    [
+      Css.transition
+        (Css.With_timing
+           ( Css.Property "box-shadow",
+             Css.Ms 150,
+             Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) ));
+    ]
 
 let transition_transform =
   style "transition-transform"
-    [ transition "transform 150ms cubic-bezier(0.4, 0, 0.2, 1)" ]
+    [
+      Css.transition
+        (Css.With_timing
+           ( Css.Property "transform",
+             Css.Ms 150,
+             Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) ));
+    ]
 
 let rotate n =
   let class_name = "rotate-" ^ string_of_int n in
@@ -2856,13 +2978,11 @@ let snap_normal = style "snap-normal" [ Css.scroll_snap_stop "normal" ]
 let snap_always = style "snap-always" [ Css.scroll_snap_stop "always" ]
 let scroll_auto = style "scroll-auto" [ Css.scroll_behavior "auto" ]
 let scroll_smooth = style "scroll-smooth" [ Css.scroll_behavior "smooth" ]
-let object_contain = style "object-contain" [ Css.object_fit "contain" ]
-let object_cover = style "object-cover" [ Css.object_fit "cover" ]
-let object_fill = style "object-fill" [ Css.object_fit "fill" ]
-let object_none = style "object-none" [ Css.object_fit "none" ]
-
-let object_scale_down =
-  style "object-scale-down" [ Css.object_fit "scale-down" ]
+let object_contain = style "object-contain" [ Css.object_fit Contain ]
+let object_cover = style "object-cover" [ Css.object_fit Cover ]
+let object_fill = style "object-fill" [ Css.object_fit Fill ]
+let object_none = style "object-none" [ Css.object_fit None ]
+let object_scale_down = style "object-scale-down" [ Css.object_fit Scale_down ]
 
 let sr_only =
   style "sr-only"
@@ -2874,7 +2994,7 @@ let sr_only =
       Css.margin (Css.Px (-1));
       Css.overflow Css.Hidden;
       Css.clip "rect(0, 0, 0, 0)";
-      Css.white_space "nowrap";
+      Css.white_space Nowrap;
       Css.border_width Css.Zero;
     ]
 
@@ -2888,7 +3008,7 @@ let not_sr_only =
       Css.margin Css.Zero;
       Css.overflow Css.Visible;
       Css.clip "auto";
-      Css.white_space "normal";
+      Css.white_space Normal;
     ]
 
 (* Responsive and state modifiers *)
@@ -3127,10 +3247,10 @@ let antialiased =
     ]
 
 (* Text transformation utilities *)
-let uppercase = style "uppercase" [ Css.text_transform "uppercase" ]
-let lowercase = style "lowercase" [ Css.text_transform "lowercase" ]
-let capitalize = style "capitalize" [ Css.text_transform "capitalize" ]
-let normal_case = style "normal-case" [ Css.text_transform "none" ]
+let uppercase = style "uppercase" [ Css.text_transform Uppercase ]
+let lowercase = style "lowercase" [ Css.text_transform Lowercase ]
+let capitalize = style "capitalize" [ Css.text_transform Capitalize ]
+let normal_case = style "normal-case" [ Css.text_transform None ]
 
 (* Text decoration style utilities *)
 let underline_solid =
@@ -3371,13 +3491,13 @@ let scale n =
     ]
 
 (* Appearance utilities *)
-let appearance_none = style "appearance-none" [ appearance "none" ]
+let appearance_none = style "appearance-none" [ Css.appearance None ]
 
 (* Resize utilities *)
-let resize_none = style "resize-none" [ Css.resize "none" ]
-let resize_y = style "resize-y" [ Css.resize "vertical" ]
-let resize_x = style "resize-x" [ Css.resize "horizontal" ]
-let resize = style "resize" [ Css.resize "both" ]
+let resize_none = style "resize-none" [ Css.resize None ]
+let resize_y = style "resize-y" [ Css.resize Vertical ]
+let resize_x = style "resize-x" [ Css.resize Horizontal ]
+let resize = style "resize" [ Css.resize Both ]
 
 (* Will-change utilities *)
 let will_change_auto =
@@ -3420,8 +3540,8 @@ let object_center =
   style "object-center" [ Css.declaration "object-position" "center" ]
 
 (* Table utilities *)
-let table_auto = style "table-auto" [ table_layout "auto" ]
-let table_fixed = style "table-fixed" [ table_layout "fixed" ]
+let table_auto = style "table-auto" [ Css.table_layout Auto ]
+let table_fixed = style "table-fixed" [ Css.table_layout Fixed ]
 let border_collapse = style "border-collapse" [ Css.border_collapse "collapse" ]
 let border_separate = style "border-separate" [ Css.border_collapse "separate" ]
 
@@ -3433,7 +3553,7 @@ let border_spacing n =
 let form_input =
   style "form-input"
     [
-      Css.appearance "none";
+      Css.appearance None;
       Css.background_color (Css.Rgb { r = 255; g = 255; b = 255 });
       Css.border_color (Css.Rgb { r = 209; g = 213; b = 219 });
       Css.border_width (Css.Px 1);
@@ -3451,7 +3571,7 @@ let form_input =
 let form_textarea =
   style "form-textarea"
     [
-      Css.appearance "none";
+      Css.appearance None;
       Css.background_color (Css.Rgb { r = 255; g = 255; b = 255 });
       Css.border_color (Css.Rgb { r = 209; g = 213; b = 219 });
       Css.border_width (Css.Px 1);
@@ -3462,13 +3582,13 @@ let form_textarea =
       Css.padding_left (Css.Rem 0.75);
       Css.font_size (Css.Rem 1.0);
       Css.line_height (Css.Rem 1.5);
-      Css.resize "vertical";
+      Css.resize Vertical;
     ]
 
 let form_select =
   style "form-select"
     [
-      Css.appearance "none";
+      Css.appearance None;
       Css.background_color (Css.Rgb { r = 255; g = 255; b = 255 });
       Css.border_color (Css.Rgb { r = 209; g = 213; b = 219 });
       Css.border_width (Css.Px 1);
@@ -3492,7 +3612,7 @@ let form_select =
 let form_checkbox =
   style "form-checkbox"
     [
-      Css.appearance "none";
+      Css.appearance None;
       Css.width (Css.Rem 1.0);
       Css.height (Css.Rem 1.0);
       Css.background_color (Css.Rgb { r = 255; g = 255; b = 255 });
@@ -3508,7 +3628,7 @@ let form_checkbox =
 let form_radio =
   style "form-radio"
     [
-      Css.appearance "none";
+      Css.appearance None;
       Css.width (Css.Rem 1.0);
       Css.height (Css.Rem 1.0);
       Css.background_color (Css.Rgb { r = 255; g = 255; b = 255 });
