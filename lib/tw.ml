@@ -1344,22 +1344,6 @@ let to_inline_style styles =
 
 (** Convert any color to RGB space-separated string format (e.g., "255 0 0") *)
 
-let spacing_to_rem = function
-  | 0 -> "0"
-  | 1 -> "0.25rem"
-  | 2 -> "0.5rem"
-  | 3 -> "0.75rem"
-  | 4 -> "1rem"
-  | 6 -> "1.5rem"
-  | 8 -> "2rem"
-  | 10 -> "2.5rem"
-  | 12 -> "3rem"
-  | 16 -> "4rem"
-  | 20 -> "5rem"
-  | 24 -> "6rem"
-  | 56 -> "14rem"
-  | n -> Pp.float (float_of_int n *. 0.25) ^ "rem"
-
 let int_to_length n =
   if n = 0 then Css.Zero else Css.Rem (float_of_int n *. 0.25)
 
@@ -2284,12 +2268,15 @@ let leading_relaxed =
 
 let leading_loose = style "leading-loose" [ Css.line_height (Css.Num 2.0) ]
 let leading_6 = style "leading-6" [ Css.line_height (Css.Rem 1.5) ]
-let tracking_tighter = style "tracking-tighter" [ Css.letter_spacing "-0.05em" ]
-let tracking_tight = style "tracking-tight" [ Css.letter_spacing "-0.025em" ]
-let tracking_normal = style "tracking-normal" [ Css.letter_spacing "0" ]
-let tracking_wide = style "tracking-wide" [ Css.letter_spacing "0.025em" ]
-let tracking_wider = style "tracking-wider" [ Css.letter_spacing "0.05em" ]
-let tracking_widest = style "tracking-widest" [ Css.letter_spacing "0.1em" ]
+
+let tracking_tighter =
+  style "tracking-tighter" [ Css.letter_spacing (Em (-0.05)) ]
+
+let tracking_tight = style "tracking-tight" [ Css.letter_spacing (Em (-0.025)) ]
+let tracking_normal = style "tracking-normal" [ Css.letter_spacing Zero ]
+let tracking_wide = style "tracking-wide" [ Css.letter_spacing (Em 0.025) ]
+let tracking_wider = style "tracking-wider" [ Css.letter_spacing (Em 0.05) ]
+let tracking_widest = style "tracking-widest" [ Css.letter_spacing (Em 0.1) ]
 
 let whitespace_normal =
   style "whitespace-normal" [ Css.declaration "white-space" "normal" ]
@@ -3071,7 +3058,7 @@ let not_sr_only =
 
 let focus_visible =
   style "focus-visible"
-    [ outline "2px solid transparent"; outline_offset "2px" ]
+    [ outline "2px solid transparent"; outline_offset (Px 2) ]
 
 (* New on_ style modifiers that take lists *)
 let on_hover styles = Group (List.map (fun t -> Modified (Hover, t)) styles)
@@ -3602,8 +3589,9 @@ let border_collapse = style "border-collapse" [ Css.border_collapse Collapse ]
 let border_separate = style "border-separate" [ Css.border_collapse Separate ]
 
 let border_spacing n =
-  let value = spacing_to_rem n in
-  style ("border-spacing-" ^ string_of_int n) [ Css.border_spacing value ]
+  let s = int n in
+  let len = spacing_to_length s in
+  style ("border-spacing-" ^ pp_spacing_suffix s) [ Css.border_spacing len ]
 
 (* Form utilities - equivalent to @tailwindcss/forms plugin *)
 let form_input =
