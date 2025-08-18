@@ -521,7 +521,7 @@ let generate_reset_rules () =
     (* Sub and sup *)
     Css.rule ~selector:"sub, sup"
       [
-        Css.vertical_align "baseline";
+        Css.vertical_align Baseline;
         Css.font_size (Pct 75.0);
         Css.line_height Zero;
         Css.position Relative;
@@ -533,19 +533,19 @@ let generate_reset_rules () =
       [
         Css.declaration "text-indent" "0";
         Css.declaration "border-color" "inherit";
-        Css.border_collapse "collapse";
+        Css.border_collapse Collapse;
       ];
     (* Firefox focusring *)
     Css.rule ~selector:":-moz-focusring" [ Css.outline "auto" ];
     (* Progress *)
-    Css.rule ~selector:"progress" [ Css.vertical_align "baseline" ];
+    Css.rule ~selector:"progress" [ Css.vertical_align Baseline ];
     (* Summary *)
     Css.rule ~selector:"summary" [ Css.declaration "display" "list-item" ];
     (* Lists *)
     Css.rule ~selector:"ol, ul, menu" [ Css.declaration "list-style" "none" ];
     (* Media elements *)
     Css.rule ~selector:"img, svg, video, canvas, audio, iframe, embed, object"
-      [ Css.vertical_align "middle"; Css.display Block ];
+      [ Css.vertical_align Middle; Css.display Block ];
     Css.rule ~selector:"img, video"
       [ Css.max_width (Pct 100.0); Css.height Auto ];
     (* Form elements *)
@@ -2928,10 +2928,12 @@ let select_all = style "select-all" [ Css.declaration "user-select" "all" ]
 let select_auto = style "select-auto" [ Css.user_select Css.Auto ]
 
 let pointer_events_none =
-  style "pointer-events-none" [ Css.pointer_events "none" ]
+  style "pointer-events-none"
+    [ Css.pointer_events (None : Css.pointer_events_value) ]
 
 let pointer_events_auto =
-  style "pointer-events-auto" [ Css.pointer_events "auto" ]
+  style "pointer-events-auto"
+    [ Css.pointer_events (Auto : Css.pointer_events_value) ]
 
 let outline_none = style "outline-none" [ Css.outline "none" ]
 
@@ -3594,8 +3596,8 @@ let object_center =
 (* Table utilities *)
 let table_auto = style "table-auto" [ Css.table_layout Auto ]
 let table_fixed = style "table-fixed" [ Css.table_layout Fixed ]
-let border_collapse = style "border-collapse" [ Css.border_collapse "collapse" ]
-let border_separate = style "border-separate" [ Css.border_collapse "separate" ]
+let border_collapse = style "border-collapse" [ Css.border_collapse Collapse ]
+let border_separate = style "border-separate" [ Css.border_collapse Separate ]
 
 let border_spacing n =
   let value = spacing_to_rem n in
@@ -3674,7 +3676,7 @@ let form_checkbox =
       Css.color (Css.Rgb { r = 59; g = 130; b = 246 });
       Css.declaration "flex-shrink" "0";
       Css.display Css.Inline_block;
-      Css.vertical_align "middle";
+      Css.vertical_align Middle;
     ]
 
 let form_radio =
@@ -3690,7 +3692,7 @@ let form_radio =
       Css.color (Css.Rgb { r = 59; g = 130; b = 246 });
       Css.declaration "flex-shrink" "0";
       Css.display Css.Inline_block;
-      Css.vertical_align "middle";
+      Css.vertical_align Middle;
     ]
 
 (* Peer and group utilities *)

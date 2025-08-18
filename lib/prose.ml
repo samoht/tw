@@ -174,7 +174,7 @@ let base_table_rules selector =
       [
         color (Var "tw-prose-headings");
         font_weight (Weight 600);
-        vertical_align "bottom";
+        vertical_align Bottom;
         padding_right (Em 0.5714286);
         padding_bottom (Em 0.5714286);
         padding_left (Em 0.5714286);
@@ -189,7 +189,7 @@ let base_table_rules selector =
       [ border_bottom_width Zero ];
     rule ~selector:(selector " tbody td")
       [
-        vertical_align "baseline";
+        vertical_align Baseline;
         padding_top (Em 0.5714286);
         padding_right (Em 0.5714286);
         padding_bottom (Em 0.5714286);
