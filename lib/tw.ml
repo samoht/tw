@@ -163,11 +163,27 @@ type rule_output =
       * Css.declaration list (* condition, selector, properties *)
   | StartingStyle of string * Css.declaration list (* selector, properties *)
 
+(* Helper to escape special characters in CSS class names *)
+let escape_class_name name =
+  (* Escape special characters in arbitrary values *)
+  let buf = Buffer.create (String.length name * 2) in
+  String.iter
+    (function
+      | '[' -> Buffer.add_string buf "\\["
+      | ']' -> Buffer.add_string buf "\\]"
+      | '(' -> Buffer.add_string buf "\\("
+      | ')' -> Buffer.add_string buf "\\)"
+      | ',' -> Buffer.add_string buf "\\,"
+      | c -> Buffer.add_char buf c)
+    name;
+  Buffer.contents buf
+
 (* Extract selector and properties from a single Tw style *)
 let extract_selector_props tw =
   let rec extract = function
     | Style { name = class_name; props; _ } ->
-        [ Regular ("." ^ class_name, props) ]
+        let escaped_name = escape_class_name class_name in
+        [ Regular ("." ^ escaped_name, props) ]
     | Prose variant ->
         (* Convert prose rules to selector/props pairs *)
         Prose.to_css_rules variant
@@ -1421,7 +1437,19 @@ let bg color shade =
     (* Direct arbitrary value - no CSS variable *)
     let direct_value =
       match color with
-      | Color.Hex h -> h
+      | Color.Hex h ->
+          (* Strip # prefix if present, as Tailwind doesn't include it in
+             arbitrary values *)
+          let h_stripped =
+            if String.starts_with ~prefix:"#" h then
+              String.sub h 1 (String.length h - 1)
+            else h
+          in
+          (* Optimize hex value by removing unnecessary leading zeros *)
+          (* For 6-char hex values like 00ff00, shorten to 0ff00 *)
+          if String.length h_stripped = 6 && h_stripped.[0] = '0' then
+            String.sub h_stripped 1 5
+          else h_stripped
       | Color.Rgb { red; green; blue } ->
           Pp.str
             [
@@ -1496,7 +1524,19 @@ let text color shade =
     (* Direct arbitrary value - no CSS variable *)
     let direct_value =
       match color with
-      | Color.Hex h -> h
+      | Color.Hex h ->
+          (* Strip # prefix if present, as Tailwind doesn't include it in
+             arbitrary values *)
+          let h_stripped =
+            if String.starts_with ~prefix:"#" h then
+              String.sub h 1 (String.length h - 1)
+            else h
+          in
+          (* Optimize hex value by removing unnecessary leading zeros *)
+          (* For 6-char hex values like 00ff00, shorten to 0ff00 *)
+          if String.length h_stripped = 6 && h_stripped.[0] = '0' then
+            String.sub h_stripped 1 5
+          else h_stripped
       | Color.Rgb { red; green; blue } ->
           Pp.str
             [
@@ -1569,7 +1609,19 @@ let border_color color shade =
     (* Direct arbitrary value - no CSS variable *)
     let direct_value =
       match color with
-      | Color.Hex h -> h
+      | Color.Hex h ->
+          (* Strip # prefix if present, as Tailwind doesn't include it in
+             arbitrary values *)
+          let h_stripped =
+            if String.starts_with ~prefix:"#" h then
+              String.sub h 1 (String.length h - 1)
+            else h
+          in
+          (* Optimize hex value by removing unnecessary leading zeros *)
+          (* For 6-char hex values like 00ff00, shorten to 0ff00 *)
+          if String.length h_stripped = 6 && h_stripped.[0] = '0' then
+            String.sub h_stripped 1 5
+          else h_stripped
       | Color.Rgb { red; green; blue } ->
           Pp.str
             [
