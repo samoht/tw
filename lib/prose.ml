@@ -145,7 +145,7 @@ let base_code_rules selector =
         font_weight Inherit;
         color Inherit;
         font_size Inherit;
-        font_family "inherit";
+        font_family [ Inherit ];
         line_height Inherit;
       ];
     rule ~selector:(selector " pre code::before") [ content "none" ];
@@ -158,7 +158,7 @@ let base_table_rules selector =
     rule ~selector:(selector " table")
       [
         width (Pct 100.0);
-        table_layout "auto";
+        table_layout Auto;
         text_align Left;
         margin_top (Em 2.0);
         margin_bottom (Em 2.0);
@@ -203,9 +203,9 @@ let base_misc_rules selector =
     rule ~selector:(selector " a")
       [
         color (Var "tw-prose-links");
-        text_decoration Text_decoration_none;
+        text_decoration None;
         font_weight (Weight 500);
-        transition "color 0.2s ease";
+        transition (Simple (Property "color", S 0.2));
       ];
     rule ~selector:(selector " a:hover")
       [ color (Rgb { r = 37; g = 99; b = 235 }) ];
