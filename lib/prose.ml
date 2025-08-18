@@ -15,22 +15,22 @@ type t =
 (** Default prose CSS variables for theming *)
 let css_variables =
   [
-    declaration "--tw-prose-body" "rgb(55 65 81)";
-    declaration "--tw-prose-headings" "rgb(17 24 39)";
-    declaration "--tw-prose-lead" "rgb(75 85 99)";
-    declaration "--tw-prose-links" "rgb(17 24 39)";
-    declaration "--tw-prose-bold" "rgb(17 24 39)";
-    declaration "--tw-prose-counters" "rgb(107 114 128)";
-    declaration "--tw-prose-bullets" "rgb(209 213 219)";
-    declaration "--tw-prose-hr" "rgb(229 231 235)";
-    declaration "--tw-prose-quotes" "rgb(17 24 39)";
-    declaration "--tw-prose-quote-borders" "rgb(229 231 235)";
-    declaration "--tw-prose-captions" "rgb(107 114 128)";
-    declaration "--tw-prose-code" "rgb(17 24 39)";
-    declaration "--tw-prose-pre-code" "rgb(229 231 235)";
-    declaration "--tw-prose-pre-bg" "rgb(55 65 81)";
-    declaration "--tw-prose-th-borders" "rgb(209 213 219)";
-    declaration "--tw-prose-td-borders" "rgb(229 231 235)";
+    custom_property "--tw-prose-body" "rgb(55 65 81)";
+    custom_property "--tw-prose-headings" "rgb(17 24 39)";
+    custom_property "--tw-prose-lead" "rgb(75 85 99)";
+    custom_property "--tw-prose-links" "rgb(17 24 39)";
+    custom_property "--tw-prose-bold" "rgb(17 24 39)";
+    custom_property "--tw-prose-counters" "rgb(107 114 128)";
+    custom_property "--tw-prose-bullets" "rgb(209 213 219)";
+    custom_property "--tw-prose-hr" "rgb(229 231 235)";
+    custom_property "--tw-prose-quotes" "rgb(17 24 39)";
+    custom_property "--tw-prose-quote-borders" "rgb(229 231 235)";
+    custom_property "--tw-prose-captions" "rgb(107 114 128)";
+    custom_property "--tw-prose-code" "rgb(17 24 39)";
+    custom_property "--tw-prose-pre-code" "rgb(229 231 235)";
+    custom_property "--tw-prose-pre-bg" "rgb(55 65 81)";
+    custom_property "--tw-prose-th-borders" "rgb(209 213 219)";
+    custom_property "--tw-prose-td-borders" "rgb(229 231 235)";
   ]
 
 (** Convert prose variant to CSS class name *)
@@ -51,38 +51,38 @@ let base_heading_rules selector =
   [
     rule ~selector:(selector " h1")
       [
-        color "var(--tw-prose-headings)";
-        font_weight "800";
-        font_size "2.25em";
-        margin_top "0";
-        margin_bottom "0.8888889em";
-        line_height "1.1111111";
+        color (Var "tw-prose-headings");
+        font_weight (Weight 800);
+        font_size (Em 2.25);
+        margin_top Zero;
+        margin_bottom (Em 0.8888889);
+        line_height (Num 1.1111111);
       ];
     rule ~selector:(selector " h2")
       [
-        color "var(--tw-prose-headings)";
-        font_weight "700";
-        font_size "1.5em";
-        margin_top "2em";
-        margin_bottom "1em";
-        line_height "1.3333333";
+        color (Var "tw-prose-headings");
+        font_weight (Weight 700);
+        font_size (Em 1.5);
+        margin_top (Em 2.0);
+        margin_bottom (Em 1.0);
+        line_height (Num 1.3333333);
       ];
     rule ~selector:(selector " h3")
       [
-        color "var(--tw-prose-headings)";
-        font_weight "600";
-        font_size "1.25em";
-        margin_top "1.6em";
-        margin_bottom "0.6em";
-        line_height "1.6";
+        color (Var "tw-prose-headings");
+        font_weight (Weight 600);
+        font_size (Em 1.25);
+        margin_top (Em 1.6);
+        margin_bottom (Em 0.6);
+        line_height (Num 1.6);
       ];
     rule ~selector:(selector " h4")
       [
-        color "var(--tw-prose-headings)";
-        font_weight "600";
-        margin_top "1.5em";
-        margin_bottom "0.5em";
-        line_height "1.5";
+        color (Var "tw-prose-headings");
+        font_weight (Weight 600);
+        margin_top (Em 1.5);
+        margin_bottom (Em 0.5);
+        line_height (Num 1.5);
       ];
   ]
 
@@ -90,67 +90,66 @@ let base_heading_rules selector =
 let base_text_rules selector =
   [
     rule ~selector:(selector " p")
-      [ margin_top "1.25em"; margin_bottom "1.25em" ];
+      [ margin_top (Em 1.25); margin_bottom (Em 1.25) ];
     rule ~selector:(selector " ol")
       [
-        declaration "list-style-type" "decimal";
-        margin_top "1.25em";
-        margin_bottom "1.25em";
-        padding_left "1.625em";
+        list_style_type Decimal;
+        margin_top (Em 1.25);
+        margin_bottom (Em 1.25);
+        padding_left (Em 1.625);
       ];
     rule ~selector:(selector " ul")
       [
-        declaration "list-style-type" "disc";
-        margin_top "1.25em";
-        margin_bottom "1.25em";
-        padding_left "1.625em";
+        list_style_type Disc;
+        margin_top (Em 1.25);
+        margin_bottom (Em 1.25);
+        padding_left (Em 1.625);
       ];
     rule ~selector:(selector " li")
-      [ margin_top "0.5em"; margin_bottom "0.5em" ];
+      [ margin_top (Em 0.5); margin_bottom (Em 0.5) ];
   ]
 
 (* Code and pre styles *)
 let base_code_rules selector =
   [
     rule ~selector:(selector " code")
-      [ color "var(--tw-prose-code)"; font_weight "600"; font_size "0.875em" ];
-    rule ~selector:(selector " code::before")
-      [ declaration "content" "\"\\`\"" ];
-    rule ~selector:(selector " code::after") [ declaration "content" "\"\\`\"" ];
+      [
+        color (Var "tw-prose-code");
+        font_weight (Weight 600);
+        font_size (Em 0.875);
+      ];
+    rule ~selector:(selector " code::before") [ content "\"\\`\"" ];
+    rule ~selector:(selector " code::after") [ content "\"\\`\"" ];
     rule ~selector:(selector " pre")
       [
-        color "var(--tw-prose-pre-code)";
-        background_color "var(--tw-prose-pre-bg)";
-        overflow_x "auto";
-        font_weight "400";
-        font_size "0.875em";
-        line_height "1.7142857";
-        margin_top "1.7142857em";
-        margin_bottom "1.7142857em";
-        border_radius "0.375rem";
-        padding_top "0.8571429em";
-        padding_right "1.1428571em";
-        padding_bottom "0.8571429em";
-        padding_left "1.1428571em";
+        color (Var "tw-prose-pre-code");
+        background_color (Var "tw-prose-pre-bg");
+        overflow_x Auto;
+        font_weight (Weight 400);
+        font_size (Em 0.875);
+        line_height (Num 1.7142857);
+        margin_top (Em 1.7142857);
+        margin_bottom (Em 1.7142857);
+        border_radius (Rem 0.375);
+        padding_top (Em 0.8571429);
+        padding_right (Em 1.1428571);
+        padding_bottom (Em 0.8571429);
+        padding_left (Em 1.1428571);
       ];
     rule ~selector:(selector " pre code")
       [
-        background_color "transparent";
-        border_width "0";
-        border_radius "0";
-        padding "0";
-        font_weight "inherit";
-        color "inherit";
-        font_size "inherit";
+        background_color Transparent;
+        border_width Zero;
+        border_radius Zero;
+        padding Zero;
+        font_weight Inherit;
+        color Inherit;
+        font_size Inherit;
         font_family "inherit";
-        line_height "inherit";
+        line_height Inherit;
       ];
-    rule
-      ~selector:(selector " pre code::before")
-      [ declaration "content" "none" ];
-    rule
-      ~selector:(selector " pre code::after")
-      [ declaration "content" "none" ];
+    rule ~selector:(selector " pre code::before") [ content "none" ];
+    rule ~selector:(selector " pre code::after") [ content "none" ];
   ]
 
 (* Table styles *)
@@ -158,41 +157,43 @@ let base_table_rules selector =
   [
     rule ~selector:(selector " table")
       [
-        width "100%";
+        width (Pct 100.0);
         table_layout "auto";
-        text_align "left";
-        margin_top "2em";
-        margin_bottom "2em";
-        font_size "0.875em";
-        line_height "1.7142857";
+        text_align Left;
+        margin_top (Em 2.0);
+        margin_bottom (Em 2.0);
+        font_size (Em 0.875);
+        line_height (Num 1.7142857);
       ];
     rule ~selector:(selector " thead")
       [
-        border_bottom_width "1px";
-        declaration "border-bottom-color" "var(--tw-prose-th-borders)";
+        border_bottom_width (Px 1);
+        border_bottom_color (Var "tw-prose-th-borders");
       ];
     rule ~selector:(selector " thead th")
       [
-        color "var(--tw-prose-headings)";
-        font_weight "600";
+        color (Var "tw-prose-headings");
+        font_weight (Weight 600);
         vertical_align "bottom";
-        padding_right "0.5714286em";
-        padding_bottom "0.5714286em";
-        padding_left "0.5714286em";
+        padding_right (Em 0.5714286);
+        padding_bottom (Em 0.5714286);
+        padding_left (Em 0.5714286);
       ];
     rule ~selector:(selector " tbody tr")
       [
-        border_bottom_width "1px";
-        declaration "border-bottom-color" "var(--tw-prose-td-borders)";
+        border_bottom_width (Px 1);
+        border_bottom_color (Var "tw-prose-td-borders");
       ];
-    rule ~selector:(selector " tbody tr:last-child") [ border_bottom_width "0" ];
+    rule
+      ~selector:(selector " tbody tr:last-child")
+      [ border_bottom_width Zero ];
     rule ~selector:(selector " tbody td")
       [
         vertical_align "baseline";
-        padding_top "0.5714286em";
-        padding_right "0.5714286em";
-        padding_bottom "0.5714286em";
-        padding_left "0.5714286em";
+        padding_top (Em 0.5714286);
+        padding_right (Em 0.5714286);
+        padding_bottom (Em 0.5714286);
+        padding_left (Em 0.5714286);
       ];
   ]
 
@@ -201,150 +202,156 @@ let base_misc_rules selector =
   [
     rule ~selector:(selector " a")
       [
-        color "var(--tw-prose-links)";
-        text_decoration "none";
-        font_weight "500";
-        declaration "transition" "color 0.2s ease";
+        color (Var "tw-prose-links");
+        text_decoration Text_decoration_none;
+        font_weight (Weight 500);
+        transition "color 0.2s ease";
       ];
-    rule ~selector:(selector " a:hover") [ color "rgb(37 99 235)" ];
+    rule ~selector:(selector " a:hover")
+      [ color (Rgb { r = 37; g = 99; b = 235 }) ];
     rule ~selector:(selector " blockquote")
       [
-        font_weight "500";
-        font_style "italic";
-        color "var(--tw-prose-quotes)";
-        declaration "border-left-width" "0.25rem";
-        declaration "border-left-color" "var(--tw-prose-quote-borders)";
-        declaration "quotes" "\"\\201C\"\"\\201D\"\"\\2018\"\"\\2019\"";
-        margin_top "1.6em";
-        margin_bottom "1.6em";
-        padding_left "1em";
+        font_weight (Weight 500);
+        font_style Italic;
+        color (Var "tw-prose-quotes");
+        border_left_width (Rem 0.25);
+        border_left_color (Var "tw-prose-quote-borders");
+        quotes "\"\\201C\"\"\\201D\"\"\\2018\"\"\\2019\"";
+        margin_top (Em 1.6);
+        margin_bottom (Em 1.6);
+        padding_left (Em 1.0);
       ];
     rule
       ~selector:(selector " blockquote p:first-of-type::before")
-      [ declaration "content" "open-quote" ];
+      [ content "open-quote" ];
     rule
       ~selector:(selector " blockquote p:last-of-type::after")
-      [ declaration "content" "close-quote" ];
+      [ content "close-quote" ];
     rule ~selector:(selector " hr")
       [
-        declaration "border-color" "var(--tw-prose-hr)";
-        border_top_width "1px";
-        margin_top "3em";
-        margin_bottom "3em";
+        border_color (Var "tw-prose-hr");
+        border_top_width (Px 1);
+        margin_top (Em 3.0);
+        margin_bottom (Em 3.0);
       ];
     rule ~selector:(selector " strong")
-      [ color "var(--tw-prose-bold)"; font_weight "600" ];
-    rule ~selector:(selector " img") [ margin_top "2em"; margin_bottom "2em" ];
+      [ color (Var "tw-prose-bold"); font_weight (Weight 600) ];
+    rule ~selector:(selector " img")
+      [ margin_top (Em 2.0); margin_bottom (Em 2.0) ];
   ]
 
 let sm_size_rules selector =
   [
-    rule ~selector:".prose-sm" [ font_size "0.875rem"; line_height "1.7142857" ];
+    rule ~selector:".prose-sm"
+      [ font_size (Rem 0.875); line_height (Num 1.7142857) ];
     rule ~selector:(selector " p")
-      [ margin_top "1.1428571em"; margin_bottom "1.1428571em" ];
+      [ margin_top (Em 1.1428571); margin_bottom (Em 1.1428571) ];
     rule ~selector:(selector " h1")
       [
-        font_size "2.1428571em";
-        margin_top "0";
-        margin_bottom "0.8em";
-        line_height "1.2";
+        font_size (Em 2.1428571);
+        margin_top Zero;
+        margin_bottom (Em 0.8);
+        line_height (Num 1.2);
       ];
     rule ~selector:(selector " h2")
       [
-        font_size "1.4285714em";
-        margin_top "1.6em";
-        margin_bottom "0.8em";
-        line_height "1.4";
+        font_size (Em 1.4285714);
+        margin_top (Em 1.6);
+        margin_bottom (Em 0.8);
+        line_height (Num 1.4);
       ];
     rule ~selector:(selector " h3")
       [
-        font_size "1.2857143em";
-        margin_top "1.5555556em";
-        margin_bottom "0.4444444em";
-        line_height "1.5555556";
+        font_size (Em 1.2857143);
+        margin_top (Em 1.5555556);
+        margin_bottom (Em 0.4444444);
+        line_height (Num 1.5555556);
       ];
   ]
 
 let lg_size_rules selector =
   [
-    rule ~selector:".prose-lg" [ font_size "1.125rem"; line_height "1.7777778" ];
+    rule ~selector:".prose-lg"
+      [ font_size (Rem 1.125); line_height (Num 1.7777778) ];
     rule ~selector:(selector " p")
-      [ margin_top "1.3333333em"; margin_bottom "1.3333333em" ];
+      [ margin_top (Em 1.3333333); margin_bottom (Em 1.3333333) ];
     rule ~selector:(selector " h1")
       [
-        font_size "2.6666667em";
-        margin_top "0";
-        margin_bottom "0.8333333em";
-        line_height "1";
+        font_size (Em 2.6666667);
+        margin_top Zero;
+        margin_bottom (Em 0.8333333);
+        line_height (Num 1.0);
       ];
     rule ~selector:(selector " h2")
       [
-        font_size "2em";
-        margin_top "1.5555556em";
-        margin_bottom "0.8888889em";
-        line_height "1.3333333";
+        font_size (Em 2.0);
+        margin_top (Em 1.5555556);
+        margin_bottom (Em 0.8888889);
+        line_height (Num 1.3333333);
       ];
     rule ~selector:(selector " h3")
       [
-        font_size "1.6666667em";
-        margin_top "1.6666667em";
-        margin_bottom "0.6666667em";
-        line_height "1.5";
+        font_size (Em 1.6666667);
+        margin_top (Em 1.6666667);
+        margin_bottom (Em 0.6666667);
+        line_height (Num 1.5);
       ];
   ]
 
 let xl_size_rules selector =
   [
-    rule ~selector:".prose-xl" [ font_size "1.25rem"; line_height "1.8" ];
-    rule ~selector:(selector " p") [ margin_top "1.2em"; margin_bottom "1.2em" ];
+    rule ~selector:".prose-xl" [ font_size (Rem 1.25); line_height (Num 1.8) ];
+    rule ~selector:(selector " p")
+      [ margin_top (Em 1.2); margin_bottom (Em 1.2) ];
     rule ~selector:(selector " h1")
       [
-        font_size "2.8em";
-        margin_top "0";
-        margin_bottom "0.8571429em";
-        line_height "1";
+        font_size (Em 2.8);
+        margin_top Zero;
+        margin_bottom (Em 0.8571429);
+        line_height (Num 1.0);
       ];
     rule ~selector:(selector " h2")
       [
-        font_size "2em";
-        margin_top "1.4em";
-        margin_bottom "0.8em";
-        line_height "1.2727273";
+        font_size (Em 2.0);
+        margin_top (Em 1.4);
+        margin_bottom (Em 0.8);
+        line_height (Num 1.2727273);
       ];
     rule ~selector:(selector " h3")
       [
-        font_size "1.6em";
-        margin_top "1.5555556em";
-        margin_bottom "0.6666667em";
-        line_height "1.4444444";
+        font_size (Em 1.6);
+        margin_top (Em 1.5555556);
+        margin_bottom (Em 0.6666667);
+        line_height (Num 1.4444444);
       ];
   ]
 
 let xl2_size_rules selector =
   [
-    rule ~selector:".prose-2xl" [ font_size "1.5rem"; line_height "1.6666667" ];
+    rule ~selector:".prose-2xl"
+      [ font_size (Rem 1.5); line_height (Num 1.6666667) ];
     rule ~selector:(selector " p")
-      [ margin_top "1.3333333em"; margin_bottom "1.3333333em" ];
+      [ margin_top (Em 1.3333333); margin_bottom (Em 1.3333333) ];
     rule ~selector:(selector " h1")
       [
-        font_size "2.6666667em";
-        margin_top "0";
-        margin_bottom "0.875em";
-        line_height "1";
+        font_size (Em 2.6666667);
+        margin_top Zero;
+        margin_bottom (Em 0.875);
+        line_height (Num 1.0);
       ];
     rule ~selector:(selector " h2")
       [
-        font_size "2em";
-        margin_top "1.5em";
-        margin_bottom "0.8333333em";
-        line_height "1.0833333";
+        font_size (Em 2.0);
+        margin_top (Em 1.5);
+        margin_bottom (Em 0.8333333);
+        line_height (Num 1.0833333);
       ];
     rule ~selector:(selector " h3")
       [
-        font_size "1.5em";
-        margin_top "1.5555556em";
-        margin_bottom "0.6666667em";
-        line_height "1.2222222";
+        font_size (Em 1.5);
+        margin_top (Em 1.5555556);
+        margin_bottom (Em 0.6666667);
+        line_height (Num 1.2222222);
       ];
   ]
 
@@ -352,22 +359,22 @@ let gray_color_rules =
   [
     rule ~selector:".prose-gray"
       [
-        declaration "--tw-prose-body" "rgb(107 114 128)";
-        declaration "--tw-prose-headings" "rgb(31 41 55)";
-        declaration "--tw-prose-lead" "rgb(75 85 99)";
-        declaration "--tw-prose-links" "rgb(31 41 55)";
-        declaration "--tw-prose-bold" "rgb(31 41 55)";
-        declaration "--tw-prose-counters" "rgb(107 114 128)";
-        declaration "--tw-prose-bullets" "rgb(209 213 219)";
-        declaration "--tw-prose-hr" "rgb(229 231 235)";
-        declaration "--tw-prose-quotes" "rgb(31 41 55)";
-        declaration "--tw-prose-quote-borders" "rgb(229 231 235)";
-        declaration "--tw-prose-captions" "rgb(156 163 175)";
-        declaration "--tw-prose-code" "rgb(31 41 55)";
-        declaration "--tw-prose-pre-code" "rgb(229 231 235)";
-        declaration "--tw-prose-pre-bg" "rgb(31 41 55)";
-        declaration "--tw-prose-th-borders" "rgb(209 213 219)";
-        declaration "--tw-prose-td-borders" "rgb(229 231 235)";
+        custom_property "--tw-prose-body" "rgb(107 114 128)";
+        custom_property "--tw-prose-headings" "rgb(31 41 55)";
+        custom_property "--tw-prose-lead" "rgb(75 85 99)";
+        custom_property "--tw-prose-links" "rgb(31 41 55)";
+        custom_property "--tw-prose-bold" "rgb(31 41 55)";
+        custom_property "--tw-prose-counters" "rgb(107 114 128)";
+        custom_property "--tw-prose-bullets" "rgb(209 213 219)";
+        custom_property "--tw-prose-hr" "rgb(229 231 235)";
+        custom_property "--tw-prose-quotes" "rgb(31 41 55)";
+        custom_property "--tw-prose-quote-borders" "rgb(229 231 235)";
+        custom_property "--tw-prose-captions" "rgb(156 163 175)";
+        custom_property "--tw-prose-code" "rgb(31 41 55)";
+        custom_property "--tw-prose-pre-code" "rgb(229 231 235)";
+        custom_property "--tw-prose-pre-bg" "rgb(31 41 55)";
+        custom_property "--tw-prose-th-borders" "rgb(209 213 219)";
+        custom_property "--tw-prose-td-borders" "rgb(229 231 235)";
       ];
   ]
 
@@ -375,22 +382,22 @@ let slate_color_rules =
   [
     rule ~selector:".prose-slate"
       [
-        declaration "--tw-prose-body" "rgb(100 116 139)";
-        declaration "--tw-prose-headings" "rgb(15 23 42)";
-        declaration "--tw-prose-lead" "rgb(71 85 105)";
-        declaration "--tw-prose-links" "rgb(15 23 42)";
-        declaration "--tw-prose-bold" "rgb(15 23 42)";
-        declaration "--tw-prose-counters" "rgb(100 116 139)";
-        declaration "--tw-prose-bullets" "rgb(203 213 225)";
-        declaration "--tw-prose-hr" "rgb(226 232 240)";
-        declaration "--tw-prose-quotes" "rgb(15 23 42)";
-        declaration "--tw-prose-quote-borders" "rgb(226 232 240)";
-        declaration "--tw-prose-captions" "rgb(148 163 184)";
-        declaration "--tw-prose-code" "rgb(15 23 42)";
-        declaration "--tw-prose-pre-code" "rgb(226 232 240)";
-        declaration "--tw-prose-pre-bg" "rgb(30 41 59)";
-        declaration "--tw-prose-th-borders" "rgb(203 213 225)";
-        declaration "--tw-prose-td-borders" "rgb(226 232 240)";
+        custom_property "--tw-prose-body" "rgb(100 116 139)";
+        custom_property "--tw-prose-headings" "rgb(15 23 42)";
+        custom_property "--tw-prose-lead" "rgb(71 85 105)";
+        custom_property "--tw-prose-links" "rgb(15 23 42)";
+        custom_property "--tw-prose-bold" "rgb(15 23 42)";
+        custom_property "--tw-prose-counters" "rgb(100 116 139)";
+        custom_property "--tw-prose-bullets" "rgb(203 213 225)";
+        custom_property "--tw-prose-hr" "rgb(226 232 240)";
+        custom_property "--tw-prose-quotes" "rgb(15 23 42)";
+        custom_property "--tw-prose-quote-borders" "rgb(226 232 240)";
+        custom_property "--tw-prose-captions" "rgb(148 163 184)";
+        custom_property "--tw-prose-code" "rgb(15 23 42)";
+        custom_property "--tw-prose-pre-code" "rgb(226 232 240)";
+        custom_property "--tw-prose-pre-bg" "rgb(30 41 59)";
+        custom_property "--tw-prose-th-borders" "rgb(203 213 225)";
+        custom_property "--tw-prose-td-borders" "rgb(226 232 240)";
       ];
   ]
 
@@ -399,10 +406,10 @@ let base_prose_rules selector =
   let base_rule =
     rule ~selector:".prose"
       ([
-         color "var(--tw-prose-body)";
-         max_width "65ch";
-         font_size "1rem";
-         line_height "1.75";
+         color (Var "tw-prose-body");
+         max_width (Ch 65.0);
+         font_size (Rem 1.0);
+         line_height (Num 1.75);
        ]
       @ css_variables)
   in
@@ -432,15 +439,15 @@ let to_base_properties variant =
   match variant with
   | Base ->
       [
-        color "var(--tw-prose-body)";
-        max_width "65ch";
-        font_size "1rem";
-        line_height "1.75";
+        color (Var "tw-prose-body");
+        max_width (Ch 65.0);
+        font_size (Rem 1.0);
+        line_height (Num 1.75);
       ]
-  | Sm -> [ font_size "0.875rem"; line_height "1.7142857" ]
-  | Lg -> [ font_size "1.125rem"; line_height "1.7777778" ]
-  | Xl -> [ font_size "1.25rem"; line_height "1.8" ]
-  | Xl2 -> [ font_size "1.5rem"; line_height "1.6666667" ]
+  | Sm -> [ font_size (Rem 0.875); line_height (Num 1.7142857) ]
+  | Lg -> [ font_size (Rem 1.125); line_height (Num 1.7777778) ]
+  | Xl -> [ font_size (Rem 1.25); line_height (Num 1.8) ]
+  | Xl2 -> [ font_size (Rem 1.5); line_height (Num 1.6666667) ]
   | Gray | Slate -> [] (* Color themes only affect CSS variables *)
 
 let pp = function
