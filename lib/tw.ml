@@ -1649,10 +1649,9 @@ let spacing_to_length : spacing -> Css.length = function
   | `Rem f ->
       let n = int_of_float (f /. 0.25) in
       Css.Calc
-        (Expr
-           ( Var (Css.Custom { name = "--spacing"; value = "" }),
-             Mult,
-             Calc_num (float_of_int n) ))
+        (Css.Calc.mul
+           (Css.Calc.from_var "--spacing")
+           (Css.Calc.from_float (float_of_int n)))
 
 let margin_to_length : margin -> Css.length = function
   | `Auto -> Css.Auto
@@ -1973,7 +1972,7 @@ let max_h_full = max_h' `Full (* Maximum height 100% *)
 let text_xs =
   style "text-xs"
     [
-      Css.font_size (Css.Calc (Css.Var (Css.Text_size "xs")));
+      Css.font_size (Css.Var "--text-xs");
       Css.declaration "line-height"
         "var(--tw-leading, var(--text-xs--line-height))";
     ]
@@ -1981,7 +1980,7 @@ let text_xs =
 let text_sm =
   style "text-sm"
     [
-      Css.font_size (Css.Calc (Css.Var (Css.Text_size "sm")));
+      Css.font_size (Css.Var "--text-sm");
       Css.declaration "line-height"
         "var(--tw-leading, var(--text-sm--line-height))";
     ]
@@ -1989,7 +1988,7 @@ let text_sm =
 let text_xl =
   style "text-xl"
     [
-      Css.font_size (Css.Calc (Css.Var (Css.Text_size "xl")));
+      Css.font_size (Css.Var "--text-xl");
       Css.declaration "line-height"
         "var(--tw-leading, var(--text-xl--line-height))";
     ]
@@ -1997,7 +1996,7 @@ let text_xl =
 let text_2xl =
   style "text-2xl"
     [
-      Css.font_size (Css.Calc (Css.Var (Css.Text_size "2xl")));
+      Css.font_size (Css.Var "--text-2xl");
       Css.declaration "line-height"
         "var(--tw-leading, var(--text-2xl--line-height))";
     ]
@@ -2060,7 +2059,7 @@ let sticky = style "sticky" [ Css.position Css.Sticky ]
 let text_base =
   style "text-base"
     [
-      Css.font_size (Css.Calc (Css.Var (Css.Text_size "base")));
+      Css.font_size (Css.Var "--text-base");
       Css.declaration "line-height"
         "var(--tw-leading, var(--text-base--line-height))";
     ]
@@ -2068,7 +2067,7 @@ let text_base =
 let text_lg =
   style "text-lg"
     [
-      Css.font_size (Css.Calc (Css.Var (Css.Text_size "lg")));
+      Css.font_size (Css.Var "--text-lg");
       Css.declaration "line-height"
         "var(--tw-leading, var(--text-lg--line-height))";
     ]
@@ -2076,7 +2075,7 @@ let text_lg =
 let text_3xl =
   style "text-3xl"
     [
-      Css.font_size (Css.Calc (Css.Var (Css.Text_size "3xl")));
+      Css.font_size (Css.Var "--text-3xl");
       Css.declaration "line-height"
         "var(--tw-leading, var(--text-3xl--line-height))";
     ]
@@ -2084,7 +2083,7 @@ let text_3xl =
 let text_4xl =
   style "text-4xl"
     [
-      Css.font_size (Css.Calc (Css.Var (Css.Text_size "4xl")));
+      Css.font_size (Css.Var "--text-4xl");
       Css.declaration "line-height"
         "var(--tw-leading, var(--text-4xl--line-height))";
     ]
@@ -2092,7 +2091,7 @@ let text_4xl =
 let text_5xl =
   style "text-5xl"
     [
-      Css.font_size (Css.Calc (Css.Var (Css.Text_size "5xl")));
+      Css.font_size (Css.Var "--text-5xl");
       Css.declaration "line-height"
         "var(--tw-leading, var(--text-5xl--line-height))";
     ]
@@ -2644,8 +2643,7 @@ let scale_z n =
               var_name = "tw-translate-x, var(--tw-translate-y";
               fallback = None;
             };
-          Css.Translate_z
-            (Css.Calc (Css.Var (Css.custom_var "tw-translate-z" "0")));
+          Css.Translate_z (Css.Var "--tw-translate-z");
           Css.Rotate_var { var_name = "tw-rotate"; fallback = None };
           Css.Rotate_x
             (Css.Angle_var { var_name = "tw-rotate-x"; fallback = Some 0.0 });
