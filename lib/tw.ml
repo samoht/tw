@@ -1784,16 +1784,12 @@ let m' (m : margin) =
 let mx' (m : margin) =
   let v = margin_to_length m in
   let class_name = "mx-" ^ pp_margin_suffix m in
-  style_with_vars class_name
-    [ Css.margin_left v; Css.margin_right v ]
-    (margin_vars m)
+  style_with_vars class_name [ Css.margin_inline_length v ] (margin_vars m)
 
 let my' (m : margin) =
   let v = margin_to_length m in
   let class_name = "my-" ^ pp_margin_suffix m in
-  style_with_vars class_name
-    [ Css.margin_top v; Css.margin_bottom v ]
-    (margin_vars m)
+  style_with_vars class_name [ Css.margin_block_length v ] (margin_vars m)
 
 let mt' (m : margin) =
   let class_name = "mt-" ^ pp_margin_suffix m in
@@ -1828,18 +1824,14 @@ let mx n =
   let len = spacing_to_length s in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mx-" ^ pp_spacing_suffix s in
-  style_with_vars class_name
-    [ Css.margin_left len; Css.margin_right len ]
-    [ Css.Spacing (abs n) ]
+  style_with_vars class_name [ Css.margin_inline_length len ] (spacing_vars s)
 
 let my n =
   let s = int n in
   let len = spacing_to_length s in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "my-" ^ pp_spacing_suffix s in
-  style_with_vars class_name
-    [ Css.margin_top len; Css.margin_bottom len ]
-    [ Css.Spacing (abs n) ]
+  style_with_vars class_name [ Css.margin_block_length len ] (spacing_vars s)
 
 let mt n =
   let s = int n in
