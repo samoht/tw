@@ -1648,7 +1648,11 @@ let spacing_to_length : spacing -> Css.length = function
   | `Full -> Css.Pct 100.0
   | `Rem f ->
       let n = int_of_float (f /. 0.25) in
-      Css.Calc (Expr (Var (Css.Spacing 1), Mult, Calc_num (float_of_int n)))
+      Css.Calc
+        (Expr
+           ( Var (Css.Custom { name = "--spacing"; value = "" }),
+             Mult,
+             Calc_num (float_of_int n) ))
 
 let margin_to_length : margin -> Css.length = function
   | `Auto -> Css.Auto
@@ -1690,17 +1694,20 @@ let pp_spacing : spacing -> string = function
 
 (* Helper to extract spacing variables from spacing types *)
 let spacing_vars = function
-  | `Rem _ -> [ Css.Spacing 1 ] (* Track spacing variable for calc() *)
+  | `Rem _ ->
+      [] (* The --spacing variable is handled via string parsing in all_vars *)
   | _ -> []
 
 (* Helper to extract spacing variables from scale types *)
 let scale_vars = function
-  | `Rem _ -> [ Css.Spacing 1 ] (* Track spacing variable for calc() *)
+  | `Rem _ ->
+      [] (* The --spacing variable is handled via string parsing in all_vars *)
   | _ -> []
 
 (* Helper to extract spacing variables from margin types *)
 let margin_vars = function
-  | `Rem _ -> [ Css.Spacing 1 ] (* Track spacing variable for calc() *)
+  | `Rem _ ->
+      [] (* The --spacing variable is handled via string parsing in all_vars *)
   | _ -> []
 
 (* Typed spacing functions with ' suffix *)
