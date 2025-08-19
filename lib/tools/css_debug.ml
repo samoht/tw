@@ -224,38 +224,30 @@ let find_first_diff css1 css2 =
         else ctx
       in
 
-      (* Format location as tree structure *)
+      (* Format location as concise tree *)
       let format_location loc =
         if loc = "" then ""
         else
           let parts = String.split_on_char '>' loc |> List.map String.trim in
           match parts with
           | [] -> ""
-          | [ single ] -> Fmt.str "\n└─ %a" Fmt.(styled `Cyan string) single
-          | layer :: rest ->
-              let tree =
-                ref [ Fmt.str "\n└─ %a" Fmt.(styled `Cyan string) layer ]
-              in
-              List.iter
-                (fun part ->
-                  tree :=
-                    !tree
-                    @ [ Fmt.str "   └─ %a" Fmt.(styled `Cyan string) part ])
-                rest;
-              String.concat "\n" !tree
+          | parts ->
+              "\n"
+              ^ String.concat " > "
+                  (List.map
+                     (fun p -> Fmt.str "%a" Fmt.(styled `Cyan string) p)
+                     parts)
       in
 
       Some
         ( i,
-          Fmt.str "%a at char %d%s"
-            Fmt.(styled `Yellow string)
-            "Mismatch" i (format_location location),
+          format_location location,
           let tw_padding =
             String.make
               (max 0 (String.length tailwind_label - String.length tw_label))
               ' '
           in
-          Fmt.str "\n%a:%s ...%s...\n%a: ...%s..."
+          Fmt.str "%a:%s %s\n%a: %s"
             Fmt.(styled `Green string)
             tw_label tw_padding
             (highlight_diff context1 50)
