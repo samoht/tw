@@ -27,7 +27,13 @@ let check_exact_match tw_styles =
     in
 
     let test_name =
-      match classnames with [] -> "empty" | names -> String.concat " " names
+      match classnames with
+      | [] -> "empty"
+      | names ->
+          let full_name = String.concat " " names in
+          if String.length full_name > 100 then
+            String.sub full_name 0 97 ^ "..."
+          else full_name
     in
 
     if tw_css <> tailwind_css then (
@@ -45,12 +51,47 @@ let check_exact_match tw_styles =
     (* Use testable with custom pp to hide raw CSS in test output *)
     let css_testable =
       Alcotest.testable
-        (fun _fmt _css -> Fmt.pf _fmt "<css content hidden>")
+        (fun fmt css ->
+          if String.length css < 200 then
+            (* Show full CSS if small *)
+            Fmt.pf fmt "\n%s" css
+          else
+            (* For large CSS, show size and optionally remove base layer for
+               brevity *)
+            let without_base =
+              try
+                let pattern = "@layer base" in
+                let rec find_pattern s pat i =
+                  if i + String.length pat > String.length s then
+                    raise Not_found
+                  else if String.sub s i (String.length pat) = pat then i
+                  else find_pattern s pat (i + 1)
+                in
+                let base_start = find_pattern css pattern 0 in
+                let base_end =
+                  try String.index_from css base_start '}'
+                  with Not_found -> base_start + 100
+                in
+                let before = String.sub css 0 base_start in
+                let after =
+                  String.sub css (base_end + 1)
+                    (String.length css - base_end - 1)
+                in
+                before ^ "@layer base{...}" ^ after
+              with Not_found -> css
+            in
+            if String.length without_base < 500 then
+              Fmt.pf fmt "<css: %d chars, base layer hidden>\n%s"
+                (String.length css) without_base
+            else Fmt.pf fmt "<css content hidden: %d chars>" (String.length css))
         String.equal
     in
-    Alcotest.check css_testable
-      (Fmt.str "%s CSS exact match" test_name)
-      tailwind_css tw_css
+    let test_label =
+      if String.length test_name > 50 then
+        String.sub test_name 0 47 ^ "... CSS exact match"
+      else Fmt.str "%s CSS exact match" test_name
+    in
+    Alcotest.check css_testable test_label tailwind_css tw_css
   with
   | Failure msg -> fail ("Test setup failed: " ^ msg)
   | exn -> fail ("Unexpected error: " ^ Printexc.to_string exn)
