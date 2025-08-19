@@ -468,8 +468,7 @@ let generate_reset_rules () =
     Css.rule ~selector:"abbr:where([title])"
       [
         Css.webkit_text_decoration "underline dotted";
-        (* text-decoration with multiple values *)
-        Css.text_decoration Underline;
+        Css.text_decoration Underline_dotted;
       ];
     (* Headings *)
     Css.rule ~selector:"h1, h2, h3, h4, h5, h6"
@@ -479,7 +478,8 @@ let generate_reset_rules () =
       [
         Css.color Inherit;
         Css.webkit_text_decoration "inherit";
-        (* TODO: should take Inherit constructor *)
+        Css.webkit_text_decoration "inherit";
+        Css.webkit_text_decoration "inherit";
         Css.text_decoration Inherit;
       ];
     (* Bold elements *)
@@ -585,7 +585,7 @@ let generate_reset_rules () =
     (* Webkit datetime inputs *)
     Css.rule ~selector:"::-webkit-date-and-time-value"
       [
-        Css.min_height (Em 1.0);
+        Css.min_height (Lh 1.0);
         (* 1lh approximated as 1em *)
         Css.text_align Inherit;
       ];
@@ -623,10 +623,9 @@ let generate_reset_rules () =
     Css.rule ~selector:"::-webkit-outer-spin-button" [ Css.height Auto ];
     (* Hidden elements *)
     Css.rule ~selector:"[hidden]:where(:not([hidden=until-found]))"
-      [ Css.display None ];
-    (* TODO: needs !important flag *)
+      [ Css.important (Css.display None) ]
     (* Placeholder styling with @supports - added as a raw rule string for now *)
-    (* This needs to be added as part of the base layer but after the main rules *)
+    (* This needs to be added as part of the base layer but after the main rules *);
   ]
 
 (* Check if prose styles are being used *)
@@ -1061,9 +1060,15 @@ let to_css ?(reset = true) tw_classes =
             [
               Css.rule ~selector:"::placeholder"
                 [
-                  (* TODO: add support for color-mix() in color type *)
-                  Css.color (Css.Rgba { r = 0; g = 0; b = 0; a = 0.5 });
-                  (* placeholder approximation *)
+                  Css.color
+                    (Css.Mix
+                       {
+                         in_space = Oklab;
+                         color1 = Current;
+                         percent1 = Some 50;
+                         color2 = Transparent;
+                         percent2 = None;
+                       });
                 ];
             ];
         ]
