@@ -419,7 +419,7 @@ let generate_reset_rules () =
     Css.rule ~selector:"*, :after, :before, ::backdrop"
       [
         Css.box_sizing Border_box;
-        Css.declaration "border" "0 solid";
+        Css.border "0 solid";
         Css.margin Zero;
         Css.padding Zero;
       ];
@@ -427,15 +427,16 @@ let generate_reset_rules () =
     Css.rule ~selector:"::file-selector-button"
       [
         Css.box_sizing Border_box;
-        Css.declaration "border" "0 solid";
+        Css.border "0 solid";
         Css.margin Zero;
         Css.padding Zero;
       ];
     (* HTML and host *)
     Css.rule ~selector:"html, :host"
       [
-        Css.declaration "-webkit-text-size-adjust" "100%";
-        Css.declaration "tab-size" "4";
+        Css.webkit_text_size_adjust "100%";
+        (* TODO: should take typed value *)
+        Css.tab_size "4";
         Css.line_height (Num 1.5);
         Css.font_family
           [
@@ -455,24 +456,20 @@ let generate_reset_rules () =
                     ];
               };
           ];
-        Css.declaration "font-feature-settings"
-          "var(--default-font-feature-settings, normal)";
-        Css.declaration "font-variation-settings"
+        Css.font_feature_settings "var(--default-font-feature-settings, normal)";
+        Css.font_variation_settings
           "var(--default-font-variation-settings, normal)";
-        Css.declaration "-webkit-tap-highlight-color" "transparent";
+        Css.webkit_tap_highlight_color "transparent";
       ];
     (* Horizontal rule *)
     Css.rule ~selector:"hr"
-      [
-        Css.height Zero;
-        Css.color Inherit;
-        Css.declaration "border-top-width" "1px";
-      ];
+      [ Css.height Zero; Css.color Inherit; Css.border_top_width (Px 1) ];
     (* Abbreviations *)
     Css.rule ~selector:"abbr:where([title])"
       [
-        Css.declaration "-webkit-text-decoration" "underline dotted";
-        Css.declaration "text-decoration" "underline dotted";
+        Css.webkit_text_decoration "underline dotted";
+        (* text-decoration with multiple values *)
+        Css.text_decoration Underline;
       ];
     (* Headings *)
     Css.rule ~selector:"h1, h2, h3, h4, h5, h6"
@@ -481,10 +478,9 @@ let generate_reset_rules () =
     Css.rule ~selector:"a"
       [
         Css.color Inherit;
-        Css.declaration "-webkit-text-decoration" "inherit";
-        Css.declaration "-webkit-text-decoration" "inherit";
-        Css.declaration "-webkit-text-decoration" "inherit";
-        Css.declaration "text-decoration" "inherit";
+        Css.webkit_text_decoration "inherit";
+        (* TODO: should take Inherit constructor *)
+        Css.text_decoration Inherit;
       ];
     (* Bold elements *)
     Css.rule ~selector:"b, strong" [ Css.font_weight Bolder ];
@@ -510,9 +506,9 @@ let generate_reset_rules () =
                     ];
               };
           ];
-        Css.declaration "font-feature-settings"
+        Css.font_feature_settings
           "var(--default-mono-font-feature-settings, normal)";
-        Css.declaration "font-variation-settings"
+        Css.font_variation_settings
           "var(--default-mono-font-variation-settings, normal)";
         Css.font_size (Em 1.0);
       ];
@@ -531,8 +527,8 @@ let generate_reset_rules () =
     (* Table *)
     Css.rule ~selector:"table"
       [
-        Css.declaration "text-indent" "0";
-        Css.declaration "border-color" "inherit";
+        Css.text_indent Zero;
+        Css.border_color Inherit;
         Css.border_collapse Collapse;
       ];
     (* Firefox focusring *)
@@ -540,9 +536,9 @@ let generate_reset_rules () =
     (* Progress *)
     Css.rule ~selector:"progress" [ Css.vertical_align Baseline ];
     (* Summary *)
-    Css.rule ~selector:"summary" [ Css.declaration "display" "list-item" ];
+    Css.rule ~selector:"summary" [ Css.display List_item ];
     (* Lists *)
-    Css.rule ~selector:"ol, ul, menu" [ Css.declaration "list-style" "none" ];
+    Css.rule ~selector:"ol, ul, menu" [ Css.list_style "none" ];
     (* Media elements *)
     Css.rule ~selector:"img, svg, video, canvas, audio, iframe, embed, object"
       [ Css.vertical_align Middle; Css.display Block ];
@@ -551,10 +547,10 @@ let generate_reset_rules () =
     (* Form elements *)
     Css.rule ~selector:"button, input, select, optgroup, textarea"
       [
-        Css.declaration "font" "inherit";
-        Css.declaration "font-feature-settings" "inherit";
-        Css.declaration "font-variation-settings" "inherit";
-        Css.declaration "letter-spacing" "inherit";
+        Css.font "inherit";
+        Css.font_feature_settings "inherit";
+        Css.font_variation_settings "inherit";
+        Css.letter_spacing Inherit;
         Css.color Inherit;
         Css.opacity 1.0;
         Css.background_color Transparent;
@@ -563,10 +559,10 @@ let generate_reset_rules () =
     (* File selector button - second occurrence with font properties *)
     Css.rule ~selector:"::file-selector-button"
       [
-        Css.declaration "font" "inherit";
-        Css.declaration "font-feature-settings" "inherit";
-        Css.declaration "font-variation-settings" "inherit";
-        Css.declaration "letter-spacing" "inherit";
+        Css.font "inherit";
+        Css.font_feature_settings "inherit";
+        Css.font_variation_settings "inherit";
+        Css.letter_spacing Inherit;
         Css.color Inherit;
         Css.opacity 1.0;
         Css.background_color Transparent;
@@ -576,44 +572,43 @@ let generate_reset_rules () =
     Css.rule ~selector:":where(select:is([multiple], [size])) optgroup"
       [ Css.font_weight Bolder ];
     Css.rule ~selector:":where(select:is([multiple], [size])) optgroup option"
-      [ Css.declaration "padding-inline-start" "20px" ];
+      [ Css.padding_inline_start (Px 20) ];
     (* File selector button - third occurrence with margin *)
-    Css.rule ~selector:"::file-selector-button"
-      [ Css.declaration "margin-inline-end" "4px" ];
+    Css.rule ~selector:"::file-selector-button" [ Css.margin_inline_end (Px 4) ];
     (* Placeholder - basic *)
     Css.rule ~selector:"::placeholder" [ Css.opacity 1.0 ];
     (* Textarea *)
     Css.rule ~selector:"textarea" [ Css.resize Vertical ];
     (* Search decoration *)
     Css.rule ~selector:"::-webkit-search-decoration"
-      [ Css.declaration "-webkit-appearance" "none" ];
+      [ Css.webkit_appearance "none" ];
     (* Webkit datetime inputs *)
     Css.rule ~selector:"::-webkit-date-and-time-value"
       [
-        Css.declaration "min-height" "1lh";
-        Css.declaration "text-align" "inherit";
+        Css.min_height (Em 1.0);
+        (* 1lh approximated as 1em *)
+        Css.text_align Inherit;
       ];
     Css.rule ~selector:"::-webkit-datetime-edit" [ Css.display Inline_flex ];
     Css.rule ~selector:"::-webkit-datetime-edit-fields-wrapper"
       [ Css.padding Zero ];
-    Css.rule ~selector:"::-webkit-datetime-edit"
-      [ Css.declaration "padding-block" "0" ];
+    Css.rule ~selector:"::-webkit-datetime-edit" [ Css.padding_block Zero ];
     Css.rule ~selector:"::-webkit-datetime-edit-year-field"
-      [ Css.declaration "padding-block" "0" ];
+      [ Css.padding_block Zero ];
     Css.rule ~selector:"::-webkit-datetime-edit-month-field"
-      [ Css.declaration "padding-block" "0" ];
+      [ Css.padding_block Zero ];
     Css.rule ~selector:"::-webkit-datetime-edit-day-field"
-      [ Css.declaration "padding-block" "0" ];
+      [ Css.padding_block Zero ];
     Css.rule ~selector:"::-webkit-datetime-edit-hour-field"
-      [ Css.declaration "padding-block" "0" ];
+      [ Css.padding_block Zero ];
     Css.rule ~selector:"::-webkit-datetime-edit-minute-field"
-      [ Css.declaration "padding-block" "0" ];
+      [ Css.padding_block Zero ];
     Css.rule ~selector:"::-webkit-datetime-edit-second-field"
-      [ Css.declaration "padding-block" "0" ];
+      [ Css.padding_block Zero ];
     Css.rule ~selector:"::-webkit-datetime-edit-millisecond-field"
-      [ Css.declaration "padding-block" "0" ];
+      [ Css.padding_block Zero ];
     Css.rule ~selector:"::-webkit-datetime-edit-meridiem-field"
-      [ Css.declaration "padding-block" "0" ];
+      [ Css.padding_block Zero ];
     (* Firefox-specific *)
     Css.rule ~selector:":-moz-ui-invalid" [ Css.box_shadow "none" ];
     (* Button-like inputs *)
@@ -628,7 +623,8 @@ let generate_reset_rules () =
     Css.rule ~selector:"::-webkit-outer-spin-button" [ Css.height Auto ];
     (* Hidden elements *)
     Css.rule ~selector:"[hidden]:where(:not([hidden=until-found]))"
-      [ Css.declaration "display" "none!important" ];
+      [ Css.display None ];
+    (* TODO: needs !important flag *)
     (* Placeholder styling with @supports - added as a raw rule string for now *)
     (* This needs to be added as part of the base layer but after the main rules *)
   ]
@@ -773,7 +769,7 @@ let to_css ?(reset = true) tw_classes =
       let properties = Var.generate_properties_layer var_tally in
       if properties <> [] then
         let css_props =
-          List.map (fun (var, value) -> Css.declaration var value) properties
+          List.map (fun (var, value) -> Css.css_variable var value) properties
         in
         Some
           (Css.layered_rules ~layer:Css.Properties
@@ -814,8 +810,8 @@ let to_css ?(reset = true) tw_classes =
     (* Theme variables that always exist and may reference other variables *)
     let default_font_props =
       [
-        Css.declaration "--default-font-family" "var(--font-sans)";
-        Css.declaration "--default-mono-font-family" "var(--font-mono)";
+        Css.css_variable "--default-font-family" "var(--font-sans)";
+        Css.css_variable "--default-mono-font-family" "var(--font-mono)";
       ]
     in
 
@@ -838,18 +834,18 @@ let to_css ?(reset = true) tw_classes =
                  match var with
                  | "--font-sans" ->
                      Some
-                       (Css.declaration "--font-sans"
+                       (Css.css_variable "--font-sans"
                           "ui-sans-serif, system-ui, sans-serif, \"Apple Color \
                            Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \
                            \"Noto Color Emoji\"")
                  | "--font-serif" ->
                      Some
-                       (Css.declaration "--font-serif"
+                       (Css.css_variable "--font-serif"
                           "ui-serif, Georgia, Cambria, \"Times New Roman\", \
                            Times, serif")
                  | "--font-mono" ->
                      Some
-                       (Css.declaration "--font-mono"
+                       (Css.css_variable "--font-mono"
                           "ui-monospace, SFMono-Regular, Menlo, Monaco, \
                            Consolas, \"Liberation Mono\", \"Courier New\", \
                            monospace")
@@ -872,74 +868,74 @@ let to_css ?(reset = true) tw_classes =
       all_referenced_vars
       |> List.concat_map (fun var_name ->
              match var_name with
-             | "--spacing" -> [ Css.declaration "--spacing" "0.25rem" ]
+             | "--spacing" -> [ Css.css_variable "--spacing" "0.25rem" ]
              | "--text-xs" ->
                  [
-                   Css.declaration "--text-xs" "0.75rem";
-                   Css.declaration "--text-xs--line-height" "calc(1/.75)";
+                   Css.css_variable "--text-xs" "0.75rem";
+                   Css.css_variable "--text-xs--line-height" "calc(1/.75)";
                  ]
              | "--text-sm" ->
                  [
-                   Css.declaration "--text-sm" "0.875rem";
-                   Css.declaration "--text-sm--line-height" "calc(1.25/.875)";
+                   Css.css_variable "--text-sm" "0.875rem";
+                   Css.css_variable "--text-sm--line-height" "calc(1.25/.875)";
                  ]
              | "--text-base" ->
                  [
-                   Css.declaration "--text-base" "1rem";
-                   Css.declaration "--text-base--line-height" "calc(1.5/1)";
+                   Css.css_variable "--text-base" "1rem";
+                   Css.css_variable "--text-base--line-height" "calc(1.5/1)";
                  ]
              | "--text-lg" ->
                  [
-                   Css.declaration "--text-lg" "1.125rem";
-                   Css.declaration "--text-lg--line-height" "calc(1.75/1.125)";
+                   Css.css_variable "--text-lg" "1.125rem";
+                   Css.css_variable "--text-lg--line-height" "calc(1.75/1.125)";
                  ]
              | "--text-xl" ->
                  [
-                   Css.declaration "--text-xl" "1.25rem";
-                   Css.declaration "--text-xl--line-height" "calc(1.75/1.25)";
+                   Css.css_variable "--text-xl" "1.25rem";
+                   Css.css_variable "--text-xl--line-height" "calc(1.75/1.25)";
                  ]
              | "--text-2xl" ->
                  [
-                   Css.declaration "--text-2xl" "1.5rem";
-                   Css.declaration "--text-2xl--line-height" "calc(2/1.5)";
+                   Css.css_variable "--text-2xl" "1.5rem";
+                   Css.css_variable "--text-2xl--line-height" "calc(2/1.5)";
                  ]
              | "--text-3xl" ->
                  [
-                   Css.declaration "--text-3xl" "1.875rem";
-                   Css.declaration "--text-3xl--line-height" "calc(2.25/1.875)";
+                   Css.css_variable "--text-3xl" "1.875rem";
+                   Css.css_variable "--text-3xl--line-height" "calc(2.25/1.875)";
                  ]
              | "--text-4xl" ->
                  [
-                   Css.declaration "--text-4xl" "2.25rem";
-                   Css.declaration "--text-4xl--line-height" "calc(2.5/2.25)";
+                   Css.css_variable "--text-4xl" "2.25rem";
+                   Css.css_variable "--text-4xl--line-height" "calc(2.5/2.25)";
                  ]
              | "--text-5xl" ->
                  [
-                   Css.declaration "--text-5xl" "3rem";
-                   Css.declaration "--text-5xl--line-height" "1";
+                   Css.css_variable "--text-5xl" "3rem";
+                   Css.css_variable "--text-5xl--line-height" "1";
                  ]
              | "--font-weight-thin" ->
-                 [ Css.declaration "--font-weight-thin" "100" ]
+                 [ Css.css_variable "--font-weight-thin" "100" ]
              | "--font-weight-light" ->
-                 [ Css.declaration "--font-weight-light" "300" ]
+                 [ Css.css_variable "--font-weight-light" "300" ]
              | "--font-weight-normal" ->
-                 [ Css.declaration "--font-weight-normal" "400" ]
+                 [ Css.css_variable "--font-weight-normal" "400" ]
              | "--font-weight-medium" ->
-                 [ Css.declaration "--font-weight-medium" "500" ]
+                 [ Css.css_variable "--font-weight-medium" "500" ]
              | "--font-weight-semibold" ->
-                 [ Css.declaration "--font-weight-semibold" "600" ]
+                 [ Css.css_variable "--font-weight-semibold" "600" ]
              | "--font-weight-bold" ->
-                 [ Css.declaration "--font-weight-bold" "700" ]
+                 [ Css.css_variable "--font-weight-bold" "700" ]
              | "--font-weight-extrabold" ->
-                 [ Css.declaration "--font-weight-extrabold" "800" ]
+                 [ Css.css_variable "--font-weight-extrabold" "800" ]
              | "--font-weight-black" ->
-                 [ Css.declaration "--font-weight-black" "900" ]
-             | "--radius-sm" -> [ Css.declaration "--radius-sm" ".25rem" ]
-             | "--radius-md" -> [ Css.declaration "--radius-md" ".375rem" ]
-             | "--radius-lg" -> [ Css.declaration "--radius-lg" ".5rem" ]
-             | "--radius-xl" -> [ Css.declaration "--radius-xl" ".75rem" ]
-             | "--radius-2xl" -> [ Css.declaration "--radius-2xl" "1rem" ]
-             | "--radius-3xl" -> [ Css.declaration "--radius-3xl" "1.5rem" ]
+                 [ Css.css_variable "--font-weight-black" "900" ]
+             | "--radius-sm" -> [ Css.css_variable "--radius-sm" ".25rem" ]
+             | "--radius-md" -> [ Css.css_variable "--radius-md" ".375rem" ]
+             | "--radius-lg" -> [ Css.css_variable "--radius-lg" ".5rem" ]
+             | "--radius-xl" -> [ Css.css_variable "--radius-xl" ".75rem" ]
+             | "--radius-2xl" -> [ Css.css_variable "--radius-2xl" "1rem" ]
+             | "--radius-3xl" -> [ Css.css_variable "--radius-3xl" "1.5rem" ]
              | var_name when String.starts_with ~prefix:"--color-" var_name -> (
                  (* Handle color variables *)
                  let color_part =
@@ -950,9 +946,9 @@ let to_css ?(reset = true) tw_classes =
                  | [ color_name ] ->
                      (* Base color like --color-white or --color-black *)
                      if color_name = "white" then
-                       [ Css.declaration "--color-white" "#fff" ]
+                       [ Css.css_variable "--color-white" "#fff" ]
                      else if color_name = "black" then
-                       [ Css.declaration "--color-black" "#000" ]
+                       [ Css.css_variable "--color-black" "#000" ]
                      else [] (* Other base colors need shade *)
                  | color_parts -> (
                      (* Try to extract shade from the end *)
@@ -965,7 +961,7 @@ let to_css ?(reset = true) tw_classes =
                            in
                            let color = Color.of_string color_name in
                            [
-                             Css.declaration var_name
+                             Css.css_variable var_name
                                (Color.to_oklch_css color shade);
                            ]
                          with _ -> [])
@@ -1005,16 +1001,16 @@ let to_css ?(reset = true) tw_classes =
       |> List.map (fun (_, var_name) ->
              match var_name with
              | "--font-sans" ->
-                 Css.declaration "--font-sans"
+                 Css.css_variable "--font-sans"
                    "ui-sans-serif, system-ui, sans-serif, \"Apple Color \
                     Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto \
                     Color Emoji\""
              | "--font-serif" ->
-                 Css.declaration "--font-serif"
+                 Css.css_variable "--font-serif"
                    "ui-serif, Georgia, Cambria, \"Times New Roman\", Times, \
                     serif"
              | "--font-mono" ->
-                 Css.declaration "--font-mono"
+                 Css.css_variable "--font-mono"
                    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \
                     \"Liberation Mono\", \"Courier New\", monospace"
              | _ -> failwith "Unexpected font variable")
@@ -1058,8 +1054,9 @@ let to_css ?(reset = true) tw_classes =
             [
               Css.rule ~selector:"::placeholder"
                 [
-                  Css.declaration "color"
-                    "color-mix(in oklab,currentcolor 50%,transparent)";
+                  (* TODO: add support for color-mix() in color type *)
+                  Css.color (Css.Rgba { r = 0; g = 0; b = 0; a = 0.5 });
+                  (* placeholder approximation *)
                 ];
             ];
         ]
@@ -1436,45 +1433,26 @@ let bg color shade =
   (* For custom colors (hex, rgb, oklch), use direct values; for others use CSS
      variables *)
   if Color.is_custom_color color then
-    (* Direct arbitrary value - no CSS variable *)
-    let direct_value =
+    (* Convert to proper color constructor *)
+    let css_color =
       match color with
-      | Color.Hex h ->
-          (* Strip # prefix if present, as Tailwind doesn't include it in
-             arbitrary values *)
-          let h_stripped =
-            if String.starts_with ~prefix:"#" h then
-              String.sub h 1 (String.length h - 1)
-            else h
-          in
-          (* Optimize hex value by removing unnecessary leading zeros *)
-          (* For 6-char hex values like 00ff00, shorten to 0ff00 *)
-          if String.length h_stripped = 6 && h_stripped.[0] = '0' then
-            String.sub h_stripped 1 5
-          else h_stripped
-      | Color.Rgb { red; green; blue } ->
-          Pp.str
-            [
-              "rgb(";
-              string_of_int red;
-              ",";
-              string_of_int green;
-              ",";
-              string_of_int blue;
-              ")";
-            ]
-      | Color.Oklch oklch -> Color.oklch_to_css oklch
-      | _ -> Color.to_oklch_css color shade (* Fallback *)
+      | Color.Hex hex ->
+          (* For hex colors, use Css.Hex *)
+          Css.Hex (String.uppercase_ascii hex)
+      | Color.Oklch oklch ->
+          (* Use the new Oklch constructor *)
+          Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
+      | _ ->
+          (* For other colors, get OKLCH data directly *)
+          let oklch = Color.to_oklch color shade in
+          Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
     in
-    style class_name [ Css.declaration "background-color" direct_value ]
+    style class_name [ Css.background_color css_color ]
   else
     (* Use CSS variable reference *)
-    let var_ref =
-      if Color.is_base_color color then
-        Pp.str [ "var(--color-"; color_name color; ")" ]
-      else
-        Pp.str
-          [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
+    let var_name =
+      if Color.is_base_color color then Pp.str [ "color-"; color_name color ]
+      else Pp.str [ "color-"; color_name color; "-"; string_of_int shade ]
     in
     (* Track the color variable requirement *)
     let var =
@@ -1482,7 +1460,7 @@ let bg color shade =
       else color_var ~shade (color_name color)
     in
     style_with_vars class_name
-      [ Css.declaration "background-color" var_ref ]
+      [ Css.background_color (Css.Var var_name) ]
       [ var ]
 
 let bg_transparent = style "bg-transparent" [ background_color Transparent ]
@@ -1523,52 +1501,33 @@ let text color shade =
   (* For custom colors (hex, rgb, oklch), use direct values; for others use CSS
      variables *)
   if Color.is_custom_color color then
-    (* Direct arbitrary value - no CSS variable *)
-    let direct_value =
+    (* Convert to proper color constructor *)
+    let css_color =
       match color with
-      | Color.Hex h ->
-          (* Strip # prefix if present, as Tailwind doesn't include it in
-             arbitrary values *)
-          let h_stripped =
-            if String.starts_with ~prefix:"#" h then
-              String.sub h 1 (String.length h - 1)
-            else h
-          in
-          (* Optimize hex value by removing unnecessary leading zeros *)
-          (* For 6-char hex values like 00ff00, shorten to 0ff00 *)
-          if String.length h_stripped = 6 && h_stripped.[0] = '0' then
-            String.sub h_stripped 1 5
-          else h_stripped
-      | Color.Rgb { red; green; blue } ->
-          Pp.str
-            [
-              "rgb(";
-              string_of_int red;
-              ",";
-              string_of_int green;
-              ",";
-              string_of_int blue;
-              ")";
-            ]
-      | Color.Oklch oklch -> Color.oklch_to_css oklch
-      | _ -> Color.to_oklch_css color shade (* Fallback *)
+      | Color.Hex hex ->
+          (* For hex colors, use Css.Hex *)
+          Css.Hex (String.uppercase_ascii hex)
+      | Color.Oklch oklch ->
+          (* Use the new Oklch constructor *)
+          Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
+      | _ ->
+          (* For other colors, get OKLCH data directly *)
+          let oklch = Color.to_oklch color shade in
+          Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
     in
-    style class_name [ Css.declaration "color" direct_value ]
+    style class_name [ Css.color css_color ]
   else
     (* Use CSS variable reference *)
-    let var_ref =
-      if Color.is_base_color color then
-        Pp.str [ "var(--color-"; color_name color; ")" ]
-      else
-        Pp.str
-          [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
+    let var_name =
+      if Color.is_base_color color then Pp.str [ "color-"; color_name color ]
+      else Pp.str [ "color-"; color_name color; "-"; string_of_int shade ]
     in
     (* Track the color variable requirement *)
     let var =
       if Color.is_base_color color then color_var (color_name color)
       else color_var ~shade (color_name color)
     in
-    style_with_vars class_name [ Css.declaration "color" var_ref ] [ var ]
+    style_with_vars class_name [ Css.color (Css.Var var_name) ] [ var ]
 
 let text_transparent = style "text-transparent" [ Css.color Transparent ]
 let text_current = style "text-current" [ Css.color Current ]
@@ -1608,54 +1567,33 @@ let border_color color shade =
   (* For custom colors (hex, rgb, oklch), use direct values; for others use CSS
      variables *)
   if Color.is_custom_color color then
-    (* Direct arbitrary value - no CSS variable *)
-    let direct_value =
+    (* Convert to proper color constructor *)
+    let css_color =
       match color with
-      | Color.Hex h ->
-          (* Strip # prefix if present, as Tailwind doesn't include it in
-             arbitrary values *)
-          let h_stripped =
-            if String.starts_with ~prefix:"#" h then
-              String.sub h 1 (String.length h - 1)
-            else h
-          in
-          (* Optimize hex value by removing unnecessary leading zeros *)
-          (* For 6-char hex values like 00ff00, shorten to 0ff00 *)
-          if String.length h_stripped = 6 && h_stripped.[0] = '0' then
-            String.sub h_stripped 1 5
-          else h_stripped
-      | Color.Rgb { red; green; blue } ->
-          Pp.str
-            [
-              "rgb(";
-              string_of_int red;
-              ",";
-              string_of_int green;
-              ",";
-              string_of_int blue;
-              ")";
-            ]
-      | Color.Oklch oklch -> Color.oklch_to_css oklch
-      | _ -> Color.to_oklch_css color shade (* Fallback *)
+      | Color.Hex hex ->
+          (* For hex colors, use Css.Hex *)
+          Css.Hex (String.uppercase_ascii hex)
+      | Color.Oklch oklch ->
+          (* Use the new Oklch constructor *)
+          Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
+      | _ ->
+          (* For other colors, get OKLCH data directly *)
+          let oklch = Color.to_oklch color shade in
+          Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
     in
-    style class_name [ Css.declaration "border-color" direct_value ]
+    style class_name [ Css.border_color css_color ]
   else
     (* Use CSS variable reference *)
-    let var_ref =
-      if Color.is_base_color color then
-        Pp.str [ "var(--color-"; color_name color; ")" ]
-      else
-        Pp.str
-          [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
+    let var_name =
+      if Color.is_base_color color then Pp.str [ "color-"; color_name color ]
+      else Pp.str [ "color-"; color_name color; "-"; string_of_int shade ]
     in
     (* Track the color variable requirement *)
     let var =
       if Color.is_base_color color then color_var (color_name color)
       else color_var ~shade (color_name color)
     in
-    style_with_vars class_name
-      [ Css.declaration "border-color" var_ref ]
-      [ var ]
+    style_with_vars class_name [ Css.border_color (Css.Var var_name) ] [ var ]
 
 let border_transparent =
   style "border-transparent" [ Css.border_color Transparent ]
@@ -1765,12 +1703,16 @@ let max_scale_to_length : max_scale -> Css.length = function
   | `Xl_7 -> Css.Rem 80.0
   | #scale as s -> scale_to_length s
 
-let pp_spacing : spacing -> string = function
-  | `Px -> "1px"
-  | `Full -> "100%"
+let spacing_to_length : spacing -> Css.length = function
+  | `Px -> Css.Px 1
+  | `Full -> Css.Pct 100.0
   | `Rem f ->
       let n = int_of_float (f /. 0.25) in
-      Pp.str [ "calc(var(--spacing) * "; string_of_int n; ")" ]
+      Css.Calc
+        (Expr
+           ( (Var (Css.var "spacing") : Css.calc_value),
+             Mult,
+             Num (float_of_int n) ))
 
 (** {1 Spacing} *)
 
@@ -1799,18 +1741,14 @@ let p' (s : spacing) =
   style_with_vars class_name [ Css.padding len ] (spacing_vars s)
 
 let px' (s : spacing) =
-  let v = pp_spacing s in
   let class_name = "px-" ^ pp_spacing_suffix s in
-  style_with_vars class_name
-    [ Css.declaration "padding-inline" v ]
-    (spacing_vars s)
+  let len = spacing_to_length s in
+  style_with_vars class_name [ Css.padding_inline len ] (spacing_vars s)
 
 let py' (s : spacing) =
-  let v = pp_spacing s in
   let class_name = "py-" ^ pp_spacing_suffix s in
-  style_with_vars class_name
-    [ Css.declaration "padding-block" v ]
-    (spacing_vars s)
+  let len = spacing_to_length s in
+  style_with_vars class_name [ Css.padding_block len ] (spacing_vars s)
 
 let pt' (s : spacing) =
   let class_name = "pt-" ^ pp_spacing_suffix s in
@@ -1993,9 +1931,9 @@ let w' (s : scale) =
   let class_name = "w-" ^ pp_scale_suffix s in
   let decl =
     match s with
-    | `Fit -> Css.declaration "width" "fit-content"
-    | `Min -> Css.declaration "width" "min-content"
-    | `Max -> Css.declaration "width" "max-content"
+    | `Fit -> Css.width Fit_content
+    | `Min -> Css.width Min_content
+    | `Max -> Css.width Max_content
     | _ -> Css.width (scale_to_length s)
   in
   style_with_vars class_name [ decl ] (scale_vars s)
@@ -2004,9 +1942,9 @@ let h' (s : scale) =
   let class_name = "h-" ^ pp_scale_suffix s in
   let decl =
     match s with
-    | `Fit -> Css.declaration "height" "fit-content"
-    | `Min -> Css.declaration "height" "min-content"
-    | `Max -> Css.declaration "height" "max-content"
+    | `Fit -> Css.height Fit_content
+    | `Min -> Css.height Min_content
+    | `Max -> Css.height Max_content
     | _ -> Css.height (scale_to_length s)
   in
   style_with_vars class_name [ decl ] (scale_vars s)
@@ -2067,33 +2005,45 @@ let max_h_full = max_h' `Full (* Maximum height 100% *)
 let text_xs =
   style "text-xs"
     [
-      Css.font_size (Css.Var "--text-xs");
-      Css.declaration "line-height"
-        "var(--tw-leading, var(--text-xs--line-height))";
+      Css.font_size (Css.Var (Css.var "text-xs"));
+      Css.line_height
+        (Css.Var
+           (Css.var
+              ~fallback:(Css.Var (Css.var "text-xs--line-height"))
+              "tw-leading"));
     ]
 
 let text_sm =
   style "text-sm"
     [
-      Css.font_size (Css.Var "--text-sm");
-      Css.declaration "line-height"
-        "var(--tw-leading, var(--text-sm--line-height))";
+      Css.font_size (Css.Var (Css.var "text-sm"));
+      Css.line_height
+        (Css.Var
+           (Css.var
+              ~fallback:(Css.Var (Css.var "text-sm--line-height"))
+              "tw-leading"));
     ]
 
 let text_xl =
   style "text-xl"
     [
-      Css.font_size (Css.Var "--text-xl");
-      Css.declaration "line-height"
-        "var(--tw-leading, var(--text-xl--line-height))";
+      Css.font_size (Css.Var (Css.var "text-xl"));
+      Css.line_height
+        (Css.Var
+           (Css.var
+              ~fallback:(Css.Var (Css.var "text-xl--line-height"))
+              "tw-leading"));
     ]
 
 let text_2xl =
   style "text-2xl"
     [
-      Css.font_size (Css.Var "--text-2xl");
-      Css.declaration "line-height"
-        "var(--tw-leading, var(--text-2xl--line-height))";
+      Css.font_size (Css.Var (Css.var "text-2xl"));
+      Css.line_height
+        (Css.Var
+           (Css.var
+              ~fallback:(Css.Var (Css.var "text-2xl--line-height"))
+              "tw-leading"));
     ]
 
 let text_center = style "text-center" [ Css.text_align Css.Center ]
@@ -2154,104 +2104,119 @@ let sticky = style "sticky" [ Css.position Css.Sticky ]
 let text_base =
   style "text-base"
     [
-      Css.font_size (Css.Var "--text-base");
-      Css.declaration "line-height"
-        "var(--tw-leading, var(--text-base--line-height))";
+      Css.font_size (Css.Var (Css.var "text-base"));
+      Css.line_height
+        (Css.Var
+           (Css.var
+              ~fallback:(Css.Var (Css.var "text-base--line-height"))
+              "tw-leading"));
     ]
 
 let text_lg =
   style "text-lg"
     [
-      Css.font_size (Css.Var "--text-lg");
-      Css.declaration "line-height"
-        "var(--tw-leading, var(--text-lg--line-height))";
+      Css.font_size (Css.Var (Css.var "text-lg"));
+      Css.line_height
+        (Css.Var
+           (Css.var
+              ~fallback:(Css.Var (Css.var "text-lg--line-height"))
+              "tw-leading"));
     ]
 
 let text_3xl =
   style "text-3xl"
     [
-      Css.font_size (Css.Var "--text-3xl");
-      Css.declaration "line-height"
-        "var(--tw-leading, var(--text-3xl--line-height))";
+      Css.font_size (Css.Var (Css.var "text-3xl"));
+      Css.line_height
+        (Css.Var
+           (Css.var
+              ~fallback:(Css.Var (Css.var "text-3xl--line-height"))
+              "tw-leading"));
     ]
 
 let text_4xl =
   style "text-4xl"
     [
-      Css.font_size (Css.Var "--text-4xl");
-      Css.declaration "line-height"
-        "var(--tw-leading, var(--text-4xl--line-height))";
+      Css.font_size (Css.Var (Css.var "text-4xl"));
+      Css.line_height
+        (Css.Var
+           (Css.var
+              ~fallback:(Css.Var (Css.var "text-4xl--line-height"))
+              "tw-leading"));
     ]
 
 let text_5xl =
   style "text-5xl"
     [
-      Css.font_size (Css.Var "--text-5xl");
-      Css.declaration "line-height"
-        "var(--tw-leading, var(--text-5xl--line-height))";
+      Css.font_size (Css.Var (Css.var "text-5xl"));
+      Css.line_height
+        (Css.Var
+           (Css.var
+              ~fallback:(Css.Var (Css.var "text-5xl--line-height"))
+              "tw-leading"));
     ]
 
 let font_thin =
   style_with_vars "font-thin"
     [
-      Css.declaration "--tw-font-weight" "var(--font-weight-thin)";
-      Css.declaration "font-weight" "var(--font-weight-thin)";
+      Css.css_variable "--tw-font-weight" "var(--font-weight-thin)";
+      Css.font_weight (Var (Css.var "font-weight-thin"));
     ]
     []
 
 let font_light =
   style_with_vars "font-light"
     [
-      Css.declaration "--tw-font-weight" "var(--font-weight-light)";
-      Css.declaration "font-weight" "var(--font-weight-light)";
+      Css.css_variable "--tw-font-weight" "var(--font-weight-light)";
+      Css.font_weight (Var (Css.var "font-weight-light"));
     ]
     []
 
 let font_normal =
   style_with_vars "font-normal"
     [
-      Css.declaration "--tw-font-weight" "var(--font-weight-normal)";
-      Css.declaration "font-weight" "var(--font-weight-normal)";
+      Css.css_variable "--tw-font-weight" "var(--font-weight-normal)";
+      Css.font_weight (Var (Css.var "font-weight-normal"));
     ]
     []
 
 let font_medium =
   style_with_vars "font-medium"
     [
-      Css.declaration "--tw-font-weight" "var(--font-weight-medium)";
-      Css.declaration "font-weight" "var(--font-weight-medium)";
+      Css.css_variable "--tw-font-weight" "var(--font-weight-medium)";
+      Css.font_weight (Var (Css.var "font-weight-medium"));
     ]
     []
 
 let font_semibold =
   style_with_vars "font-semibold"
     [
-      Css.declaration "--tw-font-weight" "var(--font-weight-semibold)";
-      Css.declaration "font-weight" "var(--font-weight-semibold)";
+      Css.css_variable "--tw-font-weight" "var(--font-weight-semibold)";
+      Css.font_weight (Var (Css.var "font-weight-semibold"));
     ]
     []
 
 let font_bold =
   style_with_vars "font-bold"
     [
-      Css.declaration "--tw-font-weight" "var(--font-weight-bold)";
-      Css.declaration "font-weight" "var(--font-weight-bold)";
+      Css.css_variable "--tw-font-weight" "var(--font-weight-bold)";
+      Css.font_weight (Var (Css.var "font-weight-bold"));
     ]
     []
 
 let font_extrabold =
   style_with_vars "font-extrabold"
     [
-      Css.declaration "--tw-font-weight" "var(--font-weight-extrabold)";
-      Css.declaration "font-weight" "var(--font-weight-extrabold)";
+      Css.css_variable "--tw-font-weight" "var(--font-weight-extrabold)";
+      Css.font_weight (Var (Css.var "font-weight-extrabold"));
     ]
     []
 
 let font_black =
   style_with_vars "font-black"
     [
-      Css.declaration "--tw-font-weight" "var(--font-weight-black)";
-      Css.declaration "font-weight" "var(--font-weight-black)";
+      Css.css_variable "--tw-font-weight" "var(--font-weight-black)";
+      Css.font_weight (Var (Css.var "font-weight-black"));
     ]
     []
 
@@ -2295,21 +2260,15 @@ let tracking_normal = style "tracking-normal" [ Css.letter_spacing Zero ]
 let tracking_wide = style "tracking-wide" [ Css.letter_spacing (Em 0.025) ]
 let tracking_wider = style "tracking-wider" [ Css.letter_spacing (Em 0.05) ]
 let tracking_widest = style "tracking-widest" [ Css.letter_spacing (Em 0.1) ]
-
-let whitespace_normal =
-  style "whitespace-normal" [ Css.declaration "white-space" "normal" ]
-
-let whitespace_nowrap =
-  style "whitespace-nowrap" [ Css.declaration "white-space" "nowrap" ]
-
-let whitespace_pre =
-  style "whitespace-pre" [ Css.declaration "white-space" "pre" ]
+let whitespace_normal = style "whitespace-normal" [ Css.white_space Normal ]
+let whitespace_nowrap = style "whitespace-nowrap" [ Css.white_space Nowrap ]
+let whitespace_pre = style "whitespace-pre" [ Css.white_space Pre ]
 
 let whitespace_pre_line =
-  style "whitespace-pre-line" [ Css.declaration "white-space" "pre-line" ]
+  style "whitespace-pre-line" [ Css.white_space Pre_line ]
 
 let whitespace_pre_wrap =
-  style "whitespace-pre-wrap" [ Css.declaration "white-space" "pre-wrap" ]
+  style "whitespace-pre-wrap" [ Css.white_space Pre_wrap ]
 
 let inline_flex = style "inline-flex" [ Css.display Css.Inline_flex ]
 let grid = style "grid" [ Css.display Css.Grid ]
@@ -2329,113 +2288,73 @@ let justify_evenly =
   style "justify-evenly" [ Css.justify_content Css.Space_evenly ]
 
 (* Align content utilities - for multi-line flex/grid containers *)
-let content_start =
-  style "content-start" [ Css.declaration "align-content" "flex-start" ]
-
-let content_end =
-  style "content-end" [ Css.declaration "align-content" "flex-end" ]
-
-let content_center =
-  style "content-center" [ Css.declaration "align-content" "center" ]
+let content_start = style "content-start" [ Css.align_content Flex_start ]
+let content_end = style "content-end" [ Css.align_content Flex_end ]
+let content_center = style "content-center" [ Css.align_content Center ]
 
 let content_between =
-  style "content-between" [ Css.declaration "align-content" "space-between" ]
+  style "content-between" [ Css.align_content Space_between ]
 
-let content_around =
-  style "content-around" [ Css.declaration "align-content" "space-around" ]
-
-let content_evenly =
-  style "content-evenly" [ Css.declaration "align-content" "space-evenly" ]
-
-let content_stretch =
-  style "content-stretch" [ Css.declaration "align-content" "stretch" ]
+let content_around = style "content-around" [ Css.align_content Space_around ]
+let content_evenly = style "content-evenly" [ Css.align_content Space_evenly ]
+let content_stretch = style "content-stretch" [ Css.align_content Stretch ]
 
 (* Place content utilities - shorthand for align-content and justify-content in
    Grid *)
 let place_content_start =
-  style "place-content-start" [ Css.declaration "place-content" "start" ]
+  style "place-content-start" [ Css.place_content "start" ]
 
-let place_content_end =
-  style "place-content-end" [ Css.declaration "place-content" "end" ]
+let place_content_end = style "place-content-end" [ Css.place_content "end" ]
 
 let place_content_center =
-  style "place-content-center" [ Css.declaration "place-content" "center" ]
+  style "place-content-center" [ Css.place_content "center" ]
 
 let place_content_between =
-  style "place-content-between"
-    [ Css.declaration "place-content" "space-between" ]
+  style "place-content-between" [ Css.place_content "space-between" ]
 
 let place_content_around =
-  style "place-content-around"
-    [ Css.declaration "place-content" "space-around" ]
+  style "place-content-around" [ Css.place_content "space-around" ]
 
 let place_content_evenly =
-  style "place-content-evenly"
-    [ Css.declaration "place-content" "space-evenly" ]
+  style "place-content-evenly" [ Css.place_content "space-evenly" ]
 
 let place_content_stretch =
-  style "place-content-stretch" [ Css.declaration "place-content" "stretch" ]
+  style "place-content-stretch" [ Css.place_content "stretch" ]
 
 (* Place items utilities - shorthand for align-items and justify-items in
    Grid *)
-let place_items_start =
-  style "place-items-start" [ Css.declaration "place-items" "start" ]
-
-let place_items_end =
-  style "place-items-end" [ Css.declaration "place-items" "end" ]
-
-let place_items_center =
-  style "place-items-center" [ Css.declaration "place-items" "center" ]
+let place_items_start = style "place-items-start" [ Css.place_items "start" ]
+let place_items_end = style "place-items-end" [ Css.place_items "end" ]
+let place_items_center = style "place-items-center" [ Css.place_items "center" ]
 
 let place_items_stretch =
-  style "place-items-stretch" [ Css.declaration "place-items" "stretch" ]
+  style "place-items-stretch" [ Css.place_items "stretch" ]
 
 (* Place self utilities - shorthand for align-self and justify-self *)
-let place_self_auto =
-  style "place-self-auto" [ Css.declaration "place-self" "auto" ]
-
-let place_self_start =
-  style "place-self-start" [ Css.declaration "place-self" "start" ]
-
-let place_self_end =
-  style "place-self-end" [ Css.declaration "place-self" "end" ]
-
-let place_self_center =
-  style "place-self-center" [ Css.declaration "place-self" "center" ]
-
-let place_self_stretch =
-  style "place-self-stretch" [ Css.declaration "place-self" "stretch" ]
+let place_self_auto = style "place-self-auto" [ Css.place_self "auto" ]
+let place_self_start = style "place-self-start" [ Css.place_self "start" ]
+let place_self_end = style "place-self-end" [ Css.place_self "end" ]
+let place_self_center = style "place-self-center" [ Css.place_self "center" ]
+let place_self_stretch = style "place-self-stretch" [ Css.place_self "stretch" ]
 
 (* Align self utilities *)
-let self_auto = style "self-auto" [ Css.declaration "align-self" "auto" ]
-
-let self_start =
-  style "self-start" [ Css.declaration "align-self" "flex-start" ]
-
-let self_end = style "self-end" [ Css.declaration "align-self" "flex-end" ]
-let self_center = style "self-center" [ Css.declaration "align-self" "center" ]
-
-let self_baseline =
-  style "self-baseline" [ Css.declaration "align-self" "baseline" ]
-
-let self_stretch =
-  style "self-stretch" [ Css.declaration "align-self" "stretch" ]
+let self_auto = style "self-auto" [ Css.align_self Auto ]
+let self_start = style "self-start" [ Css.align_self Flex_start ]
+let self_end = style "self-end" [ Css.align_self Flex_end ]
+let self_center = style "self-center" [ Css.align_self Center ]
+let self_baseline = style "self-baseline" [ Css.align_self Baseline ]
+let self_stretch = style "self-stretch" [ Css.align_self Stretch ]
 
 (* Justify self utilities - for Grid items *)
-let justify_self_auto =
-  style "justify-self-auto" [ Css.declaration "justify-self" "auto" ]
-
-let justify_self_start =
-  style "justify-self-start" [ Css.declaration "justify-self" "start" ]
-
-let justify_self_end =
-  style "justify-self-end" [ Css.declaration "justify-self" "end" ]
+let justify_self_auto = style "justify-self-auto" [ Css.justify_self Auto ]
+let justify_self_start = style "justify-self-start" [ Css.justify_self Start ]
+let justify_self_end = style "justify-self-end" [ Css.justify_self End ]
 
 let justify_self_center =
-  style "justify-self-center" [ Css.declaration "justify-self" "center" ]
+  style "justify-self-center" [ Css.justify_self Center ]
 
 let justify_self_stretch =
-  style "justify-self-stretch" [ Css.declaration "justify-self" "stretch" ]
+  style "justify-self-stretch" [ Css.justify_self Stretch ]
 
 let grid_cols n =
   let class_name = "grid-cols-" ^ string_of_int n in
@@ -2467,9 +2386,7 @@ let top n =
   let value =
     Css.Calc
       (Css.Expr
-         ( Css.Calc_var "--spacing",
-           Css.Mult,
-           Css.Calc_num (float_of_int (abs n)) ))
+         (Css.Var (Css.var "spacing"), Css.Mult, Css.Num (float_of_int (abs n))))
   in
   style_with_vars class_name [ Css.top value ] [ Spacing (abs n) ]
 
@@ -2479,9 +2396,7 @@ let right n =
   let value =
     Css.Calc
       (Css.Expr
-         ( Css.Calc_var "--spacing",
-           Css.Mult,
-           Css.Calc_num (float_of_int (abs n)) ))
+         (Css.Var (Css.var "spacing"), Css.Mult, Css.Num (float_of_int (abs n))))
   in
   style_with_vars class_name [ Css.right value ] [ Spacing (abs n) ]
 
@@ -2491,9 +2406,7 @@ let bottom n =
   let value =
     Css.Calc
       (Css.Expr
-         ( Css.Calc_var "--spacing",
-           Css.Mult,
-           Css.Calc_num (float_of_int (abs n)) ))
+         (Css.Var (Css.var "spacing"), Css.Mult, Css.Num (float_of_int (abs n))))
   in
   style_with_vars class_name [ Css.bottom value ] [ Spacing (abs n) ]
 
@@ -2503,9 +2416,7 @@ let left n =
   let value =
     Css.Calc
       (Css.Expr
-         ( Css.Calc_var "--spacing",
-           Css.Mult,
-           Css.Calc_num (float_of_int (abs n)) ))
+         (Css.Var (Css.var "spacing"), Css.Mult, Css.Num (float_of_int (abs n))))
   in
   style_with_vars class_name [ Css.left value ] [ Spacing (abs n) ]
 
@@ -2520,9 +2431,7 @@ let inset n =
   let value =
     Css.Calc
       (Css.Expr
-         ( Css.Calc_var "--spacing",
-           Css.Mult,
-           Css.Calc_num (float_of_int (abs n)) ))
+         (Css.Var (Css.var "spacing"), Css.Mult, Css.Num (float_of_int (abs n))))
   in
   style_with_vars class_name
     [ Css.top value; Css.right value; Css.bottom value; Css.left value ]
@@ -2543,23 +2452,23 @@ let neg_translate_y_1_2 =
 type width = size
 
 let border_internal (w : width) =
-  let width_px, class_suffix =
+  let width_len, class_suffix =
     match w with
-    | `None -> ("0", "-0")
-    | `Xs -> ("1px", "" (* Default border is 1px *))
-    | `Sm -> ("2px", "-2")
-    | `Md -> ("4px", "-4" (* For borders, Md maps to 4px *))
-    | `Lg -> ("4px", "-4")
-    | `Xl -> ("8px", "-8")
-    | `Xl_2 -> ("8px", "-8")
-    | `Xl_3 -> ("8px", "-8")
-    | `Full -> ("8px", "-8")
+    | `None -> (Css.Zero, "-0")
+    | `Xs -> (Css.Px 1, "" (* Default border is 1px *))
+    | `Sm -> (Css.Px 2, "-2")
+    | `Md -> (Css.Px 4, "-4" (* For borders, Md maps to 4px *))
+    | `Lg -> (Css.Px 4, "-4")
+    | `Xl -> (Css.Px 8, "-8")
+    | `Xl_2 -> (Css.Px 8, "-8")
+    | `Xl_3 -> (Css.Px 8, "-8")
+    | `Full -> (Css.Px 8, "-8")
   in
   let class_name = "border" ^ class_suffix in
   style class_name
     [
-      Css.declaration "border-style" "var(--tw-border-style)";
-      Css.declaration "border-width" width_px;
+      Css.border_style (Var (Css.var "tw-border-style"));
+      Css.border_width width_len;
     ]
 
 let border_none = border_internal `None
@@ -2580,29 +2489,29 @@ let border_l = style "border-l" [ Css.border_left_width (Css.Px 1) ]
 (* Border styles *)
 let border_solid =
   style "border-solid"
-    [ Css.declaration "--tw-border-style" "solid"; Css.border_style Css.Solid ]
+    [ Css.css_variable "--tw-border-style" "solid"; Css.border_style Css.Solid ]
 
 let border_dashed =
   style "border-dashed"
     [
-      Css.declaration "--tw-border-style" "dashed"; Css.border_style Css.Dashed;
+      Css.css_variable "--tw-border-style" "dashed"; Css.border_style Css.Dashed;
     ]
 
 let border_dotted =
   style "border-dotted"
     [
-      Css.declaration "--tw-border-style" "dotted"; Css.border_style Css.Dotted;
+      Css.css_variable "--tw-border-style" "dotted"; Css.border_style Css.Dotted;
     ]
 
 let border_double =
   style "border-double"
     [
-      Css.declaration "--tw-border-style" "double"; Css.border_style Css.Double;
+      Css.css_variable "--tw-border-style" "double"; Css.border_style Css.Double;
     ]
 
 let border_none_style =
   style "border-none"
-    [ Css.declaration "--tw-border-style" "none"; Css.border_style Css.None ]
+    [ Css.css_variable "--tw-border-style" "none"; Css.border_style Css.None ]
 
 let pp_rounded_suffix : size -> string = function
   | `None -> "none"
@@ -2621,11 +2530,9 @@ let rounded_internal r =
     match r with
     | `None -> Css.border_radius Css.Zero
     | `Full ->
-        Css.declaration "border-radius"
-          "3.40282e38px" (* Max float value for full rounding *)
+        Css.border_radius (Css.Px 9999) (* Large value for full rounding *)
     | _ ->
-        Css.declaration "border-radius"
-          ("var(--radius-" ^ pp_rounded_suffix r ^ ")")
+        Css.border_radius (Css.Var (Css.var ("radius-" ^ pp_rounded_suffix r)))
   in
   style class_name [ decl ]
 
@@ -2673,7 +2580,7 @@ let pp_shadow_suffix : shadow -> string = function
 
 let shadow_internal s =
   let class_name = "shadow-" ^ pp_shadow_suffix s in
-  let custom_props = [ Css.declaration "--tw-shadow" (shadow_value s) ] in
+  let custom_props = [ Css.css_variable "--tw-shadow" (shadow_value s) ] in
   let box_shadow_prop =
     box_shadow
       "var(--tw-inset-shadow), var(--tw-inset-ring-shadow), \
@@ -2767,7 +2674,7 @@ let transition_transform =
 
 let rotate n =
   let class_name = "rotate-" ^ string_of_int n in
-  style class_name [ Css.declaration "rotate" (string_of_int n ^ "deg") ]
+  style class_name [ Css.rotate (Css.Deg (float_of_int n)) ]
 
 let translate_x n =
   let prefix = if n < 0 then "-" else "" in
@@ -2814,7 +2721,7 @@ let scale_z n =
   let class_name = "scale-z-" ^ string_of_int n in
   style class_name
     [
-      Css.declaration "--tw-scale-z" (Pp.float value);
+      Css.css_variable "--tw-scale-z" (Pp.float value);
       Css.transform
         [
           Css.Translate_var
@@ -2822,7 +2729,7 @@ let scale_z n =
               var_name = "tw-translate-x, var(--tw-translate-y";
               fallback = None;
             };
-          Css.Translate_z (Css.Var "--tw-translate-z");
+          Css.Translate_z (Css.Var (Css.var "tw-translate-z"));
           Css.Rotate_var { var_name = "tw-rotate"; fallback = None };
           Css.Rotate_x
             (Css.Angle_var { var_name = "tw-rotate-x"; fallback = Some 0.0 });
@@ -2843,39 +2750,34 @@ let scale_z n =
 
 let perspective n =
   let class_name = "perspective-" ^ string_of_int n in
-  let value = if n = 0 then "none" else string_of_int n ^ "px" in
-  style class_name [ Css.declaration "perspective" value ]
+  let value = if n = 0 then Css.Zero else Css.Px n in
+  style class_name [ Css.perspective value ]
 
 let perspective_origin_center =
-  style "perspective-origin-center"
-    [ Css.declaration "perspective-origin" "center" ]
+  style "perspective-origin-center" [ Css.perspective_origin "center" ]
 
 let perspective_origin_top =
-  style "perspective-origin-top" [ Css.declaration "perspective-origin" "top" ]
+  style "perspective-origin-top" [ Css.perspective_origin "top" ]
 
 let perspective_origin_bottom =
-  style "perspective-origin-bottom"
-    [ Css.declaration "perspective-origin" "bottom" ]
+  style "perspective-origin-bottom" [ Css.perspective_origin "bottom" ]
 
 let perspective_origin_left =
-  style "perspective-origin-left"
-    [ Css.declaration "perspective-origin" "left" ]
+  style "perspective-origin-left" [ Css.perspective_origin "left" ]
 
 let perspective_origin_right =
-  style "perspective-origin-right"
-    [ Css.declaration "perspective-origin" "right" ]
+  style "perspective-origin-right" [ Css.perspective_origin "right" ]
 
 let transform_style_3d =
-  style "transform-style-3d" [ Css.declaration "transform-style" "preserve-3d" ]
+  style "transform-style-3d" [ Css.transform_style Preserve_3d ]
 
 let transform_style_flat =
-  style "transform-style-flat" [ Css.declaration "transform-style" "flat" ]
+  style "transform-style-flat" [ Css.transform_style Flat ]
 
 let backface_visible =
-  style "backface-visible" [ Css.declaration "backface-visibility" "visible" ]
+  style "backface-visible" [ Css.backface_visibility Visible ]
 
-let backface_hidden =
-  style "backface-hidden" [ Css.declaration "backface-visibility" "hidden" ]
+let backface_hidden = style "backface-hidden" [ Css.backface_visibility Hidden ]
 
 (** Container query utilities - inspired by modern CSS capabilities
 
@@ -2885,17 +2787,16 @@ let backface_hidden =
     Tailwind CSS v4 includes container queries, we implement them here as
     they're a valuable CSS feature that works well with OCaml's approach. *)
 let container_type_size =
-  style "container-type-size" [ Css.declaration "container-type" "size" ]
+  style "container-type-size" [ Css.container_type Size ]
 
 let container_type_inline_size =
-  style "container-type-inline-size"
-    [ Css.declaration "container-type" "inline-size" ]
+  style "container-type-inline-size" [ Css.container_type Inline_size ]
 
 let container_type_normal =
-  style "container-type-normal" [ Css.declaration "container-type" "normal" ]
+  style "container-type-normal" [ Css.container_type Normal ]
 
 let container_name name =
-  style ("container-" ^ name) [ Css.declaration "container-name" name ]
+  style ("container-" ^ name) [ Css.container_name name ]
 
 (* Container query breakpoints *)
 let on_container_sm styles = Modified (Container Container_sm, Group styles)
@@ -2913,23 +2814,15 @@ let on_container ?name min_width styles =
   in
   Group (List.map (fun t -> Modified (query, t)) styles)
 
-let cursor_auto = style "cursor-auto" [ Css.declaration "cursor" "auto" ]
-
-let cursor_default =
-  style "cursor-default" [ Css.declaration "cursor" "default" ]
-
-let cursor_pointer =
-  style "cursor-pointer" [ Css.declaration "cursor" "pointer" ]
-
-let cursor_wait = style "cursor-wait" [ Css.declaration "cursor" "wait" ]
-let cursor_move = style "cursor-move" [ Css.declaration "cursor" "move" ]
-
-let cursor_not_allowed =
-  style "cursor-not-allowed" [ Css.declaration "cursor" "not-allowed" ]
-
-let select_none = style "select-none" [ Css.declaration "user-select" "none" ]
-let select_text = style "select-text" [ Css.declaration "user-select" "text" ]
-let select_all = style "select-all" [ Css.declaration "user-select" "all" ]
+let cursor_auto = style "cursor-auto" [ Css.cursor Auto ]
+let cursor_default = style "cursor-default" [ Css.cursor Default ]
+let cursor_pointer = style "cursor-pointer" [ Css.cursor Pointer ]
+let cursor_wait = style "cursor-wait" [ Css.cursor Wait ]
+let cursor_move = style "cursor-move" [ Css.cursor Move ]
+let cursor_not_allowed = style "cursor-not-allowed" [ Css.cursor Not_allowed ]
+let select_none = style "select-none" [ Css.user_select None ]
+let select_text = style "select-text" [ Css.user_select Text ]
+let select_all = style "select-all" [ Css.user_select All ]
 let select_auto = style "select-auto" [ Css.user_select Css.Auto ]
 
 let pointer_events_none =
@@ -2964,11 +2857,11 @@ let ring_internal (w : width) =
   in
   style class_name
     [
-      Css.declaration "--tw-ring-color" "rgb(59 130 246 / 0.5)";
+      Css.css_variable "--tw-ring-color" "rgb(59 130 246 / 0.5)";
       box_shadow
         "var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 \
          #0000),var(--tw-shadow,0 0 #0000)";
-      Css.declaration "--tw-ring-shadow" shadow_value;
+      Css.css_variable "--tw-ring-shadow" shadow_value;
     ]
 
 let ring_none = ring_internal `None
@@ -3025,11 +2918,11 @@ let snap_both =
 
 let snap_mandatory =
   style "snap-mandatory"
-    [ Css.declaration "--tw-scroll-snap-strictness" "mandatory" ]
+    [ Css.css_variable "--tw-scroll-snap-strictness" "mandatory" ]
 
 let snap_proximity =
   style "snap-proximity"
-    [ Css.declaration "--tw-scroll-snap-strictness" "proximity" ]
+    [ Css.css_variable "--tw-scroll-snap-strictness" "proximity" ]
 
 let snap_start = style "snap-start" [ Css.scroll_snap_align Css.Start ]
 let snap_end = style "snap-end" [ Css.scroll_snap_align Css.End ]
@@ -3249,8 +3142,8 @@ let from_color ?(shade = 500) color =
   in
   style class_name
     [
-      Css.declaration "--tw-gradient-from" var_str;
-      Css.declaration "--tw-gradient-stops"
+      Css.css_variable "--tw-gradient-from" var_str;
+      Css.css_variable "--tw-gradient-stops"
         "var(--tw-gradient-via-stops,var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-to)var(--tw-gradient-to-position))";
     ]
 
@@ -3268,10 +3161,10 @@ let via_color ?(shade = 500) color =
   in
   style class_name
     [
-      Css.declaration "--tw-gradient-via" var_str;
-      Css.declaration "--tw-gradient-via-stops"
+      Css.css_variable "--tw-gradient-via" var_str;
+      Css.css_variable "--tw-gradient-via-stops"
         "var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-via)var(--tw-gradient-via-position),var(--tw-gradient-to)var(--tw-gradient-to-position)";
-      Css.declaration "--tw-gradient-stops" "var(--tw-gradient-via-stops)";
+      Css.css_variable "--tw-gradient-stops" "var(--tw-gradient-via-stops)";
     ]
 
 let to_color ?(shade = 500) color =
@@ -3288,8 +3181,8 @@ let to_color ?(shade = 500) color =
   in
   style class_name
     [
-      Css.declaration "--tw-gradient-to" var_str;
-      Css.declaration "--tw-gradient-stops"
+      Css.css_variable "--tw-gradient-to" var_str;
+      Css.css_variable "--tw-gradient-stops"
         "var(--tw-gradient-via-stops,var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-to)var(--tw-gradient-to-position))";
     ]
 
@@ -3355,18 +3248,25 @@ let clip_path _value =
 let transform =
   style "transform"
     [
-      Css.declaration "--tw-translate-x" "0";
-      Css.declaration "--tw-translate-y" "0";
-      Css.declaration "--tw-rotate" "0";
-      Css.declaration "--tw-skew-x" "0";
-      Css.declaration "--tw-skew-y" "0";
-      Css.declaration "--tw-scale-x" "1";
-      Css.declaration "--tw-scale-y" "1";
-      Css.declaration "transform"
-        "translateX(var(--tw-translate-x)) translateY(var(--tw-translate-y)) \
-         rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) \
-         skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) \
-         scaleY(var(--tw-scale-y))";
+      Css.css_variable "--tw-translate-x" "0";
+      Css.css_variable "--tw-translate-y" "0";
+      Css.css_variable "--tw-rotate" "0";
+      Css.css_variable "--tw-skew-x" "0";
+      Css.css_variable "--tw-skew-y" "0";
+      Css.css_variable "--tw-scale-x" "1";
+      Css.css_variable "--tw-scale-y" "1";
+      Css.transform
+        [
+          Css.Translate_x (Css.Var (Css.var "tw-translate-x"));
+          Css.Translate_y (Css.Var (Css.var "tw-translate-y"));
+          Css.Rotate_var { var_name = "tw-rotate"; fallback = None };
+          Css.Skew_x (Css.Angle_var { var_name = "tw-skew-x"; fallback = None });
+          Css.Skew_y (Css.Angle_var { var_name = "tw-skew-y"; fallback = None });
+          Css.Scale_x
+            (Css.Scale_var { var_name = "tw-scale-x"; fallback = None });
+          Css.Scale_y
+            (Css.Scale_var { var_name = "tw-scale-y"; fallback = None });
+        ];
     ]
 
 let transform_none =
@@ -3504,30 +3404,21 @@ let animate_bounce =
 (* Transition utilities *)
 let duration n =
   let class_name = "duration-" ^ string_of_int n in
-  let value = string_of_int n ^ "ms" in
-  style class_name [ Css.declaration "transition-duration" value ]
+  style class_name [ Css.transition_duration (Css.Ms n) ]
 
-let ease_linear =
-  style "ease-linear" [ Css.declaration "transition-timing-function" "linear" ]
+let ease_linear = style "ease-linear" [ Css.transition_timing_function Linear ]
 
 let ease_in =
   style "ease-in"
-    [
-      Css.declaration "transition-timing-function" "cubic-bezier(0.4, 0, 1, 1)";
-    ]
+    [ Css.transition_timing_function (Cubic_bezier (0.4, 0.0, 1.0, 1.0)) ]
 
 let ease_out =
   style "ease-out"
-    [
-      Css.declaration "transition-timing-function" "cubic-bezier(0, 0, 0.2, 1)";
-    ]
+    [ Css.transition_timing_function (Cubic_bezier (0.0, 0.0, 0.2, 1.0)) ]
 
 let ease_in_out =
   style "ease-in-out"
-    [
-      Css.declaration "transition-timing-function"
-        "cubic-bezier(0.4, 0, 0.2, 1)";
-    ]
+    [ Css.transition_timing_function (Cubic_bezier (0.4, 0.0, 0.2, 1.0)) ]
 
 (** Transform utilities *)
 let scale n =
@@ -3535,13 +3426,23 @@ let scale n =
   let class_name = "scale-" ^ string_of_int n in
   style class_name
     [
-      Css.declaration "--tw-scale-x" value;
-      Css.declaration "--tw-scale-y" value;
-      Css.declaration "transform"
-        "translate(var(--tw-translate-x), var(--tw-translate-y)) \
-         rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) \
-         skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) \
-         scaleY(var(--tw-scale-y))";
+      Css.css_variable "--tw-scale-x" value;
+      Css.css_variable "--tw-scale-y" value;
+      Css.transform
+        [
+          Css.Translate_var
+            {
+              var_name = "tw-translate-x, var(--tw-translate-y";
+              fallback = None;
+            };
+          Css.Rotate_var { var_name = "tw-rotate"; fallback = None };
+          Css.Skew_x (Css.Angle_var { var_name = "tw-skew-x"; fallback = None });
+          Css.Skew_y (Css.Angle_var { var_name = "tw-skew-y"; fallback = None });
+          Css.Scale_x
+            (Css.Scale_var { var_name = "tw-scale-x"; fallback = None });
+          Css.Scale_y
+            (Css.Scale_var { var_name = "tw-scale-y"; fallback = None });
+        ];
     ]
 
 (* Appearance utilities *)
@@ -3554,44 +3455,30 @@ let resize_x = style "resize-x" [ Css.resize Horizontal ]
 let resize = style "resize" [ Css.resize Both ]
 
 (* Will-change utilities *)
-let will_change_auto =
-  style "will-change-auto" [ Css.declaration "will-change" "auto" ]
+let will_change_auto = style "will-change-auto" [ Css.will_change "auto" ]
 
 let will_change_scroll =
-  style "will-change-scroll" [ Css.declaration "will-change" "scroll-position" ]
+  style "will-change-scroll" [ Css.will_change "scroll-position" ]
 
 let will_change_contents =
-  style "will-change-contents" [ Css.declaration "will-change" "contents" ]
+  style "will-change-contents" [ Css.will_change "contents" ]
 
 let will_change_transform =
-  style "will-change-transform" [ Css.declaration "will-change" "transform" ]
+  style "will-change-transform" [ Css.will_change "transform" ]
 
 (* Contain utilities *)
-let contain_none = style "contain-none" [ Css.declaration "contain" "none" ]
-
-let contain_content =
-  style "contain-content" [ Css.declaration "contain" "content" ]
-
-let contain_layout =
-  style "contain-layout" [ Css.declaration "contain" "layout" ]
-
-let contain_paint = style "contain-paint" [ Css.declaration "contain" "paint" ]
-let contain_size = style "contain-size" [ Css.declaration "contain" "size" ]
+let contain_none = style "contain-none" [ Css.contain "none" ]
+let contain_content = style "contain-content" [ Css.contain "content" ]
+let contain_layout = style "contain-layout" [ Css.contain "layout" ]
+let contain_paint = style "contain-paint" [ Css.contain "paint" ]
+let contain_size = style "contain-size" [ Css.contain "size" ]
 
 (* Object position utilities *)
-let object_top = style "object-top" [ Css.declaration "object-position" "top" ]
-
-let object_right =
-  style "object-right" [ Css.declaration "object-position" "right" ]
-
-let object_bottom =
-  style "object-bottom" [ Css.declaration "object-position" "bottom" ]
-
-let object_left =
-  style "object-left" [ Css.declaration "object-position" "left" ]
-
-let object_center =
-  style "object-center" [ Css.declaration "object-position" "center" ]
+let object_top = style "object-top" [ Css.object_position "top" ]
+let object_right = style "object-right" [ Css.object_position "right" ]
+let object_bottom = style "object-bottom" [ Css.object_position "bottom" ]
+let object_left = style "object-left" [ Css.object_position "left" ]
+let object_center = style "object-center" [ Css.object_position "center" ]
 
 (* Table utilities *)
 let table_auto = style "table-auto" [ Css.table_layout Auto ]
@@ -3609,34 +3496,34 @@ let form_input =
   style "form-input"
     [
       Css.appearance None;
-      Css.background_color (Css.Rgb { r = 255; g = 255; b = 255 });
-      Css.border_color (Css.Rgb { r = 209; g = 213; b = 219 });
-      Css.border_width (Css.Px 1);
+      Css.background_color (Rgb { r = 255; g = 255; b = 255 });
+      Css.border_color (Rgb { r = 209; g = 213; b = 219 });
+      Css.border_width (Px 1);
       Css.border_radius (Css.Rem 0.375);
-      Css.padding_top (Css.Rem 0.5);
-      Css.padding_right (Css.Rem 0.75);
-      Css.padding_bottom (Css.Rem 0.5);
-      Css.padding_left (Css.Rem 0.75);
-      Css.font_size (Css.Rem 1.0);
-      Css.line_height (Css.Rem 1.5);
-      Css.declaration "outline" "2px solid transparent";
-      Css.declaration "outline-offset" "2px";
+      Css.padding_top (Rem 0.5);
+      Css.padding_right (Rem 0.75);
+      Css.padding_bottom (Rem 0.5);
+      Css.padding_left (Rem 0.75);
+      Css.font_size (Rem 1.0);
+      Css.line_height (Rem 1.5);
+      Css.outline "2px solid transparent";
+      Css.outline_offset (Px 2);
     ]
 
 let form_textarea =
   style "form-textarea"
     [
       Css.appearance None;
-      Css.background_color (Css.Rgb { r = 255; g = 255; b = 255 });
-      Css.border_color (Css.Rgb { r = 209; g = 213; b = 219 });
-      Css.border_width (Css.Px 1);
+      Css.background_color (Rgb { r = 255; g = 255; b = 255 });
+      Css.border_color (Rgb { r = 209; g = 213; b = 219 });
+      Css.border_width (Px 1);
       Css.border_radius (Css.Rem 0.375);
-      Css.padding_top (Css.Rem 0.5);
-      Css.padding_right (Css.Rem 0.75);
-      Css.padding_bottom (Css.Rem 0.5);
-      Css.padding_left (Css.Rem 0.75);
-      Css.font_size (Css.Rem 1.0);
-      Css.line_height (Css.Rem 1.5);
+      Css.padding_top (Rem 0.5);
+      Css.padding_right (Rem 0.75);
+      Css.padding_bottom (Rem 0.5);
+      Css.padding_left (Rem 0.75);
+      Css.font_size (Rem 1.0);
+      Css.line_height (Rem 1.5);
       Css.resize Vertical;
     ]
 
@@ -3644,39 +3531,39 @@ let form_select =
   style "form-select"
     [
       Css.appearance None;
-      Css.background_color (Css.Rgb { r = 255; g = 255; b = 255 });
-      Css.border_color (Css.Rgb { r = 209; g = 213; b = 219 });
-      Css.border_width (Css.Px 1);
+      Css.background_color (Rgb { r = 255; g = 255; b = 255 });
+      Css.border_color (Rgb { r = 209; g = 213; b = 219 });
+      Css.border_width (Px 1);
       Css.border_radius (Css.Rem 0.375);
-      Css.padding_top (Css.Rem 0.5);
+      Css.padding_top (Rem 0.5);
       Css.padding_right (Css.Rem 2.5);
-      Css.padding_bottom (Css.Rem 0.5);
-      Css.padding_left (Css.Rem 0.75);
-      Css.font_size (Css.Rem 1.0);
-      Css.line_height (Css.Rem 1.5);
+      Css.padding_bottom (Rem 0.5);
+      Css.padding_left (Rem 0.75);
+      Css.font_size (Rem 1.0);
+      Css.line_height (Rem 1.5);
       Css.background_image
         "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' \
          fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' \
          stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' \
          d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")";
-      Css.declaration "background-position" "right 0.5rem center";
-      Css.declaration "background-repeat" "no-repeat";
-      Css.declaration "background-size" "1.5em 1.5em";
+      Css.background_position "right 0.5rem center";
+      Css.background_repeat No_repeat;
+      Css.background_size "1.5em 1.5em";
     ]
 
 let form_checkbox =
   style "form-checkbox"
     [
       Css.appearance None;
-      Css.width (Css.Rem 1.0);
-      Css.height (Css.Rem 1.0);
-      Css.background_color (Css.Rgb { r = 255; g = 255; b = 255 });
-      Css.border_color (Css.Rgb { r = 209; g = 213; b = 219 });
-      Css.border_width (Css.Px 1);
-      Css.border_radius (Css.Rem 0.25);
-      Css.color (Css.Rgb { r = 59; g = 130; b = 246 });
-      Css.declaration "flex-shrink" "0";
-      Css.display Css.Inline_block;
+      Css.width (Rem 1.0);
+      Css.height (Rem 1.0);
+      Css.background_color (Rgb { r = 255; g = 255; b = 255 });
+      Css.border_color (Rgb { r = 209; g = 213; b = 219 });
+      Css.border_width (Px 1);
+      Css.border_radius (Rem 0.25);
+      Css.color (Rgb { r = 59; g = 130; b = 246 });
+      Css.Flex.shrink 0.0;
+      Css.display Inline_block;
       Css.vertical_align Middle;
     ]
 
@@ -3684,15 +3571,15 @@ let form_radio =
   style "form-radio"
     [
       Css.appearance None;
-      Css.width (Css.Rem 1.0);
-      Css.height (Css.Rem 1.0);
-      Css.background_color (Css.Rgb { r = 255; g = 255; b = 255 });
-      Css.border_color (Css.Rgb { r = 209; g = 213; b = 219 });
-      Css.border_width (Css.Px 1);
-      Css.border_radius (Css.Pct 100.0);
-      Css.color (Css.Rgb { r = 59; g = 130; b = 246 });
-      Css.declaration "flex-shrink" "0";
-      Css.display Css.Inline_block;
+      Css.width (Rem 1.0);
+      Css.height (Rem 1.0);
+      Css.background_color (Rgb { r = 255; g = 255; b = 255 });
+      Css.border_color (Rgb { r = 209; g = 213; b = 219 });
+      Css.border_width (Px 1);
+      Css.border_radius (Pct 100.0);
+      Css.color (Rgb { r = 59; g = 130; b = 246 });
+      Css.Flex.shrink 0.0;
+      Css.display Inline_block;
       Css.vertical_align Middle;
     ]
 

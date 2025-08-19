@@ -151,6 +151,9 @@ val of_string : string -> t
 
 (** {1 Color Conversion} *)
 
+val to_oklch : t -> int -> oklch
+(** [to_oklch color shade] converts color to OKLCH data for a given shade. *)
+
 val to_oklch_css : t -> int -> string
 (** [to_oklch_css color shade] converts color to OKLCH CSS string for a given
     shade. *)
