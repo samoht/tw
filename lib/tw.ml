@@ -2547,7 +2547,8 @@ let rounded_internal r =
     match r with
     | `None -> Css.border_radius Css.Zero
     | `Full ->
-        Css.border_radius (Css.Px 9999) (* Large value for full rounding *)
+        (* Use max_int as a sentinel value for max float in CSS *)
+        Css.border_radius (Css.Px max_int)
     | _ ->
         Css.border_radius (Css.Var (Css.var ("radius-" ^ pp_rounded_suffix r)))
   in
