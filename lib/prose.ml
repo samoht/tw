@@ -15,22 +15,22 @@ type t =
 (** Default prose CSS variables for theming *)
 let css_variables =
   [
-    Css.css_variable "--tw-prose-body" "rgb(55 65 81)";
-    Css.css_variable "--tw-prose-headings" "rgb(17 24 39)";
-    Css.css_variable "--tw-prose-lead" "rgb(75 85 99)";
-    Css.css_variable "--tw-prose-links" "rgb(17 24 39)";
-    Css.css_variable "--tw-prose-bold" "rgb(17 24 39)";
-    Css.css_variable "--tw-prose-counters" "rgb(107 114 128)";
-    Css.css_variable "--tw-prose-bullets" "rgb(209 213 219)";
-    Css.css_variable "--tw-prose-hr" "rgb(229 231 235)";
-    Css.css_variable "--tw-prose-quotes" "rgb(17 24 39)";
-    Css.css_variable "--tw-prose-quote-borders" "rgb(229 231 235)";
-    Css.css_variable "--tw-prose-captions" "rgb(107 114 128)";
-    Css.css_variable "--tw-prose-code" "rgb(17 24 39)";
-    Css.css_variable "--tw-prose-pre-code" "rgb(229 231 235)";
-    Css.css_variable "--tw-prose-pre-bg" "rgb(55 65 81)";
-    Css.css_variable "--tw-prose-th-borders" "rgb(209 213 219)";
-    Css.css_variable "--tw-prose-td-borders" "rgb(229 231 235)";
+    Css.custom_property "--tw-prose-body" "rgb(55 65 81)";
+    Css.custom_property "--tw-prose-headings" "rgb(17 24 39)";
+    Css.custom_property "--tw-prose-lead" "rgb(75 85 99)";
+    Css.custom_property "--tw-prose-links" "rgb(17 24 39)";
+    Css.custom_property "--tw-prose-bold" "rgb(17 24 39)";
+    Css.custom_property "--tw-prose-counters" "rgb(107 114 128)";
+    Css.custom_property "--tw-prose-bullets" "rgb(209 213 219)";
+    Css.custom_property "--tw-prose-hr" "rgb(229 231 235)";
+    Css.custom_property "--tw-prose-quotes" "rgb(17 24 39)";
+    Css.custom_property "--tw-prose-quote-borders" "rgb(229 231 235)";
+    Css.custom_property "--tw-prose-captions" "rgb(107 114 128)";
+    Css.custom_property "--tw-prose-code" "rgb(17 24 39)";
+    Css.custom_property "--tw-prose-pre-code" "rgb(229 231 235)";
+    Css.custom_property "--tw-prose-pre-bg" "rgb(55 65 81)";
+    Css.custom_property "--tw-prose-th-borders" "rgb(209 213 219)";
+    Css.custom_property "--tw-prose-td-borders" "rgb(229 231 235)";
   ]
 
 (** Convert prose variant to CSS class name *)
@@ -359,22 +359,22 @@ let gray_color_rules =
   [
     rule ~selector:".prose-gray"
       [
-        Css.css_variable "--tw-prose-body" "rgb(107 114 128)";
-        Css.css_variable "--tw-prose-headings" "rgb(31 41 55)";
-        Css.css_variable "--tw-prose-lead" "rgb(75 85 99)";
-        Css.css_variable "--tw-prose-links" "rgb(31 41 55)";
-        Css.css_variable "--tw-prose-bold" "rgb(31 41 55)";
-        Css.css_variable "--tw-prose-counters" "rgb(107 114 128)";
-        Css.css_variable "--tw-prose-bullets" "rgb(209 213 219)";
-        Css.css_variable "--tw-prose-hr" "rgb(229 231 235)";
-        Css.css_variable "--tw-prose-quotes" "rgb(31 41 55)";
-        Css.css_variable "--tw-prose-quote-borders" "rgb(229 231 235)";
-        Css.css_variable "--tw-prose-captions" "rgb(156 163 175)";
-        Css.css_variable "--tw-prose-code" "rgb(31 41 55)";
-        Css.css_variable "--tw-prose-pre-code" "rgb(229 231 235)";
-        Css.css_variable "--tw-prose-pre-bg" "rgb(31 41 55)";
-        Css.css_variable "--tw-prose-th-borders" "rgb(209 213 219)";
-        Css.css_variable "--tw-prose-td-borders" "rgb(229 231 235)";
+        Css.custom_property "--tw-prose-body" "rgb(107 114 128)";
+        Css.custom_property "--tw-prose-headings" "rgb(31 41 55)";
+        Css.custom_property "--tw-prose-lead" "rgb(75 85 99)";
+        Css.custom_property "--tw-prose-links" "rgb(31 41 55)";
+        Css.custom_property "--tw-prose-bold" "rgb(31 41 55)";
+        Css.custom_property "--tw-prose-counters" "rgb(107 114 128)";
+        Css.custom_property "--tw-prose-bullets" "rgb(209 213 219)";
+        Css.custom_property "--tw-prose-hr" "rgb(229 231 235)";
+        Css.custom_property "--tw-prose-quotes" "rgb(31 41 55)";
+        Css.custom_property "--tw-prose-quote-borders" "rgb(229 231 235)";
+        Css.custom_property "--tw-prose-captions" "rgb(156 163 175)";
+        Css.custom_property "--tw-prose-code" "rgb(31 41 55)";
+        Css.custom_property "--tw-prose-pre-code" "rgb(229 231 235)";
+        Css.custom_property "--tw-prose-pre-bg" "rgb(31 41 55)";
+        Css.custom_property "--tw-prose-th-borders" "rgb(209 213 219)";
+        Css.custom_property "--tw-prose-td-borders" "rgb(229 231 235)";
       ];
   ]
 
@@ -382,22 +382,22 @@ let slate_color_rules =
   [
     rule ~selector:".prose-slate"
       [
-        Css.css_variable "--tw-prose-body" "rgb(100 116 139)";
-        Css.css_variable "--tw-prose-headings" "rgb(15 23 42)";
-        Css.css_variable "--tw-prose-lead" "rgb(71 85 105)";
-        Css.css_variable "--tw-prose-links" "rgb(15 23 42)";
-        Css.css_variable "--tw-prose-bold" "rgb(15 23 42)";
-        Css.css_variable "--tw-prose-counters" "rgb(100 116 139)";
-        Css.css_variable "--tw-prose-bullets" "rgb(203 213 225)";
-        Css.css_variable "--tw-prose-hr" "rgb(226 232 240)";
-        Css.css_variable "--tw-prose-quotes" "rgb(15 23 42)";
-        Css.css_variable "--tw-prose-quote-borders" "rgb(226 232 240)";
-        Css.css_variable "--tw-prose-captions" "rgb(148 163 184)";
-        Css.css_variable "--tw-prose-code" "rgb(15 23 42)";
-        Css.css_variable "--tw-prose-pre-code" "rgb(226 232 240)";
-        Css.css_variable "--tw-prose-pre-bg" "rgb(30 41 59)";
-        Css.css_variable "--tw-prose-th-borders" "rgb(203 213 225)";
-        Css.css_variable "--tw-prose-td-borders" "rgb(226 232 240)";
+        Css.custom_property "--tw-prose-body" "rgb(100 116 139)";
+        Css.custom_property "--tw-prose-headings" "rgb(15 23 42)";
+        Css.custom_property "--tw-prose-lead" "rgb(71 85 105)";
+        Css.custom_property "--tw-prose-links" "rgb(15 23 42)";
+        Css.custom_property "--tw-prose-bold" "rgb(15 23 42)";
+        Css.custom_property "--tw-prose-counters" "rgb(100 116 139)";
+        Css.custom_property "--tw-prose-bullets" "rgb(203 213 225)";
+        Css.custom_property "--tw-prose-hr" "rgb(226 232 240)";
+        Css.custom_property "--tw-prose-quotes" "rgb(15 23 42)";
+        Css.custom_property "--tw-prose-quote-borders" "rgb(226 232 240)";
+        Css.custom_property "--tw-prose-captions" "rgb(148 163 184)";
+        Css.custom_property "--tw-prose-code" "rgb(15 23 42)";
+        Css.custom_property "--tw-prose-pre-code" "rgb(226 232 240)";
+        Css.custom_property "--tw-prose-pre-bg" "rgb(30 41 59)";
+        Css.custom_property "--tw-prose-th-borders" "rgb(203 213 225)";
+        Css.custom_property "--tw-prose-td-borders" "rgb(226 232 240)";
       ];
   ]
 

@@ -769,7 +769,9 @@ let to_css ?(reset = true) tw_classes =
       let properties = Var.generate_properties_layer var_tally in
       if properties <> [] then
         let css_props =
-          List.map (fun (var, value) -> Css.css_variable var value) properties
+          List.map
+            (fun (var, value) -> Css.custom_property var value)
+            properties
         in
         Some
           (Css.layered_rules ~layer:Css.Properties
@@ -810,8 +812,8 @@ let to_css ?(reset = true) tw_classes =
     (* Theme variables that always exist and may reference other variables *)
     let default_font_props =
       [
-        Css.css_variable "--default-font-family" "var(--font-sans)";
-        Css.css_variable "--default-mono-font-family" "var(--font-mono)";
+        Css.custom_property "--default-font-family" "var(--font-sans)";
+        Css.custom_property "--default-mono-font-family" "var(--font-mono)";
       ]
     in
 
@@ -834,18 +836,18 @@ let to_css ?(reset = true) tw_classes =
                  match var with
                  | "--font-sans" ->
                      Some
-                       (Css.css_variable "--font-sans"
+                       (Css.custom_property "--font-sans"
                           "ui-sans-serif, system-ui, sans-serif, \"Apple Color \
                            Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \
                            \"Noto Color Emoji\"")
                  | "--font-serif" ->
                      Some
-                       (Css.css_variable "--font-serif"
+                       (Css.custom_property "--font-serif"
                           "ui-serif, Georgia, Cambria, \"Times New Roman\", \
                            Times, serif")
                  | "--font-mono" ->
                      Some
-                       (Css.css_variable "--font-mono"
+                       (Css.custom_property "--font-mono"
                           "ui-monospace, SFMono-Regular, Menlo, Monaco, \
                            Consolas, \"Liberation Mono\", \"Courier New\", \
                            monospace")
@@ -868,74 +870,79 @@ let to_css ?(reset = true) tw_classes =
       all_referenced_vars
       |> List.concat_map (fun var_name ->
              match var_name with
-             | "--spacing" -> [ Css.css_variable "--spacing" "0.25rem" ]
+             | "--spacing" -> [ Css.custom_property "--spacing" "0.25rem" ]
              | "--text-xs" ->
                  [
-                   Css.css_variable "--text-xs" "0.75rem";
-                   Css.css_variable "--text-xs--line-height" "calc(1/.75)";
+                   Css.custom_property "--text-xs" "0.75rem";
+                   Css.custom_property "--text-xs--line-height" "calc(1/.75)";
                  ]
              | "--text-sm" ->
                  [
-                   Css.css_variable "--text-sm" "0.875rem";
-                   Css.css_variable "--text-sm--line-height" "calc(1.25/.875)";
+                   Css.custom_property "--text-sm" "0.875rem";
+                   Css.custom_property "--text-sm--line-height"
+                     "calc(1.25/.875)";
                  ]
              | "--text-base" ->
                  [
-                   Css.css_variable "--text-base" "1rem";
-                   Css.css_variable "--text-base--line-height" "calc(1.5/1)";
+                   Css.custom_property "--text-base" "1rem";
+                   Css.custom_property "--text-base--line-height" "calc(1.5/1)";
                  ]
              | "--text-lg" ->
                  [
-                   Css.css_variable "--text-lg" "1.125rem";
-                   Css.css_variable "--text-lg--line-height" "calc(1.75/1.125)";
+                   Css.custom_property "--text-lg" "1.125rem";
+                   Css.custom_property "--text-lg--line-height"
+                     "calc(1.75/1.125)";
                  ]
              | "--text-xl" ->
                  [
-                   Css.css_variable "--text-xl" "1.25rem";
-                   Css.css_variable "--text-xl--line-height" "calc(1.75/1.25)";
+                   Css.custom_property "--text-xl" "1.25rem";
+                   Css.custom_property "--text-xl--line-height"
+                     "calc(1.75/1.25)";
                  ]
              | "--text-2xl" ->
                  [
-                   Css.css_variable "--text-2xl" "1.5rem";
-                   Css.css_variable "--text-2xl--line-height" "calc(2/1.5)";
+                   Css.custom_property "--text-2xl" "1.5rem";
+                   Css.custom_property "--text-2xl--line-height" "calc(2/1.5)";
                  ]
              | "--text-3xl" ->
                  [
-                   Css.css_variable "--text-3xl" "1.875rem";
-                   Css.css_variable "--text-3xl--line-height" "calc(2.25/1.875)";
+                   Css.custom_property "--text-3xl" "1.875rem";
+                   Css.custom_property "--text-3xl--line-height"
+                     "calc(2.25/1.875)";
                  ]
              | "--text-4xl" ->
                  [
-                   Css.css_variable "--text-4xl" "2.25rem";
-                   Css.css_variable "--text-4xl--line-height" "calc(2.5/2.25)";
+                   Css.custom_property "--text-4xl" "2.25rem";
+                   Css.custom_property "--text-4xl--line-height"
+                     "calc(2.5/2.25)";
                  ]
              | "--text-5xl" ->
                  [
-                   Css.css_variable "--text-5xl" "3rem";
-                   Css.css_variable "--text-5xl--line-height" "1";
+                   Css.custom_property "--text-5xl" "3rem";
+                   Css.custom_property "--text-5xl--line-height" "1";
                  ]
              | "--font-weight-thin" ->
-                 [ Css.css_variable "--font-weight-thin" "100" ]
+                 [ Css.custom_property "--font-weight-thin" "100" ]
              | "--font-weight-light" ->
-                 [ Css.css_variable "--font-weight-light" "300" ]
+                 [ Css.custom_property "--font-weight-light" "300" ]
              | "--font-weight-normal" ->
-                 [ Css.css_variable "--font-weight-normal" "400" ]
+                 [ Css.custom_property "--font-weight-normal" "400" ]
              | "--font-weight-medium" ->
-                 [ Css.css_variable "--font-weight-medium" "500" ]
+                 [ Css.custom_property "--font-weight-medium" "500" ]
              | "--font-weight-semibold" ->
-                 [ Css.css_variable "--font-weight-semibold" "600" ]
+                 [ Css.custom_property "--font-weight-semibold" "600" ]
              | "--font-weight-bold" ->
-                 [ Css.css_variable "--font-weight-bold" "700" ]
+                 [ Css.custom_property "--font-weight-bold" "700" ]
              | "--font-weight-extrabold" ->
-                 [ Css.css_variable "--font-weight-extrabold" "800" ]
+                 [ Css.custom_property "--font-weight-extrabold" "800" ]
              | "--font-weight-black" ->
-                 [ Css.css_variable "--font-weight-black" "900" ]
-             | "--radius-sm" -> [ Css.css_variable "--radius-sm" ".25rem" ]
-             | "--radius-md" -> [ Css.css_variable "--radius-md" ".375rem" ]
-             | "--radius-lg" -> [ Css.css_variable "--radius-lg" ".5rem" ]
-             | "--radius-xl" -> [ Css.css_variable "--radius-xl" ".75rem" ]
-             | "--radius-2xl" -> [ Css.css_variable "--radius-2xl" "1rem" ]
-             | "--radius-3xl" -> [ Css.css_variable "--radius-3xl" "1.5rem" ]
+                 [ Css.custom_property "--font-weight-black" "900" ]
+             | "--radius-sm" -> [ Css.custom_property "--radius-sm" ".25rem" ]
+             | "--radius-md" -> [ Css.custom_property "--radius-md" ".375rem" ]
+             | "--radius-lg" -> [ Css.custom_property "--radius-lg" ".5rem" ]
+             | "--radius-xl" -> [ Css.custom_property "--radius-xl" ".75rem" ]
+             | "--radius-2xl" -> [ Css.custom_property "--radius-2xl" "1rem" ]
+             | "--radius-3xl" -> [ Css.custom_property "--radius-3xl" "1.5rem" ]
              | var_name when String.starts_with ~prefix:"--color-" var_name -> (
                  (* Handle color variables *)
                  let color_part =
@@ -946,9 +953,9 @@ let to_css ?(reset = true) tw_classes =
                  | [ color_name ] ->
                      (* Base color like --color-white or --color-black *)
                      if color_name = "white" then
-                       [ Css.css_variable "--color-white" "#fff" ]
+                       [ Css.custom_property "--color-white" "#fff" ]
                      else if color_name = "black" then
-                       [ Css.css_variable "--color-black" "#000" ]
+                       [ Css.custom_property "--color-black" "#000" ]
                      else [] (* Other base colors need shade *)
                  | color_parts -> (
                      (* Try to extract shade from the end *)
@@ -961,7 +968,7 @@ let to_css ?(reset = true) tw_classes =
                            in
                            let color = Color.of_string color_name in
                            [
-                             Css.css_variable var_name
+                             Css.custom_property var_name
                                (Color.to_oklch_css color shade);
                            ]
                          with _ -> [])
@@ -1001,16 +1008,16 @@ let to_css ?(reset = true) tw_classes =
       |> List.map (fun (_, var_name) ->
              match var_name with
              | "--font-sans" ->
-                 Css.css_variable "--font-sans"
+                 Css.custom_property "--font-sans"
                    "ui-sans-serif, system-ui, sans-serif, \"Apple Color \
                     Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto \
                     Color Emoji\""
              | "--font-serif" ->
-                 Css.css_variable "--font-serif"
+                 Css.custom_property "--font-serif"
                    "ui-serif, Georgia, Cambria, \"Times New Roman\", Times, \
                     serif"
              | "--font-mono" ->
-                 Css.css_variable "--font-mono"
+                 Css.custom_property "--font-mono"
                    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \
                     \"Liberation Mono\", \"Courier New\", monospace"
              | _ -> failwith "Unexpected font variable")
@@ -2159,7 +2166,7 @@ let text_5xl =
 let font_thin =
   style_with_vars "font-thin"
     [
-      Css.css_variable "--tw-font-weight" "var(--font-weight-thin)";
+      Css.custom_property "--tw-font-weight" "var(--font-weight-thin)";
       Css.font_weight (Var (Css.var "font-weight-thin"));
     ]
     []
@@ -2167,7 +2174,7 @@ let font_thin =
 let font_light =
   style_with_vars "font-light"
     [
-      Css.css_variable "--tw-font-weight" "var(--font-weight-light)";
+      Css.custom_property "--tw-font-weight" "var(--font-weight-light)";
       Css.font_weight (Var (Css.var "font-weight-light"));
     ]
     []
@@ -2175,7 +2182,7 @@ let font_light =
 let font_normal =
   style_with_vars "font-normal"
     [
-      Css.css_variable "--tw-font-weight" "var(--font-weight-normal)";
+      Css.custom_property "--tw-font-weight" "var(--font-weight-normal)";
       Css.font_weight (Var (Css.var "font-weight-normal"));
     ]
     []
@@ -2183,7 +2190,7 @@ let font_normal =
 let font_medium =
   style_with_vars "font-medium"
     [
-      Css.css_variable "--tw-font-weight" "var(--font-weight-medium)";
+      Css.custom_property "--tw-font-weight" "var(--font-weight-medium)";
       Css.font_weight (Var (Css.var "font-weight-medium"));
     ]
     []
@@ -2191,7 +2198,7 @@ let font_medium =
 let font_semibold =
   style_with_vars "font-semibold"
     [
-      Css.css_variable "--tw-font-weight" "var(--font-weight-semibold)";
+      Css.custom_property "--tw-font-weight" "var(--font-weight-semibold)";
       Css.font_weight (Var (Css.var "font-weight-semibold"));
     ]
     []
@@ -2199,7 +2206,7 @@ let font_semibold =
 let font_bold =
   style_with_vars "font-bold"
     [
-      Css.css_variable "--tw-font-weight" "var(--font-weight-bold)";
+      Css.custom_property "--tw-font-weight" "var(--font-weight-bold)";
       Css.font_weight (Var (Css.var "font-weight-bold"));
     ]
     []
@@ -2207,7 +2214,7 @@ let font_bold =
 let font_extrabold =
   style_with_vars "font-extrabold"
     [
-      Css.css_variable "--tw-font-weight" "var(--font-weight-extrabold)";
+      Css.custom_property "--tw-font-weight" "var(--font-weight-extrabold)";
       Css.font_weight (Var (Css.var "font-weight-extrabold"));
     ]
     []
@@ -2215,7 +2222,7 @@ let font_extrabold =
 let font_black =
   style_with_vars "font-black"
     [
-      Css.css_variable "--tw-font-weight" "var(--font-weight-black)";
+      Css.custom_property "--tw-font-weight" "var(--font-weight-black)";
       Css.font_weight (Var (Css.var "font-weight-black"));
     ]
     []
@@ -2489,29 +2496,37 @@ let border_l = style "border-l" [ Css.border_left_width (Css.Px 1) ]
 (* Border styles *)
 let border_solid =
   style "border-solid"
-    [ Css.css_variable "--tw-border-style" "solid"; Css.border_style Css.Solid ]
+    [
+      Css.custom_property "--tw-border-style" "solid";
+      Css.border_style Css.Solid;
+    ]
 
 let border_dashed =
   style "border-dashed"
     [
-      Css.css_variable "--tw-border-style" "dashed"; Css.border_style Css.Dashed;
+      Css.custom_property "--tw-border-style" "dashed";
+      Css.border_style Css.Dashed;
     ]
 
 let border_dotted =
   style "border-dotted"
     [
-      Css.css_variable "--tw-border-style" "dotted"; Css.border_style Css.Dotted;
+      Css.custom_property "--tw-border-style" "dotted";
+      Css.border_style Css.Dotted;
     ]
 
 let border_double =
   style "border-double"
     [
-      Css.css_variable "--tw-border-style" "double"; Css.border_style Css.Double;
+      Css.custom_property "--tw-border-style" "double";
+      Css.border_style Css.Double;
     ]
 
 let border_none_style =
   style "border-none"
-    [ Css.css_variable "--tw-border-style" "none"; Css.border_style Css.None ]
+    [
+      Css.custom_property "--tw-border-style" "none"; Css.border_style Css.None;
+    ]
 
 let pp_rounded_suffix : size -> string = function
   | `None -> "none"
@@ -2580,7 +2595,7 @@ let pp_shadow_suffix : shadow -> string = function
 
 let shadow_internal s =
   let class_name = "shadow-" ^ pp_shadow_suffix s in
-  let custom_props = [ Css.css_variable "--tw-shadow" (shadow_value s) ] in
+  let custom_props = [ Css.custom_property "--tw-shadow" (shadow_value s) ] in
   let box_shadow_prop =
     box_shadow
       "var(--tw-inset-shadow), var(--tw-inset-ring-shadow), \
@@ -2721,7 +2736,7 @@ let scale_z n =
   let class_name = "scale-z-" ^ string_of_int n in
   style class_name
     [
-      Css.css_variable "--tw-scale-z" (Pp.float value);
+      Css.custom_property "--tw-scale-z" (Pp.float value);
       Css.transform
         [
           Css.Translate_var
@@ -2857,11 +2872,11 @@ let ring_internal (w : width) =
   in
   style class_name
     [
-      Css.css_variable "--tw-ring-color" "rgb(59 130 246 / 0.5)";
+      Css.custom_property "--tw-ring-color" "rgb(59 130 246 / 0.5)";
       box_shadow
         "var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 \
          #0000),var(--tw-shadow,0 0 #0000)";
-      Css.css_variable "--tw-ring-shadow" shadow_value;
+      Css.custom_property "--tw-ring-shadow" shadow_value;
     ]
 
 let ring_none = ring_internal `None
@@ -2918,11 +2933,11 @@ let snap_both =
 
 let snap_mandatory =
   style "snap-mandatory"
-    [ Css.css_variable "--tw-scroll-snap-strictness" "mandatory" ]
+    [ Css.custom_property "--tw-scroll-snap-strictness" "mandatory" ]
 
 let snap_proximity =
   style "snap-proximity"
-    [ Css.css_variable "--tw-scroll-snap-strictness" "proximity" ]
+    [ Css.custom_property "--tw-scroll-snap-strictness" "proximity" ]
 
 let snap_start = style "snap-start" [ Css.scroll_snap_align Css.Start ]
 let snap_end = style "snap-end" [ Css.scroll_snap_align Css.End ]
@@ -3142,8 +3157,8 @@ let from_color ?(shade = 500) color =
   in
   style class_name
     [
-      Css.css_variable "--tw-gradient-from" var_str;
-      Css.css_variable "--tw-gradient-stops"
+      Css.custom_property "--tw-gradient-from" var_str;
+      Css.custom_property "--tw-gradient-stops"
         "var(--tw-gradient-via-stops,var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-to)var(--tw-gradient-to-position))";
     ]
 
@@ -3161,10 +3176,10 @@ let via_color ?(shade = 500) color =
   in
   style class_name
     [
-      Css.css_variable "--tw-gradient-via" var_str;
-      Css.css_variable "--tw-gradient-via-stops"
+      Css.custom_property "--tw-gradient-via" var_str;
+      Css.custom_property "--tw-gradient-via-stops"
         "var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-via)var(--tw-gradient-via-position),var(--tw-gradient-to)var(--tw-gradient-to-position)";
-      Css.css_variable "--tw-gradient-stops" "var(--tw-gradient-via-stops)";
+      Css.custom_property "--tw-gradient-stops" "var(--tw-gradient-via-stops)";
     ]
 
 let to_color ?(shade = 500) color =
@@ -3181,8 +3196,8 @@ let to_color ?(shade = 500) color =
   in
   style class_name
     [
-      Css.css_variable "--tw-gradient-to" var_str;
-      Css.css_variable "--tw-gradient-stops"
+      Css.custom_property "--tw-gradient-to" var_str;
+      Css.custom_property "--tw-gradient-stops"
         "var(--tw-gradient-via-stops,var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-to)var(--tw-gradient-to-position))";
     ]
 
@@ -3248,13 +3263,13 @@ let clip_path _value =
 let transform =
   style "transform"
     [
-      Css.css_variable "--tw-translate-x" "0";
-      Css.css_variable "--tw-translate-y" "0";
-      Css.css_variable "--tw-rotate" "0";
-      Css.css_variable "--tw-skew-x" "0";
-      Css.css_variable "--tw-skew-y" "0";
-      Css.css_variable "--tw-scale-x" "1";
-      Css.css_variable "--tw-scale-y" "1";
+      Css.custom_property "--tw-translate-x" "0";
+      Css.custom_property "--tw-translate-y" "0";
+      Css.custom_property "--tw-rotate" "0";
+      Css.custom_property "--tw-skew-x" "0";
+      Css.custom_property "--tw-skew-y" "0";
+      Css.custom_property "--tw-scale-x" "1";
+      Css.custom_property "--tw-scale-y" "1";
       Css.transform
         [
           Css.Translate_x (Css.Var (Css.var "tw-translate-x"));
@@ -3426,8 +3441,8 @@ let scale n =
   let class_name = "scale-" ^ string_of_int n in
   style class_name
     [
-      Css.css_variable "--tw-scale-x" value;
-      Css.css_variable "--tw-scale-y" value;
+      Css.custom_property "--tw-scale-x" value;
+      Css.custom_property "--tw-scale-y" value;
       Css.transform
         [
           Css.Translate_var
