@@ -101,10 +101,11 @@ let find_first_diff css1 css2 =
     String.sub css start (end_pos - start)
   in
 
-  (* Try to find which layer/selector we're in at position pos *)
+  (* Try to find which layer/selector and property we're in at position pos *)
   let get_location css pos =
-    let rec find_layer i =
-      if i >= pos then ""
+    (* Find all @layer declarations before this position *)
+    let rec find_layers acc i =
+      if i >= pos then acc
       else if i + 6 < String.length css && String.sub css i 6 = "@layer" then
         let space_idx =
           try String.index_from css (i + 7) ' ' with Not_found -> i + 20
@@ -113,10 +114,58 @@ let find_first_diff css1 css2 =
           try String.index_from css (i + 7) '{' with Not_found -> i + 20
         in
         let end_idx = min space_idx brace_idx in
-        "@layer " ^ String.sub css (i + 7) (end_idx - i - 7)
-      else find_layer (i + 1)
+        let layer_name = String.sub css (i + 7) (end_idx - i - 7) in
+        find_layers ((i, "@layer " ^ layer_name) :: acc) (i + 1)
+      else find_layers acc (i + 1)
     in
-    find_layer 0
+    let layers = List.rev (find_layers [] 0) in
+    (* Find the most recent layer *)
+    let layer =
+      match
+        List.find_opt (fun (layer_pos, _) -> layer_pos < pos) (List.rev layers)
+      with
+      | Some (_, layer) -> layer
+      | None -> ""
+    in
+
+    (* Find the current property or selector *)
+    let rec find_property i =
+      if i <= 0 then ""
+      else
+        match css.[i] with
+        | ';' | '{' ->
+            (* Found boundary, look for property name after it *)
+            let rec find_prop_start j =
+              if j >= pos then ""
+              else if css.[j] = '-' && j + 1 < pos && css.[j + 1] = '-' then
+                (* Found start of CSS variable *)
+                let rec find_prop_end k =
+                  if k >= String.length css then k
+                  else
+                    match css.[k] with
+                    | ':' | ';' | '}' -> k
+                    | _ -> find_prop_end (k + 1)
+                in
+                let prop_end = min (find_prop_end j) pos in
+                String.sub css j (prop_end - j)
+              else if css.[j] <> ' ' && css.[j] <> '\n' && css.[j] <> '\t' then
+                (* Found start of regular property *)
+                let rec find_prop_end k =
+                  if k >= String.length css then k
+                  else match css.[k] with ':' -> k | _ -> find_prop_end (k + 1)
+                in
+                let prop_end = min (find_prop_end j) pos in
+                String.trim (String.sub css j (prop_end - j))
+              else find_prop_start (j + 1)
+            in
+            find_prop_start (i + 1)
+        | _ -> find_property (i - 1)
+    in
+    let property = find_property pos in
+
+    if property = "" then layer
+    else if layer = "" then property
+    else layer ^ " > " ^ property
   in
 
   let check_char_at i =
@@ -124,12 +173,45 @@ let find_first_diff css1 css2 =
       let context1 = get_context css1 len1 i in
       let context2 = get_context css2 len2 i in
       let location = get_location css1 i in
-      let loc_str = if location = "" then "" else " in " ^ location in
+      let loc_str =
+        if location = "" then ""
+        else Fmt.str " in %a" Fmt.(styled `Cyan string) location
+      in
+
+      (* Highlight the difference in the context *)
+      let highlight_diff ctx pos =
+        let rel_pos = min pos 50 in
+        (* Position within context *)
+        if rel_pos >= 0 && rel_pos < String.length ctx then
+          let before = String.sub ctx 0 rel_pos in
+          let diff_char = String.make 1 ctx.[rel_pos] in
+          let after =
+            String.sub ctx (rel_pos + 1) (String.length ctx - rel_pos - 1)
+          in
+          Fmt.str "%s%a%s" before
+            Fmt.(styled `Bold @@ styled `Red string)
+            diff_char after
+        else ctx
+      in
+
       Some
         ( i,
-          Fmt.str "Character mismatch at position %d%s" i loc_str,
-          Fmt.str "%s: ...%s...\n%s: ...%s..." tw_label context1 tailwind_label
-            context2 )
+          Fmt.str "%a%s"
+            Fmt.(styled `Yellow string)
+            (Fmt.str "Character mismatch at position %d" i)
+            loc_str,
+          let tw_padding =
+            String.make
+              (max 0 (String.length tailwind_label - String.length tw_label))
+              ' '
+          in
+          Fmt.str "%a:%s ...%s...\n%a: ...%s..."
+            Fmt.(styled `Green string)
+            tw_label tw_padding
+            (highlight_diff context1 50)
+            Fmt.(styled `Blue string)
+            tailwind_label
+            (highlight_diff context2 50) )
     else None
   in
 

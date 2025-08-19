@@ -859,9 +859,26 @@ let to_css ?(reset = true) tw_classes =
     let vars_from_defaults = resolve_all_var_deps default_font_props [] in
 
     (* Combine all referenced variables *)
+    (* Define canonical order for theme variables - spacing before radius *)
+    let canonical_var_order var =
+      match var with
+      | "--spacing" -> 0
+      | "--font-sans" -> 1
+      | "--font-serif" -> 2
+      | "--font-mono" -> 3
+      | s when String.starts_with ~prefix:"--text-" s -> 10
+      | s when String.starts_with ~prefix:"--font-weight-" s -> 20
+      | s when String.starts_with ~prefix:"--radius-" s -> 30
+      | s when String.starts_with ~prefix:"--color-" s -> 40
+      | _ -> 100
+    in
     let all_referenced_vars =
       directly_referenced_vars @ vars_from_defaults
-      |> List.sort_uniq String.compare
+      |> List.sort_uniq (fun a b ->
+             let order_a = canonical_var_order a in
+             let order_b = canonical_var_order b in
+             if order_a <> order_b then Int.compare order_a order_b
+             else String.compare a b)
     in
 
     (* Generate values for theme variables *)
@@ -1230,15 +1247,15 @@ let to_css ?(reset = true) tw_classes =
             "grid-flow-";
             "auto-cols-";
             "auto-rows-";
-            "justify-";
-            "items-";
-            "content-";
-            "self-";
-            "place-";
-            "gap-";
-            "space-";
           ]
-      then (900, 0) (* 10xx: container, prose *)
+      then (900, 0) (* Alignment and justification come before gap *)
+      else if starts "items-" core then (901, 0)
+      else if starts "justify-" core then (901, 1)
+      else if
+        List.exists (fun p -> starts p core) [ "content-"; "self-"; "place-" ]
+      then (901, 2) (* Gap and space utilities come after alignment *)
+      else if List.exists (fun p -> starts p core) [ "gap-"; "space-" ] then
+        (902, 0) (* 10xx: container, prose *)
       else if core = "container" || starts "prose" core then (1000, 0)
       (* fallback bucket *)
         else (9999, 0)
