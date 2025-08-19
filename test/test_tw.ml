@@ -49,43 +49,57 @@ let check_exact_match tw_styles =
           in
           Fmt.epr "%s" diff_output);
 
-    (* Use testable with custom pp to hide raw CSS in test output *)
+    (* Use testable with custom pp to display CSS concisely *)
     let css_testable =
       Alcotest.testable
         (fun fmt css ->
-          if String.length css < 200 then
-            (* Show full CSS if small *)
-            Fmt.pf fmt "\n%s" css
-          else
-            (* For large CSS, show size and optionally remove base layer for
-               brevity *)
-            let without_base =
-              try
-                let pattern = "@layer base" in
-                let rec find_pattern s pat i =
-                  if i + String.length pat > String.length s then
-                    raise Not_found
-                  else if String.sub s i (String.length pat) = pat then i
-                  else find_pattern s pat (i + 1)
-                in
-                let base_start = find_pattern css pattern 0 in
-                let base_end =
-                  try String.index_from css base_start '}'
-                  with Not_found -> base_start + 100
-                in
-                let before = String.sub css 0 base_start in
-                let after =
-                  String.sub css (base_end + 1)
-                    (String.length css - base_end - 1)
-                in
-                before ^ "@layer base{...}" ^ after
-              with Not_found -> css
+          (* For display only: try to show CSS without base layer *)
+          let display_css =
+            try
+              (* Find and remove the entire @layer base{...} block for
+                 display *)
+              let rec find_layer_end s start depth =
+                if start >= String.length s then String.length s
+                else
+                  match s.[start] with
+                  | '{' -> find_layer_end s (start + 1) (depth + 1)
+                  | '}' ->
+                      if depth = 1 then start + 1
+                      else find_layer_end s (start + 1) (depth - 1)
+                  | _ -> find_layer_end s (start + 1) depth
+              in
+
+              let pattern = "@layer base" in
+              let rec find_pattern s pat i =
+                if i + String.length pat > String.length s then raise Not_found
+                else if String.sub s i (String.length pat) = pat then i
+                else find_pattern s pat (i + 1)
+              in
+
+              let base_start = find_pattern css pattern 0 in
+              let base_end =
+                find_layer_end css (base_start + String.length pattern) 0
+              in
+              let before = String.sub css 0 base_start in
+              let after =
+                String.sub css base_end (String.length css - base_end)
+              in
+              before ^ "@layer base{...}" ^ after
+            with Not_found -> css
+          in
+
+          (* Display logic - just for pretty printing *)
+          if String.length display_css < 300 then Fmt.pf fmt "\n%s" display_css
+          else if String.length display_css < 800 then
+            (* Truncate middle for medium outputs *)
+            let start = String.sub display_css 0 200 in
+            let ending =
+              String.sub display_css (String.length display_css - 200) 200
             in
-            if String.length without_base < 500 then
-              Fmt.pf fmt "<css: %d chars, base layer hidden>\n%s"
-                (String.length css) without_base
-            else Fmt.pf fmt "<css content hidden: %d chars>" (String.length css))
-        String.equal
+            Fmt.pf fmt "<css: %d chars>\n%s\n...\n%s" (String.length css) start
+              ending
+          else Fmt.pf fmt "<css: %d chars>" (String.length css))
+        String.equal (* Comparison still uses original strings *)
     in
     let test_label =
       if String.length test_name > 50 then
