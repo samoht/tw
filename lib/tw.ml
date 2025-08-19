@@ -1449,8 +1449,14 @@ let bg color shade =
     let css_color =
       match color with
       | Color.Hex hex ->
-          (* For hex colors, use Css.Hex *)
-          Css.Hex (String.uppercase_ascii hex)
+          (* For arbitrary hex colors, strip the # prefix if present *)
+          let hex_value =
+            if String.starts_with ~prefix:"#" hex then
+              String.sub hex 1 (String.length hex - 1)
+            else hex
+          in
+          (* Tailwind v4 outputs raw hex without # for arbitrary values *)
+          Css.Hex hex_value
       | Color.Oklch oklch ->
           (* Use the new Oklch constructor *)
           Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
@@ -1517,8 +1523,14 @@ let text color shade =
     let css_color =
       match color with
       | Color.Hex hex ->
-          (* For hex colors, use Css.Hex *)
-          Css.Hex (String.uppercase_ascii hex)
+          (* For arbitrary hex colors, strip the # prefix if present *)
+          let hex_value =
+            if String.starts_with ~prefix:"#" hex then
+              String.sub hex 1 (String.length hex - 1)
+            else hex
+          in
+          (* Tailwind v4 outputs raw hex without # for arbitrary values *)
+          Css.Hex hex_value
       | Color.Oklch oklch ->
           (* Use the new Oklch constructor *)
           Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
@@ -1583,8 +1595,14 @@ let border_color color shade =
     let css_color =
       match color with
       | Color.Hex hex ->
-          (* For hex colors, use Css.Hex *)
-          Css.Hex (String.uppercase_ascii hex)
+          (* For arbitrary hex colors, strip the # prefix if present *)
+          let hex_value =
+            if String.starts_with ~prefix:"#" hex then
+              String.sub hex 1 (String.length hex - 1)
+            else hex
+          in
+          (* Tailwind v4 outputs raw hex without # for arbitrary values *)
+          Css.Hex hex_value
       | Color.Oklch oklch ->
           (* Use the new Oklch constructor *)
           Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
