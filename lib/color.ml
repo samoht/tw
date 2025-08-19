@@ -520,7 +520,7 @@ module TailwindColors = struct
       (950, { l = 26.9; c = 0.093; h = 1.145 });
     ]
 
-  let get_color color_name shade =
+  let get_color_oklch color_name shade =
     let color_map =
       match String.lowercase_ascii color_name with
       | "gray" -> gray
@@ -547,7 +547,10 @@ module TailwindColors = struct
       | "rose" -> rose
       | _ -> []
     in
-    match List.assoc_opt shade color_map with
+    List.assoc_opt shade color_map
+
+  let get_color color_name shade =
+    match get_color_oklch color_name shade with
     | Some oklch -> Some (oklch_to_css oklch)
     | None -> None
 end
@@ -592,7 +595,14 @@ let hex s =
           let g = int_of_string g_str in
           let b = int_of_string b_str in
           (* Convert RGB to hex *)
-          let hex_str = Printf.sprintf "#%02x%02x%02x" r g b in
+          let to_hex_char n =
+            let c = n mod 16 in
+            if c < 10 then Char.chr (c + 48) else Char.chr (c + 87)
+          in
+          let hex_of_int n =
+            String.make 1 (to_hex_char (n / 16)) ^ String.make 1 (to_hex_char n)
+          in
+          let hex_str = "#" ^ hex_of_int r ^ hex_of_int g ^ hex_of_int b in
           Hex hex_str
       | _ -> Hex s (* Fallback if parsing fails *)
     with _ -> Hex s (* Fallback if parsing fails *)
@@ -637,6 +647,57 @@ let rgb r g b =
     invalid_arg
       (Pp.str [ "RGB blue value "; string_of_int b; " out of range [0-255]" ]);
   Rgb { red = r; green = g; blue = b }
+
+(* Convert color to OKLCH data for a given shade *)
+let to_oklch color shade =
+  match color with
+  | Black -> { l = 0.0; c = 0.0; h = 0.0 }
+  | White -> { l = 100.0; c = 0.0; h = 0.0 }
+  | Oklch oklch -> oklch
+  | Hex h -> (
+      match hex_to_rgb h with
+      | Some rgb -> rgb_to_oklch rgb
+      | None -> { l = 0.0; c = 0.0; h = 0.0 })
+  | Rgb { red; green; blue } -> rgb_to_oklch { r = red; g = green; b = blue }
+  | _ -> (
+      (* For named colors, get OKLCH data directly from TailwindColors *)
+      let color_name =
+        match color with
+        | Gray -> "gray"
+        | Slate -> "slate"
+        | Zinc -> "zinc"
+        | Neutral -> "neutral"
+        | Stone -> "stone"
+        | Red -> "red"
+        | Orange -> "orange"
+        | Amber -> "amber"
+        | Yellow -> "yellow"
+        | Lime -> "lime"
+        | Green -> "green"
+        | Emerald -> "emerald"
+        | Teal -> "teal"
+        | Cyan -> "cyan"
+        | Sky -> "sky"
+        | Blue -> "blue"
+        | Indigo -> "indigo"
+        | Violet -> "violet"
+        | Purple -> "purple"
+        | Fuchsia -> "fuchsia"
+        | Pink -> "pink"
+        | Rose -> "rose"
+        | _ -> ""
+      in
+      match TailwindColors.get_color_oklch color_name shade with
+      | Some oklch -> oklch
+      | None ->
+          failwith
+            (Pp.str
+               [
+                 "No OKLCH data for color ";
+                 color_name;
+                 " shade ";
+                 string_of_int shade;
+               ]))
 
 (* Convert color to OKLCH CSS string for a given shade *)
 let to_oklch_css color shade =
@@ -727,11 +788,11 @@ let to_name = function
       Pp.str
         [
           "[oklch(";
-          Printf.sprintf "%.1f" oklch.l;
+          string_of_float oklch.l;
           "%,";
-          Printf.sprintf "%.3f" oklch.c;
+          string_of_float oklch.c;
           ",";
-          Printf.sprintf "%.3f" oklch.h;
+          string_of_float oklch.h;
           ")]";
         ]
 
