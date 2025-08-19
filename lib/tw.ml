@@ -805,7 +805,11 @@ let to_css ?(reset = true) tw_classes =
                  | StartingStyle (_, props) ->
                      Css.all_vars props)
                selector_props)
-      |> List.sort_uniq String.compare
+      (* Just deduplicate without sorting alphabetically *)
+      |> List.fold_left
+           (fun acc v -> if List.mem v acc then acc else v :: acc)
+           []
+      |> List.rev
     in
 
     (* Theme variables that always exist and may reference other variables *)
@@ -869,8 +873,45 @@ let to_css ?(reset = true) tw_classes =
       | s when String.starts_with ~prefix:"--text-" s -> 10
       | s when String.starts_with ~prefix:"--font-weight-" s -> 20
       | s when String.starts_with ~prefix:"--radius-" s -> 30
-      | s when String.starts_with ~prefix:"--color-" s -> 40
-      | _ -> 100
+      | s when String.starts_with ~prefix:"--color-" s -> (
+          (* Extract color name from --color-{name}-{shade} *)
+          let color_part = String.sub s 8 (String.length s - 8) in
+          let color_name =
+            try
+              let dash_pos = String.index color_part '-' in
+              String.sub color_part 0 dash_pos
+            with Not_found -> color_part
+          in
+          (* Tailwind's canonical color order *)
+          40
+          +
+          match color_name with
+          | "black" -> 0
+          | "white" -> 1
+          | "slate" -> 2
+          | "gray" -> 3
+          | "zinc" -> 4
+          | "neutral" -> 5
+          | "stone" -> 6
+          | "red" -> 7
+          | "orange" -> 8
+          | "amber" -> 9
+          | "yellow" -> 10
+          | "lime" -> 11
+          | "green" -> 12
+          | "emerald" -> 13
+          | "teal" -> 14
+          | "cyan" -> 15
+          | "sky" -> 16
+          | "blue" -> 17
+          | "indigo" -> 18
+          | "violet" -> 19
+          | "purple" -> 20
+          | "fuchsia" -> 21
+          | "pink" -> 22
+          | "rose" -> 23
+          | _ -> failwith ("Unknown color in theme variable: " ^ var))
+      | _ -> 200
     in
     let all_referenced_vars =
       directly_referenced_vars @ vars_from_defaults
@@ -990,7 +1031,7 @@ let to_css ?(reset = true) tw_classes =
                          with _ -> [])
                      | _ -> []))
              | _ -> [])
-      |> List.sort_uniq compare
+      (* Don't sort - preserve the canonical order from all_referenced_vars *)
     in
 
     (* Determine which font variables to include based on what's referenced *)
