@@ -1309,6 +1309,24 @@ let to_css ?(reset = true) tw_classes =
              | "--tw-ring-offset-color" ->
                  Css.at_property ~name:var_name ~syntax:"*"
                    ~initial_value:"#fff" ~inherits:false ()
+             (* Gradient variables *)
+             | "--tw-gradient-position" | "--tw-gradient-stops"
+             | "--tw-gradient-via-stops" ->
+                 Css.at_property ~name:var_name ~syntax:"*" ~initial_value:""
+                   ~inherits:false ()
+             | "--tw-gradient-from" | "--tw-gradient-via" | "--tw-gradient-to"
+               ->
+                 Css.at_property ~name:var_name ~syntax:"<color>"
+                   ~initial_value:"#0000" ~inherits:false ()
+             | "--tw-gradient-from-position" | "--tw-gradient-to-position" ->
+                 Css.at_property ~name:var_name ~syntax:"<length-percentage>"
+                   ~initial_value:
+                     (if var_name = "--tw-gradient-to-position" then "100%"
+                      else "0%")
+                   ~inherits:false ()
+             | "--tw-gradient-via-position" ->
+                 Css.at_property ~name:var_name ~syntax:"<length-percentage>"
+                   ~initial_value:"50%" ~inherits:false ()
              | _ ->
                  (* Default for other variables if needed *)
                  Css.at_property ~name:var_name ~syntax:"*" ~initial_value:""
@@ -3233,9 +3251,7 @@ let from_color ?(shade = 500) color =
     [
       Css.declaration "--tw-gradient-from" var_str;
       Css.declaration "--tw-gradient-stops"
-        "var(--tw-gradient-via-stops, var(--tw-gradient-position), \
-         var(--tw-gradient-from) var(--tw-gradient-from-position), \
-         var(--tw-gradient-to) var(--tw-gradient-to-position))";
+        "var(--tw-gradient-via-stops,var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-to)var(--tw-gradient-to-position))";
     ]
 
 let via_color ?(shade = 500) color =
@@ -3254,10 +3270,7 @@ let via_color ?(shade = 500) color =
     [
       Css.declaration "--tw-gradient-via" var_str;
       Css.declaration "--tw-gradient-via-stops"
-        "var(--tw-gradient-position), var(--tw-gradient-from) \
-         var(--tw-gradient-from-position), var(--tw-gradient-via) \
-         var(--tw-gradient-via-position), var(--tw-gradient-to) \
-         var(--tw-gradient-to-position)";
+        "var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-via)var(--tw-gradient-via-position),var(--tw-gradient-to)var(--tw-gradient-to-position)";
       Css.declaration "--tw-gradient-stops" "var(--tw-gradient-via-stops)";
     ]
 
@@ -3277,9 +3290,7 @@ let to_color ?(shade = 500) color =
     [
       Css.declaration "--tw-gradient-to" var_str;
       Css.declaration "--tw-gradient-stops"
-        "var(--tw-gradient-via-stops, var(--tw-gradient-position), \
-         var(--tw-gradient-from) var(--tw-gradient-from-position), \
-         var(--tw-gradient-to) var(--tw-gradient-to-position))";
+        "var(--tw-gradient-via-stops,var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-to)var(--tw-gradient-to-position))";
     ]
 
 let antialiased =
