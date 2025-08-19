@@ -1677,9 +1677,8 @@ let spacing_to_length : spacing -> Css.length = function
   | `Rem f ->
       let n = int_of_float (f /. 0.25) in
       Css.Calc
-        (Css.Calc.mul
-           (Css.Calc.from_var "--spacing")
-           (Css.Calc.from_float (float_of_int n)))
+        (Css.Calc.mul (Css.Calc.var "spacing")
+           (Css.Calc.float (float_of_int n)))
 
 let margin_to_length : margin -> Css.length = function
   | `Auto -> Css.Auto
@@ -1716,10 +1715,8 @@ let spacing_to_length : spacing -> Css.length = function
   | `Rem f ->
       let n = int_of_float (f /. 0.25) in
       Css.Calc
-        (Expr
-           ( (Var (Css.var "spacing") : Css.calc_value),
-             Mult,
-             Num (float_of_int n) ))
+        (Css.Calc.mul (Css.Calc.var "spacing")
+           (Css.Calc.float (float_of_int n)))
 
 (** {1 Spacing} *)
 
@@ -2392,8 +2389,8 @@ let top n =
   let class_name = prefix ^ "top-" ^ string_of_int (abs n) in
   let value =
     Css.Calc
-      (Css.Expr
-         (Css.Var (Css.var "spacing"), Css.Mult, Css.Num (float_of_int (abs n))))
+      (Css.Calc.mul (Css.Calc.var "spacing")
+         (Css.Calc.float (float_of_int (abs n))))
   in
   style_with_vars class_name [ Css.top value ] [ Spacing (abs n) ]
 
@@ -2402,8 +2399,8 @@ let right n =
   let class_name = prefix ^ "right-" ^ string_of_int (abs n) in
   let value =
     Css.Calc
-      (Css.Expr
-         (Css.Var (Css.var "spacing"), Css.Mult, Css.Num (float_of_int (abs n))))
+      (Css.Calc.mul (Css.Calc.var "spacing")
+         (Css.Calc.float (float_of_int (abs n))))
   in
   style_with_vars class_name [ Css.right value ] [ Spacing (abs n) ]
 
@@ -2412,8 +2409,8 @@ let bottom n =
   let class_name = prefix ^ "bottom-" ^ string_of_int (abs n) in
   let value =
     Css.Calc
-      (Css.Expr
-         (Css.Var (Css.var "spacing"), Css.Mult, Css.Num (float_of_int (abs n))))
+      (Css.Calc.mul (Css.Calc.var "spacing")
+         (Css.Calc.float (float_of_int (abs n))))
   in
   style_with_vars class_name [ Css.bottom value ] [ Spacing (abs n) ]
 
@@ -2422,8 +2419,8 @@ let left n =
   let class_name = prefix ^ "left-" ^ string_of_int (abs n) in
   let value =
     Css.Calc
-      (Css.Expr
-         (Css.Var (Css.var "spacing"), Css.Mult, Css.Num (float_of_int (abs n))))
+      (Css.Calc.mul (Css.Calc.var "spacing")
+         (Css.Calc.float (float_of_int (abs n))))
   in
   style_with_vars class_name [ Css.left value ] [ Spacing (abs n) ]
 
@@ -2437,8 +2434,8 @@ let inset n =
   let class_name = prefix ^ "inset-" ^ string_of_int (abs n) in
   let value =
     Css.Calc
-      (Css.Expr
-         (Css.Var (Css.var "spacing"), Css.Mult, Css.Num (float_of_int (abs n))))
+      (Css.Calc.mul (Css.Calc.var "spacing")
+         (Css.Calc.float (float_of_int (abs n))))
   in
   style_with_vars class_name
     [ Css.top value; Css.right value; Css.bottom value; Css.left value ]
