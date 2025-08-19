@@ -100,9 +100,15 @@ let defaults_for_group = function
       ]
   | Gradient ->
       [
-        ("--tw-gradient-from", "transparent");
-        ("--tw-gradient-to", "transparent");
-        ("--tw-gradient-stops", "var(--tw-gradient-from), var(--tw-gradient-to)");
+        ("--tw-gradient-position", "initial");
+        ("--tw-gradient-from", "#0000");
+        ("--tw-gradient-via", "#0000");
+        ("--tw-gradient-to", "#0000");
+        ("--tw-gradient-stops", "initial");
+        ("--tw-gradient-via-stops", "initial");
+        ("--tw-gradient-from-position", "0%");
+        ("--tw-gradient-via-position", "50%");
+        ("--tw-gradient-to-position", "100%");
       ]
   | Border -> [ ("--tw-border-style", "solid") ]
   | Other -> []
@@ -236,6 +242,15 @@ let generate_properties_layer (t : tally) : (string * string) list =
 (* Canonical order for @property rules *)
 let canonical_property_order =
   [
+    "--tw-gradient-position";
+    "--tw-gradient-from";
+    "--tw-gradient-via";
+    "--tw-gradient-to";
+    "--tw-gradient-stops";
+    "--tw-gradient-via-stops";
+    "--tw-gradient-from-position";
+    "--tw-gradient-via-position";
+    "--tw-gradient-to-position";
     "--tw-font-weight";
     "--tw-border-style";
     "--tw-shadow";
@@ -275,6 +290,20 @@ let needs_at_property (t : tally) : string list =
       all_vars
   in
 
+  (* Check if Gradient group is needed *)
+  let needs_gradient =
+    S.exists
+      (fun v ->
+        match v with
+        | "--tw-gradient-position" | "--tw-gradient-from" | "--tw-gradient-via"
+        | "--tw-gradient-to" | "--tw-gradient-stops" | "--tw-gradient-via-stops"
+        | "--tw-gradient-from-position" | "--tw-gradient-via-position"
+        | "--tw-gradient-to-position" ->
+            true
+        | _ -> false)
+      all_vars
+  in
+
   let needed =
     (* If RingShadow group is needed, include ALL shadow/ring variables *)
     let base_needed =
@@ -292,6 +321,22 @@ let needs_at_property (t : tally) : string list =
             | _ -> acc)
           S.empty canonical_property_order
       else S.empty
+    in
+
+    (* If Gradient group is needed, include ALL gradient variables *)
+    let base_needed =
+      if needs_gradient then
+        List.fold_left
+          (fun acc v ->
+            match v with
+            | "--tw-gradient-position" | "--tw-gradient-from"
+            | "--tw-gradient-via" | "--tw-gradient-to" | "--tw-gradient-stops"
+            | "--tw-gradient-via-stops" | "--tw-gradient-from-position"
+            | "--tw-gradient-via-position" | "--tw-gradient-to-position" ->
+                S.add v acc
+            | _ -> acc)
+          base_needed canonical_property_order
+      else base_needed
     in
 
     (* Add other needed variables *)
