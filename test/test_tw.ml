@@ -39,14 +39,15 @@ let check_exact_match tw_styles =
     if tw_css <> tailwind_css then (
       Fmt.epr "\n=== CSS MISMATCH for %s ===\n" test_name;
 
-      (* Use the CSS comparison library for better diffs *)
-      let diff_output = Tw_tools.Css_compare.format_diff tw_css tailwind_css in
-      Fmt.epr "%s" diff_output;
-
-      (* Also use detailed debugging *)
+      (* Use detailed debugging for main diff *)
       match Tw_tools.Css_debug.find_first_diff tw_css tailwind_css with
-      | Some (_pos, desc, context) -> Fmt.epr "\n%s\n%s\n" desc context
-      | None -> ());
+      | Some (_pos, desc, context) -> Fmt.epr "%s\n%s\n" desc context
+      | None ->
+          (* Fallback to structural comparison if no char diff found *)
+          let diff_output =
+            Tw_tools.Css_compare.format_diff tw_css tailwind_css
+          in
+          Fmt.epr "%s" diff_output);
 
     (* Use testable with custom pp to hide raw CSS in test output *)
     let css_testable =

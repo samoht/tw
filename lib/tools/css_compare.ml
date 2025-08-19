@@ -234,131 +234,39 @@ let format_diff our_css tailwind_css =
   else (
     add_line "";
 
-    (* Show structural differences *)
-    let rec show_block_diff b1 b2 n =
-      if n > 20 then add_line "... (more differences)"
-      else
-        match (b1, b2) with
-        | [], [] -> ()
-        | [], rest ->
-            add_line
-              (Fmt.str "+ %s has %d additional blocks" tailwind_label
-                 (List.length rest))
-        | rest, [] ->
-            add_line
-              (Fmt.str "- %s missing %d blocks" tw_label (List.length rest))
-        | Rule r1 :: t1, Rule r2 :: t2 ->
-            if r1.selector <> r2.selector then (
-              add_line (Fmt.str "Block %d: Selector mismatch" n);
-              add_line (Fmt.str "  %s: %s" tw_label r1.selector);
-              add_line (Fmt.str "  %s: %s" tailwind_label r2.selector))
-            else if r1.properties <> r2.properties then (
-              add_line
-                (Fmt.str "Block %d: Properties differ for %s" n r1.selector);
-              let props1 = r1.properties in
-              let props2 = r2.properties in
-              List.iter
-                (fun (p, v) ->
-                  if not (List.mem (p, v) props2) then
-                    add_line
-                      (Fmt.str "  - %s has (%s missing): %s: %s" tw_label
-                         tailwind_label p v))
-                props1;
-              List.iter
-                (fun (p, v) ->
-                  if not (List.mem (p, v) props1) then
-                    add_line
-                      (Fmt.str "  + %s has (%s missing): %s: %s" tailwind_label
-                         tw_label p v))
-                props2);
-            show_block_diff t1 t2 (n + 1)
-        | AtBlock (at1, sub1) :: t1, AtBlock (at2, sub2) :: t2 ->
-            if at1 <> at2 then (
-              add_line (Fmt.str "Block %d: @-rule mismatch" n);
-              add_line (Fmt.str "  %s: %s" tw_label at1);
-              add_line (Fmt.str "  %s: %s" tailwind_label at2))
-            else if sub1 <> sub2 then (
-              add_line "";
-              add_line
-                (Fmt.str "%a"
-                   Fmt.(styled `Bold @@ styled `Yellow string)
-                   (Fmt.str "Block %d: Contents differ in %a" n
-                      Fmt.(styled `Cyan string)
-                      at1));
-
-              (* Extract property differences *)
-              let extract_props blocks =
-                blocks
-                |> List.filter_map (function
-                     | Rule r -> Some r.properties
-                     | _ -> None)
-                |> List.concat |> List.sort_uniq compare
-              in
-              let props1 = extract_props sub1 in
-              let props2 = extract_props sub2 in
-
-              (* Show property differences *)
-              let only_in_1 =
-                List.filter (fun p -> not (List.mem p props2)) props1
-              in
-              let only_in_2 =
-                List.filter (fun p -> not (List.mem p props1)) props2
-              in
-              let different =
-                List.filter
-                  (fun (k1, v1) ->
-                    match List.find_opt (fun (k2, _) -> k1 = k2) props2 with
-                    | Some (_, v2) when v1 <> v2 -> true
-                    | _ -> false)
-                  props1
-              in
-
-              if only_in_1 <> [] || only_in_2 <> [] || different <> [] then (
-                add_line
-                  (Fmt.str "\n  %a:"
-                     Fmt.(styled `Underline string)
-                     "Property differences");
-                List.iter
-                  (fun (k, v) ->
-                    add_line
-                      (Fmt.str "    %a %s: %s" Fmt.(styled `Red string) "-" k v))
-                  only_in_1;
-                List.iter
-                  (fun (k, v) ->
-                    add_line
-                      (Fmt.str "    %a %s: %s"
-                         Fmt.(styled `Green string)
-                         "+" k v))
-                  only_in_2;
-                List.iter
-                  (fun (k, v1) ->
-                    match List.find_opt (fun (k2, _) -> k = k2) props2 with
-                    | Some (_, v2) ->
-                        add_line
-                          (Fmt.str "    %a %s:"
-                             Fmt.(styled `Yellow string)
-                             "≠" k);
-                        add_line
-                          (Fmt.str "      %a: %s"
-                             Fmt.(styled `Red string)
-                             "tw" v1);
-                        add_line
-                          (Fmt.str "      %a: %s"
-                             Fmt.(styled `Green string)
-                             "tailwind" v2)
-                    | None -> ())
-                  different));
-            show_block_diff t1 t2 (n + 1)
-        | Layer l1 :: t1, Layer l2 :: t2 ->
-            if l1 <> l2 then (
-              add_line (Fmt.str "Block %d: Layer declaration mismatch" n);
-              add_line (Fmt.str "  %s: %s" tw_label l1);
-              add_line (Fmt.str "  %s: %s" tailwind_label l2));
-            show_block_diff t1 t2 (n + 1)
-        | _ :: t1, _ :: t2 ->
-            add_line (Fmt.str "Block %d: Type mismatch" n);
-            show_block_diff t1 t2 (n + 1)
+    (* Show only first structural difference *)
+    let rec find_first_block_diff b1 b2 n =
+      match (b1, b2) with
+      | [], [] -> ()
+      | [], rest ->
+          add_line
+            (Fmt.str "%a has %d additional blocks"
+               Fmt.(styled `Blue string)
+               tailwind_label (List.length rest))
+      | rest, [] ->
+          add_line
+            (Fmt.str "%a missing %d blocks"
+               Fmt.(styled `Green string)
+               tw_label (List.length rest))
+      | Rule r1 :: _, Rule r2 :: _ when r1.selector <> r2.selector ->
+          add_line
+            (Fmt.str "Selector mismatch: %s vs %s" r1.selector r2.selector)
+      | Rule r1 :: _, Rule r2 :: _ when r1.properties <> r2.properties ->
+          add_line (Fmt.str "Properties differ in %s" r1.selector)
+      | AtBlock (at1, _) :: _, AtBlock (at2, _) :: _ when at1 <> at2 ->
+          add_line (Fmt.str "@-rule mismatch: %s vs %s" at1 at2)
+      | AtBlock (at1, sub1) :: t1, AtBlock (_, sub2) :: t2 when sub1 <> sub2 ->
+          add_line
+            (Fmt.str "%a in %a"
+               Fmt.(styled `Yellow string)
+               "Content differs"
+               Fmt.(styled `Cyan string)
+               at1);
+          find_first_block_diff t1 t2 (n + 1)
+      | Layer l1 :: _, Layer l2 :: _ when l1 <> l2 ->
+          add_line (Fmt.str "Layer mismatch: %s vs %s" l1 l2)
+      | _ :: t1, _ :: t2 -> find_first_block_diff t1 t2 (n + 1)
     in
-    show_block_diff our_blocks tailwind_blocks 1);
+    find_first_block_diff our_blocks tailwind_blocks 1);
 
   Buffer.contents buf
