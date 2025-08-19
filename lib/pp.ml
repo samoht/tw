@@ -70,14 +70,19 @@ let float_n decimals f =
   (* Check if it's a whole number *)
   if Float.is_integer rounded then int (int_of_float rounded)
   else
-    (* Use Printf to format, then remove trailing zeros *)
-    let format_str = Printf.sprintf "%.*f" decimals rounded in
-    (* Remove trailing zeros and potentially the decimal point *)
-    let rec remove_trailing s =
-      let len = String.length s in
-      if len > 0 && s.[len - 1] = '0' then
-        remove_trailing (String.sub s 0 (len - 1))
-      else if len > 0 && s.[len - 1] = '.' then String.sub s 0 (len - 1)
-      else s
-    in
-    remove_trailing format_str
+    (* Format without Printf *)
+    let whole = int_of_float (Float.floor rounded) in
+    let frac_value = (rounded -. Float.floor rounded) *. multiplier in
+    let frac_int = int_of_float (Float.round frac_value) in
+    if frac_int = 0 then int whole
+    else
+      (* Convert fraction to string and remove trailing zeros *)
+      let frac_str = string_of_int frac_int in
+      let rec remove_trailing_zeros s =
+        let len = String.length s in
+        if len > 0 && s.[len - 1] = '0' then
+          remove_trailing_zeros (String.sub s 0 (len - 1))
+        else s
+      in
+      let trimmed_frac = remove_trailing_zeros frac_str in
+      str [ int whole; "."; trimmed_frac ]
