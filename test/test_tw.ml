@@ -642,6 +642,35 @@ let all_colors_comprehensive () =
       bg rose 950;
     ]
 
+let all_colors_same_shade () =
+  (* Test all colors with shade 500 to verify proper color ordering *)
+  check_list
+    [
+      (* All color families at shade 500 in Tailwind's canonical order *)
+      bg slate 500;
+      bg gray 500;
+      bg zinc 500;
+      bg neutral 500;
+      bg stone 500;
+      bg red 500;
+      bg orange 500;
+      bg amber 500;
+      bg yellow 500;
+      bg lime 500;
+      bg green 500;
+      bg emerald 500;
+      bg teal 500;
+      bg cyan 500;
+      bg sky 500;
+      bg blue 500;
+      bg indigo 500;
+      bg violet 500;
+      bg purple 500;
+      bg fuchsia 500;
+      bg pink 500;
+      bg rose 500;
+    ]
+
 (* ===== TEST SUITE ===== *)
 
 let core_tests =
@@ -677,6 +706,7 @@ let core_tests =
     test_case "style combination" `Quick style_combination;
     test_case "responsive classes" `Quick responsive_classes;
     test_case "multiple classes" `Quick multiple_classes;
+    test_case "all colors same shade" `Quick all_colors_same_shade;
     test_case "all colors comprehensive" `Quick all_colors_comprehensive;
   ]
 
