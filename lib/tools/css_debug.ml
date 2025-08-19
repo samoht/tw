@@ -128,6 +128,29 @@ let find_first_diff css1 css2 =
       | None -> ""
     in
 
+    (* Find the current CSS selector (rule) *)
+    let rec find_selector i =
+      if i <= 0 then ""
+      else
+        match css.[i] with
+        | '{' ->
+            (* Found opening brace, look backwards for selector *)
+            let rec find_sel_start j =
+              if j <= 0 then 0
+              else
+                match css.[j] with
+                | ('}' | ';' | '>') when j > 0 && css.[j - 1] <> '\\' -> j + 1
+                | _ when j > 6 && String.sub css (j - 6) 7 = "@layer " -> j
+                | _ -> find_sel_start (j - 1)
+            in
+            let sel_start = find_sel_start (i - 1) in
+            let selector =
+              String.sub css sel_start (i - sel_start) |> String.trim
+            in
+            if selector <> "" && selector.[0] <> '@' then selector else ""
+        | _ -> find_selector (i - 1)
+    in
+
     (* Find the current property or selector *)
     let rec find_property i =
       if i <= 0 then ""
@@ -137,7 +160,9 @@ let find_first_diff css1 css2 =
             (* Found boundary, look for property name after it *)
             let rec find_prop_start j =
               if j >= pos then ""
-              else if css.[j] = '-' && j + 1 < pos && css.[j + 1] = '-' then
+              else if
+                j + 1 < String.length css && css.[j] = '-' && css.[j + 1] = '-'
+              then
                 (* Found start of CSS variable *)
                 let rec find_prop_end k =
                   if k >= String.length css then k
@@ -161,11 +186,20 @@ let find_first_diff css1 css2 =
             find_prop_start (i + 1)
         | _ -> find_property (i - 1)
     in
+
+    let selector = find_selector pos in
     let property = find_property pos in
 
-    if property = "" then layer
-    else if layer = "" then property
-    else layer ^ " > " ^ property
+    (* Build full context string *)
+    let context_parts =
+      [
+        (if layer <> "" then Some layer else None);
+        (if selector <> "" then Some selector else None);
+        (if property <> "" then Some property else None);
+      ]
+      |> List.filter_map (fun x -> x)
+    in
+    String.concat " > " context_parts
   in
 
   let check_char_at i =
@@ -173,10 +207,6 @@ let find_first_diff css1 css2 =
       let context1 = get_context css1 len1 i in
       let context2 = get_context css2 len2 i in
       let location = get_location css1 i in
-      let loc_str =
-        if location = "" then ""
-        else Fmt.str " in %a" Fmt.(styled `Cyan string) location
-      in
 
       (* Highlight the difference in the context *)
       let highlight_diff ctx pos =
@@ -194,18 +224,38 @@ let find_first_diff css1 css2 =
         else ctx
       in
 
+      (* Format location as tree structure *)
+      let format_location loc =
+        if loc = "" then ""
+        else
+          let parts = String.split_on_char '>' loc |> List.map String.trim in
+          match parts with
+          | [] -> ""
+          | [ single ] -> Fmt.str "\n└─ %a" Fmt.(styled `Cyan string) single
+          | layer :: rest ->
+              let tree =
+                ref [ Fmt.str "\n└─ %a" Fmt.(styled `Cyan string) layer ]
+              in
+              List.iter
+                (fun part ->
+                  tree :=
+                    !tree
+                    @ [ Fmt.str "   └─ %a" Fmt.(styled `Cyan string) part ])
+                rest;
+              String.concat "\n" !tree
+      in
+
       Some
         ( i,
-          Fmt.str "%a%s"
+          Fmt.str "%a at char %d%s"
             Fmt.(styled `Yellow string)
-            (Fmt.str "Character mismatch at position %d" i)
-            loc_str,
+            "Mismatch" i (format_location location),
           let tw_padding =
             String.make
               (max 0 (String.length tailwind_label - String.length tw_label))
               ' '
           in
-          Fmt.str "%a:%s ...%s...\n%a: ...%s..."
+          Fmt.str "\n%a:%s ...%s...\n%a: ...%s..."
             Fmt.(styled `Green string)
             tw_label tw_padding
             (highlight_diff context1 50)
