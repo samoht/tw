@@ -147,6 +147,16 @@ type css_block =
   | AtBlock of string * css_block list
   | Layer of string
 
+let rec string_of_block = function
+  | Rule r ->
+      let props =
+        String.concat ";" (List.map (fun (p, v) -> p ^ ":" ^ v) r.properties)
+      in
+      r.selector ^ "{" ^ props ^ "}"
+  | AtBlock (at, blocks) ->
+      at ^ "{" ^ String.concat "" (List.map string_of_block blocks) ^ "}"
+  | Layer l -> "@layer " ^ l
+
 let parse_blocks tokens =
   let rec parse_rule_body acc = function
     | Property (p, v) :: Semicolon :: rest ->
@@ -277,8 +287,44 @@ let format_diff our_css tailwind_css =
               add_line (Fmt.str "Block %d: @-rule mismatch" n);
               add_line (Fmt.str "  %s: %s" tw_label at1);
               add_line (Fmt.str "  %s: %s" tailwind_label at2))
-            else if sub1 <> sub2 then
-              add_line (Fmt.str "Block %d: Contents differ in %s" n at1);
+            else if sub1 <> sub2 then (
+              add_line
+                (Fmt.str "%a"
+                   Fmt.(styled `Yellow string)
+                   (Fmt.str "Block %d: Contents differ in %a" n
+                      Fmt.(styled `Cyan string)
+                      at1));
+              (* Show first difference in content *)
+              let s1 = String.concat "" (List.map string_of_block sub1) in
+              let s2 = String.concat "" (List.map string_of_block sub2) in
+              let rec find_diff i =
+                if i >= min (String.length s1) (String.length s2) then
+                  if String.length s1 <> String.length s2 then
+                    add_line
+                      (Fmt.str "  Length differs: %d vs %d" (String.length s1)
+                         (String.length s2))
+                  else if s1.[i] <> s2.[i] then (
+                    let ctx_start = max 0 (i - 30) in
+                    let ctx_end =
+                      min (i + 30) (min (String.length s1) (String.length s2))
+                    in
+                    add_line (Fmt.str "  First diff at char %d:" i);
+                    let tw_padding =
+                      String.make (String.length "tailwind" - 2) ' '
+                    in
+                    add_line
+                      (Fmt.str "    %a:%s ...%s..."
+                         Fmt.(styled `Green string)
+                         "tw" tw_padding
+                         (String.sub s1 ctx_start (ctx_end - ctx_start)));
+                    add_line
+                      (Fmt.str "    %a: ...%s..."
+                         Fmt.(styled `Blue string)
+                         "tailwind"
+                         (String.sub s2 ctx_start (ctx_end - ctx_start))))
+                  else find_diff (i + 1)
+              in
+              find_diff 0);
             show_block_diff t1 t2 (n + 1)
         | Layer l1 :: t1, Layer l2 :: t2 ->
             if l1 <> l2 then (
