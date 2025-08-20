@@ -1570,7 +1570,7 @@ let bg color shade =
             else hex
           in
           (* Tailwind v4 outputs raw hex without # for arbitrary values *)
-          Css.Hex hex_value
+          Css.Hex_arbitrary hex_value
       | Color.Oklch oklch ->
           (* Use the new Oklch constructor *)
           Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
@@ -1644,7 +1644,7 @@ let text color shade =
             else hex
           in
           (* Tailwind v4 outputs raw hex without # for arbitrary values *)
-          Css.Hex hex_value
+          Css.Hex_arbitrary hex_value
       | Color.Oklch oklch ->
           (* Use the new Oklch constructor *)
           Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
@@ -1716,7 +1716,7 @@ let border_color color shade =
             else hex
           in
           (* Tailwind v4 outputs raw hex without # for arbitrary values *)
-          Css.Hex hex_value
+          Css.Hex_arbitrary hex_value
       | Color.Oklch oklch ->
           (* Use the new Oklch constructor *)
           Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
