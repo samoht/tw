@@ -353,6 +353,12 @@ val to_tw : t -> tw list
 
 (** {1 Page generation} *)
 
+type tw_css =
+  | Link of string
+  | Inline
+      (** The CSS can be either a link to an external stylesheet or inline
+          styles. *)
+
 type page
 (** Complete HTML page with integrated CSS.
 
@@ -370,7 +376,7 @@ val page :
   ?meta:(string * string) list ->
   ?title:string ->
   ?charset:string ->
-  ?tw_css:string ->
+  ?tw_css:tw_css ->
   t list ->
   t list ->
   page
@@ -381,8 +387,10 @@ val page :
     - [charset] defaults to ["utf-8"]
     - [meta] is a list of [(name, content)] pairs for meta tags
     - [title] is the page title
-    - [tw_css] defaults to ["tw.css"] - the filename for the CSS, automatically
-      included as a [<link>] tag in HTML head
+    - [tw_css] defaults to [Link "tw.css"] - the filename for the CSS,
+      automatically included as a [<link>] tag in HTML head. [tw_css] can also
+      be [Inline] to inline the CSS directly in the HTML document, is useful
+      when you want to avoid additional HTTP requests.
     - [head] is additional content for the head section
     - [body] is the body content
 
@@ -394,7 +402,8 @@ val html : page -> string
 (** [html page] extracts the HTML string from a page result. *)
 
 val css : page -> string * Tw.Css.stylesheet
-(** [css page] extracts the CSS filename and stylesheet from a page result. *)
+(** [css page] extracts the CSS filename and stylesheet from a page result.
+    Raise a error when the css is inlined *)
 
 (** {1 Livereload module}
 

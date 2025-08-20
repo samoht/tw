@@ -88,7 +88,7 @@ let test_page_cache_busting () =
   let test_page =
     page ~title:"Test Page"
       ~meta:[ ("description", "Test page for cache busting") ]
-      ~tw_css:"styles.css" [ (* head content *) ]
+      ~tw_css:(Link "styles.css") [ (* head content *) ]
       [ div ~tw:Tw.[ p 4; bg_white ] [ txt "Test content" ] ]
   in
 
@@ -126,7 +126,7 @@ let test_page_cache_busting () =
 let test_page_cache_busting_consistency () =
   (* Test that same content produces same hash *)
   let create_test_page () =
-    page ~title:"Test" ~tw_css:"test.css" []
+    page ~title:"Test" ~tw_css:(Link "test.css") []
       [ div ~tw:Tw.[ p 4; m 2 ] [ txt "Content" ] ]
   in
 
@@ -153,13 +153,28 @@ let test_page_cache_busting_consistency () =
 
   (* Different content should produce different hash *)
   let page3 =
-    page ~title:"Test" ~tw_css:"test.css" []
+    page ~title:"Test" ~tw_css:(Link "test.css") []
       [ div ~tw:Tw.[ p 8; m 4 ] [ txt "Different" ] ]
   in
   let html3 = html page3 in
   let hash3 = extract_hash html3 in
 
   check bool "different content produces different hash" false (hash1 = hash3)
+
+let test_inline_style () =
+  let page =
+    page ~title:"Inline Style Test" ~tw_css:Inline []
+      [ div ~tw:Tw.[ p 4; bg_white ] [ txt "Inline style test" ] ]
+  in
+  let html_content = html page in
+
+  (* Check that the HTML contains inline styles *)
+  check bool "HTML contains inline style" true
+    (Astring.String.is_infix ~affix:"<style>" html_content);
+  check bool "Inline style has content" true
+    (Astring.String.is_infix ~affix:"p-4" html_content);
+  check bool "Inline style has bg-white" true
+    (Astring.String.is_infix ~affix:"bg-white" html_content)
 
 let suite =
   ( "html",
@@ -173,4 +188,5 @@ let suite =
       test_case "page cache busting" `Quick test_page_cache_busting;
       test_case "cache busting consistency" `Quick
         test_page_cache_busting_consistency;
+      test_case "inline style" `Quick test_inline_style;
     ] )

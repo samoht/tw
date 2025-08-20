@@ -257,7 +257,7 @@ let main =
           "A simple page demonstrating Tw CSS generation with OCaml" );
         ("viewport", "width=device-width, initial-scale=1.0");
       ]
-    ~tw_css:"simple.css"
+    ~tw_css:(Link "simple.css")
     (* Head content *)
     [ meta ~at:[ At.name "author"; At.content "tw.html" ] () ]
     (* Body content *)
