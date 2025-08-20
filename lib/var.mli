@@ -146,7 +146,7 @@ val analyze_properties : Css.declaration list -> tally
 val generate_properties_layer : tally -> (string * string) list
 (** Generate properties layer initializers for groups that need them *)
 
-val needs_at_property : tally -> string list
+val needs_at_property : tally -> t list
 (** Get list of variables that need [@property] rules *)
 
 val at_property_config : t -> (string * string * bool * string) option
