@@ -309,6 +309,16 @@ let link ?at ?(tw = []) () =
   in
   { el = El.v ~at:atts_with_tw "link" []; tw }
 
+let style ?at ?(tw = []) styles =
+  let atts = Option.value ~default:[] at in
+  let atts_with_tw =
+    match tw with
+    | [] -> atts
+    | tw_styles -> At.class' (Tw.to_classes tw_styles) :: atts
+  in
+  let children = [ El.txt styles ] in
+  { el = El.v ~at:atts_with_tw "style" children; tw }
+
 (* Void is now an alias for empty *)
 let void = empty
 
@@ -407,8 +417,11 @@ let rect ?at ?tw children = el_with_tw "rect" ?at ?tw children
 let path ?at ?tw children = el_with_tw "path" ?at ?tw children
 let line ?at ?tw children = el_with_tw "line" ?at ?tw children
 
+(* Inline CSS or link to external CSS file with cache busting *)
+type tw_css = Link of string | Inline
+
 (* Type for page generation result *)
-type page = { html : string; css : Tw.Css.stylesheet; tw_css : string }
+type page = { html : string; css : Tw.Css.stylesheet; tw_css : tw_css }
 
 let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css head_content
     body_content =
@@ -433,25 +446,29 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css head_content
   let css_stylesheet = Tw.to_css all_tw in
   let css_string = Tw.Css.to_string ~minify:true css_stylesheet in
 
-  (* Compute MD5 hash of the CSS content for cache busting *)
-  let css_hash =
-    let digest = Digest.string css_string in
-    (* Convert first 8 bytes of MD5 to hex string *)
-    let hex = Digest.to_hex digest in
-    String.sub hex 0 8
+  (* Generate header link or inline styles *)
+  let css_head =
+    match tw_css with
+    | Inline -> style css_string
+    | Link tw_css ->
+        (* Add cache busting query parameter to CSS URL *)
+        (* Compute MD5 hash of the CSS content for cache busting *)
+        let css_hash =
+          let digest = Digest.string css_string in
+          (* Convert first 8 bytes of MD5 to hex string *)
+          let hex = Digest.to_hex digest in
+          String.sub hex 0 8
+        in
+
+        let css_url_with_hash = Printf.sprintf "%s?v=%s" tw_css css_hash in
+        (* Build final HTML with cache-busted CSS link *)
+        link ~at:[ At.rel "stylesheet"; At.href css_url_with_hash ] ()
   in
 
-  (* Add cache busting query parameter to CSS URL *)
-  let css_url_with_hash = Printf.sprintf "%s?v=%s" tw_css css_hash in
-
-  (* Build final HTML with cache-busted CSS link *)
-  let css_link =
-    link ~at:[ At.rel "stylesheet"; At.href css_url_with_hash ] ()
-  in
   let head_children =
     meta_tags
     @ (match title_text with Some t -> [ title [ txt t ] ] | None -> [])
-    @ [ css_link ] @ head_content
+    @ [ css_head ] @ head_content
   in
   let html_tree =
     root ~at:[ At.lang lang ] [ head head_children; body_element ]
@@ -461,13 +478,17 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css head_content
 
 (* Page generation with CSS - use renamed parameters to avoid shadowing *)
 let page ?(lang = "en") ?(meta = []) ?title ?(charset = "utf-8")
-    ?(tw_css = "tw.css") head_content body_content =
+    ?(tw_css = Link "tw.css") head_content body_content =
   page_impl ~lang ~meta_list:meta ?title_text:title ~charset ~tw_css
     head_content body_content
 
 (* Page accessor functions *)
 let html page = page.html
-let css page = (page.tw_css, page.css)
+
+let css page =
+  match page.tw_css with
+  | Link filename -> (filename, page.css)
+  | Inline -> failwith "Inline CSS not supported in css accessor"
 
 (* Pretty printing *)
 let pp t =
