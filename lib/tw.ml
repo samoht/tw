@@ -3052,16 +3052,19 @@ let overflow_y_scroll = style "overflow-y-scroll" [ Css.overflow_y Css.Scroll ]
 let snap_none = style "snap-none" [ Css.scroll_snap_type Css.None ]
 
 let snap_x =
-  style "snap-x"
+  style_with_vars "snap-x"
     [ Css.scroll_snap_type (X_var "var(--tw-scroll-snap-strictness)") ]
+    [ Var.Scroll_snap_strictness ]
 
 let snap_y =
-  style "snap-y"
+  style_with_vars "snap-y"
     [ Css.scroll_snap_type (Y_var "var(--tw-scroll-snap-strictness)") ]
+    [ Var.Scroll_snap_strictness ]
 
 let snap_both =
-  style "snap-both"
+  style_with_vars "snap-both"
     [ Css.scroll_snap_type (Both_var "var(--tw-scroll-snap-strictness)") ]
+    [ Var.Scroll_snap_strictness ]
 
 let snap_mandatory =
   style "snap-mandatory"

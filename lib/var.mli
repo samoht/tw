@@ -114,6 +114,8 @@ type t =
   | Gradient_to_position
   (* Border variables *)
   | Border_style
+  (* Scroll snap variables *)
+  | Scroll_snap_strictness
   (* Default font family helpers *)
   | Default_font_family
   | Default_mono_font_family

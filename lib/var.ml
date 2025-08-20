@@ -114,6 +114,8 @@ type t =
   | Gradient_to_position
   (* Border variables *)
   | Border_style
+  (* Scroll snap variables *)
+  | Scroll_snap_strictness
   (* Default font family helpers *)
   | Default_font_family
   | Default_mono_font_family
@@ -223,6 +225,7 @@ let to_string = function
   | Gradient_via_position -> "--tw-gradient-via-position"
   | Gradient_to_position -> "--tw-gradient-to-position"
   | Border_style -> "--tw-border-style"
+  | Scroll_snap_strictness -> "--tw-scroll-snap-strictness"
   | Default_font_family -> "--default-font-family"
   | Default_mono_font_family -> "--default-mono-font-family"
 
@@ -330,6 +333,7 @@ let of_string s =
   | "--tw-gradient-via-position" -> Some Gradient_via_position
   | "--tw-gradient-to-position" -> Some Gradient_to_position
   | "--tw-border-style" -> Some Border_style
+  | "--tw-scroll-snap-strictness" -> Some Scroll_snap_strictness
   | "--default-font-family" -> Some Default_font_family
   | "--default-mono-font-family" -> Some Default_mono_font_family
   | _ ->
@@ -560,6 +564,7 @@ type feature_group =
   | RingShadow
   | Gradient
   | Border
+  | ScrollSnap
   | Other (* catch-all; usually no properties layer *)
 
 (* Map each variable to its feature group *)
@@ -586,6 +591,7 @@ let group_of_var (v : t) : feature_group =
   | Gradient_position | Gradient_via_stops ->
       Gradient
   | Border_style -> Border
+  | Scroll_snap_strictness -> ScrollSnap
   | Font_weight | Leading -> Other (* These get special handling *)
   | _ -> Other
 
@@ -660,6 +666,7 @@ let defaults_for_group = function
         ("--tw-gradient-to-position", "100%");
       ]
   | Border -> [ ("--tw-border-style", "solid") ]
+  | ScrollSnap -> [ ("--tw-scroll-snap-strictness", "proximity") ]
   | Other -> []
 
 (* Collect usages while compiling utilities *)
@@ -803,6 +810,7 @@ let canonical_property_order =
     "--tw-gradient-to-position";
     "--tw-font-weight";
     "--tw-border-style";
+    "--tw-scroll-snap-strictness";
     "--tw-shadow";
     "--tw-shadow-color";
     "--tw-shadow-alpha";
@@ -922,6 +930,8 @@ let needs_at_property (t : tally) : string list =
         | "--tw-font-weight" -> S.add v acc
         (* Border style needs @property when referenced but not assigned *)
         | "--tw-border-style" when not (S.mem v t.assigned) -> S.add v acc
+        (* Scroll snap strictness needs @property when used *)
+        | "--tw-scroll-snap-strictness" -> S.add v acc
         | _ -> acc)
       all_vars base_needed
   in
