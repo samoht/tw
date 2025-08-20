@@ -1563,14 +1563,13 @@ let bg color shade =
     let css_color =
       match color with
       | Color.Hex hex ->
-          (* For arbitrary hex colors, strip the # prefix if present *)
+          (* For arbitrary hex colors, determine if # was present *)
+          let has_hash = String.starts_with ~prefix:"#" hex in
           let hex_value =
-            if String.starts_with ~prefix:"#" hex then
-              String.sub hex 1 (String.length hex - 1)
-            else hex
+            if has_hash then String.sub hex 1 (String.length hex - 1) else hex
           in
-          (* Tailwind v4 outputs raw hex without # for arbitrary values *)
-          Css.Hex_arbitrary hex_value
+          (* Tailwind v4 arbitrary values: preserve original format *)
+          Css.Hex { hash = false; value = hex_value }
       | Color.Oklch oklch ->
           (* Use the new Oklch constructor *)
           Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
@@ -1637,14 +1636,13 @@ let text color shade =
     let css_color =
       match color with
       | Color.Hex hex ->
-          (* For arbitrary hex colors, strip the # prefix if present *)
+          (* For arbitrary hex colors, determine if # was present *)
+          let has_hash = String.starts_with ~prefix:"#" hex in
           let hex_value =
-            if String.starts_with ~prefix:"#" hex then
-              String.sub hex 1 (String.length hex - 1)
-            else hex
+            if has_hash then String.sub hex 1 (String.length hex - 1) else hex
           in
-          (* Tailwind v4 outputs raw hex without # for arbitrary values *)
-          Css.Hex_arbitrary hex_value
+          (* Tailwind v4 arbitrary values: preserve original format *)
+          Css.Hex { hash = false; value = hex_value }
       | Color.Oklch oklch ->
           (* Use the new Oklch constructor *)
           Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
@@ -1709,14 +1707,13 @@ let border_color color shade =
     let css_color =
       match color with
       | Color.Hex hex ->
-          (* For arbitrary hex colors, strip the # prefix if present *)
+          (* For arbitrary hex colors, determine if # was present *)
+          let has_hash = String.starts_with ~prefix:"#" hex in
           let hex_value =
-            if String.starts_with ~prefix:"#" hex then
-              String.sub hex 1 (String.length hex - 1)
-            else hex
+            if has_hash then String.sub hex 1 (String.length hex - 1) else hex
           in
-          (* Tailwind v4 outputs raw hex without # for arbitrary values *)
-          Css.Hex_arbitrary hex_value
+          (* Tailwind v4 arbitrary values: preserve original format *)
+          Css.Hex { hash = false; value = hex_value }
       | Color.Oklch oklch ->
           (* Use the new Oklch constructor *)
           Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
