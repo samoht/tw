@@ -116,6 +116,8 @@ type t =
   | Border_style
   (* Scroll snap variables *)
   | Scroll_snap_strictness
+  (* Transition variables *)
+  | Duration
   (* Default font family helpers *)
   | Default_font_family
   | Default_mono_font_family
@@ -226,6 +228,7 @@ let to_string = function
   | Gradient_to_position -> "--tw-gradient-to-position"
   | Border_style -> "--tw-border-style"
   | Scroll_snap_strictness -> "--tw-scroll-snap-strictness"
+  | Duration -> "--tw-duration"
   | Default_font_family -> "--default-font-family"
   | Default_mono_font_family -> "--default-mono-font-family"
 
@@ -334,6 +337,7 @@ let of_string s =
   | "--tw-gradient-to-position" -> Some Gradient_to_position
   | "--tw-border-style" -> Some Border_style
   | "--tw-scroll-snap-strictness" -> Some Scroll_snap_strictness
+  | "--tw-duration" -> Some Duration
   | "--default-font-family" -> Some Default_font_family
   | "--default-mono-font-family" -> Some Default_mono_font_family
   | _ ->
@@ -828,6 +832,8 @@ let canonical_property_order =
     "--tw-scale-x";
     "--tw-scale-y";
     "--tw-scale-z";
+    "--tw-leading";
+    "--tw-duration";
   ]
 
 (* Get variables that need @property rules *)
@@ -925,16 +931,52 @@ let needs_at_property (t : tally) : string list =
     (* Add other needed variables *)
     S.fold
       (fun v acc ->
-        match v with
-        (* Font weight always needs @property when used *)
-        | "--tw-font-weight" -> S.add v acc
+        match of_string v with
+        | Some Font_weight -> S.add v acc
         (* Border style needs @property when referenced but not assigned *)
-        | "--tw-border-style" when not (S.mem v t.assigned) -> S.add v acc
+        | Some Border_style when not (S.mem v t.assigned) -> S.add v acc
         (* Scroll snap strictness needs @property when used *)
-        | "--tw-scroll-snap-strictness" -> S.add v acc
+        | Some Scroll_snap_strictness -> S.add v acc
+        (* Leading needs @property only when assigned (not just referenced in
+           fallback) *)
+        | Some Leading when S.mem v t.assigned -> S.add v acc
+        (* Duration needs @property when used *)
+        | Some Duration -> S.add v acc
         | _ -> acc)
       all_vars base_needed
   in
 
   (* Filter canonical order list to only include needed vars *)
   List.filter (fun v -> S.mem v needed) canonical_property_order
+
+(* Get @property configuration for a variable *)
+let at_property_config (v : t) : (string * string * bool * string) option =
+  let name = to_string v in
+  match v with
+  | Font_weight -> Some (name, "*", false, "")
+  | Leading -> Some (name, "*", false, "")
+  | Duration -> Some (name, "*", false, "")
+  | Border_style -> Some (name, "*", false, "solid")
+  | Scroll_snap_strictness -> Some (name, "*", false, "proximity")
+  (* Shadow variables *)
+  | Shadow | Inset_shadow | Ring_shadow | Inset_ring_shadow | Ring_offset_shadow
+    ->
+      Some (name, "*", false, "0 0 #0000")
+  | Shadow_color | Inset_shadow_color | Ring_color | Inset_ring_color
+  | Ring_inset ->
+      Some (name, "*", false, "")
+  | Shadow_alpha | Inset_shadow_alpha ->
+      Some (name, "<percentage>", false, "100%")
+  | Ring_offset_width -> Some (name, "<length>", false, "0")
+  | Ring_offset_color -> Some (name, "*", false, "#fff")
+  (* Gradient variables *)
+  | Gradient_position | Gradient_stops | Gradient_via_stops ->
+      Some (name, "*", false, "")
+  | Gradient_from | Gradient_via | Gradient_to ->
+      Some (name, "<color>", false, "#0000")
+  | Gradient_from_position -> Some (name, "<length-percentage>", false, "0%")
+  | Gradient_to_position -> Some (name, "<length-percentage>", false, "100%")
+  | Gradient_via_position -> Some (name, "<length-percentage>", false, "50%")
+  (* Scale transform variables *)
+  | Scale_x | Scale_y | Scale_z -> Some (name, "*", false, "1")
+  | _ -> None

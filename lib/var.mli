@@ -116,6 +116,8 @@ type t =
   | Border_style
   (* Scroll snap variables *)
   | Scroll_snap_strictness
+  (* Transition variables *)
+  | Duration
   (* Default font family helpers *)
   | Default_font_family
   | Default_mono_font_family
@@ -146,3 +148,6 @@ val generate_properties_layer : tally -> (string * string) list
 
 val needs_at_property : tally -> string list
 (** Get list of variables that need [@property] rules *)
+
+val at_property_config : t -> (string * string * bool * string) option
+(** Get @property configuration (name, syntax, inherits, initial_value) for a variable *)
