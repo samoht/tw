@@ -1401,24 +1401,17 @@ let to_css ?(reset = true) tw_classes =
     (* Generate @property rules for variables that need them *)
     let at_properties =
       Var.needs_at_property var_tally
-      |> List.filter_map (fun var_name ->
-             match Var.of_string var_name with
+      |> List.filter_map (fun var ->
+             match Var.at_property_config var with
              | None ->
-                 (* Default for unknown variables if needed *)
+                 (* Default for variables without specific config *)
+                 let var_name = Var.to_string var in
                  Some
                    (Css.at_property ~name:var_name ~syntax:"*" ~initial_value:""
                       ~inherits:false ())
-             | Some var -> (
-                 match Var.at_property_config var with
-                 | None ->
-                     (* Default for variables without specific config *)
-                     Some
-                       (Css.at_property ~name:var_name ~syntax:"*"
-                          ~initial_value:"" ~inherits:false ())
-                 | Some (name, syntax, inherits, initial_value) ->
-                     Some
-                       (Css.at_property ~name ~syntax ~initial_value ~inherits
-                          ())))
+             | Some (name, syntax, inherits, initial_value) ->
+                 Some
+                   (Css.at_property ~name ~syntax ~initial_value ~inherits ()))
     in
 
     (* Don't add empty Properties layer *)
