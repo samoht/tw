@@ -16,74 +16,14 @@ open Css
 
 (** {1 Core Types} *)
 
-type breakpoint = [ `Sm | `Md | `Lg | `Xl | `Xl_2 ]
-(** Responsive breakpoints matching Tailwind's default scale *)
-
-(** A Tailwind utility modifier *)
-type modifier =
-  | Hover
-  | Focus
-  | Active
-  | Disabled
-  | Group_hover
-  | Group_focus
-  | Dark
-  | Responsive of breakpoint
-  | Peer_hover
-  | Peer_focus
-  | Peer_checked
-  | Aria_checked
-  | Aria_expanded
-  | Aria_selected
-  | Aria_disabled
-  | Data_state of string
-  | Data_variant of string
-  | Data_active
-  | Data_inactive
-  | Data_custom of string * string
-  | Container of container_query
-  | Not of modifier (* not-* variant for negation *)
-  | Has of string (* has-* variant for :has() pseudo-class *)
-  | Group_has of string (* group-has-* variant *)
-  | Peer_has of string (* peer-has-* variant *)
-  | Starting (* starting variant for @starting-style *)
-  | Focus_within (* focus-within variant *)
-  | Focus_visible (* focus-visible variant *)
-  | Motion_safe (* motion-safe variant *)
-  | Motion_reduce (* motion-reduce variant *)
-  | Contrast_more (* contrast-more variant *)
-  | Contrast_less (* contrast-less variant *)
-
-and container_query =
-  | Container_sm
-  | Container_md
-  | Container_lg
-  | Container_xl
-  | Container_2xl
-  | Container_named of string * int
-
-(** Tailwind CSS variable types - specific to Tailwind's design system *)
-type var = Color of { name : string; shade : int option } | Spacing of int
-
-let color_var ?shade name = Color { name; shade }
-
-(** A Tailwind utility class with its name, CSS properties, and required
-    variables *)
-type t =
-  | Style of { name : string; props : Css.declaration list; vars : var list }
-  | Prose of Prose.t
-  | Modified of modifier * t
-  | Group of t list
+(* Import and re-export core types from Core module *)
+include Core
 
 (* Abstract color type *)
 type color = Color.t
 
-(* Common size variants used across multiple utilities *)
-type size = [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full ]
-
-(* Polymorphic variant types for composable sizing *)
-type spacing = [ `Px | `Full | `Rem of float ]
-type margin = [ spacing | `Auto ]
+(* Backwards compatibility - keep scale and shadow types that haven't been moved
+   yet *)
 type scale = [ spacing | size | `Screen | `Min | `Max | `Fit ]
 type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
@@ -93,11 +33,9 @@ module Css = Css
 
 (** {1 Helpers} *)
 
-(* Helper to create a style with no variable requirements *)
-let style name props = Style { name; props; vars = [] }
-
-(* Helper to create a style with variable requirements *)
-let style_with_vars name props vars = Style { name; props; vars }
+(* These are now imported from Core *)
+let style = Core.style
+let style_with_vars = Core.style_with_vars
 
 (** {1 CSS Generation} *)
 
@@ -1443,8 +1381,7 @@ let to_inline_style styles =
 
 (** Convert any color to RGB space-separated string format (e.g., "255 0 0") *)
 
-let int_to_length n =
-  if n = 0 then Css.Zero else Css.Rem (float_of_int n *. 0.25)
+(* int_to_length removed - no longer used *)
 
 (** {1 Public API} *)
 
@@ -1759,9 +1696,7 @@ let pp_max_scale_suffix : max_scale -> string = function
   | `Xl_7 -> "7xl"
   | #scale as s -> pp_scale_suffix s
 
-let pp_margin_suffix : margin -> string = function
-  | `Auto -> "auto"
-  | #spacing as s -> pp_spacing_suffix s
+(* pp_margin_suffix removed - no longer used *)
 
 let spacing_to_length : spacing -> Css.length = function
   | `Px -> Css.Px 1
@@ -1772,9 +1707,7 @@ let spacing_to_length : spacing -> Css.length = function
         (Css.Calc.mul (Css.Calc.var "spacing")
            (Css.Calc.float (float_of_int n)))
 
-let margin_to_length : margin -> Css.length = function
-  | `Auto -> Css.Auto
-  | #spacing as s -> spacing_to_length s
+(* margin_to_length removed - no longer used *)
 
 let rec scale_to_length : scale -> Css.length = function
   | `Screen -> Css.Vh 100.0
@@ -1824,47 +1757,16 @@ let scale_vars = function
       [] (* The --spacing variable is handled via string parsing in all_vars *)
   | _ -> []
 
-(* Helper to extract spacing variables from margin types *)
-let margin_vars = function
-  | `Rem _ ->
-      [] (* The --spacing variable is handled via string parsing in all_vars *)
-  | _ -> []
+(* margin_vars removed - no longer used *)
 
-(* Typed spacing functions with ' suffix *)
-let p' (s : spacing) =
-  let class_name = "p-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
-  style_with_vars class_name [ Css.padding len ] (spacing_vars s)
-
-let px' (s : spacing) =
-  let class_name = "px-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
-  style_with_vars class_name [ Css.padding_inline len ] (spacing_vars s)
-
-let py' (s : spacing) =
-  let class_name = "py-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
-  style_with_vars class_name [ Css.padding_block len ] (spacing_vars s)
-
-let pt' (s : spacing) =
-  let class_name = "pt-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
-  style_with_vars class_name [ Css.padding_top len ] (spacing_vars s)
-
-let pr' (s : spacing) =
-  let class_name = "pr-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
-  style_with_vars class_name [ Css.padding_right len ] (spacing_vars s)
-
-let pb' (s : spacing) =
-  let class_name = "pb-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
-  style_with_vars class_name [ Css.padding_bottom len ] (spacing_vars s)
-
-let pl' (s : spacing) =
-  let class_name = "pl-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
-  style_with_vars class_name [ Css.padding_left len ] (spacing_vars s)
+(* Typed spacing functions with ' suffix - delegate to Spacing module *)
+let p' = Spacing.p
+let px' = Spacing.px
+let py' = Spacing.py
+let pt' = Spacing.pt
+let pr' = Spacing.pr
+let pb' = Spacing.pb
+let pl' = Spacing.pl
 
 (* Int-based spacing functions (convenience wrappers) *)
 let p n = p' (int n)
@@ -1891,41 +1793,14 @@ let pb_full = pb' `Full
 let pl_px = pl' `Px
 let pl_full = pl' `Full
 
-(* Typed margin functions with ' suffix *)
-let m' (m : margin) =
-  let class_name = "m-" ^ pp_margin_suffix m in
-  let len = margin_to_length m in
-  style_with_vars class_name [ Css.margin len ] (margin_vars m)
-
-let mx' (m : margin) =
-  let v = margin_to_length m in
-  let class_name = "mx-" ^ pp_margin_suffix m in
-  style_with_vars class_name [ Css.margin_inline v ] (margin_vars m)
-
-let my' (m : margin) =
-  let v = margin_to_length m in
-  let class_name = "my-" ^ pp_margin_suffix m in
-  style_with_vars class_name [ Css.margin_block v ] (margin_vars m)
-
-let mt' (m : margin) =
-  let class_name = "mt-" ^ pp_margin_suffix m in
-  let len = margin_to_length m in
-  style_with_vars class_name [ Css.margin_top len ] (margin_vars m)
-
-let mr' (m : margin) =
-  let class_name = "mr-" ^ pp_margin_suffix m in
-  let len = margin_to_length m in
-  style_with_vars class_name [ Css.margin_right len ] (margin_vars m)
-
-let mb' (m : margin) =
-  let class_name = "mb-" ^ pp_margin_suffix m in
-  let len = margin_to_length m in
-  style_with_vars class_name [ Css.margin_bottom len ] (margin_vars m)
-
-let ml' (m : margin) =
-  let class_name = "ml-" ^ pp_margin_suffix m in
-  let len = margin_to_length m in
-  style_with_vars class_name [ Css.margin_left len ] (margin_vars m)
+(* Typed margin functions with ' suffix - delegate to Spacing module *)
+let m' = Spacing.m
+let mx' = Spacing.mx
+let my' = Spacing.my
+let mt' = Spacing.mt
+let mr' = Spacing.mr
+let mb' = Spacing.mb
+let ml' = Spacing.ml
 
 (* Int-based margin functions - now support negative values *)
 let m n =
@@ -1986,21 +1861,10 @@ let mr_auto = mr' `Auto
 let mb_auto = mb' `Auto
 let ml_auto = ml' `Auto
 
-(* Typed gap functions with ' suffix *)
-let gap' (s : spacing) =
-  let class_name = "gap-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
-  style_with_vars class_name [ Css.gap len ] (spacing_vars s)
-
-let gap_x' (s : spacing) =
-  let class_name = "gap-x-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
-  style_with_vars class_name [ Css.column_gap len ] (spacing_vars s)
-
-let gap_y' (s : spacing) =
-  let class_name = "gap-y-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
-  style_with_vars class_name [ Css.row_gap len ] (spacing_vars s)
+(* Typed gap functions with ' suffix - delegate to Spacing module *)
+let gap' = Spacing.gap
+let gap_x' = Spacing.gap_x
+let gap_y' = Spacing.gap_y
 
 (* Int-based gap functions (convenience wrappers) *)
 let gap n = gap' (int n)
@@ -2012,13 +1876,8 @@ let gap_px = gap' `Px
 let gap_full = gap' `Full
 
 (* Space between utilities *)
-let space_x n =
-  let class_name = "space-x-" ^ string_of_int n in
-  style class_name [ Css.margin_left (int_to_length n) ]
-
-let space_y n =
-  let class_name = "space-y-" ^ string_of_int n in
-  style class_name [ Css.margin_top (int_to_length n) ]
+let space_x n = Spacing.space_x (int n)
+let space_y n = Spacing.space_y (int n)
 
 (** {1 Sizing} *)
 
@@ -2098,223 +1957,19 @@ let max_h_full = max_h' `Full (* Maximum height 100% *)
 
 (** {1 Typography} *)
 
-let text_xs =
-  style "text-xs"
-    [
-      Css.font_size (Css.Var (Css.var "text-xs"));
-      Css.line_height
-        (Css.Var
-           (Css.var
-              ~fallback:(Css.Var (Css.var "text-xs--line-height"))
-              "tw-leading"));
-    ]
-
-let text_sm =
-  style "text-sm"
-    [
-      Css.font_size (Css.Var (Css.var "text-sm"));
-      Css.line_height
-        (Css.Var
-           (Css.var
-              ~fallback:(Css.Var (Css.var "text-sm--line-height"))
-              "tw-leading"));
-    ]
-
-let text_xl =
-  style "text-xl"
-    [
-      Css.font_size (Css.Var (Css.var "text-xl"));
-      Css.line_height
-        (Css.Var
-           (Css.var
-              ~fallback:(Css.Var (Css.var "text-xl--line-height"))
-              "tw-leading"));
-    ]
-
-let text_2xl =
-  style "text-2xl"
-    [
-      Css.font_size (Css.Var (Css.var "text-2xl"));
-      Css.line_height
-        (Css.Var
-           (Css.var
-              ~fallback:(Css.Var (Css.var "text-2xl--line-height"))
-              "tw-leading"));
-    ]
-
-let text_center = style "text-center" [ Css.text_align Css.Center ]
+(* Include all typography utilities *)
+include Typography
 
 (** {1 Layout} *)
 
-let block = style "block" [ Css.display Css.Block ]
-let inline = style "inline" [ Css.display Css.Inline ]
-let inline_block = style "inline-block" [ Css.display Css.Inline_block ]
-let hidden = style "hidden" [ Css.display Css.None ]
-
-(** {1 Flexbox} *)
-
-let flex = style "flex" [ Css.display Css.Flex ]
-let flex_shrink_0 = style "flex-shrink-0" [ Css.Flex.shrink 0.0 ]
-let flex_col = style "flex-col" [ Css.Flex.direction Css.Column ]
-let flex_row = style "flex-row" [ Css.Flex.direction Css.Row ]
-let flex_wrap = style "flex-wrap" [ Css.Flex.wrap Css.Wrap ]
-
-let flex_row_reverse =
-  style "flex-row-reverse" [ Css.Flex.direction Css.Row_reverse ]
-
-let flex_col_reverse =
-  style "flex-col-reverse" [ Css.Flex.direction Css.Column_reverse ]
-
-let flex_wrap_reverse =
-  style "flex-wrap-reverse" [ Css.Flex.wrap Css.Wrap_reverse ]
-
-let flex_nowrap = style "flex-nowrap" [ Css.Flex.wrap Css.Nowrap ]
-let flex_1 = style "flex-1" [ Css.Flex.flex (Css.Grow 1.0) ]
-let flex_auto = style "flex-auto" [ Css.Flex.flex Css.Auto ]
-let flex_initial = style "flex-initial" [ Css.Flex.flex Css.Initial ]
-let flex_none = style "flex-none" [ Css.Flex.flex Css.None ]
-let flex_grow = style "flex-grow" [ Css.Flex.grow 1.0 ]
-let flex_grow_0 = style "flex-grow-0" [ Css.Flex.grow 0.0 ]
-let flex_shrink = style "flex-shrink" [ Css.Flex.shrink 1.0 ]
-
-(* center *)
-
-let items_center = style "items-center" [ Css.align_items Css.Center ]
-
-let justify_between =
-  style "justify-between" [ Css.justify_content Css.Space_between ]
-
-(** {1 Positioning} *)
-
-let relative = style "relative" [ Css.position Css.Relative ]
-let absolute = style "absolute" [ Css.position Css.Absolute ]
-let fixed = style "fixed" [ Css.position Css.Fixed ]
-let sticky = style "sticky" [ Css.position Css.Sticky ]
+(* Include all layout utilities *)
+include Layout
 
 (* Borders *)
 
 (* Modifiers *)
 
 (** {1 CSS Generation} *)
-
-let text_base =
-  style "text-base"
-    [
-      Css.font_size (Css.Var (Css.var "text-base"));
-      Css.line_height
-        (Css.Var
-           (Css.var
-              ~fallback:(Css.Var (Css.var "text-base--line-height"))
-              "tw-leading"));
-    ]
-
-let text_lg =
-  style "text-lg"
-    [
-      Css.font_size (Css.Var (Css.var "text-lg"));
-      Css.line_height
-        (Css.Var
-           (Css.var
-              ~fallback:(Css.Var (Css.var "text-lg--line-height"))
-              "tw-leading"));
-    ]
-
-let text_3xl =
-  style "text-3xl"
-    [
-      Css.font_size (Css.Var (Css.var "text-3xl"));
-      Css.line_height
-        (Css.Var
-           (Css.var
-              ~fallback:(Css.Var (Css.var "text-3xl--line-height"))
-              "tw-leading"));
-    ]
-
-let text_4xl =
-  style "text-4xl"
-    [
-      Css.font_size (Css.Var (Css.var "text-4xl"));
-      Css.line_height
-        (Css.Var
-           (Css.var
-              ~fallback:(Css.Var (Css.var "text-4xl--line-height"))
-              "tw-leading"));
-    ]
-
-let text_5xl =
-  style "text-5xl"
-    [
-      Css.font_size (Css.Var (Css.var "text-5xl"));
-      Css.line_height
-        (Css.Var
-           (Css.var
-              ~fallback:(Css.Var (Css.var "text-5xl--line-height"))
-              "tw-leading"));
-    ]
-
-let font_thin =
-  style_with_vars "font-thin"
-    [
-      Css.custom_property "--tw-font-weight" "var(--font-weight-thin)";
-      Css.font_weight (Var (Css.var "font-weight-thin"));
-    ]
-    []
-
-let font_light =
-  style_with_vars "font-light"
-    [
-      Css.custom_property "--tw-font-weight" "var(--font-weight-light)";
-      Css.font_weight (Var (Css.var "font-weight-light"));
-    ]
-    []
-
-let font_normal =
-  style_with_vars "font-normal"
-    [
-      Css.custom_property "--tw-font-weight" "var(--font-weight-normal)";
-      Css.font_weight (Var (Css.var "font-weight-normal"));
-    ]
-    []
-
-let font_medium =
-  style_with_vars "font-medium"
-    [
-      Css.custom_property "--tw-font-weight" "var(--font-weight-medium)";
-      Css.font_weight (Var (Css.var "font-weight-medium"));
-    ]
-    []
-
-let font_semibold =
-  style_with_vars "font-semibold"
-    [
-      Css.custom_property "--tw-font-weight" "var(--font-weight-semibold)";
-      Css.font_weight (Var (Css.var "font-weight-semibold"));
-    ]
-    []
-
-let font_bold =
-  style_with_vars "font-bold"
-    [
-      Css.custom_property "--tw-font-weight" "var(--font-weight-bold)";
-      Css.font_weight (Var (Css.var "font-weight-bold"));
-    ]
-    []
-
-let font_extrabold =
-  style_with_vars "font-extrabold"
-    [
-      Css.custom_property "--tw-font-weight" "var(--font-weight-extrabold)";
-      Css.font_weight (Var (Css.var "font-weight-extrabold"));
-    ]
-    []
-
-let font_black =
-  style_with_vars "font-black"
-    [
-      Css.custom_property "--tw-font-weight" "var(--font-weight-black)";
-      Css.font_weight (Var (Css.var "font-weight-black"));
-    ]
-    []
 
 (* Font family utilities *)
 let font_sans =
@@ -2329,14 +1984,8 @@ let font_mono =
   style "font-mono"
     [ Css.font_family [ Css.Var { name = "font-mono"; fallback = None } ] ]
 
-let italic = style "italic" [ Css.font_style Css.Italic ]
-let not_italic = style "not-italic" [ Css.font_style Css.Font_normal ]
-let underline = style "underline" [ Css.text_decoration Css.Underline ]
 let line_through = style "line-through" [ Css.text_decoration Css.Line_through ]
 let no_underline = style "no-underline" [ Css.text_decoration Css.None ]
-let text_left = style "text-left" [ Css.text_align Css.Left ]
-let text_right = style "text-right" [ Css.text_align Css.Right ]
-let text_justify = style "text-justify" [ Css.text_align Css.Justify ]
 let leading_none = style "leading-none" [ Css.line_height (Css.Num 1.0) ]
 let leading_tight = style "leading-tight" [ Css.line_height (Css.Num 1.25) ]
 let leading_snug = style "leading-snug" [ Css.line_height (Css.Num 1.375) ]
