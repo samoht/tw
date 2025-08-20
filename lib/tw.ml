@@ -222,30 +222,35 @@ let extract_selector_props tw =
                 | Peer_hover ->
                     [
                       Regular
-                        (".peer:hover ~ .peer-hover\\:" ^ base_class, props);
+                        ( ".peer-hover\\:" ^ base_class
+                          ^ ":is(:where(.peer):hover~*)",
+                          props );
                     ]
                 | Peer_focus ->
                     [
                       Regular
-                        (".peer:focus ~ .peer-focus\\:" ^ base_class, props);
+                        ( ".peer-focus\\:" ^ base_class
+                          ^ ":is(:where(.peer):focus~*)",
+                          props );
                     ]
                 | Peer_checked ->
                     [
                       Regular
-                        (".peer:checked ~ .peer-checked\\:" ^ base_class, props);
+                        ( ".peer-checked\\:" ^ base_class
+                          ^ ":is(:where(.peer):checked~*)",
+                          props );
                     ]
                 | Aria_checked ->
                     [
                       Regular
-                        ( ".aria-checked\\:" ^ base_class
-                          ^ "[aria-checked=\"true\"]",
+                        ( ".aria-checked\\:" ^ base_class ^ "[aria-checked=true]",
                           props );
                     ]
                 | Aria_expanded ->
                     [
                       Regular
                         ( ".aria-expanded\\:" ^ base_class
-                          ^ "[aria-expanded=\"true\"]",
+                          ^ "[aria-expanded=true]",
                           props );
                     ]
                 | Aria_selected ->
@@ -259,7 +264,7 @@ let extract_selector_props tw =
                     [
                       Regular
                         ( ".aria-disabled\\:" ^ base_class
-                          ^ "[aria-disabled=\"true\"]",
+                          ^ "[aria-disabled=true]",
                           props );
                     ]
                 | Data_state value ->
@@ -641,6 +646,35 @@ let uses_prose tw_classes =
 (* Re-export Color module *)
 module Color = Color
 
+(* Canonical color ordering function - shared between variables and classes *)
+let canonical_color_order color_name =
+  match color_name with
+  | "red" -> 0 (* Chromatic colors in spectrum order *)
+  | "orange" -> 1
+  | "amber" -> 2
+  | "yellow" -> 3
+  | "lime" -> 4
+  | "green" -> 5
+  | "emerald" -> 6
+  | "teal" -> 7
+  | "cyan" -> 8
+  | "sky" -> 9
+  | "blue" -> 10
+  | "indigo" -> 11
+  | "violet" -> 12
+  | "purple" -> 13
+  | "fuchsia" -> 14
+  | "pink" -> 15
+  | "rose" -> 16
+  | "slate" -> 17 (* Neutral colors after chromatic *)
+  | "gray" -> 18
+  | "zinc" -> 19
+  | "neutral" -> 20
+  | "stone" -> 21
+  | "black" -> 100 (* Special colors at the end *)
+  | "white" -> 101
+  | _ -> 200 (* Unknown colors last *)
+
 (* Generate CSS rules for all used Tw classes *)
 let to_css ?(reset = true) tw_classes =
   let all_rules = tw_classes |> List.concat_map extract_selector_props in
@@ -655,6 +689,10 @@ let to_css ?(reset = true) tw_classes =
         | StartingStyle _ -> (reg, media, cont, rule :: start))
       ([], [], [], []) all_rules
   in
+  (* Reverse to maintain original order since we prepended *)
+  let regular_rules = List.rev regular_rules in
+  let media_rules = List.rev media_rules in
+  let container_rules = List.rev container_rules in
 
   (* Group regular rules by selector *)
   let grouped_regular = group_regular_rules regular_rules in
@@ -873,7 +911,7 @@ let to_css ?(reset = true) tw_classes =
       | s when String.starts_with ~prefix:"--text-" s -> 10
       | s when String.starts_with ~prefix:"--font-weight-" s -> 20
       | s when String.starts_with ~prefix:"--radius-" s -> 30
-      | s when String.starts_with ~prefix:"--color-" s -> (
+      | s when String.starts_with ~prefix:"--color-" s ->
           (* Extract color name from --color-{name}-{shade} *)
           let color_part = String.sub s 8 (String.length s - 8) in
           let color_name =
@@ -882,35 +920,8 @@ let to_css ?(reset = true) tw_classes =
               String.sub color_part 0 dash_pos
             with Not_found -> color_part
           in
-          (* Tailwind's canonical color order *)
-          40
-          +
-          match color_name with
-          | "black" -> 0
-          | "white" -> 1
-          | "slate" -> 2
-          | "gray" -> 3
-          | "zinc" -> 4
-          | "neutral" -> 5
-          | "stone" -> 6
-          | "red" -> 7
-          | "orange" -> 8
-          | "amber" -> 9
-          | "yellow" -> 10
-          | "lime" -> 11
-          | "green" -> 12
-          | "emerald" -> 13
-          | "teal" -> 14
-          | "cyan" -> 15
-          | "sky" -> 16
-          | "blue" -> 17
-          | "indigo" -> 18
-          | "violet" -> 19
-          | "purple" -> 20
-          | "fuchsia" -> 21
-          | "pink" -> 22
-          | "rose" -> 23
-          | _ -> failwith ("Unknown color in theme variable: " ^ var))
+          (* Use canonical color order for variables *)
+          40 + canonical_color_order color_name
       | _ -> 200
     in
     let all_referenced_vars =
@@ -1202,11 +1213,52 @@ let to_css ?(reset = true) tw_classes =
       then (100, 2)
         (* 2xx: background & color utilities - comes BETWEEN margin and
            padding *)
+      else if starts "bg-" core then
+        (* For background colors, use Tailwind's color ordering *)
+        let sub_order =
+          (* Extract color name from bg-color-shade pattern *)
+          try
+            let color_part = String.sub core 3 (String.length core - 3) in
+            (* Find the color name (everything before the last hyphen) *)
+            let color_name =
+              try
+                let last_dash = String.rindex color_part '-' in
+                String.sub color_part 0 last_dash
+              with Not_found -> color_part
+            in
+            (* Tailwind v4 uses alphabetical order for utility classes *)
+            match color_name with
+            | "amber" -> 0
+            | "blue" -> 1
+            | "cyan" -> 2
+            | "emerald" -> 3
+            | "fuchsia" -> 4
+            | "gray" -> 5
+            | "green" -> 6
+            | "indigo" -> 7
+            | "lime" -> 8
+            | "neutral" -> 9
+            | "orange" -> 10
+            | "pink" -> 11
+            | "purple" -> 12
+            | "red" -> 13
+            | "rose" -> 14
+            | "sky" -> 15
+            | "slate" -> 16
+            | "stone" -> 17
+            | "teal" -> 18
+            | "violet" -> 19
+            | "yellow" -> 20
+            | "zinc" -> 21
+            | _ -> 100 (* Other colors come after *)
+          with _ -> 0
+        in
+        (200, sub_order)
       else if
         List.exists
           (fun p -> starts p core)
-          [ "bg-"; "from-"; "via-"; "to-" (* gradients *) ]
-      then (200, 0) (* 3xx: padding - comes AFTER background *)
+          [ "from-"; "via-"; "to-" (* gradients *) ]
+      then (200, 50) (* 3xx: padding - comes AFTER background *)
       else if starts "p-" core then (300, 0)
       else if starts "px-" core || starts "py-" core then (300, 1)
       else if
@@ -1394,6 +1446,10 @@ let to_css ?(reset = true) tw_classes =
              | "--tw-gradient-via-position" ->
                  Css.at_property ~name:var_name ~syntax:"<length-percentage>"
                    ~initial_value:"50%" ~inherits:false ()
+             (* Scale transform variables *)
+             | "--tw-scale-x" | "--tw-scale-y" | "--tw-scale-z" ->
+                 Css.at_property ~name:var_name ~syntax:"*" ~initial_value:"1"
+                   ~inherits:false ()
              | _ ->
                  (* Default for other variables if needed *)
                  Css.at_property ~name:var_name ~syntax:"*" ~initial_value:""
@@ -3522,21 +3578,8 @@ let scale n =
     [
       Css.custom_property "--tw-scale-x" value;
       Css.custom_property "--tw-scale-y" value;
-      Css.transform
-        [
-          Css.Translate_var
-            {
-              var_name = "tw-translate-x, var(--tw-translate-y";
-              fallback = None;
-            };
-          Css.Rotate_var { var_name = "tw-rotate"; fallback = None };
-          Css.Skew_x (Css.Angle_var { var_name = "tw-skew-x"; fallback = None });
-          Css.Skew_y (Css.Angle_var { var_name = "tw-skew-y"; fallback = None });
-          Css.Scale_x
-            (Css.Scale_var { var_name = "tw-scale-x"; fallback = None });
-          Css.Scale_y
-            (Css.Scale_var { var_name = "tw-scale-y"; fallback = None });
-        ];
+      Css.custom_property "--tw-scale-z" value;
+      Css.scale "var(--tw-scale-x)var(--tw-scale-y)";
     ]
 
 (* Appearance utilities *)

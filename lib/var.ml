@@ -3,7 +3,10 @@
 module S = Set.Make (String)
 
 type feature_group =
-  | Transform
+  | Translate
+  | Rotate
+  | Skew
+  | Scale
   | Filter
   | Backdrop
   | RingShadow
@@ -14,10 +17,10 @@ type feature_group =
 (* Map each --tw- variable to its feature group *)
 let group_of_var (v : string) : feature_group =
   match v with
-  | "--tw-translate-x" | "--tw-translate-y" | "--tw-translate-z" | "--tw-rotate"
-  | "--tw-skew-x" | "--tw-skew-y" | "--tw-scale-x" | "--tw-scale-y"
-  | "--tw-scale-z" ->
-      Transform
+  | "--tw-translate-x" | "--tw-translate-y" | "--tw-translate-z" -> Translate
+  | "--tw-rotate" -> Rotate
+  | "--tw-skew-x" | "--tw-skew-y" -> Skew
+  | "--tw-scale-x" | "--tw-scale-y" | "--tw-scale-z" -> Scale
   | "--tw-blur" | "--tw-brightness" | "--tw-contrast" | "--tw-grayscale"
   | "--tw-hue-rotate" | "--tw-invert" | "--tw-saturate" | "--tw-sepia"
   | "--tw-drop-shadow" | "--tw-drop-shadow-alpha" ->
@@ -44,18 +47,16 @@ let group_of_var (v : string) : feature_group =
 
 (* Default initialisers for each group when a layer is needed *)
 let defaults_for_group = function
-  | Transform ->
+  | Translate ->
       [
         ("--tw-translate-x", "0");
         ("--tw-translate-y", "0");
         ("--tw-translate-z", "0");
-        ("--tw-rotate", "0");
-        ("--tw-skew-x", "0");
-        ("--tw-skew-y", "0");
-        ("--tw-scale-x", "1");
-        ("--tw-scale-y", "1");
-        ("--tw-scale-z", "1");
       ]
+  | Rotate -> [ ("--tw-rotate", "0") ]
+  | Skew -> [ ("--tw-skew-x", "0"); ("--tw-skew-y", "0") ]
+  | Scale ->
+      [ ("--tw-scale-x", "1"); ("--tw-scale-y", "1"); ("--tw-scale-z", "1") ]
   | Filter ->
       [
         ("--tw-blur", "");
@@ -267,6 +268,9 @@ let canonical_property_order =
     "--tw-ring-offset-width";
     "--tw-ring-offset-color";
     "--tw-ring-offset-shadow";
+    "--tw-scale-x";
+    "--tw-scale-y";
+    "--tw-scale-z";
   ]
 
 (* Get variables that need @property rules *)
@@ -304,6 +308,16 @@ let needs_at_property (t : tally) : string list =
       all_vars
   in
 
+  (* Check if Scale group is needed *)
+  let needs_scale =
+    S.exists
+      (fun v ->
+        match v with
+        | "--tw-scale-x" | "--tw-scale-y" | "--tw-scale-z" -> true
+        | _ -> false)
+      all_vars
+  in
+
   let needed =
     (* If RingShadow group is needed, include ALL shadow/ring variables *)
     let base_needed =
@@ -334,6 +348,18 @@ let needs_at_property (t : tally) : string list =
             | "--tw-gradient-via-stops" | "--tw-gradient-from-position"
             | "--tw-gradient-via-position" | "--tw-gradient-to-position" ->
                 S.add v acc
+            | _ -> acc)
+          base_needed canonical_property_order
+      else base_needed
+    in
+
+    (* If Scale group is needed, include ALL scale variables *)
+    let base_needed =
+      if needs_scale then
+        List.fold_left
+          (fun acc v ->
+            match v with
+            | "--tw-scale-x" | "--tw-scale-y" | "--tw-scale-z" -> S.add v acc
             | _ -> acc)
           base_needed canonical_property_order
       else base_needed
