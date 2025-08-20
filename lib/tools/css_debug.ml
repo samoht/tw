@@ -261,10 +261,30 @@ let find_first_diff css1 css2 =
     if i >= min_len then
       if len1 = len2 then None
       else
+        let _shorter, longer, _shorter_name, longer_name =
+          if len1 < len2 then (css1, css2, tw_label, tailwind_label)
+          else (css2, css1, tailwind_label, tw_label)
+        in
+        let extra =
+          String.sub longer min_len (String.length longer - min_len)
+        in
+        let extra_preview =
+          if String.length extra > 200 then String.sub extra 0 200 ^ "..."
+          else extra
+        in
         Some
           ( i,
             "Length mismatch",
-            Fmt.str "CSS1 length: %d, CSS2 length: %d" len1 len2 )
+            Fmt.str
+              "CSS1 length: %d, CSS2 length: %d\n\n\
+               %a has %d extra characters:\n\
+               %a"
+              len1 len2
+              Fmt.(styled `Blue string)
+              longer_name
+              (String.length longer - min_len)
+              Fmt.(styled `Yellow string)
+              extra_preview )
     else
       match check_char_at i with
       | Some result -> Some result
