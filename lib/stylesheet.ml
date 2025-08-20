@@ -557,6 +557,7 @@ let generate_reset_rules () =
   ]
 
 (* Check if prose styles are being used *)
+(* TODO: Re-enable when full to_css is ported
 let uses_prose tw_classes =
   let rec check = function
     | Style _ -> false
@@ -565,6 +566,7 @@ let uses_prose tw_classes =
     | Group styles -> List.exists check styles
   in
   List.exists check tw_classes
+*)
 
 (* Canonical color ordering function - shared between variables and classes *)
 let canonical_color_order color_name =
