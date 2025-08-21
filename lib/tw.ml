@@ -22,11 +22,9 @@ include Core
 (* Abstract color type *)
 type color = Color.t
 
-(* Backwards compatibility - keep scale and shadow types that haven't been moved
-   yet *)
+(* Backwards compatibility - keep scale type that hasn't been moved yet *)
 type scale = [ spacing | size | `Screen | `Min | `Max | `Fit ]
 type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
-type shadow = [ size | `Inner ]
 
 (* Re-export CSS module *)
 module Css = Css
@@ -1965,87 +1963,53 @@ include Typography
 (* Include all layout utilities *)
 include Layout
 
-(* Borders *)
+(** {1 Borders} *)
+
+(* Include all border utilities *)
+include Borders
+
+(** {1 Effects} *)
+
+(* Include all effect utilities *)
+include Effects
+
+(** {1 Sizing} *)
+
+(* Sizing utilities are provided through wrapper functions, not included
+   directly to avoid naming conflicts *)
 
 (* Modifiers *)
 
-(** {1 CSS Generation} *)
+(** {1 Additional Utilities} *)
 
-(* Font family utilities *)
-let font_sans =
-  style "font-sans"
-    [ font_family [ Css.Var { name = "font-sans"; fallback = None } ] ]
+(* Grid utilities that depend on dynamic values *)
+let grid_cols n =
+  let class_name = "grid-cols-" ^ string_of_int n in
+  style class_name
+    [
+      Css.Grid.template_columns
+        (Css.Repeat (n, Css.Min_max (Css.Px 0, Css.Fr 1.)));
+    ]
 
-let font_serif =
-  style "font-serif"
-    [ font_family [ Css.Var { name = "font-serif"; fallback = None } ] ]
+let grid_rows n =
+  let class_name = "grid-rows-" ^ string_of_int n in
+  style class_name
+    [
+      Css.Grid.template_rows (Css.Repeat (n, Css.Min_max (Css.Px 0, Css.Fr 1.)));
+    ]
 
-let font_mono =
-  style "font-mono"
-    [ Css.font_family [ Css.Var { name = "font-mono"; fallback = None } ] ]
+(* Opacity wrapper for int-based API *)
+let opacity n =
+  let class_name = "opacity-" ^ string_of_int n in
+  let value = float_of_int n /. 100.0 in
+  style class_name [ Css.opacity value ]
 
-let line_through = style "line-through" [ Css.text_decoration Css.Line_through ]
-let no_underline = style "no-underline" [ Css.text_decoration Css.None ]
-let leading_none = style "leading-none" [ Css.line_height (Css.Num 1.0) ]
-let leading_tight = style "leading-tight" [ Css.line_height (Css.Num 1.25) ]
-let leading_snug = style "leading-snug" [ Css.line_height (Css.Num 1.375) ]
-let leading_normal = style "leading-normal" [ Css.line_height (Css.Num 1.5) ]
-
-let leading_relaxed =
-  style "leading-relaxed" [ Css.line_height (Css.Num 1.625) ]
-
-let leading_loose = style "leading-loose" [ Css.line_height (Css.Num 2.0) ]
-let leading_6 = style "leading-6" [ Css.line_height (Css.Rem 1.5) ]
-
-let tracking_tighter =
-  style "tracking-tighter" [ Css.letter_spacing (Em (-0.05)) ]
-
-let tracking_tight = style "tracking-tight" [ Css.letter_spacing (Em (-0.025)) ]
-let tracking_normal = style "tracking-normal" [ Css.letter_spacing Zero ]
-let tracking_wide = style "tracking-wide" [ Css.letter_spacing (Em 0.025) ]
-let tracking_wider = style "tracking-wider" [ Css.letter_spacing (Em 0.05) ]
-let tracking_widest = style "tracking-widest" [ Css.letter_spacing (Em 0.1) ]
-let whitespace_normal = style "whitespace-normal" [ Css.white_space Normal ]
-let whitespace_nowrap = style "whitespace-nowrap" [ Css.white_space Nowrap ]
-let whitespace_pre = style "whitespace-pre" [ Css.white_space Pre ]
-
-let whitespace_pre_line =
-  style "whitespace-pre-line" [ Css.white_space Pre_line ]
-
-let whitespace_pre_wrap =
-  style "whitespace-pre-wrap" [ Css.white_space Pre_wrap ]
-
-let inline_flex = style "inline-flex" [ Css.display Css.Inline_flex ]
-let grid = style "grid" [ Css.display Css.Grid ]
-let inline_grid = style "inline-grid" [ Css.display Css.Inline_grid ]
-let items_start = style "items-start" [ Css.align_items Css.Flex_start ]
-let items_end = style "items-end" [ Css.align_items Css.Flex_end ]
-let items_baseline = style "items-baseline" [ Css.align_items Css.Baseline ]
-let items_stretch = style "items-stretch" [ Css.align_items Css.Stretch ]
-let justify_start = style "justify-start" [ Css.justify_content Css.Flex_start ]
-let justify_end = style "justify-end" [ Css.justify_content Css.Flex_end ]
-let justify_center = style "justify-center" [ Css.justify_content Css.Center ]
-
-let justify_around =
-  style "justify-around" [ Css.justify_content Css.Space_around ]
-
-let justify_evenly =
-  style "justify-evenly" [ Css.justify_content Css.Space_evenly ]
-
-(* Align content utilities - for multi-line flex/grid containers *)
-let content_start = style "content-start" [ Css.align_content Flex_start ]
-let content_end = style "content-end" [ Css.align_content Flex_end ]
-let content_center = style "content-center" [ Css.align_content Center ]
-
-let content_between =
-  style "content-between" [ Css.align_content Space_between ]
-
-let content_around = style "content-around" [ Css.align_content Space_around ]
-let content_evenly = style "content-evenly" [ Css.align_content Space_evenly ]
-let content_stretch = style "content-stretch" [ Css.align_content Stretch ]
+(* These utilities haven't been moved to separate modules yet *)
 
 (* Place content utilities - shorthand for align-content and justify-content in
    Grid *)
+let content_stretch = style "content-stretch" [ Css.align_content Stretch ]
+
 let place_content_start =
   style "place-content-start" [ Css.place_content "start" ]
 
@@ -2082,14 +2046,6 @@ let place_self_end = style "place-self-end" [ Css.place_self "end" ]
 let place_self_center = style "place-self-center" [ Css.place_self "center" ]
 let place_self_stretch = style "place-self-stretch" [ Css.place_self "stretch" ]
 
-(* Align self utilities *)
-let self_auto = style "self-auto" [ Css.align_self Auto ]
-let self_start = style "self-start" [ Css.align_self Flex_start ]
-let self_end = style "self-end" [ Css.align_self Flex_end ]
-let self_center = style "self-center" [ Css.align_self Center ]
-let self_baseline = style "self-baseline" [ Css.align_self Baseline ]
-let self_stretch = style "self-stretch" [ Css.align_self Stretch ]
-
 (* Justify self utilities - for Grid items *)
 let justify_self_auto = style "justify-self-auto" [ Css.justify_self Auto ]
 let justify_self_start = style "justify-self-start" [ Css.justify_self Start ]
@@ -2101,22 +2057,53 @@ let justify_self_center =
 let justify_self_stretch =
   style "justify-self-stretch" [ Css.justify_self Stretch ]
 
-let grid_cols n =
-  let class_name = "grid-cols-" ^ string_of_int n in
+(* Additional typography utilities *)
+let leading_6 = style "leading-6" [ Css.line_height (Css.Rem 1.5) ]
+let whitespace_normal = style "whitespace-normal" [ Css.white_space Normal ]
+let whitespace_nowrap = style "whitespace-nowrap" [ Css.white_space Nowrap ]
+let whitespace_pre = style "whitespace-pre" [ Css.white_space Pre ]
+
+let whitespace_pre_line =
+  style "whitespace-pre-line" [ Css.white_space Pre_line ]
+
+let whitespace_pre_wrap =
+  style "whitespace-pre-wrap" [ Css.white_space Pre_wrap ]
+
+(* Additional border utilities with custom implementations *)
+let border_internal (w : size) =
+  let width_len, class_suffix =
+    match w with
+    | `None -> (Css.Zero, "-0")
+    | `Xs -> (Css.Px 1, "" (* Default border is 1px *))
+    | `Sm -> (Css.Px 2, "-2")
+    | `Md -> (Css.Px 4, "-4" (* For borders, Md maps to 4px *))
+    | `Lg -> (Css.Px 4, "-4")
+    | `Xl -> (Css.Px 8, "-8")
+    | `Xl_2 -> (Css.Px 8, "-8")
+    | `Xl_3 -> (Css.Px 8, "-8")
+    | `Full -> (Css.Px 8, "-8")
+  in
+  let class_name = "border" ^ class_suffix in
   style class_name
     [
-      Css.Grid.template_columns
-        (Css.Repeat (n, Css.Min_max (Css.Px 0, Css.Fr 1.)));
+      Css.border_style (Var (Css.var "tw-border-style"));
+      Css.border_width width_len;
     ]
 
-let grid_rows n =
-  let class_name = "grid-rows-" ^ string_of_int n in
-  style class_name
+let border_xs = border_internal `Xs
+let border_sm = border_internal `Sm
+let border_md = border_internal `Md
+let border_lg = border_internal `Lg
+let border_xl = border_internal `Xl
+let border_2xl = border_internal `Xl_2
+let border_3xl = border_internal `Xl_3
+let border_full = border_internal `Full
+
+let border_none_style =
+  style "border-none"
     [
-      Css.Grid.template_rows (Css.Repeat (n, Css.Min_max (Css.Px 0, Css.Fr 1.)));
+      Css.custom_property "--tw-border-style" "none"; Css.border_style Css.None;
     ]
-
-let static = style "static" [ Css.position Css.Static ]
 
 let inset_0 =
   style "inset-0"
@@ -2195,166 +2182,6 @@ let neg_translate_y_1_2 =
     [ Css.transform [ Css.Translate_y (Css.Pct (-50.0)) ] ]
 
 type width = size
-
-let border_internal (w : width) =
-  let width_len, class_suffix =
-    match w with
-    | `None -> (Css.Zero, "-0")
-    | `Xs -> (Css.Px 1, "" (* Default border is 1px *))
-    | `Sm -> (Css.Px 2, "-2")
-    | `Md -> (Css.Px 4, "-4" (* For borders, Md maps to 4px *))
-    | `Lg -> (Css.Px 4, "-4")
-    | `Xl -> (Css.Px 8, "-8")
-    | `Xl_2 -> (Css.Px 8, "-8")
-    | `Xl_3 -> (Css.Px 8, "-8")
-    | `Full -> (Css.Px 8, "-8")
-  in
-  let class_name = "border" ^ class_suffix in
-  style class_name
-    [
-      Css.border_style (Var (Css.var "tw-border-style"));
-      Css.border_width width_len;
-    ]
-
-let border_none = border_internal `None
-let border_xs = border_internal `Xs
-let border = border_internal `Xs (* Default border is xs/1px *)
-let border_sm = border_internal `Sm
-let border_md = border_internal `Md
-let border_lg = border_internal `Lg
-let border_xl = border_internal `Xl
-let border_2xl = border_internal `Xl_2
-let border_3xl = border_internal `Xl_3
-let border_full = border_internal `Full
-let border_t = style "border-t" [ Css.border_top_width (Css.Px 1) ]
-let border_r = style "border-r" [ Css.border_right_width (Css.Px 1) ]
-let border_b = style "border-b" [ Css.border_bottom_width (Css.Px 1) ]
-let border_l = style "border-l" [ Css.border_left_width (Css.Px 1) ]
-
-(* Border styles *)
-let border_solid =
-  style "border-solid"
-    [
-      Css.custom_property "--tw-border-style" "solid";
-      Css.border_style Css.Solid;
-    ]
-
-let border_dashed =
-  style "border-dashed"
-    [
-      Css.custom_property "--tw-border-style" "dashed";
-      Css.border_style Css.Dashed;
-    ]
-
-let border_dotted =
-  style "border-dotted"
-    [
-      Css.custom_property "--tw-border-style" "dotted";
-      Css.border_style Css.Dotted;
-    ]
-
-let border_double =
-  style "border-double"
-    [
-      Css.custom_property "--tw-border-style" "double";
-      Css.border_style Css.Double;
-    ]
-
-let border_none_style =
-  style "border-none"
-    [
-      Css.custom_property "--tw-border-style" "none"; Css.border_style Css.None;
-    ]
-
-let pp_rounded_suffix : size -> string = function
-  | `None -> "none"
-  | `Sm -> "sm"
-  | `Md -> "md"
-  | `Lg -> "lg"
-  | `Xl -> "xl"
-  | `Xl_2 -> "2xl"
-  | `Xl_3 -> "3xl"
-  | `Full -> "full"
-  | `Xs -> "xs"
-
-let rounded_internal r =
-  let class_name = "rounded-" ^ pp_rounded_suffix r in
-  let decl =
-    match r with
-    | `None -> Css.border_radius Css.Zero
-    | `Full ->
-        (* Use max_int as a sentinel value for max float in CSS *)
-        Css.border_radius (Css.Px max_int)
-    | _ ->
-        Css.border_radius (Css.Var (Css.var ("radius-" ^ pp_rounded_suffix r)))
-  in
-  style class_name [ decl ]
-
-let rounded_none = rounded_internal `None
-let rounded_sm = rounded_internal `Sm
-let rounded = rounded_internal `Md (* Default rounded *)
-let rounded_md = rounded_internal `Md
-let rounded_lg = rounded_internal `Lg
-let rounded_xl = rounded_internal `Xl
-let rounded_2xl = rounded_internal `Xl_2
-let rounded_3xl = rounded_internal `Xl_3
-let rounded_full = rounded_internal `Full
-
-let shadow_value : shadow -> string = function
-  | `None -> "0 0 #0000"
-  | `Sm ->
-      "0 1px 3px 0 var(--tw-shadow-color, #0000001a), 0 1px 2px -1px \
-       var(--tw-shadow-color, #0000001a)"
-  | `Md ->
-      "0 4px 6px -1px var(--tw-shadow-color, #0000001a), 0 2px 4px -2px \
-       var(--tw-shadow-color, #0000001a)"
-  | `Lg ->
-      "0 10px 15px -3px var(--tw-shadow-color, #0000001a), 0 4px 6px -4px \
-       var(--tw-shadow-color, #0000001a)"
-  | `Xl ->
-      "0 20px 25px -5px var(--tw-shadow-color, #0000001a), 0 8px 10px -6px \
-       var(--tw-shadow-color, #0000001a)"
-  | `Xl_2 -> "0 25px 50px -12px var(--tw-shadow-color, #00000040)"
-  | `Inner -> "inset 0 2px 4px 0 var(--tw-shadow-color, #0000000f)"
-  | `Xs -> "0 1px 1px 0 var(--tw-shadow-color, #0000000d)"
-  | `Xl_3 -> "0 35px 60px -15px var(--tw-shadow-color, #00000059)"
-  | `Full -> "0 0 0 0 #0000" (* no shadow, same as none *)
-
-let pp_shadow_suffix : shadow -> string = function
-  | `None -> "none"
-  | `Sm -> "sm"
-  | `Md -> "md"
-  | `Lg -> "lg"
-  | `Xl -> "xl"
-  | `Xl_2 -> "2xl"
-  | `Inner -> "inner"
-  | `Xs -> "xs"
-  | `Xl_3 -> "3xl"
-  | `Full -> "full"
-
-let shadow_internal s =
-  let class_name = "shadow-" ^ pp_shadow_suffix s in
-  let custom_props = [ Css.custom_property "--tw-shadow" (shadow_value s) ] in
-  let box_shadow_prop =
-    box_shadow
-      "var(--tw-inset-shadow), var(--tw-inset-ring-shadow), \
-       var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)"
-  in
-  style class_name (custom_props @ [ box_shadow_prop ])
-
-let shadow_none = shadow_internal `None
-let shadow_sm = shadow_internal `Sm
-let shadow = shadow_internal `Md (* Default shadow *)
-let shadow_md = shadow_internal `Md
-let shadow_lg = shadow_internal `Lg
-let shadow_xl = shadow_internal `Xl
-let shadow_2xl = shadow_internal `Xl_2
-let shadow_inner = shadow_internal `Inner
-
-let opacity n =
-  let class_name = "opacity-" ^ string_of_int n in
-  let value = float_of_int n /. 100.0 in
-  style class_name [ Css.opacity value ]
 
 let transition_none =
   style "transition-none" [ Css.transition (Css.Simple (Css.None, Css.S 0.0)) ]
@@ -2634,26 +2461,6 @@ let ring_color color shade =
   style class_name []
 
 let isolate = style "isolate" [ Css.isolation Css.Isolate ]
-let overflow_auto = style "overflow-auto" [ Css.overflow Css.Auto ]
-let overflow_hidden = style "overflow-hidden" [ Css.overflow Css.Hidden ]
-let overflow_visible = style "overflow-visible" [ Css.overflow Css.Visible ]
-let overflow_scroll = style "overflow-scroll" [ Css.overflow Css.Scroll ]
-
-(* Overflow variants *)
-let overflow_x_auto = style "overflow-x-auto" [ Css.overflow_x Css.Auto ]
-let overflow_x_hidden = style "overflow-x-hidden" [ Css.overflow_x Css.Hidden ]
-
-let overflow_x_visible =
-  style "overflow-x-visible" [ Css.overflow_x Css.Visible ]
-
-let overflow_x_scroll = style "overflow-x-scroll" [ Css.overflow_x Css.Scroll ]
-let overflow_y_auto = style "overflow-y-auto" [ Css.overflow_y Css.Auto ]
-let overflow_y_hidden = style "overflow-y-hidden" [ Css.overflow_y Css.Hidden ]
-
-let overflow_y_visible =
-  style "overflow-y-visible" [ Css.overflow_y Css.Visible ]
-
-let overflow_y_scroll = style "overflow-y-scroll" [ Css.overflow_y Css.Scroll ]
 
 (* Scroll snap utilities *)
 let snap_none = style "snap-none" [ Css.scroll_snap_type Css.None ]
@@ -2686,11 +2493,6 @@ let snap_normal = style "snap-normal" [ Css.scroll_snap_stop Css.Normal ]
 let snap_always = style "snap-always" [ Css.scroll_snap_stop Css.Always ]
 let scroll_auto = style "scroll-auto" [ Css.scroll_behavior Css.Auto ]
 let scroll_smooth = style "scroll-smooth" [ Css.scroll_behavior Css.Smooth ]
-let object_contain = style "object-contain" [ Css.object_fit Contain ]
-let object_cover = style "object-cover" [ Css.object_fit Cover ]
-let object_fill = style "object-fill" [ Css.object_fit Fill ]
-let object_none = style "object-none" [ Css.object_fit None ]
-let object_scale_down = style "object-scale-down" [ Css.object_fit Scale_down ]
 
 let sr_only =
   style "sr-only"
@@ -3215,11 +3017,6 @@ let contain_paint = style "contain-paint" [ Css.contain "paint" ]
 let contain_size = style "contain-size" [ Css.contain "size" ]
 
 (* Object position utilities *)
-let object_top = style "object-top" [ Css.object_position "top" ]
-let object_right = style "object-right" [ Css.object_position "right" ]
-let object_bottom = style "object-bottom" [ Css.object_position "bottom" ]
-let object_left = style "object-left" [ Css.object_position "left" ]
-let object_center = style "object-center" [ Css.object_position "center" ]
 
 (* Table utilities *)
 let table_auto = style "table-auto" [ Css.table_layout Auto ]
