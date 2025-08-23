@@ -1378,7 +1378,8 @@ let to_css ?(reset = true) tw_classes =
     in
 
     (* Don't add empty Properties layer *)
-    (* Media queries and container queries are already included in the utilities layer, don't duplicate *)
+    (* Media queries and container queries are already included in the
+       utilities layer, don't duplicate *)
     let items =
       List.map (fun l -> Css.Layer l) layers
       @ List.map (fun a -> Css.At_property a) at_properties
@@ -1804,6 +1805,16 @@ include Borders
 (* Include all effect utilities *)
 include Effects
 
+(** {1 Transforms} *)
+
+(* Include all transform utilities *)
+include Transforms
+
+(** {1 Interactivity} *)
+
+(* Include all interactivity utilities *)
+include Interactivity
+
 (** {1 Sizing} *)
 
 (* Sizing utilities are provided through wrapper functions, not included
@@ -2084,113 +2095,6 @@ let transition_transform =
              Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) ));
     ]
 
-let rotate n =
-  let class_name = "rotate-" ^ string_of_int n in
-  style class_name [ Css.rotate (Css.Deg (float_of_int n)) ]
-
-let translate_x n =
-  let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "translate-x-" ^ string_of_int (abs n) in
-  let len = if n = 0 then Css.Zero else Css.Rem (float_of_int n *. 0.25) in
-  style class_name [ Css.transform [ Css.Translate_x len ] ]
-
-let translate_y n =
-  let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "translate-y-" ^ string_of_int (abs n) in
-  let len = if n = 0 then Css.Zero else Css.Rem (float_of_int n *. 0.25) in
-  style class_name [ Css.transform [ Css.Translate_y len ] ]
-
-(** 3D Transform utilities - inspired by modern CSS capabilities
-
-    While Tailwind CSS traditionally focused on 2D transforms, modern CSS
-    supports full 3D transformations. These utilities enable sophisticated
-    animations and visual effects like card flips, 3D rotations, and depth. We
-    include these as they represent useful CSS features that complement OCaml's
-    approach to building interactive UIs. *)
-
-let rotate_x n =
-  let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "rotate-x-" ^ string_of_int (abs n) in
-  style class_name [ Css.transform [ Css.Rotate_x (Css.Deg (float_of_int n)) ] ]
-
-let rotate_y n =
-  let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "rotate-y-" ^ string_of_int (abs n) in
-  style class_name [ Css.transform [ Css.Rotate_y (Css.Deg (float_of_int n)) ] ]
-
-let rotate_z n =
-  let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "rotate-z-" ^ string_of_int (abs n) in
-  style class_name [ Css.transform [ Css.Rotate_z (Css.Deg (float_of_int n)) ] ]
-
-let translate_z n =
-  let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "translate-z-" ^ string_of_int (abs n) in
-  style class_name [ Css.transform [ Css.Translate_z (Css.Px n) ] ]
-
-let scale_z n =
-  let value = float_of_int n /. 100.0 in
-  let class_name = "scale-z-" ^ string_of_int n in
-  style class_name
-    [
-      Css.custom_property "--tw-scale-z" (Pp.float value);
-      Css.transform
-        [
-          Css.Translate_var
-            {
-              var_name = "tw-translate-x, var(--tw-translate-y";
-              fallback = None;
-            };
-          Css.Translate_z (Css.Var (Css.var "tw-translate-z"));
-          Css.Rotate_var { var_name = "tw-rotate"; fallback = None };
-          Css.Rotate_x
-            (Css.Angle_var { var_name = "tw-rotate-x"; fallback = Some 0.0 });
-          Css.Rotate_y
-            (Css.Angle_var { var_name = "tw-rotate-y"; fallback = Some 0.0 });
-          Css.Rotate_z
-            (Css.Angle_var { var_name = "tw-rotate-z"; fallback = Some 0.0 });
-          Css.Skew_var
-            { var_name = "tw-skew-x) skewY(var(--tw-skew-y"; fallback = None };
-          Css.Scale_x
-            (Css.Scale_var { var_name = "tw-scale-x"; fallback = None });
-          Css.Scale_y
-            (Css.Scale_var { var_name = "tw-scale-y"; fallback = None });
-          Css.Scale_z
-            (Css.Scale_var { var_name = "tw-scale-z"; fallback = Some 1.0 });
-        ];
-    ]
-
-let perspective n =
-  let class_name = "perspective-" ^ string_of_int n in
-  let value = if n = 0 then Css.Zero else Css.Px n in
-  style class_name [ Css.perspective value ]
-
-let perspective_origin_center =
-  style "perspective-origin-center" [ Css.perspective_origin "center" ]
-
-let perspective_origin_top =
-  style "perspective-origin-top" [ Css.perspective_origin "top" ]
-
-let perspective_origin_bottom =
-  style "perspective-origin-bottom" [ Css.perspective_origin "bottom" ]
-
-let perspective_origin_left =
-  style "perspective-origin-left" [ Css.perspective_origin "left" ]
-
-let perspective_origin_right =
-  style "perspective-origin-right" [ Css.perspective_origin "right" ]
-
-let transform_style_3d =
-  style "transform-style-3d" [ Css.transform_style Preserve_3d ]
-
-let transform_style_flat =
-  style "transform-style-flat" [ Css.transform_style Flat ]
-
-let backface_visible =
-  style "backface-visible" [ Css.backface_visibility Visible ]
-
-let backface_hidden = style "backface-hidden" [ Css.backface_visibility Hidden ]
-
 (** Container query utilities - inspired by modern CSS capabilities
 
     Container queries allow elements to respond to their container's size rather
@@ -2225,17 +2129,6 @@ let on_container ?name min_width styles =
     | Some n -> Container (Container_named (n, min_width))
   in
   Group (List.map (fun t -> Modified (query, t)) styles)
-
-let cursor_auto = style "cursor-auto" [ Css.cursor Auto ]
-let cursor_default = style "cursor-default" [ Css.cursor Default ]
-let cursor_pointer = style "cursor-pointer" [ Css.cursor Pointer ]
-let cursor_wait = style "cursor-wait" [ Css.cursor Wait ]
-let cursor_move = style "cursor-move" [ Css.cursor Move ]
-let cursor_not_allowed = style "cursor-not-allowed" [ Css.cursor Not_allowed ]
-let select_none = style "select-none" [ Css.user_select None ]
-let select_text = style "select-text" [ Css.user_select Text ]
-let select_all = style "select-all" [ Css.user_select All ]
-let select_auto = style "select-auto" [ Css.user_select Css.Auto ]
 
 let pointer_events_none =
   style "pointer-events-none"
@@ -2322,8 +2215,6 @@ let snap_center = style "snap-center" [ Css.scroll_snap_align Css.Center ]
 let snap_align_none = style "snap-align-none" [ Css.scroll_snap_align Css.None ]
 let snap_normal = style "snap-normal" [ Css.scroll_snap_stop Css.Normal ]
 let snap_always = style "snap-always" [ Css.scroll_snap_stop Css.Always ]
-let scroll_auto = style "scroll-auto" [ Css.scroll_behavior Css.Auto ]
-let scroll_smooth = style "scroll-smooth" [ Css.scroll_behavior Css.Smooth ]
 
 let sr_only =
   style "sr-only"
@@ -2631,36 +2522,6 @@ let aspect_ratio width height =
 let clip_path _value =
   (* clip-path is a modern CSS property, skip for now *)
   style "clip-path-custom" []
-
-let transform =
-  style "transform"
-    [
-      Css.custom_property "--tw-translate-x" "0";
-      Css.custom_property "--tw-translate-y" "0";
-      Css.custom_property "--tw-rotate" "0";
-      Css.custom_property "--tw-skew-x" "0";
-      Css.custom_property "--tw-skew-y" "0";
-      Css.custom_property "--tw-scale-x" "1";
-      Css.custom_property "--tw-scale-y" "1";
-      Css.transform
-        [
-          Css.Translate_x (Css.Var (Css.var "tw-translate-x"));
-          Css.Translate_y (Css.Var (Css.var "tw-translate-y"));
-          Css.Rotate_var { var_name = "tw-rotate"; fallback = None };
-          Css.Skew_x (Css.Angle_var { var_name = "tw-skew-x"; fallback = None });
-          Css.Skew_y (Css.Angle_var { var_name = "tw-skew-y"; fallback = None });
-          Css.Scale_x
-            (Css.Scale_var { var_name = "tw-scale-x"; fallback = None });
-          Css.Scale_y
-            (Css.Scale_var { var_name = "tw-scale-y"; fallback = None });
-        ];
-    ]
-
-let transform_none =
-  style "transform-none" [ Css.transform [ Css.Transform_none ] ]
-
-let transform_gpu =
-  style "transform-gpu" [ Css.transform [ Css.Translate_z Css.Zero ] ]
 
 let brightness n =
   let class_name = "brightness-" ^ string_of_int n in
@@ -3032,8 +2893,6 @@ let rec pp = function
 let to_classes styles = styles |> List.map pp |> String.concat " "
 let classes_to_string = to_classes
 
-(* to_inline_style is now included from Core module *)
-
 (* Prose utilities for beautiful typography *)
 let prose = Prose Base
 let prose_sm = Prose Sm
@@ -3304,6 +3163,12 @@ let of_string class_str =
     <|>
     (* Try effects utilities *)
     Effects.of_string parts
+    <|>
+    (* Try transform utilities *)
+    Transforms.of_string parts
+    <|>
+    (* Try interactivity utilities *)
+    Interactivity.of_string parts
     <|>
     (* Try utility classes *)
     utility_classes_of_string parts

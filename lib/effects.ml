@@ -235,17 +235,6 @@ let duration n =
   let class_name = "duration-" ^ string_of_int n in
   style class_name [ transition_duration (Ms n) ]
 
-let scale n =
-  let value = string_of_int n ^ "%" in
-  let class_name = "scale-" ^ string_of_int n in
-  style class_name
-    [
-      custom_property "--tw-scale-x" value;
-      custom_property "--tw-scale-y" value;
-      transform
-        [ Scale (Scale_var { var_name = "tw-scale-x"; fallback = Some 1.0 }) ];
-    ]
-
 (** {1 Opacity Utility} *)
 
 let opacity n =
@@ -306,7 +295,6 @@ let of_string = function
   | [ "transition"; "shadow" ] -> Ok transition_shadow
   | [ "transition"; "transform" ] -> Ok transition_transform
   | [ "duration"; n ] -> int_of_string_positive "duration" n >|= duration
-  | [ "scale"; n ] -> int_of_string_positive "scale" n >|= scale
   | [ "blur"; "none" ] -> Ok blur_none
   | [ "blur"; "sm" ] -> Ok blur_sm
   | [ "blur" ] -> Ok blur
