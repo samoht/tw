@@ -134,3 +134,202 @@ let backdrop_blur_2xl =
 
 let backdrop_blur_3xl =
   style "backdrop-blur-3xl" [ backdrop_filter "blur(64px)" ]
+
+(** {1 Ring Utilities} *)
+
+type ring_width = [ `None | `Xs | `Sm | `Md | `Lg | `Xl ]
+
+let ring_internal (w : ring_width) =
+  let width, class_suffix =
+    match w with
+    | `None -> ("0", "0")
+    | `Xs -> ("1px", "1")
+    | `Sm -> ("2px", "2")
+    | `Md -> ("3px", "")
+    | `Lg -> ("4px", "4")
+    | `Xl -> ("8px", "8")
+  in
+  let class_name =
+    if class_suffix = "" then "ring" else "ring-" ^ class_suffix
+  in
+  style_with_vars class_name
+    [
+      custom_property "--tw-ring-width" width;
+      box_shadow
+        (Pp.str
+           [
+             "0 0 0 var(--tw-ring-width, ";
+             width;
+             ") var(--tw-ring-color, rgba(59, 130, 246, 0.5))";
+           ]);
+    ]
+    []
+
+let ring_none = ring_internal `None
+let ring_xs = ring_internal `Xs
+let ring_sm = ring_internal `Sm
+let ring = ring_internal `Md (* Default ring *)
+let ring_md = ring_internal `Md
+let ring_lg = ring_internal `Lg
+let ring_xl = ring_internal `Xl
+
+(** {1 Transition Utilities} *)
+
+let transition_none =
+  style "transition-none" [ transition (Simple (None, S 0.0)) ]
+
+let transition_all =
+  style "transition-all"
+    [
+      transition (With_timing (All, Ms 150, Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
+    ]
+
+let transition_colors =
+  style "transition-colors"
+    [
+      transition
+        (Multiple
+           [
+             With_timing
+               ( Property "background-color",
+                 Ms 150,
+                 Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
+             With_timing
+               ( Property "border-color",
+                 Ms 150,
+                 Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
+             With_timing
+               (Property "color", Ms 150, Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+             With_timing
+               (Property "fill", Ms 150, Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+             With_timing
+               (Property "stroke", Ms 150, Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+           ]);
+    ]
+
+let transition_opacity =
+  style "transition-opacity"
+    [
+      transition
+        (With_timing
+           (Property "opacity", Ms 150, Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
+    ]
+
+let transition_shadow =
+  style "transition-shadow"
+    [
+      transition
+        (With_timing
+           (Property "box-shadow", Ms 150, Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
+    ]
+
+let transition_transform =
+  style "transition-transform"
+    [
+      transition
+        (With_timing
+           (Property "transform", Ms 150, Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
+    ]
+
+let duration n =
+  let class_name = "duration-" ^ string_of_int n in
+  style class_name [ transition_duration (Ms n) ]
+
+let scale n =
+  let value = string_of_int n ^ "%" in
+  let class_name = "scale-" ^ string_of_int n in
+  style class_name
+    [
+      custom_property "--tw-scale-x" value;
+      custom_property "--tw-scale-y" value;
+      transform
+        [ Scale (Scale_var { var_name = "tw-scale-x"; fallback = Some 1.0 }) ];
+    ]
+
+(** {1 Opacity Utility} *)
+
+let opacity n =
+  let class_name = "opacity-" ^ string_of_int n in
+  let value = float_of_int n /. 100.0 in
+  style class_name [ opacity value ]
+
+(** {1 Parsing Functions} *)
+
+let int_of_string_positive name s =
+  match int_of_string_opt s with
+  | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
+  | Some n when n >= 0 -> Ok n
+  | Some _ -> Error (`Msg (name ^ " must be non-negative: " ^ s))
+
+let int_of_string_bounded name min max s =
+  match int_of_string_opt s with
+  | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
+  | Some n when n >= min && n <= max -> Ok n
+  | Some _ ->
+      Error
+        (`Msg
+           (Pp.str
+              [
+                name;
+                " must be between ";
+                string_of_int min;
+                " and ";
+                string_of_int max;
+                ": ";
+                s;
+              ]))
+
+let ( >|= ) r f = Result.map f r
+
+let of_string = function
+  | [ "shadow"; "none" ] -> Ok shadow_none
+  | [ "shadow"; "sm" ] -> Ok shadow_sm
+  | [ "shadow" ] -> Ok shadow
+  | [ "shadow"; "md" ] -> Ok shadow_md
+  | [ "shadow"; "lg" ] -> Ok shadow_lg
+  | [ "shadow"; "xl" ] -> Ok shadow_xl
+  | [ "shadow"; "2xl" ] -> Ok shadow_2xl
+  | [ "shadow"; "inner" ] -> Ok shadow_inner
+  | [ "opacity"; n ] -> int_of_string_bounded "Opacity" 0 100 n >|= opacity
+  | [ "ring" ] -> Ok ring
+  | [ "ring"; "0" ] -> Ok ring_none
+  | [ "ring"; "1" ] -> Ok ring_xs
+  | [ "ring"; "2" ] -> Ok ring_sm
+  | [ "ring"; "3" ] -> Ok ring_md
+  | [ "ring"; "4" ] -> Ok ring_lg
+  | [ "ring"; "8" ] -> Ok ring_xl
+  | [ "transition" ] -> Ok transition_all
+  | [ "transition"; "none" ] -> Ok transition_none
+  | [ "transition"; "all" ] -> Ok transition_all
+  | [ "transition"; "colors" ] -> Ok transition_colors
+  | [ "transition"; "opacity" ] -> Ok transition_opacity
+  | [ "transition"; "shadow" ] -> Ok transition_shadow
+  | [ "transition"; "transform" ] -> Ok transition_transform
+  | [ "duration"; n ] -> int_of_string_positive "duration" n >|= duration
+  | [ "scale"; n ] -> int_of_string_positive "scale" n >|= scale
+  | [ "blur"; "none" ] -> Ok blur_none
+  | [ "blur"; "sm" ] -> Ok blur_sm
+  | [ "blur" ] -> Ok blur
+  | [ "blur"; "md" ] -> Ok blur_md
+  | [ "blur"; "lg" ] -> Ok blur_lg
+  | [ "blur"; "xl" ] -> Ok blur_xl
+  | [ "blur"; "2xl" ] -> Ok blur_2xl
+  | [ "blur"; "3xl" ] -> Ok blur_3xl
+  | [ "backdrop"; "blur"; "none" ] -> Ok backdrop_blur_none
+  | [ "backdrop"; "blur"; "sm" ] -> Ok backdrop_blur_sm
+  | [ "backdrop"; "blur" ] -> Ok backdrop_blur
+  | [ "backdrop"; "blur"; "md" ] -> Ok backdrop_blur_md
+  | [ "backdrop"; "blur"; "lg" ] -> Ok backdrop_blur_lg
+  | [ "backdrop"; "blur"; "xl" ] -> Ok backdrop_blur_xl
+  | [ "backdrop"; "blur"; "2xl" ] -> Ok backdrop_blur_2xl
+  | [ "backdrop"; "blur"; "3xl" ] -> Ok backdrop_blur_3xl
+  | [ "brightness"; n ] -> int_of_string_positive "brightness" n >|= brightness
+  | [ "contrast"; n ] -> int_of_string_positive "contrast" n >|= contrast
+  | [ "grayscale"; n ] ->
+      int_of_string_bounded "grayscale" 0 100 n >|= grayscale
+  | [ "hue"; "rotate"; n ] ->
+      int_of_string_positive "hue-rotate" n >|= hue_rotate
+  | [ "invert"; n ] -> int_of_string_bounded "invert" 0 100 n >|= invert
+  | [ "saturate"; n ] -> int_of_string_positive "saturate" n >|= saturate
+  | [ "sepia"; n ] -> int_of_string_bounded "sepia" 0 100 n >|= sepia
+  | _ -> Error (`Msg "Not an effects utility")

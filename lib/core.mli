@@ -54,7 +54,6 @@ type t =
   | Modified of modifier * t
   | Group of t list
 
-type color = Color.t
 type size = [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full ]
 type spacing = [ `Px | `Full | `Rem of float ]
 type margin = [ spacing | `Auto ]

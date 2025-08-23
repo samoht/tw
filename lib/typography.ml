@@ -235,3 +235,66 @@ let uppercase = style "uppercase" [ text_transform Uppercase ]
 let lowercase = style "lowercase" [ text_transform Lowercase ]
 let capitalize = style "capitalize" [ text_transform Capitalize ]
 let normal_case = style "normal-case" [ text_transform None ]
+
+(** {1 Parsing Functions} *)
+
+let int_of_string_positive name s =
+  match int_of_string_opt s with
+  | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
+  | Some n when n > 0 -> Ok n
+  | Some _ -> Error (`Msg (name ^ " must be positive: " ^ s))
+
+let ( >|= ) r f = Result.map f r
+
+let of_string = function
+  | [ "text"; "xs" ] -> Ok text_xs
+  | [ "text"; "sm" ] -> Ok text_sm
+  | [ "text"; "base" ] -> Ok text_base
+  | [ "text"; "lg" ] -> Ok text_lg
+  | [ "text"; "xl" ] -> Ok text_xl
+  | [ "text"; "2xl" ] -> Ok text_2xl
+  | [ "text"; "3xl" ] -> Ok text_3xl
+  | [ "text"; "4xl" ] -> Ok text_4xl
+  | [ "text"; "5xl" ] -> Ok text_5xl
+  | [ "text"; "6xl" ] -> Ok text_6xl
+  | [ "text"; "7xl" ] -> Ok text_7xl
+  | [ "text"; "8xl" ] -> Ok text_8xl
+  | [ "text"; "9xl" ] -> Ok text_9xl
+  | [ "font"; "thin" ] -> Ok font_thin
+  | [ "font"; "light" ] -> Ok font_light
+  | [ "font"; "normal" ] -> Ok font_normal
+  | [ "font"; "medium" ] -> Ok font_medium
+  | [ "font"; "semibold" ] -> Ok font_semibold
+  | [ "font"; "bold" ] -> Ok font_bold
+  | [ "font"; "extrabold" ] -> Ok font_extrabold
+  | [ "font"; "black" ] -> Ok font_black
+  | [ "font"; "sans" ] -> Ok font_sans
+  | [ "font"; "serif" ] -> Ok font_serif
+  | [ "font"; "mono" ] -> Ok font_mono
+  | [ "italic" ] -> Ok italic
+  | [ "not"; "italic" ] -> Ok not_italic
+  | [ "text"; "left" ] -> Ok text_left
+  | [ "text"; "center" ] -> Ok text_center
+  | [ "text"; "right" ] -> Ok text_right
+  | [ "text"; "justify" ] -> Ok text_justify
+  | [ "underline" ] -> Ok underline
+  | [ "line"; "through" ] -> Ok line_through
+  | [ "no"; "underline" ] -> Ok no_underline
+  | [ "leading"; "none" ] -> Ok leading_none
+  | [ "leading"; "tight" ] -> Ok leading_tight
+  | [ "leading"; "snug" ] -> Ok leading_snug
+  | [ "leading"; "normal" ] -> Ok leading_normal
+  | [ "leading"; "relaxed" ] -> Ok leading_relaxed
+  | [ "leading"; "loose" ] -> Ok leading_loose
+  | [ "leading"; n ] -> int_of_string_positive "leading" n >|= leading
+  | [ "tracking"; "tighter" ] -> Ok tracking_tighter
+  | [ "tracking"; "tight" ] -> Ok tracking_tight
+  | [ "tracking"; "normal" ] -> Ok tracking_normal
+  | [ "tracking"; "wide" ] -> Ok tracking_wide
+  | [ "tracking"; "wider" ] -> Ok tracking_wider
+  | [ "tracking"; "widest" ] -> Ok tracking_widest
+  | [ "uppercase" ] -> Ok uppercase
+  | [ "lowercase" ] -> Ok lowercase
+  | [ "capitalize" ] -> Ok capitalize
+  | [ "normal"; "case" ] -> Ok normal_case
+  | _ -> Error (`Msg "Not a typography utility")

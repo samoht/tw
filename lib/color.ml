@@ -5,16 +5,13 @@ type rgb = {
   g : int;  (** Green channel (0-255) *)
   b : int;  (** Blue channel (0-255) *)
 }
-(** RGB color representation *)
 
 type oklch = {
   l : float;  (** Lightness (0-100) *)
   c : float;  (** Chroma (0-0.4+) *)
   h : float;  (** Hue (0-360) *)
 }
-(** OKLCH color representation *)
 
-(** Abstract color type matching Tw.color *)
 type t =
   | Black
   | White
@@ -42,7 +39,7 @@ type t =
   | Rose
   | Hex of string
   | Rgb of { red : int; green : int; blue : int }
-  | Oklch of oklch (* Add OKLCH as a primary color type *)
+  | Oklch of oklch
 
 (** Convert RGB to linear RGB (remove gamma correction) *)
 let linearize_channel c =
@@ -611,7 +608,7 @@ let hex s =
   else Hex s
 
 (* Convert string name to color type *)
-let of_string = function
+let of_string_exn = function
   | "black" -> Black
   | "white" -> White
   | "gray" -> Gray
@@ -637,6 +634,33 @@ let of_string = function
   | "pink" -> Pink
   | "rose" -> Rose
   | s -> failwith ("Unknown color: " ^ s)
+
+let of_string = function
+  | "black" -> Ok Black
+  | "white" -> Ok White
+  | "gray" -> Ok Gray
+  | "slate" -> Ok Slate
+  | "zinc" -> Ok Zinc
+  | "neutral" -> Ok Neutral
+  | "stone" -> Ok Stone
+  | "red" -> Ok Red
+  | "orange" -> Ok Orange
+  | "amber" -> Ok Amber
+  | "yellow" -> Ok Yellow
+  | "lime" -> Ok Lime
+  | "green" -> Ok Green
+  | "emerald" -> Ok Emerald
+  | "teal" -> Ok Teal
+  | "cyan" -> Ok Cyan
+  | "sky" -> Ok Sky
+  | "blue" -> Ok Blue
+  | "indigo" -> Ok Indigo
+  | "violet" -> Ok Violet
+  | "purple" -> Ok Purple
+  | "fuchsia" -> Ok Fuchsia
+  | "pink" -> Ok Pink
+  | "rose" -> Ok Rose
+  | s -> Error (`Msg ("Unknown color: " ^ s))
 
 let rgb r g b =
   if r < 0 || r > 255 then
@@ -742,6 +766,25 @@ let to_oklch_css color shade =
       | Some value -> value
       | None -> "oklch(0% 0 0)" (* Fallback *))
 
+(* Convert color to CSS color value *)
+let to_css color shade =
+  match color with
+  | Hex hex ->
+      (* For arbitrary hex colors, determine if # was present *)
+      let has_hash = String.starts_with ~prefix:"#" hex in
+      let hex_value =
+        if has_hash then String.sub hex 1 (String.length hex - 1) else hex
+      in
+      (* Tailwind v4 arbitrary values: preserve original format *)
+      Css.Hex { hash = false; value = hex_value }
+  | Oklch oklch ->
+      (* Use the new Oklch constructor *)
+      Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
+  | _ ->
+      (* For other colors, get OKLCH data directly *)
+      let oklch = to_oklch color shade in
+      Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
+
 (* Get the name of a color as a string *)
 let to_name = function
   | Black -> "black"
@@ -800,30 +843,30 @@ let to_name = function
 
 (* Pretty printer for colors *)
 let pp = function
-  | Black -> "Black"
-  | White -> "White"
-  | Gray -> "Gray"
-  | Slate -> "Slate"
-  | Zinc -> "Zinc"
-  | Neutral -> "Neutral"
-  | Stone -> "Stone"
-  | Red -> "Red"
-  | Orange -> "Orange"
-  | Amber -> "Amber"
-  | Yellow -> "Yellow"
-  | Lime -> "Lime"
-  | Green -> "Green"
-  | Emerald -> "Emerald"
-  | Teal -> "Teal"
-  | Cyan -> "Cyan"
-  | Sky -> "Sky"
-  | Blue -> "Blue"
-  | Indigo -> "Indigo"
-  | Violet -> "Violet"
-  | Purple -> "Purple"
-  | Fuchsia -> "Fuchsia"
-  | Pink -> "Pink"
-  | Rose -> "Rose"
+  | Black -> "black"
+  | White -> "white"
+  | Gray -> "gray"
+  | Slate -> "slate"
+  | Zinc -> "zinc"
+  | Neutral -> "neutral"
+  | Stone -> "stone"
+  | Red -> "red"
+  | Orange -> "orange"
+  | Amber -> "amber"
+  | Yellow -> "yellow"
+  | Lime -> "lime"
+  | Green -> "green"
+  | Emerald -> "emerald"
+  | Teal -> "teal"
+  | Cyan -> "cyan"
+  | Sky -> "sky"
+  | Blue -> "blue"
+  | Indigo -> "indigo"
+  | Violet -> "violet"
+  | Purple -> "purple"
+  | Fuchsia -> "fuchsia"
+  | Pink -> "pink"
+  | Rose -> "rose"
   | Hex s -> Pp.str [ "Hex("; s; ")" ]
   | Rgb { red; green; blue } ->
       Pp.str

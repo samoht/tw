@@ -19,7 +19,6 @@ open Css
 (* Import and re-export core types from Core module *)
 include Core
 
-(* Abstract color type *)
 type color = Color.t
 
 (* Backwards compatibility - keep scale type that hasn't been moved yet *)
@@ -28,6 +27,34 @@ type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 
 (* Re-export CSS module *)
 module Css = Css
+
+(* Import color constructors from Color module *)
+let black = Color.black
+let white = Color.white
+let gray = Color.gray
+let slate = Color.slate
+let zinc = Color.zinc
+let neutral = Color.neutral
+let stone = Color.stone
+let red = Color.red
+let orange = Color.orange
+let amber = Color.amber
+let yellow = Color.yellow
+let lime = Color.lime
+let green = Color.green
+let emerald = Color.emerald
+let teal = Color.teal
+let cyan = Color.cyan
+let sky = Color.sky
+let blue = Color.blue
+let indigo = Color.indigo
+let violet = Color.violet
+let purple = Color.purple
+let fuchsia = Color.fuchsia
+let pink = Color.pink
+let rose = Color.rose
+let hex = Color.hex
+let rgb = Color.rgb
 
 (** {1 Helpers} *)
 
@@ -970,7 +997,7 @@ let to_css ?(reset = true) tw_classes =
                            let color_name =
                              String.concat "-" (List.rev rev_color_parts)
                            in
-                           let color = Color.of_string color_name in
+                           let color = Color.of_string_exn color_name in
                            [
                              Css.custom_property var_name
                                (Color.to_oklch_css color shade);
@@ -1383,38 +1410,6 @@ let to_inline_style styles =
 
 (** {1 Public API} *)
 
-(** {1 Colors} *)
-
-let color_name color = Color.to_name color
-
-(* Color constructors *)
-let black = Color.black
-let white = Color.white
-let gray = Color.gray
-let slate = Color.slate
-let zinc = Color.zinc
-let neutral = Color.neutral
-let stone = Color.stone
-let red = Color.red
-let orange = Color.orange
-let amber = Color.amber
-let yellow = Color.yellow
-let lime = Color.lime
-let green = Color.green
-let emerald = Color.emerald
-let teal = Color.teal
-let cyan = Color.cyan
-let sky = Color.sky
-let blue = Color.blue
-let indigo = Color.indigo
-let violet = Color.violet
-let purple = Color.purple
-let fuchsia = Color.fuchsia
-let pink = Color.pink
-let rose = Color.rose
-let hex s = Color.hex s
-let rgb r g b = Color.rgb r g b
-
 (* Value constructors *)
 
 (* Spacing constructors *)
@@ -1446,42 +1441,25 @@ let xl_7 = `Xl_7
 let bg color shade =
   let class_name =
     if Color.is_base_color color || Color.is_custom_color color then
-      Pp.str [ "bg-"; color_name color ]
-    else Pp.str [ "bg-"; color_name color; "-"; string_of_int shade ]
+      Pp.str [ "bg-"; Color.pp color ]
+    else Pp.str [ "bg-"; Color.pp color; "-"; string_of_int shade ]
   in
   (* For custom colors (hex, rgb, oklch), use direct values; for others use CSS
      variables *)
   if Color.is_custom_color color then
     (* Convert to proper color constructor *)
-    let css_color =
-      match color with
-      | Color.Hex hex ->
-          (* For arbitrary hex colors, determine if # was present *)
-          let has_hash = String.starts_with ~prefix:"#" hex in
-          let hex_value =
-            if has_hash then String.sub hex 1 (String.length hex - 1) else hex
-          in
-          (* Tailwind v4 arbitrary values: preserve original format *)
-          Css.Hex { hash = false; value = hex_value }
-      | Color.Oklch oklch ->
-          (* Use the new Oklch constructor *)
-          Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
-      | _ ->
-          (* For other colors, get OKLCH data directly *)
-          let oklch = Color.to_oklch color shade in
-          Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
-    in
+    let css_color = Color.to_css color shade in
     style class_name [ Css.background_color css_color ]
   else
     (* Use CSS variable reference *)
     let var_name =
-      if Color.is_base_color color then Pp.str [ "color-"; color_name color ]
-      else Pp.str [ "color-"; color_name color; "-"; string_of_int shade ]
+      if Color.is_base_color color then Pp.str [ "color-"; Color.pp color ]
+      else Pp.str [ "color-"; Color.pp color; "-"; string_of_int shade ]
     in
     (* Track the color variable requirement *)
     let var =
-      if Color.is_base_color color then color_var (color_name color)
-      else color_var ~shade (color_name color)
+      if Color.is_base_color color then color_var (Color.pp color)
+      else color_var ~shade (Color.pp color)
     in
     style_with_vars class_name
       [ Css.background_color (Css.Var var_name) ]
@@ -1519,42 +1497,25 @@ let bg_rose = bg rose 500
 let text color shade =
   let class_name =
     if Color.is_base_color color || Color.is_custom_color color then
-      Pp.str [ "text-"; color_name color ]
-    else Pp.str [ "text-"; color_name color; "-"; string_of_int shade ]
+      Pp.str [ "text-"; Color.pp color ]
+    else Pp.str [ "text-"; Color.pp color; "-"; string_of_int shade ]
   in
   (* For custom colors (hex, rgb, oklch), use direct values; for others use CSS
      variables *)
   if Color.is_custom_color color then
     (* Convert to proper color constructor *)
-    let css_color =
-      match color with
-      | Color.Hex hex ->
-          (* For arbitrary hex colors, determine if # was present *)
-          let has_hash = String.starts_with ~prefix:"#" hex in
-          let hex_value =
-            if has_hash then String.sub hex 1 (String.length hex - 1) else hex
-          in
-          (* Tailwind v4 arbitrary values: preserve original format *)
-          Css.Hex { hash = false; value = hex_value }
-      | Color.Oklch oklch ->
-          (* Use the new Oklch constructor *)
-          Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
-      | _ ->
-          (* For other colors, get OKLCH data directly *)
-          let oklch = Color.to_oklch color shade in
-          Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
-    in
+    let css_color = Color.to_css color shade in
     style class_name [ Css.color css_color ]
   else
     (* Use CSS variable reference *)
     let var_name =
-      if Color.is_base_color color then Pp.str [ "color-"; color_name color ]
-      else Pp.str [ "color-"; color_name color; "-"; string_of_int shade ]
+      if Color.is_base_color color then Pp.str [ "color-"; Color.pp color ]
+      else Pp.str [ "color-"; Color.pp color; "-"; string_of_int shade ]
     in
     (* Track the color variable requirement *)
     let var =
-      if Color.is_base_color color then color_var (color_name color)
-      else color_var ~shade (color_name color)
+      if Color.is_base_color color then color_var (Color.pp color)
+      else color_var ~shade (Color.pp color)
     in
     style_with_vars class_name [ Css.color (Css.Var var_name) ] [ var ]
 
@@ -1590,42 +1551,25 @@ let text_rose = text rose 500
 let border_color color shade =
   let class_name =
     if Color.is_base_color color || Color.is_custom_color color then
-      Pp.str [ "border-"; color_name color ]
-    else Pp.str [ "border-"; color_name color; "-"; string_of_int shade ]
+      Pp.str [ "border-"; Color.pp color ]
+    else Pp.str [ "border-"; Color.pp color; "-"; string_of_int shade ]
   in
   (* For custom colors (hex, rgb, oklch), use direct values; for others use CSS
      variables *)
   if Color.is_custom_color color then
     (* Convert to proper color constructor *)
-    let css_color =
-      match color with
-      | Color.Hex hex ->
-          (* For arbitrary hex colors, determine if # was present *)
-          let has_hash = String.starts_with ~prefix:"#" hex in
-          let hex_value =
-            if has_hash then String.sub hex 1 (String.length hex - 1) else hex
-          in
-          (* Tailwind v4 arbitrary values: preserve original format *)
-          Css.Hex { hash = false; value = hex_value }
-      | Color.Oklch oklch ->
-          (* Use the new Oklch constructor *)
-          Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
-      | _ ->
-          (* For other colors, get OKLCH data directly *)
-          let oklch = Color.to_oklch color shade in
-          Css.Oklch { l = oklch.l; c = oklch.c; h = oklch.h }
-    in
+    let css_color = Color.to_css color shade in
     style class_name [ Css.border_color css_color ]
   else
     (* Use CSS variable reference *)
     let var_name =
-      if Color.is_base_color color then Pp.str [ "color-"; color_name color ]
-      else Pp.str [ "color-"; color_name color; "-"; string_of_int shade ]
+      if Color.is_base_color color then Pp.str [ "color-"; Color.pp color ]
+      else Pp.str [ "color-"; Color.pp color; "-"; string_of_int shade ]
     in
     (* Track the color variable requirement *)
     let var =
-      if Color.is_base_color color then color_var (color_name color)
-      else color_var ~shade (color_name color)
+      if Color.is_base_color color then color_var (Color.pp color)
+      else color_var ~shade (Color.pp color)
     in
     style_with_vars class_name [ Css.border_color (Css.Var var_name) ] [ var ]
 
@@ -1696,22 +1640,13 @@ let pp_max_scale_suffix : max_scale -> string = function
 
 (* pp_margin_suffix removed - no longer used *)
 
-let spacing_to_length : spacing -> Css.length = function
-  | `Px -> Css.Px 1
-  | `Full -> Css.Pct 100.0
-  | `Rem f ->
-      let n = int_of_float (f /. 0.25) in
-      Css.Calc
-        (Css.Calc.mul (Css.Calc.var "spacing")
-           (Css.Calc.float (float_of_int n)))
-
 (* margin_to_length removed - no longer used *)
 
 let rec scale_to_length : scale -> Css.length = function
   | `Screen -> Css.Vh 100.0
   | `Min | `Max | `Fit ->
       Css.Auto (* These need special handling, using Auto for now *)
-  | #spacing as s -> spacing_to_length s
+  | #spacing as s -> Spacing.spacing_to_length s
   | #size as s -> size_to_length s
 
 and size_to_length : size -> Css.length = function
@@ -1732,50 +1667,19 @@ let max_scale_to_length : max_scale -> Css.length = function
   | `Xl_7 -> Css.Rem 80.0
   | #scale as s -> scale_to_length s
 
-let spacing_to_length : spacing -> Css.length = function
-  | `Px -> Css.Px 1
-  | `Full -> Css.Pct 100.0
-  | `Rem f ->
-      let n = int_of_float (f /. 0.25) in
-      Css.Calc
-        (Css.Calc.mul (Css.Calc.var "spacing")
-           (Css.Calc.float (float_of_int n)))
-
 (** {1 Spacing} *)
 
-(* Helper to extract spacing variables from spacing types *)
-let spacing_vars = function
-  | `Rem _ ->
-      [] (* The --spacing variable is handled via string parsing in all_vars *)
-  | _ -> []
-
-(* Helper to extract spacing variables from scale types *)
+(* Helper to extract spacing variables from scale types - still needed for
+   sizing *)
 let scale_vars = function
   | `Rem _ ->
       [] (* The --spacing variable is handled via string parsing in all_vars *)
   | _ -> []
 
-(* margin_vars removed - no longer used *)
+(* Include all spacing utilities *)
+include Spacing
 
-(* Typed spacing functions with ' suffix - delegate to Spacing module *)
-let p' = Spacing.p
-let px' = Spacing.px
-let py' = Spacing.py
-let pt' = Spacing.pt
-let pr' = Spacing.pr
-let pb' = Spacing.pb
-let pl' = Spacing.pl
-
-(* Int-based spacing functions (convenience wrappers) *)
-let p n = p' (int n)
-let px n = px' (int n)
-let py n = py' (int n)
-let pt n = pt' (int n)
-let pr n = pr' (int n)
-let pb n = pb' (int n)
-let pl n = pl' (int n)
-
-(* Special padding values *)
+(* Special padding values for backward compatibility *)
 let p_px = p' `Px
 let p_full = p' `Full
 let px_px = px' `Px
@@ -1791,91 +1695,18 @@ let pb_full = pb' `Full
 let pl_px = pl' `Px
 let pl_full = pl' `Full
 
-(* Typed margin functions with ' suffix - delegate to Spacing module *)
-let m' = Spacing.m
-let mx' = Spacing.mx
-let my' = Spacing.my
-let mt' = Spacing.mt
-let mr' = Spacing.mr
-let mb' = Spacing.mb
-let ml' = Spacing.ml
-
-(* Int-based margin functions - now support negative values *)
-let m n =
-  let s = int n in
-  let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "m-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
-  style_with_vars class_name [ Css.margin len ] [ Spacing (abs n) ]
-
-let mx n =
-  let s = int n in
-  let len = spacing_to_length s in
-  let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "mx-" ^ pp_spacing_suffix s in
-  style_with_vars class_name [ Css.margin_inline len ] (spacing_vars s)
-
-let my n =
-  let s = int n in
-  let len = spacing_to_length s in
-  let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "my-" ^ pp_spacing_suffix s in
-  style_with_vars class_name [ Css.margin_block len ] (spacing_vars s)
-
-let mt n =
-  let s = int n in
-  let len = spacing_to_length s in
-  let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "mt-" ^ pp_spacing_suffix s in
-  style_with_vars class_name [ Css.margin_top len ] [ Spacing (abs n) ]
-
-let mr n =
-  let s = int n in
-  let len = spacing_to_length s in
-  let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "mr-" ^ pp_spacing_suffix s in
-  style_with_vars class_name [ Css.margin_right len ] [ Spacing (abs n) ]
-
-let mb n =
-  let s = int n in
-  let len = spacing_to_length s in
-  let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "mb-" ^ pp_spacing_suffix s in
-  style_with_vars class_name [ Css.margin_bottom len ] [ Spacing (abs n) ]
-
-let ml n =
-  let s = int n in
-  let len = spacing_to_length s in
-  let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "ml-" ^ pp_spacing_suffix s in
-  style_with_vars class_name [ Css.margin_left len ] [ Spacing (abs n) ]
-
-(* Common margin utilities *)
+(* Common margin utilities for backward compatibility *)
 let m_auto = m' `Auto
-let mx_auto = mx' `Auto (* Very common for centering *)
+let mx_auto = mx' `Auto
 let my_auto = my' `Auto
 let mt_auto = mt' `Auto
 let mr_auto = mr' `Auto
 let mb_auto = mb' `Auto
 let ml_auto = ml' `Auto
 
-(* Typed gap functions with ' suffix - delegate to Spacing module *)
-let gap' = Spacing.gap
-let gap_x' = Spacing.gap_x
-let gap_y' = Spacing.gap_y
-
-(* Int-based gap functions (convenience wrappers) *)
-let gap n = gap' (int n)
-let gap_x n = gap_x' (int n)
-let gap_y n = gap_y' (int n)
-
 (* Special gap values *)
 let gap_px = gap' `Px
 let gap_full = gap' `Full
-
-(* Space between utilities *)
-let space_x n = Spacing.space_x (int n)
-let space_y n = Spacing.space_y (int n)
 
 (** {1 Sizing} *)
 
@@ -2455,8 +2286,8 @@ let ring_xl = ring_internal `Xl
 
 let ring_color color shade =
   let class_name =
-    if Color.is_base_color color then Pp.str [ "ring-"; color_name color ]
-    else Pp.str [ "ring-"; color_name color; "-"; string_of_int shade ]
+    if Color.is_base_color color then Pp.str [ "ring-"; Color.pp color ]
+    else Pp.str [ "ring-"; Color.pp color; "-"; string_of_int shade ]
   in
   style class_name []
 
@@ -2687,14 +2518,14 @@ let bg_gradient_to_tl =
 let from_color ?(shade = 500) color =
   let class_name =
     if Color.is_base_color color || Color.is_custom_color color then
-      "from-" ^ color_name color
-    else Pp.str [ "from-"; color_name color; "-"; string_of_int shade ]
+      "from-" ^ Color.pp color
+    else Pp.str [ "from-"; Color.pp color; "-"; string_of_int shade ]
   in
   let var_str =
     if Color.is_base_color color || Color.is_custom_color color then
-      Pp.str [ "var(--color-"; color_name color; ")" ]
+      Pp.str [ "var(--color-"; Color.pp color; ")" ]
     else
-      Pp.str [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
+      Pp.str [ "var(--color-"; Color.pp color; "-"; string_of_int shade; ")" ]
   in
   style class_name
     [
@@ -2706,14 +2537,14 @@ let from_color ?(shade = 500) color =
 let via_color ?(shade = 500) color =
   let class_name =
     if Color.is_base_color color || Color.is_custom_color color then
-      "via-" ^ color_name color
-    else Pp.str [ "via-"; color_name color; "-"; string_of_int shade ]
+      "via-" ^ Color.pp color
+    else Pp.str [ "via-"; Color.pp color; "-"; string_of_int shade ]
   in
   let var_str =
     if Color.is_base_color color || Color.is_custom_color color then
-      Pp.str [ "var(--color-"; color_name color; ")" ]
+      Pp.str [ "var(--color-"; Color.pp color; ")" ]
     else
-      Pp.str [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
+      Pp.str [ "var(--color-"; Color.pp color; "-"; string_of_int shade; ")" ]
   in
   style class_name
     [
@@ -2726,14 +2557,14 @@ let via_color ?(shade = 500) color =
 let to_color ?(shade = 500) color =
   let class_name =
     if Color.is_base_color color || Color.is_custom_color color then
-      "to-" ^ color_name color
-    else Pp.str [ "to-"; color_name color; "-"; string_of_int shade ]
+      "to-" ^ Color.pp color
+    else Pp.str [ "to-"; Color.pp color; "-"; string_of_int shade ]
   in
   let var_str =
     if Color.is_base_color color || Color.is_custom_color color then
-      Pp.str [ "var(--color-"; color_name color; ")" ]
+      Pp.str [ "var(--color-"; Color.pp color; ")" ]
     else
-      Pp.str [ "var(--color-"; color_name color; "-"; string_of_int shade; ")" ]
+      Pp.str [ "var(--color-"; Color.pp color; "-"; string_of_int shade; ")" ]
   in
   style class_name
     [
@@ -3026,7 +2857,7 @@ let border_separate = style "border-separate" [ Css.border_collapse Separate ]
 
 let border_spacing n =
   let s = int n in
-  let len = spacing_to_length s in
+  let len = Spacing.spacing_to_length s in
   style ("border-spacing-" ^ pp_spacing_suffix s) [ Css.border_spacing len ]
 
 (* Form utilities - equivalent to @tailwindcss/forms plugin *)
@@ -3143,7 +2974,7 @@ let on_aria_selected styles =
 let data_state value style = Modified (Data_state value, style)
 let data_variant value style = Modified (Data_variant value, style)
 let data_custom key value style = Modified (Data_custom (key, value), style)
-let color_to_string = color_name
+let color_to_string = Color.to_name
 
 (* Helper function for breakpoint conversion *)
 let string_of_breakpoint = function
@@ -3243,85 +3074,13 @@ let line_clamp n =
 (* Opacity utilities *)
 
 (* Helper parsing functions *)
-let color_of_string = function
-  | "black" -> Ok black
-  | "white" -> Ok white
-  | "gray" -> Ok gray
-  | "slate" -> Ok slate
-  | "zinc" -> Ok zinc
-  | "red" -> Ok red
-  | "orange" -> Ok orange
-  | "amber" -> Ok amber
-  | "yellow" -> Ok yellow
-  | "lime" -> Ok lime
-  | "green" -> Ok green
-  | "emerald" -> Ok emerald
-  | "teal" -> Ok teal
-  | "cyan" -> Ok cyan
-  | "sky" -> Ok sky
-  | "blue" -> Ok blue
-  | "indigo" -> Ok indigo
-  | "violet" -> Ok violet
-  | "purple" -> Ok purple
-  | "fuchsia" -> Ok fuchsia
-  | "pink" -> Ok pink
-  | "rose" -> Ok rose
-  | color -> Error (`Msg ("Unknown color: " ^ color))
-
-let text_size_of_string = function
-  | "xs" -> Ok text_xs
-  | "sm" -> Ok text_sm
-  | "base" -> Ok text_base
-  | "lg" -> Ok text_lg
-  | "xl" -> Ok text_xl
-  | "2xl" -> Ok text_2xl
-  | "3xl" -> Ok text_3xl
-  | "4xl" -> Ok text_4xl
-  | "5xl" -> Ok text_5xl
-  | s -> Error (`Msg ("Unknown text size: " ^ s))
-
-let shadow_of_string = function
-  | "none" -> Ok shadow_none
-  | "sm" -> Ok shadow_sm
-  | "md" -> Ok shadow_md
-  | "lg" -> Ok shadow_lg
-  | "xl" -> Ok shadow_xl
-  | "2xl" -> Ok shadow_2xl
-  | "inner" -> Ok shadow_inner
-  | "" -> Ok shadow (* default shadow *)
-  | s -> Error (`Msg ("Unknown shadow size: " ^ s))
+let color_of_string = Color.of_string
 
 let int_of_string_positive name s =
   match int_of_string_opt s with
   | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
   | Some n when n >= 0 -> Ok n
   | Some _ -> Error (`Msg (name ^ " must be non-negative: " ^ s))
-
-let int_of_string_bounded name min max s =
-  match int_of_string_opt s with
-  | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
-  | Some n when n >= min && n <= max -> Ok n
-  | Some _ ->
-      Error
-        (`Msg
-           (Pp.str
-              [
-                name;
-                " must be between ";
-                string_of_int min;
-                " and ";
-                string_of_int max;
-                ": ";
-                s;
-              ]))
-
-let leading_of_string n =
-  match float_of_string_opt n with
-  | None -> Error (`Msg ("Invalid leading value: " ^ n))
-  | Some value ->
-      let rem_value = value /. 4.0 in
-      let class_name = Pp.str [ "leading-"; n ] in
-      Ok (style class_name [ Css.line_height (Css.Rem rem_value) ])
 
 (* Helper for Result.bind-like operation *)
 let ( >>= ) r f = match r with Error _ as e -> e | Ok x -> f x
@@ -3394,30 +3153,6 @@ let apply_modifiers modifiers base_style =
     base_style modifiers
 
 (* Helper functions for parsing *)
-let spacing_of_string prefix px_var full_var int_fn = function
-  | [ p; "px" ] when p = prefix -> Ok px_var
-  | [ p; "full" ] when p = prefix -> Ok full_var
-  | [ p; n ] when p = prefix ->
-      let name =
-        if prefix = "p" then "padding"
-        else if prefix = "px" then "padding-x"
-        else if prefix = "py" then "padding-y"
-        else "padding-" ^ String.sub prefix 1 (String.length prefix - 1)
-      in
-      int_of_string_positive name n >|= int_fn
-  | _ -> Error (`Msg "")
-
-let margin_of_string prefix auto_var int_fn = function
-  | [ p; "auto" ] when p = prefix -> Ok auto_var
-  | [ p; n ] when p = prefix ->
-      let name =
-        if prefix = "m" then "margin"
-        else if prefix = "mx" then "margin-x"
-        else if prefix = "my" then "margin-y"
-        else "margin-" ^ String.sub prefix 1 (String.length prefix - 1)
-      in
-      int_of_string_positive name n >|= int_fn
-  | _ -> Error (`Msg "")
 
 let width_of_string = function
   | [ "w"; "full" ] -> Ok w_full
@@ -3439,18 +3174,6 @@ let height_of_string = function
   | [ "h"; "px" ] -> Ok (h' one_px)
   | [ "h"; "auto" ] -> Ok (h' none)
   | [ "h"; n ] -> int_of_string_positive "height" n >|= h
-  | _ -> Error (`Msg "")
-
-let gap_of_string = function
-  | [ "gap"; "px" ] -> Ok (gap' `Px)
-  | [ "gap"; "full" ] -> Ok (gap' `Full)
-  | [ "gap"; n ] -> int_of_string_positive "gap" n >|= gap
-  | [ "gap"; "x"; "px" ] -> Ok (gap_x' `Px)
-  | [ "gap"; "x"; "full" ] -> Ok (gap_x' `Full)
-  | [ "gap"; "x"; n ] -> int_of_string_positive "gap-x" n >|= gap_x
-  | [ "gap"; "y"; "px" ] -> Ok (gap_y' `Px)
-  | [ "gap"; "y"; "full" ] -> Ok (gap_y' `Full)
-  | [ "gap"; "y"; n ] -> int_of_string_positive "gap-y" n >|= gap_y
   | _ -> Error (`Msg "")
 
 let min_width_of_string = function
@@ -3522,9 +3245,8 @@ let color_classes_of_string = function
       color_of_string color >>= fun color ->
       shade_of_string shade >|= fun shade -> text color shade
   | [ "text"; single ] ->
-      (* Try size first, then color *)
-      text_size_of_string single
-      <|> (color_of_string single >|= fun color -> text color 500)
+      (* Try color *)
+      color_of_string single >|= fun color -> text color 500
   | [ "border" ] -> Ok border
   | [ "border"; color; shade ] ->
       color_of_string color >>= fun color ->
@@ -3534,98 +3256,13 @@ let color_classes_of_string = function
   | [ "border"; color ] -> color_of_string color >|= fun c -> border_color c 500
   | _ -> Error (`Msg "")
 
-(* Parse layout and typography classes *)
-let layout_typography_of_string = function
-  | [ "flex" ] -> Ok flex
-  | [ "flex"; "col" ] -> Ok flex_col
-  | [ "flex"; "row" ] -> Ok flex_row
-  | [ "flex"; "wrap" ] -> Ok flex_wrap
-  | [ "flex"; "nowrap" ] -> Ok flex_nowrap
-  | [ "flex"; "1" ] -> Ok flex_1
-  | [ "flex"; "auto" ] -> Ok flex_auto
-  | [ "flex"; "initial" ] -> Ok flex_initial
-  | [ "flex"; "none" ] -> Ok flex_none
-  | [ "block" ] -> Ok block
-  | [ "inline" ] -> Ok inline
-  | [ "inline"; "block" ] -> Ok inline_block
-  | [ "inline"; "grid" ] -> Ok inline_grid
-  | [ "grid" ] -> Ok grid
-  | [ "grid"; "cols"; n ] -> int_of_string_positive "grid cols" n >|= grid_cols
-  | [ "grid"; "rows"; n ] -> int_of_string_positive "grid rows" n >|= grid_rows
-  | [ "hidden" ] -> Ok hidden
-  | [ "items"; "center" ] -> Ok items_center
-  | [ "items"; "start" ] -> Ok items_start
-  | [ "items"; "end" ] -> Ok items_end
-  | [ "items"; "stretch" ] -> Ok items_stretch
-  | [ "items"; "baseline" ] -> Ok items_baseline
-  | [ "justify"; "center" ] -> Ok justify_center
-  | [ "justify"; "start" ] -> Ok justify_start
-  | [ "justify"; "end" ] -> Ok justify_end
-  | [ "justify"; "between" ] -> Ok justify_between
-  | [ "justify"; "around" ] -> Ok justify_around
-  | [ "justify"; "evenly" ] -> Ok justify_evenly
-  | [ "font"; "thin" ] -> Ok font_thin
-  | [ "font"; "light" ] -> Ok font_light
-  | [ "font"; "normal" ] -> Ok font_normal
-  | [ "font"; "medium" ] -> Ok font_medium
-  | [ "font"; "semibold" ] -> Ok font_semibold
-  | [ "font"; "bold" ] -> Ok font_bold
-  | [ "font"; "extrabold" ] -> Ok font_extrabold
-  | [ "font"; "black" ] -> Ok font_black
-  | [ "font"; "sans" ] -> Ok font_sans
-  | [ "font"; "serif" ] -> Ok font_serif
-  | [ "font"; "mono" ] -> Ok font_mono
-  | [ "italic" ] -> Ok italic
-  | [ "not"; "italic" ] -> Ok not_italic
-  | [ "underline" ] -> Ok underline
-  | [ "no"; "underline" ] -> Ok no_underline
-  | [ "leading"; "none" ] -> Ok leading_none
-  | [ "leading"; "tight" ] -> Ok leading_tight
-  | [ "leading"; "snug" ] -> Ok leading_snug
-  | [ "leading"; "normal" ] -> Ok leading_normal
-  | [ "leading"; "relaxed" ] -> Ok leading_relaxed
-  | [ "leading"; "loose" ] -> Ok leading_loose
-  | [ "leading"; n ] -> leading_of_string n
-  | _ -> Error (`Msg "")
-
-(* Parse utility and effect classes *)
+(* Parse utility classes *)
 let utility_classes_of_string = function
-  | [ "rounded" ] -> Ok rounded
-  | [ "rounded"; size ] -> (
-      match size with
-      | "none" -> Ok rounded_none
-      | "sm" -> Ok rounded_sm
-      | "md" -> Ok rounded_md
-      | "lg" -> Ok rounded_lg
-      | "xl" -> Ok rounded_xl
-      | "2xl" -> Ok rounded_2xl
-      | "3xl" -> Ok rounded_3xl
-      | "full" -> Ok rounded_full
-      | s -> Error (`Msg ("Unknown rounded size: " ^ s)))
-  | [ "shadow" ] -> shadow_of_string ""
-  | [ "shadow"; size ] -> shadow_of_string size
-  | [ "ring" ] -> Ok ring
-  | [ "ring"; "0" ] -> Ok ring_none
-  | [ "ring"; "1" ] -> Ok ring_xs
-  | [ "ring"; "2" ] -> Ok ring_sm
-  | [ "ring"; "3" ] -> Ok ring_md
-  | [ "ring"; "4" ] -> Ok ring_lg
-  | [ "ring"; "8" ] -> Ok ring_xl
   | [ "relative" ] -> Ok relative
   | [ "absolute" ] -> Ok absolute
   | [ "fixed" ] -> Ok fixed
   | [ "sticky" ] -> Ok sticky
   | [ "static" ] -> Ok static
-  | [ "opacity"; n ] -> int_of_string_bounded "Opacity" 0 100 n >|= opacity
-  | [ "transition" ] -> Ok transition_all
-  | [ "transition"; "none" ] -> Ok transition_none
-  | [ "transition"; "all" ] -> Ok transition_all
-  | [ "transition"; "colors" ] -> Ok transition_colors
-  | [ "transition"; "opacity" ] -> Ok transition_opacity
-  | [ "transition"; "shadow" ] -> Ok transition_shadow
-  | [ "transition"; "transform" ] -> Ok transition_transform
-  | [ "duration"; n ] -> int_of_string_positive "duration" n >|= duration
-  | [ "scale"; n ] -> int_of_string_positive "scale" n >|= scale
   | [ "prose" ] -> Ok prose
   | [ "prose"; "sm" ] -> Ok prose_sm
   | [ "prose"; "lg" ] -> Ok prose_lg
@@ -3643,33 +3280,30 @@ let of_string class_str =
     (* Try color classes first *)
     color_classes_of_string parts
     <|>
-    (* Try spacing/sizing with helper functions *)
+    (* Try spacing utilities *)
+    Spacing.of_string parts
+    <|>
+    (* Try sizing utilities *)
     (match parts with
-    | "p" :: _ -> spacing_of_string "p" p_px p_full p parts
-    | "px" :: _ -> spacing_of_string "px" px_px px_full px parts
-    | "py" :: _ -> spacing_of_string "py" py_px py_full py parts
-    | "pt" :: _ -> spacing_of_string "pt" pt_px pt_full pt parts
-    | "pr" :: _ -> spacing_of_string "pr" pr_px pr_full pr parts
-    | "pb" :: _ -> spacing_of_string "pb" pb_px pb_full pb parts
-    | "pl" :: _ -> spacing_of_string "pl" pl_px pl_full pl parts
-    | "m" :: _ -> margin_of_string "m" m_auto m parts
-    | "mx" :: _ -> margin_of_string "mx" mx_auto mx parts
-    | "my" :: _ -> margin_of_string "my" my_auto my parts
-    | "mt" :: _ -> margin_of_string "mt" mt_auto mt parts
-    | "mr" :: _ -> margin_of_string "mr" mr_auto mr parts
-    | "mb" :: _ -> margin_of_string "mb" mb_auto mb parts
-    | "ml" :: _ -> margin_of_string "ml" ml_auto ml parts
     | "w" :: _ -> width_of_string parts
     | "h" :: _ -> height_of_string parts
-    | "gap" :: _ -> gap_of_string parts
     | "min" :: "w" :: _ -> min_width_of_string parts
     | "min" :: "h" :: _ -> min_height_of_string parts
     | "max" :: "w" :: _ -> max_width_of_string parts
     | "max" :: "h" :: _ -> max_height_of_string parts
     | _ -> Error (`Msg ""))
     <|>
-    (* Try layout and typography classes *)
-    layout_typography_of_string parts
+    (* Try layout utilities *)
+    Layout.of_string parts
+    <|>
+    (* Try typography utilities *)
+    Typography.of_string parts
+    <|>
+    (* Try border utilities *)
+    Borders.of_string parts
+    <|>
+    (* Try effects utilities *)
+    Effects.of_string parts
     <|>
     (* Try utility classes *)
     utility_classes_of_string parts

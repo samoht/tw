@@ -133,3 +133,95 @@ let object_top = style "object-top" [ object_position "top" ]
 let object_bottom = style "object-bottom" [ object_position "bottom" ]
 let object_left = style "object-left" [ object_position "left" ]
 let object_right = style "object-right" [ object_position "right" ]
+
+(** {1 Grid Utilities} *)
+
+let grid_cols n =
+  let class_name = "grid-cols-" ^ string_of_int n in
+  style class_name
+    [
+      custom_property "--grid-cols" (string_of_int n);
+      Grid.template_columns (Repeat (n, Min_max (Px 0, Fr 1.0)));
+    ]
+
+let grid_rows n =
+  let class_name = "grid-rows-" ^ string_of_int n in
+  style class_name
+    [
+      custom_property "--grid-rows" (string_of_int n);
+      Grid.template_rows (Repeat (n, Min_max (Px 0, Fr 1.0)));
+    ]
+
+(** {1 Parsing Functions} *)
+
+let int_of_string_positive name s =
+  match int_of_string_opt s with
+  | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
+  | Some n when n >= 0 -> Ok n
+  | Some _ -> Error (`Msg (name ^ " must be non-negative: " ^ s))
+
+let ( >|= ) r f = Result.map f r
+
+let of_string = function
+  | [ "flex" ] -> Ok flex
+  | [ "flex"; "col" ] -> Ok flex_col
+  | [ "flex"; "row" ] -> Ok flex_row
+  | [ "flex"; "wrap" ] -> Ok flex_wrap
+  | [ "flex"; "nowrap" ] -> Ok flex_nowrap
+  | [ "flex"; "1" ] -> Ok flex_1
+  | [ "flex"; "auto" ] -> Ok flex_auto
+  | [ "flex"; "initial" ] -> Ok flex_initial
+  | [ "flex"; "none" ] -> Ok flex_none
+  | [ "block" ] -> Ok block
+  | [ "inline" ] -> Ok inline
+  | [ "inline"; "block" ] -> Ok inline_block
+  | [ "inline"; "grid" ] -> Ok inline_grid
+  | [ "grid" ] -> Ok grid
+  | [ "grid"; "cols"; n ] -> int_of_string_positive "grid cols" n >|= grid_cols
+  | [ "grid"; "rows"; n ] -> int_of_string_positive "grid rows" n >|= grid_rows
+  | [ "hidden" ] -> Ok hidden
+  | [ "items"; "center" ] -> Ok items_center
+  | [ "items"; "start" ] -> Ok items_start
+  | [ "items"; "end" ] -> Ok items_end
+  | [ "items"; "stretch" ] -> Ok items_stretch
+  | [ "items"; "baseline" ] -> Ok items_baseline
+  | [ "justify"; "center" ] -> Ok justify_center
+  | [ "justify"; "start" ] -> Ok justify_start
+  | [ "justify"; "end" ] -> Ok justify_end
+  | [ "justify"; "between" ] -> Ok justify_between
+  | [ "justify"; "around" ] -> Ok justify_around
+  | [ "justify"; "evenly" ] -> Ok justify_evenly
+  | [ "static" ] -> Ok static
+  | [ "relative" ] -> Ok relative
+  | [ "absolute" ] -> Ok absolute
+  | [ "fixed" ] -> Ok fixed
+  | [ "sticky" ] -> Ok sticky
+  | [ "overflow"; "auto" ] -> Ok overflow_auto
+  | [ "overflow"; "hidden" ] -> Ok overflow_hidden
+  | [ "overflow"; "visible" ] -> Ok overflow_visible
+  | [ "overflow"; "scroll" ] -> Ok overflow_scroll
+  | [ "overflow"; "x"; "auto" ] -> Ok overflow_x_auto
+  | [ "overflow"; "x"; "hidden" ] -> Ok overflow_x_hidden
+  | [ "overflow"; "x"; "visible" ] -> Ok overflow_x_visible
+  | [ "overflow"; "x"; "scroll" ] -> Ok overflow_x_scroll
+  | [ "overflow"; "y"; "auto" ] -> Ok overflow_y_auto
+  | [ "overflow"; "y"; "hidden" ] -> Ok overflow_y_hidden
+  | [ "overflow"; "y"; "visible" ] -> Ok overflow_y_visible
+  | [ "overflow"; "y"; "scroll" ] -> Ok overflow_y_scroll
+  | [ "z"; "0" ] -> Ok z_0
+  | [ "z"; "10" ] -> Ok z_10
+  | [ "z"; "20" ] -> Ok z_20
+  | [ "z"; "30" ] -> Ok z_30
+  | [ "z"; "40" ] -> Ok z_40
+  | [ "z"; "50" ] -> Ok z_50
+  | [ "object"; "contain" ] -> Ok object_contain
+  | [ "object"; "cover" ] -> Ok object_cover
+  | [ "object"; "fill" ] -> Ok object_fill
+  | [ "object"; "none" ] -> Ok object_none
+  | [ "object"; "scale"; "down" ] -> Ok object_scale_down
+  | [ "object"; "center" ] -> Ok object_center
+  | [ "object"; "top" ] -> Ok object_top
+  | [ "object"; "bottom" ] -> Ok object_bottom
+  | [ "object"; "left" ] -> Ok object_left
+  | [ "object"; "right" ] -> Ok object_right
+  | _ -> Error (`Msg "Not a layout utility")
