@@ -58,3 +58,33 @@ val backdrop_blur_lg : t
 val backdrop_blur_xl : t
 val backdrop_blur_2xl : t
 val backdrop_blur_3xl : t
+
+(** {1 Ring Utilities} *)
+
+val ring : t
+val ring_none : t
+val ring_xs : t
+val ring_sm : t
+val ring_md : t
+val ring_lg : t
+val ring_xl : t
+
+(** {1 Transition Utilities} *)
+
+val transition_none : t
+val transition_all : t
+val transition_colors : t
+val transition_opacity : t
+val transition_shadow : t
+val transition_transform : t
+val duration : int -> t
+val scale : int -> t
+
+(** {1 Opacity Utility} *)
+
+val opacity : int -> t
+
+(** {1 Parsing Functions} *)
+
+val of_string : string list -> (t, [ `Msg of string ]) result
+(** [of_string parts] parses an effects utility from string parts. *)

@@ -5,16 +5,13 @@ type rgb = {
   g : int;  (** Green channel (0-255) *)
   b : int;  (** Blue channel (0-255) *)
 }
-(** RGB color representation *)
 
 type oklch = {
   l : float;  (** Lightness (0-100) *)
   c : float;  (** Chroma (0-0.4+) *)
   h : float;  (** Hue (0-360) *)
 }
-(** OKLCH color representation *)
 
-(** Color type *)
 type t =
   | Black
   | White
@@ -42,7 +39,7 @@ type t =
   | Rose
   | Hex of string
   | Rgb of { red : int; green : int; blue : int }
-  | Oklch of oklch (* OKLCH as a primary color type *)
+  | Oklch of oklch
 
 val pp : t -> string
 (** [pp color] pretty-prints a color. *)
@@ -63,6 +60,9 @@ val rgb_to_hex : rgb -> string
 
 val oklch_to_css : oklch -> string
 (** [oklch_to_css oklch] formats OKLCH for CSS. *)
+
+val to_css : t -> int -> Css.color
+(** [to_css color shade] converts a color to CSS color value. *)
 
 (** {1 Tailwind Colors} *)
 
@@ -146,8 +146,13 @@ val hex : string -> t
 val rgb : int -> int -> int -> t
 (** [rgb r g b] creates color from RGB values. *)
 
-val of_string : string -> t
-(** [of_string name] converts a color name string to a color type. *)
+val of_string_exn : string -> t
+(** [of_string_exn name] converts a color name string to a color type. Raises
+    Failure if unknown color. *)
+
+val of_string : string -> (t, [ `Msg of string ]) result
+(** [of_string name] converts a color name string to a color type, returning a
+    Result. *)
 
 (** {1 Color Conversion} *)
 

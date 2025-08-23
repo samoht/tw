@@ -57,3 +57,8 @@ val uppercase : t
 val lowercase : t
 val capitalize : t
 val normal_case : t
+
+(** {1 Parsing Functions} *)
+
+val of_string : string list -> (t, [ `Msg of string ]) result
+(** [of_string parts] parses a typography utility from string parts. *)

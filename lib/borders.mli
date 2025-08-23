@@ -50,3 +50,8 @@ val ring_2 : t
 val ring_4 : t
 val ring_8 : t
 val ring_inset : t
+
+(** {1 Parsing Functions} *)
+
+val of_string : string list -> (t, [ `Msg of string ]) result
+(** [of_string parts] parses a border/rounded utility from string parts. *)

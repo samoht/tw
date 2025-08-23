@@ -117,3 +117,16 @@ val object_top : t
 val object_bottom : t
 val object_left : t
 val object_right : t
+
+(** {1 Grid Utilities} *)
+
+val grid_cols : int -> t
+(** [grid_cols n] sets the number of grid template columns. *)
+
+val grid_rows : int -> t
+(** [grid_rows n] sets the number of grid template rows. *)
+
+(** {1 Parsing Functions} *)
+
+val of_string : string list -> (t, [ `Msg of string ]) result
+(** [of_string parts] parses a layout utility from string parts. *)

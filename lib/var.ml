@@ -546,7 +546,7 @@ let to_css_properties (v : t) : Css.declaration list =
   | Color (name, Some shade) -> (
       let var_name = Printf.sprintf "--color-%s-%d" name shade in
       try
-        let color = Color.of_string name in
+        let color = Color.of_string_exn name in
         [ custom_property var_name (Color.to_oklch_css color shade) ]
       with _ -> [])
   | Color (_, None) -> [] (* Base colors without shade need special handling *)
