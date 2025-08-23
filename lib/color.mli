@@ -180,3 +180,98 @@ module TailwindColors : sig
   val get_color : string -> int -> string option
   (** Get a Tailwind color value in OKLCH format *)
 end
+
+(** {1 Color Application Utilities} *)
+
+val bg : t -> int -> Core.t
+(** Background color utilities *)
+
+val bg_transparent : Core.t
+val bg_current : Core.t
+val bg_black : Core.t
+val bg_white : Core.t
+val bg_gray : Core.t
+val bg_slate : Core.t
+val bg_zinc : Core.t
+val bg_neutral : Core.t
+val bg_stone : Core.t
+val bg_red : Core.t
+val bg_orange : Core.t
+val bg_amber : Core.t
+val bg_yellow : Core.t
+val bg_lime : Core.t
+val bg_green : Core.t
+val bg_emerald : Core.t
+val bg_teal : Core.t
+val bg_cyan : Core.t
+val bg_sky : Core.t
+val bg_blue : Core.t
+val bg_indigo : Core.t
+val bg_violet : Core.t
+val bg_purple : Core.t
+val bg_fuchsia : Core.t
+val bg_pink : Core.t
+val bg_rose : Core.t
+
+val text : t -> int -> Core.t
+(** Text color utilities *)
+
+val text_transparent : Core.t
+val text_current : Core.t
+val text_black : Core.t
+val text_white : Core.t
+val text_gray : Core.t
+val text_slate : Core.t
+val text_zinc : Core.t
+val text_neutral : Core.t
+val text_stone : Core.t
+val text_red : Core.t
+val text_orange : Core.t
+val text_amber : Core.t
+val text_yellow : Core.t
+val text_lime : Core.t
+val text_green : Core.t
+val text_emerald : Core.t
+val text_teal : Core.t
+val text_cyan : Core.t
+val text_sky : Core.t
+val text_blue : Core.t
+val text_indigo : Core.t
+val text_violet : Core.t
+val text_purple : Core.t
+val text_fuchsia : Core.t
+val text_pink : Core.t
+val text_rose : Core.t
+
+val border_color : t -> int -> Core.t
+(** Border color utilities *)
+
+val border_transparent : Core.t
+val border_current : Core.t
+val border_black : Core.t
+val border_white : Core.t
+val border_gray : Core.t
+val border_slate : Core.t
+val border_zinc : Core.t
+val border_neutral : Core.t
+val border_stone : Core.t
+val border_red : Core.t
+val border_orange : Core.t
+val border_amber : Core.t
+val border_yellow : Core.t
+val border_lime : Core.t
+val border_green : Core.t
+val border_emerald : Core.t
+val border_teal : Core.t
+val border_cyan : Core.t
+val border_sky : Core.t
+val border_blue : Core.t
+val border_indigo : Core.t
+val border_violet : Core.t
+val border_purple : Core.t
+val border_fuchsia : Core.t
+val border_pink : Core.t
+val border_rose : Core.t
+
+val color_classes_of_string : string list -> (Core.t, [ `Msg of string ]) result
+(** Color parsing utilities *)

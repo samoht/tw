@@ -82,28 +82,6 @@ let string_of_breakpoint = function
   | `Xl -> "xl"
   | `Xl_2 -> "2xl"
 
-(* Helper to convert container query to CSS prefix *)
-let container_query_to_css_prefix = function
-  | Container_sm -> "@container (min-width:24rem)"
-  | Container_md -> "@container (min-width:28rem)"
-  | Container_lg -> "@container (min-width:32rem)"
-  | Container_xl -> "@container (min-width:36rem)"
-  | Container_2xl -> "@container (min-width:42rem)"
-  | Container_named ("", width) ->
-      Pp.str [ "@container (min-width:"; string_of_int width; "px)" ]
-  | Container_named (name, width) ->
-      Pp.str [ "@container "; name; " (min-width:"; string_of_int width; "px)" ]
-
-(* Generate CSS variables from the collected requirements *)
-let container_query_to_class_prefix = function
-  | Container_sm -> "@sm"
-  | Container_md -> "@md"
-  | Container_lg -> "@lg"
-  | Container_xl -> "@xl"
-  | Container_2xl -> "@2xl"
-  | Container_named ("", width) -> "@" ^ string_of_int width ^ "px"
-  | Container_named (name, width) -> "@" ^ name ^ "/" ^ string_of_int width
-
 (* Helper to get breakpoint for responsive prefix *)
 let responsive_breakpoint = function
   | "sm" -> "40rem" (* 640px / 16 = 40rem *)
@@ -272,9 +250,13 @@ let extract_selector_props tw =
                     let sel = "." ^ prefix ^ "\\:" ^ base_class in
                     [ MediaQuery (condition, sel, props) ]
                 | Container query ->
-                    let prefix = container_query_to_class_prefix query in
+                    let prefix =
+                      Containers.container_query_to_class_prefix query
+                    in
                     let escaped_class = ".\\" ^ prefix ^ "\\:" ^ base_class in
-                    let condition = container_query_to_css_prefix query in
+                    let condition =
+                      Containers.container_query_to_css_prefix query
+                    in
                     (* Extract just the condition part after @container *)
                     let cond =
                       if String.starts_with ~prefix:"@container " condition then
@@ -1439,171 +1421,92 @@ let xl_5 = `Xl_5
 let xl_6 = `Xl_6
 let xl_7 = `Xl_7
 
-let bg color shade =
-  let class_name =
-    if Color.is_base_color color || Color.is_custom_color color then
-      Pp.str [ "bg-"; Color.pp color ]
-    else Pp.str [ "bg-"; Color.pp color; "-"; string_of_int shade ]
-  in
-  (* For custom colors (hex, rgb, oklch), use direct values; for others use CSS
-     variables *)
-  if Color.is_custom_color color then
-    (* Convert to proper color constructor *)
-    let css_color = Color.to_css color shade in
-    style class_name [ Css.background_color css_color ]
-  else
-    (* Use CSS variable reference *)
-    let var_name =
-      if Color.is_base_color color then Pp.str [ "color-"; Color.pp color ]
-      else Pp.str [ "color-"; Color.pp color; "-"; string_of_int shade ]
-    in
-    (* Track the color variable requirement *)
-    let var =
-      if Color.is_base_color color then color_var (Color.pp color)
-      else color_var ~shade (Color.pp color)
-    in
-    style_with_vars class_name
-      [ Css.background_color (Css.Var var_name) ]
-      [ var ]
+(* Include only the color application utilities we need *)
+include struct
+  open Color
 
-let bg_transparent = style "bg-transparent" [ background_color Transparent ]
-let bg_current = style "bg-current" [ background_color Current ]
-
-(* Default color backgrounds - using shade 500 *)
-let bg_black = bg black 500
-let bg_white = bg white 500
-let bg_gray = bg gray 500
-let bg_slate = bg slate 500
-let bg_zinc = bg zinc 500
-let bg_neutral = bg neutral 500
-let bg_stone = bg stone 500
-let bg_red = bg red 500
-let bg_orange = bg orange 500
-let bg_amber = bg amber 500
-let bg_yellow = bg yellow 500
-let bg_lime = bg lime 500
-let bg_green = bg green 500
-let bg_emerald = bg emerald 500
-let bg_teal = bg teal 500
-let bg_cyan = bg cyan 500
-let bg_sky = bg sky 500
-let bg_blue = bg blue 500
-let bg_indigo = bg indigo 500
-let bg_violet = bg violet 500
-let bg_purple = bg purple 500
-let bg_fuchsia = bg fuchsia 500
-let bg_pink = bg pink 500
-let bg_rose = bg rose 500
-
-let text color shade =
-  let class_name =
-    if Color.is_base_color color || Color.is_custom_color color then
-      Pp.str [ "text-"; Color.pp color ]
-    else Pp.str [ "text-"; Color.pp color; "-"; string_of_int shade ]
-  in
-  (* For custom colors (hex, rgb, oklch), use direct values; for others use CSS
-     variables *)
-  if Color.is_custom_color color then
-    (* Convert to proper color constructor *)
-    let css_color = Color.to_css color shade in
-    style class_name [ Css.color css_color ]
-  else
-    (* Use CSS variable reference *)
-    let var_name =
-      if Color.is_base_color color then Pp.str [ "color-"; Color.pp color ]
-      else Pp.str [ "color-"; Color.pp color; "-"; string_of_int shade ]
-    in
-    (* Track the color variable requirement *)
-    let var =
-      if Color.is_base_color color then color_var (Color.pp color)
-      else color_var ~shade (Color.pp color)
-    in
-    style_with_vars class_name [ Css.color (Css.Var var_name) ] [ var ]
-
-let text_transparent = style "text-transparent" [ Css.color Transparent ]
-let text_current = style "text-current" [ Css.color Current ]
-
-(* Default text colors - using shade 500 *)
-let text_black = text black 500
-let text_white = text white 500
-let text_gray = text gray 500
-let text_slate = text slate 500
-let text_zinc = text zinc 500
-let text_neutral = text neutral 500
-let text_stone = text stone 500
-let text_red = text red 500
-let text_orange = text orange 500
-let text_amber = text amber 500
-let text_yellow = text yellow 500
-let text_lime = text lime 500
-let text_green = text green 500
-let text_emerald = text emerald 500
-let text_teal = text teal 500
-let text_cyan = text cyan 500
-let text_sky = text sky 500
-let text_blue = text blue 500
-let text_indigo = text indigo 500
-let text_violet = text violet 500
-let text_purple = text purple 500
-let text_fuchsia = text fuchsia 500
-let text_pink = text pink 500
-let text_rose = text rose 500
-
-let border_color color shade =
-  let class_name =
-    if Color.is_base_color color || Color.is_custom_color color then
-      Pp.str [ "border-"; Color.pp color ]
-    else Pp.str [ "border-"; Color.pp color; "-"; string_of_int shade ]
-  in
-  (* For custom colors (hex, rgb, oklch), use direct values; for others use CSS
-     variables *)
-  if Color.is_custom_color color then
-    (* Convert to proper color constructor *)
-    let css_color = Color.to_css color shade in
-    style class_name [ Css.border_color css_color ]
-  else
-    (* Use CSS variable reference *)
-    let var_name =
-      if Color.is_base_color color then Pp.str [ "color-"; Color.pp color ]
-      else Pp.str [ "color-"; Color.pp color; "-"; string_of_int shade ]
-    in
-    (* Track the color variable requirement *)
-    let var =
-      if Color.is_base_color color then color_var (Color.pp color)
-      else color_var ~shade (Color.pp color)
-    in
-    style_with_vars class_name [ Css.border_color (Css.Var var_name) ] [ var ]
-
-let border_transparent =
-  style "border-transparent" [ Css.border_color Transparent ]
-
-let border_current = style "border-current" [ Css.border_color Current ]
-
-(* Default border colors - using shade 500 *)
-let border_black = border_color black 500
-let border_white = border_color white 500
-let border_gray = border_color gray 500
-let border_slate = border_color slate 500
-let border_zinc = border_color zinc 500
-let border_neutral = border_color neutral 500
-let border_stone = border_color stone 500
-let border_red = border_color red 500
-let border_orange = border_color orange 500
-let border_amber = border_color amber 500
-let border_yellow = border_color yellow 500
-let border_lime = border_color lime 500
-let border_green = border_color green 500
-let border_emerald = border_color emerald 500
-let border_teal = border_color teal 500
-let border_cyan = border_color cyan 500
-let border_sky = border_color sky 500
-let border_blue = border_color blue 500
-let border_indigo = border_color indigo 500
-let border_violet = border_color violet 500
-let border_purple = border_color purple 500
-let border_fuchsia = border_color fuchsia 500
-let border_pink = border_color pink 500
-let border_rose = border_color rose 500
+  let bg c s = bg c s
+  let bg_transparent = bg_transparent
+  let bg_current = bg_current
+  let bg_black = bg_black
+  let bg_white = bg_white
+  let bg_gray = bg_gray
+  let bg_slate = bg_slate
+  let bg_zinc = bg_zinc
+  let bg_neutral = bg_neutral
+  let bg_stone = bg_stone
+  let bg_red = bg_red
+  let bg_orange = bg_orange
+  let bg_amber = bg_amber
+  let bg_yellow = bg_yellow
+  let bg_lime = bg_lime
+  let bg_green = bg_green
+  let bg_emerald = bg_emerald
+  let bg_teal = bg_teal
+  let bg_cyan = bg_cyan
+  let bg_sky = bg_sky
+  let bg_blue = bg_blue
+  let bg_indigo = bg_indigo
+  let bg_violet = bg_violet
+  let bg_purple = bg_purple
+  let bg_fuchsia = bg_fuchsia
+  let bg_pink = bg_pink
+  let bg_rose = bg_rose
+  let text c s = text c s
+  let text_transparent = text_transparent
+  let text_current = text_current
+  let text_black = text_black
+  let text_white = text_white
+  let text_gray = text_gray
+  let text_slate = text_slate
+  let text_zinc = text_zinc
+  let text_neutral = text_neutral
+  let text_stone = text_stone
+  let text_red = text_red
+  let text_orange = text_orange
+  let text_amber = text_amber
+  let text_yellow = text_yellow
+  let text_lime = text_lime
+  let text_green = text_green
+  let text_emerald = text_emerald
+  let text_teal = text_teal
+  let text_cyan = text_cyan
+  let text_sky = text_sky
+  let text_blue = text_blue
+  let text_indigo = text_indigo
+  let text_violet = text_violet
+  let text_purple = text_purple
+  let text_fuchsia = text_fuchsia
+  let text_pink = text_pink
+  let text_rose = text_rose
+  let border_color c s = border_color c s
+  let border_transparent = border_transparent
+  let border_current = border_current
+  let border_black = border_black
+  let border_white = border_white
+  let border_gray = border_gray
+  let border_slate = border_slate
+  let border_zinc = border_zinc
+  let border_neutral = border_neutral
+  let border_stone = border_stone
+  let border_red = border_red
+  let border_orange = border_orange
+  let border_amber = border_amber
+  let border_yellow = border_yellow
+  let border_lime = border_lime
+  let border_green = border_green
+  let border_emerald = border_emerald
+  let border_teal = border_teal
+  let border_cyan = border_cyan
+  let border_sky = border_sky
+  let border_blue = border_blue
+  let border_indigo = border_indigo
+  let border_violet = border_violet
+  let border_purple = border_purple
+  let border_fuchsia = border_fuchsia
+  let border_pink = border_pink
+  let border_rose = border_rose
+end
 
 let pp_spacing_suffix : spacing -> string = function
   | `Px -> "px"
@@ -1814,6 +1717,16 @@ include Transforms
 
 (* Include all interactivity utilities *)
 include Interactivity
+
+(** {1 Containers} *)
+
+(* Include all container query utilities *)
+include Containers
+
+(** {1 Filters} *)
+
+(* Include all filter utilities *)
+include Filters
 
 (** {1 Sizing} *)
 
@@ -2094,41 +2007,6 @@ let transition_transform =
              Css.Ms 150,
              Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) ));
     ]
-
-(** Container query utilities - inspired by modern CSS capabilities
-
-    Container queries allow elements to respond to their container's size rather
-    than the viewport. This is particularly useful for component-based design
-    where a component might be used in different sized containers. While
-    Tailwind CSS v4 includes container queries, we implement them here as
-    they're a valuable CSS feature that works well with OCaml's approach. *)
-let container_type_size =
-  style "container-type-size" [ Css.container_type Size ]
-
-let container_type_inline_size =
-  style "container-type-inline-size" [ Css.container_type Inline_size ]
-
-let container_type_normal =
-  style "container-type-normal" [ Css.container_type Normal ]
-
-let container_name name =
-  style ("container-" ^ name) [ Css.container_name name ]
-
-(* Container query breakpoints *)
-let on_container_sm styles = Modified (Container Container_sm, Group styles)
-let on_container_md styles = Modified (Container Container_md, Group styles)
-let on_container_lg styles = Modified (Container Container_lg, Group styles)
-let on_container_xl styles = Modified (Container Container_xl, Group styles)
-let on_container_2xl styles = Modified (Container Container_2xl, Group styles)
-
-(* Named container queries - using on_container as the user suggested *)
-let on_container ?name min_width styles =
-  let query =
-    match name with
-    | None -> Container (Container_named ("", min_width))
-    | Some n -> Container (Container_named (n, min_width))
-  in
-  Group (List.map (fun t -> Modified (query, t)) styles)
 
 let pointer_events_none =
   style "pointer-events-none"
@@ -2523,115 +2401,6 @@ let clip_path _value =
   (* clip-path is a modern CSS property, skip for now *)
   style "clip-path-custom" []
 
-let brightness n =
-  let class_name = "brightness-" ^ string_of_int n in
-  let value = Pp.float (float_of_int n /. 100.0) in
-  style class_name [ Css.filter ("brightness(" ^ value ^ ")") ]
-
-let contrast n =
-  let class_name = "contrast-" ^ string_of_int n in
-  let value = Pp.float (float_of_int n /. 100.0) in
-  style class_name [ Css.filter ("contrast(" ^ value ^ ")") ]
-
-let blur_internal = function
-  | `None -> style "blur-none" [ Css.filter "blur(0)" ]
-  | `Xs -> style "blur-xs" [ Css.filter "blur(2px)" ]
-  | `Sm -> style "blur-sm" [ Css.filter "blur(4px)" ]
-  | `Md -> style "blur" [ Css.filter "blur(8px)" ]
-  | `Lg -> style "blur-lg" [ Css.filter "blur(16px)" ]
-  | `Xl -> style "blur-xl" [ Css.filter "blur(24px)" ]
-  | `Xl_2 -> style "blur-2xl" [ Css.filter "blur(40px)" ]
-  | `Xl_3 -> style "blur-3xl" [ Css.filter "blur(64px)" ]
-  | `Full -> style "blur-full" [ Css.filter "blur(9999px)" ]
-
-let blur_none = blur_internal `None
-let blur_xs = blur_internal `Xs
-let blur_sm = blur_internal `Sm
-let blur = blur_internal `Md (* Default blur *)
-let blur_md = blur_internal `Md
-let blur_lg = blur_internal `Lg
-let blur_xl = blur_internal `Xl
-let blur_2xl = blur_internal `Xl_2
-let blur_3xl = blur_internal `Xl_3
-
-let grayscale n =
-  let class_name = if n = 0 then "grayscale-0" else "grayscale" in
-  let value = Pp.float (float_of_int n /. 100.0) in
-  style class_name [ filter ("grayscale(" ^ value ^ ")") ]
-
-let saturate n =
-  let class_name = "saturate-" ^ string_of_int n in
-  let value = Pp.float (float_of_int n /. 100.0) in
-  style class_name [ filter ("saturate(" ^ value ^ ")") ]
-
-let sepia n =
-  let class_name = if n = 0 then "sepia-0" else "sepia" in
-  let value = Pp.float (float_of_int n /. 100.0) in
-  style class_name [ filter ("sepia(" ^ value ^ ")") ]
-
-let invert n =
-  let class_name = if n = 0 then "invert-0" else "invert" in
-  let value = Pp.float (float_of_int n /. 100.0) in
-  style class_name [ filter ("invert(" ^ value ^ ")") ]
-
-let hue_rotate n =
-  let class_name = "hue-rotate-" ^ string_of_int n in
-  let value = string_of_int n ^ "deg" in
-  style class_name [ filter ("hue-rotate(" ^ value ^ ")") ]
-
-let backdrop_brightness n =
-  let class_name = Pp.str [ "backdrop-brightness-"; string_of_int n ] in
-  style class_name
-    [
-      Css.backdrop_filter
-        (Pp.str [ "brightness("; Pp.float (float_of_int n /. 100.); ")" ]);
-    ]
-
-let backdrop_contrast n =
-  let class_name = Pp.str [ "backdrop-contrast-"; string_of_int n ] in
-  style class_name
-    [
-      Css.backdrop_filter
-        (Pp.str [ "contrast("; Pp.float (float_of_int n /. 100.); ")" ]);
-    ]
-
-let backdrop_opacity n =
-  let class_name = Pp.str [ "backdrop-opacity-"; string_of_int n ] in
-  style class_name
-    [
-      Css.backdrop_filter
-        (Pp.str [ "opacity("; Pp.float (float_of_int n /. 100.); ")" ]);
-    ]
-
-let backdrop_saturate n =
-  let class_name = Pp.str [ "backdrop-saturate-"; string_of_int n ] in
-  style class_name
-    [
-      Css.backdrop_filter
-        (Pp.str [ "saturate("; Pp.float (float_of_int n /. 100.); ")" ]);
-    ]
-
-let backdrop_blur_internal = function
-  | `None -> style "backdrop-blur-none" [ Css.backdrop_filter "blur(0)" ]
-  | `Xs -> style "backdrop-blur-xs" [ Css.backdrop_filter "blur(2px)" ]
-  | `Sm -> style "backdrop-blur-sm" [ Css.backdrop_filter "blur(4px)" ]
-  | `Md -> style "backdrop-blur" [ Css.backdrop_filter "blur(8px)" ]
-  | `Lg -> style "backdrop-blur-lg" [ Css.backdrop_filter "blur(12px)" ]
-  | `Xl -> style "backdrop-blur-xl" [ Css.backdrop_filter "blur(16px)" ]
-  | `Xl_2 -> style "backdrop-blur-2xl" [ Css.backdrop_filter "blur(24px)" ]
-  | `Xl_3 -> style "backdrop-blur-3xl" [ Css.backdrop_filter "blur(40px)" ]
-  | `Full -> style "backdrop-blur-full" [ Css.backdrop_filter "blur(9999px)" ]
-
-let backdrop_blur_none = backdrop_blur_internal `None
-let backdrop_blur_xs = backdrop_blur_internal `Xs
-let backdrop_blur_sm = backdrop_blur_internal `Sm
-let backdrop_blur = backdrop_blur_internal `Md (* Default backdrop blur *)
-let backdrop_blur_md = backdrop_blur_internal `Md
-let backdrop_blur_lg = backdrop_blur_internal `Lg
-let backdrop_blur_xl = backdrop_blur_internal `Xl
-let backdrop_blur_2xl = backdrop_blur_internal `Xl_2
-let backdrop_blur_3xl = backdrop_blur_internal `Xl_3
-
 (* Animation utilities *)
 let animate_none = style "animate-none" [ Css.animation "none" ]
 
@@ -2875,7 +2644,7 @@ let rec pp = function
       | Responsive breakpoint ->
           string_of_breakpoint breakpoint ^ ":" ^ base_class
       | Container query ->
-          container_query_to_class_prefix query ^ ":" ^ base_class
+          Containers.container_query_to_class_prefix query ^ ":" ^ base_class
       (* New v4 modifiers *)
       | Not _modifier -> "not-" ^ base_class (* Simplified for class names *)
       | Has selector -> "has-[" ^ selector ^ "]:" ^ base_class
@@ -2933,7 +2702,6 @@ let line_clamp n =
 (* Opacity utilities *)
 
 (* Helper parsing functions *)
-let color_of_string = Color.of_string
 
 let int_of_string_positive name s =
   match int_of_string_opt s with
@@ -2942,19 +2710,12 @@ let int_of_string_positive name s =
   | Some _ -> Error (`Msg (name ^ " must be non-negative: " ^ s))
 
 (* Helper for Result.bind-like operation *)
-let ( >>= ) r f = match r with Error _ as e -> e | Ok x -> f x
 
 (* Helper for "try this or else try that" *)
 let ( <|> ) r1 r2 = match r1 with Ok _ -> r1 | Error _ -> r2
 
 (* Helper for Result.map-like operation *)
 let ( >|= ) r f = match r with Error _ as e -> e | Ok x -> Ok (f x)
-
-(* Helper to parse shade from string *)
-let shade_of_string s =
-  match int_of_string_opt s with
-  | None -> Error (`Msg ("Invalid shade: " ^ s))
-  | Some shade -> Ok shade
 
 (* Parse modifiers (responsive, states) from class string *)
 let modifiers_of_string class_str =
@@ -3087,33 +2848,6 @@ let max_height_of_string = function
   | _ -> Error (`Msg "")
 
 (* Parse color-related classes *)
-let color_classes_of_string = function
-  | [ "bg"; "transparent" ] -> Ok bg_transparent
-  | [ "bg"; "current" ] -> Ok bg_current
-  | [ "bg"; color; shade ] ->
-      color_of_string color >>= fun color ->
-      shade_of_string shade >|= fun shade -> bg color shade
-  | [ "bg"; color ] -> color_of_string color >|= fun color -> bg color 500
-  | [ "text"; "transparent" ] -> Ok text_transparent
-  | [ "text"; "current" ] -> Ok text_current
-  | [ "text"; "center" ] -> Ok text_center
-  | [ "text"; "left" ] -> Ok text_left
-  | [ "text"; "right" ] -> Ok text_right
-  | [ "text"; "justify" ] -> Ok text_justify
-  | [ "text"; color; shade ] ->
-      color_of_string color >>= fun color ->
-      shade_of_string shade >|= fun shade -> text color shade
-  | [ "text"; single ] ->
-      (* Try color *)
-      color_of_string single >|= fun color -> text color 500
-  | [ "border" ] -> Ok border
-  | [ "border"; color; shade ] ->
-      color_of_string color >>= fun color ->
-      shade_of_string shade >|= fun shade -> border_color color shade
-  | [ "border"; "transparent" ] -> Ok border_transparent
-  | [ "border"; "current" ] -> Ok border_current
-  | [ "border"; color ] -> color_of_string color >|= fun c -> border_color c 500
-  | _ -> Error (`Msg "")
 
 (* Parse utility classes *)
 let utility_classes_of_string = function
@@ -3137,7 +2871,7 @@ let of_string class_str =
   let parts = String.split_on_char '-' base_class in
   let base_result =
     (* Try color classes first *)
-    color_classes_of_string parts
+    Color.color_classes_of_string parts
     <|>
     (* Try spacing utilities *)
     Spacing.of_string parts
@@ -3169,6 +2903,12 @@ let of_string class_str =
     <|>
     (* Try interactivity utilities *)
     Interactivity.of_string parts
+    <|>
+    (* Try container utilities *)
+    Containers.of_string parts
+    <|>
+    (* Try filter utilities *)
+    Filters.of_string parts
     <|>
     (* Try utility classes *)
     utility_classes_of_string parts
