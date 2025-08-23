@@ -78,7 +78,6 @@ val transition_opacity : t
 val transition_shadow : t
 val transition_transform : t
 val duration : int -> t
-val scale : int -> t
 
 (** {1 Opacity Utility} *)
 
