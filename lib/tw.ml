@@ -1728,6 +1728,9 @@ include Containers
 (* Include all filter utilities *)
 include Filters
 
+(* Include positioning utilities *)
+include Positioning
+
 (** {1 Sizing} *)
 
 (* Sizing utilities are provided through wrapper functions, not included
@@ -1859,82 +1862,6 @@ let border_none_style =
     [
       Css.custom_property "--tw-border-style" "none"; Css.border_style Css.None;
     ]
-
-let inset_0 =
-  style "inset-0"
-    [ Css.top Zero; Css.right Zero; Css.bottom Zero; Css.left Zero ]
-
-let inset_x_0 = style "inset-x-0" [ Css.left Zero; Css.right Zero ]
-let inset_y_0 = style "inset-y-0" [ Css.bottom Zero; Css.top Zero ]
-
-let top n =
-  let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "top-" ^ string_of_int (abs n) in
-  let value =
-    Css.Calc
-      (Css.Calc.mul (Css.Calc.var "spacing")
-         (Css.Calc.float (float_of_int (abs n))))
-  in
-  style_with_vars class_name [ Css.top value ] [ Spacing (abs n) ]
-
-let right n =
-  let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "right-" ^ string_of_int (abs n) in
-  let value =
-    Css.Calc
-      (Css.Calc.mul (Css.Calc.var "spacing")
-         (Css.Calc.float (float_of_int (abs n))))
-  in
-  style_with_vars class_name [ Css.right value ] [ Spacing (abs n) ]
-
-let bottom n =
-  let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "bottom-" ^ string_of_int (abs n) in
-  let value =
-    Css.Calc
-      (Css.Calc.mul (Css.Calc.var "spacing")
-         (Css.Calc.float (float_of_int (abs n))))
-  in
-  style_with_vars class_name [ Css.bottom value ] [ Spacing (abs n) ]
-
-let left n =
-  let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "left-" ^ string_of_int (abs n) in
-  let value =
-    Css.Calc
-      (Css.Calc.mul (Css.Calc.var "spacing")
-         (Css.Calc.float (float_of_int (abs n))))
-  in
-  style_with_vars class_name [ Css.left value ] [ Spacing (abs n) ]
-
-let z n =
-  let class_name = "z-" ^ string_of_int n in
-  style class_name [ Css.z_index n ]
-
-(* Inset utilities *)
-let inset n =
-  let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "inset-" ^ string_of_int (abs n) in
-  let value =
-    Css.Calc
-      (Css.Calc.mul (Css.Calc.var "spacing")
-         (Css.Calc.float (float_of_int (abs n))))
-  in
-  style_with_vars class_name
-    [ Css.top value; Css.right value; Css.bottom value; Css.left value ]
-    [ Spacing (abs n) ]
-
-(* Fractional position utilities *)
-let top_1_2 = style "top-1/2" [ Css.top (Pct 50.0) ]
-let left_1_2 = style "left-1/2" [ Css.left (Pct 50.0) ]
-
-let neg_translate_x_1_2 =
-  style "-translate-x-1/2"
-    [ Css.transform [ Css.Translate_x (Css.Pct (-50.0)) ] ]
-
-let neg_translate_y_1_2 =
-  style "-translate-y-1/2"
-    [ Css.transform [ Css.Translate_y (Css.Pct (-50.0)) ] ]
 
 type width = size
 
@@ -2851,11 +2778,6 @@ let max_height_of_string = function
 
 (* Parse utility classes *)
 let utility_classes_of_string = function
-  | [ "relative" ] -> Ok relative
-  | [ "absolute" ] -> Ok absolute
-  | [ "fixed" ] -> Ok fixed
-  | [ "sticky" ] -> Ok sticky
-  | [ "static" ] -> Ok static
   | [ "prose" ] -> Ok prose
   | [ "prose"; "sm" ] -> Ok prose_sm
   | [ "prose"; "lg" ] -> Ok prose_lg
@@ -2909,6 +2831,9 @@ let of_string class_str =
     <|>
     (* Try filter utilities *)
     Filters.of_string parts
+    <|>
+    (* Try positioning utilities *)
+    Positioning.of_string parts
     <|>
     (* Try utility classes *)
     utility_classes_of_string parts
