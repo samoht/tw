@@ -1731,6 +1731,9 @@ include Filters
 (* Include positioning utilities *)
 include Positioning
 
+(* Include animation and transition utilities *)
+include Animations
+
 (** {1 Sizing} *)
 
 (* Sizing utilities are provided through wrapper functions, not included
@@ -1863,77 +1866,46 @@ let border_none_style =
       Css.custom_property "--tw-border-style" "none"; Css.border_style Css.None;
     ]
 
+(* Table utilities *)
+let border_collapse = style "border-collapse" [ Css.border_collapse Collapse ]
+let border_separate = style "border-separate" [ Css.border_collapse Separate ]
+
+let border_spacing n =
+  let class_name = "border-spacing-" ^ string_of_int n in
+  style class_name [ Css.border_spacing (Css.Rem (float_of_int n *. 0.25)) ]
+
+let table_auto = style "table-auto" [ Css.table_layout Auto ]
+let table_fixed = style "table-fixed" [ Css.table_layout Fixed ]
+
+(* Form utilities - basic styles, detailed implementations below *)
+let form_input = style "form-input" []
+let form_select = style "form-select" []
+let form_checkbox = style "form-checkbox" []
+let form_radio = style "form-radio" []
+
+(* Appearance utilities *)
+let appearance_none = style "appearance-none" [ Css.appearance None ]
+
+(* Will-change utilities *)
+let will_change_auto = style "will-change-auto" [ Css.will_change "auto" ]
+
+let will_change_scroll =
+  style "will-change-scroll" [ Css.will_change "scroll-position" ]
+
+let will_change_contents =
+  style "will-change-contents" [ Css.will_change "contents" ]
+
+let will_change_transform =
+  style "will-change-transform" [ Css.will_change "transform" ]
+
+(* Contain utilities *)
+let contain_none = style "contain-none" [ Css.contain "none" ]
+let contain_content = style "contain-content" [ Css.contain "content" ]
+let contain_layout = style "contain-layout" [ Css.contain "layout" ]
+let contain_paint = style "contain-paint" [ Css.contain "paint" ]
+let contain_size = style "contain-size" [ Css.contain "size" ]
+
 type width = size
-
-let transition_none =
-  style "transition-none" [ Css.transition (Css.Simple (Css.None, Css.S 0.0)) ]
-
-let transition_all =
-  style "transition-all"
-    [
-      Css.transition
-        (Css.With_timing
-           (Css.All, Css.Ms 150, Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
-    ]
-
-let transition_colors =
-  style "transition-colors"
-    [
-      Css.transition
-        (Css.Multiple
-           [
-             Css.With_timing
-               ( Css.Property "background-color",
-                 Css.Ms 150,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-             Css.With_timing
-               ( Css.Property "border-color",
-                 Css.Ms 150,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-             Css.With_timing
-               ( Css.Property "color",
-                 Css.Ms 150,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-             Css.With_timing
-               ( Css.Property "fill",
-                 Css.Ms 150,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-             Css.With_timing
-               ( Css.Property "stroke",
-                 Css.Ms 150,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-           ]);
-    ]
-
-let transition_opacity =
-  style "transition-opacity"
-    [
-      Css.transition
-        (Css.With_timing
-           ( Css.Property "opacity",
-             Css.Ms 150,
-             Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) ));
-    ]
-
-let transition_shadow =
-  style "transition-shadow"
-    [
-      Css.transition
-        (Css.With_timing
-           ( Css.Property "box-shadow",
-             Css.Ms 150,
-             Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) ));
-    ]
-
-let transition_transform =
-  style "transition-transform"
-    [
-      Css.transition
-        (Css.With_timing
-           ( Css.Property "transform",
-             Css.Ms 150,
-             Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) ));
-    ]
 
 let pointer_events_none =
   style "pointer-events-none"
@@ -2327,114 +2299,6 @@ let aspect_ratio width height =
 let clip_path _value =
   (* clip-path is a modern CSS property, skip for now *)
   style "clip-path-custom" []
-
-(* Animation utilities *)
-let animate_none = style "animate-none" [ Css.animation "none" ]
-
-let animate_spin =
-  style "animate-spin" [ Css.animation "spin 1s linear infinite" ]
-
-let animate_ping =
-  style "animate-ping"
-    [ Css.animation "ping 1s cubic-bezier(0, 0, 0.2, 1) infinite" ]
-
-let animate_pulse =
-  style "animate-pulse"
-    [ Css.animation "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" ]
-
-let animate_bounce =
-  style "animate-bounce" [ Css.animation "bounce 1s infinite" ]
-
-(* Transition utilities *)
-let duration n =
-  let class_name = "duration-" ^ string_of_int n in
-  style class_name [ Css.transition_duration (Css.Ms n) ]
-
-let ease_linear = style "ease-linear" [ Css.transition_timing_function Linear ]
-
-let ease_in =
-  style "ease-in"
-    [ Css.transition_timing_function (Cubic_bezier (0.4, 0.0, 1.0, 1.0)) ]
-
-let ease_out =
-  style "ease-out"
-    [ Css.transition_timing_function (Cubic_bezier (0.0, 0.0, 0.2, 1.0)) ]
-
-let ease_in_out =
-  style "ease-in-out"
-    [ Css.transition_timing_function (Cubic_bezier (0.4, 0.0, 0.2, 1.0)) ]
-
-(** Transform utilities *)
-let scale n =
-  let value = string_of_int n ^ "%" in
-  let class_name = "scale-" ^ string_of_int n in
-  style class_name
-    [
-      Css.custom_property "--tw-scale-x" value;
-      Css.custom_property "--tw-scale-y" value;
-      Css.custom_property "--tw-scale-z" value;
-      Css.scale "var(--tw-scale-x)var(--tw-scale-y)";
-    ]
-
-(* Appearance utilities *)
-let appearance_none = style "appearance-none" [ Css.appearance None ]
-
-(* Resize utilities *)
-let resize_none = style "resize-none" [ Css.resize None ]
-let resize_y = style "resize-y" [ Css.resize Vertical ]
-let resize_x = style "resize-x" [ Css.resize Horizontal ]
-let resize = style "resize" [ Css.resize Both ]
-
-(* Will-change utilities *)
-let will_change_auto = style "will-change-auto" [ Css.will_change "auto" ]
-
-let will_change_scroll =
-  style "will-change-scroll" [ Css.will_change "scroll-position" ]
-
-let will_change_contents =
-  style "will-change-contents" [ Css.will_change "contents" ]
-
-let will_change_transform =
-  style "will-change-transform" [ Css.will_change "transform" ]
-
-(* Contain utilities *)
-let contain_none = style "contain-none" [ Css.contain "none" ]
-let contain_content = style "contain-content" [ Css.contain "content" ]
-let contain_layout = style "contain-layout" [ Css.contain "layout" ]
-let contain_paint = style "contain-paint" [ Css.contain "paint" ]
-let contain_size = style "contain-size" [ Css.contain "size" ]
-
-(* Object position utilities *)
-
-(* Table utilities *)
-let table_auto = style "table-auto" [ Css.table_layout Auto ]
-let table_fixed = style "table-fixed" [ Css.table_layout Fixed ]
-let border_collapse = style "border-collapse" [ Css.border_collapse Collapse ]
-let border_separate = style "border-separate" [ Css.border_collapse Separate ]
-
-let border_spacing n =
-  let s = int n in
-  let len = Spacing.spacing_to_length s in
-  style ("border-spacing-" ^ pp_spacing_suffix s) [ Css.border_spacing len ]
-
-(* Form utilities - equivalent to @tailwindcss/forms plugin *)
-let form_input =
-  style "form-input"
-    [
-      Css.appearance None;
-      Css.background_color (Rgb { r = 255; g = 255; b = 255 });
-      Css.border_color (Rgb { r = 209; g = 213; b = 219 });
-      Css.border_width (Px 1);
-      Css.border_radius (Css.Rem 0.375);
-      Css.padding_top (Rem 0.5);
-      Css.padding_right (Rem 0.75);
-      Css.padding_bottom (Rem 0.5);
-      Css.padding_left (Rem 0.75);
-      Css.font_size (Rem 1.0);
-      Css.line_height (Rem 1.5);
-      Css.outline "2px solid transparent";
-      Css.outline_offset (Px 2);
-    ]
 
 let form_textarea =
   style "form-textarea"
@@ -2834,6 +2698,9 @@ let of_string class_str =
     <|>
     (* Try positioning utilities *)
     Positioning.of_string parts
+    <|>
+    (* Try animation and transition utilities *)
+    Animations.of_string parts
     <|>
     (* Try utility classes *)
     utility_classes_of_string parts
