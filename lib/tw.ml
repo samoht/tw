@@ -620,11 +620,9 @@ let canonical_color_order color_name =
   | "white" -> 101
   | _ -> 200 (* Unknown colors last *)
 
-(* Generate CSS rules for all used Tw classes *)
-let to_css ?(reset = true) tw_classes =
-  let all_rules = tw_classes |> List.concat_map extract_selector_props in
-  (* Separate rules by type *)
-  let regular_rules, media_rules, container_rules, _starting_rules =
+(* Helper: Separate rules by type *)
+let separate_rules_by_type all_rules =
+  let regular_rules, media_rules, container_rules, starting_rules =
     List.fold_left
       (fun (reg, media, cont, start) rule ->
         match rule with
@@ -635,22 +633,56 @@ let to_css ?(reset = true) tw_classes =
       ([], [], [], []) all_rules
   in
   (* Reverse to maintain original order since we prepended *)
-  let regular_rules = List.rev regular_rules in
-  let media_rules = List.rev media_rules in
-  let container_rules = List.rev container_rules in
+  ( List.rev regular_rules,
+    List.rev media_rules,
+    List.rev container_rules,
+    List.rev starting_rules )
+
+(* Helper: Check if a selector is a hover rule *)
+let is_hover_rule selector =
+  String.contains selector ':'
+  && String.contains selector 'h'
+  && String.contains selector 'o'
+  && String.contains selector 'v'
+  && String.contains selector 'e'
+  && String.contains selector 'r'
+
+(* Helper: Group media query rules by condition *)
+let group_media_queries media_rules =
+  List.fold_left
+    (fun acc rule ->
+      match rule with
+      | MediaQuery (condition, selector, props) ->
+          let rules = try List.assoc condition acc with Not_found -> [] in
+          (condition, (selector, props) :: rules)
+          :: List.remove_assoc condition acc
+      | _ -> acc)
+    [] media_rules
+
+(* Helper: Group container query rules by condition *)
+let group_container_queries container_rules =
+  List.fold_left
+    (fun acc rule ->
+      match rule with
+      | ContainerQuery (condition, selector, props) ->
+          let rules = try List.assoc condition acc with Not_found -> [] in
+          (condition, (selector, props) :: rules)
+          :: List.remove_assoc condition acc
+      | _ -> acc)
+    [] container_rules
+
+(* Generate CSS rules for all used Tw classes *)
+let to_css ?(reset = true) tw_classes =
+  let all_rules = tw_classes |> List.concat_map extract_selector_props in
+  (* Separate rules by type *)
+  let regular_rules, media_rules, container_rules, _starting_rules =
+    separate_rules_by_type all_rules
+  in
 
   (* Group regular rules by selector *)
   let grouped_regular = group_regular_rules regular_rules in
 
   (* Separate hover rules from regular rules *)
-  let is_hover_rule selector =
-    String.contains selector ':'
-    && String.contains selector 'h'
-    && String.contains selector 'o'
-    && String.contains selector 'v'
-    && String.contains selector 'e'
-    && String.contains selector 'r'
-  in
   let non_hover_rules, hover_rules =
     List.partition (fun (sel, _) -> not (is_hover_rule sel)) grouped_regular
   in
@@ -664,17 +696,7 @@ let to_css ?(reset = true) tw_classes =
   in
 
   (* Group media query rules by their condition *)
-  let media_queries_map =
-    List.fold_left
-      (fun acc rule ->
-        match rule with
-        | MediaQuery (condition, selector, props) ->
-            let rules = try List.assoc condition acc with Not_found -> [] in
-            (condition, (selector, props) :: rules)
-            :: List.remove_assoc condition acc
-        | _ -> acc)
-      [] media_rules
-  in
+  let media_queries_map = group_media_queries media_rules in
 
   (* Add hover rules to media query map *)
   let media_queries_map =
@@ -703,17 +725,7 @@ let to_css ?(reset = true) tw_classes =
   in
 
   (* Group container query rules by their condition *)
-  let container_queries_map =
-    List.fold_left
-      (fun acc rule ->
-        match rule with
-        | ContainerQuery (condition, selector, props) ->
-            let rules = try List.assoc condition acc with Not_found -> [] in
-            (condition, (selector, props) :: rules)
-            :: List.remove_assoc condition acc
-        | _ -> acc)
-      [] container_rules
-  in
+  let container_queries_map = group_container_queries container_rules in
 
   (* Create container query objects *)
   let container_queries =
