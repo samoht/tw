@@ -1554,21 +1554,21 @@ let rec scale_to_length : scale -> Css.length = function
   | #size as s -> size_to_length s
 
 and size_to_length : size -> Css.length = function
-  | `None -> Css.Zero
-  | `Xs -> Css.Rem 0.125
-  | `Sm -> Css.Rem 0.25
-  | `Md -> Css.Rem 0.375
-  | `Lg -> Css.Rem 0.5
-  | `Xl -> Css.Rem 0.75
-  | `Xl_2 -> Css.Rem 1.0
-  | `Xl_3 -> Css.Rem 1.5
-  | `Full -> Css.Pct 100.0
+  | `None -> Zero
+  | `Xs -> Rem 0.125
+  | `Sm -> Rem 0.25
+  | `Md -> Rem 0.375
+  | `Lg -> Rem 0.5
+  | `Xl -> Rem 0.75
+  | `Xl_2 -> Rem 1.0
+  | `Xl_3 -> Rem 1.5
+  | `Full -> Pct 100.0
 
 let max_scale_to_length : max_scale -> Css.length = function
-  | `Xl_4 -> Css.Rem 56.0
-  | `Xl_5 -> Css.Rem 64.0
-  | `Xl_6 -> Css.Rem 72.0
-  | `Xl_7 -> Css.Rem 80.0
+  | `Xl_4 -> Rem 56.0
+  | `Xl_5 -> Rem 64.0
+  | `Xl_6 -> Rem 72.0
+  | `Xl_7 -> Rem 80.0
   | #scale as s -> scale_to_length s
 
 (** {1 Spacing} *)
@@ -1734,6 +1734,9 @@ include Positioning
 (* Include animation and transition utilities *)
 include Animations
 
+(* Include form utilities *)
+include Forms
+
 (** {1 Sizing} *)
 
 (* Sizing utilities are provided through wrapper functions, not included
@@ -1819,7 +1822,7 @@ let justify_self_stretch =
   style "justify-self-stretch" [ Css.justify_self Stretch ]
 
 (* Additional typography utilities *)
-let leading_6 = style "leading-6" [ Css.line_height (Css.Rem 1.5) ]
+let leading_6 = style "leading-6" [ Css.line_height (Rem 1.5) ]
 let whitespace_normal = style "whitespace-normal" [ Css.white_space Normal ]
 let whitespace_nowrap = style "whitespace-nowrap" [ Css.white_space Nowrap ]
 let whitespace_pre = style "whitespace-pre" [ Css.white_space Pre ]
@@ -1872,16 +1875,10 @@ let border_separate = style "border-separate" [ Css.border_collapse Separate ]
 
 let border_spacing n =
   let class_name = "border-spacing-" ^ string_of_int n in
-  style class_name [ Css.border_spacing (Css.Rem (float_of_int n *. 0.25)) ]
+  style class_name [ Css.border_spacing (Rem (float_of_int n *. 0.25)) ]
 
 let table_auto = style "table-auto" [ Css.table_layout Auto ]
 let table_fixed = style "table-fixed" [ Css.table_layout Fixed ]
-
-(* Form utilities - basic styles, detailed implementations below *)
-let form_input = style "form-input" []
-let form_select = style "form-select" []
-let form_checkbox = style "form-checkbox" []
-let form_radio = style "form-radio" []
 
 (* Appearance utilities *)
 let appearance_none = style "appearance-none" [ Css.appearance None ]
@@ -2300,79 +2297,6 @@ let clip_path _value =
   (* clip-path is a modern CSS property, skip for now *)
   style "clip-path-custom" []
 
-let form_textarea =
-  style "form-textarea"
-    [
-      Css.appearance None;
-      Css.background_color (Rgb { r = 255; g = 255; b = 255 });
-      Css.border_color (Rgb { r = 209; g = 213; b = 219 });
-      Css.border_width (Px 1);
-      Css.border_radius (Css.Rem 0.375);
-      Css.padding_top (Rem 0.5);
-      Css.padding_right (Rem 0.75);
-      Css.padding_bottom (Rem 0.5);
-      Css.padding_left (Rem 0.75);
-      Css.font_size (Rem 1.0);
-      Css.line_height (Rem 1.5);
-      Css.resize Vertical;
-    ]
-
-let form_select =
-  style "form-select"
-    [
-      Css.appearance None;
-      Css.background_color (Rgb { r = 255; g = 255; b = 255 });
-      Css.border_color (Rgb { r = 209; g = 213; b = 219 });
-      Css.border_width (Px 1);
-      Css.border_radius (Css.Rem 0.375);
-      Css.padding_top (Rem 0.5);
-      Css.padding_right (Css.Rem 2.5);
-      Css.padding_bottom (Rem 0.5);
-      Css.padding_left (Rem 0.75);
-      Css.font_size (Rem 1.0);
-      Css.line_height (Rem 1.5);
-      Css.background_image
-        "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' \
-         fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' \
-         stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' \
-         d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")";
-      Css.background_position "right 0.5rem center";
-      Css.background_repeat No_repeat;
-      Css.background_size "1.5em 1.5em";
-    ]
-
-let form_checkbox =
-  style "form-checkbox"
-    [
-      Css.appearance None;
-      Css.width (Rem 1.0);
-      Css.height (Rem 1.0);
-      Css.background_color (Rgb { r = 255; g = 255; b = 255 });
-      Css.border_color (Rgb { r = 209; g = 213; b = 219 });
-      Css.border_width (Px 1);
-      Css.border_radius (Rem 0.25);
-      Css.color (Rgb { r = 59; g = 130; b = 246 });
-      Css.Flex.shrink 0.0;
-      Css.display Inline_block;
-      Css.vertical_align Middle;
-    ]
-
-let form_radio =
-  style "form-radio"
-    [
-      Css.appearance None;
-      Css.width (Rem 1.0);
-      Css.height (Rem 1.0);
-      Css.background_color (Rgb { r = 255; g = 255; b = 255 });
-      Css.border_color (Rgb { r = 209; g = 213; b = 219 });
-      Css.border_width (Px 1);
-      Css.border_radius (Pct 100.0);
-      Css.color (Rgb { r = 59; g = 130; b = 246 });
-      Css.Flex.shrink 0.0;
-      Css.display Inline_block;
-      Css.vertical_align Middle;
-    ]
-
 (* Peer and group utilities *)
 let peer = style "peer" [] (* Marker class for peer relationships *)
 let group = style "group" [] (* Marker class for group relationships *)
@@ -2701,6 +2625,9 @@ let of_string class_str =
     <|>
     (* Try animation and transition utilities *)
     Animations.of_string parts
+    <|>
+    (* Try form utilities *)
+    Forms.of_string parts
     <|>
     (* Try utility classes *)
     utility_classes_of_string parts
