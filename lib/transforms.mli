@@ -28,6 +28,12 @@ val skew_x : int -> t
 val skew_y : int -> t
 (** [skew_y deg] skews element vertically by deg degrees. *)
 
+val neg_translate_x_1_2 : t
+(** Translates element -50% along X axis (useful for centering). *)
+
+val neg_translate_y_1_2 : t
+(** Translates element -50% along Y axis (useful for centering). *)
+
 (** {1 3D Transform Utilities} *)
 
 val rotate_x : int -> t

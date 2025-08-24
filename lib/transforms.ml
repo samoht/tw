@@ -72,6 +72,15 @@ let skew_y deg =
         [ Skew_y (Angle_var { var_name = "tw-skew-y"; fallback = None }) ];
     ]
 
+(* Negative translate utilities for centering *)
+let neg_translate_x_1_2 =
+  style "-translate-x-1/2"
+    [ Css.transform [ Css.Translate_x (Css.Pct (-50.0)) ] ]
+
+let neg_translate_y_1_2 =
+  style "-translate-y-1/2"
+    [ Css.transform [ Css.Translate_y (Css.Pct (-50.0)) ] ]
+
 (** {1 3D Transform Utilities} *)
 
 let rotate_x n =
