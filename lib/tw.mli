@@ -449,42 +449,32 @@ val border_pink : t
 val border_rose : t
 (** Default rose border. Same as [border_color rose 500]. *)
 
-val bg_gradient_to_b : t
-(** Creates a gradient from top to bottom. Must be used with from_color and
-    to_color.
+(** Gradient direction variants *)
+type direction =
+  | Bottom  (** Gradient towards bottom *)
+  | Bottom_right  (** Gradient towards bottom-right corner *)
+  | Right  (** Gradient towards right *)
+  | Top_right  (** Gradient towards top-right corner *)
+  | Top  (** Gradient towards top *)
+  | Top_left  (** Gradient towards top-left corner *)
+  | Left  (** Gradient towards left *)
+  | Bottom_left  (** Gradient towards bottom-left corner *)
+
+val bg_gradient_to : direction -> t
+(** [bg_gradient_to dir] sets gradient direction using a typed direction.
+    Combine with [from_color]/[via_color]/[to_color].
 
     Example:
     {[
       div
         ~tw:
           [
-            bg_gradient_to_b;
+            bg_gradient_to Bottom;
             from_color ~shade:100 blue;
             to_color ~shade:600 blue;
           ]
         [ txt "Gradient background" ]
     ]} *)
-
-val bg_gradient_to_br : t
-(** Creates a gradient from top-left to bottom-right (diagonal). *)
-
-val bg_gradient_to_t : t
-(** Creates a gradient from bottom to top. *)
-
-val bg_gradient_to_tr : t
-(** Creates a gradient from bottom-left to top-right. *)
-
-val bg_gradient_to_r : t
-(** Creates a gradient from left to right. *)
-
-val bg_gradient_to_bl : t
-(** Creates a gradient from top-right to bottom-left. *)
-
-val bg_gradient_to_l : t
-(** Creates a gradient from right to left. *)
-
-val bg_gradient_to_tl : t
-(** Creates a gradient from bottom-right to top-left. *)
 
 val from_color : ?shade:int -> color -> t
 (** [from_color ~shade:400 blue] sets the starting color of a gradient. Default
@@ -503,8 +493,8 @@ val from_color : ?shade:int -> color -> t
 
 val via_color : ?shade:int -> color -> t
 (** [via_color purple] sets the middle color of a gradient. Default shade is
-    500. Creates a three-color gradient when used with from_color and to_color.
-*)
+    500. Creates a three-color gradient when used with [bg_gradient_to] and
+    [to_color]. *)
 
 val to_color : ?shade:int -> color -> t
 (** [to_color ~shade:600 pink] sets the ending color of a gradient. Default
@@ -2488,29 +2478,33 @@ val to_css : ?reset:bool -> t list -> Css.t
 
     Use this to generate your main stylesheet for inclusion in HTML [<head>]. *)
 
-val aspect_ratio : float -> float -> t
-(** [aspect_ratio width height] maintains element proportions.
+val aspect_auto : t
+(** Automatic aspect ratio based on content or CSS rules. *)
+
+val aspect_square : t
+(** Square 1:1 aspect ratio (useful for avatars, thumbnails). *)
+
+val aspect_video : t
+(** 16:9 aspect ratio, commonly used for videos. *)
+
+val aspect_ratio : int -> int -> t
+(** [aspect_ratio w h] maintains element proportions of [w:h].
 
     Example:
     {[
       (* 16:9 video container *)
-      div ~tw:[ aspect_ratio 16. 9.; bg black ] [ video ]
+      div ~tw:[ aspect_ratio 16 9; bg black ] [ video ]
     ]} *)
 
-val clip_path : string -> t
-(** [clip_path value] clips element to custom shape using SVG path or shape.
+val clip_polygon : (float * float) list -> t
+(** [clip_polygon points] clips element to a polygon defined by percentage
+    points.
 
     Example:
     {[
       (* Create a triangular badge/indicator *)
       span
-        ~tw:
-          [
-            clip_path "polygon(50% 0%, 0% 100%, 100% 100%)";
-            bg red;
-            w (int 6);
-            h (int 6);
-          ]
+        ~tw:[ clip_polygon [ (50., 0.); (0., 100.); (100., 100.) ]; bg red ]
         []
     ]} *)
 
