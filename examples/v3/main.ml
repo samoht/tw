@@ -669,7 +669,7 @@ let filters_showcase =
             [
               relative;
               h 32;
-              bg_gradient_to_r;
+              bg_gradient_to Right;
               from_color blue ~shade:500;
               to_color purple ~shade:500;
             ]
@@ -710,7 +710,7 @@ let gradients_showcase =
                   rounded_md;
                   text_white;
                   text_center;
-                  bg_gradient_to_r;
+                  bg_gradient_to Right;
                   from_color blue ~shade:500;
                   to_color purple ~shade:600;
                 ]
@@ -723,7 +723,7 @@ let gradients_showcase =
                   rounded_md;
                   text_white;
                   text_center;
-                  bg_gradient_to_br;
+                  bg_gradient_to Bottom_right;
                   from_color green ~shade:400;
                   to_color blue ~shade:600;
                 ]
@@ -736,7 +736,7 @@ let gradients_showcase =
                   rounded_md;
                   text_white;
                   text_center;
-                  bg_gradient_to_t;
+                  bg_gradient_to Top;
                   from_color pink ~shade:500;
                   to_color yellow ~shade:500;
                 ]

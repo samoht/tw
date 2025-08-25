@@ -157,7 +157,10 @@ let rounded_3xl =
     [ border_radius (Var { name = "radius-3xl"; fallback = None }) ]
     [ Radius { name = "3xl"; value = "1.5rem" } ]
 
-let rounded_full = style "rounded-full" [ border_radius (Px 9999) ]
+let rounded_full =
+  (* Tailwind v4 uses calc(infinity * 1px) which gets optimized to
+     3.40282e38px *)
+  style "rounded-full" [ border_radius (Calc Calc.(infinity * px 1)) ]
 
 (* Individual corner radius utilities not supported by Css module: rounded_t,
    rounded_r, rounded_b, rounded_l rounded_tl, rounded_tr, rounded_br,
