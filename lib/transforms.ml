@@ -125,16 +125,7 @@ let scale_z n =
     [
       custom_property "--tw-scale-z" (Pp.float value);
       transform
-        [
-          Translate_var
-            {
-              var_name = "tw-scale-x) scaleY(var(--tw-scale-y";
-              fallback = None;
-            };
-          Scale_z (Scale_var { var_name = "tw-scale-z"; fallback = Some 1.0 });
-          Translate_var
-            { var_name = "tw-skew-x) skewY(var(--tw-skew-y"; fallback = None };
-        ];
+        [ Scale_z (Scale_var { var_name = "tw-scale-z"; fallback = Some 1.0 }) ];
     ]
 
 let perspective n =
