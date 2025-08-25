@@ -166,3 +166,185 @@ let max_h_screen = style "max-h-screen" [ max_height (Vh 100.0) ]
 let max_h_min = style "max-h-min" [ max_height Min_content ]
 let max_h_max = style "max-h-max" [ max_height Max_content ]
 let max_h_fit = style "max-h-fit" [ max_height Fit_content ]
+
+(** {1 String Parsing} *)
+
+let fraction_of_string = function
+  | "1/2" -> Ok (style "w-1/2" [ width (Pct 50.0) ])
+  | "1/3" -> Ok (style "w-1/3" [ width (Pct 33.333333) ])
+  | "2/3" -> Ok (style "w-2/3" [ width (Pct 66.666667) ])
+  | "1/4" -> Ok (style "w-1/4" [ width (Pct 25.0) ])
+  | "3/4" -> Ok (style "w-3/4" [ width (Pct 75.0) ])
+  | "1/5" -> Ok (style "w-1/5" [ width (Pct 20.0) ])
+  | "2/5" -> Ok (style "w-2/5" [ width (Pct 40.0) ])
+  | "3/5" -> Ok (style "w-3/5" [ width (Pct 60.0) ])
+  | "4/5" -> Ok (style "w-4/5" [ width (Pct 80.0) ])
+  | "1/6" -> Ok (style "w-1/6" [ width (Pct 16.666667) ])
+  | "5/6" -> Ok (style "w-5/6" [ width (Pct 83.333333) ])
+  | s -> Error (`Msg ("Invalid fraction: " ^ s))
+
+let h_fraction_of_string = function
+  | "1/2" -> Ok (style "h-1/2" [ height (Pct 50.0) ])
+  | "1/3" -> Ok (style "h-1/3" [ height (Pct 33.333333) ])
+  | "2/3" -> Ok (style "h-2/3" [ height (Pct 66.666667) ])
+  | "1/4" -> Ok (style "h-1/4" [ height (Pct 25.0) ])
+  | "3/4" -> Ok (style "h-3/4" [ height (Pct 75.0) ])
+  | "1/5" -> Ok (style "h-1/5" [ height (Pct 20.0) ])
+  | "2/5" -> Ok (style "h-2/5" [ height (Pct 40.0) ])
+  | "3/5" -> Ok (style "h-3/5" [ height (Pct 60.0) ])
+  | "4/5" -> Ok (style "h-4/5" [ height (Pct 80.0) ])
+  | "1/6" -> Ok (style "h-1/6" [ height (Pct 16.666667) ])
+  | "5/6" -> Ok (style "h-5/6" [ height (Pct 83.333333) ])
+  | s -> Error (`Msg ("Invalid fraction: " ^ s))
+
+let size_fraction_of_string = function
+  | "1/2" -> Ok (style "size-1/2" [ width (Pct 50.0); height (Pct 50.0) ])
+  | "1/3" ->
+      Ok (style "size-1/3" [ width (Pct 33.333333); height (Pct 33.333333) ])
+  | "2/3" ->
+      Ok (style "size-2/3" [ width (Pct 66.666667); height (Pct 66.666667) ])
+  | "1/4" -> Ok (style "size-1/4" [ width (Pct 25.0); height (Pct 25.0) ])
+  | "3/4" -> Ok (style "size-3/4" [ width (Pct 75.0); height (Pct 75.0) ])
+  | s -> Error (`Msg ("Invalid fraction: " ^ s))
+
+let spacing_value_of_string = function
+  | "0" -> Ok (Px 0)
+  | "px" -> Ok (Px 1)
+  | "0.5" -> Ok (Rem 0.125)
+  | "1" -> Ok (Rem 0.25)
+  | "1.5" -> Ok (Rem 0.375)
+  | "2" -> Ok (Rem 0.5)
+  | "2.5" -> Ok (Rem 0.625)
+  | "3" -> Ok (Rem 0.75)
+  | "3.5" -> Ok (Rem 0.875)
+  | "4" -> Ok (Rem 1.0)
+  | "5" -> Ok (Rem 1.25)
+  | "6" -> Ok (Rem 1.5)
+  | "7" -> Ok (Rem 1.75)
+  | "8" -> Ok (Rem 2.0)
+  | "9" -> Ok (Rem 2.25)
+  | "10" -> Ok (Rem 2.5)
+  | "11" -> Ok (Rem 2.75)
+  | "12" -> Ok (Rem 3.0)
+  | "14" -> Ok (Rem 3.5)
+  | "16" -> Ok (Rem 4.0)
+  | "20" -> Ok (Rem 5.0)
+  | "24" -> Ok (Rem 6.0)
+  | "28" -> Ok (Rem 7.0)
+  | "32" -> Ok (Rem 8.0)
+  | "36" -> Ok (Rem 9.0)
+  | "40" -> Ok (Rem 10.0)
+  | "44" -> Ok (Rem 11.0)
+  | "48" -> Ok (Rem 12.0)
+  | "52" -> Ok (Rem 13.0)
+  | "56" -> Ok (Rem 14.0)
+  | "60" -> Ok (Rem 15.0)
+  | "64" -> Ok (Rem 16.0)
+  | "72" -> Ok (Rem 18.0)
+  | "80" -> Ok (Rem 20.0)
+  | "96" -> Ok (Rem 24.0)
+  | s -> Error (`Msg ("Invalid spacing value: " ^ s))
+
+let of_string parts =
+  match parts with
+  | [ "w"; value ] -> (
+      match value with
+      | "auto" -> Ok w_auto
+      | "full" -> Ok w_full
+      | "screen" -> Ok w_screen
+      | "min" -> Ok w_min
+      | "max" -> Ok w_max
+      | "fit" -> Ok w_fit
+      | frac when String.contains frac '/' -> fraction_of_string frac
+      | v -> (
+          match spacing_value_of_string v with
+          | Ok css_val -> Ok (style ("w-" ^ v) [ width css_val ])
+          | Error _ -> Error (`Msg ("Invalid width value: " ^ v))))
+  | [ "h"; value ] -> (
+      match value with
+      | "auto" -> Ok h_auto
+      | "full" -> Ok h_full
+      | "screen" -> Ok h_screen
+      | "min" -> Ok h_min
+      | "max" -> Ok h_max
+      | "fit" -> Ok h_fit
+      | frac when String.contains frac '/' -> h_fraction_of_string frac
+      | v -> (
+          match spacing_value_of_string v with
+          | Ok css_val -> Ok (style ("h-" ^ v) [ height css_val ])
+          | Error _ -> Error (`Msg ("Invalid height value: " ^ v))))
+  | [ "min"; "w"; value ] -> (
+      match value with
+      | "0" -> Ok min_w_0
+      | "full" -> Ok min_w_full
+      | "min" -> Ok min_w_min
+      | "max" -> Ok min_w_max
+      | "fit" -> Ok min_w_fit
+      | v -> (
+          match spacing_value_of_string v with
+          | Ok css_val -> Ok (style ("min-w-" ^ v) [ min_width css_val ])
+          | Error _ -> Error (`Msg ("Invalid min-width value: " ^ v))))
+  | [ "min"; "h"; value ] -> (
+      match value with
+      | "0" -> Ok min_h_0
+      | "full" -> Ok min_h_full
+      | "screen" -> Ok min_h_screen
+      | v -> (
+          match spacing_value_of_string v with
+          | Ok css_val -> Ok (style ("min-h-" ^ v) [ min_height css_val ])
+          | Error _ -> Error (`Msg ("Invalid min-height value: " ^ v))))
+  | [ "max"; "w"; value ] -> (
+      match value with
+      | "none" -> Ok max_w_none
+      | "xs" -> Ok max_w_xs
+      | "sm" -> Ok max_w_sm
+      | "md" -> Ok max_w_md
+      | "lg" -> Ok max_w_lg
+      | "xl" -> Ok max_w_xl
+      | "2xl" -> Ok max_w_2xl
+      | "3xl" -> Ok max_w_3xl
+      | "4xl" -> Ok max_w_4xl
+      | "5xl" -> Ok max_w_5xl
+      | "6xl" -> Ok max_w_6xl
+      | "7xl" -> Ok max_w_7xl
+      | "full" -> Ok max_w_full
+      | "min" -> Ok max_w_min
+      | "max" -> Ok max_w_max
+      | "fit" -> Ok max_w_fit
+      | "prose" -> Ok max_w_prose
+      | _ -> Error (`Msg ("Invalid max-width value: " ^ value)))
+  | [ "max"; "w"; "screen"; size ] -> (
+      match size with
+      | "sm" -> Ok max_w_screen_sm
+      | "md" -> Ok max_w_screen_md
+      | "lg" -> Ok max_w_screen_lg
+      | "xl" -> Ok max_w_screen_xl
+      | "2xl" -> Ok max_w_screen_2xl
+      | _ -> Error (`Msg ("Invalid max-width screen size: " ^ size)))
+  | [ "max"; "h"; value ] -> (
+      match value with
+      | "none" -> Ok max_h_none
+      | "full" -> Ok max_h_full
+      | "screen" -> Ok max_h_screen
+      | "min" -> Ok max_h_min
+      | "max" -> Ok max_h_max
+      | "fit" -> Ok max_h_fit
+      | v -> (
+          match spacing_value_of_string v with
+          | Ok css_val -> Ok (style ("max-h-" ^ v) [ max_height css_val ])
+          | Error _ -> Error (`Msg ("Invalid max-height value: " ^ v))))
+  | [ "size"; value ] -> (
+      match value with
+      | "auto" -> Ok (style "size-auto" [ width Auto; height Auto ])
+      | "full" ->
+          Ok (style "size-full" [ width (Pct 100.0); height (Pct 100.0) ])
+      | "min" -> Ok (style "size-min" [ width Min_content; height Min_content ])
+      | "max" -> Ok (style "size-max" [ width Max_content; height Max_content ])
+      | "fit" -> Ok (style "size-fit" [ width Fit_content; height Fit_content ])
+      | frac when String.contains frac '/' -> size_fraction_of_string frac
+      | v -> (
+          match spacing_value_of_string v with
+          | Ok css_val ->
+              Ok (style ("size-" ^ v) [ width css_val; height css_val ])
+          | Error _ -> Error (`Msg ("Invalid size value: " ^ v))))
+  | _ -> Error (`Msg "Not a sizing utility")

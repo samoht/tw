@@ -675,7 +675,7 @@ let to_css ?(reset = true) tw_classes =
   (* Build the complete stylesheet with layers - just like Tailwind v4 *)
   if reset then
     (* Extract which Tailwind CSS variables are actually used *)
-    (* Collect all properties from all styles to analyze variable usage *)
+    (* Collect all properties and vars from all styles to analyze variable usage *)
     let rec collect_all_props style =
       match style with
       | Style { props; _ } -> props
@@ -684,7 +684,16 @@ let to_css ?(reset = true) tw_classes =
       | Prose _ -> []
     in
 
+    let rec collect_all_vars style =
+      match style with
+      | Style { vars; _ } -> vars
+      | Modified (_, t) -> collect_all_vars t
+      | Group styles -> List.concat_map collect_all_vars styles
+      | Prose _ -> []
+    in
+
     let all_props = tw_classes |> List.concat_map collect_all_props in
+    let all_vars = tw_classes |> List.concat_map collect_all_vars in
 
     (* Analyze variable usage to determine what properties layer is needed *)
     let var_tally = Var.analyze_properties all_props in
@@ -819,6 +828,14 @@ let to_css ?(reset = true) tw_classes =
              let order_b = canonical_var_order b in
              if order_a <> order_b then Int.compare order_a order_b
              else String.compare a b)
+    in
+
+    (* Generate CSS properties from Core.var values *)
+    let var_generated_props =
+      all_vars
+      |> List.sort_uniq compare (* Remove duplicates *)
+      |> List.concat_map Core.var_to_css_properties
+      |> List.map (fun (name, value) -> Css.custom_property name value)
     in
 
     (* Generate values for theme variables *)
@@ -980,7 +997,8 @@ let to_css ?(reset = true) tw_classes =
     in
 
     let theme_vars_with_fonts =
-      font_vars @ theme_generated_vars @ default_font_props
+      font_vars @ var_generated_props @ theme_generated_vars
+      @ default_font_props
     in
 
     let theme_layer =

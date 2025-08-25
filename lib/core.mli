@@ -44,9 +44,24 @@ type modifier =
   | Contrast_more
   | Contrast_less
 
-type var = Color of { name : string; shade : int option } | Spacing of int
+type var =
+  | Color of { name : string; shade : int option; value : string }
+    (* e.g., name="blue", shade=Some 500, value="#3b82f6" *)
+  | Spacing of { multiplier : int; value : string }
+    (* e.g., multiplier=4 for 1rem, value="1rem" *)
+  | Radius of { name : string; value : string }
+    (* e.g., name="sm", value=".125rem" *)
+  | Font of { name : string; value : string }
+(* e.g., name="sans", value="ui-sans-serif, ..." *)
 
 val color_var : ?shade:int -> string -> var
+
+val spacing_var : int -> var
+(** [spacing_var n] creates a spacing variable for multiplier n (n * 0.25rem) *)
+
+val var_to_css_properties : var -> (string * string) list
+(** [var_to_css_properties var] returns the CSS custom property declarations
+    needed for this variable. Returns a list of (property-name, value) pairs. *)
 
 type t =
   | Style of { name : string; props : Css.declaration list; vars : var list }
@@ -63,3 +78,6 @@ type shadow = [ size | `Inner ]
 
 val style : string -> Css.declaration list -> t
 val style_with_vars : string -> Css.declaration list -> var list -> t
+
+val pp : t -> string
+(** [pp t] returns the class name(s) for a Core.t value *)

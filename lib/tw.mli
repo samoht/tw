@@ -2516,3 +2516,25 @@ val clip_path : string -> t
           ]
         []
     ]} *)
+
+(** {1 Module Exports} *)
+
+(**/**)
+
+(* Module exports for testing - not part of public API *)
+module Core = Core
+module Spacing = Spacing
+module Borders = Borders
+module Sizing = Sizing
+module Layout = Layout
+module Typography = Typography
+module Effects = Effects
+module Transforms = Transforms
+module Interactivity = Interactivity
+module Containers = Containers
+module Filters = Filters
+module Positioning = Positioning
+module Animations = Animations
+module Forms = Forms
+
+(**/**)

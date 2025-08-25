@@ -79,3 +79,9 @@ val max_h_screen : t
 val max_h_min : t
 val max_h_max : t
 val max_h_fit : t
+
+(** {1 String Parsing} *)
+
+val of_string : string list -> (t, [ `Msg of string ]) result
+(** [of_string parts] parses a list of strings into a sizing utility. Returns
+    [Ok t] if successful, or [Error msg] if the input is invalid. *)
