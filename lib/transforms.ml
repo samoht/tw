@@ -1,4 +1,19 @@
-(** Transform utilities for 2D and 3D transformations *)
+(** Transform utilities for 2D and 3D transformations
+
+    What's included:
+    - 2D: `rotate-*`, `translate-x-*`, `translate-y-*` (supports negatives),
+      `scale*`, `skew*`.
+    - 3D: `rotate-x/y/z-*`, `translate-z-*`, `scale-z-*`, `perspective-*`,
+      perspective origin, transform style/gpu toggles.
+
+    What's not:
+    - Full transform composition shorthands beyond helpers provided here. Use
+      `transform` utility or build custom transforms with `Css.transform`.
+
+    Parsing contract (`of_string`):
+    - Accepts tokens like ["rotate"; n], ["translate"; "x"; n], ["scale"; n],
+      ["perspective"; n], etc. Unknown tokens yield `Error (`Msg "Not a
+      transform utility")`. *)
 
 open Core
 open Css

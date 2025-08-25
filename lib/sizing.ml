@@ -1,11 +1,29 @@
-(** Sizing utilities for width and height *)
+(** Sizing utilities for width and height
+
+    What's included:
+    - Width/height: `w-*`, `h-*` including fractions (`1/2`, `2/3`, ...),
+      spacing-scale values, `auto/full/screen/min/max/fit`.
+    - Min/max width/height: `min-w-*`, `max-w-*`, `min-h-*`, `max-h-*`,
+      including screen breakpoints and prose width.
+    - Square sizing: `size-*` (applies to both width and height).
+
+    What's not:
+    - Arbitrary values not on the spacing scale. Extend via `style` with raw
+      `Css` lengths if needed.
+
+    Parsing contract (`of_string`):
+    - Grammar examples: * ["w"; v], ["h"; v] where v ∈ spacing scale | fraction
+      | special keywords * ["min"; "w"; v], ["min"; "h"; v] * ["max"; "w"; v],
+      ["max"; "w"; "screen"; bk], ["max"; "h"; v] * ["size"; v]
+    - Errors: returns `Error (`Msg ..)` with a short reason, or `Error (`Msg
+      "Not a sizing utility")` on unknown prefixes. *)
 
 open Core
 open Css
 
 (** {1 Width Utilities} *)
 
-let w size =
+let w' size =
   match size with
   | `None -> style "w-0" [ width (Px 0) ]
   | `Xs -> style "w-xs" [ width (Rem 0.5) ]
@@ -33,9 +51,14 @@ let w_2_5 = style "w-2/5" [ width (Pct 40.0) ]
 let w_3_5 = style "w-3/5" [ width (Pct 60.0) ]
 let w_4_5 = style "w-4/5" [ width (Pct 80.0) ]
 
+(* Int-based width function for Tailwind scale *)
+let w n =
+  let class_name = "w-" ^ string_of_int n in
+  style class_name [ width (Rem (float_of_int n *. 0.25)) ]
+
 (** {1 Height Utilities} *)
 
-let h size =
+let h' size =
   match size with
   | `None -> style "h-0" [ height (Px 0) ]
   | `Xs -> style "h-xs" [ height (Rem 0.5) ]
@@ -63,9 +86,14 @@ let h_2_5 = style "h-2/5" [ height (Pct 40.0) ]
 let h_3_5 = style "h-3/5" [ height (Pct 60.0) ]
 let h_4_5 = style "h-4/5" [ height (Pct 80.0) ]
 
+(* Int-based height function for Tailwind scale *)
+let h n =
+  let class_name = "h-" ^ string_of_int n in
+  style class_name [ height (Rem (float_of_int n *. 0.25)) ]
+
 (** {1 Min Width Utilities} *)
 
-let min_w size =
+let min_w' size =
   match size with
   | `None -> style "min-w-0" [ min_width (Px 0) ]
   | `Xs -> style "min-w-xs" [ min_width (Rem 0.5) ]
@@ -83,9 +111,14 @@ let min_w_min = style "min-w-min" [ min_width Min_content ]
 let min_w_max = style "min-w-max" [ min_width Max_content ]
 let min_w_fit = style "min-w-fit" [ min_width Fit_content ]
 
+(* Int-based min-width function for Tailwind scale *)
+let min_w n =
+  let class_name = "min-w-" ^ string_of_int n in
+  style class_name [ min_width (Rem (float_of_int n *. 0.25)) ]
+
 (** {1 Max Width Utilities} *)
 
-let max_w size =
+let max_w' size =
   match size with
   | `None -> style "max-w-none" [ (* max-width: none not directly supported *) ]
   | `Xs -> style "max-w-xs" [ max_width (Rem 20.0) ]
@@ -122,9 +155,14 @@ let max_w_screen_lg = style "max-w-screen-lg" [ max_width (Px 1024) ]
 let max_w_screen_xl = style "max-w-screen-xl" [ max_width (Px 1280) ]
 let max_w_screen_2xl = style "max-w-screen-2xl" [ max_width (Px 1536) ]
 
+(* Int-based max-width function for Tailwind scale *)
+let max_w n =
+  let class_name = "max-w-" ^ string_of_int n in
+  style class_name [ max_width (Rem (float_of_int n *. 0.25)) ]
+
 (** {1 Min Height Utilities} *)
 
-let min_h size =
+let min_h' size =
   match size with
   | `None -> style "min-h-0" [ min_height (Px 0) ]
   | `Xs -> style "min-h-xs" [ min_height (Rem 0.5) ]
@@ -143,9 +181,14 @@ let min_h_min = style "min-h-min" [ min_height Min_content ]
 let min_h_max = style "min-h-max" [ min_height Max_content ]
 let min_h_fit = style "min-h-fit" [ min_height Fit_content ]
 
+(* Int-based min-height function for Tailwind scale *)
+let min_h n =
+  let class_name = "min-h-" ^ string_of_int n in
+  style class_name [ min_height (Rem (float_of_int n *. 0.25)) ]
+
 (** {1 Max Height Utilities} *)
 
-let max_h size =
+let max_h' size =
   match size with
   | `None ->
       style "max-h-none" [ (* max-height: none not directly supported *) ]
@@ -166,6 +209,11 @@ let max_h_screen = style "max-h-screen" [ max_height (Vh 100.0) ]
 let max_h_min = style "max-h-min" [ max_height Min_content ]
 let max_h_max = style "max-h-max" [ max_height Max_content ]
 let max_h_fit = style "max-h-fit" [ max_height Fit_content ]
+
+(* Int-based max-height function for Tailwind scale *)
+let max_h n =
+  let class_name = "max-h-" ^ string_of_int n in
+  style class_name [ max_height (Rem (float_of_int n *. 0.25)) ]
 
 (** {1 String Parsing} *)
 

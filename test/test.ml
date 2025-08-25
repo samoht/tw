@@ -10,5 +10,6 @@ let () =
        ("sizing", Test_sizing.tests);
        ("layout", Test_layout.tests);
        ("typography", Test_typography.tests);
+       ("effects", Test_effects.tests);
      ]
     @ Test_pp.suite @ Test_prose.suite)

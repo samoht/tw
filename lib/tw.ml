@@ -10,7 +10,24 @@
     - Type-safe API that prevents invalid CSS at compile time
     - Simplified spacing functions that accept integers directly
     - Support for modern CSS features like container queries and 3D transforms
-    - Minimal bundle size for js_of_ocaml by avoiding Format module *)
+    - Minimal bundle size for js_of_ocaml by avoiding Format module
+
+    Modifiers:
+    - Responsive: `sm:`, `md:`, `lg:`, `xl:`, `2xl:`
+    - State: `hover:`, `focus:`, `active:`, `disabled:`, `dark:` and peers/group
+      variants like `group-hover:`, `peer-focus:`, plus `aria-*`, `data-*`, and
+      container query prefixes (`@sm`, named containers).
+    - Composition: modifiers compose left‑to‑right just like Tailwind. Examples:
+      `sm:hover:text-blue-500`, `dark:focus:underline`,
+      `group-hover:bg-blue-500`.
+
+    Variables and layers:
+    - `Rules.to_css ~reset:true` emits Tailwind‑like layers: 1) Base reset, 2)
+      Properties (only when specific composition groups are referenced), 3)
+      Theme variables (only the variables actually referenced by your styles),
+      then utility rules.
+    - Variable discovery uses `Css.all_vars` over declarations and integrates
+      with `Var` to generate `--*` custom properties on demand. *)
 
 open Css
 
@@ -27,10 +44,6 @@ type color = Color.t
 
 (* Re-export Color module *)
 module Color = Color
-
-(* Backwards compatibility - keep scale type that hasn't been moved yet *)
-type scale = [ spacing | size | `Screen | `Min | `Max | `Fit ]
-type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 
 (* Re-export CSS module *)
 module Css = Css
@@ -63,12 +76,6 @@ let rose = Color.rose
 let hex = Color.hex
 let rgb = Color.rgb
 
-(** {1 Helpers} *)
-
-(* These are now imported from Core *)
-let style = Core.style
-let style_with_vars = Core.style_with_vars
-
 (** {1 Helper Functions} *)
 
 (** Convert hex color to rgb format - now only handles hex strings *)
@@ -80,32 +87,6 @@ let style_with_vars = Core.style_with_vars
 (** {1 Public API} *)
 
 (* Value constructors *)
-
-(* Spacing constructors *)
-let rem f = `Rem f
-let int n = rem (float_of_int n *. 0.25)
-let one_px = `Px
-let full = `Full
-
-(* Size constructors *)
-let screen = `Screen
-let min = `Min
-let max = `Max
-let fit = `Fit
-
-(* Max width constructors *)
-let none = `None
-let xs = `Xs
-let sm = `Sm
-let md = `Md
-let lg = `Lg
-let xl = `Xl
-let xl_2 = `Xl_2
-let xl_3 = `Xl_3
-let xl_4 = `Xl_4
-let xl_5 = `Xl_5
-let xl_6 = `Xl_6
-let xl_7 = `Xl_7
 
 (* Include only the color application utilities we need *)
 include struct
@@ -194,77 +175,7 @@ include struct
   let border_rose = border_rose
 end
 
-let pp_spacing_suffix : spacing -> string = function
-  | `Px -> "px"
-  | `Full -> "full"
-  | `Rem f ->
-      (* Convert rem values back to Tailwind scale *)
-      let n = int_of_float (f /. 0.25) in
-      string_of_int (abs n)
-
-let pp_size_suffix : size -> string = function
-  | `None -> "none"
-  | `Xs -> "xs"
-  | `Sm -> "sm"
-  | `Md -> "md"
-  | `Lg -> "lg"
-  | `Xl -> "xl"
-  | `Xl_2 -> "2xl"
-  | `Xl_3 -> "3xl"
-  | `Full -> "full"
-
-let pp_scale_suffix : scale -> string = function
-  | `Screen -> "screen"
-  | `Min -> "min"
-  | `Max -> "max"
-  | `Fit -> "fit"
-  | #spacing as s -> pp_spacing_suffix s
-  | #size as s -> pp_size_suffix s
-
-let pp_max_scale_suffix : max_scale -> string = function
-  | `Xl_4 -> "4xl"
-  | `Xl_5 -> "5xl"
-  | `Xl_6 -> "6xl"
-  | `Xl_7 -> "7xl"
-  | #scale as s -> pp_scale_suffix s
-
-(* pp_margin_suffix removed - no longer used *)
-
-(* margin_to_length removed - no longer used *)
-
-let rec scale_to_length : scale -> Css.length = function
-  | `Screen -> Css.Vh 100.0
-  | `Min | `Max | `Fit ->
-      Css.Auto (* These need special handling, using Auto for now *)
-  | #spacing as s -> Spacing.spacing_to_length s
-  | #size as s -> size_to_length s
-
-and size_to_length : size -> Css.length = function
-  | `None -> Zero
-  | `Xs -> Rem 0.125
-  | `Sm -> Rem 0.25
-  | `Md -> Rem 0.375
-  | `Lg -> Rem 0.5
-  | `Xl -> Rem 0.75
-  | `Xl_2 -> Rem 1.0
-  | `Xl_3 -> Rem 1.5
-  | `Full -> Pct 100.0
-
-let max_scale_to_length : max_scale -> Css.length = function
-  | `Xl_4 -> Rem 56.0
-  | `Xl_5 -> Rem 64.0
-  | `Xl_6 -> Rem 72.0
-  | `Xl_7 -> Rem 80.0
-  | #scale as s -> scale_to_length s
-
 (** {1 Spacing} *)
-
-(* Helper to extract spacing variables from scale types - still needed for
-   sizing *)
-let scale_vars = function
-  | `Rem _ ->
-      [] (* The --spacing variable is handled via string parsing in all_vars *)
-  | _ -> []
 
 (* Include all spacing utilities *)
 include Spacing
@@ -300,79 +211,8 @@ let gap_full = gap' `Full
 
 (** {1 Sizing} *)
 
-(* Typed scale functions with ' suffix *)
-let w' (s : scale) =
-  let class_name = "w-" ^ pp_scale_suffix s in
-  let decl =
-    match s with
-    | `Fit -> Css.width Fit_content
-    | `Min -> Css.width Min_content
-    | `Max -> Css.width Max_content
-    | _ -> Css.width (scale_to_length s)
-  in
-  style_with_vars class_name [ decl ] (scale_vars s)
-
-let h' (s : scale) =
-  let class_name = "h-" ^ pp_scale_suffix s in
-  let decl =
-    match s with
-    | `Fit -> Css.height Fit_content
-    | `Min -> Css.height Min_content
-    | `Max -> Css.height Max_content
-    | _ -> Css.height (scale_to_length s)
-  in
-  style_with_vars class_name [ decl ] (scale_vars s)
-
-let min_w' (s : scale) =
-  let class_name = "min-w-" ^ pp_scale_suffix s in
-  let len = scale_to_length s in
-  style_with_vars class_name [ Css.min_width len ] (scale_vars s)
-
-let min_h' (s : scale) =
-  let class_name = "min-h-" ^ pp_scale_suffix s in
-  let len = scale_to_length s in
-  style_with_vars class_name [ Css.min_height len ] (scale_vars s)
-
-let max_w' (s : max_scale) =
-  let class_name = "max-w-" ^ pp_max_scale_suffix s in
-  let len = max_scale_to_length s in
-  let vars = match s with #scale as sc -> scale_vars sc | _ -> [] in
-  style_with_vars class_name [ Css.max_width len ] vars
-
-let max_h' (s : max_scale) =
-  let class_name = "max-h-" ^ pp_max_scale_suffix s in
-  let len = max_scale_to_length s in
-  let vars = match s with #scale as sc -> scale_vars sc | _ -> [] in
-  style_with_vars class_name [ Css.max_height len ] vars
-
-(* Int-based scale functions (convenience wrappers) *)
-let w n = w' (int n)
-let h n = h' (int n)
-let min_w n = min_w' (int n)
-let min_h n = min_h' (int n)
-let max_w n = max_w' (int n)
-let max_h n = max_h' (int n)
-
-(* Common size utilities *)
-let w_full = w' `Full (* Very common for full width *)
-let h_full = h' `Full (* Very common for full height *)
-let w_fit = w' `Fit (* Common for fit-content sizing *)
-let h_fit = h' `Fit (* Common for fit-content sizing *)
-let w_screen = w' `Screen (* Full viewport width *)
-let h_screen = h' `Screen (* Full viewport height *)
-let w_min = w' `Min (* Min-content width *)
-let h_min = h' `Min (* Min-content height *)
-let w_max = w' `Max (* Max-content width *)
-let h_max = h' `Max (* Max-content height *)
-let min_h_screen = min_h' `Screen (* Common for full viewport height *)
-let min_w_full = min_w' `Full (* Minimum width 100% *)
-let min_h_full = min_h' `Full (* Minimum height 100% *)
-let max_w_2xl = max_w' `Xl_2 (* Common for article text *)
-let max_w_3xl = max_w' `Xl_3 (* Common for content width *)
-let max_w_4xl = max_w' `Xl_4 (* Common for content width *)
-let max_w_none = max_w' `None (* No maximum width *)
-let max_w_full = max_w' `Full (* Maximum width 100% *)
-let max_h_full = max_h' `Full (* Maximum height 100% *)
+(* Include sizing utilities from the module *)
+include Sizing
 
 (** {1 Typography} *)
 
@@ -423,36 +263,11 @@ include Animations
 (* Include form utilities *)
 include Forms
 
-(** {1 Sizing} *)
-
-(* Sizing utilities are provided through wrapper functions, not included
-   directly to avoid naming conflicts *)
-
 (* Modifiers *)
 
 (** {1 Additional Utilities} *)
 
-(* Grid utilities that depend on dynamic values *)
-let grid_cols n =
-  let class_name = "grid-cols-" ^ string_of_int n in
-  style class_name
-    [
-      Css.Grid.template_columns
-        (Css.Repeat (n, Css.Min_max (Css.Px 0, Css.Fr 1.)));
-    ]
-
-let grid_rows n =
-  let class_name = "grid-rows-" ^ string_of_int n in
-  style class_name
-    [
-      Css.Grid.template_rows (Css.Repeat (n, Css.Min_max (Css.Px 0, Css.Fr 1.)));
-    ]
-
-(* Opacity wrapper for int-based API *)
-let opacity n =
-  let class_name = "opacity-" ^ string_of_int n in
-  let value = float_of_int n /. 100.0 in
-  style class_name [ Css.opacity value ]
+(* Grid and opacity utilities are now provided by their respective modules *)
 
 (* These utilities haven't been moved to separate modules yet *)
 
@@ -519,42 +334,6 @@ let whitespace_pre_line =
 let whitespace_pre_wrap =
   style "whitespace-pre-wrap" [ Css.white_space Pre_wrap ]
 
-(* Additional border utilities with custom implementations *)
-let border_internal (w : size) =
-  let width_len, class_suffix =
-    match w with
-    | `None -> (Css.Zero, "-0")
-    | `Xs -> (Css.Px 1, "" (* Default border is 1px *))
-    | `Sm -> (Css.Px 2, "-2")
-    | `Md -> (Css.Px 4, "-4" (* For borders, Md maps to 4px *))
-    | `Lg -> (Css.Px 4, "-4")
-    | `Xl -> (Css.Px 8, "-8")
-    | `Xl_2 -> (Css.Px 8, "-8")
-    | `Xl_3 -> (Css.Px 8, "-8")
-    | `Full -> (Css.Px 8, "-8")
-  in
-  let class_name = "border" ^ class_suffix in
-  style class_name
-    [
-      Css.border_style (Var (Css.var "tw-border-style"));
-      Css.border_width width_len;
-    ]
-
-let border_xs = border_internal `Xs
-let border_sm = border_internal `Sm
-let border_md = border_internal `Md
-let border_lg = border_internal `Lg
-let border_xl = border_internal `Xl
-let border_2xl = border_internal `Xl_2
-let border_3xl = border_internal `Xl_3
-let border_full = border_internal `Full
-
-let border_none_style =
-  style "border-none"
-    [
-      Css.custom_property "--tw-border-style" "none"; Css.border_style Css.None;
-    ]
-
 (* Table utilities *)
 let border_collapse = style "border-collapse" [ Css.border_collapse Collapse ]
 let border_separate = style "border-separate" [ Css.border_collapse Separate ]
@@ -588,8 +367,6 @@ let contain_layout = style "contain-layout" [ Css.contain "layout" ]
 let contain_paint = style "contain-paint" [ Css.contain "paint" ]
 let contain_size = style "contain-size" [ Css.contain "size" ]
 
-type width = size
-
 let pointer_events_none =
   style "pointer-events-none"
     [ Css.pointer_events (None : Css.pointer_events_value) ]
@@ -600,42 +377,7 @@ let pointer_events_auto =
 
 let outline_none = style "outline-none" [ Css.outline "none" ]
 
-let ring_internal (w : width) =
-  let width, class_suffix =
-    match w with
-    | `None -> ("0", "0")
-    | `Xs -> ("1px", "1")
-    | `Sm -> ("2px", "2")
-    | `Md -> ("3px", "" (* Default ring width is 3px *))
-    | `Lg -> ("4px", "4")
-    | `Xl -> ("8px", "8")
-    | `Xl_2 -> ("8px", "8" (* Map Xl_2 to 8px as well *))
-    | `Xl_3 -> ("8px", "8" (* Map Xl_3 to 8px as well *))
-    | `Full -> ("8px", "8" (* Map Full to 8px as well *))
-  in
-  let class_name =
-    if class_suffix = "" then "ring" else "ring-" ^ class_suffix
-  in
-  let shadow_value =
-    if width = "0" then "0 0 #0000"
-    else "0 0 0 " ^ width ^ " var(--tw-ring-color)"
-  in
-  style class_name
-    [
-      Css.custom_property "--tw-ring-color" "rgb(59 130 246 / 0.5)";
-      box_shadow
-        "var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 \
-         #0000),var(--tw-shadow,0 0 #0000)";
-      Css.custom_property "--tw-ring-shadow" shadow_value;
-    ]
-
-let ring_none = ring_internal `None
-let ring_xs = ring_internal `Xs
-let ring_sm = ring_internal `Sm
-let ring = ring_internal `Md (* Default ring *)
-let ring_md = ring_internal `Md
-let ring_lg = ring_internal `Lg
-let ring_xl = ring_internal `Xl
+(* Ring utilities are provided by the Effects module *)
 
 let ring_color color shade =
   let class_name =
@@ -1102,21 +844,8 @@ let line_clamp n =
 
 (* Opacity utilities *)
 
-(* Helper parsing functions *)
-
-let int_of_string_positive name s =
-  match int_of_string_opt s with
-  | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
-  | Some n when n >= 0 -> Ok n
-  | Some _ -> Error (`Msg (name ^ " must be non-negative: " ^ s))
-
-(* Helper for Result.bind-like operation *)
-
 (* Helper for "try this or else try that" *)
 let ( <|> ) r1 r2 = match r1 with Ok _ -> r1 | Error _ -> r2
-
-(* Helper for Result.map-like operation *)
-let ( >|= ) r f = match r with Error _ as e -> e | Ok x -> Ok (f x)
 
 (* Parse modifiers (responsive, states) from class string *)
 let modifiers_of_string class_str =
@@ -1175,78 +904,7 @@ let apply_modifiers modifiers base_style =
 
 (* Helper functions for parsing *)
 
-let width_of_string = function
-  | [ "w"; "full" ] -> Ok w_full
-  | [ "w"; "screen" ] -> Ok (w' screen)
-  | [ "w"; "min" ] -> Ok (w' min)
-  | [ "w"; "max" ] -> Ok (w' max)
-  | [ "w"; "fit" ] -> Ok w_fit
-  | [ "w"; "px" ] -> Ok (w' one_px)
-  | [ "w"; "auto" ] -> Ok (w' none)
-  | [ "w"; n ] -> int_of_string_positive "width" n >|= w
-  | _ -> Error (`Msg "")
-
-let height_of_string = function
-  | [ "h"; "full" ] -> Ok h_full
-  | [ "h"; "screen" ] -> Ok (h' screen)
-  | [ "h"; "min" ] -> Ok (h' min)
-  | [ "h"; "max" ] -> Ok (h' max)
-  | [ "h"; "fit" ] -> Ok (h' fit)
-  | [ "h"; "px" ] -> Ok (h' one_px)
-  | [ "h"; "auto" ] -> Ok (h' none)
-  | [ "h"; n ] -> int_of_string_positive "height" n >|= h
-  | _ -> Error (`Msg "")
-
-let min_width_of_string = function
-  | [ "min"; "w"; "full" ] -> Ok (min_w' full)
-  | [ "min"; "w"; "min" ] -> Ok (min_w' min)
-  | [ "min"; "w"; "max" ] -> Ok (min_w' max)
-  | [ "min"; "w"; "fit" ] -> Ok (min_w' fit)
-  | [ "min"; "w"; "px" ] -> Ok (min_w' one_px)
-  | [ "min"; "w"; n ] -> int_of_string_positive "min-width" n >|= min_w
-  | _ -> Error (`Msg "")
-
-let min_height_of_string = function
-  | [ "min"; "h"; "full" ] -> Ok (min_h' full)
-  | [ "min"; "h"; "screen" ] -> Ok (min_h' screen)
-  | [ "min"; "h"; "min" ] -> Ok (min_h' min)
-  | [ "min"; "h"; "max" ] -> Ok (min_h' max)
-  | [ "min"; "h"; "fit" ] -> Ok (min_h' fit)
-  | [ "min"; "h"; "px" ] -> Ok (min_h' one_px)
-  | [ "min"; "h"; n ] -> int_of_string_positive "min-height" n >|= min_h
-  | _ -> Error (`Msg "")
-
-let max_width_of_string = function
-  | [ "max"; "w"; "none" ] -> Ok (max_w' none)
-  | [ "max"; "w"; "xs" ] -> Ok (max_w' xs)
-  | [ "max"; "w"; "sm" ] -> Ok (max_w' sm)
-  | [ "max"; "w"; "md" ] -> Ok (max_w' md)
-  | [ "max"; "w"; "lg" ] -> Ok (max_w' lg)
-  | [ "max"; "w"; "xl" ] -> Ok (max_w' xl)
-  | [ "max"; "w"; "2xl" ] -> Ok (max_w' xl_2)
-  | [ "max"; "w"; "3xl" ] -> Ok (max_w' xl_3)
-  | [ "max"; "w"; "4xl" ] -> Ok (max_w' xl_4)
-  | [ "max"; "w"; "5xl" ] -> Ok (max_w' xl_5)
-  | [ "max"; "w"; "6xl" ] -> Ok (max_w' xl_6)
-  | [ "max"; "w"; "7xl" ] -> Ok (max_w' xl_7)
-  | [ "max"; "w"; "full" ] -> Ok (max_w' full)
-  | [ "max"; "w"; "min" ] -> Ok (max_w' min)
-  | [ "max"; "w"; "max" ] -> Ok (max_w' max)
-  | [ "max"; "w"; "fit" ] -> Ok (max_w' fit)
-  | [ "max"; "w"; "px" ] -> Ok (max_w' one_px)
-  | [ "max"; "w"; n ] -> int_of_string_positive "max-width" n >|= max_w
-  | _ -> Error (`Msg "")
-
-let max_height_of_string = function
-  | [ "max"; "h"; "full" ] -> Ok (max_h' full)
-  | [ "max"; "h"; "screen" ] -> Ok (max_h' screen)
-  | [ "max"; "h"; "min" ] -> Ok (max_h' min)
-  | [ "max"; "h"; "max" ] -> Ok (max_h' max)
-  | [ "max"; "h"; "fit" ] -> Ok (max_h' fit)
-  | [ "max"; "h"; "px" ] -> Ok (max_h' one_px)
-  | [ "max"; "h"; "none" ] -> Ok (max_h' none)
-  | [ "max"; "h"; n ] -> int_of_string_positive "max-height" n >|= max_h
-  | _ -> Error (`Msg "")
+(* Width and height parsing functions moved to Sizing module *)
 
 (* Parse color-related classes *)
 
@@ -1273,14 +931,7 @@ let of_string class_str =
     Spacing.of_string parts
     <|>
     (* Try sizing utilities *)
-    (match parts with
-    | "w" :: _ -> width_of_string parts
-    | "h" :: _ -> height_of_string parts
-    | "min" :: "w" :: _ -> min_width_of_string parts
-    | "min" :: "h" :: _ -> min_height_of_string parts
-    | "max" :: "w" :: _ -> max_width_of_string parts
-    | "max" :: "h" :: _ -> max_height_of_string parts
-    | _ -> Error (`Msg ""))
+    Sizing.of_string parts
     <|>
     (* Try layout utilities *)
     Layout.of_string parts

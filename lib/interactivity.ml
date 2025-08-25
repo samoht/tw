@@ -1,4 +1,15 @@
-(** Interactivity utilities for cursor, selection, and scroll behavior *)
+(** Interactivity utilities for cursor, selection, and scroll behavior
+
+    What's included:
+    - Cursor styles, text selection, scroll behavior, scroll snap, resize.
+
+    What's not:
+    - Browser-specific interaction properties not surfaced in `Css`.
+
+    Parsing contract (`of_string`):
+    - Accepts tokens like ["cursor"; "pointer"], ["select"; "none"],
+      ["scroll"; "smooth"], ["snap"; "x"], ["resize"; "y"], etc. Unknown tokens
+      yield `Error (`Msg "Not an interactivity utility")`. *)
 
 open Core
 open Css

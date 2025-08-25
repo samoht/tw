@@ -1,4 +1,26 @@
-(** Spacing utilities for padding, margin, and gap *)
+(** Spacing utilities for padding, margin, and gap
+
+    What's included:
+    - Padding: `p`, `px`, `py`, `pt`, `pr`, `pb`, `pl` (int scale, `px`, `full`)
+    - Margin: `m`, `mx`, `my`, `mt`, `mr`, `mb`, `ml` (int scale, `auto`)
+    - Gap: `gap`, `gap-x`, `gap-y`
+    - Space between: `space-x-N`, `space-y-N`
+
+    What's not:
+    - Arbitrary values and fractional strings outside the Tailwind spacing
+      scale. Extend with custom `Css` if needed, e.g. `style "p-[3.7px]" [Css.padding (Px 3.7)]`.
+    - `margin-trim` and other niche properties not present in the typed `Css` API.
+
+    Parsing contract (`of_string`):
+    - Accepted tokens include:
+      * ["p"; v], ["px"; v], ["py"; v], ["pt"; v], ["pr"; v], ["pb"; v], ["pl"; v]
+        where v ∈ {"px", "full", non‑negative int}
+      * ["m"; v], ["mx"; v], ["my"; v], ["mt"; v], ["mr"; v], ["mb"; v], ["ml"; v]
+        where v ∈ {"auto", non‑negative int}
+      * ["gap"; v], ["gap"; "x"; v], ["gap"; "y"; v]
+        where v ∈ {"px", "full", non‑negative int}
+    - Errors: returns `Error (`Msg msg)` with a short description, or
+      `Error (`Msg "Not a spacing utility")` when prefix is unknown. *)
 
 open Core
 open Css
