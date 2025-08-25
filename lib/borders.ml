@@ -123,20 +123,14 @@ let border_full = border_8 (* 8px *)
 
 (** {1 Border Radius Utilities} *)
 
-let rounded_none =
-  style_with_vars "rounded-none"
-    [ border_radius (Var { name = "radius-none"; fallback = None }) ]
-    [ Radius { name = "none"; value = "0" } ]
+let rounded_none = style "rounded-none" [ border_radius Zero ]
 
 let rounded_sm =
   style_with_vars "rounded-sm"
     [ border_radius (Var { name = "radius-sm"; fallback = None }) ]
-    [ Radius { name = "sm"; value = ".125rem" } ]
+    [ Radius { name = "sm"; value = ".25rem" } ]
 
-let rounded =
-  style_with_vars "rounded"
-    [ border_radius (Var { name = "radius-default"; fallback = None }) ]
-    [ Radius { name = "default"; value = ".25rem" } ]
+let rounded = style "rounded" [ border_radius (Rem 0.25) ]
 
 let rounded_md =
   style_with_vars "rounded-md"

@@ -254,6 +254,12 @@ include Containers
 (* Include all filter utilities *)
 include Filters
 
+include Aspect
+(** {1 Aspect Ratio} *)
+
+include Clipping
+(** {1 Clipping} *)
+
 (* Include positioning utilities *)
 include Positioning
 
@@ -481,17 +487,16 @@ let on_2xl styles =
 
 include Backgrounds
 
-(* Additional functions needed *)
-let aspect_ratio width height =
-  let class_name =
-    Pp.str [ "aspect-["; Pp.float width; "/"; Pp.float height; "]" ]
-  in
-  (* aspect-ratio isn't widely supported in CSS yet, skip for now *)
-  style class_name []
-
-let clip_path _value =
-  (* clip-path is a modern CSS property, skip for now *)
-  style "clip-path-custom" []
+(* Re-export direction type for convenience *)
+type direction = Backgrounds.direction =
+  | Bottom
+  | Bottom_right
+  | Right
+  | Top_right
+  | Top
+  | Top_left
+  | Left
+  | Bottom_left
 
 (* Peer and group utilities *)
 let peer = style "peer" [] (* Marker class for peer relationships *)

@@ -2,56 +2,67 @@
 
 open Core
 
-let bg_gradient_to_b =
-  style "bg-gradient-to-b"
-    [
-      Css.background_image
-        "linear-gradient(to bottom, var(--tw-gradient-stops))";
-    ]
+type direction =
+  | Bottom
+  | Bottom_right
+  | Right
+  | Top_right
+  | Top
+  | Top_left
+  | Left
+  | Bottom_left
 
-let bg_gradient_to_br =
-  style "bg-gradient-to-br"
-    [
-      Css.background_image
-        "linear-gradient(to bottom right, var(--tw-gradient-stops))";
-    ]
+let bg_gradient_to = function
+  | Bottom ->
+      style "bg-gradient-to-b"
+        [
+          Css.background_image
+            "linear-gradient(to bottom, var(--tw-gradient-stops))";
+        ]
+  | Bottom_right ->
+      style "bg-gradient-to-br"
+        [
+          Css.background_image
+            "linear-gradient(to bottom right, var(--tw-gradient-stops))";
+        ]
+  | Right ->
+      style "bg-gradient-to-r"
+        [
+          Css.background_image
+            "linear-gradient(to right, var(--tw-gradient-stops))";
+        ]
+  | Top_right ->
+      style "bg-gradient-to-tr"
+        [
+          Css.background_image
+            "linear-gradient(to top right, var(--tw-gradient-stops))";
+        ]
+  | Top ->
+      style "bg-gradient-to-t"
+        [
+          Css.background_image
+            "linear-gradient(to top, var(--tw-gradient-stops))";
+        ]
+  | Top_left ->
+      style "bg-gradient-to-tl"
+        [
+          Css.background_image
+            "linear-gradient(to top left, var(--tw-gradient-stops))";
+        ]
+  | Left ->
+      style "bg-gradient-to-l"
+        [
+          Css.background_image
+            "linear-gradient(to left, var(--tw-gradient-stops))";
+        ]
+  | Bottom_left ->
+      style "bg-gradient-to-bl"
+        [
+          Css.background_image
+            "linear-gradient(to bottom left, var(--tw-gradient-stops))";
+        ]
 
-let bg_gradient_to_t =
-  style "bg-gradient-to-t"
-    [ Css.background_image "linear-gradient(to top, var(--tw-gradient-stops))" ]
-
-let bg_gradient_to_tr =
-  style "bg-gradient-to-tr"
-    [
-      Css.background_image
-        "linear-gradient(to top right, var(--tw-gradient-stops))";
-    ]
-
-let bg_gradient_to_r =
-  style "bg-gradient-to-r"
-    [
-      Css.background_image "linear-gradient(to right, var(--tw-gradient-stops))";
-    ]
-
-let bg_gradient_to_bl =
-  style "bg-gradient-to-bl"
-    [
-      Css.background_image
-        "linear-gradient(to bottom left, var(--tw-gradient-stops))";
-    ]
-
-let bg_gradient_to_l =
-  style "bg-gradient-to-l"
-    [
-      Css.background_image "linear-gradient(to left, var(--tw-gradient-stops))";
-    ]
-
-let bg_gradient_to_tl =
-  style "bg-gradient-to-tl"
-    [
-      Css.background_image
-        "linear-gradient(to top left, var(--tw-gradient-stops))";
-    ]
+(* Legacy fixed-direction helpers removed in favor of bg_gradient_to *)
 
 let from_color ?(shade = 500) color =
   let class_name =

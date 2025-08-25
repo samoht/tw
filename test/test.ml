@@ -11,5 +11,7 @@ let () =
        ("layout", Test_layout.tests);
        ("typography", Test_typography.tests);
        ("effects", Test_effects.tests);
+       ("aspect", Test_aspect.tests);
+       ("clipping", Test_clipping.tests);
      ]
     @ Test_pp.suite @ Test_prose.suite)
