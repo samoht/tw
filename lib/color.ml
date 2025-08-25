@@ -922,10 +922,18 @@ let bg color shade =
       if is_base_color color then Pp.str [ "color-"; pp color ]
       else Pp.str [ "color-"; pp color; "-"; string_of_int shade ]
     in
-    (* Track the color variable requirement *)
+    (* Track the color variable requirement with actual color value *)
     let var =
-      if is_base_color color then color_var (pp color)
-      else color_var ~shade (pp color)
+      if is_base_color color then
+        Core.Color
+          { name = pp color; shade = None; value = to_oklch_css color 500 }
+      else
+        Core.Color
+          {
+            name = pp color;
+            shade = Some shade;
+            value = to_oklch_css color shade;
+          }
     in
     style_with_vars class_name
       [ Css.background_color (Css.Var var_name) ]
@@ -980,10 +988,18 @@ let text color shade =
       if is_base_color color then Pp.str [ "color-"; pp color ]
       else Pp.str [ "color-"; pp color; "-"; string_of_int shade ]
     in
-    (* Track the color variable requirement *)
+    (* Track the color variable requirement with actual color value *)
     let var =
-      if is_base_color color then color_var (pp color)
-      else color_var ~shade (pp color)
+      if is_base_color color then
+        Core.Color
+          { name = pp color; shade = None; value = to_oklch_css color 500 }
+      else
+        Core.Color
+          {
+            name = pp color;
+            shade = Some shade;
+            value = to_oklch_css color shade;
+          }
     in
     style_with_vars class_name [ Css.color (Css.Var var_name) ] [ var ]
 
@@ -1036,10 +1052,18 @@ let border_color color shade =
       if is_base_color color then Pp.str [ "color-"; pp color ]
       else Pp.str [ "color-"; pp color; "-"; string_of_int shade ]
     in
-    (* Track the color variable requirement *)
+    (* Track the color variable requirement with actual color value *)
     let var =
-      if is_base_color color then color_var (pp color)
-      else color_var ~shade (pp color)
+      if is_base_color color then
+        Core.Color
+          { name = pp color; shade = None; value = to_oklch_css color 500 }
+      else
+        Core.Color
+          {
+            name = pp color;
+            shade = Some shade;
+            value = to_oklch_css color shade;
+          }
     in
     style_with_vars class_name [ Css.border_color (Css.Var var_name) ] [ var ]
 

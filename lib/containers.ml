@@ -1,4 +1,20 @@
-(** Container query utilities for responsive design based on container size *)
+(** Container query utilities for responsive design based on container size
+
+    What's included:
+    - `container-type-size`, `container-type-inline-size`,
+      `container-type-normal` and named containers via `container-<name>`
+      helpers.
+    - Container query modifiers (`on_container_*`, `on_container ?name
+      min_width`).
+
+    What's not:
+    - Arbitrary complex container conditions. Use `on_container ~name width` for
+      the common `min-width` pattern; extend with a custom `Modified (Container
+      ...)` if you need more.
+
+    Parsing contract (`of_string`):
+    - Accepts ["container"; "type"; ..] and ["container"; name]. Unknown tokens
+      yield `Error (`Msg "Not a container utility")`. *)
 
 open Core
 open Css

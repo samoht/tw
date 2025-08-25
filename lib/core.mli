@@ -79,5 +79,10 @@ type shadow = [ size | `Inner ]
 val style : string -> Css.declaration list -> t
 val style_with_vars : string -> Css.declaration list -> var list -> t
 
+val class_name : t -> string
+(** [class_name t] returns the base class name(s) for [t]. Note: modifiers
+    (e.g., hover:, md:) are ignored; for composed class strings with modifiers,
+    use Tw.pp/Tw.to_classes. *)
+
 val pp : t -> string
-(** [pp t] returns the class name(s) for a Core.t value *)
+(** [pp t] returns the full class name(s) for [t] including modifiers. *)

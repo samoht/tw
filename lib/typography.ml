@@ -1,4 +1,20 @@
-(** Typography utilities for text and font styling *)
+(** Typography utilities for text and font styling
+
+    What's included:
+    - Font size scale `text-{xs..9xl}` with matching line-height variables.
+    - Font weight, font family, font style, text alignment, text decoration,
+      line-height presets and `leading-N`, letter-spacing presets, case.
+
+    What's not:
+    - Some advanced text decoration options (thickness, underline offset) and
+      typography nuances not present in the typed `Css` API. Extend with
+      `style` and raw `Css.property` when needed.
+
+    Parsing contract (`of_string`):
+    - Accepts tokens for the above utilities, e.g. ["text"; "xl"],
+      ["font"; "semibold"], ["leading"; n], ["tracking"; "wider"],
+      ["underline"], ["uppercase"]. Unknown tokens yield
+      `Error (`Msg "Not a typography utility")`. *)
 
 open Core
 open Css

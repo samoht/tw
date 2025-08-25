@@ -1390,9 +1390,6 @@ val border_dotted : t
 val border_double : t
 (** Double border style. *)
 
-val border_none_style : t
-(** No border style. *)
-
 val rounded_none : t
 (** Sharp corners (0px). *)
 

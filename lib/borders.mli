@@ -20,6 +20,16 @@ val border_dashed : t
 val border_dotted : t
 val border_double : t
 val border_none : t
+
+(* Border width utilities with semantic names *)
+val border_xs : t
+val border_sm : t
+val border_md : t
+val border_lg : t
+val border_xl : t
+val border_2xl : t
+val border_3xl : t
+val border_full : t
 val rounded_none : t
 val rounded_sm : t
 val rounded : t

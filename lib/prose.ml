@@ -1,4 +1,17 @@
-(** Prose typography utilities *)
+(** Prose typography utilities
+
+    What's included:
+    - Pre-styled typography rules for long-form content with sensible defaults
+      (headings, paragraphs, lists, blockquotes, code, tables) and theme
+      variables (`--tw-prose-*`).
+
+    What's not:
+    - Arbitrary prose variants beyond the included base and size/color themes.
+      Extend by composing your own rules or adding variants to this module.
+
+    Notes:
+    - Use `Prose.to_css_rules` to emit rules for a variant list.
+    - Theme via CSS custom properties exposed in [css_variables]. *)
 
 open Css
 

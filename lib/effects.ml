@@ -1,4 +1,19 @@
-(** Visual effects utilities for shadows, opacity, and filters *)
+(** Visual effects utilities for shadows, opacity, and filters
+
+    What's included:
+    - Shadows: `shadow-none/sm/(default)/md/lg/xl/2xl/inner`.
+    - Opacity: `opacity-{0..100}`.
+    - Filter & backdrop-filter helpers: see Filters module for full coverage.
+    - Ring and transition helpers.
+
+    What's not:
+    - Full mix-blend and backdrop-blend sets are not exposed where the typed
+      `Css` API lacks variants. You can extend with
+      `style "mix-blend-multiply" [Css.property "mix-blend-mode" "multiply"]`.
+
+    Parsing contract (`of_string`):
+    - Accepts `opacity-<n>` and common transition aliases. Unknown tokens yield
+      `Error (`Msg "Not an effects utility")`. *)
 
 open Core
 open Css
@@ -85,38 +100,38 @@ let blur_3xl = style "blur-3xl" [ filter "blur(64px)" ]
 
 let brightness n =
   style
-    (Printf.sprintf "brightness-%d" n)
-    [ filter (Printf.sprintf "brightness(%d%%)" n) ]
+    (Pp.str [ "brightness-"; string_of_int n ])
+    [ filter (Pp.str [ "brightness("; string_of_int n; "%)" ]) ]
 
 let contrast n =
   style
-    (Printf.sprintf "contrast-%d" n)
-    [ filter (Printf.sprintf "contrast(%d%%)" n) ]
+    (Pp.str [ "contrast-"; string_of_int n ])
+    [ filter (Pp.str [ "contrast("; string_of_int n; "%)" ]) ]
 
 let grayscale n =
   style
-    (Printf.sprintf "grayscale-%d" n)
-    [ filter (Printf.sprintf "grayscale(%d%%)" n) ]
+    (Pp.str [ "grayscale-"; string_of_int n ])
+    [ filter (Pp.str [ "grayscale("; string_of_int n; "%)" ]) ]
 
 let hue_rotate n =
   style
-    (Printf.sprintf "hue-rotate-%d" n)
-    [ filter (Printf.sprintf "hue-rotate(%ddeg)" n) ]
+    (Pp.str [ "hue-rotate-"; string_of_int n ])
+    [ filter (Pp.str [ "hue-rotate("; string_of_int n; "deg)" ]) ]
 
 let invert n =
   style
-    (Printf.sprintf "invert-%d" n)
-    [ filter (Printf.sprintf "invert(%d%%)" n) ]
+    (Pp.str [ "invert-"; string_of_int n ])
+    [ filter (Pp.str [ "invert("; string_of_int n; "%)" ]) ]
 
 let saturate n =
   style
-    (Printf.sprintf "saturate-%d" n)
-    [ filter (Printf.sprintf "saturate(%d%%)" n) ]
+    (Pp.str [ "saturate-"; string_of_int n ])
+    [ filter (Pp.str [ "saturate("; string_of_int n; "%)" ]) ]
 
 let sepia n =
   style
-    (Printf.sprintf "sepia-%d" n)
-    [ filter (Printf.sprintf "sepia(%d%%)" n) ]
+    (Pp.str [ "sepia-"; string_of_int n ])
+    [ filter (Pp.str [ "sepia("; string_of_int n; "%)" ]) ]
 
 (** {1 Backdrop Filter Utilities} *)
 

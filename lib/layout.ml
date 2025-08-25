@@ -1,4 +1,26 @@
-(** Layout utilities for display, flexbox, grid, and positioning *)
+(** Layout utilities for display, flexbox, grid, and positioning
+
+    What's included:
+    - Display: `block`, `inline`, `inline-block`, `hidden`, `flex`,
+      `inline-flex`, `grid`, `inline-grid`.
+    - Flexbox: direction, wrap, flex, grow/shrink, alignment.
+    - Grid: dynamic template columns/rows via `grid_cols`, `grid_rows`.
+    - Position shorthands: see Positioning module for offsets.
+    - Object-fit/position, overflow, z-index.
+
+    What's not:
+    - Some CSS shorthands like `place-*` are omitted where the typed `Css` API
+      lacks coverage. Use `style` with raw `Css.custom_property` or
+      `Css.property`.
+
+    Parsing contract (`of_string`):
+    - Accepted tokens include a subset of Tailwind layout utilities, e.g.: *
+      ["flex"], ["flex"; "row"], ["flex"; "wrap"], ["flex"; "1"],
+      ["flex"; "none"] * ["items"; {"start"|"center"|...}], ["justify"; {...}],
+      ["content"; {...}] * ["grid"], ["grid"; "cols"; n], ["grid"; "rows"; n]
+      with non‑negative ints * ["hidden"], ["block"], ["inline"; "grid"], etc.
+    - Errors: returns `Error (`Msg "Not a layout utility")` for unknown
+      patterns. *)
 
 open Core
 open Css

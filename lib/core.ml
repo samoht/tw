@@ -93,9 +93,61 @@ let style name props = Style { name; props; vars = [] }
 (* Helper to create a style with variable requirements *)
 let style_with_vars name props vars = Style { name; props; vars }
 
-(* Pretty-print function to extract class name from Core.t *)
+(* Extract base class name(s) from Core.t. Modifiers are ignored. *)
+let rec class_name = function
+  | Style { name; _ } -> name
+  | Prose p -> Pp.str [ "prose-"; Prose.pp p ]
+  | Modified (_, t) -> class_name t
+  | Group ts -> String.concat " " (List.map class_name ts)
+
+(* Convert modifier to string prefix *)
+let rec pp_modifier = function
+  | Hover -> "hover:"
+  | Focus -> "focus:"
+  | Active -> "active:"
+  | Disabled -> "disabled:"
+  | Dark -> "dark:"
+  | Responsive `Sm -> "sm:"
+  | Responsive `Md -> "md:"
+  | Responsive `Lg -> "lg:"
+  | Responsive `Xl -> "xl:"
+  | Responsive `Xl_2 -> "2xl:"
+  | Container Container_sm -> "@sm:"
+  | Container Container_md -> "@md:"
+  | Container Container_lg -> "@lg:"
+  | Container Container_xl -> "@xl:"
+  | Container Container_2xl -> "@2xl:"
+  | Container (Container_named (n, size)) ->
+      Pp.str [ "@"; n; "/"; string_of_int size; ":" ]
+  | Group_hover -> "group-hover:"
+  | Group_focus -> "group-focus:"
+  | Peer_hover -> "peer-hover:"
+  | Peer_focus -> "peer-focus:"
+  | Peer_checked -> "peer-checked:"
+  | Aria_checked -> "aria-checked:"
+  | Aria_expanded -> "aria-expanded:"
+  | Aria_selected -> "aria-selected:"
+  | Aria_disabled -> "aria-disabled:"
+  | Data_state s -> Pp.str [ "data-state="; s; ":" ]
+  | Data_variant s -> Pp.str [ "data-variant="; s; ":" ]
+  | Data_active -> "data-active:"
+  | Data_inactive -> "data-inactive:"
+  | Data_custom (k, v) -> Pp.str [ "data-"; k; "="; v; ":" ]
+  | Not m -> Pp.str [ "not("; pp_modifier m; ")" ]
+  | Has s -> Pp.str [ "has("; s; "):" ]
+  | Group_has s -> Pp.str [ "group-has("; s; "):" ]
+  | Peer_has s -> Pp.str [ "peer-has("; s; "):" ]
+  | Starting -> "starting:"
+  | Focus_within -> "focus-within:"
+  | Focus_visible -> "focus-visible:"
+  | Motion_safe -> "motion-safe:"
+  | Motion_reduce -> "motion-reduce:"
+  | Contrast_more -> "contrast-more:"
+  | Contrast_less -> "contrast-less:"
+
+(* Extract full class name including modifiers *)
 let rec pp = function
   | Style { name; _ } -> name
-  | Prose p -> Printf.sprintf "prose-%s" (Prose.pp p)
-  | Modified (_, t) -> pp t
+  | Prose p -> Pp.str [ "prose-"; Prose.pp p ]
+  | Modified (m, t) -> Pp.str [ pp_modifier m; pp t ]
   | Group ts -> String.concat " " (List.map pp ts)

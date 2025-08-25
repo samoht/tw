@@ -1,4 +1,21 @@
-(** Border utilities for border styles, widths, and radii *)
+(** Border utilities for border styles, widths, and radii
+
+    What's included:
+    - Border widths: `border`, `border-0/2/4/8`, and side/axis variants.
+    - Border styles: `border-solid/dashed/dotted/double/none` via a CSS var.
+    - Border radius: `rounded-*` and `rounded-full`.
+    - Outline offsets and simple ring helpers.
+
+    What's not:
+    - Per-corner radii (e.g., `rounded-tl`) are omitted due to missing typed
+      properties in `Css`. Use `style` with `Css.border_top_left_radius` if
+      available in your `Css` version, or `Css.property` as a workaround.
+    - Border colors are provided by the Color module (`border_*`).
+
+    Parsing contract (`of_string`):
+    - Accepts tokens like ["border"], ["border"; "t"], ["rounded"; "md"],
+      ["ring"; "2"], ["outline"; "offset"; "4"]. Unknown tokens yield `Error
+      (`Msg "Not a border utility")`. *)
 
 open Core
 open Css
@@ -93,6 +110,16 @@ let border_none =
   style_with_vars "border-none"
     [ custom_property "--tw-border-style" "none"; border_style None ]
     []
+
+(* Border width utilities with semantic names matching tw.mli *)
+let border_xs = border (* 1px *)
+let border_sm = border_2 (* 2px *)
+let border_md = border_4 (* 4px *)
+let border_lg = border_4 (* 4px *)
+let border_xl = border_8 (* 8px *)
+let border_2xl = border_8 (* 8px *)
+let border_3xl = border_8 (* 8px *)
+let border_full = border_8 (* 8px *)
 
 (** {1 Border Radius Utilities} *)
 

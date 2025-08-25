@@ -1,4 +1,16 @@
-(* Variable tracking for CSS composition groups *)
+(* Variable tracking for CSS composition groups
+
+   Purpose: - Provide a typed view over Tailwind’s CSS custom properties (`--*`)
+   used by utilities, transforms, filters, radii, fonts, etc.
+
+   How it interacts with Rules: - `Rules.to_css` inspects declarations via
+   `Css.all_vars` to determine which variables are referenced and generates a
+   minimal theme layer containing only those variables. `Var.to_css_properties`
+   provides default values.
+
+   Notes: - `to_string`/`of_string` map between typed variants and the
+   `--var-name`. - `canonical_order`/`compare` ensure stable, human‑friendly
+   ordering in the generated CSS. *)
 
 (** CSS variable type covering all Tailwind CSS variables *)
 type t =

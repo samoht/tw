@@ -1,5 +1,19 @@
 (** Filter utilities for visual effects like blur, brightness, and backdrop
-    filters *)
+    filters
+
+    What's included:
+    - `blur-*` and `backdrop-blur-*` presets.
+    - Scalar filters: `brightness`, `contrast`, `grayscale`, `saturate`,
+      `sepia`, `invert`, `hue-rotate` and their `backdrop-*` counterparts.
+
+    What's not:
+    - Filter composition chains beyond the provided helpers. Use `style` with
+      `Css.filter` if you need complex pipelines.
+
+    Parsing contract (`of_string`):
+    - Accepts tokens like ["blur"; "sm"], ["brightness"; n],
+      ["backdrop"; "hue"; "rotate"; n], etc. Unknown tokens yield `Error (`Msg
+      "Not a filter utility")`. *)
 
 open Core
 open Css
