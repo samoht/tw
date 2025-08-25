@@ -51,16 +51,10 @@ let margin_to_length : margin -> length = function
   | #spacing as s -> spacing_to_length s
 
 (* Helper to extract spacing variables from spacing types *)
-let spacing_vars = function
-  | `Rem _ ->
-      [] (* The --spacing variable is handled via string parsing in all_vars *)
-  | _ -> []
+(* Removed spacing_vars: variables are inferred from declarations via Css.all_vars *)
 
 (* Helper to extract spacing variables from margin types *)
-let margin_vars = function
-  | `Rem _ ->
-      [] (* The --spacing variable is handled via string parsing in all_vars *)
-  | _ -> []
+(* Removed margin_vars: variables are inferred from declarations via Css.all_vars *)
 
 (** {2 Helper Functions} *)
 
@@ -72,37 +66,37 @@ let int n = `Rem (float_of_int n *. 0.25)
 let p' (s : spacing) =
   let class_name = "p-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ padding len ] (spacing_vars s)
+  style class_name [ padding len ]
 
 let px' (s : spacing) =
   let class_name = "px-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ padding_inline len ] (spacing_vars s)
+  style class_name [ padding_inline len ]
 
 let py' (s : spacing) =
   let class_name = "py-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ padding_block len ] (spacing_vars s)
+  style class_name [ padding_block len ]
 
 let pt' (s : spacing) =
   let class_name = "pt-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ padding_top len ] (spacing_vars s)
+  style class_name [ padding_top len ]
 
 let pr' (s : spacing) =
   let class_name = "pr-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ padding_right len ] (spacing_vars s)
+  style class_name [ padding_right len ]
 
 let pb' (s : spacing) =
   let class_name = "pb-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ padding_bottom len ] (spacing_vars s)
+  style class_name [ padding_bottom len ]
 
 let pl' (s : spacing) =
   let class_name = "pl-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ padding_left len ] (spacing_vars s)
+  style class_name [ padding_left len ]
 
 (** {2 Int-based Padding Utilities} *)
 
@@ -119,37 +113,37 @@ let pl n = pl' (int n)
 let m' (m : margin) =
   let class_name = "m-" ^ pp_margin_suffix m in
   let len = margin_to_length m in
-  style_with_vars class_name [ margin len ] (margin_vars m)
+  style class_name [ margin len ]
 
 let mx' (m : margin) =
   let v = margin_to_length m in
   let class_name = "mx-" ^ pp_margin_suffix m in
-  style_with_vars class_name [ margin_inline v ] (margin_vars m)
+  style class_name [ margin_inline v ]
 
 let my' (m : margin) =
   let v = margin_to_length m in
   let class_name = "my-" ^ pp_margin_suffix m in
-  style_with_vars class_name [ margin_block v ] (margin_vars m)
+  style class_name [ margin_block v ]
 
 let mt' (m : margin) =
   let class_name = "mt-" ^ pp_margin_suffix m in
   let len = margin_to_length m in
-  style_with_vars class_name [ margin_top len ] (margin_vars m)
+  style class_name [ margin_top len ]
 
 let mr' (m : margin) =
   let class_name = "mr-" ^ pp_margin_suffix m in
   let len = margin_to_length m in
-  style_with_vars class_name [ margin_right len ] (margin_vars m)
+  style class_name [ margin_right len ]
 
 let mb' (m : margin) =
   let class_name = "mb-" ^ pp_margin_suffix m in
   let len = margin_to_length m in
-  style_with_vars class_name [ margin_bottom len ] (margin_vars m)
+  style class_name [ margin_bottom len ]
 
 let ml' (m : margin) =
   let class_name = "ml-" ^ pp_margin_suffix m in
   let len = margin_to_length m in
-  style_with_vars class_name [ margin_left len ] (margin_vars m)
+  style class_name [ margin_left len ]
 
 (** {2 Int-based Margin Utilities} *)
 
@@ -158,66 +152,66 @@ let m n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "m-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ margin len ] (spacing_vars s)
+  style class_name [ margin len ]
 
 let mx n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mx-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ margin_inline len ] (spacing_vars s)
+  style class_name [ margin_inline len ]
 
 let my n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "my-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ margin_block len ] (spacing_vars s)
+  style class_name [ margin_block len ]
 
 let mt n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mt-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ margin_top len ] (spacing_vars s)
+  style class_name [ margin_top len ]
 
 let mr n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mr-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ margin_right len ] (spacing_vars s)
+  style class_name [ margin_right len ]
 
 let mb n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mb-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ margin_bottom len ] (spacing_vars s)
+  style class_name [ margin_bottom len ]
 
 let ml n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "ml-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ margin_left len ] (spacing_vars s)
+  style class_name [ margin_left len ]
 
 (** {2 Typed Gap Utilities} *)
 
 let gap' (s : spacing) =
   let class_name = "gap-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ gap len ] (spacing_vars s)
+  style class_name [ gap len ]
 
 let gap_x' (s : spacing) =
   let class_name = "gap-x-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ column_gap len ] (spacing_vars s)
+  style class_name [ column_gap len ]
 
 let gap_y' (s : spacing) =
   let class_name = "gap-y-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ row_gap len ] (spacing_vars s)
+  style class_name [ row_gap len ]
 
 (** {2 Int-based Gap Utilities} *)
 
@@ -231,13 +225,13 @@ let space_x n =
   let s = int n in
   let class_name = "space-x-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ margin_left len ] (spacing_vars s)
+  style class_name [ margin_left len ]
 
 let space_y n =
   let s = int n in
   let class_name = "space-y-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
-  style_with_vars class_name [ margin_top len ] (spacing_vars s)
+  style class_name [ margin_top len ]
 
 (** {2 Parsing Functions} *)
 

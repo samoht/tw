@@ -46,6 +46,15 @@ let escape_class_name name =
       | '(' -> Buffer.add_string buf "\\("
       | ')' -> Buffer.add_string buf "\\)"
       | ',' -> Buffer.add_string buf "\\,"
+      | '/' -> Buffer.add_string buf "\\/"
+      | ':' -> Buffer.add_string buf "\\:"
+      | '%' -> Buffer.add_string buf "\\%"
+      | '.' -> Buffer.add_string buf "\\."
+      | '#' -> Buffer.add_string buf "\\#"
+      | ' ' -> Buffer.add_string buf "\\ "
+      | '"' -> Buffer.add_string buf "\\\""
+      | '\'' -> Buffer.add_string buf "\\'"
+      | '@' -> Buffer.add_string buf "\\@"
       | c -> Buffer.add_char buf c)
     name;
   Buffer.contents buf
@@ -196,22 +205,11 @@ let extract_selector_props tw =
                     in
                     [ ContainerQuery (cond, escaped_class, props) ]
                 (* New v4 modifiers *)
-                | Not modifier -> (
-                    (* Recursively apply the Not modifier *)
-                    let inner_rules =
-                      extract (Modified (modifier, style base_class []))
-                    in
-                    match inner_rules with
-                    | Regular (inner_sel, _) :: _ ->
-                        let cleaned =
-                          String.sub inner_sel 1 (String.length inner_sel - 1)
-                        in
-                        [
-                          Regular
-                            ( ".not-" ^ cleaned ^ ":not(" ^ inner_sel ^ ")",
-                              props );
-                        ]
-                    | _ -> [ Regular (selector, props) ])
+                | Not _modifier ->
+                    [
+                      Regular
+                        (".not-" ^ base_class ^ ":not(" ^ selector ^ ")", props);
+                    ]
                 | Has selector_str ->
                     [
                       Regular
@@ -838,9 +836,20 @@ let to_css ?(reset = true) tw_classes =
       |> List.map (fun (name, value) -> Css.custom_property name value)
     in
 
+    (* Track which variables were already generated from Core.var *)
+    let generated_var_names =
+      all_vars
+      |> List.concat_map Core.var_to_css_properties
+      |> List.map fst (* Get just the property names *)
+      |> List.sort_uniq String.compare
+    in
+
     (* Generate values for theme variables *)
     let theme_generated_vars =
       all_referenced_vars
+      |> List.filter (fun var_name ->
+             (* Skip variables already generated from Core.var *)
+             not (List.mem var_name generated_var_names))
       |> List.concat_map (fun var_name ->
              match var_name with
              | "--spacing" -> [ Css.custom_property "--spacing" "0.25rem" ]

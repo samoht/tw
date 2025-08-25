@@ -87,69 +87,6 @@ let opacity_100 = style "opacity-100" [ opacity 1.0 ]
    mix_blend_hard_light, mix_blend_soft_light, mix_blend_difference, mix_blend_exclusion,
    mix_blend_hue, mix_blend_saturation, mix_blend_color, mix_blend_luminosity *)
 
-(** {1 Filter Utilities} *)
-
-let blur_none = style "blur-none" [ filter "blur(0)" ]
-let blur_sm = style "blur-sm" [ filter "blur(4px)" ]
-let blur = style "blur" [ filter "blur(8px)" ]
-let blur_md = style "blur-md" [ filter "blur(12px)" ]
-let blur_lg = style "blur-lg" [ filter "blur(16px)" ]
-let blur_xl = style "blur-xl" [ filter "blur(24px)" ]
-let blur_2xl = style "blur-2xl" [ filter "blur(40px)" ]
-let blur_3xl = style "blur-3xl" [ filter "blur(64px)" ]
-
-let brightness n =
-  style
-    (Pp.str [ "brightness-"; string_of_int n ])
-    [ filter (Pp.str [ "brightness("; string_of_int n; "%)" ]) ]
-
-let contrast n =
-  style
-    (Pp.str [ "contrast-"; string_of_int n ])
-    [ filter (Pp.str [ "contrast("; string_of_int n; "%)" ]) ]
-
-let grayscale n =
-  style
-    (Pp.str [ "grayscale-"; string_of_int n ])
-    [ filter (Pp.str [ "grayscale("; string_of_int n; "%)" ]) ]
-
-let hue_rotate n =
-  style
-    (Pp.str [ "hue-rotate-"; string_of_int n ])
-    [ filter (Pp.str [ "hue-rotate("; string_of_int n; "deg)" ]) ]
-
-let invert n =
-  style
-    (Pp.str [ "invert-"; string_of_int n ])
-    [ filter (Pp.str [ "invert("; string_of_int n; "%)" ]) ]
-
-let saturate n =
-  style
-    (Pp.str [ "saturate-"; string_of_int n ])
-    [ filter (Pp.str [ "saturate("; string_of_int n; "%)" ]) ]
-
-let sepia n =
-  style
-    (Pp.str [ "sepia-"; string_of_int n ])
-    [ filter (Pp.str [ "sepia("; string_of_int n; "%)" ]) ]
-
-(** {1 Backdrop Filter Utilities} *)
-
-let backdrop_blur_none =
-  style "backdrop-blur-none" [ backdrop_filter "blur(0)" ]
-
-let backdrop_blur_sm = style "backdrop-blur-sm" [ backdrop_filter "blur(4px)" ]
-let backdrop_blur = style "backdrop-blur" [ backdrop_filter "blur(8px)" ]
-let backdrop_blur_md = style "backdrop-blur-md" [ backdrop_filter "blur(12px)" ]
-let backdrop_blur_lg = style "backdrop-blur-lg" [ backdrop_filter "blur(16px)" ]
-let backdrop_blur_xl = style "backdrop-blur-xl" [ backdrop_filter "blur(24px)" ]
-
-let backdrop_blur_2xl =
-  style "backdrop-blur-2xl" [ backdrop_filter "blur(40px)" ]
-
-let backdrop_blur_3xl =
-  style "backdrop-blur-3xl" [ backdrop_filter "blur(64px)" ]
-
 (** {1 Ring Utilities} *)
 
 type ring_width = [ `None | `Xs | `Sm | `Md | `Lg | `Xl ]
@@ -310,29 +247,4 @@ let of_string = function
   | [ "transition"; "shadow" ] -> Ok transition_shadow
   | [ "transition"; "transform" ] -> Ok transition_transform
   | [ "duration"; n ] -> int_of_string_positive "duration" n >|= duration
-  | [ "blur"; "none" ] -> Ok blur_none
-  | [ "blur"; "sm" ] -> Ok blur_sm
-  | [ "blur" ] -> Ok blur
-  | [ "blur"; "md" ] -> Ok blur_md
-  | [ "blur"; "lg" ] -> Ok blur_lg
-  | [ "blur"; "xl" ] -> Ok blur_xl
-  | [ "blur"; "2xl" ] -> Ok blur_2xl
-  | [ "blur"; "3xl" ] -> Ok blur_3xl
-  | [ "backdrop"; "blur"; "none" ] -> Ok backdrop_blur_none
-  | [ "backdrop"; "blur"; "sm" ] -> Ok backdrop_blur_sm
-  | [ "backdrop"; "blur" ] -> Ok backdrop_blur
-  | [ "backdrop"; "blur"; "md" ] -> Ok backdrop_blur_md
-  | [ "backdrop"; "blur"; "lg" ] -> Ok backdrop_blur_lg
-  | [ "backdrop"; "blur"; "xl" ] -> Ok backdrop_blur_xl
-  | [ "backdrop"; "blur"; "2xl" ] -> Ok backdrop_blur_2xl
-  | [ "backdrop"; "blur"; "3xl" ] -> Ok backdrop_blur_3xl
-  | [ "brightness"; n ] -> int_of_string_positive "brightness" n >|= brightness
-  | [ "contrast"; n ] -> int_of_string_positive "contrast" n >|= contrast
-  | [ "grayscale"; n ] ->
-      int_of_string_bounded "grayscale" 0 100 n >|= grayscale
-  | [ "hue"; "rotate"; n ] ->
-      int_of_string_positive "hue-rotate" n >|= hue_rotate
-  | [ "invert"; n ] -> int_of_string_bounded "invert" 0 100 n >|= invert
-  | [ "saturate"; n ] -> int_of_string_positive "saturate" n >|= saturate
-  | [ "sepia"; n ] -> int_of_string_bounded "sepia" 0 100 n >|= sepia
   | _ -> Error (`Msg "Not an effects utility")
