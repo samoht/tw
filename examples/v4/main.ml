@@ -132,7 +132,7 @@ let () =
             transition_all;
             duration 500;
             p 4;
-            bg_gradient_to_r;
+            bg_gradient_to Right;
             from_color ~shade:500 blue;
             to_color ~shade:600 purple;
             text_white;
