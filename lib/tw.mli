@@ -1293,8 +1293,8 @@ val leading_loose : t
 (** Line height 2 - very open, good for short text blocks that need breathing
     room. *)
 
-val leading_6 : t
-(** Line height of 1.5rem. *)
+val leading : int -> t
+(** Arbitrary line-height on the spacing scale (n * 0.25rem). *)
 
 val tracking_tighter : t
 (** Letter spacing of -0.05em. *)

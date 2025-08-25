@@ -54,7 +54,12 @@ let w_4_5 = style "w-4/5" [ width (Pct 80.0) ]
 (* Int-based width function for Tailwind scale *)
 let w n =
   let class_name = "w-" ^ string_of_int n in
-  style class_name [ width (Rem (float_of_int n *. 0.25)) ]
+  style_with_vars class_name
+    [
+      width
+        (Calc (Expr (Calc.var "spacing", Mult, Calc.float (float_of_int n))));
+    ]
+    [ spacing_var n ]
 
 (** {1 Height Utilities} *)
 
@@ -89,7 +94,12 @@ let h_4_5 = style "h-4/5" [ height (Pct 80.0) ]
 (* Int-based height function for Tailwind scale *)
 let h n =
   let class_name = "h-" ^ string_of_int n in
-  style class_name [ height (Rem (float_of_int n *. 0.25)) ]
+  style_with_vars class_name
+    [
+      height
+        (Calc (Expr (Calc.var "spacing", Mult, Calc.float (float_of_int n))));
+    ]
+    [ spacing_var n ]
 
 (** {1 Min Width Utilities} *)
 

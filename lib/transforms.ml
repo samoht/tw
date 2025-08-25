@@ -17,6 +17,7 @@
 
 open Core
 open Css
+module Parse = Parse
 
 (** {1 2D Transform Utilities} *)
 
@@ -184,35 +185,23 @@ let transform_gpu = style "transform-gpu" [ Css.transform [ Translate_z Zero ] ]
 
 (** {1 Parsing Functions} *)
 
-let int_of_string_with_sign s =
-  match int_of_string_opt s with
-  | None -> Error (`Msg ("Invalid number: " ^ s))
-  | Some n -> Ok n
-
-let int_of_string_positive name s =
-  match int_of_string_opt s with
-  | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
-  | Some n when n >= 0 -> Ok n
-  | Some _ -> Error (`Msg (name ^ " must be non-negative: " ^ s))
-
-let ( >|= ) r f = Result.map f r
+let ( >|= ) = Parse.( >|= )
 
 let of_string = function
-  | [ "rotate"; n ] -> int_of_string_with_sign n >|= rotate
-  | [ "translate"; "x"; n ] -> int_of_string_with_sign n >|= translate_x
-  | [ "translate"; "y"; n ] -> int_of_string_with_sign n >|= translate_y
-  | [ "translate"; "z"; n ] -> int_of_string_with_sign n >|= translate_z
-  | [ "scale"; n ] -> int_of_string_positive "scale" n >|= scale
-  | [ "scale"; "x"; n ] -> int_of_string_positive "scale-x" n >|= scale_x
-  | [ "scale"; "y"; n ] -> int_of_string_positive "scale-y" n >|= scale_y
-  | [ "scale"; "z"; n ] -> int_of_string_positive "scale-z" n >|= scale_z
-  | [ "skew"; "x"; n ] -> int_of_string_with_sign n >|= skew_x
-  | [ "skew"; "y"; n ] -> int_of_string_with_sign n >|= skew_y
-  | [ "rotate"; "x"; n ] -> int_of_string_with_sign n >|= rotate_x
-  | [ "rotate"; "y"; n ] -> int_of_string_with_sign n >|= rotate_y
-  | [ "rotate"; "z"; n ] -> int_of_string_with_sign n >|= rotate_z
-  | [ "perspective"; n ] ->
-      int_of_string_positive "perspective" n >|= perspective
+  | [ "rotate"; n ] -> Parse.int_any n >|= rotate
+  | [ "translate"; "x"; n ] -> Parse.int_any n >|= translate_x
+  | [ "translate"; "y"; n ] -> Parse.int_any n >|= translate_y
+  | [ "translate"; "z"; n ] -> Parse.int_any n >|= translate_z
+  | [ "scale"; n ] -> Parse.int_pos ~name:"scale" n >|= scale
+  | [ "scale"; "x"; n ] -> Parse.int_pos ~name:"scale-x" n >|= scale_x
+  | [ "scale"; "y"; n ] -> Parse.int_pos ~name:"scale-y" n >|= scale_y
+  | [ "scale"; "z"; n ] -> Parse.int_pos ~name:"scale-z" n >|= scale_z
+  | [ "skew"; "x"; n ] -> Parse.int_any n >|= skew_x
+  | [ "skew"; "y"; n ] -> Parse.int_any n >|= skew_y
+  | [ "rotate"; "x"; n ] -> Parse.int_any n >|= rotate_x
+  | [ "rotate"; "y"; n ] -> Parse.int_any n >|= rotate_y
+  | [ "rotate"; "z"; n ] -> Parse.int_any n >|= rotate_z
+  | [ "perspective"; n ] -> Parse.int_pos ~name:"perspective" n >|= perspective
   | [ "perspective"; "origin"; "center" ] -> Ok perspective_origin_center
   | [ "perspective"; "origin"; "top" ] -> Ok perspective_origin_top
   | [ "perspective"; "origin"; "bottom" ] -> Ok perspective_origin_bottom

@@ -53,13 +53,6 @@ val outline_offset_1 : t
 val outline_offset_2 : t
 val outline_offset_4 : t
 val outline_offset_8 : t
-val ring : t
-val ring_0 : t
-val ring_1 : t
-val ring_2 : t
-val ring_4 : t
-val ring_8 : t
-val ring_inset : t
 
 (** {1 Parsing Functions} *)
 

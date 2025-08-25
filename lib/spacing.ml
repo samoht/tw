@@ -24,6 +24,7 @@
 
 open Core
 open Css
+module Parse = Parse
 
 (* Pretty-printing helpers *)
 let pp_spacing_suffix : spacing -> string = function
@@ -235,13 +236,7 @@ let space_y n =
 
 (** {2 Parsing Functions} *)
 
-let int_of_string_positive name s =
-  match int_of_string_opt s with
-  | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
-  | Some n when n >= 0 -> Ok n
-  | Some _ -> Error (`Msg (name ^ " must be non-negative: " ^ s))
-
-let ( >|= ) r f = Result.map f r
+let ( >|= ) = Parse.( >|= )
 
 let spacing_of_string prefix px_var full_var int_fn = function
   | [ p; "px" ] when p = prefix -> Ok px_var
@@ -253,7 +248,7 @@ let spacing_of_string prefix px_var full_var int_fn = function
         else if prefix = "py" then "padding-y"
         else "padding-" ^ String.sub prefix 1 (String.length prefix - 1)
       in
-      int_of_string_positive name n >|= int_fn
+      Parse.int_pos ~name n >|= int_fn
   | _ -> Error (`Msg "")
 
 let margin_of_string prefix auto_var int_fn = function
@@ -265,19 +260,19 @@ let margin_of_string prefix auto_var int_fn = function
         else if prefix = "my" then "margin-y"
         else "margin-" ^ String.sub prefix 1 (String.length prefix - 1)
       in
-      int_of_string_positive name n >|= int_fn
+      Parse.int_pos ~name n >|= int_fn
   | _ -> Error (`Msg "")
 
 let gap_of_string = function
   | [ "gap"; "px" ] -> Ok (gap' `Px)
   | [ "gap"; "full" ] -> Ok (gap' `Full)
-  | [ "gap"; n ] -> int_of_string_positive "gap" n >|= gap
+  | [ "gap"; n ] -> Parse.int_pos ~name:"gap" n >|= gap
   | [ "gap"; "x"; "px" ] -> Ok (gap_x' `Px)
   | [ "gap"; "x"; "full" ] -> Ok (gap_x' `Full)
-  | [ "gap"; "x"; n ] -> int_of_string_positive "gap-x" n >|= gap_x
+  | [ "gap"; "x"; n ] -> Parse.int_pos ~name:"gap-x" n >|= gap_x
   | [ "gap"; "y"; "px" ] -> Ok (gap_y' `Px)
   | [ "gap"; "y"; "full" ] -> Ok (gap_y' `Full)
-  | [ "gap"; "y"; n ] -> int_of_string_positive "gap-y" n >|= gap_y
+  | [ "gap"; "y"; n ] -> Parse.int_pos ~name:"gap-y" n >|= gap_y
   | _ -> Error (`Msg "")
 
 let of_string parts =

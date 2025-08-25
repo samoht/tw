@@ -37,6 +37,11 @@ val text_justify : t
 val underline : t
 val line_through : t
 val no_underline : t
+val underline_solid : t
+val underline_double : t
+val underline_dotted : t
+val underline_dashed : t
+val underline_wavy : t
 val leading_none : t
 val leading_tight : t
 val leading_snug : t
@@ -44,6 +49,14 @@ val leading_normal : t
 val leading_relaxed : t
 val leading_loose : t
 val leading : int -> t
+
+(** {1 Whitespace Utilities} *)
+
+val whitespace_normal : t
+val whitespace_nowrap : t
+val whitespace_pre : t
+val whitespace_pre_line : t
+val whitespace_pre_wrap : t
 
 (** {1 Letter Spacing Utilities} *)
 
@@ -57,6 +70,18 @@ val uppercase : t
 val lowercase : t
 val capitalize : t
 val normal_case : t
+
+val underline_offset_auto : t
+(** {1 Text Underline Offset} *)
+
+val underline_offset_0 : t
+val underline_offset_1 : t
+val underline_offset_2 : t
+val underline_offset_4 : t
+val underline_offset_8 : t
+
+val antialiased : t
+(** {1 Rendering} *)
 
 (** {1 Parsing Functions} *)
 

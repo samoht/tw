@@ -7,10 +7,10 @@
     - Outline offsets and simple ring helpers.
 
     What's not:
-    - Per-corner radii (e.g., `rounded-tl`) are omitted due to missing typed
-      properties in `Css`. Use `style` with `Css.border_top_left_radius` if
-      available in your `Css` version, or `Css.property` as a workaround.
-    - Border colors are provided by the Color module (`border_*`).
+    - Utility shorthands for per-corner radii (e.g., `rounded-tl`) are not
+      provided here, but you can use typed helpers in `Css`:
+      `border_top_left_radius`, `border_top_right_radius`,
+      `border_bottom_right_radius`, `border_bottom_left_radius`.
 
     Parsing contract (`of_string`):
     - Accepts tokens like ["border"], ["border"; "t"], ["rounded"; "md"],
@@ -180,18 +180,6 @@ let outline_offset_2 = style "outline-offset-2" [ outline_offset (Px 2) ]
 let outline_offset_4 = style "outline-offset-4" [ outline_offset (Px 4) ]
 let outline_offset_8 = style "outline-offset-8" [ outline_offset (Px 8) ]
 
-(** {1 Ring Utilities} *)
-
-let ring = style "ring" [ box_shadow "0 0 0 3px rgba(59, 130, 246, 0.5)" ]
-let ring_0 = style "ring-0" [ box_shadow "0 0 0 0px rgba(59, 130, 246, 0.5)" ]
-let ring_1 = style "ring-1" [ box_shadow "0 0 0 1px rgba(59, 130, 246, 0.5)" ]
-let ring_2 = style "ring-2" [ box_shadow "0 0 0 2px rgba(59, 130, 246, 0.5)" ]
-let ring_4 = style "ring-4" [ box_shadow "0 0 0 4px rgba(59, 130, 246, 0.5)" ]
-let ring_8 = style "ring-8" [ box_shadow "0 0 0 8px rgba(59, 130, 246, 0.5)" ]
-
-let ring_inset =
-  style "ring-inset" [ box_shadow "inset 0 0 0 3px rgba(59, 130, 246, 0.5)" ]
-
 (** {1 Parsing Functions} *)
 
 let of_string = function
@@ -225,11 +213,5 @@ let of_string = function
   | [ "outline"; "offset"; "2" ] -> Ok outline_offset_2
   | [ "outline"; "offset"; "4" ] -> Ok outline_offset_4
   | [ "outline"; "offset"; "8" ] -> Ok outline_offset_8
-  | [ "ring" ] -> Ok ring
-  | [ "ring"; "0" ] -> Ok ring_0
-  | [ "ring"; "1" ] -> Ok ring_1
-  | [ "ring"; "2" ] -> Ok ring_2
-  | [ "ring"; "4" ] -> Ok ring_4
-  | [ "ring"; "8" ] -> Ok ring_8
-  | [ "ring"; "inset" ] -> Ok ring_inset
+  (* ring* handled in Effects *)
   | _ -> Error (`Msg "Not a border utility")

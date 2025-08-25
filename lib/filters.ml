@@ -17,6 +17,7 @@
 
 open Core
 open Css
+module Parse = Parse
 
 (** {1 Filter Utilities} *)
 
@@ -162,18 +163,7 @@ let backdrop_hue_rotate n =
 
 (** {1 Parsing Functions} *)
 
-let int_of_string_positive name s =
-  match int_of_string_opt s with
-  | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
-  | Some n when n >= 0 -> Ok n
-  | Some _ -> Error (`Msg (name ^ " must be non-negative: " ^ s))
-
-let int_of_string_with_sign s =
-  match int_of_string_opt s with
-  | None -> Error (`Msg ("Invalid number: " ^ s))
-  | Some n -> Ok n
-
-let ( >|= ) r f = Result.map f r
+let ( >|= ) = Parse.( >|= )
 
 let of_string = function
   | [ "blur"; "none" ] -> Ok blur_none
@@ -185,16 +175,16 @@ let of_string = function
   | [ "blur"; "xl" ] -> Ok blur_xl
   | [ "blur"; "2xl" ] -> Ok blur_2xl
   | [ "blur"; "3xl" ] -> Ok blur_3xl
-  | [ "brightness"; n ] -> int_of_string_positive "brightness" n >|= brightness
-  | [ "contrast"; n ] -> int_of_string_positive "contrast" n >|= contrast
-  | [ "grayscale"; n ] -> int_of_string_positive "grayscale" n >|= grayscale
+  | [ "brightness"; n ] -> Parse.int_pos ~name:"brightness" n >|= brightness
+  | [ "contrast"; n ] -> Parse.int_pos ~name:"contrast" n >|= contrast
+  | [ "grayscale"; n ] -> Parse.int_pos ~name:"grayscale" n >|= grayscale
   | [ "grayscale" ] -> Ok (grayscale 100)
-  | [ "saturate"; n ] -> int_of_string_positive "saturate" n >|= saturate
-  | [ "sepia"; n ] -> int_of_string_positive "sepia" n >|= sepia
+  | [ "saturate"; n ] -> Parse.int_pos ~name:"saturate" n >|= saturate
+  | [ "sepia"; n ] -> Parse.int_pos ~name:"sepia" n >|= sepia
   | [ "sepia" ] -> Ok (sepia 100)
-  | [ "invert"; n ] -> int_of_string_positive "invert" n >|= invert
+  | [ "invert"; n ] -> Parse.int_pos ~name:"invert" n >|= invert
   | [ "invert" ] -> Ok (invert 100)
-  | [ "hue"; "rotate"; n ] -> int_of_string_with_sign n >|= hue_rotate
+  | [ "hue"; "rotate"; n ] -> Parse.int_any n >|= hue_rotate
   | [ "backdrop"; "blur"; "none" ] -> Ok backdrop_blur_none
   | [ "backdrop"; "blur"; "xs" ] -> Ok backdrop_blur_xs
   | [ "backdrop"; "blur"; "sm" ] -> Ok backdrop_blur_sm
@@ -205,22 +195,22 @@ let of_string = function
   | [ "backdrop"; "blur"; "2xl" ] -> Ok backdrop_blur_2xl
   | [ "backdrop"; "blur"; "3xl" ] -> Ok backdrop_blur_3xl
   | [ "backdrop"; "brightness"; n ] ->
-      int_of_string_positive "backdrop-brightness" n >|= backdrop_brightness
+      Parse.int_pos ~name:"backdrop-brightness" n >|= backdrop_brightness
   | [ "backdrop"; "contrast"; n ] ->
-      int_of_string_positive "backdrop-contrast" n >|= backdrop_contrast
+      Parse.int_pos ~name:"backdrop-contrast" n >|= backdrop_contrast
   | [ "backdrop"; "opacity"; n ] ->
-      int_of_string_positive "backdrop-opacity" n >|= backdrop_opacity
+      Parse.int_pos ~name:"backdrop-opacity" n >|= backdrop_opacity
   | [ "backdrop"; "saturate"; n ] ->
-      int_of_string_positive "backdrop-saturate" n >|= backdrop_saturate
+      Parse.int_pos ~name:"backdrop-saturate" n >|= backdrop_saturate
   | [ "backdrop"; "grayscale"; n ] ->
-      int_of_string_positive "backdrop-grayscale" n >|= backdrop_grayscale
+      Parse.int_pos ~name:"backdrop-grayscale" n >|= backdrop_grayscale
   | [ "backdrop"; "grayscale" ] -> Ok (backdrop_grayscale 100)
   | [ "backdrop"; "invert"; n ] ->
-      int_of_string_positive "backdrop-invert" n >|= backdrop_invert
+      Parse.int_pos ~name:"backdrop-invert" n >|= backdrop_invert
   | [ "backdrop"; "invert" ] -> Ok (backdrop_invert 100)
   | [ "backdrop"; "sepia"; n ] ->
-      int_of_string_positive "backdrop-sepia" n >|= backdrop_sepia
+      Parse.int_pos ~name:"backdrop-sepia" n >|= backdrop_sepia
   | [ "backdrop"; "sepia" ] -> Ok (backdrop_sepia 100)
   | [ "backdrop"; "hue"; "rotate"; n ] ->
-      int_of_string_with_sign n >|= backdrop_hue_rotate
+      Parse.int_any n >|= backdrop_hue_rotate
   | _ -> Error (`Msg "Not a filter utility")
