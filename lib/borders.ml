@@ -96,14 +96,46 @@ let border_none =
 
 (** {1 Border Radius Utilities} *)
 
-let rounded_none = style "rounded-none" [ border_radius Zero ]
-let rounded_sm = style "rounded-sm" [ border_radius (Rem 0.125) ]
-let rounded = style "rounded" [ border_radius (Rem 0.25) ]
-let rounded_md = style "rounded-md" [ border_radius (Rem 0.375) ]
-let rounded_lg = style "rounded-lg" [ border_radius (Rem 0.5) ]
-let rounded_xl = style "rounded-xl" [ border_radius (Rem 0.75) ]
-let rounded_2xl = style "rounded-2xl" [ border_radius (Rem 1.0) ]
-let rounded_3xl = style "rounded-3xl" [ border_radius (Rem 1.5) ]
+let rounded_none =
+  style_with_vars "rounded-none"
+    [ border_radius (Var { name = "radius-none"; fallback = None }) ]
+    [ Radius { name = "none"; value = "0" } ]
+
+let rounded_sm =
+  style_with_vars "rounded-sm"
+    [ border_radius (Var { name = "radius-sm"; fallback = None }) ]
+    [ Radius { name = "sm"; value = ".125rem" } ]
+
+let rounded =
+  style_with_vars "rounded"
+    [ border_radius (Var { name = "radius-default"; fallback = None }) ]
+    [ Radius { name = "default"; value = ".25rem" } ]
+
+let rounded_md =
+  style_with_vars "rounded-md"
+    [ border_radius (Var { name = "radius-md"; fallback = None }) ]
+    [ Radius { name = "md"; value = ".375rem" } ]
+
+let rounded_lg =
+  style_with_vars "rounded-lg"
+    [ border_radius (Var { name = "radius-lg"; fallback = None }) ]
+    [ Radius { name = "lg"; value = ".5rem" } ]
+
+let rounded_xl =
+  style_with_vars "rounded-xl"
+    [ border_radius (Var { name = "radius-xl"; fallback = None }) ]
+    [ Radius { name = "xl"; value = ".75rem" } ]
+
+let rounded_2xl =
+  style_with_vars "rounded-2xl"
+    [ border_radius (Var { name = "radius-2xl"; fallback = None }) ]
+    [ Radius { name = "2xl"; value = "1rem" } ]
+
+let rounded_3xl =
+  style_with_vars "rounded-3xl"
+    [ border_radius (Var { name = "radius-3xl"; fallback = None }) ]
+    [ Radius { name = "3xl"; value = "1.5rem" } ]
+
 let rounded_full = style "rounded-full" [ border_radius (Px 9999) ]
 
 (* Individual corner radius utilities not supported by Css module: rounded_t,

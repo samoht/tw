@@ -2,4 +2,13 @@
 
 let () =
   Alcotest.run "tw"
-    ([ Test_tw.suite; Test_color.suite ] @ Test_pp.suite @ Test_prose.suite)
+    ([
+       Test_tw.suite;
+       Test_color.suite;
+       ("spacing", Test_spacing.tests);
+       ("borders", Test_borders.tests);
+       ("sizing", Test_sizing.tests);
+       ("layout", Test_layout.tests);
+       ("typography", Test_typography.tests);
+     ]
+    @ Test_pp.suite @ Test_prose.suite)

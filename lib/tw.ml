@@ -1324,3 +1324,20 @@ let of_string class_str =
   match base_result with
   | Error _ as e -> e
   | Ok base_style -> Ok (apply_modifiers modifiers base_style)
+
+(** {1 Module Exports} *)
+
+module Core = Core
+module Spacing = Spacing
+module Borders = Borders
+module Sizing = Sizing
+module Layout = Layout
+module Typography = Typography
+module Effects = Effects
+module Transforms = Transforms
+module Interactivity = Interactivity
+module Containers = Containers
+module Filters = Filters
+module Positioning = Positioning
+module Animations = Animations
+module Forms = Forms

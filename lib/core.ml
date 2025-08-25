@@ -44,9 +44,35 @@ type modifier =
   | Contrast_more
   | Contrast_less
 
-type var = Color of { name : string; shade : int option } | Spacing of int
+type var =
+  | Color of { name : string; shade : int option; value : string }
+    (* e.g., name="blue", shade=Some 500, value="#3b82f6" *)
+  | Spacing of { multiplier : int; value : string }
+    (* e.g., multiplier=4 for 1rem, value="1rem" *)
+  | Radius of { name : string; value : string }
+    (* e.g., name="sm", value=".125rem" *)
+  | Font of { name : string; value : string }
+(* e.g., name="sans", value="ui-sans-serif, ..." *)
 
-let color_var ?shade name = Color { name; shade }
+let color_var ?shade name =
+  (* For now, use a placeholder value - should look up actual color value *)
+  Color { name; shade; value = "#000000" }
+
+let spacing_var n =
+  Spacing
+    { multiplier = n; value = string_of_float (float_of_int n *. 0.25) ^ "rem" }
+
+let var_to_css_properties = function
+  | Color { name; shade; value } ->
+      let var_name =
+        match shade with
+        | Some s -> Printf.sprintf "--color-%s-%d" name s
+        | None -> Printf.sprintf "--color-%s" name
+      in
+      [ (var_name, value) ]
+  | Spacing { value; _ } -> [ ("--spacing", value) ]
+  | Radius { name; value } -> [ ("--radius-" ^ name, value) ]
+  | Font { name; value } -> [ ("--font-" ^ name, value) ]
 
 type t =
   | Style of { name : string; props : Css.declaration list; vars : var list }
@@ -66,3 +92,10 @@ let style name props = Style { name; props; vars = [] }
 
 (* Helper to create a style with variable requirements *)
 let style_with_vars name props vars = Style { name; props; vars }
+
+(* Pretty-print function to extract class name from Core.t *)
+let rec pp = function
+  | Style { name; _ } -> name
+  | Prose p -> Printf.sprintf "prose-%s" (Prose.pp p)
+  | Modified (_, t) -> pp t
+  | Group ts -> String.concat " " (List.map pp ts)
