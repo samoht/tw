@@ -18,6 +18,7 @@
 
 open Core
 open Css
+module Parse = Parse
 
 (** {1 Font Size Utilities} *)
 
@@ -222,6 +223,11 @@ let text_justify = style "text-justify" [ text_align Justify ]
 let underline = style "underline" [ text_decoration Underline ]
 let line_through = style "line-through" [ text_decoration Line_through ]
 let no_underline = style "no-underline" [ text_decoration None ]
+let underline_solid = style "underline-solid" [ text_decoration_style Solid ]
+let underline_double = style "underline-double" [ text_decoration_style Double ]
+let underline_dotted = style "underline-dotted" [ text_decoration_style Dotted ]
+let underline_dashed = style "underline-dashed" [ text_decoration_style Dashed ]
+let underline_wavy = style "underline-wavy" [ text_decoration_style Wavy ]
 
 (** {1 Line Height Utilities} *)
 
@@ -235,6 +241,13 @@ let leading_loose = style "leading-loose" [ line_height (Num 2.0) ]
 let leading n =
   let class_name = "leading-" ^ string_of_int n in
   style class_name [ line_height (Rem (float_of_int n *. 0.25)) ]
+
+(* Additional whitespace utilities *)
+let whitespace_normal = style "whitespace-normal" [ white_space Normal ]
+let whitespace_nowrap = style "whitespace-nowrap" [ white_space Nowrap ]
+let whitespace_pre = style "whitespace-pre" [ white_space Pre ]
+let whitespace_pre_line = style "whitespace-pre-line" [ white_space Pre_line ]
+let whitespace_pre_wrap = style "whitespace-pre-wrap" [ white_space Pre_wrap ]
 
 (** {1 Letter Spacing Utilities} *)
 
@@ -252,15 +265,35 @@ let lowercase = style "lowercase" [ text_transform Lowercase ]
 let capitalize = style "capitalize" [ text_transform Capitalize ]
 let normal_case = style "normal-case" [ text_transform None ]
 
+(** {1 Underline Offset} *)
+
+let underline_offset_auto =
+  style "underline-offset-auto" [ text_underline_offset "auto" ]
+
+let underline_offset_0 =
+  style "underline-offset-0" [ text_underline_offset "0" ]
+
+let underline_offset_1 =
+  style "underline-offset-1" [ text_underline_offset "1px" ]
+
+let underline_offset_2 =
+  style "underline-offset-2" [ text_underline_offset "2px" ]
+
+let underline_offset_4 =
+  style "underline-offset-4" [ text_underline_offset "4px" ]
+
+let underline_offset_8 =
+  style "underline-offset-8" [ text_underline_offset "8px" ]
+
+(** {1 Rendering} *)
+
+let antialiased =
+  style "antialiased"
+    [ webkit_font_smoothing Antialiased; moz_osx_font_smoothing Grayscale ]
+
 (** {1 Parsing Functions} *)
 
-let int_of_string_positive name s =
-  match int_of_string_opt s with
-  | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
-  | Some n when n > 0 -> Ok n
-  | Some _ -> Error (`Msg (name ^ " must be positive: " ^ s))
-
-let ( >|= ) r f = Result.map f r
+let ( >|= ) = Parse.( >|= )
 
 let of_string = function
   | [ "text"; "xs" ] -> Ok text_xs
@@ -302,7 +335,7 @@ let of_string = function
   | [ "leading"; "normal" ] -> Ok leading_normal
   | [ "leading"; "relaxed" ] -> Ok leading_relaxed
   | [ "leading"; "loose" ] -> Ok leading_loose
-  | [ "leading"; n ] -> int_of_string_positive "leading" n >|= leading
+  | [ "leading"; n ] -> Parse.int_pos ~name:"leading" n >|= leading
   | [ "tracking"; "tighter" ] -> Ok tracking_tighter
   | [ "tracking"; "tight" ] -> Ok tracking_tight
   | [ "tracking"; "normal" ] -> Ok tracking_normal

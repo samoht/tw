@@ -2,6 +2,7 @@
 
 open Core
 open Css
+module Parse = Parse
 
 (** {1 Inset Utilities} *)
 
@@ -79,10 +80,7 @@ let z n =
 
 (** {1 Parsing Functions} *)
 
-let int_of_string_with_sign s =
-  match int_of_string_opt s with
-  | None -> Error (`Msg ("Invalid number: " ^ s))
-  | Some n -> Ok n
+let int_of_string_with_sign = Parse.int_any
 
 let of_string = function
   | [ "inset"; "0" ] -> Ok inset_0

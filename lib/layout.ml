@@ -9,9 +9,8 @@
     - Object-fit/position, overflow, z-index.
 
     What's not:
-    - Some CSS shorthands like `place-*` are omitted where the typed `Css` API
-      lacks coverage. Use `style` with raw `Css.custom_property` or
-      `Css.property`.
+    - Some niche shorthands are omitted; prefer the typed helpers exposed in
+      `Css` (including `place_*` variants) rather than raw properties.
 
     Parsing contract (`of_string`):
     - Accepted tokens include a subset of Tailwind layout utilities, e.g.: *
@@ -24,6 +23,7 @@
 
 open Core
 open Css
+module Parse = Parse
 
 (** {1 Display Utilities} *)
 
@@ -90,6 +90,7 @@ let content_center = style "content-center" [ align_content Center ]
 let content_between = style "content-between" [ align_content Space_between ]
 let content_around = style "content-around" [ align_content Space_around ]
 let content_evenly = style "content-evenly" [ align_content Space_evenly ]
+let content_stretch = style "content-stretch" [ align_content Stretch ]
 
 (* Align Self *)
 let self_auto = style "self-auto" [ align_self Auto ]
@@ -100,12 +101,43 @@ let self_baseline = style "self-baseline" [ align_self Baseline ]
 let self_stretch = style "self-stretch" [ align_self Stretch ]
 
 (* Justify Self - not supported by Css module *)
+let justify_self_auto = style "justify-self-auto" [ justify_self Auto ]
+let justify_self_start = style "justify-self-start" [ justify_self Start ]
+let justify_self_end = style "justify-self-end" [ justify_self End ]
+let justify_self_center = style "justify-self-center" [ justify_self Center ]
+let justify_self_stretch = style "justify-self-stretch" [ justify_self Stretch ]
 
-(* Place Content - not supported by Css module *)
+(* Place Content *)
+let place_content_start = style "place-content-start" [ place_content_v Start ]
+let place_content_end = style "place-content-end" [ place_content_v End ]
 
-(* Place Items - not supported by Css module *)
+let place_content_center =
+  style "place-content-center" [ place_content_v Center ]
 
-(* Place Self - not supported by Css module *)
+let place_content_between =
+  style "place-content-between" [ place_content_v Space_between ]
+
+let place_content_around =
+  style "place-content-around" [ place_content_v Space_around ]
+
+let place_content_evenly =
+  style "place-content-evenly" [ place_content_v Space_evenly ]
+
+let place_content_stretch =
+  style "place-content-stretch" [ place_content_v Stretch ]
+
+(* Place Items *)
+let place_items_start = style "place-items-start" [ place_items_v Start ]
+let place_items_end = style "place-items-end" [ place_items_v End ]
+let place_items_center = style "place-items-center" [ place_items_v Center ]
+let place_items_stretch = style "place-items-stretch" [ place_items_v Stretch ]
+
+(* Place Self *)
+let place_self_auto = style "place-self-auto" [ place_self_v `Auto ]
+let place_self_start = style "place-self-start" [ place_self_v `Start ]
+let place_self_end = style "place-self-end" [ place_self_v `End ]
+let place_self_center = style "place-self-center" [ place_self_v `Center ]
+let place_self_stretch = style "place-self-stretch" [ place_self_v `Stretch ]
 
 (** {1 Positioning Utilities} *)
 
@@ -156,6 +188,18 @@ let object_bottom = style "object-bottom" [ object_position "bottom" ]
 let object_left = style "object-left" [ object_position "left" ]
 let object_right = style "object-right" [ object_position "right" ]
 
+(** {1 Table Utilities} *)
+
+let border_collapse = style "border-collapse" [ Css.border_collapse Collapse ]
+let border_separate = style "border-separate" [ Css.border_collapse Separate ]
+
+let border_spacing n =
+  let class_name = "border-spacing-" ^ string_of_int n in
+  style class_name [ Css.border_spacing (Rem (float_of_int n *. 0.25)) ]
+
+let table_auto = style "table-auto" [ Css.table_layout Auto ]
+let table_fixed = style "table-fixed" [ Css.table_layout Fixed ]
+
 (** {1 Grid Utilities} *)
 
 let grid_cols n =
@@ -176,13 +220,7 @@ let grid_rows n =
 
 (** {1 Parsing Functions} *)
 
-let int_of_string_positive name s =
-  match int_of_string_opt s with
-  | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
-  | Some n when n >= 0 -> Ok n
-  | Some _ -> Error (`Msg (name ^ " must be non-negative: " ^ s))
-
-let ( >|= ) r f = Result.map f r
+let ( >|= ) = Parse.( >|= )
 
 let of_string = function
   | [ "flex" ] -> Ok flex
@@ -199,8 +237,8 @@ let of_string = function
   | [ "inline"; "block" ] -> Ok inline_block
   | [ "inline"; "grid" ] -> Ok inline_grid
   | [ "grid" ] -> Ok grid
-  | [ "grid"; "cols"; n ] -> int_of_string_positive "grid cols" n >|= grid_cols
-  | [ "grid"; "rows"; n ] -> int_of_string_positive "grid rows" n >|= grid_rows
+  | [ "grid"; "cols"; n ] -> Parse.int_pos ~name:"grid cols" n >|= grid_cols
+  | [ "grid"; "rows"; n ] -> Parse.int_pos ~name:"grid rows" n >|= grid_rows
   | [ "hidden" ] -> Ok hidden
   | [ "items"; "center" ] -> Ok items_center
   | [ "items"; "start" ] -> Ok items_start

@@ -60,11 +60,40 @@ val self_end : t
 val self_center : t
 val self_baseline : t
 val self_stretch : t
+val content_stretch : t
 
-(* Justify Self utilities not supported by Css module *)
-(* Place Content utilities not supported by Css module *)
-(* Place Items utilities not supported by Css module *)
-(* Place Self utilities not supported by Css module *)
+val place_content_start : t
+(** {2 Place Content (Grid Shorthand)} *)
+
+val place_content_end : t
+val place_content_center : t
+val place_content_between : t
+val place_content_around : t
+val place_content_evenly : t
+val place_content_stretch : t
+
+val place_items_start : t
+(** {2 Place Items (Grid Shorthand)} *)
+
+val place_items_end : t
+val place_items_center : t
+val place_items_stretch : t
+
+val justify_self_auto : t
+(** {2 Justify Self (Grid Items)} *)
+
+val justify_self_start : t
+val justify_self_end : t
+val justify_self_center : t
+val justify_self_stretch : t
+
+val place_self_auto : t
+(** {2 Place Self (Grid Shorthand)} *)
+
+val place_self_start : t
+val place_self_end : t
+val place_self_center : t
+val place_self_stretch : t
 
 (** {1 Positioning Utilities} *)
 
@@ -117,6 +146,14 @@ val object_top : t
 val object_bottom : t
 val object_left : t
 val object_right : t
+
+val border_collapse : t
+(** {1 Table Utilities} *)
+
+val border_separate : t
+val border_spacing : int -> t
+val table_auto : t
+val table_fixed : t
 
 (** {1 Grid Utilities} *)
 

@@ -70,7 +70,7 @@ let var_to_css_properties = function
         | None -> Printf.sprintf "--color-%s" name
       in
       [ (var_name, value) ]
-  | Spacing { value; _ } -> [ ("--spacing", value) ]
+  | Spacing { multiplier = _; value = _ } -> [ ("--spacing", "0.25rem") ]
   | Radius { name; value } -> [ ("--radius-" ^ name, value) ]
   | Font { name; value } -> [ ("--font-" ^ name, value) ]
 

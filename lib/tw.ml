@@ -267,83 +267,8 @@ include Forms
 
 (** {1 Additional Utilities} *)
 
-(* Grid and opacity utilities are now provided by their respective modules *)
-
-(* These utilities haven't been moved to separate modules yet *)
-
 (* Place content utilities - shorthand for align-content and justify-content in
    Grid *)
-let content_stretch = style "content-stretch" [ Css.align_content Stretch ]
-
-let place_content_start =
-  style "place-content-start" [ Css.place_content "start" ]
-
-let place_content_end = style "place-content-end" [ Css.place_content "end" ]
-
-let place_content_center =
-  style "place-content-center" [ Css.place_content "center" ]
-
-let place_content_between =
-  style "place-content-between" [ Css.place_content "space-between" ]
-
-let place_content_around =
-  style "place-content-around" [ Css.place_content "space-around" ]
-
-let place_content_evenly =
-  style "place-content-evenly" [ Css.place_content "space-evenly" ]
-
-let place_content_stretch =
-  style "place-content-stretch" [ Css.place_content "stretch" ]
-
-(* Place items utilities - shorthand for align-items and justify-items in
-   Grid *)
-let place_items_start = style "place-items-start" [ Css.place_items "start" ]
-let place_items_end = style "place-items-end" [ Css.place_items "end" ]
-let place_items_center = style "place-items-center" [ Css.place_items "center" ]
-
-let place_items_stretch =
-  style "place-items-stretch" [ Css.place_items "stretch" ]
-
-(* Place self utilities - shorthand for align-self and justify-self *)
-let place_self_auto = style "place-self-auto" [ Css.place_self "auto" ]
-let place_self_start = style "place-self-start" [ Css.place_self "start" ]
-let place_self_end = style "place-self-end" [ Css.place_self "end" ]
-let place_self_center = style "place-self-center" [ Css.place_self "center" ]
-let place_self_stretch = style "place-self-stretch" [ Css.place_self "stretch" ]
-
-(* Justify self utilities - for Grid items *)
-let justify_self_auto = style "justify-self-auto" [ Css.justify_self Auto ]
-let justify_self_start = style "justify-self-start" [ Css.justify_self Start ]
-let justify_self_end = style "justify-self-end" [ Css.justify_self End ]
-
-let justify_self_center =
-  style "justify-self-center" [ Css.justify_self Center ]
-
-let justify_self_stretch =
-  style "justify-self-stretch" [ Css.justify_self Stretch ]
-
-(* Additional typography utilities *)
-let leading_6 = style "leading-6" [ Css.line_height (Rem 1.5) ]
-let whitespace_normal = style "whitespace-normal" [ Css.white_space Normal ]
-let whitespace_nowrap = style "whitespace-nowrap" [ Css.white_space Nowrap ]
-let whitespace_pre = style "whitespace-pre" [ Css.white_space Pre ]
-
-let whitespace_pre_line =
-  style "whitespace-pre-line" [ Css.white_space Pre_line ]
-
-let whitespace_pre_wrap =
-  style "whitespace-pre-wrap" [ Css.white_space Pre_wrap ]
-
-(* Table utilities *)
-let border_collapse = style "border-collapse" [ Css.border_collapse Collapse ]
-let border_separate = style "border-separate" [ Css.border_collapse Separate ]
-
-let border_spacing n =
-  let class_name = "border-spacing-" ^ string_of_int n in
-  style class_name [ Css.border_spacing (Rem (float_of_int n *. 0.25)) ]
-
-let table_auto = style "table-auto" [ Css.table_layout Auto ]
-let table_fixed = style "table-fixed" [ Css.table_layout Fixed ]
 
 (* Appearance utilities *)
 let appearance_none = style "appearance-none" [ Css.appearance None ]
@@ -376,8 +301,6 @@ let pointer_events_auto =
     [ Css.pointer_events (Auto : Css.pointer_events_value) ]
 
 let outline_none = style "outline-none" [ Css.outline "none" ]
-
-(* Ring utilities are provided by the Effects module *)
 
 let ring_color color shade =
   let class_name =
@@ -556,162 +479,7 @@ let on_2xl styles =
   validate_no_nested_responsive styles;
   Group (List.map (fun t -> Modified (Responsive `Xl_2, t)) styles)
 
-let bg_gradient_to_b =
-  style "bg-gradient-to-b"
-    [
-      Css.background_image
-        "linear-gradient(to bottom, var(--tw-gradient-stops))";
-    ]
-
-let bg_gradient_to_br =
-  style "bg-gradient-to-br"
-    [
-      Css.background_image
-        "linear-gradient(to bottom right, var(--tw-gradient-stops))";
-    ]
-
-let bg_gradient_to_t =
-  style "bg-gradient-to-t"
-    [ Css.background_image "linear-gradient(to top, var(--tw-gradient-stops))" ]
-
-let bg_gradient_to_tr =
-  style "bg-gradient-to-tr"
-    [
-      Css.background_image
-        "linear-gradient(to top right, var(--tw-gradient-stops))";
-    ]
-
-let bg_gradient_to_r =
-  style "bg-gradient-to-r"
-    [
-      Css.background_image "linear-gradient(to right, var(--tw-gradient-stops))";
-    ]
-
-let bg_gradient_to_bl =
-  style "bg-gradient-to-bl"
-    [
-      Css.background_image
-        "linear-gradient(to bottom left, var(--tw-gradient-stops))";
-    ]
-
-let bg_gradient_to_l =
-  style "bg-gradient-to-l"
-    [
-      Css.background_image "linear-gradient(to left, var(--tw-gradient-stops))";
-    ]
-
-let bg_gradient_to_tl =
-  style "bg-gradient-to-tl"
-    [
-      Css.background_image
-        "linear-gradient(to top left, var(--tw-gradient-stops))";
-    ]
-
-(** Gradient color stops *)
-let from_color ?(shade = 500) color =
-  let class_name =
-    if Color.is_base_color color || Color.is_custom_color color then
-      "from-" ^ Color.pp color
-    else Pp.str [ "from-"; Color.pp color; "-"; string_of_int shade ]
-  in
-  let var_str =
-    if Color.is_base_color color || Color.is_custom_color color then
-      Pp.str [ "var(--color-"; Color.pp color; ")" ]
-    else
-      Pp.str [ "var(--color-"; Color.pp color; "-"; string_of_int shade; ")" ]
-  in
-  style class_name
-    [
-      Css.custom_property "--tw-gradient-from" var_str;
-      Css.custom_property "--tw-gradient-stops"
-        "var(--tw-gradient-via-stops,var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-to)var(--tw-gradient-to-position))";
-    ]
-
-let via_color ?(shade = 500) color =
-  let class_name =
-    if Color.is_base_color color || Color.is_custom_color color then
-      "via-" ^ Color.pp color
-    else Pp.str [ "via-"; Color.pp color; "-"; string_of_int shade ]
-  in
-  let var_str =
-    if Color.is_base_color color || Color.is_custom_color color then
-      Pp.str [ "var(--color-"; Color.pp color; ")" ]
-    else
-      Pp.str [ "var(--color-"; Color.pp color; "-"; string_of_int shade; ")" ]
-  in
-  style class_name
-    [
-      Css.custom_property "--tw-gradient-via" var_str;
-      Css.custom_property "--tw-gradient-via-stops"
-        "var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-via)var(--tw-gradient-via-position),var(--tw-gradient-to)var(--tw-gradient-to-position)";
-      Css.custom_property "--tw-gradient-stops" "var(--tw-gradient-via-stops)";
-    ]
-
-let to_color ?(shade = 500) color =
-  let class_name =
-    if Color.is_base_color color || Color.is_custom_color color then
-      "to-" ^ Color.pp color
-    else Pp.str [ "to-"; Color.pp color; "-"; string_of_int shade ]
-  in
-  let var_str =
-    if Color.is_base_color color || Color.is_custom_color color then
-      Pp.str [ "var(--color-"; Color.pp color; ")" ]
-    else
-      Pp.str [ "var(--color-"; Color.pp color; "-"; string_of_int shade; ")" ]
-  in
-  style class_name
-    [
-      Css.custom_property "--tw-gradient-to" var_str;
-      Css.custom_property "--tw-gradient-stops"
-        "var(--tw-gradient-via-stops,var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-to)var(--tw-gradient-to-position))";
-    ]
-
-let antialiased =
-  style "antialiased"
-    [
-      Css.webkit_font_smoothing Antialiased;
-      Css.moz_osx_font_smoothing Grayscale;
-    ]
-
-(* Text transformation utilities *)
-let uppercase = style "uppercase" [ Css.text_transform Uppercase ]
-let lowercase = style "lowercase" [ Css.text_transform Lowercase ]
-let capitalize = style "capitalize" [ Css.text_transform Capitalize ]
-let normal_case = style "normal-case" [ Css.text_transform None ]
-
-(* Text decoration style utilities *)
-let underline_solid =
-  style "underline-solid" [ Css.text_decoration_style Solid ]
-
-let underline_double =
-  style "underline-double" [ Css.text_decoration_style Double ]
-
-let underline_dotted =
-  style "underline-dotted" [ Css.text_decoration_style Dotted ]
-
-let underline_dashed =
-  style "underline-dashed" [ Css.text_decoration_style Dashed ]
-
-let underline_wavy = style "underline-wavy" [ Css.text_decoration_style Wavy ]
-
-(* Text underline offset utilities *)
-let underline_offset_auto =
-  style "underline-offset-auto" [ Css.text_underline_offset "auto" ]
-
-let underline_offset_0 =
-  style "underline-offset-0" [ Css.text_underline_offset "0" ]
-
-let underline_offset_1 =
-  style "underline-offset-1" [ Css.text_underline_offset "1px" ]
-
-let underline_offset_2 =
-  style "underline-offset-2" [ Css.text_underline_offset "2px" ]
-
-let underline_offset_4 =
-  style "underline-offset-4" [ Css.text_underline_offset "4px" ]
-
-let underline_offset_8 =
-  style "underline-offset-8" [ Css.text_underline_offset "8px" ]
+include Backgrounds
 
 (* Additional functions needed *)
 let aspect_ratio width height =
@@ -903,8 +671,6 @@ let apply_modifiers modifiers base_style =
     base_style modifiers
 
 (* Helper functions for parsing *)
-
-(* Width and height parsing functions moved to Sizing module *)
 
 (* Parse color-related classes *)
 

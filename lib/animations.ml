@@ -2,6 +2,7 @@
 
 open Core
 open Css
+module Parse = Parse
 
 (** {1 Transition Utilities} *)
 
@@ -123,12 +124,6 @@ let delay n =
 
 (** {1 Parsing Functions} *)
 
-let int_of_string_positive name s =
-  match int_of_string_opt s with
-  | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
-  | Some n when n >= 0 -> Ok n
-  | Some _ -> Error (`Msg (name ^ " must be non-negative: " ^ s))
-
 let of_string = function
   | [ "transition"; "none" ] -> Ok transition_none
   | [ "transition"; "all" ] -> Ok transition_all
@@ -142,9 +137,8 @@ let of_string = function
   | [ "animate"; "ping" ] -> Ok animate_ping
   | [ "animate"; "pulse" ] -> Ok animate_pulse
   | [ "animate"; "bounce" ] -> Ok animate_bounce
-  | [ "duration"; n ] ->
-      int_of_string_positive "duration" n |> Result.map duration
-  | [ "delay"; n ] -> int_of_string_positive "delay" n |> Result.map delay
+  | [ "duration"; n ] -> Parse.int_pos ~name:"duration" n |> Result.map duration
+  | [ "delay"; n ] -> Parse.int_pos ~name:"delay" n |> Result.map delay
   | [ "ease"; "linear" ] -> Ok ease_linear
   | [ "ease"; "in" ] -> Ok ease_in
   | [ "ease"; "out" ] -> Ok ease_out

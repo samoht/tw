@@ -17,6 +17,7 @@
 
 open Core
 open Css
+module Parse = Parse
 
 (** {1 Shadow Utilities} *)
 
@@ -125,6 +126,9 @@ let ring_md = ring_internal `Md
 let ring_lg = ring_internal `Lg
 let ring_xl = ring_internal `Xl
 
+let ring_inset =
+  style "ring-inset" [ custom_property "--tw-ring-inset" "inset" ]
+
 (** {1 Transition Utilities} *)
 
 let transition_none =
@@ -196,31 +200,7 @@ let opacity n =
 
 (** {1 Parsing Functions} *)
 
-let int_of_string_positive name s =
-  match int_of_string_opt s with
-  | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
-  | Some n when n >= 0 -> Ok n
-  | Some _ -> Error (`Msg (name ^ " must be non-negative: " ^ s))
-
-let int_of_string_bounded name min max s =
-  match int_of_string_opt s with
-  | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
-  | Some n when n >= min && n <= max -> Ok n
-  | Some _ ->
-      Error
-        (`Msg
-           (Pp.str
-              [
-                name;
-                " must be between ";
-                string_of_int min;
-                " and ";
-                string_of_int max;
-                ": ";
-                s;
-              ]))
-
-let ( >|= ) r f = Result.map f r
+let ( >|= ) = Parse.( >|= )
 
 let of_string = function
   | [ "shadow"; "none" ] -> Ok shadow_none
@@ -231,7 +211,8 @@ let of_string = function
   | [ "shadow"; "xl" ] -> Ok shadow_xl
   | [ "shadow"; "2xl" ] -> Ok shadow_2xl
   | [ "shadow"; "inner" ] -> Ok shadow_inner
-  | [ "opacity"; n ] -> int_of_string_bounded "Opacity" 0 100 n >|= opacity
+  | [ "opacity"; n ] ->
+      Parse.int_bounded ~name:"opacity" ~min:0 ~max:100 n >|= opacity
   | [ "ring" ] -> Ok ring
   | [ "ring"; "0" ] -> Ok ring_none
   | [ "ring"; "1" ] -> Ok ring_xs
@@ -239,6 +220,7 @@ let of_string = function
   | [ "ring"; "3" ] -> Ok ring_md
   | [ "ring"; "4" ] -> Ok ring_lg
   | [ "ring"; "8" ] -> Ok ring_xl
+  | [ "ring"; "inset" ] -> Ok ring_inset
   | [ "transition" ] -> Ok transition_all
   | [ "transition"; "none" ] -> Ok transition_none
   | [ "transition"; "all" ] -> Ok transition_all
@@ -246,5 +228,5 @@ let of_string = function
   | [ "transition"; "opacity" ] -> Ok transition_opacity
   | [ "transition"; "shadow" ] -> Ok transition_shadow
   | [ "transition"; "transform" ] -> Ok transition_transform
-  | [ "duration"; n ] -> int_of_string_positive "duration" n >|= duration
+  | [ "duration"; n ] -> Parse.int_pos ~name:"duration" n >|= duration
   | _ -> Error (`Msg "Not an effects utility")
