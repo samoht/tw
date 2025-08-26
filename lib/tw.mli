@@ -509,11 +509,10 @@ val to_color : ?shade:int -> color -> t
 (** [to_color ~shade:600 pink] sets the ending color of a gradient. Default
     shade is 500. *)
 
-(** {1 Spacing}
-    @see <https://tailwindcss.com/docs/padding> Padding
-    @see <https://tailwindcss.com/docs/margin> Margin
-    @see <https://tailwindcss.com/docs/space> Space Between
-    @see <https://tailwindcss.com/docs/gap> Gap *)
+(** {1 Spacing} *)
+
+(** {2 Padding}
+    @see <https://tailwindcss.com/docs/padding> Padding *)
 
 val p : int -> t
 (** [p n] sets padding (inner spacing) on all sides using Tailwind scale (n ×
@@ -543,8 +542,6 @@ val pb : int -> t
 
 val pl : int -> t
 (** [pl n] sets left padding. *)
-
-(** {2 Special padding values} *)
 
 val p_px : t
 (** [p_px] sets 1px padding on all sides. *)
@@ -588,6 +585,9 @@ val pl_px : t
 val pl_full : t
 (** [pl_full] sets 100% left padding. *)
 
+(** {2 Margin}
+    @see <https://tailwindcss.com/docs/margin> Margin *)
+
 val m : int -> t
 (** [m n] sets margin (outer spacing) on all sides using Tailwind scale (n ×
     0.25rem).
@@ -614,8 +614,6 @@ val mb : int -> t
 
 val ml : int -> t
 (** [ml n] sets left margin. *)
-
-(** {2 Common margin utilities} *)
 
 val m_auto : t
 (** [m_auto] sets auto margins on all sides (centers if width is defined). *)
@@ -2916,8 +2914,7 @@ module Borders = Borders
 module Backgrounds = Backgrounds
 module Sizing = Sizing
 module Layout = Layout
-module Flexbox = Flexbox
-module Grid = Grid
+module Flow = Flow
 module Typography = Typography
 module Effects = Effects
 module Transforms = Transforms

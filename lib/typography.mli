@@ -46,6 +46,9 @@ val text_9xl : t
 val font_thin : t
 (** [font_thin] sets font-weight to 100. *)
 
+val font_extralight : t
+(** [font_extralight] sets font-weight to 200. *)
+
 val font_light : t
 (** [font_light] sets font-weight to 300. *)
 
@@ -96,6 +99,9 @@ val text_justify : t
 
 val underline : t
 (** [underline] underlines text. *)
+
+val overline : t
+(** [overline] applies an overline decoration. *)
 
 val line_through : t
 (** [line_through] applies a line-through decoration. *)

@@ -21,14 +21,12 @@
 open Core
 open Css
 
-(** Helper to create spacing-based calc expressions *)
-let spacing_calc n =
-  Calc (Expr (Calc.var "spacing", Mult, Calc.float (float_of_int n)))
 
 (** Helper to create spacing-based utilities with consistent pattern *)
 let make_spacing_utility prefix css_prop n =
   let class_name = prefix ^ string_of_int n in
-  style ~vars:[ spacing_var n ] class_name [ css_prop (spacing_calc n) ]
+  let spacing_value = Rem (float_of_int n *. 0.25) in
+  style class_name [ css_prop spacing_value ]
 
 (** {1 Width Utilities} *)
 

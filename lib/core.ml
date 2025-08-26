@@ -46,39 +46,13 @@ type modifier =
   | Pseudo_before
   | Pseudo_after
 
-type var =
-  | Color of { name : string; shade : int option; value : string }
-    (* e.g., name="blue", shade=Some 500, value="#3b82f6" *)
-  | Spacing of { multiplier : int; value : string }
-    (* e.g., multiplier=4 for 1rem, value="1rem" *)
-  | Radius of { name : string; value : string }
-    (* e.g., name="sm", value=".125rem" *)
-  | Font of { name : string; value : string }
-(* e.g., name="sans", value="ui-sans-serif, ..." *)
-
-
-let color_var ?shade name =
-  (* For now, use a placeholder value - should look up actual color value *)
-  Color { name; shade; value = "#000000" }
-
-let spacing_var n =
-  Spacing
-    { multiplier = n; value = string_of_float (float_of_int n *. 0.25) ^ "rem" }
-
-let var_to_css_properties = function
-  | Color { name; shade; value } ->
-      let var_name =
-        match shade with
-        | Some s -> Pp.str [ "--color-"; name; "-"; string_of_int s ]
-        | None -> Pp.str [ "--color-"; name ]
-      in
-      [ (var_name, value) ]
-  | Spacing { multiplier = _; value = _ } -> [ ("--spacing", "0.25rem") ]
-  | Radius { name; value } -> [ ("--radius-" ^ name, value) ]
-  | Font { name; value } -> [ ("--font-" ^ name, value) ]
 
 type t =
-  | Style of { name : string; props : Css.declaration list; vars : var list; rules : Css.rule list option }
+  | Style of {
+      name : string;
+      props : Css.declaration list;
+      rules : Css.rule list option;
+    }
   | Modified of modifier * t
   | Group of t list
 
@@ -90,8 +64,8 @@ type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
 (* Helper to create a style *)
-let style ?(vars = []) ?(rules = None) name props = 
-  Style { name; props; vars; rules }
+let style ?(rules = None) name props =
+  Style { name; props; rules }
 
 (* Extract base class name(s) from Core.t. Modifiers are ignored. *)
 let rec class_name = function

@@ -131,7 +131,6 @@ let rounded_sm =
              default_value = Some (Rem 0.125);
            });
     ]
-    ~vars:[ Radius { name = "sm"; value = ".25rem" } ]
 
 let rounded = style "rounded" [ border_radius (Rem 0.25) ]
 
@@ -146,7 +145,6 @@ let rounded_md =
              default_value = Some (Rem 0.375);
            });
     ]
-    ~vars:[ Radius { name = "md"; value = ".375rem" } ]
 
 let rounded_lg =
   style "rounded-lg"
@@ -159,7 +157,6 @@ let rounded_lg =
              default_value = Some (Rem 0.5);
            });
     ]
-    ~vars:[ Radius { name = "lg"; value = ".5rem" } ]
 
 let rounded_xl =
   style "rounded-xl"
@@ -172,7 +169,6 @@ let rounded_xl =
              default_value = Some (Rem 0.75);
            });
     ]
-    ~vars:[ Radius { name = "xl"; value = ".75rem" } ]
 
 let rounded_2xl =
   style "rounded-2xl"
@@ -185,7 +181,6 @@ let rounded_2xl =
              default_value = Some (Rem 1.0);
            });
     ]
-    ~vars:[ Radius { name = "2xl"; value = "1rem" } ]
 
 let rounded_3xl =
   style "rounded-3xl"
@@ -198,7 +193,6 @@ let rounded_3xl =
              default_value = Some (Rem 1.5);
            });
     ]
-    ~vars:[ Radius { name = "3xl"; value = "1.5rem" } ]
 
 let rounded_full =
   (* Tailwind v4 uses calc(infinity * 1px) which gets optimized to
