@@ -30,8 +30,8 @@
         ]
     ]} *)
 
-(** Prose variant types *)
 type variant = [ `Base | `Sm | `Lg | `Xl | `Xl2 | `Gray | `Slate ]
+(** Prose variant types *)
 
 val pp : variant -> string
 (** [pp variant] pretty-prints a prose variant. *)
@@ -104,4 +104,5 @@ val of_string : string list -> (Core.t, [ `Msg of string ]) result
 (** [of_string parts] parses a prose utility from string parts. *)
 
 val stylesheet : unit -> Css.rule list
-(** [prose_stylesheet ()] generates complete CSS rules for all prose variants. *)
+(** [prose_stylesheet ()] generates complete CSS rules for all prose variants.
+*)

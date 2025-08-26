@@ -46,6 +46,7 @@ let snap_start = style "snap-start" [ scroll_snap_align Start ]
 let snap_end = style "snap-end" [ scroll_snap_align End ]
 let snap_center = style "snap-center" [ scroll_snap_align Center ]
 let snap_none = style "snap-none" [ scroll_snap_type None ]
+
 (* Axis and strictness helpers using CSS var for strictness *)
 let snap_x =
   style "snap-x" [ scroll_snap_type (X_var "var(--tw-scroll-snap-strictness)") ]
@@ -123,15 +124,14 @@ let rec of_string = function
 
 (* Additional utilities moved from Tw *)
 and pointer_events_none =
-  style "pointer-events-none"
-    [ pointer_events (None : pointer_events_value) ]
+  style "pointer-events-none" [ pointer_events (None : pointer_events_value) ]
 
 and pointer_events_auto =
   style "pointer-events-auto" [ pointer_events (Auto : pointer_events_value) ]
 
 and appearance_none = style "appearance-none" [ appearance None ]
-
 and will_change_auto = style "will-change-auto" [ will_change "auto" ]
+
 and will_change_scroll =
   style "will-change-scroll" [ will_change "scroll-position" ]
 

@@ -134,7 +134,6 @@ let font_thin =
       custom_property "--tw-font-weight" "var(--font-weight-thin)";
       font_weight (Var (var "font-weight-thin"));
     ]
-    
 
 let font_extralight =
   style "font-extralight"
@@ -142,7 +141,6 @@ let font_extralight =
       custom_property "--tw-font-weight" "var(--font-weight-extralight)";
       font_weight (Var (var "font-weight-extralight"));
     ]
-    
 
 let font_light =
   style "font-light"
@@ -150,7 +148,6 @@ let font_light =
       custom_property "--tw-font-weight" "var(--font-weight-light)";
       font_weight (Var (var "font-weight-light"));
     ]
-    
 
 let font_normal =
   style "font-normal"
@@ -158,7 +155,6 @@ let font_normal =
       custom_property "--tw-font-weight" "var(--font-weight-normal)";
       font_weight (Var (var "font-weight-normal"));
     ]
-    
 
 let font_medium =
   style "font-medium"
@@ -166,7 +162,6 @@ let font_medium =
       custom_property "--tw-font-weight" "var(--font-weight-medium)";
       font_weight (Var (var "font-weight-medium"));
     ]
-    
 
 let font_semibold =
   style "font-semibold"
@@ -174,7 +169,6 @@ let font_semibold =
       custom_property "--tw-font-weight" "var(--font-weight-semibold)";
       font_weight (Var (var "font-weight-semibold"));
     ]
-    
 
 let font_bold =
   style "font-bold"
@@ -182,7 +176,6 @@ let font_bold =
       custom_property "--tw-font-weight" "var(--font-weight-bold)";
       font_weight (Var (var "font-weight-bold"));
     ]
-    
 
 let font_extrabold =
   style "font-extrabold"
@@ -190,7 +183,6 @@ let font_extrabold =
       custom_property "--tw-font-weight" "var(--font-weight-extrabold)";
       font_weight (Var (var "font-weight-extrabold"));
     ]
-    
 
 let font_black =
   style "font-black"
@@ -198,7 +190,6 @@ let font_black =
       custom_property "--tw-font-weight" "var(--font-weight-black)";
       font_weight (Var (var "font-weight-black"));
     ]
-    
 
 (** {1 Font Family Utilities} *)
 
@@ -240,7 +231,7 @@ let underline_wavy = style "underline-wavy" [ text_decoration_style Wavy ]
 
 (** {1 Text Decoration Color & Thickness} *)
 
-let decoration_color ?(shade=500) (color : Color.color) =
+let decoration_color ?(shade = 500) (color : Color.color) =
   let class_name =
     if Color.is_base_color color then Pp.str [ "decoration-"; Color.pp color ]
     else Pp.str [ "decoration-"; Color.pp color; "-"; string_of_int shade ]
@@ -332,10 +323,10 @@ let align_super = style "align-super" [ vertical_align Super ]
 let list_none = style "list-none" [ list_style "none" ]
 let list_disc = style "list-disc" [ list_style_type Disc ]
 let list_decimal = style "list-decimal" [ list_style_type Decimal ]
-
 let list_inside = style "list-inside" [ list_style_position Inside ]
 let list_outside = style "list-outside" [ list_style_position Outside ]
 let list_image_none = style "list-image-none" [ list_style_image None_img ]
+
 let list_image_url url =
   style (Pp.str [ "list-image-url-"; url ]) [ list_style_image (Url url) ]
 
@@ -397,14 +388,16 @@ let text_pretty = style "text-pretty" [ Css.text_wrap Pretty ]
 let break_normal =
   style "break-normal" [ word_break Normal; overflow_wrap Normal_wrap ]
 
-let break_words =
-  style "break-words" [ overflow_wrap Break_word_wrap ]
-
+let break_words = style "break-words" [ overflow_wrap Break_word_wrap ]
 let break_all = style "break-all" [ word_break Break_all ]
 let break_keep = style "break-keep" [ word_break Keep_all ]
 
-let overflow_wrap_normal = style "overflow-wrap-normal" [ overflow_wrap Normal_wrap ]
-let overflow_wrap_anywhere = style "overflow-wrap-anywhere" [ overflow_wrap Anywhere ]
+let overflow_wrap_normal =
+  style "overflow-wrap-normal" [ overflow_wrap Normal_wrap ]
+
+let overflow_wrap_anywhere =
+  style "overflow-wrap-anywhere" [ overflow_wrap Anywhere ]
+
 let overflow_wrap_break_word =
   style "overflow-wrap-break-word" [ overflow_wrap Break_word_wrap ]
 
@@ -417,6 +410,7 @@ let hyphens_auto = style "hyphens-auto" [ hyphens Auto ]
 (** {1 Font Stretch} *)
 
 let font_stretch_normal = style "font-stretch-normal" [ font_stretch Normal ]
+
 let font_stretch_condensed =
   style "font-stretch-condensed" [ font_stretch Condensed ]
 
@@ -424,7 +418,8 @@ let font_stretch_expanded =
   style "font-stretch-expanded" [ font_stretch Expanded ]
 
 let font_stretch_percent n =
-  style ("font-stretch-" ^ string_of_int n)
+  style
+    ("font-stretch-" ^ string_of_int n)
     [ font_stretch (Percentage (float_of_int n)) ]
 
 (** {1 Numeric Variants} *)
@@ -433,9 +428,14 @@ let normal_nums =
   style "normal-nums" [ font_variant_numeric [ Normal_numeric ] ]
 
 let ordinal = style "ordinal" [ font_variant_numeric [ Ordinal ] ]
-let slashed_zero = style "slashed-zero" [ font_variant_numeric [ Slashed_zero ] ]
+
+let slashed_zero =
+  style "slashed-zero" [ font_variant_numeric [ Slashed_zero ] ]
+
 let lining_nums = style "lining-nums" [ font_variant_numeric [ Lining_nums ] ]
-let oldstyle_nums = style "oldstyle-nums" [ font_variant_numeric [ Oldstyle_nums ] ]
+
+let oldstyle_nums =
+  style "oldstyle-nums" [ font_variant_numeric [ Oldstyle_nums ] ]
 
 let proportional_nums =
   style "proportional-nums" [ font_variant_numeric [ Proportional_nums ] ]
@@ -495,10 +495,10 @@ let of_string = function
   | [ "leading"; "normal" ] -> Ok leading_normal
   | [ "leading"; "relaxed" ] -> Ok leading_relaxed
   | [ "leading"; "loose" ] -> Ok leading_loose
-  | [ "leading"; n ] -> 
-      (match Parse.int_bounded ~name:"leading" ~min:3 ~max:10 n with
-       | Ok i -> Ok (leading i)
-       | Error e -> Error e)
+  | [ "leading"; n ] -> (
+      match Parse.int_bounded ~name:"leading" ~min:3 ~max:10 n with
+      | Ok i -> Ok (leading i)
+      | Error e -> Error e)
   | [ "tracking"; "tighter" ] -> Ok tracking_tighter
   | [ "tracking"; "tight" ] -> Ok tracking_tight
   | [ "tracking"; "normal" ] -> Ok tracking_normal

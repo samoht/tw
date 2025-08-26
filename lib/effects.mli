@@ -100,7 +100,8 @@ val ring_xl : t
 (** [ring_xl] applies an extra-large ring. *)
 
 val ring_color : color -> int -> t
-(** [ring_color color shade] sets the ring color class, e.g., [ring blue 500]. *)
+(** [ring_color color shade] sets the ring color class, e.g., [ring blue 500].
+*)
 
 (** {1 Transition Utilities} *)
 

@@ -126,8 +126,7 @@ let test_list_style () =
   check [ "list"; "outside" ];
   check [ "list"; "image"; "none" ]
 
-let test_text_indent () =
-  check [ "indent"; "4" ]
+let test_text_indent () = check [ "indent"; "4" ]
 
 let test_vertical_align () =
   check [ "align"; "baseline" ];
@@ -156,8 +155,7 @@ let test_numeric_variants () =
   check [ "diagonal"; "fractions" ];
   check [ "stacked"; "fractions" ]
 
-let test_content () =
-  check [ "content"; "none" ]
+let test_content () = check [ "content"; "none" ]
 
 let test_typography_of_string_invalid () =
   (* Invalid typography values *)

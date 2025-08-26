@@ -70,13 +70,7 @@ let color_showcase =
       div
         ~tw:
           Tw.
-            [
-              grid;
-              grid_cols 2;
-              sm [ grid_cols 4 ];
-              lg [ grid_cols 8 ];
-              gap 2;
-            ]
+            [ grid; grid_cols 2; sm [ grid_cols 4 ]; lg [ grid_cols 8 ]; gap 2 ]
         [
           div ~tw:Tw.[ h 16; bg red 500; rounded_md ] [];
           div ~tw:Tw.[ h 16; bg orange 500; rounded_md ] [];
@@ -208,13 +202,7 @@ let grid_showcase =
       div
         ~tw:
           Tw.
-            [
-              grid;
-              grid_cols 1;
-              sm [ grid_cols 2 ];
-              lg [ grid_cols 4 ];
-              gap 4;
-            ]
+            [ grid; grid_cols 1; sm [ grid_cols 2 ]; lg [ grid_cols 4 ]; gap 4 ]
         [
           div ~tw:Tw.[ p 4; bg teal 200; text_center ] [ txt "A" ];
           div ~tw:Tw.[ p 4; bg teal 300; text_center ] [ txt "B" ];
@@ -310,8 +298,7 @@ let interactive_showcase =
                   py 2;
                   border;
                   rounded_md;
-                  focus
-                    [ border_color blue 500; ring_md; ring_color blue 200 ];
+                  focus [ border_color blue 500; ring_md; ring_color blue 200 ];
                 ]
             ~at:[ At.type' "text"; At.placeholder "Focus me" ]
             ();
@@ -606,9 +593,7 @@ let responsive_showcase =
       div
         ~tw:Tw.[ mt 4; flex; flex_col; gap 2 ]
         [
-          p
-            ~tw:Tw.[ block; sm [ hidden ] ]
-            [ txt "📱 Visible only on mobile" ];
+          p ~tw:Tw.[ block; sm [ hidden ] ] [ txt "📱 Visible only on mobile" ];
           p
             ~tw:Tw.[ hidden; sm [ block ]; lg [ hidden ] ]
             [ txt "💻 Visible on small to medium screens" ];

@@ -12,7 +12,7 @@
       `Css` rather than raw properties.
 
     Parsing contract (`of_string`):
-    - Accepted tokens include a subset of Tailwind layout utilities, e.g.: 
+    - Accepted tokens include a subset of Tailwind layout utilities, e.g.:
       ["block"], ["inline"], ["hidden"], ["static"], ["relative"], etc.
     - Errors: returns `Error (`Msg "Not a layout utility")` for unknown
       patterns. *)
@@ -56,7 +56,6 @@ let not_sr_only =
       clip "auto";
       white_space Normal;
     ]
-
 
 (** {1 Positioning Utilities} *)
 
@@ -123,9 +122,7 @@ let border_spacing n =
 let table_auto = style "table-auto" [ Css.table_layout Auto ]
 let table_fixed = style "table-fixed" [ Css.table_layout Fixed ]
 
-
 (** {1 Parsing Functions} *)
-
 
 let of_string = function
   | [ "block" ] -> Ok block

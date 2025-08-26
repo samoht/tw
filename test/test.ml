@@ -7,7 +7,7 @@ let () =
        Test_svg.suite;
        Test_tables.suite;
        Test_accessibility.suite;
-        Test_flow.suite;
+       Test_flow.suite;
        Test_color.suite;
        Test_spacing.suite;
        Test_borders.suite;

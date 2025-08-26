@@ -185,17 +185,16 @@ let test_color_accuracy () =
 let test_css_mode_with_colors () =
   (* Test that color utilities work correctly with different CSS modes *)
   let open Tw in
-  
   (* Generate CSS from color utilities *)
   let styles = [ Color.bg_blue; Color.text_red ] in
   let css = Tw.Rules.to_css styles in
   let css_string = Css.to_string css in
-  
+
   (* Test that Variables mode is the default and uses CSS variables *)
   Alcotest.(check bool)
     "Default mode uses var() for colors" true
     (Astring.String.is_infix ~affix:"var(--color-" css_string);
-  
+
   (* For now, just verify the CSS is generated correctly *)
   Alcotest.(check bool)
     "Contains bg-blue-500 class" true

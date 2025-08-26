@@ -114,8 +114,7 @@ let multiple_classes () =
 let responsive_classes () =
   (* Test responsive modifiers with multiple classes *)
   check_list [ p 4; md [ p 8 ]; lg [ p 12 ] ];
-  check_list
-    [ text_sm; sm [ text_base ]; md [ text_lg ]; lg [ text_xl ] ];
+  check_list [ text_sm; sm [ text_base ]; md [ text_lg ]; lg [ text_xl ] ];
   check_list [ hidden; sm [ block ]; md [ flex ] ]
 
 let basic_spacing () =
@@ -526,55 +525,54 @@ let all_colors_same_shade () =
       bg rose 500;
     ]
 
-
 (* ===== TEST SUITE ===== *)
 
 let core_tests =
   [
-    test_case "empty test" `Quick empty_test;
-    test_case "basic spacing" `Quick basic_spacing;
-    test_case "color classes" `Quick color_classes;
-    test_case "display classes" `Quick display_classes;
-    test_case "sizing" `Quick sizing;
-    test_case "typography" `Quick typography;
-    test_case "typography new utilities" `Quick typography_new_utilities;
-    test_case "responsive" `Quick responsive;
-    test_case "states" `Quick states;
-    test_case "borders" `Quick borders;
-    test_case "shadows" `Quick shadows;
-    test_case "negative spacing" `Quick negative_spacing;
-    test_case "container queries" `Quick container_queries;
-    test_case "hex colors" `Quick hex_colors;
-    test_case "gradients" `Quick gradients;
-    test_case "responsive breakpoints" `Quick responsive_breakpoints;
-    test_case "layout" `Quick layout;
-    test_case "opacity" `Quick opacity_effects;
-    test_case "extended colors" `Quick extended_colors;
-    test_case "peer selectors" `Quick peer_selectors;
-    test_case "aria selectors" `Quick aria_selectors;
-    test_case "data selectors" `Quick data_selectors;
-    test_case "3d transforms" `Quick transforms_3d;
-    test_case "flexbox" `Quick flexbox;
-    test_case "grid" `Quick grid;
-    test_case "scroll snap" `Quick scroll_snap;
-    test_case "content variants" `Quick content_variants;
-    test_case "prose basic" `Quick prose_basic;
-    test_case "prose with modifiers" `Quick prose_with_modifiers;
-    test_case "prose variants" `Quick prose_variants;
-    test_case "precedence base overrides" `Quick precedence_base_overrides;
-    test_case "precedence breakpoints" `Quick precedence_breakpoints;
-    test_case "precedence states" `Quick precedence_states;
-    test_case "inline styles" `Quick inline_styles;
-    test_case "style combination" `Quick style_combination;
-    test_case "responsive classes" `Quick responsive_classes;
-    test_case "multiple classes" `Quick multiple_classes;
-    test_case "all colors same shade" `Quick all_colors_same_shade;
-    test_case "all colors grays" `Quick all_colors_grays;
-    test_case "all colors warm" `Quick all_colors_warm;
-    test_case "all colors greens" `Quick all_colors_greens;
-    test_case "all colors blues" `Quick all_colors_blues;
-    test_case "all colors purples" `Quick all_colors_purples;
-    test_case "all colors pinks" `Quick all_colors_pinks;
+    test_case "empty test" `Slow empty_test;
+    test_case "basic spacing" `Slow basic_spacing;
+    test_case "color classes" `Slow color_classes;
+    test_case "display classes" `Slow display_classes;
+    test_case "sizing" `Slow sizing;
+    test_case "typography" `Slow typography;
+    test_case "typography new utilities" `Slow typography_new_utilities;
+    test_case "responsive" `Slow responsive;
+    test_case "states" `Slow states;
+    test_case "borders" `Slow borders;
+    test_case "shadows" `Slow shadows;
+    test_case "negative spacing" `Slow negative_spacing;
+    test_case "container queries" `Slow container_queries;
+    test_case "hex colors" `Slow hex_colors;
+    test_case "gradients" `Slow gradients;
+    test_case "responsive breakpoints" `Slow responsive_breakpoints;
+    test_case "layout" `Slow layout;
+    test_case "opacity" `Slow opacity_effects;
+    test_case "extended colors" `Slow extended_colors;
+    test_case "peer selectors" `Slow peer_selectors;
+    test_case "aria selectors" `Slow aria_selectors;
+    test_case "data selectors" `Slow data_selectors;
+    test_case "3d transforms" `Slow transforms_3d;
+    test_case "flexbox" `Slow flexbox;
+    test_case "grid" `Slow grid;
+    test_case "scroll snap" `Slow scroll_snap;
+    test_case "content variants" `Slow content_variants;
+    test_case "prose basic" `Slow prose_basic;
+    test_case "prose with modifiers" `Slow prose_with_modifiers;
+    test_case "prose variants" `Slow prose_variants;
+    test_case "precedence base overrides" `Slow precedence_base_overrides;
+    test_case "precedence breakpoints" `Slow precedence_breakpoints;
+    test_case "precedence states" `Slow precedence_states;
+    test_case "inline styles" `Slow inline_styles;
+    test_case "style combination" `Slow style_combination;
+    test_case "responsive classes" `Slow responsive_classes;
+    test_case "multiple classes" `Slow multiple_classes;
+    test_case "all colors same shade" `Slow all_colors_same_shade;
+    test_case "all colors grays" `Slow all_colors_grays;
+    test_case "all colors warm" `Slow all_colors_warm;
+    test_case "all colors greens" `Slow all_colors_greens;
+    test_case "all colors blues" `Slow all_colors_blues;
+    test_case "all colors purples" `Slow all_colors_purples;
+    test_case "all colors pinks" `Slow all_colors_pinks;
   ]
 
 let suite = ("tw", core_tests)

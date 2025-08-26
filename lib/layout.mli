@@ -19,11 +19,11 @@ val hidden : t
 (* TODO: flow_root not supported by Css module *)
 
 val sr_only : t
-(** [sr_only] visually hides content but keeps it accessible to screen readers. *)
+(** [sr_only] visually hides content but keeps it accessible to screen readers.
+*)
 
 val not_sr_only : t
 (** [not_sr_only] reverses [sr_only], making content visible. *)
-
 
 (** {1 Positioning Utilities} *)
 
@@ -149,7 +149,6 @@ val table_auto : t
 
 val table_fixed : t
 (** [table_fixed] sets table-layout to fixed. *)
-
 
 (** {1 Parsing Functions} *)
 
