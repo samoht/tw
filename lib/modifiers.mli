@@ -3,6 +3,15 @@
 
 open Core
 
+(** {1 Internal Helpers} *)
+
+val to_selector : modifier -> string -> string
+(** [to_selector modifier base_class] generates the CSS selector for a modifier
+    applied to a base class. *)
+
+val is_hover : modifier -> bool
+(** [is_hover m] returns true if the modifier generates a :hover rule. *)
+
 (** {1 State Variants} *)
 
 val hover : t list -> t

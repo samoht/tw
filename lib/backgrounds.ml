@@ -64,60 +64,73 @@ let bg_gradient_to = function
 
 (* Legacy fixed-direction helpers removed in favor of bg_gradient_to *)
 
-let from_color ?(shade = 500) color =
+(** Helper to build gradient color class names and variable references *)
+let gradient_color_helpers ~prefix ?(shade = 500) color =
   let class_name =
     if Color.is_base_color color || Color.is_custom_color color then
-      "from-" ^ Color.pp color
-    else Pp.str [ "from-"; Color.pp color; "-"; string_of_int shade ]
+      prefix ^ Color.pp color
+    else Pp.str [ prefix; Color.pp color; "-"; string_of_int shade ]
   in
   let var_str =
     if Color.is_base_color color || Color.is_custom_color color then
       Pp.str [ "var(--color-"; Color.pp color; ")" ]
     else
       Pp.str [ "var(--color-"; Color.pp color; "-"; string_of_int shade; ")" ]
+  in
+  (class_name, var_str)
+
+(** Common gradient stops dependencies *)
+let gradient_deps_base =
+  [
+    "--tw-gradient-position";
+    "--tw-gradient-from";
+    "--tw-gradient-from-position";
+    "--tw-gradient-to";
+    "--tw-gradient-to-position";
+  ]
+
+let gradient_deps_with_via =
+  "--tw-gradient-via" :: "--tw-gradient-via-position" :: gradient_deps_base
+
+(** The gradient stops fallback value *)
+let gradient_stops_fallback =
+  "var(--tw-gradient-via-stops,var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-to)var(--tw-gradient-to-position))"
+
+let from_color ?(shade = 500) color =
+  let class_name, var_str =
+    gradient_color_helpers ~prefix:"from-" ~shade color
   in
   style class_name
     [
       Css.custom_property "--tw-gradient-from" var_str;
-      Css.custom_property "--tw-gradient-stops"
-        "var(--tw-gradient-via-stops,var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-to)var(--tw-gradient-to-position))";
+      Css.custom_property
+        ~deps:("--tw-gradient-via-stops" :: gradient_deps_base)
+        "--tw-gradient-stops" gradient_stops_fallback;
     ]
 
 let via_color ?(shade = 500) color =
-  let class_name =
-    if Color.is_base_color color || Color.is_custom_color color then
-      "via-" ^ Color.pp color
-    else Pp.str [ "via-"; Color.pp color; "-"; string_of_int shade ]
+  let class_name, var_str =
+    gradient_color_helpers ~prefix:"via-" ~shade color
   in
-  let var_str =
-    if Color.is_base_color color || Color.is_custom_color color then
-      Pp.str [ "var(--color-"; Color.pp color; ")" ]
-    else
-      Pp.str [ "var(--color-"; Color.pp color; "-"; string_of_int shade; ")" ]
+  let via_stops_value =
+    "var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-via)var(--tw-gradient-via-position),var(--tw-gradient-to)var(--tw-gradient-to-position)"
   in
   style class_name
     [
       Css.custom_property "--tw-gradient-via" var_str;
-      Css.custom_property "--tw-gradient-via-stops"
-        "var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-via)var(--tw-gradient-via-position),var(--tw-gradient-to)var(--tw-gradient-to-position)";
-      Css.custom_property "--tw-gradient-stops" "var(--tw-gradient-via-stops)";
+      Css.custom_property ~deps:gradient_deps_with_via "--tw-gradient-via-stops"
+        via_stops_value;
+      Css.custom_property
+        ~deps:[ "--tw-gradient-via-stops" ]
+        "--tw-gradient-stops" "var(--tw-gradient-via-stops)";
     ]
 
 let to_color ?(shade = 500) color =
-  let class_name =
-    if Color.is_base_color color || Color.is_custom_color color then
-      "to-" ^ Color.pp color
-    else Pp.str [ "to-"; Color.pp color; "-"; string_of_int shade ]
-  in
-  let var_str =
-    if Color.is_base_color color || Color.is_custom_color color then
-      Pp.str [ "var(--color-"; Color.pp color; ")" ]
-    else
-      Pp.str [ "var(--color-"; Color.pp color; "-"; string_of_int shade; ")" ]
-  in
+  let class_name, var_str = gradient_color_helpers ~prefix:"to-" ~shade color in
   style class_name
     [
       Css.custom_property "--tw-gradient-to" var_str;
-      Css.custom_property "--tw-gradient-stops"
-        "var(--tw-gradient-via-stops,var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-to)var(--tw-gradient-to-position))";
+      Css.custom_property
+        ~deps:("--tw-gradient-via-stops" :: gradient_deps_base)
+        "--tw-gradient-stops" gradient_stops_fallback;
     ]

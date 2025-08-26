@@ -417,8 +417,6 @@ let canonical_order = function
   | Font_serif -> 1
   | Font_mono -> 2
   | Spacing -> 3
-  | Default_font_family -> 4
-  | Default_mono_font_family -> 5
   | Text_xs | Text_xs_line_height -> 10
   | Text_sm | Text_sm_line_height -> 11
   | Text_base | Text_base_line_height -> 12
@@ -440,6 +438,8 @@ let canonical_order = function
   | Radius_2xl | Radius_3xl ->
       35
   | Color (name, _) -> 40 + canonical_color_order name
+  | Default_font_family -> 150
+  | Default_mono_font_family -> 151
   | _ -> 200 (* Other variables come later *)
 
 (** Compare two variables for canonical ordering *)
@@ -568,9 +568,15 @@ let to_css_properties (v : t) : Css.declaration list =
       with Failure _ -> [])
   | Color (_, None) -> [] (* Base colors without shade need special handling *)
   | Default_font_family ->
-      [ custom_property "--default-font-family" "var(--font-sans)" ]
+      [
+        custom_property ~deps:[ "--font-sans" ] "--default-font-family"
+          "var(--font-sans)";
+      ]
   | Default_mono_font_family ->
-      [ custom_property "--default-mono-font-family" "var(--font-mono)" ]
+      [
+        custom_property ~deps:[ "--font-mono" ] "--default-mono-font-family"
+          "var(--font-mono)";
+      ]
   | _ -> [] (* Variables that don't need theme layer declarations *)
 
 module S = Set.Make (String)

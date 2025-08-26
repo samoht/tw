@@ -27,8 +27,19 @@ val to_inline_style : t list -> string
 val extract_selector_props : t -> rule_output list
 (** [extract_selector_props tw] extracts CSS rules from a Tailwind class. *)
 
-val generate_reset_rules : unit -> Css.rule list
-(** [generate_reset_rules ()] generates CSS reset rules. *)
+(** {1 Internal Functions for Testing} *)
+
+val compute_theme_layer : t list -> Css.layered_rules
+(** [compute_theme_layer tw_classes] generates the theme layer with CSS
+    variables. *)
+
+val compute_properties_layer :
+  Css.rule list -> Css.layered_rules option * Css.at_property list
+(** [compute_properties_layer rules] generates the properties layer and @property rules. *)
+
+val conflict_group : string -> int * int
+(** [conflict_group selector] returns the conflict group priority for utility
+    ordering. *)
 
 val escape_class_name : string -> string
 (** [escape_class_name name] escapes special characters in CSS class names. *)
