@@ -65,6 +65,12 @@ let absolute = style "absolute" [ position Absolute ]
 let fixed = style "fixed" [ position Fixed ]
 let sticky = style "sticky" [ position Sticky ]
 
+(** {1 Visibility Utilities} *)
+
+let visible = style "visible" [ visibility Visible ]
+let invisible = style "invisible" [ visibility Hidden ]
+let collapse = style "collapse" [ visibility Collapse ]
+
 (** {1 Isolation} *)
 
 let isolate = style "isolate" [ isolation Isolate ]
@@ -73,6 +79,7 @@ let isolate = style "isolate" [ isolation Isolate ]
 
 let overflow_auto = style "overflow-auto" [ overflow Auto ]
 let overflow_hidden = style "overflow-hidden" [ overflow Hidden ]
+let overflow_clip = style "overflow-clip" [ overflow Clip ]
 let overflow_visible = style "overflow-visible" [ overflow Visible ]
 let overflow_scroll = style "overflow-scroll" [ overflow Scroll ]
 let overflow_x_auto = style "overflow-x-auto" [ overflow_x Auto ]
@@ -92,7 +99,7 @@ let z_20 = style "z-20" [ z_index 20 ]
 let z_30 = style "z-30" [ z_index 30 ]
 let z_40 = style "z-40" [ z_index 40 ]
 let z_50 = style "z-50" [ z_index 50 ]
-(* z_auto not directly supported - would need z-index: auto property *)
+let z_auto = style "z-auto" [ z_index_auto ]
 
 (** {1 Object Fit Utilities} *)
 
@@ -134,9 +141,13 @@ let of_string = function
   | [ "absolute" ] -> Ok absolute
   | [ "fixed" ] -> Ok fixed
   | [ "sticky" ] -> Ok sticky
+  | [ "visible" ] -> Ok visible
+  | [ "invisible" ] -> Ok invisible
+  | [ "collapse" ] -> Ok collapse
   | [ "isolate" ] -> Ok isolate
   | [ "overflow"; "auto" ] -> Ok overflow_auto
   | [ "overflow"; "hidden" ] -> Ok overflow_hidden
+  | [ "overflow"; "clip" ] -> Ok overflow_clip
   | [ "overflow"; "visible" ] -> Ok overflow_visible
   | [ "overflow"; "scroll" ] -> Ok overflow_scroll
   | [ "overflow"; "x"; "auto" ] -> Ok overflow_x_auto
@@ -153,6 +164,7 @@ let of_string = function
   | [ "z"; "30" ] -> Ok z_30
   | [ "z"; "40" ] -> Ok z_40
   | [ "z"; "50" ] -> Ok z_50
+  | [ "z"; "auto" ] -> Ok z_auto
   | [ "object"; "contain" ] -> Ok object_contain
   | [ "object"; "cover" ] -> Ok object_cover
   | [ "object"; "fill" ] -> Ok object_fill

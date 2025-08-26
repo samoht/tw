@@ -987,6 +987,7 @@ let text color shade =
 
 let text_transparent = style "text-transparent" [ Css.color Transparent ]
 let text_current = style "text-current" [ Css.color Current ]
+let text_inherit = style "text-inherit" [ Css.color Inherit ]
 
 (* Default text colors - using shade 500 *)
 let text_black = text black 500
@@ -1100,6 +1101,7 @@ let color_classes_of_string parts =
       | Error _ -> Error (`Msg "Not a background color"))
   | [ "text"; "transparent" ] -> Ok text_transparent
   | [ "text"; "current" ] -> Ok text_current
+  | [ "text"; "inherit" ] -> Ok text_inherit
   | "text" :: color_parts -> (
       match parse_color_with_shade color_parts with
       | Ok (color, shade) -> Ok (text color shade)

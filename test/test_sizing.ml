@@ -71,8 +71,8 @@ let test_sizing_of_string_invalid () =
   (* Missing value *)
   test_invalid [ "w"; "invalid" ];
   (* Invalid value *)
-  test_invalid [ "w"; "1/5" ];
-  (* Invalid fraction *)
+  test_invalid [ "w"; "1/7" ];
+  (* Invalid fraction - 1/7 not supported *)
   test_invalid [ "h"; "1/7" ];
   (* Invalid fraction *)
   test_invalid [ "min" ];

@@ -275,6 +275,9 @@ val text_transparent : Core.t
 val text_current : Core.t
 (** [text_current] uses [currentColor] for text. *)
 
+val text_inherit : Core.t
+(** [text_inherit] inherits text color from parent. *)
+
 val text_black : Core.t
 (** [text_black] uses the black palette for text. *)
 
