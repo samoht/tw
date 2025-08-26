@@ -515,35 +515,6 @@ let generate_reset_rules () =
 (* Re-export Color module *)
 module Color = Color
 
-(* Canonical color ordering function - shared between variables and classes *)
-let canonical_color_order color_name =
-  match color_name with
-  | "red" -> 0 (* Chromatic colors in spectrum order *)
-  | "orange" -> 1
-  | "amber" -> 2
-  | "yellow" -> 3
-  | "lime" -> 4
-  | "green" -> 5
-  | "emerald" -> 6
-  | "teal" -> 7
-  | "cyan" -> 8
-  | "sky" -> 9
-  | "blue" -> 10
-  | "indigo" -> 11
-  | "violet" -> 12
-  | "purple" -> 13
-  | "fuchsia" -> 14
-  | "pink" -> 15
-  | "rose" -> 16
-  | "slate" -> 17 (* Neutral colors after chromatic *)
-  | "gray" -> 18
-  | "zinc" -> 19
-  | "neutral" -> 20
-  | "stone" -> 21
-  | "black" -> 100 (* Special colors at the end *)
-  | "white" -> 101
-  | _ -> 200 (* Unknown colors last *)
-
 (* Helper: Separate rules by type *)
 let separate_rules_by_type all_rules =
   let regular_rules, media_rules, container_rules, starting_rules =
@@ -669,10 +640,15 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
 
   (* Build the complete stylesheet with layers - just like Tailwind v4 *)
   if reset then
-    (* Properties layer - with GADT declarations, analyze_properties returns
-       empty *)
+    (* Generate @property rules and properties layer from variable usage *)
+    (* Extract all variables from rules *)
+    let referenced_vars = Css.vars_of_rules rules in
+    (* Create var tally from referenced variables *)
+    let var_tally = Var.tally_of_vars referenced_vars in
+
+    (* Properties layer with composition variable initialization *)
     let properties_layer_opt =
-      let properties = [] in
+      let properties = Var.generate_properties_layer var_tally in
       (* No properties layer needed *)
       if properties <> [] then
         let css_props =
@@ -698,6 +674,18 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
       else None
     in
 
+    (* Generate @property rules for variables that need them *)
+    let vars_needing_properties = Var.needs_at_property var_tally in
+    let at_properties =
+      List.filter_map
+        (fun var ->
+          match Var.at_property_config var with
+          | Some (name, syntax, inherits, initial_value) ->
+              Some (Css.at_property ~name ~syntax ~initial_value ~inherits ())
+          | None -> None)
+        vars_needing_properties
+    in
+
     (* Theme layer with CSS variables - JIT mode (only used variables) *)
     (* Extract all CSS variables referenced in properties *)
     let directly_referenced_vars =
@@ -711,7 +699,7 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
                  | Media_query (_, _, props)
                  | Container_query (_, _, props)
                  | Starting_style (_, props) ->
-                     Css.all_vars props)
+                     Css.vars_of_declarations props)
                selector_props)
       (* Just deduplicate without sorting alphabetically *)
       |> List.fold_left
@@ -720,50 +708,43 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
       |> List.rev
     in
 
-    (* Theme variables that always exist and may reference other variables *)
-    let default_font_props =
-      [
-        Css.custom_property "--default-font-family" "var(--font-sans)";
-        Css.custom_property "--default-mono-font-family" "var(--font-mono)";
-      ]
+    (* Default font variables that are always included *)
+    let default_vars =
+      [ "--default-font-family"; "--default-mono-font-family" ]
     in
 
-    (* Recursively resolve variable dependencies *)
-    (* This function takes a list of properties and finds all vars they reference *)
-    let rec resolve_all_var_deps props_to_analyze seen_vars =
-      let new_vars =
-        props_to_analyze
-        |> List.concat_map (fun prop -> Css.all_vars [ prop ])
-        |> List.filter (fun v -> not (List.mem v seen_vars))
-        |> List.sort_uniq String.compare
-      in
-      if new_vars = [] then seen_vars
-      else
-        (* For each new var, use Var module to get its properties *)
-        let new_props =
-          new_vars
-          |> List.filter_map (fun var ->
-                 (* Check if this var might reference other vars *)
-                 if
-                   var = "--default-font-family"
-                   || var = "--default-mono-font-family"
-                 then
-                   (* These reference other font variables *)
-                   match Var.of_string var with
-                   | Some v -> Some (List.hd (Var.to_css_properties v))
-                   | None -> None
-                 else None)
-        in
-        resolve_all_var_deps new_props (seen_vars @ new_vars)
+    (* Recursively resolve dependencies: if a variable generates CSS that
+       references other variables, include those too *)
+    let rec resolve_dependencies vars_to_check resolved =
+      match vars_to_check with
+      | [] -> resolved
+      | var :: rest ->
+          if List.mem var resolved then resolve_dependencies rest resolved
+          else
+            (* Get CSS properties for this variable *)
+            let new_deps =
+              match Var.of_string var with
+              | Some v ->
+                  let props = Var.to_css_properties v in
+                  (* Extract any variables referenced in these properties *)
+                  Css.vars_of_declarations props
+              | None -> []
+            in
+            (* Add new dependencies to check *)
+            let to_check =
+              rest
+              @ List.filter
+                  (fun d -> not (List.mem d resolved || List.mem d rest))
+                  new_deps
+            in
+            resolve_dependencies to_check (var :: resolved)
     in
 
-    (* Start with default font props and resolve their dependencies *)
-    let vars_from_defaults = resolve_all_var_deps default_font_props [] in
-
-    (* Combine all referenced variables and sort using Var module's canonical
-       order *)
+    (* Start with directly referenced vars and defaults, resolve all
+       dependencies *)
+    let initial_vars = directly_referenced_vars @ default_vars in
     let all_referenced_vars =
-      directly_referenced_vars @ vars_from_defaults
+      resolve_dependencies initial_vars []
       |> List.sort_uniq (fun a b ->
              (* Convert to Var.t and use its canonical ordering *)
              match (Var.of_string a, Var.of_string b) with
@@ -773,32 +754,20 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
              | None, None -> String.compare a b)
     in
 
-    (* The new typed variable system generates CSS variables automatically based
-       on what's referenced in the CSS declarations. No need to track Core.var
-       anymore. *)
-
-    (* Generate values for theme variables using the Var module *)
+    (* Generate CSS property declarations for all referenced variables *)
     let theme_generated_vars =
       all_referenced_vars
       |> List.concat_map (fun var_name ->
-             (* Use Var module to parse and generate CSS properties *)
              match Var.of_string var_name with
              | Some var -> Var.to_css_properties var
-             | None -> []
-             (* Variables not handled by Var module *)
-             (* Variables are now handled above via Var module *))
-      (* Don't sort - preserve the canonical order from all_referenced_vars *)
+             | None -> [])
     in
-
-    (* The font variables are already included in theme_generated_vars via Var module *)
-    (* Default font properties are still needed as they reference the font vars *)
-    let theme_vars_with_fonts = theme_generated_vars @ default_font_props in
 
     let theme_layer =
       Css.layered_rules ~layer:Css.Theme
         [
           Css.rule_to_nested
-            (Css.rule ~selector:":root, :host" theme_vars_with_fonts);
+            (Css.rule ~selector:":root, :host" theme_generated_vars);
         ]
     in
 
@@ -950,7 +919,9 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
             | "yellow" -> 20
             | "zinc" -> 21
             | _ -> 100 (* Other colors come after *)
-          with _ -> 0
+          with
+          | Invalid_argument _ -> 0
+          | Not_found -> 0
         in
         (200, sub_order)
       else if
@@ -1080,10 +1051,6 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
       | Some props_layer -> props_layer :: base_layers
       | None -> base_layers
     in
-
-    (* Generate @property rules for variables that need them *)
-    (* TODO: Implement var_tally tracking and at_property generation *)
-    let at_properties = [] in
 
     (* Don't add empty Properties layer *)
     (* Media queries and container queries are already included in the

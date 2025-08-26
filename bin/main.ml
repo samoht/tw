@@ -83,7 +83,25 @@ let collect_files paths =
       else [])
     paths
 
-let process_files paths flag ~minify ~quiet =
+let print_stats ~quiet ~known ~unknown =
+  if (not quiet) && unknown <> [] then (
+    let total = List.length known + List.length unknown in
+    let unknown_count = List.length unknown in
+    let unique_unknown = unknown |> List.sort_uniq String.compare in
+    Fmt.epr "@.--- Statistics ---%@.";
+    Fmt.epr "Total classes found: %d@." total;
+    Fmt.epr "Successfully parsed: %d@." (List.length known);
+    Fmt.epr "Unknown classes: %d (%.1f%%)@." unknown_count
+      (float_of_int unknown_count /. float_of_int total *. 100.0);
+    if List.length unique_unknown <= 20 then
+      Fmt.epr "Unknown: %s@." (String.concat ", " unique_unknown)
+    else
+      Fmt.epr "Unknown (first 20): %s...@."
+        (String.concat ", " (List.filteri (fun i _ -> i < 20) unique_unknown)))
+
+type gen_opts = { minify : bool; quiet : bool }
+
+let process_files paths flag ~(opts : gen_opts) =
   let reset = reset_flag flag ~default:true in
   try
     let all_files = collect_files paths in
@@ -108,40 +126,29 @@ let process_files paths flag ~minify ~quiet =
                   Some style
               | Error _ ->
                   unknown_classes := cls :: !unknown_classes;
-                  if not quiet then Fmt.epr "Warning: Unknown class '%s'@." cls;
+                  if not opts.quiet then
+                    Fmt.epr "Warning: Unknown class '%s'@." cls;
                   None)
             class_names)
         all_classes
     in
     let stylesheet = Tw.to_css ~reset tw_styles in
-    print_endline (Tw.Css.to_string ~minify stylesheet);
+    print_endline (Tw.Css.to_string ~minify:opts.minify stylesheet);
 
     (* Print statistics to stderr *)
-    if (not quiet) && !unknown_classes <> [] then (
-      let total = List.length !known_classes + List.length !unknown_classes in
-      let unknown_count = List.length !unknown_classes in
-      let unique_unknown = !unknown_classes |> List.sort_uniq String.compare in
-      Fmt.epr "@.--- Statistics ---%@.";
-      Fmt.epr "Total classes found: %d@." total;
-      Fmt.epr "Successfully parsed: %d@." (List.length !known_classes);
-      Fmt.epr "Unknown classes: %d (%.1f%%)@." unknown_count
-        (float_of_int unknown_count /. float_of_int total *. 100.0);
-      if List.length unique_unknown <= 20 then
-        Fmt.epr "Unknown: %s@." (String.concat ", " unique_unknown)
-      else
-        Fmt.epr "Unknown (first 20): %s...@."
-          (String.concat ", " (List.filteri (fun i _ -> i < 20) unique_unknown)));
+    print_stats ~quiet:opts.quiet ~known:!known_classes
+      ~unknown:!unknown_classes;
 
     `Ok ()
   with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))
 
-let tw_main single_class reset_flag ~minify ~quiet paths =
+let tw_main single_class reset_flag ~(opts : gen_opts) paths =
   match single_class with
-  | Some class_str -> process_single_class class_str reset_flag minify
+  | Some class_str -> process_single_class class_str reset_flag opts.minify
   | None -> (
       match paths with
       | [] -> `Error (true, "Either provide -s <class> or file/directory paths")
-      | paths -> process_files paths reset_flag ~minify ~quiet)
+      | paths -> process_files paths reset_flag ~opts)
 
 (* Command-line arguments *)
 let single_flag =
@@ -201,7 +208,7 @@ let cmd =
   Cmd.v info
     Term.(
       ret
-        (const (fun s r m q -> tw_main s r ~minify:m ~quiet:q)
+        (const (fun s r m q -> tw_main s r ~opts:{ minify = m; quiet = q })
         $ single_flag $ reset_flag $ minify_flag $ quiet_flag $ paths_arg))
 
 let () = exit (Cmd.eval cmd)

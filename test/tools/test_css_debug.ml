@@ -15,17 +15,16 @@ let test_extract_rule () =
   let missing = extract_rule css ".missing" in
   check (option string) "extract missing rule" None missing
 
-let test_find_first_diff () =
+let test_first_diff () =
   let css1 = "abc" in
   let css2 = "abc" in
   check
     (option (triple int string string))
-    "identical strings" None
-    (find_first_diff css1 css2);
+    "identical strings" None (first_diff css1 css2);
 
   let css1 = "abc" in
   let css2 = "axc" in
-  match find_first_diff css1 css2 with
+  match first_diff css1 css2 with
   | Some (pos, _, _) -> check int "diff position" 1 pos
   | None -> fail "Expected difference"
 
@@ -40,7 +39,7 @@ let tests =
   [
     test_case "format CSS" `Quick test_format_css;
     test_case "extract rule" `Quick test_extract_rule;
-    test_case "find first diff" `Quick test_find_first_diff;
+    test_case "find first diff" `Quick test_first_diff;
     test_case "write temp CSS" `Quick test_write_temp_css;
   ]
 

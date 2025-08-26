@@ -46,7 +46,7 @@ let test_overflow () =
   check [ "overflow"; "x"; "auto" ];
   check [ "overflow"; "y"; "hidden" ]
 
-let test_layout_of_string_invalid () =
+let of_string_invalid () =
   (* Invalid layout values *)
   let fail_maybe input =
     match Tw.Layout.of_string input with
@@ -81,8 +81,7 @@ let tests =
     test_case "z-index" `Quick test_z_index;
     test_case "overflow" `Quick test_overflow;
     test_case "screen reader utilities" `Quick test_screen_reader;
-    test_case "layout of_string - invalid values" `Quick
-      test_layout_of_string_invalid;
+    test_case "layout of_string - invalid values" `Quick of_string_invalid;
   ]
 
 let suite = ("layout", tests)

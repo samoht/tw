@@ -57,7 +57,7 @@ let css_testable =
 
 let debug_mismatch ~test_name ~tw_css ~tailwind_css =
   Fmt.epr "\n=== CSS MISMATCH for %s ===\n" test_name;
-  match Tw_tools.Css_debug.find_first_diff tw_css tailwind_css with
+  match Tw_tools.Css_debug.first_diff tw_css tailwind_css with
   | Some (_pos, desc, context) -> Fmt.epr "%s\n%s\n" desc context
   | None ->
       let diff_output = Tw_tools.Css_compare.format_diff tw_css tailwind_css in

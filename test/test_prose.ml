@@ -60,11 +60,11 @@ let test_inline_styles () =
 
 let suite =
   [
-    ( "Prose",
+    ( "prose",
       [
-        Alcotest.test_case "Classes" `Quick test_classes;
-        Alcotest.test_case "Combinations" `Quick test_combinations;
+        Alcotest.test_case "classes" `Quick test_classes;
+        Alcotest.test_case "combinations" `Quick test_combinations;
         Alcotest.test_case "CSS generation" `Quick test_css_generation;
-        Alcotest.test_case "Inline styles" `Quick test_inline_styles;
+        Alcotest.test_case "inline styles" `Quick test_inline_styles;
       ] );
   ]

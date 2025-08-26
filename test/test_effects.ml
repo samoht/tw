@@ -7,7 +7,7 @@ let check parts =
       Alcotest.check string "effects class name" expected (Tw.Core.pp result)
   | Error (`Msg msg) -> fail msg
 
-let test_effects_of_string_valid () =
+let of_string_valid () =
   (* Box shadow *)
   check [ "shadow" ];
   check [ "shadow"; "sm" ];
@@ -60,7 +60,7 @@ let test_filters_css_generation () =
   Alcotest.check bool "has backdrop-filter property" true
     (Astring.String.is_infix ~affix:"backdrop-filter:" css)
 
-let test_effects_of_string_invalid () =
+let of_string_invalid () =
   (* Invalid effects values *)
   let fail_maybe input =
     match Tw.Effects.of_string input with
@@ -79,10 +79,8 @@ let test_effects_of_string_invalid () =
 
 let tests =
   [
-    test_case "effects of_string - valid values" `Quick
-      test_effects_of_string_valid;
-    test_case "effects of_string - invalid values" `Quick
-      test_effects_of_string_invalid;
+    test_case "effects of_string - valid values" `Quick of_string_valid;
+    test_case "effects of_string - invalid values" `Quick of_string_invalid;
     test_case "ring of_string - valid values" `Quick test_ring_of_string_valid;
     test_case "filters css generation" `Quick test_filters_css_generation;
   ]

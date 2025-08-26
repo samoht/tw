@@ -1,21 +1,12 @@
 (** CSS comparison utilities for testing *)
 
-(** CSS token type *)
-type token =
-  | Selector of string
-  | Property of string * string
-  | Open_brace
-  | Close_brace
-  | At_rule of string
-  | Semicolon
-  | Comma
-
 val strip_header : string -> string
-(** [strip_header css] strips header comments from CSS. *)
+(** [strip_header css] removes a leading header comment if present. *)
 
 val compare_css : string -> string -> bool
-(** [compare_css css1 css2] compares two CSS strings structurally. *)
+(** [compare_css a b] returns [true] when [a] and [b] are structurally
+    equivalent CSS (ignoring property order within a rule). *)
 
 val format_diff : string -> string -> string
-(** [format_diff css1 css2] formats differences between two CSS strings as
-    human-readable text. *)
+(** [format_diff ours theirs] produces a human-readable, single-difference
+    summary between two CSS strings. *)

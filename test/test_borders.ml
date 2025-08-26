@@ -7,7 +7,7 @@ let check parts =
       Alcotest.check string "border class name" expected (Tw.Core.pp result)
   | Error (`Msg msg) -> fail msg
 
-let test_borders_of_string_valid () =
+let of_string_valid () =
   check [ "border" ];
   check [ "border"; "0" ];
   check [ "border"; "2" ];
@@ -53,7 +53,7 @@ let test_borders_of_string_valid () =
   check [ "rounded"; "t"; "lg" ];
   check [ "rounded"; "tl"; "2xl" ]
 
-let test_borders_of_string_invalid () =
+let of_string_invalid () =
   (* Invalid border values *)
   let fail_maybe input =
     match Tw.Borders.of_string input with
@@ -76,10 +76,8 @@ let test_borders_of_string_invalid () =
 
 let tests =
   [
-    test_case "borders of_string - valid values" `Quick
-      test_borders_of_string_valid;
-    test_case "borders of_string - invalid values" `Quick
-      test_borders_of_string_invalid;
+    test_case "borders of_string - valid values" `Quick of_string_valid;
+    test_case "borders of_string - invalid values" `Quick of_string_invalid;
   ]
 
 let suite = ("borders", tests)
