@@ -1,60 +1,63 @@
 open Alcotest
 
-let test_sizing_of_string_valid () =
-  (* Valid sizing values *)
-  let test_valid input expected =
-    match Tw.Sizing.of_string input with
-    | Ok result -> check string "sizing class name" expected (Tw.Core.pp result)
-    | Error (`Msg msg) -> fail msg
-  in
+let check parts =
+  let expected = String.concat "-" parts in
+  match Tw.Sizing.of_string parts with
+  | Ok result ->
+      Alcotest.check string "sizing class name" expected (Tw.Core.pp result)
+  | Error (`Msg msg) -> fail msg
 
-  test_valid [ "w"; "0" ] "w-0";
-  test_valid [ "w"; "1" ] "w-1";
-  test_valid [ "w"; "4" ] "w-4";
-  test_valid [ "w"; "px" ] "w-px";
-  test_valid [ "w"; "0.5" ] "w-0.5";
-  test_valid [ "w"; "1/2" ] "w-1/2";
-  test_valid [ "w"; "1/3" ] "w-1/3";
-  test_valid [ "w"; "2/3" ] "w-2/3";
-  test_valid [ "w"; "1/4" ] "w-1/4";
-  test_valid [ "w"; "3/4" ] "w-3/4";
-  test_valid [ "w"; "full" ] "w-full";
-  test_valid [ "w"; "screen" ] "w-screen";
-  test_valid [ "w"; "min" ] "w-min";
-  test_valid [ "w"; "max" ] "w-max";
-  test_valid [ "w"; "fit" ] "w-fit";
-  test_valid [ "w"; "auto" ] "w-auto";
+let test_widths () =
+  check [ "w"; "0" ];
+  check [ "w"; "1" ];
+  check [ "w"; "4" ];
+  check [ "w"; "px" ];
+  check [ "w"; "0.5" ];
+  check [ "w"; "1/2" ];
+  check [ "w"; "1/3" ];
+  check [ "w"; "2/3" ];
+  check [ "w"; "1/4" ];
+  check [ "w"; "3/4" ];
+  check [ "w"; "full" ];
+  check [ "w"; "screen" ];
+  check [ "w"; "min" ];
+  check [ "w"; "max" ];
+  check [ "w"; "fit" ];
+  check [ "w"; "auto" ]
 
-  test_valid [ "h"; "0" ] "h-0";
-  test_valid [ "h"; "4" ] "h-4";
-  test_valid [ "h"; "full" ] "h-full";
-  test_valid [ "h"; "screen" ] "h-screen";
-  test_valid [ "h"; "1/2" ] "h-1/2";
+let test_heights () =
+  check [ "h"; "0" ];
+  check [ "h"; "4" ];
+  check [ "h"; "full" ];
+  check [ "h"; "screen" ];
+  check [ "h"; "1/2" ]
 
-  test_valid [ "min"; "w"; "0" ] "min-w-0";
-  test_valid [ "min"; "w"; "full" ] "min-w-full";
-  test_valid [ "min"; "h"; "0" ] "min-h-0";
-  test_valid [ "min"; "h"; "screen" ] "min-h-screen";
+let test_min_sizes () =
+  check [ "min"; "w"; "0" ];
+  check [ "min"; "w"; "full" ];
+  check [ "min"; "h"; "0" ];
+  check [ "min"; "h"; "screen" ]
 
-  test_valid [ "max"; "w"; "none" ] "max-w-none";
-  test_valid [ "max"; "w"; "xs" ] "max-w-xs";
-  test_valid [ "max"; "w"; "sm" ] "max-w-sm";
-  test_valid [ "max"; "w"; "md" ] "max-w-md";
-  test_valid [ "max"; "w"; "lg" ] "max-w-lg";
-  test_valid [ "max"; "w"; "xl" ] "max-w-xl";
-  test_valid [ "max"; "w"; "2xl" ] "max-w-2xl";
-  test_valid [ "max"; "w"; "7xl" ] "max-w-7xl";
-  test_valid [ "max"; "w"; "full" ] "max-w-full";
-  test_valid [ "max"; "w"; "screen"; "sm" ] "max-w-screen-sm";
+let test_max_sizes () =
+  check [ "max"; "w"; "none" ];
+  check [ "max"; "w"; "xs" ];
+  check [ "max"; "w"; "sm" ];
+  check [ "max"; "w"; "md" ];
+  check [ "max"; "w"; "lg" ];
+  check [ "max"; "w"; "xl" ];
+  check [ "max"; "w"; "2xl" ];
+  check [ "max"; "w"; "7xl" ];
+  check [ "max"; "w"; "full" ];
+  check [ "max"; "w"; "screen"; "sm" ];
+  check [ "max"; "h"; "4" ];
+  check [ "max"; "h"; "full" ];
+  check [ "max"; "h"; "screen" ]
 
-  test_valid [ "max"; "h"; "4" ] "max-h-4";
-  test_valid [ "max"; "h"; "full" ] "max-h-full";
-  test_valid [ "max"; "h"; "screen" ] "max-h-screen";
-
-  test_valid [ "size"; "0" ] "size-0";
-  test_valid [ "size"; "4" ] "size-4";
-  test_valid [ "size"; "full" ] "size-full";
-  test_valid [ "size"; "1/2" ] "size-1/2"
+let test_square_sizes () =
+  check [ "size"; "0" ];
+  check [ "size"; "4" ];
+  check [ "size"; "full" ];
+  check [ "size"; "1/2" ]
 
 let test_sizing_of_string_invalid () =
   (* Invalid sizing values *)
@@ -85,8 +88,13 @@ let test_sizing_of_string_invalid () =
 
 let tests =
   [
-    test_case "sizing of_string - valid values" `Quick
-      test_sizing_of_string_valid;
+    test_case "widths" `Quick test_widths;
+    test_case "heights" `Quick test_heights;
+    test_case "min sizes" `Quick test_min_sizes;
+    test_case "max sizes" `Quick test_max_sizes;
+    test_case "square sizes" `Quick test_square_sizes;
     test_case "sizing of_string - invalid values" `Quick
       test_sizing_of_string_invalid;
   ]
+
+let suite = ("sizing", tests)

@@ -315,7 +315,7 @@ let generate_reset_rules () =
       [
         Css.webkit_text_size_adjust "100%";
         (* TODO: should take typed value *)
-        Css.tab_size "4";
+        Css.tab_size 4;
         Css.line_height (Num 1.5);
         Css.font_family
           [
@@ -338,7 +338,7 @@ let generate_reset_rules () =
         Css.font_feature_settings "var(--default-font-feature-settings, normal)";
         Css.font_variation_settings
           "var(--default-font-variation-settings, normal)";
-        Css.webkit_tap_highlight_color "transparent";
+        Css.webkit_tap_highlight_color Transparent;
       ];
     (* Horizontal rule *)
     Css.rule ~selector:"hr"
@@ -460,7 +460,7 @@ let generate_reset_rules () =
     Css.rule ~selector:"textarea" [ Css.resize Vertical ];
     (* Search decoration *)
     Css.rule ~selector:"::-webkit-search-decoration"
-      [ Css.webkit_appearance "none" ];
+      [ Css.webkit_appearance None ];
     (* Webkit datetime inputs *)
     Css.rule ~selector:"::-webkit-date-and-time-value"
       [
@@ -601,7 +601,9 @@ let group_container_queries container_rules =
     [] container_rules
 
 (* Generate CSS rules for all used Tw classes *)
-let to_css ?(reset = true) tw_classes =
+let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
+  (* Mode will be used when rendering CSS with variables/inline/optimize *)
+  let _ = mode in
   let all_rules = tw_classes |> List.concat_map extract_selector_props in
   (* Separate rules by type *)
   let regular_rules, media_rules, container_rules, _starting_rules =
@@ -673,15 +675,6 @@ let to_css ?(reset = true) tw_classes =
   (* Build the complete stylesheet with layers - just like Tailwind v4 *)
   if reset then
     (* Extract which Tailwind CSS variables are actually used *)
-    (* Collect all properties and vars from all styles to analyze variable usage *)
-    let rec collect_all_props style =
-      match style with
-      | Style { props; _ } -> props
-      | Modified (_, t) -> collect_all_props t
-      | Group styles -> List.concat_map collect_all_props styles
-      | Prose _ -> []
-    in
-
     let rec collect_all_vars style =
       match style with
       | Style { vars; _ } -> vars
@@ -690,15 +683,13 @@ let to_css ?(reset = true) tw_classes =
       | Prose _ -> []
     in
 
-    let all_props = tw_classes |> List.concat_map collect_all_props in
     let all_vars = tw_classes |> List.concat_map collect_all_vars in
 
-    (* Analyze variable usage to determine what properties layer is needed *)
-    let var_tally = Var.analyze_properties all_props in
-
-    (* Properties layer - only if needed based on composition groups *)
+    (* Properties layer - with GADT declarations, analyze_properties returns
+       empty *)
     let properties_layer_opt =
-      let properties = Var.generate_properties_layer var_tally in
+      let properties = [] in
+      (* No properties layer needed *)
       if properties <> [] then
         let css_props =
           List.map
@@ -1314,20 +1305,8 @@ let to_css ?(reset = true) tw_classes =
     in
 
     (* Generate @property rules for variables that need them *)
-    let at_properties =
-      Var.needs_at_property var_tally
-      |> List.filter_map (fun var ->
-             match Var.at_property_config var with
-             | None ->
-                 (* Default for variables without specific config *)
-                 let var_name = Var.to_string var in
-                 Some
-                   (Css.at_property ~name:var_name ~syntax:"*" ~initial_value:""
-                      ~inherits:false ())
-             | Some (name, syntax, inherits, initial_value) ->
-                 Some
-                   (Css.at_property ~name ~syntax ~initial_value ~inherits ()))
-    in
+    (* TODO: Implement var_tally tracking and at_property generation *)
+    let at_properties = [] in
 
     (* Don't add empty Properties layer *)
     (* Media queries and container queries are already included in the

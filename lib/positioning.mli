@@ -8,8 +8,13 @@ val inset : int -> t
 (** [inset n] sets all four sides (top, right, bottom, left) to n * spacing. *)
 
 val inset_0 : t
+(** Sets all sides to 0. *)
+
 val inset_x_0 : t
+(** Sets left and right to 0. *)
+
 val inset_y_0 : t
+(** Sets top and bottom to 0. *)
 
 (** {1 Individual Side Positioning} *)
 

@@ -186,7 +186,8 @@ let to_string = function
   | Radius_2xl -> "--radius-2xl"
   | Radius_3xl -> "--radius-3xl"
   | Color (name, None) -> "--color-" ^ name
-  | Color (name, Some shade) -> Printf.sprintf "--color-%s-%d" name shade
+  | Color (name, Some shade) ->
+      Pp.str [ "--color-"; name; "-"; string_of_int shade ]
   | Translate_x -> "--tw-translate-x"
   | Translate_y -> "--tw-translate-y"
   | Translate_z -> "--tw-translate-z"
@@ -448,6 +449,8 @@ let compare a b =
     (* For same order group, compare string representations *)
     String.compare (to_string a) (to_string b)
 
+let pp (v : t) = to_string v
+
 (** Generate CSS property declarations for a variable *)
 let to_css_properties (v : t) : Css.declaration list =
   let open Css in
@@ -556,7 +559,7 @@ let to_css_properties (v : t) : Css.declaration list =
   | Color ("white", _) -> [ custom_property "--color-white" "#fff" ]
   | Color ("black", _) -> [ custom_property "--color-black" "#000" ]
   | Color (name, Some shade) -> (
-      let var_name = Printf.sprintf "--color-%s-%d" name shade in
+      let var_name = Pp.str [ "--color-"; name; "-"; string_of_int shade ] in
       try
         let color = Color.of_string_exn name in
         [ custom_property var_name (Color.to_oklch_css color shade) ]
@@ -708,71 +711,6 @@ let empty =
     unknown_assigned = S.empty;
     unknown_fallback_refs = S.empty;
   }
-
-let record_assignment v t =
-  match of_string v with
-  | Some var -> { t with assigned = VarSet.add var t.assigned }
-  | None -> { t with unknown_assigned = S.add v t.unknown_assigned }
-
-let record_fallback v t =
-  match of_string v with
-  | Some var ->
-      if VarSet.mem var t.assigned then t
-      else { t with fallback_refs = VarSet.add var t.fallback_refs }
-  | None ->
-      if S.mem v t.unknown_assigned then t
-      else { t with unknown_fallback_refs = S.add v t.unknown_fallback_refs }
-
-(* Extract assignments and references from CSS properties *)
-let analyze_properties props =
-  let tally = ref empty in
-
-  (* Check for assignments (custom properties being set) *)
-  List.iter
-    (fun prop ->
-      if Css.is_custom_property prop then
-        let prop_name = Css.declaration_property prop in
-        let name = Css.string_of_property prop_name in
-        if String.starts_with ~prefix:"--tw-" name then
-          tally := record_assignment name !tally)
-    props;
-
-  (* Check for references in property values *)
-  let rec extract_refs value pos =
-    if pos >= String.length value then ()
-    else
-      try
-        let var_pos = String.index_from value pos 'v' in
-        if
-          var_pos + 4 <= String.length value
-          && String.sub value var_pos 4 = "var("
-        then (
-          let var_start = var_pos + 4 in
-          match String.index_from value var_start ')' with
-          | exception Not_found -> ()
-          | end_paren ->
-              let var_content =
-                String.sub value var_start (end_paren - var_start)
-              in
-              let var_name =
-                match String.index var_content ',' with
-                | exception Not_found -> String.trim var_content
-                | comma -> String.trim (String.sub var_content 0 comma)
-              in
-              if String.length var_name > 5 && String.sub var_name 0 5 = "--tw-"
-              then tally := record_fallback var_name !tally;
-              extract_refs value (end_paren + 1))
-        else extract_refs value (var_pos + 1)
-      with Not_found -> ()
-  in
-
-  List.iter
-    (fun prop ->
-      let value = Css.declaration_value prop in
-      extract_refs value 0)
-    props;
-
-  !tally
 
 (* Decide which groups actually need a properties layer *)
 let groups_needing_layer (t : tally) : feature_group list =

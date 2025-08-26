@@ -1,89 +1,93 @@
 open Alcotest
 
-let test_layout_of_string_valid () =
-  (* Valid layout values *)
-  let test_valid input expected =
-    match Tw.Layout.of_string input with
-    | Ok result -> check string "layout class name" expected (Tw.Core.pp result)
-    | Error (`Msg msg) -> fail msg
-  in
+let check parts =
+  let expected = String.concat "-" parts in
+  match Tw.Layout.of_string parts with
+  | Ok result ->
+      Alcotest.check string "layout class name" expected (Tw.Core.pp result)
+  | Error (`Msg msg) -> fail msg
 
-  (* Display utilities *)
-  test_valid [ "block" ] "block";
-  test_valid [ "inline"; "block" ] "inline-block";
-  test_valid [ "inline" ] "inline";
-  test_valid [ "flex" ] "flex";
-  test_valid [ "inline"; "flex" ] "inline-flex";
-  test_valid [ "table" ] "table";
-  test_valid [ "inline"; "table" ] "inline-table";
-  test_valid [ "table"; "caption" ] "table-caption";
-  test_valid [ "table"; "cell" ] "table-cell";
-  test_valid [ "table"; "column" ] "table-column";
-  test_valid [ "table"; "row" ] "table-row";
-  test_valid [ "grid" ] "grid";
-  test_valid [ "inline"; "grid" ] "inline-grid";
-  test_valid [ "contents" ] "contents";
-  test_valid [ "list"; "item" ] "list-item";
-  test_valid [ "hidden" ] "hidden";
-  test_valid [ "flow"; "root" ] "flow-root";
+let test_display_utilities () =
+  check [ "block" ];
+  check [ "inline"; "block" ];
+  check [ "inline" ];
+  check [ "flex" ];
+  check [ "inline"; "flex" ];
+  check [ "table" ];
+  check [ "inline"; "table" ];
+  check [ "table"; "caption" ];
+  check [ "table"; "cell" ];
+  check [ "table"; "column" ];
+  check [ "table"; "row" ];
+  check [ "grid" ];
+  check [ "inline"; "grid" ];
+  check [ "contents" ];
+  check [ "list"; "item" ];
+  check [ "hidden" ];
+  check [ "flow"; "root" ]
 
-  (* Position utilities *)
-  test_valid [ "static" ] "static";
-  test_valid [ "fixed" ] "fixed";
-  test_valid [ "absolute" ] "absolute";
-  test_valid [ "relative" ] "relative";
-  test_valid [ "sticky" ] "sticky";
+let test_position_utilities () =
+  check [ "static" ];
+  check [ "fixed" ];
+  check [ "absolute" ];
+  check [ "relative" ];
+  check [ "sticky" ]
 
-  (* Visibility *)
-  test_valid [ "visible" ] "visible";
-  test_valid [ "invisible" ] "invisible";
-  test_valid [ "collapse" ] "collapse";
+let test_visibility () =
+  check [ "visible" ];
+  check [ "invisible" ];
+  check [ "collapse" ]
 
-  (* Z-index *)
-  test_valid [ "z"; "0" ] "z-0";
-  test_valid [ "z"; "10" ] "z-10";
-  test_valid [ "z"; "20" ] "z-20";
-  test_valid [ "z"; "30" ] "z-30";
-  test_valid [ "z"; "40" ] "z-40";
-  test_valid [ "z"; "50" ] "z-50";
-  test_valid [ "z"; "auto" ] "z-auto";
+let test_z_index () =
+  check [ "z"; "0" ];
+  check [ "z"; "10" ];
+  check [ "z"; "20" ];
+  check [ "z"; "30" ];
+  check [ "z"; "40" ];
+  check [ "z"; "50" ];
+  check [ "z"; "auto" ]
 
-  (* Overflow *)
-  test_valid [ "overflow"; "auto" ] "overflow-auto";
-  test_valid [ "overflow"; "hidden" ] "overflow-hidden";
-  test_valid [ "overflow"; "clip" ] "overflow-clip";
-  test_valid [ "overflow"; "visible" ] "overflow-visible";
-  test_valid [ "overflow"; "scroll" ] "overflow-scroll";
-  test_valid [ "overflow"; "x"; "auto" ] "overflow-x-auto";
-  test_valid [ "overflow"; "y"; "hidden" ] "overflow-y-hidden"
+let test_overflow () =
+  check [ "overflow"; "auto" ];
+  check [ "overflow"; "hidden" ];
+  check [ "overflow"; "clip" ];
+  check [ "overflow"; "visible" ];
+  check [ "overflow"; "scroll" ];
+  check [ "overflow"; "x"; "auto" ];
+  check [ "overflow"; "y"; "hidden" ]
 
 let test_layout_of_string_invalid () =
   (* Invalid layout values *)
-  let test_invalid input =
+  let fail_maybe input =
     match Tw.Layout.of_string input with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in
 
-  test_invalid [ "inline"; "invalid" ];
+  fail_maybe [ "inline"; "invalid" ];
   (* Invalid display *)
-  test_invalid [ "table"; "invalid" ];
+  fail_maybe [ "table"; "invalid" ];
   (* Invalid table display *)
-  test_invalid [ "z"; "60" ];
+  fail_maybe [ "z"; "60" ];
   (* Invalid z-index *)
-  test_invalid [ "z"; "-10" ];
+  fail_maybe [ "z"; "-10" ];
   (* Negative z-index *)
-  test_invalid [ "overflow"; "invalid" ];
+  fail_maybe [ "overflow"; "invalid" ];
   (* Invalid overflow *)
-  test_invalid [ "overflow"; "z"; "auto" ];
+  fail_maybe [ "overflow"; "z"; "auto" ];
   (* Invalid axis *)
-  test_invalid [ "unknown" ]
+  fail_maybe [ "unknown" ]
 (* Unknown layout type *)
 
 let tests =
   [
-    test_case "layout of_string - valid values" `Quick
-      test_layout_of_string_valid;
+    test_case "display utilities" `Quick test_display_utilities;
+    test_case "position utilities" `Quick test_position_utilities;
+    test_case "visibility" `Quick test_visibility;
+    test_case "z-index" `Quick test_z_index;
+    test_case "overflow" `Quick test_overflow;
     test_case "layout of_string - invalid values" `Quick
       test_layout_of_string_invalid;
   ]
+
+let suite = ("layout", tests)

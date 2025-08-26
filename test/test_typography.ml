@@ -1,118 +1,130 @@
 open Alcotest
 
-let test_typography_of_string_valid () =
-  (* Valid typography values *)
-  let test_valid input expected =
-    match Tw.Typography.of_string input with
-    | Ok result ->
-        check string "typography class name" expected (Tw.Core.pp result)
-    | Error (`Msg msg) -> fail msg
-  in
+let check parts =
+  let expected = String.concat "-" parts in
+  match Tw.Typography.of_string parts with
+  | Ok result ->
+      Alcotest.check string "typography class name" expected (Tw.Core.pp result)
+  | Error (`Msg msg) -> fail msg
 
-  (* Font family *)
-  test_valid [ "font"; "sans" ] "font-sans";
-  test_valid [ "font"; "serif" ] "font-serif";
-  test_valid [ "font"; "mono" ] "font-mono";
+let test_font_family () =
+  check [ "font"; "sans" ];
+  check [ "font"; "serif" ];
+  check [ "font"; "mono" ]
 
-  (* Font size *)
-  test_valid [ "text"; "xs" ] "text-xs";
-  test_valid [ "text"; "sm" ] "text-sm";
-  test_valid [ "text"; "base" ] "text-base";
-  test_valid [ "text"; "lg" ] "text-lg";
-  test_valid [ "text"; "xl" ] "text-xl";
-  test_valid [ "text"; "2xl" ] "text-2xl";
-  test_valid [ "text"; "3xl" ] "text-3xl";
-  test_valid [ "text"; "4xl" ] "text-4xl";
-  test_valid [ "text"; "5xl" ] "text-5xl";
-  test_valid [ "text"; "6xl" ] "text-6xl";
-  test_valid [ "text"; "7xl" ] "text-7xl";
-  test_valid [ "text"; "8xl" ] "text-8xl";
-  test_valid [ "text"; "9xl" ] "text-9xl";
+let test_font_size () =
+  List.iter
+    (fun s -> check [ "text"; s ])
+    [
+      "xs";
+      "sm";
+      "base";
+      "lg";
+      "xl";
+      "2xl";
+      "3xl";
+      "4xl";
+      "5xl";
+      "6xl";
+      "7xl";
+      "8xl";
+      "9xl";
+    ]
 
-  (* Font weight *)
-  test_valid [ "font"; "thin" ] "font-thin";
-  test_valid [ "font"; "extralight" ] "font-extralight";
-  test_valid [ "font"; "light" ] "font-light";
-  test_valid [ "font"; "normal" ] "font-normal";
-  test_valid [ "font"; "medium" ] "font-medium";
-  test_valid [ "font"; "semibold" ] "font-semibold";
-  test_valid [ "font"; "bold" ] "font-bold";
-  test_valid [ "font"; "extrabold" ] "font-extrabold";
-  test_valid [ "font"; "black" ] "font-black";
+let test_font_weight () =
+  List.iter
+    (fun w -> check [ "font"; w ])
+    [
+      "thin";
+      "extralight";
+      "light";
+      "normal";
+      "medium";
+      "semibold";
+      "bold";
+      "extrabold";
+      "black";
+    ]
 
-  (* Text alignment *)
-  test_valid [ "text"; "left" ] "text-left";
-  test_valid [ "text"; "center" ] "text-center";
-  test_valid [ "text"; "right" ] "text-right";
-  test_valid [ "text"; "justify" ] "text-justify";
-  test_valid [ "text"; "start" ] "text-start";
-  test_valid [ "text"; "end" ] "text-end";
+let test_text_alignment () =
+  List.iter
+    (fun a -> check [ "text"; a ])
+    [ "left"; "center"; "right"; "justify"; "start"; "end" ]
 
-  (* Text decoration *)
-  test_valid [ "underline" ] "underline";
-  test_valid [ "overline" ] "overline";
-  test_valid [ "line"; "through" ] "line-through";
-  test_valid [ "no"; "underline" ] "no-underline";
+let test_text_decoration () =
+  check [ "underline" ];
+  check [ "overline" ];
+  check [ "line"; "through" ];
+  check [ "no"; "underline" ]
 
-  (* Text transform *)
-  test_valid [ "uppercase" ] "uppercase";
-  test_valid [ "lowercase" ] "lowercase";
-  test_valid [ "capitalize" ] "capitalize";
-  test_valid [ "normal"; "case" ] "normal-case";
+let test_text_transform () =
+  check [ "uppercase" ];
+  check [ "lowercase" ];
+  check [ "capitalize" ];
+  check [ "normal"; "case" ]
 
-  (* Line height *)
-  test_valid [ "leading"; "3" ] "leading-3";
-  test_valid [ "leading"; "4" ] "leading-4";
-  test_valid [ "leading"; "5" ] "leading-5";
-  test_valid [ "leading"; "6" ] "leading-6";
-  test_valid [ "leading"; "7" ] "leading-7";
-  test_valid [ "leading"; "8" ] "leading-8";
-  test_valid [ "leading"; "9" ] "leading-9";
-  test_valid [ "leading"; "10" ] "leading-10";
-  test_valid [ "leading"; "none" ] "leading-none";
-  test_valid [ "leading"; "tight" ] "leading-tight";
-  test_valid [ "leading"; "snug" ] "leading-snug";
-  test_valid [ "leading"; "normal" ] "leading-normal";
-  test_valid [ "leading"; "relaxed" ] "leading-relaxed";
-  test_valid [ "leading"; "loose" ] "leading-loose";
+let test_line_height () =
+  List.iter
+    (fun v -> check [ "leading"; v ])
+    [
+      "3";
+      "4";
+      "5";
+      "6";
+      "7";
+      "8";
+      "9";
+      "10";
+      "none";
+      "tight";
+      "snug";
+      "normal";
+      "relaxed";
+      "loose";
+    ]
 
-  (* Letter spacing *)
-  test_valid [ "tracking"; "tighter" ] "tracking-tighter";
-  test_valid [ "tracking"; "tight" ] "tracking-tight";
-  test_valid [ "tracking"; "normal" ] "tracking-normal";
-  test_valid [ "tracking"; "wide" ] "tracking-wide";
-  test_valid [ "tracking"; "wider" ] "tracking-wider";
-  test_valid [ "tracking"; "widest" ] "tracking-widest"
+let test_letter_spacing () =
+  List.iter
+    (fun v -> check [ "tracking"; v ])
+    [ "tighter"; "tight"; "normal"; "wide"; "wider"; "widest" ]
 
 let test_typography_of_string_invalid () =
   (* Invalid typography values *)
-  let test_invalid input =
+  let fail_maybe input =
     match Tw.Typography.of_string input with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in
 
-  test_invalid [ "font"; "invalid" ];
+  fail_maybe [ "font"; "invalid" ];
   (* Invalid font family *)
-  test_invalid [ "text"; "10xl" ];
+  fail_maybe [ "text"; "10xl" ];
   (* Invalid text size *)
-  test_invalid [ "font"; "superheavy" ];
+  fail_maybe [ "font"; "superheavy" ];
   (* Invalid font weight *)
-  test_invalid [ "text"; "middle" ];
+  fail_maybe [ "text"; "middle" ];
   (* Invalid text alignment *)
-  test_invalid [ "leading"; "11" ];
+  fail_maybe [ "leading"; "11" ];
   (* Invalid line height *)
-  test_invalid [ "leading"; "2" ];
+  fail_maybe [ "leading"; "2" ];
   (* Invalid line height *)
-  test_invalid [ "tracking"; "tightest" ];
+  fail_maybe [ "tracking"; "tightest" ];
   (* Invalid letter spacing *)
-  test_invalid [ "unknown" ]
+  fail_maybe [ "unknown" ]
 (* Unknown typography type *)
 
 let tests =
   [
-    test_case "typography of_string - valid values" `Quick
-      test_typography_of_string_valid;
+    test_case "font family" `Quick test_font_family;
+    test_case "font size" `Quick test_font_size;
+    test_case "font weight" `Quick test_font_weight;
+    test_case "text alignment" `Quick test_text_alignment;
+    test_case "text decoration" `Quick test_text_decoration;
+    test_case "text transform" `Quick test_text_transform;
+    test_case "line height" `Quick test_line_height;
+    test_case "letter spacing" `Quick test_letter_spacing;
     test_case "typography of_string - invalid values" `Quick
       test_typography_of_string_invalid;
   ]
+
+let suite = ("typography", tests)

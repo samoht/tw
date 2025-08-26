@@ -34,14 +34,25 @@ val pl : int -> t
 (** [pl n] creates left padding. *)
 
 val p' : spacing -> t
-(** Typed versions with ' suffix *)
+(** [p' s] sets padding on all sides using typed spacing [s]. *)
 
 val px' : spacing -> t
+(** [px' s] sets horizontal padding using typed spacing [s]. *)
+
 val py' : spacing -> t
+(** [py' s] sets vertical padding using typed spacing [s]. *)
+
 val pt' : spacing -> t
+(** [pt' s] sets top padding using typed spacing [s]. *)
+
 val pr' : spacing -> t
+(** [pr' s] sets right padding using typed spacing [s]. *)
+
 val pb' : spacing -> t
+(** [pb' s] sets bottom padding using typed spacing [s]. *)
+
 val pl' : spacing -> t
+(** [pl' s] sets left padding using typed spacing [s]. *)
 
 (** {1 Margin Utilities} *)
 
@@ -67,14 +78,25 @@ val ml : int -> t
 (** [ml n] creates left margin (supports negative values). *)
 
 val m' : margin -> t
-(** Typed versions with ' suffix *)
+(** [m' m] sets margin on all sides using typed margin [m]. *)
 
 val mx' : margin -> t
+(** [mx' m] sets horizontal margin using typed margin [m]. *)
+
 val my' : margin -> t
+(** [my' m] sets vertical margin using typed margin [m]. *)
+
 val mt' : margin -> t
+(** [mt' m] sets top margin using typed margin [m]. *)
+
 val mr' : margin -> t
+(** [mr' m] sets right margin using typed margin [m]. *)
+
 val mb' : margin -> t
+(** [mb' m] sets bottom margin using typed margin [m]. *)
+
 val ml' : margin -> t
+(** [ml' m] sets left margin using typed margin [m]. *)
 
 (** {1 Gap Utilities} *)
 
@@ -88,10 +110,13 @@ val gap_y : int -> t
 (** [gap_y n] creates vertical gap between grid/flex items. *)
 
 val gap' : spacing -> t
-(** Typed versions with ' suffix *)
+(** [gap' s] sets gap using typed spacing [s]. *)
 
 val gap_x' : spacing -> t
+(** [gap_x' s] sets horizontal gap using typed spacing [s]. *)
+
 val gap_y' : spacing -> t
+(** [gap_y' s] sets vertical gap using typed spacing [s]. *)
 
 (** {1 Space Between Utilities} *)
 

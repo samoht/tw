@@ -611,9 +611,15 @@ let prose_stylesheet () =
 
 (* Line clamp utility function *)
 let line_clamp n =
-  let class_name = "line-clamp-" ^ string_of_int n in
-  if n = 0 then style "line-clamp-none" [ Css.webkit_line_clamp "none" ]
-  else style class_name [ Css.webkit_line_clamp (string_of_int n) ]
+  if n = 0 then
+    (* line-clamp-none resets the line clamp *)
+    style "line-clamp-none"
+      [ Css.webkit_line_clamp 0; Css.overflow Visible; Css.display Block ]
+  else
+    let class_name = "line-clamp-" ^ string_of_int n in
+    (* Note: -webkit-box display is needed but not in our type system yet *)
+    style class_name
+      [ Css.webkit_line_clamp n; Css.overflow Hidden; Css.display Block ]
 
 (* Opacity utilities *)
 
@@ -750,8 +756,10 @@ let of_string class_str =
 (** {1 Module Exports} *)
 
 module Core = Core
+module Parse = Parse
 module Spacing = Spacing
 module Borders = Borders
+module Backgrounds = Backgrounds
 module Sizing = Sizing
 module Layout = Layout
 module Typography = Typography
@@ -763,3 +771,4 @@ module Filters = Filters
 module Positioning = Positioning
 module Animations = Animations
 module Forms = Forms
+module Rules = Rules

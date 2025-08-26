@@ -3,6 +3,9 @@
 open Core
 open Css
 
+(* Helper functions for CSS variables *)
+let border_color_var name = Css.border_color (Css.Var (Css.var name))
+
 type rgb = {
   r : int;  (** Red channel (0-255) *)
   g : int;  (** Green channel (0-255) *)
@@ -936,7 +939,7 @@ let bg color shade =
           }
     in
     style_with_vars class_name
-      [ Css.background_color (Css.Var var_name) ]
+      [ Css.background_color (Css.Var (Css.var var_name)) ]
       [ var ]
 
 let bg_transparent = style "bg-transparent" [ background_color Transparent ]
@@ -1001,7 +1004,9 @@ let text color shade =
             value = to_oklch_css color shade;
           }
     in
-    style_with_vars class_name [ Css.color (Css.Var var_name) ] [ var ]
+    style_with_vars class_name
+      [ Css.color (Css.Var (Css.var var_name)) ]
+      [ var ]
 
 let text_transparent = style "text-transparent" [ Css.color Transparent ]
 let text_current = style "text-current" [ Css.color Current ]
@@ -1065,7 +1070,7 @@ let border_color color shade =
             value = to_oklch_css color shade;
           }
     in
-    style_with_vars class_name [ Css.border_color (Css.Var var_name) ] [ var ]
+    style_with_vars class_name [ border_color_var var_name ] [ var ]
 
 let border_transparent =
   style "border-transparent" [ Css.border_color Transparent ]

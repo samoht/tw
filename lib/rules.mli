@@ -12,10 +12,11 @@ type rule_output =
 
 (** {1 CSS Generation} *)
 
-val to_css : ?reset:bool -> t list -> Css.t
-(** [to_css ?reset classes] generates a complete CSS stylesheet from Tailwind
-    classes.
-    @param reset Whether to include CSS reset rules (default: true) *)
+val to_css : ?reset:bool -> ?mode:Css.mode -> t list -> Css.t
+(** [to_css ?reset ?mode classes] generates a complete CSS stylesheet from
+    Tailwind classes.
+    @param reset Whether to include CSS reset rules (default: true).
+    @param mode CSS variable handling mode (default: Variables). *)
 
 val to_inline_style : t list -> string
 (** [to_inline_style styles] generates inline CSS string from Tailwind classes.

@@ -12,3 +12,4 @@ let test_clip_polygon () =
     (Astring.String.is_infix ~affix:"polygon(50% 0%, 0% 100%, 100% 100%)" css)
 
 let tests = [ test_case "clip polygon" `Quick test_clip_polygon ]
+let suite = ("clipping", tests)

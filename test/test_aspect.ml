@@ -18,3 +18,5 @@ let tests =
     test_case "aspect classes" `Quick test_aspect_classes;
     test_case "aspect css" `Quick test_aspect_css;
   ]
+
+let suite = ("aspect", tests)

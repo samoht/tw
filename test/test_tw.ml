@@ -13,6 +13,56 @@ let generate_tw_css ?(minify = false) styles =
 
 let generate_tailwind_css = Tw_tools.Tailwind_gen.generate
 
+(* Shared CSS pretty-printer for failures *)
+let css_testable =
+  Alcotest.testable
+    (fun fmt css ->
+      let display_css =
+        try
+          let rec find_layer_end s start depth =
+            if start >= String.length s then String.length s
+            else
+              match s.[start] with
+              | '{' -> find_layer_end s (start + 1) (depth + 1)
+              | '}' ->
+                  if depth = 1 then start + 1
+                  else find_layer_end s (start + 1) (depth - 1)
+              | _ -> find_layer_end s (start + 1) depth
+          in
+          let pattern = "@layer base" in
+          let rec find_pattern s pat i =
+            if i + String.length pat > String.length s then raise Not_found
+            else if String.sub s i (String.length pat) = pat then i
+            else find_pattern s pat (i + 1)
+          in
+          let base_start = find_pattern css pattern 0 in
+          let base_end =
+            find_layer_end css (base_start + String.length pattern) 0
+          in
+          let before = String.sub css 0 base_start in
+          let after = String.sub css base_end (String.length css - base_end) in
+          before ^ "@layer base{...}" ^ after
+        with Not_found -> css
+      in
+      if String.length display_css < 300 then Fmt.pf fmt "\n%s" display_css
+      else if String.length display_css < 800 then
+        let start = String.sub display_css 0 200 in
+        let ending =
+          String.sub display_css (String.length display_css - 200) 200
+        in
+        Fmt.pf fmt "<css: %d chars>\n%s\n...\n%s" (String.length css) start
+          ending
+      else Fmt.pf fmt "<css: %d chars>" (String.length css))
+    String.equal
+
+let debug_mismatch ~test_name ~tw_css ~tailwind_css =
+  Fmt.epr "\n=== CSS MISMATCH for %s ===\n" test_name;
+  match Tw_tools.Css_debug.find_first_diff tw_css tailwind_css with
+  | Some (_pos, desc, context) -> Fmt.epr "%s\n%s\n" desc context
+  | None ->
+      let diff_output = Tw_tools.Css_compare.format_diff tw_css tailwind_css in
+      Fmt.epr "%s" diff_output
+
 let check_exact_match tw_styles =
   try
     let tw_styles = match tw_styles with [] -> [] | styles -> styles in
@@ -25,7 +75,6 @@ let check_exact_match tw_styles =
       generate_tailwind_css ~minify:true classnames
       |> Tw_tools.Css_compare.strip_header |> String.trim
     in
-
     let test_name =
       match classnames with
       | [] -> "empty"
@@ -35,72 +84,8 @@ let check_exact_match tw_styles =
             String.sub full_name 0 97 ^ "..."
           else full_name
     in
-
-    if tw_css <> tailwind_css then (
-      Fmt.epr "\n=== CSS MISMATCH for %s ===\n" test_name;
-
-      (* Use detailed debugging for main diff *)
-      match Tw_tools.Css_debug.find_first_diff tw_css tailwind_css with
-      | Some (_pos, desc, context) -> Fmt.epr "%s\n%s\n" desc context
-      | None ->
-          (* Fallback to structural comparison if no char diff found *)
-          let diff_output =
-            Tw_tools.Css_compare.format_diff tw_css tailwind_css
-          in
-          Fmt.epr "%s" diff_output);
-
-    (* Use testable with custom pp to display CSS concisely *)
-    let css_testable =
-      Alcotest.testable
-        (fun fmt css ->
-          (* For display only: try to show CSS without base layer *)
-          let display_css =
-            try
-              (* Find and remove the entire @layer base{...} block for
-                 display *)
-              let rec find_layer_end s start depth =
-                if start >= String.length s then String.length s
-                else
-                  match s.[start] with
-                  | '{' -> find_layer_end s (start + 1) (depth + 1)
-                  | '}' ->
-                      if depth = 1 then start + 1
-                      else find_layer_end s (start + 1) (depth - 1)
-                  | _ -> find_layer_end s (start + 1) depth
-              in
-
-              let pattern = "@layer base" in
-              let rec find_pattern s pat i =
-                if i + String.length pat > String.length s then raise Not_found
-                else if String.sub s i (String.length pat) = pat then i
-                else find_pattern s pat (i + 1)
-              in
-
-              let base_start = find_pattern css pattern 0 in
-              let base_end =
-                find_layer_end css (base_start + String.length pattern) 0
-              in
-              let before = String.sub css 0 base_start in
-              let after =
-                String.sub css base_end (String.length css - base_end)
-              in
-              before ^ "@layer base{...}" ^ after
-            with Not_found -> css
-          in
-
-          (* Display logic - just for pretty printing *)
-          if String.length display_css < 300 then Fmt.pf fmt "\n%s" display_css
-          else if String.length display_css < 800 then
-            (* Truncate middle for medium outputs *)
-            let start = String.sub display_css 0 200 in
-            let ending =
-              String.sub display_css (String.length display_css - 200) 200
-            in
-            Fmt.pf fmt "<css: %d chars>\n%s\n...\n%s" (String.length css) start
-              ending
-          else Fmt.pf fmt "<css: %d chars>" (String.length css))
-        String.equal (* Comparison still uses original strings *)
-    in
+    if tw_css <> tailwind_css then
+      debug_mismatch ~test_name ~tw_css ~tailwind_css;
     let test_label =
       if String.length test_name > 50 then
         String.sub test_name 0 47 ^ "... CSS exact match"
@@ -346,7 +331,29 @@ let prose_variants () =
   check prose_xl;
   check prose_2xl
 
+(* ===== PRECEDENCE TESTS ===== *)
+
+let precedence_base_overrides () =
+  (* Later base utility should win over earlier base of same kind *)
+  check_list [ p 4; p 2 ];
+  check_list [ text blue 600; text blue 500 ]
+
+let precedence_breakpoints () =
+  (* Responsive variants should scope correctly and not affect base *)
+  check_list [ p 2; on_md [ p 8 ] ];
+  check_list
+    [ text green 400; on_sm [ text green 500 ]; on_lg [ text green 700 ] ]
+
+let precedence_states () =
+  (* State modifiers combine without interfering with base *)
+  check_list [ bg blue 500; on_hover [ bg blue 600 ] ];
+  check_list [ text gray 500; on_focus [ text gray 700 ] ]
+
 (* ===== UTILITY/PROPERTY TESTS (keep essential ones) ===== *)
+
+(* Helpers for comprehensive color coverage *)
+let shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900; 950 ]
+let bg_shades color shade_list = List.map (fun s -> bg color s) shade_list
 
 let inline_styles () =
   let inline = to_inline_style [ p 4; bg blue 500; text white 0 ] in
@@ -376,271 +383,32 @@ let style_combination () =
       then Alcotest.failf "Missing class %s in combined CSS" class_name)
     expected_classes
 
-let all_colors_comprehensive () =
-  (* Test all color scales with common shades to identify mismatches *)
+let all_colors_grays () =
   check_list
-    [
-      (* Grays *)
-      bg slate 50;
-      bg slate 100;
-      bg slate 200;
-      bg slate 300;
-      bg slate 400;
-      bg slate 500;
-      bg slate 600;
-      bg slate 700;
-      bg slate 800;
-      bg slate 900;
-      bg slate 950;
-      bg gray 50;
-      bg gray 100;
-      bg gray 200;
-      bg gray 300;
-      bg gray 400;
-      bg gray 500;
-      bg gray 600;
-      bg gray 700;
-      bg gray 800;
-      bg gray 900;
-      bg gray 950;
-      bg zinc 50;
-      bg zinc 100;
-      bg zinc 200;
-      bg zinc 300;
-      bg zinc 400;
-      bg zinc 500;
-      bg zinc 600;
-      bg zinc 700;
-      bg zinc 800;
-      bg zinc 900;
-      bg zinc 950;
-      bg neutral 50;
-      bg neutral 100;
-      bg neutral 200;
-      bg neutral 300;
-      bg neutral 400;
-      bg neutral 500;
-      bg neutral 600;
-      bg neutral 700;
-      bg neutral 800;
-      bg neutral 900;
-      bg neutral 950;
-      bg stone 50;
-      bg stone 100;
-      bg stone 200;
-      bg stone 300;
-      bg stone 400;
-      bg stone 500;
-      bg stone 600;
-      bg stone 700;
-      bg stone 800;
-      bg stone 900;
-      bg stone 950;
-      (* Reds *)
-      bg red 50;
-      bg red 100;
-      bg red 200;
-      bg red 300;
-      bg red 400;
-      bg red 500;
-      bg red 600;
-      bg red 700;
-      bg red 800;
-      bg red 900;
-      bg red 950;
-      (* Oranges *)
-      bg orange 50;
-      bg orange 100;
-      bg orange 200;
-      bg orange 300;
-      bg orange 400;
-      bg orange 500;
-      bg orange 600;
-      bg orange 700;
-      bg orange 800;
-      bg orange 900;
-      bg orange 950;
-      (* Ambers *)
-      bg amber 50;
-      bg amber 100;
-      bg amber 200;
-      bg amber 300;
-      bg amber 400;
-      bg amber 500;
-      bg amber 600;
-      bg amber 700;
-      bg amber 800;
-      bg amber 900;
-      bg amber 950;
-      (* Yellows *)
-      bg yellow 50;
-      bg yellow 100;
-      bg yellow 200;
-      bg yellow 300;
-      bg yellow 400;
-      bg yellow 500;
-      bg yellow 600;
-      bg yellow 700;
-      bg yellow 800;
-      bg yellow 900;
-      bg yellow 950;
-      (* Limes *)
-      bg lime 50;
-      bg lime 100;
-      bg lime 200;
-      bg lime 300;
-      bg lime 400;
-      bg lime 500;
-      bg lime 600;
-      bg lime 700;
-      bg lime 800;
-      bg lime 900;
-      bg lime 950;
-      (* Greens *)
-      bg green 50;
-      bg green 100;
-      bg green 200;
-      bg green 300;
-      bg green 400;
-      bg green 500;
-      bg green 600;
-      bg green 700;
-      bg green 800;
-      bg green 900;
-      bg green 950;
-      (* Emeralds *)
-      bg emerald 50;
-      bg emerald 100;
-      bg emerald 200;
-      bg emerald 300;
-      bg emerald 400;
-      bg emerald 500;
-      bg emerald 600;
-      bg emerald 700;
-      bg emerald 800;
-      bg emerald 900;
-      bg emerald 950;
-      (* Teals *)
-      bg teal 50;
-      bg teal 100;
-      bg teal 200;
-      bg teal 300;
-      bg teal 400;
-      bg teal 500;
-      bg teal 600;
-      bg teal 700;
-      bg teal 800;
-      bg teal 900;
-      bg teal 950;
-      (* Cyans *)
-      bg cyan 50;
-      bg cyan 100;
-      bg cyan 200;
-      bg cyan 300;
-      bg cyan 400;
-      bg cyan 500;
-      bg cyan 600;
-      bg cyan 700;
-      bg cyan 800;
-      bg cyan 900;
-      bg cyan 950;
-      (* Skys *)
-      bg sky 50;
-      bg sky 100;
-      bg sky 200;
-      bg sky 300;
-      bg sky 400;
-      bg sky 500;
-      bg sky 600;
-      bg sky 700;
-      bg sky 800;
-      bg sky 900;
-      bg sky 950;
-      (* Blues *)
-      bg blue 50;
-      bg blue 100;
-      bg blue 200;
-      bg blue 300;
-      bg blue 400;
-      bg blue 500;
-      bg blue 600;
-      bg blue 700;
-      bg blue 800;
-      bg blue 900;
-      bg blue 950;
-      (* Indigos *)
-      bg indigo 50;
-      bg indigo 100;
-      bg indigo 200;
-      bg indigo 300;
-      bg indigo 400;
-      bg indigo 500;
-      bg indigo 600;
-      bg indigo 700;
-      bg indigo 800;
-      bg indigo 900;
-      bg indigo 950;
-      (* Violets *)
-      bg violet 50;
-      bg violet 100;
-      bg violet 200;
-      bg violet 300;
-      bg violet 400;
-      bg violet 500;
-      bg violet 600;
-      bg violet 700;
-      bg violet 800;
-      bg violet 900;
-      bg violet 950;
-      (* Purples *)
-      bg purple 50;
-      bg purple 100;
-      bg purple 200;
-      bg purple 300;
-      bg purple 400;
-      bg purple 500;
-      bg purple 600;
-      bg purple 700;
-      bg purple 800;
-      bg purple 900;
-      bg purple 950;
-      (* Fuchsias *)
-      bg fuchsia 50;
-      bg fuchsia 100;
-      bg fuchsia 200;
-      bg fuchsia 300;
-      bg fuchsia 400;
-      bg fuchsia 500;
-      bg fuchsia 600;
-      bg fuchsia 700;
-      bg fuchsia 800;
-      bg fuchsia 900;
-      bg fuchsia 950;
-      (* Pinks *)
-      bg pink 50;
-      bg pink 100;
-      bg pink 200;
-      bg pink 300;
-      bg pink 400;
-      bg pink 500;
-      bg pink 600;
-      bg pink 700;
-      bg pink 800;
-      bg pink 900;
-      bg pink 950;
-      (* Roses *)
-      bg rose 50;
-      bg rose 100;
-      bg rose 200;
-      bg rose 300;
-      bg rose 400;
-      bg rose 500;
-      bg rose 600;
-      bg rose 700;
-      bg rose 800;
-      bg rose 900;
-      bg rose 950;
-    ]
+    (bg_shades slate shades @ bg_shades gray shades @ bg_shades zinc shades
+   @ bg_shades neutral shades @ bg_shades stone shades)
+
+let all_colors_warm () =
+  check_list
+    (bg_shades red shades @ bg_shades orange shades @ bg_shades amber shades
+   @ bg_shades yellow shades)
+
+let all_colors_greens () =
+  check_list
+    (bg_shades lime shades @ bg_shades green shades @ bg_shades emerald shades
+   @ bg_shades teal shades)
+
+let all_colors_blues () =
+  check_list
+    (bg_shades cyan shades @ bg_shades sky shades @ bg_shades blue shades)
+
+let all_colors_purples () =
+  check_list
+    (bg_shades indigo shades @ bg_shades violet shades @ bg_shades purple shades)
+
+let all_colors_pinks () =
+  check_list
+    (bg_shades fuchsia shades @ bg_shades pink shades @ bg_shades rose shades)
 
 let all_colors_same_shade () =
   (* Test all colors with shade 500 to verify proper color ordering *)
@@ -702,13 +470,20 @@ let core_tests =
     test_case "prose basic" `Quick prose_basic;
     test_case "prose with modifiers" `Quick prose_with_modifiers;
     test_case "prose variants" `Quick prose_variants;
+    test_case "precedence base overrides" `Quick precedence_base_overrides;
+    test_case "precedence breakpoints" `Quick precedence_breakpoints;
+    test_case "precedence states" `Quick precedence_states;
     test_case "inline styles" `Quick inline_styles;
     test_case "style combination" `Quick style_combination;
     test_case "responsive classes" `Quick responsive_classes;
     test_case "multiple classes" `Quick multiple_classes;
     test_case "all colors same shade" `Quick all_colors_same_shade;
-    test_case "all colors comprehensive" `Quick all_colors_comprehensive;
+    test_case "all colors grays" `Quick all_colors_grays;
+    test_case "all colors warm" `Quick all_colors_warm;
+    test_case "all colors greens" `Quick all_colors_greens;
+    test_case "all colors blues" `Quick all_colors_blues;
+    test_case "all colors purples" `Quick all_colors_purples;
+    test_case "all colors pinks" `Quick all_colors_pinks;
   ]
 
 let suite = ("tw", core_tests)
-let () = run "tw" [ suite ]

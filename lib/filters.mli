@@ -6,14 +6,31 @@ open Core
 (** {1 Filter Utilities} *)
 
 val blur_none : t
+(** No blur. *)
+
 val blur_xs : t
+(** Extra-small blur. *)
+
 val blur_sm : t
+(** Small blur. *)
+
 val blur : t
+(** Default blur. *)
+
 val blur_md : t
+(** Medium blur. *)
+
 val blur_lg : t
+(** Large blur. *)
+
 val blur_xl : t
+(** Extra-large blur. *)
+
 val blur_2xl : t
+(** 2× extra-large blur. *)
+
 val blur_3xl : t
+(** 3× extra-large blur. *)
 
 val brightness : int -> t
 (** [brightness n] sets brightness to n% (0-200, 100 is normal). *)
@@ -39,14 +56,31 @@ val hue_rotate : int -> t
 (** {1 Backdrop Filter Utilities} *)
 
 val backdrop_blur_none : t
+(** No backdrop blur. *)
+
 val backdrop_blur_xs : t
+(** Extra-small backdrop blur. *)
+
 val backdrop_blur_sm : t
+(** Small backdrop blur. *)
+
 val backdrop_blur : t
+(** Default backdrop blur. *)
+
 val backdrop_blur_md : t
+(** Medium backdrop blur. *)
+
 val backdrop_blur_lg : t
+(** Large backdrop blur. *)
+
 val backdrop_blur_xl : t
+(** Extra-large backdrop blur. *)
+
 val backdrop_blur_2xl : t
+(** 2× extra-large backdrop blur. *)
+
 val backdrop_blur_3xl : t
+(** 3× extra-large backdrop blur. *)
 
 val backdrop_brightness : int -> t
 (** [backdrop_brightness n] sets backdrop brightness to n% (0-200, 100 is

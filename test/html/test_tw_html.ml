@@ -3,6 +3,37 @@
 open Alcotest
 open Tw_html
 
+(* Helpers to keep individual tests small and readable *)
+let write_file path content =
+  let oc = open_out path in
+  output_string oc content;
+  close_out oc
+
+let read_file path =
+  let ic = open_in path in
+  let s = really_input_string ic (in_channel_length ic) in
+  close_in ic;
+  s
+
+let html_doc_of body =
+  Fmt.str
+    "<!DOCTYPE html>\n\
+     <html>\n\
+     <head>\n\
+     <meta charset=\"UTF-8\">\n\
+     </head>\n\
+     <body>\n\
+     %s\n\
+     </body>\n\
+     </html>"
+    body
+
+let check_selector_in css pattern name =
+  if not (Astring.String.is_infix ~affix:pattern css) then
+    Fmt.pr "Warning: Tailwind doesn't contain expected %s selector: %s@." name
+      pattern
+  else Fmt.pr "✓ Found %s selector in Tailwind output@." name
+
 let test_txt () =
   let text = txt "Hello World" in
   let html_str = to_string text in
@@ -34,6 +65,57 @@ let test_attributes () =
     (Astring.String.is_infix ~affix:"title=\"About page\"" html_str);
   check bool "contains text" true
     (Astring.String.is_infix ~affix:"About" html_str)
+
+let test_html_escaping () =
+  (* Text content escaping *)
+  let dangerous = txt "<script>if (a && b) alert(\"x\")</script>" in
+  let html_str = to_string dangerous in
+  check bool "escapes < and >" true
+    (Astring.String.is_infix ~affix:"&lt;script&gt;" html_str);
+  check bool "escapes & inside" true
+    (Astring.String.is_infix ~affix:"&amp;&amp;" html_str);
+  check bool "escapes quotes" true
+    (Astring.String.is_infix ~affix:"\"x\"" html_str
+    || Astring.String.is_infix ~affix:"&quot;x&quot;" html_str);
+
+  (* Attribute value escaping *)
+  let elem = div ~at:[ At.title "5 > 3 & \"yes\"" ] [ txt "t" ] in
+  let s = to_string elem in
+  check bool "attribute escapes >" true
+    (Astring.String.is_infix ~affix:"&gt;" s);
+  check bool "attribute escapes & and quotes" true
+    (Astring.String.is_infix ~affix:"&amp;" s
+    && Astring.String.is_infix ~affix:"&quot;yes&quot;" s)
+
+let test_boolean_and_data_attrs () =
+  (* Boolean attributes render as presence-only *)
+  let i = input ~at:[ At.disabled; At.checked; At.required ] () in
+  let s = to_string i in
+  check bool "has disabled" true (Astring.String.is_infix ~affix:"disabled" s);
+  check bool "has checked" true (Astring.String.is_infix ~affix:"checked" s);
+  check bool "has required" true (Astring.String.is_infix ~affix:"required" s);
+
+  (* aria and data attributes serialization *)
+  let d =
+    div
+      ~at:
+        [
+          Aria.label "Greeting";
+          Aria.hidden;
+          Aria.expanded true;
+          At.v "data-user" "Tom & Jerry";
+        ]
+      [ txt "x" ]
+  in
+  let sd = to_string d in
+  check bool "aria-label set" true
+    (Astring.String.is_infix ~affix:"aria-label=\"Greeting\"" sd);
+  check bool "aria-hidden set" true
+    (Astring.String.is_infix ~affix:"aria-hidden=\"true\"" sd);
+  check bool "aria-expanded set" true
+    (Astring.String.is_infix ~affix:"aria-expanded=\"true\"" sd);
+  check bool "data-* serialized and escaped" true
+    (Astring.String.is_infix ~affix:"data-user=\"Tom &amp; Jerry\"" sd)
 
 let test_nesting () =
   let nested =
@@ -162,7 +244,6 @@ let test_page_cache_busting_consistency () =
   check bool "different content produces different hash" false (hash1 = hash3)
 
 let test_exact_tailwind_match () =
-  (* Create a simple HTML page with various Tailwind classes *)
   let page_content =
     div
       ~tw:Tw.[ p 4; bg blue 500; on_hover [ bg blue 600 ] ]
@@ -202,30 +283,14 @@ let test_exact_tailwind_match () =
       ]
   in
 
-  (* Generate HTML and CSS *)
   let generated_page = page ~title:"Test" [] [ page_content ] in
   let html_output = html generated_page in
   let _css_filename, css_stylesheet = css generated_page in
   let css_output = Tw.Css.to_string ~minify:false css_stylesheet in
-
-  (* Write HTML to temp file *)
   let html_file = "/tmp/tw_test_exact.html" in
-  let oc = open_out html_file in
-  (* Write complete HTML document *)
-  Printf.fprintf oc
-    "<!DOCTYPE html>\n\
-     <html>\n\
-     <head>\n\
-     <meta charset=\"UTF-8\">\n\
-     </head>\n\
-     <body>\n\
-     %s\n\
-     </body>\n\
-     </html>"
-    html_output;
-  close_out oc;
+  write_file html_file (html_doc_of html_output);
 
-  (* Create minimal Tailwind config *)
+  (* Tailwind config *)
   let tailwind_config =
     {|
 module.exports = {
@@ -238,11 +303,9 @@ module.exports = {
 |}
   in
   let config_file = "/tmp/tailwind.config.js" in
-  let oc = open_out config_file in
-  output_string oc tailwind_config;
-  close_out oc;
+  write_file config_file tailwind_config;
 
-  (* Run real Tailwind CSS - v3 compatible mode if available *)
+  (* Run Tailwind and collect output if available *)
   let tailwind_cmd =
     "cd /tmp && npx tailwindcss -i /dev/stdin -c tailwind.config.js -o \
      tailwind_real.css <<< '@tailwind base; @tailwind components; @tailwind \
@@ -251,43 +314,29 @@ module.exports = {
   let exit_code = Sys.command tailwind_cmd in
 
   if exit_code <> 0 then (
-    Printf.printf
+    Fmt.pr
       "Note: Tailwind CSS comparison test skipped (tailwindcss not available \
-       or wrong version)\n";
+       or wrong version)@.";
     ())
   else
-    (* Read Tailwind's output *)
-    let ic = open_in "/tmp/tailwind_real.css" in
-    let tailwind_css = really_input_string ic (in_channel_length ic) in
-    close_in ic;
-
-    (* Compare key selectors - Tailwind uses specific patterns *)
-    let check_selector pattern name =
-      if not (Astring.String.is_infix ~affix:pattern tailwind_css) then
-        Printf.printf
-          "Warning: Tailwind doesn't contain expected %s selector: %s\n" name
-          pattern
-      else Printf.printf "✓ Found %s selector in Tailwind output\n" name
-    in
-
-    (* These are the actual selectors Tailwind generates *)
-    check_selector ".hover\\:bg-blue-600:hover" "hover modifier";
-    check_selector ".group:hover .group-hover\\:" "group-hover modifier";
-    check_selector ".peer:checked ~ .peer-checked\\:" "peer-checked modifier";
-    check_selector "[aria-checked=\"true\"]" "aria-checked";
-    check_selector "[data-active]" "data-active";
-
-    Printf.printf "\nOur CSS output:\n";
-    Printf.printf "%s\n"
+    let tailwind_css = read_file "/tmp/tailwind_real.css" in
+    check_selector_in tailwind_css ".hover\\:bg-blue-600:hover" "hover modifier";
+    check_selector_in tailwind_css ".group:hover .group-hover\\:"
+      "group-hover modifier";
+    check_selector_in tailwind_css ".peer:checked ~ .peer-checked\\:"
+      "peer-checked modifier";
+    check_selector_in tailwind_css "[aria-checked=\"true\"]" "aria-checked";
+    check_selector_in tailwind_css "[data-active]" "data-active";
+    Fmt.pr "@.Our CSS output:@.";
+    Fmt.pr "%s@."
       (if String.length css_output > 500 then
          String.sub css_output 0 500 ^ "..."
        else css_output);
-    Printf.printf "\nTailwind CSS output (first 500 chars):\n";
-    Printf.printf "%s\n"
+    Fmt.pr "@.Tailwind CSS output (first 500 chars):@.";
+    Fmt.pr "%s@."
       (String.sub tailwind_css 0 (min 500 (String.length tailwind_css)))
 
 let test_exact_byte_match () =
-  (* Create a minimal test case with just utility classes *)
   let page_content =
     div ~tw:Tw.[ p 4; bg blue 500; text white 0 ] [ txt "Test" ]
   in
@@ -297,12 +346,9 @@ let test_exact_byte_match () =
   let _css_filename, css_stylesheet = css generated_page in
   let our_css = Tw.Css.to_string ~minify:true css_stylesheet in
 
-  (* Write HTML for Tailwind to process *)
   let html_file = "/tmp/tw_exact_test.html" in
-  let oc = open_out html_file in
-  Printf.fprintf oc "<!DOCTYPE html>\n<html>\n<body>\n%s\n</body>\n</html>"
-    html_output;
-  close_out oc;
+  write_file html_file
+    (Fmt.str "<!DOCTYPE html>\n<html>\n<body>\n%s\n</body>\n</html>" html_output);
 
   (* Create minimal Tailwind config with preflight enabled *)
   let tailwind_config =
@@ -315,9 +361,7 @@ module.exports = {
 |}
   in
   let config_file = "/tmp/tw_exact_config.js" in
-  let oc = open_out config_file in
-  output_string oc tailwind_config;
-  close_out oc;
+  write_file config_file tailwind_config;
 
   (* Run Tailwind v3 with minification to get complete CSS with base/preflight *)
   (* First ensure Tailwind v3 is installed *)
@@ -333,8 +377,9 @@ module.exports = {
   let exit_code = Sys.command tailwind_cmd in
 
   if exit_code <> 0 then (
-    Printf.printf
-      "Note: Exact match test skipped (tailwindcss not available, exit code: %d)\n"
+    Fmt.pr
+      "Note: Exact match test skipped (tailwindcss not available, exit code: \
+       %d)@."
       exit_code;
     ())
   else
@@ -347,49 +392,49 @@ module.exports = {
     output_string oc our_css;
     close_out oc;
 
-    Printf.printf "\n=== EXACT BYTE COMPARISON ===\n";
-    Printf.printf "Our CSS length: %d bytes\n" (String.length our_css);
-    Printf.printf "Tailwind CSS length: %d bytes\n" (String.length tailwind_css);
+    Fmt.pr "@.=== EXACT BYTE COMPARISON ===@.";
+    Fmt.pr "Our CSS length: %d bytes@." (String.length our_css);
+    Fmt.pr "Tailwind CSS length: %d bytes@." (String.length tailwind_css);
 
     if our_css = tailwind_css then (
-      Printf.printf "✅ EXACT MATCH! CSS outputs are byte-for-byte identical!\n";
+      Fmt.pr "✅ EXACT MATCH! CSS outputs are byte-for-byte identical!@.";
       check bool "CSS matches exactly" true true)
     else (
-      Printf.printf "❌ CSS outputs differ\n\n";
+      Fmt.pr "❌ CSS outputs differ@.@.";
 
       (* Show first difference *)
       let rec find_first_diff i =
         if i >= String.length our_css || i >= String.length tailwind_css then
-          Printf.printf "One string is prefix of the other\n"
+          Fmt.pr "One string is prefix of the other@."
         else if our_css.[i] <> tailwind_css.[i] then (
-          Printf.printf "First difference at position %d:\n" i;
-          Printf.printf "  Our char: '%c' (code %d)\n" our_css.[i]
+          Fmt.pr "First difference at position %d:@." i;
+          Fmt.pr "  Our char: '%c' (code %d)@." our_css.[i]
             (Char.code our_css.[i]);
-          Printf.printf "  Tailwind char: '%c' (code %d)\n" tailwind_css.[i]
+          Fmt.pr "  Tailwind char: '%c' (code %d)@." tailwind_css.[i]
             (Char.code tailwind_css.[i]);
 
           (* Show context *)
           let start = max 0 (i - 20) in
           let end_ours = min (String.length our_css) (i + 20) in
           let end_tw = min (String.length tailwind_css) (i + 20) in
-          Printf.printf "\nContext (position %d-%d):\n" start i;
-          Printf.printf "  Ours:     ...%s[*]%s...\n"
+          Fmt.pr "@.Context (position %d-%d):@." start i;
+          Fmt.pr "  Ours:     ...%s[*]%s...@."
             (String.sub our_css start (i - start))
             (String.sub our_css i (end_ours - i));
-          Printf.printf "  Tailwind: ...%s[*]%s...\n"
+          Fmt.pr "  Tailwind: ...%s[*]%s...@."
             (String.sub tailwind_css start (i - start))
             (String.sub tailwind_css i (end_tw - i)))
         else find_first_diff (i + 1)
       in
       find_first_diff 0;
 
-      Printf.printf
-        "\nFull outputs saved to /tmp/our_exact.css and /tmp/tw_exact.css\n";
+      Fmt.pr
+        "@.Full outputs saved to /tmp/our_exact.css and /tmp/tw_exact.css@.";
 
       (* Show full outputs if small enough *)
       if String.length our_css < 500 && String.length tailwind_css < 500 then (
-        Printf.printf "\nOur CSS:\n%s\n" our_css;
-        Printf.printf "\nTailwind CSS:\n%s\n" tailwind_css))
+        Fmt.pr "@.Our CSS:@.%s@." our_css;
+        Fmt.pr "@.Tailwind CSS:@.%s@." tailwind_css))
 
 let suite =
   ( "html",
@@ -397,6 +442,8 @@ let suite =
       test_case "txt" `Quick test_txt;
       test_case "element creation" `Quick test_element_creation;
       test_case "attributes" `Quick test_attributes;
+      test_case "html escaping" `Quick test_html_escaping;
+      test_case "boolean + aria/data attrs" `Quick test_boolean_and_data_attrs;
       test_case "nesting" `Quick test_nesting;
       test_case "to_tw" `Quick test_to_tw;
       test_case "pretty printing" `Quick test_pp;

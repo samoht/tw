@@ -12,3 +12,9 @@ let aspect_ratio w h =
     Pp.str [ "aspect-["; string_of_int w; "/"; string_of_int h; "]" ]
   in
   style class_name [ Css.aspect_ratio (Ratio (w, h)) ]
+
+let of_string = function
+  | [ "aspect"; "auto" ] -> Ok aspect_auto
+  | [ "aspect"; "square" ] -> Ok aspect_square
+  | [ "aspect"; "video" ] -> Ok aspect_video
+  | _ -> Error (`Msg "Unknown aspect ratio class")

@@ -12,9 +12,9 @@ let strip_header css =
 type token =
   | Selector of string
   | Property of string * string
-  | OpenBrace
-  | CloseBrace
-  | AtRule of string
+  | Open_brace
+  | Close_brace
+  | At_rule of string
   | Semicolon
   | Comma
 
@@ -81,7 +81,7 @@ let tokenize css =
   let read_at_rule pos =
     let end_pos = read_until_char [ '{'; ';' ] (pos + 1) in
     let at_rule = String.sub css pos (end_pos - pos) |> String.trim in
-    (AtRule at_rule, end_pos)
+    (At_rule at_rule, end_pos)
   in
 
   let find_colon_pos start_pos =
@@ -118,8 +118,8 @@ let tokenize css =
     if pos >= len then List.rev acc
     else
       match css.[pos] with
-      | '{' -> tokenize_impl (OpenBrace :: acc) (pos + 1)
-      | '}' -> tokenize_impl (CloseBrace :: acc) (pos + 1)
+      | '{' -> tokenize_impl (Open_brace :: acc) (pos + 1)
+      | '}' -> tokenize_impl (Close_brace :: acc) (pos + 1)
       | ';' -> tokenize_impl (Semicolon :: acc) (pos + 1)
       | ',' -> tokenize_impl (Comma :: acc) (pos + 1)
       | '/' -> (
@@ -144,7 +144,7 @@ type css_rule = { selector : string; properties : (string * string) list }
 
 type css_block =
   | Rule of css_rule
-  | AtBlock of string * css_block list
+  | At_block of string * css_block list
   | Layer of string
 
 let parse_blocks tokens =
@@ -152,23 +152,23 @@ let parse_blocks tokens =
     | Property (p, v) :: Semicolon :: rest ->
         parse_rule_body ((p, v) :: acc) rest
     | Property (p, v) :: rest -> parse_rule_body ((p, v) :: acc) rest
-    | CloseBrace :: rest -> (List.rev acc, rest)
+    | Close_brace :: rest -> (List.rev acc, rest)
     | _ :: rest -> parse_rule_body acc rest
     | [] -> (List.rev acc, [])
   in
 
   let rec parse_blocks acc = function
     | [] -> List.rev acc
-    | Selector sel :: OpenBrace :: rest ->
+    | Selector sel :: Open_brace :: rest ->
         let props, rest' = parse_rule_body [] rest in
         parse_blocks (Rule { selector = sel; properties = props } :: acc) rest'
-    | AtRule at :: OpenBrace :: rest ->
+    | At_rule at :: Open_brace :: rest ->
         let blocks, rest' = parse_nested_blocks [] rest in
-        parse_blocks (AtBlock (at, blocks) :: acc) rest'
-    | AtRule at :: Semicolon :: rest -> parse_blocks (Layer at :: acc) rest
+        parse_blocks (At_block (at, blocks) :: acc) rest'
+    | At_rule at :: Semicolon :: rest -> parse_blocks (Layer at :: acc) rest
     | _ :: rest -> parse_blocks acc rest
   and parse_nested_blocks acc = function
-    | CloseBrace :: rest -> (List.rev acc, rest)
+    | Close_brace :: rest -> (List.rev acc, rest)
     | tokens ->
         let blocks = parse_blocks [] tokens in
         (blocks @ acc, [])
@@ -183,8 +183,8 @@ let rec normalize_blocks = function
         List.sort (fun (k1, _) (k2, _) -> String.compare k1 k2) properties
       in
       Rule { selector; properties = sorted_props } :: normalize_blocks rest
-  | AtBlock (at, nested) :: rest ->
-      AtBlock (at, normalize_blocks nested) :: normalize_blocks rest
+  | At_block (at, nested) :: rest ->
+      At_block (at, normalize_blocks nested) :: normalize_blocks rest
   | Layer l :: rest -> Layer l :: normalize_blocks rest
 
 let compare_css css1 css2 =
@@ -253,9 +253,10 @@ let format_diff our_css tailwind_css =
             (Fmt.str "Selector mismatch: %s vs %s" r1.selector r2.selector)
       | Rule r1 :: _, Rule r2 :: _ when r1.properties <> r2.properties ->
           add_line (Fmt.str "Properties differ in %s" r1.selector)
-      | AtBlock (at1, _) :: _, AtBlock (at2, _) :: _ when at1 <> at2 ->
+      | At_block (at1, _) :: _, At_block (at2, _) :: _ when at1 <> at2 ->
           add_line (Fmt.str "@-rule mismatch: %s vs %s" at1 at2)
-      | AtBlock (at1, sub1) :: t1, AtBlock (_, sub2) :: t2 when sub1 <> sub2 ->
+      | At_block (at1, sub1) :: t1, At_block (_, sub2) :: t2 when sub1 <> sub2
+        ->
           add_line
             (Fmt.str "%a in %a"
                Fmt.(styled `Yellow string)

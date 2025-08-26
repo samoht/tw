@@ -66,8 +66,8 @@ let var_to_css_properties = function
   | Color { name; shade; value } ->
       let var_name =
         match shade with
-        | Some s -> Printf.sprintf "--color-%s-%d" name s
-        | None -> Printf.sprintf "--color-%s" name
+        | Some s -> Pp.str [ "--color-"; name; "-"; string_of_int s ]
+        | None -> Pp.str [ "--color-"; name ]
       in
       [ (var_name, value) ]
   | Spacing { multiplier = _; value = _ } -> [ ("--spacing", "0.25rem") ]

@@ -123,31 +123,34 @@ type t =
   | Default_mono_font_family
 
 val to_string : t -> string
-(** Convert a CSS variable to its string representation *)
+(** [to_string v] converts variable [v] to its string representation. *)
 
 val of_string : string -> t option
-(** Parse a CSS variable from its string representation *)
+(** [of_string s] parses a CSS variable from string [s]. *)
 
 val compare : t -> t -> int
-(** Compare two variables for canonical ordering *)
+(** [compare a b] compares variables for canonical ordering. *)
 
 val to_css_properties : t -> Css.declaration list
-(** Generate CSS property declarations for a variable *)
+(** [to_css_properties v] generates CSS property declarations for variable [v].
+*)
 
 type tally
-(** The tally of variable usage *)
+(** The tally of variable usage. *)
 
 val empty : tally
-(** Empty tally *)
+(** The empty tally. *)
 
-val analyze_properties : Css.declaration list -> tally
-(** Analyze CSS properties to track variable assignments and references *)
+val pp : t -> string
+(** [pp v] pretty-prints variable [v] as a string. *)
 
 val generate_properties_layer : tally -> (string * string) list
-(** Generate properties layer initializers for groups that need them *)
+(** [generate_properties_layer t] generates properties layer initializers for
+    groups that need them. *)
 
 val needs_at_property : tally -> t list
-(** Get list of variables that need [@property] rules *)
+(** [needs_at_property t] lists variables that need [@property] rules. *)
 
 val at_property_config : t -> (string * string * bool * string) option
-(** Get @property configuration (name, syntax, inherits, initial_value) for a variable *)
+(** [at_property_config v] returns the @property configuration
+    (name, syntax, inherits, initial_value) for variable [v]. *)
