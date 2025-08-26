@@ -413,10 +413,12 @@ let canonical_color_order color_name =
 
 (* Get canonical ordering for a variable (lower = earlier) *)
 let canonical_order = function
-  | Spacing -> 0
-  | Font_sans -> 1
-  | Font_serif -> 2
-  | Font_mono -> 3
+  | Font_sans -> 0
+  | Font_serif -> 1
+  | Font_mono -> 2
+  | Spacing -> 3
+  | Default_font_family -> 4
+  | Default_mono_font_family -> 5
   | Text_xs | Text_xs_line_height -> 10
   | Text_sm | Text_sm_line_height -> 11
   | Text_base | Text_base_line_height -> 12
