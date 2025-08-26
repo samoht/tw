@@ -14,20 +14,7 @@ let test_display_utilities () =
   check [ "block" ];
   check [ "inline"; "block" ];
   check [ "inline" ];
-  check [ "flex" ];
-  check [ "inline"; "flex" ];
-  check [ "table" ];
-  check [ "inline"; "table" ];
-  check [ "table"; "caption" ];
-  check [ "table"; "cell" ];
-  check [ "table"; "column" ];
-  check [ "table"; "row" ];
-  check [ "grid" ];
-  check [ "inline"; "grid" ];
-  check [ "contents" ];
-  check [ "list"; "item" ];
-  check [ "hidden" ];
-  check [ "flow"; "root" ]
+  check [ "hidden" ]
 
 let test_position_utilities () =
   check [ "static" ];

@@ -42,6 +42,17 @@ val fixed : t
 val sticky : t
 (** [sticky] sets position to sticky. *)
 
+(** {1 Visibility Utilities} *)
+
+val visible : t
+(** [visible] sets visibility to visible. *)
+
+val invisible : t
+(** [invisible] sets visibility to hidden. *)
+
+val collapse : t
+(** [collapse] sets visibility to collapse. *)
+
 (** {1 Isolation} *)
 
 val isolate : t
@@ -52,6 +63,9 @@ val overflow_auto : t
 
 val overflow_hidden : t
 (** [overflow_hidden] sets overflow to hidden. *)
+
+val overflow_clip : t
+(** [overflow_clip] sets overflow to clip. *)
 
 val overflow_visible : t
 (** [overflow_visible] sets overflow to visible. *)
@@ -101,7 +115,8 @@ val z_40 : t
 val z_50 : t
 (** [z_50] sets z-index to 50. *)
 
-(* z_auto not supported by Css module *)
+val z_auto : t
+(** [z_auto] sets z-index to auto. *)
 
 val object_contain : t
 (** [object_contain] sets object-fit to contain. *)

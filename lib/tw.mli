@@ -280,99 +280,7 @@ val bg_pink : t
 val bg_rose : t
 (** [bg_rose] is default rose background. See {!tailwind_colors}. *)
 
-val text : color -> int -> t
-(** [text color shade] sets text color.
-
-    Examples:
-    - [text black 100]: Pure black text (black doesn't use shades, so value is
-      ignored)
-    - [text gray 600]: Dark gray for body text
-    - [text gray 500]: Medium gray for secondary text
-    - [text blue 700]: Dark blue for links
-
-    Higher shade numbers (700-900) ensure readability on light backgrounds.
-
-    {2 Color}
-    @see <https://tailwindcss.com/docs/text-color> Text Color. *)
-
-val text_transparent : t
-(** [text_transparent] makes text fully transparent. *)
-
-val text_current : t
-(** [text_current] sets text color to "currentColor" (the inherited text color).
-    This is rarely needed since text naturally inherits color from parents. *)
-
-val text_black : t
-(** [text_black] is default black text. See {!tailwind_colors}. *)
-
-val text_white : t
-(** [text_white] is default white text. See {!tailwind_colors}. *)
-
-val text_gray : t
-(** [text_gray] is default gray text. See {!tailwind_colors}. *)
-
-val text_slate : t
-(** [text_slate] is default slate text. See {!tailwind_colors}. *)
-
-val text_zinc : t
-(** [text_zinc] is default zinc text. See {!tailwind_colors}. *)
-
-val text_neutral : t
-(** [text_neutral] is default neutral text. See {!tailwind_colors}. *)
-
-val text_stone : t
-(** [text_stone] is default stone text. See {!tailwind_colors}. *)
-
-val text_blue : t
-(** [text_blue] is default blue text. See {!tailwind_colors}. *)
-
-val text_red : t
-(** [text_red] is default red text. See {!tailwind_colors}. *)
-
-val text_orange : t
-(** [text_orange] is default orange text. See {!tailwind_colors}. *)
-
-val text_amber : t
-(** [text_amber] is default amber text. See {!tailwind_colors}. *)
-
-val text_yellow : t
-(** [text_yellow] is default yellow text. See {!tailwind_colors}. *)
-
-val text_lime : t
-(** [text_lime] is default lime text. See {!tailwind_colors}. *)
-
-val text_green : t
-(** [text_green] is default green text. See {!tailwind_colors}. *)
-
-val text_emerald : t
-(** [text_emerald] is default emerald text. See {!tailwind_colors}. *)
-
-val text_teal : t
-(** [text_teal] is default teal text. See {!tailwind_colors}. *)
-
-val text_cyan : t
-(** [text_cyan] is default cyan text. See {!tailwind_colors}. *)
-
-val text_sky : t
-(** [text_sky] is default sky text. See {!tailwind_colors}. *)
-
-val text_indigo : t
-(** [text_indigo] is default indigo text. See {!tailwind_colors}. *)
-
-val text_violet : t
-(** [text_violet] is default violet text. See {!tailwind_colors}. *)
-
-val text_purple : t
-(** [text_purple] is default purple text. See {!tailwind_colors}. *)
-
-val text_fuchsia : t
-(** [text_fuchsia] is default fuchsia text. See {!tailwind_colors}. *)
-
-val text_pink : t
-(** [text_pink] is default pink text. See {!tailwind_colors}. *)
-
-val text_rose : t
-(** [text_rose] is default rose text. See {!tailwind_colors}. *)
+(* Text color declarations moved under Typography → Color. *)
 
 val border_color : color -> int -> t
 (** [border_color color shade] creates a border color with a specific shade. *)
@@ -1438,8 +1346,6 @@ val font_black : t
 (** [font_black] uses the heaviest font weight (900) for maximum impact and hero
     text. *)
 
-(* moved Font Stretch and Numeric Variants earlier under Typography. *)
-
 (** {2 Text Decoration Line}
     @see <https://tailwindcss.com/docs/text-decoration-line>
       Text Decoration Line *)
@@ -1532,21 +1438,6 @@ val underline_offset_4 : t
 
 val underline_offset_8 : t
 (** [underline_offset_8] sets text underline offset to 8px. *)
-
-(** {2 Text Align}
-    @see <https://tailwindcss.com/docs/text-align> Text Align *)
-
-val text_left : t
-(** [text_left] left-aligns text. *)
-
-val text_center : t
-(** [text_center] center-aligns text. *)
-
-val text_right : t
-(** [text_right] right-aligns text. *)
-
-val text_justify : t
-(** [text_justify] justifies text. *)
 
 (** {2 Line Height}
     @see <https://tailwindcss.com/docs/line-height> Line Height *)
@@ -1645,24 +1536,6 @@ val line_clamp : int -> t
         [ txt "This very long text will be truncated after three lines..." ]
     ]} *)
 
-(** {2 White Space}
-    @see <https://tailwindcss.com/docs/whitespace> White Space *)
-
-val whitespace_normal : t
-(** [whitespace_normal] uses normal whitespace handling. *)
-
-val whitespace_nowrap : t
-(** [whitespace_nowrap] prevents text wrapping. *)
-
-val whitespace_pre : t
-(** [whitespace_pre] preserves whitespace. *)
-
-val whitespace_pre_line : t
-(** [whitespace_pre_line] preserves line breaks. *)
-
-val whitespace_pre_wrap : t
-(** [whitespace_pre_wrap] preserves whitespace and wraps. *)
-
 (** {2 List Style Image}
     @see <https://tailwindcss.com/docs/list-style-image> List Style Image *)
 
@@ -1694,7 +1567,82 @@ val list_disc : t
 val list_decimal : t
 (** [list_decimal] uses decimal numbering. *)
 
-(* moved Font Smoothing above with [antialiased]. *)
+(** {2 Text Align}
+    @see <https://tailwindcss.com/docs/text-align> Text Align *)
+
+val text_left : t
+(** [text_left] left-aligns text. *)
+
+val text_center : t
+(** [text_center] center-aligns text. *)
+
+val text_right : t
+(** [text_right] right-aligns text. *)
+
+val text_justify : t
+(** [text_justify] justifies text. *)
+
+(** {2 Color}
+    @see <https://tailwindcss.com/docs/text-color> Text Color *)
+
+val text : color -> int -> t
+(** [text color shade] sets text color using the Tailwind color scale. *)
+
+val text_inherit : t
+(** [text_inherit] inherits color from the parent element. *)
+
+val text_current : t
+(** [text_current] sets color to currentColor. *)
+
+val text_transparent : t
+(** [text_transparent] makes text fully transparent. *)
+
+val text_black : t
+(** [text_black] is default black text. *)
+
+val text_white : t
+(** [text_white] is default white text. *)
+
+val text_gray : t
+val text_slate : t
+val text_zinc : t
+val text_neutral : t
+val text_stone : t
+val text_blue : t
+val text_red : t
+val text_orange : t
+val text_amber : t
+val text_yellow : t
+val text_lime : t
+val text_green : t
+val text_emerald : t
+val text_teal : t
+val text_cyan : t
+val text_sky : t
+val text_indigo : t
+val text_violet : t
+val text_purple : t
+val text_fuchsia : t
+val text_pink : t
+val text_rose : t
+
+(** {2 White Space}
+    @see <https://tailwindcss.com/docs/whitespace> White Space *)
+
+val whitespace_normal : t
+(** [whitespace_normal] uses normal whitespace handling. *)
+
+val whitespace_nowrap : t
+(** [whitespace_nowrap] prevents text wrapping. *)
+
+val whitespace_pre : t
+(** [whitespace_pre] preserves whitespace. *)
+
+val whitespace_pre_line : t
+(** [whitespace_pre_line] preserves line breaks. *)
+
+val whitespace_pre_wrap : t
+(** [whitespace_pre_wrap] preserves whitespace and wraps. *)
 
 (** {1 Borders}
     @see <https://tailwindcss.com/docs/border-width> Borders *)
@@ -2472,19 +2420,7 @@ val prose_stylesheet : unit -> Css.t
       (* Include this CSS in your page to enable full prose functionality *)
     ]} *)
 
-(** {2 Line Clamp}
-    @see <https://tailwindcss.com/docs/line-clamp> Line Clamp *)
-
-val line_clamp : int -> t
-(** [line_clamp n] truncates text to [n] lines with ellipsis. Use 0 to remove
-    clamping. Useful for consistent card heights.
-
-    Example:
-    {[
-      p
-        ~tw:[ line_clamp 3 ]
-        [ txt "This very long text will be truncated after three lines..." ]
-    ]} *)
+(* Line Clamp subsection moved into Typography above. *)
 
 (** {2 Text Overflow}
     @see <https://tailwindcss.com/docs/text-overflow> Text Overflow *)
