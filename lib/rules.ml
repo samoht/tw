@@ -669,7 +669,6 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
 
   (* Build the complete stylesheet with layers - just like Tailwind v4 *)
   if reset then
-
     (* Properties layer - with GADT declarations, analyze_properties returns
        empty *)
     let properties_layer_opt =
@@ -804,8 +803,9 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
              else String.compare a b)
     in
 
-    (* The new typed variable system generates CSS variables automatically based on 
-       what's referenced in the CSS declarations. No need to track Core.var anymore. *)
+    (* The new typed variable system generates CSS variables automatically based
+       on what's referenced in the CSS declarations. No need to track Core.var
+       anymore. *)
 
     (* Generate values for theme variables *)
     let theme_generated_vars =

@@ -21,7 +21,6 @@
 open Core
 open Css
 
-
 (** Helper to create spacing-based utilities with consistent pattern *)
 let make_spacing_utility prefix css_prop n =
   let class_name = prefix ^ string_of_int n in

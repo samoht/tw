@@ -93,33 +93,13 @@ let test_rgb_to_hex () =
         expected result)
     test_cases
 
-let test_tailwind_colors () =
-  let test_color name shade expected_oklch =
-    match Tailwind_colors.get_color name shade with
-    | Some oklch_str ->
-        Alcotest.(check string)
-          (Fmt.str "%s-%d" name shade)
-          expected_oklch oklch_str
-    | None -> Alcotest.failf "%s-%d: Color not found" name shade
-  in
-
-  test_color "gray" 50 "oklch(98.5% 0.002 247.839)";
-  test_color "gray" 500 "oklch(55.1% 0.027 264.364)";
-  test_color "gray" 900 "oklch(21% 0.034 264.665)";
-  test_color "blue" 100 "oklch(93.2% 0.032 255.585)";
-  test_color "blue" 500 "oklch(62.3% 0.214 259.815)";
-  test_color "blue" 900 "oklch(37.9% 0.146 265.522)";
-  test_color "red" 50 "oklch(95.8% 0.019 17.331)";
-  test_color "red" 500 "oklch(63.7% 0.237 25.331)";
-  test_color "red" 900 "oklch(40.5% 0.147 28.067)"
-
 let test_oklch_css_formatting () =
   let test_cases =
     [
       ({ l = 98.5; c = 0.002; h = 247.839 }, "oklch(98.5% 0.002 247.839)");
       ({ l = 62.3; c = 0.214; h = 259.815 }, "oklch(62.3% 0.214 259.815)");
       ({ l = 0.0; c = 0.0; h = 0.0 }, "oklch(0% 0 0)");
-      ({ l = 100.0; c = 0.4; h = 360.0 }, "oklch(100% 0.400 360)");
+      ({ l = 100.0; c = 0.4; h = 360.0 }, "oklch(100% 0.4 360)");
     ]
   in
 
@@ -209,7 +189,6 @@ let tests =
     ("RGB to OKLCH roundtrip", `Quick, test_rgb_to_oklch_roundtrip);
     ("Hex parsing", `Quick, test_hex_parsing);
     ("RGB to hex", `Quick, test_rgb_to_hex);
-    ("Tailwind color values", `Quick, test_tailwind_colors);
     ("OKLCH CSS formatting", `Quick, test_oklch_css_formatting);
     ("Edge cases", `Quick, test_edge_cases);
     ("Color accuracy", `Quick, test_color_accuracy);

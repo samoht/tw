@@ -46,7 +46,6 @@ type modifier =
   | Pseudo_before
   | Pseudo_after
 
-
 type t =
   | Style of {
       name : string;
@@ -64,8 +63,7 @@ type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
 (* Helper to create a style *)
-let style ?(rules = None) name props =
-  Style { name; props; rules }
+let style ?(rules = None) name props = Style { name; props; rules }
 
 (* Extract base class name(s) from Core.t. Modifiers are ignored. *)
 let rec class_name = function

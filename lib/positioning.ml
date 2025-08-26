@@ -9,10 +9,8 @@ module Parse = Parse
 (* Helper to create spacing values - handles negative values *)
 let spacing_value n =
   let spacing_rem = Rem (float_of_int (abs n) *. 0.25) in
-  if n < 0 then 
-    Calc (Calc.mul (Calc.float (-1.0)) (Calc.length spacing_rem))
-  else 
-    spacing_rem
+  if n < 0 then Calc (Calc.mul (Calc.float (-1.0)) (Calc.length spacing_rem))
+  else spacing_rem
 
 (** {1 Inset Utilities} *)
 

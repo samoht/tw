@@ -46,7 +46,6 @@ type modifier =
   | Pseudo_before
   | Pseudo_after
 
-
 type t =
   | Style of {
       name : string;
@@ -63,11 +62,7 @@ type scale = [ spacing | size | `Screen | `Min | `Max | `Fit ]
 type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
-val style :
-  ?rules:Css.rule list option ->
-  string ->
-  Css.declaration list ->
-  t
+val style : ?rules:Css.rule list option -> string -> Css.declaration list -> t
 (** [style ?rules name props] defines a utility [name] with CSS [props].
     - [rules]: Optional custom CSS rules (for utilities like prose that generate
       multiple rules with descendant selectors)
