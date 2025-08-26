@@ -46,8 +46,28 @@ let snap_start = style "snap-start" [ scroll_snap_align Start ]
 let snap_end = style "snap-end" [ scroll_snap_align End ]
 let snap_center = style "snap-center" [ scroll_snap_align Center ]
 let snap_none = style "snap-none" [ scroll_snap_type None ]
-let snap_mandatory = style "snap-mandatory" [ scroll_snap_type Y_mandatory ]
-let snap_proximity = style "snap-proximity" [ scroll_snap_type Y_proximity ]
+(* Axis and strictness helpers using CSS var for strictness *)
+let snap_x =
+  style "snap-x" [ scroll_snap_type (X_var "var(--tw-scroll-snap-strictness)") ]
+
+let snap_y =
+  style "snap-y" [ scroll_snap_type (Y_var "var(--tw-scroll-snap-strictness)") ]
+
+let snap_both =
+  style "snap-both"
+    [ scroll_snap_type (Both_var "var(--tw-scroll-snap-strictness)") ]
+
+let snap_mandatory =
+  style "snap-mandatory"
+    [ custom_property "--tw-scroll-snap-strictness" "mandatory" ]
+
+let snap_proximity =
+  style "snap-proximity"
+    [ custom_property "--tw-scroll-snap-strictness" "proximity" ]
+
+let snap_align_none = style "snap-align-none" [ scroll_snap_align None ]
+let snap_normal = style "snap-normal" [ scroll_snap_stop Normal ]
+let snap_always = style "snap-always" [ scroll_snap_stop Always ]
 
 (** {1 Resize Utilities} *)
 
@@ -58,7 +78,7 @@ let resize_y = style "resize-y" [ Css.resize Vertical ]
 
 (** {1 Parsing Functions} *)
 
-let of_string = function
+let rec of_string = function
   | [ "cursor"; "auto" ] -> Ok cursor_auto
   | [ "cursor"; "default" ] -> Ok cursor_default
   | [ "cursor"; "pointer" ] -> Ok cursor_pointer
@@ -80,10 +100,43 @@ let of_string = function
   | [ "snap"; "end" ] -> Ok snap_end
   | [ "snap"; "center" ] -> Ok snap_center
   | [ "snap"; "none" ] -> Ok snap_none
+  | [ "snap"; "x" ] -> Ok snap_x
+  | [ "snap"; "y" ] -> Ok snap_y
+  | [ "snap"; "both" ] -> Ok snap_both
   | [ "snap"; "mandatory" ] -> Ok snap_mandatory
   | [ "snap"; "proximity" ] -> Ok snap_proximity
+  | [ "snap"; "align"; "none" ] -> Ok snap_align_none
+  | [ "snap"; "normal" ] -> Ok snap_normal
+  | [ "snap"; "always" ] -> Ok snap_always
   | [ "resize"; "none" ] -> Ok resize_none
   | [ "resize" ] -> Ok resize
   | [ "resize"; "x" ] -> Ok resize_x
   | [ "resize"; "y" ] -> Ok resize_y
+  | [ "pointer"; "events"; "none" ] -> Ok pointer_events_none
+  | [ "pointer"; "events"; "auto" ] -> Ok pointer_events_auto
+  | [ "appearance"; "none" ] -> Ok appearance_none
+  | [ "will"; "change"; "auto" ] -> Ok will_change_auto
+  | [ "will"; "change"; "scroll" ] -> Ok will_change_scroll
+  | [ "will"; "change"; "contents" ] -> Ok will_change_contents
+  | [ "will"; "change"; "transform" ] -> Ok will_change_transform
   | _ -> Error (`Msg "Not an interactivity utility")
+
+(* Additional utilities moved from Tw *)
+and pointer_events_none =
+  style "pointer-events-none"
+    [ pointer_events (None : pointer_events_value) ]
+
+and pointer_events_auto =
+  style "pointer-events-auto" [ pointer_events (Auto : pointer_events_value) ]
+
+and appearance_none = style "appearance-none" [ appearance None ]
+
+and will_change_auto = style "will-change-auto" [ will_change "auto" ]
+and will_change_scroll =
+  style "will-change-scroll" [ will_change "scroll-position" ]
+
+and will_change_contents =
+  style "will-change-contents" [ will_change "contents" ]
+
+and will_change_transform =
+  style "will-change-transform" [ will_change "transform" ]

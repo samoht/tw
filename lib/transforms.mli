@@ -29,10 +29,10 @@ val skew_y : int -> t
 (** [skew_y deg] skews element vertically by deg degrees. *)
 
 val neg_translate_x_1_2 : t
-(** Translates element -50% along X axis (useful for centering). *)
+(** [neg_translate_x_1_2] translates element -50% along the X axis (useful for centering). *)
 
 val neg_translate_y_1_2 : t
-(** Translates element -50% along Y axis (useful for centering). *)
+(** [neg_translate_y_1_2] translates element -50% along the Y axis (useful for centering). *)
 
 (** {1 3D Transform Utilities} *)
 
@@ -55,42 +55,42 @@ val perspective : int -> t
 (** [perspective n] sets perspective distance in pixels. *)
 
 val perspective_origin_center : t
-(** Sets perspective origin to center. *)
+(** [perspective_origin_center] sets perspective origin to center. *)
 
 val perspective_origin_top : t
-(** Sets perspective origin to top. *)
+(** [perspective_origin_top] sets perspective origin to top. *)
 
 val perspective_origin_bottom : t
-(** Sets perspective origin to bottom. *)
+(** [perspective_origin_bottom] sets perspective origin to bottom. *)
 
 val perspective_origin_left : t
-(** Sets perspective origin to left. *)
+(** [perspective_origin_left] sets perspective origin to left. *)
 
 val perspective_origin_right : t
-(** Sets perspective origin to right. *)
+(** [perspective_origin_right] sets perspective origin to right. *)
 
 val transform_style_3d : t
-(** Preserves 3D positioning of child elements. *)
+(** [transform_style_3d] preserves 3D positioning of child elements. *)
 
 val transform_style_flat : t
-(** Flattens 3D positioning of child elements. *)
+(** [transform_style_flat] flattens 3D positioning of child elements. *)
 
 val backface_visible : t
-(** Makes backface visible when rotated. *)
+(** [backface_visible] makes the back face visible when rotated. *)
 
 val backface_hidden : t
-(** Hides backface when rotated. *)
+(** [backface_hidden] hides the back face when rotated. *)
 
 (** {1 Transform Control Utilities} *)
 
 val transform : t
-(** Base transform utility that sets CSS custom properties for transforms. *)
+(** [transform] is the base transform utility that sets CSS custom properties for transforms. *)
 
 val transform_none : t
-(** Removes all transforms. *)
+(** [transform_none] removes all transforms. *)
 
 val transform_gpu : t
-(** Forces GPU acceleration for transforms. *)
+(** [transform_gpu] forces GPU acceleration for transforms. *)
 
 (** {1 Parsing Functions} *)
 

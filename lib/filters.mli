@@ -6,31 +6,31 @@ open Core
 (** {1 Filter Utilities} *)
 
 val blur_none : t
-(** No blur. *)
+(** [blur_none] applies no blur. *)
 
 val blur_xs : t
-(** Extra-small blur. *)
+(** [blur_xs] applies an extra-small blur. *)
 
 val blur_sm : t
-(** Small blur. *)
+(** [blur_sm] applies a small blur. *)
 
 val blur : t
-(** Default blur. *)
+(** [blur] applies the default blur. *)
 
 val blur_md : t
-(** Medium blur. *)
+(** [blur_md] applies a medium blur. *)
 
 val blur_lg : t
-(** Large blur. *)
+(** [blur_lg] applies a large blur. *)
 
 val blur_xl : t
-(** Extra-large blur. *)
+(** [blur_xl] applies an extra-large blur. *)
 
 val blur_2xl : t
-(** 2× extra-large blur. *)
+(** [blur_2xl] applies a 2× extra-large blur. *)
 
 val blur_3xl : t
-(** 3× extra-large blur. *)
+(** [blur_3xl] applies a 3× extra-large blur. *)
 
 val brightness : int -> t
 (** [brightness n] sets brightness to n% (0-200, 100 is normal). *)
@@ -56,31 +56,31 @@ val hue_rotate : int -> t
 (** {1 Backdrop Filter Utilities} *)
 
 val backdrop_blur_none : t
-(** No backdrop blur. *)
+(** [backdrop_blur_none] applies no backdrop blur. *)
 
 val backdrop_blur_xs : t
-(** Extra-small backdrop blur. *)
+(** [backdrop_blur_xs] applies an extra-small backdrop blur. *)
 
 val backdrop_blur_sm : t
-(** Small backdrop blur. *)
+(** [backdrop_blur_sm] applies a small backdrop blur. *)
 
 val backdrop_blur : t
-(** Default backdrop blur. *)
+(** [backdrop_blur] applies the default backdrop blur. *)
 
 val backdrop_blur_md : t
-(** Medium backdrop blur. *)
+(** [backdrop_blur_md] applies a medium backdrop blur. *)
 
 val backdrop_blur_lg : t
-(** Large backdrop blur. *)
+(** [backdrop_blur_lg] applies a large backdrop blur. *)
 
 val backdrop_blur_xl : t
-(** Extra-large backdrop blur. *)
+(** [backdrop_blur_xl] applies an extra-large backdrop blur. *)
 
 val backdrop_blur_2xl : t
-(** 2× extra-large backdrop blur. *)
+(** [backdrop_blur_2xl] applies a 2× extra-large backdrop blur. *)
 
 val backdrop_blur_3xl : t
-(** 3× extra-large backdrop blur. *)
+(** [backdrop_blur_3xl] applies a 3× extra-large backdrop blur. *)
 
 val backdrop_brightness : int -> t
 (** [backdrop_brightness n] sets backdrop brightness to n% (0-200, 100 is

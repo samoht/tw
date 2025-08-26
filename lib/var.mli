@@ -139,7 +139,7 @@ type tally
 (** The tally of variable usage. *)
 
 val empty : tally
-(** The empty tally. *)
+(** [empty] is the empty tally. *)
 
 val pp : t -> string
 (** [pp v] pretty-prints variable [v] as a string. *)

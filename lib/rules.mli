@@ -6,9 +6,9 @@ open Core
 
 type rule_output =
   | Regular of string * Css.declaration list
-  | MediaQuery of string * string * Css.declaration list
-  | ContainerQuery of string * string * Css.declaration list
-  | StartingStyle of string * Css.declaration list
+  | Media_query of string * string * Css.declaration list
+  | Container_query of string * string * Css.declaration list
+  | Starting_style of string * Css.declaration list
 
 (** {1 CSS Generation} *)
 

@@ -72,7 +72,7 @@ let features_section =
         ~tw:Tw.[ text_3xl; font_bold; text_center; text gray 900; mb 8 ]
         [ txt "Features" ];
       div
-        ~tw:Tw.[ grid; grid_cols 1; on_md [ grid_cols 2 ]; gap 6 ]
+        ~tw:Tw.[ grid; grid_cols 1; md [ grid_cols 2 ]; gap 6 ]
         [
           feature_card ~icon:"🎨" ~title:"Tailwind-Compatible"
             ~description:
@@ -157,7 +157,7 @@ let cta_section =
                   py 3;
                   rounded_lg;
                   font_semibold;
-                  on_hover [ bg blue 700 ];
+                  hover [ bg blue 700 ];
                   transition_colors;
                 ]
             [ txt "Documentation" ];
@@ -171,7 +171,7 @@ let cta_section =
                   py 3;
                   rounded_lg;
                   font_semibold;
-                  on_hover [ bg gray 300 ];
+                  hover [ bg gray 300 ];
                   transition_colors;
                 ]
             [ txt "View on GitHub" ];
@@ -188,7 +188,7 @@ let hover_effect_card =
           p 4;
           rounded_lg;
           shadow_sm;
-          on_hover [ shadow_lg; scale 105 ];
+          hover [ shadow_lg; scale 105 ];
           transition_all;
           duration 200;
           cursor_pointer;
@@ -202,13 +202,13 @@ let hover_effect_card =
 
 let dark_mode_card =
   div
-    ~tw:Tw.[ bg_white; on_dark [ bg gray 800 ]; p 4; rounded_lg; shadow_sm ]
+    ~tw:Tw.[ bg_white; dark [ bg gray 800 ]; p 4; rounded_lg; shadow_sm ]
     [
       h3
-        ~tw:Tw.[ font_semibold; mb 2; text gray 900; on_dark [ text_white ] ]
+        ~tw:Tw.[ font_semibold; mb 2; text gray 900; dark [ text_white ] ]
         [ txt "Dark Mode" ];
       p
-        ~tw:Tw.[ text gray 600; on_dark [ text gray 300 ]; text_sm ]
+        ~tw:Tw.[ text gray 600; dark [ text gray 300 ]; text_sm ]
         [ txt "This card adapts to your system's dark mode preference." ];
     ]
 
@@ -234,7 +234,7 @@ let interactive_section =
         ~tw:Tw.[ text_3xl; font_bold; text_center; text gray 900; mb 8 ]
         [ txt "Interactive Examples" ];
       div
-        ~tw:Tw.[ grid; grid_cols 1; on_lg [ grid_cols 3 ]; gap 4 ]
+        ~tw:Tw.[ grid; grid_cols 1; lg [ grid_cols 3 ]; gap 4 ]
         [ hover_effect_card; dark_mode_card; animation_card ];
     ]
 

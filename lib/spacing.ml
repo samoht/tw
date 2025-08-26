@@ -293,3 +293,31 @@ let of_string parts =
   | "ml" :: _ -> margin_of_string "ml" (ml' `Auto) ml parts
   | "gap" :: _ -> gap_of_string parts
   | _ -> Error (`Msg "Not a spacing utility")
+
+(** {1 Special Values} *)
+
+let p_px = p' `Px
+let p_full = p' `Full
+let px_px = px' `Px
+let px_full = px' `Full
+let py_px = py' `Px
+let py_full = py' `Full
+let pt_px = pt' `Px
+let pt_full = pt' `Full
+let pr_px = pr' `Px
+let pr_full = pr' `Full
+let pb_px = pb' `Px
+let pb_full = pb' `Full
+let pl_px = pl' `Px
+let pl_full = pl' `Full
+
+let m_auto = m' `Auto
+let mx_auto = mx' `Auto
+let my_auto = my' `Auto
+let mt_auto = mt' `Auto
+let mr_auto = mr' `Auto
+let mb_auto = mb' `Auto
+let ml_auto = ml' `Auto
+
+let gap_px = gap' `Px
+let gap_full = gap' `Full

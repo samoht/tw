@@ -31,22 +31,15 @@
     ]} *)
 
 (** Prose variant types *)
-type t =
-  | Base  (** Default prose styling - optimized for 16px text *)
-  | Sm  (** Small variant - optimized for 14px text *)
-  | Lg  (** Large variant - optimized for 18px text *)
-  | Xl  (** Extra large variant - optimized for 20px text *)
-  | Xl2  (** 2x large variant - optimized for 24px text *)
-  | Gray  (** Gray color theme - uses gray color palette *)
-  | Slate  (** Slate color theme - uses slate color palette *)
+type variant = [ `Base | `Sm | `Lg | `Xl | `Xl2 | `Gray | `Slate ]
 
-val pp : t -> string
+val pp : variant -> string
 (** [pp variant] pretty-prints a prose variant. *)
 
-val to_class : t -> string
+val to_class : variant -> string
 (** [to_class variant] converts prose variant to CSS class name. *)
 
-val to_css_rules : t -> Css.rule list
+val to_css_rules : variant -> Css.rule list
 (** [to_css_rules variant] generates CSS rules for a prose variant.
 
     This generates all the CSS rules needed for the prose variant, including
@@ -57,7 +50,7 @@ val to_css_rules : t -> Css.rule list
     - [.prose p] - styles all paragraphs inside prose
     - etc. *)
 
-val to_base_properties : t -> Css.declaration list
+val to_base_properties : variant -> Css.declaration list
 (** [to_base_properties variant] returns base CSS properties for inline styles.
 
     Returns the CSS properties that apply to the prose container itself, not the
@@ -69,7 +62,7 @@ val to_base_properties : t -> Css.declaration list
     - [Gray] returns empty list (only affects CSS variables) *)
 
 val css_variables : Css.declaration list
-(** Default prose CSS variables for theming
+(** [css_variables] returns default prose CSS variables for theming.
 
     These CSS custom properties control the color scheme:
     - [--tw-prose-body] - body text color
@@ -83,3 +76,32 @@ val css_variables : Css.declaration list
 
     These variables are included with the base prose styles and can be
     overridden by color theme variants like [Gray] or [Slate]. *)
+
+(** {2 Prose Utilities} *)
+
+val prose : Core.t
+(** [prose] applies base prose styling. *)
+
+val prose_sm : Core.t
+(** [prose_sm] applies small prose styling. *)
+
+val prose_lg : Core.t
+(** [prose_lg] applies large prose styling. *)
+
+val prose_xl : Core.t
+(** [prose_xl] applies extra large prose styling. *)
+
+val prose_2xl : Core.t
+(** [prose_2xl] applies 2xl prose styling. *)
+
+val prose_gray : Core.t
+(** [prose_gray] applies gray color theme. *)
+
+val prose_slate : Core.t
+(** [prose_slate] applies slate color theme. *)
+
+val of_string : string list -> (Core.t, [ `Msg of string ]) result
+(** [of_string parts] parses a prose utility from string parts. *)
+
+val stylesheet : unit -> Css.rule list
+(** [prose_stylesheet ()] generates complete CSS rules for all prose variants. *)

@@ -5,14 +5,15 @@ open Core
 (** {1 Container Type Utilities} *)
 
 val container_type_size : t
-(** Enables container queries based on both width and height. *)
+(** [container_type_size] enables container queries based on both width and
+    height. *)
 
 val container_type_inline_size : t
-(** Enables container queries based on inline size (width in horizontal
-    writing). *)
+(** [container_type_inline_size] enables container queries based on inline size
+    (width in horizontal writing). *)
 
 val container_type_normal : t
-(** Disables container queries (default). *)
+(** [container_type_normal] disables container queries (default). *)
 
 val container_name : string -> t
 (** [container_name name] sets a container name for targeted queries. *)

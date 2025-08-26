@@ -16,12 +16,12 @@ val bg_gradient_to : direction -> t
 (** [bg_gradient_to dir] sets gradient direction. Prefer this typed variant over
     the fixed functions when composing logic. *)
 
-val from_color : ?shade:int -> Color.t -> t
+val from_color : ?shade:int -> Color.color -> t
 (** [from_color ?shade color] sets the gradient "from" color (start stop).
     [shade] selects a color shade (e.g., 50..900) when using Tailwind colors. *)
 
-val via_color : ?shade:int -> Color.t -> t
+val via_color : ?shade:int -> Color.color -> t
 (** [via_color ?shade color] sets the gradient "via" color (middle stop). *)
 
-val to_color : ?shade:int -> Color.t -> t
+val to_color : ?shade:int -> Color.color -> t
 (** [to_color ?shade color] sets the gradient "to" color (end stop). *)

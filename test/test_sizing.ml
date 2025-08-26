@@ -86,6 +86,19 @@ let test_sizing_of_string_invalid () =
   test_invalid [ "unknown"; "4" ]
 (* Unknown sizing type *)
 
+let test_aspect_classes () =
+  let open Tw in
+  Alcotest.check string "square class" "aspect-square" (Tw.pp aspect_square);
+  Alcotest.check string "video class" "aspect-video" (Tw.pp aspect_video);
+  Alcotest.check string "ratio class" "aspect-[16/9]" (Tw.pp (aspect_ratio 16 9))
+
+let test_aspect_css () =
+  let open Tw in
+  let css = to_css [ aspect_ratio 16 9 ] |> Css.pp ~minify:false in
+  Alcotest.check bool "has aspect-ratio" true
+    (Astring.String.is_infix ~affix:"aspect-ratio" css);
+  Alcotest.check bool "has 16/9" true (Astring.String.is_infix ~affix:"16/9" css)
+
 let tests =
   [
     test_case "widths" `Quick test_widths;
@@ -95,6 +108,8 @@ let tests =
     test_case "square sizes" `Quick test_square_sizes;
     test_case "sizing of_string - invalid values" `Quick
       test_sizing_of_string_invalid;
+    test_case "aspect classes" `Quick test_aspect_classes;
+    test_case "aspect css" `Quick test_aspect_css;
   ]
 
 let suite = ("sizing", tests)

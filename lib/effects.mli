@@ -1,122 +1,126 @@
 (** Visual effects utilities for shadows, opacity, and filters *)
 
 open Core
+open Color
 
 (** {1 Shadow Utilities} *)
 
 val shadow_none : t
-(** No shadow. *)
+(** [shadow_none] applies no shadow. *)
 
 val shadow_sm : t
-(** Small shadow. *)
+(** [shadow_sm] applies a small shadow. *)
 
 val shadow : t
-(** Default shadow. *)
+(** [shadow] applies the default shadow. *)
 
 val shadow_md : t
-(** Medium shadow. *)
+(** [shadow_md] applies a medium shadow. *)
 
 val shadow_lg : t
-(** Large shadow. *)
+(** [shadow_lg] applies a large shadow. *)
 
 val shadow_xl : t
-(** Extra-large shadow. *)
+(** [shadow_xl] applies an extra-large shadow. *)
 
 val shadow_2xl : t
-(** 2× extra-large shadow. *)
+(** [shadow_2xl] applies a 2× extra-large shadow. *)
 
 val shadow_inner : t
-(** Inner inset shadow. *)
+(** [shadow_inner] applies an inner (inset) shadow. *)
 
 val opacity_0 : t
-(** Opacity 0%. *)
+(** [opacity_0] sets opacity to 0%. *)
 
 val opacity_5 : t
-(** Opacity 5%. *)
+(** [opacity_5] sets opacity to 5%. *)
 
 val opacity_10 : t
-(** Opacity 10%. *)
+(** [opacity_10] sets opacity to 10%. *)
 
 val opacity_20 : t
-(** Opacity 20%. *)
+(** [opacity_20] sets opacity to 20%. *)
 
 val opacity_25 : t
-(** Opacity 25%. *)
+(** [opacity_25] sets opacity to 25%. *)
 
 val opacity_30 : t
-(** Opacity 30%. *)
+(** [opacity_30] sets opacity to 30%. *)
 
 val opacity_40 : t
-(** Opacity 40%. *)
+(** [opacity_40] sets opacity to 40%. *)
 
 val opacity_50 : t
-(** Opacity 50%. *)
+(** [opacity_50] sets opacity to 50%. *)
 
 val opacity_60 : t
-(** Opacity 60%. *)
+(** [opacity_60] sets opacity to 60%. *)
 
 val opacity_70 : t
-(** Opacity 70%. *)
+(** [opacity_70] sets opacity to 70%. *)
 
 val opacity_75 : t
-(** Opacity 75%. *)
+(** [opacity_75] sets opacity to 75%. *)
 
 val opacity_80 : t
-(** Opacity 80%. *)
+(** [opacity_80] sets opacity to 80%. *)
 
 val opacity_90 : t
-(** Opacity 90%. *)
+(** [opacity_90] sets opacity to 90%. *)
 
 val opacity_95 : t
-(** Opacity 95%. *)
+(** [opacity_95] sets opacity to 95%. *)
 
 val opacity_100 : t
-(** Opacity 100%. *)
+(** [opacity_100] sets opacity to 100%. *)
 
 (* Mix blend modes not supported by Css module *)
 
 (** {1 Ring Utilities} *)
 
 val ring : t
-(** Default ring outline. *)
+(** [ring] applies the default ring outline. *)
 
 val ring_none : t
-(** No ring outline. *)
+(** [ring_none] removes the ring outline. *)
 
 val ring_xs : t
-(** Extra-small ring. *)
+(** [ring_xs] applies an extra-small ring. *)
 
 val ring_sm : t
-(** Small ring. *)
+(** [ring_sm] applies a small ring. *)
 
 val ring_md : t
-(** Medium ring. *)
+(** [ring_md] applies a medium ring. *)
 
 val ring_lg : t
-(** Large ring. *)
+(** [ring_lg] applies a large ring. *)
 
 val ring_xl : t
-(** Extra-large ring. *)
+(** [ring_xl] applies an extra-large ring. *)
+
+val ring_color : color -> int -> t
+(** [ring_color color shade] sets the ring color class, e.g., [ring blue 500]. *)
 
 (** {1 Transition Utilities} *)
 
 val transition_none : t
-(** Disable all transitions. *)
+(** [transition_none] disables all transitions. *)
 
 val transition_all : t
-(** Enable transitions on all properties. *)
+(** [transition_all] enables transitions on all properties. *)
 
 val transition_colors : t
-(** Transition only color-related properties. *)
+(** [transition_colors] transitions only color-related properties. *)
 
 val transition_opacity : t
-(** Transition only [opacity]. *)
+(** [transition_opacity] transitions only [opacity]. *)
 
 val transition_shadow : t
-(** Transition only [box-shadow]. *)
+(** [transition_shadow] transitions only [box-shadow]. *)
 
 val transition_transform : t
-(** Transition only [transform]. *)
+(** [transition_transform] transitions only [transform]. *)
 
 val duration : int -> t
 (** [duration ms] sets animation/transition duration to [ms] milliseconds. *)

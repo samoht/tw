@@ -54,7 +54,7 @@ let test_attributes () =
   let link =
     a
       ~at:[ At.href "/about"; At.title "About page" ]
-      ~tw:Tw.[ text blue 600; on_hover [ underline ] ]
+      ~tw:Tw.[ text blue 600; hover [ underline ] ]
       [ txt "About" ]
   in
   let html_str = to_string link in
@@ -246,20 +246,20 @@ let test_page_cache_busting_consistency () =
 let test_exact_tailwind_match () =
   let page_content =
     div
-      ~tw:Tw.[ p 4; bg blue 500; on_hover [ bg blue 600 ] ]
+      ~tw:Tw.[ p 4; bg blue 500; hover [ bg blue 600 ] ]
       [
         h1
           ~tw:Tw.[ text_2xl; font_bold; text white 0; mb 4 ]
           [ txt "Test Page" ];
         p
-          ~tw:Tw.[ text gray 200; on_hover [ text white 0 ] ]
+          ~tw:Tw.[ text gray 200; hover [ text white 0 ] ]
           [ txt "Testing hover states" ];
         (* Test group hover *)
         div
           ~tw:Tw.[ group; p 4 ]
           [
             p
-              ~tw:Tw.[ on_group_hover [ text red 500 ] ]
+              ~tw:Tw.[ group_hover [ text red 500 ] ]
               [ txt "Group hover test" ];
           ];
         (* Test peer *)
@@ -267,18 +267,18 @@ let test_exact_tailwind_match () =
           [
             input ~at:[ At.type' "checkbox" ] ~tw:Tw.[ peer ] ();
             p
-              ~tw:Tw.[ on_peer_checked [ text green 500 ] ]
+              ~tw:Tw.[ peer_checked [ text green 500 ] ]
               [ txt "Peer checked test" ];
           ];
         (* Test aria *)
         div
           ~at:[ At.v "aria-checked" "true" ]
-          ~tw:Tw.[ on_aria_checked [ bg purple 100 ] ]
+          ~tw:Tw.[ aria_checked [ bg purple 100 ] ]
           [ txt "Aria checked test" ];
         (* Test data attribute *)
         div
           ~at:[ At.v "data-active" "true" ]
-          ~tw:Tw.[ on_data_active [ font_bold ] ]
+          ~tw:Tw.[ data_active [ font_bold ] ]
           [ txt "Data active test" ];
       ]
   in

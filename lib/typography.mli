@@ -5,136 +5,147 @@ open Core
 (** {1 Font Size Utilities} *)
 
 val text_xs : t
-(** Sets font-size to extra-small. *)
+(** [text_xs] sets font-size to extra-small. *)
 
 val text_sm : t
-(** Sets font-size to small. *)
+(** [text_sm] sets font-size to small. *)
 
 val text_base : t
-(** Sets font-size to base. *)
+(** [text_base] sets font-size to base. *)
 
 val text_lg : t
-(** Sets font-size to large. *)
+(** [text_lg] sets font-size to large. *)
 
 val text_xl : t
-(** Sets font-size to extra-large. *)
+(** [text_xl] sets font-size to extra-large. *)
 
 val text_2xl : t
-(** Sets font-size to 2× extra-large. *)
+(** [text_2xl] sets font-size to 2× extra-large. *)
 
 val text_3xl : t
-(** Sets font-size to 3× extra-large. *)
+(** [text_3xl] sets font-size to 3× extra-large. *)
 
 val text_4xl : t
-(** Sets font-size to 4× extra-large. *)
+(** [text_4xl] sets font-size to 4× extra-large. *)
 
 val text_5xl : t
-(** Sets font-size to 5× extra-large. *)
+(** [text_5xl] sets font-size to 5× extra-large. *)
 
 val text_6xl : t
-(** Sets font-size to 6× extra-large. *)
+(** [text_6xl] sets font-size to 6× extra-large. *)
 
 val text_7xl : t
-(** Sets font-size to 7× extra-large. *)
+(** [text_7xl] sets font-size to 7× extra-large. *)
 
 val text_8xl : t
-(** Sets font-size to 8× extra-large. *)
+(** [text_8xl] sets font-size to 8× extra-large. *)
 
 val text_9xl : t
-(** Sets font-size to 9× extra-large. *)
+(** [text_9xl] sets font-size to 9× extra-large. *)
 
 val font_thin : t
-(** Sets font-weight to 100. *)
+(** [font_thin] sets font-weight to 100. *)
 
 val font_light : t
-(** Sets font-weight to 300. *)
+(** [font_light] sets font-weight to 300. *)
 
 val font_normal : t
-(** Sets font-weight to 400. *)
+(** [font_normal] sets font-weight to 400. *)
 
 val font_medium : t
-(** Sets font-weight to 500. *)
+(** [font_medium] sets font-weight to 500. *)
 
 val font_semibold : t
-(** Sets font-weight to 600. *)
+(** [font_semibold] sets font-weight to 600. *)
 
 val font_bold : t
-(** Sets font-weight to 700. *)
+(** [font_bold] sets font-weight to 700. *)
 
 val font_extrabold : t
-(** Sets font-weight to 800. *)
+(** [font_extrabold] sets font-weight to 800. *)
 
 val font_black : t
-(** Sets font-weight to 900. *)
+(** [font_black] sets font-weight to 900. *)
 
 val font_sans : t
-(** Sets font-family to the sans stack. *)
+(** [font_sans] sets font-family to the sans stack. *)
 
 val font_serif : t
-(** Sets font-family to the serif stack. *)
+(** [font_serif] sets font-family to the serif stack. *)
 
 val font_mono : t
-(** Sets font-family to the monospace stack. *)
+(** [font_mono] sets font-family to the monospace stack. *)
 
 val italic : t
-(** Applies italic style. *)
+(** [italic] applies italic style. *)
 
 val not_italic : t
-(** Disables italic style. *)
+(** [not_italic] disables italic style. *)
 
 val text_left : t
-(** Aligns text left. *)
+(** [text_left] aligns text left. *)
 
 val text_center : t
-(** Aligns text center. *)
+(** [text_center] aligns text center. *)
 
 val text_right : t
-(** Aligns text right. *)
+(** [text_right] aligns text right. *)
 
 val text_justify : t
-(** Justifies text. *)
+(** [text_justify] justifies text. *)
 
 val underline : t
-(** Underlines text. *)
+(** [underline] underlines text. *)
 
 val line_through : t
-(** Applies a line-through decoration. *)
+(** [line_through] applies a line-through decoration. *)
 
 val no_underline : t
-(** Removes text decoration. *)
+(** [no_underline] removes text decoration. *)
 
 val underline_solid : t
-(** Uses solid underline style. *)
+(** [underline_solid] uses a solid underline style. *)
 
 val underline_double : t
-(** Uses double underline style. *)
+(** [underline_double] uses a double underline style. *)
 
 val underline_dotted : t
-(** Uses dotted underline style. *)
+(** [underline_dotted] uses a dotted underline style. *)
 
 val underline_dashed : t
-(** Uses dashed underline style. *)
+(** [underline_dashed] uses a dashed underline style. *)
 
 val underline_wavy : t
-(** Uses wavy underline style. *)
+(** [underline_wavy] uses a wavy underline style. *)
+
+(** {1 Text Decoration Color & Thickness} *)
+
+val decoration_color : ?shade:int -> Color.color -> t
+(** [decoration_color ?shade color] sets text-decoration color. *)
+
+val decoration_thickness : int -> t
+(** [decoration_thickness n] sets text-decoration thickness to [n]px. *)
+
+val decoration_from_font : t
+(** [decoration_from_font] uses the font's default decoration thickness. *)
 
 val leading_none : t
-(** Sets line-height to none. *)
+(** [leading_none] sets line-height to none. *)
 
 val leading_tight : t
-(** Sets tight line-height. *)
+(** [leading_tight] sets tight line-height. *)
 
 val leading_snug : t
-(** Sets snug line-height. *)
+(** [leading_snug] sets snug line-height. *)
 
 val leading_normal : t
-(** Sets normal line-height. *)
+(** [leading_normal] sets normal line-height. *)
 
 val leading_relaxed : t
-(** Sets relaxed line-height. *)
+(** [leading_relaxed] sets relaxed line-height. *)
 
 val leading_loose : t
-(** Sets loose line-height. *)
+(** [leading_loose] sets loose line-height. *)
 
 val leading : int -> t
 (** [leading n] sets custom line-height based on the spacing scale. *)
@@ -142,74 +153,74 @@ val leading : int -> t
 (** {1 Whitespace Utilities} *)
 
 val whitespace_normal : t
-(** Preserves normal whitespace collapsing and wrapping. *)
+(** [whitespace_normal] preserves normal whitespace collapsing and wrapping. *)
 
 val whitespace_nowrap : t
-(** Prevents wrapping. *)
+(** [whitespace_nowrap] prevents wrapping. *)
 
 val whitespace_pre : t
-(** Preserves whitespace and line breaks. *)
+(** [whitespace_pre] preserves whitespace and line breaks. *)
 
 val whitespace_pre_line : t
-(** Preserves whitespace, but collapses newlines to spaces. *)
+(** [whitespace_pre_line] preserves whitespace but collapses newlines to spaces. *)
 
 val whitespace_pre_wrap : t
-(** Preserves whitespace and wraps when needed. *)
+(** [whitespace_pre_wrap] preserves whitespace and wraps when needed. *)
 
 (** {1 Letter Spacing Utilities} *)
 
 val tracking_tighter : t
-(** Decreases letter spacing. *)
+(** [tracking_tighter] decreases letter spacing. *)
 
 val tracking_tight : t
-(** Slightly decreases letter spacing. *)
+(** [tracking_tight] slightly decreases letter spacing. *)
 
 val tracking_normal : t
-(** Normal letter spacing. *)
+(** [tracking_normal] uses normal letter spacing. *)
 
 val tracking_wide : t
-(** Slightly increases letter spacing. *)
+(** [tracking_wide] slightly increases letter spacing. *)
 
 val tracking_wider : t
-(** Increases letter spacing. *)
+(** [tracking_wider] increases letter spacing. *)
 
 val tracking_widest : t
-(** Maximally increases letter spacing. *)
+(** [tracking_widest] maximally increases letter spacing. *)
 
 val uppercase : t
-(** Transforms text to uppercase. *)
+(** [uppercase] transforms text to uppercase. *)
 
 val lowercase : t
-(** Transforms text to lowercase. *)
+(** [lowercase] transforms text to lowercase. *)
 
 val capitalize : t
-(** Capitalizes words. *)
+(** [capitalize] capitalizes words. *)
 
 val normal_case : t
-(** Resets text transform. *)
+(** [normal_case] resets text transform. *)
 
 (** {1 Text Underline Offset} *)
 
 val underline_offset_auto : t
-(** Sets underline offset to auto. *)
+(** [underline_offset_auto] sets underline offset to auto. *)
 
 val underline_offset_0 : t
-(** Sets underline offset to 0. *)
+(** [underline_offset_0] sets underline offset to 0. *)
 
 val underline_offset_1 : t
-(** Sets underline offset to 1px. *)
+(** [underline_offset_1] sets underline offset to 1px. *)
 
 val underline_offset_2 : t
-(** Sets underline offset to 2px. *)
+(** [underline_offset_2] sets underline offset to 2px. *)
 
 val underline_offset_4 : t
-(** Sets underline offset to 4px. *)
+(** [underline_offset_4] sets underline offset to 4px. *)
 
 val underline_offset_8 : t
-(** Sets underline offset to 8px. *)
+(** [underline_offset_8] sets underline offset to 8px. *)
 
 val antialiased : t
-(** Enables font-smoothing (antialiasing). *)
+(** [antialiased] enables font smoothing (antialiasing). *)
 
 (** {1 Rendering} *)
 
@@ -217,3 +228,139 @@ val antialiased : t
 
 val of_string : string list -> (t, [ `Msg of string ]) result
 (** [of_string parts] parses a typography utility from string parts. *)
+
+(** {1 Vertical Align} *)
+
+val align_baseline : t
+(** [align_baseline] sets vertical-align to baseline. *)
+
+val align_top : t
+(** [align_top] sets vertical-align to top. *)
+
+val align_middle : t
+(** [align_middle] sets vertical-align to middle. *)
+
+val align_bottom : t
+(** [align_bottom] sets vertical-align to bottom. *)
+
+val align_text_top : t
+(** [align_text_top] sets vertical-align to text-top. *)
+
+val align_text_bottom : t
+(** [align_text_bottom] sets vertical-align to text-bottom. *)
+
+val align_sub : t
+(** [align_sub] sets vertical-align to sub. *)
+
+val align_super : t
+(** [align_super] sets vertical-align to super. *)
+
+(** {1 List Style} *)
+
+val list_none : t
+(** [list_none] removes bullets/numbers from lists. *)
+
+val list_disc : t
+(** [list_disc] uses disc bullets. *)
+
+val list_decimal : t
+(** [list_decimal] uses decimal numbering. *)
+
+val list_inside : t
+(** [list_inside] places list markers inside content box. *)
+
+val list_outside : t
+(** [list_outside] places list markers outside content box. *)
+
+val list_image_none : t
+(** [list_image_none] removes list-style-image. *)
+
+val list_image_url : string -> t
+(** [list_image_url url] sets list-style-image to the given URL. *)
+
+(** {1 Text Indent} *)
+
+val indent : int -> t
+(** [indent n] sets text-indent to [n] times the spacing scale (n * 0.25rem). *)
+
+(** {1 Line Clamp} *)
+
+val line_clamp : int -> t
+(** [line_clamp n] clamps text to [n] lines (0 disables). *)
+
+(** {1 Content} *)
+
+val content_none : t
+(** [content_none] sets content to none. Useful with pseudo-elements when combined with variants. *)
+
+val content : string -> t
+(** [content s] sets CSS content to the literal text [s].
+    Quotes are added automatically for you and the class name uses the
+    Tailwind v4 arbitrary value syntax: [content-["s"]].
+    For example, [content "→"] generates the class [content-["→"]] and
+    sets [content: "→"]. Use {!content_none} for [content: none]. *)
+
+(** {1 Text Overflow} *)
+
+val text_ellipsis : t
+(** [text_ellipsis] sets text-overflow to ellipsis. *)
+
+val text_clip : t
+(** [text_clip] sets text-overflow to clip. *)
+
+(** {1 Text Wrap} *)
+
+val text_wrap : t
+(** [text_wrap] enables automatic text wrapping. *)
+
+val text_nowrap : t
+(** [text_nowrap] disables text wrapping. *)
+
+val text_balance : t
+(** [text_balance] balances text across lines. *)
+
+val text_pretty : t
+(** [text_pretty] optimizes wrapping for readability. *)
+
+(** {1 Word/Overflow Wrap} *)
+
+val break_normal : t
+(** [break_normal] uses normal word-breaking and overflow-wrap. *)
+
+val break_words : t
+(** [break_words] breaks words as needed (overflow-wrap: break-word). *)
+
+val break_all : t
+(** [break_all] breaks within words to prevent overflow. *)
+
+val break_keep : t
+(** [break_keep] keeps words intact (CJK keep-all). *)
+
+val overflow_wrap_normal : t
+val overflow_wrap_anywhere : t
+val overflow_wrap_break_word : t
+
+(** {1 Hyphens} *)
+
+val hyphens_none : t
+val hyphens_manual : t
+val hyphens_auto : t
+
+(** {1 Font Stretch} *)
+
+val font_stretch_normal : t
+val font_stretch_condensed : t
+val font_stretch_expanded : t
+val font_stretch_percent : int -> t
+
+(** {1 Numeric Variants} *)
+
+val normal_nums : t
+val ordinal : t
+val slashed_zero : t
+val lining_nums : t
+val oldstyle_nums : t
+val proportional_nums : t
+val tabular_nums : t
+val diagonal_fractions : t
+val stacked_fractions : t

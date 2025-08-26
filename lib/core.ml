@@ -43,6 +43,8 @@ type modifier =
   | Motion_reduce
   | Contrast_more
   | Contrast_less
+  | Pseudo_before
+  | Pseudo_after
 
 type var =
   | Color of { name : string; shade : int option; value : string }
@@ -53,6 +55,7 @@ type var =
     (* e.g., name="sm", value=".125rem" *)
   | Font of { name : string; value : string }
 (* e.g., name="sans", value="ui-sans-serif, ..." *)
+
 
 let color_var ?shade name =
   (* For now, use a placeholder value - should look up actual color value *)
@@ -75,8 +78,7 @@ let var_to_css_properties = function
   | Font { name; value } -> [ ("--font-" ^ name, value) ]
 
 type t =
-  | Style of { name : string; props : Css.declaration list; vars : var list }
-  | Prose of Prose.t
+  | Style of { name : string; props : Css.declaration list; vars : var list; rules : Css.rule list option }
   | Modified of modifier * t
   | Group of t list
 
@@ -87,16 +89,13 @@ type scale = [ spacing | size | `Screen | `Min | `Max | `Fit ]
 type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
-(* Helper to create a style with no variable requirements *)
-let style name props = Style { name; props; vars = [] }
-
-(* Helper to create a style with variable requirements *)
-let style_with_vars name props vars = Style { name; props; vars }
+(* Helper to create a style *)
+let style ?(vars = []) ?(rules = None) name props = 
+  Style { name; props; vars; rules }
 
 (* Extract base class name(s) from Core.t. Modifiers are ignored. *)
 let rec class_name = function
   | Style { name; _ } -> name
-  | Prose p -> Pp.str [ "prose-"; Prose.pp p ]
   | Modified (_, t) -> class_name t
   | Group ts -> String.concat " " (List.map class_name ts)
 
@@ -144,10 +143,11 @@ let rec pp_modifier = function
   | Motion_reduce -> "motion-reduce:"
   | Contrast_more -> "contrast-more:"
   | Contrast_less -> "contrast-less:"
+  | Pseudo_before -> "before:"
+  | Pseudo_after -> "after:"
 
 (* Extract full class name including modifiers *)
 let rec pp = function
   | Style { name; _ } -> name
-  | Prose p -> Pp.str [ "prose-"; Prose.pp p ]
   | Modified (m, t) -> Pp.str [ pp_modifier m; pp t ]
   | Group ts -> String.concat " " (List.map pp ts)

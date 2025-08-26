@@ -1,4 +1,4 @@
-(** Layout utilities for display, flexbox, grid, and positioning *)
+(** Layout utilities for basic display, positioning, and object properties *)
 
 open Core
 
@@ -16,207 +16,14 @@ val inline_block : t
 val hidden : t
 (** [hidden] sets display to none. *)
 
-val flex : t
-(** [flex] sets display to flex. *)
-
-val inline_flex : t
-(** [inline_flex] sets display to inline-flex. *)
-
-val grid : t
-(** [grid] sets display to grid. *)
-
-val inline_grid : t
-(** [inline_grid] sets display to inline-grid. *)
-
 (* TODO: flow_root not supported by Css module *)
 
-val flex_row : t
-(** [flex_row] sets flex direction to row. *)
+val sr_only : t
+(** [sr_only] visually hides content but keeps it accessible to screen readers. *)
 
-val flex_row_reverse : t
-(** [flex_row_reverse] sets flex direction to row-reverse. *)
+val not_sr_only : t
+(** [not_sr_only] reverses [sr_only], making content visible. *)
 
-val flex_col : t
-(** [flex_col] sets flex direction to column. *)
-
-val flex_col_reverse : t
-(** [flex_col_reverse] sets flex direction to column-reverse. *)
-
-val flex_wrap : t
-(** [flex_wrap] enables wrapping on flex items. *)
-
-val flex_wrap_reverse : t
-(** [flex_wrap_reverse] enables reverse wrapping on flex items. *)
-
-val flex_nowrap : t
-(** [flex_nowrap] disables wrapping on flex items. *)
-
-val flex_1 : t
-(** [flex_1] sets flex: 1 1 0%. *)
-
-val flex_auto : t
-(** [flex_auto] sets flex: 1 1 auto. *)
-
-val flex_initial : t
-(** [flex_initial] sets flex: 0 1 auto. *)
-
-val flex_none : t
-(** [flex_none] sets flex: none. *)
-
-val flex_grow : t
-(** [flex_grow] sets flex-grow: 1. *)
-
-val flex_grow_0 : t
-(** [flex_grow_0] sets flex-grow: 0. *)
-
-val flex_shrink : t
-(** [flex_shrink] sets flex-shrink: 1. *)
-
-val flex_shrink_0 : t
-(** [flex_shrink_0] sets flex-shrink: 0. *)
-
-val items_start : t
-(** [items_start] aligns items to flex-start. *)
-
-val items_end : t
-(** [items_end] aligns items to flex-end. *)
-
-val items_center : t
-(** [items_center] aligns items to center. *)
-
-val items_baseline : t
-(** [items_baseline] aligns items to baseline. *)
-
-val items_stretch : t
-(** [items_stretch] aligns items to stretch. *)
-
-val justify_start : t
-(** [justify_start] justifies content to start. *)
-
-val justify_end : t
-(** [justify_end] justifies content to end. *)
-
-val justify_center : t
-(** [justify_center] justifies content to center. *)
-
-val justify_between : t
-(** [justify_between] distributes space between items. *)
-
-val justify_around : t
-(** [justify_around] distributes space around items. *)
-
-val justify_evenly : t
-(** [justify_evenly] distributes space evenly. *)
-
-val content_start : t
-(** [content_start] aligns content to start. *)
-
-val content_end : t
-(** [content_end] aligns content to end. *)
-
-val content_center : t
-(** [content_center] aligns content to center. *)
-
-val content_between : t
-(** [content_between] distributes content with space between. *)
-
-val content_around : t
-(** [content_around] distributes content with space around. *)
-
-val content_evenly : t
-(** [content_evenly] distributes content evenly. *)
-
-val self_auto : t
-(** [self_auto] sets align-self to auto. *)
-
-val self_start : t
-(** [self_start] sets align-self to flex-start. *)
-
-val self_end : t
-(** [self_end] sets align-self to flex-end. *)
-
-val self_center : t
-(** [self_center] sets align-self to center. *)
-
-val self_baseline : t
-(** [self_baseline] sets align-self to baseline. *)
-
-val self_stretch : t
-(** [self_stretch] sets align-self to stretch. *)
-
-val content_stretch : t
-(** [content_stretch] sets align-content to stretch. *)
-
-(** {2 Place Content (Grid Shorthand)} *)
-
-val place_content_start : t
-(** Sets place-content to start. *)
-
-val place_content_end : t
-(** Sets place-content to end. *)
-
-val place_content_center : t
-(** [place_content_center] sets place-content to center. *)
-
-val place_content_between : t
-(** [place_content_between] distributes place-content with space between. *)
-
-val place_content_around : t
-(** [place_content_around] distributes place-content with space around. *)
-
-val place_content_evenly : t
-(** [place_content_evenly] distributes place-content evenly. *)
-
-val place_content_stretch : t
-(** [place_content_stretch] sets place-content to stretch. *)
-
-(** {2 Place Items (Grid Shorthand)} *)
-
-val place_items_start : t
-(** Sets place-items to start. *)
-
-val place_items_end : t
-(** Sets place-items to end. *)
-
-val place_items_center : t
-(** [place_items_center] sets place-items to center. *)
-
-val place_items_stretch : t
-(** [place_items_stretch] sets place-items to stretch. *)
-
-(** {2 Justify Self (Grid Items)} *)
-
-val justify_self_auto : t
-(** Sets justify-self to auto. *)
-
-val justify_self_start : t
-(** Sets justify-self to start. *)
-
-val justify_self_end : t
-(** Sets justify-self to end. *)
-
-val justify_self_center : t
-(** Sets justify-self to center. *)
-
-val justify_self_stretch : t
-(** Sets justify-self to stretch. *)
-
-(** {2 Place Self (Grid Shorthand)} *)
-
-val place_self_auto : t
-(** Sets place-self to auto. *)
-
-val place_self_start : t
-(** Sets place-self to start. *)
-
-val place_self_end : t
-(** Sets place-self to end. *)
-
-val place_self_center : t
-(** Sets place-self to center. *)
-
-val place_self_stretch : t
-(** Sets place-self to stretch. *)
 
 (** {1 Positioning Utilities} *)
 
@@ -234,6 +41,11 @@ val fixed : t
 
 val sticky : t
 (** [sticky] sets position to sticky. *)
+
+(** {1 Isolation} *)
+
+val isolate : t
+(** [isolate] creates a new stacking context (isolation: isolate). *)
 
 val overflow_auto : t
 (** [overflow_auto] sets overflow to auto. *)
@@ -338,13 +150,6 @@ val table_auto : t
 val table_fixed : t
 (** [table_fixed] sets table-layout to fixed. *)
 
-(** {1 Grid Utilities} *)
-
-val grid_cols : int -> t
-(** [grid_cols n] sets the number of grid template columns. *)
-
-val grid_rows : int -> t
-(** [grid_rows n] sets the number of grid template rows. *)
 
 (** {1 Parsing Functions} *)
 

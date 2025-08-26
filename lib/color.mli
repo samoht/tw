@@ -12,7 +12,7 @@ type oklch = {
   h : float;  (** Hue (0-360) *)
 }
 
-type t =
+type color =
   | Black
   | White
   | Gray
@@ -41,7 +41,7 @@ type t =
   | Rgb of { red : int; green : int; blue : int }
   | Oklch of oklch
 
-val pp : t -> string
+val pp : color -> string
 (** [pp color] pretty-prints a color. *)
 
 (** {1 Conversion Functions} *)
@@ -61,373 +61,373 @@ val rgb_to_hex : rgb -> string
 val oklch_to_css : oklch -> string
 (** [oklch_to_css oklch] formats OKLCH for CSS. *)
 
-val to_css : t -> int -> Css.color
+val to_css : color -> int -> Css.color
 (** [to_css color shade] converts a color to CSS color value. *)
 
 (** {1 Tailwind Colors} *)
 
 (** {1 Color Constructors} *)
 
-val black : t
+val black : color
 (** [black] is the black color (0, 0, 0). *)
 
-val white : t
+val white : color
 (** [white] is the white color (255, 255, 255). *)
 
-val gray : t
+val gray : color
 (** [gray] is the base gray color. *)
 
-val slate : t
+val slate : color
 (** [slate] is the base slate color. *)
 
-val zinc : t
+val zinc : color
 (** [zinc] is the base zinc color. *)
 
-val neutral : t
+val neutral : color
 (** [neutral] is the base neutral color. *)
 
-val stone : t
+val stone : color
 (** [stone] is the base stone color. *)
 
-val red : t
+val red : color
 (** [red] is the base red color. *)
 
-val orange : t
+val orange : color
 (** [orange] is the base orange color. *)
 
-val amber : t
+val amber : color
 (** [amber] is the base amber color. *)
 
-val yellow : t
+val yellow : color
 (** [yellow] is the base yellow color. *)
 
-val lime : t
+val lime : color
 (** [lime] is the base lime color. *)
 
-val green : t
+val green : color
 (** [green] is the base green color. *)
 
-val emerald : t
+val emerald : color
 (** [emerald] is the base emerald color. *)
 
-val teal : t
+val teal : color
 (** [teal] is the base teal color. *)
 
-val cyan : t
+val cyan : color
 (** [cyan] is the base cyan color. *)
 
-val sky : t
+val sky : color
 (** [sky] is the base sky color. *)
 
-val blue : t
+val blue : color
 (** [blue] is the base blue color. *)
 
-val indigo : t
+val indigo : color
 (** [indigo] is the base indigo color. *)
 
-val violet : t
+val violet : color
 (** [violet] is the base violet color. *)
 
-val purple : t
+val purple : color
 (** [purple] is the base purple color. *)
 
-val fuchsia : t
+val fuchsia : color
 (** [fuchsia] is the base fuchsia color. *)
 
-val pink : t
+val pink : color
 (** [pink] is the base pink color. *)
 
-val rose : t
+val rose : color
 (** [rose] is the base rose color. *)
 
-val hex : string -> t
+val hex : string -> color
 (** [hex s] creates color from hex string. *)
 
-val rgb : int -> int -> int -> t
+val rgb : int -> int -> int -> color
 (** [rgb r g b] creates color from RGB values. *)
 
-val of_string_exn : string -> t
+val of_string_exn : string -> color
 (** [of_string_exn name] converts a color name string to a color type. Raises
     Failure if unknown color. *)
 
-val of_string : string -> (t, [ `Msg of string ]) result
+val of_string : string -> (color, [ `Msg of string ]) result
 (** [of_string name] converts a color name string to a color type, returning a
     Result. *)
 
 (** {1 Color Conversion} *)
 
-val to_oklch : t -> int -> oklch
+val to_oklch : color -> int -> oklch
 (** [to_oklch color shade] converts color to OKLCH data for a given shade. *)
 
-val to_oklch_css : t -> int -> string
+val to_oklch_css : color -> int -> string
 (** [to_oklch_css color shade] converts color to OKLCH CSS string for a given
     shade. *)
 
-val to_name : t -> string
+val to_name : color -> string
 (** [to_name color] gets the name of a color as a string. *)
 
-val is_base_color : t -> bool
+val is_base_color : color -> bool
 (** [is_base_color color] checks if a color is black or white (doesn't need a
     shade). *)
 
-val is_custom_color : t -> bool
+val is_custom_color : color -> bool
 (** [is_custom_color color] checks if a color is a custom color (hex or rgb). *)
 
 (** {1 Tailwind Colors} *)
 
 (** Predefined Tailwind v4 color values *)
-module TailwindColors : sig
+module Tailwind_colors : sig
   val get_color : string -> int -> string option
-  (** Get a Tailwind color value in OKLCH format *)
+  (** [get_color name shade] gets a Tailwind color value in OKLCH format. *)
 end
 
 (** {1 Color Application Utilities} *)
 
-val bg : t -> int -> Core.t
+val bg : color -> int -> Core.t
 (** [bg color shade] sets the background color using a palette [color] and
     [shade]. *)
 
 val bg_transparent : Core.t
-(** Transparent background. *)
+(** [bg_transparent] makes the background fully transparent. *)
 
 val bg_current : Core.t
-(** Background using [currentColor]. *)
+(** [bg_current] uses [currentColor] for the background. *)
 
 val bg_black : Core.t
-(** Background using the black palette. *)
+(** [bg_black] uses the black palette for background. *)
 
 val bg_white : Core.t
-(** Background using the white palette. *)
+(** [bg_white] uses the white palette for background. *)
 
 val bg_gray : Core.t
-(** Background using the gray palette. *)
+(** [bg_gray] uses the gray palette for background. *)
 
 val bg_slate : Core.t
-(** Background using the slate palette. *)
+(** [bg_slate] uses the slate palette for background. *)
 
 val bg_zinc : Core.t
-(** Background using the zinc palette. *)
+(** [bg_zinc] uses the zinc palette for background. *)
 
 val bg_neutral : Core.t
-(** Background using the neutral palette. *)
+(** [bg_neutral] uses the neutral palette for background. *)
 
 val bg_stone : Core.t
-(** Background using the stone palette. *)
+(** [bg_stone] uses the stone palette for background. *)
 
 val bg_red : Core.t
-(** Background using the red palette. *)
+(** [bg_red] uses the red palette for background. *)
 
 val bg_orange : Core.t
-(** Background using the orange palette. *)
+(** [bg_orange] uses the orange palette for background. *)
 
 val bg_amber : Core.t
-(** Background using the amber palette. *)
+(** [bg_amber] uses the amber palette for background. *)
 
 val bg_yellow : Core.t
-(** Background using the yellow palette. *)
+(** [bg_yellow] uses the yellow palette for background. *)
 
 val bg_lime : Core.t
-(** Background using the lime palette. *)
+(** [bg_lime] uses the lime palette for background. *)
 
 val bg_green : Core.t
-(** Background using the green palette. *)
+(** [bg_green] uses the green palette for background. *)
 
 val bg_emerald : Core.t
-(** Background using the emerald palette. *)
+(** [bg_emerald] uses the emerald palette for background. *)
 
 val bg_teal : Core.t
-(** Background using the teal palette. *)
+(** [bg_teal] uses the teal palette for background. *)
 
 val bg_cyan : Core.t
-(** Background using the cyan palette. *)
+(** [bg_cyan] uses the cyan palette for background. *)
 
 val bg_sky : Core.t
-(** Background using the sky palette. *)
+(** [bg_sky] uses the sky palette for background. *)
 
 val bg_blue : Core.t
-(** Background using the blue palette. *)
+(** [bg_blue] uses the blue palette for background. *)
 
 val bg_indigo : Core.t
-(** Background using the indigo palette. *)
+(** [bg_indigo] uses the indigo palette for background. *)
 
 val bg_violet : Core.t
-(** Background using the violet palette. *)
+(** [bg_violet] uses the violet palette for background. *)
 
 val bg_purple : Core.t
-(** Background using the purple palette. *)
+(** [bg_purple] uses the purple palette for background. *)
 
 val bg_fuchsia : Core.t
-(** Background using the fuchsia palette. *)
+(** [bg_fuchsia] uses the fuchsia palette for background. *)
 
 val bg_pink : Core.t
-(** Background using the pink palette. *)
+(** [bg_pink] uses the pink palette for background. *)
 
 val bg_rose : Core.t
-(** Background using the rose palette. *)
+(** [bg_rose] uses the rose palette for background. *)
 
-val text : t -> int -> Core.t
+val text : color -> int -> Core.t
 (** [text color shade] sets the text color using a palette [color] and [shade].
 *)
 
 val text_transparent : Core.t
-(** Transparent text color. *)
+(** [text_transparent] makes text fully transparent. *)
 
 val text_current : Core.t
-(** Text using [currentColor]. *)
+(** [text_current] uses [currentColor] for text. *)
 
 val text_black : Core.t
-(** Text using the black palette. *)
+(** [text_black] uses the black palette for text. *)
 
 val text_white : Core.t
-(** Text using the white palette. *)
+(** [text_white] uses the white palette for text. *)
 
 val text_gray : Core.t
-(** Text using the gray palette. *)
+(** [text_gray] uses the gray palette for text. *)
 
 val text_slate : Core.t
-(** Text using the slate palette. *)
+(** [text_slate] uses the slate palette for text. *)
 
 val text_zinc : Core.t
-(** Text using the zinc palette. *)
+(** [text_zinc] uses the zinc palette for text. *)
 
 val text_neutral : Core.t
-(** Text using the neutral palette. *)
+(** [text_neutral] uses the neutral palette for text. *)
 
 val text_stone : Core.t
-(** Text using the stone palette. *)
+(** [text_stone] uses the stone palette for text. *)
 
 val text_red : Core.t
-(** Text using the red palette. *)
+(** [text_red] uses the red palette for text. *)
 
 val text_orange : Core.t
-(** Text using the orange palette. *)
+(** [text_orange] uses the orange palette for text. *)
 
 val text_amber : Core.t
-(** Text using the amber palette. *)
+(** [text_amber] uses the amber palette for text. *)
 
 val text_yellow : Core.t
-(** Text using the yellow palette. *)
+(** [text_yellow] uses the yellow palette for text. *)
 
 val text_lime : Core.t
-(** Text using the lime palette. *)
+(** [text_lime] uses the lime palette for text. *)
 
 val text_green : Core.t
-(** Text using the green palette. *)
+(** [text_green] uses the green palette for text. *)
 
 val text_emerald : Core.t
-(** Text using the emerald palette. *)
+(** [text_emerald] uses the emerald palette for text. *)
 
 val text_teal : Core.t
-(** Text using the teal palette. *)
+(** [text_teal] uses the teal palette for text. *)
 
 val text_cyan : Core.t
-(** Text using the cyan palette. *)
+(** [text_cyan] uses the cyan palette for text. *)
 
 val text_sky : Core.t
-(** Text using the sky palette. *)
+(** [text_sky] uses the sky palette for text. *)
 
 val text_blue : Core.t
-(** Text using the blue palette. *)
+(** [text_blue] uses the blue palette for text. *)
 
 val text_indigo : Core.t
-(** Text using the indigo palette. *)
+(** [text_indigo] uses the indigo palette for text. *)
 
 val text_violet : Core.t
-(** Text using the violet palette. *)
+(** [text_violet] uses the violet palette for text. *)
 
 val text_purple : Core.t
-(** Text using the purple palette. *)
+(** [text_purple] uses the purple palette for text. *)
 
 val text_fuchsia : Core.t
-(** Text using the fuchsia palette. *)
+(** [text_fuchsia] uses the fuchsia palette for text. *)
 
 val text_pink : Core.t
-(** Text using the pink palette. *)
+(** [text_pink] uses the pink palette for text. *)
 
 val text_rose : Core.t
-(** Text using the rose palette. *)
+(** [text_rose] uses the rose palette for text. *)
 
-val border_color : t -> int -> Core.t
+val border_color : color -> int -> Core.t
 (** [border_color color shade] sets the border color using a palette [color] and
     [shade]. *)
 
 val border_transparent : Core.t
-(** Transparent border color. *)
+(** [border_transparent] makes the border fully transparent. *)
 
 val border_current : Core.t
-(** Border color using [currentColor]. *)
+(** [border_current] uses [currentColor] for border color. *)
 
 val border_black : Core.t
-(** Border color using the black palette. *)
+(** [border_black] uses the black palette for border color. *)
 
 val border_white : Core.t
-(** Border color using the white palette. *)
+(** [border_white] uses the white palette for border color. *)
 
 val border_gray : Core.t
-(** Border color using the gray palette. *)
+(** [border_gray] uses the gray palette for border color. *)
 
 val border_slate : Core.t
-(** Border color using the slate palette. *)
+(** [border_slate] uses the slate palette for border color. *)
 
 val border_zinc : Core.t
-(** Border color using the zinc palette. *)
+(** [border_zinc] uses the zinc palette for border color. *)
 
 val border_neutral : Core.t
-(** Border color using the neutral palette. *)
+(** [border_neutral] uses the neutral palette for border color. *)
 
 val border_stone : Core.t
-(** Border color using the stone palette. *)
+(** [border_stone] uses the stone palette for border color. *)
 
 val border_red : Core.t
-(** Border color using the red palette. *)
+(** [border_red] uses the red palette for border color. *)
 
 val border_orange : Core.t
-(** Border color using the orange palette. *)
+(** [border_orange] uses the orange palette for border color. *)
 
 val border_amber : Core.t
-(** Border color using the amber palette. *)
+(** [border_amber] uses the amber palette for border color. *)
 
 val border_yellow : Core.t
-(** Border color using the yellow palette. *)
+(** [border_yellow] uses the yellow palette for border color. *)
 
 val border_lime : Core.t
-(** Border color using the lime palette. *)
+(** [border_lime] uses the lime palette for border color. *)
 
 val border_green : Core.t
-(** Border color using the green palette. *)
+(** [border_green] uses the green palette for border color. *)
 
 val border_emerald : Core.t
-(** Border color using the emerald palette. *)
+(** [border_emerald] uses the emerald palette for border color. *)
 
 val border_teal : Core.t
-(** Border color using the teal palette. *)
+(** [border_teal] uses the teal palette for border color. *)
 
 val border_cyan : Core.t
-(** Border color using the cyan palette. *)
+(** [border_cyan] uses the cyan palette for border color. *)
 
 val border_sky : Core.t
-(** Border color using the sky palette. *)
+(** [border_sky] uses the sky palette for border color. *)
 
 val border_blue : Core.t
-(** Border color using the blue palette. *)
+(** [border_blue] uses the blue palette for border color. *)
 
 val border_indigo : Core.t
-(** Border color using the indigo palette. *)
+(** [border_indigo] uses the indigo palette for border color. *)
 
 val border_violet : Core.t
-(** Border color using the violet palette. *)
+(** [border_violet] uses the violet palette for border color. *)
 
 val border_purple : Core.t
-(** Border color using the purple palette. *)
+(** [border_purple] uses the purple palette for border color. *)
 
 val border_fuchsia : Core.t
-(** Border color using the fuchsia palette. *)
+(** [border_fuchsia] uses the fuchsia palette for border color. *)
 
 val border_pink : Core.t
-(** Border color using the pink palette. *)
+(** [border_pink] uses the pink palette for border color. *)
 
 val border_rose : Core.t
-(** Border color using the rose palette. *)
+(** [border_rose] uses the rose palette for border color. *)
 
 val color_classes_of_string : string list -> (Core.t, [ `Msg of string ]) result
 (** [color_classes_of_string parts] parses color utilities from string [parts].

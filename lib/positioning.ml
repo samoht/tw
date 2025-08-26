@@ -21,9 +21,8 @@ let inset n =
       (Css.Calc.mul (Css.Calc.var "spacing")
          (Css.Calc.float (float_of_int (abs n))))
   in
-  style_with_vars class_name
+  style ~vars:[ spacing_var (abs n) ] class_name
     [ Css.top value; Css.right value; Css.bottom value; Css.left value ]
-    [ spacing_var (abs n) ]
 
 (** {1 Individual Side Positioning} *)
 
@@ -35,7 +34,7 @@ let top n =
       (Css.Calc.mul (Css.Calc.var "spacing")
          (Css.Calc.float (float_of_int (abs n))))
   in
-  style_with_vars class_name [ Css.top value ] [ spacing_var (abs n) ]
+  style ~vars:[ spacing_var (abs n) ] class_name [ Css.top value ]
 
 let right n =
   let prefix = if n < 0 then "-" else "" in
@@ -45,7 +44,7 @@ let right n =
       (Css.Calc.mul (Css.Calc.var "spacing")
          (Css.Calc.float (float_of_int (abs n))))
   in
-  style_with_vars class_name [ Css.right value ] [ spacing_var (abs n) ]
+  style ~vars:[ spacing_var (abs n) ] class_name [ Css.right value ]
 
 let bottom n =
   let prefix = if n < 0 then "-" else "" in
@@ -55,7 +54,7 @@ let bottom n =
       (Css.Calc.mul (Css.Calc.var "spacing")
          (Css.Calc.float (float_of_int (abs n))))
   in
-  style_with_vars class_name [ Css.bottom value ] [ spacing_var (abs n) ]
+  style ~vars:[ spacing_var (abs n) ] class_name [ Css.bottom value ]
 
 let left n =
   let prefix = if n < 0 then "-" else "" in
@@ -65,7 +64,7 @@ let left n =
       (Css.Calc.mul (Css.Calc.var "spacing")
          (Css.Calc.float (float_of_int (abs n))))
   in
-  style_with_vars class_name [ Css.left value ] [ spacing_var (abs n) ]
+  style ~vars:[ spacing_var (abs n) ] class_name [ Css.left value ]
 
 (** {1 Fractional Positioning} *)
 

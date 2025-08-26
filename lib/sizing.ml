@@ -28,7 +28,7 @@ let spacing_calc n =
 (** Helper to create spacing-based utilities with consistent pattern *)
 let make_spacing_utility prefix css_prop n =
   let class_name = prefix ^ string_of_int n in
-  style_with_vars class_name [ css_prop (spacing_calc n) ] [ spacing_var n ]
+  style ~vars:[ spacing_var n ] class_name [ css_prop (spacing_calc n) ]
 
 (** {1 Width Utilities} *)
 
@@ -252,6 +252,18 @@ let size_fraction_of_string = function
   | "3/4" -> Ok (style "size-3/4" [ width (Pct 75.0); height (Pct 75.0) ])
   | s -> Error (`Msg ("Invalid fraction: " ^ s))
 
+(** {1 Aspect Ratio Utilities} *)
+
+let aspect_auto = style "aspect-auto" [ Css.aspect_ratio Auto ]
+let aspect_square = style "aspect-square" [ Css.aspect_ratio (Ratio (1, 1)) ]
+let aspect_video = style "aspect-video" [ Css.aspect_ratio (Ratio (16, 9)) ]
+
+let aspect_ratio w h =
+  let class_name =
+    Pp.str [ "aspect-["; string_of_int w; "/"; string_of_int h; "]" ]
+  in
+  style class_name [ Css.aspect_ratio (Ratio (w, h)) ]
+
 let spacing_value_of_string = function
   | "0" -> Ok (Px 0)
   | "px" -> Ok (Px 1)
@@ -392,4 +404,7 @@ let of_string parts =
           | Ok css_val ->
               Ok (style ("size-" ^ v) [ width css_val; height css_val ])
           | Error _ -> Error (`Msg ("Invalid size value: " ^ v))))
+  | [ "aspect"; "auto" ] -> Ok aspect_auto
+  | [ "aspect"; "square" ] -> Ok aspect_square
+  | [ "aspect"; "video" ] -> Ok aspect_video
   | _ -> Error (`Msg "Not a sizing utility")
