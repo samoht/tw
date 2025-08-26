@@ -136,6 +136,14 @@ let font_thin =
     ]
     
 
+let font_extralight =
+  style "font-extralight"
+    [
+      custom_property "--tw-font-weight" "var(--font-weight-extralight)";
+      font_weight (Var (var "font-weight-extralight"));
+    ]
+    
+
 let font_light =
   style "font-light"
     [
@@ -221,6 +229,7 @@ let text_justify = style "text-justify" [ text_align Justify ]
 (** {1 Text Decoration Utilities} *)
 
 let underline = style "underline" [ text_decoration Underline ]
+let overline = style "overline" [ text_decoration Overline ]
 let line_through = style "line-through" [ text_decoration Line_through ]
 let no_underline = style "no-underline" [ text_decoration None ]
 let underline_solid = style "underline-solid" [ text_decoration_style Solid ]
@@ -344,7 +353,7 @@ let indent n =
 
 let line_clamp n =
   if n = 0 then
-    style "line-clamp-none"
+    style "line-clamp-0"
       [ webkit_line_clamp 0; overflow Visible; display Block ]
   else
     let class_name = "line-clamp-" ^ string_of_int n in
@@ -459,6 +468,7 @@ let of_string = function
   | [ "text"; "8xl" ] -> Ok text_8xl
   | [ "text"; "9xl" ] -> Ok text_9xl
   | [ "font"; "thin" ] -> Ok font_thin
+  | [ "font"; "extralight" ] -> Ok font_extralight
   | [ "font"; "light" ] -> Ok font_light
   | [ "font"; "normal" ] -> Ok font_normal
   | [ "font"; "medium" ] -> Ok font_medium
@@ -476,6 +486,7 @@ let of_string = function
   | [ "text"; "right" ] -> Ok text_right
   | [ "text"; "justify" ] -> Ok text_justify
   | [ "underline" ] -> Ok underline
+  | [ "overline" ] -> Ok overline
   | [ "line"; "through" ] -> Ok line_through
   | [ "no"; "underline" ] -> Ok no_underline
   | [ "leading"; "none" ] -> Ok leading_none
@@ -484,7 +495,10 @@ let of_string = function
   | [ "leading"; "normal" ] -> Ok leading_normal
   | [ "leading"; "relaxed" ] -> Ok leading_relaxed
   | [ "leading"; "loose" ] -> Ok leading_loose
-  | [ "leading"; n ] -> Parse.int_pos ~name:"leading" n >|= leading
+  | [ "leading"; n ] -> 
+      (match Parse.int_bounded ~name:"leading" ~min:3 ~max:10 n with
+       | Ok i -> Ok (leading i)
+       | Error e -> Error e)
   | [ "tracking"; "tighter" ] -> Ok tracking_tighter
   | [ "tracking"; "tight" ] -> Ok tracking_tight
   | [ "tracking"; "normal" ] -> Ok tracking_normal

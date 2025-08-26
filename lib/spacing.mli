@@ -1,4 +1,4 @@
-(** Spacing utilities for padding, margin, and gap *)
+(** Spacing utilities for padding and margin. *)
 
 open Core
 
@@ -98,26 +98,6 @@ val mb' : margin -> t
 val ml' : margin -> t
 (** [ml' m] sets left margin using typed margin [m]. *)
 
-(** {1 Gap Utilities} *)
-
-val gap : int -> t
-(** [gap n] creates gap between grid/flex items. *)
-
-val gap_x : int -> t
-(** [gap_x n] creates horizontal gap between grid/flex items. *)
-
-val gap_y : int -> t
-(** [gap_y n] creates vertical gap between grid/flex items. *)
-
-val gap' : spacing -> t
-(** [gap' s] sets gap using typed spacing [s]. *)
-
-val gap_x' : spacing -> t
-(** [gap_x' s] sets horizontal gap using typed spacing [s]. *)
-
-val gap_y' : spacing -> t
-(** [gap_y' s] sets vertical gap using typed spacing [s]. *)
-
 (** {1 Space Between Utilities} *)
 
 val space_x : int -> t
@@ -142,7 +122,6 @@ val pb_px : t
 val pb_full : t
 val pl_px : t
 val pl_full : t
-
 val m_auto : t
 val mx_auto : t
 val my_auto : t
@@ -150,9 +129,6 @@ val mt_auto : t
 val mr_auto : t
 val mb_auto : t
 val ml_auto : t
-
-val gap_px : t
-val gap_full : t
 
 (** {1 Parsing Functions} *)
 

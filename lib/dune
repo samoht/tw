@@ -1,5 +1,4 @@
 (library
  (public_name tw)
  (name tw)
- (libraries css re)
- (modules_without_implementation flow))
+ (libraries css re))

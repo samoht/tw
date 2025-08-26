@@ -19,23 +19,7 @@ let fill color ?(shade = 500) () =
     Color.to_css color (if Color.is_base_color color then 500 else shade)
   in
   let css_var = Css.var ~default_value:default_color var_name in
-  let var =
-    if Color.is_base_color color then
-      Core.Color
-        {
-          name = Color.to_name color;
-          shade = None;
-          value = Color.to_oklch_css color 500;
-        }
-    else
-      Core.Color
-        {
-          name = Color.to_name color;
-          shade = Some shade;
-          value = Color.to_oklch_css color shade;
-        }
-  in
-  style ~vars:[ var ] class_name [ fill (Color (Css.Var css_var)) ]
+  style class_name [ fill (Color (Css.Var css_var)) ]
 
 (** {1 Stroke Utilities} *)
 
@@ -55,23 +39,7 @@ let stroke color ?(shade = 500) () =
     Color.to_css color (if Color.is_base_color color then 500 else shade)
   in
   let css_var = Css.var ~default_value:default_color var_name in
-  let var =
-    if Color.is_base_color color then
-      Core.Color
-        {
-          name = Color.to_name color;
-          shade = None;
-          value = Color.to_oklch_css color 500;
-        }
-    else
-      Core.Color
-        {
-          name = Color.to_name color;
-          shade = Some shade;
-          value = Color.to_oklch_css color shade;
-        }
-  in
-  style ~vars:[ var ] class_name [ stroke (Color (Css.Var css_var)) ]
+  style class_name [ stroke (Color (Css.Var css_var)) ]
 
 (** {1 Stroke Width Utilities} *)
 

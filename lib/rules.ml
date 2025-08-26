@@ -62,9 +62,9 @@ let escape_class_name name =
 (* Extract selector and properties from a single Tw style *)
 let extract_selector_props tw =
   let rec extract = function
-    | Style { name = class_name; props; rules; _ } ->
+    | Style { name = class_name; props; rules; _ } -> (
         let escaped_name = escape_class_name class_name in
-        (match rules with
+        match rules with
         | None -> [ Regular ("." ^ escaped_name, props) ]
         | Some rule_list ->
             (* Convert custom rules to selector/props pairs *)
@@ -76,11 +76,11 @@ let extract_selector_props tw =
         List.concat_map
           (fun rule_out ->
             match rule_out with
-            | Regular (selector, props) ->
+            | Regular (selector, props) -> (
                 let base_class =
                   String.sub selector 1 (String.length selector - 1)
                 in
-                (match modifier with
+                match modifier with
                 | Hover ->
                     [ Regular (".hover\\:" ^ base_class ^ ":hover", props) ]
                 | Focus ->
@@ -512,7 +512,6 @@ let generate_reset_rules () =
     (* This needs to be added as part of the base layer but after the main rules *);
   ]
 
-
 (* Re-export Color module *)
 module Color = Color
 
@@ -670,15 +669,6 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
 
   (* Build the complete stylesheet with layers - just like Tailwind v4 *)
   if reset then
-    (* Extract which Tailwind CSS variables are actually used *)
-    let rec collect_all_vars style =
-      match style with
-      | Style { vars; _ } -> vars
-      | Modified (_, t) -> collect_all_vars t
-      | Group styles -> List.concat_map collect_all_vars styles
-    in
-
-    let all_vars = tw_classes |> List.concat_map collect_all_vars in
 
     (* Properties layer - with GADT declarations, analyze_properties returns
        empty *)
@@ -814,28 +804,12 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
              else String.compare a b)
     in
 
-    (* Generate CSS properties from Core.var values *)
-    let var_generated_props =
-      all_vars
-      |> List.sort_uniq compare (* Remove duplicates *)
-      |> List.concat_map Core.var_to_css_properties
-      |> List.map (fun (name, value) -> Css.custom_property name value)
-    in
-
-    (* Track which variables were already generated from Core.var *)
-    let generated_var_names =
-      all_vars
-      |> List.concat_map Core.var_to_css_properties
-      |> List.map fst (* Get just the property names *)
-      |> List.sort_uniq String.compare
-    in
+    (* The new typed variable system generates CSS variables automatically based on 
+       what's referenced in the CSS declarations. No need to track Core.var anymore. *)
 
     (* Generate values for theme variables *)
     let theme_generated_vars =
       all_referenced_vars
-      |> List.filter (fun var_name ->
-             (* Skip variables already generated from Core.var *)
-             not (List.mem var_name generated_var_names))
       |> List.concat_map (fun var_name ->
              match var_name with
              | "--spacing" -> [ Css.custom_property "--spacing" "0.25rem" ]
@@ -992,8 +966,7 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
     in
 
     let theme_vars_with_fonts =
-      font_vars @ var_generated_props @ theme_generated_vars
-      @ default_font_props
+      font_vars @ theme_generated_vars @ default_font_props
     in
 
     let theme_layer =

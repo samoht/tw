@@ -7,8 +7,7 @@
     - Table utilities for border-collapse, border-spacing, table-layout.
 
     What's not:
-    - Flexbox utilities: see Flexbox module.
-    - Grid utilities: see Grid module.
+    - Flex/grid utilities: see Flow module.
     - Some niche shorthands are omitted; prefer the typed helpers exposed in
       `Css` rather than raw properties.
 

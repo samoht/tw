@@ -194,33 +194,27 @@ val self_baseline : t
 val self_stretch : t
 (** [self_stretch] sets align-self to stretch. *)
 
-(** {1 Gap} *)
+(** {1 Gap Utilities} *)
 
 val gap : int -> t
-(** [gap n] sets the gap between grid/flex items. *)
+(** [gap n] sets gap to [n] × 0.25rem. *)
 
 val gap_x : int -> t
-(** [gap_x n] sets the horizontal gap between grid/flex items. *)
+(** [gap_x n] sets column-gap to [n] × 0.25rem. *)
 
 val gap_y : int -> t
-(** [gap_y n] sets the vertical gap between grid/flex items. *)
+(** [gap_y n] sets row-gap to [n] × 0.25rem. *)
+
+val gap_px : t
+(** [gap_px] sets gap to 1px. *)
+
+val gap_full : t
+(** [gap_full] sets gap to 100%. *)
 
 (** {1 Grid Template Columns} *)
 
-val grid_cols_1 : t
-val grid_cols_2 : t
-val grid_cols_3 : t
-val grid_cols_4 : t
-val grid_cols_5 : t
-val grid_cols_6 : t
-val grid_cols_7 : t
-val grid_cols_8 : t
-val grid_cols_9 : t
-val grid_cols_10 : t
-val grid_cols_11 : t
-
-val grid_cols_12 : t
-(** [grid_cols_n] creates a grid with n equal columns. *)
+val grid_cols : int -> t
+(** [grid_cols n] creates a grid with n equal columns. *)
 
 val grid_cols_none : t
 (** [grid_cols_none] removes grid template columns. *)
@@ -228,19 +222,7 @@ val grid_cols_none : t
 val grid_cols_subgrid : t
 (** [grid_cols_subgrid] uses subgrid for columns. *)
 
-val grid_cols : int -> t
-(** [grid_cols n] creates a grid with n equal columns. *)
-
 (** {1 Grid Template Rows} *)
-
-val grid_rows_1 : t
-val grid_rows_2 : t
-val grid_rows_3 : t
-val grid_rows_4 : t
-val grid_rows_5 : t
-
-val grid_rows_6 : t
-(** [grid_rows_n] creates a grid with n equal rows. *)
 
 val grid_rows : int -> t
 (** [grid_rows n] creates a grid with n equal rows. *)

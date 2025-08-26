@@ -46,32 +46,13 @@ type modifier =
   | Pseudo_before
   | Pseudo_after
 
-type var =
-  | Color of { name : string; shade : int option; value : string }
-    (* e.g., name="blue", shade=Some 500, value="#3b82f6" *)
-  | Spacing of { multiplier : int; value : string }
-    (* e.g., multiplier=4 for 1rem, value="1rem" *)
-  | Radius of { name : string; value : string }
-    (* e.g., name="sm", value=".125rem" *)
-  | Font of { name : string; value : string }
-(* e.g., name="sans", value="ui-sans-serif, ..." *)
-
-
-val color_var : ?shade:int -> string -> var
-(** [color_var ?shade name] describes a Tailwind color variable usable in CSS
-    generation. When [shade] is provided (e.g. [500]) it refers to a palette
-    shade; otherwise it refers to a base color. *)
-
-val spacing_var : int -> var
-(** [spacing_var n] creates a spacing variable for multiplier [n] ([n] *
-    0.25rem). *)
-
-val var_to_css_properties : var -> (string * string) list
-(** [var_to_css_properties var] returns the CSS custom property declarations
-    needed for this variable. Returns a list of (property-name, value) pairs. *)
 
 type t =
-  | Style of { name : string; props : Css.declaration list; vars : var list; rules : Css.rule list option }
+  | Style of {
+      name : string;
+      props : Css.declaration list;
+      rules : Css.rule list option;
+    }
   | Modified of modifier * t
   | Group of t list
 
@@ -82,9 +63,12 @@ type scale = [ spacing | size | `Screen | `Min | `Max | `Fit ]
 type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
-val style : ?vars:var list -> ?rules:Css.rule list option -> string -> Css.declaration list -> t
-(** [style ?vars ?rules name props] defines a utility [name] with CSS [props].
-    - [vars]: Optional CSS variables required by this utility
+val style :
+  ?rules:Css.rule list option ->
+  string ->
+  Css.declaration list ->
+  t
+(** [style ?rules name props] defines a utility [name] with CSS [props].
     - [rules]: Optional custom CSS rules (for utilities like prose that generate
       multiple rules with descendant selectors)
     - [name]: The CSS class name

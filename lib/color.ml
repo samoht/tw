@@ -923,23 +923,11 @@ let bg color shade =
       else Pp.str [ "color-"; pp color; "-"; string_of_int shade ]
     in
     (* Get the actual color value as the default for the CSS variable *)
-    let default_color = to_css color (if is_base_color color then 500 else shade) in
-    let css_var = Css.var ~default_value:default_color var_name in
-    (* Track the color variable requirement with actual color value *)
-    let var =
-      if is_base_color color then
-        Core.Color
-          { name = pp color; shade = None; value = to_oklch_css color 500 }
-      else
-        Core.Color
-          {
-            name = pp color;
-            shade = Some shade;
-            value = to_oklch_css color shade;
-          }
+    let default_color =
+      to_css color (if is_base_color color then 500 else shade)
     in
-    style ~vars:[ var ] class_name
-      [ Css.background_color (Css.Var css_var) ]
+    let css_var = Css.var ~default_value:default_color var_name in
+    style class_name [ Css.background_color (Css.Var css_var) ]
 
 let bg_transparent = style "bg-transparent" [ background_color Transparent ]
 let bg_current = style "bg-current" [ background_color Current ]
@@ -991,23 +979,11 @@ let text color shade =
       else Pp.str [ "color-"; pp color; "-"; string_of_int shade ]
     in
     (* Get the actual color value as the default for the CSS variable *)
-    let default_color = to_css color (if is_base_color color then 500 else shade) in
-    let css_var = Css.var ~default_value:default_color var_name in
-    (* Track the color variable requirement with actual color value *)
-    let var =
-      if is_base_color color then
-        Core.Color
-          { name = pp color; shade = None; value = to_oklch_css color 500 }
-      else
-        Core.Color
-          {
-            name = pp color;
-            shade = Some shade;
-            value = to_oklch_css color shade;
-          }
+    let default_color =
+      to_css color (if is_base_color color then 500 else shade)
     in
-    style ~vars:[ var ] class_name
-      [ Css.color (Css.Var css_var) ]
+    let css_var = Css.var ~default_value:default_color var_name in
+    style class_name [ Css.color (Css.Var css_var) ]
 
 let text_transparent = style "text-transparent" [ Css.color Transparent ]
 let text_current = style "text-current" [ Css.color Current ]
@@ -1059,22 +1035,11 @@ let border_color color shade =
       else Pp.str [ "color-"; pp color; "-"; string_of_int shade ]
     in
     (* Get the actual color value as the default for the CSS variable *)
-    let default_color = to_css color (if is_base_color color then 500 else shade) in
-    let css_var = Css.var ~default_value:default_color var_name in
-    (* Track the color variable requirement with actual color value *)
-    let var =
-      if is_base_color color then
-        Core.Color
-          { name = pp color; shade = None; value = to_oklch_css color 500 }
-      else
-        Core.Color
-          {
-            name = pp color;
-            shade = Some shade;
-            value = to_oklch_css color shade;
-          }
+    let default_color =
+      to_css color (if is_base_color color then 500 else shade)
     in
-    style ~vars:[ var ] class_name [ Css.border_color (Css.Var css_var) ]
+    let css_var = Css.var ~default_value:default_color var_name in
+    style class_name [ Css.border_color (Css.Var css_var) ]
 
 let border_transparent =
   style "border-transparent" [ Css.border_color Transparent ]

@@ -19,8 +19,8 @@ include Spacing
 include Sizing
 include Typography
 include Layout
-include Flexbox
-include Grid
+
+include Flow
 include Borders
 include Effects
 include Transforms
@@ -71,8 +71,8 @@ let of_string class_str =
   let base_result =
     Color.color_classes_of_string parts
     <|> Spacing.of_string parts <|> Sizing.of_string parts
-    <|> Layout.of_string parts <|> Flexbox.of_string parts
-    <|> Grid.of_string parts <|> Typography.of_string parts
+    <|> Layout.of_string parts <|> Flow.of_string parts
+    <|> Typography.of_string parts
     <|> Borders.of_string parts <|> Effects.of_string parts
     <|> Transforms.of_string parts
     <|> Interactivity.of_string parts
@@ -97,8 +97,7 @@ module Borders = Borders
 module Backgrounds = Backgrounds
 module Sizing = Sizing
 module Layout = Layout
-module Flexbox = Flexbox
-module Grid = Grid
+module Flow = Flow
 module Typography = Typography
 module Effects = Effects
 module Transforms = Transforms

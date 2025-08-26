@@ -4,6 +4,16 @@ open Core
 open Css
 module Parse = Parse
 
+(** {1 Helper Functions} *)
+
+(* Helper to create spacing values - handles negative values *)
+let spacing_value n =
+  let spacing_rem = Rem (float_of_int (abs n) *. 0.25) in
+  if n < 0 then 
+    Calc (Calc.mul (Calc.float (-1.0)) (Calc.length spacing_rem))
+  else 
+    spacing_rem
+
 (** {1 Inset Utilities} *)
 
 let inset_0 =
@@ -16,12 +26,8 @@ let inset_y_0 = style "inset-y-0" [ Css.bottom Zero; Css.top Zero ]
 let inset n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "inset-" ^ string_of_int (abs n) in
-  let value =
-    Css.Calc
-      (Css.Calc.mul (Css.Calc.var "spacing")
-         (Css.Calc.float (float_of_int (abs n))))
-  in
-  style ~vars:[ spacing_var (abs n) ] class_name
+  let value = spacing_value n in
+  style class_name
     [ Css.top value; Css.right value; Css.bottom value; Css.left value ]
 
 (** {1 Individual Side Positioning} *)
@@ -29,42 +35,26 @@ let inset n =
 let top n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "top-" ^ string_of_int (abs n) in
-  let value =
-    Css.Calc
-      (Css.Calc.mul (Css.Calc.var "spacing")
-         (Css.Calc.float (float_of_int (abs n))))
-  in
-  style ~vars:[ spacing_var (abs n) ] class_name [ Css.top value ]
+  let value = spacing_value n in
+  style class_name [ Css.top value ]
 
 let right n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "right-" ^ string_of_int (abs n) in
-  let value =
-    Css.Calc
-      (Css.Calc.mul (Css.Calc.var "spacing")
-         (Css.Calc.float (float_of_int (abs n))))
-  in
-  style ~vars:[ spacing_var (abs n) ] class_name [ Css.right value ]
+  let value = spacing_value n in
+  style class_name [ Css.right value ]
 
 let bottom n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "bottom-" ^ string_of_int (abs n) in
-  let value =
-    Css.Calc
-      (Css.Calc.mul (Css.Calc.var "spacing")
-         (Css.Calc.float (float_of_int (abs n))))
-  in
-  style ~vars:[ spacing_var (abs n) ] class_name [ Css.bottom value ]
+  let value = spacing_value n in
+  style class_name [ Css.bottom value ]
 
 let left n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "left-" ^ string_of_int (abs n) in
-  let value =
-    Css.Calc
-      (Css.Calc.mul (Css.Calc.var "spacing")
-         (Css.Calc.float (float_of_int (abs n))))
-  in
-  style ~vars:[ spacing_var (abs n) ] class_name [ Css.left value ]
+  let value = spacing_value n in
+  style class_name [ Css.left value ]
 
 (** {1 Fractional Positioning} *)
 

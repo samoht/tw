@@ -1,26 +1,4 @@
-(** Spacing utilities for padding, margin, and gap
-
-    What's included:
-    - Padding: `p`, `px`, `py`, `pt`, `pr`, `pb`, `pl` (int scale, `px`, `full`)
-    - Margin: `m`, `mx`, `my`, `mt`, `mr`, `mb`, `ml` (int scale, `auto`)
-    - Gap: `gap`, `gap-x`, `gap-y`
-    - Space between: `space-x-N`, `space-y-N`
-
-    What's not:
-    - Arbitrary values and fractional strings outside the Tailwind spacing
-      scale. Extend with custom `Css` if needed, e.g. `style "p-[3.7px]" [Css.padding (Px 3.7)]`.
-    - `margin-trim` and other niche properties not present in the typed `Css` API.
-
-    Parsing contract (`of_string`):
-    - Accepted tokens include:
-      * ["p"; v], ["px"; v], ["py"; v], ["pt"; v], ["pr"; v], ["pb"; v], ["pl"; v]
-        where v ∈ {"px", "full", non‑negative int}
-      * ["m"; v], ["mx"; v], ["my"; v], ["mt"; v], ["mr"; v], ["mb"; v], ["ml"; v]
-        where v ∈ {"auto", non‑negative int}
-      * ["gap"; v], ["gap"; "x"; v], ["gap"; "y"; v]
-        where v ∈ {"px", "full", non‑negative int}
-    - Errors: returns `Error (`Msg msg)` with a short description, or
-      `Error (`Msg "Not a spacing utility")` when prefix is unknown. *)
+(** Spacing utilities for padding, margin. *)
 
 open Core
 open Css
@@ -197,29 +175,6 @@ let ml n =
   let len = spacing_to_length s in
   style class_name [ margin_left len ]
 
-(** {2 Typed Gap Utilities} *)
-
-let gap' (s : spacing) =
-  let class_name = "gap-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
-  style class_name [ gap len ]
-
-let gap_x' (s : spacing) =
-  let class_name = "gap-x-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
-  style class_name [ column_gap len ]
-
-let gap_y' (s : spacing) =
-  let class_name = "gap-y-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
-  style class_name [ row_gap len ]
-
-(** {2 Int-based Gap Utilities} *)
-
-let gap n = gap' (int n)
-let gap_x n = gap_x' (int n)
-let gap_y n = gap_y' (int n)
-
 (** {2 Space Between Utilities} *)
 
 let space_x n =
@@ -263,18 +218,6 @@ let margin_of_string prefix auto_var int_fn = function
       Parse.int_pos ~name n >|= int_fn
   | _ -> Error (`Msg "")
 
-let gap_of_string = function
-  | [ "gap"; "px" ] -> Ok (gap' `Px)
-  | [ "gap"; "full" ] -> Ok (gap' `Full)
-  | [ "gap"; n ] -> Parse.int_pos ~name:"gap" n >|= gap
-  | [ "gap"; "x"; "px" ] -> Ok (gap_x' `Px)
-  | [ "gap"; "x"; "full" ] -> Ok (gap_x' `Full)
-  | [ "gap"; "x"; n ] -> Parse.int_pos ~name:"gap-x" n >|= gap_x
-  | [ "gap"; "y"; "px" ] -> Ok (gap_y' `Px)
-  | [ "gap"; "y"; "full" ] -> Ok (gap_y' `Full)
-  | [ "gap"; "y"; n ] -> Parse.int_pos ~name:"gap-y" n >|= gap_y
-  | _ -> Error (`Msg "")
-
 let of_string parts =
   match parts with
   | "p" :: _ -> spacing_of_string "p" (p' `Px) (p' `Full) p parts
@@ -291,7 +234,6 @@ let of_string parts =
   | "mr" :: _ -> margin_of_string "mr" (mr' `Auto) mr parts
   | "mb" :: _ -> margin_of_string "mb" (mb' `Auto) mb parts
   | "ml" :: _ -> margin_of_string "ml" (ml' `Auto) ml parts
-  | "gap" :: _ -> gap_of_string parts
   | _ -> Error (`Msg "Not a spacing utility")
 
 (** {1 Special Values} *)
@@ -310,7 +252,6 @@ let pb_px = pb' `Px
 let pb_full = pb' `Full
 let pl_px = pl' `Px
 let pl_full = pl' `Full
-
 let m_auto = m' `Auto
 let mx_auto = mx' `Auto
 let my_auto = my' `Auto
@@ -318,6 +259,3 @@ let mt_auto = mt' `Auto
 let mr_auto = mr' `Auto
 let mb_auto = mb' `Auto
 let ml_auto = ml' `Auto
-
-let gap_px = gap' `Px
-let gap_full = gap' `Full
