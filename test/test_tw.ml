@@ -529,7 +529,7 @@ let all_colors_same_shade () =
 
 let core_tests =
   [
-    test_case "empty test" `Slow empty_test;
+    test_case "empty test" `Quick empty_test;
     test_case "basic spacing" `Slow basic_spacing;
     test_case "color classes" `Slow color_classes;
     test_case "display classes" `Slow display_classes;
