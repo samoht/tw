@@ -79,7 +79,7 @@
 (** {1 Core Types}
     @see <https://tailwindcss.com/docs/customizing-colors> Customizing Colors *)
 
-type t
+type t = Core.t
 (** The abstract type representing a single CSS style utility. You cannot create
     values of this type directly - use the provided functions. *)
 
@@ -87,88 +87,95 @@ type color
 (** Abstract type for colors. Use color constructors like [red], [blue], etc.
     Colors can have shades from 50 (lightest) to 900 (darkest). *)
 
+(** {1:tailwind_colors Tailwind colors}
+
+    Base colors map to the Tailwind v4 palette (shades 50–950). Use
+    [bg color shade], [text color shade], and [border_color color shade] to
+    produce utilities. For the underlying color data and OKLCH values, see the
+    Tailwind documentation. *)
+
 (** {1 Color Constructors} *)
 
 val black : color
-(** Pure black color. *)
+(** [black] is Tailwind black palette. See {!tailwind_colors}. *)
 
 val white : color
-(** Pure white color. *)
+(** [white] is Tailwind white palette. See {!tailwind_colors}. *)
 
 val gray : color
-(** Neutral gray color family. *)
+(** [gray] is Tailwind gray palette. See {!tailwind_colors}. *)
 
 val slate : color
-(** Cool gray with blue undertones. *)
+(** [slate] is Tailwind slate palette. See {!tailwind_colors}. *)
 
 val zinc : color
-(** Neutral gray with modern feel. *)
+(** [zinc] is Tailwind zinc palette. See {!tailwind_colors}. *)
 
 val neutral : color
-(** True neutral gray. *)
+(** [neutral] is Tailwind neutral palette. See {!tailwind_colors}. *)
 
 val stone : color
-(** Warm gray with brown undertones. *)
+(** [stone] is Tailwind stone palette. See {!tailwind_colors}. *)
 
 val red : color
-(** Classic red color family. *)
+(** [red] is Tailwind red palette. See {!tailwind_colors}. *)
 
 val orange : color
-(** Vibrant orange color family. *)
+(** [orange] is Tailwind orange palette. See {!tailwind_colors}. *)
 
 val amber : color
-(** Warm yellow-orange color family. *)
+(** [amber] is Tailwind amber palette. See {!tailwind_colors}. *)
 
 val yellow : color
-(** Bright yellow color family. *)
+(** [yellow] is Tailwind yellow palette. See {!tailwind_colors}. *)
 
 val lime : color
-(** Electric green-yellow color family. *)
+(** [lime] is Tailwind lime palette. See {!tailwind_colors}. *)
 
 val green : color
-(** Natural green color family. *)
+(** [green] is Tailwind green palette. See {!tailwind_colors}. *)
 
 val emerald : color
-(** Rich blue-green color family. *)
+(** [emerald] is Tailwind emerald palette. See {!tailwind_colors}. *)
 
 val teal : color
-(** Blue-green color family. *)
+(** [teal] is Tailwind teal palette. See {!tailwind_colors}. *)
 
 val cyan : color
-(** Bright blue-cyan color family. *)
+(** [cyan] is Tailwind cyan palette. See {!tailwind_colors}. *)
 
 val sky : color
-(** Light blue color family. *)
+(** [sky] is Tailwind sky palette. See {!tailwind_colors}. *)
 
 val blue : color
-(** Classic blue color family. *)
+(** [blue] is Tailwind blue palette. See {!tailwind_colors}. *)
 
 val indigo : color
-(** Deep blue-purple color family. *)
+(** [indigo] is Tailwind indigo palette. See {!tailwind_colors}. *)
 
 val violet : color
-(** Purple-blue color family. *)
+(** [violet] is Tailwind violet palette. See {!tailwind_colors}. *)
 
 val purple : color
-(** Classic purple color family. *)
+(** [purple] is Tailwind purple palette. See {!tailwind_colors}. *)
 
 val fuchsia : color
-(** Bright pink-purple color family. *)
+(** [fuchsia] is Tailwind fuchsia palette. See {!tailwind_colors}. *)
 
 val pink : color
-(** Soft pink color family. *)
+(** [pink] is Tailwind pink palette. See {!tailwind_colors}. *)
 
 val rose : color
-(** Warm pink color family. *)
+(** [rose] is Tailwind rose palette. See {!tailwind_colors}. *)
 
 val hex : string -> color
 (** [hex "#1da1f2"] creates a custom color from a hex string. The # prefix is
     optional.
 
     Examples:
-    - [hex "#1da1f2"] - Twitter blue with # prefix
-    - [hex "ff5733"] - Orange without # prefix
-    - [hex "#f0f"] - 3-character hex codes are supported *)
+    - [hex "#1da1f2"] - Twitter blue with # prefix.
+    - [hex "ff5733"] - Orange without # prefix.
+    - [hex "#f0f"] - 3-character hex codes are supported. *)
 
 val rgb : int -> int -> int -> color
 (** [rgb r g b] creates a custom color from RGB values (0-255).
@@ -192,84 +199,84 @@ val bg : color -> int -> t
     Shades range from 50 (lightest) to 900 (darkest). *)
 
 val bg_transparent : t
-(** Makes background fully transparent (invisible). *)
+(** [bg_transparent] makes background fully transparent. *)
 
 val bg_current : t
-(** Sets background color to match the element's text color. If the element has
-    [text ~shade:500 blue], the background will also be blue-500. Useful for
-    icons and decorative elements that should match text. *)
+(** [bg_current] sets background color to match the element's text color. If the
+    element has [text ~shade:500 blue], the background will also be blue-500.
+    Useful for icons and decorative elements that should match text. *)
 
 val bg_black : t
-(** Black background. Same as {!bg} {!black}. *)
+(** [bg_black] is default black background. See {!tailwind_colors}. *)
 
 val bg_white : t
-(** White background. Same as {!bg} {!white}. *)
+(** [bg_white] is default white background. See {!tailwind_colors}. *)
 
 val bg_gray : t
-(** Default gray background. Same as [bg gray]. *)
+(** [bg_gray] is default gray background. See {!tailwind_colors}. *)
 
 val bg_slate : t
-(** Default slate background. Same as [bg slate]. *)
+(** [bg_slate] is default slate background. See {!tailwind_colors}. *)
 
 val bg_zinc : t
-(** Default zinc background. Same as [bg zinc]. *)
+(** [bg_zinc] is default zinc background. See {!tailwind_colors}. *)
 
 val bg_neutral : t
-(** Default neutral background. Same as [bg neutral]. *)
+(** [bg_neutral] is default neutral background. See {!tailwind_colors}. *)
 
 val bg_stone : t
-(** Default stone background. Same as [bg stone]. *)
+(** [bg_stone] is default stone background. See {!tailwind_colors}. *)
 
 val bg_red : t
-(** Default red background. Same as [bg red]. *)
+(** [bg_red] is default red background. See {!tailwind_colors}. *)
 
 val bg_orange : t
-(** Default orange background. Same as [bg orange]. *)
+(** [bg_orange] is default orange background. See {!tailwind_colors}. *)
 
 val bg_amber : t
-(** Default amber background. Same as [bg amber]. *)
+(** [bg_amber] is default amber background. See {!tailwind_colors}. *)
 
 val bg_yellow : t
-(** Default yellow background. Same as [bg yellow]. *)
+(** [bg_yellow] is default yellow background. See {!tailwind_colors}. *)
 
 val bg_lime : t
-(** Default lime background. Same as [bg lime]. *)
+(** [bg_lime] is default lime background. See {!tailwind_colors}. *)
 
 val bg_green : t
-(** Default green background. Same as [bg green]. *)
+(** [bg_green] is default green background. See {!tailwind_colors}. *)
 
 val bg_emerald : t
-(** Default emerald background. Same as [bg emerald]. *)
+(** [bg_emerald] is default emerald background. See {!tailwind_colors}. *)
 
 val bg_teal : t
-(** Default teal background. Same as [bg teal]. *)
+(** [bg_teal] is default teal background. See {!tailwind_colors}. *)
 
 val bg_cyan : t
-(** Default cyan background. Same as [bg cyan]. *)
+(** [bg_cyan] is default cyan background. See {!tailwind_colors}. *)
 
 val bg_sky : t
-(** Default sky background. Same as [bg sky]. *)
+(** [bg_sky] is default sky background. See {!tailwind_colors}. *)
 
 val bg_blue : t
-(** Default blue background. Same as [bg blue]. *)
+(** [bg_blue] is default blue background. See {!tailwind_colors}. *)
 
 val bg_indigo : t
-(** Default indigo background. Same as [bg indigo]. *)
+(** [bg_indigo] is default indigo background. See {!tailwind_colors}. *)
 
 val bg_violet : t
-(** Default violet background. Same as [bg violet]. *)
+(** [bg_violet] is default violet background. See {!tailwind_colors}. *)
 
 val bg_purple : t
-(** Default purple background. Same as [bg purple]. *)
+(** [bg_purple] is default purple background. See {!tailwind_colors}. *)
 
 val bg_fuchsia : t
-(** Default fuchsia background. Same as [bg fuchsia]. *)
+(** [bg_fuchsia] is default fuchsia background. See {!tailwind_colors}. *)
 
 val bg_pink : t
-(** Default pink background. Same as [bg pink]. *)
+(** [bg_pink] is default pink background. See {!tailwind_colors}. *)
 
 val bg_rose : t
-(** Default rose background. Same as [bg rose]. *)
+(** [bg_rose] is default rose background. See {!tailwind_colors}. *)
 
 val text : color -> int -> t
 (** [text color shade] sets text color.
@@ -284,92 +291,92 @@ val text : color -> int -> t
     Higher shade numbers (700-900) ensure readability on light backgrounds. *)
 
 val text_transparent : t
-(** Transparent text color. *)
+(** [text_transparent] makes text fully transparent. *)
 
 val text_current : t
-(** Explicitly sets text color to "currentColor" (the inherited text color).
+(** [text_current] sets text color to "currentColor" (the inherited text color).
     This is rarely needed since text naturally inherits color from parents. *)
 
 val text_black : t
-(** Black text. Same as [text black 500]. *)
+(** [text_black] is default black text. See {!tailwind_colors}. *)
 
 val text_white : t
-(** White text. Same as [text white 500]. *)
+(** [text_white] is default white text. See {!tailwind_colors}. *)
 
 val text_gray : t
-(** Default gray text. Same as [text gray 500]. *)
+(** [text_gray] is default gray text. See {!tailwind_colors}. *)
 
 val text_slate : t
-(** Default slate text. Same as [text slate 500]. *)
+(** [text_slate] is default slate text. See {!tailwind_colors}. *)
 
 val text_zinc : t
-(** Default zinc text. Same as [text zinc 500]. *)
+(** [text_zinc] is default zinc text. See {!tailwind_colors}. *)
 
 val text_neutral : t
-(** Default neutral text. Same as [text neutral 500]. *)
+(** [text_neutral] is default neutral text. See {!tailwind_colors}. *)
 
 val text_stone : t
-(** Default stone text. Same as [text stone 500]. *)
+(** [text_stone] is default stone text. See {!tailwind_colors}. *)
 
 val text_blue : t
-(** Default blue text. Same as [text blue 500]. *)
+(** [text_blue] is default blue text. See {!tailwind_colors}. *)
 
 val text_red : t
-(** Default red text. Same as [text red 500]. *)
+(** [text_red] is default red text. See {!tailwind_colors}. *)
 
 val text_orange : t
-(** Default orange text. Same as [text orange 500]. *)
+(** [text_orange] is default orange text. See {!tailwind_colors}. *)
 
 val text_amber : t
-(** Default amber text. Same as [text amber 500]. *)
+(** [text_amber] is default amber text. See {!tailwind_colors}. *)
 
 val text_yellow : t
-(** Default yellow text. Same as [text yellow 500]. *)
+(** [text_yellow] is default yellow text. See {!tailwind_colors}. *)
 
 val text_lime : t
-(** Default lime text. Same as [text lime 500]. *)
+(** [text_lime] is default lime text. See {!tailwind_colors}. *)
 
 val text_green : t
-(** Default green text. Same as [text green 500]. *)
+(** [text_green] is default green text. See {!tailwind_colors}. *)
 
 val text_emerald : t
-(** Default emerald text. Same as [text emerald 500]. *)
+(** [text_emerald] is default emerald text. See {!tailwind_colors}. *)
 
 val text_teal : t
-(** Default teal text. Same as [text teal 500]. *)
+(** [text_teal] is default teal text. See {!tailwind_colors}. *)
 
 val text_cyan : t
-(** Default cyan text. Same as [text cyan 500]. *)
+(** [text_cyan] is default cyan text. See {!tailwind_colors}. *)
 
 val text_sky : t
-(** Default sky text. Same as [text sky 500]. *)
+(** [text_sky] is default sky text. See {!tailwind_colors}. *)
 
 val text_indigo : t
-(** Default indigo text. Same as [text indigo 500]. *)
+(** [text_indigo] is default indigo text. See {!tailwind_colors}. *)
 
 val text_violet : t
-(** Default violet text. Same as [text violet 500]. *)
+(** [text_violet] is default violet text. See {!tailwind_colors}. *)
 
 val text_purple : t
-(** Default purple text. Same as [text purple 500]. *)
+(** [text_purple] is default purple text. See {!tailwind_colors}. *)
 
 val text_fuchsia : t
-(** Default fuchsia text. Same as [text fuchsia 500]. *)
+(** [text_fuchsia] is default fuchsia text. See {!tailwind_colors}. *)
 
 val text_pink : t
-(** Default pink text. Same as [text pink 500]. *)
+(** [text_pink] is default pink text. See {!tailwind_colors}. *)
 
 val text_rose : t
-(** Default rose text. Same as [text rose 500]. *)
+(** [text_rose] is default rose text. See {!tailwind_colors}. *)
 
 val border_color : color -> int -> t
 (** [border_color color shade] creates a border color with a specific shade. *)
 
 val border_transparent : t
-(** Transparent border. *)
+(** [border_transparent] makes border fully transparent. *)
 
 val border_current : t
-(** Sets border color to match the text color. For example:
+(** [border_current] sets border color to match the text color. For example:
     {[
       div ~tw:[ text ~shade:600 red; border xs; border_current ]
       (* Border will be red-600, same as the text *)
@@ -378,76 +385,76 @@ val border_current : t
     This is the default behavior in Tailwind v4, but can be explicitly set. *)
 
 val border_black : t
-(** Black border. Same as [border_color black 500]. *)
+(** [border_black] is default black border. See {!tailwind_colors}. *)
 
 val border_white : t
-(** White border. Same as [border_color white 500]. *)
+(** [border_white] is default white border. See {!tailwind_colors}. *)
 
 val border_gray : t
-(** Default gray border. Same as [border_color gray 500]. *)
+(** [border_gray] is default gray border. See {!tailwind_colors}. *)
 
 val border_slate : t
-(** Default slate border. Same as [border_color slate 500]. *)
+(** [border_slate] is default slate border. See {!tailwind_colors}. *)
 
 val border_zinc : t
-(** Default zinc border. Same as [border_color zinc 500]. *)
+(** [border_zinc] is default zinc border. See {!tailwind_colors}. *)
 
 val border_neutral : t
-(** Default neutral border. Same as [border_color neutral 500]. *)
+(** [border_neutral] is default neutral border. See {!tailwind_colors}. *)
 
 val border_stone : t
-(** Default stone border. Same as [border_color stone 500]. *)
+(** [border_stone] is default stone border. See {!tailwind_colors}. *)
 
 val border_red : t
-(** Default red border. Same as [border_color red 500]. *)
+(** [border_red] is default red border. See {!tailwind_colors}. *)
 
 val border_orange : t
-(** Default orange border. Same as [border_color orange 500]. *)
+(** [border_orange] is default orange border. See {!tailwind_colors}. *)
 
 val border_amber : t
-(** Default amber border. Same as [border_color amber 500]. *)
+(** [border_amber] is default amber border. See {!tailwind_colors}. *)
 
 val border_yellow : t
-(** Default yellow border. Same as [border_color yellow 500]. *)
+(** [border_yellow] is default yellow border. See {!tailwind_colors}. *)
 
 val border_lime : t
-(** Default lime border. Same as [border_color lime 500]. *)
+(** [border_lime] is default lime border. See {!tailwind_colors}. *)
 
 val border_green : t
-(** Default green border. Same as [border_color green 500]. *)
+(** [border_green] is default green border. See {!tailwind_colors}. *)
 
 val border_emerald : t
-(** Default emerald border. Same as [border_color emerald 500]. *)
+(** [border_emerald] is default emerald border. See {!tailwind_colors}. *)
 
 val border_teal : t
-(** Default teal border. Same as [border_color teal 500]. *)
+(** [border_teal] is default teal border. See {!tailwind_colors}. *)
 
 val border_cyan : t
-(** Default cyan border. Same as [border_color cyan 500]. *)
+(** [border_cyan] is default cyan border. See {!tailwind_colors}. *)
 
 val border_sky : t
-(** Default sky border. Same as [border_color sky 500]. *)
+(** [border_sky] is default sky border. See {!tailwind_colors}. *)
 
 val border_blue : t
-(** Default blue border. Same as [border_color blue 500]. *)
+(** [border_blue] is default blue border. See {!tailwind_colors}. *)
 
 val border_indigo : t
-(** Default indigo border. Same as [border_color indigo 500]. *)
+(** [border_indigo] is default indigo border. See {!tailwind_colors}. *)
 
 val border_violet : t
-(** Default violet border. Same as [border_color violet 500]. *)
+(** [border_violet] is default violet border. See {!tailwind_colors}. *)
 
 val border_purple : t
-(** Default purple border. Same as [border_color purple 500]. *)
+(** [border_purple] is default purple border. See {!tailwind_colors}. *)
 
 val border_fuchsia : t
-(** Default fuchsia border. Same as [border_color fuchsia 500]. *)
+(** [border_fuchsia] is default fuchsia border. See {!tailwind_colors}. *)
 
 val border_pink : t
-(** Default pink border. Same as [border_color pink 500]. *)
+(** [border_pink] is default pink border. See {!tailwind_colors}. *)
 
 val border_rose : t
-(** Default rose border. Same as [border_color rose 500]. *)
+(** [border_rose] is default rose border. See {!tailwind_colors}. *)
 
 (** Gradient direction variants *)
 type direction =
@@ -761,19 +768,19 @@ val max_h_full : t
     @see <https://tailwindcss.com/docs/position> Position *)
 
 val block : t
-(** Makes element a block - takes full width, stacks vertically. Default for
-    div, p, h1-h6. *)
+(** [block] makes the element a block; it takes full width and stacks
+    vertically. Default for div, p, h1–h6. *)
 
 val inline : t
-(** Makes element inline - flows with text, width based on content. Default for
-    span, a, strong. *)
+(** [inline] makes the element inline; it flows with text and its width is based
+    on content. Default for span, a, strong. *)
 
 val inline_block : t
-(** Hybrid - flows inline but can have width/height like a block. *)
+(** [inline_block] flows inline but can have width/height like a block. *)
 
 val flex : t
-(** Creates a flex container for flexible layouts. Children can be arranged
-    horizontally/vertically with gaps.
+(** [flex] creates a flex container for flexible layouts. Children can be
+    arranged horizontally/vertically with gaps.
 
     Example:
     {[
@@ -781,45 +788,47 @@ val flex : t
     ]} *)
 
 val inline_flex : t
-(** Like flex but the container itself is inline. *)
+(** [inline_flex] is like [flex] but the container itself is inline. *)
 
 val grid : t
-(** Creates a grid container for 2D layouts with rows and columns. More
+(** [grid] creates a grid container for 2D layouts with rows and columns. More
     structured than flexbox. *)
 
 val inline_grid : t
-(** Like grid but the container itself is inline. *)
+(** [inline_grid] is like [grid] but the container itself is inline. *)
 
 val hidden : t
-(** Completely hides element - no space reserved, screen readers skip it. Use
-    [sr_only] to hide visually but keep accessible. *)
+(** [hidden] completely hides the element; no space is reserved and screen
+    readers skip it. Use [sr_only] to hide visually but keep accessible. *)
 
 val flex_col : t
-(** Stacks flex items vertically (top to bottom). Changes the main axis to
-    vertical. *)
+(** [flex_col] stacks flex items vertically (top to bottom). Changes the main
+    axis to vertical. *)
 
 val flex_row : t
-(** Arranges flex items horizontally (left to right). This is the default for
-    flex containers. *)
+(** [flex_row] arranges flex items horizontally (left to right). This is the
+    default for flex containers. *)
 
 val flex_row_reverse : t
-(** Arranges flex items horizontally but reversed (right to left). *)
+(** [flex_row_reverse] arranges flex items horizontally but reversed (right to
+    left). *)
 
 val flex_col_reverse : t
-(** Stacks flex items vertically but reversed (bottom to top). *)
+(** [flex_col_reverse] stacks flex items vertically but reversed (bottom to
+    top). *)
 
 val flex_wrap : t
-(** Flex wrap. *)
+(** [flex_wrap] allows flex items to wrap onto multiple lines. *)
 
 val flex_wrap_reverse : t
-(** Flex wrap reverse. *)
+(** [flex_wrap_reverse] wraps flex items in reverse order. *)
 
 val flex_nowrap : t
-(** Prevent flex items from wrapping. *)
+(** [flex_nowrap] prevents flex items from wrapping. *)
 
 val flex_1 : t
-(** Item grows and shrinks as needed, ignoring initial size. Perfect for
-    elements that should fill available space equally.
+(** [flex_1] item grows and shrinks as needed, ignoring initial size. Perfect
+    for elements that should fill available space equally.
 
     Example:
     {[
@@ -836,189 +845,199 @@ val flex_1 : t
     ]} *)
 
 val flex_auto : t
-(** Item grows and shrinks but considers its content size. Good for text that
-    should expand but not squish too much. *)
+(** [flex_auto] item grows and shrinks but considers its content size. Good for
+    text that should expand but not squish too much. *)
 
 val flex_initial : t
-(** Item can shrink but won't grow beyond its content. Default flex behavior. *)
+(** [flex_initial] item can shrink but will not grow beyond its content. Default
+    flex behavior. *)
 
 val flex_none : t
-(** Item stays at its natural size - won't grow or shrink. Use for fixed-size
-    elements like icons or buttons. *)
+(** [flex_none] keeps the item at its natural size; it will not grow or shrink.
+    Use for fixed-size elements like icons or buttons. *)
 
 val flex_grow : t
-(** Allow flex item to grow. *)
+(** [flex_grow] allows the flex item to grow. *)
 
 val flex_grow_0 : t
-(** Prevent flex item from growing. *)
+(** [flex_grow_0] prevents the flex item from growing. *)
 
 val flex_shrink : t
-(** Allow flex item to shrink. *)
+(** [flex_shrink] allows the flex item to shrink. *)
 
 val flex_shrink_0 : t
-(** Prevent flex item from shrinking. *)
+(** [flex_shrink_0] prevents the flex item from shrinking. *)
 
 val items_start : t
-(** Aligns flex/grid items to the start of their container's cross axis. In a
-    row, this is the top. In a column, this is the left. *)
+(** [items_start] aligns flex/grid items to the start of their container's cross
+    axis. In a row, this is the top. In a column, this is the left. *)
 
 val items_end : t
-(** Aligns flex/grid items to the end of their container's cross axis. In a row,
-    this is the bottom. In a column, this is the right. *)
+(** [items_end] aligns flex/grid items to the end of their container's cross
+    axis. In a row, this is the bottom. In a column, this is the right. *)
 
 val items_center : t
-(** Centers flex/grid items along the container's cross axis. Very common for
-    vertically centering content. *)
+(** [items_center] centers flex/grid items along the container's cross axis.
+    Very common for vertically centering content. *)
 
 val items_baseline : t
-(** Aligns flex/grid items along their text baseline. Useful when items have
-    different font sizes. *)
+(** [items_baseline] aligns flex/grid items along their text baseline. Useful
+    when items have different font sizes. *)
 
 val items_stretch : t
-(** Stretches items to fill the container's cross axis. Default behavior - makes
-    all items same height in a row. *)
+(** [items_stretch] stretches items to fill the container's cross axis (default
+    behavior). Makes all items the same height in a row. *)
 
 val justify_start : t
-(** Packs flex/grid items toward the start of the main axis. In a row (default),
-    items align left. In a column, items align top. *)
+(** [justify_start] packs flex/grid items toward the start of the main axis. In
+    a row (default), items align left. In a column, items align top. *)
 
 val justify_end : t
-(** Packs flex/grid items toward the end of the main axis. In a row, items align
-    right. In a column, items align bottom. *)
+(** [justify_end] packs flex/grid items toward the end of the main axis. In a
+    row, items align right. In a column, items align bottom. *)
 
 val justify_center : t
-(** Centers flex/grid items along the main axis. Common for centering content
-    horizontally. *)
+(** [justify_center] centers flex/grid items along the main axis. Common for
+    centering content horizontally. *)
 
 val justify_between : t
-(** Distributes items evenly - first at start, last at end, equal space between.
-*)
+(** [justify_between] distributes items evenly: first at start, last at end,
+    equal space between. *)
 
 val justify_around : t
-(** Distributes items evenly with equal space around each item. Items have
-    half-size space on the edges. *)
+(** [justify_around] distributes items evenly with equal space around each item.
+    Items have half-size space on the edges. *)
 
 val justify_evenly : t
-(** Distributes items evenly with equal space between and around all items. All
-    gaps including edges are the same size. *)
+(** [justify_evenly] distributes items evenly with equal space between and
+    around all items. All gaps including edges are the same size. *)
 
 (** {2 Align Content (Multi-line Flex/Grid)} *)
 
 val content_start : t
-(** Aligns lines/rows to the start of the container's cross axis. For flex
-    containers with multiple lines or grid containers with multiple rows. *)
+(** [content_start] aligns lines/rows to the start of the container's cross
+    axis. For flex containers with multiple lines or grid containers with
+    multiple rows. *)
 
 val content_end : t
-(** Aligns lines/rows to the end of the container's cross axis. *)
+(** [content_end] aligns lines/rows to the end of the container's cross axis. *)
 
 val content_center : t
-(** Centers lines/rows along the container's cross axis. *)
+(** [content_center] centers lines/rows along the container's cross axis. *)
 
 val content_between : t
-(** Distributes lines/rows evenly - first at start, last at end. *)
+(** [content_between] distributes lines/rows evenly: first at start, last at
+    end. *)
 
 val content_around : t
-(** Distributes lines/rows evenly with equal space around each. *)
+(** [content_around] distributes lines/rows evenly with equal space around each.
+*)
 
 val content_evenly : t
-(** Distributes lines/rows evenly with equal space between and around all. *)
+(** [content_evenly] distributes lines/rows evenly with equal space between and
+    around all. *)
 
 val content_stretch : t
-(** Stretches lines/rows to fill the container's cross axis. *)
+(** [content_stretch] stretches lines/rows to fill the container's cross axis.
+*)
 
 (** {2 Place Content (Grid Shorthand)} *)
 
 val place_content_start : t
-(** Aligns content to start in both axes. Shorthand for align-content and
-    justify-content. *)
+(** [place_content_start] aligns content to start in both axes. Shorthand for
+    align-content and justify-content. *)
 
 val place_content_end : t
-(** Aligns content to end in both axes. *)
+(** [place_content_end] aligns content to end in both axes. *)
 
 val place_content_center : t
-(** Centers content in both axes. Perfect for centering grid content. *)
+(** [place_content_center] centers content in both axes. Perfect for centering
+    grid content. *)
 
 val place_content_between : t
-(** Distributes content with space between in both axes. *)
+(** [place_content_between] distributes content with space between in both axes.
+*)
 
 val place_content_around : t
-(** Distributes content with space around in both axes. *)
+(** [place_content_around] distributes content with space around in both axes.
+*)
 
 val place_content_evenly : t
-(** Distributes content evenly in both axes. *)
+(** [place_content_evenly] distributes content evenly in both axes. *)
 
 val place_content_stretch : t
-(** Stretches content to fill both axes. *)
+(** [place_content_stretch] stretches content to fill both axes. *)
 
 (** {2 Place Items (Grid Shorthand)} *)
 
 val place_items_start : t
-(** Aligns items to start in both axes. Shorthand for align-items and
-    justify-items. *)
+(** [place_items_start] aligns items to start in both axes. Shorthand for
+    align-items and justify-items. *)
 
 val place_items_end : t
-(** Aligns items to end in both axes. *)
+(** [place_items_end] aligns items to end in both axes. *)
 
 val place_items_center : t
-(** Centers items in both axes. Common for centering grid items. *)
+(** [place_items_center] centers items in both axes. Common for centering grid
+    items. *)
 
 val place_items_stretch : t
-(** Stretches items to fill both axes (default). *)
+(** [place_items_stretch] stretches items to fill both axes (default). *)
 
 (** {2 Self Alignment} *)
 
 val self_auto : t
-(** Uses parent's align-items value (default). *)
+(** [self_auto] uses parent's align-items value (default). *)
 
 val self_start : t
-(** Aligns item to the start of the container's cross axis. *)
+(** [self_start] aligns the item to the start of the container's cross axis. *)
 
 val self_end : t
-(** Aligns item to the end of the container's cross axis. *)
+(** [self_end] aligns the item to the end of the container's cross axis. *)
 
 val self_center : t
-(** Centers item along the container's cross axis. *)
+(** [self_center] centers the item along the container's cross axis. *)
 
 val self_baseline : t
-(** Aligns item along text baseline. *)
+(** [self_baseline] aligns the item along the text baseline. *)
 
 val self_stretch : t
-(** Stretches item to fill the container's cross axis. *)
+(** [self_stretch] stretches the item to fill the container's cross axis. *)
 
 (** {2 Justify Self (Grid Items)} *)
 
 val justify_self_auto : t
-(** Uses parent's justify-items value (default). *)
+(** [justify_self_auto] uses parent's justify-items value (default). *)
 
 val justify_self_start : t
-(** Aligns item to the start of its grid area. *)
+(** [justify_self_start] aligns the item to the start of its grid area. *)
 
 val justify_self_end : t
-(** Aligns item to the end of its grid area. *)
+(** [justify_self_end] aligns the item to the end of its grid area. *)
 
 val justify_self_center : t
-(** Centers item within its grid area. *)
+(** [justify_self_center] centers the item within its grid area. *)
 
 val justify_self_stretch : t
-(** Stretches item to fill its grid area. *)
+(** [justify_self_stretch] stretches the item to fill its grid area. *)
 
 (** {2 Place Self (Grid Shorthand)} *)
 
 val place_self_auto : t
-(** Uses parent's place-items value. Shorthand for align-self and justify-self.
-*)
+(** [place_self_auto] uses parent's place-items value. Shorthand for align-self
+    and justify-self. *)
 
 val place_self_start : t
-(** Aligns to start in both axes. *)
+(** [place_self_start] aligns to start in both axes. *)
 
 val place_self_end : t
-(** Aligns to end in both axes. *)
+(** [place_self_end] aligns to end in both axes. *)
 
 val place_self_center : t
-(** Centers in both axes. *)
+(** [place_self_center] centers in both axes. *)
 
 val place_self_stretch : t
-(** Stretches to fill both axes. *)
+(** [place_self_stretch] stretches to fill both axes. *)
 
 val grid_cols : int -> t
 (** [grid_cols n] creates a grid with n equal columns.
@@ -1044,17 +1063,17 @@ val grid_rows : int -> t
 (** [grid_rows n] creates a grid with n equal rows. *)
 
 val static : t
-(** Default positioning - element flows normally in the document. Ignores
+(** [static] uses normal document flow positioning. Ignores
     top/right/bottom/left properties. *)
 
 val relative : t
-(** Position relative to element's normal position. Can use
-    top/right/bottom/left to nudge from original spot. Creates positioning
+(** [relative] positions relative to the element's normal position. You can use
+    top/right/bottom/left to nudge from the original spot. Creates positioning
     context for absolute children. *)
 
 val absolute : t
-(** Removes from normal flow, positions relative to nearest positioned parent.
-    Use with top/right/bottom/left for exact placement.
+(** [absolute] removes from normal flow and positions relative to the nearest
+    positioned parent. Use with top/right/bottom/left for exact placement.
 
     Example:
     {[
@@ -1064,20 +1083,21 @@ val absolute : t
     ]} *)
 
 val fixed : t
-(** Like absolute but relative to viewport - stays in place when scrolling. *)
+(** [fixed] is like [absolute] but relative to the viewport; it stays in place
+    when scrolling. *)
 
 val sticky : t
-(** Hybrid - scrolls normally until it reaches viewport edge, then sticks. Great
-    for table headers and sidebars that follow scroll. *)
+(** [sticky] scrolls normally until it reaches a viewport edge, then sticks.
+    Great for table headers and sidebars that follow scroll. *)
 
 val inset_0 : t
-(** Set all inset values to 0. *)
+(** [inset_0] sets all inset values to 0. *)
 
 val inset_x_0 : t
-(** Set left and right to 0. *)
+(** [inset_x_0] sets left and right to 0. *)
 
 val inset_y_0 : t
-(** Set top and bottom to 0. *)
+(** [inset_y_0] sets top and bottom to 0. *)
 
 val top : int -> t
 (** [top n] sets top position value. *)
@@ -1109,128 +1129,138 @@ val inset : int -> t
     value. *)
 
 val top_1_2 : t
-(** Position element at 50% from top. *)
+(** [top_1_2] positions the element at 50% from the top. *)
 
 val left_1_2 : t
-(** Position element at 50% from left. *)
+(** [left_1_2] positions the element at 50% from the left. *)
 
 val neg_translate_x_1_2 : t
-(** Translate element -50% horizontally (for centering). *)
+(** [neg_translate_x_1_2] translates the element -50% horizontally (for
+    centering). *)
 
 val neg_translate_y_1_2 : t
-(** Translate element -50% vertically (for centering). *)
+(** [neg_translate_y_1_2] translates the element -50% vertically (for
+    centering). *)
 
 (** {1 Typography}
     @see <https://tailwindcss.com/docs/font-size> Typography *)
 
 val text_xs : t
-(** Extra small text (12px) - for captions, labels, fine print. *)
-
-val text_sm : t
-(** Small text (14px) - for secondary content, form labels. *)
-
-val text_base : t
-(** Base text (16px) - default body text size, good readability. *)
-
-val text_lg : t
-(** Large text (18px) - for emphasized paragraphs, lead text. *)
-
-val text_xl : t
-(** Extra large text (20px) - for section introductions. *)
-
-val text_2xl : t
-(** 2x large text size (1.5rem). *)
-
-val text_3xl : t
-(** 3x large text size (1.875rem). *)
-
-val text_4xl : t
-(** 4x large text size (2.25rem). *)
-
-val text_5xl : t
-(** 5x large text size (3rem). *)
-
-val font_thin : t
-(** Thinnest font weight (100) - use sparingly, may not be visible with all
-    fonts. *)
-
-val font_light : t
-(** Light font weight (300) - for subtle, delicate text. *)
-
-val font_normal : t
-(** Normal font weight (400) - default for body text. *)
-
-val font_medium : t
-(** Medium font weight (500) - slightly bolder than normal, good for UI labels.
+(** [text_xs] sets extra small text (12px) for captions, labels, and fine print.
 *)
 
+val text_sm : t
+(** [text_sm] sets small text (14px) for secondary content and form labels. *)
+
+val text_base : t
+(** [text_base] sets base text (16px): default body text size with good
+    readability. *)
+
+val text_lg : t
+(** [text_lg] sets large text (18px) for emphasized paragraphs and lead text. *)
+
+val text_xl : t
+(** [text_xl] sets extra large text (20px) for section introductions. *)
+
+val text_2xl : t
+(** [text_2xl] sets 2× large text size (1.5rem). *)
+
+val text_3xl : t
+(** [text_3xl] sets 3× large text size (1.875rem). *)
+
+val text_4xl : t
+(** [text_4xl] sets 4× large text size (2.25rem). *)
+
+val text_5xl : t
+(** [text_5xl] sets 5× large text size (3rem). *)
+
+val font_thin : t
+(** [font_thin] uses the thinnest font weight (100). Use sparingly; it may not
+    be visible with all fonts. *)
+
+val font_light : t
+(** [font_light] uses light font weight (300) for subtle, delicate text. *)
+
+val font_normal : t
+(** [font_normal] uses normal font weight (400), the default for body text. *)
+
+val font_medium : t
+(** [font_medium] uses medium font weight (500), slightly bolder than normal;
+    good for UI labels. *)
+
 val font_semibold : t
-(** Semi-bold font weight (600) - for subheadings and emphasis. *)
+(** [font_semibold] uses semi-bold font weight (600) for subheadings and
+    emphasis. *)
 
 val font_bold : t
-(** Bold font weight (700) - for headings and strong emphasis. *)
+(** [font_bold] uses bold font weight (700) for headings and strong emphasis. *)
 
 val font_extrabold : t
-(** Extra bold font weight (800) - for major headings. *)
+(** [font_extrabold] uses extra bold font weight (800) for major headings. *)
 
 val font_black : t
-(** Heaviest font weight (900) - for maximum impact, hero text. *)
+(** [font_black] uses the heaviest font weight (900) for maximum impact and hero
+    text. *)
 
 val font_sans : t
-(** Sans-serif font family. *)
+(** [font_sans] selects a sans-serif font family. *)
 
 val font_serif : t
-(** Serif font family. *)
+(** [font_serif] selects a serif font family. *)
 
 val font_mono : t
-(** Monospace font family. *)
+(** [font_mono] selects a monospace font family. *)
 
 val italic : t
-(** Italic text style. *)
+(** [italic] applies italic text style. *)
 
 val not_italic : t
-(** Remove italic text style. *)
+(** [not_italic] removes italic text style. *)
 
 val underline : t
-(** Underlined text decoration. *)
+(** [underline] applies an underlined text decoration. *)
 
 val line_through : t
-(** Line-through text decoration. *)
+(** [line_through] applies a line-through text decoration. *)
 
 val no_underline : t
-(** Remove text decoration. *)
+(** [no_underline] removes text decoration. *)
 
 (** {2 Text Transform} *)
 
 val uppercase : t
-(** Transform text to UPPERCASE. Useful for labels, badges, and emphasis. *)
+(** [uppercase] transforms text to UPPERCASE. Useful for labels, badges, and
+    emphasis. *)
 
 val lowercase : t
-(** Transform text to lowercase. Less common but useful for specific designs. *)
+(** [lowercase] transforms text to lowercase. Less common but useful for
+    specific designs. *)
 
 val capitalize : t
-(** Capitalize The First Letter Of Each Word. Good for titles and headings. *)
+(** [capitalize] capitalizes the first letter of each word. Good for titles and
+    headings. *)
 
 val normal_case : t
-(** Remove text transformation (default). Use to override parent text-transform.
-*)
+(** [normal_case] removes text transformation (default). Use to override parent
+    text-transform. *)
 
 (** {2 Text Decoration Style} *)
 
 val underline_solid : t
-(** Sets text decoration style to solid (default). *)
+(** [underline_solid] sets text decoration style to solid (default). *)
 
 val underline_double : t
-(** Sets text decoration style to double line. *)
+(** [underline_double] sets text decoration style to a double line. *)
 
 val underline_dotted : t
-(** Sets text decoration style to dotted line. *)
+(** [underline_dotted] sets text decoration style to a dotted line. *)
 
 val underline_dashed : t
-(** Sets text decoration style to dashed line. *)
+(** [underline_dashed] sets text decoration style to a dashed line. *)
 
 val underline_wavy : t
-(** Sets text decoration style to wavy line. Good for spell check indicators. *)
+(** [underline_wavy] sets text decoration style to a wavy line. Good for spell
+    check indicators. *)
 
 (** {2 Text Underline Offset} *)
 
@@ -1284,7 +1314,8 @@ val leading_loose : t
     room. *)
 
 val leading : int -> t
-(** Arbitrary line-height on the spacing scale (n * 0.25rem). *)
+(** [leading n] sets arbitrary line-height from the spacing scale ([n] *
+    0.25rem). *)
 
 val tracking_tighter : t
 (** Letter spacing of -0.05em. *)
@@ -1749,19 +1780,20 @@ val container_name : string -> t
 (** [container_name "sidebar"] names a container for targeted queries. *)
 
 val on_container_sm : t list -> t
-(** Apply styles when container is ≥640px wide. *)
+(** [on_container_sm styles] applies [styles] when container is ≥640px wide. *)
 
 val on_container_md : t list -> t
-(** Apply styles when container is ≥768px wide. *)
+(** [on_container_md styles] applies [styles] when container is ≥768px wide. *)
 
 val on_container_lg : t list -> t
-(** Apply styles when container is ≥1024px wide. *)
+(** [on_container_lg styles] applies [styles] when container is ≥1024px wide. *)
 
 val on_container_xl : t list -> t
-(** Apply styles when container is ≥1280px wide. *)
+(** [on_container_xl styles] applies [styles] when container is ≥1280px wide. *)
 
 val on_container_2xl : t list -> t
-(** Apply styles when container is ≥1536px wide. *)
+(** [on_container_2xl styles] applies [styles] when container is ≥1536px wide.
+*)
 
 val on_container : ?name:string -> int -> t list -> t
 (** [on_container 500 styles] applies styles when container is ≥500px.
@@ -2430,7 +2462,7 @@ module Color = Color
 
 (* Version module is now in the css library *)
 
-val to_css : ?reset:bool -> t list -> Css.t
+val to_css : ?reset:bool -> ?mode:Css.mode -> t list -> Css.t
 (** [to_css ?reset styles] generates a CSS stylesheet for the given styles.
 
     The generated CSS follows Tailwind's layering and ordering conventions:
@@ -2514,8 +2546,10 @@ val clip_polygon : (float * float) list -> t
 
 (* Module exports for testing - not part of public API *)
 module Core = Core
+module Parse = Parse
 module Spacing = Spacing
 module Borders = Borders
+module Backgrounds = Backgrounds
 module Sizing = Sizing
 module Layout = Layout
 module Typography = Typography
@@ -2527,5 +2561,6 @@ module Filters = Filters
 module Positioning = Positioning
 module Animations = Animations
 module Forms = Forms
+module Rules = Rules
 
 (**/**)

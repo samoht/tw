@@ -127,34 +127,82 @@ let rounded_none = style "rounded-none" [ border_radius Zero ]
 
 let rounded_sm =
   style_with_vars "rounded-sm"
-    [ border_radius (Var { name = "radius-sm"; fallback = None }) ]
+    [
+      border_radius
+        (Var
+           {
+             name = "radius-sm";
+             fallback = None;
+             default_value = Some (Rem 0.125);
+           });
+    ]
     [ Radius { name = "sm"; value = ".25rem" } ]
 
 let rounded = style "rounded" [ border_radius (Rem 0.25) ]
 
 let rounded_md =
   style_with_vars "rounded-md"
-    [ border_radius (Var { name = "radius-md"; fallback = None }) ]
+    [
+      border_radius
+        (Var
+           {
+             name = "radius-md";
+             fallback = None;
+             default_value = Some (Rem 0.375);
+           });
+    ]
     [ Radius { name = "md"; value = ".375rem" } ]
 
 let rounded_lg =
   style_with_vars "rounded-lg"
-    [ border_radius (Var { name = "radius-lg"; fallback = None }) ]
+    [
+      border_radius
+        (Var
+           {
+             name = "radius-lg";
+             fallback = None;
+             default_value = Some (Rem 0.5);
+           });
+    ]
     [ Radius { name = "lg"; value = ".5rem" } ]
 
 let rounded_xl =
   style_with_vars "rounded-xl"
-    [ border_radius (Var { name = "radius-xl"; fallback = None }) ]
+    [
+      border_radius
+        (Var
+           {
+             name = "radius-xl";
+             fallback = None;
+             default_value = Some (Rem 0.75);
+           });
+    ]
     [ Radius { name = "xl"; value = ".75rem" } ]
 
 let rounded_2xl =
   style_with_vars "rounded-2xl"
-    [ border_radius (Var { name = "radius-2xl"; fallback = None }) ]
+    [
+      border_radius
+        (Var
+           {
+             name = "radius-2xl";
+             fallback = None;
+             default_value = Some (Rem 1.0);
+           });
+    ]
     [ Radius { name = "2xl"; value = "1rem" } ]
 
 let rounded_3xl =
   style_with_vars "rounded-3xl"
-    [ border_radius (Var { name = "radius-3xl"; fallback = None }) ]
+    [
+      border_radius
+        (Var
+           {
+             name = "radius-3xl";
+             fallback = None;
+             default_value = Some (Rem 1.5);
+           });
+    ]
     [ Radius { name = "3xl"; value = "1.5rem" } ]
 
 let rounded_full =

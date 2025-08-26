@@ -20,19 +20,24 @@ val container_name : string -> t
 (** {1 Container Query Modifiers} *)
 
 val on_container_sm : t list -> t
-(** Apply styles when container is at least 24rem (384px) wide. *)
+(** [on_container_sm styles] applies [styles] when the container is at least
+    24rem (384px) wide. *)
 
 val on_container_md : t list -> t
-(** Apply styles when container is at least 28rem (448px) wide. *)
+(** [on_container_md styles] applies [styles] when the container is at least
+    28rem (448px) wide. *)
 
 val on_container_lg : t list -> t
-(** Apply styles when container is at least 32rem (512px) wide. *)
+(** [on_container_lg styles] applies [styles] when the container is at least
+    32rem (512px) wide. *)
 
 val on_container_xl : t list -> t
-(** Apply styles when container is at least 36rem (576px) wide. *)
+(** [on_container_xl styles] applies [styles] when the container is at least
+    36rem (576px) wide. *)
 
 val on_container_2xl : t list -> t
-(** Apply styles when container is at least 42rem (672px) wide. *)
+(** [on_container_2xl styles] applies [styles] when the container is at least
+    42rem (672px) wide. *)
 
 val on_container : ?name:string -> int -> t list -> t
 (** [on_container ?name min_width styles] applies styles when the named
@@ -42,10 +47,11 @@ val on_container : ?name:string -> int -> t list -> t
 (** {1 Helper Functions} *)
 
 val container_query_to_css_prefix : container_query -> string
-(** Converts a container query to its CSS @container rule prefix. *)
+(** [container_query_to_css_prefix q] converts [q] to its CSS @container rule prefix. *)
 
 val container_query_to_class_prefix : container_query -> string
-(** Converts a container query to its class name prefix (e.g., "@sm"). *)
+(** [container_query_to_class_prefix q] converts [q] to its class name prefix
+    (e.g., "@sm"). *)
 
 (** {1 Parsing Functions} *)
 

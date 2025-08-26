@@ -1,71 +1,70 @@
 open Alcotest
 
+let check parts =
+  let expected = String.concat "-" parts in
+  match Tw.Spacing.of_string parts with
+  | Ok result ->
+      Alcotest.check string "spacing class name" expected (Tw.Core.pp result)
+  | Error (`Msg msg) -> fail msg
+
 let test_spacing_of_string_valid () =
-  (* Valid spacing values *)
-  let test_valid input expected =
-    match Tw.Spacing.of_string input with
-    | Ok result ->
-        check string "spacing class name" expected (Tw.Core.pp result)
-    | Error (`Msg msg) -> fail msg
-  in
+  check [ "p"; "0" ];
+  check [ "p"; "1" ];
+  check [ "p"; "4" ];
+  check [ "p"; "px" ];
+  check [ "p"; "0.5" ];
+  check [ "p"; "1.5" ];
 
-  test_valid [ "p"; "0" ] "p-0";
-  test_valid [ "p"; "1" ] "p-1";
-  test_valid [ "p"; "4" ] "p-4";
-  test_valid [ "p"; "px" ] "p-px";
-  test_valid [ "p"; "0.5" ] "p-0.5";
-  test_valid [ "p"; "1.5" ] "p-1.5";
+  check [ "m"; "0" ];
+  check [ "m"; "1" ];
+  check [ "m"; "auto" ];
+  check [ "-m"; "1" ];
+  check [ "-m"; "4" ];
 
-  test_valid [ "m"; "0" ] "m-0";
-  test_valid [ "m"; "1" ] "m-1";
-  test_valid [ "m"; "auto" ] "m-auto";
-  test_valid [ "-m"; "1" ] "-m-1";
-  test_valid [ "-m"; "4" ] "-m-4";
+  check [ "px"; "4" ];
+  check [ "py"; "2" ];
+  check [ "mx"; "auto" ];
+  check [ "my"; "8" ];
 
-  test_valid [ "px"; "4" ] "px-4";
-  test_valid [ "py"; "2" ] "py-2";
-  test_valid [ "mx"; "auto" ] "mx-auto";
-  test_valid [ "my"; "8" ] "my-8";
+  check [ "pt"; "2" ];
+  check [ "pr"; "4" ];
+  check [ "pb"; "6" ];
+  check [ "pl"; "8" ];
+  check [ "mt"; "auto" ];
+  check [ "mr"; "0" ];
 
-  test_valid [ "pt"; "2" ] "pt-2";
-  test_valid [ "pr"; "4" ] "pr-4";
-  test_valid [ "pb"; "6" ] "pb-6";
-  test_valid [ "pl"; "8" ] "pl-8";
-  test_valid [ "mt"; "auto" ] "mt-auto";
-  test_valid [ "mr"; "0" ] "mr-0";
+  check [ "gap"; "2" ];
+  check [ "gap"; "x"; "4" ];
+  check [ "gap"; "y"; "6" ];
 
-  test_valid [ "gap"; "2" ] "gap-2";
-  test_valid [ "gap"; "x"; "4" ] "gap-x-4";
-  test_valid [ "gap"; "y"; "6" ] "gap-y-6";
-
-  test_valid [ "space"; "x"; "2" ] "space-x-2";
-  test_valid [ "space"; "y"; "4" ] "space-y-4";
-  test_valid [ "-space"; "x"; "1" ] "-space-x-1";
-  test_valid [ "-space"; "y"; "2" ] "-space-y-2"
+  check [ "space"; "x"; "2" ];
+  check [ "space"; "y"; "4" ];
+  check [ "-space"; "x"; "1" ];
+  check [ "-space"; "y"; "2" ]
 
 let test_spacing_of_string_invalid () =
   (* Invalid spacing values *)
-  let test_invalid input =
+  let fail_maybe input =
     match Tw.Spacing.of_string input with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in
 
-  test_invalid [ "p" ];
+  fail_maybe [ "p" ];
   (* Missing value *)
-  test_invalid [ "p"; "invalid" ];
+  fail_maybe [ "p"; "invalid" ];
   (* Invalid value *)
-  test_invalid [ "p"; "-1" ];
+  fail_maybe [ "p"; "-1" ];
   (* Negative not allowed for padding *)
-  test_invalid [ "px"; "auto" ];
+  fail_maybe [ "px"; "auto" ];
   (* Auto not valid for px *)
-  test_invalid [ "py"; "auto" ];
+  fail_maybe [ "py"; "auto" ];
   (* Auto not valid for py *)
-  test_invalid [ "gap"; "auto" ];
+  fail_maybe [ "gap"; "auto" ];
   (* Auto not valid for gap *)
-  test_invalid [ "space" ];
+  fail_maybe [ "space" ];
   (* Missing axis *)
-  test_invalid [ "space"; "z"; "2" ]
+  fail_maybe [ "space"; "z"; "2" ]
 (* Invalid axis *)
 
 let tests =
@@ -75,3 +74,5 @@ let tests =
     test_case "spacing of_string - invalid values" `Quick
       test_spacing_of_string_invalid;
   ]
+
+let suite = ("spacing", tests)

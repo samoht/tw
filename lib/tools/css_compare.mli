@@ -4,9 +4,9 @@
 type token =
   | Selector of string
   | Property of string * string
-  | OpenBrace
-  | CloseBrace
-  | AtRule of string
+  | Open_brace
+  | Close_brace
+  | At_rule of string
   | Semicolon
   | Comma
 

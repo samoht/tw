@@ -56,7 +56,7 @@ let generate ?(minify = false) classnames =
     tailwind_files temp_dir classnames;
     let minify_flag = if minify then " --minify" else "" in
     let cmd =
-      Printf.sprintf
+      Fmt.str
         "cd %s && npx tailwindcss -i input.css -o output.css --content \
          input.html%s --optimize 2>/dev/null"
         temp_dir minify_flag

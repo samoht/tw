@@ -1,77 +1,77 @@
 open Alcotest
 
+let check parts =
+  let expected = String.concat "-" parts in
+  match Tw.Borders.of_string parts with
+  | Ok result ->
+      Alcotest.check string "border class name" expected (Tw.Core.pp result)
+  | Error (`Msg msg) -> fail msg
+
 let test_borders_of_string_valid () =
-  (* Valid border values *)
-  let test_valid input expected =
-    match Tw.Borders.of_string input with
-    | Ok result -> check string "border class name" expected (Tw.Core.pp result)
-    | Error (`Msg msg) -> fail msg
-  in
+  check [ "border" ];
+  check [ "border"; "0" ];
+  check [ "border"; "2" ];
+  check [ "border"; "4" ];
+  check [ "border"; "8" ];
 
-  test_valid [ "border" ] "border";
-  test_valid [ "border"; "0" ] "border-0";
-  test_valid [ "border"; "2" ] "border-2";
-  test_valid [ "border"; "4" ] "border-4";
-  test_valid [ "border"; "8" ] "border-8";
+  check [ "border"; "t" ];
+  check [ "border"; "r" ];
+  check [ "border"; "b" ];
+  check [ "border"; "l" ];
+  check [ "border"; "x" ];
+  check [ "border"; "y" ];
 
-  test_valid [ "border"; "t" ] "border-t";
-  test_valid [ "border"; "r" ] "border-r";
-  test_valid [ "border"; "b" ] "border-b";
-  test_valid [ "border"; "l" ] "border-l";
-  test_valid [ "border"; "x" ] "border-x";
-  test_valid [ "border"; "y" ] "border-y";
+  check [ "border"; "t"; "2" ];
+  check [ "border"; "r"; "4" ];
 
-  test_valid [ "border"; "t"; "2" ] "border-t-2";
-  test_valid [ "border"; "r"; "4" ] "border-r-4";
+  check [ "border"; "solid" ];
+  check [ "border"; "dashed" ];
+  check [ "border"; "dotted" ];
+  check [ "border"; "double" ];
+  check [ "border"; "none" ];
 
-  test_valid [ "border"; "solid" ] "border-solid";
-  test_valid [ "border"; "dashed" ] "border-dashed";
-  test_valid [ "border"; "dotted" ] "border-dotted";
-  test_valid [ "border"; "double" ] "border-double";
-  test_valid [ "border"; "none" ] "border-none";
+  check [ "rounded" ];
+  check [ "rounded"; "none" ];
+  check [ "rounded"; "sm" ];
+  check [ "rounded"; "md" ];
+  check [ "rounded"; "lg" ];
+  check [ "rounded"; "xl" ];
+  check [ "rounded"; "2xl" ];
+  check [ "rounded"; "3xl" ];
+  check [ "rounded"; "full" ];
 
-  test_valid [ "rounded" ] "rounded";
-  test_valid [ "rounded"; "none" ] "rounded-none";
-  test_valid [ "rounded"; "sm" ] "rounded-sm";
-  test_valid [ "rounded"; "md" ] "rounded-md";
-  test_valid [ "rounded"; "lg" ] "rounded-lg";
-  test_valid [ "rounded"; "xl" ] "rounded-xl";
-  test_valid [ "rounded"; "2xl" ] "rounded-2xl";
-  test_valid [ "rounded"; "3xl" ] "rounded-3xl";
-  test_valid [ "rounded"; "full" ] "rounded-full";
+  check [ "rounded"; "t" ];
+  check [ "rounded"; "r" ];
+  check [ "rounded"; "b" ];
+  check [ "rounded"; "l" ];
 
-  test_valid [ "rounded"; "t" ] "rounded-t";
-  test_valid [ "rounded"; "r" ] "rounded-r";
-  test_valid [ "rounded"; "b" ] "rounded-b";
-  test_valid [ "rounded"; "l" ] "rounded-l";
+  check [ "rounded"; "tl" ];
+  check [ "rounded"; "tr" ];
+  check [ "rounded"; "br" ];
+  check [ "rounded"; "bl" ];
 
-  test_valid [ "rounded"; "tl" ] "rounded-tl";
-  test_valid [ "rounded"; "tr" ] "rounded-tr";
-  test_valid [ "rounded"; "br" ] "rounded-br";
-  test_valid [ "rounded"; "bl" ] "rounded-bl";
-
-  test_valid [ "rounded"; "t"; "lg" ] "rounded-t-lg";
-  test_valid [ "rounded"; "tl"; "2xl" ] "rounded-tl-2xl"
+  check [ "rounded"; "t"; "lg" ];
+  check [ "rounded"; "tl"; "2xl" ]
 
 let test_borders_of_string_invalid () =
   (* Invalid border values *)
-  let test_invalid input =
+  let fail_maybe input =
     match Tw.Borders.of_string input with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in
 
-  test_invalid [ "border"; "3" ];
+  fail_maybe [ "border"; "3" ];
   (* Invalid width *)
-  test_invalid [ "border"; "invalid" ];
+  fail_maybe [ "border"; "invalid" ];
   (* Invalid style *)
-  test_invalid [ "border"; "z" ];
+  fail_maybe [ "border"; "z" ];
   (* Invalid side *)
-  test_invalid [ "rounded"; "4xl" ];
+  fail_maybe [ "rounded"; "4xl" ];
   (* Invalid size *)
-  test_invalid [ "rounded"; "z" ];
+  fail_maybe [ "rounded"; "z" ];
   (* Invalid corner *)
-  test_invalid [ "unknown" ]
+  fail_maybe [ "unknown" ]
 (* Unknown border type *)
 
 let tests =
@@ -81,3 +81,5 @@ let tests =
     test_case "borders of_string - invalid values" `Quick
       test_borders_of_string_invalid;
   ]
+
+let suite = ("borders", tests)

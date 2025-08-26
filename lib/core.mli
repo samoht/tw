@@ -55,9 +55,13 @@ type var =
 (* e.g., name="sans", value="ui-sans-serif, ..." *)
 
 val color_var : ?shade:int -> string -> var
+(** [color_var ?shade name] describes a Tailwind color variable usable in CSS
+    generation. When [shade] is provided (e.g. [500]) it refers to a palette
+    shade; otherwise it refers to a base color. *)
 
 val spacing_var : int -> var
-(** [spacing_var n] creates a spacing variable for multiplier n (n * 0.25rem) *)
+(** [spacing_var n] creates a spacing variable for multiplier [n] ([n] *
+    0.25rem). *)
 
 val var_to_css_properties : var -> (string * string) list
 (** [var_to_css_properties var] returns the CSS custom property declarations
@@ -77,7 +81,12 @@ type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
 val style : string -> Css.declaration list -> t
+(** [style name props] defines a base utility [name] from CSS [props]. Use this
+    to model a single Tailwind utility without extra variables. *)
+
 val style_with_vars : string -> Css.declaration list -> var list -> t
+(** [style_with_vars name props vars] defines a utility [name] with CSS [props]
+    and custom variables [vars]. *)
 
 val class_name : t -> string
 (** [class_name t] returns the base class name(s) for [t]. Note: modifiers

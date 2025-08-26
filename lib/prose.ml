@@ -15,6 +15,11 @@
 
 open Css
 
+(* Helper functions for CSS variables *)
+let color_var x = color (Var (Css.var x))
+let background_color_var x = background_color (Var (Css.var x))
+let border_color_var x = border_color (Var (Css.var x))
+
 (** Prose variant types *)
 type t =
   | Base  (** .prose *)
@@ -64,7 +69,7 @@ let base_heading_rules selector =
   [
     rule ~selector:(selector " h1")
       [
-        color (Var "tw-prose-headings");
+        color_var "tw-prose-headings";
         font_weight (Weight 800);
         font_size (Em 2.25);
         margin_top Zero;
@@ -73,7 +78,7 @@ let base_heading_rules selector =
       ];
     rule ~selector:(selector " h2")
       [
-        color (Var "tw-prose-headings");
+        color_var "tw-prose-headings";
         font_weight (Weight 700);
         font_size (Em 1.5);
         margin_top (Em 2.0);
@@ -82,7 +87,7 @@ let base_heading_rules selector =
       ];
     rule ~selector:(selector " h3")
       [
-        color (Var "tw-prose-headings");
+        color_var "tw-prose-headings";
         font_weight (Weight 600);
         font_size (Em 1.25);
         margin_top (Em 1.6);
@@ -91,7 +96,7 @@ let base_heading_rules selector =
       ];
     rule ~selector:(selector " h4")
       [
-        color (Var "tw-prose-headings");
+        color_var "tw-prose-headings";
         font_weight (Weight 600);
         margin_top (Em 1.5);
         margin_bottom (Em 0.5);
@@ -127,7 +132,7 @@ let base_code_rules selector =
   [
     rule ~selector:(selector " code")
       [
-        color (Var "tw-prose-code");
+        color_var "tw-prose-code";
         font_weight (Weight 600);
         font_size (Em 0.875);
       ];
@@ -135,8 +140,8 @@ let base_code_rules selector =
     rule ~selector:(selector " code::after") [ content "\"\\`\"" ];
     rule ~selector:(selector " pre")
       [
-        color (Var "tw-prose-pre-code");
-        background_color (Var "tw-prose-pre-bg");
+        color_var "tw-prose-pre-code";
+        background_color_var "tw-prose-pre-bg";
         overflow_x Auto;
         font_weight (Weight 400);
         font_size (Em 0.875);
@@ -179,13 +184,10 @@ let base_table_rules selector =
         line_height (Num 1.7142857);
       ];
     rule ~selector:(selector " thead")
-      [
-        border_bottom_width (Px 1);
-        border_bottom_color (Var "tw-prose-th-borders");
-      ];
+      [ border_bottom_width (Px 1); border_color_var "tw-prose-th-borders" ];
     rule ~selector:(selector " thead th")
       [
-        color (Var "tw-prose-headings");
+        color_var "tw-prose-headings";
         font_weight (Weight 600);
         vertical_align Bottom;
         padding_right (Em 0.5714286);
@@ -193,10 +195,7 @@ let base_table_rules selector =
         padding_left (Em 0.5714286);
       ];
     rule ~selector:(selector " tbody tr")
-      [
-        border_bottom_width (Px 1);
-        border_bottom_color (Var "tw-prose-td-borders");
-      ];
+      [ border_bottom_width (Px 1); border_color_var "tw-prose-td-borders" ];
     rule
       ~selector:(selector " tbody tr:last-child")
       [ border_bottom_width Zero ];
@@ -215,7 +214,7 @@ let base_misc_rules selector =
   [
     rule ~selector:(selector " a")
       [
-        color (Var "tw-prose-links");
+        color_var "tw-prose-links";
         text_decoration None;
         font_weight (Weight 500);
         transition (Simple (Property "color", S 0.2));
@@ -226,9 +225,9 @@ let base_misc_rules selector =
       [
         font_weight (Weight 500);
         font_style Italic;
-        color (Var "tw-prose-quotes");
+        color_var "tw-prose-quotes";
         border_left_width (Rem 0.25);
-        border_left_color (Var "tw-prose-quote-borders");
+        border_color_var "tw-prose-quote-borders";
         quotes "\"\\201C\"\"\\201D\"\"\\2018\"\"\\2019\"";
         margin_top (Em 1.6);
         margin_bottom (Em 1.6);
@@ -242,13 +241,13 @@ let base_misc_rules selector =
       [ content "close-quote" ];
     rule ~selector:(selector " hr")
       [
-        border_color (Var "tw-prose-hr");
+        border_color_var "tw-prose-hr";
         border_top_width (Px 1);
         margin_top (Em 3.0);
         margin_bottom (Em 3.0);
       ];
     rule ~selector:(selector " strong")
-      [ color (Var "tw-prose-bold"); font_weight (Weight 600) ];
+      [ color_var "tw-prose-bold"; font_weight (Weight 600) ];
     rule ~selector:(selector " img")
       [ margin_top (Em 2.0); margin_bottom (Em 2.0) ];
   ]
@@ -419,7 +418,7 @@ let base_prose_rules selector =
   let base_rule =
     rule ~selector:".prose"
       ([
-         color (Var "tw-prose-body");
+         color_var "tw-prose-body";
          max_width (Ch 65.0);
          font_size (Rem 1.0);
          line_height (Num 1.75);
@@ -452,7 +451,7 @@ let to_base_properties variant =
   match variant with
   | Base ->
       [
-        color (Var "tw-prose-body");
+        color_var "tw-prose-body";
         max_width (Ch 65.0);
         font_size (Rem 1.0);
         line_height (Num 1.75);

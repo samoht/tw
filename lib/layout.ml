@@ -108,29 +108,27 @@ let justify_self_center = style "justify-self-center" [ justify_self Center ]
 let justify_self_stretch = style "justify-self-stretch" [ justify_self Stretch ]
 
 (* Place Content *)
-let place_content_start = style "place-content-start" [ place_content_v Start ]
-let place_content_end = style "place-content-end" [ place_content_v End ]
-
-let place_content_center =
-  style "place-content-center" [ place_content_v Center ]
+let place_content_start = style "place-content-start" [ place_content Start ]
+let place_content_end = style "place-content-end" [ place_content End ]
+let place_content_center = style "place-content-center" [ place_content Center ]
 
 let place_content_between =
-  style "place-content-between" [ place_content_v Space_between ]
+  style "place-content-between" [ place_content Space_between ]
 
 let place_content_around =
-  style "place-content-around" [ place_content_v Space_around ]
+  style "place-content-around" [ place_content Space_around ]
 
 let place_content_evenly =
-  style "place-content-evenly" [ place_content_v Space_evenly ]
+  style "place-content-evenly" [ place_content Space_evenly ]
 
 let place_content_stretch =
-  style "place-content-stretch" [ place_content_v Stretch ]
+  style "place-content-stretch" [ place_content Stretch ]
 
 (* Place Items *)
-let place_items_start = style "place-items-start" [ place_items_v Start ]
-let place_items_end = style "place-items-end" [ place_items_v End ]
-let place_items_center = style "place-items-center" [ place_items_v Center ]
-let place_items_stretch = style "place-items-stretch" [ place_items_v Stretch ]
+let place_items_start = style "place-items-start" [ place_items Start ]
+let place_items_end = style "place-items-end" [ place_items End ]
+let place_items_center = style "place-items-center" [ place_items Center ]
+let place_items_stretch = style "place-items-stretch" [ place_items Stretch ]
 
 (* Place Self *)
 let place_self_auto = style "place-self-auto" [ place_self_v `Auto ]

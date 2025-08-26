@@ -11,7 +11,7 @@ let parse_classes ?(warn = true) classes_str =
       match Tw.of_string cls with
       | Ok style -> Some style
       | Error _ ->
-          if warn then Printf.eprintf "Warning: Unknown class '%s'\n" cls;
+          if warn then Fmt.epr "Warning: Unknown class '%s'@." cls;
           None)
     class_names
 
@@ -108,8 +108,7 @@ let process_files paths flag ~minify ~quiet =
                   Some style
               | Error _ ->
                   unknown_classes := cls :: !unknown_classes;
-                  if not quiet then
-                    Printf.eprintf "Warning: Unknown class '%s'\n" cls;
+                  if not quiet then Fmt.epr "Warning: Unknown class '%s'@." cls;
                   None)
             class_names)
         all_classes
@@ -122,15 +121,15 @@ let process_files paths flag ~minify ~quiet =
       let total = List.length !known_classes + List.length !unknown_classes in
       let unknown_count = List.length !unknown_classes in
       let unique_unknown = !unknown_classes |> List.sort_uniq String.compare in
-      Printf.eprintf "\n--- Statistics ---\n";
-      Printf.eprintf "Total classes found: %d\n" total;
-      Printf.eprintf "Successfully parsed: %d\n" (List.length !known_classes);
-      Printf.eprintf "Unknown classes: %d (%.1f%%)\n" unknown_count
+      Fmt.epr "@.--- Statistics ---%@.";
+      Fmt.epr "Total classes found: %d@." total;
+      Fmt.epr "Successfully parsed: %d@." (List.length !known_classes);
+      Fmt.epr "Unknown classes: %d (%.1f%%)@." unknown_count
         (float_of_int unknown_count /. float_of_int total *. 100.0);
       if List.length unique_unknown <= 20 then
-        Printf.eprintf "Unknown: %s\n" (String.concat ", " unique_unknown)
+        Fmt.epr "Unknown: %s@." (String.concat ", " unique_unknown)
       else
-        Printf.eprintf "Unknown (first 20): %s...\n"
+        Fmt.epr "Unknown (first 20): %s...@."
           (String.concat ", " (List.filteri (fun i _ -> i < 20) unique_unknown)));
 
     `Ok ()
