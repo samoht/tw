@@ -128,68 +128,33 @@ let text_9xl =
 
 (** {1 Font Weight Utilities} *)
 
-let font_thin =
-  style "font-thin"
+(** Helper to create font weight utilities with proper variable dependencies *)
+let font_weight name weight_value =
+  let var_name =
+    "--font-weight-" ^ String.sub name 5 (String.length name - 5)
+  in
+  (* Remove "font-" prefix *)
+  let var_name_without_prefix =
+    String.sub var_name 2 (String.length var_name - 2)
+  in
+  (* Remove "--" *)
+  style name
     [
-      custom_property "--tw-font-weight" "var(--font-weight-thin)";
-      font_weight (Var (var ~default:(Weight 100) "font-weight-thin"));
+      custom_property ~deps:[ var_name ] "--tw-font-weight"
+        ("var(" ^ var_name ^ ")");
+      Css.font_weight
+        (Var (var ~default:(Weight weight_value) var_name_without_prefix));
     ]
 
-let font_extralight =
-  style "font-extralight"
-    [
-      custom_property "--tw-font-weight" "var(--font-weight-extralight)";
-      font_weight (Var (var ~default:(Weight 200) "font-weight-extralight"));
-    ]
-
-let font_light =
-  style "font-light"
-    [
-      custom_property "--tw-font-weight" "var(--font-weight-light)";
-      font_weight (Var (var ~default:(Weight 300) "font-weight-light"));
-    ]
-
-let font_normal =
-  style "font-normal"
-    [
-      custom_property "--tw-font-weight" "var(--font-weight-normal)";
-      font_weight (Var (var ~default:(Weight 400) "font-weight-normal"));
-    ]
-
-let font_medium =
-  style "font-medium"
-    [
-      custom_property "--tw-font-weight" "var(--font-weight-medium)";
-      font_weight (Var (var ~default:(Weight 500) "font-weight-medium"));
-    ]
-
-let font_semibold =
-  style "font-semibold"
-    [
-      custom_property "--tw-font-weight" "var(--font-weight-semibold)";
-      font_weight (Var (var ~default:(Weight 600) "font-weight-semibold"));
-    ]
-
-let font_bold =
-  style "font-bold"
-    [
-      custom_property "--tw-font-weight" "var(--font-weight-bold)";
-      font_weight (Var (var ~default:(Weight 700) "font-weight-bold"));
-    ]
-
-let font_extrabold =
-  style "font-extrabold"
-    [
-      custom_property "--tw-font-weight" "var(--font-weight-extrabold)";
-      font_weight (Var (var ~default:(Weight 800) "font-weight-extrabold"));
-    ]
-
-let font_black =
-  style "font-black"
-    [
-      custom_property "--tw-font-weight" "var(--font-weight-black)";
-      font_weight (Var (var ~default:(Weight 900) "font-weight-black"));
-    ]
+let font_thin = font_weight "font-thin" 100
+let font_extralight = font_weight "font-extralight" 200
+let font_light = font_weight "font-light" 300
+let font_normal = font_weight "font-normal" 400
+let font_medium = font_weight "font-medium" 500
+let font_semibold = font_weight "font-semibold" 600
+let font_bold = font_weight "font-bold" 700
+let font_extrabold = font_weight "font-extrabold" 800
+let font_black = font_weight "font-black" 900
 
 (** {1 Font Family Utilities} *)
 

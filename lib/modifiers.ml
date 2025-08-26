@@ -3,6 +3,35 @@
 
 open Core
 
+(** Generate CSS selector for a modifier and base class *)
+let to_selector modifier base_class =
+  match modifier with
+  | Hover -> ".hover\\:" ^ base_class ^ ":hover"
+  | Focus -> ".focus\\:" ^ base_class ^ ":focus"
+  | Active -> ".active\\:" ^ base_class ^ ":active"
+  | Disabled -> ".disabled\\:" ^ base_class ^ ":disabled"
+  | Group_hover -> ".group:hover .group-hover\\:" ^ base_class
+  | Group_focus -> ".group:focus .group-focus\\:" ^ base_class
+  | Peer_hover -> ".peer-hover\\:" ^ base_class ^ ":is(:where(.peer):hover~*)"
+  | Peer_focus -> ".peer-focus\\:" ^ base_class ^ ":is(:where(.peer):focus~*)"
+  | Peer_checked ->
+      ".peer-checked\\:" ^ base_class ^ ":is(:where(.peer):checked~*)"
+  | Aria_checked -> ".aria-checked\\:" ^ base_class ^ "[aria-checked=true]"
+  | Aria_expanded -> ".aria-expanded\\:" ^ base_class ^ "[aria-expanded=true]"
+  | Aria_selected ->
+      ".aria-selected\\:" ^ base_class ^ "[aria-selected=\"true\"]"
+  | Aria_disabled -> ".aria-disabled\\:" ^ base_class ^ "[aria-disabled=true]"
+  | Data_active -> ".data-\\[active\\]\\:" ^ base_class ^ "[data-active]"
+  | Data_inactive -> ".data-\\[inactive\\]\\:" ^ base_class ^ "[data-inactive]"
+  | Focus_within -> ".focus-within\\:" ^ base_class ^ ":focus-within"
+  | Focus_visible -> ".focus-visible\\:" ^ base_class ^ ":focus-visible"
+  | Pseudo_before -> ".before\\:" ^ base_class ^ "::before"
+  | Pseudo_after -> ".after\\:" ^ base_class ^ "::after"
+  | _ -> base_class (* fallback for complex modifiers *)
+
+(** Check if a modifier generates a hover rule *)
+let is_hover = function Hover | Group_hover -> true | _ -> false
+
 let wrap m styles =
   match styles with
   | [] -> Group []

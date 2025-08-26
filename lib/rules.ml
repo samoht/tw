@@ -59,6 +59,70 @@ let escape_class_name name =
     name;
   Buffer.contents buf
 
+(* Helper: Handle modifier rules that need special treatment *)
+let modifier_to_rule modifier base_class selector props =
+  match modifier with
+  | Data_state value ->
+      Regular (selector ^ "[data-state=\"" ^ value ^ "\"]", props)
+  | Data_variant value ->
+      Regular (selector ^ "[data-variant=\"" ^ value ^ "\"]", props)
+  | Data_custom (key, value) ->
+      Regular (selector ^ "[data-" ^ key ^ "=\"" ^ value ^ "\"]", props)
+  | Dark -> Media_query ("(prefers-color-scheme: dark)", selector, props)
+  | Responsive breakpoint ->
+      let prefix = string_of_breakpoint breakpoint in
+      let condition = "(min-width:" ^ responsive_breakpoint prefix ^ ")" in
+      let sel = "." ^ prefix ^ "\\:" ^ base_class in
+      Media_query (condition, sel, props)
+  | Container query ->
+      let prefix = Containers.container_query_to_class_prefix query in
+      let escaped_class = ".\\" ^ prefix ^ "\\:" ^ base_class in
+      let condition = Containers.container_query_to_css_prefix query in
+      let cond =
+        if String.starts_with ~prefix:"@container " condition then
+          String.sub condition 11 (String.length condition - 11)
+        else "(min-width: 0)"
+      in
+      Container_query (cond, escaped_class, props)
+  | Not _modifier ->
+      Regular (".not-" ^ base_class ^ ":not(" ^ selector ^ ")", props)
+  | Has selector_str ->
+      Regular
+        ( ".has-\\[" ^ selector_str ^ "\\]\\:" ^ base_class ^ ":has("
+          ^ selector_str ^ ")",
+          props )
+  | Group_has selector_str ->
+      Regular
+        ( ".group:has(" ^ selector_str ^ ") .group-has-\\[" ^ selector_str
+          ^ "\\]\\:" ^ base_class,
+          props )
+  | Peer_has selector_str ->
+      Regular
+        ( ".peer:has(" ^ selector_str ^ ") ~ .peer-has-\\[" ^ selector_str
+          ^ "\\]\\:" ^ base_class,
+          props )
+  | Starting -> Starting_style ("." ^ base_class, props)
+  | Motion_safe ->
+      Media_query
+        ( "(prefers-reduced-motion: no-preference)",
+          ".motion-safe\\:" ^ base_class,
+          props )
+  | Motion_reduce ->
+      Media_query
+        ( "(prefers-reduced-motion: reduce)",
+          ".motion-reduce\\:" ^ base_class,
+          props )
+  | Contrast_more ->
+      Media_query
+        ("(prefers-contrast: more)", ".contrast-more\\:" ^ base_class, props)
+  | Contrast_less ->
+      Media_query
+        ("(prefers-contrast: less)", ".contrast-less\\:" ^ base_class, props)
+  | _ ->
+      (* For simple modifiers, use the selector helper from Modifiers *)
+      let sel = Modifiers.to_selector modifier base_class in
+      Regular (sel, props)
+
 (* Extract selector and properties from a single Tw style *)
 let extract_selector_props tw =
   let rec extract = function
@@ -76,207 +140,11 @@ let extract_selector_props tw =
         List.concat_map
           (fun rule_out ->
             match rule_out with
-            | Regular (selector, props) -> (
+            | Regular (selector, props) ->
                 let base_class =
                   String.sub selector 1 (String.length selector - 1)
                 in
-                match modifier with
-                | Hover ->
-                    [ Regular (".hover\\:" ^ base_class ^ ":hover", props) ]
-                | Focus ->
-                    [ Regular (".focus\\:" ^ base_class ^ ":focus", props) ]
-                | Active ->
-                    [ Regular (".active\\:" ^ base_class ^ ":active", props) ]
-                | Disabled ->
-                    [
-                      Regular (".disabled\\:" ^ base_class ^ ":disabled", props);
-                    ]
-                | Group_hover ->
-                    [
-                      Regular
-                        (".group:hover .group-hover\\:" ^ base_class, props);
-                    ]
-                | Group_focus ->
-                    [
-                      Regular
-                        (".group:focus .group-focus\\:" ^ base_class, props);
-                    ]
-                | Peer_hover ->
-                    [
-                      Regular
-                        ( ".peer-hover\\:" ^ base_class
-                          ^ ":is(:where(.peer):hover~*)",
-                          props );
-                    ]
-                | Peer_focus ->
-                    [
-                      Regular
-                        ( ".peer-focus\\:" ^ base_class
-                          ^ ":is(:where(.peer):focus~*)",
-                          props );
-                    ]
-                | Peer_checked ->
-                    [
-                      Regular
-                        ( ".peer-checked\\:" ^ base_class
-                          ^ ":is(:where(.peer):checked~*)",
-                          props );
-                    ]
-                | Aria_checked ->
-                    [
-                      Regular
-                        ( ".aria-checked\\:" ^ base_class ^ "[aria-checked=true]",
-                          props );
-                    ]
-                | Aria_expanded ->
-                    [
-                      Regular
-                        ( ".aria-expanded\\:" ^ base_class
-                          ^ "[aria-expanded=true]",
-                          props );
-                    ]
-                | Aria_selected ->
-                    [
-                      Regular
-                        ( ".aria-selected\\:" ^ base_class
-                          ^ "[aria-selected=\"true\"]",
-                          props );
-                    ]
-                | Aria_disabled ->
-                    [
-                      Regular
-                        ( ".aria-disabled\\:" ^ base_class
-                          ^ "[aria-disabled=true]",
-                          props );
-                    ]
-                | Data_state value ->
-                    [
-                      Regular
-                        (selector ^ "[data-state=\"" ^ value ^ "\"]", props);
-                    ]
-                | Data_variant value ->
-                    [
-                      Regular
-                        (selector ^ "[data-variant=\"" ^ value ^ "\"]", props);
-                    ]
-                | Data_active ->
-                    [
-                      Regular
-                        ( ".data-\\[active\\]\\:" ^ base_class ^ "[data-active]",
-                          props );
-                    ]
-                | Data_inactive ->
-                    [
-                      Regular
-                        ( ".data-\\[inactive\\]\\:" ^ base_class
-                          ^ "[data-inactive]",
-                          props );
-                    ]
-                | Data_custom (key, value) ->
-                    [
-                      Regular
-                        ( selector ^ "[data-" ^ key ^ "=\"" ^ value ^ "\"]",
-                          props );
-                    ]
-                | Dark ->
-                    [
-                      Media_query
-                        ("(prefers-color-scheme: dark)", selector, props);
-                    ]
-                | Responsive breakpoint ->
-                    let prefix = string_of_breakpoint breakpoint in
-                    let condition =
-                      "(min-width:" ^ responsive_breakpoint prefix ^ ")"
-                    in
-                    let sel = "." ^ prefix ^ "\\:" ^ base_class in
-                    [ Media_query (condition, sel, props) ]
-                | Container query ->
-                    let prefix =
-                      Containers.container_query_to_class_prefix query
-                    in
-                    let escaped_class = ".\\" ^ prefix ^ "\\:" ^ base_class in
-                    let condition =
-                      Containers.container_query_to_css_prefix query
-                    in
-                    (* Extract just the condition part after @container *)
-                    let cond =
-                      if String.starts_with ~prefix:"@container " condition then
-                        String.sub condition 11 (String.length condition - 11)
-                      else "(min-width: 0)"
-                    in
-                    [ Container_query (cond, escaped_class, props) ]
-                (* New v4 modifiers *)
-                | Not _modifier ->
-                    [
-                      Regular
-                        (".not-" ^ base_class ^ ":not(" ^ selector ^ ")", props);
-                    ]
-                | Has selector_str ->
-                    [
-                      Regular
-                        ( ".has-\\[" ^ selector_str ^ "\\]\\:" ^ base_class
-                          ^ ":has(" ^ selector_str ^ ")",
-                          props );
-                    ]
-                | Group_has selector_str ->
-                    [
-                      Regular
-                        ( ".group:has(" ^ selector_str ^ ") .group-has-\\["
-                          ^ selector_str ^ "\\]\\:" ^ base_class,
-                          props );
-                    ]
-                | Peer_has selector_str ->
-                    [
-                      Regular
-                        ( ".peer:has(" ^ selector_str ^ ") ~ .peer-has-\\["
-                          ^ selector_str ^ "\\]\\:" ^ base_class,
-                          props );
-                    ]
-                | Starting -> [ Starting_style ("." ^ base_class, props) ]
-                | Focus_within ->
-                    [
-                      Regular
-                        ( ".focus-within\\:" ^ base_class ^ ":focus-within",
-                          props );
-                    ]
-                | Focus_visible ->
-                    [
-                      Regular
-                        ( ".focus-visible\\:" ^ base_class ^ ":focus-visible",
-                          props );
-                    ]
-                | Motion_safe ->
-                    [
-                      Media_query
-                        ( "(prefers-reduced-motion: no-preference)",
-                          ".motion-safe\\:" ^ base_class,
-                          props );
-                    ]
-                | Motion_reduce ->
-                    [
-                      Media_query
-                        ( "(prefers-reduced-motion: reduce)",
-                          ".motion-reduce\\:" ^ base_class,
-                          props );
-                    ]
-                | Contrast_more ->
-                    [
-                      Media_query
-                        ( "(prefers-contrast: more)",
-                          ".contrast-more\\:" ^ base_class,
-                          props );
-                    ]
-                | Contrast_less ->
-                    [
-                      Media_query
-                        ( "(prefers-contrast: less)",
-                          ".contrast-less\\:" ^ base_class,
-                          props );
-                    ]
-                | Pseudo_before ->
-                    [ Regular (".before\\:" ^ base_class ^ "::before", props) ]
-                | Pseudo_after ->
-                    [ Regular (".after\\:" ^ base_class ^ "::after", props) ])
+                [ modifier_to_rule modifier base_class selector props ]
             | _ -> [ rule_out ])
           base
     | Group styles -> List.concat_map extract styles
@@ -294,226 +162,6 @@ let group_regular_rules rules =
           without @ [ (selector, existing @ props) ]
       | _ -> acc)
     [] rules
-
-(* Base reset CSS rules *)
-(* Exact match with Tailwind v4.1.11 base reset order *)
-let generate_reset_rules () =
-  [
-    (* Universal reset *)
-    Css.rule ~selector:"*, :after, :before, ::backdrop"
-      [
-        Css.box_sizing Border_box;
-        Css.border "0 solid";
-        Css.margin Zero;
-        Css.padding Zero;
-      ];
-    (* File selector button - first occurrence *)
-    Css.rule ~selector:"::file-selector-button"
-      [
-        Css.box_sizing Border_box;
-        Css.border "0 solid";
-        Css.margin Zero;
-        Css.padding Zero;
-      ];
-    (* HTML and host *)
-    Css.rule ~selector:"html, :host"
-      [
-        Css.webkit_text_size_adjust "100%";
-        (* TODO: should take typed value *)
-        Css.tab_size 4;
-        Css.line_height (Num 1.5);
-        Css.font_family
-          [
-            Css.Var
-              {
-                name = "default-font-family";
-                fallback =
-                  Some
-                    [
-                      Css.Ui_sans_serif;
-                      Css.System_ui;
-                      Css.Sans_serif;
-                      Css.Apple_color_emoji;
-                      Css.Segoe_ui_emoji;
-                      Css.Segoe_ui_symbol;
-                      Css.Noto_color_emoji;
-                    ];
-              };
-          ];
-        Css.font_feature_settings "var(--default-font-feature-settings, normal)";
-        Css.font_variation_settings
-          "var(--default-font-variation-settings, normal)";
-        Css.webkit_tap_highlight_color Transparent;
-      ];
-    (* Horizontal rule *)
-    Css.rule ~selector:"hr"
-      [ Css.height Zero; Css.color Inherit; Css.border_top_width (Px 1) ];
-    (* Abbreviations *)
-    Css.rule ~selector:"abbr:where([title])"
-      [
-        Css.webkit_text_decoration "underline dotted";
-        Css.text_decoration Underline_dotted;
-      ];
-    (* Headings *)
-    Css.rule ~selector:"h1, h2, h3, h4, h5, h6"
-      [ Css.font_size Inherit; Css.font_weight Inherit ];
-    (* Links *)
-    Css.rule ~selector:"a"
-      [
-        Css.color Inherit;
-        Css.webkit_text_decoration "inherit";
-        Css.webkit_text_decoration "inherit";
-        Css.webkit_text_decoration "inherit";
-        Css.text_decoration Inherit;
-      ];
-    (* Bold elements *)
-    Css.rule ~selector:"b, strong" [ Css.font_weight Bolder ];
-    (* Code elements *)
-    Css.rule ~selector:"code, kbd, samp, pre"
-      [
-        Css.font_family
-          [
-            Css.Var
-              {
-                name = "default-mono-font-family";
-                fallback =
-                  Some
-                    [
-                      Css.Ui_monospace;
-                      Css.SFMono_regular;
-                      Css.Menlo;
-                      Css.Monaco;
-                      Css.Consolas;
-                      Css.Liberation_mono;
-                      Css.Courier_new;
-                      Css.Monospace;
-                    ];
-              };
-          ];
-        Css.font_feature_settings
-          "var(--default-mono-font-feature-settings, normal)";
-        Css.font_variation_settings
-          "var(--default-mono-font-variation-settings, normal)";
-        Css.font_size (Em 1.0);
-      ];
-    (* Small text *)
-    Css.rule ~selector:"small" [ Css.font_size (Pct 80.0) ];
-    (* Sub and sup *)
-    Css.rule ~selector:"sub, sup"
-      [
-        Css.vertical_align Baseline;
-        Css.font_size (Pct 75.0);
-        Css.line_height Zero;
-        Css.position Relative;
-      ];
-    Css.rule ~selector:"sub" [ Css.bottom (Em (-0.25)) ];
-    Css.rule ~selector:"sup" [ Css.top (Em (-0.5)) ];
-    (* Table *)
-    Css.rule ~selector:"table"
-      [
-        Css.text_indent Zero;
-        Css.border_color Inherit;
-        Css.border_collapse Collapse;
-      ];
-    (* Firefox focusring *)
-    Css.rule ~selector:":-moz-focusring" [ Css.outline "auto" ];
-    (* Progress *)
-    Css.rule ~selector:"progress" [ Css.vertical_align Baseline ];
-    (* Summary *)
-    Css.rule ~selector:"summary" [ Css.display List_item ];
-    (* Lists *)
-    Css.rule ~selector:"ol, ul, menu" [ Css.list_style "none" ];
-    (* Media elements *)
-    Css.rule ~selector:"img, svg, video, canvas, audio, iframe, embed, object"
-      [ Css.vertical_align Middle; Css.display Block ];
-    Css.rule ~selector:"img, video"
-      [ Css.max_width (Pct 100.0); Css.height Auto ];
-    (* Form elements *)
-    Css.rule ~selector:"button, input, select, optgroup, textarea"
-      [
-        Css.font "inherit";
-        Css.font_feature_settings "inherit";
-        Css.font_variation_settings "inherit";
-        Css.letter_spacing Inherit;
-        Css.color Inherit;
-        Css.opacity 1.0;
-        Css.background_color Transparent;
-        Css.border_radius Zero;
-      ];
-    (* File selector button - second occurrence with font properties *)
-    Css.rule ~selector:"::file-selector-button"
-      [
-        Css.font "inherit";
-        Css.font_feature_settings "inherit";
-        Css.font_variation_settings "inherit";
-        Css.letter_spacing Inherit;
-        Css.color Inherit;
-        Css.opacity 1.0;
-        Css.background_color Transparent;
-        Css.border_radius Zero;
-      ];
-    (* Select with optgroup *)
-    Css.rule ~selector:":where(select:is([multiple], [size])) optgroup"
-      [ Css.font_weight Bolder ];
-    Css.rule ~selector:":where(select:is([multiple], [size])) optgroup option"
-      [ Css.padding_inline_start (Px 20) ];
-    (* File selector button - third occurrence with margin *)
-    Css.rule ~selector:"::file-selector-button" [ Css.margin_inline_end (Px 4) ];
-    (* Placeholder - basic *)
-    Css.rule ~selector:"::placeholder" [ Css.opacity 1.0 ];
-    (* Textarea *)
-    Css.rule ~selector:"textarea" [ Css.resize Vertical ];
-    (* Search decoration *)
-    Css.rule ~selector:"::-webkit-search-decoration"
-      [ Css.webkit_appearance None ];
-    (* Webkit datetime inputs *)
-    Css.rule ~selector:"::-webkit-date-and-time-value"
-      [
-        Css.min_height (Lh 1.0);
-        (* 1lh approximated as 1em *)
-        Css.text_align Inherit;
-      ];
-    Css.rule ~selector:"::-webkit-datetime-edit" [ Css.display Inline_flex ];
-    Css.rule ~selector:"::-webkit-datetime-edit-fields-wrapper"
-      [ Css.padding Zero ];
-    Css.rule ~selector:"::-webkit-datetime-edit" [ Css.padding_block Zero ];
-    Css.rule ~selector:"::-webkit-datetime-edit-year-field"
-      [ Css.padding_block Zero ];
-    Css.rule ~selector:"::-webkit-datetime-edit-month-field"
-      [ Css.padding_block Zero ];
-    Css.rule ~selector:"::-webkit-datetime-edit-day-field"
-      [ Css.padding_block Zero ];
-    Css.rule ~selector:"::-webkit-datetime-edit-hour-field"
-      [ Css.padding_block Zero ];
-    Css.rule ~selector:"::-webkit-datetime-edit-minute-field"
-      [ Css.padding_block Zero ];
-    Css.rule ~selector:"::-webkit-datetime-edit-second-field"
-      [ Css.padding_block Zero ];
-    Css.rule ~selector:"::-webkit-datetime-edit-millisecond-field"
-      [ Css.padding_block Zero ];
-    Css.rule ~selector:"::-webkit-datetime-edit-meridiem-field"
-      [ Css.padding_block Zero ];
-    (* Firefox-specific *)
-    Css.rule ~selector:":-moz-ui-invalid" [ Css.box_shadow "none" ];
-    (* Button-like inputs *)
-    Css.rule
-      ~selector:
-        "button, input:where([type=button], [type=reset], [type=submit])"
-      [ Css.appearance Button ];
-    (* File selector button - fourth occurrence with appearance *)
-    Css.rule ~selector:"::file-selector-button" [ Css.appearance Button ];
-    (* Webkit spin buttons *)
-    Css.rule ~selector:"::-webkit-inner-spin-button" [ Css.height Auto ];
-    Css.rule ~selector:"::-webkit-outer-spin-button" [ Css.height Auto ];
-    (* Hidden elements *)
-    Css.rule ~selector:"[hidden]:where(:not([hidden=until-found]))"
-      [ Css.important (Css.display None) ]
-    (* Placeholder styling with @supports - added as a raw rule string for now *)
-    (* This needs to be added as part of the base layer but after the main rules *);
-  ]
-
-(* Re-export Color module *)
-module Color = Color
 
 (* Helper: Separate rules by type *)
 let separate_rules_by_type all_rules =
@@ -535,12 +183,9 @@ let separate_rules_by_type all_rules =
 
 (* Helper: Check if a selector is a hover rule *)
 let is_hover_rule selector =
-  String.contains selector ':'
-  && String.contains selector 'h'
-  && String.contains selector 'o'
-  && String.contains selector 'v'
-  && String.contains selector 'e'
-  && String.contains selector 'r'
+  (* A hover rule ends with :hover pseudo-class *)
+  let len = String.length selector in
+  len >= 6 && String.sub selector (len - 6) 6 = ":hover"
 
 (* Helper: Group media query rules by condition *)
 let group_media_queries media_rules =
@@ -566,48 +211,209 @@ let group_container_queries container_rules =
       | _ -> acc)
     [] container_rules
 
-(* Generate CSS rules for all used Tw classes *)
-let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
-  (* Mode will be used when rendering CSS with variables/inline/optimize *)
-  let _ = mode in
+(** {1 Extracted helpers to reduce nesting in to_css} *)
+
+(* Utility rule ordering: conflict-aware grouping (extracted) *)
+let conflict_group selector =
+  let core =
+    if String.starts_with ~prefix:"." selector then
+      String.sub selector 1 (String.length selector - 1)
+    else selector
+  in
+  let starts prefix s =
+    let lp = String.length prefix and ls = String.length s in
+    ls >= lp && String.sub s 0 lp = prefix
+  in
+  if core = "hidden" then (10, 3)
+  else if
+    List.exists
+      (fun p -> starts p core)
+      [
+        "block";
+        "inline";
+        "inline-";
+        "flex";
+        "grid";
+        "table";
+        "contents";
+        "flow-root";
+      ]
+  then (10, 1)
+  else if
+    List.exists
+      (fun p -> starts p core)
+      [ "static"; "fixed"; "absolute"; "relative"; "sticky" ]
+  then (11, 0)
+  else if starts "m-" core || starts "-m-" core then (100, 0)
+  else if
+    starts "mx-" core || starts "my-" core || starts "-mx-" core
+    || starts "-my-" core
+  then (100, 1)
+  else if
+    List.exists
+      (fun p -> starts p core)
+      [ "mt-"; "mr-"; "mb-"; "ml-"; "-mt-"; "-mr-"; "-mb-"; "-ml-" ]
+  then (100, 2)
+  else if starts "bg-" core then
+    let sub_order =
+      try
+        let color_part = String.sub core 3 (String.length core - 3) in
+        let color_name =
+          try
+            let last_dash = String.rindex color_part '-' in
+            String.sub color_part 0 last_dash
+          with Not_found -> color_part
+        in
+        match color_name with
+        | "amber" -> 0
+        | "blue" -> 1
+        | "cyan" -> 2
+        | "emerald" -> 3
+        | "fuchsia" -> 4
+        | "gray" -> 5
+        | "green" -> 6
+        | "indigo" -> 7
+        | "lime" -> 8
+        | "neutral" -> 9
+        | "orange" -> 10
+        | "pink" -> 11
+        | "purple" -> 12
+        | "red" -> 13
+        | "rose" -> 14
+        | "sky" -> 15
+        | "slate" -> 16
+        | "stone" -> 17
+        | "teal" -> 18
+        | "violet" -> 19
+        | "yellow" -> 20
+        | "zinc" -> 21
+        | _ -> 100
+      with
+      | Invalid_argument _ -> 0
+      | Not_found -> 0
+    in
+    (200, sub_order)
+  else if List.exists (fun p -> starts p core) [ "from-"; "via-"; "to-" ] then
+    (200, 50)
+  else if starts "p-" core then (300, 0)
+  else if starts "px-" core || starts "py-" core then (300, 1)
+  else if List.exists (fun p -> starts p core) [ "pt-"; "pr-"; "pb-"; "pl-" ]
+  then (300, 2)
+  else if
+    List.exists
+      (fun p -> starts p core)
+      [
+        "font-";
+        "text-";
+        "tracking-";
+        "leading-";
+        "whitespace-";
+        "break-";
+        "list-";
+        "content-";
+      ]
+  then (400, 0)
+  else if
+    starts "rounded" core || starts "border" core || starts "outline-" core
+  then (500, 0)
+  else if
+    List.exists
+      (fun p -> starts p core)
+      [ "w-"; "h-"; "min-w-"; "min-h-"; "max-w-"; "max-h-" ]
+  then (600, 0)
+  else if
+    List.exists
+      (fun p -> starts p core)
+      [
+        "shadow-";
+        "shadow";
+        "opacity-";
+        "mix-blend-";
+        "background-blend-";
+        "transform";
+        "translate-";
+        "scale-";
+        "rotate-";
+        "skew-";
+        "transition";
+        "duration-";
+        "ease-";
+        "delay-";
+        "animate-";
+      ]
+  then (700, 0)
+  else if
+    List.exists
+      (fun p -> starts p core)
+      [ "cursor-"; "select-"; "resize-"; "scroll-"; "overflow-"; "overscroll-" ]
+  then (800, 0)
+  else if
+    List.exists
+      (fun p -> starts p core)
+      [
+        "flex-";
+        "grow";
+        "shrink";
+        "basis-";
+        "order-";
+        "grid-cols-";
+        "col-";
+        "grid-rows-";
+        "row-";
+        "grid-flow-";
+        "auto-cols-";
+        "auto-rows-";
+      ]
+  then (900, 0)
+  else if starts "items-" core then (901, 0)
+  else if starts "justify-" core then (901, 1)
+  else if List.exists (fun p -> starts p core) [ "content-"; "self-"; "place-" ]
+  then (901, 2)
+  else if List.exists (fun p -> starts p core) [ "gap-"; "space-" ] then (902, 0)
+  else if core = "container" || starts "prose" core then (1000, 0)
+  else (9999, 0)
+
+let build_utilities_layer ~rules ~media_queries ~container_queries =
+  let sorted_rules =
+    List.stable_sort
+      (fun r1 r2 ->
+        let group1, sub1 = conflict_group (Css.selector r1) in
+        let group2, sub2 = conflict_group (Css.selector r2) in
+        let group_cmp = Int.compare group1 group2 in
+        if group_cmp <> 0 then group_cmp else Int.compare sub1 sub2)
+      rules
+  in
+  Css.layered_rules ~layer:Css.Utilities ~media_queries ~container_queries
+    (sorted_rules |> List.map Css.rule_to_nested)
+
+let add_hover_to_media_map hover_rules media_map =
+  if hover_rules = [] then media_map
+  else
+    let hover_condition = "(hover:hover)" in
+    let existing_hover_rules =
+      try List.assoc hover_condition media_map with Not_found -> []
+    in
+    (hover_condition, hover_rules @ existing_hover_rules)
+    :: List.remove_assoc hover_condition media_map
+
+let rule_sets tw_classes =
   let all_rules = tw_classes |> List.concat_map extract_selector_props in
-  (* Separate rules by type *)
-  let regular_rules, media_rules, container_rules, _starting_rules =
+  let regular_rules, media_rules, container_rules, _ =
     separate_rules_by_type all_rules
   in
-
-  (* Group regular rules by selector *)
   let grouped_regular = group_regular_rules regular_rules in
-
-  (* Separate hover rules from regular rules *)
   let non_hover_rules, hover_rules =
     List.partition (fun (sel, _) -> not (is_hover_rule sel)) grouped_regular
   in
-
-  (* Create regular CSS rules *)
   let rules =
     List.map
       (fun (selector, props) ->
         Css.rule ~selector (Css.deduplicate_declarations props))
       non_hover_rules
   in
-
-  (* Group media query rules by their condition *)
-  let media_queries_map = group_media_queries media_rules in
-
-  (* Add hover rules to media query map *)
   let media_queries_map =
-    if hover_rules = [] then media_queries_map
-    else
-      let hover_condition = "(hover:hover)" in
-      let existing_hover_rules =
-        try List.assoc hover_condition media_queries_map with Not_found -> []
-      in
-      (hover_condition, hover_rules @ existing_hover_rules)
-      :: List.remove_assoc hover_condition media_queries_map
+    group_media_queries media_rules |> add_hover_to_media_map hover_rules
   in
-
-  (* Create media query objects *)
   let media_queries =
     List.map
       (fun (condition, rule_list) ->
@@ -620,11 +426,7 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
         Css.media ~condition rules)
       media_queries_map
   in
-
-  (* Group container query rules by their condition *)
   let container_queries_map = group_container_queries container_rules in
-
-  (* Create container query objects *)
   let container_queries =
     List.map
       (fun (condition, rule_list) ->
@@ -637,144 +439,141 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
         Css.container ~condition rules)
       container_queries_map
   in
+  (rules, media_queries, container_queries)
 
-  (* Build the complete stylesheet with layers - just like Tailwind v4 *)
-  if reset then
-    (* Generate @property rules and properties layer from variable usage *)
-    (* Extract all variables from rules *)
-    let referenced_vars = Css.vars_of_rules rules in
-    (* Create var tally from referenced variables *)
-    let var_tally = Var.tally_of_vars referenced_vars in
+let compute_properties_layer rules =
+  let referenced_vars = Css.vars_of_rules rules in
+  let var_tally = Var.tally_of_vars referenced_vars in
+  let properties = Var.generate_properties_layer var_tally in
+  let layer_opt =
+    if properties <> [] then
+      let css_props =
+        List.map (fun (var, value) -> Css.custom_property var value) properties
+      in
+      Some
+        (Css.layered_rules ~layer:Css.Properties
+           ~supports_queries:
+             [
+               Css.supports
+                 ~condition:
+                   "(((-webkit-hyphens:none)) and (not (margin-trim:inline))) \
+                    or ((-moz-orient:inline) and (not (color:rgb(from red r g \
+                    b))))"
+                 [
+                   Css.rule ~selector:"*, :before, :after, ::backdrop" css_props;
+                 ];
+             ]
+           [])
+    else None
+  in
+  let vars_needing_properties = Var.needs_at_property var_tally in
+  let at_properties =
+    List.filter_map
+      (fun var ->
+        match Var.at_property_config var with
+        | Some (name, syntax, inherits, initial_value) ->
+            Some (Css.at_property ~name ~syntax ~initial_value ~inherits ())
+        | None -> None)
+      vars_needing_properties
+  in
+  (layer_opt, at_properties)
 
-    (* Properties layer with composition variable initialization *)
-    let properties_layer_opt =
-      let properties = Var.generate_properties_layer var_tally in
-      (* No properties layer needed *)
-      if properties <> [] then
-        let css_props =
-          List.map
-            (fun (var, value) -> Css.custom_property var value)
-            properties
-        in
-        Some
-          (Css.layered_rules ~layer:Css.Properties
-             ~supports_queries:
-               [
-                 Css.supports
-                   ~condition:
-                     "(((-webkit-hyphens:none)) and (not \
-                      (margin-trim:inline))) or ((-moz-orient:inline) and (not \
-                      (color:rgb(from red r g b))))"
-                   [
-                     Css.rule ~selector:"*, :before, :after, ::backdrop"
-                       css_props;
-                   ];
-               ]
-             [])
-      else None
-    in
+let compute_theme_layer tw_classes =
+  let directly_referenced_vars =
+    tw_classes
+    |> List.concat_map (fun tw ->
+           let selector_props = extract_selector_props tw in
+           List.concat_map
+             (function
+               | Regular (_, props)
+               | Media_query (_, _, props)
+               | Container_query (_, _, props)
+               | Starting_style (_, props) ->
+                   Css.vars_of_declarations props)
+             selector_props)
+    |> List.fold_left (fun acc v -> if List.mem v acc then acc else v :: acc) []
+    |> List.rev
+  in
+  let default_vars =
+    [ "--default-font-family"; "--default-mono-font-family" ]
+  in
+  let rec resolve_dependencies vars_to_check resolved =
+    match vars_to_check with
+    | [] -> resolved
+    | var :: rest ->
+        if List.mem var resolved then resolve_dependencies rest resolved
+        else
+          let new_deps =
+            match Var.of_string var with
+            | Some v -> Var.to_css_properties v |> Css.vars_of_declarations
+            | None -> []
+          in
+          let to_check =
+            rest
+            @ List.filter
+                (fun d -> not (List.mem d resolved || List.mem d rest))
+                new_deps
+          in
+          resolve_dependencies to_check (var :: resolved)
+  in
+  let initial_vars = directly_referenced_vars @ default_vars in
+  let all_referenced_vars =
+    resolve_dependencies initial_vars []
+    |> List.sort_uniq (fun a b ->
+           match (Var.of_string a, Var.of_string b) with
+           | Some va, Some vb -> Var.compare va vb
+           | Some _, None -> -1
+           | None, Some _ -> 1
+           | None, None -> String.compare a b)
+  in
+  let theme_generated_vars =
+    all_referenced_vars
+    |> List.concat_map (fun var_name ->
+           match Var.of_string var_name with
+           | Some v -> Var.to_css_properties v
+           | None -> [])
+  in
+  Css.layered_rules ~layer:Css.Theme
+    [
+      Css.rule_to_nested
+        (Css.rule ~selector:":root, :host" theme_generated_vars);
+    ]
 
-    (* Generate @property rules for variables that need them *)
-    let vars_needing_properties = Var.needs_at_property var_tally in
-    let at_properties =
-      List.filter_map
-        (fun var ->
-          match Var.at_property_config var with
-          | Some (name, syntax, inherits, initial_value) ->
-              Some (Css.at_property ~name ~syntax ~initial_value ~inherits ())
-          | None -> None)
-        vars_needing_properties
-    in
-
-    (* Theme layer with CSS variables - JIT mode (only used variables) *)
-    (* Extract all CSS variables referenced in properties *)
-    let directly_referenced_vars =
-      tw_classes
-      |> List.concat_map (fun tw ->
-             let selector_props = extract_selector_props tw in
-             List.concat_map
-               (fun rule ->
-                 match rule with
-                 | Regular (_, props)
-                 | Media_query (_, _, props)
-                 | Container_query (_, _, props)
-                 | Starting_style (_, props) ->
-                     Css.vars_of_declarations props)
-               selector_props)
-      (* Just deduplicate without sorting alphabetically *)
-      |> List.fold_left
-           (fun acc v -> if List.mem v acc then acc else v :: acc)
-           []
-      |> List.rev
-    in
-
-    (* Default font variables that are always included *)
-    let default_vars =
-      [ "--default-font-family"; "--default-mono-font-family" ]
-    in
-
-    (* Recursively resolve dependencies: if a variable generates CSS that
-       references other variables, include those too *)
-    let rec resolve_dependencies vars_to_check resolved =
-      match vars_to_check with
-      | [] -> resolved
-      | var :: rest ->
-          if List.mem var resolved then resolve_dependencies rest resolved
-          else
-            (* Get CSS properties for this variable *)
-            let new_deps =
-              match Var.of_string var with
-              | Some v ->
-                  let props = Var.to_css_properties v in
-                  (* Extract any variables referenced in these properties *)
-                  Css.vars_of_declarations props
-              | None -> []
-            in
-            (* Add new dependencies to check *)
-            let to_check =
-              rest
-              @ List.filter
-                  (fun d -> not (List.mem d resolved || List.mem d rest))
-                  new_deps
-            in
-            resolve_dependencies to_check (var :: resolved)
-    in
-
-    (* Start with directly referenced vars and defaults, resolve all
-       dependencies *)
-    let initial_vars = directly_referenced_vars @ default_vars in
-    let all_referenced_vars =
-      resolve_dependencies initial_vars []
-      |> List.sort_uniq (fun a b ->
-             (* Convert to Var.t and use its canonical ordering *)
-             match (Var.of_string a, Var.of_string b) with
-             | Some var_a, Some var_b -> Var.compare var_a var_b
-             | Some _, None -> -1 (* Known vars come before unknown *)
-             | None, Some _ -> 1
-             | None, None -> String.compare a b)
-    in
-
-    (* Generate CSS property declarations for all referenced variables *)
-    let theme_generated_vars =
-      all_referenced_vars
-      |> List.concat_map (fun var_name ->
-             match Var.of_string var_name with
-             | Some var -> Var.to_css_properties var
-             | None -> [])
-    in
-
-    let theme_layer =
-      Css.layered_rules ~layer:Css.Theme
+(* Create placeholder @supports block *)
+let placeholder_supports =
+  Css.supports_nested
+    ~condition:
+      "(not ((-webkit-appearance:-apple-pay-button))) or \
+       (contain-intrinsic-size:1px)"
+    [ Css.rule ~selector:"::placeholder" [ Css.color Current ] ]
+    [
+      Css.supports ~condition:"(color:color-mix(in lab, red, red))"
         [
-          Css.rule_to_nested
-            (Css.rule ~selector:":root, :host" theme_generated_vars);
-        ]
-    in
+          Css.rule ~selector:"::placeholder"
+            [
+              Css.color
+                (Css.Mix
+                   {
+                     in_space = Oklab;
+                     color1 = Current;
+                     percent1 = Some 50;
+                     color2 = Transparent;
+                     percent2 = None;
+                   });
+            ];
+        ];
+    ]
 
-    (* Base layer with reset rules *)
-    let base_rules = generate_reset_rules () in
+(* Generate CSS rules for all used Tw classes *)
+let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
+  let _ = mode in
+  (* FIXME: use mode! *)
+  let rules, media_queries, container_queries = rule_sets tw_classes in
 
-    (* Split the base rules to insert @supports after ::placeholder rule *)
+  if reset then
+    let properties_layer_opt, at_properties = compute_properties_layer rules in
+    let theme_layer = compute_theme_layer tw_classes in
+    let base_rules = Preflight.stylesheet () in
     let rec split_after_placeholder acc = function
       | [] -> (List.rev acc, [])
       | h :: t ->
@@ -784,277 +583,28 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
     let before_placeholder, after_placeholder =
       split_after_placeholder [] base_rules
     in
-
-    (* Create placeholder @supports block *)
-    let placeholder_supports =
-      Css.supports_nested
-        ~condition:
-          "(not ((-webkit-appearance:-apple-pay-button))) or \
-           (contain-intrinsic-size:1px)"
-        [ Css.rule ~selector:"::placeholder" [ Css.color Current ] ]
-        [
-          Css.supports ~condition:"(color:color-mix(in lab, red, red))"
-            [
-              Css.rule ~selector:"::placeholder"
-                [
-                  Css.color
-                    (Css.Mix
-                       {
-                         in_space = Oklab;
-                         color1 = Current;
-                         percent1 = Some 50;
-                         color2 = Transparent;
-                         percent2 = None;
-                       });
-                ];
-            ];
-        ]
-    in
-
-    (* Build base layer with rules and nested @supports in correct order *)
     let base_layer_content =
       (before_placeholder |> List.map Css.rule_to_nested)
       @ [ Css.supports_to_nested placeholder_supports ]
       @ (after_placeholder |> List.map Css.rule_to_nested)
     in
     let base_layer = Css.layered_rules ~layer:Css.Base base_layer_content in
-
-    (* Components layer - standard Tailwind v4 layer *)
     let components_layer = Css.layered_rules ~layer:Css.Components [] in
-
-    (* Utilities layer with the actual utility classes AND media queries *)
-    (* Tailwind v4 uses conflict-aware grouping for CSS rule ordering.
-       Utilities are grouped by which CSS properties they can conflict with,
-       ensuring proper specificity resolution. More specific utilities override
-       shorthand ones within each group. *)
-
-    (* Conflict-aware utility sorter based on Tailwind v4's approach *)
-    let get_conflict_group selector =
-      (* Extract the class name from selector (e.g., ".p-4" -> "p-4") *)
-      let core =
-        if String.starts_with ~prefix:"." selector then
-          String.sub selector 1 (String.length selector - 1)
-        else selector
-      in
-
-      (* Helper: check if string starts with prefix *)
-      let starts prefix s =
-        let lp = String.length prefix and ls = String.length s in
-        ls >= lp && String.sub s 0 lp = prefix
-      in
-
-      (* Conflict groups: (group_priority, intra_group_specificity) Lower
-         numbers = earlier in output Based on Tailwind v4's actual output
-         order *)
-
-      (* 0xx: layout/display *)
-      if core = "hidden" then (10, 3) (* later than display values *)
-      else if
-        List.exists
-          (fun p -> starts p core)
-          [
-            "block";
-            "inline";
-            "inline-";
-            "flex";
-            "grid";
-            "table";
-            "contents";
-            "flow-root";
-          ]
-      then (10, 1)
-      else if
-        List.exists
-          (fun p -> starts p core)
-          [ "static"; "fixed"; "absolute"; "relative"; "sticky" ]
-      then (11, 0)
-        (* 1xx: margin - comes BEFORE background in Tailwind's order *)
-      else if starts "m-" core || starts "-m-" core then (100, 0)
-      else if
-        starts "mx-" core || starts "my-" core || starts "-mx-" core
-        || starts "-my-" core
-      then (100, 1)
-      else if
-        List.exists
-          (fun p -> starts p core)
-          [ "mt-"; "mr-"; "mb-"; "ml-"; "-mt-"; "-mr-"; "-mb-"; "-ml-" ]
-      then (100, 2)
-        (* 2xx: background & color utilities - comes BETWEEN margin and
-           padding *)
-      else if starts "bg-" core then
-        (* For background colors, use Tailwind's color ordering *)
-        let sub_order =
-          (* Extract color name from bg-color-shade pattern *)
-          try
-            let color_part = String.sub core 3 (String.length core - 3) in
-            (* Find the color name (everything before the last hyphen) *)
-            let color_name =
-              try
-                let last_dash = String.rindex color_part '-' in
-                String.sub color_part 0 last_dash
-              with Not_found -> color_part
-            in
-            (* Tailwind v4 uses alphabetical order for utility classes *)
-            match color_name with
-            | "amber" -> 0
-            | "blue" -> 1
-            | "cyan" -> 2
-            | "emerald" -> 3
-            | "fuchsia" -> 4
-            | "gray" -> 5
-            | "green" -> 6
-            | "indigo" -> 7
-            | "lime" -> 8
-            | "neutral" -> 9
-            | "orange" -> 10
-            | "pink" -> 11
-            | "purple" -> 12
-            | "red" -> 13
-            | "rose" -> 14
-            | "sky" -> 15
-            | "slate" -> 16
-            | "stone" -> 17
-            | "teal" -> 18
-            | "violet" -> 19
-            | "yellow" -> 20
-            | "zinc" -> 21
-            | _ -> 100 (* Other colors come after *)
-          with
-          | Invalid_argument _ -> 0
-          | Not_found -> 0
-        in
-        (200, sub_order)
-      else if
-        List.exists
-          (fun p -> starts p core)
-          [ "from-"; "via-"; "to-" (* gradients *) ]
-      then (200, 50) (* 3xx: padding - comes AFTER background *)
-      else if starts "p-" core then (300, 0)
-      else if starts "px-" core || starts "py-" core then (300, 1)
-      else if
-        List.exists (fun p -> starts p core) [ "pt-"; "pr-"; "pb-"; "pl-" ]
-      then (300, 2) (* 4xx: typography including text colors *)
-      else if
-        List.exists
-          (fun p -> starts p core)
-          [
-            "font-";
-            "text-";
-            "tracking-";
-            "leading-";
-            "whitespace-";
-            "break-";
-            "list-";
-            "content-";
-          ]
-      then (400, 0) (* 5xx: borders *)
-      else if
-        List.exists (fun p -> starts p core) [ "border"; "rounded"; "outline-" ]
-      then (500, 0) (* 6xx: sizing *)
-      else if
-        List.exists
-          (fun p -> starts p core)
-          [ "w-"; "h-"; "min-w-"; "min-h-"; "max-w-"; "max-h-" ]
-      then (600, 0) (* 7xx: effects, transforms, transitions *)
-      else if
-        List.exists
-          (fun p -> starts p core)
-          [
-            "shadow-";
-            "shadow";
-            "opacity-";
-            "mix-blend-";
-            "background-blend-";
-            "transform";
-            "translate-";
-            "scale-";
-            "rotate-";
-            "skew-";
-            "transition";
-            "duration-";
-            "ease-";
-            "delay-";
-            "animate-";
-          ]
-      then (700, 0) (* 8xx: misc / accessibility / interop *)
-      else if
-        List.exists
-          (fun p -> starts p core)
-          [
-            "cursor-";
-            "select-";
-            "pointer-events-";
-            "sr-";
-            "appearance-";
-            "accent-";
-            "caret-";
-            "resize-";
-            "scroll-";
-            "overflow-";
-            "overscroll-";
-          ]
-      then (800, 0) (* 9xx: flexbox/grid specifics *)
-      else if
-        List.exists
-          (fun p -> starts p core)
-          [
-            "flex-";
-            "grow";
-            "shrink";
-            "basis-";
-            "order-";
-            "grid-cols-";
-            "col-";
-            "grid-rows-";
-            "row-";
-            "grid-flow-";
-            "auto-cols-";
-            "auto-rows-";
-          ]
-      then (900, 0) (* Alignment and justification come before gap *)
-      else if starts "items-" core then (901, 0)
-      else if starts "justify-" core then (901, 1)
-      else if
-        List.exists (fun p -> starts p core) [ "content-"; "self-"; "place-" ]
-      then (901, 2) (* Gap and space utilities come after alignment *)
-      else if List.exists (fun p -> starts p core) [ "gap-"; "space-" ] then
-        (902, 0) (* 10xx: container, prose *)
-      else if core = "container" || starts "prose" core then (1000, 0)
-      (* fallback bucket *)
-        else (9999, 0)
-    in
-
-    (* Sort rules with stable sort to preserve order within groups *)
-    let sorted_rules =
-      List.stable_sort
-        (fun r1 r2 ->
-          let group1, sub1 = get_conflict_group (Css.selector r1) in
-          let group2, sub2 = get_conflict_group (Css.selector r2) in
-          let group_cmp = Int.compare group1 group2 in
-          if group_cmp <> 0 then group_cmp
-          else Int.compare sub1 sub2 (* Compare specificity within group *))
-        rules
-    in
+    (* Tailwind v4 uses conflict-aware grouping for CSS rule ordering. Utilities
+       are grouped by which CSS properties they can conflict with, ensuring
+       proper specificity resolution. More specific utilities override shorthand
+       ones within each group. *)
     let utilities_layer =
-      Css.layered_rules ~layer:Css.Utilities ~media_queries ~container_queries
-        (sorted_rules |> List.map Css.rule_to_nested)
+      build_utilities_layer ~rules ~media_queries ~container_queries
     in
-
-    (* Combine all layers *)
     let base_layers =
       [ theme_layer; base_layer; components_layer; utilities_layer ]
     in
-
-    (* Add properties layer if needed *)
     let layers =
       match properties_layer_opt with
       | Some props_layer -> props_layer :: base_layers
       | None -> base_layers
     in
-
-    (* Don't add empty Properties layer *)
-    (* Media queries and container queries are already included in the
-       utilities layer, don't duplicate *)
     let items =
       List.map (fun l -> Css.Layer l) layers
       @ List.map (fun a -> Css.At_property a) at_properties
@@ -1062,7 +612,7 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
     Css.stylesheet items
   else
     (* No reset - just raw rules, media queries, and container queries, no
-       layers *)
+       layers. TODO: is this the right choice for inline? *)
     let items =
       List.map (fun r -> Css.Rule r) rules
       @ List.map (fun m -> Css.Media m) media_queries

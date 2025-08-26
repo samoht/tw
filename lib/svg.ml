@@ -1,15 +1,12 @@
 open Core
 open Css
 
-(** {1 Fill Utilities} *)
-
-let fill_none = style "fill-none" [ fill None ]
-let fill_current = style "fill-current" [ fill Current_color ]
-
-let fill color ?(shade = 500) () =
+(** Helper to create SVG color utilities *)
+let svg_color_util prefix property color ?(shade = 500) () =
   let class_name =
-    if Color.is_base_color color then Pp.str [ "fill-"; Color.to_name color ]
-    else Pp.str [ "fill-"; Color.to_name color; "-"; string_of_int shade ]
+    if Color.is_base_color color then
+      Pp.str [ prefix; "-"; Color.to_name color ]
+    else Pp.str [ prefix; "-"; Color.to_name color; "-"; string_of_int shade ]
   in
   let var_name =
     if Color.is_base_color color then Pp.str [ "color-"; Color.to_name color ]
@@ -19,27 +16,19 @@ let fill color ?(shade = 500) () =
     Color.to_css color (if Color.is_base_color color then 500 else shade)
   in
   let css_var = Css.var ~default:default_color var_name in
-  style class_name [ fill (Color (Css.Var css_var)) ]
+  style class_name [ property (Color (Css.Var css_var)) ]
+
+(** {1 Fill Utilities} *)
+
+let fill_none = style "fill-none" [ fill None ]
+let fill_current = style "fill-current" [ fill Current_color ]
+let fill = svg_color_util "fill" fill
 
 (** {1 Stroke Utilities} *)
 
 let stroke_none = style "stroke-none" [ stroke None ]
 let stroke_current = style "stroke-current" [ stroke Current_color ]
-
-let stroke color ?(shade = 500) () =
-  let class_name =
-    if Color.is_base_color color then Pp.str [ "stroke-"; Color.to_name color ]
-    else Pp.str [ "stroke-"; Color.to_name color; "-"; string_of_int shade ]
-  in
-  let var_name =
-    if Color.is_base_color color then Pp.str [ "color-"; Color.to_name color ]
-    else Pp.str [ "color-"; Color.to_name color; "-"; string_of_int shade ]
-  in
-  let default_color =
-    Color.to_css color (if Color.is_base_color color then 500 else shade)
-  in
-  let css_var = Css.var ~default:default_color var_name in
-  style class_name [ stroke (Color (Css.Var css_var)) ]
+let stroke = svg_color_util "stroke" stroke
 
 (** {1 Stroke Width Utilities} *)
 
