@@ -95,7 +95,7 @@ let test_rgb_to_hex () =
 
 let test_tailwind_colors () =
   let test_color name shade expected_oklch =
-    match TailwindColors.get_color name shade with
+    match Tailwind_colors.get_color name shade with
     | Some oklch_str ->
         Alcotest.(check string)
           (Fmt.str "%s-%d" name shade)
@@ -182,6 +182,28 @@ let test_color_accuracy () =
   test_color "#ef4444" "red-500";
   test_color "#6b7280" "gray-500"
 
+let test_css_mode_with_colors () =
+  (* Test that color utilities work correctly with different CSS modes *)
+  let open Tw in
+  
+  (* Generate CSS from color utilities *)
+  let styles = [ Color.bg_blue; Color.text_red ] in
+  let css = Tw.Rules.to_css styles in
+  let css_string = Css.to_string css in
+  
+  (* Test that Variables mode is the default and uses CSS variables *)
+  Alcotest.(check bool)
+    "Default mode uses var() for colors" true
+    (Astring.String.is_infix ~affix:"var(--color-" css_string);
+  
+  (* For now, just verify the CSS is generated correctly *)
+  Alcotest.(check bool)
+    "Contains bg-blue-500 class" true
+    (Astring.String.is_infix ~affix:".bg-blue-500" css_string);
+  Alcotest.(check bool)
+    "Contains text-red-500 class" true
+    (Astring.String.is_infix ~affix:".text-red-500" css_string)
+
 (* Test suite *)
 let tests =
   [
@@ -192,6 +214,7 @@ let tests =
     ("OKLCH CSS formatting", `Quick, test_oklch_css_formatting);
     ("Edge cases", `Quick, test_edge_cases);
     ("Color accuracy", `Quick, test_color_accuracy);
+    ("CSS modes with colors", `Quick, test_css_mode_with_colors);
   ]
 
 let suite = ("color", tests)

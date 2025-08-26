@@ -129,68 +129,68 @@ let text_9xl =
 (** {1 Font Weight Utilities} *)
 
 let font_thin =
-  style_with_vars "font-thin"
+  style "font-thin"
     [
       custom_property "--tw-font-weight" "var(--font-weight-thin)";
       font_weight (Var (var "font-weight-thin"));
     ]
-    []
+    
 
 let font_light =
-  style_with_vars "font-light"
+  style "font-light"
     [
       custom_property "--tw-font-weight" "var(--font-weight-light)";
       font_weight (Var (var "font-weight-light"));
     ]
-    []
+    
 
 let font_normal =
-  style_with_vars "font-normal"
+  style "font-normal"
     [
       custom_property "--tw-font-weight" "var(--font-weight-normal)";
       font_weight (Var (var "font-weight-normal"));
     ]
-    []
+    
 
 let font_medium =
-  style_with_vars "font-medium"
+  style "font-medium"
     [
       custom_property "--tw-font-weight" "var(--font-weight-medium)";
       font_weight (Var (var "font-weight-medium"));
     ]
-    []
+    
 
 let font_semibold =
-  style_with_vars "font-semibold"
+  style "font-semibold"
     [
       custom_property "--tw-font-weight" "var(--font-weight-semibold)";
       font_weight (Var (var "font-weight-semibold"));
     ]
-    []
+    
 
 let font_bold =
-  style_with_vars "font-bold"
+  style "font-bold"
     [
       custom_property "--tw-font-weight" "var(--font-weight-bold)";
       font_weight (Var (var "font-weight-bold"));
     ]
-    []
+    
 
 let font_extrabold =
-  style_with_vars "font-extrabold"
+  style "font-extrabold"
     [
       custom_property "--tw-font-weight" "var(--font-weight-extrabold)";
       font_weight (Var (var "font-weight-extrabold"));
     ]
-    []
+    
 
 let font_black =
-  style_with_vars "font-black"
+  style "font-black"
     [
       custom_property "--tw-font-weight" "var(--font-weight-black)";
       font_weight (Var (var "font-weight-black"));
     ]
-    []
+    
 
 (** {1 Font Family Utilities} *)
 
@@ -228,6 +228,22 @@ let underline_double = style "underline-double" [ text_decoration_style Double ]
 let underline_dotted = style "underline-dotted" [ text_decoration_style Dotted ]
 let underline_dashed = style "underline-dashed" [ text_decoration_style Dashed ]
 let underline_wavy = style "underline-wavy" [ text_decoration_style Wavy ]
+
+(** {1 Text Decoration Color & Thickness} *)
+
+let decoration_color ?(shade=500) (color : Color.color) =
+  let class_name =
+    if Color.is_base_color color then Pp.str [ "decoration-"; Color.pp color ]
+    else Pp.str [ "decoration-"; Color.pp color; "-"; string_of_int shade ]
+  in
+  style class_name [ text_decoration_color (Color.to_css color shade) ]
+
+let decoration_thickness n =
+  let class_name = "decoration-" ^ string_of_int n in
+  style class_name [ text_decoration_thickness (string_of_int n ^ "px") ]
+
+let decoration_from_font =
+  style "decoration-from-font" [ text_decoration_thickness "from-font" ]
 
 (** {1 Line Height Utilities} *)
 
@@ -291,6 +307,139 @@ let antialiased =
   style "antialiased"
     [ webkit_font_smoothing Antialiased; moz_osx_font_smoothing Grayscale ]
 
+(** {1 Vertical Align} *)
+
+let align_baseline = style "align-baseline" [ vertical_align Baseline ]
+let align_top = style "align-top" [ vertical_align Top ]
+let align_middle = style "align-middle" [ vertical_align Middle ]
+let align_bottom = style "align-bottom" [ vertical_align Bottom ]
+let align_text_top = style "align-text-top" [ vertical_align Text_top ]
+let align_text_bottom = style "align-text-bottom" [ vertical_align Text_bottom ]
+let align_sub = style "align-sub" [ vertical_align Sub ]
+let align_super = style "align-super" [ vertical_align Super ]
+
+(** {1 List Style} *)
+
+let list_none = style "list-none" [ list_style "none" ]
+let list_disc = style "list-disc" [ list_style_type Disc ]
+let list_decimal = style "list-decimal" [ list_style_type Decimal ]
+
+let list_inside = style "list-inside" [ list_style_position Inside ]
+let list_outside = style "list-outside" [ list_style_position Outside ]
+let list_image_none = style "list-image-none" [ list_style_image None_img ]
+let list_image_url url =
+  style (Pp.str [ "list-image-url-"; url ]) [ list_style_image (Url url) ]
+
+(** {1 Text Indent} *)
+
+let indent n =
+  let class_name = "indent-" ^ string_of_int n in
+  style class_name
+    [
+      text_indent
+        (Calc (Expr (Calc.var "spacing", Mult, Calc.float (float_of_int n))));
+    ]
+
+(** {1 Line Clamp} *)
+
+let line_clamp n =
+  if n = 0 then
+    style "line-clamp-none"
+      [ webkit_line_clamp 0; overflow Visible; display Block ]
+  else
+    let class_name = "line-clamp-" ^ string_of_int n in
+    style class_name [ webkit_line_clamp n; overflow Hidden; display Block ]
+
+(** {1 Content} *)
+
+let content_none = style "content-none" [ content "none" ]
+
+let escape_css_string s =
+  (* Escape backslashes and quotes inside CSS string literal *)
+  let buf = Buffer.create (String.length s + 8) in
+  String.iter
+    (function
+      | '\\' -> Buffer.add_string buf "\\\\"
+      | '"' -> Buffer.add_string buf "\\\""
+      | c -> Buffer.add_char buf c)
+    s;
+  Buffer.contents buf
+
+let content s =
+  (* Auto-quote the text and use Tailwind arbitrary value class name *)
+  let quoted = "\"" ^ escape_css_string s ^ "\"" in
+  let class_name = Pp.str [ "content-["; quoted; "]" ] in
+  style class_name [ content quoted ]
+
+(** {1 Text Overflow} *)
+
+let text_ellipsis = style "text-ellipsis" [ text_overflow Ellipsis ]
+let text_clip = style "text-clip" [ text_overflow Clip ]
+
+(** {1 Text Wrap} *)
+
+let text_wrap = style "text-wrap" [ Css.text_wrap Wrap ]
+let text_nowrap = style "text-nowrap" [ Css.text_wrap No_wrap ]
+let text_balance = style "text-balance" [ Css.text_wrap Balance ]
+let text_pretty = style "text-pretty" [ Css.text_wrap Pretty ]
+
+(** {1 Word/Overflow Wrap} *)
+
+let break_normal =
+  style "break-normal" [ word_break Normal; overflow_wrap Normal_wrap ]
+
+let break_words =
+  style "break-words" [ overflow_wrap Break_word_wrap ]
+
+let break_all = style "break-all" [ word_break Break_all ]
+let break_keep = style "break-keep" [ word_break Keep_all ]
+
+let overflow_wrap_normal = style "overflow-wrap-normal" [ overflow_wrap Normal_wrap ]
+let overflow_wrap_anywhere = style "overflow-wrap-anywhere" [ overflow_wrap Anywhere ]
+let overflow_wrap_break_word =
+  style "overflow-wrap-break-word" [ overflow_wrap Break_word_wrap ]
+
+(** {1 Hyphens} *)
+
+let hyphens_none = style "hyphens-none" [ hyphens None_h ]
+let hyphens_manual = style "hyphens-manual" [ hyphens Manual ]
+let hyphens_auto = style "hyphens-auto" [ hyphens Auto ]
+
+(** {1 Font Stretch} *)
+
+let font_stretch_normal = style "font-stretch-normal" [ font_stretch Normal ]
+let font_stretch_condensed =
+  style "font-stretch-condensed" [ font_stretch Condensed ]
+
+let font_stretch_expanded =
+  style "font-stretch-expanded" [ font_stretch Expanded ]
+
+let font_stretch_percent n =
+  style ("font-stretch-" ^ string_of_int n)
+    [ font_stretch (Percentage (float_of_int n)) ]
+
+(** {1 Numeric Variants} *)
+
+let normal_nums =
+  style "normal-nums" [ font_variant_numeric [ Normal_numeric ] ]
+
+let ordinal = style "ordinal" [ font_variant_numeric [ Ordinal ] ]
+let slashed_zero = style "slashed-zero" [ font_variant_numeric [ Slashed_zero ] ]
+let lining_nums = style "lining-nums" [ font_variant_numeric [ Lining_nums ] ]
+let oldstyle_nums = style "oldstyle-nums" [ font_variant_numeric [ Oldstyle_nums ] ]
+
+let proportional_nums =
+  style "proportional-nums" [ font_variant_numeric [ Proportional_nums ] ]
+
+let tabular_nums =
+  style "tabular-nums" [ font_variant_numeric [ Tabular_nums ] ]
+
+let diagonal_fractions =
+  style "diagonal-fractions" [ font_variant_numeric [ Diagonal_fractions ] ]
+
+let stacked_fractions =
+  style "stacked-fractions" [ font_variant_numeric [ Stacked_fractions ] ]
+
 (** {1 Parsing Functions} *)
 
 let ( >|= ) = Parse.( >|= )
@@ -342,8 +491,67 @@ let of_string = function
   | [ "tracking"; "wide" ] -> Ok tracking_wide
   | [ "tracking"; "wider" ] -> Ok tracking_wider
   | [ "tracking"; "widest" ] -> Ok tracking_widest
+  | [ "decoration"; "from"; "font" ] -> Ok decoration_from_font
+  | [ "decoration"; color; shade ] -> (
+      match (Color.of_string color, Parse.int_any shade) with
+      | Ok c, Ok s -> Ok (decoration_color ~shade:s c)
+      | _ -> Error (`Msg "Not a typography utility"))
+  | [ "decoration"; n ] -> (
+      match Parse.int_pos ~name:"decoration thickness" n with
+      | Ok thickness -> Ok (decoration_thickness thickness)
+      | Error _ -> (
+          match Color.of_string n with
+          | Ok c -> Ok (decoration_color c)
+          | Error _ -> Error (`Msg "Not a typography utility")))
   | [ "uppercase" ] -> Ok uppercase
   | [ "lowercase" ] -> Ok lowercase
   | [ "capitalize" ] -> Ok capitalize
   | [ "normal"; "case" ] -> Ok normal_case
+  | [ "align"; "baseline" ] -> Ok align_baseline
+  | [ "align"; "top" ] -> Ok align_top
+  | [ "align"; "middle" ] -> Ok align_middle
+  | [ "align"; "bottom" ] -> Ok align_bottom
+  | [ "align"; "text"; "top" ] -> Ok align_text_top
+  | [ "align"; "text"; "bottom" ] -> Ok align_text_bottom
+  | [ "align"; "sub" ] -> Ok align_sub
+  | [ "align"; "super" ] -> Ok align_super
+  | [ "list"; "none" ] -> Ok list_none
+  | [ "list"; "disc" ] -> Ok list_disc
+  | [ "list"; "decimal" ] -> Ok list_decimal
+  | [ "list"; "inside" ] -> Ok list_inside
+  | [ "list"; "outside" ] -> Ok list_outside
+  | [ "list"; "image"; "none" ] -> Ok list_image_none
+  | [ "text"; "ellipsis" ] -> Ok text_ellipsis
+  | [ "text"; "clip" ] -> Ok text_clip
+  | [ "text"; "wrap" ] -> Ok text_wrap
+  | [ "text"; "nowrap" ] -> Ok text_nowrap
+  | [ "text"; "balance" ] -> Ok text_balance
+  | [ "text"; "pretty" ] -> Ok text_pretty
+  | [ "break"; "normal" ] -> Ok break_normal
+  | [ "break"; "words" ] -> Ok break_words
+  | [ "break"; "all" ] -> Ok break_all
+  | [ "break"; "keep" ] -> Ok break_keep
+  | [ "overflow"; "wrap"; "normal" ] -> Ok overflow_wrap_normal
+  | [ "overflow"; "wrap"; "anywhere" ] -> Ok overflow_wrap_anywhere
+  | [ "overflow"; "wrap"; "break"; "word" ] -> Ok overflow_wrap_break_word
+  | [ "hyphens"; "none" ] -> Ok hyphens_none
+  | [ "hyphens"; "manual" ] -> Ok hyphens_manual
+  | [ "hyphens"; "auto" ] -> Ok hyphens_auto
+  | [ "font"; "stretch"; "normal" ] -> Ok font_stretch_normal
+  | [ "font"; "stretch"; "condensed" ] -> Ok font_stretch_condensed
+  | [ "font"; "stretch"; "expanded" ] -> Ok font_stretch_expanded
+  | [ "font"; "stretch"; n ] ->
+      Parse.int_pos ~name:"font-stretch" n >|= font_stretch_percent
+  | [ "normal"; "nums" ] -> Ok normal_nums
+  | [ "ordinal" ] -> Ok ordinal
+  | [ "slashed"; "zero" ] -> Ok slashed_zero
+  | [ "lining"; "nums" ] -> Ok lining_nums
+  | [ "oldstyle"; "nums" ] -> Ok oldstyle_nums
+  | [ "proportional"; "nums" ] -> Ok proportional_nums
+  | [ "tabular"; "nums" ] -> Ok tabular_nums
+  | [ "diagonal"; "fractions" ] -> Ok diagonal_fractions
+  | [ "stacked"; "fractions" ] -> Ok stacked_fractions
+  | [ "indent"; n ] -> Parse.int_pos ~name:"indent" n >|= indent
+  | [ "line"; "clamp"; n ] -> Parse.int_pos ~name:"line-clamp" n >|= line_clamp
+  | [ "content"; "none" ] -> Ok content_none
   | _ -> Error (`Msg "Not a typography utility")

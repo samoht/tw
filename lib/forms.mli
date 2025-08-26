@@ -5,19 +5,19 @@ open Core
 (** {1 Form Input Utilities} *)
 
 val form_input : t
-(** Basic form input styles. *)
+(** [form_input] applies basic form input styles. *)
 
 val form_textarea : t
-(** Textarea form element styles. *)
+(** [form_textarea] applies textarea form element styles. *)
 
 val form_select : t
-(** Select dropdown styles with custom arrow. *)
+(** [form_select] applies select dropdown styles with a custom arrow. *)
 
 val form_checkbox : t
-(** Checkbox input styles. *)
+(** [form_checkbox] applies checkbox input styles. *)
 
 val form_radio : t
-(** Radio button input styles. *)
+(** [form_radio] applies radio button input styles. *)
 
 (** {1 Parsing Functions} *)
 

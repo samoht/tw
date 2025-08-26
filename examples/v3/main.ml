@@ -73,8 +73,8 @@ let color_showcase =
             [
               grid;
               grid_cols 2;
-              on_sm [ grid_cols 4 ];
-              on_lg [ grid_cols 8 ];
+              sm [ grid_cols 4 ];
+              lg [ grid_cols 8 ];
               gap 2;
             ]
         [
@@ -89,7 +89,7 @@ let color_showcase =
         ];
       (* Gray scale *)
       div
-        ~tw:Tw.[ grid; grid_cols 5; on_lg [ grid_cols 10 ]; gap 2; mt 4 ]
+        ~tw:Tw.[ grid; grid_cols 5; lg [ grid_cols 10 ]; gap 2; mt 4 ]
         [
           div ~tw:Tw.[ h 12; bg gray 50; border ] [];
           div ~tw:Tw.[ h 12; bg gray 100 ] [];
@@ -211,8 +211,8 @@ let grid_showcase =
             [
               grid;
               grid_cols 1;
-              on_sm [ grid_cols 2 ];
-              on_lg [ grid_cols 4 ];
+              sm [ grid_cols 2 ];
+              lg [ grid_cols 4 ];
               gap 4;
             ]
         [
@@ -231,7 +231,7 @@ let borders_shadows_showcase =
       h3 ~tw:Tw.[ text_2xl; font_bold; mb 4 ] [ txt "Borders & Shadows" ];
       (* Border widths *)
       div
-        ~tw:Tw.[ grid; grid_cols 2; on_sm [ grid_cols 4 ]; gap 4; mb 4 ]
+        ~tw:Tw.[ grid; grid_cols 2; sm [ grid_cols 4 ]; gap 4; mb 4 ]
         [
           div ~tw:Tw.[ p 4; border; text_center ] [ txt "border" ];
           div ~tw:Tw.[ p 4; border_md; text_center ] [ txt "border-2" ];
@@ -240,7 +240,7 @@ let borders_shadows_showcase =
         ];
       (* Border styles *)
       div
-        ~tw:Tw.[ grid; grid_cols 2; on_sm [ grid_cols 3 ]; gap 4; mb 4 ]
+        ~tw:Tw.[ grid; grid_cols 2; sm [ grid_cols 3 ]; gap 4; mb 4 ]
         [
           div
             ~tw:Tw.[ p 4; border_md; border_solid; text_center ]
@@ -254,7 +254,7 @@ let borders_shadows_showcase =
         ];
       (* Border radius *)
       div
-        ~tw:Tw.[ grid; grid_cols 2; on_sm [ grid_cols 4 ]; gap 4; mb 4 ]
+        ~tw:Tw.[ grid; grid_cols 2; sm [ grid_cols 4 ]; gap 4; mb 4 ]
         [
           div ~tw:Tw.[ p 4; bg gray 200; text_center ] [ txt "none" ];
           div ~tw:Tw.[ p 4; bg gray 200; rounded_sm; text_center ] [ txt "sm" ];
@@ -263,7 +263,7 @@ let borders_shadows_showcase =
         ];
       (* Shadows *)
       div
-        ~tw:Tw.[ grid; grid_cols 2; on_sm [ grid_cols 3 ]; gap 4 ]
+        ~tw:Tw.[ grid; grid_cols 2; sm [ grid_cols 3 ]; gap 4 ]
         [
           div
             ~tw:Tw.[ p 4; bg_white; shadow_sm; text_center ]
@@ -296,7 +296,7 @@ let interactive_showcase =
                   bg blue 500;
                   text_white;
                   rounded_md;
-                  on_hover [ bg blue 600 ];
+                  hover [ bg blue 600 ];
                   transition_colors;
                 ]
             [ txt "Hover me" ];
@@ -310,7 +310,7 @@ let interactive_showcase =
                   py 2;
                   border;
                   rounded_md;
-                  on_focus
+                  focus
                     [ border_color blue 500; ring_md; ring_color blue 200 ];
                 ]
             ~at:[ At.type' "text"; At.placeholder "Focus me" ]
@@ -325,7 +325,7 @@ let interactive_showcase =
                   bg green 500;
                   text_white;
                   rounded_md;
-                  on_active [ bg green 700 ];
+                  active [ bg green 700 ];
                   transition_colors;
                 ]
             [ txt "Click and hold" ];
@@ -355,7 +355,7 @@ let animations_showcase =
       h3 ~tw:Tw.[ text_2xl; font_bold; mb 4 ] [ txt "Animations & Transitions" ];
       (* Transitions *)
       div
-        ~tw:Tw.[ grid; grid_cols 2; on_sm [ grid_cols 3 ]; gap 4; mb 4 ]
+        ~tw:Tw.[ grid; grid_cols 2; sm [ grid_cols 3 ]; gap 4; mb 4 ]
         [
           div
             ~tw:
@@ -366,7 +366,7 @@ let animations_showcase =
                   text_white;
                   text_center;
                   rounded_md;
-                  on_hover [ scale 110 ];
+                  hover [ scale 110 ];
                   transition_transform;
                   duration 300;
                 ]
@@ -380,7 +380,7 @@ let animations_showcase =
                   text_white;
                   text_center;
                   rounded_md;
-                  on_hover [ rotate 45 ];
+                  hover [ rotate 45 ];
                   transition_transform;
                   duration 300;
                 ]
@@ -393,7 +393,7 @@ let animations_showcase =
                   bg yellow 500;
                   text_center;
                   rounded_md;
-                  on_hover [ opacity 50 ];
+                  hover [ opacity 50 ];
                   transition_opacity;
                   duration 300;
                 ]
@@ -401,7 +401,7 @@ let animations_showcase =
         ];
       (* Built-in animations *)
       div
-        ~tw:Tw.[ grid; grid_cols 2; on_sm [ grid_cols 4 ]; gap 4 ]
+        ~tw:Tw.[ grid; grid_cols 2; sm [ grid_cols 4 ]; gap 4 ]
         [
           div
             ~tw:
@@ -478,7 +478,7 @@ let forms_showcase =
                       py 2;
                       border;
                       rounded_md;
-                      on_focus
+                      focus
                         [ border_color blue 500; ring_sm; ring_color blue 200 ];
                     ]
                 ~at:[ At.type' "text"; At.placeholder "Enter text" ]
@@ -553,7 +553,7 @@ let forms_showcase =
                   bg blue 600;
                   text_white;
                   rounded_md;
-                  on_hover [ bg blue 700 ];
+                  hover [ bg blue 700 ];
                   transition_colors;
                 ]
             ~at:[ At.type' "submit" ]
@@ -576,11 +576,11 @@ let responsive_showcase =
           Tw.
             [
               text_xs;
-              on_sm [ text_sm ];
-              on_md [ text_base ];
-              on_lg [ text_lg ];
-              on_xl [ text_xl ];
-              on_2xl [ text_2xl ];
+              sm [ text_sm ];
+              md [ text_base ];
+              lg [ text_lg ];
+              xl [ text_xl ];
+              xxl [ text_2xl ];
             ]
         [ txt "This text grows with screen size" ];
       (* Responsive colors *)
@@ -592,10 +592,10 @@ let responsive_showcase =
               mt 4;
               rounded_md;
               bg red 500;
-              on_sm [ bg yellow 500 ];
-              on_md [ bg green 500 ];
-              on_lg [ bg blue 500 ];
-              on_xl [ bg purple 500 ];
+              sm [ bg yellow 500 ];
+              md [ bg green 500 ];
+              lg [ bg blue 500 ];
+              xl [ bg purple 500 ];
             ]
         [
           p
@@ -607,13 +607,13 @@ let responsive_showcase =
         ~tw:Tw.[ mt 4; flex; flex_col; gap 2 ]
         [
           p
-            ~tw:Tw.[ block; on_sm [ hidden ] ]
+            ~tw:Tw.[ block; sm [ hidden ] ]
             [ txt "📱 Visible only on mobile" ];
           p
-            ~tw:Tw.[ hidden; on_sm [ block ]; on_lg [ hidden ] ]
+            ~tw:Tw.[ hidden; sm [ block ]; lg [ hidden ] ]
             [ txt "💻 Visible on small to medium screens" ];
           p
-            ~tw:Tw.[ hidden; on_lg [ block ] ]
+            ~tw:Tw.[ hidden; lg [ block ] ]
             [ txt "🖥️ Visible on large screens and up" ];
         ];
     ]
@@ -626,7 +626,7 @@ let filters_showcase =
       h3 ~tw:Tw.[ text_2xl; font_bold; mb 4 ] [ txt "Filters & Effects" ];
       (* Blur *)
       div
-        ~tw:Tw.[ grid; grid_cols 2; on_sm [ grid_cols 3 ]; gap 4; mb 4 ]
+        ~tw:Tw.[ grid; grid_cols 2; sm [ grid_cols 3 ]; gap 4; mb 4 ]
         [
           img
             ~tw:Tw.[ w_full; h 24; bg gray 300; rounded_md; object_cover ]
@@ -860,7 +860,7 @@ let utilities_showcase =
       h3 ~tw:Tw.[ text_2xl; font_bold; mb 4 ] [ txt "Other Utilities" ];
       (* Overflow *)
       div
-        ~tw:Tw.[ grid; grid_cols 2; on_sm [ grid_cols 3 ]; gap 4; mb 4 ]
+        ~tw:Tw.[ grid; grid_cols 2; sm [ grid_cols 3 ]; gap 4; mb 4 ]
         [
           div
             ~tw:Tw.[ h 20; p 2; bg gray 100; overflow_hidden ]
@@ -888,7 +888,7 @@ let utilities_showcase =
         ];
       (* Cursor styles *)
       div
-        ~tw:Tw.[ grid; grid_cols 2; on_sm [ grid_cols 4 ]; gap 2; mb 4 ]
+        ~tw:Tw.[ grid; grid_cols 2; sm [ grid_cols 4 ]; gap 2; mb 4 ]
         [
           div
             ~tw:Tw.[ p 2; bg blue 100; cursor_pointer; text_center ]
@@ -945,7 +945,7 @@ let () =
               [
                 (* Two column grid for larger screens *)
                 div
-                  ~tw:Tw.[ grid; grid_cols 1; on_lg [ grid_cols 2 ]; gap 6 ]
+                  ~tw:Tw.[ grid; grid_cols 1; lg [ grid_cols 2 ]; gap 6 ]
                   [
                     typography_showcase;
                     color_showcase;

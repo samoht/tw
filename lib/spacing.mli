@@ -126,6 +126,34 @@ val space_x : int -> t
 val space_y : int -> t
 (** [space_y n] creates vertical space between child elements. *)
 
+(** {1 Special Values} *)
+
+val p_px : t
+val p_full : t
+val px_px : t
+val px_full : t
+val py_px : t
+val py_full : t
+val pt_px : t
+val pt_full : t
+val pr_px : t
+val pr_full : t
+val pb_px : t
+val pb_full : t
+val pl_px : t
+val pl_full : t
+
+val m_auto : t
+val mx_auto : t
+val my_auto : t
+val mt_auto : t
+val mr_auto : t
+val mb_auto : t
+val ml_auto : t
+
+val gap_px : t
+val gap_full : t
+
 (** {1 Parsing Functions} *)
 
 val of_string : string list -> (t, [ `Msg of string ]) result

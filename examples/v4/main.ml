@@ -21,9 +21,9 @@ let () =
             bg_white;
             (* Shadow that changes on hover *)
             shadow_md;
-            on_hover [ shadow_xl ];
+            hover [ shadow_xl ];
             (* New v4: focus-within for better form UX *)
-            on_focus_within [ ring_md; ring_color blue 500 ];
+            focus_within [ ring_md; ring_color blue 500 ];
             (* New v4: has modifier - style changes when containing an image *)
             has "img" [ p 0 ];
           ]
@@ -41,7 +41,7 @@ let () =
                     mb 2;
                     (* New v4: group hover - style when parent group is
                        hovered *)
-                    on_group_hover [ text blue 600 ];
+                    group_hover [ text blue 600 ];
                   ]
               [ txt "Interactive Card" ];
             p
@@ -65,7 +65,7 @@ let () =
                 border;
                 rounded_md;
                 (* New v4: focus-visible for keyboard navigation *)
-                on_focus_visible [ ring_md; ring_color blue 400 ];
+                focus_visible [ ring_md; ring_color blue 400 ];
               ]
           ();
       ]
@@ -80,8 +80,8 @@ let () =
             grid;
             grid_cols 1;
             (* Traditional responsive design *)
-            on_sm [ grid_cols 2 ];
-            on_lg [ grid_cols 3 ];
+            sm [ grid_cols 2 ];
+            lg [ grid_cols 3 ];
             gap 4;
           ]
       [
@@ -104,7 +104,7 @@ let () =
             bg_white;
             text gray 900;
             (* Dark mode styles *)
-            on_dark [ bg gray 900; text_white ];
+            dark [ bg gray 900; text_white ];
             (* High contrast mode support *)
             contrast_more [ border_lg; border_color black 0 ];
           ]
@@ -113,7 +113,7 @@ let () =
           ~tw:Tw.[ text_2xl; font_semibold; mb 4 ]
           [ txt "Accessibility-First Design" ];
         p
-          ~tw:Tw.[ text gray 600; on_dark [ text gray 400 ] ]
+          ~tw:Tw.[ text gray 600; dark [ text gray 400 ] ]
           [ txt "Automatically adapts to user preferences" ];
       ]
   in
@@ -207,7 +207,7 @@ let () =
               [ txt "Tailwind CSS v4 with OCaml" ];
             (* Feature cards *)
             div
-              ~tw:Tw.[ grid; grid_cols 1; on_lg [ grid_cols 2 ]; gap 6 ]
+              ~tw:Tw.[ grid; grid_cols 1; lg [ grid_cols 2 ]; gap 6 ]
               [
                 div
                   [

@@ -1,4 +1,7 @@
 open Alcotest
+open Tw.Core
+
+let check_class expected t = Alcotest.check string "class" expected (pp t)
 
 let check parts =
   let expected = String.concat "-" parts in
@@ -79,6 +82,10 @@ let test_layout_of_string_invalid () =
   fail_maybe [ "unknown" ]
 (* Unknown layout type *)
 
+let test_screen_reader () =
+  check_class "sr-only" Tw.Layout.sr_only;
+  check_class "not-sr-only" Tw.Layout.not_sr_only
+
 let tests =
   [
     test_case "display utilities" `Quick test_display_utilities;
@@ -86,6 +93,7 @@ let tests =
     test_case "visibility" `Quick test_visibility;
     test_case "z-index" `Quick test_z_index;
     test_case "overflow" `Quick test_overflow;
+    test_case "screen reader utilities" `Quick test_screen_reader;
     test_case "layout of_string - invalid values" `Quick
       test_layout_of_string_invalid;
   ]

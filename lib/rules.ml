@@ -7,15 +7,15 @@ open Css
 
 type rule_output =
   | Regular of string * Css.declaration list (* selector, properties *)
-  | MediaQuery of
+  | Media_query of
       string
       * string
       * Css.declaration list (* condition, selector, properties *)
-  | ContainerQuery of
+  | Container_query of
       string
       * string
       * Css.declaration list (* condition, selector, properties *)
-  | StartingStyle of string * Css.declaration list (* selector, properties *)
+  | Starting_style of string * Css.declaration list (* selector, properties *)
 
 (** {1 Helper Functions} *)
 
@@ -62,24 +62,25 @@ let escape_class_name name =
 (* Extract selector and properties from a single Tw style *)
 let extract_selector_props tw =
   let rec extract = function
-    | Style { name = class_name; props; _ } ->
+    | Style { name = class_name; props; rules; _ } ->
         let escaped_name = escape_class_name class_name in
-        [ Regular ("." ^ escaped_name, props) ]
-    | Prose variant ->
-        (* Convert prose rules to selector/props pairs *)
-        Prose.to_css_rules variant
-        |> List.map (fun rule ->
-               Regular (Css.selector rule, Css.declarations rule))
+        (match rules with
+        | None -> [ Regular ("." ^ escaped_name, props) ]
+        | Some rule_list ->
+            (* Convert custom rules to selector/props pairs *)
+            rule_list
+            |> List.map (fun rule ->
+                   Regular (Css.selector rule, Css.declarations rule)))
     | Modified (modifier, t) ->
         let base = extract t in
         List.concat_map
           (fun rule_out ->
             match rule_out with
-            | Regular (selector, props) -> (
+            | Regular (selector, props) ->
                 let base_class =
                   String.sub selector 1 (String.length selector - 1)
                 in
-                match modifier with
+                (match modifier with
                 | Hover ->
                     [ Regular (".hover\\:" ^ base_class ^ ":hover", props) ]
                 | Focus ->
@@ -179,7 +180,7 @@ let extract_selector_props tw =
                     ]
                 | Dark ->
                     [
-                      MediaQuery
+                      Media_query
                         ("(prefers-color-scheme: dark)", selector, props);
                     ]
                 | Responsive breakpoint ->
@@ -188,7 +189,7 @@ let extract_selector_props tw =
                       "(min-width:" ^ responsive_breakpoint prefix ^ ")"
                     in
                     let sel = "." ^ prefix ^ "\\:" ^ base_class in
-                    [ MediaQuery (condition, sel, props) ]
+                    [ Media_query (condition, sel, props) ]
                 | Container query ->
                     let prefix =
                       Containers.container_query_to_class_prefix query
@@ -203,7 +204,7 @@ let extract_selector_props tw =
                         String.sub condition 11 (String.length condition - 11)
                       else "(min-width: 0)"
                     in
-                    [ ContainerQuery (cond, escaped_class, props) ]
+                    [ Container_query (cond, escaped_class, props) ]
                 (* New v4 modifiers *)
                 | Not _modifier ->
                     [
@@ -231,7 +232,7 @@ let extract_selector_props tw =
                           ^ selector_str ^ "\\]\\:" ^ base_class,
                           props );
                     ]
-                | Starting -> [ StartingStyle ("." ^ base_class, props) ]
+                | Starting -> [ Starting_style ("." ^ base_class, props) ]
                 | Focus_within ->
                     [
                       Regular
@@ -246,32 +247,36 @@ let extract_selector_props tw =
                     ]
                 | Motion_safe ->
                     [
-                      MediaQuery
+                      Media_query
                         ( "(prefers-reduced-motion: no-preference)",
                           ".motion-safe\\:" ^ base_class,
                           props );
                     ]
                 | Motion_reduce ->
                     [
-                      MediaQuery
+                      Media_query
                         ( "(prefers-reduced-motion: reduce)",
                           ".motion-reduce\\:" ^ base_class,
                           props );
                     ]
                 | Contrast_more ->
                     [
-                      MediaQuery
+                      Media_query
                         ( "(prefers-contrast: more)",
                           ".contrast-more\\:" ^ base_class,
                           props );
                     ]
                 | Contrast_less ->
                     [
-                      MediaQuery
+                      Media_query
                         ( "(prefers-contrast: less)",
                           ".contrast-less\\:" ^ base_class,
                           props );
-                    ])
+                    ]
+                | Pseudo_before ->
+                    [ Regular (".before\\:" ^ base_class ^ "::before", props) ]
+                | Pseudo_after ->
+                    [ Regular (".after\\:" ^ base_class ^ "::after", props) ])
             | _ -> [ rule_out ])
           base
     | Group styles -> List.concat_map extract styles
@@ -507,15 +512,6 @@ let generate_reset_rules () =
     (* This needs to be added as part of the base layer but after the main rules *);
   ]
 
-(* Check if prose styles are being used *)
-let uses_prose tw_classes =
-  let rec check = function
-    | Style _ -> false
-    | Prose _ -> true
-    | Modified (_, t) -> check t
-    | Group styles -> List.exists check styles
-  in
-  List.exists check tw_classes
 
 (* Re-export Color module *)
 module Color = Color
@@ -556,9 +552,9 @@ let separate_rules_by_type all_rules =
       (fun (reg, media, cont, start) rule ->
         match rule with
         | Regular _ -> (rule :: reg, media, cont, start)
-        | MediaQuery _ -> (reg, rule :: media, cont, start)
-        | ContainerQuery _ -> (reg, media, rule :: cont, start)
-        | StartingStyle _ -> (reg, media, cont, rule :: start))
+        | Media_query _ -> (reg, rule :: media, cont, start)
+        | Container_query _ -> (reg, media, rule :: cont, start)
+        | Starting_style _ -> (reg, media, cont, rule :: start))
       ([], [], [], []) all_rules
   in
   (* Reverse to maintain original order since we prepended *)
@@ -581,7 +577,7 @@ let group_media_queries media_rules =
   List.fold_left
     (fun acc rule ->
       match rule with
-      | MediaQuery (condition, selector, props) ->
+      | Media_query (condition, selector, props) ->
           let rules = try List.assoc condition acc with Not_found -> [] in
           (condition, (selector, props) :: rules)
           :: List.remove_assoc condition acc
@@ -593,7 +589,7 @@ let group_container_queries container_rules =
   List.fold_left
     (fun acc rule ->
       match rule with
-      | ContainerQuery (condition, selector, props) ->
+      | Container_query (condition, selector, props) ->
           let rules = try List.assoc condition acc with Not_found -> [] in
           (condition, (selector, props) :: rules)
           :: List.remove_assoc condition acc
@@ -680,7 +676,6 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
       | Style { vars; _ } -> vars
       | Modified (_, t) -> collect_all_vars t
       | Group styles -> List.concat_map collect_all_vars styles
-      | Prose _ -> []
     in
 
     let all_vars = tw_classes |> List.concat_map collect_all_vars in
@@ -724,9 +719,9 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
                (fun rule ->
                  match rule with
                  | Regular (_, props)
-                 | MediaQuery (_, _, props)
-                 | ContainerQuery (_, _, props)
-                 | StartingStyle (_, props) ->
+                 | Media_query (_, _, props)
+                 | Container_query (_, _, props)
+                 | Starting_style (_, props) ->
                      Css.all_vars props)
                selector_props)
       (* Just deduplicate without sorting alphabetically *)
@@ -1276,32 +1271,16 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
         (sorted_rules |> List.map Css.rule_to_nested)
     in
 
-    (* Add prose styles if needed *)
+    (* Combine all layers *)
     let base_layers =
       [ theme_layer; base_layer; components_layer; utilities_layer ]
-    in
-    let layers_with_prose =
-      if uses_prose tw_classes then
-        let prose_rules =
-          tw_classes
-          |> List.filter_map (function
-               | Prose variant -> Some (Prose.to_css_rules variant)
-               | _ -> None)
-          |> List.concat
-        in
-        base_layers
-        @ [
-            Css.layered_rules ~layer:Css.Utilities
-              (prose_rules |> List.map Css.rule_to_nested);
-          ]
-      else base_layers
     in
 
     (* Add properties layer if needed *)
     let layers =
       match properties_layer_opt with
-      | Some props_layer -> props_layer :: layers_with_prose
-      | None -> layers_with_prose
+      | Some props_layer -> props_layer :: base_layers
+      | None -> base_layers
     in
 
     (* Generate @property rules for variables that need them *)
@@ -1332,7 +1311,6 @@ let to_inline_style styles =
     | Style { props; _ } -> props
     | Modified (_, t) -> to_css_properties t
     | Group styles -> List.concat_map to_css_properties styles
-    | Prose _ -> []
   in
   let all_props = List.concat_map to_css_properties styles in
   let deduped = Css.deduplicate_declarations all_props in

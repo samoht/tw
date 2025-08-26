@@ -113,10 +113,10 @@ let multiple_classes () =
 
 let responsive_classes () =
   (* Test responsive modifiers with multiple classes *)
-  check_list [ p 4; on_md [ p 8 ]; on_lg [ p 12 ] ];
+  check_list [ p 4; md [ p 8 ]; lg [ p 12 ] ];
   check_list
-    [ text_sm; on_sm [ text_base ]; on_md [ text_lg ]; on_lg [ text_xl ] ];
-  check_list [ hidden; on_sm [ block ]; on_md [ flex ] ]
+    [ text_sm; sm [ text_base ]; md [ text_lg ]; lg [ text_xl ] ];
+  check_list [ hidden; sm [ block ]; md [ flex ] ]
 
 let basic_spacing () =
   check (p 4);
@@ -182,17 +182,76 @@ let typography () =
   check font_serif;
   check font_mono
 
+let typography_new_utilities () =
+  (* Text decoration style *)
+  check underline_solid;
+  check underline_double;
+  check underline_dotted;
+  check underline_dashed;
+  check underline_wavy;
+  (* Text decoration color & thickness *)
+  check (decoration_color ~shade:500 blue);
+  check (decoration_thickness 2);
+  check decoration_from_font;
+  (* Text underline offset *)
+  check underline_offset_2;
+  (* Text align already covered; add vertical-align *)
+  check align_top;
+  check align_middle;
+  check align_bottom;
+  check align_text_top;
+  check align_text_bottom;
+  check align_sub;
+  check align_super;
+  (* Letter spacing covered; add line-clamp *)
+  check (line_clamp 3);
+  (* Text wrap/overflow *)
+  check text_ellipsis;
+  check text_clip;
+  check text_wrap;
+  check text_nowrap;
+  check text_balance;
+  check text_pretty;
+  (* Word/overflow wrap and hyphens *)
+  check break_words;
+  check break_all;
+  check break_keep;
+  check hyphens_auto;
+  (* List styles *)
+  check list_none;
+  check list_disc;
+  check list_decimal;
+  check list_inside;
+  check list_outside;
+  check list_image_none;
+  (* Text indent *)
+  check (indent 4);
+  (* Font stretch (discrete) *)
+  check font_stretch_normal;
+  check font_stretch_condensed;
+  check font_stretch_expanded;
+  (* Numeric variants *)
+  check normal_nums;
+  check ordinal;
+  check slashed_zero;
+  check lining_nums;
+  check oldstyle_nums;
+  check proportional_nums;
+  check tabular_nums;
+  check diagonal_fractions;
+  check stacked_fractions
+
 let responsive () =
-  check (on_md [ block ]);
-  check (on_lg [ flex ]);
-  check (on_xl [ hidden ]);
-  check (on_sm [ p 4 ]);
-  check (on_md [ m 6 ])
+  check (md [ block ]);
+  check (lg [ flex ]);
+  check (xl [ hidden ]);
+  check (sm [ p 4 ]);
+  check (md [ m 6 ])
 
 let states () =
-  check (on_hover [ bg_white ]);
-  check (on_focus [ bg sky 500 ]);
-  check (on_active [ text gray 900 ])
+  check (hover [ bg_white ]);
+  check (focus [ bg sky 500 ]);
+  check (active [ text gray 900 ])
 
 let borders () =
   check border_none;
@@ -240,12 +299,12 @@ let gradients () =
   check (to_color pink ~shade:500)
 
 let responsive_breakpoints () =
-  check (on_sm [ block ]);
-  check (on_md [ flex ]);
-  check (on_lg [ grid ]);
-  check (on_xl [ hidden ]);
-  check (on_sm [ text_lg ]);
-  check (on_md [ p 8 ])
+  check (sm [ block ]);
+  check (md [ flex ]);
+  check (lg [ grid ]);
+  check (xl [ hidden ]);
+  check (sm [ text_lg ]);
+  check (md [ p 8 ])
 
 let layout () =
   check static;
@@ -276,16 +335,16 @@ let extended_colors () =
   check (bg rose 200)
 
 let peer_selectors () =
-  check (on_peer_hover [ text blue 500 ]);
-  check (on_peer_focus [ bg yellow 200 ])
+  check (peer_hover [ text blue 500 ]);
+  check (peer_focus [ bg yellow 200 ])
 
 let aria_selectors () =
-  check (on_aria_checked [ text green 500 ]);
-  check (on_aria_disabled [ opacity 50 ])
+  check (aria_checked [ text green 500 ]);
+  check (aria_disabled [ opacity 50 ])
 
 let data_selectors () =
-  check (on_data_active [ bg blue 100 ]);
-  check (on_data_inactive [ opacity 50 ])
+  check (data_active [ bg blue 100 ]);
+  check (data_inactive [ opacity 50 ])
 
 let transforms_3d () =
   check (rotate 45);
@@ -300,9 +359,29 @@ let flexbox () =
   check flex_col;
   check flex_wrap;
   check items_center;
+  check items_start;
+  check items_end;
+  check items_baseline;
+  check items_stretch;
   check justify_center;
   check justify_between;
+  check justify_start;
+  check justify_end;
+  check justify_around;
+  check justify_evenly;
   check flex_1
+
+let grid () =
+  check grid;
+  check inline_grid;
+  check (grid_cols 3);
+  check (grid_rows 2);
+  check justify_items_center;
+  check justify_self_start;
+  check justify_self_end;
+  check justify_self_center;
+  check justify_self_stretch;
+  check justify_self_auto
 
 let scroll_snap () =
   check snap_x;
@@ -314,6 +393,15 @@ let scroll_snap () =
   check snap_center;
   check snap_end
 
+let content_variants () =
+  (* before/after + content-none *)
+  check_list [ before [ content_none ] ];
+  check_list [ after [ content_none ] ];
+  (* before + content with auto quotes and arbitrary value class name *)
+  check_list [ before [ content "→" ] ];
+  (* another simple ASCII content *)
+  check_list [ after [ content "*" ] ]
+
 let prose_basic () =
   check prose;
   check prose_sm;
@@ -321,8 +409,8 @@ let prose_basic () =
   check prose_xl
 
 let prose_with_modifiers () =
-  check (on_hover [ prose ]);
-  check (on_md [ prose_lg ])
+  check (hover [ prose ]);
+  check (md [ prose_lg ])
 
 let prose_variants () =
   check prose;
@@ -340,14 +428,13 @@ let precedence_base_overrides () =
 
 let precedence_breakpoints () =
   (* Responsive variants should scope correctly and not affect base *)
-  check_list [ p 2; on_md [ p 8 ] ];
-  check_list
-    [ text green 400; on_sm [ text green 500 ]; on_lg [ text green 700 ] ]
+  check_list [ p 2; md [ p 8 ] ];
+  check_list [ text green 400; sm [ text green 500 ]; lg [ text green 700 ] ]
 
 let precedence_states () =
   (* State modifiers combine without interfering with base *)
-  check_list [ bg blue 500; on_hover [ bg blue 600 ] ];
-  check_list [ text gray 500; on_focus [ text gray 700 ] ]
+  check_list [ bg blue 500; hover [ bg blue 600 ] ];
+  check_list [ text gray 500; focus [ text gray 700 ] ]
 
 (* ===== UTILITY/PROPERTY TESTS (keep essential ones) ===== *)
 
@@ -439,6 +526,7 @@ let all_colors_same_shade () =
       bg rose 500;
     ]
 
+
 (* ===== TEST SUITE ===== *)
 
 let core_tests =
@@ -449,6 +537,7 @@ let core_tests =
     test_case "display classes" `Quick display_classes;
     test_case "sizing" `Quick sizing;
     test_case "typography" `Quick typography;
+    test_case "typography new utilities" `Quick typography_new_utilities;
     test_case "responsive" `Quick responsive;
     test_case "states" `Quick states;
     test_case "borders" `Quick borders;
@@ -466,7 +555,9 @@ let core_tests =
     test_case "data selectors" `Quick data_selectors;
     test_case "3d transforms" `Quick transforms_3d;
     test_case "flexbox" `Quick flexbox;
+    test_case "grid" `Quick grid;
     test_case "scroll snap" `Quick scroll_snap;
+    test_case "content variants" `Quick content_variants;
     test_case "prose basic" `Quick prose_basic;
     test_case "prose with modifiers" `Quick prose_with_modifiers;
     test_case "prose variants" `Quick prose_variants;

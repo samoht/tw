@@ -20,15 +20,8 @@ let color_var x = color (Var (Css.var x))
 let background_color_var x = background_color (Var (Css.var x))
 let border_color_var x = border_color (Var (Css.var x))
 
-(** Prose variant types *)
-type t =
-  | Base  (** .prose *)
-  | Sm  (** .prose-sm *)
-  | Lg  (** .prose-lg *)
-  | Xl  (** .prose-xl *)
-  | Xl2  (** .prose-2xl *)
-  | Gray  (** .prose-gray *)
-  | Slate  (** .prose-slate *)
+(* Prose variant type *)
+type variant = [ `Base | `Sm | `Lg | `Xl | `Xl2 | `Gray | `Slate ]
 
 (** Default prose CSS variables for theming *)
 let css_variables =
@@ -53,13 +46,13 @@ let css_variables =
 
 (** Convert prose variant to CSS class name *)
 let to_class = function
-  | Base -> "prose"
-  | Sm -> "prose-sm"
-  | Lg -> "prose-lg"
-  | Xl -> "prose-xl"
-  | Xl2 -> "prose-2xl"
-  | Gray -> "prose-gray"
-  | Slate -> "prose-slate"
+  | `Base -> "prose"
+  | `Sm -> "prose-sm"
+  | `Lg -> "prose-lg"
+  | `Xl -> "prose-xl"
+  | `Xl2 -> "prose-2xl"
+  | `Gray -> "prose-gray"
+  | `Slate -> "prose-slate"
 
 (** Generate CSS rules for a prose variant *)
 (* Helper functions for generating CSS rules *)
@@ -437,36 +430,87 @@ let to_css_rules variant =
   let selector prefix = "." ^ class_name ^ prefix in
 
   match variant with
-  | Base -> base_prose_rules selector
-  | Sm -> sm_size_rules selector
-  | Lg -> lg_size_rules selector
-  | Xl -> xl_size_rules selector
-  | Xl2 -> xl2_size_rules selector
-  | Gray -> gray_color_rules
-  | Slate -> slate_color_rules
+  | `Base -> base_prose_rules selector
+  | `Sm -> sm_size_rules selector
+  | `Lg -> lg_size_rules selector
+  | `Xl -> xl_size_rules selector
+  | `Xl2 -> xl2_size_rules selector
+  | `Gray -> gray_color_rules
+  | `Slate -> slate_color_rules
 
 (** Get base CSS properties for inline styles *)
 let to_base_properties variant =
   (* Extract the base properties for each variant *)
   match variant with
-  | Base ->
+  | `Base ->
       [
         color_var "tw-prose-body";
         max_width (Ch 65.0);
         font_size (Rem 1.0);
         line_height (Num 1.75);
       ]
-  | Sm -> [ font_size (Rem 0.875); line_height (Num 1.7142857) ]
-  | Lg -> [ font_size (Rem 1.125); line_height (Num 1.7777778) ]
-  | Xl -> [ font_size (Rem 1.25); line_height (Num 1.8) ]
-  | Xl2 -> [ font_size (Rem 1.5); line_height (Num 1.6666667) ]
-  | Gray | Slate -> [] (* Color themes only affect CSS variables *)
+  | `Sm -> [ font_size (Rem 0.875); line_height (Num 1.7142857) ]
+  | `Lg -> [ font_size (Rem 1.125); line_height (Num 1.7777778) ]
+  | `Xl -> [ font_size (Rem 1.25); line_height (Num 1.8) ]
+  | `Xl2 -> [ font_size (Rem 1.5); line_height (Num 1.6666667) ]
+  | `Gray | `Slate -> [] (* Color themes only affect CSS variables *)
 
 let pp = function
-  | Base -> "Base"
-  | Sm -> "Sm"
-  | Lg -> "Lg"
-  | Xl -> "Xl"
-  | Xl2 -> "Xl2"
-  | Gray -> "Gray"
-  | Slate -> "Slate"
+  | `Base -> "Base"
+  | `Sm -> "Sm"
+  | `Lg -> "Lg"
+  | `Xl -> "Xl"
+  | `Xl2 -> "Xl2"
+  | `Gray -> "Gray"
+  | `Slate -> "Slate"
+
+(** Prose utility constructors *)
+let prose_style variant =
+  let name = to_class variant in
+  let rules = to_css_rules variant in
+  Core.style ~rules:(Some rules) name []
+
+let prose = prose_style `Base
+let prose_sm = prose_style `Sm
+let prose_lg = prose_style `Lg
+let prose_xl = prose_style `Xl
+let prose_2xl = prose_style `Xl2
+let prose_gray = prose_style `Gray
+let prose_slate = prose_style `Slate
+
+(** Parse prose utilities from string *)
+let of_string = function
+  | [ "prose" ] -> Ok prose
+  | [ "prose"; "sm" ] -> Ok prose_sm
+  | [ "prose"; "lg" ] -> Ok prose_lg
+  | [ "prose"; "xl" ] -> Ok prose_xl
+  | [ "prose"; "2xl" ] -> Ok prose_2xl
+  | [ "prose"; "gray" ] -> Ok prose_gray
+  | [ "prose"; "slate" ] -> Ok prose_slate
+  | _ -> Error (`Msg "Not a prose utility")
+
+(** Generate complete prose stylesheet *)
+let stylesheet () =
+  (* Generate CSS for all prose variants *)
+  let base_rules = to_css_rules `Base in
+  let sm_rules = to_css_rules `Sm in
+  let lg_rules = to_css_rules `Lg in
+  let xl_rules = to_css_rules `Xl in
+  let xl2_rules = to_css_rules `Xl2 in
+  let gray_rules = to_css_rules `Gray in
+  let slate_rules = to_css_rules `Slate in
+
+  (* Combine all rules *)
+  let all_rules = List.concat
+    [
+      base_rules;
+      sm_rules;
+      lg_rules;
+      xl_rules;
+      xl2_rules;
+      gray_rules;
+      slate_rules;
+    ]
+  in
+  (* Return raw rules; caller composes into a stylesheet if needed *)
+  all_rules

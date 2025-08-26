@@ -105,7 +105,7 @@ let ring_internal (w : ring_width) =
   let class_name =
     if class_suffix = "" then "ring" else "ring-" ^ class_suffix
   in
-  style_with_vars class_name
+  style class_name
     [
       custom_property "--tw-ring-width" width;
       box_shadow
@@ -116,7 +116,7 @@ let ring_internal (w : ring_width) =
              ") var(--tw-ring-color, rgba(59, 130, 246, 0.5))";
            ]);
     ]
-    []
+    
 
 let ring_none = ring_internal `None
 let ring_xs = ring_internal `Xs
@@ -128,6 +128,13 @@ let ring_xl = ring_internal `Xl
 
 let ring_inset =
   style "ring-inset" [ custom_property "--tw-ring-inset" "inset" ]
+
+let ring_color color shade =
+  let class_name =
+    if Color.is_base_color color then Pp.str [ "ring-"; Color.pp color ]
+    else Pp.str [ "ring-"; Color.pp color; "-"; string_of_int shade ]
+  in
+  style class_name []
 
 (** {1 Transition Utilities} *)
 

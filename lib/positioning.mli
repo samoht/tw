@@ -8,13 +8,13 @@ val inset : int -> t
 (** [inset n] sets all four sides (top, right, bottom, left) to n * spacing. *)
 
 val inset_0 : t
-(** Sets all sides to 0. *)
+(** [inset_0] sets all sides to 0. *)
 
 val inset_x_0 : t
-(** Sets left and right to 0. *)
+(** [inset_x_0] sets left and right to 0. *)
 
 val inset_y_0 : t
-(** Sets top and bottom to 0. *)
+(** [inset_y_0] sets top and bottom to 0. *)
 
 (** {1 Individual Side Positioning} *)
 
@@ -33,10 +33,10 @@ val left : int -> t
 (** {1 Fractional Positioning} *)
 
 val top_1_2 : t
-(** Sets top to 50%. *)
+(** [top_1_2] sets top to 50%. *)
 
 val left_1_2 : t
-(** Sets left to 50%. *)
+(** [left_1_2] sets left to 50%. *)
 
 (** {1 Z-Index} *)
 

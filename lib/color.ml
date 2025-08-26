@@ -3,9 +3,6 @@
 open Core
 open Css
 
-(* Helper functions for CSS variables *)
-let border_color_var name = Css.border_color (Css.Var (Css.var name))
-
 type rgb = {
   r : int;  (** Red channel (0-255) *)
   g : int;  (** Green channel (0-255) *)
@@ -18,7 +15,7 @@ type oklch = {
   h : float;  (** Hue (0-360) *)
 }
 
-type t =
+type color =
   | Black
   | White
   | Gray
@@ -191,7 +188,7 @@ let hex_to_oklch_css hex =
   | Some rgb -> oklch_to_css (rgb_to_oklch rgb)
   | None -> hex (* Fallback to original hex if parsing fails *)
 
-module TailwindColors = struct
+module Tailwind_colors = struct
   (* These are the actual OKLCH values used by Tailwind v4 *)
   let gray =
     [
@@ -692,7 +689,7 @@ let to_oklch color shade =
       | None -> { l = 0.0; c = 0.0; h = 0.0 })
   | Rgb { red; green; blue } -> rgb_to_oklch { r = red; g = green; b = blue }
   | _ -> (
-      (* For named colors, get OKLCH data directly from TailwindColors *)
+      (* For named colors, get OKLCH data directly from Tailwind_colors *)
       let color_name =
         match color with
         | Gray -> "gray"
@@ -719,7 +716,7 @@ let to_oklch color shade =
         | Rose -> "rose"
         | _ -> ""
       in
-      match TailwindColors.get_color_oklch color_name shade with
+      match Tailwind_colors.get_color_oklch color_name shade with
       | Some oklch -> oklch
       | None ->
           failwith
@@ -741,7 +738,7 @@ let to_oklch_css color shade =
   | Rgb { red; green; blue } ->
       rgb_to_oklch { r = red; g = green; b = blue } |> oklch_to_css
   | _ -> (
-      (* For named colors, get from TailwindColors *)
+      (* For named colors, get from Tailwind_colors *)
       let color_name =
         match color with
         | Gray -> "gray"
@@ -768,7 +765,7 @@ let to_oklch_css color shade =
         | Rose -> "rose"
         | _ -> ""
       in
-      match TailwindColors.get_color color_name shade with
+      match Tailwind_colors.get_color color_name shade with
       | Some value -> value
       | None -> "oklch(0% 0 0)" (* Fallback *))
 
@@ -920,11 +917,14 @@ let bg color shade =
     let css_color = to_css color shade in
     style class_name [ Css.background_color css_color ]
   else
-    (* Use CSS variable reference *)
+    (* Use CSS variable reference with proper default value *)
     let var_name =
       if is_base_color color then Pp.str [ "color-"; pp color ]
       else Pp.str [ "color-"; pp color; "-"; string_of_int shade ]
     in
+    (* Get the actual color value as the default for the CSS variable *)
+    let default_color = to_css color (if is_base_color color then 500 else shade) in
+    let css_var = Css.var ~default_value:default_color var_name in
     (* Track the color variable requirement with actual color value *)
     let var =
       if is_base_color color then
@@ -938,9 +938,8 @@ let bg color shade =
             value = to_oklch_css color shade;
           }
     in
-    style_with_vars class_name
-      [ Css.background_color (Css.Var (Css.var var_name)) ]
-      [ var ]
+    style ~vars:[ var ] class_name
+      [ Css.background_color (Css.Var css_var) ]
 
 let bg_transparent = style "bg-transparent" [ background_color Transparent ]
 let bg_current = style "bg-current" [ background_color Current ]
@@ -986,11 +985,14 @@ let text color shade =
     let css_color = to_css color shade in
     style class_name [ Css.color css_color ]
   else
-    (* Use CSS variable reference *)
+    (* Use CSS variable reference with proper default value *)
     let var_name =
       if is_base_color color then Pp.str [ "color-"; pp color ]
       else Pp.str [ "color-"; pp color; "-"; string_of_int shade ]
     in
+    (* Get the actual color value as the default for the CSS variable *)
+    let default_color = to_css color (if is_base_color color then 500 else shade) in
+    let css_var = Css.var ~default_value:default_color var_name in
     (* Track the color variable requirement with actual color value *)
     let var =
       if is_base_color color then
@@ -1004,9 +1006,8 @@ let text color shade =
             value = to_oklch_css color shade;
           }
     in
-    style_with_vars class_name
-      [ Css.color (Css.Var (Css.var var_name)) ]
-      [ var ]
+    style ~vars:[ var ] class_name
+      [ Css.color (Css.Var css_var) ]
 
 let text_transparent = style "text-transparent" [ Css.color Transparent ]
 let text_current = style "text-current" [ Css.color Current ]
@@ -1052,11 +1053,14 @@ let border_color color shade =
     let css_color = to_css color shade in
     style class_name [ Css.border_color css_color ]
   else
-    (* Use CSS variable reference *)
+    (* Use CSS variable reference with proper default value *)
     let var_name =
       if is_base_color color then Pp.str [ "color-"; pp color ]
       else Pp.str [ "color-"; pp color; "-"; string_of_int shade ]
     in
+    (* Get the actual color value as the default for the CSS variable *)
+    let default_color = to_css color (if is_base_color color then 500 else shade) in
+    let css_var = Css.var ~default_value:default_color var_name in
     (* Track the color variable requirement with actual color value *)
     let var =
       if is_base_color color then
@@ -1070,7 +1074,7 @@ let border_color color shade =
             value = to_oklch_css color shade;
           }
     in
-    style_with_vars class_name [ border_color_var var_name ] [ var ]
+    style ~vars:[ var ] class_name [ Css.border_color (Css.Var css_var) ]
 
 let border_transparent =
   style "border-transparent" [ Css.border_color Transparent ]

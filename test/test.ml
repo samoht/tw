@@ -4,6 +4,11 @@ let () =
   Alcotest.run "tw"
     ([
        Test_tw.suite;
+       Test_svg.suite;
+       Test_tables.suite;
+       Test_accessibility.suite;
+       Test_flexbox.suite;
+       Test_grid.suite;
        Test_color.suite;
        Test_spacing.suite;
        Test_borders.suite;
@@ -11,7 +16,6 @@ let () =
        Test_layout.suite;
        Test_typography.suite;
        Test_effects.suite;
-       Test_aspect.suite;
        Test_clipping.suite;
        Test_animations.suite;
        Test_backgrounds.suite;
@@ -25,5 +29,6 @@ let () =
        Test_rules.suite;
        Test_transforms.suite;
        Test_var.suite;
+       Test_modifiers.suite;
      ]
     @ Test_pp.suite @ Test_prose.suite)

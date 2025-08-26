@@ -87,29 +87,24 @@ let border_y =
 (** {1 Border Style Utilities} *)
 
 let border_solid =
-  style_with_vars "border-solid"
+  style "border-solid"
     [ custom_property "--tw-border-style" "solid"; border_style Solid ]
-    []
 
 let border_dashed =
-  style_with_vars "border-dashed"
+  style "border-dashed"
     [ custom_property "--tw-border-style" "dashed"; border_style Dashed ]
-    []
 
 let border_dotted =
-  style_with_vars "border-dotted"
+  style "border-dotted"
     [ custom_property "--tw-border-style" "dotted"; border_style Dotted ]
-    []
 
 let border_double =
-  style_with_vars "border-double"
+  style "border-double"
     [ custom_property "--tw-border-style" "double"; border_style Double ]
-    []
 
 let border_none =
-  style_with_vars "border-none"
+  style "border-none"
     [ custom_property "--tw-border-style" "none"; border_style None ]
-    []
 
 (* Border width utilities with semantic names matching tw.mli *)
 let border_xs = border (* 1px *)
@@ -126,7 +121,7 @@ let border_full = border_8 (* 8px *)
 let rounded_none = style "rounded-none" [ border_radius Zero ]
 
 let rounded_sm =
-  style_with_vars "rounded-sm"
+  style "rounded-sm"
     [
       border_radius
         (Var
@@ -136,12 +131,12 @@ let rounded_sm =
              default_value = Some (Rem 0.125);
            });
     ]
-    [ Radius { name = "sm"; value = ".25rem" } ]
+    ~vars:[ Radius { name = "sm"; value = ".25rem" } ]
 
 let rounded = style "rounded" [ border_radius (Rem 0.25) ]
 
 let rounded_md =
-  style_with_vars "rounded-md"
+  style "rounded-md"
     [
       border_radius
         (Var
@@ -151,10 +146,10 @@ let rounded_md =
              default_value = Some (Rem 0.375);
            });
     ]
-    [ Radius { name = "md"; value = ".375rem" } ]
+    ~vars:[ Radius { name = "md"; value = ".375rem" } ]
 
 let rounded_lg =
-  style_with_vars "rounded-lg"
+  style "rounded-lg"
     [
       border_radius
         (Var
@@ -164,10 +159,10 @@ let rounded_lg =
              default_value = Some (Rem 0.5);
            });
     ]
-    [ Radius { name = "lg"; value = ".5rem" } ]
+    ~vars:[ Radius { name = "lg"; value = ".5rem" } ]
 
 let rounded_xl =
-  style_with_vars "rounded-xl"
+  style "rounded-xl"
     [
       border_radius
         (Var
@@ -177,10 +172,10 @@ let rounded_xl =
              default_value = Some (Rem 0.75);
            });
     ]
-    [ Radius { name = "xl"; value = ".75rem" } ]
+    ~vars:[ Radius { name = "xl"; value = ".75rem" } ]
 
 let rounded_2xl =
-  style_with_vars "rounded-2xl"
+  style "rounded-2xl"
     [
       border_radius
         (Var
@@ -190,10 +185,10 @@ let rounded_2xl =
              default_value = Some (Rem 1.0);
            });
     ]
-    [ Radius { name = "2xl"; value = "1rem" } ]
+    ~vars:[ Radius { name = "2xl"; value = "1rem" } ]
 
 let rounded_3xl =
-  style_with_vars "rounded-3xl"
+  style "rounded-3xl"
     [
       border_radius
         (Var
@@ -203,7 +198,7 @@ let rounded_3xl =
              default_value = Some (Rem 1.5);
            });
     ]
-    [ Radius { name = "3xl"; value = "1.5rem" } ]
+    ~vars:[ Radius { name = "3xl"; value = "1.5rem" } ]
 
 let rounded_full =
   (* Tailwind v4 uses calc(infinity * 1px) which gets optimized to
@@ -216,9 +211,10 @@ let rounded_full =
 
 (** {1 Outline Utilities} *)
 
-(* outline_none not directly supported - would need outline_style property *)
-(* outline not directly supported - would need outline_width property *)
+(* Outline style *)
+let outline_none = style "outline-none" [ Css.outline_style Css.None ]
 
+(* Outline offset *)
 let outline_offset_0 = style "outline-offset-0" [ outline_offset (Px 0) ]
 let outline_offset_1 = style "outline-offset-1" [ outline_offset (Px 1) ]
 let outline_offset_2 = style "outline-offset-2" [ outline_offset (Px 2) ]
