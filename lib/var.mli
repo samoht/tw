@@ -141,6 +141,11 @@ type tally
 val empty : tally
 (** [empty] is the empty tally. *)
 
+val tally_of_vars : string list -> tally
+(** [tally_of_vars var_names] creates a tally from CSS variable names (with or
+    without '--' prefix). All variables are marked as assigned (not just
+    fallback references). *)
+
 val pp : t -> string
 (** [pp v] pretty-prints variable [v] as a string. *)
 
@@ -154,3 +159,13 @@ val needs_at_property : tally -> t list
 val at_property_config : t -> (string * string * bool * string) option
 (** [at_property_config v] returns the @property configuration
     (name, syntax, inherits, initial_value) for variable [v]. *)
+
+val is_composition_var : string -> bool
+(** [is_composition_var name] returns true if the variable name (with or without '--' prefix)
+    is a composition variable that should be tracked for @property rules. 
+    This includes --tw-* variables and other composition variables. *)
+
+val extract_composition_vars : (string * string) list -> string list
+(** [extract_composition_vars custom_props] extracts composition variable names
+    from a list of custom property declarations (name, value) pairs. Returns the
+    list of composition variables that are being assigned. *)

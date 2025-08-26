@@ -22,7 +22,7 @@ open Core
 open Css
 
 (** Helper to create spacing-based utilities with consistent pattern *)
-let make_spacing_utility prefix css_prop n =
+let spacing_utility prefix css_prop n =
   let class_name = prefix ^ string_of_int n in
   let spacing_value =
     Calc Calc.(var ~default:(Rem 0.25) "spacing" * float (float_of_int n))
@@ -60,7 +60,7 @@ let w_3_5 = style "w-3/5" [ width (Pct 60.0) ]
 let w_4_5 = style "w-4/5" [ width (Pct 80.0) ]
 
 (* Int-based width function for Tailwind scale *)
-let w n = make_spacing_utility "w-" width n
+let w n = spacing_utility "w-" width n
 
 (** {1 Height Utilities} *)
 
@@ -93,7 +93,7 @@ let h_3_5 = style "h-3/5" [ height (Pct 60.0) ]
 let h_4_5 = style "h-4/5" [ height (Pct 80.0) ]
 
 (* Int-based height function for Tailwind scale *)
-let h n = make_spacing_utility "h-" height n
+let h n = spacing_utility "h-" height n
 
 (** {1 Min Width Utilities} *)
 
@@ -116,7 +116,7 @@ let min_w_max = style "min-w-max" [ min_width Max_content ]
 let min_w_fit = style "min-w-fit" [ min_width Fit_content ]
 
 (* Int-based min-width function for Tailwind scale *)
-let min_w n = make_spacing_utility "min-w-" min_width n
+let min_w n = spacing_utility "min-w-" min_width n
 
 (** {1 Max Width Utilities} *)
 
@@ -158,7 +158,7 @@ let max_w_screen_xl = style "max-w-screen-xl" [ max_width (Px 1280) ]
 let max_w_screen_2xl = style "max-w-screen-2xl" [ max_width (Px 1536) ]
 
 (* Int-based max-width function for Tailwind scale *)
-let max_w n = make_spacing_utility "max-w-" max_width n
+let max_w n = spacing_utility "max-w-" max_width n
 
 (** {1 Min Height Utilities} *)
 
@@ -182,7 +182,7 @@ let min_h_max = style "min-h-max" [ min_height Max_content ]
 let min_h_fit = style "min-h-fit" [ min_height Fit_content ]
 
 (* Int-based min-height function for Tailwind scale *)
-let min_h n = make_spacing_utility "min-h-" min_height n
+let min_h n = spacing_utility "min-h-" min_height n
 
 (** {1 Max Height Utilities} *)
 
@@ -209,7 +209,7 @@ let max_h_max = style "max-h-max" [ max_height Max_content ]
 let max_h_fit = style "max-h-fit" [ max_height Fit_content ]
 
 (* Int-based max-height function for Tailwind scale *)
-let max_h n = make_spacing_utility "max-h-" max_height n
+let max_h n = spacing_utility "max-h-" max_height n
 
 (** {1 String Parsing} *)
 
@@ -302,107 +302,114 @@ let spacing_value_of_string = function
   | s -> Error (`Msg ("Invalid spacing value: " ^ s))
 
 let of_string parts =
+  let parse_w = function
+    | "auto" -> Ok w_auto
+    | "full" -> Ok w_full
+    | "screen" -> Ok w_screen
+    | "min" -> Ok w_min
+    | "max" -> Ok w_max
+    | "fit" -> Ok w_fit
+    | frac when String.contains frac '/' -> fraction_of_string frac
+    | v -> (
+        match spacing_value_of_string v with
+        | Ok css_val -> Ok (style ("w-" ^ v) [ width css_val ])
+        | Error _ -> Error (`Msg ("Invalid width value: " ^ v)))
+  in
+  let parse_h = function
+    | "auto" -> Ok h_auto
+    | "full" -> Ok h_full
+    | "screen" -> Ok h_screen
+    | "min" -> Ok h_min
+    | "max" -> Ok h_max
+    | "fit" -> Ok h_fit
+    | frac when String.contains frac '/' -> h_fraction_of_string frac
+    | v -> (
+        match spacing_value_of_string v with
+        | Ok css_val -> Ok (style ("h-" ^ v) [ height css_val ])
+        | Error _ -> Error (`Msg ("Invalid height value: " ^ v)))
+  in
+  let parse_min_w = function
+    | "0" -> Ok min_w_0
+    | "full" -> Ok min_w_full
+    | "min" -> Ok min_w_min
+    | "max" -> Ok min_w_max
+    | "fit" -> Ok min_w_fit
+    | v -> (
+        match spacing_value_of_string v with
+        | Ok css_val -> Ok (style ("min-w-" ^ v) [ min_width css_val ])
+        | Error _ -> Error (`Msg ("Invalid min-width value: " ^ v)))
+  in
+  let parse_min_h = function
+    | "0" -> Ok min_h_0
+    | "full" -> Ok min_h_full
+    | "screen" -> Ok min_h_screen
+    | v -> (
+        match spacing_value_of_string v with
+        | Ok css_val -> Ok (style ("min-h-" ^ v) [ min_height css_val ])
+        | Error _ -> Error (`Msg ("Invalid min-height value: " ^ v)))
+  in
+  let parse_max_w = function
+    | "none" -> Ok max_w_none
+    | "xs" -> Ok max_w_xs
+    | "sm" -> Ok max_w_sm
+    | "md" -> Ok max_w_md
+    | "lg" -> Ok max_w_lg
+    | "xl" -> Ok max_w_xl
+    | "2xl" -> Ok max_w_2xl
+    | "3xl" -> Ok max_w_3xl
+    | "4xl" -> Ok max_w_4xl
+    | "5xl" -> Ok max_w_5xl
+    | "6xl" -> Ok max_w_6xl
+    | "7xl" -> Ok max_w_7xl
+    | "full" -> Ok max_w_full
+    | "min" -> Ok max_w_min
+    | "max" -> Ok max_w_max
+    | "fit" -> Ok max_w_fit
+    | "prose" -> Ok max_w_prose
+    | v -> Error (`Msg ("Invalid max-width value: " ^ v))
+  in
+  let parse_max_w_screen = function
+    | "sm" -> Ok max_w_screen_sm
+    | "md" -> Ok max_w_screen_md
+    | "lg" -> Ok max_w_screen_lg
+    | "xl" -> Ok max_w_screen_xl
+    | "2xl" -> Ok max_w_screen_2xl
+    | s -> Error (`Msg ("Invalid max-width screen size: " ^ s))
+  in
+  let parse_max_h = function
+    | "none" -> Ok max_h_none
+    | "full" -> Ok max_h_full
+    | "screen" -> Ok max_h_screen
+    | "min" -> Ok max_h_min
+    | "max" -> Ok max_h_max
+    | "fit" -> Ok max_h_fit
+    | v -> (
+        match spacing_value_of_string v with
+        | Ok css_val -> Ok (style ("max-h-" ^ v) [ max_height css_val ])
+        | Error _ -> Error (`Msg ("Invalid max-height value: " ^ v)))
+  in
+  let parse_size = function
+    | "auto" -> Ok (style "size-auto" [ width Auto; height Auto ])
+    | "full" -> Ok (style "size-full" [ width (Pct 100.0); height (Pct 100.0) ])
+    | "min" -> Ok (style "size-min" [ width Min_content; height Min_content ])
+    | "max" -> Ok (style "size-max" [ width Max_content; height Max_content ])
+    | "fit" -> Ok (style "size-fit" [ width Fit_content; height Fit_content ])
+    | frac when String.contains frac '/' -> size_fraction_of_string frac
+    | v -> (
+        match spacing_value_of_string v with
+        | Ok css_val ->
+            Ok (style ("size-" ^ v) [ width css_val; height css_val ])
+        | Error _ -> Error (`Msg ("Invalid size value: " ^ v)))
+  in
   match parts with
-  | [ "w"; value ] -> (
-      match value with
-      | "auto" -> Ok w_auto
-      | "full" -> Ok w_full
-      | "screen" -> Ok w_screen
-      | "min" -> Ok w_min
-      | "max" -> Ok w_max
-      | "fit" -> Ok w_fit
-      | frac when String.contains frac '/' -> fraction_of_string frac
-      | v -> (
-          match spacing_value_of_string v with
-          | Ok css_val -> Ok (style ("w-" ^ v) [ width css_val ])
-          | Error _ -> Error (`Msg ("Invalid width value: " ^ v))))
-  | [ "h"; value ] -> (
-      match value with
-      | "auto" -> Ok h_auto
-      | "full" -> Ok h_full
-      | "screen" -> Ok h_screen
-      | "min" -> Ok h_min
-      | "max" -> Ok h_max
-      | "fit" -> Ok h_fit
-      | frac when String.contains frac '/' -> h_fraction_of_string frac
-      | v -> (
-          match spacing_value_of_string v with
-          | Ok css_val -> Ok (style ("h-" ^ v) [ height css_val ])
-          | Error _ -> Error (`Msg ("Invalid height value: " ^ v))))
-  | [ "min"; "w"; value ] -> (
-      match value with
-      | "0" -> Ok min_w_0
-      | "full" -> Ok min_w_full
-      | "min" -> Ok min_w_min
-      | "max" -> Ok min_w_max
-      | "fit" -> Ok min_w_fit
-      | v -> (
-          match spacing_value_of_string v with
-          | Ok css_val -> Ok (style ("min-w-" ^ v) [ min_width css_val ])
-          | Error _ -> Error (`Msg ("Invalid min-width value: " ^ v))))
-  | [ "min"; "h"; value ] -> (
-      match value with
-      | "0" -> Ok min_h_0
-      | "full" -> Ok min_h_full
-      | "screen" -> Ok min_h_screen
-      | v -> (
-          match spacing_value_of_string v with
-          | Ok css_val -> Ok (style ("min-h-" ^ v) [ min_height css_val ])
-          | Error _ -> Error (`Msg ("Invalid min-height value: " ^ v))))
-  | [ "max"; "w"; value ] -> (
-      match value with
-      | "none" -> Ok max_w_none
-      | "xs" -> Ok max_w_xs
-      | "sm" -> Ok max_w_sm
-      | "md" -> Ok max_w_md
-      | "lg" -> Ok max_w_lg
-      | "xl" -> Ok max_w_xl
-      | "2xl" -> Ok max_w_2xl
-      | "3xl" -> Ok max_w_3xl
-      | "4xl" -> Ok max_w_4xl
-      | "5xl" -> Ok max_w_5xl
-      | "6xl" -> Ok max_w_6xl
-      | "7xl" -> Ok max_w_7xl
-      | "full" -> Ok max_w_full
-      | "min" -> Ok max_w_min
-      | "max" -> Ok max_w_max
-      | "fit" -> Ok max_w_fit
-      | "prose" -> Ok max_w_prose
-      | _ -> Error (`Msg ("Invalid max-width value: " ^ value)))
-  | [ "max"; "w"; "screen"; size ] -> (
-      match size with
-      | "sm" -> Ok max_w_screen_sm
-      | "md" -> Ok max_w_screen_md
-      | "lg" -> Ok max_w_screen_lg
-      | "xl" -> Ok max_w_screen_xl
-      | "2xl" -> Ok max_w_screen_2xl
-      | _ -> Error (`Msg ("Invalid max-width screen size: " ^ size)))
-  | [ "max"; "h"; value ] -> (
-      match value with
-      | "none" -> Ok max_h_none
-      | "full" -> Ok max_h_full
-      | "screen" -> Ok max_h_screen
-      | "min" -> Ok max_h_min
-      | "max" -> Ok max_h_max
-      | "fit" -> Ok max_h_fit
-      | v -> (
-          match spacing_value_of_string v with
-          | Ok css_val -> Ok (style ("max-h-" ^ v) [ max_height css_val ])
-          | Error _ -> Error (`Msg ("Invalid max-height value: " ^ v))))
-  | [ "size"; value ] -> (
-      match value with
-      | "auto" -> Ok (style "size-auto" [ width Auto; height Auto ])
-      | "full" ->
-          Ok (style "size-full" [ width (Pct 100.0); height (Pct 100.0) ])
-      | "min" -> Ok (style "size-min" [ width Min_content; height Min_content ])
-      | "max" -> Ok (style "size-max" [ width Max_content; height Max_content ])
-      | "fit" -> Ok (style "size-fit" [ width Fit_content; height Fit_content ])
-      | frac when String.contains frac '/' -> size_fraction_of_string frac
-      | v -> (
-          match spacing_value_of_string v with
-          | Ok css_val ->
-              Ok (style ("size-" ^ v) [ width css_val; height css_val ])
-          | Error _ -> Error (`Msg ("Invalid size value: " ^ v))))
+  | [ "w"; value ] -> parse_w value
+  | [ "h"; value ] -> parse_h value
+  | [ "min"; "w"; value ] -> parse_min_w value
+  | [ "min"; "h"; value ] -> parse_min_h value
+  | [ "max"; "w"; value ] -> parse_max_w value
+  | [ "max"; "w"; "screen"; size ] -> parse_max_w_screen size
+  | [ "max"; "h"; value ] -> parse_max_h value
+  | [ "size"; value ] -> parse_size value
   | [ "aspect"; "auto" ] -> Ok aspect_auto
   | [ "aspect"; "square" ] -> Ok aspect_square
   | [ "aspect"; "video" ] -> Ok aspect_video

@@ -26,6 +26,7 @@ let () =
        Test_parse.suite;
        Test_positioning.suite;
        Test_rules.suite;
+       Test_preflight.suite;
        Test_transforms.suite;
        Test_var.suite;
        Test_modifiers.suite;

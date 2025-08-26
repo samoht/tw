@@ -157,7 +157,7 @@ let test_numeric_variants () =
 
 let test_content () = check [ "content"; "none" ]
 
-let test_typography_of_string_invalid () =
+let of_string_invalid () =
   (* Invalid typography values *)
   let fail_maybe input =
     match Tw.Typography.of_string input with
@@ -202,8 +202,7 @@ let tests =
     test_case "font stretch" `Quick test_font_stretch;
     test_case "numeric variants" `Quick test_numeric_variants;
     test_case "content" `Quick test_content;
-    test_case "typography of_string - invalid values" `Quick
-      test_typography_of_string_invalid;
+    test_case "typography of_string - invalid values" `Quick of_string_invalid;
   ]
 
 let suite = ("typography", tests)

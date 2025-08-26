@@ -11,7 +11,7 @@ let test_transitions () =
   check [ "transition"; "opacity" ];
   check [ "transition" ]
 
-let test_animations () =
+let animate_utilities () =
   check [ "animate"; "none" ];
   check [ "animate"; "spin" ];
   check [ "animate"; "bounce" ]
@@ -23,7 +23,7 @@ let test_duration_delay () =
 let tests =
   [
     test_case "transitions" `Quick test_transitions;
-    test_case "animations" `Quick test_animations;
+    test_case "animations" `Quick animate_utilities;
     test_case "duration + delay" `Quick test_duration_delay;
   ]
 

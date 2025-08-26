@@ -377,7 +377,7 @@ let of_string s =
                 try
                   let shade = int_of_string shade_str in
                   Some (Color (String.concat "-" color_parts, Some shade))
-                with _ ->
+                with Failure _ ->
                   (* Not a valid shade, treat whole thing as color name *)
                   Some (Color (color_part, None))))
       else None
@@ -563,7 +563,7 @@ let to_css_properties (v : t) : Css.declaration list =
       try
         let color = Color.of_string_exn name in
         [ custom_property var_name (Color.to_oklch_css color shade) ]
-      with _ -> [])
+      with Failure _ -> [])
   | Color (_, None) -> [] (* Base colors without shade need special handling *)
   | Default_font_family ->
       [ custom_property "--default-font-family" "var(--font-sans)" ]
@@ -574,7 +574,7 @@ let to_css_properties (v : t) : Css.declaration list =
 module S = Set.Make (String)
 
 (* Set module for Var.t *)
-module VarSet = Set.Make (struct
+module Set = Stdlib.Set.Make (struct
   type nonrec t = t
 
   let compare = compare
@@ -587,10 +587,10 @@ type feature_group =
   | Scale
   | Filter
   | Backdrop
-  | RingShadow
+  | Ring_shadow
   | Gradient
   | Border
-  | ScrollSnap
+  | Scroll_snap
   | Other (* catch-all; usually no properties layer *)
 
 (* Map each variable to its feature group *)
@@ -611,13 +611,13 @@ let group_of_var (v : t) : feature_group =
   | Shadow_color | Inset_shadow_color | Ring_color | Inset_ring_color
   | Ring_inset | Shadow_alpha | Inset_shadow_alpha | Ring_offset_width
   | Ring_offset_color ->
-      RingShadow
+      Ring_shadow
   | Gradient_from | Gradient_via | Gradient_to | Gradient_stops
   | Gradient_from_position | Gradient_via_position | Gradient_to_position
   | Gradient_position | Gradient_via_stops ->
       Gradient
   | Border_style -> Border
-  | Scroll_snap_strictness -> ScrollSnap
+  | Scroll_snap_strictness -> Scroll_snap
   | Font_weight | Leading -> Other (* These get special handling *)
   | _ -> Other
 
@@ -661,7 +661,7 @@ let defaults_for_group = function
         ("--tw-backdrop-sepia", "");
         ("--tw-backdrop-opacity", "");
       ]
-  | RingShadow ->
+  | Ring_shadow ->
       (* Canonical order for shadow/ring variables *)
       [
         ("--tw-shadow", "0 0 #0000");
@@ -692,13 +692,13 @@ let defaults_for_group = function
         ("--tw-gradient-to-position", "100%");
       ]
   | Border -> [ ("--tw-border-style", "solid") ]
-  | ScrollSnap -> [ ("--tw-scroll-snap-strictness", "proximity") ]
+  | Scroll_snap -> [ ("--tw-scroll-snap-strictness", "proximity") ]
   | Other -> []
 
 (* Collect usages while compiling utilities *)
 type tally = {
-  assigned : VarSet.t; (* variables written by any used utility *)
-  fallback_refs : VarSet.t; (* variables only ever seen in fallbacks *)
+  assigned : Set.t; (* variables written by any used utility *)
+  fallback_refs : Set.t; (* variables only ever seen in fallbacks *)
   (* Keep string sets for unknown variables that don't map to Var.t *)
   unknown_assigned : S.t;
   unknown_fallback_refs : S.t;
@@ -706,23 +706,43 @@ type tally = {
 
 let empty =
   {
-    assigned = VarSet.empty;
-    fallback_refs = VarSet.empty;
+    assigned = Set.empty;
+    fallback_refs = Set.empty;
     unknown_assigned = S.empty;
+    unknown_fallback_refs = S.empty;
+  }
+
+let tally_of_vars var_names =
+  List.fold_left
+    (fun (assigned, unknown) var_name ->
+      let clean_name =
+        if String.starts_with ~prefix:"--" var_name then
+          String.sub var_name 2 (String.length var_name - 2)
+        else var_name
+      in
+      match of_string clean_name with
+      | Some var -> (Set.add var assigned, unknown)
+      | None -> (assigned, S.add clean_name unknown))
+    (Set.empty, S.empty) var_names
+  |> fun (assigned, unknown) ->
+  {
+    assigned;
+    fallback_refs = Set.empty;
+    unknown_assigned = unknown;
     unknown_fallback_refs = S.empty;
   }
 
 (* Decide which groups actually need a properties layer *)
 let groups_needing_layer (t : tally) : feature_group list =
   (* Only include groups for variables that are referenced but NOT assigned *)
-  let unassigned_refs = VarSet.diff t.fallback_refs t.assigned in
+  let unassigned_refs = Set.diff t.fallback_refs t.assigned in
   let unknown_unassigned_refs =
     S.diff t.unknown_fallback_refs t.unknown_assigned
   in
 
   (* Check which groups need initialization based on unassigned references *)
   let groups =
-    VarSet.fold
+    Set.fold
       (fun v acc ->
         match v with
         | Border_style ->
@@ -743,7 +763,7 @@ let groups_needing_layer (t : tally) : feature_group list =
   (* Also include groups for assigned variables that are composition groups (not
      Border) *)
   let assigned_groups =
-    VarSet.fold
+    Set.fold
       (fun v acc ->
         match group_of_var v with
         | Border -> acc (* Don't add Border group for assignments *)
@@ -763,7 +783,7 @@ let generate_properties_layer (t : tally) : (string * string) list =
 
   (* Also add any special --tw- variables that need initialization *)
   let special_vars =
-    VarSet.fold
+    Set.fold
       (fun v acc ->
         match v with
         | Font_weight -> (to_string Font_weight, "initial") :: acc
@@ -824,11 +844,11 @@ let canonical_property_order_vars : t list =
 (* Get variables that need @property rules *)
 let needs_at_property (t : tally) : t list =
   (* Collect all variables that need @property rules *)
-  let all_vars = VarSet.union t.assigned t.fallback_refs in
+  let all_vars = Set.union t.assigned t.fallback_refs in
 
-  (* Check if RingShadow group is needed *)
+  (* Check if Ring_shadow group is needed *)
   let needs_ring_shadow =
-    VarSet.exists
+    Set.exists
       (fun v ->
         match v with
         | Shadow | Shadow_color | Shadow_alpha | Inset_shadow
@@ -842,7 +862,7 @@ let needs_at_property (t : tally) : t list =
 
   (* Check if Gradient group is needed *)
   let needs_gradient =
-    VarSet.exists
+    Set.exists
       (fun v ->
         match v with
         | Gradient_position | Gradient_from | Gradient_via | Gradient_to
@@ -855,13 +875,13 @@ let needs_at_property (t : tally) : t list =
 
   (* Check if Scale group is needed *)
   let needs_scale =
-    VarSet.exists
+    Set.exists
       (fun v -> match v with Scale_x | Scale_y | Scale_z -> true | _ -> false)
       all_vars
   in
 
   let needed =
-    (* If RingShadow group is needed, include ALL shadow/ring variables *)
+    (* If Ring_shadow group is needed, include ALL shadow/ring variables *)
     let base_needed =
       if needs_ring_shadow then
         List.fold_left
@@ -871,10 +891,10 @@ let needs_at_property (t : tally) : t list =
             | Inset_shadow_color | Inset_shadow_alpha | Ring_color | Ring_shadow
             | Inset_ring_color | Inset_ring_shadow | Ring_inset
             | Ring_offset_width | Ring_offset_color | Ring_offset_shadow ->
-                VarSet.add v acc
+                Set.add v acc
             | _ -> acc)
-          VarSet.empty canonical_property_order_vars
-      else VarSet.empty
+          Set.empty canonical_property_order_vars
+      else Set.empty
     in
 
     (* If Gradient group is needed, include ALL gradient variables *)
@@ -886,7 +906,7 @@ let needs_at_property (t : tally) : t list =
             | Gradient_position | Gradient_from | Gradient_via | Gradient_to
             | Gradient_stops | Gradient_via_stops | Gradient_from_position
             | Gradient_via_position | Gradient_to_position ->
-                VarSet.add v acc
+                Set.add v acc
             | _ -> acc)
           base_needed canonical_property_order_vars
       else base_needed
@@ -898,32 +918,32 @@ let needs_at_property (t : tally) : t list =
         List.fold_left
           (fun acc v ->
             match v with
-            | Scale_x | Scale_y | Scale_z -> VarSet.add v acc
+            | Scale_x | Scale_y | Scale_z -> Set.add v acc
             | _ -> acc)
           base_needed canonical_property_order_vars
       else base_needed
     in
 
     (* Add other needed variables *)
-    VarSet.fold
+    Set.fold
       (fun v acc ->
         match v with
-        | Font_weight -> VarSet.add v acc
+        | Font_weight -> Set.add v acc
         (* Border style needs @property when referenced but not assigned *)
-        | Border_style when not (VarSet.mem v t.assigned) -> VarSet.add v acc
+        | Border_style when not (Set.mem v t.assigned) -> Set.add v acc
         (* Scroll snap strictness needs @property when used *)
-        | Scroll_snap_strictness -> VarSet.add v acc
+        | Scroll_snap_strictness -> Set.add v acc
         (* Leading needs @property only when assigned (not just referenced in
            fallback) *)
-        | Leading when VarSet.mem v t.assigned -> VarSet.add v acc
+        | Leading when Set.mem v t.assigned -> Set.add v acc
         (* Duration needs @property when used *)
-        | Duration -> VarSet.add v acc
+        | Duration -> Set.add v acc
         | _ -> acc)
       all_vars base_needed
   in
 
   (* Filter canonical order list to only include needed vars *)
-  List.filter (fun v -> VarSet.mem v needed) canonical_property_order_vars
+  List.filter (fun v -> Set.mem v needed) canonical_property_order_vars
 
 (* Get @property configuration for a variable *)
 let at_property_config (v : t) : (string * string * bool * string) option =
@@ -956,3 +976,35 @@ let at_property_config (v : t) : (string * string * bool * string) option =
   (* Scale transform variables *)
   | Scale_x | Scale_y | Scale_z -> Some (name, "*", false, "1")
   | _ -> None
+
+(* Check if a variable name is a composition variable *)
+let is_composition_var name =
+  let clean_name =
+    if String.starts_with ~prefix:"--" name then
+      String.sub name 2 (String.length name - 2)
+    else name
+  in
+  (* Composition variables are --tw-* variables or known composition vars *)
+  String.starts_with ~prefix:"tw-" clean_name
+  ||
+  match of_string clean_name with
+  | Some v -> (
+      (* Check if this is a composition variable that needs tracking *)
+      match v with
+      | Font_weight | Leading | Border_style | Shadow | Shadow_color
+      | Shadow_alpha | Inset_shadow | Inset_shadow_color | Inset_shadow_alpha
+      | Ring_color | Ring_shadow | Inset_ring_color | Inset_ring_shadow
+      | Ring_inset | Ring_offset_width | Ring_offset_color | Ring_offset_shadow
+      | Gradient_position | Gradient_from | Gradient_via | Gradient_to
+      | Gradient_stops | Gradient_via_stops | Gradient_from_position
+      | Gradient_via_position | Gradient_to_position | Scale_x | Scale_y
+      | Scale_z ->
+          true
+      | _ -> false)
+  | None -> false
+
+(* Extract composition variables from custom property declarations *)
+let extract_composition_vars custom_props =
+  List.filter_map
+    (fun (name, _value) -> if is_composition_var name then Some name else None)
+    custom_props

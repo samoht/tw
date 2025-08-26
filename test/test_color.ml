@@ -133,7 +133,7 @@ let test_edge_cases () =
     (rgb2.r >= 0 && rgb2.r <= 255 && rgb2.g >= 0 && rgb2.g <= 255 && rgb2.b >= 0
    && rgb2.b <= 255)
 
-let test_color_accuracy () =
+let accuracy () =
   (* Test that our OKLCH conversion follows the OKLab specification *)
   (* Tailwind v4 designed their palette in OKLCH space first, then derived RGB *)
   (* So converting their RGB back to OKLCH won't perfectly match their original values *)
@@ -191,7 +191,7 @@ let tests =
     ("RGB to hex", `Quick, test_rgb_to_hex);
     ("OKLCH CSS formatting", `Quick, test_oklch_css_formatting);
     ("Edge cases", `Quick, test_edge_cases);
-    ("Color accuracy", `Quick, test_color_accuracy);
+    ("Color accuracy", `Quick, accuracy);
     ("CSS modes with colors", `Quick, test_css_mode_with_colors);
   ]
 

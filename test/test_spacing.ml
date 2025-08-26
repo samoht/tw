@@ -7,7 +7,7 @@ let check parts =
       Alcotest.check string "spacing class name" expected (Tw.Core.pp result)
   | Error (`Msg msg) -> fail msg
 
-let test_spacing_of_string_valid () =
+let of_string_valid () =
   check [ "p"; "0" ];
   check [ "p"; "1" ];
   check [ "p"; "4" ];
@@ -42,7 +42,7 @@ let test_spacing_of_string_valid () =
   check [ "-space"; "x"; "1" ];
   check [ "-space"; "y"; "2" ]
 
-let test_spacing_of_string_invalid () =
+let of_string_invalid () =
   (* Invalid spacing values *)
   let fail_maybe input =
     match Tw.Spacing.of_string input with
@@ -69,10 +69,8 @@ let test_spacing_of_string_invalid () =
 
 let tests =
   [
-    test_case "spacing of_string - valid values" `Quick
-      test_spacing_of_string_valid;
-    test_case "spacing of_string - invalid values" `Quick
-      test_spacing_of_string_invalid;
+    test_case "spacing of_string - valid values" `Quick of_string_valid;
+    test_case "spacing of_string - invalid values" `Quick of_string_invalid;
   ]
 
 let suite = ("spacing", tests)

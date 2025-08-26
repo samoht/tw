@@ -607,7 +607,8 @@ let hex s =
           let hex_str = "#" ^ hex_of_int r ^ hex_of_int g ^ hex_of_int b in
           Hex hex_str
       | _ -> Hex s (* Fallback if parsing fails *)
-    with _ -> Hex s (* Fallback if parsing fails *)
+    with Invalid_argument _ | Failure _ ->
+      Hex s (* Fallback if parsing fails *)
   else Hex s
 
 (* Convert string name to color type *)

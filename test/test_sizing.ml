@@ -59,7 +59,7 @@ let test_square_sizes () =
   check [ "size"; "full" ];
   check [ "size"; "1/2" ]
 
-let test_sizing_of_string_invalid () =
+let of_string_invalid () =
   (* Invalid sizing values *)
   let test_invalid input =
     match Tw.Sizing.of_string input with
@@ -108,8 +108,7 @@ let tests =
     test_case "min sizes" `Quick test_min_sizes;
     test_case "max sizes" `Quick test_max_sizes;
     test_case "square sizes" `Quick test_square_sizes;
-    test_case "sizing of_string - invalid values" `Quick
-      test_sizing_of_string_invalid;
+    test_case "sizing of_string - invalid values" `Quick of_string_invalid;
     test_case "aspect classes" `Quick test_aspect_classes;
     test_case "aspect css" `Quick test_aspect_css;
   ]

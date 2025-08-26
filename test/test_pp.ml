@@ -76,7 +76,7 @@ let test_primitives () =
 
 let suite =
   [
-    ( "Pp",
+    ( "pp",
       [
         Alcotest.test_case "str" `Quick test_str;
         Alcotest.test_case "sep" `Quick test_sep;

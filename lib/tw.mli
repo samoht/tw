@@ -3073,11 +3073,14 @@ module Prose = Prose
     Usage: [div ~tw:[prose; Prose.lg] [...]] *)
 
 module Color = Color
-
-module Modifiers = Modifiers
 (** Color conversion utilities for Tailwind v4 compatibility
 
     Provides OKLCH color space conversion and Tailwind v4 color values. *)
+
+module Modifiers = Modifiers
+
+module Var = Var
+(** CSS variable tracking and generation *)
 
 (* Version module is now in the css library *)
 

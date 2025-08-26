@@ -116,3 +116,4 @@ module Prose = Prose
 module Css = Css
 module Color = Color
 module Modifiers = Modifiers
+module Var = Var
