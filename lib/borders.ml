@@ -84,6 +84,103 @@ let border_y =
       border_bottom_width (Px 1);
     ]
 
+(** Border side utilities with specific widths *)
+let border_t_0 =
+  style "border-t-0"
+    [ border_top_style (Var (var "tw-border-style")); border_top_width (Px 0) ]
+
+let border_t_2 =
+  style "border-t-2"
+    [ border_top_style (Var (var "tw-border-style")); border_top_width (Px 2) ]
+
+let border_t_4 =
+  style "border-t-4"
+    [ border_top_style (Var (var "tw-border-style")); border_top_width (Px 4) ]
+
+let border_t_8 =
+  style "border-t-8"
+    [ border_top_style (Var (var "tw-border-style")); border_top_width (Px 8) ]
+
+let border_r_0 =
+  style "border-r-0"
+    [
+      border_right_style (Var (var "tw-border-style"));
+      border_right_width (Px 0);
+    ]
+
+let border_r_2 =
+  style "border-r-2"
+    [
+      border_right_style (Var (var "tw-border-style"));
+      border_right_width (Px 2);
+    ]
+
+let border_r_4 =
+  style "border-r-4"
+    [
+      border_right_style (Var (var "tw-border-style"));
+      border_right_width (Px 4);
+    ]
+
+let border_r_8 =
+  style "border-r-8"
+    [
+      border_right_style (Var (var "tw-border-style"));
+      border_right_width (Px 8);
+    ]
+
+let border_b_0 =
+  style "border-b-0"
+    [
+      border_bottom_style (Var (var "tw-border-style"));
+      border_bottom_width (Px 0);
+    ]
+
+let border_b_2 =
+  style "border-b-2"
+    [
+      border_bottom_style (Var (var "tw-border-style"));
+      border_bottom_width (Px 2);
+    ]
+
+let border_b_4 =
+  style "border-b-4"
+    [
+      border_bottom_style (Var (var "tw-border-style"));
+      border_bottom_width (Px 4);
+    ]
+
+let border_b_8 =
+  style "border-b-8"
+    [
+      border_bottom_style (Var (var "tw-border-style"));
+      border_bottom_width (Px 8);
+    ]
+
+let border_l_0 =
+  style "border-l-0"
+    [
+      border_left_style (Var (var "tw-border-style")); border_left_width (Px 0);
+    ]
+
+let border_l_2 =
+  style "border-l-2"
+    [
+      border_left_style (Var (var "tw-border-style")); border_left_width (Px 2);
+    ]
+
+let border_l_4 =
+  style "border-l-4"
+    [
+      border_left_style (Var (var "tw-border-style")); border_left_width (Px 4);
+    ]
+
+let border_l_8 =
+  style "border-l-8"
+    [
+      border_left_style (Var (var "tw-border-style")); border_left_width (Px 8);
+    ]
+
 (** {1 Border Style Utilities} *)
 
 let border_solid =
@@ -199,9 +296,58 @@ let rounded_full =
      3.40282e38px *)
   style "rounded-full" [ border_radius (Calc Calc.(infinity * px 1)) ]
 
-(* Individual corner radius utilities not supported by Css module: rounded_t,
-   rounded_r, rounded_b, rounded_l rounded_tl, rounded_tr, rounded_br,
-   rounded_bl These would require border_top_left_radius, etc. properties *)
+(** Corner-specific rounded utilities *)
+let rounded_t =
+  style "rounded-t"
+    [
+      custom_property "--border-top-left-radius" "0.25rem";
+      custom_property "--border-top-right-radius" "0.25rem";
+    ]
+
+let rounded_r =
+  style "rounded-r"
+    [
+      custom_property "--border-top-right-radius" "0.25rem";
+      custom_property "--border-bottom-right-radius" "0.25rem";
+    ]
+
+let rounded_b =
+  style "rounded-b"
+    [
+      custom_property "--border-bottom-right-radius" "0.25rem";
+      custom_property "--border-bottom-left-radius" "0.25rem";
+    ]
+
+let rounded_l =
+  style "rounded-l"
+    [
+      custom_property "--border-top-left-radius" "0.25rem";
+      custom_property "--border-bottom-left-radius" "0.25rem";
+    ]
+
+let rounded_tl =
+  style "rounded-tl" [ custom_property "--border-top-left-radius" "0.25rem" ]
+
+let rounded_tr =
+  style "rounded-tr" [ custom_property "--border-top-right-radius" "0.25rem" ]
+
+let rounded_br =
+  style "rounded-br"
+    [ custom_property "--border-bottom-right-radius" "0.25rem" ]
+
+let rounded_bl =
+  style "rounded-bl" [ custom_property "--border-bottom-left-radius" "0.25rem" ]
+
+(** Corner-specific rounded utilities with sizes *)
+let rounded_t_lg =
+  style "rounded-t-lg"
+    [
+      custom_property "--border-top-left-radius" "0.5rem";
+      custom_property "--border-top-right-radius" "0.5rem";
+    ]
+
+let rounded_tl_2xl =
+  style "rounded-tl-2xl" [ custom_property "--border-top-left-radius" "1rem" ]
 
 (** {1 Outline Utilities} *)
 
@@ -229,6 +375,22 @@ let of_string = function
   | [ "border"; "l" ] -> Ok border_l
   | [ "border"; "x" ] -> Ok border_x
   | [ "border"; "y" ] -> Ok border_y
+  | [ "border"; "t"; "0" ] -> Ok border_t_0
+  | [ "border"; "t"; "2" ] -> Ok border_t_2
+  | [ "border"; "t"; "4" ] -> Ok border_t_4
+  | [ "border"; "t"; "8" ] -> Ok border_t_8
+  | [ "border"; "r"; "0" ] -> Ok border_r_0
+  | [ "border"; "r"; "2" ] -> Ok border_r_2
+  | [ "border"; "r"; "4" ] -> Ok border_r_4
+  | [ "border"; "r"; "8" ] -> Ok border_r_8
+  | [ "border"; "b"; "0" ] -> Ok border_b_0
+  | [ "border"; "b"; "2" ] -> Ok border_b_2
+  | [ "border"; "b"; "4" ] -> Ok border_b_4
+  | [ "border"; "b"; "8" ] -> Ok border_b_8
+  | [ "border"; "l"; "0" ] -> Ok border_l_0
+  | [ "border"; "l"; "2" ] -> Ok border_l_2
+  | [ "border"; "l"; "4" ] -> Ok border_l_4
+  | [ "border"; "l"; "8" ] -> Ok border_l_8
   | [ "border"; "solid" ] -> Ok border_solid
   | [ "border"; "dashed" ] -> Ok border_dashed
   | [ "border"; "dotted" ] -> Ok border_dotted
@@ -243,6 +405,16 @@ let of_string = function
   | [ "rounded"; "2xl" ] -> Ok rounded_2xl
   | [ "rounded"; "3xl" ] -> Ok rounded_3xl
   | [ "rounded"; "full" ] -> Ok rounded_full
+  | [ "rounded"; "t" ] -> Ok rounded_t
+  | [ "rounded"; "r" ] -> Ok rounded_r
+  | [ "rounded"; "b" ] -> Ok rounded_b
+  | [ "rounded"; "l" ] -> Ok rounded_l
+  | [ "rounded"; "tl" ] -> Ok rounded_tl
+  | [ "rounded"; "tr" ] -> Ok rounded_tr
+  | [ "rounded"; "br" ] -> Ok rounded_br
+  | [ "rounded"; "bl" ] -> Ok rounded_bl
+  | [ "rounded"; "t"; "lg" ] -> Ok rounded_t_lg
+  | [ "rounded"; "tl"; "2xl" ] -> Ok rounded_tl_2xl
   | [ "outline"; "offset"; "0" ] -> Ok outline_offset_0
   | [ "outline"; "offset"; "1" ] -> Ok outline_offset_1
   | [ "outline"; "offset"; "2" ] -> Ok outline_offset_2

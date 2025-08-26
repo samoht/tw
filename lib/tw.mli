@@ -187,6 +187,9 @@ val rgb : int -> int -> int -> color
 
 (** {1 Color & Background} *)
 
+(** {2 Background Color}
+    @see <https://tailwindcss.com/docs/background-color> Background Color *)
+
 val bg : color -> int -> t
 (** [bg color shade] sets the background color with a specific shade.
 
@@ -457,6 +460,9 @@ val border_pink : t
 
 val border_rose : t
 (** [border_rose] is default rose border. See {!tailwind_colors}. *)
+
+(** {2 Background Image}
+    @see <https://tailwindcss.com/docs/background-image> Background Image *)
 
 (** Gradient direction variants *)
 type direction =
@@ -1342,6 +1348,18 @@ val neg_translate_y_1_2 : t
 
 (** {1 Typography} *)
 
+(** {2 Font Family}
+    @see <https://tailwindcss.com/docs/font-family> Font Family *)
+
+val font_sans : t
+(** [font_sans] selects a sans-serif font family. *)
+
+val font_serif : t
+(** [font_serif] selects a serif font family. *)
+
+val font_mono : t
+(** [font_mono] selects a monospace font family. *)
+
 (** {2 Font Size}
     @see <https://tailwindcss.com/docs/font-size> Font Size *)
 
@@ -1374,6 +1392,21 @@ val text_4xl : t
 val text_5xl : t
 (** [text_5xl] sets 5× large text size (3rem). *)
 
+(** {2 Font Smoothing}
+    @see <https://tailwindcss.com/docs/font-smoothing> Font Smoothing *)
+
+val antialiased : t
+(** [antialiased] enables font antialiasing for smoother text rendering. *)
+
+(** {2 Font Style}
+    @see <https://tailwindcss.com/docs/font-style> Font Style *)
+
+val italic : t
+(** [italic] applies italic text style. *)
+
+val not_italic : t
+(** [not_italic] removes italic text style. *)
+
 (** {2 Font Weight}
     @see <https://tailwindcss.com/docs/font-weight> Font Weight *)
 
@@ -1405,26 +1438,7 @@ val font_black : t
 (** [font_black] uses the heaviest font weight (900) for maximum impact and hero
     text. *)
 
-(** {2 Font Family}
-    @see <https://tailwindcss.com/docs/font-family> Font Family *)
-
-val font_sans : t
-(** [font_sans] selects a sans-serif font family. *)
-
-val font_serif : t
-(** [font_serif] selects a serif font family. *)
-
-val font_mono : t
-(** [font_mono] selects a monospace font family. *)
-
-(** {2 Font Style}
-    @see <https://tailwindcss.com/docs/font-style> Font Style *)
-
-val italic : t
-(** [italic] applies italic text style. *)
-
-val not_italic : t
-(** [not_italic] removes italic text style. *)
+(* moved Font Stretch and Numeric Variants earlier under Typography. *)
 
 (** {2 Text Decoration Line}
     @see <https://tailwindcss.com/docs/text-decoration-line>
@@ -1534,33 +1548,6 @@ val text_right : t
 val text_justify : t
 (** [text_justify] justifies text. *)
 
-(** {2 Vertical Align}
-    @see <https://tailwindcss.com/docs/vertical-align> Vertical Align *)
-
-val align_baseline : t
-(** [align_baseline] sets vertical-align to baseline. *)
-
-val align_top : t
-(** [align_top] sets vertical-align to top. *)
-
-val align_middle : t
-(** [align_middle] sets vertical-align to middle. *)
-
-val align_bottom : t
-(** [align_bottom] sets vertical-align to bottom. *)
-
-val align_text_top : t
-(** [align_text_top] sets vertical-align to text-top. *)
-
-val align_text_bottom : t
-(** [align_text_bottom] sets vertical-align to text-bottom. *)
-
-val align_sub : t
-(** [align_sub] sets vertical-align to sub. *)
-
-val align_super : t
-(** [align_super] sets vertical-align to super. *)
-
 (** {2 Line Height}
     @see <https://tailwindcss.com/docs/line-height> Line Height *)
 
@@ -1596,6 +1583,33 @@ val leading : int -> t
 val indent : int -> t
 (** [indent n] sets text-indent to [n] times the spacing scale (n * 0.25rem). *)
 
+(** {2 Vertical Align}
+    @see <https://tailwindcss.com/docs/vertical-align> Vertical Align *)
+
+val align_baseline : t
+(** [align_baseline] sets vertical-align to baseline. *)
+
+val align_top : t
+(** [align_top] sets vertical-align to top. *)
+
+val align_middle : t
+(** [align_middle] sets vertical-align to middle. *)
+
+val align_bottom : t
+(** [align_bottom] sets vertical-align to bottom. *)
+
+val align_text_top : t
+(** [align_text_top] sets vertical-align to text-top. *)
+
+val align_text_bottom : t
+(** [align_text_bottom] sets vertical-align to text-bottom. *)
+
+val align_sub : t
+(** [align_sub] sets vertical-align to sub. *)
+
+val align_super : t
+(** [align_super] sets vertical-align to super. *)
+
 (** {2 Letter Spacing}
     @see <https://tailwindcss.com/docs/letter-spacing> Letter Spacing *)
 
@@ -1617,6 +1631,20 @@ val tracking_wider : t
 val tracking_widest : t
 (** [tracking_widest] sets letter spacing to 0.1em. *)
 
+(** {2 Line Clamp}
+    @see <https://tailwindcss.com/docs/line-clamp> Line Clamp *)
+
+val line_clamp : int -> t
+(** [line_clamp n] truncates text to [n] lines with ellipsis. Use 0 to remove
+    clamping. Useful for consistent card heights.
+
+    Example:
+    {[
+      p
+        ~tw:[ line_clamp 3 ]
+        [ txt "This very long text will be truncated after three lines..." ]
+    ]} *)
+
 (** {2 White Space}
     @see <https://tailwindcss.com/docs/whitespace> White Space *)
 
@@ -1635,6 +1663,25 @@ val whitespace_pre_line : t
 val whitespace_pre_wrap : t
 (** [whitespace_pre_wrap] preserves whitespace and wraps. *)
 
+(** {2 List Style Image}
+    @see <https://tailwindcss.com/docs/list-style-image> List Style Image *)
+
+val list_image_none : t
+(** [list_image_none] removes list-style-image. *)
+
+val list_image_url : string -> t
+(** [list_image_url url] sets list-style-image to [url]. *)
+
+(** {2 List Style Position}
+    @see <https://tailwindcss.com/docs/list-style-position> List Style Position
+*)
+
+val list_inside : t
+(** [list_inside] places list markers inside content box. *)
+
+val list_outside : t
+(** [list_outside] places list markers outside content box. *)
+
 (** {2 List Style Type}
     @see <https://tailwindcss.com/docs/list-style-type> List Style Type *)
 
@@ -1647,30 +1694,7 @@ val list_disc : t
 val list_decimal : t
 (** [list_decimal] uses decimal numbering. *)
 
-(** {2 List Style Position}
-    @see <https://tailwindcss.com/docs/list-style-position> List Style Position
-*)
-
-val list_inside : t
-(** [list_inside] places list markers inside content box. *)
-
-val list_outside : t
-(** [list_outside] places list markers outside content box. *)
-
-(** {2 List Style Image}
-    @see <https://tailwindcss.com/docs/list-style-image> List Style Image *)
-
-val list_image_none : t
-(** [list_image_none] removes list-style-image. *)
-
-val list_image_url : string -> t
-(** [list_image_url url] sets list-style-image to [url]. *)
-
-val antialiased : t
-(** {2 Font Smoothing}
-    @see <https://tailwindcss.com/docs/font-smoothing>
-      Font Smoothing [antialiased] enables antialiased font smoothing for better
-      text rendering. This is usually the default but can be explicitly set. *)
+(* moved Font Smoothing above with [antialiased]. *)
 
 (** {1 Borders}
     @see <https://tailwindcss.com/docs/border-width> Borders *)
@@ -2448,6 +2472,9 @@ val prose_stylesheet : unit -> Css.t
       (* Include this CSS in your page to enable full prose functionality *)
     ]} *)
 
+(** {2 Line Clamp}
+    @see <https://tailwindcss.com/docs/line-clamp> Line Clamp *)
+
 val line_clamp : int -> t
 (** [line_clamp n] truncates text to [n] lines with ellipsis. Use 0 to remove
     clamping. Useful for consistent card heights.
@@ -2457,9 +2484,7 @@ val line_clamp : int -> t
       p
         ~tw:[ line_clamp 3 ]
         [ txt "This very long text will be truncated after three lines..." ]
-    ]}
-
-    @see <https://tailwindcss.com/docs/line-clamp> Line Clamp. *)
+    ]} *)
 
 (** {2 Text Overflow}
     @see <https://tailwindcss.com/docs/text-overflow> Text Overflow *)
@@ -2912,8 +2937,8 @@ module Borders = Borders
 module Backgrounds = Backgrounds
 module Sizing = Sizing
 module Layout = Layout
-module Flow = Flow
 module Typography = Typography
+module Flow = Flow
 module Effects = Effects
 module Transforms = Transforms
 module Interactivity = Interactivity

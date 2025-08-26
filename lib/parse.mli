@@ -22,6 +22,10 @@ val int_bounded :
 val int_any : string -> (int, [> `Msg of string ]) result
 (** [int_any s] parses any signed integer from [s]. *)
 
+val spacing_value : name:string -> string -> (float, [> `Msg of string ]) result
+(** [spacing_value ~name s] parses spacing values, handling both integers and
+    decimals like "0.5", "1.5". *)
+
 val ( >|= ) : ('a, 'e) result -> ('a -> 'b) -> ('b, 'e) result
 (** Infix map over [result]: [r >|= f] maps [Ok x] to [Ok (f x)] and leaves
     [Error e] unchanged. *)

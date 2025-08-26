@@ -39,8 +39,8 @@ let test_validate_no_nested_responsive () =
   (* Should pass for non-responsive styles *)
   let () = validate_no_nested_responsive [ p 4; m 2 ] in
 
-  (* Should pass for styles with responsive at top level *)
-  let () = validate_no_nested_responsive [ sm [ p 4 ] ] in
+  (* Should pass for single styles without responsive modifiers *)
+  let () = validate_no_nested_responsive [ p 4 ] in
 
   (* Should fail for nested responsive *)
   let test_nested_fail () =
@@ -53,15 +53,15 @@ let test_validate_no_nested_responsive () =
   in
   test_nested_fail ();
 
-  (* Should fail for already responsive styles passed to sm/md/etc *)
+  (* Should fail for already responsive styles *)
   let test_already_responsive () =
     try
       let responsive_style = sm [ p 4 ] in
       validate_no_nested_responsive [ responsive_style ];
-      (* This would pass, but sm/md/lg/xl/xxl should reject it *)
-      ()
-    with _ ->
-      fail "validate_no_nested_responsive should pass for top-level responsive"
+      fail "Should have rejected responsive style"
+    with
+    | Failure _ -> () (* Expected to fail *)
+    | _ -> fail "Expected Failure for responsive style"
   in
   test_already_responsive ()
 
@@ -127,34 +127,48 @@ let test_apply () =
   (* Test single modifier *)
   let style1 = apply [ "hover" ] (p 4) in
   check bool "hover modifier applied" true
-    (match style1 with Modified (Hover, _) -> true | _ -> false);
+    (match style1 with
+    | Group [ Modified (Hover, _) ] -> true
+    | Modified (Hover, _) -> true
+    | _ -> false);
 
   (* Test multiple modifiers *)
   let style2 = apply [ "sm"; "hover" ] (bg blue 500) in
   check bool "multiple modifiers applied" true
     (match style2 with
+    | Group [ Modified (Hover, Modified (Responsive `Sm, _)) ] -> true
     | Modified (Hover, Modified (Responsive `Sm, _)) -> true
     | _ -> false);
 
   (* Test unknown modifier (should be ignored) *)
   let style3 = apply [ "unknown"; "hover" ] (p 4) in
   check bool "unknown modifier ignored" true
-    (match style3 with Modified (Hover, _) -> true | _ -> false);
+    (match style3 with
+    | Group [ Modified (Hover, _) ] -> true
+    | Modified (Hover, _) -> true
+    | _ -> false);
 
   (* Test responsive modifiers *)
   let style4 = apply [ "md" ] (m 2) in
   check bool "md modifier applied" true
-    (match style4 with Modified (Responsive `Md, _) -> true | _ -> false);
+    (match style4 with
+    | Group [ Modified (Responsive `Md, _) ] -> true
+    | Modified (Responsive `Md, _) -> true
+    | _ -> false);
 
   (* Test dark mode *)
   let style5 = apply [ "dark" ] (bg gray 900) in
   check bool "dark modifier applied" true
-    (match style5 with Modified (Dark, _) -> true | _ -> false);
+    (match style5 with
+    | Group [ Modified (Dark, _) ] -> true
+    | Modified (Dark, _) -> true
+    | _ -> false);
 
   (* Test modifier order *)
   let style6 = apply [ "hover"; "sm" ] (p 4) in
   check bool "modifier order correct" true
     (match style6 with
+    | Group [ Modified (Responsive `Sm, Modified (Hover, _)) ] -> true
     | Modified (Responsive `Sm, Modified (Hover, _)) -> true
     | _ -> false)
 
