@@ -184,7 +184,8 @@ let gap_full = gap' `Full
 
 let grid_cols n =
   if n < 1 || n > 12 then
-    invalid_arg (Printf.sprintf "grid_cols: %d is out of range (1-12)" n)
+    invalid_arg
+      (Pp.str [ "grid_cols: "; string_of_int n; " is out of range (1-12)" ])
   else
     style
       (Pp.str [ "grid-cols-"; string_of_int n ])
@@ -197,7 +198,8 @@ let grid_cols_subgrid =
 
 let grid_rows n =
   if n < 1 || n > 12 then
-    invalid_arg (Printf.sprintf "grid_rows: %d is out of range (1-12)" n)
+    invalid_arg
+      (Pp.str [ "grid_rows: "; string_of_int n; " is out of range (1-12)" ])
   else
     style
       (Pp.str [ "grid-rows-"; string_of_int n ])

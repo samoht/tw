@@ -18,4 +18,4 @@ val table_fixed : t
 (** [table_fixed] uses fixed table layout. *)
 
 val of_string : string list -> (t, [ `Msg of string ]) result
-(** Parse table utilities from tokens. *)
+(** [of_string parts] parses table utilities from string [parts]. *)

@@ -432,6 +432,5 @@ val border_pink : Core.t
 val border_rose : Core.t
 (** [border_rose] uses the rose palette for border color. *)
 
-val color_classes_of_string : string list -> (Core.t, [ `Msg of string ]) result
-(** [color_classes_of_string parts] parses color utilities from string [parts].
-*)
+val classes_of_string : string list -> (Core.t, [ `Msg of string ]) result
+(** [classes_of_string parts] parses color utilities from string [parts]. *)

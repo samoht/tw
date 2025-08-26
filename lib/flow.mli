@@ -329,30 +329,79 @@ val auto_rows_fr : t
 (** {1 Place/Justify Utilities} *)
 
 val justify_items_start : t
+(** [justify_items_start] justifies items to the start. *)
+
 val justify_items_end : t
+(** [justify_items_end] justifies items to the end. *)
+
 val justify_items_center : t
+(** [justify_items_center] justifies items to the center. *)
+
 val justify_items_stretch : t
+(** [justify_items_stretch] stretches items to fill. *)
+
 val justify_self_auto : t
+(** [justify_self_auto] uses automatic self justification. *)
+
 val justify_self_start : t
+(** [justify_self_start] justifies self to the start. *)
+
 val justify_self_end : t
+(** [justify_self_end] justifies self to the end. *)
+
 val justify_self_center : t
+(** [justify_self_center] justifies self to the center. *)
+
 val justify_self_stretch : t
+(** [justify_self_stretch] stretches self to fill. *)
+
 val place_content_start : t
+(** [place_content_start] places content at the start. *)
+
 val place_content_end : t
+(** [place_content_end] places content at the end. *)
+
 val place_content_center : t
+(** [place_content_center] places content at the center. *)
+
 val place_content_between : t
+(** [place_content_between] places content with space between. *)
+
 val place_content_around : t
+(** [place_content_around] places content with space around. *)
+
 val place_content_evenly : t
+(** [place_content_evenly] places content with space evenly. *)
+
 val place_content_stretch : t
+(** [place_content_stretch] stretches content to fill. *)
+
 val place_items_start : t
+(** [place_items_start] places items at the start. *)
+
 val place_items_end : t
+(** [place_items_end] places items at the end. *)
+
 val place_items_center : t
+(** [place_items_center] places items at the center. *)
+
 val place_items_stretch : t
+(** [place_items_stretch] stretches items to fill. *)
+
 val place_self_auto : t
+(** [place_self_auto] uses automatic self placement. *)
+
 val place_self_start : t
+(** [place_self_start] places self at the start. *)
+
 val place_self_end : t
+(** [place_self_end] places self at the end. *)
+
 val place_self_center : t
+(** [place_self_center] places self at the center. *)
+
 val place_self_stretch : t
+(** [place_self_stretch] stretches self to fill. *)
 
 (** {1 Parsing} *)
 

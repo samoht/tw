@@ -65,9 +65,9 @@ type shadow = [ size | `Inner ]
 val style : ?rules:Css.rule list option -> string -> Css.declaration list -> t
 (** [style ?rules name props] defines a utility [name] with CSS [props].
     - [rules]: Optional custom CSS rules (for utilities like prose that generate
-      multiple rules with descendant selectors)
-    - [name]: The CSS class name
-    - [props]: CSS properties to apply *)
+      multiple rules with descendant selectors).
+    - [name]: The CSS class name.
+    - [props]: CSS properties to apply. *)
 
 val class_name : t -> string
 (** [class_name t] returns the base class name(s) for [t]. Note: modifiers

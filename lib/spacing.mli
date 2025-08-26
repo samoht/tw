@@ -4,8 +4,8 @@ open Core
 
 (** {1 Helper Functions} *)
 
-val spacing_to_length : spacing -> Css.length
-(** [spacing_to_length s] converts spacing to CSS length. *)
+val to_length : spacing -> Css.length
+(** [to_length s] converts spacing to CSS length. *)
 
 val margin_to_length : margin -> Css.length
 (** [margin_to_length m] converts margin to CSS length. *)
@@ -109,26 +109,67 @@ val space_y : int -> t
 (** {1 Special Values} *)
 
 val p_px : t
+(** [p_px] sets padding to 1px on all sides. *)
+
 val p_full : t
+(** [p_full] sets padding to 100% on all sides. *)
+
 val px_px : t
+(** [px_px] sets horizontal padding to 1px. *)
+
 val px_full : t
+(** [px_full] sets horizontal padding to 100%. *)
+
 val py_px : t
+(** [py_px] sets vertical padding to 1px. *)
+
 val py_full : t
+(** [py_full] sets vertical padding to 100%. *)
+
 val pt_px : t
+(** [pt_px] sets top padding to 1px. *)
+
 val pt_full : t
+(** [pt_full] sets top padding to 100%. *)
+
 val pr_px : t
+(** [pr_px] sets right padding to 1px. *)
+
 val pr_full : t
+(** [pr_full] sets right padding to 100%. *)
+
 val pb_px : t
+(** [pb_px] sets bottom padding to 1px. *)
+
 val pb_full : t
+(** [pb_full] sets bottom padding to 100%. *)
+
 val pl_px : t
+(** [pl_px] sets left padding to 1px. *)
+
 val pl_full : t
+(** [pl_full] sets left padding to 100%. *)
+
 val m_auto : t
+(** [m_auto] sets margin to auto on all sides. *)
+
 val mx_auto : t
+(** [mx_auto] sets horizontal margin to auto. *)
+
 val my_auto : t
+(** [my_auto] sets vertical margin to auto. *)
+
 val mt_auto : t
+(** [mt_auto] sets top margin to auto. *)
+
 val mr_auto : t
+(** [mr_auto] sets right margin to auto. *)
+
 val mb_auto : t
+(** [mb_auto] sets bottom margin to auto. *)
+
 val ml_auto : t
+(** [ml_auto] sets left margin to auto. *)
 
 (** {1 Parsing Functions} *)
 
