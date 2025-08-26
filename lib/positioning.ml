@@ -22,7 +22,7 @@ let inset_x_0 = style "inset-x-0" [ Css.left Zero; Css.right Zero ]
 let inset_y_0 = style "inset-y-0" [ Css.bottom Zero; Css.top Zero ]
 
 let inset n =
-  let prefix = if n < 0 then "-" else "" in
+  let prefix = if n < 0 then "--" else "" in
   let class_name = prefix ^ "inset-" ^ string_of_int (abs n) in
   let value = spacing_value n in
   style class_name
@@ -31,25 +31,25 @@ let inset n =
 (** {1 Individual Side Positioning} *)
 
 let top n =
-  let prefix = if n < 0 then "-" else "" in
+  let prefix = if n < 0 then "--" else "" in
   let class_name = prefix ^ "top-" ^ string_of_int (abs n) in
   let value = spacing_value n in
   style class_name [ Css.top value ]
 
 let right n =
-  let prefix = if n < 0 then "-" else "" in
+  let prefix = if n < 0 then "--" else "" in
   let class_name = prefix ^ "right-" ^ string_of_int (abs n) in
   let value = spacing_value n in
   style class_name [ Css.right value ]
 
 let bottom n =
-  let prefix = if n < 0 then "-" else "" in
+  let prefix = if n < 0 then "--" else "" in
   let class_name = prefix ^ "bottom-" ^ string_of_int (abs n) in
   let value = spacing_value n in
   style class_name [ Css.bottom value ]
 
 let left n =
-  let prefix = if n < 0 then "-" else "" in
+  let prefix = if n < 0 then "--" else "" in
   let class_name = prefix ^ "left-" ^ string_of_int (abs n) in
   let value = spacing_value n in
   style class_name [ Css.left value ]

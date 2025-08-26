@@ -468,7 +468,8 @@ let pp = function
 let prose_style variant =
   let name = to_class variant in
   let rules = to_css_rules variant in
-  Core.style ~rules:(Some rules) name []
+  let props = to_base_properties variant in
+  Core.style ~rules:(Some rules) name props
 
 let prose = prose_style `Base
 let prose_sm = prose_style `Sm

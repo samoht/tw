@@ -10,8 +10,11 @@ let pp_spacing_suffix : spacing -> string = function
   | `Full -> "full"
   | `Rem f ->
       (* Convert rem values back to Tailwind scale *)
-      let n = int_of_float (f /. 0.25) in
-      string_of_int (abs n)
+      let scale = f /. 0.25 in
+      if Float.is_integer scale then string_of_int (abs (int_of_float scale))
+      else
+        (* Handle decimal values like 0.5, 1.5, etc. *)
+        Printf.sprintf "%.1f" (Float.abs scale)
 
 let pp_margin_suffix : margin -> string = function
   | `Auto -> "auto"
@@ -39,6 +42,7 @@ let margin_to_length : margin -> length = function
 
 (* Helper to convert int to spacing *)
 let int n = `Rem (float_of_int n *. 0.25)
+let decimal f = `Rem (f *. 0.25)
 
 (** {2 Typed Padding Utilities} *)
 
@@ -86,6 +90,15 @@ let pt n = pt' (int n)
 let pr n = pr' (int n)
 let pb n = pb' (int n)
 let pl n = pl' (int n)
+
+(* Decimal-aware versions for parsing *)
+let p_decimal f = p' (decimal f)
+let px_decimal f = px' (decimal f)
+let py_decimal f = py' (decimal f)
+let pt_decimal f = pt' (decimal f)
+let pr_decimal f = pr' (decimal f)
+let pb_decimal f = pb' (decimal f)
+let pl_decimal f = pl' (decimal f)
 
 (** {2 Typed Margin Utilities} *)
 
@@ -179,13 +192,15 @@ let ml n =
 
 let space_x n =
   let s = int n in
-  let class_name = "space-x-" ^ pp_spacing_suffix s in
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "space-x-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
   style class_name [ margin_left len ]
 
 let space_y n =
   let s = int n in
-  let class_name = "space-y-" ^ pp_spacing_suffix s in
+  let prefix = if n < 0 then "-" else "" in
+  let class_name = prefix ^ "space-y-" ^ pp_spacing_suffix s in
   let len = spacing_to_length s in
   style class_name [ margin_top len ]
 
@@ -196,14 +211,27 @@ let ( >|= ) = Parse.( >|= )
 let spacing_of_string prefix px_var full_var int_fn = function
   | [ p; "px" ] when p = prefix -> Ok px_var
   | [ p; "full" ] when p = prefix -> Ok full_var
-  | [ p; n ] when p = prefix ->
+  | [ p; n ] when p = prefix -> (
       let name =
         if prefix = "p" then "padding"
         else if prefix = "px" then "padding-x"
         else if prefix = "py" then "padding-y"
         else "padding-" ^ String.sub prefix 1 (String.length prefix - 1)
       in
-      Parse.int_pos ~name n >|= int_fn
+      Parse.spacing_value ~name n >|= fun f ->
+      if Float.is_integer f then int_fn (int_of_float f)
+      else
+        (* Use decimal version for non-integer values *)
+        match prefix with
+        | "p" -> p_decimal f
+        | "px" -> px_decimal f
+        | "py" -> py_decimal f
+        | "pt" -> pt_decimal f
+        | "pr" -> pr_decimal f
+        | "pb" -> pb_decimal f
+        | "pl" -> pl_decimal f
+        | _ -> int_fn (int_of_float f)
+      (* fallback *))
   | _ -> Error (`Msg "")
 
 let margin_of_string prefix auto_var int_fn = function
@@ -216,6 +244,17 @@ let margin_of_string prefix auto_var int_fn = function
         else "margin-" ^ String.sub prefix 1 (String.length prefix - 1)
       in
       Parse.int_pos ~name n >|= int_fn
+  | _ -> Error (`Msg "")
+
+let negative_margin_of_string prefix int_fn = function
+  | [ p; n ] when p = prefix ->
+      let name =
+        if prefix = "-m" then "margin"
+        else if prefix = "-mx" then "margin-x"
+        else if prefix = "-my" then "margin-y"
+        else "margin-" ^ String.sub prefix 2 (String.length prefix - 2)
+      in
+      Parse.int_pos ~name n >|= fun x -> int_fn (-x)
   | _ -> Error (`Msg "")
 
 let of_string parts =
@@ -234,6 +273,20 @@ let of_string parts =
   | "mr" :: _ -> margin_of_string "mr" (mr' `Auto) mr parts
   | "mb" :: _ -> margin_of_string "mb" (mb' `Auto) mb parts
   | "ml" :: _ -> margin_of_string "ml" (ml' `Auto) ml parts
+  | "-m" :: _ -> negative_margin_of_string "-m" m parts
+  | "-mx" :: _ -> negative_margin_of_string "-mx" mx parts
+  | "-my" :: _ -> negative_margin_of_string "-my" my parts
+  | "-mt" :: _ -> negative_margin_of_string "-mt" mt parts
+  | "-mr" :: _ -> negative_margin_of_string "-mr" mr parts
+  | "-mb" :: _ -> negative_margin_of_string "-mb" mb parts
+  | "-ml" :: _ -> negative_margin_of_string "-ml" ml parts
+  | [ "space"; "x"; n ] -> Parse.int_pos ~name:"space-x" n >|= space_x
+  | [ "space"; "y"; n ] -> Parse.int_pos ~name:"space-y" n >|= space_y
+  | [ "-space"; "x"; n ] ->
+      Parse.int_pos ~name:"space-x" n >|= fun x -> space_x (-x)
+  | [ "-space"; "y"; n ] ->
+      Parse.int_pos ~name:"space-y" n >|= fun x -> space_y (-x)
+  | "gap" :: _ -> Flow.of_string parts
   | _ -> Error (`Msg "Not a spacing utility")
 
 (** {1 Special Values} *)

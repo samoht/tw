@@ -204,6 +204,63 @@ let opacity n =
   let value = float_of_int n /. 100.0 in
   style class_name [ opacity value ]
 
+(** {1 Mix Blend Mode Utilities} *)
+
+let mix_blend_normal =
+  style "mix-blend-normal" [ custom_property "--mix-blend-mode" "normal" ]
+
+let mix_blend_multiply =
+  style "mix-blend-multiply" [ custom_property "--mix-blend-mode" "multiply" ]
+
+let mix_blend_screen =
+  style "mix-blend-screen" [ custom_property "--mix-blend-mode" "screen" ]
+
+let mix_blend_overlay =
+  style "mix-blend-overlay" [ custom_property "--mix-blend-mode" "overlay" ]
+
+let mix_blend_darken =
+  style "mix-blend-darken" [ custom_property "--mix-blend-mode" "darken" ]
+
+let mix_blend_lighten =
+  style "mix-blend-lighten" [ custom_property "--mix-blend-mode" "lighten" ]
+
+let mix_blend_color_dodge =
+  style "mix-blend-color-dodge"
+    [ custom_property "--mix-blend-mode" "color-dodge" ]
+
+let mix_blend_color_burn =
+  style "mix-blend-color-burn"
+    [ custom_property "--mix-blend-mode" "color-burn" ]
+
+let mix_blend_hard_light =
+  style "mix-blend-hard-light"
+    [ custom_property "--mix-blend-mode" "hard-light" ]
+
+let mix_blend_soft_light =
+  style "mix-blend-soft-light"
+    [ custom_property "--mix-blend-mode" "soft-light" ]
+
+let mix_blend_difference =
+  style "mix-blend-difference"
+    [ custom_property "--mix-blend-mode" "difference" ]
+
+let mix_blend_exclusion =
+  style "mix-blend-exclusion" [ custom_property "--mix-blend-mode" "exclusion" ]
+
+let mix_blend_hue =
+  style "mix-blend-hue" [ custom_property "--mix-blend-mode" "hue" ]
+
+let mix_blend_saturation =
+  style "mix-blend-saturation"
+    [ custom_property "--mix-blend-mode" "saturation" ]
+
+let mix_blend_color =
+  style "mix-blend-color" [ custom_property "--mix-blend-mode" "color" ]
+
+let mix_blend_luminosity =
+  style "mix-blend-luminosity"
+    [ custom_property "--mix-blend-mode" "luminosity" ]
+
 (** {1 Parsing Functions} *)
 
 let ( >|= ) = Parse.( >|= )
@@ -235,4 +292,20 @@ let of_string = function
   | [ "transition"; "shadow" ] -> Ok transition_shadow
   | [ "transition"; "transform" ] -> Ok transition_transform
   | [ "duration"; n ] -> Parse.int_pos ~name:"duration" n >|= duration
+  | [ "mix"; "blend"; "normal" ] -> Ok mix_blend_normal
+  | [ "mix"; "blend"; "multiply" ] -> Ok mix_blend_multiply
+  | [ "mix"; "blend"; "screen" ] -> Ok mix_blend_screen
+  | [ "mix"; "blend"; "overlay" ] -> Ok mix_blend_overlay
+  | [ "mix"; "blend"; "darken" ] -> Ok mix_blend_darken
+  | [ "mix"; "blend"; "lighten" ] -> Ok mix_blend_lighten
+  | [ "mix"; "blend"; "color-dodge" ] -> Ok mix_blend_color_dodge
+  | [ "mix"; "blend"; "color-burn" ] -> Ok mix_blend_color_burn
+  | [ "mix"; "blend"; "hard-light" ] -> Ok mix_blend_hard_light
+  | [ "mix"; "blend"; "soft-light" ] -> Ok mix_blend_soft_light
+  | [ "mix"; "blend"; "difference" ] -> Ok mix_blend_difference
+  | [ "mix"; "blend"; "exclusion" ] -> Ok mix_blend_exclusion
+  | [ "mix"; "blend"; "hue" ] -> Ok mix_blend_hue
+  | [ "mix"; "blend"; "saturation" ] -> Ok mix_blend_saturation
+  | [ "mix"; "blend"; "color" ] -> Ok mix_blend_color
+  | [ "mix"; "blend"; "luminosity" ] -> Ok mix_blend_luminosity
   | _ -> Error (`Msg "Not an effects utility")
