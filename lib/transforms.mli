@@ -29,10 +29,12 @@ val skew_y : int -> t
 (** [skew_y deg] skews element vertically by deg degrees. *)
 
 val neg_translate_x_1_2 : t
-(** [neg_translate_x_1_2] translates element -50% along the X axis (useful for centering). *)
+(** [neg_translate_x_1_2] translates element -50% along the X axis (useful for
+    centering). *)
 
 val neg_translate_y_1_2 : t
-(** [neg_translate_y_1_2] translates element -50% along the Y axis (useful for centering). *)
+(** [neg_translate_y_1_2] translates element -50% along the Y axis (useful for
+    centering). *)
 
 (** {1 3D Transform Utilities} *)
 
@@ -84,7 +86,8 @@ val backface_hidden : t
 (** {1 Transform Control Utilities} *)
 
 val transform : t
-(** [transform] is the base transform utility that sets CSS custom properties for transforms. *)
+(** [transform] is the base transform utility that sets CSS custom properties
+    for transforms. *)
 
 val transform_none : t
 (** [transform_none] removes all transforms. *)

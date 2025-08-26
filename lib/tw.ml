@@ -19,7 +19,6 @@ include Spacing
 include Sizing
 include Typography
 include Layout
-
 include Flow
 include Borders
 include Effects
@@ -72,9 +71,8 @@ let of_string class_str =
     Color.color_classes_of_string parts
     <|> Spacing.of_string parts <|> Sizing.of_string parts
     <|> Layout.of_string parts <|> Flow.of_string parts
-    <|> Typography.of_string parts
-    <|> Borders.of_string parts <|> Effects.of_string parts
-    <|> Transforms.of_string parts
+    <|> Typography.of_string parts <|> Borders.of_string parts
+    <|> Effects.of_string parts <|> Transforms.of_string parts
     <|> Interactivity.of_string parts
     <|> Containers.of_string parts <|> Filters.of_string parts
     <|> Positioning.of_string parts

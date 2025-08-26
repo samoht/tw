@@ -258,9 +258,7 @@ let test_exact_tailwind_match () =
         div
           ~tw:Tw.[ group; p 4 ]
           [
-            p
-              ~tw:Tw.[ group_hover [ text red 500 ] ]
-              [ txt "Group hover test" ];
+            p ~tw:Tw.[ group_hover [ text red 500 ] ] [ txt "Group hover test" ];
           ];
         (* Test peer *)
         div

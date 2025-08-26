@@ -642,87 +642,52 @@ val space_x : int -> t
 val space_y : int -> t
 (** [space_y n] sets vertical space between child elements. *)
 
-(** {1 Sizing}
-    @see <https://tailwindcss.com/docs/width> Width and Height *)
+(** {1 Sizing} *)
+
+(** {2 Width}
+    @see <https://tailwindcss.com/docs/width> Width *)
 
 val w : int -> t
-(** [w n] sets element width using Tailwind scale (n × 0.25rem).
-
-    Common patterns:
-    - [w 24]: Fixed width of 6rem (96px)
-    - [w 0]: Zero width Use variants for special cases like [w_full],
-      [w_screen], etc. *)
-
-val h : int -> t
-(** [h n] sets element height using Tailwind scale (n × 0.25rem).
-
-    Common patterns:
-    - [h 16]: Fixed height of 4rem (64px)
-    - [h 0]: Zero height Use variants for special cases like [h_full],
-      [h_screen], etc. *)
-
-val min_w : int -> t
-(** [min_w n] sets minimum width using Tailwind scale. *)
-
-val min_h : int -> t
-(** [min_h n] sets minimum height using Tailwind scale. *)
-
-val max_w : int -> t
-(** [max_w n] sets maximum width using Tailwind scale. For named sizes, use
-    variants like [max_w_md], [max_w_xl], etc. *)
-
-val max_h : int -> t
-(** [max_h n] sets maximum height using Tailwind scale. *)
-
-(** {2 Common size utilities} *)
+(** [w n] sets element width using Tailwind scale (n × 0.25rem). *)
 
 val w_full : t
-(** [w_full] sets 100% of parent width. Very commonly used. *)
-
-val h_full : t
-(** [h_full] sets 100% of parent height. Very commonly used. *)
+(** [w_full] sets width to 100% of parent. *)
 
 val w_fit : t
-(** [w_fit] uses fit-content sizing. Common for buttons and chips. *)
-
-val h_fit : t
-(** [h_fit] uses fit-content sizing for height. *)
+(** [w_fit] uses fit-content sizing. *)
 
 val w_screen : t
 (** [w_screen] sets width to full viewport width (100vw). *)
 
-val h_screen : t
-(** [h_screen] sets height to full viewport height (100vh). *)
-
 val w_min : t
-(** [w_min] sets width to min-content (minimum intrinsic size). *)
-
-val h_min : t
-(** [h_min] sets height to min-content (minimum intrinsic size). *)
+(** [w_min] sets width to min-content. *)
 
 val w_max : t
-(** [w_max] sets width to max-content (maximum intrinsic size). *)
+(** [w_max] sets width to max-content. *)
 
-val h_max : t
-(** [h_max] sets height to max-content (maximum intrinsic size). *)
+(** {2 Min Width}
+    @see <https://tailwindcss.com/docs/min-width> Min Width *)
 
-val min_h_screen : t
-(** [min_h_screen] sets viewport minimum height. Common for hero sections. *)
+val min_w : int -> t
+(** [min_w n] sets minimum width using Tailwind scale. *)
 
 val min_w_full : t
 (** [min_w_full] sets minimum width to 100% of parent. *)
 
-val min_h_full : t
-(** [min_h_full] sets minimum height to 100% of parent. *)
+(** {2 Max Width}
+    @see <https://tailwindcss.com/docs/max-width> Max Width *)
+
+val max_w : int -> t
+(** [max_w n] sets maximum width using Tailwind scale. *)
 
 val max_w_2xl : t
-(** [max_w_2xl] sets 42rem maximum width. Common for article text. *)
+(** [max_w_2xl] sets maximum width to 42rem. *)
 
 val max_w_3xl : t
-(** [max_w_3xl] sets 48rem maximum width. Common for content sections. *)
+(** [max_w_3xl] sets maximum width to 48rem. *)
 
 val max_w_4xl : t
-(** [max_w_4xl] sets 56rem maximum width. Common for content sections. *)
+(** [max_w_4xl] sets maximum width to 56rem. *)
 
 val max_w_none : t
 (** [max_w_none] removes the maximum width constraint. *)
@@ -730,31 +695,64 @@ val max_w_none : t
 val max_w_full : t
 (** [max_w_full] sets maximum width to 100% of parent. *)
 
+(** {2 Height}
+    @see <https://tailwindcss.com/docs/height> Height *)
+
+val h : int -> t
+(** [h n] sets element height using Tailwind scale (n × 0.25rem). *)
+
+val h_full : t
+(** [h_full] sets height to 100% of parent. *)
+
+val h_fit : t
+(** [h_fit] uses fit-content sizing for height. *)
+
+val h_screen : t
+(** [h_screen] sets height to full viewport height (100vh). *)
+
+val h_min : t
+(** [h_min] sets height to min-content. *)
+
+val h_max : t
+(** [h_max] sets height to max-content. *)
+
+(** {2 Min Height}
+    @see <https://tailwindcss.com/docs/min-height> Min Height *)
+
+val min_h : int -> t
+(** [min_h n] sets minimum height using Tailwind scale. *)
+
+val min_h_screen : t
+(** [min_h_screen] sets viewport minimum height. *)
+
+val min_h_full : t
+(** [min_h_full] sets minimum height to 100% of parent. *)
+
+(** {2 Max Height}
+    @see <https://tailwindcss.com/docs/max-height> Max Height *)
+
+val max_h : int -> t
+(** [max_h n] sets maximum height using Tailwind scale. *)
+
 val max_h_full : t
 (** [max_h_full] sets maximum height to 100% of parent. *)
+
+(** {1 Layout} *)
+
+(** {2 Aspect Ratio}
+    @see <https://tailwindcss.com/docs/aspect-ratio> Aspect Ratio *)
 
 val aspect_auto : t
 (** [aspect_auto] sets automatic aspect ratio based on content or CSS rules. *)
 
 val aspect_square : t
-(** [aspect_square] sets a square 1:1 aspect ratio (useful for avatars,
-    thumbnails). *)
+(** [aspect_square] sets a square 1:1 aspect ratio. *)
 
 val aspect_video : t
-(** [aspect_video] sets a 16:9 aspect ratio, commonly used for videos. *)
+(** [aspect_video] sets a 16:9 aspect ratio. *)
 
 val aspect_ratio : int -> int -> t
-(** [aspect_ratio w h] maintains element proportions of [w:h].
-
-    Example:
-    {[
-      (* 16:9 video container *)
-      div ~tw:[ aspect_ratio 16 9; bg black ] [ video ]
-    ]} *)
-
-(** {1 Layout}
-    @see <https://tailwindcss.com/docs/display> Display
-    @see <https://tailwindcss.com/docs/overflow> Overflow *)
+(** [aspect_ratio w h] maintains element proportions of [w:h]. *)
 
 val block : t
 (** [block] makes the element a block; it takes full width and stacks

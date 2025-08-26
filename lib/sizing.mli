@@ -259,7 +259,8 @@ val aspect_video : t
 (** [aspect_video] sets aspect ratio to 16:9. *)
 
 val aspect_ratio : int -> int -> t
-(** [aspect_ratio w h] creates a custom aspect ratio with width [w] and height [h]. *)
+(** [aspect_ratio w h] creates a custom aspect ratio with width [w] and height
+    [h]. *)
 
 (** {1 String Parsing} *)
 

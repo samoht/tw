@@ -501,16 +501,17 @@ let stylesheet () =
   let slate_rules = to_css_rules `Slate in
 
   (* Combine all rules *)
-  let all_rules = List.concat
-    [
-      base_rules;
-      sm_rules;
-      lg_rules;
-      xl_rules;
-      xl2_rules;
-      gray_rules;
-      slate_rules;
-    ]
+  let all_rules =
+    List.concat
+      [
+        base_rules;
+        sm_rules;
+        lg_rules;
+        xl_rules;
+        xl2_rules;
+        gray_rules;
+        slate_rules;
+      ]
   in
   (* Return raw rules; caller composes into a stylesheet if needed *)
   all_rules

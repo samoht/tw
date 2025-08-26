@@ -116,7 +116,6 @@ let ring_internal (w : ring_width) =
              ") var(--tw-ring-color, rgba(59, 130, 246, 0.5))";
            ]);
     ]
-    
 
 let ring_none = ring_internal `None
 let ring_xs = ring_internal `Xs
