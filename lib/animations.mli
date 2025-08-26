@@ -7,6 +7,10 @@ open Core
 val transition_none : t
 (** [transition_none] disables transitions. *)
 
+val transition : t
+(** [transition] enables transitions for common properties (colors, opacity,
+    shadow, transform). *)
+
 val transition_all : t
 (** [transition_all] enables transitions for all properties. *)
 

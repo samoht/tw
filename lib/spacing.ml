@@ -14,29 +14,26 @@ let pp_spacing_suffix : spacing -> string = function
       if Float.is_integer scale then string_of_int (abs (int_of_float scale))
       else
         (* Handle decimal values like 0.5, 1.5, etc. *)
-        Printf.sprintf "%.1f" (Float.abs scale)
+        Pp.float_n 1 (Float.abs scale)
 
 let pp_margin_suffix : margin -> string = function
   | `Auto -> "auto"
   | #spacing as s -> pp_spacing_suffix s
 
 (* Convert spacing to CSS length *)
-let spacing_to_length : spacing -> length = function
+let to_length : spacing -> length = function
   | `Px -> Px 1
   | `Full -> Pct 100.0
   | `Rem f ->
       let n = int_of_float (f /. 0.25) in
-      Calc (Calc.mul (Calc.var "spacing") (Calc.float (float_of_int n)))
+      Calc
+        (Calc.mul
+           (Calc.var ~default:(Rem 0.25) "spacing")
+           (Calc.float (float_of_int n)))
 
 let margin_to_length : margin -> length = function
   | `Auto -> Auto
-  | #spacing as s -> spacing_to_length s
-
-(* Helper to extract spacing variables from spacing types *)
-(* Removed spacing_vars: variables are inferred from declarations via Css.all_vars *)
-
-(* Helper to extract spacing variables from margin types *)
-(* Removed margin_vars: variables are inferred from declarations via Css.all_vars *)
+  | #spacing as s -> to_length s
 
 (** {2 Helper Functions} *)
 
@@ -48,37 +45,37 @@ let decimal f = `Rem (f *. 0.25)
 
 let p' (s : spacing) =
   let class_name = "p-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
+  let len = to_length s in
   style class_name [ padding len ]
 
 let px' (s : spacing) =
   let class_name = "px-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
+  let len = to_length s in
   style class_name [ padding_inline len ]
 
 let py' (s : spacing) =
   let class_name = "py-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
+  let len = to_length s in
   style class_name [ padding_block len ]
 
 let pt' (s : spacing) =
   let class_name = "pt-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
+  let len = to_length s in
   style class_name [ padding_top len ]
 
 let pr' (s : spacing) =
   let class_name = "pr-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
+  let len = to_length s in
   style class_name [ padding_right len ]
 
 let pb' (s : spacing) =
   let class_name = "pb-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
+  let len = to_length s in
   style class_name [ padding_bottom len ]
 
 let pl' (s : spacing) =
   let class_name = "pl-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
+  let len = to_length s in
   style class_name [ padding_left len ]
 
 (** {2 Int-based Padding Utilities} *)
@@ -143,49 +140,49 @@ let m n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "m-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
+  let len = to_length s in
   style class_name [ margin len ]
 
 let mx n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mx-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
+  let len = to_length s in
   style class_name [ margin_inline len ]
 
 let my n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "my-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
+  let len = to_length s in
   style class_name [ margin_block len ]
 
 let mt n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mt-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
+  let len = to_length s in
   style class_name [ margin_top len ]
 
 let mr n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mr-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
+  let len = to_length s in
   style class_name [ margin_right len ]
 
 let mb n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mb-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
+  let len = to_length s in
   style class_name [ margin_bottom len ]
 
 let ml n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "ml-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
+  let len = to_length s in
   style class_name [ margin_left len ]
 
 (** {2 Space Between Utilities} *)
@@ -194,14 +191,14 @@ let space_x n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "space-x-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
+  let len = to_length s in
   style class_name [ margin_left len ]
 
 let space_y n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "space-y-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
+  let len = to_length s in
   style class_name [ margin_top len ]
 
 (** {2 Parsing Functions} *)

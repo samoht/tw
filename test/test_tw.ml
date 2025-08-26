@@ -283,8 +283,8 @@ let negative_spacing () =
   check (ml (-6))
 
 let container_queries () =
-  check (on_container_sm [ p 4 ]);
-  check (on_container_md [ m 8 ])
+  check (container_sm [ p 4 ]);
+  check (container_md [ m 8 ])
 
 let hex_colors () =
   check (bg (hex "#1da1f2") 0);

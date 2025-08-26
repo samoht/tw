@@ -57,13 +57,13 @@
             (* medium border radius *)
 
             (* Interactive states *)
-            on_hover [ bg ~shade:700 blue ];
+            hover [ bg ~shade:700 blue ];
             (* darker blue on hover *)
             transition_colors;
             (* smooth color transitions *)
 
             (* Responsive design *)
-            on_sm [ px 6 ];
+            sm [ px 6 ];
             (* less padding on small screens *)
           ]
         in
@@ -90,8 +90,15 @@ type color
 
     Base colors map to the Tailwind v4 palette (shades 50–950). Use
     [bg color shade], [text color shade], and [border_color color shade] to
-    produce utilities. For the underlying color data and OKLCH values, see the
-    Tailwind documentation. *)
+    produce utilities.
+
+    Palettes include: [black], [white], [gray], [slate], [zinc], [neutral],
+    [stone], [red], [orange], [amber], [yellow], [lime], [green], [emerald],
+    [teal], [cyan], [sky], [blue], [indigo], [violet], [purple], [fuchsia],
+    [pink], [rose].
+
+    For the full palette and OKLCH values, see
+    @see <https://tailwindcss.com/docs/colors> Colors. *)
 
 (** {1 Color Constructors} *)
 
@@ -185,471 +192,24 @@ val rgb : int -> int -> int -> color
 
     Raises [Invalid_argument] if any channel value is outside 0-255 range. *)
 
-(** {1 Color & Background} *)
+(** {1 Base Styles} *)
 
-(** {2 Background Color}
-    @see <https://tailwindcss.com/docs/background-color> Background Color *)
+(** {2 Preflight}
+    @see <https://tailwindcss.com/docs/preflight> Preflight *)
 
-val bg : color -> int -> t
-(** [bg color shade] sets the background color with a specific shade.
+(** Preflight provides Tailwind’s base CSS reset. It is included automatically
+    when generating full CSS with this library. *)
 
-    Examples:
-    - [bg blue 500]: Medium blue background
-    - [bg gray 100]: Light gray background
-    - [bg slate 900]: Very dark slate background
+val preflight : unit -> Css.rule list
+(** [preflight ()] returns Tailwind’s Preflight base reset rules.
 
-    Shades range from 50 (lightest) to 900 (darkest). *)
+    Use this to compose the base reset manually when needed. When using
+    {!to_css} with [~reset:true] (the default), the base reset is already
+    included.
 
-val bg_transparent : t
-(** [bg_transparent] makes background fully transparent. *)
-
-val bg_current : t
-(** [bg_current] sets background color to match the element's text color. If the
-    element has [text ~shade:500 blue], the background will also be blue-500.
-    Useful for icons and decorative elements that should match text. *)
-
-val bg_black : t
-(** [bg_black] is default black background. See {!tailwind_colors}. *)
-
-val bg_white : t
-(** [bg_white] is default white background. See {!tailwind_colors}. *)
-
-val bg_gray : t
-(** [bg_gray] is default gray background. See {!tailwind_colors}. *)
-
-val bg_slate : t
-(** [bg_slate] is default slate background. See {!tailwind_colors}. *)
-
-val bg_zinc : t
-(** [bg_zinc] is default zinc background. See {!tailwind_colors}. *)
-
-val bg_neutral : t
-(** [bg_neutral] is default neutral background. See {!tailwind_colors}. *)
-
-val bg_stone : t
-(** [bg_stone] is default stone background. See {!tailwind_colors}. *)
-
-val bg_red : t
-(** [bg_red] is default red background. See {!tailwind_colors}. *)
-
-val bg_orange : t
-(** [bg_orange] is default orange background. See {!tailwind_colors}. *)
-
-val bg_amber : t
-(** [bg_amber] is default amber background. See {!tailwind_colors}. *)
-
-val bg_yellow : t
-(** [bg_yellow] is default yellow background. See {!tailwind_colors}. *)
-
-val bg_lime : t
-(** [bg_lime] is default lime background. See {!tailwind_colors}. *)
-
-val bg_green : t
-(** [bg_green] is default green background. See {!tailwind_colors}. *)
-
-val bg_emerald : t
-(** [bg_emerald] is default emerald background. See {!tailwind_colors}. *)
-
-val bg_teal : t
-(** [bg_teal] is default teal background. See {!tailwind_colors}. *)
-
-val bg_cyan : t
-(** [bg_cyan] is default cyan background. See {!tailwind_colors}. *)
-
-val bg_sky : t
-(** [bg_sky] is default sky background. See {!tailwind_colors}. *)
-
-val bg_blue : t
-(** [bg_blue] is default blue background. See {!tailwind_colors}. *)
-
-val bg_indigo : t
-(** [bg_indigo] is default indigo background. See {!tailwind_colors}. *)
-
-val bg_violet : t
-(** [bg_violet] is default violet background. See {!tailwind_colors}. *)
-
-val bg_purple : t
-(** [bg_purple] is default purple background. See {!tailwind_colors}. *)
-
-val bg_fuchsia : t
-(** [bg_fuchsia] is default fuchsia background. See {!tailwind_colors}. *)
-
-val bg_pink : t
-(** [bg_pink] is default pink background. See {!tailwind_colors}. *)
-
-val bg_rose : t
-(** [bg_rose] is default rose background. See {!tailwind_colors}. *)
-
-(* Text color declarations moved under Typography → Color. *)
-
-val border_color : color -> int -> t
-(** [border_color color shade] creates a border color with a specific shade. *)
-
-val border_transparent : t
-(** [border_transparent] makes border fully transparent. *)
-
-val border_current : t
-(** [border_current] sets border color to match the text color. For example:
-    {[
-      div ~tw:[ text ~shade:600 red; border xs; border_current ]
-      (* Border will be red-600, same as the text *)
-    ]}
-
-    This is the default behavior in Tailwind v4, but can be explicitly set. *)
-
-val border_black : t
-(** [border_black] is default black border. See {!tailwind_colors}. *)
-
-val border_white : t
-(** [border_white] is default white border. See {!tailwind_colors}. *)
-
-val border_gray : t
-(** [border_gray] is default gray border. See {!tailwind_colors}. *)
-
-val border_slate : t
-(** [border_slate] is default slate border. See {!tailwind_colors}. *)
-
-val border_zinc : t
-(** [border_zinc] is default zinc border. See {!tailwind_colors}. *)
-
-val border_neutral : t
-(** [border_neutral] is default neutral border. See {!tailwind_colors}. *)
-
-val border_stone : t
-(** [border_stone] is default stone border. See {!tailwind_colors}. *)
-
-val border_red : t
-(** [border_red] is default red border. See {!tailwind_colors}. *)
-
-val border_orange : t
-(** [border_orange] is default orange border. See {!tailwind_colors}. *)
-
-val border_amber : t
-(** [border_amber] is default amber border. See {!tailwind_colors}. *)
-
-val border_yellow : t
-(** [border_yellow] is default yellow border. See {!tailwind_colors}. *)
-
-val border_lime : t
-(** [border_lime] is default lime border. See {!tailwind_colors}. *)
-
-val border_green : t
-(** [border_green] is default green border. See {!tailwind_colors}. *)
-
-val border_emerald : t
-(** [border_emerald] is default emerald border. See {!tailwind_colors}. *)
-
-val border_teal : t
-(** [border_teal] is default teal border. See {!tailwind_colors}. *)
-
-val border_cyan : t
-(** [border_cyan] is default cyan border. See {!tailwind_colors}. *)
-
-val border_sky : t
-(** [border_sky] is default sky border. See {!tailwind_colors}. *)
-
-val border_blue : t
-(** [border_blue] is default blue border. See {!tailwind_colors}. *)
-
-val border_indigo : t
-(** [border_indigo] is default indigo border. See {!tailwind_colors}. *)
-
-val border_violet : t
-(** [border_violet] is default violet border. See {!tailwind_colors}. *)
-
-val border_purple : t
-(** [border_purple] is default purple border. See {!tailwind_colors}. *)
-
-val border_fuchsia : t
-(** [border_fuchsia] is default fuchsia border. See {!tailwind_colors}. *)
-
-val border_pink : t
-(** [border_pink] is default pink border. See {!tailwind_colors}. *)
-
-val border_rose : t
-(** [border_rose] is default rose border. See {!tailwind_colors}. *)
-
-(** {2 Background Image}
-    @see <https://tailwindcss.com/docs/background-image> Background Image *)
-
-(** Gradient direction variants *)
-type direction =
-  | Bottom  (** Gradient towards bottom *)
-  | Bottom_right  (** Gradient towards bottom-right corner *)
-  | Right  (** Gradient towards right *)
-  | Top_right  (** Gradient towards top-right corner *)
-  | Top  (** Gradient towards top *)
-  | Top_left  (** Gradient towards top-left corner *)
-  | Left  (** Gradient towards left *)
-  | Bottom_left  (** Gradient towards bottom-left corner *)
-
-val bg_gradient_to : direction -> t
-(** [bg_gradient_to dir] sets gradient direction using a typed direction.
-    Combine with [from_color]/[via_color]/[to_color].
-
-    Example:
-    {[
-      div
-        ~tw:
-          [
-            bg_gradient_to Bottom;
-            from_color ~shade:100 blue;
-            to_color ~shade:600 blue;
-          ]
-        [ txt "Gradient background" ]
-    ]} *)
-
-val from_color : ?shade:int -> color -> t
-(** [from_color ~shade:400 blue] sets the starting color of a gradient. Default
-    shade is 500. Works with gradient direction utilities like bg_gradient_to_r.
-
-    Example:
-    {[
-      div
-        ~tw:
-          [
-            bg_gradient_to_r;
-            from_color ~shade:400 blue;
-            to_color ~shade:600 purple;
-          ]
-    ]} *)
-
-val via_color : ?shade:int -> color -> t
-(** [via_color purple] sets the middle color of a gradient. Default shade is
-    500. Creates a three-color gradient when used with [bg_gradient_to] and
-    [to_color]. *)
-
-val to_color : ?shade:int -> color -> t
-(** [to_color ~shade:600 pink] sets the ending color of a gradient. Default
-    shade is 500. *)
-
-(** {1 Spacing} *)
-
-(** {2 Padding}
-    @see <https://tailwindcss.com/docs/padding> Padding *)
-
-val p : int -> t
-(** [p n] sets padding (inner spacing) on all sides using Tailwind scale (n ×
-    0.25rem).
-
-    Examples:
-    - [p 4]: 1rem padding on all sides
-    - [p 0]: Remove all padding
-    - [p 8]: 2rem padding on all sides. *)
-
-val px : int -> t
-(** [px n] sets horizontal padding (left and right). Common for buttons and
-    cards to have more horizontal than vertical padding. *)
-
-val py : int -> t
-(** [py n] sets vertical padding (top and bottom). Often smaller than horizontal
-    padding for better proportions. *)
-
-val pt : int -> t
-(** [pt n] sets top padding. *)
-
-val pr : int -> t
-(** [pr n] sets right padding. *)
-
-val pb : int -> t
-(** [pb n] sets bottom padding. *)
-
-val pl : int -> t
-(** [pl n] sets left padding. *)
-
-val p_px : t
-(** [p_px] sets 1px padding on all sides. *)
-
-val p_full : t
-(** [p_full] sets 100% padding on all sides. *)
-
-val px_px : t
-(** [px_px] sets 1px horizontal padding. *)
-
-val px_full : t
-(** [px_full] sets 100% horizontal padding. *)
-
-val py_px : t
-(** [py_px] sets 1px vertical padding. *)
-
-val py_full : t
-(** [py_full] sets 100% vertical padding. *)
-
-val pt_px : t
-(** [pt_px] sets 1px top padding. *)
-
-val pt_full : t
-(** [pt_full] sets 100% top padding. *)
-
-val pr_px : t
-(** [pr_px] sets 1px right padding. *)
-
-val pr_full : t
-(** [pr_full] sets 100% right padding. *)
-
-val pb_px : t
-(** [pb_px] sets 1px bottom padding. *)
-
-val pb_full : t
-(** [pb_full] sets 100% bottom padding. *)
-
-val pl_px : t
-(** [pl_px] sets 1px left padding. *)
-
-val pl_full : t
-(** [pl_full] sets 100% left padding. *)
-
-(** {2 Margin}
-    @see <https://tailwindcss.com/docs/margin> Margin *)
-
-val m : int -> t
-(** [m n] sets margin (outer spacing) on all sides using Tailwind scale (n ×
-    0.25rem).
-
-    Examples:
-    - [m 4]: 1rem margin on all sides
-    - [m 0]: Remove all margins. *)
-
-val mx : int -> t
-(** [mx n] sets horizontal margin (left and right). *)
-
-val my : int -> t
-(** [my n] sets vertical margin (top and bottom). Useful for spacing between
-    sections. *)
-
-val mt : int -> t
-(** [mt n] sets top margin. *)
-
-val mr : int -> t
-(** [mr n] sets right margin. *)
-
-val mb : int -> t
-(** [mb n] sets bottom margin. *)
-
-val ml : int -> t
-(** [ml n] sets left margin. *)
-
-val m_auto : t
-(** [m_auto] sets auto margins on all sides (centers if width is defined). *)
-
-val mx_auto : t
-(** [mx_auto] centers block elements horizontally. Very commonly used. *)
-
-val my_auto : t
-(** [my_auto] sets auto vertical margins. *)
-
-val mt_auto : t
-(** [mt_auto] pushes element to bottom by setting auto top margin. *)
-
-val mr_auto : t
-(** [mr_auto] pushes element to left by setting auto right margin. *)
-
-val mb_auto : t
-(** [mb_auto] pushes element to top by setting auto bottom margin. *)
-
-val ml_auto : t
-(** [ml_auto] pushes element to right by setting auto left margin. *)
-
-val space_x : int -> t
-(** [space_x n] sets horizontal space between child elements. *)
-
-val space_y : int -> t
-(** [space_y n] sets vertical space between child elements. *)
-
-(** {1 Sizing} *)
-
-(** {2 Width}
-    @see <https://tailwindcss.com/docs/width> Width *)
-
-val w : int -> t
-(** [w n] sets element width using Tailwind scale (n × 0.25rem). *)
-
-val w_full : t
-(** [w_full] sets width to 100% of parent. *)
-
-val w_fit : t
-(** [w_fit] uses fit-content sizing. *)
-
-val w_screen : t
-(** [w_screen] sets width to full viewport width (100vw). *)
-
-val w_min : t
-(** [w_min] sets width to min-content. *)
-
-val w_max : t
-(** [w_max] sets width to max-content. *)
-
-(** {2 Min Width}
-    @see <https://tailwindcss.com/docs/min-width> Min Width *)
-
-val min_w : int -> t
-(** [min_w n] sets minimum width using Tailwind scale. *)
-
-val min_w_full : t
-(** [min_w_full] sets minimum width to 100% of parent. *)
-
-(** {2 Max Width}
-    @see <https://tailwindcss.com/docs/max-width> Max Width *)
-
-val max_w : int -> t
-(** [max_w n] sets maximum width using Tailwind scale. *)
-
-val max_w_2xl : t
-(** [max_w_2xl] sets maximum width to 42rem. *)
-
-val max_w_3xl : t
-(** [max_w_3xl] sets maximum width to 48rem. *)
-
-val max_w_4xl : t
-(** [max_w_4xl] sets maximum width to 56rem. *)
-
-val max_w_none : t
-(** [max_w_none] removes the maximum width constraint. *)
-
-val max_w_full : t
-(** [max_w_full] sets maximum width to 100% of parent. *)
-
-(** {2 Height}
-    @see <https://tailwindcss.com/docs/height> Height *)
-
-val h : int -> t
-(** [h n] sets element height using Tailwind scale (n × 0.25rem). *)
-
-val h_full : t
-(** [h_full] sets height to 100% of parent. *)
-
-val h_fit : t
-(** [h_fit] uses fit-content sizing for height. *)
-
-val h_screen : t
-(** [h_screen] sets height to full viewport height (100vh). *)
-
-val h_min : t
-(** [h_min] sets height to min-content. *)
-
-val h_max : t
-(** [h_max] sets height to max-content. *)
-
-(** {2 Min Height}
-    @see <https://tailwindcss.com/docs/min-height> Min Height *)
-
-val min_h : int -> t
-(** [min_h n] sets minimum height using Tailwind scale. *)
-
-val min_h_screen : t
-(** [min_h_screen] sets viewport minimum height. *)
-
-val min_h_full : t
-(** [min_h_full] sets minimum height to 100% of parent. *)
-
-(** {2 Max Height}
-    @see <https://tailwindcss.com/docs/max-height> Max Height *)
-
-val max_h : int -> t
-(** [max_h n] sets maximum height using Tailwind scale. *)
-
-val max_h_full : t
-(** [max_h_full] sets maximum height to 100% of parent. *)
+    Usage:
+    - [Css.stylesheet (preflight () |> List.map (fun r -> Css.Rule r))]
+    - Combine with {!to_css} output for a full stylesheet. *)
 
 (** {1 Layout} *)
 
@@ -668,6 +228,41 @@ val aspect_video : t
 val aspect_ratio : int -> int -> t
 (** [aspect_ratio w h] maintains element proportions of [w:h]. *)
 
+(* Layout subsections added to mirror Tailwind v4 order *)
+(** {2 Columns}
+    @see <https://tailwindcss.com/docs/columns> Columns *)
+
+(** TODO: Implement multi-column layout utilities. *)
+
+(** {2 Break After}
+    @see <https://tailwindcss.com/docs/break-after> Break After *)
+
+(** TODO: Implement break-after utilities. *)
+
+(** {2 Break Before}
+    @see <https://tailwindcss.com/docs/break-before> Break Before *)
+
+(** TODO: Implement break-before utilities. *)
+
+(** {2 Break Inside}
+    @see <https://tailwindcss.com/docs/break-inside> Break Inside *)
+
+(** TODO: Implement break-inside utilities. *)
+
+(** {2 Box Decoration Break}
+    @see <https://tailwindcss.com/docs/box-decoration-break>
+      Box Decoration Break *)
+
+(** TODO: Implement box-decoration-break utilities. *)
+
+(** {2 Box Sizing}
+    @see <https://tailwindcss.com/docs/box-sizing> Box Sizing *)
+
+(** TODO: Implement box-sizing utilities. *)
+
+(** {2 Display}
+    @see <https://tailwindcss.com/docs/display> Display *)
+
 val block : t
 (** [block] makes the element a block; it takes full width and stacks
     vertically. Default for div, p, h1–h6. *)
@@ -682,6 +277,198 @@ val inline_block : t
 val hidden : t
 (** [hidden] completely hides the element; no space is reserved and screen
     readers skip it. Use [sr_only] to hide visually but keep accessible. *)
+
+(** {2 Float}
+    @see <https://tailwindcss.com/docs/float> Float *)
+
+(** TODO: Implement float utilities. *)
+
+(** {2 Clear}
+    @see <https://tailwindcss.com/docs/clear> Clear *)
+
+(** TODO: Implement clear utilities. *)
+
+(** {2 Isolation}
+    @see <https://tailwindcss.com/docs/isolation> Isolation *)
+
+val isolate : t
+(** [isolate] creates a new stacking context to isolate z-index behavior. Useful
+    to prevent z-index values from affecting elements outside this container. *)
+
+(** {2 Object Fit}
+    @see <https://tailwindcss.com/docs/object-fit> Object Fit *)
+
+val object_contain : t
+(** [object_contain] scales image to fit container while preserving aspect
+    ratio. The entire image will be visible but may have empty space. *)
+
+val object_cover : t
+(** [object_cover] scales image to cover the entire container while preserving
+    aspect ratio. Parts of the image may be clipped to fill the container. *)
+
+val object_fill : t
+(** [object_fill] stretches image to fill container, ignoring aspect ratio. May
+    cause distortion. *)
+
+val object_none : t
+(** [object_none] keeps the image's original size; it may overflow or underflow
+    the container. *)
+
+val object_scale_down : t
+(** [object_scale_down] scales down only if the image is larger than the
+    container; otherwise uses the original size. *)
+
+(** {2 Object Position}
+    @see <https://tailwindcss.com/docs/object-position> Object Position *)
+
+val object_top : t
+(** [object_top] sets object position to top. *)
+
+val object_right : t
+(** [object_right] sets object position to right. *)
+
+val object_bottom : t
+(** [object_bottom] sets object position to bottom. *)
+
+val object_left : t
+(** [object_left] sets object position to left. *)
+
+val object_center : t
+(** [object_center] sets object position to center. *)
+
+(** {2 Overflow}
+    @see <https://tailwindcss.com/docs/overflow> Overflow *)
+
+val overflow_auto : t
+(** [overflow_auto] uses automatic overflow handling. *)
+
+val overflow_hidden : t
+(** [overflow_hidden] clips content that exceeds container bounds (no
+    scrolling). *)
+
+val overflow_visible : t
+(** [overflow_visible] allows content to extend beyond container bounds
+    (default). *)
+
+val overflow_scroll : t
+(** [overflow_scroll] always shows scrollbars even if content fits. *)
+
+val overflow_x_auto : t
+(** [overflow_x_auto] uses automatic horizontal overflow. *)
+
+val overflow_x_hidden : t
+(** [overflow_x_hidden] hides horizontal overflow. *)
+
+val overflow_x_visible : t
+(** [overflow_x_visible] shows horizontal overflow. *)
+
+val overflow_x_scroll : t
+(** [overflow_x_scroll] always shows a horizontal scrollbar. *)
+
+val overflow_y_auto : t
+(** [overflow_y_auto] uses automatic vertical overflow. *)
+
+val overflow_y_hidden : t
+(** [overflow_y_hidden] hides vertical overflow. *)
+
+val overflow_y_visible : t
+(** [overflow_y_visible] shows vertical overflow. *)
+
+val overflow_y_scroll : t
+(** [overflow_y_scroll] always shows a vertical scrollbar. *)
+
+(** {2 Overscroll Behavior}
+    @see <https://tailwindcss.com/docs/overscroll-behavior> Overscroll Behavior
+*)
+
+(** TODO: Implement overscroll-behavior utilities. *)
+
+(** {2 Position}
+    @see <https://tailwindcss.com/docs/position> Position *)
+
+val static : t
+(** [static] uses normal document flow positioning. Ignores
+    top/right/bottom/left properties. *)
+
+val relative : t
+(** [relative] positions relative to the element's normal position. You can use
+    top/right/bottom/left to nudge from the original spot. Creates positioning
+    context for absolute children. *)
+
+val absolute : t
+(** [absolute] removes from normal flow and positions relative to the nearest
+    positioned parent. Use with top/right/bottom/left for exact placement.
+
+    Example:
+    {[
+      (* Notification badge on icon *)
+      div ~tw:[ relative ]
+        [ icon; span ~tw:[ absolute; top (-2); right (-2) ] [ txt "3" ] ]
+    ]} *)
+
+val fixed : t
+(** [fixed] is like [absolute] but relative to the viewport; it stays in place
+    when scrolling. *)
+
+val sticky : t
+(** [sticky] scrolls normally until it reaches a viewport edge, then sticks.
+    Great for table headers and sidebars that follow scroll. *)
+
+(** {2 Top / Right / Bottom / Left}
+    @see <https://tailwindcss.com/docs/top-right-bottom-left>
+      Top / Right / Bottom / Left *)
+
+val inset_0 : t
+(** [inset_0] sets all inset values to 0. *)
+
+val inset_x_0 : t
+(** [inset_x_0] sets left and right to 0. *)
+
+val inset_y_0 : t
+(** [inset_y_0] sets top and bottom to 0. *)
+
+val top : int -> t
+(** [top n] sets top position value. *)
+
+val right : int -> t
+(** [right n] sets right position value. *)
+
+val bottom : int -> t
+(** [bottom n] sets bottom position value. *)
+
+val left : int -> t
+(** [left n] sets left position value. *)
+
+val inset : int -> t
+(** [inset n] sets all position offsets (top, right, bottom, left) to the same
+    value. *)
+
+val top_1_2 : t
+(** [top_1_2] positions the element at 50% from the top. *)
+
+val left_1_2 : t
+(** [left_1_2] positions the element at 50% from the left. *)
+
+(** {2 Visibility}
+    @see <https://tailwindcss.com/docs/visibility> Visibility *)
+
+(** TODO: Implement visibility utilities. *)
+
+(** {2 Z-Index}
+    @see <https://tailwindcss.com/docs/z-index> Z-Index *)
+
+val z : int -> t
+(** [z n] controls stacking order - higher numbers appear on top.
+
+    Common values:
+    - [z 0]: Default layer
+    - [z 10]: Dropdowns, tooltips
+    - [z 20]: Modals
+    - [z 30]: Notifications
+    - [z 40]: Critical overlays
+    - [z 50]: Maximum (use sparingly)
+
+    Negative values like [z (-1)] place elements behind others. *)
 
 (** {1 Flexbox & Grid} *)
 
@@ -1171,88 +958,233 @@ val place_self_center : t
 val place_self_stretch : t
 (** [place_self_stretch] stretches to fill both axes. *)
 
-(** {2 Position}
-    @see <https://tailwindcss.com/docs/position> Position *)
+(** {1 Spacing} *)
 
-val static : t
-(** [static] uses normal document flow positioning. Ignores
-    top/right/bottom/left properties. *)
+(** {2 Padding}
+    @see <https://tailwindcss.com/docs/padding> Padding *)
 
-val relative : t
-(** [relative] positions relative to the element's normal position. You can use
-    top/right/bottom/left to nudge from the original spot. Creates positioning
-    context for absolute children. *)
+val p : int -> t
+(** [p n] sets padding (inner spacing) on all sides using Tailwind scale (n ×
+    0.25rem).
 
-val absolute : t
-(** [absolute] removes from normal flow and positions relative to the nearest
-    positioned parent. Use with top/right/bottom/left for exact placement.
+    Examples:
+    - [p 4]: 1rem padding on all sides
+    - [p 0]: Remove all padding
+    - [p 8]: 2rem padding on all sides. *)
 
-    Example:
-    {[
-      (* Notification badge on icon *)
-      div ~tw:[ relative ]
-        [ icon; span ~tw:[ absolute; top (-2); right (-2) ] [ txt "3" ] ]
-    ]} *)
+val px : int -> t
+(** [px n] sets horizontal padding (left and right). Common for buttons and
+    cards to have more horizontal than vertical padding. *)
 
-val fixed : t
-(** [fixed] is like [absolute] but relative to the viewport; it stays in place
-    when scrolling. *)
+val py : int -> t
+(** [py n] sets vertical padding (top and bottom). Often smaller than horizontal
+    padding for better proportions. *)
 
-val sticky : t
-(** [sticky] scrolls normally until it reaches a viewport edge, then sticks.
-    Great for table headers and sidebars that follow scroll. *)
+val pt : int -> t
+(** [pt n] sets top padding. *)
 
-val inset_0 : t
-(** [inset_0] sets all inset values to 0. *)
+val pr : int -> t
+(** [pr n] sets right padding. *)
 
-val inset_x_0 : t
-(** [inset_x_0] sets left and right to 0. *)
+val pb : int -> t
+(** [pb n] sets bottom padding. *)
 
-val inset_y_0 : t
-(** [inset_y_0] sets top and bottom to 0. *)
+val pl : int -> t
+(** [pl n] sets left padding. *)
 
-val top : int -> t
-(** [top n] sets top position value. *)
+val p_px : t
+(** [p_px] sets 1px padding on all sides. *)
 
-val right : int -> t
-(** [right n] sets right position value. *)
+val p_full : t
+(** [p_full] sets 100% padding on all sides. *)
 
-val bottom : int -> t
-(** [bottom n] sets bottom position value. *)
+val px_px : t
+(** [px_px] sets 1px horizontal padding. *)
 
-val left : int -> t
-(** [left n] sets left position value. *)
+val px_full : t
+(** [px_full] sets 100% horizontal padding. *)
 
-val z : int -> t
-(** [z n] controls stacking order - higher numbers appear on top.
+val py_px : t
+(** [py_px] sets 1px vertical padding. *)
 
-    Common values:
-    - [z 0]: Default layer
-    - [z 10]: Dropdowns, tooltips
-    - [z 20]: Modals
-    - [z 30]: Notifications
-    - [z 40]: Critical overlays
-    - [z 50]: Maximum (use sparingly)
+val py_full : t
+(** [py_full] sets 100% vertical padding. *)
 
-    Negative values like [z (-1)] place elements behind others. *)
+val pt_px : t
+(** [pt_px] sets 1px top padding. *)
 
-val inset : int -> t
-(** [inset n] sets all position offsets (top, right, bottom, left) to the same
-    value. *)
+val pt_full : t
+(** [pt_full] sets 100% top padding. *)
 
-val top_1_2 : t
-(** [top_1_2] positions the element at 50% from the top. *)
+val pr_px : t
+(** [pr_px] sets 1px right padding. *)
 
-val left_1_2 : t
-(** [left_1_2] positions the element at 50% from the left. *)
+val pr_full : t
+(** [pr_full] sets 100% right padding. *)
 
-val neg_translate_x_1_2 : t
-(** [neg_translate_x_1_2] translates the element -50% horizontally (for
-    centering). *)
+val pb_px : t
+(** [pb_px] sets 1px bottom padding. *)
 
-val neg_translate_y_1_2 : t
-(** [neg_translate_y_1_2] translates the element -50% vertically (for
-    centering). *)
+val pb_full : t
+(** [pb_full] sets 100% bottom padding. *)
+
+val pl_px : t
+(** [pl_px] sets 1px left padding. *)
+
+val pl_full : t
+(** [pl_full] sets 100% left padding. *)
+
+(** {2 Margin}
+    @see <https://tailwindcss.com/docs/margin> Margin *)
+
+val m : int -> t
+(** [m n] sets margin (outer spacing) on all sides using Tailwind scale (n ×
+    0.25rem).
+
+    Examples:
+    - [m 4]: 1rem margin on all sides
+    - [m 0]: Remove all margins. *)
+
+val mx : int -> t
+(** [mx n] sets horizontal margin (left and right). *)
+
+val my : int -> t
+(** [my n] sets vertical margin (top and bottom). Useful for spacing between
+    sections. *)
+
+val mt : int -> t
+(** [mt n] sets top margin. *)
+
+val mr : int -> t
+(** [mr n] sets right margin. *)
+
+val mb : int -> t
+(** [mb n] sets bottom margin. *)
+
+val ml : int -> t
+(** [ml n] sets left margin. *)
+
+val m_auto : t
+(** [m_auto] sets auto margins on all sides (centers if width is defined). *)
+
+val mx_auto : t
+(** [mx_auto] centers block elements horizontally. Very commonly used. *)
+
+val my_auto : t
+(** [my_auto] sets auto vertical margins. *)
+
+val mt_auto : t
+(** [mt_auto] pushes element to bottom by setting auto top margin. *)
+
+val mr_auto : t
+(** [mr_auto] pushes element to left by setting auto right margin. *)
+
+val mb_auto : t
+(** [mb_auto] pushes element to top by setting auto bottom margin. *)
+
+val ml_auto : t
+(** [ml_auto] pushes element to right by setting auto left margin. *)
+
+val space_x : int -> t
+(** [space_x n] sets horizontal space between child elements. *)
+
+val space_y : int -> t
+(** [space_y n] sets vertical space between child elements. *)
+
+(** {1 Sizing} *)
+
+(** {2 Width}
+    @see <https://tailwindcss.com/docs/width> Width *)
+
+val w : int -> t
+(** [w n] sets element width using Tailwind scale (n × 0.25rem). *)
+
+val w_full : t
+(** [w_full] sets width to 100% of parent. *)
+
+val w_fit : t
+(** [w_fit] uses fit-content sizing. *)
+
+val w_screen : t
+(** [w_screen] sets width to full viewport width (100vw). *)
+
+val w_min : t
+(** [w_min] sets width to min-content. *)
+
+val w_max : t
+(** [w_max] sets width to max-content. *)
+
+(** {2 Min Width}
+    @see <https://tailwindcss.com/docs/min-width> Min Width *)
+
+val min_w : int -> t
+(** [min_w n] sets minimum width using Tailwind scale. *)
+
+val min_w_full : t
+(** [min_w_full] sets minimum width to 100% of parent. *)
+
+(** {2 Max Width}
+    @see <https://tailwindcss.com/docs/max-width> Max Width *)
+
+val max_w : int -> t
+(** [max_w n] sets maximum width using Tailwind scale. *)
+
+val max_w_2xl : t
+(** [max_w_2xl] sets maximum width to 42rem. *)
+
+val max_w_3xl : t
+(** [max_w_3xl] sets maximum width to 48rem. *)
+
+val max_w_4xl : t
+(** [max_w_4xl] sets maximum width to 56rem. *)
+
+val max_w_none : t
+(** [max_w_none] removes the maximum width constraint. *)
+
+val max_w_full : t
+(** [max_w_full] sets maximum width to 100% of parent. *)
+
+(** {2 Height}
+    @see <https://tailwindcss.com/docs/height> Height *)
+
+val h : int -> t
+(** [h n] sets element height using Tailwind scale (n × 0.25rem). *)
+
+val h_full : t
+(** [h_full] sets height to 100% of parent. *)
+
+val h_fit : t
+(** [h_fit] uses fit-content sizing for height. *)
+
+val h_screen : t
+(** [h_screen] sets height to full viewport height (100vh). *)
+
+val h_min : t
+(** [h_min] sets height to min-content. *)
+
+val h_max : t
+(** [h_max] sets height to max-content. *)
+
+(** {2 Min Height}
+    @see <https://tailwindcss.com/docs/min-height> Min Height *)
+
+val min_h : int -> t
+(** [min_h n] sets minimum height using Tailwind scale. *)
+
+val min_h_screen : t
+(** [min_h_screen] sets viewport minimum height. *)
+
+val min_h_full : t
+(** [min_h_full] sets minimum height to 100% of parent. *)
+
+(** {2 Max Height}
+    @see <https://tailwindcss.com/docs/max-height> Max Height *)
+
+val max_h : int -> t
+(** [max_h n] sets maximum height using Tailwind scale. *)
+
+val max_h_full : t
+(** [max_h_full] sets maximum height to 100% of parent. *)
 
 (** {1 Typography} *)
 
@@ -1346,160 +1278,53 @@ val font_black : t
 (** [font_black] uses the heaviest font weight (900) for maximum impact and hero
     text. *)
 
-(** {2 Text Decoration Line}
-    @see <https://tailwindcss.com/docs/text-decoration-line>
-      Text Decoration Line *)
+(** {2 Font Stretch}
+    @see <https://tailwindcss.com/docs/font-stretch> Font Stretch *)
 
-val underline : t
-(** [underline] applies an underlined text decoration. *)
+val font_stretch_normal : t
+(** [font_stretch_normal] uses the normal font stretch. *)
 
-val line_through : t
-(** [line_through] applies a line-through text decoration. *)
+val font_stretch_condensed : t
+(** [font_stretch_condensed] uses a condensed font stretch. *)
 
-val no_underline : t
-(** [no_underline] removes text decoration. *)
+val font_stretch_expanded : t
+(** [font_stretch_expanded] uses an expanded font stretch. *)
 
-(** {2 Text Transform}
-    @see <https://tailwindcss.com/docs/text-transform> Text Transform *)
+val font_stretch_percent : int -> t
+(** [font_stretch_percent n] sets font stretch to [n]% when available. *)
 
-val uppercase : t
-(** [uppercase] transforms text to UPPERCASE. Useful for labels, badges, and
-    emphasis. *)
+(** {2 Numeric Variants}
+    @see <https://tailwindcss.com/docs/font-variant-numeric>
+      Font Variant Numeric *)
 
-val lowercase : t
-(** [lowercase] transforms text to lowercase. Less common but useful for
-    specific designs. *)
+val normal_nums : t
+(** [normal_nums] resets to normal numeric glyphs. *)
 
-val capitalize : t
-(** [capitalize] capitalizes the first letter of each word. Good for titles and
-    headings. *)
+val ordinal : t
+(** [ordinal] enables ordinal markers (e.g. 1st, 2nd). *)
 
-val normal_case : t
-(** [normal_case] removes text transformation (default). Use to override parent
-    text-transform. *)
+val slashed_zero : t
+(** [slashed_zero] uses a zero with a slash. *)
 
-(** {2 Text Decoration Style}
-    @see <https://tailwindcss.com/docs/text-decoration-style>
-      Text Decoration Style *)
+val lining_nums : t
+(** [lining_nums] uses lining numbers. *)
 
-val underline_solid : t
-(** [underline_solid] sets text decoration style to solid (default). *)
+val oldstyle_nums : t
+(** [oldstyle_nums] uses old‑style (text) figures. *)
 
-val underline_double : t
-(** [underline_double] sets text decoration style to a double line. *)
+val proportional_nums : t
+(** [proportional_nums] uses proportional width numbers. *)
 
-val underline_dotted : t
-(** [underline_dotted] sets text decoration style to a dotted line. *)
+val tabular_nums : t
+(** [tabular_nums] uses tabular width numbers. *)
 
-val underline_dashed : t
-(** [underline_dashed] sets text decoration style to a dashed line. *)
+val diagonal_fractions : t
+(** [diagonal_fractions] uses diagonal fraction glyphs. *)
 
-val underline_wavy : t
-(** [underline_wavy] sets text decoration style to a wavy line. Good for spell
-    check indicators. *)
+val stacked_fractions : t
+(** [stacked_fractions] uses stacked fraction glyphs. *)
 
-(** {2 Text Decoration Color}
-    @see <https://tailwindcss.com/docs/text-decoration-color>
-      Text Decoration Color *)
-
-val decoration_color : ?shade:int -> color -> t
-(** [decoration_color ?shade color] sets text-decoration color. *)
-
-(** {2 Text Decoration Thickness}
-    @see <https://tailwindcss.com/docs/text-decoration-thickness>
-      Text Decoration Thickness *)
-
-val decoration_thickness : int -> t
-(** [decoration_thickness n] sets text-decoration thickness to [n]px. *)
-
-val decoration_from_font : t
-(** [decoration_from_font] uses the font's default decoration thickness. *)
-
-(** {2 Text Underline Offset}
-    @see <https://tailwindcss.com/docs/text-underline-offset>
-      Text Underline Offset *)
-
-val underline_offset_auto : t
-(** [underline_offset_auto] sets text underline offset to auto (browser
-    default). *)
-
-val underline_offset_0 : t
-(** [underline_offset_0] sets text underline offset to 0 (underline touches
-    text). *)
-
-val underline_offset_1 : t
-(** [underline_offset_1] sets text underline offset to 1px. *)
-
-val underline_offset_2 : t
-(** [underline_offset_2] sets text underline offset to 2px. *)
-
-val underline_offset_4 : t
-(** [underline_offset_4] sets text underline offset to 4px. *)
-
-val underline_offset_8 : t
-(** [underline_offset_8] sets text underline offset to 8px. *)
-
-(** {2 Line Height}
-    @see <https://tailwindcss.com/docs/line-height> Line Height *)
-
-val leading_none : t
-(** [leading_none] sets line height to 1; text lines touch. Only for large
-    display text. *)
-
-val leading_tight : t
-(** [leading_tight] sets line height to 1.25; compact spacing for headings. *)
-
-val leading_snug : t
-(** [leading_snug] sets line height to 1.375; slightly tighter than normal. *)
-
-val leading_normal : t
-(** [leading_normal] sets line height to 1.5 (default), optimal readability for
-    body text. *)
-
-val leading_relaxed : t
-(** [leading_relaxed] sets line height to 1.625; more open, easier scanning for
-    long text. *)
-
-val leading_loose : t
-(** [leading_loose] sets line height to 2; very open, good for short text blocks
-    that need breathing room. *)
-
-val leading : int -> t
-(** [leading n] sets arbitrary line-height from the spacing scale ([n] *
-    0.25rem). *)
-
-(** {2 Text Indent}
-    @see <https://tailwindcss.com/docs/text-indent> Text Indent *)
-
-val indent : int -> t
-(** [indent n] sets text-indent to [n] times the spacing scale (n * 0.25rem). *)
-
-(** {2 Vertical Align}
-    @see <https://tailwindcss.com/docs/vertical-align> Vertical Align *)
-
-val align_baseline : t
-(** [align_baseline] sets vertical-align to baseline. *)
-
-val align_top : t
-(** [align_top] sets vertical-align to top. *)
-
-val align_middle : t
-(** [align_middle] sets vertical-align to middle. *)
-
-val align_bottom : t
-(** [align_bottom] sets vertical-align to bottom. *)
-
-val align_text_top : t
-(** [align_text_top] sets vertical-align to text-top. *)
-
-val align_text_bottom : t
-(** [align_text_bottom] sets vertical-align to text-bottom. *)
-
-val align_sub : t
-(** [align_sub] sets vertical-align to sub. *)
-
-val align_super : t
-(** [align_super] sets vertical-align to super. *)
+(* moved: Text Indent and Vertical Align subsections now appear later *)
 
 (** {2 Letter Spacing}
     @see <https://tailwindcss.com/docs/letter-spacing> Letter Spacing *)
@@ -1535,6 +1360,35 @@ val line_clamp : int -> t
         ~tw:[ line_clamp 3 ]
         [ txt "This very long text will be truncated after three lines..." ]
     ]} *)
+
+(** {2 Line Height}
+    @see <https://tailwindcss.com/docs/line-height> Line Height *)
+
+val leading_none : t
+(** [leading_none] sets line height to 1; text lines touch. Only for large
+    display text. *)
+
+val leading_tight : t
+(** [leading_tight] sets line height to 1.25; compact spacing for headings. *)
+
+val leading_snug : t
+(** [leading_snug] sets line height to 1.375; slightly tighter than normal. *)
+
+val leading_normal : t
+(** [leading_normal] sets line height to 1.5 (default), optimal readability for
+    body text. *)
+
+val leading_relaxed : t
+(** [leading_relaxed] sets line height to 1.625; more open, easier scanning for
+    long text. *)
+
+val leading_loose : t
+(** [leading_loose] sets line height to 2; very open, good for short text blocks
+    that need breathing room. *)
+
+val leading : int -> t
+(** [leading n] sets arbitrary line-height from the spacing scale ([n] *
+    0.25rem). *)
 
 (** {2 List Style Image}
     @see <https://tailwindcss.com/docs/list-style-image> List Style Image *)
@@ -1583,7 +1437,7 @@ val text_justify : t
 (** [text_justify] justifies text. *)
 
 (** {2 Color}
-    @see <https://tailwindcss.com/docs/text-color> Text Color *)
+    @see <https://tailwindcss.com/docs/color> Color *)
 
 val text : color -> int -> t
 (** [text color shade] sets text color using the Tailwind color scale. *)
@@ -1603,28 +1457,221 @@ val text_black : t
 val text_white : t
 (** [text_white] is default white text. *)
 
-val text_gray : t
 val text_slate : t
+(** [text_slate] Default slate text. *)
+
+val text_gray : t
+(** [text_gray] Default gray text. *)
+
 val text_zinc : t
+(** [text_zinc] Default zinc text. *)
+
 val text_neutral : t
+(** [text_neutral] Default neutral text. *)
+
 val text_stone : t
-val text_blue : t
+(** [text_stone] Default stone text. *)
+
 val text_red : t
+(** [text_red] Default red text. *)
+
 val text_orange : t
+(** [text_orange] Default orange text. *)
+
 val text_amber : t
+(** [text_amber] Default amber text. *)
+
 val text_yellow : t
+(** [text_yellow] Default yellow text. *)
+
 val text_lime : t
+(** [text_lime] Default lime text. *)
+
 val text_green : t
+(** [text_green] Default green text. *)
+
 val text_emerald : t
+(** [text_emerald] Default emerald text. *)
+
 val text_teal : t
+(** [text_teal] Default teal text. *)
+
 val text_cyan : t
+(** [text_cyan] Default cyan text. *)
+
 val text_sky : t
+(** [text_sky] Default sky text. *)
+
+val text_blue : t
+(** [text_blue] Default blue text. *)
+
 val text_indigo : t
+(** [text_indigo] Default indigo text. *)
+
 val text_violet : t
+(** [text_violet] Default violet text. *)
+
 val text_purple : t
+(** [text_purple] Default purple text. *)
+
 val text_fuchsia : t
+(** [text_fuchsia] Default fuchsia text. *)
+
 val text_pink : t
+(** [text_pink] Default pink text. *)
+
 val text_rose : t
+(** [text_rose] Default rose text. *)
+
+(** {2 Text Decoration Line}
+    @see <https://tailwindcss.com/docs/text-decoration-line>
+      Text Decoration Line *)
+
+val underline : t
+(** [underline] applies an underlined text decoration. *)
+
+val line_through : t
+(** [line_through] applies a line-through text decoration. *)
+
+val no_underline : t
+(** [no_underline] removes text decoration. *)
+
+(** {2 Text Decoration Color}
+    @see <https://tailwindcss.com/docs/text-decoration-color>
+      Text Decoration Color *)
+
+val decoration_color : ?shade:int -> color -> t
+(** [decoration_color ?shade color] sets text-decoration color. *)
+
+(** {2 Text Decoration Style}
+    @see <https://tailwindcss.com/docs/text-decoration-style>
+      Text Decoration Style *)
+
+val underline_solid : t
+(** [underline_solid] sets text decoration style to solid (default). *)
+
+val underline_double : t
+(** [underline_double] sets text decoration style to a double line. *)
+
+val underline_dotted : t
+(** [underline_dotted] sets text decoration style to a dotted line. *)
+
+val underline_dashed : t
+(** [underline_dashed] sets text decoration style to a dashed line. *)
+
+val underline_wavy : t
+(** [underline_wavy] sets text decoration style to a wavy line. Good for spell
+    check indicators. *)
+
+(** {2 Text Decoration Thickness}
+    @see <https://tailwindcss.com/docs/text-decoration-thickness>
+      Text Decoration Thickness *)
+
+val decoration_thickness : int -> t
+(** [decoration_thickness n] sets text-decoration thickness to [n]px. *)
+
+val decoration_from_font : t
+(** [decoration_from_font] uses the font's default decoration thickness. *)
+
+(** {2 Text Underline Offset}
+    @see <https://tailwindcss.com/docs/text-underline-offset>
+      Text Underline Offset *)
+
+val underline_offset_auto : t
+(** [underline_offset_auto] sets text underline offset to auto (browser
+    default). *)
+
+val underline_offset_0 : t
+(** [underline_offset_0] sets text underline offset to 0 (underline touches
+    text). *)
+
+val underline_offset_1 : t
+(** [underline_offset_1] sets text underline offset to 1px. *)
+
+val underline_offset_2 : t
+(** [underline_offset_2] sets text underline offset to 2px. *)
+
+val underline_offset_4 : t
+(** [underline_offset_4] sets text underline offset to 4px. *)
+
+val underline_offset_8 : t
+(** [underline_offset_8] sets text underline offset to 8px. *)
+
+(** {2 Text Transform}
+    @see <https://tailwindcss.com/docs/text-transform> Text Transform *)
+
+val uppercase : t
+(** [uppercase] transforms text to UPPERCASE. Useful for labels, badges, and
+    emphasis. *)
+
+val lowercase : t
+(** [lowercase] transforms text to lowercase. Less common but useful for
+    specific designs. *)
+
+val capitalize : t
+(** [capitalize] capitalizes the first letter of each word. Good for titles and
+    headings. *)
+
+val normal_case : t
+(** [normal_case] removes text transformation (default). Use to override parent
+    text-transform. *)
+
+(** {2 Text Overflow}
+    @see <https://tailwindcss.com/docs/text-overflow> Text Overflow *)
+
+val text_ellipsis : t
+(** [text_ellipsis] uses ellipsis when text overflows. *)
+
+val text_clip : t
+(** [text_clip] clips overflowing text. *)
+
+(** {2 Text Wrap}
+    @see <https://tailwindcss.com/docs/text-wrap> Text Wrap *)
+
+val text_wrap : t
+(** [text_wrap] enables automatic text wrapping. *)
+
+val text_nowrap : t
+(** [text_nowrap] disables text wrapping. *)
+
+val text_balance : t
+(** [text_balance] balances text across lines. *)
+
+val text_pretty : t
+(** [text_pretty] optimizes wrapping for readability. *)
+
+(** {2 Text Indent}
+    @see <https://tailwindcss.com/docs/text-indent> Text Indent *)
+
+val indent : int -> t
+(** [indent n] sets text-indent to [n] times the spacing scale (n * 0.25rem). *)
+
+(** {2 Vertical Align}
+    @see <https://tailwindcss.com/docs/vertical-align> Vertical Align *)
+
+val align_baseline : t
+(** [align_baseline] sets vertical-align to baseline. *)
+
+val align_top : t
+(** [align_top] sets vertical-align to top. *)
+
+val align_middle : t
+(** [align_middle] sets vertical-align to middle. *)
+
+val align_bottom : t
+(** [align_bottom] sets vertical-align to bottom. *)
+
+val align_text_top : t
+(** [align_text_top] sets vertical-align to text-top. *)
+
+val align_text_bottom : t
+(** [align_text_bottom] sets vertical-align to text-bottom. *)
+
+val align_sub : t
+(** [align_sub] sets vertical-align to sub. *)
+
+val align_super : t
+(** [align_super] sets vertical-align to super. *)
 
 (** {2 White Space}
     @see <https://tailwindcss.com/docs/whitespace> White Space *)
@@ -1644,8 +1691,245 @@ val whitespace_pre_line : t
 val whitespace_pre_wrap : t
 (** [whitespace_pre_wrap] preserves whitespace and wraps. *)
 
-(** {1 Borders}
-    @see <https://tailwindcss.com/docs/border-width> Borders *)
+(** {2 Word Break}
+    @see <https://tailwindcss.com/docs/word-break> Word Break *)
+
+val break_normal : t
+(** [break_normal] normal word/overflow wrapping. *)
+
+val break_words : t
+(** [break_words] break words as needed. *)
+
+val break_all : t
+(** [break_all] break within words to prevent overflow. *)
+
+val break_keep : t
+(** [break_keep] keep words intact (keep-all). *)
+
+(** {2 Overflow Wrap}
+    @see <https://tailwindcss.com/docs/overflow-wrap> Overflow Wrap *)
+
+val overflow_wrap_normal : t
+(** [overflow_wrap_normal] uses the browser default overflow wrapping behavior.
+*)
+
+val overflow_wrap_anywhere : t
+(** [overflow_wrap_anywhere] allows breaks within words to prevent overflow. *)
+
+val overflow_wrap_break_word : t
+(** [overflow_wrap_break_word] breaks long words to prevent overflow. *)
+
+(** {2 Hyphens}
+    @see <https://tailwindcss.com/docs/hyphens> Hyphens *)
+
+val hyphens_none : t
+(** [hyphens_none] disables automatic hyphenation. *)
+
+val hyphens_manual : t
+(** [hyphens_manual] enables manual hyphenation via soft hyphen characters. *)
+
+val hyphens_auto : t
+(** [hyphens_auto] enables automatic hyphenation when supported. *)
+
+(** {2 Content}
+    @see <https://tailwindcss.com/docs/content> Content *)
+
+val content_none : t
+(** [content_none] clears pseudo‑element content. *)
+
+val content : string -> t
+(** [content value] sets pseudo‑element content to [value]. *)
+
+(** {1 Backgrounds} *)
+
+(** {2 Background Attachment}
+    @see <https://tailwindcss.com/docs/background-attachment>
+      Background Attachment *)
+
+(** TODO: Implement background-attachment utilities. *)
+
+(** {2 Background Clip}
+    @see <https://tailwindcss.com/docs/background-clip> Background Clip *)
+
+(** TODO: Implement background-clip utilities. *)
+
+(** {2 Background Color}
+    @see <https://tailwindcss.com/docs/background-color> Background Color *)
+
+val bg : color -> int -> t
+(** [bg color shade] sets the background color with a specific shade.
+
+    Examples:
+    - [bg blue 500]: Medium blue background
+    - [bg gray 100]: Light gray background
+    - [bg slate 900]: Very dark slate background
+
+    Shades range from 50 (lightest) to 900 (darkest). *)
+
+val bg_transparent : t
+(** [bg_transparent] makes background fully transparent. *)
+
+val bg_current : t
+(** [bg_current] sets background color to match the element's text color. If the
+    element has [text ~shade:500 blue], the background will also be blue-500.
+    Useful for icons and decorative elements that should match text. *)
+
+val bg_black : t
+(** [bg_black] is default black background. See {!tailwind_colors}. *)
+
+val bg_white : t
+(** [bg_white] is default white background. See {!tailwind_colors}. *)
+
+val bg_slate : t
+(** [bg_slate] is default slate background. See {!tailwind_colors}. *)
+
+val bg_gray : t
+(** [bg_gray] is default gray background. See {!tailwind_colors}. *)
+
+val bg_zinc : t
+(** [bg_zinc] is default zinc background. See {!tailwind_colors}. *)
+
+val bg_neutral : t
+(** [bg_neutral] is default neutral background. See {!tailwind_colors}. *)
+
+val bg_stone : t
+(** [bg_stone] is default stone background. See {!tailwind_colors}. *)
+
+val bg_red : t
+(** [bg_red] is default red background. See {!tailwind_colors}. *)
+
+val bg_orange : t
+(** [bg_orange] is default orange background. See {!tailwind_colors}. *)
+
+val bg_amber : t
+(** [bg_amber] is default amber background. See {!tailwind_colors}. *)
+
+val bg_yellow : t
+(** [bg_yellow] is default yellow background. See {!tailwind_colors}. *)
+
+val bg_lime : t
+(** [bg_lime] is default lime background. See {!tailwind_colors}. *)
+
+val bg_green : t
+(** [bg_green] is default green background. See {!tailwind_colors}. *)
+
+val bg_emerald : t
+(** [bg_emerald] is default emerald background. See {!tailwind_colors}. *)
+
+val bg_teal : t
+(** [bg_teal] is default teal background. See {!tailwind_colors}. *)
+
+val bg_cyan : t
+(** [bg_cyan] is default cyan background. See {!tailwind_colors}. *)
+
+val bg_sky : t
+(** [bg_sky] is default sky background. See {!tailwind_colors}. *)
+
+val bg_blue : t
+(** [bg_blue] is default blue background. See {!tailwind_colors}. *)
+
+val bg_indigo : t
+(** [bg_indigo] is default indigo background. See {!tailwind_colors}. *)
+
+val bg_violet : t
+(** [bg_violet] is default violet background. See {!tailwind_colors}. *)
+
+val bg_purple : t
+(** [bg_purple] is default purple background. See {!tailwind_colors}. *)
+
+val bg_fuchsia : t
+(** [bg_fuchsia] is default fuchsia background. See {!tailwind_colors}. *)
+
+val bg_pink : t
+(** [bg_pink] is default pink background. See {!tailwind_colors}. *)
+
+val bg_rose : t
+(** [bg_rose] is default rose background. See {!tailwind_colors}. *)
+
+(* Text color declarations moved under Typography → Color. *)
+
+(** {2 Background Image}
+    @see <https://tailwindcss.com/docs/background-image> Background Image *)
+
+(** Gradient direction variants *)
+type direction =
+  | Bottom  (** Gradient towards bottom *)
+  | Bottom_right  (** Gradient towards bottom-right corner *)
+  | Right  (** Gradient towards right *)
+  | Top_right  (** Gradient towards top-right corner *)
+  | Top  (** Gradient towards top *)
+  | Top_left  (** Gradient towards top-left corner *)
+  | Left  (** Gradient towards left *)
+  | Bottom_left  (** Gradient towards bottom-left corner *)
+
+val bg_gradient_to : direction -> t
+(** [bg_gradient_to dir] sets gradient direction using a typed direction.
+    Combine with [from_color]/[via_color]/[to_color].
+
+    Example:
+    {[
+      div
+        ~tw:
+          [
+            bg_gradient_to Bottom;
+            from_color ~shade:100 blue;
+            to_color ~shade:600 blue;
+          ]
+        [ txt "Gradient background" ]
+    ]} *)
+
+val from_color : ?shade:int -> color -> t
+(** [from_color ~shade:400 blue] sets the starting color of a gradient. Default
+    shade is 500. Works with gradient direction utilities like bg_gradient_to_r.
+
+    Example:
+    {[
+      div
+        ~tw:
+          [
+            bg_gradient_to_r;
+            from_color ~shade:400 blue;
+            to_color ~shade:600 purple;
+          ]
+    ]} *)
+
+val via_color : ?shade:int -> color -> t
+(** [via_color purple] sets the middle color of a gradient. Default shade is
+    500. Creates a three-color gradient when used with [bg_gradient_to] and
+    [to_color]. *)
+
+val to_color : ?shade:int -> color -> t
+(** [to_color ~shade:600 pink] sets the ending color of a gradient. Default
+    shade is 500. *)
+
+(** {2 Background Origin}
+    @see <https://tailwindcss.com/docs/background-origin> Background Origin *)
+
+(** TODO: Implement background-origin utilities. *)
+
+(** {2 Background Position}
+    @see <https://tailwindcss.com/docs/background-position> Background Position
+*)
+
+(** TODO: Implement background-position utilities. *)
+
+(** {2 Background Repeat}
+    @see <https://tailwindcss.com/docs/background-repeat> Background Repeat *)
+
+(** TODO: Implement background-repeat utilities. *)
+
+(** {2 Background Size}
+    @see <https://tailwindcss.com/docs/background-size> Background Size *)
+
+(** TODO: Implement background-size utilities. *)
+
+(** {1 Borders} *)
+
+(** {2 Border Radius}
+    @see <https://tailwindcss.com/docs/border-radius> Border Radius *)
+
+(** {2 Border Width}
+    @see <https://tailwindcss.com/docs/border-width> Border Width *)
 
 val border : t
 (** [border] sets the default border (1px). Same as {!border_xs}. *)
@@ -1689,6 +1973,99 @@ val border_b : t
 val border_l : t
 (** [border_l] sets left border (1px). *)
 
+(** {2 Border Color}
+    @see <https://tailwindcss.com/docs/border-color> Border Color *)
+
+val border_color : color -> int -> t
+(** [border_color color shade] creates a border color with a specific shade. *)
+
+val border_transparent : t
+(** [border_transparent] makes border fully transparent. *)
+
+val border_current : t
+(** [border_current] sets border color to match the text color. For example:
+    {[
+      div ~tw:[ text ~shade:600 red; border xs; border_current ]
+      (* Border will be red-600, same as the text *)
+    ]}
+
+    This is the default behavior in Tailwind v4, but can be explicitly set. *)
+
+val border_black : t
+(** [border_black] is default black border. See {!tailwind_colors}. *)
+
+val border_white : t
+(** [border_white] is default white border. See {!tailwind_colors}. *)
+
+val border_slate : t
+(** [border_slate] is default slate border. See {!tailwind_colors}. *)
+
+val border_gray : t
+(** [border_gray] is default gray border. See {!tailwind_colors}. *)
+
+val border_zinc : t
+(** [border_zinc] is default zinc border. See {!tailwind_colors}. *)
+
+val border_neutral : t
+(** [border_neutral] is default neutral border. See {!tailwind_colors}. *)
+
+val border_stone : t
+(** [border_stone] is default stone border. See {!tailwind_colors}. *)
+
+val border_red : t
+(** [border_red] is default red border. See {!tailwind_colors}. *)
+
+val border_orange : t
+(** [border_orange] is default orange border. See {!tailwind_colors}. *)
+
+val border_amber : t
+(** [border_amber] is default amber border. See {!tailwind_colors}. *)
+
+val border_yellow : t
+(** [border_yellow] is default yellow border. See {!tailwind_colors}. *)
+
+val border_lime : t
+(** [border_lime] is default lime border. See {!tailwind_colors}. *)
+
+val border_green : t
+(** [border_green] is default green border. See {!tailwind_colors}. *)
+
+val border_emerald : t
+(** [border_emerald] is default emerald border. See {!tailwind_colors}. *)
+
+val border_teal : t
+(** [border_teal] is default teal border. See {!tailwind_colors}. *)
+
+val border_cyan : t
+(** [border_cyan] is default cyan border. See {!tailwind_colors}. *)
+
+val border_sky : t
+(** [border_sky] is default sky border. See {!tailwind_colors}. *)
+
+val border_blue : t
+(** [border_blue] is default blue border. See {!tailwind_colors}. *)
+
+val border_indigo : t
+(** [border_indigo] is default indigo border. See {!tailwind_colors}. *)
+
+val border_violet : t
+(** [border_violet] is default violet border. See {!tailwind_colors}. *)
+
+val border_purple : t
+(** [border_purple] is default purple border. See {!tailwind_colors}. *)
+
+val border_fuchsia : t
+(** [border_fuchsia] is default fuchsia border. See {!tailwind_colors}. *)
+
+val border_pink : t
+(** [border_pink] is default pink border. See {!tailwind_colors}. *)
+
+val border_rose : t
+(** [border_rose] is default rose border. See {!tailwind_colors}. *)
+
+(** {2 Border Style}
+    @see <https://tailwindcss.com/docs/border-style> Border Style *)
+
 val border_solid : t
 (** [border_solid] uses a solid border style. *)
 
@@ -1700,6 +2077,40 @@ val border_dotted : t
 
 val border_double : t
 (** [border_double] uses a double border style. *)
+
+(** {2 Outline Width}
+    @see <https://tailwindcss.com/docs/outline-width> Outline Width *)
+
+(** TODO: Implement outline-width utilities. *)
+
+(** {2 Outline Color}
+    @see <https://tailwindcss.com/docs/outline-color> Outline Color *)
+
+(** TODO: Implement outline-color utilities. *)
+
+(** {2 Outline Style}
+    @see <https://tailwindcss.com/docs/outline-style> Outline Style *)
+
+val outline_none : t
+(** [outline_none] removes the outline. *)
+
+(** {2 Outline Offset}
+    @see <https://tailwindcss.com/docs/outline-offset> Outline Offset *)
+
+val outline_offset_0 : t
+(** [outline_offset_0] sets outline offset to 0px. *)
+
+val outline_offset_1 : t
+(** [outline_offset_1] sets outline offset to 1px. *)
+
+val outline_offset_2 : t
+(** [outline_offset_2] sets outline offset to 2px. *)
+
+val outline_offset_4 : t
+(** [outline_offset_4] sets outline offset to 4px. *)
+
+val outline_offset_8 : t
+(** [outline_offset_8] sets outline offset to 8px. *)
 
 val rounded_none : t
 (** [rounded_none] sets sharp corners (0px). *)
@@ -1728,19 +2139,12 @@ val rounded_3xl : t
 val rounded_full : t
 (** [rounded_full] sets fully rounded corners (9999px). Makes circles/pills. *)
 
-val border_collapse : t
-(** [border_collapse] collapses table borders. *)
+(* Table-related utilities moved under the Tables section. *)
 
-val border_separate : t
-(** [border_separate] separates table borders. *)
+(** {1 Effects} *)
 
-val border_spacing : int -> t
-(** [border_spacing n] sets border spacing using spacing scale. *)
-
-(** {1 Effects & Filters}
-    @see <https://tailwindcss.com/docs/box-shadow> Effects
-    @see <https://tailwindcss.com/docs/blur> Filters
-    @see <https://tailwindcss.com/docs/backdrop-blur> Backdrop Filters *)
+(** {2 Box Shadow}
+    @see <https://tailwindcss.com/docs/box-shadow> Box Shadow *)
 
 val shadow_none : t
 (** [shadow_none] removes the shadow. *)
@@ -1766,14 +2170,14 @@ val shadow_2xl : t
 val shadow_inner : t
 (** [shadow_inner] applies an inset shadow for a pressed/sunken effect. *)
 
+(** {2 Opacity}
+    @see <https://tailwindcss.com/docs/opacity> Opacity *)
+
 val opacity : int -> t
 (** [opacity n] controls transparency (0-100).
     - 0: Fully transparent (invisible but takes space)
     - 50: Half transparent
     - 100: Fully opaque (default). *)
-
-val outline_none : t
-(** [outline_none] removes the outline. *)
 
 val ring_none : t
 (** [ring_none] removes the ring. *)
@@ -1802,12 +2206,90 @@ val ring_xl : t
     - Rings are often used for focus states: [on_focus [ ring ]]
     - Unlike borders, rings don't take up space in the layout. *)
 
+(** {2 Ring Width}
+    @see <https://tailwindcss.com/docs/ring-width> Ring Width *)
+
+(** {2 Ring Color}
+    @see <https://tailwindcss.com/docs/ring-color> Ring Color *)
+
 val ring_color : color -> int -> t
 (** [ring_color color shade] sets the color of outline rings. *)
 
-val isolate : t
-(** [isolate] creates a new stacking context to isolate z-index behavior. Useful
-    to prevent z-index values from affecting elements outside this container. *)
+(** {2 Ring Offset Width}
+    @see <https://tailwindcss.com/docs/ring-offset-width> Ring Offset Width *)
+
+(** TODO: Implement ring-offset-width utilities. *)
+
+(** {2 Ring Offset Color}
+    @see <https://tailwindcss.com/docs/ring-offset-color> Ring Offset Color *)
+
+(** TODO: Implement ring-offset-color utilities. *)
+
+(** {2 Text Shadow}
+    @see <https://tailwindcss.com/docs/text-shadow> Text Shadow *)
+
+(** TODO: Implement text-shadow utilities. *)
+
+(** {2 Mix Blend Mode}
+    @see <https://tailwindcss.com/docs/mix-blend-mode> Mix Blend Mode *)
+
+(** TODO: Implement mix-blend-mode utilities. *)
+
+(** {2 Background Blend Mode}
+    @see <https://tailwindcss.com/docs/background-blend-mode>
+      Background Blend Mode *)
+
+(** TODO: Implement background-blend-mode utilities. *)
+
+(** {2 Mask Clip}
+    @see <https://tailwindcss.com/docs/mask-clip> Mask Clip *)
+
+(** TODO: Implement mask-clip utilities. *)
+
+(** {2 Mask Composite}
+    @see <https://tailwindcss.com/docs/mask-composite> Mask Composite *)
+
+(** TODO: Implement mask-composite utilities. *)
+
+(** {2 Mask Image}
+    @see <https://tailwindcss.com/docs/mask-image> Mask Image *)
+
+(** TODO: Implement mask-image utilities. *)
+
+(** {2 Mask Mode}
+    @see <https://tailwindcss.com/docs/mask-mode> Mask Mode *)
+
+(** TODO: Implement mask-mode utilities. *)
+
+(** {2 Mask Origin}
+    @see <https://tailwindcss.com/docs/mask-origin> Mask Origin *)
+
+(** TODO: Implement mask-origin utilities. *)
+
+(** {2 Mask Position}
+    @see <https://tailwindcss.com/docs/mask-position> Mask Position *)
+
+(** TODO: Implement mask-position utilities. *)
+
+(** {2 Mask Repeat}
+    @see <https://tailwindcss.com/docs/mask-repeat> Mask Repeat *)
+
+(** TODO: Implement mask-repeat utilities. *)
+
+(** {2 Mask Size}
+    @see <https://tailwindcss.com/docs/mask-size> Mask Size *)
+
+(** TODO: Implement mask-size utilities. *)
+
+(** {2 Mask Type}
+    @see <https://tailwindcss.com/docs/mask-type> Mask Type *)
+
+(** TODO: Implement mask-type utilities. *)
+
+(** {1 Filters} *)
+
+(** {2 Filter}
+    @see <https://tailwindcss.com/docs/filter> Filter *)
 
 val brightness : int -> t
 (** [brightness n] sets brightness filter (0-200, where 100 is normal). *)
@@ -1856,6 +2338,9 @@ val invert : int -> t
 
 val hue_rotate : int -> t
 (** [hue_rotate n] rotates the hue by n degrees. *)
+
+(** {2 Backdrop Filter}
+    @see <https://tailwindcss.com/docs/backdrop-filter> Backdrop Filter *)
 
 val backdrop_brightness : int -> t
 (** [backdrop_brightness n] applies brightness filter to content behind element.
@@ -1914,8 +2399,42 @@ val backdrop_blur_2xl : t
 val backdrop_blur_3xl : t
 (** [backdrop_blur_3xl] applies a 3× large backdrop blur (64px). *)
 
-(** {1 Transitions & Animations}
-    @see <https://tailwindcss.com/docs/animation> Animations *)
+(** {1 Tables} *)
+
+(** {2 Border Collapse}
+    @see <https://tailwindcss.com/docs/border-collapse> Border Collapse *)
+
+val border_collapse : t
+(** [border_collapse] collapses table borders. *)
+
+val border_separate : t
+(** [border_separate] separates table borders. *)
+
+(** {2 Border Spacing}
+    @see <https://tailwindcss.com/docs/border-spacing> Border Spacing *)
+
+val border_spacing : int -> t
+(** [border_spacing n] sets border spacing using spacing scale. *)
+
+(** {2 Table Layout}
+    @see <https://tailwindcss.com/docs/table-layout> Table Layout *)
+
+val table_auto : t
+(** [table_auto] uses automatic table layout. *)
+
+val table_fixed : t
+(** [table_fixed] uses fixed table layout. *)
+
+(** {2 Caption Side}
+    @see <https://tailwindcss.com/docs/caption-side> Caption Side *)
+
+(** TODO: Implement caption-side utilities. *)
+
+(** {1 Transitions & Animations} *)
+
+(** {2 Transition Property}
+    @see <https://tailwindcss.com/docs/transition-property> Transition Property
+*)
 
 val transition_none : t
 (** [transition_none] enables no transition. *)
@@ -1935,7 +2454,7 @@ val transition_colors : t
             bg blue;
             transition_colors;
             (* Smooth color change *)
-            on_hover [ bg ~shade:700 blue ];
+            hover [ bg ~shade:700 blue ];
           ]
     ]}
 
@@ -1950,8 +2469,16 @@ val transition_shadow : t
 val transition_transform : t
 (** [transition_transform] transitions transform. *)
 
+(** {2 Transition Duration}
+    @see <https://tailwindcss.com/docs/transition-duration> Transition Duration
+*)
+
 val duration : int -> t
 (** [duration n] sets transition duration in milliseconds. *)
+
+(** {2 Transition Timing Function}
+    @see <https://tailwindcss.com/docs/transition-timing-function>
+      Transition Timing Function *)
 
 val ease_linear : t
 (** [ease_linear] uses a linear transition timing function. *)
@@ -1965,6 +2492,54 @@ val ease_out : t
 val ease_in_out : t
 (** [ease_in_out] uses an ease-in-out transition timing function. *)
 
+(** {1 Transforms} *)
+
+(** {2 Backface Visibility}
+    @see <https://tailwindcss.com/docs/backface-visibility> Backface Visibility
+*)
+
+val backface_visible : t
+(** [backface_visible] shows the element's back face when rotated (default). *)
+
+val backface_hidden : t
+(** [backface_hidden] hides the element's back face when rotated. *)
+
+(** {2 Perspective}
+    @see <https://tailwindcss.com/docs/perspective> Perspective *)
+
+val perspective : int -> t
+(** [perspective n] sets perspective distance in pixels for 3D transforms. Lower
+    values create more dramatic 3D effects. Common values: 500-2000. *)
+
+(** {2 Perspective Origin}
+    @see <https://tailwindcss.com/docs/perspective-origin> Perspective Origin *)
+
+val perspective_origin_center : t
+(** [perspective_origin_center] sets perspective origin to center (default). *)
+
+val perspective_origin_top : t
+(** [perspective_origin_top] sets perspective origin to top, making 3D
+    transforms appear from above. *)
+
+val perspective_origin_bottom : t
+(** [perspective_origin_bottom] sets perspective origin to bottom, making 3D
+    transforms appear from below. *)
+
+val perspective_origin_left : t
+(** [perspective_origin_left] sets perspective origin to left side. *)
+
+val perspective_origin_right : t
+(** [perspective_origin_right] sets perspective origin to right side. *)
+
+(** {2 Rotate}
+    @see <https://tailwindcss.com/docs/rotate> Rotate *)
+
+val rotate : int -> t
+(** [rotate n] sets rotate transformation (degrees). *)
+
+(** {2 Scale}
+    @see <https://tailwindcss.com/docs/scale> Scale *)
+
 val scale : int -> t
 (** [scale n] resizes element by percentage (100 = normal size).
 
@@ -1976,14 +2551,13 @@ val scale : int -> t
 
     Often combined with transition_transform for smooth scaling. *)
 
-val rotate : int -> t
-(** [rotate n] sets rotate transformation (degrees). *)
+(** {2 Skew}
+    @see <https://tailwindcss.com/docs/skew> Skew *)
 
-val translate_x : int -> t
-(** [translate_x n] sets horizontal translation. *)
+(** TODO: Implement skew utilities. *)
 
-val translate_y : int -> t
-(** [translate_y n] sets vertical translation. *)
+(** {2 Transform}
+    @see <https://tailwindcss.com/docs/transform> Transform *)
 
 val transform : t
 (** [transform] enables transform utilities. *)
@@ -1994,10 +2568,30 @@ val transform_none : t
 val transform_gpu : t
 (** [transform_gpu] uses GPU acceleration for transforms. *)
 
-(** {2 3D Transform Utilities}
+(** {2 Transform Origin}
+    @see <https://tailwindcss.com/docs/transform-origin> Transform Origin *)
 
-    Utilities for 3D transformations, inspired by modern CSS capabilities. These
-    work best with perspective and transform-style preserve-3d. *)
+(** TODO: Implement transform-origin (2D) utilities. *)
+
+(** {2 Transform Style}
+    @see <https://tailwindcss.com/docs/transform-style> Transform Style *)
+
+(** {2 Translate}
+    @see <https://tailwindcss.com/docs/translate> Translate *)
+
+val translate_x : int -> t
+(** [translate_x n] sets horizontal translation. *)
+
+val translate_y : int -> t
+(** [translate_y n] sets vertical translation. *)
+
+val neg_translate_x_1_2 : t
+(** [neg_translate_x_1_2] translates the element -50% horizontally (for
+    centering). *)
+
+val neg_translate_y_1_2 : t
+(** [neg_translate_y_1_2] translates the element -50% vertically (for
+    centering). *)
 
 val rotate_x : int -> t
 (** [rotate_x n] rotates element around X-axis by n degrees. Positive values
@@ -2019,27 +2613,6 @@ val scale_z : int -> t
 (** [scale_z n] scales element along Z-axis for 3D effects. Requires
     transform-style: preserve-3d on parent. *)
 
-val perspective : int -> t
-(** [perspective n] sets perspective distance in pixels for 3D transforms. Lower
-    values create more dramatic 3D effects. Common values: 500-2000. *)
-
-val perspective_origin_center : t
-(** [perspective_origin_center] sets perspective origin to center (default). *)
-
-val perspective_origin_top : t
-(** [perspective_origin_top] sets perspective origin to top, making 3D
-    transforms appear from above. *)
-
-val perspective_origin_bottom : t
-(** [perspective_origin_bottom] sets perspective origin to bottom, making 3D
-    transforms appear from below. *)
-
-val perspective_origin_left : t
-(** [perspective_origin_left] sets perspective origin to left side. *)
-
-val perspective_origin_right : t
-(** [perspective_origin_right] sets perspective origin to right side. *)
-
 val transform_style_3d : t
 (** [transform_style_3d] preserves 3D positioning of child elements. Required
     for nested 3D transforms. *)
@@ -2047,13 +2620,6 @@ val transform_style_3d : t
 val transform_style_flat : t
 (** [transform_style_flat] flattens child elements into the parent's plane
     (default). *)
-
-val backface_visible : t
-(** [backface_visible] shows the element's back face when rotated (default). *)
-
-val backface_hidden : t
-(** [backface_hidden] hides the element's back face when rotated. Useful for
-    card flip effects. *)
 
 (** {2 Container Query Utilities}
 
@@ -2074,25 +2640,24 @@ val container_type_normal : t
 val container_name : string -> t
 (** [container_name "sidebar"] names a container for targeted queries. *)
 
-val on_container_sm : t list -> t
-(** [on_container_sm styles] applies [styles] when container is ≥640px wide. *)
+val container_sm : t list -> t
+(** [container_sm styles] applies [styles] when container is ≥640px wide. *)
 
-val on_container_md : t list -> t
-(** [on_container_md styles] applies [styles] when container is ≥768px wide. *)
+val container_md : t list -> t
+(** [container_md styles] applies [styles] when container is ≥768px wide. *)
 
-val on_container_lg : t list -> t
-(** [on_container_lg styles] applies [styles] when container is ≥1024px wide. *)
+val container_lg : t list -> t
+(** [container_lg styles] applies [styles] when container is ≥1024px wide. *)
 
-val on_container_xl : t list -> t
-(** [on_container_xl styles] applies [styles] when container is ≥1280px wide. *)
+val container_xl : t list -> t
+(** [container_xl styles] applies [styles] when container is ≥1280px wide. *)
 
-val on_container_2xl : t list -> t
-(** [on_container_2xl styles] applies [styles] when container is ≥1536px wide.
-*)
+val container_2xl : t list -> t
+(** [container_2xl styles] applies [styles] when container is ≥1536px wide. *)
 
-val on_container : ?name:string -> int -> t list -> t
-(** [on_container 500 styles] applies styles when container is ≥500px.
-    [on_container ~name:"sidebar" 500 styles] targets a named container. *)
+val container : ?name:string -> int -> t list -> t
+(** [container 500 styles] applies styles when container is ≥500px.
+    [container ~name:"sidebar" 500 styles] targets a named container. *)
 
 val animate_none : t
 (** [animate_none] applies no animation. *)
@@ -2112,15 +2677,6 @@ val animate_pulse : t
 val animate_bounce : t
 (** [animate_bounce] makes the element bounce up and down. Good for scroll
     indicators or playful UI elements. *)
-
-(** {1 Tables}
-    @see <https://tailwindcss.com/docs/table-layout> Tables *)
-
-val table_auto : t
-(** [table_auto] uses automatic table layout. *)
-
-val table_fixed : t
-(** [table_fixed] uses fixed table layout. *)
 
 (** {1 Forms}
     @see <https://github.com/tailwindlabs/tailwindcss-forms> Forms Plugin *)
@@ -2146,8 +2702,25 @@ val form_radio : t
 (** [form_radio] provides base styles for radio inputs; enables custom styling
     while maintaining accessibility. *)
 
-(** {1 Interactivity & Scroll}
-    @see <https://tailwindcss.com/docs/scroll-snap-type> Scroll Snap *)
+(** {1 Interactivity & Scroll} *)
+
+(** {2 Accent Color}
+    @see <https://tailwindcss.com/docs/accent-color> Accent Color *)
+
+(** TODO: Implement accent-color utilities. *)
+
+(** {2 Caret Color}
+    @see <https://tailwindcss.com/docs/caret-color> Caret Color *)
+
+(** TODO: Implement caret-color utilities. *)
+
+(** {2 Color Scheme}
+    @see <https://tailwindcss.com/docs/color-scheme> Color Scheme *)
+
+(** TODO: Implement color-scheme utilities. *)
+
+(** {2 Cursor}
+    @see <https://tailwindcss.com/docs/cursor> Cursor *)
 
 val cursor_auto : t
 (** [cursor_auto] uses the automatic cursor. *)
@@ -2167,6 +2740,14 @@ val cursor_move : t
 val cursor_not_allowed : t
 (** [cursor_not_allowed] uses the not-allowed cursor. *)
 
+(** {2 Field Sizing}
+    @see <https://tailwindcss.com/docs/field-sizing> Field Sizing *)
+
+(** TODO: Implement field-sizing utilities. *)
+
+(** {2 User Select}
+    @see <https://tailwindcss.com/docs/user-select> User Select *)
+
 val select_none : t
 (** [select_none] disables text selection. *)
 
@@ -2179,53 +2760,17 @@ val select_all : t
 val select_auto : t
 (** [select_auto] uses automatic text selection. *)
 
+(** {2 Pointer Events}
+    @see <https://tailwindcss.com/docs/pointer-events> Pointer Events *)
+
 val pointer_events_none : t
 (** [pointer_events_none] disables pointer events. *)
 
 val pointer_events_auto : t
 (** [pointer_events_auto] enables pointer events. *)
 
-val overflow_auto : t
-(** [overflow_auto] uses automatic overflow handling. *)
-
-val overflow_hidden : t
-(** [overflow_hidden] clips content that exceeds container bounds (no
-    scrolling). Common for:
-    - Image containers to prevent overflow
-    - Modals to prevent body scrolling
-    - Containers with rounded corners. *)
-
-val overflow_visible : t
-(** [overflow_visible] allows content to extend beyond container bounds
-    (default). *)
-
-val overflow_scroll : t
-(** [overflow_scroll] always shows scrollbars even if content fits. Use
-    [overflow_auto] instead for better UX. *)
-
-val overflow_x_auto : t
-(** [overflow_x_auto] uses automatic horizontal overflow. *)
-
-val overflow_x_hidden : t
-(** [overflow_x_hidden] hides horizontal overflow. *)
-
-val overflow_x_visible : t
-(** [overflow_x_visible] shows horizontal overflow. *)
-
-val overflow_x_scroll : t
-(** [overflow_x_scroll] always shows a horizontal scrollbar. *)
-
-val overflow_y_auto : t
-(** [overflow_y_auto] uses automatic vertical overflow. *)
-
-val overflow_y_hidden : t
-(** [overflow_y_hidden] hides vertical overflow. *)
-
-val overflow_y_visible : t
-(** [overflow_y_visible] shows vertical overflow. *)
-
-val overflow_y_scroll : t
-(** [overflow_y_scroll] always shows a vertical scrollbar. *)
+(** {2 Scroll Snap Type}
+    @see <https://tailwindcss.com/docs/scroll-snap-type> Scroll Snap Type *)
 
 val snap_none : t
 (** [snap_none] disables scroll snapping. *)
@@ -2258,6 +2803,9 @@ val snap_mandatory : t
 val snap_proximity : t
 (** [snap_proximity] enables proximity-based scroll snapping. *)
 
+(** {2 Scroll Snap Align}
+    @see <https://tailwindcss.com/docs/scroll-snap-align> Scroll Snap Align *)
+
 val snap_start : t
 (** [snap_start] snaps to the start of the container. *)
 
@@ -2270,11 +2818,17 @@ val snap_center : t
 val snap_align_none : t
 (** [snap_align_none] disables snap alignment. *)
 
+(** {2 Scroll Snap Stop}
+    @see <https://tailwindcss.com/docs/scroll-snap-stop> Scroll Snap Stop *)
+
 val snap_normal : t
 (** [snap_normal] uses normal snap stop behavior. *)
 
 val snap_always : t
 (** [snap_always] always stops at snap positions. *)
+
+(** {2 Scroll Behavior}
+    @see <https://tailwindcss.com/docs/scroll-behavior> Scroll Behavior *)
 
 val scroll_auto : t
 (** [scroll_auto] uses auto scroll behavior. *)
@@ -2282,48 +2836,24 @@ val scroll_auto : t
 val scroll_smooth : t
 (** [scroll_smooth] uses smooth scroll behavior. *)
 
-val object_contain : t
-(** [object_contain] scales image to fit container while preserving aspect
-    ratio. The entire image will be visible but may have empty space.
+(** {2 Scroll Margin}
+    @see <https://tailwindcss.com/docs/scroll-margin> Scroll Margin *)
 
-    Example:
-    {[
-      img ~tw:[ object_contain; h (int 48); w full ] ~src:"..." ()
-    ]} *)
+(** TODO: Implement scroll-margin utilities. *)
 
-val object_cover : t
-(** [object_cover] scales image to cover the entire container while preserving
-    aspect ratio. Parts of the image may be clipped to fill the container. *)
+(** {2 Scroll Padding}
+    @see <https://tailwindcss.com/docs/scroll-padding> Scroll Padding *)
 
-val object_fill : t
-(** [object_fill] stretches image to fill container, ignoring aspect ratio. May
-    cause distortion. *)
+(** TODO: Implement scroll-padding utilities. *)
 
-val object_none : t
-(** [object_none] keeps the image's original size; it may overflow or underflow
-    the container. *)
-
-val object_scale_down : t
-(** [object_scale_down] scales down only if the image is larger than the
-    container; otherwise uses the original size. *)
-
-val object_top : t
-(** [object_top] sets object position to top. *)
-
-val object_right : t
-(** [object_right] sets object position to right. *)
-
-val object_bottom : t
-(** [object_bottom] sets object position to bottom. *)
-
-val object_left : t
-(** [object_left] sets object position to left. *)
-
-val object_center : t
-(** [object_center] sets object position to center. *)
+(** {2 Appearance}
+    @see <https://tailwindcss.com/docs/appearance> Appearance *)
 
 val appearance_none : t
 (** [appearance_none] removes default browser styling from form elements. *)
+
+(** {2 Resize}
+    @see <https://tailwindcss.com/docs/resize> Resize *)
 
 val resize_none : t
 (** [resize_none] prevents textarea resizing. *)
@@ -2337,6 +2867,9 @@ val resize_x : t
 val resize : t
 (** [resize] allows both horizontal and vertical resizing. *)
 
+(** {2 Will Change}
+    @see <https://tailwindcss.com/docs/will-change> Will Change *)
+
 val will_change_auto : t
 (** [will_change_auto] sets will-change to auto. *)
 
@@ -2349,19 +2882,34 @@ val will_change_contents : t
 val will_change_transform : t
 (** [will_change_transform] optimizes for transform changes. *)
 
-val sr_only : t
-(** [sr_only] is screen reader only; it visually hides content while keeping it
-    accessible. Use this for content that should be read by screen readers but
-    not visible.
+(** {1 SVG} *)
 
-    Example:
-    {[
-      label
-        [
-          span ~tw:[ sr_only ] [ txt "Search" ];
-          input ~at:[ At.type_ "search" ] [];
-        ]
-    ]} *)
+(** {2 Fill}
+    @see <https://tailwindcss.com/docs/fill> Fill *)
+
+(** Fill utilities are available in the Svg module. *)
+
+(** {2 Stroke}
+    @see <https://tailwindcss.com/docs/stroke> Stroke *)
+
+(** Stroke utilities are available in the Svg module. *)
+
+(** {2 Stroke Width}
+    @see <https://tailwindcss.com/docs/stroke-width> Stroke Width *)
+
+(** Stroke width utilities are available in the Svg module. *)
+
+(** {1 Accessibility} *)
+
+(** {2 Forced Color Adjust}
+    @see <https://tailwindcss.com/docs/forced-color-adjust> Forced Color Adjust
+*)
+
+(** Accessibility utilities (e.g., sr-only) are available above. *)
+
+val sr_only : t
+(** [sr_only] Screen reader only; visually hides content while keeping it
+    accessible. *)
 
 val not_sr_only : t
 (** [not_sr_only] reverses [sr_only]; it makes previously screen-reader-only
@@ -2419,127 +2967,6 @@ val prose_stylesheet : unit -> Css.t
       let prose_css = prose_stylesheet () |> Css.to_string ~minify:true in
       (* Include this CSS in your page to enable full prose functionality *)
     ]} *)
-
-(* Line Clamp subsection moved into Typography above. *)
-
-(** {2 Text Overflow}
-    @see <https://tailwindcss.com/docs/text-overflow> Text Overflow *)
-
-val text_ellipsis : t
-(** [text_ellipsis] uses ellipsis when text overflows. *)
-
-val text_clip : t
-(** [text_clip] clips overflowing text. *)
-
-(** {2 Text Wrap}
-    @see <https://tailwindcss.com/docs/text-wrap> Text Wrap *)
-
-val text_wrap : t
-(** [text_wrap] enables automatic text wrapping. *)
-
-val text_nowrap : t
-(** [text_nowrap] disables text wrapping. *)
-
-val text_balance : t
-(** [text_balance] balances text across lines. *)
-
-val text_pretty : t
-(** [text_pretty] optimizes wrapping for readability. *)
-
-(** {2 Word Break}
-    @see <https://tailwindcss.com/docs/word-break> Word Break *)
-
-val break_normal : t
-(** [break_normal] normal word/overflow wrapping. *)
-
-val break_words : t
-(** [break_words] break words as needed. *)
-
-val break_all : t
-(** [break_all] break within words to prevent overflow. *)
-
-val break_keep : t
-(** [break_keep] keep words intact (keep-all). *)
-
-(** {2 Overflow Wrap}
-    @see <https://tailwindcss.com/docs/overflow-wrap> Overflow Wrap *)
-
-val overflow_wrap_normal : t
-(** [overflow_wrap_normal] uses the browser default overflow wrapping behavior.
-*)
-
-val overflow_wrap_anywhere : t
-(** [overflow_wrap_anywhere] allows breaks within words to prevent overflow. *)
-
-val overflow_wrap_break_word : t
-(** [overflow_wrap_break_word] breaks long words to prevent overflow. *)
-
-(** {2 Hyphens}
-    @see <https://tailwindcss.com/docs/hyphens> Hyphens *)
-
-val hyphens_none : t
-(** [hyphens_none] disables automatic hyphenation. *)
-
-val hyphens_manual : t
-(** [hyphens_manual] enables manual hyphenation via soft hyphen characters. *)
-
-val hyphens_auto : t
-(** [hyphens_auto] enables automatic hyphenation when supported. *)
-
-(** {2 Font Stretch}
-    @see <https://tailwindcss.com/docs/font-stretch> Font Stretch *)
-
-val font_stretch_normal : t
-(** [font_stretch_normal] uses the normal font stretch. *)
-
-val font_stretch_condensed : t
-(** [font_stretch_condensed] uses a condensed font stretch. *)
-
-val font_stretch_expanded : t
-(** [font_stretch_expanded] uses an expanded font stretch. *)
-
-val font_stretch_percent : int -> t
-(** [font_stretch_percent n] sets font stretch to [n]% when available. *)
-
-(** {2 Numeric Variants}
-    @see <https://tailwindcss.com/docs/font-variant-numeric>
-      Font Variant Numeric *)
-
-val normal_nums : t
-(** [normal_nums] resets to normal numeric glyphs. *)
-
-val ordinal : t
-(** [ordinal] enables ordinal markers (e.g. 1st, 2nd). *)
-
-val slashed_zero : t
-(** [slashed_zero] uses a zero with a slash. *)
-
-val lining_nums : t
-(** [lining_nums] uses lining numbers. *)
-
-val oldstyle_nums : t
-(** [oldstyle_nums] uses old‑style (text) figures. *)
-
-val proportional_nums : t
-(** [proportional_nums] uses proportional width numbers. *)
-
-val tabular_nums : t
-(** [tabular_nums] uses tabular width numbers. *)
-
-val diagonal_fractions : t
-(** [diagonal_fractions] uses diagonal fraction glyphs. *)
-
-val stacked_fractions : t
-(** [stacked_fractions] uses stacked fraction glyphs. *)
-
-(** {2 Content}
-    @see <https://tailwindcss.com/docs/content> Content *)
-
-val content_none : t
-(** [content_none] clears pseudo‑element content. *)
-
-val content : string -> t
-(** [content value] sets pseudo‑element content to [value]. *)
 
 (** {1 Class Generation & Internals} *)
 
@@ -2889,3 +3316,19 @@ module Accessibility = Accessibility
 module Rules = Rules
 
 (**/**)
+
+(** {2 Animation}
+    @see <https://tailwindcss.com/docs/animation> Animation *)
+
+(* Inserted to match v4 order *)
+(** {2 Transition Behavior}
+    @see <https://tailwindcss.com/docs/transition-behavior> Transition Behavior
+*)
+
+(** TODO: Implement transition-behavior utilities. *)
+
+(* Inserted to match v4 order *)
+(** {2 Transition Delay}
+    @see <https://tailwindcss.com/docs/transition-delay> Transition Delay *)
+
+(** TODO: Implement transition-delay utilities. *)

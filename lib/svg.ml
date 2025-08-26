@@ -18,7 +18,7 @@ let fill color ?(shade = 500) () =
   let default_color =
     Color.to_css color (if Color.is_base_color color then 500 else shade)
   in
-  let css_var = Css.var ~default_value:default_color var_name in
+  let css_var = Css.var ~default:default_color var_name in
   style class_name [ fill (Color (Css.Var css_var)) ]
 
 (** {1 Stroke Utilities} *)
@@ -38,7 +38,7 @@ let stroke color ?(shade = 500) () =
   let default_color =
     Color.to_css color (if Color.is_base_color color then 500 else shade)
   in
-  let css_var = Css.var ~default_value:default_color var_name in
+  let css_var = Css.var ~default:default_color var_name in
   style class_name [ stroke (Color (Css.Var css_var)) ]
 
 (** {1 Stroke Width Utilities} *)

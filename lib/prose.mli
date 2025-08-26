@@ -104,5 +104,4 @@ val of_string : string list -> (Core.t, [ `Msg of string ]) result
 (** [of_string parts] parses a prose utility from string parts. *)
 
 val stylesheet : unit -> Css.rule list
-(** [prose_stylesheet ()] generates complete CSS rules for all prose variants.
-*)
+(** [stylesheet ()] generates complete CSS rules for all prose variants. *)

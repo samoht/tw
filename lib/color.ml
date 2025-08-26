@@ -926,7 +926,7 @@ let bg color shade =
     let default_color =
       to_css color (if is_base_color color then 500 else shade)
     in
-    let css_var = Css.var ~default_value:default_color var_name in
+    let css_var = Css.var ~default:default_color var_name in
     style class_name [ Css.background_color (Css.Var css_var) ]
 
 let bg_transparent = style "bg-transparent" [ background_color Transparent ]
@@ -982,7 +982,7 @@ let text color shade =
     let default_color =
       to_css color (if is_base_color color then 500 else shade)
     in
-    let css_var = Css.var ~default_value:default_color var_name in
+    let css_var = Css.var ~default:default_color var_name in
     style class_name [ Css.color (Css.Var css_var) ]
 
 let text_transparent = style "text-transparent" [ Css.color Transparent ]
@@ -1039,7 +1039,7 @@ let border_color color shade =
     let default_color =
       to_css color (if is_base_color color then 500 else shade)
     in
-    let css_var = Css.var ~default_value:default_color var_name in
+    let css_var = Css.var ~default:default_color var_name in
     style class_name [ Css.border_color (Css.Var css_var) ]
 
 let border_transparent =
@@ -1091,7 +1091,7 @@ let parse_color_with_shade = function
   | [] -> Error (`Msg "No color specified")
   | _ -> Error (`Msg "Too many color parts")
 
-let color_classes_of_string parts =
+let classes_of_string parts =
   match parts with
   | [ "bg"; "transparent" ] -> Ok bg_transparent
   | [ "bg"; "current" ] -> Ok bg_current

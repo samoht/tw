@@ -9,6 +9,51 @@ module Parse = Parse
 let transition_none =
   style "transition-none" [ Css.transition (Css.Simple (Css.None, Css.S 0.0)) ]
 
+let transition =
+  style "transition"
+    [
+      Css.transition
+        (Css.Multiple
+           [
+             Css.With_timing
+               ( Css.Property "color",
+                 Css.Ms 150,
+                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
+             Css.With_timing
+               ( Css.Property "background-color",
+                 Css.Ms 150,
+                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
+             Css.With_timing
+               ( Css.Property "border-color",
+                 Css.Ms 150,
+                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
+             Css.With_timing
+               ( Css.Property "text-decoration-color",
+                 Css.Ms 150,
+                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
+             Css.With_timing
+               ( Css.Property "fill",
+                 Css.Ms 150,
+                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
+             Css.With_timing
+               ( Css.Property "stroke",
+                 Css.Ms 150,
+                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
+             Css.With_timing
+               ( Css.Property "opacity",
+                 Css.Ms 150,
+                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
+             Css.With_timing
+               ( Css.Property "box-shadow",
+                 Css.Ms 150,
+                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
+             Css.With_timing
+               ( Css.Property "transform",
+                 Css.Ms 150,
+                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
+           ]);
+    ]
+
 let transition_all =
   style "transition-all"
     [
@@ -131,7 +176,7 @@ let of_string = function
   | [ "transition"; "opacity" ] -> Ok transition_opacity
   | [ "transition"; "shadow" ] -> Ok transition_shadow
   | [ "transition"; "transform" ] -> Ok transition_transform
-  | [ "transition" ] -> Ok transition_all (* Default transition *)
+  | [ "transition" ] -> Ok transition (* Default transition *)
   | [ "animate"; "none" ] -> Ok animate_none
   | [ "animate"; "spin" ] -> Ok animate_spin
   | [ "animate"; "ping" ] -> Ok animate_ping

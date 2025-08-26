@@ -97,11 +97,20 @@ val backdrop_saturate : int -> t
 (** [backdrop_saturate n] sets backdrop saturation to n% (0-200, 100 is normal).
 *)
 
+val backdrop_grayscale_default : t
+(** [backdrop_grayscale_default] applies 100% grayscale to backdrop. *)
+
 val backdrop_grayscale : int -> t
 (** [backdrop_grayscale n] applies n% grayscale to backdrop (0-100). *)
 
+val backdrop_invert_default : t
+(** [backdrop_invert_default] inverts backdrop colors 100%. *)
+
 val backdrop_invert : int -> t
 (** [backdrop_invert n] inverts backdrop colors by n% (0-100). *)
+
+val backdrop_sepia_default : t
+(** [backdrop_sepia_default] applies 100% sepia effect to backdrop. *)
 
 val backdrop_sepia : int -> t
 (** [backdrop_sepia n] applies n% sepia effect to backdrop (0-100). *)

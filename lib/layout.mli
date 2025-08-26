@@ -151,7 +151,7 @@ val object_right : t
 (** {1 Table Utilities} *)
 
 val border_collapse : t
-(** Sets table border-collapse to collapse. *)
+(** [border_collapse] sets table border-collapse to collapse. *)
 
 val border_separate : t
 (** [border_separate] sets table border-collapse to separate. *)

@@ -4,11 +4,10 @@
     - `container-type-size`, `container-type-inline-size`,
       `container-type-normal` and named containers via `container-<name>`
       helpers.
-    - Container query modifiers (`on_container_*`, `on_container ?name
-      min_width`).
+    - Container query modifiers (`container_*`, `container ?name min_width`).
 
     What's not:
-    - Arbitrary complex container conditions. Use `on_container ~name width` for
+    - Arbitrary complex container conditions. Use `container ~name width` for
       the common `min-width` pattern; extend with a custom `Modified (Container
       ...)` if you need more.
 
@@ -33,13 +32,13 @@ let container_name name = style ("container-" ^ name) [ container_name name ]
 
 (** {1 Container Query Modifiers} *)
 
-let on_container_sm styles = Modified (Container Container_sm, Group styles)
-let on_container_md styles = Modified (Container Container_md, Group styles)
-let on_container_lg styles = Modified (Container Container_lg, Group styles)
-let on_container_xl styles = Modified (Container Container_xl, Group styles)
-let on_container_2xl styles = Modified (Container Container_2xl, Group styles)
+let container_sm styles = Modified (Container Container_sm, Group styles)
+let container_md styles = Modified (Container Container_md, Group styles)
+let container_lg styles = Modified (Container Container_lg, Group styles)
+let container_xl styles = Modified (Container Container_xl, Group styles)
+let container_2xl styles = Modified (Container Container_2xl, Group styles)
 
-let on_container ?name min_width styles =
+let container ?name min_width styles =
   let query =
     match name with
     | None -> Container_named ("", min_width)

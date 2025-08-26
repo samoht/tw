@@ -45,6 +45,9 @@ let prose_stylesheet () =
   let rules = Prose.stylesheet () in
   Css.stylesheet (rules |> List.map (fun rule -> Css.Rule rule))
 
+(* Preflight reset rules *)
+let preflight = Preflight.stylesheet
+
 (* Class generation functions *)
 let rec pp = function
   | Style { name = class_name; _ } -> class_name
@@ -68,7 +71,7 @@ let of_string class_str =
   let modifiers, base_class = modifiers_of_string class_str in
   let parts = String.split_on_char '-' base_class in
   let base_result =
-    Color.color_classes_of_string parts
+    Color.classes_of_string parts
     <|> Spacing.of_string parts <|> Sizing.of_string parts
     <|> Layout.of_string parts <|> Flow.of_string parts
     <|> Typography.of_string parts <|> Borders.of_string parts

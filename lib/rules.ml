@@ -739,30 +739,20 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
       in
       if new_vars = [] then seen_vars
       else
-        (* For each new var, we need to check if we need to generate a property
-           for it *)
+        (* For each new var, use Var module to get its properties *)
         let new_props =
           new_vars
           |> List.filter_map (fun var ->
-                 match var with
-                 | "--font-sans" ->
-                     Some
-                       (Css.custom_property "--font-sans"
-                          "ui-sans-serif, system-ui, sans-serif, \"Apple Color \
-                           Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \
-                           \"Noto Color Emoji\"")
-                 | "--font-serif" ->
-                     Some
-                       (Css.custom_property "--font-serif"
-                          "ui-serif, Georgia, Cambria, \"Times New Roman\", \
-                           Times, serif")
-                 | "--font-mono" ->
-                     Some
-                       (Css.custom_property "--font-mono"
-                          "ui-monospace, SFMono-Regular, Menlo, Monaco, \
-                           Consolas, \"Liberation Mono\", \"Courier New\", \
-                           monospace")
-                 | _ -> None)
+                 (* Check if this var might reference other vars *)
+                 if
+                   var = "--default-font-family"
+                   || var = "--default-mono-font-family"
+                 then
+                   (* These reference other font variables *)
+                   match Var.of_string var with
+                   | Some v -> Some (List.hd (Var.to_css_properties v))
+                   | None -> None
+                 else None)
         in
         resolve_all_var_deps new_props (seen_vars @ new_vars)
     in
@@ -770,204 +760,39 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
     (* Start with default font props and resolve their dependencies *)
     let vars_from_defaults = resolve_all_var_deps default_font_props [] in
 
-    (* Combine all referenced variables *)
-    (* Define canonical order for theme variables - spacing before radius *)
-    let canonical_var_order var =
-      match var with
-      | "--spacing" -> 0
-      | "--font-sans" -> 1
-      | "--font-serif" -> 2
-      | "--font-mono" -> 3
-      | s when String.starts_with ~prefix:"--text-" s -> 10
-      | s when String.starts_with ~prefix:"--font-weight-" s -> 20
-      | s when String.starts_with ~prefix:"--radius-" s -> 30
-      | s when String.starts_with ~prefix:"--color-" s ->
-          (* Extract color name from --color-{name}-{shade} *)
-          let color_part = String.sub s 8 (String.length s - 8) in
-          let color_name =
-            try
-              let dash_pos = String.index color_part '-' in
-              String.sub color_part 0 dash_pos
-            with Not_found -> color_part
-          in
-          (* Use canonical color order for variables *)
-          40 + canonical_color_order color_name
-      | _ -> 200
-    in
+    (* Combine all referenced variables and sort using Var module's canonical
+       order *)
     let all_referenced_vars =
       directly_referenced_vars @ vars_from_defaults
       |> List.sort_uniq (fun a b ->
-             let order_a = canonical_var_order a in
-             let order_b = canonical_var_order b in
-             if order_a <> order_b then Int.compare order_a order_b
-             else String.compare a b)
+             (* Convert to Var.t and use its canonical ordering *)
+             match (Var.of_string a, Var.of_string b) with
+             | Some var_a, Some var_b -> Var.compare var_a var_b
+             | Some _, None -> -1 (* Known vars come before unknown *)
+             | None, Some _ -> 1
+             | None, None -> String.compare a b)
     in
 
     (* The new typed variable system generates CSS variables automatically based
        on what's referenced in the CSS declarations. No need to track Core.var
        anymore. *)
 
-    (* Generate values for theme variables *)
+    (* Generate values for theme variables using the Var module *)
     let theme_generated_vars =
       all_referenced_vars
       |> List.concat_map (fun var_name ->
-             match var_name with
-             | "--spacing" -> [ Css.custom_property "--spacing" "0.25rem" ]
-             | "--text-xs" ->
-                 [
-                   Css.custom_property "--text-xs" "0.75rem";
-                   Css.custom_property "--text-xs--line-height" "calc(1/.75)";
-                 ]
-             | "--text-sm" ->
-                 [
-                   Css.custom_property "--text-sm" "0.875rem";
-                   Css.custom_property "--text-sm--line-height"
-                     "calc(1.25/.875)";
-                 ]
-             | "--text-base" ->
-                 [
-                   Css.custom_property "--text-base" "1rem";
-                   Css.custom_property "--text-base--line-height" "calc(1.5/1)";
-                 ]
-             | "--text-lg" ->
-                 [
-                   Css.custom_property "--text-lg" "1.125rem";
-                   Css.custom_property "--text-lg--line-height"
-                     "calc(1.75/1.125)";
-                 ]
-             | "--text-xl" ->
-                 [
-                   Css.custom_property "--text-xl" "1.25rem";
-                   Css.custom_property "--text-xl--line-height"
-                     "calc(1.75/1.25)";
-                 ]
-             | "--text-2xl" ->
-                 [
-                   Css.custom_property "--text-2xl" "1.5rem";
-                   Css.custom_property "--text-2xl--line-height" "calc(2/1.5)";
-                 ]
-             | "--text-3xl" ->
-                 [
-                   Css.custom_property "--text-3xl" "1.875rem";
-                   Css.custom_property "--text-3xl--line-height"
-                     "calc(2.25/1.875)";
-                 ]
-             | "--text-4xl" ->
-                 [
-                   Css.custom_property "--text-4xl" "2.25rem";
-                   Css.custom_property "--text-4xl--line-height"
-                     "calc(2.5/2.25)";
-                 ]
-             | "--text-5xl" ->
-                 [
-                   Css.custom_property "--text-5xl" "3rem";
-                   Css.custom_property "--text-5xl--line-height" "1";
-                 ]
-             | "--font-weight-thin" ->
-                 [ Css.custom_property "--font-weight-thin" "100" ]
-             | "--font-weight-light" ->
-                 [ Css.custom_property "--font-weight-light" "300" ]
-             | "--font-weight-normal" ->
-                 [ Css.custom_property "--font-weight-normal" "400" ]
-             | "--font-weight-medium" ->
-                 [ Css.custom_property "--font-weight-medium" "500" ]
-             | "--font-weight-semibold" ->
-                 [ Css.custom_property "--font-weight-semibold" "600" ]
-             | "--font-weight-bold" ->
-                 [ Css.custom_property "--font-weight-bold" "700" ]
-             | "--font-weight-extrabold" ->
-                 [ Css.custom_property "--font-weight-extrabold" "800" ]
-             | "--font-weight-black" ->
-                 [ Css.custom_property "--font-weight-black" "900" ]
-             | "--radius-sm" -> [ Css.custom_property "--radius-sm" ".25rem" ]
-             | "--radius-md" -> [ Css.custom_property "--radius-md" ".375rem" ]
-             | "--radius-lg" -> [ Css.custom_property "--radius-lg" ".5rem" ]
-             | "--radius-xl" -> [ Css.custom_property "--radius-xl" ".75rem" ]
-             | "--radius-2xl" -> [ Css.custom_property "--radius-2xl" "1rem" ]
-             | "--radius-3xl" -> [ Css.custom_property "--radius-3xl" "1.5rem" ]
-             | var_name when String.starts_with ~prefix:"--color-" var_name -> (
-                 (* Handle color variables *)
-                 let color_part =
-                   String.sub var_name 8 (String.length var_name - 8)
-                 in
-                 (* Check if it's a base color (no shade) or with shade *)
-                 match String.split_on_char '-' color_part with
-                 | [ color_name ] ->
-                     (* Base color like --color-white or --color-black *)
-                     if color_name = "white" then
-                       [ Css.custom_property "--color-white" "#fff" ]
-                     else if color_name = "black" then
-                       [ Css.custom_property "--color-black" "#000" ]
-                     else [] (* Other base colors need shade *)
-                 | color_parts -> (
-                     (* Try to extract shade from the end *)
-                     match List.rev color_parts with
-                     | shade_str :: rev_color_parts -> (
-                         try
-                           let shade = int_of_string shade_str in
-                           let color_name =
-                             String.concat "-" (List.rev rev_color_parts)
-                           in
-                           let color = Color.of_string_exn color_name in
-                           [
-                             Css.custom_property var_name
-                               (Color.to_oklch_css color shade);
-                           ]
-                         with _ -> [])
-                     | _ -> []))
-             | _ -> [])
+             (* Use Var module to parse and generate CSS properties *)
+             match Var.of_string var_name with
+             | Some var -> Var.to_css_properties var
+             | None -> []
+             (* Variables not handled by Var module *)
+             (* Variables are now handled above via Var module *))
       (* Don't sort - preserve the canonical order from all_referenced_vars *)
     in
 
-    (* Determine which font variables to include based on what's referenced *)
-    let font_names_to_include =
-      all_referenced_vars
-      |> List.filter_map (fun var ->
-             match var with
-             | "--font-sans" -> Some ("sans", var)
-             | "--font-serif" -> Some ("serif", var)
-             | "--font-mono" -> Some ("mono", var)
-             | _ -> None)
-    in
-
-    (* Canonical Tailwind order for built-in fonts *)
-    let canonical_font_order name =
-      match name with "sans" -> 0 | "serif" -> 1 | "mono" -> 2 | _ -> 1000
-    in
-
-    (* Sort by canonical order *)
-    let font_names_to_include =
-      font_names_to_include
-      |> List.sort_uniq (fun (a, _) (b, _) ->
-             let order_a = canonical_font_order a in
-             let order_b = canonical_font_order b in
-             if order_a <> order_b then compare order_a order_b else compare a b)
-    in
-
-    (* Generate the font property declarations *)
-    let font_vars =
-      font_names_to_include
-      |> List.map (fun (_, var_name) ->
-             match var_name with
-             | "--font-sans" ->
-                 Css.custom_property "--font-sans"
-                   "ui-sans-serif, system-ui, sans-serif, \"Apple Color \
-                    Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto \
-                    Color Emoji\""
-             | "--font-serif" ->
-                 Css.custom_property "--font-serif"
-                   "ui-serif, Georgia, Cambria, \"Times New Roman\", Times, \
-                    serif"
-             | "--font-mono" ->
-                 Css.custom_property "--font-mono"
-                   "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \
-                    \"Liberation Mono\", \"Courier New\", monospace"
-             | _ -> failwith "Unexpected font variable")
-    in
-
-    let theme_vars_with_fonts =
-      font_vars @ theme_generated_vars @ default_font_props
-    in
+    (* The font variables are already included in theme_generated_vars via Var module *)
+    (* Default font properties are still needed as they reference the font vars *)
+    let theme_vars_with_fonts = theme_generated_vars @ default_font_props in
 
     let theme_layer =
       Css.layered_rules ~layer:Css.Theme

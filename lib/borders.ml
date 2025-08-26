@@ -215,81 +215,29 @@ let border_full = border_8 (* 8px *)
 
 (** {1 Border Radius Utilities} *)
 
+(* Helper to create border-radius with a CSS variable *)
+let border_radius_var ~default name = border_radius (Var (var ~default name))
 let rounded_none = style "rounded-none" [ border_radius Zero ]
 
 let rounded_sm =
-  style "rounded-sm"
-    [
-      border_radius
-        (Var
-           {
-             name = "radius-sm";
-             fallback = None;
-             default_value = Some (Rem 0.125);
-           });
-    ]
+  style "rounded-sm" [ border_radius_var ~default:(Rem 0.125) "radius-sm" ]
 
 let rounded = style "rounded" [ border_radius (Rem 0.25) ]
 
 let rounded_md =
-  style "rounded-md"
-    [
-      border_radius
-        (Var
-           {
-             name = "radius-md";
-             fallback = None;
-             default_value = Some (Rem 0.375);
-           });
-    ]
+  style "rounded-md" [ border_radius_var ~default:(Rem 0.375) "radius-md" ]
 
 let rounded_lg =
-  style "rounded-lg"
-    [
-      border_radius
-        (Var
-           {
-             name = "radius-lg";
-             fallback = None;
-             default_value = Some (Rem 0.5);
-           });
-    ]
+  style "rounded-lg" [ border_radius_var ~default:(Rem 0.5) "radius-lg" ]
 
 let rounded_xl =
-  style "rounded-xl"
-    [
-      border_radius
-        (Var
-           {
-             name = "radius-xl";
-             fallback = None;
-             default_value = Some (Rem 0.75);
-           });
-    ]
+  style "rounded-xl" [ border_radius_var ~default:(Rem 0.75) "radius-xl" ]
 
 let rounded_2xl =
-  style "rounded-2xl"
-    [
-      border_radius
-        (Var
-           {
-             name = "radius-2xl";
-             fallback = None;
-             default_value = Some (Rem 1.0);
-           });
-    ]
+  style "rounded-2xl" [ border_radius_var ~default:(Rem 1.0) "radius-2xl" ]
 
 let rounded_3xl =
-  style "rounded-3xl"
-    [
-      border_radius
-        (Var
-           {
-             name = "radius-3xl";
-             fallback = None;
-             default_value = Some (Rem 1.5);
-           });
-    ]
+  style "rounded-3xl" [ border_radius_var ~default:(Rem 1.5) "radius-3xl" ]
 
 let rounded_full =
   (* Tailwind v4 uses calc(infinity * 1px) which gets optimized to

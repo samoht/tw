@@ -132,6 +132,9 @@ let backdrop_saturate n =
         (Pp.str [ "saturate("; Pp.float (float_of_int n /. 100.); ")" ]);
     ]
 
+let backdrop_grayscale_default =
+  style "backdrop-grayscale" [ backdrop_filter "grayscale(1)" ]
+
 let backdrop_grayscale n =
   let class_name = Pp.str [ "backdrop-grayscale-"; string_of_int n ] in
   style class_name
@@ -140,6 +143,9 @@ let backdrop_grayscale n =
         (Pp.str [ "grayscale("; Pp.float (float_of_int n /. 100.); ")" ]);
     ]
 
+let backdrop_invert_default =
+  style "backdrop-invert" [ backdrop_filter "invert(1)" ]
+
 let backdrop_invert n =
   let class_name = Pp.str [ "backdrop-invert-"; string_of_int n ] in
   style class_name
@@ -147,6 +153,9 @@ let backdrop_invert n =
       backdrop_filter
         (Pp.str [ "invert("; Pp.float (float_of_int n /. 100.); ")" ]);
     ]
+
+let backdrop_sepia_default =
+  style "backdrop-sepia" [ backdrop_filter "sepia(1)" ]
 
 let backdrop_sepia n =
   let class_name = Pp.str [ "backdrop-sepia-"; string_of_int n ] in
@@ -204,13 +213,13 @@ let of_string = function
       Parse.int_pos ~name:"backdrop-saturate" n >|= backdrop_saturate
   | [ "backdrop"; "grayscale"; n ] ->
       Parse.int_pos ~name:"backdrop-grayscale" n >|= backdrop_grayscale
-  | [ "backdrop"; "grayscale" ] -> Ok (backdrop_grayscale 100)
+  | [ "backdrop"; "grayscale" ] -> Ok backdrop_grayscale_default
   | [ "backdrop"; "invert"; n ] ->
       Parse.int_pos ~name:"backdrop-invert" n >|= backdrop_invert
-  | [ "backdrop"; "invert" ] -> Ok (backdrop_invert 100)
+  | [ "backdrop"; "invert" ] -> Ok backdrop_invert_default
   | [ "backdrop"; "sepia"; n ] ->
       Parse.int_pos ~name:"backdrop-sepia" n >|= backdrop_sepia
-  | [ "backdrop"; "sepia" ] -> Ok (backdrop_sepia 100)
+  | [ "backdrop"; "sepia" ] -> Ok backdrop_sepia_default
   | [ "backdrop"; "hue"; "rotate"; n ] ->
       Parse.int_any n >|= backdrop_hue_rotate
   | _ -> Error (`Msg "Not a filter utility")
