@@ -674,26 +674,25 @@ let rule_sets tw_classes =
 module Set = Set.Make (String)
 
 let resolve_dependencies vars_to_check initial_resolved =
-  let rec loop to_check resolved =
-    match to_check with
-    | [] -> Set.elements resolved
-    | var :: rest ->
-        if Set.mem var resolved then loop rest resolved
-        else
-          let new_deps =
-            match Var.of_string var with
-            | Some v -> Var.to_css_properties v |> Css.vars_of_declarations
-            | None -> []
-          in
-          let rest_set = Set.of_list rest in
-          let new_to_check =
-            List.filter
-              (fun d -> not (Set.mem d resolved || Set.mem d rest_set))
-              new_deps
-          in
-          loop (rest @ new_to_check) (Set.add var resolved)
+  (* Resolve transitive dependencies using a real FIFO queue from Stdlib.
+     Membership testing uses a Set for O(log n) checks. *)
+  let q = Queue.create () in
+  List.iter (fun v -> Queue.add v q) vars_to_check;
+  let rec bfs (seen : Set.t) =
+    if Queue.is_empty q then Set.elements seen
+    else
+      let var = Queue.take q in
+      if Set.mem var seen then bfs seen
+      else
+        let deps =
+          match Var.of_string var with
+          | Some v -> Var.to_css_properties v |> Css.vars_of_declarations
+          | None -> []
+        in
+        List.iter (fun d -> if not (Set.mem d seen) then Queue.add d q) deps;
+        bfs (Set.add var seen)
   in
-  loop vars_to_check (Set.of_list initial_resolved)
+  bfs (Set.of_list initial_resolved)
 
 let compute_properties_layer rules =
   let referenced_vars = Css.vars_of_rules rules in
