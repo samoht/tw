@@ -300,151 +300,277 @@ let starts prefix s =
   let lp = String.length prefix and ls = String.length s in
   ls >= lp && String.sub s 0 lp = prefix
 
-(* Color ordering for backgrounds *)
-let color_order = function
-  | "amber" -> 0
-  | "blue" -> 1
-  | "cyan" -> 2
-  | "emerald" -> 3
-  | "fuchsia" -> 4
-  | "gray" -> 5
-  | "green" -> 6
-  | "indigo" -> 7
-  | "lime" -> 8
-  | "neutral" -> 9
-  | "orange" -> 10
-  | "pink" -> 11
-  | "purple" -> 12
-  | "red" -> 13
-  | "rose" -> 14
-  | "sky" -> 15
-  | "slate" -> 16
-  | "stone" -> 17
-  | "teal" -> 18
-  | "violet" -> 19
-  | "yellow" -> 20
-  | "zinc" -> 21
-  | _ -> 100
+(* Centralized color ordering - matches Tailwind's color palette order *)
+(* Colors are ordered alphabetically for consistency and predictability *)
+let color_order_map =
+  [
+    ("amber", 0);
+    ("blue", 1);
+    ("cyan", 2);
+    ("emerald", 3);
+    ("fuchsia", 4);
+    ("gray", 5);
+    ("green", 6);
+    ("indigo", 7);
+    ("lime", 8);
+    ("neutral", 9);
+    ("orange", 10);
+    ("pink", 11);
+    ("purple", 12);
+    ("red", 13);
+    ("rose", 14);
+    ("sky", 15);
+    ("slate", 16);
+    ("stone", 17);
+    ("teal", 18);
+    ("violet", 19);
+    ("yellow", 20);
+    ("zinc", 21);
+  ]
 
-(* Utility classifiers *)
-let is_display_util core =
-  List.exists
-    (fun p -> starts p core)
-    [
-      "block";
-      "inline";
-      "inline-";
-      "flex";
-      "grid";
-      "table";
-      "contents";
-      "flow-root";
-    ]
+let color_order color_name =
+  match List.assoc_opt color_name color_order_map with
+  | Some order -> order
+  | None -> 100 (* Unknown colors go last *)
 
-let is_position_util core =
-  List.exists
-    (fun p -> starts p core)
-    [ "static"; "fixed"; "absolute"; "relative"; "sticky" ]
+(* Utility prefix constants for classification *)
+let display_prefixes =
+  [
+    "block";
+    "inline";
+    "inline-";
+    "flex";
+    "grid";
+    "table";
+    "contents";
+    "flow-root";
+  ]
 
-let is_margin_util core =
-  starts "m-" core || starts "-m-" core || starts "mx-" core
-  || starts "my-" core || starts "-mx-" core || starts "-my-" core
-  || List.exists
-       (fun p -> starts p core)
-       [ "mt-"; "mr-"; "mb-"; "ml-"; "-mt-"; "-mr-"; "-mb-"; "-ml-" ]
+let position_prefixes = [ "static"; "fixed"; "absolute"; "relative"; "sticky" ]
 
-let margin_suborder core =
-  if starts "m-" core || starts "-m-" core then 0
-  else if
-    starts "mx-" core || starts "my-" core || starts "-mx-" core
-    || starts "-my-" core
-  then 1
-  else 2
+let margin_prefixes =
+  [
+    "m-";
+    "-m-";
+    "mx-";
+    "-mx-";
+    "my-";
+    "-my-";
+    "mt-";
+    "-mt-";
+    "mr-";
+    "-mr-";
+    "mb-";
+    "-mb-";
+    "ml-";
+    "-ml-";
+  ]
 
-let is_padding_util core =
-  starts "p-" core || starts "px-" core || starts "py-" core
-  || List.exists (fun p -> starts p core) [ "pt-"; "pr-"; "pb-"; "pl-" ]
+let padding_prefixes = [ "p-"; "px-"; "py-"; "pt-"; "pr-"; "pb-"; "pl-" ]
 
-let padding_suborder core =
-  if starts "p-" core then 0
-  else if starts "px-" core || starts "py-" core then 1
-  else 2
+let typography_prefixes =
+  [
+    "font-";
+    "text-";
+    "tracking-";
+    "leading-";
+    "whitespace-";
+    "break-";
+    "list-";
+    "content-";
+  ]
 
-let is_typography_util core =
-  List.exists
-    (fun p -> starts p core)
-    [
-      "font-";
-      "text-";
-      "tracking-";
-      "leading-";
-      "whitespace-";
-      "break-";
-      "list-";
-      "content-";
-    ]
+let sizing_prefixes = [ "w-"; "h-"; "min-w-"; "min-h-"; "max-w-"; "max-h-" ]
+
+let effects_prefixes =
+  [
+    "shadow-";
+    "shadow";
+    "opacity-";
+    "mix-blend-";
+    "background-blend-";
+    "transform";
+    "translate-";
+    "scale-";
+    "rotate-";
+    "skew-";
+    "transition";
+    "duration-";
+    "ease-";
+    "delay-";
+    "animate-";
+  ]
+
+let interactivity_prefixes =
+  [ "cursor-"; "select-"; "resize-"; "scroll-"; "overflow-"; "overscroll-" ]
+
+let flexbox_grid_prefixes =
+  [
+    "flex-";
+    "grow";
+    "shrink";
+    "basis-";
+    "order-";
+    "grid-cols-";
+    "col-";
+    "grid-rows-";
+    "row-";
+    "grid-flow-";
+    "auto-cols-";
+    "auto-rows-";
+  ]
+
+let gap_prefixes = [ "gap-"; "space-" ]
+
+(* Utility classification functions *)
+let has_any_prefix prefixes core = List.exists (fun p -> starts p core) prefixes
+let is_display_util = has_any_prefix display_prefixes
+let is_position_util = has_any_prefix position_prefixes
+let is_margin_util = has_any_prefix margin_prefixes
+let is_padding_util = has_any_prefix padding_prefixes
+let is_typography_util = has_any_prefix typography_prefixes
+let is_sizing_util = has_any_prefix sizing_prefixes
+let is_effects_util = has_any_prefix effects_prefixes
+let is_interactivity_util = has_any_prefix interactivity_prefixes
+let is_flexbox_grid_util = has_any_prefix flexbox_grid_prefixes
+let is_gap_util = has_any_prefix gap_prefixes
 
 let is_border_util core =
   starts "rounded" core || starts "border" core || starts "outline-" core
 
-let is_sizing_util core =
-  List.exists
-    (fun p -> starts p core)
-    [ "w-"; "h-"; "min-w-"; "min-h-"; "max-w-"; "max-h-" ]
-
-let is_effects_util core =
-  List.exists
-    (fun p -> starts p core)
-    [
-      "shadow-";
-      "shadow";
-      "opacity-";
-      "mix-blend-";
-      "background-blend-";
-      "transform";
-      "translate-";
-      "scale-";
-      "rotate-";
-      "skew-";
-      "transition";
-      "duration-";
-      "ease-";
-      "delay-";
-      "animate-";
-    ]
-
-let is_interactivity_util core =
-  List.exists
-    (fun p -> starts p core)
-    [ "cursor-"; "select-"; "resize-"; "scroll-"; "overflow-"; "overscroll-" ]
-
-let is_flexbox_grid_util core =
-  List.exists
-    (fun p -> starts p core)
-    [
-      "flex-";
-      "grow";
-      "shrink";
-      "basis-";
-      "order-";
-      "grid-cols-";
-      "col-";
-      "grid-rows-";
-      "row-";
-      "grid-flow-";
-      "auto-cols-";
-      "auto-rows-";
-    ]
-
-let is_alignment_util core =
-  if starts "items-" core then (901, 0)
-  else if starts "justify-" core then (901, 1)
-  else if List.exists (fun p -> starts p core) [ "content-"; "self-"; "place-" ]
-  then (901, 2)
-  else (-1, -1)
-
-let is_gap_util core = List.exists (fun p -> starts p core) [ "gap-"; "space-" ]
 let is_container_prose core = core = "container" || starts "prose" core
+
+(* Suborder functions for fine-grained sorting within groups *)
+let margin_suborder core =
+  if starts "m-" core || starts "-m-" core then 0 (* All margins *)
+  else if
+    starts "mx-" core || starts "-mx-" core || starts "my-" core
+    || starts "-my-" core
+  then 1 (* Axis margins *)
+  else 2 (* Individual margins *)
+
+let padding_suborder core =
+  if starts "p-" core then 0 (* All padding *)
+  else if starts "px-" core || starts "py-" core then 1 (* Axis padding *)
+  else 2 (* Individual padding *)
+
+let alignment_suborder core =
+  if starts "items-" core then 0
+  else if starts "justify-" core then 1
+  else if has_any_prefix [ "content-"; "self-"; "place-" ] core then 2
+  else -1
+
+(* Conflict group classification table Groups are ordered by priority (lower
+   number = higher priority) This ordering ensures proper cascade behavior in
+   CSS *)
+type utility_group = {
+  priority : int;
+  name : string;
+  classifier : string -> bool;
+  suborder : string -> int;
+}
+
+let utility_groups =
+  [
+    {
+      priority = 10;
+      name = "display";
+      classifier = (fun c -> c = "hidden" || is_display_util c);
+      suborder = (fun c -> if c = "hidden" then 3 else 1);
+    };
+    {
+      priority = 11;
+      name = "position";
+      classifier = is_position_util;
+      suborder = (fun _ -> 0);
+    };
+    {
+      priority = 100;
+      name = "margin";
+      classifier = is_margin_util;
+      suborder = margin_suborder;
+    };
+    {
+      priority = 200;
+      name = "background";
+      classifier =
+        (fun c ->
+          starts "bg-" c || starts "from-" c || starts "via-" c
+          || starts "to-" c);
+      suborder =
+        (fun c ->
+          if starts "bg-" c then
+            let color_part = String.sub c 3 (String.length c - 3) in
+            let color_name =
+              try
+                let last_dash = String.rindex color_part '-' in
+                String.sub color_part 0 last_dash
+              with Not_found -> color_part
+            in
+            color_order color_name
+          else 50 (* Gradient utilities come after solid colors *));
+    };
+    {
+      priority = 300;
+      name = "padding";
+      classifier = is_padding_util;
+      suborder = padding_suborder;
+    };
+    {
+      priority = 400;
+      name = "typography";
+      classifier = is_typography_util;
+      suborder = (fun _ -> 0);
+    };
+    {
+      priority = 500;
+      name = "border";
+      classifier = is_border_util;
+      suborder = (fun _ -> 0);
+    };
+    {
+      priority = 600;
+      name = "sizing";
+      classifier = is_sizing_util;
+      suborder = (fun _ -> 0);
+    };
+    {
+      priority = 700;
+      name = "effects";
+      classifier = is_effects_util;
+      suborder = (fun _ -> 0);
+    };
+    {
+      priority = 800;
+      name = "interactivity";
+      classifier = is_interactivity_util;
+      suborder = (fun _ -> 0);
+    };
+    {
+      priority = 900;
+      name = "flexbox_grid";
+      classifier = is_flexbox_grid_util;
+      suborder = (fun _ -> 0);
+    };
+    {
+      priority = 901;
+      name = "alignment";
+      classifier = (fun c -> alignment_suborder c >= 0);
+      suborder = alignment_suborder;
+    };
+    {
+      priority = 902;
+      name = "gap";
+      classifier = is_gap_util;
+      suborder = (fun _ -> 0);
+    };
+    {
+      priority = 1000;
+      name = "container_prose";
+      classifier = is_container_prose;
+      suborder = (fun _ -> 0);
+    };
+  ]
 
 (* Main conflict resolution function *)
 let conflict_group selector =
@@ -454,37 +580,24 @@ let conflict_group selector =
     else selector
   in
 
-  (* Special cases first *)
-  if core = "hidden" then (10, 3)
-  else if is_display_util core then (10, 1)
-  else if is_position_util core then (11, 0)
-  else if is_margin_util core then (100, margin_suborder core)
-  else if starts "bg-" core then
-    let color_part = String.sub core 3 (String.length core - 3) in
-    let color_name =
-      try
-        let last_dash = String.rindex color_part '-' in
-        String.sub color_part 0 last_dash
-      with Not_found -> color_part
-    in
-    (200, color_order color_name)
-  else if List.exists (fun p -> starts p core) [ "from-"; "via-"; "to-" ] then
-    (200, 50)
-  else if is_padding_util core then (300, padding_suborder core)
-  else if is_typography_util core then (400, 0)
-  else if is_border_util core then (500, 0)
-  else if is_sizing_util core then (600, 0)
-  else if is_effects_util core then (700, 0)
-  else if is_interactivity_util core then (800, 0)
-  else if is_flexbox_grid_util core then (900, 0)
-  else
-    let align_group, align_sub = is_alignment_util core in
-    if align_group >= 0 then (align_group, align_sub)
-    else if is_gap_util core then (902, 0)
-    else if is_container_prose core then (1000, 0)
-    else (9999, 0)
+  (* Find the first matching group *)
+  match List.find_opt (fun g -> g.classifier core) utility_groups with
+  | Some group -> (group.priority, group.suborder core)
+  | None -> (9999, 0)
+(* Unknown utilities go last *)
 
 let build_utilities_layer ~rules ~media_queries ~container_queries =
+  (* Sort rules by conflict group priority for proper cascade behavior.
+
+     We use List.stable_sort to maintain relative order of rules with the same
+     priority. This ensures deterministic output: - Rules are first grouped by
+     utility type (display, margin, padding, etc.) - Within each group, rules
+     are sorted by suborder (e.g., m- before mx- before mt-) - Rules with
+     identical group and suborder maintain their original order
+
+     This stable sorting is crucial for predictable CSS output when multiple
+     Tailwind classes could conflict. The last class in the original list wins
+     among equal-priority utilities. *)
   let sorted_rules =
     List.stable_sort
       (fun r1 r2 ->
