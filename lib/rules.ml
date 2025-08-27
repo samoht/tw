@@ -717,8 +717,15 @@ let rule_sets tw_classes =
 (* Layer Generation - CSS @layer directives and variable resolution *)
 (* ======================================================================== *)
 
-module Set = Set.Make (String)
-module Map = Map.Make (String)
+module StringSet = Set.Make (String)
+module StringMap = Map.Make (String)
+
+(* Map for typed variables with theme ordering *)
+module VarMap = Map.Make (struct
+  type t = Var.any
+
+  let compare = Var.compare_for Var.Theme
+end)
 
 let compute_properties_layer rules =
   let referenced_vars = Css.vars_of_rules rules in
@@ -759,15 +766,6 @@ let compute_properties_layer rules =
   in
   (layer_opt, at_properties)
 
-(* Order for theme variables - use Var module's canonical ordering *)
-let theme_variable_order var_name =
-  (* Try to map to a typed variable and use its canonical order *)
-  match Var.var_of_name var_name with
-  | Some (Var.Any v) -> Var.canonical_order v
-  | None ->
-      (* Unknown variables go at the end *)
-      1000000
-
 let compute_theme_layer ?(default_vars = []) tw_classes =
   (* Use Var module to get default font variables instead of hardcoding *)
   let default_vars =
@@ -783,7 +781,7 @@ let compute_theme_layer ?(default_vars = []) tw_classes =
   in
   (* Extract all variable declarations (Custom_declaration) from the styles *)
   let all_var_declarations =
-    let var_map = ref Map.empty in
+    let var_list = ref [] in
     tw_classes
     |> List.iter (fun tw ->
            let selector_props = extract_selector_props tw in
@@ -802,16 +800,26 @@ let compute_theme_layer ?(default_vars = []) tw_classes =
                        | Some var_name
                          when not (String.starts_with ~prefix:"--tw-" var_name)
                          ->
-                           var_map := Map.add var_name decl !var_map
+                           var_list := decl :: !var_list
                        | _ -> ())
                      custom_decls)
              selector_props);
-    Map.bindings !var_map |> List.map snd
+    (* Deduplicate by variable name while preserving order *)
+    let seen = ref StringSet.empty in
+    !var_list
+    |> List.filter (fun decl ->
+           match Css.custom_declaration_name decl with
+           | Some name ->
+               if StringSet.mem name !seen then false
+               else (
+                 seen := StringSet.add name !seen;
+                 true)
+           | None -> false)
   in
 
   (* Also get variable names that are referenced (for fallback generation) *)
   let directly_referenced_vars =
-    let var_set = ref Set.empty in
+    let var_set = ref StringSet.empty in
     tw_classes
     |> List.iter (fun tw ->
            let selector_props = extract_selector_props tw in
@@ -822,10 +830,10 @@ let compute_theme_layer ?(default_vars = []) tw_classes =
                | Container_query { props; _ }
                | Starting_style { props; _ } ->
                    List.iter
-                     (fun v -> var_set := Set.add v !var_set)
+                     (fun v -> var_set := StringSet.add v !var_set)
                      (Css.vars_of_declarations props))
              selector_props);
-    Set.elements !var_set
+    StringSet.elements !var_set
   in
 
   (* Build list of all variables we need, preserving default_vars order *)
@@ -854,17 +862,19 @@ let compute_theme_layer ?(default_vars = []) tw_classes =
            with
            | Some decl -> Some decl
            | None ->
-               (* No special treatment - all variables handled through layer
-                  system *)
-               None)
+               (* For default variables, get them from Var module *)
+               if List.mem var_name default_vars then
+                 let default_decls = Var.default_font_declarations () in
+                 List.find_opt
+                   (fun decl ->
+                     match Css.custom_declaration_name decl with
+                     | Some name -> name = var_name
+                     | None -> false)
+                   default_decls
+               else None)
     |> List.stable_sort (fun a b ->
-           (* Sort declarations by their variable name order *)
-           match
-             (Css.custom_declaration_name a, Css.custom_declaration_name b)
-           with
-           | Some na, Some nb ->
-               Int.compare (theme_variable_order na) (theme_variable_order nb)
-           | _ -> 0)
+           (* Sort declarations using Var module's proper ordering *)
+           Var.compare_declarations Var.Theme a b)
   in
 
   if theme_generated_vars = [] then Css.layered_rules ~layer:Css.Theme []

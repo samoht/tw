@@ -1,7 +1,7 @@
 (* Variable tracking for CSS composition groups and layer assignment *)
 
 (** Layer classification for CSS variables *)
-type layer = Theme | Properties | Utility
+type layer = Theme | Base | Properties | Utility
 
 (** CSS variable type as a GADT for type safety *)
 type _ t =
@@ -133,12 +133,6 @@ val name : _ t -> string
 val theme : 'a t -> 'a -> Css.declaration * 'a Css.var
 (** Create a theme layer variable (colors, spacing, fonts, radius) *)
 
-val composition : 'a t -> 'a -> Css.declaration * 'a Css.var
-(** Create a composition/properties layer variable (--tw-* prefixed) *)
-
-val property : 'a t -> 'a -> Css.declaration * 'a Css.var
-(** Create a utility layer variable (rare) *)
-
 val layer : _ Css.var -> layer option
 (** Get the layer from a CSS variable *)
 
@@ -151,47 +145,26 @@ type any = Any : _ t -> any
 val var_of_name : string -> any option
 (** Convert a CSS variable name to a typed variable *)
 
-val find : string -> Css.declaration -> any option
-(** Find variables referenced in a declaration *)
-
-val find_all : Css.declaration -> any list
-(** Find all variables referenced in a declaration *)
-
-val canonical_color_order : string -> int
-val canonical_order : _ t -> int
-val compare : _ t -> _ t -> int
-val pp : _ t -> string
-
-module S : Set.S with type elt = string
-module Set : Stdlib.Set.S with type elt = any
-
-type feature_group =
-  | Translate
-  | Rotate
-  | Skew
-  | Scale
-  | Filter
-  | Backdrop
-  | Ring_shadow
-  | Gradient
-  | Border
-  | Scroll_snap
-  | Other
-
-val group_of_var : _ t -> feature_group
-val group_of_var_string : string -> feature_group
-
-type tally = {
-  assigned : Set.t;
-  fallback_refs : Set.t;
-  unknown_assigned : S.t;
-  unknown_fallback_refs : S.t;
-}
+type tally
 
 val empty : tally
 val tally_of_vars : string list -> tally
-val groups_needing_layer : tally -> feature_group list
 val needs_at_property : tally -> any list
 val at_property_config : any -> (string * string * bool * string) option
-val is_composition_var : string -> bool
-val extract_composition_vars : (string * 'a) list -> string list
+
+val default_font_declarations : unit -> Css.declaration list
+(** Generate default font variable declarations for theme layer *)
+
+val canonical_theme_order : any list
+(** List of all theme variables in their canonical order *)
+
+val compare_for : layer -> any -> any -> int
+(** Compare two variables for ordering within a specific layer.
+    - Theme: Design tokens first (fonts), then spacing, type scales, colors,
+      radii
+    - Properties: By feature group needing initialization
+    - Base/Utilities: Fallback to alphabetical ordering *)
+
+val compare_declarations : layer -> Css.declaration -> Css.declaration -> int
+(** Compare two CSS declarations by extracting and comparing their typed
+    variable metadata *)
