@@ -215,40 +215,38 @@ let length_mismatch ~len1 ~len2 ~tw_label ~tailwind_label ~min_len ~css1 ~css2 =
       Fmt.(styled `Yellow string)
       extra_preview )
 
+let format_diff_result tw_label tailwind_label context1 context2 =
+  let tw_padding =
+    String.make
+      (max 0 (String.length tailwind_label - String.length tw_label))
+      ' '
+  in
+  Fmt.str "%a:%s %s\n%a: %s"
+    Fmt.(styled `Green string)
+    tw_label tw_padding
+    (highlight_diff context1 50)
+    Fmt.(styled `Blue string)
+    tailwind_label
+    (highlight_diff context2 50)
+
+let check_char_at css1 css2 len1 len2 tw_label tailwind_label i =
+  if css1.[i] = css2.[i] then None
+  else
+    let context1 = context_window css1 ~len:len1 ~pos:i in
+    let context2 = context_window css2 ~len:len2 ~pos:i in
+    let location = location_at css1 i in
+    let diff_text =
+      format_diff_result tw_label tailwind_label context1 context2
+    in
+    Some (i, format_location location, diff_text)
+
 let first_diff css1 css2 =
   let len1 = String.length css1 in
   let len2 = String.length css2 in
   let min_len = min len1 len2 in
-  let tw_label =
-    let v = version css1 in
-    if v = "unknown" then "tw" else v
-  in
+  let tw_label = match version css1 with "unknown" -> "tw" | v -> v in
   let tailwind_label =
-    let v = version css2 in
-    if v = "unknown" then "tailwind" else v
-  in
-  let get_location css pos = location_at css pos in
-  let check_char_at i =
-    if css1.[i] <> css2.[i] then
-      let context1 = context_window css1 ~len:len1 ~pos:i in
-      let context2 = context_window css2 ~len:len2 ~pos:i in
-      let location = get_location css1 i in
-      let tw_padding =
-        String.make
-          (max 0 (String.length tailwind_label - String.length tw_label))
-          ' '
-      in
-      Some
-        ( i,
-          format_location location,
-          Fmt.str "%a:%s %s\n%a: %s"
-            Fmt.(styled `Green string)
-            tw_label tw_padding
-            (highlight_diff context1 50)
-            Fmt.(styled `Blue string)
-            tailwind_label
-            (highlight_diff context2 50) )
-    else None
+    match version css2 with "unknown" -> "tailwind" | v -> v
   in
 
   let rec loop i =
@@ -259,7 +257,7 @@ let first_diff css1 css2 =
           (length_mismatch ~len1 ~len2 ~tw_label ~tailwind_label ~min_len ~css1
              ~css2)
     else
-      match check_char_at i with
+      match check_char_at css1 css2 len1 len2 tw_label tailwind_label i with
       | Some result -> Some result
       | None -> loop (i + 1)
   in

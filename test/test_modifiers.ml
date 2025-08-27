@@ -69,7 +69,7 @@ let test_validate_no_nested_responsive () =
 let test_responsive_rejects name outer_fn inner_content =
   try
     let _ = outer_fn [ inner_content ] in
-    fail (Printf.sprintf "%s should reject nested responsive" name)
+    fail (Fmt.str "%s should reject nested responsive" name)
   with
   | Failure _ -> () (* Expected to fail *)
   | _ -> fail "Expected Failure about nested responsive"
