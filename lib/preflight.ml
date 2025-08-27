@@ -2,6 +2,21 @@
 
 open Css
 
+(* Font settings variables *)
+let _default_font_feature_settings_def, default_font_feature_settings_var =
+  var "default-font-feature-settings" String "normal"
+
+let _default_font_variation_settings_def, default_font_variation_settings_var =
+  var "default-font-variation-settings" String "normal"
+
+let ( _default_mono_font_feature_settings_def,
+      default_mono_font_feature_settings_var ) =
+  var "default-mono-font-feature-settings" String "normal"
+
+let ( _default_mono_font_variation_settings_def,
+      default_mono_font_variation_settings_var ) =
+  var "default-mono-font-variation-settings" String "normal"
+
 (** Box model resets *)
 let box_resets () =
   [
@@ -37,8 +52,10 @@ let root_resets () =
                     ];
               };
           ];
-        font_feature_settings "var(--default-font-feature-settings, normal)";
-        font_variation_settings "var(--default-font-variation-settings, normal)";
+        font_feature_settings
+          (var_to_string ~fallback:"normal" default_font_feature_settings_var);
+        font_variation_settings
+          (var_to_string ~fallback:"normal" default_font_variation_settings_var);
         webkit_tap_highlight_color Transparent;
       ];
   ]
@@ -95,9 +112,11 @@ let code_resets () =
               };
           ];
         font_feature_settings
-          "var(--default-mono-font-feature-settings, normal)";
+          (var_to_string ~fallback:"normal"
+             default_mono_font_feature_settings_var);
         font_variation_settings
-          "var(--default-mono-font-variation-settings, normal)";
+          (var_to_string ~fallback:"normal"
+             default_mono_font_variation_settings_var);
         font_size (Em 1.0);
       ];
   ]
@@ -210,7 +229,7 @@ let webkit_form_resets () =
 
 (** Firefox-specific form resets *)
 let firefox_form_resets () =
-  [ rule ~selector:":-moz-ui-invalid" [ box_shadow "none" ] ]
+  [ rule ~selector:":-moz-ui-invalid" [ box_shadow None ] ]
 
 (** Buttons need specific styles *)
 let button_specific_resets () =

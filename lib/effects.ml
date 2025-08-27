@@ -30,46 +30,152 @@ module Parse = Parse
 
 (** {1 Shadow Utilities} *)
 
-let shadow_none = style "shadow-none" [ box_shadow "none" ]
+let shadow_none = style "shadow-none" [ box_shadow None ]
 
 let shadow_sm =
-  style "shadow-sm" [ box_shadow "0 1px 2px 0 rgba(0, 0, 0, 0.05)" ]
+  style "shadow-sm"
+    [
+      box_shadow
+        (Shadow
+           {
+             inset = false;
+             h_offset = Px 0;
+             v_offset = Px 1;
+             blur = Px 2;
+             spread = Px 0;
+             color = Rgba { r = 0; g = 0; b = 0; a = 0.05 };
+           });
+    ]
 
 let shadow =
   style "shadow"
     [
       box_shadow
-        "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)";
+        (Shadows
+           [
+             {
+               inset = false;
+               h_offset = Px 0;
+               v_offset = Px 1;
+               blur = Px 3;
+               spread = Px 0;
+               color = Rgba { r = 0; g = 0; b = 0; a = 0.1 };
+             };
+             {
+               inset = false;
+               h_offset = Px 0;
+               v_offset = Px 1;
+               blur = Px 2;
+               spread = Px 0;
+               color = Rgba { r = 0; g = 0; b = 0; a = 0.06 };
+             };
+           ]);
     ]
 
 let shadow_md =
   style "shadow-md"
     [
       box_shadow
-        "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
+        (Shadows
+           [
+             {
+               inset = false;
+               h_offset = Px 0;
+               v_offset = Px 4;
+               blur = Px 6;
+               spread = Px (-1);
+               color = Rgba { r = 0; g = 0; b = 0; a = 0.1 };
+             };
+             {
+               inset = false;
+               h_offset = Px 0;
+               v_offset = Px 2;
+               blur = Px 4;
+               spread = Px (-1);
+               color = Rgba { r = 0; g = 0; b = 0; a = 0.06 };
+             };
+           ]);
     ]
 
 let shadow_lg =
   style "shadow-lg"
     [
       box_shadow
-        "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, \
-         0.05)";
+        (Shadows
+           [
+             {
+               inset = false;
+               h_offset = Px 0;
+               v_offset = Px 10;
+               blur = Px 15;
+               spread = Px (-3);
+               color = Rgba { r = 0; g = 0; b = 0; a = 0.1 };
+             };
+             {
+               inset = false;
+               h_offset = Px 0;
+               v_offset = Px 4;
+               blur = Px 6;
+               spread = Px (-2);
+               color = Rgba { r = 0; g = 0; b = 0; a = 0.05 };
+             };
+           ]);
     ]
 
 let shadow_xl =
   style "shadow-xl"
     [
       box_shadow
-        "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, \
-         0.04)";
+        (Shadows
+           [
+             {
+               inset = false;
+               h_offset = Px 0;
+               v_offset = Px 20;
+               blur = Px 25;
+               spread = Px (-5);
+               color = Rgba { r = 0; g = 0; b = 0; a = 0.1 };
+             };
+             {
+               inset = false;
+               h_offset = Px 0;
+               v_offset = Px 10;
+               blur = Px 10;
+               spread = Px (-5);
+               color = Rgba { r = 0; g = 0; b = 0; a = 0.04 };
+             };
+           ]);
     ]
 
 let shadow_2xl =
-  style "shadow-2xl" [ box_shadow "0 25px 50px -12px rgba(0, 0, 0, 0.25)" ]
+  style "shadow-2xl"
+    [
+      box_shadow
+        (Shadow
+           {
+             inset = false;
+             h_offset = Px 0;
+             v_offset = Px 25;
+             blur = Px 50;
+             spread = Px (-12);
+             color = Rgba { r = 0; g = 0; b = 0; a = 0.25 };
+           });
+    ]
 
 let shadow_inner =
-  style "shadow-inner" [ box_shadow "inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)" ]
+  style "shadow-inner"
+    [
+      box_shadow
+        (Shadow
+           {
+             inset = true;
+             h_offset = Px 0;
+             v_offset = Px 2;
+             blur = Px 4;
+             spread = Px 0;
+             color = Rgba { r = 0; g = 0; b = 0; a = 0.06 };
+           });
+    ]
 
 (** {1 Opacity Utilities} *)
 
@@ -122,17 +228,24 @@ let ring_internal (w : ring_width) =
     | "8px" -> Px 8
     | _ -> Px 3
   in
-  let width_def, _width_var = var "tw-ring-width" Length width_len in
+  let width_def, width_var = var "tw-ring-width" Length width_len in
+  let color_def, color_var =
+    var "tw-ring-color" Color (Rgba { r = 59; g = 130; b = 246; a = 0.5 })
+  in
   style class_name
     [
       width_def;
+      color_def;
       box_shadow
-        (Pp.str
-           [
-             "0 0 0 var(--tw-ring-width, ";
-             width;
-             ") var(--tw-ring-color, rgba(59, 130, 246, 0.5))";
-           ]);
+        (Shadow
+           {
+             inset = false;
+             h_offset = Px 0;
+             v_offset = Px 0;
+             blur = Px 0;
+             spread = Var width_var;
+             color = Var color_var;
+           });
     ]
 
 let ring_none = ring_internal `None
