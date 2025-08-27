@@ -221,6 +221,46 @@ let test_resolve_dependencies () =
   check bool "resolves input vars" true (List.mem "--color-blue-500" resolved);
   check bool "resolves spacing var" true (List.mem "--spacing-4" resolved)
 
+let test_resolve_dependencies_dedup_and_queue () =
+  (* Duplicates in input should not duplicate output; order is not asserted. *)
+  let vars = [ "--text-xl"; "--text-xl"; "--text-xl--line-height" ] in
+  let resolved = Tw.Rules.resolve_dependencies vars [] in
+  (* Both variables should be present once. *)
+  check bool "has --text-xl" true (List.mem "--text-xl" resolved);
+  check bool "has --text-xl--line-height" true
+    (List.mem "--text-xl--line-height" resolved)
+
+let test_theme_layer_collects_media_refs () =
+  (* Vars referenced only under media queries should still end up in theme. *)
+  let theme_layer =
+    Tw.Rules.compute_theme_layer [ sm [ Tw.Typography.text_xl ] ]
+  in
+  let css =
+    Css.to_string ~minify:false (Css.stylesheet [ Css.Layer theme_layer ])
+  in
+  check bool "includes --text-xl var" true (contains css "--text-xl");
+  check bool "includes --text-xl--line-height var" true
+    (contains css "--text-xl--line-height")
+
+let test_rule_sets_injects_hover_media_query () =
+  (* A bare hover utility produces a rule that should be gated behind
+     (hover:hover) *)
+  let _rules, media, _containers =
+    Tw.Rules.rule_sets [ hover [ Tw.Spacing.p 4 ] ]
+  in
+  (* Find a media block with (hover:hover) and check it contains the expected
+     selector. *)
+  let media_css =
+    media
+    |> List.map (fun m ->
+           Css.to_string ~minify:false (Css.stylesheet [ Css.Media m ]))
+    |> String.concat "\n"
+  in
+  check bool "has (hover:hover) media query" true
+    (contains media_css "(hover:hover)");
+  check bool "hover rule is inside media query" true
+    (contains media_css ".hover\\:p-4:hover")
+
 let test_modifier_to_rule () =
   let rule =
     Tw.Rules.modifier_to_rule Tw.Core.Hover "bg-blue-500" ".bg-blue-500"
@@ -299,6 +339,12 @@ let tests =
     test_case "is_hover_rule" `Quick test_is_hover_rule;
     test_case "group_by_selector" `Quick test_group_by_selector;
     test_case "resolve_dependencies" `Quick test_resolve_dependencies;
+    test_case "resolve_dependencies_dedup_and_queue" `Quick
+      test_resolve_dependencies_dedup_and_queue;
+    test_case "theme_layer_collects_media_refs" `Quick
+      test_theme_layer_collects_media_refs;
+    test_case "rule_sets_injects_hover_media_query" `Quick
+      test_rule_sets_injects_hover_media_query;
     test_case "modifier_to_rule" `Quick test_modifier_to_rule;
     test_case "rule_sets" `Quick test_rule_sets;
     test_case "build_utilities_layer" `Quick test_build_utilities_layer;
