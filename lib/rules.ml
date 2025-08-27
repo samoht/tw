@@ -69,6 +69,13 @@ let starting_style ~selector ~props ?base_class () =
 (* Basic Utilities *)
 (* ======================================================================== *)
 
+(* String manipulation helpers *)
+let drop_prefix prefix s =
+  let lp = String.length prefix in
+  let ls = String.length s in
+  if ls >= lp && String.sub s 0 lp = prefix then String.sub s lp (ls - lp)
+  else s
+
 let string_of_breakpoint = function
   | `Sm -> "sm"
   | `Md -> "md"
@@ -85,6 +92,11 @@ let responsive_breakpoint = function
   | _ -> "0rem"
 
 let escape_class_name name =
+  (* Escape special CSS selector characters for Tailwind class names. This
+     covers the common characters used in Tailwind utilities like arbitrary
+     values (p-[10px]), responsive prefixes (sm:p-4), fractions (w-1/2), and
+     other special cases. Note: This is not a complete CSS.escape implementation
+     but handles all characters typically found in Tailwind class names. *)
   let buf = Buffer.create (String.length name * 2) in
   String.iter
     (function
@@ -139,52 +151,67 @@ let modifier_to_rule modifier base_class selector props =
         "." ^ escaped_prefix ^ "\\:" ^ escape_class_name base_class
       in
       let condition = Containers.container_query_to_css_prefix query in
+      (* Extract the condition part from "@container (condition)" format *)
       let cond =
         if String.starts_with ~prefix:"@container " condition then
-          String.sub condition 11 (String.length condition - 11)
+          drop_prefix "@container " condition
         else "(min-width: 0)"
       in
       container_query ~condition:cond ~selector:escaped_class ~props ~base_class
         ()
   | Not _modifier ->
+      (* Note: This negates the entire selector, not just the base class. This
+         is intentional to allow complex :not() conditions. *)
       regular
-        ~selector:(".not-" ^ base_class ^ ":not(" ^ selector ^ ")")
+        ~selector:
+          (".not-" ^ escape_class_name base_class ^ ":not(" ^ selector ^ ")")
         ~props ~base_class ()
   | Has selector_str ->
+      (* Escape the selector string that appears in the class name *)
+      let escaped_selector = escape_class_name selector_str in
       regular
         ~selector:
-          (".has-\\[" ^ selector_str ^ "\\]\\:" ^ base_class ^ ":has("
-         ^ selector_str ^ ")")
+          (".has-\\[" ^ escaped_selector ^ "\\]\\:"
+          ^ escape_class_name base_class
+          ^ ":has(" ^ selector_str ^ ")")
         ~props ~base_class ()
   | Group_has selector_str ->
+      (* Escape the selector string that appears in the class name *)
+      let escaped_selector = escape_class_name selector_str in
       regular
         ~selector:
-          (".group:has(" ^ selector_str ^ ") .group-has-\\[" ^ selector_str
-         ^ "\\]\\:" ^ base_class)
+          (".group:has(" ^ selector_str ^ ") .group-has-\\[" ^ escaped_selector
+         ^ "\\]\\:"
+          ^ escape_class_name base_class)
         ~props ~base_class ()
   | Peer_has selector_str ->
+      (* Escape the selector string that appears in the class name *)
+      let escaped_selector = escape_class_name selector_str in
       regular
         ~selector:
-          (".peer:has(" ^ selector_str ^ ") ~ .peer-has-\\[" ^ selector_str
-         ^ "\\]\\:" ^ base_class)
+          (".peer:has(" ^ selector_str ^ ") ~ .peer-has-\\[" ^ escaped_selector
+         ^ "\\]\\:"
+          ^ escape_class_name base_class)
         ~props ~base_class ()
   | Starting ->
-      starting_style ~selector:("." ^ base_class) ~props ~base_class ()
+      starting_style
+        ~selector:("." ^ escape_class_name base_class)
+        ~props ~base_class ()
   | Motion_safe ->
       media_query ~condition:"(prefers-reduced-motion: no-preference)"
-        ~selector:(".motion-safe\\:" ^ base_class)
+        ~selector:(".motion-safe\\:" ^ escape_class_name base_class)
         ~props ~base_class ()
   | Motion_reduce ->
       media_query ~condition:"(prefers-reduced-motion: reduce)"
-        ~selector:(".motion-reduce\\:" ^ base_class)
+        ~selector:(".motion-reduce\\:" ^ escape_class_name base_class)
         ~props ~base_class ()
   | Contrast_more ->
       media_query ~condition:"(prefers-contrast: more)"
-        ~selector:(".contrast-more\\:" ^ base_class)
+        ~selector:(".contrast-more\\:" ^ escape_class_name base_class)
         ~props ~base_class ()
   | Contrast_less ->
       media_query ~condition:"(prefers-contrast: less)"
-        ~selector:(".contrast-less\\:" ^ base_class)
+        ~selector:(".contrast-less\\:" ^ escape_class_name base_class)
         ~props ~base_class ()
   | Hover | Focus | Active | Focus_within | Focus_visible | Disabled ->
       (* These are pseudo-class modifiers - track hover specifically *)
@@ -295,10 +322,6 @@ let group_container_queries container_rules =
 (* ======================================================================== *)
 (* Conflict Resolution - Order utilities by specificity *)
 (* ======================================================================== *)
-
-let starts prefix s =
-  let lp = String.length prefix and ls = String.length s in
-  ls >= lp && String.sub s 0 lp = prefix
 
 (* Centralized color ordering - matches Tailwind's color palette order *)
 (* Colors are ordered alphabetically for consistency and predictability *)
@@ -423,7 +446,9 @@ let flexbox_grid_prefixes =
 let gap_prefixes = [ "gap-"; "space-" ]
 
 (* Utility classification functions *)
-let has_any_prefix prefixes core = List.exists (fun p -> starts p core) prefixes
+let has_any_prefix prefixes core =
+  List.exists (fun p -> String.starts_with ~prefix:p core) prefixes
+
 let is_display_util = has_any_prefix display_prefixes
 let is_position_util = has_any_prefix position_prefixes
 let is_margin_util = has_any_prefix margin_prefixes
@@ -436,27 +461,38 @@ let is_flexbox_grid_util = has_any_prefix flexbox_grid_prefixes
 let is_gap_util = has_any_prefix gap_prefixes
 
 let is_border_util core =
-  starts "rounded" core || starts "border" core || starts "outline-" core
+  String.starts_with ~prefix:"rounded" core
+  || String.starts_with ~prefix:"border" core
+  || String.starts_with ~prefix:"outline-" core
 
-let is_container_prose core = core = "container" || starts "prose" core
+let is_container_or_prose core =
+  core = "container" || String.starts_with ~prefix:"prose" core
 
 (* Suborder functions for fine-grained sorting within groups *)
 let margin_suborder core =
-  if starts "m-" core || starts "-m-" core then 0 (* All margins *)
+  if
+    String.starts_with ~prefix:"m-" core
+    || String.starts_with ~prefix:"-m-" core
+  then 0 (* All margins *)
   else if
-    starts "mx-" core || starts "-mx-" core || starts "my-" core
-    || starts "-my-" core
+    String.starts_with ~prefix:"mx-" core
+    || String.starts_with ~prefix:"-mx-" core
+    || String.starts_with ~prefix:"my-" core
+    || String.starts_with ~prefix:"-my-" core
   then 1 (* Axis margins *)
   else 2 (* Individual margins *)
 
 let padding_suborder core =
-  if starts "p-" core then 0 (* All padding *)
-  else if starts "px-" core || starts "py-" core then 1 (* Axis padding *)
+  if String.starts_with ~prefix:"p-" core then 0 (* All padding *)
+  else if
+    String.starts_with ~prefix:"px-" core
+    || String.starts_with ~prefix:"py-" core
+  then 1 (* Axis padding *)
   else 2 (* Individual padding *)
 
 let alignment_suborder core =
-  if starts "items-" core then 0
-  else if starts "justify-" core then 1
+  if String.starts_with ~prefix:"items-" core then 0
+  else if String.starts_with ~prefix:"justify-" core then 1
   else if has_any_prefix [ "content-"; "self-"; "place-" ] core then 2
   else -1
 
@@ -495,12 +531,14 @@ let utility_groups =
       name = "background";
       classifier =
         (fun c ->
-          starts "bg-" c || starts "from-" c || starts "via-" c
-          || starts "to-" c);
+          String.starts_with ~prefix:"bg-" c
+          || String.starts_with ~prefix:"from-" c
+          || String.starts_with ~prefix:"via-" c
+          || String.starts_with ~prefix:"to-" c);
       suborder =
         (fun c ->
-          if starts "bg-" c then
-            let color_part = String.sub c 3 (String.length c - 3) in
+          if String.starts_with ~prefix:"bg-" c then
+            let color_part = drop_prefix "bg-" c in
             let color_name =
               try
                 let last_dash = String.rindex color_part '-' in
@@ -567,7 +605,7 @@ let utility_groups =
     {
       priority = 1000;
       name = "container_prose";
-      classifier = is_container_prose;
+      classifier = is_container_or_prose;
       suborder = (fun _ -> 0);
     };
   ]
@@ -611,6 +649,9 @@ let build_utilities_layer ~rules ~media_queries ~container_queries =
     (sorted_rules |> List.map Css.rule_to_nested)
 
 let add_hover_to_media_map hover_rules media_map =
+  (* Gate hover rules behind (hover:hover) media query to prevent them from
+     applying on touch devices where :hover can stick after tapping. This
+     follows modern CSS best practices for hover states. *)
   if hover_rules = [] then media_map
   else
     let hover_condition = "(hover:hover)" in

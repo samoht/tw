@@ -1,0 +1,3 @@
+exclusions:
+   - pattern: lib/prose.ml*
+     rules: [E330]
