@@ -107,7 +107,8 @@ let check_properties_layer () =
     (List.length at_props = 0)
 
 let check_to_css_reset () =
-  let css = Tw.Rules.to_css ~reset:true [] in
+  let config = { Tw.Rules.reset = true; mode = Css.Variables } in
+  let css = Tw.Rules.to_css ~config [] in
   let css_str = Css.to_string ~minify:false css in
   (* Check that reset rules are included *)
   check bool "includes reset rules" true (contains css_str "*, :after, :before");
@@ -116,7 +117,8 @@ let check_to_css_reset () =
   check bool "has utilities layer" true (contains css_str "@layer utilities")
 
 let check_to_css_no_reset () =
-  let css = Tw.Rules.to_css ~reset:false [ p 4 ] in
+  let config = { Tw.Rules.reset = false; mode = Css.Variables } in
+  let css = Tw.Rules.to_css ~config [ p 4 ] in
   let css_str = Css.to_string ~minify:false css in
   (* No reset means no layers, just raw rules *)
   check bool "no theme layer" false (contains css_str "@layer theme");

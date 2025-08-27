@@ -847,11 +847,21 @@ let wrap_css_items ~rules ~media_queries ~container_queries =
 (* Main API - Convert Tw styles to CSS *)
 (* ======================================================================== *)
 
-let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
+type config = { reset : bool; mode : Css.mode }
+(** Configuration for CSS generation *)
+
+let default_config = { reset = true; mode = Css.Variables }
+
+let to_css ?(config = default_config) tw_classes =
   let rules, media_queries, container_queries = rule_sets tw_classes in
 
-  if reset && mode = Css.Variables then
-    (* Full layers with reset styles *)
+  (* Generate layers only when: 1. Reset is enabled AND 2. Mode is Variables
+
+     This ensures a consistent mental model: - Variables mode with reset: Full
+     Tailwind experience with layers - Any other combination: Raw CSS rules
+     without layers *)
+  if config.reset && config.mode = Css.Variables then
+    (* Full layer structure: Theme, Properties, Base, Components, Utilities *)
     let layers, at_properties =
       build_reset_layers tw_classes rules media_queries container_queries
     in
@@ -861,7 +871,9 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
     in
     Css.stylesheet items
   else
-    (* No layers - just raw rules for reset:false or non-Variables mode *)
+    (* No layers - just raw utility rules This applies when: - reset = false (no
+       preflight/base styles needed) - mode != Variables (inline styles or
+       resolved values) *)
     Css.stylesheet (wrap_css_items ~rules ~media_queries ~container_queries)
 
 let to_inline_style styles =
