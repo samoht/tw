@@ -17,6 +17,15 @@
 
 open Core
 open Css
+
+let _tw_ring_width_def, _tw_ring_width_var = var "tw-ring-width" Length (Px 3)
+
+let _tw_ring_color_def, _tw_ring_color_var =
+  var "tw-ring-color" Color (Rgba { r = 59; g = 130; b = 246; a = 0.5 })
+
+(* Note: blend modes are emitted directly as properties; no custom property is
+   used for mix-blend-mode to avoid redundant defaults. *)
+
 module Parse = Parse
 
 (** {1 Shadow Utilities} *)
@@ -105,9 +114,18 @@ let ring_internal (w : ring_width) =
   let class_name =
     if class_suffix = "" then "ring" else "ring-" ^ class_suffix
   in
+  let width_len =
+    match width with
+    | "1px" -> Px 1
+    | "2px" -> Px 2
+    | "4px" -> Px 4
+    | "8px" -> Px 8
+    | _ -> Px 3
+  in
+  let width_def, _width_var = var "tw-ring-width" Length width_len in
   style class_name
     [
-      custom_property "--tw-ring-width" width;
+      width_def;
       box_shadow
         (Pp.str
            [
@@ -126,7 +144,11 @@ let ring_lg = ring_internal `Lg
 let ring_xl = ring_internal `Xl
 
 let ring_inset =
-  style "ring-inset" [ custom_property "--tw-ring-inset" "inset" ]
+  (* Ring inset needs special handling - it's a string value "inset" Since we
+     don't have a String kind, we'll handle this differently *)
+  style "ring-inset"
+    [ (* TODO: Add support for string-valued CSS variables or handle ring-inset
+         specially *) ]
 
 let ring_color color shade =
   let class_name =
@@ -206,60 +228,40 @@ let opacity n =
 
 (** {1 Mix Blend Mode Utilities} *)
 
-let mix_blend_normal =
-  style "mix-blend-normal" [ custom_property "--mix-blend-mode" "normal" ]
-
-let mix_blend_multiply =
-  style "mix-blend-multiply" [ custom_property "--mix-blend-mode" "multiply" ]
-
-let mix_blend_screen =
-  style "mix-blend-screen" [ custom_property "--mix-blend-mode" "screen" ]
-
-let mix_blend_overlay =
-  style "mix-blend-overlay" [ custom_property "--mix-blend-mode" "overlay" ]
-
-let mix_blend_darken =
-  style "mix-blend-darken" [ custom_property "--mix-blend-mode" "darken" ]
-
-let mix_blend_lighten =
-  style "mix-blend-lighten" [ custom_property "--mix-blend-mode" "lighten" ]
+let mix_blend_normal = style "mix-blend-normal" [ mix_blend_mode Normal ]
+let mix_blend_multiply = style "mix-blend-multiply" [ mix_blend_mode Multiply ]
+let mix_blend_screen = style "mix-blend-screen" [ mix_blend_mode Screen ]
+let mix_blend_overlay = style "mix-blend-overlay" [ mix_blend_mode Overlay ]
+let mix_blend_darken = style "mix-blend-darken" [ mix_blend_mode Darken ]
+let mix_blend_lighten = style "mix-blend-lighten" [ mix_blend_mode Lighten ]
 
 let mix_blend_color_dodge =
-  style "mix-blend-color-dodge"
-    [ custom_property "--mix-blend-mode" "color-dodge" ]
+  style "mix-blend-color-dodge" [ mix_blend_mode Color_dodge ]
 
 let mix_blend_color_burn =
-  style "mix-blend-color-burn"
-    [ custom_property "--mix-blend-mode" "color-burn" ]
+  style "mix-blend-color-burn" [ mix_blend_mode Color_burn ]
 
 let mix_blend_hard_light =
-  style "mix-blend-hard-light"
-    [ custom_property "--mix-blend-mode" "hard-light" ]
+  style "mix-blend-hard-light" [ mix_blend_mode Hard_light ]
 
 let mix_blend_soft_light =
-  style "mix-blend-soft-light"
-    [ custom_property "--mix-blend-mode" "soft-light" ]
+  style "mix-blend-soft-light" [ mix_blend_mode Soft_light ]
 
 let mix_blend_difference =
-  style "mix-blend-difference"
-    [ custom_property "--mix-blend-mode" "difference" ]
+  style "mix-blend-difference" [ mix_blend_mode Difference ]
 
 let mix_blend_exclusion =
-  style "mix-blend-exclusion" [ custom_property "--mix-blend-mode" "exclusion" ]
+  style "mix-blend-exclusion" [ mix_blend_mode Exclusion ]
 
-let mix_blend_hue =
-  style "mix-blend-hue" [ custom_property "--mix-blend-mode" "hue" ]
+let mix_blend_hue = style "mix-blend-hue" [ mix_blend_mode Hue ]
 
 let mix_blend_saturation =
-  style "mix-blend-saturation"
-    [ custom_property "--mix-blend-mode" "saturation" ]
+  style "mix-blend-saturation" [ mix_blend_mode Saturation ]
 
-let mix_blend_color =
-  style "mix-blend-color" [ custom_property "--mix-blend-mode" "color" ]
+let mix_blend_color = style "mix-blend-color" [ mix_blend_mode Color ]
 
 let mix_blend_luminosity =
-  style "mix-blend-luminosity"
-    [ custom_property "--mix-blend-mode" "luminosity" ]
+  style "mix-blend-luminosity" [ mix_blend_mode Luminosity ]
 
 (** {1 Parsing Functions} *)
 

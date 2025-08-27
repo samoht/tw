@@ -17,6 +17,16 @@
 
 open Core
 open Css
+
+(* Transform variables defined at top level *)
+let tw_translate_x_def, tw_translate_x_var = var "tw-translate-x" Length Zero
+let tw_translate_y_def, tw_translate_y_var = var "tw-translate-y" Length Zero
+let tw_rotate_def, tw_rotate_var = var "tw-rotate" Angle (Deg 0.0)
+let tw_skew_x_def, tw_skew_x_var = var "tw-skew-x" Angle (Deg 0.0)
+let tw_skew_y_def, tw_skew_y_var = var "tw-skew-y" Angle (Deg 0.0)
+let tw_scale_x_def, tw_scale_x_var = var "tw-scale-x" Float 1.0
+let tw_scale_y_def, tw_scale_y_var = var "tw-scale-y" Float 1.0
+
 module Parse = Parse
 
 (** {1 2D Transform Utilities} *)
@@ -38,32 +48,42 @@ let translate_y n =
   style class_name [ transform [ Translate_y len ] ]
 
 let scale n =
-  let value = string_of_int n ^ "%" in
+  let value = float_of_int n /. 100.0 in
+  (* Convert percentage to float *)
   let class_name = "scale-" ^ string_of_int n in
+  let def_scale_x, scale_x_var = var "tw-scale-x" Float value in
+  let def_scale_y, scale_y_var = var "tw-scale-y" Float value in
   style class_name
     [
-      custom_property "--tw-scale-x" value;
-      custom_property "--tw-scale-y" value;
+      def_scale_x;
+      def_scale_y;
       transform
-        [ Scale (Scale_var { var_name = "tw-scale-x"; fallback = Some 1.0 }) ];
+        [
+          Scale_x (Scale_var { var_name = scale_x_var.name; fallback = None });
+          Scale_y (Scale_var { var_name = scale_y_var.name; fallback = None });
+        ];
     ]
 
 let scale_x n =
-  let value = string_of_int n ^ "%" in
+  let value = float_of_int n /. 100.0 in
+  (* Convert percentage to float *)
   let class_name = "scale-x-" ^ string_of_int n in
+  let def_x, _scale_x = var "tw-scale-x" Float value in
   style class_name
     [
-      custom_property "--tw-scale-x" value;
+      def_x;
       transform
         [ Scale_x (Scale_var { var_name = "tw-scale-x"; fallback = Some 1.0 }) ];
     ]
 
 let scale_y n =
-  let value = string_of_int n ^ "%" in
+  let value = float_of_int n /. 100.0 in
+  (* Convert percentage to float *)
   let class_name = "scale-y-" ^ string_of_int n in
+  let def_y, _scale_y = var "tw-scale-y" Float value in
   style class_name
     [
-      custom_property "--tw-scale-y" value;
+      def_y;
       transform
         [ Scale_y (Scale_var { var_name = "tw-scale-y"; fallback = Some 1.0 }) ];
     ]
@@ -71,22 +91,14 @@ let scale_y n =
 let skew_x deg =
   let prefix = if deg < 0 then "-" else "" in
   let class_name = prefix ^ "skew-x-" ^ string_of_int (abs deg) in
-  style class_name
-    [
-      custom_property "--tw-skew-x" (string_of_int deg ^ "deg");
-      transform
-        [ Skew_x (Angle_var { var_name = "tw-skew-x"; fallback = None }) ];
-    ]
+  let def_skew, skew_var = var "tw-skew-x" Angle (Deg (float_of_int deg)) in
+  style class_name [ def_skew; transform [ Skew_x (Var skew_var) ] ]
 
 let skew_y deg =
   let prefix = if deg < 0 then "-" else "" in
   let class_name = prefix ^ "skew-y-" ^ string_of_int (abs deg) in
-  style class_name
-    [
-      custom_property "--tw-skew-y" (string_of_int deg ^ "deg");
-      transform
-        [ Skew_y (Angle_var { var_name = "tw-skew-y"; fallback = None }) ];
-    ]
+  let def_skew, skew_var = var "tw-skew-y" Angle (Deg (float_of_int deg)) in
+  style class_name [ def_skew; transform [ Skew_y (Var skew_var) ] ]
 
 (* Negative translate utilities for centering *)
 let neg_translate_x_1_2 =
@@ -122,11 +134,15 @@ let translate_z n =
 let scale_z n =
   let value = float_of_int n /. 100.0 in
   let class_name = "scale-z-" ^ string_of_int n in
+  let def, scale_z_var = var "tw-scale-z" Float value in
   style class_name
     [
-      custom_property "--tw-scale-z" (Pp.float value);
+      def;
       transform
-        [ Scale_z (Scale_var { var_name = "tw-scale-z"; fallback = Some 1.0 }) ];
+        [
+          Scale_z
+            (Scale_var { var_name = scale_z_var.name; fallback = Some 1.0 });
+        ];
     ]
 
 let perspective n =
@@ -161,22 +177,24 @@ let backface_hidden = style "backface-hidden" [ backface_visibility Hidden ]
 let transform =
   style "transform"
     [
-      custom_property "--tw-translate-x" "0";
-      custom_property "--tw-translate-y" "0";
-      custom_property "--tw-rotate" "0";
-      custom_property "--tw-skew-x" "0";
-      custom_property "--tw-skew-y" "0";
-      custom_property "--tw-scale-x" "1";
-      custom_property "--tw-scale-y" "1";
+      tw_translate_x_def;
+      tw_translate_y_def;
+      tw_rotate_def;
+      tw_skew_x_def;
+      tw_skew_y_def;
+      tw_scale_x_def;
+      tw_scale_y_def;
       transform
         [
-          Translate_x (Var (var "tw-translate-x"));
-          Translate_y (Var (var "tw-translate-y"));
-          Rotate_var { var_name = "tw-rotate"; fallback = None };
-          Skew_x (Angle_var { var_name = "tw-skew-x"; fallback = None });
-          Skew_y (Angle_var { var_name = "tw-skew-y"; fallback = None });
-          Scale_x (Scale_var { var_name = "tw-scale-x"; fallback = None });
-          Scale_y (Scale_var { var_name = "tw-scale-y"; fallback = None });
+          Translate_x (Var tw_translate_x_var);
+          Translate_y (Var tw_translate_y_var);
+          Rotate_var { var_name = tw_rotate_var.name; fallback = None };
+          Skew_x (Var tw_skew_x_var);
+          Skew_y (Var tw_skew_y_var);
+          Scale_x
+            (Scale_var { var_name = tw_scale_x_var.name; fallback = None });
+          Scale_y
+            (Scale_var { var_name = tw_scale_y_var.name; fallback = None });
         ];
     ]
 

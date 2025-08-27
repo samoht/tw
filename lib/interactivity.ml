@@ -59,12 +59,16 @@ let snap_both =
     [ scroll_snap_type (Both_var "var(--tw-scroll-snap-strictness)") ]
 
 let snap_mandatory =
-  style "snap-mandatory"
-    [ custom_property "--tw-scroll-snap-strictness" "mandatory" ]
+  let def, _ =
+    var "tw-scroll-snap-strictness" Scroll_snap_strictness Mandatory
+  in
+  style "snap-mandatory" [ def ]
 
 let snap_proximity =
-  style "snap-proximity"
-    [ custom_property "--tw-scroll-snap-strictness" "proximity" ]
+  let def, _ =
+    var "tw-scroll-snap-strictness" Scroll_snap_strictness Proximity
+  in
+  style "snap-proximity" [ def ]
 
 let snap_align_none = style "snap-align-none" [ scroll_snap_align None ]
 let snap_normal = style "snap-normal" [ scroll_snap_stop Normal ]

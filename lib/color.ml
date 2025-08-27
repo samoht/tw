@@ -927,7 +927,7 @@ let bg color shade =
     let default_color =
       to_css color (if is_base_color color then 500 else shade)
     in
-    let css_var = Css.var ~default:default_color var_name in
+    let _def, css_var = Css.var var_name Color default_color in
     style class_name [ Css.background_color (Css.Var css_var) ]
 
 let bg_transparent = style "bg-transparent" [ background_color Transparent ]
@@ -983,8 +983,8 @@ let text color shade =
     let default_color =
       to_css color (if is_base_color color then 500 else shade)
     in
-    let css_var = Css.var ~default:default_color var_name in
-    style class_name [ Css.color (Css.Var css_var) ]
+    let css_def, css_var = Css.var var_name Color default_color in
+    style class_name [ css_def; Css.color (Css.Var css_var) ]
 
 let text_transparent = style "text-transparent" [ Css.color Transparent ]
 let text_current = style "text-current" [ Css.color Current ]
@@ -1040,8 +1040,8 @@ let border_color color shade =
     let default_color =
       to_css color (if is_base_color color then 500 else shade)
     in
-    let css_var = Css.var ~default:default_color var_name in
-    style class_name [ Css.border_color (Css.Var css_var) ]
+    let css_def, css_var = Css.var var_name Color default_color in
+    style class_name [ css_def; Css.border_color (Css.Var css_var) ]
 
 let border_transparent =
   style "border-transparent" [ Css.border_color Transparent ]
