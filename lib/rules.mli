@@ -4,37 +4,69 @@ open Core
 
 (** {1 Types} *)
 
-type rule_output =
-  | Regular of { selector : string; props : Css.declaration list }
+type output =
+  | Regular of {
+      selector : string;
+      props : Css.declaration list;
+      base_class : string option;
+      has_hover : bool;
+    }
   | Media_query of {
       condition : string;
       selector : string;
       props : Css.declaration list;
+      base_class : string option;
     }
   | Container_query of {
       condition : string;
       selector : string;
       props : Css.declaration list;
+      base_class : string option;
     }
-  | Starting_style of { selector : string; props : Css.declaration list }
+  | Starting_style of {
+      selector : string;
+      props : Css.declaration list;
+      base_class : string option;
+    }
 
-val regular : selector:string -> props:Css.declaration list -> rule_output
-(** Smart constructors for rule_output *)
+type by_type = {
+  regular : output list;
+  media : output list;
+  container : output list;
+  starting : output list;
+}
+
+val regular :
+  selector:string ->
+  props:Css.declaration list ->
+  ?base_class:string ->
+  ?has_hover:bool ->
+  unit ->
+  output
+(** Smart constructors for output *)
 
 val media_query :
   condition:string ->
   selector:string ->
   props:Css.declaration list ->
-  rule_output
+  ?base_class:string ->
+  unit ->
+  output
 
 val container_query :
   condition:string ->
   selector:string ->
   props:Css.declaration list ->
-  rule_output
+  ?base_class:string ->
+  unit ->
+  output
 
 val starting_style :
-  selector:string -> props:Css.declaration list -> rule_output
+  selector:string ->
+  props:Css.declaration list ->
+  ?base_class:string ->
+  unit ->
+  output
 
 (** {1 CSS Generation} *)
 
@@ -50,25 +82,28 @@ val to_inline_style : t list -> string
 
 (** {1 Helper Functions} *)
 
-val extract_selector_props : t -> rule_output list
+val extract_selector_props : t -> output list
 (** [extract_selector_props tw] extracts CSS rules from a Tailwind class. *)
 
 (** {1 Rule Extraction and Processing} *)
 
 val modifier_to_rule :
-  Core.modifier -> string -> string -> Css.declaration list -> rule_output
+  Core.modifier -> string -> string -> Css.declaration list -> output
 (** [modifier_to_rule modifier base_class selector props] converts a modifier
     into appropriate CSS rule output. *)
 
-val group_by_selector : rule_output list -> (string * Css.declaration list) list
+val group_by_selector : output list -> (string * Css.declaration list) list
 (** [group_by_selector rules] groups regular rules by selector. *)
 
-val is_hover_rule : string -> bool
-(** [is_hover_rule selector] checks if a selector is a hover rule. *)
+val is_hover_rule : output -> bool
+(** [is_hover_rule output] checks if an output is a hover rule. *)
 
 val rule_sets :
   t list -> Css.rule list * Css.media_query list * Css.container_query list
 (** [rule_sets tw_classes] processes Tailwind classes into CSS rule sets. *)
+
+val classify : output list -> by_type
+(** [classify rules] classifies rules by their type. *)
 
 (** {1 Variable Resolution} *)
 
