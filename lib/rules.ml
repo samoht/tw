@@ -13,25 +13,48 @@
 open Core
 open Css
 
-(* ========================================================================
-   Types
-   ======================================================================== *)
+(* ======================================================================== *)
+(* Types *)
+(* ======================================================================== *)
 
 type rule_output =
-  | Regular of string * Css.declaration list (* selector, properties *)
-  | Media_query of
-      string
-      * string
-      * Css.declaration list (* condition, selector, properties *)
-  | Container_query of
-      string
-      * string
-      * Css.declaration list (* condition, selector, properties *)
-  | Starting_style of string * Css.declaration list (* selector, properties *)
+  | Regular of { selector : string; props : Css.declaration list }
+  | Media_query of {
+      condition : string;
+      selector : string;
+      props : Css.declaration list;
+    }
+  | Container_query of {
+      condition : string;
+      selector : string;
+      props : Css.declaration list;
+    }
+  | Starting_style of { selector : string; props : Css.declaration list }
 
-(* ========================================================================
-   Basic Utilities
-   ======================================================================== *)
+type separated_rules = {
+  regular : rule_output list;
+  media : rule_output list;
+  container : rule_output list;
+  starting : rule_output list;
+}
+
+(* ======================================================================== *)
+(* Smart constructors for rule_output *)
+(* ======================================================================== *)
+
+let regular ~selector ~props = Regular { selector; props }
+
+let media_query ~condition ~selector ~props =
+  Media_query { condition; selector; props }
+
+let container_query ~condition ~selector ~props =
+  Container_query { condition; selector; props }
+
+let starting_style ~selector ~props = Starting_style { selector; props }
+
+(* ======================================================================== *)
+(* Basic Utilities *)
+(* ======================================================================== *)
 
 let string_of_breakpoint = function
   | `Sm -> "sm"
@@ -70,23 +93,26 @@ let escape_class_name name =
     name;
   Buffer.contents buf
 
-(* ======================================================================== Rule
-   Extraction - Convert Core.t to CSS rules
-   ======================================================================== *)
+(* ======================================================================== *)
+(* Rule Extraction - Convert Core.t to CSS rules *)
+(* ======================================================================== *)
 let modifier_to_rule modifier base_class selector props =
   match modifier with
   | Data_state value ->
-      Regular (selector ^ "[data-state=\"" ^ value ^ "\"]", props)
+      regular ~selector:(selector ^ "[data-state=\"" ^ value ^ "\"]") ~props
   | Data_variant value ->
-      Regular (selector ^ "[data-variant=\"" ^ value ^ "\"]", props)
+      regular ~selector:(selector ^ "[data-variant=\"" ^ value ^ "\"]") ~props
   | Data_custom (key, value) ->
-      Regular (selector ^ "[data-" ^ key ^ "=\"" ^ value ^ "\"]", props)
-  | Dark -> Media_query ("(prefers-color-scheme: dark)", selector, props)
+      regular
+        ~selector:(selector ^ "[data-" ^ key ^ "=\"" ^ value ^ "\"]")
+        ~props
+  | Dark ->
+      media_query ~condition:"(prefers-color-scheme: dark)" ~selector ~props
   | Responsive breakpoint ->
       let prefix = string_of_breakpoint breakpoint in
       let condition = "(min-width:" ^ responsive_breakpoint prefix ^ ")" in
       let sel = "." ^ prefix ^ "\\:" ^ base_class in
-      Media_query (condition, sel, props)
+      media_query ~condition ~selector:sel ~props
   | Container query ->
       let prefix = Containers.container_query_to_class_prefix query in
       let escaped_class = ".\\" ^ prefix ^ "\\:" ^ base_class in
@@ -96,64 +122,68 @@ let modifier_to_rule modifier base_class selector props =
           String.sub condition 11 (String.length condition - 11)
         else "(min-width: 0)"
       in
-      Container_query (cond, escaped_class, props)
+      container_query ~condition:cond ~selector:escaped_class ~props
   | Not _modifier ->
-      Regular (".not-" ^ base_class ^ ":not(" ^ selector ^ ")", props)
+      regular ~selector:(".not-" ^ base_class ^ ":not(" ^ selector ^ ")") ~props
   | Has selector_str ->
-      Regular
-        ( ".has-\\[" ^ selector_str ^ "\\]\\:" ^ base_class ^ ":has("
-          ^ selector_str ^ ")",
-          props )
+      regular
+        ~selector:
+          (".has-\\[" ^ selector_str ^ "\\]\\:" ^ base_class ^ ":has("
+         ^ selector_str ^ ")")
+        ~props
   | Group_has selector_str ->
-      Regular
-        ( ".group:has(" ^ selector_str ^ ") .group-has-\\[" ^ selector_str
-          ^ "\\]\\:" ^ base_class,
-          props )
+      regular
+        ~selector:
+          (".group:has(" ^ selector_str ^ ") .group-has-\\[" ^ selector_str
+         ^ "\\]\\:" ^ base_class)
+        ~props
   | Peer_has selector_str ->
-      Regular
-        ( ".peer:has(" ^ selector_str ^ ") ~ .peer-has-\\[" ^ selector_str
-          ^ "\\]\\:" ^ base_class,
-          props )
-  | Starting -> Starting_style ("." ^ base_class, props)
+      regular
+        ~selector:
+          (".peer:has(" ^ selector_str ^ ") ~ .peer-has-\\[" ^ selector_str
+         ^ "\\]\\:" ^ base_class)
+        ~props
+  | Starting -> starting_style ~selector:("." ^ base_class) ~props
   | Motion_safe ->
-      Media_query
-        ( "(prefers-reduced-motion: no-preference)",
-          ".motion-safe\\:" ^ base_class,
-          props )
+      media_query ~condition:"(prefers-reduced-motion: no-preference)"
+        ~selector:(".motion-safe\\:" ^ base_class)
+        ~props
   | Motion_reduce ->
-      Media_query
-        ( "(prefers-reduced-motion: reduce)",
-          ".motion-reduce\\:" ^ base_class,
-          props )
+      media_query ~condition:"(prefers-reduced-motion: reduce)"
+        ~selector:(".motion-reduce\\:" ^ base_class)
+        ~props
   | Contrast_more ->
-      Media_query
-        ("(prefers-contrast: more)", ".contrast-more\\:" ^ base_class, props)
+      media_query ~condition:"(prefers-contrast: more)"
+        ~selector:(".contrast-more\\:" ^ base_class)
+        ~props
   | Contrast_less ->
-      Media_query
-        ("(prefers-contrast: less)", ".contrast-less\\:" ^ base_class, props)
+      media_query ~condition:"(prefers-contrast: less)"
+        ~selector:(".contrast-less\\:" ^ base_class)
+        ~props
   | _ ->
       (* For simple modifiers, use the selector helper from Modifiers *)
       let sel = Modifiers.to_selector modifier base_class in
-      Regular (sel, props)
+      regular ~selector:sel ~props
 
 (* Extract selector and properties from a single Tw style *)
 let extract_selector_props tw =
   let rec extract = function
-    | Style { name = class_name; props; rules; _ } -> (
-        let escaped_name = escape_class_name class_name in
+    | Style { name; props; rules; _ } -> (
+        let escaped_name = escape_class_name name in
         match rules with
-        | None -> [ Regular ("." ^ escaped_name, props) ]
+        | None -> [ regular ~selector:("." ^ escaped_name) ~props ]
         | Some rule_list ->
             (* Convert custom rules to selector/props pairs *)
             rule_list
             |> List.map (fun rule ->
-                   Regular (Css.selector rule, Css.declarations rule)))
+                   regular ~selector:(Css.selector rule)
+                     ~props:(Css.declarations rule)))
     | Modified (modifier, t) ->
         let base = extract t in
         List.concat_map
           (fun rule_out ->
             match rule_out with
-            | Regular (selector, props) ->
+            | Regular { selector; props } ->
                 let base_class =
                   String.sub selector 1 (String.length selector - 1)
                 in
@@ -165,20 +195,21 @@ let extract_selector_props tw =
   extract tw
 
 (* Group properties by selector for Regular rules *)
-let group_regular_rules rules =
+let group_by_selector rules =
   List.fold_left
     (fun acc rule ->
       match rule with
-      | Regular (selector, props) ->
+      | Regular { selector; props } ->
           let existing = try List.assoc selector acc with Not_found -> [] in
           let without = List.remove_assoc selector acc in
           without @ [ (selector, existing @ props) ]
       | _ -> acc)
     [] rules
 
-(* ======================================================================== Rule
-   Processing - Group and organize rules
-   ======================================================================== *)
+(* ======================================================================== *)
+(* Rule Processing - Group and organize rules *)
+(* ======================================================================== *)
+
 let separate_rules_by_type all_rules =
   let regular_rules, media_rules, container_rules, starting_rules =
     List.fold_left
@@ -191,10 +222,12 @@ let separate_rules_by_type all_rules =
       ([], [], [], []) all_rules
   in
   (* Reverse to maintain original order since we prepended *)
-  ( List.rev regular_rules,
-    List.rev media_rules,
-    List.rev container_rules,
-    List.rev starting_rules )
+  {
+    regular = List.rev regular_rules;
+    media = List.rev media_rules;
+    container = List.rev container_rules;
+    starting = List.rev starting_rules;
+  }
 
 let is_hover_rule selector =
   (* A hover rule ends with :hover pseudo-class *)
@@ -205,7 +238,7 @@ let group_media_queries media_rules =
   List.fold_left
     (fun acc rule ->
       match rule with
-      | Media_query (condition, selector, props) ->
+      | Media_query { condition; selector; props } ->
           let rules = try List.assoc condition acc with Not_found -> [] in
           (condition, (selector, props) :: rules)
           :: List.remove_assoc condition acc
@@ -216,16 +249,16 @@ let group_container_queries container_rules =
   List.fold_left
     (fun acc rule ->
       match rule with
-      | Container_query (condition, selector, props) ->
+      | Container_query { condition; selector; props } ->
           let rules = try List.assoc condition acc with Not_found -> [] in
           (condition, (selector, props) :: rules)
           :: List.remove_assoc condition acc
       | _ -> acc)
     [] container_rules
 
-(* ========================================================================
-   Conflict Resolution - Order utilities by specificity
-   ======================================================================== *)
+(* ======================================================================== *)
+(* Conflict Resolution - Order utilities by specificity *)
+(* ======================================================================== *)
 
 let starts prefix s =
   let lp = String.length prefix and ls = String.length s in
@@ -440,10 +473,8 @@ let add_hover_to_media_map hover_rules media_map =
 
 let rule_sets tw_classes =
   let all_rules = tw_classes |> List.concat_map extract_selector_props in
-  let regular_rules, media_rules, container_rules, _ =
-    separate_rules_by_type all_rules
-  in
-  let grouped_regular = group_regular_rules regular_rules in
+  let separated = separate_rules_by_type all_rules in
+  let grouped_regular = group_by_selector separated.regular in
   let non_hover_rules, hover_rules =
     List.partition (fun (sel, _) -> not (is_hover_rule sel)) grouped_regular
   in
@@ -454,7 +485,7 @@ let rule_sets tw_classes =
       non_hover_rules
   in
   let media_queries_map =
-    group_media_queries media_rules |> add_hover_to_media_map hover_rules
+    group_media_queries separated.media |> add_hover_to_media_map hover_rules
   in
   let media_queries =
     List.map
@@ -468,7 +499,7 @@ let rule_sets tw_classes =
         Css.media ~condition rules)
       media_queries_map
   in
-  let container_queries_map = group_container_queries container_rules in
+  let container_queries_map = group_container_queries separated.container in
   let container_queries =
     List.map
       (fun (condition, rule_list) ->
@@ -483,9 +514,9 @@ let rule_sets tw_classes =
   in
   (rules, media_queries, container_queries)
 
-(* ========================================================================
-   Layer Generation - CSS @layer directives and variable resolution
-   ======================================================================== *)
+(* ======================================================================== *)
+(* Layer Generation - CSS @layer directives and variable resolution *)
+(* ======================================================================== *)
 
 let rec resolve_dependencies vars_to_check resolved =
   match vars_to_check with
@@ -550,10 +581,10 @@ let compute_theme_layer tw_classes =
            let selector_props = extract_selector_props tw in
            List.concat_map
              (function
-               | Regular (_, props)
-               | Media_query (_, _, props)
-               | Container_query (_, _, props)
-               | Starting_style (_, props) ->
+               | Regular { props; _ }
+               | Media_query { props; _ }
+               | Container_query { props; _ }
+               | Starting_style { props; _ } ->
                    Css.vars_of_declarations props)
              selector_props)
     |> List.fold_left (fun acc v -> if List.mem v acc then acc else v :: acc) []
@@ -652,47 +683,26 @@ let wrap_css_items ~rules ~media_queries ~container_queries =
   @ List.map (fun m -> Css.Media m) media_queries
   @ List.map (fun c -> Css.Container c) container_queries
 
-(* ======================================================================== Main
-   API - Convert Tw styles to CSS
-   ======================================================================== *)
+(* ======================================================================== *)
+(* Main API - Convert Tw styles to CSS *)
+(* ======================================================================== *)
 
 let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
   let rules, media_queries, container_queries = rule_sets tw_classes in
 
-  match mode with
-  | Css.Variables ->
-      (* Use layers for variable-based mode *)
-      if reset then
-        let layers, at_properties =
-          build_reset_layers tw_classes rules media_queries container_queries
-        in
-        let items =
-          List.map (fun l -> Css.Layer l) layers
-          @ List.map (fun a -> Css.At_property a) at_properties
-        in
-        Css.stylesheet items
-      else
-        (* Generate layers without base/preflight styles *)
-        let properties_layer_opt, at_properties =
-          compute_properties_layer rules
-        in
-        let theme_layer = compute_theme_layer tw_classes in
-        let utilities_layer =
-          build_utilities_layer ~rules ~media_queries ~container_queries
-        in
-        let layers =
-          match properties_layer_opt with
-          | Some props_layer -> [ props_layer; theme_layer; utilities_layer ]
-          | None -> [ theme_layer; utilities_layer ]
-        in
-        let items =
-          List.map (fun l -> Css.Layer l) layers
-          @ List.map (fun a -> Css.At_property a) at_properties
-        in
-        Css.stylesheet items
-  | _ ->
-      (* No layers for other modes - just plain CSS *)
-      Css.stylesheet (wrap_css_items ~rules ~media_queries ~container_queries)
+  if reset && mode = Css.Variables then
+    (* Full layers with reset styles *)
+    let layers, at_properties =
+      build_reset_layers tw_classes rules media_queries container_queries
+    in
+    let items =
+      List.map (fun l -> Css.Layer l) layers
+      @ List.map (fun a -> Css.At_property a) at_properties
+    in
+    Css.stylesheet items
+  else
+    (* No layers - just raw rules for reset:false or non-Variables mode *)
+    Css.stylesheet (wrap_css_items ~rules ~media_queries ~container_queries)
 
 let to_inline_style styles =
   let rec to_css_properties = function
