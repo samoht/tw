@@ -1,167 +1,197 @@
-(** Variable tracking for CSS composition groups *)
+(* Variable tracking for CSS composition groups and layer assignment *)
 
-(** CSS variable type covering all Tailwind CSS variables *)
-type t =
+(** Layer classification for CSS variables *)
+type layer = Theme | Properties | Utility
+
+(** CSS variable type as a GADT for type safety *)
+type _ t =
   (* Spacing and sizing *)
-  | Spacing
+  | Spacing : Css.length t
   (* Typography *)
-  | Font_sans
-  | Font_serif
-  | Font_mono
-  | Font_weight
-  | Leading
-  | Text_xs
-  | Text_xs_line_height
-  | Text_sm
-  | Text_sm_line_height
-  | Text_base
-  | Text_base_line_height
-  | Text_lg
-  | Text_lg_line_height
-  | Text_xl
-  | Text_xl_line_height
-  | Text_2xl
-  | Text_2xl_line_height
-  | Text_3xl
-  | Text_3xl_line_height
-  | Text_4xl
-  | Text_4xl_line_height
-  | Text_5xl
-  | Text_5xl_line_height
-  | Text_6xl
-  | Text_6xl_line_height
-  | Text_7xl
-  | Text_7xl_line_height
-  | Text_8xl
-  | Text_8xl_line_height
-  | Text_9xl
-  | Text_9xl_line_height
-  | Font_weight_thin
-  | Font_weight_extralight
-  | Font_weight_light
-  | Font_weight_normal
-  | Font_weight_medium
-  | Font_weight_semibold
-  | Font_weight_bold
-  | Font_weight_extrabold
-  | Font_weight_black
+  | Font_sans : string t
+  | Font_serif : string t
+  | Font_mono : string t
+  | Font_weight : string t
+  | Leading : string t
+  | Text_xs : Css.length t
+  | Text_xs_line_height : Css.length t
+  | Text_sm : Css.length t
+  | Text_sm_line_height : Css.length t
+  | Text_base : Css.length t
+  | Text_base_line_height : Css.length t
+  | Text_lg : Css.length t
+  | Text_lg_line_height : Css.length t
+  | Text_xl : Css.length t
+  | Text_xl_line_height : Css.length t
+  | Text_2xl : Css.length t
+  | Text_2xl_line_height : Css.length t
+  | Text_3xl : Css.length t
+  | Text_3xl_line_height : Css.length t
+  | Text_4xl : Css.length t
+  | Text_4xl_line_height : Css.length t
+  | Text_5xl : Css.length t
+  | Text_5xl_line_height : Css.length t
+  | Text_6xl : Css.length t
+  | Text_6xl_line_height : Css.length t
+  | Text_7xl : Css.length t
+  | Text_7xl_line_height : Css.length t
+  | Text_8xl : Css.length t
+  | Text_8xl_line_height : Css.length t
+  | Text_9xl : Css.length t
+  | Text_9xl_line_height : Css.length t
+  | Font_weight_thin : int t
+  | Font_weight_extralight : int t
+  | Font_weight_light : int t
+  | Font_weight_normal : int t
+  | Font_weight_medium : int t
+  | Font_weight_semibold : int t
+  | Font_weight_bold : int t
+  | Font_weight_extrabold : int t
+  | Font_weight_black : int t
   (* Border radius *)
-  | Radius_none
-  | Radius_sm
-  | Radius_default
-  | Radius_md
-  | Radius_lg
-  | Radius_xl
-  | Radius_2xl
-  | Radius_3xl
+  | Radius_none : Css.length t
+  | Radius_sm : Css.length t
+  | Radius_default : Css.length t
+  | Radius_md : Css.length t
+  | Radius_lg : Css.length t
+  | Radius_xl : Css.length t
+  | Radius_2xl : Css.length t
+  | Radius_3xl : Css.length t
   (* Colors - using color name and optional shade *)
-  | Color of string * int option (* e.g., Color ("blue", Some 500) *)
+  | Color :
+      string * int option
+      -> Css.color t (* e.g., Color ("blue", Some 500) *)
   (* Transform variables *)
-  | Translate_x
-  | Translate_y
-  | Translate_z
-  | Rotate
-  | Skew_x
-  | Skew_y
-  | Scale_x
-  | Scale_y
-  | Scale_z
+  | Translate_x : Css.length t
+  | Translate_y : Css.length t
+  | Translate_z : Css.length t
+  | Rotate : Css.angle t
+  | Skew_x : Css.angle t
+  | Skew_y : Css.angle t
+  | Scale_x : float t
+  | Scale_y : float t
+  | Scale_z : float t
   (* Filter variables *)
-  | Blur
-  | Brightness
-  | Contrast
-  | Grayscale
-  | Hue_rotate
-  | Invert
-  | Saturate
-  | Sepia
-  | Drop_shadow
-  | Drop_shadow_alpha
+  | Blur : Css.length t
+  | Brightness : float t
+  | Contrast : float t
+  | Grayscale : float t
+  | Hue_rotate : Css.angle t
+  | Invert : float t
+  | Saturate : float t
+  | Sepia : float t
+  | Drop_shadow : string t
+  | Drop_shadow_alpha : float t
   (* Backdrop filter variables *)
-  | Backdrop_blur
-  | Backdrop_brightness
-  | Backdrop_contrast
-  | Backdrop_grayscale
-  | Backdrop_hue_rotate
-  | Backdrop_invert
-  | Backdrop_saturate
-  | Backdrop_sepia
-  | Backdrop_opacity
+  | Backdrop_blur : Css.length t
+  | Backdrop_brightness : float t
+  | Backdrop_contrast : float t
+  | Backdrop_grayscale : float t
+  | Backdrop_hue_rotate : Css.angle t
+  | Backdrop_invert : float t
+  | Backdrop_saturate : float t
+  | Backdrop_sepia : float t
+  | Backdrop_opacity : float t
   (* Shadow and ring variables *)
-  | Shadow
-  | Shadow_color
-  | Shadow_alpha
-  | Inset_shadow
-  | Inset_shadow_color
-  | Inset_shadow_alpha
-  | Ring_color
-  | Ring_shadow
-  | Inset_ring_color
-  | Inset_ring_shadow
-  | Ring_inset
-  | Ring_offset_width
-  | Ring_offset_color
-  | Ring_offset_shadow
+  | Shadow : string t
+  | Shadow_color : Css.color t
+  | Shadow_alpha : float t
+  | Inset_shadow : string t
+  | Inset_shadow_color : Css.color t
+  | Inset_shadow_alpha : float t
+  | Ring_color : Css.color t
+  | Ring_shadow : string t
+  | Inset_ring_color : Css.color t
+  | Inset_ring_shadow : string t
+  | Ring_inset : string t
+  | Ring_offset_width : Css.length t
+  | Ring_offset_color : Css.color t
+  | Ring_offset_shadow : string t
   (* Gradient variables *)
-  | Gradient_from
-  | Gradient_via
-  | Gradient_to
-  | Gradient_stops
-  | Gradient_via_stops
-  | Gradient_position
-  | Gradient_from_position
-  | Gradient_via_position
-  | Gradient_to_position
+  | Gradient_from : Css.color t
+  | Gradient_via : Css.color t
+  | Gradient_to : Css.color t
+  | Gradient_stops : string t
+  | Gradient_via_stops : string t
+  | Gradient_position : string t
+  | Gradient_from_position : float t
+  | Gradient_via_position : float t
+  | Gradient_to_position : float t
   (* Border variables *)
-  | Border_style
+  | Border_style : Css.border_style t
   (* Scroll snap variables *)
-  | Scroll_snap_strictness
+  | Scroll_snap_strictness : string t
   (* Transition variables *)
-  | Duration
+  | Duration : Css.duration t
   (* Default font family helpers *)
-  | Default_font_family
-  | Default_mono_font_family
+  | Default_font_family : string t
+  | Default_mono_font_family : string t
 
-val to_string : t -> string
-(** [to_string v] converts variable [v] to its string representation. *)
+val name : _ t -> string
+(** Get the name of a variable (without --) *)
 
-val of_string : string -> t option
-(** [of_string s] parses a CSS variable from string [s]. *)
+val theme : 'a t -> 'a -> Css.declaration * 'a Css.var
+(** Create a theme layer variable (colors, spacing, fonts, radius) *)
 
-val compare : t -> t -> int
-(** [compare a b] compares variables for canonical ordering. *)
+val composition : 'a t -> 'a -> Css.declaration * 'a Css.var
+(** Create a composition/properties layer variable (--tw-* prefixed) *)
 
-type tally
-(** The tally of variable usage. *)
+val property : 'a t -> 'a -> Css.declaration * 'a Css.var
+(** Create a utility layer variable (rare) *)
+
+val layer : _ Css.var -> layer option
+(** Get the layer from a CSS variable *)
+
+val to_string : _ t -> string
+(** Convert a CSS variable to its string representation (with --) *)
+
+(** Existential wrapper for variables of any type *)
+type any = Any : _ t -> any
+
+val var_of_name : string -> any option
+(** Convert a CSS variable name to a typed variable *)
+
+val find : string -> Css.declaration -> any option
+(** Find variables referenced in a declaration *)
+
+val find_all : Css.declaration -> any list
+(** Find all variables referenced in a declaration *)
+
+val canonical_color_order : string -> int
+val canonical_order : _ t -> int
+val compare : _ t -> _ t -> int
+val pp : _ t -> string
+
+module S : Set.S with type elt = string
+module Set : Stdlib.Set.S with type elt = any
+
+type feature_group =
+  | Translate
+  | Rotate
+  | Skew
+  | Scale
+  | Filter
+  | Backdrop
+  | Ring_shadow
+  | Gradient
+  | Border
+  | Scroll_snap
+  | Other
+
+val group_of_var : _ t -> feature_group
+val group_of_var_string : string -> feature_group
+
+type tally = {
+  assigned : Set.t;
+  fallback_refs : Set.t;
+  unknown_assigned : S.t;
+  unknown_fallback_refs : S.t;
+}
 
 val empty : tally
-(** [empty] is the empty tally. *)
-
 val tally_of_vars : string list -> tally
-(** [tally_of_vars var_names] creates a tally from CSS variable names (with or
-    without '--' prefix). All variables are marked as assigned (not just
-    fallback references). *)
-
-val pp : t -> string
-(** [pp v] pretty-prints variable [v] as a string. *)
-
-val generate_properties_layer : tally -> (string * string) list
-(** [generate_properties_layer t] generates properties layer initializers for
-    groups that need them. *)
-
-val needs_at_property : tally -> t list
-(** [needs_at_property t] lists variables that need [@property] rules. *)
-
-val at_property_config : t -> (string * string * bool * string) option
-(** [at_property_config v] returns the @property configuration
-    (name, syntax, inherits, initial_value) for variable [v]. *)
-
+val groups_needing_layer : tally -> feature_group list
+val needs_at_property : tally -> any list
+val at_property_config : any -> (string * string * bool * string) option
 val is_composition_var : string -> bool
-(** [is_composition_var name] returns true if the variable name (with or without '--' prefix)
-    is a composition variable that should be tracked for @property rules. 
-    This includes --tw-* variables and other composition variables. *)
-
-val extract_composition_vars : (string * string) list -> string list
-(** [extract_composition_vars custom_props] extracts composition variable names
-    from a list of custom property declarations (name, value) pairs. Returns the
-    list of composition variables that are being assigned. *)
+val extract_composition_vars : (string * 'a) list -> string list

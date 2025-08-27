@@ -2,6 +2,10 @@
 
 open Core
 open Css
+
+(* Define the spacing variable at the module level *)
+let spacing_def, spacing_var = Var.theme Var.Spacing (Rem 0.25)
+
 module Parse = Parse
 
 (* Pretty-printing helpers *)
@@ -27,9 +31,7 @@ let to_length : spacing -> length = function
   | `Rem f ->
       let n = int_of_float (f /. 0.25) in
       Calc
-        (Calc.mul
-           (Calc.var ~default:(Rem 0.25) "spacing")
-           (Calc.float (float_of_int n)))
+        (Calc.mul (Calc.length (Var spacing_var)) (Calc.float (float_of_int n)))
 
 let margin_to_length : margin -> length = function
   | `Auto -> Auto
@@ -43,10 +45,16 @@ let decimal f = `Rem (f *. 0.25)
 
 (** {2 Typed Padding Utilities} *)
 
+(* Helper to include spacing_def when needed *)
+let make_spacing_style class_name decls s =
+  match s with
+  | `Rem _ -> style class_name (spacing_def :: decls)
+  | _ -> style class_name decls
+
 let p' (s : spacing) =
   let class_name = "p-" ^ pp_spacing_suffix s in
   let len = to_length s in
-  style class_name [ padding len ]
+  make_spacing_style class_name [ padding len ] s
 
 let px' (s : spacing) =
   let class_name = "px-" ^ pp_spacing_suffix s in

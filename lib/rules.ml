@@ -663,10 +663,22 @@ let add_hover_to_media_map hover_rules media_map =
 
 (* Helper to convert grouped selector/props pairs to CSS rules with
    deduplication *)
-let rules_of_grouped grouped_list =
+let rules_of_grouped ?(filter_custom_props = false) grouped_list =
   List.map
     (fun (selector, props) ->
-      Css.rule ~selector (Css.deduplicate_declarations props))
+      let filtered_props =
+        if filter_custom_props then
+          (* Filter out ALL custom property declarations from utility layer They
+             belong in theme or properties layer, not utilities *)
+          List.filter
+            (fun decl ->
+              match Css.custom_declaration_name decl with
+              | Some _ -> false (* Filter out custom declarations *)
+              | None -> true)
+            props
+        else props
+      in
+      Css.rule ~selector (Css.deduplicate_declarations filtered_props))
     grouped_list
 
 let rule_sets tw_classes =
@@ -680,21 +692,23 @@ let rule_sets tw_classes =
   let grouped_hover = group_by_selector hover_regular in
   let non_hover_rules = grouped_regular in
   let hover_rules = grouped_hover in
-  let rules = rules_of_grouped non_hover_rules in
+  let rules = rules_of_grouped ~filter_custom_props:true non_hover_rules in
   let media_queries_map =
     group_media_queries separated.media |> add_hover_to_media_map hover_rules
   in
   let media_queries =
     List.map
       (fun (condition, rule_list) ->
-        Css.media ~condition (rules_of_grouped rule_list))
+        Css.media ~condition
+          (rules_of_grouped ~filter_custom_props:true rule_list))
       media_queries_map
   in
   let container_queries_map = group_container_queries separated.container in
   let container_queries =
     List.map
       (fun (condition, rule_list) ->
-        Css.container ~condition (rules_of_grouped rule_list))
+        Css.container ~condition
+          (rules_of_grouped ~filter_custom_props:true rule_list))
       container_queries_map
   in
   (rules, media_queries, container_queries)
@@ -709,7 +723,9 @@ module Map = Map.Make (String)
 let compute_properties_layer rules =
   let referenced_vars = Css.vars_of_rules rules in
   let var_tally = Var.tally_of_vars referenced_vars in
-  let properties = Var.generate_properties_layer var_tally in
+  (* Properties with defaults are now handled by the variables themselves
+     through layers *)
+  let properties = [] in
   let layer_opt =
     if properties <> [] then
       let css_props =
@@ -743,69 +759,28 @@ let compute_properties_layer rules =
   in
   (layer_opt, at_properties)
 
-(* Order for theme variables - defines canonical ordering *)
+(* Order for theme variables - use Var module's canonical ordering *)
 let theme_variable_order var_name =
-  match var_name with
-  | "--font-sans" -> 0
-  | "--font-serif" -> 1
-  | "--font-mono" -> 2
-  | "--default-font-family" -> 3
-  | "--default-mono-font-family" -> 4
-  | _ when String.starts_with ~prefix:"--font-weight-" var_name -> 10
-  | _ when String.starts_with ~prefix:"--text-" var_name -> 20
-  | _ when String.starts_with ~prefix:"--leading-" var_name -> 30
-  | _ when String.starts_with ~prefix:"--color-" var_name -> 40
-  | _ when String.starts_with ~prefix:"--radius-" var_name -> 50
-  | _ -> 100
+  (* Try to map to a typed variable and use its canonical order *)
+  match Var.var_of_name var_name with
+  | Some (Var.Any v) -> Var.canonical_order v
+  | None ->
+      (* Unknown variables go at the end *)
+      1000000
 
-let theme_variable_defaults var_name =
-  (* Generate default values for common theme variables *)
-  match var_name with
-  | "--font-sans" ->
-      Some
-        (fst
-           (Css.var "font-sans" Css.String
-              "ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \
-               \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\""))
-  | "--font-mono" ->
-      Some
-        (fst
-           (Css.var "font-mono" Css.String
-              "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \
-               \"Liberation Mono\", \"Courier New\", monospace"))
-  | "--default-font-family" ->
-      Some
-        (fst
-           (Css.var ~deps:[ "--font-sans" ] "default-font-family" Css.String
-              "var(--font-sans)"))
-  | "--default-mono-font-family" ->
-      Some
-        (fst
-           (Css.var ~deps:[ "--font-mono" ] "default-mono-font-family"
-              Css.String "var(--font-mono)"))
-  | _ -> (
-      (* Try to parse color variables *)
-      match
-        Scanf.sscanf_opt var_name "--color-%s@-%d" (fun name shade ->
-            (name, shade))
-      with
-      | Some (name, shade) -> (
-          try
-            let color = Color.of_string_exn name in
-            let color_value = Color.to_css color shade in
-            let var_name_clean = Printf.sprintf "color-%s-%d" name shade in
-            Some (fst (Css.var var_name_clean Css.Color color_value))
-          with _ -> None)
-      | None -> None)
-
-let compute_theme_layer
-    ?(default_vars =
+let compute_theme_layer ?(default_vars = []) tw_classes =
+  (* Use Var module to get default font variables instead of hardcoding *)
+  let default_vars =
+    if default_vars = [] then
+      (* Get the variable names for default font-related variables *)
       [
-        "--font-sans";
-        "--font-mono";
-        "--default-font-family";
-        "--default-mono-font-family";
-      ]) tw_classes =
+        Var.to_string Var.Font_sans;
+        Var.to_string Var.Font_mono;
+        Var.to_string Var.Default_font_family;
+        Var.to_string Var.Default_mono_font_family;
+      ]
+    else default_vars
+  in
   (* Extract all variable declarations (Custom_declaration) from the styles *)
   let all_var_declarations =
     let var_map = ref Map.empty in
@@ -818,16 +793,17 @@ let compute_theme_layer
                | Media_query { props; _ }
                | Container_query { props; _ }
                | Starting_style { props; _ } ->
-                   (* Extract custom declarations using the Css module
-                      function *)
+                   (* Extract custom declarations for theme layer *)
                    let custom_decls = Css.extract_custom_declarations props in
                    List.iter
                      (fun decl ->
-                       (* Extract the variable name properly *)
+                       (* Only extract non --tw- prefixed for theme layer *)
                        match Css.custom_declaration_name decl with
-                       | Some var_name ->
+                       | Some var_name
+                         when not (String.starts_with ~prefix:"--tw-" var_name)
+                         ->
                            var_map := Map.add var_name decl !var_map
-                       | None -> ())
+                       | _ -> ())
                      custom_decls)
              selector_props);
     Map.bindings !var_map |> List.map snd
@@ -878,8 +854,9 @@ let compute_theme_layer
            with
            | Some decl -> Some decl
            | None ->
-               (* Otherwise use the default *)
-               theme_variable_defaults var_name)
+               (* No special treatment - all variables handled through layer
+                  system *)
+               None)
     |> List.stable_sort (fun a b ->
            (* Sort declarations by their variable name order *)
            match
