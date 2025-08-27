@@ -40,10 +40,11 @@ let form_select =
       Css.font_size (Rem 1.0);
       Css.line_height (Rem 1.5);
       Css.background_image
-        "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' \
-         fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' \
-         stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' \
-         d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")";
+        (Css.url
+           "data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' \
+            fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' \
+            stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' \
+            d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
       Css.background_position "right 0.5rem center";
       Css.background_repeat No_repeat;
       Css.background_size "1.5em 1.5em";

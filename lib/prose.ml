@@ -15,33 +15,71 @@
 
 open Css
 
-(* Helper functions for CSS variables *)
-let color_var x = color (Var (Css.var x))
-let background_color_var x = background_color (Var (Css.var x))
-let border_color_var x = border_color (Var (Css.var x))
+(** Helper function to create color custom properties *)
+let color_prop name r g b =
+  let def, _ = var name Color (Rgb { r; g; b }) in
+  def
 
 (* Prose variant type *)
 type variant = [ `Base | `Sm | `Lg | `Xl | `Xl2 | `Gray | `Slate ]
 
+(* Create variables for reuse *)
+
 (** Default prose CSS variables for theming *)
+let prose_body_def, prose_body_var =
+  var "tw-prose-body" Color (Rgb { r = 55; g = 65; b = 81 })
+
+let prose_headings_def, prose_headings_var =
+  var "tw-prose-headings" Color (Rgb { r = 17; g = 24; b = 39 })
+
+let _prose_code_def, prose_code_var =
+  var "tw-prose-code" Color (Rgb { r = 17; g = 24; b = 39 })
+
+let _prose_pre_code_def, prose_pre_code_var =
+  var "tw-prose-pre-code" Color (Rgb { r = 229; g = 231; b = 235 })
+
+let _prose_pre_bg_def, prose_pre_bg_var =
+  var "tw-prose-pre-bg" Color (Rgb { r = 31; g = 41; b = 55 })
+
+let _prose_th_borders_def, prose_th_borders_var =
+  var "tw-prose-th-borders" Color (Rgb { r = 209; g = 213; b = 219 })
+
+let _prose_td_borders_def, prose_td_borders_var =
+  var "tw-prose-td-borders" Color (Rgb { r = 229; g = 231; b = 235 })
+
+let _prose_links_def, prose_links_var =
+  var "tw-prose-links" Color (Rgb { r = 17; g = 24; b = 39 })
+
+let _prose_quotes_def, prose_quotes_var =
+  var "tw-prose-quotes" Color (Rgb { r = 107; g = 114; b = 128 })
+
+let _prose_quote_borders_def, prose_quote_borders_var =
+  var "tw-prose-quote-borders" Color (Rgb { r = 229; g = 231; b = 235 })
+
+let _prose_hr_def, prose_hr_var =
+  var "tw-prose-hr" Color (Rgb { r = 229; g = 231; b = 235 })
+
+let _prose_bold_def, prose_bold_var =
+  var "tw-prose-bold" Color (Rgb { r = 17; g = 24; b = 39 })
+
 let css_variables =
   [
-    Css.custom_property "--tw-prose-body" "rgb(55 65 81)";
-    Css.custom_property "--tw-prose-headings" "rgb(17 24 39)";
-    Css.custom_property "--tw-prose-lead" "rgb(75 85 99)";
-    Css.custom_property "--tw-prose-links" "rgb(17 24 39)";
-    Css.custom_property "--tw-prose-bold" "rgb(17 24 39)";
-    Css.custom_property "--tw-prose-counters" "rgb(107 114 128)";
-    Css.custom_property "--tw-prose-bullets" "rgb(209 213 219)";
-    Css.custom_property "--tw-prose-hr" "rgb(229 231 235)";
-    Css.custom_property "--tw-prose-quotes" "rgb(17 24 39)";
-    Css.custom_property "--tw-prose-quote-borders" "rgb(229 231 235)";
-    Css.custom_property "--tw-prose-captions" "rgb(107 114 128)";
-    Css.custom_property "--tw-prose-code" "rgb(17 24 39)";
-    Css.custom_property "--tw-prose-pre-code" "rgb(229 231 235)";
-    Css.custom_property "--tw-prose-pre-bg" "rgb(55 65 81)";
-    Css.custom_property "--tw-prose-th-borders" "rgb(209 213 219)";
-    Css.custom_property "--tw-prose-td-borders" "rgb(229 231 235)";
+    prose_body_def;
+    prose_headings_def;
+    color_prop "--tw-prose-lead" 75 85 99;
+    color_prop "--tw-prose-links" 17 24 39;
+    color_prop "--tw-prose-bold" 17 24 39;
+    color_prop "--tw-prose-counters" 107 114 128;
+    color_prop "--tw-prose-bullets" 209 213 219;
+    color_prop "--tw-prose-hr" 229 231 235;
+    color_prop "--tw-prose-quotes" 17 24 39;
+    color_prop "--tw-prose-quote-borders" 229 231 235;
+    color_prop "--tw-prose-captions" 107 114 128;
+    color_prop "--tw-prose-code" 17 24 39;
+    color_prop "--tw-prose-pre-code" 229 231 235;
+    color_prop "--tw-prose-pre-bg" 55 65 81;
+    color_prop "--tw-prose-th-borders" 209 213 219;
+    color_prop "--tw-prose-td-borders" 229 231 235;
   ]
 
 (** Convert prose variant to CSS class name *)
@@ -62,7 +100,7 @@ let base_heading_rules selector =
   [
     rule ~selector:(selector " h1")
       [
-        color_var "tw-prose-headings";
+        color (Var prose_headings_var);
         font_weight (Weight 800);
         font_size (Em 2.25);
         margin_top Zero;
@@ -71,7 +109,7 @@ let base_heading_rules selector =
       ];
     rule ~selector:(selector " h2")
       [
-        color_var "tw-prose-headings";
+        color (Var prose_headings_var);
         font_weight (Weight 700);
         font_size (Em 1.5);
         margin_top (Em 2.0);
@@ -80,7 +118,7 @@ let base_heading_rules selector =
       ];
     rule ~selector:(selector " h3")
       [
-        color_var "tw-prose-headings";
+        color (Var prose_headings_var);
         font_weight (Weight 600);
         font_size (Em 1.25);
         margin_top (Em 1.6);
@@ -89,7 +127,7 @@ let base_heading_rules selector =
       ];
     rule ~selector:(selector " h4")
       [
-        color_var "tw-prose-headings";
+        color (Var prose_headings_var);
         font_weight (Weight 600);
         margin_top (Em 1.5);
         margin_bottom (Em 0.5);
@@ -125,7 +163,7 @@ let base_code_rules selector =
   [
     rule ~selector:(selector " code")
       [
-        color_var "tw-prose-code";
+        color (Var prose_code_var);
         font_weight (Weight 600);
         font_size (Em 0.875);
       ];
@@ -133,8 +171,8 @@ let base_code_rules selector =
     rule ~selector:(selector " code::after") [ content "\"\\`\"" ];
     rule ~selector:(selector " pre")
       [
-        color_var "tw-prose-pre-code";
-        background_color_var "tw-prose-pre-bg";
+        color (Var prose_pre_code_var);
+        background_color (Var prose_pre_bg_var);
         overflow_x Auto;
         font_weight (Weight 400);
         font_size (Em 0.875);
@@ -177,10 +215,10 @@ let base_table_rules selector =
         line_height (Num 1.7142857);
       ];
     rule ~selector:(selector " thead")
-      [ border_bottom_width (Px 1); border_color_var "tw-prose-th-borders" ];
+      [ border_bottom_width (Px 1); border_color (Var prose_th_borders_var) ];
     rule ~selector:(selector " thead th")
       [
-        color_var "tw-prose-headings";
+        color (Var prose_headings_var);
         font_weight (Weight 600);
         vertical_align Bottom;
         padding_right (Em 0.5714286);
@@ -188,7 +226,7 @@ let base_table_rules selector =
         padding_left (Em 0.5714286);
       ];
     rule ~selector:(selector " tbody tr")
-      [ border_bottom_width (Px 1); border_color_var "tw-prose-td-borders" ];
+      [ border_bottom_width (Px 1); border_color (Var prose_td_borders_var) ];
     rule
       ~selector:(selector " tbody tr:last-child")
       [ border_bottom_width Zero ];
@@ -207,7 +245,7 @@ let base_misc_rules selector =
   [
     rule ~selector:(selector " a")
       [
-        color_var "tw-prose-links";
+        color (Var prose_links_var);
         text_decoration None;
         font_weight (Weight 500);
         transition (Simple (Property "color", S 0.2));
@@ -218,9 +256,9 @@ let base_misc_rules selector =
       [
         font_weight (Weight 500);
         font_style Italic;
-        color_var "tw-prose-quotes";
+        color (Var prose_quotes_var);
         border_left_width (Rem 0.25);
-        border_color_var "tw-prose-quote-borders";
+        border_color (Var prose_quote_borders_var);
         quotes "\"\\201C\"\"\\201D\"\"\\2018\"\"\\2019\"";
         margin_top (Em 1.6);
         margin_bottom (Em 1.6);
@@ -234,13 +272,13 @@ let base_misc_rules selector =
       [ content "close-quote" ];
     rule ~selector:(selector " hr")
       [
-        border_color_var "tw-prose-hr";
+        border_color (Var prose_hr_var);
         border_top_width (Px 1);
         margin_top (Em 3.0);
         margin_bottom (Em 3.0);
       ];
     rule ~selector:(selector " strong")
-      [ color_var "tw-prose-bold"; font_weight (Weight 600) ];
+      [ color (Var prose_bold_var); font_weight (Weight 600) ];
     rule ~selector:(selector " img")
       [ margin_top (Em 2.0); margin_bottom (Em 2.0) ];
   ]
@@ -364,22 +402,22 @@ let gray_color_rules =
   [
     rule ~selector:".prose-gray"
       [
-        Css.custom_property "--tw-prose-body" "rgb(107 114 128)";
-        Css.custom_property "--tw-prose-headings" "rgb(31 41 55)";
-        Css.custom_property "--tw-prose-lead" "rgb(75 85 99)";
-        Css.custom_property "--tw-prose-links" "rgb(31 41 55)";
-        Css.custom_property "--tw-prose-bold" "rgb(31 41 55)";
-        Css.custom_property "--tw-prose-counters" "rgb(107 114 128)";
-        Css.custom_property "--tw-prose-bullets" "rgb(209 213 219)";
-        Css.custom_property "--tw-prose-hr" "rgb(229 231 235)";
-        Css.custom_property "--tw-prose-quotes" "rgb(31 41 55)";
-        Css.custom_property "--tw-prose-quote-borders" "rgb(229 231 235)";
-        Css.custom_property "--tw-prose-captions" "rgb(156 163 175)";
-        Css.custom_property "--tw-prose-code" "rgb(31 41 55)";
-        Css.custom_property "--tw-prose-pre-code" "rgb(229 231 235)";
-        Css.custom_property "--tw-prose-pre-bg" "rgb(31 41 55)";
-        Css.custom_property "--tw-prose-th-borders" "rgb(209 213 219)";
-        Css.custom_property "--tw-prose-td-borders" "rgb(229 231 235)";
+        color_prop "--tw-prose-body" 107 114 128;
+        color_prop "--tw-prose-headings" 31 41 55;
+        color_prop "--tw-prose-lead" 75 85 99;
+        color_prop "--tw-prose-links" 31 41 55;
+        color_prop "--tw-prose-bold" 31 41 55;
+        color_prop "--tw-prose-counters" 107 114 128;
+        color_prop "--tw-prose-bullets" 209 213 219;
+        color_prop "--tw-prose-hr" 229 231 235;
+        color_prop "--tw-prose-quotes" 31 41 55;
+        color_prop "--tw-prose-quote-borders" 229 231 235;
+        color_prop "--tw-prose-captions" 156 163 175;
+        color_prop "--tw-prose-code" 31 41 55;
+        color_prop "--tw-prose-pre-code" 229 231 235;
+        color_prop "--tw-prose-pre-bg" 31 41 55;
+        color_prop "--tw-prose-th-borders" 209 213 219;
+        color_prop "--tw-prose-td-borders" 229 231 235;
       ];
   ]
 
@@ -387,22 +425,22 @@ let slate_color_rules =
   [
     rule ~selector:".prose-slate"
       [
-        Css.custom_property "--tw-prose-body" "rgb(100 116 139)";
-        Css.custom_property "--tw-prose-headings" "rgb(15 23 42)";
-        Css.custom_property "--tw-prose-lead" "rgb(71 85 105)";
-        Css.custom_property "--tw-prose-links" "rgb(15 23 42)";
-        Css.custom_property "--tw-prose-bold" "rgb(15 23 42)";
-        Css.custom_property "--tw-prose-counters" "rgb(100 116 139)";
-        Css.custom_property "--tw-prose-bullets" "rgb(203 213 225)";
-        Css.custom_property "--tw-prose-hr" "rgb(226 232 240)";
-        Css.custom_property "--tw-prose-quotes" "rgb(15 23 42)";
-        Css.custom_property "--tw-prose-quote-borders" "rgb(226 232 240)";
-        Css.custom_property "--tw-prose-captions" "rgb(148 163 184)";
-        Css.custom_property "--tw-prose-code" "rgb(15 23 42)";
-        Css.custom_property "--tw-prose-pre-code" "rgb(226 232 240)";
-        Css.custom_property "--tw-prose-pre-bg" "rgb(30 41 59)";
-        Css.custom_property "--tw-prose-th-borders" "rgb(203 213 225)";
-        Css.custom_property "--tw-prose-td-borders" "rgb(226 232 240)";
+        color_prop "--tw-prose-body" 100 116 139;
+        color_prop "--tw-prose-headings" 15 23 42;
+        color_prop "--tw-prose-lead" 71 85 105;
+        color_prop "--tw-prose-links" 15 23 42;
+        color_prop "--tw-prose-bold" 15 23 42;
+        color_prop "--tw-prose-counters" 100 116 139;
+        color_prop "--tw-prose-bullets" 203 213 225;
+        color_prop "--tw-prose-hr" 226 232 240;
+        color_prop "--tw-prose-quotes" 15 23 42;
+        color_prop "--tw-prose-quote-borders" 226 232 240;
+        color_prop "--tw-prose-captions" 148 163 184;
+        color_prop "--tw-prose-code" 15 23 42;
+        color_prop "--tw-prose-pre-code" 226 232 240;
+        color_prop "--tw-prose-pre-bg" 30 41 59;
+        color_prop "--tw-prose-th-borders" 203 213 225;
+        color_prop "--tw-prose-td-borders" 226 232 240;
       ];
   ]
 
@@ -411,7 +449,7 @@ let base_prose_rules selector =
   let base_rule =
     rule ~selector:".prose"
       ([
-         color_var "tw-prose-body";
+         color (Var prose_body_var);
          max_width (Ch 65.0);
          font_size (Rem 1.0);
          line_height (Num 1.75);
@@ -444,7 +482,7 @@ let to_base_properties variant =
   match variant with
   | `Base ->
       [
-        color_var "tw-prose-body";
+        color (Var prose_body_var);
         max_width (Ch 65.0);
         font_size (Rem 1.0);
         line_height (Num 1.75);

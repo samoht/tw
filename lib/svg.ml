@@ -12,11 +12,11 @@ let svg_color_util prefix property color ?(shade = 500) () =
     if Color.is_base_color color then Pp.str [ "color-"; Color.to_name color ]
     else Pp.str [ "color-"; Color.to_name color; "-"; string_of_int shade ]
   in
-  let default_color =
+  let typed_color =
     Color.to_css color (if Color.is_base_color color then 500 else shade)
   in
-  let css_var = Css.var ~default:default_color var_name in
-  style class_name [ property (Color (Css.Var css_var)) ]
+  let def, css_var = Css.var var_name Color typed_color in
+  style class_name [ def; property (Color (Css.Var css_var)) ]
 
 (** {1 Fill Utilities} *)
 

@@ -704,27 +704,7 @@ let rule_sets tw_classes =
 (* ======================================================================== *)
 
 module Set = Set.Make (String)
-
-let resolve_dependencies vars_to_check initial_resolved =
-  (* Resolve transitive dependencies using a real FIFO queue from Stdlib.
-     Membership testing uses a Set for O(log n) checks. *)
-  let q = Queue.create () in
-  List.iter (fun v -> Queue.add v q) vars_to_check;
-  let rec bfs (seen : Set.t) =
-    if Queue.is_empty q then Set.elements seen
-    else
-      let var = Queue.take q in
-      if Set.mem var seen then bfs seen
-      else
-        let deps =
-          match Var.of_string var with
-          | Some v -> Var.to_css_properties v |> Css.vars_of_declarations
-          | None -> []
-        in
-        List.iter (fun d -> if not (Set.mem d seen) then Queue.add d q) deps;
-        bfs (Set.add var seen)
-  in
-  bfs (Set.of_list initial_resolved)
+module Map = Map.Make (String)
 
 let compute_properties_layer rules =
   let referenced_vars = Css.vars_of_rules rules in
@@ -763,7 +743,97 @@ let compute_properties_layer rules =
   in
   (layer_opt, at_properties)
 
-let compute_theme_layer tw_classes =
+(* Order for theme variables - defines canonical ordering *)
+let theme_variable_order var_name =
+  match var_name with
+  | "--font-sans" -> 0
+  | "--font-serif" -> 1
+  | "--font-mono" -> 2
+  | "--default-font-family" -> 3
+  | "--default-mono-font-family" -> 4
+  | _ when String.starts_with ~prefix:"--font-weight-" var_name -> 10
+  | _ when String.starts_with ~prefix:"--text-" var_name -> 20
+  | _ when String.starts_with ~prefix:"--leading-" var_name -> 30
+  | _ when String.starts_with ~prefix:"--color-" var_name -> 40
+  | _ when String.starts_with ~prefix:"--radius-" var_name -> 50
+  | _ -> 100
+
+let theme_variable_defaults var_name =
+  (* Generate default values for common theme variables *)
+  match var_name with
+  | "--font-sans" ->
+      Some
+        (fst
+           (Css.var "font-sans" Css.String
+              "ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \
+               \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\""))
+  | "--font-mono" ->
+      Some
+        (fst
+           (Css.var "font-mono" Css.String
+              "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \
+               \"Liberation Mono\", \"Courier New\", monospace"))
+  | "--default-font-family" ->
+      Some
+        (fst
+           (Css.var ~deps:[ "--font-sans" ] "default-font-family" Css.String
+              "var(--font-sans)"))
+  | "--default-mono-font-family" ->
+      Some
+        (fst
+           (Css.var ~deps:[ "--font-mono" ] "default-mono-font-family"
+              Css.String "var(--font-mono)"))
+  | _ -> (
+      (* Try to parse color variables *)
+      match
+        Scanf.sscanf_opt var_name "--color-%s@-%d" (fun name shade ->
+            (name, shade))
+      with
+      | Some (name, shade) -> (
+          try
+            let color = Color.of_string_exn name in
+            let color_value = Color.to_css color shade in
+            let var_name_clean = Printf.sprintf "color-%s-%d" name shade in
+            Some (fst (Css.var var_name_clean Css.Color color_value))
+          with _ -> None)
+      | None -> None)
+
+let compute_theme_layer
+    ?(default_vars =
+      [
+        "--font-sans";
+        "--font-mono";
+        "--default-font-family";
+        "--default-mono-font-family";
+      ]) tw_classes =
+  (* Extract all variable declarations (Custom_declaration) from the styles *)
+  let all_var_declarations =
+    let var_map = ref Map.empty in
+    tw_classes
+    |> List.iter (fun tw ->
+           let selector_props = extract_selector_props tw in
+           List.iter
+             (function
+               | Regular { props; _ }
+               | Media_query { props; _ }
+               | Container_query { props; _ }
+               | Starting_style { props; _ } ->
+                   (* Extract custom declarations using the Css module
+                      function *)
+                   let custom_decls = Css.extract_custom_declarations props in
+                   List.iter
+                     (fun decl ->
+                       (* Extract the variable name properly *)
+                       match Css.custom_declaration_name decl with
+                       | Some var_name ->
+                           var_map := Map.add var_name decl !var_map
+                       | None -> ())
+                     custom_decls)
+             selector_props);
+    Map.bindings !var_map |> List.map snd
+  in
+
+  (* Also get variable names that are referenced (for fallback generation) *)
   let directly_referenced_vars =
     let var_set = ref Set.empty in
     tw_classes
@@ -781,31 +851,52 @@ let compute_theme_layer tw_classes =
              selector_props);
     Set.elements !var_set
   in
-  let default_vars =
-    [ "--default-font-family"; "--default-mono-font-family" ]
+
+  (* Build list of all variables we need, preserving default_vars order *)
+  let all_needed_vars =
+    (* Start with default vars in their specified order *)
+    default_vars
+    @
+    (* Then add any other referenced vars *)
+    List.filter
+      (fun v -> not (List.mem v default_vars))
+      directly_referenced_vars
   in
-  let initial_vars = directly_referenced_vars @ default_vars in
-  let all_referenced_vars =
-    resolve_dependencies initial_vars []
-    |> List.sort_uniq (fun a b ->
-           match (Var.of_string a, Var.of_string b) with
-           | Some va, Some vb -> Var.compare va vb
-           | Some _, None -> -1
-           | None, Some _ -> 1
-           | None, None -> String.compare a b)
-  in
+
+  (* Build the final theme declarations, preserving order *)
   let theme_generated_vars =
-    all_referenced_vars
-    |> List.concat_map (fun var_name ->
-           match Var.of_string var_name with
-           | Some v -> Var.to_css_properties v
-           | None -> [])
+    all_needed_vars
+    |> List.filter_map (fun var_name ->
+           (* First check if we have an extracted declaration for this var *)
+           match
+             List.find_opt
+               (fun decl ->
+                 match Css.custom_declaration_name decl with
+                 | Some name -> name = var_name
+                 | None -> false)
+               all_var_declarations
+           with
+           | Some decl -> Some decl
+           | None ->
+               (* Otherwise use the default *)
+               theme_variable_defaults var_name)
+    |> List.stable_sort (fun a b ->
+           (* Sort declarations by their variable name order *)
+           match
+             (Css.custom_declaration_name a, Css.custom_declaration_name b)
+           with
+           | Some na, Some nb ->
+               Int.compare (theme_variable_order na) (theme_variable_order nb)
+           | _ -> 0)
   in
-  Css.layered_rules ~layer:Css.Theme
-    [
-      Css.rule_to_nested
-        (Css.rule ~selector:":root, :host" theme_generated_vars);
-    ]
+
+  if theme_generated_vars = [] then Css.layered_rules ~layer:Css.Theme []
+  else
+    Css.layered_rules ~layer:Css.Theme
+      [
+        Css.rule_to_nested
+          (Css.rule ~selector:":root, :host" theme_generated_vars);
+      ]
 
 let placeholder_supports =
   Css.supports_nested

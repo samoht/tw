@@ -18,6 +18,86 @@
 
 open Core
 open Css
+
+(* Helper to create text size variables with line height *)
+let var_text_size name size_rem line_height_multiplier =
+  let size_def, size_var = var name Length (Rem size_rem) in
+  let lh_def, lh_var =
+    var (name ^ "--line-height") Length (Num line_height_multiplier)
+  in
+  (size_def, size_var, lh_def, lh_var)
+
+(* Text size variables defined at top level *)
+let text_xs_size_def, text_xs_var, text_xs_lh_def, text_xs_lh_var =
+  var_text_size "text-xs" 0.75 1.333
+
+let text_sm_size_def, text_sm_var, text_sm_lh_def, text_sm_lh_var =
+  var_text_size "text-sm" 0.875 1.429
+
+let text_base_size_def, text_base_var, text_base_lh_def, text_base_lh_var =
+  var_text_size "text-base" 1.0 1.5
+
+let text_lg_size_def, text_lg_var, text_lg_lh_def, text_lg_lh_var =
+  var_text_size "text-lg" 1.125 1.556
+
+let text_xl_size_def, text_xl_var, text_xl_lh_def, text_xl_lh_var =
+  var_text_size "text-xl" 1.25 1.4
+
+let text_2xl_size_def, text_2xl_var, text_2xl_lh_def, text_2xl_lh_var =
+  var_text_size "text-2xl" 1.5 1.333
+
+let text_3xl_size_def, text_3xl_var, text_3xl_lh_def, text_3xl_lh_var =
+  var_text_size "text-3xl" 1.875 1.2
+
+let text_4xl_size_def, text_4xl_var, text_4xl_lh_def, text_4xl_lh_var =
+  var_text_size "text-4xl" 2.25 1.111
+
+let text_5xl_size_def, text_5xl_var, text_5xl_lh_def, text_5xl_lh_var =
+  var_text_size "text-5xl" 3.0 1.0
+
+let text_6xl_size_def, text_6xl_var, text_6xl_lh_def, text_6xl_lh_var =
+  var_text_size "text-6xl" 3.75 1.0
+
+let text_7xl_size_def, text_7xl_var, text_7xl_lh_def, text_7xl_lh_var =
+  var_text_size "text-7xl" 4.5 1.0
+
+let text_8xl_size_def, text_8xl_var, text_8xl_lh_def, text_8xl_lh_var =
+  var_text_size "text-8xl" 6.0 1.0
+
+let text_9xl_size_def, text_9xl_var, text_9xl_lh_def, text_9xl_lh_var =
+  var_text_size "text-9xl" 8.0 1.0
+
+(* Leading/line-height variable *)
+let _tw_leading_def, _tw_leading_var = var "tw-leading" Float 1.5
+
+(* Font weight variables defined at top level *)
+let _font_weight_thin_def, _font_weight_thin_var =
+  var "font-weight-thin" Font_weight (Weight 100)
+
+let _font_weight_extralight_def, _font_weight_extralight_var =
+  var "font-weight-extralight" Font_weight (Weight 200)
+
+let _font_weight_light_def, _font_weight_light_var =
+  var "font-weight-light" Font_weight (Weight 300)
+
+let _font_weight_normal_def, _font_weight_normal_var =
+  var "font-weight-normal" Font_weight (Weight 400)
+
+let _font_weight_medium_def, _font_weight_medium_var =
+  var "font-weight-medium" Font_weight (Weight 500)
+
+let _font_weight_semibold_def, _font_weight_semibold_var =
+  var "font-weight-semibold" Font_weight (Weight 600)
+
+let _font_weight_bold_def, _font_weight_bold_var =
+  var "font-weight-bold" Font_weight (Weight 700)
+
+let _font_weight_extrabold_def, _font_weight_extrabold_var =
+  var "font-weight-extrabold" Font_weight (Weight 800)
+
+let _font_weight_black_def, _font_weight_black_var =
+  var "font-weight-black" Font_weight (Weight 900)
+
 module Parse = Parse
 
 (** {1 Font Size Utilities} *)
@@ -25,136 +105,131 @@ module Parse = Parse
 let text_xs =
   style "text-xs"
     [
-      font_size (Var (var "text-xs"));
-      line_height
-        (Var (var ~fallback:(Var (var "text-xs--line-height")) "tw-leading"));
+      text_xs_size_def;
+      text_xs_lh_def;
+      font_size (Var text_xs_var);
+      line_height (Var text_xs_lh_var);
     ]
 
 let text_sm =
   style "text-sm"
     [
-      font_size (Var (var "text-sm"));
-      line_height
-        (Var (var ~fallback:(Var (var "text-sm--line-height")) "tw-leading"));
+      text_sm_size_def;
+      text_sm_lh_def;
+      font_size (Var text_sm_var);
+      line_height (Var text_sm_lh_var);
     ]
 
 let text_base =
   style "text-base"
     [
-      font_size (Var (var "text-base"));
-      line_height
-        (Var (var ~fallback:(Var (var "text-base--line-height")) "tw-leading"));
+      text_base_size_def;
+      text_base_lh_def;
+      font_size (Var text_base_var);
+      line_height (Var text_base_lh_var);
     ]
 
 let text_lg =
   style "text-lg"
     [
-      font_size (Var (var "text-lg"));
-      line_height
-        (Var (var ~fallback:(Var (var "text-lg--line-height")) "tw-leading"));
+      text_lg_size_def;
+      text_lg_lh_def;
+      font_size (Var text_lg_var);
+      line_height (Var text_lg_lh_var);
     ]
 
 let text_xl =
   style "text-xl"
     [
-      font_size (Var (var "text-xl"));
-      line_height
-        (Var (var ~fallback:(Var (var "text-xl--line-height")) "tw-leading"));
+      text_xl_size_def;
+      text_xl_lh_def;
+      font_size (Var text_xl_var);
+      line_height (Var text_xl_lh_var);
     ]
 
 let text_2xl =
   style "text-2xl"
     [
-      font_size (Var (var "text-2xl"));
-      line_height
-        (Var (var ~fallback:(Var (var "text-2xl--line-height")) "tw-leading"));
+      text_2xl_size_def;
+      text_2xl_lh_def;
+      font_size (Var text_2xl_var);
+      line_height (Var text_2xl_lh_var);
     ]
 
 let text_3xl =
   style "text-3xl"
     [
-      font_size (Var (var "text-3xl"));
-      line_height
-        (Var (var ~fallback:(Var (var "text-3xl--line-height")) "tw-leading"));
+      text_3xl_size_def;
+      text_3xl_lh_def;
+      font_size (Var text_3xl_var);
+      line_height (Var text_3xl_lh_var);
     ]
 
 let text_4xl =
   style "text-4xl"
     [
-      font_size (Var (var "text-4xl"));
-      line_height
-        (Var (var ~fallback:(Var (var "text-4xl--line-height")) "tw-leading"));
+      text_4xl_size_def;
+      text_4xl_lh_def;
+      font_size (Var text_4xl_var);
+      line_height (Var text_4xl_lh_var);
     ]
 
 let text_5xl =
   style "text-5xl"
     [
-      font_size (Var (var "text-5xl"));
-      line_height
-        (Var (var ~fallback:(Var (var "text-5xl--line-height")) "tw-leading"));
+      text_5xl_size_def;
+      text_5xl_lh_def;
+      font_size (Var text_5xl_var);
+      line_height (Var text_5xl_lh_var);
     ]
 
 let text_6xl =
   style "text-6xl"
     [
-      font_size (Var (var "text-6xl"));
-      line_height
-        (Var (var ~fallback:(Var (var "text-6xl--line-height")) "tw-leading"));
+      text_6xl_size_def;
+      text_6xl_lh_def;
+      font_size (Var text_6xl_var);
+      line_height (Var text_6xl_lh_var);
     ]
 
 let text_7xl =
   style "text-7xl"
     [
-      font_size (Var (var "text-7xl"));
-      line_height
-        (Var (var ~fallback:(Var (var "text-7xl--line-height")) "tw-leading"));
+      text_7xl_size_def;
+      text_7xl_lh_def;
+      font_size (Var text_7xl_var);
+      line_height (Var text_7xl_lh_var);
     ]
 
 let text_8xl =
   style "text-8xl"
     [
-      font_size (Var (var "text-8xl"));
-      line_height
-        (Var (var ~fallback:(Var (var "text-8xl--line-height")) "tw-leading"));
+      text_8xl_size_def;
+      text_8xl_lh_def;
+      font_size (Var text_8xl_var);
+      line_height (Var text_8xl_lh_var);
     ]
 
 let text_9xl =
   style "text-9xl"
     [
-      font_size (Var (var "text-9xl"));
-      line_height
-        (Var (var ~fallback:(Var (var "text-9xl--line-height")) "tw-leading"));
+      text_9xl_size_def;
+      text_9xl_lh_def;
+      font_size (Var text_9xl_var);
+      line_height (Var text_9xl_lh_var);
     ]
 
 (** {1 Font Weight Utilities} *)
 
-(** Helper to create font weight utilities with proper variable dependencies *)
-let font_weight name weight_value =
-  let var_name =
-    "--font-weight-" ^ String.sub name 5 (String.length name - 5)
-  in
-  (* Remove "font-" prefix *)
-  let var_name_without_prefix =
-    String.sub var_name 2 (String.length var_name - 2)
-  in
-  (* Remove "--" *)
-  style name
-    [
-      custom_property ~deps:[ var_name ] "--tw-font-weight"
-        ("var(" ^ var_name ^ ")");
-      Css.font_weight
-        (Var (var ~default:(Weight weight_value) var_name_without_prefix));
-    ]
-
-let font_thin = font_weight "font-thin" 100
-let font_extralight = font_weight "font-extralight" 200
-let font_light = font_weight "font-light" 300
-let font_normal = font_weight "font-normal" 400
-let font_medium = font_weight "font-medium" 500
-let font_semibold = font_weight "font-semibold" 600
-let font_bold = font_weight "font-bold" 700
-let font_extrabold = font_weight "font-extrabold" 800
-let font_black = font_weight "font-black" 900
+let font_thin = style "font-thin" [ Css.font_weight (Weight 100) ]
+let font_extralight = style "font-extralight" [ Css.font_weight (Weight 200) ]
+let font_light = style "font-light" [ Css.font_weight (Weight 300) ]
+let font_normal = style "font-normal" [ Css.font_weight (Weight 400) ]
+let font_medium = style "font-medium" [ Css.font_weight (Weight 500) ]
+let font_semibold = style "font-semibold" [ Css.font_weight (Weight 600) ]
+let font_bold = style "font-bold" [ Css.font_weight (Weight 700) ]
+let font_extrabold = style "font-extrabold" [ Css.font_weight (Weight 800) ]
+let font_black = style "font-black" [ Css.font_weight (Weight 900) ]
 
 (** {1 Font Family Utilities} *)
 

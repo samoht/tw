@@ -131,10 +131,6 @@ val of_string : string -> t option
 val compare : t -> t -> int
 (** [compare a b] compares variables for canonical ordering. *)
 
-val to_css_properties : t -> Css.declaration list
-(** [to_css_properties v] generates CSS property declarations for variable [v].
-*)
-
 type tally
 (** The tally of variable usage. *)
 

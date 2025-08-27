@@ -132,10 +132,6 @@ val classify : output list -> by_type
 
 (** {1 Variable Resolution} *)
 
-val resolve_dependencies : string list -> string list -> string list
-(** [resolve_dependencies vars_to_check resolved] resolves CSS variable
-    dependencies. *)
-
 (** {1 Conflict Resolution} *)
 
 val conflict_group : string -> int * int
@@ -147,9 +143,11 @@ val color_order : string -> int
 
 (** {1 Layer Generation} *)
 
-val compute_theme_layer : t list -> Css.layered_rules
-(** [compute_theme_layer tw_classes] generates the theme layer with CSS
-    variables. *)
+val compute_theme_layer :
+  ?default_vars:string list -> t list -> Css.layered_rules
+(** [compute_theme_layer ?default_vars tw_classes] generates the theme layer
+    with CSS variables. [default_vars] specifies variables to always include in
+    the theme (defaults to font-related variables). *)
 
 val compute_properties_layer :
   Css.rule list -> Css.layered_rules option * Css.at_property list

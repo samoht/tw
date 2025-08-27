@@ -22,186 +22,157 @@ open Css
 
 (** {1 Border Width Utilities} *)
 
+(* Create shared variables *)
+let border_style_def, border_style_var =
+  var "tw-border-style" Border_style Solid
+
 let border =
   style "border"
-    [ border_style (Var (var "tw-border-style")); border_width (Px 1) ]
+    [
+      border_style_def; border_style (Var border_style_var); border_width (Px 1);
+    ]
 
 let border_0 =
   style "border-0"
-    [ border_style (Var (var "tw-border-style")); border_width (Px 0) ]
+    [
+      border_style_def; border_style (Var border_style_var); border_width (Px 0);
+    ]
 
 let border_2 =
   style "border-2"
-    [ border_style (Var (var "tw-border-style")); border_width (Px 2) ]
+    [
+      border_style_def; border_style (Var border_style_var); border_width (Px 2);
+    ]
 
 let border_4 =
   style "border-4"
-    [ border_style (Var (var "tw-border-style")); border_width (Px 4) ]
+    [
+      border_style_def; border_style (Var border_style_var); border_width (Px 4);
+    ]
 
 let border_8 =
   style "border-8"
-    [ border_style (Var (var "tw-border-style")); border_width (Px 8) ]
+    [
+      border_style_def; border_style (Var border_style_var); border_width (Px 8);
+    ]
 
 let border_t =
   style "border-t"
-    [ border_top_style (Var (var "tw-border-style")); border_top_width (Px 1) ]
+    [
+      border_style_def;
+      border_top_style (Var border_style_var);
+      border_top_width (Px 1);
+    ]
 
 let border_r =
   style "border-r"
-    [
-      border_right_style (Var (var "tw-border-style"));
-      border_right_width (Px 1);
-    ]
+    [ border_right_style (Var border_style_var); border_right_width (Px 1) ]
 
 let border_b =
   style "border-b"
-    [
-      border_bottom_style (Var (var "tw-border-style"));
-      border_bottom_width (Px 1);
-    ]
+    [ border_bottom_style (Var border_style_var); border_bottom_width (Px 1) ]
 
 let border_l =
   style "border-l"
-    [
-      border_left_style (Var (var "tw-border-style")); border_left_width (Px 1);
-    ]
+    [ border_left_style (Var border_style_var); border_left_width (Px 1) ]
 
 let border_x =
   style "border-x"
     [
-      border_left_style (Var (var "tw-border-style"));
+      border_left_style (Var border_style_var);
       border_left_width (Px 1);
-      border_right_style (Var (var "tw-border-style"));
+      border_right_style (Var border_style_var);
       border_right_width (Px 1);
     ]
 
 let border_y =
   style "border-y"
     [
-      border_top_style (Var (var "tw-border-style"));
+      border_top_style (Var border_style_var);
       border_top_width (Px 1);
-      border_bottom_style (Var (var "tw-border-style"));
+      border_bottom_style (Var border_style_var);
       border_bottom_width (Px 1);
     ]
 
 (** Border side utilities with specific widths *)
 let border_t_0 =
   style "border-t-0"
-    [ border_top_style (Var (var "tw-border-style")); border_top_width (Px 0) ]
+    [ border_top_style (Var border_style_var); border_top_width (Px 0) ]
 
 let border_t_2 =
   style "border-t-2"
-    [ border_top_style (Var (var "tw-border-style")); border_top_width (Px 2) ]
+    [ border_top_style (Var border_style_var); border_top_width (Px 2) ]
 
 let border_t_4 =
   style "border-t-4"
-    [ border_top_style (Var (var "tw-border-style")); border_top_width (Px 4) ]
+    [ border_top_style (Var border_style_var); border_top_width (Px 4) ]
 
 let border_t_8 =
   style "border-t-8"
-    [ border_top_style (Var (var "tw-border-style")); border_top_width (Px 8) ]
+    [ border_top_style (Var border_style_var); border_top_width (Px 8) ]
 
 let border_r_0 =
   style "border-r-0"
-    [
-      border_right_style (Var (var "tw-border-style"));
-      border_right_width (Px 0);
-    ]
+    [ border_right_style (Var border_style_var); border_right_width (Px 0) ]
 
 let border_r_2 =
   style "border-r-2"
-    [
-      border_right_style (Var (var "tw-border-style"));
-      border_right_width (Px 2);
-    ]
+    [ border_right_style (Var border_style_var); border_right_width (Px 2) ]
 
 let border_r_4 =
   style "border-r-4"
-    [
-      border_right_style (Var (var "tw-border-style"));
-      border_right_width (Px 4);
-    ]
+    [ border_right_style (Var border_style_var); border_right_width (Px 4) ]
 
 let border_r_8 =
   style "border-r-8"
-    [
-      border_right_style (Var (var "tw-border-style"));
-      border_right_width (Px 8);
-    ]
+    [ border_right_style (Var border_style_var); border_right_width (Px 8) ]
 
 let border_b_0 =
   style "border-b-0"
-    [
-      border_bottom_style (Var (var "tw-border-style"));
-      border_bottom_width (Px 0);
-    ]
+    [ border_bottom_style (Var border_style_var); border_bottom_width (Px 0) ]
 
 let border_b_2 =
   style "border-b-2"
-    [
-      border_bottom_style (Var (var "tw-border-style"));
-      border_bottom_width (Px 2);
-    ]
+    [ border_bottom_style (Var border_style_var); border_bottom_width (Px 2) ]
 
 let border_b_4 =
   style "border-b-4"
-    [
-      border_bottom_style (Var (var "tw-border-style"));
-      border_bottom_width (Px 4);
-    ]
+    [ border_bottom_style (Var border_style_var); border_bottom_width (Px 4) ]
 
 let border_b_8 =
   style "border-b-8"
-    [
-      border_bottom_style (Var (var "tw-border-style"));
-      border_bottom_width (Px 8);
-    ]
+    [ border_bottom_style (Var border_style_var); border_bottom_width (Px 8) ]
 
 let border_l_0 =
   style "border-l-0"
-    [
-      border_left_style (Var (var "tw-border-style")); border_left_width (Px 0);
-    ]
+    [ border_left_style (Var border_style_var); border_left_width (Px 0) ]
 
 let border_l_2 =
   style "border-l-2"
-    [
-      border_left_style (Var (var "tw-border-style")); border_left_width (Px 2);
-    ]
+    [ border_left_style (Var border_style_var); border_left_width (Px 2) ]
 
 let border_l_4 =
   style "border-l-4"
-    [
-      border_left_style (Var (var "tw-border-style")); border_left_width (Px 4);
-    ]
+    [ border_left_style (Var border_style_var); border_left_width (Px 4) ]
 
 let border_l_8 =
   style "border-l-8"
-    [
-      border_left_style (Var (var "tw-border-style")); border_left_width (Px 8);
-    ]
+    [ border_left_style (Var border_style_var); border_left_width (Px 8) ]
 
 (** {1 Border Style Utilities} *)
 
-let border_solid =
-  style "border-solid"
-    [ custom_property "--tw-border-style" "solid"; border_style Solid ]
+let border_solid = style "border-solid" [ border_style_def; border_style Solid ]
 
 let border_dashed =
-  style "border-dashed"
-    [ custom_property "--tw-border-style" "dashed"; border_style Dashed ]
+  style "border-dashed" [ border_style_def; border_style Dashed ]
 
 let border_dotted =
-  style "border-dotted"
-    [ custom_property "--tw-border-style" "dotted"; border_style Dotted ]
+  style "border-dotted" [ border_style_def; border_style Dotted ]
 
 let border_double =
-  style "border-double"
-    [ custom_property "--tw-border-style" "double"; border_style Double ]
+  style "border-double" [ border_style_def; border_style Double ]
 
-let border_none =
-  style "border-none"
-    [ custom_property "--tw-border-style" "none"; border_style None ]
+let border_none = style "border-none" [ border_style_def; border_style None ]
 
 (* Border width utilities with semantic names matching tw.mli *)
 let border_xs = border (* 1px *)
@@ -215,29 +186,33 @@ let border_full = border_8 (* 8px *)
 
 (** {1 Border Radius Utilities} *)
 
-(* Helper to create border-radius with a CSS variable *)
-let border_radius_var ~default name = border_radius (Var (var ~default name))
 let rounded_none = style "rounded-none" [ border_radius Zero ]
 
 let rounded_sm =
-  style "rounded-sm" [ border_radius_var ~default:(Rem 0.125) "radius-sm" ]
+  let def, var_ref = var "radius-sm" Length (Rem 0.125) in
+  style "rounded-sm" [ def; border_radius (Var var_ref) ]
 
 let rounded = style "rounded" [ border_radius (Rem 0.25) ]
 
 let rounded_md =
-  style "rounded-md" [ border_radius_var ~default:(Rem 0.375) "radius-md" ]
+  let def, var_ref = var "radius-md" Length (Rem 0.375) in
+  style "rounded-md" [ def; border_radius (Var var_ref) ]
 
 let rounded_lg =
-  style "rounded-lg" [ border_radius_var ~default:(Rem 0.5) "radius-lg" ]
+  let def, var_ref = var "radius-lg" Length (Rem 0.5) in
+  style "rounded-lg" [ def; border_radius (Var var_ref) ]
 
 let rounded_xl =
-  style "rounded-xl" [ border_radius_var ~default:(Rem 0.75) "radius-xl" ]
+  let def, var_ref = var "radius-xl" Length (Rem 0.75) in
+  style "rounded-xl" [ def; border_radius (Var var_ref) ]
 
 let rounded_2xl =
-  style "rounded-2xl" [ border_radius_var ~default:(Rem 1.0) "radius-2xl" ]
+  let def, var_ref = var "radius-2xl" Length (Rem 1.0) in
+  style "rounded-2xl" [ def; border_radius (Var var_ref) ]
 
 let rounded_3xl =
-  style "rounded-3xl" [ border_radius_var ~default:(Rem 1.5) "radius-3xl" ]
+  let def, var_ref = var "radius-3xl" Length (Rem 1.5) in
+  style "rounded-3xl" [ def; border_radius (Var var_ref) ]
 
 let rounded_full =
   (* Tailwind v4 uses calc(infinity * 1px) which gets optimized to
@@ -248,54 +223,41 @@ let rounded_full =
 let rounded_t =
   style "rounded-t"
     [
-      custom_property "--border-top-left-radius" "0.25rem";
-      custom_property "--border-top-right-radius" "0.25rem";
+      border_radius (Rem 0.25);
+      (* TODO: Use individual corner properties when available *)
     ]
 
 let rounded_r =
   style "rounded-r"
     [
-      custom_property "--border-top-right-radius" "0.25rem";
-      custom_property "--border-bottom-right-radius" "0.25rem";
+      border_radius (Rem 0.25);
+      (* TODO: Use individual corner properties when available *)
     ]
 
 let rounded_b =
   style "rounded-b"
     [
-      custom_property "--border-bottom-right-radius" "0.25rem";
-      custom_property "--border-bottom-left-radius" "0.25rem";
+      border_radius (Rem 0.25);
+      (* TODO: Use individual corner properties when available *)
     ]
 
 let rounded_l =
   style "rounded-l"
     [
-      custom_property "--border-top-left-radius" "0.25rem";
-      custom_property "--border-bottom-left-radius" "0.25rem";
+      border_radius (Rem 0.25);
+      (* TODO: Use individual corner properties when available *)
     ]
 
-let rounded_tl =
-  style "rounded-tl" [ custom_property "--border-top-left-radius" "0.25rem" ]
-
-let rounded_tr =
-  style "rounded-tr" [ custom_property "--border-top-right-radius" "0.25rem" ]
-
-let rounded_br =
-  style "rounded-br"
-    [ custom_property "--border-bottom-right-radius" "0.25rem" ]
-
-let rounded_bl =
-  style "rounded-bl" [ custom_property "--border-bottom-left-radius" "0.25rem" ]
+let rounded_tl = style "rounded-tl" [ border_radius (Rem 0.25) ]
+let rounded_tr = style "rounded-tr" [ border_radius (Rem 0.25) ]
+let rounded_br = style "rounded-br" [ border_radius (Rem 0.25) ]
+let rounded_bl = style "rounded-bl" [ border_radius (Rem 0.25) ]
 
 (** Corner-specific rounded utilities with sizes *)
 let rounded_t_lg =
-  style "rounded-t-lg"
-    [
-      custom_property "--border-top-left-radius" "0.5rem";
-      custom_property "--border-top-right-radius" "0.5rem";
-    ]
+  style "rounded-t-lg" [ border_radius (Rem 0.5); border_radius (Rem 0.5) ]
 
-let rounded_tl_2xl =
-  style "rounded-tl-2xl" [ custom_property "--border-top-left-radius" "1rem" ]
+let rounded_tl_2xl = style "rounded-tl-2xl" [ border_radius (Rem 1.0) ]
 
 (** {1 Outline Utilities} *)
 
