@@ -15,7 +15,7 @@
 
 open Css
 
-(** Helper function to create color custom properties *)
+(** Helper: define a color custom property by name (without leading --) *)
 let color_prop name r g b =
   let def, _ = var name Color (Rgb { r; g; b }) in
   def
@@ -64,22 +64,24 @@ let _prose_bold_def, prose_bold_var =
 
 let css_variables =
   [
+    (* Base variables with handles *)
     prose_body_def;
     prose_headings_def;
-    color_prop "--tw-prose-lead" 75 85 99;
-    color_prop "--tw-prose-links" 17 24 39;
-    color_prop "--tw-prose-bold" 17 24 39;
-    color_prop "--tw-prose-counters" 107 114 128;
-    color_prop "--tw-prose-bullets" 209 213 219;
-    color_prop "--tw-prose-hr" 229 231 235;
-    color_prop "--tw-prose-quotes" 17 24 39;
-    color_prop "--tw-prose-quote-borders" 229 231 235;
-    color_prop "--tw-prose-captions" 107 114 128;
-    color_prop "--tw-prose-code" 17 24 39;
-    color_prop "--tw-prose-pre-code" 229 231 235;
-    color_prop "--tw-prose-pre-bg" 55 65 81;
-    color_prop "--tw-prose-th-borders" 209 213 219;
-    color_prop "--tw-prose-td-borders" 229 231 235;
+    _prose_code_def;
+    _prose_pre_code_def;
+    _prose_pre_bg_def;
+    _prose_th_borders_def;
+    _prose_td_borders_def;
+    _prose_links_def;
+    _prose_quotes_def;
+    _prose_quote_borders_def;
+    _prose_hr_def;
+    _prose_bold_def;
+    (* Additional variables used in prose without explicit handles *)
+    color_prop "tw-prose-lead" 75 85 99;
+    color_prop "tw-prose-counters" 107 114 128;
+    color_prop "tw-prose-bullets" 209 213 219;
+    color_prop "tw-prose-captions" 107 114 128;
   ]
 
 (** Convert prose variant to CSS class name *)
@@ -402,22 +404,22 @@ let gray_color_rules =
   [
     rule ~selector:".prose-gray"
       [
-        color_prop "--tw-prose-body" 107 114 128;
-        color_prop "--tw-prose-headings" 31 41 55;
-        color_prop "--tw-prose-lead" 75 85 99;
-        color_prop "--tw-prose-links" 31 41 55;
-        color_prop "--tw-prose-bold" 31 41 55;
-        color_prop "--tw-prose-counters" 107 114 128;
-        color_prop "--tw-prose-bullets" 209 213 219;
-        color_prop "--tw-prose-hr" 229 231 235;
-        color_prop "--tw-prose-quotes" 31 41 55;
-        color_prop "--tw-prose-quote-borders" 229 231 235;
-        color_prop "--tw-prose-captions" 156 163 175;
-        color_prop "--tw-prose-code" 31 41 55;
-        color_prop "--tw-prose-pre-code" 229 231 235;
-        color_prop "--tw-prose-pre-bg" 31 41 55;
-        color_prop "--tw-prose-th-borders" 209 213 219;
-        color_prop "--tw-prose-td-borders" 229 231 235;
+        color_prop "tw-prose-body" 107 114 128;
+        color_prop "tw-prose-headings" 31 41 55;
+        color_prop "tw-prose-lead" 75 85 99;
+        color_prop "tw-prose-links" 31 41 55;
+        color_prop "tw-prose-bold" 31 41 55;
+        color_prop "tw-prose-counters" 107 114 128;
+        color_prop "tw-prose-bullets" 209 213 219;
+        color_prop "tw-prose-hr" 229 231 235;
+        color_prop "tw-prose-quotes" 31 41 55;
+        color_prop "tw-prose-quote-borders" 229 231 235;
+        color_prop "tw-prose-captions" 156 163 175;
+        color_prop "tw-prose-code" 31 41 55;
+        color_prop "tw-prose-pre-code" 229 231 235;
+        color_prop "tw-prose-pre-bg" 31 41 55;
+        color_prop "tw-prose-th-borders" 209 213 219;
+        color_prop "tw-prose-td-borders" 229 231 235;
       ];
   ]
 
@@ -425,22 +427,22 @@ let slate_color_rules =
   [
     rule ~selector:".prose-slate"
       [
-        color_prop "--tw-prose-body" 100 116 139;
-        color_prop "--tw-prose-headings" 15 23 42;
-        color_prop "--tw-prose-lead" 71 85 105;
-        color_prop "--tw-prose-links" 15 23 42;
-        color_prop "--tw-prose-bold" 15 23 42;
-        color_prop "--tw-prose-counters" 100 116 139;
-        color_prop "--tw-prose-bullets" 203 213 225;
-        color_prop "--tw-prose-hr" 226 232 240;
-        color_prop "--tw-prose-quotes" 15 23 42;
-        color_prop "--tw-prose-quote-borders" 226 232 240;
-        color_prop "--tw-prose-captions" 148 163 184;
-        color_prop "--tw-prose-code" 15 23 42;
-        color_prop "--tw-prose-pre-code" 226 232 240;
-        color_prop "--tw-prose-pre-bg" 30 41 59;
-        color_prop "--tw-prose-th-borders" 203 213 225;
-        color_prop "--tw-prose-td-borders" 226 232 240;
+        color_prop "tw-prose-body" 100 116 139;
+        color_prop "tw-prose-headings" 15 23 42;
+        color_prop "tw-prose-lead" 71 85 105;
+        color_prop "tw-prose-links" 15 23 42;
+        color_prop "tw-prose-bold" 15 23 42;
+        color_prop "tw-prose-counters" 100 116 139;
+        color_prop "tw-prose-bullets" 203 213 225;
+        color_prop "tw-prose-hr" 226 232 240;
+        color_prop "tw-prose-quotes" 15 23 42;
+        color_prop "tw-prose-quote-borders" 226 232 240;
+        color_prop "tw-prose-captions" 148 163 184;
+        color_prop "tw-prose-code" 15 23 42;
+        color_prop "tw-prose-pre-code" 226 232 240;
+        color_prop "tw-prose-pre-bg" 30 41 59;
+        color_prop "tw-prose-th-borders" 203 213 225;
+        color_prop "tw-prose-td-borders" 226 232 240;
       ];
   ]
 

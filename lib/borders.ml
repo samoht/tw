@@ -189,29 +189,29 @@ let border_full = border_8 (* 8px *)
 let rounded_none = style "rounded-none" [ border_radius Zero ]
 
 let rounded_sm =
-  let def, var_ref = var "radius-sm" Length (Rem 0.125) in
+  let def, var_ref = Var.theme Var.Radius_sm (Rem 0.125) in
   style "rounded-sm" [ def; border_radius (Var var_ref) ]
 
 let rounded = style "rounded" [ border_radius (Rem 0.25) ]
 
 let rounded_md =
-  let def, var_ref = var "radius-md" Length (Rem 0.375) in
+  let def, var_ref = Var.theme Var.Radius_md (Rem 0.375) in
   style "rounded-md" [ def; border_radius (Var var_ref) ]
 
 let rounded_lg =
-  let def, var_ref = var "radius-lg" Length (Rem 0.5) in
+  let def, var_ref = Var.theme Var.Radius_lg (Rem 0.5) in
   style "rounded-lg" [ def; border_radius (Var var_ref) ]
 
 let rounded_xl =
-  let def, var_ref = var "radius-xl" Length (Rem 0.75) in
+  let def, var_ref = Var.theme Var.Radius_xl (Rem 0.75) in
   style "rounded-xl" [ def; border_radius (Var var_ref) ]
 
 let rounded_2xl =
-  let def, var_ref = var "radius-2xl" Length (Rem 1.0) in
+  let def, var_ref = Var.theme Var.Radius_2xl (Rem 1.0) in
   style "rounded-2xl" [ def; border_radius (Var var_ref) ]
 
 let rounded_3xl =
-  let def, var_ref = var "radius-3xl" Length (Rem 1.5) in
+  let def, var_ref = Var.theme Var.Radius_3xl (Rem 1.5) in
   style "rounded-3xl" [ def; border_radius (Var var_ref) ]
 
 let rounded_full =

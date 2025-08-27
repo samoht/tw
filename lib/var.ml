@@ -1,6 +1,6 @@
 (* Variable tracking for CSS composition groups
 
-   Purpose: - Provide a typed view over Tailwind’s CSS custom properties (`--*`)
+   Purpose: - Provide a typed view over Tailwind's CSS custom properties (`--*`)
    used by utilities, transforms, filters, radii, fonts, etc.
 
    How it interacts with Rules: - `Rules.to_css` inspects declarations via
@@ -8,134 +8,144 @@
    minimal theme layer containing only those variables. `Var.to_css_properties`
    provides default values.
 
-   Notes: - `to_string`/`of_string` map between typed variants and the
-   `--var-name`. - `canonical_order`/`compare` ensure stable, human‑friendly
-   ordering in the generated CSS. *)
+   Notes: - `to_string` maps typed variants to `--var-name`. -
+   `canonical_order`/`compare` ensure stable, human‑friendly ordering in the
+   generated CSS. *)
 
-(** CSS variable type covering all Tailwind CSS variables *)
-type t =
+(* Layer classification for CSS variables *)
+type layer = Theme | Properties | Utility
+
+(* CSS variable type as a GADT for type safety. The order is meaninful and will
+   be reflected in which the variables are printed in the relevant CSS
+   layers. *)
+type _ t =
   (* Spacing and sizing *)
-  | Spacing
+  | Spacing : Css.length t
   (* Typography *)
-  | Font_sans
-  | Font_serif
-  | Font_mono
-  | Font_weight
-  | Leading
-  | Text_xs
-  | Text_xs_line_height
-  | Text_sm
-  | Text_sm_line_height
-  | Text_base
-  | Text_base_line_height
-  | Text_lg
-  | Text_lg_line_height
-  | Text_xl
-  | Text_xl_line_height
-  | Text_2xl
-  | Text_2xl_line_height
-  | Text_3xl
-  | Text_3xl_line_height
-  | Text_4xl
-  | Text_4xl_line_height
-  | Text_5xl
-  | Text_5xl_line_height
-  | Text_6xl
-  | Text_6xl_line_height
-  | Text_7xl
-  | Text_7xl_line_height
-  | Text_8xl
-  | Text_8xl_line_height
-  | Text_9xl
-  | Text_9xl_line_height
-  | Font_weight_thin
-  | Font_weight_extralight
-  | Font_weight_light
-  | Font_weight_normal
-  | Font_weight_medium
-  | Font_weight_semibold
-  | Font_weight_bold
-  | Font_weight_extrabold
-  | Font_weight_black
+  | Font_sans : string t
+  | Font_serif : string t
+  | Font_mono : string t
+  | Font_weight : string t
+  | Leading : string t
+  | Text_xs : Css.length t
+  | Text_xs_line_height : Css.length t
+  | Text_sm : Css.length t
+  | Text_sm_line_height : Css.length t
+  | Text_base : Css.length t
+  | Text_base_line_height : Css.length t
+  | Text_lg : Css.length t
+  | Text_lg_line_height : Css.length t
+  | Text_xl : Css.length t
+  | Text_xl_line_height : Css.length t
+  | Text_2xl : Css.length t
+  | Text_2xl_line_height : Css.length t
+  | Text_3xl : Css.length t
+  | Text_3xl_line_height : Css.length t
+  | Text_4xl : Css.length t
+  | Text_4xl_line_height : Css.length t
+  | Text_5xl : Css.length t
+  | Text_5xl_line_height : Css.length t
+  | Text_6xl : Css.length t
+  | Text_6xl_line_height : Css.length t
+  | Text_7xl : Css.length t
+  | Text_7xl_line_height : Css.length t
+  | Text_8xl : Css.length t
+  | Text_8xl_line_height : Css.length t
+  | Text_9xl : Css.length t
+  | Text_9xl_line_height : Css.length t
+  | Font_weight_thin : int t
+  | Font_weight_extralight : int t
+  | Font_weight_light : int t
+  | Font_weight_normal : int t
+  | Font_weight_medium : int t
+  | Font_weight_semibold : int t
+  | Font_weight_bold : int t
+  | Font_weight_extrabold : int t
+  | Font_weight_black : int t
   (* Border radius *)
-  | Radius_none
-  | Radius_sm
-  | Radius_default
-  | Radius_md
-  | Radius_lg
-  | Radius_xl
-  | Radius_2xl
-  | Radius_3xl
+  | Radius_none : Css.length t
+  | Radius_sm : Css.length t
+  | Radius_default : Css.length t
+  | Radius_md : Css.length t
+  | Radius_lg : Css.length t
+  | Radius_xl : Css.length t
+  | Radius_2xl : Css.length t
+  | Radius_3xl : Css.length t
   (* Colors - using color name and optional shade *)
-  | Color of string * int option (* e.g., Color ("blue", Some 500) *)
+  | Color :
+      string * int option
+      -> Css.color t (* e.g., Color ("blue", Some 500) *)
   (* Transform variables *)
-  | Translate_x
-  | Translate_y
-  | Translate_z
-  | Rotate
-  | Skew_x
-  | Skew_y
-  | Scale_x
-  | Scale_y
-  | Scale_z
+  | Translate_x : Css.length t
+  | Translate_y : Css.length t
+  | Translate_z : Css.length t
+  | Rotate : Css.angle t
+  | Skew_x : Css.angle t
+  | Skew_y : Css.angle t
+  | Scale_x : float t
+  | Scale_y : float t
+  | Scale_z : float t
   (* Filter variables *)
-  | Blur
-  | Brightness
-  | Contrast
-  | Grayscale
-  | Hue_rotate
-  | Invert
-  | Saturate
-  | Sepia
-  | Drop_shadow
-  | Drop_shadow_alpha
+  | Blur : Css.length t
+  | Brightness : float t
+  | Contrast : float t
+  | Grayscale : float t
+  | Hue_rotate : Css.angle t
+  | Invert : float t
+  | Saturate : float t
+  | Sepia : float t
+  | Drop_shadow : string t
+  | Drop_shadow_alpha : float t
   (* Backdrop filter variables *)
-  | Backdrop_blur
-  | Backdrop_brightness
-  | Backdrop_contrast
-  | Backdrop_grayscale
-  | Backdrop_hue_rotate
-  | Backdrop_invert
-  | Backdrop_saturate
-  | Backdrop_sepia
-  | Backdrop_opacity
+  | Backdrop_blur : Css.length t
+  | Backdrop_brightness : float t
+  | Backdrop_contrast : float t
+  | Backdrop_grayscale : float t
+  | Backdrop_hue_rotate : Css.angle t
+  | Backdrop_invert : float t
+  | Backdrop_saturate : float t
+  | Backdrop_sepia : float t
+  | Backdrop_opacity : float t
   (* Shadow and ring variables *)
-  | Shadow
-  | Shadow_color
-  | Shadow_alpha
-  | Inset_shadow
-  | Inset_shadow_color
-  | Inset_shadow_alpha
-  | Ring_color
-  | Ring_shadow
-  | Inset_ring_color
-  | Inset_ring_shadow
-  | Ring_inset
-  | Ring_offset_width
-  | Ring_offset_color
-  | Ring_offset_shadow
+  | Shadow : string t
+  | Shadow_color : Css.color t
+  | Shadow_alpha : float t
+  | Inset_shadow : string t
+  | Inset_shadow_color : Css.color t
+  | Inset_shadow_alpha : float t
+  | Ring_color : Css.color t
+  | Ring_shadow : string t
+  | Inset_ring_color : Css.color t
+  | Inset_ring_shadow : string t
+  | Ring_inset : string t
+  | Ring_offset_width : Css.length t
+  | Ring_offset_color : Css.color t
+  | Ring_offset_shadow : string t
   (* Gradient variables *)
-  | Gradient_from
-  | Gradient_via
-  | Gradient_to
-  | Gradient_stops
-  | Gradient_via_stops
-  | Gradient_position
-  | Gradient_from_position
-  | Gradient_via_position
-  | Gradient_to_position
+  | Gradient_from : Css.color t
+  | Gradient_via : Css.color t
+  | Gradient_to : Css.color t
+  | Gradient_stops : string t
+  | Gradient_via_stops : string t
+  | Gradient_position : string t
+  | Gradient_from_position : float t
+  | Gradient_via_position : float t
+  | Gradient_to_position : float t
   (* Border variables *)
-  | Border_style
+  | Border_style : Css.border_style t
   (* Scroll snap variables *)
-  | Scroll_snap_strictness
+  | Scroll_snap_strictness : string t
   (* Transition variables *)
-  | Duration
+  | Duration : Css.duration t
   (* Default font family helpers *)
-  | Default_font_family
-  | Default_mono_font_family
+  | Default_font_family : string t
+  | Default_mono_font_family : string t
 
-(** Convert a CSS variable to its string representation *)
-let to_string = function
+(** Existential wrapper for variables of any type *)
+type any = Any : _ t -> any
+
+(* Convert a CSS variable to its string representation (with --) *)
+let to_string : type a. a t -> string = function
   | Spacing -> "--spacing"
   | Font_sans -> "--font-sans"
   | Font_serif -> "--font-serif"
@@ -245,142 +255,156 @@ let to_string = function
   | Default_font_family -> "--default-font-family"
   | Default_mono_font_family -> "--default-mono-font-family"
 
-(** Parse a CSS variable from its string representation *)
-let of_string s =
-  match s with
-  | "--spacing" -> Some Spacing
-  | "--font-sans" -> Some Font_sans
-  | "--font-serif" -> Some Font_serif
-  | "--font-mono" -> Some Font_mono
-  | "--tw-font-weight" -> Some Font_weight
-  | "--tw-leading" -> Some Leading
-  | "--text-xs" -> Some Text_xs
-  | "--text-xs--line-height" -> Some Text_xs_line_height
-  | "--text-sm" -> Some Text_sm
-  | "--text-sm--line-height" -> Some Text_sm_line_height
-  | "--text-base" -> Some Text_base
-  | "--text-base--line-height" -> Some Text_base_line_height
-  | "--text-lg" -> Some Text_lg
-  | "--text-lg--line-height" -> Some Text_lg_line_height
-  | "--text-xl" -> Some Text_xl
-  | "--text-xl--line-height" -> Some Text_xl_line_height
-  | "--text-2xl" -> Some Text_2xl
-  | "--text-2xl--line-height" -> Some Text_2xl_line_height
-  | "--text-3xl" -> Some Text_3xl
-  | "--text-3xl--line-height" -> Some Text_3xl_line_height
-  | "--text-4xl" -> Some Text_4xl
-  | "--text-4xl--line-height" -> Some Text_4xl_line_height
-  | "--text-5xl" -> Some Text_5xl
-  | "--text-5xl--line-height" -> Some Text_5xl_line_height
-  | "--text-6xl" -> Some Text_6xl
-  | "--text-6xl--line-height" -> Some Text_6xl_line_height
-  | "--text-7xl" -> Some Text_7xl
-  | "--text-7xl--line-height" -> Some Text_7xl_line_height
-  | "--text-8xl" -> Some Text_8xl
-  | "--text-8xl--line-height" -> Some Text_8xl_line_height
-  | "--text-9xl" -> Some Text_9xl
-  | "--text-9xl--line-height" -> Some Text_9xl_line_height
-  | "--font-weight-thin" -> Some Font_weight_thin
-  | "--font-weight-extralight" -> Some Font_weight_extralight
-  | "--font-weight-light" -> Some Font_weight_light
-  | "--font-weight-normal" -> Some Font_weight_normal
-  | "--font-weight-medium" -> Some Font_weight_medium
-  | "--font-weight-semibold" -> Some Font_weight_semibold
-  | "--font-weight-bold" -> Some Font_weight_bold
-  | "--font-weight-extrabold" -> Some Font_weight_extrabold
-  | "--font-weight-black" -> Some Font_weight_black
-  | "--radius-none" -> Some Radius_none
-  | "--radius-sm" -> Some Radius_sm
-  | "--radius-default" -> Some Radius_default
-  | "--radius-md" -> Some Radius_md
-  | "--radius-lg" -> Some Radius_lg
-  | "--radius-xl" -> Some Radius_xl
-  | "--radius-2xl" -> Some Radius_2xl
-  | "--radius-3xl" -> Some Radius_3xl
-  | "--tw-translate-x" -> Some Translate_x
-  | "--tw-translate-y" -> Some Translate_y
-  | "--tw-translate-z" -> Some Translate_z
-  | "--tw-rotate" -> Some Rotate
-  | "--tw-skew-x" -> Some Skew_x
-  | "--tw-skew-y" -> Some Skew_y
-  | "--tw-scale-x" -> Some Scale_x
-  | "--tw-scale-y" -> Some Scale_y
-  | "--tw-scale-z" -> Some Scale_z
-  | "--tw-blur" -> Some Blur
-  | "--tw-brightness" -> Some Brightness
-  | "--tw-contrast" -> Some Contrast
-  | "--tw-grayscale" -> Some Grayscale
-  | "--tw-hue-rotate" -> Some Hue_rotate
-  | "--tw-invert" -> Some Invert
-  | "--tw-saturate" -> Some Saturate
-  | "--tw-sepia" -> Some Sepia
-  | "--tw-drop-shadow" -> Some Drop_shadow
-  | "--tw-drop-shadow-alpha" -> Some Drop_shadow_alpha
-  | "--tw-backdrop-blur" -> Some Backdrop_blur
-  | "--tw-backdrop-brightness" -> Some Backdrop_brightness
-  | "--tw-backdrop-contrast" -> Some Backdrop_contrast
-  | "--tw-backdrop-grayscale" -> Some Backdrop_grayscale
-  | "--tw-backdrop-hue-rotate" -> Some Backdrop_hue_rotate
-  | "--tw-backdrop-invert" -> Some Backdrop_invert
-  | "--tw-backdrop-saturate" -> Some Backdrop_saturate
-  | "--tw-backdrop-sepia" -> Some Backdrop_sepia
-  | "--tw-backdrop-opacity" -> Some Backdrop_opacity
-  | "--tw-shadow" -> Some Shadow
-  | "--tw-shadow-color" -> Some Shadow_color
-  | "--tw-shadow-alpha" -> Some Shadow_alpha
-  | "--tw-inset-shadow" -> Some Inset_shadow
-  | "--tw-inset-shadow-color" -> Some Inset_shadow_color
-  | "--tw-inset-shadow-alpha" -> Some Inset_shadow_alpha
-  | "--tw-ring-color" -> Some Ring_color
-  | "--tw-ring-shadow" -> Some Ring_shadow
-  | "--tw-inset-ring-color" -> Some Inset_ring_color
-  | "--tw-inset-ring-shadow" -> Some Inset_ring_shadow
-  | "--tw-ring-inset" -> Some Ring_inset
-  | "--tw-ring-offset-width" -> Some Ring_offset_width
-  | "--tw-ring-offset-color" -> Some Ring_offset_color
-  | "--tw-ring-offset-shadow" -> Some Ring_offset_shadow
-  | "--tw-gradient-from" -> Some Gradient_from
-  | "--tw-gradient-via" -> Some Gradient_via
-  | "--tw-gradient-to" -> Some Gradient_to
-  | "--tw-gradient-stops" -> Some Gradient_stops
-  | "--tw-gradient-via-stops" -> Some Gradient_via_stops
-  | "--tw-gradient-position" -> Some Gradient_position
-  | "--tw-gradient-from-position" -> Some Gradient_from_position
-  | "--tw-gradient-via-position" -> Some Gradient_via_position
-  | "--tw-gradient-to-position" -> Some Gradient_to_position
-  | "--tw-border-style" -> Some Border_style
-  | "--tw-scroll-snap-strictness" -> Some Scroll_snap_strictness
-  | "--tw-duration" -> Some Duration
-  | "--default-font-family" -> Some Default_font_family
-  | "--default-mono-font-family" -> Some Default_mono_font_family
-  | _ ->
-      (* Try to parse color variables *)
-      if String.starts_with ~prefix:"--color-" s then
-        let color_part = String.sub s 8 (String.length s - 8) in
-        (* Try to parse color with shade *)
-        match String.split_on_char '-' color_part with
-        | [] -> None
-        | [ color ] -> Some (Color (color, None))
-        | parts -> (
-            (* Try to parse the last part as a shade number *)
-            let rec split_last = function
-              | [] -> None
-              | [ x ] -> Some ([], x)
-              | h :: t -> (
-                  match split_last t with
-                  | None -> None
-                  | Some (rest, last) -> Some (h :: rest, last))
-            in
-            match split_last parts with
-            | None -> None
-            | Some (color_parts, shade_str) -> (
-                try
-                  let shade = int_of_string shade_str in
-                  Some (Color (String.concat "-" color_parts, Some shade))
-                with Failure _ ->
-                  (* Not a valid shade, treat whole thing as color name *)
-                  Some (Color (color_part, None))))
-      else None
+(* Get the name of a variable (without --) *)
+let name : type a. a t -> string =
+ fun v ->
+  let s = to_string v in
+  String.sub s 2 (String.length s - 2)
+
+(* Get the canonical order of variables for sorting - uses polymorphic
+   ordering *)
+let canonical_order : type a. a t -> int =
+ fun v ->
+  (* Create a reference variable to compare against *)
+  let any_v = Any v in
+  (* Use polymorphic compare to get ordering *)
+  Stdlib.compare any_v (Any Spacing)
+
+(* Helper to get layer name from layer enum *)
+let layer_name = function
+  | Theme -> "theme"
+  | Properties -> "properties"
+  | Utility -> "utilities"
+
+let layer_of_string = function
+  | "theme" -> Some Theme
+  | "properties" -> Some Properties
+  | "utilities" -> Some Utility
+  | _ -> None
+
+(* Get the layer from a CSS variable *)
+let layer : type a. a Css.var -> layer option =
+ fun css_var ->
+  match css_var.layer with None -> None | Some s -> layer_of_string s
+
+(** Create a variable definition and handle *)
+let def : type a. a t -> ?layer:layer -> a -> Css.declaration * a Css.var =
+ fun var_t ?layer value ->
+  let n = name var_t in
+  let layer_str = Option.map layer_name layer in
+  match var_t with
+  | Spacing -> Css.var ?layer:layer_str n Length value
+  | Font_sans -> Css.var ?layer:layer_str n String value
+  | Font_serif -> Css.var ?layer:layer_str n String value
+  | Font_mono -> Css.var ?layer:layer_str n String value
+  | Font_weight -> Css.var ?layer:layer_str n String value
+  | Leading -> Css.var ?layer:layer_str n String value
+  | Text_xs -> Css.var ?layer:layer_str n Length value
+  | Text_xs_line_height -> Css.var ?layer:layer_str n Length value
+  | Text_sm -> Css.var ?layer:layer_str n Length value
+  | Text_sm_line_height -> Css.var ?layer:layer_str n Length value
+  | Text_base -> Css.var ?layer:layer_str n Length value
+  | Text_base_line_height -> Css.var ?layer:layer_str n Length value
+  | Text_lg -> Css.var ?layer:layer_str n Length value
+  | Text_lg_line_height -> Css.var ?layer:layer_str n Length value
+  | Text_xl -> Css.var ?layer:layer_str n Length value
+  | Text_xl_line_height -> Css.var ?layer:layer_str n Length value
+  | Text_2xl -> Css.var ?layer:layer_str n Length value
+  | Text_2xl_line_height -> Css.var ?layer:layer_str n Length value
+  | Text_3xl -> Css.var ?layer:layer_str n Length value
+  | Text_3xl_line_height -> Css.var ?layer:layer_str n Length value
+  | Text_4xl -> Css.var ?layer:layer_str n Length value
+  | Text_4xl_line_height -> Css.var ?layer:layer_str n Length value
+  | Text_5xl -> Css.var ?layer:layer_str n Length value
+  | Text_5xl_line_height -> Css.var ?layer:layer_str n Length value
+  | Text_6xl -> Css.var ?layer:layer_str n Length value
+  | Text_6xl_line_height -> Css.var ?layer:layer_str n Length value
+  | Text_7xl -> Css.var ?layer:layer_str n Length value
+  | Text_7xl_line_height -> Css.var ?layer:layer_str n Length value
+  | Text_8xl -> Css.var ?layer:layer_str n Length value
+  | Text_8xl_line_height -> Css.var ?layer:layer_str n Length value
+  | Text_9xl -> Css.var ?layer:layer_str n Length value
+  | Text_9xl_line_height -> Css.var ?layer:layer_str n Length value
+  | Font_weight_thin -> Css.var ?layer:layer_str n Int value
+  | Font_weight_extralight -> Css.var ?layer:layer_str n Int value
+  | Font_weight_light -> Css.var ?layer:layer_str n Int value
+  | Font_weight_normal -> Css.var ?layer:layer_str n Int value
+  | Font_weight_medium -> Css.var ?layer:layer_str n Int value
+  | Font_weight_semibold -> Css.var ?layer:layer_str n Int value
+  | Font_weight_bold -> Css.var ?layer:layer_str n Int value
+  | Font_weight_extrabold -> Css.var ?layer:layer_str n Int value
+  | Font_weight_black -> Css.var ?layer:layer_str n Int value
+  | Radius_none -> Css.var ?layer:layer_str n Length value
+  | Radius_sm -> Css.var ?layer:layer_str n Length value
+  | Radius_default -> Css.var ?layer:layer_str n Length value
+  | Radius_md -> Css.var ?layer:layer_str n Length value
+  | Radius_lg -> Css.var ?layer:layer_str n Length value
+  | Radius_xl -> Css.var ?layer:layer_str n Length value
+  | Radius_2xl -> Css.var ?layer:layer_str n Length value
+  | Radius_3xl -> Css.var ?layer:layer_str n Length value
+  | Color (color_name, shade) ->
+      let clean_name =
+        match shade with
+        | None -> Printf.sprintf "color-%s" color_name
+        | Some s -> Printf.sprintf "color-%s-%d" color_name s
+      in
+      Css.var ?layer:layer_str clean_name Color value
+  | Translate_x -> Css.var ?layer:layer_str n Length value
+  | Translate_y -> Css.var ?layer:layer_str n Length value
+  | Translate_z -> Css.var ?layer:layer_str n Length value
+  | Rotate -> Css.var ?layer:layer_str n Angle value
+  | Skew_x -> Css.var ?layer:layer_str n Angle value
+  | Skew_y -> Css.var ?layer:layer_str n Angle value
+  | Scale_x -> Css.var ?layer:layer_str n Float value
+  | Scale_y -> Css.var ?layer:layer_str n Float value
+  | Scale_z -> Css.var ?layer:layer_str n Float value
+  | Blur -> Css.var ?layer:layer_str n Length value
+  | Brightness -> Css.var ?layer:layer_str n Float value
+  | Contrast -> Css.var ?layer:layer_str n Float value
+  | Grayscale -> Css.var ?layer:layer_str n Float value
+  | Invert -> Css.var ?layer:layer_str n Float value
+  | Saturate -> Css.var ?layer:layer_str n Float value
+  | Sepia -> Css.var ?layer:layer_str n Float value
+  | Hue_rotate -> Css.var ?layer:layer_str n Angle value
+  | Drop_shadow -> Css.var ?layer:layer_str n String value
+  | Drop_shadow_alpha -> Css.var ?layer:layer_str n Float value
+  | Backdrop_blur -> Css.var ?layer:layer_str n Length value
+  | Backdrop_brightness -> Css.var ?layer:layer_str n Float value
+  | Backdrop_contrast -> Css.var ?layer:layer_str n Float value
+  | Backdrop_grayscale -> Css.var ?layer:layer_str n Float value
+  | Backdrop_invert -> Css.var ?layer:layer_str n Float value
+  | Backdrop_saturate -> Css.var ?layer:layer_str n Float value
+  | Backdrop_sepia -> Css.var ?layer:layer_str n Float value
+  | Backdrop_opacity -> Css.var ?layer:layer_str n Float value
+  | Backdrop_hue_rotate -> Css.var ?layer:layer_str n Angle value
+  | Shadow -> Css.var ?layer:layer_str n String value
+  | Inset_shadow -> Css.var ?layer:layer_str n String value
+  | Ring_shadow -> Css.var ?layer:layer_str n String value
+  | Inset_ring_shadow -> Css.var ?layer:layer_str n String value
+  | Ring_inset -> Css.var ?layer:layer_str n String value
+  | Ring_offset_shadow -> Css.var ?layer:layer_str n String value
+  | Shadow_color -> Css.var ?layer:layer_str n Color value
+  | Inset_shadow_color -> Css.var ?layer:layer_str n Color value
+  | Ring_color -> Css.var ?layer:layer_str n Color value
+  | Inset_ring_color -> Css.var ?layer:layer_str n Color value
+  | Ring_offset_color -> Css.var ?layer:layer_str n Color value
+  | Shadow_alpha -> Css.var ?layer:layer_str n Float value
+  | Inset_shadow_alpha -> Css.var ?layer:layer_str n Float value
+  | Ring_offset_width -> Css.var ?layer:layer_str n Length value
+  | Gradient_from -> Css.var ?layer:layer_str n Color value
+  | Gradient_via -> Css.var ?layer:layer_str n Color value
+  | Gradient_to -> Css.var ?layer:layer_str n Color value
+  | Gradient_stops -> Css.var ?layer:layer_str n String value
+  | Gradient_via_stops -> Css.var ?layer:layer_str n String value
+  | Gradient_position -> Css.var ?layer:layer_str n String value
+  | Gradient_from_position -> Css.var ?layer:layer_str n Float value
+  | Gradient_via_position -> Css.var ?layer:layer_str n Float value
+  | Gradient_to_position -> Css.var ?layer:layer_str n Float value
+  | Border_style -> Css.var ?layer:layer_str n Border_style value
+  | Scroll_snap_strictness -> Css.var ?layer:layer_str n String value
+  | Duration -> Css.var ?layer:layer_str n Duration value
+  | Default_font_family -> Css.var ?layer:layer_str n String value
+  | Default_mono_font_family -> Css.var ?layer:layer_str n String value
 
 (* Canonical color ordering function *)
 let canonical_color_order color_name =
@@ -411,55 +435,48 @@ let canonical_color_order color_name =
   | "white" -> 101
   | _ -> 200 (* Unknown colors last *)
 
-(* Get canonical ordering for a variable (lower = earlier) *)
-let canonical_order = function
-  | Font_sans -> 0
-  | Font_serif -> 1
-  | Font_mono -> 2
-  | Spacing -> 3
-  | Text_xs | Text_xs_line_height -> 10
-  | Text_sm | Text_sm_line_height -> 11
-  | Text_base | Text_base_line_height -> 12
-  | Text_lg | Text_lg_line_height -> 13
-  | Text_xl | Text_xl_line_height -> 14
-  | Text_2xl | Text_2xl_line_height -> 15
-  | Text_3xl | Text_3xl_line_height -> 16
-  | Text_4xl | Text_4xl_line_height -> 17
-  | Text_5xl | Text_5xl_line_height -> 18
-  | Text_6xl | Text_6xl_line_height -> 19
-  | Text_7xl | Text_7xl_line_height -> 20
-  | Text_8xl | Text_8xl_line_height -> 21
-  | Text_9xl | Text_9xl_line_height -> 22
-  | Font_weight_thin | Font_weight_extralight | Font_weight_light
-  | Font_weight_normal | Font_weight_medium | Font_weight_semibold
-  | Font_weight_bold | Font_weight_extrabold | Font_weight_black ->
-      30
-  | Radius_none | Radius_sm | Radius_default | Radius_md | Radius_lg | Radius_xl
-  | Radius_2xl | Radius_3xl ->
-      35
-  | Color (name, _) -> 40 + canonical_color_order name
-  | Default_font_family -> 150
-  | Default_mono_font_family -> 151
-  | _ -> 200 (* Other variables come later *)
+(** Compare two variables using polymorphic ordering *)
+let compare : type a b. a t -> b t -> int =
+ fun a b ->
+  (* Special handling for Color variants *)
+  match (Any a, Any b) with
+  | Any (Color (name_a, shade_a)), Any (Color (name_b, shade_b)) ->
+      let name_cmp =
+        Int.compare
+          (canonical_color_order name_a)
+          (canonical_color_order name_b)
+      in
+      if name_cmp <> 0 then name_cmp
+      else Option.compare Int.compare shade_a shade_b
+  | _ ->
+      (* Use polymorphic compare via any wrapper *)
+      Stdlib.compare (Any a) (Any b)
 
-(** Compare two variables for canonical ordering *)
-let compare a b =
-  let order_a = canonical_order a in
-  let order_b = canonical_order b in
-  if order_a <> order_b then Int.compare order_a order_b
-  else
-    (* For same order group, compare string representations *)
-    String.compare (to_string a) (to_string b)
+(** Compare two any-wrapped variables *)
+let compare_any a b =
+  (* Special handling for Color variants *)
+  match (a, b) with
+  | Any (Color (name_a, shade_a)), Any (Color (name_b, shade_b)) ->
+      let name_cmp =
+        Int.compare
+          (canonical_color_order name_a)
+          (canonical_color_order name_b)
+      in
+      if name_cmp <> 0 then name_cmp
+      else Option.compare Int.compare shade_a shade_b
+  | _ ->
+      (* Use polymorphic compare directly *)
+      Stdlib.compare a b
 
-let pp (v : t) = to_string v
+let pp (v : _ t) = to_string v
 
 module S = Set.Make (String)
 
-(* Set module for Var.t *)
+(* Set module for Var.any *)
 module Set = Stdlib.Set.Make (struct
-  type nonrec t = t
+  type t = any
 
-  let compare = compare
+  let compare = compare_any (* Use the any-wrapped compare function *)
 end)
 
 type feature_group =
@@ -476,106 +493,254 @@ type feature_group =
   | Other (* catch-all; usually no properties layer *)
 
 (* Map each variable to its feature group *)
-let group_of_var (v : t) : feature_group =
+let group_of_var : type a. a t -> feature_group =
+ fun v ->
   match v with
-  | Translate_x | Translate_y | Translate_z -> Translate
+  (* Translate group *)
+  | Translate_x -> Translate
+  | Translate_y -> Translate
+  | Translate_z -> Translate
+  (* Rotate group *)
   | Rotate -> Rotate
-  | Skew_x | Skew_y -> Skew
-  | Scale_x | Scale_y | Scale_z -> Scale
-  | Blur | Brightness | Contrast | Grayscale | Hue_rotate | Invert | Saturate
-  | Sepia | Drop_shadow | Drop_shadow_alpha ->
-      Filter
-  | Backdrop_blur | Backdrop_brightness | Backdrop_contrast | Backdrop_grayscale
-  | Backdrop_hue_rotate | Backdrop_invert | Backdrop_saturate | Backdrop_sepia
-  | Backdrop_opacity ->
-      Backdrop
-  | Ring_offset_shadow | Ring_shadow | Shadow | Inset_shadow | Inset_ring_shadow
-  | Shadow_color | Inset_shadow_color | Ring_color | Inset_ring_color
-  | Ring_inset | Shadow_alpha | Inset_shadow_alpha | Ring_offset_width
-  | Ring_offset_color ->
-      Ring_shadow
-  | Gradient_from | Gradient_via | Gradient_to | Gradient_stops
-  | Gradient_from_position | Gradient_via_position | Gradient_to_position
-  | Gradient_position | Gradient_via_stops ->
-      Gradient
+  (* Skew group *)
+  | Skew_x -> Skew
+  | Skew_y -> Skew
+  (* Scale group *)
+  | Scale_x -> Scale
+  | Scale_y -> Scale
+  | Scale_z -> Scale
+  (* Filter group *)
+  | Blur -> Filter
+  | Brightness -> Filter
+  | Contrast -> Filter
+  | Grayscale -> Filter
+  | Hue_rotate -> Filter
+  | Invert -> Filter
+  | Saturate -> Filter
+  | Sepia -> Filter
+  | Drop_shadow -> Filter
+  | Drop_shadow_alpha -> Filter
+  (* Backdrop group *)
+  | Backdrop_blur -> Backdrop
+  | Backdrop_brightness -> Backdrop
+  | Backdrop_contrast -> Backdrop
+  | Backdrop_grayscale -> Backdrop
+  | Backdrop_hue_rotate -> Backdrop
+  | Backdrop_invert -> Backdrop
+  | Backdrop_saturate -> Backdrop
+  | Backdrop_sepia -> Backdrop
+  | Backdrop_opacity -> Backdrop
+  (* Ring/Shadow group *)
+  | Ring_offset_shadow -> Ring_shadow
+  | Ring_shadow -> Ring_shadow
+  | Shadow -> Ring_shadow
+  | Inset_shadow -> Ring_shadow
+  | Inset_ring_shadow -> Ring_shadow
+  | Shadow_color -> Ring_shadow
+  | Inset_shadow_color -> Ring_shadow
+  | Ring_color -> Ring_shadow
+  | Inset_ring_color -> Ring_shadow
+  | Ring_inset -> Ring_shadow
+  | Shadow_alpha -> Ring_shadow
+  | Inset_shadow_alpha -> Ring_shadow
+  | Ring_offset_width -> Ring_shadow
+  | Ring_offset_color -> Ring_shadow
+  (* Gradient group *)
+  | Gradient_from -> Gradient
+  | Gradient_via -> Gradient
+  | Gradient_to -> Gradient
+  | Gradient_stops -> Gradient
+  | Gradient_from_position -> Gradient
+  | Gradient_via_position -> Gradient
+  | Gradient_to_position -> Gradient
+  | Gradient_position -> Gradient
+  | Gradient_via_stops -> Gradient
+  (* Border group *)
   | Border_style -> Border
+  (* Scroll snap group *)
   | Scroll_snap_strictness -> Scroll_snap
-  | Font_weight | Leading -> Other (* These get special handling *)
-  | _ -> Other
+  (* Other cases - no group *)
+  | Spacing -> Other
+  | Font_sans -> Other
+  | Font_serif -> Other
+  | Font_mono -> Other
+  | Font_weight -> Other
+  | Leading -> Other
+  | Text_xs -> Other
+  | Text_xs_line_height -> Other
+  | Text_sm -> Other
+  | Text_sm_line_height -> Other
+  | Text_base -> Other
+  | Text_base_line_height -> Other
+  | Text_lg -> Other
+  | Text_lg_line_height -> Other
+  | Text_xl -> Other
+  | Text_xl_line_height -> Other
+  | Text_2xl -> Other
+  | Text_2xl_line_height -> Other
+  | Text_3xl -> Other
+  | Text_3xl_line_height -> Other
+  | Text_4xl -> Other
+  | Text_4xl_line_height -> Other
+  | Text_5xl -> Other
+  | Text_5xl_line_height -> Other
+  | Text_6xl -> Other
+  | Text_6xl_line_height -> Other
+  | Text_7xl -> Other
+  | Text_7xl_line_height -> Other
+  | Text_8xl -> Other
+  | Text_8xl_line_height -> Other
+  | Text_9xl -> Other
+  | Text_9xl_line_height -> Other
+  | Font_weight_thin -> Other
+  | Font_weight_extralight -> Other
+  | Font_weight_light -> Other
+  | Font_weight_normal -> Other
+  | Font_weight_medium -> Other
+  | Font_weight_semibold -> Other
+  | Font_weight_bold -> Other
+  | Font_weight_extrabold -> Other
+  | Font_weight_black -> Other
+  | Radius_none -> Other
+  | Radius_sm -> Other
+  | Radius_default -> Other
+  | Radius_md -> Other
+  | Radius_lg -> Other
+  | Radius_xl -> Other
+  | Radius_2xl -> Other
+  | Radius_3xl -> Other
+  | Color _ -> Other
+  | Duration -> Other
+  | Default_font_family -> Other
+  | Default_mono_font_family -> Other
 
-(* Helper to convert string to variant for backward compatibility *)
-let group_of_var_string (v : string) : feature_group =
-  match of_string v with Some var -> group_of_var var | None -> Other
+(* Helper to match CSS variable names to our typed variables *)
+let var_of_name name =
+  match name with
+  | "--spacing" -> Some (Any Spacing)
+  | "--font-sans" -> Some (Any Font_sans)
+  | "--font-serif" -> Some (Any Font_serif)
+  | "--font-mono" -> Some (Any Font_mono)
+  | "--tw-font-weight" -> Some (Any Font_weight)
+  | "--tw-leading" -> Some (Any Leading)
+  | "--text-xs" -> Some (Any Text_xs)
+  | "--text-xs--line-height" -> Some (Any Text_xs_line_height)
+  | "--text-sm" -> Some (Any Text_sm)
+  | "--text-sm--line-height" -> Some (Any Text_sm_line_height)
+  | "--text-base" -> Some (Any Text_base)
+  | "--text-base--line-height" -> Some (Any Text_base_line_height)
+  | "--text-lg" -> Some (Any Text_lg)
+  | "--text-lg--line-height" -> Some (Any Text_lg_line_height)
+  | "--text-xl" -> Some (Any Text_xl)
+  | "--text-xl--line-height" -> Some (Any Text_xl_line_height)
+  | "--text-2xl" -> Some (Any Text_2xl)
+  | "--text-2xl--line-height" -> Some (Any Text_2xl_line_height)
+  | "--text-3xl" -> Some (Any Text_3xl)
+  | "--text-3xl--line-height" -> Some (Any Text_3xl_line_height)
+  | "--text-4xl" -> Some (Any Text_4xl)
+  | "--text-4xl--line-height" -> Some (Any Text_4xl_line_height)
+  | "--text-5xl" -> Some (Any Text_5xl)
+  | "--text-5xl--line-height" -> Some (Any Text_5xl_line_height)
+  | "--text-6xl" -> Some (Any Text_6xl)
+  | "--text-6xl--line-height" -> Some (Any Text_6xl_line_height)
+  | "--text-7xl" -> Some (Any Text_7xl)
+  | "--text-7xl--line-height" -> Some (Any Text_7xl_line_height)
+  | "--text-8xl" -> Some (Any Text_8xl)
+  | "--text-8xl--line-height" -> Some (Any Text_8xl_line_height)
+  | "--text-9xl" -> Some (Any Text_9xl)
+  | "--text-9xl--line-height" -> Some (Any Text_9xl_line_height)
+  | "--font-weight-thin" -> Some (Any Font_weight_thin)
+  | "--font-weight-extralight" -> Some (Any Font_weight_extralight)
+  | "--font-weight-light" -> Some (Any Font_weight_light)
+  | "--font-weight-normal" -> Some (Any Font_weight_normal)
+  | "--font-weight-medium" -> Some (Any Font_weight_medium)
+  | "--font-weight-semibold" -> Some (Any Font_weight_semibold)
+  | "--font-weight-bold" -> Some (Any Font_weight_bold)
+  | "--font-weight-extrabold" -> Some (Any Font_weight_extrabold)
+  | "--font-weight-black" -> Some (Any Font_weight_black)
+  | "--radius-none" -> Some (Any Radius_none)
+  | "--radius-sm" -> Some (Any Radius_sm)
+  | "--radius-default" -> Some (Any Radius_default)
+  | "--radius-md" -> Some (Any Radius_md)
+  | "--radius-lg" -> Some (Any Radius_lg)
+  | "--radius-xl" -> Some (Any Radius_xl)
+  | "--radius-2xl" -> Some (Any Radius_2xl)
+  | "--radius-3xl" -> Some (Any Radius_3xl)
+  | "--tw-translate-x" -> Some (Any Translate_x)
+  | "--tw-translate-y" -> Some (Any Translate_y)
+  | "--tw-translate-z" -> Some (Any Translate_z)
+  | "--tw-rotate" -> Some (Any Rotate)
+  | "--tw-skew-x" -> Some (Any Skew_x)
+  | "--tw-skew-y" -> Some (Any Skew_y)
+  | "--tw-scale-x" -> Some (Any Scale_x)
+  | "--tw-scale-y" -> Some (Any Scale_y)
+  | "--tw-scale-z" -> Some (Any Scale_z)
+  | "--tw-blur" -> Some (Any Blur)
+  | "--tw-brightness" -> Some (Any Brightness)
+  | "--tw-contrast" -> Some (Any Contrast)
+  | "--tw-grayscale" -> Some (Any Grayscale)
+  | "--tw-hue-rotate" -> Some (Any Hue_rotate)
+  | "--tw-invert" -> Some (Any Invert)
+  | "--tw-saturate" -> Some (Any Saturate)
+  | "--tw-sepia" -> Some (Any Sepia)
+  | "--tw-drop-shadow" -> Some (Any Drop_shadow)
+  | "--tw-drop-shadow-alpha" -> Some (Any Drop_shadow_alpha)
+  | "--tw-backdrop-blur" -> Some (Any Backdrop_blur)
+  | "--tw-backdrop-brightness" -> Some (Any Backdrop_brightness)
+  | "--tw-backdrop-contrast" -> Some (Any Backdrop_contrast)
+  | "--tw-backdrop-grayscale" -> Some (Any Backdrop_grayscale)
+  | "--tw-backdrop-hue-rotate" -> Some (Any Backdrop_hue_rotate)
+  | "--tw-backdrop-invert" -> Some (Any Backdrop_invert)
+  | "--tw-backdrop-saturate" -> Some (Any Backdrop_saturate)
+  | "--tw-backdrop-sepia" -> Some (Any Backdrop_sepia)
+  | "--tw-backdrop-opacity" -> Some (Any Backdrop_opacity)
+  | "--tw-shadow" -> Some (Any Shadow)
+  | "--tw-shadow-color" -> Some (Any Shadow_color)
+  | "--tw-shadow-alpha" -> Some (Any Shadow_alpha)
+  | "--tw-inset-shadow" -> Some (Any Inset_shadow)
+  | "--tw-inset-shadow-color" -> Some (Any Inset_shadow_color)
+  | "--tw-inset-shadow-alpha" -> Some (Any Inset_shadow_alpha)
+  | "--tw-ring-color" -> Some (Any Ring_color)
+  | "--tw-ring-shadow" -> Some (Any Ring_shadow)
+  | "--tw-inset-ring-color" -> Some (Any Inset_ring_color)
+  | "--tw-inset-ring-shadow" -> Some (Any Inset_ring_shadow)
+  | "--tw-ring-inset" -> Some (Any Ring_inset)
+  | "--tw-ring-offset-width" -> Some (Any Ring_offset_width)
+  | "--tw-ring-offset-color" -> Some (Any Ring_offset_color)
+  | "--tw-ring-offset-shadow" -> Some (Any Ring_offset_shadow)
+  | "--tw-gradient-from" -> Some (Any Gradient_from)
+  | "--tw-gradient-via" -> Some (Any Gradient_via)
+  | "--tw-gradient-to" -> Some (Any Gradient_to)
+  | "--tw-gradient-stops" -> Some (Any Gradient_stops)
+  | "--tw-gradient-via-stops" -> Some (Any Gradient_via_stops)
+  | "--tw-gradient-position" -> Some (Any Gradient_position)
+  | "--tw-gradient-from-position" -> Some (Any Gradient_from_position)
+  | "--tw-gradient-via-position" -> Some (Any Gradient_via_position)
+  | "--tw-gradient-to-position" -> Some (Any Gradient_to_position)
+  | "--tw-border-style" -> Some (Any Border_style)
+  | "--tw-scroll-snap-strictness" -> Some (Any Scroll_snap_strictness)
+  | "--tw-duration" -> Some (Any Duration)
+  | "--default-font-family" -> Some (Any Default_font_family)
+  | "--default-mono-font-family" -> Some (Any Default_mono_font_family)
+  | _ when String.starts_with ~prefix:"--color-" name -> (
+      (* Parse color variables like "--color-blue-500" *)
+      let color_part = String.sub name 8 (String.length name - 8) in
+      let parts = String.split_on_char '-' color_part in
+      match parts with
+      | [ name ] -> Some (Any (Color (name, None)))
+      | name :: shade_str :: _ -> (
+          try Some (Any (Color (name, Some (int_of_string shade_str))))
+          with _ -> None)
+      | [] -> None)
+  | _ -> None
+
+(* Map variable name string to its feature group *)
+let group_of_var_string var_name =
+  match var_of_name var_name with
+  | Some (Any v) -> group_of_var v
+  | None -> Other
 
 (* Default initialisers for each group when a layer is needed *)
-let defaults_for_group = function
-  | Translate ->
-      [
-        ("--tw-translate-x", "0");
-        ("--tw-translate-y", "0");
-        ("--tw-translate-z", "0");
-      ]
-  | Rotate -> [ ("--tw-rotate", "0") ]
-  | Skew -> [ ("--tw-skew-x", "0"); ("--tw-skew-y", "0") ]
-  | Scale ->
-      [ ("--tw-scale-x", "1"); ("--tw-scale-y", "1"); ("--tw-scale-z", "1") ]
-  | Filter ->
-      [
-        ("--tw-blur", "");
-        ("--tw-brightness", "");
-        ("--tw-contrast", "");
-        ("--tw-grayscale", "");
-        ("--tw-hue-rotate", "");
-        ("--tw-invert", "");
-        ("--tw-saturate", "");
-        ("--tw-sepia", "");
-        ("--tw-drop-shadow", "");
-      ]
-  | Backdrop ->
-      [
-        ("--tw-backdrop-blur", "");
-        ("--tw-backdrop-brightness", "");
-        ("--tw-backdrop-contrast", "");
-        ("--tw-backdrop-grayscale", "");
-        ("--tw-backdrop-hue-rotate", "");
-        ("--tw-backdrop-invert", "");
-        ("--tw-backdrop-saturate", "");
-        ("--tw-backdrop-sepia", "");
-        ("--tw-backdrop-opacity", "");
-      ]
-  | Ring_shadow ->
-      (* Canonical order for shadow/ring variables *)
-      [
-        ("--tw-shadow", "0 0 #0000");
-        ("--tw-shadow-color", "initial");
-        ("--tw-shadow-alpha", "100%");
-        ("--tw-inset-shadow", "0 0 #0000");
-        ("--tw-inset-shadow-color", "initial");
-        ("--tw-inset-shadow-alpha", "100%");
-        ("--tw-ring-color", "initial");
-        ("--tw-ring-shadow", "0 0 #0000");
-        ("--tw-inset-ring-color", "initial");
-        ("--tw-inset-ring-shadow", "0 0 #0000");
-        ("--tw-ring-inset", "initial");
-        ("--tw-ring-offset-width", "0px");
-        ("--tw-ring-offset-color", "#fff");
-        ("--tw-ring-offset-shadow", "0 0 #0000");
-      ]
-  | Gradient ->
-      [
-        ("--tw-gradient-position", "initial");
-        ("--tw-gradient-from", "#0000");
-        ("--tw-gradient-via", "#0000");
-        ("--tw-gradient-to", "#0000");
-        ("--tw-gradient-stops", "initial");
-        ("--tw-gradient-via-stops", "initial");
-        ("--tw-gradient-from-position", "0%");
-        ("--tw-gradient-via-position", "50%");
-        ("--tw-gradient-to-position", "100%");
-      ]
-  | Border -> [ ("--tw-border-style", "solid") ]
-  | Scroll_snap -> [ ("--tw-scroll-snap-strictness", "proximity") ]
-  | Other -> []
 
 (* Collect usages while compiling utilities *)
 type tally = {
@@ -597,14 +762,16 @@ let empty =
 let tally_of_vars var_names =
   List.fold_left
     (fun (assigned, unknown) var_name ->
-      let clean_name =
-        if String.starts_with ~prefix:"--" var_name then
-          String.sub var_name 2 (String.length var_name - 2)
-        else var_name
-      in
-      match of_string clean_name with
+      (* Try to match with our typed variables using var_of_name *)
+      match var_of_name var_name with
       | Some var -> (Set.add var assigned, unknown)
-      | None -> (assigned, S.add clean_name unknown))
+      | None ->
+          let clean_name =
+            if String.starts_with ~prefix:"--" var_name then
+              String.sub var_name 2 (String.length var_name - 2)
+            else var_name
+          in
+          (assigned, S.add clean_name unknown))
     (Set.empty, S.empty) var_names
   |> fun (assigned, unknown) ->
   {
@@ -625,7 +792,7 @@ let groups_needing_layer (t : tally) : feature_group list =
   (* Check which groups need initialization based on unassigned references *)
   let groups =
     Set.fold
-      (fun v acc ->
+      (fun (Any v) acc ->
         match v with
         | Border_style ->
             Border
@@ -646,7 +813,7 @@ let groups_needing_layer (t : tally) : feature_group list =
      Border) *)
   let assigned_groups =
     Set.fold
-      (fun v acc ->
+      (fun (Any v) acc ->
         match group_of_var v with
         | Border -> acc (* Don't add Border group for assignments *)
         | Other -> acc
@@ -656,82 +823,51 @@ let groups_needing_layer (t : tally) : feature_group list =
 
   groups @ unknown_groups @ assigned_groups |> List.sort_uniq Stdlib.compare
 
-(* Generate properties layer initializers for needed groups *)
-let generate_properties_layer (t : tally) : (string * string) list =
-  (* Get defaults for composition groups *)
-  let group_defaults =
-    groups_needing_layer t |> List.concat_map defaults_for_group
-  in
-
-  (* Also add any special --tw- variables that need initialization *)
-  let special_vars =
-    Set.fold
-      (fun v acc ->
-        match v with
-        | Font_weight -> (to_string Font_weight, "initial") :: acc
-        | Leading -> (to_string Leading, "initial") :: acc
-        | _ -> acc)
-      t.assigned []
-  in
-
-  (* Preserve canonical order - don't sort, just deduplicate *)
-  let seen = Hashtbl.create 32 in
-  let deduplicated =
-    List.filter
-      (fun (k, _) ->
-        if Hashtbl.mem seen k then false
-        else (
-          Hashtbl.add seen k ();
-          true))
-      (group_defaults @ special_vars)
-  in
-  deduplicated
-
 (* Canonical order for @property rules *)
-let canonical_property_order_vars : t list =
+let canonical_property_order_vars : any list =
   [
-    Gradient_position;
-    Gradient_from;
-    Gradient_via;
-    Gradient_to;
-    Gradient_stops;
-    Gradient_via_stops;
-    Gradient_from_position;
-    Gradient_via_position;
-    Gradient_to_position;
-    Font_weight;
-    Border_style;
-    Scroll_snap_strictness;
-    Shadow;
-    Shadow_color;
-    Shadow_alpha;
-    Inset_shadow;
-    Inset_shadow_color;
-    Inset_shadow_alpha;
-    Ring_color;
-    Ring_shadow;
-    Inset_ring_color;
-    Inset_ring_shadow;
-    Ring_inset;
-    Ring_offset_width;
-    Ring_offset_color;
-    Ring_offset_shadow;
-    Scale_x;
-    Scale_y;
-    Scale_z;
-    Leading;
-    Duration;
+    Any Gradient_position;
+    Any Gradient_from;
+    Any Gradient_via;
+    Any Gradient_to;
+    Any Gradient_stops;
+    Any Gradient_via_stops;
+    Any Gradient_from_position;
+    Any Gradient_via_position;
+    Any Gradient_to_position;
+    Any Font_weight;
+    Any Border_style;
+    Any Scroll_snap_strictness;
+    Any Shadow;
+    Any Shadow_color;
+    Any Shadow_alpha;
+    Any Inset_shadow;
+    Any Inset_shadow_color;
+    Any Inset_shadow_alpha;
+    Any Ring_color;
+    Any Ring_shadow;
+    Any Inset_ring_color;
+    Any Inset_ring_shadow;
+    Any Ring_inset;
+    Any Ring_offset_width;
+    Any Ring_offset_color;
+    Any Ring_offset_shadow;
+    Any Scale_x;
+    Any Scale_y;
+    Any Scale_z;
+    Any Leading;
+    Any Duration;
   ]
 
 (* Get variables that need @property rules *)
-let needs_at_property (t : tally) : t list =
+let needs_at_property (t : tally) : any list =
   (* Collect all variables that need @property rules *)
   let all_vars = Set.union t.assigned t.fallback_refs in
 
   (* Check if Ring_shadow group is needed *)
   let needs_ring_shadow =
     Set.exists
-      (fun v ->
+      (fun (Any v) ->
         match v with
         | Shadow | Shadow_color | Shadow_alpha | Inset_shadow
         | Inset_shadow_color | Inset_shadow_alpha | Ring_color | Ring_shadow
@@ -745,7 +881,7 @@ let needs_at_property (t : tally) : t list =
   (* Check if Gradient group is needed *)
   let needs_gradient =
     Set.exists
-      (fun v ->
+      (fun (Any v) ->
         match v with
         | Gradient_position | Gradient_from | Gradient_via | Gradient_to
         | Gradient_stops | Gradient_via_stops | Gradient_from_position
@@ -758,7 +894,8 @@ let needs_at_property (t : tally) : t list =
   (* Check if Scale group is needed *)
   let needs_scale =
     Set.exists
-      (fun v -> match v with Scale_x | Scale_y | Scale_z -> true | _ -> false)
+      (fun (Any v) ->
+        match v with Scale_x | Scale_y | Scale_z -> true | _ -> false)
       all_vars
   in
 
@@ -767,13 +904,13 @@ let needs_at_property (t : tally) : t list =
     let base_needed =
       if needs_ring_shadow then
         List.fold_left
-          (fun acc v ->
+          (fun acc (Any v as wrapped) ->
             match v with
             | Shadow | Shadow_color | Shadow_alpha | Inset_shadow
             | Inset_shadow_color | Inset_shadow_alpha | Ring_color | Ring_shadow
             | Inset_ring_color | Inset_ring_shadow | Ring_inset
             | Ring_offset_width | Ring_offset_color | Ring_offset_shadow ->
-                Set.add v acc
+                Set.add wrapped acc
             | _ -> acc)
           Set.empty canonical_property_order_vars
       else Set.empty
@@ -783,12 +920,12 @@ let needs_at_property (t : tally) : t list =
     let base_needed =
       if needs_gradient then
         List.fold_left
-          (fun acc v ->
+          (fun acc (Any v as wrapped) ->
             match v with
             | Gradient_position | Gradient_from | Gradient_via | Gradient_to
             | Gradient_stops | Gradient_via_stops | Gradient_from_position
             | Gradient_via_position | Gradient_to_position ->
-                Set.add v acc
+                Set.add wrapped acc
             | _ -> acc)
           base_needed canonical_property_order_vars
       else base_needed
@@ -798,9 +935,9 @@ let needs_at_property (t : tally) : t list =
     let base_needed =
       if needs_scale then
         List.fold_left
-          (fun acc v ->
+          (fun acc (Any v as wrapped) ->
             match v with
-            | Scale_x | Scale_y | Scale_z -> Set.add v acc
+            | Scale_x | Scale_y | Scale_z -> Set.add wrapped acc
             | _ -> acc)
           base_needed canonical_property_order_vars
       else base_needed
@@ -808,18 +945,19 @@ let needs_at_property (t : tally) : t list =
 
     (* Add other needed variables *)
     Set.fold
-      (fun v acc ->
+      (fun (Any v as wrapped) acc ->
         match v with
-        | Font_weight -> Set.add v acc
+        | Font_weight -> Set.add wrapped acc
         (* Border style needs @property when referenced but not assigned *)
-        | Border_style when not (Set.mem v t.assigned) -> Set.add v acc
+        | Border_style when not (Set.mem wrapped t.assigned) ->
+            Set.add wrapped acc
         (* Scroll snap strictness needs @property when used *)
-        | Scroll_snap_strictness -> Set.add v acc
+        | Scroll_snap_strictness -> Set.add wrapped acc
         (* Leading needs @property only when assigned (not just referenced in
            fallback) *)
-        | Leading when Set.mem v t.assigned -> Set.add v acc
+        | Leading when Set.mem wrapped t.assigned -> Set.add wrapped acc
         (* Duration needs @property when used *)
-        | Duration -> Set.add v acc
+        | Duration -> Set.add wrapped acc
         | _ -> acc)
       all_vars base_needed
   in
@@ -828,7 +966,7 @@ let needs_at_property (t : tally) : t list =
   List.filter (fun v -> Set.mem v needed) canonical_property_order_vars
 
 (* Get @property configuration for a variable *)
-let at_property_config (v : t) : (string * string * bool * string) option =
+let at_property_config (Any v) : (string * string * bool * string) option =
   let name = to_string v in
   match v with
   | Font_weight -> Some (name, "*", false, "")
@@ -859,6 +997,22 @@ let at_property_config (v : t) : (string * string * bool * string) option =
   | Scale_x | Scale_y | Scale_z -> Some (name, "*", false, "1")
   | _ -> None
 
+(** Find variables referenced in a declaration *)
+let find name decl =
+  (* Get all variable names from the declaration *)
+  let var_names = Css.vars_of_declarations [ decl ] in
+  (* Check if our name is in there *)
+  if List.mem name var_names || List.mem ("--" ^ name) var_names then
+    var_of_name name
+  else None
+
+(** Find all variables referenced in a declaration *)
+let find_all decl =
+  (* Get all variable names from the declaration *)
+  let var_names = Css.vars_of_declarations [ decl ] in
+  (* Convert variable names to typed vars *)
+  List.filter_map var_of_name var_names
+
 (* Check if a variable name is a composition variable *)
 let is_composition_var name =
   let clean_name =
@@ -866,12 +1020,12 @@ let is_composition_var name =
       String.sub name 2 (String.length name - 2)
     else name
   in
-  (* Composition variables are --tw-* variables or known composition vars *)
+  (* Composition variables are --tw-* variables *)
   String.starts_with ~prefix:"tw-" clean_name
   ||
-  match of_string clean_name with
-  | Some v -> (
-      (* Check if this is a composition variable that needs tracking *)
+  (* Or check if it matches a known composition variable by trying to find it *)
+  match var_of_name name with
+  | Some (Any v) -> (
       match v with
       | Font_weight | Leading | Border_style | Shadow | Shadow_color
       | Shadow_alpha | Inset_shadow | Inset_shadow_color | Inset_shadow_alpha
@@ -890,3 +1044,15 @@ let extract_composition_vars custom_props =
   List.filter_map
     (fun (name, _value) -> if is_composition_var name then Some name else None)
     custom_props
+
+(* Create a theme layer variable *)
+let theme : type a. a t -> a -> Css.declaration * a Css.var =
+ fun var_t value -> def var_t ~layer:Theme value
+
+(* Create a composition/properties layer variable *)
+let composition : type a. a t -> a -> Css.declaration * a Css.var =
+ fun var_t value -> def var_t ~layer:Properties value
+
+(* Create a utility layer variable (rare) *)
+let property : type a. a t -> a -> Css.declaration * a Css.var =
+ fun var_t value -> def var_t ~layer:Utility value
