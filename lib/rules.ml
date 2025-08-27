@@ -216,8 +216,8 @@ let starts prefix s =
   let lp = String.length prefix and ls = String.length s in
   ls >= lp && String.sub s 0 lp = prefix
 
-(* Helper to get color order for background utilities *)
-let get_color_order color_part =
+(* Helper to determine color order for background utilities *)
+let color_order color_part =
   try
     let color_name =
       try
@@ -282,8 +282,8 @@ let is_margin_util core =
        (fun p -> starts p core)
        [ "mt-"; "mr-"; "mb-"; "ml-"; "-mt-"; "-mr-"; "-mb-"; "-ml-" ]
 
-(* Helper to get margin sub-order *)
-let get_margin_suborder core =
+(* Helper to determine margin sub-order *)
+let margin_suborder core =
   if starts "m-" core || starts "-m-" core then 0
   else if
     starts "mx-" core || starts "my-" core || starts "-mx-" core
@@ -296,8 +296,8 @@ let is_padding_util core =
   starts "p-" core || starts "px-" core || starts "py-" core
   || List.exists (fun p -> starts p core) [ "pt-"; "pr-"; "pb-"; "pl-" ]
 
-(* Helper to get padding sub-order *)
-let get_padding_suborder core =
+(* Helper to determine padding sub-order *)
+let padding_suborder core =
   if starts "p-" core then 0
   else if starts "px-" core || starts "py-" core then 1
   else 2
@@ -402,14 +402,14 @@ let conflict_group selector =
   else if is_display_util core then (10, 1) (* Position utilities *)
   else if is_position_util core then (11, 0)
     (* Margin utilities with sub-ordering *)
-  else if is_margin_util core then (100, get_margin_suborder core)
+  else if is_margin_util core then (100, margin_suborder core)
     (* Background utilities *)
   else if starts "bg-" core then
     let color_part = String.sub core 3 (String.length core - 3) in
-    (200, get_color_order color_part) (* Gradient utilities *)
+    (200, color_order color_part) (* Gradient utilities *)
   else if List.exists (fun p -> starts p core) [ "from-"; "via-"; "to-" ] then
     (200, 50) (* Padding utilities with sub-ordering *)
-  else if is_padding_util core then (300, get_padding_suborder core)
+  else if is_padding_util core then (300, padding_suborder core)
     (* Typography utilities *)
   else if is_typography_util core then (400, 0) (* Border utilities *)
   else if is_border_util core then (500, 0) (* Sizing utilities *)
