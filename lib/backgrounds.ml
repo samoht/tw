@@ -122,20 +122,11 @@ let bg_gradient_to = function
 
 (* Legacy fixed-direction helpers removed in favor of bg_gradient_to *)
 
-(** Helper to build gradient color class names and variable references *)
-let gradient_color_helpers ~prefix ?(shade = 500) color =
-  let class_name =
-    if Color.is_base_color color || Color.is_custom_color color then
-      prefix ^ Color.pp color
-    else Pp.str [ prefix; Color.pp color; "-"; string_of_int shade ]
-  in
-  let var_str =
-    if Color.is_base_color color || Color.is_custom_color color then
-      Pp.str [ "var(--color-"; Color.pp color; ")" ]
-    else
-      Pp.str [ "var(--color-"; Color.pp color; "-"; string_of_int shade; ")" ]
-  in
-  (class_name, var_str)
+(** Helper to build gradient color class names *)
+let gradient_color_class_name ~prefix ?(shade = 500) color =
+  if Color.is_base_color color || Color.is_custom_color color then
+    prefix ^ Color.pp color
+  else Pp.str [ prefix; Color.pp color; "-"; string_of_int shade ]
 
 (** Common gradient stops dependencies *)
 let gradient_deps_base =
@@ -151,21 +142,21 @@ let _gradient_deps_with_via =
   "--tw-gradient-via" :: "--tw-gradient-via-position" :: gradient_deps_base
 
 let from_color ?(shade = 500) color =
-  let class_name, _ = gradient_color_helpers ~prefix:"from-" ~shade color in
+  let class_name = gradient_color_class_name ~prefix:"from-" ~shade color in
   let color_value = Color.to_css color shade in
   (* Create a new declaration that overrides the global variable's value *)
   let from_override, _ = Css.var "tw-gradient-from" Color color_value in
   style class_name [ from_override ]
 
 let via_color ?(shade = 500) color =
-  let class_name, _ = gradient_color_helpers ~prefix:"via-" ~shade color in
+  let class_name = gradient_color_class_name ~prefix:"via-" ~shade color in
   let color_value = Color.to_css color shade in
   (* Create a new declaration that overrides the global variable's value *)
   let via_override, _ = Css.var "tw-gradient-via" Color color_value in
   style class_name [ via_override ]
 
 let to_color ?(shade = 500) color =
-  let class_name, _ = gradient_color_helpers ~prefix:"to-" ~shade color in
+  let class_name = gradient_color_class_name ~prefix:"to-" ~shade color in
   let color_value = Color.to_css color shade in
   (* Create a new declaration that overrides the global variable's value *)
   let to_override, _ = Css.var "tw-gradient-to" Color color_value in
