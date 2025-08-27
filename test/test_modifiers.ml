@@ -65,62 +65,23 @@ let test_validate_no_nested_responsive () =
   in
   test_already_responsive ()
 
+(* Helper to test that a responsive function rejects nested responsive *)
+let test_responsive_rejects name outer_fn inner_content =
+  try
+    let _ = outer_fn [ inner_content ] in
+    fail (Printf.sprintf "%s should reject nested responsive" name)
+  with
+  | Failure _ -> () (* Expected to fail *)
+  | _ -> fail "Expected Failure about nested responsive"
+
 (* Test that responsive functions reject nested responsive *)
 let test_responsive_functions_reject_nesting () =
-  (* Test sm rejects nested responsive *)
-  let test_sm_rejects () =
-    try
-      let _ = sm [ md [ p 4 ] ] in
-      fail "sm should reject nested responsive"
-    with
-    | Failure _ -> ()
-    | _ -> fail "Expected Failure about nested responsive"
-  in
-  test_sm_rejects ();
-
-  (* Test md rejects nested responsive *)
-  let test_md_rejects () =
-    try
-      let _ = md [ lg [ p 4 ] ] in
-      fail "md should reject nested responsive"
-    with
-    | Failure _ -> ()
-    | _ -> fail "Expected Failure about nested responsive"
-  in
-  test_md_rejects ();
-
-  (* Test lg rejects nested responsive *)
-  let test_lg_rejects () =
-    try
-      let _ = lg [ xl [ p 4 ] ] in
-      fail "lg should reject nested responsive"
-    with
-    | Failure _ -> ()
-    | _ -> fail "Expected Failure about nested responsive"
-  in
-  test_lg_rejects ();
-
-  (* Test xl rejects nested responsive *)
-  let test_xl_rejects () =
-    try
-      let _ = xl [ xxl [ p 4 ] ] in
-      fail "xl should reject nested responsive"
-    with
-    | Failure _ -> ()
-    | _ -> fail "Expected Failure about nested responsive"
-  in
-  test_xl_rejects ();
-
-  (* Test xxl rejects nested responsive *)
-  let test_xxl_rejects () =
-    try
-      let _ = xxl [ sm [ p 4 ] ] in
-      fail "xxl should reject nested responsive"
-    with
-    | Failure _ -> ()
-    | _ -> fail "Expected Failure about nested responsive"
-  in
-  test_xxl_rejects ()
+  (* Test each breakpoint rejects nested responsive modifiers *)
+  test_responsive_rejects "sm" sm (md [ p 4 ]);
+  test_responsive_rejects "md" md (lg [ p 4 ]);
+  test_responsive_rejects "lg" lg (xl [ p 4 ]);
+  test_responsive_rejects "xl" xl (xxl [ p 4 ]);
+  test_responsive_rejects "xxl" xxl (sm [ p 4 ])
 
 (* Test apply function *)
 let test_apply () =

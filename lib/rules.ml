@@ -211,7 +211,183 @@ let group_container_queries container_rules =
       | _ -> acc)
     [] container_rules
 
-(** {1 Extracted helpers to reduce nesting in to_css} *)
+(* Helper function to check if string starts with prefix *)
+let starts prefix s =
+  let lp = String.length prefix and ls = String.length s in
+  ls >= lp && String.sub s 0 lp = prefix
+
+(* Helper to get color order for background utilities *)
+let get_color_order color_part =
+  try
+    let color_name =
+      try
+        let last_dash = String.rindex color_part '-' in
+        String.sub color_part 0 last_dash
+      with Not_found -> color_part
+    in
+    match color_name with
+    | "amber" -> 0
+    | "blue" -> 1
+    | "cyan" -> 2
+    | "emerald" -> 3
+    | "fuchsia" -> 4
+    | "gray" -> 5
+    | "green" -> 6
+    | "indigo" -> 7
+    | "lime" -> 8
+    | "neutral" -> 9
+    | "orange" -> 10
+    | "pink" -> 11
+    | "purple" -> 12
+    | "red" -> 13
+    | "rose" -> 14
+    | "sky" -> 15
+    | "slate" -> 16
+    | "stone" -> 17
+    | "teal" -> 18
+    | "violet" -> 19
+    | "yellow" -> 20
+    | "zinc" -> 21
+    | _ -> 100
+  with
+  | Invalid_argument _ -> 0
+  | Not_found -> 0
+
+(* Helper to check display utilities *)
+let is_display_util core =
+  List.exists
+    (fun p -> starts p core)
+    [
+      "block";
+      "inline";
+      "inline-";
+      "flex";
+      "grid";
+      "table";
+      "contents";
+      "flow-root";
+    ]
+
+(* Helper to check position utilities *)
+let is_position_util core =
+  List.exists
+    (fun p -> starts p core)
+    [ "static"; "fixed"; "absolute"; "relative"; "sticky" ]
+
+(* Helper to check margin utilities *)
+let is_margin_util core =
+  starts "m-" core || starts "-m-" core || starts "mx-" core
+  || starts "my-" core || starts "-mx-" core || starts "-my-" core
+  || List.exists
+       (fun p -> starts p core)
+       [ "mt-"; "mr-"; "mb-"; "ml-"; "-mt-"; "-mr-"; "-mb-"; "-ml-" ]
+
+(* Helper to get margin sub-order *)
+let get_margin_suborder core =
+  if starts "m-" core || starts "-m-" core then 0
+  else if
+    starts "mx-" core || starts "my-" core || starts "-mx-" core
+    || starts "-my-" core
+  then 1
+  else 2
+
+(* Helper to check padding utilities *)
+let is_padding_util core =
+  starts "p-" core || starts "px-" core || starts "py-" core
+  || List.exists (fun p -> starts p core) [ "pt-"; "pr-"; "pb-"; "pl-" ]
+
+(* Helper to get padding sub-order *)
+let get_padding_suborder core =
+  if starts "p-" core then 0
+  else if starts "px-" core || starts "py-" core then 1
+  else 2
+
+(* Helper to check typography utilities *)
+let is_typography_util core =
+  List.exists
+    (fun p -> starts p core)
+    [
+      "font-";
+      "text-";
+      "tracking-";
+      "leading-";
+      "whitespace-";
+      "break-";
+      "list-";
+      "content-";
+    ]
+
+(* Helper to check border utilities *)
+let is_border_util core =
+  starts "rounded" core || starts "border" core || starts "outline-" core
+
+(* Helper to check sizing utilities *)
+let is_sizing_util core =
+  List.exists
+    (fun p -> starts p core)
+    [ "w-"; "h-"; "min-w-"; "min-h-"; "max-w-"; "max-h-" ]
+
+(* Helper to check effects utilities *)
+let is_effects_util core =
+  List.exists
+    (fun p -> starts p core)
+    [
+      "shadow-";
+      "shadow";
+      "opacity-";
+      "mix-blend-";
+      "background-blend-";
+      "transform";
+      "translate-";
+      "scale-";
+      "rotate-";
+      "skew-";
+      "transition";
+      "duration-";
+      "ease-";
+      "delay-";
+      "animate-";
+    ]
+
+(* Helper to check interactivity utilities *)
+let is_interactivity_util core =
+  List.exists
+    (fun p -> starts p core)
+    [ "cursor-"; "select-"; "resize-"; "scroll-"; "overflow-"; "overscroll-" ]
+
+(* Helper to check flexbox/grid utilities *)
+let is_flexbox_grid_util core =
+  List.exists
+    (fun p -> starts p core)
+    [
+      "flex-";
+      "grow";
+      "shrink";
+      "basis-";
+      "order-";
+      "grid-cols-";
+      "col-";
+      "grid-rows-";
+      "row-";
+      "grid-flow-";
+      "auto-cols-";
+      "auto-rows-";
+    ]
+
+(* Helper to check alignment utilities *)
+let is_alignment_util core =
+  if starts "items-" core then (901, 0)
+  else if starts "justify-" core then (901, 1)
+  else if List.exists (fun p -> starts p core) [ "content-"; "self-"; "place-" ]
+  then (901, 2)
+  else (-1, -1)
+(* Not an alignment utility *)
+
+(* Helper to check gap utilities *)
+let is_gap_util core = List.exists (fun p -> starts p core) [ "gap-"; "space-" ]
+
+(* Helper to check container/prose utilities *)
+let is_container_prose core = core = "container" || starts "prose" core
 
 (* Utility rule ordering: conflict-aware grouping (extracted) *)
 let conflict_group selector =
@@ -220,158 +396,35 @@ let conflict_group selector =
       String.sub selector 1 (String.length selector - 1)
     else selector
   in
-  let starts prefix s =
-    let lp = String.length prefix and ls = String.length s in
-    ls >= lp && String.sub s 0 lp = prefix
-  in
-  if core = "hidden" then (10, 3)
-  else if
-    List.exists
-      (fun p -> starts p core)
-      [
-        "block";
-        "inline";
-        "inline-";
-        "flex";
-        "grid";
-        "table";
-        "contents";
-        "flow-root";
-      ]
-  then (10, 1)
-  else if
-    List.exists
-      (fun p -> starts p core)
-      [ "static"; "fixed"; "absolute"; "relative"; "sticky" ]
-  then (11, 0)
-  else if starts "m-" core || starts "-m-" core then (100, 0)
-  else if
-    starts "mx-" core || starts "my-" core || starts "-mx-" core
-    || starts "-my-" core
-  then (100, 1)
-  else if
-    List.exists
-      (fun p -> starts p core)
-      [ "mt-"; "mr-"; "mb-"; "ml-"; "-mt-"; "-mr-"; "-mb-"; "-ml-" ]
-  then (100, 2)
+
+  (* Special cases first *)
+  if core = "hidden" then (10, 3) (* Display utilities *)
+  else if is_display_util core then (10, 1) (* Position utilities *)
+  else if is_position_util core then (11, 0)
+    (* Margin utilities with sub-ordering *)
+  else if is_margin_util core then (100, get_margin_suborder core)
+    (* Background utilities *)
   else if starts "bg-" core then
-    let sub_order =
-      try
-        let color_part = String.sub core 3 (String.length core - 3) in
-        let color_name =
-          try
-            let last_dash = String.rindex color_part '-' in
-            String.sub color_part 0 last_dash
-          with Not_found -> color_part
-        in
-        match color_name with
-        | "amber" -> 0
-        | "blue" -> 1
-        | "cyan" -> 2
-        | "emerald" -> 3
-        | "fuchsia" -> 4
-        | "gray" -> 5
-        | "green" -> 6
-        | "indigo" -> 7
-        | "lime" -> 8
-        | "neutral" -> 9
-        | "orange" -> 10
-        | "pink" -> 11
-        | "purple" -> 12
-        | "red" -> 13
-        | "rose" -> 14
-        | "sky" -> 15
-        | "slate" -> 16
-        | "stone" -> 17
-        | "teal" -> 18
-        | "violet" -> 19
-        | "yellow" -> 20
-        | "zinc" -> 21
-        | _ -> 100
-      with
-      | Invalid_argument _ -> 0
-      | Not_found -> 0
-    in
-    (200, sub_order)
+    let color_part = String.sub core 3 (String.length core - 3) in
+    (200, get_color_order color_part) (* Gradient utilities *)
   else if List.exists (fun p -> starts p core) [ "from-"; "via-"; "to-" ] then
-    (200, 50)
-  else if starts "p-" core then (300, 0)
-  else if starts "px-" core || starts "py-" core then (300, 1)
-  else if List.exists (fun p -> starts p core) [ "pt-"; "pr-"; "pb-"; "pl-" ]
-  then (300, 2)
-  else if
-    List.exists
-      (fun p -> starts p core)
-      [
-        "font-";
-        "text-";
-        "tracking-";
-        "leading-";
-        "whitespace-";
-        "break-";
-        "list-";
-        "content-";
-      ]
-  then (400, 0)
-  else if
-    starts "rounded" core || starts "border" core || starts "outline-" core
-  then (500, 0)
-  else if
-    List.exists
-      (fun p -> starts p core)
-      [ "w-"; "h-"; "min-w-"; "min-h-"; "max-w-"; "max-h-" ]
-  then (600, 0)
-  else if
-    List.exists
-      (fun p -> starts p core)
-      [
-        "shadow-";
-        "shadow";
-        "opacity-";
-        "mix-blend-";
-        "background-blend-";
-        "transform";
-        "translate-";
-        "scale-";
-        "rotate-";
-        "skew-";
-        "transition";
-        "duration-";
-        "ease-";
-        "delay-";
-        "animate-";
-      ]
-  then (700, 0)
-  else if
-    List.exists
-      (fun p -> starts p core)
-      [ "cursor-"; "select-"; "resize-"; "scroll-"; "overflow-"; "overscroll-" ]
-  then (800, 0)
-  else if
-    List.exists
-      (fun p -> starts p core)
-      [
-        "flex-";
-        "grow";
-        "shrink";
-        "basis-";
-        "order-";
-        "grid-cols-";
-        "col-";
-        "grid-rows-";
-        "row-";
-        "grid-flow-";
-        "auto-cols-";
-        "auto-rows-";
-      ]
-  then (900, 0)
-  else if starts "items-" core then (901, 0)
-  else if starts "justify-" core then (901, 1)
-  else if List.exists (fun p -> starts p core) [ "content-"; "self-"; "place-" ]
-  then (901, 2)
-  else if List.exists (fun p -> starts p core) [ "gap-"; "space-" ] then (902, 0)
-  else if core = "container" || starts "prose" core then (1000, 0)
-  else (9999, 0)
+    (200, 50) (* Padding utilities with sub-ordering *)
+  else if is_padding_util core then (300, get_padding_suborder core)
+    (* Typography utilities *)
+  else if is_typography_util core then (400, 0) (* Border utilities *)
+  else if is_border_util core then (500, 0) (* Sizing utilities *)
+  else if is_sizing_util core then (600, 0) (* Effects utilities *)
+  else if is_effects_util core then (700, 0) (* Interactivity utilities *)
+  else if is_interactivity_util core then (800, 0) (* Flexbox/Grid utilities *)
+  else if is_flexbox_grid_util core then (900, 0)
+  (* Alignment utilities - check returns group/suborder or (-1,-1) *)
+    else
+    let align_group, align_sub = is_alignment_util core in
+    if align_group >= 0 then (align_group, align_sub) (* Gap utilities *)
+    else if is_gap_util core then (902, 0) (* Container/prose utilities *)
+    else if is_container_prose core then (1000, 0)
+    (* Default case *)
+      else (9999, 0)
 
 let build_utilities_layer ~rules ~media_queries ~container_queries =
   let sorted_rules =
