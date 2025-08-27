@@ -1,4 +1,31 @@
-(** CSS rule generation and management *)
+(** CSS rule generation and management 
+
+    This module is responsible for converting Tailwind utility classes into
+    optimized CSS rules. The complexity comes from several requirements:
+    
+    1. **Rule Extraction**: Transform nested modifier structures (hover, responsive, 
+       container queries) into appropriate CSS rules with correct selectors.
+    
+    2. **Conflict Resolution**: Tailwind uses a sophisticated ordering system where
+       utilities are grouped by which CSS properties they affect. Within each group,
+       more specific utilities override broader ones (e.g., pt-4 overrides p-4).
+       
+    3. **CSS Layers**: Generate proper @layer directives for theme variables, base
+       reset styles, components, and utilities - maintaining Tailwind v4 compatibility.
+       
+    4. **Variable Resolution**: Track CSS custom property dependencies to generate
+       minimal variable declarations in the theme layer.
+       
+    5. **Media/Container Queries**: Handle responsive modifiers and container queries
+       by grouping rules with the same conditions.
+       
+    The module processes styles through multiple stages:
+    - Extract selector/property pairs from Core.t structures
+    - Group rules by type (regular, media query, container query)
+    - Apply conflict resolution ordering
+    - Generate CSS layers with proper variable declarations
+    - Output optimized, minified CSS compatible with Tailwind v4
+*)
 
 open Core
 open Css
@@ -26,7 +53,6 @@ let string_of_breakpoint = function
   | `Xl -> "xl"
   | `Xl_2 -> "2xl"
 
-(* Helper to get breakpoint for responsive prefix *)
 let responsive_breakpoint = function
   | "sm" -> "40rem" (* 640px / 16 = 40rem *)
   | "md" -> "48rem" (* 768px / 16 = 48rem *)
@@ -35,9 +61,7 @@ let responsive_breakpoint = function
   | "2xl" -> "96rem" (* 1536px / 16 = 96rem *)
   | _ -> "0rem"
 
-(* Helper to escape special characters in CSS class names *)
 let escape_class_name name =
-  (* Escape special characters in arbitrary values *)
   let buf = Buffer.create (String.length name * 2) in
   String.iter
     (function
@@ -617,6 +641,53 @@ let placeholder_supports =
         ];
     ]
 
+let split_after_placeholder rules =
+  let rec split acc = function
+    | [] -> (List.rev acc, [])
+    | h :: t ->
+        if Css.selector h = "::placeholder" then (List.rev (h :: acc), t)
+        else split (h :: acc) t
+  in
+  split [] rules
+
+(* Helper to build base layer with placeholder support *)
+let build_base_layer base_rules =
+  let before_placeholder, after_placeholder =
+    split_after_placeholder base_rules
+  in
+  let base_layer_content =
+    (before_placeholder |> List.map Css.rule_to_nested)
+    @ [ Css.supports_to_nested placeholder_supports ]
+    @ (after_placeholder |> List.map Css.rule_to_nested)
+  in
+  Css.layered_rules ~layer:Css.Base base_layer_content
+
+(* Helper to build all layers for reset mode *)
+let build_reset_layers tw_classes rules media_queries container_queries =
+  let properties_layer_opt, at_properties = compute_properties_layer rules in
+  let theme_layer = compute_theme_layer tw_classes in
+  let base_layer = build_base_layer (Preflight.stylesheet ()) in
+  let components_layer = Css.layered_rules ~layer:Css.Components [] in
+  (* Tailwind v4 uses conflict-aware grouping for CSS rule ordering *)
+  let utilities_layer =
+    build_utilities_layer ~rules ~media_queries ~container_queries
+  in
+  let base_layers =
+    [ theme_layer; base_layer; components_layer; utilities_layer ]
+  in
+  let layers =
+    match properties_layer_opt with
+    | Some props_layer -> props_layer :: base_layers
+    | None -> base_layers
+  in
+  (layers, at_properties)
+
+(* Helper to build items for no-reset mode *)
+let wrap_css_items ~rules ~media_queries ~container_queries =
+  List.map (fun r -> Css.Rule r) rules
+  @ List.map (fun m -> Css.Media m) media_queries
+  @ List.map (fun c -> Css.Container c) container_queries
+
 (* Generate CSS rules for all used Tw classes *)
 let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
   let _ = mode in
@@ -624,54 +695,15 @@ let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
   let rules, media_queries, container_queries = rule_sets tw_classes in
 
   if reset then
-    let properties_layer_opt, at_properties = compute_properties_layer rules in
-    let theme_layer = compute_theme_layer tw_classes in
-    let base_rules = Preflight.stylesheet () in
-    let rec split_after_placeholder acc = function
-      | [] -> (List.rev acc, [])
-      | h :: t ->
-          if Css.selector h = "::placeholder" then (List.rev (h :: acc), t)
-          else split_after_placeholder (h :: acc) t
-    in
-    let before_placeholder, after_placeholder =
-      split_after_placeholder [] base_rules
-    in
-    let base_layer_content =
-      (before_placeholder |> List.map Css.rule_to_nested)
-      @ [ Css.supports_to_nested placeholder_supports ]
-      @ (after_placeholder |> List.map Css.rule_to_nested)
-    in
-    let base_layer = Css.layered_rules ~layer:Css.Base base_layer_content in
-    let components_layer = Css.layered_rules ~layer:Css.Components [] in
-    (* Tailwind v4 uses conflict-aware grouping for CSS rule ordering. Utilities
-       are grouped by which CSS properties they can conflict with, ensuring
-       proper specificity resolution. More specific utilities override shorthand
-       ones within each group. *)
-    let utilities_layer =
-      build_utilities_layer ~rules ~media_queries ~container_queries
-    in
-    let base_layers =
-      [ theme_layer; base_layer; components_layer; utilities_layer ]
-    in
-    let layers =
-      match properties_layer_opt with
-      | Some props_layer -> props_layer :: base_layers
-      | None -> base_layers
+    let layers, at_properties =
+      build_reset_layers tw_classes rules media_queries container_queries
     in
     let items =
       List.map (fun l -> Css.Layer l) layers
       @ List.map (fun a -> Css.At_property a) at_properties
     in
     Css.stylesheet items
-  else
-    (* No reset - just raw rules, media queries, and container queries, no
-       layers. TODO: is this the right choice for inline? *)
-    let items =
-      List.map (fun r -> Css.Rule r) rules
-      @ List.map (fun m -> Css.Media m) media_queries
-      @ List.map (fun c -> Css.Container c) container_queries
-    in
-    Css.stylesheet items
+  else Css.stylesheet (wrap_css_items ~rules ~media_queries ~container_queries)
 
 (* Convert Tw styles to inline style attribute value *)
 let to_inline_style styles =
