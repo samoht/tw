@@ -70,11 +70,36 @@ val starting_style :
 
 (** {1 CSS Generation} *)
 
-val to_css : ?reset:bool -> ?mode:Css.mode -> t list -> Css.t
-(** [to_css ?reset ?mode classes] generates a complete CSS stylesheet from
-    Tailwind classes.
-    @param reset Whether to include CSS reset rules (default: true).
-    @param mode CSS variable handling mode (default: Variables). *)
+type config = {
+  reset : bool;
+      (** Whether to include CSS reset rules (Tailwind's Preflight). When [true]
+          with Variables mode: generates full layer structure. When [false]:
+          generates only utility rules without layers. *)
+  mode : Css.mode;
+      (** CSS generation mode:
+          - [Variables]: Generates CSS with layers (Theme, Properties, Base,
+            Components, Utilities) and CSS custom properties for dynamic
+            theming. CSS variables are emitted as [var(--name)] references.
+          - [Inline]: Generates raw CSS rules without layers, suitable for
+            inline styles or environments without CSS variable support.
+            Variables are resolved to their default values when available. *)
+}
+(** Configuration for CSS generation *)
+
+val default_config : config
+(** Default configuration: [{ reset = true; mode = Variables }]. Provides full
+    Tailwind experience with reset styles and CSS variables. *)
+
+val to_css : ?config:config -> t list -> Css.t
+(** [to_css ?config classes] generates a CSS stylesheet from Tailwind classes.
+
+    Behavior by configuration:
+    - [reset = true, mode = Variables]: Full Tailwind with layers and variables
+    - [reset = false, _]: No reset styles, no layers, just utility rules
+    - [_, mode = Inline/Value]: No layers, raw CSS rules
+
+    @param config Configuration for CSS generation (default: [default_config])
+*)
 
 val to_inline_style : t list -> string
 (** [to_inline_style styles] generates inline CSS string from Tailwind classes.
