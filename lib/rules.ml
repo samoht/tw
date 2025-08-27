@@ -620,6 +620,14 @@ let add_hover_to_media_map hover_rules media_map =
     (hover_condition, hover_rules @ existing_hover_rules)
     :: List.remove_assoc hover_condition media_map
 
+(* Helper to convert grouped selector/props pairs to CSS rules with
+   deduplication *)
+let rules_of_grouped grouped_list =
+  List.map
+    (fun (selector, props) ->
+      Css.rule ~selector (Css.deduplicate_declarations props))
+    grouped_list
+
 let rule_sets tw_classes =
   let all_rules = tw_classes |> List.concat_map extract_selector_props in
   let separated = classify all_rules in
@@ -631,38 +639,21 @@ let rule_sets tw_classes =
   let grouped_hover = group_by_selector hover_regular in
   let non_hover_rules = grouped_regular in
   let hover_rules = grouped_hover in
-  let rules =
-    List.map
-      (fun (selector, props) ->
-        Css.rule ~selector (Css.deduplicate_declarations props))
-      non_hover_rules
-  in
+  let rules = rules_of_grouped non_hover_rules in
   let media_queries_map =
     group_media_queries separated.media |> add_hover_to_media_map hover_rules
   in
   let media_queries =
     List.map
       (fun (condition, rule_list) ->
-        let rules =
-          List.map
-            (fun (sel, props) ->
-              Css.rule ~selector:sel (Css.deduplicate_declarations props))
-            rule_list
-        in
-        Css.media ~condition rules)
+        Css.media ~condition (rules_of_grouped rule_list))
       media_queries_map
   in
   let container_queries_map = group_container_queries separated.container in
   let container_queries =
     List.map
       (fun (condition, rule_list) ->
-        let rules =
-          List.map
-            (fun (sel, props) ->
-              Css.rule ~selector:sel (Css.deduplicate_declarations props))
-            rule_list
-        in
-        Css.container ~condition rules)
+        Css.container ~condition (rules_of_grouped rule_list))
       container_queries_map
   in
   (rules, media_queries, container_queries)
