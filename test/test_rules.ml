@@ -140,21 +140,70 @@ let test_color_order () =
   check int "unknown color gets 100" 100 (Tw.Rules.color_order "unknown")
 
 let test_is_hover_rule () =
-  check bool "detects hover rule" true
-    (Tw.Rules.is_hover_rule ".bg-blue-500:hover");
-  check bool "detects no hover" false (Tw.Rules.is_hover_rule ".bg-blue-500");
-  check bool "hover must be at end" false
-    (Tw.Rules.is_hover_rule ".hover:bg-blue-500")
+  (* Test simple hover *)
+  let hover_rules = Tw.Rules.extract_selector_props (hover [ bg blue 500 ]) in
+  let non_hover_rules = Tw.Rules.extract_selector_props (bg blue 500) in
+
+  (match hover_rules with
+  | [ hover_rule ] ->
+      check bool "detects simple hover rule" true
+        (Tw.Rules.is_hover_rule hover_rule)
+  | _ -> fail "Expected single hover rule");
+
+  (match non_hover_rules with
+  | [ non_hover_rule ] ->
+      check bool "detects no hover" false
+        (Tw.Rules.is_hover_rule non_hover_rule)
+  | _ -> fail "Expected single non-hover rule");
+
+  (* Test hover combined with responsive *)
+  let sm_hover_rules = Tw.Rules.extract_selector_props (sm [ hover [ p 4 ] ]) in
+  (match sm_hover_rules with
+  | [ media_rule ] ->
+      (* Responsive + hover creates a media query, not a regular rule with
+         hover *)
+      check bool "responsive+hover is not detected as hover" false
+        (Tw.Rules.is_hover_rule media_rule)
+  | _ -> fail "Expected single media rule");
+
+  (* Test hover combined with dark mode *)
+  let dark_hover_rules =
+    Tw.Rules.extract_selector_props (dark [ hover [ m 2 ] ])
+  in
+  (match dark_hover_rules with
+  | [ media_rule ] ->
+      check bool "dark+hover is not detected as hover" false
+        (Tw.Rules.is_hover_rule media_rule)
+  | _ -> fail "Expected single media rule");
+
+  (* Test focus without hover *)
+  let focus_rules = Tw.Rules.extract_selector_props (focus [ bg red 400 ]) in
+  (match focus_rules with
+  | [ focus_rule ] ->
+      check bool "focus alone is not hover" false
+        (Tw.Rules.is_hover_rule focus_rule)
+  | _ -> fail "Expected single focus rule");
+
+  (* Test group hover *)
+  let group_hover_rules =
+    Tw.Rules.extract_selector_props (group_hover [ text white 0 ])
+  in
+  match group_hover_rules with
+  | [ group_rule ] ->
+      check bool "group-hover is not detected as hover" false
+        (Tw.Rules.is_hover_rule group_rule)
+  | _ -> fail "Expected single group rule"
 
 let test_group_by_selector () =
   let rules =
     [
-      Tw.Rules.regular ~selector:".p-4" ~props:[ Css.padding (Css.Rem 1.0) ];
-      Tw.Rules.regular ~selector:".m-2" ~props:[ Css.margin (Css.Rem 0.5) ];
+      Tw.Rules.regular ~selector:".p-4" ~props:[ Css.padding (Css.Rem 1.0) ] ();
+      Tw.Rules.regular ~selector:".m-2" ~props:[ Css.margin (Css.Rem 0.5) ] ();
       Tw.Rules.regular ~selector:".p-4"
-        ~props:[ Css.custom_property "--tw-test" "1" ];
+        ~props:[ Css.custom_property "--tw-test" "1" ]
+        ();
       Tw.Rules.media_query ~condition:"(min-width: 640px)" ~selector:".sm\\:p-4"
-        ~props:[];
+        ~props:[] ();
     ]
   in
   let grouped = Tw.Rules.group_by_selector rules in
@@ -176,10 +225,11 @@ let test_modifier_to_rule () =
       [ Css.background_color (Css.Hex { hash = true; value = "3b82f6" }) ]
   in
   match rule with
-  | Tw.Rules.Regular { selector; props } ->
+  | Tw.Rules.Regular { selector; props; has_hover; _ } ->
       (* Hover modifier uses Modifiers.to_selector which includes the prefix *)
       check string "hover selector" ".hover\\:bg-blue-500:hover" selector;
-      check int "preserves props" 1 (List.length props)
+      check int "preserves props" 1 (List.length props);
+      check bool "marked as hover" true has_hover
   | _ -> fail "Expected Regular rule for hover"
 
 let test_rule_sets () =
@@ -204,6 +254,29 @@ let test_build_utilities_layer () =
   check bool "includes padding rule" true (contains css ".p-4");
   check bool "includes margin rule" true (contains css ".m-2")
 
+let test_classify () =
+  let rules =
+    [
+      Tw.Rules.regular ~selector:".p-4" ~props:[ Css.padding (Css.Rem 1.0) ] ();
+      Tw.Rules.media_query ~condition:"(min-width: 640px)" ~selector:".sm\\:p-4"
+        ~props:[ Css.padding (Css.Rem 1.0) ]
+        ();
+      Tw.Rules.container_query ~condition:"(min-width: 640px)"
+        ~selector:".\\@sm\\:p-4"
+        ~props:[ Css.padding (Css.Rem 1.0) ]
+        ();
+      Tw.Rules.starting_style ~selector:".animate-in"
+        ~props:[ Css.opacity 0.0 ]
+        ();
+      Tw.Rules.regular ~selector:".m-2" ~props:[ Css.margin (Css.Rem 0.5) ] ();
+    ]
+  in
+  let classified = Tw.Rules.classify rules in
+  check int "2 regular rules" 2 (List.length classified.regular);
+  check int "1 media rule" 1 (List.length classified.media);
+  check int "1 container rule" 1 (List.length classified.container);
+  check int "1 starting rule" 1 (List.length classified.starting)
+
 let tests =
   [
     test_case "theme layer - empty" `Quick check_theme_layer_empty;
@@ -227,6 +300,7 @@ let tests =
     test_case "modifier_to_rule" `Quick test_modifier_to_rule;
     test_case "rule_sets" `Quick test_rule_sets;
     test_case "build_utilities_layer" `Quick test_build_utilities_layer;
+    test_case "classify" `Quick test_classify;
   ]
 
 let suite = ("rules", tests)

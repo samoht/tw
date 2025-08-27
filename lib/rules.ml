@@ -17,40 +17,53 @@ open Css
 (* Types *)
 (* ======================================================================== *)
 
-type rule_output =
-  | Regular of { selector : string; props : Css.declaration list }
+type output =
+  | Regular of {
+      selector : string;
+      props : Css.declaration list;
+      base_class : string option; (* Base class name without the dot *)
+      has_hover : bool; (* Track if this rule has hover modifier *)
+    }
   | Media_query of {
       condition : string;
       selector : string;
       props : Css.declaration list;
+      base_class : string option;
     }
   | Container_query of {
       condition : string;
       selector : string;
       props : Css.declaration list;
+      base_class : string option;
     }
-  | Starting_style of { selector : string; props : Css.declaration list }
+  | Starting_style of {
+      selector : string;
+      props : Css.declaration list;
+      base_class : string option;
+    }
 
-type separated_rules = {
-  regular : rule_output list;
-  media : rule_output list;
-  container : rule_output list;
-  starting : rule_output list;
+type by_type = {
+  regular : output list;
+  media : output list;
+  container : output list;
+  starting : output list;
 }
 
 (* ======================================================================== *)
-(* Smart constructors for rule_output *)
+(* Smart constructors for output *)
 (* ======================================================================== *)
 
-let regular ~selector ~props = Regular { selector; props }
+let regular ~selector ~props ?base_class ?(has_hover = false) () =
+  Regular { selector; props; base_class; has_hover }
 
-let media_query ~condition ~selector ~props =
-  Media_query { condition; selector; props }
+let media_query ~condition ~selector ~props ?base_class () =
+  Media_query { condition; selector; props; base_class }
 
-let container_query ~condition ~selector ~props =
-  Container_query { condition; selector; props }
+let container_query ~condition ~selector ~props ?base_class () =
+  Container_query { condition; selector; props; base_class }
 
-let starting_style ~selector ~props = Starting_style { selector; props }
+let starting_style ~selector ~props ?base_class () =
+  Starting_style { selector; props; base_class }
 
 (* ======================================================================== *)
 (* Basic Utilities *)
@@ -99,71 +112,89 @@ let escape_class_name name =
 let modifier_to_rule modifier base_class selector props =
   match modifier with
   | Data_state value ->
-      regular ~selector:(selector ^ "[data-state=\"" ^ value ^ "\"]") ~props
+      regular
+        ~selector:(selector ^ "[data-state=\"" ^ value ^ "\"]")
+        ~props ~base_class ()
   | Data_variant value ->
-      regular ~selector:(selector ^ "[data-variant=\"" ^ value ^ "\"]") ~props
+      regular
+        ~selector:(selector ^ "[data-variant=\"" ^ value ^ "\"]")
+        ~props ~base_class ()
   | Data_custom (key, value) ->
       regular
         ~selector:(selector ^ "[data-" ^ key ^ "=\"" ^ value ^ "\"]")
-        ~props
+        ~props ~base_class ()
   | Dark ->
       media_query ~condition:"(prefers-color-scheme: dark)" ~selector ~props
+        ~base_class ()
   | Responsive breakpoint ->
       let prefix = string_of_breakpoint breakpoint in
       let condition = "(min-width:" ^ responsive_breakpoint prefix ^ ")" in
-      let sel = "." ^ prefix ^ "\\:" ^ base_class in
-      media_query ~condition ~selector:sel ~props
+      let escaped_prefix = escape_class_name prefix in
+      let sel = "." ^ escaped_prefix ^ "\\:" ^ escape_class_name base_class in
+      media_query ~condition ~selector:sel ~props ~base_class ()
   | Container query ->
       let prefix = Containers.container_query_to_class_prefix query in
-      let escaped_class = ".\\" ^ prefix ^ "\\:" ^ base_class in
+      let escaped_prefix = escape_class_name prefix in
+      let escaped_class =
+        "." ^ escaped_prefix ^ "\\:" ^ escape_class_name base_class
+      in
       let condition = Containers.container_query_to_css_prefix query in
       let cond =
         if String.starts_with ~prefix:"@container " condition then
           String.sub condition 11 (String.length condition - 11)
         else "(min-width: 0)"
       in
-      container_query ~condition:cond ~selector:escaped_class ~props
+      container_query ~condition:cond ~selector:escaped_class ~props ~base_class
+        ()
   | Not _modifier ->
-      regular ~selector:(".not-" ^ base_class ^ ":not(" ^ selector ^ ")") ~props
+      regular
+        ~selector:(".not-" ^ base_class ^ ":not(" ^ selector ^ ")")
+        ~props ~base_class ()
   | Has selector_str ->
       regular
         ~selector:
           (".has-\\[" ^ selector_str ^ "\\]\\:" ^ base_class ^ ":has("
          ^ selector_str ^ ")")
-        ~props
+        ~props ~base_class ()
   | Group_has selector_str ->
       regular
         ~selector:
           (".group:has(" ^ selector_str ^ ") .group-has-\\[" ^ selector_str
          ^ "\\]\\:" ^ base_class)
-        ~props
+        ~props ~base_class ()
   | Peer_has selector_str ->
       regular
         ~selector:
           (".peer:has(" ^ selector_str ^ ") ~ .peer-has-\\[" ^ selector_str
          ^ "\\]\\:" ^ base_class)
-        ~props
-  | Starting -> starting_style ~selector:("." ^ base_class) ~props
+        ~props ~base_class ()
+  | Starting ->
+      starting_style ~selector:("." ^ base_class) ~props ~base_class ()
   | Motion_safe ->
       media_query ~condition:"(prefers-reduced-motion: no-preference)"
         ~selector:(".motion-safe\\:" ^ base_class)
-        ~props
+        ~props ~base_class ()
   | Motion_reduce ->
       media_query ~condition:"(prefers-reduced-motion: reduce)"
         ~selector:(".motion-reduce\\:" ^ base_class)
-        ~props
+        ~props ~base_class ()
   | Contrast_more ->
       media_query ~condition:"(prefers-contrast: more)"
         ~selector:(".contrast-more\\:" ^ base_class)
-        ~props
+        ~props ~base_class ()
   | Contrast_less ->
       media_query ~condition:"(prefers-contrast: less)"
         ~selector:(".contrast-less\\:" ^ base_class)
-        ~props
-  | _ ->
-      (* For simple modifiers, use the selector helper from Modifiers *)
+        ~props ~base_class ()
+  | Hover | Focus | Active | Focus_within | Focus_visible | Disabled ->
+      (* These are pseudo-class modifiers - track hover specifically *)
       let sel = Modifiers.to_selector modifier base_class in
-      regular ~selector:sel ~props
+      let has_hover = modifier = Hover in
+      regular ~selector:sel ~props ~base_class ~has_hover ()
+  | _ ->
+      (* For other modifiers, use the selector helper from Modifiers *)
+      let sel = Modifiers.to_selector modifier base_class in
+      regular ~selector:sel ~props ~base_class ()
 
 (* Extract selector and properties from a single Tw style *)
 let extract_selector_props tw =
@@ -171,23 +202,26 @@ let extract_selector_props tw =
     | Style { name; props; rules; _ } -> (
         let escaped_name = escape_class_name name in
         match rules with
-        | None -> [ regular ~selector:("." ^ escaped_name) ~props ]
+        | None ->
+            [
+              regular ~selector:("." ^ escaped_name) ~props ~base_class:name ();
+            ]
         | Some rule_list ->
             (* Convert custom rules to selector/props pairs *)
             rule_list
             |> List.map (fun rule ->
                    regular ~selector:(Css.selector rule)
-                     ~props:(Css.declarations rule)))
+                     ~props:(Css.declarations rule) ~base_class:name ()))
     | Modified (modifier, t) ->
         let base = extract t in
         List.concat_map
           (fun rule_out ->
             match rule_out with
-            | Regular { selector; props } ->
-                let base_class =
-                  String.sub selector 1 (String.length selector - 1)
-                in
-                [ modifier_to_rule modifier base_class selector props ]
+            | Regular { selector; props; base_class; _ } ->
+                (* Use the base_class from the rule, not extract from
+                   selector *)
+                let bc = Option.value base_class ~default:"" in
+                [ modifier_to_rule modifier bc selector props ]
             | _ -> [ rule_out ])
           base
     | Group styles -> List.concat_map extract styles
@@ -196,21 +230,22 @@ let extract_selector_props tw =
 
 (* Group properties by selector for Regular rules *)
 let group_by_selector rules =
-  List.fold_left
-    (fun acc rule ->
+  let tbl = Hashtbl.create 32 in
+  List.iter
+    (fun rule ->
       match rule with
-      | Regular { selector; props } ->
-          let existing = try List.assoc selector acc with Not_found -> [] in
-          let without = List.remove_assoc selector acc in
-          without @ [ (selector, existing @ props) ]
-      | _ -> acc)
-    [] rules
+      | Regular { selector; props; _ } ->
+          let existing = try Hashtbl.find tbl selector with Not_found -> [] in
+          Hashtbl.replace tbl selector (existing @ props)
+      | _ -> ())
+    rules;
+  Hashtbl.fold (fun k v acc -> (k, v) :: acc) tbl []
 
 (* ======================================================================== *)
 (* Rule Processing - Group and organize rules *)
 (* ======================================================================== *)
 
-let separate_rules_by_type all_rules =
+let classify all_rules =
   let regular_rules, media_rules, container_rules, starting_rules =
     List.fold_left
       (fun (reg, media, cont, start) rule ->
@@ -229,32 +264,33 @@ let separate_rules_by_type all_rules =
     starting = List.rev starting_rules;
   }
 
-let is_hover_rule selector =
-  (* A hover rule ends with :hover pseudo-class *)
-  let len = String.length selector in
-  len >= 6 && String.sub selector (len - 6) 6 = ":hover"
+let is_hover_rule = function
+  | Regular { has_hover; _ } -> has_hover
+  | _ -> false
 
 let group_media_queries media_rules =
-  List.fold_left
-    (fun acc rule ->
+  let tbl = Hashtbl.create 16 in
+  List.iter
+    (fun rule ->
       match rule with
-      | Media_query { condition; selector; props } ->
-          let rules = try List.assoc condition acc with Not_found -> [] in
-          (condition, (selector, props) :: rules)
-          :: List.remove_assoc condition acc
-      | _ -> acc)
-    [] media_rules
+      | Media_query { condition; selector; props; _ } ->
+          let rules = try Hashtbl.find tbl condition with Not_found -> [] in
+          Hashtbl.replace tbl condition ((selector, props) :: rules)
+      | _ -> ())
+    media_rules;
+  Hashtbl.fold (fun k v acc -> (k, v) :: acc) tbl []
 
 let group_container_queries container_rules =
-  List.fold_left
-    (fun acc rule ->
+  let tbl = Hashtbl.create 16 in
+  List.iter
+    (fun rule ->
       match rule with
-      | Container_query { condition; selector; props } ->
-          let rules = try List.assoc condition acc with Not_found -> [] in
-          (condition, (selector, props) :: rules)
-          :: List.remove_assoc condition acc
-      | _ -> acc)
-    [] container_rules
+      | Container_query { condition; selector; props; _ } ->
+          let rules = try Hashtbl.find tbl condition with Not_found -> [] in
+          Hashtbl.replace tbl condition ((selector, props) :: rules)
+      | _ -> ())
+    container_rules;
+  Hashtbl.fold (fun k v acc -> (k, v) :: acc) tbl []
 
 (* ======================================================================== *)
 (* Conflict Resolution - Order utilities by specificity *)
@@ -473,11 +509,15 @@ let add_hover_to_media_map hover_rules media_map =
 
 let rule_sets tw_classes =
   let all_rules = tw_classes |> List.concat_map extract_selector_props in
-  let separated = separate_rules_by_type all_rules in
-  let grouped_regular = group_by_selector separated.regular in
-  let non_hover_rules, hover_rules =
-    List.partition (fun (sel, _) -> not (is_hover_rule sel)) grouped_regular
+  let separated = classify all_rules in
+  (* First separate hover from non-hover rules *)
+  let hover_regular, non_hover_regular =
+    List.partition is_hover_rule separated.regular
   in
+  let grouped_regular = group_by_selector non_hover_regular in
+  let grouped_hover = group_by_selector hover_regular in
+  let non_hover_rules = grouped_regular in
+  let hover_rules = grouped_hover in
   let rules =
     List.map
       (fun (selector, props) ->
@@ -518,24 +558,29 @@ let rule_sets tw_classes =
 (* Layer Generation - CSS @layer directives and variable resolution *)
 (* ======================================================================== *)
 
-let rec resolve_dependencies vars_to_check resolved =
-  match vars_to_check with
-  | [] -> resolved
-  | var :: rest ->
-      if List.mem var resolved then resolve_dependencies rest resolved
-      else
-        let new_deps =
-          match Var.of_string var with
-          | Some v -> Var.to_css_properties v |> Css.vars_of_declarations
-          | None -> []
-        in
-        let to_check =
-          rest
-          @ List.filter
-              (fun d -> not (List.mem d resolved || List.mem d rest))
+module Set = Set.Make (String)
+
+let resolve_dependencies vars_to_check initial_resolved =
+  let rec loop to_check resolved =
+    match to_check with
+    | [] -> Set.elements resolved
+    | var :: rest ->
+        if Set.mem var resolved then loop rest resolved
+        else
+          let new_deps =
+            match Var.of_string var with
+            | Some v -> Var.to_css_properties v |> Css.vars_of_declarations
+            | None -> []
+          in
+          let rest_set = Set.of_list rest in
+          let new_to_check =
+            List.filter
+              (fun d -> not (Set.mem d resolved || Set.mem d rest_set))
               new_deps
-        in
-        resolve_dependencies to_check (var :: resolved)
+          in
+          loop (rest @ new_to_check) (Set.add var resolved)
+  in
+  loop vars_to_check (Set.of_list initial_resolved)
 
 let compute_properties_layer rules =
   let referenced_vars = Css.vars_of_rules rules in
@@ -576,19 +621,21 @@ let compute_properties_layer rules =
 
 let compute_theme_layer tw_classes =
   let directly_referenced_vars =
+    let var_set = ref Set.empty in
     tw_classes
-    |> List.concat_map (fun tw ->
+    |> List.iter (fun tw ->
            let selector_props = extract_selector_props tw in
-           List.concat_map
+           List.iter
              (function
                | Regular { props; _ }
                | Media_query { props; _ }
                | Container_query { props; _ }
                | Starting_style { props; _ } ->
-                   Css.vars_of_declarations props)
-             selector_props)
-    |> List.fold_left (fun acc v -> if List.mem v acc then acc else v :: acc) []
-    |> List.rev
+                   List.iter
+                     (fun v -> var_set := Set.add v !var_set)
+                     (Css.vars_of_declarations props))
+             selector_props);
+    Set.elements !var_set
   in
   let default_vars =
     [ "--default-font-family"; "--default-mono-font-family" ]
