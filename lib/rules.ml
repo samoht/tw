@@ -1,36 +1,21 @@
-(** CSS rule generation and management 
+(** CSS rule generation and management
 
-    This module is responsible for converting Tailwind utility classes into
-    optimized CSS rules. The complexity comes from several requirements:
-    
-    1. **Rule Extraction**: Transform nested modifier structures (hover, responsive, 
-       container queries) into appropriate CSS rules with correct selectors.
-    
-    2. **Conflict Resolution**: Tailwind uses a sophisticated ordering system where
-       utilities are grouped by which CSS properties they affect. Within each group,
-       more specific utilities override broader ones (e.g., pt-4 overrides p-4).
-       
-    3. **CSS Layers**: Generate proper @layer directives for theme variables, base
-       reset styles, components, and utilities - maintaining Tailwind v4 compatibility.
-       
-    4. **Variable Resolution**: Track CSS custom property dependencies to generate
-       minimal variable declarations in the theme layer.
-       
-    5. **Media/Container Queries**: Handle responsive modifiers and container queries
-       by grouping rules with the same conditions.
-       
-    The module processes styles through multiple stages:
-    - Extract selector/property pairs from Core.t structures
-    - Group rules by type (regular, media query, container query)
-    - Apply conflict resolution ordering
-    - Generate CSS layers with proper variable declarations
-    - Output optimized, minified CSS compatible with Tailwind v4
+    This module converts Tailwind utility classes into optimized CSS rules.
+    The complexity comes from several requirements:
+
+    1. Rule Extraction - Transform modifier structures into CSS rules
+    2. Conflict Resolution - Order utilities by specificity
+    3. CSS Layers - Generate proper @layer directives
+    4. Variable Resolution - Track CSS custom property dependencies
+    5. Media/Container Queries - Handle responsive modifiers
 *)
 
 open Core
 open Css
 
-(** {1 Types} *)
+(* ========================================================================
+   Types
+   ======================================================================== *)
 
 type rule_output =
   | Regular of string * Css.declaration list (* selector, properties *)
@@ -44,7 +29,9 @@ type rule_output =
       * Css.declaration list (* condition, selector, properties *)
   | Starting_style of string * Css.declaration list (* selector, properties *)
 
-(** {1 Helper Functions} *)
+(* ========================================================================
+   Basic Utilities
+   ======================================================================== *)
 
 let string_of_breakpoint = function
   | `Sm -> "sm"
@@ -83,7 +70,9 @@ let escape_class_name name =
     name;
   Buffer.contents buf
 
-(* Helper: Handle modifier rules that need special treatment *)
+(* ======================================================================== Rule
+   Extraction - Convert Core.t to CSS rules
+   ======================================================================== *)
 let modifier_to_rule modifier base_class selector props =
   match modifier with
   | Data_state value ->
@@ -187,7 +176,9 @@ let group_regular_rules rules =
       | _ -> acc)
     [] rules
 
-(* Helper: Separate rules by type *)
+(* ======================================================================== Rule
+   Processing - Group and organize rules
+   ======================================================================== *)
 let separate_rules_by_type all_rules =
   let regular_rules, media_rules, container_rules, starting_rules =
     List.fold_left
@@ -205,13 +196,11 @@ let separate_rules_by_type all_rules =
     List.rev container_rules,
     List.rev starting_rules )
 
-(* Helper: Check if a selector is a hover rule *)
 let is_hover_rule selector =
   (* A hover rule ends with :hover pseudo-class *)
   let len = String.length selector in
   len >= 6 && String.sub selector (len - 6) 6 = ":hover"
 
-(* Helper: Group media query rules by condition *)
 let group_media_queries media_rules =
   List.fold_left
     (fun acc rule ->
@@ -223,7 +212,6 @@ let group_media_queries media_rules =
       | _ -> acc)
     [] media_rules
 
-(* Helper: Group container query rules by condition *)
 let group_container_queries container_rules =
   List.fold_left
     (fun acc rule ->
@@ -235,49 +223,41 @@ let group_container_queries container_rules =
       | _ -> acc)
     [] container_rules
 
-(* Helper function to check if string starts with prefix *)
+(* ========================================================================
+   Conflict Resolution - Order utilities by specificity
+   ======================================================================== *)
+
 let starts prefix s =
   let lp = String.length prefix and ls = String.length s in
   ls >= lp && String.sub s 0 lp = prefix
 
-(* Helper to determine color order for background utilities *)
-let color_order color_part =
-  try
-    let color_name =
-      try
-        let last_dash = String.rindex color_part '-' in
-        String.sub color_part 0 last_dash
-      with Not_found -> color_part
-    in
-    match color_name with
-    | "amber" -> 0
-    | "blue" -> 1
-    | "cyan" -> 2
-    | "emerald" -> 3
-    | "fuchsia" -> 4
-    | "gray" -> 5
-    | "green" -> 6
-    | "indigo" -> 7
-    | "lime" -> 8
-    | "neutral" -> 9
-    | "orange" -> 10
-    | "pink" -> 11
-    | "purple" -> 12
-    | "red" -> 13
-    | "rose" -> 14
-    | "sky" -> 15
-    | "slate" -> 16
-    | "stone" -> 17
-    | "teal" -> 18
-    | "violet" -> 19
-    | "yellow" -> 20
-    | "zinc" -> 21
-    | _ -> 100
-  with
-  | Invalid_argument _ -> 0
-  | Not_found -> 0
+(* Color ordering for backgrounds *)
+let color_order = function
+  | "amber" -> 0
+  | "blue" -> 1
+  | "cyan" -> 2
+  | "emerald" -> 3
+  | "fuchsia" -> 4
+  | "gray" -> 5
+  | "green" -> 6
+  | "indigo" -> 7
+  | "lime" -> 8
+  | "neutral" -> 9
+  | "orange" -> 10
+  | "pink" -> 11
+  | "purple" -> 12
+  | "red" -> 13
+  | "rose" -> 14
+  | "sky" -> 15
+  | "slate" -> 16
+  | "stone" -> 17
+  | "teal" -> 18
+  | "violet" -> 19
+  | "yellow" -> 20
+  | "zinc" -> 21
+  | _ -> 100
 
-(* Helper to check display utilities *)
+(* Utility classifiers *)
 let is_display_util core =
   List.exists
     (fun p -> starts p core)
@@ -292,13 +272,11 @@ let is_display_util core =
       "flow-root";
     ]
 
-(* Helper to check position utilities *)
 let is_position_util core =
   List.exists
     (fun p -> starts p core)
     [ "static"; "fixed"; "absolute"; "relative"; "sticky" ]
 
-(* Helper to check margin utilities *)
 let is_margin_util core =
   starts "m-" core || starts "-m-" core || starts "mx-" core
   || starts "my-" core || starts "-mx-" core || starts "-my-" core
@@ -306,7 +284,6 @@ let is_margin_util core =
        (fun p -> starts p core)
        [ "mt-"; "mr-"; "mb-"; "ml-"; "-mt-"; "-mr-"; "-mb-"; "-ml-" ]
 
-(* Helper to determine margin sub-order *)
 let margin_suborder core =
   if starts "m-" core || starts "-m-" core then 0
   else if
@@ -315,18 +292,15 @@ let margin_suborder core =
   then 1
   else 2
 
-(* Helper to check padding utilities *)
 let is_padding_util core =
   starts "p-" core || starts "px-" core || starts "py-" core
   || List.exists (fun p -> starts p core) [ "pt-"; "pr-"; "pb-"; "pl-" ]
 
-(* Helper to determine padding sub-order *)
 let padding_suborder core =
   if starts "p-" core then 0
   else if starts "px-" core || starts "py-" core then 1
   else 2
 
-(* Helper to check typography utilities *)
 let is_typography_util core =
   List.exists
     (fun p -> starts p core)
@@ -341,17 +315,14 @@ let is_typography_util core =
       "content-";
     ]
 
-(* Helper to check border utilities *)
 let is_border_util core =
   starts "rounded" core || starts "border" core || starts "outline-" core
 
-(* Helper to check sizing utilities *)
 let is_sizing_util core =
   List.exists
     (fun p -> starts p core)
     [ "w-"; "h-"; "min-w-"; "min-h-"; "max-w-"; "max-h-" ]
 
-(* Helper to check effects utilities *)
 let is_effects_util core =
   List.exists
     (fun p -> starts p core)
@@ -373,13 +344,11 @@ let is_effects_util core =
       "animate-";
     ]
 
-(* Helper to check interactivity utilities *)
 let is_interactivity_util core =
   List.exists
     (fun p -> starts p core)
     [ "cursor-"; "select-"; "resize-"; "scroll-"; "overflow-"; "overscroll-" ]
 
-(* Helper to check flexbox/grid utilities *)
 let is_flexbox_grid_util core =
   List.exists
     (fun p -> starts p core)
@@ -398,22 +367,17 @@ let is_flexbox_grid_util core =
       "auto-rows-";
     ]
 
-(* Helper to check alignment utilities *)
 let is_alignment_util core =
   if starts "items-" core then (901, 0)
   else if starts "justify-" core then (901, 1)
   else if List.exists (fun p -> starts p core) [ "content-"; "self-"; "place-" ]
   then (901, 2)
   else (-1, -1)
-(* Not an alignment utility *)
 
-(* Helper to check gap utilities *)
 let is_gap_util core = List.exists (fun p -> starts p core) [ "gap-"; "space-" ]
-
-(* Helper to check container/prose utilities *)
 let is_container_prose core = core = "container" || starts "prose" core
 
-(* Utility rule ordering: conflict-aware grouping (extracted) *)
+(* Main conflict resolution function *)
 let conflict_group selector =
   let core =
     if String.starts_with ~prefix:"." selector then
@@ -422,33 +386,34 @@ let conflict_group selector =
   in
 
   (* Special cases first *)
-  if core = "hidden" then (10, 3) (* Display utilities *)
-  else if is_display_util core then (10, 1) (* Position utilities *)
+  if core = "hidden" then (10, 3)
+  else if is_display_util core then (10, 1)
   else if is_position_util core then (11, 0)
-    (* Margin utilities with sub-ordering *)
   else if is_margin_util core then (100, margin_suborder core)
-    (* Background utilities *)
   else if starts "bg-" core then
     let color_part = String.sub core 3 (String.length core - 3) in
-    (200, color_order color_part) (* Gradient utilities *)
+    let color_name =
+      try
+        let last_dash = String.rindex color_part '-' in
+        String.sub color_part 0 last_dash
+      with Not_found -> color_part
+    in
+    (200, color_order color_name)
   else if List.exists (fun p -> starts p core) [ "from-"; "via-"; "to-" ] then
-    (200, 50) (* Padding utilities with sub-ordering *)
+    (200, 50)
   else if is_padding_util core then (300, padding_suborder core)
-    (* Typography utilities *)
-  else if is_typography_util core then (400, 0) (* Border utilities *)
-  else if is_border_util core then (500, 0) (* Sizing utilities *)
-  else if is_sizing_util core then (600, 0) (* Effects utilities *)
-  else if is_effects_util core then (700, 0) (* Interactivity utilities *)
-  else if is_interactivity_util core then (800, 0) (* Flexbox/Grid utilities *)
+  else if is_typography_util core then (400, 0)
+  else if is_border_util core then (500, 0)
+  else if is_sizing_util core then (600, 0)
+  else if is_effects_util core then (700, 0)
+  else if is_interactivity_util core then (800, 0)
   else if is_flexbox_grid_util core then (900, 0)
-  (* Alignment utilities - check returns group/suborder or (-1,-1) *)
-    else
+  else
     let align_group, align_sub = is_alignment_util core in
-    if align_group >= 0 then (align_group, align_sub) (* Gap utilities *)
-    else if is_gap_util core then (902, 0) (* Container/prose utilities *)
+    if align_group >= 0 then (align_group, align_sub)
+    else if is_gap_util core then (902, 0)
     else if is_container_prose core then (1000, 0)
-    (* Default case *)
-      else (9999, 0)
+    else (9999, 0)
 
 let build_utilities_layer ~rules ~media_queries ~container_queries =
   let sorted_rules =
@@ -518,6 +483,29 @@ let rule_sets tw_classes =
   in
   (rules, media_queries, container_queries)
 
+(* ========================================================================
+   Layer Generation - CSS @layer directives and variable resolution
+   ======================================================================== *)
+
+let rec resolve_dependencies vars_to_check resolved =
+  match vars_to_check with
+  | [] -> resolved
+  | var :: rest ->
+      if List.mem var resolved then resolve_dependencies rest resolved
+      else
+        let new_deps =
+          match Var.of_string var with
+          | Some v -> Var.to_css_properties v |> Css.vars_of_declarations
+          | None -> []
+        in
+        let to_check =
+          rest
+          @ List.filter
+              (fun d -> not (List.mem d resolved || List.mem d rest))
+              new_deps
+        in
+        resolve_dependencies to_check (var :: resolved)
+
 let compute_properties_layer rules =
   let referenced_vars = Css.vars_of_rules rules in
   let var_tally = Var.tally_of_vars referenced_vars in
@@ -574,25 +562,6 @@ let compute_theme_layer tw_classes =
   let default_vars =
     [ "--default-font-family"; "--default-mono-font-family" ]
   in
-  let rec resolve_dependencies vars_to_check resolved =
-    match vars_to_check with
-    | [] -> resolved
-    | var :: rest ->
-        if List.mem var resolved then resolve_dependencies rest resolved
-        else
-          let new_deps =
-            match Var.of_string var with
-            | Some v -> Var.to_css_properties v |> Css.vars_of_declarations
-            | None -> []
-          in
-          let to_check =
-            rest
-            @ List.filter
-                (fun d -> not (List.mem d resolved || List.mem d rest))
-                new_deps
-          in
-          resolve_dependencies to_check (var :: resolved)
-  in
   let initial_vars = directly_referenced_vars @ default_vars in
   let all_referenced_vars =
     resolve_dependencies initial_vars []
@@ -616,7 +585,6 @@ let compute_theme_layer tw_classes =
         (Css.rule ~selector:":root, :host" theme_generated_vars);
     ]
 
-(* Create placeholder @supports block *)
 let placeholder_supports =
   Css.supports_nested
     ~condition:
@@ -650,7 +618,6 @@ let split_after_placeholder rules =
   in
   split [] rules
 
-(* Helper to build base layer with placeholder support *)
 let build_base_layer base_rules =
   let before_placeholder, after_placeholder =
     split_after_placeholder base_rules
@@ -662,13 +629,11 @@ let build_base_layer base_rules =
   in
   Css.layered_rules ~layer:Css.Base base_layer_content
 
-(* Helper to build all layers for reset mode *)
 let build_reset_layers tw_classes rules media_queries container_queries =
   let properties_layer_opt, at_properties = compute_properties_layer rules in
   let theme_layer = compute_theme_layer tw_classes in
   let base_layer = build_base_layer (Preflight.stylesheet ()) in
   let components_layer = Css.layered_rules ~layer:Css.Components [] in
-  (* Tailwind v4 uses conflict-aware grouping for CSS rule ordering *)
   let utilities_layer =
     build_utilities_layer ~rules ~media_queries ~container_queries
   in
@@ -682,30 +647,53 @@ let build_reset_layers tw_classes rules media_queries container_queries =
   in
   (layers, at_properties)
 
-(* Helper to build items for no-reset mode *)
 let wrap_css_items ~rules ~media_queries ~container_queries =
   List.map (fun r -> Css.Rule r) rules
   @ List.map (fun m -> Css.Media m) media_queries
   @ List.map (fun c -> Css.Container c) container_queries
 
-(* Generate CSS rules for all used Tw classes *)
+(* ======================================================================== Main
+   API - Convert Tw styles to CSS
+   ======================================================================== *)
+
 let to_css ?(reset = true) ?(mode = Css.Variables) tw_classes =
-  let _ = mode in
-  (* FIXME: use mode! *)
   let rules, media_queries, container_queries = rule_sets tw_classes in
 
-  if reset then
-    let layers, at_properties =
-      build_reset_layers tw_classes rules media_queries container_queries
-    in
-    let items =
-      List.map (fun l -> Css.Layer l) layers
-      @ List.map (fun a -> Css.At_property a) at_properties
-    in
-    Css.stylesheet items
-  else Css.stylesheet (wrap_css_items ~rules ~media_queries ~container_queries)
+  match mode with
+  | Css.Variables ->
+      (* Use layers for variable-based mode *)
+      if reset then
+        let layers, at_properties =
+          build_reset_layers tw_classes rules media_queries container_queries
+        in
+        let items =
+          List.map (fun l -> Css.Layer l) layers
+          @ List.map (fun a -> Css.At_property a) at_properties
+        in
+        Css.stylesheet items
+      else
+        (* Generate layers without base/preflight styles *)
+        let properties_layer_opt, at_properties =
+          compute_properties_layer rules
+        in
+        let theme_layer = compute_theme_layer tw_classes in
+        let utilities_layer =
+          build_utilities_layer ~rules ~media_queries ~container_queries
+        in
+        let layers =
+          match properties_layer_opt with
+          | Some props_layer -> [ props_layer; theme_layer; utilities_layer ]
+          | None -> [ theme_layer; utilities_layer ]
+        in
+        let items =
+          List.map (fun l -> Css.Layer l) layers
+          @ List.map (fun a -> Css.At_property a) at_properties
+        in
+        Css.stylesheet items
+  | _ ->
+      (* No layers for other modes - just plain CSS *)
+      Css.stylesheet (wrap_css_items ~rules ~media_queries ~container_queries)
 
-(* Convert Tw styles to inline style attribute value *)
 let to_inline_style styles =
   let rec to_css_properties = function
     | Style { props; _ } -> props
