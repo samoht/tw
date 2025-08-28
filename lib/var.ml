@@ -346,16 +346,16 @@ let order_for_theme : type a. a t -> int = function
   (* Design tokens first - fonts are most fundamental *)
   | Font_sans -> 0
   | Font_mono -> 1
-  (* Default font variables come after font-mono but before font-serif *)
-  | Default_font_family -> 2
-  | Default_mono_font_family -> 3
-  | Default_font_feature_settings -> 4
-  | Default_font_variation_settings -> 5
-  | Default_mono_font_feature_settings -> 6
-  | Default_mono_font_variation_settings -> 7
-  | Font_serif -> 8
-  (* Spacing comes after font-serif *)
-  | Spacing -> 9
+  (* Spacing comes between font-mono and default-font-family *)
+  | Spacing -> 2
+  (* Default font variables come after spacing *)
+  | Default_font_family -> 3
+  | Default_mono_font_family -> 4
+  | Default_font_feature_settings -> 5
+  | Default_font_variation_settings -> 6
+  | Default_mono_font_feature_settings -> 7
+  | Default_mono_font_variation_settings -> 8
+  | Font_serif -> 9
   (* Typography scale *)
   | Text_xs -> 20
   | Text_xs_line_height -> 21

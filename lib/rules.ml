@@ -805,40 +805,47 @@ let compute_theme_layer ?(default_vars = []) tw_classes =
 
   (* Collect all variable declarations we need *)
   let all_var_decls =
-    (* Get all unique variable names *)
-    let all_var_names =
+    (* Start with all extracted non --tw-* variables from utilities *)
+    let extracted_vars = all_var_declarations in
+
+    (* Get additional var names we need (defaults and referenced) *)
+    let additional_var_names =
       StringSet.elements
         (StringSet.union
            (StringSet.of_list default_vars)
            (StringSet.of_list directly_referenced_vars))
     in
-    (* Get declaration for each variable *)
-    all_var_names
-    |> List.filter_map (fun var_name ->
-           (* First check if we have an extracted declaration for this var *)
-           match
-             List.find_opt
-               (fun decl ->
-                 match Css.custom_declaration_name decl with
-                 | Some name -> name = var_name
-                 | None -> false)
-               all_var_declarations
-           with
-           | Some decl -> Some decl
-           | None ->
-               (* For default font variables, get them from Typography only *)
-               if List.mem var_name default_vars then
-                 let all_default_decls =
-                   Typography.default_font_declarations
-                   @ Typography.default_font_family_declarations
-                 in
-                 List.find_opt
-                   (fun decl ->
-                     match Css.custom_declaration_name decl with
-                     | Some name -> name = var_name
-                     | None -> false)
-                   all_default_decls
-               else None)
+
+    (* Add any missing default/referenced vars that weren't extracted *)
+    let additional_vars =
+      additional_var_names
+      |> List.filter_map (fun var_name ->
+             (* Skip if already in extracted vars *)
+             if
+               List.exists
+                 (fun decl ->
+                   match Css.custom_declaration_name decl with
+                   | Some name -> name = var_name
+                   | None -> false)
+                 extracted_vars
+             then None
+             else if List.mem var_name default_vars then
+               (* For default font variables, get them from Typography *)
+               let all_default_decls =
+                 Typography.default_font_declarations
+                 @ Typography.default_font_family_declarations
+               in
+               List.find_opt
+                 (fun decl ->
+                   match Css.custom_declaration_name decl with
+                   | Some name -> name = var_name
+                   | None -> false)
+                 all_default_decls
+             else None)
+    in
+
+    (* Combine extracted and additional vars *)
+    extracted_vars @ additional_vars
   in
 
   (* Sort all declarations using canonical theme order *)
