@@ -773,6 +773,8 @@ let to_oklch_css color shade =
 (* Convert color to CSS color value *)
 let to_css color shade =
   match color with
+  | Black -> Css.Hex { hash = true; value = "000" }
+  | White -> Css.Hex { hash = true; value = "fff" }
   | Hex hex ->
       (* For arbitrary hex colors, determine if # was present *)
       let has_hash = String.starts_with ~prefix:"#" hex in

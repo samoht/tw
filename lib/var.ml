@@ -293,198 +293,218 @@ let canonical_color_order color_name =
   | "white" -> 101
   | _ -> 200 (* Unknown colors last *)
 
+let order_for_theme : type a. a t -> int = function
+  (* Design tokens first - fonts are most fundamental *)
+  | Font_sans -> 0
+  | Font_serif -> 1
+  | Font_mono -> 2
+  (* Spacing comes between font-mono and default-font-family in Tailwind *)
+  | Spacing -> 3
+  | Default_font_family -> 150 (* Moved after color range 4-149 *)
+  | Default_mono_font_family -> 151
+  (* Typography scale *)
+  | Text_xs -> 20
+  | Text_xs_line_height -> 21
+  | Text_sm -> 22
+  | Text_sm_line_height -> 23
+  | Text_base -> 24
+  | Text_base_line_height -> 25
+  | Text_lg -> 26
+  | Text_lg_line_height -> 27
+  | Text_xl -> 28
+  | Text_xl_line_height -> 29
+  | Text_2xl -> 30
+  | Text_2xl_line_height -> 31
+  | Text_3xl -> 32
+  | Text_3xl_line_height -> 33
+  | Text_4xl -> 34
+  | Text_4xl_line_height -> 35
+  | Text_5xl -> 36
+  | Text_5xl_line_height -> 37
+  | Text_6xl -> 38
+  | Text_6xl_line_height -> 39
+  | Text_7xl -> 40
+  | Text_7xl_line_height -> 41
+  | Text_8xl -> 42
+  | Text_8xl_line_height -> 43
+  | Text_9xl -> 44
+  | Text_9xl_line_height -> 45
+  (* Font weights *)
+  | Font_weight_thin -> 50
+  | Font_weight_extralight -> 51
+  | Font_weight_light -> 52
+  | Font_weight_normal -> 53
+  | Font_weight_medium -> 54
+  | Font_weight_semibold -> 55
+  | Font_weight_bold -> 56
+  | Font_weight_extrabold -> 57
+  | Font_weight_black -> 58
+  | Font_weight -> 59
+  | Leading -> 60
+  (* Border radius - common design token *)
+  | Radius_none -> 70
+  | Radius_sm -> 71
+  | Radius_default -> 72
+  | Radius_md -> 73
+  | Radius_lg -> 74
+  | Radius_xl -> 75
+  | Radius_2xl -> 76
+  | Radius_3xl -> 77
+  (* Colors - all colors appear between fonts and default fonts *)
+  | Color (_name, _shade) ->
+      (* All colors get the same base order, detailed sorting in compare_for *)
+      100
+  (* Transform variables *)
+  | Translate_x -> 1000
+  | Translate_y -> 1001
+  | Translate_z -> 1002
+  | Rotate -> 1003
+  | Skew_x -> 1004
+  | Skew_y -> 1005
+  | Scale_x -> 1006
+  | Scale_y -> 1007
+  | Scale_z -> 1008
+  (* Filters and effects *)
+  | Blur -> 1100
+  | Brightness -> 1101
+  | Contrast -> 1102
+  | Grayscale -> 1103
+  | Hue_rotate -> 1104
+  | Invert -> 1105
+  | Saturate -> 1106
+  | Sepia -> 1107
+  | Drop_shadow -> 1108
+  | Drop_shadow_alpha -> 1109
+  (* Backdrop filters *)
+  | Backdrop_blur -> 1200
+  | Backdrop_brightness -> 1201
+  | Backdrop_contrast -> 1202
+  | Backdrop_grayscale -> 1203
+  | Backdrop_hue_rotate -> 1204
+  | Backdrop_invert -> 1205
+  | Backdrop_saturate -> 1206
+  | Backdrop_sepia -> 1207
+  | Backdrop_opacity -> 1208
+  (* Shadows and rings *)
+  | Shadow -> 1300
+  | Shadow_color -> 1301
+  | Shadow_alpha -> 1302
+  | Inset_shadow -> 1303
+  | Inset_shadow_color -> 1304
+  | Inset_shadow_alpha -> 1305
+  | Ring_color -> 1306
+  | Ring_shadow -> 1307
+  | Inset_ring_color -> 1308
+  | Inset_ring_shadow -> 1309
+  | Ring_inset -> 1310
+  | Ring_offset_width -> 1311
+  | Ring_offset_color -> 1312
+  | Ring_offset_shadow -> 1313
+  (* Gradients *)
+  | Gradient_from -> 1400
+  | Gradient_via -> 1401
+  | Gradient_to -> 1402
+  | Gradient_stops -> 1403
+  | Gradient_via_stops -> 1404
+  | Gradient_position -> 1405
+  | Gradient_from_position -> 1406
+  | Gradient_via_position -> 1407
+  | Gradient_to_position -> 1408
+  (* Other *)
+  | Border_style -> 1500
+  | Scroll_snap_strictness -> 1501
+  | Duration -> 1502
+
+let order_for_props : type a. a t -> int = function
+  (* Transform group *)
+  | Translate_x -> 0
+  | Translate_y -> 1
+  | Translate_z -> 2
+  | Scale_x -> 3
+  | Scale_y -> 4
+  | Scale_z -> 5
+  | Rotate -> 6
+  | Skew_x -> 7
+  | Skew_y -> 8
+  (* Filter group *)
+  | Blur -> 100
+  | Brightness -> 101
+  | Contrast -> 102
+  | Grayscale -> 103
+  | Hue_rotate -> 104
+  | Invert -> 105
+  | Saturate -> 106
+  | Sepia -> 107
+  | Drop_shadow -> 108
+  | Drop_shadow_alpha -> 109
+  (* Backdrop filter group *)
+  | Backdrop_blur -> 200
+  | Backdrop_brightness -> 201
+  | Backdrop_contrast -> 202
+  | Backdrop_grayscale -> 203
+  | Backdrop_hue_rotate -> 204
+  | Backdrop_invert -> 205
+  | Backdrop_saturate -> 206
+  | Backdrop_sepia -> 207
+  | Backdrop_opacity -> 208
+  (* Ring group *)
+  | Ring_color -> 300
+  | Ring_shadow -> 301
+  | Ring_inset -> 302
+  | Ring_offset_width -> 303
+  | Ring_offset_color -> 304
+  | Ring_offset_shadow -> 305
+  | Inset_ring_color -> 306
+  | Inset_ring_shadow -> 307
+  (* Gradient group *)
+  | Gradient_from -> 400
+  | Gradient_via -> 401
+  | Gradient_to -> 402
+  | Gradient_stops -> 403
+  | Gradient_via_stops -> 404
+  | Gradient_position -> 405
+  | Gradient_from_position -> 406
+  | Gradient_via_position -> 407
+  | Gradient_to_position -> 408
+  (* Border and scroll *)
+  | Border_style -> 500
+  | Scroll_snap_strictness -> 501
+  (* Shadow group *)
+  | Shadow -> 600
+  | Shadow_color -> 601
+  | Shadow_alpha -> 602
+  | Inset_shadow -> 603
+  | Inset_shadow_color -> 604
+  | Inset_shadow_alpha -> 605
+  (* Everything else *)
+  | v -> 1000 + Hashtbl.hash v
+
+(* Helper to compare colors that have the same base order *)
+let compare_color : type a b. a t -> b t -> int =
+ fun a b ->
+  match (a, b) with
+  | Color (name_a, shade_a), Color (name_b, shade_b) ->
+      (* First compare color names *)
+      let name_cmp =
+        Int.compare
+          (canonical_color_order name_a)
+          (canonical_color_order name_b)
+      in
+      if name_cmp <> 0 then name_cmp
+      else
+        (* Same color, compare shades *)
+        Option.compare Int.compare shade_a shade_b
+  | _ -> 0 (* Different types with same order, keep as is *)
+
 (* Compare variables for ordering within a specific layer *)
 let compare_for layer (Any a) (Any b) =
-  let order_for_theme : type a. a t -> int = function
-    (* Design tokens first - fonts are most fundamental *)
-    | Font_sans -> 0
-    | Font_serif -> 1
-    | Font_mono -> 2
-    (* Spacing comes between font-mono and default-font-family in Tailwind *)
-    | Spacing -> 3
-    | Default_font_family -> 4
-    | Default_mono_font_family -> 5
-    (* Typography scale *)
-    | Text_xs -> 20
-    | Text_xs_line_height -> 21
-    | Text_sm -> 22
-    | Text_sm_line_height -> 23
-    | Text_base -> 24
-    | Text_base_line_height -> 25
-    | Text_lg -> 26
-    | Text_lg_line_height -> 27
-    | Text_xl -> 28
-    | Text_xl_line_height -> 29
-    | Text_2xl -> 30
-    | Text_2xl_line_height -> 31
-    | Text_3xl -> 32
-    | Text_3xl_line_height -> 33
-    | Text_4xl -> 34
-    | Text_4xl_line_height -> 35
-    | Text_5xl -> 36
-    | Text_5xl_line_height -> 37
-    | Text_6xl -> 38
-    | Text_6xl_line_height -> 39
-    | Text_7xl -> 40
-    | Text_7xl_line_height -> 41
-    | Text_8xl -> 42
-    | Text_8xl_line_height -> 43
-    | Text_9xl -> 44
-    | Text_9xl_line_height -> 45
-    (* Font weights *)
-    | Font_weight_thin -> 50
-    | Font_weight_extralight -> 51
-    | Font_weight_light -> 52
-    | Font_weight_normal -> 53
-    | Font_weight_medium -> 54
-    | Font_weight_semibold -> 55
-    | Font_weight_bold -> 56
-    | Font_weight_extrabold -> 57
-    | Font_weight_black -> 58
-    | Font_weight -> 59
-    | Leading -> 60
-    (* Border radius - common design token *)
-    | Radius_none -> 70
-    | Radius_sm -> 71
-    | Radius_default -> 72
-    | Radius_md -> 73
-    | Radius_lg -> 74
-    | Radius_xl -> 75
-    | Radius_2xl -> 76
-    | Radius_3xl -> 77
-    (* Colors - organized by color *)
-    | Color (name, shade) ->
-        100 + (canonical_color_order name * 100) + Option.value shade ~default:0
-    (* Transform variables *)
-    | Translate_x -> 1000
-    | Translate_y -> 1001
-    | Translate_z -> 1002
-    | Rotate -> 1003
-    | Skew_x -> 1004
-    | Skew_y -> 1005
-    | Scale_x -> 1006
-    | Scale_y -> 1007
-    | Scale_z -> 1008
-    (* Filters and effects *)
-    | Blur -> 1100
-    | Brightness -> 1101
-    | Contrast -> 1102
-    | Grayscale -> 1103
-    | Hue_rotate -> 1104
-    | Invert -> 1105
-    | Saturate -> 1106
-    | Sepia -> 1107
-    | Drop_shadow -> 1108
-    | Drop_shadow_alpha -> 1109
-    (* Backdrop filters *)
-    | Backdrop_blur -> 1200
-    | Backdrop_brightness -> 1201
-    | Backdrop_contrast -> 1202
-    | Backdrop_grayscale -> 1203
-    | Backdrop_hue_rotate -> 1204
-    | Backdrop_invert -> 1205
-    | Backdrop_saturate -> 1206
-    | Backdrop_sepia -> 1207
-    | Backdrop_opacity -> 1208
-    (* Shadows and rings *)
-    | Shadow -> 1300
-    | Shadow_color -> 1301
-    | Shadow_alpha -> 1302
-    | Inset_shadow -> 1303
-    | Inset_shadow_color -> 1304
-    | Inset_shadow_alpha -> 1305
-    | Ring_color -> 1306
-    | Ring_shadow -> 1307
-    | Inset_ring_color -> 1308
-    | Inset_ring_shadow -> 1309
-    | Ring_inset -> 1310
-    | Ring_offset_width -> 1311
-    | Ring_offset_color -> 1312
-    | Ring_offset_shadow -> 1313
-    (* Gradients *)
-    | Gradient_from -> 1400
-    | Gradient_via -> 1401
-    | Gradient_to -> 1402
-    | Gradient_stops -> 1403
-    | Gradient_via_stops -> 1404
-    | Gradient_position -> 1405
-    | Gradient_from_position -> 1406
-    | Gradient_via_position -> 1407
-    | Gradient_to_position -> 1408
-    (* Other *)
-    | Border_style -> 1500
-    | Scroll_snap_strictness -> 1501
-    | Duration -> 1502
-  in
-
   match layer with
-  | Theme -> Int.compare (order_for_theme a) (order_for_theme b)
-  | Properties ->
-      let order_for_props : type a. a t -> int = function
-        (* Transform group *)
-        | Translate_x -> 0
-        | Translate_y -> 1
-        | Translate_z -> 2
-        | Scale_x -> 3
-        | Scale_y -> 4
-        | Scale_z -> 5
-        | Rotate -> 6
-        | Skew_x -> 7
-        | Skew_y -> 8
-        (* Filter group *)
-        | Blur -> 100
-        | Brightness -> 101
-        | Contrast -> 102
-        | Grayscale -> 103
-        | Hue_rotate -> 104
-        | Invert -> 105
-        | Saturate -> 106
-        | Sepia -> 107
-        | Drop_shadow -> 108
-        | Drop_shadow_alpha -> 109
-        (* Backdrop filter group *)
-        | Backdrop_blur -> 200
-        | Backdrop_brightness -> 201
-        | Backdrop_contrast -> 202
-        | Backdrop_grayscale -> 203
-        | Backdrop_hue_rotate -> 204
-        | Backdrop_invert -> 205
-        | Backdrop_saturate -> 206
-        | Backdrop_sepia -> 207
-        | Backdrop_opacity -> 208
-        (* Ring group *)
-        | Ring_color -> 300
-        | Ring_shadow -> 301
-        | Ring_inset -> 302
-        | Ring_offset_width -> 303
-        | Ring_offset_color -> 304
-        | Ring_offset_shadow -> 305
-        | Inset_ring_color -> 306
-        | Inset_ring_shadow -> 307
-        (* Gradient group *)
-        | Gradient_from -> 400
-        | Gradient_via -> 401
-        | Gradient_to -> 402
-        | Gradient_stops -> 403
-        | Gradient_via_stops -> 404
-        | Gradient_position -> 405
-        | Gradient_from_position -> 406
-        | Gradient_via_position -> 407
-        | Gradient_to_position -> 408
-        (* Border and scroll *)
-        | Border_style -> 500
-        | Scroll_snap_strictness -> 501
-        (* Shadow group *)
-        | Shadow -> 600
-        | Shadow_color -> 601
-        | Shadow_alpha -> 602
-        | Inset_shadow -> 603
-        | Inset_shadow_color -> 604
-        | Inset_shadow_alpha -> 605
-        (* Everything else *)
-        | v -> 1000 + Hashtbl.hash v
-      in
-      Int.compare (order_for_props a) (order_for_props b)
+  | Theme ->
+      let order_a = order_for_theme a in
+      let order_b = order_for_theme b in
+      let cmp = Int.compare order_a order_b in
+      if cmp <> 0 then cmp else compare_color a b
+  | Properties -> Int.compare (order_for_props a) (order_for_props b)
   | Base | Utility ->
       (* For base and utility layers, use alphabetical ordering *)
       String.compare (to_string a) (to_string b)
@@ -1057,15 +1077,25 @@ let canonical_theme_order =
     (* Add more as needed - this is just the critical ones for now *)
   ]
 
+(* Helper to compare declarations by variable name when no metadata exists *)
+let compare_by_name layer d1 d2 =
+  match (Css.custom_declaration_name d1, Css.custom_declaration_name d2) with
+  | Some n1, Some n2 -> (
+      (* Try to match variable names to typed variables *)
+      match (var_of_name n1, var_of_name n2) with
+      | Some v1, Some v2 -> compare_for layer v1 v2
+      | _ -> String.compare n1 n2)
+  | _ -> 0
+
 (** Compare two CSS declarations by extracting their metadata *)
 let compare_declarations layer d1 d2 =
   let _, proj = Css.meta () in
   let meta1 = Css.declaration_meta d1 in
   let meta2 = Css.declaration_meta d2 in
   match (meta1, meta2) with
-  | None, None -> 0 (* No metadata, equal *)
-  | None, Some _ -> 1 (* No metadata sorts after *)
-  | Some _, None -> -1 (* Has metadata sorts before *)
+  | None, None -> compare_by_name layer d1 d2
+  | None, Some _ -> compare_by_name layer d1 d2 (* Use name-based comparison *)
+  | Some _, None -> compare_by_name layer d1 d2 (* Use name-based comparison *)
   | Some m1, Some m2 -> (
       (* Try to extract the typed variable from metadata *)
       match ((proj m1 : any option), (proj m2 : any option)) with

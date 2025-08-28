@@ -21,13 +21,16 @@
 open Core
 open Css
 
+(* Get the spacing variable from the Spacing module *)
+let spacing_def, spacing_var = Var.theme Var.Spacing (Rem 0.25)
+
 (** Helper to create spacing-based utilities with consistent pattern *)
 let spacing_utility prefix css_prop n =
   let class_name = prefix ^ string_of_int n in
   let spacing_value =
-    Calc Calc.(var ~default:(Rem 0.25) "spacing" * float (float_of_int n))
+    Calc Calc.(length (Var spacing_var) * float (float_of_int n))
   in
-  style class_name [ css_prop spacing_value ]
+  style class_name [ spacing_def; css_prop spacing_value ]
 
 (** {1 Width Utilities} *)
 
