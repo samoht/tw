@@ -46,11 +46,6 @@ let snap_start = style "snap-start" [ scroll_snap_align Start ]
 let snap_end = style "snap-end" [ scroll_snap_align End ]
 let snap_center = style "snap-center" [ scroll_snap_align Center ]
 let snap_none = style "snap-none" [ scroll_snap_type None ]
-
-(* Axis and strictness helpers using CSS var for strictness *)
-let _tw_scroll_snap_strictness_def, _tw_scroll_snap_strictness_var =
-  Var.utility Var.Scroll_snap_strictness Proximity
-
 let snap_x = style "snap-x" [ scroll_snap_type (Axis (X, None)) ]
 let snap_y = style "snap-y" [ scroll_snap_type (Axis (Y, None)) ]
 let snap_both = style "snap-both" [ scroll_snap_type (Axis (Both, None)) ]
