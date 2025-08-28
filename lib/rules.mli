@@ -124,7 +124,7 @@ val is_hover_rule : output -> bool
 (** [is_hover_rule output] checks if an output is a hover rule. *)
 
 val rule_sets :
-  t list -> Css.rule list * Css.media_query list * Css.container_query list
+  t list -> Css.rule list * Css.media_rule list * Css.container_rule list
 (** [rule_sets tw_classes] processes Tailwind classes into CSS rule sets. *)
 
 val classify : output list -> by_type
@@ -143,21 +143,20 @@ val color_order : string -> int
 
 (** {1 Layer Generation} *)
 
-val compute_theme_layer :
-  ?default_vars:string list -> t list -> Css.layered_rules
+val compute_theme_layer : ?default_vars:string list -> t list -> Css.layer_rule
 (** [compute_theme_layer ?default_vars tw_classes] generates the theme layer
     with CSS variables. [default_vars] specifies variables to always include in
     the theme (defaults to font-related variables). *)
 
 val compute_properties_layer :
-  Css.rule list -> Css.layered_rules option * Css.at_property list
+  Css.rule list -> Css.layer_rule option * Css.property_rule list
 (** [compute_properties_layer rules] generates the properties layer and @property rules. *)
 
 val build_utilities_layer :
   rules:Css.rule list ->
-  media_queries:Css.media_query list ->
-  container_queries:Css.container_query list ->
-  Css.layered_rules
+  media_queries:Css.media_rule list ->
+  container_queries:Css.container_rule list ->
+  Css.layer_rule
 (** [build_utilities_layer ~rules ~media_queries ~container_queries] builds the
     utilities layer with proper conflict ordering. *)
 
