@@ -48,29 +48,19 @@ let snap_center = style "snap-center" [ scroll_snap_align Center ]
 let snap_none = style "snap-none" [ scroll_snap_type None ]
 
 (* Axis and strictness helpers using CSS var for strictness *)
-let _tw_scroll_snap_strictness_def, tw_scroll_snap_strictness_var =
-  var "tw-scroll-snap-strictness" Scroll_snap_strictness Proximity
+let _tw_scroll_snap_strictness_def, _tw_scroll_snap_strictness_var =
+  Var.utility Var.Scroll_snap_strictness Proximity
 
-let snap_x =
-  style "snap-x" [ scroll_snap_type (X_var tw_scroll_snap_strictness_var) ]
-
-let snap_y =
-  style "snap-y" [ scroll_snap_type (Y_var tw_scroll_snap_strictness_var) ]
-
-let snap_both =
-  style "snap-both"
-    [ scroll_snap_type (Both_var tw_scroll_snap_strictness_var) ]
+let snap_x = style "snap-x" [ scroll_snap_type (Axis (X, None)) ]
+let snap_y = style "snap-y" [ scroll_snap_type (Axis (Y, None)) ]
+let snap_both = style "snap-both" [ scroll_snap_type (Axis (Both, None)) ]
 
 let snap_mandatory =
-  let def, _ =
-    var "tw-scroll-snap-strictness" Scroll_snap_strictness Mandatory
-  in
+  let def, _ = Var.utility Var.Scroll_snap_strictness Mandatory in
   style "snap-mandatory" [ def ]
 
 let snap_proximity =
-  let def, _ =
-    var "tw-scroll-snap-strictness" Scroll_snap_strictness Proximity
-  in
+  let def, _ = Var.utility Var.Scroll_snap_strictness Proximity in
   style "snap-proximity" [ def ]
 
 let snap_align_none = style "snap-align-none" [ scroll_snap_align None ]
@@ -130,12 +120,8 @@ let rec of_string = function
   | _ -> Error (`Msg "Not an interactivity utility")
 
 (* Additional utilities moved from Tw *)
-and pointer_events_none =
-  style "pointer-events-none" [ pointer_events (None : pointer_events_value) ]
-
-and pointer_events_auto =
-  style "pointer-events-auto" [ pointer_events (Auto : pointer_events_value) ]
-
+and pointer_events_none = style "pointer-events-none" [ pointer_events None ]
+and pointer_events_auto = style "pointer-events-auto" [ pointer_events Auto ]
 and appearance_none = style "appearance-none" [ appearance None ]
 and will_change_auto = style "will-change-auto" [ will_change "auto" ]
 

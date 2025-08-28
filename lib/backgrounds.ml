@@ -4,13 +4,13 @@ open Core
 
 (* Gradient variables defined at top level with default transparent values *)
 let tw_gradient_from_def, tw_gradient_from_var =
-  Css.var "tw-gradient-from" Color Transparent
+  Var.utility Var.Gradient_from Transparent
 
 let _tw_gradient_via_def, _tw_gradient_via_var =
-  Css.var ~fallback:(Value Css.Transparent) "tw-gradient-via" Color Transparent
+  Var.utility ~fallback:Css.Transparent Var.Gradient_via Transparent
 
 let tw_gradient_to_def, tw_gradient_to_var =
-  Css.var "tw-gradient-to" Color Transparent
+  Var.utility Var.Gradient_to Transparent
 
 type direction =
   | Bottom
@@ -22,102 +22,105 @@ type direction =
   | Left
   | Bottom_left
 
+(* Shared @property rules for gradient variables (colors + positions + stops) *)
+let gradient_property_rules =
+  [
+    (* Colors *)
+    Var.property Var.Gradient_from ~syntax:"<color>" ~inherits:false
+      ~initial:"transparent";
+    Var.property Var.Gradient_via ~syntax:"<color>" ~inherits:false
+      ~initial:"transparent";
+    Var.property Var.Gradient_to ~syntax:"<color>" ~inherits:false
+      ~initial:"transparent";
+    (* Positions *)
+    Var.property Var.Gradient_from_position ~syntax:"<length-percentage>"
+      ~inherits:false ~initial:"0%";
+    Var.property Var.Gradient_via_position ~syntax:"<length-percentage>"
+      ~inherits:false ~initial:"50%";
+    Var.property Var.Gradient_to_position ~syntax:"<length-percentage>"
+      ~inherits:false ~initial:"100%";
+    (* Stops composition helpers *)
+    Var.property Var.Gradient_stops ~syntax:"*" ~inherits:false ~initial:"";
+    Var.property Var.Gradient_via_stops ~syntax:"*" ~inherits:false ~initial:"";
+    Var.property Var.Gradient_position ~syntax:"*" ~inherits:false ~initial:"";
+  ]
+
 let bg_gradient_to = function
   | Bottom ->
-      style "bg-gradient-to-b"
+      style "bg-gradient-to-b" ~property_rules:gradient_property_rules
         [
           tw_gradient_from_def;
           tw_gradient_to_def;
           Css.background_image
             (Linear_gradient
-               ( To_bottom,
-                 [
-                   Color_var tw_gradient_from_var; Color_var tw_gradient_to_var;
-                 ] ));
+               (To_bottom, [ Var tw_gradient_from_var; Var tw_gradient_to_var ]));
         ]
   | Bottom_right ->
-      style "bg-gradient-to-br"
+      style "bg-gradient-to-br" ~property_rules:gradient_property_rules
         [
           tw_gradient_from_def;
           tw_gradient_to_def;
           Css.background_image
             (Linear_gradient
                ( To_bottom_right,
-                 [
-                   Color_var tw_gradient_from_var; Color_var tw_gradient_to_var;
-                 ] ));
+                 [ Var tw_gradient_from_var; Var tw_gradient_to_var ] ));
         ]
   | Right ->
-      style "bg-gradient-to-r"
+      style "bg-gradient-to-r" ~property_rules:gradient_property_rules
         [
           tw_gradient_from_def;
           tw_gradient_to_def;
           Css.background_image
             (Linear_gradient
-               ( To_right,
-                 [
-                   Color_var tw_gradient_from_var; Color_var tw_gradient_to_var;
-                 ] ));
+               (To_right, [ Var tw_gradient_from_var; Var tw_gradient_to_var ]));
         ]
   | Top_right ->
-      style "bg-gradient-to-tr"
+      style "bg-gradient-to-tr" ~property_rules:gradient_property_rules
         [
           tw_gradient_from_def;
           tw_gradient_to_def;
           Css.background_image
             (Linear_gradient
                ( To_top_right,
-                 [
-                   Color_var tw_gradient_from_var; Color_var tw_gradient_to_var;
-                 ] ));
+                 [ Var tw_gradient_from_var; Var tw_gradient_to_var ] ));
         ]
   | Top ->
-      style "bg-gradient-to-t"
+      style "bg-gradient-to-t" ~property_rules:gradient_property_rules
         [
           tw_gradient_from_def;
           tw_gradient_to_def;
           Css.background_image
             (Linear_gradient
-               ( To_top,
-                 [
-                   Color_var tw_gradient_from_var; Color_var tw_gradient_to_var;
-                 ] ));
+               (To_top, [ Var tw_gradient_from_var; Var tw_gradient_to_var ]));
         ]
   | Top_left ->
-      style "bg-gradient-to-tl"
+      style "bg-gradient-to-tl" ~property_rules:gradient_property_rules
         [
           tw_gradient_from_def;
           tw_gradient_to_def;
           Css.background_image
             (Linear_gradient
                ( To_top_left,
-                 [
-                   Color_var tw_gradient_from_var; Color_var tw_gradient_to_var;
-                 ] ));
+                 [ Var tw_gradient_from_var; Var tw_gradient_to_var ] ));
         ]
   | Left ->
-      style "bg-gradient-to-l"
+      style "bg-gradient-to-l" ~property_rules:gradient_property_rules
         [
           tw_gradient_from_def;
           tw_gradient_to_def;
           Css.background_image
             (Linear_gradient
-               ( To_left,
-                 [
-                   Color_var tw_gradient_from_var; Color_var tw_gradient_to_var;
-                 ] ));
+               (To_left, [ Var tw_gradient_from_var; Var tw_gradient_to_var ]));
         ]
   | Bottom_left ->
-      style "bg-gradient-to-bl"
+      style "bg-gradient-to-bl" ~property_rules:gradient_property_rules
         [
           tw_gradient_from_def;
           tw_gradient_to_def;
           Css.background_image
             (Linear_gradient
                ( To_bottom_left,
-                 [
-                   Color_var tw_gradient_from_var; Color_var tw_gradient_to_var;
-                 ] ));
+                 [ Var tw_gradient_from_var; Var tw_gradient_to_var ] ));
         ]
 
 (* Legacy fixed-direction helpers removed in favor of bg_gradient_to *)
@@ -145,19 +148,19 @@ let from_color ?(shade = 500) color =
   let class_name = gradient_color_class_name ~prefix:"from-" ~shade color in
   let color_value = Color.to_css color shade in
   (* Create a new declaration that overrides the global variable's value *)
-  let from_override, _ = Css.var "tw-gradient-from" Color color_value in
+  let from_override, _ = Var.utility Var.Gradient_from color_value in
   style class_name [ from_override ]
 
 let via_color ?(shade = 500) color =
   let class_name = gradient_color_class_name ~prefix:"via-" ~shade color in
   let color_value = Color.to_css color shade in
   (* Create a new declaration that overrides the global variable's value *)
-  let via_override, _ = Css.var "tw-gradient-via" Color color_value in
+  let via_override, _ = Var.utility Var.Gradient_via color_value in
   style class_name [ via_override ]
 
 let to_color ?(shade = 500) color =
   let class_name = gradient_color_class_name ~prefix:"to-" ~shade color in
   let color_value = Color.to_css color shade in
   (* Create a new declaration that overrides the global variable's value *)
-  let to_override, _ = Css.var "tw-gradient-to" Color color_value in
+  let to_override, _ = Var.utility Var.Gradient_to color_value in
   style class_name [ to_override ]

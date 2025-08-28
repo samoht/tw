@@ -668,13 +668,18 @@ let rules_of_grouped ?(filter_custom_props = false) grouped_list =
     (fun (selector, props) ->
       let filtered_props =
         if filter_custom_props then
-          (* Filter out ALL custom property declarations from utility layer They
-             belong in theme or properties layer, not utilities *)
+          (* In utilities, custom properties must be created via Var.utility.
+             Keep only --tw-* declarations; theme variables like --spacing
+             should be filtered out here and appear in theme layer instead. *)
           List.filter
             (fun decl ->
               match Css.custom_declaration_name decl with
-              | Some _ -> false (* Filter out custom declarations *)
-              | None -> true)
+              | None -> true (* Keep non-custom properties *)
+              | Some name ->
+                  (* Only keep --tw-* prefixed variables in utilities. Theme
+                     variables like --spacing will be extracted for theme
+                     layer *)
+                  String.starts_with ~prefix:"--tw-" name)
             props
         else props
       in
@@ -714,7 +719,7 @@ let rule_sets tw_classes =
   (rules, media_queries, container_queries)
 
 (* ======================================================================== *)
-(* Layer Generation - CSS @layer directives and variable resolution *)
+(* Layer Generation - CSS @layer directives and theme variable resolution *)
 (* ======================================================================== *)
 
 module StringSet = Set.Make (String)
@@ -726,45 +731,6 @@ module VarMap = Map.Make (struct
 
   let compare = Var.compare_for Var.Theme
 end)
-
-let compute_properties_layer rules =
-  let referenced_vars = Css.vars_of_rules rules in
-  let var_tally = Var.tally_of_vars referenced_vars in
-  (* Properties with defaults are now handled by the variables themselves
-     through layers *)
-  let properties = [] in
-  let layer_opt =
-    if properties <> [] then
-      let css_props =
-        List.map (fun (var, value) -> Css.custom_property var value) properties
-      in
-      Some
-        (Css.layer ~name:"properties"
-           ~supports:
-             [
-               Css.supports
-                 ~condition:
-                   "(((-webkit-hyphens:none)) and (not (margin-trim:inline))) \
-                    or ((-moz-orient:inline) and (not (color:rgb(from red r g \
-                    b))))"
-                 [
-                   Css.rule ~selector:"*, :before, :after, ::backdrop" css_props;
-                 ];
-             ]
-           [])
-    else None
-  in
-  let vars_needing_properties = Var.needs_property_rule var_tally in
-  let at_properties =
-    List.filter_map
-      (fun var ->
-        match Var.property_rule_config var with
-        | Some (name, syntax, inherits, initial_value) ->
-            Some (Css.property ~name ~syntax ~initial_value ~inherits ())
-        | None -> None)
-      vars_needing_properties
-  in
-  (layer_opt, at_properties)
 
 let compute_theme_layer ?(default_vars = []) tw_classes =
   (* Use Var module to get default font variables instead of hardcoding *)
@@ -830,7 +796,8 @@ let compute_theme_layer ?(default_vars = []) tw_classes =
                | Container_query { props; _ }
                | Starting_style { props; _ } ->
                    List.iter
-                     (fun v -> var_set := StringSet.add v !var_set)
+                     (fun (Css.V v) ->
+                       var_set := StringSet.add ("--" ^ v.name) !var_set)
                      (Css.vars_of_declarations props))
              selector_props);
     StringSet.elements !var_set
@@ -859,15 +826,18 @@ let compute_theme_layer ?(default_vars = []) tw_classes =
            with
            | Some decl -> Some decl
            | None ->
-               (* For default variables, get them from Var module *)
+               (* For default font variables, get them from Typography only *)
                if List.mem var_name default_vars then
-                 let default_decls = Var.default_font_declarations () in
+                 let all_default_decls =
+                   Typography.default_font_declarations
+                   @ Typography.default_font_family_declarations
+                 in
                  List.find_opt
                    (fun decl ->
                      match Css.custom_declaration_name decl with
                      | Some name -> name = var_name
                      | None -> false)
-                   default_decls
+                   all_default_decls
                else None)
   in
 
@@ -944,15 +914,10 @@ let build_reset_layers tw_classes rules media_queries container_queries =
     |> List.sort_uniq Stdlib.compare (* Deduplicate *)
   in
 
-  (* Still compute properties layer for composition variables if needed *)
-  let properties_layer_opt, inferred_properties =
-    compute_properties_layer rules
-  in
-
-  (* Combine both sources of property rules *)
+  (* Property rules are collected directly from utilities *)
   let all_property_rules =
-    property_rules_from_utilities @ inferred_properties
-    |> List.sort_uniq Stdlib.compare (* Deduplicate again *)
+    property_rules_from_utilities
+    |> List.sort_uniq Stdlib.compare (* Deduplicate *)
   in
 
   let theme_layer = compute_theme_layer tw_classes in
@@ -964,11 +929,7 @@ let build_reset_layers tw_classes rules media_queries container_queries =
   let base_layers =
     [ theme_layer; base_layer; components_layer; utilities_layer ]
   in
-  let layers =
-    match properties_layer_opt with
-    | Some props_layer -> props_layer :: base_layers
-    | None -> base_layers
-  in
+  let layers = base_layers in
   (layers, all_property_rules)
 
 let wrap_css_items ~rules ~media_queries ~container_queries =
@@ -994,7 +955,7 @@ let to_css ?(config = default_config) tw_classes =
      Tailwind experience with layers - Any other combination: Raw CSS rules
      without layers *)
   if config.reset && config.mode = Css.Variables then
-    (* Full layer structure: Theme, Properties, Base, Components, Utilities *)
+    (* Full layer structure: Theme, Base, Components, Utilities *)
     let layers, at_properties =
       build_reset_layers tw_classes rules media_queries container_queries
     in

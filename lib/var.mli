@@ -1,16 +1,18 @@
 (* Variable tracking for CSS composition groups and layer assignment *)
 
-(** Layer classification for CSS variables *)
-type layer = Theme | Base | Properties | Utility
+(** Layer classification for CSS variables. In v4, variables live in @layer
+    theme or inline within utilities; base/properties are not used for
+    Var-defined variables. *)
+type layer = Theme | Utility
 
 (** CSS variable type as a GADT for type safety *)
 type _ t =
   (* Spacing and sizing *)
   | Spacing : Css.length t
   (* Typography *)
-  | Font_sans : string t
-  | Font_serif : string t
-  | Font_mono : string t
+  | Font_sans : Css.font_family list t
+  | Font_serif : Css.font_family list t
+  | Font_mono : Css.font_family list t
   | Font_weight : string t
   | Leading : string t
   | Text_xs : Css.length t
@@ -100,6 +102,7 @@ type _ t =
   | Inset_shadow_color : Css.color t
   | Inset_shadow_alpha : float t
   | Ring_color : Css.color t
+  | Ring_width : Css.length t
   | Ring_shadow : string t
   | Inset_ring_color : Css.color t
   | Inset_ring_shadow : string t
@@ -107,6 +110,23 @@ type _ t =
   | Ring_offset_width : Css.length t
   | Ring_offset_color : Css.color t
   | Ring_offset_shadow : string t
+  (* Prose theming variables (colors) *)
+  | Prose_body : Css.color t
+  | Prose_headings : Css.color t
+  | Prose_code : Css.color t
+  | Prose_pre_code : Css.color t
+  | Prose_pre_bg : Css.color t
+  | Prose_th_borders : Css.color t
+  | Prose_td_borders : Css.color t
+  | Prose_links : Css.color t
+  | Prose_quotes : Css.color t
+  | Prose_quote_borders : Css.color t
+  | Prose_hr : Css.color t
+  | Prose_bold : Css.color t
+  | Prose_lead : Css.color t
+  | Prose_counters : Css.color t
+  | Prose_bullets : Css.color t
+  | Prose_captions : Css.color t
   (* Gradient variables *)
   | Gradient_from : Css.color t
   | Gradient_via : Css.color t
@@ -120,27 +140,26 @@ type _ t =
   (* Border variables *)
   | Border_style : Css.border_style t
   (* Scroll snap variables *)
-  | Scroll_snap_strictness : string t
+  | Scroll_snap_strictness : Css.scroll_snap_strictness t
   (* Transition variables *)
   | Duration : Css.duration t
-  (* Default font family helpers *)
-  | Default_font_family : string t
-  | Default_mono_font_family : string t
+  (* Default font variables *)
+  | Default_font_family : Css.font_family list t
+  | Default_mono_font_family : Css.font_family list t
+  (* Font feature/variation settings - undefined in Tailwind v4, used with
+     fallbacks *)
+  | Default_font_feature_settings : Css.font_feature_settings t
+  | Default_font_variation_settings : Css.font_variation_settings t
+  | Default_mono_font_feature_settings : Css.font_feature_settings t
+  | Default_mono_font_variation_settings : Css.font_variation_settings t
 
 val name : _ t -> string
 (** Get the name of a variable (without --) *)
 
-val theme : 'a t -> 'a -> Css.declaration * 'a Css.var
+val theme : 'a t -> ?fallback:'a -> 'a -> Css.declaration * 'a Css.var
 (** Create a theme layer variable (colors, spacing, fonts, radius) *)
 
-val base : 'a t -> 'a -> Css.declaration * 'a Css.var
-(** Create a base layer variable *)
-
-val properties : 'a t -> 'a -> Css.declaration * 'a Css.var
-(** Create a properties layer variable (for composition variables with defaults)
-*)
-
-val utility : 'a t -> 'a -> Css.declaration * 'a Css.var
+val utility : 'a t -> ?fallback:'a -> 'a -> Css.declaration * 'a Css.var
 (** Create a utility layer variable *)
 
 val property :
@@ -159,18 +178,7 @@ val to_string : _ t -> string
 (** Existential wrapper for variables of any type *)
 type any = Any : _ t -> any
 
-val var_of_name : string -> any option
-(** Convert a CSS variable name to a typed variable *)
-
-type tally
-
-val empty : tally
-val tally_of_vars : string list -> tally
-val needs_property_rule : tally -> any list
-val property_rule_config : any -> (string * string * bool * string) option
-
-val default_font_declarations : unit -> Css.declaration list
-(** Generate default font variable declarations for theme layer *)
+(* Utilities own their variable registrations and any @property rules. *)
 
 val canonical_theme_order : any list
 (** List of all theme variables in their canonical order *)
@@ -179,8 +187,7 @@ val compare_for : layer -> any -> any -> int
 (** Compare two variables for ordering within a specific layer.
     - Theme: Design tokens first (fonts), then spacing, type scales, colors,
       radii
-    - Properties: By feature group needing initialization
-    - Base/Utilities: Fallback to alphabetical ordering *)
+    - Utility: Fallback to alphabetical ordering *)
 
 val compare_declarations : layer -> Css.declaration -> Css.declaration -> int
 (** Compare two CSS declarations by extracting and comparing their typed

@@ -2,21 +2,6 @@
 
 open Css
 
-(* Font settings variables *)
-let _default_font_feature_settings_def, default_font_feature_settings_var =
-  var "default-font-feature-settings" String "normal"
-
-let _default_font_variation_settings_def, default_font_variation_settings_var =
-  var "default-font-variation-settings" String "normal"
-
-let ( _default_mono_font_feature_settings_def,
-      default_mono_font_feature_settings_var ) =
-  var "default-mono-font-feature-settings" String "normal"
-
-let ( _default_mono_font_variation_settings_def,
-      default_mono_font_variation_settings_var ) =
-  var "default-mono-font-variation-settings" String "normal"
-
 (** Box model resets *)
 let box_resets () =
   [
@@ -28,34 +13,21 @@ let box_resets () =
 
 (** HTML and body defaults *)
 let root_resets () =
+  let _, font_feature_var =
+    Var.theme Var.Default_font_feature_settings Normal ~fallback:Normal
+  in
+  let _, font_variation_var =
+    Var.theme Var.Default_font_variation_settings Normal ~fallback:Normal
+  in
   [
     rule ~selector:"html, :host"
       [
         webkit_text_size_adjust "100%";
         tab_size 4;
         line_height (Num 1.5);
-        font_family
-          [
-            Var
-              {
-                name = "default-font-family";
-                fallback =
-                  Some
-                    [
-                      Ui_sans_serif;
-                      System_ui;
-                      Sans_serif;
-                      Apple_color_emoji;
-                      Segoe_ui_emoji;
-                      Segoe_ui_symbol;
-                      Noto_color_emoji;
-                    ];
-              };
-          ];
-        font_feature_settings
-          (var_to_string ~fallback:"normal" default_font_feature_settings_var);
-        font_variation_settings
-          (var_to_string ~fallback:"normal" default_font_variation_settings_var);
+        font_family [ Var Typography.default_font_family_var ];
+        font_feature_settings (Var font_feature_var);
+        font_variation_settings (Var font_variation_var);
         webkit_tap_highlight_color Transparent;
       ];
   ]
@@ -89,34 +61,19 @@ let typography_resets () =
 
 (** Code and monospace resets *)
 let code_resets () =
+  (* Create font feature/variation variables with fallback for monospace *)
+  let _, font_feature_var =
+    Var.theme Var.Default_mono_font_feature_settings Normal ~fallback:Normal
+  in
+  let _, font_variation_var =
+    Var.theme Var.Default_mono_font_variation_settings Normal ~fallback:Normal
+  in
   [
     rule ~selector:"code, kbd, samp, pre"
       [
-        font_family
-          [
-            Var
-              {
-                name = "default-mono-font-family";
-                fallback =
-                  Some
-                    [
-                      Ui_monospace;
-                      SFMono_regular;
-                      Menlo;
-                      Monaco;
-                      Consolas;
-                      Liberation_mono;
-                      Courier_new;
-                      Monospace;
-                    ];
-              };
-          ];
-        font_feature_settings
-          (var_to_string ~fallback:"normal"
-             default_mono_font_feature_settings_var);
-        font_variation_settings
-          (var_to_string ~fallback:"normal"
-             default_mono_font_variation_settings_var);
+        font_family [ Var Typography.default_mono_font_family_var ];
+        font_feature_settings (Var font_feature_var);
+        font_variation_settings (Var font_variation_var);
         font_size (Em 1.0);
       ];
   ]
@@ -168,8 +125,8 @@ let form_control_resets () =
     rule ~selector:"button, input, select, optgroup, textarea"
       [
         font "inherit";
-        font_feature_settings "inherit";
-        font_variation_settings "inherit";
+        font_feature_settings Inherit;
+        font_variation_settings Inherit;
         letter_spacing Inherit;
         color Inherit;
         opacity 1.0;
@@ -179,8 +136,8 @@ let form_control_resets () =
     rule ~selector:"::file-selector-button"
       [
         font "inherit";
-        font_feature_settings "inherit";
-        font_variation_settings "inherit";
+        font_feature_settings Inherit;
+        font_variation_settings Inherit;
         letter_spacing Inherit;
         color Inherit;
         opacity 1.0;

@@ -23,41 +23,50 @@ open Css
 (** {1 Border Width Utilities} *)
 
 (* Create shared variables *)
-let border_style_def, border_style_var =
-  var "tw-border-style" Border_style Solid
+let border_style_def, border_style_var = Var.utility Var.Border_style Solid
+
+(* Shared @property registration for border style variable *)
+let property_rule =
+  [
+    Var.property Var.Border_style
+      ~syntax:
+        "none | hidden | dotted | dashed | solid | double | groove | ridge | \
+         inset | outset"
+      ~inherits:false ~initial:"solid";
+  ]
 
 let border =
-  style "border"
+  style "border" ~property_rules:property_rule
     [
       border_style_def; border_style (Var border_style_var); border_width (Px 1);
     ]
 
 let border_0 =
-  style "border-0"
+  style "border-0" ~property_rules:property_rule
     [
       border_style_def; border_style (Var border_style_var); border_width (Px 0);
     ]
 
 let border_2 =
-  style "border-2"
+  style "border-2" ~property_rules:property_rule
     [
       border_style_def; border_style (Var border_style_var); border_width (Px 2);
     ]
 
 let border_4 =
-  style "border-4"
+  style "border-4" ~property_rules:property_rule
     [
       border_style_def; border_style (Var border_style_var); border_width (Px 4);
     ]
 
 let border_8 =
-  style "border-8"
+  style "border-8" ~property_rules:property_rule
     [
       border_style_def; border_style (Var border_style_var); border_width (Px 8);
     ]
 
 let border_t =
-  style "border-t"
+  style "border-t" ~property_rules:property_rule
     [
       border_style_def;
       border_top_style (Var border_style_var);
@@ -65,19 +74,19 @@ let border_t =
     ]
 
 let border_r =
-  style "border-r"
+  style "border-r" ~property_rules:property_rule
     [ border_right_style (Var border_style_var); border_right_width (Px 1) ]
 
 let border_b =
-  style "border-b"
+  style "border-b" ~property_rules:property_rule
     [ border_bottom_style (Var border_style_var); border_bottom_width (Px 1) ]
 
 let border_l =
-  style "border-l"
+  style "border-l" ~property_rules:property_rule
     [ border_left_style (Var border_style_var); border_left_width (Px 1) ]
 
 let border_x =
-  style "border-x"
+  style "border-x" ~property_rules:property_rule
     [
       border_left_style (Var border_style_var);
       border_left_width (Px 1);
@@ -86,7 +95,7 @@ let border_x =
     ]
 
 let border_y =
-  style "border-y"
+  style "border-y" ~property_rules:property_rule
     [
       border_top_style (Var border_style_var);
       border_top_width (Px 1);
@@ -96,83 +105,90 @@ let border_y =
 
 (** Border side utilities with specific widths *)
 let border_t_0 =
-  style "border-t-0"
+  style "border-t-0" ~property_rules:property_rule
     [ border_top_style (Var border_style_var); border_top_width (Px 0) ]
 
 let border_t_2 =
-  style "border-t-2"
+  style "border-t-2" ~property_rules:property_rule
     [ border_top_style (Var border_style_var); border_top_width (Px 2) ]
 
 let border_t_4 =
-  style "border-t-4"
+  style "border-t-4" ~property_rules:property_rule
     [ border_top_style (Var border_style_var); border_top_width (Px 4) ]
 
 let border_t_8 =
-  style "border-t-8"
+  style "border-t-8" ~property_rules:property_rule
     [ border_top_style (Var border_style_var); border_top_width (Px 8) ]
 
 let border_r_0 =
-  style "border-r-0"
+  style "border-r-0" ~property_rules:property_rule
     [ border_right_style (Var border_style_var); border_right_width (Px 0) ]
 
 let border_r_2 =
-  style "border-r-2"
+  style "border-r-2" ~property_rules:property_rule
     [ border_right_style (Var border_style_var); border_right_width (Px 2) ]
 
 let border_r_4 =
-  style "border-r-4"
+  style "border-r-4" ~property_rules:property_rule
     [ border_right_style (Var border_style_var); border_right_width (Px 4) ]
 
 let border_r_8 =
-  style "border-r-8"
+  style "border-r-8" ~property_rules:property_rule
     [ border_right_style (Var border_style_var); border_right_width (Px 8) ]
 
 let border_b_0 =
-  style "border-b-0"
+  style "border-b-0" ~property_rules:property_rule
     [ border_bottom_style (Var border_style_var); border_bottom_width (Px 0) ]
 
 let border_b_2 =
-  style "border-b-2"
+  style "border-b-2" ~property_rules:property_rule
     [ border_bottom_style (Var border_style_var); border_bottom_width (Px 2) ]
 
 let border_b_4 =
-  style "border-b-4"
+  style "border-b-4" ~property_rules:property_rule
     [ border_bottom_style (Var border_style_var); border_bottom_width (Px 4) ]
 
 let border_b_8 =
-  style "border-b-8"
+  style "border-b-8" ~property_rules:property_rule
     [ border_bottom_style (Var border_style_var); border_bottom_width (Px 8) ]
 
 let border_l_0 =
-  style "border-l-0"
+  style "border-l-0" ~property_rules:property_rule
     [ border_left_style (Var border_style_var); border_left_width (Px 0) ]
 
 let border_l_2 =
-  style "border-l-2"
+  style "border-l-2" ~property_rules:property_rule
     [ border_left_style (Var border_style_var); border_left_width (Px 2) ]
 
 let border_l_4 =
-  style "border-l-4"
+  style "border-l-4" ~property_rules:property_rule
     [ border_left_style (Var border_style_var); border_left_width (Px 4) ]
 
 let border_l_8 =
-  style "border-l-8"
+  style "border-l-8" ~property_rules:property_rule
     [ border_left_style (Var border_style_var); border_left_width (Px 8) ]
 
 (** {1 Border Style Utilities} *)
 
-let border_solid = style "border-solid" [ border_style_def; border_style Solid ]
+let border_solid =
+  style "border-solid" ~property_rules:property_rule
+    [ border_style_def; border_style Solid ]
 
 let border_dashed =
-  style "border-dashed" [ border_style_def; border_style Dashed ]
+  style "border-dashed" ~property_rules:property_rule
+    [ border_style_def; border_style Dashed ]
 
 let border_dotted =
-  style "border-dotted" [ border_style_def; border_style Dotted ]
+  style "border-dotted" ~property_rules:property_rule
+    [ border_style_def; border_style Dotted ]
 
 let border_double =
-  style "border-double" [ border_style_def; border_style Double ]
+  style "border-double" ~property_rules:property_rule
+    [ border_style_def; border_style Double ]
 
-let border_none = style "border-none" [ border_style_def; border_style None ]
+let border_none =
+  style "border-none" ~property_rules:property_rule
+    [ border_style_def; border_style None ]
 
 (* Border width utilities with semantic names matching tw.mli *)
 let border_xs = border (* 1px *)

@@ -16,8 +16,8 @@
 open Css
 
 (** Helper: define a color custom property by name (without leading --) *)
-let color_prop name r g b =
-  let def, _ = var name Color (Rgb { r; g; b }) in
+let color_prop (var : Css.color Var.t) r g b =
+  let def, _ = Var.utility var (Rgb { r; g; b }) in
   def
 
 (* Prose variant type *)
@@ -27,40 +27,40 @@ type variant = [ `Base | `Sm | `Lg | `Xl | `Xl2 | `Gray | `Slate ]
 
 (** Default prose CSS variables for theming *)
 let prose_body_def, prose_body_var =
-  var "tw-prose-body" Color (Rgb { r = 55; g = 65; b = 81 })
+  Var.utility Var.Prose_body (Rgb { r = 55; g = 65; b = 81 })
 
 let prose_headings_def, prose_headings_var =
-  var "tw-prose-headings" Color (Rgb { r = 17; g = 24; b = 39 })
+  Var.utility Var.Prose_headings (Rgb { r = 17; g = 24; b = 39 })
 
 let _prose_code_def, prose_code_var =
-  var "tw-prose-code" Color (Rgb { r = 17; g = 24; b = 39 })
+  Var.utility Var.Prose_code (Rgb { r = 17; g = 24; b = 39 })
 
 let _prose_pre_code_def, prose_pre_code_var =
-  var "tw-prose-pre-code" Color (Rgb { r = 229; g = 231; b = 235 })
+  Var.utility Var.Prose_pre_code (Rgb { r = 229; g = 231; b = 235 })
 
 let _prose_pre_bg_def, prose_pre_bg_var =
-  var "tw-prose-pre-bg" Color (Rgb { r = 31; g = 41; b = 55 })
+  Var.utility Var.Prose_pre_bg (Rgb { r = 31; g = 41; b = 55 })
 
 let _prose_th_borders_def, prose_th_borders_var =
-  var "tw-prose-th-borders" Color (Rgb { r = 209; g = 213; b = 219 })
+  Var.utility Var.Prose_th_borders (Rgb { r = 209; g = 213; b = 219 })
 
 let _prose_td_borders_def, prose_td_borders_var =
-  var "tw-prose-td-borders" Color (Rgb { r = 229; g = 231; b = 235 })
+  Var.utility Var.Prose_td_borders (Rgb { r = 229; g = 231; b = 235 })
 
 let _prose_links_def, prose_links_var =
-  var "tw-prose-links" Color (Rgb { r = 17; g = 24; b = 39 })
+  Var.utility Var.Prose_links (Rgb { r = 17; g = 24; b = 39 })
 
 let _prose_quotes_def, prose_quotes_var =
-  var "tw-prose-quotes" Color (Rgb { r = 107; g = 114; b = 128 })
+  Var.utility Var.Prose_quotes (Rgb { r = 107; g = 114; b = 128 })
 
 let _prose_quote_borders_def, prose_quote_borders_var =
-  var "tw-prose-quote-borders" Color (Rgb { r = 229; g = 231; b = 235 })
+  Var.utility Var.Prose_quote_borders (Rgb { r = 229; g = 231; b = 235 })
 
 let _prose_hr_def, prose_hr_var =
-  var "tw-prose-hr" Color (Rgb { r = 229; g = 231; b = 235 })
+  Var.utility Var.Prose_hr (Rgb { r = 229; g = 231; b = 235 })
 
 let _prose_bold_def, prose_bold_var =
-  var "tw-prose-bold" Color (Rgb { r = 17; g = 24; b = 39 })
+  Var.utility Var.Prose_bold (Rgb { r = 17; g = 24; b = 39 })
 
 let css_variables =
   [
@@ -78,10 +78,10 @@ let css_variables =
     _prose_hr_def;
     _prose_bold_def;
     (* Additional variables used in prose without explicit handles *)
-    color_prop "tw-prose-lead" 75 85 99;
-    color_prop "tw-prose-counters" 107 114 128;
-    color_prop "tw-prose-bullets" 209 213 219;
-    color_prop "tw-prose-captions" 107 114 128;
+    color_prop Var.Prose_lead 75 85 99;
+    color_prop Var.Prose_counters 107 114 128;
+    color_prop Var.Prose_bullets 209 213 219;
+    color_prop Var.Prose_captions 107 114 128;
   ]
 
 (** Convert prose variant to CSS class name *)
@@ -404,22 +404,22 @@ let gray_color_rules =
   [
     rule ~selector:".prose-gray"
       [
-        color_prop "tw-prose-body" 107 114 128;
-        color_prop "tw-prose-headings" 31 41 55;
-        color_prop "tw-prose-lead" 75 85 99;
-        color_prop "tw-prose-links" 31 41 55;
-        color_prop "tw-prose-bold" 31 41 55;
-        color_prop "tw-prose-counters" 107 114 128;
-        color_prop "tw-prose-bullets" 209 213 219;
-        color_prop "tw-prose-hr" 229 231 235;
-        color_prop "tw-prose-quotes" 31 41 55;
-        color_prop "tw-prose-quote-borders" 229 231 235;
-        color_prop "tw-prose-captions" 156 163 175;
-        color_prop "tw-prose-code" 31 41 55;
-        color_prop "tw-prose-pre-code" 229 231 235;
-        color_prop "tw-prose-pre-bg" 31 41 55;
-        color_prop "tw-prose-th-borders" 209 213 219;
-        color_prop "tw-prose-td-borders" 229 231 235;
+        color_prop Var.Prose_body 107 114 128;
+        color_prop Var.Prose_headings 31 41 55;
+        color_prop Var.Prose_lead 75 85 99;
+        color_prop Var.Prose_links 31 41 55;
+        color_prop Var.Prose_bold 31 41 55;
+        color_prop Var.Prose_counters 107 114 128;
+        color_prop Var.Prose_bullets 209 213 219;
+        color_prop Var.Prose_hr 229 231 235;
+        color_prop Var.Prose_quotes 31 41 55;
+        color_prop Var.Prose_quote_borders 229 231 235;
+        color_prop Var.Prose_captions 156 163 175;
+        color_prop Var.Prose_code 31 41 55;
+        color_prop Var.Prose_pre_code 229 231 235;
+        color_prop Var.Prose_pre_bg 31 41 55;
+        color_prop Var.Prose_th_borders 209 213 219;
+        color_prop Var.Prose_td_borders 229 231 235;
       ];
   ]
 
@@ -427,22 +427,22 @@ let slate_color_rules =
   [
     rule ~selector:".prose-slate"
       [
-        color_prop "tw-prose-body" 100 116 139;
-        color_prop "tw-prose-headings" 15 23 42;
-        color_prop "tw-prose-lead" 71 85 105;
-        color_prop "tw-prose-links" 15 23 42;
-        color_prop "tw-prose-bold" 15 23 42;
-        color_prop "tw-prose-counters" 100 116 139;
-        color_prop "tw-prose-bullets" 203 213 225;
-        color_prop "tw-prose-hr" 226 232 240;
-        color_prop "tw-prose-quotes" 15 23 42;
-        color_prop "tw-prose-quote-borders" 226 232 240;
-        color_prop "tw-prose-captions" 148 163 184;
-        color_prop "tw-prose-code" 15 23 42;
-        color_prop "tw-prose-pre-code" 226 232 240;
-        color_prop "tw-prose-pre-bg" 30 41 59;
-        color_prop "tw-prose-th-borders" 203 213 225;
-        color_prop "tw-prose-td-borders" 226 232 240;
+        color_prop Var.Prose_body 100 116 139;
+        color_prop Var.Prose_headings 15 23 42;
+        color_prop Var.Prose_lead 71 85 105;
+        color_prop Var.Prose_links 15 23 42;
+        color_prop Var.Prose_bold 15 23 42;
+        color_prop Var.Prose_counters 100 116 139;
+        color_prop Var.Prose_bullets 203 213 225;
+        color_prop Var.Prose_hr 226 232 240;
+        color_prop Var.Prose_quotes 15 23 42;
+        color_prop Var.Prose_quote_borders 226 232 240;
+        color_prop Var.Prose_captions 148 163 184;
+        color_prop Var.Prose_code 15 23 42;
+        color_prop Var.Prose_pre_code 226 232 240;
+        color_prop Var.Prose_pre_bg 30 41 59;
+        color_prop Var.Prose_th_borders 203 213 225;
+        color_prop Var.Prose_td_borders 226 232 240;
       ];
   ]
 

@@ -77,9 +77,9 @@ type config = {
           generates only utility rules without layers. *)
   mode : Css.mode;
       (** CSS generation mode:
-          - [Variables]: Generates CSS with layers (Theme, Properties, Base,
-            Components, Utilities) and CSS custom properties for dynamic
-            theming. CSS variables are emitted as [var(--name)] references.
+          - [Variables]: Generates CSS with layers (Theme, Base, Components,
+            Utilities) and CSS custom properties for dynamic theming. CSS
+            variables are emitted as [var(--name)] references.
           - [Inline]: Generates raw CSS rules without layers, suitable for
             inline styles or environments without CSS variable support.
             Variables are resolved to their default values when available. *)
@@ -147,10 +147,6 @@ val compute_theme_layer : ?default_vars:string list -> t list -> Css.layer_rule
 (** [compute_theme_layer ?default_vars tw_classes] generates the theme layer
     with CSS variables. [default_vars] specifies variables to always include in
     the theme (defaults to font-related variables). *)
-
-val compute_properties_layer :
-  Css.rule list -> Css.layer_rule option * Css.property_rule list
-(** [compute_properties_layer rules] generates the properties layer and @property rules. *)
 
 val build_utilities_layer :
   rules:Css.rule list ->
