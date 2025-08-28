@@ -836,20 +836,17 @@ let compute_theme_layer ?(default_vars = []) tw_classes =
     StringSet.elements !var_set
   in
 
-  (* Build list of all variables we need, preserving default_vars order *)
-  let all_needed_vars =
-    (* Start with default vars in their specified order *)
-    default_vars
-    @
-    (* Then add any other referenced vars *)
-    List.filter
-      (fun v -> not (List.mem v default_vars))
-      directly_referenced_vars
-  in
-
-  (* Build the final theme declarations, preserving order *)
-  let theme_generated_vars =
-    all_needed_vars
+  (* Collect all variable declarations we need *)
+  let all_var_decls =
+    (* Get all unique variable names *)
+    let all_var_names =
+      StringSet.elements
+        (StringSet.union
+           (StringSet.of_list default_vars)
+           (StringSet.of_list directly_referenced_vars))
+    in
+    (* Get declaration for each variable *)
+    all_var_names
     |> List.filter_map (fun var_name ->
            (* First check if we have an extracted declaration for this var *)
            match
@@ -872,9 +869,13 @@ let compute_theme_layer ?(default_vars = []) tw_classes =
                      | None -> false)
                    default_decls
                else None)
-    |> List.stable_sort (fun a b ->
-           (* Sort declarations using Var module's proper ordering *)
-           Var.compare_declarations Var.Theme a b)
+  in
+
+  (* Sort all declarations using canonical theme order *)
+  let theme_generated_vars =
+    List.stable_sort
+      (fun a b -> Var.compare_declarations Var.Theme a b)
+      all_var_decls
   in
 
   if theme_generated_vars = [] then Css.layer ~name:"theme" []
