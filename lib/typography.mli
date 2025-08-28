@@ -406,3 +406,20 @@ val diagonal_fractions : t
 
 val stacked_fractions : t
 (** [stacked_fractions] uses stacked fraction glyphs. *)
+
+val default_font_family_var : Css.font_family list Css.var
+(** [default_font_family_var] is the CSS variable for the default font family,
+    referencing --font-sans. *)
+
+val default_mono_font_family_var : Css.font_family list Css.var
+(** [default_mono_font_family_var] is the CSS variable for the default monospace
+    font family, referencing --font-mono. *)
+
+val font_mono_var : Css.font_family list Css.var
+(** [font_mono_var] is the CSS variable for the monospace font family. *)
+
+val default_font_declarations : Css.declaration list
+(** Default font variable declarations for the theme layer. *)
+
+val default_font_family_declarations : Css.declaration list
+(** Default font-family variable declarations for the theme layer. *)

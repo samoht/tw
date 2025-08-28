@@ -191,7 +191,7 @@ let grid_cols n =
       (Pp.str [ "grid-cols-"; string_of_int n ])
       [ Grid.template_columns (Repeat (n, Min_max (Px 0, Fr 1.0))) ]
 
-let grid_cols_none = style "grid-cols-none" [ Grid.template_columns Grid_none ]
+let grid_cols_none = style "grid-cols-none" [ Grid.template_columns None ]
 
 let grid_cols_subgrid =
   style "grid-cols-subgrid" [ Grid.template_columns (Tracks [ Grid_auto ]) ]
@@ -205,7 +205,7 @@ let grid_rows n =
       (Pp.str [ "grid-rows-"; string_of_int n ])
       [ Grid.template_rows (Repeat (n, Min_max (Px 0, Fr 1.0))) ]
 
-let grid_rows_none = style "grid-rows-none" [ Grid.template_rows Grid_none ]
+let grid_rows_none = style "grid-rows-none" [ Grid.template_rows None ]
 
 let grid_rows_subgrid =
   style "grid-rows-subgrid" [ Grid.template_rows (Tracks [ Grid_auto ]) ]

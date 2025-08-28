@@ -12,11 +12,10 @@
    `canonical_order`/`compare` ensure stable, human‑friendly ordering in the
    generated CSS. *)
 
-(* Layer classification for CSS variables Note: [Properties] refers to the
-   cascade layer used to host default values for composition variables. It is
-   distinct from the CSS [@property] at‑rule, which is handled separately in Css
-   as top‑level registrations. *)
-type layer = Theme | Base | Properties | Utility
+(* Layer classification for CSS variables. In v4, variables live in @layer theme
+   or inline within utilities; base/properties are not used for Var-defined
+   variables. *)
+type layer = Theme | Utility
 
 (* CSS variable type as a GADT for type safety. The order is meaninful and will
    be reflected in which the variables are printed in the relevant CSS
@@ -25,9 +24,9 @@ type _ t =
   (* Spacing and sizing *)
   | Spacing : Css.length t
   (* Typography *)
-  | Font_sans : string t
-  | Font_serif : string t
-  | Font_mono : string t
+  | Font_sans : Css.font_family list t
+  | Font_serif : Css.font_family list t
+  | Font_mono : Css.font_family list t
   | Font_weight : string t
   | Leading : string t
   | Text_xs : Css.length t
@@ -117,6 +116,7 @@ type _ t =
   | Inset_shadow_color : Css.color t
   | Inset_shadow_alpha : float t
   | Ring_color : Css.color t
+  | Ring_width : Css.length t
   | Ring_shadow : string t
   | Inset_ring_color : Css.color t
   | Inset_ring_shadow : string t
@@ -124,6 +124,23 @@ type _ t =
   | Ring_offset_width : Css.length t
   | Ring_offset_color : Css.color t
   | Ring_offset_shadow : string t
+  (* Prose theming variables (colors) *)
+  | Prose_body : Css.color t
+  | Prose_headings : Css.color t
+  | Prose_code : Css.color t
+  | Prose_pre_code : Css.color t
+  | Prose_pre_bg : Css.color t
+  | Prose_th_borders : Css.color t
+  | Prose_td_borders : Css.color t
+  | Prose_links : Css.color t
+  | Prose_quotes : Css.color t
+  | Prose_quote_borders : Css.color t
+  | Prose_hr : Css.color t
+  | Prose_bold : Css.color t
+  | Prose_lead : Css.color t
+  | Prose_counters : Css.color t
+  | Prose_bullets : Css.color t
+  | Prose_captions : Css.color t
   (* Gradient variables *)
   | Gradient_from : Css.color t
   | Gradient_via : Css.color t
@@ -137,15 +154,24 @@ type _ t =
   (* Border variables *)
   | Border_style : Css.border_style t
   (* Scroll snap variables *)
-  | Scroll_snap_strictness : string t
+  | Scroll_snap_strictness : Css.scroll_snap_strictness t
   (* Transition variables *)
   | Duration : Css.duration t
-  (* Default font family helpers *)
-  | Default_font_family : string t
-  | Default_mono_font_family : string t
+  (* Default font variables - reference the theme font variables *)
+  | Default_font_family : Css.font_family list t
+  | Default_mono_font_family : Css.font_family list t
+  (* Font feature/variation settings - undefined in Tailwind v4, used with
+     fallbacks *)
+  | Default_font_feature_settings : Css.font_feature_settings t
+  | Default_font_variation_settings : Css.font_variation_settings t
+  | Default_mono_font_feature_settings : Css.font_feature_settings t
+  | Default_mono_font_variation_settings : Css.font_variation_settings t
 
 (** Existential wrapper for variables of any type *)
 type any = Any : _ t -> any
+
+let (meta_of_var : any -> Css.meta), (var_of_meta : Css.meta -> any option) =
+  Css.meta ()
 
 (* Convert a CSS variable to its string representation (with --) *)
 let to_string : type a. a t -> string = function
@@ -236,6 +262,7 @@ let to_string : type a. a t -> string = function
   | Inset_shadow_color -> "--tw-inset-shadow-color"
   | Inset_shadow_alpha -> "--tw-inset-shadow-alpha"
   | Ring_color -> "--tw-ring-color"
+  | Ring_width -> "--tw-ring-width"
   | Ring_shadow -> "--tw-ring-shadow"
   | Inset_ring_color -> "--tw-inset-ring-color"
   | Inset_ring_shadow -> "--tw-inset-ring-shadow"
@@ -243,6 +270,23 @@ let to_string : type a. a t -> string = function
   | Ring_offset_width -> "--tw-ring-offset-width"
   | Ring_offset_color -> "--tw-ring-offset-color"
   | Ring_offset_shadow -> "--tw-ring-offset-shadow"
+  (* Prose vars *)
+  | Prose_body -> "--tw-prose-body"
+  | Prose_headings -> "--tw-prose-headings"
+  | Prose_code -> "--tw-prose-code"
+  | Prose_pre_code -> "--tw-prose-pre-code"
+  | Prose_pre_bg -> "--tw-prose-pre-bg"
+  | Prose_th_borders -> "--tw-prose-th-borders"
+  | Prose_td_borders -> "--tw-prose-td-borders"
+  | Prose_links -> "--tw-prose-links"
+  | Prose_quotes -> "--tw-prose-quotes"
+  | Prose_quote_borders -> "--tw-prose-quote-borders"
+  | Prose_hr -> "--tw-prose-hr"
+  | Prose_bold -> "--tw-prose-bold"
+  | Prose_lead -> "--tw-prose-lead"
+  | Prose_counters -> "--tw-prose-counters"
+  | Prose_bullets -> "--tw-prose-bullets"
+  | Prose_captions -> "--tw-prose-captions"
   | Gradient_from -> "--tw-gradient-from"
   | Gradient_via -> "--tw-gradient-via"
   | Gradient_to -> "--tw-gradient-to"
@@ -257,6 +301,11 @@ let to_string : type a. a t -> string = function
   | Duration -> "--tw-duration"
   | Default_font_family -> "--default-font-family"
   | Default_mono_font_family -> "--default-mono-font-family"
+  | Default_font_feature_settings -> "--default-font-feature-settings"
+  | Default_font_variation_settings -> "--default-font-variation-settings"
+  | Default_mono_font_feature_settings -> "--default-mono-font-feature-settings"
+  | Default_mono_font_variation_settings ->
+      "--default-mono-font-variation-settings"
 
 (* Get the name of a variable (without --) *)
 let name : type a. a t -> string =
@@ -296,12 +345,17 @@ let canonical_color_order color_name =
 let order_for_theme : type a. a t -> int = function
   (* Design tokens first - fonts are most fundamental *)
   | Font_sans -> 0
-  | Font_serif -> 1
-  | Font_mono -> 2
-  (* Spacing comes between font-mono and default-font-family in Tailwind *)
-  | Spacing -> 3
-  | Default_font_family -> 150 (* Moved after color range 4-149 *)
-  | Default_mono_font_family -> 151
+  | Font_mono -> 1
+  (* Default font variables come after font-mono but before font-serif *)
+  | Default_font_family -> 2
+  | Default_mono_font_family -> 3
+  | Default_font_feature_settings -> 4
+  | Default_font_variation_settings -> 5
+  | Default_mono_font_feature_settings -> 6
+  | Default_mono_font_variation_settings -> 7
+  | Font_serif -> 8
+  (* Spacing comes after font-serif *)
+  | Spacing -> 9
   (* Typography scale *)
   | Text_xs -> 20
   | Text_xs_line_height -> 21
@@ -350,7 +404,7 @@ let order_for_theme : type a. a t -> int = function
   | Radius_xl -> 75
   | Radius_2xl -> 76
   | Radius_3xl -> 77
-  (* Colors - all colors appear between fonts and default fonts *)
+  (* Colors - all colors appear after all font-related variables *)
   | Color (_name, _shade) ->
       (* All colors get the same base order, detailed sorting in compare_for *)
       100
@@ -400,6 +454,24 @@ let order_for_theme : type a. a t -> int = function
   | Ring_offset_width -> 1311
   | Ring_offset_color -> 1312
   | Ring_offset_shadow -> 1313
+  | Ring_width -> 1314
+  (* Prose variables *)
+  | Prose_body -> 1320
+  | Prose_headings -> 1321
+  | Prose_code -> 1322
+  | Prose_pre_code -> 1323
+  | Prose_pre_bg -> 1324
+  | Prose_th_borders -> 1325
+  | Prose_td_borders -> 1326
+  | Prose_links -> 1327
+  | Prose_quotes -> 1328
+  | Prose_quote_borders -> 1329
+  | Prose_hr -> 1330
+  | Prose_bold -> 1331
+  | Prose_lead -> 1332
+  | Prose_counters -> 1333
+  | Prose_bullets -> 1334
+  | Prose_captions -> 1335
   (* Gradients *)
   | Gradient_from -> 1400
   | Gradient_via -> 1401
@@ -415,69 +487,8 @@ let order_for_theme : type a. a t -> int = function
   | Scroll_snap_strictness -> 1501
   | Duration -> 1502
 
-let order_for_props : type a. a t -> int = function
-  (* Transform group *)
-  | Translate_x -> 0
-  | Translate_y -> 1
-  | Translate_z -> 2
-  | Scale_x -> 3
-  | Scale_y -> 4
-  | Scale_z -> 5
-  | Rotate -> 6
-  | Skew_x -> 7
-  | Skew_y -> 8
-  (* Filter group *)
-  | Blur -> 100
-  | Brightness -> 101
-  | Contrast -> 102
-  | Grayscale -> 103
-  | Hue_rotate -> 104
-  | Invert -> 105
-  | Saturate -> 106
-  | Sepia -> 107
-  | Drop_shadow -> 108
-  | Drop_shadow_alpha -> 109
-  (* Backdrop filter group *)
-  | Backdrop_blur -> 200
-  | Backdrop_brightness -> 201
-  | Backdrop_contrast -> 202
-  | Backdrop_grayscale -> 203
-  | Backdrop_hue_rotate -> 204
-  | Backdrop_invert -> 205
-  | Backdrop_saturate -> 206
-  | Backdrop_sepia -> 207
-  | Backdrop_opacity -> 208
-  (* Ring group *)
-  | Ring_color -> 300
-  | Ring_shadow -> 301
-  | Ring_inset -> 302
-  | Ring_offset_width -> 303
-  | Ring_offset_color -> 304
-  | Ring_offset_shadow -> 305
-  | Inset_ring_color -> 306
-  | Inset_ring_shadow -> 307
-  (* Gradient group *)
-  | Gradient_from -> 400
-  | Gradient_via -> 401
-  | Gradient_to -> 402
-  | Gradient_stops -> 403
-  | Gradient_via_stops -> 404
-  | Gradient_position -> 405
-  | Gradient_from_position -> 406
-  | Gradient_via_position -> 407
-  | Gradient_to_position -> 408
-  (* Border and scroll *)
-  | Border_style -> 500
-  | Scroll_snap_strictness -> 501
-  (* Shadow group *)
-  | Shadow -> 600
-  | Shadow_color -> 601
-  | Shadow_alpha -> 602
-  | Inset_shadow -> 603
-  | Inset_shadow_color -> 604
-  | Inset_shadow_alpha -> 605
-  (* Everything else *)
-  | v -> 1000 + Hashtbl.hash v
+(* No properties-layer ordering; variables are ordered only in Theme.
+   Utility-level vars are compared alphabetically via to_string. *)
 
 (* Helper to compare colors that have the same base order *)
 let compare_color : type a b. a t -> b t -> int =
@@ -504,22 +515,15 @@ let compare_for layer (Any a) (Any b) =
       let order_b = order_for_theme b in
       let cmp = Int.compare order_a order_b in
       if cmp <> 0 then cmp else compare_color a b
-  | Properties -> Int.compare (order_for_props a) (order_for_props b)
-  | Base | Utility ->
+  | Utility ->
       (* For base and utility layers, use alphabetical ordering *)
       String.compare (to_string a) (to_string b)
 
 (* Helper to get layer name from layer enum *)
-let layer_name = function
-  | Theme -> "theme"
-  | Base -> "base"
-  | Properties -> "properties"
-  | Utility -> "utilities"
+let layer_name = function Theme -> "theme" | Utility -> "utilities"
 
 let layer_of_string = function
   | "theme" -> Some Theme
-  | "base" -> Some Base
-  | "properties" -> Some Properties
   | "utilities" -> Some Utility
   | _ -> None
 
@@ -529,499 +533,162 @@ let layer : type a. a Css.var -> layer option =
   match css_var.layer with None -> None | Some s -> layer_of_string s
 
 (** Create a variable definition and handle *)
-let def : type a. a t -> ?layer:layer -> a -> Css.declaration * a Css.var =
- fun var_t ?layer value ->
+let def : type a.
+    a t -> ?layer:layer -> ?fallback:a -> a -> Css.declaration * a Css.var =
+ fun var_t ?layer ?fallback value ->
   let n = name var_t in
   let layer = Option.map layer_name layer in
-  (* Create metadata injection for this typed variable *)
-  let inj, _ = Css.meta () in
-  let meta = inj (Any var_t) in
+  (* Set metadata for this variable *)
+  let meta = meta_of_var (Any var_t) in
+  let var ty v = Css.var ?layer ?fallback ~meta n ty v in
   match var_t with
-  | Spacing -> Css.var ?layer ~meta n Length value
-  | Font_sans -> Css.var ?layer ~meta n String value
-  | Font_serif -> Css.var ?layer ~meta n String value
-  | Font_mono -> Css.var ?layer ~meta n String value
-  | Font_weight -> Css.var ?layer ~meta n String value
-  | Leading -> Css.var ?layer ~meta n String value
-  | Text_xs -> Css.var ?layer ~meta n Length value
-  | Text_xs_line_height -> Css.var ?layer ~meta n Length value
-  | Text_sm -> Css.var ?layer ~meta n Length value
-  | Text_sm_line_height -> Css.var ?layer ~meta n Length value
-  | Text_base -> Css.var ?layer ~meta n Length value
-  | Text_base_line_height -> Css.var ?layer ~meta n Length value
-  | Text_lg -> Css.var ?layer ~meta n Length value
-  | Text_lg_line_height -> Css.var ?layer ~meta n Length value
-  | Text_xl -> Css.var ?layer ~meta n Length value
-  | Text_xl_line_height -> Css.var ?layer ~meta n Length value
-  | Text_2xl -> Css.var ?layer ~meta n Length value
-  | Text_2xl_line_height -> Css.var ?layer ~meta n Length value
-  | Text_3xl -> Css.var ?layer ~meta n Length value
-  | Text_3xl_line_height -> Css.var ?layer ~meta n Length value
-  | Text_4xl -> Css.var ?layer ~meta n Length value
-  | Text_4xl_line_height -> Css.var ?layer ~meta n Length value
-  | Text_5xl -> Css.var ?layer ~meta n Length value
-  | Text_5xl_line_height -> Css.var ?layer ~meta n Length value
-  | Text_6xl -> Css.var ?layer ~meta n Length value
-  | Text_6xl_line_height -> Css.var ?layer ~meta n Length value
-  | Text_7xl -> Css.var ?layer ~meta n Length value
-  | Text_7xl_line_height -> Css.var ?layer ~meta n Length value
-  | Text_8xl -> Css.var ?layer ~meta n Length value
-  | Text_8xl_line_height -> Css.var ?layer ~meta n Length value
-  | Text_9xl -> Css.var ?layer ~meta n Length value
-  | Text_9xl_line_height -> Css.var ?layer ~meta n Length value
-  | Font_weight_thin -> Css.var ?layer ~meta n Int value
-  | Font_weight_extralight -> Css.var ?layer ~meta n Int value
-  | Font_weight_light -> Css.var ?layer ~meta n Int value
-  | Font_weight_normal -> Css.var ?layer ~meta n Int value
-  | Font_weight_medium -> Css.var ?layer ~meta n Int value
-  | Font_weight_semibold -> Css.var ?layer ~meta n Int value
-  | Font_weight_bold -> Css.var ?layer ~meta n Int value
-  | Font_weight_extrabold -> Css.var ?layer ~meta n Int value
-  | Font_weight_black -> Css.var ?layer ~meta n Int value
-  | Radius_none -> Css.var ?layer ~meta n Length value
-  | Radius_sm -> Css.var ?layer ~meta n Length value
-  | Radius_default -> Css.var ?layer ~meta n Length value
-  | Radius_md -> Css.var ?layer ~meta n Length value
-  | Radius_lg -> Css.var ?layer ~meta n Length value
-  | Radius_xl -> Css.var ?layer ~meta n Length value
-  | Radius_2xl -> Css.var ?layer ~meta n Length value
-  | Radius_3xl -> Css.var ?layer ~meta n Length value
+  | Spacing -> var Length value
+  | Font_sans -> var Font_family value
+  | Font_serif -> var Font_family value
+  | Font_mono -> var Font_family value
+  | Font_weight -> var String value
+  | Leading -> var String value
+  | Text_xs -> var Length value
+  | Text_xs_line_height -> var Length value
+  | Text_sm -> var Length value
+  | Text_sm_line_height -> var Length value
+  | Text_base -> var Length value
+  | Text_base_line_height -> var Length value
+  | Text_lg -> var Length value
+  | Text_lg_line_height -> var Length value
+  | Text_xl -> var Length value
+  | Text_xl_line_height -> var Length value
+  | Text_2xl -> var Length value
+  | Text_2xl_line_height -> var Length value
+  | Text_3xl -> var Length value
+  | Text_3xl_line_height -> var Length value
+  | Text_4xl -> var Length value
+  | Text_4xl_line_height -> var Length value
+  | Text_5xl -> var Length value
+  | Text_5xl_line_height -> var Length value
+  | Text_6xl -> var Length value
+  | Text_6xl_line_height -> var Length value
+  | Text_7xl -> var Length value
+  | Text_7xl_line_height -> var Length value
+  | Text_8xl -> var Length value
+  | Text_8xl_line_height -> var Length value
+  | Text_9xl -> var Length value
+  | Text_9xl_line_height -> var Length value
+  | Font_weight_thin -> var Int value
+  | Font_weight_extralight -> var Int value
+  | Font_weight_light -> var Int value
+  | Font_weight_normal -> var Int value
+  | Font_weight_medium -> var Int value
+  | Font_weight_semibold -> var Int value
+  | Font_weight_bold -> var Int value
+  | Font_weight_extrabold -> var Int value
+  | Font_weight_black -> var Int value
+  | Radius_none -> var Length value
+  | Radius_sm -> var Length value
+  | Radius_default -> var Length value
+  | Radius_md -> var Length value
+  | Radius_lg -> var Length value
+  | Radius_xl -> var Length value
+  | Radius_2xl -> var Length value
+  | Radius_3xl -> var Length value
   | Color (color_name, shade) ->
       let clean_name =
         match shade with
         | None -> Printf.sprintf "color-%s" color_name
         | Some s -> Printf.sprintf "color-%s-%d" color_name s
       in
-      Css.var ?layer ~meta clean_name Color value
-  | Translate_x -> Css.var ?layer ~meta n Length value
-  | Translate_y -> Css.var ?layer ~meta n Length value
-  | Translate_z -> Css.var ?layer ~meta n Length value
-  | Rotate -> Css.var ?layer ~meta n Angle value
-  | Skew_x -> Css.var ?layer ~meta n Angle value
-  | Skew_y -> Css.var ?layer ~meta n Angle value
-  | Scale_x -> Css.var ?layer ~meta n Float value
-  | Scale_y -> Css.var ?layer ~meta n Float value
-  | Scale_z -> Css.var ?layer ~meta n Float value
-  | Blur -> Css.var ?layer ~meta n Length value
-  | Brightness -> Css.var ?layer ~meta n Float value
-  | Contrast -> Css.var ?layer ~meta n Float value
-  | Grayscale -> Css.var ?layer ~meta n Float value
-  | Invert -> Css.var ?layer ~meta n Float value
-  | Saturate -> Css.var ?layer ~meta n Float value
-  | Sepia -> Css.var ?layer ~meta n Float value
-  | Hue_rotate -> Css.var ?layer ~meta n Angle value
-  | Drop_shadow -> Css.var ?layer ~meta n String value
-  | Drop_shadow_alpha -> Css.var ?layer ~meta n Float value
-  | Backdrop_blur -> Css.var ?layer ~meta n Length value
-  | Backdrop_brightness -> Css.var ?layer ~meta n Float value
-  | Backdrop_contrast -> Css.var ?layer ~meta n Float value
-  | Backdrop_grayscale -> Css.var ?layer ~meta n Float value
-  | Backdrop_invert -> Css.var ?layer ~meta n Float value
-  | Backdrop_saturate -> Css.var ?layer ~meta n Float value
-  | Backdrop_sepia -> Css.var ?layer ~meta n Float value
-  | Backdrop_opacity -> Css.var ?layer ~meta n Float value
-  | Backdrop_hue_rotate -> Css.var ?layer ~meta n Angle value
-  | Shadow -> Css.var ?layer ~meta n String value
-  | Inset_shadow -> Css.var ?layer ~meta n String value
-  | Ring_shadow -> Css.var ?layer ~meta n String value
-  | Inset_ring_shadow -> Css.var ?layer ~meta n String value
-  | Ring_inset -> Css.var ?layer ~meta n String value
-  | Ring_offset_shadow -> Css.var ?layer ~meta n String value
-  | Shadow_color -> Css.var ?layer ~meta n Color value
-  | Inset_shadow_color -> Css.var ?layer ~meta n Color value
-  | Ring_color -> Css.var ?layer ~meta n Color value
-  | Inset_ring_color -> Css.var ?layer ~meta n Color value
-  | Ring_offset_color -> Css.var ?layer ~meta n Color value
-  | Shadow_alpha -> Css.var ?layer ~meta n Float value
-  | Inset_shadow_alpha -> Css.var ?layer ~meta n Float value
-  | Ring_offset_width -> Css.var ?layer ~meta n Length value
-  | Gradient_from -> Css.var ?layer ~meta n Color value
-  | Gradient_via -> Css.var ?layer ~meta n Color value
-  | Gradient_to -> Css.var ?layer ~meta n Color value
-  | Gradient_stops -> Css.var ?layer ~meta n String value
-  | Gradient_via_stops -> Css.var ?layer ~meta n String value
-  | Gradient_position -> Css.var ?layer ~meta n String value
-  | Gradient_from_position -> Css.var ?layer ~meta n Float value
-  | Gradient_via_position -> Css.var ?layer ~meta n Float value
-  | Gradient_to_position -> Css.var ?layer ~meta n Float value
-  | Border_style -> Css.var ?layer ~meta n Border_style value
-  | Scroll_snap_strictness -> Css.var ?layer ~meta n String value
-  | Duration -> Css.var ?layer ~meta n Duration value
-  | Default_font_family -> Css.var ?layer ~meta n String value
-  | Default_mono_font_family -> Css.var ?layer ~meta n String value
+      Css.var ?layer ?fallback ~meta clean_name Color value
+  | Translate_x -> var Length value
+  | Translate_y -> var Length value
+  | Translate_z -> var Length value
+  | Rotate -> var Angle value
+  | Skew_x -> var Angle value
+  | Skew_y -> var Angle value
+  | Scale_x -> var Float value
+  | Scale_y -> var Float value
+  | Scale_z -> var Float value
+  | Blur -> var Length value
+  | Brightness -> var Float value
+  | Contrast -> var Float value
+  | Grayscale -> var Float value
+  | Invert -> var Float value
+  | Saturate -> var Float value
+  | Sepia -> var Float value
+  | Hue_rotate -> var Angle value
+  | Drop_shadow -> var String value
+  | Drop_shadow_alpha -> var Float value
+  | Backdrop_blur -> var Length value
+  | Backdrop_brightness -> var Float value
+  | Backdrop_contrast -> var Float value
+  | Backdrop_grayscale -> var Float value
+  | Backdrop_invert -> var Float value
+  | Backdrop_saturate -> var Float value
+  | Backdrop_sepia -> var Float value
+  | Backdrop_opacity -> var Float value
+  | Backdrop_hue_rotate -> var Angle value
+  | Shadow -> var String value
+  | Inset_shadow -> var String value
+  | Ring_shadow -> var String value
+  | Inset_ring_shadow -> var String value
+  | Ring_inset -> var String value
+  | Ring_offset_shadow -> var String value
+  | Shadow_color -> var Color value
+  | Inset_shadow_color -> var Color value
+  | Ring_color -> var Color value
+  | Inset_ring_color -> var Color value
+  | Ring_offset_color -> var Color value
+  | Shadow_alpha -> var Float value
+  | Inset_shadow_alpha -> var Float value
+  | Ring_offset_width -> var Length value
+  (* Prose vars *)
+  | Prose_body -> var Color value
+  | Prose_headings -> var Color value
+  | Prose_code -> var Color value
+  | Prose_pre_code -> var Color value
+  | Prose_pre_bg -> var Color value
+  | Prose_th_borders -> var Color value
+  | Prose_td_borders -> var Color value
+  | Prose_links -> var Color value
+  | Prose_quotes -> var Color value
+  | Prose_quote_borders -> var Color value
+  | Prose_hr -> var Color value
+  | Prose_bold -> var Color value
+  | Prose_lead -> var Color value
+  | Prose_counters -> var Color value
+  | Prose_bullets -> var Color value
+  | Prose_captions -> var Color value
+  | Ring_width -> var Length value
+  | Gradient_from -> var Color value
+  | Gradient_via -> var Color value
+  | Gradient_to -> var Color value
+  | Gradient_stops -> var String value
+  | Gradient_via_stops -> var String value
+  | Gradient_position -> var String value
+  | Gradient_from_position -> var Float value
+  | Gradient_via_position -> var Float value
+  | Gradient_to_position -> var Float value
+  | Border_style -> var Border_style value
+  | Scroll_snap_strictness -> var Scroll_snap_strictness value
+  | Duration -> var Duration value
+  | Default_font_family -> var Font_family value
+  | Default_mono_font_family -> var Font_family value
+  | Default_font_feature_settings -> var Font_feature_settings value
+  | Default_font_variation_settings -> var Font_variation_settings value
+  | Default_mono_font_feature_settings -> var Font_feature_settings value
+  | Default_mono_font_variation_settings -> var Font_variation_settings value
 
 (** Compare two any-wrapped variables *)
-let compare_any a b =
-  (* Special handling for Color variants *)
-  match (a, b) with
-  | Any (Color (name_a, shade_a)), Any (Color (name_b, shade_b)) ->
-      let name_cmp =
-        Int.compare
-          (canonical_color_order name_a)
-          (canonical_color_order name_b)
-      in
-      if name_cmp <> 0 then name_cmp
-      else Option.compare Int.compare shade_a shade_b
-  | _ ->
-      (* Use polymorphic compare directly *)
-      Stdlib.compare a b
+(* Internal compare for sets was removed with Var-inference cleanup. *)
 
-module S = Set.Make (String)
-
-(* Set module for Var.any *)
-module Set = Stdlib.Set.Make (struct
-  type t = any
-
-  let compare = compare_any (* Use the any-wrapped compare function *)
-end)
-
-(* Helper to match CSS variable names to our typed variables *)
-let var_of_name name =
-  match name with
-  | "--spacing" -> Some (Any Spacing)
-  | "--font-sans" -> Some (Any Font_sans)
-  | "--font-serif" -> Some (Any Font_serif)
-  | "--font-mono" -> Some (Any Font_mono)
-  | "--tw-font-weight" -> Some (Any Font_weight)
-  | "--tw-leading" -> Some (Any Leading)
-  | "--text-xs" -> Some (Any Text_xs)
-  | "--text-xs--line-height" -> Some (Any Text_xs_line_height)
-  | "--text-sm" -> Some (Any Text_sm)
-  | "--text-sm--line-height" -> Some (Any Text_sm_line_height)
-  | "--text-base" -> Some (Any Text_base)
-  | "--text-base--line-height" -> Some (Any Text_base_line_height)
-  | "--text-lg" -> Some (Any Text_lg)
-  | "--text-lg--line-height" -> Some (Any Text_lg_line_height)
-  | "--text-xl" -> Some (Any Text_xl)
-  | "--text-xl--line-height" -> Some (Any Text_xl_line_height)
-  | "--text-2xl" -> Some (Any Text_2xl)
-  | "--text-2xl--line-height" -> Some (Any Text_2xl_line_height)
-  | "--text-3xl" -> Some (Any Text_3xl)
-  | "--text-3xl--line-height" -> Some (Any Text_3xl_line_height)
-  | "--text-4xl" -> Some (Any Text_4xl)
-  | "--text-4xl--line-height" -> Some (Any Text_4xl_line_height)
-  | "--text-5xl" -> Some (Any Text_5xl)
-  | "--text-5xl--line-height" -> Some (Any Text_5xl_line_height)
-  | "--text-6xl" -> Some (Any Text_6xl)
-  | "--text-6xl--line-height" -> Some (Any Text_6xl_line_height)
-  | "--text-7xl" -> Some (Any Text_7xl)
-  | "--text-7xl--line-height" -> Some (Any Text_7xl_line_height)
-  | "--text-8xl" -> Some (Any Text_8xl)
-  | "--text-8xl--line-height" -> Some (Any Text_8xl_line_height)
-  | "--text-9xl" -> Some (Any Text_9xl)
-  | "--text-9xl--line-height" -> Some (Any Text_9xl_line_height)
-  | "--font-weight-thin" -> Some (Any Font_weight_thin)
-  | "--font-weight-extralight" -> Some (Any Font_weight_extralight)
-  | "--font-weight-light" -> Some (Any Font_weight_light)
-  | "--font-weight-normal" -> Some (Any Font_weight_normal)
-  | "--font-weight-medium" -> Some (Any Font_weight_medium)
-  | "--font-weight-semibold" -> Some (Any Font_weight_semibold)
-  | "--font-weight-bold" -> Some (Any Font_weight_bold)
-  | "--font-weight-extrabold" -> Some (Any Font_weight_extrabold)
-  | "--font-weight-black" -> Some (Any Font_weight_black)
-  | "--radius-none" -> Some (Any Radius_none)
-  | "--radius-sm" -> Some (Any Radius_sm)
-  | "--radius-default" -> Some (Any Radius_default)
-  | "--radius-md" -> Some (Any Radius_md)
-  | "--radius-lg" -> Some (Any Radius_lg)
-  | "--radius-xl" -> Some (Any Radius_xl)
-  | "--radius-2xl" -> Some (Any Radius_2xl)
-  | "--radius-3xl" -> Some (Any Radius_3xl)
-  | "--tw-translate-x" -> Some (Any Translate_x)
-  | "--tw-translate-y" -> Some (Any Translate_y)
-  | "--tw-translate-z" -> Some (Any Translate_z)
-  | "--tw-rotate" -> Some (Any Rotate)
-  | "--tw-skew-x" -> Some (Any Skew_x)
-  | "--tw-skew-y" -> Some (Any Skew_y)
-  | "--tw-scale-x" -> Some (Any Scale_x)
-  | "--tw-scale-y" -> Some (Any Scale_y)
-  | "--tw-scale-z" -> Some (Any Scale_z)
-  | "--tw-blur" -> Some (Any Blur)
-  | "--tw-brightness" -> Some (Any Brightness)
-  | "--tw-contrast" -> Some (Any Contrast)
-  | "--tw-grayscale" -> Some (Any Grayscale)
-  | "--tw-hue-rotate" -> Some (Any Hue_rotate)
-  | "--tw-invert" -> Some (Any Invert)
-  | "--tw-saturate" -> Some (Any Saturate)
-  | "--tw-sepia" -> Some (Any Sepia)
-  | "--tw-drop-shadow" -> Some (Any Drop_shadow)
-  | "--tw-drop-shadow-alpha" -> Some (Any Drop_shadow_alpha)
-  | "--tw-backdrop-blur" -> Some (Any Backdrop_blur)
-  | "--tw-backdrop-brightness" -> Some (Any Backdrop_brightness)
-  | "--tw-backdrop-contrast" -> Some (Any Backdrop_contrast)
-  | "--tw-backdrop-grayscale" -> Some (Any Backdrop_grayscale)
-  | "--tw-backdrop-hue-rotate" -> Some (Any Backdrop_hue_rotate)
-  | "--tw-backdrop-invert" -> Some (Any Backdrop_invert)
-  | "--tw-backdrop-saturate" -> Some (Any Backdrop_saturate)
-  | "--tw-backdrop-sepia" -> Some (Any Backdrop_sepia)
-  | "--tw-backdrop-opacity" -> Some (Any Backdrop_opacity)
-  | "--tw-shadow" -> Some (Any Shadow)
-  | "--tw-shadow-color" -> Some (Any Shadow_color)
-  | "--tw-shadow-alpha" -> Some (Any Shadow_alpha)
-  | "--tw-inset-shadow" -> Some (Any Inset_shadow)
-  | "--tw-inset-shadow-color" -> Some (Any Inset_shadow_color)
-  | "--tw-inset-shadow-alpha" -> Some (Any Inset_shadow_alpha)
-  | "--tw-ring-color" -> Some (Any Ring_color)
-  | "--tw-ring-shadow" -> Some (Any Ring_shadow)
-  | "--tw-inset-ring-color" -> Some (Any Inset_ring_color)
-  | "--tw-inset-ring-shadow" -> Some (Any Inset_ring_shadow)
-  | "--tw-ring-inset" -> Some (Any Ring_inset)
-  | "--tw-ring-offset-width" -> Some (Any Ring_offset_width)
-  | "--tw-ring-offset-color" -> Some (Any Ring_offset_color)
-  | "--tw-ring-offset-shadow" -> Some (Any Ring_offset_shadow)
-  | "--tw-gradient-from" -> Some (Any Gradient_from)
-  | "--tw-gradient-via" -> Some (Any Gradient_via)
-  | "--tw-gradient-to" -> Some (Any Gradient_to)
-  | "--tw-gradient-stops" -> Some (Any Gradient_stops)
-  | "--tw-gradient-via-stops" -> Some (Any Gradient_via_stops)
-  | "--tw-gradient-position" -> Some (Any Gradient_position)
-  | "--tw-gradient-from-position" -> Some (Any Gradient_from_position)
-  | "--tw-gradient-via-position" -> Some (Any Gradient_via_position)
-  | "--tw-gradient-to-position" -> Some (Any Gradient_to_position)
-  | "--tw-border-style" -> Some (Any Border_style)
-  | "--tw-scroll-snap-strictness" -> Some (Any Scroll_snap_strictness)
-  | "--tw-duration" -> Some (Any Duration)
-  | "--default-font-family" -> Some (Any Default_font_family)
-  | "--default-mono-font-family" -> Some (Any Default_mono_font_family)
-  | _ when String.starts_with ~prefix:"--color-" name -> (
-      (* Parse color variables like "--color-blue-500" *)
-      let color_part = String.sub name 8 (String.length name - 8) in
-      let parts = String.split_on_char '-' color_part in
-      match parts with
-      | [ name ] -> Some (Any (Color (name, None)))
-      | name :: shade_str :: _ -> (
-          try Some (Any (Color (name, Some (int_of_string shade_str))))
-          with _ -> None)
-      | [] -> None)
-  | _ -> None
-
-(* Default initialisers for each group when a layer is needed *)
-
-(* Collect usages while compiling utilities *)
-type tally = {
-  assigned : Set.t; (* variables written by any used utility *)
-  fallback_refs : Set.t; (* variables only ever seen in fallbacks *)
-  (* Keep string sets for unknown variables that don't map to Var.t *)
-  unknown_assigned : S.t;
-  unknown_fallback_refs : S.t;
-}
-
-let empty =
-  {
-    assigned = Set.empty;
-    fallback_refs = Set.empty;
-    unknown_assigned = S.empty;
-    unknown_fallback_refs = S.empty;
-  }
-
-let tally_of_vars var_names =
-  List.fold_left
-    (fun (assigned, unknown) var_name ->
-      (* Try to match with our typed variables using var_of_name *)
-      match var_of_name var_name with
-      | Some var -> (Set.add var assigned, unknown)
-      | None ->
-          let clean_name =
-            if String.starts_with ~prefix:"--" var_name then
-              String.sub var_name 2 (String.length var_name - 2)
-            else var_name
-          in
-          (assigned, S.add clean_name unknown))
-    (Set.empty, S.empty) var_names
-  |> fun (assigned, unknown) ->
-  {
-    assigned;
-    fallback_refs = Set.empty;
-    unknown_assigned = unknown;
-    unknown_fallback_refs = S.empty;
-  }
-
-(* Canonical order for @property rules *)
-let canonical_property_order_vars : any list =
-  [
-    Any Gradient_position;
-    Any Gradient_from;
-    Any Gradient_via;
-    Any Gradient_to;
-    Any Gradient_stops;
-    Any Gradient_via_stops;
-    Any Gradient_from_position;
-    Any Gradient_via_position;
-    Any Gradient_to_position;
-    Any Font_weight;
-    Any Border_style;
-    Any Scroll_snap_strictness;
-    Any Shadow;
-    Any Shadow_color;
-    Any Shadow_alpha;
-    Any Inset_shadow;
-    Any Inset_shadow_color;
-    Any Inset_shadow_alpha;
-    Any Ring_color;
-    Any Ring_shadow;
-    Any Inset_ring_color;
-    Any Inset_ring_shadow;
-    Any Ring_inset;
-    Any Ring_offset_width;
-    Any Ring_offset_color;
-    Any Ring_offset_shadow;
-    Any Scale_x;
-    Any Scale_y;
-    Any Scale_z;
-    Any Leading;
-    Any Duration;
-  ]
-
-(* Get variables that need @property rules *)
-let needs_property_rule (t : tally) : any list =
-  (* Collect all variables that need @property rules *)
-  let all_vars = Set.union t.assigned t.fallback_refs in
-
-  (* Check if Ring_shadow group is needed *)
-  let needs_ring_shadow =
-    Set.exists
-      (fun (Any v) ->
-        match v with
-        | Shadow | Shadow_color | Shadow_alpha | Inset_shadow
-        | Inset_shadow_color | Inset_shadow_alpha | Ring_color | Ring_shadow
-        | Inset_ring_color | Inset_ring_shadow | Ring_inset | Ring_offset_width
-        | Ring_offset_color | Ring_offset_shadow ->
-            true
-        | _ -> false)
-      all_vars
-  in
-
-  (* Check if Gradient group is needed *)
-  let needs_gradient =
-    Set.exists
-      (fun (Any v) ->
-        match v with
-        | Gradient_position | Gradient_from | Gradient_via | Gradient_to
-        | Gradient_stops | Gradient_via_stops | Gradient_from_position
-        | Gradient_via_position | Gradient_to_position ->
-            true
-        | _ -> false)
-      all_vars
-  in
-
-  (* Check if Scale group is needed *)
-  let needs_scale =
-    Set.exists
-      (fun (Any v) ->
-        match v with Scale_x | Scale_y | Scale_z -> true | _ -> false)
-      all_vars
-  in
-
-  let needed =
-    (* If Ring_shadow group is needed, include ALL shadow/ring variables *)
-    let base_needed =
-      if needs_ring_shadow then
-        List.fold_left
-          (fun acc (Any v as wrapped) ->
-            match v with
-            | Shadow | Shadow_color | Shadow_alpha | Inset_shadow
-            | Inset_shadow_color | Inset_shadow_alpha | Ring_color | Ring_shadow
-            | Inset_ring_color | Inset_ring_shadow | Ring_inset
-            | Ring_offset_width | Ring_offset_color | Ring_offset_shadow ->
-                Set.add wrapped acc
-            | _ -> acc)
-          Set.empty canonical_property_order_vars
-      else Set.empty
-    in
-
-    (* If Gradient group is needed, include ALL gradient variables *)
-    let base_needed =
-      if needs_gradient then
-        List.fold_left
-          (fun acc (Any v as wrapped) ->
-            match v with
-            | Gradient_position | Gradient_from | Gradient_via | Gradient_to
-            | Gradient_stops | Gradient_via_stops | Gradient_from_position
-            | Gradient_via_position | Gradient_to_position ->
-                Set.add wrapped acc
-            | _ -> acc)
-          base_needed canonical_property_order_vars
-      else base_needed
-    in
-
-    (* If Scale group is needed, include ALL scale variables *)
-    let base_needed =
-      if needs_scale then
-        List.fold_left
-          (fun acc (Any v as wrapped) ->
-            match v with
-            | Scale_x | Scale_y | Scale_z -> Set.add wrapped acc
-            | _ -> acc)
-          base_needed canonical_property_order_vars
-      else base_needed
-    in
-
-    (* Add other needed variables *)
-    Set.fold
-      (fun (Any v as wrapped) acc ->
-        match v with
-        | Font_weight -> Set.add wrapped acc
-        (* Border style needs @property when referenced but not assigned *)
-        | Border_style when not (Set.mem wrapped t.assigned) ->
-            Set.add wrapped acc
-        (* Scroll snap strictness needs @property when used *)
-        | Scroll_snap_strictness -> Set.add wrapped acc
-        (* Leading needs @property only when assigned (not just referenced in
-           fallback) *)
-        | Leading when Set.mem wrapped t.assigned -> Set.add wrapped acc
-        (* Duration needs @property when used *)
-        | Duration -> Set.add wrapped acc
-        | _ -> acc)
-      all_vars base_needed
-  in
-
-  (* Filter canonical order list to only include needed vars *)
-  List.filter (fun v -> Set.mem v needed) canonical_property_order_vars
-
-(* Get @property configuration for a variable *)
-let property_rule_config (Any v) : (string * string * bool * string) option =
-  let name = to_string v in
-  match v with
-  | Font_weight -> Some (name, "*", false, "")
-  | Leading -> Some (name, "*", false, "")
-  | Duration -> Some (name, "*", false, "")
-  | Border_style -> Some (name, "*", false, "solid")
-  | Scroll_snap_strictness -> Some (name, "*", false, "proximity")
-  (* Shadow variables *)
-  | Shadow | Inset_shadow | Ring_shadow | Inset_ring_shadow | Ring_offset_shadow
-    ->
-      Some (name, "*", false, "0 0 #0000")
-  | Shadow_color | Inset_shadow_color | Ring_color | Inset_ring_color
-  | Ring_inset ->
-      Some (name, "*", false, "")
-  | Shadow_alpha | Inset_shadow_alpha ->
-      Some (name, "<percentage>", false, "100%")
-  | Ring_offset_width -> Some (name, "<length>", false, "0")
-  | Ring_offset_color -> Some (name, "*", false, "#fff")
-  (* Gradient variables *)
-  | Gradient_position | Gradient_stops | Gradient_via_stops ->
-      Some (name, "*", false, "")
-  | Gradient_from | Gradient_via | Gradient_to ->
-      Some (name, "<color>", false, "#0000")
-  | Gradient_from_position -> Some (name, "<length-percentage>", false, "0%")
-  | Gradient_to_position -> Some (name, "<length-percentage>", false, "100%")
-  | Gradient_via_position -> Some (name, "<length-percentage>", false, "50%")
-  (* Scale transform variables *)
-  | Scale_x | Scale_y | Scale_z -> Some (name, "*", false, "1")
-  | _ -> None
+(* Variables are owned and registered by utility modules. Var focuses on typed
+   definitions, layering, and ordering. *)
 
 (* Layer-specific variable constructors *)
-let theme : type a. a t -> a -> Css.declaration * a Css.var =
- fun var_t value -> def var_t ~layer:Theme value
+let theme : type a. a t -> ?fallback:a -> a -> Css.declaration * a Css.var =
+ fun var_t ?fallback value -> def ?fallback var_t ~layer:Theme value
 
-let base : type a. a t -> a -> Css.declaration * a Css.var =
- fun var_t value -> def var_t ~layer:Base value
-
-let properties : type a. a t -> a -> Css.declaration * a Css.var =
- fun var_t value -> def var_t ~layer:Properties value
-
-let utility : type a. a t -> a -> Css.declaration * a Css.var =
- fun var_t value -> def var_t ~layer:Utility value
+let utility : type a. a t -> ?fallback:a -> a -> Css.declaration * a Css.var =
+ fun var_t ?fallback value -> def ?fallback var_t ~layer:Utility value
 
 (* Create @property rule for a variable *)
 let property : type a.
@@ -1030,38 +697,6 @@ let property : type a.
  fun var_t ~syntax ~inherits ~initial ->
   let var_name = to_string var_t in
   Css.property ~name:var_name ~syntax ~inherits ~initial_value:initial ()
-
-(* Generate default font variables as declarations and handles *)
-let default_font_variables () =
-  (* Define font-sans and font-mono first, so we can reference them *)
-  let font_sans_def, font_sans_var =
-    theme Font_sans
-      "ui-sans-serif,system-ui,sans-serif,\"Apple Color Emoji\",\"Segoe UI \
-       Emoji\",\"Segoe UI Symbol\",\"Noto Color Emoji\""
-  in
-  let font_mono_def, font_mono_var =
-    theme Font_mono
-      "ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation \
-       Mono\",\"Courier New\",monospace"
-  in
-  (* Now use typed references via var_to_string *)
-  let default_font_def, _ =
-    theme Default_font_family (Css.var_to_string font_sans_var)
-  in
-  let default_mono_def, _ =
-    theme Default_mono_font_family (Css.var_to_string font_mono_var)
-  in
-  [
-    (font_sans_def, font_sans_var);
-    (font_mono_def, font_mono_var);
-    (default_font_def, font_sans_var);
-    (* Use font_sans_var as the handle since that's what it refers to *)
-    (default_mono_def, font_mono_var);
-    (* Use font_mono_var as the handle since that's what it refers to *)
-  ]
-
-(* Generate default font variable declarations for theme layer *)
-let default_font_declarations () = List.map fst (default_font_variables ())
 
 (* Canonical list of theme variables in order *)
 let canonical_theme_order =
@@ -1072,34 +707,68 @@ let canonical_theme_order =
     Any Font_mono;
     (* Spacing comes between font-mono and default-font in Tailwind *)
     Any Spacing;
-    Any Default_font_family;
-    Any Default_mono_font_family;
     (* Add more as needed - this is just the critical ones for now *)
   ]
 
-(* Helper to compare declarations by variable name when no metadata exists *)
-let compare_by_name layer d1 d2 =
-  match (Css.custom_declaration_name d1, Css.custom_declaration_name d2) with
-  | Some n1, Some n2 -> (
-      (* Try to match variable names to typed variables *)
-      match (var_of_name n1, var_of_name n2) with
-      | Some v1, Some v2 -> compare_for layer v1 v2
-      | _ -> String.compare n1 n2)
-  | _ -> 0
+(* Convert a CSS variable name to a typed variable *)
+(* No name→typed mapping is exposed here. *)
 
-(** Compare two CSS declarations by extracting their metadata *)
+(** Helper for metadata errors *)
+let err_meta ~layer decl msg =
+  let name =
+    Option.value ~default:"<unnamed>" (Css.custom_declaration_name decl)
+  in
+  let layer_str = layer_name layer in
+  let accessor = match layer with Theme -> "theme" | Utility -> "utility" in
+  failwith
+    (Pp.str
+       [
+         msg;
+         " for '";
+         name;
+         "' in ";
+         layer_str;
+         " layer. Define this variable via Var.";
+         accessor;
+         " to attach Var metadata (e.g., Var.theme/base/properties/utility).";
+       ])
+
+(** Compare two CSS declarations by extracting their metadata. *)
+
 let compare_declarations layer d1 d2 =
-  let _, proj = Css.meta () in
-  let meta1 = Css.declaration_meta d1 in
-  let meta2 = Css.declaration_meta d2 in
-  match (meta1, meta2) with
-  | None, None -> compare_by_name layer d1 d2
-  | None, Some _ -> compare_by_name layer d1 d2 (* Use name-based comparison *)
-  | Some _, None -> compare_by_name layer d1 d2 (* Use name-based comparison *)
+  match (Css.declaration_meta d1, Css.declaration_meta d2) with
   | Some m1, Some m2 -> (
-      (* Try to extract the typed variable from metadata *)
-      match ((proj m1 : any option), (proj m2 : any option)) with
-      | None, None -> 0
-      | None, Some _ -> 1
-      | Some _, None -> -1
-      | Some v1, Some v2 -> compare_for layer v1 v2)
+      match (var_of_meta m1, var_of_meta m2) with
+      | Some v1, Some v2 -> compare_for layer v1 v2
+      | Some _, None ->
+          err_meta ~layer d2 "Invalid Var metadata (var_of_meta failed)"
+      | None, Some _ ->
+          err_meta ~layer d1 "Invalid Var metadata (var_of_meta failed)"
+      | None, None ->
+          failwith "Both declarations have metadata but var_of_meta failed")
+  | Some _, None -> err_meta ~layer d2 "Missing Var metadata"
+  | None, Some _ -> err_meta ~layer d1 "Missing Var metadata"
+  | None, None ->
+      let n1 =
+        Option.value ~default:"<unnamed>" (Css.custom_declaration_name d1)
+      in
+      let n2 =
+        Option.value ~default:"<unnamed>" (Css.custom_declaration_name d2)
+      in
+      let layer_str = layer_name layer in
+      let accessor =
+        match layer with Theme -> "theme" | Utility -> "utility"
+      in
+      failwith
+        (Pp.str
+           [
+             "Missing Var metadata for '";
+             n1;
+             "' and '";
+             n2;
+             "' in ";
+             layer_str;
+             " layer. Define these variables via Var.";
+             accessor;
+             " to attach metadata.";
+           ])

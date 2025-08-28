@@ -18,10 +18,8 @@
 open Core
 open Css
 
-let _tw_ring_width_def, _tw_ring_width_var = var "tw-ring-width" Length (Px 3)
-
-let _tw_ring_color_def, _tw_ring_color_var =
-  var "tw-ring-color" Color (Rgba { r = 59; g = 130; b = 246; a = 0.5 })
+(* Note: Ring utilities create their own width/color variables as needed. Each
+   ring size has its own width, and colors are set per-utility. *)
 
 (* Note: blend modes are emitted directly as properties; no custom property is
    used for mix-blend-mode to avoid redundant defaults. *)
@@ -228,9 +226,9 @@ let ring_internal (w : ring_width) =
     | "8px" -> Px 8
     | _ -> Px 3
   in
-  let width_def, width_var = var "tw-ring-width" Length width_len in
+  let width_def, width_var = Var.utility Var.Ring_width width_len in
   let color_def, color_var =
-    var "tw-ring-color" Color (Rgba { r = 59; g = 130; b = 246; a = 0.5 })
+    Var.utility Var.Ring_color (Rgba { r = 59; g = 130; b = 246; a = 0.5 })
   in
   style class_name
     [
