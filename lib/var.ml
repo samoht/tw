@@ -12,7 +12,10 @@
    `canonical_order`/`compare` ensure stable, human‑friendly ordering in the
    generated CSS. *)
 
-(* Layer classification for CSS variables *)
+(* Layer classification for CSS variables Note: [Properties] refers to the
+   cascade layer used to host default values for composition variables. It is
+   distinct from the CSS [@property] at‑rule, which is handled separately in Css
+   as top‑level registrations. *)
 type layer = Theme | Base | Properties | Utility
 
 (* CSS variable type as a GADT for type safety. The order is meaninful and will
@@ -850,7 +853,7 @@ let canonical_property_order_vars : any list =
   ]
 
 (* Get variables that need @property rules *)
-let needs_at_property (t : tally) : any list =
+let needs_property_rule (t : tally) : any list =
   (* Collect all variables that need @property rules *)
   let all_vars = Set.union t.assigned t.fallback_refs in
 
@@ -956,7 +959,7 @@ let needs_at_property (t : tally) : any list =
   List.filter (fun v -> Set.mem v needed) canonical_property_order_vars
 
 (* Get @property configuration for a variable *)
-let at_property_config (Any v) : (string * string * bool * string) option =
+let property_rule_config (Any v) : (string * string * bool * string) option =
   let name = to_string v in
   match v with
   | Font_weight -> Some (name, "*", false, "")
@@ -987,9 +990,26 @@ let at_property_config (Any v) : (string * string * bool * string) option =
   | Scale_x | Scale_y | Scale_z -> Some (name, "*", false, "1")
   | _ -> None
 
-(* Create a theme layer variable *)
+(* Layer-specific variable constructors *)
 let theme : type a. a t -> a -> Css.declaration * a Css.var =
  fun var_t value -> def var_t ~layer:Theme value
+
+let base : type a. a t -> a -> Css.declaration * a Css.var =
+ fun var_t value -> def var_t ~layer:Base value
+
+let properties : type a. a t -> a -> Css.declaration * a Css.var =
+ fun var_t value -> def var_t ~layer:Properties value
+
+let utility : type a. a t -> a -> Css.declaration * a Css.var =
+ fun var_t value -> def var_t ~layer:Utility value
+
+(* Create @property rule for a variable *)
+let property : type a.
+    a t -> syntax:string -> inherits:bool -> initial:string -> Css.property_rule
+    =
+ fun var_t ~syntax ~inherits ~initial ->
+  let var_name = to_string var_t in
+  Css.property ~name:var_name ~syntax ~inherits ~initial_value:initial ()
 
 (* Generate default font variables as declarations and handles *)
 let default_font_variables () =

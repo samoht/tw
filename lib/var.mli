@@ -133,6 +133,23 @@ val name : _ t -> string
 val theme : 'a t -> 'a -> Css.declaration * 'a Css.var
 (** Create a theme layer variable (colors, spacing, fonts, radius) *)
 
+val base : 'a t -> 'a -> Css.declaration * 'a Css.var
+(** Create a base layer variable *)
+
+val properties : 'a t -> 'a -> Css.declaration * 'a Css.var
+(** Create a properties layer variable (for composition variables with defaults)
+*)
+
+val utility : 'a t -> 'a -> Css.declaration * 'a Css.var
+(** Create a utility layer variable *)
+
+val property :
+  'a t -> syntax:string -> inherits:bool -> initial:string -> Css.property_rule
+(** Create an @property rule for a variable.
+    @param syntax The property syntax (e.g., "*", "<color>", "<length>")
+    @param inherits Whether the property inherits
+    @param initial The initial value *)
+
 val layer : _ Css.var -> layer option
 (** Get the layer from a CSS variable *)
 
@@ -149,8 +166,8 @@ type tally
 
 val empty : tally
 val tally_of_vars : string list -> tally
-val needs_at_property : tally -> any list
-val at_property_config : any -> (string * string * bool * string) option
+val needs_property_rule : tally -> any list
+val property_rule_config : any -> (string * string * bool * string) option
 
 val default_font_declarations : unit -> Css.declaration list
 (** Generate default font variable declarations for theme layer *)

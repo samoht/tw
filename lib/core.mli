@@ -51,6 +51,7 @@ type t =
       name : string;
       props : Css.declaration list;
       rules : Css.rule list option;
+      property_rules : Css.property_rule list;
     }
   | Modified of modifier * t
   | Group of t list
@@ -62,10 +63,17 @@ type scale = [ spacing | size | `Screen | `Min | `Max | `Fit ]
 type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
-val style : ?rules:Css.rule list option -> string -> Css.declaration list -> t
-(** [style ?rules name props] defines a utility [name] with CSS [props].
+val style :
+  ?rules:Css.rule list option ->
+  ?property_rules:Css.property_rule list ->
+  string ->
+  Css.declaration list ->
+  t
+(** [style ?rules ?property_rules name props] defines a utility [name] with CSS
+    [props].
     - [rules]: Optional custom CSS rules (for utilities like prose that generate
       multiple rules with descendant selectors).
+    - [property_rules]: Optional CSS property rules needed by this utility.
     - [name]: The CSS class name.
     - [props]: CSS properties to apply. *)
 

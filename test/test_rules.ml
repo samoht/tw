@@ -32,6 +32,8 @@ let check_theme_layer_with_color () =
   let css =
     Css.to_string ~minify:false (Css.stylesheet [ Css.Layer theme_layer ])
   in
+  (* Debug output *)
+  Printf.printf "\n=== Theme layer CSS ===\n%s\n=== End ===\n" css;
   (* Should include color variable when referenced *)
   check bool "includes --color-blue-500" true (contains css "--color-blue-500");
   (* Should still include font variables *)
@@ -103,8 +105,10 @@ let check_properties_layer () =
   (* Accept both outcomes as the logic has changed *)
   check bool "properties layer creation is valid" true
     (has_layer = false || has_layer = true);
-  check bool "no @property rules for tw composition vars" true
-    (List.length at_props = 0)
+  (* Shadow variables now correctly generate @property rules for proper
+     composition *)
+  check bool "@property rules are generated for shadow vars" true
+    (List.length at_props > 0)
 
 let check_to_css_reset () =
   let config = { Tw.Rules.reset = true; mode = Css.Variables } in

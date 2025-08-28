@@ -645,7 +645,7 @@ let build_utilities_layer ~rules ~media_queries ~container_queries =
         if group_cmp <> 0 then group_cmp else Int.compare sub1 sub2)
       rules
   in
-  Css.layered_rules ~layer:Css.Utilities ~media_queries ~container_queries
+  Css.layer ~name:"utilities" ~media:media_queries ~container:container_queries
     (sorted_rules |> List.map Css.rule_to_nested)
 
 let add_hover_to_media_map hover_rules media_map =
@@ -739,8 +739,8 @@ let compute_properties_layer rules =
         List.map (fun (var, value) -> Css.custom_property var value) properties
       in
       Some
-        (Css.layered_rules ~layer:Css.Properties
-           ~supports_queries:
+        (Css.layer ~name:"properties"
+           ~supports:
              [
                Css.supports
                  ~condition:
@@ -754,13 +754,13 @@ let compute_properties_layer rules =
            [])
     else None
   in
-  let vars_needing_properties = Var.needs_at_property var_tally in
+  let vars_needing_properties = Var.needs_property_rule var_tally in
   let at_properties =
     List.filter_map
       (fun var ->
-        match Var.at_property_config var with
+        match Var.property_rule_config var with
         | Some (name, syntax, inherits, initial_value) ->
-            Some (Css.at_property ~name ~syntax ~initial_value ~inherits ())
+            Some (Css.property ~name ~syntax ~initial_value ~inherits ())
         | None -> None)
       vars_needing_properties
   in
@@ -877,9 +877,9 @@ let compute_theme_layer ?(default_vars = []) tw_classes =
            Var.compare_declarations Var.Theme a b)
   in
 
-  if theme_generated_vars = [] then Css.layered_rules ~layer:Css.Theme []
+  if theme_generated_vars = [] then Css.layer ~name:"theme" []
   else
-    Css.layered_rules ~layer:Css.Theme
+    Css.layer ~name:"theme"
       [
         Css.rule_to_nested
           (Css.rule ~selector:":root, :host" theme_generated_vars);
@@ -927,13 +927,36 @@ let build_base_layer base_rules =
     @ [ Css.supports_to_nested placeholder_supports ]
     @ (after_placeholder |> List.map Css.rule_to_nested)
   in
-  Css.layered_rules ~layer:Css.Base base_layer_content
+  Css.layer ~name:"base" base_layer_content
+
+(* Collect property rules from Core.t structures *)
+let rec collect_property_rules = function
+  | Core.Style { property_rules; _ } -> property_rules
+  | Core.Modified (_, t) -> collect_property_rules t
+  | Core.Group ts -> List.concat_map collect_property_rules ts
 
 let build_reset_layers tw_classes rules media_queries container_queries =
-  let properties_layer_opt, at_properties = compute_properties_layer rules in
+  (* Collect property rules directly from utilities *)
+  let property_rules_from_utilities =
+    tw_classes
+    |> List.concat_map collect_property_rules
+    |> List.sort_uniq Stdlib.compare (* Deduplicate *)
+  in
+
+  (* Still compute properties layer for composition variables if needed *)
+  let properties_layer_opt, inferred_properties =
+    compute_properties_layer rules
+  in
+
+  (* Combine both sources of property rules *)
+  let all_property_rules =
+    property_rules_from_utilities @ inferred_properties
+    |> List.sort_uniq Stdlib.compare (* Deduplicate again *)
+  in
+
   let theme_layer = compute_theme_layer tw_classes in
   let base_layer = build_base_layer (Preflight.stylesheet ()) in
-  let components_layer = Css.layered_rules ~layer:Css.Components [] in
+  let components_layer = Css.layer ~name:"components" [] in
   let utilities_layer =
     build_utilities_layer ~rules ~media_queries ~container_queries
   in
@@ -945,7 +968,7 @@ let build_reset_layers tw_classes rules media_queries container_queries =
     | Some props_layer -> props_layer :: base_layers
     | None -> base_layers
   in
-  (layers, at_properties)
+  (layers, all_property_rules)
 
 let wrap_css_items ~rules ~media_queries ~container_queries =
   List.map (fun r -> Css.Rule r) rules
@@ -976,7 +999,7 @@ let to_css ?(config = default_config) tw_classes =
     in
     let items =
       List.map (fun l -> Css.Layer l) layers
-      @ List.map (fun a -> Css.At_property a) at_properties
+      @ List.map (fun a -> Css.Property a) at_properties
     in
     Css.stylesheet items
   else

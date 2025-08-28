@@ -905,30 +905,27 @@ let is_custom_color = function Hex _ | Rgb _ | Oklch _ -> true | _ -> false
 
 (** Background color utilities *)
 
+(* Helper to create a color variable with proper tracking *)
+let get_color_var color shade =
+  let default_color =
+    to_css color (if is_base_color color then 500 else shade)
+  in
+  Var.theme
+    (Var.Color (pp color, if is_base_color color then None else Some shade))
+    default_color
+
 let bg color shade =
   let class_name =
     if is_base_color color || is_custom_color color then
       Pp.str [ "bg-"; pp color ]
     else Pp.str [ "bg-"; pp color; "-"; string_of_int shade ]
   in
-  (* For custom colors (hex, rgb, oklch), use direct values; for others use CSS
-     variables *)
   if is_custom_color color then
-    (* Convert to proper color constructor *)
     let css_color = to_css color shade in
     style class_name [ Css.background_color css_color ]
   else
-    (* Use CSS variable reference with proper default value *)
-    let var_name =
-      if is_base_color color then Pp.str [ "color-"; pp color ]
-      else Pp.str [ "color-"; pp color; "-"; string_of_int shade ]
-    in
-    (* Get the actual color value as the default for the CSS variable *)
-    let default_color =
-      to_css color (if is_base_color color then 500 else shade)
-    in
-    let _def, css_var = Css.var var_name Color default_color in
-    style class_name [ Css.background_color (Css.Var css_var) ]
+    let var_def, css_var = get_color_var color shade in
+    style class_name [ var_def; Css.background_color (Css.Var css_var) ]
 
 let bg_transparent = style "bg-transparent" [ background_color Transparent ]
 let bg_current = style "bg-current" [ background_color Current ]
@@ -967,24 +964,12 @@ let text color shade =
       Pp.str [ "text-"; pp color ]
     else Pp.str [ "text-"; pp color; "-"; string_of_int shade ]
   in
-  (* For custom colors (hex, rgb, oklch), use direct values; for others use CSS
-     variables *)
   if is_custom_color color then
-    (* Convert to proper color constructor *)
     let css_color = to_css color shade in
     style class_name [ Css.color css_color ]
   else
-    (* Use CSS variable reference with proper default value *)
-    let var_name =
-      if is_base_color color then Pp.str [ "color-"; pp color ]
-      else Pp.str [ "color-"; pp color; "-"; string_of_int shade ]
-    in
-    (* Get the actual color value as the default for the CSS variable *)
-    let default_color =
-      to_css color (if is_base_color color then 500 else shade)
-    in
-    let css_def, css_var = Css.var var_name Color default_color in
-    style class_name [ css_def; Css.color (Css.Var css_var) ]
+    let var_def, css_var = get_color_var color shade in
+    style class_name [ var_def; Css.color (Css.Var css_var) ]
 
 let text_transparent = style "text-transparent" [ Css.color Transparent ]
 let text_current = style "text-current" [ Css.color Current ]
@@ -1024,24 +1009,12 @@ let border_color color shade =
       Pp.str [ "border-"; pp color ]
     else Pp.str [ "border-"; pp color; "-"; string_of_int shade ]
   in
-  (* For custom colors (hex, rgb, oklch), use direct values; for others use CSS
-     variables *)
   if is_custom_color color then
-    (* Convert to proper color constructor *)
     let css_color = to_css color shade in
     style class_name [ Css.border_color css_color ]
   else
-    (* Use CSS variable reference with proper default value *)
-    let var_name =
-      if is_base_color color then Pp.str [ "color-"; pp color ]
-      else Pp.str [ "color-"; pp color; "-"; string_of_int shade ]
-    in
-    (* Get the actual color value as the default for the CSS variable *)
-    let default_color =
-      to_css color (if is_base_color color then 500 else shade)
-    in
-    let css_def, css_var = Css.var var_name Color default_color in
-    style class_name [ css_def; Css.border_color (Css.Var css_var) ]
+    let var_def, css_var = get_color_var color shade in
+    style class_name [ var_def; Css.border_color (Css.Var css_var) ]
 
 let border_transparent =
   style "border-transparent" [ Css.border_color Transparent ]
