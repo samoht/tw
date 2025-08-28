@@ -419,7 +419,9 @@ val font_mono_var : Css.font_family list Css.var
 (** [font_mono_var] is the CSS variable for the monospace font family. *)
 
 val default_font_declarations : Css.declaration list
-(** Default font variable declarations for the theme layer. *)
+(** [default_font_declarations] are the default font variable declarations for
+    the theme layer. *)
 
 val default_font_family_declarations : Css.declaration list
-(** Default font-family variable declarations for the theme layer. *)
+(** [default_font_family_declarations] are the default font-family variable
+    declarations for the theme layer. *)
