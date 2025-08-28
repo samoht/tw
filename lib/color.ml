@@ -908,7 +908,7 @@ let is_custom_color = function Hex _ | Rgb _ | Oklch _ -> true | _ -> false
 (** Background color utilities *)
 
 (* Helper to create a color variable with proper tracking *)
-let get_color_var color shade =
+let color_var color shade =
   let default_color =
     to_css color (if is_base_color color then 500 else shade)
   in
@@ -926,7 +926,7 @@ let bg color shade =
     let css_color = to_css color shade in
     style class_name [ Css.background_color css_color ]
   else
-    let var_def, css_var = get_color_var color shade in
+    let var_def, css_var = color_var color shade in
     style class_name [ var_def; Css.background_color (Css.Var css_var) ]
 
 let bg_transparent = style "bg-transparent" [ background_color Transparent ]
@@ -970,7 +970,7 @@ let text color shade =
     let css_color = to_css color shade in
     style class_name [ Css.color css_color ]
   else
-    let var_def, css_var = get_color_var color shade in
+    let var_def, css_var = color_var color shade in
     style class_name [ var_def; Css.color (Css.Var css_var) ]
 
 let text_transparent = style "text-transparent" [ Css.color Transparent ]
@@ -1015,7 +1015,7 @@ let border_color color shade =
     let css_color = to_css color shade in
     style class_name [ Css.border_color css_color ]
   else
-    let var_def, css_var = get_color_var color shade in
+    let var_def, css_var = color_var color shade in
     style class_name [ var_def; Css.border_color (Css.Var css_var) ]
 
 let border_transparent =

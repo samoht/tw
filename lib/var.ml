@@ -17,18 +17,26 @@
    variables. *)
 type layer = Theme | Utility
 
-(* CSS variable type as a GADT for type safety. The order is meaninful and will
-   be reflected in which the variables are printed in the relevant CSS
-   layers. *)
+(* CSS variable type as a GADT for type safety. The constructors are ordered to
+   match their canonical ordering in the theme layer, allowing polymorphic
+   compare to work correctly. *)
 type _ t =
-  (* Spacing and sizing *)
-  | Spacing : Css.length t
-  (* Typography *)
+  (* Design tokens first *)
   | Font_sans : Css.font_family list t
-  | Font_serif : Css.font_family list t
   | Font_mono : Css.font_family list t
-  | Font_weight : string t
-  | Leading : string t
+  (* Colors *)
+  | Color :
+      string * int option
+      -> Css.color t (* e.g., Color ("blue", Some 500) *)
+  | Spacing : Css.length t
+  | Default_font_family : Css.font_family list t
+  | Default_mono_font_family : Css.font_family list t
+  | Default_font_feature_settings : Css.font_feature_settings t
+  | Default_font_variation_settings : Css.font_variation_settings t
+  | Default_mono_font_feature_settings : Css.font_feature_settings t
+  | Default_mono_font_variation_settings : Css.font_variation_settings t
+  | Font_serif : Css.font_family list t
+  (* Typography scale *)
   | Text_xs : Css.length t
   | Text_xs_line_height : Css.length t
   | Text_sm : Css.length t
@@ -55,15 +63,18 @@ type _ t =
   | Text_8xl_line_height : Css.length t
   | Text_9xl : Css.length t
   | Text_9xl_line_height : Css.length t
-  | Font_weight_thin : int t
-  | Font_weight_extralight : int t
-  | Font_weight_light : int t
-  | Font_weight_normal : int t
-  | Font_weight_medium : int t
-  | Font_weight_semibold : int t
-  | Font_weight_bold : int t
-  | Font_weight_extrabold : int t
-  | Font_weight_black : int t
+  (* Font weights *)
+  | Font_weight_thin : Css.font_weight t
+  | Font_weight_extralight : Css.font_weight t
+  | Font_weight_light : Css.font_weight t
+  | Font_weight_normal : Css.font_weight t
+  | Font_weight_medium : Css.font_weight t
+  | Font_weight_semibold : Css.font_weight t
+  | Font_weight_bold : Css.font_weight t
+  | Font_weight_extrabold : Css.font_weight t
+  | Font_weight_black : Css.font_weight t
+  | Font_weight : Css.font_weight t
+  | Leading : Css.length t
   (* Border radius *)
   | Radius_none : Css.length t
   | Radius_sm : Css.length t
@@ -73,10 +84,6 @@ type _ t =
   | Radius_xl : Css.length t
   | Radius_2xl : Css.length t
   | Radius_3xl : Css.length t
-  (* Colors - using color name and optional shade *)
-  | Color :
-      string * int option
-      -> Css.color t (* e.g., Color ("blue", Some 500) *)
   (* Transform variables *)
   | Translate_x : Css.length t
   | Translate_y : Css.length t
@@ -116,7 +123,6 @@ type _ t =
   | Inset_shadow_color : Css.color t
   | Inset_shadow_alpha : float t
   | Ring_color : Css.color t
-  | Ring_width : Css.length t
   | Ring_shadow : string t
   | Inset_ring_color : Css.color t
   | Inset_ring_shadow : string t
@@ -124,7 +130,8 @@ type _ t =
   | Ring_offset_width : Css.length t
   | Ring_offset_color : Css.color t
   | Ring_offset_shadow : string t
-  (* Prose theming variables (colors) *)
+  | Ring_width : Css.length t
+  (* Prose theming variables *)
   | Prose_body : Css.color t
   | Prose_headings : Css.color t
   | Prose_code : Css.color t
@@ -151,21 +158,10 @@ type _ t =
   | Gradient_from_position : float t
   | Gradient_via_position : float t
   | Gradient_to_position : float t
-  (* Border variables *)
+  (* Other *)
   | Border_style : Css.border_style t
-  (* Scroll snap variables *)
   | Scroll_snap_strictness : Css.scroll_snap_strictness t
-  (* Transition variables *)
   | Duration : Css.duration t
-  (* Default font variables - reference the theme font variables *)
-  | Default_font_family : Css.font_family list t
-  | Default_mono_font_family : Css.font_family list t
-  (* Font feature/variation settings - undefined in Tailwind v4, used with
-     fallbacks *)
-  | Default_font_feature_settings : Css.font_feature_settings t
-  | Default_font_variation_settings : Css.font_variation_settings t
-  | Default_mono_font_feature_settings : Css.font_feature_settings t
-  | Default_mono_font_variation_settings : Css.font_variation_settings t
 
 (** Existential wrapper for variables of any type *)
 type any = Any : _ t -> any
@@ -307,6 +303,8 @@ let to_string : type a. a t -> string = function
   | Default_mono_font_variation_settings ->
       "--default-mono-font-variation-settings"
 
+let pp = to_string
+
 (* Get the name of a variable (without --) *)
 let name : type a. a t -> string =
  fun v ->
@@ -342,20 +340,15 @@ let canonical_color_order color_name =
   | "white" -> 101
   | _ -> 200 (* Unknown colors last *)
 
-let order_for_theme : type a. a t -> int = function
-  (* Design tokens first - fonts are most fundamental *)
+(* Get the ordering for a variable - matches constructor order but explicit for
+   clarity *)
+let order : type a. a t -> int = function
+  (* Design tokens first *)
   | Font_sans -> 0
   | Font_mono -> 1
-  (* Spacing comes between font-mono and default-font-family *)
-  | Spacing -> 2
-  (* Default font variables come after spacing *)
-  | Default_font_family -> 3
-  | Default_mono_font_family -> 4
-  | Default_font_feature_settings -> 5
-  | Default_font_variation_settings -> 6
-  | Default_mono_font_feature_settings -> 7
-  | Default_mono_font_variation_settings -> 8
-  | Font_serif -> 9
+  | Color (_, _) -> 2 (* Colors come after basic fonts *)
+  | Spacing -> 3
+  | Font_serif -> 10
   (* Typography scale *)
   | Text_xs -> 20
   | Text_xs_line_height -> 21
@@ -383,31 +376,34 @@ let order_for_theme : type a. a t -> int = function
   | Text_8xl_line_height -> 43
   | Text_9xl -> 44
   | Text_9xl_line_height -> 45
+  (* Default font families come after text sizes *)
+  | Default_font_family -> 46
+  | Default_mono_font_family -> 47
+  | Default_font_feature_settings -> 48
+  | Default_font_variation_settings -> 49
+  | Default_mono_font_feature_settings -> 50
+  | Default_mono_font_variation_settings -> 51
   (* Font weights *)
-  | Font_weight_thin -> 50
-  | Font_weight_extralight -> 51
-  | Font_weight_light -> 52
-  | Font_weight_normal -> 53
-  | Font_weight_medium -> 54
-  | Font_weight_semibold -> 55
-  | Font_weight_bold -> 56
-  | Font_weight_extrabold -> 57
-  | Font_weight_black -> 58
-  | Font_weight -> 59
-  | Leading -> 60
-  (* Border radius - common design token *)
-  | Radius_none -> 70
-  | Radius_sm -> 71
-  | Radius_default -> 72
-  | Radius_md -> 73
-  | Radius_lg -> 74
-  | Radius_xl -> 75
-  | Radius_2xl -> 76
-  | Radius_3xl -> 77
-  (* Colors - all colors appear after all font-related variables *)
-  | Color (_name, _shade) ->
-      (* All colors get the same base order, detailed sorting in compare_for *)
-      100
+  | Font_weight_thin -> 60
+  | Font_weight_extralight -> 61
+  | Font_weight_light -> 62
+  | Font_weight_normal -> 63
+  | Font_weight_medium -> 64
+  | Font_weight_semibold -> 65
+  | Font_weight_bold -> 66
+  | Font_weight_extrabold -> 67
+  | Font_weight_black -> 68
+  | Font_weight -> 69
+  | Leading -> 70
+  (* Border radius *)
+  | Radius_none -> 80
+  | Radius_sm -> 81
+  | Radius_default -> 82
+  | Radius_md -> 83
+  | Radius_lg -> 84
+  | Radius_xl -> 85
+  | Radius_2xl -> 86
+  | Radius_3xl -> 87
   (* Transform variables *)
   | Translate_x -> 1000
   | Translate_y -> 1001
@@ -418,7 +414,7 @@ let order_for_theme : type a. a t -> int = function
   | Scale_x -> 1006
   | Scale_y -> 1007
   | Scale_z -> 1008
-  (* Filters and effects *)
+  (* Filter variables *)
   | Blur -> 1100
   | Brightness -> 1101
   | Contrast -> 1102
@@ -429,7 +425,7 @@ let order_for_theme : type a. a t -> int = function
   | Sepia -> 1107
   | Drop_shadow -> 1108
   | Drop_shadow_alpha -> 1109
-  (* Backdrop filters *)
+  (* Backdrop filter variables *)
   | Backdrop_blur -> 1200
   | Backdrop_brightness -> 1201
   | Backdrop_contrast -> 1202
@@ -439,7 +435,7 @@ let order_for_theme : type a. a t -> int = function
   | Backdrop_saturate -> 1206
   | Backdrop_sepia -> 1207
   | Backdrop_opacity -> 1208
-  (* Shadows and rings *)
+  (* Shadow and ring variables *)
   | Shadow -> 1300
   | Shadow_color -> 1301
   | Shadow_alpha -> 1302
@@ -455,7 +451,7 @@ let order_for_theme : type a. a t -> int = function
   | Ring_offset_color -> 1312
   | Ring_offset_shadow -> 1313
   | Ring_width -> 1314
-  (* Prose variables *)
+  (* Prose theming variables *)
   | Prose_body -> 1320
   | Prose_headings -> 1321
   | Prose_code -> 1322
@@ -472,7 +468,7 @@ let order_for_theme : type a. a t -> int = function
   | Prose_counters -> 1333
   | Prose_bullets -> 1334
   | Prose_captions -> 1335
-  (* Gradients *)
+  (* Gradient variables *)
   | Gradient_from -> 1400
   | Gradient_via -> 1401
   | Gradient_to -> 1402
@@ -486,9 +482,6 @@ let order_for_theme : type a. a t -> int = function
   | Border_style -> 1500
   | Scroll_snap_strictness -> 1501
   | Duration -> 1502
-
-(* No properties-layer ordering; variables are ordered only in Theme.
-   Utility-level vars are compared alphabetically via to_string. *)
 
 (* Helper to compare colors that have the same base order *)
 let compare_color : type a b. a t -> b t -> int =
@@ -507,17 +500,12 @@ let compare_color : type a b. a t -> b t -> int =
         Option.compare Int.compare shade_a shade_b
   | _ -> 0 (* Different types with same order, keep as is *)
 
-(* Compare variables for ordering within a specific layer *)
-let compare_for layer (Any a) (Any b) =
-  match layer with
-  | Theme ->
-      let order_a = order_for_theme a in
-      let order_b = order_for_theme b in
-      let cmp = Int.compare order_a order_b in
-      if cmp <> 0 then cmp else compare_color a b
-  | Utility ->
-      (* For base and utility layers, use alphabetical ordering *)
-      String.compare (to_string a) (to_string b)
+(* Compare variables *)
+let compare (Any a) (Any b) =
+  let order_a = order a in
+  let order_b = order b in
+  let cmp = Int.compare order_a order_b in
+  if cmp <> 0 then cmp else compare_color a b
 
 (* Helper to get layer name from layer enum *)
 let layer_name = function Theme -> "theme" | Utility -> "utilities"
@@ -546,8 +534,8 @@ let def : type a.
   | Font_sans -> var Font_family value
   | Font_serif -> var Font_family value
   | Font_mono -> var Font_family value
-  | Font_weight -> var String value
-  | Leading -> var String value
+  | Font_weight -> var Font_weight value
+  | Leading -> var Length value
   | Text_xs -> var Length value
   | Text_xs_line_height -> var Length value
   | Text_sm -> var Length value
@@ -574,15 +562,15 @@ let def : type a.
   | Text_8xl_line_height -> var Length value
   | Text_9xl -> var Length value
   | Text_9xl_line_height -> var Length value
-  | Font_weight_thin -> var Int value
-  | Font_weight_extralight -> var Int value
-  | Font_weight_light -> var Int value
-  | Font_weight_normal -> var Int value
-  | Font_weight_medium -> var Int value
-  | Font_weight_semibold -> var Int value
-  | Font_weight_bold -> var Int value
-  | Font_weight_extrabold -> var Int value
-  | Font_weight_black -> var Int value
+  | Font_weight_thin -> var Font_weight value
+  | Font_weight_extralight -> var Font_weight value
+  | Font_weight_light -> var Font_weight value
+  | Font_weight_normal -> var Font_weight value
+  | Font_weight_medium -> var Font_weight value
+  | Font_weight_semibold -> var Font_weight value
+  | Font_weight_bold -> var Font_weight value
+  | Font_weight_extrabold -> var Font_weight value
+  | Font_weight_black -> var Font_weight value
   | Radius_none -> var Length value
   | Radius_sm -> var Length value
   | Radius_default -> var Length value
@@ -677,12 +665,6 @@ let def : type a.
   | Default_mono_font_feature_settings -> var Font_feature_settings value
   | Default_mono_font_variation_settings -> var Font_variation_settings value
 
-(** Compare two any-wrapped variables *)
-(* Internal compare for sets was removed with Var-inference cleanup. *)
-
-(* Variables are owned and registered by utility modules. Var focuses on typed
-   definitions, layering, and ordering. *)
-
 (* Layer-specific variable constructors *)
 let theme : type a. a t -> ?fallback:a -> a -> Css.declaration * a Css.var =
  fun var_t ?fallback value -> def ?fallback var_t ~layer:Theme value
@@ -698,20 +680,8 @@ let property : type a.
   let var_name = to_string var_t in
   Css.property ~name:var_name ~syntax ~inherits ~initial_value:initial ()
 
-(* Canonical list of theme variables in order *)
 let canonical_theme_order =
-  [
-    (* Font variables first *)
-    Any Font_sans;
-    Any Font_serif;
-    Any Font_mono;
-    (* Spacing comes between font-mono and default-font in Tailwind *)
-    Any Spacing;
-    (* Add more as needed - this is just the critical ones for now *)
-  ]
-
-(* Convert a CSS variable name to a typed variable *)
-(* No name→typed mapping is exposed here. *)
+  [ Any Font_sans; Any Font_serif; Any Font_mono; Any Spacing ]
 
 (** Helper for metadata errors *)
 let err_meta ~layer decl msg =
@@ -739,7 +709,7 @@ let compare_declarations layer d1 d2 =
   match (Css.declaration_meta d1, Css.declaration_meta d2) with
   | Some m1, Some m2 -> (
       match (var_of_meta m1, var_of_meta m2) with
-      | Some v1, Some v2 -> compare_for layer v1 v2
+      | Some v1, Some v2 -> compare v1 v2
       | Some _, None ->
           err_meta ~layer d2 "Invalid Var metadata (var_of_meta failed)"
       | None, Some _ ->

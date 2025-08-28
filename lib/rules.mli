@@ -43,7 +43,8 @@ val regular :
   ?has_hover:bool ->
   unit ->
   output
-(** Smart constructors for output *)
+(** [regular ~selector ~props ?base_class ?has_hover ()] constructs a regular
+    rule. *)
 
 val media_query :
   condition:string ->
@@ -52,6 +53,8 @@ val media_query :
   ?base_class:string ->
   unit ->
   output
+(** [media_query ~condition ~selector ~props ?base_class ()] constructs a media
+    query rule. *)
 
 val container_query :
   condition:string ->
@@ -60,6 +63,8 @@ val container_query :
   ?base_class:string ->
   unit ->
   output
+(** [container_query ~condition ~selector ~props ?base_class ()] constructs a
+    container query rule. *)
 
 val starting_style :
   selector:string ->
@@ -67,6 +72,8 @@ val starting_style :
   ?base_class:string ->
   unit ->
   output
+(** [starting_style ~selector ~props ?base_class ()] constructs a starting-style
+    rule. *)
 
 (** {1 CSS Generation} *)
 
@@ -87,7 +94,7 @@ type config = {
 (** Configuration for CSS generation *)
 
 val default_config : config
-(** Default configuration: [{ reset = true; mode = Variables }]. Provides full
+(** [default_config] is [{ reset = true; mode = Variables }]. Provides full
     Tailwind experience with reset styles and CSS variables. *)
 
 val to_css : ?config:config -> t list -> Css.t

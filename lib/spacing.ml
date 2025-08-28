@@ -46,7 +46,7 @@ let decimal f = `Rem (f *. 0.25)
 (** {2 Typed Padding Utilities} *)
 
 (* Helper to include spacing_def when needed *)
-let make_spacing_style class_name decls s =
+let spacing_style class_name decls s =
   match s with
   | `Rem _ -> style class_name (spacing_def :: decls)
   | _ -> style class_name decls
@@ -54,37 +54,37 @@ let make_spacing_style class_name decls s =
 let p' (s : spacing) =
   let class_name = "p-" ^ pp_spacing_suffix s in
   let len = to_length s in
-  make_spacing_style class_name [ padding len ] s
+  spacing_style class_name [ padding len ] s
 
 let px' (s : spacing) =
   let class_name = "px-" ^ pp_spacing_suffix s in
   let len = to_length s in
-  make_spacing_style class_name [ padding_inline len ] s
+  spacing_style class_name [ padding_inline len ] s
 
 let py' (s : spacing) =
   let class_name = "py-" ^ pp_spacing_suffix s in
   let len = to_length s in
-  make_spacing_style class_name [ padding_block len ] s
+  spacing_style class_name [ padding_block len ] s
 
 let pt' (s : spacing) =
   let class_name = "pt-" ^ pp_spacing_suffix s in
   let len = to_length s in
-  make_spacing_style class_name [ padding_top len ] s
+  spacing_style class_name [ padding_top len ] s
 
 let pr' (s : spacing) =
   let class_name = "pr-" ^ pp_spacing_suffix s in
   let len = to_length s in
-  make_spacing_style class_name [ padding_right len ] s
+  spacing_style class_name [ padding_right len ] s
 
 let pb' (s : spacing) =
   let class_name = "pb-" ^ pp_spacing_suffix s in
   let len = to_length s in
-  make_spacing_style class_name [ padding_bottom len ] s
+  spacing_style class_name [ padding_bottom len ] s
 
 let pl' (s : spacing) =
   let class_name = "pl-" ^ pp_spacing_suffix s in
   let len = to_length s in
-  make_spacing_style class_name [ padding_left len ] s
+  spacing_style class_name [ padding_left len ] s
 
 (** {2 Int-based Padding Utilities} *)
 
@@ -108,7 +108,7 @@ let pl_decimal f = pl' (decimal f)
 (** {2 Typed Margin Utilities} *)
 
 (* Helper to include spacing_def when margin uses Rem *)
-let make_margin_style class_name decls m =
+let margin_style class_name decls m =
   match m with
   | `Rem _ -> style class_name (spacing_def :: decls)
   | _ -> style class_name decls
@@ -116,37 +116,37 @@ let make_margin_style class_name decls m =
 let m' (m : margin) =
   let class_name = "m-" ^ pp_margin_suffix m in
   let len = margin_to_length m in
-  make_margin_style class_name [ margin len ] m
+  margin_style class_name [ margin len ] m
 
 let mx' (m : margin) =
   let v = margin_to_length m in
   let class_name = "mx-" ^ pp_margin_suffix m in
-  make_margin_style class_name [ margin_inline v ] m
+  margin_style class_name [ margin_inline v ] m
 
 let my' (m : margin) =
   let v = margin_to_length m in
   let class_name = "my-" ^ pp_margin_suffix m in
-  make_margin_style class_name [ margin_block v ] m
+  margin_style class_name [ margin_block v ] m
 
 let mt' (m : margin) =
   let class_name = "mt-" ^ pp_margin_suffix m in
   let len = margin_to_length m in
-  make_margin_style class_name [ margin_top len ] m
+  margin_style class_name [ margin_top len ] m
 
 let mr' (m : margin) =
   let class_name = "mr-" ^ pp_margin_suffix m in
   let len = margin_to_length m in
-  make_margin_style class_name [ margin_right len ] m
+  margin_style class_name [ margin_right len ] m
 
 let mb' (m : margin) =
   let class_name = "mb-" ^ pp_margin_suffix m in
   let len = margin_to_length m in
-  make_margin_style class_name [ margin_bottom len ] m
+  margin_style class_name [ margin_bottom len ] m
 
 let ml' (m : margin) =
   let class_name = "ml-" ^ pp_margin_suffix m in
   let len = margin_to_length m in
-  make_margin_style class_name [ margin_left len ] m
+  margin_style class_name [ margin_left len ] m
 
 (** {2 Int-based Margin Utilities} *)
 
@@ -154,49 +154,49 @@ let m n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "m-" ^ pp_margin_suffix s in
-  make_margin_style class_name [ margin (margin_to_length s) ] s
+  margin_style class_name [ margin (margin_to_length s) ] s
 
 let mx n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mx-" ^ pp_margin_suffix s in
   let len = margin_to_length s in
-  make_margin_style class_name [ margin_inline len ] s
+  margin_style class_name [ margin_inline len ] s
 
 let my n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "my-" ^ pp_margin_suffix s in
   let len = margin_to_length s in
-  make_margin_style class_name [ margin_block len ] s
+  margin_style class_name [ margin_block len ] s
 
 let mt n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mt-" ^ pp_margin_suffix s in
   let len = margin_to_length s in
-  make_margin_style class_name [ margin_top len ] s
+  margin_style class_name [ margin_top len ] s
 
 let mr n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mr-" ^ pp_margin_suffix s in
   let len = margin_to_length s in
-  make_margin_style class_name [ margin_right len ] s
+  margin_style class_name [ margin_right len ] s
 
 let mb n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mb-" ^ pp_margin_suffix s in
   let len = margin_to_length s in
-  make_margin_style class_name [ margin_bottom len ] s
+  margin_style class_name [ margin_bottom len ] s
 
 let ml n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "ml-" ^ pp_margin_suffix s in
   let len = margin_to_length s in
-  make_margin_style class_name [ margin_left len ] s
+  margin_style class_name [ margin_left len ] s
 
 (** {2 Space Between Utilities} *)
 
@@ -218,7 +218,7 @@ let space_y n =
 
 let ( >|= ) = Parse.( >|= )
 
-let spacing_of_string prefix px_var full_var int_fn = function
+let spacing_parse prefix px_var full_var int_fn = function
   | [ p; "px" ] when p = prefix -> Ok px_var
   | [ p; "full" ] when p = prefix -> Ok full_var
   | [ p; n ] when p = prefix -> (
@@ -269,13 +269,13 @@ let negative_margin_of_string prefix int_fn = function
 
 let of_string parts =
   match parts with
-  | "p" :: _ -> spacing_of_string "p" (p' `Px) (p' `Full) p parts
-  | "px" :: _ -> spacing_of_string "px" (px' `Px) (px' `Full) px parts
-  | "py" :: _ -> spacing_of_string "py" (py' `Px) (py' `Full) py parts
-  | "pt" :: _ -> spacing_of_string "pt" (pt' `Px) (pt' `Full) pt parts
-  | "pr" :: _ -> spacing_of_string "pr" (pr' `Px) (pr' `Full) pr parts
-  | "pb" :: _ -> spacing_of_string "pb" (pb' `Px) (pb' `Full) pb parts
-  | "pl" :: _ -> spacing_of_string "pl" (pl' `Px) (pl' `Full) pl parts
+  | "p" :: _ -> spacing_parse "p" (p' `Px) (p' `Full) p parts
+  | "px" :: _ -> spacing_parse "px" (px' `Px) (px' `Full) px parts
+  | "py" :: _ -> spacing_parse "py" (py' `Px) (py' `Full) py parts
+  | "pt" :: _ -> spacing_parse "pt" (pt' `Px) (pt' `Full) pt parts
+  | "pr" :: _ -> spacing_parse "pr" (pr' `Px) (pr' `Full) pr parts
+  | "pb" :: _ -> spacing_parse "pb" (pb' `Px) (pb' `Full) pb parts
+  | "pl" :: _ -> spacing_parse "pl" (pl' `Px) (pl' `Full) pl parts
   | "m" :: _ -> margin_of_string "m" (m' `Auto) m parts
   | "mx" :: _ -> margin_of_string "mx" (mx' `Auto) mx parts
   | "my" :: _ -> margin_of_string "my" (my' `Auto) my parts
