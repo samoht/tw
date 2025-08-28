@@ -32,8 +32,6 @@ let check_theme_layer_with_color () =
   let css =
     Css.to_string ~minify:false (Css.stylesheet [ Css.Layer theme_layer ])
   in
-  (* Debug output *)
-  Printf.printf "\n=== Theme layer CSS ===\n%s\n=== End ===\n" css;
   (* Should include color variable when referenced *)
   check bool "includes --color-blue-500" true (contains css "--color-blue-500");
   (* Should still include font variables *)

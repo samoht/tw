@@ -722,14 +722,14 @@ let rule_sets tw_classes =
 (* Layer Generation - CSS @layer directives and theme variable resolution *)
 (* ======================================================================== *)
 
-module StringSet = Set.Make (String)
-module StringMap = Map.Make (String)
+module String_set = Set.Make (String)
+module String_map = Map.Make (String)
 
 (* Map for typed variables with theme ordering *)
-module VarMap = Map.Make (struct
+module Var_map = Map.Make (struct
   type t = Var.any
 
-  let compare = Var.compare_for Var.Theme
+  let compare = Var.compare
 end)
 
 let compute_theme_layer ?(default_vars = []) tw_classes =
@@ -771,21 +771,21 @@ let compute_theme_layer ?(default_vars = []) tw_classes =
                      custom_decls)
              selector_props);
     (* Deduplicate by variable name while preserving order *)
-    let seen = ref StringSet.empty in
+    let seen = ref String_set.empty in
     !var_list
     |> List.filter (fun decl ->
            match Css.custom_declaration_name decl with
            | Some name ->
-               if StringSet.mem name !seen then false
+               if String_set.mem name !seen then false
                else (
-                 seen := StringSet.add name !seen;
+                 seen := String_set.add name !seen;
                  true)
            | None -> false)
   in
 
   (* Also get variable names that are referenced (for fallback generation) *)
   let directly_referenced_vars =
-    let var_set = ref StringSet.empty in
+    let var_set = ref String_set.empty in
     tw_classes
     |> List.iter (fun tw ->
            let selector_props = extract_selector_props tw in
@@ -797,10 +797,10 @@ let compute_theme_layer ?(default_vars = []) tw_classes =
                | Starting_style { props; _ } ->
                    List.iter
                      (fun (Css.V v) ->
-                       var_set := StringSet.add ("--" ^ v.name) !var_set)
+                       var_set := String_set.add ("--" ^ v.name) !var_set)
                      (Css.vars_of_declarations props))
              selector_props);
-    StringSet.elements !var_set
+    String_set.elements !var_set
   in
 
   (* Collect all variable declarations we need *)
@@ -810,10 +810,10 @@ let compute_theme_layer ?(default_vars = []) tw_classes =
 
     (* Get additional var names we need (defaults and referenced) *)
     let additional_var_names =
-      StringSet.elements
-        (StringSet.union
-           (StringSet.of_list default_vars)
-           (StringSet.of_list directly_referenced_vars))
+      String_set.elements
+        (String_set.union
+           (String_set.of_list default_vars)
+           (String_set.of_list directly_referenced_vars))
     in
 
     (* Add any missing default/referenced vars that weren't extracted *)
