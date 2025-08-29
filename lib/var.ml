@@ -17,9 +17,8 @@
    variables. *)
 type layer = Theme | Utility
 
-(* CSS variable type as a GADT for type safety. The constructors are ordered to
-   match their canonical ordering in the theme layer, allowing polymorphic
-   compare to work correctly. *)
+(* CSS variable type as a GADT for type safety. The ordering is defined
+   explicitly in the `order` function below, not by constructor order. *)
 type _ t =
   (* Design tokens first *)
   | Font_sans : Css.font_family list t
@@ -340,70 +339,70 @@ let canonical_color_order color_name =
   | "white" -> 101
   | _ -> 200 (* Unknown colors last *)
 
-(* Get the ordering for a variable - matches constructor order but explicit for
-   clarity *)
+(* Get the ordering for a variable - explicit order for theme layer *)
 let order : type a. a t -> int = function
-  (* Design tokens first *)
+  (* Design tokens - font families first *)
   | Font_sans -> 0
-  | Font_mono -> 1
-  | Color (_, _) -> 2 (* Colors come after basic fonts *)
-  | Spacing -> 3
-  | Font_serif -> 10
-  (* Typography scale *)
-  | Text_xs -> 20
-  | Text_xs_line_height -> 21
-  | Text_sm -> 22
-  | Text_sm_line_height -> 23
-  | Text_base -> 24
-  | Text_base_line_height -> 25
-  | Text_lg -> 26
-  | Text_lg_line_height -> 27
-  | Text_xl -> 28
-  | Text_xl_line_height -> 29
-  | Text_2xl -> 30
-  | Text_2xl_line_height -> 31
-  | Text_3xl -> 32
-  | Text_3xl_line_height -> 33
-  | Text_4xl -> 34
-  | Text_4xl_line_height -> 35
-  | Text_5xl -> 36
-  | Text_5xl_line_height -> 37
-  | Text_6xl -> 38
-  | Text_6xl_line_height -> 39
-  | Text_7xl -> 40
-  | Text_7xl_line_height -> 41
-  | Text_8xl -> 42
-  | Text_8xl_line_height -> 43
-  | Text_9xl -> 44
-  | Text_9xl_line_height -> 45
-  (* Default font families come after text sizes *)
-  | Default_font_family -> 46
-  | Default_mono_font_family -> 47
-  | Default_font_feature_settings -> 48
-  | Default_font_variation_settings -> 49
-  | Default_mono_font_feature_settings -> 50
-  | Default_mono_font_variation_settings -> 51
-  (* Font weights *)
-  | Font_weight_thin -> 60
-  | Font_weight_extralight -> 61
-  | Font_weight_light -> 62
-  | Font_weight_normal -> 63
-  | Font_weight_medium -> 64
-  | Font_weight_semibold -> 65
-  | Font_weight_bold -> 66
-  | Font_weight_extrabold -> 67
-  | Font_weight_black -> 68
-  | Font_weight -> 69
-  | Leading -> 70
-  (* Border radius *)
-  | Radius_none -> 80
-  | Radius_sm -> 81
-  | Radius_default -> 82
-  | Radius_md -> 83
-  | Radius_lg -> 84
-  | Radius_xl -> 85
-  | Radius_2xl -> 86
-  | Radius_3xl -> 87
+  | Font_serif -> 1
+  | Font_mono -> 2
+  (* Then colors and spacing *)
+  | Color (_, _) -> 3 (* Colors come after basic fonts *)
+  | Spacing -> 4
+  (* Typography scale - start at 100 *)
+  | Text_xs -> 100
+  | Text_xs_line_height -> 101
+  | Text_sm -> 102
+  | Text_sm_line_height -> 103
+  | Text_base -> 104
+  | Text_base_line_height -> 105
+  | Text_lg -> 106
+  | Text_lg_line_height -> 107
+  | Text_xl -> 108
+  | Text_xl_line_height -> 109
+  | Text_2xl -> 110
+  | Text_2xl_line_height -> 111
+  | Text_3xl -> 112
+  | Text_3xl_line_height -> 113
+  | Text_4xl -> 114
+  | Text_4xl_line_height -> 115
+  | Text_5xl -> 116
+  | Text_5xl_line_height -> 117
+  | Text_6xl -> 118
+  | Text_6xl_line_height -> 119
+  | Text_7xl -> 120
+  | Text_7xl_line_height -> 121
+  | Text_8xl -> 122
+  | Text_8xl_line_height -> 123
+  | Text_9xl -> 124
+  | Text_9xl_line_height -> 125
+  (* Font weights - start at 200 *)
+  | Font_weight_thin -> 200
+  | Font_weight_extralight -> 201
+  | Font_weight_light -> 202
+  | Font_weight_normal -> 203
+  | Font_weight_medium -> 204
+  | Font_weight_semibold -> 205
+  | Font_weight_bold -> 206
+  | Font_weight_extrabold -> 207
+  | Font_weight_black -> 208
+  | Font_weight -> 209
+  | Leading -> 210
+  (* Default font families - start at 300 *)
+  | Default_font_family -> 300
+  | Default_mono_font_family -> 301
+  | Default_font_feature_settings -> 302
+  | Default_font_variation_settings -> 303
+  | Default_mono_font_feature_settings -> 304
+  | Default_mono_font_variation_settings -> 305
+  (* Border radius - start at 400 *)
+  | Radius_none -> 400
+  | Radius_sm -> 401
+  | Radius_default -> 402
+  | Radius_md -> 403
+  | Radius_lg -> 404
+  | Radius_xl -> 405
+  | Radius_2xl -> 406
+  | Radius_3xl -> 407
   (* Transform variables *)
   | Translate_x -> 1000
   | Translate_y -> 1001

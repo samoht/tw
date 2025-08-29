@@ -1,17 +1,15 @@
 (** CSS rule generation and management
 
-    This module converts Tailwind utility classes into optimized CSS rules.
-    The complexity comes from several requirements:
+    This module converts Tailwind utility classes into optimized CSS rules. The
+    complexity comes from several requirements:
 
-    1. Rule Extraction - Transform modifier structures into CSS rules
-    2. Conflict Resolution - Order utilities by specificity
-    3. CSS Layers - Generate proper @layer directives
-    4. Variable Resolution - Track CSS custom property dependencies
-    5. Media/Container Queries - Handle responsive modifiers
-*)
+    - Rule Extraction: Transform modifier structures into CSS rules
+    - Conflict Resolution: Order utilities by specificity
+    - CSS Layers: Generate proper [@layer] directives
+    - Variable Resolution: Track CSS custom property dependencies
+    - Media/Container Queries: Handle responsive modifiers *)
 
 open Core
-open Css
 
 (* ======================================================================== *)
 (* Types *)
@@ -896,6 +894,51 @@ let split_after_placeholder rules =
   in
   split [] rules
 
+(* Tailwind v4's exact vendor-targeted browser support condition *)
+let tailwind_v4_supports_condition =
+  "(((-webkit-hyphens:none)) and (not (margin-trim:inline))) or \
+   ((-moz-orient:inline) and (not (color:rgb(from red r g b))))"
+
+let build_properties_layer property_rules =
+  match property_rules with
+  | [] ->
+      (* No property rules - omit the properties layer entirely *)
+      None
+  | _ ->
+      (* Deduplicate property rules by name *)
+      let unique_rules =
+        property_rules
+        |> List.map (fun r -> (Css.property_rule_name r, r))
+        |> List.sort_uniq (fun (n1, _) (n2, _) -> String.compare n1 n2)
+        |> List.map snd
+      in
+
+      (* Convert property_rules to declarations using CSS accessor *)
+      (* Use "initial" as default when property has no specific initial value *)
+      let defaults =
+        List.map
+          (fun r ->
+            let initial = Css.property_rule_initial r in
+            let value = if initial = "" then "initial" else initial in
+            Css.custom_property (Css.property_rule_name r) value)
+          unique_rules
+      in
+
+      (* Target all elements including pseudo-elements *)
+      let selector = "*, :before, :after, ::backdrop" in
+
+      (* Build the rule with defaults *)
+      let defaults_rule = Css.rule ~selector defaults in
+
+      (* Wrap in supports with Tailwind's exact condition *)
+      let supports_block =
+        Css.supports ~condition:tailwind_v4_supports_condition [ defaults_rule ]
+      in
+
+      (* Create properties layer with supports block nested inside *)
+      Some
+        (Css.layer ~name:"properties" [ Css.supports_to_nested supports_block ])
+
 let build_base_layer base_rules =
   let before_placeholder, after_placeholder =
     split_after_placeholder base_rules
@@ -914,30 +957,39 @@ let rec collect_property_rules = function
   | Core.Group ts -> List.concat_map collect_property_rules ts
 
 let build_reset_layers tw_classes rules media_queries container_queries =
-  (* Collect property rules directly from utilities *)
+  (* Collect property rules from utilities *)
   let property_rules_from_utilities =
     tw_classes
     |> List.concat_map collect_property_rules
     |> List.sort_uniq Stdlib.compare (* Deduplicate *)
   in
 
-  (* Property rules are collected directly from utilities *)
-  let all_property_rules =
-    property_rules_from_utilities
-    |> List.sort_uniq Stdlib.compare (* Deduplicate *)
+  (* Build properties layer with collected rules (returns None if empty) *)
+  let properties_layer_opt =
+    build_properties_layer property_rules_from_utilities
   in
 
+  (* Existing layers in exact order *)
   let theme_layer = compute_theme_layer tw_classes in
   let base_layer = build_base_layer (Preflight.stylesheet ()) in
   let components_layer = Css.layer ~name:"components" [] in
+  (* Empty is ok *)
   let utilities_layer =
     build_utilities_layer ~rules ~media_queries ~container_queries
   in
+
+  (* Build layer list, prepending properties layer only if present *)
   let base_layers =
     [ theme_layer; base_layer; components_layer; utilities_layer ]
   in
-  let layers = base_layers in
-  (layers, all_property_rules)
+  let layers =
+    match properties_layer_opt with
+    | None -> base_layers
+    | Some properties_layer -> properties_layer :: base_layers
+  in
+
+  (* Return layers and the property_rules for @property emission after layers *)
+  (layers, property_rules_from_utilities)
 
 let wrap_css_items ~rules ~media_queries ~container_queries =
   List.map (fun r -> Css.Rule r) rules
@@ -962,13 +1014,14 @@ let to_css ?(config = default_config) tw_classes =
      Tailwind experience with layers - Any other combination: Raw CSS rules
      without layers *)
   if config.reset && config.mode = Css.Variables then
-    (* Full layer structure: Theme, Base, Components, Utilities *)
-    let layers, at_properties =
+    (* Full layer structure with properties layer, plus @property rules after
+       layers *)
+    let layers, property_rules =
       build_reset_layers tw_classes rules media_queries container_queries
     in
     let items =
       List.map (fun l -> Css.Layer l) layers
-      @ List.map (fun a -> Css.Property a) at_properties
+      @ List.map (fun pr -> Css.Property pr) property_rules
     in
     Css.stylesheet items
   else

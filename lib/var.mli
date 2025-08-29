@@ -5,7 +5,7 @@
     ordered to match Tailwind v4 expectations. Utility variables are ordered
     lexicographically. *)
 
-(** Layer classification for CSS variables. In v4, variables live in @layer
+(** Layer classification for CSS variables. In v4, variables live in [\@layer]
     theme or inline within utilities; base/properties are not used for
     Var-defined variables. *)
 type layer = Theme | Utility
@@ -167,7 +167,7 @@ val utility : 'a t -> ?fallback:'a -> 'a -> Css.declaration * 'a Css.var
 
 val property :
   'a t -> syntax:string -> inherits:bool -> initial:string -> Css.property_rule
-(** [property v ~syntax ~inherits ~initial] creates an @property registration.
+(** [property v ~syntax ~inherits ~initial] creates an [@property] registration.
     @param syntax The property syntax (e.g., "*", "<color>", "<length>").
     @param inherits Whether the property inherits.
     @param initial The initial value. *)
