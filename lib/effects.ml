@@ -28,151 +28,93 @@ module Parse = Parse
 
 (** {1 Shadow Utilities} *)
 
-let shadow_none = style "shadow-none" [ box_shadow None ]
+(* Shadow property rules for @property registration to trigger @layer properties *)
+(* Only include the shadow and ring variables that Tailwind v4 actually includes for shadow utilities *)
+let shadow_property_rules =
+  [
+    (* Shadow and ring variables - ordered as in Tailwind v4 *)
+    Var.property Var.Shadow ~syntax:"*" ~inherits:false ~initial:"0 0 #0000";
+    Var.property Var.Shadow_color ~syntax:"*" ~inherits:false ~initial:"initial";
+    Var.property Var.Shadow_alpha ~syntax:"<percentage>" ~inherits:false
+      ~initial:"100%";
+    Var.property Var.Inset_shadow ~syntax:"*" ~inherits:false
+      ~initial:"0 0 #0000";
+    Var.property Var.Inset_shadow_color ~syntax:"*" ~inherits:false
+      ~initial:"initial";
+    Var.property Var.Inset_shadow_alpha ~syntax:"<percentage>" ~inherits:false
+      ~initial:"100%";
+    Var.property Var.Ring_color ~syntax:"*" ~inherits:false ~initial:"initial";
+    Var.property Var.Ring_shadow ~syntax:"*" ~inherits:false
+      ~initial:"0 0 #0000";
+    Var.property Var.Inset_ring_color ~syntax:"*" ~inherits:false
+      ~initial:"initial";
+    Var.property Var.Inset_ring_shadow ~syntax:"*" ~inherits:false
+      ~initial:"0 0 #0000";
+    Var.property Var.Ring_inset ~syntax:"*" ~inherits:false ~initial:"initial";
+    Var.property Var.Ring_offset_width ~syntax:"<length>" ~inherits:false
+      ~initial:"0";
+    Var.property Var.Ring_offset_color ~syntax:"*" ~inherits:false
+      ~initial:"#fff";
+    Var.property Var.Ring_offset_shadow ~syntax:"*" ~inherits:false
+      ~initial:"0 0 #0000";
+    (* Note: Ring_width is not included here as it's set by ring utilities, not
+       shadow utilities *)
+  ]
+
+(* Helper function to create shadow utilities with the Tailwind v4 variable
+   pattern *)
+let make_shadow_utility name shadow_value =
+  let shadow_def, _ = Var.utility Var.Shadow shadow_value in
+  style name ~property_rules:shadow_property_rules
+    [
+      shadow_def;
+      box_shadow
+        (Raw
+           "var(--tw-inset-shadow),var(--tw-inset-ring-shadow),var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow)");
+    ]
+
+let shadow_none = make_shadow_utility "shadow-none" "0 0 #0000"
 
 let shadow_sm =
-  style "shadow-sm"
-    [
-      box_shadow
-        (Shadow
-           {
-             inset = false;
-             h_offset = Px 0;
-             v_offset = Px 1;
-             blur = Px 2;
-             spread = Px 0;
-             color = Rgba { r = 0; g = 0; b = 0; a = 0.05 };
-           });
-    ]
+  make_shadow_utility "shadow-sm"
+    "0 1px 3px 0 var(--tw-shadow-color,#0000001a),0 1px 2px -1px \
+     var(--tw-shadow-color,#0000001a)"
 
 let shadow =
-  style "shadow"
-    [
-      box_shadow
-        (Shadows
-           [
-             {
-               inset = false;
-               h_offset = Px 0;
-               v_offset = Px 1;
-               blur = Px 3;
-               spread = Px 0;
-               color = Rgba { r = 0; g = 0; b = 0; a = 0.1 };
-             };
-             {
-               inset = false;
-               h_offset = Px 0;
-               v_offset = Px 1;
-               blur = Px 2;
-               spread = Px 0;
-               color = Rgba { r = 0; g = 0; b = 0; a = 0.06 };
-             };
-           ]);
-    ]
+  make_shadow_utility "shadow"
+    "0 1px 3px 0 var(--tw-shadow-color,#0000001a),0 1px 2px -1px \
+     var(--tw-shadow-color,#0000001a)"
 
 let shadow_md =
-  style "shadow-md"
-    [
-      box_shadow
-        (Shadows
-           [
-             {
-               inset = false;
-               h_offset = Px 0;
-               v_offset = Px 4;
-               blur = Px 6;
-               spread = Px (-1);
-               color = Rgba { r = 0; g = 0; b = 0; a = 0.1 };
-             };
-             {
-               inset = false;
-               h_offset = Px 0;
-               v_offset = Px 2;
-               blur = Px 4;
-               spread = Px (-1);
-               color = Rgba { r = 0; g = 0; b = 0; a = 0.06 };
-             };
-           ]);
-    ]
+  make_shadow_utility "shadow-md"
+    "0 4px 6px -1px var(--tw-shadow-color,#0000001a),0 2px 4px -2px \
+     var(--tw-shadow-color,#0000001a)"
 
 let shadow_lg =
-  style "shadow-lg"
-    [
-      box_shadow
-        (Shadows
-           [
-             {
-               inset = false;
-               h_offset = Px 0;
-               v_offset = Px 10;
-               blur = Px 15;
-               spread = Px (-3);
-               color = Rgba { r = 0; g = 0; b = 0; a = 0.1 };
-             };
-             {
-               inset = false;
-               h_offset = Px 0;
-               v_offset = Px 4;
-               blur = Px 6;
-               spread = Px (-2);
-               color = Rgba { r = 0; g = 0; b = 0; a = 0.05 };
-             };
-           ]);
-    ]
+  make_shadow_utility "shadow-lg"
+    "0 10px 15px -3px var(--tw-shadow-color,#0000001a),0 4px 6px -4px \
+     var(--tw-shadow-color,#0000001a)"
 
 let shadow_xl =
-  style "shadow-xl"
-    [
-      box_shadow
-        (Shadows
-           [
-             {
-               inset = false;
-               h_offset = Px 0;
-               v_offset = Px 20;
-               blur = Px 25;
-               spread = Px (-5);
-               color = Rgba { r = 0; g = 0; b = 0; a = 0.1 };
-             };
-             {
-               inset = false;
-               h_offset = Px 0;
-               v_offset = Px 10;
-               blur = Px 10;
-               spread = Px (-5);
-               color = Rgba { r = 0; g = 0; b = 0; a = 0.04 };
-             };
-           ]);
-    ]
+  make_shadow_utility "shadow-xl"
+    "0 20px 25px -5px var(--tw-shadow-color,#0000001a),0 8px 10px -6px \
+     var(--tw-shadow-color,#0000001a)"
 
 let shadow_2xl =
-  style "shadow-2xl"
-    [
-      box_shadow
-        (Shadow
-           {
-             inset = false;
-             h_offset = Px 0;
-             v_offset = Px 25;
-             blur = Px 50;
-             spread = Px (-12);
-             color = Rgba { r = 0; g = 0; b = 0; a = 0.25 };
-           });
-    ]
+  make_shadow_utility "shadow-2xl"
+    "0 25px 50px -12px var(--tw-shadow-color,#00000040)"
 
 let shadow_inner =
-  style "shadow-inner"
+  let inset_shadow_def, _ =
+    Var.utility Var.Inset_shadow
+      "inset 0 2px 4px 0 var(--tw-shadow-color,#0000000f)"
+  in
+  style "shadow-inner" ~property_rules:shadow_property_rules
     [
+      inset_shadow_def;
       box_shadow
-        (Shadow
-           {
-             inset = true;
-             h_offset = Px 0;
-             v_offset = Px 2;
-             blur = Px 4;
-             spread = Px 0;
-             color = Rgba { r = 0; g = 0; b = 0; a = 0.06 };
-           });
+        (Raw
+           "var(--tw-inset-shadow),var(--tw-inset-ring-shadow),var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow)");
     ]
 
 (** {1 Opacity Utilities} *)

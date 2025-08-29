@@ -912,8 +912,15 @@ let build_properties_layer property_rules =
       let defaults =
         property_rules
         |> List.map (fun r ->
-               Css.custom_property (Css.property_rule_name r)
-                 (Css.property_rule_initial r))
+               let name = Css.property_rule_name r in
+               let initial = Css.property_rule_initial r in
+               (* Special handling for Ring_offset_width: "0" becomes "0px" in
+                  properties layer *)
+               let initial_value =
+                 if name = "--tw-ring-offset-width" && initial = "0" then "0px"
+                 else initial
+               in
+               Css.custom_property name initial_value)
       in
 
       (* Target all elements including pseudo-elements *)
