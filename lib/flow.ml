@@ -98,8 +98,8 @@ let justify_items_stretch =
   style "justify-items-stretch" [ Css.Flex.justify_items Stretch ]
 
 let justify_self_auto = style "justify-self-auto" [ justify_self Auto ]
-let justify_self_start = style "justify-self-start" [ justify_self Start ]
-let justify_self_end = style "justify-self-end" [ justify_self End ]
+let justify_self_start = style "justify-self-start" [ justify_self Flex_start ]
+let justify_self_end = style "justify-self-end" [ justify_self Flex_end ]
 let justify_self_center = style "justify-self-center" [ justify_self Center ]
 let justify_self_stretch = style "justify-self-stretch" [ justify_self Stretch ]
 let place_content_start = style "place-content-start" [ place_content Start ]
@@ -189,7 +189,7 @@ let grid_cols n =
   else
     style
       (Pp.str [ "grid-cols-"; string_of_int n ])
-      [ Grid.template_columns (Repeat (n, Min_max (Px 0, Fr 1.0))) ]
+      [ Grid.template_columns (Repeat (n, Min_max (Zero, Fr 1.0))) ]
 
 let grid_cols_none = style "grid-cols-none" [ Grid.template_columns None ]
 
@@ -203,7 +203,7 @@ let grid_rows n =
   else
     style
       (Pp.str [ "grid-rows-"; string_of_int n ])
-      [ Grid.template_rows (Repeat (n, Min_max (Px 0, Fr 1.0))) ]
+      [ Grid.template_rows (Repeat (n, Min_max (Zero, Fr 1.0))) ]
 
 let grid_rows_none = style "grid-rows-none" [ Grid.template_rows None ]
 
