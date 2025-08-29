@@ -36,6 +36,7 @@ let scale_property_rules =
   [
     Var.property Var.Scale_x ~syntax:"*" ~inherits:false ~initial:"1";
     Var.property Var.Scale_y ~syntax:"*" ~inherits:false ~initial:"1";
+    Var.property Var.Scale_z ~syntax:"*" ~inherits:false ~initial:"1";
   ]
 
 let scale_x_property_rule =
@@ -64,21 +65,23 @@ let translate_y n =
   style class_name [ transform [ Translate_y len ] ]
 
 let scale n =
-  let value = Num (float_of_int n /. 100.0) in
-  (* Convert percentage to float *)
+  let value : Css.transform_scale = Css.Pct (float_of_int n) in
   let class_name = "scale-" ^ string_of_int n in
   let def_scale_x, scale_x_var = Var.utility Var.Scale_x value in
   let def_scale_y, scale_y_var = Var.utility Var.Scale_y value in
-  (* Uses both X and Y scale variables; register both properties *)
+  let def_scale_z, _scale_z_var = Var.utility Var.Scale_z value in
+  (* Sets all three scale variables but only uses X and Y in the scale property
+     for 2D scale *)
   style class_name ~property_rules:scale_property_rules
     [
       def_scale_x;
       def_scale_y;
-      transform [ Scale_x (Var scale_x_var); Scale_y (Var scale_y_var) ];
+      def_scale_z;
+      Css.scale (Css.Vars [ scale_x_var; scale_y_var ]);
     ]
 
 let scale_x n =
-  let value = Num (float_of_int n /. 100.0) in
+  let value : Css.transform_scale = Num (float_of_int n /. 100.0) in
   (* Convert percentage to float *)
   let class_name = "scale-x-" ^ string_of_int n in
   let def_x, scale_x = Var.utility Var.Scale_x value ~fallback:(Num 1.) in
@@ -87,7 +90,7 @@ let scale_x n =
     [ def_x; transform [ Scale_x (Var scale_x) ] ]
 
 let scale_y n =
-  let value = Num (float_of_int n /. 100.0) in
+  let value : Css.transform_scale = Num (float_of_int n /. 100.0) in
   (* Convert percentage to float *)
   let class_name = "scale-y-" ^ string_of_int n in
   let def_y, scale_y = Var.utility Var.Scale_y value ~fallback:(Num 1.) in
@@ -139,7 +142,7 @@ let translate_z n =
   style class_name [ transform [ Translate_z (Px n) ] ]
 
 let scale_z n =
-  let value = Num (float_of_int n /. 100.0) in
+  let value : Css.transform_scale = Num (float_of_int n /. 100.0) in
   let class_name = "scale-z-" ^ string_of_int n in
   let def, scale_z_var = Var.utility Var.Scale_z ~fallback:(Num 1.) value in
   style class_name ~property_rules:scale_z_property_rule
