@@ -250,15 +250,17 @@ let first_diff css1 css2 =
   in
 
   let rec loop i =
-    if i >= min_len then
-      if len1 = len2 then None
-      else
-        Some
-          (length_mismatch ~len1 ~len2 ~tw_label ~tailwind_label ~min_len ~css1
-             ~css2)
+    if i >= min_len then None
     else
       match check_char_at css1 css2 len1 len2 tw_label tailwind_label i with
       | Some result -> Some result
       | None -> loop (i + 1)
   in
-  loop 0
+  match loop 0 with
+  | Some _ as r -> r
+  | None ->
+      if len1 = len2 then None
+      else
+        Some
+          (length_mismatch ~len1 ~len2 ~tw_label ~tailwind_label ~min_len ~css1
+             ~css2)

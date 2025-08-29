@@ -32,34 +32,34 @@ let prose_body_def, prose_body_var =
 let prose_headings_def, prose_headings_var =
   Var.utility Var.Prose_headings (Rgb { r = 17; g = 24; b = 39 })
 
-let _prose_code_def, prose_code_var =
+let prose_code_def, prose_code_var =
   Var.utility Var.Prose_code (Rgb { r = 17; g = 24; b = 39 })
 
-let _prose_pre_code_def, prose_pre_code_var =
+let prose_pre_code_def, prose_pre_code_var =
   Var.utility Var.Prose_pre_code (Rgb { r = 229; g = 231; b = 235 })
 
-let _prose_pre_bg_def, prose_pre_bg_var =
+let prose_pre_bg_def, prose_pre_bg_var =
   Var.utility Var.Prose_pre_bg (Rgb { r = 31; g = 41; b = 55 })
 
-let _prose_th_borders_def, prose_th_borders_var =
+let prose_th_borders_def, prose_th_borders_var =
   Var.utility Var.Prose_th_borders (Rgb { r = 209; g = 213; b = 219 })
 
-let _prose_td_borders_def, prose_td_borders_var =
+let prose_td_borders_def, prose_td_borders_var =
   Var.utility Var.Prose_td_borders (Rgb { r = 229; g = 231; b = 235 })
 
-let _prose_links_def, prose_links_var =
+let prose_links_def, prose_links_var =
   Var.utility Var.Prose_links (Rgb { r = 17; g = 24; b = 39 })
 
-let _prose_quotes_def, prose_quotes_var =
+let prose_quotes_def, prose_quotes_var =
   Var.utility Var.Prose_quotes (Rgb { r = 107; g = 114; b = 128 })
 
-let _prose_quote_borders_def, prose_quote_borders_var =
+let prose_quote_borders_def, prose_quote_borders_var =
   Var.utility Var.Prose_quote_borders (Rgb { r = 229; g = 231; b = 235 })
 
-let _prose_hr_def, prose_hr_var =
+let prose_hr_def, prose_hr_var =
   Var.utility Var.Prose_hr (Rgb { r = 229; g = 231; b = 235 })
 
-let _prose_bold_def, prose_bold_var =
+let prose_bold_def, prose_bold_var =
   Var.utility Var.Prose_bold (Rgb { r = 17; g = 24; b = 39 })
 
 let css_variables =
@@ -67,16 +67,16 @@ let css_variables =
     (* Base variables with handles *)
     prose_body_def;
     prose_headings_def;
-    _prose_code_def;
-    _prose_pre_code_def;
-    _prose_pre_bg_def;
-    _prose_th_borders_def;
-    _prose_td_borders_def;
-    _prose_links_def;
-    _prose_quotes_def;
-    _prose_quote_borders_def;
-    _prose_hr_def;
-    _prose_bold_def;
+    prose_code_def;
+    prose_pre_code_def;
+    prose_pre_bg_def;
+    prose_th_borders_def;
+    prose_td_borders_def;
+    prose_links_def;
+    prose_quotes_def;
+    prose_quote_borders_def;
+    prose_hr_def;
+    prose_bold_def;
     (* Additional variables used in prose without explicit handles *)
     color_prop Var.Prose_lead 75 85 99;
     color_prop Var.Prose_counters 107 114 128;

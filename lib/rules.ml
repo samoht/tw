@@ -89,32 +89,41 @@ let responsive_breakpoint = function
   | "2xl" -> "96rem" (* 1536px / 16 = 96rem *)
   | _ -> "0rem"
 
+(* Small memoization for escaping, as many utilities reuse the same base class
+   names across modifiers. *)
+let escape_cache : (string, string) Hashtbl.t = Hashtbl.create 256
+
 let escape_class_name name =
-  (* Escape special CSS selector characters for Tailwind class names. This
-     covers the common characters used in Tailwind utilities like arbitrary
-     values (p-[10px]), responsive prefixes (sm:p-4), fractions (w-1/2), and
-     other special cases. Note: This is not a complete CSS.escape implementation
-     but handles all characters typically found in Tailwind class names. *)
-  let buf = Buffer.create (String.length name * 2) in
-  String.iter
-    (function
-      | '[' -> Buffer.add_string buf "\\["
-      | ']' -> Buffer.add_string buf "\\]"
-      | '(' -> Buffer.add_string buf "\\("
-      | ')' -> Buffer.add_string buf "\\)"
-      | ',' -> Buffer.add_string buf "\\,"
-      | '/' -> Buffer.add_string buf "\\/"
-      | ':' -> Buffer.add_string buf "\\:"
-      | '%' -> Buffer.add_string buf "\\%"
-      | '.' -> Buffer.add_string buf "\\."
-      | '#' -> Buffer.add_string buf "\\#"
-      | ' ' -> Buffer.add_string buf "\\ "
-      | '"' -> Buffer.add_string buf "\\\""
-      | '\'' -> Buffer.add_string buf "\\'"
-      | '@' -> Buffer.add_string buf "\\@"
-      | c -> Buffer.add_char buf c)
-    name;
-  Buffer.contents buf
+  try Hashtbl.find escape_cache name
+  with Not_found ->
+    (* Escape special CSS selector characters for Tailwind class names. This
+       covers the common characters used in Tailwind utilities like arbitrary
+       values (p-[10px]), responsive prefixes (sm:p-4), fractions (w-1/2), and
+       other special cases. Note: This is not a complete CSS.escape
+       implementation but handles all characters typically found in Tailwind
+       class names. *)
+    let buf = Buffer.create (String.length name * 2) in
+    String.iter
+      (function
+        | '[' -> Buffer.add_string buf "\\["
+        | ']' -> Buffer.add_string buf "\\]"
+        | '(' -> Buffer.add_string buf "\\("
+        | ')' -> Buffer.add_string buf "\\)"
+        | ',' -> Buffer.add_string buf "\\,"
+        | '/' -> Buffer.add_string buf "\\/"
+        | ':' -> Buffer.add_string buf "\\:"
+        | '%' -> Buffer.add_string buf "\\%"
+        | '.' -> Buffer.add_string buf "\\."
+        | '#' -> Buffer.add_string buf "\\#"
+        | ' ' -> Buffer.add_string buf "\\ "
+        | '"' -> Buffer.add_string buf "\\\""
+        | '\'' -> Buffer.add_string buf "\\'"
+        | '@' -> Buffer.add_string buf "\\@"
+        | c -> Buffer.add_char buf c)
+      name;
+    let escaped = Buffer.contents buf in
+    Hashtbl.add escape_cache name escaped;
+    escaped
 
 (* ======================================================================== *)
 (* Rule Extraction - Convert Core.t to CSS rules *)
@@ -255,16 +264,22 @@ let extract_selector_props tw =
 
 (* Group properties by selector for Regular rules *)
 let group_by_selector rules =
+  (* Use cons-accumulation to avoid O(n^2) list appends while grouping. We
+     gather lists of property lists per selector, then concatenate once. *)
   let tbl = Hashtbl.create 32 in
   List.iter
     (fun rule ->
       match rule with
       | Regular { selector; props; _ } ->
           let existing = try Hashtbl.find tbl selector with Not_found -> [] in
-          Hashtbl.replace tbl selector (existing @ props)
+          Hashtbl.replace tbl selector (props :: existing)
       | _ -> ())
     rules;
-  Hashtbl.fold (fun k v acc -> (k, v) :: acc) tbl []
+  Hashtbl.fold
+    (fun k v acc ->
+      (* v is a list of prop lists accumulated in reverse order *)
+      (k, List.concat (List.rev v)) :: acc)
+    tbl []
 
 (* ======================================================================== *)
 (* Rule Processing - Group and organize rules *)
@@ -303,7 +318,8 @@ let group_media_queries media_rules =
           Hashtbl.replace tbl condition ((selector, props) :: rules)
       | _ -> ())
     media_rules;
-  Hashtbl.fold (fun k v acc -> (k, v) :: acc) tbl []
+  (* Reverse once to restore original insertion order per condition *)
+  Hashtbl.fold (fun k v acc -> (k, List.rev v) :: acc) tbl []
 
 let group_container_queries container_rules =
   let tbl = Hashtbl.create 16 in
@@ -315,7 +331,8 @@ let group_container_queries container_rules =
           Hashtbl.replace tbl condition ((selector, props) :: rules)
       | _ -> ())
     container_rules;
-  Hashtbl.fold (fun k v acc -> (k, v) :: acc) tbl []
+  (* Reverse once to restore original insertion order per condition *)
+  Hashtbl.fold (fun k v acc -> (k, List.rev v) :: acc) tbl []
 
 (* ======================================================================== *)
 (* Conflict Resolution - Order utilities by specificity *)
@@ -634,14 +651,21 @@ let build_utilities_layer ~rules ~media_queries ~container_queries =
      This stable sorting is crucial for predictable CSS output when multiple
      Tailwind classes could conflict. The last class in the original list wins
      among equal-priority utilities. *)
-  let sorted_rules =
-    List.stable_sort
-      (fun r1 r2 ->
-        let group1, sub1 = conflict_group (Css.selector r1) in
-        let group2, sub2 = conflict_group (Css.selector r2) in
-        let group_cmp = Int.compare group1 group2 in
-        if group_cmp <> 0 then group_cmp else Int.compare sub1 sub2)
+  (* Precompute conflict keys once per rule to avoid repeated classification
+     work inside the comparator during sorting. *)
+  let keyed_rules =
+    List.map
+      (fun r ->
+        let g, s = conflict_group (Css.selector r) in
+        (g, s, r))
       rules
+  in
+  let sorted_rules =
+    keyed_rules
+    |> List.stable_sort (fun (g1, s1, _) (g2, s2, _) ->
+           let c = Int.compare g1 g2 in
+           if c <> 0 then c else Int.compare s1 s2)
+    |> List.map (fun (_, _, r) -> r)
   in
   Css.layer ~name:"utilities" ~media:media_queries ~container:container_queries
     (sorted_rules |> List.map Css.rule_to_nested)
@@ -743,31 +767,29 @@ let compute_theme_layer ?(default_vars = []) tw_classes =
       ]
     else default_vars
   in
+  (* Pre-extract selector/props once to avoid duplicate traversals *)
+  let all_selector_props = List.concat_map extract_selector_props tw_classes in
   (* Extract all variable declarations (Custom_declaration) from the styles *)
   let all_var_declarations =
     let var_list = ref [] in
-    tw_classes
-    |> List.iter (fun tw ->
-           let selector_props = extract_selector_props tw in
+    all_selector_props
+    |> List.iter (function
+           | Regular { props; _ }
+           | Media_query { props; _ }
+           | Container_query { props; _ }
+           | Starting_style { props; _ }
+           ->
+           (* Extract custom declarations for theme layer *)
+           let custom_decls = Css.extract_custom_declarations props in
            List.iter
-             (function
-               | Regular { props; _ }
-               | Media_query { props; _ }
-               | Container_query { props; _ }
-               | Starting_style { props; _ } ->
-                   (* Extract custom declarations for theme layer *)
-                   let custom_decls = Css.extract_custom_declarations props in
-                   List.iter
-                     (fun decl ->
-                       (* Only extract non --tw- prefixed for theme layer *)
-                       match Css.custom_declaration_name decl with
-                       | Some var_name
-                         when not (String.starts_with ~prefix:"--tw-" var_name)
-                         ->
-                           var_list := decl :: !var_list
-                       | _ -> ())
-                     custom_decls)
-             selector_props);
+             (fun decl ->
+               (* Only extract non --tw- prefixed for theme layer *)
+               match Css.custom_declaration_name decl with
+               | Some var_name
+                 when not (String.starts_with ~prefix:"--tw-" var_name) ->
+                   var_list := decl :: !var_list
+               | _ -> ())
+             custom_decls);
     (* Deduplicate by variable name while preserving order *)
     let seen = ref String_set.empty in
     !var_list
@@ -784,20 +806,17 @@ let compute_theme_layer ?(default_vars = []) tw_classes =
   (* Also get variable names that are referenced (for fallback generation) *)
   let directly_referenced_vars =
     let var_set = ref String_set.empty in
-    tw_classes
-    |> List.iter (fun tw ->
-           let selector_props = extract_selector_props tw in
+    all_selector_props
+    |> List.iter (function
+           | Regular { props; _ }
+           | Media_query { props; _ }
+           | Container_query { props; _ }
+           | Starting_style { props; _ }
+           ->
            List.iter
-             (function
-               | Regular { props; _ }
-               | Media_query { props; _ }
-               | Container_query { props; _ }
-               | Starting_style { props; _ } ->
-                   List.iter
-                     (fun (Css.V v) ->
-                       var_set := String_set.add ("--" ^ v.name) !var_set)
-                     (Css.vars_of_declarations props))
-             selector_props);
+             (fun (Css.V v) ->
+               var_set := String_set.add ("--" ^ v.name) !var_set)
+             (Css.vars_of_declarations props));
     String_set.elements !var_set
   in
 
@@ -956,7 +975,8 @@ let rec collect_property_rules = function
   | Core.Modified (_, t) -> collect_property_rules t
   | Core.Group ts -> List.concat_map collect_property_rules ts
 
-let build_reset_layers tw_classes rules media_queries container_queries =
+let build_layers ~include_base tw_classes rules media_queries container_queries
+    =
   (* Collect property rules from utilities *)
   let property_rules_from_utilities =
     tw_classes
@@ -980,7 +1000,8 @@ let build_reset_layers tw_classes rules media_queries container_queries =
 
   (* Build layer list, prepending properties layer only if present *)
   let base_layers =
-    [ theme_layer; base_layer; components_layer; utilities_layer ]
+    (if include_base then [ theme_layer; base_layer ] else [ theme_layer ])
+    @ [ components_layer; utilities_layer ]
   in
   let layers =
     match properties_layer_opt with
@@ -1000,35 +1021,30 @@ let wrap_css_items ~rules ~media_queries ~container_queries =
 (* Main API - Convert Tw styles to CSS *)
 (* ======================================================================== *)
 
-type config = { reset : bool; mode : Css.mode }
+type config = { base : bool; mode : Css.mode }
 (** Configuration for CSS generation *)
 
-let default_config = { reset = true; mode = Css.Variables }
+let default_config = { base = true; mode = Css.Variables }
 
 let to_css ?(config = default_config) tw_classes =
   let rules, media_queries, container_queries = rule_sets tw_classes in
 
-  (* Generate layers only when: 1. Reset is enabled AND 2. Mode is Variables
-
-     This ensures a consistent mental model: - Variables mode with reset: Full
-     Tailwind experience with layers - Any other combination: Raw CSS rules
-     without layers *)
-  if config.reset && config.mode = Css.Variables then
-    (* Full layer structure with properties layer, plus @property rules after
-       layers *)
-    let layers, property_rules =
-      build_reset_layers tw_classes rules media_queries container_queries
-    in
-    let items =
-      List.map (fun l -> Css.Layer l) layers
-      @ List.map (fun pr -> Css.Property pr) property_rules
-    in
-    Css.stylesheet items
-  else
-    (* No layers - just raw utility rules This applies when: - reset = false (no
-       preflight/base styles needed) - mode != Variables (inline styles or
-       resolved values) *)
-    Css.stylesheet (wrap_css_items ~rules ~media_queries ~container_queries)
+  (* Generate layers whenever mode = Variables. Include the base layer only when
+     [reset=true]. In Inline mode, emit raw rules without layers. *)
+  match config.mode with
+  | Css.Variables ->
+      let layers, property_rules =
+        build_layers ~include_base:config.base tw_classes rules media_queries
+          container_queries
+      in
+      let items =
+        List.map (fun l -> Css.Layer l) layers
+        @ List.map (fun pr -> Css.Property pr) property_rules
+      in
+      Css.stylesheet items
+  | Css.Inline ->
+      (* No layers - just raw utility rules *)
+      Css.stylesheet (wrap_css_items ~rules ~media_queries ~container_queries)
 
 let to_inline_style styles =
   let rec to_css_properties = function

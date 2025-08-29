@@ -37,9 +37,9 @@ include Modifiers
 include Prose
 
 (* CSS rule generation from Rules module *)
-let to_css ?(reset = Rules.default_config.reset)
+let to_css ?(base = Rules.default_config.base)
     ?(mode = Rules.default_config.mode) tw_classes =
-  Rules.to_css ~config:{ reset; mode } tw_classes
+  Rules.to_css ~config:{ base; mode } tw_classes
 
 let to_inline_style = Rules.to_inline_style
 

@@ -38,7 +38,7 @@ let structural_resets () =
     rule ~selector:"hr" [ height Zero; color Inherit; border_top_width (Px 1) ];
     rule ~selector:"abbr:where([title])"
       [
-        webkit_text_decoration "underline dotted";
+        webkit_text_decoration Underline_dotted;
         text_decoration Underline_dotted;
       ];
   ]
@@ -49,13 +49,7 @@ let typography_resets () =
     rule ~selector:"h1, h2, h3, h4, h5, h6"
       [ font_size Inherit; font_weight Inherit ];
     rule ~selector:"a"
-      [
-        color Inherit;
-        webkit_text_decoration "inherit";
-        webkit_text_decoration "inherit";
-        webkit_text_decoration "inherit";
-        text_decoration Inherit;
-      ];
+      [ color Inherit; webkit_text_decoration Inherit; text_decoration Inherit ];
     rule ~selector:"b, strong" [ font_weight Bolder ];
   ]
 

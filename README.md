@@ -36,16 +36,31 @@ Generate CSS for specific classes:
 ```bash
 tw index.html src/
 tw src/ > styles.css
-tw --no-reset --minify src/
+tw --no-base --minify src/
 ```
 
 Options:
 
 - `-s <classes>`: Generate CSS for a space-separated list of classes
-  (no reset by default)
-- `--reset`/`--no-reset`: Include CSS reset (default: yes for file
-  scanning, no for single class)
+  (no base styles by default)
+- `--base`/`--no-base`: Include the Base layer (Preflight CSS reset and
+  semantic defaults). Default: yes for file scanning, no for single class.
+- `--variables` / `--inline`: CSS generation mode switches. `--variables`
+  emits CSS variables plus layered output (`@layer` theme/components/utilities,
+  and base if enabled). `--inline` resolves values (no variables) and emits
+  raw rules without layers. Defaults: `--inline` for single-class, `--variables`
+  for file/directory scanning.
 - `--minify`: Minify the output CSS
+
+### Behavior
+
+- Variables mode: Always emits layered output (`@layer` theme, components,
+  utilities). The Base layer is included only when `--base` is set. With
+  `--no-base`, you still get layers, just without `@layer base`.
+- Inline mode: Resolves values (no CSS variables) and emits raw rules without
+  any `@layer` blocks.
+- Defaults: Single-class generation defaults to `--no-base --inline`;
+  file/directory scanning defaults to `--base --variables`.
 
 ## Library Usage
 
@@ -275,7 +290,7 @@ dune exec examples/simple_page.exe
 
 The main module provides:
 - `Tw.of_string : string -> (Tw.t, string) result` - Parse utility class strings (e.g., "p-4", "bg-blue-500")
-- `Tw.to_css : ?reset:bool -> Tw.t list -> Tw.Css.stylesheet` - Generate CSS from styles
+- `Tw.to_css : ?base:bool -> ?mode:Tw.Css.mode -> Tw.t list -> Tw.Css.stylesheet` - Generate CSS from styles
 - `Tw.Css.to_string : ?minify:bool -> Tw.Css.stylesheet -> string` - Serialize CSS
 
 ### Spacing Functions

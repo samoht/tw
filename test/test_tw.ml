@@ -8,7 +8,7 @@ open Alcotest
 open Tw
 
 let generate_tw_css ?(minify = false) styles =
-  let stylesheet = to_css ~reset:true styles in
+  let stylesheet = to_css ~base:true styles in
   Css.to_string ~minify stylesheet
 
 let generate_tailwind_css = Tw_tools.Tailwind_gen.generate
@@ -183,11 +183,11 @@ let typography () =
 
 let typography_new_utilities () =
   (* Text decoration style *)
-  check underline_solid;
-  check underline_double;
-  check underline_dotted;
-  check underline_dashed;
-  check underline_wavy;
+  check decoration_solid;
+  check decoration_double;
+  check decoration_dotted;
+  check decoration_dashed;
+  check decoration_wavy;
   (* Text decoration color & thickness *)
   check (decoration_color ~shade:500 blue);
   check (decoration_thickness 2);

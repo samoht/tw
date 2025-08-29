@@ -204,7 +204,7 @@ val preflight : unit -> Css.rule list
 (** [preflight ()] returns Tailwind’s Preflight base reset rules.
 
     Use this to compose the base reset manually when needed. When using
-    {!to_css} with [~reset:true] (the default), the base reset is already
+    {!to_css} with [~base:true] (the default), the base reset is already
     included.
 
     Usage:
@@ -1547,20 +1547,20 @@ val decoration_color : ?shade:int -> color -> t
     @see <https://tailwindcss.com/docs/text-decoration-style>
       Text Decoration Style *)
 
-val underline_solid : t
-(** [underline_solid] sets text decoration style to solid (default). *)
+val decoration_solid : t
+(** [decoration_solid] sets text decoration style to solid (default). *)
 
-val underline_double : t
-(** [underline_double] sets text decoration style to a double line. *)
+val decoration_double : t
+(** [decoration_double] sets text decoration style to a double line. *)
 
-val underline_dotted : t
-(** [underline_dotted] sets text decoration style to a dotted line. *)
+val decoration_dotted : t
+(** [decoration_dotted] sets text decoration style to a dotted line. *)
 
-val underline_dashed : t
-(** [underline_dashed] sets text decoration style to a dashed line. *)
+val decoration_dashed : t
+(** [decoration_dashed] sets text decoration style to a dashed line. *)
 
-val underline_wavy : t
-(** [underline_wavy] sets text decoration style to a wavy line. Good for spell
+val decoration_wavy : t
+(** [decoration_wavy] sets text decoration style to a wavy line. Good for spell
     check indicators. *)
 
 (** {2 Text Decoration Thickness}
@@ -3084,8 +3084,8 @@ module Var = Var
 
 (* Version module is now in the css library *)
 
-val to_css : ?reset:bool -> ?mode:Css.mode -> t list -> Css.t
-(** [to_css ?reset styles] generates a CSS stylesheet for the given styles.
+val to_css : ?base:bool -> ?mode:Css.mode -> t list -> Css.t
+(** [to_css ?base ?mode styles] generates a CSS stylesheet for the given styles.
 
     The generated CSS follows Tailwind's layering and ordering conventions:
 
@@ -3121,14 +3121,16 @@ val to_css : ?reset:bool -> ?mode:Css.mode -> t list -> Css.t
     md → lg → xl → 2xl) and state modifiers in Tailwind's predetermined priority
     order.
 
-    @param reset Whether to include CSS reset rules (default: [true])
+    {b Mode and base behavior}
+    - [mode=Variables] (default): emits layered output. When [base=true], the
+      Base layer (Preflight reset and semantic defaults) is included; when
+      [base=false], the Base layer is omitted but Theme/Components/Utilities
+      layers remain present.
+    - [mode=Inline]: resolves values and emits raw rules without any layers. In
+      this mode, [reset] has no effect on layering.
 
-    When [reset=true] (default), includes:
-    - CSS reset rules (normalize margins/padding, set box-sizing, base
-      typography)
-    - The generated utility classes for your specific styles
-
-    When [reset=false], includes only the utility classes.
+    @param base Include base (Preflight) styles (default: [true])
+    @param mode CSS generation mode (default: [Variables])
 
     Use this to generate your main stylesheet for inclusion in HTML [<head>]. *)
 

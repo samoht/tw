@@ -109,20 +109,20 @@ val line_through : t
 val no_underline : t
 (** [no_underline] removes text decoration. *)
 
-val underline_solid : t
-(** [underline_solid] uses a solid underline style. *)
+val decoration_solid : t
+(** [decoration_solid] sets text-decoration-style to solid. *)
 
-val underline_double : t
-(** [underline_double] uses a double underline style. *)
+val decoration_double : t
+(** [decoration_double] sets text-decoration-style to double. *)
 
-val underline_dotted : t
-(** [underline_dotted] uses a dotted underline style. *)
+val decoration_dotted : t
+(** [decoration_dotted] sets text-decoration-style to dotted. *)
 
-val underline_dashed : t
-(** [underline_dashed] uses a dashed underline style. *)
+val decoration_dashed : t
+(** [decoration_dashed] sets text-decoration-style to dashed. *)
 
-val underline_wavy : t
-(** [underline_wavy] uses a wavy underline style. *)
+val decoration_wavy : t
+(** [decoration_wavy] sets text-decoration-style to wavy. *)
 
 (** {1 Text Decoration Color & Thickness} *)
 
