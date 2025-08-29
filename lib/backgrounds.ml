@@ -96,24 +96,51 @@ let _gradient_deps_with_via =
 
 let from_color ?(shade = 500) color =
   let class_name = gradient_color_class_name ~prefix:"from-" ~shade color in
-  let color_value = Color.to_css color shade in
-  (* Create a new declaration that overrides the global variable's value *)
-  let from_override, _ = Var.utility Var.Gradient_from color_value in
-  style class_name ~property_rules:gradient_property_rules [ from_override ]
+  (* Create color theme variable and reference it *)
+  let color_name = Color.pp color in
+  let color_theme_def, color_theme_var = 
+    Var.theme (Var.Color (color_name, Some shade)) (Color.to_css color shade) 
+  in
+  (* Set gradient-from to reference the color variable *)
+  let from_override, _ = Var.utility Var.Gradient_from (Var color_theme_var) in
+  (* Set gradient-stops - this is the actual CSS value containing var() references *)
+  let stops_value = "var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from)var(--tw-gradient-from-position), var(--tw-gradient-to)var(--tw-gradient-to-position))" in
+  let stops_override, _ = Var.utility Var.Gradient_stops stops_value in
+  style class_name ~property_rules:gradient_property_rules 
+    [ color_theme_def; from_override; stops_override ]
 
 let via_color ?(shade = 500) color =
   let class_name = gradient_color_class_name ~prefix:"via-" ~shade color in
-  let color_value = Color.to_css color shade in
-  (* Create a new declaration that overrides the global variable's value *)
-  let via_override, _ = Var.utility Var.Gradient_via color_value in
-  style class_name ~property_rules:gradient_property_rules [ via_override ]
+  (* Create color theme variable and reference it *)
+  let color_name = Color.pp color in
+  let color_theme_def, color_theme_var = 
+    Var.theme (Var.Color (color_name, Some shade)) (Color.to_css color shade) 
+  in
+  (* Set gradient-via to reference the color variable *)
+  let via_override, _ = Var.utility Var.Gradient_via (Var color_theme_var) in
+  (* Set gradient-via-stops - specific for via utilities *)
+  let via_stops_value = "var(--tw-gradient-position), var(--tw-gradient-from)var(--tw-gradient-from-position), var(--tw-gradient-via)var(--tw-gradient-via-position), var(--tw-gradient-to)var(--tw-gradient-to-position)" in
+  let via_stops_override, _ = Var.utility Var.Gradient_via_stops via_stops_value in
+  (* Set gradient-stops to reference via-stops *)
+  let stops_value = "var(--tw-gradient-via-stops)" in
+  let stops_override, _ = Var.utility Var.Gradient_stops stops_value in
+  style class_name ~property_rules:gradient_property_rules 
+    [ color_theme_def; via_override; via_stops_override; stops_override ]
 
 let to_color ?(shade = 500) color =
   let class_name = gradient_color_class_name ~prefix:"to-" ~shade color in
-  let color_value = Color.to_css color shade in
-  (* Create a new declaration that overrides the global variable's value *)
-  let to_override, _ = Var.utility Var.Gradient_to color_value in
-  style class_name ~property_rules:gradient_property_rules [ to_override ]
+  (* Create color theme variable and reference it *)
+  let color_name = Color.pp color in
+  let color_theme_def, color_theme_var = 
+    Var.theme (Var.Color (color_name, Some shade)) (Color.to_css color shade) 
+  in
+  (* Set gradient-to to reference the color variable *)
+  let to_override, _ = Var.utility Var.Gradient_to (Var color_theme_var) in
+  (* Set gradient-stops - same as from utilities *)
+  let stops_value = "var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from)var(--tw-gradient-from-position), var(--tw-gradient-to)var(--tw-gradient-to-position))" in
+  let stops_override, _ = Var.utility Var.Gradient_stops stops_value in
+  style class_name ~property_rules:gradient_property_rules 
+    [ color_theme_def; to_override; stops_override ]
 
 let of_string = function
   | [ "bg"; "gradient"; "to"; dir ] -> (

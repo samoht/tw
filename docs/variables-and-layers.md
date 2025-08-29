@@ -181,6 +181,10 @@ Common pitfalls and solutions
   - String literals containing `var(...)` break the Rules engine's ability to track dependencies, resolve variables, and generate correct layers
   - `Css.custom` is a code smell - it bypasses the type system and makes the code fragile
 - **Instead**: Always use typed `Var` references from `Var.theme` or `Var.utility`
+- **Exception**: When a CSS variable's actual value contains `var(...)` references (like Tailwind v4's `--tw-gradient-stops`), the string is the proper CSS value, not a reference. In these cases:
+  - The variable type should be `string t` in var.ml
+  - Use `Css.Computed_stops` or similar typed constructors when available
+  - Document clearly that this is the CSS value, not a variable reference
 - **If you need new functionality**: Extend the type system properly:
   - Add new constructors to existing types following the standard pattern:
     ```ocaml
