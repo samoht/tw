@@ -1,0 +1,1 @@
+@docs/variables-and-layers.md - Important debugging/design guide for understanding how utilities define and use CSS custom properties (variables) and how those become part of Tailwind-style layers.

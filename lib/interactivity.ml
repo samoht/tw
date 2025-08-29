@@ -42,6 +42,10 @@ let scroll_smooth = style "scroll-smooth" [ scroll_behavior Smooth ]
 
 (** {1 Scroll Snap Utilities} *)
 
+(* Reference to the global scroll snap strictness variable *)
+let _, scroll_snap_strictness_var =
+  Var.utility Var.Scroll_snap_strictness Proximity
+
 (* Scroll snap property rules *)
 let scroll_snap_property_rules =
   [
@@ -54,28 +58,25 @@ let snap_end = style "snap-end" [ scroll_snap_align End ]
 let snap_center = style "snap-center" [ scroll_snap_align Center ]
 let snap_none = style "snap-none" [ scroll_snap_type None ]
 
-let snap_x = 
-  let strictness_def, strictness_var = Var.utility Var.Scroll_snap_strictness Proximity in
-  style "snap-x" ~property_rules:scroll_snap_property_rules 
-    [ strictness_def; scroll_snap_type (Axis (X, Some (Var strictness_var))) ]
+let snap_x =
+  style "snap-x" ~property_rules:scroll_snap_property_rules
+    [ scroll_snap_type (Axis (X, Some (Var scroll_snap_strictness_var))) ]
 
-let snap_y = 
-  let strictness_def, strictness_var = Var.utility Var.Scroll_snap_strictness Proximity in
-  style "snap-y" ~property_rules:scroll_snap_property_rules 
-    [ strictness_def; scroll_snap_type (Axis (Y, Some (Var strictness_var))) ]
+let snap_y =
+  style "snap-y" ~property_rules:scroll_snap_property_rules
+    [ scroll_snap_type (Axis (Y, Some (Var scroll_snap_strictness_var))) ]
 
-let snap_both = 
-  let strictness_def, strictness_var = Var.utility Var.Scroll_snap_strictness Proximity in
-  style "snap-both" ~property_rules:scroll_snap_property_rules 
-    [ strictness_def; scroll_snap_type (Axis (Both, Some (Var strictness_var))) ]
+let snap_both =
+  style "snap-both" ~property_rules:scroll_snap_property_rules
+    [ scroll_snap_type (Axis (Both, Some (Var scroll_snap_strictness_var))) ]
 
 let snap_mandatory =
   let def, _ = Var.utility Var.Scroll_snap_strictness Mandatory in
-  style "snap-mandatory" [ def ]
+  style "snap-mandatory" ~property_rules:scroll_snap_property_rules [ def ]
 
 let snap_proximity =
   let def, _ = Var.utility Var.Scroll_snap_strictness Proximity in
-  style "snap-proximity" [ def ]
+  style "snap-proximity" ~property_rules:scroll_snap_property_rules [ def ]
 
 let snap_align_none = style "snap-align-none" [ scroll_snap_align None ]
 let snap_normal = style "snap-normal" [ scroll_snap_stop Normal ]

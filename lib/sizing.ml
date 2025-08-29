@@ -231,7 +231,7 @@ let fraction_table =
     ("5/6", 83.333333);
   ]
 
-let parse_fraction prefix prop frac =
+let parse_fraction prefix (prop : length -> declaration) frac =
   match List.assoc_opt frac fraction_table with
   | Some pct -> Ok (style (prefix ^ frac) [ prop (Pct pct) ])
   | None -> Error (`Msg ("Invalid fraction: " ^ frac))

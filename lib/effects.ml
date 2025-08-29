@@ -61,16 +61,30 @@ let shadow_property_rules =
        shadow utilities *)
   ]
 
-(* Helper function to create shadow utilities with the Tailwind v4 variable
-   pattern *)
+(* Helper function to create shadow utilities with CSS variable composition *)
 let make_shadow_utility name shadow_value =
-  let shadow_def, _ = Var.utility Var.Shadow shadow_value in
+  let shadow_def, shadow_var = Var.utility Var.Shadow shadow_value in
+  (* Reference the shadow composition variables *)
+  let _, inset_shadow_var = Var.utility Var.Inset_shadow "0 0 #0000" in
+  let _, inset_ring_shadow_var =
+    Var.utility Var.Inset_ring_shadow "0 0 #0000"
+  in
+  let _, ring_offset_shadow_var =
+    Var.utility Var.Ring_offset_shadow "0 0 #0000"
+  in
+  let _, ring_shadow_var = Var.utility Var.Ring_shadow "0 0 #0000" in
   style name ~property_rules:shadow_property_rules
     [
       shadow_def;
       box_shadow
-        (Raw
-           "var(--tw-inset-shadow),var(--tw-inset-ring-shadow),var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow)");
+        (Vars
+           [
+             inset_shadow_var;
+             inset_ring_shadow_var;
+             ring_offset_shadow_var;
+             ring_shadow_var;
+             shadow_var;
+           ]);
     ]
 
 let shadow_none = make_shadow_utility "shadow-none" "0 0 #0000"
@@ -105,16 +119,31 @@ let shadow_2xl =
     "0 25px 50px -12px var(--tw-shadow-color,#00000040)"
 
 let shadow_inner =
-  let inset_shadow_def, _ =
+  let inset_shadow_def, inset_shadow_var =
     Var.utility Var.Inset_shadow
       "inset 0 2px 4px 0 var(--tw-shadow-color,#0000000f)"
   in
+  (* Reference the shadow composition variables *)
+  let _, inset_ring_shadow_var =
+    Var.utility Var.Inset_ring_shadow "0 0 #0000"
+  in
+  let _, ring_offset_shadow_var =
+    Var.utility Var.Ring_offset_shadow "0 0 #0000"
+  in
+  let _, ring_shadow_var = Var.utility Var.Ring_shadow "0 0 #0000" in
+  let _, shadow_var = Var.utility Var.Shadow "0 0 #0000" in
   style "shadow-inner" ~property_rules:shadow_property_rules
     [
       inset_shadow_def;
       box_shadow
-        (Raw
-           "var(--tw-inset-shadow),var(--tw-inset-ring-shadow),var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow)");
+        (Vars
+           [
+             inset_shadow_var;
+             inset_ring_shadow_var;
+             ring_offset_shadow_var;
+             ring_shadow_var;
+             shadow_var;
+           ]);
     ]
 
 (** {1 Opacity Utilities} *)
