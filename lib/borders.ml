@@ -22,56 +22,36 @@ open Css
 
 (** {1 Border Width Utilities} *)
 
-(* Create shared variables *)
-let border_style_def, border_style_var = Var.utility Var.Border_style Solid
+(* Create shared variable for border style *)
+let _, border_style_var = Var.utility Var.Border_style Solid
 
 (* Shared @property registration for border style variable *)
 let property_rule =
-  [
-    Var.property Var.Border_style
-      ~syntax:
-        "none | hidden | dotted | dashed | solid | double | groove | ridge | \
-         inset | outset"
-      ~inherits:false ~initial:"solid";
-  ]
+  [ Var.property Var.Border_style ~syntax:"*" ~inherits:false ~initial:"solid" ]
 
 let border =
   style "border" ~property_rules:property_rule
-    [
-      border_style_def; border_style (Var border_style_var); border_width (Px 1);
-    ]
+    [ border_style (Var border_style_var); border_width (Px 1) ]
 
 let border_0 =
   style "border-0" ~property_rules:property_rule
-    [
-      border_style_def; border_style (Var border_style_var); border_width (Px 0);
-    ]
+    [ border_style (Var border_style_var); border_width (Px 0) ]
 
 let border_2 =
   style "border-2" ~property_rules:property_rule
-    [
-      border_style_def; border_style (Var border_style_var); border_width (Px 2);
-    ]
+    [ border_style (Var border_style_var); border_width (Px 2) ]
 
 let border_4 =
   style "border-4" ~property_rules:property_rule
-    [
-      border_style_def; border_style (Var border_style_var); border_width (Px 4);
-    ]
+    [ border_style (Var border_style_var); border_width (Px 4) ]
 
 let border_8 =
   style "border-8" ~property_rules:property_rule
-    [
-      border_style_def; border_style (Var border_style_var); border_width (Px 8);
-    ]
+    [ border_style (Var border_style_var); border_width (Px 8) ]
 
 let border_t =
   style "border-t" ~property_rules:property_rule
-    [
-      border_style_def;
-      border_top_style (Var border_style_var);
-      border_top_width (Px 1);
-    ]
+    [ border_top_style (Var border_style_var); border_top_width (Px 1) ]
 
 let border_r =
   style "border-r" ~property_rules:property_rule
@@ -171,24 +151,24 @@ let border_l_8 =
 (** {1 Border Style Utilities} *)
 
 let border_solid =
-  style "border-solid" ~property_rules:property_rule
-    [ border_style_def; border_style Solid ]
+  let def, _ = Var.utility Var.Border_style Solid in
+  style "border-solid" [ def; border_style Solid ]
 
 let border_dashed =
-  style "border-dashed" ~property_rules:property_rule
-    [ border_style_def; border_style Dashed ]
+  let def, _ = Var.utility Var.Border_style Dashed in
+  style "border-dashed" [ def; border_style Dashed ]
 
 let border_dotted =
-  style "border-dotted" ~property_rules:property_rule
-    [ border_style_def; border_style Dotted ]
+  let def, _ = Var.utility Var.Border_style Dotted in
+  style "border-dotted" [ def; border_style Dotted ]
 
 let border_double =
-  style "border-double" ~property_rules:property_rule
-    [ border_style_def; border_style Double ]
+  let def, _ = Var.utility Var.Border_style Double in
+  style "border-double" [ def; border_style Double ]
 
 let border_none =
-  style "border-none" ~property_rules:property_rule
-    [ border_style_def; border_style None ]
+  let def, _ = Var.utility Var.Border_style None in
+  style "border-none" [ def; border_style None ]
 
 (* Border width utilities with semantic names matching tw.mli *)
 let border_xs = border (* 1px *)
@@ -205,7 +185,7 @@ let border_full = border_8 (* 8px *)
 let rounded_none = style "rounded-none" [ border_radius Zero ]
 
 let rounded_sm =
-  let def, var_ref = Var.theme Var.Radius_sm (Rem 0.125) in
+  let def, var_ref = Var.theme Var.Radius_sm (Rem 0.25) in
   style "rounded-sm" [ def; border_radius (Var var_ref) ]
 
 let rounded = style "rounded" [ border_radius (Rem 0.25) ]

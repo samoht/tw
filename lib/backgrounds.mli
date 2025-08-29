@@ -25,3 +25,6 @@ val via_color : ?shade:int -> Color.color -> t
 
 val to_color : ?shade:int -> Color.color -> t
 (** [to_color ?shade color] sets the gradient "to" color (end stop). *)
+
+val of_string : string list -> (t, [ `Msg of string ]) result
+(** Parse gradient and background utilities from string parts *)

@@ -75,6 +75,7 @@ let of_string class_str =
   let parts = String.split_on_char '-' base_class in
   let base_result =
     Color.classes_of_string parts
+    <|> Backgrounds.of_string parts
     <|> Spacing.of_string parts <|> Sizing.of_string parts
     <|> Layout.of_string parts <|> Flow.of_string parts
     <|> Typography.of_string parts <|> Borders.of_string parts

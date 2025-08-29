@@ -411,22 +411,22 @@ let order : type a. a t -> int = function
   | Font_weight_black -> 208
   | Font_weight -> 209
   | Leading -> 210
-  (* Default font families - start at 300 *)
-  | Default_font_family -> 300
-  | Default_mono_font_family -> 301
-  | Default_font_feature_settings -> 302
-  | Default_font_variation_settings -> 303
-  | Default_mono_font_feature_settings -> 304
-  | Default_mono_font_variation_settings -> 305
-  (* Border radius - start at 400 *)
-  | Radius_none -> 400
-  | Radius_sm -> 401
-  | Radius_default -> 402
-  | Radius_md -> 403
-  | Radius_lg -> 404
-  | Radius_xl -> 405
-  | Radius_2xl -> 406
-  | Radius_3xl -> 407
+  (* Border radius - start at 300 *)
+  | Radius_none -> 300
+  | Radius_sm -> 301
+  | Radius_default -> 302
+  | Radius_md -> 303
+  | Radius_lg -> 304
+  | Radius_xl -> 305
+  | Radius_2xl -> 306
+  | Radius_3xl -> 307
+  (* Default font families - start at 400 *)
+  | Default_font_family -> 400
+  | Default_mono_font_family -> 401
+  | Default_font_feature_settings -> 402
+  | Default_font_variation_settings -> 403
+  | Default_mono_font_feature_settings -> 404
+  | Default_mono_font_variation_settings -> 405
   (* Transform variables *)
   | Translate_x -> 1000
   | Translate_y -> 1001
@@ -713,9 +713,6 @@ let property : type a.
  fun var_t ~syntax ~inherits ~initial ->
   let var_name = to_string var_t in
   Css.property ~name:var_name ~syntax ~inherits ~initial_value:initial ()
-
-let canonical_theme_order =
-  [ Any Font_sans; Any Font_serif; Any Font_mono; Any Spacing ]
 
 (** Helper for metadata errors *)
 let err_meta ~layer decl msg =

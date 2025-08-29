@@ -584,6 +584,29 @@ let pink = Pink
 let rose = Rose
 
 let hex s =
+  (* Helper to shorten hex colors when possible (e.g., #00ff00 -> #0f0) *)
+  let shorten_hex hex_str =
+    (* Remove # if present *)
+    let hex_no_hash =
+      if String.starts_with ~prefix:"#" hex_str then
+        String.sub hex_str 1 (String.length hex_str - 1)
+      else hex_str
+    in
+    if String.length hex_no_hash = 6 then
+      let r1 = hex_no_hash.[0] and r2 = hex_no_hash.[1] in
+      let g1 = hex_no_hash.[2] and g2 = hex_no_hash.[3] in
+      let b1 = hex_no_hash.[4] and b2 = hex_no_hash.[5] in
+      if r1 = r2 && g1 = g2 && b1 = b2 then (
+        (* Allocate a single 3-byte string and set each character *)
+        let short = Bytes.create 3 in
+        Bytes.set short 0 r1;
+        Bytes.set short 1 g1;
+        Bytes.set short 2 b1;
+        Bytes.unsafe_to_string short)
+      else hex_no_hash
+    else hex_no_hash
+  in
+
   (* Check if the string is actually an RGB value like "rgb(29,161,242)" *)
   if String.starts_with ~prefix:"rgb(" s && String.ends_with ~suffix:")" s then
     (* Parse RGB string and convert to hex *)
@@ -601,15 +624,23 @@ let hex s =
             let c = n mod 16 in
             if c < 10 then Char.chr (c + 48) else Char.chr (c + 87)
           in
-          let hex_of_int n =
-            String.make 1 (to_hex_char (n / 16)) ^ String.make 1 (to_hex_char n)
+          (* Create 6-character hex string in one allocation *)
+          let hex_str = Bytes.create 6 in
+          let set_hex_byte offset n =
+            Bytes.set hex_str offset (to_hex_char (n / 16));
+            Bytes.set hex_str (offset + 1) (to_hex_char n)
           in
-          let hex_str = "#" ^ hex_of_int r ^ hex_of_int g ^ hex_of_int b in
-          Hex hex_str
+          set_hex_byte 0 r;
+          set_hex_byte 2 g;
+          set_hex_byte 4 b;
+          let hex_str = Bytes.unsafe_to_string hex_str in
+          Hex (shorten_hex hex_str)
       | _ -> Hex s (* Fallback if parsing fails *)
     with Invalid_argument _ | Failure _ ->
       Hex s (* Fallback if parsing fails *)
-  else Hex s
+  else
+    (* Regular hex string - shorten if possible *)
+    Hex (shorten_hex s)
 
 (* Convert string name to color type *)
 let of_string_exn = function
@@ -873,7 +904,10 @@ let pp = function
   | Fuchsia -> "fuchsia"
   | Pink -> "pink"
   | Rose -> "rose"
-  | Hex s -> Pp.str [ "Hex("; s; ")" ]
+  | Hex s ->
+      (* Use Tailwind's arbitrary value syntax [#hex] for hex colors *)
+      let hex_value = if String.starts_with ~prefix:"#" s then s else "#" ^ s in
+      Pp.str [ "["; hex_value; "]" ]
   | Rgb { red; green; blue } ->
       Pp.str
         [
