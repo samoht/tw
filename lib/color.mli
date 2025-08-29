@@ -435,7 +435,7 @@ val border_rose : Core.t
 val classes_of_string : string list -> (Core.t, [ `Msg of string ]) result
 (** [classes_of_string parts] parses color utilities from string [parts]. *)
 
-val parse_color_with_shade :
+val color_and_shade_of_string_list :
   string list -> (color * int, [ `Msg of string ]) result
-(** [parse_color_with_shade parts] parses a color and shade from string parts.
-*)
+(** [color_and_shade_of_string_list parts] parses a color and shade from string
+    list parts. Example: ["blue"; "500"] -> Ok (Blue, 500) *)
