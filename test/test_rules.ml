@@ -190,7 +190,7 @@ let test_is_hover_rule () =
   in
   match group_hover_rules with
   | [ group_rule ] ->
-      check bool "group-hover is not detected as hover" false
+      check bool "group-hover is detected as hover" true
         (Tw.Rules.is_hover_rule group_rule)
   | _ -> fail "Expected single group rule"
 
