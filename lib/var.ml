@@ -103,9 +103,9 @@ type _ t =
   | Rotate : Css.angle t
   | Skew_x : Css.angle t
   | Skew_y : Css.angle t
-  | Scale_x : float t
-  | Scale_y : float t
-  | Scale_z : float t
+  | Scale_x : Css.scale t
+  | Scale_y : Css.scale t
+  | Scale_z : Css.scale t
   (* Filter variables *)
   | Blur : Css.length t
   | Brightness : float t
@@ -170,13 +170,12 @@ type _ t =
   | Gradient_from_position : float t
   | Gradient_via_position : float t
   | Gradient_to_position : float t
-  (* Font variant numeric - using string as CSS variables hold the CSS value
-     strings *)
-  | Font_variant_ordinal : string t
-  | Font_variant_slashed_zero : string t
-  | Font_variant_numeric_figure : string t
-  | Font_variant_numeric_spacing : string t
-  | Font_variant_numeric_fraction : string t
+  (* Font variant numeric - properly typed *)
+  | Font_variant_ordinal : Css.font_variant_numeric_token t
+  | Font_variant_slashed_zero : Css.font_variant_numeric_token t
+  | Font_variant_numeric_figure : Css.font_variant_numeric_token t
+  | Font_variant_numeric_spacing : Css.font_variant_numeric_token t
+  | Font_variant_numeric_fraction : Css.font_variant_numeric_token t
   (* Other *)
   | Border_style : Css.border_style t
   | Scroll_snap_strictness : Css.scroll_snap_strictness t
@@ -548,7 +547,7 @@ let layer_of_string = function
 (* Get the layer from a CSS variable *)
 let layer : type a. a Css.var -> layer option =
  fun css_var ->
-  match css_var.layer with None -> None | Some s -> layer_of_string s
+  match Css.var_layer css_var with None -> None | Some s -> layer_of_string s
 
 (** Create a variable definition and handle *)
 let def : type a.
@@ -622,9 +621,9 @@ let def : type a.
   | Rotate -> var Angle value
   | Skew_x -> var Angle value
   | Skew_y -> var Angle value
-  | Scale_x -> var Float value
-  | Scale_y -> var Float value
-  | Scale_z -> var Float value
+  | Scale_x -> var Css.Scale value
+  | Scale_y -> var Css.Scale value
+  | Scale_z -> var Css.Scale value
   | Blur -> var Length value
   | Brightness -> var Float value
   | Contrast -> var Float value
@@ -685,11 +684,11 @@ let def : type a.
   | Gradient_from_position -> var Float value
   | Gradient_via_position -> var Float value
   | Gradient_to_position -> var Float value
-  | Font_variant_ordinal -> var String value
-  | Font_variant_slashed_zero -> var String value
-  | Font_variant_numeric_figure -> var String value
-  | Font_variant_numeric_spacing -> var String value
-  | Font_variant_numeric_fraction -> var String value
+  | Font_variant_ordinal -> var Font_variant_numeric_token value
+  | Font_variant_slashed_zero -> var Font_variant_numeric_token value
+  | Font_variant_numeric_figure -> var Font_variant_numeric_token value
+  | Font_variant_numeric_spacing -> var Font_variant_numeric_token value
+  | Font_variant_numeric_fraction -> var Font_variant_numeric_token value
   | Border_style -> var Border_style value
   | Scroll_snap_strictness -> var Scroll_snap_strictness value
   | Duration -> var Duration value
@@ -739,6 +738,18 @@ let err_meta ~layer decl msg =
        ])
 
 (** Compare two CSS declarations by extracting their metadata. *)
+
+module Map = Map.Make (struct
+  type t = any
+
+  let compare = compare
+end)
+
+module Set = Set.Make (struct
+  type t = any
+
+  let compare = compare
+end)
 
 let compare_declarations layer d1 d2 =
   match (Css.declaration_meta d1, Css.declaration_meta d2) with

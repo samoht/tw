@@ -116,6 +116,49 @@ val to_inline_style : t list -> string
 (** [to_inline_style styles] generates inline CSS string from Tailwind classes.
 *)
 
+(** {2 Tailwind v4 Layer Model}
+
+    The generator follows Tailwind v4's cascade layering model with a pragmatic
+    properties layer strategy that mirrors Tailwind's output where applicable.
+
+    - Order: [\@layer properties] → [\@layer theme] → if [base=true] then
+      [\@layer base] → [\@layer components] → [\@layer utilities].
+    - Properties layer: Emitted only when at least one class registers a custom
+      property via [Var.property]. The layer contains a single [\@supports]
+      block with Tailwind v4's vendor-targeted condition, wrapping a universal
+      selector applying the initial values for each registered property as
+      custom declarations (e.g., [--tw-...: initial]). The exact condition used
+      is:
+
+    {v
+(((-webkit-hyphens:none)) and (not (margin-trim:inline))) or ((-moz-orient:inline) and (not (color:rgb(from red r g b))))
+    v}
+
+    Notes:
+    - Property defaults are derived from the collected [@property] rules'
+      [initial] values; if empty, "initial" is used.
+    - If no properties are registered, the properties layer is omitted.
+    - Theme layer: Contains design-token variables extracted from utilities,
+      ordered by the canonical variable order from [Var]. Classification uses
+      Var metadata only (the declaration's [layer] = "theme" | "utilities").
+      Custom declarations without Var metadata are ignored for theme hoisting.
+    - Base layer: When [base=true], emits Preflight reset from
+      [Preflight.stylesheet ()]. Placeholder opacity handling is gated under a
+      [\@supports] block to match browser compatibility behavior.
+    - Components layer: Emitted as an empty layer when no components are present
+      (renders as [@layer components;]).
+    - Utilities layer: Contains sorted utility rules (and any responsive or
+      container queries) with conflict resolution to match Tailwind's cascade
+      expectations. Hover utilities are gated under [(hover:hover)].
+    - [@property] emission: In [Variables] mode, collected [@property]
+      registrations (from utilities via [Var.property]) are still emitted at the
+      top level after layers. In [Inline] mode, no layers are used and raw rules
+      are emitted without [@property] registration changes.
+
+    This behavior ensures compatibility with Tailwind v4's layering and browser
+    targeting while keeping output minimal: the properties layer appears only
+    when needed, and theme variables are centralized in the theme layer. *)
+
 (** {1 Helper Functions} *)
 
 val extract_selector_props : t -> output list
@@ -154,10 +197,9 @@ val color_order : string -> int
 
 (** {1 Layer Generation} *)
 
-val compute_theme_layer : ?default_vars:string list -> t list -> Css.layer_rule
-(** [compute_theme_layer ?default_vars tw_classes] generates the theme layer
-    with CSS variables. [default_vars] specifies variables to always include in
-    the theme (defaults to font-related variables). *)
+val compute_theme_layer : t list -> Css.layer_rule
+(** [compute_theme_layer tw_classes] generates the theme layer with CSS
+    variables. *)
 
 val build_utilities_layer :
   rules:Css.rule list ->

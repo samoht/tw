@@ -128,105 +128,104 @@ let escape_class_name name =
 (* ======================================================================== *)
 (* Rule Extraction - Convert Core.t to CSS rules *)
 (* ======================================================================== *)
+let selector_with_data_key selector key value =
+  selector ^ "[" ^ key ^ "=\"" ^ value ^ "\"]"
+
+let media_modifier ~condition ~prefix base_class props =
+  media_query ~condition
+    ~selector:(prefix ^ escape_class_name base_class)
+    ~props ~base_class ()
+
+let responsive_rule breakpoint base_class props =
+  let prefix = string_of_breakpoint breakpoint in
+  let condition = "(min-width:" ^ responsive_breakpoint prefix ^ ")" in
+  let escaped_prefix = escape_class_name prefix in
+  let sel = "." ^ escaped_prefix ^ "\\:" ^ escape_class_name base_class in
+  media_query ~condition ~selector:sel ~props ~base_class ()
+
+let container_rule query base_class props =
+  let prefix = Containers.container_query_to_class_prefix query in
+  let escaped_prefix = escape_class_name prefix in
+  let escaped_class =
+    "." ^ escaped_prefix ^ "\\:" ^ escape_class_name base_class
+  in
+  let condition = Containers.container_query_to_css_prefix query in
+  let cond =
+    if String.starts_with ~prefix:"@container " condition then
+      drop_prefix "@container " condition
+    else "(min-width: 0)"
+  in
+  container_query ~condition:cond ~selector:escaped_class ~props ~base_class ()
+
+let has_like_selector kind selector_str base_class props =
+  let escaped_selector = escape_class_name selector_str in
+  let prefix =
+    match kind with
+    | `Has -> ".has-\\[" ^ escaped_selector ^ "\\]\\:"
+    | `Group_has ->
+        ".group:has(" ^ selector_str ^ ") .group-has-\\[" ^ escaped_selector
+        ^ "\\]\\:"
+    | `Peer_has ->
+        ".peer:has(" ^ selector_str ^ ") ~ .peer-has-\\[" ^ escaped_selector
+        ^ "\\]\\:"
+  in
+  regular
+    ~selector:
+      (prefix
+      ^ escape_class_name base_class
+      ^ match kind with `Has -> ":has(" ^ selector_str ^ ")" | _ -> "")
+    ~props ~base_class ()
+
 let modifier_to_rule modifier base_class selector props =
   match modifier with
   | Data_state value ->
       regular
-        ~selector:(selector ^ "[data-state=\"" ^ value ^ "\"]")
+        ~selector:(selector_with_data_key selector "data-state" value)
         ~props ~base_class ()
   | Data_variant value ->
       regular
-        ~selector:(selector ^ "[data-variant=\"" ^ value ^ "\"]")
+        ~selector:(selector_with_data_key selector "data-variant" value)
         ~props ~base_class ()
   | Data_custom (key, value) ->
       regular
-        ~selector:(selector ^ "[data-" ^ key ^ "=\"" ^ value ^ "\"]")
+        ~selector:(selector_with_data_key selector ("data-" ^ key) value)
         ~props ~base_class ()
   | Dark ->
       media_query ~condition:"(prefers-color-scheme: dark)" ~selector ~props
         ~base_class ()
-  | Responsive breakpoint ->
-      let prefix = string_of_breakpoint breakpoint in
-      let condition = "(min-width:" ^ responsive_breakpoint prefix ^ ")" in
-      let escaped_prefix = escape_class_name prefix in
-      let sel = "." ^ escaped_prefix ^ "\\:" ^ escape_class_name base_class in
-      media_query ~condition ~selector:sel ~props ~base_class ()
-  | Container query ->
-      let prefix = Containers.container_query_to_class_prefix query in
-      let escaped_prefix = escape_class_name prefix in
-      let escaped_class =
-        "." ^ escaped_prefix ^ "\\:" ^ escape_class_name base_class
-      in
-      let condition = Containers.container_query_to_css_prefix query in
-      (* Extract the condition part from "@container (condition)" format *)
-      let cond =
-        if String.starts_with ~prefix:"@container " condition then
-          drop_prefix "@container " condition
-        else "(min-width: 0)"
-      in
-      container_query ~condition:cond ~selector:escaped_class ~props ~base_class
-        ()
+  | Responsive breakpoint -> responsive_rule breakpoint base_class props
+  | Container query -> container_rule query base_class props
   | Not _modifier ->
-      (* Note: This negates the entire selector, not just the base class. This
-         is intentional to allow complex :not() conditions. *)
       regular
         ~selector:
           (".not-" ^ escape_class_name base_class ^ ":not(" ^ selector ^ ")")
         ~props ~base_class ()
-  | Has selector_str ->
-      (* Escape the selector string that appears in the class name *)
-      let escaped_selector = escape_class_name selector_str in
-      regular
-        ~selector:
-          (".has-\\[" ^ escaped_selector ^ "\\]\\:"
-          ^ escape_class_name base_class
-          ^ ":has(" ^ selector_str ^ ")")
-        ~props ~base_class ()
+  | Has selector_str -> has_like_selector `Has selector_str base_class props
   | Group_has selector_str ->
-      (* Escape the selector string that appears in the class name *)
-      let escaped_selector = escape_class_name selector_str in
-      regular
-        ~selector:
-          (".group:has(" ^ selector_str ^ ") .group-has-\\[" ^ escaped_selector
-         ^ "\\]\\:"
-          ^ escape_class_name base_class)
-        ~props ~base_class ()
+      has_like_selector `Group_has selector_str base_class props
   | Peer_has selector_str ->
-      (* Escape the selector string that appears in the class name *)
-      let escaped_selector = escape_class_name selector_str in
-      regular
-        ~selector:
-          (".peer:has(" ^ selector_str ^ ") ~ .peer-has-\\[" ^ escaped_selector
-         ^ "\\]\\:"
-          ^ escape_class_name base_class)
-        ~props ~base_class ()
+      has_like_selector `Peer_has selector_str base_class props
   | Starting ->
       starting_style
         ~selector:("." ^ escape_class_name base_class)
         ~props ~base_class ()
   | Motion_safe ->
-      media_query ~condition:"(prefers-reduced-motion: no-preference)"
-        ~selector:(".motion-safe\\:" ^ escape_class_name base_class)
-        ~props ~base_class ()
+      media_modifier ~condition:"(prefers-reduced-motion: no-preference)"
+        ~prefix:".motion-safe\\:" base_class props
   | Motion_reduce ->
-      media_query ~condition:"(prefers-reduced-motion: reduce)"
-        ~selector:(".motion-reduce\\:" ^ escape_class_name base_class)
-        ~props ~base_class ()
+      media_modifier ~condition:"(prefers-reduced-motion: reduce)"
+        ~prefix:".motion-reduce\\:" base_class props
   | Contrast_more ->
-      media_query ~condition:"(prefers-contrast: more)"
-        ~selector:(".contrast-more\\:" ^ escape_class_name base_class)
-        ~props ~base_class ()
+      media_modifier ~condition:"(prefers-contrast: more)"
+        ~prefix:".contrast-more\\:" base_class props
   | Contrast_less ->
-      media_query ~condition:"(prefers-contrast: less)"
-        ~selector:(".contrast-less\\:" ^ escape_class_name base_class)
-        ~props ~base_class ()
+      media_modifier ~condition:"(prefers-contrast: less)"
+        ~prefix:".contrast-less\\:" base_class props
   | Hover | Focus | Active | Focus_within | Focus_visible | Disabled ->
-      (* These are pseudo-class modifiers - track hover specifically *)
       let sel = Modifiers.to_selector modifier base_class in
       let has_hover = modifier = Hover in
       regular ~selector:sel ~props ~base_class ~has_hover ()
   | _ ->
-      (* For other modifiers, use the selector helper from Modifiers *)
       let sel = Modifiers.to_selector modifier base_class in
       regular ~selector:sel ~props ~base_class ()
 
@@ -690,18 +689,20 @@ let rules_of_grouped ?(filter_custom_props = false) grouped_list =
     (fun (selector, props) ->
       let filtered_props =
         if filter_custom_props then
-          (* In utilities, custom properties must be created via Var.utility.
-             Keep only --tw-* declarations; theme variables like --spacing
-             should be filtered out here and appear in theme layer instead. *)
+          (* In utilities, keep only declarations explicitly tagged for the
+             utilities layer via Var metadata. Non-custom declarations are
+             always kept. Custom declarations without metadata are dropped. *)
           List.filter
             (fun decl ->
-              match Css.custom_declaration_name decl with
-              | None -> true (* Keep non-custom properties *)
-              | Some name ->
-                  (* Only keep --tw-* prefixed variables in utilities. Theme
-                     variables like --spacing will be extracted for theme
-                     layer *)
-                  String.starts_with ~prefix:"--tw-" name)
+              match Css.custom_declaration_layer decl with
+              | Some layer when layer = "utilities" -> true
+              | Some _ -> false
+              | None -> (
+                  (* No fallback to name prefixes: keep only non-custom
+                     declarations when metadata is missing. *)
+                  match Css.custom_declaration_name decl with
+                  | None -> true
+                  | Some _ -> false))
             props
         else props
       in
@@ -744,128 +745,111 @@ let rule_sets tw_classes =
 (* Layer Generation - CSS @layer directives and theme variable resolution *)
 (* ======================================================================== *)
 
-module String_set = Set.Make (String)
-module String_map = Map.Make (String)
+module Strings = Set.Make (String)
 
-(* Map for typed variables with theme ordering *)
-module Var_map = Map.Make (struct
-  type t = Var.any
+(* Helpers for theme layer extraction and ordering *)
+let collect_selector_props tw_classes =
+  List.concat_map extract_selector_props tw_classes
 
-  let compare = Var.compare
-end)
+let extract_non_tw_custom_declarations selector_props =
+  let var_list = ref [] in
+  selector_props
+  |> List.iter (function
+         | Regular { props; _ }
+         | Media_query { props; _ }
+         | Container_query { props; _ }
+         | Starting_style { props; _ }
+         ->
+         Css.extract_custom_declarations props
+         |> List.iter (fun decl ->
+                match Css.custom_declaration_layer decl with
+                | Some layer when layer = "theme" ->
+                    var_list := decl :: !var_list
+                | _ -> ()));
+  (* Deduplicate by variable name while preserving order *)
+  let seen = ref Strings.empty in
+  !var_list
+  |> List.filter (fun decl ->
+         match Css.custom_declaration_name decl with
+         | Some name ->
+             if Strings.mem name !seen then false
+             else (
+               seen := Strings.add name !seen;
+               true)
+         | None -> false)
 
-let compute_theme_layer ?(default_vars = []) tw_classes =
-  (* Use Var module to get default font variables instead of hardcoding *)
+(* Get Var.any from declaration metadata *)
+let var_of_declaration_meta decl =
+  match Css.declaration_meta decl with
+  | Some meta -> Var.var_of_meta meta
+  | None -> None
+
+let assemble_theme_decls_metadata ~extracted ~default_vars =
+  (* Build Var -> declaration mapping from defaults *)
+  let default_var_map =
+    let all_default_decls =
+      Typography.default_font_declarations
+      @ Typography.default_font_family_declarations
+    in
+    List.fold_left
+      (fun acc decl ->
+        match var_of_declaration_meta decl with
+        | Some var_any -> Var.Map.add var_any decl acc
+        | None -> acc)
+      Var.Map.empty all_default_decls
+  in
+
+  (* Build set of vars already present in extracted *)
+  let extracted_var_set =
+    List.fold_left
+      (fun acc decl ->
+        match var_of_declaration_meta decl with
+        | Some var_any -> Var.Set.add var_any acc
+        | None -> acc)
+      Var.Set.empty extracted
+  in
+
+  (* Get needed defaults using the map *)
+  let needed_defaults =
+    List.filter_map
+      (fun default_var ->
+        if Var.Set.mem default_var extracted_var_set then None
+          (* already present *)
+        else Var.Map.find_opt default_var default_var_map)
+      default_vars
+  in
+
+  let all_decls = extracted @ needed_defaults in
+  List.stable_sort
+    (fun d1 d2 ->
+      (* Try to use Var metadata comparison if both have it *)
+      match (var_of_declaration_meta d1, var_of_declaration_meta d2) with
+      | Some v1, Some v2 -> Var.compare v1 v2
+      | _ ->
+          (* Fall back to name comparison *)
+          let name1 =
+            match Css.custom_declaration_name d1 with Some n -> n | None -> ""
+          in
+          let name2 =
+            match Css.custom_declaration_name d2 with Some n -> n | None -> ""
+          in
+          String.compare name1 name2)
+    all_decls
+
+let compute_theme_layer tw_classes =
   let default_vars =
-    if default_vars = [] then
-      (* Get the variable names for default font-related variables *)
-      [
-        Var.to_string Var.Font_sans;
-        Var.to_string Var.Font_mono;
-        Var.to_string Var.Default_font_family;
-        Var.to_string Var.Default_mono_font_family;
-      ]
-    else default_vars
-  in
-  (* Pre-extract selector/props once to avoid duplicate traversals *)
-  let all_selector_props = List.concat_map extract_selector_props tw_classes in
-  (* Extract all variable declarations (Custom_declaration) from the styles *)
-  let all_var_declarations =
-    let var_list = ref [] in
-    all_selector_props
-    |> List.iter (function
-           | Regular { props; _ }
-           | Media_query { props; _ }
-           | Container_query { props; _ }
-           | Starting_style { props; _ }
-           ->
-           (* Extract custom declarations for theme layer *)
-           let custom_decls = Css.extract_custom_declarations props in
-           List.iter
-             (fun decl ->
-               (* Only extract non --tw- prefixed for theme layer *)
-               match Css.custom_declaration_name decl with
-               | Some var_name
-                 when not (String.starts_with ~prefix:"--tw-" var_name) ->
-                   var_list := decl :: !var_list
-               | _ -> ())
-             custom_decls);
-    (* Deduplicate by variable name while preserving order *)
-    let seen = ref String_set.empty in
-    !var_list
-    |> List.filter (fun decl ->
-           match Css.custom_declaration_name decl with
-           | Some name ->
-               if String_set.mem name !seen then false
-               else (
-                 seen := String_set.add name !seen;
-                 true)
-           | None -> false)
+    [
+      Var.Any Var.Font_sans;
+      Var.Any Var.Font_mono;
+      Var.Any Var.Default_font_family;
+      Var.Any Var.Default_mono_font_family;
+    ]
   in
 
-  (* Also get variable names that are referenced (for fallback generation) *)
-  let directly_referenced_vars =
-    let var_set = ref String_set.empty in
-    all_selector_props
-    |> List.iter (function
-           | Regular { props; _ }
-           | Media_query { props; _ }
-           | Container_query { props; _ }
-           | Starting_style { props; _ }
-           ->
-           List.iter
-             (fun (Css.V v) ->
-               var_set := String_set.add ("--" ^ v.name) !var_set)
-             (Css.vars_of_declarations props));
-    String_set.elements !var_set
-  in
+  let selector_props = collect_selector_props tw_classes in
+  let extracted = extract_non_tw_custom_declarations selector_props in
+  let all_var_decls = assemble_theme_decls_metadata ~extracted ~default_vars in
 
-  (* Collect all variable declarations we need *)
-  let all_var_decls =
-    (* Start with all extracted non --tw-* variables from utilities *)
-    let extracted_vars = all_var_declarations in
-
-    (* Get additional var names we need (defaults and referenced) *)
-    let additional_var_names =
-      String_set.elements
-        (String_set.union
-           (String_set.of_list default_vars)
-           (String_set.of_list directly_referenced_vars))
-    in
-
-    (* Add any missing default/referenced vars that weren't extracted *)
-    let additional_vars =
-      additional_var_names
-      |> List.filter_map (fun var_name ->
-             (* Skip if already in extracted vars *)
-             if
-               List.exists
-                 (fun decl ->
-                   match Css.custom_declaration_name decl with
-                   | Some name -> name = var_name
-                   | None -> false)
-                 extracted_vars
-             then None
-             else if List.mem var_name default_vars then
-               (* For default font variables, get them from Typography *)
-               let all_default_decls =
-                 Typography.default_font_declarations
-                 @ Typography.default_font_family_declarations
-               in
-               List.find_opt
-                 (fun decl ->
-                   match Css.custom_declaration_name decl with
-                   | Some name -> name = var_name
-                   | None -> false)
-                 all_default_decls
-             else None)
-    in
-
-    (* Combine extracted and additional vars *)
-    extracted_vars @ additional_vars
-  in
-
-  (* Sort all declarations using canonical theme order *)
   let theme_generated_vars =
     List.stable_sort
       (fun a b -> Var.compare_declarations Var.Theme a b)
@@ -924,23 +908,12 @@ let build_properties_layer property_rules =
       (* No property rules - omit the properties layer entirely *)
       None
   | _ ->
-      (* Deduplicate property rules by name *)
-      let unique_rules =
-        property_rules
-        |> List.map (fun r -> (Css.property_rule_name r, r))
-        |> List.sort_uniq (fun (n1, _) (n2, _) -> String.compare n1 n2)
-        |> List.map snd
-      in
-
       (* Convert property_rules to declarations using CSS accessor *)
-      (* Use "initial" as default when property has no specific initial value *)
       let defaults =
-        List.map
-          (fun r ->
-            let initial = Css.property_rule_initial r in
-            let value = if initial = "" then "initial" else initial in
-            Css.custom_property (Css.property_rule_name r) value)
-          unique_rules
+        property_rules
+        |> List.map (fun r ->
+               Css.custom_property (Css.property_rule_name r)
+                 (Css.property_rule_initial r))
       in
 
       (* Target all elements including pseudo-elements *)
@@ -977,11 +950,17 @@ let rec collect_property_rules = function
 
 let build_layers ~include_base tw_classes rules media_queries container_queries
     =
-  (* Collect property rules from utilities *)
+  (* Collect property rules from utilities - preserve order while
+     deduplicating *)
+  let seen = ref [] in
   let property_rules_from_utilities =
     tw_classes
     |> List.concat_map collect_property_rules
-    |> List.sort_uniq Stdlib.compare (* Deduplicate *)
+    |> List.filter (fun r ->
+           if List.mem r !seen then false
+           else (
+             seen := r :: !seen;
+             true))
   in
 
   (* Build properties layer with collected rules (returns None if empty) *)

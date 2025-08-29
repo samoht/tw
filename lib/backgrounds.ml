@@ -45,83 +45,26 @@ let gradient_property_rules =
     Var.property Var.Gradient_position ~syntax:"*" ~inherits:false ~initial:"";
   ]
 
-let bg_gradient_to = function
-  | Bottom ->
-      style "bg-gradient-to-b" ~property_rules:gradient_property_rules
-        [
-          tw_gradient_from_def;
-          tw_gradient_to_def;
-          Css.background_image
-            (Linear_gradient
-               (To_bottom, [ Var tw_gradient_from_var; Var tw_gradient_to_var ]));
-        ]
-  | Bottom_right ->
-      style "bg-gradient-to-br" ~property_rules:gradient_property_rules
-        [
-          tw_gradient_from_def;
-          tw_gradient_to_def;
-          Css.background_image
-            (Linear_gradient
-               ( To_bottom_right,
-                 [ Var tw_gradient_from_var; Var tw_gradient_to_var ] ));
-        ]
-  | Right ->
-      style "bg-gradient-to-r" ~property_rules:gradient_property_rules
-        [
-          tw_gradient_from_def;
-          tw_gradient_to_def;
-          Css.background_image
-            (Linear_gradient
-               (To_right, [ Var tw_gradient_from_var; Var tw_gradient_to_var ]));
-        ]
-  | Top_right ->
-      style "bg-gradient-to-tr" ~property_rules:gradient_property_rules
-        [
-          tw_gradient_from_def;
-          tw_gradient_to_def;
-          Css.background_image
-            (Linear_gradient
-               ( To_top_right,
-                 [ Var tw_gradient_from_var; Var tw_gradient_to_var ] ));
-        ]
-  | Top ->
-      style "bg-gradient-to-t" ~property_rules:gradient_property_rules
-        [
-          tw_gradient_from_def;
-          tw_gradient_to_def;
-          Css.background_image
-            (Linear_gradient
-               (To_top, [ Var tw_gradient_from_var; Var tw_gradient_to_var ]));
-        ]
-  | Top_left ->
-      style "bg-gradient-to-tl" ~property_rules:gradient_property_rules
-        [
-          tw_gradient_from_def;
-          tw_gradient_to_def;
-          Css.background_image
-            (Linear_gradient
-               ( To_top_left,
-                 [ Var tw_gradient_from_var; Var tw_gradient_to_var ] ));
-        ]
-  | Left ->
-      style "bg-gradient-to-l" ~property_rules:gradient_property_rules
-        [
-          tw_gradient_from_def;
-          tw_gradient_to_def;
-          Css.background_image
-            (Linear_gradient
-               (To_left, [ Var tw_gradient_from_var; Var tw_gradient_to_var ]));
-        ]
-  | Bottom_left ->
-      style "bg-gradient-to-bl" ~property_rules:gradient_property_rules
-        [
-          tw_gradient_from_def;
-          tw_gradient_to_def;
-          Css.background_image
-            (Linear_gradient
-               ( To_bottom_left,
-                 [ Var tw_gradient_from_var; Var tw_gradient_to_var ] ));
-        ]
+let gradient_to_spec : direction -> string * Css.gradient_direction = function
+  | Bottom -> ("bg-gradient-to-b", To_bottom)
+  | Bottom_right -> ("bg-gradient-to-br", To_bottom_right)
+  | Right -> ("bg-gradient-to-r", To_right)
+  | Top_right -> ("bg-gradient-to-tr", To_top_right)
+  | Top -> ("bg-gradient-to-t", To_top)
+  | Top_left -> ("bg-gradient-to-tl", To_top_left)
+  | Left -> ("bg-gradient-to-l", To_left)
+  | Bottom_left -> ("bg-gradient-to-bl", To_bottom_left)
+
+let bg_gradient_to dir =
+  let class_name, dir_val = gradient_to_spec dir in
+  style class_name ~property_rules:gradient_property_rules
+    [
+      tw_gradient_from_def;
+      tw_gradient_to_def;
+      Css.background_image
+        (Linear_gradient
+           (dir_val, [ Var tw_gradient_from_var; Var tw_gradient_to_var ]));
+    ]
 
 (* Legacy fixed-direction helpers removed in favor of bg_gradient_to *)
 
