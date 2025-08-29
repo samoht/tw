@@ -30,7 +30,7 @@ let to_selector modifier base_class =
   | _ -> base_class (* fallback for complex modifiers *)
 
 (** Check if a modifier generates a hover rule *)
-let is_hover = function Hover -> true | _ -> false
+let is_hover = function Hover | Group_hover | Peer_hover -> true | _ -> false
 
 let wrap m styles =
   match styles with
