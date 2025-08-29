@@ -273,6 +273,8 @@ let my_component =
 For more examples and API details, see the [tw.html
 documentation](https://ocaml.org/p/tw.html/latest/doc/index.html).
 
+See also: docs/variables-and-layers.md for how utilities define variables and how layers are emitted (using Typography as a reference pattern).
+
 ## Examples
 
 The `examples/` directory contains complete examples demonstrating

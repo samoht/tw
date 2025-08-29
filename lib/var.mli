@@ -192,9 +192,6 @@ type any = Any : _ t -> any
 
 (* Utilities own their variable registrations and any @property rules. *)
 
-val canonical_theme_order : any list
-(** [canonical_theme_order] is the canonical theme variable order. *)
-
 val compare : any -> any -> int
 (** [compare a b] compares two variables for canonical ordering in the theme. *)
 
