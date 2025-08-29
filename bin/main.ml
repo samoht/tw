@@ -60,17 +60,19 @@ let rec files path patterns =
   else []
 
 (* Main command implementation *)
-let reset_flag flag ~default =
+type gen_opts = { minify : bool; quiet : bool; mode : Tw.Css.mode }
+
+let eval_flag flag ~default =
   match flag with `Enable -> true | `Disable -> false | `Default -> default
 
-let process_single_class class_str flag minify =
-  let reset = reset_flag flag ~default:false in
+let process_single_class class_str flag ~(opts : gen_opts) =
+  let include_base = eval_flag flag ~default:false in
   let tw_styles = parse_classes ~warn:false class_str in
   match tw_styles with
   | [] -> `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
   | styles ->
-      let stylesheet = Tw.to_css ~reset styles in
-      print_endline (Tw.Css.to_string ~minify stylesheet);
+      let stylesheet = Tw.to_css ~base:include_base ~mode:opts.mode styles in
+      print_endline (Tw.Css.to_string ~minify:opts.minify stylesheet);
       `Ok ()
 
 let collect_files paths =
@@ -99,10 +101,8 @@ let print_stats ~quiet ~known ~unknown =
       Fmt.epr "Unknown (first 20): %s...@."
         (String.concat ", " (List.filteri (fun i _ -> i < 20) unique_unknown)))
 
-type gen_opts = { minify : bool; quiet : bool }
-
 let process_files paths flag ~(opts : gen_opts) =
-  let reset = reset_flag flag ~default:true in
+  let include_base = eval_flag flag ~default:true in
   try
     let all_files = collect_files paths in
     let all_classes =
@@ -132,7 +132,7 @@ let process_files paths flag ~(opts : gen_opts) =
             class_names)
         all_classes
     in
-    let stylesheet = Tw.to_css ~reset tw_styles in
+    let stylesheet = Tw.to_css ~base:include_base ~mode:opts.mode tw_styles in
     print_endline (Tw.Css.to_string ~minify:opts.minify stylesheet);
 
     (* Print statistics to stderr *)
@@ -142,13 +142,22 @@ let process_files paths flag ~(opts : gen_opts) =
     `Ok ()
   with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))
 
-let tw_main single_class reset_flag ~(opts : gen_opts) paths =
+let tw_main single_class base_flag ~mode_choice ~minify ~quiet paths =
+  (* Resolve default mode based on operation kind when not provided: *)
+  let resolved_mode : Css.mode =
+    match (single_class, mode_choice) with
+    | _, `Inline -> Inline
+    | _, `Variables -> Variables
+    | Some _, `Default -> Inline (* single-class defaults to inline mode *)
+    | None, `Default -> Variables (* files/scan default to variables *)
+  in
+  let opts : gen_opts = { minify; quiet; mode = resolved_mode } in
   match single_class with
-  | Some class_str -> process_single_class class_str reset_flag opts.minify
+  | Some class_str -> process_single_class class_str base_flag ~opts
   | None -> (
       match paths with
       | [] -> `Error (true, "Either provide -s <class> or file/directory paths")
-      | paths -> process_files paths reset_flag ~opts)
+      | paths -> process_files paths base_flag ~opts)
 
 (* Command-line arguments *)
 let single_flag =
@@ -156,15 +165,17 @@ let single_flag =
   Arg.(
     value & opt (some string) None & info [ "s"; "single" ] ~docv:"CLASS" ~doc)
 
-let reset_flag =
+let base_flag =
   Arg.(
     value
     & vflag `Default
         [
-          (`Enable, info [ "reset" ] ~doc:"Include CSS reset/normalize rules");
-          ( `Disable,
-            info [ "no-reset" ] ~doc:"Do not include CSS reset/normalize rules"
-          );
+          ( `Enable,
+            info [ "base" ]
+              ~doc:
+                "Include the Base layer (Preflight CSS reset and semantic \
+                 defaults)" );
+          (`Disable, info [ "no-base" ] ~doc:"Exclude the Base layer");
         ])
 
 let minify_flag =
@@ -174,6 +185,17 @@ let minify_flag =
 let quiet_flag =
   let doc = "Suppress warnings about unknown classes" in
   Arg.(value & flag & info [ "q"; "quiet" ] ~doc)
+
+let mode_vflag =
+  let doc_inline = "Inline mode: resolve values (no variables), no layers." in
+  let doc_vars = "Variables mode: emit CSS variables and layered output." in
+  Arg.(
+    value
+    & vflag `Default
+        [
+          (`Inline, info [ "inline" ] ~doc:doc_inline);
+          (`Variables, info [ "variables" ] ~doc:doc_vars);
+        ])
 
 let paths_arg =
   let doc = "Files or directories to scan for Tailwind classes" in
@@ -186,18 +208,20 @@ let cmd =
       `S Manpage.s_description;
       `P "tw is a tool that generates CSS from Tailwind-like utility classes.";
       `P
-        "It can either generate CSS for a single class using -s (without \
-         reset), or scan files/directories for classes and generate a complete \
-         stylesheet (with reset by default).";
+        "It can generate CSS for a single class using -s (no base styles by \
+         default), or scan files/directories and generate a complete \
+         stylesheet (with base styles by default).";
       `S Manpage.s_examples;
-      `P "Generate CSS for a single class (no reset by default):";
+      `P "Generate CSS for a single class (no Base layer by default):";
       `Pre "  tw -s bg-blue-500";
-      `P "Generate CSS for a single class with reset:";
-      `Pre "  tw -s bg-blue-500 --reset";
-      `P "Scan files and generate CSS (with reset by default):";
+      `P "Generate CSS for a single class with the Base layer:";
+      `Pre "  tw -s bg-blue-500 --base";
+      `P "Scan files and generate CSS (with the Base layer by default):";
       `Pre "  tw index.html src/";
-      `P "Scan files and generate CSS without reset:";
-      `Pre "  tw --no-reset index.html src/";
+      `P "Scan files and generate CSS without the Base layer:";
+      `Pre "  tw --no-base index.html src/";
+      `P "Generate inline mode (no variables, no layers):";
+      `Pre "  tw --inline index.html src/";
       `P "Generate minified CSS:";
       `Pre "  tw --minify index.html src/";
       `S Manpage.s_see_also;
@@ -208,7 +232,9 @@ let cmd =
   Cmd.v info
     Term.(
       ret
-        (const (fun s r m q -> tw_main s r ~opts:{ minify = m; quiet = q })
-        $ single_flag $ reset_flag $ minify_flag $ quiet_flag $ paths_arg))
+        (const (fun s b m q mode_choice paths ->
+             tw_main s b ~mode_choice ~minify:m ~quiet:q paths)
+        $ single_flag $ base_flag $ minify_flag $ quiet_flag $ mode_vflag
+        $ paths_arg))
 
 let () = exit (Cmd.eval cmd)

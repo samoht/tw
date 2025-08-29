@@ -149,6 +149,12 @@ type _ t =
   | Gradient_from_position : float t
   | Gradient_via_position : float t
   | Gradient_to_position : float t
+  (* Font variant numeric *)
+  | Font_variant_ordinal : string t
+  | Font_variant_slashed_zero : string t
+  | Font_variant_numeric_figure : string t
+  | Font_variant_numeric_spacing : string t
+  | Font_variant_numeric_fraction : string t
   (* Other *)
   | Border_style : Css.border_style t
   | Scroll_snap_strictness : Css.scroll_snap_strictness t

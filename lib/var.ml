@@ -1,16 +1,29 @@
-(* Variable tracking for CSS composition groups
+(* Typed CSS custom properties (variables)
 
-   Purpose: - Provide a typed view over Tailwind's CSS custom properties (`--*`)
-   used by utilities, transforms, filters, radii, fonts, etc.
+   Purpose: Provide a typed view over Tailwind-style CSS variables (`--*`) used
+   across utilities (transforms, filters, radii, fonts, etc.), with ordering and
+   metadata to support layering (@layer theme/utilities).
 
-   How it interacts with Rules: - `Rules.to_css` inspects declarations via
-   `Css.all_vars` to determine which variables are referenced and generates a
-   minimal theme layer containing only those variables. `Var.to_css_properties`
-   provides default values.
+   Interaction with Rules: - Rules.compute_theme_layer analyzes declarations
+   with `Css.vars_of_declarations` and collects custom declarations via
+   `Css.extract_custom_declarations`. - Variables defined via
+   Var.theme/Var.utility carry metadata so `Var.compare_declarations Var.Theme`
+   can establish canonical ordering in the theme layer. - Modules register
+   @property rules for variables via `Var.property`.
+
+   Adding a new CSS variable: 1. Add a constructor to the GADT `_ t` with the
+   correct type (e.g., `My : Css.color t` or `My : Css.length t`). Prefer
+   structured types (Css.color, Css.length, …) over string. 2. Map it in
+   `to_string` (e.g., `| My -> "--my"`). 3. Assign a position in `order` (e.g.,
+   `| My -> 1500`). 4. Handle its definition in `def` using the appropriate Css
+   constructor (e.g., `| My -> var Color value`).
+
+   Using variables in utilities: - Call `Var.theme` or `Var.utility` to create
+   the declaration and typed var. - Use the returned var in CSS values; refer to
+   other vars via typed fallbacks.
 
    Notes: - `to_string` maps typed variants to `--var-name`. -
-   `canonical_order`/`compare` ensure stable, human‑friendly ordering in the
-   generated CSS. *)
+   `order`/`compare`/`compare_declarations` ensure stable, readable ordering. *)
 
 (* Layer classification for CSS variables. In v4, variables live in @layer theme
    or inline within utilities; base/properties are not used for Var-defined
@@ -157,6 +170,13 @@ type _ t =
   | Gradient_from_position : float t
   | Gradient_via_position : float t
   | Gradient_to_position : float t
+  (* Font variant numeric - using string as CSS variables hold the CSS value
+     strings *)
+  | Font_variant_ordinal : string t
+  | Font_variant_slashed_zero : string t
+  | Font_variant_numeric_figure : string t
+  | Font_variant_numeric_spacing : string t
+  | Font_variant_numeric_fraction : string t
   (* Other *)
   | Border_style : Css.border_style t
   | Scroll_snap_strictness : Css.scroll_snap_strictness t
@@ -291,6 +311,11 @@ let to_string : type a. a t -> string = function
   | Gradient_from_position -> "--tw-gradient-from-position"
   | Gradient_via_position -> "--tw-gradient-via-position"
   | Gradient_to_position -> "--tw-gradient-to-position"
+  | Font_variant_ordinal -> "--tw-ordinal"
+  | Font_variant_slashed_zero -> "--tw-slashed-zero"
+  | Font_variant_numeric_figure -> "--tw-numeric-figure"
+  | Font_variant_numeric_spacing -> "--tw-numeric-spacing"
+  | Font_variant_numeric_fraction -> "--tw-numeric-fraction"
   | Border_style -> "--tw-border-style"
   | Scroll_snap_strictness -> "--tw-scroll-snap-strictness"
   | Duration -> "--tw-duration"
@@ -477,6 +502,12 @@ let order : type a. a t -> int = function
   | Gradient_from_position -> 1406
   | Gradient_via_position -> 1407
   | Gradient_to_position -> 1408
+  (* Font variant numeric *)
+  | Font_variant_ordinal -> 1450
+  | Font_variant_slashed_zero -> 1451
+  | Font_variant_numeric_figure -> 1452
+  | Font_variant_numeric_spacing -> 1453
+  | Font_variant_numeric_fraction -> 1454
   (* Other *)
   | Border_style -> 1500
   | Scroll_snap_strictness -> 1501
@@ -581,8 +612,8 @@ let def : type a.
   | Color (color_name, shade) ->
       let clean_name =
         match shade with
-        | None -> Printf.sprintf "color-%s" color_name
-        | Some s -> Printf.sprintf "color-%s-%d" color_name s
+        | None -> Pp.str [ "color-"; color_name ]
+        | Some s -> Pp.str [ "color-"; color_name; "-"; string_of_int s ]
       in
       Css.var ?layer ?fallback ~meta clean_name Color value
   | Translate_x -> var Length value
@@ -654,6 +685,11 @@ let def : type a.
   | Gradient_from_position -> var Float value
   | Gradient_via_position -> var Float value
   | Gradient_to_position -> var Float value
+  | Font_variant_ordinal -> var String value
+  | Font_variant_slashed_zero -> var String value
+  | Font_variant_numeric_figure -> var String value
+  | Font_variant_numeric_spacing -> var String value
+  | Font_variant_numeric_fraction -> var String value
   | Border_style -> var Border_style value
   | Scroll_snap_strictness -> var Scroll_snap_strictness value
   | Duration -> var Duration value

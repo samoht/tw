@@ -83,7 +83,7 @@ let check_properties_layer () =
   check bool "properties layer removed as expected" true true
 
 let check_to_css_reset () =
-  let config = { Tw.Rules.reset = true; mode = Css.Variables } in
+  let config = { Tw.Rules.base = true; mode = Css.Variables } in
   let css = Tw.Rules.to_css ~config [] in
   let css_str = Css.to_string ~minify:false css in
   (* Check that reset rules are included *)
@@ -93,7 +93,7 @@ let check_to_css_reset () =
   check bool "has utilities layer" true (contains css_str "@layer utilities")
 
 let check_to_css_no_reset () =
-  let config = { Tw.Rules.reset = false; mode = Css.Variables } in
+  let config = { Tw.Rules.base = false; mode = Css.Variables } in
   let css = Tw.Rules.to_css ~config [ p 4 ] in
   let css_str = Css.to_string ~minify:false css in
   (* No reset means no layers, just raw rules *)
@@ -201,7 +201,7 @@ let test_resolve_dependencies () =
 let test_inline_no_var_in_css_for_defaults () =
   (* Ensure Inline mode resolves defaults and does not emit var(--...). Use
      rounded_sm which sets a default on its CSS var. *)
-  let config = { Tw.Rules.reset = false; mode = Css.Inline } in
+  let config = { Tw.Rules.base = false; mode = Css.Inline } in
   let sheet = Tw.Rules.to_css ~config [ Tw.Borders.rounded_sm ] in
   let css_inline = Css.to_string ~minify:false ~mode:Css.Inline sheet in
   check bool "no var() in inline CSS" false (contains css_inline "var(--");
@@ -221,7 +221,7 @@ let test_inline_vs_variables_diff () =
      var(). *)
   let sheet =
     Tw.Rules.to_css
-      ~config:{ Tw.Rules.reset = false; mode = Css.Variables }
+      ~config:{ Tw.Rules.base = false; mode = Css.Variables }
       [ Tw.Borders.rounded_sm ]
   in
   let css_vars = Css.to_string ~minify:false ~mode:Css.Variables sheet in

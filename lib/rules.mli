@@ -78,15 +78,17 @@ val starting_style :
 (** {1 CSS Generation} *)
 
 type config = {
-  reset : bool;
-      (** Whether to include CSS reset rules (Tailwind's Preflight). When [true]
-          with Variables mode: generates full layer structure. When [false]:
-          generates only utility rules without layers. *)
+  base : bool;
+      (** Include base styles (Tailwind's Preflight reset and semantic
+          defaults). In [Variables] mode this controls whether the [@layer base]
+          is emitted. In [Inline] mode this flag has no effect on layering
+          (inline mode never emits layers). *)
   mode : Css.mode;
       (** CSS generation mode:
-          - [Variables]: Generates CSS with layers (Theme, Base, Components,
-            Utilities) and CSS custom properties for dynamic theming. CSS
-            variables are emitted as [var(--name)] references.
+          - [Variables]: Generates CSS with layers (Theme, Base when
+            [reset=true], Components, Utilities) and CSS custom properties for
+            dynamic theming. CSS variables are emitted as [var(--name)]
+            references.
           - [Inline]: Generates raw CSS rules without layers, suitable for
             inline styles or environments without CSS variable support.
             Variables are resolved to their default values when available. *)
@@ -94,16 +96,18 @@ type config = {
 (** Configuration for CSS generation *)
 
 val default_config : config
-(** [default_config] is [{ reset = true; mode = Variables }]. Provides full
-    Tailwind experience with reset styles and CSS variables. *)
+(** [default_config] is [{ base = true; mode = Variables }]. Provides layered
+    output with Theme, Base, Components, Utilities and CSS variables. *)
 
 val to_css : ?config:config -> t list -> Css.t
 (** [to_css ?config classes] generates a CSS stylesheet from Tailwind classes.
 
-    Behavior by configuration:
-    - [reset = true, mode = Variables]: Full Tailwind with layers and variables
-    - [reset = false, _]: No reset styles, no layers, just utility rules
-    - [_, mode = Inline/Value]: No layers, raw CSS rules
+    Behavior matrix:
+    - [mode = Variables, base = true]: Layers with Theme, Base, Components,
+      Utilities; emits [@property] registrations as needed.
+    - [mode = Variables, base = false]: Layers with Theme, Components, Utilities
+      (no Base layer); emits [@property] registrations as needed.
+    - [mode = Inline, _]: No layers; emits raw CSS rules with values resolved.
 
     @param config Configuration for CSS generation (default: [default_config])
 *)

@@ -448,11 +448,21 @@ let underline = style "underline" [ text_decoration Underline ]
 let overline = style "overline" [ text_decoration Overline ]
 let line_through = style "line-through" [ text_decoration Line_through ]
 let no_underline = style "no-underline" [ text_decoration None ]
-let underline_solid = style "underline-solid" [ text_decoration_style Solid ]
-let underline_double = style "underline-double" [ text_decoration_style Double ]
-let underline_dotted = style "underline-dotted" [ text_decoration_style Dotted ]
-let underline_dashed = style "underline-dashed" [ text_decoration_style Dashed ]
-let underline_wavy = style "underline-wavy" [ text_decoration_style Wavy ]
+
+(** {1 Text Decoration Style} *)
+
+let decoration_solid = style "decoration-solid" [ text_decoration_style Solid ]
+
+let decoration_double =
+  style "decoration-double" [ text_decoration_style Double ]
+
+let decoration_dotted =
+  style "decoration-dotted" [ text_decoration_style Dotted ]
+
+let decoration_dashed =
+  style "decoration-dashed" [ text_decoration_style Dashed ]
+
+let decoration_wavy = style "decoration-wavy" [ text_decoration_style Wavy ]
 
 (** {1 Text Decoration Color & Thickness} *)
 
@@ -461,7 +471,29 @@ let decoration_color ?(shade = 500) (color : Color.color) =
     if Color.is_base_color color then Pp.str [ "decoration-"; Color.pp color ]
     else Pp.str [ "decoration-"; Color.pp color; "-"; string_of_int shade ]
   in
-  style class_name [ text_decoration_color (Color.to_css color shade) ]
+  if Color.is_custom_color color then
+    let css_color = Color.to_css color shade in
+    style class_name
+      [
+        webkit_text_decoration_color css_color; text_decoration_color css_color;
+      ]
+  else
+    let default_color =
+      Color.to_css color (if Color.is_base_color color then 500 else shade)
+    in
+    let var_def, css_var =
+      Var.theme
+        (Var.Color
+           ( Color.pp color,
+             if Color.is_base_color color then None else Some shade ))
+        default_color
+    in
+    style class_name
+      [
+        var_def;
+        webkit_text_decoration_color (Css.Var css_var);
+        text_decoration_color (Css.Var css_var);
+      ]
 
 let decoration_thickness n =
   let class_name = "decoration-" ^ string_of_int n in
@@ -545,7 +577,7 @@ let align_super = style "align-super" [ vertical_align Super ]
 
 (** {1 List Style} *)
 
-let list_none = style "list-none" [ list_style "none" ]
+let list_none = style "list-none" [ list_style_type None ]
 let list_disc = style "list-disc" [ list_style_type Disc ]
 let list_decimal = style "list-decimal" [ list_style_type Decimal ]
 let list_inside = style "list-inside" [ list_style_position Inside ]
@@ -559,10 +591,12 @@ let list_image_url url =
 
 let indent n =
   let class_name = "indent-" ^ string_of_int n in
+  let spacing_def, spacing_var = Var.theme Var.Spacing (Rem 0.25) in
   style class_name
     [
+      spacing_def;
       text_indent
-        (Calc (Expr (Calc.var "spacing", Mult, Calc.float (float_of_int n))));
+        (Calc Calc.(length (Var spacing_var) * float (float_of_int n)));
     ]
 
 (** {1 Line Clamp} *)
@@ -573,7 +607,13 @@ let line_clamp n =
       [ webkit_line_clamp 0; overflow Visible; display Block ]
   else
     let class_name = "line-clamp-" ^ string_of_int n in
-    style class_name [ webkit_line_clamp n; overflow Hidden; display Block ]
+    style class_name
+      [
+        webkit_line_clamp n;
+        webkit_box_orient Vertical;
+        display Webkit_box;
+        overflow Hidden;
+      ]
 
 (** {1 Content} *)
 
@@ -628,9 +668,13 @@ let overflow_wrap_break_word =
 
 (** {1 Hyphens} *)
 
-let hyphens_none = style "hyphens-none" [ hyphens None_h ]
-let hyphens_manual = style "hyphens-manual" [ hyphens Manual ]
-let hyphens_auto = style "hyphens-auto" [ hyphens Auto ]
+let hyphens_none =
+  style "hyphens-none" [ webkit_hyphens None_h; hyphens None_h ]
+
+let hyphens_manual =
+  style "hyphens-manual" [ webkit_hyphens Manual; hyphens Manual ]
+
+let hyphens_auto = style "hyphens-auto" [ webkit_hyphens Auto; hyphens Auto ]
 
 (** {1 Font Stretch} *)
 
@@ -650,29 +694,85 @@ let font_stretch_percent n =
 (** {1 Numeric Variants} *)
 
 let normal_nums =
-  style "normal-nums" [ font_variant_numeric [ Normal_numeric ] ]
+  style "normal-nums"
+    [ font_variant_numeric (font_variant_numeric_tokens [ Normal_numeric ]) ]
 
-let ordinal = style "ordinal" [ font_variant_numeric [ Ordinal ] ]
+let ordinal =
+  let def, _var = Var.utility Var.Font_variant_ordinal "ordinal" in
+  style "ordinal"
+    [
+      def;
+      font_variant_numeric (font_variant_numeric_composed ~ordinal:Ordinal ());
+    ]
 
 let slashed_zero =
-  style "slashed-zero" [ font_variant_numeric [ Slashed_zero ] ]
+  let def, _var = Var.utility Var.Font_variant_slashed_zero "slashed-zero" in
+  style "slashed-zero"
+    [
+      def;
+      font_variant_numeric
+        (font_variant_numeric_composed ~slashed_zero:Slashed_zero ());
+    ]
 
-let lining_nums = style "lining-nums" [ font_variant_numeric [ Lining_nums ] ]
+let lining_nums =
+  let def, _var = Var.utility Var.Font_variant_numeric_figure "lining-nums" in
+  style "lining-nums"
+    [
+      def;
+      font_variant_numeric
+        (font_variant_numeric_composed ~numeric_figure:Lining_nums ());
+    ]
 
 let oldstyle_nums =
-  style "oldstyle-nums" [ font_variant_numeric [ Oldstyle_nums ] ]
+  let def, _var = Var.utility Var.Font_variant_numeric_figure "oldstyle-nums" in
+  style "oldstyle-nums"
+    [
+      def;
+      font_variant_numeric
+        (font_variant_numeric_composed ~numeric_figure:Oldstyle_nums ());
+    ]
 
 let proportional_nums =
-  style "proportional-nums" [ font_variant_numeric [ Proportional_nums ] ]
+  let def, _var =
+    Var.utility Var.Font_variant_numeric_spacing "proportional-nums"
+  in
+  style "proportional-nums"
+    [
+      def;
+      font_variant_numeric
+        (font_variant_numeric_composed ~numeric_spacing:Proportional_nums ());
+    ]
 
 let tabular_nums =
-  style "tabular-nums" [ font_variant_numeric [ Tabular_nums ] ]
+  let def, _var = Var.utility Var.Font_variant_numeric_spacing "tabular-nums" in
+  style "tabular-nums"
+    [
+      def;
+      font_variant_numeric
+        (font_variant_numeric_composed ~numeric_spacing:Tabular_nums ());
+    ]
 
 let diagonal_fractions =
-  style "diagonal-fractions" [ font_variant_numeric [ Diagonal_fractions ] ]
+  let def, _var =
+    Var.utility Var.Font_variant_numeric_fraction "diagonal-fractions"
+  in
+  style "diagonal-fractions"
+    [
+      def;
+      font_variant_numeric
+        (font_variant_numeric_composed ~numeric_fraction:Diagonal_fractions ());
+    ]
 
 let stacked_fractions =
-  style "stacked-fractions" [ font_variant_numeric [ Stacked_fractions ] ]
+  let def, _var =
+    Var.utility Var.Font_variant_numeric_fraction "stacked-fractions"
+  in
+  style "stacked-fractions"
+    [
+      def;
+      font_variant_numeric
+        (font_variant_numeric_composed ~numeric_fraction:Stacked_fractions ());
+    ]
 
 (** {1 Parsing Functions} *)
 
@@ -731,6 +831,11 @@ let of_string = function
   | [ "tracking"; "wider" ] -> Ok tracking_wider
   | [ "tracking"; "widest" ] -> Ok tracking_widest
   | [ "decoration"; "from"; "font" ] -> Ok decoration_from_font
+  | [ "decoration"; "solid" ] -> Ok decoration_solid
+  | [ "decoration"; "double" ] -> Ok decoration_double
+  | [ "decoration"; "dotted" ] -> Ok decoration_dotted
+  | [ "decoration"; "dashed" ] -> Ok decoration_dashed
+  | [ "decoration"; "wavy" ] -> Ok decoration_wavy
   | [ "decoration"; color; shade ] -> (
       match (Color.of_string color, Parse.int_any shade) with
       | Ok c, Ok s -> Ok (decoration_color ~shade:s c)
