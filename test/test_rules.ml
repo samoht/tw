@@ -82,24 +82,46 @@ let check_properties_layer () =
      handled by individual utility modules *)
   check bool "properties layer removed as expected" true true
 
-let check_to_css_reset () =
+let check_to_css_variables_with_base () =
   let config = { Tw.Rules.base = true; mode = Css.Variables } in
   let css = Tw.Rules.to_css ~config [] in
   let css_str = Css.to_string ~minify:false css in
-  (* Check that reset rules are included *)
-  check bool "includes reset rules" true (contains css_str "*, :after, :before");
+  (* Base=true under Variables: all layers including base are present. *)
+  check bool "includes base resets" true (contains css_str "*, :after, :before");
   check bool "has theme layer" true (contains css_str "@layer theme");
   check bool "has base layer" true (contains css_str "@layer base");
   check bool "has utilities layer" true (contains css_str "@layer utilities")
 
-let check_to_css_no_reset () =
+let check_to_css_variables_without_base () =
   let config = { Tw.Rules.base = false; mode = Css.Variables } in
   let css = Tw.Rules.to_css ~config [ p 4 ] in
   let css_str = Css.to_string ~minify:false css in
-  (* No reset means no layers, just raw rules *)
-  check bool "no theme layer" false (contains css_str "@layer theme");
-  check bool "no base layer" false (contains css_str "@layer base");
-  check bool "no utilities layer" false (contains css_str "@layer utilities");
+  (* Base=false under Variables: theme + components + utilities, but no base. *)
+  check bool "has theme layer" true (contains css_str "@layer theme");
+  check bool "no base layer" true (not (contains css_str "@layer base"));
+  check bool "has utilities layer" true (contains css_str "@layer utilities");
+  check bool "has padding rule" true (contains css_str ".p-4")
+
+let check_to_css_inline_with_base () =
+  let config = { Tw.Rules.base = true; mode = Css.Inline } in
+  let css = Tw.Rules.to_css ~config [ p 4 ] in
+  let css_str = Css.to_string ~minify:false ~mode:Css.Inline css in
+  (* Inline mode never emits layers; base has no effect. *)
+  check bool "no theme layer" true (not (contains css_str "@layer theme"));
+  check bool "no base layer" true (not (contains css_str "@layer base"));
+  check bool "no utilities layer" true
+    (not (contains css_str "@layer utilities"));
+  check bool "has padding rule" true (contains css_str ".p-4")
+
+let check_to_css_inline_without_base () =
+  let config = { Tw.Rules.base = false; mode = Css.Inline } in
+  let css = Tw.Rules.to_css ~config [ p 4 ] in
+  let css_str = Css.to_string ~minify:false ~mode:Css.Inline css in
+  (* Inline mode never emits layers. *)
+  check bool "no theme layer" true (not (contains css_str "@layer theme"));
+  check bool "no base layer" true (not (contains css_str "@layer base"));
+  check bool "no utilities layer" true
+    (not (contains css_str "@layer utilities"));
   check bool "has padding rule" true (contains css_str ".p-4")
 
 let check_inline_style () =
@@ -217,15 +239,21 @@ let test_inline_style_no_var_for_defaults () =
     (contains inline "border-radius")
 
 let test_inline_vs_variables_diff () =
-  (* Same utility under Variables vs Inline should differ: Inline has no
-     var(). *)
-  let sheet =
+  (* Same utility under Variables vs Inline should differ: Inline has no var().
+     Generate sheets in their respective modes to avoid carrying layer content
+     that may still contain var() in declarations. *)
+  let sheet_vars =
     Tw.Rules.to_css
       ~config:{ Tw.Rules.base = false; mode = Css.Variables }
       [ Tw.Borders.rounded_sm ]
   in
-  let css_vars = Css.to_string ~minify:false ~mode:Css.Variables sheet in
-  let css_inline = Css.to_string ~minify:false ~mode:Css.Inline sheet in
+  let css_vars = Css.to_string ~minify:false ~mode:Css.Variables sheet_vars in
+  let sheet_inline =
+    Tw.Rules.to_css
+      ~config:{ Tw.Rules.base = false; mode = Css.Inline }
+      [ Tw.Borders.rounded_sm ]
+  in
+  let css_inline = Css.to_string ~minify:false ~mode:Css.Inline sheet_inline in
   check bool "variables: contains var()" true (contains css_vars "var(--");
   check bool "inline: no var()" false (contains css_inline "var(--")
 
@@ -339,8 +367,13 @@ let tests =
     test_case "conflict group ordering" `Quick check_conflict_group;
     test_case "escape class name" `Quick check_escape_class_name;
     test_case "properties layer generation" `Quick check_properties_layer;
-    test_case "to_css with reset" `Quick check_to_css_reset;
-    test_case "to_css without reset" `Quick check_to_css_no_reset;
+    test_case "to_css variables with base" `Quick
+      check_to_css_variables_with_base;
+    test_case "to_css variables without base" `Quick
+      check_to_css_variables_without_base;
+    test_case "to_css inline with base" `Quick check_to_css_inline_with_base;
+    test_case "to_css inline without base" `Quick
+      check_to_css_inline_without_base;
     test_case "inline style generation" `Quick check_inline_style;
     (* New tests for exposed functions *)
     test_case "color_order" `Quick test_color_order;

@@ -82,9 +82,9 @@ type _ t =
   | Rotate : Css.angle t
   | Skew_x : Css.angle t
   | Skew_y : Css.angle t
-  | Scale_x : float t
-  | Scale_y : float t
-  | Scale_z : float t
+  | Scale_x : Css.scale t
+  | Scale_y : Css.scale t
+  | Scale_z : Css.scale t
   (* Filter variables *)
   | Blur : Css.length t
   | Brightness : float t
@@ -150,11 +150,11 @@ type _ t =
   | Gradient_via_position : float t
   | Gradient_to_position : float t
   (* Font variant numeric *)
-  | Font_variant_ordinal : string t
-  | Font_variant_slashed_zero : string t
-  | Font_variant_numeric_figure : string t
-  | Font_variant_numeric_spacing : string t
-  | Font_variant_numeric_fraction : string t
+  | Font_variant_ordinal : Css.font_variant_numeric_token t
+  | Font_variant_slashed_zero : Css.font_variant_numeric_token t
+  | Font_variant_numeric_figure : Css.font_variant_numeric_token t
+  | Font_variant_numeric_spacing : Css.font_variant_numeric_token t
+  | Font_variant_numeric_fraction : Css.font_variant_numeric_token t
   (* Other *)
   | Border_style : Css.border_style t
   | Scroll_snap_strictness : Css.scroll_snap_strictness t
@@ -201,3 +201,12 @@ val compare : any -> any -> int
 val compare_declarations : layer -> Css.declaration -> Css.declaration -> int
 (** [compare_declarations layer d1 d2] compares two custom declarations via Var
     metadata for the given layer. *)
+
+val var_of_meta : Css.meta -> any option
+(** [var_of_meta meta] extracts a variable from CSS metadata if present. *)
+
+module Map : Map.S with type key = any
+(** Map with Var.any keys *)
+
+module Set : Set.S with type elt = any
+(** Set with Var.any elements *)

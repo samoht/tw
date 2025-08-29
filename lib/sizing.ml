@@ -216,43 +216,31 @@ let max_h n = spacing_utility "max-h-" max_height n
 
 (** {1 String Parsing} *)
 
-let fraction_of_string = function
-  | "1/2" -> Ok (style "w-1/2" [ width (Pct 50.0) ])
-  | "1/3" -> Ok (style "w-1/3" [ width (Pct 33.333333) ])
-  | "2/3" -> Ok (style "w-2/3" [ width (Pct 66.666667) ])
-  | "1/4" -> Ok (style "w-1/4" [ width (Pct 25.0) ])
-  | "3/4" -> Ok (style "w-3/4" [ width (Pct 75.0) ])
-  | "1/5" -> Ok (style "w-1/5" [ width (Pct 20.0) ])
-  | "2/5" -> Ok (style "w-2/5" [ width (Pct 40.0) ])
-  | "3/5" -> Ok (style "w-3/5" [ width (Pct 60.0) ])
-  | "4/5" -> Ok (style "w-4/5" [ width (Pct 80.0) ])
-  | "1/6" -> Ok (style "w-1/6" [ width (Pct 16.666667) ])
-  | "5/6" -> Ok (style "w-5/6" [ width (Pct 83.333333) ])
-  | s -> Error (`Msg ("Invalid fraction: " ^ s))
+let fraction_table =
+  [
+    ("1/2", 50.0);
+    ("1/3", 33.333333);
+    ("2/3", 66.666667);
+    ("1/4", 25.0);
+    ("3/4", 75.0);
+    ("1/5", 20.0);
+    ("2/5", 40.0);
+    ("3/5", 60.0);
+    ("4/5", 80.0);
+    ("1/6", 16.666667);
+    ("5/6", 83.333333);
+  ]
 
-let h_fraction_of_string = function
-  | "1/2" -> Ok (style "h-1/2" [ height (Pct 50.0) ])
-  | "1/3" -> Ok (style "h-1/3" [ height (Pct 33.333333) ])
-  | "2/3" -> Ok (style "h-2/3" [ height (Pct 66.666667) ])
-  | "1/4" -> Ok (style "h-1/4" [ height (Pct 25.0) ])
-  | "3/4" -> Ok (style "h-3/4" [ height (Pct 75.0) ])
-  | "1/5" -> Ok (style "h-1/5" [ height (Pct 20.0) ])
-  | "2/5" -> Ok (style "h-2/5" [ height (Pct 40.0) ])
-  | "3/5" -> Ok (style "h-3/5" [ height (Pct 60.0) ])
-  | "4/5" -> Ok (style "h-4/5" [ height (Pct 80.0) ])
-  | "1/6" -> Ok (style "h-1/6" [ height (Pct 16.666667) ])
-  | "5/6" -> Ok (style "h-5/6" [ height (Pct 83.333333) ])
-  | s -> Error (`Msg ("Invalid fraction: " ^ s))
+let parse_fraction prefix prop frac =
+  match List.assoc_opt frac fraction_table with
+  | Some pct -> Ok (style (prefix ^ frac) [ prop (Pct pct) ])
+  | None -> Error (`Msg ("Invalid fraction: " ^ frac))
 
-let size_fraction_of_string = function
-  | "1/2" -> Ok (style "size-1/2" [ width (Pct 50.0); height (Pct 50.0) ])
-  | "1/3" ->
-      Ok (style "size-1/3" [ width (Pct 33.333333); height (Pct 33.333333) ])
-  | "2/3" ->
-      Ok (style "size-2/3" [ width (Pct 66.666667); height (Pct 66.666667) ])
-  | "1/4" -> Ok (style "size-1/4" [ width (Pct 25.0); height (Pct 25.0) ])
-  | "3/4" -> Ok (style "size-3/4" [ width (Pct 75.0); height (Pct 75.0) ])
-  | s -> Error (`Msg ("Invalid fraction: " ^ s))
+let size_fraction_of_string frac =
+  match List.assoc_opt frac fraction_table with
+  | Some pct ->
+      Ok (style ("size-" ^ frac) [ width (Pct pct); height (Pct pct) ])
+  | None -> Error (`Msg ("Invalid fraction: " ^ frac))
 
 (** {1 Aspect Ratio Utilities} *)
 
@@ -304,52 +292,55 @@ let spacing_value_of_string = function
   | "96" -> Ok (Rem 24.0)
   | s -> Error (`Msg ("Invalid spacing value: " ^ s))
 
+let parse_with_keywords prefix prop keywords error_msg value =
+  match List.assoc_opt value keywords with
+  | Some style -> Ok style
+  | None when String.contains value '/' -> parse_fraction prefix prop value
+  | None -> (
+      match spacing_value_of_string value with
+      | Ok css_val -> Ok (style (prefix ^ value) [ prop css_val ])
+      | Error _ -> Error (`Msg (error_msg ^ value)))
+
 let of_string parts =
-  let parse_w = function
-    | "auto" -> Ok w_auto
-    | "full" -> Ok w_full
-    | "screen" -> Ok w_screen
-    | "min" -> Ok w_min
-    | "max" -> Ok w_max
-    | "fit" -> Ok w_fit
-    | frac when String.contains frac '/' -> fraction_of_string frac
-    | v -> (
-        match spacing_value_of_string v with
-        | Ok css_val -> Ok (style ("w-" ^ v) [ width css_val ])
-        | Error _ -> Error (`Msg ("Invalid width value: " ^ v)))
+  let parse_w =
+    parse_with_keywords "w-" width
+      [
+        ("auto", w_auto);
+        ("full", w_full);
+        ("screen", w_screen);
+        ("min", w_min);
+        ("max", w_max);
+        ("fit", w_fit);
+      ]
+      "Invalid width value: "
   in
-  let parse_h = function
-    | "auto" -> Ok h_auto
-    | "full" -> Ok h_full
-    | "screen" -> Ok h_screen
-    | "min" -> Ok h_min
-    | "max" -> Ok h_max
-    | "fit" -> Ok h_fit
-    | frac when String.contains frac '/' -> h_fraction_of_string frac
-    | v -> (
-        match spacing_value_of_string v with
-        | Ok css_val -> Ok (style ("h-" ^ v) [ height css_val ])
-        | Error _ -> Error (`Msg ("Invalid height value: " ^ v)))
+  let parse_h =
+    parse_with_keywords "h-" height
+      [
+        ("auto", h_auto);
+        ("full", h_full);
+        ("screen", h_screen);
+        ("min", h_min);
+        ("max", h_max);
+        ("fit", h_fit);
+      ]
+      "Invalid height value: "
   in
-  let parse_min_w = function
-    | "0" -> Ok min_w_0
-    | "full" -> Ok min_w_full
-    | "min" -> Ok min_w_min
-    | "max" -> Ok min_w_max
-    | "fit" -> Ok min_w_fit
-    | v -> (
-        match spacing_value_of_string v with
-        | Ok css_val -> Ok (style ("min-w-" ^ v) [ min_width css_val ])
-        | Error _ -> Error (`Msg ("Invalid min-width value: " ^ v)))
+  let parse_min_w =
+    parse_with_keywords "min-w-" min_width
+      [
+        ("0", min_w_0);
+        ("full", min_w_full);
+        ("min", min_w_min);
+        ("max", min_w_max);
+        ("fit", min_w_fit);
+      ]
+      "Invalid min-width value: "
   in
-  let parse_min_h = function
-    | "0" -> Ok min_h_0
-    | "full" -> Ok min_h_full
-    | "screen" -> Ok min_h_screen
-    | v -> (
-        match spacing_value_of_string v with
-        | Ok css_val -> Ok (style ("min-h-" ^ v) [ min_height css_val ])
-        | Error _ -> Error (`Msg ("Invalid min-height value: " ^ v)))
+  let parse_min_h =
+    parse_with_keywords "min-h-" min_height
+      [ ("0", min_h_0); ("full", min_h_full); ("screen", min_h_screen) ]
+      "Invalid min-height value: "
   in
   let parse_max_w = function
     | "none" -> Ok max_w_none
@@ -379,17 +370,17 @@ let of_string parts =
     | "2xl" -> Ok max_w_screen_2xl
     | s -> Error (`Msg ("Invalid max-width screen size: " ^ s))
   in
-  let parse_max_h = function
-    | "none" -> Ok max_h_none
-    | "full" -> Ok max_h_full
-    | "screen" -> Ok max_h_screen
-    | "min" -> Ok max_h_min
-    | "max" -> Ok max_h_max
-    | "fit" -> Ok max_h_fit
-    | v -> (
-        match spacing_value_of_string v with
-        | Ok css_val -> Ok (style ("max-h-" ^ v) [ max_height css_val ])
-        | Error _ -> Error (`Msg ("Invalid max-height value: " ^ v)))
+  let parse_max_h =
+    parse_with_keywords "max-h-" max_height
+      [
+        ("none", max_h_none);
+        ("full", max_h_full);
+        ("screen", max_h_screen);
+        ("min", max_h_min);
+        ("max", max_h_max);
+        ("fit", max_h_fit);
+      ]
+      "Invalid max-height value: "
   in
   let parse_size = function
     | "auto" -> Ok (style "size-auto" [ width Auto; height Auto ])

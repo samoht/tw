@@ -262,7 +262,9 @@ let text_9xl =
 
 (* Create the @property rule for --tw-font-weight *)
 let property_rules =
-  [ Var.property Var.Font_weight ~syntax:"*" ~inherits:false ~initial:"" ]
+  [
+    Var.property Var.Font_weight ~syntax:"*" ~inherits:false ~initial:"initial";
+  ]
 
 (* Font weight utilities using variables *)
 let font_thin =
@@ -697,81 +699,142 @@ let normal_nums =
   style "normal-nums"
     [ font_variant_numeric (font_variant_numeric_tokens [ Normal_numeric ]) ]
 
+let property_rules =
+  [
+    Var.property Var.Font_variant_ordinal ~syntax:"*" ~inherits:false
+      ~initial:"initial";
+    Var.property Var.Font_variant_slashed_zero ~syntax:"*" ~inherits:false
+      ~initial:"initial";
+    Var.property Var.Font_variant_numeric_figure ~syntax:"*" ~inherits:false
+      ~initial:"initial";
+    Var.property Var.Font_variant_numeric_spacing ~syntax:"*" ~inherits:false
+      ~initial:"initial";
+    Var.property Var.Font_variant_numeric_fraction ~syntax:"*" ~inherits:false
+      ~initial:"initial";
+  ]
+
+(* Create empty var references for all five font-variant properties *)
+let _, empty_ordinal_var =
+  Var.utility Var.Font_variant_ordinal Css.Normal_numeric
+
+let _, empty_slashed_zero_var =
+  Var.utility Var.Font_variant_slashed_zero Css.Normal_numeric
+
+let _, empty_numeric_figure_var =
+  Var.utility Var.Font_variant_numeric_figure Css.Normal_numeric
+
+let _, empty_numeric_spacing_var =
+  Var.utility Var.Font_variant_numeric_spacing Css.Normal_numeric
+
+let _, empty_numeric_fraction_var =
+  Var.utility Var.Font_variant_numeric_fraction Css.Normal_numeric
+
 let ordinal =
-  let def, _var = Var.utility Var.Font_variant_ordinal "ordinal" in
-  style "ordinal"
+  let def, var = Var.utility Var.Font_variant_ordinal Ordinal in
+  style "ordinal" ~property_rules
     [
       def;
-      font_variant_numeric (font_variant_numeric_composed ~ordinal:Ordinal ());
+      font_variant_numeric
+        (font_variant_numeric_composed ~ordinal:(Var var)
+           ~slashed_zero:(Var empty_slashed_zero_var)
+           ~numeric_figure:(Var empty_numeric_figure_var)
+           ~numeric_spacing:(Var empty_numeric_spacing_var)
+           ~numeric_fraction:(Var empty_numeric_fraction_var) ());
     ]
 
 let slashed_zero =
-  let def, _var = Var.utility Var.Font_variant_slashed_zero "slashed-zero" in
-  style "slashed-zero"
+  let def, var = Var.utility Var.Font_variant_slashed_zero Slashed_zero in
+  style "slashed-zero" ~property_rules
     [
       def;
       font_variant_numeric
-        (font_variant_numeric_composed ~slashed_zero:Slashed_zero ());
+        (font_variant_numeric_composed ~ordinal:(Var empty_ordinal_var)
+           ~slashed_zero:(Var var)
+           ~numeric_figure:(Var empty_numeric_figure_var)
+           ~numeric_spacing:(Var empty_numeric_spacing_var)
+           ~numeric_fraction:(Var empty_numeric_fraction_var) ());
     ]
 
 let lining_nums =
-  let def, _var = Var.utility Var.Font_variant_numeric_figure "lining-nums" in
-  style "lining-nums"
+  let def, var = Var.utility Var.Font_variant_numeric_figure Lining_nums in
+  style "lining-nums" ~property_rules
     [
       def;
       font_variant_numeric
-        (font_variant_numeric_composed ~numeric_figure:Lining_nums ());
+        (font_variant_numeric_composed ~ordinal:(Var empty_ordinal_var)
+           ~slashed_zero:(Var empty_slashed_zero_var) ~numeric_figure:(Var var)
+           ~numeric_spacing:(Var empty_numeric_spacing_var)
+           ~numeric_fraction:(Var empty_numeric_fraction_var) ());
     ]
 
 let oldstyle_nums =
-  let def, _var = Var.utility Var.Font_variant_numeric_figure "oldstyle-nums" in
-  style "oldstyle-nums"
+  let def, var = Var.utility Var.Font_variant_numeric_figure Oldstyle_nums in
+  style "oldstyle-nums" ~property_rules
     [
       def;
       font_variant_numeric
-        (font_variant_numeric_composed ~numeric_figure:Oldstyle_nums ());
+        (font_variant_numeric_composed ~ordinal:(Var empty_ordinal_var)
+           ~slashed_zero:(Var empty_slashed_zero_var) ~numeric_figure:(Var var)
+           ~numeric_spacing:(Var empty_numeric_spacing_var)
+           ~numeric_fraction:(Var empty_numeric_fraction_var) ());
     ]
 
 let proportional_nums =
-  let def, _var =
-    Var.utility Var.Font_variant_numeric_spacing "proportional-nums"
+  let def, var =
+    Var.utility Var.Font_variant_numeric_spacing Proportional_nums
   in
-  style "proportional-nums"
+  style "proportional-nums" ~property_rules
     [
       def;
       font_variant_numeric
-        (font_variant_numeric_composed ~numeric_spacing:Proportional_nums ());
+        (font_variant_numeric_composed ~ordinal:(Var empty_ordinal_var)
+           ~slashed_zero:(Var empty_slashed_zero_var)
+           ~numeric_figure:(Var empty_numeric_figure_var)
+           ~numeric_spacing:(Var var)
+           ~numeric_fraction:(Var empty_numeric_fraction_var) ());
     ]
 
 let tabular_nums =
-  let def, _var = Var.utility Var.Font_variant_numeric_spacing "tabular-nums" in
-  style "tabular-nums"
+  let def, var = Var.utility Var.Font_variant_numeric_spacing Tabular_nums in
+  style "tabular-nums" ~property_rules
     [
       def;
       font_variant_numeric
-        (font_variant_numeric_composed ~numeric_spacing:Tabular_nums ());
+        (font_variant_numeric_composed ~ordinal:(Var empty_ordinal_var)
+           ~slashed_zero:(Var empty_slashed_zero_var)
+           ~numeric_figure:(Var empty_numeric_figure_var)
+           ~numeric_spacing:(Var var)
+           ~numeric_fraction:(Var empty_numeric_fraction_var) ());
     ]
 
 let diagonal_fractions =
-  let def, _var =
-    Var.utility Var.Font_variant_numeric_fraction "diagonal-fractions"
+  let def, var =
+    Var.utility Var.Font_variant_numeric_fraction Diagonal_fractions
   in
-  style "diagonal-fractions"
+  style "diagonal-fractions" ~property_rules
     [
       def;
       font_variant_numeric
-        (font_variant_numeric_composed ~numeric_fraction:Diagonal_fractions ());
+        (font_variant_numeric_composed ~ordinal:(Var empty_ordinal_var)
+           ~slashed_zero:(Var empty_slashed_zero_var)
+           ~numeric_figure:(Var empty_numeric_figure_var)
+           ~numeric_spacing:(Var empty_numeric_spacing_var)
+           ~numeric_fraction:(Var var) ());
     ]
 
 let stacked_fractions =
-  let def, _var =
-    Var.utility Var.Font_variant_numeric_fraction "stacked-fractions"
+  let def, var =
+    Var.utility Var.Font_variant_numeric_fraction Stacked_fractions
   in
-  style "stacked-fractions"
+  style "stacked-fractions" ~property_rules
     [
       def;
       font_variant_numeric
-        (font_variant_numeric_composed ~numeric_fraction:Stacked_fractions ());
+        (font_variant_numeric_composed ~ordinal:(Var empty_ordinal_var)
+           ~slashed_zero:(Var empty_slashed_zero_var)
+           ~numeric_figure:(Var empty_numeric_figure_var)
+           ~numeric_spacing:(Var empty_numeric_spacing_var)
+           ~numeric_fraction:(Var var) ());
     ]
 
 (** {1 Parsing Functions} *)

@@ -24,8 +24,8 @@ let tw_translate_y_def, tw_translate_y_var = Var.utility Var.Translate_y Zero
 let tw_rotate_def, tw_rotate_var = Var.utility Var.Rotate (Deg 0.0)
 let tw_skew_x_def, tw_skew_x_var = Var.utility Var.Skew_x (Deg 0.0)
 let tw_skew_y_def, tw_skew_y_var = Var.utility Var.Skew_y (Deg 0.0)
-let tw_scale_x_def, tw_scale_x_var = Var.utility Var.Scale_x 1.0
-let tw_scale_y_def, tw_scale_y_var = Var.utility Var.Scale_y 1.0
+let tw_scale_x_def, tw_scale_x_var = Var.utility Var.Scale_x (Num 1.0)
+let tw_scale_y_def, tw_scale_y_var = Var.utility Var.Scale_y (Num 1.0)
 
 module Parse = Parse
 
@@ -64,45 +64,36 @@ let translate_y n =
   style class_name [ transform [ Translate_y len ] ]
 
 let scale n =
-  let value = float_of_int n /. 100.0 in
+  let value = Num (float_of_int n /. 100.0) in
   (* Convert percentage to float *)
   let class_name = "scale-" ^ string_of_int n in
   let def_scale_x, scale_x_var = Var.utility Var.Scale_x value in
   let def_scale_y, scale_y_var = Var.utility Var.Scale_y value in
-  style class_name ~property_rules:scale_x_property_rule
+  (* Uses both X and Y scale variables; register both properties *)
+  style class_name ~property_rules:scale_property_rules
     [
       def_scale_x;
       def_scale_y;
-      transform
-        [
-          Scale_x (Var { var_name = scale_x_var.name; fallback = None });
-          Scale_y (Var { var_name = scale_y_var.name; fallback = None });
-        ];
+      transform [ Scale_x (Var scale_x_var); Scale_y (Var scale_y_var) ];
     ]
 
 let scale_x n =
-  let value = float_of_int n /. 100.0 in
+  let value = Num (float_of_int n /. 100.0) in
   (* Convert percentage to float *)
   let class_name = "scale-x-" ^ string_of_int n in
-  let def_x, _scale_x = Var.utility Var.Scale_x value in
-  style class_name ~property_rules:scale_y_property_rule
-    [
-      def_x;
-      transform
-        [ Scale_x (Var { var_name = "tw-scale-x"; fallback = Some 1.0 }) ];
-    ]
+  let def_x, scale_x = Var.utility Var.Scale_x value ~fallback:(Num 1.) in
+  (* Only uses X variable; register Scale_x only *)
+  style class_name ~property_rules:scale_x_property_rule
+    [ def_x; transform [ Scale_x (Var scale_x) ] ]
 
 let scale_y n =
-  let value = float_of_int n /. 100.0 in
+  let value = Num (float_of_int n /. 100.0) in
   (* Convert percentage to float *)
   let class_name = "scale-y-" ^ string_of_int n in
-  let def_y, _scale_y = Var.utility Var.Scale_y value in
-  style class_name ~property_rules:scale_property_rules
-    [
-      def_y;
-      transform
-        [ Scale_y (Var { var_name = "tw-scale-y"; fallback = Some 1.0 }) ];
-    ]
+  let def_y, scale_y = Var.utility Var.Scale_y value ~fallback:(Num 1.) in
+  (* Only uses Y variable; register Scale_y only *)
+  style class_name ~property_rules:scale_y_property_rule
+    [ def_y; transform [ Scale_y (Var scale_y) ] ]
 
 let skew_x deg =
   let prefix = if deg < 0 then "-" else "" in
@@ -148,15 +139,11 @@ let translate_z n =
   style class_name [ transform [ Translate_z (Px n) ] ]
 
 let scale_z n =
-  let value = float_of_int n /. 100.0 in
+  let value = Num (float_of_int n /. 100.0) in
   let class_name = "scale-z-" ^ string_of_int n in
-  let def, scale_z_var = Var.utility Var.Scale_z value in
+  let def, scale_z_var = Var.utility Var.Scale_z ~fallback:(Num 1.) value in
   style class_name ~property_rules:scale_z_property_rule
-    [
-      def;
-      transform
-        [ Scale_z (Var { var_name = scale_z_var.name; fallback = Some 1.0 }) ];
-    ]
+    [ def; transform [ Scale_z (Var scale_z_var) ] ]
 
 let perspective n =
   let class_name = "perspective-" ^ string_of_int n in
@@ -204,8 +191,8 @@ let transform =
           Rotate (Var tw_rotate_var);
           Skew_x (Var tw_skew_x_var);
           Skew_y (Var tw_skew_y_var);
-          Scale_x (Var { var_name = tw_scale_x_var.name; fallback = None });
-          Scale_y (Var { var_name = tw_scale_y_var.name; fallback = None });
+          Scale_x (Var tw_scale_x_var);
+          Scale_y (Var tw_scale_y_var);
         ];
     ]
 

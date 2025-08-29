@@ -51,40 +51,18 @@ let spacing_style class_name decls s =
   | `Rem _ -> style class_name (spacing_def :: decls)
   | _ -> style class_name decls
 
-let p' (s : spacing) =
-  let class_name = "p-" ^ pp_spacing_suffix s in
+let make_padding prefix prop (s : spacing) =
+  let class_name = prefix ^ pp_spacing_suffix s in
   let len = to_length s in
-  spacing_style class_name [ padding len ] s
+  spacing_style class_name [ prop len ] s
 
-let px' (s : spacing) =
-  let class_name = "px-" ^ pp_spacing_suffix s in
-  let len = to_length s in
-  spacing_style class_name [ padding_inline len ] s
-
-let py' (s : spacing) =
-  let class_name = "py-" ^ pp_spacing_suffix s in
-  let len = to_length s in
-  spacing_style class_name [ padding_block len ] s
-
-let pt' (s : spacing) =
-  let class_name = "pt-" ^ pp_spacing_suffix s in
-  let len = to_length s in
-  spacing_style class_name [ padding_top len ] s
-
-let pr' (s : spacing) =
-  let class_name = "pr-" ^ pp_spacing_suffix s in
-  let len = to_length s in
-  spacing_style class_name [ padding_right len ] s
-
-let pb' (s : spacing) =
-  let class_name = "pb-" ^ pp_spacing_suffix s in
-  let len = to_length s in
-  spacing_style class_name [ padding_bottom len ] s
-
-let pl' (s : spacing) =
-  let class_name = "pl-" ^ pp_spacing_suffix s in
-  let len = to_length s in
-  spacing_style class_name [ padding_left len ] s
+let p' = make_padding "p-" padding
+let px' = make_padding "px-" padding_inline
+let py' = make_padding "py-" padding_block
+let pt' = make_padding "pt-" padding_top
+let pr' = make_padding "pr-" padding_right
+let pb' = make_padding "pb-" padding_bottom
+let pl' = make_padding "pl-" padding_left
 
 (** {2 Int-based Padding Utilities} *)
 
@@ -113,40 +91,18 @@ let margin_style class_name decls m =
   | `Rem _ -> style class_name (spacing_def :: decls)
   | _ -> style class_name decls
 
-let m' (m : margin) =
-  let class_name = "m-" ^ pp_margin_suffix m in
+let make_margin prefix prop (m : margin) =
+  let class_name = prefix ^ pp_margin_suffix m in
   let len = margin_to_length m in
-  margin_style class_name [ margin len ] m
+  margin_style class_name [ prop len ] m
 
-let mx' (m : margin) =
-  let v = margin_to_length m in
-  let class_name = "mx-" ^ pp_margin_suffix m in
-  margin_style class_name [ margin_inline v ] m
-
-let my' (m : margin) =
-  let v = margin_to_length m in
-  let class_name = "my-" ^ pp_margin_suffix m in
-  margin_style class_name [ margin_block v ] m
-
-let mt' (m : margin) =
-  let class_name = "mt-" ^ pp_margin_suffix m in
-  let len = margin_to_length m in
-  margin_style class_name [ margin_top len ] m
-
-let mr' (m : margin) =
-  let class_name = "mr-" ^ pp_margin_suffix m in
-  let len = margin_to_length m in
-  margin_style class_name [ margin_right len ] m
-
-let mb' (m : margin) =
-  let class_name = "mb-" ^ pp_margin_suffix m in
-  let len = margin_to_length m in
-  margin_style class_name [ margin_bottom len ] m
-
-let ml' (m : margin) =
-  let class_name = "ml-" ^ pp_margin_suffix m in
-  let len = margin_to_length m in
-  margin_style class_name [ margin_left len ] m
+let m' = make_margin "m-" margin
+let mx' = make_margin "mx-" margin_inline
+let my' = make_margin "my-" margin_block
+let mt' = make_margin "mt-" margin_top
+let mr' = make_margin "mr-" margin_right
+let mb' = make_margin "mb-" margin_bottom
+let ml' = make_margin "ml-" margin_left
 
 (** {2 Int-based Margin Utilities} *)
 
