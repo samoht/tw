@@ -1,20 +1,21 @@
 (** Typography utilities for text and font styling
 
     What's included:
-    - Font size scale `text-{xs..9xl}` with matching line-height variables.
+    - Font size scale text-xs through text-9xl with matching line-height
+      variables.
     - Font weight, font family, font style, text alignment, text decoration,
       line-height presets and `leading-N`, letter-spacing presets, case.
 
     What's not:
     - Some advanced text decoration options (thickness, underline offset) and
-      typography nuances not present in the typed `Css` API. Extend with
-      `style` and raw `Css.property` when needed.
+      typography nuances not present in the typed `Css` API. Extend with `style`
+      and raw `Css.property` when needed.
 
     Parsing contract (`of_string`):
     - Accepts tokens for the above utilities, e.g. ["text"; "xl"],
       ["font"; "semibold"], ["leading"; n], ["tracking"; "wider"],
-      ["underline"], ["uppercase"]. Unknown tokens yield
-      `Error (`Msg "Not a typography utility")`. *)
+      ["underline"], ["uppercase"]. Unknown tokens yield `Error (`Msg "Not a
+      typography utility")`. *)
 
 open Core
 open Css
@@ -261,9 +262,7 @@ let text_9xl =
 
 (* Create the @property rule for --tw-font-weight *)
 let property_rules =
-  [
-    Var.property Var.Font_weight ~syntax:"*" ~inherits:false ~initial:"initial";
-  ]
+  [ Var.property Var.Font_weight ~syntax:"*" ~inherits:false ~initial:"" ]
 
 (* Font weight utilities using variables *)
 let font_thin =
@@ -370,7 +369,8 @@ let font_sans_def, font_sans_var =
     ]
 
 let font_serif_def, font_serif_var =
-  Var.theme Var.Font_serif [ Ui_serif; Georgia; Times_new_roman; Serif ]
+  Var.theme Var.Font_serif
+    [ Ui_serif; Georgia; Cambria; Times_new_roman; Times; Serif ]
 
 let font_mono_def, font_mono_var =
   Var.theme Var.Font_mono
@@ -421,9 +421,14 @@ let default_font_family_declarations =
   [ default_font_family_def; default_mono_font_family_def ]
 
 (* Font family utilities use the font variables directly *)
-let font_sans = style "font-sans" [ font_family [ Var font_sans_var ] ]
-let font_serif = style "font-serif" [ font_family [ Var font_serif_var ] ]
-let font_mono = style "font-mono" [ font_family [ Var font_mono_var ] ]
+let font_sans =
+  style "font-sans" [ font_sans_def; font_family [ Var font_sans_var ] ]
+
+let font_serif =
+  style "font-serif" [ font_serif_def; font_family [ Var font_serif_var ] ]
+
+let font_mono =
+  style "font-mono" [ font_mono_def; font_family [ Var font_mono_var ] ]
 
 (** {1 Font Style Utilities} *)
 
