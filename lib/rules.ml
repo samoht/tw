@@ -223,11 +223,12 @@ let modifier_to_rule modifier base_class selector props =
         ~prefix:".contrast-less\\:" base_class props
   | Hover | Focus | Active | Focus_within | Focus_visible | Disabled ->
       let sel = Modifiers.to_selector modifier base_class in
-      let has_hover = modifier = Hover in
+      let has_hover = Modifiers.is_hover modifier in
       regular ~selector:sel ~props ~base_class ~has_hover ()
   | _ ->
       let sel = Modifiers.to_selector modifier base_class in
-      regular ~selector:sel ~props ~base_class ()
+      let has_hover = Modifiers.is_hover modifier in
+      regular ~selector:sel ~props ~base_class ~has_hover ()
 
 (* Extract selector and properties from a single Tw style *)
 let extract_selector_props tw =
