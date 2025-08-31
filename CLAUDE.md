@@ -137,7 +137,7 @@ When something doesn't work:
 ## Key Files & Tools
 
 - **tw CLI**: `lib/tools/tw.ml` - Main CLI for CSS generation
-- **tailwind_gen**: `lib/tools/tailwind_gen.ml` - Utility class generator
+- **tailwind_gen**: `lib/tools/tailwind_gen.ml` - Code generator for utility modules
 - **compare_css**: `scripts/compare_css.ml` - CSS diff tool
 - **var.ml**: Variable definitions and ordering (CRITICAL)
 - **rules.ml**: Layer assembly and CSS output generation
