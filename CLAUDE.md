@@ -23,13 +23,13 @@ scripts/       - Helper scripts for CSS comparison
 
 ## Critical Concepts
 
-### CSS Variables Pattern (NEVER violate these)
-1. **NEVER use var(...) in string literals**: Always use typed `Var` from `Var.theme`/`Var.utility`
-2. **NEVER use Css.custom**: It bypasses the type system
-3. Variables must be defined in `var.ml` with proper ordering
-4. Use `Var.theme` for shared theme tokens
-5. Use `Var.utility` for per-utility variables with fallbacks
-6. Use `Var.property` for @property registration when needed
+### CSS Variables Pattern
+
+Core principles:
+- **Type safety first**: Always use typed `Var` constructors, never string literals
+- **Define in var.ml**: All variables must be defined with proper ordering
+- **Theme vs Utility**: Use `Var.theme` for shared tokens, `Var.utility` for specific utilities
+- **Property registration**: Use `Var.property` for animations/transitions requiring @property
 
 ### Layer System
 - `@layer theme` - CSS variables in :root,:host (from Var.theme)
@@ -111,33 +111,41 @@ tailwindcss --content '/tmp/test.html' --minify --optimize 2>/dev/null
 2. **No string manipulation**: Use typed constructors, not string concatenation
 3. **Follow existing patterns**: Check similar utilities before implementing
 4. **Order matters**: Variables must follow canonical ordering in var.ml
-5. **Test everything**: Write tests comparing output with Tailwind v4
+5. **Test everything**: Write tests comparing output with Tailwind CSS
+6. **Type annotations**: Add type annotations to helper functions for clarity
+7. **Pattern matching**: Start with `Some` cases to avoid type ambiguity
 
 ## Common Pitfalls to Avoid
 
-1. **Setting variables in wrong utilities**: Only style utilities should set style variables
-2. **Wrong layer generation**: Don't pass ~property_rules unless needed for @property
-3. **String-based var() references**: Always use typed Var, never "var(--name)"
-4. **Missing fallbacks**: Provide sensible fallbacks for Var.utility
-5. **Wrong @property syntax**: Use syntax:"*" for generic properties
-6. **NEVER USE OCAMLPARAM=_,w=-32**: Don't silence warnings - fix them properly
+1. **String-based var() references**: Always use typed `Var`, never `"var(--name)"`
+2. **Css.custom usage**: Never use - it bypasses the type system
+3. **Setting variables in wrong places**: Only style utilities should set style variables
+4. **Wrong layer generation**: Don't pass `~property_rules` unless needed for @property
+5. **Missing fallbacks**: Always provide sensible fallbacks for `Var.utility`
+6. **Wrong @property syntax**: Use `syntax:"*"` for generic properties
+7. **Silencing warnings**: Never use `OCAMLPARAM=_,w=-32` - fix warnings properly
 
 ## Quick Debugging Checklist
-1. Check var.ml for variable definition and ordering
-2. Verify layer generation with `tw -s <class> --variables`
-3. Compare with Tailwind output using tailwindcss CLI
-4. Check test failures with ALCOTEST_VERBOSE=1
-5. Look for Css.custom or string var() usage (code smell)
 
-## Helper Scripts Location
-- tailwind_gen: lib/tools/tailwind_gen.ml
-- compare_css: scripts/compare_css.ml
-- tw CLI: lib/tools/tw.ml
+When something doesn't work:
+1. Check `var.ml` for variable definition and ordering
+2. Verify layer generation: `dune exec -- tw -s "<class>" --variables`
+3. Compare with Tailwind: `tailwindcss --content test.html --minify`
+4. Debug test failures: `ALCOTEST_VERBOSE=1 dune test`
+5. Look for anti-patterns: `Css.custom` or string `"var(--...)"` usage
+
+## Key Files & Tools
+
+- **tw CLI**: `lib/tools/tw.ml` - Main CLI for CSS generation
+- **tailwind_gen**: `lib/tools/tailwind_gen.ml` - Utility class generator
+- **compare_css**: `scripts/compare_css.ml` - CSS diff tool
+- **var.ml**: Variable definitions and ordering (CRITICAL)
+- **rules.ml**: Layer assembly and CSS output generation
 
 ## Testing Strategy
 - Each utility module has corresponding test_*.ml
 - Tests compare output with expected Tailwind CSS
-- Use --variables mode for v4 compatibility testing
+- Use --variables mode for CSS variable testing
 - Run specific failing tests with test suite and number
 - Test output files saved to `/tmp/css_debug/` for debugging:
   - `<test_name>_tw.css`: Our generated output
