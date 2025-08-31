@@ -272,7 +272,7 @@ let font_thin =
     Var.utility Var.Font_weight (Var font_weight_thin_var)
   in
   style "font-thin" ~property_rules
-    [ font_weight_thin_def; fw_def; Css.font_weight (Var font_weight_thin_var) ]
+    [ font_weight_thin_def; fw_def; font_weight (Var font_weight_thin_var) ]
 
 let font_extralight =
   let fw_def, _fw_var =
@@ -282,7 +282,7 @@ let font_extralight =
     [
       font_weight_extralight_def;
       fw_def;
-      Css.font_weight (Var font_weight_extralight_var);
+      font_weight (Var font_weight_extralight_var);
     ]
 
 let font_light =
@@ -290,31 +290,21 @@ let font_light =
     Var.utility Var.Font_weight (Var font_weight_light_var)
   in
   style "font-light" ~property_rules
-    [
-      font_weight_light_def; fw_def; Css.font_weight (Var font_weight_light_var);
-    ]
+    [ font_weight_light_def; fw_def; font_weight (Var font_weight_light_var) ]
 
 let font_normal =
   let fw_def, _fw_var =
     Var.utility Var.Font_weight (Var font_weight_normal_var)
   in
   style "font-normal" ~property_rules
-    [
-      font_weight_normal_def;
-      fw_def;
-      Css.font_weight (Var font_weight_normal_var);
-    ]
+    [ font_weight_normal_def; fw_def; font_weight (Var font_weight_normal_var) ]
 
 let font_medium =
   let fw_def, _fw_var =
     Var.utility Var.Font_weight (Var font_weight_medium_var)
   in
   style "font-medium" ~property_rules
-    [
-      font_weight_medium_def;
-      fw_def;
-      Css.font_weight (Var font_weight_medium_var);
-    ]
+    [ font_weight_medium_def; fw_def; font_weight (Var font_weight_medium_var) ]
 
 let font_semibold =
   let fw_def, _fw_var =
@@ -324,7 +314,7 @@ let font_semibold =
     [
       font_weight_semibold_def;
       fw_def;
-      Css.font_weight (Var font_weight_semibold_var);
+      font_weight (Var font_weight_semibold_var);
     ]
 
 let font_bold =
@@ -332,7 +322,7 @@ let font_bold =
     Var.utility Var.Font_weight (Var font_weight_bold_var)
   in
   style "font-bold" ~property_rules
-    [ font_weight_bold_def; fw_def; Css.font_weight (Var font_weight_bold_var) ]
+    [ font_weight_bold_def; fw_def; font_weight (Var font_weight_bold_var) ]
 
 let font_extrabold =
   let fw_def, _fw_var =
@@ -342,7 +332,7 @@ let font_extrabold =
     [
       font_weight_extrabold_def;
       fw_def;
-      Css.font_weight (Var font_weight_extrabold_var);
+      font_weight (Var font_weight_extrabold_var);
     ]
 
 let font_black =
@@ -350,9 +340,7 @@ let font_black =
     Var.utility Var.Font_weight (Var font_weight_black_var)
   in
   style "font-black" ~property_rules
-    [
-      font_weight_black_def; fw_def; Css.font_weight (Var font_weight_black_var);
-    ]
+    [ font_weight_black_def; fw_def; font_weight (Var font_weight_black_var) ]
 
 (** {1 Font Family Utilities} *)
 
@@ -493,8 +481,8 @@ let decoration_color ?(shade = 500) (color : Color.color) =
     style class_name
       [
         var_def;
-        webkit_text_decoration_color (Css.Var css_var);
-        text_decoration_color (Css.Var css_var);
+        webkit_text_decoration_color (Var css_var);
+        text_decoration_color (Var css_var);
       ]
 
 let decoration_thickness n =
@@ -619,7 +607,14 @@ let line_clamp n =
 
 (** {1 Content} *)
 
-let content_none = style "content-none" [ content "none" ]
+(* Property rules for content variable *)
+let content_property_rules =
+  [ Var.property Var.Content ~syntax:"*" ~inherits:false ~initial:"" ]
+
+let content_none =
+  let content_def, content_var = Var.utility Var.Content ~fallback:None None in
+  style "content-none" ~property_rules:content_property_rules
+    [ content_def; content (Var content_var) ]
 
 let escape_css_string s =
   (* Escape backslashes and quotes inside CSS string literal *)
@@ -636,7 +631,11 @@ let content s =
   (* Auto-quote the text and use Tailwind arbitrary value class name *)
   let quoted = "\"" ^ escape_css_string s ^ "\"" in
   let class_name = Pp.str [ "content-["; quoted; "]" ] in
-  style class_name [ content quoted ]
+  let content_def, content_var =
+    Var.utility Var.Content ~fallback:(String quoted) (String quoted)
+  in
+  style class_name ~property_rules:content_property_rules
+    [ content_def; content (Var content_var) ]
 
 (** {1 Text Overflow} *)
 
@@ -653,25 +652,22 @@ let text_pretty = style "text-pretty" [ Css.text_wrap Pretty ]
 (** {1 Word/Overflow Wrap} *)
 
 let break_normal =
-  style "break-normal" [ word_break Normal; overflow_wrap Normal_wrap ]
+  style "break-normal" [ word_break Normal; overflow_wrap Normal ]
 
-let break_words = style "break-words" [ overflow_wrap Break_word_wrap ]
+let break_words = style "break-words" [ overflow_wrap Break_word ]
 let break_all = style "break-all" [ word_break Break_all ]
 let break_keep = style "break-keep" [ word_break Keep_all ]
-
-let overflow_wrap_normal =
-  style "overflow-wrap-normal" [ overflow_wrap Normal_wrap ]
+let overflow_wrap_normal = style "overflow-wrap-normal" [ overflow_wrap Normal ]
 
 let overflow_wrap_anywhere =
   style "overflow-wrap-anywhere" [ overflow_wrap Anywhere ]
 
 let overflow_wrap_break_word =
-  style "overflow-wrap-break-word" [ overflow_wrap Break_word_wrap ]
+  style "overflow-wrap-break-word" [ overflow_wrap Break_word ]
 
 (** {1 Hyphens} *)
 
-let hyphens_none =
-  style "hyphens-none" [ webkit_hyphens None_h; hyphens None_h ]
+let hyphens_none = style "hyphens-none" [ webkit_hyphens None; hyphens None ]
 
 let hyphens_manual =
   style "hyphens-manual" [ webkit_hyphens Manual; hyphens Manual ]
@@ -680,123 +676,78 @@ let hyphens_auto = style "hyphens-auto" [ webkit_hyphens Auto; hyphens Auto ]
 
 (** {1 Font Stretch} *)
 
-let font_stretch_normal = style "font-stretch-normal" [ font_stretch Normal ]
+let font_stretch_normal =
+  style "font-stretch-normal" [ font_stretch (Pct 100.) ]
 
 let font_stretch_condensed =
-  style "font-stretch-condensed" [ font_stretch Condensed ]
+  style "font-stretch-condensed" [ font_stretch (Pct 75.) ]
 
 let font_stretch_expanded =
-  style "font-stretch-expanded" [ font_stretch Expanded ]
+  style "font-stretch-expanded" [ font_stretch (Pct 125.) ]
 
 let font_stretch_percent n =
   style
     ("font-stretch-" ^ string_of_int n)
-    [ font_stretch (Percentage (float_of_int n)) ]
+    [ font_stretch (Pct (float_of_int n)) ]
 
 (** {1 Numeric Variants} *)
 
 let normal_nums =
   style "normal-nums"
-    [ font_variant_numeric (font_variant_numeric_tokens [ Normal_numeric ]) ]
-
-let property_rules =
-  [
-    Var.property Var.Font_variant_ordinal ~syntax:"*" ~inherits:false
-      ~initial:"initial";
-    Var.property Var.Font_variant_slashed_zero ~syntax:"*" ~inherits:false
-      ~initial:"initial";
-    Var.property Var.Font_variant_numeric_figure ~syntax:"*" ~inherits:false
-      ~initial:"initial";
-    Var.property Var.Font_variant_numeric_spacing ~syntax:"*" ~inherits:false
-      ~initial:"initial";
-    Var.property Var.Font_variant_numeric_fraction ~syntax:"*" ~inherits:false
-      ~initial:"initial";
-  ]
-
-(* Create empty var references for all five font-variant properties *)
-let _, empty_ordinal_var =
-  Var.utility Var.Font_variant_ordinal ~fallback:Css.Empty Css.Normal_numeric
-
-let _, empty_slashed_zero_var =
-  Var.utility Var.Font_variant_slashed_zero ~fallback:Css.Empty
-    Css.Normal_numeric
-
-let _, empty_numeric_figure_var =
-  Var.utility Var.Font_variant_numeric_figure ~fallback:Css.Empty
-    Css.Normal_numeric
-
-let _, empty_numeric_spacing_var =
-  Var.utility Var.Font_variant_numeric_spacing ~fallback:Css.Empty
-    Css.Normal_numeric
-
-let _, empty_numeric_fraction_var =
-  Var.utility Var.Font_variant_numeric_fraction ~fallback:Css.Empty
-    Css.Normal_numeric
+    [ font_variant_numeric (font_variant_numeric_tokens [ Normal ]) ]
 
 (* Helper to create font-variant-numeric utilities with less duplication *)
-let font_variant_utility
-    ?(ordinal : font_variant_numeric = Var empty_ordinal_var)
-    ?(slashed_zero : font_variant_numeric = Var empty_slashed_zero_var)
-    ?(numeric_figure : font_variant_numeric = Var empty_numeric_figure_var)
-    ?(numeric_spacing : font_variant_numeric = Var empty_numeric_spacing_var)
-    ?(numeric_fraction : font_variant_numeric = Var empty_numeric_fraction_var)
-    class_name def =
-  style class_name ~property_rules
-    [
-      def;
-      font_variant_numeric
-        (font_variant_numeric_composed ~ordinal ~slashed_zero ~numeric_figure
-           ~numeric_spacing ~numeric_fraction ());
-    ]
+let font_variant_utility class_name def value =
+  style class_name [ def; font_variant_numeric value ]
 
 let ordinal =
   let def, var = Var.utility Var.Font_variant_ordinal Ordinal ~fallback:Empty in
-  font_variant_utility ~ordinal:(Var var) "ordinal" def
+  font_variant_utility "ordinal" def (Var var)
 
 let slashed_zero =
   let def, var =
     Var.utility Var.Font_variant_slashed_zero Slashed_zero ~fallback:Empty
   in
-  font_variant_utility ~slashed_zero:(Var var) "slashed-zero" def
+  font_variant_utility "slashed-zero" def (Var var)
 
 let lining_nums =
   let def, var =
     Var.utility Var.Font_variant_numeric_figure Lining_nums ~fallback:Empty
   in
-  font_variant_utility ~numeric_figure:(Var var) "lining-nums" def
+  font_variant_utility "lining-nums" def (Var var)
 
 let oldstyle_nums =
   let def, var =
     Var.utility Var.Font_variant_numeric_figure Oldstyle_nums ~fallback:Empty
   in
-  font_variant_utility ~numeric_figure:(Var var) "oldstyle-nums" def
+  font_variant_utility "oldstyle-nums" def (Var var)
 
 let proportional_nums =
   let def, var =
     Var.utility Var.Font_variant_numeric_spacing Proportional_nums
       ~fallback:Empty
   in
-  font_variant_utility ~numeric_spacing:(Var var) "proportional-nums" def
+  font_variant_utility "proportional-nums" def (Var var)
 
 let tabular_nums =
   let def, var =
     Var.utility Var.Font_variant_numeric_spacing Tabular_nums ~fallback:Empty
   in
-  font_variant_utility ~numeric_spacing:(Var var) "tabular-nums" def
+  font_variant_utility "tabular-nums" def (Var var)
 
 let diagonal_fractions =
   let def, var =
     Var.utility Var.Font_variant_numeric_fraction Diagonal_fractions
       ~fallback:Empty
   in
-  font_variant_utility ~numeric_fraction:(Var var) "diagonal-fractions" def
+  font_variant_utility "diagonal-fractions" def (Var var)
 
 let stacked_fractions =
   let def, var =
     Var.utility Var.Font_variant_numeric_fraction Stacked_fractions
       ~fallback:Empty
   in
-  font_variant_utility ~numeric_fraction:(Var var) "stacked-fractions" def
+  font_variant_utility "stacked-fractions" def (Var var)
 
 (** {1 Parsing Functions} *)
 
