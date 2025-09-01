@@ -1,0 +1,15 @@
+(executable
+ (name index)
+ (libraries tw tw.html))
+
+(rule
+ (targets index.html manual.css)
+ (deps index.exe)
+ (action
+  (run ./index.exe))
+ (mode
+  (promote (until-clean))))
+
+(alias
+ (name default)
+ (deps index.html))

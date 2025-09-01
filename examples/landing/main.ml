@@ -1,5 +1,5 @@
-(* Simple page example demonstrating tw.html with automatic CSS generation *)
 open Tw_html
+(** Landing page example demonstrating tw.html with automatic CSS generation *)
 
 (* Header component *)
 let header_section =
@@ -105,11 +105,11 @@ let code_example_section =
         ~tw:
           Tw.
             [
-              bg gray 900;
-              text gray 100;
               p 4;
               rounded_md;
               overflow_x_auto;
+              bg gray 900;
+              text_white;
               font_mono;
               text_sm;
             ]
@@ -117,86 +117,43 @@ let code_example_section =
           code
             [
               txt
-                {|div
-  ~tw:Tw.[ bg_white; p 4; rounded_lg; shadow_md ]
-  [
-    h1 ~tw:Tw.[ text_2xl; font_bold; text_blue_600 ] 
-      [ txt "Hello, World!" ];
-    p ~tw:Tw.[ text_gray_700; mt 2 ] 
-      [ txt "Type-safe HTML generation with Tailwind." ];
-  ]|};
+                "let button ~tw label =\n\
+                \  Html.button ~at:[ Html.At.class_ (Tw.to_classes tw) ] [ \
+                 Html.txt label ]";
             ];
         ];
     ]
 
-(* CTA section *)
+(* Call-to-action section *)
 let cta_section =
   section
-    ~tw:Tw.[ text_center; mb 12 ]
+    ~tw:Tw.[ text_center ]
     [
-      h2
-        ~tw:Tw.[ text_3xl; font_bold; text gray 900; mb 4 ]
-        [ txt "Get Started" ];
-      p
-        ~tw:Tw.[ text_lg; text gray 600; mb 8 ]
-        [
-          txt
-            "Install tw.html from opam and start building type-safe web pages \
-             today!";
-        ];
-      div
-        ~tw:Tw.[ flex; justify_center; gap 4 ]
-        [
-          button
-            ~tw:
-              Tw.
-                [
-                  bg blue 600;
-                  text_white;
-                  px 6;
-                  py 3;
-                  rounded_lg;
-                  font_semibold;
-                  hover [ bg blue 700 ];
-                  transition_colors;
-                ]
-            [ txt "Documentation" ];
-          button
-            ~tw:
-              Tw.
-                [
-                  bg gray 200;
-                  text gray 800;
-                  px 6;
-                  py 3;
-                  rounded_lg;
-                  font_semibold;
-                  hover [ bg gray 300 ];
-                  transition_colors;
-                ]
-            [ txt "View on GitHub" ];
-        ];
+      h2 ~tw:Tw.[ text_2xl; font_bold; mb 2 ] [ txt "Get Started" ];
+      p ~tw:Tw.[ text gray 600; mb 4 ] [ txt "Install and start styling now." ];
+      a
+        ~tw:
+          Tw.
+            [
+              inline_flex;
+              items_center;
+              px 6;
+              py 3;
+              rounded_md;
+              bg blue 600;
+              text_white;
+              hover [ bg blue 700 ];
+            ]
+        ~at:[ At.href "#" ]
+        [ txt "Read the docs" ];
     ]
 
-(* Interactive example components *)
 let hover_effect_card =
   div
-    ~tw:
-      Tw.
-        [
-          bg_white;
-          p 4;
-          rounded_lg;
-          shadow_sm;
-          hover [ shadow_lg; scale 105 ];
-          transition_all;
-          duration 200;
-          cursor_pointer;
-        ]
+    ~tw:Tw.[ transform; transition_all; duration 300; hover [ scale 105 ] ]
     [
-      h3 ~tw:Tw.[ font_semibold; mb 2 ] [ txt "Hover Effect" ];
-      p
-        ~tw:Tw.[ text gray 600; text_sm ]
+      div
+        ~tw:Tw.[ bg_white; p 6; rounded_lg; shadow_md; text_center ]
         [ txt "Hover over this card to see it scale and lift." ];
     ]
 
@@ -250,14 +207,14 @@ let footer_section =
 
 (* Main page assembly *)
 let main =
-  page ~title:"Simple Styled Page"
+  page ~title:"Landing Page"
     ~meta:
       [
         ( "description",
-          "A simple page demonstrating Tw CSS generation with OCaml" );
+          "A landing page demonstrating Tw CSS generation with OCaml" );
         ("viewport", "width=device-width, initial-scale=1.0");
       ]
-    ~tw_css:"simple.css"
+    ~tw_css:"landing.css"
     (* Head content *)
     [ meta ~at:[ At.name "author"; At.content "tw.html" ] () ]
     (* Body content *)
@@ -288,10 +245,10 @@ let main =
 let () =
   let html_str = html main in
   let css_filename, css_stylesheet = css main in
-  let css_str = Tw.Css.to_string ~minify:true css_stylesheet in
+  let css_str = Tw.Css.to_string ~minify:true ~optimize:true css_stylesheet in
 
   (* Write HTML file *)
-  let oc_html = open_out "simple.html" in
+  let oc_html = open_out "index.html" in
   output_string oc_html html_str;
   close_out oc_html;
 
@@ -300,5 +257,4 @@ let () =
   output_string oc_css css_str;
   close_out oc_css;
 
-  (* Silent during build - no output *)
   ()

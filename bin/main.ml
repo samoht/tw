@@ -60,7 +60,12 @@ let rec files path patterns =
   else []
 
 (* Main command implementation *)
-type gen_opts = { minify : bool; quiet : bool; mode : Tw.Css.mode }
+type gen_opts = {
+  minify : bool;
+  optimize : bool;
+  quiet : bool;
+  mode : Tw.Css.mode;
+}
 
 let eval_flag flag ~default =
   match flag with `Enable -> true | `Disable -> false | `Default -> default
@@ -72,7 +77,8 @@ let process_single_class class_str flag ~(opts : gen_opts) =
   | [] -> `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
   | styles ->
       let stylesheet = Tw.to_css ~base:include_base ~mode:opts.mode styles in
-      print_endline (Tw.Css.to_string ~minify:opts.minify stylesheet);
+      print_endline
+        (Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize stylesheet);
       `Ok ()
 
 let collect_files paths =
@@ -133,7 +139,8 @@ let process_files paths flag ~(opts : gen_opts) =
         all_classes
     in
     let stylesheet = Tw.to_css ~base:include_base ~mode:opts.mode tw_styles in
-    print_endline (Tw.Css.to_string ~minify:opts.minify stylesheet);
+    print_endline
+      (Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize stylesheet);
 
     (* Print statistics to stderr *)
     print_stats ~quiet:opts.quiet ~known:!known_classes
@@ -142,7 +149,7 @@ let process_files paths flag ~(opts : gen_opts) =
     `Ok ()
   with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))
 
-let tw_main single_class base_flag ~mode_choice ~minify ~quiet paths =
+let tw_main single_class base_flag ~mode_choice ~minify ~optimize ~quiet paths =
   (* Resolve default mode based on operation kind when not provided: *)
   let resolved_mode : Css.mode =
     match (single_class, mode_choice) with
@@ -151,7 +158,7 @@ let tw_main single_class base_flag ~mode_choice ~minify ~quiet paths =
     | Some _, `Default -> Inline (* single-class defaults to inline mode *)
     | None, `Default -> Variables (* files/scan default to variables *)
   in
-  let opts : gen_opts = { minify; quiet; mode = resolved_mode } in
+  let opts : gen_opts = { minify; optimize; quiet; mode = resolved_mode } in
   match single_class with
   | Some class_str -> process_single_class class_str base_flag ~opts
   | None -> (
@@ -181,6 +188,13 @@ let base_flag =
 let minify_flag =
   let doc = "Minify the generated CSS output" in
   Arg.(value & flag & info [ "minify" ] ~doc)
+
+let optimize_flag =
+  let doc =
+    "Apply CSS optimizations (deduplicate, merge consecutive rules, combine \n\
+     identical rules)"
+  in
+  Arg.(value & flag & info [ "optimize" ] ~doc)
 
 let quiet_flag =
   let doc = "Suppress warnings about unknown classes" in
@@ -224,6 +238,10 @@ let cmd =
       `Pre "  tw --inline index.html src/";
       `P "Generate minified CSS:";
       `Pre "  tw --minify index.html src/";
+      `P "Generate optimized CSS (rule merging/deduplication):";
+      `Pre "  tw --optimize index.html src/";
+      `P "Generate both minified and optimized CSS:";
+      `Pre "  tw --minify --optimize index.html src/";
       `S Manpage.s_see_also;
       `P "https://tailwindcss.com";
     ]
@@ -232,9 +250,9 @@ let cmd =
   Cmd.v info
     Term.(
       ret
-        (const (fun s b m q mode_choice paths ->
-             tw_main s b ~mode_choice ~minify:m ~quiet:q paths)
-        $ single_flag $ base_flag $ minify_flag $ quiet_flag $ mode_vflag
-        $ paths_arg))
+        (const (fun s b m o q mode_choice paths ->
+             tw_main s b ~mode_choice ~minify:m ~optimize:o ~quiet:q paths)
+        $ single_flag $ base_flag $ minify_flag $ optimize_flag $ quiet_flag
+        $ mode_vflag $ paths_arg))
 
 let () = exit (Cmd.eval cmd)

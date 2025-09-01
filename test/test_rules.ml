@@ -83,7 +83,9 @@ let check_properties_layer () =
   check bool "properties layer removed as expected" true true
 
 let check_to_css_variables_with_base () =
-  let config = { Tw.Rules.base = true; mode = Css.Variables } in
+  let config =
+    { Tw.Rules.base = true; mode = Css.Variables; optimize = false }
+  in
   let css = Tw.Rules.to_css ~config [] in
   let css_str = Css.to_string ~minify:false css in
   (* Base=true under Variables: all layers including base are present. *)
@@ -93,7 +95,9 @@ let check_to_css_variables_with_base () =
   check bool "has utilities layer" true (contains css_str "@layer utilities")
 
 let check_to_css_variables_without_base () =
-  let config = { Tw.Rules.base = false; mode = Css.Variables } in
+  let config =
+    { Tw.Rules.base = false; mode = Css.Variables; optimize = false }
+  in
   let css = Tw.Rules.to_css ~config [ p 4 ] in
   let css_str = Css.to_string ~minify:false css in
   (* Base=false under Variables: theme + components + utilities, but no base. *)
@@ -103,7 +107,7 @@ let check_to_css_variables_without_base () =
   check bool "has padding rule" true (contains css_str ".p-4")
 
 let check_to_css_inline_with_base () =
-  let config = { Tw.Rules.base = true; mode = Css.Inline } in
+  let config = { Tw.Rules.base = true; mode = Css.Inline; optimize = false } in
   let css = Tw.Rules.to_css ~config [ p 4 ] in
   let css_str = Css.to_string ~minify:false ~mode:Css.Inline css in
   (* Inline mode never emits layers; base has no effect. *)
@@ -114,7 +118,7 @@ let check_to_css_inline_with_base () =
   check bool "has padding rule" true (contains css_str ".p-4")
 
 let check_to_css_inline_without_base () =
-  let config = { Tw.Rules.base = false; mode = Css.Inline } in
+  let config = { Tw.Rules.base = false; mode = Css.Inline; optimize = false } in
   let css = Tw.Rules.to_css ~config [ p 4 ] in
   let css_str = Css.to_string ~minify:false ~mode:Css.Inline css in
   (* Inline mode never emits layers. *)
@@ -194,23 +198,6 @@ let test_is_hover_rule () =
         (Tw.Rules.is_hover_rule group_rule)
   | _ -> fail "Expected single group rule"
 
-let test_group_by_selector () =
-  let rules =
-    [
-      Tw.Rules.regular ~selector:".p-4" ~props:[ Css.padding (Css.Rem 1.0) ] ();
-      Tw.Rules.regular ~selector:".m-2" ~props:[ Css.margin (Css.Rem 0.5) ] ();
-      Tw.Rules.regular ~selector:".p-4"
-        ~props:[ fst (Css.var "tw-test" Css.String "1") ]
-        ();
-      Tw.Rules.media_query ~condition:"(min-width: 640px)" ~selector:".sm\\:p-4"
-        ~props:[] ();
-    ]
-  in
-  let grouped = Tw.Rules.group_by_selector rules in
-  check int "groups regular rules only" 2 (List.length grouped);
-  let p4_props = List.assoc ".p-4" grouped in
-  check int "merges props for same selector" 2 (List.length p4_props)
-
 let test_resolve_dependencies () =
   (* Dependency resolution is now handled automatically by
      Css.vars_of_declarations This test is kept for compatibility but
@@ -223,7 +210,7 @@ let test_resolve_dependencies () =
 let test_inline_no_var_in_css_for_defaults () =
   (* Ensure Inline mode resolves defaults and does not emit var(--...). Use
      rounded_sm which sets a default on its CSS var. *)
-  let config = { Tw.Rules.base = false; mode = Css.Inline } in
+  let config = { Tw.Rules.base = false; mode = Css.Inline; optimize = false } in
   let sheet = Tw.Rules.to_css ~config [ Tw.Borders.rounded_sm ] in
   let css_inline = Css.to_string ~minify:false ~mode:Css.Inline sheet in
   check bool "no var() in inline CSS" false (contains css_inline "var(--");
@@ -244,13 +231,13 @@ let test_inline_vs_variables_diff () =
      that may still contain var() in declarations. *)
   let sheet_vars =
     Tw.Rules.to_css
-      ~config:{ Tw.Rules.base = false; mode = Css.Variables }
+      ~config:{ Tw.Rules.base = false; mode = Css.Variables; optimize = false }
       [ Tw.Borders.rounded_sm ]
   in
   let css_vars = Css.to_string ~minify:false ~mode:Css.Variables sheet_vars in
   let sheet_inline =
     Tw.Rules.to_css
-      ~config:{ Tw.Rules.base = false; mode = Css.Inline }
+      ~config:{ Tw.Rules.base = false; mode = Css.Inline; optimize = false }
       [ Tw.Borders.rounded_sm ]
   in
   let css_inline = Css.to_string ~minify:false ~mode:Css.Inline sheet_inline in
@@ -332,6 +319,48 @@ let test_build_utilities_layer () =
   check bool "includes padding rule" true (contains css ".p-4");
   check bool "includes margin rule" true (contains css ".m-2")
 
+let test_build_utilities_layer_preserves_order () =
+  (* Test that build_utilities_layer preserves rule order and doesn't sort *)
+  let rules =
+    [
+      Css.rule ~selector:".a"
+        [ Css.color (Css.Hex { hash = false; value = "ff0000" }) ];
+      Css.rule ~selector:".b" [ Css.margin (Css.Px 10) ];
+      Css.rule ~selector:".c" [ Css.padding (Css.Px 5) ];
+      Css.rule ~selector:".a"
+        [ Css.background_color (Css.Hex { hash = false; value = "0000ff" }) ];
+      Css.rule ~selector:".d" [ Css.font_size (Css.Rem 1.0) ];
+    ]
+  in
+  let layer =
+    Tw.Rules.build_utilities_layer ~rules ~media_queries:[]
+      ~container_queries:[]
+  in
+  let css = Css.to_string ~minify:true (Css.stylesheet [ Css.Layer layer ]) in
+
+  (* Find positions of each rule in the output *)
+  let find_position selector =
+    match Astring.String.find_sub ~sub:selector css with
+    | None -> -1
+    | Some pos -> pos
+  in
+
+  let pos_a1 = find_position ".a{color" in
+  let pos_b = find_position ".b{" in
+  let pos_c = find_position ".c{" in
+  let pos_a2 = find_position ".a{background" in
+  let pos_d = find_position ".d{" in
+
+  (* Check that original order is preserved *)
+  check bool "first .a before .b" true (pos_a1 < pos_b);
+  check bool ".b before .c" true (pos_b < pos_c);
+  check bool ".c before second .a" true (pos_c < pos_a2);
+  check bool "second .a before .d" true (pos_a2 < pos_d);
+
+  (* Most importantly: the two .a rules should NOT be adjacent *)
+  check bool "two .a rules are not adjacent" true
+    (pos_b > pos_a1 && pos_b < pos_a2)
+
 let test_classify () =
   let rules =
     [
@@ -354,6 +383,84 @@ let test_classify () =
   check int "1 media rule" 1 (List.length classified.media);
   check int "1 container rule" 1 (List.length classified.container);
   check int "1 starting rule" 1 (List.length classified.starting)
+
+let test_style_with_rules_and_props () =
+  (* Test that when a Style has both props and rules, the props are placed after
+     the rules *)
+  let open Css in
+  let custom_rules =
+    [
+      rule ~selector:".test :where(p)" [ margin_top (Rem 1.0) ];
+      rule ~selector:".test :where(div)" [ padding (Rem 2.0) ];
+    ]
+  in
+  let props = [ color (Hex { hash = false; value = "ff0000" }) ] in
+
+  let style = Tw.Core.style ~rules:(Some custom_rules) "test" props in
+  let extracted = Tw.Rules.extract_selector_props style in
+
+  (* Should generate rules in order: custom rules first, then base props *)
+  check int "correct number of rules" 3 (List.length extracted);
+
+  (* Check that the base props come last *)
+  let selectors =
+    List.map
+      (fun r ->
+        match r with Tw.Rules.Regular { selector; _ } -> selector | _ -> "")
+      extracted
+  in
+
+  (* First two should be the custom rules, last should be the base class *)
+  check string "first rule selector" ".test :where(p)" (List.nth selectors 0);
+  check string "second rule selector" ".test :where(div)" (List.nth selectors 1);
+  check string "last rule selector" ".test" (List.nth selectors 2)
+
+let test_rules_of_grouped_prose_bug () =
+  (* Reproduce the prose rule merging bug *)
+  let _prose_body_def, prose_body_var =
+    Tw.Var.utility Tw.Var.Prose_body
+      (Tw.Css.Oklch { l = 0.373; c = 0.034; h = 259.733 })
+  in
+  let grouped_pairs =
+    [
+      ( ".prose",
+        [
+          Tw.Css.color (Tw.Css.Var prose_body_var);
+          Tw.Css.max_width (Tw.Css.Ch 65.0);
+        ] );
+      ( ".prose :where(p):not(:where([class~=not-prose],[class~=not-prose] *))",
+        [
+          Tw.Css.margin_top (Tw.Css.Em 1.0);
+          Tw.Css.margin_bottom (Tw.Css.Em 1.0);
+        ] );
+      ( ".prose",
+        [
+          Tw.Css.font_size (Tw.Css.Rem 1.0); Tw.Css.line_height (Tw.Css.Num 1.5);
+        ] );
+    ]
+  in
+
+  let output_rules = Tw.Rules.rules_of_grouped grouped_pairs in
+
+  (* Count how many .prose rules we get in output *)
+  let prose_rules =
+    List.filter
+      (fun rule ->
+        let selector = Tw.Css.selector rule in
+        selector = ".prose")
+      output_rules
+  in
+
+  Printf.printf "\n=== test_rules_of_grouped_prose_bug ===\n";
+  Printf.printf "Input: 3 grouped pairs (2 .prose + 1 descendant)\n";
+  Printf.printf "Expected: 2 .prose rules in output\n";
+  Printf.printf "Actual: %d .prose rules in output\n" (List.length prose_rules);
+
+  (* This should be 2 separate .prose rules, not 1 merged rule *)
+  check int "number of .prose rules" 2 (List.length prose_rules);
+
+  (* Also verify the total number of rules is correct *)
+  check int "total output rules" 3 (List.length output_rules)
 
 let tests =
   [
@@ -378,7 +485,6 @@ let tests =
     (* New tests for exposed functions *)
     test_case "color_order" `Quick test_color_order;
     test_case "is_hover_rule" `Quick test_is_hover_rule;
-    test_case "group_by_selector" `Quick test_group_by_selector;
     test_case "resolve_dependencies" `Quick test_resolve_dependencies;
     test_case "inline_no_var_in_css_for_defaults" `Quick
       test_inline_no_var_in_css_for_defaults;
@@ -394,7 +500,13 @@ let tests =
     test_case "modifier_to_rule" `Quick test_modifier_to_rule;
     test_case "rule_sets" `Quick test_rule_sets;
     test_case "build_utilities_layer" `Quick test_build_utilities_layer;
+    test_case "build_utilities_layer preserves order" `Quick
+      test_build_utilities_layer_preserves_order;
     test_case "classify" `Quick test_classify;
+    test_case "style with rules and props ordering" `Quick
+      test_style_with_rules_and_props;
+    test_case "rules_of_grouped prose merging bug" `Quick
+      test_rules_of_grouped_prose_bug;
   ]
 
 let suite = ("rules", tests)

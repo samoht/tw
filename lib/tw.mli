@@ -1138,6 +1138,12 @@ val max_w_3xl : t
 val max_w_4xl : t
 (** [max_w_4xl] sets maximum width to 56rem. *)
 
+val max_w_5xl : t
+(** [max_w_5xl] sets maximum width to 64rem. *)
+
+val max_w_6xl : t
+(** [max_w_6xl] sets maximum width to 72rem. *)
+
 val max_w_none : t
 (** [max_w_none] removes the maximum width constraint. *)
 
@@ -2950,6 +2956,9 @@ val prose_xl : t
 val prose_2xl : t
 (** [prose_2xl] applies 2× large prose styling (1.5rem base font). *)
 
+val prose_lead : t
+(** [prose_lead] applies lead paragraph styling for prose. *)
+
 val prose_gray : t
 (** [prose_gray] uses the gray prose color theme. *)
 
@@ -2967,6 +2976,14 @@ val prose_stylesheet : unit -> Css.t
       let prose_css = prose_stylesheet () |> Css.to_string ~minify:true in
       (* Include this CSS in your page to enable full prose functionality *)
     ]} *)
+
+(** {2 Prose markers}
+
+    Convenience utilities to apply marker classes used by prose selectors. *)
+
+val not_prose : t
+(** [not_prose] marks a subtree to be excluded from prose styling. Alias of
+    [Prose.not_prose]. *)
 
 (** {1 Class Generation & Internals} *)
 
@@ -3084,8 +3101,9 @@ module Var = Var
 
 (* Version module is now in the css library *)
 
-val to_css : ?base:bool -> ?mode:Css.mode -> t list -> Css.t
-(** [to_css ?base ?mode styles] generates a CSS stylesheet for the given styles.
+val to_css : ?base:bool -> ?mode:Css.mode -> ?optimize:bool -> t list -> Css.t
+(** [to_css ?base ?mode ?optimize styles] generates a CSS stylesheet for the
+    given styles.
 
     The generated CSS follows Tailwind's layering and ordering conventions:
 

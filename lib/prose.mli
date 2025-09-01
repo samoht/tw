@@ -30,7 +30,8 @@
         ]
     ]} *)
 
-type variant = [ `Base | `Sm | `Lg | `Xl | `Xl2 | `Gray | `Slate ]
+type variant =
+  [ `Base | `Sm | `Lg | `Xl | `Xl2 | `Gray | `Slate | `Zinc | `Neutral | `Stone ]
 (** Prose variant types *)
 
 val pp : variant -> string
@@ -100,8 +101,30 @@ val prose_gray : Core.t
 val prose_slate : Core.t
 (** [prose_slate] applies slate color theme. *)
 
+val prose_zinc : Core.t
+(** [prose_zinc] applies zinc color theme. *)
+
+val prose_neutral : Core.t
+(** [prose_neutral] applies neutral color theme. *)
+
+val prose_stone : Core.t
+(** [prose_stone] applies stone color theme. *)
+
 val of_string : string list -> (Core.t, [ `Msg of string ]) result
 (** [of_string parts] parses a prose utility from string parts. *)
 
 val stylesheet : unit -> Css.rule list
 (** [stylesheet ()] generates complete CSS rules for all prose variants. *)
+
+(** {2 Prose markers}
+
+    Helper utilities that add semantic markers used by prose selectors without
+    emitting any CSS on their own. Useful to avoid raw class strings in HTML. *)
+
+val prose_lead : Core.t
+(** [prose_lead] applies the "lead" marker class for emphasized first paragraphs
+    inside prose. *)
+
+val not_prose : Core.t
+(** [not_prose] applies the "not-prose" marker class to exclude a subtree from
+    prose styling. *)

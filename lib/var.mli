@@ -126,6 +126,8 @@ type _ t =
   | Prose_body : Css.color t
   | Prose_headings : Css.color t
   | Prose_code : Css.color t
+  (* Content variable for pseudo-elements *)
+  | Content : Css.content t
   | Prose_pre_code : Css.color t
   | Prose_pre_bg : Css.color t
   | Prose_th_borders : Css.color t
@@ -139,6 +141,27 @@ type _ t =
   | Prose_counters : Css.color t
   | Prose_bullets : Css.color t
   | Prose_captions : Css.color t
+  | Prose_kbd : Css.color t
+  | Prose_kbd_shadows : string t (* RGB values like "17 24 39" *)
+  (* Prose invert variants for dark mode *)
+  | Prose_invert_body : Css.color t
+  | Prose_invert_headings : Css.color t
+  | Prose_invert_lead : Css.color t
+  | Prose_invert_links : Css.color t
+  | Prose_invert_bold : Css.color t
+  | Prose_invert_counters : Css.color t
+  | Prose_invert_bullets : Css.color t
+  | Prose_invert_hr : Css.color t
+  | Prose_invert_quotes : Css.color t
+  | Prose_invert_quote_borders : Css.color t
+  | Prose_invert_captions : Css.color t
+  | Prose_invert_kbd : Css.color t
+  | Prose_invert_kbd_shadows : string t
+  | Prose_invert_code : Css.color t
+  | Prose_invert_pre_code : Css.color t
+  | Prose_invert_pre_bg : Css.color t
+  | Prose_invert_th_borders : Css.color t
+  | Prose_invert_td_borders : Css.color t
   (* Gradient variables *)
   | Gradient_from : Css.color t
   | Gradient_via : Css.color t
@@ -172,11 +195,11 @@ val utility : 'a t -> ?fallback:'a -> 'a -> Css.declaration * 'a Css.var
     handle. *)
 
 val property :
-  'a t -> syntax:string -> inherits:bool -> initial:string -> Css.property_rule
-(** [property v ~syntax ~inherits ~initial] creates an [@property] registration.
+  syntax:string -> inherits:bool -> ?initial:string -> 'a t -> Css.property_rule
+(** [property v ~syntax ~inherits ?initial] creates an [@property] registration.
     @param syntax The property syntax (e.g., "*", "<color>", "<length>").
     @param inherits Whether the property inherits.
-    @param initial The initial value. *)
+    @param initial The initial value (optional). *)
 
 val layer : _ Css.var -> layer option
 (** [layer var] returns the layer recorded in the variable metadata, if any. *)

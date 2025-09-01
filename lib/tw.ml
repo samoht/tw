@@ -38,8 +38,9 @@ include Prose
 
 (* CSS rule generation from Rules module *)
 let to_css ?(base = Rules.default_config.base)
-    ?(mode = Rules.default_config.mode) tw_classes =
-  Rules.to_css ~config:{ base; mode } tw_classes
+    ?(mode = Rules.default_config.mode)
+    ?(optimize = Rules.default_config.optimize) tw_classes =
+  Rules.to_css ~config:{ base; mode; optimize } tw_classes
 
 let to_inline_style = Rules.to_inline_style
 
@@ -47,6 +48,9 @@ let to_inline_style = Rules.to_inline_style
 let prose_stylesheet () =
   let rules = Prose.stylesheet () in
   Css.stylesheet (rules |> List.map (fun rule -> Css.Rule rule))
+
+(* Prose markers at top level *)
+let not_prose = Prose.not_prose
 
 (* Preflight reset rules *)
 let preflight = Preflight.stylesheet

@@ -1,0 +1,31 @@
+(executable
+ (name main)
+ (libraries tw tw.html))
+
+; Generate HTML/CSS for landing example
+
+(rule
+ (targets index.html landing.css)
+ (deps main.exe)
+ (action
+  (run ./main.exe))
+ (mode
+  (promote (until-clean))))
+
+; Generate reference CSS with Tailwind CLI
+
+(rule
+ (targets tailwind.css)
+ (deps index.html)
+ (action
+  (run npx tailwindcss --content %{deps} -o %{targets} --minify))
+ (mode
+  (promote (until-clean))))
+
+; Test: compare our CSS against Tailwind output
+
+(rule
+ (alias runtest)
+ (deps landing.css tailwind.css ../../scripts/cssdiff.exe)
+ (action
+  (run ../../scripts/cssdiff.exe landing.css tailwind.css)))

@@ -17,7 +17,9 @@ let tailwind_files temp_dir classnames =
 </html>|}
       (String.concat " " classnames)
   in
-  let input_css_content = "@import \"tailwindcss\";" in
+  let input_css_content =
+    "@import \"tailwindcss\";\n@plugin \"@tailwindcss/typography\";"
+  in
   write_file (Filename.concat temp_dir "input.html") html_content;
   write_file (Filename.concat temp_dir "input.css") input_css_content
 
@@ -47,7 +49,7 @@ let check_tailwindcss_available () =
              version_line))
     else failwith "Failed to check tailwindcss version.")
 
-let generate ?(minify = false) classnames =
+let generate ?(minify = false) ?(optimize = true) classnames =
   check_tailwindcss_available ();
   let temp_dir = "temp_tailwind_test" in
   let cleanup () = ignore (Sys.command "rm -rf temp_tailwind_test") in
@@ -55,11 +57,12 @@ let generate ?(minify = false) classnames =
     let _ = Sys.command (Fmt.str "mkdir -p %s" temp_dir) in
     tailwind_files temp_dir classnames;
     let minify_flag = if minify then " --minify" else "" in
+    let optimize_flag = if optimize then " --optimize" else "" in
     let cmd =
       Fmt.str
         "cd %s && npx tailwindcss -i input.css -o output.css --content \
-         input.html%s --optimize 2>/dev/null"
-        temp_dir minify_flag
+         input.html%s%s 2>/dev/null"
+        temp_dir minify_flag optimize_flag
     in
     let exit_code = Sys.command cmd in
     if exit_code = 0 then (

@@ -1,0 +1,25 @@
+(executable
+ (name main)
+ (libraries tw tw.html))
+
+(rule
+ (targets index.html layout.css)
+ (deps main.exe)
+ (action
+  (run ./main.exe))
+ (mode
+  (promote (until-clean))))
+
+(rule
+ (targets tailwind.css)
+ (deps index.html)
+ (action
+  (run npx tailwindcss --content %{deps} -o %{targets} --minify))
+ (mode
+  (promote (until-clean))))
+
+(rule
+ (alias runtest)
+ (deps layout.css tailwind.css ../../scripts/cssdiff.exe)
+ (action
+  (run ../../scripts/cssdiff.exe layout.css tailwind.css)))

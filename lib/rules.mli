@@ -92,6 +92,12 @@ type config = {
           - [Inline]: Generates raw CSS rules without layers, suitable for
             inline styles or environments without CSS variable support.
             Variables are resolved to their default values when available. *)
+  optimize : bool;
+      (** Enable CSS optimizations. When true, applies various optimizations:
+          - Merges adjacent rules with identical selectors
+          - Combines consecutive rules with identical declarations
+          - Deduplicates declarations within rules (last wins) Optimizations
+            preserve CSS cascade semantics. Default: true *)
 }
 (** Configuration for CSS generation *)
 
@@ -171,8 +177,10 @@ val modifier_to_rule :
 (** [modifier_to_rule modifier base_class selector props] converts a modifier
     into appropriate CSS rule output. *)
 
-val group_by_selector : output list -> (string * Css.declaration list) list
-(** [group_by_selector rules] groups regular rules by selector. *)
+val extract_selector_props_pairs :
+  output list -> (string * Css.declaration list) list
+(** [extract_selector_props_pairs rules] extracts selector/props pairs from
+    Regular rules. *)
 
 val is_hover_rule : output -> bool
 (** [is_hover_rule output] checks if an output is a hover rule. *)
@@ -221,3 +229,10 @@ val string_of_breakpoint : breakpoint -> string
 val responsive_breakpoint : string -> string
 (** [responsive_breakpoint prefix] returns the CSS breakpoint value for a
     prefix. *)
+
+val rules_of_grouped :
+  ?filter_custom_props:bool ->
+  (string * Css.declaration list) list ->
+  Css.rule list
+(** [rules_of_grouped grouped_pairs] converts selector/properties pairs to CSS
+    rules. Used for testing the rule generation pipeline. *)

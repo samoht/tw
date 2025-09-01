@@ -1,3 +1,3 @@
 (executable
- (name compare_css)
+ (name cssdiff)
  (libraries tw_tools fmt))

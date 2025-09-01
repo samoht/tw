@@ -91,13 +91,13 @@ dune exec -- tw -s "shadow-sm" --variables --base
 dune exec -- tw -s "border-solid" --variables | head -20
 
 # Generate from HTML files
-dune exec -- tw examples/simple.html --minify
+dune exec -- tw examples/simple.html --minify --optimize
 ```
 
 ### CSS Comparison Tools
 ```bash
 # Compare generated CSS with Tailwind
-dune exec scripts/compare_css.exe <our_css> <tailwind_css>
+dune exec scripts/cssdiff.exe <our_css> <tailwind_css>
 
 # Generate Tailwind CSS for comparison (requires npx tailwindcss)
 # ALWAYS use --minify and --optimize flags for accurate comparisons
@@ -130,7 +130,7 @@ tailwindcss --content '/tmp/test.html' --minify --optimize 2>/dev/null
 When something doesn't work:
 1. Check `var.ml` for variable definition and ordering
 2. Verify layer generation: `dune exec -- tw -s "<class>" --variables`
-3. Compare with Tailwind: `tailwindcss --content test.html --minify`
+3. Compare with Tailwind: `tailwindcss --content test.html --minify --optimize`
 4. Debug test failures: `ALCOTEST_VERBOSE=1 dune test`
 5. Look for anti-patterns: `Css.custom` or string `"var(--...)"` usage
 
@@ -138,7 +138,7 @@ When something doesn't work:
 
 - **tw CLI**: `lib/tools/tw.ml` - Main CLI for CSS generation
 - **tailwind_gen**: `lib/tools/tailwind_gen.ml` - Code generator for utility modules
-- **compare_css**: `scripts/compare_css.ml` - CSS diff tool
+- **cssdiff**: `scripts/cssdiff.ml` - CSS diff tool
 - **var.ml**: Variable definitions and ordering (CRITICAL)
 - **rules.ml**: Layer assembly and CSS output generation
 
