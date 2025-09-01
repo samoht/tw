@@ -36,7 +36,7 @@ Generate CSS for specific classes:
 ```bash
 tw index.html src/
 tw src/ > styles.css
-tw --no-base --minify src/
+tw --no-base --minify --optimize src/
 ```
 
 Options:
@@ -51,6 +51,8 @@ Options:
   raw rules without layers. Defaults: `--inline` for single-class, `--variables`
   for file/directory scanning.
 - `--minify`: Minify the output CSS
+- `--optimize`: Apply rule-level optimizations (deduplicate declarations, merge
+  consecutive rules, and combine identical rules). Independent from `--minify`.
 
 ### Behavior
 
@@ -209,7 +211,7 @@ let my_page =
 let () =
   let html_str = html my_page in
   let (css_filename, css_stylesheet) = css my_page in
-  let css_str = Tw.Css.to_string ~minify:true css_stylesheet in
+  let css_str = Tw.Css.to_string ~minify:true ~optimize:true css_stylesheet in
 
   (* Write files *)
   let oc_html = open_out "index.html" in
@@ -293,7 +295,7 @@ dune exec examples/simple_page.exe
 The main module provides:
 - `Tw.of_string : string -> (Tw.t, string) result` - Parse utility class strings (e.g., "p-4", "bg-blue-500")
 - `Tw.to_css : ?base:bool -> ?mode:Tw.Css.mode -> Tw.t list -> Tw.Css.stylesheet` - Generate CSS from styles
-- `Tw.Css.to_string : ?minify:bool -> Tw.Css.stylesheet -> string` - Serialize CSS
+- `Tw.Css.to_string : ?minify:bool -> ?optimize:bool -> Tw.Css.stylesheet -> string` - Serialize CSS (minify removes whitespace, optimize merges rules)
 
 ### Spacing Functions
 

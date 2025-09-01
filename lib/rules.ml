@@ -242,10 +242,22 @@ let extract_selector_props tw =
             ]
         | Some rule_list ->
             (* Convert custom rules to selector/props pairs *)
-            rule_list
-            |> List.map (fun rule ->
-                   regular ~selector:(Css.selector rule)
-                     ~props:(Css.declarations rule) ~base_class:name ()))
+            let custom_rules =
+              rule_list
+              |> List.map (fun rule ->
+                     regular ~selector:(Css.selector rule)
+                       ~props:(Css.declarations rule) ~base_class:name ())
+            in
+
+            (* If there are base props, add them after the custom rules to match
+               Tailwind's order *)
+            if props = [] then custom_rules
+            else
+              custom_rules
+              @ [
+                  regular ~selector:("." ^ escaped_name) ~props ~base_class:name
+                    ();
+                ])
     | Modified (modifier, t) ->
         let base = extract t in
         List.concat_map
@@ -262,24 +274,37 @@ let extract_selector_props tw =
   in
   extract tw
 
-(* Group properties by selector for Regular rules *)
-let group_by_selector rules =
-  (* Use cons-accumulation to avoid O(n^2) list appends while grouping. We
-     gather lists of property lists per selector, then concatenate once. *)
-  let tbl = Hashtbl.create 32 in
-  List.iter
-    (fun rule ->
-      match rule with
-      | Regular { selector; props; _ } ->
-          let existing = try Hashtbl.find tbl selector with Not_found -> [] in
-          Hashtbl.replace tbl selector (props :: existing)
-      | _ -> ())
-    rules;
-  Hashtbl.fold
-    (fun k v acc ->
-      (* v is a list of prop lists accumulated in reverse order *)
-      (k, List.concat (List.rev v)) :: acc)
-    tbl []
+(* Extract selector and props pairs from Regular rules. *)
+let extract_selector_props_pairs rules =
+  (* TW_DEBUG_START: extract_selector_props_pairs debugging *)
+  let result =
+    List.filter_map
+      (fun rule ->
+        match rule with
+        | Regular { selector; props; _ } -> Some (selector, props)
+        | _ -> None)
+      rules
+  in
+
+  Printf.printf "\n=== TW_DEBUG: extract_selector_props_pairs() ===\n";
+  Printf.printf "Input rules: %d\n" (List.length rules);
+  Printf.printf "Output pairs: %d\n" (List.length result);
+
+  (* Count .prose pairs *)
+  let prose_pairs =
+    List.fold_left
+      (fun acc (selector, props) ->
+        if selector = ".prose" then (
+          Printf.printf "  Prose pair: %s (%d props)\n" selector
+            (List.length props);
+          acc + 1)
+        else acc)
+      0 result
+  in
+  Printf.printf "Result contains %d .prose pairs\n" prose_pairs;
+
+  (* TW_DEBUG_END *)
+  result
 
 (* ======================================================================== *)
 (* Rule Processing - Group and organize rules *)
@@ -621,7 +646,12 @@ let utility_groups =
       priority = 1000;
       name = "container_prose";
       classifier = is_container_or_prose;
-      suborder = (fun _ -> 0);
+      suborder =
+        (fun core ->
+          (* Ensure .prose comes before .prose :where(...) *)
+          if core = "prose" then 0
+          else if String.starts_with ~prefix:"prose " core then 1
+          else 2);
     };
   ]
 
@@ -640,35 +670,24 @@ let conflict_group selector =
 (* Unknown utilities go last *)
 
 let build_utilities_layer ~rules ~media_queries ~container_queries =
-  (* Sort rules by conflict group priority for proper cascade behavior.
-
-     We use List.stable_sort to maintain relative order of rules with the same
-     priority. This ensures deterministic output: - Rules are first grouped by
-     utility type (display, margin, padding, etc.) - Within each group, rules
-     are sorted by suborder (e.g., m- before mx- before mt-) - Rules with
-     identical group and suborder maintain their original order
-
-     This stable sorting is crucial for predictable CSS output when multiple
-     Tailwind classes could conflict. The last class in the original list wins
-     among equal-priority utilities. *)
-  (* Precompute conflict keys once per rule to avoid repeated classification
-     work inside the comparator during sorting. *)
-  let keyed_rules =
-    List.map
-      (fun r ->
-        let g, s = conflict_group (Css.selector r) in
-        (g, s, r))
-      rules
+  (* TW_DEBUG_START: build_utilities_layer debug *)
+  let prose_rules_input =
+    List.fold_left
+      (fun acc rule -> if Css.selector rule = ".prose" then acc + 1 else acc)
+      0 rules
   in
-  let sorted_rules =
-    keyed_rules
-    |> List.stable_sort (fun (g1, s1, _) (g2, s2, _) ->
-           let c = Int.compare g1 g2 in
-           if c <> 0 then c else Int.compare s1 s2)
-    |> List.map (fun (_, _, r) -> r)
-  in
+  Printf.printf "\n=== TW_DEBUG: build_utilities_layer() ===\n";
+  Printf.printf "Input rules: %d (%d .prose rules)\n" (List.length rules)
+    prose_rules_input;
+
+  (* TW_DEBUG_END *)
+
+  (* IMPORTANT: Do NOT sort rules here! Sorting changes cascade order and can
+     cause non-adjacent rules with the same selector to become adjacent, which
+     then get incorrectly merged by the optimizer. The original rule order from
+     rule generation must be preserved to maintain CSS cascade semantics. *)
   Css.layer ~name:"utilities" ~media:media_queries ~container:container_queries
-    (sorted_rules |> List.map Css.rule_to_nested)
+    (rules |> List.map Css.rule_to_nested)
 
 let add_hover_to_media_map hover_rules media_map =
   (* Gate hover rules behind (hover:hover) media query to prevent them from
@@ -683,9 +702,26 @@ let add_hover_to_media_map hover_rules media_map =
     (hover_condition, hover_rules @ existing_hover_rules)
     :: List.remove_assoc hover_condition media_map
 
-(* Helper to convert grouped selector/props pairs to CSS rules with
-   deduplication *)
+(* Convert selector/props pairs to CSS rules. *)
 let rules_of_grouped ?(filter_custom_props = false) grouped_list =
+  (* TW_DEBUG_START: rules_of_grouped debugging *)
+  Printf.printf "\n=== TW_DEBUG: rules_of_grouped() ===\n";
+  Printf.printf "Input grouped_list: %d pairs\n" (List.length grouped_list);
+
+  (* Count .prose entries in grouped_list *)
+  let prose_count =
+    List.fold_left
+      (fun acc (selector, props) ->
+        if selector = ".prose" then (
+          Printf.printf "  Found .prose pair: %s (%d props)\n" selector
+            (List.length props);
+          acc + 1)
+        else acc)
+      0 grouped_list
+  in
+  Printf.printf "grouped_list contains %d .prose pairs\n" prose_count;
+
+  (* TW_DEBUG_END *)
   List.map
     (fun (selector, props) ->
       let filtered_props =
@@ -707,23 +743,78 @@ let rules_of_grouped ?(filter_custom_props = false) grouped_list =
             props
         else props
       in
-      Css.rule ~selector (Css.deduplicate_declarations filtered_props))
+      let rule =
+        Css.rule ~selector (Css.deduplicate_declarations filtered_props)
+      in
+      if selector = ".prose" then
+        Printf.printf "  Created .prose rule with %d filtered props\n"
+          (List.length filtered_props);
+      rule)
     grouped_list
+  (* TW_DEBUG_START: rules_of_grouped output debug *)
+  |> fun output_rules ->
+  let prose_output_count =
+    List.fold_left
+      (fun acc rule -> if Css.selector rule = ".prose" then acc + 1 else acc)
+      0 output_rules
+  in
+  Printf.printf "rules_of_grouped output: %d total rules (%d .prose rules)\n"
+    (List.length output_rules) prose_output_count;
+  output_rules
+(* TW_DEBUG_END *)
 
 let rule_sets tw_classes =
   let all_rules = tw_classes |> List.concat_map extract_selector_props in
+
+  (* TW_DEBUG_START: rule_sets debugging *)
+  Printf.printf "\n=== TW_DEBUG: rule_sets() ===\n";
+  Printf.printf "Input tw_classes: %d\n" (List.length tw_classes);
+  Printf.printf "Generated all_rules: %d\n" (List.length all_rules);
+
+  (* Track classes being processed - simplified *)
+  Printf.printf "Processing %d total classes\n" (List.length tw_classes);
+
+  (* Count .prose rules in all_rules *)
+  let prose_rule_count =
+    List.fold_left
+      (fun acc rule ->
+        match rule with
+        | Regular { selector; _ } when selector = ".prose" -> acc + 1
+        | _ -> acc)
+      0 all_rules
+  in
+  Printf.printf "all_rules contains %d .prose rules\n" prose_rule_count;
+
+  if prose_rule_count > 0 then (
+    Printf.printf "Prose rules in all_rules:\n";
+    List.iteri
+      (fun i rule ->
+        match rule with
+        | Regular { selector; props; _ } when selector = ".prose" ->
+            Printf.printf "  Rule %d: %s (%d props)\n" i selector
+              (List.length props)
+        | _ -> ())
+      all_rules);
+
+  (* TW_DEBUG_END *)
   let separated = classify all_rules in
   (* First separate hover from non-hover rules *)
   let hover_regular, non_hover_regular =
     List.partition is_hover_rule separated.regular
   in
-  let grouped_regular = group_by_selector non_hover_regular in
-  let grouped_hover = group_by_selector hover_regular in
-  let non_hover_rules = grouped_regular in
-  let hover_rules = grouped_hover in
-  let rules = rules_of_grouped ~filter_custom_props:true non_hover_rules in
+  let non_hover_pairs = extract_selector_props_pairs non_hover_regular in
+  let hover_pairs = extract_selector_props_pairs hover_regular in
+  (* TW_DEBUG_START: rule partitioning debug *)
+  let prose_in_non_hover =
+    List.fold_left
+      (fun acc (sel, _) -> if sel = ".prose" then acc + 1 else acc)
+      0 non_hover_pairs
+  in
+  Printf.printf "non_hover_pairs contains %d .prose pairs\n" prose_in_non_hover;
+  (* TW_DEBUG_END *)
+  let rules = rules_of_grouped ~filter_custom_props:true non_hover_pairs in
   let media_queries_map =
-    group_media_queries separated.media |> add_hover_to_media_map hover_rules
+    group_media_queries separated.media |> add_hover_to_media_map hover_pairs
   in
   let media_queries =
     List.map
@@ -918,8 +1009,10 @@ let build_properties_layer property_rules =
                (* Special handling for Ring_offset_width: "0" becomes "0px" in
                   properties layer *)
                let initial_value =
-                 if name = "--tw-ring-offset-width" && initial = "0" then "0px"
-                 else initial
+                 match initial with
+                 | Some "0" when name = "--tw-ring-offset-width" -> "0px"
+                 | Some v -> v
+                 | None -> "initial"
                in
                Css.custom_property name initial_value)
       in
@@ -1006,14 +1099,23 @@ let wrap_css_items ~rules ~media_queries ~container_queries =
 
 (* ======================================================================== *)
 (* Main API - Convert Tw styles to CSS *)
+
 (* ======================================================================== *)
 
-type config = { base : bool; mode : Css.mode }
+type config = { base : bool; mode : Css.mode; optimize : bool }
 (** Configuration for CSS generation *)
 
-let default_config = { base = true; mode = Css.Variables }
+let default_config = { base = true; mode = Css.Variables; optimize = false }
 
 let to_css ?(config = default_config) tw_classes =
+  (* TW_DEBUG_START: to_css entry point *)
+  Printf.printf "\n=== TW_DEBUG: Rules.to_css() ENTRY ===\n";
+  Printf.printf "Config: base=%b mode=%s optimize=%b\n" config.base
+    (match config.mode with Variables -> "Variables" | Inline -> "Inline")
+    config.optimize;
+  Printf.printf "Input tw_classes: %d\n" (List.length tw_classes);
+  flush_all ();
+  (* TW_DEBUG_END *)
   let rules, media_queries, container_queries = rule_sets tw_classes in
 
   (* Generate layers whenever mode = Variables. Include the base layer only when
@@ -1040,5 +1142,4 @@ let to_inline_style styles =
     | Group styles -> List.concat_map to_css_properties styles
   in
   let all_props = List.concat_map to_css_properties styles in
-  let deduped = Css.deduplicate_declarations all_props in
-  Css.inline_style_of_declarations deduped
+  Css.inline_style_of_declarations all_props

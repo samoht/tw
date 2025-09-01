@@ -337,6 +337,7 @@ let summary ?at ?tw children = el_with_tw "summary" ?at ?tw children
 (* Text content *)
 let pre ?at ?tw children = el_with_tw "pre" ?at ?tw children
 let code ?at ?tw children = el_with_tw "code" ?at ?tw children
+let kbd ?at ?tw children = el_with_tw "kbd" ?at ?tw children
 let em ?at ?tw children = el_with_tw "em" ?at ?tw children
 let strong ?at ?tw children = el_with_tw "strong" ?at ?tw children
 let small ?at ?tw children = el_with_tw "small" ?at ?tw children
@@ -365,6 +366,7 @@ let hr ?at ?(tw = []) () =
 let table ?at ?tw children = el_with_tw "table" ?at ?tw children
 let thead ?at ?tw children = el_with_tw "thead" ?at ?tw children
 let tbody ?at ?tw children = el_with_tw "tbody" ?at ?tw children
+let tfoot ?at ?tw children = el_with_tw "tfoot" ?at ?tw children
 let tr ?at ?tw children = el_with_tw "tr" ?at ?tw children
 let th ?at ?tw children = el_with_tw "th" ?at ?tw children
 let td ?at ?tw children = el_with_tw "td" ?at ?tw children

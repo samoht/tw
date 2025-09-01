@@ -1,0 +1,38 @@
+(executable
+ (name main)
+ (libraries tw tw.html))
+
+; Generate HTML/CSS for prose example
+
+(rule
+ (targets index.html prose.css)
+ (deps main.exe)
+ (action
+  (run ./main.exe))
+ (mode
+  (promote (until-clean))))
+
+; Generate reference CSS with Tailwind CLI (requires typography plugin)
+
+(rule
+ (targets tailwind.css)
+ (deps index.html input.css)
+ (action
+  (run
+   npx
+   tailwindcss
+   -i
+   input.css
+   --content
+   index.html
+   -o
+   %{targets}
+   --minify))
+ (mode
+  (promote (until-clean))))
+
+(rule
+ (alias runtest)
+ (deps prose.css tailwind.css ../../scripts/cssdiff.exe)
+ (action
+  (run ../../scripts/cssdiff.exe prose.css tailwind.css)))

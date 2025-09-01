@@ -696,58 +696,77 @@ let normal_nums =
   style "normal-nums"
     [ font_variant_numeric (font_variant_numeric_tokens [ Normal ]) ]
 
-(* Helper to create font-variant-numeric utilities with less duplication *)
-let font_variant_utility class_name def value =
-  style class_name [ def; font_variant_numeric value ]
+(* Helper to create font-variant-numeric utilities *)
+(* Each utility needs to set its own variable and use all 5 in font-variant-numeric *)
+let font_variant_numeric_utility class_name var_type value =
+  let def, _ = Var.utility var_type value ~fallback:Empty in
+  (* Get all 5 variables for the composed value *)
+  let _, ordinal_var =
+    Var.utility Var.Font_variant_ordinal Empty ~fallback:Empty
+  in
+  let _, slashed_var =
+    Var.utility Var.Font_variant_slashed_zero Empty ~fallback:Empty
+  in
+  let _, figure_var =
+    Var.utility Var.Font_variant_numeric_figure Empty ~fallback:Empty
+  in
+  let _, spacing_var =
+    Var.utility Var.Font_variant_numeric_spacing Empty ~fallback:Empty
+  in
+  let _, fraction_var =
+    Var.utility Var.Font_variant_numeric_fraction Empty ~fallback:Empty
+  in
+
+  (* All utilities need @property registration for these variables *)
+  let property_rules =
+    [
+      Var.property Var.Font_variant_ordinal ~syntax:"*" ~inherits:false;
+      Var.property Var.Font_variant_slashed_zero ~syntax:"*" ~inherits:false;
+      Var.property Var.Font_variant_numeric_figure ~syntax:"*" ~inherits:false;
+      Var.property Var.Font_variant_numeric_spacing ~syntax:"*" ~inherits:false;
+      Var.property Var.Font_variant_numeric_fraction ~syntax:"*" ~inherits:false;
+    ]
+  in
+
+  (* Build the font-variant-numeric value using composed with all 5 variables *)
+  let composed_value =
+    font_variant_numeric_composed ~ordinal:(Var ordinal_var)
+      ~slashed_zero:(Var slashed_var) ~numeric_figure:(Var figure_var)
+      ~numeric_spacing:(Var spacing_var) ~numeric_fraction:(Var fraction_var) ()
+  in
+
+  style class_name ~property_rules [ def; font_variant_numeric composed_value ]
 
 let ordinal =
-  let def, var = Var.utility Var.Font_variant_ordinal Ordinal ~fallback:Empty in
-  font_variant_utility "ordinal" def (Var var)
+  font_variant_numeric_utility "ordinal" Var.Font_variant_ordinal Ordinal
 
 let slashed_zero =
-  let def, var =
-    Var.utility Var.Font_variant_slashed_zero Slashed_zero ~fallback:Empty
-  in
-  font_variant_utility "slashed-zero" def (Var var)
+  font_variant_numeric_utility "slashed-zero" Var.Font_variant_slashed_zero
+    Slashed_zero
 
 let lining_nums =
-  let def, var =
-    Var.utility Var.Font_variant_numeric_figure Lining_nums ~fallback:Empty
-  in
-  font_variant_utility "lining-nums" def (Var var)
+  font_variant_numeric_utility "lining-nums" Var.Font_variant_numeric_figure
+    Lining_nums
 
 let oldstyle_nums =
-  let def, var =
-    Var.utility Var.Font_variant_numeric_figure Oldstyle_nums ~fallback:Empty
-  in
-  font_variant_utility "oldstyle-nums" def (Var var)
+  font_variant_numeric_utility "oldstyle-nums" Var.Font_variant_numeric_figure
+    Oldstyle_nums
 
 let proportional_nums =
-  let def, var =
-    Var.utility Var.Font_variant_numeric_spacing Proportional_nums
-      ~fallback:Empty
-  in
-  font_variant_utility "proportional-nums" def (Var var)
+  font_variant_numeric_utility "proportional-nums"
+    Var.Font_variant_numeric_spacing Proportional_nums
 
 let tabular_nums =
-  let def, var =
-    Var.utility Var.Font_variant_numeric_spacing Tabular_nums ~fallback:Empty
-  in
-  font_variant_utility "tabular-nums" def (Var var)
+  font_variant_numeric_utility "tabular-nums" Var.Font_variant_numeric_spacing
+    Tabular_nums
 
 let diagonal_fractions =
-  let def, var =
-    Var.utility Var.Font_variant_numeric_fraction Diagonal_fractions
-      ~fallback:Empty
-  in
-  font_variant_utility "diagonal-fractions" def (Var var)
+  font_variant_numeric_utility "diagonal-fractions"
+    Var.Font_variant_numeric_fraction Diagonal_fractions
 
 let stacked_fractions =
-  let def, var =
-    Var.utility Var.Font_variant_numeric_fraction Stacked_fractions
-      ~fallback:Empty
-  in
-  font_variant_utility "stacked-fractions" def (Var var)
+  font_variant_numeric_utility "stacked-fractions"
+    Var.Font_variant_numeric_fraction Stacked_fractions
 
 (** {1 Parsing Functions} *)
 

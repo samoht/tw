@@ -555,6 +555,9 @@ val pre : ?at:attr list -> ?tw:tw list -> t list -> t
 val code : ?at:attr list -> ?tw:tw list -> t list -> t
 (** [code ?at ?tw children] is a code element. *)
 
+val kbd : ?at:attr list -> ?tw:tw list -> t list -> t
+(** [kbd ?at ?tw children] is a keyboard input element. *)
+
 val em : ?at:attr list -> ?tw:tw list -> t list -> t
 (** [em ?at ?tw children] is an emphasis element. *)
 
@@ -581,6 +584,9 @@ val thead : ?at:attr list -> ?tw:tw list -> t list -> t
 
 val tbody : ?at:attr list -> ?tw:tw list -> t list -> t
 (** [tbody ?at ?tw children] is a table body element. *)
+
+val tfoot : ?at:attr list -> ?tw:tw list -> t list -> t
+(** [tfoot ?at ?tw children] is a table footer element. *)
 
 val tr : ?at:attr list -> ?tw:tw list -> t list -> t
 (** [tr ?at ?tw children] is a table row element. *)

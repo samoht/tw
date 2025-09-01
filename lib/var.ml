@@ -147,6 +147,8 @@ type _ t =
   | Prose_body : Css.color t
   | Prose_headings : Css.color t
   | Prose_code : Css.color t
+  (* Content variable for pseudo-elements *)
+  | Content : Css.content t
   | Prose_pre_code : Css.color t
   | Prose_pre_bg : Css.color t
   | Prose_th_borders : Css.color t
@@ -160,6 +162,27 @@ type _ t =
   | Prose_counters : Css.color t
   | Prose_bullets : Css.color t
   | Prose_captions : Css.color t
+  | Prose_kbd : Css.color t
+  | Prose_kbd_shadows : string t (* RGB values like "17 24 39" *)
+  (* Prose invert variants for dark mode *)
+  | Prose_invert_body : Css.color t
+  | Prose_invert_headings : Css.color t
+  | Prose_invert_lead : Css.color t
+  | Prose_invert_links : Css.color t
+  | Prose_invert_bold : Css.color t
+  | Prose_invert_counters : Css.color t
+  | Prose_invert_bullets : Css.color t
+  | Prose_invert_hr : Css.color t
+  | Prose_invert_quotes : Css.color t
+  | Prose_invert_quote_borders : Css.color t
+  | Prose_invert_captions : Css.color t
+  | Prose_invert_kbd : Css.color t
+  | Prose_invert_kbd_shadows : string t
+  | Prose_invert_code : Css.color t
+  | Prose_invert_pre_code : Css.color t
+  | Prose_invert_pre_bg : Css.color t
+  | Prose_invert_th_borders : Css.color t
+  | Prose_invert_td_borders : Css.color t
   (* Gradient variables *)
   | Gradient_from : Css.color t
   | Gradient_via : Css.color t
@@ -288,6 +311,7 @@ let to_string : type a. a t -> string = function
   | Prose_body -> "--tw-prose-body"
   | Prose_headings -> "--tw-prose-headings"
   | Prose_code -> "--tw-prose-code"
+  | Content -> "--tw-content"
   | Prose_pre_code -> "--tw-prose-pre-code"
   | Prose_pre_bg -> "--tw-prose-pre-bg"
   | Prose_th_borders -> "--tw-prose-th-borders"
@@ -301,6 +325,26 @@ let to_string : type a. a t -> string = function
   | Prose_counters -> "--tw-prose-counters"
   | Prose_bullets -> "--tw-prose-bullets"
   | Prose_captions -> "--tw-prose-captions"
+  | Prose_kbd -> "--tw-prose-kbd"
+  | Prose_kbd_shadows -> "--tw-prose-kbd-shadows"
+  | Prose_invert_body -> "--tw-prose-invert-body"
+  | Prose_invert_headings -> "--tw-prose-invert-headings"
+  | Prose_invert_lead -> "--tw-prose-invert-lead"
+  | Prose_invert_links -> "--tw-prose-invert-links"
+  | Prose_invert_bold -> "--tw-prose-invert-bold"
+  | Prose_invert_counters -> "--tw-prose-invert-counters"
+  | Prose_invert_bullets -> "--tw-prose-invert-bullets"
+  | Prose_invert_hr -> "--tw-prose-invert-hr"
+  | Prose_invert_quotes -> "--tw-prose-invert-quotes"
+  | Prose_invert_quote_borders -> "--tw-prose-invert-quote-borders"
+  | Prose_invert_captions -> "--tw-prose-invert-captions"
+  | Prose_invert_kbd -> "--tw-prose-invert-kbd"
+  | Prose_invert_kbd_shadows -> "--tw-prose-invert-kbd-shadows"
+  | Prose_invert_code -> "--tw-prose-invert-code"
+  | Prose_invert_pre_code -> "--tw-prose-invert-pre-code"
+  | Prose_invert_pre_bg -> "--tw-prose-invert-pre-bg"
+  | Prose_invert_th_borders -> "--tw-prose-invert-th-borders"
+  | Prose_invert_td_borders -> "--tw-prose-invert-td-borders"
   | Gradient_from -> "--tw-gradient-from"
   | Gradient_via -> "--tw-gradient-via"
   | Gradient_to -> "--tw-gradient-to"
@@ -478,19 +522,40 @@ let order : type a. a t -> int = function
   | Prose_body -> 1320
   | Prose_headings -> 1321
   | Prose_code -> 1322
-  | Prose_pre_code -> 1323
-  | Prose_pre_bg -> 1324
-  | Prose_th_borders -> 1325
-  | Prose_td_borders -> 1326
-  | Prose_links -> 1327
-  | Prose_quotes -> 1328
-  | Prose_quote_borders -> 1329
-  | Prose_hr -> 1330
-  | Prose_bold -> 1331
-  | Prose_lead -> 1332
-  | Prose_counters -> 1333
-  | Prose_bullets -> 1334
-  | Prose_captions -> 1335
+  | Content -> 1323
+  | Prose_pre_code -> 1324
+  | Prose_pre_bg -> 1325
+  | Prose_th_borders -> 1326
+  | Prose_td_borders -> 1327
+  | Prose_links -> 1328
+  | Prose_quotes -> 1329
+  | Prose_quote_borders -> 1330
+  | Prose_hr -> 1331
+  | Prose_bold -> 1332
+  | Prose_lead -> 1333
+  | Prose_counters -> 1334
+  | Prose_bullets -> 1335
+  | Prose_captions -> 1336
+  | Prose_kbd -> 1337
+  | Prose_kbd_shadows -> 1338
+  | Prose_invert_body -> 1339
+  | Prose_invert_headings -> 1340
+  | Prose_invert_lead -> 1341
+  | Prose_invert_links -> 1342
+  | Prose_invert_bold -> 1343
+  | Prose_invert_counters -> 1344
+  | Prose_invert_bullets -> 1345
+  | Prose_invert_hr -> 1346
+  | Prose_invert_quotes -> 1347
+  | Prose_invert_quote_borders -> 1348
+  | Prose_invert_captions -> 1349
+  | Prose_invert_kbd -> 1350
+  | Prose_invert_kbd_shadows -> 1351
+  | Prose_invert_code -> 1352
+  | Prose_invert_pre_code -> 1353
+  | Prose_invert_pre_bg -> 1354
+  | Prose_invert_th_borders -> 1355
+  | Prose_invert_td_borders -> 1356
   (* Gradient variables *)
   | Gradient_from -> 1400
   | Gradient_via -> 1401
@@ -661,6 +726,7 @@ let def : type a.
   | Prose_body -> var Color value
   | Prose_headings -> var Color value
   | Prose_code -> var Color value
+  | Content -> var Content value
   | Prose_pre_code -> var Color value
   | Prose_pre_bg -> var Color value
   | Prose_th_borders -> var Color value
@@ -674,6 +740,26 @@ let def : type a.
   | Prose_counters -> var Color value
   | Prose_bullets -> var Color value
   | Prose_captions -> var Color value
+  | Prose_kbd -> var Color value
+  | Prose_kbd_shadows -> var String value
+  | Prose_invert_body -> var Color value
+  | Prose_invert_headings -> var Color value
+  | Prose_invert_lead -> var Color value
+  | Prose_invert_links -> var Color value
+  | Prose_invert_bold -> var Color value
+  | Prose_invert_counters -> var Color value
+  | Prose_invert_bullets -> var Color value
+  | Prose_invert_hr -> var Color value
+  | Prose_invert_quotes -> var Color value
+  | Prose_invert_quote_borders -> var Color value
+  | Prose_invert_captions -> var Color value
+  | Prose_invert_kbd -> var Color value
+  | Prose_invert_kbd_shadows -> var String value
+  | Prose_invert_code -> var Color value
+  | Prose_invert_pre_code -> var Color value
+  | Prose_invert_pre_bg -> var Color value
+  | Prose_invert_th_borders -> var Color value
+  | Prose_invert_td_borders -> var Color value
   | Ring_width -> var Length value
   | Gradient_from -> var Color value
   | Gradient_via -> var Color value
@@ -708,11 +794,14 @@ let utility : type a. a t -> ?fallback:a -> a -> Css.declaration * a Css.var =
 
 (* Create @property rule for a variable *)
 let property : type a.
-    a t -> syntax:string -> inherits:bool -> initial:string -> Css.property_rule
-    =
- fun var_t ~syntax ~inherits ~initial ->
+    syntax:string ->
+    inherits:bool ->
+    ?initial:string ->
+    a t ->
+    Css.property_rule =
+ fun ~syntax ~inherits ?initial var_t ->
   let var_name = to_string var_t in
-  Css.property ~name:var_name ~syntax ~inherits ~initial_value:initial ()
+  Css.property ~syntax ?initial_value:initial ~inherits var_name
 
 (** Helper for metadata errors *)
 let err_meta ~layer decl msg =

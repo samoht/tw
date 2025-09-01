@@ -93,6 +93,25 @@ How Rules turns this into layers
 - Components is left empty by default; utilities render to `@layer utilities`.
 - When minifying, consecutive empty layers are merged into a single declaration, e.g., `@layer components,utilities;` to match Tailwind output.
 
+**Rule Ordering and Conflict Groups**:
+The Rules module uses a sophisticated conflict group system to ensure proper CSS cascade behavior:
+
+- **Conflict Groups**: Utilities are grouped by their conflict relationships (e.g., all padding utilities conflict with each other)
+- **Stable Sort**: Within each conflict group, `List.stable_sort` preserves the original order while applying the group's sorting function
+- **Suborder Functions**: Fine-grained control within groups using the `suborder` field in conflict definitions
+- **Example**: For prose utilities, the suborder ensures `.prose` comes before `.prose :where(...)` child selectors:
+  ```ocaml
+  suborder = (fun core -> 
+    if core = "prose" then 0                        (* .prose first *)
+    else if String.starts_with ~prefix:"prose " then 1  (* .prose :where(...) second *)
+    else 2);                                         (* others last *)
+  ```
+
+**CSS Minification Considerations**:
+- The minifier must preserve spaces in descendant combinators (`.prose :where()` not `.prose:where()`)
+- Special handling for pseudo-classes: spaces before `:where()`, `:not()`, etc. are significant
+- Test with `--minify` flag to ensure selector specificity isn't altered
+
 Applying this pattern to a new utility
 
 - Decide variable scope:
@@ -135,9 +154,13 @@ dune exec -- tw -s <class> --variables
 # Include the base layer
 dune exec -- tw -s <class> --variables --base
 
+# Test with minification (critical for finding selector issues)
+dune exec -- tw -s <class> --variables --minify
+
 # Examples:
 dune exec -- tw -s shadow-sm --variables  # See shadow-sm without base layer
 dune exec -- tw -s border-none --variables # Debug border utilities
+dune exec -- tw -s "prose prose-lg" --variables --minify # Test complex selectors
 ```
 
 This helps you:
@@ -145,6 +168,16 @@ This helps you:
 - See which layers are being generated
 - Debug variable ordering issues
 - Understand which @property rules are being included
+- Find minification issues with selectors
+- Debug rule ordering within utilities
+
+**Debugging Missing CSS Content**:
+When output is shorter than expected:
+1. Check if all child selectors are being generated
+2. Verify rule ordering (parent before children)
+3. Look for dropped rules due to incorrect conflict groups
+4. Compare character counts to identify missing sections
+5. Use `diff` tools to find exact differences
 
 Quick template (copy/paste)
 
@@ -173,6 +206,18 @@ Quick template (copy/paste)
     ```
 
 Common pitfalls and solutions
+
+**Rule Ordering Issues**
+- **Problem**: Child selectors appearing before parent selectors (e.g., `.prose :where(p)` before `.prose`)
+- **Solution**: Adjust the conflict group's suborder function to explicitly order selectors
+- **Debugging**: Add print statements in `rules.ml` to see the order before and after sorting
+- **Key insight**: The order matters for CSS cascade - parent rules should come first
+
+**CSS Minification Breaking Selectors**
+- **Problem**: Minifier removing spaces in descendant combinators, changing selector meaning
+- **Solution**: Update `minify_selector` in `css.ml` to preserve spaces before pseudo-classes
+- **Example**: `.prose :where(p)` (descendant) vs `.prose:where(p)` (direct) have different meanings
+- **Testing**: Always test with `--minify` flag to catch these issues early
 
 **CRITICAL: Never use var(...) in string literals or Css.custom**
 - **Never do this**: `Css.custom "box-shadow" "var(--tw-shadow)"` 

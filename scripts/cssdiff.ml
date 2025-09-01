@@ -1,5 +1,5 @@
 (** Script to compare two CSS files with structural parsing for better diffs
-    Usage: compare_css.exe <css_file1> <css_file2> *)
+    Usage: cssdiff.exe <css_file1> <css_file2> *)
 
 let read_file path =
   try

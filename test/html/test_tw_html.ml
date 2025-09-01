@@ -342,7 +342,7 @@ let test_exact_byte_match () =
   let generated_page = page ~title:"Test" ~tw_css:"" [] [ page_content ] in
   let html_output = html generated_page in
   let _css_filename, css_stylesheet = css generated_page in
-  let our_css = Tw.Css.to_string ~minify:true css_stylesheet in
+  let our_css = Tw.Css.to_string ~minify:true ~optimize:true css_stylesheet in
 
   let html_file = "/tmp/tw_exact_test.html" in
   write_file html_file
