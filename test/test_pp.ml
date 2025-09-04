@@ -75,17 +75,15 @@ let test_primitives () =
   Alcotest.(check string) "float decimal" "3.14" (Pp.float 3.14)
 
 let suite =
-  [
-    ( "pp",
-      [
-        Alcotest.test_case "str" `Quick test_str;
-        Alcotest.test_case "sep" `Quick test_sep;
-        Alcotest.test_case "lines" `Quick test_lines;
-        Alcotest.test_case "structural formatters" `Quick test_structural;
-        Alcotest.test_case "indent" `Quick test_indent;
-        Alcotest.test_case "option" `Quick test_option;
-        Alcotest.test_case "list" `Quick test_list;
-        Alcotest.test_case "record" `Quick test_record;
-        Alcotest.test_case "primitives" `Quick test_primitives;
-      ] );
-  ]
+  ( "pp",
+    [
+      Alcotest.test_case "str" `Quick test_str;
+      Alcotest.test_case "sep" `Quick test_sep;
+      Alcotest.test_case "lines" `Quick test_lines;
+      Alcotest.test_case "structural formatters" `Quick test_structural;
+      Alcotest.test_case "indent" `Quick test_indent;
+      Alcotest.test_case "option" `Quick test_option;
+      Alcotest.test_case "list" `Quick test_list;
+      Alcotest.test_case "record" `Quick test_record;
+      Alcotest.test_case "primitives" `Quick test_primitives;
+    ] )
