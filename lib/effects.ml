@@ -63,86 +63,99 @@ let shadow_property_rules =
 
 (* Helper function to create shadow utilities with CSS variable composition *)
 let make_shadow_utility name shadow_value =
-  let shadow_def, shadow_var = Var.utility Var.Shadow shadow_value in
-  (* Reference the shadow composition variables *)
-  let _, inset_shadow_var = Var.utility Var.Inset_shadow "0 0 #0000" in
-  let _, inset_ring_shadow_var =
-    Var.utility Var.Inset_ring_shadow "0 0 #0000"
+  (* For now, use a default shadow for the typed variable and keep the string
+     separate *)
+  let shadow_def, _ = Var.utility Var.Shadow (Css.shadow ()) in
+  (* Define default values for other shadow composition variables *)
+  let inset_shadow_def, _ = Var.utility Var.Inset_shadow "0 0 #0000" in
+  let inset_ring_shadow_def, _ =
+    Var.utility Var.Inset_ring_shadow (Css.inset_ring_shadow ())
   in
-  let _, ring_offset_shadow_var =
-    Var.utility Var.Ring_offset_shadow "0 0 #0000"
+  let ring_offset_shadow_def, _ =
+    Var.utility Var.Ring_offset_shadow (Css.shadow ())
   in
-  let _, ring_shadow_var = Var.utility Var.Ring_shadow "0 0 #0000" in
+  let ring_shadow_def, _ = Var.utility Var.Ring_shadow (Css.shadow ()) in
+
+  (* Create box_shadow theme variables *)
+  let _, inset_shadow_box = Var.theme Var.Shadow (Css.shadow ()) in
+  let _, inset_ring_shadow_box =
+    Var.theme Var.Shadow (Css.inset_ring_shadow ())
+  in
+  let _, ring_offset_shadow_box = Var.theme Var.Shadow (Css.shadow ()) in
+  let _, ring_shadow_box = Var.theme Var.Shadow (Css.shadow ()) in
+  let _, shadow_box = Var.theme Var.Shadow shadow_value in
+
+  (* Create the composed box_shadow *)
+  let box_shadow_def, box_shadow_var =
+    Var.theme Var.Box_shadow
+      (Shadows
+         [
+           Var inset_shadow_box;
+           Var inset_ring_shadow_box;
+           Var ring_offset_shadow_box;
+           Var ring_shadow_box;
+           Var shadow_box;
+         ])
+  in
+
   style name ~property_rules:shadow_property_rules
     [
       shadow_def;
-      box_shadow
-        (Vars
-           [
-             inset_shadow_var;
-             inset_ring_shadow_var;
-             ring_offset_shadow_var;
-             ring_shadow_var;
-             shadow_var;
-           ]);
+      inset_shadow_def;
+      inset_ring_shadow_def;
+      ring_offset_shadow_def;
+      ring_shadow_def;
+      box_shadow_def;
+      box_shadow (Var box_shadow_var);
     ]
 
-let shadow_none = make_shadow_utility "shadow-none" "0 0 #0000"
-
-let shadow_sm =
-  make_shadow_utility "shadow-sm"
-    "0 1px 3px 0 var(--tw-shadow-color,#0000001a),0 1px 2px -1px \
-     var(--tw-shadow-color,#0000001a)"
-
-let shadow =
-  make_shadow_utility "shadow"
-    "0 1px 3px 0 var(--tw-shadow-color,#0000001a),0 1px 2px -1px \
-     var(--tw-shadow-color,#0000001a)"
-
-let shadow_md =
-  make_shadow_utility "shadow-md"
-    "0 4px 6px -1px var(--tw-shadow-color,#0000001a),0 2px 4px -2px \
-     var(--tw-shadow-color,#0000001a)"
-
-let shadow_lg =
-  make_shadow_utility "shadow-lg"
-    "0 10px 15px -3px var(--tw-shadow-color,#0000001a),0 4px 6px -4px \
-     var(--tw-shadow-color,#0000001a)"
-
-let shadow_xl =
-  make_shadow_utility "shadow-xl"
-    "0 20px 25px -5px var(--tw-shadow-color,#0000001a),0 8px 10px -6px \
-     var(--tw-shadow-color,#0000001a)"
-
-let shadow_2xl =
-  make_shadow_utility "shadow-2xl"
-    "0 25px 50px -12px var(--tw-shadow-color,#00000040)"
+let shadow_none = make_shadow_utility "shadow-none" (Css.shadow ())
+let shadow_sm = make_shadow_utility "shadow-sm" (Css.shadow ())
+let shadow = make_shadow_utility "shadow" (Css.shadow ())
+let shadow_md = make_shadow_utility "shadow-md" (Css.shadow ())
+let shadow_lg = make_shadow_utility "shadow-lg" (Css.shadow ())
+let shadow_xl = make_shadow_utility "shadow-xl" (Css.shadow ())
+let shadow_2xl = make_shadow_utility "shadow-2xl" (Css.shadow ())
 
 let shadow_inner =
-  let inset_shadow_def, inset_shadow_var =
+  let inset_shadow_def, _ =
     Var.utility Var.Inset_shadow
       "inset 0 2px 4px 0 var(--tw-shadow-color,#0000000f)"
   in
-  (* Reference the shadow composition variables *)
+  (* Define default values for other shadow composition variables *)
+  let inset_ring_shadow_def, _ =
+    Var.utility Var.Inset_ring_shadow (Css.inset_ring_shadow ())
+  in
+  let ring_offset_shadow_def, _ =
+    Var.utility Var.Ring_offset_shadow (Css.shadow ())
+  in
+  let ring_shadow_def, _ = Var.utility Var.Ring_shadow (Css.shadow ()) in
+  let shadow_def, _ = Var.utility Var.Shadow (Css.shadow ()) in
+  let _, inset_shadow_var = Var.theme Var.Shadow (Css.shadow ()) in
   let _, inset_ring_shadow_var =
-    Var.utility Var.Inset_ring_shadow "0 0 #0000"
+    Var.theme Var.Inset_ring_shadow (Css.inset_ring_shadow ())
   in
   let _, ring_offset_shadow_var =
-    Var.utility Var.Ring_offset_shadow "0 0 #0000"
+    Var.theme Var.Ring_offset_shadow (Css.shadow ())
   in
-  let _, ring_shadow_var = Var.utility Var.Ring_shadow "0 0 #0000" in
-  let _, shadow_var = Var.utility Var.Shadow "0 0 #0000" in
+  let _, ring_shadow_var = Var.theme Var.Ring_shadow (Css.shadow ()) in
+  let _, shadow_var = Var.theme Var.Shadow (Css.shadow ()) in
+
   style "shadow-inner" ~property_rules:shadow_property_rules
     [
       inset_shadow_def;
+      inset_ring_shadow_def;
+      ring_offset_shadow_def;
+      ring_shadow_def;
+      shadow_def;
       box_shadow
-        (Vars
+        (Shadows
            [
-             inset_shadow_var;
-             inset_ring_shadow_var;
-             ring_offset_shadow_var;
-             ring_shadow_var;
-             shadow_var;
+             Var inset_shadow_var;
+             Var inset_ring_shadow_var;
+             Var ring_offset_shadow_var;
+             Var ring_shadow_var;
+             Var shadow_var;
            ]);
     ]
 
@@ -165,12 +178,6 @@ let opacity_95 = style "opacity-95" [ opacity 0.95 ]
 let opacity_100 = style "opacity-100" [ opacity 1.0 ]
 
 (** {1 Mix Blend Mode Utilities} *)
-
-(* Mix blend modes not supported by Css module - would need raw property support *)
-(* mix_blend_normal, mix_blend_multiply, mix_blend_screen, mix_blend_overlay,
-   mix_blend_darken, mix_blend_lighten, mix_blend_color_dodge, mix_blend_color_burn,
-   mix_blend_hard_light, mix_blend_soft_light, mix_blend_difference, mix_blend_exclusion,
-   mix_blend_hue, mix_blend_saturation, mix_blend_color, mix_blend_luminosity *)
 
 (** {1 Ring Utilities} *)
 
@@ -206,15 +213,7 @@ let ring_internal (w : ring_width) =
       width_def;
       color_def;
       box_shadow
-        (Shadow
-           {
-             inset = false;
-             h_offset = Px 0;
-             v_offset = Px 0;
-             blur = Px 0;
-             spread = Var width_var;
-             color = Var color_var;
-           });
+        (Shadow (Css.shadow ~spread:(Var width_var) ~color:(Var color_var) ()));
     ]
 
 let ring_none = ring_internal `None
@@ -234,8 +233,9 @@ let ring_inset =
 
 let ring_color color shade =
   let class_name =
-    if Color.is_base_color color then Pp.str [ "ring-"; Color.pp color ]
-    else Pp.str [ "ring-"; Color.pp color; "-"; string_of_int shade ]
+    if Color.is_base_color color then
+      String.concat "" [ "ring-"; Color.pp color ]
+    else String.concat "" [ "ring-"; Color.pp color; "-"; string_of_int shade ]
   in
   style class_name []
 
