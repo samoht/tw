@@ -96,6 +96,8 @@ type _ t =
   | Sepia : float t
   | Drop_shadow : string t
   | Drop_shadow_alpha : float t
+  (* Box shadow variable *)
+  | Box_shadow : Css.box_shadow t
   (* Backdrop filter variables *)
   | Backdrop_blur : Css.length t
   | Backdrop_brightness : float t
@@ -107,20 +109,20 @@ type _ t =
   | Backdrop_sepia : float t
   | Backdrop_opacity : float t
   (* Shadow and ring variables *)
-  | Shadow : string t
+  | Shadow : Css.shadow t
   | Shadow_color : Css.color t
   | Shadow_alpha : float t
   | Inset_shadow : string t
   | Inset_shadow_color : Css.color t
   | Inset_shadow_alpha : float t
   | Ring_color : Css.color t
-  | Ring_shadow : string t
+  | Ring_shadow : Css.shadow t
   | Inset_ring_color : Css.color t
-  | Inset_ring_shadow : string t
+  | Inset_ring_shadow : Css.shadow t
   | Ring_inset : string t
   | Ring_offset_width : Css.length t
   | Ring_offset_color : Css.color t
-  | Ring_offset_shadow : string t
+  | Ring_offset_shadow : Css.shadow t
   | Ring_width : Css.length t
   (* Prose theming variables *)
   | Prose_body : Css.color t
@@ -178,6 +180,7 @@ type _ t =
   | Font_variant_numeric_figure : Css.font_variant_numeric_token t
   | Font_variant_numeric_spacing : Css.font_variant_numeric_token t
   | Font_variant_numeric_fraction : Css.font_variant_numeric_token t
+  | Font_variant_numeric : Css.font_variant_numeric t
   (* Other *)
   | Border_style : Css.border_style t
   | Scroll_snap_strictness : Css.scroll_snap_strictness t

@@ -93,12 +93,12 @@ let overflow_y_scroll = style "overflow-y-scroll" [ overflow_y Scroll ]
 
 (** {1 Z-Index Utilities} *)
 
-let z_0 = style "z-0" [ z_index 0 ]
-let z_10 = style "z-10" [ z_index 10 ]
-let z_20 = style "z-20" [ z_index 20 ]
-let z_30 = style "z-30" [ z_index 30 ]
-let z_40 = style "z-40" [ z_index 40 ]
-let z_50 = style "z-50" [ z_index 50 ]
+let z_0 = style "z-0" [ z_index (Index 0) ]
+let z_10 = style "z-10" [ z_index (Index 10) ]
+let z_20 = style "z-20" [ z_index (Index 20) ]
+let z_30 = style "z-30" [ z_index (Index 30) ]
+let z_40 = style "z-40" [ z_index (Index 40) ]
+let z_50 = style "z-50" [ z_index (Index 50) ]
 let z_auto = style "z-auto" [ z_index_auto ]
 
 (** {1 Object Fit Utilities} *)

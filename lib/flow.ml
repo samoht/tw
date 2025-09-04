@@ -13,51 +13,54 @@ let inline_grid = style "inline-grid" [ display Inline_grid ]
 
 (** {1 Flex Direction} *)
 
-let flex_row = style "flex-row" [ Flex.direction Row ]
-let flex_row_reverse = style "flex-row-reverse" [ Flex.direction Row_reverse ]
-let flex_col = style "flex-col" [ Flex.direction Column ]
+let flex_row = style "flex-row" [ Css.flex_direction Row ]
+
+let flex_row_reverse =
+  style "flex-row-reverse" [ Css.flex_direction Row_reverse ]
+
+let flex_col = style "flex-col" [ Css.flex_direction Column ]
 
 let flex_col_reverse =
-  style "flex-col-reverse" [ Flex.direction Column_reverse ]
+  style "flex-col-reverse" [ Css.flex_direction Column_reverse ]
 
 (** {1 Flex Wrap} *)
 
-let flex_wrap = style "flex-wrap" [ Flex.wrap Wrap ]
-let flex_wrap_reverse = style "flex-wrap-reverse" [ Flex.wrap Wrap_reverse ]
-let flex_nowrap = style "flex-nowrap" [ Flex.wrap Nowrap ]
+let flex_wrap = style "flex-wrap" [ Css.flex_wrap Wrap ]
+let flex_wrap_reverse = style "flex-wrap-reverse" [ Css.flex_wrap Wrap_reverse ]
+let flex_nowrap = style "flex-nowrap" [ Css.flex_wrap Nowrap ]
 
 (** {1 Flex} *)
 
-let flex_1 = style "flex-1" [ Flex.flex (Grow 1.0) ]
-let flex_auto = style "flex-auto" [ Flex.flex Auto ]
-let flex_initial = style "flex-initial" [ Flex.flex Initial ]
-let flex_none = style "flex-none" [ Flex.flex None ]
+let flex_1 = style "flex-1" [ Css.flex (Grow 1.0) ]
+let flex_auto = style "flex-auto" [ Css.flex Auto ]
+let flex_initial = style "flex-initial" [ Css.flex Initial ]
+let flex_none = style "flex-none" [ Css.flex None ]
 
 (** {1 Flex Grow/Shrink} *)
 
-let flex_grow = style "flex-grow" [ Flex.grow 1.0 ]
-let flex_grow_0 = style "flex-grow-0" [ Flex.grow 0.0 ]
-let flex_shrink = style "flex-shrink" [ Flex.shrink 1.0 ]
-let flex_shrink_0 = style "flex-shrink-0" [ Flex.shrink 0.0 ]
+let flex_grow = style "flex-grow" [ Css.flex_grow 1.0 ]
+let flex_grow_0 = style "flex-grow-0" [ Css.flex_grow 0.0 ]
+let flex_shrink = style "flex-shrink" [ Css.flex_shrink 1.0 ]
+let flex_shrink_0 = style "flex-shrink-0" [ Css.flex_shrink 0.0 ]
 
 (** {1 Flex Basis} *)
 
-let basis_0 = style "basis-0" [ Flex.basis Zero ]
-let basis_1 = style "basis-1" [ Flex.basis (Rem 0.25) ]
-let basis_auto = style "basis-auto" [ Flex.basis Auto ]
-let basis_full = style "basis-full" [ Flex.basis (Pct 100.0) ]
+let basis_0 = style "basis-0" [ Css.flex_basis Zero ]
+let basis_1 = style "basis-1" [ Css.flex_basis (Rem 0.25) ]
+let basis_auto = style "basis-auto" [ Css.flex_basis Auto ]
+let basis_full = style "basis-full" [ Css.flex_basis (Pct 100.0) ]
 
 (** {1 Order} *)
 
-let order_1 = style "order-1" [ Flex.order 1 ]
-let order_2 = style "order-2" [ Flex.order 2 ]
-let order_3 = style "order-3" [ Flex.order 3 ]
-let order_4 = style "order-4" [ Flex.order 4 ]
-let order_5 = style "order-5" [ Flex.order 5 ]
-let order_6 = style "order-6" [ Flex.order 6 ]
-let order_first = style "order-first" [ Flex.order min_int ]
-let order_last = style "order-last" [ Flex.order max_int ]
-let order_none = style "order-none" [ Flex.order 0 ]
+let order_1 = style "order-1" [ Css.order 1 ]
+let order_2 = style "order-2" [ Css.order 2 ]
+let order_3 = style "order-3" [ Css.order 3 ]
+let order_4 = style "order-4" [ Css.order 4 ]
+let order_5 = style "order-5" [ Css.order 5 ]
+let order_6 = style "order-6" [ Css.order 6 ]
+let order_first = style "order-first" [ Css.order min_int ]
+let order_last = style "order-last" [ Css.order max_int ]
+let order_none = style "order-none" [ Css.order 0 ]
 
 (** {1 Align/Justify (Flex/Grid)} *)
 
@@ -87,15 +90,15 @@ let self_baseline = style "self-baseline" [ align_self Baseline ]
 let self_stretch = style "self-stretch" [ align_self Stretch ]
 
 let justify_items_start =
-  style "justify-items-start" [ Css.Flex.justify_items Start ]
+  style "justify-items-start" [ Css.justify_items Start ]
 
-let justify_items_end = style "justify-items-end" [ Css.Flex.justify_items End ]
+let justify_items_end = style "justify-items-end" [ Css.justify_items End ]
 
 let justify_items_center =
-  style "justify-items-center" [ Css.Flex.justify_items Center ]
+  style "justify-items-center" [ Css.justify_items Center ]
 
 let justify_items_stretch =
-  style "justify-items-stretch" [ Css.Flex.justify_items Stretch ]
+  style "justify-items-stretch" [ Css.justify_items Stretch ]
 
 let justify_self_auto = style "justify-self-auto" [ justify_self Auto ]
 let justify_self_start = style "justify-self-start" [ justify_self Flex_start ]
@@ -122,11 +125,11 @@ let place_items_start = style "place-items-start" [ place_items Start ]
 let place_items_end = style "place-items-end" [ place_items End ]
 let place_items_center = style "place-items-center" [ place_items Center ]
 let place_items_stretch = style "place-items-stretch" [ place_items Stretch ]
-let place_self_auto = style "place-self-auto" [ place_self "auto" ]
-let place_self_start = style "place-self-start" [ place_self "start" ]
-let place_self_end = style "place-self-end" [ place_self "end" ]
-let place_self_center = style "place-self-center" [ place_self "center" ]
-let place_self_stretch = style "place-self-stretch" [ place_self "stretch" ]
+let place_self_auto = style "place-self-auto" [ place_self Auto ]
+let place_self_start = style "place-self-start" [ place_self Flex_start ]
+let place_self_end = style "place-self-end" [ place_self Flex_end ]
+let place_self_center = style "place-self-center" [ place_self Center ]
+let place_self_stretch = style "place-self-stretch" [ place_self Stretch ]
 
 (** {1 Gap Utilities} *)
 
@@ -185,100 +188,117 @@ let gap_full = gap' `Full
 let grid_cols n =
   if n < 1 || n > 12 then
     invalid_arg
-      (Pp.str [ "grid_cols: "; string_of_int n; " is out of range (1-12)" ])
+      (String.concat ""
+         [ "grid_cols: "; string_of_int n; " is out of range (1-12)" ])
   else
     style
-      (Pp.str [ "grid-cols-"; string_of_int n ])
-      [ Grid.template_columns (Repeat (n, Min_max (Zero, Fr 1.0))) ]
+      (String.concat "" [ "grid-cols-"; string_of_int n ])
+      [ Css.grid_template_columns (Repeat (n, Min_max (Zero, Fr 1.0))) ]
 
-let grid_cols_none = style "grid-cols-none" [ Grid.template_columns None ]
+let grid_cols_none = style "grid-cols-none" [ Css.grid_template_columns None ]
 
 let grid_cols_subgrid =
-  style "grid-cols-subgrid" [ Grid.template_columns (Tracks [ Grid_auto ]) ]
+  style "grid-cols-subgrid" [ Css.grid_template_columns (Tracks [ Grid_auto ]) ]
 
 let grid_rows n =
   if n < 1 || n > 12 then
     invalid_arg
-      (Pp.str [ "grid_rows: "; string_of_int n; " is out of range (1-12)" ])
+      (String.concat ""
+         [ "grid_rows: "; string_of_int n; " is out of range (1-12)" ])
   else
     style
-      (Pp.str [ "grid-rows-"; string_of_int n ])
-      [ Grid.template_rows (Repeat (n, Min_max (Zero, Fr 1.0))) ]
+      (String.concat "" [ "grid-rows-"; string_of_int n ])
+      [ Css.grid_template_rows (Repeat (n, Min_max (Zero, Fr 1.0))) ]
 
-let grid_rows_none = style "grid-rows-none" [ Grid.template_rows None ]
+let grid_rows_none = style "grid-rows-none" [ Css.grid_template_rows None ]
 
 let grid_rows_subgrid =
-  style "grid-rows-subgrid" [ Grid.template_rows (Tracks [ Grid_auto ]) ]
+  style "grid-rows-subgrid" [ Css.grid_template_rows (Tracks [ Grid_auto ]) ]
 
 (** {1 Grid Column/Row Spans} *)
 
-let col_auto = style "col-auto" [ Grid.column "auto" ]
+let col_auto = style "col-auto" [ Css.grid_column (Auto, Auto) ]
 
 let col_span n =
-  let span_str =
-    Pp.str [ "span "; string_of_int n; " / span "; string_of_int n ]
-  in
-  style (Pp.str [ "col-span-"; string_of_int n ]) [ Grid.column span_str ]
+  style
+    (String.concat "" [ "col-span-"; string_of_int n ])
+    [ Css.grid_column (Span n, Span n) ]
 
-let col_span_full = style "col-span-full" [ Grid.column "1 / -1" ]
+let col_span_full =
+  style "col-span-full" [ Css.grid_column (Line_number 1, Line_number (-1)) ]
 
 let col_start n =
   style
-    (Pp.str [ "col-start-"; string_of_int n ])
-    [ Grid.column_start (Line_number n) ]
+    (String.concat "" [ "col-start-"; string_of_int n ])
+    [ Css.grid_column_start (Line_number n) ]
 
-let col_start_auto = style "col-start-auto" [ Grid.column_start Auto ]
+let col_start_auto = style "col-start-auto" [ Css.grid_column_start Auto ]
 
 let col_end n =
   style
-    (Pp.str [ "col-end-"; string_of_int n ])
-    [ Grid.column_end (Line_number n) ]
+    (String.concat "" [ "col-end-"; string_of_int n ])
+    [ Css.grid_column_end (Line_number n) ]
 
-let col_end_auto = style "col-end-auto" [ Grid.column_end Auto ]
-let row_auto = style "row-auto" [ Grid.row "auto" ]
+let col_end_auto = style "col-end-auto" [ Css.grid_column_end Auto ]
+let row_auto = style "row-auto" [ Css.grid_row (Auto, Auto) ]
 
 let row_span n =
-  let span_str =
-    Pp.str [ "span "; string_of_int n; " / span "; string_of_int n ]
-  in
-  style (Pp.str [ "row-span-"; string_of_int n ]) [ Grid.row span_str ]
+  style
+    (String.concat "" [ "row-span-"; string_of_int n ])
+    [ Css.grid_row (Span n, Span n) ]
 
-let row_span_full = style "row-span-full" [ Grid.row "1 / -1" ]
+let row_span_full =
+  style "row-span-full" [ Css.grid_row (Line_number 1, Line_number (-1)) ]
 
 let row_start n =
   style
-    (Pp.str [ "row-start-"; string_of_int n ])
-    [ Grid.row_start (Line_number n) ]
+    (String.concat "" [ "row-start-"; string_of_int n ])
+    [ Css.grid_row_start (Line_number n) ]
 
-let row_start_auto = style "row-start-auto" [ Grid.row_start Auto ]
+let row_start_auto = style "row-start-auto" [ Css.grid_row_start Auto ]
 
 let row_end n =
   style
-    (Pp.str [ "row-end-"; string_of_int n ])
-    [ Grid.row_end (Line_number n) ]
+    (String.concat "" [ "row-end-"; string_of_int n ])
+    [ Css.grid_row_end (Line_number n) ]
 
-let row_end_auto = style "row-end-auto" [ Grid.row_end Auto ]
+let row_end_auto = style "row-end-auto" [ Css.grid_row_end Auto ]
 
 (** {1 Grid Auto Flow/Auto Tracks} *)
 
-let grid_flow_row = style "grid-flow-row" [ Grid.auto_flow `Row ]
-let grid_flow_col = style "grid-flow-col" [ Grid.auto_flow `Column ]
-let grid_flow_dense = style "grid-flow-dense" [ Grid.auto_flow `Row_dense ]
+let grid_flow_row = style "grid-flow-row" [ Css.grid_auto_flow Row ]
+let grid_flow_col = style "grid-flow-col" [ Css.grid_auto_flow Column ]
+let grid_flow_dense = style "grid-flow-dense" [ Css.grid_auto_flow Row_dense ]
 
 let grid_flow_row_dense =
-  style "grid-flow-row-dense" [ Grid.auto_flow `Row_dense ]
+  style "grid-flow-row-dense" [ Css.grid_auto_flow Row_dense ]
 
 let grid_flow_col_dense =
-  style "grid-flow-col-dense" [ Grid.auto_flow `Column_dense ]
+  style "grid-flow-col-dense" [ Css.grid_auto_flow Column_dense ]
 
-let auto_cols_auto = style "auto-cols-auto" [ Grid.auto_columns Grid_auto ]
-let auto_cols_min = style "auto-cols-min" [ Grid.auto_columns Min_content ]
-let auto_cols_max = style "auto-cols-max" [ Grid.auto_columns Max_content ]
-let auto_cols_fr = style "auto-cols-fr" [ Grid.auto_columns (Fr 1.0) ]
-let auto_rows_auto = style "auto-rows-auto" [ Grid.auto_rows Grid_auto ]
-let auto_rows_min = style "auto-rows-min" [ Grid.auto_rows Min_content ]
-let auto_rows_max = style "auto-rows-max" [ Grid.auto_rows Max_content ]
-let auto_rows_fr = style "auto-rows-fr" [ Grid.auto_rows (Fr 1.0) ]
+let auto_cols_auto =
+  style "auto-cols-auto" [ Css.grid_auto_columns (Tracks [ Grid_auto ]) ]
+
+let auto_cols_min =
+  style "auto-cols-min" [ Css.grid_auto_columns (Tracks [ Min_content ]) ]
+
+let auto_cols_max =
+  style "auto-cols-max" [ Css.grid_auto_columns (Tracks [ Max_content ]) ]
+
+let auto_cols_fr =
+  style "auto-cols-fr" [ Css.grid_auto_columns (Tracks [ Fr 1.0 ]) ]
+
+let auto_rows_auto =
+  style "auto-rows-auto" [ Css.grid_auto_rows (Tracks [ Grid_auto ]) ]
+
+let auto_rows_min =
+  style "auto-rows-min" [ Css.grid_auto_rows (Tracks [ Min_content ]) ]
+
+let auto_rows_max =
+  style "auto-rows-max" [ Css.grid_auto_rows (Tracks [ Max_content ]) ]
+
+let auto_rows_fr =
+  style "auto-rows-fr" [ Css.grid_auto_rows (Tracks [ Fr 1.0 ]) ]
 
 (** {1 Parsing} *)
 

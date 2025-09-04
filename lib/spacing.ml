@@ -18,7 +18,19 @@ let pp_spacing_suffix : spacing -> string = function
       if Float.is_integer scale then string_of_int (abs (int_of_float scale))
       else
         (* Handle decimal values like 0.5, 1.5, etc. *)
-        Pp.float_n 1 (Float.abs scale)
+        let abs_scale = Float.abs scale in
+        let s = string_of_float abs_scale in
+        (* Remove trailing zeros and decimal point if integer *)
+        if String.contains s '.' then
+          let len = String.length s in
+          let rec find_end i =
+            if i < 0 then 0
+            else if s.[i] = '0' then find_end (i - 1)
+            else if s.[i] = '.' then i
+            else i + 1
+          in
+          String.sub s 0 (find_end (len - 1))
+        else s
 
 let pp_margin_suffix : margin -> string = function
   | `Auto -> "auto"

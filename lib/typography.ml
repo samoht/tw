@@ -20,6 +20,35 @@
 open Core
 open Css
 
+(* Theme variables for individual font variant numeric tokens *)
+let _ordinal_theme_def, ordinal_theme_var =
+  Var.theme Var.Font_variant_ordinal Normal
+
+let _slashed_zero_theme_def, slashed_zero_theme_var =
+  Var.theme Var.Font_variant_slashed_zero Normal
+
+let _figure_theme_def, figure_theme_var =
+  Var.theme Var.Font_variant_numeric_figure Normal
+
+let _spacing_theme_def, spacing_theme_var =
+  Var.theme Var.Font_variant_numeric_spacing Normal
+
+let _fraction_theme_def, fraction_theme_var =
+  Var.theme Var.Font_variant_numeric_fraction Normal
+
+(* Theme variable for font-variant-numeric composed from individual token
+   variables *)
+let font_variant_numeric_def, font_variant_numeric_var =
+  Var.theme Var.Font_variant_numeric
+    (Composed
+       {
+         ordinal = Some (Var ordinal_theme_var);
+         slashed_zero = Some (Var slashed_zero_theme_var);
+         numeric_figure = Some (Var figure_theme_var);
+         numeric_spacing = Some (Var spacing_theme_var);
+         numeric_fraction = Some (Var fraction_theme_var);
+       })
+
 (* Helper to create text size variables with line height *)
 let var_text_size var_t lh_var_t size_rem lh_multiplier =
   let size_def, size_var = Var.theme var_t (Rem size_rem) in
@@ -113,7 +142,7 @@ let text_xs =
       text_xs_size_def;
       text_xs_lh_def;
       font_size (Var text_xs_var);
-      line_height (Var leading_var);
+      line_height (Length (Var leading_var));
     ]
 
 let text_sm =
@@ -125,7 +154,7 @@ let text_sm =
       text_sm_size_def;
       text_sm_lh_def;
       font_size (Var text_sm_var);
-      line_height (Var leading_var);
+      line_height (Length (Var leading_var));
     ]
 
 let text_base =
@@ -137,7 +166,7 @@ let text_base =
       text_base_size_def;
       text_base_lh_def;
       font_size (Var text_base_var);
-      line_height (Var leading_var);
+      line_height (Length (Var leading_var));
     ]
 
 let text_lg =
@@ -149,7 +178,7 @@ let text_lg =
       text_lg_size_def;
       text_lg_lh_def;
       font_size (Var text_lg_var);
-      line_height (Var leading_var);
+      line_height (Length (Var leading_var));
     ]
 
 let text_xl =
@@ -161,7 +190,7 @@ let text_xl =
       text_xl_size_def;
       text_xl_lh_def;
       font_size (Var text_xl_var);
-      line_height (Var leading_var);
+      line_height (Length (Var leading_var));
     ]
 
 let text_2xl =
@@ -173,7 +202,7 @@ let text_2xl =
       text_2xl_size_def;
       text_2xl_lh_def;
       font_size (Var text_2xl_var);
-      line_height (Var leading_var);
+      line_height (Length (Var leading_var));
     ]
 
 let text_3xl =
@@ -185,7 +214,7 @@ let text_3xl =
       text_3xl_size_def;
       text_3xl_lh_def;
       font_size (Var text_3xl_var);
-      line_height (Var leading_var);
+      line_height (Length (Var leading_var));
     ]
 
 let text_4xl =
@@ -197,7 +226,7 @@ let text_4xl =
       text_4xl_size_def;
       text_4xl_lh_def;
       font_size (Var text_4xl_var);
-      line_height (Var leading_var);
+      line_height (Length (Var leading_var));
     ]
 
 let text_5xl =
@@ -209,7 +238,7 @@ let text_5xl =
       text_5xl_size_def;
       text_5xl_lh_def;
       font_size (Var text_5xl_var);
-      line_height (Var leading_var);
+      line_height (Length (Var leading_var));
     ]
 
 let text_6xl =
@@ -221,7 +250,7 @@ let text_6xl =
       text_6xl_size_def;
       text_6xl_lh_def;
       font_size (Var text_6xl_var);
-      line_height (Var leading_var);
+      line_height (Length (Var leading_var));
     ]
 
 let text_7xl =
@@ -233,7 +262,7 @@ let text_7xl =
       text_7xl_size_def;
       text_7xl_lh_def;
       font_size (Var text_7xl_var);
-      line_height (Var leading_var);
+      line_height (Length (Var leading_var));
     ]
 
 let text_8xl =
@@ -245,7 +274,7 @@ let text_8xl =
       text_8xl_size_def;
       text_8xl_lh_def;
       font_size (Var text_8xl_var);
-      line_height (Var leading_var);
+      line_height (Length (Var leading_var));
     ]
 
 let text_9xl =
@@ -257,7 +286,7 @@ let text_9xl =
       text_9xl_size_def;
       text_9xl_lh_def;
       font_size (Var text_9xl_var);
-      line_height (Var leading_var);
+      line_height (Length (Var leading_var));
     ]
 
 (* Create the @property rule for --tw-font-weight *)
@@ -458,8 +487,11 @@ let decoration_wavy = style "decoration-wavy" [ text_decoration_style Wavy ]
 
 let decoration_color ?(shade = 500) (color : Color.color) =
   let class_name =
-    if Color.is_base_color color then Pp.str [ "decoration-"; Color.pp color ]
-    else Pp.str [ "decoration-"; Color.pp color; "-"; string_of_int shade ]
+    if Color.is_base_color color then
+      String.concat "" [ "decoration-"; Color.pp color ]
+    else
+      String.concat ""
+        [ "decoration-"; Color.pp color; "-"; string_of_int shade ]
   in
   if Color.is_custom_color color then
     let css_color = Color.to_css color shade in
@@ -487,23 +519,23 @@ let decoration_color ?(shade = 500) (color : Color.color) =
 
 let decoration_thickness n =
   let class_name = "decoration-" ^ string_of_int n in
-  style class_name [ text_decoration_thickness (string_of_int n ^ "px") ]
+  style class_name [ text_decoration_thickness (Px n) ]
 
 let decoration_from_font =
-  style "decoration-from-font" [ text_decoration_thickness "from-font" ]
+  style "decoration-from-font" [ text_decoration_thickness From_font ]
 
 (** {1 Line Height Utilities} *)
 
-let leading_none = style "leading-none" [ line_height (Num 1.0) ]
-let leading_tight = style "leading-tight" [ line_height (Num 1.25) ]
-let leading_snug = style "leading-snug" [ line_height (Num 1.375) ]
-let leading_normal = style "leading-normal" [ line_height (Num 1.5) ]
-let leading_relaxed = style "leading-relaxed" [ line_height (Num 1.625) ]
-let leading_loose = style "leading-loose" [ line_height (Num 2.0) ]
+let leading_none = style "leading-none" [ line_height (Number 1.0) ]
+let leading_tight = style "leading-tight" [ line_height (Number 1.25) ]
+let leading_snug = style "leading-snug" [ line_height (Number 1.375) ]
+let leading_normal = style "leading-normal" [ line_height (Number 1.5) ]
+let leading_relaxed = style "leading-relaxed" [ line_height (Number 1.625) ]
+let leading_loose = style "leading-loose" [ line_height (Number 2.0) ]
 
 let leading n =
   let class_name = "leading-" ^ string_of_int n in
-  style class_name [ line_height (Rem (float_of_int n *. 0.25)) ]
+  style class_name [ line_height (Length (Rem (float_of_int n *. 0.25))) ]
 
 (* Additional whitespace utilities *)
 let whitespace_normal = style "whitespace-normal" [ white_space Normal ]
@@ -575,7 +607,9 @@ let list_outside = style "list-outside" [ list_style_position Outside ]
 let list_image_none = style "list-image-none" [ list_style_image None_img ]
 
 let list_image_url url =
-  style (Pp.str [ "list-image-url-"; url ]) [ list_style_image (Url url) ]
+  style
+    (String.concat "" [ "list-image-url-"; url ])
+    [ list_style_image (Url url) ]
 
 (** {1 Text Indent} *)
 
@@ -630,7 +664,7 @@ let escape_css_string s =
 let content s =
   (* Auto-quote the text and use Tailwind arbitrary value class name *)
   let quoted = "\"" ^ escape_css_string s ^ "\"" in
-  let class_name = Pp.str [ "content-["; quoted; "]" ] in
+  let class_name = String.concat "" [ "content-["; quoted; "]" ] in
   let content_def, content_var =
     Var.utility Var.Content ~fallback:(String quoted) (String quoted)
   in
@@ -693,28 +727,28 @@ let font_stretch_percent n =
 (** {1 Numeric Variants} *)
 
 let normal_nums =
-  style "normal-nums"
-    [ font_variant_numeric (font_variant_numeric_tokens [ Normal ]) ]
+  style "normal-nums" [ font_variant_numeric (Tokens [ Normal ]) ]
 
 (* Helper to create font-variant-numeric utilities *)
 (* Each utility needs to set its own variable and use all 5 in font-variant-numeric *)
-let font_variant_numeric_utility class_name var_type value =
-  let def, _ = Var.utility var_type value ~fallback:Empty in
+let font_variant_numeric_utility class_name
+    (var_type : font_variant_numeric_token Var.t) value =
+  let def, _ = Var.utility var_type value ~fallback:Normal in
   (* Get all 5 variables for the composed value *)
-  let _, ordinal_var =
-    Var.utility Var.Font_variant_ordinal Empty ~fallback:Empty
+  let ordinal_def, _ =
+    Var.utility Var.Font_variant_ordinal Normal ~fallback:Normal
   in
-  let _, slashed_var =
-    Var.utility Var.Font_variant_slashed_zero Empty ~fallback:Empty
+  let slashed_def, _ =
+    Var.utility Var.Font_variant_slashed_zero Normal ~fallback:Normal
   in
-  let _, figure_var =
-    Var.utility Var.Font_variant_numeric_figure Empty ~fallback:Empty
+  let figure_def, _ =
+    Var.utility Var.Font_variant_numeric_figure Normal ~fallback:Normal
   in
-  let _, spacing_var =
-    Var.utility Var.Font_variant_numeric_spacing Empty ~fallback:Empty
+  let spacing_def, _ =
+    Var.utility Var.Font_variant_numeric_spacing Normal ~fallback:Normal
   in
-  let _, fraction_var =
-    Var.utility Var.Font_variant_numeric_fraction Empty ~fallback:Empty
+  let fraction_def, _ =
+    Var.utility Var.Font_variant_numeric_fraction Normal ~fallback:Normal
   in
 
   (* All utilities need @property registration for these variables *)
@@ -728,14 +762,17 @@ let font_variant_numeric_utility class_name var_type value =
     ]
   in
 
-  (* Build the font-variant-numeric value using composed with all 5 variables *)
-  let composed_value =
-    font_variant_numeric_composed ~ordinal:(Var ordinal_var)
-      ~slashed_zero:(Var slashed_var) ~numeric_figure:(Var figure_var)
-      ~numeric_spacing:(Var spacing_var) ~numeric_fraction:(Var fraction_var) ()
-  in
-
-  style class_name ~property_rules [ def; font_variant_numeric composed_value ]
+  style class_name ~property_rules
+    [
+      def;
+      ordinal_def;
+      slashed_def;
+      figure_def;
+      spacing_def;
+      fraction_def;
+      font_variant_numeric_def;
+      font_variant_numeric (Var font_variant_numeric_var);
+    ]
 
 let ordinal =
   font_variant_numeric_utility "ordinal" Var.Font_variant_ordinal Ordinal

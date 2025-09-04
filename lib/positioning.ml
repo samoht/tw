@@ -82,7 +82,7 @@ let left_1_2 = style "left-1/2" [ Css.left (Pct 50.0) ]
 
 let z n =
   let class_name = "z-" ^ string_of_int n in
-  style class_name [ Css.z_index n ]
+  style class_name [ Css.z_index (Css.Index n) ]
 
 (** {1 Parsing Functions} *)
 

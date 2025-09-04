@@ -24,8 +24,17 @@ let () =
           else (
             Fmt.pr "✗ CSS files differ structurally@.@.";
             (* Show detailed diff *)
-            let diff = Tw_tools.Css_compare.format_diff css1 css2 in
-            Fmt.pr "%s@." diff;
+            let css1 = Tw_tools.Css_compare.strip_header css1 in
+            let css2 = Tw_tools.Css_compare.strip_header css2 in
+            (match (Css_parser.of_string css1, Css_parser.of_string css2) with
+            | Ok ast1, Ok ast2 ->
+                let diff = Tw_tools.Css_compare.diff ast1 ast2 in
+                Fmt.pr "%a@." Tw_tools.Css_compare.pp diff
+            | Error e1, Error e2 ->
+                Fmt.pr "Parse errors in both CSS:@.First: %s@.Second: %s@." e1
+                  e2
+            | Error e1, _ -> Fmt.pr "Failed to parse first CSS: %s@." e1
+            | _, Error e2 -> Fmt.pr "Failed to parse second CSS: %s@." e2);
             exit 1)
       | _ -> exit 1)
   | _ ->

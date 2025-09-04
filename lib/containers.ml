@@ -55,9 +55,9 @@ let container_query_to_css_prefix = function
   | Container_xl -> "@container (min-width:36rem)"
   | Container_2xl -> "@container (min-width:42rem)"
   | Container_named ("", width) ->
-      Pp.str [ "@container (min-width:"; string_of_int width; "px)" ]
+      "@container (min-width:" ^ string_of_int width ^ "px)"
   | Container_named (name, width) ->
-      Pp.str [ "@container "; name; " (min-width:"; string_of_int width; "px)" ]
+      "@container " ^ name ^ " (min-width:" ^ string_of_int width ^ "px)"
 
 let container_query_to_class_prefix = function
   | Container_sm -> "@sm"

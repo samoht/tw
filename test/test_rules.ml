@@ -42,7 +42,7 @@ let check_extract_selector_props () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Regular { selector; _ } ] ->
-      check string "correct selector" ".p-4" selector
+      check string "correct selector" ".p-4" (Css.Selector.to_string selector)
   | _ -> fail "Expected Regular rule"
 
 let check_extract_hover () =
@@ -50,7 +50,8 @@ let check_extract_hover () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Regular { selector; _ } ] ->
-      check bool "selector contains hover" true (contains selector ":hover")
+      check bool "selector contains hover" true
+        (contains (Css.Selector.to_string selector) ":hover")
   | _ -> fail "Expected Regular rule with hover"
 
 let check_extract_responsive () =
@@ -59,7 +60,8 @@ let check_extract_responsive () =
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
       check bool "has min-width condition" true (contains condition "min-width");
-      check string "correct selector" ".sm\\:p-4" selector
+      check string "correct selector" ".sm\\:p-4"
+        (Css.Selector.to_string selector)
   | _ -> fail "Expected Media_query rule"
 
 let check_conflict_group () =
@@ -286,13 +288,15 @@ let test_rule_sets_injects_hover_media_query () =
 
 let test_modifier_to_rule () =
   let rule =
-    Tw.Rules.modifier_to_rule Tw.Core.Hover "bg-blue-500" ".bg-blue-500"
+    Tw.Rules.modifier_to_rule Tw.Core.Hover "bg-blue-500"
+      (Css.Selector.class_ "bg-blue-500")
       [ Css.background_color (Css.Hex { hash = true; value = "3b82f6" }) ]
   in
   match rule with
   | Tw.Rules.Regular { selector; props; has_hover; _ } ->
       (* Hover modifier uses Modifiers.to_selector which includes the prefix *)
-      check string "hover selector" ".hover\\:bg-blue-500:hover" selector;
+      check string "hover selector" ".hover\\:bg-blue-500:hover"
+        (Css.Selector.to_string selector);
       check int "preserves props" 1 (List.length props);
       check bool "marked as hover" true has_hover
   | _ -> fail "Expected Regular rule for hover"
@@ -306,8 +310,12 @@ let test_rule_sets () =
 let test_build_utilities_layer () =
   let rules =
     [
-      Css.rule ~selector:".p-4" [ Css.padding (Css.Rem 1.0) ];
-      Css.rule ~selector:".m-2" [ Css.margin (Css.Rem 0.5) ];
+      Css.rule
+        ~selector:(Css.Selector.class_ "p-4")
+        [ Css.padding (Css.Rem 1.0) ];
+      Css.rule
+        ~selector:(Css.Selector.class_ "m-2")
+        [ Css.margin (Css.Rem 0.5) ];
     ]
   in
   let layer =
@@ -323,13 +331,14 @@ let test_build_utilities_layer_preserves_order () =
   (* Test that build_utilities_layer preserves rule order and doesn't sort *)
   let rules =
     [
-      Css.rule ~selector:".a"
+      Css.rule ~selector:(Css.Selector.class_ "a")
         [ Css.color (Css.Hex { hash = false; value = "ff0000" }) ];
-      Css.rule ~selector:".b" [ Css.margin (Css.Px 10) ];
-      Css.rule ~selector:".c" [ Css.padding (Css.Px 5) ];
-      Css.rule ~selector:".a"
+      Css.rule ~selector:(Css.Selector.class_ "b") [ Css.margin (Css.Px 10) ];
+      Css.rule ~selector:(Css.Selector.class_ "c") [ Css.padding (Css.Px 5) ];
+      Css.rule ~selector:(Css.Selector.class_ "a")
         [ Css.background_color (Css.Hex { hash = false; value = "0000ff" }) ];
-      Css.rule ~selector:".d" [ Css.font_size (Css.Rem 1.0) ];
+      Css.rule ~selector:(Css.Selector.class_ "d")
+        [ Css.font_size (Css.Rem 1.0) ];
     ]
   in
   let layer =
@@ -364,18 +373,26 @@ let test_build_utilities_layer_preserves_order () =
 let test_classify () =
   let rules =
     [
-      Tw.Rules.regular ~selector:".p-4" ~props:[ Css.padding (Css.Rem 1.0) ] ();
-      Tw.Rules.media_query ~condition:"(min-width: 640px)" ~selector:".sm\\:p-4"
+      Tw.Rules.regular
+        ~selector:(Css.Selector.class_ "p-4")
+        ~props:[ Css.padding (Css.Rem 1.0) ]
+        ();
+      Tw.Rules.media_query ~condition:"(min-width: 640px)"
+        ~selector:(Css.Selector.class_ "sm\\:p-4")
         ~props:[ Css.padding (Css.Rem 1.0) ]
         ();
       Tw.Rules.container_query ~condition:"(min-width: 640px)"
-        ~selector:".\\@sm\\:p-4"
+        ~selector:(Css.Selector.class_ "\\@sm\\:p-4")
         ~props:[ Css.padding (Css.Rem 1.0) ]
         ();
-      Tw.Rules.starting_style ~selector:".animate-in"
+      Tw.Rules.starting_style
+        ~selector:(Css.Selector.class_ "animate-in")
         ~props:[ Css.opacity 0.0 ]
         ();
-      Tw.Rules.regular ~selector:".m-2" ~props:[ Css.margin (Css.Rem 0.5) ] ();
+      Tw.Rules.regular
+        ~selector:(Css.Selector.class_ "m-2")
+        ~props:[ Css.margin (Css.Rem 0.5) ]
+        ();
     ]
   in
   let classified = Tw.Rules.classify rules in
@@ -388,10 +405,16 @@ let test_style_with_rules_and_props () =
   (* Test that when a Style has both props and rules, the props are placed after
      the rules *)
   let open Css in
+  let open Css.Selector in
+  let test_class = class_ "test" in
+  let p_element = element "p" in
+  let div_element = element "div" in
   let custom_rules =
     [
-      rule ~selector:".test :where(p)" [ margin_top (Rem 1.0) ];
-      rule ~selector:".test :where(div)" [ padding (Rem 2.0) ];
+      rule
+        ~selector:(test_class ++ where [ p_element ])
+        [ margin_top (Rem 1.0) ];
+      rule ~selector:(test_class ++ where [ div_element ]) [ padding (Rem 2.0) ];
     ]
   in
   let props = [ color (Hex { hash = false; value = "ff0000" }) ] in
@@ -406,7 +429,9 @@ let test_style_with_rules_and_props () =
   let selectors =
     List.map
       (fun r ->
-        match r with Tw.Rules.Regular { selector; _ } -> selector | _ -> "")
+        match r with
+        | Tw.Rules.Regular { selector; _ } -> Css.Selector.to_string selector
+        | _ -> "")
       extracted
   in
 
@@ -421,21 +446,46 @@ let test_rules_of_grouped_prose_bug () =
     Tw.Var.utility Tw.Var.Prose_body
       (Tw.Css.Oklch { l = 0.373; c = 0.034; h = 259.733 })
   in
+  let prose_class = Css.Selector.class_ "prose" in
+  let prose_p_selector =
+    Css.Selector.combine prose_class Css.Selector.Descendant
+      (Css.Selector.where
+         [
+           Css.Selector.compound
+             [
+               Css.Selector.element "p";
+               Css.Selector.not
+                 [
+                   Css.Selector.where
+                     [
+                       Css.Selector.list
+                         [
+                           Css.Selector.class_ "not-prose";
+                           Css.Selector.combine
+                             (Css.Selector.class_ "not-prose")
+                             Css.Selector.Descendant Css.Selector.universal;
+                         ];
+                     ];
+                 ];
+             ];
+         ])
+  in
   let grouped_pairs =
     [
-      ( ".prose",
+      ( prose_class,
         [
           Tw.Css.color (Tw.Css.Var prose_body_var);
           Tw.Css.max_width (Tw.Css.Ch 65.0);
         ] );
-      ( ".prose :where(p):not(:where([class~=not-prose],[class~=not-prose] *))",
+      ( prose_p_selector,
         [
           Tw.Css.margin_top (Tw.Css.Em 1.0);
           Tw.Css.margin_bottom (Tw.Css.Em 1.0);
         ] );
-      ( ".prose",
+      ( prose_class,
         [
-          Tw.Css.font_size (Tw.Css.Rem 1.0); Tw.Css.line_height (Tw.Css.Num 1.5);
+          Tw.Css.font_size (Tw.Css.Rem 1.0);
+          Tw.Css.line_height (Tw.Css.Number 1.5);
         ] );
     ]
   in
@@ -446,7 +496,7 @@ let test_rules_of_grouped_prose_bug () =
   let prose_rules =
     List.filter
       (fun rule ->
-        let selector = Tw.Css.selector rule in
+        let selector = Tw.Css.Selector.to_string (Tw.Css.selector rule) in
         selector = ".prose")
       output_rules
   in

@@ -91,7 +91,7 @@ let rec pp_modifier = function
   | Container Container_xl -> "@xl:"
   | Container Container_2xl -> "@2xl:"
   | Container (Container_named (n, size)) ->
-      Pp.str [ "@"; n; "/"; string_of_int size; ":" ]
+      String.concat "" [ "@"; n; "/"; string_of_int size; ":" ]
   | Group_hover -> "group-hover:"
   | Group_focus -> "group-focus:"
   | Peer_hover -> "peer-hover:"
@@ -101,15 +101,15 @@ let rec pp_modifier = function
   | Aria_expanded -> "aria-expanded:"
   | Aria_selected -> "aria-selected:"
   | Aria_disabled -> "aria-disabled:"
-  | Data_state s -> Pp.str [ "data-state="; s; ":" ]
-  | Data_variant s -> Pp.str [ "data-variant="; s; ":" ]
+  | Data_state s -> String.concat "" [ "data-state="; s; ":" ]
+  | Data_variant s -> String.concat "" [ "data-variant="; s; ":" ]
   | Data_active -> "data-active:"
   | Data_inactive -> "data-inactive:"
-  | Data_custom (k, v) -> Pp.str [ "data-"; k; "="; v; ":" ]
-  | Not m -> Pp.str [ "not("; pp_modifier m; ")" ]
-  | Has s -> Pp.str [ "has("; s; "):" ]
-  | Group_has s -> Pp.str [ "group-has("; s; "):" ]
-  | Peer_has s -> Pp.str [ "peer-has("; s; "):" ]
+  | Data_custom (k, v) -> String.concat "" [ "data-"; k; "="; v; ":" ]
+  | Not m -> String.concat "" [ "not("; pp_modifier m; ")" ]
+  | Has s -> String.concat "" [ "has("; s; "):" ]
+  | Group_has s -> String.concat "" [ "group-has("; s; "):" ]
+  | Peer_has s -> String.concat "" [ "peer-has("; s; "):" ]
   | Starting -> "starting:"
   | Focus_within -> "focus-within:"
   | Focus_visible -> "focus-visible:"
@@ -123,5 +123,5 @@ let rec pp_modifier = function
 (* Extract full class name including modifiers *)
 let rec pp = function
   | Style { name; _ } -> name
-  | Modified (m, t) -> Pp.str [ pp_modifier m; pp t ]
+  | Modified (m, t) -> String.concat "" [ pp_modifier m; pp t ]
   | Group ts -> String.concat " " (List.map pp ts)
