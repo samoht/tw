@@ -5,7 +5,7 @@ open Core
 
 (** {1 Internal Helpers} *)
 
-val to_selector : modifier -> string -> string
+val to_selector : modifier -> string -> Css.Selector.t
 (** [to_selector modifier base_class] generates the CSS selector for a modifier
     applied to a base class. *)
 

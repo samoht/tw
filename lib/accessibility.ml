@@ -15,7 +15,4 @@ let of_string = function
   | [ "forced-color-adjust"; "auto" ] -> Ok forced_color_adjust_auto
   | [ "forced-color-adjust"; "none" ] -> Ok forced_color_adjust_none
   | parts ->
-      Error
-        (`Msg
-           (Pp.str
-              [ "Unknown accessibility utility: "; String.concat "-" parts ]))
+      Error (`Msg ("Unknown accessibility utility: " ^ String.concat "-" parts))

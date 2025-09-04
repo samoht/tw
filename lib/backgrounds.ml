@@ -79,7 +79,7 @@ let bg_gradient_to dir =
 let gradient_color_class_name ~prefix ?(shade = 500) color =
   if Color.is_base_color color || Color.is_custom_color color then
     prefix ^ Color.pp color
-  else Pp.str [ prefix; Color.pp color; "-"; string_of_int shade ]
+  else String.concat "" [ prefix; Color.pp color; "-"; string_of_int shade ]
 
 (** Common gradient stops dependencies *)
 let gradient_deps_base =

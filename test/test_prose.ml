@@ -40,23 +40,17 @@ let test_css_generation () =
   (* Check that descendant selectors are generated *)
   Alcotest.(check bool)
     "has prose h1 selector" true
-    (Astring.String.is_infix ~affix:".prose h1" css_string)
+    (Astring.String.is_infix ~affix:".prose :where(h1)" css_string)
 
 let test_inline_styles () =
-  (* Test inline style generation *)
+  (* Prose utilities don't generate inline styles - they only use descendant
+     selectors *)
   let inline = to_inline_style [ prose ] in
-  Alcotest.(check bool)
-    "has max-width" true
-    (Astring.String.is_infix ~affix:"max-width" inline);
-  Alcotest.(check bool)
-    "has color" true
-    (Astring.String.is_infix ~affix:"color" inline);
+  Alcotest.(check string) "prose has no inline styles" "" inline;
 
-  (* Size variants should affect inline styles *)
+  (* Size variants also don't generate inline styles *)
   let inline_lg = to_inline_style [ prose_lg ] in
-  Alcotest.(check bool)
-    "prose-lg has font-size" true
-    (Astring.String.is_infix ~affix:"font-size" inline_lg)
+  Alcotest.(check string) "prose-lg has no inline styles" "" inline_lg
 
 let suite =
   [

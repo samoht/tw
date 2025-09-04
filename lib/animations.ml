@@ -123,21 +123,85 @@ let transition_transform =
 
 (** {1 Animation Utilities} *)
 
-let animate_none = style "animate-none" [ Css.animation "none" ]
+let animate_none =
+  style "animate-none"
+    [
+      Css.animation
+        {
+          name = Some "none";
+          duration = None;
+          timing_function = None;
+          delay = None;
+          iteration_count = None;
+          direction = None;
+          fill_mode = None;
+          play_state = None;
+        };
+    ]
 
 let animate_spin =
-  style "animate-spin" [ Css.animation "spin 1s linear infinite" ]
+  style "animate-spin"
+    [
+      Css.animation
+        {
+          name = Some "spin";
+          duration = Some (S 1.0);
+          timing_function = Some Linear;
+          delay = None;
+          iteration_count = Some Infinite;
+          direction = None;
+          fill_mode = None;
+          play_state = None;
+        };
+    ]
 
 let animate_ping =
   style "animate-ping"
-    [ Css.animation "ping 1s cubic-bezier(0, 0, 0.2, 1) infinite" ]
+    [
+      Css.animation
+        {
+          name = Some "ping";
+          duration = Some (S 1.0);
+          timing_function = Some (Cubic_bezier (0.0, 0.0, 0.2, 1.0));
+          delay = None;
+          iteration_count = Some Infinite;
+          direction = None;
+          fill_mode = None;
+          play_state = None;
+        };
+    ]
 
 let animate_pulse =
   style "animate-pulse"
-    [ Css.animation "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" ]
+    [
+      Css.animation
+        {
+          name = Some "pulse";
+          duration = Some (S 2.0);
+          timing_function = Some (Cubic_bezier (0.4, 0.0, 0.6, 1.0));
+          delay = None;
+          iteration_count = Some Infinite;
+          direction = None;
+          fill_mode = None;
+          play_state = None;
+        };
+    ]
 
 let animate_bounce =
-  style "animate-bounce" [ Css.animation "bounce 1s infinite" ]
+  style "animate-bounce"
+    [
+      Css.animation
+        {
+          name = Some "bounce";
+          duration = Some (S 1.0);
+          timing_function = None;
+          delay = None;
+          iteration_count = Some Infinite;
+          direction = None;
+          fill_mode = None;
+          play_state = None;
+        };
+    ]
 
 (** {1 Duration Utilities} *)
 

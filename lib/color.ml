@@ -173,14 +173,20 @@ let rgb_to_hex rgb =
     let hex = "0123456789abcdef" in
     String.make 1 hex.[n / 16] ^ String.make 1 hex.[n mod 16]
   in
-  Pp.str [ "#"; to_hex_byte rgb.r; to_hex_byte rgb.g; to_hex_byte rgb.b ]
+  "#" ^ to_hex_byte rgb.r ^ to_hex_byte rgb.g ^ to_hex_byte rgb.b
 
 (** Format OKLCH for CSS *)
 let oklch_to_css oklch =
-  let l_str = Pp.float_n 1 oklch.l in
-  let c_str = Pp.float_n 3 oklch.c in
-  let h_str = Pp.float_n 3 oklch.h in
-  Pp.str [ "oklch("; l_str; "% "; c_str; " "; h_str; ")" ]
+  let pp_oklch ctx oklch =
+    Pp.string ctx "oklch(";
+    Pp.float_n 1 ctx oklch.l;
+    Pp.string ctx "% ";
+    Pp.float_n 3 ctx oklch.c;
+    Pp.string ctx " ";
+    Pp.float_n 3 ctx oklch.h;
+    Pp.string ctx ")"
+  in
+  Pp.to_string ~minify:false pp_oklch oklch
 
 (** Convert hex color to OKLCH CSS string *)
 let hex_to_oklch_css hex =
@@ -699,14 +705,11 @@ let of_string = function
 
 let rgb r g b =
   if r < 0 || r > 255 then
-    invalid_arg
-      (Pp.str [ "RGB red value "; string_of_int r; " out of range [0-255]" ]);
+    invalid_arg ("RGB red value " ^ string_of_int r ^ " out of range [0-255]");
   if g < 0 || g > 255 then
-    invalid_arg
-      (Pp.str [ "RGB green value "; string_of_int g; " out of range [0-255]" ]);
+    invalid_arg ("RGB green value " ^ string_of_int g ^ " out of range [0-255]");
   if b < 0 || b > 255 then
-    invalid_arg
-      (Pp.str [ "RGB blue value "; string_of_int b; " out of range [0-255]" ]);
+    invalid_arg ("RGB blue value " ^ string_of_int b ^ " out of range [0-255]");
   Rgb { red = r; green = g; blue = b }
 
 (* Convert color to OKLCH data for a given shade *)
@@ -752,13 +755,8 @@ let to_oklch color shade =
       | Some oklch -> oklch
       | None ->
           failwith
-            (Pp.str
-               [
-                 "No OKLCH data for color ";
-                 color_name;
-                 " shade ";
-                 string_of_int shade;
-               ]))
+            ("No OKLCH data for color " ^ color_name ^ " shade "
+           ^ string_of_int shade))
 
 (* Convert color to OKLCH CSS string for a given shade *)
 let to_oklch_css color shade =
@@ -854,29 +852,34 @@ let to_name = function
           String.sub h 1 (String.length h - 1)
         else h
       in
-      Pp.str [ "["; h_stripped; "]" ]
+      let pp_hex ctx h =
+        Pp.string ctx "[";
+        Pp.string ctx h;
+        Pp.string ctx "]"
+      in
+      Pp.to_string ~minify:false pp_hex h_stripped
   | Rgb { red; green; blue } ->
-      Pp.str
-        [
-          "[rgb(";
-          string_of_int red;
-          ",";
-          string_of_int green;
-          ",";
-          string_of_int blue;
-          ")]";
-        ]
+      let pp_rgb ctx (r, g, b) =
+        Pp.string ctx "[rgb(";
+        Pp.int ctx r;
+        Pp.string ctx ",";
+        Pp.int ctx g;
+        Pp.string ctx ",";
+        Pp.int ctx b;
+        Pp.string ctx ")]"
+      in
+      Pp.to_string ~minify:false pp_rgb (red, green, blue)
   | Oklch oklch ->
-      Pp.str
-        [
-          "[oklch(";
-          string_of_float oklch.l;
-          "%,";
-          string_of_float oklch.c;
-          ",";
-          string_of_float oklch.h;
-          ")]";
-        ]
+      let pp_oklch ctx oklch =
+        Pp.string ctx "[oklch(";
+        Pp.float ctx oklch.l;
+        Pp.string ctx "%,";
+        Pp.float ctx oklch.c;
+        Pp.string ctx ",";
+        Pp.float ctx oklch.h;
+        Pp.string ctx ")]"
+      in
+      Pp.to_string ~minify:false pp_oklch oklch
 
 (* Pretty printer for colors *)
 let pp = function
@@ -907,29 +910,34 @@ let pp = function
   | Hex s ->
       (* Use Tailwind's arbitrary value syntax [#hex] for hex colors *)
       let hex_value = if String.starts_with ~prefix:"#" s then s else "#" ^ s in
-      Pp.str [ "["; hex_value; "]" ]
+      let pp_hex_val ctx v =
+        Pp.string ctx "[";
+        Pp.string ctx v;
+        Pp.string ctx "]"
+      in
+      Pp.to_string ~minify:false pp_hex_val hex_value
   | Rgb { red; green; blue } ->
-      Pp.str
-        [
-          "Rgb(";
-          string_of_int red;
-          ",";
-          string_of_int green;
-          ",";
-          string_of_int blue;
-          ")";
-        ]
+      let pp_rgb_val ctx (r, g, b) =
+        Pp.string ctx "Rgb(";
+        Pp.int ctx r;
+        Pp.string ctx ",";
+        Pp.int ctx g;
+        Pp.string ctx ",";
+        Pp.int ctx b;
+        Pp.string ctx ")"
+      in
+      Pp.to_string ~minify:false pp_rgb_val (red, green, blue)
   | Oklch { l; c; h } ->
-      Pp.str
-        [
-          "Oklch(";
-          string_of_float l;
-          ",";
-          string_of_float c;
-          ",";
-          string_of_float h;
-          ")";
-        ]
+      let pp_oklch_val ctx (l, c, h) =
+        Pp.string ctx "Oklch(";
+        Pp.float ctx l;
+        Pp.string ctx ",";
+        Pp.float ctx c;
+        Pp.string ctx ",";
+        Pp.float ctx h;
+        Pp.string ctx ")"
+      in
+      Pp.to_string ~minify:false pp_oklch_val (l, c, h)
 
 (* Check if a color is black or white *)
 let is_base_color = function Black | White -> true | _ -> false
@@ -953,8 +961,19 @@ let color_var color shade =
 let bg color shade =
   let class_name =
     if is_base_color color || is_custom_color color then
-      Pp.str [ "bg-"; pp color ]
-    else Pp.str [ "bg-"; pp color; "-"; string_of_int shade ]
+      let pp_class_name ctx color =
+        Pp.string ctx "bg-";
+        Pp.string ctx (pp color)
+      in
+      Pp.to_string ~minify:false pp_class_name color
+    else
+      let pp_class_name ctx (color, shade) =
+        Pp.string ctx "bg-";
+        Pp.string ctx (pp color);
+        Pp.string ctx "-";
+        Pp.int ctx shade
+      in
+      Pp.to_string ~minify:false pp_class_name (color, shade)
   in
   if is_custom_color color then
     let css_color = to_css color shade in
@@ -997,8 +1016,19 @@ let bg_rose = bg rose 500
 let text color shade =
   let class_name =
     if is_base_color color || is_custom_color color then
-      Pp.str [ "text-"; pp color ]
-    else Pp.str [ "text-"; pp color; "-"; string_of_int shade ]
+      let pp_class_name ctx color =
+        Pp.string ctx "text-";
+        Pp.string ctx (pp color)
+      in
+      Pp.to_string ~minify:false pp_class_name color
+    else
+      let pp_class_name ctx (color, shade) =
+        Pp.string ctx "text-";
+        Pp.string ctx (pp color);
+        Pp.string ctx "-";
+        Pp.int ctx shade
+      in
+      Pp.to_string ~minify:false pp_class_name (color, shade)
   in
   if is_custom_color color then
     let css_color = to_css color shade in
@@ -1042,8 +1072,19 @@ let text_rose = text rose 500
 let border_color color shade =
   let class_name =
     if is_base_color color || is_custom_color color then
-      Pp.str [ "border-"; pp color ]
-    else Pp.str [ "border-"; pp color; "-"; string_of_int shade ]
+      let pp_class_name ctx color =
+        Pp.string ctx "border-";
+        Pp.string ctx (pp color)
+      in
+      Pp.to_string ~minify:false pp_class_name color
+    else
+      let pp_class_name ctx (color, shade) =
+        Pp.string ctx "border-";
+        Pp.string ctx (pp color);
+        Pp.string ctx "-";
+        Pp.int ctx shade
+      in
+      Pp.to_string ~minify:false pp_class_name (color, shade)
   in
   if is_custom_color color then
     let css_color = to_css color shade in

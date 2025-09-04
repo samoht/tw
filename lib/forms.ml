@@ -21,7 +21,7 @@ let form_textarea =
       Css.padding_bottom (Rem 0.5);
       Css.padding_left (Rem 0.75);
       Css.font_size (Rem 1.0);
-      Css.line_height (Rem 1.5);
+      Css.line_height (Length (Rem 1.5));
       Css.resize Vertical;
     ]
 
@@ -38,7 +38,7 @@ let form_select =
       Css.padding_bottom (Rem 0.5);
       Css.padding_left (Rem 0.75);
       Css.font_size (Rem 1.0);
-      Css.line_height (Rem 1.5);
+      Css.line_height (Length (Rem 1.5));
       Css.background_image
         (Css.url
            "data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' \
@@ -47,7 +47,7 @@ let form_select =
             d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
       Css.background_position "right 0.5rem center";
       Css.background_repeat No_repeat;
-      Css.background_size "1.5em 1.5em";
+      Css.background_size (Size (Em 1.5, Em 1.5));
     ]
 
 let form_checkbox =
@@ -61,7 +61,7 @@ let form_checkbox =
       Css.border_width (Px 1);
       Css.border_radius (Rem 0.25);
       Css.color (Rgb { r = 59; g = 130; b = 246 });
-      Css.Flex.shrink 0.0;
+      Css.flex_shrink 0.0;
       Css.display Inline_block;
       Css.vertical_align Middle;
     ]
@@ -77,7 +77,7 @@ let form_radio =
       Css.border_width (Px 1);
       Css.border_radius (Pct 100.0);
       Css.color (Rgb { r = 59; g = 130; b = 246 });
-      Css.Flex.shrink 0.0;
+      Css.flex_shrink 0.0;
       Css.display Inline_block;
       Css.vertical_align Middle;
     ]

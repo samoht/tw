@@ -7,11 +7,111 @@
 open Alcotest
 open Tw
 
+(* CSS generation *)
 let generate_tw_css ?(minify = false) ?(optimize = true) styles =
   let stylesheet = to_css ~base:true ~optimize styles in
   Css.to_string ~minify ~optimize stylesheet
 
 let generate_tailwind_css = Tw_tools.Tailwind_gen.generate
+
+(* File utilities *)
+let write_file path content =
+  let oc = open_out path in
+  output_string oc content;
+  close_out oc
+
+let slugify s =
+  let b = Buffer.create (String.length s) in
+  String.iter
+    (fun c ->
+      if
+        (c >= 'a' && c <= 'z')
+        || (c >= 'A' && c <= 'Z')
+        || (c >= '0' && c <= '9')
+        || c = '_'
+      then Buffer.add_char b c)
+    s;
+  Buffer.contents b
+
+(* Test name generation *)
+let make_test_name = function
+  | [] -> "empty"
+  | names ->
+      let full_name = String.concat " " names in
+      if String.length full_name > 100 then String.sub full_name 0 97 ^ "..."
+      else full_name
+
+let make_debug_files test_name tw_css tailwind_css =
+  let out_dir = "/tmp" in
+  let test_name_slug = slugify test_name in
+  let tw_file =
+    Filename.concat out_dir ("test_css_tw_" ^ test_name_slug ^ ".css")
+  in
+  let tailwind_file =
+    Filename.concat out_dir ("test_css_tailwind_" ^ test_name_slug ^ ".css")
+  in
+  write_file tw_file tw_css;
+  write_file tailwind_file tailwind_css;
+  (tw_file, tailwind_file)
+
+(* Test configuration helpers *)
+let test_config tw_styles classnames ~minify ~optimize =
+  let tw =
+    generate_tw_css ~minify ~optimize tw_styles
+    |> Tw_tools.Css_compare.strip_header |> String.trim
+  in
+  let tailwind =
+    generate_tailwind_css ~minify ~optimize classnames
+    |> Tw_tools.Css_compare.strip_header |> String.trim
+  in
+  (tw = tailwind, tw, tailwind)
+
+(* Failure reporting *)
+let report_failure test_name tw_file tailwind_file =
+  Fmt.epr "@[<v>@,";
+  Fmt.epr "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━@,";
+  Fmt.epr "FAILED: %s@," test_name;
+  Fmt.epr "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━@,";
+  Fmt.epr "@,Debug files written to:@,";
+  Fmt.epr "  diff -u %s %s@," tw_file tailwind_file;
+  Fmt.epr "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━@,"
+
+let show_diff_with_label label tw_css tailwind_css tw_file tailwind_file =
+  Fmt.epr "@,▶ %s@,@," label;
+  let tw_css = Tw_tools.Css_compare.strip_header tw_css in
+  let tailwind_css = Tw_tools.Css_compare.strip_header tailwind_css in
+  (match (Css_parser.of_string tw_css, Css_parser.of_string tailwind_css) with
+  | Ok ast1, Ok ast2 ->
+      let diff_result = Tw_tools.Css_compare.diff ast1 ast2 in
+      Fmt.epr "%a@," Tw_tools.Css_compare.pp diff_result
+  | Error e1, Error e2 ->
+      Fmt.epr
+        "Parse errors in both CSS:@,\
+        \  TW: %s@,\
+        \  Tailwind: %s@,\
+         CSS sizes: TW=%d chars, Tailwind=%d chars@,"
+        e1 e2 (String.length tw_css)
+        (String.length tailwind_css)
+  | Error e1, _ ->
+      Fmt.epr
+        "Failed to parse TW CSS: %s@,\
+         CSS sizes: TW=%d chars, Tailwind=%d chars@,"
+        e1 (String.length tw_css)
+        (String.length tailwind_css)
+  | _, Error e2 ->
+      Fmt.epr
+        "Failed to parse Tailwind CSS: %s@,\
+         CSS sizes: TW=%d chars, Tailwind=%d chars@,"
+        e2 (String.length tw_css)
+        (String.length tailwind_css));
+  write_file
+    (tw_file ^ "."
+    ^ String.map (function ' ' -> '_' | c -> c) (String.lowercase_ascii label))
+    tw_css;
+  write_file
+    (tailwind_file ^ "."
+    ^ String.map (function ' ' -> '_' | c -> c) (String.lowercase_ascii label))
+    tailwind_css
 
 (* Shared CSS pretty-printer for failures *)
 let css_testable =
@@ -55,222 +155,91 @@ let css_testable =
       else Fmt.pf fmt "<css: %d chars>" (String.length css))
     String.equal
 
-let debug_mismatch ~tw_css ~tailwind_css =
-  Fmt.epr "@[<v>@,▶ CSS Differences:@,@,";
-  (* Use the improved css_compare tool *)
-  let diff_output = Tw_tools.Css_compare.format_diff tw_css tailwind_css in
-  Fmt.epr "%s@,@]" diff_output
-
 let check_exact_match tw_styles =
   try
     let tw_styles = match tw_styles with [] -> [] | styles -> styles in
     let classnames = List.map pp tw_styles in
 
-    (* Generate stylesheet without optimization to get before stats *)
-    let stylesheet_before = to_css ~base:true ~optimize:false tw_styles in
-    let stats_before = Css.stats stylesheet_before in
-
-    (* Generate optimized CSS *)
     let tw_css =
       generate_tw_css ~minify:true ~optimize:true tw_styles
       |> Tw_tools.Css_compare.strip_header |> String.trim
     in
-
-    (* Get after stats from optimized version *)
-    let stylesheet_after = to_css ~base:true ~optimize:true tw_styles in
-    let stats_after = Css.stats stylesheet_after in
-
     let tailwind_css =
       generate_tailwind_css ~minify:true ~optimize:true classnames
       |> Tw_tools.Css_compare.strip_header |> String.trim
     in
-    let test_name =
-      match classnames with
-      | [] -> "empty"
-      | names ->
-          let full_name = String.concat " " names in
-          if String.length full_name > 100 then
-            String.sub full_name 0 97 ^ "..."
-          else full_name
-    in
-    (* Always write files for inspection *)
-    let out_dir = "/tmp" in
-    let slugify s =
-      let b = Buffer.create (String.length s) in
-      String.iter
-        (fun c ->
-          if
-            (c >= 'a' && c <= 'z')
-            || (c >= 'A' && c <= 'Z')
-            || (c >= '0' && c <= '9')
-            || c = '_'
-          then Buffer.add_char b c)
-        s;
-      Buffer.contents b
-    in
-    let test_name_slug = slugify test_name in
-    let tw_file =
-      Filename.concat out_dir ("test_css_tw_" ^ test_name_slug ^ ".css")
-    in
-    let tailwind_file =
-      Filename.concat out_dir ("test_css_tailwind_" ^ test_name_slug ^ ".css")
-    in
-    let write_file path content =
-      let oc = open_out path in
-      output_string oc content;
-      close_out oc
-    in
-    write_file tw_file tw_css;
-    write_file tailwind_file tailwind_css;
 
-    (* Show debug output if mismatch *)
+    let test_name = make_test_name classnames in
+    let tw_file, tailwind_file =
+      make_debug_files test_name tw_css tailwind_css
+    in
+
     if tw_css <> tailwind_css then (
-      (* Always print optimization stats on any test failure *)
-      Fmt.epr "@[<v>@,━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━@,";
-      Fmt.epr "Test: %s@," test_name;
-      Fmt.epr "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━@,";
+      report_failure test_name tw_file tailwind_file;
 
-      (* Show before stats *)
-      Fmt.epr "@,▶ Before Optimization:@,%s@," (Css.pp_stats stats_before);
+      (* Show structural diff for minified+optimized output *)
+      let tw_css_stripped = Tw_tools.Css_compare.strip_header tw_css in
+      let tailwind_css_stripped =
+        Tw_tools.Css_compare.strip_header tailwind_css
+      in
+      (match
+         ( Css_parser.of_string tw_css_stripped,
+           Css_parser.of_string tailwind_css_stripped )
+       with
+      | Ok ast1, Ok ast2 ->
+          let diff_result = Tw_tools.Css_compare.diff ast1 ast2 in
+          Fmt.epr "@,Production output (minified+optimized):@,@[<v 2>%a@]@,"
+            Tw_tools.Css_compare.pp diff_result
+      | Error e1, Error e2 ->
+          Fmt.epr
+            "@,\
+             Production output (minified+optimized):@,\
+             Parse errors in both CSS:@,\
+            \  TW: %s@,\
+            \  Tailwind: %s@,\
+             CSS sizes: TW=%d chars, Tailwind=%d chars@,"
+            e1 e2
+            (String.length tw_css_stripped)
+            (String.length tailwind_css_stripped)
+      | Error e1, _ ->
+          Fmt.epr
+            "@,\
+             Production output (minified+optimized):@,\
+             Failed to parse TW CSS: %s@,\
+             CSS sizes: TW=%d chars, Tailwind=%d chars@,"
+            e1
+            (String.length tw_css_stripped)
+            (String.length tailwind_css_stripped)
+      | _, Error e2 ->
+          Fmt.epr
+            "@,\
+             Production output (minified+optimized):@,\
+             Failed to parse Tailwind CSS: %s@,\
+             CSS sizes: TW=%d chars, Tailwind=%d chars@,"
+            e2
+            (String.length tw_css_stripped)
+            (String.length tailwind_css_stripped));
 
-      (* Show after stats *)
-      Fmt.epr "@,▶ After Optimization:@,%s@," (Css.pp_stats stats_after);
-
-      (* Show optimization diff *)
-      Fmt.epr "@,▶ Optimization Summary:@,%s@,"
-        (Css.pp_stats_diff ~before:stats_before ~after:stats_after);
-
-      (* Show file locations *)
-      Fmt.epr "@,▶ Debug Files:@,";
-      Fmt.epr "  TW:       %s@," tw_file;
-      Fmt.epr "  Tailwind: %s@," tailwind_file;
-
-      (* Show CSS diff *)
-      debug_mismatch ~tw_css ~tailwind_css;
-
-      (* Re-run with different configurations to isolate the issue *)
-      Fmt.epr "@,━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━@,";
-      Fmt.epr "▶ Re-running with different configurations to isolate issue:@,";
-      Fmt.epr "  Testing: minified={true/false} × optimized={true/false}@,";
-      Fmt.epr "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━@,";
-
-      (* Helper to generate CSS for a configuration *)
-      let generate_config ~minify ~optimize =
-        let tw =
-          generate_tw_css ~minify ~optimize tw_styles
-          |> Tw_tools.Css_compare.strip_header |> String.trim
-        in
-        let tailwind =
-          generate_tailwind_css ~minify ~optimize classnames
-          |> Tw_tools.Css_compare.strip_header |> String.trim
-        in
-        (tw, tailwind, tw = tailwind)
+      (* Then show debugging info to help identify the issue *)
+      let base_match, base_tw, base_tailwind =
+        test_config tw_styles classnames ~minify:false ~optimize:false
       in
 
-      (* Helper to show match status *)
-      let show_status config_name is_match =
-        Fmt.epr "@,▶ %s: %s@," config_name
-          (if is_match then "✓ MATCH" else "✗ MISMATCH")
-      in
+      (if not base_match then (
+         Fmt.epr "@,Debug: Checking base generation (unoptimized)...@,";
+         show_diff_with_label "Base generation differs" base_tw base_tailwind
+           tw_file tailwind_file)
+       else
+         let opt_match, opt_tw, opt_tailwind =
+           test_config tw_styles classnames ~minify:false ~optimize:true
+         in
 
-      (* Helper to show diff with truncation using the CSS compare tool *)
-      let show_diff ~label tw_css tailwind_css =
-        Fmt.epr "@,  ➤ %s:@," label;
-        let diff_output =
-          Tw_tools.Css_compare.format_diff tw_css tailwind_css
-        in
-        let diff_lines = String.split_on_char '\n' diff_output in
-        let preview_lines =
-          if List.length diff_lines > 40 then
-            List.filteri (fun i _ -> i < 40) diff_lines
-            @ [ "    ... (truncated, see debug files for full diff)" ]
-          else diff_lines
-        in
-        List.iter (fun line -> Fmt.epr "    %s@," line) preview_lines
-      in
-
-      (* Helper to save debug files *)
-      let save_debug_file suffix tw_content tailwind_content =
-        write_file (tw_file ^ suffix) tw_content;
-        write_file (tailwind_file ^ suffix) tailwind_content;
-        Fmt.epr "  Written: %s%s@," tw_file suffix
-      in
-
-      (* Test all configurations *)
-      let tw_non_min_no_opt, tailwind_non_min_no_opt, non_min_no_opt_match =
-        generate_config ~minify:false ~optimize:false
-      in
-      show_status "Non-minified + Non-optimized" non_min_no_opt_match;
-
-      let tw_non_min_opt, tailwind_non_min_opt, non_min_opt_match =
-        generate_config ~minify:false ~optimize:true
-      in
-      show_status "Non-minified + Optimized" non_min_opt_match;
-
-      let tw_min_no_opt, tailwind_min_no_opt, min_no_opt_match =
-        generate_config ~minify:true ~optimize:false
-      in
-      show_status "Minified + Non-optimized" min_no_opt_match;
-
-      (* Determine the root cause and show appropriate diff *)
-      if not non_min_no_opt_match then (
-        (* Core CSS generation issue - show base diff with stats *)
-        Fmt.epr
-          "@,\
-           ▶ Issue Analysis: Core CSS Generation Problem (non-minified, \
-           non-optimized)@,";
-        let stylesheet_base = to_css ~base:true ~optimize:false tw_styles in
-        let stats_base = Css.stats stylesheet_base in
-        Fmt.epr "  Base stats: %s@," (Css.pp_stats stats_base);
-        Fmt.epr "@,  ➤ Base CSS Differences (non-minified, non-optimized):@,";
-        (* Use the CSS compare tool for better diff output *)
-        let diff_output =
-          Tw_tools.Css_compare.format_diff tw_non_min_no_opt
-            tailwind_non_min_no_opt
-        in
-        let diff_lines = String.split_on_char '\n' diff_output in
-        let preview_lines =
-          if List.length diff_lines > 40 then
-            List.filteri (fun i _ -> i < 40) diff_lines
-            @ [ "    ... (truncated, see debug files for full diff)" ]
-          else diff_lines
-        in
-        List.iter (fun line -> Fmt.epr "    %s@," line) preview_lines;
-        save_debug_file ".non_min_no_opt" tw_non_min_no_opt
-          tailwind_non_min_no_opt)
-      else if (not non_min_opt_match) && not min_no_opt_match then (
-        (* Both optimization and minification have issues independently *)
-        Fmt.epr
-          "@,▶ Issue Analysis: Both Optimization and Minification Problems@,";
-        Fmt.epr "  - Optimization issue (non-minified, optimized)@,";
-        Fmt.epr "  - Minification issue (minified, non-optimized)@,";
-        show_diff ~label:"Optimization Differences (non-minified, optimized)"
-          tw_non_min_opt tailwind_non_min_opt;
-        save_debug_file ".non_min_opt" tw_non_min_opt tailwind_non_min_opt)
-      else if not non_min_opt_match then (
-        (* Only optimization causes issues *)
-        Fmt.epr
-          "@,▶ Issue Analysis: Optimization Problem (non-minified, optimized)@,";
-        show_diff ~label:"Optimization Differences" tw_non_min_opt
-          tailwind_non_min_opt;
-        save_debug_file ".non_min_opt" tw_non_min_opt tailwind_non_min_opt)
-      else if not min_no_opt_match then (
-        (* Only minification causes issues *)
-        Fmt.epr
-          "@,▶ Issue Analysis: Minification Problem (minified, non-optimized)@,";
-        show_diff ~label:"Minification Differences" tw_min_no_opt
-          tailwind_min_no_opt;
-        save_debug_file ".min_no_opt" tw_min_no_opt tailwind_min_no_opt)
-      else (
-        (* Complex interaction between minification and optimization *)
-        Fmt.epr "@,▶ Issue Analysis: Minification + Optimization Interaction@,";
-        Fmt.epr
-          "  The issue only occurs when both minification AND optimization are \
-           enabled together@,";
-        Fmt.epr "  (minified + optimized fails, but each works independently)@,"
-        (* The original diff already shown above captures this case *));
-
+         if not opt_match then (
+           Fmt.epr "@,Debug: Base matches, checking optimization...@,";
+           show_diff_with_label "Optimization differs" opt_tw opt_tailwind
+             tw_file tailwind_file));
       Fmt.epr "@,@]");
+
     let test_label =
       if String.length test_name > 50 then
         String.sub test_name 0 47 ^ "... CSS exact match"

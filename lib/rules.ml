@@ -17,25 +17,25 @@ open Core
 
 type output =
   | Regular of {
-      selector : string;
+      selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option; (* Base class name without the dot *)
       has_hover : bool; (* Track if this rule has hover modifier *)
     }
   | Media_query of {
       condition : string;
-      selector : string;
+      selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
     }
   | Container_query of {
       condition : string;
-      selector : string;
+      selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
     }
   | Starting_style of {
-      selector : string;
+      selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
     }
@@ -128,53 +128,78 @@ let escape_class_name name =
 (* ======================================================================== *)
 (* Rule Extraction - Convert Core.t to CSS rules *)
 (* ======================================================================== *)
+
 let selector_with_data_key selector key value =
-  selector ^ "[" ^ key ^ "=\"" ^ value ^ "\"]"
+  let attr_selector = Css.Selector.attribute key (Exact value) in
+  Css.Selector.combine selector Descendant attr_selector
 
 let media_modifier ~condition ~prefix base_class props =
-  media_query ~condition
-    ~selector:(prefix ^ escape_class_name base_class)
-    ~props ~base_class ()
+  let selector_str = prefix ^ escape_class_name base_class in
+  (* For now, create a simple class selector - this needs proper parsing *)
+  let selector =
+    Css.Selector.class_
+      (String.sub selector_str 1 (String.length selector_str - 1))
+  in
+  media_query ~condition ~selector ~props ~base_class ()
 
 let responsive_rule breakpoint base_class props =
   let prefix = string_of_breakpoint breakpoint in
   let condition = "(min-width:" ^ responsive_breakpoint prefix ^ ")" in
   let escaped_prefix = escape_class_name prefix in
-  let sel = "." ^ escaped_prefix ^ "\\:" ^ escape_class_name base_class in
-  media_query ~condition ~selector:sel ~props ~base_class ()
+  let sel = escaped_prefix ^ "\\:" ^ escape_class_name base_class in
+  let selector = Css.Selector.class_ sel in
+  media_query ~condition ~selector ~props ~base_class ()
 
 let container_rule query base_class props =
   let prefix = Containers.container_query_to_class_prefix query in
   let escaped_prefix = escape_class_name prefix in
-  let escaped_class =
-    "." ^ escaped_prefix ^ "\\:" ^ escape_class_name base_class
-  in
+  let escaped_class = escaped_prefix ^ "\\:" ^ escape_class_name base_class in
+  let selector = Css.Selector.class_ escaped_class in
   let condition = Containers.container_query_to_css_prefix query in
   let cond =
     if String.starts_with ~prefix:"@container " condition then
       drop_prefix "@container " condition
     else "(min-width: 0)"
   in
-  container_query ~condition:cond ~selector:escaped_class ~props ~base_class ()
+  container_query ~condition:cond ~selector ~props ~base_class ()
 
 let has_like_selector kind selector_str base_class props =
+  let open Css.Selector in
   let escaped_selector = escape_class_name selector_str in
-  let prefix =
-    match kind with
-    | `Has -> ".has-\\[" ^ escaped_selector ^ "\\]\\:"
-    | `Group_has ->
-        ".group:has(" ^ selector_str ^ ") .group-has-\\[" ^ escaped_selector
-        ^ "\\]\\:"
-    | `Peer_has ->
-        ".peer:has(" ^ selector_str ^ ") ~ .peer-has-\\[" ^ escaped_selector
-        ^ "\\]\\:"
-  in
-  regular
-    ~selector:
-      (prefix
-      ^ escape_class_name base_class
-      ^ match kind with `Has -> ":has(" ^ selector_str ^ ")" | _ -> "")
-    ~props ~base_class ()
+  match kind with
+  | `Has ->
+      let sel =
+        compound
+          [
+            class_
+              ("has-\\[" ^ escaped_selector ^ "\\]\\:"
+              ^ escape_class_name base_class);
+            pseudo_class ("has(" ^ selector_str ^ ")");
+          ]
+      in
+      regular ~selector:sel ~props ~base_class ()
+  | `Group_has ->
+      let left =
+        compound [ class_ "group"; pseudo_class ("has(" ^ selector_str ^ ")") ]
+      in
+      let right =
+        class_
+          ("group-has-\\[" ^ escaped_selector ^ "\\]\\:"
+          ^ escape_class_name base_class)
+      in
+      let sel = combine left Descendant right in
+      regular ~selector:sel ~props ~base_class ()
+  | `Peer_has ->
+      let left =
+        compound [ class_ "peer"; pseudo_class ("has(" ^ selector_str ^ ")") ]
+      in
+      let right =
+        class_
+          ("peer-has-\\[" ^ escaped_selector ^ "\\]\\:"
+          ^ escape_class_name base_class)
+      in
+      let sel = combine left Subsequent_sibling right in
+      regular ~selector:sel ~props ~base_class ()
 
 let modifier_to_rule modifier base_class selector props =
   match modifier with
@@ -198,7 +223,12 @@ let modifier_to_rule modifier base_class selector props =
   | Not _modifier ->
       regular
         ~selector:
-          (".not-" ^ escape_class_name base_class ^ ":not(" ^ selector ^ ")")
+          (Css.Selector.class_
+             ("not-"
+             ^ escape_class_name base_class
+             ^ ":not("
+             ^ Css.Selector.to_string selector
+             ^ ")"))
         ~props ~base_class ()
   | Has selector_str -> has_like_selector `Has selector_str base_class props
   | Group_has selector_str ->
@@ -207,7 +237,7 @@ let modifier_to_rule modifier base_class selector props =
       has_like_selector `Peer_has selector_str base_class props
   | Starting ->
       starting_style
-        ~selector:("." ^ escape_class_name base_class)
+        ~selector:(Css.Selector.class_ (escape_class_name base_class))
         ~props ~base_class ()
   | Motion_safe ->
       media_modifier ~condition:"(prefers-reduced-motion: no-preference)"
@@ -235,11 +265,9 @@ let extract_selector_props tw =
   let rec extract = function
     | Style { name; props; rules; _ } -> (
         let escaped_name = escape_class_name name in
+        let sel = Css.Selector.class_ escaped_name in
         match rules with
-        | None ->
-            [
-              regular ~selector:("." ^ escaped_name) ~props ~base_class:name ();
-            ]
+        | None -> [ regular ~selector:sel ~props ~base_class:name () ]
         | Some rule_list ->
             (* Convert custom rules to selector/props pairs *)
             let custom_rules =
@@ -254,10 +282,7 @@ let extract_selector_props tw =
             if props = [] then custom_rules
             else
               custom_rules
-              @ [
-                  regular ~selector:("." ^ escaped_name) ~props ~base_class:name
-                    ();
-                ])
+              @ [ regular ~selector:sel ~props ~base_class:name () ])
     | Modified (modifier, t) ->
         let base = extract t in
         List.concat_map
@@ -276,35 +301,12 @@ let extract_selector_props tw =
 
 (* Extract selector and props pairs from Regular rules. *)
 let extract_selector_props_pairs rules =
-  (* TW_DEBUG_START: extract_selector_props_pairs debugging *)
-  let result =
-    List.filter_map
-      (fun rule ->
-        match rule with
-        | Regular { selector; props; _ } -> Some (selector, props)
-        | _ -> None)
-      rules
-  in
-
-  Printf.printf "\n=== TW_DEBUG: extract_selector_props_pairs() ===\n";
-  Printf.printf "Input rules: %d\n" (List.length rules);
-  Printf.printf "Output pairs: %d\n" (List.length result);
-
-  (* Count .prose pairs *)
-  let prose_pairs =
-    List.fold_left
-      (fun acc (selector, props) ->
-        if selector = ".prose" then (
-          Printf.printf "  Prose pair: %s (%d props)\n" selector
-            (List.length props);
-          acc + 1)
-        else acc)
-      0 result
-  in
-  Printf.printf "Result contains %d .prose pairs\n" prose_pairs;
-
-  (* TW_DEBUG_END *)
-  result
+  List.filter_map
+    (fun rule ->
+      match rule with
+      | Regular { selector; props; _ } -> Some (selector, props)
+      | _ -> None)
+    rules
 
 (* ======================================================================== *)
 (* Rule Processing - Group and organize rules *)
@@ -670,18 +672,6 @@ let conflict_group selector =
 (* Unknown utilities go last *)
 
 let build_utilities_layer ~rules ~media_queries ~container_queries =
-  (* TW_DEBUG_START: build_utilities_layer debug *)
-  let prose_rules_input =
-    List.fold_left
-      (fun acc rule -> if Css.selector rule = ".prose" then acc + 1 else acc)
-      0 rules
-  in
-  Printf.printf "\n=== TW_DEBUG: build_utilities_layer() ===\n";
-  Printf.printf "Input rules: %d (%d .prose rules)\n" (List.length rules)
-    prose_rules_input;
-
-  (* TW_DEBUG_END *)
-
   (* IMPORTANT: Do NOT sort rules here! Sorting changes cascade order and can
      cause non-adjacent rules with the same selector to become adjacent, which
      then get incorrectly merged by the optimizer. The original rule order from
@@ -704,24 +694,6 @@ let add_hover_to_media_map hover_rules media_map =
 
 (* Convert selector/props pairs to CSS rules. *)
 let rules_of_grouped ?(filter_custom_props = false) grouped_list =
-  (* TW_DEBUG_START: rules_of_grouped debugging *)
-  Printf.printf "\n=== TW_DEBUG: rules_of_grouped() ===\n";
-  Printf.printf "Input grouped_list: %d pairs\n" (List.length grouped_list);
-
-  (* Count .prose entries in grouped_list *)
-  let prose_count =
-    List.fold_left
-      (fun acc (selector, props) ->
-        if selector = ".prose" then (
-          Printf.printf "  Found .prose pair: %s (%d props)\n" selector
-            (List.length props);
-          acc + 1)
-        else acc)
-      0 grouped_list
-  in
-  Printf.printf "grouped_list contains %d .prose pairs\n" prose_count;
-
-  (* TW_DEBUG_END *)
   List.map
     (fun (selector, props) ->
       let filtered_props =
@@ -743,60 +715,11 @@ let rules_of_grouped ?(filter_custom_props = false) grouped_list =
             props
         else props
       in
-      let rule =
-        Css.rule ~selector (Css.deduplicate_declarations filtered_props)
-      in
-      if selector = ".prose" then
-        Printf.printf "  Created .prose rule with %d filtered props\n"
-          (List.length filtered_props);
-      rule)
+      Css.rule ~selector (Css.deduplicate_declarations filtered_props))
     grouped_list
-  (* TW_DEBUG_START: rules_of_grouped output debug *)
-  |> fun output_rules ->
-  let prose_output_count =
-    List.fold_left
-      (fun acc rule -> if Css.selector rule = ".prose" then acc + 1 else acc)
-      0 output_rules
-  in
-  Printf.printf "rules_of_grouped output: %d total rules (%d .prose rules)\n"
-    (List.length output_rules) prose_output_count;
-  output_rules
-(* TW_DEBUG_END *)
 
 let rule_sets tw_classes =
   let all_rules = tw_classes |> List.concat_map extract_selector_props in
-
-  (* TW_DEBUG_START: rule_sets debugging *)
-  Printf.printf "\n=== TW_DEBUG: rule_sets() ===\n";
-  Printf.printf "Input tw_classes: %d\n" (List.length tw_classes);
-  Printf.printf "Generated all_rules: %d\n" (List.length all_rules);
-
-  (* Track classes being processed - simplified *)
-  Printf.printf "Processing %d total classes\n" (List.length tw_classes);
-
-  (* Count .prose rules in all_rules *)
-  let prose_rule_count =
-    List.fold_left
-      (fun acc rule ->
-        match rule with
-        | Regular { selector; _ } when selector = ".prose" -> acc + 1
-        | _ -> acc)
-      0 all_rules
-  in
-  Printf.printf "all_rules contains %d .prose rules\n" prose_rule_count;
-
-  if prose_rule_count > 0 then (
-    Printf.printf "Prose rules in all_rules:\n";
-    List.iteri
-      (fun i rule ->
-        match rule with
-        | Regular { selector; props; _ } when selector = ".prose" ->
-            Printf.printf "  Rule %d: %s (%d props)\n" i selector
-              (List.length props)
-        | _ -> ())
-      all_rules);
-
-  (* TW_DEBUG_END *)
   let separated = classify all_rules in
   (* First separate hover from non-hover rules *)
   let hover_regular, non_hover_regular =
@@ -804,14 +727,6 @@ let rule_sets tw_classes =
   in
   let non_hover_pairs = extract_selector_props_pairs non_hover_regular in
   let hover_pairs = extract_selector_props_pairs hover_regular in
-  (* TW_DEBUG_START: rule partitioning debug *)
-  let prose_in_non_hover =
-    List.fold_left
-      (fun acc (sel, _) -> if sel = ".prose" then acc + 1 else acc)
-      0 non_hover_pairs
-  in
-  Printf.printf "non_hover_pairs contains %d .prose pairs\n" prose_in_non_hover;
-  (* TW_DEBUG_END *)
   let rules = rules_of_grouped ~filter_custom_props:true non_hover_pairs in
   let media_queries_map =
     group_media_queries separated.media |> add_hover_to_media_map hover_pairs
@@ -950,22 +865,23 @@ let compute_theme_layer tw_classes =
 
   if theme_generated_vars = [] then Css.layer ~name:"theme" []
   else
+    let selector =
+      Css.Selector.(list [ pseudo_class "root"; pseudo_class "host" ])
+    in
     Css.layer ~name:"theme"
-      [
-        Css.rule_to_nested
-          (Css.rule ~selector:":root, :host" theme_generated_vars);
-      ]
+      [ Css.rule_to_nested (Css.rule ~selector theme_generated_vars) ]
 
 let placeholder_supports =
+  let placeholder = Css.Selector.pseudo_element "placeholder" in
   Css.supports_nested
     ~condition:
       "(not ((-webkit-appearance:-apple-pay-button))) or \
        (contain-intrinsic-size:1px)"
-    [ Css.rule ~selector:"::placeholder" [ Css.color Current ] ]
+    [ Css.rule ~selector:placeholder [ Css.color Current ] ]
     [
       Css.supports ~condition:"(color:color-mix(in lab, red, red))"
         [
-          Css.rule ~selector:"::placeholder"
+          Css.rule ~selector:placeholder
             [
               Css.color
                 (Css.Mix
@@ -984,7 +900,8 @@ let split_after_placeholder rules =
   let rec split acc = function
     | [] -> (List.rev acc, [])
     | h :: t ->
-        if Css.selector h = "::placeholder" then (List.rev (h :: acc), t)
+        if Css.Selector.to_string (Css.selector h) = "::placeholder" then
+          (List.rev (h :: acc), t)
         else split (h :: acc) t
   in
   split [] rules
@@ -1018,7 +935,16 @@ let build_properties_layer property_rules =
       in
 
       (* Target all elements including pseudo-elements *)
-      let selector = "*, :before, :after, ::backdrop" in
+      let selector =
+        Css.Selector.(
+          list
+            [
+              universal;
+              pseudo_class "before";
+              pseudo_class "after";
+              pseudo_element "backdrop";
+            ])
+      in
 
       (* Build the rule with defaults *)
       let defaults_rule = Css.rule ~selector defaults in
@@ -1108,14 +1034,6 @@ type config = { base : bool; mode : Css.mode; optimize : bool }
 let default_config = { base = true; mode = Css.Variables; optimize = false }
 
 let to_css ?(config = default_config) tw_classes =
-  (* TW_DEBUG_START: to_css entry point *)
-  Printf.printf "\n=== TW_DEBUG: Rules.to_css() ENTRY ===\n";
-  Printf.printf "Config: base=%b mode=%s optimize=%b\n" config.base
-    (match config.mode with Variables -> "Variables" | Inline -> "Inline")
-    config.optimize;
-  Printf.printf "Input tw_classes: %d\n" (List.length tw_classes);
-  flush_all ();
-  (* TW_DEBUG_END *)
   let rules, media_queries, container_queries = rule_sets tw_classes in
 
   (* Generate layers whenever mode = Variables. Include the base layer only when
@@ -1128,7 +1046,7 @@ let to_css ?(config = default_config) tw_classes =
       in
       let items =
         List.map (fun l -> Css.Layer l) layers
-        @ List.map (fun pr -> Css.Property pr) property_rules
+        @ List.map (fun pr -> (Css.Property pr : Css.sheet_item)) property_rules
       in
       Css.stylesheet items
   | Css.Inline ->

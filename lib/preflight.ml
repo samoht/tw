@@ -1,13 +1,48 @@
 (** Preflight and reset rules *)
 
 open Css
+open Selector
+
+(* Base element selectors *)
+let abbr = element "abbr"
+let button = element "button"
+let input = element "input"
+let select = element "select"
+let optgroup = element "optgroup"
+let option = element "option"
+
+(* Attribute selectors *)
+let title = attribute "title" Presence
+let multiple = attribute "multiple" Presence
+let size = attribute "size" Presence
+let type_button = attribute "type" (Exact "button")
+let type_reset = attribute "type" (Exact "reset")
+let type_submit = attribute "type" (Exact "submit")
+let hidden = attribute "hidden" Presence
+let hidden_until_found = attribute "hidden" (Exact "until-found")
+
+(* Complex selectors *)
+let abbr_with_title = abbr && where [ title ]
+let select_is_multiple_size = select && fun_ "is" [ multiple; size ]
+let input_button_types = input && where [ type_button; type_reset; type_submit ]
+let hidden_not_until_found = hidden && where [ not [ hidden_until_found ] ]
 
 (** Box model resets *)
 let box_resets () =
+  let open Selector in
   [
-    rule ~selector:"*, :after, :before, ::backdrop"
+    rule
+      ~selector:
+        (list
+           [
+             universal;
+             pseudo_class "after";
+             pseudo_class "before";
+             pseudo_element "backdrop";
+           ])
       [ box_sizing Border_box; border "0 solid"; margin Zero; padding Zero ];
-    rule ~selector:"::file-selector-button"
+    rule
+      ~selector:(pseudo_element "file-selector-button")
       [ box_sizing Border_box; border "0 solid"; margin Zero; padding Zero ];
   ]
 
@@ -20,11 +55,12 @@ let root_resets () =
     Var.theme Var.Default_font_variation_settings Normal ~fallback:Normal
   in
   [
-    rule ~selector:"html, :host"
+    rule
+      ~selector:Selector.(list [ element "html"; pseudo_class "host" ])
       [
         webkit_text_size_adjust "100%";
         tab_size 4;
-        line_height (Num 1.5);
+        line_height (Number 1.5);
         font_family [ Var Typography.default_font_family_var ];
         font_feature_settings (Var font_feature_var);
         font_variation_settings (Var font_variation_var);
@@ -35,8 +71,9 @@ let root_resets () =
 (** Structural elements *)
 let structural_resets () =
   [
-    rule ~selector:"hr" [ height Zero; color Inherit; border_top_width (Px 1) ];
-    rule ~selector:"abbr:where([title])"
+    rule ~selector:(Selector.element "hr")
+      [ height Zero; color Inherit; border_top_width (Px 1) ];
+    rule ~selector:abbr_with_title
       [
         webkit_text_decoration Underline_dotted;
         text_decoration Underline_dotted;
@@ -46,11 +83,24 @@ let structural_resets () =
 (** Typography resets *)
 let typography_resets () =
   [
-    rule ~selector:"h1, h2, h3, h4, h5, h6"
+    rule
+      ~selector:
+        Selector.(
+          list
+            [
+              element "h1";
+              element "h2";
+              element "h3";
+              element "h4";
+              element "h5";
+              element "h6";
+            ])
       [ font_size Inherit; font_weight Inherit ];
-    rule ~selector:"a"
+    rule ~selector:(Selector.element "a")
       [ color Inherit; webkit_text_decoration Inherit; text_decoration Inherit ];
-    rule ~selector:"b, strong" [ font_weight Bolder ];
+    rule
+      ~selector:Selector.(list [ element "b"; element "strong" ])
+      [ font_weight Bolder ];
   ]
 
 (** Code and monospace resets *)
@@ -63,7 +113,10 @@ let code_resets () =
     Var.theme Var.Default_mono_font_variation_settings Normal ~fallback:Normal
   in
   [
-    rule ~selector:"code, kbd, samp, pre"
+    rule
+      ~selector:
+        Selector.(
+          list [ element "code"; element "kbd"; element "samp"; element "pre" ])
       [
         font_family [ Var Typography.default_mono_font_family_var ];
         font_feature_settings (Var font_feature_var);
@@ -75,48 +128,79 @@ let code_resets () =
 (** Text-level semantics *)
 let text_level_resets () =
   [
-    rule ~selector:"small" [ font_size (Pct 80.0) ];
-    rule ~selector:"sub, sup"
+    rule ~selector:(Selector.element "small") [ font_size (Pct 80.0) ];
+    rule
+      ~selector:Selector.(list [ element "sub"; element "sup" ])
       [
         vertical_align Baseline;
         font_size (Pct 75.0);
-        line_height Zero;
+        line_height (Number 0.);
         position Relative;
       ];
-    rule ~selector:"sub" [ bottom (Em (-0.25)) ];
-    rule ~selector:"sup" [ top (Em (-0.5)) ];
+    rule ~selector:(Selector.element "sub") [ bottom (Em (-0.25)) ];
+    rule ~selector:(Selector.element "sup") [ top (Em (-0.5)) ];
   ]
 
 (** Table resets *)
 let table_resets () =
   [
-    rule ~selector:"table"
+    rule ~selector:(Selector.element "table")
       [ text_indent Zero; border_color Inherit; border_collapse Collapse ];
   ]
 
 (** Interactive elements *)
 let interactive_resets () =
   [
-    rule ~selector:":-moz-focusring" [ outline "auto" ];
-    rule ~selector:"progress" [ vertical_align Baseline ];
-    rule ~selector:"summary" [ display List_item ];
+    rule ~selector:(Selector.pseudo_class "-moz-focusring") [ outline "auto" ];
+    rule ~selector:(Selector.element "progress") [ vertical_align Baseline ];
+    rule ~selector:(Selector.element "summary") [ display List_item ];
   ]
 
 (** List resets *)
-let list_resets () = [ rule ~selector:"ol, ul, menu" [ list_style "none" ] ]
+let list_resets () =
+  [
+    rule
+      ~selector:Selector.(list [ element "ol"; element "ul"; element "menu" ])
+      [ list_style "none" ];
+  ]
 
 (** Media resets *)
 let media_resets () =
   [
-    rule ~selector:"img, svg, video, canvas, audio, iframe, embed, object"
+    rule
+      ~selector:
+        Selector.(
+          list
+            [
+              element "img";
+              element "svg";
+              element "video";
+              element "canvas";
+              element "audio";
+              element "iframe";
+              element "embed";
+              element "object";
+            ])
       [ vertical_align Middle; display Block ];
-    rule ~selector:"img, video" [ max_width (Pct 100.0); height Auto ];
+    rule
+      ~selector:Selector.(list [ element "img"; element "video" ])
+      [ max_width (Pct 100.0); height Auto ];
   ]
 
 (** Form control resets *)
 let form_control_resets () =
   [
-    rule ~selector:"button, input, select, optgroup, textarea"
+    rule
+      ~selector:
+        Selector.(
+          list
+            [
+              element "button";
+              element "input";
+              element "select";
+              element "optgroup";
+              element "textarea";
+            ])
       [
         font "inherit";
         font_feature_settings Inherit;
@@ -127,7 +211,8 @@ let form_control_resets () =
         background_color Transparent;
         border_radius Zero;
       ];
-    rule ~selector:"::file-selector-button"
+    rule
+      ~selector:(Selector.pseudo_element "file-selector-button")
       [
         font "inherit";
         font_feature_settings Inherit;
@@ -143,68 +228,101 @@ let form_control_resets () =
 (** Select and option resets *)
 let select_resets () =
   [
-    rule ~selector:":where(select:is([multiple], [size])) optgroup"
+    rule
+      ~selector:(where [ select_is_multiple_size ] ++ optgroup)
       [ font_weight Bolder ];
-    rule ~selector:":where(select:is([multiple], [size])) optgroup option"
+    rule
+      ~selector:(where [ select_is_multiple_size ] ++ optgroup ++ option)
       [ padding_inline_start (Px 20) ];
-    rule ~selector:"::file-selector-button" [ margin_inline_end (Px 4) ];
+    rule
+      ~selector:(Selector.pseudo_element "file-selector-button")
+      [ margin_inline_end (Px 4) ];
   ]
 
 (** Form placeholder and textarea resets *)
 let form_misc_resets () =
   [
-    rule ~selector:"::placeholder" [ opacity 1.0 ];
-    rule ~selector:"textarea" [ resize Vertical ];
+    rule ~selector:(Selector.pseudo_element "placeholder") [ opacity 1.0 ];
+    rule ~selector:(Selector.element "textarea") [ resize Vertical ];
   ]
 
 (** Webkit-specific form resets *)
 let webkit_form_resets () =
   [
-    rule ~selector:"::-webkit-search-decoration" [ webkit_appearance None ];
-    rule ~selector:"::-webkit-date-and-time-value"
+    rule
+      ~selector:(Selector.pseudo_element "-webkit-search-decoration")
+      [ webkit_appearance None ];
+    rule
+      ~selector:(Selector.pseudo_element "-webkit-date-and-time-value")
       [ min_height (Lh 1.0); text_align Inherit ];
-    rule ~selector:"::-webkit-datetime-edit" [ display Inline_flex ];
-    rule ~selector:"::-webkit-datetime-edit-fields-wrapper" [ padding Zero ];
-    rule ~selector:"::-webkit-datetime-edit" [ padding_block Zero ];
-    rule ~selector:"::-webkit-datetime-edit-year-field" [ padding_block Zero ];
-    rule ~selector:"::-webkit-datetime-edit-month-field" [ padding_block Zero ];
-    rule ~selector:"::-webkit-datetime-edit-day-field" [ padding_block Zero ];
-    rule ~selector:"::-webkit-datetime-edit-hour-field" [ padding_block Zero ];
-    rule ~selector:"::-webkit-datetime-edit-minute-field" [ padding_block Zero ];
-    rule ~selector:"::-webkit-datetime-edit-second-field" [ padding_block Zero ];
-    rule ~selector:"::-webkit-datetime-edit-millisecond-field"
+    rule
+      ~selector:(Selector.pseudo_element "-webkit-datetime-edit")
+      [ display Inline_flex ];
+    rule
+      ~selector:(Selector.pseudo_element "-webkit-datetime-edit-fields-wrapper")
+      [ padding Zero ];
+    rule
+      ~selector:(Selector.pseudo_element "-webkit-datetime-edit")
       [ padding_block Zero ];
-    rule ~selector:"::-webkit-datetime-edit-meridiem-field"
+    rule
+      ~selector:(Selector.pseudo_element "-webkit-datetime-edit-year-field")
+      [ padding_block Zero ];
+    rule
+      ~selector:(Selector.pseudo_element "-webkit-datetime-edit-month-field")
+      [ padding_block Zero ];
+    rule
+      ~selector:(Selector.pseudo_element "-webkit-datetime-edit-day-field")
+      [ padding_block Zero ];
+    rule
+      ~selector:(Selector.pseudo_element "-webkit-datetime-edit-hour-field")
+      [ padding_block Zero ];
+    rule
+      ~selector:(Selector.pseudo_element "-webkit-datetime-edit-minute-field")
+      [ padding_block Zero ];
+    rule
+      ~selector:(Selector.pseudo_element "-webkit-datetime-edit-second-field")
+      [ padding_block Zero ];
+    rule
+      ~selector:
+        (Selector.pseudo_element "-webkit-datetime-edit-millisecond-field")
+      [ padding_block Zero ];
+    rule
+      ~selector:(Selector.pseudo_element "-webkit-datetime-edit-meridiem-field")
       [ padding_block Zero ];
   ]
 
 (** Firefox-specific form resets *)
 let firefox_form_resets () =
-  [ rule ~selector:":-moz-ui-invalid" [ box_shadow None ] ]
+  [
+    rule ~selector:(Selector.pseudo_class "-moz-ui-invalid") [ box_shadow None ];
+  ]
 
 (** Buttons need specific styles *)
 let button_specific_resets () =
   [
+    (* Complex selector - temporary workaround *)
     rule
-      ~selector:
-        "button, input:where([type=button], [type=reset], [type=submit])"
+      ~selector:Selector.(list [ button; input_button_types ])
       [ appearance Button ];
   ]
 
 (** Button appearance resets *)
 let button_resets () =
   [
-    rule ~selector:"::file-selector-button" [ appearance Button ];
-    rule ~selector:"::-webkit-inner-spin-button" [ height Auto ];
-    rule ~selector:"::-webkit-outer-spin-button" [ height Auto ];
+    rule
+      ~selector:(Selector.pseudo_element "file-selector-button")
+      [ appearance Button ];
+    rule
+      ~selector:(Selector.pseudo_element "-webkit-inner-spin-button")
+      [ height Auto ];
+    rule
+      ~selector:(Selector.pseudo_element "-webkit-outer-spin-button")
+      [ height Auto ];
   ]
 
 (** Hidden elements *)
 let hidden_resets () =
-  [
-    rule ~selector:"[hidden]:where(:not([hidden=until-found]))"
-      [ important (display None) ];
-  ]
+  [ rule ~selector:hidden_not_until_found [ important (display None) ] ]
 
 let stylesheet () =
   List.concat

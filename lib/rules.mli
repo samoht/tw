@@ -6,25 +6,25 @@ open Core
 
 type output =
   | Regular of {
-      selector : string;
+      selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
       has_hover : bool;
     }
   | Media_query of {
       condition : string;
-      selector : string;
+      selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
     }
   | Container_query of {
       condition : string;
-      selector : string;
+      selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
     }
   | Starting_style of {
-      selector : string;
+      selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
     }
@@ -37,7 +37,7 @@ type by_type = {
 }
 
 val regular :
-  selector:string ->
+  selector:Css.Selector.t ->
   props:Css.declaration list ->
   ?base_class:string ->
   ?has_hover:bool ->
@@ -48,7 +48,7 @@ val regular :
 
 val media_query :
   condition:string ->
-  selector:string ->
+  selector:Css.Selector.t ->
   props:Css.declaration list ->
   ?base_class:string ->
   unit ->
@@ -58,7 +58,7 @@ val media_query :
 
 val container_query :
   condition:string ->
-  selector:string ->
+  selector:Css.Selector.t ->
   props:Css.declaration list ->
   ?base_class:string ->
   unit ->
@@ -67,7 +67,7 @@ val container_query :
     container query rule. *)
 
 val starting_style :
-  selector:string ->
+  selector:Css.Selector.t ->
   props:Css.declaration list ->
   ?base_class:string ->
   unit ->
@@ -173,12 +173,12 @@ val extract_selector_props : t -> output list
 (** {1 Rule Extraction and Processing} *)
 
 val modifier_to_rule :
-  Core.modifier -> string -> string -> Css.declaration list -> output
+  Core.modifier -> string -> Css.Selector.t -> Css.declaration list -> output
 (** [modifier_to_rule modifier base_class selector props] converts a modifier
     into appropriate CSS rule output. *)
 
 val extract_selector_props_pairs :
-  output list -> (string * Css.declaration list) list
+  output list -> (Css.Selector.t * Css.declaration list) list
 (** [extract_selector_props_pairs rules] extracts selector/props pairs from
     Regular rules. *)
 
@@ -232,7 +232,7 @@ val responsive_breakpoint : string -> string
 
 val rules_of_grouped :
   ?filter_custom_props:bool ->
-  (string * Css.declaration list) list ->
+  (Css.Selector.t * Css.declaration list) list ->
   Css.rule list
 (** [rules_of_grouped grouped_pairs] converts selector/properties pairs to CSS
     rules. Used for testing the rule generation pipeline. *)

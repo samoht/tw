@@ -5,29 +5,94 @@ open Core
 
 (** Generate CSS selector for a modifier and base class *)
 let to_selector modifier base_class =
+  let open Css.Selector in
   match modifier with
-  | Hover -> ".hover\\:" ^ base_class ^ ":hover"
-  | Focus -> ".focus\\:" ^ base_class ^ ":focus"
-  | Active -> ".active\\:" ^ base_class ^ ":active"
-  | Disabled -> ".disabled\\:" ^ base_class ^ ":disabled"
-  | Group_hover -> ".group:hover .group-hover\\:" ^ base_class
-  | Group_focus -> ".group:focus .group-focus\\:" ^ base_class
-  | Peer_hover -> ".peer-hover\\:" ^ base_class ^ ":is(:where(.peer):hover~*)"
-  | Peer_focus -> ".peer-focus\\:" ^ base_class ^ ":is(:where(.peer):focus~*)"
+  | Hover -> compound [ class_ ("hover\\:" ^ base_class); pseudo_class "hover" ]
+  | Focus -> compound [ class_ ("focus\\:" ^ base_class); pseudo_class "focus" ]
+  | Active ->
+      compound [ class_ ("active\\:" ^ base_class); pseudo_class "active" ]
+  | Disabled ->
+      compound [ class_ ("disabled\\:" ^ base_class); pseudo_class "disabled" ]
+  | Group_hover ->
+      combine
+        (compound [ class_ "group"; pseudo_class "hover" ])
+        Descendant
+        (class_ ("group-hover\\:" ^ base_class))
+  | Group_focus ->
+      combine
+        (compound [ class_ "group"; pseudo_class "focus" ])
+        Descendant
+        (class_ ("group-focus\\:" ^ base_class))
+  | Peer_hover ->
+      let rel =
+        combine
+          (compound [ fun_ "where" [ class_ "peer" ]; pseudo_class "hover" ])
+          Subsequent_sibling universal
+      in
+      compound [ class_ ("peer-hover\\:" ^ base_class); fun_ "is" [ rel ] ]
+  | Peer_focus ->
+      let rel =
+        combine
+          (compound [ fun_ "where" [ class_ "peer" ]; pseudo_class "focus" ])
+          Subsequent_sibling universal
+      in
+      compound [ class_ ("peer-focus\\:" ^ base_class); fun_ "is" [ rel ] ]
   | Peer_checked ->
-      ".peer-checked\\:" ^ base_class ^ ":is(:where(.peer):checked~*)"
-  | Aria_checked -> ".aria-checked\\:" ^ base_class ^ "[aria-checked=true]"
-  | Aria_expanded -> ".aria-expanded\\:" ^ base_class ^ "[aria-expanded=true]"
+      let rel =
+        combine
+          (compound [ fun_ "where" [ class_ "peer" ]; pseudo_class "checked" ])
+          Subsequent_sibling universal
+      in
+      compound [ class_ ("peer-checked\\:" ^ base_class); fun_ "is" [ rel ] ]
+  | Aria_checked ->
+      compound
+        [
+          class_ ("aria-checked\\:" ^ base_class);
+          attribute "aria-checked" (Exact "true");
+        ]
+  | Aria_expanded ->
+      compound
+        [
+          class_ ("aria-expanded\\:" ^ base_class);
+          attribute "aria-expanded" (Exact "true");
+        ]
   | Aria_selected ->
-      ".aria-selected\\:" ^ base_class ^ "[aria-selected=\"true\"]"
-  | Aria_disabled -> ".aria-disabled\\:" ^ base_class ^ "[aria-disabled=true]"
-  | Data_active -> ".data-\\[active\\]\\:" ^ base_class ^ "[data-active]"
-  | Data_inactive -> ".data-\\[inactive\\]\\:" ^ base_class ^ "[data-inactive]"
-  | Focus_within -> ".focus-within\\:" ^ base_class ^ ":focus-within"
-  | Focus_visible -> ".focus-visible\\:" ^ base_class ^ ":focus-visible"
-  | Pseudo_before -> ".before\\:" ^ base_class ^ "::before"
-  | Pseudo_after -> ".after\\:" ^ base_class ^ "::after"
-  | _ -> base_class (* fallback for complex modifiers *)
+      compound
+        [
+          class_ ("aria-selected\\:" ^ base_class);
+          attribute "aria-selected" (Exact "true");
+        ]
+  | Aria_disabled ->
+      compound
+        [
+          class_ ("aria-disabled\\:" ^ base_class);
+          attribute "aria-disabled" (Exact "true");
+        ]
+  | Data_active ->
+      compound
+        [
+          class_ ("data-\\[active\\]\\:" ^ base_class);
+          attribute "data-active" Presence;
+        ]
+  | Data_inactive ->
+      compound
+        [
+          class_ ("data-\\[inactive\\]\\:" ^ base_class);
+          attribute "data-inactive" Presence;
+        ]
+  | Focus_within ->
+      compound
+        [ class_ ("focus-within\\:" ^ base_class); pseudo_class "focus-within" ]
+  | Focus_visible ->
+      compound
+        [
+          class_ ("focus-visible\\:" ^ base_class); pseudo_class "focus-visible";
+        ]
+  | Pseudo_before ->
+      compound [ class_ ("before\\:" ^ base_class); pseudo_element "before" ]
+  | Pseudo_after ->
+      compound [ class_ ("after\\:" ^ base_class); pseudo_element "after" ]
+  | _ -> class_ base_class (* fallback for complex modifiers *)
 
 (** Check if a modifier generates a hover rule *)
 let is_hover = function Hover | Group_hover | Peer_hover -> true | _ -> false

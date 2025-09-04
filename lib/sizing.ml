@@ -245,14 +245,14 @@ let size_fraction_of_string frac =
 (** {1 Aspect Ratio Utilities} *)
 
 let aspect_auto = style "aspect-auto" [ Css.aspect_ratio Auto ]
-let aspect_square = style "aspect-square" [ Css.aspect_ratio (Ratio (1, 1)) ]
-let aspect_video = style "aspect-video" [ Css.aspect_ratio (Ratio (16, 9)) ]
+let aspect_square = style "aspect-square" [ Css.aspect_ratio (Ratio (1., 1.)) ]
+let aspect_video = style "aspect-video" [ Css.aspect_ratio (Ratio (16., 9.)) ]
 
 let aspect_ratio w h =
   let class_name =
-    Pp.str [ "aspect-["; string_of_int w; "/"; string_of_int h; "]" ]
+    String.concat "" [ "aspect-["; string_of_int w; "/"; string_of_int h; "]" ]
   in
-  style class_name [ Css.aspect_ratio (Ratio (w, h)) ]
+  style class_name [ Css.aspect_ratio (Ratio (float_of_int w, float_of_int h)) ]
 
 let spacing_value_of_string = function
   | "0" -> Ok (Px 0)

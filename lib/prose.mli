@@ -51,17 +51,6 @@ val to_css_rules : variant -> Css.rule list
     - [.prose p] - styles all paragraphs inside prose
     - etc. *)
 
-val to_base_properties : variant -> Css.declaration list
-(** [to_base_properties variant] returns base CSS properties for inline styles.
-
-    Returns the CSS properties that apply to the prose container itself, not the
-    descendant selectors. This is useful for inline styles.
-
-    Examples:
-    - [Base] returns font size, line height, color, and max-width
-    - [Lg] returns font size and line height adjustments
-    - [Gray] returns empty list (only affects CSS variables) *)
-
 val css_variables : Css.declaration list
 (** [css_variables] returns default prose CSS variables for theming.
 

@@ -117,6 +117,8 @@ type _ t =
   | Sepia : float t
   | Drop_shadow : string t
   | Drop_shadow_alpha : float t
+  (* Box shadow variable *)
+  | Box_shadow : Css.box_shadow t
   (* Backdrop filter variables *)
   | Backdrop_blur : Css.length t
   | Backdrop_brightness : float t
@@ -128,20 +130,20 @@ type _ t =
   | Backdrop_sepia : float t
   | Backdrop_opacity : float t
   (* Shadow and ring variables *)
-  | Shadow : string t
+  | Shadow : Css.shadow t
   | Shadow_color : Css.color t
   | Shadow_alpha : float t
   | Inset_shadow : string t
   | Inset_shadow_color : Css.color t
   | Inset_shadow_alpha : float t
   | Ring_color : Css.color t
-  | Ring_shadow : string t
+  | Ring_shadow : Css.shadow t
   | Inset_ring_color : Css.color t
-  | Inset_ring_shadow : string t
+  | Inset_ring_shadow : Css.shadow t
   | Ring_inset : string t
   | Ring_offset_width : Css.length t
   | Ring_offset_color : Css.color t
-  | Ring_offset_shadow : string t
+  | Ring_offset_shadow : Css.shadow t
   | Ring_width : Css.length t
   (* Prose theming variables *)
   | Prose_body : Css.color t
@@ -199,6 +201,7 @@ type _ t =
   | Font_variant_numeric_figure : Css.font_variant_numeric_token t
   | Font_variant_numeric_spacing : Css.font_variant_numeric_token t
   | Font_variant_numeric_fraction : Css.font_variant_numeric_token t
+  | Font_variant_numeric : Css.font_variant_numeric t
   (* Other *)
   | Border_style : Css.border_style t
   | Scroll_snap_strictness : Css.scroll_snap_strictness t
@@ -263,7 +266,7 @@ let to_string : type a. a t -> string = function
   | Radius_3xl -> "--radius-3xl"
   | Color (name, None) -> "--color-" ^ name
   | Color (name, Some shade) ->
-      Pp.str [ "--color-"; name; "-"; string_of_int shade ]
+      String.concat "" [ "--color-"; name; "-"; string_of_int shade ]
   | Translate_x -> "--tw-translate-x"
   | Translate_y -> "--tw-translate-y"
   | Translate_z -> "--tw-translate-z"
@@ -283,6 +286,7 @@ let to_string : type a. a t -> string = function
   | Sepia -> "--tw-sepia"
   | Drop_shadow -> "--tw-drop-shadow"
   | Drop_shadow_alpha -> "--tw-drop-shadow-alpha"
+  | Box_shadow -> "--tw-box-shadow"
   | Backdrop_blur -> "--tw-backdrop-blur"
   | Backdrop_brightness -> "--tw-backdrop-brightness"
   | Backdrop_contrast -> "--tw-backdrop-contrast"
@@ -359,6 +363,7 @@ let to_string : type a. a t -> string = function
   | Font_variant_numeric_figure -> "--tw-numeric-figure"
   | Font_variant_numeric_spacing -> "--tw-numeric-spacing"
   | Font_variant_numeric_fraction -> "--tw-numeric-fraction"
+  | Font_variant_numeric -> "--tw-font-variant-numeric"
   | Border_style -> "--tw-border-style"
   | Scroll_snap_strictness -> "--tw-scroll-snap-strictness"
   | Duration -> "--tw-duration"
@@ -492,6 +497,7 @@ let order : type a. a t -> int = function
   | Sepia -> 1107
   | Drop_shadow -> 1108
   | Drop_shadow_alpha -> 1109
+  | Box_shadow -> 1110
   (* Backdrop filter variables *)
   | Backdrop_blur -> 1200
   | Backdrop_brightness -> 1201
@@ -572,6 +578,7 @@ let order : type a. a t -> int = function
   | Font_variant_numeric_figure -> 1452
   | Font_variant_numeric_spacing -> 1453
   | Font_variant_numeric_fraction -> 1454
+  | Font_variant_numeric -> 1455
   (* Other *)
   | Border_style -> 1500
   | Scroll_snap_strictness -> 1501
@@ -676,8 +683,9 @@ let def : type a.
   | Color (color_name, shade) ->
       let clean_name =
         match shade with
-        | None -> Pp.str [ "color-"; color_name ]
-        | Some s -> Pp.str [ "color-"; color_name; "-"; string_of_int s ]
+        | None -> String.concat "" [ "color-"; color_name ]
+        | Some s ->
+            String.concat "" [ "color-"; color_name; "-"; string_of_int s ]
       in
       Css.var ?layer ?fallback ~meta clean_name Color value
   | Translate_x -> var Length value
@@ -699,6 +707,7 @@ let def : type a.
   | Hue_rotate -> var Angle value
   | Drop_shadow -> var String value
   | Drop_shadow_alpha -> var Float value
+  | Box_shadow -> var Box_shadow value
   | Backdrop_blur -> var Length value
   | Backdrop_brightness -> var Float value
   | Backdrop_contrast -> var Float value
@@ -708,12 +717,12 @@ let def : type a.
   | Backdrop_sepia -> var Float value
   | Backdrop_opacity -> var Float value
   | Backdrop_hue_rotate -> var Angle value
-  | Shadow -> var String value
+  | Shadow -> var Shadow value
   | Inset_shadow -> var String value
-  | Ring_shadow -> var String value
-  | Inset_ring_shadow -> var String value
+  | Ring_shadow -> var Shadow value
+  | Inset_ring_shadow -> var Shadow value
   | Ring_inset -> var String value
-  | Ring_offset_shadow -> var String value
+  | Ring_offset_shadow -> var Shadow value
   | Shadow_color -> var Color value
   | Inset_shadow_color -> var Color value
   | Ring_color -> var Color value
@@ -775,6 +784,7 @@ let def : type a.
   | Font_variant_numeric_figure -> var Font_variant_numeric_token value
   | Font_variant_numeric_spacing -> var Font_variant_numeric_token value
   | Font_variant_numeric_fraction -> var Font_variant_numeric_token value
+  | Font_variant_numeric -> var Font_variant_numeric value
   | Border_style -> var Border_style value
   | Scroll_snap_strictness -> var Scroll_snap_strictness value
   | Duration -> var Duration value
@@ -811,7 +821,7 @@ let err_meta ~layer decl msg =
   let layer_str = layer_name layer in
   let accessor = match layer with Theme -> "theme" | Utility -> "utility" in
   failwith
-    (Pp.str
+    (String.concat ""
        [
          msg;
          " for '";
@@ -862,7 +872,7 @@ let compare_declarations layer d1 d2 =
         match layer with Theme -> "theme" | Utility -> "utility"
       in
       failwith
-        (Pp.str
+        (String.concat ""
            [
              "Missing Var metadata for '";
              n1;
