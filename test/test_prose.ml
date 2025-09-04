@@ -53,12 +53,10 @@ let test_inline_styles () =
   Alcotest.(check string) "prose-lg has no inline styles" "" inline_lg
 
 let suite =
-  [
-    ( "prose",
-      [
-        Alcotest.test_case "classes" `Quick test_classes;
-        Alcotest.test_case "combinations" `Quick test_combinations;
-        Alcotest.test_case "CSS generation" `Quick test_css_generation;
-        Alcotest.test_case "inline styles" `Quick test_inline_styles;
-      ] );
-  ]
+  ( "prose",
+    [
+      Alcotest.test_case "classes" `Quick test_classes;
+      Alcotest.test_case "combinations" `Quick test_combinations;
+      Alcotest.test_case "CSS generation" `Quick test_css_generation;
+      Alcotest.test_case "inline styles" `Quick test_inline_styles;
+    ] )
