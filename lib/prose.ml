@@ -8,8 +8,6 @@
 
 open Css
 
-let oklch l c h = Oklch { l; c; h }
-
 type variant =
   [ `Base | `Sm | `Lg | `Xl | `Xl2 | `Gray | `Slate | `Zinc | `Neutral | `Stone ]
 
