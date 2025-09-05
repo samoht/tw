@@ -1,6 +1,12 @@
 (** Script to compare two CSS files with structural parsing for better diffs
     Usage: cssdiff.exe <css_file1> <css_file2> *)
 
+let pp_parse_error ppf (Css_parser.Parse_error (msg, reader)) =
+  let before, after = Css_parser.Reader.context_string reader in
+  let pos = Css_parser.Reader.position reader in
+  let len = Css_parser.Reader.length reader in
+  Fmt.pf ppf "%s at pos %d/%d: %s[HERE]%s" msg pos len before after
+
 let read_file path =
   try
     let ic = open_in path in
@@ -31,10 +37,20 @@ let () =
                 let diff = Tw_tools.Css_compare.diff ast1 ast2 in
                 Fmt.pr "%a@." Tw_tools.Css_compare.pp diff
             | Error e1, Error e2 ->
-                Fmt.pr "Parse errors in both CSS:@.First: %s@.Second: %s@." e1
-                  e2
-            | Error e1, _ -> Fmt.pr "Failed to parse first CSS: %s@." e1
-            | _, Error e2 -> Fmt.pr "Failed to parse second CSS: %s@." e2);
+                (* Check if contexts are similar *)
+                let (Css_parser.Parse_error (msg1, r1)) = e1 in
+                let (Css_parser.Parse_error (msg2, r2)) = e2 in
+                let b1, a1 = Css_parser.Reader.context_string r1 in
+                let b2, a2 = Css_parser.Reader.context_string r2 in
+                if msg1 = msg2 && b1 = b2 && a1 = a2 then
+                  Fmt.pr "Parse error in both CSS files: %a@." pp_parse_error e1
+                else
+                  Fmt.pr "Parse errors in both CSS:@.First: %a@.Second: %a@."
+                    pp_parse_error e1 pp_parse_error e2
+            | Error e, _ ->
+                Fmt.pr "Failed to parse first CSS: %a@." pp_parse_error e
+            | _, Error e ->
+                Fmt.pr "Failed to parse second CSS: %a@." pp_parse_error e);
             exit 1)
       | _ -> exit 1)
   | _ ->

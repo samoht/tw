@@ -83,7 +83,7 @@ val contrast_less : t list -> t
 (** [contrast_less styles] applies [styles] when lower contrast is preferred. *)
 
 val starting : t list -> t
-(** [starting styles] applies [styles] using @starting-style. *)
+(** [starting styles] applies [styles] using [@starting-style]. *)
 
 (** {1 Pseudo-element Variants} *)
 

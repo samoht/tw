@@ -137,7 +137,8 @@ val to_inline_style : t list -> string
       is:
 
     {v
-(((-webkit-hyphens:none)) and (not (margin-trim:inline))) or ((-moz-orient:inline) and (not (color:rgb(from red r g b))))
+      (((-webkit-hyphens:none)) and (not (margin-trim:inline))) or
+      ((-moz-orient:inline) and (not (color:rgb(from red r g b))))
     v}
 
     Notes:

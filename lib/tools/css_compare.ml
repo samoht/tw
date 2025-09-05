@@ -589,10 +589,34 @@ let format_css_diff css1 css2 =
   | Ok ast1, Ok ast2 ->
       let diff_result = diff ast1 ast2 in
       Fmt.str "%a" pp diff_result
-  | Error e1, Error e2 ->
-      Printf.sprintf "Parse errors in both CSS:\nFirst: %s\nSecond: %s" e1 e2
-  | Error e1, _ -> Printf.sprintf "Failed to parse our CSS: %s" e1
-  | _, Error e2 -> Printf.sprintf "Failed to parse their CSS: %s" e2
+  | ( Error (Css_parser.Parse_error (msg1, r1)),
+      Error (Css_parser.Parse_error (msg2, r2)) ) ->
+      let b1, a1 = Css_parser.Reader.context_string r1 in
+      let b2, a2 = Css_parser.Reader.context_string r2 in
+      Printf.sprintf
+        "Parse errors in both CSS:\n\
+         First: %s at pos %d/%d: %s[HERE]%s\n\
+         Second: %s at pos %d/%d: %s[HERE]%s"
+        msg1
+        (Css_parser.Reader.position r1)
+        (Css_parser.Reader.length r1)
+        b1 a1 msg2
+        (Css_parser.Reader.position r2)
+        (Css_parser.Reader.length r2)
+        b2 a2
+  | Error (Css_parser.Parse_error (msg, r)), _ ->
+      let b, a = Css_parser.Reader.context_string r in
+      Printf.sprintf "Failed to parse our CSS: %s at pos %d/%d: %s[HERE]%s" msg
+        (Css_parser.Reader.position r)
+        (Css_parser.Reader.length r)
+        b a
+  | _, Error (Css_parser.Parse_error (msg, r)) ->
+      let b, a = Css_parser.Reader.context_string r in
+      Printf.sprintf "Failed to parse their CSS: %s at pos %d/%d: %s[HERE]%s"
+        msg
+        (Css_parser.Reader.position r)
+        (Css_parser.Reader.length r)
+        b a
 
 let format_labeled_css_diff ~tw_label ~tailwind_label ?css1 ?css2 _ _ =
   match (css1, css2) with

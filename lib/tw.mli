@@ -3018,7 +3018,7 @@ val of_string : string -> (t, [ `Msg of string ]) result
     This library generates Tailwind-like class names using [to_classes].
 
     {b Important}: Class tracking and CSS file generation should be handled by
-    the library user. For example, the {!Html} module collects all used Tw
+    the library user. For example, the {!Tw_html} module collects all used Tw
     classes and generates the appropriate CSS file.
 
     For dynamic styles that change at runtime, use [to_inline_style] to generate
@@ -3247,7 +3247,7 @@ val contrast_less : t list -> t
 (** [contrast_less styles] applies [styles] when lower contrast is preferred. *)
 
 val starting : t list -> t
-(** [starting styles] applies styles using @starting-style. *)
+(** [starting styles] applies styles using [@starting-style]. *)
 
 (** {2 Responsive Breakpoints}
     @see <https://tailwindcss.com/docs/responsive-design> Responsive Design *)
