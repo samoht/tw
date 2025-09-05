@@ -34,10 +34,10 @@ let sr_only =
   style "sr-only"
     [
       position Absolute;
-      width (Px 1);
-      height (Px 1);
+      width (Px 1.);
+      height (Px 1.);
       padding Zero;
-      margin (Px (-1));
+      margin (Px (-1.));
       overflow Hidden;
       clip "rect(0, 0, 0, 0)";
       white_space Nowrap;

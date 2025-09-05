@@ -31,14 +31,14 @@ let stroke = svg_color_util "stroke" stroke
 
 (** {1 Stroke Width Utilities} *)
 
-let stroke_0 = style "stroke-0" [ stroke_width (Px 0) ]
-let stroke_1 = style "stroke-1" [ stroke_width (Px 1) ]
-let stroke_2 = style "stroke-2" [ stroke_width (Px 2) ]
+let stroke_0 = style "stroke-0" [ stroke_width (Px 0.) ]
+let stroke_1 = style "stroke-1" [ stroke_width (Px 1.) ]
+let stroke_2 = style "stroke-2" [ stroke_width (Px 2.) ]
 
 let stroke_width n =
   style
     (String.concat "" [ "stroke-"; string_of_int n ])
-    [ stroke_width (Px n) ]
+    [ stroke_width (Px (float_of_int n)) ]
 
 (** {1 Parsing Functions} *)
 

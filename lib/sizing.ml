@@ -36,7 +36,7 @@ let spacing_utility prefix css_prop n =
 
 let w' size =
   match size with
-  | `None -> style "w-0" [ width (Px 0) ]
+  | `None -> style "w-0" [ width (Px 0.) ]
   | `Xs -> style "w-xs" [ width (Rem 0.5) ]
   | `Sm -> style "w-sm" [ width (Rem 1.0) ]
   | `Md -> style "w-md" [ width (Rem 1.5) ]
@@ -69,7 +69,7 @@ let w n = spacing_utility "w-" width n
 
 let h' size =
   match size with
-  | `None -> style "h-0" [ height (Px 0) ]
+  | `None -> style "h-0" [ height (Px 0.) ]
   | `Xs -> style "h-xs" [ height (Rem 0.5) ]
   | `Sm -> style "h-sm" [ height (Rem 1.0) ]
   | `Md -> style "h-md" [ height (Rem 1.5) ]
@@ -102,7 +102,7 @@ let h n = spacing_utility "h-" height n
 
 let min_w' size =
   match size with
-  | `None -> style "min-w-0" [ min_width (Px 0) ]
+  | `None -> style "min-w-0" [ min_width (Px 0.) ]
   | `Xs -> style "min-w-xs" [ min_width (Rem 0.5) ]
   | `Sm -> style "min-w-sm" [ min_width (Rem 1.0) ]
   | `Md -> style "min-w-md" [ min_width (Rem 1.5) ]
@@ -112,7 +112,7 @@ let min_w' size =
   | `Xl_3 -> style "min-w-3xl" [ min_width (Rem 6.0) ]
   | `Full -> style "min-w-full" [ min_width (Pct 100.0) ]
 
-let min_w_0 = style "min-w-0" [ min_width (Px 0) ]
+let min_w_0 = style "min-w-0" [ min_width (Px 0.) ]
 let min_w_full = style "min-w-full" [ min_width (Pct 100.0) ]
 let min_w_min = style "min-w-min" [ min_width Min_content ]
 let min_w_max = style "min-w-max" [ min_width Max_content ]
@@ -154,11 +154,11 @@ let max_w_min = style "max-w-min" [ max_width Min_content ]
 let max_w_max = style "max-w-max" [ max_width Max_content ]
 let max_w_fit = style "max-w-fit" [ max_width Fit_content ]
 let max_w_prose = style "max-w-prose" [ max_width (Ch 65.0) ]
-let max_w_screen_sm = style "max-w-screen-sm" [ max_width (Px 640) ]
-let max_w_screen_md = style "max-w-screen-md" [ max_width (Px 768) ]
-let max_w_screen_lg = style "max-w-screen-lg" [ max_width (Px 1024) ]
-let max_w_screen_xl = style "max-w-screen-xl" [ max_width (Px 1280) ]
-let max_w_screen_2xl = style "max-w-screen-2xl" [ max_width (Px 1536) ]
+let max_w_screen_sm = style "max-w-screen-sm" [ max_width (Px 640.) ]
+let max_w_screen_md = style "max-w-screen-md" [ max_width (Px 768.) ]
+let max_w_screen_lg = style "max-w-screen-lg" [ max_width (Px 1024.) ]
+let max_w_screen_xl = style "max-w-screen-xl" [ max_width (Px 1280.) ]
+let max_w_screen_2xl = style "max-w-screen-2xl" [ max_width (Px 1536.) ]
 
 (* Int-based max-width function for Tailwind scale *)
 let max_w n = spacing_utility "max-w-" max_width n
@@ -167,7 +167,7 @@ let max_w n = spacing_utility "max-w-" max_width n
 
 let min_h' size =
   match size with
-  | `None -> style "min-h-0" [ min_height (Px 0) ]
+  | `None -> style "min-h-0" [ min_height (Px 0.) ]
   | `Xs -> style "min-h-xs" [ min_height (Rem 0.5) ]
   | `Sm -> style "min-h-sm" [ min_height (Rem 1.0) ]
   | `Md -> style "min-h-md" [ min_height (Rem 1.5) ]
@@ -177,7 +177,7 @@ let min_h' size =
   | `Xl_3 -> style "min-h-3xl" [ min_height (Rem 6.0) ]
   | `Full -> style "min-h-full" [ min_height (Pct 100.0) ]
 
-let min_h_0 = style "min-h-0" [ min_height (Px 0) ]
+let min_h_0 = style "min-h-0" [ min_height (Px 0.) ]
 let min_h_full = style "min-h-full" [ min_height (Pct 100.0) ]
 let min_h_screen = style "min-h-screen" [ min_height (Vh 100.0) ]
 let min_h_min = style "min-h-min" [ min_height Min_content ]
@@ -255,8 +255,8 @@ let aspect_ratio w h =
   style class_name [ Css.aspect_ratio (Ratio (float_of_int w, float_of_int h)) ]
 
 let spacing_value_of_string = function
-  | "0" -> Ok (Px 0)
-  | "px" -> Ok (Px 1)
+  | "0" -> Ok (Px 0.)
+  | "px" -> Ok (Px 1.)
   | "0.5" -> Ok (Rem 0.125)
   | "1" -> Ok (Rem 0.25)
   | "1.5" -> Ok (Rem 0.375)

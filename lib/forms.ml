@@ -14,7 +14,7 @@ let form_textarea =
       Css.appearance None;
       Css.background_color (Rgb { r = 255; g = 255; b = 255 });
       Css.border_color (Rgb { r = 209; g = 213; b = 219 });
-      Css.border_width (Px 1);
+      Css.border_width (Px 1.);
       Css.border_radius (Rem 0.375);
       Css.padding_top (Rem 0.5);
       Css.padding_right (Rem 0.75);
@@ -31,7 +31,7 @@ let form_select =
       Css.appearance None;
       Css.background_color (Rgb { r = 255; g = 255; b = 255 });
       Css.border_color (Rgb { r = 209; g = 213; b = 219 });
-      Css.border_width (Px 1);
+      Css.border_width (Px 1.);
       Css.border_radius (Rem 0.375);
       Css.padding_top (Rem 0.5);
       Css.padding_right (Rem 2.5);
@@ -58,7 +58,7 @@ let form_checkbox =
       Css.height (Rem 1.0);
       Css.background_color (Rgb { r = 255; g = 255; b = 255 });
       Css.border_color (Rgb { r = 209; g = 213; b = 219 });
-      Css.border_width (Px 1);
+      Css.border_width (Px 1.);
       Css.border_radius (Rem 0.25);
       Css.color (Rgb { r = 59; g = 130; b = 246 });
       Css.flex_shrink 0.0;
@@ -74,7 +74,7 @@ let form_radio =
       Css.height (Rem 1.0);
       Css.background_color (Rgb { r = 255; g = 255; b = 255 });
       Css.border_color (Rgb { r = 209; g = 213; b = 219 });
-      Css.border_width (Px 1);
+      Css.border_width (Px 1.);
       Css.border_radius (Pct 100.0);
       Css.color (Rgb { r = 59; g = 130; b = 246 });
       Css.flex_shrink 0.0;

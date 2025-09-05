@@ -519,7 +519,7 @@ let decoration_color ?(shade = 500) (color : Color.color) =
 
 let decoration_thickness n =
   let class_name = "decoration-" ^ string_of_int n in
-  style class_name [ text_decoration_thickness (Px n) ]
+  style class_name [ text_decoration_thickness (Px (float_of_int n)) ]
 
 let decoration_from_font =
   style "decoration-from-font" [ text_decoration_thickness From_font ]

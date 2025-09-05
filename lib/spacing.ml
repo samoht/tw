@@ -38,7 +38,7 @@ let pp_margin_suffix : margin -> string = function
 
 (* Convert spacing to CSS length *)
 let to_length : spacing -> length = function
-  | `Px -> Px 1
+  | `Px -> Px 1.
   | `Full -> Pct 100.0
   | `Rem f ->
       let n = int_of_float (f /. 0.25) in

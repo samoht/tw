@@ -72,7 +72,7 @@ let root_resets () =
 let structural_resets () =
   [
     rule ~selector:(Selector.element "hr")
-      [ height Zero; color Inherit; border_top_width (Px 1) ];
+      [ height Zero; color Inherit; border_top_width (Px 1.) ];
     rule ~selector:abbr_with_title
       [
         webkit_text_decoration Underline_dotted;
@@ -233,10 +233,10 @@ let select_resets () =
       [ font_weight Bolder ];
     rule
       ~selector:(where [ select_is_multiple_size ] ++ optgroup ++ option)
-      [ padding_inline_start (Px 20) ];
+      [ padding_inline_start (Px 20.) ];
     rule
       ~selector:(Selector.pseudo_element "file-selector-button")
-      [ margin_inline_end (Px 4) ];
+      [ margin_inline_end (Px 4.) ];
   ]
 
 (** Form placeholder and textarea resets *)

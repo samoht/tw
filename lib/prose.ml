@@ -427,7 +427,7 @@ let hr_rules base =
     Css.rule ~selector:(where base hr)
       [
         border_color (Var prose_hr_var);
-        border_top_width (Px 1);
+        border_top_width (Px 1.);
         margin_top (Em 3.0);
         margin_bottom (Em 3.0);
       ];
@@ -479,11 +479,11 @@ let kbd_rules base =
         box_shadow
           (Shadows
              [
-               Css.shadow ~spread:(Px 1)
+               Css.shadow ~spread:(Px 1.)
                  ~color:
                    (Css.color_mix ~percent1:10 (Var prose_kbd_var) Transparent)
                  ();
-               Css.shadow ~v_offset:(Px 3)
+               Css.shadow ~v_offset:(Px 3.)
                  ~color:
                    (Css.color_mix ~percent1:10 (Var prose_kbd_var) Transparent)
                  ();
@@ -572,7 +572,7 @@ let table_rules base =
     Css.rule
       ~selector:(where base (Css.Selector.element "thead"))
       [
-        border_bottom_width (Px 1);
+        border_bottom_width (Px 1.);
         border_bottom_color (Var prose_th_borders_var);
       ];
     Css.rule ~selector:(where base thead_th)
@@ -586,7 +586,7 @@ let table_rules base =
       ];
     Css.rule ~selector:(where base tbody_tr)
       [
-        border_bottom_width (Px 1);
+        border_bottom_width (Px 1.);
         border_bottom_color (Var prose_td_borders_var);
       ];
     Css.rule
@@ -594,7 +594,7 @@ let table_rules base =
       [ border_bottom_width Zero ];
     Css.rule ~selector:(where base tbody_td) [ vertical_align Baseline ];
     Css.rule ~selector:(where base tfoot)
-      [ border_top_width (Px 1); border_top_color (Var prose_th_borders_var) ];
+      [ border_top_width (Px 1.); border_top_color (Var prose_th_borders_var) ];
     Css.rule ~selector:(where base tfoot_td) [ vertical_align Top ];
     Css.rule ~selector:(where base th_td) [ text_align Start ];
   ]

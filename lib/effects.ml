@@ -198,11 +198,11 @@ let ring_internal (w : ring_width) =
   in
   let width_len =
     match width with
-    | "1px" -> Px 1
-    | "2px" -> Px 2
-    | "4px" -> Px 4
-    | "8px" -> Px 8
-    | _ -> Px 3
+    | "1px" -> Px 1.
+    | "2px" -> Px 2.
+    | "4px" -> Px 4.
+    | "8px" -> Px 8.
+    | _ -> Px 3.
   in
   let width_def, width_var = Var.utility Var.Ring_width width_len in
   let color_def, color_var =

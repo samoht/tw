@@ -139,7 +139,7 @@ let rotate_z n =
 let translate_z n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "translate-z-" ^ string_of_int (abs n) in
-  style class_name [ transform [ Translate_z (Px n) ] ]
+  style class_name [ transform [ Translate_z (Px (float_of_int n)) ] ]
 
 let scale_z n =
   let value : Css.transform_scale = Num (float_of_int n /. 100.0) in
@@ -150,7 +150,7 @@ let scale_z n =
 
 let perspective n =
   let class_name = "perspective-" ^ string_of_int n in
-  let value = if n = 0 then Zero else Px n in
+  let value = if n = 0 then Zero else Px (float_of_int n) in
   style class_name [ perspective value ]
 
 let perspective_origin_center =
