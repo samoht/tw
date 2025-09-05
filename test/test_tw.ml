@@ -76,26 +76,26 @@ let report_failure test_name tw_file tailwind_file =
   Fmt.epr "  diff -u %s %s@," tw_file tailwind_file;
   Fmt.epr "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━@,"
 
-let pp_parse_error ppf (Css_parser.Parse_error (msg, reader)) =
-  let before, after = Css_parser.Reader.context_string reader in
-  let pos = Css_parser.Reader.position reader in
-  let len = Css_parser.Reader.length reader in
+let pp_parse_error ppf (Css.Parser.Parse_error (msg, reader)) =
+  let before, after = Css.Reader.context_string reader in
+  let pos = Css.Reader.position reader in
+  let len = Css.Reader.length reader in
   Fmt.pf ppf "%s@,    Position %d/%d: %s[HERE]%s" msg pos len before after
 
 let are_similar_errors e1 e2 =
-  let (Css_parser.Parse_error (msg1, r1)) = e1 in
-  let (Css_parser.Parse_error (msg2, r2)) = e2 in
+  let (Css.Parser.Parse_error (msg1, r1)) = e1 in
+  let (Css.Parser.Parse_error (msg2, r2)) = e2 in
   if msg1 <> msg2 then false
   else
-    let b1, a1 = Css_parser.Reader.context_string ~window:20 r1 in
-    let b2, a2 = Css_parser.Reader.context_string ~window:20 r2 in
+    let b1, a1 = Css.Reader.context_string ~window:20 r1 in
+    let b2, a2 = Css.Reader.context_string ~window:20 r2 in
     b1 = b2 && a1 = a2
 
 let show_diff_with_label label tw_css tailwind_css tw_file tailwind_file =
   Fmt.epr "@,▶ %s@,@," label;
   let tw_css = Tw_tools.Css_compare.strip_header tw_css in
   let tailwind_css = Tw_tools.Css_compare.strip_header tailwind_css in
-  (match (Css_parser.of_string tw_css, Css_parser.of_string tailwind_css) with
+  (match (Css.Parser.of_string tw_css, Css.Parser.of_string tailwind_css) with
   | Ok ast1, Ok ast2 ->
       let diff_result = Tw_tools.Css_compare.diff ast1 ast2 in
       Fmt.epr "%a@," Tw_tools.Css_compare.pp diff_result
@@ -203,7 +203,7 @@ let check_exact_match tw_styles =
 
       (* Show structural diff for minified+optimized output *)
       (match
-         (Css_parser.of_string tw_css, Css_parser.of_string tailwind_css)
+         (Css.Parser.of_string tw_css, Css.Parser.of_string tailwind_css)
        with
       | Ok ast1, Ok ast2 ->
           let diff_result = Tw_tools.Css_compare.diff ast1 ast2 in
@@ -238,7 +238,7 @@ let check_exact_match tw_styles =
       (* Only show base/optimization debugging if production CSS parsed
          successfully *)
       (match
-         (Css_parser.of_string tw_css, Css_parser.of_string tailwind_css)
+         (Css.Parser.of_string tw_css, Css.Parser.of_string tailwind_css)
        with
       | Ok _, Ok _ ->
           (* Then show debugging info to help identify the issue *)

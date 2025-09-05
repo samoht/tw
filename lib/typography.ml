@@ -52,11 +52,8 @@ let font_variant_numeric_def, font_variant_numeric_var =
 (* Helper to create text size variables with line height *)
 let var_text_size var_t lh_var_t size_rem lh_multiplier =
   let size_def, size_var = Var.theme var_t (Rem size_rem) in
-  (* Line height as calc(multiplier / size) to match Tailwind v4 *)
-  let lh_val =
-    Calc (Calc.div (Calc.float lh_multiplier) (Calc.float size_rem))
-  in
-  let lh_def, lh_var = Var.theme lh_var_t lh_val in
+  (* Line height as rem value - multiplier is the actual line height in rem *)
+  let lh_def, lh_var = Var.theme lh_var_t (Rem lh_multiplier) in
   (size_def, size_var, lh_def, lh_var)
 
 (* Each text size has its own line height variable that's used directly *)

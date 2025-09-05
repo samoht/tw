@@ -10,8 +10,8 @@ module Parse = Parse
 let spacing_def, spacing_var = Var.theme Var.Spacing (Rem 0.25)
 
 (* Helper to create spacing values using calc(var(--spacing) * n) *)
-let spacing_value n =
-  Calc (Calc.mul (Var spacing_var) (Calc.float (float_of_int n)))
+let spacing_value n : Css.length =
+  Calc (Calc.mul (Calc.length (Var spacing_var)) (Calc.float (float_of_int n)))
 
 (** {1 Inset Utilities} *)
 
