@@ -47,7 +47,8 @@ val container : ?name:string -> int -> t list -> t
 (** {1 Helper Functions} *)
 
 val container_query_to_css_prefix : container_query -> string
-(** [container_query_to_css_prefix q] converts [q] to its CSS @container rule prefix. *)
+(** [container_query_to_css_prefix q] converts [q] to its CSS [@container] rule
+    prefix. *)
 
 val container_query_to_class_prefix : container_query -> string
 (** [container_query_to_class_prefix q] converts [q] to its class name prefix

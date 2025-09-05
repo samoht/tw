@@ -28,7 +28,7 @@ val field : string -> string -> string
 (** [field key value] formats a record field as "key = value;". *)
 
 val braces : string -> string
-(** [braces content] wraps content in braces: {content}. *)
+(** [braces content] wraps content in braces: \{content\}. *)
 
 val parens : string -> string
 (** [parens content] wraps content in parentheses: (content). *)
