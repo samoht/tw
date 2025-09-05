@@ -17,39 +17,39 @@ let transition =
            [
              Css.With_timing
                ( Css.Property "color",
-                 Css.Ms 150,
+                 Css.Ms 150.,
                  Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
              Css.With_timing
                ( Css.Property "background-color",
-                 Css.Ms 150,
+                 Css.Ms 150.,
                  Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
              Css.With_timing
                ( Css.Property "border-color",
-                 Css.Ms 150,
+                 Css.Ms 150.,
                  Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
              Css.With_timing
                ( Css.Property "text-decoration-color",
-                 Css.Ms 150,
+                 Css.Ms 150.,
                  Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
              Css.With_timing
                ( Css.Property "fill",
-                 Css.Ms 150,
+                 Css.Ms 150.,
                  Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
              Css.With_timing
                ( Css.Property "stroke",
-                 Css.Ms 150,
+                 Css.Ms 150.,
                  Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
              Css.With_timing
                ( Css.Property "opacity",
-                 Css.Ms 150,
+                 Css.Ms 150.,
                  Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
              Css.With_timing
                ( Css.Property "box-shadow",
-                 Css.Ms 150,
+                 Css.Ms 150.,
                  Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
              Css.With_timing
                ( Css.Property "transform",
-                 Css.Ms 150,
+                 Css.Ms 150.,
                  Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
            ]);
     ]
@@ -59,7 +59,7 @@ let transition_all =
     [
       Css.transition
         (Css.With_timing
-           (Css.All, Css.Ms 150, Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
+           (Css.All, Css.Ms 150., Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
     ]
 
 let transition_colors =
@@ -70,23 +70,23 @@ let transition_colors =
            [
              Css.With_timing
                ( Css.Property "background-color",
-                 Css.Ms 150,
+                 Css.Ms 150.,
                  Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
              Css.With_timing
                ( Css.Property "border-color",
-                 Css.Ms 150,
+                 Css.Ms 150.,
                  Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
              Css.With_timing
                ( Css.Property "color",
-                 Css.Ms 150,
+                 Css.Ms 150.,
                  Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
              Css.With_timing
                ( Css.Property "fill",
-                 Css.Ms 150,
+                 Css.Ms 150.,
                  Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
              Css.With_timing
                ( Css.Property "stroke",
-                 Css.Ms 150,
+                 Css.Ms 150.,
                  Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
            ]);
     ]
@@ -97,7 +97,7 @@ let transition_opacity =
       Css.transition
         (Css.With_timing
            ( Css.Property "opacity",
-             Css.Ms 150,
+             Css.Ms 150.,
              Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) ));
     ]
 
@@ -107,7 +107,7 @@ let transition_shadow =
       Css.transition
         (Css.With_timing
            ( Css.Property "box-shadow",
-             Css.Ms 150,
+             Css.Ms 150.,
              Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) ));
     ]
 
@@ -117,7 +117,7 @@ let transition_transform =
       Css.transition
         (Css.With_timing
            ( Css.Property "transform",
-             Css.Ms 150,
+             Css.Ms 150.,
              Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) ));
     ]
 
@@ -207,7 +207,7 @@ let animate_bounce =
 
 let duration n =
   let class_name = "duration-" ^ string_of_int n in
-  style class_name [ Css.transition_duration (Css.Ms n) ]
+  style class_name [ Css.transition_duration (Css.Ms (float_of_int n)) ]
 
 (** {1 Timing Function Utilities} *)
 
@@ -229,7 +229,7 @@ let ease_in_out =
 
 let delay n =
   let class_name = "delay-" ^ string_of_int n in
-  style class_name [ Css.transition_delay (Css.Ms n) ]
+  style class_name [ Css.transition_delay (Css.Ms (float_of_int n)) ]
 
 (** {1 Parsing Functions} *)
 

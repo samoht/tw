@@ -206,7 +206,7 @@ let ring_internal (w : ring_width) =
   in
   let width_def, width_var = Var.utility Var.Ring_width width_len in
   let color_def, color_var =
-    Var.utility Var.Ring_color (Rgba { r = 59; g = 130; b = 246; a = 0.5 })
+    Var.utility Var.Ring_color (Css.rgba 59 130 246 0.5)
   in
   style class_name
     [
@@ -247,7 +247,7 @@ let transition_none =
 let transition_all =
   style "transition-all"
     [
-      transition (With_timing (All, Ms 150, Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
+      transition (With_timing (All, Ms 150., Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
     ]
 
 let transition_colors =
@@ -258,18 +258,18 @@ let transition_colors =
            [
              With_timing
                ( Property "background-color",
-                 Ms 150,
+                 Ms 150.,
                  Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
              With_timing
                ( Property "border-color",
-                 Ms 150,
+                 Ms 150.,
                  Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
              With_timing
-               (Property "color", Ms 150, Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+               (Property "color", Ms 150., Cubic_bezier (0.4, 0.0, 0.2, 1.0));
              With_timing
-               (Property "fill", Ms 150, Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+               (Property "fill", Ms 150., Cubic_bezier (0.4, 0.0, 0.2, 1.0));
              With_timing
-               (Property "stroke", Ms 150, Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+               (Property "stroke", Ms 150., Cubic_bezier (0.4, 0.0, 0.2, 1.0));
            ]);
     ]
 
@@ -278,7 +278,7 @@ let transition_opacity =
     [
       transition
         (With_timing
-           (Property "opacity", Ms 150, Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
+           (Property "opacity", Ms 150., Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
     ]
 
 let transition_shadow =
@@ -286,7 +286,7 @@ let transition_shadow =
     [
       transition
         (With_timing
-           (Property "box-shadow", Ms 150, Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
+           (Property "box-shadow", Ms 150., Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
     ]
 
 let transition_transform =
@@ -294,7 +294,7 @@ let transition_transform =
     [
       transition
         (With_timing
-           (Property "transform", Ms 150, Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
+           (Property "transform", Ms 150., Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
     ]
 
 let duration n =

@@ -12,8 +12,8 @@ let form_textarea =
   style "form-textarea"
     [
       Css.appearance None;
-      Css.background_color (Rgb { r = 255; g = 255; b = 255 });
-      Css.border_color (Rgb { r = 209; g = 213; b = 219 });
+      Css.background_color (Css.rgb 255 255 255);
+      Css.border_color (Css.rgb 209 213 219);
       Css.border_width (Px 1.);
       Css.border_radius (Rem 0.375);
       Css.padding_top (Rem 0.5);
@@ -29,8 +29,8 @@ let form_select =
   style "form-select"
     [
       Css.appearance None;
-      Css.background_color (Rgb { r = 255; g = 255; b = 255 });
-      Css.border_color (Rgb { r = 209; g = 213; b = 219 });
+      Css.background_color (Css.rgb 255 255 255);
+      Css.border_color (Css.rgb 209 213 219);
       Css.border_width (Px 1.);
       Css.border_radius (Rem 0.375);
       Css.padding_top (Rem 0.5);
@@ -56,11 +56,11 @@ let form_checkbox =
       Css.appearance None;
       Css.width (Rem 1.0);
       Css.height (Rem 1.0);
-      Css.background_color (Rgb { r = 255; g = 255; b = 255 });
-      Css.border_color (Rgb { r = 209; g = 213; b = 219 });
+      Css.background_color (Css.rgb 255 255 255);
+      Css.border_color (Css.rgb 209 213 219);
       Css.border_width (Px 1.);
       Css.border_radius (Rem 0.25);
-      Css.color (Rgb { r = 59; g = 130; b = 246 });
+      Css.color (Css.rgb 59 130 246);
       Css.flex_shrink 0.0;
       Css.display Inline_block;
       Css.vertical_align Middle;
@@ -72,11 +72,11 @@ let form_radio =
       Css.appearance None;
       Css.width (Rem 1.0);
       Css.height (Rem 1.0);
-      Css.background_color (Rgb { r = 255; g = 255; b = 255 });
-      Css.border_color (Rgb { r = 209; g = 213; b = 219 });
+      Css.background_color (Css.rgb 255 255 255);
+      Css.border_color (Css.rgb 209 213 219);
       Css.border_width (Px 1.);
       Css.border_radius (Pct 100.0);
-      Css.color (Rgb { r = 59; g = 130; b = 246 });
+      Css.color (Css.rgb 59 130 246);
       Css.flex_shrink 0.0;
       Css.display Inline_block;
       Css.vertical_align Middle;

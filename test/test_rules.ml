@@ -443,8 +443,7 @@ let test_style_with_rules_and_props () =
 let test_rules_of_grouped_prose_bug () =
   (* Reproduce the prose rule merging bug *)
   let _prose_body_def, prose_body_var =
-    Tw.Var.utility Tw.Var.Prose_body
-      (Tw.Css.Oklch { l = 0.373; c = 0.034; h = 259.733 })
+    Tw.Var.utility Tw.Var.Prose_body (Tw.Css.oklch 37.3 0.034 259.733)
   in
   let prose_class = Css.Selector.class_ "prose" in
   let prose_p_selector =
