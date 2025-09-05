@@ -127,9 +127,14 @@ let equal d1 d2 =
 let strip_header css =
   (* Strip any header comment if present *)
   if String.starts_with ~prefix:"/*!" css then
-    match String.index_opt css '\n' with
-    | Some idx -> String.sub css (idx + 1) (String.length css - idx - 1)
-    | None -> css
+    (* Find the end of the comment - look for star-slash pattern *)
+    let rec find_end i =
+      if i + 1 >= String.length css then css
+      else if css.[i] = '*' && css.[i + 1] = '/' then
+        String.sub css (i + 2) (String.length css - i - 2)
+      else find_end (i + 1)
+    in
+    find_end 3 (* Start after the initial comment marker *)
   else css
 
 (* Compare two CSS ASTs directly *)
