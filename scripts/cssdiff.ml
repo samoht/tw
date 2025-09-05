@@ -5,7 +5,7 @@ let pp_parse_error ppf (Css_parser.Parse_error (msg, reader)) =
   let before, after = Css_parser.Reader.context_string reader in
   let pos = Css_parser.Reader.position reader in
   let len = Css_parser.Reader.length reader in
-  Fmt.pf ppf "%s at pos %d/%d: %s[HERE]%s" msg pos len before after
+  Fmt.pf ppf "%s@.  Position %d/%d: %s[HERE]%s" msg pos len before after
 
 let read_file path =
   try
