@@ -22,15 +22,15 @@ module Parse = Parse
 (** {1 Filter Utilities} *)
 
 let blur_internal = function
-  | `None -> style "blur-none" [ filter (Blur (Px 0)) ]
-  | `Xs -> style "blur-xs" [ filter (Blur (Px 2)) ]
-  | `Sm -> style "blur-sm" [ filter (Blur (Px 4)) ]
-  | `Md -> style "blur" [ filter (Blur (Px 8)) ]
-  | `Lg -> style "blur-lg" [ filter (Blur (Px 16)) ]
-  | `Xl -> style "blur-xl" [ filter (Blur (Px 24)) ]
-  | `Xl_2 -> style "blur-2xl" [ filter (Blur (Px 40)) ]
-  | `Xl_3 -> style "blur-3xl" [ filter (Blur (Px 64)) ]
-  | `Full -> style "blur-full" [ filter (Blur (Px 9999)) ]
+  | `None -> style "blur-none" [ filter (Blur (Px 0.)) ]
+  | `Xs -> style "blur-xs" [ filter (Blur (Px 2.)) ]
+  | `Sm -> style "blur-sm" [ filter (Blur (Px 4.)) ]
+  | `Md -> style "blur" [ filter (Blur (Px 8.)) ]
+  | `Lg -> style "blur-lg" [ filter (Blur (Px 16.)) ]
+  | `Xl -> style "blur-xl" [ filter (Blur (Px 24.)) ]
+  | `Xl_2 -> style "blur-2xl" [ filter (Blur (Px 40.)) ]
+  | `Xl_3 -> style "blur-3xl" [ filter (Blur (Px 64.)) ]
+  | `Full -> style "blur-full" [ filter (Blur (Px 9999.)) ]
 
 let blur_none = blur_internal `None
 let blur_xs = blur_internal `Xs
@@ -79,15 +79,15 @@ let hue_rotate n =
 (** {1 Backdrop Filter Utilities} *)
 
 let backdrop_blur_internal = function
-  | `None -> style "backdrop-blur-none" [ backdrop_filter (Blur (Px 0)) ]
-  | `Xs -> style "backdrop-blur-xs" [ backdrop_filter (Blur (Px 2)) ]
-  | `Sm -> style "backdrop-blur-sm" [ backdrop_filter (Blur (Px 4)) ]
-  | `Md -> style "backdrop-blur" [ backdrop_filter (Blur (Px 8)) ]
-  | `Lg -> style "backdrop-blur-lg" [ backdrop_filter (Blur (Px 12)) ]
-  | `Xl -> style "backdrop-blur-xl" [ backdrop_filter (Blur (Px 24)) ]
-  | `Xl_2 -> style "backdrop-blur-2xl" [ backdrop_filter (Blur (Px 40)) ]
-  | `Xl_3 -> style "backdrop-blur-3xl" [ backdrop_filter (Blur (Px 64)) ]
-  | `Full -> style "backdrop-blur-full" [ backdrop_filter (Blur (Px 9999)) ]
+  | `None -> style "backdrop-blur-none" [ backdrop_filter (Blur (Px 0.)) ]
+  | `Xs -> style "backdrop-blur-xs" [ backdrop_filter (Blur (Px 2.)) ]
+  | `Sm -> style "backdrop-blur-sm" [ backdrop_filter (Blur (Px 4.)) ]
+  | `Md -> style "backdrop-blur" [ backdrop_filter (Blur (Px 8.)) ]
+  | `Lg -> style "backdrop-blur-lg" [ backdrop_filter (Blur (Px 12.)) ]
+  | `Xl -> style "backdrop-blur-xl" [ backdrop_filter (Blur (Px 24.)) ]
+  | `Xl_2 -> style "backdrop-blur-2xl" [ backdrop_filter (Blur (Px 40.)) ]
+  | `Xl_3 -> style "backdrop-blur-3xl" [ backdrop_filter (Blur (Px 64.)) ]
+  | `Full -> style "backdrop-blur-full" [ backdrop_filter (Blur (Px 9999.)) ]
 
 let backdrop_blur_none = backdrop_blur_internal `None
 let backdrop_blur_xs = backdrop_blur_internal `Xs

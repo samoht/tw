@@ -333,8 +333,8 @@ let test_build_utilities_layer_preserves_order () =
     [
       Css.rule ~selector:(Css.Selector.class_ "a")
         [ Css.color (Css.Hex { hash = false; value = "ff0000" }) ];
-      Css.rule ~selector:(Css.Selector.class_ "b") [ Css.margin (Css.Px 10) ];
-      Css.rule ~selector:(Css.Selector.class_ "c") [ Css.padding (Css.Px 5) ];
+      Css.rule ~selector:(Css.Selector.class_ "b") [ Css.margin (Css.Px 10.) ];
+      Css.rule ~selector:(Css.Selector.class_ "c") [ Css.padding (Css.Px 5.) ];
       Css.rule ~selector:(Css.Selector.class_ "a")
         [ Css.background_color (Css.Hex { hash = false; value = "0000ff" }) ];
       Css.rule ~selector:(Css.Selector.class_ "d")
