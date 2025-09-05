@@ -884,14 +884,7 @@ let placeholder_supports =
           Css.rule ~selector:placeholder
             [
               Css.color
-                (Css.Mix
-                   {
-                     in_space = Oklab;
-                     color1 = Current;
-                     percent1 = Some 50;
-                     color2 = Transparent;
-                     percent2 = None;
-                   });
+                (Css.color_mix ~in_space:Oklab ~percent1:50 Current Transparent);
             ];
         ];
     ]

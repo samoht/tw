@@ -299,7 +299,7 @@ let transition_transform =
 
 let duration n =
   let class_name = "duration-" ^ string_of_int n in
-  style class_name [ transition_duration (Ms n) ]
+  style class_name [ transition_duration (Ms (float_of_int n)) ]
 
 (** {1 Opacity Utility} *)
 
