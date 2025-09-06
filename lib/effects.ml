@@ -76,26 +76,20 @@ let make_shadow_utility name shadow_value =
   in
   let ring_shadow_def, _ = Var.utility Var.Ring_shadow (Css.shadow ()) in
 
-  (* Create box_shadow theme variables *)
-  let _, inset_shadow_box = Var.theme Var.Shadow (Css.shadow ()) in
-  let _, inset_ring_shadow_box =
-    Var.theme Var.Shadow (Css.inset_ring_shadow ())
-  in
-  let _, ring_offset_shadow_box = Var.theme Var.Shadow (Css.shadow ()) in
-  let _, ring_shadow_box = Var.theme Var.Shadow (Css.shadow ()) in
-  let _, shadow_box = Var.theme Var.Shadow shadow_value in
-
   (* Create the composed box_shadow *)
-  let box_shadow_def, box_shadow_var =
-    Var.theme Var.Box_shadow
-      (Shadows
-         [
-           Var inset_shadow_box;
-           Var inset_ring_shadow_box;
-           Var ring_offset_shadow_box;
-           Var ring_shadow_box;
-           Var shadow_box;
-         ])
+  let box_shadow_def, _ = Var.theme Var.Box_shadow Css.None in
+
+  (* Convert shadow to box_shadow *)
+  let box_shadow_value : Css.box_shadow =
+    match shadow_value with
+    | Css.Simple (h, v, blur, spread, color) ->
+        Css.Shadow
+          { inset = false; h_offset = h; v_offset = v; blur; spread; color }
+    | Css.Inset (h, v, blur, spread, color) ->
+        Css.Shadow
+          { inset = true; h_offset = h; v_offset = v; blur; spread; color }
+    | Css.None -> Css.None
+    | _ -> Css.None
   in
 
   style name ~property_rules:shadow_property_rules
@@ -106,7 +100,7 @@ let make_shadow_utility name shadow_value =
       ring_offset_shadow_def;
       ring_shadow_def;
       box_shadow_def;
-      box_shadow (Var box_shadow_var);
+      box_shadow box_shadow_value;
     ]
 
 let shadow_none = make_shadow_utility "shadow-none" (Css.shadow ())
@@ -131,15 +125,7 @@ let shadow_inner =
   in
   let ring_shadow_def, _ = Var.utility Var.Ring_shadow (Css.shadow ()) in
   let shadow_def, _ = Var.utility Var.Shadow (Css.shadow ()) in
-  let _, inset_shadow_var = Var.theme Var.Shadow (Css.shadow ()) in
-  let _, inset_ring_shadow_var =
-    Var.theme Var.Inset_ring_shadow (Css.inset_ring_shadow ())
-  in
-  let _, ring_offset_shadow_var =
-    Var.theme Var.Ring_offset_shadow (Css.shadow ())
-  in
-  let _, ring_shadow_var = Var.theme Var.Ring_shadow (Css.shadow ()) in
-  let _, shadow_var = Var.theme Var.Shadow (Css.shadow ()) in
+  let _, box_shadow_var = Var.theme Var.Box_shadow Css.None in
 
   style "shadow-inner" ~property_rules:shadow_property_rules
     [
@@ -148,15 +134,7 @@ let shadow_inner =
       ring_offset_shadow_def;
       ring_shadow_def;
       shadow_def;
-      box_shadow
-        (Shadows
-           [
-             Var inset_shadow_var;
-             Var inset_ring_shadow_var;
-             Var ring_offset_shadow_var;
-             Var ring_shadow_var;
-             Var shadow_var;
-           ]);
+      box_shadow (Css.Var box_shadow_var);
     ]
 
 (** {1 Opacity Utilities} *)
@@ -213,7 +191,15 @@ let ring_internal (w : ring_width) =
       width_def;
       color_def;
       box_shadow
-        (Shadow (Css.shadow ~spread:(Var width_var) ~color:(Var color_var) ()));
+        (Css.Shadow
+           {
+             inset = false;
+             h_offset = Zero;
+             v_offset = Zero;
+             blur = None;
+             spread = Some (Var width_var);
+             color = Some (Var color_var);
+           });
     ]
 
 let ring_none = ring_internal `None
@@ -242,59 +228,101 @@ let ring_color color shade =
 (** {1 Transition Utilities} *)
 
 let transition_none =
-  style "transition-none" [ transition (Simple (None, S 0.0)) ]
+  style "transition-none"
+    [
+      transition
+        {
+          property = None;
+          duration = Some (S 0.0);
+          timing_function = None;
+          delay = None;
+        };
+    ]
 
 let transition_all =
   style "transition-all"
     [
-      transition (With_timing (All, Ms 150., Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
+      transition
+        {
+          property = All;
+          duration = Some (Ms 150.);
+          timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+          delay = None;
+        };
     ]
 
 let transition_colors =
   style "transition-colors"
     [
-      transition
-        (Multiple
-           [
-             With_timing
-               ( Property "background-color",
-                 Ms 150.,
-                 Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-             With_timing
-               ( Property "border-color",
-                 Ms 150.,
-                 Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-             With_timing
-               (Property "color", Ms 150., Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-             With_timing
-               (Property "fill", Ms 150., Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-             With_timing
-               (Property "stroke", Ms 150., Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-           ]);
+      Css.transitions
+        [
+          {
+            property = Property "background-color";
+            duration = Some (Ms 150.);
+            timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+          {
+            property = Property "border-color";
+            duration = Some (Ms 150.);
+            timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+          {
+            property = Property "color";
+            duration = Some (Ms 150.);
+            timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+          {
+            property = Property "fill";
+            duration = Some (Ms 150.);
+            timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+          {
+            property = Property "stroke";
+            duration = Some (Ms 150.);
+            timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+        ];
     ]
 
 let transition_opacity =
   style "transition-opacity"
     [
       transition
-        (With_timing
-           (Property "opacity", Ms 150., Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
+        {
+          property = Property "opacity";
+          duration = Some (Ms 150.);
+          timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+          delay = None;
+        };
     ]
 
 let transition_shadow =
   style "transition-shadow"
     [
       transition
-        (With_timing
-           (Property "box-shadow", Ms 150., Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
+        {
+          property = Property "box-shadow";
+          duration = Some (Ms 150.);
+          timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+          delay = None;
+        };
     ]
 
 let transition_transform =
   style "transition-transform"
     [
       transition
-        (With_timing
-           (Property "transform", Ms 150., Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
+        {
+          property = Property "transform";
+          duration = Some (Ms 150.);
+          timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+          delay = None;
+        };
     ]
 
 let duration n =

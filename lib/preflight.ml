@@ -294,7 +294,20 @@ let webkit_form_resets () =
 (** Firefox-specific form resets *)
 let firefox_form_resets () =
   [
-    rule ~selector:(Selector.pseudo_class "-moz-ui-invalid") [ box_shadow None ];
+    rule
+      ~selector:(Selector.pseudo_class "-moz-ui-invalid")
+      [
+        box_shadow
+          (Shadow
+             {
+               inset = false;
+               h_offset = Zero;
+               v_offset = Zero;
+               blur = None;
+               spread = None;
+               color = None;
+             });
+      ];
   ]
 
 (** Buttons need specific styles *)

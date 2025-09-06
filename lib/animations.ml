@@ -7,118 +7,163 @@ module Parse = Parse
 (** {1 Transition Utilities} *)
 
 let transition_none =
-  style "transition-none" [ Css.transition (Css.Simple (Css.None, Css.S 0.0)) ]
+  style "transition-none"
+    [
+      Css.transition
+        {
+          property = Css.None;
+          duration = Some (Css.S 0.0);
+          timing_function = None;
+          delay = None;
+        };
+    ]
 
 let transition =
   style "transition"
     [
-      Css.transition
-        (Css.Multiple
-           [
-             Css.With_timing
-               ( Css.Property "color",
-                 Css.Ms 150.,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-             Css.With_timing
-               ( Css.Property "background-color",
-                 Css.Ms 150.,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-             Css.With_timing
-               ( Css.Property "border-color",
-                 Css.Ms 150.,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-             Css.With_timing
-               ( Css.Property "text-decoration-color",
-                 Css.Ms 150.,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-             Css.With_timing
-               ( Css.Property "fill",
-                 Css.Ms 150.,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-             Css.With_timing
-               ( Css.Property "stroke",
-                 Css.Ms 150.,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-             Css.With_timing
-               ( Css.Property "opacity",
-                 Css.Ms 150.,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-             Css.With_timing
-               ( Css.Property "box-shadow",
-                 Css.Ms 150.,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-             Css.With_timing
-               ( Css.Property "transform",
-                 Css.Ms 150.,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-           ]);
+      Css.transitions
+        [
+          {
+            property = Css.Property "color";
+            duration = Some (Css.Ms 150.);
+            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+          {
+            property = Css.Property "background-color";
+            duration = Some (Css.Ms 150.);
+            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+          {
+            property = Css.Property "border-color";
+            duration = Some (Css.Ms 150.);
+            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+          {
+            property = Css.Property "text-decoration-color";
+            duration = Some (Css.Ms 150.);
+            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+          {
+            property = Css.Property "fill";
+            duration = Some (Css.Ms 150.);
+            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+          {
+            property = Css.Property "stroke";
+            duration = Some (Css.Ms 150.);
+            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+          {
+            property = Css.Property "opacity";
+            duration = Some (Css.Ms 150.);
+            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+          {
+            property = Css.Property "box-shadow";
+            duration = Some (Css.Ms 150.);
+            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+          {
+            property = Css.Property "transform";
+            duration = Some (Css.Ms 150.);
+            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+        ];
     ]
 
 let transition_all =
   style "transition-all"
     [
       Css.transition
-        (Css.With_timing
-           (Css.All, Css.Ms 150., Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0)));
+        {
+          property = Css.All;
+          duration = Some (Css.Ms 150.);
+          timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+          delay = None;
+        };
     ]
 
 let transition_colors =
   style "transition-colors"
     [
-      Css.transition
-        (Css.Multiple
-           [
-             Css.With_timing
-               ( Css.Property "background-color",
-                 Css.Ms 150.,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-             Css.With_timing
-               ( Css.Property "border-color",
-                 Css.Ms 150.,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-             Css.With_timing
-               ( Css.Property "color",
-                 Css.Ms 150.,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-             Css.With_timing
-               ( Css.Property "fill",
-                 Css.Ms 150.,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-             Css.With_timing
-               ( Css.Property "stroke",
-                 Css.Ms 150.,
-                 Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) );
-           ]);
+      Css.transitions
+        [
+          {
+            property = Css.Property "background-color";
+            duration = Some (Css.Ms 150.);
+            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+          {
+            property = Css.Property "border-color";
+            duration = Some (Css.Ms 150.);
+            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+          {
+            property = Css.Property "color";
+            duration = Some (Css.Ms 150.);
+            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+          {
+            property = Css.Property "fill";
+            duration = Some (Css.Ms 150.);
+            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+          {
+            property = Css.Property "stroke";
+            duration = Some (Css.Ms 150.);
+            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+            delay = None;
+          };
+        ];
     ]
 
 let transition_opacity =
   style "transition-opacity"
     [
       Css.transition
-        (Css.With_timing
-           ( Css.Property "opacity",
-             Css.Ms 150.,
-             Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) ));
+        {
+          property = Css.Property "opacity";
+          duration = Some (Css.Ms 150.);
+          timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+          delay = None;
+        };
     ]
 
 let transition_shadow =
   style "transition-shadow"
     [
       Css.transition
-        (Css.With_timing
-           ( Css.Property "box-shadow",
-             Css.Ms 150.,
-             Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) ));
+        {
+          property = Css.Property "box-shadow";
+          duration = Some (Css.Ms 150.);
+          timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+          delay = None;
+        };
     ]
 
 let transition_transform =
   style "transition-transform"
     [
       Css.transition
-        (Css.With_timing
-           ( Css.Property "transform",
-             Css.Ms 150.,
-             Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0) ));
+        {
+          property = Css.Property "transform";
+          duration = Some (Css.Ms 150.);
+          timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+          delay = None;
+        };
     ]
 
 (** {1 Animation Utilities} *)

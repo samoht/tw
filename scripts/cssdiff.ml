@@ -1,7 +1,7 @@
 (** Script to compare two CSS files with structural parsing for better diffs
     Usage: cssdiff.exe <css_file1> <css_file2> *)
 
-let pp_parse_error ppf (Css.Parser.Parse_error (msg, reader)) =
+let pp_parse_error ppf (Css_parser.Parse_error (msg, reader)) =
   let before, after = Css.Reader.context_string reader in
   let pos = Css.Reader.position reader in
   let len = Css.Reader.length reader in
@@ -32,14 +32,14 @@ let () =
             (* Show detailed diff *)
             let css1 = Tw_tools.Css_compare.strip_header css1 in
             let css2 = Tw_tools.Css_compare.strip_header css2 in
-            (match (Css.Parser.of_string css1, Css.Parser.of_string css2) with
+            (match (Css_parser.of_string css1, Css_parser.of_string css2) with
             | Ok ast1, Ok ast2 ->
                 let diff = Tw_tools.Css_compare.diff ast1 ast2 in
                 Fmt.pr "%a@." Tw_tools.Css_compare.pp diff
             | Error e1, Error e2 ->
                 (* Check if contexts are similar *)
-                let (Css.Parser.Parse_error (msg1, r1)) = e1 in
-                let (Css.Parser.Parse_error (msg2, r2)) = e2 in
+                let (Css_parser.Parse_error (msg1, r1)) = e1 in
+                let (Css_parser.Parse_error (msg2, r2)) = e2 in
                 let b1, a1 = Css.Reader.context_string r1 in
                 let b2, a2 = Css.Reader.context_string r2 in
                 if msg1 = msg2 && b1 = b2 && a1 = a2 then

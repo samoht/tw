@@ -143,7 +143,7 @@ let compare_css css1 css2 =
   let css2 = strip_header css2 in
 
   (* Use the CSS parser to parse both *)
-  match (Css.Parser.of_string css1, Css.Parser.of_string css2) with
+  match (Css_parser.of_string css1, Css_parser.of_string css2) with
   | Ok ast1, Ok ast2 ->
       (* Direct AST comparison *)
       ast1 = ast2
@@ -153,7 +153,7 @@ let compare_css css1 css2 =
 
 (* Extract rules that match a class name *)
 let extract_rules_with_class css class_name =
-  match Css.Parser.of_string css with
+  match Css_parser.of_string css with
   | Ok ast ->
       let items = Css.stylesheet_items ast in
       let rec extract acc = function
@@ -218,7 +218,7 @@ let count_css_class_patterns css class_name =
   (base_count, where_count, List.length rules)
 
 let find_dominant_css_class css =
-  match Css.Parser.of_string css with
+  match Css_parser.of_string css with
   | Ok ast -> (
       let items = Css.stylesheet_items ast in
       let rec count_classes acc = function
@@ -590,12 +590,12 @@ let diff ast1 ast2 =
 let format_css_diff css1 css2 =
   let css1 = strip_header css1 in
   let css2 = strip_header css2 in
-  match (Css.Parser.of_string css1, Css.Parser.of_string css2) with
+  match (Css_parser.of_string css1, Css_parser.of_string css2) with
   | Ok ast1, Ok ast2 ->
       let diff_result = diff ast1 ast2 in
       Fmt.str "%a" pp diff_result
-  | ( Error (Css.Parser.Parse_error (msg1, r1)),
-      Error (Css.Parser.Parse_error (msg2, r2)) ) ->
+  | ( Error (Css_parser.Parse_error (msg1, r1)),
+      Error (Css_parser.Parse_error (msg2, r2)) ) ->
       let b1, a1 = Css.Reader.context_string r1 in
       let b2, a2 = Css.Reader.context_string r2 in
       Printf.sprintf
@@ -604,11 +604,11 @@ let format_css_diff css1 css2 =
          Second: %s at pos %d/%d: %s[HERE]%s"
         msg1 (Css.Reader.position r1) (Css.Reader.length r1) b1 a1 msg2
         (Css.Reader.position r2) (Css.Reader.length r2) b2 a2
-  | Error (Css.Parser.Parse_error (msg, r)), _ ->
+  | Error (Css_parser.Parse_error (msg, r)), _ ->
       let b, a = Css.Reader.context_string r in
       Printf.sprintf "Failed to parse our CSS: %s at pos %d/%d: %s[HERE]%s" msg
         (Css.Reader.position r) (Css.Reader.length r) b a
-  | _, Error (Css.Parser.Parse_error (msg, r)) ->
+  | _, Error (Css_parser.Parse_error (msg, r)) ->
       let b, a = Css.Reader.context_string r in
       Printf.sprintf "Failed to parse their CSS: %s at pos %d/%d: %s[HERE]%s"
         msg (Css.Reader.position r) (Css.Reader.length r) b a
@@ -618,7 +618,7 @@ let format_labeled_css_diff ~tw_label ~tailwind_label ?css1 ?css2 _ _ =
   | Some c1, Some c2 -> (
       let c1 = strip_header c1 in
       let c2 = strip_header c2 in
-      match (Css.Parser.of_string c1, Css.Parser.of_string c2) with
+      match (Css_parser.of_string c1, Css_parser.of_string c2) with
       | Ok ast1, Ok ast2 ->
           let ( added,
                 removed,
