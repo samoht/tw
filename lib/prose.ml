@@ -474,18 +474,31 @@ let kbd_rules base =
         color (Var prose_kbd_var);
         (* Typed box-shadow equivalent using color-mix to approximate 10%
            alpha *)
-        box_shadow
-          (Shadows
-             [
-               Css.shadow ~spread:(Px 1.)
-                 ~color:
-                   (Css.color_mix ~percent1:10 (Var prose_kbd_var) Transparent)
-                 ();
-               Css.shadow ~v_offset:(Px 3.)
-                 ~color:
-                   (Css.color_mix ~percent1:10 (Var prose_kbd_var) Transparent)
-                 ();
-             ]);
+        Css.box_shadow_list
+          [
+            Css.Shadow
+              {
+                inset = false;
+                h_offset = Zero;
+                v_offset = Zero;
+                blur = None;
+                spread = Some (Px 1.);
+                color =
+                  Some
+                    (Css.color_mix ~percent1:10 (Var prose_kbd_var) Transparent);
+              };
+            Css.Shadow
+              {
+                inset = false;
+                h_offset = Zero;
+                v_offset = Px 3.;
+                blur = None;
+                spread = None;
+                color =
+                  Some
+                    (Css.color_mix ~percent1:10 (Var prose_kbd_var) Transparent);
+              };
+          ];
         padding_top (Em 0.1875);
         padding_inline_end (Em 0.375);
         padding_bottom (Em 0.1875);

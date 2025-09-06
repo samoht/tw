@@ -75,8 +75,8 @@ let justify_center = style "justify-center" [ justify_content Center ]
 let justify_between = style "justify-between" [ justify_content Space_between ]
 let justify_around = style "justify-around" [ justify_content Space_around ]
 let justify_evenly = style "justify-evenly" [ justify_content Space_evenly ]
-let content_start = style "content-start" [ align_content Flex_start ]
-let content_end = style "content-end" [ align_content Flex_end ]
+let content_start = style "content-start" [ align_content Start ]
+let content_end = style "content-end" [ align_content End ]
 let content_center = style "content-center" [ align_content Center ]
 let content_between = style "content-between" [ align_content Space_between ]
 let content_around = style "content-around" [ align_content Space_around ]
@@ -191,14 +191,15 @@ let grid_cols n =
       (String.concat ""
          [ "grid_cols: "; string_of_int n; " is out of range (1-12)" ])
   else
+    let tracks = List.init n (fun _ -> Fr 1.0) in
     style
       (String.concat "" [ "grid-cols-"; string_of_int n ])
-      [ Css.grid_template_columns (Repeat (n, Min_max (Zero, Fr 1.0))) ]
+      [ Css.grid_template_columns (Tracks tracks) ]
 
 let grid_cols_none = style "grid-cols-none" [ Css.grid_template_columns None ]
 
 let grid_cols_subgrid =
-  style "grid-cols-subgrid" [ Css.grid_template_columns (Tracks [ Grid_auto ]) ]
+  style "grid-cols-subgrid" [ Css.grid_template_columns (Tracks [ Auto ]) ]
 
 let grid_rows n =
   if n < 1 || n > 12 then
@@ -208,12 +209,12 @@ let grid_rows n =
   else
     style
       (String.concat "" [ "grid-rows-"; string_of_int n ])
-      [ Css.grid_template_rows (Repeat (n, Min_max (Zero, Fr 1.0))) ]
+      [ Css.grid_template_rows (Tracks [ Repeat (n, [ Fr 1.0 ]) ]) ]
 
 let grid_rows_none = style "grid-rows-none" [ Css.grid_template_rows None ]
 
 let grid_rows_subgrid =
-  style "grid-rows-subgrid" [ Css.grid_template_rows (Tracks [ Grid_auto ]) ]
+  style "grid-rows-subgrid" [ Css.grid_template_rows (Tracks [ Auto ]) ]
 
 (** {1 Grid Column/Row Spans} *)
 
@@ -225,19 +226,19 @@ let col_span n =
     [ Css.grid_column (Span n, Span n) ]
 
 let col_span_full =
-  style "col-span-full" [ Css.grid_column (Line_number 1, Line_number (-1)) ]
+  style "col-span-full" [ Css.grid_column (Number 1, Number (-1)) ]
 
 let col_start n =
   style
     (String.concat "" [ "col-start-"; string_of_int n ])
-    [ Css.grid_column_start (Line_number n) ]
+    [ Css.grid_column_start (Number n) ]
 
 let col_start_auto = style "col-start-auto" [ Css.grid_column_start Auto ]
 
 let col_end n =
   style
     (String.concat "" [ "col-end-"; string_of_int n ])
-    [ Css.grid_column_end (Line_number n) ]
+    [ Css.grid_column_end (Number n) ]
 
 let col_end_auto = style "col-end-auto" [ Css.grid_column_end Auto ]
 let row_auto = style "row-auto" [ Css.grid_row (Auto, Auto) ]
@@ -248,19 +249,19 @@ let row_span n =
     [ Css.grid_row (Span n, Span n) ]
 
 let row_span_full =
-  style "row-span-full" [ Css.grid_row (Line_number 1, Line_number (-1)) ]
+  style "row-span-full" [ Css.grid_row (Number 1, Number (-1)) ]
 
 let row_start n =
   style
     (String.concat "" [ "row-start-"; string_of_int n ])
-    [ Css.grid_row_start (Line_number n) ]
+    [ Css.grid_row_start (Number n) ]
 
 let row_start_auto = style "row-start-auto" [ Css.grid_row_start Auto ]
 
 let row_end n =
   style
     (String.concat "" [ "row-end-"; string_of_int n ])
-    [ Css.grid_row_end (Line_number n) ]
+    [ Css.grid_row_end (Number n) ]
 
 let row_end_auto = style "row-end-auto" [ Css.grid_row_end Auto ]
 
@@ -277,25 +278,25 @@ let grid_flow_col_dense =
   style "grid-flow-col-dense" [ Css.grid_auto_flow Column_dense ]
 
 let auto_cols_auto =
-  style "auto-cols-auto" [ Css.grid_auto_columns (Tracks [ Grid_auto ]) ]
+  style "auto-cols-auto" [ Css.grid_auto_columns (Tracks [ Auto ]) ]
 
 let auto_cols_min =
-  style "auto-cols-min" [ Css.grid_auto_columns (Tracks [ Min_content ]) ]
+  style "auto-cols-min" [ Css.grid_auto_columns (Tracks [ Auto ]) ]
 
 let auto_cols_max =
-  style "auto-cols-max" [ Css.grid_auto_columns (Tracks [ Max_content ]) ]
+  style "auto-cols-max" [ Css.grid_auto_columns (Tracks [ Auto ]) ]
 
 let auto_cols_fr =
   style "auto-cols-fr" [ Css.grid_auto_columns (Tracks [ Fr 1.0 ]) ]
 
 let auto_rows_auto =
-  style "auto-rows-auto" [ Css.grid_auto_rows (Tracks [ Grid_auto ]) ]
+  style "auto-rows-auto" [ Css.grid_auto_rows (Tracks [ Auto ]) ]
 
 let auto_rows_min =
-  style "auto-rows-min" [ Css.grid_auto_rows (Tracks [ Min_content ]) ]
+  style "auto-rows-min" [ Css.grid_auto_rows (Tracks [ Auto ]) ]
 
 let auto_rows_max =
-  style "auto-rows-max" [ Css.grid_auto_rows (Tracks [ Max_content ]) ]
+  style "auto-rows-max" [ Css.grid_auto_rows (Tracks [ Auto ]) ]
 
 let auto_rows_fr =
   style "auto-rows-fr" [ Css.grid_auto_rows (Tracks [ Fr 1.0 ]) ]

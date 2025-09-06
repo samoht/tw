@@ -601,7 +601,7 @@ let list_disc = style "list-disc" [ list_style_type Disc ]
 let list_decimal = style "list-decimal" [ list_style_type Decimal ]
 let list_inside = style "list-inside" [ list_style_position Inside ]
 let list_outside = style "list-outside" [ list_style_position Outside ]
-let list_image_none = style "list-image-none" [ list_style_image None_img ]
+let list_image_none = style "list-image-none" [ list_style_image None ]
 
 let list_image_url url =
   style
