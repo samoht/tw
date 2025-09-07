@@ -24,8 +24,8 @@ let tw_translate_y_def, tw_translate_y_var = Var.utility Var.Translate_y Zero
 let tw_rotate_def, tw_rotate_var = Var.utility Var.Rotate (Deg 0.0)
 let tw_skew_x_def, tw_skew_x_var = Var.utility Var.Skew_x (Deg 0.0)
 let tw_skew_y_def, tw_skew_y_var = Var.utility Var.Skew_y (Deg 0.0)
-let tw_scale_x_def, _tw_scale_x_var = Var.utility Var.Scale_x (Scale 1.0)
-let tw_scale_y_def, _tw_scale_y_var = Var.utility Var.Scale_y (Scale 1.0)
+let tw_scale_x_def, _tw_scale_x_var = Var.utility Var.Scale_x 1.0
+let tw_scale_y_def, _tw_scale_y_var = Var.utility Var.Scale_y 1.0
 
 module Parse = Parse
 
@@ -65,7 +65,7 @@ let translate_y n =
   style class_name [ transform [ Translate_y len ] ]
 
 let scale n =
-  let value : Css.transform_scale = Css.Scale (float_of_int n /. 100.0) in
+  let value = float_of_int n /. 100.0 in
   let class_name = "scale-" ^ string_of_int n in
   let def_scale_x, _scale_x_var = Var.utility Var.Scale_x value in
   let def_scale_y, _scale_y_var = Var.utility Var.Scale_y value in
@@ -81,19 +81,19 @@ let scale n =
     ]
 
 let scale_x n =
-  let value : Css.transform_scale = Scale (float_of_int n /. 100.0) in
+  let value = float_of_int n /. 100.0 in
   (* Convert percentage to float *)
   let class_name = "scale-x-" ^ string_of_int n in
-  let def_x, _scale_x = Var.utility Var.Scale_x value ~fallback:(Scale 1.) in
+  let def_x, _scale_x = Var.utility Var.Scale_x value ~fallback:1. in
   (* Only uses X variable; register Scale_x only *)
   style class_name ~property_rules:scale_x_property_rule
     [ def_x; transform [ Scale_x value ] ]
 
 let scale_y n =
-  let value : Css.transform_scale = Scale (float_of_int n /. 100.0) in
+  let value = float_of_int n /. 100.0 in
   (* Convert percentage to float *)
   let class_name = "scale-y-" ^ string_of_int n in
-  let def_y, _scale_y = Var.utility Var.Scale_y value ~fallback:(Scale 1.) in
+  let def_y, _scale_y = Var.utility Var.Scale_y value ~fallback:1. in
   (* Only uses Y variable; register Scale_y only *)
   style class_name ~property_rules:scale_y_property_rule
     [ def_y; transform [ Scale_y value ] ]
@@ -142,9 +142,9 @@ let translate_z n =
   style class_name [ transform [ Translate_z (Px (float_of_int n)) ] ]
 
 let scale_z n =
-  let value : Css.transform_scale = Scale (float_of_int n /. 100.0) in
+  let value = float_of_int n /. 100.0 in
   let class_name = "scale-z-" ^ string_of_int n in
-  let def, _scale_z_var = Var.utility Var.Scale_z ~fallback:(Scale 1.) value in
+  let def, _scale_z_var = Var.utility Var.Scale_z ~fallback:1. value in
   style class_name ~property_rules:scale_z_property_rule
     [ def; transform [ Scale_z value ] ]
 
@@ -194,8 +194,8 @@ let transform =
           Rotate (Var tw_rotate_var);
           Skew_x (Var tw_skew_x_var);
           Skew_y (Var tw_skew_y_var);
-          Scale_x (Scale 1.0);
-          Scale_y (Scale 1.0);
+          Scale_x 1.0;
+          Scale_y 1.0;
         ];
     ]
 

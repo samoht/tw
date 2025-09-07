@@ -103,9 +103,9 @@ type _ t =
   | Rotate : Css.angle t
   | Skew_x : Css.angle t
   | Skew_y : Css.angle t
-  | Scale_x : Css.transform_scale t
-  | Scale_y : Css.transform_scale t
-  | Scale_z : Css.transform_scale t
+  | Scale_x : float t
+  | Scale_y : float t
+  | Scale_z : float t
   (* Filter variables *)
   | Blur : Css.length t
   | Brightness : float t
@@ -694,9 +694,9 @@ let def : type a.
   | Rotate -> var Angle value
   | Skew_x -> var Angle value
   | Skew_y -> var Angle value
-  | Scale_x -> var Css.Transform_scale value
-  | Scale_y -> var Css.Transform_scale value
-  | Scale_z -> var Css.Transform_scale value
+  | Scale_x -> var Float value
+  | Scale_y -> var Float value
+  | Scale_z -> var Float value
   | Blur -> var Length value
   | Brightness -> var Float value
   | Contrast -> var Float value
