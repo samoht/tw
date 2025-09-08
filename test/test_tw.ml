@@ -76,51 +76,36 @@ let report_failure test_name tw_file tailwind_file =
   Fmt.epr "  diff -u %s %s@," tw_file tailwind_file;
   Fmt.epr "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━@,"
 
-let pp_parse_error ppf (Css_parser.Parse_error (msg, reader)) =
-  let before, after = Css.Reader.context_string reader in
-  let pos = Css.Reader.position reader in
-  let len = Css.Reader.length reader in
-  Fmt.pf ppf "%s@,    Position %d/%d: %s[HERE]%s" msg pos len before after
-
-let are_similar_errors e1 e2 =
-  let (Css_parser.Parse_error (msg1, r1)) = e1 in
-  let (Css_parser.Parse_error (msg2, r2)) = e2 in
-  if msg1 <> msg2 then false
-  else
-    let b1, a1 = Css.Reader.context_string ~window:20 r1 in
-    let b2, a2 = Css.Reader.context_string ~window:20 r2 in
-    b1 = b2 && a1 = a2
-
 let show_diff_with_label label tw_css tailwind_css tw_file tailwind_file =
   Fmt.epr "@,▶ %s@,@," label;
   let tw_css = Tw_tools.Css_compare.strip_header tw_css in
   let tailwind_css = Tw_tools.Css_compare.strip_header tailwind_css in
-  (match (Css_parser.of_string tw_css, Css_parser.of_string tailwind_css) with
+  (match (Css.of_string tw_css, Css.of_string tailwind_css) with
   | Ok ast1, Ok ast2 ->
       let diff_result = Tw_tools.Css_compare.diff ast1 ast2 in
       Fmt.epr "%a@," Tw_tools.Css_compare.pp diff_result
   | Error e1, Error e2 ->
-      if are_similar_errors e1 e2 then
+      if e1 = e2 then
         Fmt.epr
           "@,\
            Parse error in both CSS files:@,\
-          \  %a@,\
+          \  %s@,\
           \  Sizes: TW=%d, Tailwind=%d chars@,"
-          pp_parse_error e1 (String.length tw_css)
+          e1 (String.length tw_css)
           (String.length tailwind_css)
       else (
         Fmt.epr "@,Parse errors in both CSS files:@,";
-        Fmt.epr "  TW (%d chars):@,    %a@," (String.length tw_css)
-          pp_parse_error e1;
+        Fmt.epr "  TW (%d chars):@,    %a@," (String.length tw_css) Fmt.string
+          e1;
         Fmt.epr "  Tailwind (%d chars):@,    %a@,"
           (String.length tailwind_css)
-          pp_parse_error e2)
+          Fmt.string e2)
   | Error e1, _ ->
-      Fmt.epr "@,Failed to parse TW CSS:@,  %a@,  Size: %d chars@,"
-        pp_parse_error e1 (String.length tw_css)
+      Fmt.epr "@,Failed to parse TW CSS:@,  %a@,  Size: %d chars@," Fmt.string
+        e1 (String.length tw_css)
   | _, Error e2 ->
       Fmt.epr "@,Failed to parse Tailwind CSS:@,  %a@,  Size: %d chars@,"
-        pp_parse_error e2
+        Fmt.string e2
         (String.length tailwind_css));
   write_file
     (tw_file ^ "."
@@ -202,44 +187,40 @@ let check_exact_match tw_styles =
       report_failure test_name tw_file tailwind_file;
 
       (* Show structural diff for minified+optimized output *)
-      (match
-         (Css_parser.of_string tw_css, Css_parser.of_string tailwind_css)
-       with
+      (match (Css.of_string tw_css, Css.of_string tailwind_css) with
       | Ok ast1, Ok ast2 ->
           let diff_result = Tw_tools.Css_compare.diff ast1 ast2 in
           Fmt.epr "@,Production output (minified+optimized):@,@[<v 2>%a@]@,"
             Tw_tools.Css_compare.pp diff_result
       | Error e1, Error e2 ->
           Fmt.epr "@,Production output (minified+optimized):@,";
-          if are_similar_errors e1 e2 then
+          if e1 = e2 then
             Fmt.epr
               "  Parse error in both CSS:@,\
               \    %a@,\
               \  Sizes: TW=%d, Tailwind=%d chars@,"
-              pp_parse_error e1 (String.length tw_css)
+              Fmt.string e1 (String.length tw_css)
               (String.length tailwind_css)
           else (
             Fmt.epr "  Parse errors in both CSS:@,";
             Fmt.epr "    TW (%d chars):@,      %a@," (String.length tw_css)
-              pp_parse_error e1;
+              Fmt.string e1;
             Fmt.epr "    Tailwind (%d chars):@,      %a@,"
               (String.length tailwind_css)
-              pp_parse_error e2)
+              Fmt.string e2)
       | Error e1, _ ->
           Fmt.epr "@,Production output (minified+optimized):@,";
           Fmt.epr "  Failed to parse TW CSS:@,    %a@,  Size: %d chars@,"
-            pp_parse_error e1 (String.length tw_css)
+            Fmt.string e1 (String.length tw_css)
       | _, Error e2 ->
           Fmt.epr "@,Production output (minified+optimized):@,";
           Fmt.epr "  Failed to parse Tailwind CSS:@,    %a@,  Size: %d chars@,"
-            pp_parse_error e2
+            Fmt.string e2
             (String.length tailwind_css));
 
       (* Only show base/optimization debugging if production CSS parsed
          successfully *)
-      (match
-         (Css_parser.of_string tw_css, Css_parser.of_string tailwind_css)
-       with
+      (match (Css.of_string tw_css, Css.of_string tailwind_css) with
       | Ok _, Ok _ ->
           (* Then show debugging info to help identify the issue *)
           let base_match, base_tw, base_tailwind =

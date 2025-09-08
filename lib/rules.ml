@@ -715,7 +715,7 @@ let rules_of_grouped ?(filter_custom_props = false) grouped_list =
             props
         else props
       in
-      Css.rule ~selector (Css.deduplicate_declarations filtered_props))
+      Css.rule ~selector filtered_props)
     grouped_list
 
 let rule_sets tw_classes =
