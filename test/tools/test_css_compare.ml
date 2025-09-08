@@ -83,9 +83,7 @@ let test_compare_duplicate_properties () =
 let test_format_diff_no_changes () =
   let css = ".test { color: red; }" in
   let css_stripped = strip_header css in
-  match
-    (Css_parser.of_string css_stripped, Css_parser.of_string css_stripped)
-  with
+  match (Css.of_string css_stripped, Css.of_string css_stripped) with
   | Ok ast1, Ok ast2 ->
       let diff_result = diff ast1 ast2 in
       let expected = { rules = []; media = []; layers = [] } in
@@ -97,9 +95,7 @@ let test_format_diff_added_rule () =
   let css2 = ".test1 { color: red; } .test2 { color: blue; }" in
   let css1_stripped = strip_header css1 in
   let css2_stripped = strip_header css2 in
-  match
-    (Css_parser.of_string css1_stripped, Css_parser.of_string css2_stripped)
-  with
+  match (Css.of_string css1_stripped, Css.of_string css2_stripped) with
   | Ok ast1, Ok ast2 ->
       let diff_result = diff ast1 ast2 in
       let expected =
@@ -124,9 +120,7 @@ let test_format_diff_removed_rule () =
   let css2 = ".test1 { color: red; }" in
   let css1_stripped = strip_header css1 in
   let css2_stripped = strip_header css2 in
-  match
-    (Css_parser.of_string css1_stripped, Css_parser.of_string css2_stripped)
-  with
+  match (Css.of_string css1_stripped, Css.of_string css2_stripped) with
   | Ok ast1, Ok ast2 ->
       let diff_result = diff ast1 ast2 in
       let expected =
@@ -151,9 +145,7 @@ let test_format_diff_modified_property () =
   let css2 = ".test { color: blue; }" in
   let css1_stripped = strip_header css1 in
   let css2_stripped = strip_header css2 in
-  match
-    (Css_parser.of_string css1_stripped, Css_parser.of_string css2_stripped)
-  with
+  match (Css.of_string css1_stripped, Css.of_string css2_stripped) with
   | Ok ast1, Ok ast2 ->
       let diff_result = diff ast1 ast2 in
       let expected =
@@ -186,9 +178,7 @@ let test_format_diff_property_details () =
   let css2 = ".test { color: blue; margin: 5px; }" in
   let css1_stripped = strip_header css1 in
   let css2_stripped = strip_header css2 in
-  match
-    (Css_parser.of_string css1_stripped, Css_parser.of_string css2_stripped)
-  with
+  match (Css.of_string css1_stripped, Css.of_string css2_stripped) with
   | Ok ast1, Ok ast2 ->
       let diff_result = diff ast1 ast2 in
       (* Should show: color modified, padding removed, margin added *)
@@ -223,10 +213,10 @@ let test_format_diff_parse_failures () =
   (* Test direct parsing to verify error handling *)
   let invalid_stripped = strip_header invalid in
   let valid_stripped = strip_header valid in
-  (match Css_parser.of_string invalid_stripped with
+  (match Css.of_string invalid_stripped with
   | Error _ -> () (* Expected - parsing should fail *)
   | Ok _ -> fail "Invalid CSS should not parse successfully");
-  match Css_parser.of_string valid_stripped with
+  match Css.of_string valid_stripped with
   | Ok _ -> () (* Expected - parsing should succeed *)
   | Error _ -> fail "Valid CSS should parse successfully"
 
@@ -324,7 +314,7 @@ let test_find_dominant_class_pseudo () =
 let test_format_labeled_css_diff () =
   let css1 = ".test { color: red; }" in
   let css2 = ".test { color: blue; }" in
-  match (Css_parser.of_string css1, Css_parser.of_string css2) with
+  match (Css.of_string css1, Css.of_string css2) with
   | Ok ast1, Ok ast2 ->
       check bool "ASTs should be different" false (ast1 = ast2);
       let diff_result = diff ast1 ast2 in
@@ -335,7 +325,7 @@ let test_format_labeled_css_diff () =
 
 let test_format_labeled_css_diff_perfect_match () =
   let css = ".test { color: red; }" in
-  match (Css_parser.of_string css, Css_parser.of_string css) with
+  match (Css.of_string css, Css.of_string css) with
   | Ok ast1, Ok ast2 ->
       let diff_result = diff ast1 ast2 in
       let expected = { rules = []; media = []; layers = [] } in
@@ -345,7 +335,7 @@ let test_format_labeled_css_diff_perfect_match () =
 let test_format_labeled_css_diff_added_removed () =
   let css1 = ".test1 { color: red; }" in
   let css2 = ".test2 { color: blue; }" in
-  match (Css_parser.of_string css1, Css_parser.of_string css2) with
+  match (Css.of_string css1, Css.of_string css2) with
   | Ok ast1, Ok ast2 ->
       let diff_result = diff ast1 ast2 in
       check int "two rule changes" 2 (List.length diff_result.rules);
