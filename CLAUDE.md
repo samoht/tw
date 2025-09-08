@@ -151,3 +151,96 @@ When something doesn't work:
   - `<test_name>_tw.css`: Our generated output
   - `<test_name>_tailwind.css`: Expected Tailwind output
   - Use `diff -u` to compare and identify mismatches
+
+## Test File Organization
+
+### test/css directory structure:
+- **test_values.ml** - CSS value types (lengths, colors, angles, calc, etc.)
+- **test_declaration.ml** - CSS declaration parsing
+- **test_properties.ml** - CSS property types and values
+- **test_selector.ml** - CSS selector parsing and construction
+- **test_reader.ml** - Low-level CSS reader/parser functions
+- **test_pp.ml** - Pretty printing and minification
+- **test_css.ml** - CSS optimization and rule merging (uses ocaml-crunch for embedded test files)
+
+### Test Focus:
+- Each test file should focus on testing against the SPEC, not implementation
+- test_css.ml focuses ONLY on optimization algorithms, not basic CSS functionality
+- Basic CSS features are tested in their respective files (values, properties, etc.)
+- Avoid duplicate tests - each concept should be tested in ONE place
+- Use ocaml-crunch to embed CSS test files for portability
+
+## Test Structure Convention
+
+### For CSS Property Types (test/css/test_properties.ml)
+
+1. **Generic check function**:
+   ```ocaml
+   let check_value name pp reader ?expected input =
+     (* Handles parse/print roundtrip testing *)
+   ```
+
+2. **One-liner check functions for each type**:
+   ```ocaml
+   let check_display = check_value "display" Css.Properties.pp_display Css.Properties.read_display
+   let check_position = check_value "position" Css.Properties.pp_position Css.Properties.read_position
+   let check_overflow = check_value "overflow" Css.Properties.pp_overflow Css.Properties.read_overflow
+   ```
+   - Function name: `check_<type>` where `<type>` matches the OCaml type name exactly
+   - Tests individual values of that specific type
+
+3. **Test functions use check functions**:
+   ```ocaml
+   let test_display () =
+     check_display "none";
+     check_display "block";
+     check_display "inline";
+     check_display ~expected:"inline-block" "inline-block";  (* Use ~expected when output differs *)
+     ...
+   ```
+
+4. **Test function definitions**:
+   - ALWAYS define named test functions: `let test_foo () = ...`
+   - NEVER use inline anonymous functions in test_case
+   - Bad: `test_case "foo" \`Quick (fun () -> ...)`
+   - Good: `test_case "foo" \`Quick test_foo`
+
+5. **Naming conventions**:
+   - `check_<type>`: Tests a single value of type `<type>`
+   - `test_<property>`: Tests all values for a CSS property
+   - Never invent names - use exact type names from properties_intf.ml
+
+6. **Coverage requirements**:
+   - Test all valid enum values for each type
+   - Include edge cases (empty strings, whitespace, case variations)
+   - Test complex structured types thoroughly (shadows, gradients, transforms)
+
+7. **Testing negative cases and ambiguous specs**:
+   - Always test invalid inputs that should fail parsing
+   - Test edge cases where CSS/MDN specs might be ambiguous
+   - Use `try_parse` to verify that invalid values are properly rejected
+   - Example:
+     ```ocaml
+     let test_negative_values () =
+       let neg reader s label =
+         let r = Css.Reader.of_string s in
+         check bool label true (Option.is_none (try_parse reader r))
+       in
+       neg read_angle "90" "angle without unit should fail";
+       neg read_duration "100" "duration without unit should fail";
+       neg read_color "notacolor" "invalid color keyword should fail"
+     ```
+   - When specs are ambiguous, document the chosen behavior and test it
+   - Test boundary conditions (e.g., what happens with negative margins, zero values)
+
+## When Fixing Tests
+- **test/css/** tests: Always refer to the CSS/MDN spec. If the test is compliant with the spec and it fails: fix the code. Otherwise fix the test.
+- **test/** tests (non-css): Always refer to the Tailwind v4 manual (and/or to the tailwindcss v4.x.x CLI tool). If the test is compliant, fix the code. Otherwise fix the test.
+
+## Important Testing Principles
+- **Tests should validate the SPEC, not the current implementation**
+- CSS tests must verify compliance with CSS specifications (W3C/MDN)
+- Tailwind tests must verify output matches Tailwind v4 behavior
+- Never write tests that just confirm current code behavior - always test against the expected specification
+- If a test passes but violates the spec, the test is wrong
+- If code passes tests but violates the spec, write better tests

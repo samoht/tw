@@ -460,9 +460,45 @@ let text_justify = style "text-justify" [ text_align Justify ]
 
 (** {1 Text Decoration Utilities} *)
 
-let underline = style "underline" [ text_decoration Underline ]
-let overline = style "overline" [ text_decoration Overline ]
-let line_through = style "line-through" [ text_decoration Line_through ]
+let underline =
+  style "underline"
+    [
+      text_decoration
+        (Shorthand
+           {
+             lines = [ Underline ];
+             style = None;
+             color = None;
+             thickness = None;
+           });
+    ]
+
+let overline =
+  style "overline"
+    [
+      text_decoration
+        (Shorthand
+           {
+             lines = [ Overline ];
+             style = None;
+             color = None;
+             thickness = None;
+           });
+    ]
+
+let line_through =
+  style "line-through"
+    [
+      text_decoration
+        (Shorthand
+           {
+             lines = [ Line_through ];
+             style = None;
+             color = None;
+             thickness = None;
+           });
+    ]
+
 let no_underline = style "no-underline" [ text_decoration None ]
 
 (** {1 Text Decoration Style} *)
