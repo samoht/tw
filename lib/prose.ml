@@ -312,7 +312,14 @@ let link_rules base =
       [
         color (Var prose_links_var);
         font_weight (Weight 500);
-        text_decoration Underline;
+        text_decoration
+          (Shorthand
+             {
+               lines = [ Underline ];
+               style = None;
+               color = None;
+               thickness = None;
+             });
       ];
   ]
 

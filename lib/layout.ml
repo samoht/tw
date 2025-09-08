@@ -111,11 +111,16 @@ let object_scale_down = style "object-scale-down" [ object_fit Scale_down ]
 
 (** {1 Object Position Utilities} *)
 
-let object_center = style "object-center" [ object_position "center" ]
-let object_top = style "object-top" [ object_position "top" ]
-let object_bottom = style "object-bottom" [ object_position "bottom" ]
-let object_left = style "object-left" [ object_position "left" ]
-let object_right = style "object-right" [ object_position "right" ]
+let object_center =
+  style "object-center" [ object_position (XY (Center, Center)) ]
+
+let object_top = style "object-top" [ object_position (XY (Center, Top)) ]
+
+let object_bottom =
+  style "object-bottom" [ object_position (XY (Center, Bottom)) ]
+
+let object_left = style "object-left" [ object_position (XY (Left, Center)) ]
+let object_right = style "object-right" [ object_position (XY (Right, Center)) ]
 
 (** {1 Table Utilities} *)
 

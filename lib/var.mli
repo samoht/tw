@@ -82,9 +82,9 @@ type _ t =
   | Rotate : Css.angle t
   | Skew_x : Css.angle t
   | Skew_y : Css.angle t
-  | Scale_x : Css.transform_scale t
-  | Scale_y : Css.transform_scale t
-  | Scale_z : Css.transform_scale t
+  | Scale_x : float t
+  | Scale_y : float t
+  | Scale_z : float t
   (* Filter variables *)
   | Blur : Css.length t
   | Brightness : float t

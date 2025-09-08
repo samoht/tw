@@ -75,8 +75,22 @@ let structural_resets () =
       [ height Zero; color Inherit; border_top_width (Px 1.) ];
     rule ~selector:abbr_with_title
       [
-        webkit_text_decoration Underline_dotted;
-        text_decoration Underline_dotted;
+        webkit_text_decoration
+          (Shorthand
+             {
+               lines = [ Underline ];
+               style = Some Dotted;
+               color = None;
+               thickness = None;
+             });
+        text_decoration
+          (Shorthand
+             {
+               lines = [ Underline ];
+               style = Some Dotted;
+               color = None;
+               thickness = None;
+             });
       ];
   ]
 
