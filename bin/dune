@@ -2,3 +2,8 @@
  (public_name tw)
  (name main)
  (libraries tw cmdliner fmt))
+
+(executable
+ (public_name cascade)
+ (name cascade)
+ (libraries tw.css cmdliner fmt))
