@@ -232,7 +232,7 @@ let form_control_resets () =
         letter_spacing Inherit;
         color Inherit;
         opacity 1.0;
-        background_color Transparent;
+        background_color (hex "#0000");
         border_radius Zero;
       ];
     rule
@@ -244,7 +244,7 @@ let form_control_resets () =
         letter_spacing Inherit;
         color Inherit;
         opacity 1.0;
-        background_color Transparent;
+        background_color (hex "#0000");
         border_radius Zero;
       ];
   ]

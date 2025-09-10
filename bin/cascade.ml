@@ -1,5 +1,8 @@
 open Cmdliner
 
+(* Always record backtraces so unexpected exceptions include full stacks *)
+let () = Printexc.record_backtrace true
+
 type output_format = Pretty | Minified
 
 let read_file path =
@@ -57,6 +60,8 @@ let process_css input_path output_format optimize =
       exit 1
   | e ->
       Printf.eprintf "Unexpected error: %s\n" (Printexc.to_string e);
+      let bt = Printexc.get_backtrace () in
+      if bt <> "" then Printf.eprintf "%s\n" bt;
       exit 1
 
 (* Command-line interface *)

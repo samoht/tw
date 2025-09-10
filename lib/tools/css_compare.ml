@@ -587,6 +587,15 @@ let diff ast1 ast2 =
   { rules = rule_changes; media = media_changes; layers = layer_changes }
 
 (* Simple wrapper for backward compatibility *)
+let format_parse_error (err : Css.parse_error) =
+  let callstack_str =
+    if err.callstack = [] then ""
+    else "\n[Parse stack: " ^ String.concat " -> " err.callstack ^ "]"
+  in
+  Css.pp_parse_error err ^ "\n" ^ err.context_window ^ callstack_str ^ "\n"
+  ^ String.make err.marker_pos ' '
+  ^ "^"
+
 let format_css_diff css1 css2 =
   let css1 = strip_header css1 in
   let css2 = strip_header css2 in
@@ -595,10 +604,12 @@ let format_css_diff css1 css2 =
       let diff_result = diff ast1 ast2 in
       Fmt.str "%a" pp diff_result
   | Error msg1, Error msg2 ->
-      Printf.sprintf "Parse errors in both CSS:\nFirst: %s\nSecond: %s" msg1
-        msg2
-  | Error msg, _ -> Printf.sprintf "Failed to parse our CSS: %s" msg
-  | _, Error msg -> Printf.sprintf "Failed to parse their CSS: %s" msg
+      Printf.sprintf "Parse errors in both CSS:\nFirst: %s\nSecond: %s"
+        (format_parse_error msg1) (format_parse_error msg2)
+  | Error msg, _ ->
+      Printf.sprintf "Failed to parse our CSS: %s" (format_parse_error msg)
+  | _, Error msg ->
+      Printf.sprintf "Failed to parse their CSS: %s" (format_parse_error msg)
 
 let format_labeled_css_diff ~tw_label ~tailwind_label ?css1 ?css2 _ _ =
   match (css1, css2) with
@@ -660,9 +671,12 @@ let format_labeled_css_diff ~tw_label ~tailwind_label ?css1 ?css2 _ _ =
 
           String.concat "\n" (List.rev !lines)
       | Error msg1, Error msg2 ->
-          Printf.sprintf "Parse errors in both CSS:\nFirst: %s\nSecond: %s" msg1
-            msg2
-      | Error msg, _ -> Printf.sprintf "Failed to parse %s CSS: %s" tw_label msg
+          Printf.sprintf "Parse errors in both CSS:\nFirst: %s\nSecond: %s"
+            (format_parse_error msg1) (format_parse_error msg2)
+      | Error msg, _ ->
+          Printf.sprintf "Failed to parse %s CSS: %s" tw_label
+            (format_parse_error msg)
       | _, Error msg ->
-          Printf.sprintf "Failed to parse %s CSS: %s" tailwind_label msg)
+          Printf.sprintf "Failed to parse %s CSS: %s" tailwind_label
+            (format_parse_error msg))
   | _, _ -> "Missing CSS content for comparison"
