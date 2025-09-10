@@ -21,7 +21,7 @@ let form_textarea =
       Css.padding_bottom (Rem 0.5);
       Css.padding_left (Rem 0.75);
       Css.font_size (Rem 1.0);
-      Css.line_height (Length (Rem 1.5));
+      Css.line_height (Rem 1.5);
       Css.resize Vertical;
     ]
 
@@ -38,7 +38,7 @@ let form_select =
       Css.padding_bottom (Rem 0.5);
       Css.padding_left (Rem 0.75);
       Css.font_size (Rem 1.0);
-      Css.line_height (Length (Rem 1.5));
+      Css.line_height (Rem 1.5);
       Css.background_image
         (Css.url
            "data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' \

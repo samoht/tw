@@ -40,10 +40,20 @@ let box_resets () =
              pseudo_class "before";
              pseudo_element "backdrop";
            ])
-      [ box_sizing Border_box; border "0 solid"; margin Zero; padding Zero ];
+      [
+        box_sizing Border_box;
+        border ~width:Zero ~style:Solid ();
+        margin Zero;
+        padding Zero;
+      ];
     rule
       ~selector:(pseudo_element "file-selector-button")
-      [ box_sizing Border_box; border "0 solid"; margin Zero; padding Zero ];
+      [
+        box_sizing Border_box;
+        border ~width:Zero ~style:Solid ();
+        margin Zero;
+        padding Zero;
+      ];
   ]
 
 (** HTML and body defaults *)
@@ -58,9 +68,9 @@ let root_resets () =
     rule
       ~selector:Selector.(list [ element "html"; pseudo_class "host" ])
       [
-        webkit_text_size_adjust "100%";
+        webkit_text_size_adjust (Pct 100.);
         tab_size 4;
-        line_height (Number 1.5);
+        line_height (Num 1.5);
         font_family [ Var Typography.default_font_family_var ];
         font_feature_settings (Var font_feature_var);
         font_variation_settings (Var font_variation_var);
@@ -148,7 +158,7 @@ let text_level_resets () =
       [
         vertical_align Baseline;
         font_size (Pct 75.0);
-        line_height (Number 0.);
+        line_height (Num 0.);
         position Relative;
       ];
     rule ~selector:(Selector.element "sub") [ bottom (Em (-0.25)) ];

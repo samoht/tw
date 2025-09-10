@@ -254,7 +254,7 @@ let aspect_ratio w h =
   in
   style class_name [ Css.aspect_ratio (Ratio (float_of_int w, float_of_int h)) ]
 
-let spacing_value_of_string = function
+let spacing_value_of_string : string -> (length, _) result = function
   | "0" -> Ok (Px 0.)
   | "px" -> Ok (Px 1.)
   | "0.5" -> Ok (Rem 0.125)

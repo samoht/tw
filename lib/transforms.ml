@@ -55,13 +55,13 @@ let rotate n =
 let translate_x n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "translate-x-" ^ string_of_int (abs n) in
-  let len = if n = 0 then Zero else Rem (float_of_int n *. 0.25) in
+  let len : length = if n = 0 then Zero else Rem (float_of_int n *. 0.25) in
   style class_name [ transform [ Translate_x len ] ]
 
 let translate_y n =
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "translate-y-" ^ string_of_int (abs n) in
-  let len = if n = 0 then Zero else Rem (float_of_int n *. 0.25) in
+  let len : length = if n = 0 then Zero else Rem (float_of_int n *. 0.25) in
   style class_name [ transform [ Translate_y len ] ]
 
 let scale n =
@@ -150,7 +150,7 @@ let scale_z n =
 
 let perspective n =
   let class_name = "perspective-" ^ string_of_int n in
-  let value = if n = 0 then Zero else Px (float_of_int n) in
+  let value : length = if n = 0 then Zero else Px (float_of_int n) in
   style class_name [ perspective value ]
 
 let perspective_origin_center =

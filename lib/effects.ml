@@ -174,7 +174,7 @@ let ring_internal (w : ring_width) =
   let class_name =
     if class_suffix = "" then "ring" else "ring-" ^ class_suffix
   in
-  let width_len =
+  let width_len : length =
     match width with
     | "1px" -> Px 1.
     | "2px" -> Px 2.
@@ -182,7 +182,7 @@ let ring_internal (w : ring_width) =
     | "8px" -> Px 8.
     | _ -> Px 3.
   in
-  let width_def, width_var = Var.utility Var.Ring_width width_len in
+  let width_def, width_var = Var.utility Var.Ring_width (width_len : length) in
   let color_def, color_var =
     Var.utility Var.Ring_color (Css.rgba 59 130 246 0.5)
   in
