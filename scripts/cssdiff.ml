@@ -31,13 +31,20 @@ let () =
                 let diff = Tw_tools.Css_compare.diff ast1 ast2 in
                 Fmt.pr "%a@." Tw_tools.Css_compare.pp diff
             | Error msg1, Error msg2 ->
-                if msg1 = msg2 then
-                  Fmt.pr "Same parse error in both CSS files: %s@." msg1
+                let fmt_err (err : Css.parse_error) = Css.pp_parse_error err in
+                if msg1.message = msg2.message && msg1.position = msg2.position
+                then
+                  Fmt.pr "Same parse error in both CSS files: %s@."
+                    (fmt_err msg1)
                 else
                   Fmt.pr "Parse errors in both CSS:@.First: %s@.Second: %s@."
-                    msg1 msg2
-            | Error msg, _ -> Fmt.pr "Parse error in first CSS file: %s@." msg
-            | _, Error msg -> Fmt.pr "Parse error in second CSS file: %s@." msg);
+                    (fmt_err msg1) (fmt_err msg2)
+            | Error msg, _ ->
+                Fmt.pr "Parse error in first CSS file: %s@."
+                  (Css.pp_parse_error msg)
+            | _, Error msg ->
+                Fmt.pr "Parse error in second CSS file: %s@."
+                  (Css.pp_parse_error msg));
             exit 1)
       | _ -> exit 1)
   | _ ->
