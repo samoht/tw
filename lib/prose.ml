@@ -301,7 +301,7 @@ let paragraph_rules base =
         margin_top (Em 1.2);
         margin_bottom (Em 1.2);
         font_size (Em 1.25);
-        line_height (Number 1.6);
+        line_height (Num 1.6);
       ];
   ]
 
@@ -384,7 +384,7 @@ let heading_rules base =
         margin_bottom (Em 0.888889);
         font_size (Em 2.25);
         font_weight (Weight 800);
-        line_height (Number 1.11111);
+        line_height (Num 1.11111);
       ];
     Css.rule
       ~selector:(where base (h1 ++ strong))
@@ -396,7 +396,7 @@ let heading_rules base =
         margin_bottom (Em 1.0);
         font_size (Em 1.5);
         font_weight (Weight 700);
-        line_height (Number 1.33333);
+        line_height (Num 1.33333);
       ];
     Css.rule
       ~selector:(where base (h2 ++ strong))
@@ -408,7 +408,7 @@ let heading_rules base =
         margin_bottom (Em 0.6);
         font_size (Em 1.25);
         font_weight (Weight 600);
-        line_height (Number 1.6);
+        line_height (Num 1.6);
       ];
     Css.rule
       ~selector:(where base (h3 ++ strong))
@@ -419,7 +419,7 @@ let heading_rules base =
         margin_top (Em 1.5);
         margin_bottom (Em 0.5);
         font_weight (Weight 600);
-        line_height (Number 1.5);
+        line_height (Num 1.5);
       ];
     Css.rule
       ~selector:(where base (h4 ++ strong))
@@ -555,7 +555,7 @@ let code_rules base =
         padding_inline_start (Em 1.14286);
         font_size (Em 0.875);
         font_weight (Weight 400);
-        line_height (Number 1.71429);
+        line_height (Num 1.71429);
         overflow_x Auto;
       ];
     Css.rule ~selector:(where base pre_code)
@@ -585,7 +585,7 @@ let table_rules base =
         margin_top (Em 2.0);
         margin_bottom (Em 2.0);
         font_size (Em 0.875);
-        line_height (Number 1.71429);
+        line_height (Num 1.71429);
       ];
     Css.rule
       ~selector:(where base (Css.Selector.element "thead"))
@@ -627,7 +627,7 @@ let figure_rules base =
         color (Var prose_captions_var);
         margin_top (Em 0.857143);
         font_size (Em 0.875);
-        line_height (Number 1.42857);
+        line_height (Num 1.42857);
       ];
   ]
 
@@ -738,7 +738,7 @@ let base_prose_rules () =
   let variables_rule =
     Css.rule
       ~selector:(Css.Selector.class_ "prose")
-      (css_variables @ [ font_size (Rem 1.0); line_height (Number 1.75) ])
+      (css_variables @ [ font_size (Rem 1.0); line_height (Num 1.75) ])
   in
 
   let pre_variable_rules =
@@ -829,7 +829,7 @@ let make_typography_rules selector c =
   [
     (* Base rule *)
     Css.rule ~selector
-      [ font_size c.base_font_size; line_height (Number c.base_line_height) ];
+      [ font_size c.base_font_size; line_height (Num c.base_line_height) ];
     (* Paragraph *)
     Css.rule
       ~selector:(selector ++ prose_where_element p)
@@ -840,7 +840,7 @@ let make_typography_rules selector c =
         margin_top c.lead_margin_top;
         margin_bottom c.lead_margin_bottom;
         font_size c.lead_font_size;
-        line_height (Number c.lead_line_height);
+        line_height (Num c.lead_line_height);
       ];
     (* Blockquote *)
     Css.rule ~selector:(selector ++ blockquote)
@@ -855,27 +855,27 @@ let make_typography_rules selector c =
         margin_top c.h1_margin_top;
         margin_bottom c.h1_margin_bottom;
         font_size c.h1_font_size;
-        line_height (Number c.h1_line_height);
+        line_height (Num c.h1_line_height);
       ];
     Css.rule ~selector:(selector ++ h2)
       [
         margin_top c.h2_margin_top;
         margin_bottom c.h2_margin_bottom;
         font_size c.h2_font_size;
-        line_height (Number c.h2_line_height);
+        line_height (Num c.h2_line_height);
       ];
     Css.rule ~selector:(selector ++ h3)
       [
         margin_top c.h3_margin_top;
         margin_bottom c.h3_margin_bottom;
         font_size c.h3_font_size;
-        line_height (Number c.h3_line_height);
+        line_height (Num c.h3_line_height);
       ];
     Css.rule ~selector:(selector ++ h4)
       [
         margin_top c.h4_margin_top;
         margin_bottom c.h4_margin_bottom;
-        line_height (Number c.h4_line_height);
+        line_height (Num c.h4_line_height);
       ];
     (* Images - separate rules to avoid combining *)
     Css.rule ~selector:(selector ++ img)
@@ -915,7 +915,7 @@ let make_typography_rules selector c =
         margin_top c.pre_margin_top;
         margin_bottom c.pre_margin_bottom;
         font_size c.pre_font_size;
-        line_height (Number c.pre_line_height);
+        line_height (Num c.pre_line_height);
       ];
     (* Lists - separate ol and ul to avoid combining *)
     Css.rule
@@ -979,7 +979,7 @@ let make_typography_rules selector c =
     Css.rule ~selector:(selector ++ sibling h4) [ margin_top Zero ];
     (* Tables *)
     Css.rule ~selector:(selector ++ table)
-      [ font_size c.table_font_size; line_height (Number c.table_line_height) ];
+      [ font_size c.table_font_size; line_height (Num c.table_line_height) ];
     Css.rule ~selector:(selector ++ thead_th)
       [
         padding_inline_end c.thead_th_padding_x;
@@ -1015,7 +1015,7 @@ let make_typography_rules selector c =
       [
         margin_top c.figcaption_margin_top;
         font_size c.figcaption_font_size;
-        line_height (Number c.figcaption_line_height);
+        line_height (Num c.figcaption_line_height);
       ];
     (* First and last child margins *)
     Css.rule

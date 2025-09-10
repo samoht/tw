@@ -483,8 +483,7 @@ let test_rules_of_grouped_prose_bug () =
         ] );
       ( prose_class,
         [
-          Tw.Css.font_size (Tw.Css.Rem 1.0);
-          Tw.Css.line_height (Tw.Css.Number 1.5);
+          Tw.Css.font_size (Tw.Css.Rem 1.0); Tw.Css.line_height (Tw.Css.Num 1.5);
         ] );
     ]
   in

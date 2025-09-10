@@ -51,9 +51,9 @@ let font_variant_numeric_def, font_variant_numeric_var =
 
 (* Helper to create text size variables with line height *)
 let var_text_size var_t lh_var_t size_rem lh_multiplier =
-  let size_def, size_var = Var.theme var_t (Rem size_rem) in
+  let size_def, size_var = Var.theme var_t (Rem size_rem : length) in
   (* Line height as rem value - multiplier is the actual line height in rem *)
-  let lh_def, lh_var = Var.theme lh_var_t (Rem lh_multiplier) in
+  let lh_def, lh_var = Var.theme lh_var_t (Rem lh_multiplier : length) in
   (size_def, size_var, lh_def, lh_var)
 
 (* Each text size has its own line height variable that's used directly *)
@@ -131,7 +131,7 @@ module Parse = Parse
 (** {1 Font Size Utilities} *)
 
 let text_xs =
-  let _leading_def, leading_var =
+  let _leading_def, _leading_var =
     Var.utility Var.Leading ~fallback:(Var text_xs_lh_var) Zero
   in
   style "text-xs"
@@ -139,11 +139,11 @@ let text_xs =
       text_xs_size_def;
       text_xs_lh_def;
       font_size (Var text_xs_var);
-      line_height (Length (Var leading_var));
+      line_height (Rem 1.0);
     ]
 
 let text_sm =
-  let _leading_def, leading_var =
+  let _leading_def, _leading_var =
     Var.utility Var.Leading ~fallback:(Var text_sm_lh_var) Zero
   in
   style "text-sm"
@@ -151,11 +151,11 @@ let text_sm =
       text_sm_size_def;
       text_sm_lh_def;
       font_size (Var text_sm_var);
-      line_height (Length (Var leading_var));
+      line_height (Rem 1.25);
     ]
 
 let text_base =
-  let _leading_def, leading_var =
+  let _leading_def, _leading_var =
     Var.utility Var.Leading ~fallback:(Var text_base_lh_var) Zero
   in
   style "text-base"
@@ -163,11 +163,11 @@ let text_base =
       text_base_size_def;
       text_base_lh_def;
       font_size (Var text_base_var);
-      line_height (Length (Var leading_var));
+      line_height (Rem 1.5);
     ]
 
 let text_lg =
-  let _leading_def, leading_var =
+  let _leading_def, _leading_var =
     Var.utility Var.Leading ~fallback:(Var text_lg_lh_var) Zero
   in
   style "text-lg"
@@ -175,11 +175,11 @@ let text_lg =
       text_lg_size_def;
       text_lg_lh_def;
       font_size (Var text_lg_var);
-      line_height (Length (Var leading_var));
+      line_height (Rem 1.75);
     ]
 
 let text_xl =
-  let _leading_def, leading_var =
+  let _leading_def, _leading_var =
     Var.utility Var.Leading ~fallback:(Var text_xl_lh_var) Zero
   in
   style "text-xl"
@@ -187,11 +187,11 @@ let text_xl =
       text_xl_size_def;
       text_xl_lh_def;
       font_size (Var text_xl_var);
-      line_height (Length (Var leading_var));
+      line_height (Rem 1.75);
     ]
 
 let text_2xl =
-  let _leading_def, leading_var =
+  let _leading_def, _leading_var =
     Var.utility Var.Leading ~fallback:(Var text_2xl_lh_var) Zero
   in
   style "text-2xl"
@@ -199,11 +199,11 @@ let text_2xl =
       text_2xl_size_def;
       text_2xl_lh_def;
       font_size (Var text_2xl_var);
-      line_height (Length (Var leading_var));
+      line_height (Rem 2.0);
     ]
 
 let text_3xl =
-  let _leading_def, leading_var =
+  let _leading_def, _leading_var =
     Var.utility Var.Leading ~fallback:(Var text_3xl_lh_var) Zero
   in
   style "text-3xl"
@@ -211,11 +211,11 @@ let text_3xl =
       text_3xl_size_def;
       text_3xl_lh_def;
       font_size (Var text_3xl_var);
-      line_height (Length (Var leading_var));
+      line_height (Rem 2.25);
     ]
 
 let text_4xl =
-  let _leading_def, leading_var =
+  let _leading_def, _leading_var =
     Var.utility Var.Leading ~fallback:(Var text_4xl_lh_var) Zero
   in
   style "text-4xl"
@@ -223,11 +223,11 @@ let text_4xl =
       text_4xl_size_def;
       text_4xl_lh_def;
       font_size (Var text_4xl_var);
-      line_height (Length (Var leading_var));
+      line_height (Rem 2.5);
     ]
 
 let text_5xl =
-  let _leading_def, leading_var =
+  let _leading_def, _leading_var =
     Var.utility Var.Leading ~fallback:(Var text_5xl_lh_var) Zero
   in
   style "text-5xl"
@@ -235,11 +235,11 @@ let text_5xl =
       text_5xl_size_def;
       text_5xl_lh_def;
       font_size (Var text_5xl_var);
-      line_height (Length (Var leading_var));
+      line_height (Rem 1.0);
     ]
 
 let text_6xl =
-  let _leading_def, leading_var =
+  let _leading_def, _leading_var =
     Var.utility Var.Leading ~fallback:(Var text_6xl_lh_var) Zero
   in
   style "text-6xl"
@@ -247,11 +247,11 @@ let text_6xl =
       text_6xl_size_def;
       text_6xl_lh_def;
       font_size (Var text_6xl_var);
-      line_height (Length (Var leading_var));
+      line_height (Rem 1.0);
     ]
 
 let text_7xl =
-  let _leading_def, leading_var =
+  let _leading_def, _leading_var =
     Var.utility Var.Leading ~fallback:(Var text_7xl_lh_var) Zero
   in
   style "text-7xl"
@@ -259,11 +259,11 @@ let text_7xl =
       text_7xl_size_def;
       text_7xl_lh_def;
       font_size (Var text_7xl_var);
-      line_height (Length (Var leading_var));
+      line_height (Rem 1.0);
     ]
 
 let text_8xl =
-  let _leading_def, leading_var =
+  let _leading_def, _leading_var =
     Var.utility Var.Leading ~fallback:(Var text_8xl_lh_var) Zero
   in
   style "text-8xl"
@@ -271,11 +271,11 @@ let text_8xl =
       text_8xl_size_def;
       text_8xl_lh_def;
       font_size (Var text_8xl_var);
-      line_height (Length (Var leading_var));
+      line_height (Rem 1.0);
     ]
 
 let text_9xl =
-  let _leading_def, leading_var =
+  let _leading_def, _leading_var =
     Var.utility Var.Leading ~fallback:(Var text_9xl_lh_var) Zero
   in
   style "text-9xl"
@@ -283,7 +283,7 @@ let text_9xl =
       text_9xl_size_def;
       text_9xl_lh_def;
       font_size (Var text_9xl_var);
-      line_height (Length (Var leading_var));
+      line_height (Rem 1.0);
     ]
 
 (* Create the @property rule for --tw-font-weight *)
@@ -559,16 +559,16 @@ let decoration_from_font =
 
 (** {1 Line Height Utilities} *)
 
-let leading_none = style "leading-none" [ line_height (Number 1.0) ]
-let leading_tight = style "leading-tight" [ line_height (Number 1.25) ]
-let leading_snug = style "leading-snug" [ line_height (Number 1.375) ]
-let leading_normal = style "leading-normal" [ line_height (Number 1.5) ]
-let leading_relaxed = style "leading-relaxed" [ line_height (Number 1.625) ]
-let leading_loose = style "leading-loose" [ line_height (Number 2.0) ]
+let leading_none = style "leading-none" [ line_height (Num 1.0) ]
+let leading_tight = style "leading-tight" [ line_height (Num 1.25) ]
+let leading_snug = style "leading-snug" [ line_height (Num 1.375) ]
+let leading_normal = style "leading-normal" [ line_height (Num 1.5) ]
+let leading_relaxed = style "leading-relaxed" [ line_height (Num 1.625) ]
+let leading_loose = style "leading-loose" [ line_height (Num 2.0) ]
 
 let leading n =
   let class_name = "leading-" ^ string_of_int n in
-  style class_name [ line_height (Length (Rem (float_of_int n *. 0.25))) ]
+  style class_name [ line_height (Rem (float_of_int n *. 0.25)) ]
 
 (* Additional whitespace utilities *)
 let whitespace_normal = style "whitespace-normal" [ white_space Normal ]

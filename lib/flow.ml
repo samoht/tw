@@ -225,20 +225,19 @@ let col_span n =
     (String.concat "" [ "col-span-"; string_of_int n ])
     [ Css.grid_column (Span n, Span n) ]
 
-let col_span_full =
-  style "col-span-full" [ Css.grid_column (Number 1, Number (-1)) ]
+let col_span_full = style "col-span-full" [ Css.grid_column (Num 1, Num (-1)) ]
 
 let col_start n =
   style
     (String.concat "" [ "col-start-"; string_of_int n ])
-    [ Css.grid_column_start (Number n) ]
+    [ Css.grid_column_start (Num n) ]
 
 let col_start_auto = style "col-start-auto" [ Css.grid_column_start Auto ]
 
 let col_end n =
   style
     (String.concat "" [ "col-end-"; string_of_int n ])
-    [ Css.grid_column_end (Number n) ]
+    [ Css.grid_column_end (Num n) ]
 
 let col_end_auto = style "col-end-auto" [ Css.grid_column_end Auto ]
 let row_auto = style "row-auto" [ Css.grid_row (Auto, Auto) ]
@@ -248,20 +247,19 @@ let row_span n =
     (String.concat "" [ "row-span-"; string_of_int n ])
     [ Css.grid_row (Span n, Span n) ]
 
-let row_span_full =
-  style "row-span-full" [ Css.grid_row (Number 1, Number (-1)) ]
+let row_span_full = style "row-span-full" [ Css.grid_row (Num 1, Num (-1)) ]
 
 let row_start n =
   style
     (String.concat "" [ "row-start-"; string_of_int n ])
-    [ Css.grid_row_start (Number n) ]
+    [ Css.grid_row_start (Num n) ]
 
 let row_start_auto = style "row-start-auto" [ Css.grid_row_start Auto ]
 
 let row_end n =
   style
     (String.concat "" [ "row-end-"; string_of_int n ])
-    [ Css.grid_row_end (Number n) ]
+    [ Css.grid_row_end (Num n) ]
 
 let row_end_auto = style "row-end-auto" [ Css.grid_row_end Auto ]
 
