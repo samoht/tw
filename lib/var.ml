@@ -50,31 +50,31 @@ type _ t =
   | Font_serif : Css.font_family list t
   (* Typography scale *)
   | Text_xs : Css.length t
-  | Text_xs_line_height : Css.length t
+  | Text_xs_line_height : Css.line_height t
   | Text_sm : Css.length t
-  | Text_sm_line_height : Css.length t
+  | Text_sm_line_height : Css.line_height t
   | Text_base : Css.length t
-  | Text_base_line_height : Css.length t
+  | Text_base_line_height : Css.line_height t
   | Text_lg : Css.length t
-  | Text_lg_line_height : Css.length t
+  | Text_lg_line_height : Css.line_height t
   | Text_xl : Css.length t
-  | Text_xl_line_height : Css.length t
+  | Text_xl_line_height : Css.line_height t
   | Text_2xl : Css.length t
-  | Text_2xl_line_height : Css.length t
+  | Text_2xl_line_height : Css.line_height t
   | Text_3xl : Css.length t
-  | Text_3xl_line_height : Css.length t
+  | Text_3xl_line_height : Css.line_height t
   | Text_4xl : Css.length t
-  | Text_4xl_line_height : Css.length t
+  | Text_4xl_line_height : Css.line_height t
   | Text_5xl : Css.length t
-  | Text_5xl_line_height : Css.length t
+  | Text_5xl_line_height : Css.line_height t
   | Text_6xl : Css.length t
-  | Text_6xl_line_height : Css.length t
+  | Text_6xl_line_height : Css.line_height t
   | Text_7xl : Css.length t
-  | Text_7xl_line_height : Css.length t
+  | Text_7xl_line_height : Css.line_height t
   | Text_8xl : Css.length t
-  | Text_8xl_line_height : Css.length t
+  | Text_8xl_line_height : Css.line_height t
   | Text_9xl : Css.length t
-  | Text_9xl_line_height : Css.length t
+  | Text_9xl_line_height : Css.line_height t
   (* Font weights *)
   | Font_weight_thin : Css.font_weight t
   | Font_weight_extralight : Css.font_weight t
@@ -86,7 +86,7 @@ type _ t =
   | Font_weight_extrabold : Css.font_weight t
   | Font_weight_black : Css.font_weight t
   | Font_weight : Css.font_weight t
-  | Leading : Css.length t
+  | Leading : Css.line_height t
   (* Border radius *)
   | Radius_none : Css.length t
   | Radius_sm : Css.length t
@@ -636,33 +636,33 @@ let def : type a.
   | Font_serif -> var Font_family value
   | Font_mono -> var Font_family value
   | Font_weight -> var Font_weight value
-  | Leading -> var Length value
+  | Leading -> var Line_height value
   | Text_xs -> var Length value
-  | Text_xs_line_height -> var Length value
+  | Text_xs_line_height -> var Line_height value
   | Text_sm -> var Length value
-  | Text_sm_line_height -> var Length value
+  | Text_sm_line_height -> var Line_height value
   | Text_base -> var Length value
-  | Text_base_line_height -> var Length value
+  | Text_base_line_height -> var Line_height value
   | Text_lg -> var Length value
-  | Text_lg_line_height -> var Length value
+  | Text_lg_line_height -> var Line_height value
   | Text_xl -> var Length value
-  | Text_xl_line_height -> var Length value
+  | Text_xl_line_height -> var Line_height value
   | Text_2xl -> var Length value
-  | Text_2xl_line_height -> var Length value
+  | Text_2xl_line_height -> var Line_height value
   | Text_3xl -> var Length value
-  | Text_3xl_line_height -> var Length value
+  | Text_3xl_line_height -> var Line_height value
   | Text_4xl -> var Length value
-  | Text_4xl_line_height -> var Length value
+  | Text_4xl_line_height -> var Line_height value
   | Text_5xl -> var Length value
-  | Text_5xl_line_height -> var Length value
+  | Text_5xl_line_height -> var Line_height value
   | Text_6xl -> var Length value
-  | Text_6xl_line_height -> var Length value
+  | Text_6xl_line_height -> var Line_height value
   | Text_7xl -> var Length value
-  | Text_7xl_line_height -> var Length value
+  | Text_7xl_line_height -> var Line_height value
   | Text_8xl -> var Length value
-  | Text_8xl_line_height -> var Length value
+  | Text_8xl_line_height -> var Line_height value
   | Text_9xl -> var Length value
-  | Text_9xl_line_height -> var Length value
+  | Text_9xl_line_height -> var Line_height value
   | Font_weight_thin -> var Font_weight value
   | Font_weight_extralight -> var Font_weight value
   | Font_weight_light -> var Font_weight value
@@ -794,6 +794,16 @@ let def : type a.
   | Default_font_variation_settings -> var Font_variation_settings value
   | Default_mono_font_feature_settings -> var Font_feature_settings value
   | Default_mono_font_variation_settings -> var Font_variation_settings value
+
+(* Create a variable handle without a definition - useful for referencing
+   variables that may be defined elsewhere (e.g., --tw-leading in text
+   utilities) *)
+let handle_only : type a. a t -> ?fallback:a -> unit -> a Css.var =
+ fun var_t ?fallback () ->
+  let n = name var_t in
+  let meta = meta_of_var (Any var_t) in
+  (* Use Css.var_ref to create just the handle without a declaration *)
+  Css.var_ref ?fallback ~meta n
 
 (* Layer-specific variable constructors *)
 let theme : type a. a t -> ?fallback:a -> a -> Css.declaration * a Css.var =
