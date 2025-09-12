@@ -814,11 +814,11 @@ let to_css color shade =
       Css.Hex { hash = false; value = hex_value }
   | Oklch oklch ->
       (* Use the new Oklch constructor *)
-      Css.oklch (oklch.l *. 100.) oklch.c oklch.h
+      Css.oklch oklch.l oklch.c oklch.h
   | _ ->
       (* For other colors, get OKLCH data directly *)
       let oklch = to_oklch color shade in
-      Css.oklch (oklch.l *. 100.) oklch.c oklch.h
+      Css.oklch oklch.l oklch.c oklch.h
 
 (* Get the name of a color as a string *)
 let to_name = function

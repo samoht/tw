@@ -200,7 +200,8 @@ let grid_cols n =
 let grid_cols_none = style "grid-cols-none" [ Css.grid_template_columns None ]
 
 let grid_cols_subgrid =
-  style "grid-cols-subgrid" [ Css.grid_template_columns (Tracks [ Track_size Auto ]) ]
+  style "grid-cols-subgrid"
+    [ Css.grid_template_columns (Tracks [ Track_size Auto ]) ]
 
 let grid_rows n =
   if n < 1 || n > 12 then
@@ -210,12 +211,15 @@ let grid_rows n =
   else
     style
       (String.concat "" [ "grid-rows-"; string_of_int n ])
-      [ Css.grid_template_rows (Tracks [ Repeat (n, [ Track_size (Fr 1.0) ]) ]) ]
+      [
+        Css.grid_template_rows (Tracks [ Repeat (n, [ Track_size (Fr 1.0) ]) ]);
+      ]
 
 let grid_rows_none = style "grid-rows-none" [ Css.grid_template_rows None ]
 
 let grid_rows_subgrid =
-  style "grid-rows-subgrid" [ Css.grid_template_rows (Tracks [ Track_size Auto ]) ]
+  style "grid-rows-subgrid"
+    [ Css.grid_template_rows (Tracks [ Track_size Auto ]) ]
 
 (** {1 Grid Column/Row Spans} *)
 
@@ -286,7 +290,8 @@ let auto_cols_max =
   style "auto-cols-max" [ Css.grid_auto_columns (Tracks [ Track_size Auto ]) ]
 
 let auto_cols_fr =
-  style "auto-cols-fr" [ Css.grid_auto_columns (Tracks [ Track_size (Fr 1.0) ]) ]
+  style "auto-cols-fr"
+    [ Css.grid_auto_columns (Tracks [ Track_size (Fr 1.0) ]) ]
 
 let auto_rows_auto =
   style "auto-rows-auto" [ Css.grid_auto_rows (Tracks [ Track_size Auto ]) ]

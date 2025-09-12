@@ -50,10 +50,12 @@ let font_variant_numeric_def, font_variant_numeric_var =
        })
 
 (* Helper to create text size variables with line height *)
-let var_text_size var_t lh_var_t size_rem lh_multiplier =
+let var_text_size var_t lh_var_t size_rem lh_rem =
   let size_def, size_var = Var.theme var_t (Rem size_rem : length) in
-  (* Line height as rem value - multiplier is the actual line height in rem *)
-  let lh_def, lh_var = Var.theme lh_var_t (Rem lh_multiplier : length) in
+  (* Line height as a unitless calc expression: calc(line-height-rem /
+     font-size-rem) *)
+  let lh_calc : line_height = Calc (Expr (Num lh_rem, Div, Num size_rem)) in
+  let lh_def, lh_var = Var.theme lh_var_t lh_calc in
   (size_def, size_var, lh_def, lh_var)
 
 (* Each text size has its own line height variable that's used directly *)
@@ -131,159 +133,185 @@ module Parse = Parse
 (** {1 Font Size Utilities} *)
 
 let text_xs =
-  let _leading_def, _leading_var =
-    Var.utility Var.Leading ~fallback:(Var text_xs_lh_var) Zero
+  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
+     text size line height *)
+  let leading_var =
+    Var.handle_only Var.Leading ~fallback:(Var text_xs_lh_var) ()
   in
   style "text-xs"
     [
       text_xs_size_def;
       text_xs_lh_def;
       font_size (Var text_xs_var);
-      line_height (Rem 1.0);
+      line_height (Var leading_var);
     ]
 
 let text_sm =
-  let _leading_def, _leading_var =
-    Var.utility Var.Leading ~fallback:(Var text_sm_lh_var) Zero
+  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
+     text size line height *)
+  let leading_var =
+    Var.handle_only Var.Leading ~fallback:(Var text_sm_lh_var) ()
   in
   style "text-sm"
     [
       text_sm_size_def;
       text_sm_lh_def;
       font_size (Var text_sm_var);
-      line_height (Rem 1.25);
+      line_height (Var leading_var);
     ]
 
 let text_base =
-  let _leading_def, _leading_var =
-    Var.utility Var.Leading ~fallback:(Var text_base_lh_var) Zero
+  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
+     text size line height *)
+  let leading_var =
+    Var.handle_only Var.Leading ~fallback:(Var text_base_lh_var) ()
   in
   style "text-base"
     [
       text_base_size_def;
       text_base_lh_def;
       font_size (Var text_base_var);
-      line_height (Rem 1.5);
+      line_height (Var leading_var);
     ]
 
 let text_lg =
-  let _leading_def, _leading_var =
-    Var.utility Var.Leading ~fallback:(Var text_lg_lh_var) Zero
+  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
+     text size line height *)
+  let leading_var =
+    Var.handle_only Var.Leading ~fallback:(Var text_lg_lh_var) ()
   in
   style "text-lg"
     [
       text_lg_size_def;
       text_lg_lh_def;
       font_size (Var text_lg_var);
-      line_height (Rem 1.75);
+      line_height (Var leading_var);
     ]
 
 let text_xl =
-  let _leading_def, _leading_var =
-    Var.utility Var.Leading ~fallback:(Var text_xl_lh_var) Zero
+  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
+     text size line height *)
+  let leading_var =
+    Var.handle_only Var.Leading ~fallback:(Var text_xl_lh_var) ()
   in
   style "text-xl"
     [
       text_xl_size_def;
       text_xl_lh_def;
       font_size (Var text_xl_var);
-      line_height (Rem 1.75);
+      line_height (Var leading_var);
     ]
 
 let text_2xl =
-  let _leading_def, _leading_var =
-    Var.utility Var.Leading ~fallback:(Var text_2xl_lh_var) Zero
+  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
+     text size line height *)
+  let leading_var =
+    Var.handle_only Var.Leading ~fallback:(Var text_2xl_lh_var) ()
   in
   style "text-2xl"
     [
       text_2xl_size_def;
       text_2xl_lh_def;
       font_size (Var text_2xl_var);
-      line_height (Rem 2.0);
+      line_height (Var leading_var);
     ]
 
 let text_3xl =
-  let _leading_def, _leading_var =
-    Var.utility Var.Leading ~fallback:(Var text_3xl_lh_var) Zero
+  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
+     text size line height *)
+  let leading_var =
+    Var.handle_only Var.Leading ~fallback:(Var text_3xl_lh_var) ()
   in
   style "text-3xl"
     [
       text_3xl_size_def;
       text_3xl_lh_def;
       font_size (Var text_3xl_var);
-      line_height (Rem 2.25);
+      line_height (Var leading_var);
     ]
 
 let text_4xl =
-  let _leading_def, _leading_var =
-    Var.utility Var.Leading ~fallback:(Var text_4xl_lh_var) Zero
+  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
+     text size line height *)
+  let leading_var =
+    Var.handle_only Var.Leading ~fallback:(Var text_4xl_lh_var) ()
   in
   style "text-4xl"
     [
       text_4xl_size_def;
       text_4xl_lh_def;
       font_size (Var text_4xl_var);
-      line_height (Rem 2.5);
+      line_height (Var leading_var);
     ]
 
 let text_5xl =
-  let _leading_def, _leading_var =
-    Var.utility Var.Leading ~fallback:(Var text_5xl_lh_var) Zero
+  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
+     text size line height *)
+  let leading_var =
+    Var.handle_only Var.Leading ~fallback:(Var text_5xl_lh_var) ()
   in
   style "text-5xl"
     [
       text_5xl_size_def;
       text_5xl_lh_def;
       font_size (Var text_5xl_var);
-      line_height (Rem 1.0);
+      line_height (Var leading_var);
     ]
 
 let text_6xl =
-  let _leading_def, _leading_var =
-    Var.utility Var.Leading ~fallback:(Var text_6xl_lh_var) Zero
+  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
+     text size line height *)
+  let leading_var =
+    Var.handle_only Var.Leading ~fallback:(Var text_6xl_lh_var) ()
   in
   style "text-6xl"
     [
       text_6xl_size_def;
       text_6xl_lh_def;
       font_size (Var text_6xl_var);
-      line_height (Rem 1.0);
+      line_height (Var leading_var);
     ]
 
 let text_7xl =
-  let _leading_def, _leading_var =
-    Var.utility Var.Leading ~fallback:(Var text_7xl_lh_var) Zero
+  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
+     text size line height *)
+  let leading_var =
+    Var.handle_only Var.Leading ~fallback:(Var text_7xl_lh_var) ()
   in
   style "text-7xl"
     [
       text_7xl_size_def;
       text_7xl_lh_def;
       font_size (Var text_7xl_var);
-      line_height (Rem 1.0);
+      line_height (Var leading_var);
     ]
 
 let text_8xl =
-  let _leading_def, _leading_var =
-    Var.utility Var.Leading ~fallback:(Var text_8xl_lh_var) Zero
+  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
+     text size line height *)
+  let leading_var =
+    Var.handle_only Var.Leading ~fallback:(Var text_8xl_lh_var) ()
   in
   style "text-8xl"
     [
       text_8xl_size_def;
       text_8xl_lh_def;
       font_size (Var text_8xl_var);
-      line_height (Rem 1.0);
+      line_height (Var leading_var);
     ]
 
 let text_9xl =
-  let _leading_def, _leading_var =
-    Var.utility Var.Leading ~fallback:(Var text_9xl_lh_var) Zero
+  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
+     text size line height *)
+  let leading_var =
+    Var.handle_only Var.Leading ~fallback:(Var text_9xl_lh_var) ()
   in
   style "text-9xl"
     [
       text_9xl_size_def;
       text_9xl_lh_def;
       font_size (Var text_9xl_var);
-      line_height (Rem 1.0);
+      line_height (Var leading_var);
     ]
 
 (* Create the @property rule for --tw-font-weight *)

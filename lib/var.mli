@@ -29,31 +29,31 @@ type _ t =
   | Font_serif : Css.font_family list t
   (* Typography scale *)
   | Text_xs : Css.length t
-  | Text_xs_line_height : Css.length t
+  | Text_xs_line_height : Css.line_height t
   | Text_sm : Css.length t
-  | Text_sm_line_height : Css.length t
+  | Text_sm_line_height : Css.line_height t
   | Text_base : Css.length t
-  | Text_base_line_height : Css.length t
+  | Text_base_line_height : Css.line_height t
   | Text_lg : Css.length t
-  | Text_lg_line_height : Css.length t
+  | Text_lg_line_height : Css.line_height t
   | Text_xl : Css.length t
-  | Text_xl_line_height : Css.length t
+  | Text_xl_line_height : Css.line_height t
   | Text_2xl : Css.length t
-  | Text_2xl_line_height : Css.length t
+  | Text_2xl_line_height : Css.line_height t
   | Text_3xl : Css.length t
-  | Text_3xl_line_height : Css.length t
+  | Text_3xl_line_height : Css.line_height t
   | Text_4xl : Css.length t
-  | Text_4xl_line_height : Css.length t
+  | Text_4xl_line_height : Css.line_height t
   | Text_5xl : Css.length t
-  | Text_5xl_line_height : Css.length t
+  | Text_5xl_line_height : Css.line_height t
   | Text_6xl : Css.length t
-  | Text_6xl_line_height : Css.length t
+  | Text_6xl_line_height : Css.line_height t
   | Text_7xl : Css.length t
-  | Text_7xl_line_height : Css.length t
+  | Text_7xl_line_height : Css.line_height t
   | Text_8xl : Css.length t
-  | Text_8xl_line_height : Css.length t
+  | Text_8xl_line_height : Css.line_height t
   | Text_9xl : Css.length t
-  | Text_9xl_line_height : Css.length t
+  | Text_9xl_line_height : Css.line_height t
   (* Font weights *)
   | Font_weight_thin : Css.font_weight t
   | Font_weight_extralight : Css.font_weight t
@@ -65,7 +65,7 @@ type _ t =
   | Font_weight_extrabold : Css.font_weight t
   | Font_weight_black : Css.font_weight t
   | Font_weight : Css.font_weight t
-  | Leading : Css.length t
+  | Leading : Css.line_height t
   (* Border radius *)
   | Radius_none : Css.length t
   | Radius_sm : Css.length t
@@ -196,6 +196,10 @@ val theme : 'a t -> ?fallback:'a -> 'a -> Css.declaration * 'a Css.var
 val utility : 'a t -> ?fallback:'a -> 'a -> Css.declaration * 'a Css.var
 (** [utility v ?fallback value] creates a utility-layer variable declaration and
     handle. *)
+
+val handle_only : 'a t -> ?fallback:'a -> unit -> 'a Css.var
+(** [handle_only v ?fallback] creates a variable handle without a definition.
+    Useful for referencing variables that may be defined elsewhere. *)
 
 val property :
   syntax:string -> inherits:bool -> ?initial:string -> 'a t -> Css.property_rule

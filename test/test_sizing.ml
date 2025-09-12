@@ -95,7 +95,7 @@ let test_aspect_classes () =
 
 let test_aspect_css () =
   let open Tw in
-  let css = to_css [ aspect_ratio 16 9 ] |> Css.pp ~minify:false in
+  let css = to_css [ aspect_ratio 16 9 ] |> Css.pp ~minify:true in
   Alcotest.check bool "has aspect-ratio" true
     (Astring.String.is_infix ~affix:"aspect-ratio" css);
   Alcotest.check bool "has 16/9" true

@@ -77,7 +77,7 @@ let process_single_class class_str flag ~(opts : gen_opts) =
   | [] -> `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
   | styles ->
       let stylesheet = Tw.to_css ~base:include_base ~mode:opts.mode styles in
-      print_endline
+      print_string
         (Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize stylesheet);
       `Ok ()
 
@@ -139,7 +139,7 @@ let process_files paths flag ~(opts : gen_opts) =
         all_classes
     in
     let stylesheet = Tw.to_css ~base:include_base ~mode:opts.mode tw_styles in
-    print_endline
+    print_string
       (Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize stylesheet);
 
     (* Print statistics to stderr *)
