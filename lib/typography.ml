@@ -791,25 +791,39 @@ let normal_nums =
   style "normal-nums" [ font_variant_numeric (Tokens [ Normal ]) ]
 
 (* Helper to create font-variant-numeric utilities *)
-(* Each utility needs to set its own variable and use all 5 in font-variant-numeric *)
+(* Each utility only sets its own variable and uses the composed value *)
 let font_variant_numeric_utility class_name
     (var_type : font_variant_numeric_token Var.t) value =
   let def, _ = Var.utility var_type value ~fallback:Normal in
-  (* Get all 5 variables for the composed value *)
-  let ordinal_def, _ =
-    Var.utility Var.Font_variant_ordinal Normal ~fallback:Normal
+
+  (* Create references to all 5 variables with empty fallback for the composed
+     value *)
+  let ordinal_var =
+    Var.handle_only Var.Font_variant_ordinal ~fallback:Normal ()
   in
-  let slashed_def, _ =
-    Var.utility Var.Font_variant_slashed_zero Normal ~fallback:Normal
+  let slashed_var =
+    Var.handle_only Var.Font_variant_slashed_zero ~fallback:Normal ()
   in
-  let figure_def, _ =
-    Var.utility Var.Font_variant_numeric_figure Normal ~fallback:Normal
+  let figure_var =
+    Var.handle_only Var.Font_variant_numeric_figure ~fallback:Normal ()
   in
-  let spacing_def, _ =
-    Var.utility Var.Font_variant_numeric_spacing Normal ~fallback:Normal
+  let spacing_var =
+    Var.handle_only Var.Font_variant_numeric_spacing ~fallback:Normal ()
   in
-  let fraction_def, _ =
-    Var.utility Var.Font_variant_numeric_fraction Normal ~fallback:Normal
+  let fraction_var =
+    Var.handle_only Var.Font_variant_numeric_fraction ~fallback:Normal ()
+  in
+
+  (* Composed value using all 5 variables with comma fallbacks *)
+  let composed_value =
+    Composed
+      {
+        ordinal = Some (Var ordinal_var);
+        slashed_zero = Some (Var slashed_var);
+        numeric_figure = Some (Var figure_var);
+        numeric_spacing = Some (Var spacing_var);
+        numeric_fraction = Some (Var fraction_var);
+      }
   in
 
   (* All utilities need @property registration for these variables *)
@@ -826,13 +840,8 @@ let font_variant_numeric_utility class_name
   style class_name ~property_rules
     [
       def;
-      ordinal_def;
-      slashed_def;
-      figure_def;
-      spacing_def;
-      fraction_def;
-      font_variant_numeric_def;
-      font_variant_numeric (Var font_variant_numeric_var);
+      (* Only set the specific variable for this utility *)
+      font_variant_numeric composed_value;
     ]
 
 let ordinal =
