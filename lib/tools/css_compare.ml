@@ -587,14 +587,7 @@ let diff ast1 ast2 =
   { rules = rule_changes; media = media_changes; layers = layer_changes }
 
 (* Simple wrapper for backward compatibility *)
-let format_parse_error (err : Css.parse_error) =
-  let callstack_str =
-    if err.callstack = [] then ""
-    else "\n[Parse stack: " ^ String.concat " -> " err.callstack ^ "]"
-  in
-  Css.pp_parse_error err ^ "\n" ^ err.context_window ^ callstack_str ^ "\n"
-  ^ String.make err.marker_pos ' '
-  ^ "^"
+let format_parse_error (err : Css.parse_error) = Css.pp_parse_error err
 
 let format_css_diff css1 css2 =
   let css1 = strip_header css1 in

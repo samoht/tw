@@ -35,8 +35,6 @@ let process_css input_path output_format optimize =
       | Error err ->
           let error_msg = Css.pp_parse_error err in
           Printf.eprintf "Error parsing CSS: %s\n" error_msg;
-          Printf.eprintf "%s\n" err.context_window;
-          Printf.eprintf "%s^\n" (String.make err.marker_pos ' ');
           exit 1
     in
 

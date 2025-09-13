@@ -20,34 +20,8 @@
 open Core
 open Css
 
-(* Theme variables for individual font variant numeric tokens *)
-let _ordinal_theme_def, ordinal_theme_var =
-  Var.theme Var.Font_variant_ordinal Normal
-
-let _slashed_zero_theme_def, slashed_zero_theme_var =
-  Var.theme Var.Font_variant_slashed_zero Normal
-
-let _figure_theme_def, figure_theme_var =
-  Var.theme Var.Font_variant_numeric_figure Normal
-
-let _spacing_theme_def, spacing_theme_var =
-  Var.theme Var.Font_variant_numeric_spacing Normal
-
-let _fraction_theme_def, fraction_theme_var =
-  Var.theme Var.Font_variant_numeric_fraction Normal
-
-(* Theme variable for font-variant-numeric composed from individual token
-   variables *)
-let font_variant_numeric_def, font_variant_numeric_var =
-  Var.theme Var.Font_variant_numeric
-    (Composed
-       {
-         ordinal = Some (Var ordinal_theme_var);
-         slashed_zero = Some (Var slashed_zero_theme_var);
-         numeric_figure = Some (Var figure_theme_var);
-         numeric_spacing = Some (Var spacing_theme_var);
-         numeric_fraction = Some (Var fraction_theme_var);
-       })
+(* No theme variables for font-variant-numeric - Tailwind doesn't define them in
+   theme layer *)
 
 (* Helper to create text size variables with line height *)
 let var_text_size var_t lh_var_t size_rem lh_rem =
@@ -135,9 +109,7 @@ module Parse = Parse
 let text_xs =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_var =
-    Var.handle_only Var.Leading ~fallback:(Var text_xs_lh_var) ()
-  in
+  let leading_var = Var.handle Var.Leading ~fallback:(Var text_xs_lh_var) () in
   style "text-xs"
     [
       text_xs_size_def;
@@ -149,9 +121,7 @@ let text_xs =
 let text_sm =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_var =
-    Var.handle_only Var.Leading ~fallback:(Var text_sm_lh_var) ()
-  in
+  let leading_var = Var.handle Var.Leading ~fallback:(Var text_sm_lh_var) () in
   style "text-sm"
     [
       text_sm_size_def;
@@ -164,7 +134,7 @@ let text_base =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
   let leading_var =
-    Var.handle_only Var.Leading ~fallback:(Var text_base_lh_var) ()
+    Var.handle Var.Leading ~fallback:(Var text_base_lh_var) ()
   in
   style "text-base"
     [
@@ -177,9 +147,7 @@ let text_base =
 let text_lg =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_var =
-    Var.handle_only Var.Leading ~fallback:(Var text_lg_lh_var) ()
-  in
+  let leading_var = Var.handle Var.Leading ~fallback:(Var text_lg_lh_var) () in
   style "text-lg"
     [
       text_lg_size_def;
@@ -191,9 +159,7 @@ let text_lg =
 let text_xl =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_var =
-    Var.handle_only Var.Leading ~fallback:(Var text_xl_lh_var) ()
-  in
+  let leading_var = Var.handle Var.Leading ~fallback:(Var text_xl_lh_var) () in
   style "text-xl"
     [
       text_xl_size_def;
@@ -205,9 +171,7 @@ let text_xl =
 let text_2xl =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_var =
-    Var.handle_only Var.Leading ~fallback:(Var text_2xl_lh_var) ()
-  in
+  let leading_var = Var.handle Var.Leading ~fallback:(Var text_2xl_lh_var) () in
   style "text-2xl"
     [
       text_2xl_size_def;
@@ -219,9 +183,7 @@ let text_2xl =
 let text_3xl =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_var =
-    Var.handle_only Var.Leading ~fallback:(Var text_3xl_lh_var) ()
-  in
+  let leading_var = Var.handle Var.Leading ~fallback:(Var text_3xl_lh_var) () in
   style "text-3xl"
     [
       text_3xl_size_def;
@@ -233,9 +195,7 @@ let text_3xl =
 let text_4xl =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_var =
-    Var.handle_only Var.Leading ~fallback:(Var text_4xl_lh_var) ()
-  in
+  let leading_var = Var.handle Var.Leading ~fallback:(Var text_4xl_lh_var) () in
   style "text-4xl"
     [
       text_4xl_size_def;
@@ -247,9 +207,7 @@ let text_4xl =
 let text_5xl =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_var =
-    Var.handle_only Var.Leading ~fallback:(Var text_5xl_lh_var) ()
-  in
+  let leading_var = Var.handle Var.Leading ~fallback:(Var text_5xl_lh_var) () in
   style "text-5xl"
     [
       text_5xl_size_def;
@@ -261,9 +219,7 @@ let text_5xl =
 let text_6xl =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_var =
-    Var.handle_only Var.Leading ~fallback:(Var text_6xl_lh_var) ()
-  in
+  let leading_var = Var.handle Var.Leading ~fallback:(Var text_6xl_lh_var) () in
   style "text-6xl"
     [
       text_6xl_size_def;
@@ -275,9 +231,7 @@ let text_6xl =
 let text_7xl =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_var =
-    Var.handle_only Var.Leading ~fallback:(Var text_7xl_lh_var) ()
-  in
+  let leading_var = Var.handle Var.Leading ~fallback:(Var text_7xl_lh_var) () in
   style "text-7xl"
     [
       text_7xl_size_def;
@@ -289,9 +243,7 @@ let text_7xl =
 let text_8xl =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_var =
-    Var.handle_only Var.Leading ~fallback:(Var text_8xl_lh_var) ()
-  in
+  let leading_var = Var.handle Var.Leading ~fallback:(Var text_8xl_lh_var) () in
   style "text-8xl"
     [
       text_8xl_size_def;
@@ -303,9 +255,7 @@ let text_8xl =
 let text_9xl =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_var =
-    Var.handle_only Var.Leading ~fallback:(Var text_9xl_lh_var) ()
-  in
+  let leading_var = Var.handle Var.Leading ~fallback:(Var text_9xl_lh_var) () in
   style "text-9xl"
     [
       text_9xl_size_def;
@@ -798,21 +748,11 @@ let font_variant_numeric_utility class_name
 
   (* Create references to all 5 variables with empty fallback for the composed
      value *)
-  let ordinal_var =
-    Var.handle_only Var.Font_variant_ordinal ~fallback:Normal ()
-  in
-  let slashed_var =
-    Var.handle_only Var.Font_variant_slashed_zero ~fallback:Normal ()
-  in
-  let figure_var =
-    Var.handle_only Var.Font_variant_numeric_figure ~fallback:Normal ()
-  in
-  let spacing_var =
-    Var.handle_only Var.Font_variant_numeric_spacing ~fallback:Normal ()
-  in
-  let fraction_var =
-    Var.handle_only Var.Font_variant_numeric_fraction ~fallback:Normal ()
-  in
+  let ordinal_var = Var.handle_only Var.Font_variant_ordinal () in
+  let slashed_var = Var.handle_only Var.Font_variant_slashed_zero () in
+  let figure_var = Var.handle_only Var.Font_variant_numeric_figure () in
+  let spacing_var = Var.handle_only Var.Font_variant_numeric_spacing () in
+  let fraction_var = Var.handle_only Var.Font_variant_numeric_fraction () in
 
   (* Composed value using all 5 variables with comma fallbacks *)
   let composed_value =

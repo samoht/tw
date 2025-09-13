@@ -2,11 +2,15 @@
  (name cssdiff)
  (libraries tw_tools fmt))
 
+(executable
+ (name check_properties)
+ (libraries str))
+
 (rule
  (alias runtest)
  (deps
   (:properties %{project_root}/lib/css/properties.ml)
   (:properties_intf %{project_root}/lib/css/properties_intf.ml)
-  (:script check_properties.ml))
+  (:script check_properties.exe))
  (action
-  (run ocaml %{script})))
+  (run %{script})))

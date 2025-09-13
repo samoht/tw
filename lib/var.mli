@@ -97,7 +97,7 @@ type _ t =
   | Drop_shadow : string t
   | Drop_shadow_alpha : float t
   (* Box shadow variable *)
-  | Box_shadow : Css.box_shadow t
+  | Box_shadow : Css.shadow list t
   (* Backdrop filter variables *)
   | Backdrop_blur : Css.length t
   | Backdrop_brightness : float t
@@ -112,7 +112,7 @@ type _ t =
   | Shadow : Css.shadow t
   | Shadow_color : Css.color t
   | Shadow_alpha : float t
-  | Inset_shadow : string t
+  | Inset_shadow : Css.shadow t
   | Inset_shadow_color : Css.color t
   | Inset_shadow_alpha : float t
   | Ring_color : Css.color t
@@ -197,9 +197,15 @@ val utility : 'a t -> ?fallback:'a -> 'a -> Css.declaration * 'a Css.var
 (** [utility v ?fallback value] creates a utility-layer variable declaration and
     handle. *)
 
-val handle_only : 'a t -> ?fallback:'a -> unit -> 'a Css.var
-(** [handle_only v ?fallback] creates a variable handle without a definition.
-    Useful for referencing variables that may be defined elsewhere. *)
+val handle_only : 'a t -> unit -> 'a Css.var
+(** [handle_only v] creates a variable handle with empty fallback without a
+    definition. Useful for referencing variables that may be defined elsewhere.
+    Creates var(--name,) format. *)
+
+val handle : 'a t -> ?fallback:'a -> unit -> 'a Css.var
+(** [handle v ?fallback] creates a variable handle with optional fallback
+    without a definition. Useful for referencing variables that may be defined
+    elsewhere. *)
 
 val property :
   syntax:string -> inherits:bool -> ?initial:string -> 'a t -> Css.property_rule

@@ -312,10 +312,10 @@ let test_build_utilities_layer () =
     [
       Css.rule
         ~selector:(Css.Selector.class_ "p-4")
-        [ Css.padding (Css.Rem 1.0) ];
+        [ Css.padding [ Css.Rem 1.0 ] ];
       Css.rule
         ~selector:(Css.Selector.class_ "m-2")
-        [ Css.margin (Css.Rem 0.5) ];
+        [ Css.margin [ Css.Rem 0.5 ] ];
     ]
   in
   let layer =
@@ -333,8 +333,8 @@ let test_build_utilities_layer_preserves_order () =
     [
       Css.rule ~selector:(Css.Selector.class_ "a")
         [ Css.color (Css.Hex { hash = false; value = "ff0000" }) ];
-      Css.rule ~selector:(Css.Selector.class_ "b") [ Css.margin (Css.Px 10.) ];
-      Css.rule ~selector:(Css.Selector.class_ "c") [ Css.padding (Css.Px 5.) ];
+      Css.rule ~selector:(Css.Selector.class_ "b") [ Css.margin [ Css.Px 10. ] ];
+      Css.rule ~selector:(Css.Selector.class_ "c") [ Css.padding [ Css.Px 5. ] ];
       Css.rule ~selector:(Css.Selector.class_ "a")
         [ Css.background_color (Css.Hex { hash = false; value = "0000ff" }) ];
       Css.rule ~selector:(Css.Selector.class_ "d")
@@ -375,15 +375,15 @@ let test_classify () =
     [
       Tw.Rules.regular
         ~selector:(Css.Selector.class_ "p-4")
-        ~props:[ Css.padding (Css.Rem 1.0) ]
+        ~props:[ Css.padding [ Css.Rem 1.0 ] ]
         ();
       Tw.Rules.media_query ~condition:"(min-width: 640px)"
         ~selector:(Css.Selector.class_ "sm\\:p-4")
-        ~props:[ Css.padding (Css.Rem 1.0) ]
+        ~props:[ Css.padding [ Css.Rem 1.0 ] ]
         ();
       Tw.Rules.container_query ~condition:"(min-width: 640px)"
         ~selector:(Css.Selector.class_ "\\@sm\\:p-4")
-        ~props:[ Css.padding (Css.Rem 1.0) ]
+        ~props:[ Css.padding [ Css.Rem 1.0 ] ]
         ();
       Tw.Rules.starting_style
         ~selector:(Css.Selector.class_ "animate-in")
@@ -391,7 +391,7 @@ let test_classify () =
         ();
       Tw.Rules.regular
         ~selector:(Css.Selector.class_ "m-2")
-        ~props:[ Css.margin (Css.Rem 0.5) ]
+        ~props:[ Css.margin [ Css.Rem 0.5 ] ]
         ();
     ]
   in
@@ -414,7 +414,9 @@ let test_style_with_rules_and_props () =
       rule
         ~selector:(test_class ++ where [ p_element ])
         [ margin_top (Rem 1.0) ];
-      rule ~selector:(test_class ++ where [ div_element ]) [ padding (Rem 2.0) ];
+      rule
+        ~selector:(test_class ++ where [ div_element ])
+        [ padding [ Rem 2.0 ] ];
     ]
   in
   let props = [ color (Hex { hash = false; value = "ff0000" }) ] in
