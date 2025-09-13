@@ -68,7 +68,12 @@ let make_padding prefix prop (s : spacing) =
   let len = to_length s in
   spacing_style class_name [ prop len ] s
 
-let p' = make_padding "p-" padding
+let make_padding_list prefix prop (s : spacing) =
+  let class_name = prefix ^ pp_spacing_suffix s in
+  let len = to_length s in
+  spacing_style class_name [ prop [ len ] ] s
+
+let p' = make_padding_list "p-" padding
 let px' = make_padding "px-" padding_inline
 let py' = make_padding "py-" padding_block
 let pt' = make_padding "pt-" padding_top
@@ -108,7 +113,12 @@ let make_margin prefix prop (m : margin) =
   let len = margin_to_length m in
   margin_style class_name [ prop len ] m
 
-let m' = make_margin "m-" margin
+let make_margin_list prefix prop (m : margin) =
+  let class_name = prefix ^ pp_margin_suffix m in
+  let len = margin_to_length m in
+  margin_style class_name [ prop [ len ] ] m
+
+let m' = make_margin_list "m-" margin
 let mx' = make_margin "mx-" margin_inline
 let my' = make_margin "my-" margin_block
 let mt' = make_margin "mt-" margin_top
@@ -122,7 +132,7 @@ let m n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "m-" ^ pp_margin_suffix s in
-  margin_style class_name [ margin (margin_to_length s) ] s
+  margin_style class_name [ margin [ margin_to_length s ] ] s
 
 let mx n =
   let s = int n in

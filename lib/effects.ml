@@ -2,14 +2,14 @@
 
     What's included:
     - Shadows: `shadow-none/sm/(default)/md/lg/xl/2xl/inner`.
-    - Opacity: `opacity-{0..100}`.
+    - Opacity: [opacity-0..100].
     - Filter & backdrop-filter helpers: see Filters module for full coverage.
     - Ring and transition helpers.
 
     What's not:
     - Full mix-blend and backdrop-blend sets are not exposed where the typed
-      `Css` API lacks variants. You can extend with
-      `style "mix-blend-multiply" [Css.property "mix-blend-mode" "multiply"]`.
+      `Css` API lacks variants. You can extend with `style "mix-blend-multiply"
+      [Css.property "mix-blend-mode" "multiply"]`.
 
     Parsing contract (`of_string`):
     - Accepts `opacity-<n>` and common transition aliases. Unknown tokens yield
@@ -61,36 +61,17 @@ let shadow_property_rules =
        shadow utilities *)
   ]
 
-(* Helper function to create shadow utilities with CSS variable composition *)
+(* Helper function to create shadow utilities *)
 let make_shadow_utility name shadow_value =
-  (* For now, use a default shadow for the typed variable and keep the string
-     separate *)
-  let shadow_def, _ = Var.utility Var.Shadow (Css.shadow ()) in
-  (* Define default values for other shadow composition variables *)
-  let inset_shadow_def, _ = Var.utility Var.Inset_shadow "0 0 #0000" in
-  let inset_ring_shadow_def, _ =
-    Var.utility Var.Inset_ring_shadow (Css.inset_ring_shadow ())
-  in
-  let ring_offset_shadow_def, _ =
-    Var.utility Var.Ring_offset_shadow (Css.shadow ())
-  in
-  let ring_shadow_def, _ = Var.utility Var.Ring_shadow (Css.shadow ()) in
+  (* Define shadow variables using Var system *)
+  let shadow_def, _ = Var.utility Var.Shadow shadow_value in
+  let inset_shadow_def, _ = Var.utility Var.Inset_shadow Css.None in
+  let inset_ring_shadow_def, _ = Var.utility Var.Inset_ring_shadow Css.None in
+  let ring_offset_shadow_def, _ = Var.utility Var.Ring_offset_shadow Css.None in
+  let ring_shadow_def, _ = Var.utility Var.Ring_shadow Css.None in
 
-  (* Create the composed box_shadow *)
-  let box_shadow_def, _ = Var.theme Var.Box_shadow Css.None in
-
-  (* Convert shadow to box_shadow *)
-  let box_shadow_value : Css.box_shadow =
-    match shadow_value with
-    | Css.Simple (h, v, blur, spread, color) ->
-        Css.Shadow
-          { inset = false; h_offset = h; v_offset = v; blur; spread; color }
-    | Css.Inset (h, v, blur, spread, color) ->
-        Css.Shadow
-          { inset = true; h_offset = h; v_offset = v; blur; spread; color }
-    | Css.None -> Css.None
-    | _ -> Css.None
-  in
+  (* Create the box-shadow declaration with the shadow value *)
+  let box_shadow_decl = Css.box_shadow shadow_value in
 
   style name ~property_rules:shadow_property_rules
     [
@@ -99,33 +80,67 @@ let make_shadow_utility name shadow_value =
       inset_ring_shadow_def;
       ring_offset_shadow_def;
       ring_shadow_def;
-      box_shadow_def;
-      box_shadow box_shadow_value;
+      box_shadow_decl;
     ]
 
-let shadow_none = make_shadow_utility "shadow-none" (Css.shadow ())
-let shadow_sm = make_shadow_utility "shadow-sm" (Css.shadow ())
-let shadow = make_shadow_utility "shadow" (Css.shadow ())
-let shadow_md = make_shadow_utility "shadow-md" (Css.shadow ())
-let shadow_lg = make_shadow_utility "shadow-lg" (Css.shadow ())
-let shadow_xl = make_shadow_utility "shadow-xl" (Css.shadow ())
-let shadow_2xl = make_shadow_utility "shadow-2xl" (Css.shadow ())
+let shadow_none = make_shadow_utility "shadow-none" Css.None
+
+let shadow_sm =
+  (* Simple shadow for now - proper multi-shadow support needs more work *)
+  let shadow_value =
+    Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 1.) ~blur:(Px 3.) ()
+  in
+  make_shadow_utility "shadow-sm" shadow_value
+
+let shadow =
+  let shadow_value =
+    Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 1.) ~blur:(Px 3.) ()
+  in
+  make_shadow_utility "shadow" shadow_value
+
+let shadow_md =
+  let shadow_value =
+    Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 4.) ~blur:(Px 6.)
+      ~spread:(Px (-1.)) ()
+  in
+  make_shadow_utility "shadow-md" shadow_value
+
+let shadow_lg =
+  let shadow_value =
+    Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 10.) ~blur:(Px 15.)
+      ~spread:(Px (-3.)) ()
+  in
+  make_shadow_utility "shadow-lg" shadow_value
+
+let shadow_xl =
+  let shadow_value =
+    Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 20.) ~blur:(Px 25.)
+      ~spread:(Px (-5.)) ()
+  in
+  make_shadow_utility "shadow-xl" shadow_value
+
+let shadow_2xl =
+  let shadow_value =
+    Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 25.) ~blur:(Px 50.)
+      ~spread:(Px (-12.)) ()
+  in
+  make_shadow_utility "shadow-2xl" shadow_value
 
 let shadow_inner =
-  let inset_shadow_def, _ =
-    Var.utility Var.Inset_shadow
-      "inset 0 2px 4px 0 var(--tw-shadow-color,#0000000f)"
+  (* Define inset shadow variable *)
+  let inset_shadow_value =
+    Css.shadow ~inset:true ~h_offset:(Px 0.) ~v_offset:(Px 2.) ~blur:(Px 4.) ()
   in
+  let inset_shadow_def, _ = Var.utility Var.Inset_shadow inset_shadow_value in
+
   (* Define default values for other shadow composition variables *)
-  let inset_ring_shadow_def, _ =
-    Var.utility Var.Inset_ring_shadow (Css.inset_ring_shadow ())
-  in
-  let ring_offset_shadow_def, _ =
-    Var.utility Var.Ring_offset_shadow (Css.shadow ())
-  in
-  let ring_shadow_def, _ = Var.utility Var.Ring_shadow (Css.shadow ()) in
-  let shadow_def, _ = Var.utility Var.Shadow (Css.shadow ()) in
-  let _, box_shadow_var = Var.theme Var.Box_shadow Css.None in
+  let inset_ring_shadow_def, _ = Var.utility Var.Inset_ring_shadow Css.None in
+  let ring_offset_shadow_def, _ = Var.utility Var.Ring_offset_shadow Css.None in
+  let ring_shadow_def, _ = Var.utility Var.Ring_shadow Css.None in
+  let shadow_def, _ = Var.utility Var.Shadow Css.None in
+
+  (* Create the box-shadow declaration with the shadow value *)
+  let box_shadow_decl = Css.box_shadow inset_shadow_value in
 
   style "shadow-inner" ~property_rules:shadow_property_rules
     [
@@ -134,7 +149,7 @@ let shadow_inner =
       ring_offset_shadow_def;
       ring_shadow_def;
       shadow_def;
-      box_shadow (Css.Var box_shadow_var);
+      box_shadow_decl;
     ]
 
 (** {1 Opacity Utilities} *)

@@ -29,7 +29,10 @@ type t = {
 }
 
 val pp : t Fmt.t
+(** [pp] pretty-prints structured CSS diffs. *)
+
 val equal : t -> t -> bool
+(** [equal a b] is [true] if [a] and [b] have no differences. *)
 
 val diff : Css.t -> Css.t -> t
 (** [diff ast1 ast2] returns a structured diff between two CSS ASTs. *)

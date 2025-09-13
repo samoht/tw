@@ -1,10 +1,5 @@
-#!/usr/bin/env ocaml
-
 (* Script to validate that all properties in properties_intf.ml are handled in
    properties.ml's read_property function *)
-#use "topfind"
-
-#require "str"
 
 let read_file filename =
   let ic = open_in filename in

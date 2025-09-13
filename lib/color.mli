@@ -438,4 +438,4 @@ val classes_of_string : string list -> (Core.t, [ `Msg of string ]) result
 val color_and_shade_of_string_list :
   string list -> (color * int, [ `Msg of string ]) result
 (** [color_and_shade_of_string_list parts] parses a color and shade from string
-    list parts. Example: ["blue"; "500"] -> Ok (Blue, 500) *)
+    list parts. Example: ["blue"; "500"] -> Ok (Blue, 500). *)

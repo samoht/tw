@@ -43,16 +43,16 @@ let box_resets () =
       [
         box_sizing Border_box;
         border ~width:Zero ~style:Solid ();
-        margin Zero;
-        padding Zero;
+        margin [ Zero ];
+        padding [ Zero ];
       ];
     rule
       ~selector:(pseudo_element "file-selector-button")
       [
         box_sizing Border_box;
         border ~width:Zero ~style:Solid ();
-        margin Zero;
-        padding Zero;
+        margin [ Zero ];
+        padding [ Zero ];
       ];
   ]
 
@@ -284,7 +284,7 @@ let webkit_form_resets () =
       [ display Inline_flex ];
     rule
       ~selector:(Selector.pseudo_element "-webkit-datetime-edit-fields-wrapper")
-      [ padding Zero ];
+      [ padding [ Zero ] ];
     rule
       ~selector:(Selector.pseudo_element "-webkit-datetime-edit")
       [ padding_block Zero ];
@@ -320,18 +320,7 @@ let firefox_form_resets () =
   [
     rule
       ~selector:(Selector.pseudo_class "-moz-ui-invalid")
-      [
-        box_shadow
-          (Shadow
-             {
-               inset = false;
-               h_offset = Zero;
-               v_offset = Zero;
-               blur = None;
-               spread = None;
-               color = None;
-             });
-      ];
+      [ box_shadow (shadow ~h_offset:Zero ~v_offset:Zero ()) ];
   ]
 
 (** Buttons need specific styles *)

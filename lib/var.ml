@@ -118,7 +118,7 @@ type _ t =
   | Drop_shadow : string t
   | Drop_shadow_alpha : float t
   (* Box shadow variable *)
-  | Box_shadow : Css.box_shadow t
+  | Box_shadow : Css.shadow list t
   (* Backdrop filter variables *)
   | Backdrop_blur : Css.length t
   | Backdrop_brightness : float t
@@ -133,7 +133,7 @@ type _ t =
   | Shadow : Css.shadow t
   | Shadow_color : Css.color t
   | Shadow_alpha : float t
-  | Inset_shadow : string t
+  | Inset_shadow : Css.shadow t
   | Inset_shadow_color : Css.color t
   | Inset_shadow_alpha : float t
   | Ring_color : Css.color t
@@ -718,7 +718,7 @@ let def : type a.
   | Backdrop_opacity -> var Float value
   | Backdrop_hue_rotate -> var Angle value
   | Shadow -> var Shadow value
-  | Inset_shadow -> var String value
+  | Inset_shadow -> var Shadow value
   | Ring_shadow -> var Shadow value
   | Inset_ring_shadow -> var Shadow value
   | Ring_inset -> var String value
@@ -798,11 +798,18 @@ let def : type a.
 (* Create a variable handle without a definition - useful for referencing
    variables that may be defined elsewhere (e.g., --tw-leading in text
    utilities) *)
-let handle_only : type a. a t -> ?fallback:a -> unit -> a Css.var =
+let handle_only : type a. a t -> unit -> a Css.var =
+ fun var_t () ->
+  let n = name var_t in
+  let meta = meta_of_var (Any var_t) in
+  (* Use Css.var_ref_empty to create handle with empty fallback *)
+  Css.var_ref_empty ~meta n
+
+let handle : type a. a t -> ?fallback:a -> unit -> a Css.var =
  fun var_t ?fallback () ->
   let n = name var_t in
   let meta = meta_of_var (Any var_t) in
-  (* Use Css.var_ref to create just the handle without a declaration *)
+  (* Use Css.var_ref to create handle with optional fallback *)
   Css.var_ref ?fallback ~meta n
 
 (* Layer-specific variable constructors *)

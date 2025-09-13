@@ -483,28 +483,14 @@ let kbd_rules base =
            alpha *)
         Css.box_shadow_list
           [
-            Css.Shadow
-              {
-                inset = false;
-                h_offset = Zero;
-                v_offset = Zero;
-                blur = None;
-                spread = Some (Px 1.);
-                color =
-                  Some
-                    (Css.color_mix ~percent1:10 (Var prose_kbd_var) Transparent);
-              };
-            Css.Shadow
-              {
-                inset = false;
-                h_offset = Zero;
-                v_offset = Px 3.;
-                blur = None;
-                spread = None;
-                color =
-                  Some
-                    (Css.color_mix ~percent1:10 (Var prose_kbd_var) Transparent);
-              };
+            Css.shadow ~h_offset:Zero ~v_offset:Zero ~spread:(Px 1.)
+              ~color:
+                (Css.color_mix ~percent1:10 (Var prose_kbd_var) Transparent)
+              ();
+            Css.shadow ~h_offset:Zero ~v_offset:(Px 3.)
+              ~color:
+                (Css.color_mix ~percent1:10 (Var prose_kbd_var) Transparent)
+              ();
           ];
         padding_top (Em 0.1875);
         padding_inline_end (Em 0.375);
@@ -568,7 +554,7 @@ let code_rules base =
         background_color Transparent;
         border_width Zero;
         border_radius Zero;
-        padding Zero;
+        padding [ Zero ];
       ];
     (* Pre code pseudo-element content removal *)
     Css.rule ~selector:(where base pre_code_before) [ content None ];

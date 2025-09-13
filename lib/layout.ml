@@ -36,8 +36,8 @@ let sr_only =
       position Absolute;
       width (Px 1.);
       height (Px 1.);
-      padding Zero;
-      margin (Px (-1.));
+      padding [ Zero ];
+      margin [ Px (-1.) ];
       overflow Hidden;
       clip "rect(0, 0, 0, 0)";
       white_space Nowrap;
@@ -50,8 +50,8 @@ let not_sr_only =
       position Static;
       width Auto;
       height Auto;
-      padding Zero;
-      margin Zero;
+      padding [ Zero ];
+      margin [ Zero ];
       overflow Visible;
       clip "auto";
       white_space Normal;
