@@ -48,10 +48,12 @@ let _, scroll_snap_strictness_var =
 
 (* Scroll snap property rules *)
 let scroll_snap_property_rules =
-  [
-    Var.property Var.Scroll_snap_strictness ~syntax:"*" ~inherits:false
-      ~initial:"proximity";
-  ]
+  Css.stylesheet
+    [
+      Css.Property
+        (Var.property ~inherits:false ~initial:Css.Proximity
+           Var.Scroll_snap_strictness);
+    ]
 
 let snap_start = style "snap-start" [ scroll_snap_align Start ]
 let snap_end = style "snap-end" [ scroll_snap_align End ]

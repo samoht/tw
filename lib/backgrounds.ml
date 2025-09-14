@@ -27,30 +27,32 @@ type direction =
 
 (* Shared @property rules for gradient variables (colors + positions + stops) *)
 let gradient_property_rules =
-  [
-    (* Position must come first in properties layer *)
-    Var.property Var.Gradient_position ~syntax:"*" ~inherits:false
-      ~initial:"initial";
-    (* Colors *)
-    Var.property Var.Gradient_from ~syntax:"<color>" ~inherits:false
-      ~initial:"#0000";
-    Var.property Var.Gradient_via ~syntax:"<color>" ~inherits:false
-      ~initial:"#0000";
-    Var.property Var.Gradient_to ~syntax:"<color>" ~inherits:false
-      ~initial:"#0000";
-    (* Stops composition helpers *)
-    Var.property Var.Gradient_stops ~syntax:"*" ~inherits:false
-      ~initial:"initial";
-    Var.property Var.Gradient_via_stops ~syntax:"*" ~inherits:false
-      ~initial:"initial";
-    (* Positions *)
-    Var.property Var.Gradient_from_position ~syntax:"<length-percentage>"
-      ~inherits:false ~initial:"0%";
-    Var.property Var.Gradient_via_position ~syntax:"<length-percentage>"
-      ~inherits:false ~initial:"50%";
-    Var.property Var.Gradient_to_position ~syntax:"<length-percentage>"
-      ~inherits:false ~initial:"100%";
-  ]
+  Css.stylesheet
+    [
+      (* Position must come first in properties layer *)
+      Css.Property
+        (Var.property ~inherits:false ~initial:"to bottom" Var.Gradient_position);
+      (* Colors *)
+      Css.Property
+        (Var.property ~inherits:false ~initial:(Css.hex "#0000")
+           Var.Gradient_from);
+      Css.Property
+        (Var.property ~inherits:false ~initial:(Css.hex "#0000")
+           Var.Gradient_via);
+      Css.Property
+        (Var.property ~inherits:false ~initial:(Css.hex "#0000") Var.Gradient_to);
+      (* Stops composition helpers *)
+      Css.Property (Var.property ~inherits:false ~initial:"" Var.Gradient_stops);
+      Css.Property
+        (Var.property ~inherits:false ~initial:"" Var.Gradient_via_stops);
+      (* Positions *)
+      Css.Property
+        (Var.property ~inherits:false ~initial:0. Var.Gradient_from_position);
+      Css.Property
+        (Var.property ~inherits:false ~initial:50. Var.Gradient_via_position);
+      Css.Property
+        (Var.property ~inherits:false ~initial:100. Var.Gradient_to_position);
+    ]
 
 let gradient_to_spec : direction -> string * Css.gradient_direction = function
   | Bottom -> ("bg-gradient-to-b", To_bottom)
@@ -171,15 +173,15 @@ let of_string = function
       | "bl" -> Ok (bg_gradient_to Bottom_left)
       | _ -> Error (`Msg "Unknown gradient direction"))
   | "from" :: rest -> (
-      match Color.color_and_shade_of_string_list rest with
+      match Color.color_shade_of_strings rest with
       | Ok (color, shade) -> Ok (from_color ~shade color)
       | Error _ -> Error (`Msg "Invalid from color"))
   | "via" :: rest -> (
-      match Color.color_and_shade_of_string_list rest with
+      match Color.color_shade_of_strings rest with
       | Ok (color, shade) -> Ok (via_color ~shade color)
       | Error _ -> Error (`Msg "Invalid via color"))
   | "to" :: rest -> (
-      match Color.color_and_shade_of_string_list rest with
+      match Color.color_shade_of_strings rest with
       | Ok (color, shade) -> Ok (to_color ~shade color)
       | Error _ -> Error (`Msg "Invalid to color"))
   | _ -> Error (`Msg "Unknown background class")

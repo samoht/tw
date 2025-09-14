@@ -51,7 +51,7 @@ type t =
       name : string;
       props : Css.declaration list;
       rules : Css.rule list option;
-      property_rules : Css.property_rule list;
+      property_rules : Css.t;
     }
   | Modified of modifier * t
   | Group of t list
@@ -65,7 +65,7 @@ type shadow = [ size | `Inner ]
 
 val style :
   ?rules:Css.rule list option ->
-  ?property_rules:Css.property_rule list ->
+  ?property_rules:Css.t ->
   string ->
   Css.declaration list ->
   t

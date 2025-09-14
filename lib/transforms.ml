@@ -33,20 +33,24 @@ module Parse = Parse
 
 (* Shared @property rules for scale composition variables *)
 let scale_property_rules =
-  [
-    Var.property Var.Scale_x ~syntax:"*" ~inherits:false ~initial:"1";
-    Var.property Var.Scale_y ~syntax:"*" ~inherits:false ~initial:"1";
-    Var.property Var.Scale_z ~syntax:"*" ~inherits:false ~initial:"1";
-  ]
+  Css.stylesheet
+    [
+      Css.Property (Var.property ~inherits:false ~initial:1. Var.Scale_x);
+      Css.Property (Var.property ~inherits:false ~initial:1. Var.Scale_y);
+      Css.Property (Var.property ~inherits:false ~initial:1. Var.Scale_z);
+    ]
 
 let scale_x_property_rule =
-  [ Var.property Var.Scale_x ~syntax:"*" ~inherits:false ~initial:"1" ]
+  Css.stylesheet
+    [ Css.Property (Var.property ~inherits:false ~initial:1. Var.Scale_x) ]
 
 let scale_y_property_rule =
-  [ Var.property Var.Scale_y ~syntax:"*" ~inherits:false ~initial:"1" ]
+  Css.stylesheet
+    [ Css.Property (Var.property ~inherits:false ~initial:1. Var.Scale_y) ]
 
 let scale_z_property_rule =
-  [ Var.property Var.Scale_z ~syntax:"*" ~inherits:false ~initial:"1" ]
+  Css.stylesheet
+    [ Css.Property (Var.property ~inherits:false ~initial:1. Var.Scale_z) ]
 
 let rotate n =
   let class_name = "rotate-" ^ string_of_int n in

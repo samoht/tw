@@ -8,7 +8,7 @@
 
 open Tw_html
 
-let sample_article () =
+let heading_section () =
   [
     h1 [ txt "Prose Typography Manual" ];
     p
@@ -26,6 +26,10 @@ let sample_article () =
         code [ txt "let x = 1" ];
         txt ".";
       ];
+  ]
+
+let quote_section () =
+  [
     blockquote
       [
         p
@@ -38,12 +42,20 @@ let sample_article () =
             txt "Second paragraph in the quote to show closing quotes handling.";
           ];
       ];
+  ]
+
+let headings_section () =
+  [
     h2 [ txt "Headings" ];
     h3 [ txt "Section H3" ];
     p [ txt "Supporting text under an H3 heading." ];
     h4 [ txt "Subsection H4" ];
     p [ txt "Supporting text under an H4 heading." ];
     hr ();
+  ]
+
+let lists_section () =
+  [
     h2 [ txt "Lists" ];
     p [ txt "Unordered list:" ];
     ul [ li [ txt "Item one" ]; li [ txt "Item two" ]; li [ txt "Item three" ] ];
@@ -56,6 +68,10 @@ let sample_article () =
     p [ txt "Nested lists:" ];
     ul
       [ li [ txt "Parent"; ul [ li [ txt "Child A" ]; li [ txt "Child B" ] ] ] ];
+  ]
+
+let definition_list_section () =
+  [
     h2 [ txt "Definition List" ];
     dl
       [
@@ -64,12 +80,20 @@ let sample_article () =
         dt [ txt "API" ];
         dd [ txt "Application Programming Interface." ];
       ];
+  ]
+
+let code_section () =
+  [
     h2 [ txt "Code" ];
     p [ txt "Inline "; code [ txt "List.map f xs" ]; txt " and block:" ];
     pre
       [
         code [ txt "let rec fact n =\n  if n <= 1 then 1 else n * fact (n-1)" ];
       ];
+  ]
+
+let keyboard_section () =
+  [
     h2 [ txt "Keyboard Input" ];
     p
       [
@@ -79,6 +103,10 @@ let sample_article () =
         kbd [ txt "C" ];
         txt " to copy.";
       ];
+  ]
+
+let table_section () =
+  [
     h2 [ txt "Table" ];
     table
       [
@@ -90,6 +118,10 @@ let sample_article () =
           ];
         tfoot [ tr [ td [ txt "Total" ]; td [ txt "—" ] ] ];
       ];
+  ]
+
+let media_section () =
+  [
     h2 [ txt "Media" ];
     figure
       [
@@ -99,6 +131,10 @@ let sample_article () =
         figcaption [ txt "A descriptive caption for the image." ];
       ];
     hr ();
+  ]
+
+let exclusions_section () =
+  [
     h2 [ txt "Exclusions" ];
     p [ txt "Content marked as not-prose is excluded from prose styling:" ];
     div
@@ -108,6 +144,11 @@ let sample_article () =
         p [ txt "This paragraph retains default spacing and size." ];
       ];
   ]
+
+let sample_article () =
+  heading_section () @ quote_section () @ headings_section () @ lists_section ()
+  @ definition_list_section () @ code_section () @ keyboard_section ()
+  @ table_section () @ media_section () @ exclusions_section ()
 
 let prose_section ~title ~tw_classes content =
   section
@@ -138,15 +179,15 @@ let page_content =
       ];
   ]
 
-let main_page =
+let doc =
   page ~title:"Prose Typography Demo" ~tw_css:"prose.css" []
     [
       div ~tw:Tw.[ max_w_4xl; mx_auto; p 8; flex; flex_col; gap 8 ] page_content;
     ]
 
 let () =
-  let html_out = html main_page in
-  let css_file, css_stylesheet = css main_page in
+  let html_out = html doc in
+  let css_file, css_stylesheet = css doc in
   let css_out = Tw.Css.to_string ~minify:true ~optimize:true css_stylesheet in
   let oc_html = open_out "index.html" in
   output_string oc_html html_out;

@@ -207,10 +207,12 @@ val handle : 'a t -> ?fallback:'a -> unit -> 'a Css.var
     without a definition. Useful for referencing variables that may be defined
     elsewhere. *)
 
-val property :
-  syntax:string -> inherits:bool -> ?initial:string -> 'a t -> Css.property_rule
-(** [property v ~syntax ~inherits ?initial] creates an [@property] registration.
-    @param syntax The property syntax (e.g., "*", "<color>", "<length>").
+val property : inherits:bool -> ?initial:'a -> 'a t -> 'a Css.property_rule
+(** [property  ~inherits ?initial t v] creates a typed [@property] registration.
+    Examples:
+    - [property ~inherits:false ~initial:(Css.hex "#000") My_color]
+    - [property ~inherits:false ~initial:"solid" Border_style]
+
     @param inherits Whether the property inherits.
     @param initial The initial value (optional). *)
 

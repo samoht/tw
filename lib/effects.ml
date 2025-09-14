@@ -31,38 +31,64 @@ module Parse = Parse
 (* Shadow property rules for @property registration to trigger @layer properties *)
 (* Only include the shadow and ring variables that Tailwind v4 actually includes for shadow utilities *)
 let shadow_property_rules =
-  [
-    (* Shadow and ring variables - ordered as in Tailwind v4 *)
-    Var.property Var.Shadow ~syntax:"*" ~inherits:false ~initial:"0 0 #0000";
-    Var.property Var.Shadow_color ~syntax:"*" ~inherits:false ~initial:"initial";
-    Var.property Var.Shadow_alpha ~syntax:"<percentage>" ~inherits:false
-      ~initial:"100%";
-    Var.property Var.Inset_shadow ~syntax:"*" ~inherits:false
-      ~initial:"0 0 #0000";
-    Var.property Var.Inset_shadow_color ~syntax:"*" ~inherits:false
-      ~initial:"initial";
-    Var.property Var.Inset_shadow_alpha ~syntax:"<percentage>" ~inherits:false
-      ~initial:"100%";
-    Var.property Var.Ring_color ~syntax:"*" ~inherits:false ~initial:"initial";
-    Var.property Var.Ring_shadow ~syntax:"*" ~inherits:false
-      ~initial:"0 0 #0000";
-    Var.property Var.Inset_ring_color ~syntax:"*" ~inherits:false
-      ~initial:"initial";
-    Var.property Var.Inset_ring_shadow ~syntax:"*" ~inherits:false
-      ~initial:"0 0 #0000";
-    Var.property Var.Ring_inset ~syntax:"*" ~inherits:false ~initial:"initial";
-    Var.property Var.Ring_offset_width ~syntax:"<length>" ~inherits:false
-      ~initial:"0";
-    Var.property Var.Ring_offset_color ~syntax:"*" ~inherits:false
-      ~initial:"#fff";
-    Var.property Var.Ring_offset_shadow ~syntax:"*" ~inherits:false
-      ~initial:"0 0 #0000";
-    (* Note: Ring_width is not included here as it's set by ring utilities, not
-       shadow utilities *)
-  ]
+  Css.stylesheet
+    [
+      (* Shadow and ring variables - ordered as in Tailwind v4 *)
+      Css.Property
+        (Var.property ~inherits:false
+           ~initial:
+             (Css.shadow ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
+                ~color:(Css.hex "#0000") ())
+           Var.Shadow);
+      Css.Property
+        (Var.property ~inherits:false ~initial:(Css.hex "#000") Var.Shadow_color);
+      Css.Property (Var.property ~inherits:false ~initial:1.0 Var.Shadow_alpha);
+      Css.Property
+        (Var.property ~inherits:false
+           ~initial:
+             (Css.shadow ~inset:true ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
+                ~color:(Css.hex "#0000") ())
+           Var.Inset_shadow);
+      Css.Property
+        (Var.property ~inherits:false ~initial:(Css.hex "#000")
+           Var.Inset_shadow_color);
+      Css.Property
+        (Var.property ~inherits:false ~initial:1.0 Var.Inset_shadow_alpha);
+      Css.Property
+        (Var.property ~inherits:false ~initial:(Css.hex "#000") Var.Ring_color);
+      Css.Property
+        (Var.property ~inherits:false
+           ~initial:
+             (Css.shadow ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
+                ~color:(Css.hex "#0000") ())
+           Var.Ring_shadow);
+      Css.Property
+        (Var.property ~inherits:false ~initial:(Css.hex "#000")
+           Var.Inset_ring_color);
+      Css.Property
+        (Var.property ~inherits:false
+           ~initial:
+             (Css.shadow ~inset:true ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
+                ~color:(Css.hex "#0000") ())
+           Var.Inset_ring_shadow);
+      Css.Property (Var.property ~inherits:false ~initial:"" Var.Ring_inset);
+      Css.Property
+        (Var.property ~inherits:false ~initial:(Css.Px 0.) Var.Ring_offset_width);
+      Css.Property
+        (Var.property ~inherits:false ~initial:(Css.hex "#fff")
+           Var.Ring_offset_color);
+      Css.Property
+        (Var.property ~inherits:false
+           ~initial:
+             (Css.shadow ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
+                ~color:(Css.hex "#0000") ())
+           Var.Ring_offset_shadow);
+      (* Note: Ring_width is not included here as it's set by ring utilities,
+         not shadow utilities *)
+    ]
 
 (* Helper function to create shadow utilities *)
-let make_shadow_utility name shadow_value =
+let shadow_utility name shadow_value =
   (* Define shadow variables using Var system *)
   let shadow_def, _ = Var.utility Var.Shadow shadow_value in
   let inset_shadow_def, _ = Var.utility Var.Inset_shadow Css.None in
@@ -83,48 +109,48 @@ let make_shadow_utility name shadow_value =
       box_shadow_decl;
     ]
 
-let shadow_none = make_shadow_utility "shadow-none" Css.None
+let shadow_none = shadow_utility "shadow-none" Css.None
 
 let shadow_sm =
   (* Simple shadow for now - proper multi-shadow support needs more work *)
   let shadow_value =
     Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 1.) ~blur:(Px 3.) ()
   in
-  make_shadow_utility "shadow-sm" shadow_value
+  shadow_utility "shadow-sm" shadow_value
 
 let shadow =
   let shadow_value =
     Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 1.) ~blur:(Px 3.) ()
   in
-  make_shadow_utility "shadow" shadow_value
+  shadow_utility "shadow" shadow_value
 
 let shadow_md =
   let shadow_value =
     Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 4.) ~blur:(Px 6.)
       ~spread:(Px (-1.)) ()
   in
-  make_shadow_utility "shadow-md" shadow_value
+  shadow_utility "shadow-md" shadow_value
 
 let shadow_lg =
   let shadow_value =
     Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 10.) ~blur:(Px 15.)
       ~spread:(Px (-3.)) ()
   in
-  make_shadow_utility "shadow-lg" shadow_value
+  shadow_utility "shadow-lg" shadow_value
 
 let shadow_xl =
   let shadow_value =
     Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 20.) ~blur:(Px 25.)
       ~spread:(Px (-5.)) ()
   in
-  make_shadow_utility "shadow-xl" shadow_value
+  shadow_utility "shadow-xl" shadow_value
 
 let shadow_2xl =
   let shadow_value =
     Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 25.) ~blur:(Px 50.)
       ~spread:(Px (-12.)) ()
   in
-  make_shadow_utility "shadow-2xl" shadow_value
+  shadow_utility "shadow-2xl" shadow_value
 
 let shadow_inner =
   (* Define inset shadow variable *)

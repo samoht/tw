@@ -155,10 +155,10 @@ let compare_css css1 css2 =
 let extract_rules_with_class css class_name =
   match Css.of_string css with
   | Ok ast ->
-      let items = Css.stylesheet_items ast in
+      let items = Css.stylesheet_rules ast in
       let rec extract acc = function
         | [] -> List.rev acc
-        | Css.Rule rule :: rest ->
+        | rule :: rest ->
             let selector_str = Css.Selector.to_string (Css.selector rule) in
             if
               String.length class_name > 0
@@ -176,7 +176,6 @@ let extract_rules_with_class css class_name =
               if contains 0 then extract (rule :: acc) rest
               else extract acc rest
             else extract acc rest
-        | _ :: rest -> extract acc rest
       in
       extract [] items
   | Error _ -> []
@@ -217,13 +216,14 @@ let count_css_class_patterns css class_name =
   in
   (base_count, where_count, List.length rules)
 
-let find_dominant_css_class css =
+let dominant_css_class css =
   match Css.of_string css with
   | Ok ast -> (
-      let items = Css.stylesheet_items ast in
+      (* Convert stylesheet to a list of rules *)
+      let items = Css.stylesheet_rules ast in
       let rec count_classes acc = function
         | [] -> acc
-        | Css.Rule rule :: rest ->
+        | rule :: rest ->
             let selector_str = Css.Selector.to_string (Css.selector rule) in
             (* Split grouped selectors by comma and process each *)
             let individual_selectors =
@@ -256,7 +256,6 @@ let find_dominant_css_class css =
                 acc individual_selectors
             in
             count_classes acc rest
-        | _ :: rest -> count_classes acc rest
       in
       let class_counts = count_classes [] items in
       match List.sort (fun (_, c1) (_, c2) -> compare c2 c1) class_counts with
@@ -272,20 +271,20 @@ let show_css_property_differences add_line selector props1 props2 =
   let p1_map = List.fold_left (fun acc (k, v) -> (k, v) :: acc) [] props1 in
   let p2_map = List.fold_left (fun acc (k, v) -> (k, v) :: acc) [] props2 in
 
-  add_line (Printf.sprintf "Selector: %s" selector);
+  add_line (Fmt.str "Selector: %s" selector);
 
   (* Properties only in first *)
   List.iter
     (fun (k, v) ->
       if not (List.mem_assoc k p2_map) then
-        add_line (Printf.sprintf "  - Only in ours: %s: %s" k v))
+        add_line (Fmt.str "  - Only in ours: %s: %s" k v))
     p1_map;
 
   (* Properties only in second *)
   List.iter
     (fun (k, v) ->
       if not (List.mem_assoc k p1_map) then
-        add_line (Printf.sprintf "  - Only in theirs: %s: %s" k v))
+        add_line (Fmt.str "  - Only in theirs: %s: %s" k v))
     p2_map;
 
   (* Properties with different values *)
@@ -293,184 +292,178 @@ let show_css_property_differences add_line selector props1 props2 =
     (fun (k, v1) ->
       match List.assoc_opt k p2_map with
       | Some v2 when v1 <> v2 ->
-          add_line (Printf.sprintf "  - Different values for %s:" k);
-          add_line (Printf.sprintf "    Ours:   %s" v1);
-          add_line (Printf.sprintf "    Theirs: %s" v2)
+          add_line (Fmt.str "  - Different values for %s:" k);
+          add_line (Fmt.str "    Ours:   %s" v1);
+          add_line (Fmt.str "    Theirs: %s" v2)
       | _ -> ())
     p1_map
 
 (* Analyze differences between two parsed CSS ASTs, returning structural
    changes *)
-let analyze_css_differences ast1 ast2 =
-  let items1 = Css.stylesheet_items ast1 in
-  let items2 = Css.stylesheet_items ast2 in
+let convert_rule_to_strings (selector, decls) =
+  let selector_str = Css.Selector.to_string selector in
+  let props =
+    List.map
+      (fun d ->
+        (* Use a simple fallback to convert declaration to prop:value *)
+        try
+          let dummy_css =
+            Css.to_string ~minify:true
+              (Css.stylesheet
+                 [
+                   Css.Rule
+                     (Css.rule ~selector:(Css.Selector.element "dummy") [ d ]);
+                 ])
+          in
+          let start = String.index dummy_css '{' + 1 in
+          let end_pos = String.index dummy_css '}' in
+          let content = String.sub dummy_css start (end_pos - start) in
+          match String.split_on_char ':' content with
+          | prop :: rest ->
+              let value = String.concat ":" rest |> String.trim in
+              (String.trim prop, value)
+          | [] -> ("", "")
+        with
+        | Not_found -> ("", "")
+        | Invalid_argument _ -> ("", "")
+        | Failure _ -> ("", ""))
+      decls
+  in
+  (selector_str, props)
 
+let compute_rule_diffs items1 items2 =
+  (* Extract rules from statement lists *)
   let rules1 =
     List.filter_map (function Css.Rule r -> Some r | _ -> None) items1
   in
   let rules2 =
     List.filter_map (function Css.Rule r -> Some r | _ -> None) items2
   in
-
   let find_rule sel rules =
     List.find_opt (fun r -> Css.selector r = sel) rules
   in
 
-  (* Find added rules (in ast2 but not ast1) *)
   let added =
     List.filter_map
       (fun r ->
         let sel = Css.selector r in
         if not (List.exists (fun r1 -> Css.selector r1 = sel) rules1) then
-          (* Return the selector and declarations directly *)
           Some (sel, Css.declarations r)
         else None)
       rules2
   in
-
-  (* Find removed rules (in ast1 but not ast2) *)
   let removed =
     List.filter_map
       (fun r ->
         let sel = Css.selector r in
         if not (List.exists (fun r2 -> Css.selector r2 = sel) rules2) then
-          (* Return the selector and declarations directly *)
           Some (sel, Css.declarations r)
         else None)
       rules1
   in
-
-  (* Find modified rules *)
   let modified =
     List.filter_map
       (fun r1 ->
         let sel = Css.selector r1 in
         match find_rule sel rules2 with
         | Some r2 when Css.declarations r1 <> Css.declarations r2 ->
-            (* Return structured data - will be converted to strings later *)
             Some (sel, Css.declarations r1, Css.declarations r2)
         | _ -> None)
       rules1
   in
+  (added, removed, modified)
 
-  (* Handle media and layer rules *)
+let compute_media_diffs items1 items2 =
   let media1 =
-    List.filter_map (function Css.Media m -> Some m | _ -> None) items1
+    List.filter_map
+      (function Css.Media (cond, block) -> Some (cond, block) | _ -> None)
+      items1
   in
   let media2 =
-    List.filter_map (function Css.Media m -> Some m | _ -> None) items2
+    List.filter_map
+      (function Css.Media (cond, block) -> Some (cond, block) | _ -> None)
+      items2
   in
+  let added =
+    List.filter
+      (fun (cond, _) ->
+        not (List.exists (fun (cond1, _) -> cond1 = cond) media1))
+      media2
+    |> List.map (fun (cond, _) -> ("@media " ^ cond, []))
+  in
+  let removed =
+    List.filter
+      (fun (cond, _) ->
+        not (List.exists (fun (cond2, _) -> cond2 = cond) media2))
+      media1
+    |> List.map (fun (cond, _) -> ("@media " ^ cond, []))
+  in
+  let modified =
+    List.filter_map
+      (fun (cond1, rules1) ->
+        match List.find_opt (fun (cond2, _) -> cond1 = cond2) media2 with
+        | Some (_, rules2) when rules1 <> rules2 ->
+            Some ("@media " ^ cond1, rules1, rules2)
+        | _ -> None)
+      media1
+  in
+  (added, removed, modified)
 
+let compute_layer_diffs items1 items2 =
   let layers1 =
-    List.filter_map (function Css.Layer l -> Some l | _ -> None) items1
+    List.filter_map
+      (function Css.Layer (name, block) -> Some (name, block) | _ -> None)
+      items1
   in
   let layers2 =
-    List.filter_map (function Css.Layer l -> Some l | _ -> None) items2
-  in
-
-  let at_added =
-    List.filter
-      (fun m ->
-        not
-          (List.exists
-             (fun m1 -> Css.media_condition m1 = Css.media_condition m)
-             media1))
-      media2
-    |> List.map (fun m -> ("@media " ^ Css.media_condition m, []))
-  in
-
-  let at_removed =
-    List.filter
-      (fun m ->
-        not
-          (List.exists
-             (fun m2 -> Css.media_condition m2 = Css.media_condition m)
-             media2))
-      media1
-    |> List.map (fun m -> ("@media " ^ Css.media_condition m, []))
-  in
-
-  let at_modified =
     List.filter_map
-      (fun m1 ->
-        match
-          List.find_opt
-            (fun m2 -> Css.media_condition m1 = Css.media_condition m2)
-            media2
-        with
-        | Some m2 when Css.media_rules m1 <> Css.media_rules m2 ->
-            Some
-              ( "@media " ^ Css.media_condition m1,
-                Css.media_rules m1,
-                Css.media_rules m2 )
-        | _ -> None)
-      media1
+      (function Css.Layer (name, block) -> Some (name, block) | _ -> None)
+      items2
   in
-
-  (* Layer comparison logic *)
-  let layer_added =
+  let added =
     List.filter
-      (fun l ->
-        not
-          (List.exists (fun l1 -> Css.layer_name l1 = Css.layer_name l) layers1))
+      (fun (name, _) ->
+        not (List.exists (fun (name1, _) -> name1 = name) layers1))
       layers2
-    |> List.map (fun l -> ("@layer " ^ Css.layer_name l, []))
+    |> List.map (fun (name, _) ->
+           let layer_str =
+             match name with None -> "@layer" | Some n -> "@layer " ^ n
+           in
+           (layer_str, []))
   in
-
-  let layer_removed =
+  let removed =
     List.filter
-      (fun l ->
-        not
-          (List.exists (fun l2 -> Css.layer_name l2 = Css.layer_name l) layers2))
+      (fun (name, _) ->
+        not (List.exists (fun (name2, _) -> name2 = name) layers2))
       layers1
-    |> List.map (fun l -> ("@layer " ^ Css.layer_name l, []))
+    |> List.map (fun (name, _) ->
+           let layer_str =
+             match name with None -> "@layer" | Some n -> "@layer " ^ n
+           in
+           (layer_str, []))
   in
-
-  let layer_modified =
+  let modified =
     List.filter_map
-      (fun l1 ->
-        match
-          List.find_opt
-            (fun l2 -> Css.layer_name l1 = Css.layer_name l2)
-            layers2
-        with
-        | Some l2 when Css.layer_rules l1 <> Css.layer_rules l2 ->
-            Some
-              ( "@layer " ^ Css.layer_name l1,
-                Css.layer_rules l1,
-                Css.layer_rules l2 )
+      (fun (name1, rules1) ->
+        match List.find_opt (fun (name2, _) -> name1 = name2) layers2 with
+        | Some (_, rules2) when rules1 <> rules2 ->
+            let layer_str =
+              match name1 with None -> "@layer" | Some n -> "@layer " ^ n
+            in
+            Some (layer_str, rules1, rules2)
         | _ -> None)
       layers1
   in
+  (added, removed, modified)
 
-  (* Convert structured data to expected string format *)
-  let convert_rule_to_strings (selector, decls) =
-    let selector_str = Css.Selector.to_string selector in
-    let props =
-      List.map
-        (fun d ->
-          (* Use a simple fallback to convert declaration to prop:value *)
-          try
-            let dummy_css =
-              Css.to_string ~minify:true
-                (Css.stylesheet
-                   [
-                     Css.Rule
-                       (Css.rule ~selector:(Css.Selector.element "dummy") [ d ]);
-                   ])
-            in
-            let start = String.index dummy_css '{' + 1 in
-            let end_pos = String.index dummy_css '}' in
-            let content = String.sub dummy_css start (end_pos - start) in
-            match String.split_on_char ':' content with
-            | prop :: rest ->
-                let value = String.concat ":" rest |> String.trim in
-                (String.trim prop, value)
-            | [] -> ("", "")
-          with _ -> ("", ""))
-        decls
-    in
-    (selector_str, props)
+let analyze_css_differences ast1 ast2 =
+  (* A stylesheet is a statement list, so we can use it directly *)
+  let items1 = ast1 in
+  let items2 = ast2 in
+  let added, removed, modified = compute_rule_diffs items1 items2 in
+  let at_added, at_removed, at_modified = compute_media_diffs items1 items2 in
+  let layer_added, layer_removed, layer_modified =
+    compute_layer_diffs items1 items2
   in
 
   let added_str = List.map convert_rule_to_strings added in
@@ -597,12 +590,12 @@ let format_css_diff css1 css2 =
       let diff_result = diff ast1 ast2 in
       Fmt.str "%a" pp diff_result
   | Error msg1, Error msg2 ->
-      Printf.sprintf "Parse errors in both CSS:\nFirst: %s\nSecond: %s"
+      Fmt.str "Parse errors in both CSS:@.First: %s@.Second: %s"
         (format_parse_error msg1) (format_parse_error msg2)
   | Error msg, _ ->
-      Printf.sprintf "Failed to parse our CSS: %s" (format_parse_error msg)
+      Fmt.str "Failed to parse our CSS: %s" (format_parse_error msg)
   | _, Error msg ->
-      Printf.sprintf "Failed to parse their CSS: %s" (format_parse_error msg)
+      Fmt.str "Failed to parse their CSS: %s" (format_parse_error msg)
 
 let format_labeled_css_diff ~tw_label ~tailwind_label ?css1 ?css2 _ _ =
   match (css1, css2) with
@@ -627,8 +620,7 @@ let format_labeled_css_diff ~tw_label ~tailwind_label ?css1 ?css2 _ _ =
           let add_line s = lines := s :: !lines in
 
           add_line
-            (Printf.sprintf "=== CSS Comparison: %s vs %s ===" tw_label
-               tailwind_label);
+            (Fmt.str "=== CSS Comparison: %s vs %s ===" tw_label tailwind_label);
 
           if
             added = [] && removed = [] && modified = [] && at_added = []
@@ -636,22 +628,22 @@ let format_labeled_css_diff ~tw_label ~tailwind_label ?css1 ?css2 _ _ =
           then add_line "✓ CSS structures match perfectly!"
           else (
             if removed <> [] then (
-              add_line (Printf.sprintf "\n[Rules only in %s]" tw_label);
+              add_line (Fmt.str "@,@[<v>[Rules only in %s]@]" tw_label);
               List.iter
                 (fun (sel, props) ->
-                  add_line (Printf.sprintf "  %s" sel);
+                  add_line (Fmt.str "  %s" sel);
                   List.iter
-                    (fun (p, v) -> add_line (Printf.sprintf "    %s: %s" p v))
+                    (fun (p, v) -> add_line (Fmt.str "    %s: %s" p v))
                     props)
                 removed);
 
             if added <> [] then (
-              add_line (Printf.sprintf "\n[Rules only in %s]" tailwind_label);
+              add_line (Fmt.str "@,@[<v>[Rules only in %s]@]" tailwind_label);
               List.iter
                 (fun (sel, props) ->
-                  add_line (Printf.sprintf "  %s" sel);
+                  add_line (Fmt.str "  %s" sel);
                   List.iter
-                    (fun (p, v) -> add_line (Printf.sprintf "    %s: %s" p v))
+                    (fun (p, v) -> add_line (Fmt.str "    %s: %s" p v))
                     props)
                 added);
 
@@ -664,12 +656,11 @@ let format_labeled_css_diff ~tw_label ~tailwind_label ?css1 ?css2 _ _ =
 
           String.concat "\n" (List.rev !lines)
       | Error msg1, Error msg2 ->
-          Printf.sprintf "Parse errors in both CSS:\nFirst: %s\nSecond: %s"
+          Fmt.str "Parse errors in both CSS:@.First: %s@.Second: %s"
             (format_parse_error msg1) (format_parse_error msg2)
       | Error msg, _ ->
-          Printf.sprintf "Failed to parse %s CSS: %s" tw_label
-            (format_parse_error msg)
+          Fmt.str "Failed to parse %s CSS: %s" tw_label (format_parse_error msg)
       | _, Error msg ->
-          Printf.sprintf "Failed to parse %s CSS: %s" tailwind_label
+          Fmt.str "Failed to parse %s CSS: %s" tailwind_label
             (format_parse_error msg))
   | _, _ -> "Missing CSS content for comparison"

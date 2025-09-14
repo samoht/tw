@@ -34,14 +34,14 @@ let slugify s =
   Buffer.contents b
 
 (* Test name generation *)
-let make_test_name = function
+let test_name_of = function
   | [] -> "empty"
   | names ->
       let full_name = String.concat " " names in
       if String.length full_name > 100 then String.sub full_name 0 97 ^ "..."
       else full_name
 
-let make_debug_files test_name tw_css tailwind_css =
+let debug_files test_name tw_css tailwind_css =
   let out_dir = "/tmp" in
   let test_name_slug = slugify test_name in
   let tw_file =
@@ -179,11 +179,9 @@ let check_exact_match tw_styles =
       tailwind_css_raw |> Tw_tools.Css_compare.strip_header |> String.trim
     in
 
-    let test_name = make_test_name classnames in
+    let test_name = test_name_of classnames in
     (* Write stripped CSS to test files for better error context *)
-    let tw_file, tailwind_file =
-      make_debug_files test_name tw_css tailwind_css
-    in
+    let tw_file, tailwind_file = debug_files test_name tw_css tailwind_css in
 
     if tw_css <> tailwind_css then (
       report_failure test_name tw_file tailwind_file;

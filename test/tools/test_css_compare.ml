@@ -277,13 +277,13 @@ let test_count_patterns_variations () =
   (* No :where() *)
   check int "total count" 3 total_count (* All contain "prose" *)
 
-(* Test find_dominant_css_class function *)
+(* Test dominant_css_class function *)
 let test_find_dominant_class () =
   let css =
     ".test1 { color: red; } .test2 { padding: 10px; } .test2:hover { color: \
      blue; }"
   in
-  let cls, count = find_dominant_css_class css in
+  let cls, count = dominant_css_class css in
   check string "dominant class" ".test2" cls;
   check int "occurrence count" 2 count
 
@@ -291,13 +291,13 @@ let test_find_dominant_class_element_selectors () =
   let css =
     "body { margin: 0; } div { padding: 10px; } div:hover { color: blue; }"
   in
-  let cls, count = find_dominant_css_class css in
+  let cls, count = dominant_css_class css in
   check string "returns element selector when no classes" "div" cls;
   check int "element selector count" 2 count
 
 let test_find_dominant_class_grouped () =
   let css = ".a, .b { color: red; } .b { padding: 10px; }" in
-  let cls, count = find_dominant_css_class css in
+  let cls, count = dominant_css_class css in
   check string "dominant in grouped selectors" ".b" cls;
   check int "count with grouped selectors" 2 count
 
@@ -307,7 +307,7 @@ let test_find_dominant_class_pseudo () =
     ".test:hover { color: red; } .test:focus { color: blue; } .other { \
      padding: 0; }"
   in
-  let cls, count = find_dominant_css_class css in
+  let cls, count = dominant_css_class css in
   check string "extracts class before pseudo" ".test" cls;
   check int "counts pseudo variations" 2 count
 

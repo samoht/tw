@@ -75,11 +75,11 @@ let () =
   let impl_file = Filename.concat project_root "lib/css/properties.ml" in
 
   if not (Sys.file_exists intf_file) then (
-    Printf.eprintf "Cannot find %s\n" intf_file;
+    Fmt.epr "Cannot find %s@." intf_file;
     exit 1);
 
   if not (Sys.file_exists impl_file) then (
-    Printf.eprintf "Cannot find %s\n" impl_file;
+    Fmt.epr "Cannot find %s@." impl_file;
     exit 1);
 
   let intf_content = read_file intf_file in
@@ -97,14 +97,14 @@ let () =
   let extra = StringSet.diff handled_set all_set in
 
   if not (StringSet.is_empty missing) then (
-    Printf.printf "ERROR: Missing property mappings in read_property:\n";
-    StringSet.iter (Printf.printf "  - %s\n") missing;
+    Fmt.pr "ERROR: Missing property mappings in read_property:@.";
+    StringSet.iter (fun s -> Fmt.pr "  - %s@." s) missing;
     exit 1);
 
   if not (StringSet.is_empty extra) then (
-    Printf.printf
-      "WARNING: Extra property mappings in read_property (not in interface):\n";
-    StringSet.iter (Printf.printf "  - %s\n") extra);
+    Fmt.pr
+      "WARNING: Extra property mappings in read_property (not in interface):@.";
+    StringSet.iter (fun s -> Fmt.pr "  - %s@." s) extra);
 
-  Printf.printf "✓ All %d properties are properly mapped in read_property\n"
+  Fmt.pr "✓ All %d properties are properly mapped in read_property@."
     (StringSet.cardinal all_set)

@@ -320,7 +320,7 @@ let firefox_form_resets () =
   [
     rule
       ~selector:(Selector.pseudo_class "-moz-ui-invalid")
-      [ box_shadow (shadow ~h_offset:Zero ~v_offset:Zero ()) ];
+      [ box_shadow_list [ None ] ];
   ]
 
 (** Buttons need specific styles *)
