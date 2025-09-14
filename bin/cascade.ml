@@ -34,7 +34,7 @@ let process_css input_path output_format optimize =
       | Ok s -> s
       | Error err ->
           let error_msg = Css.pp_parse_error err in
-          Printf.eprintf "Error parsing CSS: %s\n" error_msg;
+          Fmt.epr "Error parsing CSS: %s@." error_msg;
           exit 1
     in
 
@@ -54,12 +54,12 @@ let process_css input_path output_format optimize =
       print_newline ()
   with
   | Sys_error msg ->
-      Printf.eprintf "Error: %s\n" msg;
+      Fmt.epr "Error: %s@." msg;
       exit 1
   | e ->
-      Printf.eprintf "Unexpected error: %s\n" (Printexc.to_string e);
+      Fmt.epr "Unexpected error: %s@." (Printexc.to_string e);
       let bt = Printexc.get_backtrace () in
-      if bt <> "" then Printf.eprintf "%s\n" bt;
+      if bt <> "" then Fmt.epr "%s@." bt;
       exit 1
 
 (* Command-line interface *)
@@ -80,7 +80,7 @@ let optimize =
   let doc = "Optimize CSS by merging rules and removing duplicates" in
   Arg.(value & flag & info [ "o"; "optimize" ] ~doc)
 
-let cascade_t =
+let term =
   Term.(
     const (fun input minify pretty optimize ->
         (* Determine output format *)
@@ -115,5 +115,5 @@ let info =
   in
   Cmd.info "cascade" ~version:"0.1.0" ~doc ~man
 
-let cmd = Cmd.v info cascade_t
+let cmd = Cmd.v info term
 let () = exit (Cmd.eval cmd)

@@ -63,23 +63,23 @@ let spacing_style class_name decls s =
   | `Rem _ -> style class_name (spacing_def :: decls)
   | _ -> style class_name decls
 
-let make_padding prefix prop (s : spacing) =
+let padding_util prefix prop (s : spacing) =
   let class_name = prefix ^ pp_spacing_suffix s in
   let len = to_length s in
   spacing_style class_name [ prop len ] s
 
-let make_padding_list prefix prop (s : spacing) =
+let padding_list_util prefix prop (s : spacing) =
   let class_name = prefix ^ pp_spacing_suffix s in
   let len = to_length s in
   spacing_style class_name [ prop [ len ] ] s
 
-let p' = make_padding_list "p-" padding
-let px' = make_padding "px-" padding_inline
-let py' = make_padding "py-" padding_block
-let pt' = make_padding "pt-" padding_top
-let pr' = make_padding "pr-" padding_right
-let pb' = make_padding "pb-" padding_bottom
-let pl' = make_padding "pl-" padding_left
+let p' = padding_list_util "p-" padding
+let px' = padding_util "px-" padding_inline
+let py' = padding_util "py-" padding_block
+let pt' = padding_util "pt-" padding_top
+let pr' = padding_util "pr-" padding_right
+let pb' = padding_util "pb-" padding_bottom
+let pl' = padding_util "pl-" padding_left
 
 (** {2 Int-based Padding Utilities} *)
 
@@ -108,23 +108,23 @@ let margin_style class_name decls m =
   | `Rem _ -> style class_name (spacing_def :: decls)
   | _ -> style class_name decls
 
-let make_margin prefix prop (m : margin) =
+let margin_util prefix prop (m : margin) =
   let class_name = prefix ^ pp_margin_suffix m in
   let len = margin_to_length m in
   margin_style class_name [ prop len ] m
 
-let make_margin_list prefix prop (m : margin) =
+let margin_list_util prefix prop (m : margin) =
   let class_name = prefix ^ pp_margin_suffix m in
   let len = margin_to_length m in
   margin_style class_name [ prop [ len ] ] m
 
-let m' = make_margin_list "m-" margin
-let mx' = make_margin "mx-" margin_inline
-let my' = make_margin "my-" margin_block
-let mt' = make_margin "mt-" margin_top
-let mr' = make_margin "mr-" margin_right
-let mb' = make_margin "mb-" margin_bottom
-let ml' = make_margin "ml-" margin_left
+let m' = margin_list_util "m-" margin
+let mx' = margin_util "mx-" margin_inline
+let my' = margin_util "my-" margin_block
+let mt' = margin_util "mt-" margin_top
+let mr' = margin_util "mr-" margin_right
+let mb' = margin_util "mb-" margin_bottom
+let ml' = margin_util "ml-" margin_left
 
 (** {2 Int-based Margin Utilities} *)
 

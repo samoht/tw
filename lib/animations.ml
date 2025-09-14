@@ -10,12 +10,13 @@ let transition_none =
   style "transition-none"
     [
       Css.transition
-        {
-          property = Css.None;
-          duration = Some (Css.S 0.0);
-          timing_function = None;
-          delay = None;
-        };
+        (Css.Shorthand
+           {
+             property = Css.None;
+             duration = Some (Css.S 0.0);
+             timing_function = None;
+             delay = None;
+           });
     ]
 
 let transition =
@@ -23,60 +24,69 @@ let transition =
     [
       Css.transitions
         [
-          {
-            property = Css.Property "color";
-            duration = Some (Css.Ms 150.);
-            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
-          {
-            property = Css.Property "background-color";
-            duration = Some (Css.Ms 150.);
-            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
-          {
-            property = Css.Property "border-color";
-            duration = Some (Css.Ms 150.);
-            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
-          {
-            property = Css.Property "text-decoration-color";
-            duration = Some (Css.Ms 150.);
-            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
-          {
-            property = Css.Property "fill";
-            duration = Some (Css.Ms 150.);
-            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
-          {
-            property = Css.Property "stroke";
-            duration = Some (Css.Ms 150.);
-            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
-          {
-            property = Css.Property "opacity";
-            duration = Some (Css.Ms 150.);
-            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
-          {
-            property = Css.Property "box-shadow";
-            duration = Some (Css.Ms 150.);
-            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
-          {
-            property = Css.Property "transform";
-            duration = Some (Css.Ms 150.);
-            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
+          Css.Shorthand
+            {
+              property = Css.Property "color";
+              duration = Some (Css.Ms 150.);
+              timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
+          Css.Shorthand
+            {
+              property = Css.Property "background-color";
+              duration = Some (Css.Ms 150.);
+              timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
+          Css.Shorthand
+            {
+              property = Css.Property "border-color";
+              duration = Some (Css.Ms 150.);
+              timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
+          Css.Shorthand
+            {
+              property = Css.Property "text-decoration-color";
+              duration = Some (Css.Ms 150.);
+              timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
+          Css.Shorthand
+            {
+              property = Css.Property "fill";
+              duration = Some (Css.Ms 150.);
+              timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
+          Css.Shorthand
+            {
+              property = Css.Property "stroke";
+              duration = Some (Css.Ms 150.);
+              timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
+          Css.Shorthand
+            {
+              property = Css.Property "opacity";
+              duration = Some (Css.Ms 150.);
+              timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
+          Css.Shorthand
+            {
+              property = Css.Property "box-shadow";
+              duration = Some (Css.Ms 150.);
+              timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
+          Css.Shorthand
+            {
+              property = Css.Property "transform";
+              duration = Some (Css.Ms 150.);
+              timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
         ];
     ]
 
@@ -84,12 +94,13 @@ let transition_all =
   style "transition-all"
     [
       Css.transition
-        {
-          property = Css.All;
-          duration = Some (Css.Ms 150.);
-          timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-          delay = None;
-        };
+        (Css.Shorthand
+           {
+             property = Css.All;
+             duration = Some (Css.Ms 150.);
+             timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+             delay = None;
+           });
     ]
 
 let transition_colors =
@@ -97,36 +108,41 @@ let transition_colors =
     [
       Css.transitions
         [
-          {
-            property = Css.Property "background-color";
-            duration = Some (Css.Ms 150.);
-            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
-          {
-            property = Css.Property "border-color";
-            duration = Some (Css.Ms 150.);
-            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
-          {
-            property = Css.Property "color";
-            duration = Some (Css.Ms 150.);
-            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
-          {
-            property = Css.Property "fill";
-            duration = Some (Css.Ms 150.);
-            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
-          {
-            property = Css.Property "stroke";
-            duration = Some (Css.Ms 150.);
-            timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
+          Css.Shorthand
+            {
+              property = Css.Property "background-color";
+              duration = Some (Css.Ms 150.);
+              timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
+          Css.Shorthand
+            {
+              property = Css.Property "border-color";
+              duration = Some (Css.Ms 150.);
+              timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
+          Css.Shorthand
+            {
+              property = Css.Property "color";
+              duration = Some (Css.Ms 150.);
+              timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
+          Css.Shorthand
+            {
+              property = Css.Property "fill";
+              duration = Some (Css.Ms 150.);
+              timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
+          Css.Shorthand
+            {
+              property = Css.Property "stroke";
+              duration = Some (Css.Ms 150.);
+              timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
         ];
     ]
 
@@ -134,36 +150,39 @@ let transition_opacity =
   style "transition-opacity"
     [
       Css.transition
-        {
-          property = Css.Property "opacity";
-          duration = Some (Css.Ms 150.);
-          timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-          delay = None;
-        };
+        (Css.Shorthand
+           {
+             property = Css.Property "opacity";
+             duration = Some (Css.Ms 150.);
+             timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+             delay = None;
+           });
     ]
 
 let transition_shadow =
   style "transition-shadow"
     [
       Css.transition
-        {
-          property = Css.Property "box-shadow";
-          duration = Some (Css.Ms 150.);
-          timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-          delay = None;
-        };
+        (Css.Shorthand
+           {
+             property = Css.Property "box-shadow";
+             duration = Some (Css.Ms 150.);
+             timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+             delay = None;
+           });
     ]
 
 let transition_transform =
   style "transition-transform"
     [
       Css.transition
-        {
-          property = Css.Property "transform";
-          duration = Some (Css.Ms 150.);
-          timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-          delay = None;
-        };
+        (Css.Shorthand
+           {
+             property = Css.Property "transform";
+             duration = Some (Css.Ms 150.);
+             timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+             delay = None;
+           });
     ]
 
 (** {1 Animation Utilities} *)
@@ -172,80 +191,85 @@ let animate_none =
   style "animate-none"
     [
       Css.animation
-        {
-          name = Some "none";
-          duration = None;
-          timing_function = None;
-          delay = None;
-          iteration_count = None;
-          direction = None;
-          fill_mode = None;
-          play_state = None;
-        };
+        (Css.Shorthand
+           {
+             name = Some "none";
+             duration = None;
+             timing_function = None;
+             delay = None;
+             iteration_count = None;
+             direction = None;
+             fill_mode = None;
+             play_state = None;
+           });
     ]
 
 let animate_spin =
   style "animate-spin"
     [
       Css.animation
-        {
-          name = Some "spin";
-          duration = Some (S 1.0);
-          timing_function = Some Linear;
-          delay = None;
-          iteration_count = Some Infinite;
-          direction = None;
-          fill_mode = None;
-          play_state = None;
-        };
+        (Css.Shorthand
+           {
+             name = Some "spin";
+             duration = Some (S 1.0);
+             timing_function = Some Linear;
+             delay = None;
+             iteration_count = Some Infinite;
+             direction = None;
+             fill_mode = None;
+             play_state = None;
+           });
     ]
 
 let animate_ping =
   style "animate-ping"
     [
       Css.animation
-        {
-          name = Some "ping";
-          duration = Some (S 1.0);
-          timing_function = Some (Cubic_bezier (0.0, 0.0, 0.2, 1.0));
-          delay = None;
-          iteration_count = Some Infinite;
-          direction = None;
-          fill_mode = None;
-          play_state = None;
-        };
+        (Css.Shorthand
+           {
+             name = Some "ping";
+             duration = Some (S 1.0);
+             timing_function = Some (Cubic_bezier (0.0, 0.0, 0.2, 1.0));
+             delay = None;
+             iteration_count = Some Infinite;
+             direction = None;
+             fill_mode = None;
+             play_state = None;
+           });
     ]
 
 let animate_pulse =
   style "animate-pulse"
     [
       Css.animation
-        {
-          name = Some "pulse";
-          duration = Some (S 2.0);
-          timing_function = Some (Cubic_bezier (0.4, 0.0, 0.6, 1.0));
-          delay = None;
-          iteration_count = Some Infinite;
-          direction = None;
-          fill_mode = None;
-          play_state = None;
-        };
+        (Css.Shorthand
+           {
+             name = Some "pulse";
+             duration = Some (S 2.0);
+             timing_function = Some (Cubic_bezier (0.4, 0.0, 0.6, 1.0));
+             delay = None;
+             iteration_count = Some Infinite;
+             direction = None;
+             fill_mode = None;
+             play_state = None;
+           });
     ]
 
 let animate_bounce =
   style "animate-bounce"
     [
       Css.animation
-        {
-          name = Some "bounce";
-          duration = Some (S 1.0);
-          timing_function = None;
-          delay = None;
-          iteration_count = Some Infinite;
-          direction = None;
-          fill_mode = None;
-          play_state = None;
-        };
+        (Css.Shorthand
+           {
+             name = Some "bounce";
+             duration = Some (S 1.0);
+             timing_function = None;
+             delay = None;
+             iteration_count = Some Infinite;
+             direction = None;
+             fill_mode = None;
+             play_state = None;
+           });
     ]
 
 (** {1 Duration Utilities} *)

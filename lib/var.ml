@@ -629,7 +629,10 @@ let def : type a.
   let layer = Option.map layer_name layer in
   (* Set metadata for this variable *)
   let meta = meta_of_var (Any var_t) in
-  let var ty v = Css.var ?layer ?fallback ~meta n ty v in
+  let var ty v =
+    let fallback = Option.map (fun f -> Css.Fallback f) fallback in
+    Css.var ?layer ?fallback ~meta n ty v
+  in
   match var_t with
   | Spacing -> var Length value
   | Font_sans -> var Font_family value
@@ -687,6 +690,7 @@ let def : type a.
         | Some s ->
             String.concat "" [ "color-"; color_name; "-"; string_of_int s ]
       in
+      let fallback = Option.map (fun f -> Css.Fallback f) fallback in
       Css.var ?layer ?fallback ~meta clean_name Color value
   | Translate_x -> var Length value
   | Translate_y -> var Length value
@@ -802,14 +806,15 @@ let handle_only : type a. a t -> unit -> a Css.var =
  fun var_t () ->
   let n = name var_t in
   let meta = meta_of_var (Any var_t) in
-  (* Use Css.var_ref_empty to create handle with empty fallback *)
-  Css.var_ref_empty ~meta n
+  (* Use Css.var_ref with Empty fallback to create handle *)
+  Css.var_ref ~fallback:Empty ~meta n
 
 let handle : type a. a t -> ?fallback:a -> unit -> a Css.var =
  fun var_t ?fallback () ->
   let n = name var_t in
   let meta = meta_of_var (Any var_t) in
   (* Use Css.var_ref to create handle with optional fallback *)
+  let fallback = Option.map (fun f -> Css.Fallback f) fallback in
   Css.var_ref ?fallback ~meta n
 
 (* Layer-specific variable constructors *)
@@ -819,16 +824,44 @@ let theme : type a. a t -> ?fallback:a -> a -> Css.declaration * a Css.var =
 let utility : type a. a t -> ?fallback:a -> a -> Css.declaration * a Css.var =
  fun var_t ?fallback value -> def ?fallback var_t ~layer:Utility value
 
-(* Create @property rule for a variable *)
+(* Create @property rule for a variable, converting typed initial values to
+   strings for Universal syntax *)
 let property : type a.
-    syntax:string ->
-    inherits:bool ->
-    ?initial:string ->
-    a t ->
-    Css.property_rule =
- fun ~syntax ~inherits ?initial var_t ->
-  let var_name = to_string var_t in
-  Css.property ~syntax ?initial_value:initial ~inherits var_name
+    inherits:bool -> ?initial:a -> a t -> string Css.property_rule =
+ fun ~inherits ?initial var_t ->
+  let name = to_string var_t in
+  let syntax = Css.Universal in
+  let initial_value =
+    match initial with
+    | None -> None
+    | Some value ->
+        (* Convert typed value to string representation using to_string
+           helper *)
+        let string_repr =
+          match var_t with
+          | Spacing | Text_xs | Text_sm | Text_base | Text_lg | Text_xl
+          | Text_2xl | Text_3xl | Text_4xl | Text_5xl | Text_6xl | Text_7xl
+          | Text_8xl | Text_9xl | Ring_offset_width ->
+              Css.Pp.to_string Css.Values.pp_length value
+          | Shadow_color | Inset_shadow_color | Ring_color | Inset_ring_color
+          | Ring_offset_color | Gradient_from | Gradient_via | Gradient_to ->
+              Css.Pp.to_string Css.Values.pp_color value
+          | Shadow_alpha | Inset_shadow_alpha | Scale_x | Scale_y | Scale_z
+          | Gradient_from_position | Gradient_via_position
+          | Gradient_to_position ->
+              Css.Pp.to_string Css.Pp.float value
+          | Font_weight -> Css.Pp.to_string Css.Pp.int value
+          | Shadow | Inset_shadow | Ring_shadow | Inset_ring_shadow
+          | Ring_offset_shadow ->
+              Css.Pp.to_string Css.Values.pp_shadow value
+          | Border_style | Content | Ring_inset | Gradient_stops
+          | Gradient_via_stops | Gradient_position | Scroll_snap_strictness ->
+              Css.Pp.to_string Css.Pp.string value
+          | _ -> Css.Pp.to_string Css.Pp.string value
+        in
+        Some string_repr
+  in
+  Css.{ name; syntax; inherits; initial_value }
 
 (** Helper for metadata errors *)
 let err_meta ~layer decl msg =
@@ -865,7 +898,7 @@ module Set = Set.Make (struct
 end)
 
 let compare_declarations layer d1 d2 =
-  match (Css.declaration_meta d1, Css.declaration_meta d2) with
+  match (Css.meta_of_declaration d1, Css.meta_of_declaration d2) with
   | Some m1, Some m2 -> (
       match (var_of_meta m1, var_of_meta m2) with
       | Some v1, Some v2 -> compare v1 v2

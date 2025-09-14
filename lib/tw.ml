@@ -47,7 +47,7 @@ let to_inline_style = Rules.to_inline_style
 (* Prose stylesheet *)
 let prose_stylesheet () =
   let rules = Prose.stylesheet () in
-  Css.stylesheet (rules |> List.map (fun rule -> Css.Rule rule))
+  Css.v rules
 
 (* Prose markers at top level *)
 let not_prose = Prose.not_prose

@@ -266,9 +266,11 @@ let text_9xl =
 
 (* Create the @property rule for --tw-font-weight *)
 let property_rules =
-  [
-    Var.property Var.Font_weight ~syntax:"*" ~inherits:false ~initial:"initial";
-  ]
+  Css.stylesheet
+    [
+      Css.Property
+        (Var.property ~inherits:false ~initial:(Css.Weight 400) Var.Font_weight);
+    ]
 
 (* Font weight utilities using variables *)
 let font_thin =
@@ -654,7 +656,10 @@ let line_clamp n =
 
 (* Property rules for content variable *)
 let content_property_rules =
-  [ Var.property Var.Content ~syntax:"*" ~inherits:false ~initial:"" ]
+  Css.stylesheet
+    [
+      Css.Property (Var.property ~inherits:false ~initial:Css.None Var.Content);
+    ]
 
 let content_none =
   let content_def, content_var = Var.utility Var.Content ~fallback:None None in

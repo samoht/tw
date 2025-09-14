@@ -17,7 +17,8 @@ let contains s sub =
 let check_theme_layer_empty () =
   let theme_layer = compute_theme_layer [] in
   let css =
-    Css.to_string ~minify:false (Css.stylesheet [ Css.Layer theme_layer ])
+    Css.to_string ~minify:false
+      (Css.v [ Css.layer ~name:"theme" theme_layer.Css.Stylesheet.rules ])
   in
   (* Should include font variables even for empty input *)
   check bool "includes --font-sans" true (contains css "--font-sans");
@@ -30,7 +31,8 @@ let check_theme_layer_empty () =
 let check_theme_layer_with_color () =
   let theme_layer = Tw.Rules.compute_theme_layer [ bg blue 500 ] in
   let css =
-    Css.to_string ~minify:false (Css.stylesheet [ Css.Layer theme_layer ])
+    Css.to_string ~minify:false
+      (Css.v [ Css.layer ~name:"theme" theme_layer.Css.Stylesheet.rules ])
   in
   (* Should include color variable when referenced *)
   check bool "includes --color-blue-500" true (contains css "--color-blue-500");
@@ -261,7 +263,8 @@ let test_theme_layer_collects_media_refs () =
     Tw.Rules.compute_theme_layer [ sm [ Tw.Typography.text_xl ] ]
   in
   let css =
-    Css.to_string ~minify:false (Css.stylesheet [ Css.Layer theme_layer ])
+    Css.to_string ~minify:false
+      (Css.v [ Css.layer ~name:"theme" theme_layer.Css.Stylesheet.rules ])
   in
   check bool "includes --text-xl var" true (contains css "--text-xl");
   check bool "includes --text-xl--line-height var" true
@@ -442,7 +445,7 @@ let test_style_with_rules_and_props () =
   check string "second rule selector" ".test :where(div)" (List.nth selectors 1);
   check string "last rule selector" ".test" (List.nth selectors 2)
 
-let test_rules_of_grouped_prose_bug () =
+let rules_of_grouped_prose_bug () =
   (* Reproduce the prose rule merging bug *)
   let _prose_body_def, prose_body_var =
     Tw.Var.utility Tw.Var.Prose_body (Tw.Css.oklch 37.3 0.034 259.733)
@@ -501,10 +504,10 @@ let test_rules_of_grouped_prose_bug () =
       output_rules
   in
 
-  Printf.printf "\n=== test_rules_of_grouped_prose_bug ===\n";
-  Printf.printf "Input: 3 grouped pairs (2 .prose + 1 descendant)\n";
-  Printf.printf "Expected: 2 .prose rules in output\n";
-  Printf.printf "Actual: %d .prose rules in output\n" (List.length prose_rules);
+  Fmt.pr "@.=== test_rules_of_grouped_prose_bug ===@.";
+  Fmt.pr "Input: 3 grouped pairs (2 .prose + 1 descendant)@.";
+  Fmt.pr "Expected: 2 .prose rules in output@.";
+  Fmt.pr "Actual: %d .prose rules in output@." (List.length prose_rules);
 
   (* This should be 2 separate .prose rules, not 1 merged rule *)
   check int "number of .prose rules" 2 (List.length prose_rules);
@@ -556,7 +559,7 @@ let tests =
     test_case "style with rules and props ordering" `Quick
       test_style_with_rules_and_props;
     test_case "rules_of_grouped prose merging bug" `Quick
-      test_rules_of_grouped_prose_bug;
+      rules_of_grouped_prose_bug;
   ]
 
 let suite = ("rules", tests)

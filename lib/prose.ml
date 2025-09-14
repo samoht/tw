@@ -48,7 +48,7 @@ let prose_kbd_def, prose_kbd_var =
   Var.utility Var.Prose_kbd (oklch 21.0 0.034 264.665)
 
 (* Special handling for kbd-shadows - it's RGB values without rgb() wrapper *)
-let prose_kbd_shadows_def, _prose_kbd_shadows_var =
+let prose_kbd_shadows_def, _ =
   Var.utility Var.Prose_kbd_shadows
     "NaN NaN NaN" (* This will need special handling *)
 
@@ -68,58 +68,58 @@ let prose_td_borders_def, prose_td_borders_var =
   Var.utility Var.Prose_td_borders (oklch 92.8 0.006 264.531)
 
 (* Invert variants for dark mode *)
-let prose_invert_body_def, _prose_invert_body_var =
+let prose_invert_body_def, _ =
   Var.utility Var.Prose_invert_body (oklch 87.2 0.010 258.338)
 
-let prose_invert_headings_def, _prose_invert_headings_var =
+let prose_invert_headings_def, _ =
   Var.utility Var.Prose_invert_headings (Hex { hash = true; value = "fff" })
 
-let prose_invert_lead_def, _prose_invert_lead_var =
+let prose_invert_lead_def, _ =
   Var.utility Var.Prose_invert_lead (oklch 70.7 0.022 261.325)
 
-let prose_invert_links_def, _prose_invert_links_var =
+let prose_invert_links_def, _ =
   Var.utility Var.Prose_invert_links (Hex { hash = true; value = "fff" })
 
-let prose_invert_bold_def, _prose_invert_bold_var =
+let prose_invert_bold_def, _ =
   Var.utility Var.Prose_invert_bold (Hex { hash = true; value = "fff" })
 
-let prose_invert_counters_def, _prose_invert_counters_var =
+let prose_invert_counters_def, _ =
   Var.utility Var.Prose_invert_counters (oklch 70.7 0.022 261.325)
 
-let prose_invert_bullets_def, _prose_invert_bullets_var =
+let prose_invert_bullets_def, _ =
   Var.utility Var.Prose_invert_bullets (oklch 44.6 0.030 256.802)
 
-let prose_invert_hr_def, _prose_invert_hr_var =
+let prose_invert_hr_def, _ =
   Var.utility Var.Prose_invert_hr (oklch 37.3 0.034 259.733)
 
-let prose_invert_quotes_def, _prose_invert_quotes_var =
+let prose_invert_quotes_def, _ =
   Var.utility Var.Prose_invert_quotes (oklch 96.7 0.003 264.542)
 
-let prose_invert_quote_borders_def, _prose_invert_quote_borders_var =
+let prose_invert_quote_borders_def, _ =
   Var.utility Var.Prose_invert_quote_borders (oklch 37.3 0.034 259.733)
 
-let prose_invert_captions_def, _prose_invert_captions_var =
+let prose_invert_captions_def, _ =
   Var.utility Var.Prose_invert_captions (oklch 70.7 0.022 261.325)
 
-let prose_invert_kbd_def, _prose_invert_kbd_var =
+let prose_invert_kbd_def, _ =
   Var.utility Var.Prose_invert_kbd (Hex { hash = true; value = "fff" })
 
-let prose_invert_kbd_shadows_def, _prose_invert_kbd_shadows_var =
+let prose_invert_kbd_shadows_def, _ =
   Var.utility Var.Prose_invert_kbd_shadows "255 255 255"
 
-let prose_invert_code_def, _prose_invert_code_var =
+let prose_invert_code_def, _ =
   Var.utility Var.Prose_invert_code (Hex { hash = true; value = "fff" })
 
-let prose_invert_pre_code_def, _prose_invert_pre_code_var =
+let prose_invert_pre_code_def, _ =
   Var.utility Var.Prose_invert_pre_code (oklch 87.2 0.010 258.338)
 
-let prose_invert_pre_bg_def, _prose_invert_pre_bg_var =
+let prose_invert_pre_bg_def, _ =
   Var.utility Var.Prose_invert_pre_bg (Hex { hash = true; value = "00000080" })
 
-let prose_invert_th_borders_def, _prose_invert_th_borders_var =
+let prose_invert_th_borders_def, _ =
   Var.utility Var.Prose_invert_th_borders (oklch 44.6 0.030 256.802)
 
-let prose_invert_td_borders_def, _prose_invert_td_borders_var =
+let prose_invert_td_borders_def, _ =
   Var.utility Var.Prose_invert_td_borders (oklch 37.3 0.034 259.733)
 
 (* ======================================================================== *)
@@ -188,13 +188,13 @@ let kbd = Css.Selector.element "kbd"
 let lead = class_attr "lead"
 
 (* Compound selectors for ol with type attributes *)
-let ol_type_A = ol && type_attr "A"
+let ol_type_upper_a = ol && type_attr "A"
 let ol_type_a = ol && type_attr "a"
-let ol_type_A_s = ol && type_attr "A s"
+let ol_type_upper_a_s = ol && type_attr "A s"
 let ol_type_a_s = ol && type_attr "a s"
-let ol_type_I = ol && type_attr "I"
+let ol_type_upper_i = ol && type_attr "I"
 let ol_type_i = ol && type_attr "i"
-let ol_type_I_s = ol && type_attr "I s"
+let ol_type_upper_i_s = ol && type_attr "I s"
 let ol_type_i_s = ol && type_attr "i s"
 let ol_type_1 = ol && type_attr "1"
 
@@ -228,10 +228,10 @@ let th_td = th || td
 let figure_all = Css.Selector.(combine figure Child universal) (* figure>* *)
 let tbody_td_tfoot_td = (tbody ++ td) || (tfoot ++ td)
 
-let tbody_td_tfoot_td_first_child =
+let tbody_td_first_child =
   (tbody ++ (td && first_child)) || (tfoot ++ (td && first_child))
 
-let tbody_td_tfoot_td_last_child =
+let tbody_td_last_child =
   (tbody ++ (td && last_child)) || (tfoot ++ (td && last_child))
 
 (** Convert prose variant to CSS class name *)
@@ -344,13 +344,21 @@ let list_rules base =
         padding_inline_start (Em 1.625);
         list_style_type Decimal;
       ];
-    Css.rule ~selector:(where base ol_type_A) [ list_style_type Upper_alpha ];
+    Css.rule
+      ~selector:(where base ol_type_upper_a)
+      [ list_style_type Upper_alpha ];
     Css.rule ~selector:(where base ol_type_a) [ list_style_type Lower_alpha ];
-    Css.rule ~selector:(where base ol_type_A_s) [ list_style_type Upper_alpha ];
+    Css.rule
+      ~selector:(where base ol_type_upper_a_s)
+      [ list_style_type Upper_alpha ];
     Css.rule ~selector:(where base ol_type_a_s) [ list_style_type Lower_alpha ];
-    Css.rule ~selector:(where base ol_type_I) [ list_style_type Upper_roman ];
+    Css.rule
+      ~selector:(where base ol_type_upper_i)
+      [ list_style_type Upper_roman ];
     Css.rule ~selector:(where base ol_type_i) [ list_style_type Lower_roman ];
-    Css.rule ~selector:(where base ol_type_I_s) [ list_style_type Upper_roman ];
+    Css.rule
+      ~selector:(where base ol_type_upper_i_s)
+      [ list_style_type Upper_roman ];
     Css.rule ~selector:(where base ol_type_i_s) [ list_style_type Lower_roman ];
     Css.rule ~selector:(where base ol_type_1) [ list_style_type Decimal ];
     Css.rule ~selector:(where base ul)
@@ -809,7 +817,7 @@ type size_config = {
 }
 
 (* Helper function to generate typography rules for different sizes *)
-let make_typography_rules selector c =
+let typography_rules selector c =
   (* Combinator to avoid repeating pattern *)
   let open Selector in
   [
@@ -987,10 +995,10 @@ let make_typography_rules selector c =
         padding_inline_start c.tbody_td_padding_x;
       ];
     Css.rule
-      ~selector:(selector ++ tbody_td_tfoot_td_first_child)
+      ~selector:(selector ++ tbody_td_first_child)
       [ padding_inline_start Zero ];
     Css.rule
-      ~selector:(selector ++ tbody_td_tfoot_td_last_child)
+      ~selector:(selector ++ tbody_td_last_child)
       [ padding_inline_end Zero ];
     (* Figure *)
     Css.rule ~selector:(selector ++ figure)
@@ -1277,16 +1285,16 @@ let xl2_config =
   }
 
 let sm_size_rules selector =
-  make_typography_rules (Css.Selector.class_ selector) sm_config
+  typography_rules (Css.Selector.class_ selector) sm_config
 
 let lg_size_rules selector =
-  make_typography_rules (Css.Selector.class_ selector) lg_config
+  typography_rules (Css.Selector.class_ selector) lg_config
 
 let xl_size_rules selector =
-  make_typography_rules (Css.Selector.class_ selector) xl_config
+  typography_rules (Css.Selector.class_ selector) xl_config
 
 let xl2_size_rules selector =
-  make_typography_rules (Css.Selector.class_ selector) xl2_config
+  typography_rules (Css.Selector.class_ selector) xl2_config
 
 (* Helper to update color variable definitions for color themes *)
 let update_color_vars theme_name =

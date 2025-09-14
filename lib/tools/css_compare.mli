@@ -55,9 +55,8 @@ val count_css_class_patterns : string -> string -> int * int * int
 (** [count_css_class_patterns css class_name] returns (base_count, where_count,
     total_count). *)
 
-val find_dominant_css_class : string -> string * int
-(** [find_dominant_css_class css] finds the most common CSS class and its count.
-*)
+val dominant_css_class : string -> string * int
+(** [dominant_css_class css] finds the most common CSS class and its count. *)
 
 val format_labeled_css_diff :
   tw_label:string ->

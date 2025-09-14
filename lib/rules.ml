@@ -676,8 +676,16 @@ let build_utilities_layer ~rules ~media_queries ~container_queries =
      cause non-adjacent rules with the same selector to become adjacent, which
      then get incorrectly merged by the optimizer. The original rule order from
      rule generation must be preserved to maintain CSS cascade semantics. *)
-  Css.layer ~name:"utilities" ~media:media_queries ~container:container_queries
-    (rules |> List.map Css.rule_to_nested)
+  let block =
+    List.map (fun r -> Css.Rule r) rules
+    @ List.concat_map
+        (fun (condition, rules) -> Css.media ~condition rules)
+        media_queries
+    @ List.concat_map
+        (fun (name, condition, rules) -> Css.container ?name ~condition rules)
+        container_queries
+  in
+  Css.layer ~name:"utilities" block
 
 let add_hover_to_media_map hover_rules media_map =
   (* Gate hover rules behind (hover:hover) media query to prevent them from
@@ -734,16 +742,14 @@ let rule_sets tw_classes =
   let media_queries =
     List.map
       (fun (condition, rule_list) ->
-        Css.media ~condition
-          (rules_of_grouped ~filter_custom_props:true rule_list))
+        (condition, rules_of_grouped ~filter_custom_props:true rule_list))
       media_queries_map
   in
   let container_queries_map = group_container_queries separated.container in
   let container_queries =
     List.map
       (fun (condition, rule_list) ->
-        Css.container ~condition
-          (rules_of_grouped ~filter_custom_props:true rule_list))
+        (None, condition, rules_of_grouped ~filter_custom_props:true rule_list))
       container_queries_map
   in
   (rules, media_queries, container_queries)
@@ -787,7 +793,7 @@ let extract_non_tw_custom_declarations selector_props =
 
 (* Get Var.any from declaration metadata *)
 let var_of_declaration_meta decl =
-  match Css.declaration_meta decl with
+  match Css.meta_of_declaration decl with
   | Some meta -> Var.var_of_meta meta
   | None -> None
 
@@ -869,25 +875,27 @@ let compute_theme_layer tw_classes =
       Css.Selector.(list [ pseudo_class "root"; pseudo_class "host" ])
     in
     Css.layer ~name:"theme"
-      [ Css.rule_to_nested (Css.rule ~selector theme_generated_vars) ]
+      [ Css.Rule (Css.rule ~selector theme_generated_vars) ]
 
 let placeholder_supports =
   let placeholder = Css.Selector.pseudo_element "placeholder" in
-  Css.supports_nested
+  Css.supports
     ~condition:
       "(not ((-webkit-appearance:-apple-pay-button))) or \
        (contain-intrinsic-size:1px)"
-    [ Css.rule ~selector:placeholder [ Css.color Current ] ]
-    [
-      Css.supports ~condition:"(color:color-mix(in lab, red, red))"
-        [
-          Css.rule ~selector:placeholder
-            [
-              Css.color
-                (Css.color_mix ~in_space:Oklab ~percent1:50 Current Transparent);
-            ];
-        ];
-    ]
+    ([ Css.Rule (Css.rule ~selector:placeholder [ Css.color Current ]) ]
+    @ [
+        Css.supports ~condition:"(color:color-mix(in lab, red, red))"
+          [
+            Css.Rule
+              (Css.rule ~selector:placeholder
+                 [
+                   Css.color
+                     (Css.color_mix ~in_space:Oklab ~percent1:50 Current
+                        Transparent);
+                 ]);
+          ];
+      ])
 
 let split_after_placeholder rules =
   let rec split acc = function
@@ -913,9 +921,14 @@ let build_properties_layer property_rules =
       (* Convert property_rules to declarations using CSS accessor *)
       let defaults =
         property_rules
-        |> List.map (fun r ->
-               let name = Css.property_rule_name r in
-               let initial = Css.property_rule_initial r in
+        |> List.map (fun (r : Css.Stylesheet.property_rule) ->
+               let name = r.name in
+               let initial =
+                 match r.initial_value with
+                 | Css.Stylesheet.Universal s -> Some s
+                 | Css.Stylesheet.None -> None
+                 | Css.Stylesheet.V _ -> None (* Can't easily convert GADT *)
+               in
                (* Special handling for Ring_offset_width: "0" becomes "0px" in
                   properties layer *)
                let initial_value =
@@ -944,21 +957,21 @@ let build_properties_layer property_rules =
 
       (* Wrap in supports with Tailwind's exact condition *)
       let supports_block =
-        Css.supports ~condition:tailwind_v4_supports_condition [ defaults_rule ]
+        Css.supports ~condition:tailwind_v4_supports_condition
+          [ Css.Rule defaults_rule ]
       in
 
       (* Create properties layer with supports block nested inside *)
-      Some
-        (Css.layer ~name:"properties" [ Css.supports_to_nested supports_block ])
+      Some (Css.layer ~name:"properties" [ supports_block ])
 
 let build_base_layer base_rules =
   let before_placeholder, after_placeholder =
     split_after_placeholder base_rules
   in
   let base_layer_content =
-    (before_placeholder |> List.map Css.rule_to_nested)
-    @ [ Css.supports_to_nested placeholder_supports ]
-    @ (after_placeholder |> List.map Css.rule_to_nested)
+    (before_placeholder |> List.map (fun r -> Css.Rule r))
+    @ [ placeholder_supports ]
+    @ (after_placeholder |> List.map (fun r -> Css.Rule r))
   in
   Css.layer ~name:"base" base_layer_content
 
@@ -1013,8 +1026,14 @@ let build_layers ~include_base tw_classes rules media_queries container_queries
 
 let wrap_css_items ~rules ~media_queries ~container_queries =
   List.map (fun r -> Css.Rule r) rules
-  @ List.map (fun m -> Css.Media m) media_queries
-  @ List.map (fun c -> Css.Container c) container_queries
+  @ List.map
+      (fun (condition, rules) ->
+        Css.media condition (List.map (fun r -> Css.Rule r) rules))
+      media_queries
+  @ List.map
+      (fun (name, condition, rules) ->
+        Css.container ?name condition (List.map (fun r -> Css.Rule r) rules))
+      container_queries
 
 (* ======================================================================== *)
 (* Main API - Convert Tw styles to CSS *)
@@ -1038,8 +1057,7 @@ let to_css ?(config = default_config) tw_classes =
           container_queries
       in
       let items =
-        List.map (fun l -> Css.Layer l) layers
-        @ List.map (fun pr -> (Css.Property pr : Css.sheet_item)) property_rules
+        layers @ List.map (fun pr -> Css.property_stmt pr) property_rules
       in
       Css.stylesheet items
   | Css.Inline ->

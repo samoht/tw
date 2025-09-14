@@ -64,47 +64,83 @@ let order_none = style "order-none" [ Css.order 0 ]
 
 (** {1 Align/Justify (Flex/Grid)} *)
 
-let items_start = style "items-start" [ align_items Flex_start ]
-let items_end = style "items-end" [ align_items Flex_end ]
-let items_center = style "items-center" [ align_items Center ]
-let items_baseline = style "items-baseline" [ align_items Baseline ]
-let items_stretch = style "items-stretch" [ align_items Stretch ]
-let justify_start = style "justify-start" [ justify_content Flex_start ]
-let justify_end = style "justify-end" [ justify_content Flex_end ]
-let justify_center = style "justify-center" [ justify_content Center ]
-let justify_between = style "justify-between" [ justify_content Space_between ]
-let justify_around = style "justify-around" [ justify_content Space_around ]
-let justify_evenly = style "justify-evenly" [ justify_content Space_evenly ]
-let content_start = style "content-start" [ align_content Start ]
-let content_end = style "content-end" [ align_content End ]
-let content_center = style "content-center" [ align_content Center ]
-let content_between = style "content-between" [ align_content Space_between ]
-let content_around = style "content-around" [ align_content Space_around ]
-let content_evenly = style "content-evenly" [ align_content Space_evenly ]
-let content_stretch = style "content-stretch" [ align_content Stretch ]
-let self_auto = style "self-auto" [ align_self Auto ]
-let self_start = style "self-start" [ align_self Flex_start ]
-let self_end = style "self-end" [ align_self Flex_end ]
-let self_center = style "self-center" [ align_self Center ]
-let self_baseline = style "self-baseline" [ align_self Baseline ]
-let self_stretch = style "self-stretch" [ align_self Stretch ]
+let items_start = style "items-start" [ align_items ~position:Flex_start () ]
+let items_end = style "items-end" [ align_items ~position:Flex_end () ]
+let items_center = style "items-center" [ align_items ~position:Center () ]
+
+let items_baseline =
+  style "items-baseline" [ align_items ~baseline:Baseline () ]
+
+let items_stretch = style "items-stretch" [ align_items ~v:Stretch () ]
+
+let justify_start =
+  style "justify-start" [ justify_content ~position:Flex_start () ]
+
+let justify_end = style "justify-end" [ justify_content ~position:Flex_end () ]
+
+let justify_center =
+  style "justify-center" [ justify_content ~position:Center () ]
+
+let justify_between =
+  style "justify-between" [ justify_content ~distribution:Space_between () ]
+
+let justify_around =
+  style "justify-around" [ justify_content ~distribution:Space_around () ]
+
+let justify_evenly =
+  style "justify-evenly" [ justify_content ~distribution:Space_evenly () ]
+
+let content_start = style "content-start" [ align_content ~position:Start () ]
+let content_end = style "content-end" [ align_content ~position:End () ]
+
+let content_center =
+  style "content-center" [ align_content ~position:Center () ]
+
+let content_between =
+  style "content-between" [ align_content ~distribution:Space_between () ]
+
+let content_around =
+  style "content-around" [ align_content ~distribution:Space_around () ]
+
+let content_evenly =
+  style "content-evenly" [ align_content ~distribution:Space_evenly () ]
+
+let content_stretch =
+  style "content-stretch" [ align_content ~distribution:Stretch () ]
+
+let self_auto = style "self-auto" [ align_self ~v:Auto () ]
+let self_start = style "self-start" [ align_self ~position:Flex_start () ]
+let self_end = style "self-end" [ align_self ~position:Flex_end () ]
+let self_center = style "self-center" [ align_self ~position:Center () ]
+let self_baseline = style "self-baseline" [ align_self ~baseline:Baseline () ]
+let self_stretch = style "self-stretch" [ align_self ~v:Stretch () ]
 
 let justify_items_start =
-  style "justify-items-start" [ Css.justify_items Start ]
+  style "justify-items-start" [ Css.justify_items ~position:Start () ]
 
-let justify_items_end = style "justify-items-end" [ Css.justify_items End ]
+let justify_items_end =
+  style "justify-items-end" [ Css.justify_items ~position:End () ]
 
 let justify_items_center =
-  style "justify-items-center" [ Css.justify_items Center ]
+  style "justify-items-center" [ Css.justify_items ~position:Center () ]
 
 let justify_items_stretch =
-  style "justify-items-stretch" [ Css.justify_items Stretch ]
+  style "justify-items-stretch" [ Css.justify_items ~v:Stretch () ]
 
-let justify_self_auto = style "justify-self-auto" [ justify_self Auto ]
-let justify_self_start = style "justify-self-start" [ justify_self Flex_start ]
-let justify_self_end = style "justify-self-end" [ justify_self Flex_end ]
-let justify_self_center = style "justify-self-center" [ justify_self Center ]
-let justify_self_stretch = style "justify-self-stretch" [ justify_self Stretch ]
+let justify_self_auto = style "justify-self-auto" [ justify_self ~v:Auto () ]
+
+let justify_self_start =
+  style "justify-self-start" [ justify_self ~position:Flex_start () ]
+
+let justify_self_end =
+  style "justify-self-end" [ justify_self ~position:Flex_end () ]
+
+let justify_self_center =
+  style "justify-self-center" [ justify_self ~position:Center () ]
+
+let justify_self_stretch =
+  style "justify-self-stretch" [ justify_self ~v:Stretch () ]
+
 let place_content_start = style "place-content-start" [ place_content Start ]
 let place_content_end = style "place-content-end" [ place_content End ]
 let place_content_center = style "place-content-center" [ place_content Center ]
@@ -125,11 +161,22 @@ let place_items_start = style "place-items-start" [ place_items Start ]
 let place_items_end = style "place-items-end" [ place_items End ]
 let place_items_center = style "place-items-center" [ place_items Center ]
 let place_items_stretch = style "place-items-stretch" [ place_items Stretch ]
-let place_self_auto = style "place-self-auto" [ place_self Auto ]
-let place_self_start = style "place-self-start" [ place_self Flex_start ]
-let place_self_end = style "place-self-end" [ place_self Flex_end ]
-let place_self_center = style "place-self-center" [ place_self Center ]
-let place_self_stretch = style "place-self-stretch" [ place_self Stretch ]
+let place_self_auto = style "place-self-auto" [ place_self (Auto, Auto) ]
+
+let place_self_start =
+  style "place-self-start"
+    [ place_self (Self_pos (None, Flex_start), Self_pos (None, Flex_start)) ]
+
+let place_self_end =
+  style "place-self-end"
+    [ place_self (Self_pos (None, Flex_end), Self_pos (None, Flex_end)) ]
+
+let place_self_center =
+  style "place-self-center"
+    [ place_self (Self_pos (None, Center), Self_pos (None, Center)) ]
+
+let place_self_stretch =
+  style "place-self-stretch" [ place_self (Stretch, Stretch) ]
 
 (** {1 Gap Utilities} *)
 

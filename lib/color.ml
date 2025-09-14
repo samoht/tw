@@ -1127,7 +1127,7 @@ let border_rose = border_color rose 500
 (** Color parsing utilities *)
 
 (* Parse color and shade from string list *)
-let color_and_shade_of_string_list = function
+let color_shade_of_strings = function
   | [ color_str; shade_str ] -> (
       match of_string color_str with
       | Ok color -> (
@@ -1147,20 +1147,20 @@ let classes_of_string parts =
   | [ "bg"; "transparent" ] -> Ok bg_transparent
   | [ "bg"; "current" ] -> Ok bg_current
   | "bg" :: color_parts -> (
-      match color_and_shade_of_string_list color_parts with
+      match color_shade_of_strings color_parts with
       | Ok (color, shade) -> Ok (bg color shade)
       | Error _ -> Error (`Msg "Not a background color"))
   | [ "text"; "transparent" ] -> Ok text_transparent
   | [ "text"; "current" ] -> Ok text_current
   | [ "text"; "inherit" ] -> Ok text_inherit
   | "text" :: color_parts -> (
-      match color_and_shade_of_string_list color_parts with
+      match color_shade_of_strings color_parts with
       | Ok (color, shade) -> Ok (text color shade)
       | Error _ -> Error (`Msg "Not a text color"))
   | [ "border"; "transparent" ] -> Ok border_transparent
   | [ "border"; "current" ] -> Ok border_current
   | "border" :: color_parts -> (
-      match color_and_shade_of_string_list color_parts with
+      match color_shade_of_strings color_parts with
       | Ok (color, shade) -> Ok (border_color color shade)
       | Error _ -> Error (`Msg "Not a border color"))
   | _ -> Error (`Msg "Not a color utility")
