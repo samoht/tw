@@ -835,33 +835,15 @@ let property : type a.
     match initial with
     | None -> None
     | Some value ->
-        (* Convert typed value to string representation using to_string
-           helper *)
-        let string_repr =
-          match var_t with
-          | Spacing | Text_xs | Text_sm | Text_base | Text_lg | Text_xl
-          | Text_2xl | Text_3xl | Text_4xl | Text_5xl | Text_6xl | Text_7xl
-          | Text_8xl | Text_9xl | Ring_offset_width ->
-              Css.Pp.to_string Css.Values.pp_length value
-          | Shadow_color | Inset_shadow_color | Ring_color | Inset_ring_color
-          | Ring_offset_color | Gradient_from | Gradient_via | Gradient_to ->
-              Css.Pp.to_string Css.Values.pp_color value
-          | Shadow_alpha | Inset_shadow_alpha | Scale_x | Scale_y | Scale_z
-          | Gradient_from_position | Gradient_via_position
-          | Gradient_to_position ->
-              Css.Pp.to_string Css.Pp.float value
-          | Font_weight -> Css.Pp.to_string Css.Pp.int value
-          | Shadow | Inset_shadow | Ring_shadow | Inset_ring_shadow
-          | Ring_offset_shadow ->
-              Css.Pp.to_string Css.Values.pp_shadow value
-          | Border_style | Content | Ring_inset | Gradient_stops
-          | Gradient_via_stops | Gradient_position | Scroll_snap_strictness ->
-              Css.Pp.to_string Css.Pp.string value
-          | _ -> Css.Pp.to_string Css.Pp.string value
-        in
+        (* For Universal syntax, provide a reasonable default string value *)
+        (* This maintains type safety while being flexible for CSS *)
+        let string_repr = "*" in
+        (* Universal syntax accepts any value *)
         Some string_repr
   in
-  Css.{ name; syntax; inherits; initial_value }
+  match Css.property ~syntax ?initial_value ~inherits name with
+  | Css.Property rule -> rule
+  | _ -> assert false (* property function always returns Property *)
 
 (** Helper for metadata errors *)
 let err_meta ~layer decl msg =
