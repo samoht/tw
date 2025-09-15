@@ -31,58 +31,47 @@ module Parse = Parse
 (* Shadow property rules for @property registration to trigger @layer properties *)
 (* Only include the shadow and ring variables that Tailwind v4 actually includes for shadow utilities *)
 let shadow_property_rules =
-  Css.stylesheet
+  Css.concat
     [
       (* Shadow and ring variables - ordered as in Tailwind v4 *)
-      Css.Property
-        (Var.property ~inherits:false
-           ~initial:
-             (Css.shadow ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
-                ~color:(Css.hex "#0000") ())
-           Var.Shadow);
-      Css.Property
-        (Var.property ~inherits:false ~initial:(Css.hex "#000") Var.Shadow_color);
-      Css.Property (Var.property ~inherits:false ~initial:1.0 Var.Shadow_alpha);
-      Css.Property
-        (Var.property ~inherits:false
-           ~initial:
-             (Css.shadow ~inset:true ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
-                ~color:(Css.hex "#0000") ())
-           Var.Inset_shadow);
-      Css.Property
-        (Var.property ~inherits:false ~initial:(Css.hex "#000")
-           Var.Inset_shadow_color);
-      Css.Property
-        (Var.property ~inherits:false ~initial:1.0 Var.Inset_shadow_alpha);
-      Css.Property
-        (Var.property ~inherits:false ~initial:(Css.hex "#000") Var.Ring_color);
-      Css.Property
-        (Var.property ~inherits:false
-           ~initial:
-             (Css.shadow ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
-                ~color:(Css.hex "#0000") ())
-           Var.Ring_shadow);
-      Css.Property
-        (Var.property ~inherits:false ~initial:(Css.hex "#000")
-           Var.Inset_ring_color);
-      Css.Property
-        (Var.property ~inherits:false
-           ~initial:
-             (Css.shadow ~inset:true ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
-                ~color:(Css.hex "#0000") ())
-           Var.Inset_ring_shadow);
-      Css.Property (Var.property ~inherits:false ~initial:"" Var.Ring_inset);
-      Css.Property
-        (Var.property ~inherits:false ~initial:(Css.Px 0.) Var.Ring_offset_width);
-      Css.Property
-        (Var.property ~inherits:false ~initial:(Css.hex "#fff")
-           Var.Ring_offset_color);
-      Css.Property
-        (Var.property ~inherits:false
-           ~initial:
-             (Css.shadow ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
-                ~color:(Css.hex "#0000") ())
-           Var.Ring_offset_shadow);
+      Var.property ~inherits:false
+        ~initial:
+          (Css.shadow ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
+             ~color:(Css.hex "#0000") ())
+        Var.Shadow;
+      Var.property ~inherits:false ~initial:(Css.hex "#000") Var.Shadow_color;
+      Var.property ~inherits:false ~initial:1.0 Var.Shadow_alpha;
+      Var.property ~inherits:false
+        ~initial:
+          (Css.shadow ~inset:true ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
+             ~color:(Css.hex "#0000") ())
+        Var.Inset_shadow;
+      Var.property ~inherits:false ~initial:(Css.hex "#000")
+        Var.Inset_shadow_color;
+      Var.property ~inherits:false ~initial:1.0 Var.Inset_shadow_alpha;
+      Var.property ~inherits:false ~initial:(Css.hex "#000") Var.Ring_color;
+      Var.property ~inherits:false
+        ~initial:
+          (Css.shadow ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
+             ~color:(Css.hex "#0000") ())
+        Var.Ring_shadow;
+      Var.property ~inherits:false ~initial:(Css.hex "#000")
+        Var.Inset_ring_color;
+      Var.property ~inherits:false
+        ~initial:
+          (Css.shadow ~inset:true ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
+             ~color:(Css.hex "#0000") ())
+        Var.Inset_ring_shadow;
+      Var.property ~inherits:false ~initial:"" Var.Ring_inset;
+      (* Var.property ~inherits:false ~initial:(Css.Px 0.)
+         Var.Ring_offset_width; *)
+      Var.property ~inherits:false ~initial:(Css.hex "#fff")
+        Var.Ring_offset_color;
+      Var.property ~inherits:false
+        ~initial:
+          (Css.shadow ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
+             ~color:(Css.hex "#0000") ())
+        Var.Ring_offset_shadow;
       (* Note: Ring_width is not included here as it's set by ring utilities,
          not shadow utilities *)
     ]
@@ -272,24 +261,26 @@ let transition_none =
   style "transition-none"
     [
       transition
-        {
-          property = None;
-          duration = Some (S 0.0);
-          timing_function = None;
-          delay = None;
-        };
+        (Shorthand
+           {
+             property = None;
+             duration = Some (S 0.0);
+             timing_function = None;
+             delay = None;
+           });
     ]
 
 let transition_all =
   style "transition-all"
     [
       transition
-        {
-          property = All;
-          duration = Some (Ms 150.);
-          timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-          delay = None;
-        };
+        (Shorthand
+           {
+             property = All;
+             duration = Some (Ms 150.);
+             timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+             delay = None;
+           });
     ]
 
 let transition_colors =
@@ -297,36 +288,41 @@ let transition_colors =
     [
       Css.transitions
         [
-          {
-            property = Property "background-color";
-            duration = Some (Ms 150.);
-            timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
-          {
-            property = Property "border-color";
-            duration = Some (Ms 150.);
-            timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
-          {
-            property = Property "color";
-            duration = Some (Ms 150.);
-            timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
-          {
-            property = Property "fill";
-            duration = Some (Ms 150.);
-            timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
-          {
-            property = Property "stroke";
-            duration = Some (Ms 150.);
-            timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-            delay = None;
-          };
+          Shorthand
+            {
+              property = Property "background-color";
+              duration = Some (Ms 150.);
+              timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
+          Shorthand
+            {
+              property = Property "border-color";
+              duration = Some (Ms 150.);
+              timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
+          Shorthand
+            {
+              property = Property "color";
+              duration = Some (Ms 150.);
+              timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
+          Shorthand
+            {
+              property = Property "fill";
+              duration = Some (Ms 150.);
+              timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
+          Shorthand
+            {
+              property = Property "stroke";
+              duration = Some (Ms 150.);
+              timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+              delay = None;
+            };
         ];
     ]
 
@@ -334,36 +330,39 @@ let transition_opacity =
   style "transition-opacity"
     [
       transition
-        {
-          property = Property "opacity";
-          duration = Some (Ms 150.);
-          timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-          delay = None;
-        };
+        (Shorthand
+           {
+             property = Property "opacity";
+             duration = Some (Ms 150.);
+             timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+             delay = None;
+           });
     ]
 
 let transition_shadow =
   style "transition-shadow"
     [
       transition
-        {
-          property = Property "box-shadow";
-          duration = Some (Ms 150.);
-          timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-          delay = None;
-        };
+        (Shorthand
+           {
+             property = Property "box-shadow";
+             duration = Some (Ms 150.);
+             timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+             delay = None;
+           });
     ]
 
 let transition_transform =
   style "transition-transform"
     [
       transition
-        {
-          property = Property "transform";
-          duration = Some (Ms 150.);
-          timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-          delay = None;
-        };
+        (Shorthand
+           {
+             property = Property "transform";
+             duration = Some (Ms 150.);
+             timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
+             delay = None;
+           });
     ]
 
 let duration n =

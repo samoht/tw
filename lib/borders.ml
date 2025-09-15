@@ -27,13 +27,9 @@ let _, border_style_var = Var.utility Var.Border_style Solid
 
 (* Shared @property registration for border style variable *)
 let property_rule =
-  Css.stylesheet
-    [
-      Css.Property
-        (Var.property ~inherits:false
-           ~initial:(Css.Solid : Css.border_style)
-           Var.Border_style);
-    ]
+  Var.property ~inherits:false
+    ~initial:(Css.Solid : Css.border_style)
+    Var.Border_style
 
 let border =
   style "border" ~property_rules:property_rule

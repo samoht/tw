@@ -4,7 +4,8 @@ open Tw_tools.Css_debug
 let test_format_css () =
   let minified = ".test{color:red;padding:10px}" in
   let formatted = format_css minified in
-  check bool "formatted contains newlines" true (String.contains formatted '\n');
+  check bool "formatted contains newlines" true
+    (Astring.String.is_infix ~affix:"\n" formatted);
   check bool "formatted contains .test" true
     (Astring.String.is_infix ~affix:".test" formatted)
 

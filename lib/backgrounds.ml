@@ -27,31 +27,21 @@ type direction =
 
 (* Shared @property rules for gradient variables (colors + positions + stops) *)
 let gradient_property_rules =
-  Css.stylesheet
+  Css.concat
     [
       (* Position must come first in properties layer *)
-      Css.Property
-        (Var.property ~inherits:false ~initial:"to bottom" Var.Gradient_position);
+      Var.property ~inherits:false ~initial:"to bottom" Var.Gradient_position;
       (* Colors *)
-      Css.Property
-        (Var.property ~inherits:false ~initial:(Css.hex "#0000")
-           Var.Gradient_from);
-      Css.Property
-        (Var.property ~inherits:false ~initial:(Css.hex "#0000")
-           Var.Gradient_via);
-      Css.Property
-        (Var.property ~inherits:false ~initial:(Css.hex "#0000") Var.Gradient_to);
+      Var.property ~inherits:false ~initial:(Css.hex "#0000") Var.Gradient_from;
+      Var.property ~inherits:false ~initial:(Css.hex "#0000") Var.Gradient_via;
+      Var.property ~inherits:false ~initial:(Css.hex "#0000") Var.Gradient_to;
       (* Stops composition helpers *)
-      Css.Property (Var.property ~inherits:false ~initial:"" Var.Gradient_stops);
-      Css.Property
-        (Var.property ~inherits:false ~initial:"" Var.Gradient_via_stops);
+      Var.property ~inherits:false ~initial:"" Var.Gradient_stops;
+      Var.property ~inherits:false ~initial:"" Var.Gradient_via_stops;
       (* Positions *)
-      Css.Property
-        (Var.property ~inherits:false ~initial:0. Var.Gradient_from_position);
-      Css.Property
-        (Var.property ~inherits:false ~initial:50. Var.Gradient_via_position);
-      Css.Property
-        (Var.property ~inherits:false ~initial:100. Var.Gradient_to_position);
+      Var.property ~inherits:false ~initial:0. Var.Gradient_from_position;
+      Var.property ~inherits:false ~initial:50. Var.Gradient_via_position;
+      Var.property ~inherits:false ~initial:100. Var.Gradient_to_position;
     ]
 
 let gradient_to_spec : direction -> string * Css.gradient_direction = function

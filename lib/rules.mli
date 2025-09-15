@@ -209,7 +209,7 @@ val color_order : string -> int
 
 (** {1 Layer Generation} *)
 
-val compute_theme_layer : t list -> Css.statement
+val compute_theme_layer : t list -> Css.t
 (** [compute_theme_layer tw_classes] generates the theme layer with CSS
     variables. *)
 
@@ -217,7 +217,7 @@ val build_utilities_layer :
   rules:Css.rule list ->
   media_queries:(string * Css.rule list) list ->
   container_queries:(string option * string * Css.rule list) list ->
-  Css.statement
+  Css.t
 (** [build_utilities_layer ~rules ~media_queries ~container_queries] builds the
     utilities layer with proper conflict ordering. *)
 

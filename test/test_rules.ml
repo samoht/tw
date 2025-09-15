@@ -16,10 +16,7 @@ let contains s sub =
 
 let check_theme_layer_empty () =
   let theme_layer = compute_theme_layer [] in
-  let css =
-    Css.to_string ~minify:false
-      (Css.v [ Css.layer ~name:"theme" theme_layer.Css.Stylesheet.rules ])
-  in
+  let css = Css.to_string ~minify:false theme_layer in
   (* Should include font variables even for empty input *)
   check bool "includes --font-sans" true (contains css "--font-sans");
   check bool "includes --font-mono" true (contains css "--font-mono");
@@ -30,10 +27,7 @@ let check_theme_layer_empty () =
 
 let check_theme_layer_with_color () =
   let theme_layer = Tw.Rules.compute_theme_layer [ bg blue 500 ] in
-  let css =
-    Css.to_string ~minify:false
-      (Css.v [ Css.layer ~name:"theme" theme_layer.Css.Stylesheet.rules ])
-  in
+  let css = Css.to_string ~minify:false theme_layer in
   (* Should include color variable when referenced *)
   check bool "includes --color-blue-500" true (contains css "--color-blue-500");
   (* Should still include font variables *)
@@ -262,10 +256,7 @@ let test_theme_layer_collects_media_refs () =
   let theme_layer =
     Tw.Rules.compute_theme_layer [ sm [ Tw.Typography.text_xl ] ]
   in
-  let css =
-    Css.to_string ~minify:false
-      (Css.v [ Css.layer ~name:"theme" theme_layer.Css.Stylesheet.rules ])
-  in
+  let css = Css.to_string ~minify:false theme_layer in
   check bool "includes --text-xl var" true (contains css "--text-xl");
   check bool "includes --text-xl--line-height var" true
     (contains css "--text-xl--line-height")
@@ -273,21 +264,12 @@ let test_theme_layer_collects_media_refs () =
 let test_rule_sets_injects_hover_media_query () =
   (* A bare hover utility produces a rule that should be gated behind
      (hover:hover) *)
-  let _rules, media, _containers =
-    Tw.Rules.rule_sets [ hover [ Tw.Spacing.p 4 ] ]
-  in
-  (* Find a media block with (hover:hover) and check it contains the expected
-     selector. *)
-  let media_css =
-    media
-    |> List.map (fun m ->
-           Css.to_string ~minify:false (Css.stylesheet [ Css.Media m ]))
-    |> String.concat "\n"
-  in
+  let css = Tw.Rules.to_css [ hover [ Tw.Spacing.p 4 ] ] in
+  let css_string = Css.to_string ~minify:false css in
   check bool "has (hover:hover) media query" true
-    (contains media_css "(hover:hover)");
+    (contains css_string "(hover:hover)");
   check bool "hover rule is inside media query" true
-    (contains media_css ".hover\\:p-4:hover")
+    (contains css_string ".hover\\:p-4:hover")
 
 let test_modifier_to_rule () =
   let rule =
@@ -325,7 +307,7 @@ let test_build_utilities_layer () =
     Tw.Rules.build_utilities_layer ~rules ~media_queries:[]
       ~container_queries:[]
   in
-  let css = Css.to_string ~minify:false (Css.stylesheet [ Css.Layer layer ]) in
+  let css = Css.to_string ~minify:false layer in
   check bool "creates utilities layer" true (contains css "@layer utilities");
   check bool "includes padding rule" true (contains css ".p-4");
   check bool "includes margin rule" true (contains css ".m-2")
@@ -348,7 +330,7 @@ let test_build_utilities_layer_preserves_order () =
     Tw.Rules.build_utilities_layer ~rules ~media_queries:[]
       ~container_queries:[]
   in
-  let css = Css.to_string ~minify:true (Css.stylesheet [ Css.Layer layer ]) in
+  let css = Css.to_string ~minify:true layer in
 
   (* Find positions of each rule in the output *)
   let find_position selector =
