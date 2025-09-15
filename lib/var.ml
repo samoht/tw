@@ -824,25 +824,16 @@ let theme : type a. a t -> ?fallback:a -> a -> Css.declaration * a Css.var =
 let utility : type a. a t -> ?fallback:a -> a -> Css.declaration * a Css.var =
  fun var_t ?fallback value -> def ?fallback var_t ~layer:Utility value
 
-(* Create @property rule for a variable, converting typed initial values to
-   strings for Universal syntax *)
+(* Create @property rule for a variable using Universal syntax *)
 let property : type a.
     inherits:bool -> ?initial:a -> a t -> string Css.property_rule =
- fun ~inherits ?initial var_t ->
+ fun ~inherits ?initial:_ var_t ->
   let name = to_string var_t in
-  let syntax = Css.Universal in
-  let initial_value =
-    match initial with
-    | None -> None
-    | Some value ->
-        (* For Universal syntax, provide a reasonable default string value *)
-        (* This maintains type safety while being flexible for CSS *)
-        let string_repr = "*" in
-        (* Universal syntax accepts any value *)
-        Some string_repr
-  in
-  match Css.property ~syntax ?initial_value ~inherits name with
-  | Css.Property rule -> rule
+  let syntax = Css.Variables.Universal in
+  let initial_value = Some "*" in
+  (* Universal syntax placeholder *)
+  match Css.Stylesheet.property ~syntax ?initial_value ~inherits name with
+  | Css.Stylesheet.Property rule -> rule
   | _ -> assert false (* property function always returns Property *)
 
 (** Helper for metadata errors *)
