@@ -30,7 +30,9 @@ let property_rule =
   Css.stylesheet
     [
       Css.Property
-        (Var.property ~inherits:false ~initial:Css.Solid Var.Border_style);
+        (Var.property ~inherits:false
+           ~initial:(Css.Solid : Css.border_style)
+           Var.Border_style);
     ]
 
 let border =
