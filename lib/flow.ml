@@ -64,83 +64,47 @@ let order_none = style "order-none" [ Css.order 0 ]
 
 (** {1 Align/Justify (Flex/Grid)} *)
 
-let items_start = style "items-start" [ align_items ~position:Flex_start () ]
-let items_end = style "items-end" [ align_items ~position:Flex_end () ]
-let items_center = style "items-center" [ align_items ~position:Center () ]
-
-let items_baseline =
-  style "items-baseline" [ align_items ~baseline:Baseline () ]
-
-let items_stretch = style "items-stretch" [ align_items ~v:Stretch () ]
-
-let justify_start =
-  style "justify-start" [ justify_content ~position:Flex_start () ]
-
-let justify_end = style "justify-end" [ justify_content ~position:Flex_end () ]
-
-let justify_center =
-  style "justify-center" [ justify_content ~position:Center () ]
-
-let justify_between =
-  style "justify-between" [ justify_content ~distribution:Space_between () ]
-
-let justify_around =
-  style "justify-around" [ justify_content ~distribution:Space_around () ]
-
-let justify_evenly =
-  style "justify-evenly" [ justify_content ~distribution:Space_evenly () ]
-
-let content_start = style "content-start" [ align_content ~position:Start () ]
-let content_end = style "content-end" [ align_content ~position:End () ]
-
-let content_center =
-  style "content-center" [ align_content ~position:Center () ]
-
-let content_between =
-  style "content-between" [ align_content ~distribution:Space_between () ]
-
-let content_around =
-  style "content-around" [ align_content ~distribution:Space_around () ]
-
-let content_evenly =
-  style "content-evenly" [ align_content ~distribution:Space_evenly () ]
-
-let content_stretch =
-  style "content-stretch" [ align_content ~distribution:Stretch () ]
-
-let self_auto = style "self-auto" [ align_self ~v:Auto () ]
-let self_start = style "self-start" [ align_self ~position:Flex_start () ]
-let self_end = style "self-end" [ align_self ~position:Flex_end () ]
-let self_center = style "self-center" [ align_self ~position:Center () ]
-let self_baseline = style "self-baseline" [ align_self ~baseline:Baseline () ]
-let self_stretch = style "self-stretch" [ align_self ~v:Stretch () ]
+let items_start = style "items-start" [ align_items Flex_start ]
+let items_end = style "items-end" [ align_items Flex_end ]
+let items_center = style "items-center" [ align_items Center ]
+let items_baseline = style "items-baseline" [ align_items Baseline ]
+let items_stretch = style "items-stretch" [ align_items Stretch ]
+let justify_start = style "justify-start" [ justify_content Flex_start ]
+let justify_end = style "justify-end" [ justify_content Flex_end ]
+let justify_center = style "justify-center" [ justify_content Center ]
+let justify_between = style "justify-between" [ justify_content Space_between ]
+let justify_around = style "justify-around" [ justify_content Space_around ]
+let justify_evenly = style "justify-evenly" [ justify_content Space_evenly ]
+let content_start = style "content-start" [ align_content Start ]
+let content_end = style "content-end" [ align_content End ]
+let content_center = style "content-center" [ align_content Center ]
+let content_between = style "content-between" [ align_content Space_between ]
+let content_around = style "content-around" [ align_content Space_around ]
+let content_evenly = style "content-evenly" [ align_content Space_evenly ]
+let content_stretch = style "content-stretch" [ align_content Stretch ]
+let self_auto = style "self-auto" [ align_self Auto ]
+let self_start = style "self-start" [ align_self Flex_start ]
+let self_end = style "self-end" [ align_self Flex_end ]
+let self_center = style "self-center" [ align_self Center ]
+let self_baseline = style "self-baseline" [ align_self Baseline ]
+let self_stretch = style "self-stretch" [ align_self Stretch ]
 
 let justify_items_start =
-  style "justify-items-start" [ Css.justify_items ~position:Start () ]
+  style "justify-items-start" [ Css.justify_items Start ]
 
-let justify_items_end =
-  style "justify-items-end" [ Css.justify_items ~position:End () ]
+let justify_items_end = style "justify-items-end" [ Css.justify_items End ]
 
 let justify_items_center =
-  style "justify-items-center" [ Css.justify_items ~position:Center () ]
+  style "justify-items-center" [ Css.justify_items Center ]
 
 let justify_items_stretch =
-  style "justify-items-stretch" [ Css.justify_items ~v:Stretch () ]
+  style "justify-items-stretch" [ Css.justify_items Stretch ]
 
-let justify_self_auto = style "justify-self-auto" [ justify_self ~v:Auto () ]
-
-let justify_self_start =
-  style "justify-self-start" [ justify_self ~position:Flex_start () ]
-
-let justify_self_end =
-  style "justify-self-end" [ justify_self ~position:Flex_end () ]
-
-let justify_self_center =
-  style "justify-self-center" [ justify_self ~position:Center () ]
-
-let justify_self_stretch =
-  style "justify-self-stretch" [ justify_self ~v:Stretch () ]
-
+let justify_self_auto = style "justify-self-auto" [ justify_self Auto ]
+let justify_self_start = style "justify-self-start" [ justify_self Flex_start ]
+let justify_self_end = style "justify-self-end" [ justify_self Flex_end ]
+let justify_self_center = style "justify-self-center" [ justify_self Center ]
+let justify_self_stretch = style "justify-self-stretch" [ justify_self Stretch ]
 let place_content_start = style "place-content-start" [ place_content Start ]
 let place_content_end = style "place-content-end" [ place_content End ]
 let place_content_center = style "place-content-center" [ place_content Center ]
@@ -162,18 +126,11 @@ let place_items_end = style "place-items-end" [ place_items End ]
 let place_items_center = style "place-items-center" [ place_items Center ]
 let place_items_stretch = style "place-items-stretch" [ place_items Stretch ]
 let place_self_auto = style "place-self-auto" [ place_self (Auto, Auto) ]
-
-let place_self_start =
-  style "place-self-start"
-    [ place_self (Self_pos (None, Flex_start), Self_pos (None, Flex_start)) ]
-
-let place_self_end =
-  style "place-self-end"
-    [ place_self (Self_pos (None, Flex_end), Self_pos (None, Flex_end)) ]
+let place_self_start = style "place-self-start" [ place_self (Start, Start) ]
+let place_self_end = style "place-self-end" [ place_self (End, End) ]
 
 let place_self_center =
-  style "place-self-center"
-    [ place_self (Self_pos (None, Center), Self_pos (None, Center)) ]
+  style "place-self-center" [ place_self (Center, Center) ]
 
 let place_self_stretch =
   style "place-self-stretch" [ place_self (Stretch, Stretch) ]
@@ -239,7 +196,7 @@ let grid_cols n =
       (String.concat ""
          [ "grid_cols: "; string_of_int n; " is out of range (1-12)" ])
   else
-    let tracks = List.init n (fun _ -> Track_size (Fr 1.0)) in
+    let tracks = List.init n (fun _ -> Fr 1.0) in
     style
       (String.concat "" [ "grid-cols-"; string_of_int n ])
       [ Css.grid_template_columns (Tracks tracks) ]
@@ -247,8 +204,7 @@ let grid_cols n =
 let grid_cols_none = style "grid-cols-none" [ Css.grid_template_columns None ]
 
 let grid_cols_subgrid =
-  style "grid-cols-subgrid"
-    [ Css.grid_template_columns (Tracks [ Track_size Auto ]) ]
+  style "grid-cols-subgrid" [ Css.grid_template_columns (Tracks [ Auto ]) ]
 
 let grid_rows n =
   if n < 1 || n > 12 then
@@ -258,15 +214,12 @@ let grid_rows n =
   else
     style
       (String.concat "" [ "grid-rows-"; string_of_int n ])
-      [
-        Css.grid_template_rows (Tracks [ Repeat (n, [ Track_size (Fr 1.0) ]) ]);
-      ]
+      [ Css.grid_template_rows (Tracks [ Repeat (n, [ Fr 1.0 ]) ]) ]
 
 let grid_rows_none = style "grid-rows-none" [ Css.grid_template_rows None ]
 
 let grid_rows_subgrid =
-  style "grid-rows-subgrid"
-    [ Css.grid_template_rows (Tracks [ Track_size Auto ]) ]
+  style "grid-rows-subgrid" [ Css.grid_template_rows (Tracks [ Auto ]) ]
 
 (** {1 Grid Column/Row Spans} *)
 
@@ -328,29 +281,28 @@ let grid_flow_col_dense =
   style "grid-flow-col-dense" [ Css.grid_auto_flow Column_dense ]
 
 let auto_cols_auto =
-  style "auto-cols-auto" [ Css.grid_auto_columns (Tracks [ Track_size Auto ]) ]
+  style "auto-cols-auto" [ Css.grid_auto_columns (Tracks [ Auto ]) ]
 
 let auto_cols_min =
-  style "auto-cols-min" [ Css.grid_auto_columns (Tracks [ Track_size Auto ]) ]
+  style "auto-cols-min" [ Css.grid_auto_columns (Tracks [ Auto ]) ]
 
 let auto_cols_max =
-  style "auto-cols-max" [ Css.grid_auto_columns (Tracks [ Track_size Auto ]) ]
+  style "auto-cols-max" [ Css.grid_auto_columns (Tracks [ Auto ]) ]
 
 let auto_cols_fr =
-  style "auto-cols-fr"
-    [ Css.grid_auto_columns (Tracks [ Track_size (Fr 1.0) ]) ]
+  style "auto-cols-fr" [ Css.grid_auto_columns (Tracks [ Fr 1.0 ]) ]
 
 let auto_rows_auto =
-  style "auto-rows-auto" [ Css.grid_auto_rows (Tracks [ Track_size Auto ]) ]
+  style "auto-rows-auto" [ Css.grid_auto_rows (Tracks [ Auto ]) ]
 
 let auto_rows_min =
-  style "auto-rows-min" [ Css.grid_auto_rows (Tracks [ Track_size Auto ]) ]
+  style "auto-rows-min" [ Css.grid_auto_rows (Tracks [ Auto ]) ]
 
 let auto_rows_max =
-  style "auto-rows-max" [ Css.grid_auto_rows (Tracks [ Track_size Auto ]) ]
+  style "auto-rows-max" [ Css.grid_auto_rows (Tracks [ Auto ]) ]
 
 let auto_rows_fr =
-  style "auto-rows-fr" [ Css.grid_auto_rows (Tracks [ Track_size (Fr 1.0) ]) ]
+  style "auto-rows-fr" [ Css.grid_auto_rows (Tracks [ Fr 1.0 ]) ]
 
 (** {1 Parsing} *)
 

@@ -677,12 +677,13 @@ let build_utilities_layer ~rules ~media_queries ~container_queries =
      then get incorrectly merged by the optimizer. The original rule order from
      rule generation must be preserved to maintain CSS cascade semantics. *)
   let block =
-    List.map (fun r -> Css.Rule r) rules
+    rules
     @ List.concat_map
-        (fun (condition, rules) -> Css.media ~condition rules)
+        (fun (condition, rules) -> Css.rules (Css.media ~condition rules))
         media_queries
     @ List.concat_map
-        (fun (name, condition, rules) -> Css.container ?name ~condition rules)
+        (fun (name, condition, rules) ->
+          Css.rules (Css.container ?name ~condition rules))
         container_queries
   in
   Css.layer ~name:"utilities" block
@@ -874,28 +875,28 @@ let compute_theme_layer tw_classes =
     let selector =
       Css.Selector.(list [ pseudo_class "root"; pseudo_class "host" ])
     in
-    Css.layer ~name:"theme"
-      [ Css.Rule (Css.rule ~selector theme_generated_vars) ]
+    Css.layer ~name:"theme" [ Css.rule ~selector theme_generated_vars ]
 
 let placeholder_supports =
   let placeholder = Css.Selector.pseudo_element "placeholder" in
-  Css.supports
-    ~condition:
-      "(not ((-webkit-appearance:-apple-pay-button))) or \
-       (contain-intrinsic-size:1px)"
-    ([ Css.Rule (Css.rule ~selector:placeholder [ Css.color Current ]) ]
-    @ [
-        Css.supports ~condition:"(color:color-mix(in lab, red, red))"
+  let fallback_support =
+    Css.supports
+      ~condition:
+        "(not ((-webkit-appearance:-apple-pay-button))) or \
+         (contain-intrinsic-size:1px)"
+      [ Css.rule ~selector:placeholder [ Css.color Current ] ]
+  in
+  let modern_support =
+    Css.supports ~condition:"(color:color-mix(in lab, red, red))"
+      [
+        Css.rule ~selector:placeholder
           [
-            Css.Rule
-              (Css.rule ~selector:placeholder
-                 [
-                   Css.color
-                     (Css.color_mix ~in_space:Oklab ~percent1:50 Current
-                        Transparent);
-                 ]);
+            Css.color
+              (Css.color_mix ~in_space:Oklab ~percent1:50 Current Transparent);
           ];
-      ])
+      ]
+  in
+  Css.concat [ fallback_support; modern_support ]
 
 let split_after_placeholder rules =
   let rec split acc = function
@@ -907,77 +908,19 @@ let split_after_placeholder rules =
   in
   split [] rules
 
-(* Tailwind v4's exact vendor-targeted browser support condition *)
-let tailwind_v4_supports_condition =
-  "(((-webkit-hyphens:none)) and (not (margin-trim:inline))) or \
-   ((-moz-orient:inline) and (not (color:rgb(from red r g b))))"
-
-let build_properties_layer property_rules =
-  match property_rules with
-  | [] ->
-      (* No property rules - omit the properties layer entirely *)
-      None
-  | _ ->
-      (* Convert property_rules to declarations using CSS accessor *)
-      let defaults =
-        property_rules
-        |> List.map (fun (r : Css.Stylesheet.property_rule) ->
-               let name = r.name in
-               let initial =
-                 match r.initial_value with
-                 | Css.Stylesheet.Universal s -> Some s
-                 | Css.Stylesheet.None -> None
-                 | Css.Stylesheet.V _ -> None (* Can't easily convert GADT *)
-               in
-               (* Special handling for Ring_offset_width: "0" becomes "0px" in
-                  properties layer *)
-               let initial_value =
-                 match initial with
-                 | Some "0" when name = "--tw-ring-offset-width" -> "0px"
-                 | Some v -> v
-                 | None -> "initial"
-               in
-               Css.custom_property name initial_value)
-      in
-
-      (* Target all elements including pseudo-elements *)
-      let selector =
-        Css.Selector.(
-          list
-            [
-              universal;
-              pseudo_class "before";
-              pseudo_class "after";
-              pseudo_element "backdrop";
-            ])
-      in
-
-      (* Build the rule with defaults *)
-      let defaults_rule = Css.rule ~selector defaults in
-
-      (* Wrap in supports with Tailwind's exact condition *)
-      let supports_block =
-        Css.supports ~condition:tailwind_v4_supports_condition
-          [ Css.Rule defaults_rule ]
-      in
-
-      (* Create properties layer with supports block nested inside *)
-      Some (Css.layer ~name:"properties" [ supports_block ])
+(* Unused functions removed after API redesign *)
 
 let build_base_layer base_rules =
   let before_placeholder, after_placeholder =
     split_after_placeholder base_rules
   in
-  let base_layer_content =
-    (before_placeholder |> List.map (fun r -> Css.Rule r))
-    @ [ placeholder_supports ]
-    @ (after_placeholder |> List.map (fun r -> Css.Rule r))
-  in
-  Css.layer ~name:"base" base_layer_content
+  let placeholder_rules = Css.rules placeholder_supports in
+  Css.layer ~name:"base"
+    (before_placeholder @ placeholder_rules @ after_placeholder)
 
 (* Collect property rules from Core.t structures *)
 let rec collect_property_rules = function
-  | Core.Style { property_rules; _ } -> property_rules
+  | Core.Style { property_rules; _ } -> [ property_rules ]
   | Core.Modified (_, t) -> collect_property_rules t
   | Core.Group ts -> List.concat_map collect_property_rules ts
 
@@ -996,11 +939,6 @@ let build_layers ~include_base tw_classes rules media_queries container_queries
              true))
   in
 
-  (* Build properties layer with collected rules (returns None if empty) *)
-  let properties_layer_opt =
-    build_properties_layer property_rules_from_utilities
-  in
-
   (* Existing layers in exact order *)
   let theme_layer = compute_theme_layer tw_classes in
   let base_layer = build_base_layer (Preflight.stylesheet ()) in
@@ -1010,30 +948,28 @@ let build_layers ~include_base tw_classes rules media_queries container_queries
     build_utilities_layer ~rules ~media_queries ~container_queries
   in
 
-  (* Build layer list, prepending properties layer only if present *)
-  let base_layers =
+  (* Build layer list *)
+  let layers =
     (if include_base then [ theme_layer; base_layer ] else [ theme_layer ])
     @ [ components_layer; utilities_layer ]
-  in
-  let layers =
-    match properties_layer_opt with
-    | None -> base_layers
-    | Some properties_layer -> properties_layer :: base_layers
   in
 
   (* Return layers and the property_rules for @property emission after layers *)
   (layers, property_rules_from_utilities)
 
 let wrap_css_items ~rules ~media_queries ~container_queries =
-  List.map (fun r -> Css.Rule r) rules
-  @ List.map
-      (fun (condition, rules) ->
-        Css.media condition (List.map (fun r -> Css.Rule r) rules))
+  let rules_stylesheet = Css.v rules in
+  let media_stylesheets =
+    List.map
+      (fun (condition, rules) -> Css.media ~condition rules)
       media_queries
-  @ List.map
-      (fun (name, condition, rules) ->
-        Css.container ?name condition (List.map (fun r -> Css.Rule r) rules))
+  in
+  let container_stylesheets =
+    List.map
+      (fun (name, condition, rules) -> Css.container ?name ~condition rules)
       container_queries
+  in
+  Css.concat (rules_stylesheet :: (media_stylesheets @ container_stylesheets))
 
 (* ======================================================================== *)
 (* Main API - Convert Tw styles to CSS *)
@@ -1056,13 +992,11 @@ let to_css ?(config = default_config) tw_classes =
         build_layers ~include_base:config.base tw_classes rules media_queries
           container_queries
       in
-      let items =
-        layers @ List.map (fun pr -> Css.property_stmt pr) property_rules
-      in
-      Css.stylesheet items
+      let property_stylesheet = Css.concat property_rules in
+      Css.concat (property_stylesheet :: layers)
   | Css.Inline ->
       (* No layers - just raw utility rules *)
-      Css.stylesheet (wrap_css_items ~rules ~media_queries ~container_queries)
+      wrap_css_items ~rules ~media_queries ~container_queries
 
 let to_inline_style styles =
   let rec to_css_properties = function

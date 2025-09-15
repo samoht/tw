@@ -825,15 +825,14 @@ let utility : type a. a t -> ?fallback:a -> a -> Css.declaration * a Css.var =
  fun var_t ?fallback value -> def ?fallback var_t ~layer:Utility value
 
 (* Create @property rule for a variable using Universal syntax *)
-let property : type a.
-    inherits:bool -> ?initial:a -> a t -> string Css.Stylesheet.property_rule =
+let property : type a. inherits:bool -> ?initial:a -> a t -> Css.t =
  fun ~inherits ?initial:_ var_t ->
   let name = to_string var_t in
-  let syntax = Css.Variables.Universal in
-  let initial_value = Some "*" in
+  let syntax = Css.Universal in
+  let initial_value = "*" in
   (* Universal syntax placeholder *)
-  (* Create property_rule directly *)
-  Css.Stylesheet.{ name; syntax; inherits; initial_value }
+  (* Use high-level API to create complete @property stylesheet *)
+  Css.(property ~name syntax ~initial_value ~inherits ())
 
 (** Helper for metadata errors *)
 let err_meta ~layer decl msg =

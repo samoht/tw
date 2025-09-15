@@ -45,8 +45,8 @@ let form_select =
             fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' \
             stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' \
             d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-      Css.background_position [ XY (Right, Center) ];
-      Css.background_repeat (Single No_repeat);
+      Css.background_position [ Right_center ];
+      Css.background_repeat No_repeat;
       Css.background_size (Size (Em 1.5, Em 1.5));
     ]
 

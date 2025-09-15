@@ -610,7 +610,7 @@ let inline_styles () =
     (fun pattern ->
       if
         not
-          (String.contains inline ':'
+          (Astring.String.is_infix ~affix:":" inline
           && Astring.String.is_infix ~affix:pattern inline)
       then
         Alcotest.failf "Missing pattern %s in inline styles: %s" pattern inline)
@@ -626,7 +626,7 @@ let style_combination () =
     (fun class_name ->
       if
         not
-          (String.contains css '.'
+          (Astring.String.is_infix ~affix:"." css
           && Astring.String.is_infix ~affix:class_name css)
       then Alcotest.failf "Missing class %s in combined CSS" class_name)
     expected_classes

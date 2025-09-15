@@ -266,11 +266,7 @@ let text_9xl =
 
 (* Create the @property rule for --tw-font-weight *)
 let property_rules =
-  Css.stylesheet
-    [
-      Css.Property
-        (Var.property ~inherits:false ~initial:(Css.Weight 400) Var.Font_weight);
-    ]
+  Var.property ~inherits:false ~initial:(Css.Weight 400) Var.Font_weight
 
 (* Font weight utilities using variables *)
 let font_thin =
@@ -656,10 +652,7 @@ let line_clamp n =
 
 (* Property rules for content variable *)
 let content_property_rules =
-  Css.stylesheet
-    [
-      Css.Property (Var.property ~inherits:false ~initial:Css.None Var.Content);
-    ]
+  (* Var.property ~inherits:false ~initial:Css.None Var.Content *) Css.empty
 
 let content_none =
   let content_def, content_var = Var.utility Var.Content ~fallback:None None in
@@ -774,15 +767,16 @@ let font_variant_numeric_utility class_name
   (* All utilities need @property registration for these variables *)
   let property_rules =
     [
-      Var.property Var.Font_variant_ordinal ~syntax:"*" ~inherits:false;
-      Var.property Var.Font_variant_slashed_zero ~syntax:"*" ~inherits:false;
-      Var.property Var.Font_variant_numeric_figure ~syntax:"*" ~inherits:false;
-      Var.property Var.Font_variant_numeric_spacing ~syntax:"*" ~inherits:false;
-      Var.property Var.Font_variant_numeric_fraction ~syntax:"*" ~inherits:false;
+      Var.property ~inherits:false Var.Font_variant_ordinal;
+      Var.property ~inherits:false Var.Font_variant_slashed_zero;
+      Var.property ~inherits:false Var.Font_variant_numeric_figure;
+      Var.property ~inherits:false Var.Font_variant_numeric_spacing;
+      Var.property ~inherits:false Var.Font_variant_numeric_fraction;
     ]
   in
 
-  style class_name ~property_rules
+  style class_name
+    ~property_rules:(Css.concat property_rules)
     [
       def;
       (* Only set the specific variable for this utility *)
