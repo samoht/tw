@@ -166,8 +166,8 @@ let test_css_mode_with_colors () =
   (* Test that color utilities work correctly with different CSS modes *)
   let open Tw in
   (* Generate CSS from color utilities *)
-  let styles = [ Color.bg_blue; Color.text_red ] in
-  let css = Tw.Rules.to_css styles in
+  let styles = [ bg_blue; text_red ] in
+  let css = to_css styles in
   let css_string = Css.to_string css in
 
   (* Test that Variables mode is the default and uses CSS variables *)
