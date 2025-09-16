@@ -681,10 +681,7 @@ let conflict_group selector =
 (* Unknown utilities go last *)
 
 let build_utilities_layer ~rules ~media_queries ~container_queries =
-  (* IMPORTANT: Do NOT sort rules here! Sorting changes cascade order and can
-     cause non-adjacent rules with the same selector to become adjacent, which
-     then get incorrectly merged by the optimizer. The original rule order from
-     rule generation must be preserved to maintain CSS cascade semantics. *)
+  (* Preserve source order to maintain CSS cascade semantics *)
   let statements =
     rules
     @ List.map
@@ -943,27 +940,21 @@ let build_layers ~include_base tw_classes rules media_queries container_queries
   (* Existing layers in exact order *)
   let theme_layer = compute_theme_layer tw_classes in
   let base_layer = build_base_layer ~supports:placeholder_supports () in
-  let components_layer =
-    Css.of_statements [ Css.layer ~name:"components" [] ]
-  in
-  (* Empty is ok *)
-  let utilities_layer =
-    build_utilities_layer ~rules ~media_queries ~container_queries
-  in
 
   (* Build layer list *)
   let layers =
     let base_layers =
       if include_base then [ theme_layer; base_layer ] else [ theme_layer ]
     in
-    (* Check if utilities layer is empty - if so, create single layer
-       declaration *)
-    let utilities_is_empty = Css.rules utilities_layer = [] in
-    if utilities_is_empty then
-      (* When utilities layer is empty, add a layer declaration *)
-      base_layers
-      @ [ Css.of_statements [ Css.layer_decl [ "components"; "utilities" ] ] ]
-    else base_layers @ [ components_layer; utilities_layer ]
+    (* Always generate separate components declaration and utilities layer to
+       match Tailwind v4 behavior *)
+    let components_declaration =
+      Css.of_statements [ Css.layer_decl [ "components" ] ]
+    in
+    let utilities_layer =
+      build_utilities_layer ~rules ~media_queries ~container_queries
+    in
+    base_layers @ [ components_declaration; utilities_layer ]
   in
 
   (* Return layers and the property_rules for @property emission after layers *)
