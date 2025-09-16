@@ -339,25 +339,42 @@ let button_resets () =
 let hidden_resets () =
   [ rule ~selector:hidden_not_until_found [ important (display None) ] ]
 
-let stylesheet () =
-  List.concat
-    [
-      box_resets ();
-      root_resets ();
-      structural_resets ();
-      typography_resets ();
-      code_resets ();
-      text_level_resets ();
-      table_resets ();
-      interactive_resets ();
-      list_resets ();
-      media_resets ();
-      form_control_resets ();
-      select_resets ();
-      form_misc_resets ();
-      webkit_form_resets ();
-      firefox_form_resets ();
-      button_specific_resets ();
-      button_resets ();
-      hidden_resets ();
-    ]
+let stylesheet ?placeholder_supports () =
+  let base_rules =
+    List.concat
+      [
+        box_resets ();
+        root_resets ();
+        structural_resets ();
+        typography_resets ();
+        code_resets ();
+        text_level_resets ();
+        table_resets ();
+        interactive_resets ();
+        list_resets ();
+        media_resets ();
+        form_control_resets ();
+        select_resets ();
+        form_misc_resets ();
+        webkit_form_resets ();
+        firefox_form_resets ();
+        button_specific_resets ();
+        button_resets ();
+        hidden_resets ();
+      ]
+  in
+
+  match placeholder_supports with
+  | None -> Css.v base_rules
+  | Some supports ->
+      (* Split the rules at placeholder and insert the @supports *)
+      let rec split_after_placeholder acc = function
+        | [] -> (List.rev acc, [])
+        | h :: t -> (
+            match Css.statement_selector h with
+            | Some sel when Css.Selector.to_string sel = "::placeholder" ->
+                (List.rev (h :: acc), t)
+            | _ -> split_after_placeholder (h :: acc) t)
+      in
+      let before, after = split_after_placeholder [] base_rules in
+      Css.concat [ Css.v before; supports; Css.v after ]

@@ -480,9 +480,10 @@ let rules_of_grouped_prose_bug () =
   (* Count how many .prose rules we get in output *)
   let prose_rules =
     List.filter
-      (fun rule ->
-        let selector = Tw.Css.Selector.to_string (Tw.Css.selector rule) in
-        selector = ".prose")
+      (fun stmt ->
+        match Tw.Css.statement_selector stmt with
+        | Some sel -> Tw.Css.Selector.to_string sel = ".prose"
+        | None -> false)
       output_rules
   in
 

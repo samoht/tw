@@ -188,9 +188,9 @@ val is_hover_rule : output -> bool
 
 val rule_sets :
   t list ->
-  Css.rule list
-  * (string * Css.rule list) list
-  * (string option * string * Css.rule list) list
+  Css.statement list
+  * (string * Css.statement list) list
+  * (string option * string * Css.statement list) list
 (** [rule_sets tw_classes] processes Tailwind classes into CSS rule sets. *)
 
 val classify : output list -> by_type
@@ -214,9 +214,9 @@ val compute_theme_layer : t list -> Css.t
     variables. *)
 
 val build_utilities_layer :
-  rules:Css.rule list ->
-  media_queries:(string * Css.rule list) list ->
-  container_queries:(string option * string * Css.rule list) list ->
+  rules:Css.statement list ->
+  media_queries:(string * Css.statement list) list ->
+  container_queries:(string option * string * Css.statement list) list ->
   Css.t
 (** [build_utilities_layer ~rules ~media_queries ~container_queries] builds the
     utilities layer with proper conflict ordering. *)
@@ -237,6 +237,6 @@ val responsive_breakpoint : string -> string
 val rules_of_grouped :
   ?filter_custom_props:bool ->
   (Css.Selector.t * Css.declaration list) list ->
-  Css.rule list
+  Css.statement list
 (** [rules_of_grouped grouped_pairs] converts selector/properties pairs to CSS
     rules. Used for testing the rule generation pipeline. *)
