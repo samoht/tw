@@ -277,8 +277,13 @@ let extract_selector_props tw =
             let custom_rules =
               rule_list
               |> List.map (fun rule ->
-                     regular ~selector:(Css.selector rule)
-                       ~props:(Css.declarations rule) ~base_class:name ())
+                     match Css.as_rule rule with
+                     | Some (selector, declarations, _) ->
+                         regular ~selector ~props:declarations ~base_class:name
+                           ()
+                     | None ->
+                         regular ~selector:Css.Selector.universal ~props:[]
+                           ~base_class:name ())
             in
 
             (* If there are base props, add them after the custom rules to match
@@ -680,17 +685,16 @@ let build_utilities_layer ~rules ~media_queries ~container_queries =
      cause non-adjacent rules with the same selector to become adjacent, which
      then get incorrectly merged by the optimizer. The original rule order from
      rule generation must be preserved to maintain CSS cascade semantics. *)
-  let block =
+  let statements =
     rules
-    @ List.concat_map
-        (fun (condition, rules) -> Css.rules (Css.media ~condition rules))
+    @ List.map
+        (fun (condition, rules) -> Css.media ~condition rules)
         media_queries
-    @ List.concat_map
-        (fun (name, condition, rules) ->
-          Css.rules (Css.container ?name ~condition rules))
+    @ List.map
+        (fun (name, condition, rules) -> Css.container ?name ~condition rules)
         container_queries
   in
-  Css.layer ~name:"utilities" block
+  Css.of_statements [ Css.layer ~name:"utilities" statements ]
 
 let add_hover_to_media_map hover_rules media_map =
   (* Gate hover rules behind (hover:hover) media query to prevent them from
@@ -874,51 +878,46 @@ let compute_theme_layer tw_classes =
       all_var_decls
   in
 
-  if theme_generated_vars = [] then Css.layer ~name:"theme" []
+  if theme_generated_vars = [] then
+    Css.of_statements [ Css.layer ~name:"theme" [] ]
   else
     let selector = Css.Selector.(list [ Root; host () ]) in
-    Css.layer ~name:"theme" [ Css.rule ~selector theme_generated_vars ]
+    Css.of_statements
+      [ Css.layer ~name:"theme" [ Css.rule ~selector theme_generated_vars ] ]
 
 let placeholder_supports =
   let placeholder = Css.Selector.pseudo_element "placeholder" in
-  let fallback_support =
-    Css.supports
-      ~condition:
-        "(not ((-webkit-appearance:-apple-pay-button))) or \
-         (contain-intrinsic-size:1px)"
-      [ Css.rule ~selector:placeholder [ Css.color Current ] ]
-  in
-  let modern_support =
-    Css.supports ~condition:"(color:color-mix(in lab, red, red))"
+
+  (* Create the inner @supports for modern browsers *)
+  let modern_rule =
+    Css.rule ~selector:placeholder
       [
-        Css.rule ~selector:placeholder
-          [
-            Css.color
-              (Css.color_mix ~in_space:Oklab ~percent1:50 Current Transparent);
-          ];
+        Css.color
+          (Css.color_mix ~in_space:Oklab ~percent1:50 Current Transparent);
       ]
   in
-  Css.concat [ fallback_support; modern_support ]
-
-let split_after_placeholder rules =
-  let rec split acc = function
-    | [] -> (List.rev acc, [])
-    | h :: t ->
-        if Css.Selector.to_string (Css.selector h) = "::placeholder" then
-          (List.rev (h :: acc), t)
-        else split (h :: acc) t
+  let modern_support_stmt =
+    Css.supports ~condition:"(color:color-mix(in lab, red, red))"
+      [ modern_rule ]
   in
-  split [] rules
 
-(* Unused functions removed after API redesign *)
+  (* Create the outer @supports with the fallback rule and nested modern
+     support *)
+  let fallback_rule = Css.rule ~selector:placeholder [ Css.color Current ] in
+  let outer_support_content = [ fallback_rule; modern_support_stmt ] in
 
-let build_base_layer base_rules =
-  let before_placeholder, after_placeholder =
-    split_after_placeholder base_rules
-  in
-  let placeholder_rules = Css.rules placeholder_supports in
-  Css.layer ~name:"base"
-    (before_placeholder @ placeholder_rules @ after_placeholder)
+  Css.of_statements
+    [
+      Css.supports
+        ~condition:
+          "(not ((-webkit-appearance:-apple-pay-button))) or \
+           (contain-intrinsic-size:1px)"
+        outer_support_content;
+    ]
+
+let build_base_layer ?supports () =
+  let base = Preflight.stylesheet ?placeholder_supports:supports () in
+  Css.layer_of ~name:"base" base
 
 (* Collect property rules from Core.t structures *)
 let rec collect_property_rules = function
@@ -943,8 +942,10 @@ let build_layers ~include_base tw_classes rules media_queries container_queries
 
   (* Existing layers in exact order *)
   let theme_layer = compute_theme_layer tw_classes in
-  let base_layer = build_base_layer (Preflight.stylesheet ()) in
-  let components_layer = Css.layer ~name:"components" [] in
+  let base_layer = build_base_layer ~supports:placeholder_supports () in
+  let components_layer =
+    Css.of_statements [ Css.layer ~name:"components" [] ]
+  in
   (* Empty is ok *)
   let utilities_layer =
     build_utilities_layer ~rules ~media_queries ~container_queries
@@ -952,8 +953,17 @@ let build_layers ~include_base tw_classes rules media_queries container_queries
 
   (* Build layer list *)
   let layers =
-    (if include_base then [ theme_layer; base_layer ] else [ theme_layer ])
-    @ [ components_layer; utilities_layer ]
+    let base_layers =
+      if include_base then [ theme_layer; base_layer ] else [ theme_layer ]
+    in
+    (* Check if utilities layer is empty - if so, create single layer
+       declaration *)
+    let utilities_is_empty = Css.rules utilities_layer = [] in
+    if utilities_is_empty then
+      (* When utilities layer is empty, add a layer declaration *)
+      base_layers
+      @ [ Css.of_statements [ Css.layer_decl [ "components"; "utilities" ] ] ]
+    else base_layers @ [ components_layer; utilities_layer ]
   in
 
   (* Return layers and the property_rules for @property emission after layers *)
@@ -963,12 +973,14 @@ let wrap_css_items ~rules ~media_queries ~container_queries =
   let rules_stylesheet = Css.v rules in
   let media_stylesheets =
     List.map
-      (fun (condition, rules) -> Css.media ~condition rules)
+      (fun (condition, rules) ->
+        Css.of_statements [ Css.media ~condition rules ])
       media_queries
   in
   let container_stylesheets =
     List.map
-      (fun (name, condition, rules) -> Css.container ?name ~condition rules)
+      (fun (name, condition, rules) ->
+        Css.of_statements [ Css.container ?name ~condition rules ])
       container_queries
   in
   Css.concat (rules_stylesheet :: (media_stylesheets @ container_stylesheets))

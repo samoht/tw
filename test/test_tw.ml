@@ -56,13 +56,26 @@ let debug_files test_name tw_css tailwind_css =
 
 (* Test configuration helpers *)
 let test_config tw_styles classnames ~minify ~optimize =
+  let strip_header css =
+    (* Strip a leading /*!...*/ header comment *)
+    if String.starts_with ~prefix:"/*!" css then
+      let len = String.length css in
+      let rec find_end i =
+        if i + 1 >= len then None
+        else if css.[i] = '*' && css.[i + 1] = '/' then Some (i + 2)
+        else find_end (i + 1)
+      in
+      match find_end 3 with
+      | Some pos -> String.sub css pos (len - pos) |> String.trim
+      | None -> css
+    else css
+  in
   let tw =
-    generate_tw_css ~minify ~optimize tw_styles
-    |> Tw_tools.Css_compare.strip_header |> String.trim
+    generate_tw_css ~minify ~optimize tw_styles |> strip_header |> String.trim
   in
   let tailwind =
     generate_tailwind_css ~minify ~optimize classnames
-    |> Tw_tools.Css_compare.strip_header |> String.trim
+    |> strip_header |> String.trim
   in
   (tw = tailwind, tw, tailwind)
 
@@ -138,15 +151,28 @@ let show_string_diff_context tw_css tailwind_css =
 
 let show_diff_with_label label tw_css tailwind_css tw_file tailwind_file =
   if label <> "" then Fmt.epr "%s:@," label;
-  let tw_css = Tw_tools.Css_compare.strip_header tw_css in
-  let tailwind_css = Tw_tools.Css_compare.strip_header tailwind_css in
+  let strip_header css =
+    (* Strip a leading /*!...*/ header comment *)
+    if String.starts_with ~prefix:"/*!" css then
+      let len = String.length css in
+      let rec find_end i =
+        if i + 1 >= len then None
+        else if css.[i] = '*' && css.[i + 1] = '/' then Some (i + 2)
+        else find_end (i + 1)
+      in
+      match find_end 3 with
+      | Some pos -> String.sub css pos (len - pos) |> String.trim
+      | None -> css
+    else css
+  in
+  let tw_css = strip_header tw_css in
+  let tailwind_css = strip_header tailwind_css in
   (match (Css.of_string tw_css, Css.of_string tailwind_css) with
-  | Ok ast1, Ok ast2 ->
-      let diff_result = Tw_tools.Css_compare.diff ast1 ast2 in
-      let diff_str = Fmt.str "%a" Tw_tools.Css_compare.pp diff_result in
-      if String.trim diff_str <> "" then
-        Fmt.epr "%a@," Tw_tools.Css_compare.pp diff_result
-      else show_string_diff_context tw_css tailwind_css
+  | Ok _, Ok _ ->
+      (* Just do a simple string comparison since Compare module doesn't
+         exist *)
+      if tw_css <> tailwind_css then
+        show_string_diff_context tw_css tailwind_css
   | Error e1, Error e2 ->
       let fmt_err (err : Css.parse_error) = Css.pp_parse_error err in
       if e1.message = e2.message && e1.position = e2.position then

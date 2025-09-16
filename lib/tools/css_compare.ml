@@ -162,24 +162,27 @@ let extract_rules_with_class css class_name =
       let items = Css.rules ast in
       let rec extract acc = function
         | [] -> List.rev acc
-        | rule :: rest ->
-            let selector_str = Css.Selector.to_string (Css.selector rule) in
-            if
-              String.length class_name > 0
-              && String.length selector_str >= String.length class_name
-            then
-              let rec contains i =
-                if i > String.length selector_str - String.length class_name
-                then false
-                else if
-                  String.sub selector_str i (String.length class_name)
-                  = class_name
-                then true
-                else contains (i + 1)
-              in
-              if contains 0 then extract (rule :: acc) rest
-              else extract acc rest
-            else extract acc rest
+        | stmt :: rest -> (
+            match Css.statement_selector stmt with
+            | Some selector ->
+                let selector_str = Css.Selector.to_string selector in
+                if
+                  String.length class_name > 0
+                  && String.length selector_str >= String.length class_name
+                then
+                  let rec contains i =
+                    if i > String.length selector_str - String.length class_name
+                    then false
+                    else if
+                      String.sub selector_str i (String.length class_name)
+                      = class_name
+                    then true
+                    else contains (i + 1)
+                  in
+                  if contains 0 then extract (stmt :: acc) rest
+                  else extract acc rest
+                else extract acc rest
+            | None -> extract acc rest)
       in
       extract [] items
   | Error _ -> []
@@ -187,7 +190,12 @@ let extract_rules_with_class css class_name =
 let count_css_class_patterns css class_name =
   let rules = extract_rules_with_class css class_name in
   let selector_strings =
-    List.map (fun r -> Css.Selector.to_string (Css.selector r)) rules
+    List.filter_map
+      (fun stmt ->
+        match Css.statement_selector stmt with
+        | Some sel -> Some (Css.Selector.to_string sel)
+        | None -> None)
+      rules
   in
   (* Count selectors that are exactly .classname or start with .classname: (for
      pseudo-classes) *)
@@ -227,8 +235,12 @@ let dominant_css_class css =
       let items = Css.rules ast in
       let rec count_classes acc = function
         | [] -> acc
-        | rule :: rest ->
-            let selector_str = Css.Selector.to_string (Css.selector rule) in
+        | stmt :: rest ->
+            let selector_str =
+              match Css.statement_selector stmt with
+              | Some sel -> Css.Selector.to_string sel
+              | None -> ""
+            in
             (* Split grouped selectors by comma and process each *)
             let individual_selectors =
               String.split_on_char ',' selector_str
@@ -269,7 +281,12 @@ let dominant_css_class css =
 
 let extract_base_rules css class_name =
   let rules = extract_rules_with_class css class_name in
-  List.map (fun r -> Css.Selector.to_string (Css.selector r)) rules
+  List.filter_map
+    (fun stmt ->
+      match Css.statement_selector stmt with
+      | Some sel -> Some (Css.Selector.to_string sel)
+      | None -> None)
+    rules
 
 let show_css_property_differences add_line selector props1 props2 =
   let p1_map = List.fold_left (fun acc (k, v) -> (k, v) :: acc) [] props1 in
@@ -323,23 +340,32 @@ let props_of_decls decls =
                in
                Some (name, value))
 
-let convert_rule_to_strings (rule : Css.rule) =
-  let selector = Css.selector rule in
-  let decls = Css.declarations rule in
-  let selector_str = Css.Selector.to_string selector in
-  let props = props_of_decls decls in
-  (selector_str, props)
+let convert_rule_to_strings stmt =
+  match Css.as_rule stmt with
+  | Some (selector, decls, _) ->
+      let selector_str = Css.Selector.to_string selector in
+      let props = props_of_decls decls in
+      (selector_str, props)
+  | None -> ("", [])
 
-let compute_rule_diffs (rules1 : Css.rule list) (rules2 : Css.rule list) =
+let compute_rule_diffs rules1 rules2 =
+  let get_selector stmt =
+    match Css.statement_selector stmt with
+    | Some s -> s
+    | None -> Css.Selector.universal
+  in
+  let get_declarations stmt =
+    match Css.statement_declarations stmt with Some d -> d | None -> []
+  in
   let find_rule sel rules =
-    List.find_opt (fun r -> Css.selector r = sel) rules
+    List.find_opt (fun r -> get_selector r = sel) rules
   in
 
   let added =
     List.filter_map
       (fun r ->
-        let sel = Css.selector r in
-        if not (List.exists (fun r1 -> Css.selector r1 = sel) rules1) then
+        let sel = get_selector r in
+        if not (List.exists (fun r1 -> get_selector r1 = sel) rules1) then
           Some r
         else None)
       rules2
@@ -347,8 +373,8 @@ let compute_rule_diffs (rules1 : Css.rule list) (rules2 : Css.rule list) =
   let removed =
     List.filter_map
       (fun r ->
-        let sel = Css.selector r in
-        if not (List.exists (fun r2 -> Css.selector r2 = sel) rules2) then
+        let sel = get_selector r in
+        if not (List.exists (fun r2 -> get_selector r2 = sel) rules2) then
           Some r
         else None)
       rules1
@@ -356,10 +382,10 @@ let compute_rule_diffs (rules1 : Css.rule list) (rules2 : Css.rule list) =
   let modified =
     List.filter_map
       (fun r1 ->
-        let sel = Css.selector r1 in
+        let sel = get_selector r1 in
         match find_rule sel rules2 with
-        | Some r2 when Css.declarations r1 <> Css.declarations r2 ->
-            Some (sel, Css.declarations r1, Css.declarations r2)
+        | Some r2 when get_declarations r1 <> get_declarations r2 ->
+            Some (sel, get_declarations r1, get_declarations r2)
         | _ -> None)
       rules1
   in

@@ -18,18 +18,16 @@ let () =
   | [ file1; file2 ] -> (
       match (read_file file1, read_file file2) with
       | Some css1, Some css2 ->
-          if Tw_tools.Css_compare.compare_css css1 css2 then (
-            Fmt.pr "✓ CSS files are structurally identical@.";
+          if css1 = css2 then (
+            Fmt.pr "✓ CSS files are identical@.";
             exit 0)
           else (
-            Fmt.pr "✗ CSS files differ structurally@.@.";
-            (* Show detailed diff *)
-            let css1 = Tw_tools.Css_compare.strip_header css1 in
-            let css2 = Tw_tools.Css_compare.strip_header css2 in
+            Fmt.pr "✗ CSS files differ@.@.";
+            (* Just do simple string comparison *)
             (match (Css.of_string css1, Css.of_string css2) with
-            | Ok ast1, Ok ast2 ->
-                let diff = Tw_tools.Css_compare.diff ast1 ast2 in
-                Fmt.pr "%a@." Tw_tools.Css_compare.pp diff
+            | Ok _, Ok _ ->
+                Fmt.pr
+                  "Both CSS files parsed successfully but differ in content@."
             | Error msg1, Error msg2 ->
                 let fmt_err (err : Css.parse_error) = Css.pp_parse_error err in
                 if msg1.message = msg2.message && msg1.position = msg2.position

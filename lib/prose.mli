@@ -40,7 +40,7 @@ val pp : variant -> string
 val to_class : variant -> string
 (** [to_class variant] converts prose variant to CSS class name. *)
 
-val to_css_rules : variant -> Css.rule list
+val to_css_rules : variant -> Css.statement list
 (** [to_css_rules variant] generates CSS rules for a prose variant.
 
     This generates all the CSS rules needed for the prose variant, including
@@ -102,7 +102,7 @@ val prose_stone : Core.t
 val of_string : string list -> (Core.t, [ `Msg of string ]) result
 (** [of_string parts] parses a prose utility from string parts. *)
 
-val stylesheet : unit -> Css.rule list
+val stylesheet : unit -> Css.statement list
 (** [stylesheet ()] generates complete CSS rules for all prose variants. *)
 
 (** {2 Prose markers}

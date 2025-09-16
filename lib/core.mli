@@ -50,7 +50,7 @@ type t =
   | Style of {
       name : string;
       props : Css.declaration list;
-      rules : Css.rule list option;
+      rules : Css.statement list option;
       property_rules : Css.t;
     }
   | Modified of modifier * t
@@ -64,7 +64,7 @@ type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
 val style :
-  ?rules:Css.rule list option ->
+  ?rules:Css.statement list option ->
   ?property_rules:Css.t ->
   string ->
   Css.declaration list ->
