@@ -23,7 +23,7 @@ let hidden_until_found = attribute "hidden" (Exact "until-found")
 
 (* Complex selectors *)
 let abbr_with_title = abbr && where [ title ]
-let select_is_multiple_size = select && fun_ "is" [ multiple; size ]
+let select_is_multiple_size = select && is_ [ multiple; size ]
 let input_button_types = input && where [ type_button; type_reset; type_submit ]
 let hidden_not_until_found = hidden && where [ not [ hidden_until_found ] ]
 
@@ -32,14 +32,7 @@ let box_resets () =
   let open Selector in
   [
     rule
-      ~selector:
-        (list
-           [
-             universal;
-             pseudo_class "after";
-             pseudo_class "before";
-             pseudo_element "backdrop";
-           ])
+      ~selector:(list [ universal; After; Before; pseudo_element "backdrop" ])
       [
         box_sizing Border_box;
         border ~width:Zero ~style:Solid ();
@@ -66,7 +59,7 @@ let root_resets () =
   in
   [
     rule
-      ~selector:Selector.(list [ element "html"; pseudo_class "host" ])
+      ~selector:Selector.(list [ element "html"; host () ])
       [
         webkit_text_size_adjust (Pct 100.);
         tab_size 4;
@@ -175,7 +168,7 @@ let table_resets () =
 (** Interactive elements *)
 let interactive_resets () =
   [
-    rule ~selector:(Selector.pseudo_class "-moz-focusring") [ outline "auto" ];
+    rule ~selector:Selector.Moz_focusring [ outline "auto" ];
     rule ~selector:(Selector.element "progress") [ vertical_align Baseline ];
     rule ~selector:(Selector.element "summary") [ display List_item ];
   ]
@@ -317,11 +310,7 @@ let webkit_form_resets () =
 
 (** Firefox-specific form resets *)
 let firefox_form_resets () =
-  [
-    rule
-      ~selector:(Selector.pseudo_class "-moz-ui-invalid")
-      [ box_shadow_list [ None ] ];
-  ]
+  [ rule ~selector:Selector.Moz_ui_invalid [ box_shadow_list [ None ] ] ]
 
 (** Buttons need specific styles *)
 let button_specific_resets () =

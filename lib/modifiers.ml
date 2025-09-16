@@ -3,96 +3,86 @@
 
 open Core
 
+(** Helper to build escaped class selectors *)
+let build_class prefix cls = Css.Selector.Class (prefix ^ cls)
+
+(** Helper functions for building escaped class names *)
+let hover cls = build_class "hover\\:" cls
+
+let focus cls = build_class "focus\\:" cls
+let active cls = build_class "active\\:" cls
+let disabled cls = build_class "disabled\\:" cls
+let group_hover cls = build_class "group-hover\\:" cls
+let group_focus cls = build_class "group-focus\\:" cls
+let peer_hover cls = build_class "peer-hover\\:" cls
+let peer_focus cls = build_class "peer-focus\\:" cls
+let peer_checked cls = build_class "peer-checked\\:" cls
+let aria_checked cls = build_class "aria-checked\\:" cls
+let aria_expanded cls = build_class "aria-expanded\\:" cls
+let aria_selected cls = build_class "aria-selected\\:" cls
+let aria_disabled cls = build_class "aria-disabled\\:" cls
+let data_active cls = build_class "data-\\[active\\]\\:" cls
+let data_inactive cls = build_class "data-\\[inactive\\]\\:" cls
+let focus_within cls = build_class "focus-within\\:" cls
+let focus_visible cls = build_class "focus-visible\\:" cls
+let before cls = build_class "before\\:" cls
+let after cls = build_class "after\\:" cls
+
+(** Base marker classes *)
+let group = Css.Selector.Class "group"
+
+let peer = Css.Selector.Class "peer"
+
 (** Generate CSS selector for a modifier and base class *)
-let to_selector modifier base_class =
+let to_selector (modifier : modifier) cls =
   let open Css.Selector in
   match modifier with
-  | Hover -> compound [ class_ ("hover\\:" ^ base_class); pseudo_class "hover" ]
-  | Focus -> compound [ class_ ("focus\\:" ^ base_class); pseudo_class "focus" ]
-  | Active ->
-      compound [ class_ ("active\\:" ^ base_class); pseudo_class "active" ]
-  | Disabled ->
-      compound [ class_ ("disabled\\:" ^ base_class); pseudo_class "disabled" ]
+  | Hover -> compound [ hover cls; Hover ]
+  | Focus -> compound [ focus cls; Focus ]
+  | Active -> compound [ active cls; Active ]
+  | Disabled -> compound [ disabled cls; Disabled ]
   | Group_hover ->
-      combine
-        (compound [ class_ "group"; pseudo_class "hover" ])
-        Descendant
-        (class_ ("group-hover\\:" ^ base_class))
+      combine (compound [ group; Hover ]) Descendant (group_hover cls)
   | Group_focus ->
-      combine
-        (compound [ class_ "group"; pseudo_class "focus" ])
-        Descendant
-        (class_ ("group-focus\\:" ^ base_class))
+      combine (compound [ group; Focus ]) Descendant (group_focus cls)
   | Peer_hover ->
       let rel =
         combine
-          (compound [ fun_ "where" [ class_ "peer" ]; pseudo_class "hover" ])
+          (compound [ where [ peer ]; Hover ])
           Subsequent_sibling universal
       in
-      compound [ class_ ("peer-hover\\:" ^ base_class); fun_ "is" [ rel ] ]
+      compound [ peer_hover cls; is_ [ rel ] ]
   | Peer_focus ->
       let rel =
         combine
-          (compound [ fun_ "where" [ class_ "peer" ]; pseudo_class "focus" ])
+          (compound [ where [ peer ]; Focus ])
           Subsequent_sibling universal
       in
-      compound [ class_ ("peer-focus\\:" ^ base_class); fun_ "is" [ rel ] ]
+      compound [ peer_focus cls; is_ [ rel ] ]
   | Peer_checked ->
       let rel =
         combine
-          (compound [ fun_ "where" [ class_ "peer" ]; pseudo_class "checked" ])
+          (compound [ where [ peer ]; Checked ])
           Subsequent_sibling universal
       in
-      compound [ class_ ("peer-checked\\:" ^ base_class); fun_ "is" [ rel ] ]
+      compound [ peer_checked cls; is_ [ rel ] ]
   | Aria_checked ->
-      compound
-        [
-          class_ ("aria-checked\\:" ^ base_class);
-          attribute "aria-checked" (Exact "true");
-        ]
+      compound [ aria_checked cls; attribute "aria-checked" (Exact "true") ]
   | Aria_expanded ->
-      compound
-        [
-          class_ ("aria-expanded\\:" ^ base_class);
-          attribute "aria-expanded" (Exact "true");
-        ]
+      compound [ aria_expanded cls; attribute "aria-expanded" (Exact "true") ]
   | Aria_selected ->
-      compound
-        [
-          class_ ("aria-selected\\:" ^ base_class);
-          attribute "aria-selected" (Exact "true");
-        ]
+      compound [ aria_selected cls; attribute "aria-selected" (Exact "true") ]
   | Aria_disabled ->
-      compound
-        [
-          class_ ("aria-disabled\\:" ^ base_class);
-          attribute "aria-disabled" (Exact "true");
-        ]
+      compound [ aria_disabled cls; attribute "aria-disabled" (Exact "true") ]
   | Data_active ->
-      compound
-        [
-          class_ ("data-\\[active\\]\\:" ^ base_class);
-          attribute "data-active" Presence;
-        ]
+      compound [ data_active cls; attribute "data-active" Presence ]
   | Data_inactive ->
-      compound
-        [
-          class_ ("data-\\[inactive\\]\\:" ^ base_class);
-          attribute "data-inactive" Presence;
-        ]
-  | Focus_within ->
-      compound
-        [ class_ ("focus-within\\:" ^ base_class); pseudo_class "focus-within" ]
-  | Focus_visible ->
-      compound
-        [
-          class_ ("focus-visible\\:" ^ base_class); pseudo_class "focus-visible";
-        ]
-  | Pseudo_before ->
-      compound [ class_ ("before\\:" ^ base_class); pseudo_element "before" ]
-  | Pseudo_after ->
-      compound [ class_ ("after\\:" ^ base_class); pseudo_element "after" ]
-  | _ -> class_ base_class (* fallback for complex modifiers *)
+      compound [ data_inactive cls; attribute "data-inactive" Presence ]
+  | Focus_within -> compound [ focus_within cls; Focus_within ]
+  | Focus_visible -> compound [ focus_visible cls; Focus_visible ]
+  | Pseudo_before -> compound [ before cls; pseudo_element "before" ]
+  | Pseudo_after -> compound [ after cls; pseudo_element "after" ]
+  | _ -> Css.Selector.Class cls (* fallback for complex modifiers *)
 
 (** Check if a modifier generates a hover rule *)
 let is_hover = function Hover | Group_hover | Peer_hover -> true | _ -> false
@@ -192,7 +182,7 @@ let of_string class_str =
   let parts = String.split_on_char ':' class_str in
   match List.rev parts with
   | [] -> ([], class_str)
-  | base_class :: modifiers -> (List.rev modifiers, base_class)
+  | cls :: modifiers -> (List.rev modifiers, cls)
 
 (* Convert modifier to its string prefix *)
 let pp_modifier = function

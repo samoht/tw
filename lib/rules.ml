@@ -166,6 +166,14 @@ let container_rule query base_class props =
 let has_like_selector kind selector_str base_class props =
   let open Css.Selector in
   let escaped_selector = escape_class_name selector_str in
+  (* Parse the selector string to get a proper selector *)
+  let parsed_selector =
+    let reader = Css.Reader.of_string selector_str in
+    try Css.Selector.read reader
+    with _ ->
+      (* Fallback to a simple class selector if parsing fails *)
+      class_ selector_str
+  in
   match kind with
   | `Has ->
       let sel =
@@ -174,14 +182,12 @@ let has_like_selector kind selector_str base_class props =
             class_
               ("has-\\[" ^ escaped_selector ^ "\\]\\:"
               ^ escape_class_name base_class);
-            pseudo_class ("has(" ^ selector_str ^ ")");
+            has [ parsed_selector ];
           ]
       in
       regular ~selector:sel ~props ~base_class ()
   | `Group_has ->
-      let left =
-        compound [ class_ "group"; pseudo_class ("has(" ^ selector_str ^ ")") ]
-      in
+      let left = compound [ class_ "group"; has [ parsed_selector ] ] in
       let right =
         class_
           ("group-has-\\[" ^ escaped_selector ^ "\\]\\:"
@@ -190,9 +196,7 @@ let has_like_selector kind selector_str base_class props =
       let sel = combine left Descendant right in
       regular ~selector:sel ~props ~base_class ()
   | `Peer_has ->
-      let left =
-        compound [ class_ "peer"; pseudo_class ("has(" ^ selector_str ^ ")") ]
-      in
+      let left = compound [ class_ "peer"; has [ parsed_selector ] ] in
       let right =
         class_
           ("peer-has-\\[" ^ escaped_selector ^ "\\]\\:"
@@ -872,9 +876,7 @@ let compute_theme_layer tw_classes =
 
   if theme_generated_vars = [] then Css.layer ~name:"theme" []
   else
-    let selector =
-      Css.Selector.(list [ pseudo_class "root"; pseudo_class "host" ])
-    in
+    let selector = Css.Selector.(list [ Root; host () ]) in
     Css.layer ~name:"theme" [ Css.rule ~selector theme_generated_vars ]
 
 let placeholder_supports =
