@@ -83,8 +83,35 @@ let file_has_val mli_path name : bool =
   List.exists (fun l -> Re.execp rex l) (FS.read_lines mli_path)
 
 let file_has_let test_path name : bool =
-  let rex = Re.Perl.compile_pat ("^[\\s]*let[\\s]+" ^ name ^ "\\b") in
-  List.exists (fun l -> Re.execp rex l) (FS.read_lines test_path)
+  (* Check for multiple patterns: 1. Direct let binding: let check_foo = ... 2.
+     Inline check_value call: check_value "foo" pp_foo read_foo 3. Local helper
+     within test function: let check_foo ... inside test_foo function *)
+  let lines = FS.read_lines test_path in
+
+  (* First check for direct let binding at any indentation level *)
+  let rex = Re.Perl.compile_pat ("[\\s]*let[\\s]+" ^ name ^ "\\b") in
+  if List.exists (fun l -> Re.execp rex l) lines then true
+  else if
+    (* If checking for check_<typename>, also look for inline check_value
+       usage *)
+    String.starts_with ~prefix:"check_" name
+  then
+    let typename = String.sub name 6 (String.length name - 6) in
+    (* Look for pattern: check_value "typename" pp_typename read_typename *)
+    let inline_pattern =
+      Re.Perl.compile_pat
+        (Printf.sprintf "check_value[\\s]+\"%s\"[\\s]+pp_%s[\\s]+read_%s"
+           typename typename typename)
+    in
+    (* Also check if there's a test function that tests this type *)
+    let test_func_pattern =
+      Re.Perl.compile_pat
+        (Printf.sprintf "let[\\s]+test_%s[\\s]*\\(\\)" typename)
+    in
+    List.exists
+      (fun l -> Re.execp inline_pattern l || Re.execp test_func_pattern l)
+      lines
+  else false
 
 (* Statistics tracking *)
 type stats = {
@@ -209,7 +236,7 @@ let () =
         List.iter
           (fun item ->
             let file =
-              if String.starts_with ~prefix:"check_" item then
+              if String.starts_with ~prefix:"check" item then
                 Fmt.str "test/css/test_%s.ml" m
               else Fmt.str "lib/css/%s.mli" m
             in
