@@ -125,7 +125,7 @@ let equal d1 d2 =
   && List.for_all2 equal_layer_change d1.layers d2.layers
 
 let strip_header css =
-  (* Strip a leading /*!...*/ header only if followed by a newline *)
+  (* Strip a leading /*!...*/ header comment *)
   if String.starts_with ~prefix:"/*!" css then
     let len = String.length css in
     let rec find_end i =
@@ -134,8 +134,10 @@ let strip_header css =
       else find_end (i + 1)
     in
     match find_end 3 with
-    | Some j when j < len && css.[j] = '\n' ->
-        String.sub css (j + 1) (len - j - 1)
+    | Some j when j < len ->
+        (* Skip the header and optionally a following newline *)
+        let start_pos = if css.[j] = '\n' then j + 1 else j in
+        String.sub css start_pos (len - start_pos)
     | _ -> css
   else css
 
