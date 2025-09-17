@@ -80,7 +80,7 @@ let check_properties_layer () =
      handled by individual utility modules *)
   check bool "properties layer removed as expected" true true
 
-let check_to_css_variables_with_base () =
+let check_css_variables_with_base () =
   let config =
     { Tw.Rules.base = true; mode = Css.Variables; optimize = false }
   in
@@ -92,7 +92,7 @@ let check_to_css_variables_with_base () =
   check bool "has base layer" true (contains css_str "@layer base");
   check bool "has utilities layer" true (contains css_str "@layer utilities")
 
-let check_to_css_variables_without_base () =
+let check_css_variables_without_base () =
   let config =
     { Tw.Rules.base = false; mode = Css.Variables; optimize = false }
   in
@@ -104,7 +104,7 @@ let check_to_css_variables_without_base () =
   check bool "has utilities layer" true (contains css_str "@layer utilities");
   check bool "has padding rule" true (contains css_str ".p-4")
 
-let check_to_css_inline_with_base () =
+let check_css_inline_with_base () =
   let config = { Tw.Rules.base = true; mode = Css.Inline; optimize = false } in
   let css = Tw.Rules.to_css ~config [ p 4 ] in
   let css_str = Css.to_string ~minify:false ~mode:Css.Inline css in
@@ -115,7 +115,7 @@ let check_to_css_inline_with_base () =
     (not (contains css_str "@layer utilities"));
   check bool "has padding rule" true (contains css_str ".p-4")
 
-let check_to_css_inline_without_base () =
+let check_css_inline_without_base () =
   let config = { Tw.Rules.base = false; mode = Css.Inline; optimize = false } in
   let css = Tw.Rules.to_css ~config [ p 4 ] in
   let css_str = Css.to_string ~minify:false ~mode:Css.Inline css in
@@ -205,7 +205,7 @@ let test_resolve_dependencies () =
   check bool "has color var" true (String.length "--color-blue-500" > 0);
   check bool "has spacing var" true (String.length "--spacing-4" > 0)
 
-let test_inline_no_var_in_css_for_defaults () =
+let test_inline_no_vars_defaults () =
   (* Ensure Inline mode resolves defaults and does not emit var(--...). Use
      rounded_sm which sets a default on its CSS var. *)
   let config = { Tw.Rules.base = false; mode = Css.Inline; optimize = false } in
@@ -214,7 +214,7 @@ let test_inline_no_var_in_css_for_defaults () =
   check bool "no var() in inline CSS" false (contains css_inline "var(--");
   check bool "has border-radius" true (contains css_inline "border-radius")
 
-let test_inline_style_no_var_for_defaults () =
+let test_inline_style_no_vars () =
   (* Directly build a declaration with a defaulted var and inline it. *)
   let _, radius_var = Css.var "radius-md" Css.Length (Css.Rem 0.5) in
   let decls = [ Css.border_radius (Css.Var radius_var) ] in
@@ -242,7 +242,7 @@ let test_inline_vs_variables_diff () =
   check bool "variables: contains var()" true (contains css_vars "var(--");
   check bool "inline: no var()" false (contains css_inline "var(--")
 
-let test_resolve_dependencies_dedup_and_queue () =
+let test_resolve_deps_dedup_queue () =
   (* Deduplication is now handled automatically by Css.vars_of_declarations This
      test is kept for compatibility but simplified *)
   let vars = [ "--text-xl"; "--text-xl"; "--text-xl--line-height" ] in
@@ -251,7 +251,7 @@ let test_resolve_dependencies_dedup_and_queue () =
   check bool "has text-xl line-height var" true
     (List.mem "--text-xl--line-height" vars)
 
-let test_theme_layer_collects_media_refs () =
+let test_theme_layer_media_refs () =
   (* Vars referenced only under media queries should still end up in theme. *)
   let theme_layer =
     Tw.Rules.compute_theme_layer [ sm [ Tw.Typography.text_xl ] ]
@@ -261,7 +261,7 @@ let test_theme_layer_collects_media_refs () =
   check bool "includes --text-xl--line-height var" true
     (contains css "--text-xl--line-height")
 
-let test_rule_sets_injects_hover_media_query () =
+let test_rule_sets_hover_media () =
   (* A bare hover utility produces a rule that should be gated behind
      (hover:hover) *)
   let css = Tw.Rules.to_css [ hover [ Tw.Spacing.p 4 ] ] in
@@ -312,7 +312,7 @@ let test_build_utilities_layer () =
   check bool "includes padding rule" true (contains css ".p-4");
   check bool "includes margin rule" true (contains css ".m-2")
 
-let test_build_utilities_layer_preserves_order () =
+let test_build_utils_layer_order () =
   (* Test that build_utilities_layer preserves rule order and doesn't sort *)
   let rules =
     [
@@ -386,7 +386,7 @@ let test_classify () =
   check int "1 container rule" 1 (List.length classified.container);
   check int "1 starting rule" 1 (List.length classified.starting)
 
-let test_style_with_rules_and_props () =
+let test_style_rules_props () =
   (* Test that when a Style has both props and rules, the props are placed after
      the rules *)
   let open Css in
@@ -475,7 +475,7 @@ let rules_of_grouped_prose_bug () =
     ]
   in
 
-  let output_rules = Tw.Rules.rules_of_grouped grouped_pairs in
+  let output_rules = Tw.Rules.of_grouped grouped_pairs in
 
   (* Count how many .prose rules we get in output *)
   let prose_rules =
@@ -510,37 +510,35 @@ let tests =
     test_case "conflict group ordering" `Quick check_conflict_group;
     test_case "escape class name" `Quick check_escape_class_name;
     test_case "properties layer generation" `Quick check_properties_layer;
-    test_case "to_css variables with base" `Quick
-      check_to_css_variables_with_base;
+    test_case "to_css variables with base" `Quick check_css_variables_with_base;
     test_case "to_css variables without base" `Quick
-      check_to_css_variables_without_base;
-    test_case "to_css inline with base" `Quick check_to_css_inline_with_base;
-    test_case "to_css inline without base" `Quick
-      check_to_css_inline_without_base;
+      check_css_variables_without_base;
+    test_case "to_css inline with base" `Quick check_css_inline_with_base;
+    test_case "to_css inline without base" `Quick check_css_inline_without_base;
     test_case "inline style generation" `Quick check_inline_style;
     (* New tests for exposed functions *)
     test_case "color_order" `Quick test_color_order;
     test_case "is_hover_rule" `Quick test_is_hover_rule;
     test_case "resolve_dependencies" `Quick test_resolve_dependencies;
     test_case "inline_no_var_in_css_for_defaults" `Quick
-      test_inline_no_var_in_css_for_defaults;
+      test_inline_no_vars_defaults;
     test_case "inline_style_no_var_for_defaults" `Quick
-      test_inline_style_no_var_for_defaults;
+      test_inline_style_no_vars;
     test_case "inline_vs_variables_diff" `Quick test_inline_vs_variables_diff;
     test_case "resolve_dependencies_dedup_and_queue" `Quick
-      test_resolve_dependencies_dedup_and_queue;
+      test_resolve_deps_dedup_queue;
     test_case "theme_layer_collects_media_refs" `Quick
-      test_theme_layer_collects_media_refs;
+      test_theme_layer_media_refs;
     test_case "rule_sets_injects_hover_media_query" `Quick
-      test_rule_sets_injects_hover_media_query;
+      test_rule_sets_hover_media;
     test_case "modifier_to_rule" `Quick test_modifier_to_rule;
     test_case "rule_sets" `Quick test_rule_sets;
     test_case "build_utilities_layer" `Quick test_build_utilities_layer;
     test_case "build_utilities_layer preserves order" `Quick
-      test_build_utilities_layer_preserves_order;
+      test_build_utils_layer_order;
     test_case "classify" `Quick test_classify;
     test_case "style with rules and props ordering" `Quick
-      test_style_with_rules_and_props;
+      test_style_rules_props;
     test_case "rules_of_grouped prose merging bug" `Quick
       rules_of_grouped_prose_bug;
   ]

@@ -234,9 +234,9 @@ val responsive_breakpoint : string -> string
 (** [responsive_breakpoint prefix] returns the CSS breakpoint value for a
     prefix. *)
 
-val rules_of_grouped :
+val of_grouped :
   ?filter_custom_props:bool ->
   (Css.Selector.t * Css.declaration list) list ->
   Css.statement list
-(** [rules_of_grouped grouped_pairs] converts selector/properties pairs to CSS
-    rules. Used for testing the rule generation pipeline. *)
+(** [of_grouped grouped_pairs] converts selector/properties pairs to CSS rules.
+    Used for testing the rule generation pipeline. *)

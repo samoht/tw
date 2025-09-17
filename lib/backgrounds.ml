@@ -163,15 +163,15 @@ let of_string = function
       | "bl" -> Ok (bg_gradient_to Bottom_left)
       | _ -> Error (`Msg "Unknown gradient direction"))
   | "from" :: rest -> (
-      match Color.color_shade_of_strings rest with
+      match Color.shade_of_strings rest with
       | Ok (color, shade) -> Ok (from_color ~shade color)
       | Error _ -> Error (`Msg "Invalid from color"))
   | "via" :: rest -> (
-      match Color.color_shade_of_strings rest with
+      match Color.shade_of_strings rest with
       | Ok (color, shade) -> Ok (via_color ~shade color)
       | Error _ -> Error (`Msg "Invalid via color"))
   | "to" :: rest -> (
-      match Color.color_shade_of_strings rest with
+      match Color.shade_of_strings rest with
       | Ok (color, shade) -> Ok (to_color ~shade color)
       | Error _ -> Error (`Msg "Invalid to color"))
   | _ -> Error (`Msg "Unknown background class")

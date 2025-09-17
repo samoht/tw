@@ -58,7 +58,7 @@ let decimal f = `Rem (f *. 0.25)
 (** {2 Typed Padding Utilities} *)
 
 (* Helper to include spacing_def when needed *)
-let spacing_style class_name decls s =
+let apply_style class_name decls s =
   match s with
   | `Rem _ -> style class_name (spacing_def :: decls)
   | _ -> style class_name decls
@@ -66,12 +66,12 @@ let spacing_style class_name decls s =
 let padding_util prefix prop (s : spacing) =
   let class_name = prefix ^ pp_spacing_suffix s in
   let len = to_length s in
-  spacing_style class_name [ prop len ] s
+  apply_style class_name [ prop len ] s
 
 let padding_list_util prefix prop (s : spacing) =
   let class_name = prefix ^ pp_spacing_suffix s in
   let len = to_length s in
-  spacing_style class_name [ prop [ len ] ] s
+  apply_style class_name [ prop [ len ] ] s
 
 let p' = padding_list_util "p-" padding
 let px' = padding_util "px-" padding_inline
@@ -196,7 +196,7 @@ let space_y n =
 
 let ( >|= ) = Parse.( >|= )
 
-let spacing_parse prefix px_var full_var int_fn = function
+let parse_tokens prefix px_var full_var int_fn = function
   | [ p; "px" ] when p = prefix -> Ok px_var
   | [ p; "full" ] when p = prefix -> Ok full_var
   | [ p; n ] when p = prefix -> (
@@ -247,13 +247,13 @@ let negative_margin_of_string prefix int_fn = function
 
 let of_string parts =
   match parts with
-  | "p" :: _ -> spacing_parse "p" (p' `Px) (p' `Full) p parts
-  | "px" :: _ -> spacing_parse "px" (px' `Px) (px' `Full) px parts
-  | "py" :: _ -> spacing_parse "py" (py' `Px) (py' `Full) py parts
-  | "pt" :: _ -> spacing_parse "pt" (pt' `Px) (pt' `Full) pt parts
-  | "pr" :: _ -> spacing_parse "pr" (pr' `Px) (pr' `Full) pr parts
-  | "pb" :: _ -> spacing_parse "pb" (pb' `Px) (pb' `Full) pb parts
-  | "pl" :: _ -> spacing_parse "pl" (pl' `Px) (pl' `Full) pl parts
+  | "p" :: _ -> parse_tokens "p" (p' `Px) (p' `Full) p parts
+  | "px" :: _ -> parse_tokens "px" (px' `Px) (px' `Full) px parts
+  | "py" :: _ -> parse_tokens "py" (py' `Px) (py' `Full) py parts
+  | "pt" :: _ -> parse_tokens "pt" (pt' `Px) (pt' `Full) pt parts
+  | "pr" :: _ -> parse_tokens "pr" (pr' `Px) (pr' `Full) pr parts
+  | "pb" :: _ -> parse_tokens "pb" (pb' `Px) (pb' `Full) pb parts
+  | "pl" :: _ -> parse_tokens "pl" (pl' `Px) (pl' `Full) pl parts
   | "m" :: _ -> margin_of_string "m" (m' `Auto) m parts
   | "mx" :: _ -> margin_of_string "mx" (mx' `Auto) mx parts
   | "my" :: _ -> margin_of_string "my" (my' `Auto) my parts

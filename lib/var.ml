@@ -211,15 +211,15 @@ type _ t =
 type any = Any : _ t -> any
 
 (* Store both variable and property flag in metadata *)
-type var_meta = { var : any; needs_property : bool }
+type meta_info = { var : any; needs_property : bool }
 
-let ( (meta_of_var_meta : var_meta -> Css.meta),
-      (var_meta_of_meta : Css.meta -> var_meta option) ) =
+let ( (meta_of_info : meta_info -> Css.meta),
+      (info_of_meta : Css.meta -> meta_info option) ) =
   Css.meta ()
 
 (* Helper to get variable from metadata for compatibility *)
-let var_of_meta meta =
-  match var_meta_of_meta meta with None -> None | Some { var; _ } -> Some var
+let of_meta meta =
+  match info_of_meta meta with None -> None | Some { var; _ } -> Some var
 
 (* Convert a CSS variable to its string representation (with --) *)
 let to_string : type a. a t -> string = function
@@ -580,12 +580,12 @@ let order : type a. a t -> int = function
   | Gradient_from_position -> 1406
   | Gradient_via_position -> 1407
   | Gradient_to_position -> 1408
-  (* Font variant numeric *)
-  | Font_variant_ordinal -> 1450
-  | Font_variant_slashed_zero -> 1451
-  | Font_variant_numeric_figure -> 1452
-  | Font_variant_numeric_spacing -> 1453
-  | Font_variant_numeric_fraction -> 1454
+  (* Font variant numeric - reorder to match Tailwind *)
+  | Font_variant_ordinal -> 1410
+  | Font_variant_slashed_zero -> 1411
+  | Font_variant_numeric_figure -> 1412
+  | Font_variant_numeric_spacing -> 1413
+  | Font_variant_numeric_fraction -> 1414
   | Font_variant_numeric -> 1455
   (* Other *)
   | Border_style -> 1500
@@ -637,9 +637,9 @@ let needs_property : type a. a Css.var -> bool =
   | None ->
       failwith "needs_property: CSS variable missing metadata (this is a bug!)"
   | Some meta -> (
-      match var_meta_of_meta meta with
+      match info_of_meta meta with
       | None ->
-          failwith "needs_property: metadata is not var_meta (this is a bug!)"
+          failwith "needs_property: metadata is not meta_info (this is a bug!)"
       | Some { needs_property; _ } -> needs_property)
 
 (** Create a variable definition and handle *)
@@ -654,7 +654,7 @@ let def : type a.
   let n = name var_t in
   let layer = Option.map layer_name layer in
   (* Set metadata for this variable *)
-  let meta = meta_of_var_meta { var = Any var_t; needs_property = property } in
+  let meta = meta_of_info { var = Any var_t; needs_property = property } in
   let var ty v =
     let fallback = Option.map (fun f -> Css.Fallback f) fallback in
     Css.var ?layer ?fallback ~meta n ty v
@@ -831,14 +831,14 @@ let def : type a.
 let handle_only : type a. a t -> unit -> a Css.var =
  fun var_t () ->
   let n = name var_t in
-  let meta = meta_of_var_meta { var = Any var_t; needs_property = false } in
+  let meta = meta_of_info { var = Any var_t; needs_property = false } in
   (* Use Css.var_ref with Empty fallback to create handle *)
   Css.var_ref ~fallback:Empty ~meta n
 
 let handle : type a. a t -> ?fallback:a -> unit -> a Css.var =
  fun var_t ?fallback () ->
   let n = name var_t in
-  let meta = meta_of_var_meta { var = Any var_t; needs_property = false } in
+  let meta = meta_of_info { var = Any var_t; needs_property = false } in
   (* Use Css.var_ref to create handle with optional fallback *)
   let fallback = Option.map (fun f -> Css.Fallback f) fallback in
   Css.var_ref ?fallback ~meta n
@@ -898,14 +898,14 @@ end)
 let compare_declarations layer d1 d2 =
   match (Css.meta_of_declaration d1, Css.meta_of_declaration d2) with
   | Some m1, Some m2 -> (
-      match (var_of_meta m1, var_of_meta m2) with
+      match (of_meta m1, of_meta m2) with
       | Some v1, Some v2 -> compare v1 v2
       | Some _, None ->
-          err_meta ~layer d2 "Invalid Var metadata (var_of_meta failed)"
+          err_meta ~layer d2 "Invalid Var metadata (of_meta failed)"
       | None, Some _ ->
-          err_meta ~layer d1 "Invalid Var metadata (var_of_meta failed)"
+          err_meta ~layer d1 "Invalid Var metadata (of_meta failed)"
       | None, None ->
-          failwith "Both declarations have metadata but var_of_meta failed")
+          failwith "Both declarations have metadata but of_meta failed")
   | Some _, None -> err_meta ~layer d2 "Missing Var metadata"
   | None, Some _ -> err_meta ~layer d1 "Missing Var metadata"
   | None, None ->

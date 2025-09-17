@@ -32,11 +32,11 @@ let format_diff ~original ~actual =
   let b_snip = take 80 actual in
   let caret_pos = i - start in
   let caret = String.make (max 0 caret_pos) ' ' ^ "^" in
-  Printf.sprintf "- %S\n+ %S\n  %s" a_snip b_snip caret
+  Fmt.str "- %S\n+ %S\n  %s" a_snip b_snip caret
 
 (** Print a concise diff to stderr.
     @param original the original/expected string
     @param actual the actual/generated string *)
 let eprintf_diff ~original ~actual =
   let diff = format_diff ~original ~actual in
-  Printf.eprintf "%s\n" diff
+  Fmt.epr "%s@." diff
