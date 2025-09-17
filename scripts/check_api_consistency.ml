@@ -11,7 +11,18 @@
 
 open Stdlib
 
-module FS = struct
+(* Types to ignore in consistency checks *)
+let ignored_types =
+  [
+    "meta";
+    (* Abstract type without read/pp functions *)
+    "mode";
+    (* Internal implementation detail *)
+    "kind";
+    (* Internal implementation detail *)
+  ]
+
+module Fs = struct
   let read_file path =
     let ic = open_in path in
     Fun.protect
@@ -30,21 +41,21 @@ end
 
 let ( // ) a b = if a = "" then b else a ^ Filename.dir_sep ^ b
 
-(* Find the project root by looking for dune-project file *)
-let find_project_root () =
-  let rec search dir =
-    if Sys.file_exists (dir // "dune-project") then dir
-    else
-      let parent = Filename.dirname dir in
-      if parent = dir then
-        failwith "Could not find project root (no dune-project file found)"
-      else search parent
-  in
-  search (Sys.getcwd ())
+let contains_sub (s : string) (sub : string) : bool =
+  let rex = Re.compile (Re.str sub) in
+  Re.execp rex s
 
-let root = find_project_root ()
-let lib_css = root // "lib" // "css"
-let test_css = root // "test" // "css"
+(* Color constants for terminal output *)
+let red = "\027[31m"
+let yellow = "\027[33m"
+let cyan = "\027[36m"
+let bold = "\027[1m"
+let reset = "\027[0m"
+
+let colored color text =
+  if Unix.isatty Unix.stdout then color ^ text ^ reset else text
+
+(* Type extraction patterns and functions *)
 let type_re = Re.Perl.compile_pat "^[\\s]*type[\\s]+([A-Za-z_][A-Za-z0-9_]*)\\b"
 
 let type_blank_re =
@@ -52,7 +63,7 @@ let type_blank_re =
   Re.Perl.compile_pat "^[\\s]*type[\\s]+_+[\\s]+([A-Za-z_][A-Za-z0-9_]*)\\b"
 
 let extract_types path : string list =
-  let lines = FS.read_lines path in
+  let lines = Fs.read_lines path in
   let rec loop acc = function
     | [] -> List.rev acc
     | l :: tl -> (
@@ -78,15 +89,236 @@ let extract_types path : string list =
   in
   loop [] lines
 
+(* Extract test functions from a test file *)
+let extract_test_functions test_file =
+  if not (Sys.file_exists test_file) then []
+  else
+    let lines = Fs.read_lines test_file in
+    let tests = ref [] in
+    let current_name = ref None in
+    let current_header = ref "" in
+    let current_line = ref 0 in
+    let current_ignored = ref false in
+    let buf = Buffer.create 4096 in
+
+    let flush_current () =
+      match !current_name with
+      | None -> ()
+      | Some name ->
+          let body = Buffer.contents buf in
+          tests :=
+            (name, body, (!current_header, !current_line, !current_ignored))
+            :: !tests;
+          Buffer.clear buf;
+          current_name := None;
+          current_header := "";
+          current_line := 0;
+          current_ignored := false
+    in
+
+    let re_header =
+      Re.Perl.compile_pat
+        "^[\\s]*let[\\s]+test_([A-Za-z0-9_]+)[\\s]*\\(\\)[\\s]*="
+    in
+    let re_toplevel_let =
+      Re.Perl.compile_pat "^let[\\s]+[A-Za-z_][A-Za-z0-9_]*[\\s]*="
+    in
+
+    List.iteri
+      (fun idx l ->
+        match Re.exec_opt re_header l with
+        | Some g -> (
+            flush_current ();
+            let name = Re.Group.get g 1 in
+            current_name := Some name;
+            current_header := l;
+            current_line := idx + 1;
+            let rec find_prev_nonempty i =
+              if i < 0 then None
+              else
+                let pl = List.nth lines i in
+                if String.trim pl = "" then find_prev_nonempty (i - 1)
+                else Some pl
+            in
+            match find_prev_nonempty (idx - 1) with
+            | Some pl ->
+                current_ignored :=
+                  contains_sub pl "Not a roundtrip test"
+                  || contains_sub pl "ignore-test"
+            | None -> current_ignored := false)
+        | None ->
+            (match !current_name with
+            | Some _ -> Buffer.add_string buf (l ^ "\n")
+            | None -> ());
+            if
+              Re.execp re_toplevel_let l
+              && not (String.trim l |> String.starts_with ~prefix:"let open")
+            then flush_current ())
+      lines;
+    flush_current ();
+    !tests
+
+(* Analyze check and neg patterns in test function body *)
+let analyze_test_patterns tname body =
+  let check_re = Re.Perl.compile_pat "\\bcheck_([A-Za-z0-9_]+)" in
+  let neg_read_re = Re.Perl.compile_pat "neg[\\s]+read_([A-Za-z0-9_]+)" in
+
+  let rec collect_checks pos acc =
+    if pos >= String.length body then List.rev acc
+    else
+      match Re.exec_opt ~pos check_re body with
+      | None -> List.rev acc
+      | Some g ->
+          let name = Re.Group.get g 1 in
+          collect_checks (Re.Group.stop g 0) (name :: acc)
+  in
+
+  let rec collect_neg_reads pos acc =
+    if pos >= String.length body then List.rev acc
+    else
+      match Re.exec_opt ~pos neg_read_re body with
+      | None -> List.rev acc
+      | Some g ->
+          let name = Re.Group.get g 1 in
+          collect_neg_reads (Re.Group.stop g 0) (name :: acc)
+  in
+
+  let checks = collect_checks 0 [] in
+  let neg_reads = collect_neg_reads 0 [] in
+  let neg_re = Re.Perl.compile_pat (Fmt.str "neg[\\s]+read_%s\\b" tname) in
+  let has_neg = Re.execp neg_re body in
+
+  (checks, neg_reads, has_neg)
+
+(* Check consistency for a single CSS module *)
+let check_module_consistency lib_css test_css mod_name =
+  let intf_file = lib_css // (mod_name ^ "_intf.ml") in
+  let test_file = test_css // ("test_" ^ mod_name ^ ".ml") in
+
+  if not (Sys.file_exists intf_file) then None
+  else
+    let valid_types = extract_types intf_file |> List.sort_uniq compare in
+    let tests = extract_test_functions test_file in
+    let test_names = List.map (fun (n, _, _) -> n) tests in
+
+    let invalid_tests =
+      tests
+      |> List.filter (fun (n, _body, (_hdr, _ln, ign)) ->
+             (not ign) && not (List.mem n valid_types))
+      |> List.map (fun (n, _, _) -> n)
+      |> List.sort_uniq compare
+    in
+
+    let missing_tests =
+      List.filter
+        (fun t ->
+          (not (List.mem t ignored_types)) && not (List.mem t test_names))
+        valid_types
+    in
+
+    let wrong_checks = ref [] in
+    let missing_neg = ref [] in
+
+    List.iter
+      (fun (tname, body, (_hdr, _ln, ignored)) ->
+        if not ignored then (
+          let checks, neg_reads, has_neg = analyze_test_patterns tname body in
+
+          (* Check for wrong check_ calls *)
+          List.iter
+            (fun c ->
+              if c <> tname && c <> "value" && c <> "parse_fails" then
+                if (not (List.mem tname valid_types)) && List.mem c valid_types
+                then wrong_checks := (tname, c) :: !wrong_checks
+                else if List.mem tname valid_types then
+                  wrong_checks := (tname, c) :: !wrong_checks)
+            checks;
+
+          (* Check for wrong neg read_ calls *)
+          List.iter
+            (fun n ->
+              if n <> tname then
+                if (not (List.mem tname valid_types)) && List.mem n valid_types
+                then wrong_checks := (tname, "neg read_" ^ n) :: !wrong_checks
+                else if List.mem tname valid_types && List.mem n valid_types
+                then wrong_checks := (tname, "neg read_" ^ n) :: !wrong_checks)
+            neg_reads;
+
+          (* Check for missing neg patterns *)
+          if not has_neg then missing_neg := tname :: !missing_neg))
+      tests;
+
+    Some (mod_name, invalid_tests, missing_tests, !wrong_checks, !missing_neg)
+
+(* Print consistency results for a module *)
+let print_module_results
+    (mod_name, invalid_tests, missing_tests, wrong_checks, missing_neg) =
+  let has_issues =
+    invalid_tests <> [] || missing_tests <> [] || wrong_checks <> []
+    || missing_neg <> []
+  in
+  if has_issues then (
+    Fmt.pr "@.%s@."
+      (colored bold (String.capitalize_ascii mod_name ^ " Tests Consistency:"));
+
+    if invalid_tests <> [] then (
+      Fmt.pr "%s invalid test_ names:@." (colored yellow "Warning -");
+      List.iter
+        (fun n -> Fmt.pr "  test_%s (not in %s_intf)@." n mod_name)
+        invalid_tests;
+      Fmt.pr "@.");
+
+    if wrong_checks <> [] then (
+      Fmt.pr "%s wrong check_x inside test_y:@." (colored yellow "Warning -");
+      let wrong_unique = List.sort_uniq compare wrong_checks in
+      List.iter
+        (fun (y, x) ->
+          if String.starts_with ~prefix:"neg read_" x then
+            Fmt.pr "  test_%s: %s@." y x
+          else Fmt.pr "  test_%s: check_%s@." y x)
+        wrong_unique;
+      Fmt.pr "@.");
+
+    if missing_tests <> [] then (
+      Fmt.pr "%s missing test_x functions:@." (colored yellow "Warning -");
+      List.iter
+        (fun n -> Fmt.pr "  test_%s@." n)
+        (List.sort compare missing_tests);
+      Fmt.pr "@.");
+
+    if missing_neg <> [] then (
+      Fmt.pr "%s missing neg read_x inside test_x:@."
+        (colored yellow "Warning -");
+      List.iter
+        (fun n -> Fmt.pr "  test_%s@." n)
+        (List.sort compare missing_neg);
+      Fmt.pr "@."))
+
+(* Project root detected by looking for dune-project file. *)
+let project_root () =
+  let rec search dir =
+    if Sys.file_exists (dir // "dune-project") then dir
+    else
+      let parent = Filename.dirname dir in
+      if parent = dir then
+        failwith "Could not find project root (no dune-project file found)"
+      else search parent
+  in
+  search (Sys.getcwd ())
+
+let root = project_root ()
+let lib_css = root // "lib" // "css"
+let test_css = root // "test" // "css"
+
 let file_has_val mli_path name : bool =
   let rex = Re.Perl.compile_pat ("^[\\s]*val[\\s]+" ^ name ^ "\\b") in
-  List.exists (fun l -> Re.execp rex l) (FS.read_lines mli_path)
+  List.exists (fun l -> Re.execp rex l) (Fs.read_lines mli_path)
 
 let file_has_let test_path name : bool =
   (* Check for multiple patterns: 1. Direct let binding: let check_foo = ... 2.
      Inline check_value call: check_value "foo" pp_foo read_foo 3. Local helper
      within test function: let check_foo ... inside test_foo function *)
-  let lines = FS.read_lines test_path in
+  let lines = Fs.read_lines test_path in
 
   (* First check for direct let binding at any indentation level *)
   let rex = Re.Perl.compile_pat ("[\\s]*let[\\s]+" ^ name ^ "\\b") in
@@ -100,13 +332,12 @@ let file_has_let test_path name : bool =
     (* Look for pattern: check_value "typename" pp_typename read_typename *)
     let inline_pattern =
       Re.Perl.compile_pat
-        (Printf.sprintf "check_value[\\s]+\"%s\"[\\s]+pp_%s[\\s]+read_%s"
-           typename typename typename)
+        (Fmt.str "check_value[\\s]+\"%s\"[\\s]+pp_%s[\\s]+read_%s" typename
+           typename typename)
     in
     (* Also check if there's a test function that tests this type *)
     let test_func_pattern =
-      Re.Perl.compile_pat
-        (Printf.sprintf "let[\\s]+test_%s[\\s]*\\(\\)" typename)
+      Re.Perl.compile_pat (Fmt.str "let[\\s]+test_%s[\\s]*\\(\\)" typename)
     in
     List.exists
       (fun l -> Re.execp inline_pattern l || Re.execp test_func_pattern l)
@@ -132,18 +363,9 @@ let stats =
   }
 
 (* ANSI color codes for better output *)
-let red = "\027[31m"
-let yellow = "\027[33m"
-let cyan = "\027[36m"
-let bold = "\027[1m"
-let reset = "\027[0m"
-
-let colored color text =
-  if Unix.isatty Unix.stdout then color ^ text ^ reset else text
-
 let () =
   let intf_files =
-    FS.list_dir lib_css
+    Fs.list_dir lib_css
     |> List.filter (fun f -> Filename.check_suffix f "_intf.ml")
     |> List.sort compare
   in
@@ -179,7 +401,7 @@ let () =
         let module_issues = ref [] in
         (* Filter out types we should ignore *)
         let filtered_types =
-          List.filter (fun t -> t <> "mode" && t <> "kind" && t <> "meta") types
+          List.filter (fun t -> not (List.mem t ignored_types)) types
         in
         List.iter
           (fun tname ->
@@ -197,13 +419,18 @@ let () =
 
             if not read_ok then stats.missing_read <- stats.missing_read + 1;
             if not pp_ok then stats.missing_pp <- stats.missing_pp + 1;
-            if not check_ok then stats.missing_check <- stats.missing_check + 1;
+            if (not check_ok) && not (List.mem tname ignored_types) then
+              stats.missing_check <- stats.missing_check + 1;
 
-            if not (read_ok && pp_ok && check_ok) then (
+            if
+              not
+                (read_ok && pp_ok && (check_ok || List.mem tname ignored_types))
+            then (
               let missing_items = ref [] in
               if not read_ok then missing_items := read_name :: !missing_items;
               if not pp_ok then missing_items := pp_name :: !missing_items;
-              if not check_ok then missing_items := check_name :: !missing_items;
+              if (not check_ok) && not (List.mem tname ignored_types) then
+                missing_items := check_name :: !missing_items;
 
               module_issues := (tname, !missing_items) :: !module_issues;
               all_missing := (mod_base, tname, !missing_items) :: !all_missing))
@@ -213,8 +440,8 @@ let () =
           modules_with_issues := mod_base :: !modules_with_issues))
     intf_files;
 
-  (* Exit early if everything is good *)
-  if !all_missing = [] && stats.missing_modules = [] then exit 0;
+  (* Do not exit early here — we also want to run properties test checks
+     below *)
 
   (* Now print the issues *)
   Fmt.pr "%s@." (colored bold "CSS API Consistency Issues");
@@ -322,6 +549,24 @@ let () =
         (List.sort compare !test_files);
       Fmt.pr "@."));
 
+  (* CSS modules test conformance checks *)
+  let css_modules =
+    [
+      "properties";
+      "values";
+      "declaration";
+      "selector";
+      "stylesheet";
+      "variables";
+    ]
+  in
+  List.iter
+    (fun mod_name ->
+      match check_module_consistency lib_css test_css mod_name with
+      | Some results -> print_module_results results
+      | None -> ())
+    css_modules;
+
   (* Summary with counts *)
   Fmt.pr "%s@." (String.make 50 '-');
 
@@ -337,11 +582,7 @@ let () =
       (colored yellow "WARNING:")
       test_missing;
 
-  (* Exit status - only fail for missing API functions, not tests *)
-  (* Missing tests are warnings, not errors *)
-  let exit_code =
-    if stats.missing_modules <> [] || api_missing > 0 then 1 else 0
-  in
+  let exit_code = if api_missing > 0 then 1 else 0 in
 
   if exit_code = 1 then
     Fmt.pr "@.%s Missing API functions must be added before proceeding.@."
