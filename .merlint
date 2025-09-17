@@ -3,3 +3,5 @@ rules:
      exclude: [E330]
    - files: lib/color.ml*
      exclude: [E330]
+   - files: test/**
+     exclude: [E005]
