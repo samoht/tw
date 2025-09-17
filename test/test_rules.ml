@@ -427,75 +427,70 @@ let test_style_rules_props () =
   check string "second rule selector" ".test :where(div)" (List.nth selectors 1);
   check string "last rule selector" ".test" (List.nth selectors 2)
 
+let prose_p_selector prose_class =
+  Css.Selector.combine prose_class Css.Selector.Descendant
+    (Css.Selector.where
+       [
+         Css.Selector.compound
+           [
+             Css.Selector.element "p";
+             Css.Selector.not
+               [
+                 Css.Selector.where
+                   [
+                     Css.Selector.list
+                       [
+                         Css.Selector.class_ "not-prose";
+                         Css.Selector.combine
+                           (Css.Selector.class_ "not-prose")
+                           Css.Selector.Descendant Css.Selector.universal;
+                       ];
+                   ];
+               ];
+           ];
+       ])
+
+let grouped_prose_pairs prose_body_var prose_class prose_p_sel =
+  [
+    ( prose_class,
+      [
+        Tw.Css.color (Tw.Css.Var prose_body_var);
+        Tw.Css.max_width (Tw.Css.Ch 65.0);
+      ] );
+    ( prose_p_sel,
+      [
+        Tw.Css.margin_top (Tw.Css.Em 1.0); Tw.Css.margin_bottom (Tw.Css.Em 1.0);
+      ] );
+    ( prose_class,
+      [ Tw.Css.font_size (Tw.Css.Rem 1.0); Tw.Css.line_height (Tw.Css.Num 1.5) ]
+    );
+  ]
+
+let count_prose_rules rules =
+  List.filter
+    (fun stmt ->
+      match Tw.Css.statement_selector stmt with
+      | Some sel -> Tw.Css.Selector.to_string sel = ".prose"
+      | None -> false)
+    rules
+
 let rules_of_grouped_prose_bug () =
-  (* Reproduce the prose rule merging bug *)
   let _prose_body_def, prose_body_var =
     Tw.Var.utility Tw.Var.Prose_body (Tw.Css.oklch 37.3 0.034 259.733)
   in
   let prose_class = Css.Selector.class_ "prose" in
-  let prose_p_selector =
-    Css.Selector.combine prose_class Css.Selector.Descendant
-      (Css.Selector.where
-         [
-           Css.Selector.compound
-             [
-               Css.Selector.element "p";
-               Css.Selector.not
-                 [
-                   Css.Selector.where
-                     [
-                       Css.Selector.list
-                         [
-                           Css.Selector.class_ "not-prose";
-                           Css.Selector.combine
-                             (Css.Selector.class_ "not-prose")
-                             Css.Selector.Descendant Css.Selector.universal;
-                         ];
-                     ];
-                 ];
-             ];
-         ])
-  in
+  let prose_p_sel = prose_p_selector prose_class in
   let grouped_pairs =
-    [
-      ( prose_class,
-        [
-          Tw.Css.color (Tw.Css.Var prose_body_var);
-          Tw.Css.max_width (Tw.Css.Ch 65.0);
-        ] );
-      ( prose_p_selector,
-        [
-          Tw.Css.margin_top (Tw.Css.Em 1.0);
-          Tw.Css.margin_bottom (Tw.Css.Em 1.0);
-        ] );
-      ( prose_class,
-        [
-          Tw.Css.font_size (Tw.Css.Rem 1.0); Tw.Css.line_height (Tw.Css.Num 1.5);
-        ] );
-    ]
+    grouped_prose_pairs prose_body_var prose_class prose_p_sel
   in
-
   let output_rules = Tw.Rules.of_grouped grouped_pairs in
-
-  (* Count how many .prose rules we get in output *)
-  let prose_rules =
-    List.filter
-      (fun stmt ->
-        match Tw.Css.statement_selector stmt with
-        | Some sel -> Tw.Css.Selector.to_string sel = ".prose"
-        | None -> false)
-      output_rules
-  in
+  let prose_rules = count_prose_rules output_rules in
 
   Fmt.pr "@.=== test_rules_of_grouped_prose_bug ===@.";
   Fmt.pr "Input: 3 grouped pairs (2 .prose + 1 descendant)@.";
   Fmt.pr "Expected: 2 .prose rules in output@.";
   Fmt.pr "Actual: %d .prose rules in output@." (List.length prose_rules);
-
-  (* This should be 2 separate .prose rules, not 1 merged rule *)
   check int "number of .prose rules" 2 (List.length prose_rules);
-
-  (* Also verify the total number of rules is correct *)
   check int "total output rules" 3 (List.length output_rules)
 
 let tests =
