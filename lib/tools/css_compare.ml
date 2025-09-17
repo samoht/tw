@@ -194,21 +194,23 @@ let equal (d1 : t) (d2 : t) =
   && List.for_all2 equal_container_change d1.containers d2.containers
 
 let strip_header css =
-  (* Strip a leading /*!...*/ header comment *)
-  if String.starts_with ~prefix:"/*!" css then
+  (* Strip a leading /*!...*/ header comment with simpler flow to reduce
+     nesting *)
+  if not (String.starts_with ~prefix:"/*!" css) then css
+  else
     let len = String.length css in
-    let rec find_end i =
+    (* Find the end of the opening header comment "*/" starting at index 3 *)
+    let rec find_comment_end i =
       if i + 1 >= len then None
       else if css.[i] = '*' && css.[i + 1] = '/' then Some (i + 2)
-      else find_end (i + 1)
+      else find_comment_end (i + 1)
     in
-    match find_end 3 with
-    | Some j when j < len ->
-        (* Skip the header and optionally a following newline *)
-        let start_pos = if css.[j] = '\n' then j + 1 else j in
-        String.sub css start_pos (len - start_pos)
-    | _ -> css
-  else css
+    match find_comment_end 3 with
+    | None -> css
+    | Some j ->
+        let start_pos = if j < len && css.[j] = '\n' then j + 1 else j in
+        if start_pos >= len then ""
+        else String.sub css start_pos (len - start_pos)
 
 (* Helper to extract property-value pairs from declarations for comparison *)
 let decl_to_prop_value decl =
@@ -285,6 +287,19 @@ let extract_rules_with_class css class_name =
       extract [] items
   | Error _ -> []
 
+let string_contains str sub =
+  let str_len = String.length str in
+  let sub_len = String.length sub in
+  if sub_len = 0 then true
+  else if sub_len > str_len then false
+  else
+    let rec loop i =
+      if i > str_len - sub_len then false
+      else if String.sub str i sub_len = sub then true
+      else loop (i + 1)
+    in
+    loop 0
+
 let count_css_class_patterns css class_name =
   let rules = extract_rules_with_class css class_name in
   let selector_strings =
@@ -295,34 +310,19 @@ let count_css_class_patterns css class_name =
         | None -> None)
       rules
   in
-  (* Count selectors that are exactly .classname or start with .classname: (for
-     pseudo-classes) *)
   let base_pattern = "." ^ class_name in
-  let base_count =
-    List.length
-      (List.filter
-         (fun s ->
-           s = base_pattern
-           || String.length s > String.length base_pattern
-              && String.sub s 0 (String.length base_pattern) = base_pattern
-              && s.[String.length base_pattern] = ':')
-         selector_strings)
+  let is_base s =
+    s = base_pattern
+    ||
+    let blen = String.length base_pattern in
+    String.length s > blen
+    && String.sub s 0 blen = base_pattern
+    && s.[blen] = ':'
   in
+  let base_count = List.length (List.filter is_base selector_strings) in
   let where_count =
-    let contains str sub =
-      let str_len = String.length str in
-      let sub_len = String.length sub in
-      if sub_len = 0 then true
-      else if sub_len > str_len then false
-      else
-        let rec check i =
-          if i > str_len - sub_len then false
-          else if String.sub str i sub_len = sub then true
-          else check (i + 1)
-        in
-        check 0
-    in
-    List.length (List.filter (fun s -> contains s ":where(") selector_strings)
+    List.length
+      (List.filter (fun s -> string_contains s ":where(") selector_strings)
   in
   (base_count, where_count, List.length rules)
 
