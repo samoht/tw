@@ -19,8 +19,8 @@
  (action
   (run %{script})))
 
-;; Run API consistency check but don't fail on existing issues
-;; This helps catch NEW inconsistencies while allowing existing ones
+;; Run API consistency check and fail if issues are found
+;; This ensures CSS API test consistency is maintained
 
 (rule
  (alias runtest)
@@ -30,9 +30,4 @@
   (glob_files %{project_root}/test/css/test_*.ml)
   (:script check_api_consistency.exe))
  (action
-  (progn
-   (with-accepted-exit-codes
-    (or 0 1)
-    (run %{script}))
-   (echo
-    "\nNote: API consistency check completed. Fix issues to improve codebase quality.\n"))))
+  (run %{script})))
