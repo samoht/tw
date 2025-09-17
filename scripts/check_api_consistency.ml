@@ -121,7 +121,7 @@ let extract_test_functions test_file =
         "^[\\s]*let[\\s]+test_([A-Za-z0-9_]+)[\\s]*\\(\\)[\\s]*="
     in
     let re_toplevel_let =
-      Re.Perl.compile_pat "^let[\\s]+[A-Za-z_][A-Za-z0-9_]*[\\s]*="
+      Re.Perl.compile_pat "^let[\\s]+[A-Za-z_][A-Za-z0-9_]*"
     in
 
     List.iteri
@@ -159,7 +159,7 @@ let extract_test_functions test_file =
     !tests
 
 (* Analyze check and neg patterns in test function body *)
-let analyze_test_patterns tname body =
+let analyze_test_patterns tname body module_name =
   let check_re = Re.Perl.compile_pat "\\bcheck_([A-Za-z0-9_]+)" in
   let neg_read_re = Re.Perl.compile_pat "neg[\\s]+read_([A-Za-z0-9_]+)" in
 
@@ -185,8 +185,24 @@ let analyze_test_patterns tname body =
 
   let checks = collect_checks 0 [] in
   let neg_reads = collect_neg_reads 0 [] in
-  let neg_re = Re.Perl.compile_pat (Fmt.str "neg[\\s]+read_%s\\b" tname) in
-  let has_neg = Re.execp neg_re body in
+  (* For type t, the test function is test_<module> but the read function can be both "read" and "read_<module>" *)
+  (* So if tname equals the module name, we're testing type t and should look for both patterns *)
+  let has_neg =
+    if tname = module_name then
+      (* Testing type t - look for both "neg read" (without suffix) and "neg
+         read_<module>" *)
+      let has_read = Re.execp (Re.Perl.compile_pat "neg[\\s]+read[\\s]") body in
+      let has_read_module =
+        Re.execp
+          (Re.Perl.compile_pat (Fmt.str "neg[\\s]+read_%s\\b" module_name))
+          body
+      in
+      has_read || has_read_module
+    else
+      (* Testing other types - look for "neg read_<type>" *)
+      let neg_re = Re.Perl.compile_pat (Fmt.str "neg[\\s]+read_%s\\b" tname) in
+      Re.execp neg_re body
+  in
 
   (checks, neg_reads, has_neg)
 
@@ -201,10 +217,16 @@ let check_module_consistency lib_css test_css mod_name =
     let tests = extract_test_functions test_file in
     let test_names = List.map (fun (n, _, _) -> n) tests in
 
+    (* Special case: for type 't', expect test_<module_name> instead of
+       test_t *)
+    let expected_test_name t = if t = "t" then mod_name else t in
+
     let invalid_tests =
       tests
       |> List.filter (fun (n, _body, (_hdr, _ln, ign)) ->
-             (not ign) && not (List.mem n valid_types))
+             (not ign)
+             && not
+                  (List.exists (fun t -> expected_test_name t = n) valid_types))
       |> List.map (fun (n, _, _) -> n)
       |> List.sort_uniq compare
     in
@@ -212,8 +234,12 @@ let check_module_consistency lib_css test_css mod_name =
     let missing_tests =
       List.filter
         (fun t ->
-          (not (List.mem t ignored_types)) && not (List.mem t test_names))
+          let expected_name = expected_test_name t in
+          (not (List.mem t ignored_types))
+          && not (List.mem expected_name test_names))
         valid_types
+      |> List.map expected_test_name
+      |> List.sort_uniq compare
     in
 
     let wrong_checks = ref [] in
@@ -222,30 +248,63 @@ let check_module_consistency lib_css test_css mod_name =
     List.iter
       (fun (tname, body, (_hdr, _ln, ignored)) ->
         if not ignored then (
-          let checks, neg_reads, has_neg = analyze_test_patterns tname body in
+          let checks, neg_reads, has_neg =
+            analyze_test_patterns tname body mod_name
+          in
+
+          (* Special case: for type 't', expect check_<module_name> instead of
+             check_t *)
+          let expected_check_name t = if t = "t" then mod_name else t in
 
           (* Check for wrong check_ calls *)
           List.iter
             (fun c ->
-              if c <> tname && c <> "value" && c <> "parse_fails" then
-                if (not (List.mem tname valid_types)) && List.mem c valid_types
+              let expected_for_tname = expected_check_name tname in
+              let valid_check_names =
+                List.map expected_check_name valid_types
+              in
+              if c <> expected_for_tname && c <> "value" && c <> "parse_fails"
+              then
+                if
+                  (not
+                     (List.exists
+                        (fun t -> expected_test_name t = tname)
+                        valid_types))
+                  && List.mem c valid_check_names
                 then wrong_checks := (tname, c) :: !wrong_checks
-                else if List.mem tname valid_types then
-                  wrong_checks := (tname, c) :: !wrong_checks)
+                else if
+                  List.exists
+                    (fun t -> expected_test_name t = tname)
+                    valid_types
+                then wrong_checks := (tname, c) :: !wrong_checks)
             checks;
 
           (* Check for wrong neg read_ calls *)
           List.iter
             (fun n ->
-              if n <> tname then
-                if (not (List.mem tname valid_types)) && List.mem n valid_types
+              let expected_for_tname = expected_check_name tname in
+              if n <> expected_for_tname then
+                if
+                  (not
+                     (List.exists
+                        (fun t -> expected_test_name t = tname)
+                        valid_types))
+                  && List.mem n valid_types
                 then wrong_checks := (tname, "neg read_" ^ n) :: !wrong_checks
-                else if List.mem tname valid_types && List.mem n valid_types
+                else if
+                  List.exists
+                    (fun t -> expected_test_name t = tname)
+                    valid_types
+                  && List.mem n valid_types
                 then wrong_checks := (tname, "neg read_" ^ n) :: !wrong_checks)
             neg_reads;
 
-          (* Check for missing neg patterns *)
-          if not has_neg then missing_neg := tname :: !missing_neg))
+          (* Check for missing neg patterns - only for functions that test
+             actual types *)
+          if
+            (not has_neg)
+            && List.exists (fun t -> expected_test_name t = tname) valid_types
+          then missing_neg := tname :: !missing_neg))
       tests;
 
     Some (mod_name, invalid_tests, missing_tests, !wrong_checks, !missing_neg)
@@ -567,10 +626,19 @@ let () =
       "variables";
     ]
   in
+  let consistency_warnings = ref 0 in
   List.iter
     (fun mod_name ->
       match check_module_consistency lib_css test_css mod_name with
-      | Some results -> print_module_results results
+      | Some (_, invalid_tests, missing_tests, wrong_checks, missing_neg) ->
+          print_module_results
+            (mod_name, invalid_tests, missing_tests, wrong_checks, missing_neg);
+          (* Count any consistency issues *)
+          let issues_count =
+            List.length invalid_tests + List.length missing_tests
+            + List.length wrong_checks + List.length missing_neg
+          in
+          consistency_warnings := !consistency_warnings + issues_count
       | None -> ())
     css_modules;
 
@@ -589,10 +657,16 @@ let () =
       (colored yellow "WARNING:")
       test_missing;
 
-  let exit_code = if api_missing > 0 then 1 else 0 in
+  if !consistency_warnings > 0 then
+    Fmt.pr "%s %d test consistency issues found@." (colored red "ERROR:")
+      !consistency_warnings;
+
+  let exit_code =
+    if api_missing > 0 || !consistency_warnings > 0 then 1 else 0
+  in
 
   if exit_code = 1 then
-    Fmt.pr "@.%s Missing API functions must be added before proceeding.@."
+    Fmt.pr "@.%s Critical issues must be fixed before proceeding.@."
       (colored red "Action Required:")
   else if test_missing > 0 then
     Fmt.pr "@.%s Consider adding test functions for complete coverage.@."
