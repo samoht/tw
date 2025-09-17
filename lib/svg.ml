@@ -2,7 +2,7 @@ open Core
 open Css
 
 (** Helper to create SVG color utilities *)
-let svg_color_util prefix property color ?(shade = 500) () =
+let color_util prefix property color ?(shade = 500) () =
   let class_name =
     if Color.is_base_color color then prefix ^ "-" ^ Color.to_name color
     else prefix ^ "-" ^ Color.to_name color ^ "-" ^ string_of_int shade
@@ -21,13 +21,13 @@ let svg_color_util prefix property color ?(shade = 500) () =
 
 let fill_none = style "fill-none" [ fill None ]
 let fill_current = style "fill-current" [ fill Current_color ]
-let fill = svg_color_util "fill" fill
+let fill = color_util "fill" fill
 
 (** {1 Stroke Utilities} *)
 
 let stroke_none = style "stroke-none" [ stroke None ]
 let stroke_current = style "stroke-current" [ stroke Current_color ]
-let stroke = svg_color_util "stroke" stroke
+let stroke = color_util "stroke" stroke
 
 (** {1 Stroke Width Utilities} *)
 

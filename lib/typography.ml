@@ -760,7 +760,8 @@ let font_variant_numeric_utility class_name
       }
   in
 
-  (* All utilities need @property registration for these variables *)
+  (* All utilities need @property registration for these variables - Tailwind
+     order *)
   let property_rules =
     [
       Var.property Var.Font_variant_ordinal;

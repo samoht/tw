@@ -22,23 +22,21 @@ open Css
 
 (** {1 Border Width Utilities} *)
 
+(* Helper to create border style initialization *)
+let border_style_init_def, border_style_var =
+  Var.utility Var.Border_style ~property:true Solid
+
 (* Helper for border utilities that just use the --tw-border-style variable *)
 let border_util class_name additional_props =
   style class_name
-    (border_style (Var (Var.handle_only Var.Border_style ()))
+    (border_style_init_def
+    :: border_style (Var border_style_var)
     :: additional_props)
-
-(* Single property rule for all border style utilities *)
-let border_style_property_rule =
-  Var.property Var.Border_style ~inherits:false ~initial:"solid"
 
 (* Helper for border style utilities that set the variable *)
 let border_style_util class_name border_style_value =
-  let util_def, _util_var =
-    Var.utility Var.Border_style ~property:true border_style_value
-  in
-  style class_name ~property_rules:border_style_property_rule
-    [ util_def; border_style border_style_value ]
+  let util_def, _util_var = Var.utility Var.Border_style border_style_value in
+  style class_name [ util_def; border_style border_style_value ]
 
 let border = border_util "border" [ border_width (Px 1.) ]
 let border_0 = border_util "border-0" [ border_width (Px 0.) ]

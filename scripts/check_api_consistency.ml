@@ -262,14 +262,18 @@ let print_module_results
       (colored bold (String.capitalize_ascii mod_name ^ " Tests Consistency:"));
 
     if invalid_tests <> [] then (
-      Fmt.pr "%s invalid test_ names:@." (colored yellow "Warning -");
+      Fmt.pr "%s invalid test_ names in test_%s.ml:@."
+        (colored yellow "Warning -")
+        mod_name;
       List.iter
         (fun n -> Fmt.pr "  test_%s (not in %s_intf)@." n mod_name)
         invalid_tests;
       Fmt.pr "@.");
 
     if wrong_checks <> [] then (
-      Fmt.pr "%s wrong check_x inside test_y:@." (colored yellow "Warning -");
+      Fmt.pr "%s wrong check_x inside test_y in test_%s.ml:@."
+        (colored yellow "Warning -")
+        mod_name;
       let wrong_unique = List.sort_uniq compare wrong_checks in
       List.iter
         (fun (y, x) ->

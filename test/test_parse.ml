@@ -1,1 +1,1 @@
-let suite = ("Parse Tests", [])
+let suite = ("parse", [])

@@ -1,3 +1,5 @@
 rules:
    - files: lib/prose.ml*
      exclude: [E330]
+   - files: lib/color.ml*
+     exclude: [E330]

@@ -46,16 +46,16 @@ type t = {
 val pp : ?expected:string -> ?actual:string -> t Fmt.t
 (** [pp ?expected ?actual] pretty-prints structured CSS diffs with optional
     labels.
-    @param expected Label for expected CSS (default: "Expected")
-    @param actual Label for actual CSS (default: "Actual") *)
+    @param expected Label for expected CSS (default: "Expected").
+    @param actual Label for actual CSS (default: "Actual"). *)
 
 val equal : t -> t -> bool
 (** [equal a b] is [true] if [a] and [b] have no differences. *)
 
 val diff_ast : expected:Css.t -> actual:Css.t -> t
 (** [diff_ast ~expected ~actual] returns a structured diff between two CSS ASTs.
-    @param expected The expected/reference CSS AST
-    @param actual The actual/generated CSS AST *)
+    @param expected The expected/reference CSS AST.
+    @param actual The actual/generated CSS AST. *)
 
 val strip_header : string -> string
 (** [strip_header css] removes a leading header comment if present. *)
@@ -92,5 +92,5 @@ val diff : expected:string -> actual:string -> diff_result
 val pp_diff_result : ?expected:string -> ?actual:string -> diff_result Fmt.t
 (** [pp_diff_result ?expected ?actual] formats a diff_result with optional
     labels.
-    @param expected Label for expected CSS (default: "Expected")
-    @param actual Label for actual CSS (default: "Actual") *)
+    @param expected Label for expected CSS (default: "Expected").
+    @param actual Label for actual CSS (default: "Actual"). *)

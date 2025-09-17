@@ -325,8 +325,8 @@ val compare_declarations : layer -> Css.declaration -> Css.declaration -> int
 (** [compare_declarations layer d1 d2] compares two custom declarations via Var
     metadata for the given layer. *)
 
-val var_of_meta : Css.meta -> any option
-(** [var_of_meta meta] extracts a variable from CSS metadata if present. *)
+val of_meta : Css.meta -> any option
+(** [of_meta meta] extracts a variable from CSS metadata if present. *)
 
 module Map : Map.S with type key = any
 (** Map with Var.any keys *)

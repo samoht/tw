@@ -15,6 +15,17 @@ open Core
 (* Types *)
 (* ======================================================================== *)
 
+(* Helper function for order-preserving deduplication *)
+let dedup_preserving_order compare_fn items =
+  let rec dedup seen acc = function
+    | [] -> List.rev acc
+    | item :: rest ->
+        let key = compare_fn item in
+        if List.mem key seen then dedup seen acc rest
+        else dedup (key :: seen) (item :: acc) rest
+  in
+  dedup [] [] items
+
 type output =
   | Regular of {
       selector : Css.Selector.t;
@@ -169,10 +180,13 @@ let has_like_selector kind selector_str base_class props =
   (* Parse the selector string to get a proper selector *)
   let parsed_selector =
     let reader = Css.Reader.of_string selector_str in
-    try Css.Selector.read reader
-    with _ ->
-      (* Fallback to a simple class selector if parsing fails *)
-      class_ selector_str
+    try Css.Selector.read reader with
+    | Css.Reader.Parse_error _ ->
+        (* Fallback to a simple class selector if parsing fails *)
+        class_ selector_str
+    | Invalid_argument _ ->
+        (* Invalid identifier; degrade gracefully to raw class name *)
+        class_ selector_str
   in
   match kind with
   | `Has ->
@@ -707,7 +721,7 @@ let add_hover_to_media_map hover_rules media_map =
     :: List.remove_assoc hover_condition media_map
 
 (* Convert selector/props pairs to CSS rules. *)
-let rules_of_grouped ?(filter_custom_props = false) grouped_list =
+let of_grouped ?(filter_custom_props = false) grouped_list =
   List.map
     (fun (selector, props) ->
       let filtered_props =
@@ -741,21 +755,21 @@ let rule_sets tw_classes =
   in
   let non_hover_pairs = extract_selector_props_pairs non_hover_regular in
   let hover_pairs = extract_selector_props_pairs hover_regular in
-  let rules = rules_of_grouped ~filter_custom_props:true non_hover_pairs in
+  let rules = of_grouped ~filter_custom_props:true non_hover_pairs in
   let media_queries_map =
     group_media_queries separated.media |> add_hover_to_media_map hover_pairs
   in
   let media_queries =
     List.map
       (fun (condition, rule_list) ->
-        (condition, rules_of_grouped ~filter_custom_props:true rule_list))
+        (condition, of_grouped ~filter_custom_props:true rule_list))
       media_queries_map
   in
   let container_queries_map = group_container_queries separated.container in
   let container_queries =
     List.map
       (fun (condition, rule_list) ->
-        (None, condition, rules_of_grouped ~filter_custom_props:true rule_list))
+        (None, condition, of_grouped ~filter_custom_props:true rule_list))
       container_queries_map
   in
   (rules, media_queries, container_queries)
@@ -800,7 +814,7 @@ let extract_non_tw_custom_declarations selector_props =
 (* Get Var.any from declaration metadata *)
 let var_of_declaration_meta decl =
   match Css.meta_of_declaration decl with
-  | Some meta -> Var.var_of_meta meta
+  | Some meta -> Var.of_meta meta
   | None -> None
 
 let assemble_theme_decls_metadata ~extracted ~default_vars =
@@ -922,7 +936,7 @@ let build_properties_layer vars_needing_property =
   let var_names =
     vars_needing_property
     |> List.map (fun (Css.V v) -> "--" ^ Css.var_name v)
-    |> List.sort_uniq String.compare
+    |> dedup_preserving_order (fun name -> name)
   in
   if var_names = [] then Css.empty
   else
@@ -1049,10 +1063,8 @@ let build_layers ~include_base tw_classes rules media_queries container_queries
       let combined =
         vars_from_explicit_property_rules @ vars_needing_property
       in
-      (* Deduplicate by variable name *)
-      combined
-      |> List.sort_uniq (fun (Css.V v1) (Css.V v2) ->
-             String.compare (Css.var_name v1) (Css.var_name v2))
+      (* Deduplicate by variable name while preserving order *)
+      dedup_preserving_order (fun (Css.V v) -> Css.var_name v) combined
     in
     let properties_layer =
       if all_vars_for_properties_layer = [] then None
