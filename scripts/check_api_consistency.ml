@@ -284,15 +284,18 @@ let print_module_results
       Fmt.pr "@.");
 
     if missing_tests <> [] then (
-      Fmt.pr "%s missing test_x functions:@." (colored yellow "Warning -");
+      Fmt.pr "%s missing test_x functions in test_%s.ml:@."
+        (colored yellow "Warning -")
+        mod_name;
       List.iter
         (fun n -> Fmt.pr "  test_%s@." n)
         (List.sort compare missing_tests);
       Fmt.pr "@.");
 
     if missing_neg <> [] then (
-      Fmt.pr "%s missing neg read_x inside test_x:@."
-        (colored yellow "Warning -");
+      Fmt.pr "%s missing neg read_x inside test_x in test_%s.ml:@."
+        (colored yellow "Warning -")
+        mod_name;
       List.iter
         (fun n -> Fmt.pr "  test_%s@." n)
         (List.sort compare missing_neg);
