@@ -563,6 +563,54 @@ module Tailwind_colors = struct
     | None -> None
 end
 
+(* Internal helpers for parsing and formatting hex/rgb strings *)
+let shorten_hex_str hex_str =
+  let hex_no_hash =
+    if String.starts_with ~prefix:"#" hex_str then
+      String.sub hex_str 1 (String.length hex_str - 1)
+    else hex_str
+  in
+  if String.length hex_no_hash <> 6 then hex_no_hash
+  else
+    let r1 = hex_no_hash.[0] and r2 = hex_no_hash.[1] in
+    let g1 = hex_no_hash.[2] and g2 = hex_no_hash.[3] in
+    let b1 = hex_no_hash.[4] and b2 = hex_no_hash.[5] in
+    if r1 = r2 && g1 = g2 && b1 = b2 then (
+      let short = Bytes.create 3 in
+      Bytes.set short 0 r1;
+      Bytes.set short 1 g1;
+      Bytes.set short 2 b1;
+      Bytes.unsafe_to_string short)
+    else hex_no_hash
+
+let is_rgb_call s =
+  String.starts_with ~prefix:"rgb(" s && String.ends_with ~suffix:")" s
+
+let parse_rgb_string s =
+  try
+    let inner = String.sub s 4 (String.length s - 5) in
+    let parts = String.split_on_char ',' inner |> List.map String.trim in
+    match parts with
+    | [ r_str; g_str; b_str ] ->
+        Some (int_of_string r_str, int_of_string g_str, int_of_string b_str)
+    | _ -> None
+  with Invalid_argument _ | Failure _ -> None
+
+let hex_string_of_rgb (r, g, b) =
+  let to_hex_char n =
+    let c = n mod 16 in
+    if c < 10 then Char.chr (c + 48) else Char.chr (c + 87)
+  in
+  let buf = Bytes.create 6 in
+  let set_hex_byte offset n =
+    Bytes.set buf offset (to_hex_char (n / 16));
+    Bytes.set buf (offset + 1) (to_hex_char n)
+  in
+  set_hex_byte 0 r;
+  set_hex_byte 2 g;
+  set_hex_byte 4 b;
+  Bytes.unsafe_to_string buf
+
 (* Color constructors *)
 let black = Black
 let white = White
@@ -590,63 +638,11 @@ let pink = Pink
 let rose = Rose
 
 let hex s =
-  (* Helper to shorten hex colors when possible (e.g., #00ff00 -> #0f0) *)
-  let shorten_hex hex_str =
-    (* Remove # if present *)
-    let hex_no_hash =
-      if String.starts_with ~prefix:"#" hex_str then
-        String.sub hex_str 1 (String.length hex_str - 1)
-      else hex_str
-    in
-    if String.length hex_no_hash = 6 then
-      let r1 = hex_no_hash.[0] and r2 = hex_no_hash.[1] in
-      let g1 = hex_no_hash.[2] and g2 = hex_no_hash.[3] in
-      let b1 = hex_no_hash.[4] and b2 = hex_no_hash.[5] in
-      if r1 = r2 && g1 = g2 && b1 = b2 then (
-        (* Allocate a single 3-byte string and set each character *)
-        let short = Bytes.create 3 in
-        Bytes.set short 0 r1;
-        Bytes.set short 1 g1;
-        Bytes.set short 2 b1;
-        Bytes.unsafe_to_string short)
-      else hex_no_hash
-    else hex_no_hash
-  in
-
-  (* Check if the string is actually an RGB value like "rgb(29,161,242)" *)
-  if String.starts_with ~prefix:"rgb(" s && String.ends_with ~suffix:")" s then
-    (* Parse RGB string and convert to hex *)
-    try
-      let inner = String.sub s 4 (String.length s - 5) in
-      (* Remove "rgb(" and ")" *)
-      let parts = String.split_on_char ',' inner |> List.map String.trim in
-      match parts with
-      | [ r_str; g_str; b_str ] ->
-          let r = int_of_string r_str in
-          let g = int_of_string g_str in
-          let b = int_of_string b_str in
-          (* Convert RGB to hex *)
-          let to_hex_char n =
-            let c = n mod 16 in
-            if c < 10 then Char.chr (c + 48) else Char.chr (c + 87)
-          in
-          (* Create 6-character hex string in one allocation *)
-          let hex_str = Bytes.create 6 in
-          let set_hex_byte offset n =
-            Bytes.set hex_str offset (to_hex_char (n / 16));
-            Bytes.set hex_str (offset + 1) (to_hex_char n)
-          in
-          set_hex_byte 0 r;
-          set_hex_byte 2 g;
-          set_hex_byte 4 b;
-          let hex_str = Bytes.unsafe_to_string hex_str in
-          Hex (shorten_hex hex_str)
-      | _ -> Hex s (* Fallback if parsing fails *)
-    with Invalid_argument _ | Failure _ ->
-      Hex s (* Fallback if parsing fails *)
-  else
-    (* Regular hex string - shorten if possible *)
-    Hex (shorten_hex s)
+  if is_rgb_call s then
+    match parse_rgb_string s with
+    | Some rgb -> Hex (shorten_hex_str (hex_string_of_rgb rgb))
+    | None -> Hex s
+  else Hex (shorten_hex_str s)
 
 (* Convert string name to color type *)
 let of_string_exn = function
