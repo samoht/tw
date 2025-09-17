@@ -32,15 +32,14 @@ let box_resets () =
   let open Selector in
   [
     rule
-      ~selector:(list [ universal; After; Before; pseudo_element "backdrop" ])
+      ~selector:(list [ universal; After; Before; Backdrop ])
       [
         box_sizing Border_box;
         border ~width:Zero ~style:Solid ();
         margin [ Zero ];
         padding [ Zero ];
       ];
-    rule
-      ~selector:(pseudo_element "file-selector-button")
+    rule ~selector:File_selector_button
       [
         box_sizing Border_box;
         border ~width:Zero ~style:Solid ();
@@ -228,8 +227,7 @@ let form_control_resets () =
         background_color (hex "#0000");
         border_radius Zero;
       ];
-    rule
-      ~selector:(Selector.pseudo_element "file-selector-button")
+    rule ~selector:Selector.File_selector_button
       [
         font "inherit";
         font_feature_settings Inherit;
@@ -251,60 +249,50 @@ let select_resets () =
     rule
       ~selector:(where [ select_is_multiple_size ] ++ optgroup ++ option)
       [ padding_inline_start (Px 20.) ];
-    rule
-      ~selector:(Selector.pseudo_element "file-selector-button")
-      [ margin_inline_end (Px 4.) ];
+    rule ~selector:Selector.File_selector_button [ margin_inline_end (Px 4.) ];
   ]
 
 (** Form placeholder and textarea resets *)
 let form_misc_resets () =
   [
-    rule ~selector:(Selector.pseudo_element "placeholder") [ opacity 1.0 ];
+    rule ~selector:Selector.Placeholder [ opacity 1.0 ];
     rule ~selector:(Selector.element "textarea") [ resize Vertical ];
   ]
 
 (** Webkit-specific form resets *)
 let webkit_form_resets () =
   [
-    rule
-      ~selector:(Selector.pseudo_element "-webkit-search-decoration")
+    rule ~selector:(Selector.Pseudo_element "-webkit-search-decoration")
       [ webkit_appearance None ];
-    rule
-      ~selector:(Selector.pseudo_element "-webkit-date-and-time-value")
+    rule ~selector:(Selector.Pseudo_element "-webkit-date-and-time-value")
       [ min_height (Lh 1.0); text_align Inherit ];
-    rule
-      ~selector:(Selector.pseudo_element "-webkit-datetime-edit")
+    rule ~selector:(Selector.Pseudo_element "-webkit-datetime-edit")
       [ display Inline_flex ];
     rule
-      ~selector:(Selector.pseudo_element "-webkit-datetime-edit-fields-wrapper")
+      ~selector:(Selector.Pseudo_element "-webkit-datetime-edit-fields-wrapper")
       [ padding [ Zero ] ];
-    rule
-      ~selector:(Selector.pseudo_element "-webkit-datetime-edit")
+    rule ~selector:(Selector.Pseudo_element "-webkit-datetime-edit")
+      [ padding_block Zero ];
+    rule ~selector:(Selector.Pseudo_element "-webkit-datetime-edit-year-field")
+      [ padding_block Zero ];
+    rule ~selector:(Selector.Pseudo_element "-webkit-datetime-edit-month-field")
+      [ padding_block Zero ];
+    rule ~selector:(Selector.Pseudo_element "-webkit-datetime-edit-day-field")
+      [ padding_block Zero ];
+    rule ~selector:(Selector.Pseudo_element "-webkit-datetime-edit-hour-field")
       [ padding_block Zero ];
     rule
-      ~selector:(Selector.pseudo_element "-webkit-datetime-edit-year-field")
+      ~selector:(Selector.Pseudo_element "-webkit-datetime-edit-minute-field")
       [ padding_block Zero ];
     rule
-      ~selector:(Selector.pseudo_element "-webkit-datetime-edit-month-field")
-      [ padding_block Zero ];
-    rule
-      ~selector:(Selector.pseudo_element "-webkit-datetime-edit-day-field")
-      [ padding_block Zero ];
-    rule
-      ~selector:(Selector.pseudo_element "-webkit-datetime-edit-hour-field")
-      [ padding_block Zero ];
-    rule
-      ~selector:(Selector.pseudo_element "-webkit-datetime-edit-minute-field")
-      [ padding_block Zero ];
-    rule
-      ~selector:(Selector.pseudo_element "-webkit-datetime-edit-second-field")
+      ~selector:(Selector.Pseudo_element "-webkit-datetime-edit-second-field")
       [ padding_block Zero ];
     rule
       ~selector:
-        (Selector.pseudo_element "-webkit-datetime-edit-millisecond-field")
+        (Selector.Pseudo_element "-webkit-datetime-edit-millisecond-field")
       [ padding_block Zero ];
     rule
-      ~selector:(Selector.pseudo_element "-webkit-datetime-edit-meridiem-field")
+      ~selector:(Selector.Pseudo_element "-webkit-datetime-edit-meridiem-field")
       [ padding_block Zero ];
   ]
 
@@ -324,14 +312,10 @@ let button_specific_resets () =
 (** Button appearance resets *)
 let button_resets () =
   [
-    rule
-      ~selector:(Selector.pseudo_element "file-selector-button")
-      [ appearance Button ];
-    rule
-      ~selector:(Selector.pseudo_element "-webkit-inner-spin-button")
+    rule ~selector:Selector.File_selector_button [ appearance Button ];
+    rule ~selector:(Selector.Pseudo_element "-webkit-inner-spin-button")
       [ height Auto ];
-    rule
-      ~selector:(Selector.pseudo_element "-webkit-outer-spin-button")
+    rule ~selector:(Selector.Pseudo_element "-webkit-outer-spin-button")
       [ height Auto ];
   ]
 

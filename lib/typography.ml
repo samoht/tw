@@ -264,23 +264,19 @@ let text_9xl =
       line_height (Var leading_var);
     ]
 
-(* Create the @property rule for --tw-font-weight *)
-let property_rules =
-  Var.property ~inherits:false ~initial:(Css.Weight 400) Var.Font_weight
-
 (* Font weight utilities using variables *)
 let font_thin =
   let fw_def, _fw_var =
-    Var.utility Var.Font_weight (Var font_weight_thin_var)
+    Var.utility Var.Font_weight ~property:true (Var font_weight_thin_var)
   in
-  style "font-thin" ~property_rules
+  style "font-thin"
     [ font_weight_thin_def; fw_def; font_weight (Var font_weight_thin_var) ]
 
 let font_extralight =
   let fw_def, _fw_var =
-    Var.utility Var.Font_weight (Var font_weight_extralight_var)
+    Var.utility Var.Font_weight ~property:true (Var font_weight_extralight_var)
   in
-  style "font-extralight" ~property_rules
+  style "font-extralight"
     [
       font_weight_extralight_def;
       fw_def;
@@ -289,30 +285,30 @@ let font_extralight =
 
 let font_light =
   let fw_def, _fw_var =
-    Var.utility Var.Font_weight (Var font_weight_light_var)
+    Var.utility Var.Font_weight ~property:true (Var font_weight_light_var)
   in
-  style "font-light" ~property_rules
+  style "font-light"
     [ font_weight_light_def; fw_def; font_weight (Var font_weight_light_var) ]
 
 let font_normal =
   let fw_def, _fw_var =
-    Var.utility Var.Font_weight (Var font_weight_normal_var)
+    Var.utility Var.Font_weight ~property:true (Var font_weight_normal_var)
   in
-  style "font-normal" ~property_rules
+  style "font-normal"
     [ font_weight_normal_def; fw_def; font_weight (Var font_weight_normal_var) ]
 
 let font_medium =
   let fw_def, _fw_var =
-    Var.utility Var.Font_weight (Var font_weight_medium_var)
+    Var.utility Var.Font_weight ~property:true (Var font_weight_medium_var)
   in
-  style "font-medium" ~property_rules
+  style "font-medium"
     [ font_weight_medium_def; fw_def; font_weight (Var font_weight_medium_var) ]
 
 let font_semibold =
   let fw_def, _fw_var =
-    Var.utility Var.Font_weight (Var font_weight_semibold_var)
+    Var.utility Var.Font_weight ~property:true (Var font_weight_semibold_var)
   in
-  style "font-semibold" ~property_rules
+  style "font-semibold"
     [
       font_weight_semibold_def;
       fw_def;
@@ -321,16 +317,16 @@ let font_semibold =
 
 let font_bold =
   let fw_def, _fw_var =
-    Var.utility Var.Font_weight (Var font_weight_bold_var)
+    Var.utility Var.Font_weight ~property:true (Var font_weight_bold_var)
   in
-  style "font-bold" ~property_rules
+  style "font-bold"
     [ font_weight_bold_def; fw_def; font_weight (Var font_weight_bold_var) ]
 
 let font_extrabold =
   let fw_def, _fw_var =
-    Var.utility Var.Font_weight (Var font_weight_extrabold_var)
+    Var.utility Var.Font_weight ~property:true (Var font_weight_extrabold_var)
   in
-  style "font-extrabold" ~property_rules
+  style "font-extrabold"
     [
       font_weight_extrabold_def;
       fw_def;
@@ -339,9 +335,9 @@ let font_extrabold =
 
 let font_black =
   let fw_def, _fw_var =
-    Var.utility Var.Font_weight (Var font_weight_black_var)
+    Var.utility Var.Font_weight ~property:true (Var font_weight_black_var)
   in
-  style "font-black" ~property_rules
+  style "font-black"
     [ font_weight_black_def; fw_def; font_weight (Var font_weight_black_var) ]
 
 (** {1 Font Family Utilities} *)
@@ -652,7 +648,7 @@ let line_clamp n =
 
 (* Property rules for content variable *)
 let content_property_rules =
-  (* Var.property ~inherits:false ~initial:Css.None Var.Content *) Css.empty
+  (* Var.property ~initial:Css.None Var.Content *) Css.empty
 
 let content_none =
   let content_def, content_var = Var.utility Var.Content ~fallback:None None in
@@ -767,11 +763,11 @@ let font_variant_numeric_utility class_name
   (* All utilities need @property registration for these variables *)
   let property_rules =
     [
-      Var.property ~inherits:false Var.Font_variant_ordinal;
-      Var.property ~inherits:false Var.Font_variant_slashed_zero;
-      Var.property ~inherits:false Var.Font_variant_numeric_figure;
-      Var.property ~inherits:false Var.Font_variant_numeric_spacing;
-      Var.property ~inherits:false Var.Font_variant_numeric_fraction;
+      Var.property Var.Font_variant_ordinal;
+      Var.property Var.Font_variant_slashed_zero;
+      Var.property Var.Font_variant_numeric_figure;
+      Var.property Var.Font_variant_numeric_spacing;
+      Var.property Var.Font_variant_numeric_fraction;
     ]
   in
 

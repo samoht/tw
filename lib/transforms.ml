@@ -35,13 +35,13 @@ module Parse = Parse
 let scale_property_rules =
   Css.(
     v
-      (rules (Var.property ~inherits:false ~initial:1. Var.Scale_x)
-      @ rules (Var.property ~inherits:false ~initial:1. Var.Scale_y)
-      @ rules (Var.property ~inherits:false ~initial:1. Var.Scale_z)))
+      (rules (Var.property Var.Scale_x)
+      @ rules (Var.property Var.Scale_y)
+      @ rules (Var.property Var.Scale_z)))
 
-let scale_x_property_rule = Var.property ~inherits:false ~initial:1. Var.Scale_x
-let scale_y_property_rule = Var.property ~inherits:false ~initial:1. Var.Scale_y
-let scale_z_property_rule = Var.property ~inherits:false ~initial:1. Var.Scale_z
+let scale_x_property_rule = Var.property Var.Scale_x
+let scale_y_property_rule = Var.property Var.Scale_y
+let scale_z_property_rule = Var.property Var.Scale_z
 
 let rotate n =
   let class_name = "rotate-" ^ string_of_int n in

@@ -34,44 +34,20 @@ let shadow_property_rules =
   Css.concat
     [
       (* Shadow and ring variables - ordered as in Tailwind v4 *)
-      Var.property ~inherits:false
-        ~initial:
-          (Css.shadow ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
-             ~color:(Css.hex "#0000") ())
-        Var.Shadow;
-      Var.property ~inherits:false ~initial:(Css.hex "#000") Var.Shadow_color;
-      Var.property ~inherits:false ~initial:1.0 Var.Shadow_alpha;
-      Var.property ~inherits:false
-        ~initial:
-          (Css.shadow ~inset:true ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
-             ~color:(Css.hex "#0000") ())
-        Var.Inset_shadow;
-      Var.property ~inherits:false ~initial:(Css.hex "#000")
-        Var.Inset_shadow_color;
-      Var.property ~inherits:false ~initial:1.0 Var.Inset_shadow_alpha;
-      Var.property ~inherits:false ~initial:(Css.hex "#000") Var.Ring_color;
-      Var.property ~inherits:false
-        ~initial:
-          (Css.shadow ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
-             ~color:(Css.hex "#0000") ())
-        Var.Ring_shadow;
-      Var.property ~inherits:false ~initial:(Css.hex "#000")
-        Var.Inset_ring_color;
-      Var.property ~inherits:false
-        ~initial:
-          (Css.shadow ~inset:true ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
-             ~color:(Css.hex "#0000") ())
-        Var.Inset_ring_shadow;
-      Var.property ~inherits:false ~initial:"" Var.Ring_inset;
-      (* Var.property ~inherits:false ~initial:(Css.Px 0.)
-         Var.Ring_offset_width; *)
-      Var.property ~inherits:false ~initial:(Css.hex "#fff")
-        Var.Ring_offset_color;
-      Var.property ~inherits:false
-        ~initial:
-          (Css.shadow ~h_offset:(Css.Px 0.) ~v_offset:(Css.Px 0.)
-             ~color:(Css.hex "#0000") ())
-        Var.Ring_offset_shadow;
+      Var.property Var.Shadow;
+      Var.property Var.Shadow_color;
+      Var.property Var.Shadow_alpha;
+      Var.property Var.Inset_shadow;
+      Var.property Var.Inset_shadow_color;
+      Var.property Var.Inset_shadow_alpha;
+      Var.property Var.Ring_color;
+      Var.property Var.Ring_shadow;
+      Var.property Var.Inset_ring_color;
+      Var.property Var.Inset_ring_shadow;
+      Var.property Var.Ring_inset;
+      (* Var.property ~initial:(Css.Px 0.) Var.Ring_offset_width; *)
+      Var.property Var.Ring_offset_color;
+      Var.property Var.Ring_offset_shadow;
       (* Note: Ring_width is not included here as it's set by ring utilities,
          not shadow utilities *)
     ]

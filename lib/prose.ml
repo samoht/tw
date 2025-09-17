@@ -199,8 +199,8 @@ let ol_type_i_s = ol && type_attr "i s"
 let ol_type_1 = ol && type_attr "1"
 
 (* Pseudo-elements and pseudo-classes *)
-let before = Css.Selector.pseudo_element "before"
-let after = Css.Selector.pseudo_element "after"
+let before = Css.Selector.Before
+let after = Css.Selector.After
 let first_of_type = Css.Selector.First_of_type
 let last_of_type = Css.Selector.Last_of_type
 let p_first_of_type_before = Css.Selector.compound [ p; first_of_type; before ]
@@ -223,7 +223,7 @@ let h3_code = h3 ++ code
 let nested_lists = Css.Selector.list [ ul ++ ul; ul ++ ol; ol ++ ul; ol ++ ol ]
 let thead_th_first_child = thead ++ (th && first_child)
 let thead_th_last_child = thead ++ (th && last_child)
-let marker = Css.Selector.pseudo_element "marker"
+let marker = Css.Selector.Marker
 let th_td = th || td
 let figure_all = Css.Selector.(combine figure Child universal) (* figure>* *)
 let tbody_td_tfoot_td = (tbody ++ td) || (tfoot ++ td)
