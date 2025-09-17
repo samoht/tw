@@ -210,8 +210,16 @@ type _ t =
 (** Existential wrapper for variables of any type *)
 type any = Any : _ t -> any
 
-let (meta_of_var : any -> Css.meta), (var_of_meta : Css.meta -> any option) =
+(* Store both variable and property flag in metadata *)
+type var_meta = { var : any; needs_property : bool }
+
+let ( (meta_of_var_meta : var_meta -> Css.meta),
+      (var_meta_of_meta : Css.meta -> var_meta option) ) =
   Css.meta ()
+
+(* Helper to get variable from metadata for compatibility *)
+let var_of_meta meta =
+  match var_meta_of_meta meta with None -> None | Some { var; _ } -> Some var
 
 (* Convert a CSS variable to its string representation (with --) *)
 let to_string : type a. a t -> string = function
@@ -621,14 +629,32 @@ let layer : type a. a Css.var -> layer option =
  fun css_var ->
   match Css.var_layer css_var with None -> None | Some s -> layer_of_string s
 
+(* Check if a variable needs @property declaration based on metadata *)
+let needs_property : type a. a Css.var -> bool =
+ fun css_var ->
+  (* Extract the property flag from the var's metadata *)
+  match Css.var_meta css_var with
+  | None ->
+      failwith "needs_property: CSS variable missing metadata (this is a bug!)"
+  | Some meta -> (
+      match var_meta_of_meta meta with
+      | None ->
+          failwith "needs_property: metadata is not var_meta (this is a bug!)"
+      | Some { needs_property; _ } -> needs_property)
+
 (** Create a variable definition and handle *)
 let def : type a.
-    a t -> ?layer:layer -> ?fallback:a -> a -> Css.declaration * a Css.var =
- fun var_t ?layer ?fallback value ->
+    a t ->
+    ?layer:layer ->
+    ?fallback:a ->
+    ?property:bool ->
+    a ->
+    Css.declaration * a Css.var =
+ fun var_t ?layer ?fallback ?(property = false) value ->
   let n = name var_t in
   let layer = Option.map layer_name layer in
   (* Set metadata for this variable *)
-  let meta = meta_of_var (Any var_t) in
+  let meta = meta_of_var_meta { var = Any var_t; needs_property = property } in
   let var ty v =
     let fallback = Option.map (fun f -> Css.Fallback f) fallback in
     Css.var ?layer ?fallback ~meta n ty v
@@ -805,34 +831,35 @@ let def : type a.
 let handle_only : type a. a t -> unit -> a Css.var =
  fun var_t () ->
   let n = name var_t in
-  let meta = meta_of_var (Any var_t) in
+  let meta = meta_of_var_meta { var = Any var_t; needs_property = false } in
   (* Use Css.var_ref with Empty fallback to create handle *)
   Css.var_ref ~fallback:Empty ~meta n
 
 let handle : type a. a t -> ?fallback:a -> unit -> a Css.var =
  fun var_t ?fallback () ->
   let n = name var_t in
-  let meta = meta_of_var (Any var_t) in
+  let meta = meta_of_var_meta { var = Any var_t; needs_property = false } in
   (* Use Css.var_ref to create handle with optional fallback *)
   let fallback = Option.map (fun f -> Css.Fallback f) fallback in
   Css.var_ref ?fallback ~meta n
 
 (* Layer-specific variable constructors *)
-let theme : type a. a t -> ?fallback:a -> a -> Css.declaration * a Css.var =
- fun var_t ?fallback value -> def ?fallback var_t ~layer:Theme value
+let theme : type a.
+    a t -> ?fallback:a -> ?property:bool -> a -> Css.declaration * a Css.var =
+ fun var_t ?fallback ?property value ->
+  def ?fallback ?property var_t ~layer:Theme value
 
-let utility : type a. a t -> ?fallback:a -> a -> Css.declaration * a Css.var =
- fun var_t ?fallback value -> def ?fallback var_t ~layer:Utility value
+let utility : type a.
+    a t -> ?fallback:a -> ?property:bool -> a -> Css.declaration * a Css.var =
+ fun var_t ?fallback ?property value ->
+  def ?fallback ?property var_t ~layer:Utility value
 
 (* Create @property rule for a variable using Universal syntax *)
-let property : type a. inherits:bool -> ?initial:a -> a t -> Css.t =
- fun ~inherits ?initial:_ var_t ->
+let property : type a. ?inherits:bool -> ?initial:string -> a t -> Css.t =
+ fun ?(inherits = false) ?initial var_t ->
   let name = to_string var_t in
   let syntax = Css.Universal in
-  let initial_value = "*" in
-  (* Universal syntax placeholder *)
-  (* Use high-level API to create complete @property stylesheet *)
-  Css.(property ~name syntax ~initial_value ~inherits ())
+  Css.(property ~name syntax ?initial_value:initial ~inherits ())
 
 (** Helper for metadata errors *)
 let err_meta ~layer decl msg =

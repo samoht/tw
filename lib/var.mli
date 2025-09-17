@@ -3,7 +3,80 @@
     This module defines the typed set of CSS custom properties used by the
     library. Theme variables (design tokens) are emitted in the theme layer and
     ordered to match Tailwind v4 expectations. Utility variables are ordered
-    lexicographically. *)
+    lexicographically.
+
+    {1 Variable Architecture in Tailwind v4}
+
+    Tailwind v4 uses a sophisticated multi-layer variable system:
+
+    {2 Theme Variables}
+    Variables like [--font-weight-thin: 100] defined in [@layer theme] that hold
+    the actual design token values. These are the "source of truth" values.
+
+    {2 Utility Variables}
+    Variables like [--tw-font-weight] or [--tw-border-style] that serve as
+    "property channels". There are two patterns:
+
+    {3 Pattern 1: Indirect Reference (font-weight)}
+    Each utility class that affects font-weight sets this same variable to its
+    value:
+    - [.font-thin \{ --tw-font-weight: var(--font-weight-thin); font-weight:
+       var(--font-weight-thin) \}]
+    - [.font-bold \{ --tw-font-weight: var(--font-weight-bold); font-weight:
+       var(--font-weight-bold) \}]
+
+    Note that the [font-weight] property uses the theme variable directly, NOT
+    [--tw-font-weight]. The utility variable serves as metadata/state tracking.
+
+    {3 Pattern 2: Direct Value (border-style)}
+    Each utility class sets the variable to the actual CSS value:
+    - [.border-solid \{ --tw-border-style: solid; border-style: solid \}]
+    - [.border-none \{ --tw-border-style: none; border-style: none \}]
+    - [.border \{ border-style: var(--tw-border-style); border-width: 1px \}]
+
+    Here the utility variable holds both the value AND serves as metadata.
+
+    {2 Property Registration}
+    Variables marked with [~property:true] get:
+    - Initial values in [@layer properties]: [--tw-font-weight: initial] or
+      [--tw-border-style: solid]
+    - [@property] registration at the end:
+      [@property --tw-font-weight \{ syntax: "*"; inherits: false;
+       initial-value: initial \}]
+
+    The initial value in the properties layer comes from the [~initial]
+    parameter in [Var.property].
+
+    {2 Why This Architecture?}
+
+    1. {b Cascade Management}: When multiple utilities are on the same element
+    ([class="font-thin font-bold"]), the last one wins naturally
+
+    2. {b Debugging}: The [--tw-font-weight] variable shows which utility was
+    applied, even though it's not used in the actual property
+
+    3. {b JavaScript Integration}: Scripts can read [--tw-font-weight] to know
+    the intended font weight without parsing the actual [font-weight] value
+
+    4. {b Future Extensibility}: Other utilities or custom CSS could reference
+    [var(--tw-font-weight)] if needed
+
+    {2 Example Flows}
+
+    {3 Font-weight (Pattern 1)}
+    For [<div class="font-thin">]: 1. Theme layer defines:
+    [--font-weight-thin: 100] 2. Properties layer initializes:
+    [--tw-font-weight: initial] 3. Utility class sets:
+    [--tw-font-weight: var(--font-weight-thin)] AND
+    [font-weight: var(--font-weight-thin)] 4. [@property] registers
+    [--tw-font-weight] for proper CSS behavior
+
+    {3 Border-style (Pattern 2)}
+    For [<div class="border-solid">]: 1. Properties layer initializes:
+    [--tw-border-style: solid] 2. Utility class sets: [--tw-border-style: solid]
+    AND [border-style: solid] 3. [@property] registers [--tw-border-style] for
+    proper CSS behavior 4. Other utilities like [.border] use:
+    [border-style: var(--tw-border-style)] *)
 
 (** Layer classification for CSS variables. In v4, variables live in [\@layer]
     theme or inline within utilities; base/properties are not used for
@@ -189,13 +262,26 @@ type _ t =
 val name : _ t -> string
 (** [name v] returns the variable name without the leading "--". *)
 
-val theme : 'a t -> ?fallback:'a -> 'a -> Css.declaration * 'a Css.var
-(** [theme v ?fallback value] creates a theme-layer variable declaration and
-    handle. *)
+val theme :
+  'a t -> ?fallback:'a -> ?property:bool -> 'a -> Css.declaration * 'a Css.var
+(** [theme v ?fallback ?property value] creates a theme-layer variable declaration and
+    handle. When property is true, indicates this variable needs @property registration. *)
 
-val utility : 'a t -> ?fallback:'a -> 'a -> Css.declaration * 'a Css.var
-(** [utility v ?fallback value] creates a utility-layer variable declaration and
-    handle. *)
+val utility :
+  'a t -> ?fallback:'a -> ?property:bool -> 'a -> Css.declaration * 'a Css.var
+(** [utility v ?fallback ?property value] creates a utility-layer variable
+    declaration and handle.
+
+    When [property:true], this variable becomes a "property channel" that:
+    - Gets initialized in [@layer properties] with [initial] value
+    - Gets [@property] registration for proper CSS behavior
+    - Is set by each utility class to track which utility was applied
+
+    Example:
+    [Var.utility Var.Font_weight ~property:true (Var font_weight_thin_var)]
+    creates [--tw-font-weight: var(--font-weight-thin)] which tracks that
+    font-thin was applied, even though the actual [font-weight] property uses
+    the theme variable directly. *)
 
 val handle_only : 'a t -> unit -> 'a Css.var
 (** [handle_only v] creates a variable handle with empty fallback without a
@@ -207,17 +293,19 @@ val handle : 'a t -> ?fallback:'a -> unit -> 'a Css.var
     without a definition. Useful for referencing variables that may be defined
     elsewhere. *)
 
-val property : inherits:bool -> ?initial:'a -> 'a t -> Css.t
-(** [property  ~inherits ?initial t v] creates a typed [@property] registration
-    as a stylesheet. Examples:
-    - [property ~inherits:false ~initial:(Css.hex "#000") My_color]
-    - [property ~inherits:false ~initial:"solid" Border_style]
+val property : ?inherits:bool -> ?initial:string -> 'a t -> Css.t
+(** [property ?inherits t] creates a typed [@property] registration as a
+    stylesheet. Examples:
+    - [property My_color]
+    - [property ~inherits:true Border_style]
 
-    @param inherits Whether the property inherits.
-    @param initial The initial value (optional). *)
+    @param inherits Whether the property inherits (defaults to false). *)
 
 val layer : _ Css.var -> layer option
 (** [layer var] returns the layer recorded in the variable metadata, if any. *)
+
+val needs_property : _ Css.var -> bool
+(** [needs_property var] returns true if this variable needs @property declaration. *)
 
 val to_string : _ t -> string
 (** [to_string v] returns the full "--var-name" representation. *)

@@ -54,31 +54,6 @@ let debug_files test_name tw_css tailwind_css =
   write_file tailwind_file tailwind_css;
   (tw_file, tailwind_file)
 
-(* Test configuration helpers *)
-let test_config tw_styles classnames ~minify ~optimize =
-  let strip_header css =
-    (* Strip a leading /*!...*/ header comment *)
-    if String.starts_with ~prefix:"/*!" css then
-      let len = String.length css in
-      let rec find_end i =
-        if i + 1 >= len then None
-        else if css.[i] = '*' && css.[i + 1] = '/' then Some (i + 2)
-        else find_end (i + 1)
-      in
-      match find_end 3 with
-      | Some pos -> String.sub css pos (len - pos) |> String.trim
-      | None -> css
-    else css
-  in
-  let tw =
-    generate_tw_css ~minify ~optimize tw_styles |> strip_header |> String.trim
-  in
-  let tailwind =
-    generate_tailwind_css ~minify ~optimize classnames
-    |> strip_header |> String.trim
-  in
-  (tw = tailwind, tw, tailwind)
-
 (* Failure reporting *)
 let report_failure test_name tw_file tailwind_file =
   Fmt.epr "@[<v>@,";
@@ -89,172 +64,10 @@ let report_failure test_name tw_file tailwind_file =
   Fmt.epr "  diff -u %s %s@," tw_file tailwind_file;
   Fmt.epr "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━@,"
 
-(* Helper to find first difference between two strings *)
-let find_string_diff s1 s2 =
-  let len1, len2 = (String.length s1, String.length s2) in
-  let min_len = min len1 len2 in
-  let rec loop i =
-    if i >= min_len then i else if s1.[i] <> s2.[i] then i else loop (i + 1)
-  in
-  let diff_pos = loop 0 in
-  (diff_pos, len1, len2)
-
-(* Truncate string at first newline after position *)
-let truncate_at_newline s pos =
-  let len = String.length s in
-  let rec find_newline i =
-    if i >= len then len else if s.[i] = '\n' then i else find_newline (i + 1)
-  in
-  let end_pos = find_newline pos in
-  String.sub s 0 end_pos
-
-(* Show context around string differences with caret pointer *)
-let show_string_diff_context tw_css tailwind_css =
-  let diff_pos, len1, len2 = find_string_diff tw_css tailwind_css in
-  Fmt.epr "First difference at position %d:@," diff_pos;
-  let context_width = 80 in
-  let half_context = context_width / 2 in
-
-  (* Center the caret in the middle of the context window *)
-  let context_start = max 0 (diff_pos - half_context) in
-  let context_end1 = min len1 (context_start + context_width) in
-  let context_end2 = min len2 (context_start + context_width) in
-
-  (* Extract context substrings *)
-  let tw_context_full =
-    String.sub tw_css context_start (context_end1 - context_start)
-  in
-  let tailwind_context_full =
-    String.sub tailwind_css context_start (context_end2 - context_start)
-  in
-
-  (* Truncate at first newline after the difference position *)
-  let relative_diff_pos = diff_pos - context_start in
-  let tw_context = truncate_at_newline tw_context_full relative_diff_pos in
-  let tailwind_context =
-    truncate_at_newline tailwind_context_full relative_diff_pos
-  in
-
-  (* Calculate caret position within the truncated context *)
-  let caret_pos = min relative_diff_pos (String.length tw_context) in
-  let prefix_dots = if context_start > 0 then "..." else "" in
-  let caret_offset = String.length prefix_dots + caret_pos in
-
-  (* Clean, focused diff display *)
-  Fmt.epr "@[<v 0>- %s%s@,+ %s%s@," prefix_dots tw_context prefix_dots
-    tailwind_context;
-  for _ = 1 to caret_offset + 2 do
-    Fmt.epr " "
-  done;
-  (* +2 for "+ " prefix *)
-  Fmt.epr "^@,@]"
-
-let show_diff_with_label label tw_css tailwind_css tw_file tailwind_file =
-  if label <> "" then Fmt.epr "%s:@," label;
-  let strip_header css =
-    (* Strip a leading /*!...*/ header comment *)
-    if String.starts_with ~prefix:"/*!" css then
-      let len = String.length css in
-      let rec find_end i =
-        if i + 1 >= len then None
-        else if css.[i] = '*' && css.[i + 1] = '/' then Some (i + 2)
-        else find_end (i + 1)
-      in
-      match find_end 3 with
-      | Some pos -> String.sub css pos (len - pos) |> String.trim
-      | None -> css
-    else css
-  in
-  let tw_css = strip_header tw_css in
-  let tailwind_css = strip_header tailwind_css in
-  (match (Css.of_string tw_css, Css.of_string tailwind_css) with
-  | Ok _, Ok _ ->
-      (* Just do a simple string comparison since Compare module doesn't
-         exist *)
-      if tw_css <> tailwind_css then
-        show_string_diff_context tw_css tailwind_css
-  | Error e1, Error e2 ->
-      let fmt_err (err : Css.parse_error) = Css.pp_parse_error err in
-      if e1.message = e2.message && e1.position = e2.position then
-        Fmt.epr "Parse error in both CSS: %s (TW=%d, Tailwind=%d chars)@,"
-          (fmt_err e1) (String.length tw_css)
-          (String.length tailwind_css)
-      else (
-        Fmt.epr "TW (%d chars): %s@," (String.length tw_css) (fmt_err e1);
-        Fmt.epr "Tailwind (%d chars): %s@,"
-          (String.length tailwind_css)
-          (fmt_err e2))
-  | Error e1, _ ->
-      let fmt_err (err : Css.parse_error) = Css.pp_parse_error err in
-      Fmt.epr "Failed to parse TW CSS: %s (%d chars)@," (fmt_err e1)
-        (String.length tw_css)
-  | _, Error e2 ->
-      let fmt_err (err : Css.parse_error) = Css.pp_parse_error err in
-      (* Write the problematic CSS to a debug file for inspection *)
-      let label_safe =
-        if label = "" then "empty"
-        else
-          String.map
-            (function ' ' -> '_' | '/' -> '_' | c -> c)
-            (String.lowercase_ascii label)
-      in
-      let debug_file = Fmt.str "/tmp/css_parse_error_%s.css" label_safe in
-      write_file debug_file tailwind_css;
-      Fmt.epr "Failed to parse Tailwind CSS: %s (%d chars, pos %d)@,"
-        (fmt_err e2)
-        (String.length tailwind_css)
-        e2.position;
-      Fmt.epr "Debug: head -c %d %s | tail -c 200@," (e2.position + 100)
-        debug_file);
-  write_file
-    (tw_file ^ "."
-    ^ String.map (function ' ' -> '_' | c -> c) (String.lowercase_ascii label))
-    tw_css;
-  write_file
-    (tailwind_file ^ "."
-    ^ String.map (function ' ' -> '_' | c -> c) (String.lowercase_ascii label))
-    tailwind_css
-
-(* Shared CSS pretty-printer for failures *)
+(* Simple CSS testable that just shows diff on failure *)
 let css_testable =
   Alcotest.testable
-    (fun fmt css ->
-      let display_css =
-        try
-          let rec find_layer_end s start depth =
-            if start >= String.length s then String.length s
-            else
-              match s.[start] with
-              | '{' -> find_layer_end s (start + 1) (depth + 1)
-              | '}' ->
-                  if depth = 1 then start + 1
-                  else find_layer_end s (start + 1) (depth - 1)
-              | _ -> find_layer_end s (start + 1) depth
-          in
-          let pattern = "@layer base" in
-          let rec find_pattern s pat i =
-            if i + String.length pat > String.length s then raise Not_found
-            else if String.sub s i (String.length pat) = pat then i
-            else find_pattern s pat (i + 1)
-          in
-          let base_start = find_pattern css pattern 0 in
-          let base_end =
-            find_layer_end css (base_start + String.length pattern) 0
-          in
-          let before = String.sub css 0 base_start in
-          let after = String.sub css base_end (String.length css - base_end) in
-          before ^ "@layer base{...}" ^ after
-        with Not_found -> css
-      in
-      if String.length display_css < 300 then Fmt.pf fmt "\n%s" display_css
-      else if String.length display_css < 800 then
-        let start = String.sub display_css 0 200 in
-        let ending =
-          String.sub display_css (String.length display_css - 200) 200
-        in
-        Fmt.pf fmt "<css: %d chars>\n%s\n...\n%s" (String.length css) start
-          ending
-      else Fmt.pf fmt "<css: %d chars>" (String.length css))
+    (fun fmt css -> Fmt.pf fmt "<css: %d chars>" (String.length css))
     String.equal
 
 let check_exact_match tw_styles =
@@ -283,67 +96,12 @@ let check_exact_match tw_styles =
     if tw_css <> tailwind_css then (
       report_failure test_name tw_file tailwind_file;
 
-      (* Show structural diff for minified+optimized output *)
-      Fmt.epr "@,Minified+optimized output differs:@,";
-      (match (Css.of_string tw_css, Css.of_string tailwind_css) with
-      | Ok ast1, Ok ast2 ->
-          let diff_result = Tw_tools.Css_compare.diff ast1 ast2 in
-          (* Only show if there's actual content to display *)
-          let diff_str = Fmt.str "%a" Tw_tools.Css_compare.pp diff_result in
-          if String.trim diff_str <> "" then
-            Fmt.epr "@[<v 2>%a@]@," Tw_tools.Css_compare.pp diff_result
-          else show_string_diff_context tw_css tailwind_css
-      | Error e1, Error e2 ->
-          let fmt_err (err : Css.parse_error) = Css.pp_parse_error err in
-          if e1.message = e2.message && e1.position = e2.position then
-            Fmt.epr "Parse error in both CSS: %s (TW=%d, Tailwind=%d chars)@,"
-              (fmt_err e1) (String.length tw_css)
-              (String.length tailwind_css)
-          else (
-            Fmt.epr "TW (%d chars): %s@," (String.length tw_css) (fmt_err e1);
-            Fmt.epr "Tailwind (%d chars): %s@,"
-              (String.length tailwind_css)
-              (fmt_err e2))
-      | Error e1, _ ->
-          let fmt_err (err : Css.parse_error) = Css.pp_parse_error err in
-          Fmt.epr "Failed to parse TW CSS: %s (%d chars)@," (fmt_err e1)
-            (String.length tw_css)
-      | _, Error e2 ->
-          let fmt_err (err : Css.parse_error) = Css.pp_parse_error err in
-          let debug_file =
-            Fmt.str "/tmp/css_parse_error_prod_%s.css"
-              (String.map
-                 (function ' ' -> '_' | '/' -> '_' | c -> c)
-                 test_name)
-          in
-          write_file debug_file tailwind_css;
-          Fmt.epr "Failed to parse Tailwind CSS: %s (%d chars, pos %d)@,"
-            (fmt_err e2)
-            (String.length tailwind_css)
-            e2.position;
-          Fmt.epr "Debug: head -c %d %s | tail -c 200@," (e2.position + 100)
-            debug_file);
-
-      (* Only show base/optimization debugging if production CSS parsed
-         successfully *)
-      match (Css.of_string tw_css, Css.of_string tailwind_css) with
-      | Ok _, Ok _ ->
-          (* Then show debugging info to help identify the issue *)
-          let base_match, base_tw, base_tailwind =
-            test_config tw_styles classnames ~minify:false ~optimize:false
-          in
-
-          if not base_match then (
-            Fmt.epr "@,Checking base generation (unminified+unoptimized):@,";
-            show_diff_with_label "" base_tw base_tailwind tw_file tailwind_file)
-          else
-            let opt_match, opt_tw, opt_tailwind =
-              test_config tw_styles classnames ~minify:false ~optimize:true
-            in
-            if not opt_match then (
-              Fmt.epr "@,Optimization differs:@,";
-              show_diff_with_label "" opt_tw opt_tailwind tw_file tailwind_file)
-      | _ -> ());
+      let diff_result =
+        Tw_tools.Css_compare.diff ~expected:tailwind_css ~actual:tw_css
+      in
+      Fmt.epr "%a@,"
+        (Tw_tools.Css_compare.pp_diff_result ~expected:"Tailwind" ~actual:"TW")
+        diff_result);
 
     let test_label =
       if String.length test_name > 50 then String.sub test_name 0 47 ^ "..."

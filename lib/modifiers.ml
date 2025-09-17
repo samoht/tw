@@ -80,8 +80,8 @@ let to_selector (modifier : modifier) cls =
       compound [ data_inactive cls; attribute "data-inactive" Presence ]
   | Focus_within -> compound [ focus_within cls; Focus_within ]
   | Focus_visible -> compound [ focus_visible cls; Focus_visible ]
-  | Pseudo_before -> compound [ before cls; pseudo_element "before" ]
-  | Pseudo_after -> compound [ after cls; pseudo_element "after" ]
+  | Pseudo_before -> compound [ before cls; Before ]
+  | Pseudo_after -> compound [ after cls; After ]
   | _ -> Css.Selector.Class cls (* fallback for complex modifiers *)
 
 (** Check if a modifier generates a hover rule *)

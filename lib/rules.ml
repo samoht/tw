@@ -883,7 +883,7 @@ let compute_theme_layer tw_classes =
       [ Css.layer ~name:"theme" [ Css.rule ~selector theme_generated_vars ] ]
 
 let placeholder_supports =
-  let placeholder = Css.Selector.pseudo_element "placeholder" in
+  let placeholder = Css.Selector.Placeholder in
 
   (* Create the inner @supports for modern browsers *)
   let modern_rule =
@@ -916,33 +916,151 @@ let build_base_layer ?supports () =
   let base = Preflight.stylesheet ?placeholder_supports:supports () in
   Css.layer_of ~name:"base" base
 
-(* Collect property rules from Core.t structures *)
-let rec collect_property_rules = function
-  | Core.Style { property_rules; _ } -> [ property_rules ]
-  | Core.Modified (_, t) -> collect_property_rules t
-  | Core.Group ts -> List.concat_map collect_property_rules ts
+(* Build the properties layer with browser detection for initial values *)
+let build_properties_layer vars_needing_property =
+  (* Extract the variable names that need @property declarations *)
+  let var_names =
+    vars_needing_property
+    |> List.map (fun (Css.V v) -> "--" ^ Css.var_name v)
+    |> List.sort_uniq String.compare
+  in
+  if var_names = [] then Css.empty
+  else
+    (* Build the properties layer with browser detection *)
+    let browser_detection_condition =
+      "(((-webkit-hyphens:none)) and (not (margin-trim:inline))) or \
+       ((-moz-orient:inline) and (not (color:rgb(from red r g b))))"
+    in
+    (* Create the selector for universal + pseudo-elements *)
+    let selector = Css.Selector.(list [ universal; Before; After; Backdrop ]) in
+    (* Create initial declarations for each property *)
+    let initial_declarations =
+      List.map (fun name -> Css.custom_property name "initial") var_names
+    in
+    let rule = Css.rule ~selector initial_declarations in
+    let supports_content = [ rule ] in
+    let supports_stmt =
+      Css.supports ~condition:browser_detection_condition supports_content
+    in
+    Css.of_statements [ Css.layer ~name:"properties" [ supports_stmt ] ]
 
 let build_layers ~include_base tw_classes rules media_queries container_queries
     =
-  (* Collect property rules from utilities - preserve order while
-     deduplicating *)
-  let seen = ref [] in
-  let property_rules_from_utilities =
+  (* Extract variables from declarations in props *)
+  let rec extract_all_vars = function
+    | Core.Style { props; rules; _ } ->
+        let vars_from_props = Css.vars_of_declarations props in
+        let vars_from_rules =
+          match rules with Some r -> Css.vars_of_rules r | None -> []
+        in
+        vars_from_props @ vars_from_rules
+    | Core.Modified (_, t) -> extract_all_vars t
+    | Core.Group ts -> List.concat_map extract_all_vars ts
+  in
+
+  (* Extract property_rules from Style objects *)
+  let rec extract_property_rules = function
+    | Core.Style { property_rules; _ } -> [ property_rules ]
+    | Core.Modified (_, t) -> extract_property_rules t
+    | Core.Group ts -> List.concat_map extract_property_rules ts
+  in
+  (* Collect CSS variables that need @property declarations *)
+  let vars_from_utilities = tw_classes |> List.concat_map extract_all_vars in
+  (* Collect explicit property_rules from Style objects first *)
+  (* We need this before processing other variables *)
+  let explicit_property_rules_statements =
     tw_classes
-    |> List.concat_map collect_property_rules
-    |> List.filter (fun r ->
-           if List.mem r !seen then false
-           else (
-             seen := r :: !seen;
-             true))
+    |> List.concat_map extract_property_rules
+    |> List.concat_map Css.statements
+  in
+
+  (* Extract variables names that have explicit property rules *)
+  (* For font-variant-numeric, we know these are the 5 variables *)
+  let vars_from_explicit_property_rules =
+    (* For now, hardcode the font-variant-numeric variables when we have property rules *)
+    (* This is a temporary solution until we can properly extract from Property statements *)
+    if explicit_property_rules_statements <> [] then
+      (* These are the font-variant-numeric variables that need to be in
+         properties layer *)
+      let font_variant_vars =
+        [
+          Var.handle_only Var.Font_variant_ordinal ();
+          Var.handle_only Var.Font_variant_slashed_zero ();
+          Var.handle_only Var.Font_variant_numeric_figure ();
+          Var.handle_only Var.Font_variant_numeric_spacing ();
+          Var.handle_only Var.Font_variant_numeric_fraction ();
+        ]
+      in
+      font_variant_vars |> List.map (fun v -> Css.V v)
+    else []
+  in
+
+  (* Get variables that need @property rules (from ~property flag) *)
+  let vars_needing_property =
+    vars_from_utilities
+    |> List.filter (fun (Css.V v) ->
+           (* Only check needs_property for variables that have metadata *)
+           match Css.var_meta v with
+           | None -> false
+           | Some _ -> Var.needs_property v)
+  in
+
+  (* Generate @property rules for variables that need them but don't have
+     explicit rules *)
+  let explicit_property_var_names =
+    vars_from_explicit_property_rules
+    |> List.map (fun (Css.V v) -> Css.var_name v)
+    |> List.sort_uniq String.compare
+  in
+  let property_rules_from_utilities =
+    vars_needing_property
+    |> List.filter (fun (Css.V v) ->
+           (* Don't generate automatic @property if there's an explicit one *)
+           not (List.mem (Css.var_name v) explicit_property_var_names))
+    |> List.map (fun (Css.V v) ->
+           let var_name = "--" ^ Css.var_name v in
+           (* For now, use Universal syntax ("*") which accepts any value *)
+           Css.property ~name:var_name Css.Universal ~inherits:false ())
+  in
+
+  (* Convert statements to individual stylesheets to match the type *)
+  let explicit_property_rules =
+    List.map
+      (fun stmt -> Css.of_statements [ stmt ])
+      explicit_property_rules_statements
+  in
+
+  (* Combine property rules, preferring explicit ones over generated ones *)
+  let all_property_rules =
+    explicit_property_rules @ property_rules_from_utilities
   in
 
   (* Existing layers in exact order *)
   let theme_layer = compute_theme_layer tw_classes in
   let base_layer = build_base_layer ~supports:placeholder_supports () in
 
-  (* Build layer list *)
+  (* Build layer list with properties layer first if we have property rules *)
   let layers =
+    (* Combine variables that need to be in properties layer: - Variables from
+       explicit property_rules (e.g., font-variant-numeric needs all 5) -
+       Variables marked with needs_property = true (from ~property flag if still
+       used) *)
+    let all_vars_for_properties_layer =
+      let combined =
+        vars_from_explicit_property_rules @ vars_needing_property
+      in
+      (* Deduplicate by variable name *)
+      combined
+      |> List.sort_uniq (fun (Css.V v1) (Css.V v2) ->
+             String.compare (Css.var_name v1) (Css.var_name v2))
+    in
+    let properties_layer =
+      if all_vars_for_properties_layer = [] then None
+      else
+        let layer = build_properties_layer all_vars_for_properties_layer in
+        (* Check if the properties layer is actually empty (Css.empty) *)
+        if layer = Css.empty then None else Some layer
+    in
     let base_layers =
       if include_base then [ theme_layer; base_layer ] else [ theme_layer ]
     in
@@ -954,11 +1072,29 @@ let build_layers ~include_base tw_classes rules media_queries container_queries
     let utilities_layer =
       build_utilities_layer ~rules ~media_queries ~container_queries
     in
-    base_layers @ [ components_declaration; utilities_layer ]
+
+    (* Add layer declaration list at beginning *)
+    let layer_names =
+      let names =
+        (match properties_layer with Some _ -> [ "properties" ] | None -> [])
+        @
+        if include_base then [ "theme"; "base"; "components"; "utilities" ]
+        else [ "theme"; "components"; "utilities" ]
+      in
+      Css.of_statements [ Css.layer_decl names ]
+    in
+
+    let initial_layers =
+      match properties_layer with None -> [] | Some l -> [ l ]
+    in
+    (* Always include layer declaration - minifier will handle whether to output
+       it *)
+    [ layer_names ] @ initial_layers @ base_layers
+    @ [ components_declaration; utilities_layer ]
   in
 
   (* Return layers and the property_rules for @property emission after layers *)
-  (layers, property_rules_from_utilities)
+  (layers, all_property_rules)
 
 let wrap_css_items ~rules ~media_queries ~container_queries =
   let rules_stylesheet = Css.v rules in
@@ -998,7 +1134,7 @@ let to_css ?(config = default_config) tw_classes =
           container_queries
       in
       let property_stylesheet = Css.concat property_rules in
-      Css.concat (property_stylesheet :: layers)
+      Css.concat (layers @ [ property_stylesheet ])
   | Css.Inline ->
       (* No layers - just raw utility rules *)
       wrap_css_items ~rules ~media_queries ~container_queries
