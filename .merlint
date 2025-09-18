@@ -5,5 +5,5 @@ rules:
      exclude: [E330]
    - files: test/**
      exclude: [E005]
-   - files: test_helpers.ml
+   - files: test/css/test_helpers.ml
      exclude: [E610]

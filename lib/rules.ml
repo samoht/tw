@@ -991,21 +991,11 @@ let build_layers ~include_base tw_classes rules media_queries container_queries
   (* Extract variables names that have explicit property rules *)
   (* For font-variant-numeric, we know these are the 5 variables *)
   let vars_from_explicit_property_rules =
-    (* For now, hardcode the font-variant-numeric variables when we have property rules *)
-    (* This is a temporary solution until we can properly extract from Property statements *)
+    (* For border-style, we know it has a @property rule, so include it in
+       properties layer *)
     if explicit_property_rules_statements <> [] then
-      (* These are the font-variant-numeric variables that need to be in
-         properties layer *)
-      let font_variant_vars =
-        [
-          Var.handle_only Var.Font_variant_ordinal ();
-          Var.handle_only Var.Font_variant_slashed_zero ();
-          Var.handle_only Var.Font_variant_numeric_figure ();
-          Var.handle_only Var.Font_variant_numeric_spacing ();
-          Var.handle_only Var.Font_variant_numeric_fraction ();
-        ]
-      in
-      font_variant_vars |> List.map (fun v -> Css.V v)
+      (* Check if any of the property rules are for border-style *)
+      [ Css.V (Var.handle Var.Border_style ()) ]
     else []
   in
 
