@@ -183,7 +183,7 @@ type _ t =
   | Backdrop_opacity : float t
   (* Shadow and ring variables *)
   | Single_shadow : Css.shadow t
-  | Shadow : Css.shadow list t
+  | Shadow : Css.box_shadow t
   | Shadow_color : Css.color t
   | Shadow_alpha : float t
   | Inset_shadow : Css.shadow t
@@ -297,17 +297,28 @@ val handle : 'a t -> ?fallback:'a -> unit -> 'a Css.var
 
 val property : ?inherits:bool -> ?initial:string -> 'a t -> Css.t
 (** [property ?inherits t] creates a typed [@property] registration as a
-    stylesheet. Examples:
+    stylesheet using Universal syntax. Examples:
     - [property My_color]
     - [property ~inherits:true Border_style]
 
     @param inherits Whether the property inherits (defaults to false). *)
 
+val property_percentage :
+  ?inherits:bool -> ?initial:Css.percentage -> float t -> Css.t
+(** [property_percentage ?inherits t] creates a [@property] registration with
+    percentage syntax for alpha/opacity values. *)
+
+val property_length :
+  ?inherits:bool -> ?initial:Css.length -> Css.length t -> Css.t
+(** [property_length ?inherits t] creates a [@property] registration with length
+    syntax for length values. *)
+
 val layer : _ Css.var -> layer option
 (** [layer var] returns the layer recorded in the variable metadata, if any. *)
 
 val needs_property : _ Css.var -> bool
-(** [needs_property var] returns true if this variable needs @property declaration. *)
+(** [needs_property var] returns true if this variable needs property
+    declaration. *)
 
 val to_string : _ t -> string
 (** [to_string v] returns the full "--var-name" representation. *)

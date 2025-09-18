@@ -36,16 +36,16 @@ let shadow_property_rules =
       (* Shadow and ring variables - ordered as in Tailwind v4 *)
       Var.property ~initial:"0 0 #0000" Var.Shadow;
       Var.property Var.Shadow_color;
-      Var.property ~initial:"100%" Var.Shadow_alpha;
+      Var.property_percentage ~initial:(Css.Pct 100.) Var.Shadow_alpha;
       Var.property ~initial:"0 0 #0000" Var.Inset_shadow;
       Var.property Var.Inset_shadow_color;
-      Var.property ~initial:"100%" Var.Inset_shadow_alpha;
+      Var.property_percentage ~initial:(Css.Pct 100.) Var.Inset_shadow_alpha;
       Var.property Var.Ring_color;
       Var.property ~initial:"0 0 #0000" Var.Ring_shadow;
       Var.property Var.Inset_ring_color;
       Var.property ~initial:"0 0 #0000" Var.Inset_ring_shadow;
       Var.property Var.Ring_inset;
-      Var.property ~initial:"0px" Var.Ring_offset_width;
+      Var.property_length ~initial:(Css.Px 0.) Var.Ring_offset_width;
       Var.property ~initial:"#fff" Var.Ring_offset_color;
       Var.property ~initial:"0 0 #0000" Var.Ring_offset_shadow;
       (* Note: Ring_width is not included here as it's set by ring utilities,
@@ -91,24 +91,22 @@ let shadow_sm =
   in
 
   (* Define --tw-shadow variable with the shadow list *)
-  let tw_shadow_def, _ = Var.utility Var.Shadow shadow_list in
+  let tw_shadow_def, tw_shadow_var = Var.utility Var.Shadow shadow_list in
 
-  (* Define other required shadow variables *)
-  let inset_shadow_def, _ = Var.utility Var.Inset_shadow Css.None in
-  let inset_ring_shadow_def, _ = Var.utility Var.Inset_ring_shadow Css.None in
-  let ring_offset_shadow_def, _ = Var.utility Var.Ring_offset_shadow Css.None in
-  let ring_shadow_def, _ = Var.utility Var.Ring_shadow Css.None in
-
-  (* Create box-shadow using the shadow list directly for now *)
-  style "shadow-sm" ~property_rules:shadow_property_rules
+  (* Create box-shadow using CSS variable composition with variable handles *)
+  (* These reference the defaults from @layer properties, no explicit setting needed *)
+  let box_shadow_vars : Css.box_shadow =
     [
-      tw_shadow_def;
-      inset_shadow_def;
-      inset_ring_shadow_def;
-      ring_offset_shadow_def;
-      ring_shadow_def;
-      Css.box_shadow_list shadow_list;
+      Css.Var (Var.handle Var.Inset_shadow ());
+      Css.Var (Var.handle Var.Inset_ring_shadow ());
+      Css.Var (Var.handle Var.Ring_offset_shadow ());
+      Css.Var (Var.handle Var.Ring_shadow ());
+      Css.Var_list tw_shadow_var;
     ]
+  in
+
+  style "shadow-sm" ~property_rules:shadow_property_rules
+    [ tw_shadow_def; Css.box_shadow_list box_shadow_vars ]
 
 let shadow =
   (* Default shadow - same as shadow-sm in Tailwind v4 *)

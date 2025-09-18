@@ -470,16 +470,46 @@ let media_diffs items1 items2 =
   in
   (added, removed, modified)
 
-let layer_diffs (layers1 : string list) (layers2 : string list) =
+(* Extract layers with their actual content from statements *)
+let extract_layers_with_content statements =
+  List.filter_map
+    (fun stmt ->
+      match Css.as_layer stmt with
+      | Some (name_opt, stmts) ->
+          let name = Option.value ~default:"" name_opt in
+          Some (name, stmts)
+      | None -> None)
+    statements
+
+let layer_diffs_with_content css1 css2 =
+  let layers1 = extract_layers_with_content (Css.statements css1) in
+  let layers2 = extract_layers_with_content (Css.statements css2) in
+
+  let find_layer name layers = List.find_opt (fun (n, _) -> n = name) layers in
+
   let added =
-    List.filter (fun name -> not (List.exists (( = ) name) layers1)) layers2
-    |> List.map (fun name -> (name, []))
+    List.filter
+      (fun (name, _) -> not (List.exists (fun (n, _) -> n = name) layers1))
+      layers2
+    |> List.map (fun (name, stmts) -> (name, stmts))
   in
+
   let removed =
-    List.filter (fun name -> not (List.exists (( = ) name) layers2)) layers1
-    |> List.map (fun name -> (name, []))
+    List.filter
+      (fun (name, _) -> not (List.exists (fun (n, _) -> n = name) layers2))
+      layers1
+    |> List.map (fun (name, stmts) -> (name, stmts))
   in
-  let modified = [] in
+
+  let modified =
+    List.filter_map
+      (fun (name1, stmts1) ->
+        match find_layer name1 layers2 with
+        | Some (_, stmts2) when stmts1 <> stmts2 -> Some (name1, stmts1, stmts2)
+        | _ -> None)
+      layers1
+  in
+
   (added, removed, modified)
 
 (* Helper function to compute property diffs between two declaration lists *)
@@ -552,22 +582,29 @@ let diff_ast ~(expected : Css.t) ~(actual : Css.t) =
         at_modified
   in
 
-  let layers1 = Css.layers expected in
-  let layers2 = Css.layers actual in
   let layer_added, layer_removed, layer_modified =
-    layer_diffs layers1 layers2
+    layer_diffs_with_content expected actual
   in
   let layer_changes =
     List.map
-      (fun (name, _) -> ({ name; change = Added; rules = [] } : layer_change))
+      (fun (name, stmts) ->
+        let rules = List.filter Css.is_rule stmts in
+        ({ name; change = Added; rules = rules_to_changes (rules, [], []) }
+          : layer_change))
       layer_added
     @ List.map
-        (fun (name, _) ->
-          ({ name; change = Removed; rules = [] } : layer_change))
+        (fun (name, stmts) ->
+          let rules = List.filter Css.is_rule stmts in
+          ({ name; change = Removed; rules = rules_to_changes ([], rules, []) }
+            : layer_change))
         layer_removed
-    @ List.map
-        (fun (name, _, _) ->
-          ({ name; change = Modified []; rules = [] } : layer_change))
+    @ List.filter_map
+        (fun (name, stmts1, stmts2) ->
+          let rules1 = List.filter Css.is_rule stmts1 in
+          let rules2 = List.filter Css.is_rule stmts2 in
+          let rc = rules_to_changes (rule_diffs rules1 rules2) in
+          if rc = [] then None
+          else Some ({ name; change = Modified []; rules = rc } : layer_change))
         layer_modified
   in
 
