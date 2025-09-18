@@ -265,8 +265,9 @@ val name : _ t -> string
 
 val theme :
   'a t -> ?fallback:'a -> ?property:bool -> 'a -> Css.declaration * 'a Css.var
-(** [theme v ?fallback ?property value] creates a theme-layer variable declaration and
-    handle. When property is true, indicates this variable needs @property registration. *)
+(** [theme v ?fallback ?property value] creates a theme-layer variable
+    declaration and handle. When property is true, indicates this variable needs
+    [@property] registration. *)
 
 val utility :
   'a t -> ?fallback:'a -> ?property:bool -> 'a -> Css.declaration * 'a Css.var
