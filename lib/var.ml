@@ -865,6 +865,22 @@ let property : type a. ?inherits:bool -> ?initial:string -> a t -> Css.t =
   let syntax = Css.Universal in
   Css.(property ~name syntax ?initial_value:initial ~inherits ())
 
+(* Create @property rule with percentage syntax for alpha values *)
+let property_percentage :
+    ?inherits:bool -> ?initial:Css.percentage -> float t -> Css.t =
+ fun ?(inherits = false) ?initial var_t ->
+  let name = to_string var_t in
+  let syntax = Css.Percentage in
+  Css.(property ~name syntax ?initial_value:initial ~inherits ())
+
+(* Create @property rule with length syntax *)
+let property_length :
+    ?inherits:bool -> ?initial:Css.length -> Css.length t -> Css.t =
+ fun ?(inherits = false) ?initial var_t ->
+  let name = to_string var_t in
+  let syntax = Css.Length in
+  Css.(property ~name syntax ?initial_value:initial ~inherits ())
+
 (** Helper for metadata errors *)
 let err_meta ~layer decl msg =
   let name =

@@ -17,33 +17,30 @@ let () =
   match args with
   | [ file1; file2 ] -> (
       match (read_file file1, read_file file2) with
-      | Some css1, Some css2 ->
+      | Some css1, Some css2 -> (
           if css1 = css2 then (
             Fmt.pr "✓ CSS files are identical@.";
             exit 0)
-          else (
-            Fmt.pr "✗ CSS files differ@.@.";
-            (* Just do simple string comparison *)
-            (match (Css.of_string css1, Css.of_string css2) with
-            | Ok _, Ok _ ->
+          else
+            (* Use css_compare for detailed structural comparison *)
+            let result =
+              Tw_tools.Css_compare.diff ~expected:css2 ~actual:css1
+            in
+            match result with
+            | Diff d
+              when Tw_tools.Css_compare.(
+                     d.rules = [] && d.media = [] && d.layers = []
+                     && d.supports = [] && d.containers = []) ->
                 Fmt.pr
-                  "Both CSS files parsed successfully but differ in content@."
-            | Error msg1, Error msg2 ->
-                let fmt_err (err : Css.parse_error) = Css.pp_parse_error err in
-                if msg1.message = msg2.message && msg1.position = msg2.position
-                then
-                  Fmt.pr "Same parse error in both CSS files: %s@."
-                    (fmt_err msg1)
-                else
-                  Fmt.pr "Parse errors in both CSS:@.First: %s@.Second: %s@."
-                    (fmt_err msg1) (fmt_err msg2)
-            | Error msg, _ ->
-                Fmt.pr "Parse error in first CSS file: %s@."
-                  (Css.pp_parse_error msg)
-            | _, Error msg ->
-                Fmt.pr "Parse error in second CSS file: %s@."
-                  (Css.pp_parse_error msg));
-            exit 1)
+                  "✓ CSS files have no structural differences \
+                   (whitespace/formatting only)@.";
+                exit 0
+            | _ ->
+                Fmt.pr "✗ CSS files differ@.@.";
+                Tw_tools.Css_compare.pp_diff_result ~expected:"File 2"
+                  ~actual:"File 1" Fmt.stdout result;
+                Fmt.pr "@.";
+                exit 1)
       | _ -> exit 1)
   | _ ->
       Fmt.epr "Usage: %s <css_file1> <css_file2>@." Sys.argv.(0);
