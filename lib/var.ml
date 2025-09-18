@@ -130,7 +130,8 @@ type _ t =
   | Backdrop_sepia : float t
   | Backdrop_opacity : float t
   (* Shadow and ring variables *)
-  | Shadow : Css.shadow t
+  | Single_shadow : Css.shadow t
+  | Shadow : Css.shadow list t
   | Shadow_color : Css.color t
   | Shadow_alpha : float t
   | Inset_shadow : Css.shadow t
@@ -304,6 +305,7 @@ let to_string : type a. a t -> string = function
   | Backdrop_saturate -> "--tw-backdrop-saturate"
   | Backdrop_sepia -> "--tw-backdrop-sepia"
   | Backdrop_opacity -> "--tw-backdrop-opacity"
+  | Single_shadow -> "--tw-single-shadow"
   | Shadow -> "--tw-shadow"
   | Shadow_color -> "--tw-shadow-color"
   | Shadow_alpha -> "--tw-shadow-alpha"
@@ -517,21 +519,22 @@ let order : type a. a t -> int = function
   | Backdrop_sepia -> 1207
   | Backdrop_opacity -> 1208
   (* Shadow and ring variables *)
-  | Shadow -> 1300
-  | Shadow_color -> 1301
-  | Shadow_alpha -> 1302
-  | Inset_shadow -> 1303
-  | Inset_shadow_color -> 1304
-  | Inset_shadow_alpha -> 1305
-  | Ring_color -> 1306
-  | Ring_shadow -> 1307
-  | Inset_ring_color -> 1308
-  | Inset_ring_shadow -> 1309
-  | Ring_inset -> 1310
-  | Ring_offset_width -> 1311
-  | Ring_offset_color -> 1312
-  | Ring_offset_shadow -> 1313
-  | Ring_width -> 1314
+  | Single_shadow -> 1300
+  | Shadow -> 1301
+  | Shadow_color -> 1302
+  | Shadow_alpha -> 1303
+  | Inset_shadow -> 1304
+  | Inset_shadow_color -> 1305
+  | Inset_shadow_alpha -> 1306
+  | Ring_color -> 1307
+  | Ring_shadow -> 1308
+  | Inset_ring_color -> 1309
+  | Inset_ring_shadow -> 1310
+  | Ring_inset -> 1311
+  | Ring_offset_width -> 1312
+  | Ring_offset_color -> 1313
+  | Ring_offset_shadow -> 1314
+  | Ring_width -> 1315
   (* Prose theming variables *)
   | Prose_body -> 1320
   | Prose_headings -> 1321
@@ -747,7 +750,8 @@ let def : type a.
   | Backdrop_sepia -> var Float value
   | Backdrop_opacity -> var Float value
   | Backdrop_hue_rotate -> var Angle value
-  | Shadow -> var Shadow value
+  | Single_shadow -> var Shadow value
+  | Shadow -> var Box_shadow value
   | Inset_shadow -> var Shadow value
   | Ring_shadow -> var Shadow value
   | Inset_ring_shadow -> var Shadow value

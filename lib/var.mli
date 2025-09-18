@@ -182,7 +182,8 @@ type _ t =
   | Backdrop_sepia : float t
   | Backdrop_opacity : float t
   (* Shadow and ring variables *)
-  | Shadow : Css.shadow t
+  | Single_shadow : Css.shadow t
+  | Shadow : Css.shadow list t
   | Shadow_color : Css.color t
   | Shadow_alpha : float t
   | Inset_shadow : Css.shadow t

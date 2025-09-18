@@ -34,20 +34,20 @@ let shadow_property_rules =
   Css.concat
     [
       (* Shadow and ring variables - ordered as in Tailwind v4 *)
-      Var.property Var.Shadow;
+      Var.property ~initial:"0 0 #0000" Var.Shadow;
       Var.property Var.Shadow_color;
-      Var.property Var.Shadow_alpha;
-      Var.property Var.Inset_shadow;
+      Var.property ~initial:"100%" Var.Shadow_alpha;
+      Var.property ~initial:"0 0 #0000" Var.Inset_shadow;
       Var.property Var.Inset_shadow_color;
-      Var.property Var.Inset_shadow_alpha;
+      Var.property ~initial:"100%" Var.Inset_shadow_alpha;
       Var.property Var.Ring_color;
-      Var.property Var.Ring_shadow;
+      Var.property ~initial:"0 0 #0000" Var.Ring_shadow;
       Var.property Var.Inset_ring_color;
-      Var.property Var.Inset_ring_shadow;
+      Var.property ~initial:"0 0 #0000" Var.Inset_ring_shadow;
       Var.property Var.Ring_inset;
-      (* Var.property ~initial:(Css.Px 0.) Var.Ring_offset_width; *)
-      Var.property Var.Ring_offset_color;
-      Var.property Var.Ring_offset_shadow;
+      Var.property ~initial:"0px" Var.Ring_offset_width;
+      Var.property ~initial:"#fff" Var.Ring_offset_color;
+      Var.property ~initial:"0 0 #0000" Var.Ring_offset_shadow;
       (* Note: Ring_width is not included here as it's set by ring utilities,
          not shadow utilities *)
     ]
@@ -55,7 +55,7 @@ let shadow_property_rules =
 (* Helper function to create shadow utilities *)
 let shadow_utility name shadow_value =
   (* Define shadow variables using Var system *)
-  let shadow_def, _ = Var.utility Var.Shadow shadow_value in
+  let shadow_def, _ = Var.utility Var.Shadow [ shadow_value ] in
   let inset_shadow_def, _ = Var.utility Var.Inset_shadow Css.None in
   let inset_ring_shadow_def, _ = Var.utility Var.Inset_ring_shadow Css.None in
   let ring_offset_shadow_def, _ = Var.utility Var.Ring_offset_shadow Css.None in
@@ -77,17 +77,51 @@ let shadow_utility name shadow_value =
 let shadow_none = shadow_utility "shadow-none" Css.None
 
 let shadow_sm =
-  (* Simple shadow for now - proper multi-shadow support needs more work *)
-  let shadow_value =
-    Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 1.) ~blur:(Px 3.) ()
+  (* Shadow-sm with composite shadows matching Tailwind v4 *)
+  let shadow_color_var =
+    Var.handle Var.Shadow_color ~fallback:(Css.rgba 0 0 0 0.1) ()
   in
-  shadow_utility "shadow-sm" shadow_value
+  let shadow_list =
+    [
+      Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 1.) ~blur:(Px 3.)
+        ~spread:(Px 0.) ~color:(Var shadow_color_var) ();
+      Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 1.) ~blur:(Px 2.)
+        ~spread:(Px (-1.)) ~color:(Var shadow_color_var) ();
+    ]
+  in
+
+  (* Define --tw-shadow variable with the shadow list *)
+  let tw_shadow_def, _ = Var.utility Var.Shadow shadow_list in
+
+  (* Define other required shadow variables *)
+  let inset_shadow_def, _ = Var.utility Var.Inset_shadow Css.None in
+  let inset_ring_shadow_def, _ = Var.utility Var.Inset_ring_shadow Css.None in
+  let ring_offset_shadow_def, _ = Var.utility Var.Ring_offset_shadow Css.None in
+  let ring_shadow_def, _ = Var.utility Var.Ring_shadow Css.None in
+
+  (* Create box-shadow using the shadow list directly for now *)
+  style "shadow-sm" ~property_rules:shadow_property_rules
+    [
+      tw_shadow_def;
+      inset_shadow_def;
+      inset_ring_shadow_def;
+      ring_offset_shadow_def;
+      ring_shadow_def;
+      Css.box_shadow_list shadow_list;
+    ]
 
 let shadow =
+  (* Default shadow - same as shadow-sm in Tailwind v4 *)
   let shadow_value =
-    Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 1.) ~blur:(Px 3.) ()
+    Css.box_shadow_list
+      [
+        Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 1.) ~blur:(Px 3.)
+          ~spread:(Px 0.) ~color:(Css.rgba 0 0 0 0.1) ();
+        Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 1.) ~blur:(Px 2.)
+          ~spread:(Px (-1.)) ~color:(Css.rgba 0 0 0 0.1) ();
+      ]
   in
-  shadow_utility "shadow" shadow_value
+  style "shadow" ~property_rules:shadow_property_rules [ shadow_value ]
 
 let shadow_md =
   let shadow_value =
@@ -128,7 +162,7 @@ let shadow_inner =
   let inset_ring_shadow_def, _ = Var.utility Var.Inset_ring_shadow Css.None in
   let ring_offset_shadow_def, _ = Var.utility Var.Ring_offset_shadow Css.None in
   let ring_shadow_def, _ = Var.utility Var.Ring_shadow Css.None in
-  let shadow_def, _ = Var.utility Var.Shadow Css.None in
+  let shadow_def, _ = Var.utility Var.Shadow [] in
 
   (* Create the box-shadow declaration with the shadow value *)
   let box_shadow_decl = Css.box_shadow inset_shadow_value in
