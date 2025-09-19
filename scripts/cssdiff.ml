@@ -31,16 +31,24 @@ let () =
                 Fmt.pr "✓ CSS files are identical@.";
                 exit 0
             | String_diff _ ->
-                Fmt.pr "✓ CSS files have no structural differences@.@.";
-                Tw_tools.Css_compare.pp_diff_result ~expected:"File 2"
-                  ~actual:"File 1" Fmt.stdout result;
-                Fmt.pr "@.";
-                exit 0
+                Fmt.pr "%a@,@,"
+                  (Tw_tools.Css_compare.pp_stats ~expected_str:css2
+                     ~actual_str:css1)
+                  result;
+                Fmt.pr "%a@,"
+                  (Tw_tools.Css_compare.pp_diff_result ~expected:"File 2"
+                     ~actual:"File 1")
+                  result;
+                exit 1
             | Diff _ | Both_errors _ | Expected_error _ | Actual_error _ ->
-                Fmt.pr "✗ CSS files differ@.@.";
-                Tw_tools.Css_compare.pp_diff_result ~expected:"File 2"
-                  ~actual:"File 1" Fmt.stdout result;
-                Fmt.pr "@.";
+                Fmt.pr "%a@,@,"
+                  (Tw_tools.Css_compare.pp_stats ~expected_str:css2
+                     ~actual_str:css1)
+                  result;
+                Fmt.pr "%a@,"
+                  (Tw_tools.Css_compare.pp_diff_result ~expected:"File 2"
+                     ~actual:"File 1")
+                  result;
                 exit 1)
       | _ -> exit 1)
   | _ ->
