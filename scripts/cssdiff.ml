@@ -29,9 +29,9 @@ let () =
             match result with
             | Diff d
               when Tw_tools.Css_compare.(
-                     d.rules = [] && d.media = [] && d.layers = []
-                     && d.supports = [] && d.containers = []
-                     && d.properties = []) ->
+                     d.rules = [] && d.media_queries = [] && d.layers = []
+                     && d.supports_queries = [] && d.container_queries = []
+                     && d.custom_properties = []) ->
                 (* Check for string differences and show context *)
                 if css1 <> css2 then (
                   match
