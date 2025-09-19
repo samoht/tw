@@ -17,6 +17,8 @@ type custom_property_definition = {
 
 type rule = {
   selector : string;
+  context : string list;
+      (* e.g. ["@media (min-width: 768px)"; "@layer utilities"] *)
   change : (Css.declaration list * declaration list) diff;
 }
 
@@ -44,45 +46,6 @@ type t = {
   custom_properties : custom_property list;
 }
 
-(* Helper to truncate long values and show context *)
-let truncate_with_context ~max_len expected actual =
-  let exp_len = String.length expected in
-  let act_len = String.length actual in
-  if exp_len <= max_len && act_len <= max_len then (expected, actual)
-  else
-    (* Find the first difference to show context around it *)
-    let rec find_diff i =
-      if i >= exp_len || i >= act_len then min exp_len act_len
-      else if expected.[i] <> actual.[i] then i
-      else find_diff (i + 1)
-    in
-    let diff_pos = find_diff 0 in
-    let context_size = (max_len - 10) / 2 in
-    (* Reserve space for "..." *)
-    let start_pos = max 0 (diff_pos - context_size) in
-    let end_pos_exp = min exp_len (start_pos + max_len - 6) in
-    let end_pos_act = min act_len (start_pos + max_len - 6) in
-
-    let truncate_string s start_pos end_pos original_len =
-      let prefix = if start_pos > 0 then "..." else "" in
-      let suffix = if end_pos < original_len then "..." else "" in
-      let content = String.sub s start_pos (end_pos - start_pos) in
-      prefix ^ content ^ suffix
-    in
-
-    let exp_truncated =
-      truncate_string expected start_pos end_pos_exp exp_len
-    in
-    let act_truncated = truncate_string actual start_pos end_pos_act act_len in
-    (exp_truncated, act_truncated)
-
-let pp_declaration fmt
-    ({ property_name; expected_value; actual_value } : declaration) =
-  let exp_short, act_short =
-    truncate_with_context ~max_len:80 expected_value actual_value
-  in
-  Fmt.pf fmt "%s:@,  - %s@,  + %s" property_name exp_short act_short
-
 let pp_diff ?(expected = "Expected") ?(actual = "Actual") pp_value fmt =
   function
   | Added value -> Fmt.pf fmt "Only in %s: %a" actual pp_value value
@@ -91,29 +54,73 @@ let pp_diff ?(expected = "Expected") ?(actual = "Actual") pp_value fmt =
       Fmt.pf fmt "Changed:@,  %s: %a@,  %s: %a" expected pp_value old_val actual
         pp_value new_val
 
-let pp_rule ?(_expected = "Expected") ?(_actual = "Actual") fmt
-    { selector; change } =
-  let pp_rule_data fmt (declarations, decl_diffs) =
-    (* Only show property diffs for conciseness, skip the full declaration
-       lists *)
-    if decl_diffs <> [] then
-      Fmt.pf fmt "%a" (Fmt.list ~sep:(Fmt.any "@,") pp_declaration) decl_diffs
-    else if declarations <> [] then
-      (* If no diffs but has declarations, show count *)
-      Fmt.pf fmt "%d properties" (List.length declarations)
+(* Truncate long CSS values with context for readability *)
+let truncate_with_context max_len value =
+  let len = String.length value in
+  if len <= max_len then value
+  else
+    let half_len = (max_len - 3) / 2 in
+    (* Account for "..." *)
+    let start_part = String.sub value 0 half_len in
+    let end_part = String.sub value (len - half_len) half_len in
+    start_part ^ "..." ^ end_part
+
+let pp_rule fmt { selector; context; change } =
+  let context_str =
+    match context with [] -> "" | ctx -> String.concat " > " ctx ^ " > "
   in
+  Fmt.pf fmt "- %s%s:@," context_str selector;
+
   match change with
-  | Added rule_data -> Fmt.pf fmt "+ %s: %a" selector pp_rule_data rule_data
-  | Removed rule_data -> Fmt.pf fmt "- %s: %a" selector pp_rule_data rule_data
-  | Changed (old_data, new_data) ->
-      Fmt.pf fmt "%s:" selector;
-      let _, old_diffs = old_data in
-      let _, new_diffs = new_data in
-      if old_diffs = [] && new_diffs <> [] then
-        Fmt.pf fmt "@,  %a" pp_rule_data new_data
-      else if old_diffs <> [] && new_diffs = [] then
-        Fmt.pf fmt "@,  %a" pp_rule_data old_data
-      else Fmt.pf fmt "@,  %a" pp_rule_data new_data
+  | Added (decls, _) ->
+      List.iter
+        (fun decl ->
+          let prop_name = Css.declaration_name decl in
+          let prop_value = Css.declaration_value ~minify:true decl in
+          let truncated_value = truncate_with_context 60 prop_value in
+          Fmt.pf fmt "    - add: %s %s@," prop_name truncated_value)
+        decls
+  | Removed (decls, _) ->
+      List.iter
+        (fun decl ->
+          let prop_name = Css.declaration_name decl in
+          let prop_value = Css.declaration_value ~minify:true decl in
+          let truncated_value = truncate_with_context 60 prop_value in
+          Fmt.pf fmt "    - remove: %s %s@," prop_name truncated_value)
+        decls
+  | Changed ((decls1, _), (decls2, prop_diffs)) ->
+      (* Show property changes using the new format *)
+      List.iter
+        (fun { property_name; expected_value; actual_value } ->
+          let max_value_len = 50 in
+          (* Use longer truncation for value comparisons *)
+          let display_expected =
+            if String.length expected_value > max_value_len then
+              truncate_with_context max_value_len expected_value
+            else expected_value
+          in
+          let display_actual =
+            if String.length actual_value > max_value_len then
+              truncate_with_context max_value_len actual_value
+            else actual_value
+          in
+          Fmt.pf fmt "    - modify: %s %s -> %s@," property_name
+            display_expected display_actual)
+        prop_diffs;
+
+      (* Check for declaration order changes *)
+      let prop_names1 = List.map (fun d -> Css.declaration_name d) decls1 in
+      let prop_names2 = List.map (fun d -> Css.declaration_name d) decls2 in
+      let common_props1 =
+        List.filter (fun p -> List.mem p prop_names2) prop_names1
+      in
+      let common_props2 =
+        List.filter (fun p -> List.mem p prop_names1) prop_names2
+      in
+      if common_props1 <> [] && common_props1 <> common_props2 then
+        let old_str = String.concat ", " common_props1 in
+        let new_str = String.concat ", " common_props2 in
+        Fmt.pf fmt "    - reorder: [%s] -> [%s]@," old_str new_str
 
 let _pp_media_query ?(expected = "Expected") ?(actual = "Actual") fmt
     ({ condition; change } : media_query) =
@@ -123,16 +130,6 @@ let _pp_media_query ?(expected = "Expected") ?(actual = "Actual") fmt
   Fmt.pf fmt "@[<v 2>@media %s: %a@]" condition
     (pp_diff ~expected ~actual pp_rules)
     change
-
-let pp_layer ?(_expected = "Expected") ?(_actual = "Actual") fmt
-    ({ name; change } : layer) =
-  match change with
-  | Added rules -> Fmt.pf fmt "+ @layer %s: %d rules" name (List.length rules)
-  | Removed rules -> Fmt.pf fmt "- @layer %s: %d rules" name (List.length rules)
-  | Changed (_old_rules, new_rules) ->
-      Fmt.pf fmt "@layer %s:@,%a" name
-        (Fmt.list ~sep:(Fmt.any "@,") pp_rule)
-        new_rules
 
 let _pp_supports_query ?(expected = "Expected") ?(actual = "Actual") fmt
     ({ condition; change } : supports_query) =
@@ -174,24 +171,93 @@ let pp ?(expected = "Expected") ?(actual = "Actual") fmt
       container_queries;
       custom_properties;
     } =
-  let[@warning "-27"] _unused = (expected, actual) in
   if
     rules = [] && media_queries = [] && layers = [] && supports_queries = []
     && container_queries = [] && custom_properties = []
-  then () (* Output nothing for empty diff *)
+  then Fmt.pf fmt "No differences found"
   else (
-    if rules <> [] then
-      Fmt.pf fmt "%a@," (Fmt.list ~sep:(Fmt.any "@,") pp_rule) rules;
-    if media_queries <> [] then
-      Fmt.pf fmt "@media changes: %d@," (List.length media_queries);
-    if layers <> [] then
-      Fmt.pf fmt "%a@," (Fmt.list ~sep:(Fmt.any "@,") pp_layer) layers;
-    if supports_queries <> [] then
-      Fmt.pf fmt "@supports changes: %d@," (List.length supports_queries);
-    if container_queries <> [] then
-      Fmt.pf fmt "@container changes: %d@," (List.length container_queries);
-    if custom_properties <> [] then
-      Fmt.pf fmt "@property changes: %d@," (List.length custom_properties))
+    (* Git-style diff header *)
+    Fmt.pf fmt "--- %s@," expected;
+    Fmt.pf fmt "+++ %s@," actual;
+    (* All rules (including nested ones) are now flattened with context *)
+    List.iter (pp_rule fmt) rules;
+
+    (* Process nested rules from media queries *)
+    List.iter
+      (fun (mq : media_query) ->
+        let media_rules : rule list =
+          match mq.change with
+          | Added rules | Removed rules -> rules
+          | Changed (_, rules) -> rules
+        in
+        List.iter (pp_rule fmt) media_rules)
+      media_queries;
+
+    (* Process nested rules from layers *)
+    List.iter
+      (fun (layer : layer) ->
+        let layer_rules : rule list =
+          match layer.change with
+          | Added rules | Removed rules -> rules
+          | Changed (_, rules) -> rules
+        in
+        List.iter (pp_rule fmt) layer_rules)
+      layers;
+
+    (* Process nested rules from support queries *)
+    List.iter
+      (fun (sq : supports_query) ->
+        let supports_rules : rule list =
+          match sq.change with
+          | Added rules | Removed rules -> rules
+          | Changed (_, rules) -> rules
+        in
+        List.iter (pp_rule fmt) supports_rules)
+      supports_queries;
+
+    (* Process nested rules from container queries *)
+    List.iter
+      (fun (cq : container_query) ->
+        let container_rules : rule list =
+          match cq.change with
+          | Added rules | Removed rules -> rules
+          | Changed (_, rules) -> rules
+        in
+        List.iter (pp_rule fmt) container_rules)
+      container_queries;
+
+    (* Process custom properties (@property rules) *)
+    List.iter
+      (fun (cp : custom_property) ->
+        match cp.change with
+        | Added def ->
+            Fmt.pf fmt "- @property %s:@," cp.name;
+            Fmt.pf fmt "    - add: syntax=%s inherits=%b initial=%s@,"
+              def.syntax def.inherits
+              (Option.value ~default:"(none)" def.initial_value)
+        | Removed def ->
+            Fmt.pf fmt "- @property %s:@," cp.name;
+            Fmt.pf fmt "    - remove: syntax=%s inherits=%b initial=%s@,"
+              def.syntax def.inherits
+              (Option.value ~default:"(none)" def.initial_value)
+        | Changed (old_def, new_def) ->
+            Fmt.pf fmt "- @property %s:@," cp.name;
+            if old_def.syntax <> new_def.syntax then
+              Fmt.pf fmt "    - modify: syntax %s -> %s@," old_def.syntax
+                new_def.syntax;
+            if old_def.inherits <> new_def.inherits then
+              Fmt.pf fmt "    - modify: inherits %b -> %b@," old_def.inherits
+                new_def.inherits;
+            if old_def.initial_value <> new_def.initial_value then
+              let old_init =
+                Option.value ~default:"(none)" old_def.initial_value
+              in
+              let new_init =
+                Option.value ~default:"(none)" new_def.initial_value
+              in
+              Fmt.pf fmt "    - modify: initial-value %s -> %s@," old_init
+                new_init)
+      custom_properties)
 
 let equal_declaration_diff (p1 : declaration) (p2 : declaration) =
   p1.property_name = p2.property_name
@@ -674,19 +740,19 @@ let at_property_diffs props1 props2 =
   (added, removed, modified)
 
 (* Helper to convert rule diffs to rule_change list *)
-let rules_to_changes (added, removed, modified) : rule list =
+let rules_to_changes ?(context = []) (added, removed, modified) : rule list =
   let added_changes =
     List.map
       (fun stmt ->
         let sel, props = convert_rule_to_strings stmt in
-        { selector = sel; change = Added (props, []) })
+        { selector = sel; context; change = Added (props, []) })
       added
   in
   let removed_changes =
     List.map
       (fun stmt ->
         let sel, props = convert_rule_to_strings stmt in
-        { selector = sel; change = Removed (props, []) })
+        { selector = sel; context; change = Removed (props, []) })
       removed
   in
   let modified_changes =
@@ -696,6 +762,7 @@ let rules_to_changes (added, removed, modified) : rule list =
         let prop_diffs = property_diffs decls1 decls2 in
         {
           selector = sel_str;
+          context;
           change = Changed ((decls1, []), (decls2, prop_diffs));
         })
       modified
@@ -711,28 +778,32 @@ let diff_ast ~(expected : Css.t) ~(actual : Css.t) =
   let media2 = Css.media_queries actual in
   let at_added, at_removed, at_modified = media_diffs media1 media2 in
   let media_querys =
-    let rule_changes_of rules1 rules2 =
-      rules_to_changes (rule_diffs rules1 rules2)
+    let rule_changes_of ?(context = []) rules1 rules2 =
+      rules_to_changes ~context (rule_diffs rules1 rules2)
     in
     List.map
       (fun (cond, rules) ->
-        let rc = rule_changes_of [] rules in
+        let media_context = [ "@media " ^ cond ] in
+        let rc = rule_changes_of ~context:media_context [] rules in
         ({ condition = cond; change = Added rc } : media_query))
       at_added
     @ List.map
         (fun (cond, rules) ->
-          let rc = rule_changes_of rules [] in
+          let media_context = [ "@media " ^ cond ] in
+          let rc = rule_changes_of ~context:media_context rules [] in
           ({ condition = cond; change = Removed rc } : media_query))
         at_removed
     @ List.filter_map
         (fun (cond, rules1, rules2) ->
-          let rc = rule_changes_of rules1 rules2 in
+          let media_context = [ "@media " ^ cond ] in
+          let rc = rule_changes_of ~context:media_context rules1 rules2 in
           if rc = [] then None
           else
             Some
               ({
                  condition = cond;
-                 change = Changed (rule_changes_of rules1 [], rc);
+                 change =
+                   Changed (rule_changes_of ~context:media_context rules1 [], rc);
                }
                 : media_query))
         at_modified
@@ -744,27 +815,35 @@ let diff_ast ~(expected : Css.t) ~(actual : Css.t) =
   let layer_diffs =
     List.map
       (fun (name, stmts) ->
+        let layer_context = [ "@layer " ^ name ] in
         let rules = List.filter Css.is_rule stmts in
-        let rc = rules_to_changes (rules, [], []) in
+        let rc = rules_to_changes ~context:layer_context (rules, [], []) in
         ({ name; change = Added rc } : layer))
       layer_added
     @ List.map
         (fun (name, stmts) ->
+          let layer_context = [ "@layer " ^ name ] in
           let rules = List.filter Css.is_rule stmts in
-          let rc = rules_to_changes ([], rules, []) in
+          let rc = rules_to_changes ~context:layer_context ([], rules, []) in
           ({ name; change = Removed rc } : layer))
         layer_removed
     @ List.filter_map
         (fun (name, stmts1, stmts2) ->
+          let layer_context = [ "@layer " ^ name ] in
           let rules1 = List.filter Css.is_rule stmts1 in
           let rules2 = List.filter Css.is_rule stmts2 in
-          let rc = rules_to_changes (rule_diffs rules1 rules2) in
+          let rc =
+            rules_to_changes ~context:layer_context (rule_diffs rules1 rules2)
+          in
           if rc = [] then None
           else
             Some
               ({
                  name;
-                 change = Changed (rules_to_changes ([], rules1, []), rc);
+                 change =
+                   Changed
+                     ( rules_to_changes ~context:layer_context ([], rules1, []),
+                       rc );
                }
                 : layer))
         layer_modified
@@ -948,6 +1027,11 @@ type diff_result =
   | Expected_error of Css.parse_error
   | Actual_error of Css.parse_error
 
+let is_empty d =
+  d.rules = [] && d.media_queries = [] && d.layers = []
+  && d.supports_queries = [] && d.container_queries = []
+  && d.custom_properties = []
+
 let diff ~expected ~actual =
   let expected = strip_header expected in
   let actual = strip_header actual in
@@ -1024,30 +1108,44 @@ let show_string_diff_context ~expected ~actual =
 (* Format the result of diff_strings with optional labels *)
 let pp_diff_result ?(expected = "Expected") ?(actual = "Actual")
     ?(expected_str = "") ?(actual_str = "") fmt = function
-  | Diff d
-    when d.rules = [] && d.media_queries = [] && d.layers = []
-         && d.supports_queries = [] && d.container_queries = []
-         && d.custom_properties = [] ->
-      (* No structural differences - could be whitespace only *)
-      (* Check if we have the original strings to show a context diff *)
-      if expected_str <> "" && actual_str <> "" && expected_str <> actual_str
+  | Diff d ->
+      if not (is_empty d) then
+        (* Show structural differences *)
+        pp ~expected ~actual fmt d
+      else if
+        expected_str <> "" && actual_str <> "" && expected_str <> actual_str
       then
+        (* No structural differences but strings differ - show string diff *)
         match
           show_string_diff_context ~expected:expected_str ~actual:actual_str
         with
-        | Some (exp_ctx, act_ctx, (_diff_line, char_pos), pos) ->
-            Fmt.pf fmt "CSS has no structural differences\n\n";
-            Fmt.pf fmt "String difference at position %d:\n" pos;
-            (* Format each line with prefix *)
+        | Some (exp_ctx, act_ctx, (_diff_line, _char_pos), pos) ->
+            Fmt.pf fmt
+              "@[<v>CSS has no structural differences but strings differ:@,@,";
+            Fmt.pf fmt "@@ position %d @@@," pos;
+            (* For minified CSS (single line), show context directly *)
             let exp_lines = String.split_on_char '\n' exp_ctx in
             let act_lines = String.split_on_char '\n' act_ctx in
-            List.iter (fun line -> Fmt.pf fmt "- %s\n" line) exp_lines;
-            List.iter (fun line -> Fmt.pf fmt "+ %s\n" line) act_lines;
-            (* Create caret line for the diff position *)
-            Fmt.pf fmt "  %s^" (String.make char_pos ' ')
-        | None -> Fmt.pf fmt "CSS has no structural differences"
-      else Fmt.pf fmt "CSS has no structural differences"
-  | Diff d -> pp ~expected ~actual fmt d
+            if List.length exp_lines = 1 && List.length act_lines = 1 then (
+              (* Single line - show the diff context on one line each *)
+              Fmt.pf fmt "-%s@," exp_ctx;
+              Fmt.pf fmt "+%s@]" act_ctx)
+            else (
+              (* Multi-line - show line by line *)
+              List.iter (fun line -> Fmt.pf fmt "-%s@," line) exp_lines;
+              List.iter (fun line -> Fmt.pf fmt "+%s@," line) act_lines;
+              Fmt.pf fmt "@]")
+        | None ->
+            (* Strings differ but we can't find where *)
+            Fmt.pf fmt
+              "CSS has no structural differences but strings differ (could not \
+               locate diff position)"
+      else if expected_str = "" || actual_str = "" then
+        (* No strings provided, can't show string diff *)
+        Fmt.pf fmt "CSS has no structural differences"
+      else
+        (* Strings are identical, truly no differences *)
+        ()
   | Both_errors (e1, e2) ->
       let err1 = Css.pp_parse_error e1 in
       let err2 = Css.pp_parse_error e2 in
@@ -1059,3 +1157,21 @@ let pp_diff_result ?(expected = "Expected") ?(actual = "Actual")
       Fmt.pf fmt "%s CSS parse error: %s" expected (Css.pp_parse_error e)
   | Actual_error e ->
       Fmt.pf fmt "%s CSS parse error: %s" actual (Css.pp_parse_error e)
+
+let pp_stats ~expected_str ~actual_str fmt = function
+  | Diff d ->
+      Fmt.pf fmt "@[<v>CSS strings differ: %d chars vs %d chars@,"
+        (String.length actual_str)
+        (String.length expected_str);
+      Fmt.pf fmt
+        "Diff found: %d rules, %d media, %d layers, %d supports, %d \
+         containers, %d @property@]"
+        (List.length d.rules)
+        (List.length d.media_queries)
+        (List.length d.layers)
+        (List.length d.supports_queries)
+        (List.length d.container_queries)
+        (List.length d.custom_properties)
+  | Both_errors _ -> Fmt.pf fmt "Both CSS files have parse errors"
+  | Expected_error _ -> Fmt.pf fmt "Expected CSS has parse error"
+  | Actual_error _ -> Fmt.pf fmt "Actual CSS has parse error"

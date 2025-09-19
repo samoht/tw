@@ -17,6 +17,7 @@ type custom_property_definition = {
 
 type rule = {
   selector : string;
+  context : string list;
   change : (Css.declaration list * declaration list) diff;
 }
 
@@ -52,6 +53,9 @@ val pp : ?expected:string -> ?actual:string -> t Fmt.t
 
 val equal : t -> t -> bool
 (** [equal a b] is [true] if [a] and [b] have no differences. *)
+
+val is_empty : t -> bool
+(** [is_empty d] returns [true] if [d] contains no differences. *)
 
 val diff_ast : expected:Css.t -> actual:Css.t -> t
 (** [diff_ast ~expected ~actual] returns a structured diff between two CSS ASTs.
@@ -121,3 +125,8 @@ val pp_diff_result :
       Original expected string for showing context when no structural diffs
     @param actual_str
       Original actual string for showing context when no structural diffs *)
+
+val pp_stats : expected_str:string -> actual_str:string -> diff_result Fmt.t
+(** [pp_stats ~expected_str ~actual_str] formats statistics about the
+    differences found. Shows character counts and number of differences in each
+    category. *)

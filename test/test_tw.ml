@@ -62,7 +62,7 @@ let report_failure test_name tw_file tailwind_file =
   Fmt.epr "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━@,";
   Fmt.epr "@,Debug files written to:@,";
   Fmt.epr "  diff -u %s %s@," tw_file tailwind_file;
-  Fmt.epr "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━@,"
+  Fmt.epr "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━@,@,"
 
 (* Simple CSS testable that just shows diff on failure *)
 let css_testable =
@@ -99,9 +99,18 @@ let check_exact_match tw_styles =
       let diff_result =
         Tw_tools.Css_compare.diff ~expected:tailwind_css ~actual:tw_css
       in
+
+      (* Show diff statistics *)
+      Fmt.epr "%a@,@,"
+        (Tw_tools.Css_compare.pp_stats ~expected_str:tailwind_css
+           ~actual_str:tw_css)
+        diff_result;
+
+      (* Show the actual diff *)
       Fmt.epr "%a@,"
-        (Tw_tools.Css_compare.pp_diff_result ~expected:"Tailwind" ~actual:"TW"
-           ~expected_str:tailwind_css ~actual_str:tw_css)
+        (Tw_tools.Css_compare.pp_diff_result ~expected:"Tailwind (expected)"
+           ~actual:"Our TW (actual)" ~expected_str:tailwind_css
+           ~actual_str:tw_css)
         diff_result);
 
     let test_label =
