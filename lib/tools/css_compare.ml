@@ -1224,7 +1224,7 @@ let pp_string_diff fmt (sdiff : string_diff) =
   if
     String.length diff_exp > max_line_width
     || String.length diff_act > max_line_width
-  then
+  then (
     (* Use truncation logic for long lines *)
     match pp_single_line_diff ~max_width:max_line_width diff_exp diff_act with
     | Some (exp_display, act_display, adjusted_pos) ->
@@ -1237,17 +1237,17 @@ let pp_string_diff fmt (sdiff : string_diff) =
         Fmt.pf fmt "-%s@," diff_exp;
         Fmt.pf fmt "+%s@," diff_act;
         if sdiff.line_expected = sdiff.line_actual then
-          pp_caret ~indent:1 fmt sdiff.column_expected
-        else
-          (* Short lines, show them completely *)
-          Fmt.pf fmt "-%s@," diff_exp;
-        Fmt.pf fmt "+%s@," diff_act;
-        if sdiff.line_expected = sdiff.line_actual then
-          pp_caret ~indent:1 fmt sdiff.column_expected;
+          pp_caret ~indent:1 fmt sdiff.column_expected)
+  else (
+    (* Short lines, show them completely *)
+    Fmt.pf fmt "-%s@," diff_exp;
+    Fmt.pf fmt "+%s@," diff_act;
+    if sdiff.line_expected = sdiff.line_actual then
+      pp_caret ~indent:1 fmt sdiff.column_expected);
 
-        (* Print context after *)
-        List.iter (pp_line_pair fmt) sdiff.context_after;
-        Fmt.pf fmt "@]"
+  (* Print context after *)
+  List.iter (pp_line_pair fmt) sdiff.context_after;
+  Fmt.pf fmt "@]"
 
 (* Format the result of diff with optional labels *)
 let pp_diff_result ?(expected = "Expected") ?(actual = "Actual") fmt = function
