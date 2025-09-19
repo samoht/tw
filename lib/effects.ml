@@ -56,7 +56,7 @@ let shadow_property_rules =
         (Some
            (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ()));
       Var.property Var.Ring_inset None;
-      Var.property Var.Ring_offset_width ~syntax:Length (Some Zero);
+      Var.property Var.Ring_offset_width ~syntax:Length (Some (Px 0.0));
       Var.property Var.Ring_offset_color (Some (Css.hex "#fff"));
       Var.property Var.Ring_offset_shadow
         (Some

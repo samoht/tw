@@ -15,17 +15,6 @@ open Core
 (* Types *)
 (* ======================================================================== *)
 
-(* Helper function for order-preserving deduplication *)
-let dedup_preserving_order compare_fn items =
-  let rec dedup seen acc = function
-    | [] -> List.rev acc
-    | item :: rest ->
-        let key = compare_fn item in
-        if List.mem key seen then dedup seen acc rest
-        else dedup (key :: seen) (item :: acc) rest
-  in
-  dedup [] [] items
-
 type output =
   | Regular of {
       selector : Css.Selector.t;
@@ -931,14 +920,30 @@ let build_base_layer ?supports () =
   Css.layer_of ~name:"base" base
 
 (* Build the properties layer with browser detection for initial values *)
-let build_properties_layer vars_needing_property =
-  (* Extract the variable names that need @property declarations *)
-  let var_names =
-    vars_needing_property
-    |> List.map (fun (Css.V v) -> "--" ^ Css.var_name v)
-    |> dedup_preserving_order (fun name -> name)
+let build_properties_layer explicit_property_rules_statements =
+  (* Extract variable initial values from @property declarations *)
+  let extract_initial_values_from_properties statements =
+    List.fold_left
+      (fun acc stmt ->
+        match Css.as_property stmt with
+        | Some (name, _syntax, _inherits, initial_value_opt) ->
+            let initial_val =
+              match initial_value_opt with
+              | Some val_str -> val_str
+              | None -> "initial"
+            in
+            (name, initial_val) :: acc
+        | None -> acc)
+      [] statements
   in
-  if var_names = [] then Css.empty
+
+  let variable_initial_values =
+    extract_initial_values_from_properties explicit_property_rules_statements
+    |> List.rev
+    (* Reverse to maintain original order since fold_left reverses *)
+  in
+
+  if variable_initial_values = [] then Css.empty
   else
     (* Build the properties layer with browser detection *)
     let browser_detection_condition =
@@ -947,9 +952,12 @@ let build_properties_layer vars_needing_property =
     in
     (* Create the selector for universal + pseudo-elements *)
     let selector = Css.Selector.(list [ universal; Before; After; Backdrop ]) in
-    (* Create initial declarations for each property *)
+    (* Create initial declarations for each property with their actual initial
+       values *)
     let initial_declarations =
-      List.map (fun name -> Css.custom_property name "initial") var_names
+      List.map
+        (fun (name, initial_value) -> Css.custom_property name initial_value)
+        variable_initial_values
     in
     let rule = Css.rule ~selector initial_declarations in
     let supports_content = [ rule ] in
@@ -1045,21 +1053,12 @@ let build_layers ~include_base tw_classes rules media_queries container_queries
 
   (* Build layer list with properties layer first if we have property rules *)
   let layers =
-    (* Combine variables that need to be in properties layer: - Variables from
-       explicit property_rules (e.g., font-variant-numeric needs all 5) -
-       Variables marked with needs_property = true (from ~property flag if still
-       used) *)
-    let all_vars_for_properties_layer =
-      let combined =
-        vars_from_explicit_property_rules @ vars_needing_property
-      in
-      (* Deduplicate by variable name while preserving order *)
-      dedup_preserving_order (fun (Css.V v) -> Css.var_name v) combined
-    in
+    (* Properties layer is now built directly from explicit property rules which
+       contain the actual initial values *)
     let properties_layer =
-      if all_vars_for_properties_layer = [] then None
+      if explicit_property_rules_statements = [] then None
       else
-        let layer = build_properties_layer all_vars_for_properties_layer in
+        let layer = build_properties_layer explicit_property_rules_statements in
         (* Check if the properties layer is actually empty (Css.empty) *)
         if layer = Css.empty then None else Some layer
     in

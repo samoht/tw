@@ -76,9 +76,51 @@ let check_escape_class_name () =
   check string "escapes dot" "text-1\\.5" (escape_class_name "text-1.5")
 
 let check_properties_layer () =
-  (* Properties layer is no longer computed centrally - property rules are now
-     handled by individual utility modules *)
-  check bool "properties layer removed as expected" true true
+  (* Test that shadow utilities generate proper @layer properties with initial
+     values *)
+  let config =
+    { Tw.Rules.base = false; mode = Css.Variables; optimize = false }
+  in
+  let actual_css = Tw.Rules.to_css ~config [ Tw.Effects.shadow_sm ] in
+
+  (* Extract the actual properties layer from generated CSS *)
+  let statements = Css.statements actual_css in
+  let properties_layer =
+    List.find_opt
+      (fun stmt ->
+        match Css.as_layer stmt with
+        | Some (Some "properties", _) -> true
+        | _ -> false)
+      statements
+  in
+
+  (* Verify properties layer exists *)
+  match properties_layer with
+  | None -> fail "Expected @layer properties to be generated"
+  | Some layer_stmt ->
+      let actual_layer_css = Css.of_statements [ layer_stmt ] in
+      let actual_str = Css.to_string ~minify:true actual_layer_css in
+
+      (* Main verification: shadow variables should have actual initial values,
+         not "initial" *)
+      check bool "has --tw-shadow with actual shadow value" true
+        (contains actual_str "--tw-shadow:0 0 0 0 #0000");
+      check bool "has --tw-shadow-alpha with percentage value" true
+        (contains actual_str "--tw-shadow-alpha:100%");
+      check bool "has --tw-ring-offset-color with color value" true
+        (contains actual_str "--tw-ring-offset-color:#fff");
+      check bool "has --tw-ring-offset-width with length value" true
+        (contains actual_str "--tw-ring-offset-width:0");
+
+      (* Verify we're NOT getting generic "initial" for these specific
+         variables *)
+      check bool "shadow variables not using generic initial" false
+        (contains actual_str "--tw-shadow:initial");
+      check bool "shadow-alpha not using generic initial" false
+        (contains actual_str "--tw-shadow-alpha:initial");
+
+      (* Debug output to see what was generated *)
+      Printf.printf "\nGenerated properties layer: %s\n" actual_str
 
 let check_css_variables_with_base () =
   let config =
