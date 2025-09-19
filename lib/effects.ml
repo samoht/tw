@@ -56,7 +56,7 @@ let shadow_property_rules =
         (Some
            (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ()));
       Var.property Var.Ring_inset None;
-      Var.property Var.Ring_offset_width ~syntax:Length (Some (Px 0.0));
+      Var.property Var.Ring_offset_width ~syntax:Length (Some (Px 42.));
       Var.property Var.Ring_offset_color (Some (Css.hex "#fff"));
       Var.property Var.Ring_offset_shadow
         (Some
@@ -96,9 +96,9 @@ let shadow_sm =
   in
   let shadow_list =
     [
-      Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 1.) ~blur:(Px 3.)
-        ~spread:(Px 0.) ~color:(Var shadow_color_var) ();
-      Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 1.) ~blur:(Px 2.)
+      Css.shadow ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 3.) ~spread:Zero
+        ~color:(Var shadow_color_var) ();
+      Css.shadow ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 2.)
         ~spread:(Px (-1.)) ~color:(Var shadow_color_var) ();
     ]
   in

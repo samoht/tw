@@ -277,14 +277,8 @@ let test_css_variable_differences () =
   match result with
   | Cc.Diff diff ->
       (* Should detect structural differences in the ::backdrop rule *)
-      let has_structural_diff =
-        diff.rules <> [] || diff.media_queries <> [] || diff.layers <> []
-        || diff.supports_queries <> []
-        || diff.container_queries <> []
-        || diff.custom_properties <> []
-      in
-      check bool "detects CSS variable differences as structural" true
-        has_structural_diff
+      check bool "detects CSS variable differences as structural" false
+        (Cc.is_empty diff)
   | _ -> fail "CSS should parse successfully"
 
 let test_layer_custom_properties () =
@@ -302,16 +296,8 @@ let test_layer_custom_properties () =
   | Cc.Diff diff ->
       (* Should detect structural differences - missing custom properties should
          be flagged *)
-      let has_layer_diff = diff.layers <> [] in
-      let has_rule_diff = diff.rules <> [] in
-      let has_any_structural_diff =
-        has_layer_diff || has_rule_diff || diff.media_queries <> []
-        || diff.supports_queries <> []
-        || diff.container_queries <> []
-        || diff.custom_properties <> []
-      in
-      check bool "layer custom property differences detected" true
-        has_any_structural_diff
+      check bool "layer custom property differences detected" false
+        (Cc.is_empty diff)
   | _ -> fail "CSS should parse successfully"
 
 let test_css_unit_differences () =
@@ -322,14 +308,8 @@ let test_css_unit_differences () =
   match result with
   | Cc.Diff diff ->
       (* Should detect structural differences - 0px vs 0 are different values *)
-      let has_structural_diff =
-        diff.rules <> [] || diff.media_queries <> [] || diff.layers <> []
-        || diff.supports_queries <> []
-        || diff.container_queries <> []
-        || diff.custom_properties <> []
-      in
-      check bool "detects 0px vs 0 as structural difference" true
-        has_structural_diff
+      check bool "detects 0px vs 0 as structural difference" false
+        (Cc.is_empty diff)
   | _ -> fail "CSS should parse successfully"
 
 let test_complex_css_unit_differences () =
@@ -347,15 +327,63 @@ let test_complex_css_unit_differences () =
   | Cc.Diff diff ->
       (* Should detect structural differences - 0px vs 0 are different values
          even in complex rules *)
-      let has_structural_diff =
-        diff.rules <> [] || diff.media_queries <> [] || diff.layers <> []
-        || diff.supports_queries <> []
-        || diff.container_queries <> []
-        || diff.custom_properties <> []
-      in
-      check bool "detects 0px vs 0 in complex CSS as structural difference" true
-        has_structural_diff
+      check bool "detects 0px vs 0 in complex CSS as structural difference"
+        false (Cc.is_empty diff)
   | _ -> fail "CSS should parse successfully"
+
+let test_never_empty_diff_when_strings_differ () =
+  (* Test that ensures we always show SOMETHING when input strings differ,
+     either structural diffs or string diffs *)
+  let test_cases =
+    [
+      (* Shadow variables case from tw 10 *)
+      ( "@layer base{*,:before,:after,::backdrop{--tw-shadow:0 0 \
+         #0000;--tw-shadow-color:initial}}",
+        "@layer base{*,:before,:after,::backdrop{--tw-border-style:initial}}" );
+      (* Simple property difference *)
+      (".a{color:red}", ".a{color:blue}");
+      (* Missing properties *)
+      (".a{color:red;padding:10px}", ".a{color:red}");
+      (* Added properties *)
+      (".a{color:red}", ".a{color:red;padding:10px}");
+      (* Different selectors *)
+      (".a{color:red}", ".b{color:red}");
+      (* Unit differences - CSS normalizes 0px to 0, but we should show string
+         diff *)
+      (".a{margin:0px}", ".a{margin:0}");
+      (* Custom property differences *)
+      (":root{--tw-shadow:0 0 #0000}", ":root{--tw-border:1px}");
+      (* Missing layer *)
+      ("@layer base{.a{color:red}}", ".a{color:red}");
+      (* Added layer *)
+      (".a{color:red}", "@layer base{.a{color:red}}");
+      (* Media query differences *)
+      ("@media(min-width:600px){.a{color:red}}", ".a{color:red}");
+    ]
+  in
+
+  List.iter
+    (fun (expected, actual) ->
+      (* Strings are different *)
+      check bool "input strings differ" false (expected = actual);
+
+      let result = Cc.diff ~expected ~actual in
+
+      (* Check that pp_diff_result produces some output when strings differ *)
+      let buffer = Buffer.create 256 in
+      let fmt = Format.formatter_of_buffer buffer in
+      Cc.pp_diff_result ~expected_str:expected ~actual_str:actual fmt result;
+      Format.pp_print_flush fmt ();
+      let output = Buffer.contents buffer in
+
+      (* When strings differ, we should get some output - either structural or
+         string diff *)
+      if String.length output = 0 then (
+        Printf.printf "\nERROR: No diff output for different strings:\n";
+        Printf.printf "Expected: %s\n" expected;
+        Printf.printf "Actual: %s\n" actual;
+        fail "Different strings MUST produce some diff output"))
+    test_cases
 
 let tests =
   [
@@ -386,6 +414,8 @@ let tests =
     test_case "CSS unit differences 0px vs 0" `Quick test_css_unit_differences;
     test_case "complex CSS unit differences" `Quick
       test_complex_css_unit_differences;
+    test_case "never empty diff when strings differ" `Quick
+      test_never_empty_diff_when_strings_differ;
   ]
 
 let suite = ("css_compare", tests)
