@@ -956,7 +956,14 @@ let build_properties_layer explicit_property_rules_statements =
        values *)
     let initial_declarations =
       List.map
-        (fun (name, initial_value) -> Css.custom_property name initial_value)
+        (fun (name, initial_value) ->
+          (* Special case: Ring_offset_width needs "0px" in CSS variable but "0"
+             in @property *)
+          let value =
+            if name = "--tw-ring-offset-width" && initial_value = "0" then "0px"
+            else initial_value
+          in
+          Css.custom_property name value)
         variable_initial_values
     in
     let rule = Css.rule ~selector initial_declarations in
