@@ -44,10 +44,44 @@ type t = {
   custom_properties : custom_property list;
 }
 
+(* Helper to truncate long values and show context *)
+let truncate_with_context ~max_len expected actual =
+  let exp_len = String.length expected in
+  let act_len = String.length actual in
+  if exp_len <= max_len && act_len <= max_len then (expected, actual)
+  else
+    (* Find the first difference to show context around it *)
+    let rec find_diff i =
+      if i >= exp_len || i >= act_len then min exp_len act_len
+      else if expected.[i] <> actual.[i] then i
+      else find_diff (i + 1)
+    in
+    let diff_pos = find_diff 0 in
+    let context_size = (max_len - 10) / 2 in
+    (* Reserve space for "..." *)
+    let start_pos = max 0 (diff_pos - context_size) in
+    let end_pos_exp = min exp_len (start_pos + max_len - 6) in
+    let end_pos_act = min act_len (start_pos + max_len - 6) in
+
+    let truncate_string s start_pos end_pos original_len =
+      let prefix = if start_pos > 0 then "..." else "" in
+      let suffix = if end_pos < original_len then "..." else "" in
+      let content = String.sub s start_pos (end_pos - start_pos) in
+      prefix ^ content ^ suffix
+    in
+
+    let exp_truncated =
+      truncate_string expected start_pos end_pos_exp exp_len
+    in
+    let act_truncated = truncate_string actual start_pos end_pos_act act_len in
+    (exp_truncated, act_truncated)
+
 let pp_declaration fmt
     ({ property_name; expected_value; actual_value } : declaration) =
-  Fmt.pf fmt "@[<v 2>Property %s:@,Expected: %s@,Actual:   %s@]" property_name
-    expected_value actual_value
+  let exp_short, act_short =
+    truncate_with_context ~max_len:80 expected_value actual_value
+  in
+  Fmt.pf fmt "%s:@,  - %s@,  + %s" property_name exp_short act_short
 
 let pp_diff ?(expected = "Expected") ?(actual = "Actual") pp_value fmt =
   function
@@ -57,69 +91,69 @@ let pp_diff ?(expected = "Expected") ?(actual = "Actual") pp_value fmt =
       Fmt.pf fmt "Changed:@,  %s: %a@,  %s: %a" expected pp_value old_val actual
         pp_value new_val
 
-let pp_rule ?(expected = "Expected") ?(actual = "Actual") fmt
+let pp_rule ?(_expected = "Expected") ?(_actual = "Actual") fmt
     { selector; change } =
   let pp_rule_data fmt (declarations, decl_diffs) =
-    if declarations <> [] then
-      Fmt.pf fmt "Properties: %a"
-        (Fmt.list ~sep:(Fmt.any ", ") (fun fmt d ->
-             Fmt.string fmt (Css.string_of_declaration ~minify:true d)))
-        declarations;
+    (* Only show property diffs for conciseness, skip the full declaration
+       lists *)
     if decl_diffs <> [] then
-      Fmt.pf fmt "@,Property diffs: %a"
-        (Fmt.list ~sep:(Fmt.any "@,  ") pp_declaration)
-        decl_diffs
+      Fmt.pf fmt "%a" (Fmt.list ~sep:(Fmt.any "@,") pp_declaration) decl_diffs
+    else if declarations <> [] then
+      (* If no diffs but has declarations, show count *)
+      Fmt.pf fmt "%d properties" (List.length declarations)
   in
-  Fmt.pf fmt "@[<v 2>%s: %a@]" selector
-    (pp_diff ~expected ~actual pp_rule_data)
-    change
+  match change with
+  | Added rule_data -> Fmt.pf fmt "+ %s: %a" selector pp_rule_data rule_data
+  | Removed rule_data -> Fmt.pf fmt "- %s: %a" selector pp_rule_data rule_data
+  | Changed (old_data, new_data) ->
+      Fmt.pf fmt "%s:" selector;
+      let _, old_diffs = old_data in
+      let _, new_diffs = new_data in
+      if old_diffs = [] && new_diffs <> [] then
+        Fmt.pf fmt "@,  %a" pp_rule_data new_data
+      else if old_diffs <> [] && new_diffs = [] then
+        Fmt.pf fmt "@,  %a" pp_rule_data old_data
+      else Fmt.pf fmt "@,  %a" pp_rule_data new_data
 
-let pp_media_query ?(expected = "Expected") ?(actual = "Actual") fmt
+let _pp_media_query ?(expected = "Expected") ?(actual = "Actual") fmt
     ({ condition; change } : media_query) =
   let pp_rules fmt rules =
-    Fmt.pf fmt "Rules: %a"
-      (Fmt.list ~sep:(Fmt.any "@,  ") (pp_rule ~expected ~actual))
-      rules
+    Fmt.pf fmt "Rules: %a" (Fmt.list ~sep:(Fmt.any "@,  ") pp_rule) rules
   in
   Fmt.pf fmt "@[<v 2>@media %s: %a@]" condition
     (pp_diff ~expected ~actual pp_rules)
     change
 
-let pp_layer ?(expected = "Expected") ?(actual = "Actual") fmt
+let pp_layer ?(_expected = "Expected") ?(_actual = "Actual") fmt
     ({ name; change } : layer) =
-  let pp_rules fmt rules =
-    Fmt.pf fmt "Rules: %a"
-      (Fmt.list ~sep:(Fmt.any "@,  ") (pp_rule ~expected ~actual))
-      rules
-  in
-  Fmt.pf fmt "@[<v 2>@layer %s: %a@]" name
-    (pp_diff ~expected ~actual pp_rules)
-    change
+  match change with
+  | Added rules -> Fmt.pf fmt "+ @layer %s: %d rules" name (List.length rules)
+  | Removed rules -> Fmt.pf fmt "- @layer %s: %d rules" name (List.length rules)
+  | Changed (_old_rules, new_rules) ->
+      Fmt.pf fmt "@layer %s:@,%a" name
+        (Fmt.list ~sep:(Fmt.any "@,") pp_rule)
+        new_rules
 
-let pp_supports_query ?(expected = "Expected") ?(actual = "Actual") fmt
+let _pp_supports_query ?(expected = "Expected") ?(actual = "Actual") fmt
     ({ condition; change } : supports_query) =
   let pp_rules fmt rules =
-    Fmt.pf fmt "Rules: %a"
-      (Fmt.list ~sep:(Fmt.any "@,  ") (pp_rule ~expected ~actual))
-      rules
+    Fmt.pf fmt "Rules: %a" (Fmt.list ~sep:(Fmt.any "@,  ") pp_rule) rules
   in
   Fmt.pf fmt "@[<v 2>@supports %s: %a@]" condition
     (pp_diff ~expected ~actual pp_rules)
     change
 
-let pp_container_query ?(expected = "Expected") ?(actual = "Actual") fmt
+let _pp_container_query ?(expected = "Expected") ?(actual = "Actual") fmt
     ({ name; condition; change } : container_query) =
   let name_pp = match name with None -> "" | Some n -> n ^ " " in
   let pp_rules fmt rules =
-    Fmt.pf fmt "Rules: %a"
-      (Fmt.list ~sep:(Fmt.any "@,  ") (pp_rule ~expected ~actual))
-      rules
+    Fmt.pf fmt "Rules: %a" (Fmt.list ~sep:(Fmt.any "@,  ") pp_rule) rules
   in
   Fmt.pf fmt "@[<v 2>@container %s(%s): %a@]" name_pp condition
     (pp_diff ~expected ~actual pp_rules)
     change
 
-let pp_custom_property ?(expected = "Expected") ?(actual = "Actual") fmt
+let _pp_custom_property ?(expected = "Expected") ?(actual = "Actual") fmt
     ({ name; change } : custom_property) =
   let pp_custom_property_def fmt
       { name = prop_name; syntax; inherits; initial_value } =
@@ -140,37 +174,24 @@ let pp ?(expected = "Expected") ?(actual = "Actual") fmt
       container_queries;
       custom_properties;
     } =
+  let[@warning "-27"] _unused = (expected, actual) in
   if
     rules = [] && media_queries = [] && layers = [] && supports_queries = []
     && container_queries = [] && custom_properties = []
   then () (* Output nothing for empty diff *)
   else (
-    Fmt.pf fmt "@[<v 2>CSS Diff:@,";
     if rules <> [] then
-      Fmt.pf fmt "Rules:@,%a@,"
-        (Fmt.list ~sep:(Fmt.any "@,") (pp_rule ~expected ~actual))
-        rules;
+      Fmt.pf fmt "%a@," (Fmt.list ~sep:(Fmt.any "@,") pp_rule) rules;
     if media_queries <> [] then
-      Fmt.pf fmt "Media:@,%a@,"
-        (Fmt.list ~sep:(Fmt.any "@,") (pp_media_query ~expected ~actual))
-        media_queries;
+      Fmt.pf fmt "@media changes: %d@," (List.length media_queries);
     if layers <> [] then
-      Fmt.pf fmt "Layers:@,%a@,"
-        (Fmt.list ~sep:(Fmt.any "@,") (pp_layer ~expected ~actual))
-        layers;
+      Fmt.pf fmt "%a@," (Fmt.list ~sep:(Fmt.any "@,") pp_layer) layers;
     if supports_queries <> [] then
-      Fmt.pf fmt "Supports:@,%a@,"
-        (Fmt.list ~sep:(Fmt.any "@,") (pp_supports_query ~expected ~actual))
-        supports_queries;
+      Fmt.pf fmt "@supports changes: %d@," (List.length supports_queries);
     if container_queries <> [] then
-      Fmt.pf fmt "Containers:@,%a@,"
-        (Fmt.list ~sep:(Fmt.any "@,") (pp_container_query ~expected ~actual))
-        container_queries;
+      Fmt.pf fmt "@container changes: %d@," (List.length container_queries);
     if custom_properties <> [] then
-      Fmt.pf fmt "Properties:@,%a@,"
-        (Fmt.list ~sep:(Fmt.any "@,") (pp_custom_property ~expected ~actual))
-        custom_properties;
-    Fmt.pf fmt "@]")
+      Fmt.pf fmt "@property changes: %d@," (List.length custom_properties))
 
 let equal_declaration_diff (p1 : declaration) (p2 : declaration) =
   p1.property_name = p2.property_name

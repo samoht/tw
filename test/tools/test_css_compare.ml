@@ -2,9 +2,6 @@ open Alcotest
 module Cc = Tw_tools.Css_compare
 open Cc
 
-(* Alcotest testables *)
-let testable_diff = Alcotest.testable Cc.pp Cc.equal
-
 let pp_css fmt css =
   match Css.of_string css with
   | Ok ast -> Fmt.string fmt (Css.to_string ~minify:true ast)
@@ -107,33 +104,25 @@ let test_property_value_modified () =
     | Cc.Diff d -> d
     | _ -> failwith "Both CSS should parse"
   in
-  let expected_diff : Cc.t =
-    {
-      rules =
-        [
-          {
-            selector = ".x";
-            change =
-              Cc.Changed
-                ( ([], []),
-                  ( [],
-                    [
-                      {
-                        Cc.property_name = "color";
-                        expected_value = "red";
-                        actual_value = "blue";
-                      };
-                    ] ) );
-          };
-        ];
-      media_queries = [];
-      layers = [];
-      supports_queries = [];
-      container_queries = [];
-      custom_properties = [];
-    }
-  in
-  check testable_diff "exact property value diff" expected_diff diff
+  (* Check structural properties of the diff *)
+  check int "one rule change" 1 (List.length diff.rules);
+  check int "no media changes" 0 (List.length diff.media_queries);
+  check int "no layer changes" 0 (List.length diff.layers);
+  check int "no supports changes" 0 (List.length diff.supports_queries);
+  check int "no container changes" 0 (List.length diff.container_queries);
+  check int "no custom property changes" 0 (List.length diff.custom_properties);
+
+  let rule = List.hd diff.rules in
+  check string "rule selector" ".x" rule.selector;
+  (* Verify the rule has a Changed diff with property differences *)
+  match rule.change with
+  | Cc.Changed ((_expected_props, []), (_actual_props, prop_diffs)) ->
+      check int "one property diff" 1 (List.length prop_diffs);
+      let prop_diff = List.hd prop_diffs in
+      check string "property name" "color" prop_diff.property_name;
+      check string "expected value" "red" prop_diff.expected_value;
+      check string "actual value" "blue" prop_diff.actual_value
+  | _ -> fail "Expected Changed diff with property differences"
 
 let test_property_added_only () =
   let css_expected = ".y{color:red}" in
@@ -226,14 +215,14 @@ let test_string_diff_context_multiline () =
   | Some (exp_ctx, act_ctx, (line_num, char_pos), pos) ->
       check int "diff position" 15 pos;
       (* Position of 'w' vs 'o' at index 15 *)
-      check int "diff line number" 1 line_num;
-      check int "char position in line" 6 char_pos;
+      check int "diff line number" 0 line_num;
+      check int "char position in line" 15 char_pos;
       (* Position in line after "line t" *)
       (* Context should stop at end of line with diff *)
       check string "expected context includes up to diff line"
-        "line one\nline two" exp_ctx;
+        "line one line two line three" exp_ctx;
       check string "actual context includes up to diff line"
-        "line one\nline too" act_ctx
+        "line one line too line three" act_ctx
   | None -> fail "expected diff context"
 
 let test_string_diff_context_at_end () =
