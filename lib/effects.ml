@@ -34,20 +34,33 @@ let shadow_property_rules =
   Css.concat
     [
       (* Shadow and ring variables - ordered as in Tailwind v4 *)
-      Var.property ~initial:"0 0 #0000" Var.Shadow;
-      Var.property Var.Shadow_color;
-      Var.property_percentage ~initial:(Css.Pct 100.) Var.Shadow_alpha;
-      Var.property ~initial:"0 0 #0000" Var.Inset_shadow;
-      Var.property Var.Inset_shadow_color;
-      Var.property_percentage ~initial:(Css.Pct 100.) Var.Inset_shadow_alpha;
-      Var.property Var.Ring_color;
-      Var.property ~initial:"0 0 #0000" Var.Ring_shadow;
-      Var.property Var.Inset_ring_color;
-      Var.property ~initial:"0 0 #0000" Var.Inset_ring_shadow;
-      Var.property Var.Ring_inset;
-      Var.property_length ~initial:(Css.Px 0.) Var.Ring_offset_width;
-      Var.property ~initial:"#fff" Var.Ring_offset_color;
-      Var.property ~initial:"0 0 #0000" Var.Ring_offset_shadow;
+      Var.property Var.Shadow
+        (Some
+           [
+             Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000")
+               ();
+           ]);
+      Var.property Var.Shadow_color None;
+      Var.property Var.Shadow_alpha (Some (Css.Pct 100.0));
+      Var.property Var.Inset_shadow
+        (Some
+           (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ()));
+      Var.property Var.Inset_shadow_color None;
+      Var.property Var.Inset_shadow_alpha (Some (Css.Pct 100.0));
+      Var.property Var.Ring_color None;
+      Var.property Var.Ring_shadow
+        (Some
+           (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ()));
+      Var.property Var.Inset_ring_color None;
+      Var.property Var.Inset_ring_shadow
+        (Some
+           (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ()));
+      Var.property Var.Ring_inset None;
+      Var.property Var.Ring_offset_width ~syntax:Length (Some Zero);
+      Var.property Var.Ring_offset_color (Some (Css.hex "#fff"));
+      Var.property Var.Ring_offset_shadow
+        (Some
+           (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ()));
       (* Note: Ring_width is not included here as it's set by ring utilities,
          not shadow utilities *)
     ]
@@ -79,7 +92,7 @@ let shadow_none = shadow_utility "shadow-none" Css.None
 let shadow_sm =
   (* Shadow-sm with composite shadows matching Tailwind v4 *)
   let shadow_color_var =
-    Var.handle Var.Shadow_color ~fallback:(Css.rgba 0 0 0 0.1) ()
+    Var.handle Var.Shadow_color ~fallback:(Css.hex "#0000001a") ()
   in
   let shadow_list =
     [
@@ -114,9 +127,9 @@ let shadow =
     Css.box_shadow_list
       [
         Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 1.) ~blur:(Px 3.)
-          ~spread:(Px 0.) ~color:(Css.rgba 0 0 0 0.1) ();
+          ~spread:(Px 0.) ~color:(Css.hex "#0000001a") ();
         Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 1.) ~blur:(Px 2.)
-          ~spread:(Px (-1.)) ~color:(Css.rgba 0 0 0 0.1) ();
+          ~spread:(Px (-1.)) ~color:(Css.hex "#0000001a") ();
       ]
   in
   style "shadow" ~property_rules:shadow_property_rules [ shadow_value ]

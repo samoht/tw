@@ -77,6 +77,14 @@ dune exec test/test.exe test <suite> <test_num>  # Run specific test
 ALCOTEST_VERBOSE=1 dune exec test/test.exe
 
 # Common test suites: tw, core_tests, rules, Color
+
+# Creating and running test files
+# ALWAYS use tmp/ directory for test files (not /tmp/)
+# Example:
+cat > tmp/test_selector.ml << 'EOF'
+let () = Printf.printf "Hello from test\n"
+EOF
+dune exec tmp/test_selector.exe
 ```
 
 ### Debugging CSS Generation
@@ -244,3 +252,10 @@ When something doesn't work:
 - Never write tests that just confirm current code behavior - always test against the expected specification
 - If a test passes but violates the spec, the test is wrong
 - If code passes tests but violates the spec, write better tests
+
+## Known Issues
+
+### CSS Comparison Tool Bug
+When tests fail with "CSS has no structural differences" but character counts differ, this indicates a bug in the CSS comparison tool (`lib/tools/css_compare.ml`). This means the tool is missing some type of CSS content differences and not flagging them as structural changes.
+
+**Fix priority**: HIGH - This masks real test failures and makes debugging difficult. Requires investigation each time this message appears to identify what content differences are being missed.

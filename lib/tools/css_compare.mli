@@ -1,12 +1,12 @@
 (** CSS comparison utilities for testing using the proper CSS parser *)
 
-type property_diff = {
+type property_diff_detail = {
   property : string;
   our_value : string;
   their_value : string;
 }
 
-type change = Added | Removed | Modified of property_diff list
+type change = Added | Removed | Modified of property_diff_detail list
 
 type rule_change = {
   selector : string;
@@ -35,12 +35,19 @@ type container_change = {
   rules : rule_change list;
 }
 
+type property_change = {
+  name : string;
+  change : change;
+  details : property_diff_detail list;
+}
+
 type t = {
   rules : rule_change list;
   media : media_change list;
   layers : layer_change list;
   supports : supports_change list;
   containers : container_change list;
+  properties : property_change list;
 }
 
 val pp : ?expected:string -> ?actual:string -> t Fmt.t
@@ -89,8 +96,34 @@ val diff : expected:string -> actual:string -> diff_result
 (** [diff ~expected ~actual] parses both CSS strings and returns their diff or
     parse errors if parsing fails. *)
 
-val pp_diff_result : ?expected:string -> ?actual:string -> diff_result Fmt.t
-(** [pp_diff_result ?expected ?actual] formats a diff_result with optional
-    labels.
+val show_string_diff_context :
+  expected:string ->
+  actual:string ->
+  (string * string * (int * int) * int) option
+(** [show_string_diff_context ~expected ~actual] finds the first difference
+    between two strings and returns context around it.
+    @return
+      Some (expected_context, actual_context, (line_num, char_pos), diff_pos)
+      where:
+      - expected_context: Context from expected string up to the line with the
+        diff
+      - actual_context: Context from actual string up to the line with the diff
+      - line_num: Line number containing the diff (0-based)
+      - char_pos: Character position within that line
+      - diff_pos: Overall position of the first difference Returns None if
+        strings are identical. *)
+
+val pp_diff_result :
+  ?expected:string ->
+  ?actual:string ->
+  ?expected_str:string ->
+  ?actual_str:string ->
+  diff_result Fmt.t
+(** [pp_diff_result ?expected ?actual ?expected_str ?actual_str] formats a
+    diff_result with optional labels and original strings for context display.
     @param expected Label for expected CSS (default: "Expected").
-    @param actual Label for actual CSS (default: "Actual"). *)
+    @param actual Label for actual CSS (default: "Actual").
+    @param expected_str
+      Original expected string for showing context when no structural diffs
+    @param actual_str
+      Original actual string for showing context when no structural diffs *)

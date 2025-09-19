@@ -124,6 +124,7 @@ let test_property_value_modified () =
       layers = [];
       supports = [];
       containers = [];
+      properties = [];
     }
   in
   check testable_diff "exact property value diff" expected_diff diff
@@ -200,6 +201,75 @@ let test_supports_and_container_diffs () =
 (* Intentionally avoid substring/count-based checks; use structural diff
    only. *)
 
+let test_string_diff_context_basic () =
+  let expected = "hello world" in
+  let actual = "hello wurld" in
+  match Cc.show_string_diff_context ~expected ~actual with
+  | Some (exp_ctx, act_ctx, (_line, char_pos), pos) ->
+      check int "diff position" 7 pos;
+      (* Position of 'o' vs 'u' is index 7 *)
+      check int "char position in line" 7 char_pos;
+      check string "expected context" "hello world" exp_ctx;
+      check string "actual context" "hello wurld" act_ctx
+  | None -> fail "expected diff context"
+
+let test_string_diff_context_multiline () =
+  let expected = "line one\nline two\nline three" in
+  let actual = "line one\nline too\nline three" in
+  match Cc.show_string_diff_context ~expected ~actual with
+  | Some (exp_ctx, act_ctx, (line_num, char_pos), pos) ->
+      check int "diff position" 15 pos;
+      (* Position of 'w' vs 'o' at index 15 *)
+      check int "diff line number" 1 line_num;
+      check int "char position in line" 6 char_pos;
+      (* Position in line after "line t" *)
+      (* Context should stop at end of line with diff *)
+      check string "expected context includes up to diff line"
+        "line one\nline two" exp_ctx;
+      check string "actual context includes up to diff line"
+        "line one\nline too" act_ctx
+  | None -> fail "expected diff context"
+
+let test_string_diff_context_at_end () =
+  let expected = "abc" in
+  let actual = "abcd" in
+  match Cc.show_string_diff_context ~expected ~actual with
+  | Some (_exp_ctx, _act_ctx, (_line, _char), pos) ->
+      check int "diff at end position" 3 pos
+  | None -> fail "expected diff context"
+
+let test_string_diff_context_none () =
+  let expected = "same" in
+  let actual = "same" in
+  match Cc.show_string_diff_context ~expected ~actual with
+  | Some _ -> fail "no diff expected"
+  | None -> ()
+
+let test_pp_diff_result_with_string_context () =
+  (* Test that pp_diff_result shows string context when no structural diff *)
+  let css1 = ".a{color:red}" in
+  let css2 = ".a{color: red}" in
+  (* Extra space *)
+  let result = Cc.diff ~expected:css1 ~actual:css2 in
+  let pp = Cc.pp_diff_result ~expected_str:css1 ~actual_str:css2 in
+  let output = Fmt.to_to_string pp result in
+  (* Should show "no structural differences" and the string diff context *)
+  check bool "shows no structural differences" true
+    (String.contains output 'n' && String.contains output 'o');
+  check bool "shows position" true (String.contains output '9')
+(* Position of the space difference *)
+
+let test_pp_diff_result_structural () =
+  (* Test that pp_diff_result shows structural diff when present *)
+  let css1 = ".a{color:red}" in
+  let css2 = ".a{color:blue}" in
+  let result = Cc.diff ~expected:css1 ~actual:css2 in
+  let output = Fmt.to_to_string Cc.pp_diff_result result in
+  (* Should show structural CSS diff, not string context *)
+  check bool "shows CSS diff" true
+    (String.contains output 'r' && String.contains output 'e'
+   && String.contains output 'd')
+
 let tests =
   [
     test_case "strip header" `Quick test_strip_header;
@@ -215,6 +285,15 @@ let tests =
       test_important_and_custom_props;
     test_case "supports and container diffs" `Quick
       test_supports_and_container_diffs;
+    test_case "string diff context basic" `Quick test_string_diff_context_basic;
+    test_case "string diff context multiline" `Quick
+      test_string_diff_context_multiline;
+    test_case "string diff context at end" `Quick
+      test_string_diff_context_at_end;
+    test_case "string diff context none" `Quick test_string_diff_context_none;
+    test_case "pp diff result with string context" `Quick
+      test_pp_diff_result_with_string_context;
+    test_case "pp diff result structural" `Quick test_pp_diff_result_structural;
   ]
 
 let suite = ("css_compare", tests)

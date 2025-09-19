@@ -133,10 +133,10 @@ type _ t =
   | Single_shadow : Css.shadow t
   | Shadow : Css.shadow list t
   | Shadow_color : Css.color t
-  | Shadow_alpha : float t
+  | Shadow_alpha : Css.percentage t
   | Inset_shadow : Css.shadow t
   | Inset_shadow_color : Css.color t
-  | Inset_shadow_alpha : float t
+  | Inset_shadow_alpha : Css.percentage t
   | Ring_color : Css.color t
   | Ring_shadow : Css.shadow t
   | Inset_ring_color : Css.color t
@@ -762,8 +762,8 @@ let def : type a.
   | Ring_color -> var Color value
   | Inset_ring_color -> var Color value
   | Ring_offset_color -> var Color value
-  | Shadow_alpha -> var Float value
-  | Inset_shadow_alpha -> var Float value
+  | Shadow_alpha -> var Percentage value
+  | Inset_shadow_alpha -> var Percentage value
   | Ring_offset_width -> var Length value
   (* Prose vars *)
   | Prose_body -> var Color value
@@ -858,28 +858,198 @@ let utility : type a.
  fun var_t ?fallback ?property value ->
   def ?fallback ?property var_t ~layer:Utility value
 
-(* Create @property rule for a variable using Universal syntax *)
-let property : type a. ?inherits:bool -> ?initial:string -> a t -> Css.t =
- fun ?(inherits = false) ?initial var_t ->
-  let name = to_string var_t in
-  let syntax = Css.Universal in
-  Css.(property ~name syntax ?initial_value:initial ~inherits ())
+(* Helper to project variable type to Css.kind *)
+let to_kind : type a. a t -> a Css.kind = function
+  | Shadow -> Box_shadow
+  | Box_shadow -> Box_shadow
+  | Single_shadow -> Shadow
+  | Inset_shadow -> Shadow
+  | Ring_shadow -> Shadow
+  | Inset_ring_shadow -> Shadow
+  | Ring_offset_shadow -> Shadow
+  | Shadow_color -> Color
+  | Inset_shadow_color -> Color
+  | Ring_color -> Color
+  | Inset_ring_color -> Color
+  | Ring_offset_color -> Color
+  | Gradient_from -> Color
+  | Gradient_via -> Color
+  | Gradient_to -> Color
+  | Prose_body -> Color
+  | Prose_headings -> Color
+  | Prose_code -> Color
+  | Prose_pre_code -> Color
+  | Prose_pre_bg -> Color
+  | Prose_th_borders -> Color
+  | Prose_td_borders -> Color
+  | Prose_links -> Color
+  | Prose_quotes -> Color
+  | Prose_quote_borders -> Color
+  | Prose_hr -> Color
+  | Prose_bold -> Color
+  | Prose_lead -> Color
+  | Prose_counters -> Color
+  | Prose_bullets -> Color
+  | Prose_captions -> Color
+  | Prose_kbd -> Color
+  | Prose_invert_body -> Color
+  | Prose_invert_headings -> Color
+  | Prose_invert_lead -> Color
+  | Prose_invert_links -> Color
+  | Prose_invert_bold -> Color
+  | Prose_invert_counters -> Color
+  | Prose_invert_bullets -> Color
+  | Prose_invert_hr -> Color
+  | Prose_invert_quotes -> Color
+  | Prose_invert_quote_borders -> Color
+  | Prose_invert_captions -> Color
+  | Prose_invert_kbd -> Color
+  | Prose_invert_code -> Color
+  | Prose_invert_pre_code -> Color
+  | Prose_invert_pre_bg -> Color
+  | Prose_invert_th_borders -> Color
+  | Prose_invert_td_borders -> Color
+  | Color _ -> Color
+  | Shadow_alpha -> Percentage
+  | Inset_shadow_alpha -> Percentage
+  | Drop_shadow_alpha -> Float
+  | Backdrop_opacity -> Float
+  | Scale_x -> Float
+  | Scale_y -> Float
+  | Scale_z -> Float
+  | Gradient_from_position -> Float
+  | Gradient_via_position -> Float
+  | Gradient_to_position -> Float
+  | Brightness -> Float
+  | Contrast -> Float
+  | Grayscale -> Float
+  | Invert -> Float
+  | Saturate -> Float
+  | Sepia -> Float
+  | Backdrop_brightness -> Float
+  | Backdrop_contrast -> Float
+  | Backdrop_grayscale -> Float
+  | Backdrop_invert -> Float
+  | Backdrop_saturate -> Float
+  | Backdrop_sepia -> Float
+  | Ring_offset_width -> Length
+  | Translate_x -> Length
+  | Translate_y -> Length
+  | Translate_z -> Length
+  | Blur -> Length
+  | Backdrop_blur -> Length
+  | Text_xs -> Length
+  | Text_sm -> Length
+  | Text_base -> Length
+  | Text_lg -> Length
+  | Text_xl -> Length
+  | Text_2xl -> Length
+  | Text_3xl -> Length
+  | Text_4xl -> Length
+  | Text_5xl -> Length
+  | Text_6xl -> Length
+  | Text_7xl -> Length
+  | Text_8xl -> Length
+  | Text_9xl -> Length
+  | Spacing -> Length
+  | Radius_none -> Length
+  | Radius_sm -> Length
+  | Radius_default -> Length
+  | Radius_md -> Length
+  | Radius_lg -> Length
+  | Radius_xl -> Length
+  | Radius_2xl -> Length
+  | Radius_3xl -> Length
+  | Ring_width -> Length
+  | Rotate -> Angle
+  | Skew_x -> Angle
+  | Skew_y -> Angle
+  | Hue_rotate -> Angle
+  | Backdrop_hue_rotate -> Angle
+  | Border_style -> Border_style
+  | Font_weight -> Font_weight
+  | Font_weight_thin -> Font_weight
+  | Font_weight_extralight -> Font_weight
+  | Font_weight_light -> Font_weight
+  | Font_weight_normal -> Font_weight
+  | Font_weight_medium -> Font_weight
+  | Font_weight_semibold -> Font_weight
+  | Font_weight_bold -> Font_weight
+  | Font_weight_extrabold -> Font_weight
+  | Font_weight_black -> Font_weight
+  | Leading -> Line_height
+  | Text_xs_line_height -> Line_height
+  | Text_sm_line_height -> Line_height
+  | Text_base_line_height -> Line_height
+  | Text_lg_line_height -> Line_height
+  | Text_xl_line_height -> Line_height
+  | Text_2xl_line_height -> Line_height
+  | Text_3xl_line_height -> Line_height
+  | Text_4xl_line_height -> Line_height
+  | Text_5xl_line_height -> Line_height
+  | Text_6xl_line_height -> Line_height
+  | Text_7xl_line_height -> Line_height
+  | Text_8xl_line_height -> Line_height
+  | Text_9xl_line_height -> Line_height
+  | Scroll_snap_strictness -> Scroll_snap_strictness
+  | Duration -> Duration
+  | Font_sans -> Font_family
+  | Font_mono -> Font_family
+  | Font_serif -> Font_family
+  | Default_font_family -> Font_family
+  | Default_mono_font_family -> Font_family
+  | Default_font_feature_settings -> Font_feature_settings
+  | Default_mono_font_feature_settings -> Font_feature_settings
+  | Default_font_variation_settings -> Font_variation_settings
+  | Default_mono_font_variation_settings -> Font_variation_settings
+  | Font_variant_ordinal -> Font_variant_numeric_token
+  | Font_variant_slashed_zero -> Font_variant_numeric_token
+  | Font_variant_numeric_figure -> Font_variant_numeric_token
+  | Font_variant_numeric_spacing -> Font_variant_numeric_token
+  | Font_variant_numeric_fraction -> Font_variant_numeric_token
+  | Font_variant_numeric -> Font_variant_numeric
+  | Content -> Content
+  | Gradient_position -> String
+  | Gradient_stops -> String
+  | Gradient_via_stops -> String
+  | Drop_shadow -> String
+  | Prose_kbd_shadows -> String
+  | Prose_invert_kbd_shadows -> String
+  | Ring_inset -> String
 
-(* Create @property rule with percentage syntax for alpha values *)
-let property_percentage :
-    ?inherits:bool -> ?initial:Css.percentage -> float t -> Css.t =
- fun ?(inherits = false) ?initial var_t ->
-  let name = to_string var_t in
-  let syntax = Css.Percentage in
-  Css.(property ~name syntax ?initial_value:initial ~inherits ())
+let string_of_var var_t v =
+  let buf = Buffer.create 256 in
+  let ctx = { Css.Pp.minify = true; indent = 0; buf; inline = false } in
+  let kind = to_kind var_t in
+  Css.pp_kind_value ctx (kind, v);
+  Buffer.contents buf
 
-(* Create @property rule with length syntax *)
-let property_length :
-    ?inherits:bool -> ?initial:Css.length -> Css.length t -> Css.t =
- fun ?(inherits = false) ?initial var_t ->
+(* Unified property function that infers syntax from variable type *)
+let property : type a.
+    a t -> ?syntax:a Css.syntax -> ?inherits:bool -> a option -> Css.t =
+ fun var_t ?syntax ?(inherits = false) initial ->
   let name = to_string var_t in
-  let syntax = Css.Length in
-  Css.(property ~name syntax ?initial_value:initial ~inherits ())
+  match var_t with
+  | Shadow_alpha -> (
+      (* GADT refinement: initial is Css.percentage option here *)
+      match syntax with
+      | Some s -> Css.property ~name s ~inherits ?initial_value:initial ()
+      | None ->
+          Css.property ~name Css.Percentage ~inherits ?initial_value:initial ())
+  | Inset_shadow_alpha -> (
+      (* GADT refinement: initial is Css.percentage option here *)
+      match syntax with
+      | Some s -> Css.property ~name s ~inherits ?initial_value:initial ()
+      | None ->
+          Css.property ~name Css.Percentage ~inherits ?initial_value:initial ())
+  | _ -> (
+      match syntax with
+      | Some s -> Css.property ~name s ~inherits ?initial_value:initial ()
+      | None ->
+          (* Default to Universal with string representation *)
+          let syntax = Css.Universal in
+          let initial_value = Option.map (string_of_var var_t) initial in
+          Css.property ~name syntax ~inherits ?initial_value ())
 
 (** Helper for metadata errors *)
 let err_meta ~layer decl msg =

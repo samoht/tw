@@ -1,82 +1,115 @@
-(** Typed CSS variable definitions and ordering.
+(** Typed CSS variable definitions and CSS generation architecture.
 
     This module defines the typed set of CSS custom properties used by the
-    library. Theme variables (design tokens) are emitted in the theme layer and
-    ordered to match Tailwind v4 expectations. Utility variables are ordered
-    lexicographically.
+    library and their corresponding CSS output shapes. Variables are emitted
+    across multiple CSS layers following Tailwind v4's architecture.
 
-    {1 Variable Architecture in Tailwind v4}
+    {1 CSS Output Architecture}
 
-    Tailwind v4 uses a sophisticated multi-layer variable system:
+    The variable system generates CSS across four layers in this order:
 
-    {2 Theme Variables}
-    Variables like [--font-weight-thin: 100] defined in [@layer theme] that hold
-    the actual design token values. These are the "source of truth" values.
+    {2 @layer properties}
+    Contains initial values for utility variables when [Var.property] is used:
+    {[
+      @layer properties {
+        *, :before, :after, ::backdrop {
+          --tw-shadow: 0 0 #0000;
+          --tw-border-style: initial;
+          --tw-shadow-alpha: 100%;
+        }
+      }
+    ]}
 
-    {2 Utility Variables}
-    Variables like [--tw-font-weight] or [--tw-border-style] that serve as
-    "property channels". There are two patterns:
+    {2 @layer theme}
+    Contains theme design tokens from [Var.theme]:
+    {[
+      @layer theme {
+        :root, :host {
+          --font-weight-thin: 100;
+          --font-weight-bold: 700;
+          --text-xl: 1.25rem;
+        }
+      }
+    ]}
 
-    {3 Pattern 1: Indirect Reference (font-weight)}
-    Each utility class that affects font-weight sets this same variable to its
-    value:
-    - [.font-thin \{ --tw-font-weight: var(--font-weight-thin); font-weight:
-       var(--font-weight-thin) \}]
-    - [.font-bold \{ --tw-font-weight: var(--font-weight-bold); font-weight:
-       var(--font-weight-bold) \}]
+    {2 @layer utilities}
+    Contains utility class definitions that set variables and CSS properties:
+    {[
+      @layer utilities {
+        .font-thin {
+          --tw-font-weight: var(--font-weight-thin);
+          font-weight: var(--font-weight-thin);
+        }
+        .border-solid {
+          --tw-border-style: solid;
+          border-style: solid;
+        }
+        .border {
+          border-style: var(--tw-border-style);
+          border-width: 1px;
+        }
+      }
+    ]}
 
-    Note that the [font-weight] property uses the theme variable directly, NOT
-    [--tw-font-weight]. The utility variable serves as metadata/state tracking.
+    {2 @property declarations}
+    Type registrations for utility variables (at the end):
+    {[
+      @property --tw-shadow {
+        syntax: "*";
+        inherits: false;
+        initial-value: 0 0 #0000;
+      }
+      @property --tw-shadow-alpha {
+        syntax: "<percentage>";
+        inherits: false;
+        initial-value: 100%;
+      }
+    ]}
 
-    {3 Pattern 2: Direct Value (border-style)}
-    Each utility class sets the variable to the actual CSS value:
-    - [.border-solid \{ --tw-border-style: solid; border-style: solid \}]
-    - [.border-none \{ --tw-border-style: none; border-style: none \}]
-    - [.border \{ border-style: var(--tw-border-style); border-width: 1px \}]
+    {1 Variable Types and Patterns}
 
-    Here the utility variable holds both the value AND serves as metadata.
+    {2 Theme Variables ([Var.theme])}
+    Design tokens that hold actual values. Generated in [@layer theme]:
+    - [--font-weight-thin: 100]
+    - [--text-xl: 1.25rem]
+    - [--color-blue-500: #3b82f6]
 
-    {2 Property Registration}
-    Variables marked with [~property:true] get:
-    - Initial values in [@layer properties]: [--tw-font-weight: initial] or
-      [--tw-border-style: solid]
-    - [@property] registration at the end:
-      [@property --tw-font-weight \{ syntax: "*"; inherits: false;
-       initial-value: initial \}]
+    {2 Utility Variables ([Var.utility] and [Var.property])}
+    "Property channels" that track utility state. Two main patterns:
 
-    The initial value in the properties layer comes from the [~initial]
-    parameter in [Var.property].
+    {3 Composition Variables (e.g., transforms, shadows)}
+    Multiple utilities contribute to a single CSS property:
+    {[
+      .translate-x-4 { --tw-translate-x: 1rem; }
+      .rotate-45 { --tw-rotate: 45deg; }
+      .transform {
+        transform: translateX(var(--tw-translate-x)) rotate(var(--tw-rotate));
+      }
+    ]}
 
-    {2 Why This Architecture?}
+    {3 Override Variables (e.g., border-style)}
+    Each utility sets the variable to control shared behavior:
+    {[
+      .border-solid { --tw-border-style: solid; border-style: solid; }
+      .border-dashed { --tw-border-style: dashed; border-style: dashed; }
+      .border { border-style: var(--tw-border-style); border-width: 1px; }
+    ]}
 
-    1. {b Cascade Management}: When multiple utilities are on the same element
-    ([class="font-thin font-bold"]), the last one wins naturally
+    {1 Property Registration}
 
-    2. {b Debugging}: The [--tw-font-weight] variable shows which utility was
-    applied, even though it's not used in the actual property
+    When [Var.property] is used with initial values:
+    1. Creates [@layer properties] default: [--tw-shadow: 0 0 #0000]
+    2. Creates [@property] registration with proper syntax and initial-value
+    3. Enables CSS transitions, animations, and proper cascade behavior
 
-    3. {b JavaScript Integration}: Scripts can read [--tw-font-weight] to know
-    the intended font weight without parsing the actual [font-weight] value
+    The [syntax] parameter defaults to ["*"] (Universal) when not specified.
 
-    4. {b Future Extensibility}: Other utilities or custom CSS could reference
-    [var(--tw-font-weight)] if needed
+    {1 API Functions}
 
-    {2 Example Flows}
-
-    {3 Font-weight (Pattern 1)}
-    For [<div class="font-thin">]: 1. Theme layer defines:
-    [--font-weight-thin: 100] 2. Properties layer initializes:
-    [--tw-font-weight: initial] 3. Utility class sets:
-    [--tw-font-weight: var(--font-weight-thin)] AND
-    [font-weight: var(--font-weight-thin)] 4. [@property] registers
-    [--tw-font-weight] for proper CSS behavior
-
-    {3 Border-style (Pattern 2)}
-    For [<div class="border-solid">]: 1. Properties layer initializes:
-    [--tw-border-style: solid] 2. Utility class sets: [--tw-border-style: solid]
-    AND [border-style: solid] 3. [@property] registers [--tw-border-style] for
-    proper CSS behavior 4. Other utilities like [.border] use:
-    [border-style: var(--tw-border-style)] *)
+    - [Var.theme]: Creates theme variables ([@layer theme])
+    - [Var.utility]: Creates utility variables (inline in utility classes)
+    - [Var.property]: Creates property registration + [@layer properties] defaults
+    - [Var.handle]: References variables without defining them *)
 
 (** Layer classification for CSS variables. In v4, variables live in [\@layer]
     theme or inline within utilities; base/properties are not used for
@@ -185,10 +218,10 @@ type _ t =
   | Single_shadow : Css.shadow t
   | Shadow : Css.box_shadow t
   | Shadow_color : Css.color t
-  | Shadow_alpha : float t
+  | Shadow_alpha : Css.percentage t
   | Inset_shadow : Css.shadow t
   | Inset_shadow_color : Css.color t
-  | Inset_shadow_alpha : float t
+  | Inset_shadow_alpha : Css.percentage t
   | Ring_color : Css.color t
   | Ring_shadow : Css.shadow t
   | Inset_ring_color : Css.color t
@@ -295,23 +328,19 @@ val handle : 'a t -> ?fallback:'a -> unit -> 'a Css.var
     without a definition. Useful for referencing variables that may be defined
     elsewhere. *)
 
-val property : ?inherits:bool -> ?initial:string -> 'a t -> Css.t
-(** [property ?inherits t] creates a typed [@property] registration as a
-    stylesheet using Universal syntax. Examples:
-    - [property My_color]
-    - [property ~inherits:true Border_style]
+val property :
+  'a t -> ?syntax:'a Css.syntax -> ?inherits:bool -> 'a option -> Css.t
+(** [property var_t ?initial ?syntax ?inherits] creates a typed [@property]
+    registration with the appropriate syntax inferred from the variable type.
 
-    @param inherits Whether the property inherits (defaults to false). *)
+    - [initial]: Typed initial value (used for both @layer properties and @property)
+    - [syntax]: CSS syntax (defaults to Universal when not provided)
+    - [inherits]: Whether the property inherits (defaults to false)
 
-val property_percentage :
-  ?inherits:bool -> ?initial:Css.percentage -> float t -> Css.t
-(** [property_percentage ?inherits t] creates a [@property] registration with
-    percentage syntax for alpha/opacity values. *)
-
-val property_length :
-  ?inherits:bool -> ?initial:Css.length -> Css.length t -> Css.t
-(** [property_length ?inherits t] creates a [@property] registration with length
-    syntax for length values. *)
+    Examples:
+    - [property Shadow ~initial:[shadow_value]]
+    - [property Shadow_alpha ~initial:(Css.Pct 100.0)]
+    - [property Border_style ~initial:Solid] *)
 
 val layer : _ Css.var -> layer option
 (** [layer var] returns the layer recorded in the variable metadata, if any. *)

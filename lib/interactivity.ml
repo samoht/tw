@@ -47,7 +47,7 @@ let _, _scroll_snap_strictness_var =
   Var.utility Var.Scroll_snap_strictness Proximity
 
 (* Scroll snap property rules *)
-let scroll_snap_property_rules = Var.property Var.Scroll_snap_strictness
+let scroll_snap_property_rules = Var.property Var.Scroll_snap_strictness None
 let snap_start = style "snap-start" [ scroll_snap_align Start ]
 let snap_end = style "snap-end" [ scroll_snap_align End ]
 let snap_center = style "snap-center" [ scroll_snap_align Center ]

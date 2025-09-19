@@ -33,15 +33,16 @@ module Parse = Parse
 
 (* Shared @property rules for scale composition variables *)
 let scale_property_rules =
-  Css.(
-    v
-      (rules (Var.property Var.Scale_x)
-      @ rules (Var.property Var.Scale_y)
-      @ rules (Var.property Var.Scale_z)))
+  Css.concat
+    [
+      Var.property Var.Scale_x None;
+      Var.property Var.Scale_y None;
+      Var.property Var.Scale_z None;
+    ]
 
-let scale_x_property_rule = Var.property Var.Scale_x
-let scale_y_property_rule = Var.property Var.Scale_y
-let scale_z_property_rule = Var.property Var.Scale_z
+let scale_x_property_rule = Var.property Var.Scale_x None
+let scale_y_property_rule = Var.property Var.Scale_y None
+let scale_z_property_rule = Var.property Var.Scale_z None
 
 let rotate n =
   let class_name = "rotate-" ^ string_of_int n in
