@@ -248,7 +248,7 @@ let test_pp_diff_result_with_string_context () =
   (* Should show "no structural differences" and the string diff context *)
   check bool "shows no structural differences" true
     (String.contains output 'n' && String.contains output 'o');
-  check bool "shows position" true (String.contains output '9')
+  check bool "shows position" true (String.contains output '^')
 (* Position of the space difference *)
 
 let test_pp_diff_result_structural () =
