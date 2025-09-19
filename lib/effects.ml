@@ -56,7 +56,7 @@ let shadow_property_rules =
         (Some
            (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ()));
       Var.property Var.Ring_inset None;
-      Var.property Var.Ring_offset_width ~syntax:Length (Some (Px 42.));
+      Var.property Var.Ring_offset_width ~syntax:Length (Some Zero);
       Var.property Var.Ring_offset_color (Some (Css.hex "#fff"));
       Var.property Var.Ring_offset_shadow
         (Some
@@ -123,16 +123,35 @@ let shadow_sm =
 
 let shadow =
   (* Default shadow - same as shadow-sm in Tailwind v4 *)
-  let shadow_value =
-    Css.box_shadow_list
-      [
-        Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 1.) ~blur:(Px 3.)
-          ~spread:(Px 0.) ~color:(Css.hex "#0000001a") ();
-        Css.shadow ~h_offset:(Px 0.) ~v_offset:(Px 1.) ~blur:(Px 2.)
-          ~spread:(Px (-1.)) ~color:(Css.hex "#0000001a") ();
-      ]
+  let shadow_color_var =
+    Var.handle Var.Shadow_color ~fallback:(Css.hex "#0000001a") ()
   in
-  style "shadow" ~property_rules:shadow_property_rules [ shadow_value ]
+  let shadow_list =
+    [
+      Css.shadow ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 3.) ~spread:Zero
+        ~color:(Var shadow_color_var) ();
+      Css.shadow ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 2.)
+        ~spread:(Px (-1.)) ~color:(Var shadow_color_var) ();
+    ]
+  in
+
+  (* Define --tw-shadow variable with the shadow list *)
+  let tw_shadow_def, tw_shadow_var = Var.utility Var.Shadow shadow_list in
+
+  (* Create box-shadow using CSS variable composition with variable handles *)
+  (* These reference the defaults from @layer properties, no explicit setting needed *)
+  let box_shadow_vars : Css.box_shadow =
+    [
+      Css.Var (Var.handle Var.Inset_shadow ());
+      Css.Var (Var.handle Var.Inset_ring_shadow ());
+      Css.Var (Var.handle Var.Ring_offset_shadow ());
+      Css.Var (Var.handle Var.Ring_shadow ());
+      Css.Var_list tw_shadow_var;
+    ]
+  in
+
+  style "shadow" ~property_rules:shadow_property_rules
+    [ tw_shadow_def; Css.box_shadow_list box_shadow_vars ]
 
 let shadow_md =
   let shadow_value =

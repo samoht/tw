@@ -278,32 +278,21 @@ let equal_rule_change r1 r2 =
   in
   r1.selector = r2.selector && equal_diff equal_rule_data r1.change r2.change
 
+(* Helper for comparing rule lists *)
+let equal_rules_list rules1 rules2 =
+  List.length rules1 = List.length rules2
+  && List.for_all2 equal_rule_change rules1 rules2
+
 let equal_media_query (m1 : media_query) (m2 : media_query) =
-  let equal_rules_list rules1 rules2 =
-    List.length rules1 = List.length rules2
-    && List.for_all2 equal_rule_change rules1 rules2
-  in
   m1.condition = m2.condition && equal_diff equal_rules_list m1.change m2.change
 
 let equal_layer (l1 : layer) (l2 : layer) =
-  let equal_rules_list rules1 rules2 =
-    List.length rules1 = List.length rules2
-    && List.for_all2 equal_rule_change rules1 rules2
-  in
   l1.name = l2.name && equal_diff equal_rules_list l1.change l2.change
 
 let equal_supports_query (s1 : supports_query) (s2 : supports_query) =
-  let equal_rules_list rules1 rules2 =
-    List.length rules1 = List.length rules2
-    && List.for_all2 equal_rule_change rules1 rules2
-  in
   s1.condition = s2.condition && equal_diff equal_rules_list s1.change s2.change
 
 let equal_container_query (c1 : container_query) (c2 : container_query) =
-  let equal_rules_list rules1 rules2 =
-    List.length rules1 = List.length rules2
-    && List.for_all2 equal_rule_change rules1 rules2
-  in
   c1.name = c2.name
   && c1.condition = c2.condition
   && equal_diff equal_rules_list c1.change c2.change
@@ -777,36 +766,40 @@ let diff_ast ~(expected : Css.t) ~(actual : Css.t) =
   let media1 = Css.media_queries expected in
   let media2 = Css.media_queries actual in
   let at_added, at_removed, at_modified = media_diffs media1 media2 in
-  let media_querys =
+  (* Generic helper for building query diffs *)
+  let build_simple_query_diffs prefix make_query (added, removed, modified) =
+    let make_context cond = [ prefix ^ " " ^ cond ] in
     let rule_changes_of ?(context = []) rules1 rules2 =
       rules_to_changes ~context (rule_diffs rules1 rules2)
     in
     List.map
       (fun (cond, rules) ->
-        let media_context = [ "@media " ^ cond ] in
-        let rc = rule_changes_of ~context:media_context [] rules in
-        ({ condition = cond; change = Added rc } : media_query))
-      at_added
+        let context = make_context cond in
+        let rc = rule_changes_of ~context [] rules in
+        make_query cond (Added rc))
+      added
     @ List.map
         (fun (cond, rules) ->
-          let media_context = [ "@media " ^ cond ] in
-          let rc = rule_changes_of ~context:media_context rules [] in
-          ({ condition = cond; change = Removed rc } : media_query))
-        at_removed
+          let context = make_context cond in
+          let rc = rule_changes_of ~context rules [] in
+          make_query cond (Removed rc))
+        removed
     @ List.filter_map
         (fun (cond, rules1, rules2) ->
-          let media_context = [ "@media " ^ cond ] in
-          let rc = rule_changes_of ~context:media_context rules1 rules2 in
+          let context = make_context cond in
+          let rc = rule_changes_of ~context rules1 rules2 in
           if rc = [] then None
           else
             Some
-              ({
-                 condition = cond;
-                 change =
-                   Changed (rule_changes_of ~context:media_context rules1 [], rc);
-               }
-                : media_query))
-        at_modified
+              (make_query cond
+                 (Changed (rule_changes_of ~context rules1 [], rc))))
+        modified
+  in
+
+  let media_querys =
+    build_simple_query_diffs "@media"
+      (fun cond change -> ({ condition = cond; change } : media_query))
+      (at_added, at_removed, at_modified)
   in
 
   let layer_added, layer_removed, layer_modified =
@@ -875,28 +868,22 @@ let diff_ast ~(expected : Css.t) ~(actual : Css.t) =
         | None -> None)
       supports1
   in
-  let supports_querys : supports_query list =
+  (* Process supports queries with similar pattern but block extraction *)
+  let supports_added_processed =
     List.map
-      (fun (cond, block) ->
-        let rules = List.filter Css.is_rule block in
-        let rc = rules_to_changes (rules, [], []) in
-        ({ condition = cond; change = Added rc } : supports_query))
+      (fun (cond, block) -> (cond, List.filter Css.is_rule block))
       supports_added
-    @ List.map
-        (fun (cond, block) ->
-          let rules = List.filter Css.is_rule block in
-          let rc = rules_to_changes ([], rules, []) in
-          ({ condition = cond; change = Removed rc } : supports_query))
-        supports_removed
-    @ List.map
-        (fun (cond, rules1, rules2) ->
-          let rc = rules_to_changes (rule_diffs rules1 rules2) in
-          ({
-             condition = cond;
-             change = Changed (rules_to_changes ([], rules1, []), rc);
-           }
-            : supports_query))
-        supports_modified
+  in
+  let supports_removed_processed =
+    List.map
+      (fun (cond, block) -> (cond, List.filter Css.is_rule block))
+      supports_removed
+  in
+
+  let supports_querys =
+    build_simple_query_diffs "@supports"
+      (fun cond change -> ({ condition = cond; change } : supports_query))
+      (supports_added_processed, supports_removed_processed, supports_modified)
   in
 
   (* Build container diffs *)
@@ -929,29 +916,39 @@ let diff_ast ~(expected : Css.t) ~(actual : Css.t) =
         | None -> None)
       containers1
   in
+  (* Container queries need special handling due to the name field *)
   let container_querys : container_query list =
+    let rule_changes_of ?(context = []) rules1 rules2 =
+      rules_to_changes ~context (rule_diffs rules1 rules2)
+    in
     List.map
       (fun (n, cond, block) ->
         let rules = List.filter Css.is_rule block in
-        let rc = rules_to_changes (rules, [], []) in
+        let context = [ "@container " ^ cond ] in
+        let rc = rule_changes_of ~context [] rules in
         ({ name = n; condition = cond; change = Added rc } : container_query))
       containers_added
     @ List.map
         (fun (n, cond, block) ->
           let rules = List.filter Css.is_rule block in
-          let rc = rules_to_changes ([], rules, []) in
+          let context = [ "@container " ^ cond ] in
+          let rc = rule_changes_of ~context rules [] in
           ({ name = n; condition = cond; change = Removed rc }
             : container_query))
         containers_removed
-    @ List.map
+    @ List.filter_map
         (fun (n, cond, rules1, rules2) ->
-          let rc = rules_to_changes (rule_diffs rules1 rules2) in
-          ({
-             name = n;
-             condition = cond;
-             change = Changed (rules_to_changes ([], rules1, []), rc);
-           }
-            : container_query))
+          let context = [ "@container " ^ cond ] in
+          let rc = rule_changes_of ~context rules1 rules2 in
+          if rc = [] then None
+          else
+            Some
+              ({
+                 name = n;
+                 condition = cond;
+                 change = Changed (rule_changes_of ~context rules1 [], rc);
+               }
+                : container_query))
         containers_modified
   in
 
@@ -1119,7 +1116,7 @@ let pp_diff_result ?(expected = "Expected") ?(actual = "Actual")
         match
           show_string_diff_context ~expected:expected_str ~actual:actual_str
         with
-        | Some (exp_ctx, act_ctx, (_diff_line, _char_pos), pos) ->
+        | Some (exp_ctx, act_ctx, (_diff_line, char_pos), pos) ->
             Fmt.pf fmt
               "@[<v>CSS has no structural differences but strings differ:@,@,";
             Fmt.pf fmt "@@ position %d @@@," pos;
@@ -1129,6 +1126,8 @@ let pp_diff_result ?(expected = "Expected") ?(actual = "Actual")
             if List.length exp_lines = 1 && List.length act_lines = 1 then (
               (* Single line - show the diff context on one line each *)
               Fmt.pf fmt "-%s@," exp_ctx;
+              (* Show caret pointing to difference *)
+              Fmt.pf fmt " %s@," (String.make char_pos ' ' ^ "^");
               Fmt.pf fmt "+%s@]" act_ctx)
             else (
               (* Multi-line - show line by line *)
