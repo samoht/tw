@@ -65,6 +65,75 @@ let truncate_with_context max_len value =
     let end_part = String.sub value (len - half_len) half_len in
     start_part ^ "..." ^ end_part
 
+(* Helper to find first character difference between two strings *)
+let find_first_diff s1 s2 =
+  let len1 = String.length s1 in
+  let len2 = String.length s2 in
+  let rec find i =
+    if i >= len1 || i >= len2 then if len1 = len2 then None else Some i
+    else if s1.[i] <> s2.[i] then Some i
+    else find (i + 1)
+  in
+  find 0
+
+(* Format a single-line string diff with optional truncation and caret *)
+let format_single_line_diff ?(max_width = 60) expected actual =
+  match find_first_diff expected actual with
+  | None -> None
+  | Some diff_pos ->
+      let len1 = String.length expected in
+      let len2 = String.length actual in
+
+      (* If both strings fit, show them completely *)
+      if len1 <= max_width && len2 <= max_width then
+        Some (expected, actual, diff_pos)
+      else
+        (* Calculate window centered on the diff position *)
+        let half = max_width / 2 in
+        let window_start = max 0 (diff_pos - half) in
+        let window_end = min (max len1 len2) (window_start + max_width) in
+
+        (* Helper to extract and format a window from a string *)
+        let extract_window s len =
+          if window_start >= len then ("...", 3)
+            (* Just ellipsis if window starts beyond string *)
+          else
+            let actual_end = min len window_end in
+            let snippet =
+              String.sub s window_start (actual_end - window_start)
+            in
+            let has_prefix = window_start > 0 in
+            let has_suffix = window_end < len in
+            let prefix = if has_prefix then "..." else "" in
+            let suffix = if has_suffix then "..." else "" in
+            let full_string = prefix ^ snippet ^ suffix in
+            let prefix_len = if has_prefix then 3 else 0 in
+            (full_string, prefix_len)
+        in
+
+        let s1_display, prefix_len1 = extract_window expected len1 in
+        let s2_display, _prefix_len2 = extract_window actual len2 in
+
+        (* Adjust caret position to account for window and prefix *)
+        (* The caret should point to the diff position within the displayed window *)
+        let adjusted_pos =
+          if diff_pos < window_start then 0
+            (* Diff is before window, point to start *)
+          else if diff_pos >= window_end then
+            String.length s1_display
+            - 1 (* Diff is after window, point to end *)
+          else
+            (* Diff is within window: position relative to window start +
+               prefix *)
+            prefix_len1 + (diff_pos - window_start)
+        in
+
+        Some (s1_display, s2_display, adjusted_pos)
+
+(* Print a caret pointing to a specific position *)
+let pp_caret ?(indent = 0) fmt pos =
+  Fmt.pf fmt "%s^@," (String.make (pos + indent) ' ')
+
 let pp_rule fmt { selector; context; change } =
   let context_str =
     match context with [] -> "" | ctx -> String.concat " > " ctx ^ " > "
@@ -92,20 +161,32 @@ let pp_rule fmt { selector; context; change } =
       (* Show property changes using the new format *)
       List.iter
         (fun { property_name; expected_value; actual_value } ->
-          let max_value_len = 50 in
-          (* Use longer truncation for value comparisons *)
-          let display_expected =
-            if String.length expected_value > max_value_len then
-              truncate_with_context max_value_len expected_value
-            else expected_value
-          in
-          let display_actual =
-            if String.length actual_value > max_value_len then
-              truncate_with_context max_value_len actual_value
-            else actual_value
-          in
-          Fmt.pf fmt "    - modify: %s %s -> %s@," property_name
-            display_expected display_actual)
+          let short_threshold = 30 in
+          (* Values under this show on one line *)
+
+          (* Check if both values are short enough for inline display *)
+          let exp_len = String.length expected_value in
+          let act_len = String.length actual_value in
+
+          if exp_len <= short_threshold && act_len <= short_threshold then
+            (* Short values: show inline *)
+            Fmt.pf fmt "    - modify: %s %s -> %s@," property_name
+              expected_value actual_value
+          else
+            (* Long values: use shared single-line diff formatting *)
+            match format_single_line_diff expected_value actual_value with
+            | Some (exp_display, act_display, adjusted_pos) ->
+                (* Show with ellipsis and caret *)
+                Fmt.pf fmt "    - modify: %s@," property_name;
+                Fmt.pf fmt "        - %s@," exp_display;
+                Fmt.pf fmt "        + %s@," act_display;
+                pp_caret ~indent:10 fmt
+                  adjusted_pos (* indent:10 for " + " prefix *)
+            | None ->
+                (* No diff found but values differ - shouldn't happen *)
+                Fmt.pf fmt "    - modify: %s %s -> %s@," property_name
+                  (truncate_with_context 60 expected_value)
+                  (truncate_with_context 60 actual_value))
         prop_diffs;
 
       (* Check for declaration order changes *)
@@ -196,12 +277,17 @@ let pp ?(expected = "Expected") ?(actual = "Actual") fmt
     (* Process nested rules from layers *)
     List.iter
       (fun (layer : layer) ->
-        let layer_rules : rule list =
-          match layer.change with
-          | Added rules | Removed rules -> rules
-          | Changed (_, rules) -> rules
-        in
-        List.iter (pp_rule fmt) layer_rules)
+        match layer.change with
+        | Added rules ->
+            Fmt.pf fmt "- @layer %s: (added)@," layer.name;
+            List.iter (pp_rule fmt) rules
+        | Removed rules ->
+            Fmt.pf fmt "- @layer %s: (removed)@," layer.name;
+            List.iter (pp_rule fmt) rules
+        | Changed (_, rules) ->
+            if rules <> [] then (
+              Fmt.pf fmt "- @layer %s:@," layer.name;
+              List.iter (pp_rule fmt) rules))
       layers;
 
     (* Process nested rules from support queries *)
@@ -1017,9 +1103,25 @@ let compare_css css1 css2 =
       && d.custom_properties = []
   | _ -> css1 = css2
 
+(* String diff information for character-level differences *)
+type string_diff = {
+  position : int; (* Character position of first difference *)
+  line_expected : int;
+  column_expected : int;
+  line_actual : int;
+  column_actual : int;
+  context_before : (string * string) list;
+      (* (expected, actual) line pairs before diff *)
+  diff_lines : string * string; (* The lines containing the difference *)
+  context_after : (string * string) list;
+      (* (expected, actual) line pairs after diff *)
+}
+
 (* Parse two CSS strings and return their diff or parse errors *)
 type diff_result =
-  | Diff of t
+  | Diff of t (* CSS AST differences found *)
+  | String_diff of string_diff (* No structural diff but strings differ *)
+  | No_diff (* Strings are identical *)
   | Both_errors of Css.parse_error * Css.parse_error
   | Expected_error of Css.parse_error
   | Actual_error of Css.parse_error
@@ -1029,122 +1131,175 @@ let is_empty d =
   && d.supports_queries = [] && d.container_queries = []
   && d.custom_properties = []
 
+let show_string_diff_context ~expected ~actual =
+  match find_first_diff expected actual with
+  | None -> None
+  | Some pos ->
+      (* Split into lines to find the line containing the diff *)
+      let lines_expected = String.split_on_char '\n' expected in
+      let lines_actual = String.split_on_char '\n' actual in
+
+      (* Find which line contains position pos *)
+      let find_line_and_column lines pos =
+        let rec find line_num char_count = function
+          | [] -> (line_num - 1, pos - char_count, [])
+          | line :: rest ->
+              let line_len = String.length line + 1 in
+              (* +1 for newline *)
+              if char_count + line_len > pos then
+                (line_num, pos - char_count, line :: rest)
+              else find (line_num + 1) (char_count + line_len) rest
+        in
+        find 0 0 lines
+      in
+
+      let line_exp, col_exp, remaining_exp =
+        find_line_and_column lines_expected pos
+      in
+      let line_act, col_act, remaining_act =
+        find_line_and_column lines_actual pos
+      in
+
+      (* Get context lines (3 before, 3 after) *)
+      let context_size = 3 in
+
+      let get_context_before lines line_num =
+        let rec take n lines =
+          if n <= 0 || lines = [] then []
+          else match lines with [] -> [] | h :: t -> h :: take (n - 1) t
+        in
+        let before_lines = take line_num lines in
+        let context_start = max 0 (List.length before_lines - context_size) in
+        let rec drop n lst =
+          if n <= 0 then lst
+          else match lst with [] -> [] | _ :: t -> drop (n - 1) t
+        in
+        drop context_start before_lines
+      in
+
+      let context_before_exp = get_context_before lines_expected line_exp in
+      let context_before_act = get_context_before lines_actual line_act in
+
+      (* Pair up context lines *)
+      let rec zip l1 l2 =
+        match (l1, l2) with
+        | [], [] -> []
+        | h1 :: t1, [] -> (h1, "") :: zip t1 []
+        | [], h2 :: t2 -> ("", h2) :: zip [] t2
+        | h1 :: t1, h2 :: t2 -> (h1, h2) :: zip t1 t2
+      in
+
+      let context_before = zip context_before_exp context_before_act in
+
+      (* Get the diff lines *)
+      let diff_line_exp = match remaining_exp with [] -> "" | h :: _ -> h in
+      let diff_line_act = match remaining_act with [] -> "" | h :: _ -> h in
+
+      (* Get context after *)
+      let context_after_exp =
+        match remaining_exp with
+        | [] -> []
+        | _ :: t ->
+            let rec take n = function
+              | [] -> []
+              | _ when n <= 0 -> []
+              | h :: t -> h :: take (n - 1) t
+            in
+            take context_size t
+      in
+      let context_after_act =
+        match remaining_act with
+        | [] -> []
+        | _ :: t ->
+            let rec take n = function
+              | [] -> []
+              | _ when n <= 0 -> []
+              | h :: t -> h :: take (n - 1) t
+            in
+            take context_size t
+      in
+
+      let context_after = zip context_after_exp context_after_act in
+
+      Some
+        {
+          position = pos;
+          line_expected = line_exp;
+          column_expected = col_exp;
+          line_actual = line_act;
+          column_actual = col_act;
+          context_before;
+          diff_lines = (diff_line_exp, diff_line_act);
+          context_after;
+        }
+
 let diff ~expected ~actual =
   let expected = strip_header expected in
   let actual = strip_header actual in
   match (Css.of_string expected, Css.of_string actual) with
   | Ok expected_ast, Ok actual_ast ->
-      Diff (diff_ast ~expected:expected_ast ~actual:actual_ast)
+      let structural_diff =
+        diff_ast ~expected:expected_ast ~actual:actual_ast
+      in
+      if is_empty structural_diff then
+        (* No structural differences, check string differences *)
+        if expected = actual then No_diff
+        else
+          match show_string_diff_context ~expected ~actual with
+          | Some sdiff -> String_diff sdiff
+          | None -> No_diff (* Shouldn't happen if strings differ *)
+      else Diff structural_diff
   | Error e1, Error e2 -> Both_errors (e1, e2)
   | Ok _, Error e -> Actual_error e
   | Error e, Ok _ -> Expected_error e
 
-(* Helper function to show string diff with context and caret *)
-let show_string_diff_context ~expected ~actual =
-  let find_first_diff s1 s2 =
-    let len1 = String.length s1 in
-    let len2 = String.length s2 in
-    let rec find_diff i =
-      if i >= len1 || i >= len2 then if len1 = len2 then None else Some i
-      else if s1.[i] <> s2.[i] then Some i
-      else find_diff (i + 1)
-    in
-    find_diff 0
-  in
-  match find_first_diff expected actual with
-  | None -> None
-  | Some pos ->
-      (* Terminal width constraint - center the diff *)
-      let max_width = 78 in
-      (* Leave room for "- " prefix *)
-      let half_width = max_width / 2 in
+(* Pretty-print a string diff in git unified diff format *)
+let pp_string_diff fmt (sdiff : string_diff) =
+  Fmt.pf fmt "@[<v>@@ -%d,%d +%d,%d @@@,"
+    (max 1 (sdiff.line_expected - List.length sdiff.context_before))
+    (List.length sdiff.context_before + 1 + List.length sdiff.context_after)
+    (max 1 (sdiff.line_actual - List.length sdiff.context_before))
+    (List.length sdiff.context_before + 1 + List.length sdiff.context_after);
 
-      (* Calculate window to center the diff position *)
-      let start_pos = max 0 (pos - half_width) in
+  (* Print context before *)
+  List.iter
+    (fun (exp, act) ->
+      if exp = act then Fmt.pf fmt " %s@," exp (* Common line *)
+      else (
+        if exp <> "" then Fmt.pf fmt "-%s@," exp;
+        if act <> "" then Fmt.pf fmt "+%s@," act))
+    sdiff.context_before;
 
-      (* Extract context window *)
-      let extract_context s start_p =
-        let len = String.length s in
-        let end_p = min len (start_p + max_width) in
-        let snippet = String.sub s start_p (end_p - start_p) in
-        (* Replace newlines/tabs with spaces for single-line display *)
-        String.map
-          (fun c -> match c with '\n' | '\r' | '\t' -> ' ' | c -> c)
-          snippet
-      in
+  (* Print the diff lines with caret if on same line *)
+  let diff_exp, diff_act = sdiff.diff_lines in
+  Fmt.pf fmt "-%s@," diff_exp;
+  if sdiff.line_expected = sdiff.line_actual then
+    (* Show caret for single-line diffs *)
+    pp_caret ~indent:1 fmt sdiff.column_expected;
+  Fmt.pf fmt "+%s@," diff_act;
 
-      let context_expected = extract_context expected start_pos in
-      let context_actual = extract_context actual start_pos in
+  (* Print context after *)
+  List.iter
+    (fun (exp, act) ->
+      if exp = act then Fmt.pf fmt " %s@," exp
+      else (
+        if exp <> "" then Fmt.pf fmt "-%s@," exp;
+        if act <> "" then Fmt.pf fmt "+%s@," act))
+    sdiff.context_after;
+  Fmt.pf fmt "@]"
 
-      (* Add ellipsis if truncated *)
-      let add_ellipsis s orig_start orig_len =
-        let prefix = if orig_start > 0 then "..." else "" in
-        let suffix =
-          if orig_start + String.length s < orig_len then "..." else ""
-        in
-        prefix ^ s ^ suffix
-      in
-
-      let context_expected =
-        add_ellipsis context_expected start_pos (String.length expected)
-      in
-      let context_actual =
-        add_ellipsis context_actual start_pos (String.length actual)
-      in
-
-      (* Calculate caret position - should be roughly centered *)
-      let char_pos =
-        let base_pos = pos - start_pos in
-        let prefix_len = if start_pos > 0 then 3 else 0 in
-        (* account for "..." *)
-        base_pos + prefix_len
-      in
-
-      Some (context_expected, context_actual, (0, char_pos), pos)
-
-(* Format the result of diff_strings with optional labels *)
-let pp_diff_result ?(expected = "Expected") ?(actual = "Actual")
-    ?(expected_str = "") ?(actual_str = "") fmt = function
+(* Format the result of diff with optional labels *)
+let pp_diff_result ?(expected = "Expected") ?(actual = "Actual") fmt = function
   | Diff d ->
-      if not (is_empty d) then
-        (* Show structural differences *)
-        pp ~expected ~actual fmt d
-      else if
-        expected_str <> "" && actual_str <> "" && expected_str <> actual_str
-      then
-        (* No structural differences but strings differ - show string diff *)
-        match
-          show_string_diff_context ~expected:expected_str ~actual:actual_str
-        with
-        | Some (exp_ctx, act_ctx, (_diff_line, char_pos), pos) ->
-            Fmt.pf fmt
-              "@[<v>CSS has no structural differences but strings differ:@,@,";
-            Fmt.pf fmt "@@ position %d @@@," pos;
-            (* For minified CSS (single line), show context directly *)
-            let exp_lines = String.split_on_char '\n' exp_ctx in
-            let act_lines = String.split_on_char '\n' act_ctx in
-            if List.length exp_lines = 1 && List.length act_lines = 1 then (
-              (* Single line - show the diff context on one line each *)
-              Fmt.pf fmt "-%s@," exp_ctx;
-              (* Show caret pointing to difference *)
-              Fmt.pf fmt " %s@," (String.make char_pos ' ' ^ "^");
-              Fmt.pf fmt "+%s@]" act_ctx)
-            else (
-              (* Multi-line - show line by line *)
-              List.iter (fun line -> Fmt.pf fmt "-%s@," line) exp_lines;
-              List.iter (fun line -> Fmt.pf fmt "+%s@," line) act_lines;
-              Fmt.pf fmt "@]")
-        | None ->
-            (* Strings differ but we can't find where *)
-            Fmt.pf fmt
-              "CSS has no structural differences but strings differ (could not \
-               locate diff position)"
-      else if expected_str = "" || actual_str = "" then
-        (* No strings provided, can't show string diff *)
-        Fmt.pf fmt "CSS has no structural differences"
-      else
-        (* Strings are identical, truly no differences *)
-        ()
+      (* Show structural differences *)
+      pp ~expected ~actual fmt d
+  | String_diff sdiff ->
+      Fmt.pf fmt
+        "@[<v>CSS has no structural differences but strings differ:@,@,";
+      pp_string_diff fmt sdiff
+  | No_diff ->
+      (* No output for identical files *)
+      ()
   | Both_errors (e1, e2) ->
       let err1 = Css.pp_parse_error e1 in
       let err2 = Css.pp_parse_error e2 in
@@ -1171,6 +1326,10 @@ let pp_stats ~expected_str ~actual_str fmt = function
         (List.length d.supports_queries)
         (List.length d.container_queries)
         (List.length d.custom_properties)
+  | String_diff sdiff ->
+      Fmt.pf fmt "@[<v>CSS strings differ at position %d (line %d, col %d)@]"
+        sdiff.position sdiff.line_expected sdiff.column_expected
+  | No_diff -> Fmt.pf fmt "CSS files are identical"
   | Both_errors _ -> Fmt.pf fmt "Both CSS files have parse errors"
   | Expected_error _ -> Fmt.pf fmt "Expected CSS has parse error"
   | Actual_error _ -> Fmt.pf fmt "Actual CSS has parse error"

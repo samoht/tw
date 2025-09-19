@@ -83,8 +83,24 @@ val dominant_css_class : string -> string * int
 [@@deprecated "Use structured diff APIs instead"]
 (** [dominant_css_class css] finds the most common CSS class and its count. *)
 
+type string_diff = {
+  position : int;  (** Character position of first difference *)
+  line_expected : int;
+  column_expected : int;
+  line_actual : int;
+  column_actual : int;
+  context_before : (string * string) list;
+      (** (expected, actual) line pairs before diff *)
+  diff_lines : string * string;  (** The lines containing the difference *)
+  context_after : (string * string) list;
+      (** (expected, actual) line pairs after diff *)
+}
+(** String diff information for character-level differences *)
+
 type diff_result =
-  | Diff of t
+  | Diff of t  (** CSS AST differences found *)
+  | String_diff of string_diff  (** No structural diff but strings differ *)
+  | No_diff  (** Strings are identical *)
   | Both_errors of Css.parse_error * Css.parse_error
   | Expected_error of Css.parse_error
   | Actual_error of Css.parse_error
@@ -95,9 +111,7 @@ val diff : expected:string -> actual:string -> diff_result
     parse errors if parsing fails. *)
 
 val show_string_diff_context :
-  expected:string ->
-  actual:string ->
-  (string * string * (int * int) * int) option
+  expected:string -> actual:string -> string_diff option
 (** [show_string_diff_context ~expected ~actual] finds the first difference
     between two strings and returns context around it.
     @return
@@ -111,12 +125,7 @@ val show_string_diff_context :
       - diff_pos: Overall position of the first difference Returns None if
         strings are identical. *)
 
-val pp_diff_result :
-  ?expected:string ->
-  ?actual:string ->
-  ?expected_str:string ->
-  ?actual_str:string ->
-  diff_result Fmt.t
+val pp_diff_result : ?expected:string -> ?actual:string -> diff_result Fmt.t
 (** [pp_diff_result ?expected ?actual ?expected_str ?actual_str] formats a
     diff_result with optional labels and original strings for context display.
     @param expected Label for expected CSS (default: "Expected").

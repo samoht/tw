@@ -200,37 +200,35 @@ let test_string_diff_context_basic () =
   let expected = "hello world" in
   let actual = "hello wurld" in
   match Cc.show_string_diff_context ~expected ~actual with
-  | Some (exp_ctx, act_ctx, (_line, char_pos), pos) ->
-      check int "diff position" 7 pos;
+  | Some sdiff ->
+      check int "diff position" 7 sdiff.position;
       (* Position of 'o' vs 'u' is index 7 *)
-      check int "char position in line" 7 char_pos;
-      check string "expected context" "hello world" exp_ctx;
-      check string "actual context" "hello wurld" act_ctx
+      check int "char position in line" 7 sdiff.column_expected;
+      let exp_line, act_line = sdiff.diff_lines in
+      check string "expected context" "hello world" exp_line;
+      check string "actual context" "hello wurld" act_line
   | None -> fail "expected diff context"
 
 let test_string_diff_context_multiline () =
   let expected = "line one\nline two\nline three" in
   let actual = "line one\nline too\nline three" in
   match Cc.show_string_diff_context ~expected ~actual with
-  | Some (exp_ctx, act_ctx, (line_num, char_pos), pos) ->
-      check int "diff position" 15 pos;
+  | Some sdiff ->
+      check int "diff position" 15 sdiff.position;
       (* Position of 'w' vs 'o' at index 15 *)
-      check int "diff line number" 0 line_num;
-      check int "char position in line" 15 char_pos;
+      check int "diff line number" 1 sdiff.line_expected;
+      check int "char position in line" 6 sdiff.column_expected;
       (* Position in line after "line t" *)
-      (* Context should stop at end of line with diff *)
-      check string "expected context includes up to diff line"
-        "line one line two line three" exp_ctx;
-      check string "actual context includes up to diff line"
-        "line one line too line three" act_ctx
+      let exp_line, act_line = sdiff.diff_lines in
+      check string "expected diff line" "line two" exp_line;
+      check string "actual diff line" "line too" act_line
   | None -> fail "expected diff context"
 
 let test_string_diff_context_at_end () =
   let expected = "abc" in
   let actual = "abcd" in
   match Cc.show_string_diff_context ~expected ~actual with
-  | Some (_exp_ctx, _act_ctx, (_line, _char), pos) ->
-      check int "diff at end position" 3 pos
+  | Some sdiff -> check int "diff at end position" 3 sdiff.position
   | None -> fail "expected diff context"
 
 let test_string_diff_context_none () =
@@ -246,8 +244,7 @@ let test_pp_diff_result_with_string_context () =
   let css2 = ".a{color: red}" in
   (* Extra space *)
   let result = Cc.diff ~expected:css1 ~actual:css2 in
-  let pp = Cc.pp_diff_result ~expected_str:css1 ~actual_str:css2 in
-  let output = Fmt.to_to_string pp result in
+  let output = Fmt.to_to_string Cc.pp_diff_result result in
   (* Should show "no structural differences" and the string diff context *)
   check bool "shows no structural differences" true
     (String.contains output 'n' && String.contains output 'o');
@@ -372,7 +369,7 @@ let test_never_empty_diff_when_strings_differ () =
       (* Check that pp_diff_result produces some output when strings differ *)
       let buffer = Buffer.create 256 in
       let fmt = Format.formatter_of_buffer buffer in
-      Cc.pp_diff_result ~expected_str:expected ~actual_str:actual fmt result;
+      Cc.pp_diff_result fmt result;
       Format.pp_print_flush fmt ();
       let output = Buffer.contents buffer in
 

@@ -109,8 +109,7 @@ let check_exact_match tw_styles =
       (* Show the actual diff *)
       Fmt.epr "%a@,"
         (Tw_tools.Css_compare.pp_diff_result ~expected:"Tailwind (expected)"
-           ~actual:"Our TW (actual)" ~expected_str:tailwind_css
-           ~actual_str:tw_css)
+           ~actual:"Our TW (actual)")
         diff_result);
 
     let test_label =
