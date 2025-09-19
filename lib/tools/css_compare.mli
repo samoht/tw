@@ -1,53 +1,47 @@
 (** CSS comparison utilities for testing using the proper CSS parser *)
 
-type property_diff_detail = {
-  property : string;
-  our_value : string;
-  their_value : string;
+type declaration = {
+  property_name : string;
+  expected_value : string;
+  actual_value : string;
 }
 
-type change = Added | Removed | Modified of property_diff_detail list
+type 'a diff = Added of 'a | Removed of 'a | Changed of 'a * 'a
 
-type rule_change = {
+type custom_property_definition = {
+  name : string;
+  syntax : string;
+  inherits : bool;
+  initial_value : string option;
+}
+
+type rule = {
   selector : string;
-  change : change;
-  properties : Css.declaration list; (* For added/removed rules *)
+  change : (Css.declaration list * declaration list) diff;
 }
 
-type media_change = {
-  condition : string;
-  change : change;
-  rules : rule_change list;
-}
+type media_query = { condition : string; change : rule list diff }
+type layer = { name : string; change : rule list diff }
+type supports_query = { condition : string; change : rule list diff }
 
-type layer_change = { name : string; change : change; rules : rule_change list }
-
-type supports_change = {
-  condition : string;
-  change : change;
-  rules : rule_change list;
-}
-
-type container_change = {
+type container_query = {
   name : string option;
   condition : string;
-  change : change;
-  rules : rule_change list;
+  change : rule list diff;
 }
 
-type property_change = {
+type custom_property = {
   name : string;
-  change : change;
-  details : property_diff_detail list;
+  change : custom_property_definition diff;
 }
 
 type t = {
-  rules : rule_change list;
-  media : media_change list;
-  layers : layer_change list;
-  supports : supports_change list;
-  containers : container_change list;
-  properties : property_change list;
+  rules : rule list;
+  media_queries : media_query list;
+  layers : layer list;
+  supports_queries : supports_query list;
+  container_queries : container_query list;
+  custom_properties : custom_property list;
 }
 
 val pp : ?expected:string -> ?actual:string -> t Fmt.t

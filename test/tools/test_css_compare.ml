@@ -43,21 +43,22 @@ let test_rule_added_removed_modified () =
   let has_added_c =
     List.exists
       (fun r ->
-        r.selector = ".c" && match r.change with Cc.Added -> true | _ -> false)
+        r.selector = ".c"
+        && match r.change with Cc.Added _ -> true | _ -> false)
       diff.rules
   in
   let has_removed_b =
     List.exists
       (fun r ->
         r.selector = ".b"
-        && match r.change with Cc.Removed -> true | _ -> false)
+        && match r.change with Cc.Removed _ -> true | _ -> false)
       diff.rules
   in
   let has_modified_a =
     List.exists
       (fun r ->
         r.selector = ".a"
-        && match r.change with Cc.Modified _ -> true | _ -> false)
+        && match r.change with Cc.Changed _ -> true | _ -> false)
       diff.rules
   in
   check bool "added .c" true has_added_c;
@@ -78,21 +79,25 @@ let test_media_and_layer_diffs () =
   (* Structural expectations: exactly one media Added and one layer Added, no
      rule diffs *)
   check int "no top-level rule diffs" 0 (List.length diff.rules);
-  check int "one media change" 1 (List.length diff.media);
+  check int "one media change" 1 (List.length diff.media_queries);
   check int "one layer change" 1 (List.length diff.layers);
-  let m = List.hd diff.media in
+  let m = List.hd diff.media_queries in
   (match m.change with
-  | Cc.Modified _ -> ()
-  | _ -> fail "media not marked Modified");
-  (* Within media, the rule for .m should be Modified due to margin change *)
-  let media_rules = m.rules in
+  | Cc.Changed _ -> ()
+  | _ -> fail "media not marked Changed");
+  (* Within media, the rule for .m should be Changed due to margin change *)
+  let media_rules =
+    match m.change with Cc.Changed (_, new_rules) -> new_rules | _ -> []
+  in
   let mr = List.find_opt (fun r -> r.selector = ".m") media_rules in
   (match mr with
   | Some r -> (
-      match r.change with Cc.Modified _ -> () | _ -> fail ".m not Modified")
+      match r.change with Cc.Changed _ -> () | _ -> fail ".m not Changed")
   | None -> fail "missing .m rule diff");
   let l = List.hd diff.layers in
-  match l.change with Cc.Removed -> () | _ -> fail "layer not marked Removed"
+  match l.change with
+  | Cc.Removed _ -> ()
+  | _ -> fail "layer not marked Removed"
 
 let test_property_value_modified () =
   let css_expected = ".x{color:red}" in
@@ -109,22 +114,23 @@ let test_property_value_modified () =
           {
             selector = ".x";
             change =
-              Cc.Modified
-                [
-                  {
-                    Cc.property = "color";
-                    our_value = "red";
-                    their_value = "blue";
-                  };
-                ];
-            properties = [];
+              Cc.Changed
+                ( ([], []),
+                  ( [],
+                    [
+                      {
+                        Cc.property_name = "color";
+                        expected_value = "red";
+                        actual_value = "blue";
+                      };
+                    ] ) );
           };
         ];
-      media = [];
+      media_queries = [];
       layers = [];
-      supports = [];
-      containers = [];
-      properties = [];
+      supports_queries = [];
+      container_queries = [];
+      custom_properties = [];
     }
   in
   check testable_diff "exact property value diff" expected_diff diff
@@ -141,7 +147,7 @@ let test_property_added_only () =
     List.exists
       (fun r ->
         r.selector = ".y"
-        && match r.change with Cc.Modified _ -> true | _ -> false)
+        && match r.change with Cc.Changed _ -> true | _ -> false)
       diff.rules
   in
   check bool "modified .y" true has_modified_y
@@ -159,7 +165,7 @@ let test_important_and_custom_props () =
     List.exists
       (fun r ->
         r.selector = ".x"
-        && match r.change with Cc.Modified _ -> true | _ -> false)
+        && match r.change with Cc.Changed _ -> true | _ -> false)
       d1.rules
   in
   check bool "importance change => modified" true has_mod_imp;
@@ -173,7 +179,7 @@ let test_important_and_custom_props () =
     List.exists
       (fun r ->
         r.selector = ".x"
-        && match r.change with Cc.Modified _ -> true | _ -> false)
+        && match r.change with Cc.Changed _ -> true | _ -> false)
       d2.rules
   in
   check bool "custom prop change => modified" true has_mod_custom
@@ -195,8 +201,8 @@ let test_supports_and_container_diffs () =
   (* Media/layers may be empty; we look for structural differences in supports/containers implicitly via rules diff absence *)
   (* Ensure no top-level rule diffs pollute this case *)
   check int "no top-level rule diffs" 0 (List.length diff.rules);
-  check int "one supports change" 1 (List.length diff.supports);
-  check int "one container change" 1 (List.length diff.containers)
+  check int "one supports change" 1 (List.length diff.supports_queries);
+  check int "one container change" 1 (List.length diff.container_queries)
 
 (* Intentionally avoid substring/count-based checks; use structural diff
    only. *)
@@ -270,6 +276,98 @@ let test_pp_diff_result_structural () =
     (String.contains output 'r' && String.contains output 'e'
    && String.contains output 'd')
 
+let test_css_variable_differences () =
+  (* Test case that reproduces the shadow-sm bug: CSS variables missing should
+     be detected as structural diff *)
+  let expected =
+    "*,:before,:after,::backdrop{--tw-shadow:0 0 \
+     #0000;--tw-shadow-color:initial}"
+  in
+  let actual = "*,:before,:after,::backdrop{--tw-border-style:initial}" in
+  let result = Cc.diff ~expected ~actual in
+  match result with
+  | Cc.Diff diff ->
+      (* Should detect structural differences in the ::backdrop rule *)
+      let has_structural_diff =
+        diff.rules <> [] || diff.media_queries <> [] || diff.layers <> []
+        || diff.supports_queries <> []
+        || diff.container_queries <> []
+        || diff.custom_properties <> []
+      in
+      check bool "detects CSS variable differences as structural" true
+        has_structural_diff
+  | _ -> fail "CSS should parse successfully"
+
+let test_layer_custom_properties () =
+  (* Test custom property differences within layers *)
+  let expected_full =
+    "@layer base {*, :before, :after, ::backdrop { --tw-shadow: 0 0 #0000; \
+     --tw-shadow-color: initial; }}"
+  in
+  let actual_full =
+    "@layer base {*, :before, :after, ::backdrop { --tw-border-style: initial; \
+     }}"
+  in
+  let result = Cc.diff ~expected:expected_full ~actual:actual_full in
+  match result with
+  | Cc.Diff diff ->
+      (* Should detect structural differences - missing custom properties should
+         be flagged *)
+      let has_layer_diff = diff.layers <> [] in
+      let has_rule_diff = diff.rules <> [] in
+      let has_any_structural_diff =
+        has_layer_diff || has_rule_diff || diff.media_queries <> []
+        || diff.supports_queries <> []
+        || diff.container_queries <> []
+        || diff.custom_properties <> []
+      in
+      check bool "layer custom property differences detected" true
+        has_any_structural_diff
+  | _ -> fail "CSS should parse successfully"
+
+let test_css_unit_differences () =
+  (* Test case for 0px vs 0 - should be detected as structural difference *)
+  let expected = "*{--tw-ring-offset-width:0px}" in
+  let actual = "*{--tw-ring-offset-width:0}" in
+  let result = Cc.diff ~expected ~actual in
+  match result with
+  | Cc.Diff diff ->
+      (* Should detect structural differences - 0px vs 0 are different values *)
+      let has_structural_diff =
+        diff.rules <> [] || diff.media_queries <> [] || diff.layers <> []
+        || diff.supports_queries <> []
+        || diff.container_queries <> []
+        || diff.custom_properties <> []
+      in
+      check bool "detects 0px vs 0 as structural difference" true
+        has_structural_diff
+  | _ -> fail "CSS should parse successfully"
+
+let test_complex_css_unit_differences () =
+  (* Test case with many properties to reproduce the real bug *)
+  let expected =
+    "*{--tw-ring-inset:initial;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 \
+     130 246 / 0.5)}"
+  in
+  let actual =
+    "*{--tw-ring-inset:initial;--tw-ring-offset-width:0;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 \
+     130 246 / 0.5)}"
+  in
+  let result = Cc.diff ~expected ~actual in
+  match result with
+  | Cc.Diff diff ->
+      (* Should detect structural differences - 0px vs 0 are different values
+         even in complex rules *)
+      let has_structural_diff =
+        diff.rules <> [] || diff.media_queries <> [] || diff.layers <> []
+        || diff.supports_queries <> []
+        || diff.container_queries <> []
+        || diff.custom_properties <> []
+      in
+      check bool "detects 0px vs 0 in complex CSS as structural difference" true
+        has_structural_diff
+  | _ -> fail "CSS should parse successfully"
+
 let tests =
   [
     test_case "strip header" `Quick test_strip_header;
@@ -294,6 +392,11 @@ let tests =
     test_case "pp diff result with string context" `Quick
       test_pp_diff_result_with_string_context;
     test_case "pp diff result structural" `Quick test_pp_diff_result_structural;
+    test_case "CSS variable differences" `Quick test_css_variable_differences;
+    test_case "layer custom properties" `Quick test_layer_custom_properties;
+    test_case "CSS unit differences 0px vs 0" `Quick test_css_unit_differences;
+    test_case "complex CSS unit differences" `Quick
+      test_complex_css_unit_differences;
   ]
 
 let suite = ("css_compare", tests)
