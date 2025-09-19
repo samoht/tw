@@ -1,12 +1,12 @@
 (** CSS comparison utilities for testing using the proper CSS parser *)
 
-type property_diff = {
+type property_diff_detail = {
   property : string;
   our_value : string;
   their_value : string;
 }
 
-type change = Added | Removed | Modified of property_diff list
+type change = Added | Removed | Modified of property_diff_detail list
 
 type rule_change = {
   selector : string;
@@ -35,15 +35,23 @@ type container_change = {
   rules : rule_change list;
 }
 
+type property_change = {
+  name : string;
+  change : change;
+  details : property_diff_detail list;
+}
+
 type t = {
   rules : rule_change list;
   media : media_change list;
   layers : layer_change list;
   supports : supports_change list;
   containers : container_change list;
+  properties : property_change list;
 }
 
-let pp_property_diff fmt { property; our_value; their_value } =
+let pp_property_diff fmt
+    ({ property; our_value; their_value } : property_diff_detail) =
   Fmt.pf fmt "@[<v 2>Property %s:@,Expected: %s@,Actual:   %s@]" property
     our_value their_value
 
@@ -110,9 +118,16 @@ let pp_container_change ?(expected = "Expected") ?(actual = "Actual") fmt
       rules;
   Fmt.pf fmt "@]"
 
+let pp_property_change ?(expected = "Expected") ?(actual = "Actual") fmt
+    ({ name; change; details = _ } : property_change) =
+  Fmt.pf fmt "@[<v 2>@property %s: %a" name (pp_change ~expected ~actual) change;
+  Fmt.pf fmt "@]"
+
 let pp ?(expected = "Expected") ?(actual = "Actual") fmt
-    { rules; media; layers; supports; containers } =
-  if rules = [] && media = [] && layers = [] && supports = [] && containers = []
+    { rules; media; layers; supports; containers; properties } =
+  if
+    rules = [] && media = [] && layers = [] && supports = [] && containers = []
+    && properties = []
   then () (* Output nothing for empty diff *)
   else (
     Fmt.pf fmt "@[<v 2>CSS Diff:@,";
@@ -136,9 +151,14 @@ let pp ?(expected = "Expected") ?(actual = "Actual") fmt
       Fmt.pf fmt "Containers:@,%a@,"
         (Fmt.list ~sep:(Fmt.any "@,") (pp_container_change ~expected ~actual))
         containers;
+    if properties <> [] then
+      Fmt.pf fmt "Properties:@,%a@,"
+        (Fmt.list ~sep:(Fmt.any "@,") (pp_property_change ~expected ~actual))
+        properties;
     Fmt.pf fmt "@]")
 
-let equal_property_diff p1 p2 =
+let equal_property_diff (p1 : property_diff_detail) (p2 : property_diff_detail)
+    =
   p1.property = p2.property
   && p1.our_value = p2.our_value
   && p1.their_value = p2.their_value
@@ -181,6 +201,9 @@ let equal_container_change (c1 : container_change) (c2 : container_change) =
   && List.length c1.rules = List.length c2.rules
   && List.for_all2 equal_rule_change c1.rules c2.rules
 
+let equal_property_change (p1 : property_change) (p2 : property_change) =
+  p1.name = p2.name && equal_change p1.change p2.change
+
 let equal (d1 : t) (d2 : t) =
   List.length d1.rules = List.length d2.rules
   && List.for_all2 equal_rule_change d1.rules d2.rules
@@ -192,6 +215,8 @@ let equal (d1 : t) (d2 : t) =
   && List.for_all2 equal_supports_change d1.supports d2.supports
   && List.length d1.containers = List.length d2.containers
   && List.for_all2 equal_container_change d1.containers d2.containers
+  && List.length d1.properties = List.length d2.properties
+  && List.for_all2 equal_property_change d1.properties d2.properties
 
 let strip_header css =
   (* Strip a leading /*!...*/ header comment with simpler flow to reduce
@@ -513,7 +538,7 @@ let layer_diffs_with_content css1 css2 =
   (added, removed, modified)
 
 (* Helper function to compute property diffs between two declaration lists *)
-let property_diffs decls1 decls2 : property_diff list =
+let property_diffs decls1 decls2 : property_diff_detail list =
   let props1 = List.map decl_to_prop_value decls1 in
   let props2 = List.map decl_to_prop_value decls2 in
   List.fold_left
@@ -524,6 +549,80 @@ let property_diffs decls1 decls2 : property_diff list =
       | _ -> acc)
     [] props1
   |> List.rev
+
+(* Extract @property declarations from statements *)
+let extract_properties statements =
+  List.filter_map
+    (fun stmt ->
+      match Css.as_property stmt with
+      | Some (name, syntax, inherits, initial_value) ->
+          Some (name, syntax, inherits, initial_value)
+      | None -> None)
+    statements
+
+let at_property_diffs props1 props2 =
+  let find_property name props =
+    List.find_opt (fun (n, _, _, _) -> n = name) props
+  in
+
+  let added =
+    List.filter
+      (fun (name, _, _, _) ->
+        not (List.exists (fun (n, _, _, _) -> n = name) props1))
+      props2
+  in
+  let removed =
+    List.filter
+      (fun (name, _, _, _) ->
+        not (List.exists (fun (n, _, _, _) -> n = name) props2))
+      props1
+  in
+  let modified =
+    List.filter_map
+      (fun (name1, syntax1, inherits1, initial1) ->
+        match find_property name1 props2 with
+        | Some (_, syntax2, inherits2, initial2) ->
+            let diffs = [] in
+            let diffs =
+              if syntax1 <> syntax2 then
+                ({
+                   property = "syntax";
+                   our_value = syntax1;
+                   their_value = syntax2;
+                 }
+                  : property_diff_detail)
+                :: diffs
+              else diffs
+            in
+            let diffs =
+              if inherits1 <> inherits2 then
+                ({
+                   property = "inherits";
+                   our_value = string_of_bool inherits1;
+                   their_value = string_of_bool inherits2;
+                 }
+                  : property_diff_detail)
+                :: diffs
+              else diffs
+            in
+            let diffs =
+              if initial1 <> initial2 then
+                let our_init = Option.value ~default:"(none)" initial1 in
+                let their_init = Option.value ~default:"(none)" initial2 in
+                ({
+                   property = "initial-value";
+                   our_value = our_init;
+                   their_value = their_init;
+                 }
+                  : property_diff_detail)
+                :: diffs
+              else diffs
+            in
+            if diffs <> [] then Some (name1, List.rev diffs) else None
+        | None -> None)
+      props1
+  in
+  (added, removed, modified)
 
 (* Helper to convert rule diffs to rule_change list *)
 let rules_to_changes (added, removed, modified) : rule_change list =
@@ -700,12 +799,31 @@ let diff_ast ~(expected : Css.t) ~(actual : Css.t) =
         containers_modified
   in
 
+  (* Build property diffs *)
+  let properties1 = extract_properties (Css.statements expected) in
+  let properties2 = extract_properties (Css.statements actual) in
+  let prop_added, prop_removed, prop_modified =
+    at_property_diffs properties1 properties2
+  in
+  let property_changes : property_change list =
+    List.map
+      (fun (name, _, _, _) -> { name; change = Added; details = [] })
+      prop_added
+    @ List.map
+        (fun (name, _, _, _) -> { name; change = Removed; details = [] })
+        prop_removed
+    @ List.map
+        (fun (name, details) -> { name; change = Modified details; details })
+        prop_modified
+  in
+
   {
     rules = rule_changes;
     media = media_changes;
     layers = layer_changes;
     supports = supports_changes;
     containers = container_changes;
+    properties = property_changes;
   }
 
 (* Compare two CSS ASTs directly *)
@@ -716,7 +834,7 @@ let compare_css css1 css2 =
   | Ok expected, Ok actual ->
       let d = diff_ast ~expected ~actual in
       d.rules = [] && d.media = [] && d.layers = [] && d.supports = []
-      && d.containers = []
+      && d.containers = [] && d.properties = []
   | _ -> css1 = css2
 
 (* Parse two CSS strings and return their diff or parse errors *)
@@ -736,13 +854,94 @@ let diff ~expected ~actual =
   | Ok _, Error e -> Actual_error e
   | Error e, Ok _ -> Expected_error e
 
+(* Helper function to show string diff with context and caret *)
+let show_string_diff_context ~expected ~actual =
+  let find_first_diff s1 s2 =
+    let len1 = String.length s1 in
+    let len2 = String.length s2 in
+    let rec find_diff i =
+      if i >= len1 || i >= len2 then if len1 = len2 then None else Some i
+      else if s1.[i] <> s2.[i] then Some i
+      else find_diff (i + 1)
+    in
+    find_diff 0
+  in
+  match find_first_diff expected actual with
+  | None -> None
+  | Some pos ->
+      (* Terminal width constraint - center the diff *)
+      let max_width = 78 in
+      (* Leave room for "- " prefix *)
+      let half_width = max_width / 2 in
+
+      (* Calculate window to center the diff position *)
+      let start_pos = max 0 (pos - half_width) in
+
+      (* Extract context window *)
+      let extract_context s start_p =
+        let len = String.length s in
+        let end_p = min len (start_p + max_width) in
+        let snippet = String.sub s start_p (end_p - start_p) in
+        (* Replace newlines/tabs with spaces for single-line display *)
+        String.map
+          (fun c -> match c with '\n' | '\r' | '\t' -> ' ' | c -> c)
+          snippet
+      in
+
+      let context_expected = extract_context expected start_pos in
+      let context_actual = extract_context actual start_pos in
+
+      (* Add ellipsis if truncated *)
+      let add_ellipsis s orig_start orig_len =
+        let prefix = if orig_start > 0 then "..." else "" in
+        let suffix =
+          if orig_start + String.length s < orig_len then "..." else ""
+        in
+        prefix ^ s ^ suffix
+      in
+
+      let context_expected =
+        add_ellipsis context_expected start_pos (String.length expected)
+      in
+      let context_actual =
+        add_ellipsis context_actual start_pos (String.length actual)
+      in
+
+      (* Calculate caret position - should be roughly centered *)
+      let char_pos =
+        let base_pos = pos - start_pos in
+        let prefix_len = if start_pos > 0 then 3 else 0 in
+        (* account for "..." *)
+        base_pos + prefix_len
+      in
+
+      Some (context_expected, context_actual, (0, char_pos), pos)
+
 (* Format the result of diff_strings with optional labels *)
-let pp_diff_result ?(expected = "Expected") ?(actual = "Actual") fmt = function
+let pp_diff_result ?(expected = "Expected") ?(actual = "Actual")
+    ?(expected_str = "") ?(actual_str = "") fmt = function
   | Diff d
     when d.rules = [] && d.media = [] && d.layers = [] && d.supports = []
-         && d.containers = [] ->
+         && d.containers = [] && d.properties = [] ->
       (* No structural differences - could be whitespace only *)
-      Fmt.pf fmt "CSS has no structural differences"
+      (* Check if we have the original strings to show a context diff *)
+      if expected_str <> "" && actual_str <> "" && expected_str <> actual_str
+      then
+        match
+          show_string_diff_context ~expected:expected_str ~actual:actual_str
+        with
+        | Some (exp_ctx, act_ctx, (_diff_line, char_pos), pos) ->
+            Fmt.pf fmt "CSS has no structural differences\n\n";
+            Fmt.pf fmt "String difference at position %d:\n" pos;
+            (* Format each line with prefix *)
+            let exp_lines = String.split_on_char '\n' exp_ctx in
+            let act_lines = String.split_on_char '\n' act_ctx in
+            List.iter (fun line -> Fmt.pf fmt "- %s\n" line) exp_lines;
+            List.iter (fun line -> Fmt.pf fmt "+ %s\n" line) act_lines;
+            (* Create caret line for the diff position *)
+            Fmt.pf fmt "  %s^" (String.make char_pos ' ')
+        | None -> Fmt.pf fmt "CSS has no structural differences"
+      else Fmt.pf fmt "CSS has no structural differences"
   | Diff d -> pp ~expected ~actual fmt d
   | Both_errors (e1, e2) ->
       let err1 = Css.pp_parse_error e1 in

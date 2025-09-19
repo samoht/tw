@@ -764,11 +764,11 @@ let font_variant_numeric_utility class_name
      order *)
   let property_rules =
     [
-      Var.property Var.Font_variant_ordinal;
-      Var.property Var.Font_variant_slashed_zero;
-      Var.property Var.Font_variant_numeric_figure;
-      Var.property Var.Font_variant_numeric_spacing;
-      Var.property Var.Font_variant_numeric_fraction;
+      Var.property Var.Font_variant_ordinal None;
+      Var.property Var.Font_variant_slashed_zero None;
+      Var.property Var.Font_variant_numeric_figure None;
+      Var.property Var.Font_variant_numeric_spacing None;
+      Var.property Var.Font_variant_numeric_fraction None;
     ]
   in
 

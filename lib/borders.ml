@@ -23,7 +23,7 @@ open Css
 (** {1 Border Width Utilities} *)
 
 (* Property rule for --tw-border-style *)
-let border_style_property = Var.property ~initial:"solid" Var.Border_style
+let border_style_property = Var.property Var.Border_style (Some Css.Solid)
 
 (* Helper for border utilities that just use the --tw-border-style variable *)
 let border_util class_name additional_props =
