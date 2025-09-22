@@ -1088,11 +1088,11 @@ let to_syntax : type a. a t -> a Css.syntax option = function
   | Drop_shadow_alpha -> Some Css.Number
   (* Colors *)
   | Color _ -> Some Css.Color
-  | Shadow_color -> Some Css.Color
-  | Inset_shadow_color -> Some Css.Color
-  | Ring_color -> Some Css.Color
-  | Inset_ring_color -> Some Css.Color
-  | Ring_offset_color -> Some Css.Color
+  | Shadow_color -> None
+  | Inset_shadow_color -> None
+  | Ring_color -> None
+  | Inset_ring_color -> None
+  | Ring_offset_color -> None
   | Prose_body -> Some Css.Color
   | Prose_headings -> Some Css.Color
   | Prose_code -> Some Css.Color
@@ -1131,7 +1131,7 @@ let to_syntax : type a. a t -> a Css.syntax option = function
   | Gradient_via -> Some Css.Color
   | Gradient_to -> Some Css.Color
   (* Strings *)
-  | Ring_inset -> Some Css.String
+  | Ring_inset -> None
   | Gradient_position -> Some Css.String
   | Gradient_stops -> Some Css.String
   | Gradient_via_stops -> Some Css.String
