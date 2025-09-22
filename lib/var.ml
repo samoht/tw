@@ -193,9 +193,9 @@ type _ t =
   | Gradient_stops : string t
   | Gradient_via_stops : string t
   | Gradient_position : string t
-  | Gradient_from_position : float t
-  | Gradient_via_position : float t
-  | Gradient_to_position : float t
+  | Gradient_from_position : Css.percentage t
+  | Gradient_via_position : Css.percentage t
+  | Gradient_to_position : Css.percentage t
   (* Font variant numeric - properly typed *)
   | Font_variant_ordinal : Css.font_variant_numeric_token t
   | Font_variant_slashed_zero : Css.font_variant_numeric_token t
@@ -810,9 +810,9 @@ let def : type a.
   | Gradient_stops -> var String value
   | Gradient_via_stops -> var String value
   | Gradient_position -> var String value
-  | Gradient_from_position -> var Float value
-  | Gradient_via_position -> var Float value
-  | Gradient_to_position -> var Float value
+  | Gradient_from_position -> var Percentage value
+  | Gradient_via_position -> var Percentage value
+  | Gradient_to_position -> var Percentage value
   | Font_variant_ordinal -> var Font_variant_numeric_token value
   | Font_variant_slashed_zero -> var Font_variant_numeric_token value
   | Font_variant_numeric_figure -> var Font_variant_numeric_token value
@@ -917,9 +917,9 @@ let to_kind : type a. a t -> a Css.kind = function
   | Scale_x -> Float
   | Scale_y -> Float
   | Scale_z -> Float
-  | Gradient_from_position -> Float
-  | Gradient_via_position -> Float
-  | Gradient_to_position -> Float
+  | Gradient_from_position -> Percentage
+  | Gradient_via_position -> Percentage
+  | Gradient_to_position -> Percentage
   | Brightness -> Float
   | Contrast -> Float
   | Grayscale -> Float
@@ -1024,29 +1024,200 @@ let string_of_var var_t v =
   Css.pp_kind_value ctx (kind, v);
   Buffer.contents buf
 
+(* Convert a CSS variable type to its syntax for @property rules *)
+let to_syntax : type a. a t -> a Css.syntax option = function
+  (* Percentages *)
+  | Shadow_alpha -> Some Css.Percentage
+  | Inset_shadow_alpha -> Some Css.Percentage
+  | Gradient_from_position -> Some Css.Percentage
+  | Gradient_via_position -> Some Css.Percentage
+  | Gradient_to_position -> Some Css.Percentage
+  (* Lengths *)
+  | Ring_offset_width -> Some Css.Length
+  | Ring_width -> Some Css.Length
+  | Translate_x -> Some Css.Length
+  | Translate_y -> Some Css.Length
+  | Translate_z -> Some Css.Length
+  | Blur -> Some Css.Length
+  | Backdrop_blur -> Some Css.Length
+  | Text_xs -> Some Css.Length
+  | Text_sm -> Some Css.Length
+  | Text_base -> Some Css.Length
+  | Text_lg -> Some Css.Length
+  | Text_xl -> Some Css.Length
+  | Text_2xl -> Some Css.Length
+  | Text_3xl -> Some Css.Length
+  | Text_4xl -> Some Css.Length
+  | Text_5xl -> Some Css.Length
+  | Text_6xl -> Some Css.Length
+  | Text_7xl -> Some Css.Length
+  | Text_8xl -> Some Css.Length
+  | Text_9xl -> Some Css.Length
+  | Radius_none -> Some Css.Length
+  | Radius_sm -> Some Css.Length
+  | Radius_default -> Some Css.Length
+  | Radius_md -> Some Css.Length
+  | Radius_lg -> Some Css.Length
+  | Radius_xl -> Some Css.Length
+  | Radius_2xl -> Some Css.Length
+  | Radius_3xl -> Some Css.Length
+  | Spacing -> None
+  (* Angles *)
+  | Rotate -> Some Css.Angle
+  | Skew_x -> Some Css.Angle
+  | Skew_y -> Some Css.Angle
+  | Hue_rotate -> Some Css.Angle
+  | Backdrop_hue_rotate -> Some Css.Angle
+  (* Numbers/floats *)
+  | Scale_x -> Some Css.Number
+  | Scale_y -> Some Css.Number
+  | Scale_z -> Some Css.Number
+  | Brightness -> Some Css.Number
+  | Contrast -> Some Css.Number
+  | Grayscale -> Some Css.Number
+  | Invert -> Some Css.Number
+  | Saturate -> Some Css.Number
+  | Sepia -> Some Css.Number
+  | Backdrop_brightness -> Some Css.Number
+  | Backdrop_contrast -> Some Css.Number
+  | Backdrop_grayscale -> Some Css.Number
+  | Backdrop_invert -> Some Css.Number
+  | Backdrop_saturate -> Some Css.Number
+  | Backdrop_sepia -> Some Css.Number
+  | Backdrop_opacity -> Some Css.Number
+  | Drop_shadow_alpha -> Some Css.Number
+  (* Colors *)
+  | Color _ -> Some Css.Color
+  | Shadow_color -> Some Css.Color
+  | Inset_shadow_color -> Some Css.Color
+  | Ring_color -> Some Css.Color
+  | Inset_ring_color -> Some Css.Color
+  | Ring_offset_color -> Some Css.Color
+  | Prose_body -> Some Css.Color
+  | Prose_headings -> Some Css.Color
+  | Prose_code -> Some Css.Color
+  | Prose_pre_code -> Some Css.Color
+  | Prose_pre_bg -> Some Css.Color
+  | Prose_th_borders -> Some Css.Color
+  | Prose_td_borders -> Some Css.Color
+  | Prose_links -> Some Css.Color
+  | Prose_quotes -> Some Css.Color
+  | Prose_quote_borders -> Some Css.Color
+  | Prose_hr -> Some Css.Color
+  | Prose_bold -> Some Css.Color
+  | Prose_lead -> Some Css.Color
+  | Prose_counters -> Some Css.Color
+  | Prose_bullets -> Some Css.Color
+  | Prose_captions -> Some Css.Color
+  | Prose_kbd -> Some Css.Color
+  | Prose_invert_body -> Some Css.Color
+  | Prose_invert_headings -> Some Css.Color
+  | Prose_invert_lead -> Some Css.Color
+  | Prose_invert_links -> Some Css.Color
+  | Prose_invert_bold -> Some Css.Color
+  | Prose_invert_counters -> Some Css.Color
+  | Prose_invert_bullets -> Some Css.Color
+  | Prose_invert_hr -> Some Css.Color
+  | Prose_invert_quotes -> Some Css.Color
+  | Prose_invert_quote_borders -> Some Css.Color
+  | Prose_invert_captions -> Some Css.Color
+  | Prose_invert_kbd -> Some Css.Color
+  | Prose_invert_code -> Some Css.Color
+  | Prose_invert_pre_code -> Some Css.Color
+  | Prose_invert_pre_bg -> Some Css.Color
+  | Prose_invert_th_borders -> Some Css.Color
+  | Prose_invert_td_borders -> Some Css.Color
+  | Gradient_from -> Some Css.Color
+  | Gradient_via -> Some Css.Color
+  | Gradient_to -> Some Css.Color
+  (* Strings *)
+  | Ring_inset -> Some Css.String
+  | Gradient_position -> Some Css.String
+  | Gradient_stops -> Some Css.String
+  | Gradient_via_stops -> Some Css.String
+  | Drop_shadow -> Some Css.String
+  | Prose_kbd_shadows -> Some Css.String
+  | Prose_invert_kbd_shadows -> Some Css.String
+  (* Times/durations *)
+  | Duration -> Some Css.Time
+  (* Cases without precise syntax mapping: fallback to None *)
+  | Font_sans -> None
+  | Font_serif -> None
+  | Font_mono -> None
+  | Font_weight -> None
+  | Leading -> None
+  | Text_xs_line_height -> None
+  | Text_sm_line_height -> None
+  | Text_base_line_height -> None
+  | Text_lg_line_height -> None
+  | Text_xl_line_height -> None
+  | Text_2xl_line_height -> None
+  | Text_3xl_line_height -> None
+  | Text_4xl_line_height -> None
+  | Text_5xl_line_height -> None
+  | Text_6xl_line_height -> None
+  | Text_7xl_line_height -> None
+  | Text_8xl_line_height -> None
+  | Text_9xl_line_height -> None
+  | Font_weight_thin -> None
+  | Font_weight_extralight -> None
+  | Font_weight_light -> None
+  | Font_weight_normal -> None
+  | Font_weight_medium -> None
+  | Font_weight_semibold -> None
+  | Font_weight_bold -> None
+  | Font_weight_extrabold -> None
+  | Font_weight_black -> None
+  | Box_shadow -> None
+  | Single_shadow -> None
+  | Shadow -> None
+  | Inset_shadow -> None
+  | Ring_shadow -> None
+  | Inset_ring_shadow -> None
+  | Ring_offset_shadow -> None
+  | Content -> None
+  | Font_variant_ordinal -> None
+  | Font_variant_slashed_zero -> None
+  | Font_variant_numeric_figure -> None
+  | Font_variant_numeric_spacing -> None
+  | Font_variant_numeric_fraction -> None
+  | Font_variant_numeric -> None
+  | Border_style -> None
+  | Scroll_snap_strictness -> None
+  | Default_font_family -> None
+  | Default_mono_font_family -> None
+  | Default_font_feature_settings -> None
+  | Default_mono_font_feature_settings -> None
+  | Default_font_variation_settings -> None
+  | Default_mono_font_variation_settings -> None
+
 (* Unified property function that infers syntax from variable type *)
 let property : type a.
     a t -> ?syntax:a Css.syntax -> ?inherits:bool -> a option -> Css.t =
  fun var_t ?syntax ?(inherits = false) initial ->
   let name = to_string var_t in
+  (* Special case: gradient positions need Length_percentage syntax in
+     @property *)
+  let pct_to_len_pct (initial : Css.percentage option) =
+    (* Convert percentage to length_percentage for @property rule *)
+    (* Here pct has type Css.percentage, wrap it in length_percentage *)
+    match initial with
+    | Some pct ->
+        let initial_value : Css.length_percentage = Percentage pct in
+        Css.property ~name Css.Length_percentage ~inherits ~initial_value ()
+    | None -> Css.property ~name Css.Length_percentage ~inherits ()
+  in
   match var_t with
-  | Shadow_alpha -> (
-      (* GADT refinement: initial is Css.percentage option here *)
-      match syntax with
-      | Some s -> Css.property ~name s ~inherits ?initial_value:initial ()
-      | None ->
-          Css.property ~name Css.Percentage ~inherits ?initial_value:initial ())
-  | Inset_shadow_alpha -> (
-      (* GADT refinement: initial is Css.percentage option here *)
-      match syntax with
-      | Some s -> Css.property ~name s ~inherits ?initial_value:initial ()
-      | None ->
-          Css.property ~name Css.Percentage ~inherits ?initial_value:initial ())
+  | Gradient_from_position -> pct_to_len_pct initial
+  | Gradient_via_position -> pct_to_len_pct initial
+  | Gradient_to_position -> pct_to_len_pct initial
   | _ -> (
-      match syntax with
-      | Some s -> Css.property ~name s ~inherits ?initial_value:initial ()
-      | None ->
-          (* Default to Universal with string representation *)
+      match (syntax, to_syntax var_t) with
+      | Some s, _ -> Css.property ~name s ~inherits ?initial_value:initial ()
+      | None, Some s -> Css.property ~name s ~inherits ?initial_value:initial ()
+      | None, None ->
+          (* Default to Universal with string representation for unsupported
+             kinds *)
           let syntax = Css.Universal in
           let initial_value = Option.map (string_of_var var_t) initial in
           Css.property ~name syntax ~inherits ?initial_value ())

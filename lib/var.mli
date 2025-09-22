@@ -278,9 +278,9 @@ type _ t =
   | Gradient_stops : string t
   | Gradient_via_stops : string t
   | Gradient_position : string t
-  | Gradient_from_position : float t
-  | Gradient_via_position : float t
-  | Gradient_to_position : float t
+  | Gradient_from_position : Css.percentage t
+  | Gradient_via_position : Css.percentage t
+  | Gradient_to_position : Css.percentage t
   (* Font variant numeric *)
   | Font_variant_ordinal : Css.font_variant_numeric_token t
   | Font_variant_slashed_zero : Css.font_variant_numeric_token t

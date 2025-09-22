@@ -1003,17 +1003,6 @@ let build_layers ~include_base tw_classes rules media_queries container_queries
     |> List.concat_map Css.statements
   in
 
-  (* Extract variables names that have explicit property rules *)
-  (* For font-variant-numeric, we know these are the 5 variables *)
-  let vars_from_explicit_property_rules =
-    (* For border-style, we know it has a @property rule, so include it in
-       properties layer *)
-    if explicit_property_rules_statements <> [] then
-      (* Check if any of the property rules are for border-style *)
-      [ Css.V (Var.handle Var.Border_style ()) ]
-    else []
-  in
-
   (* Get variables that need @property rules (from ~property flag) *)
   let vars_needing_property =
     vars_from_utilities
@@ -1026,16 +1015,21 @@ let build_layers ~include_base tw_classes rules media_queries container_queries
 
   (* Generate @property rules for variables that need them but don't have
      explicit rules *)
+  (* Compute names of variables that already have explicit @property rules *)
   let explicit_property_var_names =
-    vars_from_explicit_property_rules
-    |> List.map (fun (Css.V v) -> Css.var_name v)
+    explicit_property_rules_statements
+    |> List.filter_map (fun stmt ->
+           match Css.as_property stmt with
+           | Some (name, _syntax, _inherits, _initial) -> Some name
+           | None -> None)
     |> List.sort_uniq String.compare
   in
   let property_rules_from_utilities =
     vars_needing_property
     |> List.filter (fun (Css.V v) ->
            (* Don't generate automatic @property if there's an explicit one *)
-           not (List.mem (Css.var_name v) explicit_property_var_names))
+           let var_name = "--" ^ Css.var_name v in
+           not (List.mem var_name explicit_property_var_names))
     |> List.map (fun (Css.V v) ->
            let var_name = "--" ^ Css.var_name v in
            (* For now, use Universal syntax ("*") which accepts any value *)
