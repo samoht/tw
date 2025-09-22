@@ -375,3 +375,43 @@ module Map : Map.S with type key = any
 
 module Set : Set.S with type elt = any
 (** Set with Var.any elements *)
+
+module Def : sig
+  type 'a property_def = {
+    syntax : 'a Css.syntax;
+    initial_value : 'a;
+    inherits : bool;
+  }
+
+  type 'a def = {
+    name : 'a t;
+    layer : layer;
+    property : 'a property_def option;
+    initial : 'a option;
+    inherits : bool;
+  }
+
+  val theme :
+    'a t -> ?initial:'a -> ?syntax:'a Css.syntax -> 'a -> 'a def * 'a Css.var
+  (** [theme var ?initial ?syntax value] builds a structured variable definition
+      for the theme layer and returns it with a typed CSS variable handle. If
+      [~initial] or [~syntax] is provided, a corresponding [@property]
+      registration can be produced via [to_property_rule]. *)
+
+  val utility :
+    'a t -> ?initial:'a -> ?syntax:'a Css.syntax -> 'a -> 'a def * 'a Css.var
+  (** [utility var ?initial ?syntax value] builds a structured variable
+      definition for the utilities layer and returns it with a typed CSS
+      variable handle. If [~initial] or [~syntax] is provided, a corresponding
+      [@property] registration can be produced via [to_property_rule]. *)
+
+  val to_property_rule : 'a def -> Css.t option
+  (** [to_property_rule def] converts a structured definition to a typed
+      [@property] rule if property metadata is present. The rule renders the
+      initial-value per spec (e.g., zero lengths as [0]). *)
+
+  val to_initial_declaration : 'a def -> Css.declaration option
+  (** [to_initial_declaration def] converts a structured definition to a
+      properties-layer default declaration when an initial is present. Rendering
+      follows CSS expectations (e.g., zero lengths as [0px]). *)
+end

@@ -1242,6 +1242,84 @@ let err_meta ~layer decl msg =
          " to attach Var metadata (e.g., Var.theme/base/properties/utility).";
        ])
 
+module Def = struct
+  type 'a property_def = {
+    syntax : 'a Css.syntax;
+    initial_value : 'a;
+    inherits : bool;
+  }
+
+  type 'a def = {
+    name : 'a t;
+    layer : layer;
+    property : 'a property_def option;
+    initial : 'a option;
+    inherits : bool;
+  }
+
+  let make ~layer var_t ?initial ?syntax ?(inherits = false) value :
+      'a def * 'a Css.var =
+    let _decl, var =
+      match layer with
+      | Theme -> theme var_t value
+      | Utility -> utility var_t value
+    in
+    let property =
+      match (syntax, initial) with
+      | Some s, Some init -> Some { syntax = s; initial_value = init; inherits }
+      | Some s, None ->
+          (* If no explicit initial provided, use value as initial for
+             property *)
+          Some { syntax = s; initial_value = value; inherits }
+      | None, Some init -> (
+          (* Infer syntax when possible *)
+          match to_syntax var_t with
+          | Some s -> Some { syntax = s; initial_value = init; inherits }
+          | None -> None)
+      | None, None -> None
+    in
+    ({ name = var_t; layer; property; initial; inherits }, var)
+
+  let theme var_t ?initial ?syntax value =
+    make ~layer:Theme var_t ?initial ?syntax value
+
+  let utility var_t ?initial ?syntax value =
+    make ~layer:Utility var_t ?initial ?syntax value
+
+  let initial_for_declaration (type a) (var_t : a t) (syntax : a Css.syntax)
+      (v : a) : string =
+    match syntax with
+    | Css.Length -> (
+        (* Ensure zero is rendered as 0px for declarations in properties
+           layer *)
+        match v with
+        | Css.Zero -> "0px"
+        | Css.Px f when f = 0. -> "0px"
+        | _ -> string_of_var var_t v)
+    | _ -> string_of_var var_t v
+
+  let to_property_rule : type a. a def -> Css.t option =
+   fun def ->
+    match def.property with
+    | None -> None
+    | Some { syntax; initial_value; inherits } ->
+        let name = to_string def.name in
+        Some (Css.property ~name syntax ~inherits ~initial_value ())
+
+  let to_initial_declaration : type a. a def -> Css.declaration option =
+   fun def ->
+    match (def.property, def.initial) with
+    | None, _ -> None
+    | Some { syntax; _ }, Some init ->
+        let name = to_string def.name in
+        let s = initial_for_declaration def.name syntax init in
+        Some (Css.custom_property name s)
+    | Some { syntax; initial_value; _ }, None ->
+        let name = to_string def.name in
+        let s = initial_for_declaration def.name syntax initial_value in
+        Some (Css.custom_property name s)
+end
+
 (** Compare two CSS declarations by extracting their metadata. *)
 
 module Map = Map.Make (struct

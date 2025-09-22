@@ -740,7 +740,7 @@ let property_diffs decls1 decls2 : declaration list =
 let extract_properties statements =
   List.filter_map
     (fun stmt ->
-      match Css.as_property stmt with
+      match Css.as_property_legacy stmt with
       | Some (name, syntax, inherits, initial_value) ->
           Some (name, syntax, inherits, initial_value)
       | None -> None)
