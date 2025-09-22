@@ -8,7 +8,7 @@
 
     The variable system generates CSS across four layers in this order:
 
-    {2 @layer properties}
+    {2 [@layer properties]}
     Contains initial values for utility variables when [Var.property] is used:
     {[
       @layer properties {
@@ -20,7 +20,7 @@
       }
     ]}
 
-    {2 @layer theme}
+    {2 [@layer theme]}
     Contains theme design tokens from [Var.theme]:
     {[
       @layer theme {
@@ -32,7 +32,7 @@
       }
     ]}
 
-    {2 @layer utilities}
+    {2 [@layer utilities]}
     Contains utility class definitions that set variables and CSS properties:
     {[
       @layer utilities {
@@ -51,7 +51,7 @@
       }
     ]}
 
-    {2 @property declarations}
+    {2 [@property declarations]}
     Type registrations for utility variables (at the end):
     {[
       @property --tw-shadow {
@@ -97,18 +97,19 @@
 
     {1 Property Registration}
 
-    When [Var.property] is used with initial values:
-    1. Creates [@layer properties] default: [--tw-shadow: 0 0 #0000]
-    2. Creates [@property] registration with proper syntax and initial-value
-    3. Enables CSS transitions, animations, and proper cascade behavior
+    When [Var.property] is used with initial values: 1. Creates
+    [[@layer properties]] default: [--tw-shadow: 0 0 #0000] 2. Creates
+    [[@property]] registration with proper syntax and initial-value 3. Enables
+    CSS transitions, animations, and proper cascade behavior
 
     The [syntax] parameter defaults to ["*"] (Universal) when not specified.
 
     {1 API Functions}
 
-    - [Var.theme]: Creates theme variables ([@layer theme])
+    - [Var.theme]: Creates theme variables ([[@layer theme]])
     - [Var.utility]: Creates utility variables (inline in utility classes)
-    - [Var.property]: Creates property registration + [@layer properties] defaults
+    - [Var.property]: Creates property registration + [[@layer properties]]
+      defaults
     - [Var.handle]: References variables without defining them *)
 
 (** Layer classification for CSS variables. In v4, variables live in [\@layer]
@@ -330,10 +331,11 @@ val handle : 'a t -> ?fallback:'a -> unit -> 'a Css.var
 
 val property :
   'a t -> ?syntax:'a Css.syntax -> ?inherits:bool -> 'a option -> Css.t
-(** [property var_t ?initial ?syntax ?inherits] creates a typed [@property]
+(** [property var_t ?initial ?syntax ?inherits] creates a typed [[@property]]
     registration with the appropriate syntax inferred from the variable type.
 
-    - [initial]: Typed initial value (used for both @layer properties and @property)
+    - [initial]: Typed initial value (used for both [[@layer properties]] and
+      [[@property]])
     - [syntax]: CSS syntax (defaults to Universal when not provided)
     - [inherits]: Whether the property inherits (defaults to false)
 
