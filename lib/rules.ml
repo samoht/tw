@@ -921,26 +921,23 @@ let build_base_layer ?supports () =
 
 (* Build the properties layer with browser detection for initial values *)
 let build_properties_layer explicit_property_rules_statements =
-  (* Extract variable initial values from @property declarations *)
-  let extract_initial_values_from_properties statements =
+  (* Extract variable initial values from @property declarations; convert 0 →
+     0px for <length> syntax to comply with CSS spec in declarations. *)
+  let variable_initial_values =
     List.fold_left
       (fun acc stmt ->
         match Css.as_property stmt with
-        | Some (name, _syntax, _inherits, initial_value_opt) ->
-            let initial_val =
+        | Some (name, syntax_str, _inherits, initial_value_opt) ->
+            let value =
               match initial_value_opt with
-              | Some val_str -> val_str
               | None -> "initial"
+              | Some v ->
+                  if syntax_str = "<length>" && v = "0" then "0px" else v
             in
-            (name, initial_val) :: acc
+            (name, value) :: acc
         | None -> acc)
-      [] statements
-  in
-
-  let variable_initial_values =
-    extract_initial_values_from_properties explicit_property_rules_statements
+      [] explicit_property_rules_statements
     |> List.rev
-    (* Reverse to maintain original order since fold_left reverses *)
   in
 
   if variable_initial_values = [] then Css.empty
@@ -956,14 +953,7 @@ let build_properties_layer explicit_property_rules_statements =
        values *)
     let initial_declarations =
       List.map
-        (fun (name, initial_value) ->
-          (* Special case: Ring_offset_width needs "0px" in CSS variable but "0"
-             in @property *)
-          let value =
-            if name = "--tw-ring-offset-width" && initial_value = "0" then "0px"
-            else initial_value
-          in
-          Css.custom_property name value)
+        (fun (name, value) -> Css.custom_property name value)
         variable_initial_values
     in
     let rule = Css.rule ~selector initial_declarations in
