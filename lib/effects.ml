@@ -28,12 +28,11 @@ module Parse = Parse
 
 (** {1 Shadow Utilities} *)
 
-(* Shadow property rules for @property registration to trigger @layer properties *)
-(* Only include the shadow and ring variables that Tailwind v4 actually includes for shadow utilities *)
-let shadow_property_rules =
+(* Shadow utility property rules - each utility defines what it needs *)
+let shadow_base_property_rules =
   Css.concat
     [
-      (* Shadow and ring variables - ordered as in Tailwind v4 *)
+      (* Core shadow variables that all shadow utilities need *)
       Var.property Var.Shadow
         (Some
            [
@@ -61,8 +60,6 @@ let shadow_property_rules =
       Var.property Var.Ring_offset_shadow
         (Some
            (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ()));
-      (* Note: Ring_width is not included here as it's set by ring utilities,
-         not shadow utilities *)
     ]
 
 let shadow_none =
@@ -83,7 +80,7 @@ let shadow_none =
     ]
   in
 
-  style "shadow-none" ~property_rules:shadow_property_rules
+  style "shadow-none" ~property_rules:shadow_base_property_rules
     [ tw_shadow_def; Css.box_shadow_list box_shadow_vars ]
 
 let shadow_sm =
@@ -115,7 +112,7 @@ let shadow_sm =
     ]
   in
 
-  style "shadow-sm" ~property_rules:shadow_property_rules
+  style "shadow-sm" ~property_rules:shadow_base_property_rules
     [ tw_shadow_def; Css.box_shadow_list box_shadow_vars ]
 
 let shadow =
@@ -147,7 +144,7 @@ let shadow =
     ]
   in
 
-  style "shadow" ~property_rules:shadow_property_rules
+  style "shadow" ~property_rules:shadow_base_property_rules
     [ tw_shadow_def; Css.box_shadow_list box_shadow_vars ]
 
 let shadow_md =
@@ -178,7 +175,7 @@ let shadow_md =
     ]
   in
 
-  style "shadow-md" ~property_rules:shadow_property_rules
+  style "shadow-md" ~property_rules:shadow_base_property_rules
     [ tw_shadow_def; Css.box_shadow_list box_shadow_vars ]
 
 let shadow_lg =
@@ -209,7 +206,7 @@ let shadow_lg =
     ]
   in
 
-  style "shadow-lg" ~property_rules:shadow_property_rules
+  style "shadow-lg" ~property_rules:shadow_base_property_rules
     [ tw_shadow_def; Css.box_shadow_list box_shadow_vars ]
 
 let shadow_xl =
@@ -240,7 +237,7 @@ let shadow_xl =
     ]
   in
 
-  style "shadow-xl" ~property_rules:shadow_property_rules
+  style "shadow-xl" ~property_rules:shadow_base_property_rules
     [ tw_shadow_def; Css.box_shadow_list box_shadow_vars ]
 
 let shadow_2xl =
@@ -269,7 +266,7 @@ let shadow_2xl =
     ]
   in
 
-  style "shadow-2xl" ~property_rules:shadow_property_rules
+  style "shadow-2xl" ~property_rules:shadow_base_property_rules
     [ tw_shadow_def; Css.box_shadow_list box_shadow_vars ]
 
 let shadow_inner =
@@ -288,7 +285,7 @@ let shadow_inner =
   (* Create the box-shadow declaration with the shadow value *)
   let box_shadow_decl = Css.box_shadow inset_shadow_value in
 
-  style "shadow-inner" ~property_rules:shadow_property_rules
+  style "shadow-inner" ~property_rules:shadow_base_property_rules
     [
       inset_shadow_def;
       inset_ring_shadow_def;

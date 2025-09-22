@@ -919,22 +919,44 @@ let build_base_layer ?supports () =
   let base = Preflight.stylesheet ?placeholder_supports:supports () in
   Css.layer_of ~name:"base" base
 
+(* Convert @property initial values to declaration values following CSS spec.
+
+   The CSS spec has different requirements for initial values in @property rules
+   vs. in regular declarations: - In @property: zero can be unitless "0" - In
+   declarations: zero must have units "0px" for <length> syntax
+
+   This function handles the conversion from @property format to declaration
+   format. *)
+let convert_property_initial_for_declaration (Css.Property_info info) =
+  match info.initial_value with
+  | None -> "initial"
+  | Some v -> (
+      let
+      (* Handle typed values based on syntax *)
+      open
+        Css.Variables in
+      let open Css.Values in
+      match info.syntax with
+      | Length -> (
+          match v with
+          | Zero ->
+              "0px" (* CSS spec: zero lengths need units in declarations *)
+          | Px f when f = 0. -> "0px"
+          | _ -> Css.Pp.to_string (pp_length ~always:true) v)
+      | syntax ->
+          (* Use the appropriate pretty-printer for the syntax type *)
+          Css.Pp.to_string (pp_value syntax) v)
+
 (* Build the properties layer with browser detection for initial values *)
 let build_properties_layer explicit_property_rules_statements =
-  (* Extract variable initial values from @property declarations; convert 0 →
-     0px for <length> syntax to comply with CSS spec in declarations. *)
+  (* Extract variable initial values from @property declarations *)
   let variable_initial_values =
     List.fold_left
       (fun acc stmt ->
         match Css.as_property stmt with
-        | Some (name, syntax_str, _inherits, initial_value_opt) ->
-            let value =
-              match initial_value_opt with
-              | None -> "initial"
-              | Some v ->
-                  if syntax_str = "<length>" && v = "0" then "0px" else v
-            in
-            (name, value) :: acc
+        | Some (Css.Property_info info as prop_info) ->
+            let value = convert_property_initial_for_declaration prop_info in
+            (info.name, value) :: acc
         | None -> acc)
       [] explicit_property_rules_statements
     |> List.rev
@@ -1010,7 +1032,7 @@ let build_layers ~include_base tw_classes rules media_queries container_queries
     explicit_property_rules_statements
     |> List.filter_map (fun stmt ->
            match Css.as_property stmt with
-           | Some (name, _syntax, _inherits, _initial) -> Some name
+           | Some (Css.Property_info info) -> Some info.name
            | None -> None)
     |> List.sort_uniq String.compare
   in
