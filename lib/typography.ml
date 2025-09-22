@@ -264,19 +264,24 @@ let text_9xl =
       line_height (Var leading_var);
     ]
 
+(* Property rules for font weight - shared by all font weight utilities *)
+(* This generates the @layer properties section and @property declaration *)
+let font_weight_property_rules =
+  Css.concat [ Var.property Var.Font_weight None ]
+
 (* Font weight utilities using variables *)
 let font_thin =
   let fw_def, _fw_var =
-    Var.utility Var.Font_weight ~property:true (Var font_weight_thin_var)
+    Var.utility Var.Font_weight (Var font_weight_thin_var)
   in
-  style "font-thin"
+  style "font-thin" ~property_rules:font_weight_property_rules
     [ font_weight_thin_def; fw_def; font_weight (Var font_weight_thin_var) ]
 
 let font_extralight =
   let fw_def, _fw_var =
-    Var.utility Var.Font_weight ~property:true (Var font_weight_extralight_var)
+    Var.utility Var.Font_weight (Var font_weight_extralight_var)
   in
-  style "font-extralight"
+  style "font-extralight" ~property_rules:font_weight_property_rules
     [
       font_weight_extralight_def;
       fw_def;
@@ -285,30 +290,30 @@ let font_extralight =
 
 let font_light =
   let fw_def, _fw_var =
-    Var.utility Var.Font_weight ~property:true (Var font_weight_light_var)
+    Var.utility Var.Font_weight (Var font_weight_light_var)
   in
-  style "font-light"
+  style "font-light" ~property_rules:font_weight_property_rules
     [ font_weight_light_def; fw_def; font_weight (Var font_weight_light_var) ]
 
 let font_normal =
   let fw_def, _fw_var =
-    Var.utility Var.Font_weight ~property:true (Var font_weight_normal_var)
+    Var.utility Var.Font_weight (Var font_weight_normal_var)
   in
-  style "font-normal"
+  style "font-normal" ~property_rules:font_weight_property_rules
     [ font_weight_normal_def; fw_def; font_weight (Var font_weight_normal_var) ]
 
 let font_medium =
   let fw_def, _fw_var =
-    Var.utility Var.Font_weight ~property:true (Var font_weight_medium_var)
+    Var.utility Var.Font_weight (Var font_weight_medium_var)
   in
-  style "font-medium"
+  style "font-medium" ~property_rules:font_weight_property_rules
     [ font_weight_medium_def; fw_def; font_weight (Var font_weight_medium_var) ]
 
 let font_semibold =
   let fw_def, _fw_var =
-    Var.utility Var.Font_weight ~property:true (Var font_weight_semibold_var)
+    Var.utility Var.Font_weight (Var font_weight_semibold_var)
   in
-  style "font-semibold"
+  style "font-semibold" ~property_rules:font_weight_property_rules
     [
       font_weight_semibold_def;
       fw_def;
@@ -317,16 +322,16 @@ let font_semibold =
 
 let font_bold =
   let fw_def, _fw_var =
-    Var.utility Var.Font_weight ~property:true (Var font_weight_bold_var)
+    Var.utility Var.Font_weight (Var font_weight_bold_var)
   in
-  style "font-bold"
+  style "font-bold" ~property_rules:font_weight_property_rules
     [ font_weight_bold_def; fw_def; font_weight (Var font_weight_bold_var) ]
 
 let font_extrabold =
   let fw_def, _fw_var =
-    Var.utility Var.Font_weight ~property:true (Var font_weight_extrabold_var)
+    Var.utility Var.Font_weight (Var font_weight_extrabold_var)
   in
-  style "font-extrabold"
+  style "font-extrabold" ~property_rules:font_weight_property_rules
     [
       font_weight_extrabold_def;
       fw_def;
@@ -335,9 +340,9 @@ let font_extrabold =
 
 let font_black =
   let fw_def, _fw_var =
-    Var.utility Var.Font_weight ~property:true (Var font_weight_black_var)
+    Var.utility Var.Font_weight (Var font_weight_black_var)
   in
-  style "font-black"
+  style "font-black" ~property_rules:font_weight_property_rules
     [ font_weight_black_def; fw_def; font_weight (Var font_weight_black_var) ]
 
 (** {1 Font Family Utilities} *)
