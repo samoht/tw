@@ -30,18 +30,23 @@ let gradient_property_rules =
   Css.concat
     [
       (* Position must come first in properties layer *)
-      Var.property Var.Gradient_position None;
-      (* Colors *)
-      Var.property Var.Gradient_from None;
-      Var.property Var.Gradient_via None;
-      Var.property Var.Gradient_to None;
-      (* Stops composition helpers *)
-      Var.property Var.Gradient_stops None;
-      Var.property Var.Gradient_via_stops None;
-      (* Positions *)
-      Var.property Var.Gradient_from_position None;
-      Var.property Var.Gradient_via_position None;
-      Var.property Var.Gradient_to_position None;
+      Var.property Var.Gradient_position ~syntax:Css.Universal None;
+      (* Colors - use <color> syntax with transparent initial value *)
+      Var.property Var.Gradient_from ~syntax:Css.Color
+        (Some (Css.Hex { hash = false; value = "0000" }));
+      Var.property Var.Gradient_via ~syntax:Css.Color
+        (Some (Css.Hex { hash = false; value = "0000" }));
+      Var.property Var.Gradient_to ~syntax:Css.Color
+        (Some (Css.Hex { hash = false; value = "0000" }));
+      (* Stops composition helpers - use universal syntax without initial
+         values *)
+      Var.property Var.Gradient_stops ~syntax:Css.Universal None;
+      Var.property Var.Gradient_via_stops ~syntax:Css.Universal None;
+      (* Positions - Var.property handles the Length_percentage syntax
+         conversion *)
+      Var.property Var.Gradient_from_position (Some (Css.Pct 0.));
+      Var.property Var.Gradient_via_position (Some (Css.Pct 50.));
+      Var.property Var.Gradient_to_position (Some (Css.Pct 100.));
     ]
 
 let gradient_to_spec : direction -> string * Css.gradient_direction = function
@@ -98,9 +103,7 @@ let from_color ?(shade = 500) color =
   (* Set gradient-stops - this is the actual CSS value containing var()
      references *)
   let stops_value =
-    "var(--tw-gradient-via-stops, var(--tw-gradient-position), \
-     var(--tw-gradient-from)var(--tw-gradient-from-position), \
-     var(--tw-gradient-to)var(--tw-gradient-to-position))"
+    "var(--tw-gradient-via-stops,var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-to)var(--tw-gradient-to-position))"
   in
   let stops_override, _ = Var.utility Var.Gradient_stops stops_value in
   style class_name ~property_rules:gradient_property_rules
@@ -117,10 +120,7 @@ let via_color ?(shade = 500) color =
   let via_override, _ = Var.utility Var.Gradient_via (Var color_theme_var) in
   (* Set gradient-via-stops - specific for via utilities *)
   let via_stops_value =
-    "var(--tw-gradient-position), \
-     var(--tw-gradient-from)var(--tw-gradient-from-position), \
-     var(--tw-gradient-via)var(--tw-gradient-via-position), \
-     var(--tw-gradient-to)var(--tw-gradient-to-position)"
+    "var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-via)var(--tw-gradient-via-position),var(--tw-gradient-to)var(--tw-gradient-to-position)"
   in
   let via_stops_override, _ =
     Var.utility Var.Gradient_via_stops via_stops_value
@@ -142,9 +142,7 @@ let to_color ?(shade = 500) color =
   let to_override, _ = Var.utility Var.Gradient_to (Var color_theme_var) in
   (* Set gradient-stops - same as from utilities *)
   let stops_value =
-    "var(--tw-gradient-via-stops, var(--tw-gradient-position), \
-     var(--tw-gradient-from)var(--tw-gradient-from-position), \
-     var(--tw-gradient-to)var(--tw-gradient-to-position))"
+    "var(--tw-gradient-via-stops,var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-to)var(--tw-gradient-to-position))"
   in
   let stops_override, _ = Var.utility Var.Gradient_stops stops_value in
   style class_name ~property_rules:gradient_property_rules
