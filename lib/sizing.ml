@@ -22,7 +22,7 @@ open Core
 open Css
 
 (* Create the spacing theme variable - value set in theme generation *)
-let spacing_var = Var.create Var.Spacing "spacing" ~layer:Theme
+let spacing_var = Var.create Var.Spacing "spacing" ~layer:Theme ~order:4
 
 (** Helper to create spacing-based utilities with consistent pattern *)
 let spacing_utility prefix css_prop n =

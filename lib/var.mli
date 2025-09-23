@@ -181,15 +181,16 @@ type binding = Binding : 'a t * 'a -> binding
 (** {1 Core API} *)
 
 val create :
-  'a kind -> ?fallback:'a -> order:int -> string -> layer:layer -> 'a t
-(** [create kind ?fallback ~order name ~layer] creates a variable definition.
+  'a kind -> ?fallback:'a -> ?order:int -> string -> layer:layer -> 'a t
+(** [create kind ?fallback ?order name ~layer] creates a variable definition.
 
     - [kind]: The type witness (e.g., [Font_weight])
     - [name]: CSS variable name without [--] (e.g., ["tw-font-weight"])
     - [layer]: [Theme] for design tokens, [Utility] for property channels.
     - [fallback] sets the fallback value for [var()] references. This value is
       used when the variable is not set: [var(--name, fallback)]
-    - [order] sets the order for sorting variables in the theme layer *)
+    - [order] sets the order for sorting variables in the theme layer (defaults
+      to kind-based ordering) *)
 
 val with_property :
   syntax:'b Css.syntax -> initial:'b -> ?inherits:bool -> 'a t -> 'a t

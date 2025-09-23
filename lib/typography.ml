@@ -70,98 +70,101 @@ type _ Var.kind +=
   | Content : Css.content Var.kind
 
 (* Text size variables with line heights *)
-let text_xs_var = Var.create Text_xs "text-xs" ~layer:Theme
+let text_xs_var = Var.create Text_xs "text-xs" ~layer:Theme ~order:100
 
 let text_xs_lh_var =
-  Var.create Text_xs_line_height "text-xs-line-height" ~layer:Theme
+  Var.create Text_xs_line_height "text-xs-line-height" ~layer:Theme ~order:101
 
-let text_sm_var = Var.create Text_sm "text-sm" ~layer:Theme
+let text_sm_var = Var.create Text_sm "text-sm" ~layer:Theme ~order:102
 
 let text_sm_lh_var =
-  Var.create Text_sm_line_height "text-sm-line-height" ~layer:Theme
+  Var.create Text_sm_line_height "text-sm-line-height" ~layer:Theme ~order:103
 
-let text_base_var = Var.create Text_base "text-base" ~layer:Theme
+let text_base_var = Var.create Text_base "text-base" ~layer:Theme ~order:104
 
 let text_base_lh_var =
   Var.create Text_base_line_height "text-base-line-height" ~layer:Theme
+    ~order:105
 
-let text_lg_var = Var.create Text_lg "text-lg" ~layer:Theme
+let text_lg_var = Var.create Text_lg "text-lg" ~layer:Theme ~order:106
 
 let text_lg_lh_var =
-  Var.create Text_lg_line_height "text-lg-line-height" ~layer:Theme
+  Var.create Text_lg_line_height "text-lg-line-height" ~layer:Theme ~order:107
 
-let text_xl_var = Var.create Text_xl "text-xl" ~layer:Theme
+let text_xl_var = Var.create Text_xl "text-xl" ~layer:Theme ~order:108
 
 let text_xl_lh_var =
-  Var.create Text_xl_line_height "text-xl-line-height" ~layer:Theme
+  Var.create Text_xl_line_height "text-xl-line-height" ~layer:Theme ~order:109
 
-let text_2xl_var = Var.create Text_2xl "text-2xl" ~layer:Theme
+let text_2xl_var = Var.create Text_2xl "text-2xl" ~layer:Theme ~order:110
 
 let text_2xl_lh_var =
-  Var.create Text_2xl_line_height "text-2xl-line-height" ~layer:Theme
+  Var.create Text_2xl_line_height "text-2xl-line-height" ~layer:Theme ~order:111
 
-let text_3xl_var = Var.create Text_3xl "text-3xl" ~layer:Theme
+let text_3xl_var = Var.create Text_3xl "text-3xl" ~layer:Theme ~order:112
 
 let text_3xl_lh_var =
-  Var.create Text_3xl_line_height "text-3xl-line-height" ~layer:Theme
+  Var.create Text_3xl_line_height "text-3xl-line-height" ~layer:Theme ~order:113
 
-let text_4xl_var = Var.create Text_4xl "text-4xl" ~layer:Theme
+let text_4xl_var = Var.create Text_4xl "text-4xl" ~layer:Theme ~order:114
 
 let text_4xl_lh_var =
-  Var.create Text_4xl_line_height "text-4xl-line-height" ~layer:Theme
+  Var.create Text_4xl_line_height "text-4xl-line-height" ~layer:Theme ~order:115
 
-let text_5xl_var = Var.create Text_5xl "text-5xl" ~layer:Theme
+let text_5xl_var = Var.create Text_5xl "text-5xl" ~layer:Theme ~order:116
 
 let text_5xl_lh_var =
-  Var.create Text_5xl_line_height "text-5xl-line-height" ~layer:Theme
+  Var.create Text_5xl_line_height "text-5xl-line-height" ~layer:Theme ~order:117
 
-let text_6xl_var = Var.create Text_6xl "text-6xl" ~layer:Theme
+let text_6xl_var = Var.create Text_6xl "text-6xl" ~layer:Theme ~order:118
 
 let text_6xl_lh_var =
-  Var.create Text_6xl_line_height "text-6xl-line-height" ~layer:Theme
+  Var.create Text_6xl_line_height "text-6xl-line-height" ~layer:Theme ~order:119
 
-let text_7xl_var = Var.create Text_7xl "text-7xl" ~layer:Theme
+let text_7xl_var = Var.create Text_7xl "text-7xl" ~layer:Theme ~order:120
 
 let text_7xl_lh_var =
-  Var.create Text_7xl_line_height "text-7xl-line-height" ~layer:Theme
+  Var.create Text_7xl_line_height "text-7xl-line-height" ~layer:Theme ~order:121
 
-let text_8xl_var = Var.create Text_8xl "text-8xl" ~layer:Theme
+let text_8xl_var = Var.create Text_8xl "text-8xl" ~layer:Theme ~order:122
 
 let text_8xl_lh_var =
-  Var.create Text_8xl_line_height "text-8xl-line-height" ~layer:Theme
+  Var.create Text_8xl_line_height "text-8xl-line-height" ~layer:Theme ~order:123
 
-let text_9xl_var = Var.create Text_9xl "text-9xl" ~layer:Theme
+let text_9xl_var = Var.create Text_9xl "text-9xl" ~layer:Theme ~order:124
 
 let text_9xl_lh_var =
-  Var.create Text_9xl_line_height "text-9xl-line-height" ~layer:Theme
+  Var.create Text_9xl_line_height "text-9xl-line-height" ~layer:Theme ~order:125
 
 (* Font weight variables *)
 let font_weight_thin_var =
-  Var.create Font_weight_thin "font-weight-thin" ~layer:Theme
+  Var.create Font_weight_thin "font-weight-thin" ~layer:Theme ~order:200
 
 let font_weight_extralight_var =
   Var.create Font_weight_extralight "font-weight-extralight" ~layer:Theme
+    ~order:201
 
 let font_weight_light_var =
-  Var.create Font_weight_light "font-weight-light" ~layer:Theme
+  Var.create Font_weight_light "font-weight-light" ~layer:Theme ~order:202
 
 let font_weight_normal_var =
-  Var.create Font_weight_normal "font-weight-normal" ~layer:Theme
+  Var.create Font_weight_normal "font-weight-normal" ~layer:Theme ~order:203
 
 let font_weight_medium_var =
-  Var.create Font_weight_medium "font-weight-medium" ~layer:Theme
+  Var.create Font_weight_medium "font-weight-medium" ~layer:Theme ~order:204
 
 let font_weight_semibold_var =
-  Var.create Font_weight_semibold "font-weight-semibold" ~layer:Theme
+  Var.create Font_weight_semibold "font-weight-semibold" ~layer:Theme ~order:205
 
 let font_weight_bold_var =
-  Var.create Font_weight_bold "font-weight-bold" ~layer:Theme
+  Var.create Font_weight_bold "font-weight-bold" ~layer:Theme ~order:206
 
 let font_weight_extrabold_var =
   Var.create Font_weight_extrabold "font-weight-extrabold" ~layer:Theme
+    ~order:207
 
 let font_weight_black_var =
-  Var.create Font_weight_black "font-weight-black" ~layer:Theme
+  Var.create Font_weight_black "font-weight-black" ~layer:Theme ~order:208
 
 (* Utility layer variable for font weight tracking *)
 let font_weight_var = Var.create Font_weight "tw-font-weight" ~layer:Utility
@@ -655,6 +658,7 @@ let decoration_color ?(shade = 500) (color : Color.color) =
            ( Color.pp color,
              if Color.is_base_color color then None else Some shade ))
         name ~layer:Theme
+        ~order:(Color.color_order color shade)
     in
     style class_name
       ~vars:[ Binding (color_var, default_color) ]
@@ -761,7 +765,7 @@ let list_image_url url =
 
 let indent n =
   let class_name = "indent-" ^ string_of_int n in
-  let spacing_var = Var.create Var.Spacing "spacing" ~layer:Theme in
+  let spacing_var = Var.create Var.Spacing "spacing" ~layer:Theme ~order:4 in
   style class_name
     ~vars:[ Binding (spacing_var, Rem 0.25) ]
     [

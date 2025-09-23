@@ -4,7 +4,7 @@ open Core
 open Css
 
 (* Define the spacing variable at the module level *)
-let spacing_var = Var.create Var.Spacing "spacing" ~layer:Theme
+let spacing_var = Var.create Var.Spacing "spacing" ~layer:Theme ~order:4
 
 module Parse = Parse
 

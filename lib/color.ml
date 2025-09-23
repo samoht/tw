@@ -935,6 +935,40 @@ let pp = function
       in
       Pp.to_string ~minify:false pp_oklch_val (l, c, h)
 
+(* Compute color order for theme layer - colors start at 1000 *)
+let color_order color shade =
+  let base_order = 1000 in
+  let color_idx =
+    match color with
+    | Red -> 0
+    | Orange -> 1
+    | Amber -> 2
+    | Yellow -> 3
+    | Lime -> 4
+    | Green -> 5
+    | Emerald -> 6
+    | Teal -> 7
+    | Cyan -> 8
+    | Sky -> 9
+    | Blue -> 10
+    | Indigo -> 11
+    | Violet -> 12
+    | Purple -> 13
+    | Fuchsia -> 14
+    | Pink -> 15
+    | Rose -> 16
+    | Slate -> 17
+    | Gray -> 18
+    | Zinc -> 19
+    | Neutral -> 20
+    | Stone -> 21
+    | Black -> 100
+    | White -> 101
+    | _ -> 200
+  in
+  (* Each color gets 20 spots for shades *)
+  base_order + (color_idx * 20) + if shade = 500 then 0 else shade / 50
+
 (* Check if a color is black or white *)
 let is_base_color = function Black | White -> true | _ -> false
 
@@ -958,7 +992,7 @@ let var color shade =
   let color_var =
     Var.create
       (Var.Color (pp color, if is_base_color color then None else Some shade))
-      name ~layer:Theme
+      name ~layer:Theme ~order:(color_order color shade)
   in
   Var.Binding (color_var, default_color)
 
@@ -992,7 +1026,7 @@ let bg color shade =
     let color_theme_var =
       Var.create
         (Var.Color (color_name, if is_base_color color then None else Some shade))
-        var_name ~layer:Theme
+        var_name ~layer:Theme ~order:(color_order color shade)
     in
     let color_value =
       to_css color (if is_base_color color then 500 else shade)

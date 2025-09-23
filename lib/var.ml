@@ -91,13 +91,23 @@ let compare_color : type a b. a kind -> b kind -> int =
       else Option.compare Int.compare shade_a shade_b
   | _ -> 0
 
+(* Default ordering for variable kinds *)
+let default_order : type a. a kind -> int = function
+  | Color (_, _) -> 3
+  | Spacing -> 4
+  | Font_family_list -> 5
+  | Scroll_snap_strictness -> 1501
+  | Duration -> 1502
+  | _ -> 9999 (* Extensions go last by default *)
+
 let compare (Any a) (Any b) = compare_color a b
 let layer_name = function Theme -> "theme" | Utility -> "utilities"
 
 (* Create a variable template *)
 let create : type a.
-    a kind -> ?fallback:a -> order:int -> string -> layer:layer -> a t =
- fun kind ?fallback ~order name ~layer ->
+    a kind -> ?fallback:a -> ?order:int -> string -> layer:layer -> a t =
+ fun kind ?fallback ?order name ~layer ->
+  let order = match order with Some o -> o | None -> default_order kind in
   { kind; name; layer; fallback; property = None; order }
 
 (* Add @property metadata *)
