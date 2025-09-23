@@ -26,13 +26,14 @@ type 'a t = {
   layer : layer; (* Theme or Utility *)
   fallback : 'a option; (* Default for var() references *)
   property : 'a property_info option; (* For @property registration *)
+  order : int; (* Explicit ordering for theme layer *)
 }
 
 (* Existential wrapper *)
 type any = Any : _ kind -> any
 
 (* Metadata storage *)
-type meta_info = { var : any; needs_property : bool }
+type meta_info = { var : any; needs_property : bool; order : int }
 
 let ( (meta_of_info : meta_info -> Css.meta),
       (info_of_meta : Css.meta -> meta_info option) ) =
@@ -45,6 +46,9 @@ let needs_property_of_meta meta =
   match info_of_meta meta with
   | None -> None
   | Some { needs_property; _ } -> Some needs_property
+
+let order_of_meta meta =
+  match info_of_meta meta with None -> None | Some { order; _ } -> Some order
 
 (* Canonical color ordering *)
 let canonical_color_order = function
@@ -74,15 +78,6 @@ let canonical_color_order = function
   | "white" -> 101
   | _ -> 200
 
-(* Variable ordering for theme layer *)
-let order : type a. a kind -> int = function
-  | Color (_, _) -> 3
-  | Spacing -> 4
-  | Font_family_list -> 5
-  | Scroll_snap_strictness -> 1501
-  | Duration -> 1502
-  | _ -> 9999 (* Extensions go last *)
-
 let compare_color : type a b. a kind -> b kind -> int =
  fun a b ->
   match (a, b) with
@@ -96,18 +91,14 @@ let compare_color : type a b. a kind -> b kind -> int =
       else Option.compare Int.compare shade_a shade_b
   | _ -> 0
 
-let compare (Any a) (Any b) =
-  let order_a = order a in
-  let order_b = order b in
-  let cmp = Int.compare order_a order_b in
-  if cmp <> 0 then cmp else compare_color a b
-
+let compare (Any a) (Any b) = compare_color a b
 let layer_name = function Theme -> "theme" | Utility -> "utilities"
 
 (* Create a variable template *)
-let create : type a. a kind -> ?fallback:a -> string -> layer:layer -> a t =
- fun kind ?fallback name ~layer ->
-  { kind; name; layer; fallback; property = None }
+let create : type a.
+    a kind -> ?fallback:a -> order:int -> string -> layer:layer -> a t =
+ fun kind ?fallback ~order name ~layer ->
+  { kind; name; layer; fallback; property = None; order }
 
 (* Add @property metadata *)
 let with_property : type a b.
@@ -119,7 +110,12 @@ let with_property : type a b.
 let declaration : type a. a t -> a -> Css.declaration =
  fun var value ->
   let meta =
-    meta_of_info { var = Any var.kind; needs_property = var.property <> None }
+    meta_of_info
+      {
+        var = Any var.kind;
+        needs_property = var.property <> None;
+        order = var.order;
+      }
   in
   let var_name = var.name in
   let layer = Some (layer_name var.layer) in
@@ -207,7 +203,10 @@ let layer : type a. a t -> layer = fun var -> var.layer
 (* Get var() reference *)
 let use : type a. a t -> a Css.var =
  fun var ->
-  let meta = meta_of_info { var = Any var.kind; needs_property = false } in
+  let meta =
+    meta_of_info
+      { var = Any var.kind; needs_property = false; order = var.order }
+  in
   let fallback = Option.map (fun f -> Css.Fallback f) var.fallback in
   (* Pass fallback as default too for inline mode resolution *)
   let default = var.fallback in
