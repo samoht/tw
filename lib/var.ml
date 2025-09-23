@@ -26,14 +26,14 @@ type 'a t = {
   layer : layer; (* Theme or Utility *)
   fallback : 'a option; (* Default for var() references *)
   property : 'a property_info option; (* For @property registration *)
-  order : int; (* Explicit ordering for theme layer *)
+  order : int option; (* Explicit ordering for theme layer *)
 }
 
 (* Existential wrapper *)
 type any = Any : _ kind -> any
 
 (* Metadata storage *)
-type meta_info = { var : any; needs_property : bool; order : int }
+type meta_info = { var : any; needs_property : bool; order : int option }
 
 let ( (meta_of_info : meta_info -> Css.meta),
       (info_of_meta : Css.meta -> meta_info option) ) =
@@ -48,7 +48,7 @@ let needs_property_of_meta meta =
   | Some { needs_property; _ } -> Some needs_property
 
 let order_of_meta meta =
-  match info_of_meta meta with None -> None | Some { order; _ } -> Some order
+  match info_of_meta meta with None -> None | Some { order; _ } -> order
 
 (* Canonical color ordering *)
 let canonical_color_order = function
@@ -91,15 +91,6 @@ let compare_color : type a b. a kind -> b kind -> int =
       else Option.compare Int.compare shade_a shade_b
   | _ -> 0
 
-(* Default ordering for variable kinds *)
-let default_order : type a. a kind -> int = function
-  | Color (_, _) -> 3
-  | Spacing -> 4
-  | Font_family_list -> 5
-  | Scroll_snap_strictness -> 1501
-  | Duration -> 1502
-  | _ -> 9999 (* Extensions go last by default *)
-
 let compare (Any a) (Any b) = compare_color a b
 let layer_name = function Theme -> "theme" | Utility -> "utilities"
 
@@ -107,7 +98,12 @@ let layer_name = function Theme -> "theme" | Utility -> "utilities"
 let create : type a.
     a kind -> ?fallback:a -> ?order:int -> string -> layer:layer -> a t =
  fun kind ?fallback ?order name ~layer ->
-  let order = match order with Some o -> o | None -> default_order kind in
+  (* Ensure theme variables have an order *)
+  (match (layer, order) with
+  | Theme, None ->
+      failwith
+        (Printf.sprintf "Variable '%s' in theme layer must have an order" name)
+  | _ -> ());
   { kind; name; layer; fallback; property = None; order }
 
 (* Add @property metadata *)
