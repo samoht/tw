@@ -4,7 +4,7 @@ open Core
 open Css
 
 (* Define the spacing variable at the module level *)
-let spacing_def, spacing_var = Var.theme Var.Spacing (Rem 0.25)
+let spacing_var = Var.create Var.Spacing "spacing" ~layer:Theme
 
 module Parse = Parse
 
@@ -43,7 +43,9 @@ let to_length : spacing -> length = function
   | `Rem f ->
       let n = int_of_float (f /. 0.25) in
       Calc
-        (Calc.mul (Calc.length (Var spacing_var)) (Calc.float (float_of_int n)))
+        (Calc.mul
+           (Calc.length (Var (Var.use spacing_var)))
+           (Calc.float (float_of_int n)))
 
 let margin_to_length : margin -> length = function
   | `Auto -> Auto
@@ -57,10 +59,11 @@ let decimal f = `Rem (f *. 0.25)
 
 (** {2 Typed Padding Utilities} *)
 
-(* Helper to include spacing_def when needed *)
+(* Helper to include spacing variable binding when needed *)
 let apply_style class_name decls s =
   match s with
-  | `Rem _ -> style class_name (spacing_def :: decls)
+  | `Rem _ ->
+      style class_name ~vars:[ Var.Binding (spacing_var, Rem 0.25) ] decls
   | _ -> style class_name decls
 
 let padding_util prefix prop (s : spacing) =
@@ -102,10 +105,11 @@ let pl_decimal f = pl' (decimal f)
 
 (** {2 Typed Margin Utilities} *)
 
-(* Helper to include spacing_def when margin uses Rem *)
+(* Helper to include spacing variable binding when margin uses Rem *)
 let margin_style class_name decls m =
   match m with
-  | `Rem _ -> style class_name (spacing_def :: decls)
+  | `Rem _ ->
+      style class_name ~vars:[ Var.Binding (spacing_var, Rem 0.25) ] decls
   | _ -> style class_name decls
 
 let margin_util prefix prop (m : margin) =

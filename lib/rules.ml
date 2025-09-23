@@ -801,82 +801,53 @@ let extract_non_tw_custom_declarations selector_props =
          | None -> false)
 
 (* Get Var.any from declaration metadata *)
-let var_of_declaration_meta decl =
-  match Css.meta_of_declaration decl with
-  | Some meta -> Var.of_meta meta
-  | None -> None
+(* var_of_declaration_meta no longer used after refactor *)
 
-let assemble_theme_decls_metadata ~extracted ~default_vars =
-  (* Build Var -> declaration mapping from defaults *)
-  let default_var_map =
-    let all_default_decls =
-      Typography.default_font_declarations
-      @ Typography.default_font_family_declarations
-    in
-    List.fold_left
-      (fun acc decl ->
-        match var_of_declaration_meta decl with
-        | Some var_any -> Var.Map.add var_any decl acc
-        | None -> acc)
-      Var.Map.empty all_default_decls
-  in
+(* assemble_theme_decls_metadata no longer used; ordering handled in
+   compute_theme_layer *)
 
-  (* Build set of vars already present in extracted *)
-  let extracted_var_set =
-    List.fold_left
-      (fun acc decl ->
-        match var_of_declaration_meta decl with
-        | Some var_any -> Var.Set.add var_any acc
-        | None -> acc)
-      Var.Set.empty extracted
-  in
-
-  (* Get needed defaults using the map *)
-  let needed_defaults =
-    List.filter_map
-      (fun default_var ->
-        if Var.Set.mem default_var extracted_var_set then None
-          (* already present *)
-        else Var.Map.find_opt default_var default_var_map)
-      default_vars
-  in
-
-  let all_decls = extracted @ needed_defaults in
-  List.stable_sort
-    (fun d1 d2 ->
-      (* Try to use Var metadata comparison if both have it *)
-      match (var_of_declaration_meta d1, var_of_declaration_meta d2) with
-      | Some v1, Some v2 -> Var.compare v1 v2
-      | _ ->
-          (* Fall back to name comparison *)
-          let name1 =
-            match Css.custom_declaration_name d1 with Some n -> n | None -> ""
-          in
-          let name2 =
-            match Css.custom_declaration_name d2 with Some n -> n | None -> ""
-          in
-          String.compare name1 name2)
-    all_decls
-
-let compute_theme_layer tw_classes =
-  let default_vars =
-    [
-      Var.Any Var.Font_sans;
-      Var.Any Var.Font_mono;
-      Var.Any Var.Default_font_family;
-      Var.Any Var.Default_mono_font_family;
-    ]
-  in
-
+let compute_theme_layer ?(default_decls = []) tw_classes =
   let selector_props = collect_selector_props tw_classes in
   let extracted = extract_non_tw_custom_declarations selector_props in
-  let all_var_decls = assemble_theme_decls_metadata ~extracted ~default_vars in
-
-  let theme_generated_vars =
-    List.stable_sort
-      (fun a b -> Var.compare_declarations Var.Theme a b)
-      all_var_decls
+  (* Split defaults so we can place base font family vars before extracted
+     tokens, and the indirection defaults (default-font-family,
+     default-mono-font-family) after extracted tokens to match Tailwind's
+     order. *)
+  let is_default_family name =
+    name = "default-font-family" || name = "default-mono-font-family"
   in
+  let pre_defaults, post_defaults =
+    List.partition
+      (fun decl ->
+        match Css.custom_declaration_name decl with
+        | Some n -> not (is_default_family n)
+        | None -> false)
+      default_decls
+  in
+  (* Filter out defaults already present by name *)
+  let names_of lst =
+    lst
+    |> List.filter_map Css.custom_declaration_name
+    |> List.sort_uniq String.compare
+  in
+  let extracted_names = names_of extracted in
+  let pre =
+    pre_defaults
+    |> List.filter (fun d ->
+           match Css.custom_declaration_name d with
+           | Some n -> not (List.mem n extracted_names)
+           | None -> false)
+  in
+  let pre_names = names_of pre in
+  let post =
+    post_defaults
+    |> List.filter (fun d ->
+           match Css.custom_declaration_name d with
+           | Some n ->
+               (not (List.mem n extracted_names)) && not (List.mem n pre_names)
+           | None -> false)
+  in
+  let theme_generated_vars = pre @ extracted @ post in
 
   if theme_generated_vars = [] then
     Css.of_statements [ Css.layer ~name:"theme" [] ]
@@ -919,33 +890,7 @@ let build_base_layer ?supports () =
   let base = Preflight.stylesheet ?placeholder_supports:supports () in
   Css.layer_of ~name:"base" base
 
-(* Convert @property initial values to declaration values following CSS spec.
-
-   The CSS spec has different requirements for initial values in @property rules
-   vs. in regular declarations: - In @property: zero can be unitless "0" - In
-   declarations: zero must have units "0px" for <length> syntax
-
-   This function handles the conversion from @property format to declaration
-   format. *)
-let convert_property_initial_for_declaration (Css.Property_info info) =
-  match info.initial_value with
-  | None -> "initial"
-  | Some v -> (
-      let
-      (* Handle typed values based on syntax *)
-      open
-        Css.Variables in
-      let open Css.Values in
-      match info.syntax with
-      | Length -> (
-          match v with
-          | Zero ->
-              "0px" (* CSS spec: zero lengths need units in declarations *)
-          | Px f when f = 0. -> "0px"
-          | _ -> Css.Pp.to_string (pp_length ~always:true) v)
-      | syntax ->
-          (* Use the appropriate pretty-printer for the syntax type *)
-          Css.Pp.to_string (pp_value syntax) v)
+(* Use the centralized conversion function from Var module *)
 
 (* Build the properties layer with browser detection for initial values *)
 let build_properties_layer explicit_property_rules_statements =
@@ -955,7 +900,7 @@ let build_properties_layer explicit_property_rules_statements =
       (fun acc stmt ->
         match Css.as_property stmt with
         | Some (Css.Property_info info as prop_info) ->
-            let value = convert_property_initial_for_declaration prop_info in
+            let value = Var.property_info_to_declaration_value prop_info in
             (info.name, value) :: acc
         | None -> acc)
       [] explicit_property_rules_statements
@@ -1019,10 +964,12 @@ let build_layers ~include_base tw_classes rules media_queries container_queries
   let vars_needing_property =
     vars_from_utilities
     |> List.filter (fun (Css.V v) ->
-           (* Only check needs_property for variables that have metadata *)
            match Css.var_meta v with
            | None -> false
-           | Some _ -> Var.needs_property v)
+           | Some meta -> (
+               match Var.needs_property_of_meta meta with
+               | Some true -> true
+               | _ -> false))
   in
 
   (* Generate @property rules for variables that need them but don't have
@@ -1061,7 +1008,13 @@ let build_layers ~include_base tw_classes rules media_queries container_queries
   in
 
   (* Existing layers in exact order *)
-  let theme_layer = compute_theme_layer tw_classes in
+  let theme_defaults =
+    Typography.default_font_declarations
+    @ Typography.default_font_family_declarations
+  in
+  let theme_layer =
+    compute_theme_layer ~default_decls:theme_defaults tw_classes
+  in
   let base_layer = build_base_layer ~supports:placeholder_supports () in
 
   (* Build layer list with properties layer first if we have property rules *)
@@ -1150,7 +1103,8 @@ let to_css ?(config = default_config) tw_classes =
       let property_stylesheet = Css.concat property_rules in
       Css.concat (layers @ [ property_stylesheet ])
   | Css.Inline ->
-      (* No layers - just raw utility rules *)
+      (* No layers - just raw utility rules with var() resolved to fallback
+         values *)
       wrap_css_items ~rules ~media_queries ~container_queries
 
 let to_inline_style styles =

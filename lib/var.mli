@@ -1,15 +1,15 @@
 (** Typed CSS variable definitions and CSS generation architecture.
 
-    This module defines the typed set of CSS custom properties used by the
-    library and their corresponding CSS output shapes. Variables are emitted
-    across multiple CSS layers following Tailwind v4's architecture.
+    This module provides a type-safe system for CSS custom properties that
+    generates CSS across multiple layers following Tailwind v4's architecture.
 
     {1 CSS Output Architecture}
 
     The variable system generates CSS across four layers in this order:
 
     {2 [@layer properties]}
-    Contains initial values for utility variables when [Var.property] is used:
+    Contains initial values for utility variables that need [@property]
+    registration:
     {[
       @layer properties {
         *, :before, :after, ::backdrop {
@@ -21,7 +21,7 @@
     ]}
 
     {2 [@layer theme]}
-    Contains theme design tokens from [Var.theme]:
+    Contains theme design tokens - the actual values:
     {[
       @layer theme {
         :root, :host {
@@ -52,7 +52,7 @@
     ]}
 
     {2 [@property declarations]}
-    Type registrations for utility variables (at the end):
+    Type registrations for animated/transitionable variables (at the end):
     {[
       @property --tw-shadow {
         syntax: "*";
@@ -68,13 +68,13 @@
 
     {1 Variable Types and Patterns}
 
-    {2 Theme Variables ([Var.theme])}
-    Design tokens that hold actual values. Generated in [@layer theme]:
+    {2 Theme Variables}
+    Design tokens that hold actual values, generated in [@layer theme]:
     - [--font-weight-thin: 100]
     - [--text-xl: 1.25rem]
     - [--color-blue-500: #3b82f6]
 
-    {2 Utility Variables ([Var.utility] and [Var.property])}
+    {2 Utility Variables}
     "Property channels" that track utility state. Two main patterns:
 
     {3 Composition Variables (e.g., transforms, shadows)}
@@ -95,272 +95,154 @@
       .border { border-style: var(--tw-border-style); border-width: 1px; }
     ]}
 
-    {1 Property Registration}
+    {1 The Variable API}
 
-    When [Var.property] is used with initial values: 1. Creates
-    [[@layer properties]] default: [--tw-shadow: 0 0 #0000] 2. Creates
-    [[@property]] registration with proper syntax and initial-value 3. Enables
-    CSS transitions, animations, and proper cascade behavior
+    The API centers around the {!type:t} record type, which represents a
+    complete variable definition. Variables are created with {!create}, enhanced
+    with {!with_property} or {!with_fallback}, and used in utilities via the
+    {!binding} type.
 
-    The [syntax] parameter defaults to ["*"] (Universal) when not specified.
+    {2 Basic Usage}
 
-    {1 API Functions}
+    {[
+      (* Define variable kinds - modules extend this *)
+      type _ Var.kind +=
+        | Font_weight : Css.font_weight Var.kind
+        | Font_weight_bold : Css.font_weight Var.kind
 
-    - [Var.theme]: Creates theme variables ([[@layer theme]])
-    - [Var.utility]: Creates utility variables (inline in utility classes)
-    - [Var.property]: Creates property registration + [[@layer properties]]
-      defaults
-    - [Var.handle]: References variables without defining them *)
+      (* Create theme variable *)
+      let font_weight_bold =
+        Var.create Font_weight_bold ~name:"font-weight-bold" ~layer:Theme
 
-(** Layer classification for CSS variables. In v4, variables live in [\@layer]
-    theme or inline within utilities; base/properties are not used for
-    Var-defined variables. *)
+      (* Create utility variable with @property metadata *)
+      let font_weight =
+        Var.create Font_weight ~name:"tw-font-weight" ~layer:Utility
+        |> Var.with_property ~syntax:Css.Universal ~initial:(Weight 400)
+        |> Var.with_fallback (Weight 400)
+
+      (* Use in utilities with the binding pattern *)
+      let font_bold =
+        style "font-bold"
+          ~vars:[ Binding (font_weight, Weight 700) ]
+          [ Css.font_weight (Var.use font_weight) ]
+      (* The @property rule is automatically extracted from font_weight *)
+    ]}
+
+    This generates:
+    - In [@layer theme]: [--font-weight-bold: 700]
+    - In [@layer properties]: [--tw-font-weight: 400]
+    - In [@property]: [@property --tw-font-weight { syntax: "*"; ... }]
+      (automatically extracted)
+    - In [@layer utilities]:
+      [.font-bold { --tw-font-weight: 700; font-weight: var(--tw-font-weight,
+       400) }]
+
+    {2 Note on Property Rules}
+
+    The [style] function automatically collects [@property] rules from variables
+    in the [~vars] parameter. You only need to use [~property_rules] for
+    additional property rules not tied to the variables being set. *)
+
+(** Layer classification for CSS variables *)
 type layer = Theme | Utility
 
-(** CSS variable type as a GADT for type safety *)
-type _ t =
-  (* Design tokens first *)
-  | Font_sans : Css.font_family list t
-  | Font_mono : Css.font_family list t
-  (* Colors *)
-  | Color :
+type _ kind = ..
+(** CSS variable kinds as extensible GADT *)
+
+(** Core CSS variable kinds - extended by individual modules *)
+type _ kind +=
+  | (* Core shared variables *)
+      Color :
       string * int option
-      -> Css.color t (* e.g., Color ("blue", Some 500) *)
-  | Spacing : Css.length t
-  | Default_font_family : Css.font_family list t
-  | Default_mono_font_family : Css.font_family list t
-  | Default_font_feature_settings : Css.font_feature_settings t
-  | Default_font_variation_settings : Css.font_variation_settings t
-  | Default_mono_font_feature_settings : Css.font_feature_settings t
-  | Default_mono_font_variation_settings : Css.font_variation_settings t
-  | Font_serif : Css.font_family list t
-  (* Typography scale *)
-  | Text_xs : Css.length t
-  | Text_xs_line_height : Css.line_height t
-  | Text_sm : Css.length t
-  | Text_sm_line_height : Css.line_height t
-  | Text_base : Css.length t
-  | Text_base_line_height : Css.line_height t
-  | Text_lg : Css.length t
-  | Text_lg_line_height : Css.line_height t
-  | Text_xl : Css.length t
-  | Text_xl_line_height : Css.line_height t
-  | Text_2xl : Css.length t
-  | Text_2xl_line_height : Css.line_height t
-  | Text_3xl : Css.length t
-  | Text_3xl_line_height : Css.line_height t
-  | Text_4xl : Css.length t
-  | Text_4xl_line_height : Css.line_height t
-  | Text_5xl : Css.length t
-  | Text_5xl_line_height : Css.line_height t
-  | Text_6xl : Css.length t
-  | Text_6xl_line_height : Css.line_height t
-  | Text_7xl : Css.length t
-  | Text_7xl_line_height : Css.line_height t
-  | Text_8xl : Css.length t
-  | Text_8xl_line_height : Css.line_height t
-  | Text_9xl : Css.length t
-  | Text_9xl_line_height : Css.line_height t
-  (* Font weights *)
-  | Font_weight_thin : Css.font_weight t
-  | Font_weight_extralight : Css.font_weight t
-  | Font_weight_light : Css.font_weight t
-  | Font_weight_normal : Css.font_weight t
-  | Font_weight_medium : Css.font_weight t
-  | Font_weight_semibold : Css.font_weight t
-  | Font_weight_bold : Css.font_weight t
-  | Font_weight_extrabold : Css.font_weight t
-  | Font_weight_black : Css.font_weight t
-  | Font_weight : Css.font_weight t
-  | Leading : Css.line_height t
-  (* Border radius *)
-  | Radius_none : Css.length t
-  | Radius_sm : Css.length t
-  | Radius_default : Css.length t
-  | Radius_md : Css.length t
-  | Radius_lg : Css.length t
-  | Radius_xl : Css.length t
-  | Radius_2xl : Css.length t
-  | Radius_3xl : Css.length t
-  (* Transform variables *)
-  | Translate_x : Css.length t
-  | Translate_y : Css.length t
-  | Translate_z : Css.length t
-  | Rotate : Css.angle t
-  | Skew_x : Css.angle t
-  | Skew_y : Css.angle t
-  | Scale_x : float t
-  | Scale_y : float t
-  | Scale_z : float t
-  (* Filter variables *)
-  | Blur : Css.length t
-  | Brightness : float t
-  | Contrast : float t
-  | Grayscale : float t
-  | Hue_rotate : Css.angle t
-  | Invert : float t
-  | Saturate : float t
-  | Sepia : float t
-  | Drop_shadow : string t
-  | Drop_shadow_alpha : float t
-  (* Box shadow variable *)
-  | Box_shadow : Css.shadow list t
-  (* Backdrop filter variables *)
-  | Backdrop_blur : Css.length t
-  | Backdrop_brightness : float t
-  | Backdrop_contrast : float t
-  | Backdrop_grayscale : float t
-  | Backdrop_hue_rotate : Css.angle t
-  | Backdrop_invert : float t
-  | Backdrop_saturate : float t
-  | Backdrop_sepia : float t
-  | Backdrop_opacity : float t
-  (* Shadow and ring variables *)
-  | Single_shadow : Css.shadow t
-  | Shadow : Css.box_shadow t
-  | Shadow_color : Css.color t
-  | Shadow_alpha : Css.percentage t
-  | Inset_shadow : Css.shadow t
-  | Inset_shadow_color : Css.color t
-  | Inset_shadow_alpha : Css.percentage t
-  | Ring_color : Css.color t
-  | Ring_shadow : Css.shadow t
-  | Inset_ring_color : Css.color t
-  | Inset_ring_shadow : Css.shadow t
-  | Ring_inset : string t
-  | Ring_offset_width : Css.length t
-  | Ring_offset_color : Css.color t
-  | Ring_offset_shadow : Css.shadow t
-  | Ring_width : Css.length t
-  (* Prose theming variables *)
-  | Prose_body : Css.color t
-  | Prose_headings : Css.color t
-  | Prose_code : Css.color t
-  (* Content variable for pseudo-elements *)
-  | Content : Css.content t
-  | Prose_pre_code : Css.color t
-  | Prose_pre_bg : Css.color t
-  | Prose_th_borders : Css.color t
-  | Prose_td_borders : Css.color t
-  | Prose_links : Css.color t
-  | Prose_quotes : Css.color t
-  | Prose_quote_borders : Css.color t
-  | Prose_hr : Css.color t
-  | Prose_bold : Css.color t
-  | Prose_lead : Css.color t
-  | Prose_counters : Css.color t
-  | Prose_bullets : Css.color t
-  | Prose_captions : Css.color t
-  | Prose_kbd : Css.color t
-  | Prose_kbd_shadows : string t (* RGB values like "17 24 39" *)
-  (* Prose invert variants for dark mode *)
-  | Prose_invert_body : Css.color t
-  | Prose_invert_headings : Css.color t
-  | Prose_invert_lead : Css.color t
-  | Prose_invert_links : Css.color t
-  | Prose_invert_bold : Css.color t
-  | Prose_invert_counters : Css.color t
-  | Prose_invert_bullets : Css.color t
-  | Prose_invert_hr : Css.color t
-  | Prose_invert_quotes : Css.color t
-  | Prose_invert_quote_borders : Css.color t
-  | Prose_invert_captions : Css.color t
-  | Prose_invert_kbd : Css.color t
-  | Prose_invert_kbd_shadows : string t
-  | Prose_invert_code : Css.color t
-  | Prose_invert_pre_code : Css.color t
-  | Prose_invert_pre_bg : Css.color t
-  | Prose_invert_th_borders : Css.color t
-  | Prose_invert_td_borders : Css.color t
-  (* Gradient variables *)
-  | Gradient_from : Css.color t
-  | Gradient_via : Css.color t
-  | Gradient_to : Css.color t
-  | Gradient_stops : string t
-  | Gradient_via_stops : string t
-  | Gradient_position : string t
-  | Gradient_from_position : Css.percentage t
-  | Gradient_via_position : Css.percentage t
-  | Gradient_to_position : Css.percentage t
-  (* Font variant numeric *)
-  | Font_variant_ordinal : Css.font_variant_numeric_token t
-  | Font_variant_slashed_zero : Css.font_variant_numeric_token t
-  | Font_variant_numeric_figure : Css.font_variant_numeric_token t
-  | Font_variant_numeric_spacing : Css.font_variant_numeric_token t
-  | Font_variant_numeric_fraction : Css.font_variant_numeric_token t
-  | Font_variant_numeric : Css.font_variant_numeric t
-  (* Other *)
-  | Border_style : Css.border_style t
-  | Scroll_snap_strictness : Css.scroll_snap_strictness t
-  | Duration : Css.duration t
+      -> Css.color kind (* e.g., Color ("blue", Some 500) *)
+  | Spacing : Css.length kind
+  | Font_family_list : Css.font_family kind
+  | Scroll_snap_strictness : Css.scroll_snap_strictness kind
+  | Duration : Css.duration kind
 
-val name : _ t -> string
-(** [name v] returns the variable name without the leading "--". *)
+(** Property metadata. *)
+type 'a property_info = Info : 'b Css.syntax * 'b * bool -> 'a property_info
 
-val theme :
-  'a t -> ?fallback:'a -> ?property:bool -> 'a -> Css.declaration * 'a Css.var
-(** [theme v ?fallback ?property value] creates a theme-layer variable
-    declaration and handle. When property is true, indicates this variable needs
-    [@property] registration. *)
+type 'a t = {
+  kind : 'a kind;  (** Type witness ensuring type safety *)
+  name : string;  (** CSS variable name without the [--] prefix *)
+  layer : layer;  (** Whether this is a theme token or utility variable *)
+  fallback : 'a option;  (** Default value for [var()] references *)
+  property : 'a property_info option;  (** Optional [@property] metadata *)
+}
+(** Variable definition record - the main type for working with CSS variables *)
 
-val utility :
-  'a t -> ?fallback:'a -> ?property:bool -> 'a -> Css.declaration * 'a Css.var
-(** [utility v ?fallback ?property value] creates a utility-layer variable
-    declaration and handle.
+(** Var binding pairs a variable with its value for use in utilities. When
+    passed to [style], both the declaration and any [@property] rule are
+    automatically extracted. *)
+type binding = Binding : 'a t * 'a -> binding
 
-    When [property:true], this variable becomes a "property channel" that:
-    - Gets initialized in [@layer properties] with [initial] value
-    - Gets [@property] registration for proper CSS behavior
-    - Is set by each utility class to track which utility was applied
+(** {1 Core API} *)
 
-    Example:
-    [Var.utility Var.Font_weight ~property:true (Var font_weight_thin_var)]
-    creates [--tw-font-weight: var(--font-weight-thin)] which tracks that
-    font-thin was applied, even though the actual [font-weight] property uses
-    the theme variable directly. *)
+val create : 'a kind -> ?fallback:'a -> string -> layer:layer -> 'a t
+(** [create kind ?fallback name ~layer] creates a variable definition.
 
-val handle_only : 'a t -> unit -> 'a Css.var
-(** [handle_only v] creates a variable handle with empty fallback without a
-    definition. Useful for referencing variables that may be defined elsewhere.
-    Creates var(--name,) format. *)
+    - [kind]: The type witness (e.g., [Font_weight])
+    - [name]: CSS variable name without [--] (e.g., ["tw-font-weight"])
+    - [layer]: [Theme] for design tokens, [Utility] for property channels.
+    - [fallback] sets the fallback value for [var()] references. This value is
+      used when the variable is not set: [var(--name, fallback)] *)
 
-val handle : 'a t -> ?fallback:'a -> unit -> 'a Css.var
-(** [handle v ?fallback] creates a variable handle with optional fallback
-    without a definition. Useful for referencing variables that may be defined
-    elsewhere. *)
+val with_property :
+  syntax:'b Css.syntax -> initial:'b -> ?inherits:bool -> 'a t -> 'a t
+(** [with_property ~syntax ~initial ?inherits var] adds [@property] metadata.
+    This enables CSS transitions, animations, and proper cascade behavior.
 
-val property :
-  'a t -> ?syntax:'a Css.syntax -> ?inherits:bool -> 'a option -> Css.t
-(** [property var_t ?initial ?syntax ?inherits] creates a typed [[@property]]
-    registration with the appropriate syntax inferred from the variable type.
+    - [syntax]: CSS syntax descriptor (e.g., [Css.Length], [Css.Color])
+    - [initial]: Initial value for [@layer properties] and [@property]
+    - [inherits]: Whether the property inherits (defaults to [false]) *)
 
-    - [initial]: Typed initial value (used for both [[@layer properties]] and
-      [[@property]])
-    - [syntax]: CSS syntax (defaults to Universal when not provided)
-    - [inherits]: Whether the property inherits (defaults to false)
+val declaration : 'a t -> 'a -> Css.declaration
+(** [declaration var value] creates a CSS custom property declaration with the
+    given value. This is used in utility classes to set the variable:
+    [--tw-font-weight: 700] *)
 
-    Examples:
-    - [property Shadow ~initial:[shadow_value]]
-    - [property Shadow_alpha ~initial:(Css.Pct 100.0)]
-    - [property Border_style ~initial:Solid] *)
+val needs_property : 'a t -> bool
+(** [needs_property var] returns true if variable has [@property] metadata *)
 
-val layer : _ Css.var -> layer option
-(** [layer var] returns the layer recorded in the variable metadata, if any. *)
+val needs_property_of_meta : Css.meta -> bool option
+(** Inspect a declaration's metadata to see if it requested an [@property]
+    registration. Returns [Some true] for variables that have property metadata,
+    [Some false] for variables without it, or [None] if metadata is not from
+    Var. *)
 
-val needs_property : _ Css.var -> bool
-(** [needs_property var] returns true if this variable needs property
-    declaration. *)
+val use : 'a t -> 'a Css.var
+(** [use var] creates a [var()] reference for use in CSS properties. Includes
+    fallback if set: [var(--tw-font-weight, 400)] *)
 
-val to_string : _ t -> string
-(** [to_string v] returns the full "--var-name" representation. *)
+val property_rule : 'a t -> Css.t option
+(** [property_rule var] generates the [@property] rule if metadata is present.
+    Returns [None] if the variable has no property metadata.
 
-val pp : _ t -> string
-(** [pp] is {!to_string}. *)
+    Example output:
+    {[
+      @property --tw-shadow {
+        syntax: "*";
+        inherits: false;
+        initial-value: 0 0 #0000;
+      }
+    ]} *)
 
-(** Existential wrapper for variables of any type *)
-type any = Any : _ t -> any
+val declaration_of_binding : binding -> Css.declaration
+(** [declaration_of_binding (Binding (var, value))] extracts the CSS declaration
+    from a variable binding. Used internally by the [style] function to
+    automatically generate variable declarations from the [~vars] parameter. *)
 
-(* Utilities own their variable registrations and any @property rules. *)
+val property_rule_of_binding : binding -> Css.t option
+(** [property_rule_of_binding (Binding (var, _))] extracts the [@property] rule
+    from a variable binding if the variable has property metadata. Used
+    internally by the [style] function to automatically collect property rules
+    from the [~vars] parameter. *)
+
+(** {1 Helper Types and Functions} *)
+
+(** Existential wrapper for heterogeneous collections *)
+type any = Any : _ kind -> any
 
 val compare : any -> any -> int
 (** [compare a b] compares two variables for canonical ordering in the theme. *)
@@ -369,51 +251,31 @@ val compare_declarations : layer -> Css.declaration -> Css.declaration -> int
 (** [compare_declarations layer d1 d2] compares two custom declarations via Var
     metadata for the given layer. *)
 
+val property_info_to_declaration_value : Css.property_info -> string
+(** [property_info_to_declaration_value info] converts [@property] initial
+    values to declaration values following CSS spec requirements. This is the
+    canonical implementation for the 0/0px conversion used across the codebase.
+*)
+
 val of_meta : Css.meta -> any option
-(** [of_meta meta] extracts a variable from CSS metadata if present. *)
+(** [of_meta meta] extracts the variable from CSS declaration metadata if
+    present *)
+
+type meta_info = { var : any; needs_property : bool }
+(** Metadata stored in CSS declarations *)
+
+val meta_of_info : meta_info -> Css.meta
+(** [meta_of_info info] converts variable metadata to CSS metadata *)
+
+val layer_name : layer -> string
+(** [layer_name layer] returns the string name of the layer ("theme" or
+    "utilities") *)
+
+val layer : 'a t -> layer
+(** [layer var] returns the layer of the variable *)
 
 module Map : Map.S with type key = any
 (** Map with Var.any keys *)
 
 module Set : Set.S with type elt = any
 (** Set with Var.any elements *)
-
-module Def : sig
-  type 'a property_def = {
-    syntax : 'a Css.syntax;
-    initial_value : 'a;
-    inherits : bool;
-  }
-
-  type 'a def = {
-    name : 'a t;
-    layer : layer;
-    property : 'a property_def option;
-    initial : 'a option;
-    inherits : bool;
-  }
-
-  val theme :
-    'a t -> ?initial:'a -> ?syntax:'a Css.syntax -> 'a -> 'a def * 'a Css.var
-  (** [theme var ?initial ?syntax value] builds a structured variable definition
-      for the theme layer and returns it with a typed CSS variable handle. If
-      [~initial] or [~syntax] is provided, a corresponding [@property]
-      registration can be produced via [to_property_rule]. *)
-
-  val utility :
-    'a t -> ?initial:'a -> ?syntax:'a Css.syntax -> 'a -> 'a def * 'a Css.var
-  (** [utility var ?initial ?syntax value] builds a structured variable
-      definition for the utilities layer and returns it with a typed CSS
-      variable handle. If [~initial] or [~syntax] is provided, a corresponding
-      [@property] registration can be produced via [to_property_rule]. *)
-
-  val to_property_rule : 'a def -> Css.t option
-  (** [to_property_rule def] converts a structured definition to a typed
-      [@property] rule if property metadata is present. The rule renders the
-      initial-value per spec (e.g., zero lengths as [0]). *)
-
-  val to_initial_declaration : 'a def -> Css.declaration option
-  (** [to_initial_declaration def] converts a structured definition to a
-      properties-layer default declaration when an initial is present. Rendering
-      follows CSS expectations (e.g., zero lengths as [0px]). *)
-end
