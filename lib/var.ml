@@ -1,402 +1,54 @@
-(* Typed CSS custom properties (variables)
+(* Typed CSS custom properties (variables) - Simplified API
 
-   Purpose: Provide a typed view over Tailwind-style CSS variables (`--*`) used
-   across utilities (transforms, filters, radii, fonts, etc.), with ordering and
-   metadata to support layering (@layer theme/utilities).
+   This module provides the core extensible variable system for CSS custom
+   properties following the simplified design from todo/vars.md *)
 
-   Interaction with Rules: - Rules.compute_theme_layer analyzes declarations
-   with `Css.vars_of_declarations` and collects custom declarations via
-   `Css.extract_custom_declarations`. - Variables defined via
-   Var.theme/Var.utility carry metadata so `Var.compare_declarations Var.Theme`
-   can establish canonical ordering in the theme layer. - Modules register
-   @property rules for variables via `Var.property`.
-
-   Adding a new CSS variable: 1. Add a constructor to the GADT `_ t` with the
-   correct type (e.g., `My : Css.color t` or `My : Css.length t`). Prefer
-   structured types (Css.color, Css.length, …) over string. 2. Map it in
-   `to_string` (e.g., `| My -> "--my"`). 3. Assign a position in `order` (e.g.,
-   `| My -> 1500`). 4. Handle its definition in `def` using the appropriate Css
-   constructor (e.g., `| My -> var Color value`).
-
-   Using variables in utilities: - Call `Var.theme` or `Var.utility` to create
-   the declaration and typed var. - Use the returned var in CSS values; refer to
-   other vars via typed fallbacks.
-
-   Notes: - `to_string` maps typed variants to `--var-name`. -
-   `order`/`compare`/`compare_declarations` ensure stable, readable ordering. *)
-
-(* Layer classification for CSS variables. In v4, variables live in @layer theme
-   or inline within utilities; base/properties are not used for Var-defined
-   variables. *)
+(* Layer classification for CSS variables *)
 type layer = Theme | Utility
 
-(* CSS variable type as a GADT for type safety. The ordering is defined
-   explicitly in the `order` function below, not by constructor order. *)
-type _ t =
-  (* Design tokens first *)
-  | Font_sans : Css.font_family list t
-  | Font_mono : Css.font_family list t
-  (* Colors *)
-  | Color :
-      string * int option
-      -> Css.color t (* e.g., Color ("blue", Some 500) *)
-  | Spacing : Css.length t
-  | Default_font_family : Css.font_family list t
-  | Default_mono_font_family : Css.font_family list t
-  | Default_font_feature_settings : Css.font_feature_settings t
-  | Default_font_variation_settings : Css.font_variation_settings t
-  | Default_mono_font_feature_settings : Css.font_feature_settings t
-  | Default_mono_font_variation_settings : Css.font_variation_settings t
-  | Font_serif : Css.font_family list t
-  (* Typography scale *)
-  | Text_xs : Css.length t
-  | Text_xs_line_height : Css.line_height t
-  | Text_sm : Css.length t
-  | Text_sm_line_height : Css.line_height t
-  | Text_base : Css.length t
-  | Text_base_line_height : Css.line_height t
-  | Text_lg : Css.length t
-  | Text_lg_line_height : Css.line_height t
-  | Text_xl : Css.length t
-  | Text_xl_line_height : Css.line_height t
-  | Text_2xl : Css.length t
-  | Text_2xl_line_height : Css.line_height t
-  | Text_3xl : Css.length t
-  | Text_3xl_line_height : Css.line_height t
-  | Text_4xl : Css.length t
-  | Text_4xl_line_height : Css.line_height t
-  | Text_5xl : Css.length t
-  | Text_5xl_line_height : Css.line_height t
-  | Text_6xl : Css.length t
-  | Text_6xl_line_height : Css.line_height t
-  | Text_7xl : Css.length t
-  | Text_7xl_line_height : Css.line_height t
-  | Text_8xl : Css.length t
-  | Text_8xl_line_height : Css.line_height t
-  | Text_9xl : Css.length t
-  | Text_9xl_line_height : Css.line_height t
-  (* Font weights *)
-  | Font_weight_thin : Css.font_weight t
-  | Font_weight_extralight : Css.font_weight t
-  | Font_weight_light : Css.font_weight t
-  | Font_weight_normal : Css.font_weight t
-  | Font_weight_medium : Css.font_weight t
-  | Font_weight_semibold : Css.font_weight t
-  | Font_weight_bold : Css.font_weight t
-  | Font_weight_extrabold : Css.font_weight t
-  | Font_weight_black : Css.font_weight t
-  | Font_weight : Css.font_weight t
-  | Leading : Css.line_height t
-  (* Border radius *)
-  | Radius_none : Css.length t
-  | Radius_sm : Css.length t
-  | Radius_default : Css.length t
-  | Radius_md : Css.length t
-  | Radius_lg : Css.length t
-  | Radius_xl : Css.length t
-  | Radius_2xl : Css.length t
-  | Radius_3xl : Css.length t
-  (* Transform variables *)
-  | Translate_x : Css.length t
-  | Translate_y : Css.length t
-  | Translate_z : Css.length t
-  | Rotate : Css.angle t
-  | Skew_x : Css.angle t
-  | Skew_y : Css.angle t
-  | Scale_x : float t
-  | Scale_y : float t
-  | Scale_z : float t
-  (* Filter variables *)
-  | Blur : Css.length t
-  | Brightness : float t
-  | Contrast : float t
-  | Grayscale : float t
-  | Hue_rotate : Css.angle t
-  | Invert : float t
-  | Saturate : float t
-  | Sepia : float t
-  | Drop_shadow : string t
-  | Drop_shadow_alpha : float t
-  (* Box shadow variable *)
-  | Box_shadow : Css.shadow list t
-  (* Backdrop filter variables *)
-  | Backdrop_blur : Css.length t
-  | Backdrop_brightness : float t
-  | Backdrop_contrast : float t
-  | Backdrop_grayscale : float t
-  | Backdrop_hue_rotate : Css.angle t
-  | Backdrop_invert : float t
-  | Backdrop_saturate : float t
-  | Backdrop_sepia : float t
-  | Backdrop_opacity : float t
-  (* Shadow and ring variables *)
-  | Single_shadow : Css.shadow t
-  | Shadow : Css.shadow list t
-  | Shadow_color : Css.color t
-  | Shadow_alpha : Css.percentage t
-  | Inset_shadow : Css.shadow t
-  | Inset_shadow_color : Css.color t
-  | Inset_shadow_alpha : Css.percentage t
-  | Ring_color : Css.color t
-  | Ring_shadow : Css.shadow t
-  | Inset_ring_color : Css.color t
-  | Inset_ring_shadow : Css.shadow t
-  | Ring_inset : string t
-  | Ring_offset_width : Css.length t
-  | Ring_offset_color : Css.color t
-  | Ring_offset_shadow : Css.shadow t
-  | Ring_width : Css.length t
-  (* Prose theming variables *)
-  | Prose_body : Css.color t
-  | Prose_headings : Css.color t
-  | Prose_code : Css.color t
-  (* Content variable for pseudo-elements *)
-  | Content : Css.content t
-  | Prose_pre_code : Css.color t
-  | Prose_pre_bg : Css.color t
-  | Prose_th_borders : Css.color t
-  | Prose_td_borders : Css.color t
-  | Prose_links : Css.color t
-  | Prose_quotes : Css.color t
-  | Prose_quote_borders : Css.color t
-  | Prose_hr : Css.color t
-  | Prose_bold : Css.color t
-  | Prose_lead : Css.color t
-  | Prose_counters : Css.color t
-  | Prose_bullets : Css.color t
-  | Prose_captions : Css.color t
-  | Prose_kbd : Css.color t
-  | Prose_kbd_shadows : string t (* RGB values like "17 24 39" *)
-  (* Prose invert variants for dark mode *)
-  | Prose_invert_body : Css.color t
-  | Prose_invert_headings : Css.color t
-  | Prose_invert_lead : Css.color t
-  | Prose_invert_links : Css.color t
-  | Prose_invert_bold : Css.color t
-  | Prose_invert_counters : Css.color t
-  | Prose_invert_bullets : Css.color t
-  | Prose_invert_hr : Css.color t
-  | Prose_invert_quotes : Css.color t
-  | Prose_invert_quote_borders : Css.color t
-  | Prose_invert_captions : Css.color t
-  | Prose_invert_kbd : Css.color t
-  | Prose_invert_kbd_shadows : string t
-  | Prose_invert_code : Css.color t
-  | Prose_invert_pre_code : Css.color t
-  | Prose_invert_pre_bg : Css.color t
-  | Prose_invert_th_borders : Css.color t
-  | Prose_invert_td_borders : Css.color t
-  (* Gradient variables *)
-  | Gradient_from : Css.color t
-  | Gradient_via : Css.color t
-  | Gradient_to : Css.color t
-  | Gradient_stops : string t
-  | Gradient_via_stops : string t
-  | Gradient_position : string t
-  | Gradient_from_position : Css.percentage t
-  | Gradient_via_position : Css.percentage t
-  | Gradient_to_position : Css.percentage t
-  (* Font variant numeric - properly typed *)
-  | Font_variant_ordinal : Css.font_variant_numeric_token t
-  | Font_variant_slashed_zero : Css.font_variant_numeric_token t
-  | Font_variant_numeric_figure : Css.font_variant_numeric_token t
-  | Font_variant_numeric_spacing : Css.font_variant_numeric_token t
-  | Font_variant_numeric_fraction : Css.font_variant_numeric_token t
-  | Font_variant_numeric : Css.font_variant_numeric t
-  (* Other *)
-  | Border_style : Css.border_style t
-  | Scroll_snap_strictness : Css.scroll_snap_strictness t
-  | Duration : Css.duration t
+(* CSS variable kinds as extensible GADT - modules add their own *)
+type _ kind = ..
 
-(** Existential wrapper for variables of any type *)
-type any = Any : _ t -> any
+(* Core CSS variable kinds *)
+type _ kind +=
+  | Color : string * int option -> Css.color kind
+  | Spacing : Css.length kind
+  | Font_family_list : Css.font_family kind
+  | Scroll_snap_strictness : Css.scroll_snap_strictness kind
+  | Duration : Css.duration kind
 
-(* Store both variable and property flag in metadata *)
+(* Variable definition - the main currency *)
+type 'a property_info = Info : 'b Css.syntax * 'b * bool -> 'a property_info
+
+type 'a t = {
+  kind : 'a kind; (* Type witness for safety *)
+  name : string; (* Variable name without -- prefix *)
+  layer : layer; (* Theme or Utility *)
+  fallback : 'a option; (* Default for var() references *)
+  property : 'a property_info option; (* For @property registration *)
+}
+
+(* Existential wrapper *)
+type any = Any : _ kind -> any
+
+(* Metadata storage *)
 type meta_info = { var : any; needs_property : bool }
 
 let ( (meta_of_info : meta_info -> Css.meta),
       (info_of_meta : Css.meta -> meta_info option) ) =
   Css.meta ()
 
-(* Helper to get variable from metadata for compatibility *)
 let of_meta meta =
   match info_of_meta meta with None -> None | Some { var; _ } -> Some var
 
-(* Convert a CSS variable to its string representation (with --) *)
-let to_string : type a. a t -> string = function
-  | Spacing -> "--spacing"
-  | Font_sans -> "--font-sans"
-  | Font_serif -> "--font-serif"
-  | Font_mono -> "--font-mono"
-  | Font_weight -> "--tw-font-weight"
-  | Leading -> "--tw-leading"
-  | Text_xs -> "--text-xs"
-  | Text_xs_line_height -> "--text-xs--line-height"
-  | Text_sm -> "--text-sm"
-  | Text_sm_line_height -> "--text-sm--line-height"
-  | Text_base -> "--text-base"
-  | Text_base_line_height -> "--text-base--line-height"
-  | Text_lg -> "--text-lg"
-  | Text_lg_line_height -> "--text-lg--line-height"
-  | Text_xl -> "--text-xl"
-  | Text_xl_line_height -> "--text-xl--line-height"
-  | Text_2xl -> "--text-2xl"
-  | Text_2xl_line_height -> "--text-2xl--line-height"
-  | Text_3xl -> "--text-3xl"
-  | Text_3xl_line_height -> "--text-3xl--line-height"
-  | Text_4xl -> "--text-4xl"
-  | Text_4xl_line_height -> "--text-4xl--line-height"
-  | Text_5xl -> "--text-5xl"
-  | Text_5xl_line_height -> "--text-5xl--line-height"
-  | Text_6xl -> "--text-6xl"
-  | Text_6xl_line_height -> "--text-6xl--line-height"
-  | Text_7xl -> "--text-7xl"
-  | Text_7xl_line_height -> "--text-7xl--line-height"
-  | Text_8xl -> "--text-8xl"
-  | Text_8xl_line_height -> "--text-8xl--line-height"
-  | Text_9xl -> "--text-9xl"
-  | Text_9xl_line_height -> "--text-9xl--line-height"
-  | Font_weight_thin -> "--font-weight-thin"
-  | Font_weight_extralight -> "--font-weight-extralight"
-  | Font_weight_light -> "--font-weight-light"
-  | Font_weight_normal -> "--font-weight-normal"
-  | Font_weight_medium -> "--font-weight-medium"
-  | Font_weight_semibold -> "--font-weight-semibold"
-  | Font_weight_bold -> "--font-weight-bold"
-  | Font_weight_extrabold -> "--font-weight-extrabold"
-  | Font_weight_black -> "--font-weight-black"
-  | Radius_none -> "--radius-none"
-  | Radius_sm -> "--radius-sm"
-  | Radius_default -> "--radius-default"
-  | Radius_md -> "--radius-md"
-  | Radius_lg -> "--radius-lg"
-  | Radius_xl -> "--radius-xl"
-  | Radius_2xl -> "--radius-2xl"
-  | Radius_3xl -> "--radius-3xl"
-  | Color (name, None) -> "--color-" ^ name
-  | Color (name, Some shade) ->
-      String.concat "" [ "--color-"; name; "-"; string_of_int shade ]
-  | Translate_x -> "--tw-translate-x"
-  | Translate_y -> "--tw-translate-y"
-  | Translate_z -> "--tw-translate-z"
-  | Rotate -> "--tw-rotate"
-  | Skew_x -> "--tw-skew-x"
-  | Skew_y -> "--tw-skew-y"
-  | Scale_x -> "--tw-scale-x"
-  | Scale_y -> "--tw-scale-y"
-  | Scale_z -> "--tw-scale-z"
-  | Blur -> "--tw-blur"
-  | Brightness -> "--tw-brightness"
-  | Contrast -> "--tw-contrast"
-  | Grayscale -> "--tw-grayscale"
-  | Hue_rotate -> "--tw-hue-rotate"
-  | Invert -> "--tw-invert"
-  | Saturate -> "--tw-saturate"
-  | Sepia -> "--tw-sepia"
-  | Drop_shadow -> "--tw-drop-shadow"
-  | Drop_shadow_alpha -> "--tw-drop-shadow-alpha"
-  | Box_shadow -> "--tw-box-shadow"
-  | Backdrop_blur -> "--tw-backdrop-blur"
-  | Backdrop_brightness -> "--tw-backdrop-brightness"
-  | Backdrop_contrast -> "--tw-backdrop-contrast"
-  | Backdrop_grayscale -> "--tw-backdrop-grayscale"
-  | Backdrop_hue_rotate -> "--tw-backdrop-hue-rotate"
-  | Backdrop_invert -> "--tw-backdrop-invert"
-  | Backdrop_saturate -> "--tw-backdrop-saturate"
-  | Backdrop_sepia -> "--tw-backdrop-sepia"
-  | Backdrop_opacity -> "--tw-backdrop-opacity"
-  | Single_shadow -> "--tw-single-shadow"
-  | Shadow -> "--tw-shadow"
-  | Shadow_color -> "--tw-shadow-color"
-  | Shadow_alpha -> "--tw-shadow-alpha"
-  | Inset_shadow -> "--tw-inset-shadow"
-  | Inset_shadow_color -> "--tw-inset-shadow-color"
-  | Inset_shadow_alpha -> "--tw-inset-shadow-alpha"
-  | Ring_color -> "--tw-ring-color"
-  | Ring_width -> "--tw-ring-width"
-  | Ring_shadow -> "--tw-ring-shadow"
-  | Inset_ring_color -> "--tw-inset-ring-color"
-  | Inset_ring_shadow -> "--tw-inset-ring-shadow"
-  | Ring_inset -> "--tw-ring-inset"
-  | Ring_offset_width -> "--tw-ring-offset-width"
-  | Ring_offset_color -> "--tw-ring-offset-color"
-  | Ring_offset_shadow -> "--tw-ring-offset-shadow"
-  (* Prose vars *)
-  | Prose_body -> "--tw-prose-body"
-  | Prose_headings -> "--tw-prose-headings"
-  | Prose_code -> "--tw-prose-code"
-  | Content -> "--tw-content"
-  | Prose_pre_code -> "--tw-prose-pre-code"
-  | Prose_pre_bg -> "--tw-prose-pre-bg"
-  | Prose_th_borders -> "--tw-prose-th-borders"
-  | Prose_td_borders -> "--tw-prose-td-borders"
-  | Prose_links -> "--tw-prose-links"
-  | Prose_quotes -> "--tw-prose-quotes"
-  | Prose_quote_borders -> "--tw-prose-quote-borders"
-  | Prose_hr -> "--tw-prose-hr"
-  | Prose_bold -> "--tw-prose-bold"
-  | Prose_lead -> "--tw-prose-lead"
-  | Prose_counters -> "--tw-prose-counters"
-  | Prose_bullets -> "--tw-prose-bullets"
-  | Prose_captions -> "--tw-prose-captions"
-  | Prose_kbd -> "--tw-prose-kbd"
-  | Prose_kbd_shadows -> "--tw-prose-kbd-shadows"
-  | Prose_invert_body -> "--tw-prose-invert-body"
-  | Prose_invert_headings -> "--tw-prose-invert-headings"
-  | Prose_invert_lead -> "--tw-prose-invert-lead"
-  | Prose_invert_links -> "--tw-prose-invert-links"
-  | Prose_invert_bold -> "--tw-prose-invert-bold"
-  | Prose_invert_counters -> "--tw-prose-invert-counters"
-  | Prose_invert_bullets -> "--tw-prose-invert-bullets"
-  | Prose_invert_hr -> "--tw-prose-invert-hr"
-  | Prose_invert_quotes -> "--tw-prose-invert-quotes"
-  | Prose_invert_quote_borders -> "--tw-prose-invert-quote-borders"
-  | Prose_invert_captions -> "--tw-prose-invert-captions"
-  | Prose_invert_kbd -> "--tw-prose-invert-kbd"
-  | Prose_invert_kbd_shadows -> "--tw-prose-invert-kbd-shadows"
-  | Prose_invert_code -> "--tw-prose-invert-code"
-  | Prose_invert_pre_code -> "--tw-prose-invert-pre-code"
-  | Prose_invert_pre_bg -> "--tw-prose-invert-pre-bg"
-  | Prose_invert_th_borders -> "--tw-prose-invert-th-borders"
-  | Prose_invert_td_borders -> "--tw-prose-invert-td-borders"
-  | Gradient_from -> "--tw-gradient-from"
-  | Gradient_via -> "--tw-gradient-via"
-  | Gradient_to -> "--tw-gradient-to"
-  | Gradient_stops -> "--tw-gradient-stops"
-  | Gradient_via_stops -> "--tw-gradient-via-stops"
-  | Gradient_position -> "--tw-gradient-position"
-  | Gradient_from_position -> "--tw-gradient-from-position"
-  | Gradient_via_position -> "--tw-gradient-via-position"
-  | Gradient_to_position -> "--tw-gradient-to-position"
-  | Font_variant_ordinal -> "--tw-ordinal"
-  | Font_variant_slashed_zero -> "--tw-slashed-zero"
-  | Font_variant_numeric_figure -> "--tw-numeric-figure"
-  | Font_variant_numeric_spacing -> "--tw-numeric-spacing"
-  | Font_variant_numeric_fraction -> "--tw-numeric-fraction"
-  | Font_variant_numeric -> "--tw-font-variant-numeric"
-  | Border_style -> "--tw-border-style"
-  | Scroll_snap_strictness -> "--tw-scroll-snap-strictness"
-  | Duration -> "--tw-duration"
-  | Default_font_family -> "--default-font-family"
-  | Default_mono_font_family -> "--default-mono-font-family"
-  | Default_font_feature_settings -> "--default-font-feature-settings"
-  | Default_font_variation_settings -> "--default-font-variation-settings"
-  | Default_mono_font_feature_settings -> "--default-mono-font-feature-settings"
-  | Default_mono_font_variation_settings ->
-      "--default-mono-font-variation-settings"
+let needs_property_of_meta meta =
+  match info_of_meta meta with
+  | None -> None
+  | Some { needs_property; _ } -> Some needs_property
 
-let pp = to_string
-
-(* Get the name of a variable (without --) *)
-let name : type a. a t -> string =
- fun v ->
-  let s = to_string v in
-  String.sub s 2 (String.length s - 2)
-
-(* Canonical color ordering function *)
-let canonical_color_order color_name =
-  match color_name with
-  | "red" -> 0 (* Chromatic colors in spectrum order *)
+(* Canonical color ordering *)
+let canonical_color_order = function
+  | "red" -> 0
   | "orange" -> 1
   | "amber" -> 2
   | "yellow" -> 3
@@ -413,915 +65,197 @@ let canonical_color_order color_name =
   | "fuchsia" -> 14
   | "pink" -> 15
   | "rose" -> 16
-  | "slate" -> 17 (* Neutral colors after chromatic *)
+  | "slate" -> 17
   | "gray" -> 18
   | "zinc" -> 19
   | "neutral" -> 20
   | "stone" -> 21
-  | "black" -> 100 (* Special colors at the end *)
+  | "black" -> 100
   | "white" -> 101
-  | _ -> 200 (* Unknown colors last *)
+  | _ -> 200
 
-(* Get the ordering for a variable - explicit order for theme layer *)
-let order : type a. a t -> int = function
-  (* Design tokens - font families first *)
-  | Font_sans -> 0
-  | Font_serif -> 1
-  | Font_mono -> 2
-  (* Then colors and spacing *)
-  | Color (_, _) -> 3 (* Colors come after basic fonts *)
+(* Variable ordering for theme layer *)
+let order : type a. a kind -> int = function
+  | Color (_, _) -> 3
   | Spacing -> 4
-  (* Typography scale - start at 100 *)
-  | Text_xs -> 100
-  | Text_xs_line_height -> 101
-  | Text_sm -> 102
-  | Text_sm_line_height -> 103
-  | Text_base -> 104
-  | Text_base_line_height -> 105
-  | Text_lg -> 106
-  | Text_lg_line_height -> 107
-  | Text_xl -> 108
-  | Text_xl_line_height -> 109
-  | Text_2xl -> 110
-  | Text_2xl_line_height -> 111
-  | Text_3xl -> 112
-  | Text_3xl_line_height -> 113
-  | Text_4xl -> 114
-  | Text_4xl_line_height -> 115
-  | Text_5xl -> 116
-  | Text_5xl_line_height -> 117
-  | Text_6xl -> 118
-  | Text_6xl_line_height -> 119
-  | Text_7xl -> 120
-  | Text_7xl_line_height -> 121
-  | Text_8xl -> 122
-  | Text_8xl_line_height -> 123
-  | Text_9xl -> 124
-  | Text_9xl_line_height -> 125
-  (* Font weights - start at 200 *)
-  | Font_weight_thin -> 200
-  | Font_weight_extralight -> 201
-  | Font_weight_light -> 202
-  | Font_weight_normal -> 203
-  | Font_weight_medium -> 204
-  | Font_weight_semibold -> 205
-  | Font_weight_bold -> 206
-  | Font_weight_extrabold -> 207
-  | Font_weight_black -> 208
-  | Font_weight -> 209
-  | Leading -> 210
-  (* Border radius - start at 300 *)
-  | Radius_none -> 300
-  | Radius_sm -> 301
-  | Radius_default -> 302
-  | Radius_md -> 303
-  | Radius_lg -> 304
-  | Radius_xl -> 305
-  | Radius_2xl -> 306
-  | Radius_3xl -> 307
-  (* Default font families - start at 400 *)
-  | Default_font_family -> 400
-  | Default_mono_font_family -> 401
-  | Default_font_feature_settings -> 402
-  | Default_font_variation_settings -> 403
-  | Default_mono_font_feature_settings -> 404
-  | Default_mono_font_variation_settings -> 405
-  (* Transform variables *)
-  | Translate_x -> 1000
-  | Translate_y -> 1001
-  | Translate_z -> 1002
-  | Rotate -> 1003
-  | Skew_x -> 1004
-  | Skew_y -> 1005
-  | Scale_x -> 1006
-  | Scale_y -> 1007
-  | Scale_z -> 1008
-  (* Filter variables *)
-  | Blur -> 1100
-  | Brightness -> 1101
-  | Contrast -> 1102
-  | Grayscale -> 1103
-  | Hue_rotate -> 1104
-  | Invert -> 1105
-  | Saturate -> 1106
-  | Sepia -> 1107
-  | Drop_shadow -> 1108
-  | Drop_shadow_alpha -> 1109
-  | Box_shadow -> 1110
-  (* Backdrop filter variables *)
-  | Backdrop_blur -> 1200
-  | Backdrop_brightness -> 1201
-  | Backdrop_contrast -> 1202
-  | Backdrop_grayscale -> 1203
-  | Backdrop_hue_rotate -> 1204
-  | Backdrop_invert -> 1205
-  | Backdrop_saturate -> 1206
-  | Backdrop_sepia -> 1207
-  | Backdrop_opacity -> 1208
-  (* Shadow and ring variables *)
-  | Single_shadow -> 1300
-  | Shadow -> 1301
-  | Shadow_color -> 1302
-  | Shadow_alpha -> 1303
-  | Inset_shadow -> 1304
-  | Inset_shadow_color -> 1305
-  | Inset_shadow_alpha -> 1306
-  | Ring_color -> 1307
-  | Ring_shadow -> 1308
-  | Inset_ring_color -> 1309
-  | Inset_ring_shadow -> 1310
-  | Ring_inset -> 1311
-  | Ring_offset_width -> 1312
-  | Ring_offset_color -> 1313
-  | Ring_offset_shadow -> 1314
-  | Ring_width -> 1315
-  (* Prose theming variables *)
-  | Prose_body -> 1320
-  | Prose_headings -> 1321
-  | Prose_code -> 1322
-  | Content -> 1323
-  | Prose_pre_code -> 1324
-  | Prose_pre_bg -> 1325
-  | Prose_th_borders -> 1326
-  | Prose_td_borders -> 1327
-  | Prose_links -> 1328
-  | Prose_quotes -> 1329
-  | Prose_quote_borders -> 1330
-  | Prose_hr -> 1331
-  | Prose_bold -> 1332
-  | Prose_lead -> 1333
-  | Prose_counters -> 1334
-  | Prose_bullets -> 1335
-  | Prose_captions -> 1336
-  | Prose_kbd -> 1337
-  | Prose_kbd_shadows -> 1338
-  | Prose_invert_body -> 1339
-  | Prose_invert_headings -> 1340
-  | Prose_invert_lead -> 1341
-  | Prose_invert_links -> 1342
-  | Prose_invert_bold -> 1343
-  | Prose_invert_counters -> 1344
-  | Prose_invert_bullets -> 1345
-  | Prose_invert_hr -> 1346
-  | Prose_invert_quotes -> 1347
-  | Prose_invert_quote_borders -> 1348
-  | Prose_invert_captions -> 1349
-  | Prose_invert_kbd -> 1350
-  | Prose_invert_kbd_shadows -> 1351
-  | Prose_invert_code -> 1352
-  | Prose_invert_pre_code -> 1353
-  | Prose_invert_pre_bg -> 1354
-  | Prose_invert_th_borders -> 1355
-  | Prose_invert_td_borders -> 1356
-  (* Gradient variables *)
-  | Gradient_from -> 1400
-  | Gradient_via -> 1401
-  | Gradient_to -> 1402
-  | Gradient_stops -> 1403
-  | Gradient_via_stops -> 1404
-  | Gradient_position -> 1405
-  | Gradient_from_position -> 1406
-  | Gradient_via_position -> 1407
-  | Gradient_to_position -> 1408
-  (* Font variant numeric - reorder to match Tailwind *)
-  | Font_variant_ordinal -> 1410
-  | Font_variant_slashed_zero -> 1411
-  | Font_variant_numeric_figure -> 1412
-  | Font_variant_numeric_spacing -> 1413
-  | Font_variant_numeric_fraction -> 1414
-  | Font_variant_numeric -> 1455
-  (* Other *)
-  | Border_style -> 1500
+  | Font_family_list -> 5
   | Scroll_snap_strictness -> 1501
   | Duration -> 1502
+  | _ -> 9999 (* Extensions go last *)
 
-(* Helper to compare colors that have the same base order *)
-let compare_color : type a b. a t -> b t -> int =
+let compare_color : type a b. a kind -> b kind -> int =
  fun a b ->
   match (a, b) with
   | Color (name_a, shade_a), Color (name_b, shade_b) ->
-      (* First compare color names *)
       let name_cmp =
         Int.compare
           (canonical_color_order name_a)
           (canonical_color_order name_b)
       in
       if name_cmp <> 0 then name_cmp
-      else
-        (* Same color, compare shades *)
-        Option.compare Int.compare shade_a shade_b
-  | _ -> 0 (* Different types with same order, keep as is *)
+      else Option.compare Int.compare shade_a shade_b
+  | _ -> 0
 
-(* Compare variables *)
 let compare (Any a) (Any b) =
   let order_a = order a in
   let order_b = order b in
   let cmp = Int.compare order_a order_b in
   if cmp <> 0 then cmp else compare_color a b
 
-(* Helper to get layer name from layer enum *)
 let layer_name = function Theme -> "theme" | Utility -> "utilities"
 
-let layer_of_string = function
-  | "theme" -> Some Theme
-  | "utilities" -> Some Utility
-  | _ -> None
+(* Create a variable template *)
+let create : type a. a kind -> ?fallback:a -> string -> layer:layer -> a t =
+ fun kind ?fallback name ~layer ->
+  { kind; name; layer; fallback; property = None }
 
-(* Get the layer from a CSS variable *)
-let layer : type a. a Css.var -> layer option =
- fun css_var ->
-  match Css.var_layer css_var with None -> None | Some s -> layer_of_string s
+(* Add @property metadata *)
+let with_property : type a b.
+    syntax:b Css.syntax -> initial:b -> ?inherits:bool -> a t -> a t =
+ fun ~syntax ~initial ?(inherits = false) var ->
+  { var with property = Some (Info (syntax, initial, inherits)) }
 
-(* Check if a variable needs @property declaration based on metadata *)
-let needs_property : type a. a Css.var -> bool =
- fun css_var ->
-  (* Extract the property flag from the var's metadata *)
-  match Css.var_meta css_var with
-  | None ->
-      failwith "needs_property: CSS variable missing metadata (this is a bug!)"
-  | Some meta -> (
-      match info_of_meta meta with
-      | None ->
-          failwith "needs_property: metadata is not meta_info (this is a bug!)"
-      | Some { needs_property; _ } -> needs_property)
-
-(** Create a variable definition and handle *)
-let def : type a.
-    a t ->
-    ?layer:layer ->
-    ?fallback:a ->
-    ?property:bool ->
-    a ->
-    Css.declaration * a Css.var =
- fun var_t ?layer ?fallback ?(property = false) value ->
-  let n = name var_t in
-  let layer = Option.map layer_name layer in
-  (* Set metadata for this variable *)
-  let meta = meta_of_info { var = Any var_t; needs_property = property } in
-  let var ty v =
-    let fallback = Option.map (fun f -> Css.Fallback f) fallback in
-    Css.var ?layer ?fallback ~meta n ty v
+(* Get declaration with a specific value *)
+let declaration : type a. a t -> a -> Css.declaration =
+ fun var value ->
+  let meta =
+    meta_of_info { var = Any var.kind; needs_property = var.property <> None }
   in
-  match var_t with
-  | Spacing -> var Length value
-  | Font_sans -> var Font_family value
-  | Font_serif -> var Font_family value
-  | Font_mono -> var Font_family value
-  | Font_weight -> var Font_weight value
-  | Leading -> var Line_height value
-  | Text_xs -> var Length value
-  | Text_xs_line_height -> var Line_height value
-  | Text_sm -> var Length value
-  | Text_sm_line_height -> var Line_height value
-  | Text_base -> var Length value
-  | Text_base_line_height -> var Line_height value
-  | Text_lg -> var Length value
-  | Text_lg_line_height -> var Line_height value
-  | Text_xl -> var Length value
-  | Text_xl_line_height -> var Line_height value
-  | Text_2xl -> var Length value
-  | Text_2xl_line_height -> var Line_height value
-  | Text_3xl -> var Length value
-  | Text_3xl_line_height -> var Line_height value
-  | Text_4xl -> var Length value
-  | Text_4xl_line_height -> var Line_height value
-  | Text_5xl -> var Length value
-  | Text_5xl_line_height -> var Line_height value
-  | Text_6xl -> var Length value
-  | Text_6xl_line_height -> var Line_height value
-  | Text_7xl -> var Length value
-  | Text_7xl_line_height -> var Line_height value
-  | Text_8xl -> var Length value
-  | Text_8xl_line_height -> var Line_height value
-  | Text_9xl -> var Length value
-  | Text_9xl_line_height -> var Line_height value
-  | Font_weight_thin -> var Font_weight value
-  | Font_weight_extralight -> var Font_weight value
-  | Font_weight_light -> var Font_weight value
-  | Font_weight_normal -> var Font_weight value
-  | Font_weight_medium -> var Font_weight value
-  | Font_weight_semibold -> var Font_weight value
-  | Font_weight_bold -> var Font_weight value
-  | Font_weight_extrabold -> var Font_weight value
-  | Font_weight_black -> var Font_weight value
-  | Radius_none -> var Length value
-  | Radius_sm -> var Length value
-  | Radius_default -> var Length value
-  | Radius_md -> var Length value
-  | Radius_lg -> var Length value
-  | Radius_xl -> var Length value
-  | Radius_2xl -> var Length value
-  | Radius_3xl -> var Length value
-  | Color (color_name, shade) ->
-      let clean_name =
-        match shade with
-        | None -> String.concat "" [ "color-"; color_name ]
-        | Some s ->
-            String.concat "" [ "color-"; color_name; "-"; string_of_int s ]
-      in
-      let fallback = Option.map (fun f -> Css.Fallback f) fallback in
-      Css.var ?layer ?fallback ~meta clean_name Color value
-  | Translate_x -> var Length value
-  | Translate_y -> var Length value
-  | Translate_z -> var Length value
-  | Rotate -> var Angle value
-  | Skew_x -> var Angle value
-  | Skew_y -> var Angle value
-  | Scale_x -> var Float value
-  | Scale_y -> var Float value
-  | Scale_z -> var Float value
-  | Blur -> var Length value
-  | Brightness -> var Float value
-  | Contrast -> var Float value
-  | Grayscale -> var Float value
-  | Invert -> var Float value
-  | Saturate -> var Float value
-  | Sepia -> var Float value
-  | Hue_rotate -> var Angle value
-  | Drop_shadow -> var String value
-  | Drop_shadow_alpha -> var Float value
-  | Box_shadow -> var Box_shadow value
-  | Backdrop_blur -> var Length value
-  | Backdrop_brightness -> var Float value
-  | Backdrop_contrast -> var Float value
-  | Backdrop_grayscale -> var Float value
-  | Backdrop_invert -> var Float value
-  | Backdrop_saturate -> var Float value
-  | Backdrop_sepia -> var Float value
-  | Backdrop_opacity -> var Float value
-  | Backdrop_hue_rotate -> var Angle value
-  | Single_shadow -> var Shadow value
-  | Shadow -> var Box_shadow value
-  | Inset_shadow -> var Shadow value
-  | Ring_shadow -> var Shadow value
-  | Inset_ring_shadow -> var Shadow value
-  | Ring_inset -> var String value
-  | Ring_offset_shadow -> var Shadow value
-  | Shadow_color -> var Color value
-  | Inset_shadow_color -> var Color value
-  | Ring_color -> var Color value
-  | Inset_ring_color -> var Color value
-  | Ring_offset_color -> var Color value
-  | Shadow_alpha -> var Percentage value
-  | Inset_shadow_alpha -> var Percentage value
-  | Ring_offset_width -> var Length value
-  (* Prose vars *)
-  | Prose_body -> var Color value
-  | Prose_headings -> var Color value
-  | Prose_code -> var Color value
-  | Content -> var Content value
-  | Prose_pre_code -> var Color value
-  | Prose_pre_bg -> var Color value
-  | Prose_th_borders -> var Color value
-  | Prose_td_borders -> var Color value
-  | Prose_links -> var Color value
-  | Prose_quotes -> var Color value
-  | Prose_quote_borders -> var Color value
-  | Prose_hr -> var Color value
-  | Prose_bold -> var Color value
-  | Prose_lead -> var Color value
-  | Prose_counters -> var Color value
-  | Prose_bullets -> var Color value
-  | Prose_captions -> var Color value
-  | Prose_kbd -> var Color value
-  | Prose_kbd_shadows -> var String value
-  | Prose_invert_body -> var Color value
-  | Prose_invert_headings -> var Color value
-  | Prose_invert_lead -> var Color value
-  | Prose_invert_links -> var Color value
-  | Prose_invert_bold -> var Color value
-  | Prose_invert_counters -> var Color value
-  | Prose_invert_bullets -> var Color value
-  | Prose_invert_hr -> var Color value
-  | Prose_invert_quotes -> var Color value
-  | Prose_invert_quote_borders -> var Color value
-  | Prose_invert_captions -> var Color value
-  | Prose_invert_kbd -> var Color value
-  | Prose_invert_kbd_shadows -> var String value
-  | Prose_invert_code -> var Color value
-  | Prose_invert_pre_code -> var Color value
-  | Prose_invert_pre_bg -> var Color value
-  | Prose_invert_th_borders -> var Color value
-  | Prose_invert_td_borders -> var Color value
-  | Ring_width -> var Length value
-  | Gradient_from -> var Color value
-  | Gradient_via -> var Color value
-  | Gradient_to -> var Color value
-  | Gradient_stops -> var String value
-  | Gradient_via_stops -> var String value
-  | Gradient_position -> var String value
-  | Gradient_from_position -> var Percentage value
-  | Gradient_via_position -> var Percentage value
-  | Gradient_to_position -> var Percentage value
-  | Font_variant_ordinal -> var Font_variant_numeric_token value
-  | Font_variant_slashed_zero -> var Font_variant_numeric_token value
-  | Font_variant_numeric_figure -> var Font_variant_numeric_token value
-  | Font_variant_numeric_spacing -> var Font_variant_numeric_token value
-  | Font_variant_numeric_fraction -> var Font_variant_numeric_token value
-  | Font_variant_numeric -> var Font_variant_numeric value
-  | Border_style -> var Border_style value
-  | Scroll_snap_strictness -> var Scroll_snap_strictness value
-  | Duration -> var Duration value
-  | Default_font_family -> var Font_family value
-  | Default_mono_font_family -> var Font_family value
-  | Default_font_feature_settings -> var Font_feature_settings value
-  | Default_font_variation_settings -> var Font_variation_settings value
-  | Default_mono_font_feature_settings -> var Font_feature_settings value
-  | Default_mono_font_variation_settings -> var Font_variation_settings value
-
-(* Create a variable handle without a definition - useful for referencing
-   variables that may be defined elsewhere (e.g., --tw-leading in text
-   utilities) *)
-let handle_only : type a. a t -> unit -> a Css.var =
- fun var_t () ->
-  let n = name var_t in
-  let meta = meta_of_info { var = Any var_t; needs_property = false } in
-  (* Use Css.var_ref with Empty fallback to create handle *)
-  Css.var_ref ~fallback:Empty ~meta n
-
-let handle : type a. a t -> ?fallback:a -> unit -> a Css.var =
- fun var_t ?fallback () ->
-  let n = name var_t in
-  let meta = meta_of_info { var = Any var_t; needs_property = false } in
-  (* Use Css.var_ref to create handle with optional fallback *)
-  let fallback = Option.map (fun f -> Css.Fallback f) fallback in
-  Css.var_ref ?fallback ~meta n
-
-(* Layer-specific variable constructors *)
-let theme : type a.
-    a t -> ?fallback:a -> ?property:bool -> a -> Css.declaration * a Css.var =
- fun var_t ?fallback ?property value ->
-  def ?fallback ?property var_t ~layer:Theme value
-
-let utility : type a.
-    a t -> ?fallback:a -> ?property:bool -> a -> Css.declaration * a Css.var =
- fun var_t ?fallback ?property value ->
-  def ?fallback ?property var_t ~layer:Utility value
-
-(* Helper to project variable type to Css.kind *)
-let to_kind : type a. a t -> a Css.kind = function
-  | Shadow -> Box_shadow
-  | Box_shadow -> Box_shadow
-  | Single_shadow -> Shadow
-  | Inset_shadow -> Shadow
-  | Ring_shadow -> Shadow
-  | Inset_ring_shadow -> Shadow
-  | Ring_offset_shadow -> Shadow
-  | Shadow_color -> Color
-  | Inset_shadow_color -> Color
-  | Ring_color -> Color
-  | Inset_ring_color -> Color
-  | Ring_offset_color -> Color
-  | Gradient_from -> Color
-  | Gradient_via -> Color
-  | Gradient_to -> Color
-  | Prose_body -> Color
-  | Prose_headings -> Color
-  | Prose_code -> Color
-  | Prose_pre_code -> Color
-  | Prose_pre_bg -> Color
-  | Prose_th_borders -> Color
-  | Prose_td_borders -> Color
-  | Prose_links -> Color
-  | Prose_quotes -> Color
-  | Prose_quote_borders -> Color
-  | Prose_hr -> Color
-  | Prose_bold -> Color
-  | Prose_lead -> Color
-  | Prose_counters -> Color
-  | Prose_bullets -> Color
-  | Prose_captions -> Color
-  | Prose_kbd -> Color
-  | Prose_invert_body -> Color
-  | Prose_invert_headings -> Color
-  | Prose_invert_lead -> Color
-  | Prose_invert_links -> Color
-  | Prose_invert_bold -> Color
-  | Prose_invert_counters -> Color
-  | Prose_invert_bullets -> Color
-  | Prose_invert_hr -> Color
-  | Prose_invert_quotes -> Color
-  | Prose_invert_quote_borders -> Color
-  | Prose_invert_captions -> Color
-  | Prose_invert_kbd -> Color
-  | Prose_invert_code -> Color
-  | Prose_invert_pre_code -> Color
-  | Prose_invert_pre_bg -> Color
-  | Prose_invert_th_borders -> Color
-  | Prose_invert_td_borders -> Color
-  | Color _ -> Color
-  | Shadow_alpha -> Percentage
-  | Inset_shadow_alpha -> Percentage
-  | Drop_shadow_alpha -> Float
-  | Backdrop_opacity -> Float
-  | Scale_x -> Float
-  | Scale_y -> Float
-  | Scale_z -> Float
-  | Gradient_from_position -> Percentage
-  | Gradient_via_position -> Percentage
-  | Gradient_to_position -> Percentage
-  | Brightness -> Float
-  | Contrast -> Float
-  | Grayscale -> Float
-  | Invert -> Float
-  | Saturate -> Float
-  | Sepia -> Float
-  | Backdrop_brightness -> Float
-  | Backdrop_contrast -> Float
-  | Backdrop_grayscale -> Float
-  | Backdrop_invert -> Float
-  | Backdrop_saturate -> Float
-  | Backdrop_sepia -> Float
-  | Ring_offset_width -> Length
-  | Translate_x -> Length
-  | Translate_y -> Length
-  | Translate_z -> Length
-  | Blur -> Length
-  | Backdrop_blur -> Length
-  | Text_xs -> Length
-  | Text_sm -> Length
-  | Text_base -> Length
-  | Text_lg -> Length
-  | Text_xl -> Length
-  | Text_2xl -> Length
-  | Text_3xl -> Length
-  | Text_4xl -> Length
-  | Text_5xl -> Length
-  | Text_6xl -> Length
-  | Text_7xl -> Length
-  | Text_8xl -> Length
-  | Text_9xl -> Length
-  | Spacing -> Length
-  | Radius_none -> Length
-  | Radius_sm -> Length
-  | Radius_default -> Length
-  | Radius_md -> Length
-  | Radius_lg -> Length
-  | Radius_xl -> Length
-  | Radius_2xl -> Length
-  | Radius_3xl -> Length
-  | Ring_width -> Length
-  | Rotate -> Angle
-  | Skew_x -> Angle
-  | Skew_y -> Angle
-  | Hue_rotate -> Angle
-  | Backdrop_hue_rotate -> Angle
-  | Border_style -> Border_style
-  | Font_weight -> Font_weight
-  | Font_weight_thin -> Font_weight
-  | Font_weight_extralight -> Font_weight
-  | Font_weight_light -> Font_weight
-  | Font_weight_normal -> Font_weight
-  | Font_weight_medium -> Font_weight
-  | Font_weight_semibold -> Font_weight
-  | Font_weight_bold -> Font_weight
-  | Font_weight_extrabold -> Font_weight
-  | Font_weight_black -> Font_weight
-  | Leading -> Line_height
-  | Text_xs_line_height -> Line_height
-  | Text_sm_line_height -> Line_height
-  | Text_base_line_height -> Line_height
-  | Text_lg_line_height -> Line_height
-  | Text_xl_line_height -> Line_height
-  | Text_2xl_line_height -> Line_height
-  | Text_3xl_line_height -> Line_height
-  | Text_4xl_line_height -> Line_height
-  | Text_5xl_line_height -> Line_height
-  | Text_6xl_line_height -> Line_height
-  | Text_7xl_line_height -> Line_height
-  | Text_8xl_line_height -> Line_height
-  | Text_9xl_line_height -> Line_height
-  | Scroll_snap_strictness -> Scroll_snap_strictness
-  | Duration -> Duration
-  | Font_sans -> Font_family
-  | Font_mono -> Font_family
-  | Font_serif -> Font_family
-  | Default_font_family -> Font_family
-  | Default_mono_font_family -> Font_family
-  | Default_font_feature_settings -> Font_feature_settings
-  | Default_mono_font_feature_settings -> Font_feature_settings
-  | Default_font_variation_settings -> Font_variation_settings
-  | Default_mono_font_variation_settings -> Font_variation_settings
-  | Font_variant_ordinal -> Font_variant_numeric_token
-  | Font_variant_slashed_zero -> Font_variant_numeric_token
-  | Font_variant_numeric_figure -> Font_variant_numeric_token
-  | Font_variant_numeric_spacing -> Font_variant_numeric_token
-  | Font_variant_numeric_fraction -> Font_variant_numeric_token
-  | Font_variant_numeric -> Font_variant_numeric
-  | Content -> Content
-  | Gradient_position -> String
-  | Gradient_stops -> String
-  | Gradient_via_stops -> String
-  | Drop_shadow -> String
-  | Prose_kbd_shadows -> String
-  | Prose_invert_kbd_shadows -> String
-  | Ring_inset -> String
-
-let string_of_var var_t v =
-  let buf = Buffer.create 256 in
-  let ctx = { Css.Pp.minify = true; indent = 0; buf; inline = false } in
-  let kind = to_kind var_t in
-  Css.pp_kind_value ctx (kind, v);
-  Buffer.contents buf
-
-(* Convert a CSS variable type to its syntax for @property rules *)
-let to_syntax : type a. a t -> a Css.syntax option = function
-  (* Percentages *)
-  | Shadow_alpha -> Some Css.Percentage
-  | Inset_shadow_alpha -> Some Css.Percentage
-  | Gradient_from_position -> Some Css.Percentage
-  | Gradient_via_position -> Some Css.Percentage
-  | Gradient_to_position -> Some Css.Percentage
-  (* Lengths *)
-  | Ring_offset_width -> Some Css.Length
-  | Ring_width -> Some Css.Length
-  | Translate_x -> Some Css.Length
-  | Translate_y -> Some Css.Length
-  | Translate_z -> Some Css.Length
-  | Blur -> Some Css.Length
-  | Backdrop_blur -> Some Css.Length
-  | Text_xs -> Some Css.Length
-  | Text_sm -> Some Css.Length
-  | Text_base -> Some Css.Length
-  | Text_lg -> Some Css.Length
-  | Text_xl -> Some Css.Length
-  | Text_2xl -> Some Css.Length
-  | Text_3xl -> Some Css.Length
-  | Text_4xl -> Some Css.Length
-  | Text_5xl -> Some Css.Length
-  | Text_6xl -> Some Css.Length
-  | Text_7xl -> Some Css.Length
-  | Text_8xl -> Some Css.Length
-  | Text_9xl -> Some Css.Length
-  | Radius_none -> Some Css.Length
-  | Radius_sm -> Some Css.Length
-  | Radius_default -> Some Css.Length
-  | Radius_md -> Some Css.Length
-  | Radius_lg -> Some Css.Length
-  | Radius_xl -> Some Css.Length
-  | Radius_2xl -> Some Css.Length
-  | Radius_3xl -> Some Css.Length
-  | Spacing -> None
-  (* Angles *)
-  | Rotate -> Some Css.Angle
-  | Skew_x -> Some Css.Angle
-  | Skew_y -> Some Css.Angle
-  | Hue_rotate -> Some Css.Angle
-  | Backdrop_hue_rotate -> Some Css.Angle
-  (* Numbers/floats *)
-  | Scale_x -> Some Css.Number
-  | Scale_y -> Some Css.Number
-  | Scale_z -> Some Css.Number
-  | Brightness -> Some Css.Number
-  | Contrast -> Some Css.Number
-  | Grayscale -> Some Css.Number
-  | Invert -> Some Css.Number
-  | Saturate -> Some Css.Number
-  | Sepia -> Some Css.Number
-  | Backdrop_brightness -> Some Css.Number
-  | Backdrop_contrast -> Some Css.Number
-  | Backdrop_grayscale -> Some Css.Number
-  | Backdrop_invert -> Some Css.Number
-  | Backdrop_saturate -> Some Css.Number
-  | Backdrop_sepia -> Some Css.Number
-  | Backdrop_opacity -> Some Css.Number
-  | Drop_shadow_alpha -> Some Css.Number
-  (* Colors *)
-  | Color _ -> Some Css.Color
-  | Shadow_color -> None
-  | Inset_shadow_color -> None
-  | Ring_color -> None
-  | Inset_ring_color -> None
-  | Ring_offset_color -> None
-  | Prose_body -> Some Css.Color
-  | Prose_headings -> Some Css.Color
-  | Prose_code -> Some Css.Color
-  | Prose_pre_code -> Some Css.Color
-  | Prose_pre_bg -> Some Css.Color
-  | Prose_th_borders -> Some Css.Color
-  | Prose_td_borders -> Some Css.Color
-  | Prose_links -> Some Css.Color
-  | Prose_quotes -> Some Css.Color
-  | Prose_quote_borders -> Some Css.Color
-  | Prose_hr -> Some Css.Color
-  | Prose_bold -> Some Css.Color
-  | Prose_lead -> Some Css.Color
-  | Prose_counters -> Some Css.Color
-  | Prose_bullets -> Some Css.Color
-  | Prose_captions -> Some Css.Color
-  | Prose_kbd -> Some Css.Color
-  | Prose_invert_body -> Some Css.Color
-  | Prose_invert_headings -> Some Css.Color
-  | Prose_invert_lead -> Some Css.Color
-  | Prose_invert_links -> Some Css.Color
-  | Prose_invert_bold -> Some Css.Color
-  | Prose_invert_counters -> Some Css.Color
-  | Prose_invert_bullets -> Some Css.Color
-  | Prose_invert_hr -> Some Css.Color
-  | Prose_invert_quotes -> Some Css.Color
-  | Prose_invert_quote_borders -> Some Css.Color
-  | Prose_invert_captions -> Some Css.Color
-  | Prose_invert_kbd -> Some Css.Color
-  | Prose_invert_code -> Some Css.Color
-  | Prose_invert_pre_code -> Some Css.Color
-  | Prose_invert_pre_bg -> Some Css.Color
-  | Prose_invert_th_borders -> Some Css.Color
-  | Prose_invert_td_borders -> Some Css.Color
-  | Gradient_from -> Some Css.Color
-  | Gradient_via -> Some Css.Color
-  | Gradient_to -> Some Css.Color
-  (* Strings *)
-  | Ring_inset -> None
-  | Gradient_position -> Some Css.String
-  | Gradient_stops -> Some Css.String
-  | Gradient_via_stops -> Some Css.String
-  | Drop_shadow -> Some Css.String
-  | Prose_kbd_shadows -> Some Css.String
-  | Prose_invert_kbd_shadows -> Some Css.String
-  (* Times/durations *)
-  | Duration -> Some Css.Time
-  (* Cases without precise syntax mapping: fallback to None *)
-  | Font_sans -> None
-  | Font_serif -> None
-  | Font_mono -> None
-  | Font_weight -> None
-  | Leading -> None
-  | Text_xs_line_height -> None
-  | Text_sm_line_height -> None
-  | Text_base_line_height -> None
-  | Text_lg_line_height -> None
-  | Text_xl_line_height -> None
-  | Text_2xl_line_height -> None
-  | Text_3xl_line_height -> None
-  | Text_4xl_line_height -> None
-  | Text_5xl_line_height -> None
-  | Text_6xl_line_height -> None
-  | Text_7xl_line_height -> None
-  | Text_8xl_line_height -> None
-  | Text_9xl_line_height -> None
-  | Font_weight_thin -> None
-  | Font_weight_extralight -> None
-  | Font_weight_light -> None
-  | Font_weight_normal -> None
-  | Font_weight_medium -> None
-  | Font_weight_semibold -> None
-  | Font_weight_bold -> None
-  | Font_weight_extrabold -> None
-  | Font_weight_black -> None
-  | Box_shadow -> None
-  | Single_shadow -> None
-  | Shadow -> None
-  | Inset_shadow -> None
-  | Ring_shadow -> None
-  | Inset_ring_shadow -> None
-  | Ring_offset_shadow -> None
-  | Content -> None
-  | Font_variant_ordinal -> None
-  | Font_variant_slashed_zero -> None
-  | Font_variant_numeric_figure -> None
-  | Font_variant_numeric_spacing -> None
-  | Font_variant_numeric_fraction -> None
-  | Font_variant_numeric -> None
-  | Border_style -> None
-  | Scroll_snap_strictness -> None
-  | Default_font_family -> None
-  | Default_mono_font_family -> None
-  | Default_font_feature_settings -> None
-  | Default_mono_font_feature_settings -> None
-  | Default_font_variation_settings -> None
-  | Default_mono_font_variation_settings -> None
-
-(* Unified property function that infers syntax from variable type *)
-let property : type a.
-    a t -> ?syntax:a Css.syntax -> ?inherits:bool -> a option -> Css.t =
- fun var_t ?syntax ?(inherits = false) initial ->
-  let name = to_string var_t in
-  (* Special case: gradient positions need Length_percentage syntax in
-     @property *)
-  let pct_to_len_pct (initial : Css.percentage option) =
-    (* Convert percentage to length_percentage for @property rule *)
-    (* Here pct has type Css.percentage, wrap it in length_percentage *)
-    match initial with
-    | Some pct ->
-        let initial_value : Css.length_percentage = Percentage pct in
-        Css.property ~name Css.Length_percentage ~inherits ~initial_value ()
-    | None -> Css.property ~name Css.Length_percentage ~inherits ()
-  in
-  match var_t with
-  | Gradient_from_position -> pct_to_len_pct initial
-  | Gradient_via_position -> pct_to_len_pct initial
-  | Gradient_to_position -> pct_to_len_pct initial
+  let var_name = var.name in
+  let layer = Some (layer_name var.layer) in
+  (* Create typed CSS variable *)
+  match var.kind with
+  | Spacing ->
+      let d, _ = Css.var ?layer ~meta var_name Length value in
+      d
+  | Color (_, _) ->
+      let d, _ = Css.var ?layer ~meta var_name Color value in
+      d
+  | Font_family_list ->
+      let d, _ = Css.var ?layer ~meta var_name Font_family value in
+      d
+  | Scroll_snap_strictness ->
+      let d, _ = Css.var ?layer ~meta var_name Scroll_snap_strictness value in
+      d
+  | Duration ->
+      let d, _ = Css.var ?layer ~meta var_name Duration value in
+      d
   | _ -> (
-      match (syntax, to_syntax var_t) with
-      | Some s, _ -> Css.property ~name s ~inherits ?initial_value:initial ()
-      | None, Some s -> Css.property ~name s ~inherits ?initial_value:initial ()
-      | None, None ->
-          (* Default to Universal with string representation for unsupported
-             kinds *)
-          let syntax = Css.Universal in
-          let initial_value = Option.map (string_of_var var_t) initial in
-          Css.property ~name syntax ~inherits ?initial_value ())
+      (* For extension kinds defined in other modules (like Typography), we need
+         to handle them specially. Since we can't match on constructors defined
+         later, we use Obj.magic to convert the value to the appropriate CSS
+         kind. This is safe because the type system ensures the value matches
+         the kind's return type.
 
-(** Helper for metadata errors *)
-let err_meta ~layer decl msg =
-  let name =
-    Option.value ~default:"<unnamed>" (Css.custom_declaration_name decl)
-  in
-  let layer_str = layer_name layer in
-  let accessor = match layer with Theme -> "theme" | Utility -> "utility" in
-  failwith
-    (String.concat ""
-       [
-         msg;
-         " for '";
-         name;
-         "' in ";
-         layer_str;
-         " layer. Define this variable via Var.";
-         accessor;
-         " to attach Var metadata (e.g., Var.theme/base/properties/utility).";
-       ])
+         We try each CSS kind in turn - the CSS module will accept the right
+         one. *)
+      try
+        (* Try as Length - used by text size variables *)
+        let d, _ = Css.var ?layer ~meta var_name Length (Obj.magic value) in
+        d
+      with _ -> (
+        try
+          (* Try as Line_height - used by text line height variables *)
+          let d, _ =
+            Css.var ?layer ~meta var_name Line_height (Obj.magic value)
+          in
+          d
+        with _ -> (
+          try
+            (* Try as Font_family - used by font family variables *)
+            let d, _ =
+              Css.var ?layer ~meta var_name Font_family (Obj.magic value)
+            in
+            d
+          with _ -> (
+            try
+              (* Try as Font_weight - used by font weight variables *)
+              let d, _ =
+                Css.var ?layer ~meta var_name Font_weight (Obj.magic value)
+              in
+              d
+            with _ -> (
+              try
+                (* Try as Font_variant_numeric_token *)
+                let d, _ =
+                  Css.var ?layer ~meta var_name Font_variant_numeric_token
+                    (Obj.magic value)
+                in
+                d
+              with _ -> (
+                try
+                  (* Try as Content *)
+                  let d, _ =
+                    Css.var ?layer ~meta var_name Content (Obj.magic value)
+                  in
+                  d
+                with _ ->
+                  (* Final fallback - this shouldn't happen for Typography
+                     kinds *)
+                  failwith
+                    (Printf.sprintf
+                       "Var.declaration: Could not determine CSS kind for \
+                        variable '%s'"
+                       var_name)))))))
 
-module Def = struct
-  type 'a property_def = {
-    syntax : 'a Css.syntax;
-    initial_value : 'a;
-    inherits : bool;
-  }
+(* Check if variable needs @property rule *)
+let needs_property : type a. a t -> bool = fun var -> var.property <> None
 
-  type 'a def = {
-    name : 'a t;
-    layer : layer;
-    property : 'a property_def option;
-    initial : 'a option;
-    inherits : bool;
-  }
+(* Get layer of a variable *)
+let layer : type a. a t -> layer = fun var -> var.layer
 
-  let make ~layer var_t ?initial ?syntax ?(inherits = false) value :
-      'a def * 'a Css.var =
-    let _decl, var =
-      match layer with
-      | Theme -> theme var_t value
-      | Utility -> utility var_t value
-    in
-    let property =
-      match (syntax, initial) with
-      | Some s, Some init -> Some { syntax = s; initial_value = init; inherits }
-      | Some s, None ->
-          (* If no explicit initial provided, use value as initial for
-             property *)
-          Some { syntax = s; initial_value = value; inherits }
-      | None, Some init -> (
-          (* Infer syntax when possible *)
-          match to_syntax var_t with
-          | Some s -> Some { syntax = s; initial_value = init; inherits }
-          | None -> None)
-      | None, None -> None
-    in
-    ({ name = var_t; layer; property; initial; inherits }, var)
+(* Get var() reference *)
+let use : type a. a t -> a Css.var =
+ fun var ->
+  let meta = meta_of_info { var = Any var.kind; needs_property = false } in
+  let fallback = Option.map (fun f -> Css.Fallback f) var.fallback in
+  (* Pass fallback as default too for inline mode resolution *)
+  let default = var.fallback in
+  Css.var_ref ?fallback ?default ~meta var.name
 
-  let theme var_t ?initial ?syntax value =
-    make ~layer:Theme var_t ?initial ?syntax value
+(* Get @property rule if metadata present *)
+let property_rule : type a. a t -> Css.t option =
+ fun var ->
+  match var.property with
+  | None -> None
+  | Some (Info (syntax, initial, inherits)) ->
+      let name = "--" ^ var.name in
+      Some (Css.property ~name syntax ~inherits ~initial_value:initial ())
 
-  let utility var_t ?initial ?syntax value =
-    make ~layer:Utility var_t ?initial ?syntax value
+(* === Var binding for new style function === *)
+type binding = Binding : 'a t * 'a -> binding
 
-  let initial_for_declaration (type a) (var_t : a t) (syntax : a Css.syntax)
-      (v : a) : string =
-    match syntax with
-    | Css.Length -> (
-        (* Ensure zero is rendered as 0px for declarations in properties
-           layer *)
-        match v with
-        | Css.Zero -> "0px"
-        | Css.Px f when f = 0. -> "0px"
-        | _ -> string_of_var var_t v)
-    | _ -> string_of_var var_t v
+(* Extract declaration from binding *)
+let declaration_of_binding (Binding (var, value)) = declaration var value
 
-  let to_property_rule : type a. a def -> Css.t option =
-   fun def ->
-    match def.property with
-    | None -> None
-    | Some { syntax; initial_value; inherits } ->
-        let name = to_string def.name in
-        Some (Css.property ~name syntax ~inherits ~initial_value ())
+(* Extract property rule from binding *)
+let property_rule_of_binding (Binding (var, _)) = property_rule var
 
-  let to_initial_declaration : type a. a def -> Css.declaration option =
-   fun def ->
-    match (def.property, def.initial) with
-    | None, _ -> None
-    | Some { syntax; _ }, Some init ->
-        let name = to_string def.name in
-        let s = initial_for_declaration def.name syntax init in
-        Some (Css.custom_property name s)
-    | Some { syntax; initial_value; _ }, None ->
-        let name = to_string def.name in
-        let s = initial_for_declaration def.name syntax initial_value in
-        Some (Css.custom_property name s)
-end
+(* Property info to declaration value conversion *)
+let property_info_to_declaration_value (Css.Property_info info) =
+  match info.initial_value with
+  | None -> "initial"
+  | Some v -> (
+      let open Css.Variables in
+      let open Css.Values in
+      match info.syntax with
+      | Length -> (
+          match v with
+          | Zero -> "0px"
+          | Px f when f = 0. -> "0px"
+          | _ -> Css.Pp.to_string (pp_length ~always:true) v)
+      | syntax -> Css.Pp.to_string (pp_value syntax) v)
 
-(** Compare two CSS declarations by extracting their metadata. *)
+(* Compare declarations *)
+let compare_declarations _layer d1 d2 =
+  match (Css.meta_of_declaration d1, Css.meta_of_declaration d2) with
+  | Some m1, Some m2 -> (
+      match (of_meta m1, of_meta m2) with
+      | Some v1, Some v2 -> compare v1 v2
+      | _ -> 0)
+  | _ -> 0
 
+(* Map and Set modules *)
 module Map = Map.Make (struct
   type t = any
 
@@ -1333,41 +267,3 @@ module Set = Set.Make (struct
 
   let compare = compare
 end)
-
-let compare_declarations layer d1 d2 =
-  match (Css.meta_of_declaration d1, Css.meta_of_declaration d2) with
-  | Some m1, Some m2 -> (
-      match (of_meta m1, of_meta m2) with
-      | Some v1, Some v2 -> compare v1 v2
-      | Some _, None ->
-          err_meta ~layer d2 "Invalid Var metadata (of_meta failed)"
-      | None, Some _ ->
-          err_meta ~layer d1 "Invalid Var metadata (of_meta failed)"
-      | None, None ->
-          failwith "Both declarations have metadata but of_meta failed")
-  | Some _, None -> err_meta ~layer d2 "Missing Var metadata"
-  | None, Some _ -> err_meta ~layer d1 "Missing Var metadata"
-  | None, None ->
-      let n1 =
-        Option.value ~default:"<unnamed>" (Css.custom_declaration_name d1)
-      in
-      let n2 =
-        Option.value ~default:"<unnamed>" (Css.custom_declaration_name d2)
-      in
-      let layer_str = layer_name layer in
-      let accessor =
-        match layer with Theme -> "theme" | Utility -> "utility"
-      in
-      failwith
-        (String.concat ""
-           [
-             "Missing Var metadata for '";
-             n1;
-             "' and '";
-             n2;
-             "' in ";
-             layer_str;
-             " layer. Define these variables via Var.";
-             accessor;
-             " to attach metadata.";
-           ])

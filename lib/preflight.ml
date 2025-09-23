@@ -1,38 +1,52 @@
 (** Preflight and reset rules *)
 
 open Css
-open Selector
+
+(* Extend variable kinds for preflight-specific variables *)
+type _ Var.kind +=
+  | (* Default font settings for preflight *)
+      Default_font_family :
+      Css.font_family list Var.kind
+  | Default_mono_font_family : Css.font_family list Var.kind
+  | Default_font_feature_settings : Css.font_feature_settings Var.kind
+  | Default_font_variation_settings : Css.font_variation_settings Var.kind
+  | Default_mono_font_feature_settings : Css.font_feature_settings Var.kind
+  | Default_mono_font_variation_settings : Css.font_variation_settings Var.kind
 
 (* Base element selectors *)
-let abbr = element "abbr"
-let button = element "button"
-let input = element "input"
-let select = element "select"
-let optgroup = element "optgroup"
-let option = element "option"
+let abbr = Selector.element "abbr"
+let button = Selector.element "button"
+let input = Selector.element "input"
+let select = Selector.element "select"
+let optgroup = Selector.element "optgroup"
+let option = Selector.element "option"
 
 (* Attribute selectors *)
-let title = attribute "title" Presence
-let multiple = attribute "multiple" Presence
-let size = attribute "size" Presence
-let type_button = attribute "type" (Exact "button")
-let type_reset = attribute "type" (Exact "reset")
-let type_submit = attribute "type" (Exact "submit")
-let hidden = attribute "hidden" Presence
-let hidden_until_found = attribute "hidden" (Exact "until-found")
+let title = Selector.attribute "title" Presence
+let multiple = Selector.attribute "multiple" Presence
+let size = Selector.attribute "size" Presence
+let type_button = Selector.attribute "type" (Exact "button")
+let type_reset = Selector.attribute "type" (Exact "reset")
+let type_submit = Selector.attribute "type" (Exact "submit")
+let hidden = Selector.attribute "hidden" Presence
+let hidden_until_found = Selector.attribute "hidden" (Exact "until-found")
 
 (* Complex selectors *)
-let abbr_with_title = abbr && where [ title ]
-let select_is_multiple_size = select && is_ [ multiple; size ]
-let input_button_types = input && where [ type_button; type_reset; type_submit ]
-let hidden_not_until_found = hidden && where [ not [ hidden_until_found ] ]
+let abbr_with_title = Selector.(abbr && where [ title ])
+let select_is_multiple_size = Selector.(select && is_ [ multiple; size ])
+
+let input_button_types =
+  Selector.(input && where [ type_button; type_reset; type_submit ])
+
+let hidden_not_until_found =
+  Selector.(hidden && where [ not [ hidden_until_found ] ])
 
 (** Box model resets *)
 let box_resets () =
   let open Selector in
   [
     rule
-      ~selector:(list [ universal; After; Before; Backdrop ])
+      ~selector:(Selector.list [ Selector.universal; After; Before; Backdrop ])
       [
         box_sizing Border_box;
         border ~width:Zero ~style:Solid ();
@@ -48,14 +62,17 @@ let box_resets () =
       ];
   ]
 
+(* Create theme variables for font settings *)
+let font_feature_var =
+  Var.create Default_font_feature_settings "default-font-feature-settings"
+    ~layer:Theme ~fallback:Normal
+
+let font_variation_var =
+  Var.create Default_font_variation_settings "default-font-variation-settings"
+    ~layer:Theme ~fallback:Normal
+
 (** HTML and body defaults *)
 let root_resets () =
-  let _, font_feature_var =
-    Var.theme Var.Default_font_feature_settings Normal ~fallback:Normal
-  in
-  let _, font_variation_var =
-    Var.theme Var.Default_font_variation_settings Normal ~fallback:Normal
-  in
   [
     rule
       ~selector:Selector.(list [ element "html"; host () ])
@@ -63,9 +80,26 @@ let root_resets () =
         webkit_text_size_adjust (Pct 100.);
         tab_size 4;
         line_height (Num 1.5);
-        font_family [ Var Typography.default_font_family_var ];
-        font_feature_settings (Var font_feature_var);
-        font_variation_settings (Var font_variation_var);
+        (* Use default-font-family with full font stack as fallback *)
+        font_family
+          (Css.Var
+             (var_ref
+                ~fallback:
+                  (Css.Fallback
+                     (Css.List
+                        [
+                          Css.Ui_sans_serif;
+                          Css.System_ui;
+                          Css.Sans_serif;
+                          Css.Apple_color_emoji;
+                          Css.Segoe_ui_emoji;
+                          Css.Segoe_ui_symbol;
+                          Css.Noto_color_emoji;
+                        ]
+                       : Css.font_family))
+                "default-font-family"));
+        font_feature_settings (Var (Var.use font_feature_var));
+        font_variation_settings (Var (Var.use font_variation_var));
         webkit_tap_highlight_color Transparent;
       ];
   ]
@@ -104,29 +138,32 @@ let typography_resets () =
         Selector.(
           list
             [
-              element "h1";
-              element "h2";
-              element "h3";
-              element "h4";
-              element "h5";
-              element "h6";
+              Selector.element "h1";
+              Selector.element "h2";
+              Selector.element "h3";
+              Selector.element "h4";
+              Selector.element "h5";
+              Selector.element "h6";
             ])
       [ font_size Inherit; font_weight Inherit ];
     rule ~selector:(Selector.element "a")
       [ color Inherit; webkit_text_decoration Inherit; text_decoration Inherit ];
     rule
-      ~selector:Selector.(list [ element "b"; element "strong" ])
+      ~selector:
+        Selector.(list [ Selector.element "b"; Selector.element "strong" ])
       [ font_weight Bolder ];
   ]
 
 (** Code and monospace resets *)
 let code_resets () =
   (* Create font feature/variation variables with fallback for monospace *)
-  let _, font_feature_var =
-    Var.theme Var.Default_mono_font_feature_settings Normal ~fallback:Normal
+  let font_feature_var =
+    Var.create Default_mono_font_feature_settings
+      "default-mono-font-feature-settings" ~layer:Theme ~fallback:Normal
   in
-  let _, font_variation_var =
-    Var.theme Var.Default_mono_font_variation_settings Normal ~fallback:Normal
+  let font_variation_var =
+    Var.create Default_mono_font_variation_settings
+      "default-mono-font-variation-settings" ~layer:Theme ~fallback:Normal
   in
   [
     rule
@@ -134,9 +171,28 @@ let code_resets () =
         Selector.(
           list [ element "code"; element "kbd"; element "samp"; element "pre" ])
       [
-        font_family [ Var Typography.default_mono_font_family_var ];
-        font_feature_settings (Var font_feature_var);
-        font_variation_settings (Var font_variation_var);
+        (* Use default-mono-font-family with full monospace font stack as
+           fallback *)
+        font_family
+          (Css.Var
+             (var_ref
+                ~fallback:
+                  (Css.Fallback
+                     (Css.List
+                        [
+                          Css.Ui_monospace;
+                          Css.SFMono_regular;
+                          Css.Menlo;
+                          Css.Monaco;
+                          Css.Consolas;
+                          Css.Liberation_mono;
+                          Css.Courier_new;
+                          Css.Monospace;
+                        ]
+                       : Css.font_family))
+                "default-mono-font-family"));
+        font_feature_settings (Var (Var.use font_feature_var));
+        font_variation_settings (Var (Var.use font_variation_var));
         font_size (Em 1.0);
       ];
   ]
@@ -146,7 +202,8 @@ let text_level_resets () =
   [
     rule ~selector:(Selector.element "small") [ font_size (Pct 80.0) ];
     rule
-      ~selector:Selector.(list [ element "sub"; element "sup" ])
+      ~selector:
+        Selector.(list [ Selector.element "sub"; Selector.element "sup" ])
       [
         vertical_align Baseline;
         font_size (Pct 75.0);
@@ -167,7 +224,7 @@ let table_resets () =
 (** Interactive elements *)
 let interactive_resets () =
   [
-    rule ~selector:Selector.Moz_focusring [ outline "auto" ];
+    rule ~selector:Moz_focusring [ outline "auto" ];
     rule ~selector:(Selector.element "progress") [ vertical_align Baseline ];
     rule ~selector:(Selector.element "summary") [ display List_item ];
   ]
@@ -176,7 +233,14 @@ let interactive_resets () =
 let list_resets () =
   [
     rule
-      ~selector:Selector.(list [ element "ol"; element "ul"; element "menu" ])
+      ~selector:
+        Selector.(
+          list
+            [
+              Selector.element "ol";
+              Selector.element "ul";
+              Selector.element "menu";
+            ])
       [ list_style "none" ];
   ]
 
@@ -188,18 +252,19 @@ let media_resets () =
         Selector.(
           list
             [
-              element "img";
-              element "svg";
-              element "video";
-              element "canvas";
-              element "audio";
-              element "iframe";
-              element "embed";
-              element "object";
+              Selector.element "img";
+              Selector.element "svg";
+              Selector.element "video";
+              Selector.element "canvas";
+              Selector.element "audio";
+              Selector.element "iframe";
+              Selector.element "embed";
+              Selector.element "object";
             ])
       [ vertical_align Middle; display Block ];
     rule
-      ~selector:Selector.(list [ element "img"; element "video" ])
+      ~selector:
+        Selector.(list [ Selector.element "img"; Selector.element "video" ])
       [ max_width (Pct 100.0); height Auto ];
   ]
 
@@ -211,11 +276,11 @@ let form_control_resets () =
         Selector.(
           list
             [
-              element "button";
-              element "input";
-              element "select";
-              element "optgroup";
-              element "textarea";
+              Selector.element "button";
+              Selector.element "input";
+              Selector.element "select";
+              Selector.element "optgroup";
+              Selector.element "textarea";
             ])
       [
         font "inherit";
@@ -227,7 +292,7 @@ let form_control_resets () =
         background_color (hex "#0000");
         border_radius Zero;
       ];
-    rule ~selector:Selector.File_selector_button
+    rule ~selector:File_selector_button
       [
         font "inherit";
         font_feature_settings Inherit;
@@ -244,18 +309,19 @@ let form_control_resets () =
 let select_resets () =
   [
     rule
-      ~selector:(where [ select_is_multiple_size ] ++ optgroup)
+      ~selector:Selector.(where [ select_is_multiple_size ] ++ optgroup)
       [ font_weight Bolder ];
     rule
-      ~selector:(where [ select_is_multiple_size ] ++ optgroup ++ option)
+      ~selector:
+        Selector.(where [ select_is_multiple_size ] ++ optgroup ++ option)
       [ padding_inline_start (Px 20.) ];
-    rule ~selector:Selector.File_selector_button [ margin_inline_end (Px 4.) ];
+    rule ~selector:File_selector_button [ margin_inline_end (Px 4.) ];
   ]
 
 (** Form placeholder and textarea resets *)
 let form_misc_resets () =
   [
-    rule ~selector:Selector.Placeholder [ opacity 1.0 ];
+    rule ~selector:Placeholder [ opacity 1.0 ];
     rule ~selector:(Selector.element "textarea") [ resize Vertical ];
   ]
 
@@ -298,7 +364,7 @@ let webkit_form_resets () =
 
 (** Firefox-specific form resets *)
 let firefox_form_resets () =
-  [ rule ~selector:Selector.Moz_ui_invalid [ box_shadow_list [ None ] ] ]
+  [ rule ~selector:Moz_ui_invalid [ box_shadow None ] ]
 
 (** Buttons need specific styles *)
 let button_specific_resets () =
@@ -312,7 +378,7 @@ let button_specific_resets () =
 (** Button appearance resets *)
 let button_resets () =
   [
-    rule ~selector:Selector.File_selector_button [ appearance Button ];
+    rule ~selector:File_selector_button [ appearance Button ];
     rule ~selector:(Selector.Pseudo_element "-webkit-inner-spin-button")
       [ height Auto ];
     rule ~selector:(Selector.Pseudo_element "-webkit-outer-spin-button")
