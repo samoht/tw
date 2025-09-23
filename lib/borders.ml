@@ -178,22 +178,22 @@ let border_full = border_8 (* 8px *)
 
 (* Create radius theme variables with fallback values for inline mode *)
 let radius_sm_var =
-  Var.create Radius_sm "radius-sm" ~layer:Theme ~fallback:(Px 2.)
+  Var.create Radius_sm "radius-sm" ~layer:Theme ~fallback:(Px 2.) ~order:300
 
 let radius_md_var =
-  Var.create Radius_md "radius-md" ~layer:Theme ~fallback:(Px 6.)
+  Var.create Radius_md "radius-md" ~layer:Theme ~fallback:(Px 6.) ~order:301
 
 let radius_lg_var =
-  Var.create Radius_lg "radius-lg" ~layer:Theme ~fallback:(Px 8.)
+  Var.create Radius_lg "radius-lg" ~layer:Theme ~fallback:(Px 8.) ~order:302
 
 let radius_xl_var =
-  Var.create Radius_xl "radius-xl" ~layer:Theme ~fallback:(Px 12.)
+  Var.create Radius_xl "radius-xl" ~layer:Theme ~fallback:(Px 12.) ~order:303
 
 let radius_2xl_var =
-  Var.create Radius_2xl "radius-2xl" ~layer:Theme ~fallback:(Px 16.)
+  Var.create Radius_2xl "radius-2xl" ~layer:Theme ~fallback:(Px 16.) ~order:304
 
 let radius_3xl_var =
-  Var.create Radius_3xl "radius-3xl" ~layer:Theme ~fallback:(Px 24.)
+  Var.create Radius_3xl "radius-3xl" ~layer:Theme ~fallback:(Px 24.) ~order:305
 
 let rounded_none = style "rounded-none" [ border_radius Zero ]
 

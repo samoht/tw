@@ -92,6 +92,7 @@ let from_color ?(shade = 500) color =
       (Var.Color (color_name, Some shade))
       (String.concat "-" [ "color"; color_name; string_of_int shade ])
       ~layer:Theme
+      ~order:(Color.color_order color shade)
   in
   let color_value = Color.to_css color shade in
   (* Simply set the gradient-from color - composition happens in
@@ -113,6 +114,7 @@ let via_color ?(shade = 500) color =
       (Var.Color (color_name, Some shade))
       (String.concat "-" [ "color"; color_name; string_of_int shade ])
       ~layer:Theme
+      ~order:(Color.color_order color shade)
   in
   let color_value = Color.to_css color shade in
   (* Simply set the gradient-via color - composition happens in
@@ -134,6 +136,7 @@ let to_color ?(shade = 500) color =
       (Var.Color (color_name, Some shade))
       (String.concat "-" [ "color"; color_name; string_of_int shade ])
       ~layer:Theme
+      ~order:(Color.color_order color shade)
   in
   let color_value = Color.to_css color shade in
   (* Simply set the gradient-to color - composition happens in
