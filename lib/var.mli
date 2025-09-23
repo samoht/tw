@@ -169,7 +169,7 @@ type 'a t = {
   layer : layer;  (** Whether this is a theme token or utility variable *)
   fallback : 'a option;  (** Default value for [var()] references *)
   property : 'a property_info option;  (** Optional [@property] metadata *)
-  order : int;  (** Explicit ordering for theme layer *)
+  order : int option;  (** Explicit ordering for theme layer *)
 }
 (** Variable definition record - the main type for working with CSS variables *)
 
@@ -190,7 +190,8 @@ val create :
     - [fallback] sets the fallback value for [var()] references. This value is
       used when the variable is not set: [var(--name, fallback)]
     - [order] sets the order for sorting variables in the theme layer (defaults
-      to kind-based ordering) *)
+      to 9999). Only relevant for Theme layer variables that appear in [:root]
+*)
 
 val with_property :
   syntax:'b Css.syntax -> initial:'b -> ?inherits:bool -> 'a t -> 'a t
@@ -259,7 +260,7 @@ val of_meta : Css.meta -> any option
 (** [of_meta meta] extracts the variable from CSS declaration metadata if
     present *)
 
-type meta_info = { var : any; needs_property : bool; order : int }
+type meta_info = { var : any; needs_property : bool; order : int option }
 (** Metadata stored in CSS declarations *)
 
 val meta_of_info : meta_info -> Css.meta
