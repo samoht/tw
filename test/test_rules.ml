@@ -15,7 +15,11 @@ let contains s sub =
   check 0
 
 let check_theme_layer_empty () =
-  let theme_layer = compute_theme_layer [] in
+  let default_decls =
+    Tw.Typography.default_font_declarations
+    @ Tw.Typography.default_font_family_declarations
+  in
+  let theme_layer = compute_theme_layer ~default_decls [] in
   let css = Css.to_string ~minify:false theme_layer in
   (* Should include font variables even for empty input *)
   check bool "includes --font-sans" true (contains css "--font-sans");
@@ -26,7 +30,13 @@ let check_theme_layer_empty () =
     (contains css "--default-mono-font-family")
 
 let check_theme_layer_with_color () =
-  let theme_layer = Tw.Rules.compute_theme_layer [ bg blue 500 ] in
+  let default_decls =
+    Tw.Typography.default_font_declarations
+    @ Tw.Typography.default_font_family_declarations
+  in
+  let theme_layer =
+    Tw.Rules.compute_theme_layer ~default_decls [ bg blue 500 ]
+  in
   let css = Css.to_string ~minify:false theme_layer in
   (* Should include color variable when referenced *)
   check bool "includes --color-blue-500" true (contains css "--color-blue-500");
@@ -104,7 +114,7 @@ let check_properties_layer () =
       (* Main verification: shadow variables should have actual initial values,
          not "initial" *)
       check bool "has --tw-shadow with actual shadow value" true
-        (contains actual_str "--tw-shadow:0 0 0 0 #0000");
+        (contains actual_str "--tw-shadow:0 0 #0000");
       check bool "has --tw-shadow-alpha with percentage value" true
         (contains actual_str "--tw-shadow-alpha:100%");
       check bool "has --tw-ring-offset-color with color value" true
@@ -129,7 +139,8 @@ let check_css_variables_with_base () =
   let css = Tw.Rules.to_css ~config [] in
   let css_str = Css.to_string ~minify:false css in
   (* Base=true under Variables: all layers including base are present. *)
-  check bool "includes base resets" true (contains css_str "*, :after, :before");
+  check bool "includes base resets" true
+    (contains css_str "*, ::after, ::before");
   check bool "has theme layer" true (contains css_str "@layer theme");
   check bool "has base layer" true (contains css_str "@layer base");
   check bool "has utilities layer" true (contains css_str "@layer utilities")
@@ -287,21 +298,25 @@ let test_inline_vs_variables_diff () =
 let test_resolve_deps_dedup_queue () =
   (* Deduplication is now handled automatically by Css.vars_of_declarations This
      test is kept for compatibility but simplified *)
-  let vars = [ "--text-xl"; "--text-xl"; "--text-xl--line-height" ] in
+  let vars = [ "--text-xl"; "--text-xl"; "--text-xl-line-height" ] in
   (* Just verify the vars exist - dedup happens in Css.vars_of_declarations *)
   check bool "has text-xl var" true (List.mem "--text-xl" vars);
   check bool "has text-xl line-height var" true
-    (List.mem "--text-xl--line-height" vars)
+    (List.mem "--text-xl-line-height" vars)
 
 let test_theme_layer_media_refs () =
   (* Vars referenced only under media queries should still end up in theme. *)
   let theme_layer =
-    Tw.Rules.compute_theme_layer [ sm [ Tw.Typography.text_xl ] ]
+    let default_decls =
+      Tw.Typography.default_font_declarations
+      @ Tw.Typography.default_font_family_declarations
+    in
+    Tw.Rules.compute_theme_layer ~default_decls [ sm [ Tw.Typography.text_xl ] ]
   in
   let css = Css.to_string ~minify:false theme_layer in
   check bool "includes --text-xl var" true (contains css "--text-xl");
-  check bool "includes --text-xl--line-height var" true
-    (contains css "--text-xl--line-height")
+  check bool "includes --text-xl-line-height var" true
+    (contains css "--text-xl-line-height")
 
 let test_rule_sets_hover_media () =
   (* A bare hover utility produces a rule that should be gated behind
@@ -496,7 +511,7 @@ let grouped_prose_pairs prose_body_var prose_class prose_p_sel =
   [
     ( prose_class,
       [
-        Tw.Css.color (Tw.Css.Var prose_body_var);
+        Tw.Css.color (Tw.Css.Var (Tw.Var.use prose_body_var));
         Tw.Css.max_width (Tw.Css.Ch 65.0);
       ] );
     ( prose_p_sel,
@@ -517,8 +532,8 @@ let count_prose_rules rules =
     rules
 
 let rules_of_grouped_prose_bug () =
-  let _prose_body_def, prose_body_var =
-    Tw.Var.utility Tw.Var.Prose_body (Tw.Css.oklch 37.3 0.034 259.733)
+  let prose_body_var =
+    Tw.Var.create Tw.Prose.Prose_body "prose-body" ~layer:Utility
   in
   let prose_class = Css.Selector.class_ "prose" in
   let prose_p_sel = prose_p_selector prose_class in
