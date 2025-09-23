@@ -437,9 +437,14 @@ let font_black =
 (** {1 Font Family Utilities} *)
 
 (* Font family theme variables *)
-let font_sans_var = Var.create Var.Font_family_list "font-sans" ~layer:Theme
-let font_serif_var = Var.create Var.Font_family_list "font-serif" ~layer:Theme
-let font_mono_var = Var.create Var.Font_family_list "font-mono" ~layer:Theme
+let font_sans_var =
+  Var.create Var.Font_family_list "font-sans" ~layer:Theme ~order:0
+
+let font_serif_var =
+  Var.create Var.Font_family_list "font-serif" ~layer:Theme ~order:1
+
+let font_mono_var =
+  Var.create Var.Font_family_list "font-mono" ~layer:Theme ~order:2
 
 (* Additional variable kinds for default font family *)
 type _ Var.kind +=
@@ -448,10 +453,11 @@ type _ Var.kind +=
 
 (* Default font family variables that reference the base font variables *)
 let default_font_family_var =
-  Var.create Var.Font_family_list "default-font-family" ~layer:Theme
+  Var.create Var.Font_family_list "default-font-family" ~layer:Theme ~order:5
 
 let default_mono_font_family_var =
   Var.create Var.Font_family_list "default-mono-font-family" ~layer:Theme
+    ~order:6
 
 (* Base font family variables for theme layer *)
 let default_font_declarations =

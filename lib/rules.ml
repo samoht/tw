@@ -849,12 +849,28 @@ let compute_theme_layer ?(default_decls = []) tw_classes =
   in
   let theme_generated_vars = pre @ extracted @ post in
 
-  if theme_generated_vars = [] then
-    Css.of_statements [ Css.layer ~name:"theme" [] ]
+  (* Sort variables by their order metadata *)
+  let sorted_vars =
+    List.sort
+      (fun a b ->
+        match (Css.meta_of_declaration a, Css.meta_of_declaration b) with
+        | Some meta_a, Some meta_b -> (
+            match (Var.order_of_meta meta_a, Var.order_of_meta meta_b) with
+            | Some order_a, Some order_b -> Int.compare order_a order_b
+            | Some _, None -> -1
+            | None, Some _ -> 1
+            | None, None -> 0)
+        | Some _, None -> -1
+        | None, Some _ -> 1
+        | None, None -> 0)
+      theme_generated_vars
+  in
+
+  if sorted_vars = [] then Css.of_statements [ Css.layer ~name:"theme" [] ]
   else
     let selector = Css.Selector.(list [ Root; host () ]) in
     Css.of_statements
-      [ Css.layer ~name:"theme" [ Css.rule ~selector theme_generated_vars ] ]
+      [ Css.layer ~name:"theme" [ Css.rule ~selector sorted_vars ] ]
 
 let placeholder_supports =
   let placeholder = Css.Selector.Placeholder in

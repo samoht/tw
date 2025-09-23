@@ -169,6 +169,7 @@ type 'a t = {
   layer : layer;  (** Whether this is a theme token or utility variable *)
   fallback : 'a option;  (** Default value for [var()] references *)
   property : 'a property_info option;  (** Optional [@property] metadata *)
+  order : int;  (** Explicit ordering for theme layer *)
 }
 (** Variable definition record - the main type for working with CSS variables *)
 
@@ -179,14 +180,16 @@ type binding = Binding : 'a t * 'a -> binding
 
 (** {1 Core API} *)
 
-val create : 'a kind -> ?fallback:'a -> string -> layer:layer -> 'a t
-(** [create kind ?fallback name ~layer] creates a variable definition.
+val create :
+  'a kind -> ?fallback:'a -> order:int -> string -> layer:layer -> 'a t
+(** [create kind ?fallback ~order name ~layer] creates a variable definition.
 
     - [kind]: The type witness (e.g., [Font_weight])
     - [name]: CSS variable name without [--] (e.g., ["tw-font-weight"])
     - [layer]: [Theme] for design tokens, [Utility] for property channels.
     - [fallback] sets the fallback value for [var()] references. This value is
-      used when the variable is not set: [var(--name, fallback)] *)
+      used when the variable is not set: [var(--name, fallback)]
+    - [order] sets the order for sorting variables in the theme layer *)
 
 val with_property :
   syntax:'b Css.syntax -> initial:'b -> ?inherits:bool -> 'a t -> 'a t
@@ -204,12 +207,6 @@ val declaration : 'a t -> 'a -> Css.declaration
 
 val needs_property : 'a t -> bool
 (** [needs_property var] returns true if variable has [@property] metadata *)
-
-val needs_property_of_meta : Css.meta -> bool option
-(** Inspect a declaration's metadata to see if it requested an [@property]
-    registration. Returns [Some true] for variables that have property metadata,
-    [Some false] for variables without it, or [None] if metadata is not from
-    Var. *)
 
 val use : 'a t -> 'a Css.var
 (** [use var] creates a [var()] reference for use in CSS properties. Includes
@@ -261,11 +258,19 @@ val of_meta : Css.meta -> any option
 (** [of_meta meta] extracts the variable from CSS declaration metadata if
     present *)
 
-type meta_info = { var : any; needs_property : bool }
+type meta_info = { var : any; needs_property : bool; order : int }
 (** Metadata stored in CSS declarations *)
 
 val meta_of_info : meta_info -> Css.meta
 (** [meta_of_info info] converts variable metadata to CSS metadata *)
+
+val needs_property_of_meta : Css.meta -> bool option
+(** [needs_property_of_meta meta] extracts the needs_property flag from CSS
+    declaration metadata if present *)
+
+val order_of_meta : Css.meta -> int option
+(** [order_of_meta meta] extracts the ordering value from CSS declaration
+    metadata if present *)
 
 val layer_name : layer -> string
 (** [layer_name layer] returns the string name of the layer ("theme" or
