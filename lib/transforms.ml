@@ -18,31 +18,50 @@
 open Core
 open Css
 
-(* Transform variables defined at top level *)
-let tw_translate_x_def, tw_translate_x_var = Var.utility Var.Translate_x Zero
-let tw_translate_y_def, tw_translate_y_var = Var.utility Var.Translate_y Zero
-let tw_rotate_def, tw_rotate_var = Var.utility Var.Rotate (Deg 0.0)
-let tw_skew_x_def, tw_skew_x_var = Var.utility Var.Skew_x (Deg 0.0)
-let tw_skew_y_def, tw_skew_y_var = Var.utility Var.Skew_y (Deg 0.0)
-let tw_scale_x_def, _tw_scale_x_var = Var.utility Var.Scale_x 1.0
-let tw_scale_y_def, _tw_scale_y_var = Var.utility Var.Scale_y 1.0
+(* Extend variable kinds for transforms *)
+type _ Var.kind +=
+  | (* Transform variables *)
+      Tw_translate_x :
+      Css.length Var.kind
+  | Tw_translate_y : Css.length Var.kind
+  | Tw_rotate : Css.angle Var.kind
+  | Tw_skew_x : Css.angle Var.kind
+  | Tw_skew_y : Css.angle Var.kind
+  | Tw_scale_x : float Var.kind
+  | Tw_scale_y : float Var.kind
+  | Tw_scale_z : float Var.kind
+
+(* Transform variables using new API *)
+let tw_translate_x_var =
+  Var.create Tw_translate_x "tw-translate-x" ~layer:Utility ~fallback:Zero
+
+let tw_translate_y_var =
+  Var.create Tw_translate_y "tw-translate-y" ~layer:Utility ~fallback:Css.Zero
+
+let tw_rotate_var =
+  Var.create Tw_rotate "tw-rotate" ~layer:Utility ~fallback:(Deg 0.0)
+
+let tw_skew_x_var =
+  Var.create Tw_skew_x "tw-skew-x" ~layer:Utility ~fallback:(Deg 0.0)
+
+let tw_skew_y_var =
+  Var.create Tw_skew_y "tw-skew-y" ~layer:Utility ~fallback:(Deg 0.0)
+
+let tw_scale_x_var =
+  Var.create Tw_scale_x "tw-scale-x" ~layer:Utility ~fallback:1.0
+
+let tw_scale_y_var =
+  Var.create Tw_scale_y "tw-scale-y" ~layer:Utility ~fallback:1.0
+
+let tw_scale_z_var =
+  Var.create Tw_scale_z "tw-scale-z" ~layer:Utility ~fallback:1.0
 
 module Parse = Parse
 
 (** {1 2D Transform Utilities} *)
 
-(* Shared @property rules for scale composition variables *)
-let scale_property_rules =
-  Css.concat
-    [
-      Var.property Var.Scale_x None;
-      Var.property Var.Scale_y None;
-      Var.property Var.Scale_z None;
-    ]
-
-let scale_x_property_rule = Var.property Var.Scale_x None
-let scale_y_property_rule = Var.property Var.Scale_y None
-let scale_z_property_rule = Var.property Var.Scale_z None
+(* Note: @property rules are now automatically extracted from variables that
+   have property metadata, so we don't need these anymore *)
 
 let rotate n =
   let class_name = "rotate-" ^ string_of_int n in
@@ -63,48 +82,48 @@ let translate_y n =
 let scale n =
   let value = float_of_int n /. 100.0 in
   let class_name = "scale-" ^ string_of_int n in
-  let def_scale_x, _scale_x_var = Var.utility Var.Scale_x value in
-  let def_scale_y, _scale_y_var = Var.utility Var.Scale_y value in
-  let def_scale_z, _scale_z_var = Var.utility Var.Scale_z value in
   (* Sets all three scale variables but only uses X and Y in the scale property
      for 2D scale *)
-  style class_name ~property_rules:scale_property_rules
-    [
-      def_scale_x;
-      def_scale_y;
-      def_scale_z;
-      Css.scale (Css.XY (float_of_int n /. 100.0, float_of_int n /. 100.0));
-    ]
+  style class_name
+    ~vars:
+      [
+        Binding (tw_scale_x_var, value);
+        Binding (tw_scale_y_var, value);
+        Binding (tw_scale_z_var, value);
+      ]
+    [ Css.scale (Css.XY (value, value)) ]
 
 let scale_x n =
   let value = float_of_int n /. 100.0 in
   (* Convert percentage to float *)
   let class_name = "scale-x-" ^ string_of_int n in
-  let def_x, _scale_x = Var.utility Var.Scale_x value ~fallback:1. in
-  (* Only uses X variable; register Scale_x only *)
-  style class_name ~property_rules:scale_x_property_rule
-    [ def_x; transform [ Scale_x value ] ]
+  (* Only uses X variable *)
+  style class_name
+    ~vars:[ Binding (tw_scale_x_var, value) ]
+    [ transform [ Scale_x value ] ]
 
 let scale_y n =
   let value = float_of_int n /. 100.0 in
   (* Convert percentage to float *)
   let class_name = "scale-y-" ^ string_of_int n in
-  let def_y, _scale_y = Var.utility Var.Scale_y value ~fallback:1. in
-  (* Only uses Y variable; register Scale_y only *)
-  style class_name ~property_rules:scale_y_property_rule
-    [ def_y; transform [ Scale_y value ] ]
+  (* Only uses Y variable *)
+  style class_name
+    ~vars:[ Binding (tw_scale_y_var, value) ]
+    [ transform [ Scale_y value ] ]
 
 let skew_x deg =
   let prefix = if deg < 0 then "-" else "" in
   let class_name = prefix ^ "skew-x-" ^ string_of_int (abs deg) in
-  let def_skew, skew_var = Var.utility Var.Skew_x (Deg (float_of_int deg)) in
-  style class_name [ def_skew; transform [ Skew_x (Var skew_var) ] ]
+  style class_name
+    ~vars:[ Binding (tw_skew_x_var, Deg (float_of_int deg)) ]
+    [ transform [ Skew_x (Var (Var.use tw_skew_x_var)) ] ]
 
 let skew_y deg =
   let prefix = if deg < 0 then "-" else "" in
   let class_name = prefix ^ "skew-y-" ^ string_of_int (abs deg) in
-  let def_skew, skew_var = Var.utility Var.Skew_y (Deg (float_of_int deg)) in
-  style class_name [ def_skew; transform [ Skew_y (Var skew_var) ] ]
+  style class_name
+    ~vars:[ Binding (tw_skew_y_var, Deg (float_of_int deg)) ]
+    [ transform [ Skew_y (Var (Var.use tw_skew_y_var)) ] ]
 
 (* Negative translate utilities for centering *)
 let neg_translate_x_1_2 =
@@ -140,9 +159,9 @@ let translate_z n =
 let scale_z n =
   let value = float_of_int n /. 100.0 in
   let class_name = "scale-z-" ^ string_of_int n in
-  let def, _scale_z_var = Var.utility Var.Scale_z ~fallback:1. value in
-  style class_name ~property_rules:scale_z_property_rule
-    [ def; transform [ Scale_z value ] ]
+  style class_name
+    ~vars:[ Binding (tw_scale_z_var, value) ]
+    [ transform [ Scale_z value ] ]
 
 let perspective n =
   let class_name = "perspective-" ^ string_of_int n in
@@ -175,21 +194,24 @@ let backface_hidden = style "backface-hidden" [ backface_visibility Hidden ]
 
 let transform =
   style "transform"
+    ~vars:
+      [
+        Binding (tw_translate_x_var, Zero);
+        Binding (tw_translate_y_var, Zero);
+        Binding (tw_rotate_var, Deg 0.0);
+        Binding (tw_skew_x_var, Deg 0.0);
+        Binding (tw_skew_y_var, Deg 0.0);
+        Binding (tw_scale_x_var, 1.0);
+        Binding (tw_scale_y_var, 1.0);
+      ]
     [
-      tw_translate_x_def;
-      tw_translate_y_def;
-      tw_rotate_def;
-      tw_skew_x_def;
-      tw_skew_y_def;
-      tw_scale_x_def;
-      tw_scale_y_def;
       transform
         [
-          Translate_x (Var tw_translate_x_var);
-          Translate_y (Var tw_translate_y_var);
-          Rotate (Var tw_rotate_var);
-          Skew_x (Var tw_skew_x_var);
-          Skew_y (Var tw_skew_y_var);
+          Translate_x (Var (Var.use tw_translate_x_var));
+          Translate_y (Var (Var.use tw_translate_y_var));
+          Rotate (Var (Var.use tw_rotate_var));
+          Skew_x (Var (Var.use tw_skew_x_var));
+          Skew_y (Var (Var.use tw_skew_y_var));
           Scale_x 1.0;
           Scale_y 1.0;
         ];

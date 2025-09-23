@@ -64,13 +64,15 @@ type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
 val style :
+  ?vars:Var.binding list ->
   ?rules:Css.statement list option ->
   ?property_rules:Css.t ->
   string ->
   Css.declaration list ->
   t
-(** [style ?rules ?property_rules name props] defines a utility [name] with CSS
-    [props].
+(** [style ?vars ?rules ?property_rules name props] defines a utility [name]
+    with CSS [props].
+    - [vars]: Optional variable bindings that will be extracted as declarations.
     - [rules]: Optional custom CSS rules (for utilities like prose that generate
       multiple rules with descendant selectors).
     - [property_rules]: Optional CSS property rules needed by this utility.

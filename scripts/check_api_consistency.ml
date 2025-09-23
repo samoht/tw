@@ -20,6 +20,8 @@ let ignored_types =
     (* Internal implementation detail *)
     "kind";
     (* Internal implementation detail *)
+    "any_var";
+    (* Internal type for existential variables *)
   ]
 
 module Fs = struct

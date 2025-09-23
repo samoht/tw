@@ -209,9 +209,10 @@ val color_order : string -> int
 
 (** {1 Layer Generation} *)
 
-val compute_theme_layer : t list -> Css.t
-(** [compute_theme_layer tw_classes] generates the theme layer with CSS
-    variables. *)
+val compute_theme_layer : ?default_decls:Css.declaration list -> t list -> Css.t
+(** [compute_theme_layer ?default_decls tw_classes] generates the theme layer
+    with CSS variables referenced in the classes plus any [default_decls]
+    provided (e.g., baseline theme tokens like default font families). *)
 
 val build_utilities_layer :
   rules:Css.statement list ->

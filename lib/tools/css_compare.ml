@@ -211,10 +211,19 @@ let pp_reorder decls1 decls2 fmt =
   let common_props2 =
     List.filter (fun p -> List.mem p prop_names1) prop_names2
   in
-  if common_props1 <> [] && common_props1 <> common_props2 then
-    let old_str = String.concat ", " common_props1 in
-    let new_str = String.concat ", " common_props2 in
-    Fmt.pf fmt "    - reorder: [%s] -> [%s]@," old_str new_str
+  if common_props1 <> [] && common_props1 <> common_props2 then (
+    let props_str = String.concat ", " common_props1 in
+    let max_inline_length = 60 in
+    if String.length props_str <= max_inline_length then
+      (* Short list: display inline *)
+      let old_str = String.concat ", " common_props1 in
+      let new_str = String.concat ", " common_props2 in
+      Fmt.pf fmt "    - reorder: [%s] -> [%s]@," old_str new_str
+    else
+      (* Long list: display on multiple lines *)
+      Fmt.pf fmt "    - reorder:@,";
+    Fmt.pf fmt "        from: [%s]@," (String.concat ", " common_props1);
+    Fmt.pf fmt "        to:   [%s]@," (String.concat ", " common_props2))
 
 let pp_rule_change fmt change =
   match change with

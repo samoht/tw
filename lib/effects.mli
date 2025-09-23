@@ -3,6 +3,21 @@
 open Core
 open Color
 
+(** {1 Variable Types} *)
+
+type _ Var.kind +=
+  | Shadow : Css.shadow Var.kind
+  | Shadow_color : Css.color Var.kind
+  | Shadow_alpha : float Var.kind
+  | Inset_shadow : Css.shadow Var.kind
+  | Inset_ring_shadow : Css.shadow Var.kind
+  | Ring_color : Css.color Var.kind
+  | Ring_shadow : Css.shadow Var.kind
+  | Ring_offset_shadow : Css.shadow Var.kind
+  | Ring_offset_color : Css.color Var.kind
+  | Ring_offset_width : Css.length Var.kind
+  | Ring_width : Css.length Var.kind
+
 (** {1 Shadow Utilities} *)
 
 val shadow_none : t

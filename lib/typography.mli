@@ -2,6 +2,15 @@
 
 open Core
 
+(** {1 Variable Kinds} *)
+
+type _ Var.kind +=
+  | Font_sans : Css.font_family Var.kind
+  | Font_serif : Css.font_family Var.kind
+  | Font_mono : Css.font_family Var.kind
+  | Default_font_family : Css.font_family Var.kind
+  | Default_mono_font_family : Css.font_family Var.kind
+
 (** {1 Font Size Utilities} *)
 
 val text_xs : t
@@ -407,15 +416,21 @@ val diagonal_fractions : t
 val stacked_fractions : t
 (** [stacked_fractions] uses stacked fraction glyphs. *)
 
-val default_font_family_var : Css.font_family list Css.var
+val default_font_family_var : Css.font_family Var.t
 (** [default_font_family_var] is the CSS variable for the default font family,
     referencing --font-sans. *)
 
-val default_mono_font_family_var : Css.font_family list Css.var
+val default_mono_font_family_var : Css.font_family Var.t
 (** [default_mono_font_family_var] is the CSS variable for the default monospace
     font family, referencing --font-mono. *)
 
-val font_mono_var : Css.font_family list Css.var
+val font_sans_var : Css.font_family Var.t
+(** [font_sans_var] is the CSS variable for the sans-serif font family. *)
+
+val font_serif_var : Css.font_family Var.t
+(** [font_serif_var] is the CSS variable for the serif font family. *)
+
+val font_mono_var : Css.font_family Var.t
 (** [font_mono_var] is the CSS variable for the monospace font family. *)
 
 val default_font_declarations : Css.declaration list

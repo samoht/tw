@@ -8,119 +8,198 @@
 
 open Css
 
+(* Extend variable kinds for prose theming *)
+type _ Var.kind +=
+  | (* Prose theming variables *)
+      Prose_body :
+      Css.color Var.kind
+  | Prose_headings : Css.color Var.kind
+  | Prose_code : Css.color Var.kind
+  | Prose_pre_code : Css.color Var.kind
+  | Prose_pre_bg : Css.color Var.kind
+  | Prose_th_borders : Css.color Var.kind
+  | Prose_td_borders : Css.color Var.kind
+  | Prose_links : Css.color Var.kind
+  | Prose_quotes : Css.color Var.kind
+  | Prose_quote_borders : Css.color Var.kind
+  | Prose_hr : Css.color Var.kind
+  | Prose_bold : Css.color Var.kind
+  | Prose_lead : Css.color Var.kind
+  | Prose_counters : Css.color Var.kind
+  | Prose_bullets : Css.color Var.kind
+  | Prose_captions : Css.color Var.kind
+  | Prose_kbd : Css.color Var.kind
+  | Prose_kbd_shadows : string Var.kind (* RGB values like "17 24 39" *)
+  | (* Prose invert variants for dark mode *)
+      Prose_invert_body :
+      Css.color Var.kind
+  | Prose_invert_headings : Css.color Var.kind
+  | Prose_invert_lead : Css.color Var.kind
+  | Prose_invert_links : Css.color Var.kind
+  | Prose_invert_bold : Css.color Var.kind
+  | Prose_invert_counters : Css.color Var.kind
+  | Prose_invert_bullets : Css.color Var.kind
+  | Prose_invert_hr : Css.color Var.kind
+  | Prose_invert_quotes : Css.color Var.kind
+  | Prose_invert_quote_borders : Css.color Var.kind
+  | Prose_invert_captions : Css.color Var.kind
+  | Prose_invert_kbd : Css.color Var.kind
+  | Prose_invert_kbd_shadows : string Var.kind
+  | Prose_invert_code : Css.color Var.kind
+  | Prose_invert_pre_code : Css.color Var.kind
+  | Prose_invert_pre_bg : Css.color Var.kind
+  | Prose_invert_th_borders : Css.color Var.kind
+  | Prose_invert_td_borders : Css.color Var.kind
+
 type variant =
   [ `Base | `Sm | `Lg | `Xl | `Xl2 | `Gray | `Slate | `Zinc | `Neutral | `Stone ]
 
-let prose_body_def, prose_body_var =
-  Var.utility Var.Prose_body (oklch 37.3 0.034 259.733)
+(* Create prose variables using the new API *)
+let prose_body_var =
+  Var.create Prose_body "tw-prose-body" ~layer:Utility
+    ~fallback:(oklch 37.3 0.034 259.733)
 
-let prose_headings_def, prose_headings_var =
-  Var.utility Var.Prose_headings (oklch 21.0 0.034 264.665)
+let prose_headings_var =
+  Var.create Prose_headings "tw-prose-headings" ~layer:Utility
+    ~fallback:(oklch 21.0 0.034 264.665)
 
-let prose_lead_def, prose_lead_var =
-  Var.utility Var.Prose_lead (oklch 44.6 0.030 256.802)
+let prose_lead_var =
+  Var.create Prose_lead "tw-prose-lead" ~layer:Utility
+    ~fallback:(oklch 44.6 0.030 256.802)
 
-let prose_links_def, prose_links_var =
-  Var.utility Var.Prose_links (oklch 21.0 0.034 264.665)
+let prose_links_var =
+  Var.create Prose_links "tw-prose-links" ~layer:Utility
+    ~fallback:(oklch 21.0 0.034 264.665)
 
-let prose_bold_def, prose_bold_var =
-  Var.utility Var.Prose_bold (oklch 21.0 0.034 264.665)
+let prose_bold_var =
+  Var.create Prose_bold "tw-prose-bold" ~layer:Utility
+    ~fallback:(oklch 21.0 0.034 264.665)
 
-let prose_counters_def, prose_counters_var =
-  Var.utility Var.Prose_counters (oklch 55.1 0.027 264.364)
+let prose_counters_var =
+  Var.create Prose_counters "tw-prose-counters" ~layer:Utility
+    ~fallback:(oklch 55.1 0.027 264.364)
 
-let prose_bullets_def, prose_bullets_var =
-  Var.utility Var.Prose_bullets (oklch 87.2 0.010 258.338)
+let prose_bullets_var =
+  Var.create Prose_bullets "tw-prose-bullets" ~layer:Utility
+    ~fallback:(oklch 87.2 0.010 258.338)
 
-let prose_hr_def, prose_hr_var =
-  Var.utility Var.Prose_hr (oklch 92.8 0.006 264.531)
+let prose_hr_var =
+  Var.create Prose_hr "tw-prose-hr" ~layer:Utility
+    ~fallback:(oklch 92.8 0.006 264.531)
 
-let prose_quotes_def, prose_quotes_var =
-  Var.utility Var.Prose_quotes (oklch 21.0 0.034 264.665)
+let prose_quotes_var =
+  Var.create Prose_quotes "tw-prose-quotes" ~layer:Utility
+    ~fallback:(oklch 21.0 0.034 264.665)
 
-let prose_quote_borders_def, prose_quote_borders_var =
-  Var.utility Var.Prose_quote_borders (oklch 92.8 0.006 264.531)
+let prose_quote_borders_var =
+  Var.create Prose_quote_borders "tw-prose-quote-borders" ~layer:Utility
+    ~fallback:(oklch 92.8 0.006 264.531)
 
-let prose_captions_def, prose_captions_var =
-  Var.utility Var.Prose_captions (oklch 55.1 0.027 264.364)
+let prose_captions_var =
+  Var.create Prose_captions "tw-prose-captions" ~layer:Utility
+    ~fallback:(oklch 55.1 0.027 264.364)
 
-let prose_kbd_def, prose_kbd_var =
-  Var.utility Var.Prose_kbd (oklch 21.0 0.034 264.665)
+let prose_kbd_var =
+  Var.create Prose_kbd "tw-prose-kbd" ~layer:Utility
+    ~fallback:(oklch 21.0 0.034 264.665)
 
 (* Special handling for kbd-shadows - it's RGB values without rgb() wrapper *)
-let prose_kbd_shadows_def, _ =
-  Var.utility Var.Prose_kbd_shadows
-    "NaN NaN NaN" (* This will need special handling *)
+let prose_kbd_shadows_var =
+  Var.create Prose_kbd_shadows "tw-prose-kbd-shadows" ~layer:Utility
+    ~fallback:"17 24 39" (* Default gray RGB values *)
 
-let prose_code_def, prose_code_var =
-  Var.utility Var.Prose_code (oklch 21.0 0.034 264.665)
+let prose_code_var =
+  Var.create Prose_code "tw-prose-code" ~layer:Utility
+    ~fallback:(oklch 21.0 0.034 264.665)
 
-let prose_pre_code_def, prose_pre_code_var =
-  Var.utility Var.Prose_pre_code (oklch 92.8 0.006 264.531)
+let prose_pre_code_var =
+  Var.create Prose_pre_code "tw-prose-pre-code" ~layer:Utility
+    ~fallback:(oklch 92.8 0.006 264.531)
 
-let prose_pre_bg_def, prose_pre_bg_var =
-  Var.utility Var.Prose_pre_bg (oklch 27.8 0.033 256.848)
+let prose_pre_bg_var =
+  Var.create Prose_pre_bg "tw-prose-pre-bg" ~layer:Utility
+    ~fallback:(oklch 27.8 0.033 256.848)
 
-let prose_th_borders_def, prose_th_borders_var =
-  Var.utility Var.Prose_th_borders (oklch 87.2 0.010 258.338)
+let prose_th_borders_var =
+  Var.create Prose_th_borders "tw-prose-th-borders" ~layer:Utility
+    ~fallback:(oklch 87.2 0.010 258.338)
 
-let prose_td_borders_def, prose_td_borders_var =
-  Var.utility Var.Prose_td_borders (oklch 92.8 0.006 264.531)
+let prose_td_borders_var =
+  Var.create Prose_td_borders "tw-prose-td-borders" ~layer:Utility
+    ~fallback:(oklch 92.8 0.006 264.531)
 
 (* Invert variants for dark mode *)
-let prose_invert_body_def, _ =
-  Var.utility Var.Prose_invert_body (oklch 87.2 0.010 258.338)
+let prose_invert_body_var =
+  Var.create Prose_invert_body "tw-prose-invert-body" ~layer:Utility
+    ~fallback:(oklch 87.2 0.010 258.338)
 
-let prose_invert_headings_def, _ =
-  Var.utility Var.Prose_invert_headings (Hex { hash = true; value = "fff" })
+let prose_invert_headings_var =
+  Var.create Prose_invert_headings "tw-prose-invert-headings" ~layer:Utility
+    ~fallback:(Hex { hash = true; value = "fff" })
 
-let prose_invert_lead_def, _ =
-  Var.utility Var.Prose_invert_lead (oklch 70.7 0.022 261.325)
+let prose_invert_lead_var =
+  Var.create Prose_invert_lead "tw-prose-invert-lead" ~layer:Utility
+    ~fallback:(oklch 70.7 0.022 261.325)
 
-let prose_invert_links_def, _ =
-  Var.utility Var.Prose_invert_links (Hex { hash = true; value = "fff" })
+let prose_invert_links_var =
+  Var.create Prose_invert_links "tw-prose-invert-links" ~layer:Utility
+    ~fallback:(Hex { hash = true; value = "fff" })
 
-let prose_invert_bold_def, _ =
-  Var.utility Var.Prose_invert_bold (Hex { hash = true; value = "fff" })
+let prose_invert_bold_var =
+  Var.create Prose_invert_bold "tw-prose-invert-bold" ~layer:Utility
+    ~fallback:(Hex { hash = true; value = "fff" })
 
-let prose_invert_counters_def, _ =
-  Var.utility Var.Prose_invert_counters (oklch 70.7 0.022 261.325)
+let prose_invert_counters_var =
+  Var.create Prose_invert_counters "tw-prose-invert-counters" ~layer:Utility
+    ~fallback:(oklch 70.7 0.022 261.325)
 
-let prose_invert_bullets_def, _ =
-  Var.utility Var.Prose_invert_bullets (oklch 44.6 0.030 256.802)
+let prose_invert_bullets_var =
+  Var.create Prose_invert_bullets "tw-prose-invert-bullets" ~layer:Utility
+    ~fallback:(oklch 44.6 0.030 256.802)
 
-let prose_invert_hr_def, _ =
-  Var.utility Var.Prose_invert_hr (oklch 37.3 0.034 259.733)
+let prose_invert_hr_var =
+  Var.create Prose_invert_hr "tw-prose-invert-hr" ~layer:Utility
+    ~fallback:(oklch 37.3 0.034 259.733)
 
-let prose_invert_quotes_def, _ =
-  Var.utility Var.Prose_invert_quotes (oklch 96.7 0.003 264.542)
+let prose_invert_quotes_var =
+  Var.create Prose_invert_quotes "tw-prose-invert-quotes" ~layer:Utility
+    ~fallback:(oklch 96.7 0.003 264.542)
 
-let prose_invert_quote_borders_def, _ =
-  Var.utility Var.Prose_invert_quote_borders (oklch 37.3 0.034 259.733)
+let prose_invert_quote_borders_var =
+  Var.create Prose_invert_quote_borders "tw-prose-invert-quote-borders"
+    ~layer:Utility ~fallback:(oklch 37.3 0.034 259.733)
 
-let prose_invert_captions_def, _ =
-  Var.utility Var.Prose_invert_captions (oklch 70.7 0.022 261.325)
+let prose_invert_captions_var =
+  Var.create Prose_invert_captions "tw-prose-invert-captions" ~layer:Utility
+    ~fallback:(oklch 70.7 0.022 261.325)
 
-let prose_invert_kbd_def, _ =
-  Var.utility Var.Prose_invert_kbd (Hex { hash = true; value = "fff" })
+let prose_invert_kbd_var =
+  Var.create Prose_invert_kbd "tw-prose-invert-kbd" ~layer:Utility
+    ~fallback:(Hex { hash = true; value = "fff" })
 
-let prose_invert_kbd_shadows_def, _ =
-  Var.utility Var.Prose_invert_kbd_shadows "255 255 255"
+let prose_invert_kbd_shadows_var =
+  Var.create Prose_invert_kbd_shadows "tw-prose-invert-kbd-shadows"
+    ~layer:Utility ~fallback:"255 255 255"
 
-let prose_invert_code_def, _ =
-  Var.utility Var.Prose_invert_code (Hex { hash = true; value = "fff" })
+let prose_invert_code_var =
+  Var.create Prose_invert_code "tw-prose-invert-code" ~layer:Utility
+    ~fallback:(Hex { hash = true; value = "fff" })
 
-let prose_invert_pre_code_def, _ =
-  Var.utility Var.Prose_invert_pre_code (oklch 87.2 0.010 258.338)
+let prose_invert_pre_code_var =
+  Var.create Prose_invert_pre_code "tw-prose-invert-pre-code" ~layer:Utility
+    ~fallback:(oklch 87.2 0.010 258.338)
 
-let prose_invert_pre_bg_def, _ =
-  Var.utility Var.Prose_invert_pre_bg (Hex { hash = true; value = "00000080" })
+let prose_invert_pre_bg_var =
+  Var.create Prose_invert_pre_bg "tw-prose-invert-pre-bg" ~layer:Utility
+    ~fallback:(Hex { hash = true; value = "00000080" })
 
-let prose_invert_th_borders_def, _ =
-  Var.utility Var.Prose_invert_th_borders (oklch 44.6 0.030 256.802)
+let prose_invert_th_borders_var =
+  Var.create Prose_invert_th_borders "tw-prose-invert-th-borders" ~layer:Utility
+    ~fallback:(oklch 44.6 0.030 256.802)
 
-let prose_invert_td_borders_def, _ =
-  Var.utility Var.Prose_invert_td_borders (oklch 37.3 0.034 259.733)
+let prose_invert_td_borders_var =
+  Var.create Prose_invert_td_borders "tw-prose-invert-td-borders" ~layer:Utility
+    ~fallback:(oklch 37.3 0.034 259.733)
 
 (* ======================================================================== *)
 (* Selector Helper Functions *)
@@ -234,47 +313,52 @@ let tbody_td_first_child =
 let tbody_td_last_child =
   (tbody ++ (td && last_child)) || (tfoot ++ (td && last_child))
 
-(** Convert prose variant to CSS class name *)
-let css_variables =
+(** Default variable bindings for prose styles *)
+let default_variable_bindings =
   [
-    prose_body_def;
-    prose_headings_def;
-    prose_lead_def;
-    prose_links_def;
-    prose_bold_def;
-    prose_counters_def;
-    prose_bullets_def;
-    prose_hr_def;
-    prose_quotes_def;
-    prose_quote_borders_def;
-    prose_captions_def;
-    prose_kbd_def;
-    prose_kbd_shadows_def;
-    prose_code_def;
-    prose_pre_code_def;
-    prose_pre_bg_def;
-    prose_th_borders_def;
-    prose_td_borders_def;
+    Var.Binding (prose_body_var, oklch 37.3 0.034 259.733);
+    Var.Binding (prose_headings_var, oklch 21.0 0.034 264.665);
+    Var.Binding (prose_lead_var, oklch 44.6 0.030 256.802);
+    Var.Binding (prose_links_var, oklch 21.0 0.034 264.665);
+    Var.Binding (prose_bold_var, oklch 21.0 0.034 264.665);
+    Var.Binding (prose_counters_var, oklch 55.1 0.027 264.364);
+    Var.Binding (prose_bullets_var, oklch 87.2 0.010 258.338);
+    Var.Binding (prose_hr_var, oklch 92.8 0.006 264.531);
+    Var.Binding (prose_quotes_var, oklch 21.0 0.034 264.665);
+    Var.Binding (prose_quote_borders_var, oklch 92.8 0.006 264.531);
+    Var.Binding (prose_captions_var, oklch 55.1 0.027 264.364);
+    Var.Binding (prose_kbd_var, oklch 21.0 0.034 264.665);
+    Var.Binding (prose_kbd_shadows_var, "17 24 39");
+    Var.Binding (prose_code_var, oklch 21.0 0.034 264.665);
+    Var.Binding (prose_pre_code_var, oklch 92.8 0.006 264.531);
+    Var.Binding (prose_pre_bg_var, oklch 27.8 0.033 256.848);
+    Var.Binding (prose_th_borders_var, oklch 87.2 0.010 258.338);
+    Var.Binding (prose_td_borders_var, oklch 92.8 0.006 264.531);
     (* Invert variants *)
-    prose_invert_body_def;
-    prose_invert_headings_def;
-    prose_invert_lead_def;
-    prose_invert_links_def;
-    prose_invert_bold_def;
-    prose_invert_counters_def;
-    prose_invert_bullets_def;
-    prose_invert_hr_def;
-    prose_invert_quotes_def;
-    prose_invert_quote_borders_def;
-    prose_invert_captions_def;
-    prose_invert_kbd_def;
-    prose_invert_kbd_shadows_def;
-    prose_invert_code_def;
-    prose_invert_pre_code_def;
-    prose_invert_pre_bg_def;
-    prose_invert_th_borders_def;
-    prose_invert_td_borders_def;
+    Var.Binding (prose_invert_body_var, oklch 87.2 0.010 258.338);
+    Var.Binding (prose_invert_headings_var, Hex { hash = true; value = "fff" });
+    Var.Binding (prose_invert_lead_var, oklch 70.7 0.022 261.325);
+    Var.Binding (prose_invert_links_var, Hex { hash = true; value = "fff" });
+    Var.Binding (prose_invert_bold_var, Hex { hash = true; value = "fff" });
+    Var.Binding (prose_invert_counters_var, oklch 70.7 0.022 261.325);
+    Var.Binding (prose_invert_bullets_var, oklch 44.6 0.030 256.802);
+    Var.Binding (prose_invert_hr_var, oklch 37.3 0.034 259.733);
+    Var.Binding (prose_invert_quotes_var, oklch 96.7 0.003 264.542);
+    Var.Binding (prose_invert_quote_borders_var, oklch 37.3 0.034 259.733);
+    Var.Binding (prose_invert_captions_var, oklch 70.7 0.022 261.325);
+    Var.Binding (prose_invert_kbd_var, Hex { hash = true; value = "fff" });
+    Var.Binding (prose_invert_kbd_shadows_var, "255 255 255");
+    Var.Binding (prose_invert_code_var, Hex { hash = true; value = "fff" });
+    Var.Binding (prose_invert_pre_code_var, oklch 87.2 0.010 258.338);
+    Var.Binding
+      (prose_invert_pre_bg_var, Hex { hash = true; value = "00000080" });
+    Var.Binding (prose_invert_th_borders_var, oklch 44.6 0.030 256.802);
+    Var.Binding (prose_invert_td_borders_var, oklch 37.3 0.034 259.733);
   ]
+
+(** Extract CSS declarations from variable bindings *)
+let css_variables =
+  List.map Var.declaration_of_binding default_variable_bindings
 
 let to_class = function
   | `Base -> "prose"
@@ -297,7 +381,7 @@ let paragraph_rules base =
       [ margin_top (Em 1.25); margin_bottom (Em 1.25) ];
     Css.rule ~selector:(where base lead)
       [
-        color (Var prose_lead_var);
+        color (Var (Var.use prose_lead_var));
         margin_top (Em 1.2);
         margin_bottom (Em 1.2);
         font_size (Em 1.25);
@@ -310,7 +394,7 @@ let link_rules base =
   [
     Css.rule ~selector:(where base a)
       [
-        color (Var prose_links_var);
+        color (Var (Var.use prose_links_var));
         font_weight (Weight 500);
         text_decoration
           (Shorthand
@@ -327,7 +411,7 @@ let link_rules base =
 let strong_rules base =
   [
     Css.rule ~selector:(where base strong)
-      [ color (Var prose_bold_var); font_weight (Weight 600) ];
+      [ color (Var (Var.use prose_bold_var)); font_weight (Weight 600) ];
     (* Strong inherits color in certain contexts *)
     Css.rule ~selector:(where base (a ++ strong)) [ color Inherit ];
     Css.rule ~selector:(where base (blockquote ++ strong)) [ color Inherit ];
@@ -370,13 +454,13 @@ let list_rules base =
       ];
     Css.rule
       ~selector:(where base (ol ++ li ++ marker))
-      [ color (Var prose_counters_var); font_weight (Weight 400) ];
+      [ color (Var (Var.use prose_counters_var)); font_weight (Weight 400) ];
     Css.rule
       ~selector:(where base (ul ++ li ++ marker))
-      [ color (Var prose_bullets_var) ];
+      [ color (Var (Var.use prose_bullets_var)) ];
     Css.rule ~selector:(where base dt)
       [
-        color (Var prose_headings_var);
+        color (Var (Var.use prose_headings_var));
         margin_top (Em 1.25);
         font_weight (Weight 600);
       ];
@@ -387,7 +471,7 @@ let heading_rules base =
   [
     Css.rule ~selector:(where base h1)
       [
-        color (Var prose_headings_var);
+        color (Var (Var.use prose_headings_var));
         margin_top Zero;
         margin_bottom (Em 0.888889);
         font_size (Em 2.25);
@@ -399,7 +483,7 @@ let heading_rules base =
       [ color Inherit; font_weight (Weight 900) ];
     Css.rule ~selector:(where base h2)
       [
-        color (Var prose_headings_var);
+        color (Var (Var.use prose_headings_var));
         margin_top (Em 2.0);
         margin_bottom (Em 1.0);
         font_size (Em 1.5);
@@ -411,7 +495,7 @@ let heading_rules base =
       [ color Inherit; font_weight (Weight 800) ];
     Css.rule ~selector:(where base h3)
       [
-        color (Var prose_headings_var);
+        color (Var (Var.use prose_headings_var));
         margin_top (Em 1.6);
         margin_bottom (Em 0.6);
         font_size (Em 1.25);
@@ -423,7 +507,7 @@ let heading_rules base =
       [ color Inherit; font_weight (Weight 700) ];
     Css.rule ~selector:(where base h4)
       [
-        color (Var prose_headings_var);
+        color (Var (Var.use prose_headings_var));
         margin_top (Em 1.5);
         margin_bottom (Em 0.5);
         font_weight (Weight 600);
@@ -439,7 +523,7 @@ let hr_rules base =
   [
     Css.rule ~selector:(where base hr)
       [
-        border_color (Var prose_hr_var);
+        border_color (Var (Var.use prose_hr_var));
         border_top_width (Px 1.);
         margin_top (Em 3.0);
         margin_bottom (Em 3.0);
@@ -451,9 +535,9 @@ let blockquote_rules base =
   [
     Css.rule ~selector:(where base blockquote)
       [
-        color (Var prose_quotes_var);
+        color (Var (Var.use prose_quotes_var));
         border_inline_start_width (Rem 0.25);
-        border_inline_start_color (Var prose_quote_borders_var);
+        border_inline_start_color (Var (Var.use prose_quote_borders_var));
         quotes
           "\"\xe2\x80\x9c\"\"\xe2\x80\x9d\"\"\xe2\x80\x98\"\"\xe2\x80\x99\"";
         margin_top (Em 1.6);
@@ -486,18 +570,22 @@ let kbd_rules base =
   [
     Css.rule ~selector:(where base kbd)
       [
-        color (Var prose_kbd_var);
+        color (Var (Var.use prose_kbd_var));
         (* Typed box-shadow equivalent using color-mix to approximate 10%
            alpha *)
-        Css.box_shadow_list
+        Css.box_shadows
           [
             Css.shadow ~h_offset:Zero ~v_offset:Zero ~spread:(Px 1.)
               ~color:
-                (Css.color_mix ~percent1:10 (Var prose_kbd_var) Transparent)
+                (Css.color_mix ~percent1:10
+                   (Var (Var.use prose_kbd_var))
+                   Transparent)
               ();
             Css.shadow ~h_offset:Zero ~v_offset:(Px 3.)
               ~color:
-                (Css.color_mix ~percent1:10 (Var prose_kbd_var) Transparent)
+                (Css.color_mix ~percent1:10
+                   (Var (Var.use prose_kbd_var))
+                   Transparent)
               ();
           ];
         padding_top (Em 0.1875);
@@ -505,7 +593,7 @@ let kbd_rules base =
         padding_bottom (Em 0.1875);
         border_radius (Rem 0.3125);
         padding_inline_start (Em 0.375);
-        font_family [ Inherit ];
+        font_family Inherit;
         font_size (Em 0.875);
         font_weight (Weight 500);
       ];
@@ -516,7 +604,7 @@ let code_rules base =
   [
     Css.rule ~selector:(where base code)
       [
-        color (Var prose_code_var);
+        color (Var (Var.use prose_code_var));
         font_size (Em 0.875);
         font_weight (Weight 600);
       ];
@@ -538,8 +626,8 @@ let code_rules base =
     (* Pre code block styles *)
     Css.rule ~selector:(where base pre)
       [
-        color (Var prose_pre_code_var);
-        background_color (Var prose_pre_bg_var);
+        color (Var (Var.use prose_pre_code_var));
+        background_color (Var (Var.use prose_pre_bg_var));
         padding_top (Em 0.857143);
         padding_inline_end (Em 1.14286);
         padding_bottom (Em 0.857143);
@@ -557,7 +645,7 @@ let code_rules base =
         font_weight Inherit;
         color Inherit;
         font_size Inherit;
-        font_family [ Inherit ];
+        font_family Inherit;
         line_height Inherit;
         background_color Transparent;
         border_width Zero;
@@ -585,11 +673,11 @@ let table_rules base =
       ~selector:(where base (Css.Selector.element "thead"))
       [
         border_bottom_width (Px 1.);
-        border_bottom_color (Var prose_th_borders_var);
+        border_bottom_color (Var (Var.use prose_th_borders_var));
       ];
     Css.rule ~selector:(where base thead_th)
       [
-        color (Var prose_headings_var);
+        color (Var (Var.use prose_headings_var));
         vertical_align Bottom;
         padding_inline_end (Em 0.571429);
         padding_bottom (Em 0.571429);
@@ -599,14 +687,17 @@ let table_rules base =
     Css.rule ~selector:(where base tbody_tr)
       [
         border_bottom_width (Px 1.);
-        border_bottom_color (Var prose_td_borders_var);
+        border_bottom_color (Var (Var.use prose_td_borders_var));
       ];
     Css.rule
       ~selector:(where base tbody_tr_last_child)
       [ border_bottom_width Zero ];
     Css.rule ~selector:(where base tbody_td) [ vertical_align Baseline ];
     Css.rule ~selector:(where base tfoot)
-      [ border_top_width (Px 1.); border_top_color (Var prose_th_borders_var) ];
+      [
+        border_top_width (Px 1.);
+        border_top_color (Var (Var.use prose_th_borders_var));
+      ];
     Css.rule ~selector:(where base tfoot_td) [ vertical_align Top ];
     Css.rule ~selector:(where base th_td) [ text_align Start ];
   ]
@@ -618,7 +709,7 @@ let figure_rules base =
       [ margin_top Zero; margin_bottom Zero ];
     Css.rule ~selector:(where base figcaption)
       [
-        color (Var prose_captions_var);
+        color (Var (Var.use prose_captions_var));
         margin_top (Em 0.857143);
         font_size (Em 0.875);
         line_height (Num 1.42857);
@@ -725,7 +816,7 @@ let base_prose_rules () =
   let main_rule =
     Css.rule
       ~selector:(Css.Selector.class_ "prose")
-      [ color (Var prose_body_var); max_width (Ch 65.0) ]
+      [ color (Var (Var.use prose_body_var)); max_width (Ch 65.0) ]
   in
 
   (* Second prose rule with CSS variables - comes at the end *)
@@ -1296,103 +1387,103 @@ let xl_size_rules selector =
 let xl2_size_rules selector =
   typography_rules (Css.Selector.class_ selector) xl2_config
 
-(* Helper to update color variable definitions for color themes *)
-let update_color_vars theme_name =
+(* Helper to create color variable bindings for color themes *)
+let color_theme_bindings theme_name =
   match theme_name with
   | "gray" ->
       [
-        Var.utility Var.Prose_body (oklch 55.1 0.027 264.364) |> fst;
-        Var.utility Var.Prose_headings (oklch 27.8 0.033 256.848) |> fst;
-        Var.utility Var.Prose_lead (oklch 44.6 0.030 256.802) |> fst;
-        Var.utility Var.Prose_links (oklch 27.8 0.033 256.848) |> fst;
-        Var.utility Var.Prose_bold (oklch 27.8 0.033 256.848) |> fst;
-        Var.utility Var.Prose_counters (oklch 55.1 0.027 264.364) |> fst;
-        Var.utility Var.Prose_bullets (oklch 87.2 0.010 258.338) |> fst;
-        Var.utility Var.Prose_hr (oklch 92.8 0.006 264.531) |> fst;
-        Var.utility Var.Prose_quotes (oklch 27.8 0.033 256.848) |> fst;
-        Var.utility Var.Prose_quote_borders (oklch 92.8 0.006 264.531) |> fst;
-        Var.utility Var.Prose_captions (oklch 70.7 0.022 261.325) |> fst;
-        Var.utility Var.Prose_code (oklch 27.8 0.033 256.848) |> fst;
-        Var.utility Var.Prose_pre_code (oklch 92.8 0.006 264.531) |> fst;
-        Var.utility Var.Prose_pre_bg (oklch 27.8 0.033 256.848) |> fst;
-        Var.utility Var.Prose_th_borders (oklch 87.2 0.010 258.338) |> fst;
-        Var.utility Var.Prose_td_borders (oklch 92.8 0.006 264.531) |> fst;
+        Var.declaration prose_body_var (oklch 55.1 0.027 264.364);
+        Var.declaration prose_headings_var (oklch 27.8 0.033 256.848);
+        Var.declaration prose_lead_var (oklch 44.6 0.030 256.802);
+        Var.declaration prose_links_var (oklch 27.8 0.033 256.848);
+        Var.declaration prose_bold_var (oklch 27.8 0.033 256.848);
+        Var.declaration prose_counters_var (oklch 55.1 0.027 264.364);
+        Var.declaration prose_bullets_var (oklch 87.2 0.010 258.338);
+        Var.declaration prose_hr_var (oklch 92.8 0.006 264.531);
+        Var.declaration prose_quotes_var (oklch 27.8 0.033 256.848);
+        Var.declaration prose_quote_borders_var (oklch 92.8 0.006 264.531);
+        Var.declaration prose_captions_var (oklch 70.7 0.022 261.325);
+        Var.declaration prose_code_var (oklch 27.8 0.033 256.848);
+        Var.declaration prose_pre_code_var (oklch 92.8 0.006 264.531);
+        Var.declaration prose_pre_bg_var (oklch 27.8 0.033 256.848);
+        Var.declaration prose_th_borders_var (oklch 87.2 0.010 258.338);
+        Var.declaration prose_td_borders_var (oklch 92.8 0.006 264.531);
       ]
   | "slate" ->
       [
-        Var.utility Var.Prose_body (oklch 52.5 0.027 257.576) |> fst;
-        Var.utility Var.Prose_headings (oklch 19.2 0.025 268.573) |> fst;
-        Var.utility Var.Prose_lead (oklch 42.3 0.029 255.908) |> fst;
-        Var.utility Var.Prose_links (oklch 19.2 0.025 268.573) |> fst;
-        Var.utility Var.Prose_bold (oklch 19.2 0.025 268.573) |> fst;
-        Var.utility Var.Prose_counters (oklch 52.5 0.027 257.576) |> fst;
-        Var.utility Var.Prose_bullets (oklch 85.8 0.012 255.094) |> fst;
-        Var.utility Var.Prose_hr (oklch 91.9 0.007 264.837) |> fst;
-        Var.utility Var.Prose_quotes (oklch 19.2 0.025 268.573) |> fst;
-        Var.utility Var.Prose_quote_borders (oklch 91.9 0.007 264.837) |> fst;
-        Var.utility Var.Prose_captions (oklch 67.8 0.024 254.628) |> fst;
-        Var.utility Var.Prose_code (oklch 19.2 0.025 268.573) |> fst;
-        Var.utility Var.Prose_pre_code (oklch 91.9 0.007 264.837) |> fst;
-        Var.utility Var.Prose_pre_bg (oklch 26.5 0.028 268.761) |> fst;
-        Var.utility Var.Prose_th_borders (oklch 85.8 0.012 255.094) |> fst;
-        Var.utility Var.Prose_td_borders (oklch 91.9 0.007 264.837) |> fst;
+        Var.declaration prose_body_var (oklch 52.5 0.027 257.576);
+        Var.declaration prose_headings_var (oklch 19.2 0.025 268.573);
+        Var.declaration prose_lead_var (oklch 42.3 0.029 255.908);
+        Var.declaration prose_links_var (oklch 19.2 0.025 268.573);
+        Var.declaration prose_bold_var (oklch 19.2 0.025 268.573);
+        Var.declaration prose_counters_var (oklch 52.5 0.027 257.576);
+        Var.declaration prose_bullets_var (oklch 85.8 0.012 255.094);
+        Var.declaration prose_hr_var (oklch 91.9 0.007 264.837);
+        Var.declaration prose_quotes_var (oklch 19.2 0.025 268.573);
+        Var.declaration prose_quote_borders_var (oklch 91.9 0.007 264.837);
+        Var.declaration prose_captions_var (oklch 67.8 0.024 254.628);
+        Var.declaration prose_code_var (oklch 19.2 0.025 268.573);
+        Var.declaration prose_pre_code_var (oklch 91.9 0.007 264.837);
+        Var.declaration prose_pre_bg_var (oklch 26.5 0.028 268.761);
+        Var.declaration prose_th_borders_var (oklch 85.8 0.012 255.094);
+        Var.declaration prose_td_borders_var (oklch 91.9 0.007 264.837);
       ]
   | "zinc" ->
       [
-        Var.utility Var.Prose_body (oklch 52.5 0.013 265.454) |> fst;
-        Var.utility Var.Prose_headings (oklch 21.0 0.017 264.665) |> fst;
-        Var.utility Var.Prose_lead (oklch 42.2 0.015 268.024) |> fst;
-        Var.utility Var.Prose_links (oklch 21.0 0.017 264.665) |> fst;
-        Var.utility Var.Prose_bold (oklch 21.0 0.017 264.665) |> fst;
-        Var.utility Var.Prose_counters (oklch 52.5 0.013 265.454) |> fst;
-        Var.utility Var.Prose_bullets (oklch 87.1 0.006 286.287) |> fst;
-        Var.utility Var.Prose_hr (oklch 92.8 0.004 286.032) |> fst;
-        Var.utility Var.Prose_quotes (oklch 21.0 0.017 264.665) |> fst;
-        Var.utility Var.Prose_quote_borders (oklch 92.8 0.004 286.032) |> fst;
-        Var.utility Var.Prose_captions (oklch 67.9 0.011 285.934) |> fst;
-        Var.utility Var.Prose_code (oklch 21.0 0.017 264.665) |> fst;
-        Var.utility Var.Prose_pre_code (oklch 92.8 0.004 286.032) |> fst;
-        Var.utility Var.Prose_pre_bg (oklch 27.9 0.017 264.663) |> fst;
-        Var.utility Var.Prose_th_borders (oklch 87.1 0.006 286.287) |> fst;
-        Var.utility Var.Prose_td_borders (oklch 92.8 0.004 286.032) |> fst;
+        Var.declaration prose_body_var (oklch 52.5 0.013 265.454);
+        Var.declaration prose_headings_var (oklch 21.0 0.017 264.665);
+        Var.declaration prose_lead_var (oklch 42.2 0.015 268.024);
+        Var.declaration prose_links_var (oklch 21.0 0.017 264.665);
+        Var.declaration prose_bold_var (oklch 21.0 0.017 264.665);
+        Var.declaration prose_counters_var (oklch 52.5 0.013 265.454);
+        Var.declaration prose_bullets_var (oklch 87.1 0.006 286.287);
+        Var.declaration prose_hr_var (oklch 92.8 0.004 286.032);
+        Var.declaration prose_quotes_var (oklch 21.0 0.017 264.665);
+        Var.declaration prose_quote_borders_var (oklch 92.8 0.004 286.032);
+        Var.declaration prose_captions_var (oklch 67.9 0.011 285.934);
+        Var.declaration prose_code_var (oklch 21.0 0.017 264.665);
+        Var.declaration prose_pre_code_var (oklch 92.8 0.004 286.032);
+        Var.declaration prose_pre_bg_var (oklch 27.9 0.017 264.663);
+        Var.declaration prose_th_borders_var (oklch 87.1 0.006 286.287);
+        Var.declaration prose_td_borders_var (oklch 92.8 0.004 286.032);
       ]
   | "neutral" ->
       [
-        Var.utility Var.Prose_body (oklch 48.8 0.014 106.429) |> fst;
-        Var.utility Var.Prose_headings (oklch 23.0 0.021 92.591) |> fst;
-        Var.utility Var.Prose_lead (oklch 42.2 0.015 110.211) |> fst;
-        Var.utility Var.Prose_links (oklch 23.0 0.021 92.591) |> fst;
-        Var.utility Var.Prose_bold (oklch 23.0 0.021 92.591) |> fst;
-        Var.utility Var.Prose_counters (oklch 48.8 0.014 106.429) |> fst;
-        Var.utility Var.Prose_bullets (oklch 87.1 0.004 106.424) |> fst;
-        Var.utility Var.Prose_hr (oklch 92.9 0.003 106.423) |> fst;
-        Var.utility Var.Prose_quotes (oklch 23.0 0.021 92.591) |> fst;
-        Var.utility Var.Prose_quote_borders (oklch 92.9 0.003 106.423) |> fst;
-        Var.utility Var.Prose_captions (oklch 67.8 0.009 106.424) |> fst;
-        Var.utility Var.Prose_code (oklch 23.0 0.021 92.591) |> fst;
-        Var.utility Var.Prose_pre_code (oklch 92.9 0.003 106.423) |> fst;
-        Var.utility Var.Prose_pre_bg (oklch 31.1 0.019 93.761) |> fst;
-        Var.utility Var.Prose_th_borders (oklch 87.1 0.004 106.424) |> fst;
-        Var.utility Var.Prose_td_borders (oklch 92.9 0.003 106.423) |> fst;
+        Var.declaration prose_body_var (oklch 48.8 0.014 106.429);
+        Var.declaration prose_headings_var (oklch 23.0 0.021 92.591);
+        Var.declaration prose_lead_var (oklch 42.2 0.015 110.211);
+        Var.declaration prose_links_var (oklch 23.0 0.021 92.591);
+        Var.declaration prose_bold_var (oklch 23.0 0.021 92.591);
+        Var.declaration prose_counters_var (oklch 48.8 0.014 106.429);
+        Var.declaration prose_bullets_var (oklch 87.1 0.004 106.424);
+        Var.declaration prose_hr_var (oklch 92.9 0.003 106.423);
+        Var.declaration prose_quotes_var (oklch 23.0 0.021 92.591);
+        Var.declaration prose_quote_borders_var (oklch 92.9 0.003 106.423);
+        Var.declaration prose_captions_var (oklch 67.8 0.009 106.424);
+        Var.declaration prose_code_var (oklch 23.0 0.021 92.591);
+        Var.declaration prose_pre_code_var (oklch 92.9 0.003 106.423);
+        Var.declaration prose_pre_bg_var (oklch 31.1 0.019 93.761);
+        Var.declaration prose_th_borders_var (oklch 87.1 0.004 106.424);
+        Var.declaration prose_td_borders_var (oklch 92.9 0.003 106.423);
       ]
   | "stone" ->
       [
-        Var.utility Var.Prose_body (oklch 49.9 0.017 56.205) |> fst;
-        Var.utility Var.Prose_headings (oklch 27.9 0.019 68.952) |> fst;
-        Var.utility Var.Prose_lead (oklch 42.3 0.016 56.359) |> fst;
-        Var.utility Var.Prose_links (oklch 27.9 0.019 68.952) |> fst;
-        Var.utility Var.Prose_bold (oklch 27.9 0.019 68.952) |> fst;
-        Var.utility Var.Prose_counters (oklch 49.9 0.017 56.205) |> fst;
-        Var.utility Var.Prose_bullets (oklch 87.1 0.006 56.211) |> fst;
-        Var.utility Var.Prose_hr (oklch 92.9 0.003 56.214) |> fst;
-        Var.utility Var.Prose_quotes (oklch 27.9 0.019 68.952) |> fst;
-        Var.utility Var.Prose_quote_borders (oklch 92.9 0.003 56.214) |> fst;
-        Var.utility Var.Prose_captions (oklch 67.8 0.011 56.211) |> fst;
-        Var.utility Var.Prose_code (oklch 27.9 0.019 68.952) |> fst;
-        Var.utility Var.Prose_pre_code (oklch 92.9 0.003 56.214) |> fst;
-        Var.utility Var.Prose_pre_bg (oklch 35.1 0.019 68.936) |> fst;
-        Var.utility Var.Prose_th_borders (oklch 87.1 0.006 56.211) |> fst;
-        Var.utility Var.Prose_td_borders (oklch 92.9 0.003 56.214) |> fst;
+        Var.declaration prose_body_var (oklch 49.9 0.017 56.205);
+        Var.declaration prose_headings_var (oklch 27.9 0.019 68.952);
+        Var.declaration prose_lead_var (oklch 42.3 0.016 56.359);
+        Var.declaration prose_links_var (oklch 27.9 0.019 68.952);
+        Var.declaration prose_bold_var (oklch 27.9 0.019 68.952);
+        Var.declaration prose_counters_var (oklch 49.9 0.017 56.205);
+        Var.declaration prose_bullets_var (oklch 87.1 0.006 56.211);
+        Var.declaration prose_hr_var (oklch 92.9 0.003 56.214);
+        Var.declaration prose_quotes_var (oklch 27.9 0.019 68.952);
+        Var.declaration prose_quote_borders_var (oklch 92.9 0.003 56.214);
+        Var.declaration prose_captions_var (oklch 67.8 0.011 56.211);
+        Var.declaration prose_code_var (oklch 27.9 0.019 68.952);
+        Var.declaration prose_pre_code_var (oklch 92.9 0.003 56.214);
+        Var.declaration prose_pre_bg_var (oklch 35.1 0.019 68.936);
+        Var.declaration prose_th_borders_var (oklch 87.1 0.006 56.211);
+        Var.declaration prose_td_borders_var (oklch 92.9 0.003 56.214);
       ]
   | _ -> []
 
@@ -1407,31 +1498,31 @@ let to_css_rules variant =
       [
         Css.rule
           ~selector:(Css.Selector.class_ "prose-gray")
-          (update_color_vars "gray");
+          (color_theme_bindings "gray");
       ]
   | `Slate ->
       [
         Css.rule
           ~selector:(Css.Selector.class_ "prose-slate")
-          (update_color_vars "slate");
+          (color_theme_bindings "slate");
       ]
   | `Zinc ->
       [
         Css.rule
           ~selector:(Css.Selector.class_ "prose-zinc")
-          (update_color_vars "zinc");
+          (color_theme_bindings "zinc");
       ]
   | `Neutral ->
       [
         Css.rule
           ~selector:(Css.Selector.class_ "prose-neutral")
-          (update_color_vars "neutral");
+          (color_theme_bindings "neutral");
       ]
   | `Stone ->
       [
         Css.rule
           ~selector:(Css.Selector.class_ "prose-stone")
-          (update_color_vars "stone");
+          (color_theme_bindings "stone");
       ]
 
 let pp = function

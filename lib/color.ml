@@ -950,9 +950,17 @@ let var color shade =
   let default_color =
     to_css color (if is_base_color color then 500 else shade)
   in
-  Var.theme
-    (Var.Color (pp color, if is_base_color color then None else Some shade))
-    default_color
+  let name =
+    let base = pp color in
+    if is_base_color color then "color-" ^ base
+    else "color-" ^ base ^ "-" ^ string_of_int shade
+  in
+  let color_var =
+    Var.create
+      (Var.Color (pp color, if is_base_color color then None else Some shade))
+      name ~layer:Theme
+  in
+  Var.Binding (color_var, default_color)
 
 let bg color shade =
   let class_name =
@@ -975,8 +983,23 @@ let bg color shade =
     let css_color = to_css color shade in
     style class_name [ Css.background_color css_color ]
   else
-    let var_def, css_var = var color shade in
-    style class_name [ var_def; Css.background_color (Css.Var css_var) ]
+    (* Create color theme variable with "color-" prefix for theme tokens *)
+    let color_name = pp color in
+    let var_name =
+      if is_base_color color then "color-" ^ color_name
+      else "color-" ^ color_name ^ "-" ^ string_of_int shade
+    in
+    let color_theme_var =
+      Var.create
+        (Var.Color (color_name, if is_base_color color then None else Some shade))
+        var_name ~layer:Theme
+    in
+    let color_value =
+      to_css color (if is_base_color color then 500 else shade)
+    in
+    style class_name
+      ~vars:[ Var.Binding (color_theme_var, color_value) ]
+      [ Css.background_color (Css.Var (Var.use color_theme_var)) ]
 
 let bg_transparent = style "bg-transparent" [ background_color Transparent ]
 let bg_current = style "bg-current" [ background_color Current ]
@@ -1030,8 +1053,11 @@ let text color shade =
     let css_color = to_css color shade in
     style class_name [ Css.color css_color ]
   else
-    let var_def, css_var = var color shade in
-    style class_name [ var_def; Css.color (Css.Var css_var) ]
+    match var color shade with
+    | Var.Binding (({ kind = Var.Color _; _ } as color_var), _) as binding ->
+        style class_name ~vars:[ binding ]
+          [ Css.color (Var (Var.use color_var)) ]
+    | _ -> assert false
 
 let text_transparent = style "text-transparent" [ Css.color Transparent ]
 let text_current = style "text-current" [ Css.color Current ]
@@ -1086,8 +1112,11 @@ let border_color color shade =
     let css_color = to_css color shade in
     style class_name [ Css.border_color css_color ]
   else
-    let var_def, css_var = var color shade in
-    style class_name [ var_def; Css.border_color (Css.Var css_var) ]
+    match var color shade with
+    | Var.Binding (({ kind = Var.Color _; _ } as color_var), _) as binding ->
+        style class_name ~vars:[ binding ]
+          [ Css.border_color (Var (Var.use color_var)) ]
+    | _ -> assert false
 
 let border_transparent =
   style "border-transparent" [ Css.border_color Transparent ]
