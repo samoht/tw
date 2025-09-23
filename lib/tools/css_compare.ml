@@ -882,31 +882,21 @@ let diff_ast ~(expected : Css.t) ~(actual : Css.t) =
   let layer_diffs =
     build_diff_list
       ~added:(fun (name, stmts) ->
-        let layer_context = [ "@layer " ^ name ] in
         let rules = List.filter Css.is_rule stmts in
-        let rc = rules_to_changes ~context:layer_context (rules, [], []) in
+        let rc = rules_to_changes (rules, [], []) in
         ({ name; change = Added rc } : layer))
       ~removed:(fun (name, stmts) ->
-        let layer_context = [ "@layer " ^ name ] in
         let rules = List.filter Css.is_rule stmts in
-        let rc = rules_to_changes ~context:layer_context ([], rules, []) in
+        let rc = rules_to_changes ([], rules, []) in
         ({ name; change = Removed rc } : layer))
       ~modified:(fun (name, stmts1, stmts2) ->
-        let layer_context = [ "@layer " ^ name ] in
         let rules1 = List.filter Css.is_rule stmts1 in
         let rules2 = List.filter Css.is_rule stmts2 in
-        let rc =
-          rules_to_changes ~context:layer_context (rule_diffs rules1 rules2)
-        in
+        let rc = rules_to_changes (rule_diffs rules1 rules2) in
         if rc = [] then None
         else
           Some
-            ({
-               name;
-               change =
-                 Changed
-                   (rules_to_changes ~context:layer_context ([], rules1, []), rc);
-             }
+            ({ name; change = Changed (rules_to_changes ([], rules1, []), rc) }
               : layer))
       (layer_added, layer_removed, layer_modified)
   in
