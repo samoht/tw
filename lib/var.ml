@@ -6,199 +6,96 @@
 (* Layer classification for CSS variables *)
 type layer = Theme | Utility
 
-(* CSS variable kinds as extensible GADT - modules add their own *)
-type _ kind = ..
-
-(* Core CSS variable kinds *)
-type _ kind +=
-  | Color : string * int option -> Css.color kind
-  | Spacing : Css.length kind
-  | Font_family_list : Css.font_family kind
-  | Scroll_snap_strictness : Css.scroll_snap_strictness kind
-  | Duration : Css.duration kind
-
 (* Variable definition - the main currency *)
-type 'a property_info = Info : 'b Css.syntax * 'b * bool -> 'a property_info
+type 'a property_info = { initial : 'a; inherits : bool }
 
 type 'a t = {
-  kind : 'a kind; (* Type witness for safety *)
+  kind : 'a Css.kind; (* CSS type witness *)
   name : string; (* Variable name without -- prefix *)
   layer : layer; (* Theme or Utility *)
-  fallback : 'a option; (* Default for var() references *)
+  binding : 'a -> Css.declaration * 'a Css.var;
+      (* Function to create declaration and var ref *)
   property : 'a property_info option; (* For @property registration *)
   order : int option; (* Explicit ordering for theme layer *)
 }
 
-(* Existential wrapper *)
-type any = Any : _ kind -> any
+type info =
+  | Info : {
+      name : string;
+      kind : 'a Css.kind;
+      need_property : bool;
+      order : int option;
+    }
+      -> info
 
-(* Metadata storage *)
-type meta_info = { var : any; needs_property : bool; order : int option }
-
-let ( (meta_of_info : meta_info -> Css.meta),
-      (info_of_meta : Css.meta -> meta_info option) ) =
+let (meta_of_info : info -> Css.meta), (info_of_meta : Css.meta -> info option)
+    =
   Css.meta ()
 
-let of_meta meta =
-  match info_of_meta meta with None -> None | Some { var; _ } -> Some var
+let compare_color_name _ _ = failwith "TODO: split name and compare name+shades"
 
-let needs_property_of_meta meta =
-  match info_of_meta meta with
-  | None -> None
-  | Some { needs_property; _ } -> Some needs_property
+(* Deterministic total order for kind witnesses to keep Map/Set usable *)
+let compare (Info a) (Info b) =
+  match (a.kind, b.kind) with
+  | Color, Color -> compare_color_name a.name b.name
+  | _ -> (
+      match (a.order, b.order) with
+      | Some a, Some b -> Int.compare a b
+      | Some _, None -> 1
+      | None, Some _ -> -1
+      | _ -> String.compare a.name b.name)
 
-let order_of_meta meta =
-  match info_of_meta meta with None -> None | Some { order; _ } -> order
-
-(* Canonical color ordering *)
-let canonical_color_order = function
-  | "red" -> 0
-  | "orange" -> 1
-  | "amber" -> 2
-  | "yellow" -> 3
-  | "lime" -> 4
-  | "green" -> 5
-  | "emerald" -> 6
-  | "teal" -> 7
-  | "cyan" -> 8
-  | "sky" -> 9
-  | "blue" -> 10
-  | "indigo" -> 11
-  | "violet" -> 12
-  | "purple" -> 13
-  | "fuchsia" -> 14
-  | "pink" -> 15
-  | "rose" -> 16
-  | "slate" -> 17
-  | "gray" -> 18
-  | "zinc" -> 19
-  | "neutral" -> 20
-  | "stone" -> 21
-  | "black" -> 100
-  | "white" -> 101
-  | _ -> 200
-
-let compare_color : type a b. a kind -> b kind -> int =
- fun a b ->
-  match (a, b) with
-  | Color (name_a, shade_a), Color (name_b, shade_b) ->
-      let name_cmp =
-        Int.compare
-          (canonical_color_order name_a)
-          (canonical_color_order name_b)
-      in
-      if name_cmp <> 0 then name_cmp
-      else Option.compare Int.compare shade_a shade_b
-  | _ -> 0
-
-let compare (Any a) (Any b) = compare_color a b
 let layer_name = function Theme -> "theme" | Utility -> "utilities"
+
+(* Convert initial value to Universal syntax for @property *)
+let initial_to_universal : type a. a Css.kind -> a -> string =
+ fun kind initial ->
+  match kind with
+  | Css.Length -> (
+      let open Css in
+      match initial with
+      | Zero -> "0px"
+      | Px f when f = 0. -> "0px"
+      | _ -> Css.Pp.to_string (pp_length ~always:true) initial)
+  | Css.Color -> Css.Pp.to_string Css.pp_color initial
+  | Css.Angle -> Css.Pp.to_string Css.pp_angle initial
+  | Css.Duration -> Css.Pp.to_string Css.pp_duration initial
+  | Css.Float -> string_of_float initial ^ if initial = 100.0 then "%" else ""
+  | Css.Int -> string_of_int initial
+  | Css.String -> initial
+  | Css.Shadow -> "0 0 #0000"
+  | _ -> "initial" (* Fallback *)
 
 (* Create a variable template *)
 let create : type a.
-    a kind -> ?fallback:a -> ?order:int -> string -> layer:layer -> a t =
- fun kind ?fallback ?order name ~layer ->
+    a Css.kind ->
+    ?fallback:a ->
+    ?property:a * bool ->
+    ?order:int ->
+    string ->
+    layer:layer ->
+    a t =
+ fun kind ?fallback ?property ?order name ~layer ->
   (* Ensure theme variables have an order *)
   (match (layer, order) with
   | Theme, None ->
-      failwith
-        (Printf.sprintf "Variable '%s' in theme layer must have an order" name)
+      failwith ("Variable '" ^ name ^ "' in theme layer must have an order")
   | _ -> ());
-  { kind; name; layer; fallback; property = None; order }
 
-(* Add @property metadata *)
-let with_property : type a b.
-    syntax:b Css.syntax -> initial:b -> ?inherits:bool -> a t -> a t =
- fun ~syntax ~initial ?(inherits = false) var ->
-  { var with property = Some (Info (syntax, initial, inherits)) }
-
-(* Get declaration with a specific value *)
-let declaration : type a. a t -> a -> Css.declaration =
- fun var value ->
-  let meta =
-    meta_of_info
-      {
-        var = Any var.kind;
-        needs_property = var.property <> None;
-        order = var.order;
-      }
+  let prop_info_opt =
+    match property with
+    | None -> None
+    | Some (initial, inherits) -> Some { initial; inherits }
   in
-  let var_name = var.name in
-  let layer = Some (layer_name var.layer) in
-  (* Create typed CSS variable *)
-  match var.kind with
-  | Spacing ->
-      let d, _ = Css.var ?layer ~meta var_name Length value in
-      d
-  | Color (_, _) ->
-      let d, _ = Css.var ?layer ~meta var_name Color value in
-      d
-  | Font_family_list ->
-      let d, _ = Css.var ?layer ~meta var_name Font_family value in
-      d
-  | Scroll_snap_strictness ->
-      let d, _ = Css.var ?layer ~meta var_name Scroll_snap_strictness value in
-      d
-  | Duration ->
-      let d, _ = Css.var ?layer ~meta var_name Duration value in
-      d
-  | _ -> (
-      (* For extension kinds defined in other modules (like Typography), we need
-         to handle them specially. Since we can't match on constructors defined
-         later, we use Obj.magic to convert the value to the appropriate CSS
-         kind. This is safe because the type system ensures the value matches
-         the kind's return type.
-
-         We try each CSS kind in turn - the CSS module will accept the right
-         one. *)
-      try
-        (* Try as Length - used by text size variables *)
-        let d, _ = Css.var ?layer ~meta var_name Length (Obj.magic value) in
-        d
-      with _ -> (
-        try
-          (* Try as Line_height - used by text line height variables *)
-          let d, _ =
-            Css.var ?layer ~meta var_name Line_height (Obj.magic value)
-          in
-          d
-        with _ -> (
-          try
-            (* Try as Font_family - used by font family variables *)
-            let d, _ =
-              Css.var ?layer ~meta var_name Font_family (Obj.magic value)
-            in
-            d
-          with _ -> (
-            try
-              (* Try as Font_weight - used by font weight variables *)
-              let d, _ =
-                Css.var ?layer ~meta var_name Font_weight (Obj.magic value)
-              in
-              d
-            with _ -> (
-              try
-                (* Try as Font_variant_numeric_token *)
-                let d, _ =
-                  Css.var ?layer ~meta var_name Font_variant_numeric_token
-                    (Obj.magic value)
-                in
-                d
-              with _ -> (
-                try
-                  (* Try as Content *)
-                  let d, _ =
-                    Css.var ?layer ~meta var_name Content (Obj.magic value)
-                  in
-                  d
-                with _ ->
-                  (* Final fallback - this shouldn't happen for Typography
-                     kinds *)
-                  failwith
-                    (Printf.sprintf
-                       "Var.declaration: Could not determine CSS kind for \
-                        variable '%s'"
-                       var_name)))))))
+  let info = Info { kind; name; need_property = property <> None; order } in
+  let binding value =
+    let meta = meta_of_info info in
+    let layer_name = Some (layer_name layer) in
+    let fallback_css = Option.map (fun f -> Css.Fallback f) fallback in
+    Css.var ~default:value ?fallback:fallback_css ?layer:layer_name ~meta name
+      kind value
+  in
+  { kind; name; layer; binding; property = prop_info_opt; order }
 
 (* Check if variable needs @property rule *)
 let needs_property : type a. a t -> bool = fun var -> var.property <> None
@@ -206,35 +103,22 @@ let needs_property : type a. a t -> bool = fun var -> var.property <> None
 (* Get layer of a variable *)
 let layer : type a. a t -> layer = fun var -> var.layer
 
-(* Get var() reference *)
-let use : type a. a t -> a Css.var =
- fun var ->
-  let meta =
-    meta_of_info
-      { var = Any var.kind; needs_property = false; order = var.order }
-  in
-  let fallback = Option.map (fun f -> Css.Fallback f) var.fallback in
-  (* Pass fallback as default too for inline mode resolution *)
-  let default = var.fallback in
-  Css.var_ref ?fallback ?default ~meta var.name
-
 (* Get @property rule if metadata present *)
 let property_rule : type a. a t -> Css.t option =
  fun var ->
   match var.property with
   | None -> None
-  | Some (Info (syntax, initial, inherits)) ->
+  | Some { initial; inherits } ->
       let name = "--" ^ var.name in
-      Some (Css.property ~name syntax ~inherits ~initial_value:initial ())
+      let initial_str = initial_to_universal var.kind initial in
+      Some
+        (Css.property ~name Css.Universal ~inherits ~initial_value:initial_str
+           ())
 
-(* === Var binding for new style function === *)
-type binding = Binding : 'a t * 'a -> binding
-
-(* Extract declaration from binding *)
-let declaration_of_binding (Binding (var, value)) = declaration var value
-
-(* Extract property rule from binding *)
-let property_rule_of_binding (Binding (var, _)) = property_rule var
+(* Create a binding: returns both declaration and a context-aware var
+   reference *)
+let binding : type a. a t -> a -> Css.declaration * a Css.var =
+ fun var value -> var.binding value
 
 (* Property info to declaration value conversion *)
 let property_info_to_declaration_value (Css.Property_info info) =
@@ -252,23 +136,26 @@ let property_info_to_declaration_value (Css.Property_info info) =
       | syntax -> Css.Pp.to_string (pp_value syntax) v)
 
 (* Compare declarations *)
-let compare_declarations _layer d1 d2 =
+let compare_declarations d1 d2 =
   match (Css.meta_of_declaration d1, Css.meta_of_declaration d2) with
   | Some m1, Some m2 -> (
-      match (of_meta m1, of_meta m2) with
-      | Some v1, Some v2 -> compare v1 v2
+      match (info_of_meta m1, info_of_meta m2) with
+      | Some i1, Some i2 -> compare i1 i2
       | _ -> 0)
   | _ -> 0
 
-(* Map and Set modules *)
-module Map = Map.Make (struct
-  type t = any
+let var_needs_property v =
+  match Css.var_meta v with
+  | None -> failwith ("raw CSS variable: " ^ Css.var_name v)
+  | Some meta -> (
+      match info_of_meta meta with
+      | Some (Info i) -> i.need_property
+      | None -> assert false)
 
-  let compare = compare
-end)
+let order_of_declaration decl =
+  match Css.meta_of_declaration decl with
+  | None -> None
+  | Some meta -> (
+      match info_of_meta meta with Some (Info t) -> t.order | None -> None)
 
-module Set = Set.Make (struct
-  type t = any
-
-  let compare = compare
-end)
+let property_initial_string = property_info_to_declaration_value

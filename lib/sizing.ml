@@ -22,16 +22,16 @@ open Core
 open Css
 
 (* Create the spacing theme variable - value set in theme generation *)
-let spacing_var = Var.create Var.Spacing "spacing" ~layer:Theme ~order:4
+let spacing_var = Var.create Css.Length "spacing" ~layer:Theme ~order:4
 
 (** Helper to create spacing-based utilities with consistent pattern *)
 let spacing_utility prefix css_prop n =
   let class_name = prefix ^ string_of_int n in
+  let decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
   let spacing_value : Css.length =
-    Calc
-      Calc.(mul (length (Var (Var.use spacing_var))) (float (float_of_int n)))
+    Calc Calc.(mul (length (Var spacing_ref)) (float (float_of_int n)))
   in
-  style class_name [ css_prop spacing_value ]
+  style class_name (decl :: [ css_prop spacing_value ])
 
 (** {1 Width Utilities} *)
 

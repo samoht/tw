@@ -64,7 +64,6 @@ type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
 val style :
-  ?vars:Var.binding list ->
   ?rules:Css.statement list option ->
   ?property_rules:Css.t ->
   string ->

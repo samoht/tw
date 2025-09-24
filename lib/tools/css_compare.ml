@@ -227,11 +227,50 @@ let pp_reorder decls1 decls2 fmt =
 
 let pp_rule_change fmt change =
   match change with
-  | Added (decls, _) -> pp_declarations fmt "add" decls
-  | Removed (decls, _) -> pp_declarations fmt "remove" decls
+  | Added (decls, _) ->
+      if decls = [] then Fmt.pf fmt "    - add: (empty)@,"
+      else pp_declarations fmt "add" decls
+  | Removed (decls, _) ->
+      if decls = [] then Fmt.pf fmt "    - remove: (empty)@,"
+      else pp_declarations fmt "remove" decls
   | Changed ((decls1, _), (decls2, prop_diffs)) ->
-      (* Show property changes using the new format *)
+      (* First show added/removed properties *)
+      let props1 = List.map Css.declaration_name decls1 in
+      let props2 = List.map Css.declaration_name decls2 in
+      let added_props = List.filter (fun p -> not (List.mem p props1)) props2 in
+      let removed_props =
+        List.filter (fun p -> not (List.mem p props2)) props1
+      in
+
+      (* Show removed properties *)
+      List.iter
+        (fun prop ->
+          match
+            List.find_opt (fun d -> Css.declaration_name d = prop) decls1
+          with
+          | Some decl ->
+              let value = Css.declaration_value ~minify:true decl in
+              Fmt.pf fmt "    - remove: %s %s@," prop
+                (truncate_with_context 60 value)
+          | None -> ())
+        removed_props;
+
+      (* Show added properties *)
+      List.iter
+        (fun prop ->
+          match
+            List.find_opt (fun d -> Css.declaration_name d = prop) decls2
+          with
+          | Some decl ->
+              let value = Css.declaration_value ~minify:true decl in
+              Fmt.pf fmt "    - add: %s %s@," prop
+                (truncate_with_context 60 value)
+          | None -> ())
+        added_props;
+
+      (* Show modified properties *)
       pp_property_diffs fmt prop_diffs;
+
       (* Check for declaration order changes *)
       pp_reorder decls1 decls2 fmt
 
@@ -252,17 +291,49 @@ and pp_media_query : media_query Fmt.t =
 
 and pp_layer : layer Fmt.t =
  fun fmt layer ->
+  (* Helper: check if a rule has empty declarations *)
+  let is_empty_rule (r : rule) =
+    match r.change with
+    | Added (decls, _) -> decls = []
+    | Removed (decls, _) -> decls = []
+    | Changed ((decls1, _), (decls2, _)) -> decls1 = [] && decls2 = []
+  in
+  (* Helper: format layer header with context *)
+  let pp_layer_header name change_type =
+    match change_type with
+    | `Added -> Fmt.pf fmt "- @layer %s: (added)@," name
+    | `Removed -> Fmt.pf fmt "- @layer %s: (removed)@," name
+    | `Changed -> Fmt.pf fmt "- @layer %s:@," name
+    | `Empty action -> Fmt.pf fmt "- @layer %s: (%s, empty)@," name action
+  in
+  (* Helper: print summary of empty rules if any *)
+  let pp_empty_rules_summary rules =
+    let empty_rules = List.filter is_empty_rule rules in
+    if empty_rules <> [] then
+      let selectors = List.map (fun r -> r.selector) empty_rules in
+      Fmt.pf fmt "  (empty rules: %s)@," (String.concat ", " selectors)
+  in
   match layer.change with
+  | Added rules when rules = [] -> pp_layer_header layer.name (`Empty "added")
   | Added rules ->
-      Fmt.pf fmt "- @layer %s: (added)@," layer.name;
+      pp_layer_header layer.name `Added;
+      pp_empty_rules_summary rules;
       List.iter (pp_rule fmt) rules
+  | Removed rules when rules = [] ->
+      pp_layer_header layer.name (`Empty "removed")
   | Removed rules ->
-      Fmt.pf fmt "- @layer %s: (removed)@," layer.name;
+      pp_layer_header layer.name `Removed;
+      pp_empty_rules_summary rules;
       List.iter (pp_rule fmt) rules
+  | Changed (_, rules) when rules = [] ->
+      (* No actual rule changes detected, but layer marked as changed. This
+         shouldn't happen with proper diff detection. *)
+      pp_layer_header layer.name `Changed;
+      Fmt.pf fmt "  (no visible changes detected)@,"
   | Changed (_, rules) ->
-      if rules <> [] then (
-        Fmt.pf fmt "- @layer %s:@," layer.name;
-        List.iter (pp_rule fmt) rules)
+      pp_layer_header layer.name `Changed;
+      pp_empty_rules_summary rules;
+      List.iter (pp_rule fmt) rules
 
 and pp_supports_query : supports_query Fmt.t =
  fun fmt sq ->
@@ -893,7 +964,9 @@ let diff_ast ~(expected : Css.t) ~(actual : Css.t) =
         let rules1 = List.filter Css.is_rule stmts1 in
         let rules2 = List.filter Css.is_rule stmts2 in
         let rc = rules_to_changes (rule_diffs rules1 rules2) in
-        if rc = [] then None
+        (* Even if no rule content changes, we want to show if the layer structure differs *)
+        (* For example: one has :root,:host selectors while other doesn't *)
+        if rc = [] && rules1 = rules2 then None
         else
           Some
             ({ name; change = Changed (rules_to_changes ([], rules1, []), rc) }

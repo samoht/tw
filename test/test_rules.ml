@@ -508,10 +508,13 @@ let prose_p_selector prose_class =
        ])
 
 let grouped_prose_pairs prose_body_var prose_class prose_p_sel =
+  let _, prose_body_v =
+    Tw.Var.binding prose_body_var (Tw.Css.oklch 37.3 0.034 259.733)
+  in
   [
     ( prose_class,
       [
-        Tw.Css.color (Tw.Css.Var (Tw.Var.use prose_body_var));
+        Tw.Css.color (Tw.Css.Var prose_body_v);
         Tw.Css.max_width (Tw.Css.Ch 65.0);
       ] );
     ( prose_p_sel,
@@ -532,9 +535,7 @@ let count_prose_rules rules =
     rules
 
 let rules_of_grouped_prose_bug () =
-  let prose_body_var =
-    Tw.Var.create Tw.Prose.Prose_body "prose-body" ~layer:Utility
-  in
+  let prose_body_var = Tw.Var.create Css.Color "prose-body" ~layer:Utility in
   let prose_class = Css.Selector.class_ "prose" in
   let prose_p_sel = prose_p_selector prose_class in
   let grouped_pairs =

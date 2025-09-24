@@ -12,32 +12,7 @@
     - Consistent color schemes using CSS variables
 
     Based on Tailwind CSS Typography plugin:
-    https://tailwindcss.com/docs/typography-plugin
-
-    {1 Variable Kinds}
-
-    These variable kinds are exported for use in tests and other modules that
-    need to reference prose color variables. *)
-
-type _ Var.kind +=
-  | Prose_body : Css.color Var.kind
-  | Prose_headings : Css.color Var.kind
-  | Prose_lead : Css.color Var.kind
-  | Prose_links : Css.color Var.kind
-  | Prose_bold : Css.color Var.kind
-  | Prose_counters : Css.color Var.kind
-  | Prose_bullets : Css.color Var.kind
-  | Prose_hr : Css.color Var.kind
-  | Prose_quotes : Css.color Var.kind
-  | Prose_quote_borders : Css.color Var.kind
-  | Prose_captions : Css.color Var.kind
-  | Prose_kbd : Css.color Var.kind
-  | Prose_kbd_shadows : string Var.kind
-  | Prose_code : Css.color Var.kind
-  | Prose_pre_code : Css.color Var.kind
-  | Prose_pre_bg : Css.color Var.kind
-  | Prose_th_borders : Css.color Var.kind
-  | Prose_td_borders : Css.color Var.kind
+    https://tailwindcss.com/docs/typography-plugin *)
 
 (** Example usage:
     {[

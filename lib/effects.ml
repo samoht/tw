@@ -17,25 +17,6 @@
 
 open Core
 open Css
-
-(* Extend variable kinds for effects *)
-type _ Var.kind +=
-  | Shadow : Css.shadow Var.kind
-  | (* Shadow variables *)
-      Shadow_color :
-      Css.color Var.kind
-  | Shadow_alpha : float Var.kind
-  | Inset_shadow : Css.shadow Var.kind
-  | Inset_ring_shadow : Css.shadow Var.kind
-  | (* Ring variables *)
-      Ring_color :
-      Css.color Var.kind
-  | Ring_shadow : Css.shadow Var.kind
-  | Ring_offset_shadow : Css.shadow Var.kind
-  | Ring_offset_color : Css.color Var.kind
-  | Ring_offset_width : Css.length Var.kind
-  | Ring_width : Css.length Var.kind
-
 module Parse = Parse
 
 (** {1 Shadow and Ring Variables} *)
@@ -43,45 +24,54 @@ module Parse = Parse
 (* Shadow variables with property registration - using convert for type
    compatibility *)
 let shadow_var =
-  Var.create Shadow "tw-shadow" ~layer:Utility
-  |> Var.with_property ~syntax:Universal ~initial:"0 0 #0000"
+  Var.create Css.Shadow "tw-shadow" ~layer:Utility
+    ~property:
+      ( shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000") (),
+        false )
 
 let shadow_alpha_var =
-  Var.create Shadow_alpha "tw-shadow-alpha" ~layer:Utility
-  |> Var.with_property ~syntax:Universal ~initial:"100%"
+  Var.create Css.Float "tw-shadow-alpha" ~layer:Utility ~property:(100.0, false)
 
 let shadow_color_var =
-  Var.create Shadow_color "tw-shadow-color" ~layer:Utility
+  Var.create Css.Color "tw-shadow-color" ~layer:Utility
     ~fallback:(Css.hex "#0000001a")
 
 let inset_shadow_var =
-  Var.create Inset_shadow "tw-inset-shadow" ~layer:Utility
-  |> Var.with_property ~syntax:Universal ~initial:"0 0 #0000"
+  Var.create Css.Shadow "tw-inset-shadow" ~layer:Utility
+    ~property:
+      ( shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000") (),
+        false )
 
 (* Ring variables *)
-let ring_color_var = Var.create Ring_color "tw-ring-color" ~layer:Utility
+let ring_color_var = Var.create Css.Color "tw-ring-color" ~layer:Utility
 
 let ring_shadow_var =
-  Var.create Ring_shadow "tw-ring-shadow" ~layer:Utility
-  |> Var.with_property ~syntax:Universal ~initial:"0 0 #0000"
+  Var.create Css.Shadow "tw-ring-shadow" ~layer:Utility
+    ~property:
+      ( shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000") (),
+        false )
 
 let inset_ring_shadow_var =
-  Var.create Inset_ring_shadow "tw-inset-ring-shadow" ~layer:Utility
-  |> Var.with_property ~syntax:Universal ~initial:"0 0 #0000"
+  Var.create Css.Shadow "tw-inset-ring-shadow" ~layer:Utility
+    ~property:
+      ( shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000") (),
+        false )
 
 let ring_offset_shadow_var =
-  Var.create Ring_offset_shadow "tw-ring-offset-shadow" ~layer:Utility
-  |> Var.with_property ~syntax:Universal ~initial:"0 0 #0000"
+  Var.create Css.Shadow "tw-ring-offset-shadow" ~layer:Utility
+    ~property:
+      ( shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000") (),
+        false )
 
 let ring_offset_color_var =
-  Var.create Ring_offset_color "tw-ring-offset-color" ~layer:Utility
-  |> Var.with_property ~syntax:Universal ~initial:"#fff"
+  Var.create Css.Color "tw-ring-offset-color" ~layer:Utility
+    ~property:(Css.hex "#fff", false)
 
 let ring_offset_width_var =
-  Var.create Ring_offset_width "tw-ring-offset-width" ~layer:Utility
-  |> Var.with_property ~syntax:Universal ~initial:"0px"
+  Var.create Css.Length "tw-ring-offset-width" ~layer:Utility
+    ~property:((Css.Px 0.0 : Css.length), false)
 
-let ring_width_var = Var.create Ring_width "tw-ring-width" ~layer:Utility
+let ring_width_var = Var.create Css.Length "tw-ring-width" ~layer:Utility
 
 (** {1 Shadow Utilities} *)
 
@@ -92,43 +82,72 @@ let shadow_none =
   in
 
   (* Create box-shadow using CSS variable composition *)
+  let d_inset, v_inset = Var.binding inset_shadow_var shadow_value in
+  let d_inset_ring, v_inset_ring =
+    Var.binding inset_ring_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_ring_offset, v_ring_offset =
+    Var.binding ring_offset_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_ring, v_ring =
+    Var.binding ring_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_shadow, v_shadow = Var.binding shadow_var shadow_value in
   let box_shadow_vars : Css.shadow =
     Css.List
       [
-        Css.Var (Var.use inset_shadow_var);
-        Css.Var (Var.use inset_ring_shadow_var);
-        Css.Var (Var.use ring_offset_shadow_var);
-        Css.Var (Var.use ring_shadow_var);
-        Css.Var (Var.use shadow_var);
+        Css.Var v_inset;
+        Css.Var v_inset_ring;
+        Css.Var v_ring_offset;
+        Css.Var v_ring;
+        Css.Var v_shadow;
       ]
   in
 
   style "shadow-none"
-    ~vars:[ Binding (shadow_var, shadow_value) ]
-    [ Css.box_shadow box_shadow_vars ]
+    (d_inset :: d_inset_ring :: d_ring_offset :: d_ring :: d_shadow
+    :: [ Css.box_shadow box_shadow_vars ])
 
 let shadow_sm =
   (* Shadow-sm with composite shadows matching Tailwind v4 *)
+  let d_color, color_ref = Var.binding shadow_color_var (Css.hex "#0000001a") in
   let shadow_list =
     [
       Css.shadow ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 3.) ~spread:Zero
-        ~color:(Var (Var.use shadow_color_var))
-        ();
+        ~color:(Var color_ref) ();
       Css.shadow ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 2.)
-        ~spread:(Px (-1.))
-        ~color:(Var (Var.use shadow_color_var))
-        ();
+        ~spread:(Px (-1.)) ~color:(Var color_ref) ();
     ]
   in
 
   (* Create box-shadow using CSS variable composition *)
+  let d_inset, v_inset =
+    Var.binding inset_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_inset_ring, v_inset_ring =
+    Var.binding inset_ring_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_ring_offset, v_ring_offset =
+    Var.binding ring_offset_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_ring, v_ring =
+    Var.binding ring_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_shadow, v_shadow = Var.binding shadow_var (List shadow_list) in
   let box_shadow_vars : Css.shadow list =
     [
-      Css.Var (Var.use inset_shadow_var);
-      Css.Var (Var.use inset_ring_shadow_var);
-      Css.Var (Var.use ring_offset_shadow_var);
-      Css.Var (Var.use ring_shadow_var);
-      Css.Var (Var.use shadow_var);
+      Css.Var v_inset;
+      Css.Var v_inset_ring;
+      Css.Var v_ring_offset;
+      Css.Var v_ring;
+      Css.Var v_shadow;
     ]
   in
 
@@ -147,153 +166,226 @@ let shadow_sm =
   in
   style "shadow-sm"
     ~property_rules:(Css.concat property_rules)
-    ~vars:[ Binding (shadow_var, List shadow_list) ]
-    [ Css.box_shadows box_shadow_vars ]
+    (d_color :: d_inset :: d_inset_ring :: d_ring_offset :: d_ring :: d_shadow
+    :: [ Css.box_shadows box_shadow_vars ])
 
 let shadow =
   (* Default shadow - same as shadow-sm in Tailwind v4 *)
+  let d_color, color_ref = Var.binding shadow_color_var (Css.hex "#0000001a") in
   let shadow_list =
     [
       Css.shadow ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 3.) ~spread:Zero
-        ~color:(Var (Var.use shadow_color_var))
-        ();
+        ~color:(Var color_ref) ();
       Css.shadow ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 2.)
-        ~spread:(Px (-1.))
-        ~color:(Var (Var.use shadow_color_var))
-        ();
+        ~spread:(Px (-1.)) ~color:(Var color_ref) ();
     ]
   in
 
   (* Create box-shadow using CSS variable composition *)
+  let d_inset, v_inset =
+    Var.binding inset_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_inset_ring, v_inset_ring =
+    Var.binding inset_ring_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_ring_offset, v_ring_offset =
+    Var.binding ring_offset_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_ring, v_ring =
+    Var.binding ring_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_shadow, v_shadow = Var.binding shadow_var (List shadow_list) in
   let box_shadow_vars : Css.shadow list =
     [
-      Css.Var (Var.use inset_shadow_var);
-      Css.Var (Var.use inset_ring_shadow_var);
-      Css.Var (Var.use ring_offset_shadow_var);
-      Css.Var (Var.use ring_shadow_var);
-      Css.Var (Var.use shadow_var);
+      Css.Var v_inset;
+      Css.Var v_inset_ring;
+      Css.Var v_ring_offset;
+      Css.Var v_ring;
+      Css.Var v_shadow;
     ]
   in
 
   style "shadow"
-    ~vars:[ Binding (shadow_var, List shadow_list) ]
-    [ Css.box_shadows box_shadow_vars ]
+    (d_color :: d_inset :: d_inset_ring :: d_ring_offset :: d_ring :: d_shadow
+    :: [ Css.box_shadows box_shadow_vars ])
 
 let shadow_md =
   (* Shadow-md with CSS variable for color *)
+  let d_color, color_ref = Var.binding shadow_color_var (Css.hex "#0000001a") in
   let shadow_list =
     [
       Css.shadow ~h_offset:Zero ~v_offset:(Px 4.) ~blur:(Px 6.)
-        ~spread:(Px (-1.))
-        ~color:(Var (Var.use shadow_color_var))
-        ();
+        ~spread:(Px (-1.)) ~color:(Var color_ref) ();
       Css.shadow ~h_offset:Zero ~v_offset:(Px 2.) ~blur:(Px 4.)
-        ~spread:(Px (-2.))
-        ~color:(Var (Var.use shadow_color_var))
-        ();
+        ~spread:(Px (-2.)) ~color:(Var color_ref) ();
     ]
   in
 
   (* Create box-shadow using CSS variable composition *)
+  let d_inset, v_inset =
+    Var.binding inset_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_inset_ring, v_inset_ring =
+    Var.binding inset_ring_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_ring_offset, v_ring_offset =
+    Var.binding ring_offset_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_ring, v_ring =
+    Var.binding ring_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_shadow, v_shadow = Var.binding shadow_var (List shadow_list) in
   let box_shadow_vars : Css.shadow list =
     [
-      Css.Var (Var.use inset_shadow_var);
-      Css.Var (Var.use inset_ring_shadow_var);
-      Css.Var (Var.use ring_offset_shadow_var);
-      Css.Var (Var.use ring_shadow_var);
-      Css.Var (Var.use shadow_var);
+      Css.Var v_inset;
+      Css.Var v_inset_ring;
+      Css.Var v_ring_offset;
+      Css.Var v_ring;
+      Css.Var v_shadow;
     ]
   in
 
   style "shadow-md"
-    ~vars:[ Binding (shadow_var, List shadow_list) ]
-    [ Css.box_shadows box_shadow_vars ]
+    (d_color :: d_inset :: d_inset_ring :: d_ring_offset :: d_ring :: d_shadow
+    :: [ Css.box_shadows box_shadow_vars ])
 
 let shadow_lg =
   (* Shadow-lg with CSS variable for color *)
+  let d_color, color_ref = Var.binding shadow_color_var (Css.hex "#0000001a") in
   let shadow_list =
     [
       Css.shadow ~h_offset:Zero ~v_offset:(Px 10.) ~blur:(Px 15.)
-        ~spread:(Px (-3.))
-        ~color:(Var (Var.use shadow_color_var))
-        ();
+        ~spread:(Px (-3.)) ~color:(Var color_ref) ();
       Css.shadow ~h_offset:Zero ~v_offset:(Px 4.) ~blur:(Px 6.)
-        ~spread:(Px (-4.))
-        ~color:(Var (Var.use shadow_color_var))
-        ();
+        ~spread:(Px (-4.)) ~color:(Var color_ref) ();
     ]
   in
 
   (* Create box-shadow using CSS variable composition *)
+  let d_inset, v_inset =
+    Var.binding inset_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_inset_ring, v_inset_ring =
+    Var.binding inset_ring_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_ring_offset, v_ring_offset =
+    Var.binding ring_offset_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_ring, v_ring =
+    Var.binding ring_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_shadow, v_shadow = Var.binding shadow_var (List shadow_list) in
   let box_shadow_vars : Css.shadow list =
     [
-      Css.Var (Var.use inset_shadow_var);
-      Css.Var (Var.use inset_ring_shadow_var);
-      Css.Var (Var.use ring_offset_shadow_var);
-      Css.Var (Var.use ring_shadow_var);
-      Css.Var (Var.use shadow_var);
+      Css.Var v_inset;
+      Css.Var v_inset_ring;
+      Css.Var v_ring_offset;
+      Css.Var v_ring;
+      Css.Var v_shadow;
     ]
   in
 
   style "shadow-lg"
-    ~vars:[ Binding (shadow_var, List shadow_list) ]
-    [ Css.box_shadows box_shadow_vars ]
+    (d_color :: d_inset :: d_inset_ring :: d_ring_offset :: d_ring :: d_shadow
+    :: [ Css.box_shadows box_shadow_vars ])
 
 let shadow_xl =
   (* Shadow-xl with CSS variable for color *)
+  let d_color, color_ref = Var.binding shadow_color_var (Css.hex "#0000001a") in
   let shadow_list =
     [
       Css.shadow ~h_offset:Zero ~v_offset:(Px 20.) ~blur:(Px 25.)
-        ~spread:(Px (-5.))
-        ~color:(Var (Var.use shadow_color_var))
-        ();
+        ~spread:(Px (-5.)) ~color:(Var color_ref) ();
       Css.shadow ~h_offset:Zero ~v_offset:(Px 8.) ~blur:(Px 10.)
-        ~spread:(Px (-6.))
-        ~color:(Var (Var.use shadow_color_var))
-        ();
+        ~spread:(Px (-6.)) ~color:(Var color_ref) ();
     ]
   in
 
   (* Create box-shadow using CSS variable composition *)
+  let d_inset, v_inset =
+    Var.binding inset_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_inset_ring, v_inset_ring =
+    Var.binding inset_ring_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_ring_offset, v_ring_offset =
+    Var.binding ring_offset_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_ring, v_ring =
+    Var.binding ring_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_shadow, v_shadow = Var.binding shadow_var (List shadow_list) in
   let box_shadow_vars : Css.shadow list =
     [
-      Css.Var (Var.use inset_shadow_var);
-      Css.Var (Var.use inset_ring_shadow_var);
-      Css.Var (Var.use ring_offset_shadow_var);
-      Css.Var (Var.use ring_shadow_var);
-      Css.Var (Var.use shadow_var);
+      Css.Var v_inset;
+      Css.Var v_inset_ring;
+      Css.Var v_ring_offset;
+      Css.Var v_ring;
+      Css.Var v_shadow;
     ]
   in
 
   style "shadow-xl"
-    ~vars:[ Binding (shadow_var, List shadow_list) ]
-    [ Css.box_shadows box_shadow_vars ]
+    (d_color :: d_inset :: d_inset_ring :: d_ring_offset :: d_ring :: d_shadow
+    :: [ Css.box_shadows box_shadow_vars ])
 
 let shadow_2xl =
   (* Shadow-2xl with CSS variable for color *)
+  let d_color, color_ref = Var.binding shadow_color_var (Css.hex "#0000001a") in
   let shadow_list =
     [
       Css.shadow ~h_offset:Zero ~v_offset:(Px 25.) ~blur:(Px 50.)
-        ~spread:(Px (-12.))
-        ~color:(Var (Var.use shadow_color_var))
-        ();
+        ~spread:(Px (-12.)) ~color:(Var color_ref) ();
     ]
   in
 
   (* Create box-shadow using CSS variable composition *)
+  let d_inset, v_inset =
+    Var.binding inset_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_inset_ring, v_inset_ring =
+    Var.binding inset_ring_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_ring_offset, v_ring_offset =
+    Var.binding ring_offset_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_ring, v_ring =
+    Var.binding ring_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_shadow, v_shadow = Var.binding shadow_var (List shadow_list) in
   let box_shadow_vars : Css.shadow list =
     [
-      Css.Var (Var.use inset_shadow_var);
-      Css.Var (Var.use inset_ring_shadow_var);
-      Css.Var (Var.use ring_offset_shadow_var);
-      Css.Var (Var.use ring_shadow_var);
-      Css.Var (Var.use shadow_var);
+      Css.Var v_inset;
+      Css.Var v_inset_ring;
+      Css.Var v_ring_offset;
+      Css.Var v_ring;
+      Css.Var v_shadow;
     ]
   in
 
   style "shadow-2xl"
-    ~vars:[ Binding (shadow_var, List shadow_list) ]
-    [ Css.box_shadows box_shadow_vars ]
+    (d_color :: d_inset :: d_inset_ring :: d_ring_offset :: d_ring :: d_shadow
+    :: [ Css.box_shadows box_shadow_vars ])
 
 let shadow_inner =
   (* Define inset shadow variable *)
@@ -303,24 +395,21 @@ let shadow_inner =
   (* Create the box-shadow declaration with the shadow value *)
   let box_shadow_decl = Css.box_shadow inset_shadow_value in
 
+  let d_inset, _ = Var.binding inset_shadow_var inset_shadow_value in
+  let d_inset_ring, _ =
+    Var.binding inset_ring_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_ring_offset, _ =
+    Var.binding ring_offset_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_ring, _ =
+    Var.binding ring_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
   style "shadow-inner"
-    ~vars:
-      [
-        Binding (inset_shadow_var, inset_shadow_value);
-        Binding
-          ( inset_ring_shadow_var,
-            Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ()
-          );
-        Binding
-          ( ring_offset_shadow_var,
-            Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ()
-          );
-        Binding
-          ( ring_shadow_var,
-            Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ()
-          );
-      ]
-    [ box_shadow_decl ]
+    (d_inset :: d_inset_ring :: d_ring_offset :: d_ring :: [ box_shadow_decl ])
 
 (** {1 Opacity Utilities} *)
 
@@ -368,30 +457,47 @@ let ring_internal (w : ring_width) =
     | "8px" -> Px 8.
     | _ -> Px 3.
   in
+  let d_ring_color, ring_color_ref =
+    Var.binding ring_color_var (Css.hex "#0000001a")
+  in
   let ring_shadow_value =
     Css.shadow ~h_offset:Zero ~v_offset:Zero ~spread:width_len
-      ~color:(Var (Var.use ring_color_var))
-      ()
+      ~color:(Var ring_color_ref) ()
   in
 
   (* Create box-shadow using CSS variable composition *)
+  let d_inset, v_inset =
+    Var.binding inset_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_inset_ring, v_inset_ring =
+    Var.binding inset_ring_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_ring_offset, v_ring_offset =
+    Var.binding ring_offset_shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
+  let d_ring, v_ring = Var.binding ring_shadow_var ring_shadow_value in
+  let d_shadow, v_shadow =
+    Var.binding shadow_var
+      (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+  in
   let box_shadow_vars : Css.shadow list =
     [
-      Css.Var (Var.use inset_shadow_var);
-      Css.Var (Var.use inset_ring_shadow_var);
-      Css.Var (Var.use ring_offset_shadow_var);
-      Css.Var (Var.use ring_shadow_var);
-      Css.Var (Var.use shadow_var);
+      Css.Var v_inset;
+      Css.Var v_inset_ring;
+      Css.Var v_ring_offset;
+      Css.Var v_ring;
+      Css.Var v_shadow;
     ]
   in
 
+  let d_width, _ = Var.binding ring_width_var width_len in
   style class_name
-    ~vars:
-      [
-        Binding (ring_width_var, width_len);
-        Binding (ring_shadow_var, ring_shadow_value);
-      ]
-    [ Css.box_shadows box_shadow_vars ]
+    (d_ring_color :: d_width :: d_inset :: d_inset_ring :: d_ring_offset
+   :: d_ring :: d_shadow
+    :: [ Css.box_shadows box_shadow_vars ])
 
 let ring_none = ring_internal `None
 let ring_xs = ring_internal `Xs
@@ -415,7 +521,8 @@ let ring_color color shade =
     else String.concat "" [ "ring-"; Color.pp color; "-"; string_of_int shade ]
   in
   let color_value = Color.to_css color shade in
-  style class_name ~vars:[ Binding (ring_color_var, color_value) ] []
+  let d, _ = Var.binding ring_color_var color_value in
+  style class_name (d :: [])
 
 (** {1 Transition Utilities} *)
 

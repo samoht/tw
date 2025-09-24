@@ -64,12 +64,8 @@ type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
 (* Helper to create a style *)
-let style ?(vars = []) ?(rules = None) ?(property_rules = Css.empty) name props
-    =
-  (* Extract declarations from var bindings and prepend to props *)
-  let var_decls = List.map Var.declaration_of_binding vars in
-  let all_props = var_decls @ props in
-  Style { name; props = all_props; rules; property_rules }
+let style ?(rules = None) ?(property_rules = Css.empty) name props =
+  Style { name; props; rules; property_rules }
 
 (* Extract base class name(s) from Core.t. Modifiers are ignored. *)
 let rec class_name = function

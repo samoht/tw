@@ -44,7 +44,7 @@ let scroll_smooth = style "scroll-smooth" [ scroll_behavior Smooth ]
 
 (* Reference to the global scroll snap strictness variable *)
 let scroll_snap_strictness_var =
-  Var.create Var.Scroll_snap_strictness "tw-scroll-snap-strictness"
+  Var.create Css.Scroll_snap_strictness "tw-scroll-snap-strictness"
     ~layer:Utility ~fallback:Proximity
 
 let snap_start = style "snap-start" [ scroll_snap_align Start ]
@@ -56,14 +56,12 @@ let snap_y = style "snap-y" [ scroll_snap_type Y ]
 let snap_both = style "snap-both" [ scroll_snap_type Both ]
 
 let snap_mandatory =
-  style "snap-mandatory"
-    ~vars:[ Binding (scroll_snap_strictness_var, Mandatory) ]
-    []
+  let d, _ = Var.binding scroll_snap_strictness_var Mandatory in
+  style "snap-mandatory" (d :: [])
 
 let snap_proximity =
-  style "snap-proximity"
-    ~vars:[ Binding (scroll_snap_strictness_var, Proximity) ]
-    []
+  let d, _ = Var.binding scroll_snap_strictness_var Proximity in
+  style "snap-proximity" (d :: [])
 
 let snap_align_none = style "snap-align-none" [ scroll_snap_align None ]
 let snap_normal = style "snap-normal" [ scroll_snap_stop Normal ]

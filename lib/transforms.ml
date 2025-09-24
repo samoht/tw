@@ -18,43 +18,30 @@
 open Core
 open Css
 
-(* Extend variable kinds for transforms *)
-type _ Var.kind +=
-  | (* Transform variables *)
-      Tw_translate_x :
-      Css.length Var.kind
-  | Tw_translate_y : Css.length Var.kind
-  | Tw_rotate : Css.angle Var.kind
-  | Tw_skew_x : Css.angle Var.kind
-  | Tw_skew_y : Css.angle Var.kind
-  | Tw_scale_x : float Var.kind
-  | Tw_scale_y : float Var.kind
-  | Tw_scale_z : float Var.kind
-
 (* Transform variables using new API *)
 let tw_translate_x_var =
-  Var.create Tw_translate_x "tw-translate-x" ~layer:Utility ~fallback:Zero
+  Var.create Css.Length "tw-translate-x" ~layer:Utility ~fallback:Zero
 
 let tw_translate_y_var =
-  Var.create Tw_translate_y "tw-translate-y" ~layer:Utility ~fallback:Css.Zero
+  Var.create Css.Length "tw-translate-y" ~layer:Utility ~fallback:Css.Zero
 
 let tw_rotate_var =
-  Var.create Tw_rotate "tw-rotate" ~layer:Utility ~fallback:(Deg 0.0)
+  Var.create Css.Angle "tw-rotate" ~layer:Utility ~fallback:(Deg 0.0)
 
 let tw_skew_x_var =
-  Var.create Tw_skew_x "tw-skew-x" ~layer:Utility ~fallback:(Deg 0.0)
+  Var.create Css.Angle "tw-skew-x" ~layer:Utility ~fallback:(Deg 0.0)
 
 let tw_skew_y_var =
-  Var.create Tw_skew_y "tw-skew-y" ~layer:Utility ~fallback:(Deg 0.0)
+  Var.create Css.Angle "tw-skew-y" ~layer:Utility ~fallback:(Deg 0.0)
 
 let tw_scale_x_var =
-  Var.create Tw_scale_x "tw-scale-x" ~layer:Utility ~fallback:1.0
+  Var.create Css.Float "tw-scale-x" ~layer:Utility ~fallback:1.0
 
 let tw_scale_y_var =
-  Var.create Tw_scale_y "tw-scale-y" ~layer:Utility ~fallback:1.0
+  Var.create Css.Float "tw-scale-y" ~layer:Utility ~fallback:1.0
 
 let tw_scale_z_var =
-  Var.create Tw_scale_z "tw-scale-z" ~layer:Utility ~fallback:1.0
+  Var.create Css.Float "tw-scale-z" ~layer:Utility ~fallback:1.0
 
 module Parse = Parse
 
@@ -82,48 +69,38 @@ let translate_y n =
 let scale n =
   let value = float_of_int n /. 100.0 in
   let class_name = "scale-" ^ string_of_int n in
-  (* Sets all three scale variables but only uses X and Y in the scale property
-     for 2D scale *)
-  style class_name
-    ~vars:
-      [
-        Binding (tw_scale_x_var, value);
-        Binding (tw_scale_y_var, value);
-        Binding (tw_scale_z_var, value);
-      ]
-    [ Css.scale (Css.XY (value, value)) ]
+  let dx, _ = Var.binding tw_scale_x_var value in
+  let dy, _ = Var.binding tw_scale_y_var value in
+  let dz, _ = Var.binding tw_scale_z_var value in
+  style class_name (dx :: dy :: dz :: [ Css.scale (Css.XY (value, value)) ])
 
 let scale_x n =
   let value = float_of_int n /. 100.0 in
   (* Convert percentage to float *)
   let class_name = "scale-x-" ^ string_of_int n in
   (* Only uses X variable *)
-  style class_name
-    ~vars:[ Binding (tw_scale_x_var, value) ]
-    [ transform [ Scale_x value ] ]
+  let d, _ = Var.binding tw_scale_x_var value in
+  style class_name (d :: [ transform [ Scale_x value ] ])
 
 let scale_y n =
   let value = float_of_int n /. 100.0 in
   (* Convert percentage to float *)
   let class_name = "scale-y-" ^ string_of_int n in
   (* Only uses Y variable *)
-  style class_name
-    ~vars:[ Binding (tw_scale_y_var, value) ]
-    [ transform [ Scale_y value ] ]
+  let d, _ = Var.binding tw_scale_y_var value in
+  style class_name (d :: [ transform [ Scale_y value ] ])
 
 let skew_x deg =
   let prefix = if deg < 0 then "-" else "" in
   let class_name = prefix ^ "skew-x-" ^ string_of_int (abs deg) in
-  style class_name
-    ~vars:[ Binding (tw_skew_x_var, Deg (float_of_int deg)) ]
-    [ transform [ Skew_x (Var (Var.use tw_skew_x_var)) ] ]
+  let d, v = Var.binding tw_skew_x_var (Deg (float_of_int deg)) in
+  style class_name (d :: [ transform [ Skew_x (Var v) ] ])
 
 let skew_y deg =
   let prefix = if deg < 0 then "-" else "" in
   let class_name = prefix ^ "skew-y-" ^ string_of_int (abs deg) in
-  style class_name
-    ~vars:[ Binding (tw_skew_y_var, Deg (float_of_int deg)) ]
-    [ transform [ Skew_y (Var (Var.use tw_skew_y_var)) ] ]
+  let d, v = Var.binding tw_skew_y_var (Deg (float_of_int deg)) in
+  style class_name (d :: [ transform [ Skew_y (Var v) ] ])
 
 (* Negative translate utilities for centering *)
 let neg_translate_x_1_2 =
@@ -159,9 +136,8 @@ let translate_z n =
 let scale_z n =
   let value = float_of_int n /. 100.0 in
   let class_name = "scale-z-" ^ string_of_int n in
-  style class_name
-    ~vars:[ Binding (tw_scale_z_var, value) ]
-    [ transform [ Scale_z value ] ]
+  let d, _ = Var.binding tw_scale_z_var value in
+  style class_name (d :: [ transform [ Scale_z value ] ])
 
 let perspective n =
   let class_name = "perspective-" ^ string_of_int n in
@@ -193,29 +169,27 @@ let backface_hidden = style "backface-hidden" [ backface_visibility Hidden ]
 (** {1 Transform Control Utilities} *)
 
 let transform =
+  let dx, vx = Var.binding tw_translate_x_var Zero in
+  let dy, vy = Var.binding tw_translate_y_var Zero in
+  let dr, vr = Var.binding tw_rotate_var (Deg 0.0) in
+  let dsx, vsx = Var.binding tw_skew_x_var (Deg 0.0) in
+  let dsy, vsy = Var.binding tw_skew_y_var (Deg 0.0) in
+  let _, _ = Var.binding tw_scale_x_var 1.0 in
+  let _, _ = Var.binding tw_scale_y_var 1.0 in
   style "transform"
-    ~vars:
-      [
-        Binding (tw_translate_x_var, Zero);
-        Binding (tw_translate_y_var, Zero);
-        Binding (tw_rotate_var, Deg 0.0);
-        Binding (tw_skew_x_var, Deg 0.0);
-        Binding (tw_skew_y_var, Deg 0.0);
-        Binding (tw_scale_x_var, 1.0);
-        Binding (tw_scale_y_var, 1.0);
-      ]
-    [
-      transform
-        [
-          Translate_x (Var (Var.use tw_translate_x_var));
-          Translate_y (Var (Var.use tw_translate_y_var));
-          Rotate (Var (Var.use tw_rotate_var));
-          Skew_x (Var (Var.use tw_skew_x_var));
-          Skew_y (Var (Var.use tw_skew_y_var));
-          Scale_x 1.0;
-          Scale_y 1.0;
-        ];
-    ]
+    (dx :: dy :: dr :: dsx :: dsy
+    :: [
+         transform
+           [
+             Translate_x (Var vx);
+             Translate_y (Var vy);
+             Rotate (Var vr);
+             Skew_x (Var vsx);
+             Skew_y (Var vsy);
+             Scale_x 1.0;
+             Scale_y 1.0;
+           ];
+       ])
 
 let transform_none = style "transform-none" [ Css.transform [ None ] ]
 let transform_gpu = style "transform-gpu" [ Css.transform [ Translate_z Zero ] ]

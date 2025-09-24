@@ -2,15 +2,6 @@
 
 open Core
 
-(** {1 Variable Kinds} *)
-
-type _ Var.kind +=
-  | Font_sans : Css.font_family Var.kind
-  | Font_serif : Css.font_family Var.kind
-  | Font_mono : Css.font_family Var.kind
-  | Default_font_family : Css.font_family Var.kind
-  | Default_mono_font_family : Css.font_family Var.kind
-
 (** {1 Font Size Utilities} *)
 
 val text_xs : t

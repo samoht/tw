@@ -2,29 +2,21 @@
 
 open Core
 
-(* Extend variable kinds for backgrounds and gradients *)
-type _ Var.kind +=
-  | (* Gradient variables *)
-      Gradient_from :
-      Css.color Var.kind
-  | Gradient_via : Css.color Var.kind
-  | Gradient_to : Css.color Var.kind
-
 (* Gradient variables using new API - no values, just definitions *)
 let gradient_from_var =
-  Var.create Gradient_from "tw-gradient-from" ~layer:Utility
+  Var.create Css.Color "tw-gradient-from" ~layer:Utility
     ~fallback:(Css.hex "#0000")
-  |> Var.with_property ~syntax:Css.Color ~initial:(Css.hex "#0000")
+    ~property:(Css.hex "#0000", false)
 
 let gradient_via_var =
-  Var.create Gradient_via "tw-gradient-via" ~layer:Utility
+  Var.create Css.Color "tw-gradient-via" ~layer:Utility
     ~fallback:(Css.hex "#0000")
-  |> Var.with_property ~syntax:Css.Color ~initial:(Css.hex "#0000")
+    ~property:(Css.hex "#0000", false)
 
 let gradient_to_var =
-  Var.create Gradient_to "tw-gradient-to" ~layer:Utility
+  Var.create Css.Color "tw-gradient-to" ~layer:Utility
     ~fallback:(Css.hex "#0000")
-  |> Var.with_property ~syntax:Css.Color ~initial:(Css.hex "#0000")
+    ~property:(Css.hex "#0000", false)
 
 type direction =
   | Bottom
@@ -48,19 +40,14 @@ let gradient_to_spec : direction -> string * Css.gradient_direction = function
 
 let bg_gradient_to dir =
   let class_name, dir_val = gradient_to_spec dir in
+  let d_from, v_from = Var.binding gradient_from_var (Css.hex "#0000") in
+  let d_to, v_to = Var.binding gradient_to_var (Css.hex "#0000") in
   style class_name
-    ~vars:
-      [
-        Binding (gradient_from_var, Css.hex "#0000");
-        Binding (gradient_to_var, Css.hex "#0000");
-      ]
-    [
-      Css.background_image
-        (Linear_gradient
-           ( dir_val,
-             [ Var (Var.use gradient_from_var); Var (Var.use gradient_to_var) ]
-           ));
-    ]
+    (d_from :: d_to
+    :: [
+         Css.background_image
+           (Linear_gradient (dir_val, [ Var v_from; Var v_to ]));
+       ])
 
 (* Legacy fixed-direction helpers removed in favor of bg_gradient_to *)
 
@@ -88,66 +75,48 @@ let from_color ?(shade = 500) color =
   (* Create color theme variable *)
   let color_name = Color.pp color in
   let color_theme_var =
-    Var.create
-      (Var.Color (color_name, Some shade))
+    Var.create Css.Color
       (String.concat "-" [ "color"; color_name; string_of_int shade ])
-      ~layer:Theme
-      ~order:(Color.color_order color shade)
+      ~layer:Theme ~order:3
   in
   let color_value = Color.to_css color shade in
   (* Simply set the gradient-from color - composition happens in
      background-image *)
-  style class_name
-    ~vars:
-      [
-        Binding (color_theme_var, color_value);
-        Binding (gradient_from_var, Css.Var (Var.use color_theme_var));
-      ]
-    []
+  let d_color, color_ref = Var.binding color_theme_var color_value in
+  let d_from, _ = Var.binding gradient_from_var (Css.Var color_ref) in
+  style class_name [ d_color; d_from ]
 
 let via_color ?(shade = 500) color =
   let class_name = gradient_color_class_name ~prefix:"via-" ~shade color in
   (* Create color theme variable *)
   let color_name = Color.pp color in
   let color_theme_var =
-    Var.create
-      (Var.Color (color_name, Some shade))
+    Var.create Css.Color
       (String.concat "-" [ "color"; color_name; string_of_int shade ])
-      ~layer:Theme
-      ~order:(Color.color_order color shade)
+      ~layer:Theme ~order:3
   in
   let color_value = Color.to_css color shade in
   (* Simply set the gradient-via color - composition happens in
      background-image *)
-  style class_name
-    ~vars:
-      [
-        Binding (color_theme_var, color_value);
-        Binding (gradient_via_var, Css.Var (Var.use color_theme_var));
-      ]
-    []
+  let d_color, color_ref = Var.binding color_theme_var color_value in
+  let d_via, _ = Var.binding gradient_via_var (Css.Var color_ref) in
+  style class_name [ d_color; d_via ]
 
 let to_color ?(shade = 500) color =
   let class_name = gradient_color_class_name ~prefix:"to-" ~shade color in
   (* Create color theme variable *)
   let color_name = Color.pp color in
   let color_theme_var =
-    Var.create
-      (Var.Color (color_name, Some shade))
+    Var.create Css.Color
       (String.concat "-" [ "color"; color_name; string_of_int shade ])
-      ~layer:Theme
-      ~order:(Color.color_order color shade)
+      ~layer:Theme ~order:3
   in
   let color_value = Color.to_css color shade in
   (* Simply set the gradient-to color - composition happens in
      background-image *)
-  style class_name
-    ~vars:
-      [
-        Binding (color_theme_var, color_value);
-        Binding (gradient_to_var, Css.Var (Var.use color_theme_var));
-      ]
-    []
+  let d_color, color_ref = Var.binding color_theme_var color_value in
+  let d_to, _ = Var.binding gradient_to_var (Css.Var color_ref) in
+  style class_name [ d_color; d_to ]
 
 let of_string = function
   | [ "bg"; "gradient"; "to"; dir ] -> (

@@ -105,25 +105,23 @@
     {2 Basic Usage}
 
     {[
-      (* Define variable kinds - modules extend this *)
-      type _ Var.kind +=
-        | Font_weight : Css.font_weight Var.kind
-        | Font_weight_bold : Css.font_weight Var.kind
-
       (* Create theme variable *)
       let font_weight_bold =
-        Var.create Font_weight_bold ~name:"font-weight-bold" ~layer:Theme
+        Var.create Css.Font_weight "font-weight-bold" ~layer:Theme ~order:206
 
       (* Create utility variable with @property metadata *)
       let font_weight =
-        Var.create Font_weight ~name:"tw-font-weight" ~layer:Utility
-        |> Var.with_property ~syntax:Css.Universal ~initial:(Weight 400)
-        |> Var.with_fallback (Weight 400)
+        Var.create Css.Font_weight "tw-font-weight" ~layer:Utility
+        |> Var.with_property ~initial:(Weight 400)
 
-      (* Use in utilities with the binding pattern *)
+      (* Use in utilities - ALWAYS use Binding to set variables *)
       let font_bold =
         style "font-bold"
-          ~vars:[ Binding (font_weight, Weight 700) ]
+          ~vars:
+            [
+              Binding (font_weight_bold, Weight 700);
+              Binding (font_weight, Var (Var.use font_weight_bold));
+            ]
           [ Css.font_weight (Var.use font_weight) ]
       (* The @property rule is automatically extracted from font_weight *)
     ]}
@@ -146,73 +144,49 @@
 (** Layer classification for CSS variables *)
 type layer = Theme | Utility
 
-type _ kind = ..
-(** CSS variable kinds as extensible GADT *)
-
-(** Core CSS variable kinds - extended by individual modules *)
-type _ kind +=
-  | (* Core shared variables *)
-      Color :
-      string * int option
-      -> Css.color kind (* e.g., Color ("blue", Some 500) *)
-  | Spacing : Css.length kind
-  | Font_family_list : Css.font_family kind
-  | Scroll_snap_strictness : Css.scroll_snap_strictness kind
-  | Duration : Css.duration kind
-
-(** Property metadata. *)
-type 'a property_info = Info : 'b Css.syntax * 'b * bool -> 'a property_info
+type 'a property_info = { initial : 'a; inherits : bool }
+(** Property metadata for @property registration. *)
 
 type 'a t = {
-  kind : 'a kind;  (** Type witness ensuring type safety *)
+  kind : 'a Css.kind;  (** CSS type witness ensuring type safety *)
   name : string;  (** CSS variable name without the [--] prefix *)
   layer : layer;  (** Whether this is a theme token or utility variable *)
-  fallback : 'a option;  (** Default value for [var()] references *)
+  binding : 'a -> Css.declaration * 'a Css.var;
   property : 'a property_info option;  (** Optional [@property] metadata *)
   order : int option;  (** Explicit ordering for theme layer *)
 }
-(** Variable definition record - the main type for working with CSS variables *)
-
-(** Var binding pairs a variable with its value for use in utilities. When
-    passed to [style], both the declaration and any [@property] rule are
-    automatically extracted. *)
-type binding = Binding : 'a t * 'a -> binding
+(** The type for CSS variables *)
 
 (** {1 Core API} *)
 
 val create :
-  'a kind -> ?fallback:'a -> ?order:int -> string -> layer:layer -> 'a t
-(** [create kind ?fallback ?order name ~layer] creates a variable definition.
+  'a Css.kind ->
+  ?fallback:'a ->
+  ?property:'a * bool ->
+  ?order:int ->
+  string ->
+  layer:layer ->
+  'a t
+(** [create css_kind ?fallback ?order name ~layer] creates a variable
+    definition.
 
-    - [kind]: The type witness (e.g., [Font_weight])
+    - [css_kind]: The CSS type witness (e.g., [Css.Font_weight])
     - [name]: CSS variable name without [--] (e.g., ["tw-font-weight"])
     - [layer]: [Theme] for design tokens, [Utility] for property channels.
+    - [property]: is TODO.
     - [fallback] sets the fallback value for [var()] references. This value is
       used when the variable is not set: [var(--name, fallback)]
     - [order] sets the order for sorting variables in the theme layer (defaults
       to 9999). Only relevant for Theme layer variables that appear in [:root]
 *)
 
-val with_property :
-  syntax:'b Css.syntax -> initial:'b -> ?inherits:bool -> 'a t -> 'a t
-(** [with_property ~syntax ~initial ?inherits var] adds [@property] metadata.
-    This enables CSS transitions, animations, and proper cascade behavior.
-
-    - [syntax]: CSS syntax descriptor (e.g., [Css.Length], [Css.Color])
-    - [initial]: Initial value for [@layer properties] and [@property]
-    - [inherits]: Whether the property inherits (defaults to [false]) *)
-
-val declaration : 'a t -> 'a -> Css.declaration
-(** [declaration var value] creates a CSS custom property declaration with the
-    given value. This is used in utility classes to set the variable:
-    [--tw-font-weight: 700] *)
-
 val needs_property : 'a t -> bool
 (** [needs_property var] returns true if variable has [@property] metadata *)
 
-val use : 'a t -> 'a Css.var
-(** [use var] creates a [var()] reference for use in CSS properties. Includes
-    fallback if set: [var(--tw-font-weight, 400)] *)
+val binding : 'a t -> 'a -> Css.declaration * 'a Css.var
+(** [binding var value] creates both a CSS declaration and a var() reference
+    with the value as default for inline mode. This is the primary way to use
+    variables. *)
 
 val property_rule : 'a t -> Css.t option
 (** [property_rule var] generates the [@property] rule if metadata is present.
@@ -227,52 +201,11 @@ val property_rule : 'a t -> Css.t option
       }
     ]} *)
 
-val declaration_of_binding : binding -> Css.declaration
-(** [declaration_of_binding (Binding (var, value))] extracts the CSS declaration
-    from a variable binding. Used internally by the [style] function to
-    automatically generate variable declarations from the [~vars] parameter. *)
-
-val property_rule_of_binding : binding -> Css.t option
-(** [property_rule_of_binding (Binding (var, _))] extracts the [@property] rule
-    from a variable binding if the variable has property metadata. Used
-    internally by the [style] function to automatically collect property rules
-    from the [~vars] parameter. *)
-
 (** {1 Helper Types and Functions} *)
 
-(** Existential wrapper for heterogeneous collections *)
-type any = Any : _ kind -> any
-
-val compare : any -> any -> int
-(** [compare a b] compares two variables for canonical ordering in the theme. *)
-
-val compare_declarations : layer -> Css.declaration -> Css.declaration -> int
+val compare_declarations : Css.declaration -> Css.declaration -> int
 (** [compare_declarations layer d1 d2] compares two custom declarations via Var
-    metadata for the given layer. *)
-
-val property_info_to_declaration_value : Css.property_info -> string
-(** [property_info_to_declaration_value info] converts [@property] initial
-    values to declaration values following CSS spec requirements. This is the
-    canonical implementation for the 0/0px conversion used across the codebase.
-*)
-
-val of_meta : Css.meta -> any option
-(** [of_meta meta] extracts the variable from CSS declaration metadata if
-    present *)
-
-type meta_info = { var : any; needs_property : bool; order : int option }
-(** Metadata stored in CSS declarations *)
-
-val meta_of_info : meta_info -> Css.meta
-(** [meta_of_info info] converts variable metadata to CSS metadata *)
-
-val needs_property_of_meta : Css.meta -> bool option
-(** [needs_property_of_meta meta] extracts the needs_property flag from CSS
-    declaration metadata if present *)
-
-val order_of_meta : Css.meta -> int option
-(** [order_of_meta meta] extracts the ordering value from CSS declaration
-    metadata if present *)
+    metadata. *)
 
 val layer_name : layer -> string
 (** [layer_name layer] returns the string name of the layer ("theme" or
@@ -281,8 +214,14 @@ val layer_name : layer -> string
 val layer : 'a t -> layer
 (** [layer var] returns the layer of the variable *)
 
-module Map : Map.S with type key = any
-(** Map with Var.any keys *)
+val var_needs_property : 'a Css.var -> bool
+(** [var_needs_property v] is [true] if [v]'s underlying Var.t has property
+    metadata. *)
 
-module Set : Set.S with type elt = any
-(** Set with Var.any elements *)
+val order_of_declaration : Css.declaration -> int option
+(** [order_of_declaration d] returns theme ordering information for a custom
+    declaration. *)
+
+val property_initial_string : Css.property_info -> string
+(** [property_initial_string info] converts the typed initial value of a
+    [@property] declaration into a string suitable for [initial-value:]. *)

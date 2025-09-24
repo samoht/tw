@@ -20,157 +20,105 @@
 open Core
 open Css
 
-(* Extend variable kinds for typography *)
-type _ Var.kind +=
-  | Font_sans : Css.font_family Var.kind
-  | Font_serif : Css.font_family Var.kind
-  | Font_mono : Css.font_family Var.kind
-  | Text_xs : Css.length Var.kind
-  | Text_xs_line_height : Css.line_height Var.kind
-  | Text_sm : Css.length Var.kind
-  | Text_sm_line_height : Css.line_height Var.kind
-  | Text_base : Css.length Var.kind
-  | Text_base_line_height : Css.line_height Var.kind
-  | Text_lg : Css.length Var.kind
-  | Text_lg_line_height : Css.line_height Var.kind
-  | Text_xl : Css.length Var.kind
-  | Text_xl_line_height : Css.line_height Var.kind
-  | Text_2xl : Css.length Var.kind
-  | Text_2xl_line_height : Css.line_height Var.kind
-  | Text_3xl : Css.length Var.kind
-  | Text_3xl_line_height : Css.line_height Var.kind
-  | Text_4xl : Css.length Var.kind
-  | Text_4xl_line_height : Css.line_height Var.kind
-  | Text_5xl : Css.length Var.kind
-  | Text_5xl_line_height : Css.line_height Var.kind
-  | Text_6xl : Css.length Var.kind
-  | Text_6xl_line_height : Css.line_height Var.kind
-  | Text_7xl : Css.length Var.kind
-  | Text_7xl_line_height : Css.line_height Var.kind
-  | Text_8xl : Css.length Var.kind
-  | Text_8xl_line_height : Css.line_height Var.kind
-  | Text_9xl : Css.length Var.kind
-  | Text_9xl_line_height : Css.line_height Var.kind
-  | Font_weight_thin : Css.font_weight Var.kind
-  | Font_weight_extralight : Css.font_weight Var.kind
-  | Font_weight_light : Css.font_weight Var.kind
-  | Font_weight_normal : Css.font_weight Var.kind
-  | Font_weight_medium : Css.font_weight Var.kind
-  | Font_weight_semibold : Css.font_weight Var.kind
-  | Font_weight_bold : Css.font_weight Var.kind
-  | Font_weight_extrabold : Css.font_weight Var.kind
-  | Font_weight_black : Css.font_weight Var.kind
-  | Font_weight : Css.font_weight Var.kind
-  | Leading : Css.line_height Var.kind
-  | Font_variant_ordinal : Css.font_variant_numeric_token Var.kind
-  | Font_variant_slashed_zero : Css.font_variant_numeric_token Var.kind
-  | Font_variant_numeric_figure : Css.font_variant_numeric_token Var.kind
-  | Font_variant_numeric_spacing : Css.font_variant_numeric_token Var.kind
-  | Font_variant_numeric_fraction : Css.font_variant_numeric_token Var.kind
-  | Content : Css.content Var.kind
-
 (* Text size variables with line heights *)
-let text_xs_var = Var.create Text_xs "text-xs" ~layer:Theme ~order:100
+let text_xs_var = Var.create Css.Length "text-xs" ~layer:Theme ~order:100
 
 let text_xs_lh_var =
-  Var.create Text_xs_line_height "text-xs-line-height" ~layer:Theme ~order:101
+  Var.create Css.Line_height "text-xs-line-height" ~layer:Theme ~order:101
 
-let text_sm_var = Var.create Text_sm "text-sm" ~layer:Theme ~order:102
+let text_sm_var = Var.create Css.Length "text-sm" ~layer:Theme ~order:102
 
 let text_sm_lh_var =
-  Var.create Text_sm_line_height "text-sm-line-height" ~layer:Theme ~order:103
+  Var.create Css.Line_height "text-sm-line-height" ~layer:Theme ~order:103
 
-let text_base_var = Var.create Text_base "text-base" ~layer:Theme ~order:104
+let text_base_var = Var.create Css.Length "text-base" ~layer:Theme ~order:104
 
 let text_base_lh_var =
-  Var.create Text_base_line_height "text-base-line-height" ~layer:Theme
-    ~order:105
+  Var.create Css.Line_height "text-base-line-height" ~layer:Theme ~order:105
 
-let text_lg_var = Var.create Text_lg "text-lg" ~layer:Theme ~order:106
+let text_lg_var = Var.create Css.Length "text-lg" ~layer:Theme ~order:106
 
 let text_lg_lh_var =
-  Var.create Text_lg_line_height "text-lg-line-height" ~layer:Theme ~order:107
+  Var.create Css.Line_height "text-lg-line-height" ~layer:Theme ~order:107
 
-let text_xl_var = Var.create Text_xl "text-xl" ~layer:Theme ~order:108
+let text_xl_var = Var.create Css.Length "text-xl" ~layer:Theme ~order:108
 
 let text_xl_lh_var =
-  Var.create Text_xl_line_height "text-xl-line-height" ~layer:Theme ~order:109
+  Var.create Css.Line_height "text-xl-line-height" ~layer:Theme ~order:109
 
-let text_2xl_var = Var.create Text_2xl "text-2xl" ~layer:Theme ~order:110
+let text_2xl_var = Var.create Css.Length "text-2xl" ~layer:Theme ~order:110
 
 let text_2xl_lh_var =
-  Var.create Text_2xl_line_height "text-2xl-line-height" ~layer:Theme ~order:111
+  Var.create Css.Line_height "text-2xl-line-height" ~layer:Theme ~order:111
 
-let text_3xl_var = Var.create Text_3xl "text-3xl" ~layer:Theme ~order:112
+let text_3xl_var = Var.create Css.Length "text-3xl" ~layer:Theme ~order:112
 
 let text_3xl_lh_var =
-  Var.create Text_3xl_line_height "text-3xl-line-height" ~layer:Theme ~order:113
+  Var.create Css.Line_height "text-3xl-line-height" ~layer:Theme ~order:113
 
-let text_4xl_var = Var.create Text_4xl "text-4xl" ~layer:Theme ~order:114
+let text_4xl_var = Var.create Css.Length "text-4xl" ~layer:Theme ~order:114
 
 let text_4xl_lh_var =
-  Var.create Text_4xl_line_height "text-4xl-line-height" ~layer:Theme ~order:115
+  Var.create Css.Line_height "text-4xl-line-height" ~layer:Theme ~order:115
 
-let text_5xl_var = Var.create Text_5xl "text-5xl" ~layer:Theme ~order:116
+let text_5xl_var = Var.create Css.Length "text-5xl" ~layer:Theme ~order:116
 
 let text_5xl_lh_var =
-  Var.create Text_5xl_line_height "text-5xl-line-height" ~layer:Theme ~order:117
+  Var.create Css.Line_height "text-5xl-line-height" ~layer:Theme ~order:117
 
-let text_6xl_var = Var.create Text_6xl "text-6xl" ~layer:Theme ~order:118
+let text_6xl_var = Var.create Css.Length "text-6xl" ~layer:Theme ~order:118
 
 let text_6xl_lh_var =
-  Var.create Text_6xl_line_height "text-6xl-line-height" ~layer:Theme ~order:119
+  Var.create Css.Line_height "text-6xl-line-height" ~layer:Theme ~order:119
 
-let text_7xl_var = Var.create Text_7xl "text-7xl" ~layer:Theme ~order:120
+let text_7xl_var = Var.create Css.Length "text-7xl" ~layer:Theme ~order:120
 
 let text_7xl_lh_var =
-  Var.create Text_7xl_line_height "text-7xl-line-height" ~layer:Theme ~order:121
+  Var.create Css.Line_height "text-7xl-line-height" ~layer:Theme ~order:121
 
-let text_8xl_var = Var.create Text_8xl "text-8xl" ~layer:Theme ~order:122
+let text_8xl_var = Var.create Css.Length "text-8xl" ~layer:Theme ~order:122
 
 let text_8xl_lh_var =
-  Var.create Text_8xl_line_height "text-8xl-line-height" ~layer:Theme ~order:123
+  Var.create Css.Line_height "text-8xl-line-height" ~layer:Theme ~order:123
 
-let text_9xl_var = Var.create Text_9xl "text-9xl" ~layer:Theme ~order:124
+let text_9xl_var = Var.create Css.Length "text-9xl" ~layer:Theme ~order:124
 
 let text_9xl_lh_var =
-  Var.create Text_9xl_line_height "text-9xl-line-height" ~layer:Theme ~order:125
+  Var.create Css.Line_height "text-9xl-line-height" ~layer:Theme ~order:125
 
 (* Font weight variables *)
 let font_weight_thin_var =
-  Var.create Font_weight_thin "font-weight-thin" ~layer:Theme ~order:200
+  Var.create Css.Font_weight "font-weight-thin" ~layer:Theme ~order:200
 
 let font_weight_extralight_var =
-  Var.create Font_weight_extralight "font-weight-extralight" ~layer:Theme
-    ~order:201
+  Var.create Css.Font_weight "font-weight-extralight" ~layer:Theme ~order:201
 
 let font_weight_light_var =
-  Var.create Font_weight_light "font-weight-light" ~layer:Theme ~order:202
+  Var.create Css.Font_weight "font-weight-light" ~layer:Theme ~order:202
 
 let font_weight_normal_var =
-  Var.create Font_weight_normal "font-weight-normal" ~layer:Theme ~order:203
+  Var.create Css.Font_weight "font-weight-normal" ~layer:Theme ~order:203
 
 let font_weight_medium_var =
-  Var.create Font_weight_medium "font-weight-medium" ~layer:Theme ~order:204
+  Var.create Css.Font_weight "font-weight-medium" ~layer:Theme ~order:204
 
 let font_weight_semibold_var =
-  Var.create Font_weight_semibold "font-weight-semibold" ~layer:Theme ~order:205
+  Var.create Css.Font_weight "font-weight-semibold" ~layer:Theme ~order:205
 
 let font_weight_bold_var =
-  Var.create Font_weight_bold "font-weight-bold" ~layer:Theme ~order:206
+  Var.create Css.Font_weight "font-weight-bold" ~layer:Theme ~order:206
 
 let font_weight_extrabold_var =
-  Var.create Font_weight_extrabold "font-weight-extrabold" ~layer:Theme
-    ~order:207
+  Var.create Css.Font_weight "font-weight-extrabold" ~layer:Theme ~order:207
 
 let font_weight_black_var =
-  Var.create Font_weight_black "font-weight-black" ~layer:Theme ~order:208
+  Var.create Css.Font_weight "font-weight-black" ~layer:Theme ~order:208
 
 (* Utility layer variable for font weight tracking *)
-let font_weight_var = Var.create Font_weight "tw-font-weight" ~layer:Utility
+let font_weight_var = Var.create Css.Font_weight "tw-font-weight" ~layer:Utility
 
 (* Leading variable for line-height utilities *)
-let leading_var = Var.create Leading "tw-leading" ~layer:Utility
+let leading_var = Var.create Css.Line_height "tw-leading" ~layer:Utility
 
 (* Helper to get line height calc value *)
 let calc_line_height lh_rem size_rem =
@@ -182,380 +130,385 @@ module Parse = Parse
 
 let text_xs =
   (* Reference --tw-leading with fallback to text size line height *)
-  let leading_ref = Var.use leading_var in
+  let text_xs_decl, text_xs_ref = Var.binding text_xs_var (Rem 0.75) in
+  let text_xs_lh_decl, text_xs_lh_ref =
+    Var.binding text_xs_lh_var (calc_line_height 1.0 0.75)
+  in
+  let leading_decl, leading_ref =
+    Var.binding leading_var (Css.Var text_xs_lh_ref)
+  in
   style "text-xs"
-    ~vars:
-      [
-        Binding (text_xs_var, Rem 0.75);
-        Binding (text_xs_lh_var, calc_line_height 1.0 0.75);
-      ]
     [
-      font_size (Css.Var (Var.use text_xs_var));
+      text_xs_decl;
+      text_xs_lh_decl;
+      leading_decl;
+      font_size (Css.Var text_xs_ref);
       line_height (Css.Var leading_ref);
     ]
 
 let text_sm =
   (* Reference --tw-leading with fallback to text size line height *)
-  let leading_ref = Var.use leading_var in
+  let text_sm_decl, text_sm_ref = Var.binding text_sm_var (Rem 0.875) in
+  let text_sm_lh_decl, text_sm_lh_ref =
+    Var.binding text_sm_lh_var (calc_line_height 1.25 0.875)
+  in
+  let leading_decl, leading_ref =
+    Var.binding leading_var (Css.Var text_sm_lh_ref)
+  in
   style "text-sm"
-    ~vars:
-      [
-        Binding (text_sm_var, Rem 0.875);
-        Binding (text_sm_lh_var, calc_line_height 1.25 0.875);
-      ]
     [
-      font_size (Css.Var (Var.use text_sm_var));
+      text_sm_decl;
+      text_sm_lh_decl;
+      leading_decl;
+      font_size (Css.Var text_sm_ref);
       line_height (Css.Var leading_ref);
     ]
 
 let text_base =
   (* Reference --tw-leading with fallback to text size line height *)
-  let leading_ref = Var.use leading_var in
+  let text_base_decl, text_base_ref = Var.binding text_base_var (Rem 1.0) in
+  let text_base_lh_decl, text_base_lh_ref =
+    Var.binding text_base_lh_var (calc_line_height 1.5 1.0)
+  in
+  let leading_decl, leading_ref =
+    Var.binding leading_var (Css.Var text_base_lh_ref)
+  in
   style "text-base"
-    ~vars:
-      [
-        Binding (text_base_var, Rem 1.0);
-        Binding (text_base_lh_var, calc_line_height 1.5 1.0);
-      ]
     [
-      font_size (Css.Var (Var.use text_base_var));
+      text_base_decl;
+      text_base_lh_decl;
+      leading_decl;
+      font_size (Css.Var text_base_ref);
       line_height (Css.Var leading_ref);
     ]
 
 let text_lg =
   (* Reference --tw-leading with fallback to text size line height *)
-  let leading_ref = Var.use leading_var in
+  let text_lg_decl, text_lg_ref = Var.binding text_lg_var (Rem 1.125) in
+  let text_lg_lh_decl, text_lg_lh_ref =
+    Var.binding text_lg_lh_var (calc_line_height 1.75 1.125)
+  in
+  let leading_decl, leading_ref =
+    Var.binding leading_var (Css.Var text_lg_lh_ref)
+  in
   style "text-lg"
-    ~vars:
-      [
-        Binding (text_lg_var, Rem 1.125);
-        Binding (text_lg_lh_var, calc_line_height 1.75 1.125);
-      ]
     [
-      font_size (Css.Var (Var.use text_lg_var));
+      text_lg_decl;
+      text_lg_lh_decl;
+      leading_decl;
+      font_size (Css.Var text_lg_ref);
       line_height (Css.Var leading_ref);
     ]
 
 let text_xl =
   (* Reference --tw-leading with fallback to text size line height *)
-  let leading_ref = Var.use leading_var in
+  let text_xl_decl, text_xl_ref = Var.binding text_xl_var (Rem 1.25) in
+  let text_xl_lh_decl, text_xl_lh_ref =
+    Var.binding text_xl_lh_var (calc_line_height 1.75 1.25)
+  in
+  let leading_decl, leading_ref =
+    Var.binding leading_var (Css.Var text_xl_lh_ref)
+  in
   style "text-xl"
-    ~vars:
-      [
-        Binding (text_xl_var, Rem 1.25);
-        Binding (text_xl_lh_var, calc_line_height 1.75 1.25);
-      ]
     [
-      font_size (Css.Var (Var.use text_xl_var));
+      text_xl_decl;
+      text_xl_lh_decl;
+      leading_decl;
+      font_size (Css.Var text_xl_ref);
       line_height (Css.Var leading_ref);
     ]
 
 let text_2xl =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_ref = Var.use leading_var in
+  let text_2xl_decl, text_2xl_ref = Var.binding text_2xl_var (Rem 1.5) in
+  let text_2xl_lh_decl, text_2xl_lh_ref =
+    Var.binding text_2xl_lh_var (calc_line_height 2.0 1.5)
+  in
+  let leading_decl, leading_ref =
+    Var.binding leading_var (Css.Var text_2xl_lh_ref)
+  in
   style "text-2xl"
-    ~vars:
-      [
-        Binding (text_2xl_var, Rem 1.5);
-        Binding (text_2xl_lh_var, calc_line_height 2.0 1.5);
-      ]
     [
-      font_size (Css.Var (Var.use text_2xl_var));
+      text_2xl_decl;
+      text_2xl_lh_decl;
+      leading_decl;
+      font_size (Css.Var text_2xl_ref);
       line_height (Css.Var leading_ref);
     ]
 
 let text_3xl =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_ref = Var.use leading_var in
+  let text_3xl_decl, text_3xl_ref = Var.binding text_3xl_var (Rem 1.875) in
+  let text_3xl_lh_decl, text_3xl_lh_ref =
+    Var.binding text_3xl_lh_var (calc_line_height 2.25 1.875)
+  in
+  let leading_decl, leading_ref =
+    Var.binding leading_var (Css.Var text_3xl_lh_ref)
+  in
   style "text-3xl"
-    ~vars:
-      [
-        Binding (text_3xl_var, Rem 1.875);
-        Binding (text_3xl_lh_var, calc_line_height 2.25 1.875);
-      ]
     [
-      font_size (Css.Var (Var.use text_3xl_var));
+      text_3xl_decl;
+      text_3xl_lh_decl;
+      leading_decl;
+      font_size (Css.Var text_3xl_ref);
       line_height (Css.Var leading_ref);
     ]
 
 let text_4xl =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_ref = Var.use leading_var in
+  let text_4xl_decl, text_4xl_ref = Var.binding text_4xl_var (Rem 2.25) in
+  let text_4xl_lh_decl, text_4xl_lh_ref =
+    Var.binding text_4xl_lh_var (calc_line_height 2.5 2.25)
+  in
+  let leading_decl, leading_ref =
+    Var.binding leading_var (Css.Var text_4xl_lh_ref)
+  in
   style "text-4xl"
-    ~vars:
-      [
-        Binding (text_4xl_var, Rem 2.25);
-        Binding (text_4xl_lh_var, calc_line_height 2.5 2.25);
-      ]
     [
-      font_size (Css.Var (Var.use text_4xl_var));
+      text_4xl_decl;
+      text_4xl_lh_decl;
+      leading_decl;
+      font_size (Css.Var text_4xl_ref);
       line_height (Css.Var leading_ref);
     ]
 
 let text_5xl =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_ref = Var.use leading_var in
+  let text_5xl_decl, text_5xl_ref = Var.binding text_5xl_var (Rem 3.0) in
+  let text_5xl_lh_decl, text_5xl_lh_ref =
+    Var.binding text_5xl_lh_var (Num 1.0)
+  in
+  let leading_decl, leading_ref =
+    Var.binding leading_var (Css.Var text_5xl_lh_ref)
+  in
   style "text-5xl"
-    ~vars:
-      [ Binding (text_5xl_var, Rem 3.0); Binding (text_5xl_lh_var, Num 1.0) ]
     [
-      font_size (Css.Var (Var.use text_5xl_var));
+      text_5xl_decl;
+      text_5xl_lh_decl;
+      leading_decl;
+      font_size (Css.Var text_5xl_ref);
       line_height (Css.Var leading_ref);
     ]
 
 let text_6xl =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_ref = Var.use leading_var in
+  let text_6xl_d, text_6xl_v = Var.binding text_6xl_var (Rem 3.75) in
+  let text_6xl_lh_d, text_6xl_lh_v = Var.binding text_6xl_lh_var (Num 1.0) in
+  let leading_d, leading_v = Var.binding leading_var (Css.Var text_6xl_lh_v) in
   style "text-6xl"
-    ~vars:
-      [ Binding (text_6xl_var, Rem 3.75); Binding (text_6xl_lh_var, Num 1.0) ]
     [
-      font_size (Css.Var (Var.use text_6xl_var));
-      line_height (Css.Var leading_ref);
+      text_6xl_d;
+      text_6xl_lh_d;
+      leading_d;
+      font_size (Css.Var text_6xl_v);
+      line_height (Css.Var leading_v);
     ]
 
 let text_7xl =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_ref = Var.use leading_var in
+  let text_7xl_d, text_7xl_v = Var.binding text_7xl_var (Rem 4.5) in
+  let text_7xl_lh_d, text_7xl_lh_v = Var.binding text_7xl_lh_var (Num 1.0) in
+  let leading_d, leading_v = Var.binding leading_var (Css.Var text_7xl_lh_v) in
   style "text-7xl"
-    ~vars:
-      [ Binding (text_7xl_var, Rem 4.5); Binding (text_7xl_lh_var, Num 1.0) ]
     [
-      font_size (Css.Var (Var.use text_7xl_var));
-      line_height (Css.Var leading_ref);
+      text_7xl_d;
+      text_7xl_lh_d;
+      leading_d;
+      font_size (Css.Var text_7xl_v);
+      line_height (Css.Var leading_v);
     ]
 
 let text_8xl =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_ref = Var.use leading_var in
+  let text_8xl_d, text_8xl_v = Var.binding text_8xl_var (Rem 6.0) in
+  let text_8xl_lh_d, text_8xl_lh_v = Var.binding text_8xl_lh_var (Num 1.0) in
+  let leading_d, leading_v = Var.binding leading_var (Css.Var text_8xl_lh_v) in
   style "text-8xl"
-    ~vars:
-      [ Binding (text_8xl_var, Rem 6.0); Binding (text_8xl_lh_var, Num 1.0) ]
     [
-      font_size (Css.Var (Var.use text_8xl_var));
-      line_height (Css.Var leading_ref);
+      text_8xl_d;
+      text_8xl_lh_d;
+      leading_d;
+      font_size (Css.Var text_8xl_v);
+      line_height (Css.Var leading_v);
     ]
 
 let text_9xl =
   (* Reference --tw-leading (defined by leading-* utilities) with fallback to
      text size line height *)
-  let leading_ref = Var.use leading_var in
+  let text_9xl_d, text_9xl_v = Var.binding text_9xl_var (Rem 8.0) in
+  let text_9xl_lh_d, text_9xl_lh_v = Var.binding text_9xl_lh_var (Num 1.0) in
+  let leading_d, leading_v = Var.binding leading_var (Css.Var text_9xl_lh_v) in
   style "text-9xl"
-    ~vars:
-      [ Binding (text_9xl_var, Rem 8.0); Binding (text_9xl_lh_var, Num 1.0) ]
     [
-      font_size (Css.Var (Var.use text_9xl_var));
-      line_height (Css.Var leading_ref);
+      text_9xl_d;
+      text_9xl_lh_d;
+      leading_d;
+      font_size (Css.Var text_9xl_v);
+      line_height (Css.Var leading_v);
     ]
 
 (* Font weight utilities using the new API *)
 let font_thin =
-  style "font-thin"
-    ~vars:
-      [
-        Binding (font_weight_thin_var, Weight 100);
-        Binding (font_weight_var, Var (Var.use font_weight_thin_var));
-      ]
-    [ font_weight (Var (Var.use font_weight_thin_var)) ]
+  let thin_d, thin_v = Var.binding font_weight_thin_var (Weight 100) in
+  let weight_d, _ = Var.binding font_weight_var (Css.Var thin_v) in
+  style "font-thin" [ thin_d; weight_d; font_weight (Css.Var thin_v) ]
 
 let font_extralight =
+  let extralight_d, extralight_v =
+    Var.binding font_weight_extralight_var (Weight 200)
+  in
+  let weight_d, _ = Var.binding font_weight_var (Css.Var extralight_v) in
   style "font-extralight"
-    ~vars:
-      [
-        Binding (font_weight_extralight_var, Weight 200);
-        Binding (font_weight_var, Var (Var.use font_weight_extralight_var));
-      ]
-    [ font_weight (Var (Var.use font_weight_extralight_var)) ]
+    [ extralight_d; weight_d; font_weight (Css.Var extralight_v) ]
 
 let font_light =
-  style "font-light"
-    ~vars:
-      [
-        Binding (font_weight_light_var, Weight 300);
-        Binding (font_weight_var, Var (Var.use font_weight_light_var));
-      ]
-    [ font_weight (Var (Var.use font_weight_light_var)) ]
+  let light_d, light_v = Var.binding font_weight_light_var (Weight 300) in
+  let weight_d, _ = Var.binding font_weight_var (Css.Var light_v) in
+  style "font-light" [ light_d; weight_d; font_weight (Css.Var light_v) ]
 
 let font_normal =
-  style "font-normal"
-    ~vars:
-      [
-        Binding (font_weight_normal_var, Weight 400);
-        Binding (font_weight_var, Var (Var.use font_weight_normal_var));
-      ]
-    [ font_weight (Var (Var.use font_weight_normal_var)) ]
+  let normal_d, normal_v = Var.binding font_weight_normal_var (Weight 400) in
+  let weight_d, _ = Var.binding font_weight_var (Css.Var normal_v) in
+  style "font-normal" [ normal_d; weight_d; font_weight (Css.Var normal_v) ]
 
 let font_medium =
-  style "font-medium"
-    ~vars:
-      [
-        Binding (font_weight_medium_var, Weight 500);
-        Binding (font_weight_var, Var (Var.use font_weight_medium_var));
-      ]
-    [ font_weight (Var (Var.use font_weight_medium_var)) ]
+  let medium_d, medium_v = Var.binding font_weight_medium_var (Weight 500) in
+  let weight_d, _ = Var.binding font_weight_var (Css.Var medium_v) in
+  style "font-medium" [ medium_d; weight_d; font_weight (Css.Var medium_v) ]
 
 let font_semibold =
+  let semibold_d, semibold_v =
+    Var.binding font_weight_semibold_var (Weight 600)
+  in
+  let weight_d, _ = Var.binding font_weight_var (Css.Var semibold_v) in
   style "font-semibold"
-    ~vars:
-      [
-        Binding (font_weight_semibold_var, Weight 600);
-        Binding (font_weight_var, Var (Var.use font_weight_semibold_var));
-      ]
-    [ font_weight (Var (Var.use font_weight_semibold_var)) ]
+    [ semibold_d; weight_d; font_weight (Css.Var semibold_v) ]
 
 let font_bold =
-  style "font-bold"
-    ~vars:
-      [
-        Binding (font_weight_bold_var, Weight 700);
-        Binding (font_weight_var, Var (Var.use font_weight_bold_var));
-      ]
-    [ font_weight (Var (Var.use font_weight_bold_var)) ]
+  let bold_d, bold_v = Var.binding font_weight_bold_var (Weight 700) in
+  let weight_d, _ = Var.binding font_weight_var (Css.Var bold_v) in
+  style "font-bold" [ bold_d; weight_d; font_weight (Css.Var bold_v) ]
 
 let font_extrabold =
+  let extrabold_d, extrabold_v =
+    Var.binding font_weight_extrabold_var (Weight 800)
+  in
+  let weight_d, _ = Var.binding font_weight_var (Css.Var extrabold_v) in
   style "font-extrabold"
-    ~vars:
-      [
-        Binding (font_weight_extrabold_var, Weight 800);
-        Binding (font_weight_var, Var (Var.use font_weight_extrabold_var));
-      ]
-    [ font_weight (Var (Var.use font_weight_extrabold_var)) ]
+    [ extrabold_d; weight_d; font_weight (Css.Var extrabold_v) ]
 
 let font_black =
-  style "font-black"
-    ~vars:
-      [
-        Binding (font_weight_black_var, Weight 900);
-        Binding (font_weight_var, Var (Var.use font_weight_black_var));
-      ]
-    [ font_weight (Var (Var.use font_weight_black_var)) ]
+  let black_d, black_v = Var.binding font_weight_black_var (Weight 900) in
+  let weight_d, _ = Var.binding font_weight_var (Css.Var black_v) in
+  style "font-black" [ black_d; weight_d; font_weight (Css.Var black_v) ]
 
 (** {1 Font Family Utilities} *)
 
 (* Font family theme variables *)
-let font_sans_var =
-  Var.create Var.Font_family_list "font-sans" ~layer:Theme ~order:0
+let font_sans_var = Var.create Css.Font_family "font-sans" ~layer:Theme ~order:0
 
 let font_serif_var =
-  Var.create Var.Font_family_list "font-serif" ~layer:Theme ~order:1
+  Var.create Css.Font_family "font-serif" ~layer:Theme ~order:1
 
-let font_mono_var =
-  Var.create Var.Font_family_list "font-mono" ~layer:Theme ~order:2
-
-(* Additional variable kinds for default font family *)
-type _ Var.kind +=
-  | Default_font_family : Css.font_family Var.kind
-  | Default_mono_font_family : Css.font_family Var.kind
+let font_mono_var = Var.create Css.Font_family "font-mono" ~layer:Theme ~order:2
 
 (* Default font family variables that reference the base font variables *)
 let default_font_family_var =
-  Var.create Var.Font_family_list "default-font-family" ~layer:Theme ~order:5
+  Var.create Css.Font_family "default-font-family" ~layer:Theme ~order:5
 
 let default_mono_font_family_var =
-  Var.create Var.Font_family_list "default-mono-font-family" ~layer:Theme
-    ~order:6
+  Var.create Css.Font_family "default-mono-font-family" ~layer:Theme ~order:6
 
 (* Base font family variables for theme layer *)
 let default_font_declarations =
-  let bindings =
-    [
-      (* Base font family variables *)
-      Var.Binding
-        ( font_sans_var,
-          List
-            [
-              Ui_sans_serif;
-              System_ui;
-              Sans_serif;
-              Apple_color_emoji;
-              Segoe_ui_emoji;
-              Segoe_ui_symbol;
-              Noto_color_emoji;
-            ] );
-      Var.Binding
-        ( font_mono_var,
-          List
-            [
-              Ui_monospace;
-              SFMono_regular;
-              Menlo;
-              Monaco;
-              Consolas;
-              Liberation_mono;
-              Courier_new;
-              Monospace;
-            ] );
-    ]
+  let sans_d, _ =
+    Var.binding font_sans_var
+      (List
+         [
+           Ui_sans_serif;
+           System_ui;
+           Sans_serif;
+           Apple_color_emoji;
+           Segoe_ui_emoji;
+           Segoe_ui_symbol;
+           Noto_color_emoji;
+         ])
   in
-  List.map Var.declaration_of_binding bindings
+  let mono_d, _ =
+    Var.binding font_mono_var
+      (List
+         [
+           Ui_monospace;
+           SFMono_regular;
+           Menlo;
+           Monaco;
+           Consolas;
+           Liberation_mono;
+           Courier_new;
+           Monospace;
+         ])
+  in
+  [ sans_d; mono_d ]
 
 (* Default font family variables that reference the base font variables *)
 let default_font_family_declarations =
-  let bindings =
-    [
-      Var.Binding (default_font_family_var, Var (Var.use font_sans_var));
-      Var.Binding (default_mono_font_family_var, Var (Var.use font_mono_var));
-    ]
+  let _, sans_v = Var.binding font_sans_var (List [ Sans_serif ]) in
+  let _, mono_v = Var.binding font_mono_var (List [ Monospace ]) in
+  let default_font_d, _ =
+    Var.binding default_font_family_var (Css.Var sans_v)
   in
-  List.map Var.declaration_of_binding bindings
+  let default_mono_d, _ =
+    Var.binding default_mono_font_family_var (Css.Var mono_v)
+  in
+  [ default_font_d; default_mono_d ]
 
 (* Font family utilities use the font variables directly *)
 let font_sans =
-  style "font-sans"
-    ~vars:
-      [
-        Binding
-          ( font_sans_var,
-            List
-              [
-                Ui_sans_serif;
-                System_ui;
-                Sans_serif;
-                Apple_color_emoji;
-                Segoe_ui_emoji;
-                Segoe_ui_symbol;
-                Noto_color_emoji;
-              ] );
-      ]
-    [ font_family (Var (Var.use font_sans_var)) ]
+  let sans_d, sans_v =
+    Var.binding font_sans_var
+      (List
+         [
+           Ui_sans_serif;
+           System_ui;
+           Sans_serif;
+           Apple_color_emoji;
+           Segoe_ui_emoji;
+           Segoe_ui_symbol;
+           Noto_color_emoji;
+         ])
+  in
+  style "font-sans" [ sans_d; font_family (Css.Var sans_v) ]
 
 let font_serif =
-  style "font-serif"
-    ~vars:
-      [
-        Binding
-          ( font_serif_var,
-            List [ Ui_serif; Georgia; Cambria; Times_new_roman; Times; Serif ]
-          );
-      ]
-    [ font_family (Var (Var.use font_serif_var)) ]
+  let serif_d, serif_v =
+    Var.binding font_serif_var
+      (List [ Ui_serif; Georgia; Cambria; Times_new_roman; Times; Serif ])
+  in
+  style "font-serif" [ serif_d; font_family (Css.Var serif_v) ]
 
 let font_mono =
-  style "font-mono"
-    ~vars:
-      [
-        Binding
-          ( font_mono_var,
-            List
-              [
-                Ui_monospace;
-                SFMono_regular;
-                Menlo;
-                Monaco;
-                Consolas;
-                Liberation_mono;
-                Courier_new;
-                Monospace;
-              ] );
-      ]
-    [ font_family (Var (Var.use font_mono_var)) ]
+  let mono_d, mono_v =
+    Var.binding font_mono_var
+      (List
+         [
+           Ui_monospace;
+           SFMono_regular;
+           Menlo;
+           Monaco;
+           Consolas;
+           Liberation_mono;
+           Courier_new;
+           Monospace;
+         ])
+  in
+  style "font-mono" [ mono_d; font_family (Css.Var mono_v) ]
 
 (** {1 Font Style Utilities} *)
 
@@ -627,7 +580,7 @@ let decoration_dashed =
 
 let decoration_wavy = style "decoration-wavy" [ text_decoration_style Wavy ]
 
-(** {1 Text Decoration Var.Color & Thickness} *)
+(** {1 Text Decoration Color & Thickness} *)
 
 let decoration_color ?(shade = 500) (color : Color.color) =
   let class_name =
@@ -653,18 +606,14 @@ let decoration_color ?(shade = 500) (color : Color.color) =
         if Color.is_base_color color then "color-" ^ base
         else "color-" ^ base ^ "-" ^ string_of_int shade
       in
-      Var.create
-        (Var.Color
-           ( Color.pp color,
-             if Color.is_base_color color then None else Some shade ))
-        name ~layer:Theme
-        ~order:(Color.color_order color shade)
+      Var.create Css.Color name ~layer:Theme ~order:3
     in
+    let color_d, color_v = Var.binding color_var default_color in
     style class_name
-      ~vars:[ Binding (color_var, default_color) ]
       [
-        webkit_text_decoration_color (Var (Var.use color_var));
-        text_decoration_color (Var (Var.use color_var));
+        color_d;
+        webkit_text_decoration_color (Css.Var color_v);
+        text_decoration_color (Css.Var color_v);
       ]
 
 let decoration_thickness n =
@@ -694,7 +643,7 @@ let whitespace_pre = style "whitespace-pre" [ white_space Pre ]
 let whitespace_pre_line = style "whitespace-pre-line" [ white_space Pre_line ]
 let whitespace_pre_wrap = style "whitespace-pre-wrap" [ white_space Pre_wrap ]
 
-(** {1 Letter Var.Spacing Utilities} *)
+(** {1 Letter Spacing Utilities} *)
 
 let tracking_tighter = style "tracking-tighter" [ letter_spacing (Em (-0.05)) ]
 let tracking_tight = style "tracking-tight" [ letter_spacing (Em (-0.025)) ]
@@ -765,12 +714,13 @@ let list_image_url url =
 
 let indent n =
   let class_name = "indent-" ^ string_of_int n in
-  let spacing_var = Var.create Var.Spacing "spacing" ~layer:Theme ~order:4 in
+  let spacing_var = Var.create Css.Length "spacing" ~layer:Theme ~order:4 in
+  let spacing_d, spacing_v = Var.binding spacing_var (Rem 0.25) in
   style class_name
-    ~vars:[ Binding (spacing_var, Rem 0.25) ]
     [
+      spacing_d;
       text_indent
-        (Calc Calc.(length (Var (Var.use spacing_var)) * float (float_of_int n)));
+        (Calc Calc.(length (Css.Var spacing_v) * float (float_of_int n)));
     ]
 
 (** {1 Line Clamp} *)
@@ -795,9 +745,8 @@ let content_none =
   let content_var =
     Var.create Content "tw-content" ~layer:Utility ~fallback:None
   in
-  style "content-none"
-    ~vars:[ Binding (content_var, None) ]
-    [ content (Var (Var.use content_var)) ]
+  let content_d, content_v = Var.binding content_var None in
+  style "content-none" [ content_d; content (Css.Var content_v) ]
 
 let escape_css_string s =
   (* Escape backslashes and quotes inside CSS string literal *)
@@ -817,9 +766,8 @@ let content s =
   let content_var =
     Var.create Content "tw-content" ~layer:Utility ~fallback:(String quoted)
   in
-  style class_name
-    ~vars:[ Binding (content_var, String quoted) ]
-    [ content (Var (Var.use content_var)) ]
+  let content_d, content_v = Var.binding content_var (String quoted) in
+  style class_name [ content_d; content (Css.Var content_v) ]
 
 (** {1 Text Overflow} *)
 
@@ -881,10 +829,9 @@ let normal_nums =
 
 (* Helper to create font-variant-numeric utilities *)
 (* Each utility only sets its own variable and uses the composed value *)
-let font_variant_numeric_utility class_name
-    (var_type : font_variant_numeric_token Var.kind) value =
+let font_variant_numeric_utility class_name value =
   let var =
-    Var.create var_type
+    Var.create Css.Font_variant_numeric_token
       ("tw-font-variant-" ^ class_name)
       ~layer:Utility ~fallback:Normal
   in
@@ -892,34 +839,42 @@ let font_variant_numeric_utility class_name
   (* Create references to all 5 variables with empty fallback for the composed
      value *)
   let ordinal_var =
-    Var.create Font_variant_ordinal "tw-font-variant-ordinal" ~layer:Utility
+    Var.create Css.Font_variant_numeric_token "tw-font-variant-ordinal"
+      ~layer:Utility
   in
   let slashed_var =
-    Var.create Font_variant_slashed_zero "tw-font-variant-slashed-zero"
+    Var.create Css.Font_variant_numeric_token "tw-font-variant-slashed-zero"
       ~layer:Utility
   in
   let figure_var =
-    Var.create Font_variant_numeric_figure "tw-font-variant-numeric-figure"
+    Var.create Css.Font_variant_numeric_token "tw-font-variant-numeric-figure"
       ~layer:Utility
   in
   let spacing_var =
-    Var.create Font_variant_numeric_spacing "tw-font-variant-numeric-spacing"
+    Var.create Css.Font_variant_numeric_token "tw-font-variant-numeric-spacing"
       ~layer:Utility
   in
   let fraction_var =
-    Var.create Font_variant_numeric_fraction "tw-font-variant-numeric-fraction"
+    Var.create Css.Font_variant_numeric_token "tw-font-variant-numeric-fraction"
       ~layer:Utility
   in
+
+  (* Create bindings for all the variables we need to reference *)
+  let _, ordinal_v = Var.binding ordinal_var Normal in
+  let _, slashed_v = Var.binding slashed_var Normal in
+  let _, figure_v = Var.binding figure_var Normal in
+  let _, spacing_v = Var.binding spacing_var Normal in
+  let _, fraction_v = Var.binding fraction_var Normal in
 
   (* Composed value using all 5 variables with comma fallbacks *)
   let composed_value =
     Composed
       {
-        ordinal = Some (Var (Var.use ordinal_var));
-        slashed_zero = Some (Var (Var.use slashed_var));
-        numeric_figure = Some (Var (Var.use figure_var));
-        numeric_spacing = Some (Var (Var.use spacing_var));
-        numeric_fraction = Some (Var (Var.use fraction_var));
+        ordinal = Some (Css.Var ordinal_v);
+        slashed_zero = Some (Css.Var slashed_v);
+        numeric_figure = Some (Css.Var figure_v);
+        numeric_spacing = Some (Css.Var spacing_v);
+        numeric_fraction = Some (Css.Var fraction_v);
       }
   in
 
@@ -938,44 +893,30 @@ let font_variant_numeric_utility class_name
     |> List.filter_map (fun x -> x)
   in
 
+  let var_d, _ = Var.binding var value in
   style class_name
     ~property_rules:(Css.concat property_rules)
-    ~vars:[ Binding (var, value) ]
     [
+      var_d;
       (* Only set the specific variable for this utility *)
       font_variant_numeric composed_value;
     ]
 
-let ordinal =
-  font_variant_numeric_utility "ordinal" Font_variant_ordinal Ordinal
-
-let slashed_zero =
-  font_variant_numeric_utility "slashed-zero" Font_variant_slashed_zero
-    Slashed_zero
-
-let lining_nums =
-  font_variant_numeric_utility "lining-nums" Font_variant_numeric_figure
-    Lining_nums
-
-let oldstyle_nums =
-  font_variant_numeric_utility "oldstyle-nums" Font_variant_numeric_figure
-    Oldstyle_nums
+let ordinal = font_variant_numeric_utility "ordinal" Ordinal
+let slashed_zero = font_variant_numeric_utility "slashed-zero" Slashed_zero
+let lining_nums = font_variant_numeric_utility "lining-nums" Lining_nums
+let oldstyle_nums = font_variant_numeric_utility "oldstyle-nums" Oldstyle_nums
 
 let proportional_nums =
-  font_variant_numeric_utility "proportional-nums" Font_variant_numeric_spacing
-    Proportional_nums
+  font_variant_numeric_utility "proportional-nums" Proportional_nums
 
-let tabular_nums =
-  font_variant_numeric_utility "tabular-nums" Font_variant_numeric_spacing
-    Tabular_nums
+let tabular_nums = font_variant_numeric_utility "tabular-nums" Tabular_nums
 
 let diagonal_fractions =
-  font_variant_numeric_utility "diagonal-fractions"
-    Font_variant_numeric_fraction Diagonal_fractions
+  font_variant_numeric_utility "diagonal-fractions" Diagonal_fractions
 
 let stacked_fractions =
-  font_variant_numeric_utility "stacked-fractions" Font_variant_numeric_fraction
-    Stacked_fractions
+  font_variant_numeric_utility "stacked-fractions" Stacked_fractions
 
 (** {1 Parsing Functions} *)
 
