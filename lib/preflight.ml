@@ -68,7 +68,8 @@ let mono_font_variation =
     ~layer:Theme ~order:10
 
 (** HTML and body defaults *)
-let root_resets font_feature font_variation font_feature_decl font_variation_decl =
+let root_resets font_feature font_variation font_feature_decl
+    font_variation_decl =
   let fallback_stack : font_family =
     List
       [
@@ -152,7 +153,8 @@ let typography_resets () =
   ]
 
 (** Code and monospace resets *)
-let code_resets font_feature font_variation mono_font_feature_decl mono_font_variation_decl =
+let code_resets font_feature font_variation mono_font_feature_decl
+    mono_font_variation_decl =
   [
     rule
       ~selector:
@@ -175,14 +177,14 @@ let code_resets font_feature font_variation mono_font_feature_decl mono_font_var
          Var.binding Typography.default_mono_font_family_var fallback_stack
        in
        [
-        default_mono_decl;
-        mono_font_feature_decl;
-        mono_font_variation_decl;
-        font_family (Css.Var default_mono_ref);
-        font_feature_settings (Var font_feature);
-        font_variation_settings (Var font_variation);
-        font_size (Em 1.0);
-      ]);
+         default_mono_decl;
+         mono_font_feature_decl;
+         mono_font_variation_decl;
+         font_family (Css.Var default_mono_ref);
+         font_feature_settings (Var font_feature);
+         font_variation_settings (Var font_variation);
+         font_size (Em 1.0);
+       ]);
   ]
 
 (** Text-level semantics *)
@@ -380,16 +382,24 @@ let hidden_resets () =
 let stylesheet ?placeholder_supports () =
   let base_rules =
     let font_feature_decl, font_feature_ref = Var.binding font_feature Normal in
-    let font_variation_decl, font_variation_ref = Var.binding font_variation Normal in
-    let mono_font_feature_decl, mono_font_feature_ref = Var.binding mono_font_feature Normal in
-    let mono_font_variation_decl, mono_font_variation_ref = Var.binding mono_font_variation Normal in
+    let font_variation_decl, font_variation_ref =
+      Var.binding font_variation Normal
+    in
+    let mono_font_feature_decl, mono_font_feature_ref =
+      Var.binding mono_font_feature Normal
+    in
+    let mono_font_variation_decl, mono_font_variation_ref =
+      Var.binding mono_font_variation Normal
+    in
     List.concat
       [
         box_resets ();
-        root_resets font_feature_ref font_variation_ref font_feature_decl font_variation_decl;
+        root_resets font_feature_ref font_variation_ref font_feature_decl
+          font_variation_decl;
         structural_resets ();
         typography_resets ();
-        code_resets mono_font_feature_ref mono_font_variation_ref mono_font_feature_decl mono_font_variation_decl;
+        code_resets mono_font_feature_ref mono_font_variation_ref
+          mono_font_feature_decl mono_font_variation_decl;
         text_level_resets ();
         table_resets ();
         interactive_resets ();
