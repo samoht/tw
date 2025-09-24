@@ -44,10 +44,6 @@ type color =
 val pp : color -> string
 (** [pp color] pretty-prints a color. *)
 
-val color_order : color -> int -> int
-(** [color_order color shade] returns the ordering value for a color and shade
-    in the theme layer. Used for consistent CSS variable ordering. *)
-
 (** {1 Conversion Functions} *)
 
 val rgb_to_oklch : rgb -> oklch

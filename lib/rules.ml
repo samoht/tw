@@ -69,9 +69,10 @@ let starting_style ~selector ~props ?base_class () =
 
 (* String manipulation helpers *)
 let drop_prefix prefix s =
-  let lp = String.length prefix in
-  let ls = String.length s in
-  if ls >= lp && String.sub s 0 lp = prefix then String.sub s lp (ls - lp)
+  if String.starts_with ~prefix s then
+    let lp = String.length prefix in
+    let ls = String.length s in
+    String.sub s lp (ls - lp)
   else s
 
 let string_of_breakpoint = function
@@ -703,11 +704,18 @@ let add_hover_to_media_map hover_rules media_map =
   if hover_rules = [] then media_map
   else
     let hover_condition = "(hover:hover)" in
+    (* Convert association list to hashtable for efficient operations *)
+    let tbl = Hashtbl.create 16 in
+    List.iter (fun (k, v) -> Hashtbl.add tbl k v) media_map;
+
+    (* Add or append hover rules *)
     let existing_hover_rules =
-      try List.assoc hover_condition media_map with Not_found -> []
+      try Hashtbl.find tbl hover_condition with Not_found -> []
     in
-    (hover_condition, hover_rules @ existing_hover_rules)
-    :: List.remove_assoc hover_condition media_map
+    Hashtbl.replace tbl hover_condition (hover_rules @ existing_hover_rules);
+
+    (* Convert back to list *)
+    Hashtbl.fold (fun k v acc -> (k, v) :: acc) tbl []
 
 (* Convert selector/props pairs to CSS rules. *)
 let of_grouped ?(filter_custom_props = false) grouped_list =
@@ -774,7 +782,10 @@ let collect_selector_props tw_classes =
   List.concat_map extract_selector_props tw_classes
 
 let extract_non_tw_custom_declarations selector_props =
-  let var_list = ref [] in
+  (* Use Hashtbl to collect unique theme variables efficiently *)
+  let theme_vars = Hashtbl.create 32 in
+  let insertion_order = ref [] in
+
   selector_props
   |> List.iter (function
          | Regular { props; _ }
@@ -785,20 +796,16 @@ let extract_non_tw_custom_declarations selector_props =
          Css.extract_custom_declarations props
          |> List.iter (fun decl ->
                 match Css.custom_declaration_layer decl with
-                | Some layer when layer = "theme" ->
-                    var_list := decl :: !var_list
+                | Some layer when layer = "theme" -> (
+                    (* Add to hashtable if not already present *)
+                    match Css.custom_declaration_name decl with
+                    | Some name when not (Hashtbl.mem theme_vars name) ->
+                        Hashtbl.add theme_vars name decl;
+                        insertion_order := decl :: !insertion_order
+                    | _ -> ())
                 | _ -> ()));
-  (* Deduplicate by variable name while preserving order *)
-  let seen = ref Strings.empty in
-  !var_list
-  |> List.filter (fun decl ->
-         match Css.custom_declaration_name decl with
-         | Some name ->
-             if Strings.mem name !seen then false
-             else (
-               seen := Strings.add name !seen;
-               true)
-         | None -> false)
+  (* Return in original insertion order *)
+  List.rev !insertion_order
 
 (* Get Var.any from declaration metadata *)
 (* var_of_declaration_meta no longer used after refactor *)
@@ -824,47 +831,56 @@ let compute_theme_layer ?(default_decls = []) tw_classes =
         | None -> false)
       default_decls
   in
-  (* Filter out defaults already present by name *)
-  let names_of lst =
-    lst
-    |> List.filter_map Css.custom_declaration_name
-    |> List.sort_uniq String.compare
+  (* Filter out defaults already present by name (use sets for faster
+     lookups) *)
+  let names_set_of lst =
+    List.fold_left
+      (fun acc d ->
+        match Css.custom_declaration_name d with
+        | Some n -> Strings.add n acc
+        | None -> acc)
+      Strings.empty lst
   in
-  let extracted_names = names_of extracted in
+  let extracted_names = names_set_of extracted in
   let pre =
     pre_defaults
     |> List.filter (fun d ->
            match Css.custom_declaration_name d with
-           | Some n -> not (List.mem n extracted_names)
+           | Some n -> not (Strings.mem n extracted_names)
            | None -> false)
   in
-  let pre_names = names_of pre in
+  let pre_names = names_set_of pre in
   let post =
     post_defaults
     |> List.filter (fun d ->
            match Css.custom_declaration_name d with
            | Some n ->
-               (not (List.mem n extracted_names)) && not (List.mem n pre_names)
+               (not (Strings.mem n extracted_names))
+               && not (Strings.mem n pre_names)
            | None -> false)
   in
   let theme_generated_vars = pre @ extracted @ post in
 
   (* Sort variables by their order metadata *)
-  let sorted_vars =
+  (* Pre-extract metadata once to avoid repeated extraction during sorting *)
+  let vars_with_order =
+    List.map
+      (fun decl ->
+        let order = Var.order_of_declaration decl in
+        (decl, order))
+      theme_generated_vars
+  in
+  let sorted_vars_with_order =
     List.sort
-      (fun a b ->
-        match (Css.meta_of_declaration a, Css.meta_of_declaration b) with
-        | Some meta_a, Some meta_b -> (
-            match (Var.order_of_meta meta_a, Var.order_of_meta meta_b) with
-            | Some order_a, Some order_b -> Int.compare order_a order_b
-            | Some _, None -> -1
-            | None, Some _ -> 1
-            | None, None -> 0)
+      (fun (_, order_a) (_, order_b) ->
+        match (order_a, order_b) with
+        | Some a, Some b -> Int.compare a b
         | Some _, None -> -1
         | None, Some _ -> 1
         | None, None -> 0)
-      theme_generated_vars
+      vars_with_order
   in
+  let sorted_vars = List.map fst sorted_vars_with_order in
 
   if sorted_vars = [] then Css.of_statements [ Css.layer ~name:"theme" [] ]
   else
@@ -916,7 +932,7 @@ let build_properties_layer explicit_property_rules_statements =
       (fun acc stmt ->
         match Css.as_property stmt with
         | Some (Css.Property_info info as prop_info) ->
-            let value = Var.property_info_to_declaration_value prop_info in
+            let value = Var.property_initial_string prop_info in
             (info.name, value) :: acc
         | None -> acc)
       [] explicit_property_rules_statements
@@ -948,44 +964,38 @@ let build_properties_layer explicit_property_rules_statements =
 
 let build_layers ~include_base tw_classes rules media_queries container_queries
     =
-  (* Extract variables from declarations in props *)
-  let rec extract_all_vars = function
-    | Core.Style { props; rules; _ } ->
+  (* Combined extraction of variables and property rules in a single
+     traversal *)
+  let rec extract_vars_and_property_rules = function
+    | Core.Style { props; rules; property_rules; _ } ->
         let vars_from_props = Css.vars_of_declarations props in
         let vars_from_rules =
           match rules with Some r -> Css.vars_of_rules r | None -> []
         in
-        vars_from_props @ vars_from_rules
-    | Core.Modified (_, t) -> extract_all_vars t
-    | Core.Group ts -> List.concat_map extract_all_vars ts
+        (vars_from_props @ vars_from_rules, [ property_rules ])
+    | Core.Modified (_, t) -> extract_vars_and_property_rules t
+    | Core.Group ts ->
+        let vars_list, prop_rules_list =
+          List.split (List.map extract_vars_and_property_rules ts)
+        in
+        (List.concat vars_list, List.concat prop_rules_list)
   in
-
-  (* Extract property_rules from Style objects *)
-  let rec extract_property_rules = function
-    | Core.Style { property_rules; _ } -> [ property_rules ]
-    | Core.Modified (_, t) -> extract_property_rules t
-    | Core.Group ts -> List.concat_map extract_property_rules ts
+  (* Collect CSS variables and property rules in a single pass *)
+  let vars_from_utilities, property_rules_lists =
+    let results = List.map extract_vars_and_property_rules tw_classes in
+    let vars_list, prop_rules_list = List.split results in
+    (List.concat vars_list, List.concat prop_rules_list)
   in
-  (* Collect CSS variables that need @property declarations *)
-  let vars_from_utilities = tw_classes |> List.concat_map extract_all_vars in
   (* Collect explicit property_rules from Style objects first *)
   (* We need this before processing other variables *)
   let explicit_property_rules_statements =
-    tw_classes
-    |> List.concat_map extract_property_rules
-    |> List.concat_map Css.statements
+    property_rules_lists |> List.concat_map Css.statements
   in
 
   (* Get variables that need @property rules (from ~property flag) *)
   let vars_needing_property =
     vars_from_utilities
-    |> List.filter (fun (Css.V v) ->
-           match Css.var_meta v with
-           | None -> false
-           | Some meta -> (
-               match Var.needs_property_of_meta meta with
-               | Some true -> true
-               | _ -> false))
+    |> List.filter (fun (Css.V v) -> Var.var_needs_property v)
   in
 
   (* Generate @property rules for variables that need them but don't have
@@ -1124,10 +1134,26 @@ let to_css ?(config = default_config) tw_classes =
       wrap_css_items ~rules ~media_queries ~container_queries
 
 let to_inline_style styles =
-  let rec to_css_properties = function
-    | Style { props; _ } -> props
-    | Modified (_, t) -> to_css_properties t
-    | Group styles -> List.concat_map to_css_properties styles
+  (* Collect all declarations from props and embedded rules. Variables are now
+     applied directly as declarations where needed. *)
+  let rec collect acc = function
+    | Style { props; rules; _ } ->
+        let from_rules =
+          match rules with
+          | None -> []
+          | Some rs ->
+              List.concat
+                (List.filter_map
+                   (fun rule ->
+                     match Css.as_rule rule with
+                     | Some (_selector, declarations, _important) ->
+                         Some declarations
+                     | None -> None)
+                   rs)
+        in
+        props @ from_rules @ acc
+    | Modified (_, t) -> collect acc t
+    | Group ts -> List.fold_left collect acc ts
   in
-  let all_props = List.concat_map to_css_properties styles in
+  let all_props = List.fold_left collect [] styles |> List.rev in
   Css.inline_style_of_declarations all_props

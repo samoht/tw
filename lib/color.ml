@@ -935,40 +935,6 @@ let pp = function
       in
       Pp.to_string ~minify:false pp_oklch_val (l, c, h)
 
-(* Compute color order for theme layer - colors start at 1000 *)
-let color_order color shade =
-  let base_order = 1000 in
-  let color_idx =
-    match color with
-    | Red -> 0
-    | Orange -> 1
-    | Amber -> 2
-    | Yellow -> 3
-    | Lime -> 4
-    | Green -> 5
-    | Emerald -> 6
-    | Teal -> 7
-    | Cyan -> 8
-    | Sky -> 9
-    | Blue -> 10
-    | Indigo -> 11
-    | Violet -> 12
-    | Purple -> 13
-    | Fuchsia -> 14
-    | Pink -> 15
-    | Rose -> 16
-    | Slate -> 17
-    | Gray -> 18
-    | Zinc -> 19
-    | Neutral -> 20
-    | Stone -> 21
-    | Black -> 100
-    | White -> 101
-    | _ -> 200
-  in
-  (* Each color gets 20 spots for shades *)
-  base_order + (color_idx * 20) + if shade = 500 then 0 else shade / 50
-
 (* Check if a color is black or white *)
 let is_base_color = function Black | White -> true | _ -> false
 
@@ -980,21 +946,13 @@ let is_custom_color = function Hex _ | Rgb _ | Oklch _ -> true | _ -> false
 (** Background color utilities *)
 
 (* Helper to create a color variable with proper tracking *)
-let var color shade =
-  let default_color =
-    to_css color (if is_base_color color then 500 else shade)
-  in
+let get_color_var color shade =
   let name =
     let base = pp color in
     if is_base_color color then "color-" ^ base
     else "color-" ^ base ^ "-" ^ string_of_int shade
   in
-  let color_var =
-    Var.create
-      (Var.Color (pp color, if is_base_color color then None else Some shade))
-      name ~layer:Theme ~order:(color_order color shade)
-  in
-  Var.Binding (color_var, default_color)
+  Var.create Css.Color name ~layer:Theme ~order:3
 
 let bg color shade =
   let class_name =
@@ -1023,17 +981,12 @@ let bg color shade =
       if is_base_color color then "color-" ^ color_name
       else "color-" ^ color_name ^ "-" ^ string_of_int shade
     in
-    let color_theme_var =
-      Var.create
-        (Var.Color (color_name, if is_base_color color then None else Some shade))
-        var_name ~layer:Theme ~order:(color_order color shade)
-    in
+    let color_theme_var = Var.create Css.Color var_name ~layer:Theme ~order:3 in
     let color_value =
       to_css color (if is_base_color color then 500 else shade)
     in
-    style class_name
-      ~vars:[ Var.Binding (color_theme_var, color_value) ]
-      [ Css.background_color (Css.Var (Var.use color_theme_var)) ]
+    let decl, color_ref = Var.binding color_theme_var color_value in
+    style class_name (decl :: [ Css.background_color (Css.Var color_ref) ])
 
 let bg_transparent = style "bg-transparent" [ background_color Transparent ]
 let bg_current = style "bg-current" [ background_color Current ]
@@ -1087,11 +1040,12 @@ let text color shade =
     let css_color = to_css color shade in
     style class_name [ Css.color css_color ]
   else
-    match var color shade with
-    | Var.Binding (({ kind = Var.Color _; _ } as color_var), _) as binding ->
-        style class_name ~vars:[ binding ]
-          [ Css.color (Var (Var.use color_var)) ]
-    | _ -> assert false
+    let color_var = get_color_var color shade in
+    let color_value =
+      to_css color (if is_base_color color then 500 else shade)
+    in
+    let decl, color_ref = Var.binding color_var color_value in
+    style class_name (decl :: [ Css.color (Var color_ref) ])
 
 let text_transparent = style "text-transparent" [ Css.color Transparent ]
 let text_current = style "text-current" [ Css.color Current ]
@@ -1146,11 +1100,12 @@ let border_color color shade =
     let css_color = to_css color shade in
     style class_name [ Css.border_color css_color ]
   else
-    match var color shade with
-    | Var.Binding (({ kind = Var.Color _; _ } as color_var), _) as binding ->
-        style class_name ~vars:[ binding ]
-          [ Css.border_color (Var (Var.use color_var)) ]
-    | _ -> assert false
+    let color_var = get_color_var color shade in
+    let color_value =
+      to_css color (if is_base_color color then 500 else shade)
+    in
+    let decl, color_ref = Var.binding color_var color_value in
+    style class_name (decl :: [ Css.border_color (Var color_ref) ])
 
 let border_transparent =
   style "border-transparent" [ Css.border_color Transparent ]

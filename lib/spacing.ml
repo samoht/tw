@@ -4,7 +4,7 @@ open Core
 open Css
 
 (* Define the spacing variable at the module level *)
-let spacing_var = Var.create Var.Spacing "spacing" ~layer:Theme ~order:4
+let spacing_var = Var.create Css.Length "spacing" ~layer:Theme ~order:4
 
 module Parse = Parse
 
@@ -42,10 +42,9 @@ let to_length : spacing -> length = function
   | `Full -> Pct 100.0
   | `Rem f ->
       let n = int_of_float (f /. 0.25) in
+      let _, spacing_ref = Var.binding spacing_var (Rem 0.25) in
       Calc
-        (Calc.mul
-           (Calc.length (Var (Var.use spacing_var)))
-           (Calc.float (float_of_int n)))
+        (Calc.mul (Calc.length (Var spacing_ref)) (Calc.float (float_of_int n)))
 
 let margin_to_length : margin -> length = function
   | `Auto -> Auto
@@ -63,7 +62,8 @@ let decimal f = `Rem (f *. 0.25)
 let apply_style class_name decls s =
   match s with
   | `Rem _ ->
-      style class_name ~vars:[ Var.Binding (spacing_var, Rem 0.25) ] decls
+      let decl, _ = Var.binding spacing_var (Rem 0.25) in
+      style class_name (decl :: decls)
   | _ -> style class_name decls
 
 let padding_util prefix prop (s : spacing) =
@@ -109,7 +109,8 @@ let pl_decimal f = pl' (decimal f)
 let margin_style class_name decls m =
   match m with
   | `Rem _ ->
-      style class_name ~vars:[ Var.Binding (spacing_var, Rem 0.25) ] decls
+      let decl, _ = Var.binding spacing_var (Rem 0.25) in
+      style class_name (decl :: decls)
   | _ -> style class_name decls
 
 let margin_util prefix prop (m : margin) =
@@ -186,15 +187,37 @@ let space_x n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "space-x-" ^ pp_spacing_suffix s in
-  let len = to_length s in
-  style class_name [ margin_left len ]
+  match s with
+  | `Rem _ ->
+      let decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+      let n_units =
+        int_of_float ((match s with `Rem f -> f | _ -> 0.) /. 0.25)
+      in
+      let len : Css.length =
+        Calc
+          Calc.(mul (length (Var spacing_ref)) (float (float_of_int n_units)))
+      in
+      style class_name (decl :: [ margin_left len ])
+  | `Px -> style class_name [ margin_left (Px 1.) ]
+  | `Full -> style class_name [ margin_left (Pct 100.0) ]
 
 let space_y n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "space-y-" ^ pp_spacing_suffix s in
-  let len = to_length s in
-  style class_name [ margin_top len ]
+  match s with
+  | `Rem _ ->
+      let decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+      let n_units =
+        int_of_float ((match s with `Rem f -> f | _ -> 0.) /. 0.25)
+      in
+      let len : Css.length =
+        Calc
+          Calc.(mul (length (Var spacing_ref)) (float (float_of_int n_units)))
+      in
+      style class_name (decl :: [ margin_top len ])
+  | `Px -> style class_name [ margin_top (Px 1.) ]
+  | `Full -> style class_name [ margin_top (Pct 100.0) ]
 
 (** {2 Parsing Functions} *)
 

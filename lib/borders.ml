@@ -20,33 +20,21 @@
 open Core
 open Css
 
-(* Extend variable kinds for borders *)
-type _ Var.kind +=
-  | Radius_sm : Css.length Var.kind
-  | Radius_md : Css.length Var.kind
-  | Radius_lg : Css.length Var.kind
-  | Radius_xl : Css.length Var.kind
-  | Radius_2xl : Css.length Var.kind
-  | Radius_3xl : Css.length Var.kind
-  | (* Border style *)
-      Border_style :
-      Css.border_style Var.kind
-
 (** {1 Border Width Utilities} *)
 
 (* Create border style variable with @property metadata *)
-let border_style_var = Var.create Border_style "tw-border-style" ~layer:Utility
+let border_style_var =
+  Var.create Css.Border_style "tw-border-style" ~layer:Utility
 
 (* Helper for border utilities that use the --tw-border-style variable *)
 let border_util class_name additional_props =
-  style class_name
-    (border_style (Var (Var.use border_style_var)) :: additional_props)
+  let decl, border_ref = Var.binding border_style_var Solid in
+  style class_name (decl :: border_style (Var border_ref) :: additional_props)
 
 (* Helper for border style utilities that set the variable *)
 let border_style_util class_name border_style_value =
-  style class_name
-    ~vars:[ Binding (border_style_var, border_style_value) ]
-    [ border_style border_style_value ]
+  let decl, _ = Var.binding border_style_var border_style_value in
+  style class_name (decl :: [ border_style border_style_value ])
 
 let border = border_util "border" [ border_width (Px 1.) ]
 let border_0 = border_util "border-0" [ border_width (Px 0.) ]
@@ -55,7 +43,8 @@ let border_4 = border_util "border-4" [ border_width (Px 4.) ]
 let border_8 = border_util "border-8" [ border_width (Px 8.) ]
 
 let side class_name side_props =
-  style class_name (side_props (Var.use border_style_var))
+  let decl, border_ref = Var.binding border_style_var Solid in
+  style class_name (decl :: side_props border_ref)
 
 let border_t =
   side "border-t" (fun border_var ->
@@ -178,44 +167,50 @@ let border_full = border_8 (* 8px *)
 
 (* Create radius theme variables with fallback values for inline mode *)
 let radius_sm_var =
-  Var.create Radius_sm "radius-sm" ~layer:Theme ~fallback:(Px 2.) ~order:300
+  Var.create Css.Length "radius-sm" ~layer:Theme ~fallback:(Px 2.) ~order:300
 
 let radius_md_var =
-  Var.create Radius_md "radius-md" ~layer:Theme ~fallback:(Px 6.) ~order:301
+  Var.create Css.Length "radius-md" ~layer:Theme ~fallback:(Px 6.) ~order:301
 
 let radius_lg_var =
-  Var.create Radius_lg "radius-lg" ~layer:Theme ~fallback:(Px 8.) ~order:302
+  Var.create Css.Length "radius-lg" ~layer:Theme ~fallback:(Px 8.) ~order:302
 
 let radius_xl_var =
-  Var.create Radius_xl "radius-xl" ~layer:Theme ~fallback:(Px 12.) ~order:303
+  Var.create Css.Length "radius-xl" ~layer:Theme ~fallback:(Px 12.) ~order:303
 
 let radius_2xl_var =
-  Var.create Radius_2xl "radius-2xl" ~layer:Theme ~fallback:(Px 16.) ~order:304
+  Var.create Css.Length "radius-2xl" ~layer:Theme ~fallback:(Px 16.) ~order:304
 
 let radius_3xl_var =
-  Var.create Radius_3xl "radius-3xl" ~layer:Theme ~fallback:(Px 24.) ~order:305
+  Var.create Css.Length "radius-3xl" ~layer:Theme ~fallback:(Px 24.) ~order:305
 
 let rounded_none = style "rounded-none" [ border_radius Zero ]
 
 let rounded_sm =
-  style "rounded-sm" [ border_radius (Var (Var.use radius_sm_var)) ]
+  let decl, r = Var.binding radius_sm_var (Px 2.) in
+  style "rounded-sm" (decl :: [ border_radius (Var r) ])
 
 let rounded = style "rounded" [ border_radius (Rem 0.25) ]
 
 let rounded_md =
-  style "rounded-md" [ border_radius (Var (Var.use radius_md_var)) ]
+  let decl, r = Var.binding radius_md_var (Px 6.) in
+  style "rounded-md" (decl :: [ border_radius (Var r) ])
 
 let rounded_lg =
-  style "rounded-lg" [ border_radius (Var (Var.use radius_lg_var)) ]
+  let decl, r = Var.binding radius_lg_var (Px 8.) in
+  style "rounded-lg" (decl :: [ border_radius (Var r) ])
 
 let rounded_xl =
-  style "rounded-xl" [ border_radius (Var (Var.use radius_xl_var)) ]
+  let decl, r = Var.binding radius_xl_var (Px 12.) in
+  style "rounded-xl" (decl :: [ border_radius (Var r) ])
 
 let rounded_2xl =
-  style "rounded-2xl" [ border_radius (Var (Var.use radius_2xl_var)) ]
+  let decl, r = Var.binding radius_2xl_var (Px 16.) in
+  style "rounded-2xl" (decl :: [ border_radius (Var r) ])
 
 let rounded_3xl =
-  style "rounded-3xl" [ border_radius (Var (Var.use radius_3xl_var)) ]
+  let decl, r = Var.binding radius_3xl_var (Px 24.) in
+  style "rounded-3xl" (decl :: [ border_radius (Var r) ])
 
 let rounded_full =
   (* Tailwind v4 uses calc(infinity * 1px) which gets optimized to
