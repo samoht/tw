@@ -68,7 +68,7 @@ let mono_font_variation =
     ~layer:Theme ~order:10
 
 (** HTML and body defaults *)
-let root_resets font_feature font_variation =
+let root_resets font_feature font_variation font_feature_decl font_variation_decl =
   let fallback_stack : font_family =
     List
       [
@@ -81,21 +81,20 @@ let root_resets font_feature font_variation =
         Noto_color_emoji;
       ]
   in
-  let _, default_font_ref =
+  let default_font_decl, default_font_ref =
     Var.binding Typography.default_font_family_var fallback_stack
   in
   [
     rule
       ~selector:Selector.(list [ element "html"; host () ])
       [
+        default_font_decl;
+        font_feature_decl;
+        font_variation_decl;
         webkit_text_size_adjust (Pct 100.);
         tab_size 4;
         line_height (Num 1.5);
-        (* Use default-font-family with full font stack as fallback *)
-        font_family
-          (Var
-             (Css.var_ref ~fallback:(Fallback fallback_stack)
-                (Css.var_name default_font_ref)));
+        font_family (Css.Var default_font_ref);
         font_feature_settings (Var font_feature);
         font_variation_settings (Var font_variation);
         webkit_tap_highlight_color Transparent;
@@ -153,39 +152,37 @@ let typography_resets () =
   ]
 
 (** Code and monospace resets *)
-let code_resets font_feature font_variation =
+let code_resets font_feature font_variation mono_font_feature_decl mono_font_variation_decl =
   [
     rule
       ~selector:
         Selector.(
           list [ element "code"; element "kbd"; element "samp"; element "pre" ])
-      [
-        (* Use default-mono-font-family with full monospace font stack as
-           fallback *)
-        font_family
-          (let fallback_stack : font_family =
-             List
-               [
-                 Ui_monospace;
-                 SFMono_regular;
-                 Menlo;
-                 Monaco;
-                 Consolas;
-                 Liberation_mono;
-                 Courier_new;
-                 Monospace;
-               ]
-           in
-           let _, default_mono_ref =
-             Var.binding Typography.default_mono_font_family_var fallback_stack
-           in
-           Css.Var
-             (Css.var_ref ~fallback:(Fallback fallback_stack)
-                (Css.var_name default_mono_ref)));
+      (let fallback_stack : font_family =
+         List
+           [
+             Ui_monospace;
+             SFMono_regular;
+             Menlo;
+             Monaco;
+             Consolas;
+             Liberation_mono;
+             Courier_new;
+             Monospace;
+           ]
+       in
+       let default_mono_decl, default_mono_ref =
+         Var.binding Typography.default_mono_font_family_var fallback_stack
+       in
+       [
+        default_mono_decl;
+        mono_font_feature_decl;
+        mono_font_variation_decl;
+        font_family (Css.Var default_mono_ref);
         font_feature_settings (Var font_feature);
         font_variation_settings (Var font_variation);
         font_size (Em 1.0);
-      ];
+      ]);
   ]
 
 (** Text-level semantics *)
@@ -382,17 +379,17 @@ let hidden_resets () =
 
 let stylesheet ?placeholder_supports () =
   let base_rules =
-    let _, font_feature_ref = Var.binding font_feature Normal in
-    let _, font_variation_ref = Var.binding font_variation Normal in
-    let _, mono_font_feature_ref = Var.binding mono_font_feature Normal in
-    let _, mono_font_variation_ref = Var.binding mono_font_variation Normal in
+    let font_feature_decl, font_feature_ref = Var.binding font_feature Normal in
+    let font_variation_decl, font_variation_ref = Var.binding font_variation Normal in
+    let mono_font_feature_decl, mono_font_feature_ref = Var.binding mono_font_feature Normal in
+    let mono_font_variation_decl, mono_font_variation_ref = Var.binding mono_font_variation Normal in
     List.concat
       [
         box_resets ();
-        root_resets font_feature_ref font_variation_ref;
+        root_resets font_feature_ref font_variation_ref font_feature_decl font_variation_decl;
         structural_resets ();
         typography_resets ();
-        code_resets mono_font_feature_ref mono_font_variation_ref;
+        code_resets mono_font_feature_ref mono_font_variation_ref mono_font_feature_decl mono_font_variation_decl;
         text_level_resets ();
         table_resets ();
         interactive_resets ();

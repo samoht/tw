@@ -159,10 +159,10 @@ let transform =
   let dr, vr = Var.binding tw_rotate_var (Deg 0.0) in
   let dsx, vsx = Var.binding tw_skew_x_var (Deg 0.0) in
   let dsy, vsy = Var.binding tw_skew_y_var (Deg 0.0) in
-  let _, _ = Var.binding tw_scale_x_var 1.0 in
-  let _, _ = Var.binding tw_scale_y_var 1.0 in
+  let dscalex, vscalex = Var.binding tw_scale_x_var 1.0 in
+  let dscaley, vscaley = Var.binding tw_scale_y_var 1.0 in
   style "transform"
-    (dx :: dy :: dr :: dsx :: dsy
+    (dx :: dy :: dr :: dsx :: dsy :: dscalex :: dscaley
     :: [
          transform
            [
@@ -171,8 +171,8 @@ let transform =
              Rotate (Var vr);
              Skew_x (Var vsx);
              Skew_y (Var vsy);
-             Scale_x 1.0;
-             Scale_y 1.0;
+             Scale_x (Var vscalex);
+             Scale_y (Var vscaley);
            ];
        ])
 

@@ -37,18 +37,17 @@ let pp_margin_suffix : margin -> string = function
   | #spacing as s -> pp_spacing_suffix s
 
 (* Convert spacing to CSS length *)
-let to_length : spacing -> length = function
+let to_length spacing_ref : spacing -> length = function
   | `Px -> Px 1.
   | `Full -> Pct 100.0
   | `Rem f ->
       let n = int_of_float (f /. 0.25) in
-      let _, spacing_ref = Var.binding spacing_var (Rem 0.25) in
       Calc
         (Calc.mul (Calc.length (Var spacing_ref)) (Calc.float (float_of_int n)))
 
-let margin_to_length : margin -> length = function
+let margin_to_length spacing_ref : margin -> length = function
   | `Auto -> Auto
-  | #spacing as s -> to_length s
+  | #spacing as s -> to_length spacing_ref s
 
 (** {2 Helper Functions} *)
 
@@ -58,23 +57,22 @@ let decimal f = `Rem (f *. 0.25)
 
 (** {2 Typed Padding Utilities} *)
 
-(* Helper to include spacing variable binding when needed *)
-let apply_style class_name decls s =
-  match s with
-  | `Rem _ ->
-      let decl, _ = Var.binding spacing_var (Rem 0.25) in
-      style class_name (decl :: decls)
-  | _ -> style class_name decls
 
 let padding_util prefix prop (s : spacing) =
   let class_name = prefix ^ pp_spacing_suffix s in
-  let len = to_length s in
-  apply_style class_name [ prop len ] s
+  let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+  let len = to_length spacing_ref s in
+  match s with
+  | `Rem _ -> style class_name [ spacing_decl; prop len ]
+  | _ -> style class_name [ prop len ]
 
 let padding_list_util prefix prop (s : spacing) =
   let class_name = prefix ^ pp_spacing_suffix s in
-  let len = to_length s in
-  apply_style class_name [ prop [ len ] ] s
+  let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+  let len = to_length spacing_ref s in
+  match s with
+  | `Rem _ -> style class_name [ spacing_decl; prop [ len ] ]
+  | _ -> style class_name [ prop [ len ] ]
 
 let p' = padding_list_util "p-" padding
 let px' = padding_util "px-" padding_inline

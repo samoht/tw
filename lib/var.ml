@@ -13,7 +13,7 @@ type 'a t = {
   kind : 'a Css.kind; (* CSS type witness *)
   name : string; (* Variable name without -- prefix *)
   layer : layer; (* Theme or Utility *)
-  binding : ?fallback:'a -> 'a -> Css.declaration * 'a Css.var;
+  binding : 'a -> Css.declaration * 'a Css.var;
       (* Function to create declaration and var ref *)
   property : 'a property_info option; (* For @property registration *)
   order : int option; (* Explicit ordering for theme layer *)
