@@ -239,7 +239,12 @@ let font_weight_utility name weight_var weight_value =
   let weight_util_decl, _ =
     Var.binding font_weight_var (Css.Var weight_theme_ref)
   in
-  style ("font-" ^ name)
+  let property_rule =
+    match Var.property_rule font_weight_var with
+    | Some rule -> rule
+    | None -> Css.empty
+  in
+  style ("font-" ^ name) ~property_rules:property_rule
     [
       weight_theme_decl;
       weight_util_decl;
