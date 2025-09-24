@@ -67,9 +67,26 @@ let mono_font_variation =
   Var.create Css.Font_variation_settings "default-mono-font-variation-settings"
     ~layer:Theme ~order:10
 
+(** Helper for creating variable references in preflight context
+
+    This is ONLY safe to use in preflight.ml because: 1. Preflight runs in the
+    base layer, which comes AFTER theme layer 2. We're creating "optional
+    customization hooks" - variables that are intentionally NOT declared
+    anywhere by default 3. This creates var(--name, fallback) CSS that always
+    uses the fallback unless users/plugins declare the variables themselves 4.
+    This enables theme customization without bloating the default CSS 5. The
+    declarations are safely ignored because these variables should remain
+    undeclared by design
+
+    NOTE: This technically violates the three-rule policy (see var.mli for
+    details) but is intentionally allowed in this specific preflight context
+    where the declarations are meant to be discarded. *)
+let var_ref (type a) (var : a Var.t) ~(fallback : a) : a Css.var =
+  let _, ref = Var.binding var fallback in
+  ref
+
 (** HTML and body defaults *)
-let root_resets font_feature font_variation font_feature_decl
-    font_variation_decl =
+let root_resets ~default_font_ref ~font_feature_ref ~font_variation_ref =
   let fallback_stack : font_family =
     List
       [
@@ -82,22 +99,29 @@ let root_resets font_feature font_variation font_feature_decl
         Noto_color_emoji;
       ]
   in
-  let default_font_decl, default_font_ref =
-    Var.binding Typography.default_font_family_var fallback_stack
+  (* Add fallback for theme-declared font variable *)
+  let default_font_with_fallback =
+    Css.with_fallback default_font_ref fallback_stack
+  in
+
+  (* Add fallback for optional customization hooks *)
+  let font_feature_with_fallback : Css.font_feature_settings Css.var =
+    Css.with_fallback font_feature_ref (Css.Normal : Css.font_feature_settings)
+  in
+  let font_variation_with_fallback : Css.font_variation_settings Css.var =
+    Css.with_fallback font_variation_ref
+      (Css.Normal : Css.font_variation_settings)
   in
   [
     rule
       ~selector:Selector.(list [ element "html"; host () ])
       [
-        default_font_decl;
-        font_feature_decl;
-        font_variation_decl;
         webkit_text_size_adjust (Pct 100.);
         tab_size 4;
         line_height (Num 1.5);
-        font_family (Css.Var default_font_ref);
-        font_feature_settings (Var font_feature);
-        font_variation_settings (Var font_variation);
+        font_family (Css.Var default_font_with_fallback);
+        font_feature_settings (Var font_feature_with_fallback);
+        font_variation_settings (Var font_variation_with_fallback);
         webkit_tap_highlight_color Transparent;
       ];
   ]
@@ -153,8 +177,8 @@ let typography_resets () =
   ]
 
 (** Code and monospace resets *)
-let code_resets font_feature font_variation mono_font_feature_decl
-    mono_font_variation_decl =
+let code_resets ~default_mono_ref ~mono_font_feature_ref
+    ~mono_font_variation_ref =
   [
     rule
       ~selector:
@@ -173,16 +197,24 @@ let code_resets font_feature font_variation mono_font_feature_decl
              Monospace;
            ]
        in
-       let default_mono_decl, default_mono_ref =
-         Var.binding Typography.default_mono_font_family_var fallback_stack
+       (* Add fallback for theme-declared font variable *)
+       let default_mono_with_fallback =
+         Css.with_fallback default_mono_ref fallback_stack
+       in
+
+       (* Add fallback for optional customization hooks *)
+       let font_feature_with_fallback : Css.font_feature_settings Css.var =
+         Css.with_fallback mono_font_feature_ref
+           (Css.Normal : Css.font_feature_settings)
+       in
+       let font_variation_with_fallback : Css.font_variation_settings Css.var =
+         Css.with_fallback mono_font_variation_ref
+           (Css.Normal : Css.font_variation_settings)
        in
        [
-         default_mono_decl;
-         mono_font_feature_decl;
-         mono_font_variation_decl;
-         font_family (Css.Var default_mono_ref);
-         font_feature_settings (Var font_feature);
-         font_variation_settings (Var font_variation);
+         font_family (Css.Var default_mono_with_fallback);
+         font_feature_settings (Var font_feature_with_fallback);
+         font_variation_settings (Var font_variation_with_fallback);
          font_size (Em 1.0);
        ]);
   ]
@@ -380,26 +412,65 @@ let hidden_resets () =
   [ rule ~selector:hidden_not_until_found [ important (display None) ] ]
 
 let stylesheet ?placeholder_supports () =
+  (* Get variable references for theme-declared variables *)
+  let fallback_stack : font_family =
+    List
+      [
+        Ui_sans_serif;
+        System_ui;
+        Sans_serif;
+        Apple_color_emoji;
+        Segoe_ui_emoji;
+        Segoe_ui_symbol;
+        Noto_color_emoji;
+      ]
+  in
+  let _, default_font_ref =
+    Var.binding Typography.default_font_family_var fallback_stack
+  in
+
+  (* Get variable references for monospace fonts *)
+  let mono_fallback_stack : font_family =
+    List
+      [
+        Ui_monospace;
+        SFMono_regular;
+        Menlo;
+        Monaco;
+        Consolas;
+        Liberation_mono;
+        Courier_new;
+        Monospace;
+      ]
+  in
+  let _, default_mono_ref =
+    Var.binding Typography.default_mono_font_family_var mono_fallback_stack
+  in
+
+  (* Get variable references for optional customization hooks using helper *)
+  let font_feature_ref : Css.font_feature_settings Css.var =
+    var_ref font_feature ~fallback:(Css.Normal : Css.font_feature_settings)
+  in
+  let font_variation_ref : Css.font_variation_settings Css.var =
+    var_ref font_variation ~fallback:(Css.Normal : Css.font_variation_settings)
+  in
+  let mono_font_feature_ref : Css.font_feature_settings Css.var =
+    var_ref mono_font_feature ~fallback:(Css.Normal : Css.font_feature_settings)
+  in
+  let mono_font_variation_ref : Css.font_variation_settings Css.var =
+    var_ref mono_font_variation
+      ~fallback:(Css.Normal : Css.font_variation_settings)
+  in
+
   let base_rules =
-    let font_feature_decl, font_feature_ref = Var.binding font_feature Normal in
-    let font_variation_decl, font_variation_ref =
-      Var.binding font_variation Normal
-    in
-    let mono_font_feature_decl, mono_font_feature_ref =
-      Var.binding mono_font_feature Normal
-    in
-    let mono_font_variation_decl, mono_font_variation_ref =
-      Var.binding mono_font_variation Normal
-    in
     List.concat
       [
         box_resets ();
-        root_resets font_feature_ref font_variation_ref font_feature_decl
-          font_variation_decl;
+        root_resets ~default_font_ref ~font_feature_ref ~font_variation_ref;
         structural_resets ();
         typography_resets ();
-        code_resets mono_font_feature_ref mono_font_variation_ref
-          mono_font_feature_decl mono_font_variation_decl;
+        code_resets ~default_mono_ref ~mono_font_feature_ref
+          ~mono_font_variation_ref;
         text_level_resets ();
         table_resets ();
         interactive_resets ();
