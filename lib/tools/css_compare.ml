@@ -820,9 +820,16 @@ let property_diffs decls1 decls2 : declaration list =
 let extract_properties statements =
   List.filter_map
     (fun stmt ->
-      match Css.as_property_legacy stmt with
-      | Some (name, syntax, inherits, initial_value) ->
-          Some (name, syntax, inherits, initial_value)
+      match Css.as_property stmt with
+      | Some (Css.Property_info { name; syntax; inherits; initial_value }) ->
+          let syntax_str = Css.Pp.to_string Css.Variables.pp_syntax syntax in
+          let initial_str =
+            match initial_value with
+            | None -> None
+            | Some v ->
+                Some (Css.Pp.to_string (Css.Variables.pp_value syntax) v)
+          in
+          Some (name, syntax_str, inherits, initial_str)
       | None -> None)
     statements
 
