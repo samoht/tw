@@ -304,8 +304,8 @@ val binding :
       (e.g., text-xs references --tw-leading with --text-xs--line-height as
       fallback). *)
 
-val reference : 'a t -> 'a Css.var
-(** [reference var] creates a variable reference for utilities that rely on
+val reference : ?fallback:'a Css.fallback -> 'a t -> 'a Css.var
+(** [reference var ?fallback] creates a variable reference for utilities that rely on
     @property defaults. Only works for variables with ~property metadata.
 
     Use this for utilities that REFERENCE a variable but don't SET it:
