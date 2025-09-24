@@ -115,21 +115,45 @@ let property_rule : type a. a t -> Css.t option =
    reference *)
 let binding var ?fallback value = var.binding ?fallback value
 
-(* Create a variable reference for variables with @property defaults *)
+(* Create a variable reference for variables with @property defaults OR
+   fallback *)
 let reference : type a. ?fallback:a Css.fallback -> a t -> a Css.var =
  fun ?fallback var ->
-  match var.property with
-  | None ->
+  match (var.property, fallback) with
+  | None, None ->
       failwith
-        ("Var.reference can only be used with variables that have ~property \
-          metadata: " ^ var.name)
-  | Some { initial; _ } -> (
-      match initial with
-      | None ->
+        ("Var.reference requires either ~property metadata or a fallback: "
+       ^ var.name)
+  | None, Some (Css.Fallback fallback_value) ->
+      (* No property metadata but have fallback - use fallback as the value *)
+      let _, var_ref =
+        var.binding ~fallback:(Css.Fallback fallback_value) fallback_value
+      in
+      var_ref
+  | None, Some _ ->
+      (* Empty or None fallback without property metadata *)
+      failwith
+        ("Var.reference without property metadata requires a Fallback value: "
+       ^ var.name)
+  | Some { initial; _ }, _ -> (
+      match (initial, fallback) with
+      | None, None ->
           failwith
-            ("Var.reference requires variables with initial values: " ^ var.name)
-      | Some initial_value ->
-          (* Create variable reference with optional fallback *)
+            ("Var.reference requires either an initial value or a fallback: "
+           ^ var.name)
+      | None, Some (Css.Fallback fallback_value) ->
+          (* No initial but have fallback - use fallback as the value *)
+          let _, var_ref =
+            var.binding ~fallback:(Css.Fallback fallback_value) fallback_value
+          in
+          var_ref
+      | None, Some _ ->
+          (* Empty or None fallback without initial value *)
+          failwith
+            ("Var.reference with no initial value requires a Fallback value: "
+           ^ var.name)
+      | Some initial_value, _ ->
+          (* Have initial value - use it with optional fallback *)
           let _, var_ref = var.binding ?fallback initial_value in
           var_ref)
 

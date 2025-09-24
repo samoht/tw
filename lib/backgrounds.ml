@@ -2,7 +2,11 @@
 
 open Core
 
-(* Gradient variables using new API - no values, just definitions *)
+(* Gradient variables with proper @property definitions matching Tailwind v4 *)
+let gradient_position_var =
+  Var.create Css.String "tw-gradient-position" ~layer:Utility
+    ~property:(None, false)
+
 let gradient_from_var =
   Var.create Css.Color "tw-gradient-from" ~layer:Utility
     ~property:(Some (Css.hex "#0000"), false)
@@ -14,6 +18,26 @@ let gradient_via_var =
 let gradient_to_var =
   Var.create Css.Color "tw-gradient-to" ~layer:Utility
     ~property:(Some (Css.hex "#0000"), false)
+
+let gradient_stops_var =
+  Var.create Css.String "tw-gradient-stops" ~layer:Utility
+    ~property:(None, false)
+
+let gradient_via_stops_var =
+  Var.create Css.String "tw-gradient-via-stops" ~layer:Utility
+    ~property:(None, false)
+
+let gradient_from_position_var =
+  Var.create Css.Length "tw-gradient-from-position" ~layer:Utility
+    ~property:(Some (Css.Pct 0.), false)
+
+let gradient_via_position_var =
+  Var.create Css.Length "tw-gradient-via-position" ~layer:Utility
+    ~property:(Some (Css.Pct 50.), false)
+
+let gradient_to_position_var =
+  Var.create Css.Length "tw-gradient-to-position" ~layer:Utility
+    ~property:(Some (Css.Pct 100.), false)
 
 type direction =
   | Bottom
@@ -77,11 +101,35 @@ let from_color ?(shade = 500) color =
       ~layer:Theme ~order:3
   in
   let color_value = Color.to_css color shade in
-  (* Simply set the gradient-from color - composition happens in
-     background-image *)
+  (* Set gradient-from and gradient-stops following Tailwind v4 pattern *)
   let d_color, color_ref = Var.binding color_theme_var color_value in
   let d_from, _ = Var.binding gradient_from_var (Css.Var color_ref) in
-  style class_name [ d_color; d_from ]
+
+  (* Build the gradient-stops value string manually *)
+  let stops_value =
+    Printf.sprintf
+      "var(--tw-gradient-via-stops,var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-to)var(--tw-gradient-to-position))"
+  in
+  let d_stops, _ = Var.binding gradient_stops_var stops_value in
+
+  (* Generate @property rules for all gradient variables *)
+  let property_rules =
+    [
+      Var.property_rule gradient_position_var;
+      Var.property_rule gradient_from_var;
+      Var.property_rule gradient_via_var;
+      Var.property_rule gradient_to_var;
+      Var.property_rule gradient_stops_var;
+      Var.property_rule gradient_via_stops_var;
+      Var.property_rule gradient_from_position_var;
+      Var.property_rule gradient_via_position_var;
+      Var.property_rule gradient_to_position_var;
+    ]
+    |> List.filter_map (fun x -> x)
+    |> Css.concat
+  in
+
+  style class_name ~property_rules [ d_color; d_from; d_stops ]
 
 let via_color ?(shade = 500) color =
   let class_name = gradient_color_class_name ~prefix:"via-" ~shade color in
