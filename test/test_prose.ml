@@ -43,14 +43,22 @@ let test_css_generation () =
     (Astring.String.is_infix ~affix:".prose :where(h1)" css_string)
 
 let test_inline_styles () =
-  (* Prose utilities don't generate inline styles - they only use descendant
-     selectors *)
+  (* Prose utilities can generate inline styles from their rules, but CSS
+     variables are filtered out *)
   let inline = to_inline_style [ prose ] in
-  Alcotest.(check string) "prose has no inline styles" "" inline;
+  Alcotest.(check bool)
+    "prose generates inline styles" true
+    (String.length inline > 0);
 
-  (* Size variants also don't generate inline styles *)
-  let inline_lg = to_inline_style [ prose_lg ] in
-  Alcotest.(check string) "prose-lg has no inline styles" "" inline_lg
+  (* Check that CSS variables are filtered out - no "--" should appear *)
+  let has_css_vars =
+    try Astring.String.is_infix ~affix:"--" inline with _ -> false
+  in
+  Alcotest.(check bool) "no CSS variables in inline styles" false has_css_vars;
+
+  (* Color variants only set CSS variables, so they have no inline styles *)
+  let inline_gray = to_inline_style [ prose_gray ] in
+  Alcotest.(check string) "prose-gray has no inline styles" "" inline_gray
 
 let suite =
   ( "prose",
