@@ -95,51 +95,51 @@
       .border { border-style: var(--tw-border-style); border-width: 1px; }
     ]}
 
-    {1 The Variable API}
+    {1 Variable Usage Policy}
 
-    The API centers around the {!type:t} record type, which represents a
-    complete variable definition. Variables are created with {!create}, enhanced
-    with {!with_property} or {!with_fallback}, and used in utilities via the
-    {!binding} type.
+    The variable system follows a simple, strict policy:
 
-    {2 Basic Usage}
+    {2 The Three Rules}
 
+    1. {b When you need both declaration and variable reference}: Use [Var.binding]
+    2. {b When you need only declaration OR only variable reference}: Pass it as function parameter, let the parent function call [Var.binding]
+    3. {b No other ways are allowed}: No direct [Css.var_ref], no ignoring declarations, no workarounds
+
+    {2 Examples}
+
+    {b Rule 1: Need both declaration and variable}
     {[
-      (* Create theme variable *)
-      let font_weight_bold =
-        Var.create Css.Font_weight "font-weight-bold" ~layer:Theme ~order:206
+      (* Variable owned by this module *)
+      let my_var = Var.create Type "css-var-name" ~layer:Layer ~order:N
 
-      (* Create utility variable with @property metadata *)
-      let font_weight =
-        Var.create Css.Font_weight "tw-font-weight" ~layer:Utility
-        |> Var.with_property ~initial:(Weight 400)
-
-      (* Use in utilities - ALWAYS use Binding to set variables *)
-      let font_bold =
-        style "font-bold"
-          ~vars:
-            [
-              Binding (font_weight_bold, Weight 700);
-              Binding (font_weight, Var (Var.use font_weight_bold));
-            ]
-          [ Css.font_weight (Var.use font_weight) ]
-      (* The @property rule is automatically extracted from font_weight *)
+      (* Utility that sets the variable *)
+      let my_utility =
+        let var_d, var_v = Var.binding my_var value in
+        style "utility-name" [ var_d; css_property (Css.Var var_v) ]
     ]}
 
-    This generates:
-    - In [@layer theme]: [--font-weight-bold: 700]
-    - In [@layer properties]: [--tw-font-weight: 400]
-    - In [@property]: [@property --tw-font-weight { syntax: "*"; ... }]
-      (automatically extracted)
-    - In [@layer utilities]:
-      [.font-bold { --tw-font-weight: 700; font-weight: var(--tw-font-weight,
-       400) }]
+    {b Rule 2: Need only declaration OR only variable reference}
+    {[
+      (* Function receives variable reference as 'a Css.var parameter *)
+      let my_utility var_ref =
+        style "utility-name" [ css_property (Var var_ref) ]
 
-    {2 Note on Property Rules}
+      (* Or receives declaration as Css.declaration parameter *)
+      let my_utility var_decl =
+        style "utility-name" [ var_decl; css_property some_other_value ]
 
-    The [style] function automatically collects [@property] rules from variables
-    in the [~vars] parameter. You only need to use [~property_rules] for
-    additional property rules not tied to the variables being set. *)
+      (* Parent function calls Var.binding and passes the needed part *)
+      let parent_utility =
+        let var_d, var_v = Var.binding my_var value in
+        my_utility var_v  (* or: my_utility var_d *)
+    ]}
+
+    {2 Module Organization}
+
+    - Variables are declared at module top
+    - Each variable is owned by one module
+    - Cross-module usage only via function parameters
+    - Parent functions call [Var.binding] and pass results to children *)
 
 (** Layer classification for CSS variables *)
 type layer = Theme | Utility
@@ -188,6 +188,7 @@ val binding : 'a t -> ?fallback:'a -> 'a -> Css.declaration * 'a Css.var
       instead of the value. This is useful for utilities that want to reference
       a variable with a different fallback (e.g., text-xs references
       --tw-leading with --text-xs--line-height as fallback). *)
+
 
 val property_rule : 'a t -> Css.t option
 (** [property_rule var] generates the [@property] rule if metadata is present.
