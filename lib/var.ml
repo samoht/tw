@@ -41,8 +41,8 @@ let initial_to_universal : type a. a Css.kind -> a -> string =
   | Css.Length -> (
       let open Css in
       match initial with
-      | Zero -> "0px"
-      | Px f when f = 0. -> "0px"
+      | Zero -> "0"
+      | Px f when f = 0. -> "0"
       | _ -> Css.Pp.to_string (pp_length ~always:true) initial)
   | Css.Color -> Css.Pp.to_string Css.pp_color initial
   | Css.Angle -> Css.Pp.to_string Css.pp_angle initial
@@ -51,6 +51,7 @@ let initial_to_universal : type a. a Css.kind -> a -> string =
   | Css.Int -> string_of_int initial
   | Css.String -> initial
   | Css.Shadow -> "0 0 #0000"
+  | Css.Border_style -> Css.Pp.to_string Css.pp_border_style initial
   | _ -> "initial" (* Fallback *)
 
 (* Create a variable template *)
@@ -82,26 +83,71 @@ let create : type a.
   in
   { kind; name; layer; binding; property = prop_info_opt; order }
 
+(* Helper to create @property with correct syntax based on kind *)
+let create_property : type a.
+    name:string -> a Css.kind -> a option -> inherits:bool -> Css.t =
+ fun ~name kind initial ~inherits ->
+  let open Css in
+  match (kind, initial) with
+  (* Length *)
+  | Length, None -> property ~name Length ~inherits ()
+  | Length, Some v -> property ~name Length ~initial_value:v ~inherits ()
+  (* Color *)
+  | Color, None -> property ~name Color ~inherits ()
+  | Color, Some v -> property ~name Color ~initial_value:v ~inherits ()
+  (* Float as Percentage *)
+  | Float, None -> property ~name Percentage ~inherits ()
+  | Float, Some v ->
+      property ~name Percentage ~initial_value:(Pct v) ~inherits ()
+  (* String *)
+  | String, None -> property ~name String ~inherits ()
+  | String, Some v -> property ~name String ~initial_value:v ~inherits ()
+  (* Angle *)
+  | Angle, None -> property ~name Angle ~inherits ()
+  | Angle, Some v -> property ~name Angle ~initial_value:v ~inherits ()
+  (* Duration as Time *)
+  | Duration, None -> property ~name Time ~inherits ()
+  | Duration, Some v -> property ~name Time ~initial_value:v ~inherits ()
+  (* Int as Integer *)
+  | Int, None -> property ~name Integer ~inherits ()
+  | Int, Some v -> property ~name Integer ~initial_value:v ~inherits ()
+  (* Fallback to Universal for complex types *)
+  | _, None -> property ~name Universal ~inherits ()
+  | _, Some v ->
+      let initial_str = initial_to_universal kind v in
+      property ~name Universal ~initial_value:initial_str ~inherits ()
+
 (* Get @property rule if metadata present *)
 let property_rule : type a. a t -> Css.t option =
  fun var ->
   match var.property with
   | None -> None
-  | Some { initial; inherits } -> (
+  | Some { initial; inherits } ->
       let name = "--" ^ var.name in
-      match initial with
-      | None ->
-          (* No initial value - omit initial-value field from @property *)
-          Some (Css.property ~name Css.Universal ~inherits ())
-      | Some init_val ->
-          let initial_str = initial_to_universal var.kind init_val in
-          Some
-            (Css.property ~name Css.Universal ~inherits
-               ~initial_value:initial_str ()))
+      Some (create_property ~name var.kind initial ~inherits)
 
 (* Create a binding: returns both declaration and a context-aware var
    reference *)
 let binding var ?fallback value = var.binding ?fallback value
+
+(* Create a variable reference for variables with @property defaults *)
+let reference : type a. a t -> a Css.var =
+ fun var ->
+  match var.property with
+  | None ->
+      failwith
+        ("Var.reference can only be used with variables that have ~property \
+          metadata: " ^ var.name)
+  | Some { initial; _ } -> (
+      match initial with
+      | None ->
+          failwith
+            ("Var.reference requires variables with initial values: " ^ var.name)
+      | Some initial_value ->
+          (* Create variable reference without fallback - @property provides
+             default *)
+          let _, var_ref = var.binding initial_value in
+          var_ref)
 
 (* Property info to declaration value conversion *)
 let property_info_to_declaration_value (Css.Property_info info) =
