@@ -57,7 +57,6 @@ let decimal f = `Rem (f *. 0.25)
 
 (** {2 Typed Padding Utilities} *)
 
-
 let padding_util prefix prop (s : spacing) =
   let class_name = prefix ^ pp_spacing_suffix s in
   let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in

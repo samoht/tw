@@ -101,9 +101,12 @@
 
     {2 The Three Rules}
 
-    1. {b When you need both declaration and variable reference}: Use [Var.binding]
-    2. {b When you need only declaration OR only variable reference}: Pass it as function parameter, let the parent function call [Var.binding]
-    3. {b No other ways are allowed}: No direct [Css.var_ref], no ignoring declarations, no workarounds
+    1. {b When you need both declaration and variable reference}: Use
+    [Var.binding] 2.
+    {b When you need only declaration OR only variable reference}: Pass it as
+    function parameter, let the parent function call [Var.binding] 3.
+    {b No other ways are allowed}: No direct [Css.var_ref], no ignoring
+    declarations, no workarounds
 
     {2 Examples}
 
@@ -131,7 +134,7 @@
       (* Parent function calls Var.binding and passes the needed part *)
       let parent_utility =
         let var_d, var_v = Var.binding my_var value in
-        my_utility var_v  (* or: my_utility var_d *)
+        my_utility var_v (* or: my_utility var_d *)
     ]}
 
     {2 Module Organization}
@@ -188,7 +191,6 @@ val binding : 'a t -> ?fallback:'a -> 'a -> Css.declaration * 'a Css.var
       instead of the value. This is useful for utilities that want to reference
       a variable with a different fallback (e.g., text-xs references
       --tw-leading with --text-xs--line-height as fallback). *)
-
 
 val property_rule : 'a t -> Css.t option
 (** [property_rule var] generates the [@property] rule if metadata is present.
