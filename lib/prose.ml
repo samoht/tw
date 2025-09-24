@@ -1528,18 +1528,8 @@ let pp = function
 (** Prose utility constructors *)
 let prose_style variant =
   let name = to_class variant in
-  (* For color themes, we need to include variable declarations *)
-  let theme_decls =
-    match variant with
-    | `Gray -> color_theme_bindings "gray"
-    | `Slate -> color_theme_bindings "slate"
-    | `Zinc -> color_theme_bindings "zinc"
-    | `Neutral -> color_theme_bindings "neutral"
-    | `Stone -> color_theme_bindings "stone"
-    | _ -> []
-  in
   let rules = to_css_rules variant in
-  Core.style ~rules:(Some rules) name theme_decls
+  Core.style ~rules:(Some rules) name []
 
 let prose = prose_style `Base
 let prose_sm = prose_style `Sm

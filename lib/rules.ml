@@ -1156,4 +1156,9 @@ let to_inline_style styles =
     | Group ts -> List.fold_left collect acc ts
   in
   let all_props = List.fold_left collect [] styles |> List.rev in
-  Css.inline_style_of_declarations all_props
+  (* Filter out CSS custom properties (variables) - they shouldn't be in inline
+     styles *)
+  let non_variable_props =
+    List.filter (fun decl -> Css.custom_declaration_name decl = None) all_props
+  in
+  Css.inline_style_of_declarations non_variable_props

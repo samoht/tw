@@ -378,6 +378,99 @@ let root = project_root ()
 let lib_css = root // "lib" // "css"
 let test_css = root // "test" // "css"
 
+(* Check for duplicate Var.create calls and direct Css.var_ref usage *)
+let check_var_usage () =
+  let lib_dir = root // "lib" in
+  let ml_files =
+    let rec collect_ml_files acc dir =
+      let items = Fs.list_dir dir in
+      List.fold_left
+        (fun acc item ->
+          let path = dir // item in
+          if Sys.is_directory path then collect_ml_files acc path
+          else if Filename.check_suffix item ".ml" then path :: acc
+          else acc)
+        acc items
+    in
+    collect_ml_files [] lib_dir
+  in
+
+  (* Track Var.create calls *)
+  let var_creates = Hashtbl.create 50 in
+  let var_ref_uses = ref [] in
+
+  (* Patterns to detect *)
+  let var_create_re = Re.Perl.compile_pat "\\bVar\\.create\\s+\"([^\"]+)\"" in
+  let css_var_ref_re = Re.Perl.compile_pat "\\bCss\\.var_ref\\b" in
+
+  List.iter
+    (fun file ->
+      let lines = Fs.read_lines file in
+      let relative_file =
+        if String.starts_with ~prefix:(root ^ "/") file then
+          String.sub file
+            (String.length root + 1)
+            (String.length file - String.length root - 1)
+        else file
+      in
+
+      List.iteri
+        (fun idx line ->
+          (* Check for Var.create *)
+          (match Re.exec_opt var_create_re line with
+          | Some g ->
+              let var_name = Re.Group.get g 1 in
+              let location = (relative_file, idx + 1) in
+              let existing =
+                try Hashtbl.find var_creates var_name with Not_found -> []
+              in
+              Hashtbl.replace var_creates var_name (location :: existing)
+          | None -> ());
+
+          (* Check for Css.var_ref *)
+          if Re.execp css_var_ref_re line then
+            var_ref_uses := (relative_file, idx + 1, line) :: !var_ref_uses)
+        lines)
+    ml_files;
+
+  (* Find duplicates *)
+  let duplicates = ref [] in
+  Hashtbl.iter
+    (fun name locations ->
+      if List.length locations > 1 then
+        duplicates := (name, List.rev locations) :: !duplicates)
+    var_creates;
+
+  (* Report issues *)
+  let has_issues = !duplicates <> [] || !var_ref_uses <> [] in
+
+  if has_issues then (
+    Fmt.pr "@.%s@." (colored bold "Variable System Issues:");
+    Fmt.pr "%s@.@." (String.make 50 '=');
+
+    if !duplicates <> [] then (
+      Fmt.pr "%s Duplicate Var.create calls found:@." (colored red "Critical:");
+      List.iter
+        (fun (name, locations) ->
+          Fmt.pr "  Variable \"%s\" created in multiple locations:@."
+            (colored yellow name);
+          List.iter
+            (fun (file, line) -> Fmt.pr "    %s:%d@." file line)
+            locations;
+          Fmt.pr "@.")
+        (List.sort compare !duplicates));
+
+    if !var_ref_uses <> [] then (
+      Fmt.pr "%s Direct Css.var_ref usage found (use typed Var instead):@."
+        (colored red "Critical:");
+      List.iter
+        (fun (file, line, _) -> Fmt.pr "  %s:%d@." file line)
+        (List.rev !var_ref_uses);
+      Fmt.pr "@.");
+
+    true)
+  else false
+
 let file_has_val mli_path name : bool =
   let rex = Re.Perl.compile_pat ("^[\\s]*val[\\s]+" ^ name ^ "\\b") in
   List.exists (fun l -> Re.execp rex l) (Fs.read_lines mli_path)
@@ -663,8 +756,11 @@ let () =
     Fmt.pr "%s %d test consistency issues found@." (colored red "ERROR:")
       !consistency_warnings;
 
+  (* Check for variable system issues *)
+  let var_issues = check_var_usage () in
+
   let exit_code =
-    if api_missing > 0 || !consistency_warnings > 0 then 1 else 0
+    if api_missing > 0 || !consistency_warnings > 0 || var_issues then 1 else 0
   in
 
   if exit_code = 1 then
