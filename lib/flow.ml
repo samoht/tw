@@ -4,6 +4,9 @@ module Parse = Parse
 
 let ( >|= ) = Parse.( >|= )
 
+(* Define the spacing variable *)
+let spacing_var = Var.create Css.Length "spacing" ~layer:Theme ~order:4
+
 (** {1 Display Utilities} *)
 
 let flex = style "flex" [ display Flex ]
@@ -155,7 +158,9 @@ let spacing_to_length : spacing -> length = function
   | `Full -> Pct 100.0
   | `Rem f ->
       let n = int_of_float (f /. 0.25) in
-      Calc (Calc.mul (Calc.var "spacing") (Calc.float (float_of_int n)))
+      let _, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+      Calc
+        (Calc.mul (Calc.length (Var spacing_ref)) (Calc.float (float_of_int n)))
 
 let int n = `Rem (float_of_int n *. 0.25)
 
