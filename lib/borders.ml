@@ -22,48 +22,64 @@ open Css
 
 (** {1 Border Width Utilities} *)
 
-(* Create border style variable with @property metadata *)
+(* Create border style variable with @property for utilities that reference
+   it *)
 let border_style_var =
   Var.create Css.Border_style "tw-border-style" ~layer:Utility
+    ~property:(Some Solid, false)
 
-(* Helper for border utilities that use the --tw-border-style variable *)
-let border_util class_name additional_props =
-  let decl, border_ref = Var.binding border_style_var Solid in
-  style class_name (decl :: border_style (Var border_ref) :: additional_props)
+(* Helper for border utilities that reference the variable with @property
+   default *)
+let make_border_util class_name additional_props =
+  let border_ref = Var.reference border_style_var in
+  let property_rule =
+    match Var.property_rule border_style_var with
+    | Some rule -> rule
+    | None -> Css.empty
+  in
+  style class_name ~property_rules:property_rule
+    (border_style (Var border_ref) :: additional_props)
 
 (* Helper for border style utilities that set the variable *)
 let border_style_util class_name border_style_value =
-  let decl, _ = Var.binding border_style_var border_style_value in
+  let decl, _var_ref = Var.binding border_style_var border_style_value in
   style class_name (decl :: [ border_style border_style_value ])
 
-let border = border_util "border" [ border_width (Px 1.) ]
-let border_0 = border_util "border-0" [ border_width (Px 0.) ]
-let border_2 = border_util "border-2" [ border_width (Px 2.) ]
-let border_4 = border_util "border-4" [ border_width (Px 4.) ]
-let border_8 = border_util "border-8" [ border_width (Px 8.) ]
+let border = make_border_util "border" [ border_width (Px 1.) ]
+let border_0 = make_border_util "border-0" [ border_width (Px 0.) ]
+let border_2 = make_border_util "border-2" [ border_width (Px 2.) ]
+let border_4 = make_border_util "border-4" [ border_width (Px 4.) ]
+let border_8 = make_border_util "border-8" [ border_width (Px 8.) ]
 
-let side class_name side_props =
-  let decl, border_ref = Var.binding border_style_var Solid in
-  style class_name (decl :: side_props border_ref)
+(* Helper for border side utilities that reference the variable with @property
+   default *)
+let make_side_util class_name side_props_fn =
+  let border_ref = Var.reference border_style_var in
+  let property_rule =
+    match Var.property_rule border_style_var with
+    | Some rule -> rule
+    | None -> Css.empty
+  in
+  style class_name ~property_rules:property_rule (side_props_fn border_ref)
 
 let border_t =
-  side "border-t" (fun border_var ->
+  make_side_util "border-t" (fun border_var ->
       [ border_top_style (Var border_var); border_top_width (Px 1.) ])
 
 let border_r =
-  side "border-r" (fun border_var ->
+  make_side_util "border-r" (fun border_var ->
       [ border_right_style (Var border_var); border_right_width (Px 1.) ])
 
 let border_b =
-  side "border-b" (fun border_var ->
+  make_side_util "border-b" (fun border_var ->
       [ border_bottom_style (Var border_var); border_bottom_width (Px 1.) ])
 
 let border_l =
-  side "border-l" (fun border_var ->
+  make_side_util "border-l" (fun border_var ->
       [ border_left_style (Var border_var); border_left_width (Px 1.) ])
 
 let border_x =
-  side "border-x" (fun border_var ->
+  make_side_util "border-x" (fun border_var ->
       [
         border_left_style (Var border_var);
         border_left_width (Px 1.);
@@ -72,7 +88,7 @@ let border_x =
       ])
 
 let border_y =
-  side "border-y" (fun border_var ->
+  make_side_util "border-y" (fun border_var ->
       [
         border_top_style (Var border_var);
         border_top_width (Px 1.);
@@ -82,67 +98,67 @@ let border_y =
 
 (** Border side utilities with specific widths *)
 let border_t_0 =
-  side "border-t-0" (fun border_var ->
+  make_side_util "border-t-0" (fun border_var ->
       [ border_top_style (Var border_var); border_top_width (Px 0.) ])
 
 let border_t_2 =
-  side "border-t-2" (fun border_var ->
+  make_side_util "border-t-2" (fun border_var ->
       [ border_top_style (Var border_var); border_top_width (Px 2.) ])
 
 let border_t_4 =
-  side "border-t-4" (fun border_var ->
+  make_side_util "border-t-4" (fun border_var ->
       [ border_top_style (Var border_var); border_top_width (Px 4.) ])
 
 let border_t_8 =
-  side "border-t-8" (fun border_var ->
+  make_side_util "border-t-8" (fun border_var ->
       [ border_top_style (Var border_var); border_top_width (Px 8.) ])
 
 let border_r_0 =
-  side "border-r-0" (fun border_var ->
+  make_side_util "border-r-0" (fun border_var ->
       [ border_right_style (Var border_var); border_right_width (Px 0.) ])
 
 let border_r_2 =
-  side "border-r-2" (fun border_var ->
+  make_side_util "border-r-2" (fun border_var ->
       [ border_right_style (Var border_var); border_right_width (Px 2.) ])
 
 let border_r_4 =
-  side "border-r-4" (fun border_var ->
+  make_side_util "border-r-4" (fun border_var ->
       [ border_right_style (Var border_var); border_right_width (Px 4.) ])
 
 let border_r_8 =
-  side "border-r-8" (fun border_var ->
+  make_side_util "border-r-8" (fun border_var ->
       [ border_right_style (Var border_var); border_right_width (Px 8.) ])
 
 let border_b_0 =
-  side "border-b-0" (fun border_var ->
+  make_side_util "border-b-0" (fun border_var ->
       [ border_bottom_style (Var border_var); border_bottom_width (Px 0.) ])
 
 let border_b_2 =
-  side "border-b-2" (fun border_var ->
+  make_side_util "border-b-2" (fun border_var ->
       [ border_bottom_style (Var border_var); border_bottom_width (Px 2.) ])
 
 let border_b_4 =
-  side "border-b-4" (fun border_var ->
+  make_side_util "border-b-4" (fun border_var ->
       [ border_bottom_style (Var border_var); border_bottom_width (Px 4.) ])
 
 let border_b_8 =
-  side "border-b-8" (fun border_var ->
+  make_side_util "border-b-8" (fun border_var ->
       [ border_bottom_style (Var border_var); border_bottom_width (Px 8.) ])
 
 let border_l_0 =
-  side "border-l-0" (fun border_var ->
+  make_side_util "border-l-0" (fun border_var ->
       [ border_left_style (Var border_var); border_left_width (Px 0.) ])
 
 let border_l_2 =
-  side "border-l-2" (fun border_var ->
+  make_side_util "border-l-2" (fun border_var ->
       [ border_left_style (Var border_var); border_left_width (Px 2.) ])
 
 let border_l_4 =
-  side "border-l-4" (fun border_var ->
+  make_side_util "border-l-4" (fun border_var ->
       [ border_left_style (Var border_var); border_left_width (Px 4.) ])
 
 let border_l_8 =
-  side "border-l-8" (fun border_var ->
+  make_side_util "border-l-8" (fun border_var ->
       [ border_left_style (Var border_var); border_left_width (Px 8.) ])
 
 (** {1 Border Style Utilities} *)
@@ -166,38 +182,38 @@ let border_full = border_8 (* 8px *)
 (** {1 Border Radius Utilities} *)
 
 (* Create radius theme variables with fallback values for inline mode *)
-let radius_sm_var = Var.create Css.Length "radius-sm" ~layer:Theme ~order:300
-let radius_md_var = Var.create Css.Length "radius-md" ~layer:Theme ~order:301
-let radius_lg_var = Var.create Css.Length "radius-lg" ~layer:Theme ~order:302
-let radius_xl_var = Var.create Css.Length "radius-xl" ~layer:Theme ~order:303
-let radius_2xl_var = Var.create Css.Length "radius-2xl" ~layer:Theme ~order:304
-let radius_3xl_var = Var.create Css.Length "radius-3xl" ~layer:Theme ~order:305
+let radius_sm_var = Var.create Css.Length "radius-sm" ~layer:Theme ~order:3
+let radius_md_var = Var.create Css.Length "radius-md" ~layer:Theme ~order:4
+let radius_lg_var = Var.create Css.Length "radius-lg" ~layer:Theme ~order:5
+let radius_xl_var = Var.create Css.Length "radius-xl" ~layer:Theme ~order:6
+let radius_2xl_var = Var.create Css.Length "radius-2xl" ~layer:Theme ~order:7
+let radius_3xl_var = Var.create Css.Length "radius-3xl" ~layer:Theme ~order:8
 let rounded_none = style "rounded-none" [ border_radius Zero ]
 
 let rounded_sm =
-  let decl, r = Var.binding radius_sm_var (Px 2.) in
+  let decl, r = Var.binding radius_sm_var (Rem 0.25) in
   style "rounded-sm" (decl :: [ border_radius (Var r) ])
 
 let rounded = style "rounded" [ border_radius (Rem 0.25) ]
 
 let rounded_md =
-  let decl, r = Var.binding radius_md_var (Px 6.) in
+  let decl, r = Var.binding radius_md_var (Rem 0.375) in
   style "rounded-md" (decl :: [ border_radius (Var r) ])
 
 let rounded_lg =
-  let decl, r = Var.binding radius_lg_var (Px 8.) in
+  let decl, r = Var.binding radius_lg_var (Rem 0.5) in
   style "rounded-lg" (decl :: [ border_radius (Var r) ])
 
 let rounded_xl =
-  let decl, r = Var.binding radius_xl_var (Px 12.) in
+  let decl, r = Var.binding radius_xl_var (Rem 0.75) in
   style "rounded-xl" (decl :: [ border_radius (Var r) ])
 
 let rounded_2xl =
-  let decl, r = Var.binding radius_2xl_var (Px 16.) in
+  let decl, r = Var.binding radius_2xl_var (Rem 1.0) in
   style "rounded-2xl" (decl :: [ border_radius (Var r) ])
 
 let rounded_3xl =
-  let decl, r = Var.binding radius_3xl_var (Px 24.) in
+  let decl, r = Var.binding radius_3xl_var (Rem 1.5) in
   style "rounded-3xl" (decl :: [ border_radius (Var r) ])
 
 let rounded_full =

@@ -24,6 +24,7 @@ let tailwind_files temp_dir classnames =
   write_file (Filename.concat temp_dir "input.css") input_css_content
 
 let availability_result = ref None
+let tailwind_command = ref None
 
 let check_tailwindcss_available () =
   match !availability_result with
@@ -32,15 +33,35 @@ let check_tailwindcss_available () =
   | None -> (
       let result =
         try
-          let binary_check = Sys.command "which npx > /dev/null 2>&1" in
-          if binary_check <> 0 then
-            failwith
-              "Test setup failed: npx not found in PATH.\n\
-               Please install Node.js and npm.";
-          let temp_file = Filename.temp_file "tw_version" ".txt" in
-          let version_cmd =
-            "npx tailwindcss --help 2>&1 | head -1 > " ^ temp_file
+          (* First try native tailwindcss (much faster) *)
+          let native_check = Sys.command "which tailwindcss > /dev/null 2>&1" in
+          let use_npx = native_check <> 0 in
+
+          let cmd =
+            if use_npx then (
+              (* Fall back to npx if native not found *)
+              let npx_check = Sys.command "which npx > /dev/null 2>&1" in
+              if npx_check <> 0 then
+                failwith
+                  "Test setup failed: neither tailwindcss nor npx found in PATH.\n\
+                   Please install tailwindcss directly or install Node.js and \
+                   npm.";
+              "npx tailwindcss")
+            else "tailwindcss"
           in
+
+          (* Store the command for future use *)
+          tailwind_command := Some cmd;
+
+          (* Log which command we're using *)
+          if use_npx then
+            Fmt.pr
+              "Using npx tailwindcss (slower). For faster tests, install \
+               native tailwindcss.@."
+          else Fmt.pr "Using native tailwindcss (fast).@.";
+
+          let temp_file = Filename.temp_file "tw_version" ".txt" in
+          let version_cmd = cmd ^ " --help 2>&1 | head -1 > " ^ temp_file in
           let exit_code = Sys.command version_cmd in
           if exit_code = 0 then (
             let ic = open_in temp_file in
@@ -61,22 +82,78 @@ let check_tailwindcss_available () =
       availability_result := Some result;
       match result with Ok () -> () | Error e -> raise e)
 
+(* Statistics tracking *)
+module Stats = struct
+  let total_time = ref 0.0
+  let total_calls = ref 0
+  let test_start_time = ref 0.0
+  let start_timer () = Unix.gettimeofday ()
+
+  let record_call elapsed_time =
+    incr total_calls;
+    total_time := !total_time +. elapsed_time
+
+  let reset () =
+    total_time := 0.0;
+    total_calls := 0;
+    test_start_time := Unix.gettimeofday ()
+
+  let print_stats () =
+    let total_test_time = Unix.gettimeofday () -. !test_start_time in
+    Fmt.pr "@.=== Tailwind CSS Generation Statistics ===@.";
+
+    (* Show which tailwindcss is being used *)
+    (match !tailwind_command with
+    | Some cmd when String.contains cmd ' ' ->
+        Fmt.pr "Using: npx tailwindcss (slower)@."
+    | Some _ -> Fmt.pr "Using: native tailwindcss (fast)@."
+    | None -> Fmt.pr "Tailwindcss: not initialized@.");
+
+    if !total_calls > 0 then (
+      let avg_time = !total_time /. float_of_int !total_calls in
+      let percentage = !total_time /. total_test_time *. 100.0 in
+      Fmt.pr "Total calls: %d@." !total_calls;
+      Fmt.pr "Time in tailwindcss: %.2fs@." !total_time;
+      Fmt.pr "Total test time: %.2fs@." total_test_time;
+      Fmt.pr "Percentage in tailwindcss: %.1f%%@." percentage;
+      Fmt.pr "Average time per call: %.3fs@." avg_time)
+    else Fmt.pr "No tailwindcss calls recorded@.";
+    Fmt.pr "=========================================="
+end
+
+let () =
+  (* Initialize test start time *)
+  Stats.reset ();
+
+  (* Register exit handler to print stats *)
+  at_exit Stats.print_stats
+
 let generate ?(minify = false) ?(optimize = true) classnames =
   check_tailwindcss_available ();
   let temp_dir = "temp_tailwind_test" in
   let cleanup () = ignore (Sys.command "rm -rf temp_tailwind_test") in
   try
+    let start_time = Stats.start_timer () in
+
     let _ = Sys.command (Fmt.str "mkdir -p %s" temp_dir) in
     tailwind_files temp_dir classnames;
     let minify_flag = if minify then " --minify" else "" in
     let optimize_flag = if optimize then " --optimize" else "" in
+    let tailwind_cmd =
+      match !tailwind_command with
+      | Some cmd -> cmd
+      | None -> "tailwindcss" (* Fallback, should be set by check *)
+    in
     let cmd =
       Fmt.str
-        "cd %s && npx tailwindcss -i input.css -o output.css --content \
-         input.html%s%s 2>/dev/null"
-        temp_dir minify_flag optimize_flag
+        "cd %s && %s -i input.css -o output.css --content input.html%s%s \
+         2>/dev/null"
+        temp_dir tailwind_cmd minify_flag optimize_flag
     in
     let exit_code = Sys.command cmd in
+
+    let elapsed = Unix.gettimeofday () -. start_time in
+    Stats.record_call elapsed;
     if exit_code = 0 then (
       let output_file = Filename.concat temp_dir "output.css" in
       let ic = open_in output_file in
