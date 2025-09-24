@@ -166,24 +166,12 @@ let border_full = border_8 (* 8px *)
 (** {1 Border Radius Utilities} *)
 
 (* Create radius theme variables with fallback values for inline mode *)
-let radius_sm_var =
-  Var.create Css.Length "radius-sm" ~layer:Theme ~fallback:(Px 2.) ~order:300
-
-let radius_md_var =
-  Var.create Css.Length "radius-md" ~layer:Theme ~fallback:(Px 6.) ~order:301
-
-let radius_lg_var =
-  Var.create Css.Length "radius-lg" ~layer:Theme ~fallback:(Px 8.) ~order:302
-
-let radius_xl_var =
-  Var.create Css.Length "radius-xl" ~layer:Theme ~fallback:(Px 12.) ~order:303
-
-let radius_2xl_var =
-  Var.create Css.Length "radius-2xl" ~layer:Theme ~fallback:(Px 16.) ~order:304
-
-let radius_3xl_var =
-  Var.create Css.Length "radius-3xl" ~layer:Theme ~fallback:(Px 24.) ~order:305
-
+let radius_sm_var = Var.create Css.Length "radius-sm" ~layer:Theme ~order:300
+let radius_md_var = Var.create Css.Length "radius-md" ~layer:Theme ~order:301
+let radius_lg_var = Var.create Css.Length "radius-lg" ~layer:Theme ~order:302
+let radius_xl_var = Var.create Css.Length "radius-xl" ~layer:Theme ~order:303
+let radius_2xl_var = Var.create Css.Length "radius-2xl" ~layer:Theme ~order:304
+let radius_3xl_var = Var.create Css.Length "radius-3xl" ~layer:Theme ~order:305
 let rounded_none = style "rounded-none" [ border_radius Zero ]
 
 let rounded_sm =

@@ -45,7 +45,7 @@ let scroll_smooth = style "scroll-smooth" [ scroll_behavior Smooth ]
 (* Reference to the global scroll snap strictness variable *)
 let scroll_snap_strictness_var =
   Var.create Css.Scroll_snap_strictness "tw-scroll-snap-strictness"
-    ~layer:Utility ~fallback:Proximity
+    ~layer:Utility
 
 let snap_start = style "snap-start" [ scroll_snap_align Start ]
 let snap_end = style "snap-end" [ scroll_snap_align End ]

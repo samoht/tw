@@ -12,151 +12,90 @@ type variant =
   [ `Base | `Sm | `Lg | `Xl | `Xl2 | `Gray | `Slate | `Zinc | `Neutral | `Stone ]
 
 (* Create prose variables using the new API *)
-let prose_body_var =
-  Var.create Css.Color "tw-prose-body" ~layer:Utility
-    ~fallback:(oklch 37.3 0.034 259.733)
-
-let prose_headings_var =
-  Var.create Css.Color "tw-prose-headings" ~layer:Utility
-    ~fallback:(oklch 21.0 0.034 264.665)
-
-let prose_lead_var =
-  Var.create Css.Color "tw-prose-lead" ~layer:Utility
-    ~fallback:(oklch 44.6 0.030 256.802)
-
-let prose_links_var =
-  Var.create Css.Color "tw-prose-links" ~layer:Utility
-    ~fallback:(oklch 21.0 0.034 264.665)
-
-let prose_bold_var =
-  Var.create Css.Color "tw-prose-bold" ~layer:Utility
-    ~fallback:(oklch 21.0 0.034 264.665)
-
-let prose_counters_var =
-  Var.create Css.Color "tw-prose-counters" ~layer:Utility
-    ~fallback:(oklch 55.1 0.027 264.364)
-
-let prose_bullets_var =
-  Var.create Css.Color "tw-prose-bullets" ~layer:Utility
-    ~fallback:(oklch 87.2 0.010 258.338)
-
-let prose_hr_var =
-  Var.create Css.Color "tw-prose-hr" ~layer:Utility
-    ~fallback:(oklch 92.8 0.006 264.531)
-
-let prose_quotes_var =
-  Var.create Css.Color "tw-prose-quotes" ~layer:Utility
-    ~fallback:(oklch 21.0 0.034 264.665)
+let prose_body_var = Var.create Css.Color "tw-prose-body" ~layer:Utility
+let prose_headings_var = Var.create Css.Color "tw-prose-headings" ~layer:Utility
+let prose_lead_var = Var.create Css.Color "tw-prose-lead" ~layer:Utility
+let prose_links_var = Var.create Css.Color "tw-prose-links" ~layer:Utility
+let prose_bold_var = Var.create Css.Color "tw-prose-bold" ~layer:Utility
+let prose_counters_var = Var.create Css.Color "tw-prose-counters" ~layer:Utility
+let prose_bullets_var = Var.create Css.Color "tw-prose-bullets" ~layer:Utility
+let prose_hr_var = Var.create Css.Color "tw-prose-hr" ~layer:Utility
+let prose_quotes_var = Var.create Css.Color "tw-prose-quotes" ~layer:Utility
 
 let prose_quote_borders_var =
   Var.create Css.Color "tw-prose-quote-borders" ~layer:Utility
-    ~fallback:(oklch 92.8 0.006 264.531)
 
-let prose_captions_var =
-  Var.create Css.Color "tw-prose-captions" ~layer:Utility
-    ~fallback:(oklch 55.1 0.027 264.364)
-
-let prose_kbd_var =
-  Var.create Css.Color "tw-prose-kbd" ~layer:Utility
-    ~fallback:(oklch 21.0 0.034 264.665)
+let prose_captions_var = Var.create Css.Color "tw-prose-captions" ~layer:Utility
+let prose_kbd_var = Var.create Css.Color "tw-prose-kbd" ~layer:Utility
 
 (* Special handling for kbd-shadows - it's RGB values without rgb() wrapper *)
 let prose_kbd_shadows_var =
   Var.create Css.String "tw-prose-kbd-shadows" ~layer:Utility
-    ~fallback:"17 24 39" (* Default gray RGB values *)
 
-let prose_code_var =
-  Var.create Css.Color "tw-prose-code" ~layer:Utility
-    ~fallback:(oklch 21.0 0.034 264.665)
-
-let prose_pre_code_var =
-  Var.create Css.Color "tw-prose-pre-code" ~layer:Utility
-    ~fallback:(oklch 92.8 0.006 264.531)
-
-let prose_pre_bg_var =
-  Var.create Css.Color "tw-prose-pre-bg" ~layer:Utility
-    ~fallback:(oklch 27.8 0.033 256.848)
+let prose_code_var = Var.create Css.Color "tw-prose-code" ~layer:Utility
+let prose_pre_code_var = Var.create Css.Color "tw-prose-pre-code" ~layer:Utility
+let prose_pre_bg_var = Var.create Css.Color "tw-prose-pre-bg" ~layer:Utility
 
 let prose_th_borders_var =
   Var.create Css.Color "tw-prose-th-borders" ~layer:Utility
-    ~fallback:(oklch 87.2 0.010 258.338)
 
 let prose_td_borders_var =
   Var.create Css.Color "tw-prose-td-borders" ~layer:Utility
-    ~fallback:(oklch 92.8 0.006 264.531)
 
 (* Invert variants for dark mode *)
 let prose_invert_body_var =
   Var.create Css.Color "tw-prose-invert-body" ~layer:Utility
-    ~fallback:(oklch 87.2 0.010 258.338)
 
 let prose_invert_headings_var =
   Var.create Css.Color "tw-prose-invert-headings" ~layer:Utility
-    ~fallback:(Hex { hash = true; value = "fff" })
 
 let prose_invert_lead_var =
   Var.create Css.Color "tw-prose-invert-lead" ~layer:Utility
-    ~fallback:(oklch 70.7 0.022 261.325)
 
 let prose_invert_links_var =
   Var.create Css.Color "tw-prose-invert-links" ~layer:Utility
-    ~fallback:(Hex { hash = true; value = "fff" })
 
 let prose_invert_bold_var =
   Var.create Css.Color "tw-prose-invert-bold" ~layer:Utility
-    ~fallback:(Hex { hash = true; value = "fff" })
 
 let prose_invert_counters_var =
   Var.create Css.Color "tw-prose-invert-counters" ~layer:Utility
-    ~fallback:(oklch 70.7 0.022 261.325)
 
 let prose_invert_bullets_var =
   Var.create Css.Color "tw-prose-invert-bullets" ~layer:Utility
-    ~fallback:(oklch 44.6 0.030 256.802)
 
 let prose_invert_hr_var =
   Var.create Css.Color "tw-prose-invert-hr" ~layer:Utility
-    ~fallback:(oklch 37.3 0.034 259.733)
 
 let prose_invert_quotes_var =
   Var.create Css.Color "tw-prose-invert-quotes" ~layer:Utility
-    ~fallback:(oklch 96.7 0.003 264.542)
 
 let prose_invert_quote_borders_var =
   Var.create Css.Color "tw-prose-invert-quote-borders" ~layer:Utility
-    ~fallback:(oklch 37.3 0.034 259.733)
 
 let prose_invert_captions_var =
   Var.create Css.Color "tw-prose-invert-captions" ~layer:Utility
-    ~fallback:(oklch 70.7 0.022 261.325)
 
 let prose_invert_kbd_var =
   Var.create Css.Color "tw-prose-invert-kbd" ~layer:Utility
-    ~fallback:(Hex { hash = true; value = "fff" })
 
 let prose_invert_kbd_shadows_var =
   Var.create Css.String "tw-prose-invert-kbd-shadows" ~layer:Utility
-    ~fallback:"255 255 255"
 
 let prose_invert_code_var =
   Var.create Css.Color "tw-prose-invert-code" ~layer:Utility
-    ~fallback:(Hex { hash = true; value = "fff" })
 
 let prose_invert_pre_code_var =
   Var.create Css.Color "tw-prose-invert-pre-code" ~layer:Utility
-    ~fallback:(oklch 87.2 0.010 258.338)
 
 let prose_invert_pre_bg_var =
   Var.create Css.Color "tw-prose-invert-pre-bg" ~layer:Utility
-    ~fallback:(Hex { hash = true; value = "00000080" })
 
 let prose_invert_th_borders_var =
   Var.create Css.Color "tw-prose-invert-th-borders" ~layer:Utility
-    ~fallback:(oklch 44.6 0.030 256.802)
 
 let prose_invert_td_borders_var =
   Var.create Css.Color "tw-prose-invert-td-borders" ~layer:Utility
-    ~fallback:(oklch 37.3 0.034 259.733)
 
 (* ======================================================================== *)
 (* Selector Helper Functions *)

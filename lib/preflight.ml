@@ -53,19 +53,19 @@ let box_resets () =
 
 let font_feature =
   Var.create Css.Font_feature_settings "default-font-feature-settings"
-    ~layer:Theme ~order:7 ~fallback:Normal
+    ~layer:Theme ~order:7
 
 let font_variation =
   Var.create Css.Font_variation_settings "default-font-variation-settings"
-    ~layer:Theme ~order:8 ~fallback:Normal
+    ~layer:Theme ~order:8
 
 let mono_font_feature =
   Var.create Css.Font_feature_settings "default-mono-font-feature-settings"
-    ~layer:Theme ~order:9 ~fallback:Normal
+    ~layer:Theme ~order:9
 
 let mono_font_variation =
   Var.create Css.Font_variation_settings "default-mono-font-variation-settings"
-    ~layer:Theme ~order:10 ~fallback:Normal
+    ~layer:Theme ~order:10
 
 (** HTML and body defaults *)
 let root_resets font_feature font_variation =

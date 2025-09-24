@@ -32,9 +32,7 @@ let shadow_var =
 let shadow_alpha_var =
   Var.create Css.Float "tw-shadow-alpha" ~layer:Utility ~property:(100.0, false)
 
-let shadow_color_var =
-  Var.create Css.Color "tw-shadow-color" ~layer:Utility
-    ~fallback:(Css.hex "#0000001a")
+let shadow_color_var = Var.create Css.Color "tw-shadow-color" ~layer:Utility
 
 let inset_shadow_var =
   Var.create Css.Shadow "tw-inset-shadow" ~layer:Utility
