@@ -154,10 +154,9 @@ let shadow_none =
 let shadow_sm =
   (* Shadow-sm with composite shadows matching Tailwind v4 *)
   (* Reference color variable with fallback *)
-  let _, color_ref =
-    Var.binding shadow_color_var
+  let color_ref =
+    Var.reference shadow_color_var
       ~fallback:(Css.Fallback (Css.hex "#0000001a"))
-      (Css.hex "#0000001a")
   in
   let shadow_list =
     [
@@ -212,11 +211,10 @@ let shadow_sm =
 
 let shadow =
   (* Default shadow - same as shadow-sm in Tailwind v4 *)
-  (* Use fallback in var() reference for shadow-color *)
-  let _, color_ref =
-    Var.binding shadow_color_var
+  (* Reference color variable with fallback *)
+  let color_ref =
+    Var.reference shadow_color_var
       ~fallback:(Css.Fallback (Css.hex "#0000001a"))
-      (Css.hex "#0000001a")
   in
   let shadow_list =
     [
@@ -272,10 +270,9 @@ let shadow =
 
 let shadow_md =
   (* Shadow-md with CSS variable for color *)
-  let _, color_ref =
-    Var.binding shadow_color_var
+  let color_ref =
+    Var.reference shadow_color_var
       ~fallback:(Css.Fallback (Css.hex "#0000001a"))
-      (Css.hex "#0000001a")
   in
   let shadow_list =
     [
@@ -328,10 +325,9 @@ let shadow_md =
 
 let shadow_lg =
   (* Shadow-lg with CSS variable for color *)
-  let _, color_ref =
-    Var.binding shadow_color_var
+  let color_ref =
+    Var.reference shadow_color_var
       ~fallback:(Css.Fallback (Css.hex "#0000001a"))
-      (Css.hex "#0000001a")
   in
   let shadow_list =
     [
@@ -384,10 +380,9 @@ let shadow_lg =
 
 let shadow_xl =
   (* Shadow-xl with CSS variable for color *)
-  let _, color_ref =
-    Var.binding shadow_color_var
+  let color_ref =
+    Var.reference shadow_color_var
       ~fallback:(Css.Fallback (Css.hex "#0000001a"))
-      (Css.hex "#0000001a")
   in
   let shadow_list =
     [
@@ -440,10 +435,9 @@ let shadow_xl =
 
 let shadow_2xl =
   (* Shadow-2xl with CSS variable for color *)
-  let _, color_ref =
-    Var.binding shadow_color_var
+  let color_ref =
+    Var.reference shadow_color_var
       ~fallback:(Css.Fallback (Css.hex "#0000001a"))
-      (Css.hex "#0000001a")
   in
   let shadow_list =
     [

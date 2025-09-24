@@ -305,8 +305,15 @@ val binding :
       fallback). *)
 
 val reference : ?fallback:'a Css.fallback -> 'a t -> 'a Css.var
-(** [reference var ?fallback] creates a variable reference for utilities that rely on
-    @property defaults. Only works for variables with ~property metadata.
+(** [reference var ?fallback] creates a variable reference without a declaration.
+
+    Requirements:
+    - EITHER the variable has ~property metadata with an initial value
+    - OR a fallback is provided
+
+    This allows referencing variables in two scenarios:
+    1. Variables with @property defaults (e.g., border utilities)
+    2. Variables without setting them when you provide a fallback (e.g., shadow utilities)
 
     Use this for utilities that REFERENCE a variable but don't SET it:
     - Variables mode: generates [var(--name)] without fallback
