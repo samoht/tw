@@ -154,7 +154,9 @@ let text_xs =
   let text_xs_lh_decl, text_xs_lh_ref =
     Var.binding text_xs_lh_var (calc_line_height 1.0 0.75)
   in
-  let leading_decl, leading_ref = Var.binding leading_var ~fallback:(Css.Var text_xs_lh_ref) (Num 1.5) in
+  let leading_decl, leading_ref =
+    Var.binding leading_var ~fallback:(Css.Var text_xs_lh_ref) (Num 1.5)
+  in
   style "text-xs"
     [
       leading_decl;
@@ -169,7 +171,9 @@ let text_sm =
   let text_sm_lh_decl, text_sm_lh_ref =
     Var.binding text_sm_lh_var (calc_line_height 1.25 0.875)
   in
-  let leading_decl, leading_ref = Var.binding leading_var ~fallback:(Css.Var text_sm_lh_ref) (Num 1.5) in
+  let leading_decl, leading_ref =
+    Var.binding leading_var ~fallback:(Css.Var text_sm_lh_ref) (Num 1.5)
+  in
   style "text-sm"
     [
       leading_decl;
@@ -184,7 +188,9 @@ let text_base =
   let text_base_lh_decl, text_base_lh_ref =
     Var.binding text_base_lh_var (calc_line_height 1.5 1.0)
   in
-  let leading_decl, leading_ref = Var.binding leading_var ~fallback:(Css.Var text_base_lh_ref) (Num 1.5) in
+  let leading_decl, leading_ref =
+    Var.binding leading_var ~fallback:(Css.Var text_base_lh_ref) (Num 1.5)
+  in
   style "text-base"
     [
       leading_decl;
@@ -199,7 +205,9 @@ let text_lg =
   let text_lg_lh_decl, text_lg_lh_ref =
     Var.binding text_lg_lh_var (calc_line_height 1.75 1.125)
   in
-  let leading_decl, leading_ref = Var.binding leading_var ~fallback:(Css.Var text_lg_lh_ref) (Num 1.5) in
+  let leading_decl, leading_ref =
+    Var.binding leading_var ~fallback:(Css.Var text_lg_lh_ref) (Num 1.5)
+  in
   style "text-lg"
     [
       leading_decl;
@@ -214,7 +222,9 @@ let text_xl =
   let text_xl_lh_decl, text_xl_lh_ref =
     Var.binding text_xl_lh_var (calc_line_height 1.75 1.25)
   in
-  let leading_decl, leading_ref = Var.binding leading_var ~fallback:(Css.Var text_xl_lh_ref) (Num 1.5) in
+  let leading_decl, leading_ref =
+    Var.binding leading_var ~fallback:(Css.Var text_xl_lh_ref) (Num 1.5)
+  in
   style "text-xl"
     [
       leading_decl;
@@ -229,7 +239,9 @@ let text_2xl =
   let text_2xl_lh_decl, text_2xl_lh_ref =
     Var.binding text_2xl_lh_var (calc_line_height 2.0 1.5)
   in
-  let leading_decl, leading_ref = Var.binding leading_var ~fallback:(Css.Var text_2xl_lh_ref) (Num 1.5) in
+  let leading_decl, leading_ref =
+    Var.binding leading_var ~fallback:(Css.Var text_2xl_lh_ref) (Num 1.5)
+  in
   style "text-2xl"
     [
       leading_decl;
@@ -244,7 +256,9 @@ let text_3xl =
   let text_3xl_lh_decl, text_3xl_lh_ref =
     Var.binding text_3xl_lh_var (calc_line_height 2.25 1.875)
   in
-  let leading_decl, leading_ref = Var.binding leading_var ~fallback:(Css.Var text_3xl_lh_ref) (Num 1.5) in
+  let leading_decl, leading_ref =
+    Var.binding leading_var ~fallback:(Css.Var text_3xl_lh_ref) (Num 1.5)
+  in
   style "text-3xl"
     [
       leading_decl;
@@ -259,7 +273,9 @@ let text_4xl =
   let text_4xl_lh_decl, text_4xl_lh_ref =
     Var.binding text_4xl_lh_var (calc_line_height 2.5 2.25)
   in
-  let leading_decl, leading_ref = Var.binding leading_var ~fallback:(Css.Var text_4xl_lh_ref) (Num 1.5) in
+  let leading_decl, leading_ref =
+    Var.binding leading_var ~fallback:(Css.Var text_4xl_lh_ref) (Num 1.5)
+  in
   style "text-4xl"
     [
       leading_decl;
@@ -274,7 +290,9 @@ let text_5xl =
   let text_5xl_lh_decl, text_5xl_lh_ref =
     Var.binding text_5xl_lh_var (Num 1.0)
   in
-  let leading_decl, leading_ref = Var.binding leading_var ~fallback:(Css.Var text_5xl_lh_ref) (Num 1.5) in
+  let leading_decl, leading_ref =
+    Var.binding leading_var ~fallback:(Css.Var text_5xl_lh_ref) (Num 1.5)
+  in
   style "text-5xl"
     [
       leading_decl;
@@ -287,7 +305,9 @@ let text_5xl =
 let text_6xl =
   let text_6xl_d, text_6xl_v = Var.binding text_6xl_var (Rem 3.75) in
   let text_6xl_lh_d, text_6xl_lh_v = Var.binding text_6xl_lh_var (Num 1.0) in
-  let leading_decl, leading_ref = Var.binding leading_var ~fallback:(Css.Var text_6xl_lh_v) (Num 1.5) in
+  let leading_decl, leading_ref =
+    Var.binding leading_var ~fallback:(Css.Var text_6xl_lh_v) (Num 1.5)
+  in
   style "text-6xl"
     [
       leading_decl;
@@ -300,7 +320,9 @@ let text_6xl =
 let text_7xl =
   let text_7xl_d, text_7xl_v = Var.binding text_7xl_var (Rem 4.5) in
   let text_7xl_lh_d, text_7xl_lh_v = Var.binding text_7xl_lh_var (Num 1.0) in
-  let leading_decl, leading_ref = Var.binding leading_var ~fallback:(Css.Var text_7xl_lh_v) (Num 1.5) in
+  let leading_decl, leading_ref =
+    Var.binding leading_var ~fallback:(Css.Var text_7xl_lh_v) (Num 1.5)
+  in
   style "text-7xl"
     [
       leading_decl;
@@ -313,7 +335,9 @@ let text_7xl =
 let text_8xl =
   let text_8xl_d, text_8xl_v = Var.binding text_8xl_var (Rem 6.0) in
   let text_8xl_lh_d, text_8xl_lh_v = Var.binding text_8xl_lh_var (Num 1.0) in
-  let leading_decl, leading_ref = Var.binding leading_var ~fallback:(Css.Var text_8xl_lh_v) (Num 1.5) in
+  let leading_decl, leading_ref =
+    Var.binding leading_var ~fallback:(Css.Var text_8xl_lh_v) (Num 1.5)
+  in
   style "text-8xl"
     [
       leading_decl;
@@ -326,7 +350,9 @@ let text_8xl =
 let text_9xl =
   let text_9xl_d, text_9xl_v = Var.binding text_9xl_var (Rem 8.0) in
   let text_9xl_lh_d, text_9xl_lh_v = Var.binding text_9xl_lh_var (Num 1.0) in
-  let leading_decl, leading_ref = Var.binding leading_var ~fallback:(Css.Var text_9xl_lh_v) (Num 1.5) in
+  let leading_decl, leading_ref =
+    Var.binding leading_var ~fallback:(Css.Var text_9xl_lh_v) (Num 1.5)
+  in
   style "text-9xl"
     [
       leading_decl;
@@ -867,7 +893,8 @@ let font_variant_numeric_utility_base var_to_set value class_name vars =
       }
   in
   let property_rules =
-    List.filter_map (fun x -> x)
+    List.filter_map
+      (fun x -> x)
       [
         Var.property_rule ordinal_var;
         Var.property_rule slashed_var;
@@ -876,8 +903,11 @@ let font_variant_numeric_utility_base var_to_set value class_name vars =
         Var.property_rule fraction_var;
       ]
   in
-  let decls = List.filter (fun d -> d <> Css.empty)
-    [ordinal_d; slashed_d; figure_d; spacing_d; fraction_d] in
+  let decls =
+    List.filter
+      (fun d -> d <> Css.empty)
+      [ ordinal_d; slashed_d; figure_d; spacing_d; fraction_d ]
+  in
   style class_name
     ~property_rules:(Css.concat property_rules)
     (decls @ [ font_variant_numeric composed_value ])
@@ -888,23 +918,38 @@ let font_variant_numeric_utility var_to_set value class_name =
   let figure_d, figure_v = Var.binding figure_var Normal in
   let spacing_d, spacing_v = Var.binding spacing_var Normal in
   let fraction_d, fraction_v = Var.binding fraction_var Normal in
-  let vars = {
-    ordinal = ordinal_v;
-    slashed = slashed_v;
-    figure = figure_v;
-    spacing = spacing_v;
-    fraction = fraction_v;
-  } in
+  let vars =
+    {
+      ordinal = ordinal_v;
+      slashed = slashed_v;
+      figure = figure_v;
+      spacing = spacing_v;
+      fraction = fraction_v;
+    }
+  in
   font_variant_numeric_utility_base var_to_set value class_name vars
 
 let ordinal = font_variant_numeric_utility `Ordinal Ordinal "ordinal"
-let slashed_zero = font_variant_numeric_utility `Slashed Slashed_zero "slashed-zero"
+
+let slashed_zero =
+  font_variant_numeric_utility `Slashed Slashed_zero "slashed-zero"
+
 let lining_nums = font_variant_numeric_utility `Figure Lining_nums "lining-nums"
-let oldstyle_nums = font_variant_numeric_utility `Figure Oldstyle_nums "oldstyle-nums"
-let proportional_nums = font_variant_numeric_utility `Spacing Proportional_nums "proportional-nums"
-let tabular_nums = font_variant_numeric_utility `Spacing Tabular_nums "tabular-nums"
-let diagonal_fractions = font_variant_numeric_utility `Fraction Diagonal_fractions "diagonal-fractions"
-let stacked_fractions = font_variant_numeric_utility `Fraction Stacked_fractions "stacked-fractions"
+
+let oldstyle_nums =
+  font_variant_numeric_utility `Figure Oldstyle_nums "oldstyle-nums"
+
+let proportional_nums =
+  font_variant_numeric_utility `Spacing Proportional_nums "proportional-nums"
+
+let tabular_nums =
+  font_variant_numeric_utility `Spacing Tabular_nums "tabular-nums"
+
+let diagonal_fractions =
+  font_variant_numeric_utility `Fraction Diagonal_fractions "diagonal-fractions"
+
+let stacked_fractions =
+  font_variant_numeric_utility `Fraction Stacked_fractions "stacked-fractions"
 
 (** {1 Parsing Functions} *)
 
