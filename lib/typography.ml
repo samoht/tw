@@ -24,67 +24,67 @@ open Css
 let text_xs_var = Var.create Css.Length "text-xs" ~layer:Theme ~order:100
 
 let text_xs_lh_var =
-  Var.create Css.Line_height "text-xs-line-height" ~layer:Theme ~order:101
+  Var.create Css.Line_height "text-xs--line-height" ~layer:Theme ~order:101
 
 let text_sm_var = Var.create Css.Length "text-sm" ~layer:Theme ~order:102
 
 let text_sm_lh_var =
-  Var.create Css.Line_height "text-sm-line-height" ~layer:Theme ~order:103
+  Var.create Css.Line_height "text-sm--line-height" ~layer:Theme ~order:103
 
 let text_base_var = Var.create Css.Length "text-base" ~layer:Theme ~order:104
 
 let text_base_lh_var =
-  Var.create Css.Line_height "text-base-line-height" ~layer:Theme ~order:105
+  Var.create Css.Line_height "text-base--line-height" ~layer:Theme ~order:105
 
 let text_lg_var = Var.create Css.Length "text-lg" ~layer:Theme ~order:106
 
 let text_lg_lh_var =
-  Var.create Css.Line_height "text-lg-line-height" ~layer:Theme ~order:107
+  Var.create Css.Line_height "text-lg--line-height" ~layer:Theme ~order:107
 
 let text_xl_var = Var.create Css.Length "text-xl" ~layer:Theme ~order:108
 
 let text_xl_lh_var =
-  Var.create Css.Line_height "text-xl-line-height" ~layer:Theme ~order:109
+  Var.create Css.Line_height "text-xl--line-height" ~layer:Theme ~order:109
 
 let text_2xl_var = Var.create Css.Length "text-2xl" ~layer:Theme ~order:110
 
 let text_2xl_lh_var =
-  Var.create Css.Line_height "text-2xl-line-height" ~layer:Theme ~order:111
+  Var.create Css.Line_height "text-2xl--line-height" ~layer:Theme ~order:111
 
 let text_3xl_var = Var.create Css.Length "text-3xl" ~layer:Theme ~order:112
 
 let text_3xl_lh_var =
-  Var.create Css.Line_height "text-3xl-line-height" ~layer:Theme ~order:113
+  Var.create Css.Line_height "text-3xl--line-height" ~layer:Theme ~order:113
 
 let text_4xl_var = Var.create Css.Length "text-4xl" ~layer:Theme ~order:114
 
 let text_4xl_lh_var =
-  Var.create Css.Line_height "text-4xl-line-height" ~layer:Theme ~order:115
+  Var.create Css.Line_height "text-4xl--line-height" ~layer:Theme ~order:115
 
 let text_5xl_var = Var.create Css.Length "text-5xl" ~layer:Theme ~order:116
 
 let text_5xl_lh_var =
-  Var.create Css.Line_height "text-5xl-line-height" ~layer:Theme ~order:117
+  Var.create Css.Line_height "text-5xl--line-height" ~layer:Theme ~order:117
 
 let text_6xl_var = Var.create Css.Length "text-6xl" ~layer:Theme ~order:118
 
 let text_6xl_lh_var =
-  Var.create Css.Line_height "text-6xl-line-height" ~layer:Theme ~order:119
+  Var.create Css.Line_height "text-6xl--line-height" ~layer:Theme ~order:119
 
 let text_7xl_var = Var.create Css.Length "text-7xl" ~layer:Theme ~order:120
 
 let text_7xl_lh_var =
-  Var.create Css.Line_height "text-7xl-line-height" ~layer:Theme ~order:121
+  Var.create Css.Line_height "text-7xl--line-height" ~layer:Theme ~order:121
 
 let text_8xl_var = Var.create Css.Length "text-8xl" ~layer:Theme ~order:122
 
 let text_8xl_lh_var =
-  Var.create Css.Line_height "text-8xl-line-height" ~layer:Theme ~order:123
+  Var.create Css.Line_height "text-8xl--line-height" ~layer:Theme ~order:123
 
 let text_9xl_var = Var.create Css.Length "text-9xl" ~layer:Theme ~order:124
 
 let text_9xl_lh_var =
-  Var.create Css.Line_height "text-9xl-line-height" ~layer:Theme ~order:125
+  Var.create Css.Line_height "text-9xl--line-height" ~layer:Theme ~order:125
 
 (* Font weight variables *)
 let font_weight_thin_var =
@@ -120,6 +120,27 @@ let font_weight_var = Var.create Css.Font_weight "tw-font-weight" ~layer:Utility
 (* Leading variable for line-height utilities *)
 let leading_var = Var.create Css.Line_height "tw-leading" ~layer:Utility
 
+(* Font variant numeric variables for composed value *)
+let ordinal_var =
+  Var.create Css.Font_variant_numeric_token "tw-font-variant-ordinal"
+    ~layer:Utility
+
+let slashed_var =
+  Var.create Css.Font_variant_numeric_token "tw-font-variant-slashed-zero"
+    ~layer:Utility
+
+let figure_var =
+  Var.create Css.Font_variant_numeric_token "tw-font-variant-numeric-figure"
+    ~layer:Utility
+
+let spacing_var =
+  Var.create Css.Font_variant_numeric_token "tw-font-variant-numeric-spacing"
+    ~layer:Utility
+
+let fraction_var =
+  Var.create Css.Font_variant_numeric_token "tw-font-variant-numeric-fraction"
+    ~layer:Utility
+
 (* Helper to get line height calc value *)
 let calc_line_height lh_rem size_rem =
   Calc (Expr (Num lh_rem, Div, Num size_rem))
@@ -129,229 +150,242 @@ module Parse = Parse
 (** {1 Font Size Utilities} *)
 
 let text_xs =
-  (* Reference --tw-leading with fallback to text size line height *)
   let text_xs_decl, text_xs_ref = Var.binding text_xs_var (Rem 0.75) in
   let text_xs_lh_decl, text_xs_lh_ref =
     Var.binding text_xs_lh_var (calc_line_height 1.0 0.75)
   in
-  let leading_decl, leading_ref =
-    Var.binding leading_var (Css.Var text_xs_lh_ref)
+  (* Don't set tw-leading, just reference it with text-xs line height as
+     fallback *)
+  let _, leading =
+    Var.binding leading_var ~fallback:(Css.Var text_xs_lh_ref)
+      (Css.Var text_xs_lh_ref)
   in
   style "text-xs"
     [
       text_xs_decl;
       text_xs_lh_decl;
-      leading_decl;
       font_size (Css.Var text_xs_ref);
-      line_height (Css.Var leading_ref);
+      line_height (Css.Var leading);
     ]
 
 let text_sm =
-  (* Reference --tw-leading with fallback to text size line height *)
   let text_sm_decl, text_sm_ref = Var.binding text_sm_var (Rem 0.875) in
   let text_sm_lh_decl, text_sm_lh_ref =
     Var.binding text_sm_lh_var (calc_line_height 1.25 0.875)
   in
-  let leading_decl, leading_ref =
-    Var.binding leading_var (Css.Var text_sm_lh_ref)
+  (* Don't set tw-leading, just reference it with text-sm line height as
+     fallback *)
+  let _, leading =
+    Var.binding leading_var ~fallback:(Css.Var text_sm_lh_ref)
+      (Css.Var text_sm_lh_ref)
   in
   style "text-sm"
     [
       text_sm_decl;
       text_sm_lh_decl;
-      leading_decl;
       font_size (Css.Var text_sm_ref);
-      line_height (Css.Var leading_ref);
+      line_height (Css.Var leading);
     ]
 
 let text_base =
-  (* Reference --tw-leading with fallback to text size line height *)
   let text_base_decl, text_base_ref = Var.binding text_base_var (Rem 1.0) in
   let text_base_lh_decl, text_base_lh_ref =
     Var.binding text_base_lh_var (calc_line_height 1.5 1.0)
   in
-  let leading_decl, leading_ref =
-    Var.binding leading_var (Css.Var text_base_lh_ref)
+  (* Don't set tw-leading, just reference it with text-base line height as
+     fallback *)
+  let _, leading =
+    Var.binding leading_var ~fallback:(Css.Var text_base_lh_ref)
+      (Css.Var text_base_lh_ref)
   in
   style "text-base"
     [
       text_base_decl;
       text_base_lh_decl;
-      leading_decl;
       font_size (Css.Var text_base_ref);
-      line_height (Css.Var leading_ref);
+      line_height (Css.Var leading);
     ]
 
 let text_lg =
-  (* Reference --tw-leading with fallback to text size line height *)
   let text_lg_decl, text_lg_ref = Var.binding text_lg_var (Rem 1.125) in
   let text_lg_lh_decl, text_lg_lh_ref =
     Var.binding text_lg_lh_var (calc_line_height 1.75 1.125)
   in
-  let leading_decl, leading_ref =
-    Var.binding leading_var (Css.Var text_lg_lh_ref)
+  (* Don't set tw-leading, just reference it with text-lg line height as
+     fallback *)
+  let _, leading =
+    Var.binding leading_var ~fallback:(Css.Var text_lg_lh_ref)
+      (Css.Var text_lg_lh_ref)
   in
   style "text-lg"
     [
       text_lg_decl;
       text_lg_lh_decl;
-      leading_decl;
       font_size (Css.Var text_lg_ref);
-      line_height (Css.Var leading_ref);
+      line_height (Css.Var leading);
     ]
 
 let text_xl =
-  (* Reference --tw-leading with fallback to text size line height *)
   let text_xl_decl, text_xl_ref = Var.binding text_xl_var (Rem 1.25) in
   let text_xl_lh_decl, text_xl_lh_ref =
     Var.binding text_xl_lh_var (calc_line_height 1.75 1.25)
   in
-  let leading_decl, leading_ref =
-    Var.binding leading_var (Css.Var text_xl_lh_ref)
+  (* Don't set tw-leading, just reference it with text-xl line height as
+     fallback *)
+  let _, leading =
+    Var.binding leading_var ~fallback:(Css.Var text_xl_lh_ref)
+      (Css.Var text_xl_lh_ref)
   in
   style "text-xl"
     [
       text_xl_decl;
       text_xl_lh_decl;
-      leading_decl;
       font_size (Css.Var text_xl_ref);
-      line_height (Css.Var leading_ref);
+      line_height (Css.Var leading);
     ]
 
 let text_2xl =
-  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
-     text size line height *)
   let text_2xl_decl, text_2xl_ref = Var.binding text_2xl_var (Rem 1.5) in
   let text_2xl_lh_decl, text_2xl_lh_ref =
     Var.binding text_2xl_lh_var (calc_line_height 2.0 1.5)
   in
-  let leading_decl, leading_ref =
-    Var.binding leading_var (Css.Var text_2xl_lh_ref)
+  (* Don't set tw-leading, just reference it with text-2xl line height as
+     fallback *)
+  let _, leading =
+    Var.binding leading_var ~fallback:(Css.Var text_2xl_lh_ref)
+      (Css.Var text_2xl_lh_ref)
   in
   style "text-2xl"
     [
       text_2xl_decl;
       text_2xl_lh_decl;
-      leading_decl;
       font_size (Css.Var text_2xl_ref);
-      line_height (Css.Var leading_ref);
+      line_height (Css.Var leading);
     ]
 
 let text_3xl =
-  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
-     text size line height *)
   let text_3xl_decl, text_3xl_ref = Var.binding text_3xl_var (Rem 1.875) in
   let text_3xl_lh_decl, text_3xl_lh_ref =
     Var.binding text_3xl_lh_var (calc_line_height 2.25 1.875)
   in
-  let leading_decl, leading_ref =
-    Var.binding leading_var (Css.Var text_3xl_lh_ref)
+  (* Don't set tw-leading, just reference it with text-3xl line height as
+     fallback *)
+  let _, leading =
+    Var.binding leading_var ~fallback:(Css.Var text_3xl_lh_ref)
+      (Css.Var text_3xl_lh_ref)
   in
   style "text-3xl"
     [
       text_3xl_decl;
       text_3xl_lh_decl;
-      leading_decl;
       font_size (Css.Var text_3xl_ref);
-      line_height (Css.Var leading_ref);
+      line_height (Css.Var leading);
     ]
 
 let text_4xl =
-  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
-     text size line height *)
   let text_4xl_decl, text_4xl_ref = Var.binding text_4xl_var (Rem 2.25) in
   let text_4xl_lh_decl, text_4xl_lh_ref =
     Var.binding text_4xl_lh_var (calc_line_height 2.5 2.25)
   in
-  let leading_decl, leading_ref =
-    Var.binding leading_var (Css.Var text_4xl_lh_ref)
+  (* Don't set tw-leading, just reference it with text-4xl line height as
+     fallback *)
+  let _, leading =
+    Var.binding leading_var ~fallback:(Css.Var text_4xl_lh_ref)
+      (Css.Var text_4xl_lh_ref)
   in
   style "text-4xl"
     [
       text_4xl_decl;
       text_4xl_lh_decl;
-      leading_decl;
       font_size (Css.Var text_4xl_ref);
-      line_height (Css.Var leading_ref);
+      line_height (Css.Var leading);
     ]
 
 let text_5xl =
-  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
-     text size line height *)
   let text_5xl_decl, text_5xl_ref = Var.binding text_5xl_var (Rem 3.0) in
   let text_5xl_lh_decl, text_5xl_lh_ref =
     Var.binding text_5xl_lh_var (Num 1.0)
   in
-  let leading_decl, leading_ref =
-    Var.binding leading_var (Css.Var text_5xl_lh_ref)
+  (* Don't set tw-leading, just reference it with text-5xl line height as
+     fallback *)
+  let _, leading =
+    Var.binding leading_var ~fallback:(Css.Var text_5xl_lh_ref)
+      (Css.Var text_5xl_lh_ref)
   in
   style "text-5xl"
     [
       text_5xl_decl;
       text_5xl_lh_decl;
-      leading_decl;
       font_size (Css.Var text_5xl_ref);
-      line_height (Css.Var leading_ref);
+      line_height (Css.Var leading);
     ]
 
 let text_6xl =
-  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
-     text size line height *)
   let text_6xl_d, text_6xl_v = Var.binding text_6xl_var (Rem 3.75) in
   let text_6xl_lh_d, text_6xl_lh_v = Var.binding text_6xl_lh_var (Num 1.0) in
-  let leading_d, leading_v = Var.binding leading_var (Css.Var text_6xl_lh_v) in
+  (* Don't set tw-leading, just reference it with text-6xl line height as
+     fallback *)
+  let _, leading =
+    Var.binding leading_var ~fallback:(Css.Var text_6xl_lh_v)
+      (Css.Var text_6xl_lh_v)
+  in
   style "text-6xl"
     [
       text_6xl_d;
       text_6xl_lh_d;
-      leading_d;
       font_size (Css.Var text_6xl_v);
-      line_height (Css.Var leading_v);
+      line_height (Css.Var leading);
     ]
 
 let text_7xl =
-  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
-     text size line height *)
   let text_7xl_d, text_7xl_v = Var.binding text_7xl_var (Rem 4.5) in
   let text_7xl_lh_d, text_7xl_lh_v = Var.binding text_7xl_lh_var (Num 1.0) in
-  let leading_d, leading_v = Var.binding leading_var (Css.Var text_7xl_lh_v) in
+  (* Don't set tw-leading, just reference it with text-7xl line height as
+     fallback *)
+  let _, leading =
+    Var.binding leading_var ~fallback:(Css.Var text_7xl_lh_v)
+      (Css.Var text_7xl_lh_v)
+  in
   style "text-7xl"
     [
       text_7xl_d;
       text_7xl_lh_d;
-      leading_d;
       font_size (Css.Var text_7xl_v);
-      line_height (Css.Var leading_v);
+      line_height (Css.Var leading);
     ]
 
 let text_8xl =
-  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
-     text size line height *)
   let text_8xl_d, text_8xl_v = Var.binding text_8xl_var (Rem 6.0) in
   let text_8xl_lh_d, text_8xl_lh_v = Var.binding text_8xl_lh_var (Num 1.0) in
-  let leading_d, leading_v = Var.binding leading_var (Css.Var text_8xl_lh_v) in
+  (* Don't set tw-leading, just reference it with text-8xl line height as
+     fallback *)
+  let _, leading =
+    Var.binding leading_var ~fallback:(Css.Var text_8xl_lh_v)
+      (Css.Var text_8xl_lh_v)
+  in
   style "text-8xl"
     [
       text_8xl_d;
       text_8xl_lh_d;
-      leading_d;
       font_size (Css.Var text_8xl_v);
-      line_height (Css.Var leading_v);
+      line_height (Css.Var leading);
     ]
 
 let text_9xl =
-  (* Reference --tw-leading (defined by leading-* utilities) with fallback to
-     text size line height *)
   let text_9xl_d, text_9xl_v = Var.binding text_9xl_var (Rem 8.0) in
   let text_9xl_lh_d, text_9xl_lh_v = Var.binding text_9xl_lh_var (Num 1.0) in
-  let leading_d, leading_v = Var.binding leading_var (Css.Var text_9xl_lh_v) in
+  (* Don't set tw-leading, just reference it with text-9xl line height as
+     fallback *)
+  let _, leading =
+    Var.binding leading_var ~fallback:(Css.Var text_9xl_lh_v)
+      (Css.Var text_9xl_lh_v)
+  in
   style "text-9xl"
     [
       text_9xl_d;
       text_9xl_lh_d;
-      leading_d;
       font_size (Css.Var text_9xl_v);
-      line_height (Css.Var leading_v);
+      line_height (Css.Var leading);
     ]
 
 (* Font weight utilities using the new API *)
@@ -625,16 +659,35 @@ let decoration_from_font =
 
 (** {1 Line Height Utilities} *)
 
-let leading_none = style "leading-none" [ line_height (Num 1.0) ]
-let leading_tight = style "leading-tight" [ line_height (Num 1.25) ]
-let leading_snug = style "leading-snug" [ line_height (Num 1.375) ]
-let leading_normal = style "leading-normal" [ line_height (Num 1.5) ]
-let leading_relaxed = style "leading-relaxed" [ line_height (Num 1.625) ]
-let leading_loose = style "leading-loose" [ line_height (Num 2.0) ]
+let leading_none =
+  let leading_d, leading_v = Var.binding leading_var (Num 1.0) in
+  style "leading-none" [ leading_d; line_height (Css.Var leading_v) ]
+
+let leading_tight =
+  let leading_d, leading_v = Var.binding leading_var (Num 1.25) in
+  style "leading-tight" [ leading_d; line_height (Css.Var leading_v) ]
+
+let leading_snug =
+  let leading_d, leading_v = Var.binding leading_var (Num 1.375) in
+  style "leading-snug" [ leading_d; line_height (Css.Var leading_v) ]
+
+let leading_normal =
+  let leading_d, leading_v = Var.binding leading_var (Num 1.5) in
+  style "leading-normal" [ leading_d; line_height (Css.Var leading_v) ]
+
+let leading_relaxed =
+  let leading_d, leading_v = Var.binding leading_var (Num 1.625) in
+  style "leading-relaxed" [ leading_d; line_height (Css.Var leading_v) ]
+
+let leading_loose =
+  let leading_d, leading_v = Var.binding leading_var (Num 2.0) in
+  style "leading-loose" [ leading_d; line_height (Css.Var leading_v) ]
 
 let leading n =
   let class_name = "leading-" ^ string_of_int n in
-  style class_name [ line_height (Rem (float_of_int n *. 0.25)) ]
+  let lh_value : line_height = Rem (float_of_int n *. 0.25) in
+  let leading_d, leading_v = Var.binding leading_var lh_value in
+  style class_name [ leading_d; line_height (Css.Var leading_v) ]
 
 (* Additional whitespace utilities *)
 let whitespace_normal = style "whitespace-normal" [ white_space Normal ]
@@ -741,10 +794,9 @@ let line_clamp n =
 
 (** {1 Content} *)
 
+let content_var = Var.create Content "tw-content" ~layer:Utility
+
 let content_none =
-  let content_var =
-    Var.create Content "tw-content" ~layer:Utility ~fallback:None
-  in
   let content_d, content_v = Var.binding content_var None in
   style "content-none" [ content_d; content (Css.Var content_v) ]
 
@@ -763,9 +815,7 @@ let content s =
   (* Auto-quote the text and use Tailwind arbitrary value class name *)
   let quoted = "\"" ^ escape_css_string s ^ "\"" in
   let class_name = String.concat "" [ "content-["; quoted; "]" ] in
-  let content_var =
-    Var.create Content "tw-content" ~layer:Utility ~fallback:(String quoted)
-  in
+  let content_var = Var.create Content "tw-content" ~layer:Utility in
   let content_d, content_v = Var.binding content_var (String quoted) in
   style class_name [ content_d; content (Css.Var content_v) ]
 
@@ -827,35 +877,32 @@ let font_stretch_percent n =
 let normal_nums =
   style "normal-nums" [ font_variant_numeric (Tokens [ Normal ]) ]
 
+let ordinal =
+  Var.create Css.Font_variant_numeric_token "tw-font-variant-ordinal"
+    ~layer:Utility
+
+let slashed =
+  Var.create Css.Font_variant_numeric_token "tw-font-variant-slashed-zero"
+    ~layer:Utility
+
+let numeric_figure =
+  Var.create Css.Font_variant_numeric_token "tw-font-variant-numeric-figure"
+    ~layer:Utility
+
+let numeric_spacing =
+  Var.create Css.Font_variant_numeric_token "tw-font-variant-numeric-spacing"
+    ~layer:Utility
+
+let numeric_fraction =
+  Var.create Css.Font_variant_numeric_token "tw-font-variant-numeric-fraction"
+    ~layer:Utility
+
 (* Helper to create font-variant-numeric utilities *)
 (* Each utility only sets its own variable and uses the composed value *)
 let font_variant_numeric_utility class_name value =
   let var =
     Var.create Css.Font_variant_numeric_token
       ("tw-font-variant-" ^ class_name)
-      ~layer:Utility ~fallback:Normal
-  in
-
-  (* Create references to all 5 variables with empty fallback for the composed
-     value *)
-  let ordinal_var =
-    Var.create Css.Font_variant_numeric_token "tw-font-variant-ordinal"
-      ~layer:Utility
-  in
-  let slashed_var =
-    Var.create Css.Font_variant_numeric_token "tw-font-variant-slashed-zero"
-      ~layer:Utility
-  in
-  let figure_var =
-    Var.create Css.Font_variant_numeric_token "tw-font-variant-numeric-figure"
-      ~layer:Utility
-  in
-  let spacing_var =
-    Var.create Css.Font_variant_numeric_token "tw-font-variant-numeric-spacing"
-      ~layer:Utility
-  in
-  let fraction_var =
-    Var.create Css.Font_variant_numeric_token "tw-font-variant-numeric-fraction"
       ~layer:Utility
   in
 

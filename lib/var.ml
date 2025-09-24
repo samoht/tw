@@ -13,7 +13,7 @@ type 'a t = {
   kind : 'a Css.kind; (* CSS type witness *)
   name : string; (* Variable name without -- prefix *)
   layer : layer; (* Theme or Utility *)
-  binding : 'a -> Css.declaration * 'a Css.var;
+  binding : ?fallback:'a -> 'a -> Css.declaration * 'a Css.var;
       (* Function to create declaration and var ref *)
   property : 'a property_info option; (* For @property registration *)
   order : int option; (* Explicit ordering for theme layer *)
@@ -56,13 +56,12 @@ let initial_to_universal : type a. a Css.kind -> a -> string =
 (* Create a variable template *)
 let create : type a.
     a Css.kind ->
-    ?fallback:a ->
     ?property:a * bool ->
     ?order:int ->
     string ->
     layer:layer ->
     a t =
- fun kind ?fallback ?property ?order name ~layer ->
+ fun kind ?property ?order name ~layer ->
   (* Ensure theme variables have an order *)
   (match (layer, order) with
   | Theme, None ->
@@ -75,12 +74,11 @@ let create : type a.
     | Some (initial, inherits) -> Some { initial; inherits }
   in
   let info = Info { kind; name; need_property = property <> None; order } in
-  let binding value =
+  let binding ?fallback value =
     let meta = meta_of_info info in
     let layer_name = Some (layer_name layer) in
-    let fallback_css = Option.map (fun f -> Css.Fallback f) fallback in
-    Css.var ~default:value ?fallback:fallback_css ?layer:layer_name ~meta name
-      kind value
+    let fallback = Option.map (fun f -> Css.Fallback f) fallback in
+    Css.var ~default:value ?fallback ?layer:layer_name ~meta name kind value
   in
   { kind; name; layer; binding; property = prop_info_opt; order }
 
@@ -98,8 +96,8 @@ let property_rule : type a. a t -> Css.t option =
 
 (* Create a binding: returns both declaration and a context-aware var
    reference *)
-let binding : type a. a t -> a -> Css.declaration * a Css.var =
- fun var value -> var.binding value
+let binding : type a. a t -> ?fallback:a -> a -> Css.declaration * a Css.var =
+ fun var ?fallback value -> var.binding ?fallback value
 
 (* Property info to declaration value conversion *)
 let property_info_to_declaration_value (Css.Property_info info) =

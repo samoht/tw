@@ -151,7 +151,7 @@ type 'a t = {
   kind : 'a Css.kind;  (** CSS type witness ensuring type safety *)
   name : string;  (** CSS variable name without the [--] prefix *)
   layer : layer;  (** Whether this is a theme token or utility variable *)
-  binding : 'a -> Css.declaration * 'a Css.var;
+  binding : ?fallback:'a -> 'a -> Css.declaration * 'a Css.var;
   property : 'a property_info option;  (** Optional [@property] metadata *)
   order : int option;  (** Explicit ordering for theme layer *)
 }
@@ -161,7 +161,6 @@ type 'a t = {
 
 val create :
   'a Css.kind ->
-  ?fallback:'a ->
   ?property:'a * bool ->
   ?order:int ->
   string ->
@@ -180,10 +179,15 @@ val create :
       to 9999). Only relevant for Theme layer variables that appear in [:root]
 *)
 
-val binding : 'a t -> 'a -> Css.declaration * 'a Css.var
-(** [binding var value] creates both a CSS declaration and a var() reference
-    with the value as default for inline mode. This is the primary way to use
-    variables. *)
+val binding : 'a t -> ?fallback:'a -> 'a -> Css.declaration * 'a Css.var
+(** [binding var ?fallback value] creates both a CSS declaration and a var()
+    reference with the value as default for inline mode. This is the primary way
+    to use variables.
+
+    - [fallback] if provided, the var reference will use this as a fallback
+      instead of the value. This is useful for utilities that want to reference
+      a variable with a different fallback (e.g., text-xs references
+      --tw-leading with --text-xs--line-height as fallback). *)
 
 val property_rule : 'a t -> Css.t option
 (** [property_rule var] generates the [@property] rule if metadata is present.

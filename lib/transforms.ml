@@ -19,29 +19,14 @@ open Core
 open Css
 
 (* Transform variables using new API *)
-let tw_translate_x_var =
-  Var.create Css.Length "tw-translate-x" ~layer:Utility ~fallback:Zero
-
-let tw_translate_y_var =
-  Var.create Css.Length "tw-translate-y" ~layer:Utility ~fallback:Css.Zero
-
-let tw_rotate_var =
-  Var.create Css.Angle "tw-rotate" ~layer:Utility ~fallback:(Deg 0.0)
-
-let tw_skew_x_var =
-  Var.create Css.Angle "tw-skew-x" ~layer:Utility ~fallback:(Deg 0.0)
-
-let tw_skew_y_var =
-  Var.create Css.Angle "tw-skew-y" ~layer:Utility ~fallback:(Deg 0.0)
-
-let tw_scale_x_var =
-  Var.create Css.Float "tw-scale-x" ~layer:Utility ~fallback:1.0
-
-let tw_scale_y_var =
-  Var.create Css.Float "tw-scale-y" ~layer:Utility ~fallback:1.0
-
-let tw_scale_z_var =
-  Var.create Css.Float "tw-scale-z" ~layer:Utility ~fallback:1.0
+let tw_translate_x_var = Var.create Css.Length "tw-translate-x" ~layer:Utility
+let tw_translate_y_var = Var.create Css.Length "tw-translate-y" ~layer:Utility
+let tw_rotate_var = Var.create Css.Angle "tw-rotate" ~layer:Utility
+let tw_skew_x_var = Var.create Css.Angle "tw-skew-x" ~layer:Utility
+let tw_skew_y_var = Var.create Css.Angle "tw-skew-y" ~layer:Utility
+let tw_scale_x_var = Var.create Css.Float "tw-scale-x" ~layer:Utility
+let tw_scale_y_var = Var.create Css.Float "tw-scale-y" ~layer:Utility
+let tw_scale_z_var = Var.create Css.Float "tw-scale-z" ~layer:Utility
 
 module Parse = Parse
 
