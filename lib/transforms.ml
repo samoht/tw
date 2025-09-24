@@ -154,25 +154,24 @@ let backface_hidden = style "backface-hidden" [ backface_visibility Hidden ]
 (** {1 Transform Control Utilities} *)
 
 let transform =
-  let dx, vx = Var.binding tw_translate_x_var Zero in
-  let dy, vy = Var.binding tw_translate_y_var Zero in
-  let dr, vr = Var.binding tw_rotate_var (Deg 0.0) in
-  let dsx, vsx = Var.binding tw_skew_x_var (Deg 0.0) in
-  let dsy, vsy = Var.binding tw_skew_y_var (Deg 0.0) in
-  let dscalex, vscalex = Var.binding tw_scale_x_var 1.0 in
-  let dscaley, vscaley = Var.binding tw_scale_y_var 1.0 in
+  let translate_x_decl, translate_x_var = Var.binding tw_translate_x_var Zero in
+  let translate_y_decl, translate_y_var = Var.binding tw_translate_y_var Zero in
+  let rotate_decl, rotate_var = Var.binding tw_rotate_var (Deg 0.0) in
+  let skew_x_decl, skew_x_var = Var.binding tw_skew_x_var (Deg 0.0) in
+  let skew_y_decl, skew_y_var = Var.binding tw_skew_y_var (Deg 0.0) in
   style "transform"
-    (dx :: dy :: dr :: dsx :: dsy :: dscalex :: dscaley
+    (translate_x_decl :: translate_y_decl :: rotate_decl :: skew_x_decl
+   :: skew_y_decl
     :: [
          transform
            [
-             Translate_x (Var vx);
-             Translate_y (Var vy);
-             Rotate (Var vr);
-             Skew_x (Var vsx);
-             Skew_y (Var vsy);
-             Scale_x (Var vscalex);
-             Scale_y (Var vscaley);
+             Translate_x (Var translate_x_var);
+             Translate_y (Var translate_y_var);
+             Rotate (Var rotate_var);
+             Skew_x (Var skew_x_var);
+             Skew_y (Var skew_y_var);
+             Scale_x 1.0;
+             Scale_y 1.0;
            ];
        ])
 

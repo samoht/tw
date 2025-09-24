@@ -153,12 +153,11 @@ let pp_spacing_suffix : spacing -> string = function
       let n = int_of_float (f /. 0.25) in
       string_of_int (abs n)
 
-let spacing_to_length : spacing -> length = function
+let spacing_to_length spacing_ref : spacing -> length = function
   | `Px -> Px 1.
   | `Full -> Pct 100.0
   | `Rem f ->
       let n = int_of_float (f /. 0.25) in
-      let _, spacing_ref = Var.binding spacing_var (Rem 0.25) in
       Calc
         (Calc.mul (Calc.length (Var spacing_ref)) (Calc.float (float_of_int n)))
 
@@ -168,19 +167,28 @@ let int n = `Rem (float_of_int n *. 0.25)
 
 let gap' (s : spacing) =
   let class_name = "gap-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
+  let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+  let len = spacing_to_length spacing_ref s in
   let gap_value = { row_gap = Some len; column_gap = Some len } in
-  style class_name [ gap gap_value ]
+  match s with
+  | `Rem _ -> style class_name [ spacing_decl; gap gap_value ]
+  | _ -> style class_name [ gap gap_value ]
 
 let gap_x' (s : spacing) =
   let class_name = "gap-x-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
-  style class_name [ column_gap len ]
+  let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+  let len = spacing_to_length spacing_ref s in
+  match s with
+  | `Rem _ -> style class_name [ spacing_decl; column_gap len ]
+  | _ -> style class_name [ column_gap len ]
 
 let gap_y' (s : spacing) =
   let class_name = "gap-y-" ^ pp_spacing_suffix s in
-  let len = spacing_to_length s in
-  style class_name [ row_gap len ]
+  let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+  let len = spacing_to_length spacing_ref s in
+  match s with
+  | `Rem _ -> style class_name [ spacing_decl; row_gap len ]
+  | _ -> style class_name [ row_gap len ]
 
 (** {2 Int-based Gap Utilities} *)
 

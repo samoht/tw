@@ -102,23 +102,21 @@ let pl_decimal f = pl' (decimal f)
 
 (** {2 Typed Margin Utilities} *)
 
-(* Helper to include spacing variable binding when margin uses Rem *)
-let margin_style class_name decls m =
-  match m with
-  | `Rem _ ->
-      let decl, _ = Var.binding spacing_var (Rem 0.25) in
-      style class_name (decl :: decls)
-  | _ -> style class_name decls
-
 let margin_util prefix prop (m : margin) =
   let class_name = prefix ^ pp_margin_suffix m in
-  let len = margin_to_length m in
-  margin_style class_name [ prop len ] m
+  let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+  let len = margin_to_length spacing_ref m in
+  match m with
+  | `Auto -> style class_name [ prop len ]
+  | #spacing -> style class_name [ spacing_decl; prop len ]
 
 let margin_list_util prefix prop (m : margin) =
   let class_name = prefix ^ pp_margin_suffix m in
-  let len = margin_to_length m in
-  margin_style class_name [ prop [ len ] ] m
+  let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+  let len = margin_to_length spacing_ref m in
+  match m with
+  | `Auto -> style class_name [ prop [ len ] ]
+  | #spacing -> style class_name [ spacing_decl; prop [ len ] ]
 
 let m' = margin_list_util "m-" margin
 let mx' = margin_util "mx-" margin_inline
@@ -134,49 +132,71 @@ let m n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "m-" ^ pp_margin_suffix s in
-  margin_style class_name [ margin [ margin_to_length s ] ] s
+  let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+  let len = margin_to_length spacing_ref s in
+  match s with
+  | `Auto -> style class_name [ margin [ len ] ]
+  | #spacing -> style class_name [ spacing_decl; margin [ len ] ]
 
 let mx n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mx-" ^ pp_margin_suffix s in
-  let len = margin_to_length s in
-  margin_style class_name [ margin_inline len ] s
+  let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+  let len = margin_to_length spacing_ref s in
+  match s with
+  | `Auto -> style class_name [ margin_inline len ]
+  | #spacing -> style class_name [ spacing_decl; margin_inline len ]
 
 let my n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "my-" ^ pp_margin_suffix s in
-  let len = margin_to_length s in
-  margin_style class_name [ margin_block len ] s
+  let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+  let len = margin_to_length spacing_ref s in
+  match s with
+  | `Auto -> style class_name [ margin_block len ]
+  | #spacing -> style class_name [ spacing_decl; margin_block len ]
 
 let mt n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mt-" ^ pp_margin_suffix s in
-  let len = margin_to_length s in
-  margin_style class_name [ margin_top len ] s
+  let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+  let len = margin_to_length spacing_ref s in
+  match s with
+  | `Auto -> style class_name [ margin_top len ]
+  | #spacing -> style class_name [ spacing_decl; margin_top len ]
 
 let mr n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mr-" ^ pp_margin_suffix s in
-  let len = margin_to_length s in
-  margin_style class_name [ margin_right len ] s
+  let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+  let len = margin_to_length spacing_ref s in
+  match s with
+  | `Auto -> style class_name [ margin_right len ]
+  | #spacing -> style class_name [ spacing_decl; margin_right len ]
 
 let mb n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "mb-" ^ pp_margin_suffix s in
-  let len = margin_to_length s in
-  margin_style class_name [ margin_bottom len ] s
+  let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+  let len = margin_to_length spacing_ref s in
+  match s with
+  | `Auto -> style class_name [ margin_bottom len ]
+  | #spacing -> style class_name [ spacing_decl; margin_bottom len ]
 
 let ml n =
   let s = int n in
   let prefix = if n < 0 then "-" else "" in
   let class_name = prefix ^ "ml-" ^ pp_margin_suffix s in
-  let len = margin_to_length s in
-  margin_style class_name [ margin_left len ] s
+  let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+  let len = margin_to_length spacing_ref s in
+  match s with
+  | `Auto -> style class_name [ margin_left len ]
+  | #spacing -> style class_name [ spacing_decl; margin_left len ]
 
 (** {2 Space Between Utilities} *)
 

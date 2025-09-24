@@ -4,11 +4,13 @@ open Core
 
 (** {1 Helper Functions} *)
 
-val to_length : spacing -> Css.length
-(** [to_length s] converts spacing to CSS length. *)
+val to_length : Css.length Css.var -> spacing -> Css.length
+(** [to_length spacing_ref s] converts spacing to CSS length using the provided
+    spacing variable reference. *)
 
-val margin_to_length : margin -> Css.length
-(** [margin_to_length m] converts margin to CSS length. *)
+val margin_to_length : Css.length Css.var -> margin -> Css.length
+(** [margin_to_length spacing_ref m] converts margin to CSS length using the
+    provided spacing variable reference. *)
 
 (** {1 Padding Utilities} *)
 
