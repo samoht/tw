@@ -16,20 +16,23 @@ let read_file filename =
 (* Extract property constructors from properties_intf.ml *)
 let extract_property_constructors content =
   let lines = String.split_on_char '\n' content in
-  let constructor_pattern = Str.regexp "^[ ]*| \\([A-Z][A-Za-z0-9_]*\\) :" in
+  let constructor_pattern =
+    Re.Perl.compile_pat "^[ ]*\\| ([A-Z][A-Za-z0-9_]*) :"
+  in
   List.fold_left
     (fun acc line ->
-      if Str.string_match constructor_pattern line 0 then
-        let name = Str.matched_group 1 line in
-        name :: acc
-      else acc)
+      match Re.exec_opt constructor_pattern line with
+      | Some g ->
+          let name = Re.Group.get g 1 in
+          name :: acc
+      | None -> acc)
     [] lines
 
 (* Extract handled properties from properties.ml read_property function *)
 let extract_handled_properties content =
   (* Find the read_property function with PROPERTY_MATCHING_START marker *)
-  let start_pattern = Str.regexp ".*PROPERTY_MATCHING_START.*" in
-  let end_pattern = Str.regexp ".*PROPERTY_MATCHING_END.*" in
+  let start_pattern = Re.Perl.compile_pat ".*PROPERTY_MATCHING_START.*" in
+  let end_pattern = Re.Perl.compile_pat ".*PROPERTY_MATCHING_END.*" in
 
   (* Split content into lines *)
   let lines = String.split_on_char '\n' content in
@@ -39,10 +42,9 @@ let extract_handled_properties content =
     match lines with
     | [] -> acc
     | line :: rest ->
-        if Str.string_match end_pattern line 0 then find_region rest false acc
+        if Re.execp end_pattern line then find_region rest false acc
         else if in_region then find_region rest true (line :: acc)
-        else if Str.string_match start_pattern line 0 then
-          find_region rest true acc
+        else if Re.execp start_pattern line then find_region rest true acc
         else find_region rest false acc
   in
 
@@ -50,16 +52,13 @@ let extract_handled_properties content =
   let region = String.concat "\n" region_lines in
 
   (* Extract property names from pattern matches *)
-  let pattern = Str.regexp "| \"[^\"]+\" -> Prop \\([A-Z][A-Za-z0-9_]*\\)" in
-  let rec extract_from_string str pos acc =
-    try
-      let _ = Str.search_forward pattern str pos in
-      let prop_name = Str.matched_group 1 str in
-      let new_pos = Str.match_end () in
-      extract_from_string str new_pos (prop_name :: acc)
-    with Not_found -> acc
+  let pattern =
+    Re.Perl.compile_pat "\\| \"[^\"]+\" -> Prop ([A-Z][A-Za-z0-9_]*)"
   in
-  extract_from_string region 0 []
+  let extract_from_string str =
+    Re.all pattern str |> List.map (fun g -> Re.Group.get g 1)
+  in
+  extract_from_string region
 
 let () =
   (* Try to find the project root *)

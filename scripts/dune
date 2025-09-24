@@ -1,14 +1,7 @@
-(executable
- (name cssdiff)
- (libraries tw_tools fmt))
-
-(executable
- (name check_properties)
- (libraries str fmt))
-
-(executable
- (name check_api_consistency)
- (libraries re unix fmt))
+(executables
+ (public_names cssdiff check_properties check_api_consistency)
+ (names cssdiff check_properties check_api_consistency)
+ (libraries tw_tools re unix fmt))
 
 (rule
  (alias runtest)
