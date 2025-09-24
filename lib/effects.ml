@@ -26,18 +26,23 @@ module Parse = Parse
 let shadow_var =
   Var.create Css.Shadow "tw-shadow" ~layer:Utility
     ~property:
-      ( shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000") (),
+      ( Some
+          (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000")
+             ()),
         false )
 
 let shadow_alpha_var =
-  Var.create Css.Float "tw-shadow-alpha" ~layer:Utility ~property:(100.0, false)
+  Var.create Css.Float "tw-shadow-alpha" ~layer:Utility
+    ~property:(Some 100.0, false)
 
 let shadow_color_var = Var.create Css.Color "tw-shadow-color" ~layer:Utility
 
 let inset_shadow_var =
   Var.create Css.Shadow "tw-inset-shadow" ~layer:Utility
     ~property:
-      ( shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000") (),
+      ( Some
+          (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000")
+             ()),
         false )
 
 (* Ring variables *)
@@ -46,28 +51,34 @@ let ring_color_var = Var.create Css.Color "tw-ring-color" ~layer:Utility
 let ring_shadow_var =
   Var.create Css.Shadow "tw-ring-shadow" ~layer:Utility
     ~property:
-      ( shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000") (),
+      ( Some
+          (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000")
+             ()),
         false )
 
 let inset_ring_shadow_var =
   Var.create Css.Shadow "tw-inset-ring-shadow" ~layer:Utility
     ~property:
-      ( shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000") (),
+      ( Some
+          (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000")
+             ()),
         false )
 
 let ring_offset_shadow_var =
   Var.create Css.Shadow "tw-ring-offset-shadow" ~layer:Utility
     ~property:
-      ( shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000") (),
+      ( Some
+          (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000")
+             ()),
         false )
 
 let ring_offset_color_var =
   Var.create Css.Color "tw-ring-offset-color" ~layer:Utility
-    ~property:(Css.hex "#fff", false)
+    ~property:(Some (Css.hex "#fff"), false)
 
 let ring_offset_width_var =
   Var.create Css.Length "tw-ring-offset-width" ~layer:Utility
-    ~property:((Css.Px 0.0 : Css.length), false)
+    ~property:(Some (Css.Px 0.0 : Css.length), false)
 
 let ring_width_var = Var.create Css.Length "tw-ring-width" ~layer:Utility
 

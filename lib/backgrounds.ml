@@ -5,15 +5,15 @@ open Core
 (* Gradient variables using new API - no values, just definitions *)
 let gradient_from_var =
   Var.create Css.Color "tw-gradient-from" ~layer:Utility
-    ~property:(Css.hex "#0000", false)
+    ~property:(Some (Css.hex "#0000"), false)
 
 let gradient_via_var =
   Var.create Css.Color "tw-gradient-via" ~layer:Utility
-    ~property:(Css.hex "#0000", false)
+    ~property:(Some (Css.hex "#0000"), false)
 
 let gradient_to_var =
   Var.create Css.Color "tw-gradient-to" ~layer:Utility
-    ~property:(Css.hex "#0000", false)
+    ~property:(Some (Css.hex "#0000"), false)
 
 type direction =
   | Bottom
