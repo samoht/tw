@@ -92,7 +92,10 @@ let root_resets font_feature font_variation =
         tab_size 4;
         line_height (Num 1.5);
         (* Use default-font-family with full font stack as fallback *)
-        font_family (Var default_font_ref);
+        font_family
+          (Var
+             (Css.var_ref ~fallback:(Fallback fallback_stack)
+                (Css.var_name default_font_ref)));
         font_feature_settings (Var font_feature);
         font_variation_settings (Var font_variation);
         webkit_tap_highlight_color Transparent;
@@ -176,7 +179,9 @@ let code_resets font_feature font_variation =
            let _, default_mono_ref =
              Var.binding Typography.default_mono_font_family_var fallback_stack
            in
-           Css.Var default_mono_ref);
+           Css.Var
+             (Css.var_ref ~fallback:(Fallback fallback_stack)
+                (Css.var_name default_mono_ref)));
         font_feature_settings (Var font_feature);
         font_variation_settings (Var font_variation);
         font_size (Em 1.0);
