@@ -35,7 +35,16 @@ let shadow_alpha_var =
   Var.create Css.Float "tw-shadow-alpha" ~layer:Utility
     ~property:(Some 100.0, false)
 
-let shadow_color_var = Var.create Css.Color "tw-shadow-color" ~layer:Utility
+let inset_shadow_color_var =
+  Var.create Css.Color "tw-inset-shadow-color" ~layer:Utility
+    ~property:(None, false)
+
+let inset_shadow_alpha_var =
+  Var.create Css.Float "tw-inset-shadow-alpha" ~layer:Utility
+    ~property:(Some 100.0, false)
+
+let shadow_color_var =
+  Var.create Css.Color "tw-shadow-color" ~layer:Utility ~property:(None, false)
 
 let inset_shadow_var =
   Var.create Css.Shadow "tw-inset-shadow" ~layer:Utility
@@ -46,7 +55,15 @@ let inset_shadow_var =
         false )
 
 (* Ring variables *)
-let ring_color_var = Var.create Css.Color "tw-ring-color" ~layer:Utility
+let ring_color_var =
+  Var.create Css.Color "tw-ring-color" ~layer:Utility ~property:(None, false)
+
+let inset_ring_color_var =
+  Var.create Css.Color "tw-inset-ring-color" ~layer:Utility
+    ~property:(None, false)
+
+let ring_inset_var =
+  Var.create Css.String "tw-ring-inset" ~layer:Utility ~property:(None, false)
 
 let ring_shadow_var =
   Var.create Css.Shadow "tw-ring-shadow" ~layer:Utility
@@ -122,7 +139,12 @@ let shadow_none =
 
 let shadow_sm =
   (* Shadow-sm with composite shadows matching Tailwind v4 *)
-  let d_color, color_ref = Var.binding shadow_color_var (Css.hex "#0000001a") in
+  (* Use color reference with default fallback value - don't set the variable *)
+  let _, color_ref =
+    Var.binding shadow_color_var
+      ~fallback:(Css.Fallback (Css.hex "#0000001a"))
+      (Css.hex "#0000001a")
+  in
   let shadow_list =
     [
       Css.shadow ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 3.) ~spread:Zero
@@ -132,24 +154,28 @@ let shadow_sm =
     ]
   in
 
-  (* Create box-shadow using CSS variable composition *)
-  let d_inset, v_inset =
+  (* Set shadow variable with the list *)
+  let d_shadow, v_shadow = Var.binding shadow_var (List shadow_list) in
+
+  (* Get variable references without setting them - they're already set in
+     properties layer *)
+  let _, v_inset =
     Var.binding inset_shadow_var
       (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
   in
-  let d_inset_ring, v_inset_ring =
+  let _, v_inset_ring =
     Var.binding inset_ring_shadow_var
       (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
   in
-  let d_ring_offset, v_ring_offset =
+  let _, v_ring_offset =
     Var.binding ring_offset_shadow_var
       (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
   in
-  let d_ring, v_ring =
+  let _, v_ring =
     Var.binding ring_shadow_var
       (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
   in
-  let d_shadow, v_shadow = Var.binding shadow_var (List shadow_list) in
+
   let box_shadow_vars : Css.shadow list =
     [
       Css.Var v_inset;
@@ -163,10 +189,16 @@ let shadow_sm =
   let property_rules =
     [
       Var.property_rule shadow_var;
+      Var.property_rule shadow_color_var;
       Var.property_rule shadow_alpha_var;
       Var.property_rule inset_shadow_var;
+      Var.property_rule inset_shadow_color_var;
+      Var.property_rule inset_shadow_alpha_var;
+      Var.property_rule ring_color_var;
       Var.property_rule ring_shadow_var;
+      Var.property_rule inset_ring_color_var;
       Var.property_rule inset_ring_shadow_var;
+      Var.property_rule ring_inset_var;
       Var.property_rule ring_offset_shadow_var;
       Var.property_rule ring_offset_color_var;
       Var.property_rule ring_offset_width_var;
@@ -175,8 +207,7 @@ let shadow_sm =
   in
   style "shadow-sm"
     ~property_rules:(Css.concat property_rules)
-    (d_color :: d_inset :: d_inset_ring :: d_ring_offset :: d_ring :: d_shadow
-    :: [ Css.box_shadows box_shadow_vars ])
+    (d_shadow :: [ Css.box_shadows box_shadow_vars ])
 
 let shadow =
   (* Default shadow - same as shadow-sm in Tailwind v4 *)

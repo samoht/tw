@@ -151,19 +151,29 @@ let fraction_var =
 let calc_line_height lh_rem size_rem =
   Calc (Expr (Num lh_rem, Div, Num size_rem))
 
+(* Theme record for line height variables *)
+type line_height_theme = { leading : Css.declaration * Css.line_height Css.var }
+
+(* Default line height theme with empty fallback for Tailwind's var(--name,)
+   pattern *)
+let default_line_height_theme : line_height_theme =
+  let leading_decl, leading_ref =
+    Var.binding leading_var ~fallback:Css.Empty (Num 1.5)
+  in
+  { leading = (leading_decl, leading_ref) }
+
 module Parse = Parse
 
 (** {1 Font Size Utilities} *)
 
-(* EXCEPTION TO THREE-RULE POLICY: Text utilities need var(--tw-leading,
-   fallback) but must NOT set --tw-leading (only leading-* utilities set it).
-   Pattern: line-height: var(--tw-leading, var(--text-xs--line-height)) *)
+(* Text utilities use theme record for line height variable reference *)
 let text_size_utility name (size_var : Css.length Var.t)
     (lh_var : Css.line_height Var.t) size_rem lh_value =
   let size_decl, size_ref = Var.binding size_var (Rem size_rem) in
   let lh_decl, lh_ref = Var.binding lh_var lh_value in
-  (* VIOLATION: We need the var reference but NOT the declaration *)
-  let _, leading_ref = Var.binding leading_var (Num 1.5) in
+  (* Use shared theme record - no declaration, just reference *)
+  let theme = default_line_height_theme in
+  let leading_ref = snd theme.leading in
   let leading_with_fallback = Css.with_fallback leading_ref (Css.Var lh_ref) in
   style name
     [
@@ -719,57 +729,99 @@ let font_stretch_percent n =
 let normal_nums =
   style "normal-nums" [ font_variant_numeric (Tokens [ Normal ]) ]
 
-(* Helper to create font-variant-numeric utilities *)
-(* Each utility sets one specific variable and uses all 5 in composed value *)
-type font_variant_vars = {
-  ordinal : Css.font_variant_numeric_token Css.var;
-  slashed : Css.font_variant_numeric_token Css.var;
-  figure : Css.font_variant_numeric_token Css.var;
-  spacing : Css.font_variant_numeric_token Css.var;
-  fraction : Css.font_variant_numeric_token Css.var;
+(* Default theme for font variant numeric variables *)
+type font_variant_theme = {
+  ordinal : Css.declaration * Css.font_variant_numeric_token Css.var;
+  slashed : Css.declaration * Css.font_variant_numeric_token Css.var;
+  figure : Css.declaration * Css.font_variant_numeric_token Css.var;
+  spacing : Css.declaration * Css.font_variant_numeric_token Css.var;
+  fraction : Css.declaration * Css.font_variant_numeric_token Css.var;
 }
 
-let optional_binding :
-    bool -> 'a Var.t -> 'a -> 'a Css.var -> Css.declaration option * 'a Css.var
-    =
- fun condition var_ref var_value fallback_var_ref ->
-  if condition then
-    let decl, var_ref = Var.binding var_ref ~fallback:Css.Empty var_value in
-    (Some decl, var_ref)
-  else (None, fallback_var_ref)
+(* Default theme with empty fallbacks for Tailwind's var(--name,) pattern *)
+(* Created once and shared across all utilities for performance *)
+let default_font_variant_theme : font_variant_theme =
+  let ordinal_decl, ordinal_ref =
+    Var.binding ordinal_var ~fallback:Css.Empty Normal
+  in
+  let slashed_decl, slashed_ref =
+    Var.binding slashed_var ~fallback:Css.Empty Normal
+  in
+  let figure_decl, figure_ref =
+    Var.binding figure_var ~fallback:Css.Empty Normal
+  in
+  let spacing_decl, spacing_ref =
+    Var.binding spacing_var ~fallback:Css.Empty Normal
+  in
+  let fraction_decl, fraction_ref =
+    Var.binding fraction_var ~fallback:Css.Empty Normal
+  in
+  {
+    ordinal = (ordinal_decl, ordinal_ref);
+    slashed = (slashed_decl, slashed_ref);
+    figure = (figure_decl, figure_ref);
+    spacing = (spacing_decl, spacing_ref);
+    fraction = (fraction_decl, fraction_ref);
+  }
 
-let font_numeric :
-    [ `Ordinal | `Slashed | `Figure | `Spacing | `Fraction ] ->
-    Css.font_variant_numeric_token ->
-    string ->
-    font_variant_vars ->
-    Core.t =
- fun var_to_set value class_name vars ->
-  let ordinal_decl_opt, ordinal_v =
-    optional_binding (var_to_set = `Ordinal) ordinal_var value vars.ordinal
+let font_variant_numeric_utility var_to_set value class_name =
+  (* Use the shared default theme *)
+  let theme = default_font_variant_theme in
+
+  (* Override the specific variable being set - with EMPTY fallback to match
+     Tailwind *)
+  let updated_theme =
+    match var_to_set with
+    | `Ordinal ->
+        let new_decl, new_ref =
+          Var.binding ordinal_var ~fallback:Css.Empty value
+        in
+        { theme with ordinal = (new_decl, new_ref) }
+    | `Slashed ->
+        let new_decl, new_ref =
+          Var.binding slashed_var ~fallback:Css.Empty value
+        in
+        { theme with slashed = (new_decl, new_ref) }
+    | `Figure ->
+        let new_decl, new_ref =
+          Var.binding figure_var ~fallback:Css.Empty value
+        in
+        { theme with figure = (new_decl, new_ref) }
+    | `Spacing ->
+        let new_decl, new_ref =
+          Var.binding spacing_var ~fallback:Css.Empty value
+        in
+        { theme with spacing = (new_decl, new_ref) }
+    | `Fraction ->
+        let new_decl, new_ref =
+          Var.binding fraction_var ~fallback:Css.Empty value
+        in
+        { theme with fraction = (new_decl, new_ref) }
   in
-  let slashed_decl_opt, slashed_v =
-    optional_binding (var_to_set = `Slashed) slashed_var value vars.slashed
+
+  (* Extract only the active declaration (the one being set) *)
+  let active_decl =
+    match var_to_set with
+    | `Ordinal -> fst updated_theme.ordinal
+    | `Slashed -> fst updated_theme.slashed
+    | `Figure -> fst updated_theme.figure
+    | `Spacing -> fst updated_theme.spacing
+    | `Fraction -> fst updated_theme.fraction
   in
-  let figure_decl_opt, figure_v =
-    optional_binding (var_to_set = `Figure) figure_var value vars.figure
-  in
-  let spacing_decl_opt, spacing_v =
-    optional_binding (var_to_set = `Spacing) spacing_var value vars.spacing
-  in
-  let fraction_decl_opt, fraction_v =
-    optional_binding (var_to_set = `Fraction) fraction_var value vars.fraction
-  in
+
+  (* Compose the font-variant-numeric value using all var references *)
   let composed_value =
     Composed
       {
-        ordinal = Some (Css.Var ordinal_v);
-        slashed_zero = Some (Css.Var slashed_v);
-        numeric_figure = Some (Css.Var figure_v);
-        numeric_spacing = Some (Css.Var spacing_v);
-        numeric_fraction = Some (Css.Var fraction_v);
+        ordinal = Some (Css.Var (snd updated_theme.ordinal));
+        slashed_zero = Some (Css.Var (snd updated_theme.slashed));
+        numeric_figure = Some (Css.Var (snd updated_theme.figure));
+        numeric_spacing = Some (Css.Var (snd updated_theme.spacing));
+        numeric_fraction = Some (Css.Var (snd updated_theme.fraction));
       }
   in
+
+  (* Get property rules for animation support *)
   let property_rules =
     List.filter_map
       (fun x -> x)
@@ -781,40 +833,10 @@ let font_numeric :
         Var.property_rule fraction_var;
       ]
   in
-  let decls =
-    List.filter_map
-      (fun x -> x)
-      [
-        ordinal_decl_opt;
-        slashed_decl_opt;
-        figure_decl_opt;
-        spacing_decl_opt;
-        fraction_decl_opt;
-      ]
-  in
+
   style class_name
     ~property_rules:(Css.concat property_rules)
-    (decls @ [ font_variant_numeric composed_value ])
-
-let font_variant_numeric_utility var_to_set value class_name =
-  (* Create variable references with empty fallbacks for Tailwind's var(--name,)
-     pattern *)
-  let _, ordinal_ref = Var.binding ordinal_var ~fallback:Css.Empty Normal in
-  let _, slashed_ref = Var.binding slashed_var ~fallback:Css.Empty Normal in
-  let _, figure_ref = Var.binding figure_var ~fallback:Css.Empty Normal in
-  let _, spacing_ref = Var.binding spacing_var ~fallback:Css.Empty Normal in
-  let _, fraction_ref = Var.binding fraction_var ~fallback:Css.Empty Normal in
-
-  let vars =
-    {
-      ordinal = ordinal_ref;
-      slashed = slashed_ref;
-      figure = figure_ref;
-      spacing = spacing_ref;
-      fraction = fraction_ref;
-    }
-  in
-  font_numeric var_to_set value class_name vars
+    [ active_decl; font_variant_numeric composed_value ]
 
 let ordinal = font_variant_numeric_utility `Ordinal Ordinal "ordinal"
 

@@ -209,113 +209,238 @@ let tbody_td_first_child =
 let tbody_td_last_child =
   (tbody ++ (td && last_child)) || (tfoot ++ (td && last_child))
 
-(** Create all variable bindings and references *)
-let prose_body_d, prose_body_v =
-  Var.binding prose_body_var (oklch 37.3 0.034 259.733)
+(* Theme record for all prose color variables *)
+type prose_theme = {
+  body : Css.declaration * Css.color Css.var;
+  headings : Css.declaration * Css.color Css.var;
+  lead : Css.declaration * Css.color Css.var;
+  links : Css.declaration * Css.color Css.var;
+  bold : Css.declaration * Css.color Css.var;
+  counters : Css.declaration * Css.color Css.var;
+  bullets : Css.declaration * Css.color Css.var;
+  hr : Css.declaration * Css.color Css.var;
+  quotes : Css.declaration * Css.color Css.var;
+  quote_borders : Css.declaration * Css.color Css.var;
+  captions : Css.declaration * Css.color Css.var;
+  kbd : Css.declaration * Css.color Css.var;
+  kbd_shadows : Css.declaration * string Css.var;
+  code : Css.declaration * Css.color Css.var;
+  pre_code : Css.declaration * Css.color Css.var;
+  pre_bg : Css.declaration * Css.color Css.var;
+  th_borders : Css.declaration * Css.color Css.var;
+  td_borders : Css.declaration * Css.color Css.var;
+  (* Invert variants *)
+  invert_body : Css.declaration * Css.color Css.var;
+  invert_headings : Css.declaration * Css.color Css.var;
+  invert_lead : Css.declaration * Css.color Css.var;
+  invert_links : Css.declaration * Css.color Css.var;
+  invert_bold : Css.declaration * Css.color Css.var;
+  invert_counters : Css.declaration * Css.color Css.var;
+  invert_bullets : Css.declaration * Css.color Css.var;
+  invert_hr : Css.declaration * Css.color Css.var;
+  invert_quotes : Css.declaration * Css.color Css.var;
+  invert_quote_borders : Css.declaration * Css.color Css.var;
+  invert_captions : Css.declaration * Css.color Css.var;
+  invert_kbd : Css.declaration * Css.color Css.var;
+  invert_kbd_shadows : Css.declaration * string Css.var;
+  invert_code : Css.declaration * Css.color Css.var;
+  invert_pre_code : Css.declaration * Css.color Css.var;
+  invert_pre_bg : Css.declaration * Css.color Css.var;
+  invert_th_borders : Css.declaration * Css.color Css.var;
+  invert_td_borders : Css.declaration * Css.color Css.var;
+}
 
-let prose_headings_d, prose_headings_v =
-  Var.binding prose_headings_var (oklch 21.0 0.034 264.665)
+(* Default prose theme - created once and shared across all utilities *)
+let default_prose_theme : prose_theme =
+  let body_d, body_v = Var.binding prose_body_var (oklch 37.3 0.034 259.733) in
+  let headings_d, headings_v =
+    Var.binding prose_headings_var (oklch 21.0 0.034 264.665)
+  in
+  let lead_d, lead_v = Var.binding prose_lead_var (oklch 44.6 0.030 256.802) in
+  let links_d, links_v =
+    Var.binding prose_links_var (oklch 21.0 0.034 264.665)
+  in
+  let bold_d, bold_v = Var.binding prose_bold_var (oklch 21.0 0.034 264.665) in
+  let counters_d, counters_v =
+    Var.binding prose_counters_var (oklch 55.1 0.027 264.364)
+  in
+  let bullets_d, bullets_v =
+    Var.binding prose_bullets_var (oklch 87.2 0.010 258.338)
+  in
+  let hr_d, hr_v = Var.binding prose_hr_var (oklch 92.8 0.006 264.531) in
+  let quotes_d, quotes_v =
+    Var.binding prose_quotes_var (oklch 21.0 0.034 264.665)
+  in
+  let quote_borders_d, quote_borders_v =
+    Var.binding prose_quote_borders_var (oklch 92.8 0.006 264.531)
+  in
+  let captions_d, captions_v =
+    Var.binding prose_captions_var (oklch 55.1 0.027 264.364)
+  in
+  let kbd_d, kbd_v = Var.binding prose_kbd_var (oklch 21.0 0.034 264.665) in
+  let kbd_shadows_d, kbd_shadows_v =
+    Var.binding prose_kbd_shadows_var "17 24 39"
+  in
+  let code_d, code_v = Var.binding prose_code_var (oklch 21.0 0.034 264.665) in
+  let pre_code_d, pre_code_v =
+    Var.binding prose_pre_code_var (oklch 92.8 0.006 264.531)
+  in
+  let pre_bg_d, pre_bg_v =
+    Var.binding prose_pre_bg_var (oklch 27.8 0.033 256.848)
+  in
+  let th_borders_d, th_borders_v =
+    Var.binding prose_th_borders_var (oklch 87.2 0.010 258.338)
+  in
+  let td_borders_d, td_borders_v =
+    Var.binding prose_td_borders_var (oklch 87.2 0.010 258.338)
+  in
+  (* Invert variants *)
+  let invert_body_d, invert_body_v =
+    Var.binding prose_invert_body_var (oklch 84.4 0.011 271.011)
+  in
+  let invert_headings_d, invert_headings_v =
+    Var.binding prose_invert_headings_var (oklch 93.8 0.006 106.419)
+  in
+  let invert_lead_d, invert_lead_v =
+    Var.binding prose_invert_lead_var (oklch 78.8 0.018 271.683)
+  in
+  let invert_links_d, invert_links_v =
+    Var.binding prose_invert_links_var (oklch 93.8 0.006 106.419)
+  in
+  let invert_bold_d, invert_bold_v =
+    Var.binding prose_invert_bold_var (oklch 93.8 0.006 106.419)
+  in
+  let invert_counters_d, invert_counters_v =
+    Var.binding prose_invert_counters_var (oklch 70.4 0.026 274.677)
+  in
+  let invert_bullets_d, invert_bullets_v =
+    Var.binding prose_invert_bullets_var (oklch 49.1 0.047 274.677)
+  in
+  let invert_hr_d, invert_hr_v =
+    Var.binding prose_invert_hr_var (oklch 32.5 0.044 274.677)
+  in
+  let invert_quotes_d, invert_quotes_v =
+    Var.binding prose_invert_quotes_var (oklch 93.8 0.006 106.419)
+  in
+  let invert_quote_borders_d, invert_quote_borders_v =
+    Var.binding prose_invert_quote_borders_var (oklch 32.5 0.044 274.677)
+  in
+  let invert_captions_d, invert_captions_v =
+    Var.binding prose_invert_captions_var (oklch 70.4 0.026 274.677)
+  in
+  let invert_kbd_d, invert_kbd_v =
+    Var.binding prose_invert_kbd_var (oklch 93.8 0.006 106.419)
+  in
+  let invert_kbd_shadows_d, invert_kbd_shadows_v =
+    Var.binding prose_invert_kbd_shadows_var "255 255 255"
+  in
+  let invert_code_d, invert_code_v =
+    Var.binding prose_invert_code_var (oklch 93.8 0.006 106.419)
+  in
+  let invert_pre_code_d, invert_pre_code_v =
+    Var.binding prose_invert_pre_code_var (oklch 32.5 0.044 274.677)
+  in
+  let invert_pre_bg_d, invert_pre_bg_v =
+    Var.binding prose_invert_pre_bg_var (oklch 87.2 0.010 258.338)
+  in
+  let invert_th_borders_d, invert_th_borders_v =
+    Var.binding prose_invert_th_borders_var (oklch 49.1 0.047 274.677)
+  in
+  let invert_td_borders_d, invert_td_borders_v =
+    Var.binding prose_invert_td_borders_var (oklch 49.1 0.047 274.677)
+  in
+  {
+    body = (body_d, body_v);
+    headings = (headings_d, headings_v);
+    lead = (lead_d, lead_v);
+    links = (links_d, links_v);
+    bold = (bold_d, bold_v);
+    counters = (counters_d, counters_v);
+    bullets = (bullets_d, bullets_v);
+    hr = (hr_d, hr_v);
+    quotes = (quotes_d, quotes_v);
+    quote_borders = (quote_borders_d, quote_borders_v);
+    captions = (captions_d, captions_v);
+    kbd = (kbd_d, kbd_v);
+    kbd_shadows = (kbd_shadows_d, kbd_shadows_v);
+    code = (code_d, code_v);
+    pre_code = (pre_code_d, pre_code_v);
+    pre_bg = (pre_bg_d, pre_bg_v);
+    th_borders = (th_borders_d, th_borders_v);
+    td_borders = (td_borders_d, td_borders_v);
+    (* Invert variants *)
+    invert_body = (invert_body_d, invert_body_v);
+    invert_headings = (invert_headings_d, invert_headings_v);
+    invert_lead = (invert_lead_d, invert_lead_v);
+    invert_links = (invert_links_d, invert_links_v);
+    invert_bold = (invert_bold_d, invert_bold_v);
+    invert_counters = (invert_counters_d, invert_counters_v);
+    invert_bullets = (invert_bullets_d, invert_bullets_v);
+    invert_hr = (invert_hr_d, invert_hr_v);
+    invert_quotes = (invert_quotes_d, invert_quotes_v);
+    invert_quote_borders = (invert_quote_borders_d, invert_quote_borders_v);
+    invert_captions = (invert_captions_d, invert_captions_v);
+    invert_kbd = (invert_kbd_d, invert_kbd_v);
+    invert_kbd_shadows = (invert_kbd_shadows_d, invert_kbd_shadows_v);
+    invert_code = (invert_code_d, invert_code_v);
+    invert_pre_code = (invert_pre_code_d, invert_pre_code_v);
+    invert_pre_bg = (invert_pre_bg_d, invert_pre_bg_v);
+    invert_th_borders = (invert_th_borders_d, invert_th_borders_v);
+    invert_td_borders = (invert_td_borders_d, invert_td_borders_v);
+  }
 
-let prose_lead_d, prose_lead_v =
-  Var.binding prose_lead_var (oklch 44.6 0.030 256.802)
+(** Access theme record variables *)
+let theme = default_prose_theme
 
-let prose_links_d, prose_links_v =
-  Var.binding prose_links_var (oklch 21.0 0.034 264.665)
-
-let prose_bold_d, prose_bold_v =
-  Var.binding prose_bold_var (oklch 21.0 0.034 264.665)
-
-let prose_counters_d, prose_counters_v =
-  Var.binding prose_counters_var (oklch 55.1 0.027 264.364)
-
-let prose_bullets_d, prose_bullets_v =
-  Var.binding prose_bullets_var (oklch 87.2 0.010 258.338)
-
-let prose_hr_d, prose_hr_v = Var.binding prose_hr_var (oklch 92.8 0.006 264.531)
-
-let prose_quotes_d, prose_quotes_v =
-  Var.binding prose_quotes_var (oklch 21.0 0.034 264.665)
-
-let prose_quote_borders_d, prose_quote_borders_v =
-  Var.binding prose_quote_borders_var (oklch 92.8 0.006 264.531)
-
-let prose_captions_d, prose_captions_v =
-  Var.binding prose_captions_var (oklch 55.1 0.027 264.364)
-
-let prose_kbd_d, prose_kbd_v =
-  Var.binding prose_kbd_var (oklch 21.0 0.034 264.665)
-
-let prose_kbd_shadows_d, _ = Var.binding prose_kbd_shadows_var "17 24 39"
-
-let prose_code_d, prose_code_v =
-  Var.binding prose_code_var (oklch 21.0 0.034 264.665)
-
-let prose_pre_code_d, prose_pre_code_v =
-  Var.binding prose_pre_code_var (oklch 92.8 0.006 264.531)
-
-let prose_pre_bg_d, prose_pre_bg_v =
-  Var.binding prose_pre_bg_var (oklch 27.8 0.033 256.848)
-
-let prose_th_borders_d, prose_th_borders_v =
-  Var.binding prose_th_borders_var (oklch 87.2 0.010 258.338)
-
-let prose_td_borders_d, prose_td_borders_v =
-  Var.binding prose_td_borders_var (oklch 92.8 0.006 264.531)
+(* Extract individual variables from theme record for backward compatibility *)
+let prose_body_d, prose_body_v = theme.body
+let prose_headings_d, prose_headings_v = theme.headings
+let prose_lead_d, prose_lead_v = theme.lead
+let prose_links_d, prose_links_v = theme.links
+let prose_bold_d, prose_bold_v = theme.bold
+let prose_counters_d, prose_counters_v = theme.counters
+let prose_bullets_d, prose_bullets_v = theme.bullets
+let prose_hr_d, prose_hr_v = theme.hr
+let prose_quotes_d, prose_quotes_v = theme.quotes
+let prose_quote_borders_d, prose_quote_borders_v = theme.quote_borders
+let prose_captions_d, prose_captions_v = theme.captions
+let prose_kbd_d, prose_kbd_v = theme.kbd
+let prose_kbd_shadows_d, _prose_kbd_shadows_v = theme.kbd_shadows
+let prose_code_d, prose_code_v = theme.code
+let prose_pre_code_d, prose_pre_code_v = theme.pre_code
+let prose_pre_bg_d, prose_pre_bg_v = theme.pre_bg
+let prose_th_borders_d, prose_th_borders_v = theme.th_borders
+let prose_td_borders_d, prose_td_borders_v = theme.td_borders
 
 (* Invert variants *)
-let prose_invert_body_d, _ =
-  Var.binding prose_invert_body_var (oklch 87.2 0.010 258.338)
+let prose_invert_body_d, _prose_invert_body_v = theme.invert_body
+let prose_invert_headings_d, _prose_invert_headings_v = theme.invert_headings
+let prose_invert_lead_d, _prose_invert_lead_v = theme.invert_lead
+let prose_invert_links_d, _prose_invert_links_v = theme.invert_links
+let prose_invert_bold_d, _prose_invert_bold_v = theme.invert_bold
+let prose_invert_counters_d, _prose_invert_counters_v = theme.invert_counters
+let prose_invert_bullets_d, _prose_invert_bullets_v = theme.invert_bullets
+let prose_invert_hr_d, _prose_invert_hr_v = theme.invert_hr
+let prose_invert_quotes_d, _prose_invert_quotes_v = theme.invert_quotes
 
-let prose_invert_headings_d, _ =
-  Var.binding prose_invert_headings_var (Hex { hash = true; value = "fff" })
+let prose_invert_quote_borders_d, _prose_invert_quote_borders_v =
+  theme.invert_quote_borders
 
-let prose_invert_lead_d, _ =
-  Var.binding prose_invert_lead_var (oklch 70.7 0.022 261.325)
+let prose_invert_captions_d, _prose_invert_captions_v = theme.invert_captions
+let prose_invert_kbd_d, _prose_invert_kbd_v = theme.invert_kbd
 
-let prose_invert_links_d, _ =
-  Var.binding prose_invert_links_var (Hex { hash = true; value = "fff" })
+let prose_invert_kbd_shadows_d, _prose_invert_kbd_shadows_v =
+  theme.invert_kbd_shadows
 
-let prose_invert_bold_d, _ =
-  Var.binding prose_invert_bold_var (Hex { hash = true; value = "fff" })
+let prose_invert_code_d, _prose_invert_code_v = theme.invert_code
+let prose_invert_pre_code_d, _prose_invert_pre_code_v = theme.invert_pre_code
+let prose_invert_pre_bg_d, _prose_invert_pre_bg_v = theme.invert_pre_bg
 
-let prose_invert_counters_d, _ =
-  Var.binding prose_invert_counters_var (oklch 70.7 0.022 261.325)
+let prose_invert_th_borders_d, _prose_invert_th_borders_v =
+  theme.invert_th_borders
 
-let prose_invert_bullets_d, _ =
-  Var.binding prose_invert_bullets_var (oklch 44.6 0.030 256.802)
-
-let prose_invert_hr_d, _ =
-  Var.binding prose_invert_hr_var (oklch 37.3 0.034 259.733)
-
-let prose_invert_quotes_d, _ =
-  Var.binding prose_invert_quotes_var (oklch 96.7 0.003 264.542)
-
-let prose_invert_quote_borders_d, _ =
-  Var.binding prose_invert_quote_borders_var (oklch 37.3 0.034 259.733)
-
-let prose_invert_captions_d, _ =
-  Var.binding prose_invert_captions_var (oklch 70.7 0.022 261.325)
-
-let prose_invert_kbd_d, _ =
-  Var.binding prose_invert_kbd_var (Hex { hash = true; value = "fff" })
-
-let prose_invert_kbd_shadows_d, _ =
-  Var.binding prose_invert_kbd_shadows_var "255 255 255"
-
-let prose_invert_code_d, _ =
-  Var.binding prose_invert_code_var (Hex { hash = true; value = "fff" })
-
-let prose_invert_pre_code_d, _ =
-  Var.binding prose_invert_pre_code_var (oklch 87.2 0.010 258.338)
-
-let prose_invert_pre_bg_d, _ =
-  Var.binding prose_invert_pre_bg_var (Hex { hash = true; value = "00000080" })
-
-let prose_invert_th_borders_d, _ =
-  Var.binding prose_invert_th_borders_var (oklch 44.6 0.030 256.802)
-
-let prose_invert_td_borders_d, _ =
-  Var.binding prose_invert_td_borders_var (oklch 37.3 0.034 259.733)
+let prose_invert_td_borders_d, _prose_invert_td_borders_v =
+  theme.invert_td_borders
 
 (** Collect all CSS variable declarations *)
 let css_variables =
