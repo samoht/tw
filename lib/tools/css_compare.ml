@@ -1290,8 +1290,14 @@ let diff ~expected ~actual =
   | Error e, Ok _ -> Expected_error e
 
 (* Pretty-print a string diff in format consistent with structural diffs *)
-let pp_string_diff fmt (sdiff : string_diff) =
-  Fmt.pf fmt "@[<v>@@ position %d @@@," sdiff.position;
+let pp_string_diff ?(expected = "Expected") ?(actual = "Actual") fmt
+    (sdiff : string_diff) =
+  Fmt.pf fmt "@[<v>CSS strings differ at position %d (line %d, col %d)@,@,"
+    sdiff.position sdiff.line_expected sdiff.column_expected;
+  (* Git-style diff header *)
+  Fmt.pf fmt "--- %s@," expected;
+  Fmt.pf fmt "+++ %s@," actual;
+  Fmt.pf fmt "@@ position %d @@@," sdiff.position;
 
   (* Print context before *)
   List.iter (pp_line_pair fmt) sdiff.context_before;
@@ -1335,7 +1341,7 @@ let pp_diff_result ?(expected = "Expected") ?(actual = "Actual") fmt = function
       pp ~expected ~actual fmt d
   | String_diff sdiff ->
       Fmt.pf fmt "@[<v>";
-      pp_string_diff fmt sdiff
+      pp_string_diff ~expected ~actual fmt sdiff
   | No_diff ->
       (* No output for identical files *)
       ()
