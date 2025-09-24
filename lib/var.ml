@@ -60,7 +60,7 @@ let initial_to_universal : type a. a Css.kind -> a -> string =
   | Css.Color -> Css.Pp.to_string Css.pp_color initial
   | Css.Angle -> Css.Pp.to_string Css.pp_angle initial
   | Css.Duration -> Css.Pp.to_string Css.pp_duration initial
-  | Css.Float -> string_of_float initial ^ if initial = 100.0 then "%" else ""
+  | Css.Float -> Pp.float initial ^ "%"
   | Css.Int -> string_of_int initial
   | Css.String -> initial
   | Css.Shadow -> "0 0 #0000"
@@ -133,6 +133,7 @@ let property_info_to_declaration_value (Css.Property_info info) =
           | Zero -> "0px"
           | Px f when f = 0. -> "0px"
           | _ -> Css.Pp.to_string (pp_length ~always:true) v)
+      | Number -> Pp.float v ^ "%"
       | syntax -> Css.Pp.to_string (pp_value syntax) v)
 
 (* Compare declarations *)
