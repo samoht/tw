@@ -32,19 +32,6 @@ let (meta_of_info : info -> Css.meta), (info_of_meta : Css.meta -> info option)
     =
   Css.meta ()
 
-let compare_color_name _ _ = failwith "TODO: split name and compare name+shades"
-
-(* Deterministic total order for kind witnesses to keep Map/Set usable *)
-let compare (Info a) (Info b) =
-  match (a.kind, b.kind) with
-  | Color, Color -> compare_color_name a.name b.name
-  | _ -> (
-      match (a.order, b.order) with
-      | Some a, Some b -> Int.compare a b
-      | Some _, None -> 1
-      | None, Some _ -> -1
-      | _ -> String.compare a.name b.name)
-
 let layer_name = function Theme -> "theme" | Utility -> "utilities"
 
 (* Convert initial value to Universal syntax for @property *)
@@ -97,12 +84,6 @@ let create : type a.
   in
   { kind; name; layer; binding; property = prop_info_opt; order }
 
-(* Check if variable needs @property rule *)
-let needs_property : type a. a t -> bool = fun var -> var.property <> None
-
-(* Get layer of a variable *)
-let layer : type a. a t -> layer = fun var -> var.layer
-
 (* Get @property rule if metadata present *)
 let property_rule : type a. a t -> Css.t option =
  fun var ->
@@ -135,15 +116,6 @@ let property_info_to_declaration_value (Css.Property_info info) =
           | _ -> Css.Pp.to_string (pp_length ~always:true) v)
       | Number -> Pp.float v ^ "%"
       | syntax -> Css.Pp.to_string (pp_value syntax) v)
-
-(* Compare declarations *)
-let compare_declarations d1 d2 =
-  match (Css.meta_of_declaration d1, Css.meta_of_declaration d2) with
-  | Some m1, Some m2 -> (
-      match (info_of_meta m1, info_of_meta m2) with
-      | Some i1, Some i2 -> compare i1 i2
-      | _ -> 0)
-  | _ -> 0
 
 let var_needs_property v =
   match Css.var_meta v with

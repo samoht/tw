@@ -178,11 +178,6 @@ val modifier_to_rule :
 (** [modifier_to_rule modifier base_class selector props] converts a modifier
     into appropriate CSS rule output. *)
 
-val extract_selector_props_pairs :
-  output list -> (Css.Selector.t * Css.declaration list) list
-(** [extract_selector_props_pairs rules] extracts selector/props pairs from
-    Regular rules. *)
-
 val is_hover_rule : output -> bool
 (** [is_hover_rule output] checks if an output is a hover rule. *)
 
@@ -226,14 +221,6 @@ val build_utilities_layer :
 
 val escape_class_name : string -> string
 (** [escape_class_name name] escapes special characters in CSS class names. *)
-
-val string_of_breakpoint : breakpoint -> string
-(** [string_of_breakpoint bp] converts a breakpoint to its string
-    representation. *)
-
-val responsive_breakpoint : string -> string
-(** [responsive_breakpoint prefix] returns the CSS breakpoint value for a
-    prefix. *)
 
 val of_grouped :
   ?filter_custom_props:bool ->
