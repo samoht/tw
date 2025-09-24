@@ -180,9 +180,6 @@ val create :
       to 9999). Only relevant for Theme layer variables that appear in [:root]
 *)
 
-val needs_property : 'a t -> bool
-(** [needs_property var] returns true if variable has [@property] metadata *)
-
 val binding : 'a t -> 'a -> Css.declaration * 'a Css.var
 (** [binding var value] creates both a CSS declaration and a var() reference
     with the value as default for inline mode. This is the primary way to use
@@ -202,17 +199,6 @@ val property_rule : 'a t -> Css.t option
     ]} *)
 
 (** {1 Helper Types and Functions} *)
-
-val compare_declarations : Css.declaration -> Css.declaration -> int
-(** [compare_declarations layer d1 d2] compares two custom declarations via Var
-    metadata. *)
-
-val layer_name : layer -> string
-(** [layer_name layer] returns the string name of the layer ("theme" or
-    "utilities") *)
-
-val layer : 'a t -> layer
-(** [layer var] returns the layer of the variable *)
 
 val var_needs_property : 'a Css.var -> bool
 (** [var_needs_property v] is [true] if [v]'s underlying Var.t has property
