@@ -1045,12 +1045,19 @@ let build_layers ~include_base tw_classes rules media_queries container_queries
 
   (* Build layer list with properties layer first if we have property rules *)
   let layers =
-    (* Properties layer is now built directly from explicit property rules which
-       contain the actual initial values *)
+    (* Properties layer is built from ALL property rules (explicit +
+       auto-generated) *)
+    let property_rules_from_utilities_as_statements =
+      property_rules_from_utilities |> List.concat_map Css.statements
+    in
+    let all_property_statements =
+      explicit_property_rules_statements
+      @ property_rules_from_utilities_as_statements
+    in
     let properties_layer =
-      if explicit_property_rules_statements = [] then None
+      if all_property_statements = [] then None
       else
-        let layer = build_properties_layer explicit_property_rules_statements in
+        let layer = build_properties_layer all_property_statements in
         (* Check if the properties layer is actually empty (Css.empty) *)
         if layer = Css.empty then None else Some layer
     in

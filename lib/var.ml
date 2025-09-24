@@ -7,13 +7,13 @@
 type layer = Theme | Utility
 
 (* Variable definition - the main currency *)
-type 'a property_info = { initial : 'a; inherits : bool }
+type 'a property_info = { initial : 'a option; inherits : bool }
 
 type 'a t = {
   kind : 'a Css.kind; (* CSS type witness *)
   name : string; (* Variable name without -- prefix *)
   layer : layer; (* Theme or Utility *)
-  binding : ?fallback:'a -> 'a -> Css.declaration * 'a Css.var;
+  binding : ?fallback:'a Css.fallback -> 'a -> Css.declaration * 'a Css.var;
       (* Function to create declaration and var ref *)
   property : 'a property_info option; (* For @property registration *)
   order : int option; (* Explicit ordering for theme layer *)
@@ -56,7 +56,7 @@ let initial_to_universal : type a. a Css.kind -> a -> string =
 (* Create a variable template *)
 let create : type a.
     a Css.kind ->
-    ?property:a * bool ->
+    ?property:a option * bool ->
     ?order:int ->
     string ->
     layer:layer ->
@@ -77,7 +77,7 @@ let create : type a.
   let binding ?fallback value =
     let meta = meta_of_info info in
     let layer_name = Some (layer_name layer) in
-    let fallback = Option.map (fun f -> Css.Fallback f) fallback in
+    (* Accept fallback as 'a Css.fallback directly *)
     Css.var ~default:value ?fallback ?layer:layer_name ~meta name kind value
   in
   { kind; name; layer; binding; property = prop_info_opt; order }
@@ -87,12 +87,17 @@ let property_rule : type a. a t -> Css.t option =
  fun var ->
   match var.property with
   | None -> None
-  | Some { initial; inherits } ->
+  | Some { initial; inherits } -> (
       let name = "--" ^ var.name in
-      let initial_str = initial_to_universal var.kind initial in
-      Some
-        (Css.property ~name Css.Universal ~inherits ~initial_value:initial_str
-           ())
+      match initial with
+      | None ->
+          (* No initial value - omit initial-value field from @property *)
+          Some (Css.property ~name Css.Universal ~inherits ())
+      | Some init_val ->
+          let initial_str = initial_to_universal var.kind init_val in
+          Some
+            (Css.property ~name Css.Universal ~inherits
+               ~initial_value:initial_str ()))
 
 (* Create a binding: returns both declaration and a context-aware var
    reference *)

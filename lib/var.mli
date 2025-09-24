@@ -147,14 +147,16 @@
 (** Layer classification for CSS variables *)
 type layer = Theme | Utility
 
-type 'a property_info = { initial : 'a; inherits : bool }
-(** Property metadata for @property registration. *)
+type 'a property_info = { initial : 'a option; inherits : bool }
+(** Property metadata for @property registration.
+    - [initial]: Optional initial value. If [None], properties layer uses "initial"
+    - [inherits]: Whether the property inherits from parent elements *)
 
 type 'a t = {
   kind : 'a Css.kind;  (** CSS type witness ensuring type safety *)
   name : string;  (** CSS variable name without the [--] prefix *)
   layer : layer;  (** Whether this is a theme token or utility variable *)
-  binding : ?fallback:'a -> 'a -> Css.declaration * 'a Css.var;
+  binding : ?fallback:'a Css.fallback -> 'a -> Css.declaration * 'a Css.var;
   property : 'a property_info option;  (** Optional [@property] metadata *)
   order : int option;  (** Explicit ordering for theme layer *)
 }
@@ -164,33 +166,37 @@ type 'a t = {
 
 val create :
   'a Css.kind ->
-  ?property:'a * bool ->
+  ?property:'a option * bool ->
   ?order:int ->
   string ->
   layer:layer ->
   'a t
-(** [create css_kind ?fallback ?order name ~layer] creates a variable
+(** [create css_kind ?property ?order name ~layer] creates a variable
     definition.
 
     - [css_kind]: The CSS type witness (e.g., [Css.Font_weight])
     - [name]: CSS variable name without [--] (e.g., ["tw-font-weight"])
     - [layer]: [Theme] for design tokens, [Utility] for property channels.
-    - [property]: is TODO.
-    - [fallback] sets the fallback value for [var()] references. This value is
-      used when the variable is not set: [var(--name, fallback)]
+    - [property]: Optional [@property] registration as [(initial, inherits)]
+      where:
+    - [initial]: [None] for "initial" keyword, [Some value] for typed value
+    - [inherits]: Whether property inherits from parent (default false)
     - [order] sets the order for sorting variables in the theme layer (defaults
       to 9999). Only relevant for Theme layer variables that appear in [:root]
 *)
 
-val binding : 'a t -> ?fallback:'a -> 'a -> Css.declaration * 'a Css.var
+val binding :
+  'a t -> ?fallback:'a Css.fallback -> 'a -> Css.declaration * 'a Css.var
 (** [binding var ?fallback value] creates both a CSS declaration and a var()
     reference with the value as default for inline mode. This is the primary way
     to use variables.
 
-    - [fallback] if provided, the var reference will use this as a fallback
-      instead of the value. This is useful for utilities that want to reference
-      a variable with a different fallback (e.g., text-xs references
-      --tw-leading with --text-xs--line-height as fallback). *)
+    - [fallback] if provided, the var reference will use this fallback instead
+      of the default value. Can be [Empty] for var(--name,), [None] for
+      var(--name), or [Fallback value] for var(--name, value). This is useful
+      for utilities that want to reference a variable with a different fallback
+      (e.g., text-xs references --tw-leading with --text-xs--line-height as
+      fallback). *)
 
 val property_rule : 'a t -> Css.t option
 (** [property_rule var] generates the [@property] rule if metadata is present.
