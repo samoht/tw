@@ -4,36 +4,47 @@
 
 We have 5 distinct variable patterns but our current API makes them easy to misuse. We need a pure, simple API that encodes intent without global state or complex migration machinery.
 
-## The Five Patterns (Simplified)
+## The Five Patterns
 
-### 1. Property_default Variables (@property pattern)
-**Example**: `--tw-border-style` with @property initial value of `solid`
-- Some utilities SET it: `border-solid` sets `--tw-border-style: solid`
-- Other utilities REFERENCE it: `border` uses `var(--tw-border-style)` relying on @property default
-- **Current API**: Variable has `~property:(Some Solid, false)`, referencing utilities use `Var.reference` with `~property_rules`
-
-### 2. Composition Variables (always set before use)
-**Example**: `--tw-translate-x`, `--tw-rotate` in transforms
-- Each utility sets its own variable: `translate-x-4` sets `--tw-translate-x: 1rem`
-- Aggregator utility combines them: `.transform` uses all transform variables
-- **Current API**: Regular `Var.binding`, no @property needed
-
-### 3. Ref_only Variables (reference-only with fallback)
-**Example**: `--tw-shadow-color` in shadow utilities
-- Shadow utilities reference with fallback: `var(--tw-shadow-color, #0000001a)`
-- Never set by shadow utilities themselves (set by `shadow-red-500` etc.)
-- **Use case**: Variables that utilities only reference but never set
-- **Current API**: `Var.reference` with `~fallback` parameter, no @property
-
-### 4. Always-Set Variables (set when used)
-**Example**: `--tw-font-weight` in typography
-- Every utility that uses it also sets it: `font-bold` both sets and uses `--tw-font-weight`
-- **Current API**: Standard `Var.binding` pattern
-
-### 5. Theme Tokens (set once, referenced many)
-**Example**: `--text-xl: 1.25rem` in theme layer
-- Defined once in theme layer, referenced by utilities
+### Pattern 1: Theme Variables
+**Design tokens set once in theme layer, referenced by utilities**
+- **Example**: `--text-xl: 1.25rem`, `--font-weight-bold: 700`
+- **Theme layer**: `:root { --text-xl: 1.25rem; }`
+- **Utility layer**: `.text-xl { font-size: var(--text-xl); }`
 - **Current API**: `Var.create` with `~layer:Theme`, one place does `Var.binding`
+- **New API**: `Var.theme` with mandatory `~order` parameter
+
+### Pattern 2: Property_default Variables
+**Variables with @property defaults, allowing utilities to either SET or REFERENCE**
+- **Example**: `--tw-border-style` with @property initial value of `solid`
+- **@property**: `@property --tw-border-style { syntax: "*"; inherits: false; initial-value: solid; }`
+- **Setting utilities**: `.border-solid { --tw-border-style: solid; border-style: solid; }`
+- **Referencing utilities**: `.border { border-style: var(--tw-border-style); }`
+- **Current API**: Variable has `~property:(Some Solid, false)`, referencing utilities use `Var.reference` with `~property_rules`
+- **New API**: `Var.property_default` with mandatory `~initial` parameter
+
+### Pattern 3: Channel Variables
+**Composition variables where multiple utilities contribute to a single CSS property**
+- **Example**: `--tw-translate-x`, `--tw-rotate`, `--tw-scale` in transforms
+- **Contributing utilities**: `.translate-x-4 { --tw-translate-x: 1rem; }`
+- **Aggregator utility**: `.transform { transform: translateX(var(--tw-translate-x)) rotate(var(--tw-rotate)); }`
+- **Current API**: Regular `Var.binding`, no @property needed
+- **New API**: `Var.channel` with mandatory `~default` parameter (identity value)
+
+### Pattern 4: Ref_only Variables
+**Variables that utilities only reference (with fallback), never set**
+- **Example**: `--tw-shadow-color` in shadow utilities
+- **Referencing utilities**: `.shadow-sm { box-shadow: 0 1px 3px var(--tw-shadow-color, #0000001a); }`
+- **Setting utilities**: `.shadow-red-500 { --tw-shadow-color: #ef4444; }` (different module)
+- **Current API**: `Var.reference` with `~fallback` parameter, no @property
+- **New API**: `Var.ref_only` with mandatory `~fallback` parameter
+
+### Pattern 5: Always-set Variables
+**Variables that are always set when used (no separate reference)**
+- **Example**: `--tw-font-weight` in typography utilities
+- **Usage**: `.font-bold { --tw-font-weight: 700; font-weight: var(--tw-font-weight); }`
+- **Current API**: Standard `Var.binding` pattern
+- **New API**: Regular `Var.channel` or continue using current API (this pattern is already safe)
 
 ## Current API Problems
 
@@ -51,155 +62,145 @@ We have 5 distinct variable patterns but our current API makes them easy to misu
    - When should you use `Var.binding` vs `Var.reference`?
    - What's the relationship between @property and fallback?
 
-## Minimal Pure API with Phantom Types
+## Type-Safe Variable API with GADTs
 
 ```ocaml
 module Var : sig
-  (* Phantom types for roles - zero runtime cost *)
-  type property_default = [`Property_default]
-  type channel = [`Channel]
-  type ref_only = [`Ref_only]
-  type token = [`Token]
+  (* GADT for CSS kinds prevents syntax mismatches at compile time *)
+  type _ kind =
+    | Length : Length.t kind
+    | Color : Color.t kind
+    | Float : float kind
+    | Percentage : Percentage.t kind
+    | Border_style : Border_style.t kind
+    | Gradient_stops : Gradient_stop.t list kind
+    (* ... other kinds *)
 
-  (* Subtyping for operations *)
-  type settable = [property_default | channel | token]
-  type any_role = [settable | ref_only]
-
-  (* Variable type with phantom role parameter *)
+  (* Phantom types for variable patterns - zero runtime cost *)
   type ('a, 'role) t
 
-  (* Internal storage for inline mode *)
-  type 'a inline_value =
-    | Initial of 'a         (* From @property initial *)
-    | Identity of 'a        (* Channel identity value *)
-    | Fallback of 'a        (* Reference fallback *)
-    | Theme of 'a           (* Theme token value *)
+  (* Pattern-specific constructors enforce constraints *)
 
-  (* Core constructors return role-specific types *)
-  val property_default :
-    'a Css.kind -> string -> initial:'a -> ?inherits:bool -> unit ->
-    ('a, property_default) t
+  (* Theme variables - order is mandatory *)
+  val theme : 'a kind -> string -> value:'a -> order:int -> ('a, [`Theme]) t
 
-  val channel :
-    'a Css.kind -> string -> identity:'a -> unit ->
-    ('a, channel) t
+  (* Utility patterns with enforced constraints *)
+  val property_default : 'a kind -> string -> initial:'a -> ?inherits:bool ->
+                         ('a, [`Property_default]) t
+                         (* initial is mandatory for sane inline rendering *)
 
-  val ref_only :
-    'a Css.kind -> string -> fallback:'a -> unit ->
-    ('a, ref_only) t
+  val channel : 'a kind -> default:'a -> string -> ('a, [`Channel]) t
+                (* For composition variables like transforms - default required for inline mode *)
 
-  val token :
-    'a Css.kind -> string -> value:'a -> order:int -> unit ->
-    ('a, token) t
-    (* value is the theme default, used in both theme layer and inline mode *)
+  val ref_only : 'a kind -> string -> fallback:'a -> ('a, [`Ref_only]) t
+                 (* Variables that are only referenced, never set *)
 
-  (* Operations respect roles via phantom types *)
-  val set : ('a, [> settable]) t -> 'a -> Css.declaration option
-    (* Compile-time error if used on ref_only *)
+  (* Core operations - same as current API but type-safe *)
 
-  val ref : ('a, 'role) t -> 'a Css.var
-    (* Works on all roles - var carries inline_value for inline mode *)
+  (* Binding - same as current `binding` but with type constraints *)
+  val binding : ('a, [> `Theme | `Property_default | `Channel]) t ->
+                ?fallback:'a Css.fallback -> 'a -> Css.declaration * 'a Css.var
 
-  val property_rule : ('a, property_default) t -> 'a Css.property_rule
-    (* Only available for property_default *)
+  (* Referencing - same as current `reference` *)
+  val reference : ('a, _) t -> ?fallback:'a Css.fallback -> 'a Css.var
 
-  val order : ('a, token) t -> int
-    (* Only available for tokens *)
-
-  (* Combinator for user-defined variables *)
+  (* Property rules - only for property_default variables *)
+  val property_rule : ('a, [`Property_default]) t -> Css.t option
 
   (* Heterogeneous collections via existentials *)
-  type any = Any : ('a, 'role) t -> any
-  val to_any : ('a, 'role) t -> any
+  type any_var = Any_var : ('a, 'role) t -> any_var
 
-  (* Helper for extracting inline values *)
-  val inline_value : ('a, 'role) t -> 'a
-    (* Returns the appropriate value based on role:
-       - property_default -> initial
-       - channel -> identity
-       - ref_only -> fallback
-       - token -> theme value *)
+  (* @property emission control - single point, deterministic *)
+  val properties : any_var list -> Css.t
+  (* Global-only, deduplicated by (name, kind, inherits, initial) *)
 end
 ```
+
+## Critical Inline Mode Requirement
+
+**ALL variables must always have a default value for inline mode to work correctly.**
+
+Each pattern constructor must store the appropriate default:
+- `property_default`: stores `initial` value
+- `channel`: stores `default` value (Zero, 0deg, 1.0, etc.)
+- `ref_only`: stores `fallback` value
+- `theme`: stores `value`
+
+Behind the scenes, `Var.reference` always calls `Css.var ~default:stored_value`, ensuring every variable reference has a concrete value for inline rendering.
+
+**No changes needed to current inline mode** - the existing `~default` parameter in `Css.var` already handles this. We just need to ensure it's always provided by making the pattern constructors store the required values.
 
 ## Usage Examples
 
 ```ocaml
-(* Pattern 1: Property_default - variables with @property defaults *)
-let border_style =
-  Var.property_default Css.Border_style "tw-border-style"
-    ~initial:Solid ()
-(* Type: (Border_style.t, Var.property_default) Var.t *)
+(* Pattern 1: Property_default with mandatory initial *)
+let border_style_var =
+  Var.property_default Var.Border_style "tw-border-style" ~initial:Solid
+  (* initial is mandatory for sane inline rendering *)
 
-(* Setting utility - set works because property_default is settable *)
-let border_solid =
-  match Var.set border_style Solid with
-  | Some decl -> style "border-solid" [ decl; border_style (Var (Var.ref border_style)) ]
-  | None -> assert false  (* Can't happen - type system guarantees settable *)
-
-(* Referencing utility - property_rule only available for property_default *)
+(* Referencing utility - needs property rule *)
 let border =
-  let var_ref = Var.ref border_style in
-  let prop = Var.property_rule border_style in  (* No option - guaranteed by type *)
-  style "border" ~extra_rules:[prop] [
-    border_style (Var var_ref); border_width (Px 1.)
+  let prop = match Var.property_rule border_style_var with
+    | Some rule -> rule | None -> Css.empty in
+  let var_ref = Var.reference border_style_var in
+  style "border" ~property_rules:[prop] [
+    border_style (Var var_ref);
+    border_width (Px 1.)
   ]
 
-(* Pattern 2: Channel *)
-let translate_x =
-  Var.channel Css.Length "tw-translate-x" ~identity:Zero ()
-(* Type: (Length.t, Var.channel) Var.t *)
+(* Setting utility - same as current binding *)
+let border_solid =
+  let decl, var_ref = Var.binding border_style_var Solid in
+  style "border-solid" [ decl; border_style (Var var_ref) ]
+
+(* Pattern 2: Channel variables for composition *)
+let translate_x_var =
+  Var.channel Var.Length ~default:Zero "tw-translate-x"
 
 let translate_x_4 =
-  match Var.set translate_x (Rem 1.) with
-  | Some decl -> style "translate-x-4" [ decl ]
-  | None -> assert false  (* Can't happen - channels are settable *)
+  let decl, var_ref = Var.binding translate_x_var (Rem 1.) in
+  style "translate-x-4" [ decl ]
 
 (* Pattern 3: Ref_only - reference with fallback *)
-let shadow_color =
-  Var.ref_only Css.Color "tw-shadow-color"
-    ~fallback:(Css.hex "#0000001a") ()
-(* Type: (Color.t, Var.ref_only) Var.t *)
+let shadow_color_var =
+  Var.ref_only Var.Color "tw-shadow-color" ~fallback:(Css.hex "#0000001a")
+  (* Can never be set - ref_only at type level *)
 
-(* Shadow utilities just reference it - can't set it *)
 let shadow_sm =
-  let color_ref = Var.ref shadow_color in
+  let color_var = Var.reference shadow_color_var in
   style "shadow-sm" [
-    box_shadow (Shadow [...(Var color_ref)...])
-  ]
-(* Note: Var.set shadow_color would be a compile-time error! *)
-
-(* Color utilities can set the variable (they use a different pattern) *)
-let shadow_red_500 =
-  (* This would be a separate settable variable *)
-  style "shadow-red-500" [
-    (* Sets --tw-shadow-color: #ef4444 *)
+    box_shadow (Shadow [...(Var color_var)...])
   ]
 
-(* Pattern 4: Token with theme value *)
-let text_xl_token =
-  Var.token Css.Length "text-xl" ~value:(Rem 1.25) ~order:110 ()
-(* Type: (Length.t, Var.token) Var.t *)
+(* Pattern 4: Theme token with explicit order *)
+let text_xl_var =
+  Var.theme Var.Length "text-xl" ~value:(Rem 1.25) ~order:110
 
-(* Theme layer generation uses the value *)
-let theme_layer =
-  let decl = Var.set text_xl_token (Var.inline_value text_xl_token) in
-  style ":root" [ Option.get decl ]
-  (* Generates: :root { --text-xl: 1.25rem; } *)
-
-(* Utility references it *)
 let text_xl =
-  let size_ref = Var.ref text_xl_token in
-  style "text-xl" [ font_size (Var size_ref) ]
+  let var_ref = Var.reference text_xl_var in
+  style "text-xl" [ font_size (Var var_ref) ]
 
-(* Heterogeneous collection for property rules *)
-let collect_properties vars =
-  vars
-  |> List.filter_map (fun (Var.Any var) ->
-      match var with
-      | (var : (_, Var.property_default) Var.t) ->
-          Some (Var.property_rule var)
-      | _ -> None)
+(* Transform utility - same pattern as current API *)
+let transform =
+  let tx_ref = Var.reference translate_x_var in
+  let rot_ref = Var.reference rotate_var in
+  let scale_ref = Var.reference scale_var in
+  style "transform" [
+    transform (Transform [
+      TranslateX (Var tx_ref);
+      Rotate (Var rot_ref);
+      Scale (Var scale_ref);
+    ])
+  ]
+
+(* @property emission - single point, deterministic *)
+let all_properties =
+  Var.properties [
+    Var.Any_var border_style_var;
+    Var.Any_var text_xl_var;
+    (* ... *)
+  ]
+  (* Deduplicated by (name, kind, inherits, initial), sorted by (name, kind) *)
 ```
 
 
@@ -277,140 +278,74 @@ This gives us:
 - **Deterministic output**: Always sorted by explicit order
 - **No surprises**: Order is visible at definition site
 
-### Inline Mode Without Complexity
+### Inline Mode Centralization
 ```ocaml
+(* All inline decisions happen in Var.Ref.make - single source of truth *)
 let inline_transform config style =
-  style.declarations
-  |> List.map (fun decl ->
-    match decl with
-    | Css.Var var when config.mode = `Inline ->
-        (* Use inline_value helper - it knows what value to use based on role *)
-        Var.inline_value var
-    | other -> other)
+  (* No separate logic needed - Var.Ref.make already handles inline mode *)
+  match config.mode with
+  | `Variables -> style  (* Use variables as-is *)
+  | `Inline -> style     (* Variables already carry inline values *)
 
-(* The Var.ref function returns a var that carries the inline value: *)
-let ref : type a role. (a, role) t -> a Css.var = fun var ->
-  (* The returned var reference knows its inline value based on role *)
-  match var with
-  | Property_default { initial; _ } -> make_var ~name ~inline:initial
-  | Channel { identity; _ } -> make_var ~name ~inline:identity
-  | Ref_only { fallback; _ } -> make_var ~name ~inline:fallback
-  | Token { value; _ } -> make_var ~name ~inline:value
+(* Var.Ref.make is where ALL inline decisions are made *)
+module Ref = struct
+  let make : type a. a t -> a Css.var = fun ref_var ->
+    match ref_var with
+    | Property_default_ref { initial; name; _ } ->
+        create_var ~name ~inline:(Some initial)
+    | Channel_ref { kind; name; _ } ->
+        let identity = identity_for kind in
+        create_var ~name ~inline:(Some identity)
+    | Ref_only_ref { fallback; name; _ } ->
+        create_var ~name ~inline:(Some fallback)
+    | Token_ref { value; name; _ } ->
+        create_var ~name ~inline:(Some value)
+end
+
 ```
 ## Key Insights
 
-### Simplicity Wins
-- One `Var.t` type with roles is cleaner than many abstract types
-- Pure rendering pass handles all dedup/ordering
+### Type-Driven Safety Wins
+- GADTs + phantom types prevent all misuse at compile time
+- Split modules eliminate option-returning operations
+- Single source of truth for inline decisions
 - No global state means easier testing and reasoning
 
-### Pattern Enforcement via Linting
-Instead of complex type machinery, use simple warnings:
-```ocaml
-let lint_ignored_declaration style =
-  List.iter (fun var ->
-    match Var.set var dummy_value with
-    | Some decl when not (List.mem decl style.declarations) ->
-        warn "Declaration for %s created but not used" var.name
-    | _ -> ()
-  ) style.vars
-
-let lint_missing_property style =
-  List.iter (fun var ->
-    match Var.property_rule var with
-    | Some _ when not style.has_property_rules ->
-        warn "%s needs @property but ~extra_rules not passed" var.name
-    | _ -> ()
-  ) style.vars
-```
-
-
-## Enforcing Correct Usage Through Combinators
-
-Instead of complex types, use combinators that guide correct patterns:
+### Smart Combinators Prevent Misuse
+Type-safe combinators guide users to correct patterns:
 
 ```ocaml
-(* For property_default - combinator ensures property rule is handled *)
-let with_default var f =
-  match Var.property_rule var with
-  | Some prop -> f ~prop (Var.ref var)
-  | None -> f ~prop:Css.empty (Var.ref var)
+(* Pattern-specific combinators ensure correct usage *)
+let with_default :
+    ('a, property_default) Setter.t ->
+    (Css.property_rule -> 'a Ref.t -> 'b) -> 'b =
+  fun setter f ->
+    let prop = Setter.property_rule setter in
+    let ref_var = Ref.of_setter setter in
+    f prop ref_var
 
-(* Usage - can't forget property rule *)
-let border =
-  with_default border_style_var (fun ~prop var_ref ->
-    style "border" ~extra_rules:[prop] [
-      border_style (Var var_ref);
-      border_width (Px 1.)
-    ])
+let with_channels :
+    ('a, channel) Setter.t list ->
+    (('a, channel) Setter.t list -> 'a Ref.t list -> 'b) -> 'b =
+  fun setters f ->
+    let refs = List.map Ref.of_setter setters in
+    f setters refs
 
-(* For settable variables - combinator ensures declaration is used *)
-let with_set var value f =
-  match Var.set var value with
-  | Some decl -> f decl (Var.ref var)
-  | None -> failwith (var.name ^ " is not settable")
+(* Location.t capture enables actionable error messages *)
+let missing_initial_error ~loc var_name =
+  error ~loc "Property_default variable '%s' requires explicit initial value for inline rendering" var_name
 
-(* Usage - can't ignore declaration *)
-let border_solid =
-  with_set border_style_var Solid (fun decl var_ref ->
-    style "border-solid" [ decl; border_style (Var var_ref) ])
+let scoped_property_error ~loc var_name =
+  error ~loc "@property for '%s' must be global - cannot be scoped to themes/variants" var_name
 
-(* For channels - combinator for contribution *)
-let contribute_to channel value f =
-  match Var.set channel value with
-  | Some decl -> f decl
-  | None -> failwith "channels must be settable"
-
-(* Usage *)
-let translate_x_4 =
-  contribute_to translate_x_var (Rem 1.) (fun decl ->
-    style "translate-x-4" [ decl ])
+(* Lint mode catches remaining footguns at CI time *)
+let lint_stylesheet stylesheet =
+  (* Check for common mistakes that type system can't prevent *)
+  check_property_scoping stylesheet;
+  check_missing_aggregators stylesheet;
+  check_order_collisions stylesheet
 ```
 
-## Summary
-
-### The Pure Approach
-- **No global state**: Everything is pure values + rendering pass
-- **Simple API**: One `Var.t` type with roles, not many abstract types
-- **Deterministic**: Dedup and sort in render pass, not via caches
-- **Testable**: Pure functions are easy to test
-- **Safe by construction**: Combinators enforce correct patterns
-
-### What We Need
-1. **Single variable type** with role to encode intent
-2. **Pure render pass** that collects and dedupes @property rules
-3. **Smart combinators** that make wrong usage impossible
-4. **Theme tokens with required order** (enforced at construction)
-
-### What We Don't Need
-- Global property caches
-- Complex migration machinery
-- Dependency graphs (unless cycles become a real problem)
-- Many abstract types
-- Heavy type machinery
-
-## Implementation Plan
-
-1. **Add role to current Var.t**:
-   ```ocaml
-   type 'a t = {
-     kind : 'a Css.kind;
-     name : string;
-     role : 'a role;
-   }
-   ```
-
-2. **Update operations to respect roles**:
-   - `set` returns `None` for `ref_only`
-   - `property_rule` returns `Some` only for `property_default`
-
-3. **Add convenience constructors** for common patterns
-
-4. **Implement pure render pass** for property collection
-
-5. **Add simple linter** for common mistakes
-
-This gives us the benefits of pattern safety without the complexity of global state or heavy abstractions.
 
 ## Inline Mode Semantics
 
@@ -717,86 +652,48 @@ end
   [data-theme="custom"] { --text-xl: 1.5rem; }
   ```
 
-## Comparison of Approaches
+## Implementation Strategy
 
-### Current API (Status Quo)
-**Pros:**
-- Already implemented and working
-- Flexible - can handle any pattern
+### Phase 1: Pattern Detection & Validation
+**Immediate**: Build pattern detector to analyze current usage
+- Classify all existing variables into the 5 patterns
+- Identify any variables that don't fit cleanly
+- Generate migration report showing what needs to change
 
-**Cons:**
-- Too many footguns (ignoring declarations, forgetting property_rules)
-- Unclear when to use binding vs reference
-- Exposes implementation details
-- No enforcement of patterns
+### Phase 2: New Pattern-Based API
+**Next Release**: Implement the new type-safe API
+- Pattern-specific constructors with mandatory parameters
+- Type-level enforcement of variable roles
+- Automated codemod tools for migration
+- **Complete removal of old API** - no deprecation period
 
-### Pattern Helpers (Incremental)
-**Pros:**
-- Can be added without breaking changes
-- Gradual migration path
-- Validates patterns before bigger refactor
+The new API makes misuse impossible at compile time:
+- Can't create theme variables without order
+- Can't ignore property_default initial values
+- Can't accidentally set ref_only variables
+- Can't mix patterns incorrectly
 
-**Cons:**
-- Still exposes underlying types
-- Can't prevent misuse completely
-- Two ways to do things during transition
+### Why No Backward Compatibility
 
-### Hidden Pattern-Based API (Full Redesign)
-**Pros:**
-- Complete type safety - impossible to misuse
-- Hidden implementation allows evolution
-- Self-documenting through types
-- Automatic layer/order management
-- Better error messages
+Keeping deprecated APIs creates:
+- **API confusion**: Two ways to do the same thing
+- **Maintenance burden**: Supporting parallel implementations
+- **Documentation complexity**: Explaining old vs new
+- **Testing overhead**: Coverage for both paths
 
-**Cons:**
-- Requires complete rewrite
-- Breaking change for all existing code
-- More complex initial implementation
+Instead, we provide:
+- **Clean migration**: Automated codemods handle the conversion
+- **Clear patterns**: Only one right way to use variables
+- **Better errors**: Focus on making the new API excellent
+- **Simpler codebase**: No legacy code paths
 
-## Summary of Second Pass Improvements
-
-### Critical Fixes Applied
-
-1. **Pattern-aware migration**: Classify variables before transforming, avoid blind replacements
-2. **Enhanced errors**: Added location info, constructor sites, pattern mismatches
-3. **Type-tied properties**: `'a property_rule` prevents kind/syntax mismatches
-4. **Mandatory initial**: Pattern 1 requires initial for sane inline defaults
-5. **Order registry**: Centralized ranges with validation and suggestions
-6. **Better testing**: Coverage for all patterns, modes, and fallback paths
-
-### Key Architectural Decisions
+## Key Architectural Decisions
 
 1. **@property is global**: Cannot be scoped to themes/variants - warn if attempted
 2. **Identity defaults**: Channels must use identity values (0, 0deg, 1)
 3. **Deterministic output**: Property bundles sorted by (name, syntax)
 4. **Single emission**: All properties via `emit_properties()` once
-5. **Inline requires AST**: Composition needs complete class context
-
-## Recommendation
-
-**Short term (v4.1):** Implement **Pattern Helpers with Registry**
-- Add order registry with validated ranges
-- Pattern detector for safe migration
-- Enhanced error messages with locations
-- Type-tied property rules
-
-**Medium term (v5.0):** Migrate to **Hidden Pattern-Based API**
-- Once patterns validated through helpers
-- Module-by-module migration
-- Automated codemods with dry-run
-
-**Long term:** Full pattern enforcement
-- Remove old API completely
-- All variables follow one of 5 patterns
-- Type system prevents all misuse
-- Deterministic, cacheable output
-
-This staged approach ensures:
-1. **Safety**: Pattern detection prevents wrong transformations
-2. **Clarity**: Locations and context in all errors
-3. **Determinism**: Stable output across builds
-4. **Type safety**: Kind-tied properties, enforced patterns
+5. **Inline requires defaults**: Every variable stores its inline value
 
 ## Testing Strategy
 
