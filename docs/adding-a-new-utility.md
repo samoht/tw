@@ -1,81 +1,187 @@
-Title: Utility variables and layers (typography as reference)
+Title: CSS Variables in Utilities - The 5 Pattern System
 
-This doc explains how utilities define and use CSS custom properties (variables) and how those become part of Tailwind-style layers. It uses Typography as the concrete example and outlines a repeatable pattern you can apply to other utilities.
+This doc explains the 5 distinct CSS variable patterns used in Tailwind CSS v4 and how to implement them correctly in OCaml. Each pattern has specific use cases and constraints.
 
+## The 5 Variable Patterns
 
-Why this matters
+Every CSS variable in our system follows exactly one of these patterns:
 
-- Variables allow theme tokens (font sizes, colors, radii…) to be referenced consistently from utilities.
-- The Rules engine emits layers to match Tailwind v4: `@layer theme`, optional `@layer properties`, `@layer base`, `@layer components`, and `@layer utilities`.
-- You do not manually write layers in utility modules. You attach variable declarations and optional `@property` registrations; the Rules engine assembles them into the right layers.
+### Pattern 1: Theme Variables
+**Purpose**: Design tokens set once in theme layer, referenced by utilities
+**Examples**: `--text-xl: 1.25rem`, `--font-weight-bold: 700`, `--color-blue-500: #3b82f6`
+**Layer**: `@layer theme` in `:root,:host`
+**Usage**: `Var.create` with `~layer:Theme` and mandatory `~order:N`
 
-Key building blocks
+### Pattern 2: Property_default Variables
+**Purpose**: Variables with @property defaults that utilities can either SET or REFERENCE
+**Examples**: `--tw-border-style` (default: solid), `--tw-border-opacity` (default: 1)
+**Layer**: `@layer properties` for defaults, `@property` rules at top level
+**Usage**: Needs `~property:(initial, inherits)` metadata, referencing utilities use `Var.reference` with `~property_rules`
 
-- `Var.theme`: defines a theme-scoped variable and returns
-  - a declaration to define the variable (include in the style that introduces it), and
-  - a typed variable reference to use in CSS values.
-  Declarations collected from all used utilities are emitted under `@layer theme` in `:root,:host` with canonical ordering.
+### Pattern 3: Channel Variables
+**Purpose**: Composition variables where multiple utilities contribute to a single CSS property
+**Examples**: `--tw-translate-x`, `--tw-rotate`, `--tw-scale` (for transforms)
+**Layer**: Set in `@layer utilities` by individual utilities
+**Usage**: Regular `Var.binding`, aggregator utility combines all channels
 
-- `Var.utility`: defines a per-utility variable assignment and returns
-  - a declaration to set the variable when the utility is present,
-  - a typed variable reference for use in CSS values,
-  - optional `~fallback` value (used if the variable isn’t set elsewhere).
+### Pattern 4: Ref_only Variables
+**Purpose**: Variables that utilities only reference (with fallback), never set
+**Examples**: `--tw-shadow-color`, `--tw-ring-color`
+**Layer**: Not set by referencing utilities (set elsewhere)
+**Usage**: `Var.reference` with `~fallback` parameter, no @property needed
 
-- `Var.property`: registers an `@property` at‑rule for a variable (syntax, inheritance, initial) so browsers can interpolate/transition correctly.
-  - Effect 1: defaults for those custom properties are emitted inside a gated `@supports(...)` block under `@layer properties`.
-  - Effect 2: the `@property` at‑rules themselves are emitted once at the stylesheet level (outside layers) and deduplicated.
+### Pattern 5: Always-set Variables
+**Purpose**: Variables that are always set when used
+**Examples**: `--tw-font-weight` in font utilities
+**Layer**: Set in `@layer utilities`
+**Usage**: Standard `Var.binding` pattern
 
-- `style ~property_rules`: attach the `Var.property` registrations to any utilities that rely on those variables so both effects above are triggered when the utility is used.
+## Choosing the Right Pattern
 
-How Typography does it
+Use this decision tree:
+1. **Is it a design token shared across utilities?** → Pattern 1 (Theme)
+2. **Does it need a default that some utilities override?** → Pattern 2 (Property_default)
+3. **Do multiple utilities contribute to compose a value?** → Pattern 3 (Channel)
+4. **Do utilities only reference it, never set it?** → Pattern 4 (Ref_only)
+5. **Is it always set when used?** → Pattern 5 (Always-set)
 
-1) Theme variables for font sizes and line heights
+## Key Building Blocks
 
-- Each text size uses `Var.theme` twice: one var for the font size and one for its corresponding line-height token.
-- Example (simplified):
+- `Var.create`: defines a CSS variable with specific metadata
+  - `~layer:Theme` for Pattern 1 (requires `~order:N`)
+  - `~layer:Utility` for Patterns 2-5
+  - `~property:(initial, inherits)` for Pattern 2 only
 
-  - `let size_def, size_var = Var.theme Var.Text_xl (Rem 1.25)`
-  - `let lh_def,   lh_var   = Var.theme Var.Text_xl_line_height (Calc (…))`
+- `Var.binding`: creates both declaration and reference (Patterns 1, 3, 5)
+  - Returns `(declaration, var_ref)` tuple
+  - Declaration sets the variable
+  - Reference uses it with optional fallback
 
-- The `text-xl` utility includes both declarations and then uses the vars:
+- `Var.reference`: creates only reference without declaration (Patterns 2, 4)
+  - Pattern 2: Requires `~property_rules` for @property
+  - Pattern 4: Requires `~fallback` parameter
 
-  - `style "text-xl" [ size_def; lh_def; font_size (Var size_var); line_height (Var leading_var) ]`
+- `Var.property_rule`: generates @property rule (Pattern 2 only)
+  - Returns `Some rule` if variable has property metadata
+  - Pass to `style ~property_rules` to generate @property
 
-2) Per-utility variable with fallback for “leading”
+## Pattern Examples
 
-- Typography exposes a shared `--tw-leading` variable used by all text sizes.
-- Each `text-*` utility creates it with `Var.utility Var.Leading ~fallback:(Var text_*_lh_var) Zero` and then sets `line_height (Var leading_var)`.
-- No `@property` is required for `--tw-leading` because it is a length-like var used directly; it still participates in ordering and fallbacks.
+### Pattern 1: Theme Variables (Typography)
+```ocaml
+(* Define theme variables with explicit ordering *)
+let text_xl_size_var =
+  Var.create Css.Length "text-xl" ~layer:Theme ~order:110
+let text_xl_lh_var =
+  Var.create Css.Length "text-xl--line-height" ~layer:Theme ~order:111
 
-3) Font weight: utility var + @property
+(* Set theme values once *)
+let size_def, size_var = Var.binding text_xl_size_var (Rem 1.25)
+let lh_def, lh_var = Var.binding text_xl_lh_var (Rem 1.75)
 
-- A typed variable `--tw-font-weight` is set per utility via `Var.utility Var.Font_weight …`, and related utilities attach `~property_rules` so that:
+(* Utility references theme variables *)
+style "text-xl" [
+  size_def; lh_def;
+  font_size (Var size_var);
+  line_height (Var lh_var)
+]
+```
 
-  - Defaults are emitted inside `@layer properties` within the gated `@supports(...)` block.
-  - A single deduped `@property --tw-font-weight ...` is emitted at the stylesheet level.
+### Pattern 2: Property_default Variables (Borders)
+```ocaml
+(* Variable with @property default *)
+let border_style_var =
+  Var.create Css.Border_style "tw-border-style" ~layer:Utility
+    ~property:(Some Solid, false)  (* initial: solid *)
 
-  Example:
+(* Setting utility - changes the variable *)
+let border_solid =
+  let decl, var_ref = Var.binding border_style_var Solid in
+  style "border-solid" [ decl; border_style (Var var_ref) ]
 
-  - In typography: `let property_rules = [ Var.property Var.Font_weight ~syntax:"*" ~inherits:false ~initial:"initial" ]`
-  - Utilities like `font-bold` pass `~property_rules` to `style`.
+(* Referencing utility - uses @property default *)
+let border =
+  let var_ref = Var.reference border_style_var in
+  let property_rule = match Var.property_rule border_style_var with
+    | Some rule -> rule | None -> Css.empty in
+  style "border" ~property_rules:property_rule [
+    border_style (Var var_ref);
+    border_width (Px 1.)
+  ]
+```
 
-  **Important**: The `initial` value must be "initial" (the string), not an empty string.
+### Pattern 3: Channel Variables (Transforms)
+```ocaml
+(* Individual channel variables *)
+let translate_x_var = Var.create Css.Length "tw-translate-x" ~layer:Utility
+let rotate_var = Var.create Css.Angle "tw-rotate" ~layer:Utility
+let scale_var = Var.create Css.Float "tw-scale" ~layer:Utility
 
-4) Theme defaults for font families
+(* Contributing utilities set their channels *)
+let translate_x_4 =
+  let decl, _ = Var.binding translate_x_var (Rem 1.) in
+  style "translate-x-4" [ decl ]
 
-- `Var.theme Var.Font_sans [...]`, `Var.theme Var.Font_mono [...]`, and two "default" font family vars are defined for `@layer theme` and referenced by utilities (`font-sans`, etc.).
+let rotate_45 =
+  let decl, _ = Var.binding rotate_var (Deg 45.) in
+  style "rotate-45" [ decl ]
 
-5) Font-variant-numeric with trailing comma syntax (Tailwind v4)
+(* Aggregator utility combines all channels *)
+let transform =
+  let tx_ref = Var.reference translate_x_var ~fallback:(Css.Fallback Zero) in
+  let rot_ref = Var.reference rotate_var ~fallback:(Css.Fallback (Deg 0.)) in
+  let scale_ref = Var.reference scale_var ~fallback:(Css.Fallback 1.) in
+  style "transform" [
+    transform (Transform [
+      TranslateX (Var tx_ref);
+      Rotate (Var rot_ref);
+      Scale (Var scale_ref)
+    ])
+  ]
+```
 
-- Font-variant-numeric in Tailwind v4 uses a special trailing comma syntax: `var(--tw-ordinal,)var(--tw-slashed-zero,)`
-- To achieve this, use `~fallback:Css.Empty` when defining empty variables:
-  ```ocaml
-  let _, empty_ordinal_var =
-    Var.utility Var.Font_variant_ordinal ~fallback:Css.Empty Css.Normal_numeric
-  ```
- - The `Empty` token is supported in `font_variant_numeric_token` for composition
-  - Reminder: `Empty` renders to an empty string, so using it as the fallback in `var(--name, )` produces the required trailing comma form used by Tailwind's composed values
-- This pattern ensures CSS generates `var(--name,)` with a trailing comma for proper composition
+### Pattern 4: Ref_only Variables (Shadows)
+```ocaml
+(* Variable that's only referenced, never set by shadows *)
+let shadow_color_var =
+  Var.create Css.Color "tw-shadow-color" ~layer:Utility
+
+(* Shadow utilities reference with fallback *)
+let shadow_sm =
+  let color_ref =
+    Var.reference shadow_color_var
+      ~fallback:(Css.Fallback (Css.hex "#0000001a")) in
+  style "shadow-sm" [
+    box_shadow (Shadow [0; 1; 3; 0; Var color_ref])
+  ]
+
+(* Color utilities set the variable (in different module) *)
+let shadow_red_500 =
+  let decl, _ = Var.binding shadow_color_var (Css.hex "#ef4444") in
+  style "shadow-red-500" [ decl ]
+```
+
+### Pattern 5: Always-set Variables (Font Weight)
+```ocaml
+(* Variable always set when used *)
+let font_weight_var =
+  Var.create Css.Font_weight "tw-font-weight" ~layer:Utility
+
+(* Every utility sets and uses it *)
+let font_bold =
+  let decl, var_ref = Var.binding font_weight_var (Int 700) in
+  style "font-bold" [
+    decl;
+    font_weight (Var var_ref)
+  ]
+
+let font_thin =
+  let decl, var_ref = Var.binding font_weight_var (Int 100) in
+  style "font-thin" [
+    decl;
+    font_weight (Var var_ref)
+  ]
+```
 
 How Rules turns this into layers
 
@@ -112,36 +218,58 @@ The Rules module uses a sophisticated conflict group system to ensure proper CSS
 - Special handling for pseudo-classes: spaces before `:where()`, `:not()`, etc. are significant
 - Test with `--minify` flag to ensure selector specificity isn't altered
 
-Applying this pattern to a new utility
+## Applying the Patterns to New Utilities
 
-- Decide variable scope:
-  - Theme token (shared across utilities)? Use `Var.theme` in the module that owns the token. Include the returned declaration in the first utility that introduces it.
-  - Per-utility setting with override behavior? Use `Var.utility` inside the utility.
+### Step 1: Choose Your Pattern
 
-- If browsers need `@property` registration (e.g., animated/typed variables like scales, transforms, some numeric font variants):
-  - Define `let property_rules = [ Var.property Var.My_var ~syntax:"…" ~inherits:false ~initial:"…"; (* possibly more *) ]`.
-  - Pass `~property_rules` to every `style` that uses `Var.My_var`.
+Ask yourself these questions in order:
+1. **Is it a design token?** (font size, color, spacing) → Pattern 1 (Theme)
+2. **Does it have a default that some utilities override?** (border-style: solid) → Pattern 2 (Property_default)
+3. **Do multiple utilities contribute parts?** (transforms, filters) → Pattern 3 (Channel)
+4. **Do utilities only reference it, never set it?** (shadow-color, ring-color) → Pattern 4 (Ref_only)
+5. **Otherwise** → Pattern 5 (Always-set)
 
-- Reference variables in CSS values using the typed `Var` returned by `Var.theme`/`Var.utility`, e.g., `transform (Var scale_x_var)` or `letter_spacing (Var my_var)`.
+### Step 2: Implement According to Pattern
 
-- Provide sensible fallbacks:
-  - For `Var.utility`, set `~fallback` to a static value or another `Var` you know will exist (typography uses the size-specific line-height var as fallback for `--tw-leading`).
+**Pattern 1 (Theme)**:
+- Use `Var.create` with `~layer:Theme` and mandatory `~order:N`
+- Set value once with `Var.binding`
+- Reference in utilities with `Var` constructor
 
-Minimal checklist
+**Pattern 2 (Property_default)**:
+- Use `Var.create` with `~property:(Some initial, false)`
+- Setting utilities: `Var.binding`
+- Referencing utilities: `Var.reference` with `~property_rules`
 
-- Add a `Var` constructor in `lib/var.ml` (type, `to_string`, and `order`).
-- If it is a theme token, use `Var.theme` and include the declaration where first used.
-- If it is per-utility, use `Var.utility` with a good fallback.
-- If needed, register `@property` via `Var.property` and attach it using `style ~property_rules`.
-- Use the typed `Var` in the CSS declarations of your utility.
-- Rely on `Tw.Rules.to_css` to assemble the correct layers automatically.
+**Pattern 3 (Channel)**:
+- Use `Var.create` with `~layer:Utility`
+- Contributing utilities: `Var.binding` to set channel
+- Aggregator: `Var.reference` with fallback to compose
+
+**Pattern 4 (Ref_only)**:
+- Use `Var.create` with `~layer:Utility`
+- Reference with `Var.reference ~fallback`
+- Set in different module/utility
+
+**Pattern 5 (Always-set)**:
+- Use `Var.create` with `~layer:Utility`
+- Always use `Var.binding` to set and reference
+
+### Step 3: Let Rules Handle Layers
+
+The Rules engine automatically:
+- Collects Pattern 1 variables into `@layer theme`
+- Generates `@layer properties` for Pattern 2 defaults
+- Emits `@property` rules when needed
+- Places utilities in `@layer utilities`
 
 Good references
 
-- Typography font sizes and leading: `lib/typography.ml` (look for `Var.theme` Text_* and `Var.utility Var.Leading`).
-- Typography font weight: `lib/typography.ml` (look for `property_rules` and `Var.Font_weight`).
-- Borders shared var + `@property`: `lib/borders.ml` (search `Var.Border_style`).
-- Layer assembly: `lib/rules.ml` (`compute_theme_layer`, `build_properties_layer`).
+- Typography font sizes: `lib/typography.ml` (Theme variables with `Var.create ~layer:Theme`)
+- Typography font weight: `lib/typography.ml` (@property registration pattern)
+- Borders pattern: `lib/borders.ml` (setting vs referencing utilities)
+- Shadow utilities: `lib/effects.ml` (using `Var.reference` with fallback)
+- Layer assembly: `lib/rules.ml` (`compute_theme_layer`, `build_properties_layer`)
 
 Debugging utilities
 
@@ -179,31 +307,104 @@ When output is shorter than expected:
 4. Compare character counts to identify missing sections
 5. Use `diff` tools to find exact differences
 
-Quick template (copy/paste)
+## Quick Templates for Each Pattern
 
-- var.ml: add your variable constructor, map it in `to_string` and `order`.
-- In your utility module:
-  - Theme token (if needed):
-    ```ocaml
-    let my_token_def, my_token_var = Var.theme Var.My_token initial_value
-    ```
-  - Per-utility var with fallback:
-    ```ocaml
-    let my_def, my_var = Var.utility Var.My_var ~fallback:my_fallback fallback_value
-    ```
-  - Optional @property registration (if variable benefits from registration):
-    ```ocaml
-    let property_rules = [ Var.property Var.My_var ~syntax:"*" ~inherits:false ~initial:"initial" ]
-    ```
-  - Utility style:
-    ```ocaml
-    let my_util =
-      style "my-util" ~property_rules [
-        my_token_def;    (* only if you use a theme token here *)
-        my_def;          (* the utility var assignment *)
-        Css.some_property (Var my_var);
-      ]
-    ```
+### Pattern 1: Theme Variable Template
+```ocaml
+(* Define theme token with explicit order *)
+let my_size_var =
+  Var.create Css.Length "my-size" ~layer:Theme ~order:150
+
+(* Set value once in theme *)
+let size_def, size_var = Var.binding my_size_var (Rem 2.5)
+
+(* Reference in utility *)
+let my_utility =
+  style "my-class" [
+    size_def;  (* Include definition *)
+    width (Var size_var);
+    height (Var size_var)
+  ]
+```
+
+### Pattern 2: Property_default Template
+```ocaml
+(* Variable with @property default *)
+let my_style_var =
+  Var.create Css.My_type "tw-my-style" ~layer:Utility
+    ~property:(Some default_value, false)
+
+(* Setting utility *)
+let my_setter value =
+  let decl, var_ref = Var.binding my_style_var value in
+  style "my-setter" [ decl; my_property (Var var_ref) ]
+
+(* Referencing utility with @property *)
+let my_referencer =
+  let var_ref = Var.reference my_style_var in
+  let property_rule = match Var.property_rule my_style_var with
+    | Some rule -> rule | None -> Css.empty in
+  style "my-ref" ~property_rules:property_rule [
+    my_property (Var var_ref)
+  ]
+```
+
+### Pattern 3: Channel Template
+```ocaml
+(* Channel variables for composition *)
+let channel_a_var = Var.create Css.Length "tw-channel-a" ~layer:Utility
+let channel_b_var = Var.create Css.Angle "tw-channel-b" ~layer:Utility
+
+(* Contributing utilities *)
+let set_channel_a value =
+  let decl, _ = Var.binding channel_a_var value in
+  style "channel-a" [ decl ]
+
+(* Aggregator utility *)
+let aggregate =
+  let a_ref = Var.reference channel_a_var ~fallback:(Css.Fallback Zero) in
+  let b_ref = Var.reference channel_b_var ~fallback:(Css.Fallback (Deg 0.)) in
+  style "aggregate" [
+    my_composite_property [Var a_ref; Var b_ref]
+  ]
+```
+
+### Pattern 4: Ref_only Template
+```ocaml
+(* Variable only referenced, never set here *)
+let color_override_var =
+  Var.create Css.Color "tw-my-color" ~layer:Utility
+
+(* Reference with fallback *)
+let my_colored_thing =
+  let color_ref =
+    Var.reference color_override_var
+      ~fallback:(Css.Fallback default_color) in
+  style "my-thing" [
+    background_color (Var color_ref)
+  ]
+
+(* Set elsewhere (different module) *)
+let my_thing_red =
+  let decl, _ = Var.binding color_override_var (Css.hex "#ff0000") in
+  style "my-thing-red" [ decl ]
+```
+
+### Pattern 5: Always-set Template
+```ocaml
+(* Variable always set when used *)
+let my_value_var =
+  Var.create Css.Length "tw-my-value" ~layer:Utility
+
+(* Every utility sets and uses *)
+let my_small =
+  let decl, var_ref = Var.binding my_value_var (Px 10.) in
+  style "my-small" [ decl; padding (Var var_ref) ]
+
+let my_large =
+  let decl, var_ref = Var.binding my_value_var (Px 40.) in
+  style "my-large" [ decl; padding (Var var_ref) ]
+```
 
 Common pitfalls and solutions
 
