@@ -407,21 +407,21 @@ val diagonal_fractions : t
 val stacked_fractions : t
 (** [stacked_fractions] uses stacked fraction glyphs. *)
 
-val default_font_family_var : Css.font_family Var.t
+val default_font_family_var : Css.font_family Var.theme
 (** [default_font_family_var] is the CSS variable for the default font family,
     referencing --font-sans. *)
 
-val default_mono_font_family_var : Css.font_family Var.t
+val default_mono_font_family_var : Css.font_family Var.theme
 (** [default_mono_font_family_var] is the CSS variable for the default monospace
     font family, referencing --font-mono. *)
 
-val font_sans_var : Css.font_family Var.t
+val font_sans_var : Css.font_family Var.theme
 (** [font_sans_var] is the CSS variable for the sans-serif font family. *)
 
-val font_serif_var : Css.font_family Var.t
+val font_serif_var : Css.font_family Var.theme
 (** [font_serif_var] is the CSS variable for the serif font family. *)
 
-val font_mono_var : Css.font_family Var.t
+val font_mono_var : Css.font_family Var.theme
 (** [font_mono_var] is the CSS variable for the monospace font family. *)
 
 val default_font_declarations : Css.declaration list

@@ -130,11 +130,11 @@ val to_inline_style : t list -> string
     - Order: [\@layer properties] → [\@layer theme] → if [base=true] then
       [\@layer base] → [\@layer components] → [\@layer utilities].
     - Properties layer: Emitted only when at least one class registers a custom
-      property via [Var.property]. The layer contains a single [\@supports]
-      block with Tailwind v4's vendor-targeted condition, wrapping a universal
-      selector applying the initial values for each registered property as
-      custom declarations (e.g., [--tw-...: initial]). The exact condition used
-      is:
+      property via [Var.property_default] (or explicit rules). The layer
+      contains a single [\@supports] block with Tailwind v4's vendor-targeted
+      condition, wrapping a universal selector applying the initial values for
+      each registered property as custom declarations (e.g.,
+      [--tw-...: initial]). The exact condition used is:
 
     {v
       (((-webkit-hyphens:none)) and (not (margin-trim:inline))) or
@@ -158,9 +158,9 @@ val to_inline_style : t list -> string
       container queries) with conflict resolution to match Tailwind's cascade
       expectations. Hover utilities are gated under [(hover:hover)].
     - [@property] emission: In [Variables] mode, collected [@property]
-      registrations (from utilities via [Var.property]) are still emitted at the
-      top level after layers. In [Inline] mode, no layers are used and raw rules
-      are emitted without [@property] registration changes.
+      registrations (from utilities via [Var.property_rule]) are still emitted
+      at the top level after layers. In [Inline] mode, no layers are used and
+      raw rules are emitted without [@property] registration changes.
 
     This behavior ensures compatibility with Tailwind v4's layering and browser
     targeting while keeping output minimal: the properties layer appears only

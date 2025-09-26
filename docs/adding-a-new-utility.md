@@ -10,25 +10,25 @@ Every CSS variable in our system follows exactly one of these patterns:
 **Purpose**: Design tokens set once in theme layer, referenced by utilities
 **Examples**: `--text-xl: 1.25rem`, `--font-weight-bold: 700`, `--color-blue-500: #3b82f6`
 **Layer**: `@layer theme` in `:root,:host`
-**Usage**: `Var.create` with `~layer:Theme` and mandatory `~order:N`
+**Usage**: `Var.theme kind name ~order:N` and set via `Var.binding` once
 
 ### Pattern 2: Property_default Variables
 **Purpose**: Variables with @property defaults that utilities can either SET or REFERENCE
 **Examples**: `--tw-border-style` (default: solid), `--tw-border-opacity` (default: 1)
 **Layer**: `@layer properties` for defaults, `@property` rules at top level
-**Usage**: Needs `~property:(initial, inherits)` metadata, referencing utilities use `Var.reference` with `~property_rules`
+**Usage**: Use `Var.property_default kind ~initial ~inherits? ~universal? name` (initial is mandatory). Referencing utilities call `Var.reference` and include `~property_rules:(Var.property_rule var)`
 
 ### Pattern 3: Channel Variables
 **Purpose**: Composition variables where multiple utilities contribute to a single CSS property
 **Examples**: `--tw-translate-x`, `--tw-rotate`, `--tw-scale` (for transforms)
 **Layer**: Set in `@layer utilities` by individual utilities
-**Usage**: Regular `Var.binding`, aggregator utility combines all channels
+**Usage**: Declare with `Var.channel kind name`. Contributing utilities use `Var.binding`; aggregator references the channels (with fallbacks for inline mode)
 
 ### Pattern 4: Ref_only Variables
 **Purpose**: Variables that utilities only reference (with fallback), never set
 **Examples**: `--tw-shadow-color`, `--tw-ring-color`
 **Layer**: Not set by referencing utilities (set elsewhere)
-**Usage**: `Var.reference` with `~fallback` parameter, no @property needed
+**Usage**: `Var.reference ~fallback:(Css.Fallback v)`; never set in the referencing module
 
 ### Pattern 5: Always-set Variables
 **Purpose**: Variables that are always set when used
@@ -47,10 +47,9 @@ Use this decision tree:
 
 ## Key Building Blocks
 
-- `Var.create`: defines a CSS variable with specific metadata
-  - `~layer:Theme` for Pattern 1 (requires `~order:N`)
-  - `~layer:Utility` for Patterns 2-5
-  - `~property:(initial, inherits)` for Pattern 2 only
+- `Var.theme`: defines a Theme variable (design token) with explicit `~order`
+- `Var.property_default`: defines a Utility variable with typed @property defaults
+- `Var.channel`: defines a Utility composition variable without @property
 
 - `Var.binding`: creates both declaration and reference (Patterns 1, 3, 5)
   - Returns `(declaration, var_ref)` tuple
@@ -70,10 +69,8 @@ Use this decision tree:
 ### Pattern 1: Theme Variables (Typography)
 ```ocaml
 (* Define theme variables with explicit ordering *)
-let text_xl_size_var =
-  Var.create Css.Length "text-xl" ~layer:Theme ~order:110
-let text_xl_lh_var =
-  Var.create Css.Length "text-xl--line-height" ~layer:Theme ~order:111
+let text_xl_size_var = Var.theme Css.Length "text-xl" ~order:110
+let text_xl_lh_var = Var.theme Css.Length "text-xl--line-height" ~order:111
 
 (* Set theme values once *)
 let size_def, size_var = Var.binding text_xl_size_var (Rem 1.25)
@@ -91,8 +88,7 @@ style "text-xl" [
 ```ocaml
 (* Variable with @property default *)
 let border_style_var =
-  Var.create Css.Border_style "tw-border-style" ~layer:Utility
-    ~property:(Some Solid, false)  (* initial: solid *)
+  Var.property_default Css.Border_style ~initial:Solid "tw-border-style"
 
 (* Setting utility - changes the variable *)
 let border_solid =
@@ -113,9 +109,9 @@ let border =
 ### Pattern 3: Channel Variables (Transforms)
 ```ocaml
 (* Individual channel variables *)
-let translate_x_var = Var.create Css.Length "tw-translate-x" ~layer:Utility
-let rotate_var = Var.create Css.Angle "tw-rotate" ~layer:Utility
-let scale_var = Var.create Css.Float "tw-scale" ~layer:Utility
+let translate_x_var = Var.channel Css.Length "tw-translate-x"
+let rotate_var = Var.channel Css.Angle "tw-rotate"
+let scale_var = Var.channel Css.Float "tw-scale"
 
 (* Contributing utilities set their channels *)
 let translate_x_4 =
@@ -143,8 +139,7 @@ let transform =
 ### Pattern 4: Ref_only Variables (Shadows)
 ```ocaml
 (* Variable that's only referenced, never set by shadows *)
-let shadow_color_var =
-  Var.create Css.Color "tw-shadow-color" ~layer:Utility
+let shadow_color_var = Var.channel Css.Color "tw-shadow-color"
 
 (* Shadow utilities reference with fallback *)
 let shadow_sm =
@@ -164,8 +159,7 @@ let shadow_red_500 =
 ### Pattern 5: Always-set Variables (Font Weight)
 ```ocaml
 (* Variable always set when used *)
-let font_weight_var =
-  Var.create Css.Font_weight "tw-font-weight" ~layer:Utility
+let font_weight_var = Var.channel Css.Font_weight "tw-font-weight"
 
 (* Every utility sets and uses it *)
 let font_bold =
@@ -185,7 +179,7 @@ let font_thin =
 
 How Rules turns this into layers
 
-- `compute_theme_layer` scans all used styles, extracts custom declarations (from `Var.theme`), adds a small set of default vars (font families), and emits them under `@layer theme` in `:root,:host` with a stable order.
+- `compute_theme_layer` scans used styles, extracts custom declarations (from `Var.theme`), adds a small set of default vars (font families), and emits them under `@layer theme` in `:root,:host` with a stable order.
   
   **Variable Ordering**: The `order` function in `var.ml` determines the canonical ordering of variables in the theme layer. Each variable type has a numeric order value that ensures consistent output matching Tailwind v4. For example:
   - Font families: 0-10
@@ -194,7 +188,7 @@ How Rules turns this into layers
   - Border radius: 300-307
   - Default font families: 400-405
   
-- `build_properties_layer` collects all `property_rules` attached to used utilities and emits an `@layer properties` that contains a single `@supports(...) { ... }` block with default custom-property values targeting `*, :before, :after, ::backdrop` (not the `@property` rules themselves).
+- `build_properties_layer` collects all `property_rules` attached to used utilities (from `Var.property_rule ...`) and emits an `@layer properties` that contains a single `@supports(...) { ... }` block with default custom-property values targeting `*, :before, :after, ::backdrop` (not the `@property` rules themselves).
 - `build_base_layer` wraps Preflight rules under `@layer base` and applies the placeholder support shim.
 - Components is left empty by default; utilities render to `@layer utilities`.
 - When minifying, consecutive empty layers are merged into a single declaration, e.g., `@layer components,utilities;` to match Tailwind output.
@@ -232,27 +226,27 @@ Ask yourself these questions in order:
 ### Step 2: Implement According to Pattern
 
 **Pattern 1 (Theme)**:
-- Use `Var.create` with `~layer:Theme` and mandatory `~order:N`
+- Use `Var.theme kind name ~order:N`
 - Set value once with `Var.binding`
 - Reference in utilities with `Var` constructor
 
 **Pattern 2 (Property_default)**:
-- Use `Var.create` with `~property:(Some initial, false)`
+- Use `Var.property_default kind ~initial name`
 - Setting utilities: `Var.binding`
 - Referencing utilities: `Var.reference` with `~property_rules`
 
 **Pattern 3 (Channel)**:
-- Use `Var.create` with `~layer:Utility`
+- Use `Var.channel kind name`
 - Contributing utilities: `Var.binding` to set channel
 - Aggregator: `Var.reference` with fallback to compose
 
 **Pattern 4 (Ref_only)**:
-- Use `Var.create` with `~layer:Utility`
-- Reference with `Var.reference ~fallback`
-- Set in different module/utility
+- Use `Var.ref_only kind name ~fallback`
+- Reference with `Var.reference`
+- Never set (only referenced with built-in fallback)
 
 **Pattern 5 (Always-set)**:
-- Use `Var.create` with `~layer:Utility`
+- Use `Var.channel kind name`
 - Always use `Var.binding` to set and reference
 
 ### Step 3: Let Rules Handle Layers
@@ -265,7 +259,7 @@ The Rules engine automatically:
 
 Good references
 
-- Typography font sizes: `lib/typography.ml` (Theme variables with `Var.create ~layer:Theme`)
+- Typography font sizes: `lib/typography.ml` (Theme variables with `Var.theme`)
 - Typography font weight: `lib/typography.ml` (@property registration pattern)
 - Borders pattern: `lib/borders.ml` (setting vs referencing utilities)
 - Shadow utilities: `lib/effects.ml` (using `Var.reference` with fallback)
@@ -313,7 +307,7 @@ When output is shorter than expected:
 ```ocaml
 (* Define theme token with explicit order *)
 let my_size_var =
-  Var.create Css.Length "my-size" ~layer:Theme ~order:150
+  Var.theme Css.Length "my-size" ~order:150
 
 (* Set value once in theme *)
 let size_def, size_var = Var.binding my_size_var (Rem 2.5)
@@ -331,8 +325,7 @@ let my_utility =
 ```ocaml
 (* Variable with @property default *)
 let my_style_var =
-  Var.create Css.My_type "tw-my-style" ~layer:Utility
-    ~property:(Some default_value, false)
+  Var.property_default Css.My_type ~initial:default_value "tw-my-style"
 
 (* Setting utility *)
 let my_setter value =
@@ -352,8 +345,8 @@ let my_referencer =
 ### Pattern 3: Channel Template
 ```ocaml
 (* Channel variables for composition *)
-let channel_a_var = Var.create Css.Length "tw-channel-a" ~layer:Utility
-let channel_b_var = Var.create Css.Angle "tw-channel-b" ~layer:Utility
+let channel_a_var = Var.channel Css.Length "tw-channel-a"
+let channel_b_var = Var.channel Css.Angle "tw-channel-b"
 
 (* Contributing utilities *)
 let set_channel_a value =
@@ -373,7 +366,7 @@ let aggregate =
 ```ocaml
 (* Variable only referenced, never set here *)
 let color_override_var =
-  Var.create Css.Color "tw-my-color" ~layer:Utility
+  Var.channel Css.Color "tw-my-color"
 
 (* Reference with fallback *)
 let my_colored_thing =
@@ -394,7 +387,7 @@ let my_thing_red =
 ```ocaml
 (* Variable always set when used *)
 let my_value_var =
-  Var.create Css.Length "tw-my-value" ~layer:Utility
+  Var.channel Css.Length "tw-my-value"
 
 (* Every utility sets and uses *)
 let my_small =
