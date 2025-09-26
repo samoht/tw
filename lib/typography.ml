@@ -100,12 +100,12 @@ let font_weight_extrabold_var =
 let font_weight_black_var =
   Var.theme Css.Font_weight "font-weight-black" ~order:11
 
-(* Utility variable for font weight: Always-set pattern (no @property). We set
-   --tw-font-weight alongside font-weight for transition friendliness, but do
-   not register a @property default. *)
-let font_weight_var = Var.channel Css.Font_weight "tw-font-weight"
+(* Utility variable for font weight: Channel pattern with @property for
+   animations *)
+let font_weight_var =
+  Var.channel ~needs_property:true Css.Font_weight "tw-font-weight"
 
-(* Leading variable for line-height utilities *)
+(* Leading variable for line-height utilities - no @property needed *)
 let leading_var = Var.channel Css.Line_height "tw-leading"
 
 (* Font variant numeric variables for composed value *)
@@ -221,7 +221,7 @@ let font_weight_utility name weight_var weight_value =
   let weight_util_decl, _ =
     Var.binding font_weight_var (Css.Var weight_theme_ref)
   in
-  (* Get @property rule from the channel variable *)
+  (* Get @property rule for font-weight channel (needed for animations) *)
   let property_rules =
     match Var.property_rule font_weight_var with
     | None -> Css.empty

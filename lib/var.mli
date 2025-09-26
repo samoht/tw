@@ -7,8 +7,8 @@
 
     The variable system generates CSS across four layers in this order:
 
-    {2 [@layer properties]}
-    Contains initial values for utility variables that need [@property]
+    {2 [\@layer properties]}
+    Contains initial values for utility variables that need [\@property]
     registration:
     {[
       @layer properties {
@@ -51,7 +51,7 @@
       }
     ]}
 
-    {2 [@property declarations]}
+    {2 [\@property declarations]}
     Type registrations for animated/transitionable variables (at the end):
     {[
       @property --tw-shadow {
@@ -83,7 +83,7 @@
     ]}
 
     {2 Pattern 2: Property_default Variables}
-    Variables with @property defaults, allowing utilities to either SET or REFERENCE:
+    Variables with \@property defaults, allowing utilities to either SET or REFERENCE:
     {[
       (* @property provides fallback *)
       @property --tw-border-style { syntax: "*"; inherits: false; initial-value: solid; }
@@ -135,7 +135,7 @@
     Every variable must always have a concrete default value available for inline
     rendering:
     - Theme variables: use the stored theme value
-    - Property_default variables: use the @property initial value
+    - Property_default variables: use the \@property initial value
     - Channel variables: use the identity/zero value (0px, 0deg, 1.0, etc.)
     - Ref_only variables: use the fallback value
     - Always-set variables: use the bound value
@@ -357,10 +357,11 @@ val property_default :
     referencing utilities and inline mode. The initial value is required for
     proper @property registration and reference fallbacks. *)
 
-val channel : 'a Css.kind -> string -> 'a channel
-(** [channel kind name] creates a Utility variable without [@property]. Ideal
-    for composition patterns where contributing utilities set declarations and
-    aggregators reference values. *)
+val channel : ?needs_property:bool -> 'a Css.kind -> string -> 'a channel
+(** [channel ?needs_property kind name] creates a Utility variable. When
+    [needs_property] is true, generates an [@property] rule for animation
+    support. Ideal for composition patterns where contributing utilities set
+    declarations and aggregators reference values. *)
 
 val ref_only : 'a Css.kind -> string -> fallback:'a -> 'a ref_only
 (** [ref_only kind name ~fallback] creates a reference-only handle to a Utility
