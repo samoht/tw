@@ -951,30 +951,28 @@ let theme_color_order_map =
     ("transparent", 0);
     ("black", 1);
     ("white", 2);
-    (* Named colors follow Tailwind v4 theme layer canonical order *)
-    ("slate", 3);
-    ("gray", 4);
-    ("zinc", 5);
-    ("neutral", 6);
-    ("stone", 7);
-    ("red", 8);
-    ("orange", 9);
-    ("amber", 10);
-    ("yellow", 11);
-    ("lime", 12);
-    ("green", 13);
-    ("emerald", 14);
-    ("teal", 15);
-    ("cyan", 16);
-    (* Theme layer: cyan, sky, blue *)
-    ("sky", 17);
-    ("blue", 18);
-    ("indigo", 19);
-    ("violet", 20);
-    ("purple", 21);
-    ("fuchsia", 22);
-    ("pink", 23);
-    ("rose", 24);
+    ("red", 3);
+    ("orange", 4);
+    ("amber", 5);
+    ("yellow", 6);
+    ("lime", 7);
+    ("green", 8);
+    ("emerald", 9);
+    ("teal", 10);
+    ("cyan", 11);
+    ("sky", 12);
+    ("blue", 13);
+    ("indigo", 14);
+    ("violet", 15);
+    ("purple", 16);
+    ("fuchsia", 17);
+    ("pink", 18);
+    ("rose", 19);
+    ("slate", 20);
+    ("gray", 21);
+    ("zinc", 22);
+    ("neutral", 23);
+    ("stone", 24);
   ]
 
 (* Utilities layer color ordering map for conflict resolution. *)
@@ -984,30 +982,28 @@ let utilities_color_order_map =
     ("transparent", 0);
     ("black", 1);
     ("white", 2);
-    (* Named colors follow Tailwind v4 utilities layer conflict resolution
-       order *)
-    ("gray", 3);
-    ("neutral", 4);
-    ("slate", 5);
-    ("stone", 6);
-    ("zinc", 7);
-    ("red", 8);
-    ("orange", 9);
-    ("amber", 10);
-    ("yellow", 11);
-    ("emerald", 12);
-    ("green", 13);
-    ("lime", 14);
-    ("teal", 15);
-    ("blue", 16);
-    ("cyan", 17);
+    ("amber", 3);
+    ("blue", 4);
+    ("cyan", 5);
+    ("emerald", 6);
+    ("fuchsia", 7);
+    ("gray", 8);
+    ("green", 9);
+    ("indigo", 10);
+    ("lime", 11);
+    ("neutral", 12);
+    ("orange", 13);
+    ("pink", 14);
+    ("purple", 15);
+    ("red", 16);
+    ("rose", 17);
     ("sky", 18);
-    ("indigo", 19);
-    ("purple", 20);
-    ("violet", 21);
-    ("fuchsia", 22);
-    ("pink", 23);
-    ("rose", 24);
+    ("slate", 19);
+    ("stone", 20);
+    ("teal", 21);
+    ("violet", 22);
+    ("yellow", 23);
+    ("zinc", 24);
   ]
 
 (* Get theme layer order for a color variable. Returns (priority=2, suborder)
