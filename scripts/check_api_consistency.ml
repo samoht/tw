@@ -91,6 +91,36 @@ let extract_types path : string list =
   in
   loop [] lines
 
+(* Extract types that contain Var constructors from interface files *)
+let extract_var_types path : string list =
+  let lines = Fs.read_lines path in
+  let var_type_re =
+    Re.Perl.compile_pat "\\|\\s+Var\\s+of\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+var"
+  in
+  let type_def_re =
+    Re.Perl.compile_pat "^[\\s]*type[\\s]+([A-Za-z_][A-Za-z0-9_]*)\\s*="
+  in
+
+  let rec loop acc current_type = function
+    | [] -> List.rev acc
+    | l :: tl -> (
+        (* Check if this line starts a new type definition *)
+        match Re.exec_opt type_def_re l with
+        | Some g ->
+            let type_name = Re.Group.get g 1 in
+            loop acc (Some type_name) tl
+        | None -> (
+            (* Check if this line has a Var constructor *)
+            match Re.exec_opt var_type_re l with
+            | Some _g -> (
+                match current_type with
+                | Some tname when not (List.mem tname acc) ->
+                    loop (tname :: acc) current_type tl
+                | _ -> loop acc current_type tl)
+            | None -> loop acc current_type tl))
+  in
+  loop [] None lines
+
 (* Extract test functions from a test file *)
 let extract_test_functions test_file =
   if not (Sys.file_exists test_file) then []
@@ -208,6 +238,11 @@ let analyze_test_patterns tname body module_name =
 
   (checks, neg_reads, has_neg)
 
+(* Check if a .mli file has a val declaration with the given name *)
+let file_has_val mli_path name : bool =
+  let rex = Re.Perl.compile_pat ("^[\\s]*val[\\s]+" ^ name ^ "\\b") in
+  List.exists (fun l -> Re.execp rex l) (Fs.read_lines mli_path)
+
 (* Check consistency for a single CSS module *)
 let check_module_consistency lib_css test_css mod_name =
   let intf_file = lib_css // (mod_name ^ "_intf.ml") in
@@ -302,11 +337,22 @@ let check_module_consistency lib_css test_css mod_name =
             neg_reads;
 
           (* Check for missing neg patterns - only for functions that test
-             actual types *)
-          if
-            (not has_neg)
-            && List.exists (fun t -> expected_test_name t = tname) valid_types
-          then missing_neg := tname :: !missing_neg))
+             actual types and have read functions *)
+          let type_for_tname =
+            List.find_opt (fun t -> expected_test_name t = tname) valid_types
+          in
+          match type_for_tname with
+          | Some typename ->
+              (* Check if this type has a read function *)
+              let mli_path = lib_css // (mod_name ^ ".mli") in
+              let read_name =
+                if typename = "t" then "read" else "read_" ^ typename
+              in
+              if
+                (not has_neg) && Sys.file_exists mli_path
+                && file_has_val mli_path read_name
+              then missing_neg := tname :: !missing_neg
+          | None -> ()))
       tests;
 
     Some (mod_name, invalid_tests, missing_tests, !wrong_checks, !missing_neg)
@@ -377,6 +423,7 @@ let project_root () =
 let root = project_root ()
 let lib_css = root // "lib" // "css"
 let test_css = root // "test" // "css"
+let variables_path = lib_css // "variables.ml"
 
 (* Check for duplicate Var.create calls and direct Css.var_ref usage *)
 let check_var_usage () =
@@ -471,10 +518,6 @@ let check_var_usage () =
     true)
   else false
 
-let file_has_val mli_path name : bool =
-  let rex = Re.Perl.compile_pat ("^[\\s]*val[\\s]+" ^ name ^ "\\b") in
-  List.exists (fun l -> Re.execp rex l) (Fs.read_lines mli_path)
-
 let file_has_let test_path name : bool =
   (* Check for multiple patterns: 1. Direct let binding: let check_foo = ... 2.
      Inline check_value call: check_value "foo" pp_foo read_foo 3. Local helper
@@ -511,6 +554,7 @@ type stats = {
   mutable missing_read : int;
   mutable missing_pp : int;
   mutable missing_check : int;
+  mutable missing_vars_of : int;
   mutable missing_modules : string list;
 }
 
@@ -520,6 +564,7 @@ let stats =
     missing_read = 0;
     missing_pp = 0;
     missing_check = 0;
+    missing_vars_of = 0;
     missing_modules = [];
   }
 
@@ -756,11 +801,88 @@ let () =
     Fmt.pr "%s %d test consistency issues found@." (colored red "ERROR:")
       !consistency_warnings;
 
+  (* Check for missing property case handling in vars_of_property *)
+  let check_property_vars_handling () =
+    let properties_intf_path = lib_css // "properties_intf.ml" in
+
+    (* Extract property cases that use types with Var constructors *)
+    let extract_property_cases_with_vars path =
+      let lines = Fs.read_lines path in
+      let property_re =
+        Re.Perl.compile_pat
+          "^[\\s]*\\|[\\s]+([A-Za-z_][A-Za-z0-9_]*)[\\s]*:[\\s]*([A-Za-z_][A-Za-z0-9_]*.*?)\\s+property"
+      in
+      let var_types = extract_var_types path in
+
+      let rec loop acc = function
+        | [] -> List.rev acc
+        | l :: tl -> (
+            match Re.exec_opt property_re l with
+            | Some g ->
+                let prop_name = Re.Group.get g 1 in
+                let prop_type = Re.Group.get g 2 in
+                (* Extract the base type name (before any list/option
+                   modifiers) *)
+                let base_type =
+                  prop_type |> String.split_on_char ' ' |> List.hd
+                  |> String.trim
+                in
+                if List.mem base_type var_types then
+                  loop ((prop_name, base_type) :: acc) tl
+                else loop acc tl
+            | None -> loop acc tl)
+      in
+      loop [] lines
+    in
+
+    let property_cases_with_vars =
+      extract_property_cases_with_vars properties_intf_path
+    in
+
+    (* Check which cases are handled in vars_of_property *)
+    let check_property_case_handled prop_name =
+      let lines = Fs.read_lines variables_path in
+      let pattern = "\\|[\\s]+" ^ prop_name ^ "[\\s]*," in
+      let rex = Re.Perl.compile_pat pattern in
+      List.exists (fun l -> Re.execp rex l) lines
+    in
+
+    let missing_cases = ref [] in
+    List.iter
+      (fun (prop_name, prop_type) ->
+        if not (check_property_case_handled prop_name) then
+          missing_cases := (prop_name, prop_type) :: !missing_cases)
+      property_cases_with_vars;
+
+    stats.missing_vars_of <- List.length !missing_cases;
+
+    if !missing_cases <> [] then (
+      Fmt.pr "@.%s@."
+        (colored bold "Missing Property Case Handling in vars_of_property:");
+      Fmt.pr "%s Missing property cases in %s vars_of_property function:@."
+        (colored red "Critical:")
+        (colored cyan "lib/css/variables.ml");
+      List.iter
+        (fun (prop_name, prop_type) ->
+          Fmt.pr "  | %s, value -> vars_of_%s value@." prop_name
+            (String.lowercase_ascii prop_type))
+        (List.sort compare !missing_cases);
+      Fmt.pr "@.";
+      true)
+    else false
+  in
+
+  let vars_of_issues = check_property_vars_handling () in
+
   (* Check for variable system issues *)
   let var_issues = check_var_usage () in
 
   let exit_code =
-    if api_missing > 0 || !consistency_warnings > 0 || var_issues then 1 else 0
+    if
+      api_missing > 0 || !consistency_warnings > 0 || var_issues
+      || vars_of_issues
+    then 1
+    else 0
   in
 
   if exit_code = 1 then
