@@ -66,40 +66,93 @@
       }
     ]}
 
-    {1 Variable Types and Patterns}
+    {1 The Five Variable Patterns}
 
-    {2 Theme Variables}
-    Design tokens that hold actual values, generated in [@layer theme]:
-    - [--font-weight-thin: 100]
-    - [--text-xl: 1.25rem]
-    - [--color-blue-500: #3b82f6]
+    This module recognizes exactly 5 distinct variable patterns, each with specific
+    constraints and behaviors:
 
-    {2 Utility Variables}
-    "Property channels" that track utility state. Two main patterns:
-
-    {3 Composition Variables (e.g., transforms, shadows)}
-    Multiple utilities contribute to a single CSS property:
+    {2 Pattern 1: Theme Variables}
+    Design tokens set once in theme layer, referenced by utilities:
     {[
-      .translate-x-4 { --tw-translate-x: 1rem; }
-      .rotate-45 { --tw-rotate: 45deg; }
-      .transform {
-        transform: translateX(var(--tw-translate-x)) rotate(var(--tw-rotate));
-      }
+      (* Theme layer *)
+      :root { --text-xl: 1.25rem; --font-weight-bold: 700; }
+
+      (* Utility layer *)
+      .text-xl { font-size: var(--text-xl); }
+      .font-bold { font-weight: var(--font-weight-bold); }
     ]}
 
-    {3 Override Variables (e.g., border-style)}
-    Utilities either SET the variable or REFERENCE it with @property defaults:
+    {2 Pattern 2: Property_default Variables}
+    Variables with @property defaults, allowing utilities to either SET or REFERENCE:
     {[
-      (* Setting utilities - no @property needed *)
+      (* @property provides fallback *)
+      @property --tw-border-style { syntax: "*"; inherits: false; initial-value: solid; }
+
+      (* Setting utilities *)
       .border-solid { --tw-border-style: solid; border-style: solid; }
       .border-dashed { --tw-border-style: dashed; border-style: dashed; }
 
-      (* Referencing utilities - need @property defaults *)
+      (* Referencing utilities rely on @property default *)
       .border { border-style: var(--tw-border-style); border-width: 1px; }
-
-      (* Generated @property for fallback *)
-      @property --tw-border-style { syntax: "*"; inherits: false; initial-value: solid; }
     ]}
+
+    {2 Pattern 3: Channel Variables}
+    Composition variables where multiple utilities contribute to a single CSS property:
+    {[
+      .translate-x-4 { --tw-translate-x: 1rem; }
+      .rotate-45 { --tw-rotate: 45deg; }
+      .scale-110 { --tw-scale: 1.1; }
+
+      (* Aggregator combines all channels *)
+      .transform { transform: translateX(var(--tw-translate-x)) rotate(var(--tw-rotate)) scale(var(--tw-scale)); }
+    ]}
+
+    {2 Pattern 4: Ref_only Variables}
+    Variables that utilities only reference (with fallback), never set:
+    {[
+      (* Shadow utilities reference color but don't set it *)
+      .shadow-sm { box-shadow: 0 1px 3px var(--tw-shadow-color, #0000001a); }
+      .shadow-lg { box-shadow: 0 10px 25px var(--tw-shadow-color, #00000019); }
+
+      (* Color utilities set the shadow color *)
+      .shadow-red-500 { --tw-shadow-color: #ef4444; }
+    ]}
+
+    {2 Pattern 5: Always-set Variables}
+    Variables that are always set when used (no separate reference):
+    {[
+      .font-bold { --tw-font-weight: 700; font-weight: var(--tw-font-weight); }
+      .font-thin { --tw-font-weight: 100; font-weight: var(--tw-font-weight); }
+    ]}
+
+    {1 Inline Mode Requirements}
+
+    The variable system must support an inline mode that generates CSS without any
+    custom properties, suitable for embedding in HTML style attributes or environments
+    that don't support CSS variables.
+
+    {2 Inline Mode Constraint}
+    Every variable must always have a concrete default value available for inline
+    rendering:
+    - Theme variables: use the stored theme value
+    - Property_default variables: use the @property initial value
+    - Channel variables: use the identity/zero value (0px, 0deg, 1.0, etc.)
+    - Ref_only variables: use the fallback value
+    - Always-set variables: use the bound value
+
+    {2 Example: Variables vs Inline Mode}
+    {[
+      (* Variables mode *)
+      .border { border-style: var(--tw-border-style); border-width: 1px; }
+      .border-solid { --tw-border-style: solid; border-style: solid; }
+
+      (* Inline mode - no variables *)
+      .border { border-style: solid; border-width: 1px; }  (* uses @property initial *)
+      .border-solid { border-style: solid; }
+    ]}
+
+    This constraint ensures the same CSS classes work identically whether variables
+    are supported or not, enabling progressive enhancement and broader compatibility.
 
     {1 Variable Usage Policy}
 
@@ -253,10 +306,19 @@
 (** Layer classification for CSS variables *)
 type layer = Theme | Utility
 
-type 'a property_info = { initial : 'a option; inherits : bool }
+type 'a property_info = {
+  initial : 'a option;
+  inherits : bool;
+  universal : bool;
+}
 (** Property metadata for @property registration.
     - [initial]: Optional initial value. If [None], properties layer uses "initial"
-    - [inherits]: Whether the property inherits from parent elements *)
+    - [inherits]: Whether the property inherits from parent elements
+    - [universal]: Force universal syntax "*" instead of typed syntax *)
+
+val property_info :
+  ?initial:'a -> ?inherits:bool -> ?universal:bool -> unit -> 'a property_info
+(** Create property metadata with defaults: inherits=false, universal=false *)
 
 type 'a t = {
   kind : 'a Css.kind;  (** CSS type witness ensuring type safety *)
@@ -270,26 +332,31 @@ type 'a t = {
 
 (** {1 Core API} *)
 
-val create :
-  'a Css.kind ->
-  ?property:'a option * bool ->
-  ?order:int ->
-  string ->
-  layer:layer ->
-  'a t
-(** [create css_kind ?property ?order name ~layer] creates a variable
-    definition.
+val theme : 'a Css.kind -> string -> order:int -> 'a t
+(** [theme kind name ~order] creates a Theme-layer variable (design token).
+    Values are set via [Var.binding] at use sites that own the declaration.
+    Enforces explicit ordering for deterministic theme output. *)
 
-    - [css_kind]: The CSS type witness (e.g., [Css.Font_weight])
-    - [name]: CSS variable name without [--] (e.g., ["tw-font-weight"])
-    - [layer]: [Theme] for design tokens, [Utility] for property channels.
-    - [property]: Optional [@property] registration as [(initial, inherits)]
-      where:
-    - [initial]: [None] for "initial" keyword, [Some value] for typed value
-    - [inherits]: Whether property inherits from parent (default false)
-    - [order] sets the order for sorting variables in the theme layer (defaults
-      to 9999). Only relevant for Theme layer variables that appear in [:root]
-*)
+val property_default :
+  'a Css.kind ->
+  ?initial:'a ->
+  ?inherits:bool ->
+  ?universal:bool ->
+  string ->
+  'a t
+(** [property_default kind name ~initial ?inherits ?universal] creates a Utility
+    variable with a typed [@property] registration and an initial value used for
+    referencing utilities and inline mode. *)
+
+val channel : 'a Css.kind -> string -> 'a t
+(** [channel kind name] creates a Utility variable without [@property]. Ideal
+    for composition patterns where contributing utilities set declarations and
+    aggregators reference values. *)
+
+val ref_only : 'a Css.kind -> string -> fallback:'a -> 'a Css.var
+(** [ref_only kind name ~fallback] creates a reference-only handle to a Utility
+    variable with a concrete fallback for inline mode. No declaration is
+    produced. *)
 
 val binding :
   'a t -> ?fallback:'a Css.fallback -> 'a -> Css.declaration * 'a Css.var

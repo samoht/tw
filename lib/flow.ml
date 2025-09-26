@@ -5,7 +5,7 @@ module Parse = Parse
 let ( >|= ) = Parse.( >|= )
 
 (* Define the spacing variable *)
-let spacing_var = Var.create Css.Length "spacing" ~layer:Theme ~order:4
+let spacing_var = Var.theme Css.Length "spacing" ~order:4
 
 (** {1 Display Utilities} *)
 

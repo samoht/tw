@@ -952,7 +952,7 @@ let get_color_var color shade =
     if is_base_color color then "color-" ^ base
     else "color-" ^ base ^ "-" ^ string_of_int shade
   in
-  Var.create Css.Color name ~layer:Theme ~order:3
+  Var.theme Css.Color name ~order:3
 
 let bg color shade =
   let class_name =
@@ -981,7 +981,7 @@ let bg color shade =
       if is_base_color color then "color-" ^ color_name
       else "color-" ^ color_name ^ "-" ^ string_of_int shade
     in
-    let color_theme_var = Var.create Css.Color var_name ~layer:Theme ~order:3 in
+    let color_theme_var = Var.theme Css.Color var_name ~order:3 in
     let color_value =
       to_css color (if is_base_color color then 500 else shade)
     in
