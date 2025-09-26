@@ -1,6 +1,21 @@
-(* Main test runner *)
+(* Main test runner with timing stats *)
+
+let with_stats name f =
+  let t0 = Unix.gettimeofday () in
+  let finally ok =
+    let dt = Unix.gettimeofday () -. t0 in
+    match ok with
+    | `Ok -> Fmt.epr "[%s] completed in %.3fs@." name dt
+    | `Error -> Fmt.epr "[%s] failed in %.3fs@." name dt
+  in
+  match f () with
+  | () -> finally `Ok
+  | exception exn ->
+      finally `Error;
+      raise exn
 
 let () =
+  with_stats "tw" @@ fun () ->
   Alcotest.run "tw"
     [
       Test_tw.suite;
