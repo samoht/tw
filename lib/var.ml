@@ -144,7 +144,7 @@ let create_property : type a.
         (* Special case: empty lists for Gradient_stops should not have
            initial-value *)
         match (kind, v) with
-        | Gradient_stops, [] -> property ~name Universal ~inherits ()
+        | Gradient_stop, List [] -> property ~name Universal ~inherits ()
         | _ ->
             let initial_str = initial_to_universal kind v in
             property ~name Universal ~initial_value:initial_str ~inherits ())
@@ -167,11 +167,11 @@ let create_property : type a.
         property ~name Length_percentage ~initial_value:(Percentage v) ~inherits
           ()
     (* Gradient_stops - special handling *)
-    | Gradient_stops, None -> property ~name Universal ~inherits ()
-    | Gradient_stops, Some [] ->
+    | Gradient_stop, None -> property ~name Universal ~inherits ()
+    | Gradient_stop, Some (List []) ->
         (* Empty list means no initial-value, just like None *)
         property ~name Universal ~inherits ()
-    | Gradient_stops, Some v ->
+    | Gradient_stop, Some v ->
         let initial_str = initial_to_universal kind v in
         property ~name Universal ~initial_value:initial_str ~inherits ()
     (* Everything else - use Universal syntax *)
@@ -198,8 +198,8 @@ let binding var ?fallback value = var.binding ?fallback value
 
 (* Create a variable reference for variables with @property defaults OR
    fallback *)
-let reference : type a r. ?fallback:a Css.fallback -> (a, r) t -> a Css.var =
- fun ?fallback var ->
+let reference : type a b. (a, b) t -> a Css.var =
+ fun var ->
   match var.role with
   | Ref_only -> (
       (* ref_only variables must have a built-in fallback *)
@@ -221,20 +221,19 @@ let reference : type a r. ?fallback:a Css.fallback -> (a, r) t -> a Css.var =
                 ("property_default variable " ^ var.name
                ^ " missing initial value")
           | Some initial_value ->
-              let _, var_ref = var.binding ?fallback initial_value in
+              let _, var_ref = var.binding initial_value in
               var_ref))
-  | Theme | Channel -> (
-      (* Theme and channel variables need explicit fallback *)
-      match fallback with
-      | None ->
-          failwith ("Var.reference on " ^ var.name ^ " requires a fallback")
-      | Some (Css.Fallback fallback_value) ->
-          let _, var_ref =
-            var.binding ~fallback:(Css.Fallback fallback_value) fallback_value
-          in
-          var_ref
-      | Some _ ->
-          failwith ("Var.reference requires a Fallback value: " ^ var.name))
+  | Theme | Channel -> assert false
+
+let reference_with_fallback : type a b. (a, b) t -> a -> a Css.var =
+ fun var fallback_value ->
+  match var.role with
+  | Theme | Channel ->
+      let _, var_ref =
+        var.binding ~fallback:(Css.Fallback fallback_value) fallback_value
+      in
+      var_ref
+  | Property_default | Ref_only -> assert false
 
 let ref_only kind name ~fallback =
   (* Create a utility variable that's only referenced, never set *)

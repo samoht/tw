@@ -7,8 +7,8 @@
 
     The variable system generates CSS across four layers in this order:
 
-    {2 [\@layer properties]}
-    Contains initial values for utility variables that need [\@property]
+    {2 [@layer properties]}
+    Contains initial values for utility variables that need [@property]
     registration:
     {[
       @layer properties {
@@ -51,91 +51,79 @@
       }
     ]}
 
-    {2 [\@property declarations]}
+    {2 [@property declarations]}
     Type registrations for animated/transitionable variables (at the end):
     {[
-      @property --tw-shadow {
+      \@property --tw-shadow {
         syntax: "*";
         inherits: false;
         initial-value: 0 0 #0000;
       }
-      @property --tw-shadow-alpha {
+      \@property --tw-shadow-alpha {
         syntax: "<percentage>";
         inherits: false;
         initial-value: 100%;
       }
     ]}
 
-    {1 The Five Variable Patterns}
+    {1 Variable Types and [@property] Rules}
 
-    This module recognizes exactly 5 distinct variable patterns, each with specific
-    constraints and behaviors:
+    The variable system has 4 constructors that map to clear, distinct
+    behaviors:
 
-    {2 Pattern 1: Theme Variables}
-    Design tokens set once in theme layer, referenced by utilities:
-    {[
-      (* Theme layer *)
-      :root { --text-xl: 1.25rem; --font-weight-bold: 700; }
+    {2 Constructor Rules}
 
-      (* Utility layer *)
-      .text-xl { font-size: var(--text-xl); }
-      .font-bold { font-weight: var(--font-weight-bold); }
-    ]}
+    {b 1. [theme]} - Design tokens in theme layer
+    - Layer: [@layer theme]
+    - [@property]: {b Never generated}
+    - Usage: Utilities reference these values but never modify them
+    - Example: [--text-xl: 1.25rem] referenced by [.text-xl]
 
-    {2 Pattern 2: Property_default Variables}
-    Variables with \@property defaults, allowing utilities to either SET or REFERENCE:
-    {[
-      (* @property provides fallback *)
-      @property --tw-border-style { syntax: "*"; inherits: false; initial-value: solid; }
+    {b 2. [property_default]} - Variables with required initial values
+    - Layer: [@layer utilities]
+    - [@property]: {b Always generated with initial-value}
+    - Usage: Some utilities set it, others rely on the default
+    - Example: [--tw-border-style] with initial [solid]
 
-      (* Setting utilities *)
-      .border-solid { --tw-border-style: solid; border-style: solid; }
-      .border-dashed { --tw-border-style: dashed; border-style: dashed; }
+    {b 3. [channel ~needs_property:false]} - Composition variables
+    - Layer: [@layer utilities]
+    - [@property]: {b Never generated}
+    - Usage: Multiple utilities set portions, aggregator combines them
+    - Example: [--tw-translate-x], [--tw-rotate] combined by [.transform]
 
-      (* Referencing utilities rely on @property default *)
-      .border { border-style: var(--tw-border-style); border-width: 1px; }
-    ]}
+    {b 4. [channel ~needs_property:true]} - Animated composition variables
+    - Layer: [@layer utilities]
+    - [@property]: {b Always generated without initial-value}
+    - Usage: Same as channel but needs [@property] for animations
+    - Example: [--tw-font-weight], [--tw-shadow-color]
 
-    {2 Pattern 3: Channel Variables}
-    Composition variables where multiple utilities contribute to a single CSS property:
-    {[
-      .translate-x-4 { --tw-translate-x: 1rem; }
-      .rotate-45 { --tw-rotate: 45deg; }
-      .scale-110 { --tw-scale: 1.1; }
+    {b 5. [ref_only]} - Reference-only variables
+    - Layer: None (no declaration)
+    - [@property]: {b Never generated}
+    - Usage: Only referenced with explicit fallback, never set by our utilities
+    - Example: Variables from other libraries we reference but don't control
 
-      (* Aggregator combines all channels *)
-      .transform { transform: translateX(var(--tw-translate-x)) rotate(var(--tw-rotate)) scale(var(--tw-scale)); }
-    ]}
+    {2 Simple Decision Tree}
 
-    {2 Pattern 4: Ref_only Variables}
-    Variables that utilities only reference (with fallback), never set:
-    {[
-      (* Shadow utilities reference color but don't set it *)
-      .shadow-sm { box-shadow: 0 1px 3px var(--tw-shadow-color, #0000001a); }
-      .shadow-lg { box-shadow: 0 10px 25px var(--tw-shadow-color, #00000019); }
+    To choose the right constructor:
 
-      (* Color utilities set the shadow color *)
-      .shadow-red-500 { --tw-shadow-color: #ef4444; }
-    ]}
-
-    {2 Pattern 5: Always-set Variables}
-    Variables that are always set when used (no separate reference):
-    {[
-      .font-bold { --tw-font-weight: 700; font-weight: var(--tw-font-weight); }
-      .font-thin { --tw-font-weight: 100; font-weight: var(--tw-font-weight); }
-    ]}
+    1. Is it a design token shared across utilities? → [theme] 2. Does it need a
+    default value for referencing utilities? → [property_default] 3. Is it only
+    referenced, never set by us? → [ref_only] 4. Otherwise it's a utility
+    variable → [channel]
+    - Add [~needs_property:true] only if it needs animation support
 
     {1 Inline Mode Requirements}
 
-    The variable system must support an inline mode that generates CSS without any
-    custom properties, suitable for embedding in HTML style attributes or environments
-    that don't support CSS variables.
+    The variable system must support an inline mode that generates CSS without
+    any custom properties, suitable for embedding in HTML style attributes or
+    environments that don't support CSS variables.
 
     {2 Inline Mode Constraint}
-    Every variable must always have a concrete default value available for inline
-    rendering:
+    Every variable must always have a concrete default value available for
+    inline rendering:
     - Theme variables: use the stored theme value
-    - Property_default variables: use the \@property initial value
+    - Property_default variables: use the [@property] initial value
     - Channel variables: use the identity/zero value (0px, 0deg, 1.0, etc.)
     - Ref_only variables: use the fallback value
     - Always-set variables: use the bound value
@@ -147,12 +135,13 @@
       .border-solid { --tw-border-style: solid; border-style: solid; }
 
       (* Inline mode - no variables *)
-      .border { border-style: solid; border-width: 1px; }  (* uses @property initial *)
+      .border { border-style: solid; border-width: 1px; }  (* uses [@property] initial *)
       .border-solid { border-style: solid; }
     ]}
 
-    This constraint ensures the same CSS classes work identically whether variables
-    are supported or not, enabling progressive enhancement and broader compatibility.
+    This constraint ensures the same CSS classes work identically whether
+    variables are supported or not, enabling progressive enhancement and broader
+    compatibility.
 
     {1 Variable Usage Policy}
 
@@ -212,19 +201,23 @@
         let weight_d, weight_v = Var.binding weight_var default_weight in
         let size_d, size_v = Var.binding size_var default_size in
         let leading_d, leading_v = Var.binding leading_var default_leading in
-        { weight = (weight_d, weight_v);
+        {
+          weight = (weight_d, weight_v);
           size = (size_d, size_v);
-          leading = (leading_d, leading_v) }
+          leading = (leading_d, leading_v);
+        }
 
       let text_utility size_value =
         let theme = default_font_theme in
         let new_size_d, new_size_v = Var.binding size_var size_value in
         let updated_theme = { theme with size = (new_size_d, new_size_v) } in
-        style "text-xl" [
-          fst updated_theme.size;  (* only the active declaration *)
-          font_size (Var (snd updated_theme.size));
-          line_height (Var (snd theme.leading))  (* reference default *)
-        ]
+        style "text-xl"
+          [
+            fst updated_theme.size;
+            (* only the active declaration *)
+            font_size (Var (snd updated_theme.size));
+            line_height (Var (snd theme.leading)) (* reference default *);
+          ]
     ]}
 
     This pattern allows selective variable updates while maintaining consistent
@@ -235,7 +228,8 @@
     a clear, single point where it's defined and set. This is achieved by always
     following the three rules unless no declaration exists in the Tailwind case.
 
-    The [binding] function's value parameter serves as the default for inline mode:
+    The [binding] function's value parameter serves as the default for inline
+    mode:
     {[
       (* Variables mode: generates --tw-color: red; color: var(--tw-color) *)
       (* Inline mode: generates color: red directly *)
@@ -246,55 +240,64 @@
     This guarantees consistent behavior between Variables and Inline modes with
     a single source of truth for each variable's value.
 
-    {2 @Property Registration Strategy}
+    {2 [@Property] Registration Strategy}
     Use [@property] registration for variables that need type safety, animation
     support, or fallback defaults for referencing utilities:
     {[
-      (* Variable with @property initial value *)
-      let shadow_var = Var.property_default Css.Shadow "tw-shadow"
-        ~property:(Some (Shadow "0 0 #0000"), false)
+      (* Variable with [@property] initial value *)
+      let shadow_var =
+        Var.property_default Css.Shadow "tw-shadow"
+          ~property:(Some (Shadow "0 0 #0000"), false)
 
       (* Setting utility - follows three rules *)
       let shadow_lg_utility =
         let decl, var_ref = Var.binding shadow_var lg_shadow in
         style "shadow-lg" [ decl; box_shadow (Var var_ref) ]
 
-      (* Referencing utility - needs @property defaults and property_rules *)
+      (* Referencing utility - needs [@property] defaults and property_rules *)
       let shadow_utility =
         let var_ref = Var.reference shadow_var in
-        let property_rule = match Var.property_rule shadow_var with
-          | Some rule -> rule | None -> Css.empty in
-        style "shadow" ~property_rules:property_rule [ box_shadow (Var var_ref) ]
+        let property_rule =
+          match Var.property_rule shadow_var with
+          | Some rule -> rule
+          | None -> Css.empty
+        in
+        style "shadow" ~property_rules:property_rule
+          [ box_shadow (Var var_ref) ]
     ]}
 
     {2 The Border Pattern: Setting vs Referencing Variables}
 
-    For override variables like border-style, utilities fall into two categories:
+    For override variables like border-style, utilities fall into two
+    categories:
 
     {3 Setting Utilities}
     Set the variable to a specific value (use [Var.binding]):
     {[
-      (* No @property rule generation needed *)
+      (* No [@property] rule generation needed *)
       let border_solid =
         let decl, var_ref = Var.binding border_style_var Solid in
         style "border-solid" [ decl; border_style (Var var_ref) ]
     ]}
 
     {3 Referencing Utilities}
-    Reference the variable with @property default (use [Var.reference] + [~property_rules]):
+    Reference the variable with [@property] default (use [Var.reference] +
+    [~property_rules]):
     {[
-      (* Generates @property rule and properties layer *)
+      (* Generates [@property] rule and properties layer *)
       let border =
         let var_ref = Var.reference border_style_var in
-        let property_rule = match Var.property_rule border_style_var with
-          | Some rule -> rule | None -> Css.empty in
-        style "border" ~property_rules:property_rule [
-          border_style (Var var_ref); border_width (Px 1.)
-        ]
+        let property_rule =
+          match Var.property_rule border_style_var with
+          | Some rule -> rule
+          | None -> Css.empty
+        in
+        style "border" ~property_rules:property_rule
+          [ border_style (Var var_ref); border_width (Px 1.) ]
     ]}
 
-    This pattern ensures @property rules are only generated when utilities actually
-    need the fallback defaults, not when they set the variable.
+    This pattern ensures [@property] rules are only generated when utilities
+    actually need the fallback defaults, not when they set the variable.
 
     {2 Module Organization}
 
@@ -311,8 +314,9 @@ type 'a property_info = {
   inherits : bool;
   universal : bool;
 }
-(** Property metadata for @property registration.
-    - [initial]: Optional initial value. If [None], properties layer uses "initial"
+(** Property metadata for [@property] registration.
+    - [initial]: Optional initial value. If [None], properties layer uses
+      "initial"
     - [inherits]: Whether the property inherits from parent elements
     - [universal]: Force universal syntax "*" instead of typed syntax *)
 
@@ -329,7 +333,8 @@ type 'a theme = ('a, [ `Theme ]) t
 (** Theme variables (Pattern 1) - design tokens set in theme layer *)
 
 type 'a property_default = ('a, [ `Property_default ]) t
-(** Property default variables (Pattern 2) - variables with @property defaults *)
+(** Property default variables (Pattern 2) - variables with [@property] defaults
+*)
 
 type 'a channel = ('a, [ `Channel ]) t
 (** Channel variables (Pattern 3) - composition variables *)
@@ -355,7 +360,7 @@ val property_default :
 (** [property_default kind ~initial name ?inherits ?universal] creates a Utility
     variable with a typed [@property] registration and an initial value used for
     referencing utilities and inline mode. The initial value is required for
-    proper @property registration and reference fallbacks. *)
+    proper [@property] registration and reference fallbacks. *)
 
 val channel : ?needs_property:bool -> 'a Css.kind -> string -> 'a channel
 (** [channel ?needs_property kind name] creates a Utility variable. When
@@ -385,33 +390,16 @@ val binding :
       (e.g., text-xs references --tw-leading with --text-xs--line-height as
       fallback). *)
 
-val reference : ?fallback:'a Css.fallback -> ('a, 'r) t -> 'a Css.var
-(** [reference var ?fallback] creates a variable reference without a declaration.
+val reference : ('a, [< `Ref_only | `Property_default ]) t -> 'a Css.var
 
-    Requirements:
-    - EITHER the variable has ~property metadata with an initial value
-    - OR a fallback is provided
+val reference_with_fallback : ('a, [< `Theme | `Channel ]) t -> 'a -> 'a Css.var
+(** [reference var] creates a variable reference for variables with built-in
+    defaults. Works with property_default (uses initial value) and ref_only
+    (uses built-in fallback). *)
 
-    This allows referencing variables in two scenarios:
-    1. Variables with @property defaults (e.g., border utilities)
-    2. Variables without setting them when you provide a fallback (e.g., shadow utilities)
-
-    Use this for utilities that REFERENCE a variable but don't SET it:
-    - Variables mode: generates [var(--name)] without fallback
-    - Inline mode: uses the @property initial value directly
-
-    {b Must be paired with ~property_rules:}
-    {[
-      let utility =
-        let var_ref = Var.reference my_var in
-        let props = match Var.property_rule my_var with
-          | Some rule -> rule | None -> Css.empty in
-        style "my-util" ~property_rules:props [ css_prop (Var var_ref) ]
-    ]}
-
-    This ensures @property rules are generated only when utilities need them,
-    following the border/border-none pattern where setting utilities use
-    [Var.binding] and referencing utilities use [Var.reference]. *)
+(** [reference_with_fallback var fallback_value] creates a variable reference
+    with an explicit fallback value. Required for theme and channel variables.
+*)
 
 val property_rule : ('a, [< `Property_default | `Channel ]) t -> Css.t option
 (** [property_rule var] generates the [@property] rule if metadata is present.
@@ -419,7 +407,7 @@ val property_rule : ('a, [< `Property_default | `Channel ]) t -> Css.t option
 
     Used with [Var.reference] to provide explicit property rules:
     {[
-      (* Generate @property rule for variables that need it *)
+      (* Generate [@property] rule for variables that need it *)
       let property_rules =
         match Var.property_rule my_var with
         | Some rule -> rule
@@ -428,7 +416,7 @@ val property_rule : ('a, [< `Property_default | `Channel ]) t -> Css.t option
 
     Example output:
     {[
-      @property --tw-shadow {
+      \@property --tw-shadow {
         syntax: "*";
         inherits: false;
         initial-value: 0 0 #0000;
@@ -442,7 +430,7 @@ type any_var =
       (** Existential type for heterogeneous collections of variables *)
 
 val properties : any_var list -> Css.t
-(** [properties vars] generates deduplicated @property rules for all variables
+(** [properties vars] generates deduplicated [@property] rules for all variables
     that need them, sorted deterministically by (name, kind) *)
 
 (** {1 Helper Types and Functions} *)

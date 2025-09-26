@@ -127,11 +127,11 @@ val to_inline_style : t list -> string
     The generator follows Tailwind v4's cascade layering model with a pragmatic
     properties layer strategy that mirrors Tailwind's output where applicable.
 
-    - Order: [\@layer properties] → [\@layer theme] → if [base=true] then
-      [\@layer base] → [\@layer components] → [\@layer utilities].
+    - Order: [@layer properties] → [@layer theme] → if [base=true] then
+      [@layer base] → [@layer components] → [@layer utilities].
     - Properties layer: Emitted only when at least one class registers a custom
       property via [Var.property_default] (or explicit rules). The layer
-      contains a single [\@supports] block with Tailwind v4's vendor-targeted
+      contains a single [@supports] block with Tailwind v4's vendor-targeted
       condition, wrapping a universal selector applying the initial values for
       each registered property as custom declarations (e.g.,
       [--tw-...: initial]). The exact condition used is:
@@ -151,7 +151,7 @@ val to_inline_style : t list -> string
       Custom declarations without Var metadata are ignored for theme hoisting.
     - Base layer: When [base=true], emits Preflight reset from
       [Preflight.stylesheet ()]. Placeholder opacity handling is gated under a
-      [\@supports] block to match browser compatibility behavior.
+      [@supports] block to match browser compatibility behavior.
     - Components layer: Emitted as an empty layer when no components are present
       (renders as [@layer components;]).
     - Utilities layer: Contains sorted utility rules (and any responsive or

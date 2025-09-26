@@ -24,9 +24,19 @@ let tw_translate_y_var = Var.channel Css.Length "tw-translate-y"
 let tw_rotate_var = Var.channel Css.Angle "tw-rotate"
 let tw_skew_x_var = Var.channel Css.Angle "tw-skew-x"
 let tw_skew_y_var = Var.channel Css.Angle "tw-skew-y"
-let tw_scale_x_var = Var.channel Css.Float "tw-scale-x"
-let tw_scale_y_var = Var.channel Css.Float "tw-scale-y"
-let tw_scale_z_var = Var.channel Css.Float "tw-scale-z"
+
+(* Scale variables need @property defaults for composition *)
+let tw_scale_x_var =
+  Var.property_default Percentage ~initial:(Pct 1.0) ~universal:true
+    "tw-scale-x"
+
+let tw_scale_y_var =
+  Var.property_default Percentage ~initial:(Pct 1.0) ~universal:true
+    "tw-scale-y"
+
+let tw_scale_z_var =
+  Var.property_default Percentage ~initial:(Pct 1.0) ~universal:true
+    "tw-scale-z"
 
 module Parse = Parse
 
@@ -52,19 +62,24 @@ let translate_y n =
   style class_name [ transform [ Translate_y len ] ]
 
 let scale n =
-  let value = float_of_int n /. 100.0 in
   let class_name = "scale-" ^ string_of_int n in
-  let dx, _ = Var.binding tw_scale_x_var value in
-  let dy, _ = Var.binding tw_scale_y_var value in
-  let dz, _ = Var.binding tw_scale_z_var value in
-  style class_name (dx :: dy :: dz :: [ Css.scale (Css.XY (value, value)) ])
+  let dx, x_ref = Var.binding tw_scale_x_var (Pct (float_of_int n)) in
+  let dy, y_ref = Var.binding tw_scale_y_var (Pct (float_of_int n)) in
+  let dz, _ = Var.binding tw_scale_z_var (Pct (float_of_int n)) in
+  let props =
+    match Var.property_rule tw_scale_x_var with
+    | Some rule -> rule
+    | None -> empty
+  in
+  style class_name ~property_rules:props
+    (dx :: dy :: dz :: [ scale (XY (Var x_ref, Var y_ref)) ])
 
 let scale_x n =
   let value = float_of_int n /. 100.0 in
   (* Convert percentage to float *)
   let class_name = "scale-x-" ^ string_of_int n in
   (* Only uses X variable *)
-  let d, _ = Var.binding tw_scale_x_var value in
+  let d, _ = Var.binding tw_scale_x_var (Pct value) in
   style class_name (d :: [ transform [ Scale_x value ] ])
 
 let scale_y n =
@@ -72,7 +87,7 @@ let scale_y n =
   (* Convert percentage to float *)
   let class_name = "scale-y-" ^ string_of_int n in
   (* Only uses Y variable *)
-  let d, _ = Var.binding tw_scale_y_var value in
+  let d, _ = Var.binding tw_scale_y_var (Pct value) in
   style class_name (d :: [ transform [ Scale_y value ] ])
 
 let skew_x deg =
@@ -121,7 +136,7 @@ let translate_z n =
 let scale_z n =
   let value = float_of_int n /. 100.0 in
   let class_name = "scale-z-" ^ string_of_int n in
-  let d, _ = Var.binding tw_scale_z_var value in
+  let d, _ = Var.binding tw_scale_z_var (Pct value) in
   style class_name (d :: [ transform [ Scale_z value ] ])
 
 let perspective n =

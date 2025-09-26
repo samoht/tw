@@ -33,15 +33,13 @@ let shadow_alpha_var =
   Var.property_default Css.Float ~initial:100.0 "tw-shadow-alpha"
 
 let inset_shadow_color_var =
-  Var.property_default Css.Color ~initial:Css.Transparent ~universal:true
-    "tw-inset-shadow-color"
+  Var.channel ~needs_property:true Css.Color "tw-inset-shadow-color"
 
 let inset_shadow_alpha_var =
   Var.property_default Css.Float ~initial:100.0 "tw-inset-shadow-alpha"
 
 let shadow_color_var =
-  Var.property_default Css.Color ~initial:Css.Transparent ~universal:true
-    "tw-shadow-color"
+  Var.channel ~needs_property:true Css.Color "tw-shadow-color"
 
 let inset_shadow_var =
   Var.property_default Css.Shadow
@@ -50,16 +48,12 @@ let inset_shadow_var =
     ~universal:true "tw-inset-shadow"
 
 (* Ring variables *)
-let ring_color_var =
-  Var.property_default Css.Color ~initial:Css.Transparent ~universal:true
-    "tw-ring-color"
+let ring_color_var = Var.channel ~needs_property:true Css.Color "tw-ring-color"
 
 let inset_ring_color_var =
-  Var.property_default Css.Color ~initial:Css.Transparent ~universal:true
-    "tw-inset-ring-color"
+  Var.channel ~needs_property:true Css.Color "tw-inset-ring-color"
 
-let ring_inset_var =
-  Var.property_default Css.String ~initial:"" ~universal:true "tw-ring-inset"
+let ring_inset_var = Var.channel ~needs_property:true Css.String "tw-ring-inset"
 
 let ring_shadow_var =
   Var.property_default Css.Shadow
@@ -146,8 +140,7 @@ let shadow_sm =
   (* Shadow-sm with composite shadows matching Tailwind v4 *)
   (* Reference color variable with fallback *)
   let color_ref =
-    Var.reference shadow_color_var
-      ~fallback:(Css.Fallback (Css.hex "#0000001a"))
+    Var.reference_with_fallback shadow_color_var (Css.hex "#0000001a")
   in
   let shadow_list =
     [
@@ -204,8 +197,7 @@ let shadow =
   (* Default shadow - same as shadow-sm in Tailwind v4 *)
   (* Reference color variable with fallback *)
   let color_ref =
-    Var.reference shadow_color_var
-      ~fallback:(Css.Fallback (Css.hex "#0000001a"))
+    Var.reference_with_fallback shadow_color_var (Css.hex "#0000001a")
   in
   let shadow_list =
     [
@@ -262,8 +254,7 @@ let shadow =
 let shadow_md =
   (* Shadow-md with CSS variable for color *)
   let color_ref =
-    Var.reference shadow_color_var
-      ~fallback:(Css.Fallback (Css.hex "#0000001a"))
+    Var.reference_with_fallback shadow_color_var (Css.hex "#0000001a")
   in
   let shadow_list =
     [
@@ -317,8 +308,7 @@ let shadow_md =
 let shadow_lg =
   (* Shadow-lg with CSS variable for color *)
   let color_ref =
-    Var.reference shadow_color_var
-      ~fallback:(Css.Fallback (Css.hex "#0000001a"))
+    Var.reference_with_fallback shadow_color_var (Css.hex "#0000001a")
   in
   let shadow_list =
     [
@@ -372,8 +362,7 @@ let shadow_lg =
 let shadow_xl =
   (* Shadow-xl with CSS variable for color *)
   let color_ref =
-    Var.reference shadow_color_var
-      ~fallback:(Css.Fallback (Css.hex "#0000001a"))
+    Var.reference_with_fallback shadow_color_var (Css.hex "#0000001a")
   in
   let shadow_list =
     [
@@ -427,8 +416,7 @@ let shadow_xl =
 let shadow_2xl =
   (* Shadow-2xl with CSS variable for color *)
   let color_ref =
-    Var.reference shadow_color_var
-      ~fallback:(Css.Fallback (Css.hex "#0000001a"))
+    Var.reference_with_fallback shadow_color_var (Css.hex "#0000001a")
   in
   let shadow_list =
     [
@@ -598,11 +586,8 @@ let ring_lg = ring_internal `Lg
 let ring_xl = ring_internal `Xl
 
 let ring_inset =
-  (* Ring inset needs special handling - it's a string value "inset" Since we
-     don't have a String kind, we'll handle this differently *)
-  style "ring-inset"
-    [ (* TODO: Add support for string-valued CSS variables or handle ring-inset
-         specially *) ]
+  let decl, _var_ref = Var.binding ring_inset_var "inset" in
+  style "ring-inset" [ decl ]
 
 let ring_color color shade =
   let class_name =
