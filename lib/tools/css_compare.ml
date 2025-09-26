@@ -689,37 +689,55 @@ let get_rule_declarations stmt =
   match Css.statement_declarations stmt with Some d -> d | None -> []
 
 let find_rule_by_selector sel rules =
-  List.find_opt (fun r -> get_rule_selector r = sel) rules
-
-let sort_rules_by_selector rules =
-  List.sort
-    (fun r1 r2 ->
-      String.compare
-        (Css.Selector.to_string (get_rule_selector r1))
-        (Css.Selector.to_string (get_rule_selector r2)))
+  List.find_opt
+    (fun r ->
+      Css.Selector.to_string (get_rule_selector r) = Css.Selector.to_string sel)
     rules
 
 let rules_identical_when_sorted rules1 rules2 =
-  let sorted1 = sort_rules_by_selector rules1 in
-  let sorted2 = sort_rules_by_selector rules2 in
-  let len1 = List.length sorted1 in
-  let len2 = List.length sorted2 in
-  len1 = len2
-  &&
-  try
-    List.for_all2
-      (fun r1 r2 ->
-        get_rule_selector r1 = get_rule_selector r2
-        && get_rule_declarations r1 = get_rule_declarations r2)
-      sorted1 sorted2
-  with Invalid_argument _ -> false
+  (* First check if they have the same number of rules *)
+  let len1 = List.length rules1 in
+  let len2 = List.length rules2 in
+  if len1 <> len2 then false
+  else
+    (* Create maps from selector string to declarations for both rule lists *)
+    let make_rule_map rules =
+      List.fold_left
+        (fun acc rule ->
+          let sel_str = Css.Selector.to_string (get_rule_selector rule) in
+          let decls = get_rule_declarations rule in
+          (* Use a list to handle potential duplicates *)
+          let existing = try List.assoc sel_str acc with Not_found -> [] in
+          (sel_str, decls :: existing) :: List.remove_assoc sel_str acc)
+        [] rules
+    in
+    let map1 = make_rule_map rules1 in
+    let map2 = make_rule_map rules2 in
+    (* Check if both maps have the same selectors with the same declarations *)
+    try
+      List.for_all
+        (fun (sel, decls_list1) ->
+          match List.assoc_opt sel map2 with
+          | Some decls_list2 ->
+              (* Sort declaration lists to handle order-independence *)
+              List.sort compare decls_list1 = List.sort compare decls_list2
+          | None -> false)
+        map1
+      && List.length map1 = List.length map2
+    with _ -> false
 
 let find_added_rules rules1 rules2 =
   List.filter_map
     (fun r ->
       let sel = get_rule_selector r in
-      if not (List.exists (fun r1 -> get_rule_selector r1 = sel) rules1) then
-        Some r
+      if
+        not
+          (List.exists
+             (fun r1 ->
+               Css.Selector.to_string (get_rule_selector r1)
+               = Css.Selector.to_string sel)
+             rules1)
+      then Some r
       else None)
     rules2
 
@@ -727,8 +745,14 @@ let find_removed_rules rules1 rules2 =
   List.filter_map
     (fun r ->
       let sel = get_rule_selector r in
-      if not (List.exists (fun r2 -> get_rule_selector r2 = sel) rules2) then
-        Some r
+      if
+        not
+          (List.exists
+             (fun r2 ->
+               Css.Selector.to_string (get_rule_selector r2)
+               = Css.Selector.to_string sel)
+             rules2)
+      then Some r
       else None)
     rules1
 
@@ -745,8 +769,12 @@ let find_modified_rules rules1 rules2 =
     rules1
 
 let has_same_selectors rules1 rules2 =
-  let sel_list1 = List.map get_rule_selector rules1 in
-  let sel_list2 = List.map get_rule_selector rules2 in
+  let sel_list1 =
+    List.map (fun r -> Css.Selector.to_string (get_rule_selector r)) rules1
+  in
+  let sel_list2 =
+    List.map (fun r -> Css.Selector.to_string (get_rule_selector r)) rules2
+  in
   List.length sel_list1 = List.length sel_list2
   && List.for_all (fun s -> List.mem s sel_list2) sel_list1
 
@@ -777,21 +805,49 @@ let create_ordering_diff rules1 rules2 =
     match (remaining1, remaining2) with
     | [], [] -> List.rev acc
     | (sel1, decls1) :: rest1, (sel2, decls2) :: rest2 ->
-        if sel1 <> sel2 then
+        let sel1_str = Css.Selector.to_string sel1 in
+        let sel2_str = Css.Selector.to_string sel2 in
+        if sel1_str <> sel2_str then
           (* Selectors differ at this position - this could be an ordering issue *)
           (* Check if sel1 appears later in remaining2 *)
           let sel1_in_remaining2 =
-            List.exists (fun (s, _) -> s = sel1) remaining2
+            List.exists
+              (fun (s, _) -> Css.Selector.to_string s = sel1_str)
+              remaining2
           in
           (* Check if sel2 appears later in remaining1 *)
           let sel2_in_remaining1 =
-            List.exists (fun (s, _) -> s = sel2) remaining1
+            List.exists
+              (fun (s, _) -> Css.Selector.to_string s = sel2_str)
+              remaining1
           in
 
           if sel1_in_remaining2 && sel2_in_remaining1 then
             (* This is likely an ordering issue - both selectors exist but in
-               wrong positions *)
-            find_ordering_issues ((sel1, decls1, decls2) :: acc) rest1 rest2
+               wrong positions. Find the correct declarations for sel1 from
+               map2 *)
+            let decls1_from_map2 =
+              match
+                List.find_opt
+                  (fun (s, _) -> Css.Selector.to_string s = sel1_str)
+                  map2
+              with
+              | Some (_, d) -> d
+              | None -> decls2 (* Fallback *)
+            in
+            (* Check if this is pure reordering or actual modification *)
+            if decls1 = decls1_from_map2 then
+              (* Pure reordering - same selector, same declarations, different
+                 position We still need to report this as a reordering! *)
+              find_ordering_issues
+                ((sel1, decls1, decls1_from_map2) :: acc)
+                rest1 rest2
+            else
+              (* Selector exists in both but with different declarations - this
+                 is a modification *)
+              find_ordering_issues
+                ((sel1, decls1, decls1_from_map2) :: acc)
+                rest1 rest2
           else
             (* This might be a true content difference, not just ordering *)
             find_ordering_issues acc rest1 rest2
@@ -818,7 +874,10 @@ let handle_structural_diff rules1 rules2 =
   let has_ordering_changes =
     (not has_structural_changes)
     && has_same_selectors rules1 rules2
-    && List.map get_rule_selector rules1 <> List.map get_rule_selector rules2
+    && List.map (fun r -> Css.Selector.to_string (get_rule_selector r)) rules1
+       <> List.map
+            (fun r -> Css.Selector.to_string (get_rule_selector r))
+            rules2
   in
 
   let modified_with_order =
