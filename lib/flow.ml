@@ -209,10 +209,9 @@ let grid_cols n =
       (String.concat ""
          [ "grid_cols: "; string_of_int n; " is out of range (1-12)" ])
   else
-    let tracks = List.init n (fun _ -> Fr 1.0) in
     style
       (String.concat "" [ "grid-cols-"; string_of_int n ])
-      [ Css.grid_template_columns (Tracks tracks) ]
+      [ Css.grid_template_columns (Repeat (n, [ Min_max (Zero, Fr 1.0) ])) ]
 
 let grid_cols_none = style "grid-cols-none" [ Css.grid_template_columns None ]
 
@@ -227,7 +226,7 @@ let grid_rows n =
   else
     style
       (String.concat "" [ "grid-rows-"; string_of_int n ])
-      [ Css.grid_template_rows (Tracks [ Repeat (n, [ Fr 1.0 ]) ]) ]
+      [ Css.grid_template_rows (Repeat (n, [ Min_max (Zero, Fr 1.0) ])) ]
 
 let grid_rows_none = style "grid-rows-none" [ Css.grid_template_rows None ]
 
