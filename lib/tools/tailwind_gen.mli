@@ -12,3 +12,7 @@ val generate : ?minify:bool -> ?optimize:bool -> string list -> string
 val check_tailwindcss_available : unit -> unit
 (** [check_tailwindcss_available ()] checks if Tailwind CSS v4 is available.
     @raise Failure if Tailwind CSS is not available or not v4. *)
+
+val with_stats : (unit -> 'a) -> 'a
+(** [with_stats f] runs function [f] and prints Tailwind CSS generation
+    statistics afterward. *)
