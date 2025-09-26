@@ -932,7 +932,16 @@ let build_base_layer ?supports () =
 (* Use the centralized conversion function from Var module *)
 
 (* Build the properties layer with browser detection for initial values *)
+(* Returns (properties_layer, property_rules) - @property rules are separate *)
 let build_properties_layer explicit_property_rules_statements =
+  (* Split statements into @property rules and other statements *)
+  let property_rules, other_statements =
+    List.partition
+      (fun stmt ->
+        match Css.as_property stmt with Some _ -> true | None -> false)
+      explicit_property_rules_statements
+  in
+
   (* Extract variable initial values from @property declarations *)
   let variable_initial_values =
     List.fold_left
@@ -942,13 +951,14 @@ let build_properties_layer explicit_property_rules_statements =
             let value = Var.property_initial_string prop_info in
             (info.name, value) :: acc
         | None -> acc)
-      [] explicit_property_rules_statements
+      [] property_rules
     |> List.rev
   in
 
-  if variable_initial_values = [] then Css.empty
+  if property_rules = [] && variable_initial_values = [] then (Css.empty, [])
   else
-    (* Build the properties layer with browser detection *)
+    (* Build the properties layer with browser detection but WITHOUT @property
+       rules *)
     let browser_detection_condition =
       "(((-webkit-hyphens:none)) and (not (margin-trim:inline))) or \
        ((-moz-orient:inline) and (not (color:rgb(from red r g b))))"
@@ -967,7 +977,13 @@ let build_properties_layer explicit_property_rules_statements =
     let supports_stmt =
       Css.supports ~condition:browser_detection_condition supports_content
     in
-    Css.of_statements [ Css.layer ~name:"properties" [ supports_stmt ] ]
+    (* Properties layer only has the supports statement and other statements,
+       NOT @property rules *)
+    let layer_content = [ supports_stmt ] @ other_statements in
+    let layer =
+      Css.of_statements [ Css.layer ~name:"properties" layer_content ]
+    in
+    (layer, property_rules)
 
 let build_layers ~include_base ~selector_props tw_classes rules media_queries
     container_queries =
@@ -1028,18 +1044,6 @@ let build_layers ~include_base ~selector_props tw_classes rules media_queries
            Css.property ~name:var_name Css.Universal ~inherits:false ())
   in
 
-  (* Convert statements to individual stylesheets to match the type *)
-  let explicit_property_rules =
-    List.map
-      (fun stmt -> Css.of_statements [ stmt ])
-      explicit_property_rules_statements
-  in
-
-  (* Combine property rules, preferring explicit ones over generated ones *)
-  let all_property_rules =
-    explicit_property_rules @ property_rules_from_utilities
-  in
-
   (* Existing layers in exact order *)
   let theme_defaults =
     Typography.default_font_declarations
@@ -1062,12 +1066,15 @@ let build_layers ~include_base ~selector_props tw_classes rules media_queries
       explicit_property_rules_statements
       @ property_rules_from_utilities_as_statements
     in
-    let properties_layer =
-      if all_property_statements = [] then None
+    let properties_layer, property_rules_for_end =
+      if all_property_statements = [] then (None, [])
       else
-        let layer = build_properties_layer all_property_statements in
+        let layer, prop_rules =
+          build_properties_layer all_property_statements
+        in
         (* Check if the properties layer is actually empty (Css.empty) *)
-        if layer = Css.empty then None else Some layer
+        if layer = Css.empty then (None, prop_rules)
+        else (Some layer, prop_rules)
     in
     let base_layers =
       if include_base then [ theme_layer; base_layer ] else [ theme_layer ]
@@ -1095,14 +1102,22 @@ let build_layers ~include_base ~selector_props tw_classes rules media_queries
     let initial_layers =
       match properties_layer with None -> [] | Some l -> [ l ]
     in
-    (* Always include layer declaration - minifier will handle whether to output
-       it *)
-    [ layer_names ] @ initial_layers @ base_layers
-    @ [ components_declaration; utilities_layer ]
+    (* Layers without @property rules *)
+    let layers_without_property =
+      [ layer_names ] @ initial_layers @ base_layers
+      @ [ components_declaration; utilities_layer ]
+    in
+    (* Append @property rules at the END (after all layers) to match Tailwind
+       v4 *)
+    let property_rules_css =
+      if property_rules_for_end = [] then []
+      else [ Css.of_statements property_rules_for_end ]
+    in
+    layers_without_property @ property_rules_css
   in
 
-  (* Return layers and the property_rules for @property emission after layers *)
-  (layers, all_property_rules)
+  (* Return layers with @property rules at the end *)
+  layers
 
 let wrap_css_items ~rules ~media_queries ~container_queries =
   let rules_stylesheet = Css.v rules in
@@ -1141,12 +1156,11 @@ let to_css ?(config = default_config) tw_classes =
      [reset=true]. In Inline mode, emit raw rules without layers. *)
   match config.mode with
   | Css.Variables ->
-      let layers, property_rules =
+      let layers =
         build_layers ~include_base:config.base ~selector_props tw_classes rules
           media_queries container_queries
       in
-      let property_stylesheet = Css.concat property_rules in
-      Css.concat (layers @ [ property_stylesheet ])
+      Css.concat layers
   | Css.Inline ->
       (* No layers - just raw utility rules with var() resolved to fallback
          values *)
