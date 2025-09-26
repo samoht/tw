@@ -444,6 +444,37 @@ let test_never_empty_diff_when_strings_differ () =
         fail "Different strings MUST produce some diff output"))
     test_cases
 
+let test_grouped_selector_list_reorder_no_structural () =
+  (* Reordering items inside a grouped selector should not be a structural
+     diff *)
+  let css_expected = ".a,.b{color:red;padding:2px}" in
+  let css_actual = ".b,.a{color:red;padding:2px}" in
+  (* Structural equality holds *)
+  check css "structurally equal despite selector order" css_expected css_actual;
+  (* diff should not be Diff; it may be String_diff due to formatting *)
+  match Cc.diff ~expected:css_expected ~actual:css_actual with
+  | Cc.Diff _ -> fail "Grouped selector reorder must not be structural"
+  | _ -> ()
+
+let test_rule_position_reordering () =
+  (* Reordering rule positions across different selectors should be detected as
+     Reordered *)
+  let css_expected = ".a{color:red}.b{color:blue}" in
+  let css_actual = ".b{color:blue}.a{color:red}" in
+  let result = Cc.diff ~expected:css_expected ~actual:css_actual in
+  match result with
+  | Cc.Diff d -> (
+      (* Expect exactly one rule change representing the reorder *)
+      check int "one rule change" 1 (List.length d.rules);
+      let r = List.hd d.rules in
+      (* Either of the swapped selectors may be reported depending on pairing *)
+      let ok = r.selector = ".a" || r.selector = ".b" in
+      check bool "rule selector is one of swapped" true ok;
+      match r.change with
+      | Cc.Reordered _ -> ()
+      | _ -> fail "Expected Reordered")
+  | _ -> fail "Both CSS should parse and produce a structural diff"
+
 let tests =
   [
     test_case "strip header" `Quick test_strip_header;
@@ -475,6 +506,9 @@ let tests =
       test_complex_css_unit_differences;
     test_case "never empty diff when strings differ" `Quick
       test_never_empty_diff_when_strings_differ;
+    test_case "grouped selector reorder no structural" `Quick
+      test_grouped_selector_list_reorder_no_structural;
+    test_case "rule position reordering" `Quick test_rule_position_reordering;
     test_case "property reordering" `Quick test_property_reordering;
     test_case "reordered diff formatting" `Quick test_reordered_diff_formatting;
     test_case "mixed reordering and changes" `Quick
