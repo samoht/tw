@@ -4,8 +4,8 @@ module Parse = Parse
 
 let ( >|= ) = Parse.( >|= )
 
-(* Define the spacing variable *)
-let spacing_var = Var.theme Css.Length "spacing" ~order:4
+(* Use shared spacing variable from Theme *)
+let spacing_var = Theme.spacing_var
 
 (** {1 Display Utilities} *)
 

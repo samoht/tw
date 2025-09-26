@@ -6,7 +6,11 @@ type declaration = {
   actual_value : string;
 }
 
-type 'a diff = Added of 'a | Removed of 'a | Changed of 'a * 'a
+type 'a diff =
+  | Added of 'a
+  | Removed of 'a
+  | Changed of 'a * 'a
+  | Reordered of 'a * 'a
 
 type custom_property_definition = {
   name : string;

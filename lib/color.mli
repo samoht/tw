@@ -173,10 +173,14 @@ val is_base_color : color -> bool
 val is_custom_color : color -> bool
 (** [is_custom_color color] checks if a color is a custom color (hex or rgb). *)
 
+val get_color_var : color -> int -> Css.color Var.theme
+(** [get_color_var color shade] gets or creates a memoized color variable for
+    the given color and shade. *)
+
 (** {1 Tailwind Colors} *)
 
 (** Predefined Tailwind v4 color values *)
-module Tailwind_colors : sig
+module Tailwind : sig
   val get_color : string -> int -> string option
   (** [get_color name shade] gets a Tailwind color value in OKLCH format. *)
 end
@@ -438,3 +442,14 @@ val classes_of_string : string list -> (Core.t, [ `Msg of string ]) result
 val shade_of_strings : string list -> (color * int, [ `Msg of string ]) result
 (** [shade_of_strings parts] parses a color and shade from a list of strings.
     Example: ["blue"; "500"] -> Ok (Blue, 500). *)
+
+val theme_order : string -> int * int
+(** Get theme layer order for a color variable. See {!Rules} for detailed layer
+    ordering rules. *)
+
+val theme_order_with_shade : string -> int -> int * int
+(** Get theme layer order for a color variable with shade *)
+
+val utilities_order : string -> int * int
+(** Get utilities layer order for conflict resolution. See {!Rules} for detailed
+    layer ordering rules. *)

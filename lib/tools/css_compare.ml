@@ -6,7 +6,11 @@ type declaration = {
   actual_value : string;
 }
 
-type 'a diff = Added of 'a | Removed of 'a | Changed of 'a * 'a
+type 'a diff =
+  | Added of 'a
+  | Removed of 'a
+  | Changed of 'a * 'a
+  | Reordered of 'a * 'a
 
 type custom_property_definition = {
   name : string;
@@ -53,6 +57,9 @@ let _pp_diff ?(expected = "Expected") ?(actual = "Actual") pp_value fmt =
   | Changed (old_val, new_val) ->
       Fmt.pf fmt "Changed:@,  %s: %a@,  %s: %a" expected pp_value old_val actual
         pp_value new_val
+  | Reordered (old_val, new_val) ->
+      Fmt.pf fmt "Reordered:@,  %s: %a@,  %s: %a" expected pp_value old_val
+        actual pp_value new_val
 
 (* Truncate long CSS values with context for readability *)
 let truncate_with_context max_len value =
@@ -181,7 +188,7 @@ let pp_property_diff fmt { property_name; expected_value; actual_value } =
   let act_len = String.length actual_value in
 
   if exp_len <= short_threshold && act_len <= short_threshold then
-    (* Short values: show inline *)
+    (* Short values: always show inline as a modification *)
     Fmt.pf fmt "    - modify: %s %s -> %s@," property_name expected_value
       actual_value
   else
@@ -203,27 +210,23 @@ let pp_property_diffs fmt prop_diffs =
   List.iter (pp_property_diff fmt) prop_diffs
 
 let pp_reorder decls1 decls2 fmt =
-  let prop_names1 = List.map (fun d -> Css.declaration_name d) decls1 in
-  let prop_names2 = List.map (fun d -> Css.declaration_name d) decls2 in
-  let common_props1 =
-    List.filter (fun p -> List.mem p prop_names2) prop_names1
-  in
-  let common_props2 =
-    List.filter (fun p -> List.mem p prop_names1) prop_names2
-  in
-  if common_props1 <> [] && common_props1 <> common_props2 then (
-    let props_str = String.concat ", " common_props1 in
+  let prop_names1 = List.map Css.declaration_name decls1 in
+  let prop_names2 = List.map Css.declaration_name decls2 in
+  let same_length = List.length prop_names1 = List.length prop_names2 in
+  let sorted1 = List.sort String.compare prop_names1 in
+  let sorted2 = List.sort String.compare prop_names2 in
+  if same_length && sorted1 = sorted2 && prop_names1 <> prop_names2 then
+    let old_str = String.concat ", " prop_names1 in
+    let new_str = String.concat ", " prop_names2 in
     let max_inline_length = 60 in
-    if String.length props_str <= max_inline_length then
-      (* Short list: display inline *)
-      let old_str = String.concat ", " common_props1 in
-      let new_str = String.concat ", " common_props2 in
-      Fmt.pf fmt "    - reorder: [%s] -> [%s]@," old_str new_str
-    else
-      (* Long list: display on multiple lines *)
+    if
+      String.length old_str <= max_inline_length
+      && String.length new_str <= max_inline_length
+    then Fmt.pf fmt "    - reorder: [%s] -> [%s]@," old_str new_str
+    else (
       Fmt.pf fmt "    - reorder:@,";
-    Fmt.pf fmt "        from: [%s]@," (String.concat ", " common_props1);
-    Fmt.pf fmt "        to:   [%s]@," (String.concat ", " common_props2))
+      Fmt.pf fmt "        from: [%s]@," old_str;
+      Fmt.pf fmt "        to:   [%s]@," new_str)
 
 let pp_rule_change fmt change =
   match change with
@@ -273,10 +276,14 @@ let pp_rule_change fmt change =
 
       (* Check for declaration order changes *)
       pp_reorder decls1 decls2 fmt
+  | Reordered ((decls1, _), (decls2, _)) ->
+      (* Show pure reordering without content changes *)
+      pp_reorder decls1 decls2 fmt
 
 let extract_rules : rule list diff -> rule list = function
   | Added rules | Removed rules -> rules
   | Changed (_, rules) -> rules
+  | Reordered (_, rules) -> rules
 
 let rec pp_rule : rule Fmt.t =
  fun fmt { selector; context; change } ->
@@ -297,6 +304,7 @@ and pp_layer : layer Fmt.t =
     | Added (decls, _) -> decls = []
     | Removed (decls, _) -> decls = []
     | Changed ((decls1, _), (decls2, _)) -> decls1 = [] && decls2 = []
+    | Reordered ((decls1, _), (decls2, _)) -> decls1 = [] && decls2 = []
   in
   (* Helper: format layer header with context *)
   let pp_layer_header name change_type =
@@ -334,6 +342,12 @@ and pp_layer : layer Fmt.t =
       pp_layer_header layer.name `Changed;
       pp_empty_rules_summary rules;
       List.iter (pp_rule fmt) rules
+  | Reordered (_, rules) when rules = [] ->
+      pp_layer_header layer.name (`Empty "reordered")
+  | Reordered (_, rules) ->
+      pp_layer_header layer.name `Changed;
+      pp_empty_rules_summary rules;
+      List.iter (pp_rule fmt) rules
 
 and pp_supports_query : supports_query Fmt.t =
  fun fmt sq ->
@@ -366,6 +380,9 @@ and pp_custom_property : custom_property Fmt.t =
       in
       pp_if_changed pp_initial "initial-value" old_def.initial_value
         new_def.initial_value fmt ()
+  | Reordered (_old_def, _new_def) ->
+      (* For custom properties, reordering would be unusual but handle it *)
+      Fmt.pf fmt "- @property %s: (reordered)@," cp.name
 
 let pp ?(expected = "Expected") ?(actual = "Actual") fmt
     {
@@ -411,6 +428,8 @@ let equal_diff equal_value d1 d2 =
   match (d1, d2) with
   | Added v1, Added v2 | Removed v1, Removed v2 -> equal_value v1 v2
   | Changed (o1, n1), Changed (o2, n2) -> equal_value o1 o2 && equal_value n1 n2
+  | Reordered (o1, n1), Reordered (o2, n2) ->
+      equal_value o1 o2 && equal_value n1 n2
   | _ -> false
 
 let equal_rule_change r1 r2 =
@@ -669,50 +688,156 @@ let convert_rule_to_strings stmt =
       (selector_str, decls)
   | None -> ("", [])
 
-let rule_diffs rules1 rules2 =
-  let get_selector stmt =
-    match Css.statement_selector stmt with
-    | Some s -> s
-    | None -> Css.Selector.universal
+(* Helper functions for rule comparison *)
+let get_rule_selector stmt =
+  match Css.statement_selector stmt with
+  | Some s -> s
+  | None -> Css.Selector.universal
+
+let get_rule_declarations stmt =
+  match Css.statement_declarations stmt with Some d -> d | None -> []
+
+let find_rule_by_selector sel rules =
+  List.find_opt (fun r -> get_rule_selector r = sel) rules
+
+let sort_rules_by_selector rules =
+  List.sort
+    (fun r1 r2 ->
+      String.compare
+        (Css.Selector.to_string (get_rule_selector r1))
+        (Css.Selector.to_string (get_rule_selector r2)))
+    rules
+
+let rules_identical_when_sorted rules1 rules2 =
+  let sorted1 = sort_rules_by_selector rules1 in
+  let sorted2 = sort_rules_by_selector rules2 in
+  let len1 = List.length sorted1 in
+  let len2 = List.length sorted2 in
+  len1 = len2
+  &&
+  try
+    List.for_all2
+      (fun r1 r2 ->
+        get_rule_selector r1 = get_rule_selector r2
+        && get_rule_declarations r1 = get_rule_declarations r2)
+      sorted1 sorted2
+  with Invalid_argument _ -> false
+
+let find_added_rules rules1 rules2 =
+  List.filter_map
+    (fun r ->
+      let sel = get_rule_selector r in
+      if not (List.exists (fun r1 -> get_rule_selector r1 = sel) rules1) then
+        Some r
+      else None)
+    rules2
+
+let find_removed_rules rules1 rules2 =
+  List.filter_map
+    (fun r ->
+      let sel = get_rule_selector r in
+      if not (List.exists (fun r2 -> get_rule_selector r2 = sel) rules2) then
+        Some r
+      else None)
+    rules1
+
+let find_modified_rules rules1 rules2 =
+  List.filter_map
+    (fun r1 ->
+      let sel = get_rule_selector r1 in
+      match find_rule_by_selector sel rules2 with
+      | Some r2 ->
+          let d1 = get_rule_declarations r1 in
+          let d2 = get_rule_declarations r2 in
+          if d1 <> d2 then Some (sel, d1, d2) else None
+      | None -> None)
+    rules1
+
+let has_same_selectors rules1 rules2 =
+  let sel_list1 = List.map get_rule_selector rules1 in
+  let sel_list2 = List.map get_rule_selector rules2 in
+  List.length sel_list1 = List.length sel_list2
+  && List.for_all (fun s -> List.mem s sel_list2) sel_list1
+
+let create_ordering_diff rules1 rules2 =
+  (* Create maps from selector to declarations for both rule lists *)
+  let map1 =
+    List.fold_left
+      (fun acc rule ->
+        let sel = get_rule_selector rule in
+        let decls = get_rule_declarations rule in
+        (sel, decls) :: acc)
+      [] rules1
+    |> List.rev
   in
-  let get_declarations stmt =
-    match Css.statement_declarations stmt with Some d -> d | None -> []
-  in
-  let find_rule sel rules =
-    List.find_opt (fun r -> get_selector r = sel) rules
+  let map2 =
+    List.fold_left
+      (fun acc rule ->
+        let sel = get_rule_selector rule in
+        let decls = get_rule_declarations rule in
+        (sel, decls) :: acc)
+      [] rules2
+    |> List.rev
   in
 
-  let added =
-    List.filter_map
-      (fun r ->
-        let sel = get_selector r in
-        if not (List.exists (fun r1 -> get_selector r1 = sel) rules1) then
-          Some r
-        else None)
-      rules2
+  (* Find ordering discrepancies by checking if selectors appear in different
+     positions *)
+  let rec find_ordering_issues acc pos1 remaining1 remaining2 =
+    match (remaining1, remaining2) with
+    | [], [] -> List.rev acc
+    | (sel1, decls1) :: rest1, (sel2, decls2) :: rest2 ->
+        if sel1 <> sel2 then
+          (* Selectors differ at this position - this could be an ordering issue *)
+          (* Check if sel1 appears later in remaining2 *)
+          let sel1_in_remaining2 =
+            List.exists (fun (s, _) -> s = sel1) remaining2
+          in
+          (* Check if sel2 appears later in remaining1 *)
+          let sel2_in_remaining1 =
+            List.exists (fun (s, _) -> s = sel2) remaining1
+          in
+
+          if sel1_in_remaining2 && sel2_in_remaining1 then
+            (* This is likely an ordering issue - both selectors exist but in
+               wrong positions *)
+            find_ordering_issues
+              ((sel1, decls1, decls2) :: acc)
+              (pos1 + 1) rest1 rest2
+          else
+            (* This might be a true content difference, not just ordering *)
+            find_ordering_issues acc (pos1 + 1) rest1 rest2
+        else
+          (* Selectors match, continue *)
+          find_ordering_issues acc (pos1 + 1) rest1 rest2
+    | _, _ -> List.rev acc (* Lists have different lengths *)
   in
-  let removed =
-    List.filter_map
-      (fun r ->
-        let sel = get_selector r in
-        if not (List.exists (fun r2 -> get_selector r2 = sel) rules2) then
-          Some r
-        else None)
-      rules1
+
+  find_ordering_issues [] 0 map1 map2
+
+let handle_pure_ordering_diff rules1 rules2 =
+  let added = [] in
+  let removed = [] in
+  let modified_with_order = create_ordering_diff rules1 rules2 in
+  (added, removed, modified_with_order)
+
+let handle_structural_diff rules1 rules2 =
+  let added = find_added_rules rules1 rules2 in
+  let removed = find_removed_rules rules1 rules2 in
+  let modified = find_modified_rules rules1 rules2 in
+
+  let has_structural_changes = added <> [] || removed <> [] || modified <> [] in
+  let has_ordering_changes =
+    (not has_structural_changes)
+    && has_same_selectors rules1 rules2
+    && List.map get_rule_selector rules1 <> List.map get_rule_selector rules2
   in
-  let modified =
-    List.filter_map
-      (fun r1 ->
-        let sel = get_selector r1 in
-        match find_rule sel rules2 with
-        | Some r2 ->
-            let d1 = get_declarations r1 in
-            let d2 = get_declarations r2 in
-            if d1 <> d2 then Some (sel, d1, d2) else None
-        | None -> None)
-      rules1
+
+  let modified_with_order =
+    if has_ordering_changes then create_ordering_diff rules1 rules2 @ modified
+    else modified
   in
-  (added, removed, modified)
+
+  (added, removed, modified_with_order)
 
 (* Generic helper for finding added/removed/modified items between two lists.
    Works with any item type that has a key for comparison. *)
@@ -748,6 +873,11 @@ let find_diffs ~(key_of : 'item -> 'key) ~(key_equal : 'key -> 'key -> bool)
       items1
   in
   (added, removed, modified)
+
+let rule_diffs rules1 rules2 =
+  if rules_identical_when_sorted rules1 rules2 then
+    handle_pure_ordering_diff rules1 rules2
+  else handle_structural_diff rules1 rules2
 
 (* Media and layer diffs intentionally omitted to avoid relying on hidden Css
    internals; we currently focus on top-level rule differences. *)
@@ -908,11 +1038,21 @@ let rules_to_changes ?(context = []) (added, removed, modified) : rule list =
     ~modified:(fun (sel, decls1, decls2) ->
       let sel_str = Css.Selector.to_string sel in
       let prop_diffs = property_diffs decls1 decls2 in
+      let is_pure_reorder =
+        (* Check if same properties with same values, just different order *)
+        let props1 = List.map decl_to_prop_value decls1 in
+        let props2 = List.map decl_to_prop_value decls2 in
+        let sorted1 = List.sort compare props1 in
+        let sorted2 = List.sort compare props2 in
+        sorted1 = sorted2 && props1 <> props2
+      in
       Some
         {
           selector = sel_str;
           context;
-          change = Changed ((decls1, []), (decls2, prop_diffs));
+          change =
+            (if is_pure_reorder then Reordered ((decls1, []), (decls2, []))
+             else Changed ((decls1, []), (decls2, prop_diffs)));
         })
     (added, removed, modified)
 
@@ -981,97 +1121,67 @@ let diff_ast ~(expected : Css.t) ~(actual : Css.t) =
       (layer_added, layer_removed, layer_modified)
   in
 
-  (* Build supports diffs *)
-  let supports1 = supports_blocks expected in
-  let supports2 = supports_blocks actual in
-  let supports_added =
-    List.filter
-      (fun (c, _) -> not (List.exists (fun (c2, _) -> c = c2) supports1))
-      supports2
+  (* Build supports diffs using generic list diffing helpers *)
+  let supports1 =
+    supports_blocks expected
+    |> List.map (fun (cond, block) -> (cond, List.filter Css.is_rule block))
   in
-  let supports_removed =
-    List.filter
-      (fun (c, _) -> not (List.exists (fun (c2, _) -> c = c2) supports2))
-      supports1
+  let supports2 =
+    supports_blocks actual
+    |> List.map (fun (cond, block) -> (cond, List.filter Css.is_rule block))
+  in
+  let supports_added, supports_removed, supports_modified_pairs =
+    find_diffs ~key_of:fst ~key_equal:String.equal
+      ~is_empty_diff:(fun (_, rules1) (_, rules2) ->
+        let a_r, r_r, m_r = rule_diffs rules1 rules2 in
+        a_r = [] && r_r = [] && m_r = [])
+      supports1 supports2
   in
   let supports_modified =
-    List.filter_map
-      (fun (cond, block1) ->
-        match List.find_opt (fun (c, _) -> c = cond) supports2 with
-        | Some (_, block2) ->
-            let rules1 = List.filter Css.is_rule block1 in
-            let rules2 = List.filter Css.is_rule block2 in
-            let a_r, r_r, m_r = rule_diffs rules1 rules2 in
-            if a_r = [] && r_r = [] && m_r = [] then None
-            else Some (cond, rules1, rules2)
-        | None -> None)
-      supports1
-  in
-  (* Process supports queries with similar pattern but block extraction *)
-  let supports_added_processed =
     List.map
-      (fun (cond, block) -> (cond, List.filter Css.is_rule block))
-      supports_added
+      (fun ((cond, rules1), (_, rules2)) -> (cond, rules1, rules2))
+      supports_modified_pairs
   in
-  let supports_removed_processed =
-    List.map
-      (fun (cond, block) -> (cond, List.filter Css.is_rule block))
-      supports_removed
-  in
-
   let supports_querys =
     build_simple_query_diffs "@supports"
       (fun cond change -> ({ condition = cond; change } : supports_query))
-      (supports_added_processed, supports_removed_processed, supports_modified)
+      (supports_added, supports_removed, supports_modified)
   in
 
-  (* Build container diffs *)
-  let containers1 = container_blocks expected in
-  let containers2 = container_blocks actual in
-  let containers_added =
-    List.filter
-      (fun (n, c, _) ->
-        not (List.exists (fun (n2, c2, _) -> n = n2 && c = c2) containers1))
-      containers2
+  (* Build container diffs using generic list diffing helpers *)
+  let containers1 =
+    container_blocks expected
+    |> List.map (fun (n, cond, block) ->
+           (n, cond, List.filter Css.is_rule block))
   in
-  let containers_removed =
-    List.filter
-      (fun (n, c, _) ->
-        not (List.exists (fun (n2, c2, _) -> n = n2 && c = c2) containers2))
-      containers1
+  let containers2 =
+    container_blocks actual
+    |> List.map (fun (n, cond, block) ->
+           (n, cond, List.filter Css.is_rule block))
   in
-  let containers_modified =
-    List.filter_map
-      (fun (name, cond, block1) ->
-        match
-          List.find_opt (fun (n, c, _) -> n = name && c = cond) containers2
-        with
-        | Some (_, _, block2) ->
-            let rules1 = List.filter Css.is_rule block1 in
-            let rules2 = List.filter Css.is_rule block2 in
-            let a_r, r_r, m_r = rule_diffs rules1 rules2 in
-            if a_r = [] && r_r = [] && m_r = [] then None
-            else Some (name, cond, rules1, rules2)
-        | None -> None)
-      containers1
+  let key_of (n, cond, _) = (n, cond) in
+  let key_equal (n1, c1) (n2, c2) = n1 = n2 && c1 = c2 in
+  let is_empty_diff (_, _, rules1) (_, _, rules2) =
+    let a_r, r_r, m_r = rule_diffs rules1 rules2 in
+    a_r = [] && r_r = [] && m_r = []
   in
-  (* Container queries need special handling due to the name field *)
+  let containers_added, containers_removed, containers_modified_pairs =
+    find_diffs ~key_of ~key_equal ~is_empty_diff containers1 containers2
+  in
   let container_querys : container_query list =
     let rule_changes_of ?(context = []) rules1 rules2 =
       rules_to_changes ~context (rule_diffs rules1 rules2)
     in
     build_diff_list
-      ~added:(fun (n, cond, block) ->
-        let rules = List.filter Css.is_rule block in
+      ~added:(fun (n, cond, rules) ->
         let context = [ "@container " ^ cond ] in
         let rc = rule_changes_of ~context [] rules in
         ({ name = n; condition = cond; change = Added rc } : container_query))
-      ~removed:(fun (n, cond, block) ->
-        let rules = List.filter Css.is_rule block in
+      ~removed:(fun (n, cond, rules) ->
         let context = [ "@container " ^ cond ] in
         let rc = rule_changes_of ~context rules [] in
         ({ name = n; condition = cond; change = Removed rc } : container_query))
-      ~modified:(fun (n, cond, rules1, rules2) ->
+      ~modified:(fun ((n, cond, rules1), (_, _, rules2)) ->
         let context = [ "@container " ^ cond ] in
         let rc = rule_changes_of ~context rules1 rules2 in
         if rc = [] then None
@@ -1083,7 +1193,7 @@ let diff_ast ~(expected : Css.t) ~(actual : Css.t) =
                change = Changed (rule_changes_of ~context rules1 [], rc);
              }
               : container_query))
-      (containers_added, containers_removed, containers_modified)
+      (containers_added, containers_removed, containers_modified_pairs)
   in
 
   (* Build property diffs *)

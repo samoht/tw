@@ -381,36 +381,6 @@ let group_container_queries container_rules =
 
 (* Centralized color ordering - matches Tailwind's color palette order *)
 (* Colors are ordered alphabetically for consistency and predictability *)
-let color_order_map =
-  [
-    ("amber", 0);
-    ("blue", 1);
-    ("cyan", 2);
-    ("emerald", 3);
-    ("fuchsia", 4);
-    ("gray", 5);
-    ("green", 6);
-    ("indigo", 7);
-    ("lime", 8);
-    ("neutral", 9);
-    ("orange", 10);
-    ("pink", 11);
-    ("purple", 12);
-    ("red", 13);
-    ("rose", 14);
-    ("sky", 15);
-    ("slate", 16);
-    ("stone", 17);
-    ("teal", 18);
-    ("violet", 19);
-    ("yellow", 20);
-    ("zinc", 21);
-  ]
-
-let color_order color_name =
-  match List.assoc_opt color_name color_order_map with
-  | Some order -> order
-  | None -> 100 (* Unknown colors go last *)
 
 (* Utility prefix constants for classification *)
 let display_prefixes =
@@ -601,8 +571,9 @@ let utility_groups =
                 String.sub color_part 0 last_dash
               with Not_found -> color_part
             in
-            color_order color_name
-          else 50 (* Gradient utilities come after solid colors *));
+            let _, color_order = Color.utilities_order color_name in
+            color_order
+          else 0);
     };
     {
       priority = 300;
@@ -671,8 +642,14 @@ let utility_groups =
     };
   ]
 
-(* Main conflict resolution function *)
-let conflict_group selector =
+(* Enhanced conflict resolution function that returns a structured ordering *)
+type utility_order = {
+  utility_group : string; (* Name of the utility group for debugging *)
+  priority : int; (* Inter-utility ordering (10, 100, 200, etc.) *)
+  suborder : int; (* Intra-utility ordering (specific to each utility) *)
+}
+
+let conflict_order selector =
   let core =
     if String.starts_with ~prefix:"." selector then
       String.sub selector 1 (String.length selector - 1)
@@ -681,9 +658,18 @@ let conflict_group selector =
 
   (* Find the first matching group *)
   match List.find_opt (fun g -> g.classifier core) utility_groups with
-  | Some group -> (group.priority, group.suborder core)
-  | None -> (9999, 0)
-(* Unknown utilities go last *)
+  | Some group ->
+      {
+        utility_group = group.name;
+        priority = group.priority;
+        suborder = group.suborder core;
+      }
+  | None -> { utility_group = "unknown"; priority = 9999; suborder = 0 }
+
+(* Legacy function for backward compatibility *)
+let conflict_group selector =
+  let order = conflict_order selector in
+  (order.priority, order.suborder)
 
 let build_utilities_layer ~rules ~media_queries ~container_queries =
   (* Preserve source order to maintain CSS cascade semantics *)
@@ -717,6 +703,16 @@ let add_hover_to_media_map hover_rules media_map =
 
 (* Convert selector/props pairs to CSS rules. *)
 let of_grouped ?(filter_custom_props = false) grouped_list =
+  (* Sort utilities by conflict order to match Tailwind v4's ordering *)
+  let sorted_list =
+    List.sort
+      (fun (sel1, _) (sel2, _) ->
+        let prio1, sub1 = conflict_group (Css.Selector.to_string sel1) in
+        let prio2, sub2 = conflict_group (Css.Selector.to_string sel2) in
+        let prio_cmp = Int.compare prio1 prio2 in
+        if prio_cmp = 0 then Int.compare sub1 sub2 else prio_cmp)
+      grouped_list
+  in
   List.map
     (fun (selector, props) ->
       let filtered_props =
@@ -739,7 +735,7 @@ let of_grouped ?(filter_custom_props = false) grouped_list =
         else props
       in
       Css.rule ~selector filtered_props)
-    grouped_list
+    sorted_list
 
 (* Internal: build rule sets from pre-extracted outputs. *)
 let rule_sets_from_selector_props all_rules =
@@ -877,7 +873,9 @@ let compute_theme_layer_from_selector_props ?(default_decls = []) selector_props
     List.sort
       (fun (_, order_a) (_, order_b) ->
         match (order_a, order_b) with
-        | Some a, Some b -> Int.compare a b
+        | Some (prio_a, sub_a), Some (prio_b, sub_b) ->
+            let prio_cmp = Int.compare prio_a prio_b in
+            if prio_cmp = 0 then Int.compare sub_a sub_b else prio_cmp
         | Some _, None -> -1
         | None, Some _ -> 1
         | None, None -> 0)

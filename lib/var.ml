@@ -30,7 +30,8 @@ type ('a, 'r) t = {
   binding : ?fallback:'a Css.fallback -> 'a -> Css.declaration * 'a Css.var;
       (* Function to create declaration and var ref *)
   property : 'a property_info option; (* For @property registration *)
-  order : int option; (* Explicit ordering for theme layer *)
+  order : (int * int) option;
+      (* Explicit ordering for theme layer (utility_priority, suborder) *)
   fallback : 'a option; (* Built-in fallback for ref_only variables *)
 }
 
@@ -40,12 +41,49 @@ type 'a property_default = ('a, [ `Property_default ]) t
 type 'a channel = ('a, [ `Channel ]) t
 type 'a ref_only = ('a, [ `Ref_only ]) t
 
+(* Global registry to prevent order and name conflicts *)
+module Registry = struct
+  (* Table mapping (priority, suborder) -> variable_name *)
+  let order_registry : (int * int, string) Hashtbl.t = Hashtbl.create 128
+
+  (* Table mapping variable_name -> (priority, suborder) *)
+  let name_registry : (string, int * int) Hashtbl.t = Hashtbl.create 128
+
+  let register_variable ~name ~order =
+    (* Check for order conflicts *)
+    (match Hashtbl.find_opt order_registry order with
+    | Some existing_name when existing_name <> name ->
+        failwith
+          (Printf.sprintf
+             "Variable order conflict: order %s is already used by variable \
+              '%s', cannot assign to '%s'"
+             (match order with p, s -> Printf.sprintf "(%d, %d)" p s)
+             existing_name name)
+    | _ -> ());
+
+    (* Check for name conflicts - fail if name already exists regardless of
+       order *)
+    (match Hashtbl.find_opt name_registry name with
+    | Some existing_order ->
+        failwith
+          (Printf.sprintf
+             "Variable name conflict: variable '%s' is already registered with \
+              order %s, cannot create duplicate"
+             name
+             (match existing_order with p, s -> Printf.sprintf "(%d, %d)" p s))
+    | None -> ());
+
+    (* Register the variable *)
+    Hashtbl.replace order_registry order name;
+    Hashtbl.replace name_registry name order
+end
+
 type info =
   | Info : {
       name : string;
       kind : 'a Css.kind;
       need_property : bool;
-      order : int option;
+      order : (int * int) option;
     }
       -> info
 
@@ -64,6 +102,11 @@ let initial_to_universal : type a. a Css.kind -> a -> string =
   | Css.Angle -> Css.Pp.to_string Css.pp_angle initial
   | Css.Duration -> Css.Pp.to_string Css.pp_duration initial
   | Css.Float -> Pp.float initial ^ "%"
+  | Css.Percentage -> (
+      (* For @property with universal syntax, convert percentage to numeric *)
+      match initial with
+      | Pct f -> Pp.float f
+      | _ -> "initial" (* Fallback for Var/Calc cases *))
   | Css.Int -> string_of_int initial
   | Css.String -> initial
   | Css.Font_weight -> Css.Pp.to_string Css.pp_font_weight initial
@@ -75,7 +118,7 @@ let initial_to_universal : type a. a Css.kind -> a -> string =
 let create : type a r.
     a Css.kind ->
     ?property:a property_info ->
-    ?order:int ->
+    ?order:int * int ->
     ?fallback:a ->
     role:r role ->
     string ->
@@ -87,6 +130,11 @@ let create : type a r.
   | Theme, None ->
       failwith ("Variable '" ^ name ^ "' in theme layer must have an order")
   | _ -> ());
+
+  (* Register the variable in the global registry to prevent conflicts *)
+  (match order with
+  | Some ord -> Registry.register_variable ~name ~order:ord
+  | None -> ());
 
   let info = Info { kind; name; need_property = property <> None; order } in
   let binding ?fallback:fb value =
@@ -141,10 +189,13 @@ let create_property : type a.
     match initial with
     | None -> property ~name Universal ~inherits ()
     | Some v -> (
-        (* Special case: empty lists for Gradient_stops should not have
-           initial-value *)
+        (* Special cases: certain types should not have initial-value *)
         match (kind, v) with
         | Gradient_stop, List [] -> property ~name Universal ~inherits ()
+        | Percentage, Pct 0. ->
+            (* For gradient-position, use universal syntax without initial
+               value *)
+            property ~name Universal ~inherits ()
         | _ ->
             let initial_str = initial_to_universal kind v in
             property ~name Universal ~initial_value:initial_str ~inherits ())
@@ -164,8 +215,9 @@ let create_property : type a.
     (* Percentage - use length-percentage syntax *)
     | Percentage, None -> property ~name Length_percentage ~inherits ()
     | Percentage, Some v ->
-        property ~name Length_percentage ~initial_value:(Percentage v) ~inherits
-          ()
+        property ~name Length_percentage
+          ~initial_value:(Pct (match v with Pct f -> f | _ -> 0.0))
+          ~inherits ()
     (* Gradient_stops - special handling *)
     | Gradient_stop, None -> property ~name Universal ~inherits ()
     | Gradient_stop, Some (List []) ->

@@ -44,32 +44,32 @@ let blur_3xl = blur_internal `Xl_3
 
 let brightness n =
   let class_name = "brightness-" ^ string_of_int n in
-  let value : Css.number = Float (float_of_int n /. 100.0) in
+  let value : Css.number = Num (float_of_int n /. 100.0) in
   style class_name [ filter (Brightness value) ]
 
 let contrast n =
   let class_name = "contrast-" ^ string_of_int n in
-  let value : Css.number = Float (float_of_int n /. 100.0) in
+  let value : Css.number = Num (float_of_int n /. 100.0) in
   style class_name [ filter (Contrast value) ]
 
 let grayscale n =
   let class_name = if n = 0 then "grayscale-0" else "grayscale" in
-  let value : Css.number = Float (float_of_int n /. 100.0) in
+  let value : Css.number = Num (float_of_int n /. 100.0) in
   style class_name [ filter (Grayscale value) ]
 
 let saturate n =
   let class_name = "saturate-" ^ string_of_int n in
-  let value : Css.number = Float (float_of_int n /. 100.0) in
+  let value : Css.number = Num (float_of_int n /. 100.0) in
   style class_name [ filter (Saturate value) ]
 
 let sepia n =
   let class_name = if n = 0 then "sepia-0" else "sepia" in
-  let value : Css.number = Float (float_of_int n /. 100.0) in
+  let value : Css.number = Num (float_of_int n /. 100.0) in
   style class_name [ filter (Sepia value) ]
 
 let invert n =
   let class_name = if n = 0 then "invert-0" else "invert" in
-  let value : Css.number = Float (float_of_int n /. 100.0) in
+  let value : Css.number = Num (float_of_int n /. 100.0) in
   style class_name [ filter (Invert value) ]
 
 let hue_rotate n =
@@ -103,42 +103,46 @@ let backdrop_brightness n =
   let class_name =
     String.concat "" [ "backdrop-brightness-"; string_of_int n ]
   in
-  style class_name [ backdrop_filter (Brightness (Pct (float_of_int n))) ]
+  style class_name
+    [ backdrop_filter (Brightness (Num (float_of_int n /. 100.0))) ]
 
 let backdrop_contrast n =
   let class_name = String.concat "" [ "backdrop-contrast-"; string_of_int n ] in
-  style class_name [ backdrop_filter (Contrast (Pct (float_of_int n))) ]
+  style class_name
+    [ backdrop_filter (Contrast (Num (float_of_int n /. 100.0))) ]
 
 let backdrop_opacity n =
   let class_name = String.concat "" [ "backdrop-opacity-"; string_of_int n ] in
-  style class_name [ backdrop_filter (Opacity (Pct (float_of_int n))) ]
+  style class_name [ backdrop_filter (Opacity (Num (float_of_int n /. 100.0))) ]
 
 let backdrop_saturate n =
   let class_name = String.concat "" [ "backdrop-saturate-"; string_of_int n ] in
-  style class_name [ backdrop_filter (Saturate (Pct (float_of_int n))) ]
+  style class_name
+    [ backdrop_filter (Saturate (Num (float_of_int n /. 100.0))) ]
 
 let backdrop_grayscale_default =
-  style "backdrop-grayscale" [ backdrop_filter (Grayscale (Pct 100.0)) ]
+  style "backdrop-grayscale" [ backdrop_filter (Grayscale (Num 1.0)) ]
 
 let backdrop_grayscale n =
   let class_name =
     String.concat "" [ "backdrop-grayscale-"; string_of_int n ]
   in
-  style class_name [ backdrop_filter (Grayscale (Pct (float_of_int n))) ]
+  style class_name
+    [ backdrop_filter (Grayscale (Num (float_of_int n /. 100.0))) ]
 
 let backdrop_invert_default =
-  style "backdrop-invert" [ backdrop_filter (Invert (Pct 100.)) ]
+  style "backdrop-invert" [ backdrop_filter (Invert (Num 1.0)) ]
 
 let backdrop_invert n =
   let class_name = String.concat "" [ "backdrop-invert-"; string_of_int n ] in
-  style class_name [ backdrop_filter (Invert (Pct (float_of_int n))) ]
+  style class_name [ backdrop_filter (Invert (Num (float_of_int n /. 100.0))) ]
 
 let backdrop_sepia_default =
-  style "backdrop-sepia" [ backdrop_filter (Sepia (Pct 100.)) ]
+  style "backdrop-sepia" [ backdrop_filter (Sepia (Num 1.0)) ]
 
 let backdrop_sepia n =
   let class_name = String.concat "" [ "backdrop-sepia-"; string_of_int n ] in
-  style class_name [ backdrop_filter (Sepia (Pct (float_of_int n))) ]
+  style class_name [ backdrop_filter (Sepia (Num (float_of_int n /. 100.0))) ]
 
 let backdrop_hue_rotate n =
   let class_name =
