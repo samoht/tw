@@ -290,11 +290,15 @@ let rec pp_rule : rule Fmt.t =
   pp_rule_selector context selector fmt;
   pp_rule_change fmt change
 
+(* Helper to print a block of rules under a header when non-empty *)
+and pp_rules_block fmt header rules_diff =
+  let rules = extract_rules rules_diff in
+  if rules <> [] then (
+    Fmt.pf fmt "- %s:@," header;
+    List.iter (pp_rule fmt) rules)
+
 and pp_media_query : media_query Fmt.t =
- fun fmt mq ->
-  if extract_rules mq.change <> [] then (
-    Fmt.pf fmt "- @media %s:@," mq.condition;
-    List.iter (pp_rule fmt) (extract_rules mq.change))
+ fun fmt mq -> pp_rules_block fmt ("@media " ^ mq.condition) mq.change
 
 and pp_layer : layer Fmt.t =
  fun fmt layer ->
@@ -350,17 +354,12 @@ and pp_layer : layer Fmt.t =
       List.iter (pp_rule fmt) rules
 
 and pp_supports_query : supports_query Fmt.t =
- fun fmt sq ->
-  if extract_rules sq.change <> [] then (
-    Fmt.pf fmt "- @supports %s:@," sq.condition;
-    List.iter (pp_rule fmt) (extract_rules sq.change))
+ fun fmt sq -> pp_rules_block fmt ("@supports " ^ sq.condition) sq.change
 
 and pp_container_query : container_query Fmt.t =
  fun fmt cq ->
-  if extract_rules cq.change <> [] then (
-    let name_str = Option.value ~default:"" cq.name in
-    Fmt.pf fmt "- @container %s:@," name_str;
-    List.iter (pp_rule fmt) (extract_rules cq.change))
+  let name_str = Option.value ~default:"" cq.name in
+  pp_rules_block fmt ("@container " ^ name_str) cq.change
 
 and pp_custom_property : custom_property Fmt.t =
  fun fmt cp ->
@@ -672,7 +671,6 @@ let extract_base_rules css class_name =
 
 (* Analyze differences between two parsed CSS ASTs, returning structural
    changes *)
-(* moved above: props_of_decls *)
 
 let convert_rule_to_strings stmt =
   match Css.as_rule stmt with
@@ -1113,13 +1111,14 @@ let diff_ast ~(expected : Css.t) ~(actual : Css.t) =
   in
 
   (* Build supports diffs using generic list diffing helpers *)
+  let only_rules = List.filter Css.is_rule in
   let supports1 =
     supports_blocks expected
-    |> List.map (fun (cond, block) -> (cond, List.filter Css.is_rule block))
+    |> List.map (fun (cond, block) -> (cond, only_rules block))
   in
   let supports2 =
     supports_blocks actual
-    |> List.map (fun (cond, block) -> (cond, List.filter Css.is_rule block))
+    |> List.map (fun (cond, block) -> (cond, only_rules block))
   in
   let supports_added, supports_removed, supports_modified_pairs =
     find_diffs ~key_of:fst ~key_equal:String.equal
@@ -1142,13 +1141,11 @@ let diff_ast ~(expected : Css.t) ~(actual : Css.t) =
   (* Build container diffs using generic list diffing helpers *)
   let containers1 =
     container_blocks expected
-    |> List.map (fun (n, cond, block) ->
-           (n, cond, List.filter Css.is_rule block))
+    |> List.map (fun (n, cond, block) -> (n, cond, only_rules block))
   in
   let containers2 =
     container_blocks actual
-    |> List.map (fun (n, cond, block) ->
-           (n, cond, List.filter Css.is_rule block))
+    |> List.map (fun (n, cond, block) -> (n, cond, only_rules block))
   in
   let key_of (n, cond, _) = (n, cond) in
   let key_equal (n1, c1) (n2, c2) = n1 = n2 && c1 = c2 in
