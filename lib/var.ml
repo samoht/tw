@@ -115,12 +115,14 @@ let property_default kind ~initial ?(inherits = false) ?(universal = false) name
   let property = property_info ~initial ~inherits ~universal () in
   create kind ~property ~role:Property_default name ~layer:Utility
 
-let channel kind name =
-  (* Channels need @property without initial value for animations/transitions *)
-  let property =
-    property_info ?initial:None ~inherits:false ~universal:true ()
-  in
-  create kind ~property ~role:Channel name ~layer:Utility
+let channel ?(needs_property = false) kind name =
+  if needs_property then
+    (* Channels that need @property for animations/transitions *)
+    let property =
+      property_info ?initial:None ~inherits:false ~universal:true ()
+    in
+    create kind ~property ~role:Channel name ~layer:Utility
+  else create kind ~role:Channel name ~layer:Utility
 
 (* Place after [reference] to avoid forward reference issues *)
 
