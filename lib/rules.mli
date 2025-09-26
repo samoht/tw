@@ -1,4 +1,27 @@
-(** CSS rule generation and management *)
+(** CSS rule generation and management
+
+    This module handles the generation of CSS rules across different layers
+    following Tailwind v4's architecture with deterministic ordering.
+
+    {1 Layer-Specific Ordering Rules}
+
+    {2 Theme Layer}
+    Order is stable and intentional, not alphabetical. Tokens appear in
+    canonical sequence: default fonts → color palette (in specific order) →
+    scales. Sorted by metadata (priority, subindex) attached to each variable.
+
+    {2 Properties Layer}
+    Two-part structure:
+    - Initial values in [@supports] block at layer start
+    - [@property] rules appended at stylesheet end (after all layers)
+
+    {2 Utilities Layer}
+    Ordered by conflict resolution groups for predictable cascade: display →
+    position → margin → background → padding → typography → border → sizing →
+    effects → interactivity → flexbox/grid → gap → container/prose
+
+    Within groups, specific suborders apply (e.g., colors by palette order,
+    spacing with all → axis → side-specific). *)
 
 open Core
 
@@ -198,9 +221,6 @@ val classify : output list -> by_type
 val conflict_group : string -> int * int
 (** [conflict_group selector] returns the conflict group priority for utility
     ordering. *)
-
-val color_order : string -> int
-(** [color_order color] returns the ordering priority for color names. *)
 
 (** {1 Layer Generation} *)
 

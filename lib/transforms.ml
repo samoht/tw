@@ -63,16 +63,20 @@ let translate_y n =
 
 let scale n =
   let class_name = "scale-" ^ string_of_int n in
-  let dx, x_ref = Var.binding tw_scale_x_var (Pct (float_of_int n)) in
-  let dy, y_ref = Var.binding tw_scale_y_var (Pct (float_of_int n)) in
+  let dx, _ = Var.binding tw_scale_x_var (Pct (float_of_int n)) in
+  let dy, _ = Var.binding tw_scale_y_var (Pct (float_of_int n)) in
   let dz, _ = Var.binding tw_scale_z_var (Pct (float_of_int n)) in
   let props =
-    match Var.property_rule tw_scale_x_var with
-    | Some rule -> rule
-    | None -> empty
+    [
+      Var.property_rule tw_scale_x_var;
+      Var.property_rule tw_scale_y_var;
+      Var.property_rule tw_scale_z_var;
+    ]
+    |> List.filter_map (fun x -> x)
+    |> concat
   in
   style class_name ~property_rules:props
-    (dx :: dy :: dz :: [ scale (XY (Var x_ref, Var y_ref)) ])
+    (dx :: dy :: dz :: [ scale (XY (Pct 1.0, Pct 1.0)) ])
 
 let scale_x n =
   let value = float_of_int n /. 100.0 in

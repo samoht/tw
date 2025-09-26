@@ -185,14 +185,162 @@ let check_inline_style () =
   check bool "has margin" true (contains style "margin");
   check bool "has background-color" true (contains style "background")
 
+(* ---------------------------------------------------------------------- *)
+(* Ordering tests for layers and properties/@property emission (AST-based) *)
+(* ---------------------------------------------------------------------- *)
+
+(* Short, reusable helpers *)
+let sheet_of ?(base = false) ?(mode = Css.Variables) ?(optimize = false) styles
+    =
+  Tw.Rules.to_css ~config:{ Tw.Rules.base; mode; optimize } styles
+
+let layers_of (sheet : Css.t) : string list = Css.layers sheet
+
+(* layer_block is now available in Css module *)
+
+let supports_block (stmts : Css.statement list) : Css.statement list option =
+  List.find_map
+    (fun s ->
+      match Css.as_supports s with Some (_, inner) -> Some inner | _ -> None)
+    stmts
+
+let first_rule_decls (stmts : Css.statement list) : Css.declaration list option
+    =
+  List.find_map
+    (fun s -> match Css.as_rule s with Some (_, ds, _) -> Some ds | _ -> None)
+    stmts
+
+(* custom_prop_names is now available in Css module *)
+
+let property_rule_names (sheet : Css.t) : string list =
+  Css.statements sheet
+  |> List.filter_map (fun s ->
+         match Css.as_property s with
+         | Some (Css.Property_info { name; _ }) -> Some name
+         | None -> None)
+
+let extract_var_names_with_prefix (prefix : string) (props : string list) :
+    string list =
+  List.filter_map
+    (fun prop ->
+      if
+        String.length prop > String.length prefix
+        && String.sub prop 0 (String.length prefix) = prefix
+      then
+        let rest =
+          String.sub prop (String.length prefix)
+            (String.length prop - String.length prefix)
+        in
+        match String.index_opt rest '-' with
+        | Some idx -> Some (String.sub rest 0 idx)
+        | None -> None
+      else None)
+    props
+
+let stmt_index (sheet : Css.t) pred : int option =
+  let rec loop i = function
+    | [] -> None
+    | s :: tl -> if pred s then Some i else loop (i + 1) tl
+  in
+  loop 0 (Css.statements sheet)
+
+let rec take n lst =
+  match (n, lst) with
+  | 0, _ -> []
+  | _, [] -> []
+  | k, h :: t -> h :: take (k - 1) t
+
+let rec is_prefix pre lst =
+  match (pre, lst) with
+  | [], _ -> true
+  | _ :: _, [] -> false
+  | p :: pt, x :: xt -> p = x && is_prefix pt xt
+
+let or_fail msg = function Some x -> x | None -> fail msg
+
+let check_layer_declaration_and_ordering () =
+  (* Use a utility that triggers properties + @property rules *)
+  let sheet = sheet_of [ Tw.Effects.shadow_sm ] in
+  let layer_names = layers_of sheet in
+  let expected = [ "properties"; "theme"; "components"; "utilities" ] in
+  check bool "layer decl order prefix" true (is_prefix expected layer_names);
+  check bool "has properties layer block" true
+    (Css.layer_block "properties" sheet <> None)
+
+let check_properties_layer_internal_order () =
+  let sheet = sheet_of [ Tw.Effects.shadow_sm ] in
+  let props =
+    Css.layer_block "properties" sheet
+    |> or_fail "Expected a @layer properties block"
+  in
+  let supports =
+    supports_block props
+    |> or_fail "Expected a @supports block inside properties layer"
+  in
+  let decls =
+    first_rule_decls supports
+    |> or_fail "Expected a rule inside @supports in properties layer"
+  in
+  let names = Css.custom_prop_names decls in
+  let expected =
+    [
+      "--tw-shadow";
+      "--tw-shadow-color";
+      "--tw-shadow-alpha";
+      "--tw-inset-shadow";
+      "--tw-inset-shadow-color";
+      "--tw-inset-shadow-alpha";
+    ]
+  in
+  check (list string) "properties layer initial-order prefix" expected
+    (take (List.length expected) names)
+
+let check_property_rules_trailing_and_order () =
+  let sheet = sheet_of [ Tw.Effects.shadow_sm ] in
+  let names = property_rule_names sheet in
+  let expected =
+    [
+      "--tw-shadow";
+      "--tw-shadow-color";
+      "--tw-shadow-alpha";
+      "--tw-inset-shadow";
+      "--tw-inset-shadow-color";
+      "--tw-inset-shadow-alpha";
+    ]
+  in
+  check bool "@property rules prefix order" true (is_prefix expected names);
+  let util_idx =
+    stmt_index sheet (fun s ->
+        match Css.as_layer s with
+        | Some (Some "utilities", _) -> true
+        | _ -> false)
+    |> or_fail "Expected a utilities layer"
+  in
+  let first_prop_idx =
+    stmt_index sheet (fun s ->
+        match Css.as_property s with Some _ -> true | None -> false)
+    |> or_fail "Expected at least one @property rule"
+  in
+  check bool "@property after utilities" true (first_prop_idx > util_idx)
+
 (* New tests for exposed functions *)
 
 let test_color_order () =
-  check int "amber is first" 0 (Tw.Rules.color_order "amber");
-  check int "blue is second" 1 (Tw.Rules.color_order "blue");
-  check int "yellow near end" 20 (Tw.Rules.color_order "yellow");
-  check int "zinc is last standard" 21 (Tw.Rules.color_order "zinc");
-  check int "unknown color gets 100" 100 (Tw.Rules.color_order "unknown")
+  check int "amber utilities order" 10
+    (let _, order = Tw.Color.utilities_order "amber" in
+     order);
+  check int "blue utilities order" 16
+    (let _, order = Tw.Color.utilities_order "blue" in
+     order);
+  check int "cyan utilities order" 17
+    (let _, order = Tw.Color.utilities_order "cyan" in
+     order);
+  check int "sky utilities order" 18
+    (let _, order = Tw.Color.utilities_order "sky" in
+     order);
+  check int "unknown color gets 100" 100
+    (let _, order = Tw.Color.utilities_order "unknown" in
+     order)
 
 let test_is_hover_rule () =
   (* Test simple hover *)
@@ -267,6 +415,62 @@ let test_inline_no_vars_defaults () =
   check bool "no var() in inline CSS" false (contains css_inline "var(--");
   check bool "has border-radius" true (contains css_inline "border-radius")
 
+(* Layer ordering tests *)
+
+let extract_theme_color_vars sheet =
+  Css.layer_block "theme" sheet
+  |> Option.map Css.rules_from_statements
+  |> Option.map Css.custom_props_from_rules
+  |> Option.map (extract_var_names_with_prefix "--color-")
+  |> Option.value ~default:[]
+
+let extract_utility_selectors sheet =
+  Css.layer_block "utilities" sheet
+  |> Option.map (fun stmts ->
+         Css.rules_from_statements stmts
+         |> List.filter_map (fun (sel, _) ->
+                let sel_str = Css.Selector.to_string sel in
+                if String.length sel_str > 4 && String.sub sel_str 0 4 = ".bg-"
+                then
+                  let rest = String.sub sel_str 4 (String.length sel_str - 4) in
+                  match String.index_opt rest '-' with
+                  | Some idx -> Some (String.sub rest 0 idx)
+                  | None -> None
+                else None))
+  |> Option.value ~default:[]
+
+let test_theme_layer_color_order () =
+  let sheet = sheet_of [ bg cyan 500; bg sky 500; bg blue 500 ] in
+  let theme_colors = extract_theme_color_vars sheet in
+  check (list string) "theme layer: cyan, sky, blue" [ "cyan"; "sky"; "blue" ]
+    theme_colors
+
+let test_utilities_layer_color_order () =
+  let sheet = sheet_of [ bg cyan 500; bg sky 500; bg blue 500 ] in
+  let util_colors = extract_utility_selectors sheet in
+  check (list string) "utilities layer: blue, cyan, sky"
+    [ "blue"; "cyan"; "sky" ] util_colors
+
+let test_deterministic_ordering () =
+  let inputs =
+    [
+      [ bg cyan 500; bg sky 500; bg blue 500 ];
+      [ bg blue 500; bg sky 500; bg cyan 500 ];
+      [ bg sky 500; bg blue 500; bg cyan 500 ];
+    ]
+  in
+  let results =
+    List.map
+      (fun utilities ->
+        let sheet = sheet_of utilities in
+        Css.to_string ~minify:true sheet)
+      inputs
+  in
+  match results with
+  | [] -> failwith "No results"
+  | first :: rest ->
+      List.iter (fun css -> check string "deterministic output" first css) rest
+
 let test_inline_style_no_vars () =
   (* Directly build a declaration with a defaulted var and inline it. *)
   let _, radius_var = Css.var "radius-md" Css.Length (Css.Rem 0.5) in
@@ -313,10 +517,16 @@ let test_theme_layer_media_refs () =
     in
     Tw.Rules.compute_theme_layer ~default_decls [ sm [ Tw.Typography.text_xl ] ]
   in
-  let css = Css.to_string ~minify:false theme_layer in
-  check bool "includes --text-xl var" true (contains css "--text-xl");
-  check bool "includes --text-xl-line-height var" true
-    (contains css "--text-xl-line-height")
+  let all_vars =
+    Css.layer_block "theme" theme_layer
+    |> Option.map Css.rules_from_statements
+    |> Option.map Css.custom_props_from_rules
+    |> Option.value ~default:[]
+  in
+  check bool "includes --text-xl var" true
+    (List.exists (fun v -> contains v "text-xl") all_vars);
+  check bool "includes --text-xl--line-height var" true
+    (List.exists (fun v -> contains v "text-xl--line-height") all_vars)
 
 let test_rule_sets_hover_media () =
   (* A bare hover utility produces a rule that should be gated behind
@@ -569,6 +779,12 @@ let tests =
     test_case "to_css inline with base" `Quick check_css_inline_with_base;
     test_case "to_css inline without base" `Quick check_css_inline_without_base;
     test_case "inline style generation" `Quick check_inline_style;
+    (* Layer + properties ordering *)
+    test_case "layer decl + order" `Quick check_layer_declaration_and_ordering;
+    test_case "properties layer internal order" `Quick
+      check_properties_layer_internal_order;
+    test_case "@property trailing and order" `Quick
+      check_property_rules_trailing_and_order;
     (* New tests for exposed functions *)
     test_case "color_order" `Quick test_color_order;
     test_case "is_hover_rule" `Quick test_is_hover_rule;
@@ -594,6 +810,11 @@ let tests =
       test_style_rules_props;
     test_case "rules_of_grouped prose merging bug" `Quick
       rules_of_grouped_prose_bug;
+    (* Layer ordering tests *)
+    test_case "theme layer color order" `Quick test_theme_layer_color_order;
+    test_case "utilities layer color order" `Quick
+      test_utilities_layer_color_order;
+    test_case "deterministic ordering" `Quick test_deterministic_ordering;
   ]
 
 let suite = ("rules", tests)

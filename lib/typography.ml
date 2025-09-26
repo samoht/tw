@@ -21,84 +21,98 @@ open Core
 open Css
 
 (* Text size variables with line heights *)
-let text_xs_var = Var.theme Css.Length "text-xs" ~order:100
-let text_xs_lh_var = Var.theme Css.Line_height "text-xs--line-height" ~order:101
-let text_sm_var = Var.theme Css.Length "text-sm" ~order:102
-let text_sm_lh_var = Var.theme Css.Line_height "text-sm--line-height" ~order:103
-let text_base_var = Var.theme Css.Length "text-base" ~order:104
+let text_xs_var = Var.theme Css.Length "text-xs" ~order:(6, 0)
+
+let text_xs_lh_var =
+  Var.theme Css.Line_height "text-xs--line-height" ~order:(6, 1)
+
+let text_sm_var = Var.theme Css.Length "text-sm" ~order:(6, 2)
+
+let text_sm_lh_var =
+  Var.theme Css.Line_height "text-sm--line-height" ~order:(6, 3)
+
+let text_base_var = Var.theme Css.Length "text-base" ~order:(6, 4)
 
 let text_base_lh_var =
-  Var.theme Css.Line_height "text-base--line-height" ~order:105
+  Var.theme Css.Line_height "text-base--line-height" ~order:(6, 5)
 
-let text_lg_var = Var.theme Css.Length "text-lg" ~order:106
-let text_lg_lh_var = Var.theme Css.Line_height "text-lg--line-height" ~order:107
-let text_xl_var = Var.theme Css.Length "text-xl" ~order:108
-let text_xl_lh_var = Var.theme Css.Line_height "text-xl--line-height" ~order:109
-let text_2xl_var = Var.theme Css.Length "text-2xl" ~order:110
+let text_lg_var = Var.theme Css.Length "text-lg" ~order:(6, 6)
+
+let text_lg_lh_var =
+  Var.theme Css.Line_height "text-lg--line-height" ~order:(6, 7)
+
+let text_xl_var = Var.theme Css.Length "text-xl" ~order:(6, 8)
+
+let text_xl_lh_var =
+  Var.theme Css.Line_height "text-xl--line-height" ~order:(6, 9)
+
+let text_2xl_var = Var.theme Css.Length "text-2xl" ~order:(6, 10)
 
 let text_2xl_lh_var =
-  Var.theme Css.Line_height "text-2xl--line-height" ~order:111
+  Var.theme Css.Line_height "text-2xl--line-height" ~order:(6, 11)
 
-let text_3xl_var = Var.theme Css.Length "text-3xl" ~order:112
+let text_3xl_var = Var.theme Css.Length "text-3xl" ~order:(6, 12)
 
 let text_3xl_lh_var =
-  Var.theme Css.Line_height "text-3xl--line-height" ~order:113
+  Var.theme Css.Line_height "text-3xl--line-height" ~order:(6, 13)
 
-let text_4xl_var = Var.theme Css.Length "text-4xl" ~order:114
+let text_4xl_var = Var.theme Css.Length "text-4xl" ~order:(6, 14)
 
 let text_4xl_lh_var =
-  Var.theme Css.Line_height "text-4xl--line-height" ~order:115
+  Var.theme Css.Line_height "text-4xl--line-height" ~order:(6, 15)
 
-let text_5xl_var = Var.theme Css.Length "text-5xl" ~order:116
+let text_5xl_var = Var.theme Css.Length "text-5xl" ~order:(6, 16)
 
 let text_5xl_lh_var =
-  Var.theme Css.Line_height "text-5xl--line-height" ~order:117
+  Var.theme Css.Line_height "text-5xl--line-height" ~order:(6, 17)
 
-let text_6xl_var = Var.theme Css.Length "text-6xl" ~order:118
+let text_6xl_var = Var.theme Css.Length "text-6xl" ~order:(6, 18)
 
 let text_6xl_lh_var =
-  Var.theme Css.Line_height "text-6xl--line-height" ~order:119
+  Var.theme Css.Line_height "text-6xl--line-height" ~order:(6, 19)
 
-let text_7xl_var = Var.theme Css.Length "text-7xl" ~order:120
+let text_7xl_var = Var.theme Css.Length "text-7xl" ~order:(6, 20)
 
 let text_7xl_lh_var =
-  Var.theme Css.Line_height "text-7xl--line-height" ~order:121
+  Var.theme Css.Line_height "text-7xl--line-height" ~order:(6, 21)
 
-let text_8xl_var = Var.theme Css.Length "text-8xl" ~order:122
+let text_8xl_var = Var.theme Css.Length "text-8xl" ~order:(6, 22)
 
 let text_8xl_lh_var =
-  Var.theme Css.Line_height "text-8xl--line-height" ~order:123
+  Var.theme Css.Line_height "text-8xl--line-height" ~order:(6, 23)
 
-let text_9xl_var = Var.theme Css.Length "text-9xl" ~order:124
+let text_9xl_var = Var.theme Css.Length "text-9xl" ~order:(6, 24)
 
 let text_9xl_lh_var =
-  Var.theme Css.Line_height "text-9xl--line-height" ~order:125
+  Var.theme Css.Line_height "text-9xl--line-height" ~order:(6, 25)
 
 (* Font weight variables *)
-let font_weight_thin_var = Var.theme Css.Font_weight "font-weight-thin" ~order:3
+let font_weight_thin_var =
+  Var.theme Css.Font_weight "font-weight-thin" ~order:(6, 30)
 
 let font_weight_extralight_var =
-  Var.theme Css.Font_weight "font-weight-extralight" ~order:4
+  Var.theme Css.Font_weight "font-weight-extralight" ~order:(6, 31)
 
 let font_weight_light_var =
-  Var.theme Css.Font_weight "font-weight-light" ~order:5
+  Var.theme Css.Font_weight "font-weight-light" ~order:(6, 32)
 
 let font_weight_normal_var =
-  Var.theme Css.Font_weight "font-weight-normal" ~order:6
+  Var.theme Css.Font_weight "font-weight-normal" ~order:(6, 33)
 
 let font_weight_medium_var =
-  Var.theme Css.Font_weight "font-weight-medium" ~order:7
+  Var.theme Css.Font_weight "font-weight-medium" ~order:(6, 34)
 
 let font_weight_semibold_var =
-  Var.theme Css.Font_weight "font-weight-semibold" ~order:8
+  Var.theme Css.Font_weight "font-weight-semibold" ~order:(6, 35)
 
-let font_weight_bold_var = Var.theme Css.Font_weight "font-weight-bold" ~order:9
+let font_weight_bold_var =
+  Var.theme Css.Font_weight "font-weight-bold" ~order:(6, 36)
 
 let font_weight_extrabold_var =
-  Var.theme Css.Font_weight "font-weight-extrabold" ~order:10
+  Var.theme Css.Font_weight "font-weight-extrabold" ~order:(6, 37)
 
 let font_weight_black_var =
-  Var.theme Css.Font_weight "font-weight-black" ~order:11
+  Var.theme Css.Font_weight "font-weight-black" ~order:(6, 38)
 
 (* Utility variable for font weight: Channel pattern with @property for
    animations *)
@@ -260,16 +274,16 @@ let font_black = font_weight_utility "black" font_weight_black_var (Weight 900)
 (** {1 Font Family Utilities} *)
 
 (* Font family theme variables *)
-let font_sans_var = Var.theme Css.Font_family "font-sans" ~order:0
-let font_serif_var = Var.theme Css.Font_family "font-serif" ~order:1
-let font_mono_var = Var.theme Css.Font_family "font-mono" ~order:2
+let font_sans_var = Var.theme Css.Font_family "font-sans" ~order:(1, 0)
+let font_serif_var = Var.theme Css.Font_family "font-serif" ~order:(1, 1)
+let font_mono_var = Var.theme Css.Font_family "font-mono" ~order:(1, 2)
 
 (* Default font family variables that reference the base font variables *)
 let default_font_family_var =
-  Var.theme Css.Font_family "default-font-family" ~order:130
+  Var.theme Css.Font_family "default-font-family" ~order:(9, 0)
 
 let default_mono_font_family_var =
-  Var.theme Css.Font_family "default-mono-font-family" ~order:131
+  Var.theme Css.Font_family "default-mono-font-family" ~order:(9, 1)
 
 (* Base font family variables for theme layer *)
 let default_font_declarations =
@@ -467,16 +481,9 @@ let decoration_color ?(shade = 500) (color : Color.color) =
         webkit_text_decoration_color css_color; text_decoration_color css_color;
       ]
   else
+    let color_var = Color.get_color_var color shade in
     let default_color =
       Color.to_css color (if Color.is_base_color color then 500 else shade)
-    in
-    let color_var =
-      let name =
-        let base = Color.pp color in
-        if Color.is_base_color color then "color-" ^ base
-        else "color-" ^ base ^ "-" ^ string_of_int shade
-      in
-      Var.theme Css.Color name ~order:3
     in
     let color_decl, color_ref = Var.binding color_var default_color in
     style class_name
@@ -603,8 +610,7 @@ let list_image_url url =
 
 let indent n =
   let class_name = "indent-" ^ string_of_int n in
-  let spacing_var = Var.theme Css.Length "spacing" ~order:4 in
-  let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+  let spacing_decl, spacing_ref = Var.binding Theme.spacing_var (Rem 0.25) in
   style class_name
     [
       spacing_decl;

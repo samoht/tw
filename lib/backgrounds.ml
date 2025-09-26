@@ -5,7 +5,8 @@ open Core
 (* Gradient variables with proper @property definitions matching Tailwind v4 *)
 let gradient_position_var =
   (* This is used as a placeholder/initial value in gradient stops. *)
-  Var.ref_only Percentage "tw-gradient-position" ~fallback:(Pct 0.)
+  Var.property_default Percentage ~initial:(Pct 0.) ~universal:true
+    "tw-gradient-position"
 
 let gradient_from_var =
   Var.property_default Color ~initial:(Css.hex "#0000") "tw-gradient-from"
@@ -66,13 +67,8 @@ let gradient_color_class_name ~prefix ?(shade = 500) color =
 (** Common helper for gradient color utilities *)
 let gradient_color ~prefix ~set_var ?(shade = 500) color =
   let class_name = gradient_color_class_name ~prefix ~shade color in
-  (* Create color theme variable *)
-  let color_name = Color.pp color in
-  let color_theme_var =
-    Var.theme Color
-      (String.concat "-" [ "color"; color_name; string_of_int shade ])
-      ~order:3
-  in
+  (* Use the shared color variable from Color module *)
+  let color_theme_var = Color.get_color_var color shade in
   let color_value = Color.to_css color shade in
   let d_color, color_ref = Var.binding color_theme_var color_value in
 
@@ -112,9 +108,13 @@ let gradient_color ~prefix ~set_var ?(shade = 500) color =
               Color_percentage (Var to_ref, Some (Var to_pos_ref), None);
             ]
         in
-        let d_via_stops, _ = Var.binding gradient_via_stops_var via_stop_list in
-        let d_stops, _ = Var.binding gradient_stops_var (List []) in
-        (d_stops, Some d_via_stops)
+        let d_via_stops, via_stops_ref =
+          Var.binding gradient_via_stops_var via_stop_list
+        in
+        let d_stops_via, _ =
+          Var.binding gradient_stops_var (Var via_stops_ref)
+        in
+        (d_stops_via, Some d_via_stops)
     | _ ->
         (* For from/to, reference via-stops with fallback *)
         let via_stops_ref =
@@ -127,6 +127,7 @@ let gradient_color ~prefix ~set_var ?(shade = 500) color =
   (* Generate @property rules for all gradient variables *)
   let property_rules =
     [
+      Var.property_rule gradient_position_var;
       Var.property_rule gradient_from_var;
       Var.property_rule gradient_via_var;
       Var.property_rule gradient_to_var;

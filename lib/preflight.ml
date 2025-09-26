@@ -52,19 +52,20 @@ let box_resets () =
   ]
 
 let font_feature =
-  Var.theme Css.Font_feature_settings "default-font-feature-settings" ~order:7
+  Var.theme Css.Font_feature_settings "default-font-feature-settings"
+    ~order:(8, 0)
 
 let font_variation =
   Var.theme Css.Font_variation_settings "default-font-variation-settings"
-    ~order:8
+    ~order:(8, 1)
 
 let mono_font_feature =
   Var.theme Css.Font_feature_settings "default-mono-font-feature-settings"
-    ~order:9
+    ~order:(8, 2)
 
 let mono_font_variation =
   Var.theme Css.Font_variation_settings "default-mono-font-variation-settings"
-    ~order:10
+    ~order:(8, 3)
 
 (** Helper for creating variable references in preflight context
 

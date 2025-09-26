@@ -328,6 +328,68 @@ let test_complex_css_unit_differences () =
         false (Cc.is_empty diff)
   | _ -> fail "CSS should parse successfully"
 
+let test_property_reordering () =
+  (* Test that pure property reordering is detected as Reordered, not Changed *)
+  let css_expected = ".x{color:red;padding:10px;margin:5px}" in
+  let css_actual = ".x{margin:5px;color:red;padding:10px}" in
+  let diff =
+    match Cc.diff ~expected:css_expected ~actual:css_actual with
+    | Cc.Diff d -> d
+    | _ -> failwith "Both CSS should parse"
+  in
+  (* Check that we get exactly one rule diff *)
+  check int "one rule change" 1 (List.length diff.rules);
+  let rule = List.hd diff.rules in
+  check string "rule selector" ".x" rule.selector;
+  (* Verify the rule has a Reordered diff (same content, different order) *)
+  match rule.change with
+  | Cc.Reordered _ ->
+      (* Success - pure reordering detected *)
+      ()
+  | Cc.Changed _ ->
+      fail
+        "Expected Reordered diff but got Changed (pure reordering should be \
+         detected)"
+  | _ -> fail "Expected Reordered diff"
+
+let test_reordered_diff_formatting () =
+  (* Test that Reordered diffs produce proper output *)
+  let css_expected = ".test{color:red;padding:10px}" in
+  let css_actual = ".test{padding:10px;color:red}" in
+  let result = Cc.diff ~expected:css_expected ~actual:css_actual in
+  let output = Fmt.to_to_string Cc.pp_diff_result result in
+  (* Should contain reorder information *)
+  check bool "shows reorder info" true
+    (String.contains output 'r' && String.contains output 'e')
+
+let test_mixed_reordering_and_changes () =
+  (* Test that when properties are both reordered AND changed, it's detected as
+     Changed *)
+  let css_expected = ".x{color:red;padding:10px;margin:5px}" in
+  let css_actual = ".x{margin:5px;color:blue;padding:10px}" in
+  (* Same order as first test but color changed from red to blue *)
+  let diff =
+    match Cc.diff ~expected:css_expected ~actual:css_actual with
+    | Cc.Diff d -> d
+    | _ -> failwith "Both CSS should parse"
+  in
+  check int "one rule change" 1 (List.length diff.rules);
+  let rule = List.hd diff.rules in
+  check string "rule selector" ".x" rule.selector;
+  (* Should be Changed, not Reordered, because color value changed *)
+  match rule.change with
+  | Cc.Changed ((_expected_props, []), (_actual_props, prop_diffs)) ->
+      check int "one property diff" 1 (List.length prop_diffs);
+      let prop_diff = List.hd prop_diffs in
+      check string "property name" "color" prop_diff.property_name;
+      check string "expected value" "red" prop_diff.expected_value;
+      check string "actual value" "blue" prop_diff.actual_value
+  | Cc.Reordered _ ->
+      fail
+        "Expected Changed diff (not Reordered) when both order and values \
+         change"
+  | _ -> fail "Expected Changed diff with property differences"
+
 let test_never_empty_diff_when_strings_differ () =
   (* Test that ensures we always show SOMETHING when input strings differ,
      either structural diffs or string diffs *)
@@ -413,6 +475,10 @@ let tests =
       test_complex_css_unit_differences;
     test_case "never empty diff when strings differ" `Quick
       test_never_empty_diff_when_strings_differ;
+    test_case "property reordering" `Quick test_property_reordering;
+    test_case "reordered diff formatting" `Quick test_reordered_diff_formatting;
+    test_case "mixed reordering and changes" `Quick
+      test_mixed_reordering_and_changes;
   ]
 
 let suite = ("css_compare", tests)

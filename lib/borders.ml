@@ -183,12 +183,12 @@ let border_full = border_8 (* 8px *)
 (** {1 Border Radius Utilities} *)
 
 (* Create radius theme variables with fallback values for inline mode *)
-let radius_sm_var = Var.theme Css.Length "radius-sm" ~order:3
-let radius_md_var = Var.theme Css.Length "radius-md" ~order:4
-let radius_lg_var = Var.theme Css.Length "radius-lg" ~order:5
-let radius_xl_var = Var.theme Css.Length "radius-xl" ~order:6
-let radius_2xl_var = Var.theme Css.Length "radius-2xl" ~order:7
-let radius_3xl_var = Var.theme Css.Length "radius-3xl" ~order:8
+let radius_sm_var = Var.theme Css.Length "radius-sm" ~order:(7, 0)
+let radius_md_var = Var.theme Css.Length "radius-md" ~order:(7, 1)
+let radius_lg_var = Var.theme Css.Length "radius-lg" ~order:(7, 2)
+let radius_xl_var = Var.theme Css.Length "radius-xl" ~order:(7, 3)
+let radius_2xl_var = Var.theme Css.Length "radius-2xl" ~order:(7, 4)
+let radius_3xl_var = Var.theme Css.Length "radius-3xl" ~order:(7, 5)
 let rounded_none = style "rounded-none" [ border_radius Zero ]
 
 let rounded_sm =
