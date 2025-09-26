@@ -21,131 +21,110 @@ open Core
 open Css
 
 (* Text size variables with line heights *)
-let text_xs_var = Var.create Css.Length "text-xs" ~layer:Theme ~order:100
-
-let text_xs_lh_var =
-  Var.create Css.Line_height "text-xs--line-height" ~layer:Theme ~order:101
-
-let text_sm_var = Var.create Css.Length "text-sm" ~layer:Theme ~order:102
-
-let text_sm_lh_var =
-  Var.create Css.Line_height "text-sm--line-height" ~layer:Theme ~order:103
-
-let text_base_var = Var.create Css.Length "text-base" ~layer:Theme ~order:104
+let text_xs_var = Var.theme Css.Length "text-xs" ~order:100
+let text_xs_lh_var = Var.theme Css.Line_height "text-xs--line-height" ~order:101
+let text_sm_var = Var.theme Css.Length "text-sm" ~order:102
+let text_sm_lh_var = Var.theme Css.Line_height "text-sm--line-height" ~order:103
+let text_base_var = Var.theme Css.Length "text-base" ~order:104
 
 let text_base_lh_var =
-  Var.create Css.Line_height "text-base--line-height" ~layer:Theme ~order:105
+  Var.theme Css.Line_height "text-base--line-height" ~order:105
 
-let text_lg_var = Var.create Css.Length "text-lg" ~layer:Theme ~order:106
-
-let text_lg_lh_var =
-  Var.create Css.Line_height "text-lg--line-height" ~layer:Theme ~order:107
-
-let text_xl_var = Var.create Css.Length "text-xl" ~layer:Theme ~order:108
-
-let text_xl_lh_var =
-  Var.create Css.Line_height "text-xl--line-height" ~layer:Theme ~order:109
-
-let text_2xl_var = Var.create Css.Length "text-2xl" ~layer:Theme ~order:110
+let text_lg_var = Var.theme Css.Length "text-lg" ~order:106
+let text_lg_lh_var = Var.theme Css.Line_height "text-lg--line-height" ~order:107
+let text_xl_var = Var.theme Css.Length "text-xl" ~order:108
+let text_xl_lh_var = Var.theme Css.Line_height "text-xl--line-height" ~order:109
+let text_2xl_var = Var.theme Css.Length "text-2xl" ~order:110
 
 let text_2xl_lh_var =
-  Var.create Css.Line_height "text-2xl--line-height" ~layer:Theme ~order:111
+  Var.theme Css.Line_height "text-2xl--line-height" ~order:111
 
-let text_3xl_var = Var.create Css.Length "text-3xl" ~layer:Theme ~order:112
+let text_3xl_var = Var.theme Css.Length "text-3xl" ~order:112
 
 let text_3xl_lh_var =
-  Var.create Css.Line_height "text-3xl--line-height" ~layer:Theme ~order:113
+  Var.theme Css.Line_height "text-3xl--line-height" ~order:113
 
-let text_4xl_var = Var.create Css.Length "text-4xl" ~layer:Theme ~order:114
+let text_4xl_var = Var.theme Css.Length "text-4xl" ~order:114
 
 let text_4xl_lh_var =
-  Var.create Css.Line_height "text-4xl--line-height" ~layer:Theme ~order:115
+  Var.theme Css.Line_height "text-4xl--line-height" ~order:115
 
-let text_5xl_var = Var.create Css.Length "text-5xl" ~layer:Theme ~order:116
+let text_5xl_var = Var.theme Css.Length "text-5xl" ~order:116
 
 let text_5xl_lh_var =
-  Var.create Css.Line_height "text-5xl--line-height" ~layer:Theme ~order:117
+  Var.theme Css.Line_height "text-5xl--line-height" ~order:117
 
-let text_6xl_var = Var.create Css.Length "text-6xl" ~layer:Theme ~order:118
+let text_6xl_var = Var.theme Css.Length "text-6xl" ~order:118
 
 let text_6xl_lh_var =
-  Var.create Css.Line_height "text-6xl--line-height" ~layer:Theme ~order:119
+  Var.theme Css.Line_height "text-6xl--line-height" ~order:119
 
-let text_7xl_var = Var.create Css.Length "text-7xl" ~layer:Theme ~order:120
+let text_7xl_var = Var.theme Css.Length "text-7xl" ~order:120
 
 let text_7xl_lh_var =
-  Var.create Css.Line_height "text-7xl--line-height" ~layer:Theme ~order:121
+  Var.theme Css.Line_height "text-7xl--line-height" ~order:121
 
-let text_8xl_var = Var.create Css.Length "text-8xl" ~layer:Theme ~order:122
+let text_8xl_var = Var.theme Css.Length "text-8xl" ~order:122
 
 let text_8xl_lh_var =
-  Var.create Css.Line_height "text-8xl--line-height" ~layer:Theme ~order:123
+  Var.theme Css.Line_height "text-8xl--line-height" ~order:123
 
-let text_9xl_var = Var.create Css.Length "text-9xl" ~layer:Theme ~order:124
+let text_9xl_var = Var.theme Css.Length "text-9xl" ~order:124
 
 let text_9xl_lh_var =
-  Var.create Css.Line_height "text-9xl--line-height" ~layer:Theme ~order:125
+  Var.theme Css.Line_height "text-9xl--line-height" ~order:125
 
 (* Font weight variables *)
-let font_weight_thin_var =
-  Var.create Css.Font_weight "font-weight-thin" ~layer:Theme ~order:3
+let font_weight_thin_var = Var.theme Css.Font_weight "font-weight-thin" ~order:3
 
 let font_weight_extralight_var =
-  Var.create Css.Font_weight "font-weight-extralight" ~layer:Theme ~order:4
+  Var.theme Css.Font_weight "font-weight-extralight" ~order:4
 
 let font_weight_light_var =
-  Var.create Css.Font_weight "font-weight-light" ~layer:Theme ~order:5
+  Var.theme Css.Font_weight "font-weight-light" ~order:5
 
 let font_weight_normal_var =
-  Var.create Css.Font_weight "font-weight-normal" ~layer:Theme ~order:6
+  Var.theme Css.Font_weight "font-weight-normal" ~order:6
 
 let font_weight_medium_var =
-  Var.create Css.Font_weight "font-weight-medium" ~layer:Theme ~order:7
+  Var.theme Css.Font_weight "font-weight-medium" ~order:7
 
 let font_weight_semibold_var =
-  Var.create Css.Font_weight "font-weight-semibold" ~layer:Theme ~order:8
+  Var.theme Css.Font_weight "font-weight-semibold" ~order:8
 
-let font_weight_bold_var =
-  Var.create Css.Font_weight "font-weight-bold" ~layer:Theme ~order:9
+let font_weight_bold_var = Var.theme Css.Font_weight "font-weight-bold" ~order:9
 
 let font_weight_extrabold_var =
-  Var.create Css.Font_weight "font-weight-extrabold" ~layer:Theme ~order:10
+  Var.theme Css.Font_weight "font-weight-extrabold" ~order:10
 
 let font_weight_black_var =
-  Var.create Css.Font_weight "font-weight-black" ~layer:Theme ~order:11
+  Var.theme Css.Font_weight "font-weight-black" ~order:11
 
 (* Utility variable for font weight - set but never used in CSS properties.
    Exists for animation support via @property and debugging in DevTools.
    Pattern: --tw-font-weight: var(--font-weight-thin) but font-weight:
    var(--font-weight-thin) *)
-let font_weight_var =
-  Var.create Css.Font_weight "tw-font-weight" ~layer:Utility
-    ~property:(None, false)
+let font_weight_var = Var.property_default Css.Font_weight "tw-font-weight"
 (* No initial value, inherits: false *)
 
 (* Leading variable for line-height utilities *)
-let leading_var = Var.create Css.Line_height "tw-leading" ~layer:Utility
+let leading_var = Var.channel Css.Line_height "tw-leading"
 
 (* Font variant numeric variables for composed value *)
 let ordinal_var =
-  Var.create Css.Font_variant_numeric_token "tw-ordinal" ~layer:Utility
-    ~property:(None, false)
+  Var.property_default Css.Font_variant_numeric_token "tw-ordinal"
 
 let slashed_var =
-  Var.create Css.Font_variant_numeric_token "tw-slashed-zero" ~layer:Utility
-    ~property:(None, false)
+  Var.property_default Css.Font_variant_numeric_token "tw-slashed-zero"
 
 let figure_var =
-  Var.create Css.Font_variant_numeric_token "tw-numeric-figure" ~layer:Utility
-    ~property:(None, false)
+  Var.property_default Css.Font_variant_numeric_token "tw-numeric-figure"
 
 let spacing_var =
-  Var.create Css.Font_variant_numeric_token "tw-numeric-spacing" ~layer:Utility
-    ~property:(None, false)
+  Var.property_default Css.Font_variant_numeric_token "tw-numeric-spacing"
 
 let fraction_var =
-  Var.create Css.Font_variant_numeric_token "tw-numeric-fraction" ~layer:Utility
-    ~property:(None, false)
+  Var.property_default Css.Font_variant_numeric_token "tw-numeric-fraction"
 
 (* Helper to get line height calc value *)
 let calc_line_height lh_rem size_rem =
@@ -278,19 +257,16 @@ let font_black = font_weight_utility "black" font_weight_black_var (Weight 900)
 (** {1 Font Family Utilities} *)
 
 (* Font family theme variables *)
-let font_sans_var = Var.create Css.Font_family "font-sans" ~layer:Theme ~order:0
-
-let font_serif_var =
-  Var.create Css.Font_family "font-serif" ~layer:Theme ~order:1
-
-let font_mono_var = Var.create Css.Font_family "font-mono" ~layer:Theme ~order:2
+let font_sans_var = Var.theme Css.Font_family "font-sans" ~order:0
+let font_serif_var = Var.theme Css.Font_family "font-serif" ~order:1
+let font_mono_var = Var.theme Css.Font_family "font-mono" ~order:2
 
 (* Default font family variables that reference the base font variables *)
 let default_font_family_var =
-  Var.create Css.Font_family "default-font-family" ~layer:Theme ~order:130
+  Var.theme Css.Font_family "default-font-family" ~order:130
 
 let default_mono_font_family_var =
-  Var.create Css.Font_family "default-mono-font-family" ~layer:Theme ~order:131
+  Var.theme Css.Font_family "default-mono-font-family" ~order:131
 
 (* Base font family variables for theme layer *)
 let default_font_declarations =
@@ -497,7 +473,7 @@ let decoration_color ?(shade = 500) (color : Color.color) =
         if Color.is_base_color color then "color-" ^ base
         else "color-" ^ base ^ "-" ^ string_of_int shade
       in
-      Var.create Css.Color name ~layer:Theme ~order:3
+      Var.theme Css.Color name ~order:3
     in
     let color_decl, color_ref = Var.binding color_var default_color in
     style class_name
@@ -624,7 +600,7 @@ let list_image_url url =
 
 let indent n =
   let class_name = "indent-" ^ string_of_int n in
-  let spacing_var = Var.create Css.Length "spacing" ~layer:Theme ~order:4 in
+  let spacing_var = Var.theme Css.Length "spacing" ~order:4 in
   let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
   style class_name
     [
@@ -651,7 +627,7 @@ let line_clamp n =
 
 (** {1 Content} *)
 
-let content_var = Var.create Content "tw-content" ~layer:Utility
+let content_var = Var.channel Content "tw-content"
 
 let content_none =
   let content_decl, content_ref = Var.binding content_var None in
@@ -672,7 +648,7 @@ let content s =
   (* Auto-quote the text and use Tailwind arbitrary value class name *)
   let quoted = "\"" ^ escape_css_string s ^ "\"" in
   let class_name = String.concat "" [ "content-["; quoted; "]" ] in
-  let content_var = Var.create Content "tw-content" ~layer:Utility in
+  let content_var = Var.channel Content "tw-content" in
   let content_decl, content_ref = Var.binding content_var (String quoted) in
   style class_name [ content_decl; content (Css.Var content_ref) ]
 

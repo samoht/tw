@@ -7,7 +7,14 @@
 type layer = Theme | Utility
 
 (* Variable definition - the main currency *)
-type 'a property_info = { initial : 'a option; inherits : bool }
+type 'a property_info = {
+  initial : 'a option;
+  inherits : bool;
+  universal : bool;
+}
+
+let property_info ?initial ?(inherits = false) ?(universal = false) () =
+  { initial; inherits; universal }
 
 type 'a t = {
   kind : 'a Css.kind; (* CSS type witness *)
@@ -57,7 +64,7 @@ let initial_to_universal : type a. a Css.kind -> a -> string =
 (* Create a variable template *)
 let create : type a.
     a Css.kind ->
-    ?property:a option * bool ->
+    ?property:a property_info ->
     ?order:int ->
     string ->
     layer:layer ->
@@ -69,11 +76,6 @@ let create : type a.
       failwith ("Variable '" ^ name ^ "' in theme layer must have an order")
   | _ -> ());
 
-  let prop_info_opt =
-    match property with
-    | None -> None
-    | Some (initial, inherits) -> Some { initial; inherits }
-  in
   let info = Info { kind; name; need_property = property <> None; order } in
   let binding ?fallback value =
     let meta = meta_of_info info in
@@ -81,35 +83,84 @@ let create : type a.
     (* Accept fallback as 'a Css.fallback directly *)
     Css.var ~default:value ?fallback ?layer:layer_name ~meta name kind value
   in
-  { kind; name; layer; binding; property = prop_info_opt; order }
+  { kind; name; layer; binding; property; order }
+
+(* Convenience constructors to encode patterns safely *)
+
+let theme kind name ~order =
+  create kind ?property:None ?order:(Some order) name ~layer:Theme
+
+let property_default kind ?initial ?(inherits = false) ?(universal = false) name
+    =
+  let property = property_info ?initial ~inherits ~universal () in
+  create kind ~property name ~layer:Utility
+
+let channel kind name = create kind name ~layer:Utility
+
+(* Place after [reference] to avoid forward reference issues *)
 
 (* Helper to create @property with correct syntax based on kind *)
 let create_property : type a.
-    name:string -> a Css.kind -> a option -> inherits:bool -> Css.t =
- fun ~name kind initial ~inherits ->
+    name:string ->
+    a Css.kind ->
+    a option ->
+    inherits:bool ->
+    universal:bool ->
+    Css.t =
+ fun ~name kind initial ~inherits ~universal ->
   let open Css in
-  match (kind, initial) with
-  (* Length - use length-percentage syntax when there's a value *)
-  | Length, None -> property ~name Universal ~inherits ()
-  | Length, Some v -> property ~name Length ~initial_value:v ~inherits ()
-  (* Float as Percentage *)
-  | Float, None -> property ~name Percentage ~inherits ()
-  | Float, Some v ->
-      property ~name Percentage ~initial_value:(Pct v) ~inherits ()
-  (* Everything else - use Universal syntax *)
-  | _, None -> property ~name Universal ~inherits ()
-  | _, Some v ->
-      let initial_str = initial_to_universal kind v in
-      property ~name Universal ~initial_value:initial_str ~inherits ()
+  (* Force universal syntax if requested *)
+  if universal then
+    match initial with
+    | None -> property ~name Universal ~inherits ()
+    | Some v -> (
+        (* Special case: empty lists for Gradient_stops should not have
+           initial-value *)
+        match (kind, v) with
+        | Gradient_stops, [] -> property ~name Universal ~inherits ()
+        | _ ->
+            let initial_str = initial_to_universal kind v in
+            property ~name Universal ~initial_value:initial_str ~inherits ())
+  else
+    match (kind, initial) with
+    (* Length - use length-percentage syntax when there's a value *)
+    | Length, None -> property ~name Universal ~inherits ()
+    | Length, Some v -> property ~name Length ~initial_value:v ~inherits ()
+    (* Float as Percentage *)
+    | Float, None -> property ~name Percentage ~inherits ()
+    | Float, Some v ->
+        property ~name Percentage ~initial_value:(Pct v) ~inherits ()
+    (* Color - use universal syntax when no initial value, color syntax
+       otherwise *)
+    | Color, None -> property ~name Universal ~inherits ()
+    | Color, Some v -> property ~name Color ~initial_value:v ~inherits ()
+    (* Percentage - use length-percentage syntax *)
+    | Percentage, None -> property ~name Length_percentage ~inherits ()
+    | Percentage, Some v ->
+        property ~name Length_percentage ~initial_value:(Percentage v) ~inherits
+          ()
+    (* Gradient_stops - special handling *)
+    | Gradient_stops, None -> property ~name Universal ~inherits ()
+    | Gradient_stops, Some [] ->
+        (* Empty list means no initial-value, just like None *)
+        property ~name Universal ~inherits ()
+    | Gradient_stops, Some v ->
+        let initial_str = initial_to_universal kind v in
+        property ~name Universal ~initial_value:initial_str ~inherits ()
+    (* Everything else - use Universal syntax *)
+    | _, None -> property ~name Universal ~inherits ()
+    | _, Some v ->
+        let initial_str = initial_to_universal kind v in
+        property ~name Universal ~initial_value:initial_str ~inherits ()
 
 (* Get @property rule if metadata present *)
 let property_rule : type a. a t -> Css.t option =
  fun var ->
   match var.property with
   | None -> None
-  | Some { initial; inherits } ->
+  | Some { initial; inherits; universal } ->
       let name = "--" ^ var.name in
-      Some (create_property ~name var.kind initial ~inherits)
+      Some (create_property ~name var.kind initial ~inherits ~universal)
 
 (* Create a binding: returns both declaration and a context-aware var
    reference *)
@@ -147,8 +198,16 @@ let reference : type a. ?fallback:a Css.fallback -> a t -> a Css.var =
             var.binding ~fallback:(Css.Fallback fallback_value) fallback_value
           in
           var_ref
+      | None, Some Css.None ->
+          (* No initial value but explicit None fallback - create bare var
+             reference We need a dummy value to create the binding, but the
+             fallback None will ensure only var(--name) is generated without a
+             fallback *)
+          failwith
+            ("Cannot create bare variable reference without initial value: "
+           ^ var.name ^ ". Use a concrete fallback or add initial value.")
       | None, Some _ ->
-          (* Empty or None fallback without initial value *)
+          (* Other fallback types without initial value *)
           failwith
             ("Var.reference with no initial value requires a Fallback value: "
            ^ var.name)
@@ -156,6 +215,10 @@ let reference : type a. ?fallback:a Css.fallback -> a t -> a Css.var =
           (* Have initial value - use it with optional fallback *)
           let _, var_ref = var.binding ?fallback initial_value in
           var_ref)
+
+let ref_only kind name ~fallback =
+  let v = channel kind name in
+  reference ~fallback:(Css.Fallback fallback) v
 
 (* Property info to declaration value conversion *)
 let property_info_to_declaration_value (Css.Property_info info) =

@@ -19,14 +19,14 @@ open Core
 open Css
 
 (* Transform variables using new API *)
-let tw_translate_x_var = Var.create Css.Length "tw-translate-x" ~layer:Utility
-let tw_translate_y_var = Var.create Css.Length "tw-translate-y" ~layer:Utility
-let tw_rotate_var = Var.create Css.Angle "tw-rotate" ~layer:Utility
-let tw_skew_x_var = Var.create Css.Angle "tw-skew-x" ~layer:Utility
-let tw_skew_y_var = Var.create Css.Angle "tw-skew-y" ~layer:Utility
-let tw_scale_x_var = Var.create Css.Float "tw-scale-x" ~layer:Utility
-let tw_scale_y_var = Var.create Css.Float "tw-scale-y" ~layer:Utility
-let tw_scale_z_var = Var.create Css.Float "tw-scale-z" ~layer:Utility
+let tw_translate_x_var = Var.channel Css.Length "tw-translate-x"
+let tw_translate_y_var = Var.channel Css.Length "tw-translate-y"
+let tw_rotate_var = Var.channel Css.Angle "tw-rotate"
+let tw_skew_x_var = Var.channel Css.Angle "tw-skew-x"
+let tw_skew_y_var = Var.channel Css.Angle "tw-skew-y"
+let tw_scale_x_var = Var.channel Css.Float "tw-scale-x"
+let tw_scale_y_var = Var.channel Css.Float "tw-scale-y"
+let tw_scale_z_var = Var.channel Css.Float "tw-scale-z"
 
 module Parse = Parse
 

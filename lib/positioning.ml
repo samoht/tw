@@ -7,7 +7,7 @@ module Parse = Parse
 (** {1 Helper Functions} *)
 
 (* Create the spacing theme variable - value set in theme generation *)
-let spacing_var = Var.create Css.Length "spacing" ~layer:Theme ~order:4
+let spacing_var = Var.theme Css.Length "spacing" ~order:4
 
 (* Helper to create spacing values using calc(var(--spacing) * n) *)
 let spacing_value n : Css.declaration * Css.length =

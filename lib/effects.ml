@@ -24,80 +24,71 @@ module Parse = Parse
 (* Shadow variables with property registration - using convert for type
    compatibility *)
 let shadow_var =
-  Var.create Css.Shadow "tw-shadow" ~layer:Utility
-    ~property:
-      ( Some
-          (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000")
-             ()),
-        false )
+  Var.property_default Css.Shadow
+    ~initial:
+      (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000") ())
+    ~universal:true "tw-shadow"
 
 let shadow_alpha_var =
-  Var.create Css.Float "tw-shadow-alpha" ~layer:Utility
-    ~property:(Some 100.0, false)
+  Var.property_default Css.Float ~initial:100.0 "tw-shadow-alpha"
 
 let inset_shadow_color_var =
-  Var.create Css.Color "tw-inset-shadow-color" ~layer:Utility
-    ~property:(None, false)
+  Var.property_default Css.Color ~initial:(Css.hex "#0000") ~universal:true
+    "tw-inset-shadow-color"
 
 let inset_shadow_alpha_var =
-  Var.create Css.Float "tw-inset-shadow-alpha" ~layer:Utility
-    ~property:(Some 100.0, false)
+  Var.property_default Css.Float ~initial:100.0 "tw-inset-shadow-alpha"
 
 let shadow_color_var =
-  Var.create Css.Color "tw-shadow-color" ~layer:Utility ~property:(None, false)
+  Var.property_default Css.Color ~initial:(Css.hex "#0000") ~universal:true
+    "tw-shadow-color"
 
 let inset_shadow_var =
-  Var.create Css.Shadow "tw-inset-shadow" ~layer:Utility
-    ~property:
-      ( Some
-          (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000")
-             ()),
-        false )
+  Var.property_default Css.Shadow
+    ~initial:
+      (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000") ())
+    ~universal:true "tw-inset-shadow"
 
 (* Ring variables *)
 let ring_color_var =
-  Var.create Css.Color "tw-ring-color" ~layer:Utility ~property:(None, false)
+  Var.property_default Css.Color ~initial:(Css.hex "#0000") ~universal:true
+    "tw-ring-color"
 
 let inset_ring_color_var =
-  Var.create Css.Color "tw-inset-ring-color" ~layer:Utility
-    ~property:(None, false)
+  Var.property_default Css.Color ~initial:(Css.hex "#0000") ~universal:true
+    "tw-inset-ring-color"
 
 let ring_inset_var =
-  Var.create Css.String "tw-ring-inset" ~layer:Utility ~property:(None, false)
+  Var.property_default Css.String ~initial:"" ~universal:true "tw-ring-inset"
 
 let ring_shadow_var =
-  Var.create Css.Shadow "tw-ring-shadow" ~layer:Utility
-    ~property:
-      ( Some
-          (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000")
-             ()),
-        false )
+  Var.property_default Css.Shadow
+    ~initial:
+      (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000") ())
+    ~universal:true "tw-ring-shadow"
 
 let inset_ring_shadow_var =
-  Var.create Css.Shadow "tw-inset-ring-shadow" ~layer:Utility
-    ~property:
-      ( Some
-          (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000")
-             ()),
-        false )
+  Var.property_default Css.Shadow
+    ~initial:
+      (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000") ())
+    ~universal:true "tw-inset-ring-shadow"
 
 let ring_offset_shadow_var =
-  Var.create Css.Shadow "tw-ring-offset-shadow" ~layer:Utility
-    ~property:
-      ( Some
-          (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000")
-             ()),
-        false )
+  Var.property_default Css.Shadow
+    ~initial:
+      (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000") ())
+    ~universal:true "tw-ring-offset-shadow"
 
 let ring_offset_color_var =
-  Var.create Css.Color "tw-ring-offset-color" ~layer:Utility
-    ~property:(Some (Css.hex "#fff"), false)
+  Var.property_default Css.Color ~initial:(Css.hex "#fff") ~universal:true
+    "tw-ring-offset-color"
 
 let ring_offset_width_var =
-  Var.create Css.Length "tw-ring-offset-width" ~layer:Utility
-    ~property:(Some Css.Zero, false)
+  Var.property_default Css.Length
+    ~initial:(Px 0. : Css.length)
+    "tw-ring-offset-width"
 
-let ring_width_var = Var.create Css.Length "tw-ring-width" ~layer:Utility
+let ring_width_var = Var.channel Css.Length "tw-ring-width"
 
 (** {1 Shadow Utilities} *)
 

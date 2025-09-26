@@ -25,8 +25,9 @@ open Css
 (* Create border style variable with @property for utilities that reference
    it *)
 let border_style_var =
-  Var.create Css.Border_style "tw-border-style" ~layer:Utility
-    ~property:(Some Solid, false)
+  Var.property_default Css.Border_style
+    ~initial:(Solid : Css.border_style)
+    "tw-border-style"
 
 (* Helper for border utilities that reference the variable with @property
    default *)
@@ -42,8 +43,8 @@ let make_border_util class_name additional_props =
 
 (* Helper for border style utilities that set the variable *)
 let border_style_util class_name border_style_value =
-  let decl, _var_ref = Var.binding border_style_var border_style_value in
-  style class_name (decl :: [ border_style border_style_value ])
+  let decl, _ = Var.binding border_style_var border_style_value in
+  style class_name [ decl; border_style border_style_value ]
 
 let border = make_border_util "border" [ border_width (Px 1.) ]
 let border_0 = make_border_util "border-0" [ border_width (Px 0.) ]
@@ -182,12 +183,12 @@ let border_full = border_8 (* 8px *)
 (** {1 Border Radius Utilities} *)
 
 (* Create radius theme variables with fallback values for inline mode *)
-let radius_sm_var = Var.create Css.Length "radius-sm" ~layer:Theme ~order:3
-let radius_md_var = Var.create Css.Length "radius-md" ~layer:Theme ~order:4
-let radius_lg_var = Var.create Css.Length "radius-lg" ~layer:Theme ~order:5
-let radius_xl_var = Var.create Css.Length "radius-xl" ~layer:Theme ~order:6
-let radius_2xl_var = Var.create Css.Length "radius-2xl" ~layer:Theme ~order:7
-let radius_3xl_var = Var.create Css.Length "radius-3xl" ~layer:Theme ~order:8
+let radius_sm_var = Var.theme Css.Length "radius-sm" ~order:3
+let radius_md_var = Var.theme Css.Length "radius-md" ~order:4
+let radius_lg_var = Var.theme Css.Length "radius-lg" ~order:5
+let radius_xl_var = Var.theme Css.Length "radius-xl" ~order:6
+let radius_2xl_var = Var.theme Css.Length "radius-2xl" ~order:7
+let radius_3xl_var = Var.theme Css.Length "radius-3xl" ~order:8
 let rounded_none = style "rounded-none" [ border_radius Zero ]
 
 let rounded_sm =

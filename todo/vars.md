@@ -1,5 +1,44 @@
 # CSS Variable Patterns - Pure API Design
 
+## Implementation Status
+
+The patterns and rendering pipeline described here are implemented with a concise, type-safe API:
+
+- Core module: `lib/var.{mli,ml}`
+  - `Var.create` encodes role via `~layer:{Theme|Utility}` and optional `~property:(Var.property_info ...)`.
+  - `Var.binding` always provides inline defaults; returns `(declaration, var_ref)`.
+  - `Var.reference` enforces either a typed `@property initial` or an explicit fallback.
+  - `Var.property_rule` emits typed `@property` when present.
+  - Helpers: `Var.var_needs_property`, `Var.order_of_declaration`, `Var.property_initial_string`.
+- Rendering/layers: `lib/rules.ml`
+  - Extracts explicit `@property` rules, auto-generates missing ones for variables that need them, and builds a `@layer properties` with browser detection and initial custom properties.
+  - Emits `@layer theme`, `@layer base`, `@layer components`, `@layer utilities` in Tailwind v4 order; appends collected `@property` rules.
+  - Inline mode emits rules without layers; var() fallbacks/defaults resolve to concrete values.
+
+This preserves purity and determinism (no global mutable state). Inline mode works by construction because every reference carries a concrete default.
+
+## Mapping To Current API
+
+- Theme variables
+  - `Var.create kind name ~layer:Theme ~order` + bind defaults via `Var.binding` at the theme layer.
+  - Theme declarations are extracted and sorted by `Var.order_of_declaration` before emission.
+
+- Property_default variables
+  - `Var.create kind name ~layer:Utility ~property:(Var.property_info ~initial ... ())`.
+  - Referencing utilities use `Var.reference` and include `~property_rules:(match Var.property_rule ...)`.
+  - Setting utilities use `Var.binding` and do not emit property rules.
+
+- Channel variables
+  - `Var.create kind name ~layer:Utility` (no `~property`). Contributors set via `Var.binding`; aggregators reference as needed.
+
+- Ref_only variables
+  - Referencing utilities call `Var.reference ~fallback:(Css.Fallback v)` without `~property`. Other modules may set via `Var.binding`.
+
+- Always-set variables
+  - Use `Var.binding` where the declaration and reference are owned by the same utility.
+
+Note: Proposed role constructors (`theme`, `property_default`, `channel`, `ref_only`) are represented via `~layer` and `~property` in `Var.create`, retaining type safety from `Css.kind` while avoiding a breaking API.
+
 ## Core Problem
 
 We have 5 distinct variable patterns but our current API makes them easy to misuse. We need a pure, simple API that encodes intent without global state or complex migration machinery.

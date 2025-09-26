@@ -12,90 +12,56 @@ type variant =
   [ `Base | `Sm | `Lg | `Xl | `Xl2 | `Gray | `Slate | `Zinc | `Neutral | `Stone ]
 
 (* Create prose variables using the new API *)
-let prose_body_var = Var.create Css.Color "tw-prose-body" ~layer:Utility
-let prose_headings_var = Var.create Css.Color "tw-prose-headings" ~layer:Utility
-let prose_lead_var = Var.create Css.Color "tw-prose-lead" ~layer:Utility
-let prose_links_var = Var.create Css.Color "tw-prose-links" ~layer:Utility
-let prose_bold_var = Var.create Css.Color "tw-prose-bold" ~layer:Utility
-let prose_counters_var = Var.create Css.Color "tw-prose-counters" ~layer:Utility
-let prose_bullets_var = Var.create Css.Color "tw-prose-bullets" ~layer:Utility
-let prose_hr_var = Var.create Css.Color "tw-prose-hr" ~layer:Utility
-let prose_quotes_var = Var.create Css.Color "tw-prose-quotes" ~layer:Utility
-
-let prose_quote_borders_var =
-  Var.create Css.Color "tw-prose-quote-borders" ~layer:Utility
-
-let prose_captions_var = Var.create Css.Color "tw-prose-captions" ~layer:Utility
-let prose_kbd_var = Var.create Css.Color "tw-prose-kbd" ~layer:Utility
+let prose_body_var = Var.channel Css.Color "tw-prose-body"
+let prose_headings_var = Var.channel Css.Color "tw-prose-headings"
+let prose_lead_var = Var.channel Css.Color "tw-prose-lead"
+let prose_links_var = Var.channel Css.Color "tw-prose-links"
+let prose_bold_var = Var.channel Css.Color "tw-prose-bold"
+let prose_counters_var = Var.channel Css.Color "tw-prose-counters"
+let prose_bullets_var = Var.channel Css.Color "tw-prose-bullets"
+let prose_hr_var = Var.channel Css.Color "tw-prose-hr"
+let prose_quotes_var = Var.channel Css.Color "tw-prose-quotes"
+let prose_quote_borders_var = Var.channel Css.Color "tw-prose-quote-borders"
+let prose_captions_var = Var.channel Css.Color "tw-prose-captions"
+let prose_kbd_var = Var.channel Css.Color "tw-prose-kbd"
 
 (* Special handling for kbd-shadows - it's RGB values without rgb() wrapper *)
-let prose_kbd_shadows_var =
-  Var.create Css.String "tw-prose-kbd-shadows" ~layer:Utility
-
-let prose_code_var = Var.create Css.Color "tw-prose-code" ~layer:Utility
-let prose_pre_code_var = Var.create Css.Color "tw-prose-pre-code" ~layer:Utility
-let prose_pre_bg_var = Var.create Css.Color "tw-prose-pre-bg" ~layer:Utility
-
-let prose_th_borders_var =
-  Var.create Css.Color "tw-prose-th-borders" ~layer:Utility
-
-let prose_td_borders_var =
-  Var.create Css.Color "tw-prose-td-borders" ~layer:Utility
+let prose_kbd_shadows_var = Var.channel Css.String "tw-prose-kbd-shadows"
+let prose_code_var = Var.channel Css.Color "tw-prose-code"
+let prose_pre_code_var = Var.channel Css.Color "tw-prose-pre-code"
+let prose_pre_bg_var = Var.channel Css.Color "tw-prose-pre-bg"
+let prose_th_borders_var = Var.channel Css.Color "tw-prose-th-borders"
+let prose_td_borders_var = Var.channel Css.Color "tw-prose-td-borders"
 
 (* Invert variants for dark mode *)
-let prose_invert_body_var =
-  Var.create Css.Color "tw-prose-invert-body" ~layer:Utility
-
-let prose_invert_headings_var =
-  Var.create Css.Color "tw-prose-invert-headings" ~layer:Utility
-
-let prose_invert_lead_var =
-  Var.create Css.Color "tw-prose-invert-lead" ~layer:Utility
-
-let prose_invert_links_var =
-  Var.create Css.Color "tw-prose-invert-links" ~layer:Utility
-
-let prose_invert_bold_var =
-  Var.create Css.Color "tw-prose-invert-bold" ~layer:Utility
-
-let prose_invert_counters_var =
-  Var.create Css.Color "tw-prose-invert-counters" ~layer:Utility
-
-let prose_invert_bullets_var =
-  Var.create Css.Color "tw-prose-invert-bullets" ~layer:Utility
-
-let prose_invert_hr_var =
-  Var.create Css.Color "tw-prose-invert-hr" ~layer:Utility
-
-let prose_invert_quotes_var =
-  Var.create Css.Color "tw-prose-invert-quotes" ~layer:Utility
+let prose_invert_body_var = Var.channel Css.Color "tw-prose-invert-body"
+let prose_invert_headings_var = Var.channel Css.Color "tw-prose-invert-headings"
+let prose_invert_lead_var = Var.channel Css.Color "tw-prose-invert-lead"
+let prose_invert_links_var = Var.channel Css.Color "tw-prose-invert-links"
+let prose_invert_bold_var = Var.channel Css.Color "tw-prose-invert-bold"
+let prose_invert_counters_var = Var.channel Css.Color "tw-prose-invert-counters"
+let prose_invert_bullets_var = Var.channel Css.Color "tw-prose-invert-bullets"
+let prose_invert_hr_var = Var.channel Css.Color "tw-prose-invert-hr"
+let prose_invert_quotes_var = Var.channel Css.Color "tw-prose-invert-quotes"
 
 let prose_invert_quote_borders_var =
-  Var.create Css.Color "tw-prose-invert-quote-borders" ~layer:Utility
+  Var.channel Css.Color "tw-prose-invert-quote-borders"
 
-let prose_invert_captions_var =
-  Var.create Css.Color "tw-prose-invert-captions" ~layer:Utility
-
-let prose_invert_kbd_var =
-  Var.create Css.Color "tw-prose-invert-kbd" ~layer:Utility
+let prose_invert_captions_var = Var.channel Css.Color "tw-prose-invert-captions"
+let prose_invert_kbd_var = Var.channel Css.Color "tw-prose-invert-kbd"
 
 let prose_invert_kbd_shadows_var =
-  Var.create Css.String "tw-prose-invert-kbd-shadows" ~layer:Utility
+  Var.channel Css.String "tw-prose-invert-kbd-shadows"
 
-let prose_invert_code_var =
-  Var.create Css.Color "tw-prose-invert-code" ~layer:Utility
-
-let prose_invert_pre_code_var =
-  Var.create Css.Color "tw-prose-invert-pre-code" ~layer:Utility
-
-let prose_invert_pre_bg_var =
-  Var.create Css.Color "tw-prose-invert-pre-bg" ~layer:Utility
+let prose_invert_code_var = Var.channel Css.Color "tw-prose-invert-code"
+let prose_invert_pre_code_var = Var.channel Css.Color "tw-prose-invert-pre-code"
+let prose_invert_pre_bg_var = Var.channel Css.Color "tw-prose-invert-pre-bg"
 
 let prose_invert_th_borders_var =
-  Var.create Css.Color "tw-prose-invert-th-borders" ~layer:Utility
+  Var.channel Css.Color "tw-prose-invert-th-borders"
 
 let prose_invert_td_borders_var =
-  Var.create Css.Color "tw-prose-invert-td-borders" ~layer:Utility
+  Var.channel Css.Color "tw-prose-invert-td-borders"
 
 (* ======================================================================== *)
 (* Selector Helper Functions *)

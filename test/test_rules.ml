@@ -535,7 +535,7 @@ let count_prose_rules rules =
     rules
 
 let rules_of_grouped_prose_bug () =
-  let prose_body_var = Tw.Var.create Css.Color "prose-body" ~layer:Utility in
+  let prose_body_var = Tw.Var.channel Css.Color "prose-body" in
   let prose_class = Css.Selector.class_ "prose" in
   let prose_p_sel = prose_p_selector prose_class in
   let grouped_pairs =
