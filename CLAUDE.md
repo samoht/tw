@@ -1,261 +1,233 @@
-# TW - OCaml Tailwind CSS Implementation
+# OCaml × Tailwind v4 — Contributor Guide (for Claude Code)
 
-## Project Overview
-OCaml DSL for generating Tailwind CSS v4-compatible utility classes with type safety.
+## 1) Purpose
 
-## Key Documentation
-- `docs/adding-a-new-utility.md` - Guide for adding new utilities with CSS variables and layers
+This repo provides a type-safe Tailwind v4 implementation in OCaml. Utilities are compiled to CSS through a strongly-typed variable system and layered rules that mirror Tailwind's pipeline. The goal: **no raw `"var(--...)"` strings; no `Css.custom`; spec-faithful output.**
 
-## Project Structure
+---
+
+## 2) Core principles
+
+1. **Type safety over strings.** Never write `"var(--name)"` or `Css.custom`; represent variables and properties via `Var` and typed constructors.
+2. **Spec-driven tests.** CSS behaviour is tested against MDN/W3C where applicable; utilities against Tailwind v4 output.
+3. **Variables follow four patterns.** See patterns below and `docs/adding-a-new-utility.md`.
+4. **Respect layers.** `theme → properties → base → components → utilities`. Utilities must not leak into theme or properties.
+
+---
+
+## 3) Project structure
+
 ```
-lib/           - Core library modules (utilities, CSS generation)
-  css/         - CSS AST and generation
-  html/        - HTML DSL with integrated CSS
-  tools/       - CLI tools (tw command, tailwind_gen)
-  var.ml       - CSS variable system (CRITICAL - defines all variable types)
-  rules.ml     - Layer assembly and CSS generation
-  core.ml      - Base types and style function
-test/          - Alcotest-based tests
-  test_*.ml    - Individual test modules
-  tools/       - Testing utilities
-scripts/       - Helper scripts for CSS comparison
-```
-
-## Critical Concepts
-
-### CSS Variables Pattern
-
-Core principles:
-- **Type safety first**: Always use typed `Var` constructors, never string literals
-- **Define in var.ml**: All variables must be defined with proper ordering
-- **Theme vs Utility**: Use `Var.theme` for shared tokens, `Var.utility` for specific utilities
-- **Property registration**: Use `Var.property` for animations/transitions requiring @property
-
-### Layer System
-- `@layer theme` - CSS variables in :root,:host (from Var.theme)
-- `@layer properties` - @property defaults (from property_rules)
-- `@layer base` - Preflight reset styles
-- `@layer components` - Component styles (usually empty)
-- `@layer utilities` - Utility classes
-
-### Common Patterns
-```ocaml
-(* Theme variable *)
-let size_def, size_var = Var.theme Var.Text_xl (Rem 1.25)
-
-(* Utility variable with fallback *)
-let my_def, my_var = Var.utility Var.My_var ~fallback:fallback_value value
-
-(* Property registration for animations/transitions *)
-let property_rules = [
-  Var.property Var.My_var ~syntax:"*" ~inherits:false ~initial:"initial"
-]
-
-(* Utility definition *)
-let my_util = style "my-util" ~property_rules [
-  my_def;
-  Css.some_property (Var my_var);
-]
+lib/           core (utilities, CSS generation)
+  css/         CSS AST + emission
+  var.ml       variable system (critical)
+  rules.ml     layer assembly
+test/          Alcotest suites (CSS + Tailwind parity)
+docs/          adding-a-new-utility.md (start here for new utils)
 ```
 
-## Build & Test Commands
+Keep examples small and targeted; each test file should focus on one concept.
 
-### Building
+---
+
+## 4) Quick start (build, run, compare)
+
 ```bash
-dune build                    # Build everything
-dune build lib/tw.cma        # Build library
-dune exec tw -- <args>       # Run tw CLI tool
-```
+# Build
+dune build
 
-### Testing
-```bash
-dune test                    # Run all tests
-dune exec test/test.exe      # Run test suite directly
-dune exec test/test.exe test <suite> <test_num>  # Run specific test
-
-# With verbose output
+# Run all tests (verbose helps when debugging mismatches)
 ALCOTEST_VERBOSE=1 dune exec test/test.exe
 
-# Common test suites: tw, core_tests, rules, Color
+# Generate CSS for a snippet (variables only, then with base)
+dune exec -- tw -s "p-4" --variables
+dune exec -- tw -s "p-4" --variables --base
 
-# Creating and running test files
-# ALWAYS use tmp/ directory for test files (not /tmp/)
-# Example:
-cat > tmp/test_selector.ml << 'EOF'
-let () = Printf.printf "Hello from test\n"
-EOF
-dune exec tmp/test_selector.exe
+# Compare with Tailwind (requires npx tailwindcss)
+echo '<div class="p-4">X</div>' > tmp/test.html
+npx tailwindcss --content tmp/test.html --minify --optimize 2>/dev/null
 ```
 
-### Debugging CSS Generation
-```bash
-# Generate CSS for a class without base layer
-dune exec -- tw -s "bg-blue-500 p-4" --variables
+> Note: Use `tmp/` (repo-local) for debug artefacts; do **not** use `/tmp`. Update any older scripts accordingly.
 
-# Include base layer
-dune exec -- tw -s "shadow-sm" --variables --base
+---
 
-# Compare with Tailwind output
-dune exec -- tw -s "border-solid" --variables | head -20
+## 5) Variable system (the four patterns)
 
-# Generate from HTML files
-dune exec -- tw examples/simple.html --minify --optimize
+All variables are declared and referenced via `Var`. Pick **one** pattern and apply it consistently.
+
+### Pattern 1 — `theme` (design tokens)
+
+Use for named scales: font sizes, spacing, colours.
+
+```ocaml
+let v = Var.theme kind "text-xl" ~order:N
+let decl, ref_ = Var.binding v (Css.rem 1.25)
+style "text-xl" [ decl; prop (Var ref_) ]
 ```
 
-### CSS Comparison Tools
-```bash
-# Compare generated CSS with Tailwind
-dune exec scripts/cssdiff.exe <our_css> <tailwind_css>
+Typical users: typography, spacing. Order must match Tailwind canonical ordering in `var.ml`.
 
-# Generate Tailwind CSS for comparison (requires npx tailwindcss)
-# ALWAYS use --minify and --optimize flags for accurate comparisons
-echo '<div class="p-4 bg-blue-500">Test</div>' > /tmp/test.html
-tailwindcss --content '/tmp/test.html' --minify --optimize 2>/dev/null
+### Pattern 2 — `property_default`
+
+For variables with `@property` defaults that utilities may override.
+**Setter:**
+
+```ocaml
+let v = Var.property_default kind ~initial:default "border-style"
+let decl, ref_ = Var.binding v Css.solid
+style "border-solid" [ decl; prop (Var ref_) ]
 ```
 
-## Code Style & Conventions
+**Referrer:**
 
-1. **Type-first approach**: Define types in CSS modules, use Var constructors
-2. **No string manipulation**: Use typed constructors, not string concatenation
-3. **Follow existing patterns**: Check similar utilities before implementing
-4. **Order matters**: Variables must follow canonical ordering in var.ml
-5. **Test everything**: Write tests comparing output with Tailwind CSS
-6. **Type annotations**: Add type annotations to helper functions for clarity
-7. **Pattern matching**: Start with `Some` cases to avoid type ambiguity
+```ocaml
+let ref_ = Var.reference v
+let props = match Var.property_rule v with Some r -> r | None -> Css.empty
+style "border" ~property_rules:props [ prop (Var ref_) ]
+```
 
-## Common Pitfalls to Avoid
+Ensure the referrer passes `~property_rules` so `@property` is emitted.
 
-1. **String-based var() references**: Always use typed `Var`, never `"var(--name)"`
-2. **Css.custom usage**: Never use - it bypasses the type system
-3. **Setting variables in wrong places**: Only style utilities should set style variables
-4. **Wrong layer generation**: Don't pass `~property_rules` unless needed for @property
-5. **Missing fallbacks**: Always provide sensible fallbacks for `Var.utility`
-6. **Wrong @property syntax**: Use `syntax:"*"` for generic properties
-7. **Silencing warnings**: Never use `OCAMLPARAM=_,w=-32` - fix warnings properly
+### Pattern 3 — `channel` (compositional)
 
-## Quick Debugging Checklist
+For transform/filters channels (e.g. `--tw-rotate`).
 
-When something doesn't work:
-1. Check `var.ml` for variable definition and ordering
-2. Verify layer generation: `dune exec -- tw -s "<class>" --variables`
-3. Compare with Tailwind: `tailwindcss --content test.html --minify --optimize`
-4. Debug test failures: `ALCOTEST_VERBOSE=1 dune test`
-5. Look for anti-patterns: `Css.custom` or string `"var(--...)"` usage
+```ocaml
+let v = Var.channel kind "rotate"
+let decl, _ = Var.binding v (Css.deg 45)
+style "rotate-45" [ decl ]
+```
 
-## Key Files & Tools
+The final composed property is built elsewhere from channels.
 
-- **tw CLI**: `lib/tools/tw.ml` - Main CLI for CSS generation
-- **tailwind_gen**: `lib/tools/tailwind_gen.ml` - Code generator for utility modules
-- **cssdiff**: `scripts/cssdiff.ml` - CSS diff tool
-- **var.ml**: Variable definitions and ordering (CRITICAL)
-- **rules.ml**: Layer assembly and CSS output generation
+### Pattern 4 — `ref_only`
 
-## Testing Strategy
-- Each utility module has corresponding test_*.ml
-- Tests compare output with expected Tailwind CSS
-- Use --variables mode for CSS variable testing
-- Run specific failing tests with test suite and number
-- Test output files saved to `/tmp/css_debug/` for debugging:
-  - `<test_name>_tw.css`: Our generated output
-  - `<test_name>_tailwind.css`: Expected Tailwind output
-  - Use `diff -u` to compare and identify mismatches
+Referenced with a fallback; never set by the utility.
 
-## Test File Organization
+```ocaml
+let v = Var.ref_only kind "blur" ~fallback:(Css.px 0)
+let r = Var.reference v
+style "backdrop" [ prop (Var r) ]
+```
 
-### test/css directory structure:
-- **test_values.ml** - CSS value types (lengths, colors, angles, calc, etc.)
-- **test_declaration.ml** - CSS declaration parsing
-- **test_properties.ml** - CSS property types and values
-- **test_selector.ml** - CSS selector parsing and construction
-- **test_reader.ml** - Low-level CSS reader/parser functions
-- **test_pp.ml** - Pretty printing and minification
-- **test_css.ml** - CSS optimization and rule merging (uses ocaml-crunch for embedded test files)
+Useful when the value originates upstream (theme/properties).
 
-### Test Focus:
-- Each test file should focus on testing against the SPEC, not implementation
-- test_css.ml focuses ONLY on optimization algorithms, not basic CSS functionality
-- Basic CSS features are tested in their respective files (values, properties, etc.)
-- Avoid duplicate tests - each concept should be tested in ONE place
-- Use ocaml-crunch to embed CSS test files for portability
 
-## Test Structure Convention
+---
 
-### For CSS Property Types (test/css/test_properties.ml)
+## 6) Layers (how we emit CSS)
 
-1. **Generic check function**:
-   ```ocaml
-   let check_value name pp reader ?expected input =
-     (* Handles parse/print roundtrip testing *)
+`rules.ml` builds layers in order:
+
+1. **theme** (tokens)
+2. **properties** (`@property` and defaults)
+3. **base**
+4. **components**
+5. **utilities**
+
+Utilities must not declare tokens; theme must not reference utility vars. See `compute_theme_layer`and`build_properties_layer`.
+
+---
+
+## 7) Adding a new utility — minimal workflow
+
+1. **Read** `docs/adding-a-new-utility.md`. Identify the variable pattern.
+2. **Implement** the utility in `lib/<area>.ml` using typed `Var` and the chosen pattern.
+3. **Place** declarations in the correct layer via `rules.ml`.
+4. **Test**:
+
+   * CSS spec behaviour (if relevant) under `test/css/`.
+   * Tailwind parity under `test/`. Use a *single* concept per file.
+5. **Compare** against Tailwind:
+
+   ```bash
+   ALCOTEST_VERBOSE=1 dune exec test/test.exe test tw 10
+   diff -u tmp/css_debug/test_10_tw.css tmp/css_debug/test_10_tailwind.css
    ```
 
-2. **One-liner check functions for each type**:
-   ```ocaml
-   let check_display = check_value "display" Css.Properties.pp_display Css.Properties.read_display
-   let check_position = check_value "position" Css.Properties.pp_position Css.Properties.read_position
-   let check_overflow = check_value "overflow" Css.Properties.pp_overflow Css.Properties.read_overflow
-   ```
-   - Function name: `check_<type>` where `<type>` matches the OCaml type name exactly
-   - Tests individual values of that specific type
+   (Paths under `tmp/css_debug/` are created by tests.)
 
-3. **Test functions use check functions**:
-   ```ocaml
-   let test_display () =
-     check_display "none";
-     check_display "block";
-     check_display "inline";
-     check_display ~expected:"inline-block" "inline-block";  (* Use ~expected when output differs *)
-     ...
-   ```
+---
 
-4. **Test function definitions**:
-   - ALWAYS define named test functions: `let test_foo () = ...`
-   - NEVER use inline anonymous functions in test_case
-   - Bad: `test_case "foo" \`Quick (fun () -> ...)`
-   - Good: `test_case "foo" \`Quick test_foo`
+## 8) Debugging checklist
 
-5. **Naming conventions**:
-   - `check_<type>`: Tests a single value of type `<type>`
-   - `test_<property>`: Tests all values for a CSS property
-   - Never invent names - use exact type names from properties_intf.ml
+* **Wrong layer?**
 
-6. **Coverage requirements**:
-   - Test all valid enum values for each type
-   - Include edge cases (empty strings, whitespace, case variations)
-   - Test complex structured types thoroughly (shadows, gradients, transforms)
+  ```bash
+  dune exec -- tw -s "border-solid" --variables | grep -A5 "@layer"
+  ```
 
-7. **Testing negative cases and ambiguous specs**:
-   - Always test invalid inputs that should fail parsing
-   - Test edge cases where CSS/MDN specs might be ambiguous
-   - Use `try_parse` to verify that invalid values are properly rejected
-   - Example:
-     ```ocaml
-     let test_negative_values () =
-       let neg reader s label =
-         let r = Css.Reader.of_string s in
-         check bool label true (Option.is_none (try_parse reader r))
-       in
-       neg read_angle "90" "angle without unit should fail";
-       neg read_duration "100" "duration without unit should fail";
-       neg read_color "notacolor" "invalid color keyword should fail"
-     ```
-   - When specs are ambiguous, document the chosen behavior and test it
-   - Test boundary conditions (e.g., what happens with negative margins, zero values)
+  Confirm constructor ↔ pattern ↔ layer alignment.
 
-## When Fixing Tests
-- **test/css/** tests: Always refer to the CSS/MDN spec. If the test is compliant with the spec and it fails: fix the code. Otherwise fix the test.
-- **test/** tests (non-css): Always refer to the Tailwind v4 manual (and/or to the tailwindcss v4.x.x CLI tool). If the test is compliant, fix the code. Otherwise fix the test.
+* **Missing `@property`?**
 
-## Important Testing Principles
-- **Tests should validate the SPEC, not the current implementation**
-- CSS tests must verify compliance with CSS specifications (W3C/MDN)
-- Tailwind tests must verify output matches Tailwind v4 behavior
-- Never write tests that just confirm current code behavior - always test against the expected specification
-- If a test passes but violates the spec, the test is wrong
-- If code passes tests but violates the spec, write better tests
+  ```bash
+  dune exec -- tw -s "font-bold" --variables | grep "@property"
+  ```
 
-## Known Issues
+  Ensure `~property_rules` is passed and `Var.property_rule` invoked.
 
-### CSS Comparison Tool Bug
-When tests fail with "CSS has no structural differences" but character counts differ, this indicates a bug in the CSS comparison tool (`lib/tools/css_compare.ml`). This means the tool is missing some type of CSS content differences and not flagging them as structural changes.
+* **Order mismatch?**
 
-**Fix priority**: HIGH - This masks real test failures and makes debugging difficult. Requires investigation each time this message appears to identify what content differences are being missed.
+  ```bash
+  grep "~order:" lib/typography.ml
+  ```
+
+  Match canonical order constants in `var.ml`.
+
+* **Targeted test run:**
+
+  ```bash
+  ALCOTEST_VERBOSE=1 dune exec test/test.exe test tw <N>
+  ```
+
+---
+
+## 9) Common pitfalls (and fixes)
+
+1. Writing raw `"var(--name)"` or `Css.custom` → model it in `Var`, extend types if missing.
+2. Setting variables in the wrong utility → only **style** utilities set style vars.
+3. Forgetting `~property_rules` on referrers → `@property` never emitted.
+4. Spreading tests across multiple concerns → one concept per file.
+5. Silencing warnings with `OCAMLPARAM=_,w=-32` → address them; do not suppress.
+
+---
+
+## 10) Tests — organisation & rules
+
+* `test/css/`: MDN/W3C conformance where feasible.
+* `test/`: Tailwind v4 parity by utility.
+* Output artefacts live under `tmp/css_debug/`.
+* **Rules:**
+
+  1. Define named test functions (`let test_foo () = ...`).
+  2. Do not inline anonymous fns in `test_case`.
+  3. Cover invalid inputs with `try_parse`.
+  4. Document any ambiguous spec choices in comments.
+
+---
+
+## 11) Critical instructions (please read once)
+
+* Use **`tmp/`** for all test/debug files; never `/tmp/`.
+* Prefer **editing** existing docs over creating new ones unless explicitly requested.
+
+---
+
+## 12) Known issues
+
+* **CSS comparison tool**: may report "no structural differences" while char counts differ. The issue is tracked in `lib/tools/css_compare.ml`. Prioritise a fix before relying on negative diffs for CI gating.
+
+---
+
+## 13) PR checklist (copy into your description)
+
+* [ ] Variable pattern chosen and used consistently (link line numbers).
+* [ ] Correct layer(s) touched; no cross-layer leakage.
+* [ ] No raw `"var(--...)"` or `Css.custom`.
+* [ ] `@property` emitted when required (`~property_rules` present).
+* [ ] Tests: one concept/file; includes invalid input.
+* [ ] Tailwind parity diff checked under `tmp/css_debug/`.
+* [ ] Warnings addressed; no suppression flags.
+* [ ] Commands in docs/scripts write to `tmp/` only.
