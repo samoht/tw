@@ -79,7 +79,7 @@ let mono_font_variation =
 let var_ref (type a)
     (var : (a, [< `Theme | `Property_default | `Channel ]) Var.t)
     ~(fallback : a) : a Css.var =
-  Var.reference ~fallback:(Css.Fallback fallback) var
+  Var.reference_with_fallback var fallback
 
 (** HTML and body defaults *)
 let root_resets ~default_font_ref ~font_feature_ref ~font_variation_ref =

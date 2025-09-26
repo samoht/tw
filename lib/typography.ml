@@ -105,28 +105,27 @@ let font_weight_black_var =
 let font_weight_var =
   Var.channel ~needs_property:true Css.Font_weight "tw-font-weight"
 
-(* Leading variable for line-height utilities - no @property needed *)
+(* Leading variable for line-height utilities *)
 let leading_var = Var.channel Css.Line_height "tw-leading"
 
 (* Font variant numeric variables for composed value *)
 let ordinal_var =
-  Var.property_default Css.Font_variant_numeric_token ~initial:Css.Normal
-    "tw-ordinal"
+  Var.channel ~needs_property:true Css.Font_variant_numeric_token "tw-ordinal"
 
 let slashed_var =
-  Var.property_default Css.Font_variant_numeric_token ~initial:Css.Normal
+  Var.channel ~needs_property:true Css.Font_variant_numeric_token
     "tw-slashed-zero"
 
 let figure_var =
-  Var.property_default Css.Font_variant_numeric_token ~initial:Css.Normal
+  Var.channel ~needs_property:true Css.Font_variant_numeric_token
     "tw-numeric-figure"
 
 let spacing_var =
-  Var.property_default Css.Font_variant_numeric_token ~initial:Css.Normal
+  Var.channel ~needs_property:true Css.Font_variant_numeric_token
     "tw-numeric-spacing"
 
 let fraction_var =
-  Var.property_default Css.Font_variant_numeric_token ~initial:Css.Normal
+  Var.channel ~needs_property:true Css.Font_variant_numeric_token
     "tw-numeric-fraction"
 
 (* Helper to get line height calc value *)
@@ -631,6 +630,7 @@ let line_clamp n =
 
 (** {1 Content} *)
 
+(* Content variable *)
 let content_var = Var.channel Content "tw-content"
 
 let content_none =
@@ -652,7 +652,6 @@ let content s =
   (* Auto-quote the text and use Tailwind arbitrary value class name *)
   let quoted = "\"" ^ escape_css_string s ^ "\"" in
   let class_name = String.concat "" [ "content-["; quoted; "]" ] in
-  let content_var = Var.channel Content "tw-content" in
   let content_decl, content_ref = Var.binding content_var (String quoted) in
   style class_name [ content_decl; content (Css.Var content_ref) ]
 
