@@ -412,7 +412,7 @@ val reference : ?fallback:'a Css.fallback -> ('a, 'r) t -> 'a Css.var
     following the border/border-none pattern where setting utilities use
     [Var.binding] and referencing utilities use [Var.reference]. *)
 
-val property_rule : ('a, [< `Property_default ]) t -> Css.t option
+val property_rule : ('a, [< `Property_default | `Channel ]) t -> Css.t option
 (** [property_rule var] generates the [@property] rule if metadata is present.
     Returns [None] if the variable has no property metadata.
 
