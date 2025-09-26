@@ -441,9 +441,10 @@ let equal_rule_change r1 r2 =
   r1.selector = r2.selector && equal_diff equal_rule_data r1.change r2.change
 
 (* Helper for comparing rule lists *)
-let equal_rules_list rules1 rules2 =
-  List.length rules1 = List.length rules2
-  && List.for_all2 equal_rule_change rules1 rules2
+let equal_list eq l1 l2 =
+  List.length l1 = List.length l2 && List.for_all2 eq l1 l2
+
+let equal_rules_list rules1 rules2 = equal_list equal_rule_change rules1 rules2
 
 let equal_media_query (m1 : media_query) (m2 : media_query) =
   m1.condition = m2.condition && equal_diff equal_rules_list m1.change m2.change
@@ -469,20 +470,12 @@ let equal_custom_property (p1 : custom_property) (p2 : custom_property) =
   p1.name = p2.name && equal_diff equal_property_data p1.change p2.change
 
 let equal (d1 : t) (d2 : t) =
-  List.length d1.rules = List.length d2.rules
-  && List.for_all2 equal_rule_change d1.rules d2.rules
-  && List.length d1.media_queries = List.length d2.media_queries
-  && List.for_all2 equal_media_query d1.media_queries d2.media_queries
-  && List.length d1.layers = List.length d2.layers
-  && List.for_all2 equal_layer d1.layers d2.layers
-  && List.length d1.supports_queries = List.length d2.supports_queries
-  && List.for_all2 equal_supports_query d1.supports_queries d2.supports_queries
-  && List.length d1.container_queries = List.length d2.container_queries
-  && List.for_all2 equal_container_query d1.container_queries
-       d2.container_queries
-  && List.length d1.custom_properties = List.length d2.custom_properties
-  && List.for_all2 equal_custom_property d1.custom_properties
-       d2.custom_properties
+  equal_list equal_rule_change d1.rules d2.rules
+  && equal_list equal_media_query d1.media_queries d2.media_queries
+  && equal_list equal_layer d1.layers d2.layers
+  && equal_list equal_supports_query d1.supports_queries d2.supports_queries
+  && equal_list equal_container_query d1.container_queries d2.container_queries
+  && equal_list equal_custom_property d1.custom_properties d2.custom_properties
 
 let strip_header css =
   (* Strip a leading /*!...*/ header comment with simpler flow to reduce
@@ -782,7 +775,7 @@ let create_ordering_diff rules1 rules2 =
 
   (* Find ordering discrepancies by checking if selectors appear in different
      positions *)
-  let rec find_ordering_issues acc pos1 remaining1 remaining2 =
+  let rec find_ordering_issues acc remaining1 remaining2 =
     match (remaining1, remaining2) with
     | [], [] -> List.rev acc
     | (sel1, decls1) :: rest1, (sel2, decls2) :: rest2 ->
@@ -800,19 +793,17 @@ let create_ordering_diff rules1 rules2 =
           if sel1_in_remaining2 && sel2_in_remaining1 then
             (* This is likely an ordering issue - both selectors exist but in
                wrong positions *)
-            find_ordering_issues
-              ((sel1, decls1, decls2) :: acc)
-              (pos1 + 1) rest1 rest2
+            find_ordering_issues ((sel1, decls1, decls2) :: acc) rest1 rest2
           else
             (* This might be a true content difference, not just ordering *)
-            find_ordering_issues acc (pos1 + 1) rest1 rest2
+            find_ordering_issues acc rest1 rest2
         else
           (* Selectors match, continue *)
-          find_ordering_issues acc (pos1 + 1) rest1 rest2
+          find_ordering_issues acc rest1 rest2
     | _, _ -> List.rev acc (* Lists have different lengths *)
   in
 
-  find_ordering_issues [] 0 map1 map2
+  find_ordering_issues [] map1 map2
 
 let handle_pure_ordering_diff rules1 rules2 =
   let added = [] in
@@ -1088,7 +1079,7 @@ let diff_ast ~(expected : Css.t) ~(actual : Css.t) =
       (added, removed, modified)
   in
 
-  let media_querys =
+  let media_queries_changes =
     build_simple_query_diffs "@media"
       (fun cond change -> ({ condition = cond; change } : media_query))
       (at_added, at_removed, at_modified)
@@ -1142,7 +1133,7 @@ let diff_ast ~(expected : Css.t) ~(actual : Css.t) =
       (fun ((cond, rules1), (_, rules2)) -> (cond, rules1, rules2))
       supports_modified_pairs
   in
-  let supports_querys =
+  let supports_queries_changes =
     build_simple_query_diffs "@supports"
       (fun cond change -> ({ condition = cond; change } : supports_query))
       (supports_added, supports_removed, supports_modified)
@@ -1168,7 +1159,7 @@ let diff_ast ~(expected : Css.t) ~(actual : Css.t) =
   let containers_added, containers_removed, containers_modified_pairs =
     find_diffs ~key_of ~key_equal ~is_empty_diff containers1 containers2
   in
-  let container_querys : container_query list =
+  let container_queries_changes : container_query list =
     let rule_changes_of ?(context = []) rules1 rules2 =
       rules_to_changes ~context (rule_diffs rules1 rules2)
     in
@@ -1202,7 +1193,7 @@ let diff_ast ~(expected : Css.t) ~(actual : Css.t) =
   let prop_added, prop_removed, prop_modified =
     at_property_diffs properties1 properties2
   in
-  let custom_propertys : custom_property list =
+  let custom_properties_changes : custom_property list =
     build_diff_list
       ~added:(fun (name, syntax, inherits, initial_value) ->
         { name; change = Added { name; syntax; inherits; initial_value } })
@@ -1238,11 +1229,11 @@ let diff_ast ~(expected : Css.t) ~(actual : Css.t) =
 
   {
     rules = rule_changes;
-    media_queries = media_querys;
+    media_queries = media_queries_changes;
     layers = layer_diffs;
-    supports_queries = supports_querys;
-    container_queries = container_querys;
-    custom_properties = custom_propertys;
+    supports_queries = supports_queries_changes;
+    container_queries = container_queries_changes;
+    custom_properties = custom_properties_changes;
   }
 
 (* Compare two CSS ASTs directly *)
@@ -1449,9 +1440,7 @@ let pp_diff_result ?(expected = "Expected") ?(actual = "Actual") fmt = function
   | Diff d ->
       (* Show structural differences *)
       pp ~expected ~actual fmt d
-  | String_diff sdiff ->
-      Fmt.pf fmt "@[<v>";
-      pp_string_diff ~expected ~actual fmt sdiff
+  | String_diff sdiff -> pp_string_diff ~expected ~actual fmt sdiff
   | No_diff ->
       (* No output for identical files *)
       ()
