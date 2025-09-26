@@ -55,10 +55,10 @@ let check_tailwindcss_available () =
 
           (* Log which command we're using *)
           if use_npx then
-            Fmt.pr
+            Fmt.epr
               "Using npx tailwindcss (slower). For faster tests, install \
                native tailwindcss.@."
-          else Fmt.pr "Using native tailwindcss (fast).@.";
+          else Fmt.epr "Using native tailwindcss (fast).@.";
 
           let temp_file = Filename.temp_file "tw_version" ".txt" in
           let version_cmd = cmd ^ " --help 2>&1 | head -1 > " ^ temp_file in
@@ -100,33 +100,36 @@ module Stats = struct
 
   let print_stats () =
     let total_test_time = Unix.gettimeofday () -. !test_start_time in
-    Fmt.pr "@.=== Tailwind CSS Generation Statistics ===@.";
+    Fmt.epr "@.=== Tailwind CSS Generation Statistics ===@.";
 
     (* Show which tailwindcss is being used *)
     (match !tailwind_command with
     | Some cmd when String.contains cmd ' ' ->
-        Fmt.pr "Using: npx tailwindcss (slower)@."
-    | Some _ -> Fmt.pr "Using: native tailwindcss (fast)@."
-    | None -> Fmt.pr "Tailwindcss: not initialized@.");
+        Fmt.epr "Using: npx tailwindcss (slower)@."
+    | Some _ -> Fmt.epr "Using: native tailwindcss (fast)@."
+    | None -> Fmt.epr "Tailwindcss: not initialized@.");
 
     if !total_calls > 0 then (
       let avg_time = !total_time /. float_of_int !total_calls in
       let percentage = !total_time /. total_test_time *. 100.0 in
-      Fmt.pr "Total calls: %d@." !total_calls;
-      Fmt.pr "Time in tailwindcss: %.2fs@." !total_time;
-      Fmt.pr "Total test time: %.2fs@." total_test_time;
-      Fmt.pr "Percentage in tailwindcss: %.1f%%@." percentage;
-      Fmt.pr "Average time per call: %.3fs@." avg_time)
-    else Fmt.pr "No tailwindcss calls recorded@.";
-    Fmt.pr "=========================================="
+      Fmt.epr "Total calls: %d@." !total_calls;
+      Fmt.epr "Time in tailwindcss: %.2fs@." !total_time;
+      Fmt.epr "Total test time: %.2fs@." total_test_time;
+      Fmt.epr "Percentage in tailwindcss: %.1f%%@." percentage;
+      Fmt.epr "Average time per call: %.3fs@." avg_time)
+    else Fmt.epr "No tailwindcss calls recorded@.";
+    Fmt.epr "=========================================="
 end
 
-let () =
-  (* Initialize test start time *)
+let with_stats f =
   Stats.reset ();
-
-  (* Register exit handler to print stats *)
-  at_exit Stats.print_stats
+  match f () with
+  | v ->
+      Stats.print_stats ();
+      v
+  | exception exn ->
+      Stats.print_stats ();
+      raise exn
 
 let generate ?(minify = false) ?(optimize = true) classnames =
   check_tailwindcss_available ();

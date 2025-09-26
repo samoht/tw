@@ -33,15 +33,13 @@ let shadow_alpha_var =
   Var.property_default Css.Float ~initial:100.0 "tw-shadow-alpha"
 
 let inset_shadow_color_var =
-  Var.property_default Css.Color ~initial:(Css.hex "#0000") ~universal:true
-    "tw-inset-shadow-color"
+  Var.property_default Css.Color ~universal:true "tw-inset-shadow-color"
 
 let inset_shadow_alpha_var =
   Var.property_default Css.Float ~initial:100.0 "tw-inset-shadow-alpha"
 
 let shadow_color_var =
-  Var.property_default Css.Color ~initial:(Css.hex "#0000") ~universal:true
-    "tw-shadow-color"
+  Var.property_default Css.Color ~universal:true "tw-shadow-color"
 
 let inset_shadow_var =
   Var.property_default Css.Shadow
@@ -51,15 +49,13 @@ let inset_shadow_var =
 
 (* Ring variables *)
 let ring_color_var =
-  Var.property_default Css.Color ~initial:(Css.hex "#0000") ~universal:true
-    "tw-ring-color"
+  Var.property_default Css.Color ~universal:true "tw-ring-color"
 
 let inset_ring_color_var =
-  Var.property_default Css.Color ~initial:(Css.hex "#0000") ~universal:true
-    "tw-inset-ring-color"
+  Var.property_default Css.Color ~universal:true "tw-inset-ring-color"
 
 let ring_inset_var =
-  Var.property_default Css.String ~initial:"" ~universal:true "tw-ring-inset"
+  Var.property_default Css.String ~universal:true "tw-ring-inset"
 
 let ring_shadow_var =
   Var.property_default Css.Shadow
@@ -85,7 +81,7 @@ let ring_offset_color_var =
 
 let ring_offset_width_var =
   Var.property_default Css.Length
-    ~initial:(Px 0. : Css.length)
+    ~initial:(Zero : Css.length)
     "tw-ring-offset-width"
 
 let ring_width_var = Var.channel Css.Length "tw-ring-width"
