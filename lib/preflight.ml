@@ -73,16 +73,13 @@ let mono_font_variation =
     customization hooks" - variables that are intentionally NOT declared
     anywhere by default 3. This creates var(--name, fallback) CSS that always
     uses the fallback unless users/plugins declare the variables themselves 4.
-    This enables theme customization without bloating the default CSS 5. The
-    declarations are safely ignored because these variables should remain
-    undeclared by design
+    This enables theme customization without bloating the default CSS
 
-    NOTE: This technically violates the three-rule policy (see var.mli for
-    details) but is intentionally allowed in this specific preflight context
-    where the declarations are meant to be discarded. *)
-let var_ref (type a) (var : a Var.t) ~(fallback : a) : a Css.var =
-  let _, ref = Var.binding var fallback in
-  ref
+    Uses the proper Var.reference API with explicit fallback. *)
+let var_ref (type a)
+    (var : (a, [< `Theme | `Property_default | `Channel ]) Var.t)
+    ~(fallback : a) : a Css.var =
+  Var.reference ~fallback:(Css.Fallback fallback) var
 
 (** HTML and body defaults *)
 let root_resets ~default_font_ref ~font_feature_ref ~font_variation_ref =

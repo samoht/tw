@@ -16,15 +16,29 @@ type 'a property_info = {
 let property_info ?initial ?(inherits = false) ?(universal = false) () =
   { initial; inherits; universal }
 
-type 'a t = {
+type _ role =
+  | Theme : [ `Theme ] role
+  | Property_default : [ `Property_default ] role
+  | Channel : [ `Channel ] role
+  | Ref_only : [ `Ref_only ] role
+
+type ('a, 'r) t = {
   kind : 'a Css.kind; (* CSS type witness *)
   name : string; (* Variable name without -- prefix *)
   layer : layer; (* Theme or Utility *)
+  role : 'r role; (* The GADT role/pattern of this variable *)
   binding : ?fallback:'a Css.fallback -> 'a -> Css.declaration * 'a Css.var;
       (* Function to create declaration and var ref *)
   property : 'a property_info option; (* For @property registration *)
   order : int option; (* Explicit ordering for theme layer *)
+  fallback : 'a option; (* Built-in fallback for ref_only variables *)
 }
+
+(* Type shortcuts for common patterns *)
+type 'a theme = ('a, [ `Theme ]) t
+type 'a property_default = ('a, [ `Property_default ]) t
+type 'a channel = ('a, [ `Channel ]) t
+type 'a ref_only = ('a, [ `Ref_only ]) t
 
 type info =
   | Info : {
@@ -39,37 +53,35 @@ let (meta_of_info : info -> Css.meta), (info_of_meta : Css.meta -> info option)
     =
   Css.meta ()
 
-let layer_name = function Theme -> "theme" | Utility -> "utilities"
+let layer_name = function (Theme : layer) -> "theme" | Utility -> "utilities"
 
 (* Convert initial value to Universal syntax for @property *)
 let initial_to_universal : type a. a Css.kind -> a -> string =
  fun kind initial ->
   match kind with
-  | Css.Length -> (
-      let open Css in
-      match initial with
-      | Zero -> "0"
-      | Px f when f = 0. -> "0"
-      | _ -> Css.Pp.to_string (pp_length ~always:true) initial)
+  | Css.Length -> Css.Pp.to_string (Css.pp_length ~always:false) initial
   | Css.Color -> Css.Pp.to_string Css.pp_color initial
   | Css.Angle -> Css.Pp.to_string Css.pp_angle initial
   | Css.Duration -> Css.Pp.to_string Css.pp_duration initial
   | Css.Float -> Pp.float initial ^ "%"
   | Css.Int -> string_of_int initial
   | Css.String -> initial
+  | Css.Font_weight -> Css.Pp.to_string Css.pp_font_weight initial
   | Css.Shadow -> "0 0 #0000"
   | Css.Border_style -> Css.Pp.to_string Css.pp_border_style initial
   | _ -> "initial" (* Fallback *)
 
 (* Create a variable template *)
-let create : type a.
+let create : type a r.
     a Css.kind ->
     ?property:a property_info ->
     ?order:int ->
+    ?fallback:a ->
+    role:r role ->
     string ->
     layer:layer ->
-    a t =
- fun kind ?property ?order name ~layer ->
+    (a, r) t =
+ fun kind ?property ?order ?fallback ~role name ~layer ->
   (* Ensure theme variables have an order *)
   (match (layer, order) with
   | Theme, None ->
@@ -77,25 +89,38 @@ let create : type a.
   | _ -> ());
 
   let info = Info { kind; name; need_property = property <> None; order } in
-  let binding ?fallback value =
+  let binding ?fallback:fb value =
     let meta = meta_of_info info in
     let layer_name = Some (layer_name layer) in
-    (* Accept fallback as 'a Css.fallback directly *)
-    Css.var ~default:value ?fallback ?layer:layer_name ~meta name kind value
+    (* For ref_only, always use built-in fallback *)
+    let actual_fallback =
+      match ((role : r role), fallback, fb) with
+      | Ref_only, Some f, _ ->
+          Css.Fallback f (* Always use built-in fallback for ref_only *)
+      | _, _, Some f -> f (* Use provided fallback *)
+      | _ -> Css.None (* No fallback *)
+    in
+    Css.var ~default:value ~fallback:actual_fallback ?layer:layer_name ~meta
+      name kind value
   in
-  { kind; name; layer; binding; property; order }
+  { kind; name; layer; role; binding; property; order; fallback }
 
 (* Convenience constructors to encode patterns safely *)
 
 let theme kind name ~order =
-  create kind ?property:None ?order:(Some order) name ~layer:Theme
+  create kind ?property:None ?order:(Some order) ~role:Theme name ~layer:Theme
 
-let property_default kind ?initial ?(inherits = false) ?(universal = false) name
+let property_default kind ~initial ?(inherits = false) ?(universal = false) name
     =
-  let property = property_info ?initial ~inherits ~universal () in
-  create kind ~property name ~layer:Utility
+  let property = property_info ~initial ~inherits ~universal () in
+  create kind ~property ~role:Property_default name ~layer:Utility
 
-let channel kind name = create kind name ~layer:Utility
+let channel kind name =
+  (* Channels need @property without initial value for animations/transitions *)
+  let property =
+    property_info ?initial:None ~inherits:false ~universal:true ()
+  in
+  create kind ~property ~role:Channel name ~layer:Utility
 
 (* Place after [reference] to avoid forward reference issues *)
 
@@ -154,13 +179,16 @@ let create_property : type a.
         property ~name Universal ~initial_value:initial_str ~inherits ()
 
 (* Get @property rule if metadata present *)
-let property_rule : type a. a t -> Css.t option =
+let property_rule : type a r. (a, r) t -> Css.t option =
  fun var ->
-  match var.property with
-  | None -> None
-  | Some { initial; inherits; universal } ->
-      let name = "--" ^ var.name in
-      Some (create_property ~name var.kind initial ~inherits ~universal)
+  match var.role with
+  | Property_default | Channel -> (
+      match var.property with
+      | None -> None
+      | Some { initial; inherits; universal } ->
+          let name = "--" ^ var.name in
+          Some (create_property ~name var.kind initial ~inherits ~universal))
+  | _ -> None (* Other roles don't generate @property rules *)
 
 (* Create a binding: returns both declaration and a context-aware var
    reference *)
@@ -168,57 +196,47 @@ let binding var ?fallback value = var.binding ?fallback value
 
 (* Create a variable reference for variables with @property defaults OR
    fallback *)
-let reference : type a. ?fallback:a Css.fallback -> a t -> a Css.var =
+let reference : type a r. ?fallback:a Css.fallback -> (a, r) t -> a Css.var =
  fun ?fallback var ->
-  match (var.property, fallback) with
-  | None, None ->
-      failwith
-        ("Var.reference requires either ~property metadata or a fallback: "
-       ^ var.name)
-  | None, Some (Css.Fallback fallback_value) ->
-      (* No property metadata but have fallback - use fallback as the value *)
-      let _, var_ref =
-        var.binding ~fallback:(Css.Fallback fallback_value) fallback_value
-      in
-      var_ref
-  | None, Some _ ->
-      (* Empty or None fallback without property metadata *)
-      failwith
-        ("Var.reference without property metadata requires a Fallback value: "
-       ^ var.name)
-  | Some { initial; _ }, _ -> (
-      match (initial, fallback) with
-      | None, None ->
+  match var.role with
+  | Ref_only -> (
+      (* ref_only variables must have a built-in fallback *)
+      match var.fallback with
+      | None -> failwith ("ref_only variable " ^ var.name ^ " missing fallback")
+      | Some fb_value ->
+          let _, var_ref = var.binding fb_value in
+          var_ref)
+  | Property_default -> (
+      (* property_default variables should have initial value in property *)
+      match var.property with
+      | None ->
           failwith
-            ("Var.reference requires either an initial value or a fallback: "
-           ^ var.name)
-      | None, Some (Css.Fallback fallback_value) ->
-          (* No initial but have fallback - use fallback as the value *)
+            ("property_default variable " ^ var.name ^ " missing property")
+      | Some { initial; _ } -> (
+          match initial with
+          | None ->
+              failwith
+                ("property_default variable " ^ var.name
+               ^ " missing initial value")
+          | Some initial_value ->
+              let _, var_ref = var.binding ?fallback initial_value in
+              var_ref))
+  | Theme | Channel -> (
+      (* Theme and channel variables need explicit fallback *)
+      match fallback with
+      | None ->
+          failwith ("Var.reference on " ^ var.name ^ " requires a fallback")
+      | Some (Css.Fallback fallback_value) ->
           let _, var_ref =
             var.binding ~fallback:(Css.Fallback fallback_value) fallback_value
           in
           var_ref
-      | None, Some Css.None ->
-          (* No initial value but explicit None fallback - create bare var
-             reference We need a dummy value to create the binding, but the
-             fallback None will ensure only var(--name) is generated without a
-             fallback *)
-          failwith
-            ("Cannot create bare variable reference without initial value: "
-           ^ var.name ^ ". Use a concrete fallback or add initial value.")
-      | None, Some _ ->
-          (* Other fallback types without initial value *)
-          failwith
-            ("Var.reference with no initial value requires a Fallback value: "
-           ^ var.name)
-      | Some initial_value, _ ->
-          (* Have initial value - use it with optional fallback *)
-          let _, var_ref = var.binding ?fallback initial_value in
-          var_ref)
+      | Some _ ->
+          failwith ("Var.reference requires a Fallback value: " ^ var.name))
 
 let ref_only kind name ~fallback =
-  let v = channel kind name in
-  reference ~fallback:(Css.Fallback fallback) v
+  (* Create a utility variable that's only referenced, never set *)
+  create kind ~fallback ~role:Ref_only name ~layer:Utility
 
 (* Property info to declaration value conversion *)
 let property_info_to_declaration_value (Css.Property_info info) =
@@ -251,3 +269,28 @@ let order_of_declaration decl =
       match info_of_meta meta with Some (Info t) -> t.order | None -> None)
 
 let property_initial_string = property_info_to_declaration_value
+
+(* Heterogeneous collections *)
+type any_var = Any : ('a, 'r) t -> any_var
+
+let properties vars =
+  (* Collect statements from property rules and deduplicate by name *)
+  let stmts =
+    vars
+    |> List.filter_map (fun (Any v) -> property_rule v)
+    |> List.concat_map Css.statements
+  in
+  let seen = Hashtbl.create 32 in
+  let filtered =
+    List.filter
+      (fun stmt ->
+        match Css.as_property stmt with
+        | Some (Css.Property_info info) ->
+            if Hashtbl.mem seen info.name then false
+            else (
+              Hashtbl.add seen info.name ();
+              true)
+        | None -> true)
+      stmts
+  in
+  Css.of_statements filtered

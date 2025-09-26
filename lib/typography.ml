@@ -100,31 +100,34 @@ let font_weight_extrabold_var =
 let font_weight_black_var =
   Var.theme Css.Font_weight "font-weight-black" ~order:11
 
-(* Utility variable for font weight - set but never used in CSS properties.
-   Exists for animation support via @property and debugging in DevTools.
-   Pattern: --tw-font-weight: var(--font-weight-thin) but font-weight:
-   var(--font-weight-thin) *)
-let font_weight_var = Var.property_default Css.Font_weight "tw-font-weight"
-(* No initial value, inherits: false *)
+(* Utility variable for font weight: Always-set pattern (no @property). We set
+   --tw-font-weight alongside font-weight for transition friendliness, but do
+   not register a @property default. *)
+let font_weight_var = Var.channel Css.Font_weight "tw-font-weight"
 
 (* Leading variable for line-height utilities *)
 let leading_var = Var.channel Css.Line_height "tw-leading"
 
 (* Font variant numeric variables for composed value *)
 let ordinal_var =
-  Var.property_default Css.Font_variant_numeric_token "tw-ordinal"
+  Var.property_default Css.Font_variant_numeric_token ~initial:Css.Normal
+    "tw-ordinal"
 
 let slashed_var =
-  Var.property_default Css.Font_variant_numeric_token "tw-slashed-zero"
+  Var.property_default Css.Font_variant_numeric_token ~initial:Css.Normal
+    "tw-slashed-zero"
 
 let figure_var =
-  Var.property_default Css.Font_variant_numeric_token "tw-numeric-figure"
+  Var.property_default Css.Font_variant_numeric_token ~initial:Css.Normal
+    "tw-numeric-figure"
 
 let spacing_var =
-  Var.property_default Css.Font_variant_numeric_token "tw-numeric-spacing"
+  Var.property_default Css.Font_variant_numeric_token ~initial:Css.Normal
+    "tw-numeric-spacing"
 
 let fraction_var =
-  Var.property_default Css.Font_variant_numeric_token "tw-numeric-fraction"
+  Var.property_default Css.Font_variant_numeric_token ~initial:Css.Normal
+    "tw-numeric-fraction"
 
 (* Helper to get line height calc value *)
 let calc_line_height lh_rem size_rem =
@@ -146,8 +149,8 @@ module Parse = Parse
 (** {1 Font Size Utilities} *)
 
 (* Text utilities use theme record for line height variable reference *)
-let text_size_utility name (size_var : Css.length Var.t)
-    (lh_var : Css.line_height Var.t) size_rem lh_value =
+let text_size_utility name (size_var : Css.length Var.theme)
+    (lh_var : Css.line_height Var.theme) size_rem lh_value =
   let size_decl, size_ref = Var.binding size_var (Rem size_rem) in
   let lh_decl, lh_ref = Var.binding lh_var lh_value in
   (* Use shared theme record - no declaration, just reference *)
@@ -218,12 +221,13 @@ let font_weight_utility name weight_var weight_value =
   let weight_util_decl, _ =
     Var.binding font_weight_var (Css.Var weight_theme_ref)
   in
-  let property_rule =
+  (* Get @property rule from the channel variable *)
+  let property_rules =
     match Var.property_rule font_weight_var with
-    | Some rule -> rule
     | None -> Css.empty
+    | Some rule -> rule
   in
-  style ("font-" ^ name) ~property_rules:property_rule
+  style ("font-" ^ name) ~property_rules
     [
       weight_theme_decl;
       weight_util_decl;

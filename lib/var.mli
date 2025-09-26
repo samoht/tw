@@ -172,7 +172,7 @@
     {b Rule 1: Need both declaration and variable}
     {[
       (* Variable owned by this module *)
-      let my_var = Var.create Type "css-var-name" ~layer:Layer ~order:N
+      let my_var = Var.theme Type "css-var-name" ~order:N
 
       (* Utility that sets the variable *)
       let my_utility =
@@ -251,7 +251,7 @@
     support, or fallback defaults for referencing utilities:
     {[
       (* Variable with @property initial value *)
-      let shadow_var = Var.create Css.Shadow "tw-shadow" ~layer:Utility
+      let shadow_var = Var.property_default Css.Shadow "tw-shadow"
         ~property:(Some (Shadow "0 0 #0000"), false)
 
       (* Setting utility - follows three rules *)
@@ -320,46 +320,59 @@ val property_info :
   ?initial:'a -> ?inherits:bool -> ?universal:bool -> unit -> 'a property_info
 (** Create property metadata with defaults: inherits=false, universal=false *)
 
-type 'a t = {
-  kind : 'a Css.kind;  (** CSS type witness ensuring type safety *)
-  name : string;  (** CSS variable name without the [--] prefix *)
-  layer : layer;  (** Whether this is a theme token or utility variable *)
-  binding : ?fallback:'a Css.fallback -> 'a -> Css.declaration * 'a Css.var;
-  property : 'a property_info option;  (** Optional [@property] metadata *)
-  order : int option;  (** Explicit ordering for theme layer *)
-}
-(** The type for CSS variables *)
+type ('a, 'r) t
+(** The type for CSS variables with phantom type for role *)
+
+(** {2 Type shortcuts for common patterns} *)
+
+type 'a theme = ('a, [ `Theme ]) t
+(** Theme variables (Pattern 1) - design tokens set in theme layer *)
+
+type 'a property_default = ('a, [ `Property_default ]) t
+(** Property default variables (Pattern 2) - variables with @property defaults *)
+
+type 'a channel = ('a, [ `Channel ]) t
+(** Channel variables (Pattern 3) - composition variables *)
+
+type 'a ref_only = ('a, [ `Ref_only ]) t
+(** Reference-only variables (Pattern 4) - variables only referenced, never set
+*)
 
 (** {1 Core API} *)
 
-val theme : 'a Css.kind -> string -> order:int -> 'a t
+val theme : 'a Css.kind -> string -> order:int -> 'a theme
 (** [theme kind name ~order] creates a Theme-layer variable (design token).
     Values are set via [Var.binding] at use sites that own the declaration.
     Enforces explicit ordering for deterministic theme output. *)
 
 val property_default :
   'a Css.kind ->
-  ?initial:'a ->
+  initial:'a ->
   ?inherits:bool ->
   ?universal:bool ->
   string ->
-  'a t
-(** [property_default kind name ~initial ?inherits ?universal] creates a Utility
+  'a property_default
+(** [property_default kind ~initial name ?inherits ?universal] creates a Utility
     variable with a typed [@property] registration and an initial value used for
-    referencing utilities and inline mode. *)
+    referencing utilities and inline mode. The initial value is required for
+    proper @property registration and reference fallbacks. *)
 
-val channel : 'a Css.kind -> string -> 'a t
+val channel : 'a Css.kind -> string -> 'a channel
 (** [channel kind name] creates a Utility variable without [@property]. Ideal
     for composition patterns where contributing utilities set declarations and
     aggregators reference values. *)
 
-val ref_only : 'a Css.kind -> string -> fallback:'a -> 'a Css.var
+val ref_only : 'a Css.kind -> string -> fallback:'a -> 'a ref_only
 (** [ref_only kind name ~fallback] creates a reference-only handle to a Utility
     variable with a concrete fallback for inline mode. No declaration is
-    produced. *)
+    produced. This implements Pattern 4 - variables that are only referenced,
+    never set. *)
 
 val binding :
-  'a t -> ?fallback:'a Css.fallback -> 'a -> Css.declaration * 'a Css.var
+  ('a, [< `Theme | `Property_default | `Channel ]) t ->
+  ?fallback:'a Css.fallback ->
+  'a ->
+  Css.declaration * 'a Css.var
 (** [binding var ?fallback value] creates both a CSS declaration and a var()
     reference with the value as default for inline mode. This is the primary way
     to use variables.
@@ -371,7 +384,7 @@ val binding :
       (e.g., text-xs references --tw-leading with --text-xs--line-height as
       fallback). *)
 
-val reference : ?fallback:'a Css.fallback -> 'a t -> 'a Css.var
+val reference : ?fallback:'a Css.fallback -> ('a, 'r) t -> 'a Css.var
 (** [reference var ?fallback] creates a variable reference without a declaration.
 
     Requirements:
@@ -399,7 +412,7 @@ val reference : ?fallback:'a Css.fallback -> 'a t -> 'a Css.var
     following the border/border-none pattern where setting utilities use
     [Var.binding] and referencing utilities use [Var.reference]. *)
 
-val property_rule : 'a t -> Css.t option
+val property_rule : ('a, [< `Property_default ]) t -> Css.t option
 (** [property_rule var] generates the [@property] rule if metadata is present.
     Returns [None] if the variable has no property metadata.
 
@@ -420,6 +433,16 @@ val property_rule : 'a t -> Css.t option
         initial-value: 0 0 #0000;
       }
     ]} *)
+
+(** {1 Heterogeneous Collections} *)
+
+type any_var =
+  | Any : ('a, 'r) t -> any_var
+      (** Existential type for heterogeneous collections of variables *)
+
+val properties : any_var list -> Css.t
+(** [properties vars] generates deduplicated @property rules for all variables
+    that need them, sorted deterministically by (name, kind) *)
 
 (** {1 Helper Types and Functions} *)
 
