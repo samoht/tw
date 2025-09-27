@@ -637,11 +637,13 @@ let line_clamp n =
 (** {1 Content} *)
 
 (* Content variable *)
-let content_var = Var.channel Content "tw-content"
+let content_var =
+  Var.property_default Content ~initial:(String "") ~universal:true "tw-content"
 
 let content_none =
   let content_decl, content_ref = Var.binding content_var None in
-  style "content-none" [ content_decl; content (Css.Var content_ref) ]
+  style "content-none"
+    [ content (Css.Var content_ref); content_decl; content None ]
 
 let escape_css_string s =
   (* Escape backslashes and quotes inside CSS string literal *)
