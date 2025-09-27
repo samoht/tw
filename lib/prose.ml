@@ -70,7 +70,7 @@ let prose_invert_td_borders_var =
 let ( ++ ) = Css.Selector.( ++ )
 let ( >> ) = Css.Selector.( >> )
 let ( && ) = Css.Selector.( && )
-let ( || ) = Css.Selector.( || )
+(* let ( || ) = Css.Selector.( || ) -- Not used anymore, using list instead *)
 
 (* Shorthand for attribute selectors *)
 let attr name match_type = Css.Selector.attribute name match_type
@@ -81,9 +81,22 @@ let type_attr value = attr "type" (Exact value)
    exclusion *)
 let prose_where_element element_selector =
   let open Css.Selector in
-  (* For now, just use :where() without :not() to avoid selector complexity *)
-  (* TODO: Add not-prose exclusion later *)
-  where [ element_selector ]
+  (* Create the not-prose selector: [class~=not-prose] *)
+  let not_prose_class =
+    attribute "class" (Whitespace_list "not-prose")
+  in
+  (* Create the descendant selector: [class~=not-prose] * *)
+  let not_prose_descendant =
+    combine not_prose_class Descendant universal
+  in
+  (* Create :where([class~=not-prose],[class~=not-prose] * ) *)
+  let not_prose_where =
+    where [ not_prose_class; not_prose_descendant ]
+  in
+  (* Create :not(:where([class~=not-prose],[class~=not-prose] * )) *)
+  let not_selector = not [ not_prose_where ] in
+  (* Combine element with :not() and wrap in :where() *)
+  where [ compound [ element_selector; not_selector ] ]
 
 (* Helper to create a typed selector with :where() and :not() for prose *)
 let where base_class elt =
@@ -165,15 +178,15 @@ let nested_lists = Css.Selector.list [ ul ++ ul; ul ++ ol; ol ++ ul; ol ++ ol ]
 let thead_th_first_child = thead ++ (th && first_child)
 let thead_th_last_child = thead ++ (th && last_child)
 let marker = Css.Selector.Marker
-let th_td = th || td
+let th_td = Css.Selector.list [ th; td ]
 let figure_all = Css.Selector.(combine figure Child universal) (* figure>* *)
-let tbody_td_tfoot_td = (tbody ++ td) || (tfoot ++ td)
+let tbody_td_tfoot_td = Css.Selector.list [ tbody ++ td; tfoot ++ td ]
 
 let tbody_td_first_child =
-  (tbody ++ (td && first_child)) || (tfoot ++ (td && first_child))
+  Css.Selector.list [ tbody ++ (td && first_child); tfoot ++ (td && first_child) ]
 
 let tbody_td_last_child =
-  (tbody ++ (td && last_child)) || (tfoot ++ (td && last_child))
+  Css.Selector.list [ tbody ++ (td && last_child); tfoot ++ (td && last_child) ]
 
 (* Theme record for all prose color variables *)
 type prose_theme = {
@@ -853,7 +866,7 @@ let additional_rules base =
       ~selector:(where base (thead >> th ++ last_child))
       [ padding_inline_end Zero ];
     Css.rule
-      ~selector:(where base ((tbody ++ td) || (tfoot ++ td)))
+      ~selector:(where base tbody_td_tfoot_td)
       [
         padding_top (Em 0.571429);
         padding_inline_end (Em 0.571429);
@@ -863,12 +876,12 @@ let additional_rules base =
     Css.rule
       ~selector:
         (where base
-           ((tbody ++ (td && first_child)) || (tfoot ++ (td && first_child))))
+           tbody_td_first_child)
       [ padding_inline_start Zero ];
     Css.rule
       ~selector:
         (where base
-           ((tbody ++ (td && last_child)) || (tfoot ++ (td && last_child))))
+           tbody_td_last_child)
       [ padding_inline_end Zero ];
     (* Figure *)
     Css.rule ~selector:(where base figure)
