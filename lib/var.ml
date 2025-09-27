@@ -53,24 +53,28 @@ module Registry = struct
     (* Check for order conflicts *)
     (match Hashtbl.find_opt order_registry order with
     | Some existing_name when existing_name <> name ->
+        let order_str =
+          match order with
+          | p, s -> "(" ^ string_of_int p ^ ", " ^ string_of_int s ^ ")"
+        in
         failwith
-          (Printf.sprintf
-             "Variable order conflict: order %s is already used by variable \
-              '%s', cannot assign to '%s'"
-             (match order with p, s -> Printf.sprintf "(%d, %d)" p s)
-             existing_name name)
+          ("Variable order conflict: order " ^ order_str
+         ^ " is already used by variable '" ^ existing_name
+         ^ "', cannot assign to '" ^ name ^ "'")
     | _ -> ());
 
     (* Check for name conflicts - fail if name already exists regardless of
        order *)
     (match Hashtbl.find_opt name_registry name with
     | Some existing_order ->
+        let order_str =
+          match existing_order with
+          | p, s -> "(" ^ string_of_int p ^ ", " ^ string_of_int s ^ ")"
+        in
         failwith
-          (Printf.sprintf
-             "Variable name conflict: variable '%s' is already registered with \
-              order %s, cannot create duplicate"
-             name
-             (match existing_order with p, s -> Printf.sprintf "(%d, %d)" p s))
+          ("Variable name conflict: variable '" ^ name
+         ^ "' is already registered with order " ^ order_str
+         ^ ", cannot create duplicate")
     | None -> ());
 
     (* Register the variable *)
@@ -97,31 +101,39 @@ let layer_name = function (Theme : layer) -> "theme" | Utility -> "utilities"
 let number_percentage_to_string (np : Css.number_percentage) =
   match np with Num f | Pct f -> Pp.float f | _ -> "initial"
 
-(* Convert initial value to Universal syntax for @property *)
-let initial_to_universal : type a. a Css.kind -> a -> string =
- fun kind initial ->
+(* Single source of truth for converting typed values to CSS strings This
+   function converts a typed value to its CSS string representation for use in
+   both @property initial-value and properties layer *)
+let value_to_css_string : type a. a Css.kind -> a -> string =
+ fun kind value ->
   match kind with
-  | Css.Length -> Css.Pp.to_string (Css.pp_length ~always:false) initial
-  | Css.Color -> Css.Pp.to_string Css.pp_color initial
-  | Css.Angle -> Css.Pp.to_string Css.pp_angle initial
-  | Css.Duration -> Css.Pp.to_string Css.pp_duration initial
-  | Css.Float -> Pp.float initial
-  | Css.Percentage -> (
-      (* For @property with universal syntax, convert percentage to numeric *)
-      match initial with
-      | Pct f -> Pp.float f
-      | _ -> "initial" (* Fallback for Var/Calc cases *))
-  | Css.Number_percentage -> number_percentage_to_string initial
-  | Css.Int -> string_of_int initial
-  | Css.String ->
-      (* String values need to be quoted for @property initial-value *)
-      "\"" ^ initial ^ "\""
-  | Css.Font_weight -> Css.Pp.to_string Css.pp_font_weight initial
+  | Css.Length -> Css.Pp.to_string (Css.pp_length ~always:false) value
+  | Css.Color -> Css.Pp.to_string Css.pp_color value
+  | Css.Angle -> Css.Pp.to_string Css.pp_angle value
+  | Css.Duration -> Css.Pp.to_string Css.pp_duration value
+  | Css.Float -> Pp.float value
+  | Css.Percentage -> ( match value with Pct f -> Pp.float f | _ -> "initial")
+  | Css.Number_percentage -> number_percentage_to_string value
+  | Css.Int -> string_of_int value
+  | Css.String -> if value = "" then "\"\"" else value
+  | Css.Content -> (
+      match value with
+      | Css.String "" -> "\"\""
+      | Css.String s -> "\"" ^ s ^ "\""
+      | Css.None -> "none"
+      | Css.Normal -> "normal"
+      | Css.Open_quote -> "open-quote"
+      | Css.Close_quote -> "close-quote"
+      | Css.Var _ -> "initial")
+  | Css.Font_weight -> Css.Pp.to_string Css.pp_font_weight value
   | Css.Shadow -> "0 0 #0000"
-  | Css.Border_style -> Css.Pp.to_string Css.pp_border_style initial
+  | Css.Border_style -> Css.Pp.to_string Css.pp_border_style value
   | Css.Scroll_snap_strictness ->
-      Css.Pp.to_string Css.pp_scroll_snap_strictness initial
-  | _ -> "initial" (* Fallback *)
+      Css.Pp.to_string Css.pp_scroll_snap_strictness value
+  | _ -> "initial"
+
+(* Alias for backward compatibility *)
+let initial_to_universal = value_to_css_string
 
 (* Create a variable template *)
 let create : type a r.
@@ -193,20 +205,15 @@ let create_property : type a.
     Css.t =
  fun ~name kind initial ~inherits ~universal ->
   let open Css in
-  (* Force universal syntax if requested *)
   if universal then
     match initial with
     | None -> property ~name Universal ~inherits ()
     | Some v -> (
-        (* Special cases: certain types should not have initial-value *)
         match (kind, v) with
         | Gradient_stop, List [] -> property ~name Universal ~inherits ()
-        | Percentage, Pct 0. ->
-            (* For gradient-position, use universal syntax without initial
-               value *)
-            property ~name Universal ~inherits ()
+        | Percentage, Pct 0. -> property ~name Universal ~inherits ()
         | _ ->
-            let initial_str = initial_to_universal kind v in
+            let initial_str = value_to_css_string kind v in
             property ~name Universal ~initial_value:initial_str ~inherits ())
   else
     match (kind, initial) with
@@ -258,6 +265,20 @@ let property_rule : type a r. (a, r) t -> Css.t option =
           Some (create_property ~name var.kind initial ~inherits ~universal))
   | _ -> None (* Other roles don't generate @property rules *)
 
+(* Convenience function for property_default variables to get property rules or
+   empty *)
+let property_rules : type a. (a, [< `Property_default ]) t -> Css.t =
+ fun var ->
+  match property_rule var with
+  | None ->
+      (* This should never happen for property_default variables *)
+      failwith
+        ("property_default variable '" ^ var.name
+       ^ "' is missing property metadata. This is a bug in the variable \
+          definition - property_default variables must always have property \
+          metadata with an initial value.")
+  | Some r -> r
+
 (* Create a binding: returns both declaration and a context-aware var
    reference *)
 let binding var ?fallback value = var.binding ?fallback value
@@ -305,21 +326,29 @@ let ref_only kind name ~fallback =
   (* Create a utility variable that's only referenced, never set *)
   create kind ~fallback ~role:Ref_only name ~layer:Utility
 
-(* Property info to declaration value conversion *)
+(* Convert Property_info to the string value for properties layer This extracts
+   the initial value and converts it to the appropriate CSS string *)
 let property_info_to_declaration_value (Css.Property_info info) =
   match info.initial_value with
   | None -> "initial"
   | Some v -> (
       let open Css.Variables in
-      let open Css.Values in
       match info.syntax with
-      | Length -> (
-          match v with
-          | Zero -> "0px"
-          | Px f when f = 0. -> "0px"
-          | _ -> Css.Pp.to_string (pp_length ~always:true) v)
-      | Number -> Pp.float v ^ "%"
-      | syntax -> Css.Pp.to_string (pp_value syntax) v)
+      | Universal -> v (* Universal syntax already stores strings *)
+      | _ -> (
+          let
+          (* For non-Universal syntax, we shouldn't be in the properties layer
+             but handle it gracefully using the existing pp functions *)
+          open
+            Css.Values in
+          match info.syntax with
+          | Length -> (
+              match v with
+              | Zero -> "0px"
+              | Px f when f = 0. -> "0px"
+              | _ -> Css.Pp.to_string (pp_length ~always:true) v)
+          | Number -> Pp.float v ^ "%"
+          | syntax -> Css.Pp.to_string (pp_value syntax) v))
 
 let var_needs_property v =
   match Css.var_meta v with

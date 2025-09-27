@@ -321,6 +321,218 @@ let of_string parts =
   | "gap" :: _ -> Flow.of_string parts
   | _ -> Error (`Msg "Not a spacing utility")
 
+(** {1 Ordering Support} *)
+
+type spacing_info =
+  | Padding of [ `All | `X | `Y | `T | `R | `B | `L ] * spacing
+  | Margin of
+      bool (* negative *) * [ `All | `X | `Y | `T | `R | `B | `L ] * margin
+  | Space of bool (* negative *) * [ `X | `Y ] * spacing
+  | Gap of [ `All | `X | `Y ] * spacing
+  | Unknown
+
+let spacing_value_order = function
+  | `Px -> 1
+  | `Full -> 10000
+  | `Rem f ->
+      (* Convert to scale units: 0.25rem = 1 unit *)
+      let units = f /. 0.25 in
+      int_of_float (units *. 10.)
+
+let margin_value_order = function
+  | `Auto -> 0
+  | #spacing as s -> spacing_value_order s
+
+let parse_class class_name =
+  let parts = String.split_on_char '-' class_name in
+  match parts with
+  | [ "p"; value ] -> (
+      match Parse.spacing_value ~name:"padding" value with
+      | Ok f -> Padding (`All, `Rem (f *. 0.25))
+      | Error _ ->
+          if value = "px" then Padding (`All, `Px)
+          else if value = "full" then Padding (`All, `Full)
+          else Unknown)
+  | [ "px"; value ] -> (
+      match Parse.spacing_value ~name:"padding-x" value with
+      | Ok f -> Padding (`X, `Rem (f *. 0.25))
+      | Error _ ->
+          if value = "px" then Padding (`X, `Px)
+          else if value = "full" then Padding (`X, `Full)
+          else Unknown)
+  | [ "py"; value ] -> (
+      match Parse.spacing_value ~name:"padding-y" value with
+      | Ok f -> Padding (`Y, `Rem (f *. 0.25))
+      | Error _ ->
+          if value = "px" then Padding (`Y, `Px)
+          else if value = "full" then Padding (`Y, `Full)
+          else Unknown)
+  | [ "pt"; value ] -> (
+      match Parse.spacing_value ~name:"padding-top" value with
+      | Ok f -> Padding (`T, `Rem (f *. 0.25))
+      | Error _ ->
+          if value = "px" then Padding (`T, `Px)
+          else if value = "full" then Padding (`T, `Full)
+          else Unknown)
+  | [ "pr"; value ] -> (
+      match Parse.spacing_value ~name:"padding-right" value with
+      | Ok f -> Padding (`R, `Rem (f *. 0.25))
+      | Error _ ->
+          if value = "px" then Padding (`R, `Px)
+          else if value = "full" then Padding (`R, `Full)
+          else Unknown)
+  | [ "pb"; value ] -> (
+      match Parse.spacing_value ~name:"padding-bottom" value with
+      | Ok f -> Padding (`B, `Rem (f *. 0.25))
+      | Error _ ->
+          if value = "px" then Padding (`B, `Px)
+          else if value = "full" then Padding (`B, `Full)
+          else Unknown)
+  | [ "pl"; value ] -> (
+      match Parse.spacing_value ~name:"padding-left" value with
+      | Ok f -> Padding (`L, `Rem (f *. 0.25))
+      | Error _ ->
+          if value = "px" then Padding (`L, `Px)
+          else if value = "full" then Padding (`L, `Full)
+          else Unknown)
+  | [ "m"; value ] -> (
+      match Parse.int_pos ~name:"margin" value with
+      | Ok n -> Margin (false, `All, `Rem (float_of_int n *. 0.25))
+      | Error _ ->
+          if value = "auto" then Margin (false, `All, `Auto) else Unknown)
+  | [ "mx"; value ] -> (
+      match Parse.int_pos ~name:"margin-x" value with
+      | Ok n -> Margin (false, `X, `Rem (float_of_int n *. 0.25))
+      | Error _ -> if value = "auto" then Margin (false, `X, `Auto) else Unknown
+      )
+  | [ "my"; value ] -> (
+      match Parse.int_pos ~name:"margin-y" value with
+      | Ok n -> Margin (false, `Y, `Rem (float_of_int n *. 0.25))
+      | Error _ -> if value = "auto" then Margin (false, `Y, `Auto) else Unknown
+      )
+  | [ "mt"; value ] -> (
+      match Parse.int_pos ~name:"margin-top" value with
+      | Ok n -> Margin (false, `T, `Rem (float_of_int n *. 0.25))
+      | Error _ -> if value = "auto" then Margin (false, `T, `Auto) else Unknown
+      )
+  | [ "mr"; value ] -> (
+      match Parse.int_pos ~name:"margin-right" value with
+      | Ok n -> Margin (false, `R, `Rem (float_of_int n *. 0.25))
+      | Error _ -> if value = "auto" then Margin (false, `R, `Auto) else Unknown
+      )
+  | [ "mb"; value ] -> (
+      match Parse.int_pos ~name:"margin-bottom" value with
+      | Ok n -> Margin (false, `B, `Rem (float_of_int n *. 0.25))
+      | Error _ -> if value = "auto" then Margin (false, `B, `Auto) else Unknown
+      )
+  | [ "ml"; value ] -> (
+      match Parse.int_pos ~name:"margin-left" value with
+      | Ok n -> Margin (false, `L, `Rem (float_of_int n *. 0.25))
+      | Error _ -> if value = "auto" then Margin (false, `L, `Auto) else Unknown
+      )
+  | [ "-m"; value ] -> (
+      match Parse.int_pos ~name:"margin" value with
+      | Ok n -> Margin (true, `All, `Rem (float_of_int n *. 0.25))
+      | Error _ -> Unknown)
+  | [ "-mx"; value ] -> (
+      match Parse.int_pos ~name:"margin-x" value with
+      | Ok n -> Margin (true, `X, `Rem (float_of_int n *. 0.25))
+      | Error _ -> Unknown)
+  | [ "-my"; value ] -> (
+      match Parse.int_pos ~name:"margin-y" value with
+      | Ok n -> Margin (true, `Y, `Rem (float_of_int n *. 0.25))
+      | Error _ -> Unknown)
+  | [ "-mt"; value ] -> (
+      match Parse.int_pos ~name:"margin-top" value with
+      | Ok n -> Margin (true, `T, `Rem (float_of_int n *. 0.25))
+      | Error _ -> Unknown)
+  | [ "-mr"; value ] -> (
+      match Parse.int_pos ~name:"margin-right" value with
+      | Ok n -> Margin (true, `R, `Rem (float_of_int n *. 0.25))
+      | Error _ -> Unknown)
+  | [ "-mb"; value ] -> (
+      match Parse.int_pos ~name:"margin-bottom" value with
+      | Ok n -> Margin (true, `B, `Rem (float_of_int n *. 0.25))
+      | Error _ -> Unknown)
+  | [ "-ml"; value ] -> (
+      match Parse.int_pos ~name:"margin-left" value with
+      | Ok n -> Margin (true, `L, `Rem (float_of_int n *. 0.25))
+      | Error _ -> Unknown)
+  | [ "space"; "x"; value ] -> (
+      match Parse.int_pos ~name:"space-x" value with
+      | Ok n -> Space (false, `X, `Rem (float_of_int n *. 0.25))
+      | Error _ -> Unknown)
+  | [ "space"; "y"; value ] -> (
+      match Parse.int_pos ~name:"space-y" value with
+      | Ok n -> Space (false, `Y, `Rem (float_of_int n *. 0.25))
+      | Error _ -> Unknown)
+  | [ "-space"; "x"; value ] -> (
+      match Parse.int_pos ~name:"space-x" value with
+      | Ok n -> Space (true, `X, `Rem (float_of_int n *. 0.25))
+      | Error _ -> Unknown)
+  | [ "-space"; "y"; value ] -> (
+      match Parse.int_pos ~name:"space-y" value with
+      | Ok n -> Space (true, `Y, `Rem (float_of_int n *. 0.25))
+      | Error _ -> Unknown)
+  | [ "gap"; value ] -> (
+      match Parse.spacing_value ~name:"gap" value with
+      | Ok f -> Gap (`All, `Rem (f *. 0.25))
+      | Error _ ->
+          if value = "px" then Gap (`All, `Px)
+          else if value = "full" then Gap (`All, `Full)
+          else Unknown)
+  | [ "gap"; "x"; value ] -> (
+      match Parse.spacing_value ~name:"gap-x" value with
+      | Ok f -> Gap (`X, `Rem (f *. 0.25))
+      | Error _ ->
+          if value = "px" then Gap (`X, `Px)
+          else if value = "full" then Gap (`X, `Full)
+          else Unknown)
+  | [ "gap"; "y"; value ] -> (
+      match Parse.spacing_value ~name:"gap-y" value with
+      | Ok f -> Gap (`Y, `Rem (f *. 0.25))
+      | Error _ ->
+          if value = "px" then Gap (`Y, `Px)
+          else if value = "full" then Gap (`Y, `Full)
+          else Unknown)
+  | _ -> Unknown
+
+let suborder class_name : int =
+  match parse_class class_name with
+  | Padding (side, value) ->
+      let side_offset =
+        match side with
+        | `All -> 0
+        | `X -> 100
+        | `Y -> 200
+        | `T -> 300
+        | `R -> 400
+        | `B -> 500
+        | `L -> 600
+      in
+      1000 + side_offset + spacing_value_order value
+  | Margin (neg, side, value) ->
+      let neg_offset = if neg then 5000 else 0 in
+      let side_offset =
+        match side with
+        | `All -> 0
+        | `X -> 100
+        | `Y -> 200
+        | `T -> 300
+        | `R -> 400
+        | `B -> 500
+        | `L -> 600
+      in
+      10000 + neg_offset + side_offset + margin_value_order value
+  | Space (neg, axis, value) ->
+      let neg_offset = if neg then 1000 else 0 in
+      let axis_offset = match axis with `X -> 0 | `Y -> 100 in
+      20000 + neg_offset + axis_offset + spacing_value_order value
+  | Gap (axis, value) ->
+      let axis_offset = match axis with `All -> 0 | `X -> 100 | `Y -> 200 in
+      25000 + axis_offset + spacing_value_order value
+  | Unknown -> 30000
+
 (** {1 Special Values} *)
 
 let p_px = p' `Px

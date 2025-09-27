@@ -1,4 +1,4 @@
-(** Combined Flexbox and Grid utilities following Tailwind v4 “Flexbox & Grid”.
+(** Combined Flexbox and Grid utilities following Tailwind v4 "Flexbox & Grid".
     Exposes display, flex properties, grid properties, gap, and placement
     utilities. Values mirror Tailwind class names and behavior. *)
 

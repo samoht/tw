@@ -384,7 +384,30 @@ val property_default :
 (** [property_default kind ~initial name ?inherits ?universal] creates a Utility
     variable with a typed [@property] registration and an initial value used for
     referencing utilities and inline mode. The initial value is required for
-    proper [@property] registration and reference fallbacks. *)
+    proper [@property] registration and reference fallbacks.
+
+    {b IMPORTANT}: Due to current architecture limitations, any style that uses
+    a [property_default] variable MUST include its [property_rule] explicitly:
+    {[
+      let my_var = Var.property_default Content ~initial:(String "") "tw-content"
+
+      let my_style =
+        let decl, ref = Var.binding my_var value in
+        let property_rules =
+          match Var.property_rule my_var with
+          | None -> Css.empty
+          | Some r -> r
+        in
+        style "my-class" ~property_rules [ decl; ... ]
+    ]}
+
+    This ensures the [@property] rule with the correct initial value flows
+    through the system. Without this, a generic [@property] rule without initial
+    value may be generated, breaking the CSS output.
+
+    TODO: Fix this architecture limitation to automatically include property
+    rules for property_default variables in rules.ml without requiring explicit
+    inclusion. *)
 
 val channel : ?needs_property:bool -> 'a Css.kind -> string -> 'a channel
 (** [channel ?needs_property kind name] creates a Utility variable. When
@@ -446,6 +469,21 @@ val property_rule : ('a, [< `Property_default | `Channel ]) t -> Css.t option
         initial-value: 0 0 #0000;
       }
     ]} *)
+
+val property_rules : ('a, [< `Property_default ]) t -> Css.t
+(** [property_rules var] is a convenience function for property_default
+    variables that returns either the property rule or [Css.empty] if there is
+    none. This simplifies the common pattern of:
+    {[
+      let property_rules =
+        match Var.property_rule var with None -> Css.empty | Some r -> r
+    ]}
+    to just:
+    {[
+      let property_rules = Var.property_rules var
+    ]}
+    Only use this for property_default variables where you expect a property
+    rule. *)
 
 (** {1 Heterogeneous Collections} *)
 
