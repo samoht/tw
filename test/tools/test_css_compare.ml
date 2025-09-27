@@ -49,6 +49,20 @@ let count_containers_by_type container_type diff =
              ct = container_type)
        diff.containers)
 
+let has_container_added_of_type container_type diff =
+  List.exists
+    (function
+      | Cc.Container_added { container_type = ct; _ } -> ct = container_type
+      | _ -> false)
+    diff.containers
+
+let has_container_removed_of_type container_type diff =
+  List.exists
+    (function
+      | Cc.Container_removed { container_type = ct; _ } -> ct = container_type
+      | _ -> false)
+    diff.containers
+
 let test_strip_header () =
   let css = "/*! header */\n.a{color:red}" in
   check string "header stripped" ".a{color:red}" (Cc.strip_header css)
@@ -111,7 +125,7 @@ let test_media_and_layer_diffs () =
   (* Structural expectations: containers should have changes, no top-level rule
      diffs *)
   check int "no top-level rule diffs" 0 (List.length diff.rules);
-  check int "has container changes" 1 (List.length diff.containers);
+  check int "has container changes" 2 (List.length diff.containers);
   let container = List.hd diff.containers in
   match container with
   | Cc.Container_modified
@@ -224,18 +238,24 @@ let test_string_diff_context_none () =
   | Some _ -> fail "no diff expected"
   | None -> ()
 
+let contains s pat = Re.execp (Re.compile (Re.str pat)) s
+
 let test_pp_with_string_context () =
   (* Test that pp_diff_result shows string context when no structural diff *)
   let css1 = ".a{color:red}" in
   let css2 = ".a{color: red}" in
   (* Extra space *)
   let result = Cc.diff ~expected:css1 ~actual:css2 in
+  (* First, ensure we got a string-only diff, not structural *)
+  (match result with
+  | Cc.String_diff _ -> ()
+  | _ -> fail "Expected String_diff for whitespace-only difference");
+  (* Then, verify formatting includes context header and caret *)
   let output = Fmt.to_to_string Cc.pp result in
-  (* Should show "no structural differences" and the string diff context *)
-  check bool "shows no structural differences" true
-    (* FIXME *)
-    (String.contains output 'n' && String.contains output 'o');
-  check bool "shows position" true (String.contains output '^')
+  (* Should show unified diff headers and caret for the differing char *)
+  let has_headers = contains output "--- " && contains output "+++ " in
+  check bool "has diff headers" true has_headers;
+  check bool "has caret" true (contains output "^")
 (* Position of the space difference *)
 
 let test_pp_structural () =
@@ -243,12 +263,16 @@ let test_pp_structural () =
   let css1 = ".a{color:red}" in
   let css2 = ".a{color:blue}" in
   let result = Cc.diff ~expected:css1 ~actual:css2 in
+  (* Ensure a structural diff is produced *)
+  (match result with Cc.Tree_diff _ -> () | _ -> fail "Expected Tree_diff");
+  (* Check formatting has expected structural headers and modification line *)
   let output = Fmt.to_to_string Cc.pp result in
-  (* Should show structural CSS diff, not string context *)
-  check bool "shows CSS diff" true
-    (* FIXME *)
-    (String.contains output 'r' && String.contains output 'e'
-   && String.contains output 'd')
+  let has_headers = contains output "--- " && contains output "+++ " in
+  check bool "has diff headers" true has_headers;
+  (* Verify property modification text appears for short values *)
+  let has_modify = contains output "modify:" in
+  let has_arrow = contains output "->" in
+  check bool "shows color change inline" true (has_modify && has_arrow)
 
 (* Selector-only change should be reported as a single rule Changed with a
    synthetic selector diff, not as add/remove. *)
@@ -302,7 +326,7 @@ let test_layer_custom_properties () =
          be flagged *)
       check bool "layer custom property differences detected" false
         (Cc.is_empty diff)
-  | _ -> fail "CSS should parse successfully"
+  | _ -> fail "CSS should have structural differences"
 
 let test_css_unit_differences () =
   (* Test case for 0px vs 0 - should be detected as structural difference *)
@@ -363,11 +387,20 @@ let test_reordered_diff_formatting () =
   let css_expected = ".test{color:red;padding:10px}" in
   let css_actual = ".test{padding:10px;color:red}" in
   let result = Cc.diff ~expected:css_expected ~actual:css_actual in
+  (* Ensure structural diff and that it classifies as a reorder *)
+  let has_reorder =
+    match result with
+    | Cc.Tree_diff d ->
+        List.exists
+          (function Cc.Rule_reordered _ -> true | _ -> false)
+          d.rules
+    | _ -> false
+  in
+  check bool "classifies as reorder" true has_reorder;
+  (* Pretty output should include a reorder note summary *)
   let output = Fmt.to_to_string Cc.pp result in
-  (* Should contain reorder information *)
-  check bool "shows reorder info" true
-    (* FIXME *)
-    (String.contains output 'r' && String.contains output 'e')
+  let has_reorder_word = contains output "reorder" in
+  check bool "shows reorder summary" true has_reorder_word
 
 let test_mixed_reordering_and_changes () =
   (* Test that when properties are both reordered AND changed, it's detected as
@@ -494,50 +527,139 @@ let test_rule_position_reordering () =
 let test_selector_change_suppression () =
   (* Test that when there's a selector change from X to Y, we don't see
      redundant "add" entries for Y in nested contexts like layers *)
-  let css_expected = "@layer utilities{.old-selector{color:red;margin:10px}}" in
-  let css_actual = "@layer utilities{.new-selector{color:red;margin:10px}}" in
+  let css_expected = "@layer utilities{x .old{color:red;margin:10px}}" in
+  let css_actual = "@layer utilities{x .new{color:red;margin:10px}}" in
   let result = Cc.diff ~expected:css_expected ~actual:css_actual in
   match result with
-  | Tree_diff _ ->
-      (* Should have a single selector change, not separate add/remove
-         entries *)
-      let buffer = Buffer.create 256 in
-      let fmt = Format.formatter_of_buffer buffer in
-      Cc.pp fmt result;
-      Format.pp_print_flush fmt ();
-      let output = Buffer.contents buffer in
-
-      (* Count occurrences of the new selector to ensure it only appears once *)
-      let count_occurrences str sub =
-        let len_str = String.length str in
-        let len_sub = String.length sub in
-        let rec count i acc =
-          if i > len_str - len_sub then acc
-          else if String.sub str i len_sub = sub then count (i + 1) (acc + 1)
-          else count (i + 1) acc
-        in
-        count 0 0
+  | Cc.Tree_diff d -> (
+      (* Find the utilities layer container and inspect its rule changes *)
+      let is_util_layer = function
+        | Cc.Container_modified
+            { info = { container_type = `Layer; condition }; rule_changes } ->
+            if String.equal condition "utilities" then Some rule_changes
+            else None
+        | _ -> None
       in
+      match List.find_map is_util_layer d.containers with
+      | None -> fail "expected a modified @layer utilities container"
+      | Some rule_changes -> (
+          let selector_changes =
+            List.filter
+              (function Cc.Rule_selector_changed _ -> true | _ -> false)
+              rule_changes
+          in
+          let adds =
+            List.filter
+              (function Cc.Rule_added _ -> true | _ -> false)
+              rule_changes
+          in
+          let removes =
+            List.filter
+              (function Cc.Rule_removed _ -> true | _ -> false)
+              rule_changes
+          in
+          check int "single selector change" 1 (List.length selector_changes);
+          check int "no adds" 0 (List.length adds);
+          check int "no removes" 0 (List.length removes);
+          (* Sanity-check the actual selector values *)
+          match List.hd selector_changes with
+          | Cc.Rule_selector_changed { old_selector; new_selector; _ } ->
+              check string "old selector" "x .old" old_selector;
+              check string "new selector" "x .new" new_selector
+          | _ -> assert false))
+  | _ -> fail "CSS should have structural differences"
 
-      (* The new selector should appear only once (in the selector change entry)
-         and NOT as a separate "add" entry *)
-      let new_selector_count = count_occurrences output "new-selector" in
+(* Result variant coverage tests *)
+let test_no_diff_result () =
+  let css = ".a{color:red}" in
+  match Cc.diff ~expected:css ~actual:css with
+  | Cc.No_diff -> ()
+  | _ -> fail "Expected No_diff for identical CSS"
 
-      (* Should see selector change, not redundant add/remove *)
-      check bool "contains selector changed" true
-        (String.contains output 's' && String.contains output 'e');
+let test_expected_error_result () =
+  let bad = "{" in
+  let good = ".a{color:red}" in
+  match Cc.diff ~expected:bad ~actual:good with
+  | Cc.Expected_error _ -> ()
+  | _ -> fail "Expected Expected_error for invalid expected CSS"
 
-      (* Should not have excessive occurrences of the new selector *)
-      check bool "new selector not duplicated" true (new_selector_count <= 2);
+let test_actual_error_result () =
+  let bad = "{" in
+  let good = ".a{color:red}" in
+  match Cc.diff ~expected:good ~actual:bad with
+  | Cc.Actual_error _ -> ()
+  | _ -> fail "Expected Actual_error for invalid actual CSS"
 
-      (* Should not see both "add" and "selector changed" for same rule *)
-      let has_add = String.contains output 'a' in
-      let has_selector_changed = String.contains output 's' in
-      if has_add && has_selector_changed then
-        Printf.printf
-          "\nWARNING: Output contains both 'add' and 'selector changed':\n%s\n"
-          output
-  | _ -> fail "Both CSS should parse and produce a structural diff"
+let test_both_errors_result () =
+  let bad1 = "{" in
+  let bad2 = "{" in
+  match Cc.diff ~expected:bad1 ~actual:bad2 with
+  | Cc.Both_errors _ -> ()
+  | _ -> fail "Expected Both_errors when both CSS inputs are invalid"
+
+(* Explicit container added/removed tests *)
+let test_container_added_explicit () =
+  let expected = ".a{color:red}" in
+  let actual = "@media (min-width:600px){.a{color:red}}" in
+  match Cc.diff ~expected ~actual with
+  | Cc.Tree_diff d ->
+      check bool "media container added" true
+        (has_container_added_of_type `Media d)
+  | _ -> fail "Expected structural diff with media Container_added"
+
+let test_container_removed_explicit () =
+  let expected = "@media (min-width:600px){.a{color:red}}" in
+  let actual = ".a{color:red}" in
+  match Cc.diff ~expected ~actual with
+  | Cc.Tree_diff d ->
+      check bool "media container removed" true
+        (has_container_removed_of_type `Media d)
+  | _ -> fail "Expected structural diff with media Container_removed"
+
+(* @property container type coverage *)
+let test_property_container_added_removed () =
+  let prop =
+    "@property --tw-size { syntax: '<length>'; inherits: false; initial-value: \
+     0px }"
+  in
+  (* Added *)
+  (match Cc.diff ~expected:".a{color:red}" ~actual:(prop ^ ".a{color:red}") with
+  | Cc.Tree_diff d ->
+      check bool "property container added" true
+        (has_container_added_of_type `Property d)
+  | _ -> fail "Expected property Container_added");
+  (* Removed *)
+  match Cc.diff ~expected:(prop ^ ".a{color:red}") ~actual:".a{color:red}" with
+  | Cc.Tree_diff d ->
+      check bool "property container removed" true
+        (has_container_removed_of_type `Property d)
+  | _ -> fail "Expected property Container_removed"
+
+let test_complex_selector_change () =
+  (* Test complex selector changes with shared parent context - these should be
+     detected as selector changes, not add/remove *)
+  let css_expected =
+    ".container .sidebar-left{display:flex;justify-content:start}"
+  in
+  let css_actual =
+    ".container .sidebar-right{display:flex;justify-content:start}"
+  in
+  let result = Cc.diff ~expected:css_expected ~actual:css_actual in
+  match result with
+  | Cc.Tree_diff d -> (
+      (* Should detect this as a selector change since both have ".container"
+         parent *)
+      check int "one rule change" 1 (List.length d.rules);
+      let rule = List.hd d.rules in
+      match rule with
+      | Cc.Rule_selector_changed { old_selector; new_selector; _ } ->
+          check string "old selector" ".container .sidebar-left" old_selector;
+          check string "new selector" ".container .sidebar-right" new_selector
+      | Cc.Rule_added _ | Cc.Rule_removed _ ->
+          fail
+            "Expected selector change, not add/remove for shared parent context"
+      | _ -> fail "Expected Rule_selector_changed")
+  | _ -> fail "Complex selector change should be detected as structural diff"
 
 let tests =
   [
@@ -581,6 +703,17 @@ let tests =
       test_mixed_reordering_and_changes;
     test_case "selector change suppression" `Quick
       test_selector_change_suppression;
+    test_case "diff result: no diff" `Quick test_no_diff_result;
+    test_case "diff result: expected error" `Quick test_expected_error_result;
+    test_case "diff result: actual error" `Quick test_actual_error_result;
+    test_case "diff result: both errors" `Quick test_both_errors_result;
+    test_case "explicit container added" `Quick test_container_added_explicit;
+    test_case "explicit container removed" `Quick
+      test_container_removed_explicit;
+    test_case "@property container add/remove" `Quick
+      test_property_container_added_removed;
+    test_case "complex selector change with parent context" `Quick
+      test_complex_selector_change;
   ]
 
 let suite = ("css_compare", tests)

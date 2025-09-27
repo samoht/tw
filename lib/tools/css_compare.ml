@@ -623,14 +623,39 @@ let rules_modified_diff rules1 rules2 =
                   let d2 = get_rule_declarations r2 in
                   Some (get_rule_selector r1, get_rule_selector r2, d1, d2)
               | None -> (
-                  (* Fallback: find equivalent rule by properties *)
+                  (* Fallback: find equivalent rule by properties, but only if
+                     selectors share a parent *)
                   let candidates =
                     try Hashtbl.find rules2_by_props props1
                     with Not_found -> []
                   in
+                  (* Helper to check if two selectors share a common parent *)
+                  let share_parent sel1_str sel2_str =
+                    (* Simple heuristic: check if they have a common prefix
+                       before the last part *)
+                    let parts1 =
+                      String.split_on_char ' ' sel1_str |> List.rev
+                    in
+                    let parts2 =
+                      String.split_on_char ' ' sel2_str |> List.rev
+                    in
+                    match (parts1, parts2) with
+                    | _ :: p1_rest, _ :: p2_rest ->
+                        List.rev p1_rest = List.rev p2_rest && p1_rest <> []
+                    | _ -> false
+                  in
+                  let sel1_str =
+                    Css.Selector.to_string (get_rule_selector r1)
+                  in
                   match
                     List.find_opt
-                      (fun r -> not (Hashtbl.mem used_rules r))
+                      (fun r ->
+                        if Hashtbl.mem used_rules r then false
+                        else
+                          let sel2_str =
+                            Css.Selector.to_string (get_rule_selector r)
+                          in
+                          share_parent sel1_str sel2_str)
                       candidates
                   with
                   | Some r2 ->
@@ -773,9 +798,124 @@ let create_ordering_diff rules1 rules2 =
    has_ordering_changes/create_ordering_diff *)
 
 let handle_structural_diff rules1 rules2 =
-  let added = rules_added_diff rules1 rules2 in
-  let removed = rules_removed_diff rules1 rules2 in
-  let modified = rules_modified_diff rules1 rules2 in
+  (* First, detect selector changes with parent context matching *)
+  let all_added_candidates = rules_added_diff rules1 rules2 in
+  let all_removed_candidates = rules_removed_diff rules1 rules2 in
+
+  (* Track which rules are matched for selector changes *)
+  let matched_added = ref [] in
+  let matched_removed = ref [] in
+  let selector_changes = ref [] in
+
+  (* Helper function to check if two selectors share meaningful parent context
+     using AST *)
+  let share_parent_ast sel1 sel2 =
+    let module S = Css.Selector in
+    (* Extract the "context" part of a selector - the part that should be
+       shared *)
+    let extract_context = function
+      | S.Combined (parent, combinator, _child) ->
+          (* For combined selectors like "a > b", the context is "a >" *)
+          Some (`Combined (S.to_string parent, combinator))
+      | S.Compound selectors ->
+          (* For compound selectors, extract functional pseudo-classes as
+             context *)
+          let context_parts =
+            List.filter
+              (function
+                | S.Where _ | S.Not _ | S.Is _ | S.Has _ -> true
+                | S.Class _ -> true (* Include class selectors as context *)
+                | _ -> false)
+              selectors
+          in
+          if List.length context_parts > 0 then
+            Some (`Compound (List.map S.to_string context_parts))
+          else None
+      | _ -> None
+    in
+
+    match (extract_context sel1, extract_context sel2) with
+    | Some (`Combined (parent1, comb1)), Some (`Combined (parent2, comb2)) ->
+        parent1 = parent2 && comb1 = comb2
+    | Some (`Compound context1), Some (`Compound context2) ->
+        context1 = context2
+    | _ -> false
+  in
+
+  (* Try to match removed rules with added rules for selector changes *)
+  List.iter
+    (fun removed_rule ->
+      let removed_sel = get_rule_selector removed_rule in
+      let removed_decls = get_rule_declarations removed_rule in
+      let removed_props =
+        List.map decl_to_prop_value removed_decls |> List.sort compare
+      in
+
+      (* Look for a matching added rule with same properties but different
+         selector *)
+      let matching_added =
+        List.find_opt
+          (fun added_rule ->
+            let added_sel = get_rule_selector added_rule in
+            let added_decls = get_rule_declarations added_rule in
+            let added_props =
+              List.map decl_to_prop_value added_decls |> List.sort compare
+            in
+
+            (* Same properties but different selectors that share parent
+               context *)
+            removed_props = added_props
+            && removed_sel <> added_sel
+            && share_parent_ast removed_sel added_sel)
+          all_added_candidates
+      in
+
+      match matching_added with
+      | Some added_rule ->
+          let added_sel = get_rule_selector added_rule in
+
+          (* Record this as a selector change *)
+          selector_changes :=
+            (removed_sel, added_sel, removed_decls, removed_decls)
+            :: !selector_changes;
+          matched_removed := removed_rule :: !matched_removed;
+          matched_added := added_rule :: !matched_added
+      | None -> ())
+    all_removed_candidates;
+
+  (* Filter out matched rules from add/remove lists *)
+  let added =
+    List.filter (fun r -> not (List.memq r !matched_added)) all_added_candidates
+  in
+  let removed =
+    List.filter
+      (fun r -> not (List.memq r !matched_removed))
+      all_removed_candidates
+  in
+
+  (* Get other types of modifications (content changes, etc.) but exclude the
+     ones we already found *)
+  let other_modified = rules_modified_diff rules1 rules2 in
+
+  (* Filter out duplicates - if we already found a selector change, don't
+     include it from other_modified *)
+  let selector_change_selectors =
+    List.map
+      (fun (sel1, sel2, _, _) ->
+        (Css.Selector.to_string sel1, Css.Selector.to_string sel2))
+      !selector_changes
+  in
+
+  let filtered_other_modified =
+    List.filter
+      (fun (sel1, sel2, _, _) ->
+        let sel1_str = Css.Selector.to_string sel1 in
+        let sel2_str = Css.Selector.to_string sel2 in
+        not (List.mem (sel1_str, sel2_str) selector_change_selectors))
+      other_modified
+  in
+
+  let modified = !selector_changes @ filtered_other_modified in
 
   let has_structural_changes = added <> [] || removed <> [] || modified <> [] in
   let has_ordering_changes =
@@ -959,6 +1099,19 @@ let tree_diff ~(expected : Css.t) ~(actual : Css.t) : tree_diff =
     let media2 = Css.media_queries actual in
     let media_added, media_removed, media_modified = media_diff media1 media2 in
 
+    (* Layer blocks *)
+    let layers1 = extract_statements Css.as_layer expected in
+    let layers2 = extract_statements Css.as_layer actual in
+    let layers_added, layers_removed, layers_modified =
+      let key_of (name_opt, _) = Option.value ~default:"" name_opt in
+      let key_equal = String.equal in
+      let is_empty_diff (_, rules1) (_, rules2) =
+        let a_r, r_r, m_r = rule_diffs rules1 rules2 in
+        a_r = [] && r_r = [] && m_r = []
+      in
+      find_diffs ~key_of ~key_equal ~is_empty_diff layers1 layers2
+    in
+
     (* Supports queries *)
     let supports1 = extract_statements Css.as_supports expected in
     let supports2 = extract_statements Css.as_supports actual in
@@ -1014,6 +1167,32 @@ let tree_diff ~(expected : Css.t) ~(actual : Css.t) : tree_diff =
               rule_changes;
             })
         media_modified
+    (* Convert layers *)
+    @ List.map
+        (fun (name_opt, _) ->
+          let name = Option.value ~default:"" name_opt in
+          Container_added { container_type = `Layer; condition = name })
+        layers_added
+    @ List.map
+        (fun (name_opt, _) ->
+          let name = Option.value ~default:"" name_opt in
+          Container_removed { container_type = `Layer; condition = name })
+        layers_removed
+    @ List.map
+        (fun ((name_opt, rules1), (_, rules2)) ->
+          let name = Option.value ~default:"" name_opt in
+          let r_added, r_removed, r_modified = rule_diffs rules1 rules2 in
+          let rule_changes =
+            List.map convert_added_rule r_added
+            @ List.map convert_removed_rule r_removed
+            @ List.map convert_modified_rule r_modified
+          in
+          Container_modified
+            {
+              info = { container_type = `Layer; condition = name };
+              rule_changes;
+            })
+        layers_modified
     (* Convert supports queries *)
     @ List.map
         (fun (cond, _) ->
