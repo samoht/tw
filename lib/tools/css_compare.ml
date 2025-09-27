@@ -96,6 +96,7 @@ type container_diff =
 and container_info = {
   container_type : [ `Media | `Layer | `Supports | `Container | `Property ];
   condition : string;
+  rules : Css.statement list; (* Rules within this container *)
 }
 
 (* Structured diff type *)
@@ -255,9 +256,17 @@ let pp_rule_diff fmt = function
       if declarations <> [] then pp_declarations fmt "declarations" declarations
   | Rule_reordered { selector } -> Fmt.pf fmt "- %s: (reordered)@," selector
 
+(* Forward declaration for convert_rule_to_strings *)
+let convert_rule_to_strings stmt =
+  match Css.as_rule stmt with
+  | Some (selector, decls, _) ->
+      let selector_str = Css.Selector.to_string selector in
+      (selector_str, decls)
+  | None -> ("", [])
+
 (* Pretty-print container_diff *)
 let pp_container_diff fmt = function
-  | Container_added { container_type; condition } ->
+  | Container_added { container_type; condition; rules } ->
       let prefix =
         match container_type with
         | `Media -> "@media"
@@ -266,8 +275,16 @@ let pp_container_diff fmt = function
         | `Container -> "@container"
         | `Property -> "@property"
       in
-      Fmt.pf fmt "- %s %s: (added)@," prefix condition
-  | Container_removed { container_type; condition } ->
+      Fmt.pf fmt "- %s %s: (added)@," prefix condition;
+      if rules <> [] then
+        List.iter
+          (fun stmt ->
+            let sel, decls = convert_rule_to_strings stmt in
+            if sel <> "" then (
+              Fmt.pf fmt "  - %s:@," sel;
+              pp_declarations fmt "add" decls))
+          rules
+  | Container_removed { container_type; condition; rules } ->
       let prefix =
         match container_type with
         | `Media -> "@media"
@@ -276,8 +293,17 @@ let pp_container_diff fmt = function
         | `Container -> "@container"
         | `Property -> "@property"
       in
-      Fmt.pf fmt "- %s %s: (removed)@," prefix condition
-  | Container_modified { info = { container_type; condition }; rule_changes } ->
+      Fmt.pf fmt "- %s %s: (removed)@," prefix condition;
+      if rules <> [] then
+        List.iter
+          (fun stmt ->
+            let sel, decls = convert_rule_to_strings stmt in
+            if sel <> "" then (
+              Fmt.pf fmt "  - %s:@," sel;
+              pp_declarations fmt "remove" decls))
+          rules
+  | Container_modified
+      { info = { container_type; condition; rules = _ }; rule_changes } ->
       let prefix =
         match container_type with
         | `Media -> "@media"
@@ -492,13 +518,6 @@ let extract_base_rules css class_name =
 
 (* Analyze differences between two parsed CSS ASTs, returning structural
    changes *)
-
-let convert_rule_to_strings stmt =
-  match Css.as_rule stmt with
-  | Some (selector, decls, _) ->
-      let selector_str = Css.Selector.to_string selector in
-      (selector_str, decls)
-  | None -> ("", [])
 
 (* Helper functions for rule comparison *)
 (* Normalize a selector string by sorting comma-separated selector items.
@@ -1139,12 +1158,12 @@ let tree_diff ~(expected : Css.t) ~(actual : Css.t) : tree_diff =
 
     (* Convert media queries *)
     List.map
-      (fun (cond, _) ->
-        Container_added { container_type = `Media; condition = cond })
+      (fun (cond, rules) ->
+        Container_added { container_type = `Media; condition = cond; rules })
       media_added
     @ List.map
-        (fun (cond, _) ->
-          Container_removed { container_type = `Media; condition = cond })
+        (fun (cond, rules) ->
+          Container_removed { container_type = `Media; condition = cond; rules })
         media_removed
     @ List.map
         (fun (cond, rules1, rules2) ->
@@ -1156,20 +1175,21 @@ let tree_diff ~(expected : Css.t) ~(actual : Css.t) : tree_diff =
           in
           Container_modified
             {
-              info = { container_type = `Media; condition = cond };
+              info =
+                { container_type = `Media; condition = cond; rules = rules1 };
               rule_changes;
             })
         media_modified
     (* Convert layers *)
     @ List.map
-        (fun (name_opt, _) ->
+        (fun (name_opt, rules) ->
           let name = Option.value ~default:"" name_opt in
-          Container_added { container_type = `Layer; condition = name })
+          Container_added { container_type = `Layer; condition = name; rules })
         layers_added
     @ List.map
-        (fun (name_opt, _) ->
+        (fun (name_opt, rules) ->
           let name = Option.value ~default:"" name_opt in
-          Container_removed { container_type = `Layer; condition = name })
+          Container_removed { container_type = `Layer; condition = name; rules })
         layers_removed
     @ List.map
         (fun ((name_opt, rules1), (_, rules2)) ->
@@ -1182,18 +1202,21 @@ let tree_diff ~(expected : Css.t) ~(actual : Css.t) : tree_diff =
           in
           Container_modified
             {
-              info = { container_type = `Layer; condition = name };
+              info =
+                { container_type = `Layer; condition = name; rules = rules1 };
               rule_changes;
             })
         layers_modified
     (* Convert supports queries *)
     @ List.map
-        (fun (cond, _) ->
-          Container_added { container_type = `Supports; condition = cond })
+        (fun (cond, rules) ->
+          Container_added
+            { container_type = `Supports; condition = cond; rules })
         supports_added
     @ List.map
-        (fun (cond, _) ->
-          Container_removed { container_type = `Supports; condition = cond })
+        (fun (cond, rules) ->
+          Container_removed
+            { container_type = `Supports; condition = cond; rules })
         supports_removed
     @ List.map
         (fun (cond, rules1, rules2) ->
@@ -1204,7 +1227,8 @@ let tree_diff ~(expected : Css.t) ~(actual : Css.t) : tree_diff =
           in
           Container_modified
             {
-              info = { container_type = `Supports; condition = cond };
+              info =
+                { container_type = `Supports; condition = cond; rules = rules1 };
               rule_changes;
             })
         supports_modified
@@ -1216,7 +1240,11 @@ let tree_diff ~(expected : Css.t) ~(actual : Css.t) : tree_diff =
             if name_str = "" then cond else name_str ^ " " ^ cond
           in
           Container_added
-            { container_type = `Container; condition = full_condition })
+            {
+              container_type = `Container;
+              condition = full_condition;
+              rules = [];
+            })
         container_added
     @ List.map
         (fun (name, cond, _) ->
@@ -1225,7 +1253,11 @@ let tree_diff ~(expected : Css.t) ~(actual : Css.t) : tree_diff =
             if name_str = "" then cond else name_str ^ " " ^ cond
           in
           Container_removed
-            { container_type = `Container; condition = full_condition })
+            {
+              container_type = `Container;
+              condition = full_condition;
+              rules = [];
+            })
         container_removed
     @ List.map
         (fun ((name, cond, rules1), (_, _, rules2)) ->
@@ -1240,7 +1272,12 @@ let tree_diff ~(expected : Css.t) ~(actual : Css.t) : tree_diff =
           in
           Container_modified
             {
-              info = { container_type = `Container; condition = full_condition };
+              info =
+                {
+                  container_type = `Container;
+                  condition = full_condition;
+                  rules = [];
+                };
               rule_changes;
             })
         container_modified
@@ -1250,14 +1287,16 @@ let tree_diff ~(expected : Css.t) ~(actual : Css.t) : tree_diff =
           let name =
             match prop_info with Css.Property_info { name; _ } -> name
           in
-          Container_added { container_type = `Property; condition = name })
+          Container_added
+            { container_type = `Property; condition = name; rules = [] })
         prop_added
     @ List.map
         (fun prop_info ->
           let name =
             match prop_info with Css.Property_info { name; _ } -> name
           in
-          Container_removed { container_type = `Property; condition = name })
+          Container_removed
+            { container_type = `Property; condition = name; rules = [] })
         prop_removed
     @ List.map
         (fun (prop1, _prop2) ->
@@ -1265,7 +1304,8 @@ let tree_diff ~(expected : Css.t) ~(actual : Css.t) : tree_diff =
           (* For @property rules, we can show the changes as rule changes *)
           Container_modified
             {
-              info = { container_type = `Property; condition = name };
+              info =
+                { container_type = `Property; condition = name; rules = [] };
               rule_changes = [];
               (* @property changes would need special handling *)
             })
