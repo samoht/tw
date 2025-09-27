@@ -82,17 +82,11 @@ let type_attr value = attr "type" (Exact value)
 let prose_where_element element_selector =
   let open Css.Selector in
   (* Create the not-prose selector: [class~=not-prose] *)
-  let not_prose_class =
-    attribute "class" (Whitespace_list "not-prose")
-  in
+  let not_prose_class = attribute "class" (Whitespace_list "not-prose") in
   (* Create the descendant selector: [class~=not-prose] * *)
-  let not_prose_descendant =
-    combine not_prose_class Descendant universal
-  in
+  let not_prose_descendant = combine not_prose_class Descendant universal in
   (* Create :where([class~=not-prose],[class~=not-prose] * ) *)
-  let not_prose_where =
-    where [ not_prose_class; not_prose_descendant ]
-  in
+  let not_prose_where = where [ not_prose_class; not_prose_descendant ] in
   (* Create :not(:where([class~=not-prose],[class~=not-prose] * )) *)
   let not_selector = not [ not_prose_where ] in
   (* Combine element with :not() and wrap in :where() *)
@@ -183,7 +177,8 @@ let figure_all = Css.Selector.(combine figure Child universal) (* figure>* *)
 let tbody_td_tfoot_td = Css.Selector.list [ tbody ++ td; tfoot ++ td ]
 
 let tbody_td_first_child =
-  Css.Selector.list [ tbody ++ (td && first_child); tfoot ++ (td && first_child) ]
+  Css.Selector.list
+    [ tbody ++ (td && first_child); tfoot ++ (td && first_child) ]
 
 let tbody_td_last_child =
   Css.Selector.list [ tbody ++ (td && last_child); tfoot ++ (td && last_child) ]
@@ -874,14 +869,10 @@ let additional_rules base =
         padding_inline_start (Em 0.571429);
       ];
     Css.rule
-      ~selector:
-        (where base
-           tbody_td_first_child)
+      ~selector:(where base tbody_td_first_child)
       [ padding_inline_start Zero ];
     Css.rule
-      ~selector:
-        (where base
-           tbody_td_last_child)
+      ~selector:(where base tbody_td_last_child)
       [ padding_inline_end Zero ];
     (* Figure *)
     Css.rule ~selector:(where base figure)
