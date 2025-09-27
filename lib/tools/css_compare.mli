@@ -53,6 +53,7 @@ type container_diff =
 and container_info = {
   container_type : [ `Media | `Layer | `Supports | `Container | `Property ];
   condition : string;
+  rules : Css.statement list; (* Rules within this container *)
 }
 (** Container rule information and the differences within. *)
 

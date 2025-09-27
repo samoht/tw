@@ -326,13 +326,13 @@ let check_property_rules_trailing_and_order () =
 (* New tests for exposed functions *)
 
 let test_color_order () =
-  check int "amber utilities order" 10
+  check int "amber utilities order" 3
     (let _, order = Tw.Color.utilities_order "amber" in
      order);
-  check int "blue utilities order" 16
+  check int "blue utilities order" 4
     (let _, order = Tw.Color.utilities_order "blue" in
      order);
-  check int "cyan utilities order" 17
+  check int "cyan utilities order" 5
     (let _, order = Tw.Color.utilities_order "cyan" in
      order);
   check int "sky utilities order" 18

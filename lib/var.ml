@@ -101,6 +101,12 @@ let layer_name = function (Theme : layer) -> "theme" | Utility -> "utilities"
 let number_percentage_to_string (np : Css.number_percentage) =
   match np with Num f | Pct f -> Pp.float f | _ -> "initial"
 
+let channel_to_string : Css.channel -> string = function
+  | Css.Int i -> string_of_int i
+  | Css.Num f -> Pp.float f
+  | Css.Pct p -> Pp.float p ^ "%"
+  | Css.Var _ -> "0"
+
 (* Single source of truth for converting typed values to CSS strings This
    function converts a typed value to its CSS string representation for use in
    both @property initial-value and properties layer *)
@@ -130,6 +136,12 @@ let value_to_css_string : type a. a Css.kind -> a -> string =
   | Css.Border_style -> Css.Pp.to_string Css.pp_border_style value
   | Css.Scroll_snap_strictness ->
       Css.Pp.to_string Css.pp_scroll_snap_strictness value
+  | Css.Rgb -> (
+      match value with
+      | Css.Channels { r; g; b } ->
+          channel_to_string r ^ " " ^ channel_to_string g ^ " "
+          ^ channel_to_string b
+      | Css.Var _ -> "initial")
   | _ -> "initial"
 
 (* Alias for backward compatibility *)

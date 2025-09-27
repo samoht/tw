@@ -40,7 +40,8 @@ let test_css_generation () =
   (* Check that descendant selectors are generated *)
   Alcotest.(check bool)
     "has prose h1 selector" true
-    (Astring.String.is_infix ~affix:".prose :where(h1)" css_string)
+    (Astring.String.is_infix
+       ~affix:".prose :where(h1:not(:where([class~=not-prose]" css_string)
 
 let test_inline_styles () =
   (* Prose utilities can generate inline styles from their rules, but CSS
