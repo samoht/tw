@@ -376,8 +376,29 @@ let group_media_queries media_rules =
           Hashtbl.replace tbl condition ((selector, props) :: rules)
       | _ -> ())
     media_rules;
-  (* Reverse once to restore original insertion order per condition *)
-  Hashtbl.fold (fun k v acc -> (k, List.rev v) :: acc) tbl []
+  (* Extract and sort media queries by breakpoint order *)
+  let media_list =
+    Hashtbl.fold (fun k v acc -> (k, List.rev v) :: acc) tbl []
+  in
+  (* Sort by min-width values to ensure correct cascading order *)
+  List.sort
+    (fun (a, _) (b, _) ->
+      (* Extract min-width values for comparison *)
+      let extract_min_width condition =
+        if String.contains condition '(' then
+          try
+            let start = String.index condition ':' + 1 in
+            let end_ = String.index_from condition start ')' in
+            let value = String.sub condition start (end_ - start) in
+            (* Parse rem values to floats for comparison *)
+            if String.contains value 'r' then
+              float_of_string (String.sub value 0 (String.index value 'r'))
+            else 0.0
+          with _ -> 0.0
+        else 0.0
+      in
+      compare (extract_min_width a) (extract_min_width b))
+    media_list
 
 let group_container_queries container_rules =
   let tbl = Hashtbl.create 16 in
