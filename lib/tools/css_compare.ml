@@ -807,38 +807,31 @@ let handle_structural_diff rules1 rules2 =
   let matched_removed = ref [] in
   let selector_changes = ref [] in
 
-  (* Helper function to check if two selectors share meaningful parent context
-     using AST *)
+  (* Helper function to check if two selectors share meaningful parent
+     context *)
   let share_parent_ast sel1 sel2 =
     let module S = Css.Selector in
-    (* Extract the "context" part of a selector - the part that should be
-       shared *)
-    let extract_context = function
-      | S.Combined (parent, combinator, _child) ->
-          (* For combined selectors like "a > b", the context is "a >" *)
-          Some (`Combined (S.to_string parent, combinator))
-      | S.Compound selectors ->
-          (* For compound selectors, extract functional pseudo-classes as
-             context *)
-          let context_parts =
-            List.filter
-              (function
-                | S.Where _ | S.Not _ | S.Is _ | S.Has _ -> true
-                | S.Class _ -> true (* Include class selectors as context *)
-                | _ -> false)
-              selectors
+    (* Extract parent string from a selector *)
+    let extract_parent_string sel =
+      (* Convert to string and split on spaces to find parent *)
+      let sel_str = S.to_string sel in
+      (* Split by spaces, considering pseudo-classes stay with their element *)
+      let parts = String.split_on_char ' ' sel_str in
+      match parts with
+      | [] | [ _ ] -> None (* No parent if single element *)
+      | parent :: _ ->
+          (* Strip pseudo-classes from parent to get base selector *)
+          let base_parent =
+            (* Remove :hover, :focus, etc. but keep the base class/element *)
+            match String.index_opt parent ':' with
+            | Some idx -> String.sub parent 0 idx
+            | None -> parent
           in
-          if List.length context_parts > 0 then
-            Some (`Compound (List.map S.to_string context_parts))
-          else None
-      | _ -> None
+          Some base_parent
     in
 
-    match (extract_context sel1, extract_context sel2) with
-    | Some (`Combined (parent1, comb1)), Some (`Combined (parent2, comb2)) ->
-        parent1 = parent2 && comb1 = comb2
-    | Some (`Compound context1), Some (`Compound context2) ->
-        context1 = context2
+    match (extract_parent_string sel1, extract_parent_string sel2) with
+    | Some p1, Some p2 -> p1 = p2
     | _ -> false
   in
 

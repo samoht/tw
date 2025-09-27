@@ -63,6 +63,22 @@ let has_container_removed_of_type container_type diff =
       | _ -> false)
     diff.containers
 
+(* Common helper: assert a single selector-only rule change between two CSS
+   strings. *)
+let assert_single_selector_change ~expected ~actual ~old_selector ~new_selector
+    =
+  match Cc.diff ~expected ~actual with
+  | Cc.Tree_diff d -> (
+      check int "one rule change" 1 (List.length d.rules);
+      match List.hd d.rules with
+      | Cc.Rule_selector_changed { old_selector = o; new_selector = n; _ } ->
+          check string "old selector" old_selector o;
+          check string "new selector" new_selector n
+      | Cc.Rule_added _ | Cc.Rule_removed _ ->
+          fail "Expected selector change, not add/remove"
+      | _ -> fail "Expected Rule_selector_changed")
+  | _ -> fail "Expected structural selector change"
+
 let test_strip_header () =
   let css = "/*! header */\n.a{color:red}" in
   check string "header stripped" ".a{color:red}" (Cc.strip_header css)
@@ -644,22 +660,60 @@ let test_complex_selector_change () =
   let css_actual =
     ".container .sidebar-right{display:flex;justify-content:start}"
   in
-  let result = Cc.diff ~expected:css_expected ~actual:css_actual in
-  match result with
-  | Cc.Tree_diff d -> (
-      (* Should detect this as a selector change since both have ".container"
-         parent *)
-      check int "one rule change" 1 (List.length d.rules);
-      let rule = List.hd d.rules in
-      match rule with
-      | Cc.Rule_selector_changed { old_selector; new_selector; _ } ->
-          check string "old selector" ".container .sidebar-left" old_selector;
-          check string "new selector" ".container .sidebar-right" new_selector
-      | Cc.Rule_added _ | Cc.Rule_removed _ ->
-          fail
-            "Expected selector change, not add/remove for shared parent context"
-      | _ -> fail "Expected Rule_selector_changed")
-  | _ -> fail "Complex selector change should be detected as structural diff"
+  assert_single_selector_change ~expected:css_expected ~actual:css_actual
+    ~old_selector:".container .sidebar-left"
+    ~new_selector:".container .sidebar-right"
+
+(* More complex selector changes that share a prefix but differ in
+   composition *)
+let test_selector_change_shared_prefix_combinator_swap () =
+  (* Both selectors share the same prefix ".wrap .menu" but differ in where the
+     child combinator ">" is applied. This should be reported as a selector
+     change, not an add/remove. *)
+  let css_expected = ".wrap .menu > li.active a{color:red;padding:1px}" in
+  let css_actual = ".wrap .menu li.active > a{color:red;padding:1px}" in
+  assert_single_selector_change ~expected:css_expected ~actual:css_actual
+    ~old_selector:".wrap .menu > li.active a"
+    ~new_selector:".wrap .menu li.active > a"
+
+let test_selector_change_shared_prefix_pseudo_moved () =
+  (* Move :hover from child to parent while keeping the ".container" prefix. *)
+  let css_expected = ".container .item:hover .label{display:block}" in
+  let css_actual = ".container:hover .item .label{display:block}" in
+  assert_single_selector_change ~expected:css_expected ~actual:css_actual
+    ~old_selector:".container .item:hover .label"
+    ~new_selector:".container:hover .item .label"
+
+let test_selector_change_shared_prefix_compound_vs_descendant () =
+  (* Change from compound .b.c to descendant .b .c under the same .parent
+     prefix. These are semantically different and should be a selector
+     change. *)
+  let css_expected = ".parent .b.c .title{margin:0}" in
+  let css_actual = ".parent .b .c .title{margin:0}" in
+  assert_single_selector_change ~expected:css_expected ~actual:css_actual
+    ~old_selector:".parent .b.c .title" ~new_selector:".parent .b .c .title"
+
+(* Specific regressions: detect selector-only changes instead of add/remove. *)
+let test_selector_change_list_child_vs_descendant () =
+  (* ol > li, ul > li padding changed to ol li, ul li padding *)
+  let css_expected = "ol > li, ul > li{padding-left:1em}" in
+  let css_actual = "ol li, ul li{padding-left:1em}" in
+  assert_single_selector_change ~expected:css_expected ~actual:css_actual
+    ~old_selector:"ol > li, ul > li" ~new_selector:"ol li, ul li"
+
+let test_selector_change_ul_p_child_vs_descendant () =
+  (* ul p changed to ul > p *)
+  let css_expected = "ul p{margin-top:0}" in
+  let css_actual = "ul > p{margin-top:0}" in
+  assert_single_selector_change ~expected:css_expected ~actual:css_actual
+    ~old_selector:"ul p" ~new_selector:"ul > p"
+
+let test_selector_change_hr_adjacent_vs_general_sibling () =
+  (* hr + * changed to hr ~ * *)
+  let css_expected = "hr + *{margin-top:0}" in
+  let css_actual = "hr ~ *{margin-top:0}" in
+  assert_single_selector_change ~expected:css_expected ~actual:css_actual
+    ~old_selector:"hr + *" ~new_selector:"hr ~ *"
 
 let tests =
   [
@@ -714,6 +768,18 @@ let tests =
       test_property_container_added_removed;
     test_case "complex selector change with parent context" `Quick
       test_complex_selector_change;
+    test_case "selector change: shared prefix combinator swap" `Quick
+      test_selector_change_shared_prefix_combinator_swap;
+    test_case "selector change: shared prefix pseudo moved" `Quick
+      test_selector_change_shared_prefix_pseudo_moved;
+    test_case "selector change: shared prefix compound vs descendant" `Quick
+      test_selector_change_shared_prefix_compound_vs_descendant;
+    test_case "selector change: list child vs descendant" `Quick
+      test_selector_change_list_child_vs_descendant;
+    test_case "selector change: ul p child vs descendant" `Quick
+      test_selector_change_ul_p_child_vs_descendant;
+    test_case "selector change: hr + vs ~" `Quick
+      test_selector_change_hr_adjacent_vs_general_sibling;
   ]
 
 let suite = ("css_compare", tests)
