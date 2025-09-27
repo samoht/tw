@@ -113,7 +113,9 @@ let initial_to_universal : type a. a Css.kind -> a -> string =
       | _ -> "initial" (* Fallback for Var/Calc cases *))
   | Css.Number_percentage -> number_percentage_to_string initial
   | Css.Int -> string_of_int initial
-  | Css.String -> initial
+  | Css.String ->
+      (* String values need to be quoted for @property initial-value *)
+      "\"" ^ initial ^ "\""
   | Css.Font_weight -> Css.Pp.to_string Css.pp_font_weight initial
   | Css.Shadow -> "0 0 #0000"
   | Css.Border_style -> Css.Pp.to_string Css.pp_border_style initial
