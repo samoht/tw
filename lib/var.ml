@@ -93,6 +93,10 @@ let (meta_of_info : info -> Css.meta), (info_of_meta : Css.meta -> info option)
 
 let layer_name = function (Theme : layer) -> "theme" | Utility -> "utilities"
 
+(* Helper to serialize number_percentage values for universal syntax *)
+let number_percentage_to_string (np : Css.number_percentage) =
+  match np with Num f | Pct f -> Pp.float f | _ -> "initial"
+
 (* Convert initial value to Universal syntax for @property *)
 let initial_to_universal : type a. a Css.kind -> a -> string =
  fun kind initial ->
@@ -101,17 +105,20 @@ let initial_to_universal : type a. a Css.kind -> a -> string =
   | Css.Color -> Css.Pp.to_string Css.pp_color initial
   | Css.Angle -> Css.Pp.to_string Css.pp_angle initial
   | Css.Duration -> Css.Pp.to_string Css.pp_duration initial
-  | Css.Float -> Pp.float initial ^ "%"
+  | Css.Float -> Pp.float initial
   | Css.Percentage -> (
       (* For @property with universal syntax, convert percentage to numeric *)
       match initial with
       | Pct f -> Pp.float f
       | _ -> "initial" (* Fallback for Var/Calc cases *))
+  | Css.Number_percentage -> number_percentage_to_string initial
   | Css.Int -> string_of_int initial
   | Css.String -> initial
   | Css.Font_weight -> Css.Pp.to_string Css.pp_font_weight initial
   | Css.Shadow -> "0 0 #0000"
   | Css.Border_style -> Css.Pp.to_string Css.pp_border_style initial
+  | Css.Scroll_snap_strictness ->
+      Css.Pp.to_string Css.pp_scroll_snap_strictness initial
   | _ -> "initial" (* Fallback *)
 
 (* Create a variable template *)
@@ -218,6 +225,11 @@ let create_property : type a.
         property ~name Length_percentage
           ~initial_value:(Pct (match v with Pct f -> f | _ -> 0.0))
           ~inherits ()
+    (* Number_percentage - use universal syntax *)
+    | Number_percentage, None -> property ~name Universal ~inherits ()
+    | Number_percentage, Some v ->
+        let initial_str = number_percentage_to_string v in
+        property ~name Universal ~initial_value:initial_str ~inherits ()
     (* Gradient_stops - special handling *)
     | Gradient_stop, None -> property ~name Universal ~inherits ()
     | Gradient_stop, Some (List []) ->
