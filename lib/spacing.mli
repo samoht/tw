@@ -177,3 +177,8 @@ val ml_auto : t
 
 val of_string : string list -> (t, [ `Msg of string ]) result
 (** [of_string parts] parses a spacing/margin utility from string parts. *)
+
+(** {1 Ordering} *)
+
+val suborder : string -> int
+(** [suborder class_name] returns the ordering for a spacing class name *)

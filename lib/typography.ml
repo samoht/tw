@@ -642,7 +642,8 @@ let content_var =
 
 let content_none =
   let content_decl, content_ref = Var.binding content_var None in
-  style "content-none"
+  let property_rules = Var.property_rules content_var in
+  style "content-none" ~property_rules
     [ content (Css.Var content_ref); content_decl; content None ]
 
 let escape_css_string s =
@@ -657,11 +658,17 @@ let escape_css_string s =
   Buffer.contents buf
 
 let content s =
-  (* Auto-quote the text and use Tailwind arbitrary value class name *)
-  let quoted = "\"" ^ escape_css_string s ^ "\"" in
-  let class_name = String.concat "" [ "content-["; quoted; "]" ] in
-  let content_decl, content_ref = Var.binding content_var (String quoted) in
-  style class_name [ content_decl; content (Css.Var content_ref) ]
+  (* The content value is the string itself, not double-quoted *)
+  (* The class name needs to escape the quotes properly for CSS *)
+  let class_name =
+    String.concat "" [ "content-[\""; escape_css_string s; "\"]" ]
+  in
+  let content_decl, content_ref = Var.binding content_var (String s) in
+  let property_rules = Var.property_rules content_var in
+  style class_name ~property_rules
+    [
+      content (Css.Var content_ref); content_decl; content (Css.Var content_ref);
+    ]
 
 (** {1 Text Overflow} *)
 
@@ -977,3 +984,189 @@ let of_string = function
   | [ "line"; "clamp"; n ] -> Parse.int_pos ~name:"line-clamp" n >|= line_clamp
   | [ "content"; "none" ] -> Ok content_none
   | _ -> Error (`Msg "Not a typography utility")
+
+(** {1 Ordering Support} *)
+
+type typography_info =
+  | Text_size of
+      string (* xs, sm, base, lg, xl, 2xl, 3xl, 4xl, 5xl, 6xl, 7xl, 8xl, 9xl *)
+  | Text_color of string * int (* color name and shade *)
+  | Font_weight of int (* 100-900 *)
+  | Font_family of string (* sans, serif, mono *)
+  | Font_style of string (* italic, not-italic *)
+  | Text_align of string (* left, center, right, justify *)
+  | Text_decoration of
+      string (* underline, overline, line-through, no-underline *)
+  | Leading of
+      string
+      * int option (* none, tight, snug, normal, relaxed, loose, or numeric *)
+  | Tracking of string (* tighter, tight, normal, wide, wider, widest *)
+  | Text_transform of string (* uppercase, lowercase, capitalize, normal-case *)
+  | Unknown
+
+let text_size_order = function
+  | "xs" -> 1
+  | "sm" -> 2
+  | "base" -> 3
+  | "lg" -> 4
+  | "xl" -> 5
+  | "2xl" -> 6
+  | "3xl" -> 7
+  | "4xl" -> 8
+  | "5xl" -> 9
+  | "6xl" -> 10
+  | "7xl" -> 11
+  | "8xl" -> 12
+  | "9xl" -> 13
+  | _ -> 100
+
+let font_weight_order = function
+  | "thin" -> 100
+  | "extralight" -> 200
+  | "light" -> 300
+  | "normal" -> 400
+  | "medium" -> 500
+  | "semibold" -> 600
+  | "bold" -> 700
+  | "extrabold" -> 800
+  | "black" -> 900
+  | _ -> 0
+
+let leading_order = function
+  | "none" -> 1
+  | "tight" -> 2
+  | "snug" -> 3
+  | "normal" -> 4
+  | "relaxed" -> 5
+  | "loose" -> 6
+  | _ -> 0
+
+let tracking_order = function
+  | "tighter" -> 1
+  | "tight" -> 2
+  | "normal" -> 3
+  | "wide" -> 4
+  | "wider" -> 5
+  | "widest" -> 6
+  | _ -> 0
+
+let parse_class class_name =
+  let parts = String.split_on_char '-' class_name in
+  match parts with
+  | [ "text"; size ]
+    when List.mem size
+           [
+             "xs";
+             "sm";
+             "base";
+             "lg";
+             "xl";
+             "2xl";
+             "3xl";
+             "4xl";
+             "5xl";
+             "6xl";
+             "7xl";
+             "8xl";
+             "9xl";
+           ] ->
+      Text_size size
+  | [ "text"; align ]
+    when List.mem align [ "left"; "center"; "right"; "justify" ] ->
+      Text_align align
+  | [ "text"; color; shade ] -> (
+      (* Handle text-blue-500 style color utilities *)
+      match int_of_string_opt shade with
+      | Some s -> Text_color (color, s)
+      | None -> Unknown)
+  | [ "text"; color ] ->
+      (* Handle text-black, text-white, etc. - but not text alignment *)
+      if List.mem color [ "left"; "center"; "right"; "justify" ] then Unknown
+        (* Already handled above *)
+      else Text_color (color, 0)
+  | [ "font"; weight ]
+    when List.mem weight
+           [
+             "thin";
+             "extralight";
+             "light";
+             "normal";
+             "medium";
+             "semibold";
+             "bold";
+             "extrabold";
+             "black";
+           ] ->
+      Font_weight (font_weight_order weight)
+  | [ "font"; family ] when List.mem family [ "sans"; "serif"; "mono" ] ->
+      Font_family family
+  | [ "italic" ] -> Font_style "italic"
+  | [ "not"; "italic" ] -> Font_style "not-italic"
+  | [ "underline" ] -> Text_decoration "underline"
+  | [ "overline" ] -> Text_decoration "overline"
+  | [ "line"; "through" ] -> Text_decoration "line-through"
+  | [ "no"; "underline" ] -> Text_decoration "no-underline"
+  | [ "leading"; preset ]
+    when List.mem preset
+           [ "none"; "tight"; "snug"; "normal"; "relaxed"; "loose" ] ->
+      Leading (preset, None)
+  | [ "leading"; n ] -> (
+      match int_of_string_opt n with
+      | Some i when i >= 3 && i <= 10 -> Leading ("numeric", Some i)
+      | _ -> Unknown)
+  | [ "tracking"; spacing ]
+    when List.mem spacing
+           [ "tighter"; "tight"; "normal"; "wide"; "wider"; "widest" ] ->
+      Tracking spacing
+  | [ "uppercase" ] -> Text_transform "uppercase"
+  | [ "lowercase" ] -> Text_transform "lowercase"
+  | [ "capitalize" ] -> Text_transform "capitalize"
+  | [ "normal"; "case" ] -> Text_transform "normal-case"
+  | _ -> Unknown
+
+let suborder class_name : int =
+  match parse_class class_name with
+  | Text_size size -> 1000 + text_size_order size
+  | Text_color (color, shade) -> (
+      (* Use Color module's ordering for consistency *)
+      try
+        let _, color_order = Color.utilities_order color in
+        1500 + (color_order * 1000) + shade
+      with _ -> 1500 + shade)
+  | Font_weight weight -> 2000 + weight
+  | Font_family family -> (
+      3000
+      + match family with "sans" -> 1 | "serif" -> 2 | "mono" -> 3 | _ -> 0)
+  | Font_style style -> (
+      4000 + match style with "italic" -> 1 | "not-italic" -> 2 | _ -> 0)
+  | Text_align align -> (
+      5000
+      +
+      match align with
+      | "left" -> 1
+      | "center" -> 2
+      | "right" -> 3
+      | "justify" -> 4
+      | _ -> 0)
+  | Text_decoration deco -> (
+      6000
+      +
+      match deco with
+      | "underline" -> 1
+      | "overline" -> 2
+      | "line-through" -> 3
+      | "no-underline" -> 4
+      | _ -> 0)
+  | Leading (preset, num) -> (
+      7000 + match num with Some n -> 100 + n | None -> leading_order preset)
+  | Tracking spacing -> 8000 + tracking_order spacing
+  | Text_transform transform -> (
+      9000
+      +
+      match transform with
+      | "uppercase" -> 1
+      | "lowercase" -> 2
+      | "capitalize" -> 3
+      | "normal-case" -> 4
+      | _ -> 0)
+  | Unknown -> 10000

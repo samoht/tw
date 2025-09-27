@@ -121,6 +121,7 @@ let escape_class_name name =
           | '"' -> Buffer.add_string buf "\\\""
           | '\'' -> Buffer.add_string buf "\\'"
           | '@' -> Buffer.add_string buf "\\@"
+          | '*' -> Buffer.add_string buf "\\*"
           | c -> Buffer.add_char buf c)
         name;
       let escaped = Buffer.contents buf in
@@ -261,11 +262,13 @@ let modifier_to_rule modifier base_class selector props =
       media_modifier ~condition:"(prefers-contrast: less)"
         ~prefix:".contrast-less\\:" base_class props
   | Hover | Focus | Active | Focus_within | Focus_visible | Disabled ->
-      let sel = Modifiers.to_selector modifier base_class in
+      let escaped_class = escape_class_name base_class in
+      let sel = Modifiers.to_selector modifier escaped_class in
       let has_hover = Modifiers.is_hover modifier in
       regular ~selector:sel ~props ~base_class ~has_hover ()
   | _ ->
-      let sel = Modifiers.to_selector modifier base_class in
+      let escaped_class = escape_class_name base_class in
+      let sel = Modifiers.to_selector modifier escaped_class in
       let has_hover = Modifiers.is_hover modifier in
       regular ~selector:sel ~props ~base_class ~has_hover ()
 
@@ -494,27 +497,25 @@ let is_border_util core =
 let is_container_or_prose core =
   core = "container" || String.starts_with ~prefix:"prose" core
 
-(* Suborder functions for fine-grained sorting within groups *)
-let margin_suborder core =
-  if
-    String.starts_with ~prefix:"m-" core
-    || String.starts_with ~prefix:"-m-" core
-  then 0 (* All margins *)
-  else if
-    String.starts_with ~prefix:"mx-" core
-    || String.starts_with ~prefix:"-mx-" core
-    || String.starts_with ~prefix:"my-" core
-    || String.starts_with ~prefix:"-my-" core
-  then 1 (* Axis margins *)
-  else 2 (* Individual margins *)
-
-let padding_suborder core =
-  if String.starts_with ~prefix:"p-" core then 0 (* All padding *)
-  else if
-    String.starts_with ~prefix:"px-" core
-    || String.starts_with ~prefix:"py-" core
-  then 1 (* Axis padding *)
-  else 2 (* Individual padding *)
+(* Helper function to extract color order with shade for utilities like
+   bg-blue-500, text-red-400, etc. *)
+let color_suborder_with_shade color_part =
+  try
+    let last_dash = String.rindex color_part '-' in
+    let color_name = String.sub color_part 0 last_dash in
+    let shade_str =
+      String.sub color_part (last_dash + 1)
+        (String.length color_part - last_dash - 1)
+    in
+    let shade = int_of_string shade_str in
+    let _, color_order = Color.utilities_order color_name in
+    (color_order * 1000) + shade
+  with Not_found | Failure _ -> (
+    (* Non-numeric or single-color names like "black", "white" *)
+    try
+      let _, color_order = Color.utilities_order color_part in
+      color_order * 1000
+    with _ -> 0 (* Default for unrecognized colors *))
 
 let alignment_suborder core =
   if String.starts_with ~prefix:"items-" core then 0
@@ -550,7 +551,7 @@ let utility_groups =
       priority = 100;
       name = "margin";
       classifier = is_margin_util;
-      suborder = margin_suborder;
+      suborder = Spacing.suborder;
     };
     {
       priority = 200;
@@ -565,27 +566,20 @@ let utility_groups =
         (fun c ->
           if String.starts_with ~prefix:"bg-" c then
             let color_part = drop_prefix "bg-" c in
-            let color_name =
-              try
-                let last_dash = String.rindex color_part '-' in
-                String.sub color_part 0 last_dash
-              with Not_found -> color_part
-            in
-            let _, color_order = Color.utilities_order color_name in
-            color_order
+            color_suborder_with_shade color_part
           else 0);
     };
     {
       priority = 300;
       name = "padding";
       classifier = is_padding_util;
-      suborder = padding_suborder;
+      suborder = Spacing.suborder;
     };
     {
       priority = 400;
       name = "typography";
       classifier = is_typography_util;
-      suborder = (fun _ -> 0);
+      suborder = Typography.suborder;
     };
     {
       priority = 500;

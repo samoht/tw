@@ -431,3 +431,8 @@ val default_font_declarations : Css.declaration list
 val default_font_family_declarations : Css.declaration list
 (** [default_font_family_declarations] are the default font-family variable
     declarations for the theme layer. *)
+
+(** {1 Ordering} *)
+
+val suborder : string -> int
+(** [suborder class_name] returns the ordering for a typography class name *)
