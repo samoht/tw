@@ -262,10 +262,24 @@ let modifier_to_rule modifier base_class selector props =
       media_modifier ~condition:"(prefers-contrast: less)"
         ~prefix:".contrast-less\\:" base_class props
   | Hover | Focus | Active | Focus_within | Focus_visible | Disabled ->
+      (* For complex selectors (like prose :where(...)), we need to apply the
+         modifier to the base class part while preserving the complex
+         structure *)
       let escaped_class = escape_class_name base_class in
-      let sel = Modifiers.to_selector modifier escaped_class in
       let has_hover = Modifiers.is_hover modifier in
-      regular ~selector:sel ~props ~base_class ~has_hover ()
+      let modified_selector =
+        match selector with
+        | Css.Selector.Combined (base_sel, combinator, complex_sel)
+          when base_sel = Css.Selector.class_ escaped_class ->
+            (* This is a prose-style selector like ".prose :where(...)"
+               Transform it to ".hover\:prose:hover :where(...)" *)
+            let new_base = Modifiers.to_selector modifier escaped_class in
+            Css.Selector.Combined (new_base, combinator, complex_sel)
+        | _ ->
+            (* Simple selector, use the existing logic *)
+            Modifiers.to_selector modifier escaped_class
+      in
+      regular ~selector:modified_selector ~props ~base_class ~has_hover ()
   | _ ->
       let escaped_class = escape_class_name base_class in
       let sel = Modifiers.to_selector modifier escaped_class in

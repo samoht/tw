@@ -36,18 +36,16 @@ let () =
                      ~actual_str:css1)
                   result;
                 Fmt.pr "%a@,"
-                  (Tw_tools.Css_compare.pp_diff_result ~expected:"File 2"
-                     ~actual:"File 1")
+                  (Tw_tools.Css_compare.pp ~expected:"File 2" ~actual:"File 1")
                   result;
                 exit 1
-            | Diff _ | Both_errors _ | Expected_error _ | Actual_error _ ->
+            | Tree_diff _ | Both_errors _ | Expected_error _ | Actual_error _ ->
                 Fmt.pr "%a@,@,"
                   (Tw_tools.Css_compare.pp_stats ~expected_str:css2
                      ~actual_str:css1)
                   result;
                 Fmt.pr "%a@,"
-                  (Tw_tools.Css_compare.pp_diff_result ~expected:"File 2"
-                     ~actual:"File 1")
+                  (Tw_tools.Css_compare.pp ~expected:"File 2" ~actual:"File 1")
                   result;
                 exit 1)
       | _ -> exit 1)
