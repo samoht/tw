@@ -253,63 +253,63 @@ let default_prose_theme : prose_theme =
     Var.binding prose_th_borders_var (oklch 87.2 0.010 258.338)
   in
   let td_borders_d, td_borders_v =
-    Var.binding prose_td_borders_var (oklch 87.2 0.010 258.338)
+    Var.binding prose_td_borders_var (oklch 92.8 0.006 264.531)
   in
   (* Invert variants *)
   let invert_body_d, invert_body_v =
-    Var.binding prose_invert_body_var (oklch 84.4 0.011 271.011)
+    Var.binding prose_invert_body_var (oklch 87.2 0.010 258.338)
   in
   let invert_headings_d, invert_headings_v =
-    Var.binding prose_invert_headings_var (oklch 93.8 0.006 106.419)
+    Var.binding prose_invert_headings_var (Css.hex "fff")
   in
   let invert_lead_d, invert_lead_v =
-    Var.binding prose_invert_lead_var (oklch 78.8 0.018 271.683)
+    Var.binding prose_invert_lead_var (oklch 70.7 0.022 261.325)
   in
   let invert_links_d, invert_links_v =
-    Var.binding prose_invert_links_var (oklch 93.8 0.006 106.419)
+    Var.binding prose_invert_links_var (Css.hex "fff")
   in
   let invert_bold_d, invert_bold_v =
-    Var.binding prose_invert_bold_var (oklch 93.8 0.006 106.419)
+    Var.binding prose_invert_bold_var (Css.hex "fff")
   in
   let invert_counters_d, invert_counters_v =
-    Var.binding prose_invert_counters_var (oklch 70.4 0.026 274.677)
+    Var.binding prose_invert_counters_var (oklch 70.7 0.022 261.325)
   in
   let invert_bullets_d, invert_bullets_v =
-    Var.binding prose_invert_bullets_var (oklch 49.1 0.047 274.677)
+    Var.binding prose_invert_bullets_var (oklch 44.6 0.030 256.802)
   in
   let invert_hr_d, invert_hr_v =
-    Var.binding prose_invert_hr_var (oklch 32.5 0.044 274.677)
+    Var.binding prose_invert_hr_var (oklch 37.3 0.034 259.733)
   in
   let invert_quotes_d, invert_quotes_v =
-    Var.binding prose_invert_quotes_var (oklch 93.8 0.006 106.419)
+    Var.binding prose_invert_quotes_var (oklch 96.7 0.003 264.542)
   in
   let invert_quote_borders_d, invert_quote_borders_v =
-    Var.binding prose_invert_quote_borders_var (oklch 32.5 0.044 274.677)
+    Var.binding prose_invert_quote_borders_var (oklch 37.3 0.034 259.733)
   in
   let invert_captions_d, invert_captions_v =
-    Var.binding prose_invert_captions_var (oklch 70.4 0.026 274.677)
+    Var.binding prose_invert_captions_var (oklch 70.7 0.022 261.325)
   in
   let invert_kbd_d, invert_kbd_v =
-    Var.binding prose_invert_kbd_var (oklch 93.8 0.006 106.419)
+    Var.binding prose_invert_kbd_var (Css.hex "fff")
   in
   let invert_kbd_shadows_d, invert_kbd_shadows_v =
     Var.binding prose_invert_kbd_shadows_var
       (Css.Channels { r = Css.Int 255; g = Css.Int 255; b = Css.Int 255 })
   in
   let invert_code_d, invert_code_v =
-    Var.binding prose_invert_code_var (oklch 93.8 0.006 106.419)
+    Var.binding prose_invert_code_var (Css.hex "fff")
   in
   let invert_pre_code_d, invert_pre_code_v =
-    Var.binding prose_invert_pre_code_var (oklch 32.5 0.044 274.677)
+    Var.binding prose_invert_pre_code_var (oklch 87.2 0.010 258.338)
   in
   let invert_pre_bg_d, invert_pre_bg_v =
-    Var.binding prose_invert_pre_bg_var (oklch 87.2 0.010 258.338)
+    Var.binding prose_invert_pre_bg_var (Css.hex "00000080")
   in
   let invert_th_borders_d, invert_th_borders_v =
-    Var.binding prose_invert_th_borders_var (oklch 49.1 0.047 274.677)
+    Var.binding prose_invert_th_borders_var (oklch 44.6 0.030 256.802)
   in
   let invert_td_borders_d, invert_td_borders_v =
-    Var.binding prose_invert_td_borders_var (oklch 49.1 0.047 274.677)
+    Var.binding prose_invert_td_borders_var (oklch 37.3 0.034 259.733)
   in
   {
     body = (body_d, body_v);
@@ -719,22 +719,6 @@ let additional_rules base =
            (Css.Selector.combine
               (Css.Selector.class_ "prose")
               Child
-              (ol >> (li >> (p && first_child)))))
-      [ margin_top (Em 1.25) ];
-    Css.rule
-      ~selector:
-        (where base
-           (Css.Selector.combine
-              (Css.Selector.class_ "prose")
-              Child
-              (ol >> (li >> (p && last_child)))))
-      [ margin_bottom (Em 1.25) ];
-    Css.rule
-      ~selector:
-        (where base
-           (Css.Selector.combine
-              (Css.Selector.class_ "prose")
-              Child
               (ul >> (li >> (p && first_child)))))
       [ margin_top (Em 1.25) ];
     Css.rule
@@ -744,6 +728,22 @@ let additional_rules base =
               (Css.Selector.class_ "prose")
               Child
               (ul >> (li >> (p && last_child)))))
+      [ margin_bottom (Em 1.25) ];
+    Css.rule
+      ~selector:
+        (where base
+           (Css.Selector.combine
+              (Css.Selector.class_ "prose")
+              Child
+              (ol >> (li >> (p && first_child)))))
+      [ margin_top (Em 1.25) ];
+    Css.rule
+      ~selector:
+        (where base
+           (Css.Selector.combine
+              (Css.Selector.class_ "prose")
+              Child
+              (ol >> (li >> (p && last_child)))))
       [ margin_bottom (Em 1.25) ];
     (* Nested lists *)
     Css.rule ~selector:(where base nested_lists)
@@ -811,7 +811,7 @@ let base_prose_rules () =
       [ color (Css.Var prose_body_v); max_width (Ch 65.0) ]
   in
 
-  (* Create a separate rule for CSS variables - will be placed at the end *)
+  (* Create a separate rule for CSS variables - like Tailwind does *)
   let variables_rule =
     Css.rule
       ~selector:(Css.Selector.class_ "prose")
@@ -1022,10 +1022,13 @@ let base_prose_rules () =
   in
 
   (* All prose rules to match Tailwind exactly *)
+  (* Put main_rule first, then element rules, then variables_rule at end like Tailwind *)
   [ main_rule ] @ paragraph_and_text_rules @ link_and_strong_rules
   @ list_and_marker_rules @ structural_element_rules @ heading_rules base
   @ media_rules base @ kbd_rules base @ code_rules base @ table_rules base
-  @ figure_rules base @ additional_rules base @ [ variables_rule ]
+  @ figure_rules base
+  @ [ variables_rule ] (* Variables rule at the end like Tailwind *)
+  @ additional_rules base
 
 (* Configuration type for typography sizes *)
 type size_config = {

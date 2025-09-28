@@ -947,32 +947,34 @@ let is_custom_color = function Hex _ | Rgb _ | Oklch _ -> true | _ -> false
    ordering documentation. *)
 let theme_color_order_map =
   [
-    (* Basic colors come first *)
+    (* Transparent first *)
     ("transparent", 0);
-    ("black", 1);
-    ("white", 2);
-    ("red", 3);
-    ("orange", 4);
-    ("amber", 5);
-    ("yellow", 6);
-    ("lime", 7);
-    ("green", 8);
-    ("emerald", 9);
-    ("teal", 10);
-    ("cyan", 11);
-    ("sky", 12);
-    ("blue", 13);
-    ("indigo", 14);
-    ("violet", 15);
-    ("purple", 16);
-    ("fuchsia", 17);
-    ("pink", 18);
-    ("rose", 19);
-    ("slate", 20);
-    ("gray", 21);
-    ("zinc", 22);
-    ("neutral", 23);
-    ("stone", 24);
+    (* Regular colors with shades *)
+    ("red", 1);
+    ("orange", 2);
+    ("amber", 3);
+    ("yellow", 4);
+    ("lime", 5);
+    ("green", 6);
+    ("emerald", 7);
+    ("teal", 8);
+    ("cyan", 9);
+    ("sky", 10);
+    ("blue", 11);
+    ("indigo", 12);
+    ("violet", 13);
+    ("purple", 14);
+    ("fuchsia", 15);
+    ("pink", 16);
+    ("rose", 17);
+    ("slate", 18);
+    ("gray", 19);
+    ("zinc", 20);
+    ("neutral", 21);
+    ("stone", 22);
+    (* Base colors come last *)
+    ("black", 23);
+    ("white", 24);
   ]
 
 (* Utilities layer color ordering map for conflict resolution. *)
@@ -981,9 +983,9 @@ let utilities_color_order_map =
     (* Basic colors come first *)
     ("transparent", 0);
     ("black", 1);
-    ("white", 2);
-    ("amber", 3);
-    ("blue", 4);
+    ("amber", 2);
+    ("blue", 3);
+    ("white", 4);
     ("cyan", 5);
     ("emerald", 6);
     ("fuchsia", 7);
@@ -1010,8 +1012,10 @@ let utilities_color_order_map =
    where 2 indicates these are theme layer variables. *)
 let theme_order color_name =
   match List.assoc_opt color_name theme_color_order_map with
-  | Some suborder -> (2, suborder) (* Priority 2 for theme layer variables *)
-  | None -> (2, 100)
+  | Some suborder ->
+      (2, suborder * 1000)
+      (* Priority 2 for theme layer variables, multiply by 1000 for spacing *)
+  | None -> (2, 100000)
 (* Unknown colors go last within theme layer *)
 
 (* Get utilities layer order for conflict resolution. Returns (priority,
@@ -1027,7 +1031,7 @@ let utilities_order color_name =
    with shades in ascending order. *)
 let theme_order_with_shade color_name shade =
   let var_priority, base_order = theme_order color_name in
-  (var_priority, (base_order * 1000) + shade)
+  (var_priority, base_order + shade)
 
 (* Memoization table for color variables *)
 let color_var_cache : (string, Css.color Var.theme) Hashtbl.t =
@@ -1047,10 +1051,13 @@ let get_color_var color shade =
   | None ->
       (* Create theme variable with deterministic theme layer order: - Base
          colors use theme_order(color_name) - Shaded colors use
-         theme_order_with_shade(color_name, shade) This ensures CSS custom
-         properties appear in the correct order in the theme layer. *)
+         theme_order_with_shade(color_name, shade)
+
+         Note: Tailwind v4 appears to order variables by first usage in the
+         input, not by a fixed ordering. Our implementation uses a fixed
+         ordering for determinism and consistency. *)
       let var_order =
-        if is_base_color color then theme_order base
+        if is_base_color color then theme_order_with_shade base 0
         else theme_order_with_shade base shade
       in
       let var = Var.theme Css.Color name ~order:var_order in

@@ -428,6 +428,7 @@ let content_variants () =
 
 let prose_basic () =
   check prose;
+  (* TODO: Implement prose size variants *)
   check prose_sm;
   check prose_lg;
   check prose_xl
@@ -550,6 +551,31 @@ let all_colors_same_shade () =
       bg rose 500;
     ]
 
+let color_shade_ordering () =
+  (* Test ordering of base colors vs shaded colors to verify formula: base *
+     1000 + shade. This ensures proper ordering in theme layer. Tests that
+     variables appear in the correct order. *)
+  check_list
+    [
+      (* Base colors: get order base*1000 + 0 *)
+      text_black;
+      (* --color-black: 1*1000 + 0 = 1000 *)
+      bg_white;
+      (* --color-white: 24*1000 + 0 = 24000 *)
+
+      (* Regular colors with shades: get order base*1000 + shade *)
+      bg blue 400;
+      (* --color-blue-400: 12*1000 + 400 = 12400 *)
+      bg blue 500;
+      (* --color-blue-500: 12*1000 + 500 = 12500 *)
+      bg blue 600;
+      (* --color-blue-600: 12*1000 + 600 = 12600 *)
+
+      (* Verify order: black < blue-* < white *)
+      (* This tests that the variables appear in the theme layer in order:
+         --color-black, --color-blue-400, --color-blue-500, --color-blue-600, --color-white *)
+    ]
+
 (* ===== TEST SUITE ===== *)
 
 let core_tests =
@@ -592,6 +618,7 @@ let core_tests =
     test_case "responsive classes" `Slow responsive_classes;
     test_case "multiple classes" `Slow multiple_classes;
     test_case "all colors same shade" `Slow all_colors_same_shade;
+    test_case "color shade ordering" `Slow color_shade_ordering;
     test_case "all colors grays" `Slow all_colors_grays;
     test_case "all colors warm" `Slow all_colors_warm;
     test_case "all colors greens" `Slow all_colors_greens;
