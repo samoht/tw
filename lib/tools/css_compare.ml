@@ -1022,6 +1022,9 @@ let rec convert_modified_rule (sel1, sel2, decls1, decls2) =
         new_selector = sel2_str;
         declarations = decls2;
       }
+  else if decls1 = decls2 then
+    (* Same selector, same declarations - this is pure reordering *)
+    Rule_reordered { selector = sel1_str }
   else
     let property_changes = properties_diff decls1 decls2 in
     Rule_content_changed
@@ -1118,8 +1121,19 @@ let tree_diff ~(expected : Css.t) ~(actual : Css.t) : tree_diff =
       let key_of (name_opt, _) = Option.value ~default:"" name_opt in
       let key_equal = String.equal in
       let is_empty_diff (_, rules1) (_, rules2) =
+        (* First check structural differences *)
         let a_r, r_r, m_r = rule_diffs rules1 rules2 in
-        a_r = [] && r_r = [] && m_r = []
+        if a_r <> [] || r_r <> [] || m_r <> [] then false
+          (* There are structural changes *)
+        else
+          (* No structural changes, check for reordering *)
+          let same_selectors = has_same_selectors rules1 rules2 in
+          let same_order =
+            List.map selector_key_of_stmt rules1
+            = List.map selector_key_of_stmt rules2
+          in
+          same_selectors
+          && same_order (* Empty only if same selectors in same order *)
       in
       find_diffs ~key_of ~key_equal ~is_empty_diff layers1 layers2
     in
