@@ -884,6 +884,69 @@ let test_media_query_differences () =
   assert_container_added `Media "(min-width:64rem)" diff;
   assert_container_removed `Media "(min-width:48rem)" diff
 
+let test_reordered_rules_within_layer () =
+  (* Test that css_compare correctly detects when rules are reordered within the
+     same layer (not added/removed) *)
+  let expected =
+    {|@layer utilities {
+  .rounded-lg { border-radius: var(--radius-lg); }
+  .p-6 { padding: calc(var(--spacing) * 6); }
+  .shadow-md {
+    --tw-shadow: 0 4px 6px -1px var(--tw-shadow-color, #0000001a);
+    box-shadow: var(--tw-shadow);
+  }
+}|}
+  in
+  let actual =
+    {|@layer utilities {
+  .p-6 { padding: calc(var(--spacing) * 6); }
+  .rounded-lg { border-radius: var(--radius-lg); }
+  .shadow-md {
+    --tw-shadow: 0 4px 6px -1px var(--tw-shadow-color, #0000001a);
+    box-shadow: var(--tw-shadow);
+  }
+}|}
+  in
+  match Cc.diff ~expected ~actual with
+  | Cc.Tree_diff diff ->
+      (* The reordering should be detected in containers for the layer *)
+      Printf.printf "Top-level rules: %d\n" (List.length diff.rules);
+      Printf.printf "Containers: %d\n" (List.length diff.containers);
+
+      (* Check for layer modifications *)
+      let has_layer_with_reordering =
+        List.exists
+          (function
+            | Cc.Container_modified { info; rule_changes }
+              when info.container_type = `Layer ->
+                Printf.printf "Modified layer '%s' with %d rule changes\n"
+                  info.condition (List.length rule_changes);
+                List.iter
+                  (function
+                    | Cc.Rule_reordered r ->
+                        Printf.printf "  Reordered: %s\n" r.selector
+                    | Cc.Rule_added r ->
+                        Printf.printf "  Added: %s\n" r.selector
+                    | Cc.Rule_removed r ->
+                        Printf.printf "  Removed: %s\n" r.selector
+                    | Cc.Rule_content_changed r ->
+                        Printf.printf "  Content changed: %s\n" r.selector
+                    | Cc.Rule_selector_changed r ->
+                        Printf.printf "  Selector changed: %s -> %s\n"
+                          r.old_selector r.new_selector)
+                  rule_changes;
+                (* Check if any rules are marked as reordered *)
+                List.exists
+                  (function Cc.Rule_reordered _ -> true | _ -> false)
+                  rule_changes
+            | _ -> false)
+          diff.containers
+      in
+
+      check bool "should detect reordering in layer" true
+        has_layer_with_reordering
+  | _ -> fail "Expected structural diff for reordered utilities"
+
 let tests =
   [
     test_case "strip header" `Quick test_strip_header;
@@ -959,6 +1022,8 @@ let tests =
     test_case "css variable references" `Quick test_css_variable_references;
     test_case "nested media layer" `Quick test_nested_media_layer;
     test_case "media query differences" `Quick test_media_query_differences;
+    test_case "reordered rules within layer" `Quick
+      test_reordered_rules_within_layer;
   ]
 
 let suite = ("css_compare", tests)

@@ -605,6 +605,12 @@ let utility_groups =
           else 0);
     };
     {
+      priority = 250;
+      name = "border";
+      classifier = is_border_util;
+      suborder = (fun _ -> 0);
+    };
+    {
       priority = 300;
       name = "padding";
       classifier = is_padding_util;
@@ -615,12 +621,6 @@ let utility_groups =
       name = "typography";
       classifier = is_typography_util;
       suborder = Typography.suborder;
-    };
-    {
-      priority = 500;
-      name = "border";
-      classifier = is_border_util;
-      suborder = (fun _ -> 0);
     };
     {
       priority = 600;
