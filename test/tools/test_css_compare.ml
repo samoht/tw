@@ -103,6 +103,44 @@ let has_container_removed_of_type container_type diff =
       | _ -> false)
     diff.containers
 
+let assert_container_added container_type condition diff =
+  let found =
+    List.exists
+      (function
+        | Cc.Container_added { container_type = ct; condition = c; _ } ->
+            ct = container_type && c = condition
+        | _ -> false)
+      diff.containers
+  in
+  if not found then
+    failf "Expected container added: @%s %s"
+      (match container_type with
+      | `Media -> "media"
+      | `Layer -> "layer"
+      | `Supports -> "supports"
+      | `Container -> "container"
+      | `Property -> "property")
+      condition
+
+let assert_container_removed container_type condition diff =
+  let found =
+    List.exists
+      (function
+        | Cc.Container_removed { container_type = ct; condition = c; _ } ->
+            ct = container_type && c = condition
+        | _ -> false)
+      diff.containers
+  in
+  if not found then
+    failf "Expected container removed: @%s %s"
+      (match container_type with
+      | `Media -> "media"
+      | `Layer -> "layer"
+      | `Supports -> "supports"
+      | `Container -> "container"
+      | `Property -> "property")
+      condition
+
 (* Selector change assertion *)
 let assert_single_selector_change ~expected ~actual ~old_selector ~new_selector
     =
@@ -535,6 +573,36 @@ let test_rule_position_reordering () =
       | _ -> fail "Expected Rule_reordered")
   | _ -> fail "Both CSS should parse and produce a structural diff"
 
+let test_multiple_rule_reordering () =
+  (* Test case similar to the prose ul/ol reordering issue *)
+  let css_expected =
+    ".prose .ul-first{margin:1em}.prose .ul-last{margin:2em}.prose \
+     .ol-first{margin:3em}.prose .ol-last{margin:4em}"
+  in
+  let css_actual =
+    ".prose .ol-first{margin:3em}.prose .ol-last{margin:4em}.prose \
+     .ul-first{margin:1em}.prose .ul-last{margin:2em}"
+  in
+  let result = Cc.diff ~expected:css_expected ~actual:css_actual in
+  match result with
+  | Tree_diff d ->
+      (* Should detect reordering, not add/remove *)
+      let reordered =
+        List.filter
+          (function Cc.Rule_reordered _ -> true | _ -> false)
+          d.rules
+      in
+      let added =
+        List.filter (function Cc.Rule_added _ -> true | _ -> false) d.rules
+      in
+      let removed =
+        List.filter (function Cc.Rule_removed _ -> true | _ -> false) d.rules
+      in
+      check int "no rules added" 0 (List.length added);
+      check int "no rules removed" 0 (List.length removed);
+      check bool "rules are reordered" true (List.length reordered > 0)
+  | _ -> fail "Both CSS should parse and produce a structural diff"
+
 let test_selector_change_suppression () =
   (* Test that when there's a selector change from X to Y, we don't see
      redundant "add" entries for Y in nested contexts like layers *)
@@ -803,6 +871,19 @@ let test_nested_media_layer () =
   | Cc.Both_errors _ | Cc.Expected_error _ | Cc.Actual_error _ ->
       fail "CSS should parse correctly"
 
+let test_media_query_differences () =
+  let css1 =
+    "@media (min-width:48rem){.md\\:p-8{padding:calc(var(--spacing)*4)}}"
+  in
+  let css2 =
+    "@media (min-width:64rem){.lg\\:p-12{padding:calc(var(--spacing)*4)}}"
+  in
+
+  let diff = get_tree_diff ~expected:css1 ~actual:css2 in
+
+  assert_container_added `Media "(min-width:64rem)" diff;
+  assert_container_removed `Media "(min-width:48rem)" diff
+
 let tests =
   [
     test_case "strip header" `Quick test_strip_header;
@@ -839,6 +920,7 @@ let tests =
     test_case "grouped selector reorder is structural" `Quick
       test_grouped_selector_list_reorder_structural;
     test_case "rule position reordering" `Quick test_rule_position_reordering;
+    test_case "multiple rule reordering" `Quick test_multiple_rule_reordering;
     test_case "property reordering" `Quick test_property_reordering;
     test_case "reordered diff formatting" `Quick test_reordered_diff_formatting;
     test_case "mixed reordering and changes" `Quick
@@ -876,6 +958,7 @@ let tests =
     test_case "empty rules" `Quick test_empty_rules;
     test_case "css variable references" `Quick test_css_variable_references;
     test_case "nested media layer" `Quick test_nested_media_layer;
+    test_case "media query differences" `Quick test_media_query_differences;
   ]
 
 let suite = ("css_compare", tests)

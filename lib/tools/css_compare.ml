@@ -1428,13 +1428,19 @@ let diff ~expected ~actual =
       let structural_diff =
         tree_diff ~expected:expected_ast ~actual:actual_ast
       in
-      if is_empty structural_diff then
-        (* No structural differences, check string differences *)
-        if expected = actual then No_diff
-        else
-          match string_diff ~expected ~actual with
-          | Some sdiff -> String_diff sdiff
-          | None -> No_diff (* Shouldn't happen if strings differ *)
+      (* Always return structural diff if one exists, even if empty. If strings
+         differ but structural diff is empty, we should still show the
+         structural comparison to help debug why they differ. *)
+      if expected <> actual && not (is_empty structural_diff) then
+        Tree_diff structural_diff
+      else if expected <> actual then
+        (* Strings differ but no structural diff found - this is suspicious.
+           Return both the structural diff (even if empty) and string diff
+           info. *)
+        match string_diff ~expected ~actual with
+        | Some sdiff -> String_diff sdiff
+        | None -> Tree_diff structural_diff (* Show empty structural diff *)
+      else if is_empty structural_diff then No_diff
       else Tree_diff structural_diff
   | Error e1, Error e2 -> Both_errors (e1, e2)
   | Ok _, Error e -> Actual_error e

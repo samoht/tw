@@ -194,6 +194,12 @@ val to_inline_style : t list -> string
 val extract_selector_props : t -> output list
 (** [extract_selector_props tw] extracts CSS rules from a Tailwind class. *)
 
+val extract_selector_props_pairs :
+  output list -> (Css.Selector.t * Css.declaration list) list
+(** [extract_selector_props_pairs outputs] converts output list to
+    selector-props pairs. Used internally for rule processing. Exposed for
+    testing cascade ordering. *)
+
 (** {1 Rule Extraction and Processing} *)
 
 val modifier_to_rule :

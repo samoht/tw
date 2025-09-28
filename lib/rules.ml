@@ -662,12 +662,9 @@ let utility_groups =
       priority = 1000;
       name = "container_prose";
       classifier = is_container_or_prose;
-      suborder =
-        (fun core ->
-          (* Ensure .prose comes before .prose :where(...) *)
-          if core = "prose" then 0
-          else if String.starts_with ~prefix:"prose " core then 1
-          else 2);
+      (* Preserve source order within this group to maintain cascade semantics
+         for complex, multi-rule utilities like prose and container. *)
+      suborder = (fun _ -> 0);
     };
   ]
 
@@ -732,18 +729,25 @@ let add_hover_to_media_map hover_rules media_map =
 
 (* Convert selector/props pairs to CSS rules. *)
 let of_grouped ?(filter_custom_props = false) grouped_list =
-  (* Sort utilities by conflict order to match Tailwind v4's ordering *)
-  let sorted_list =
+  (* Stable sort by (priority, suborder, original_index) to preserve authoring
+     order within the same conflict bucket. *)
+  let indexed =
+    List.mapi (fun i (sel, props) -> (i, sel, props)) grouped_list
+  in
+  let sorted_indexed =
     List.sort
-      (fun (sel1, _) (sel2, _) ->
+      (fun (i1, sel1, _) (i2, sel2, _) ->
         let prio1, sub1 = conflict_group (Css.Selector.to_string sel1) in
         let prio2, sub2 = conflict_group (Css.Selector.to_string sel2) in
         let prio_cmp = Int.compare prio1 prio2 in
-        if prio_cmp = 0 then Int.compare sub1 sub2 else prio_cmp)
-      grouped_list
+        if prio_cmp <> 0 then prio_cmp
+        else
+          let sub_cmp = Int.compare sub1 sub2 in
+          if sub_cmp <> 0 then sub_cmp else Int.compare i1 i2)
+      indexed
   in
   List.map
-    (fun (selector, props) ->
+    (fun (_idx, selector, props) ->
       let filtered_props =
         if filter_custom_props then
           (* In utilities, keep only declarations explicitly tagged for the
@@ -764,7 +768,7 @@ let of_grouped ?(filter_custom_props = false) grouped_list =
         else props
       in
       Css.rule ~selector filtered_props)
-    sorted_list
+    sorted_indexed
 
 (* Internal: build rule sets from pre-extracted outputs. *)
 let rule_sets_from_selector_props all_rules =
@@ -1175,6 +1179,7 @@ let default_config = { base = true; mode = Css.Variables; optimize = false }
 let to_css ?(config = default_config) tw_classes =
   (* Extract once and share for rule sets and theme layer *)
   let selector_props = List.concat_map extract_selector_props tw_classes in
+
   let rules, media_queries, container_queries =
     rule_sets_from_selector_props selector_props
   in
