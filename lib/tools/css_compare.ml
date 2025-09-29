@@ -985,11 +985,12 @@ let find_diffs ~(key_of : 'item -> 'key) ~(key_equal : 'key -> 'key -> bool)
 
 let rule_diffs rules1 rules2 = handle_structural_diff rules1 rules2
 
-(* Media and layer diffs intentionally omitted to avoid relying on hidden Css
-   internals; we currently focus on top-level rule differences. *)
-let media_diff items1 items2 =
+(* Mutual recursion declarations *)
+let rec media_diff items1 items2 =
   let key_of (cond, _) = cond in
   let key_equal = String.equal in
+
+  (* First pass: find items based on immediate differences only *)
   let is_empty_diff (_, rules1) (_, rules2) =
     let added_r, removed_r, modified_r = rule_diffs rules1 rules2 in
     added_r = [] && removed_r = [] && modified_r = []
@@ -997,14 +998,37 @@ let media_diff items1 items2 =
   let added, removed, modified_pairs =
     find_diffs ~key_of ~key_equal ~is_empty_diff items1 items2
   in
-  (* Transform to expected format - preserve rules for added/removed
-     containers *)
+
+  (* Check matching items that weren't marked as modified for nested
+     differences *)
+  let all_matching_pairs =
+    List.filter_map
+      (fun (cond1, rules1) ->
+        match List.find_opt (fun (cond2, _) -> cond1 = cond2) items2 with
+        | Some (_, rules2) ->
+            (* Check if this pair has nested differences *)
+            let nested_diffs = find_nested_differences ~depth:1 rules1 rules2 in
+            if nested_diffs <> [] then Some ((cond1, rules1), (cond1, rules2))
+            else None
+        | None -> None)
+      items1
+  in
+
+  (* Combine modified pairs from immediate differences and nested differences *)
+  let all_modified =
+    modified_pairs
+    @ List.filter
+        (fun pair -> not (List.mem pair modified_pairs))
+        all_matching_pairs
+  in
+
+  (* Transform to expected format *)
   let added = List.map (fun (cond, rules) -> (cond, rules)) added in
   let removed = List.map (fun (cond, rules) -> (cond, rules)) removed in
   let modified =
     List.map
       (fun ((cond, rules1), (_, rules2)) -> (cond, rules1, rules2))
-      modified_pairs
+      all_modified
   in
   (added, removed, modified)
 
@@ -1068,8 +1092,25 @@ let rec find_nested_differences ?(depth = 0) (stmts1 : Css.statement list)
       media_diff nested_media1 nested_media2
     in
 
-    (* Only process modifications (not add/remove which are handled at top
-       level) *)
+    (* Process added media queries *)
+    List.iter
+      (fun (cond, rules) ->
+        let container_diff =
+          Container_added { container_type = `Media; condition = cond; rules }
+        in
+        nested_diffs := container_diff :: !nested_diffs)
+      media_added;
+
+    (* Process removed media queries *)
+    List.iter
+      (fun (cond, rules) ->
+        let container_diff =
+          Container_removed { container_type = `Media; condition = cond; rules }
+        in
+        nested_diffs := container_diff :: !nested_diffs)
+      media_removed;
+
+    (* Process modified media queries *)
     List.iter
       (fun (cond, rules1, rules2) ->
         let r_added, r_removed, r_modified = rule_diffs rules1 rules2 in
@@ -1109,8 +1150,27 @@ let rec find_nested_differences ?(depth = 0) (stmts1 : Css.statement list)
       find_diffs ~key_of ~key_equal ~is_empty_diff nested_layers1 nested_layers2
     in
 
-    (* Only process modifications (not add/remove which are handled at top
-       level) *)
+    (* Process added layers *)
+    List.iter
+      (fun (name_opt, rules) ->
+        let name = Option.value ~default:"" name_opt in
+        let container_diff =
+          Container_added { container_type = `Layer; condition = name; rules }
+        in
+        nested_diffs := container_diff :: !nested_diffs)
+      layers_added;
+
+    (* Process removed layers *)
+    List.iter
+      (fun (name_opt, rules) ->
+        let name = Option.value ~default:"" name_opt in
+        let container_diff =
+          Container_removed { container_type = `Layer; condition = name; rules }
+        in
+        nested_diffs := container_diff :: !nested_diffs)
+      layers_removed;
+
+    (* Process modified layers *)
     List.iter
       (fun ((name_opt, rules1), (_, rules2)) ->
         let name = Option.value ~default:"" name_opt in
@@ -1145,8 +1205,27 @@ let rec find_nested_differences ?(depth = 0) (stmts1 : Css.statement list)
       media_diff nested_supports1 nested_supports2
     in
 
-    (* Only process modifications (not add/remove which are handled at top
-       level) *)
+    (* Process added supports *)
+    List.iter
+      (fun (cond, rules) ->
+        let container_diff =
+          Container_added
+            { container_type = `Supports; condition = cond; rules }
+        in
+        nested_diffs := container_diff :: !nested_diffs)
+      supports_added;
+
+    (* Process removed supports *)
+    List.iter
+      (fun (cond, rules) ->
+        let container_diff =
+          Container_removed
+            { container_type = `Supports; condition = cond; rules }
+        in
+        nested_diffs := container_diff :: !nested_diffs)
+      supports_removed;
+
+    (* Process modified supports *)
     List.iter
       (fun (cond, rules1, rules2) ->
         let r_added, r_removed, r_modified = rule_diffs rules1 rules2 in
@@ -1252,25 +1331,9 @@ let tree_diff ~(expected : Css.t) ~(actual : Css.t) : tree_diff =
       let key_of (name_opt, _) = Option.value ~default:"" name_opt in
       let key_equal = String.equal in
       let is_empty_diff (_, rules1) (_, rules2) =
-        (* First check structural differences in immediate rules *)
+        (* Check structural differences in immediate rules *)
         let a_r, r_r, m_r = rule_diffs rules1 rules2 in
-        if a_r <> [] || r_r <> [] || m_r <> [] then false
-          (* There are structural changes in immediate rules *)
-        else
-          (* No structural changes in immediate rules, check for reordering *)
-          let same_selectors = has_same_selectors rules1 rules2 in
-          let same_order =
-            List.map selector_key_of_stmt rules1
-            = List.map selector_key_of_stmt rules2
-          in
-          let no_immediate_diffs = same_selectors && same_order in
-
-          (* Also check for nested container differences *)
-          if not no_immediate_diffs then false
-          else
-            let nested_diffs = find_nested_differences ~depth:1 rules1 rules2 in
-            List.length nested_diffs
-            = 0 (* Empty only if no nested diffs either *)
+        a_r = [] && r_r = [] && m_r = []
       in
       find_diffs ~key_of ~key_equal ~is_empty_diff layers1 layers2
     in
@@ -1768,7 +1831,7 @@ let pp_stats ~expected_str ~actual_str fmt = function
       else Fmt.pf fmt "Other differences in nested contexts@,";
 
       Fmt.pf fmt "@]"
-  | String_diff sdiff ->
+  | String_diff _sdiff ->
       let expected_len = String.length expected_str in
       let actual_len = String.length actual_str in
       let char_diff = abs (actual_len - expected_len) in

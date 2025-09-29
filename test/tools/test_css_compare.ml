@@ -1057,6 +1057,129 @@ let test_simple_media_works () =
         has_changes
   | _ -> fail "Simple media comparison should work"
 
+(* Helper to test nested container detection *)
+let assert_detects_changes css1 css2 =
+  match Cc.diff ~expected:css1 ~actual:css2 with
+  | Cc.Tree_diff diff ->
+      let has_changes =
+        List.length diff.rules > 0 || List.length diff.containers > 0
+      in
+      Alcotest.(check bool) "should detect structural changes" true has_changes
+  | Cc.No_diff ->
+      Alcotest.fail "Expected structural differences but got No_diff"
+  | _ -> Alcotest.fail "Expected structural differences"
+
+let test_nested_media_in_media_added () =
+  (* Adding nested @media inside @media *)
+  let css1 =
+    {|
+    @media (min-width: 768px) {
+      .text { font-size: 1rem; }
+    }
+  |}
+  in
+  let css2 =
+    {|
+    @media (min-width: 768px) {
+      @media (prefers-color-scheme: dark) {
+        .dark-text { color: white; }
+      }
+      .text { font-size: 1rem; }
+    }
+  |}
+  in
+  assert_detects_changes css1 css2
+
+let test_nested_media_in_media_removed () =
+  (* Removing nested @media from inside @media *)
+  let css1 =
+    {|
+    @media (min-width: 768px) {
+      @media (prefers-color-scheme: dark) {
+        .dark-text { color: white; }
+      }
+      .text { font-size: 1rem; }
+    }
+  |}
+  in
+  let css2 =
+    {|
+    @media (min-width: 768px) {
+      .text { font-size: 1rem; }
+    }
+  |}
+  in
+  assert_detects_changes css1 css2
+
+let test_nested_layer_in_media_added () =
+  (* Adding @layer inside @media *)
+  let css1 =
+    {|
+    @media (min-width: 768px) {
+      .text { font-size: 1rem; }
+    }
+  |}
+  in
+  let css2 =
+    {|
+    @media (min-width: 768px) {
+      @layer utilities {
+        .special { color: blue; }
+      }
+      .text { font-size: 1rem; }
+    }
+  |}
+  in
+  assert_detects_changes css1 css2
+
+let test_nested_supports_in_layer () =
+  (* Adding @supports inside @layer *)
+  let css1 =
+    {|
+    @layer utilities {
+      .utility { display: block; }
+    }
+  |}
+  in
+  let css2 =
+    {|
+    @layer utilities {
+      @supports (display: grid) {
+        .grid-utility { display: grid; }
+      }
+      .utility { display: block; }
+    }
+  |}
+  in
+  assert_detects_changes css1 css2
+
+let test_nested_deep_nesting () =
+  (* Deep nesting: @layer > @media > @supports > @media *)
+  let css1 =
+    {|
+    @layer utilities {
+      .utility { display: block; }
+    }
+  |}
+  in
+  let css2 =
+    {|
+    @layer utilities {
+      @media (min-width: 768px) {
+        @supports (display: grid) {
+          @media (prefers-color-scheme: dark) {
+            .deep-nested { color: white; }
+          }
+        }
+      }
+      .utility { display: block; }
+    }
+  |}
+  in
+  (* Spec: should detect structural difference when nested containers are
+     added *)
+  assert_detects_changes css1 css2
+
 let tests =
   [
     test_case "strip header" `Quick test_strip_header;
@@ -1141,6 +1264,15 @@ let tests =
     test_case "media inside layer string fallback" `Quick
       test_media_inside_layer_string_fallback;
     test_case "simple media works" `Quick test_simple_media_works;
+    test_case "nested containers - media in media added" `Quick
+      test_nested_media_in_media_added;
+    test_case "nested containers - media in media removed" `Quick
+      test_nested_media_in_media_removed;
+    test_case "nested containers - layer in media added" `Quick
+      test_nested_layer_in_media_added;
+    test_case "nested containers - supports in layer" `Quick
+      test_nested_supports_in_layer;
+    test_case "nested containers - deep nesting" `Quick test_nested_deep_nesting;
   ]
 
 let suite = ("css_compare", tests)
