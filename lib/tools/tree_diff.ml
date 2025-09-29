@@ -364,7 +364,16 @@ let rules_removed_diff rules1 rules2 =
   in
   removed
 
-let rules_modified_diff rules1 rules2 =
+let selectors_share_parent sel1_str sel2_str =
+  (* Check if two selectors share a common parent context *)
+  let parts1 = String.split_on_char ' ' sel1_str |> List.rev in
+  let parts2 = String.split_on_char ' ' sel2_str |> List.rev in
+  match (parts1, parts2) with
+  | _ :: p1_rest, _ :: p2_rest ->
+      List.rev p1_rest = List.rev p2_rest && p1_rest <> []
+  | _ -> false
+
+let build_rule_lookup_tables rules2 =
   (* Create lookup tables for O(1) access *)
   let rules2_by_key = Hashtbl.create (List.length rules2) in
   let rules2_by_props = Hashtbl.create (List.length rules2) in
@@ -388,6 +397,10 @@ let rules_modified_diff rules1 rules2 =
       in
       Hashtbl.replace rules2_by_props props (r :: existing_props))
     rules2;
+  (rules2_by_key, rules2_by_props)
+
+let rules_modified_diff rules1 rules2 =
+  let rules2_by_key, rules2_by_props = build_rule_lookup_tables rules2 in
 
   (* Track used rules to avoid double-matching *)
   let used_rules = Hashtbl.create (List.length rules2) in
@@ -441,21 +454,6 @@ let rules_modified_diff rules1 rules2 =
                     try Hashtbl.find rules2_by_props props1
                     with Not_found -> []
                   in
-                  (* Helper to check if two selectors share a common parent *)
-                  let share_parent sel1_str sel2_str =
-                    (* Simple heuristic: check if they have a common prefix
-                       before the last part *)
-                    let parts1 =
-                      String.split_on_char ' ' sel1_str |> List.rev
-                    in
-                    let parts2 =
-                      String.split_on_char ' ' sel2_str |> List.rev
-                    in
-                    match (parts1, parts2) with
-                    | _ :: p1_rest, _ :: p2_rest ->
-                        List.rev p1_rest = List.rev p2_rest && p1_rest <> []
-                    | _ -> false
-                  in
                   let sel1_str = Css.Selector.to_string (rule_selector r1) in
                   match
                     List.find_opt
@@ -465,7 +463,7 @@ let rules_modified_diff rules1 rules2 =
                           let sel2_str =
                             Css.Selector.to_string (rule_selector r)
                           in
-                          share_parent sel1_str sel2_str)
+                          selectors_share_parent sel1_str sel2_str)
                       candidates
                   with
                   | Some r2 ->
@@ -521,26 +519,24 @@ let has_same_selectors rules1 rules2 =
       true
     with Exit -> false
 
+let build_selector_map rules =
+  (* Create map from selector to declarations *)
+  List.fold_left
+    (fun acc rule ->
+      let sel = rule_selector rule in
+      let decls = rule_declarations rule in
+      (sel, decls) :: acc)
+    [] rules
+  |> List.rev
+
+let selector_in_list sel_key remaining =
+  (* Check if selector key exists in remaining list *)
+  List.exists (fun (s, _) -> selector_key_of_selector s = sel_key) remaining
+
 let ordering_diff rules1 rules2 =
   (* Create maps from selector to declarations for both rule lists *)
-  let map1 =
-    List.fold_left
-      (fun acc rule ->
-        let sel = rule_selector rule in
-        let decls = rule_declarations rule in
-        (sel, decls) :: acc)
-      [] rules1
-    |> List.rev
-  in
-  let map2 =
-    List.fold_left
-      (fun acc rule ->
-        let sel = rule_selector rule in
-        let decls = rule_declarations rule in
-        (sel, decls) :: acc)
-      [] rules2
-    |> List.rev
-  in
+  let map1 = build_selector_map rules1 in
+  let map2 = build_selector_map rules2 in
 
   (* Find ordering discrepancies by checking if selectors appear in different
      positions *)
@@ -551,19 +547,10 @@ let ordering_diff rules1 rules2 =
         let sel1_key = selector_key_of_selector sel1 in
         let sel2_key = selector_key_of_selector sel2 in
         if sel1_key <> sel2_key then
-          (* Selectors differ at this position - this could be an ordering issue *)
-          (* Check if sel1 appears later in remaining2 *)
-          let sel1_in_remaining2 =
-            List.exists
-              (fun (s, _) -> selector_key_of_selector s = sel1_key)
-              remaining2
-          in
-          (* Check if sel2 appears later in remaining1 *)
-          let sel2_in_remaining1 =
-            List.exists
-              (fun (s, _) -> selector_key_of_selector s = sel2_key)
-              remaining1
-          in
+          (* Selectors differ at this position - this could be an ordering
+             issue *)
+          let sel1_in_remaining2 = selector_in_list sel1_key remaining2 in
+          let sel2_in_remaining1 = selector_in_list sel2_key remaining1 in
 
           if sel1_in_remaining2 && sel2_in_remaining1 then
             (* This is likely an ordering issue - both selectors exist but in
@@ -607,45 +594,31 @@ let ordering_diff rules1 rules2 =
 (* no-op: pure rule ordering is handled in handle_structural_diff via
    has_ordering_changes/ordering_diff *)
 
-let handle_structural_diff rules1 rules2 =
-  (* First, detect selector changes with parent context matching *)
-  let all_added_candidates = rules_added_diff rules1 rules2 in
-  let all_removed_candidates = rules_removed_diff rules1 rules2 in
+let extract_base_parent_selector sel =
+  (* Extract parent from selector string and strip pseudo-classes *)
+  let sel_str = Css.Selector.to_string sel in
+  let parts = String.split_on_char ' ' sel_str in
+  match parts with
+  | [] | [ _ ] -> None
+  | parent :: _ -> (
+      match String.index_opt parent ':' with
+      | Some idx -> Some (String.sub parent 0 idx)
+      | None -> Some parent)
 
-  (* Track which rules are matched for selector changes *)
+let selectors_share_parent_ast sel1 sel2 =
+  (* Check if two selectors share meaningful parent context *)
+  match
+    (extract_base_parent_selector sel1, extract_base_parent_selector sel2)
+  with
+  | Some p1, Some p2 -> p1 = p2
+  | _ -> false
+
+let find_selector_changes all_added_candidates all_removed_candidates =
+  (* Try to match removed rules with added rules for selector changes *)
   let matched_added = ref [] in
   let matched_removed = ref [] in
   let selector_changes = ref [] in
 
-  (* Helper function to check if two selectors share meaningful parent
-     context *)
-  let share_parent_ast sel1 sel2 =
-    let module S = Css.Selector in
-    (* Extract parent string from a selector *)
-    let extract_parent_string sel =
-      (* Convert to string and split on spaces to find parent *)
-      let sel_str = S.to_string sel in
-      (* Split by spaces, considering pseudo-classes stay with their element *)
-      let parts = String.split_on_char ' ' sel_str in
-      match parts with
-      | [] | [ _ ] -> None (* No parent if single element *)
-      | parent :: _ ->
-          (* Strip pseudo-classes from parent to get base selector *)
-          let base_parent =
-            (* Remove :hover, :focus, etc. but keep the base class/element *)
-            match String.index_opt parent ':' with
-            | Some idx -> String.sub parent 0 idx
-            | None -> parent
-          in
-          Some base_parent
-    in
-
-    match (extract_parent_string sel1, extract_parent_string sel2) with
-    | Some p1, Some p2 -> p1 = p2
-    | _ -> false
-  in
-
-  (* Try to match removed rules with added rules for selector changes *)
   List.iter
     (fun removed_rule ->
       let removed_sel = rule_selector removed_rule in
@@ -665,15 +638,13 @@ let handle_structural_diff rules1 rules2 =
                context *)
             removed_props = added_props
             && removed_sel <> added_sel
-            && share_parent_ast removed_sel added_sel)
+            && selectors_share_parent_ast removed_sel added_sel)
           all_added_candidates
       in
 
       match matching_added with
       | Some added_rule ->
           let added_sel = rule_selector added_rule in
-
-          (* Record this as a selector change *)
           selector_changes :=
             (removed_sel, added_sel, removed_decls, removed_decls)
             :: !selector_changes;
@@ -682,29 +653,35 @@ let handle_structural_diff rules1 rules2 =
       | None -> ())
     all_removed_candidates;
 
+  (!selector_changes, !matched_added, !matched_removed)
+
+let handle_structural_diff rules1 rules2 =
+  (* First, detect selector changes with parent context matching *)
+  let all_added_candidates = rules_added_diff rules1 rules2 in
+  let all_removed_candidates = rules_removed_diff rules1 rules2 in
+
+  let selector_changes, matched_added, matched_removed =
+    find_selector_changes all_added_candidates all_removed_candidates
+  in
+
   (* Filter out matched rules from add/remove lists *)
   let added =
-    List.filter (fun r -> not (List.memq r !matched_added)) all_added_candidates
+    List.filter (fun r -> not (List.memq r matched_added)) all_added_candidates
   in
   let removed =
     List.filter
-      (fun r -> not (List.memq r !matched_removed))
+      (fun r -> not (List.memq r matched_removed))
       all_removed_candidates
   in
 
-  (* Get other types of modifications (content changes, etc.) but exclude the
-     ones we already found *)
+  (* Get other types of modifications but exclude selector changes *)
   let other_modified = rules_modified_diff rules1 rules2 in
-
-  (* Filter out duplicates - if we already found a selector change, don't
-     include it from other_modified *)
   let selector_change_selectors =
     List.map
       (fun (sel1, sel2, _, _) ->
         (Css.Selector.to_string sel1, Css.Selector.to_string sel2))
-      !selector_changes
+      selector_changes
   in
-
   let filtered_other_modified =
     List.filter
       (fun (sel1, sel2, _, _) ->
@@ -714,7 +691,7 @@ let handle_structural_diff rules1 rules2 =
       other_modified
   in
 
-  let modified = !selector_changes @ filtered_other_modified in
+  let modified = selector_changes @ filtered_other_modified in
 
   let has_structural_changes = added <> [] || removed <> [] || modified <> [] in
   let has_ordering_changes =
@@ -1173,64 +1150,41 @@ and nested_differences ?(depth = 0) (stmts1 : Css.statement list)
     @ process_font_face_rules ~depth stmts1 stmts2
 
 (* Process keyframes animations *)
+and keyframes_container_info name =
+  { container_type = `Layer; condition = "@keyframes " ^ name; rules = [] }
+
 and process_nested_keyframes ~depth:_ stmts1 stmts2 =
   let items1 = List.filter_map Css.as_keyframes stmts1 in
   let items2 = List.filter_map Css.as_keyframes stmts2 in
   let added, removed, modified = keyframes_diff items1 items2 in
 
-  let diffs = ref [] in
+  let added_diffs =
+    List.map
+      (fun (name, _frames) -> Container_added (keyframes_container_info name))
+      added
+  in
+  let removed_diffs =
+    List.map
+      (fun (name, _frames) -> Container_removed (keyframes_container_info name))
+      removed
+  in
+  let modified_diffs =
+    List.filter_map
+      (fun ((name, frames1), (_, frames2)) ->
+        let frame_diffs = keyframe_frames_diff frames1 frames2 in
+        if frame_diffs <> [] then
+          Some
+            (Container_modified
+               {
+                 info = keyframes_container_info name;
+                 rule_changes = frame_diffs;
+                 container_changes = [];
+               })
+        else None)
+      modified
+  in
 
-  (* Process added keyframes *)
-  List.iter
-    (fun (name, _frames) ->
-      (* Treat entire keyframes block as a container *)
-      (* We don't convert frames to rules - just track that the keyframes was added *)
-      diffs :=
-        Container_added
-          {
-            container_type = `Layer;
-            condition = "@keyframes " ^ name;
-            rules = [] (* Frames are not rules, so we leave this empty *);
-          }
-        :: !diffs)
-    added;
-
-  (* Process removed keyframes *)
-  List.iter
-    (fun (name, _frames) ->
-      diffs :=
-        Container_removed
-          {
-            container_type = `Layer;
-            condition = "@keyframes " ^ name;
-            rules = [];
-          }
-        :: !diffs)
-    removed;
-
-  (* Process modified keyframes *)
-  List.iter
-    (fun ((name, frames1), (_, frames2)) ->
-      (* Diff the keyframe frames directly *)
-      let frame_diffs = keyframe_frames_diff frames1 frames2 in
-      if frame_diffs <> [] then
-        diffs :=
-          Container_modified
-            {
-              info =
-                {
-                  container_type = `Layer;
-                  condition = "@keyframes " ^ name;
-                  rules = [];
-                };
-              rule_changes = frame_diffs;
-              container_changes = [];
-              (* Keyframes don't have nested containers *)
-            }
-          :: !diffs)
-    modified;
-
-  !diffs
+  added_diffs @ removed_diffs @ modified_diffs
 
 (* Diff keyframe frames *)
 and keyframe_frames_diff frames1 frames2 =
@@ -1246,53 +1200,35 @@ and keyframe_frames_diff frames1 frames2 =
   in
 
   (* Convert frame changes to rule_diff format *)
-  let changes = ref [] in
+  let added_changes =
+    List.map
+      (fun (frame : Css.keyframe) ->
+        Rule_added { selector = frame.keyframe_selector; declarations = [] })
+      added
+  in
+  let removed_changes =
+    List.map
+      (fun (frame : Css.keyframe) ->
+        Rule_removed { selector = frame.keyframe_selector; declarations = [] })
+      removed
+  in
+  let modified_changes =
+    List.filter_map
+      (fun ((f1 : Css.keyframe), (f2 : Css.keyframe)) ->
+        if f1.keyframe_declarations <> f2.keyframe_declarations then
+          Some
+            (Rule_content_changed
+               {
+                 selector = f1.keyframe_selector;
+                 old_declarations = [];
+                 new_declarations = [];
+                 property_changes = [];
+               })
+        else None)
+      modified_pairs
+  in
 
-  (* Added frames *)
-  List.iter
-    (fun (frame : Css.keyframe) ->
-      changes :=
-        Rule_added
-          {
-            selector = frame.keyframe_selector;
-            declarations = [];
-            (* Keyframe declarations have a different type, keep empty *)
-          }
-        :: !changes)
-    added;
-
-  (* Removed frames *)
-  List.iter
-    (fun (frame : Css.keyframe) ->
-      changes :=
-        Rule_removed
-          {
-            selector = frame.keyframe_selector;
-            declarations = [];
-            (* Keyframe declarations have a different type, keep empty *)
-          }
-        :: !changes)
-    removed;
-
-  (* Modified frames *)
-  List.iter
-    (fun ((f1 : Css.keyframe), (f2 : Css.keyframe)) ->
-      (* For now, just track that the frame changed without detailed property
-         diffs *)
-      if f1.keyframe_declarations <> f2.keyframe_declarations then
-        changes :=
-          Rule_content_changed
-            {
-              selector = f1.keyframe_selector;
-              old_declarations = [];
-              new_declarations = [];
-              property_changes = [];
-              (* Can't easily diff due to type mismatch *)
-            }
-          :: !changes)
-    modified_pairs;
-
-  List.rev !changes
+  added_changes @ removed_changes @ modified_changes
 
 (* Keyframes diff function *)
 and keyframes_diff items1 items2 =
