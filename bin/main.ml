@@ -316,8 +316,18 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
     | Some _, _, `Default -> Inline (* single-class defaults to inline mode *)
     | None, _, `Default -> Variables (* files/scan default to variables *)
   in
+  (* Diff mode defaults to minify=true and optimize=true for production
+     comparison *)
+  let resolved_minify = match backend with Diff -> true | _ -> minify in
+  let resolved_optimize = match backend with Diff -> true | _ -> optimize in
   let opts : gen_opts =
-    { minify; optimize; quiet; css_mode = resolved_css_mode; backend }
+    {
+      minify = resolved_minify;
+      optimize = resolved_optimize;
+      quiet;
+      css_mode = resolved_css_mode;
+      backend;
+    }
   in
   match single_class with
   | Some class_str -> process_single_class class_str base_flag ~opts
@@ -363,7 +373,9 @@ let quiet_flag =
 let backend_vflag =
   let doc_tailwind = "Use the real tailwindcss tool to generate CSS" in
   let doc_diff =
-    "Compare tw output with real Tailwind CSS (shows differences)"
+    "Compare tw output with real Tailwind CSS (shows differences). Always uses \
+     --variables --base mode and defaults to --minify --optimize for \
+     production comparison."
   in
   Arg.(
     value
@@ -417,7 +429,7 @@ let cmd =
       `Pre "  tw --minify --optimize index.html src/";
       `P "Use real Tailwind CSS:";
       `Pre "  tw -s bg-blue-500 --tailwind";
-      `P "Compare tw output with real Tailwind CSS:";
+      `P "Compare tw output with real Tailwind CSS (minified and optimized):";
       `Pre "  tw -s prose-sm --diff";
       `S Manpage.s_see_also;
       `P "https://tailwindcss.com";
