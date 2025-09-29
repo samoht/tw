@@ -2,38 +2,8 @@
 
 (* ===== Constants ===== *)
 
-(* Display and formatting constants *)
-let default_truncation_length = 60
-let default_context_size = 3
-let caret_indent = 10
-let stats_max_width = 80
-
-(* Search and parsing constants *)
 let header_comment_start = 3 (* Position after "/*" *)
-
-(* ===== String Utilities ===== *)
-
-(* ===== List Utilities ===== *)
-
-(* Helper: take first n elements from a list *)
-let rec list_take n = function
-  | [] -> []
-  | _ when n <= 0 -> []
-  | h :: t -> h :: list_take (n - 1) t
-
-(* Helper: drop first n elements from a list *)
-let rec list_drop n = function
-  | [] -> []
-  | lst when n <= 0 -> lst
-  | _ :: t -> list_drop (n - 1) t
-
-(* Helper: zip two lists into pairs, padding with empty strings *)
-let rec zip_with_empty l1 l2 =
-  match (l1, l2) with
-  | [], [] -> []
-  | h1 :: t1, [] -> (h1, "") :: zip_with_empty t1 []
-  | [], h2 :: t2 -> ("", h2) :: zip_with_empty [] t2
-  | h1 :: t1, h2 :: t2 -> (h1, h2) :: zip_with_empty t1 t2
+let default_truncation_length = 60
 
 (* ===== Type Definitions ===== *)
 
@@ -89,37 +59,34 @@ let pp_declarations fmt action decls =
       let prop_name = Css.declaration_name decl in
       let prop_value = Css.declaration_value ~minify:true decl in
       let truncated_value =
-        Diff_format.truncate_middle default_truncation_length prop_value
+        String_diff.truncate_middle default_truncation_length prop_value
       in
       Fmt.pf fmt "    - %s: %s %s@," action prop_name truncated_value)
     decls
 
-(* Print a line pair in unified diff format *)
-let pp_line_pair : (string * string) Fmt.t =
- fun fmt (exp, act) ->
-  if exp = act then Fmt.pf fmt " %s@," exp (* Common line *)
-  else (
-    if exp <> "" then Fmt.pf fmt "-%s@," exp;
-    if act <> "" then Fmt.pf fmt "+%s@," act;
-    ())
-
 let pp_property_diff fmt { property_name; expected_value; actual_value } =
-  let config = { Diff_format.default_config with short_threshold = 30 } in
-  match Diff_format.diff ~config ~expected:expected_value actual_value with
-  | `Equal ->
+  match String_diff.first_diff_pos expected_value actual_value with
+  | None ->
       (* Shouldn't happen but handle gracefully *)
       Fmt.pf fmt "    - modify: %s (no diff detected)@," property_name
-  | `Diff_short (exp, act) ->
-      (* Short values: show inline as a modification *)
-      Fmt.pf fmt "    - modify: %s %s -> %s@," property_name exp act
-  | `Diff_medium (exp, act, pos) | `Diff_long (exp, act, pos) ->
-      (* Long values: show with ellipsis and caret *)
-      Fmt.pf fmt "    - modify: %s@," property_name;
-      Fmt.pf fmt "        - %s@," exp;
-      Fmt.pf fmt "        + %s@," act;
-      if config.show_caret then
-        Diff_format.pp_caret ~indent:caret_indent fmt
-          pos (* indent for " + " prefix *)
+  | Some _ ->
+      let len1 = String.length expected_value in
+      let len2 = String.length actual_value in
+      if len1 <= 30 && len2 <= 30 then
+        (* Short values: show inline as a modification *)
+        Fmt.pf fmt "    - modify: %s %s -> %s@," property_name expected_value
+          actual_value
+      else
+        (* Long values: truncate and show as separate lines *)
+        let exp_truncated =
+          String_diff.truncate_middle default_truncation_length expected_value
+        in
+        let act_truncated =
+          String_diff.truncate_middle default_truncation_length actual_value
+        in
+        Fmt.pf fmt "    - modify: %s@," property_name;
+        Fmt.pf fmt "        - %s@," exp_truncated;
+        Fmt.pf fmt "        + %s@," act_truncated
 
 let pp_property_diffs fmt prop_diffs =
   List.iter (pp_property_diff fmt) prop_diffs
@@ -1117,101 +1084,14 @@ let compare_css css1 css2 =
       is_empty d
   | _ -> css1 = css2
 
-(* String diff information for character-level differences *)
-type string_diff = {
-  position : int; (* Character position of first difference *)
-  line_expected : int;
-  column_expected : int;
-  line_actual : int;
-  column_actual : int;
-  context_before : (string * string) list;
-      (* (expected, actual) line pairs before diff *)
-  diff_lines : string * string; (* The lines containing the difference *)
-  context_after : (string * string) list;
-      (* (expected, actual) line pairs after diff *)
-}
-
 (* Parse two CSS strings and return their diff or parse errors *)
 type t =
   | Tree_diff of tree_diff (* CSS AST differences found *)
-  | String_diff of string_diff (* No structural diff but strings differ *)
+  | String_diff of String_diff.t (* No structural diff but strings differ *)
   | No_diff (* Strings are identical *)
   | Both_errors of Css.parse_error * Css.parse_error
   | Expected_error of Css.parse_error
   | Actual_error of Css.parse_error
-
-(* Helper: find line number and column for a character position *)
-let find_line_and_column lines pos =
-  let rec find line_num char_count = function
-    | [] -> (line_num - 1, pos - char_count, [])
-    | line :: rest ->
-        let line_len = String.length line + 1 in
-        if char_count + line_len > pos then
-          (line_num, pos - char_count, line :: rest)
-        else find (line_num + 1) (char_count + line_len) rest
-  in
-  find 0 0 lines
-
-(* Helper: extract context lines before a given line number *)
-let get_context_before lines line_num context_size =
-  let before_lines = list_take line_num lines in
-  let context_start = max 0 (List.length before_lines - context_size) in
-  list_drop context_start before_lines
-
-(* Create a string diff with context for character-level differences *)
-let string_diff ~expected ~actual =
-  match Diff_format.first_diff_pos expected actual with
-  | None -> None
-  | Some pos ->
-      let context_size = default_context_size in
-      let lines_expected = String.split_on_char '\n' expected in
-      let lines_actual = String.split_on_char '\n' actual in
-
-      (* Find line and column for the diff position *)
-      let line_exp, col_exp, remaining_exp =
-        find_line_and_column lines_expected pos
-      in
-      let line_act, col_act, remaining_act =
-        find_line_and_column lines_actual pos
-      in
-
-      (* Get context lines before the diff *)
-      let context_before_exp =
-        get_context_before lines_expected line_exp context_size
-      in
-      let context_before_act =
-        get_context_before lines_actual line_act context_size
-      in
-      let context_before =
-        zip_with_empty context_before_exp context_before_act
-      in
-
-      (* Get the lines containing the diff *)
-      let diff_line_exp = match remaining_exp with [] -> "" | h :: _ -> h in
-      let diff_line_act = match remaining_act with [] -> "" | h :: _ -> h in
-
-      (* Get context lines after the diff *)
-      let context_after_exp =
-        match remaining_exp with [] -> [] | _ :: t -> list_take context_size t
-      in
-      let context_after_act =
-        match remaining_act with [] -> [] | _ :: t -> list_take context_size t
-      in
-      let context_after = zip_with_empty context_after_exp context_after_act in
-
-      Some
-        {
-          position = pos;
-          line_expected = line_exp;
-          column_expected = col_exp;
-          line_actual = line_act;
-          column_actual = col_act;
-          context_before;
-          diff_lines = (diff_line_exp, diff_line_act);
-          context_after;
-        }
-
-let show_string_diff_context ~expected ~actual = string_diff ~expected ~actual
 
 let diff ~expected ~actual =
   let expected = strip_header expected in
@@ -1230,7 +1110,7 @@ let diff ~expected ~actual =
       else if expected <> actual then
         (* Strings differ but structural diff is empty - show string diff
            instead *)
-        match string_diff ~expected ~actual with
+        match String_diff.diff ~expected actual with
         | Some sdiff -> String_diff sdiff
         | None ->
             Tree_diff structural_diff (* Fallback to empty structural diff *)
@@ -1240,57 +1120,13 @@ let diff ~expected ~actual =
   | Ok _, Error e -> Actual_error e
   | Error e, Ok _ -> Expected_error e
 
-(* Pretty-print a string diff in format consistent with structural diffs *)
-let pp_string_diff ?(expected = "Expected") ?(actual = "Actual") fmt
-    (sdiff : string_diff) =
-  Fmt.pf fmt "@[<v>CSS strings differ at position %d (line %d, col %d)@,@,"
-    sdiff.position sdiff.line_expected sdiff.column_expected;
-  (* Git-style diff header *)
-  Fmt.pf fmt "--- %s@," expected;
-  Fmt.pf fmt "+++ %s@," actual;
-  Fmt.pf fmt "@@ position %d @@@," sdiff.position;
-
-  (* Print context before *)
-  List.iter (pp_line_pair fmt) sdiff.context_before;
-
-  (* Print the diff lines with caret using unified formatter *)
-  let diff_exp, diff_act = sdiff.diff_lines in
-  let config =
-    {
-      Diff_format.max_width = stats_max_width;
-      short_threshold = 30;
-      show_caret = true;
-      indent = 1;
-    }
-  in
-  match Diff_format.diff ~config ~expected:diff_exp diff_act with
-  | `Equal ->
-      (* Shouldn't happen if strings differ *)
-      Fmt.pf fmt "-%s@," diff_exp;
-      Fmt.pf fmt "+%s@," diff_act
-  | `Diff_short (exp, act) ->
-      (* Short lines, show them completely *)
-      Fmt.pf fmt "-%s@," exp;
-      Fmt.pf fmt "+%s@," act;
-      if sdiff.line_expected = sdiff.line_actual then
-        Diff_format.pp_caret ~indent:1 fmt sdiff.column_expected
-  | `Diff_medium (exp, act, pos) | `Diff_long (exp, act, pos) ->
-      (* Long lines with truncation *)
-      Fmt.pf fmt "-%s@," exp;
-      Fmt.pf fmt "+%s@," act;
-      if sdiff.line_expected = sdiff.line_actual then
-        Diff_format.pp_caret ~indent:1 fmt pos;
-
-      (* Print context after *)
-      List.iter (pp_line_pair fmt) sdiff.context_after;
-      Fmt.pf fmt "@]"
-
 (* Format the result of diff with optional labels *)
 let pp ?(expected = "Expected") ?(actual = "Actual") fmt = function
   | Tree_diff d ->
       (* Show structural differences *)
       pp_tree_diff ~expected ~actual fmt d
-  | String_diff sdiff -> pp_string_diff ~expected ~actual fmt sdiff
+  | String_diff sdiff ->
+      String_diff.pp ~expected_label:expected ~actual_label:actual fmt sdiff
   | No_diff ->
       (* No output for identical files *)
       ()

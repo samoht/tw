@@ -94,23 +94,9 @@ val dominant_css_class : string -> string * int
 [@@deprecated "Use structured diff APIs instead"]
 (** [dominant_css_class css] finds the most common CSS class and its count. *)
 
-type string_diff = {
-  position : int;  (** Character position of first difference *)
-  line_expected : int;
-  column_expected : int;
-  line_actual : int;
-  column_actual : int;
-  context_before : (string * string) list;
-      (** (expected, actual) line pairs before diff *)
-  diff_lines : string * string;  (** The lines containing the difference *)
-  context_after : (string * string) list;
-      (** (expected, actual) line pairs after diff *)
-}
-(** String diff information for character-level differences *)
-
 type t =
   | Tree_diff of tree_diff  (** CSS AST differences found *)
-  | String_diff of string_diff  (** No structural diff but strings differ *)
+  | String_diff of String_diff.t  (** No structural diff but strings differ *)
   | No_diff  (** Strings are identical *)
   | Both_errors of Css.parse_error * Css.parse_error
   | Expected_error of Css.parse_error
@@ -120,21 +106,6 @@ type t =
 val diff : expected:string -> actual:string -> t
 (** [diff ~expected ~actual] parses both CSS strings and returns their diff or
     parse errors if parsing fails. *)
-
-val show_string_diff_context :
-  expected:string -> actual:string -> string_diff option
-(** [show_string_diff_context ~expected ~actual] finds the first difference
-    between two strings and returns context around it.
-    @return
-      Some (expected_context, actual_context, (line_num, char_pos), diff_pos)
-      where:
-      - expected_context: Context from expected string up to the line with the
-        diff
-      - actual_context: Context from actual string up to the line with the diff
-      - line_num: Line number containing the diff (0-based)
-      - char_pos: Character position within that line
-      - diff_pos: Overall position of the first difference Returns None if
-        strings are identical. *)
 
 val pp : ?expected:string -> ?actual:string -> t Fmt.t
 (** [pp_diff_result ?expected ?actual ?expected_str ?actual_str] formats a

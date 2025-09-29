@@ -1,76 +1,105 @@
 open Alcotest
-module Df = Tw_tools.Diff_format
+module Sd = Tw_tools.String_diff
 
 let test_equal () =
-  let result = Df.diff ~expected:"hello" "hello" in
+  let result = Sd.diff ~expected:"hello" "hello" in
   match result with
-  | `Equal -> ()
-  | _ -> fail "Expected `Equal for identical strings"
+  | None -> ()
+  | Some _ -> fail "Expected None for identical strings"
 
-let test_short_diff () =
-  let result = Df.diff ~expected:"abc" "abd" in
+let test_simple_diff () =
+  let result = Sd.diff ~expected:"abc" "abd" in
   match result with
-  | `Diff_short (exp, act) ->
-      check string "expected" "abc" exp;
-      check string "actual" "abd" act
-  | _ -> fail "Expected `Diff_short for short strings"
+  | Some diff ->
+      check int "position" 2 diff.position;
+      check int "line_expected" 0 diff.line_expected;
+      check int "column_expected" 2 diff.column_expected;
+      check int "line_actual" 0 diff.line_actual;
+      check int "column_actual" 2 diff.column_actual
+  | None -> fail "Expected Some diff for different strings"
 
-let test_medium_diff () =
-  let config = { Df.default_config with short_threshold = 5 } in
-  let result = Df.diff ~config ~expected:"hello world" "hello warld" in
+let test_multiline_diff () =
+  let expected = "line1\nline2\nline3" in
+  let actual = "line1\nline2\nline4" in
+  let result = Sd.diff ~expected actual in
   match result with
-  | `Diff_medium (exp, act, pos) ->
-      check string "expected" "hello world" exp;
-      check string "actual" "hello warld" act;
-      check int "diff position" 7 pos
-  | _ -> fail "Expected `Diff_medium for medium strings"
+  | Some diff ->
+      check int "line_expected" 2 diff.line_expected;
+      check int "line_actual" 2 diff.line_actual;
+      check int "column_expected" 4 diff.column_expected;
+      check int "column_actual" 4 diff.column_actual;
+      let exp_line, act_line = diff.diff_lines in
+      check string "expected line" "line3" exp_line;
+      check string "actual line" "line4" act_line
+  | None -> fail "Expected Some diff for different strings"
 
-let test_long_diff () =
-  let long1 = String.make 100 'a' ^ "difference" ^ String.make 100 'b' in
-  let long2 = String.make 100 'a' ^ "different!" ^ String.make 100 'b' in
-  let result = Df.diff ~expected:long1 long2 in
+let test_context () =
+  let expected = "a\nb\nc\nd\ne" in
+  let actual = "a\nb\nx\nd\ne" in
+  let result = Sd.diff ~context_size:1 ~expected actual in
   match result with
-  | `Diff_long (exp_window, act_window, _pos) ->
-      (* Windows should contain ellipsis *)
-      check bool "expected has ellipsis" true (String.contains exp_window '.');
-      check bool "actual has ellipsis" true (String.contains act_window '.')
-  | _ -> fail "Expected `Diff_long for long strings"
+  | Some diff -> (
+      (* Should have 1 line of context before *)
+      check int "context before length" 1 (List.length diff.context_before);
+      (* Should have 1 line of context after *)
+      check int "context after length" 1 (List.length diff.context_after);
+      (match diff.context_before with
+      | [ (a, b) ] ->
+          check string "before exp" "b" a;
+          check string "before act" "b" b
+      | _ -> fail "Wrong context before");
+      match diff.context_after with
+      | [ (a, b) ] ->
+          check string "after exp" "d" a;
+          check string "after act" "d" b
+      | _ -> fail "Wrong context after")
+  | None -> fail "Expected Some diff for different strings"
 
 let test_first_diff_pos () =
-  check (option int) "identical strings" None (Df.first_diff_pos "abc" "abc");
-  check (option int) "diff at start" (Some 0) (Df.first_diff_pos "abc" "xbc");
-  check (option int) "diff at end" (Some 2) (Df.first_diff_pos "abc" "abx");
-  check (option int) "diff in middle" (Some 1) (Df.first_diff_pos "abc" "axc");
+  check (option int) "identical strings" None (Sd.first_diff_pos "abc" "abc");
+  check (option int) "diff at start" (Some 0) (Sd.first_diff_pos "abc" "xbc");
+  check (option int) "diff at end" (Some 2) (Sd.first_diff_pos "abc" "abx");
+  check (option int) "diff in middle" (Some 1) (Sd.first_diff_pos "abc" "axc");
   check (option int) "different lengths" (Some 3)
-    (Df.first_diff_pos "abc" "abcd")
+    (Sd.first_diff_pos "abc" "abcd")
 
 let test_truncate_middle () =
   let s = "abcdefghijklmnopqrstuvwxyz" in
-  check string "short enough" s (Df.truncate_middle 30 s);
-  let truncated = Df.truncate_middle 10 s in
+  check string "short enough" s (Sd.truncate_middle 30 s);
+  let truncated = Sd.truncate_middle 10 s in
   check bool "has ellipsis" true (String.contains truncated '.');
   check bool "max length respected" true (String.length truncated <= 10)
 
-let test_custom_config () =
-  let config =
-    { Df.default_config with max_width = 20; short_threshold = 10 }
-  in
-  let s1 = "short" in
-  let s2 = "shirt" in
-  let result = Df.diff ~config ~expected:s1 s2 in
-  match result with
-  | `Diff_short _ -> ()
-  | _ -> fail "Config should treat as short diff"
+let test_pp () =
+  let expected = "hello world" in
+  let actual = "hello warld" in
+  match Sd.diff ~expected actual with
+  | Some diff ->
+      (* Check that the diff structure is properly populated *)
+      check int "position" 7 diff.position;
+      check int "line_expected" 0 diff.line_expected;
+      check int "column_expected" 7 diff.column_expected;
+      let exp_line, act_line = diff.diff_lines in
+      check string "expected line" "hello world" exp_line;
+      check string "actual line" "hello warld" act_line;
+      (* Basic test that pp function works without crashing *)
+      let buf = Buffer.create 256 in
+      let fmt = Format.formatter_of_buffer buf in
+      Sd.pp ~expected_label:"Expected" ~actual_label:"Actual" fmt diff;
+      Format.pp_print_flush fmt ();
+      let _output = Buffer.contents buf in
+      ()
+  | None -> fail "Expected diff"
 
 let tests =
   [
     test_case "equal strings" `Quick test_equal;
-    test_case "short diff" `Quick test_short_diff;
-    test_case "medium diff" `Quick test_medium_diff;
-    test_case "long diff" `Quick test_long_diff;
+    test_case "simple diff" `Quick test_simple_diff;
+    test_case "multiline diff" `Quick test_multiline_diff;
+    test_case "context lines" `Quick test_context;
     test_case "first_diff_pos" `Quick test_first_diff_pos;
     test_case "truncate_middle" `Quick test_truncate_middle;
-    test_case "custom config" `Quick test_custom_config;
+    test_case "pretty printing" `Quick test_pp;
   ]
 
-let suite = ("diff_format", tests)
+let suite = ("string_diff", tests)
