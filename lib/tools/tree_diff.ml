@@ -399,10 +399,58 @@ let build_rule_lookup_tables rules2 =
     rules2;
   (rules2_by_key, rules2_by_props)
 
+(* Try to find an exact match by selector key and declarations *)
+(* Returns: Some (Some diff) if selectors differ, Some None if exact match with same selectors, None if no exact match *)
+let try_exact_match rules2_by_key used_rules r1 key1 d1 =
+  let candidates = try Hashtbl.find rules2_by_key key1 with Not_found -> [] in
+  match
+    List.find_opt
+      (fun r -> (not (Hashtbl.mem used_rules r)) && rule_declarations r = d1)
+      candidates
+  with
+  | Some exact ->
+      Hashtbl.replace used_rules exact ();
+      let sel1 = rule_selector r1 in
+      let sel2 = rule_selector exact in
+      let sel1_str = Css.Selector.to_string sel1 in
+      let sel2_str = Css.Selector.to_string sel2 in
+      if sel1_str <> sel2_str then Some (Some (sel1, sel2, d1, d1))
+      else Some None
+  | None -> None
+
+(* Try to find any rule with the same selector key *)
+let try_same_key_match rules2_by_key used_rules r1 key1 d1 =
+  let candidates = try Hashtbl.find rules2_by_key key1 with Not_found -> [] in
+  match List.find_opt (fun r -> not (Hashtbl.mem used_rules r)) candidates with
+  | Some r2 ->
+      Hashtbl.replace used_rules r2 ();
+      let d2 = rule_declarations r2 in
+      Some (rule_selector r1, rule_selector r2, d1, d2)
+  | None -> None
+
+(* Try to find equivalent rule by properties with shared parent *)
+let try_equivalent_props_match rules2_by_props used_rules r1 d1 props1 =
+  let candidates =
+    try Hashtbl.find rules2_by_props props1 with Not_found -> []
+  in
+  let sel1_str = Css.Selector.to_string (rule_selector r1) in
+  match
+    List.find_opt
+      (fun r ->
+        if Hashtbl.mem used_rules r then false
+        else
+          let sel2_str = Css.Selector.to_string (rule_selector r) in
+          selectors_share_parent sel1_str sel2_str)
+      candidates
+  with
+  | Some r2 ->
+      Hashtbl.replace used_rules r2 ();
+      let d2 = rule_declarations r2 in
+      Some (rule_selector r1, rule_selector r2, d1, d2)
+  | None -> None
+
 let rules_modified_diff rules1 rules2 =
   let rules2_by_key, rules2_by_props = build_rule_lookup_tables rules2 in
-
-  (* Track used rules to avoid double-matching *)
   let used_rules = Hashtbl.create (List.length rules2) in
 
   let rec aux acc = function
@@ -412,65 +460,18 @@ let rules_modified_diff rules1 rules2 =
         let d1 = rule_declarations r1 in
         let props1 = decls_signature d1 in
 
-        (* Try exact match by key and declarations first *)
-        let exact_match =
-          let candidates =
-            try Hashtbl.find rules2_by_key key1 with Not_found -> []
-          in
-          List.find_opt
-            (fun r ->
-              (not (Hashtbl.mem used_rules r)) && rule_declarations r = d1)
-            candidates
-        in
-
         let pick =
-          match exact_match with
-          | Some exact ->
-              Hashtbl.replace used_rules exact ();
-              let sel1 = rule_selector r1 in
-              let sel2 = rule_selector exact in
-              let sel1_str = Css.Selector.to_string sel1 in
-              let sel2_str = Css.Selector.to_string sel2 in
-              if sel1_str <> sel2_str then Some (sel1, sel2, d1, d1) else None
+          match try_exact_match rules2_by_key used_rules r1 key1 d1 with
+          | Some (Some result) -> Some result
+          | Some None ->
+              None (* Exact match found but selectors are same - no diff *)
           | None -> (
-              (* Try any rule with same key *)
-              let same_key_match =
-                let candidates =
-                  try Hashtbl.find rules2_by_key key1 with Not_found -> []
-                in
-                List.find_opt
-                  (fun r -> not (Hashtbl.mem used_rules r))
-                  candidates
-              in
-              match same_key_match with
-              | Some r2 ->
-                  Hashtbl.replace used_rules r2 ();
-                  let d2 = rule_declarations r2 in
-                  Some (rule_selector r1, rule_selector r2, d1, d2)
-              | None -> (
-                  (* Fallback: find equivalent rule by properties, but only if
-                     selectors share a parent *)
-                  let candidates =
-                    try Hashtbl.find rules2_by_props props1
-                    with Not_found -> []
-                  in
-                  let sel1_str = Css.Selector.to_string (rule_selector r1) in
-                  match
-                    List.find_opt
-                      (fun r ->
-                        if Hashtbl.mem used_rules r then false
-                        else
-                          let sel2_str =
-                            Css.Selector.to_string (rule_selector r)
-                          in
-                          selectors_share_parent sel1_str sel2_str)
-                      candidates
-                  with
-                  | Some r2 ->
-                      Hashtbl.replace used_rules r2 ();
-                      let d2 = rule_declarations r2 in
-                      Some (rule_selector r1, rule_selector r2, d1, d2)
-                  | None -> None))
+              (* No exact match found - try other strategies *)
+              match try_same_key_match rules2_by_key used_rules r1 key1 d1 with
+              | Some result -> Some result
+              | None ->
+                  try_equivalent_props_match rules2_by_props used_rules r1 d1
+                    props1)
         in
 
         let acc = match pick with None -> acc | Some x -> x :: acc in
@@ -533,13 +534,26 @@ let selector_in_list sel_key remaining =
   (* Check if selector key exists in remaining list *)
   List.exists (fun (s, _) -> selector_key_of_selector s = sel_key) remaining
 
+(* Locate matching declarations in map2 for a given selector key *)
+let matching_decls_in_map2 sel1_key decls1 map2 decls2 =
+  (* Prefer an exact declaration match for the same selector key if available *)
+  match
+    List.find_opt
+      (fun (s, d) -> selector_key_of_selector s = sel1_key && d = decls1)
+      map2
+  with
+  | Some (s, d) -> (d, Some s)
+  | None -> (
+      match
+        List.find_opt (fun (s, _) -> selector_key_of_selector s = sel1_key) map2
+      with
+      | Some (s, d) -> (d, Some s)
+      | None -> (decls2, None))
+
 let ordering_diff rules1 rules2 =
-  (* Create maps from selector to declarations for both rule lists *)
   let map1 = build_selector_map rules1 in
   let map2 = build_selector_map rules2 in
 
-  (* Find ordering discrepancies by checking if selectors appear in different
-     positions *)
   let rec find_ordering_issues acc remaining1 remaining2 =
     match (remaining1, remaining2) with
     | [], [] -> List.rev acc
@@ -547,46 +561,20 @@ let ordering_diff rules1 rules2 =
         let sel1_key = selector_key_of_selector sel1 in
         let sel2_key = selector_key_of_selector sel2 in
         if sel1_key <> sel2_key then
-          (* Selectors differ at this position - this could be an ordering
-             issue *)
           let sel1_in_remaining2 = selector_in_list sel1_key remaining2 in
           let sel2_in_remaining1 = selector_in_list sel2_key remaining1 in
 
           if sel1_in_remaining2 && sel2_in_remaining1 then
-            (* This is likely an ordering issue - both selectors exist but in
-               wrong positions. Find the correct declarations for sel1 from
-               map2 *)
-            (* Prefer an exact declaration match for the same selector key if available *)
             let decls1_from_map2, sel2_opt =
-              match
-                List.find_opt
-                  (fun (s, d) ->
-                    selector_key_of_selector s = sel1_key && d = decls1)
-                  map2
-              with
-              | Some (s, d) -> (d, Some s)
-              | None -> (
-                  match
-                    List.find_opt
-                      (fun (s, _) -> selector_key_of_selector s = sel1_key)
-                      map2
-                  with
-                  | Some (s, d) -> (d, Some s)
-                  | None -> (decls2, None))
+              matching_decls_in_map2 sel1_key decls1 map2 decls2
             in
-            (* Whether pure reordering or actual modification, capture the pair
-               so the caller can classify it. *)
             let sel2 = match sel2_opt with Some s -> s | None -> sel1 in
             find_ordering_issues
               ((sel1, sel2, decls1, decls1_from_map2) :: acc)
               rest1 rest2
-          else
-            (* This might be a true content difference, not just ordering *)
-            find_ordering_issues acc rest1 rest2
-        else
-          (* Selectors match, continue *)
-          find_ordering_issues acc rest1 rest2
-    | _, _ -> List.rev acc (* Lists have different lengths *)
+          else find_ordering_issues acc rest1 rest2
+        else find_ordering_issues acc rest1 rest2
+    | _, _ -> List.rev acc
   in
 
   find_ordering_issues [] map1 map2
@@ -654,8 +642,23 @@ let selector_changes all_added_candidates all_removed_candidates =
 
   (!changes, !matched_added, !matched_removed)
 
+(* Filter other_modified to exclude changes already captured as selector
+   changes *)
+let exclude_selector_changes_from_modified sel_changes other_modified =
+  let sel_change_selectors =
+    List.map
+      (fun (sel1, sel2, _, _) ->
+        (Css.Selector.to_string sel1, Css.Selector.to_string sel2))
+      sel_changes
+  in
+  List.filter
+    (fun (sel1, sel2, _, _) ->
+      let sel1_str = Css.Selector.to_string sel1 in
+      let sel2_str = Css.Selector.to_string sel2 in
+      not (List.mem (sel1_str, sel2_str) sel_change_selectors))
+    other_modified
+
 let handle_structural_diff rules1 rules2 =
-  (* First, detect selector changes with parent context matching *)
   let all_added_candidates = rules_added_diff rules1 rules2 in
   let all_removed_candidates = rules_removed_diff rules1 rules2 in
 
@@ -663,7 +666,6 @@ let handle_structural_diff rules1 rules2 =
     selector_changes all_added_candidates all_removed_candidates
   in
 
-  (* Filter out matched rules from add/remove lists *)
   let added =
     List.filter (fun r -> not (List.memq r matched_added)) all_added_candidates
   in
@@ -673,21 +675,9 @@ let handle_structural_diff rules1 rules2 =
       all_removed_candidates
   in
 
-  (* Get other types of modifications but exclude selector changes *)
   let other_modified = rules_modified_diff rules1 rules2 in
-  let sel_change_selectors =
-    List.map
-      (fun (sel1, sel2, _, _) ->
-        (Css.Selector.to_string sel1, Css.Selector.to_string sel2))
-      sel_changes
-  in
   let filtered_other_modified =
-    List.filter
-      (fun (sel1, sel2, _, _) ->
-        let sel1_str = Css.Selector.to_string sel1 in
-        let sel2_str = Css.Selector.to_string sel2 in
-        not (List.mem (sel1_str, sel2_str) sel_change_selectors))
-      other_modified
+    exclude_selector_changes_from_modified sel_changes other_modified
   in
 
   let modified = sel_changes @ filtered_other_modified in
