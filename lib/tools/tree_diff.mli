@@ -38,6 +38,7 @@ type container_diff =
   | Container_modified of {
       info : container_info;
       rule_changes : rule_diff list;
+      container_changes : container_diff list; (* Nested container changes *)
     }
 
 type t = { rules : rule_diff list; containers : container_diff list }
