@@ -26,7 +26,7 @@ let tailwind_files temp_dir classnames =
 let availability_result = ref None
 let tailwind_command = ref None
 
-let find_tailwindcss_command () =
+let tailwindcss_command () =
   (* First try native tailwindcss (much faster) *)
   let native_check = Sys.command "which tailwindcss > /dev/null 2>&1" in
   let use_npx = native_check <> 0 in
@@ -48,7 +48,7 @@ let find_tailwindcss_command () =
        tailwindcss.@.";
   cmd
 
-let get_tailwindcss_version cmd =
+let tailwindcss_version cmd =
   (* Try --version first, fall back to --help if needed *)
   let temp_file = Filename.temp_file "tw_version" ".txt" in
   let version_cmd = cmd ^ " --version 2>/dev/null > " ^ temp_file in
@@ -105,10 +105,10 @@ let check_tailwindcss_available () =
   | None -> (
       let result =
         try
-          let cmd = find_tailwindcss_command () in
+          let cmd = tailwindcss_command () in
           tailwind_command := Some cmd;
 
-          let version_line, fallback_used = get_tailwindcss_version cmd in
+          let version_line, fallback_used = tailwindcss_version cmd in
 
           let is_v4 =
             if fallback_used then String.contains version_line '4'

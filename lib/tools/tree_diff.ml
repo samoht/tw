@@ -613,11 +613,11 @@ let selectors_share_parent_ast sel1 sel2 =
   | Some p1, Some p2 -> p1 = p2
   | _ -> false
 
-let find_selector_changes all_added_candidates all_removed_candidates =
+let selector_changes all_added_candidates all_removed_candidates =
   (* Try to match removed rules with added rules for selector changes *)
   let matched_added = ref [] in
   let matched_removed = ref [] in
-  let selector_changes = ref [] in
+  let changes = ref [] in
 
   List.iter
     (fun removed_rule ->
@@ -645,23 +645,22 @@ let find_selector_changes all_added_candidates all_removed_candidates =
       match matching_added with
       | Some added_rule ->
           let added_sel = rule_selector added_rule in
-          selector_changes :=
-            (removed_sel, added_sel, removed_decls, removed_decls)
-            :: !selector_changes;
+          changes :=
+            (removed_sel, added_sel, removed_decls, removed_decls) :: !changes;
           matched_removed := removed_rule :: !matched_removed;
           matched_added := added_rule :: !matched_added
       | None -> ())
     all_removed_candidates;
 
-  (!selector_changes, !matched_added, !matched_removed)
+  (!changes, !matched_added, !matched_removed)
 
 let handle_structural_diff rules1 rules2 =
   (* First, detect selector changes with parent context matching *)
   let all_added_candidates = rules_added_diff rules1 rules2 in
   let all_removed_candidates = rules_removed_diff rules1 rules2 in
 
-  let selector_changes, matched_added, matched_removed =
-    find_selector_changes all_added_candidates all_removed_candidates
+  let sel_changes, matched_added, matched_removed =
+    selector_changes all_added_candidates all_removed_candidates
   in
 
   (* Filter out matched rules from add/remove lists *)
@@ -676,22 +675,22 @@ let handle_structural_diff rules1 rules2 =
 
   (* Get other types of modifications but exclude selector changes *)
   let other_modified = rules_modified_diff rules1 rules2 in
-  let selector_change_selectors =
+  let sel_change_selectors =
     List.map
       (fun (sel1, sel2, _, _) ->
         (Css.Selector.to_string sel1, Css.Selector.to_string sel2))
-      selector_changes
+      sel_changes
   in
   let filtered_other_modified =
     List.filter
       (fun (sel1, sel2, _, _) ->
         let sel1_str = Css.Selector.to_string sel1 in
         let sel2_str = Css.Selector.to_string sel2 in
-        not (List.mem (sel1_str, sel2_str) selector_change_selectors))
+        not (List.mem (sel1_str, sel2_str) sel_change_selectors))
       other_modified
   in
 
-  let modified = selector_changes @ filtered_other_modified in
+  let modified = sel_changes @ filtered_other_modified in
 
   let has_structural_changes = added <> [] || removed <> [] || modified <> [] in
   let has_ordering_changes =
