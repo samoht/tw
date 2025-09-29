@@ -15,12 +15,6 @@
 
     Tree difference types are defined in the {!Tree_diff} module. *)
 
-val tree_diff : expected:Css.t -> actual:Css.t -> Tree_diff.t
-(** [tree_diff ~expected ~actual] returns a structured diff between two CSS
-    ASTs.
-    @param expected The expected/reference CSS AST.
-    @param actual The actual/generated CSS AST. *)
-
 val strip_header : string -> string
 (** [strip_header css] removes a leading header comment if present. *)
 
@@ -66,10 +60,6 @@ type stats = {
   container_changes : int;
 }
 (** Statistics about CSS differences *)
-
-val compute_stats : expected_str:string -> actual_str:string -> t -> stats
-(** [compute_stats ~expected_str ~actual_str diff_result] computes statistics
-    from a diff result. Returns counts of different types of changes. *)
 
 val stats : expected_str:string -> actual_str:string -> t -> stats
 (** [stats ~expected_str ~actual_str result] computes statistics from a diff
