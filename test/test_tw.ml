@@ -432,18 +432,12 @@ let prose_basic () =
   (* TODO: Implement prose size variants *)
   check prose_sm;
   check prose_lg;
-  check prose_xl
+  check prose_xl;
+  check prose_2xl
 
 let prose_with_modifiers () =
   check (hover [ prose ]);
   check (md [ prose_lg ])
-
-let prose_variants () =
-  check prose;
-  check prose_sm;
-  check prose_lg;
-  check prose_xl;
-  check prose_2xl
 
 (* ===== PRECEDENCE TESTS ===== *)
 
@@ -610,7 +604,6 @@ let core_tests =
     test_case "content variants" `Slow content_variants;
     test_case "prose basic" `Slow prose_basic;
     test_case "prose with modifiers" `Slow prose_with_modifiers;
-    test_case "prose variants" `Slow prose_variants;
     test_case "precedence base overrides" `Slow precedence_base_overrides;
     test_case "precedence breakpoints" `Slow precedence_breakpoints;
     test_case "precedence states" `Slow precedence_states;

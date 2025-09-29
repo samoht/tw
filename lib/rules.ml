@@ -263,21 +263,58 @@ let modifier_to_rule modifier base_class selector props =
         ~prefix:".contrast-less\\:" base_class props
   | Hover | Focus | Active | Focus_within | Focus_visible | Disabled ->
       (* For complex selectors (like prose :where(...)), we need to apply the
-         modifier to the base class part while preserving the complex
-         structure *)
+         modifier to the base class part while preserving the complex structure,
+         AND replace all occurrences of the base class inside the selector *)
       let escaped_class = escape_class_name base_class in
+      let escaped_modified_class =
+        match Modifiers.to_selector modifier escaped_class with
+        | Css.Selector.Class cls -> cls
+        | Css.Selector.Compound selectors ->
+            (* For compound selectors like .hover\:prose:hover, extract the
+               class name *)
+            List.find_map
+              (function Css.Selector.Class cls -> Some cls | _ -> None)
+              selectors
+            |> Option.value ~default:escaped_class
+        | _ -> escaped_class
+      in
       let has_hover = Modifiers.is_hover modifier in
+      (* Recursively replace base class with modified class in selector *)
+      let rec replace_class_in_selector = function
+        | Css.Selector.Class cls when cls = escaped_class ->
+            Css.Selector.Class escaped_modified_class
+        | Css.Selector.Combined (base_sel, combinator, complex_sel) ->
+            Css.Selector.Combined
+              ( replace_class_in_selector base_sel,
+                combinator,
+                replace_class_in_selector complex_sel )
+        | Css.Selector.Compound selectors ->
+            Css.Selector.Compound (List.map replace_class_in_selector selectors)
+        | Css.Selector.Where selectors ->
+            Css.Selector.Where (List.map replace_class_in_selector selectors)
+        | Css.Selector.Is selectors ->
+            Css.Selector.Is (List.map replace_class_in_selector selectors)
+        | Css.Selector.Not selectors ->
+            Css.Selector.Not (List.map replace_class_in_selector selectors)
+        | Css.Selector.Has selectors ->
+            Css.Selector.Has (List.map replace_class_in_selector selectors)
+        | Css.Selector.List selectors ->
+            Css.Selector.List (List.map replace_class_in_selector selectors)
+        | other -> other
+      in
       let modified_selector =
         match selector with
         | Css.Selector.Combined (base_sel, combinator, complex_sel)
           when base_sel = Css.Selector.class_ escaped_class ->
             (* This is a prose-style selector like ".prose :where(...)"
-               Transform it to ".hover\:prose:hover :where(...)" *)
+               Transform it to ".hover\:prose:hover :where(...)" and replace
+               .prose with .hover\:prose inside *)
             let new_base = Modifiers.to_selector modifier escaped_class in
-            Css.Selector.Combined (new_base, combinator, complex_sel)
+            let new_complex = replace_class_in_selector complex_sel in
+            Css.Selector.Combined (new_base, combinator, new_complex)
         | _ ->
-            (* Simple selector, use the existing logic *)
-            Modifiers.to_selector modifier escaped_class
+            (* Simple selector or other pattern, just replace classes *)
+            replace_class_in_selector selector
       in
       regular ~selector:modified_selector ~props ~base_class ~has_hover ()
   | _ ->
