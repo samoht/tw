@@ -1071,6 +1071,7 @@ type size_config = {
   kbd_padding_y : Css.length;
   kbd_padding_x : Css.length;
   kbd_font_size : Css.length;
+  kbd_border_radius : Css.length;
   code_font_size : Css.length;
   h2_code_font_size : Css.length;
   h3_code_font_size : Css.length;
@@ -1187,7 +1188,7 @@ let typography_rules selector c =
         padding_top c.kbd_padding_y;
         padding_inline_end c.kbd_padding_x;
         padding_bottom c.kbd_padding_y;
-        border_radius (Rem 0.3125);
+        border_radius c.kbd_border_radius;
         padding_inline_start c.kbd_padding_x;
         font_size c.kbd_font_size;
       ];
@@ -1256,22 +1257,7 @@ let typography_rules selector c =
       [ margin_bottom c.li_p_last_margin_bottom ];
     (* Nested lists *)
     Css.rule
-      ~selector:(selector ++ prose_where_element (ul ++ ul))
-      [
-        margin_top c.nested_list_margin_y; margin_bottom c.nested_list_margin_y;
-      ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element (ul ++ ol))
-      [
-        margin_top c.nested_list_margin_y; margin_bottom c.nested_list_margin_y;
-      ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element (ol ++ ul))
-      [
-        margin_top c.nested_list_margin_y; margin_bottom c.nested_list_margin_y;
-      ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element (ol ++ ol))
+      ~selector:(selector ++ prose_where_element nested_lists)
       [
         margin_top c.nested_list_margin_y; margin_bottom c.nested_list_margin_y;
       ];
@@ -1321,15 +1307,10 @@ let typography_rules selector c =
       [ padding_inline_end Zero ];
     (* Table body and footer cells *)
     Css.rule
-      ~selector:(selector ++ prose_where_element (tbody ++ td))
-      [
-        padding_top c.tbody_td_padding_y;
-        padding_inline_end c.tbody_td_padding_x;
-        padding_bottom c.tbody_td_padding_y;
-        padding_inline_start c.tbody_td_padding_x;
-      ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element (tfoot ++ td))
+      ~selector:
+        (selector
+        ++ prose_where_element (Css.Selector.list [ tbody ++ td; tfoot ++ td ])
+        )
       [
         padding_top c.tbody_td_padding_y;
         padding_inline_end c.tbody_td_padding_x;
@@ -1338,16 +1319,19 @@ let typography_rules selector c =
       ];
     (* First and last table cells *)
     Css.rule
-      ~selector:(selector ++ prose_where_element (tbody ++ (td && first_child)))
+      ~selector:
+        (selector
+        ++ prose_where_element
+             (Css.Selector.list
+                [ tbody ++ (td && first_child); tfoot ++ (td && first_child) ])
+        )
       [ padding_inline_start Zero ];
     Css.rule
-      ~selector:(selector ++ prose_where_element (tfoot ++ (td && first_child)))
-      [ padding_inline_start Zero ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element (tbody ++ (td && last_child)))
-      [ padding_inline_end Zero ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element (tfoot ++ (td && last_child)))
+      ~selector:
+        (selector
+        ++ prose_where_element
+             (Css.Selector.list
+                [ tbody ++ (td && last_child); tfoot ++ (td && last_child) ]))
       [ padding_inline_end Zero ];
     (* Figure *)
     Css.rule
@@ -1404,6 +1388,7 @@ let sm_config =
     kbd_padding_y = Em 0.142857;
     kbd_padding_x = Em 0.357143;
     kbd_font_size = Em 0.857143;
+    kbd_border_radius = Rem 0.3125;
     code_font_size = Em 0.857143;
     h2_code_font_size = Em 0.9;
     h3_code_font_size = Em 0.888889;
@@ -1445,18 +1430,18 @@ let lg_config =
     base_font_size = Rem 1.125;
     base_line_height = 1.77778;
     p_margin_y = Em 1.33333;
-    lead_margin_top = Em 1.05556;
-    lead_margin_bottom = Em 1.05556;
+    lead_margin_top = Em 1.09091;
+    lead_margin_bottom = Em 1.09091;
     lead_font_size = Em 1.22222;
     lead_line_height = 1.45455;
     blockquote_margin_y = Em 1.66667;
-    blockquote_padding_start = Em 1.11111;
+    blockquote_padding_start = Em 1.0;
     h1_margin_top = Zero;
-    h1_margin_bottom = Em 0.888889;
+    h1_margin_bottom = Em 0.833333;
     h1_font_size = Em 2.66667;
     h1_line_height = 1.0;
-    h2_margin_top = Em 1.77778;
-    h2_margin_bottom = Em 0.888889;
+    h2_margin_top = Em 1.86667;
+    h2_margin_bottom = Em 1.06667;
     h2_font_size = Em 1.66667;
     h2_line_height = 1.33333;
     h3_margin_top = Em 1.66667;
@@ -1467,21 +1452,22 @@ let lg_config =
     h4_margin_bottom = Em 0.444444;
     h4_line_height = 1.55556;
     img_margin_y = Em 1.77778;
-    kbd_padding_y = Em 0.111111;
-    kbd_padding_x = Em 0.333333;
+    kbd_padding_y = Em 0.222222;
+    kbd_padding_x = Em 0.444444;
     kbd_font_size = Em 0.888889;
+    kbd_border_radius = Rem 0.3125;
     code_font_size = Em 0.888889;
     h2_code_font_size = Em 0.866667;
     h3_code_font_size = Em 0.875;
-    pre_padding_y = Em 0.888889;
-    pre_padding_x = Em 1.33333;
+    pre_padding_y = Em 1.0;
+    pre_padding_x = Em 1.5;
     pre_border_radius = Rem 0.375;
-    pre_margin_top = Em 1.77778;
-    pre_margin_bottom = Em 1.77778;
+    pre_margin_top = Em 2.0;
+    pre_margin_bottom = Em 2.0;
     pre_font_size = Em 0.888889;
     pre_line_height = 1.75;
     list_margin_y = Em 1.33333;
-    list_padding_start = Em 1.66667;
+    list_padding_start = Em 1.55556;
     li_margin_y = Em 0.666667;
     li_padding_start = Em 0.444444;
     li_p_margin_y = Em 0.888889;
@@ -1491,16 +1477,16 @@ let lg_config =
     dl_margin_y = Em 1.33333;
     dt_margin_top = Em 1.33333;
     dd_margin_top = Em 0.666667;
-    dd_padding_start = Em 1.66667;
+    dd_padding_start = Em 1.55556;
     hr_margin_y = Em 3.11111;
     table_font_size = Em 0.888889;
     table_line_height = 1.5;
-    thead_th_padding_x = Em 0.888889;
-    thead_th_padding_bottom = Em 0.777778;
-    tbody_td_padding_y = Em 0.777778;
-    tbody_td_padding_x = Em 0.888889;
+    thead_th_padding_x = Em 0.75;
+    thead_th_padding_bottom = Em 0.75;
+    tbody_td_padding_y = Em 0.75;
+    tbody_td_padding_x = Em 0.75;
     figure_margin_y = Em 1.77778;
-    figcaption_margin_top = Em 0.888889;
+    figcaption_margin_top = Em 1.0;
     figcaption_font_size = Em 0.888889;
     figcaption_line_height = 1.5;
   }
@@ -1511,43 +1497,44 @@ let xl_config =
     base_font_size = Rem 1.25;
     base_line_height = 1.8;
     p_margin_y = Em 1.2;
-    lead_margin_top = Em 0.96;
-    lead_margin_bottom = Em 0.96;
+    lead_margin_top = Em 1.0;
+    lead_margin_bottom = Em 1.0;
     lead_font_size = Em 1.2;
     lead_line_height = 1.5;
     blockquote_margin_y = Em 1.6;
-    blockquote_padding_start = Em 1.0667;
+    blockquote_padding_start = Em 1.06667;
     h1_margin_top = Zero;
-    h1_margin_bottom = Em 0.8;
+    h1_margin_bottom = Em 0.857143;
     h1_font_size = Em 2.8;
     h1_line_height = 1.0;
-    h2_margin_top = Em 1.8;
-    h2_margin_bottom = Em 0.9;
+    h2_margin_top = Em 1.55556;
+    h2_margin_bottom = Em 0.888889;
     h2_font_size = Em 1.8;
-    h2_line_height = 1.33333;
+    h2_line_height = 1.11111;
     h3_margin_top = Em 1.6;
-    h3_margin_bottom = Em 0.6;
-    h3_font_size = Em 1.4;
-    h3_line_height = 1.42857;
+    h3_margin_bottom = Em 0.666667;
+    h3_font_size = Em 1.5;
+    h3_line_height = 1.33333;
     h4_margin_top = Em 1.8;
-    h4_margin_bottom = Em 0.4;
+    h4_margin_bottom = Em 0.6;
     h4_line_height = 1.6;
     img_margin_y = Em 2.0;
-    kbd_padding_y = Em 0.1;
-    kbd_padding_x = Em 0.3;
+    kbd_padding_y = Em 0.25;
+    kbd_padding_x = Em 0.4;
     kbd_font_size = Em 0.9;
+    kbd_border_radius = Rem 0.3125;
     code_font_size = Em 0.9;
-    h2_code_font_size = Em 0.855556;
-    h3_code_font_size = Em 0.857143;
-    pre_padding_y = Em 1.0;
-    pre_padding_x = Em 1.5;
+    h2_code_font_size = Em 0.861111;
+    h3_code_font_size = Em 0.9;
+    pre_padding_y = Em 1.11111;
+    pre_padding_x = Em 1.33333;
     pre_border_radius = Rem 0.5;
     pre_margin_top = Em 2.0;
     pre_margin_bottom = Em 2.0;
     pre_font_size = Em 0.9;
     pre_line_height = 1.77778;
     list_margin_y = Em 1.2;
-    list_padding_start = Em 1.8;
+    list_padding_start = Em 1.6;
     li_margin_y = Em 0.6;
     li_padding_start = Em 0.4;
     li_p_margin_y = Em 0.8;
@@ -1557,16 +1544,16 @@ let xl_config =
     dl_margin_y = Em 1.2;
     dt_margin_top = Em 1.2;
     dd_margin_top = Em 0.6;
-    dd_padding_start = Em 1.8;
-    hr_margin_y = Em 3.6;
+    dd_padding_start = Em 1.6;
+    hr_margin_y = Em 2.8;
     table_font_size = Em 0.9;
     table_line_height = 1.55556;
-    thead_th_padding_x = Em 0.8;
-    thead_th_padding_bottom = Em 0.8;
-    tbody_td_padding_y = Em 0.8;
-    tbody_td_padding_x = Em 0.8;
+    thead_th_padding_x = Em 0.666667;
+    thead_th_padding_bottom = Em 0.888889;
+    tbody_td_padding_y = Em 0.888889;
+    tbody_td_padding_x = Em 0.666667;
     figure_margin_y = Em 2.0;
-    figcaption_margin_top = Em 0.8;
+    figcaption_margin_top = Em 1.0;
     figcaption_font_size = Em 0.9;
     figcaption_line_height = 1.55556;
   }
@@ -1584,53 +1571,54 @@ let xl2_config =
     blockquote_margin_y = Em 1.77778;
     blockquote_padding_start = Em 1.11111;
     h1_margin_top = Zero;
-    h1_margin_bottom = Em 0.888889;
+    h1_margin_bottom = Em 0.875;
     h1_font_size = Em 2.66667;
     h1_line_height = 1.0;
-    h2_margin_top = Em 1.94444;
-    h2_margin_bottom = Em 1.11111;
+    h2_margin_top = Em 1.5;
+    h2_margin_bottom = Em 0.833333;
     h2_font_size = Em 2.0;
-    h2_line_height = 1.25;
-    h3_margin_top = Em 1.77778;
+    h2_line_height = 1.08333;
+    h3_margin_top = Em 1.55556;
     h3_margin_bottom = Em 0.666667;
     h3_font_size = Em 1.5;
-    h3_line_height = 1.33333;
+    h3_line_height = 1.22222;
     h4_margin_top = Em 1.66667;
     h4_margin_bottom = Em 0.666667;
     h4_line_height = 1.5;
     img_margin_y = Em 2.0;
-    kbd_padding_y = Em 0.0888889;
-    kbd_padding_x = Em 0.266667;
+    kbd_padding_y = Em 0.25;
+    kbd_padding_x = Em 0.333333;
     kbd_font_size = Em 0.833333;
+    kbd_border_radius = Rem 0.375;
     code_font_size = Em 0.833333;
     h2_code_font_size = Em 0.875;
     h3_code_font_size = Em 0.888889;
-    pre_padding_y = Em 1.11111;
-    pre_padding_x = Em 1.77778;
+    pre_padding_y = Em 1.2;
+    pre_padding_x = Em 1.6;
     pre_border_radius = Rem 0.5;
     pre_margin_top = Em 2.0;
     pre_margin_bottom = Em 2.0;
     pre_font_size = Em 0.833333;
     pre_line_height = 1.8;
     list_margin_y = Em 1.33333;
-    list_padding_start = Em 2.0;
+    list_padding_start = Em 1.58333;
     li_margin_y = Em 0.5;
-    li_padding_start = Em 0.5;
+    li_padding_start = Em 0.416667;
     li_p_margin_y = Em 0.833333;
     li_p_first_margin_top = Em 1.33333;
     li_p_last_margin_bottom = Em 1.33333;
-    nested_list_margin_y = Em 0.833333;
+    nested_list_margin_y = Em 0.666667;
     dl_margin_y = Em 1.33333;
     dt_margin_top = Em 1.33333;
     dd_margin_top = Em 0.5;
-    dd_padding_start = Em 2.0;
-    hr_margin_y = Em 3.33333;
+    dd_padding_start = Em 1.58333;
+    hr_margin_y = Em 3.0;
     table_font_size = Em 0.833333;
-    table_line_height = 1.6;
-    thead_th_padding_x = Em 0.888889;
-    thead_th_padding_bottom = Em 0.888889;
-    tbody_td_padding_y = Em 0.888889;
-    tbody_td_padding_x = Em 0.888889;
+    table_line_height = 1.4;
+    thead_th_padding_x = Em 0.6;
+    thead_th_padding_bottom = Em 0.8;
+    tbody_td_padding_y = Em 0.8;
+    tbody_td_padding_x = Em 0.6;
     figure_margin_y = Em 2.0;
     figcaption_margin_top = Em 1.0;
     figcaption_font_size = Em 0.833333;
