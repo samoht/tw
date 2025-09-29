@@ -26,97 +26,93 @@ let tailwind_files temp_dir classnames =
 let availability_result = ref None
 let tailwind_command = ref None
 
+let find_tailwindcss_command () =
+  (* First try native tailwindcss (much faster) *)
+  let native_check = Sys.command "which tailwindcss > /dev/null 2>&1" in
+  let use_npx = native_check <> 0 in
+
+  let cmd =
+    if use_npx then (
+      let npx_check = Sys.command "which npx > /dev/null 2>&1" in
+      if npx_check <> 0 then
+        failwith
+          "Test setup failed: neither tailwindcss nor npx found in PATH.\n\
+           Please install tailwindcss directly or install Node.js and npm.";
+      "npx tailwindcss")
+    else "tailwindcss"
+  in
+
+  if use_npx then
+    Fmt.epr
+      "Using npx tailwindcss (slower). For faster tests, install native \
+       tailwindcss.@.";
+  cmd
+
+let get_tailwindcss_version cmd =
+  (* Try --version first, fall back to --help if needed *)
+  let temp_file = Filename.temp_file "tw_version" ".txt" in
+  let version_cmd = cmd ^ " --version 2>/dev/null > " ^ temp_file in
+  let exit_code = Sys.command version_cmd in
+  let version_line, fallback_used =
+    if exit_code = 0 then (
+      let ic = open_in temp_file in
+      let line = input_line ic in
+      close_in ic;
+      (line, false))
+    else
+      let help_cmd = cmd ^ " --help 2>&1 | head -1 > " ^ temp_file in
+      let help_exit = Sys.command help_cmd in
+      if help_exit = 0 then (
+        let ic = open_in temp_file in
+        let line = input_line ic in
+        close_in ic;
+        (line, true))
+      else failwith "Failed to check tailwindcss version."
+  in
+  Sys.remove temp_file;
+  (version_line, fallback_used)
+
+let extract_version_number line =
+  (* Extract version number from strings like "tailwindcss v4.0.0" or "4.0.0" *)
+  let parts = String.split_on_char ' ' (String.trim line) in
+  let version_candidates =
+    List.filter
+      (fun s ->
+        let trimmed = String.trim s in
+        String.length trimmed > 0
+        && (Char.code trimmed.[0] >= Char.code '0'
+            && Char.code trimmed.[0] <= Char.code '9'
+           || String.length trimmed > 1
+              && trimmed.[0] = 'v'
+              && Char.code trimmed.[1] >= Char.code '0'
+              && Char.code trimmed.[1] <= Char.code '9'))
+      parts
+  in
+  match version_candidates with
+  | [] -> None
+  | v :: _ ->
+      let clean_v =
+        if String.length v > 0 && v.[0] = 'v' then
+          String.sub v 1 (String.length v - 1)
+        else v
+      in
+      Some clean_v
+
 let check_tailwindcss_available () =
   match !availability_result with
-  | Some (Ok ()) -> () (* Already checked and available *)
-  | Some (Error e) -> raise e (* Already checked and failed *)
+  | Some (Ok ()) -> ()
+  | Some (Error e) -> raise e
   | None -> (
       let result =
         try
-          (* First try native tailwindcss (much faster) *)
-          let native_check = Sys.command "which tailwindcss > /dev/null 2>&1" in
-          let use_npx = native_check <> 0 in
-
-          let cmd =
-            if use_npx then (
-              (* Fall back to npx if native not found *)
-              let npx_check = Sys.command "which npx > /dev/null 2>&1" in
-              if npx_check <> 0 then
-                failwith
-                  "Test setup failed: neither tailwindcss nor npx found in PATH.\n\
-                   Please install tailwindcss directly or install Node.js and \
-                   npm.";
-              "npx tailwindcss")
-            else "tailwindcss"
-          in
-
-          (* Store the command for future use *)
+          let cmd = find_tailwindcss_command () in
           tailwind_command := Some cmd;
 
-          (* Log which command we're using only if using npx (slower) *)
-          if use_npx then
-            Fmt.epr
-              "Using npx tailwindcss (slower). For faster tests, install \
-               native tailwindcss.@.";
-
-          (* Try --version first, fall back to --help if needed *)
-          let temp_file = Filename.temp_file "tw_version" ".txt" in
-          let version_cmd = cmd ^ " --version 2>/dev/null > " ^ temp_file in
-          let exit_code = Sys.command version_cmd in
-          let version_line, fallback_used =
-            if exit_code = 0 then (
-              let ic = open_in temp_file in
-              let line = input_line ic in
-              close_in ic;
-              (line, false))
-            else
-              (* Fall back to --help if --version not supported *)
-              let help_cmd = cmd ^ " --help 2>&1 | head -1 > " ^ temp_file in
-              let help_exit = Sys.command help_cmd in
-              if help_exit = 0 then (
-                let ic = open_in temp_file in
-                let line = input_line ic in
-                close_in ic;
-                (line, true))
-              else failwith "Failed to check tailwindcss version."
-          in
-          Sys.remove temp_file;
-
-          (* More robust version checking using proper version parsing *)
-          let extract_version_number line =
-            (* Extract version number from strings like "tailwindcss v4.0.0" or
-               "4.0.0" *)
-            let parts = String.split_on_char ' ' (String.trim line) in
-            let version_candidates =
-              List.filter
-                (fun s ->
-                  let trimmed = String.trim s in
-                  String.length trimmed > 0
-                  && (Char.code trimmed.[0] >= Char.code '0'
-                      && Char.code trimmed.[0] <= Char.code '9'
-                     || String.length trimmed > 1
-                        && trimmed.[0] = 'v'
-                        && Char.code trimmed.[1] >= Char.code '0'
-                        && Char.code trimmed.[1] <= Char.code '9'))
-                parts
-            in
-            match version_candidates with
-            | [] -> None
-            | v :: _ ->
-                let clean_v =
-                  if String.length v > 0 && v.[0] = 'v' then
-                    String.sub v 1 (String.length v - 1)
-                  else v
-                in
-                Some clean_v
-          in
+          let version_line, fallback_used = get_tailwindcss_version cmd in
 
           let is_v4 =
-            if fallback_used then
-              (* Less reliable check for --help output - just look for '4' *)
-              String.contains version_line '4'
+            if fallback_used then String.contains version_line '4'
             else
-              (* More reliable check for --version output *)
               match extract_version_number version_line with
               | Some version_num -> (
                   match String.split_on_char '.' version_num with
