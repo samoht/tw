@@ -50,9 +50,7 @@ let test_dispatching_to_string_diff () =
   let css_actual = ".a{color:red}" in
   match Cc.diff ~expected:css_expected ~actual:css_actual with
   | Cc.String_diff _ -> () (* Expected when only formatting differs *)
-  | Cc.No_diff -> () (* Also acceptable if parser normalizes *)
-  | Cc.Tree_diff d when Td.is_empty d -> () (* Acceptable fallback *)
-  | _ -> fail "Expected String_diff or No_diff for formatting differences"
+  | _ -> fail "Expected String_diff for formatting differences"
 
 let test_dispatching_no_diff () =
   let css = ".a{color:red}" in
@@ -83,8 +81,12 @@ let test_compare_function () =
   let css1 = ".a{color:red}" in
   let css2 = ".a{color:red}" in
   let css3 = ".a{color:blue}" in
+  let css4 = ".a { color : red }" in
+  (* formatting difference *)
   check bool "identical CSS should compare equal" true (Cc.compare css1 css2);
-  check bool "different CSS should compare unequal" false (Cc.compare css1 css3)
+  check bool "different CSS should compare unequal" false (Cc.compare css1 css3);
+  check bool "formatting differences should compare unequal" false
+    (Cc.compare css1 css4)
 
 let test_compare_with_parse_errors () =
   let valid_css = ".a{color:red}" in
@@ -138,11 +140,13 @@ let test_pp_stats_string_diff () =
 let test_pp_stats_no_diff () =
   let css = ".a{color:red}" in
   let diff_result = Cc.diff ~expected:css ~actual:css in
-  match diff_result with
-  | Cc.No_diff ->
-      check string "stats format" "CSS files are identical"
-        "CSS files are identical"
-  | _ -> fail "Expected No_diff for identical CSS"
+  let stats = Cc.stats ~expected_str:css ~actual_str:css diff_result in
+  (* For No_diff, all counts should be zero *)
+  check int "no added rules" 0 stats.added_rules;
+  check int "no removed rules" 0 stats.removed_rules;
+  check int "no modified rules" 0 stats.modified_rules;
+  check int "no reordered rules" 0 stats.reordered_rules;
+  check int "no container changes" 0 stats.container_changes
 
 let test_pp_stats_rule_types () =
   let css_expected = ".old{color:red}.same{margin:0;padding:0}" in
@@ -178,11 +182,98 @@ let test_property_added_only () =
       check string "selector" ".y" selector;
       check bool "has old declarations" true (List.length old_declarations > 0);
       check bool "has new declarations" true (List.length new_declarations > 0);
-      (* Note: property_changes might be empty if implementation doesn't track
-         individual property additions *)
       check bool "new has more declarations" true
         (List.length new_declarations > List.length old_declarations)
   | _ -> fail "Expected Rule_content_changed for property addition"
+
+let test_property_removed_only () =
+  let css_expected = ".y{color:red;padding:10px}" in
+  let css_actual = ".y{color:red}" in
+  let diff = tree_diff ~expected:css_expected ~actual:css_actual in
+  let rule = single_rule_diff diff in
+  (* Should detect as Rule_content_changed - test both rule type and detailed
+     structure *)
+  match rule with
+  | Td.Rule_content_changed { selector; old_declarations; new_declarations; _ }
+    ->
+      check string "selector" ".y" selector;
+      check bool "has old declarations" true (List.length old_declarations > 0);
+      check bool "has new declarations" true (List.length new_declarations > 0);
+      check bool "old has more declarations" true
+        (List.length old_declarations > List.length new_declarations)
+  | _ -> fail "Expected Rule_content_changed for property removal"
+
+let test_pp_stats_parse_errors () =
+  (* Test stats for parse error cases *)
+  let valid_css = ".a{color:red}" in
+  let invalid_css = ".a{color:}" in
+
+  (* Both errors case *)
+  let both_err = Cc.diff ~expected:invalid_css ~actual:invalid_css in
+  let stats_both =
+    Cc.stats ~expected_str:invalid_css ~actual_str:invalid_css both_err
+  in
+  check int "both errors - no rule changes" 0 stats_both.added_rules;
+  check int "both errors - expected chars counted"
+    (String.length invalid_css)
+    stats_both.expected_chars;
+  check int "both errors - actual chars counted"
+    (String.length invalid_css)
+    stats_both.actual_chars;
+
+  (* Expected error case *)
+  let exp_err = Cc.diff ~expected:invalid_css ~actual:valid_css in
+  let stats_exp =
+    Cc.stats ~expected_str:invalid_css ~actual_str:valid_css exp_err
+  in
+  check int "expected error - no rule changes" 0 stats_exp.added_rules;
+  check int "expected error - expected chars"
+    (String.length invalid_css)
+    stats_exp.expected_chars;
+  check int "expected error - actual chars" (String.length valid_css)
+    stats_exp.actual_chars;
+
+  (* Actual error case *)
+  let act_err = Cc.diff ~expected:valid_css ~actual:invalid_css in
+  let stats_act =
+    Cc.stats ~expected_str:valid_css ~actual_str:invalid_css act_err
+  in
+  check int "actual error - no rule changes" 0 stats_act.added_rules;
+  check int "actual error - expected chars" (String.length valid_css)
+    stats_act.expected_chars;
+  check int "actual error - actual chars"
+    (String.length invalid_css)
+    stats_act.actual_chars
+
+let test_pp_stats_containers () =
+  (* Test stats for container changes *)
+  let css_expected = "@media screen{.a{color:red}}" in
+  let css_actual = "@media print{.a{color:red}}" in
+  let diff_result = Cc.diff ~expected:css_expected ~actual:css_actual in
+  let stats =
+    Cc.stats ~expected_str:css_expected ~actual_str:css_actual diff_result
+  in
+  check bool "has container changes" true (stats.container_changes > 0)
+
+let test_pp_stats_combined_changes () =
+  (* Test stats with multiple types of changes *)
+  let css_expected =
+    ".old{color:red}@media screen{.x{margin:0}}.same{padding:0}"
+  in
+  let css_actual =
+    ".new{color:blue}@media print{.x{margin:0}}.same{padding:0}"
+  in
+  let diff_result = Cc.diff ~expected:css_expected ~actual:css_actual in
+  let stats =
+    Cc.stats ~expected_str:css_expected ~actual_str:css_actual diff_result
+  in
+  (* Should have added, removed, and container changes *)
+  check bool "has added rules" true (stats.added_rules > 0);
+  check bool "has removed rules" true (stats.removed_rules > 0);
+  check bool "has container changes" true (stats.container_changes > 0);
+  (* Format the stats to ensure it works *)
+  let stats_output = Fmt.str "%a" Cc.pp_stats stats in
+  check bool "stats output not empty" true (String.length stats_output > 0)
 
 let test_important_and_custom_props () =
   (* Importance difference should be detected *)
@@ -318,7 +409,6 @@ let test_selector_formatting_difference () =
   | Cc.String_diff _ ->
       ()
       (* Expected: CSS parser normalizes both to same AST, but strings differ *)
-  | Cc.No_diff -> fail "strings differ so should detect some difference"
   | Tree_diff _ ->
       fail
         "parser should normalize semantically equivalent selectors to same AST"
@@ -585,6 +675,7 @@ let test_selector_change_suppression () =
             {
               info = { container_type = `Layer; condition; rules = _ };
               rule_changes;
+              container_changes = _;
             } ->
             if String.equal condition "utilities" then Some rule_changes
             else None
@@ -883,7 +974,8 @@ let test_reordered_rules_within_layer () =
       let has_layer_with_reordering =
         List.exists
           (function
-            | Td.Container_modified { info; rule_changes }
+            | Td.Container_modified
+                { info; rule_changes; container_changes = _ }
               when info.container_type = `Layer ->
                 (* Check if any rules are marked as reordered *)
                 List.exists
@@ -1134,10 +1226,14 @@ let tests =
     test_case "pp_stats string diff" `Quick test_pp_stats_string_diff;
     test_case "pp_stats no diff" `Quick test_pp_stats_no_diff;
     test_case "pp_stats rule types" `Quick test_pp_stats_rule_types;
+    test_case "pp_stats parse errors" `Quick test_pp_stats_parse_errors;
+    test_case "pp_stats containers" `Quick test_pp_stats_containers;
+    test_case "pp_stats combined changes" `Quick test_pp_stats_combined_changes;
     test_case "added/removed/modified rules" `Quick
       test_rule_added_removed_modified;
     test_case "modified property value" `Quick test_property_value_modified;
     test_case "modified property added only" `Quick test_property_added_only;
+    test_case "modified property removed only" `Quick test_property_removed_only;
     test_case "media and layer diffs" `Quick test_media_and_layer_diffs;
     test_case "important and custom props" `Quick
       test_important_and_custom_props;

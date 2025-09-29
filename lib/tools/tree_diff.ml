@@ -36,6 +36,7 @@ type container_diff =
   | Container_modified of {
       info : container_info;
       rule_changes : rule_diff list;
+      container_changes : container_diff list; (* Nested container changes *)
     }
 
 type t = { rules : rule_diff list; containers : container_diff list }
@@ -145,15 +146,26 @@ let get_meaningful_rules rules =
 let single_rule_diff (diff : t) =
   match diff.rules with [ rule ] -> Some rule | _ -> None
 
+let rec count_containers_in_list container_type containers =
+  List.fold_left
+    (fun count cont ->
+      let this_count =
+        match cont with
+        | Container_added { container_type = ct; _ }
+        | Container_removed { container_type = ct; _ } ->
+            if ct = container_type then 1 else 0
+        | Container_modified
+            { info = { container_type = ct; _ }; container_changes; _ } ->
+            let nested_count =
+              count_containers_in_list container_type container_changes
+            in
+            (if ct = container_type then 1 else 0) + nested_count
+      in
+      count + this_count)
+    0 containers
+
 let count_containers_by_type container_type (diff : t) =
-  List.length
-    (List.filter
-       (function
-         | Container_added { container_type = ct; _ }
-         | Container_removed { container_type = ct; _ }
-         | Container_modified { info = { container_type = ct; _ }; _ } ->
-             ct = container_type)
-       diff.containers)
+  count_containers_in_list container_type diff.containers
 
 let has_container_added_of_type container_type (diff : t) =
   List.exists
@@ -176,39 +188,50 @@ let container_prefix = function
   | `Container -> "@container"
   | `Property -> "@property"
 
-let pp_container_diff fmt = function
+let rec pp_container_diff ?(indent = 0) fmt = function
   | Container_added { container_type; condition; rules } ->
       let prefix = container_prefix container_type in
-      Fmt.pf fmt "- %s %s: (added)@," prefix condition;
+      let indent_str = String.make indent ' ' in
+      Fmt.pf fmt "%s- %s %s: (added)@," indent_str prefix condition;
       if rules <> [] then
         List.iter
           (fun stmt ->
             match Css.as_rule stmt with
             | Some (selector, _, _) ->
-                Fmt.pf fmt "  - %s: (added)@," (Css.Selector.to_string selector)
+                Fmt.pf fmt "%s  - %s: (added)@," indent_str
+                  (Css.Selector.to_string selector)
             | None -> ())
           rules
   | Container_removed { container_type; condition; rules } ->
       let prefix = container_prefix container_type in
-      Fmt.pf fmt "- %s %s: (removed)@," prefix condition;
+      let indent_str = String.make indent ' ' in
+      Fmt.pf fmt "%s- %s %s: (removed)@," indent_str prefix condition;
       if rules <> [] then
         List.iter
           (fun stmt ->
             match Css.as_rule stmt with
             | Some (selector, _, _) ->
-                Fmt.pf fmt "  - %s: (removed)@,"
+                Fmt.pf fmt "%s  - %s: (removed)@," indent_str
                   (Css.Selector.to_string selector)
             | None -> ())
           rules
   | Container_modified
-      { info = { container_type; condition; rules = _ }; rule_changes } ->
+      {
+        info = { container_type; condition; rules = _ };
+        rule_changes;
+        container_changes;
+      } ->
       let prefix = container_prefix container_type in
-      Fmt.pf fmt "- %s %s:@," prefix condition;
+      let indent_str = String.make indent ' ' in
+      Fmt.pf fmt "%s- %s %s:@," indent_str prefix condition;
+      (* Show rule changes at this level *)
       List.iter
         (fun rule_diff ->
-          Fmt.pf fmt "  ";
+          Fmt.pf fmt "%s  " indent_str;
           pp_rule_diff fmt rule_diff)
-        rule_changes
+        rule_changes;
+      (* Show nested container changes with increased indentation *)
+      List.iter (pp_container_diff ~indent:(indent + 2) fmt) container_changes
 
 let pp ?(expected = "Expected") ?(actual = "Actual") fmt { rules; containers } =
   if rules = [] && containers = [] then
@@ -234,7 +257,7 @@ let pp ?(expected = "Expected") ?(actual = "Actual") fmt { rules; containers } =
     List.iter (pp_rule_diff fmt) meaningful_rules;
 
     (* Show container differences *)
-    List.iter (pp_container_diff fmt) containers;
+    List.iter (pp_container_diff ~indent:0 fmt) containers;
     Fmt.pf fmt "@]")
 
 (* ===== Tree Diff Computation Functions ===== *)
@@ -263,7 +286,13 @@ let decls_signature (decls : Css.declaration list) =
   List.map decl_to_prop_value decls |> List.sort compare
 
 (* Normalize a selector string by sorting comma-separated selector items. This
-   ensures we consider ".a,.b" equivalent to ".b,.a" when matching. *)
+   ensures we consider ".a,.b" equivalent to ".b,.a" when matching.
+
+   Policy: Selector lists with the same items in different orders are considered
+   equivalent for matching purposes. This means: - ".a, .b" and ".b, .a" will
+   match as the same selector - Reordering within a list is not considered a
+   structural change - This prevents false positives when CSS tools reorder
+   selector lists *)
 let normalize_selector_string s =
   s |> String.split_on_char ',' |> List.map String.trim
   |> List.filter (fun x -> x <> "")
@@ -707,18 +736,45 @@ let handle_structural_diff rules1 rules2 =
 
 let rule_diffs rules1 rules2 = handle_structural_diff rules1 rules2
 
-(* Helper function to compute property diffs between two declaration lists *)
-let properties_diff decls1 decls2 : declaration list =
+(* Helper function to compute property diffs between two declaration lists,
+   including added and removed properties *)
+let properties_diff decls1 decls2 : declaration list * string list * string list
+    =
   let props1 = List.map decl_to_prop_value decls1 in
   let props2 = List.map decl_to_prop_value decls2 in
-  List.fold_left
-    (fun acc (p1, v1) ->
-      match List.assoc_opt p1 props2 with
-      | Some v2 when v1 <> v2 ->
-          { property_name = p1; expected_value = v1; actual_value = v2 } :: acc
-      | _ -> acc)
-    [] props1
-  |> List.rev
+
+  (* Find modified properties *)
+  let modified =
+    List.fold_left
+      (fun acc (p1, v1) ->
+        match List.assoc_opt p1 props2 with
+        | Some v2 when v1 <> v2 ->
+            { property_name = p1; expected_value = v1; actual_value = v2 }
+            :: acc
+        | _ -> acc)
+      [] props1
+    |> List.rev
+  in
+
+  (* Find added properties (in actual but not in expected) *)
+  let added =
+    List.fold_left
+      (fun acc (p2, _v2) ->
+        if not (List.mem_assoc p2 props1) then p2 :: acc else acc)
+      [] props2
+    |> List.rev
+  in
+
+  (* Find removed properties (in expected but not in actual) *)
+  let removed =
+    List.fold_left
+      (fun acc (p1, _v1) ->
+        if not (List.mem_assoc p1 props2) then p1 :: acc else acc)
+      [] props1
+    |> List.rev
+  in
+
+  (modified, added, removed)
 
 (* Helper functions for converting rule changes - moved here for mutual
    recursion *)
@@ -747,7 +803,9 @@ let convert_modified_rule (sel1, sel2, decls1, decls2) =
   else
     (* Check if it's just property reordering (same properties, different
        order) *)
-    let property_changes = properties_diff decls1 decls2 in
+    let property_changes, _added_props, _removed_props =
+      properties_diff decls1 decls2
+    in
     if property_changes = [] && decls_signature decls1 = decls_signature decls2
     then
       (* Properties are the same but reordered *)
@@ -826,17 +884,19 @@ and process_nested_containers ~container_type ~extract_fn ~diff_fn ~depth stmts1
   List.iter
     (fun (cond, rules1, rules2) ->
       let rule_changes = to_rule_changes rules1 rules2 in
-      if rule_changes <> [] then
+      (* Recursively check deeper nesting *)
+      let nested_containers =
+        find_nested_differences ~depth:(depth + 1) rules1 rules2
+      in
+      if rule_changes <> [] || nested_containers <> [] then
         diffs :=
           Container_modified
             {
               info = { container_type; condition = cond; rules = rules1 };
               rule_changes;
+              container_changes = nested_containers;
             }
-          :: !diffs;
-      (* Recursively check deeper nesting *)
-      let deeper = find_nested_differences ~depth:(depth + 1) rules1 rules2 in
-      diffs := deeper @ !diffs)
+          :: !diffs)
     modified;
 
   !diffs
@@ -902,17 +962,19 @@ and process_nested_layers ~depth stmts1 stmts2 =
   List.iter
     (fun (name, rules1, rules2) ->
       let rule_changes = to_rule_changes rules1 rules2 in
-      if rule_changes <> [] then
+      let nested_containers =
+        find_nested_differences ~depth:(depth + 1) rules1 rules2
+      in
+      if rule_changes <> [] || nested_containers <> [] then
         diffs :=
           Container_modified
             {
               info =
                 { container_type = `Layer; condition = name; rules = rules1 };
               rule_changes;
+              container_changes = nested_containers;
             }
-          :: !diffs;
-      let deeper = find_nested_differences ~depth:(depth + 1) rules1 rules2 in
-      diffs := deeper @ !diffs)
+          :: !diffs)
     modified;
 
   !diffs
@@ -1029,16 +1091,18 @@ and process_nested_containers_with_name ~depth stmts1 stmts2 =
   List.iter
     (fun (condition, rules1, rules2) ->
       let rule_changes = to_rule_changes rules1 rules2 in
-      if rule_changes <> [] then
+      let nested_containers =
+        find_nested_differences ~depth:(depth + 1) rules1 rules2
+      in
+      if rule_changes <> [] || nested_containers <> [] then
         diffs :=
           Container_modified
             {
               info = { container_type = `Container; condition; rules = rules1 };
               rule_changes;
+              container_changes = nested_containers;
             }
-          :: !diffs;
-      let deeper = find_nested_differences ~depth:(depth + 1) rules1 rules2 in
-      diffs := deeper @ !diffs)
+          :: !diffs)
     modified;
 
   !diffs
@@ -1069,6 +1133,9 @@ and process_nested_properties ~depth stmts1 stmts2 =
   List.iter
     (fun (name, rules1, rules2) ->
       let rule_changes = to_rule_changes rules1 rules2 in
+      let nested_containers =
+        find_nested_differences ~depth:(depth + 1) rules1 rules2
+      in
       (* For @property, always create Container_modified even with empty
          rule_changes since the modification is in the @property declaration
          itself, not in nested rules *)
@@ -1078,10 +1145,9 @@ and process_nested_properties ~depth stmts1 stmts2 =
             info =
               { container_type = `Property; condition = name; rules = rules1 };
             rule_changes;
+            container_changes = nested_containers;
           }
-        :: !diffs;
-      let deeper = find_nested_differences ~depth:(depth + 1) rules1 rules2 in
-      diffs := deeper @ !diffs)
+        :: !diffs)
     modified;
 
   !diffs
@@ -1161,6 +1227,8 @@ and process_nested_keyframes ~depth:_ stmts1 stmts2 =
                   rules = [];
                 };
               rule_changes = frame_diffs;
+              container_changes = [];
+              (* Keyframes don't have nested containers *)
             }
           :: !diffs)
     modified;
@@ -1275,7 +1343,10 @@ and process_font_face_rules ~depth:_ stmts1 stmts2 =
                   condition = "@font-face";
                   rules = [];
                 };
-              rule_changes = [] (* Font-face descriptors are not rules *);
+              rule_changes = [];
+              (* Font-face descriptors are not rules *)
+              container_changes = [];
+              (* Font-face doesn't have nested containers *)
             }
           :: !diffs;
       !diffs

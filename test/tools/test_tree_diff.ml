@@ -59,6 +59,7 @@ let sample_container_modified =
           rules = [];
         };
       rule_changes = [ sample_rule_content_changed ];
+      container_changes = [];
     }
 
 let css_tree_diff ~expected ~actual =
@@ -157,7 +158,7 @@ let test_container_removed_structure () =
 
 let test_container_modified_structure () =
   match sample_container_modified with
-  | Td.Container_modified { info; rule_changes } ->
+  | Td.Container_modified { info; rule_changes; container_changes = _ } ->
       check bool "should be Supports type" true (info.container_type = `Supports);
       check string "condition should match" "(display: grid)" info.condition;
       check int "should have rule changes" 1 (List.length rule_changes)
@@ -272,6 +273,7 @@ let test_nested_rule_changes () =
             sample_rule_content_changed;
             sample_rule_reordered;
           ];
+        container_changes = [];
       }
   in
 
@@ -449,9 +451,10 @@ let test_nested_layer_in_media () =
   let css_actual = "@media screen{@layer utilities{.b{padding:0}}}" in
   let diff = css_tree_diff ~expected:css_expected ~actual:css_actual in
   check bool "should not be empty" false (Td.is_empty diff);
-  (* Nested layer changes are reported as separate containers due to type
-     limitations *)
-  check int "should have container changes" 2 (List.length diff.containers)
+  (* With nested containers, we now have one media container with nested layer
+     changes *)
+  check int "should have one top-level container" 1
+    (List.length diff.containers)
 
 let test_nested_supports_in_layer () =
   let css_expected =
@@ -485,8 +488,9 @@ let test_mixed_nested_changes () =
   in
   let diff = css_tree_diff ~expected:css_expected ~actual:css_actual in
   check bool "should not be empty" false (Td.is_empty diff);
-  (* Nested changes report both the parent container and nested containers *)
-  check int "should detect changes in mixed nested content" 2
+  (* With proper nesting, we have one media container with nested layer
+     inside *)
+  check int "should have one top-level container" 1
     (List.length diff.containers)
 
 let test_property_modification_detection () =
@@ -519,19 +523,54 @@ let test_keyframes_frame_add_remove () =
     "@keyframes slide{0%{left:0}50%{left:50px}100%{left:100px}}"
   in
   let diff = css_tree_diff ~expected:css_expected ~actual:css_actual in
-  check bool "should detect keyframe changes" false (Td.is_empty diff)
+  check bool "should detect keyframe changes" false (Td.is_empty diff);
+  (* Verify it's detected as a Container_modified with keyframes type *)
+  check int "should have container changes" 1 (List.length diff.containers);
+  match List.hd diff.containers with
+  | Td.Container_modified
+      { info = { container_type = `Layer; condition; _ }; _ } ->
+      check bool "should have @keyframes prefix" true
+        (String.starts_with ~prefix:"@keyframes" condition)
+  | _ -> fail "Expected Container_modified for keyframes"
 
 let test_keyframes_rename () =
   let css_expected = "@keyframes slideIn{from{left:0}to{left:100px}}" in
   let css_actual = "@keyframes slideOut{from{left:0}to{left:100px}}" in
   let diff = css_tree_diff ~expected:css_expected ~actual:css_actual in
-  check bool "should detect keyframe rename" false (Td.is_empty diff)
+  check bool "should detect keyframe rename" false (Td.is_empty diff);
+  (* Should detect as removed + added containers *)
+  check int "should have 2 container changes" 2 (List.length diff.containers);
+  let has_removed =
+    List.exists
+      (function
+        | Td.Container_removed { condition; _ } ->
+            String.starts_with ~prefix:"@keyframes slideIn" condition
+        | _ -> false)
+      diff.containers
+  in
+  let has_added =
+    List.exists
+      (function
+        | Td.Container_added { condition; _ } ->
+            String.starts_with ~prefix:"@keyframes slideOut" condition
+        | _ -> false)
+      diff.containers
+  in
+  check bool "should have removed slideIn" true has_removed;
+  check bool "should have added slideOut" true has_added
 
 let test_font_face_changes () =
   let css_expected = "@font-face{font-family:MyFont;src:url(font.woff2)}" in
   let css_actual = "@font-face{font-family:MyFont;src:url(font-v2.woff2)}" in
   let diff = css_tree_diff ~expected:css_expected ~actual:css_actual in
-  check bool "should detect font-face changes" false (Td.is_empty diff)
+  check bool "should detect font-face changes" false (Td.is_empty diff);
+  (* Verify it's detected as a Container_modified with font-face type *)
+  check int "should have container changes" 1 (List.length diff.containers);
+  match List.hd diff.containers with
+  | Td.Container_modified
+      { info = { container_type = `Layer; condition = "@font-face"; _ }; _ } ->
+      () (* Expected *)
+  | _ -> fail "Expected Container_modified for @font-face"
 
 let test_vendor_prefixes () =
   let css_expected =
