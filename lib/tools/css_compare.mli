@@ -50,14 +50,9 @@ val as_tree_diff : t -> Tree_diff.t option
     [None] for other result types. *)
 
 val pp : ?expected:string -> ?actual:string -> t Fmt.t
-(** [pp_diff_result ?expected ?actual ?expected_str ?actual_str] formats a
-    diff_result with optional labels and original strings for context display.
+(** [pp ?expected ?actual] formats a diff_result with optional labels.
     @param expected Label for expected CSS (default: "Expected").
-    @param actual Label for actual CSS (default: "Actual").
-    @param expected_str
-      Original expected string for showing context when no structural diffs
-    @param actual_str
-      Original actual string for showing context when no structural diffs *)
+    @param actual Label for actual CSS (default: "Actual"). *)
 
 type stats = {
   expected : string;
@@ -77,7 +72,8 @@ val compute_stats : expected_str:string -> actual_str:string -> t -> stats
     from a diff result. Returns counts of different types of changes. *)
 
 val stats : expected_str:string -> actual_str:string -> t -> stats
-(** Alias for [compute_stats]. *)
+(** [stats ~expected_str ~actual_str result] computes statistics from a diff
+    result (alias for [compute_stats]). *)
 
 val pp_stats : stats Fmt.t
 (** [pp_stats] formats a stats record. *)

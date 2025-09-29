@@ -599,7 +599,7 @@ let test_large_diff_structure () =
     List.init 5 (fun i ->
         Td.Rule_added
           {
-            selector = Printf.sprintf ".rule-%d" i;
+            selector = Fmt.str ".rule-%d" i;
             declarations = sample_declarations;
           })
   in
@@ -608,7 +608,7 @@ let test_large_diff_structure () =
         Td.Container_added
           {
             container_type = `Media;
-            condition = Printf.sprintf "(min-width: %dpx)" ((i * 200) + 400);
+            condition = Fmt.str "(min-width: %dpx)" ((i * 200) + 400);
             rules = [];
           })
   in

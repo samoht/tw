@@ -1,7 +1,8 @@
 (** String difference analysis and formatting. *)
 
 val default_max_width : int
-(** Default maximum width for formatted output (60 characters). *)
+(** [default_max_width] is the default maximum width for formatted output (60
+    characters). *)
 
 type config = {
   max_width : int;  (** Maximum display width. *)

@@ -192,38 +192,29 @@ let pp_stats fmt stats =
   Fmt.pf fmt "@[<v>CSS: %d chars vs %d chars (%.1f%% diff)@," stats.actual_chars
     stats.expected_chars char_diff_pct;
 
-  (* Build a list of non-zero changes *)
-  let changes = [] in
-  let changes =
-    if stats.added_rules > 0 then
-      let rules = if stats.added_rules = 1 then "rule" else "rules" in
-      Printf.sprintf "%d added %s" stats.added_rules rules :: changes
+  (* Helper to add change description if count > 0 *)
+  let add_change count action singular changes =
+    if count > 0 then
+      Fmt.str "%d %s %s" count action
+        (if count = 1 then singular else singular ^ "s")
+      :: changes
     else changes
   in
-  let changes =
-    if stats.removed_rules > 0 then
-      let rules = if stats.removed_rules = 1 then "rule" else "rules" in
-      Printf.sprintf "%d removed %s" stats.removed_rules rules :: changes
-    else changes
-  in
-  let changes =
-    if stats.modified_rules > 0 then
-      let rules = if stats.modified_rules = 1 then "rule" else "rules" in
-      Printf.sprintf "%d modified %s" stats.modified_rules rules :: changes
-    else changes
-  in
-  let changes =
-    if stats.reordered_rules > 0 then
-      let rules = if stats.reordered_rules = 1 then "rule" else "rules" in
-      Printf.sprintf "%d reordered %s" stats.reordered_rules rules :: changes
-    else changes
-  in
-  let changes = List.rev changes in
 
-  (* Also check for container changes *)
+  (* Build list of non-zero changes *)
+  let changes =
+    []
+    |> add_change stats.added_rules "added" "rule"
+    |> add_change stats.removed_rules "removed" "rule"
+    |> add_change stats.modified_rules "modified" "rule"
+    |> add_change stats.reordered_rules "reordered" "rule"
+    |> List.rev
+  in
+
+  (* Add container changes *)
   let container_changes =
     if stats.container_changes > 0 then
-      [ Printf.sprintf "%d containers" stats.container_changes ]
+      [ Fmt.str "%d containers" stats.container_changes ]
     else []
   in
   let all_changes = changes @ container_changes in
