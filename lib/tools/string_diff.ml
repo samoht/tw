@@ -39,11 +39,13 @@ let rec zip_with_empty l1 l2 =
 
 (* ===== Core Functions ===== *)
 
+let check_at_end len1 len2 = if len1 <> len2 then Some len1 else None
+
 let first_diff_pos s1 s2 =
   let len1 = String.length s1 in
   let len2 = String.length s2 in
   let rec find i =
-    if i >= len1 || i >= len2 then if len1 = len2 then None else Some i
+    if i >= len1 || i >= len2 then check_at_end (min len1 len2) (max len1 len2)
     else if s1.[i] <> s2.[i] then Some i
     else find (i + 1)
   in
