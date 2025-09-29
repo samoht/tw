@@ -139,7 +139,7 @@ let pp_rule_diff_simple fmt = function
       Fmt.pf fmt "SelectorChanged(%s->%s)" old_selector new_selector
   | Rule_reordered { selector } -> Fmt.pf fmt "Reordered(%s)" selector
 
-let get_meaningful_rules rules =
+let meaningful_rules rules =
   List.filter (function Rule_reordered _ -> false | _ -> true) rules
 
 (** Query functions *)
@@ -245,7 +245,7 @@ let pp ?(expected = "Expected") ?(actual = "Actual") fmt { rules; containers } =
     Fmt.pf fmt "--- %s@," expected;
     Fmt.pf fmt "+++ %s@," actual;
     Fmt.pf fmt "@[<v>";
-    let meaningful_rules = get_meaningful_rules rules in
+    let meaningful = meaningful_rules rules in
     let reordered_rules =
       List.filter (function Rule_reordered _ -> true | _ -> false) rules
     in
@@ -254,7 +254,7 @@ let pp ?(expected = "Expected") ?(actual = "Actual") fmt { rules; containers } =
       Fmt.pf fmt "Rules reordered (%d rules):@," (List.length reordered_rules);
 
     (* Show the actual differences *)
-    List.iter (pp_rule_diff fmt) meaningful_rules;
+    List.iter (pp_rule_diff fmt) meaningful;
 
     (* Show container differences *)
     List.iter (pp_container_diff ~indent:0 fmt) containers;
@@ -298,7 +298,7 @@ let normalize_selector_string s =
   |> List.filter (fun x -> x <> "")
   |> List.sort String.compare |> String.concat ","
 
-let get_rule_selector stmt =
+let rule_selector stmt =
   match Css.statement_selector stmt with
   | Some s -> s
   | None -> Css.Selector.universal
@@ -306,15 +306,14 @@ let get_rule_selector stmt =
 let selector_key_of_selector sel =
   Css.Selector.to_string sel |> normalize_selector_string
 
-let selector_key_of_stmt stmt =
-  selector_key_of_selector (get_rule_selector stmt)
+let selector_key_of_stmt stmt = selector_key_of_selector (rule_selector stmt)
 
-let get_rule_declarations stmt =
+let rule_declarations stmt =
   match Css.statement_declarations stmt with Some d -> d | None -> []
 
 (* Generic helper for finding added/removed/modified items between two lists.
    Works with any item type that has a key for comparison. *)
-let find_diffs ~(key_of : 'item -> 'key) ~(key_equal : 'key -> 'key -> bool)
+let diffs ~(key_of : 'item -> 'key) ~(key_equal : 'key -> 'key -> bool)
     ~(is_empty_diff : 'item -> 'item -> bool) items1 items2 =
   let find_by_key key items =
     List.find_opt (fun item -> key_equal (key_of item) key) items
@@ -352,7 +351,7 @@ let rules_added_diff rules1 rules2 =
   let key_equal = String.equal in
   let is_empty_diff _ _ = true in
   let added, _removed, _modified =
-    find_diffs ~key_of ~key_equal ~is_empty_diff rules1 rules2
+    diffs ~key_of ~key_equal ~is_empty_diff rules1 rules2
   in
   added
 
@@ -361,7 +360,7 @@ let rules_removed_diff rules1 rules2 =
   let key_equal = String.equal in
   let is_empty_diff _ _ = true in
   let _added, removed, _modified =
-    find_diffs ~key_of ~key_equal ~is_empty_diff rules1 rules2
+    diffs ~key_of ~key_equal ~is_empty_diff rules1 rules2
   in
   removed
 
@@ -374,7 +373,7 @@ let rules_modified_diff rules1 rules2 =
   List.iter
     (fun r ->
       let key = selector_key_of_stmt r in
-      let decls = get_rule_declarations r in
+      let decls = rule_declarations r in
       let props = decls_signature decls in
 
       (* Add to key-based lookup (multiple rules can have same key) *)
@@ -397,7 +396,7 @@ let rules_modified_diff rules1 rules2 =
     | [] -> List.rev acc
     | r1 :: t1 ->
         let key1 = selector_key_of_stmt r1 in
-        let d1 = get_rule_declarations r1 in
+        let d1 = rule_declarations r1 in
         let props1 = decls_signature d1 in
 
         (* Try exact match by key and declarations first *)
@@ -407,7 +406,7 @@ let rules_modified_diff rules1 rules2 =
           in
           List.find_opt
             (fun r ->
-              (not (Hashtbl.mem used_rules r)) && get_rule_declarations r = d1)
+              (not (Hashtbl.mem used_rules r)) && rule_declarations r = d1)
             candidates
         in
 
@@ -415,8 +414,8 @@ let rules_modified_diff rules1 rules2 =
           match exact_match with
           | Some exact ->
               Hashtbl.replace used_rules exact ();
-              let sel1 = get_rule_selector r1 in
-              let sel2 = get_rule_selector exact in
+              let sel1 = rule_selector r1 in
+              let sel2 = rule_selector exact in
               let sel1_str = Css.Selector.to_string sel1 in
               let sel2_str = Css.Selector.to_string sel2 in
               if sel1_str <> sel2_str then Some (sel1, sel2, d1, d1) else None
@@ -433,8 +432,8 @@ let rules_modified_diff rules1 rules2 =
               match same_key_match with
               | Some r2 ->
                   Hashtbl.replace used_rules r2 ();
-                  let d2 = get_rule_declarations r2 in
-                  Some (get_rule_selector r1, get_rule_selector r2, d1, d2)
+                  let d2 = rule_declarations r2 in
+                  Some (rule_selector r1, rule_selector r2, d1, d2)
               | None -> (
                   (* Fallback: find equivalent rule by properties, but only if
                      selectors share a parent *)
@@ -457,24 +456,22 @@ let rules_modified_diff rules1 rules2 =
                         List.rev p1_rest = List.rev p2_rest && p1_rest <> []
                     | _ -> false
                   in
-                  let sel1_str =
-                    Css.Selector.to_string (get_rule_selector r1)
-                  in
+                  let sel1_str = Css.Selector.to_string (rule_selector r1) in
                   match
                     List.find_opt
                       (fun r ->
                         if Hashtbl.mem used_rules r then false
                         else
                           let sel2_str =
-                            Css.Selector.to_string (get_rule_selector r)
+                            Css.Selector.to_string (rule_selector r)
                           in
                           share_parent sel1_str sel2_str)
                       candidates
                   with
                   | Some r2 ->
                       Hashtbl.replace used_rules r2 ();
-                      let d2 = get_rule_declarations r2 in
-                      Some (get_rule_selector r1, get_rule_selector r2, d1, d2)
+                      let d2 = rule_declarations r2 in
+                      Some (rule_selector r1, rule_selector r2, d1, d2)
                   | None -> None))
         in
 
@@ -524,13 +521,13 @@ let has_same_selectors rules1 rules2 =
       true
     with Exit -> false
 
-let create_ordering_diff rules1 rules2 =
+let ordering_diff rules1 rules2 =
   (* Create maps from selector to declarations for both rule lists *)
   let map1 =
     List.fold_left
       (fun acc rule ->
-        let sel = get_rule_selector rule in
-        let decls = get_rule_declarations rule in
+        let sel = rule_selector rule in
+        let decls = rule_declarations rule in
         (sel, decls) :: acc)
       [] rules1
     |> List.rev
@@ -538,8 +535,8 @@ let create_ordering_diff rules1 rules2 =
   let map2 =
     List.fold_left
       (fun acc rule ->
-        let sel = get_rule_selector rule in
-        let decls = get_rule_declarations rule in
+        let sel = rule_selector rule in
+        let decls = rule_declarations rule in
         (sel, decls) :: acc)
       [] rules2
     |> List.rev
@@ -608,7 +605,7 @@ let create_ordering_diff rules1 rules2 =
   find_ordering_issues [] map1 map2
 
 (* no-op: pure rule ordering is handled in handle_structural_diff via
-   has_ordering_changes/create_ordering_diff *)
+   has_ordering_changes/ordering_diff *)
 
 let handle_structural_diff rules1 rules2 =
   (* First, detect selector changes with parent context matching *)
@@ -651,8 +648,8 @@ let handle_structural_diff rules1 rules2 =
   (* Try to match removed rules with added rules for selector changes *)
   List.iter
     (fun removed_rule ->
-      let removed_sel = get_rule_selector removed_rule in
-      let removed_decls = get_rule_declarations removed_rule in
+      let removed_sel = rule_selector removed_rule in
+      let removed_decls = rule_declarations removed_rule in
       let removed_props = decls_signature removed_decls in
 
       (* Look for a matching added rule with same properties but different
@@ -660,8 +657,8 @@ let handle_structural_diff rules1 rules2 =
       let matching_added =
         List.find_opt
           (fun added_rule ->
-            let added_sel = get_rule_selector added_rule in
-            let added_decls = get_rule_declarations added_rule in
+            let added_sel = rule_selector added_rule in
+            let added_decls = rule_declarations added_rule in
             let added_props = decls_signature added_decls in
 
             (* Same properties but different selectors that share parent
@@ -674,7 +671,7 @@ let handle_structural_diff rules1 rules2 =
 
       match matching_added with
       | Some added_rule ->
-          let added_sel = get_rule_selector added_rule in
+          let added_sel = rule_selector added_rule in
 
           (* Record this as a selector change *)
           selector_changes :=
@@ -728,7 +725,7 @@ let handle_structural_diff rules1 rules2 =
   in
 
   let modified_with_order =
-    if has_ordering_changes then create_ordering_diff rules1 rules2 @ modified
+    if has_ordering_changes then ordering_diff rules1 rules2 @ modified
     else modified
   in
 
@@ -840,11 +837,11 @@ let rec media_diff items1 items2 =
     if has_immediate_diffs then false
     else
       (* Also check for nested differences *)
-      let nested_diffs = find_nested_differences ~depth:1 rules1 rules2 in
+      let nested_diffs = nested_differences ~depth:1 rules1 rules2 in
       nested_diffs = []
   in
   let added, removed, modified_pairs =
-    find_diffs ~key_of ~key_equal ~is_empty_diff items1 items2
+    diffs ~key_of ~key_equal ~is_empty_diff items1 items2
   in
 
   (* Transform to expected format *)
@@ -886,7 +883,7 @@ and process_nested_containers ~container_type ~extract_fn ~diff_fn ~depth stmts1
       let rule_changes = to_rule_changes rules1 rules2 in
       (* Recursively check deeper nesting *)
       let nested_containers =
-        find_nested_differences ~depth:(depth + 1) rules1 rules2
+        nested_differences ~depth:(depth + 1) rules1 rules2
       in
       if rule_changes <> [] || nested_containers <> [] then
         diffs :=
@@ -911,11 +908,11 @@ and layer_diff items1 items2 =
     if has_immediate_diffs then false
     else
       (* Also check for nested differences *)
-      let nested_diffs = find_nested_differences ~depth:1 rules1 rules2 in
+      let nested_diffs = nested_differences ~depth:1 rules1 rules2 in
       nested_diffs = []
   in
   let added, removed, modified_pairs =
-    find_diffs ~key_of ~key_equal ~is_empty_diff items1 items2
+    diffs ~key_of ~key_equal ~is_empty_diff items1 items2
   in
   (* Transform to consistent format with media_diff *)
   let added =
@@ -963,7 +960,7 @@ and process_nested_layers ~depth stmts1 stmts2 =
     (fun (name, rules1, rules2) ->
       let rule_changes = to_rule_changes rules1 rules2 in
       let nested_containers =
-        find_nested_differences ~depth:(depth + 1) rules1 rules2
+        nested_differences ~depth:(depth + 1) rules1 rules2
       in
       if rule_changes <> [] || nested_containers <> [] then
         diffs :=
@@ -994,11 +991,11 @@ and container_diff items1 items2 =
     if has_immediate_diffs then false
     else
       (* Also check for nested differences *)
-      let nested_diffs = find_nested_differences ~depth:1 rules1 rules2 in
+      let nested_diffs = nested_differences ~depth:1 rules1 rules2 in
       nested_diffs = []
   in
   let added, removed, modified_pairs =
-    find_diffs ~key_of ~key_equal ~is_empty_diff items1 items2
+    diffs ~key_of ~key_equal ~is_empty_diff items1 items2
   in
   (* Transform to consistent format with media_diff *)
   let added =
@@ -1050,7 +1047,7 @@ and property_diff items1 items2 =
        types *)
   in
   let added, removed, modified_pairs =
-    find_diffs ~key_of ~key_equal ~is_empty_diff items1 items2
+    diffs ~key_of ~key_equal ~is_empty_diff items1 items2
   in
   (* Transform to format compatible with container processing *)
   let added =
@@ -1092,7 +1089,7 @@ and process_nested_containers_with_name ~depth stmts1 stmts2 =
     (fun (condition, rules1, rules2) ->
       let rule_changes = to_rule_changes rules1 rules2 in
       let nested_containers =
-        find_nested_differences ~depth:(depth + 1) rules1 rules2
+        nested_differences ~depth:(depth + 1) rules1 rules2
       in
       if rule_changes <> [] || nested_containers <> [] then
         diffs :=
@@ -1134,7 +1131,7 @@ and process_nested_properties ~depth stmts1 stmts2 =
     (fun (name, rules1, rules2) ->
       let rule_changes = to_rule_changes rules1 rules2 in
       let nested_containers =
-        find_nested_differences ~depth:(depth + 1) rules1 rules2
+        nested_differences ~depth:(depth + 1) rules1 rules2
       in
       (* For @property, always create Container_modified even with empty
          rule_changes since the modification is in the @property declaration
@@ -1153,7 +1150,7 @@ and process_nested_properties ~depth stmts1 stmts2 =
   !diffs
 
 (* Main recursive function for nested differences *)
-and find_nested_differences ?(depth = 0) (stmts1 : Css.statement list)
+and nested_differences ?(depth = 0) (stmts1 : Css.statement list)
     (stmts2 : Css.statement list) : container_diff list =
   if depth > 3 then [] (* Prevent infinite recursion *)
   else
@@ -1245,7 +1242,7 @@ and keyframe_frames_diff frames1 frames2 =
     && f1.keyframe_declarations = f2.keyframe_declarations
   in
   let added, removed, modified_pairs =
-    find_diffs ~key_of ~key_equal ~is_empty_diff frames1 frames2
+    diffs ~key_of ~key_equal ~is_empty_diff frames1 frames2
   in
 
   (* Convert frame changes to rule_diff format *)
@@ -1304,7 +1301,7 @@ and keyframes_diff items1 items2 =
   let is_empty_diff (name1, frames1) (name2, frames2) =
     name1 = name2 && frames1 = frames2
   in
-  find_diffs ~key_of ~key_equal ~is_empty_diff items1 items2
+  diffs ~key_of ~key_equal ~is_empty_diff items1 items2
 
 (* Process font-face rules *)
 and process_font_face_rules ~depth:_ stmts1 stmts2 =
@@ -1367,7 +1364,7 @@ let diff ~(expected : Css.t) ~(actual : Css.t) : t =
   let containers =
     let stmts1 = Css.statements expected in
     let stmts2 = Css.statements actual in
-    find_nested_differences ~depth:0 stmts1 stmts2
+    nested_differences ~depth:0 stmts1 stmts2
   in
 
   { rules = rule_changes; containers }

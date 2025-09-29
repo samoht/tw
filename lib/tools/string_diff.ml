@@ -73,7 +73,7 @@ type t = {
 }
 
 (* Find line number and column for a character position *)
-let find_line_and_column lines pos =
+let line_and_column lines pos =
   let rec find line_num char_count = function
     | [] -> (line_num - 1, pos - char_count, [])
     | line :: rest ->
@@ -85,7 +85,7 @@ let find_line_and_column lines pos =
   find 0 0 lines
 
 (* Extract context lines before a given line number *)
-let get_context_before lines line_num context_size =
+let context_before lines line_num context_size =
   let before_lines = list_take line_num lines in
   let context_start = max 0 (List.length before_lines - context_size) in
   list_drop context_start before_lines
@@ -99,18 +99,16 @@ let diff ?(context_size = 3) ~expected actual =
 
       (* Find line and column for the diff position *)
       let line_exp, col_exp, remaining_exp =
-        find_line_and_column lines_expected pos
+        line_and_column lines_expected pos
       in
-      let line_act, col_act, remaining_act =
-        find_line_and_column lines_actual pos
-      in
+      let line_act, col_act, remaining_act = line_and_column lines_actual pos in
 
       (* Get context lines before the diff *)
       let context_before_exp =
-        get_context_before lines_expected line_exp context_size
+        context_before lines_expected line_exp context_size
       in
       let context_before_act =
-        get_context_before lines_actual line_act context_size
+        context_before lines_actual line_act context_size
       in
       let context_before =
         zip_with_empty context_before_exp context_before_act
