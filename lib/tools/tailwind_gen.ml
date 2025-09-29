@@ -186,7 +186,7 @@ let with_stats f =
       Stats.print_stats ();
       raise exn
 
-let create_temp_dir () =
+let temp_dir () =
   (* Ensure tmp directory exists in project root *)
   if not (Sys.file_exists "tmp") then Unix.mkdir "tmp" 0o755;
   (* Create unique temp directory in project root so tailwindcss can resolve
@@ -196,13 +196,13 @@ let create_temp_dir () =
 let generate ?(minify = false) ?(optimize = true) classnames =
   check_tailwindcss_available ();
 
-  let temp_dir = create_temp_dir () in
-  let cleanup () = ignore (Sys.command ("rm -rf " ^ Filename.quote temp_dir)) in
+  let dir = temp_dir () in
+  let cleanup () = ignore (Sys.command ("rm -rf " ^ Filename.quote dir)) in
 
   try
     let start_time = Stats.start_timer () in
 
-    tailwind_files temp_dir classnames;
+    tailwind_files dir classnames;
 
     let minify_flag = if minify then " --minify" else "" in
     let optimize_flag = if optimize then " --optimize" else "" in
@@ -214,7 +214,7 @@ let generate ?(minify = false) ?(optimize = true) classnames =
       Fmt.str
         "cd %s && %s -i input.css -o output.css --content input.html%s%s \
          2>/dev/null"
-        temp_dir tailwind_cmd minify_flag optimize_flag
+        dir tailwind_cmd minify_flag optimize_flag
     in
 
     let exit_code = Sys.command cmd in
@@ -222,7 +222,7 @@ let generate ?(minify = false) ?(optimize = true) classnames =
     Stats.record_call elapsed;
 
     if exit_code = 0 then (
-      let output_file = Filename.concat temp_dir "output.css" in
+      let output_file = Filename.concat dir "output.css" in
       let ic = open_in output_file in
       let content = really_input_string ic (in_channel_length ic) in
       close_in ic;
