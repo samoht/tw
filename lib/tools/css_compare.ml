@@ -3,11 +3,8 @@
 (* ===== Constants ===== *)
 
 (* Display and formatting constants *)
-let default_max_width = 60
-let default_short_threshold = 30
 let default_truncation_length = 60
 let default_context_size = 3
-let ellipsis_length = 3 (* "..." *)
 let caret_indent = 10
 let stats_max_width = 80
 
@@ -15,27 +12,6 @@ let stats_max_width = 80
 let header_comment_start = 3 (* Position after "/*" *)
 
 (* ===== String Utilities ===== *)
-
-(* Truncate long CSS values with context for readability *)
-let truncate_with_context max_len value =
-  let len = String.length value in
-  if len <= max_len then value
-  else
-    let half_len = (max_len - ellipsis_length) / 2 in
-    let start_part = String.sub value 0 half_len in
-    let end_part = String.sub value (len - half_len) half_len in
-    start_part ^ "..." ^ end_part
-
-(* Helper to find first character difference between two strings *)
-let find_first_diff s1 s2 =
-  let len1 = String.length s1 in
-  let len2 = String.length s2 in
-  let rec find i =
-    if i >= len1 || i >= len2 then if len1 = len2 then None else Some i
-    else if s1.[i] <> s2.[i] then Some i
-    else find (i + 1)
-  in
-  find 0
 
 (* ===== List Utilities ===== *)
 
@@ -106,74 +82,6 @@ let is_empty d = d.rules = [] && d.containers = []
 
 (* ===== Pretty Printing Helpers ===== *)
 
-(* Unified diff formatting configuration *)
-type diff_format_config = {
-  max_width : int;
-  short_threshold : int;
-  show_caret : bool;
-  indent : int;
-}
-
-let default_config =
-  {
-    max_width = default_max_width;
-    short_threshold = default_short_threshold;
-    show_caret = true;
-    indent = 0;
-  }
-
-(* Core function to format a value diff with truncation and caret *)
-let format_value_diff ?(config = default_config) expected actual =
-  match find_first_diff expected actual with
-  | None -> `No_diff
-  | Some diff_pos ->
-      let len1 = String.length expected in
-      let len2 = String.length actual in
-
-      if len1 <= config.short_threshold && len2 <= config.short_threshold then
-        `Short_diff (expected, actual)
-      else if len1 <= config.max_width && len2 <= config.max_width then
-        `Medium_diff (expected, actual, diff_pos)
-      else
-        (* Calculate window centered on the diff position *)
-        let half = config.max_width / 2 in
-        let window_start = max 0 (diff_pos - half) in
-        let window_end =
-          min (max len1 len2) (window_start + config.max_width)
-        in
-
-        (* Helper to extract and format a window from a string *)
-        let extract_window s len =
-          if window_start >= len then ("...", 3)
-          else
-            let actual_end = min len window_end in
-            let snippet =
-              String.sub s window_start (actual_end - window_start)
-            in
-            let has_prefix = window_start > 0 in
-            let has_suffix = window_end < len in
-            let prefix = if has_prefix then "..." else "" in
-            let suffix = if has_suffix then "..." else "" in
-            let full_string = prefix ^ snippet ^ suffix in
-            let prefix_len = if has_prefix then 3 else 0 in
-            (full_string, prefix_len)
-        in
-
-        let s1_display, prefix_len1 = extract_window expected len1 in
-        let s2_display, _prefix_len2 = extract_window actual len2 in
-
-        (* Adjust caret position to account for window and prefix *)
-        let adjusted_pos =
-          if diff_pos < window_start then 0
-          else if diff_pos >= window_end then String.length s1_display - 1
-          else prefix_len1 + (diff_pos - window_start)
-        in
-        `Long_diff (s1_display, s2_display, adjusted_pos)
-
-(* Print a caret pointing to a specific position *)
-let pp_caret ?(indent = 0) fmt pos =
-  Fmt.pf fmt "%s^@," (String.make (pos + indent) ' ')
-
 (* Print a list of CSS declarations with an action prefix *)
 let pp_declarations fmt action decls =
   List.iter
@@ -181,7 +89,7 @@ let pp_declarations fmt action decls =
       let prop_name = Css.declaration_name decl in
       let prop_value = Css.declaration_value ~minify:true decl in
       let truncated_value =
-        truncate_with_context default_truncation_length prop_value
+        Diff_format.truncate_middle default_truncation_length prop_value
       in
       Fmt.pf fmt "    - %s: %s %s@," action prop_name truncated_value)
     decls
@@ -196,21 +104,22 @@ let pp_line_pair : (string * string) Fmt.t =
     ())
 
 let pp_property_diff fmt { property_name; expected_value; actual_value } =
-  let config = { default_config with short_threshold = 30 } in
-  match format_value_diff ~config expected_value actual_value with
-  | `No_diff ->
+  let config = { Diff_format.default_config with short_threshold = 30 } in
+  match Diff_format.diff ~config ~expected:expected_value actual_value with
+  | `Equal ->
       (* Shouldn't happen but handle gracefully *)
       Fmt.pf fmt "    - modify: %s (no diff detected)@," property_name
-  | `Short_diff (exp, act) ->
+  | `Diff_short (exp, act) ->
       (* Short values: show inline as a modification *)
       Fmt.pf fmt "    - modify: %s %s -> %s@," property_name exp act
-  | `Medium_diff (exp, act, pos) | `Long_diff (exp, act, pos) ->
+  | `Diff_medium (exp, act, pos) | `Diff_long (exp, act, pos) ->
       (* Long values: show with ellipsis and caret *)
       Fmt.pf fmt "    - modify: %s@," property_name;
       Fmt.pf fmt "        - %s@," exp;
       Fmt.pf fmt "        + %s@," act;
       if config.show_caret then
-        pp_caret ~indent:caret_indent fmt pos (* indent for " + " prefix *)
+        Diff_format.pp_caret ~indent:caret_indent fmt
+          pos (* indent for " + " prefix *)
 
 let pp_property_diffs fmt prop_diffs =
   List.iter (pp_property_diff fmt) prop_diffs
@@ -265,16 +174,17 @@ let convert_rule_to_strings stmt =
   | None -> ("", [])
 
 (* Pretty-print container_diff *)
+(* Common string prefix for container kinds *)
+let container_prefix = function
+  | `Media -> "@media"
+  | `Layer -> "@layer"
+  | `Supports -> "@supports"
+  | `Container -> "@container"
+  | `Property -> "@property"
+
 let pp_container_diff fmt = function
   | Container_added { container_type; condition; rules } ->
-      let prefix =
-        match container_type with
-        | `Media -> "@media"
-        | `Layer -> "@layer"
-        | `Supports -> "@supports"
-        | `Container -> "@container"
-        | `Property -> "@property"
-      in
+      let prefix = container_prefix container_type in
       Fmt.pf fmt "- %s %s: (added)@," prefix condition;
       if rules <> [] then
         List.iter
@@ -285,14 +195,7 @@ let pp_container_diff fmt = function
               pp_declarations fmt "add" decls))
           rules
   | Container_removed { container_type; condition; rules } ->
-      let prefix =
-        match container_type with
-        | `Media -> "@media"
-        | `Layer -> "@layer"
-        | `Supports -> "@supports"
-        | `Container -> "@container"
-        | `Property -> "@property"
-      in
+      let prefix = container_prefix container_type in
       Fmt.pf fmt "- %s %s: (removed)@," prefix condition;
       if rules <> [] then
         List.iter
@@ -304,14 +207,7 @@ let pp_container_diff fmt = function
           rules
   | Container_modified
       { info = { container_type; condition; rules = _ }; rule_changes } ->
-      let prefix =
-        match container_type with
-        | `Media -> "@media"
-        | `Layer -> "@layer"
-        | `Supports -> "@supports"
-        | `Container -> "@container"
-        | `Property -> "@property"
-      in
+      let prefix = container_prefix container_type in
       Fmt.pf fmt "- %s %s:@," prefix condition;
       List.iter
         (fun rule_diff ->
@@ -427,6 +323,11 @@ let decl_to_prop_value decl =
     if Css.declaration_is_important decl then value ^ " !important" else value
   in
   (name, value)
+
+(* Normalized signature of a declaration list for comparison/reordering
+   checks *)
+let decls_signature (decls : Css.declaration list) =
+  List.map decl_to_prop_value decls |> List.sort compare
 
 (* Extract rules that match a class name *)
 let extract_rules_with_class css class_name =
@@ -545,35 +446,58 @@ let selector_key_of_stmt stmt =
 let get_rule_declarations stmt =
   match Css.statement_declarations stmt with Some d -> d | None -> []
 
-let rules_added_diff rules1 rules2 =
-  (* Create lookup table for O(1) existence checks *)
-  let keys1_table = Hashtbl.create (List.length rules1) in
-  List.iter
-    (fun r ->
-      let key = selector_key_of_stmt r in
-      Hashtbl.replace keys1_table key ())
-    rules1;
+(* Generic helper for finding added/removed/modified items between two lists.
+   Works with any item type that has a key for comparison. *)
+let find_diffs ~(key_of : 'item -> 'key) ~(key_equal : 'key -> 'key -> bool)
+    ~(is_empty_diff : 'item -> 'item -> bool) items1 items2 =
+  let find_by_key key items =
+    List.find_opt (fun item -> key_equal (key_of item) key) items
+  in
+  let added =
+    List.filter
+      (fun item2 ->
+        not
+          (List.exists
+             (fun item1 -> key_equal (key_of item1) (key_of item2))
+             items1))
+      items2
+  in
+  let removed =
+    List.filter
+      (fun item1 ->
+        not
+          (List.exists
+             (fun item2 -> key_equal (key_of item1) (key_of item2))
+             items2))
+      items1
+  in
+  let modified =
+    List.filter_map
+      (fun item1 ->
+        match find_by_key (key_of item1) items2 with
+        | Some item2 when not (is_empty_diff item1 item2) -> Some (item1, item2)
+        | _ -> None)
+      items1
+  in
+  (added, removed, modified)
 
-  List.filter_map
-    (fun r ->
-      let key = selector_key_of_stmt r in
-      if not (Hashtbl.mem keys1_table key) then Some r else None)
-    rules2
+let rules_added_diff rules1 rules2 =
+  let key_of = selector_key_of_stmt in
+  let key_equal = String.equal in
+  let is_empty_diff _ _ = true in
+  let added, _removed, _modified =
+    find_diffs ~key_of ~key_equal ~is_empty_diff rules1 rules2
+  in
+  added
 
 let rules_removed_diff rules1 rules2 =
-  (* Create lookup table for O(1) existence checks *)
-  let keys2_table = Hashtbl.create (List.length rules2) in
-  List.iter
-    (fun r ->
-      let key = selector_key_of_stmt r in
-      Hashtbl.replace keys2_table key ())
-    rules2;
-
-  List.filter_map
-    (fun r ->
-      let key = selector_key_of_stmt r in
-      if not (Hashtbl.mem keys2_table key) then Some r else None)
-    rules1
+  let key_of = selector_key_of_stmt in
+  let key_equal = String.equal in
+  let is_empty_diff _ _ = true in
+  let _added, removed, _modified =
+    find_diffs ~key_of ~key_equal ~is_empty_diff rules1 rules2
+  in
+  removed
 
 let rules_modified_diff rules1 rules2 =
   (* Create lookup tables for O(1) access *)
@@ -585,7 +509,7 @@ let rules_modified_diff rules1 rules2 =
     (fun r ->
       let key = selector_key_of_stmt r in
       let decls = get_rule_declarations r in
-      let props = List.map decl_to_prop_value decls |> List.sort compare in
+      let props = decls_signature decls in
 
       (* Add to key-based lookup (multiple rules can have same key) *)
       let existing_key =
@@ -608,7 +532,7 @@ let rules_modified_diff rules1 rules2 =
     | r1 :: t1 ->
         let key1 = selector_key_of_stmt r1 in
         let d1 = get_rule_declarations r1 in
-        let props1 = List.map decl_to_prop_value d1 |> List.sort compare in
+        let props1 = decls_signature d1 in
 
         (* Try exact match by key and declarations first *)
         let exact_match =
@@ -863,9 +787,7 @@ let handle_structural_diff rules1 rules2 =
     (fun removed_rule ->
       let removed_sel = get_rule_selector removed_rule in
       let removed_decls = get_rule_declarations removed_rule in
-      let removed_props =
-        List.map decl_to_prop_value removed_decls |> List.sort compare
-      in
+      let removed_props = decls_signature removed_decls in
 
       (* Look for a matching added rule with same properties but different
          selector *)
@@ -874,9 +796,7 @@ let handle_structural_diff rules1 rules2 =
           (fun added_rule ->
             let added_sel = get_rule_selector added_rule in
             let added_decls = get_rule_declarations added_rule in
-            let added_props =
-              List.map decl_to_prop_value added_decls |> List.sort compare
-            in
+            let added_props = decls_signature added_decls in
 
             (* Same properties but different selectors that share parent
                context *)
@@ -948,91 +868,23 @@ let handle_structural_diff rules1 rules2 =
 
   (added, removed, modified_with_order)
 
-(* Generic helper for finding added/removed/modified items between two lists.
-   Works with any item type that has a key for comparison. *)
-let find_diffs ~(key_of : 'item -> 'key) ~(key_equal : 'key -> 'key -> bool)
-    ~(is_empty_diff : 'item -> 'item -> bool) items1 items2 =
-  let find_by_key key items =
-    List.find_opt (fun item -> key_equal (key_of item) key) items
-  in
-  let added =
-    List.filter
-      (fun item2 ->
-        not
-          (List.exists
-             (fun item1 -> key_equal (key_of item1) (key_of item2))
-             items1))
-      items2
-  in
-  let removed =
-    List.filter
-      (fun item1 ->
-        not
-          (List.exists
-             (fun item2 -> key_equal (key_of item1) (key_of item2))
-             items2))
-      items1
-  in
-  let modified =
-    List.filter_map
-      (fun item1 ->
-        match find_by_key (key_of item1) items2 with
-        | Some item2 when not (is_empty_diff item1 item2) -> Some (item1, item2)
-        | _ -> None)
-      items1
-  in
-  (added, removed, modified)
-
 let rule_diffs rules1 rules2 = handle_structural_diff rules1 rules2
 
-(* Mutual recursion declarations *)
-let rec media_diff items1 items2 =
-  let key_of (cond, _) = cond in
-  let key_equal = String.equal in
+(* Helper function to compute property diffs between two declaration lists *)
+let properties_diff decls1 decls2 : declaration list =
+  let props1 = List.map decl_to_prop_value decls1 in
+  let props2 = List.map decl_to_prop_value decls2 in
+  List.fold_left
+    (fun acc (p1, v1) ->
+      match List.assoc_opt p1 props2 with
+      | Some v2 when v1 <> v2 ->
+          { property_name = p1; expected_value = v1; actual_value = v2 } :: acc
+      | _ -> acc)
+    [] props1
+  |> List.rev
 
-  (* First pass: find items based on immediate differences only *)
-  let is_empty_diff (_, rules1) (_, rules2) =
-    let added_r, removed_r, modified_r = rule_diffs rules1 rules2 in
-    added_r = [] && removed_r = [] && modified_r = []
-  in
-  let added, removed, modified_pairs =
-    find_diffs ~key_of ~key_equal ~is_empty_diff items1 items2
-  in
-
-  (* Check matching items that weren't marked as modified for nested
-     differences *)
-  let all_matching_pairs =
-    List.filter_map
-      (fun (cond1, rules1) ->
-        match List.find_opt (fun (cond2, _) -> cond1 = cond2) items2 with
-        | Some (_, rules2) ->
-            (* Check if this pair has nested differences *)
-            let nested_diffs = find_nested_differences ~depth:1 rules1 rules2 in
-            if nested_diffs <> [] then Some ((cond1, rules1), (cond1, rules2))
-            else None
-        | None -> None)
-      items1
-  in
-
-  (* Combine modified pairs from immediate differences and nested differences *)
-  let all_modified =
-    modified_pairs
-    @ List.filter
-        (fun pair -> not (List.mem pair modified_pairs))
-        all_matching_pairs
-  in
-
-  (* Transform to expected format *)
-  let added = List.map (fun (cond, rules) -> (cond, rules)) added in
-  let removed = List.map (fun (cond, rules) -> (cond, rules)) removed in
-  let modified =
-    List.map
-      (fun ((cond, rules1), (_, rules2)) -> (cond, rules1, rules2))
-      all_modified
-  in
-  (added, removed, modified)
-
-(* Helper functions for converting rule changes *)
+(* Helper functions for converting rule changes - moved here for mutual
+   recursion *)
 let convert_added_rule stmt =
   let sel, decls = convert_rule_to_strings stmt in
   Rule_added { selector = sel; declarations = decls }
@@ -1041,7 +893,7 @@ let convert_removed_rule stmt =
   let sel, decls = convert_rule_to_strings stmt in
   Rule_removed { selector = sel; declarations = decls }
 
-let rec convert_modified_rule (sel1, sel2, decls1, decls2) =
+let convert_modified_rule (sel1, sel2, decls1, decls2) =
   let sel1_str = Css.Selector.to_string sel1 in
   let sel2_str = Css.Selector.to_string sel2 in
   if sel1_str <> sel2_str then
@@ -1064,199 +916,176 @@ let rec convert_modified_rule (sel1, sel2, decls1, decls2) =
         property_changes;
       }
 
-(* Helper function to compute property diffs between two declaration lists *)
-and properties_diff decls1 decls2 : declaration list =
-  let props1 = List.map decl_to_prop_value decls1 in
-  let props2 = List.map decl_to_prop_value decls2 in
-  List.fold_left
-    (fun acc (p1, v1) ->
-      match List.assoc_opt p1 props2 with
-      | Some v2 when v1 <> v2 ->
-          { property_name = p1; expected_value = v1; actual_value = v2 } :: acc
-      | _ -> acc)
-    [] props1
-  |> List.rev
+(* Assemble rule changes (added/removed/modified) between two rule lists *)
+let to_rule_changes rules1 rules2 : rule_diff list =
+  let r_added, r_removed, r_modified = rule_diffs rules1 rules2 in
+  List.map convert_added_rule r_added
+  @ List.map convert_removed_rule r_removed
+  @ List.map convert_modified_rule r_modified
 
-(* Recursively check for nested container differences using the same logic as
-   top-level *)
-let rec find_nested_differences ?(depth = 0) (stmts1 : Css.statement list)
+(* Mutual recursion declarations *)
+let rec media_diff items1 items2 =
+  let key_of (cond, _) = cond in
+  let key_equal = String.equal in
+
+  (* Check if two media queries have any differences (immediate or nested) *)
+  let is_empty_diff (_, rules1) (_, rules2) =
+    let added_r, removed_r, modified_r = rule_diffs rules1 rules2 in
+    let has_immediate_diffs =
+      added_r <> [] || removed_r <> [] || modified_r <> []
+    in
+    if has_immediate_diffs then false
+    else
+      (* Also check for nested differences *)
+      let nested_diffs = find_nested_differences ~depth:1 rules1 rules2 in
+      nested_diffs = []
+  in
+  let added, removed, modified_pairs =
+    find_diffs ~key_of ~key_equal ~is_empty_diff items1 items2
+  in
+
+  (* Transform to expected format *)
+  let added = List.map (fun (cond, rules) -> (cond, rules)) added in
+  let removed = List.map (fun (cond, rules) -> (cond, rules)) removed in
+  let modified =
+    List.map
+      (fun ((cond, rules1), (_, rules2)) -> (cond, rules1, rules2))
+      modified_pairs
+  in
+  (added, removed, modified)
+
+(* Generic helper for processing nested containers *)
+and process_nested_containers ~container_type ~extract_fn ~diff_fn ~depth stmts1
+    stmts2 =
+  let items1 = List.filter_map extract_fn stmts1 in
+  let items2 = List.filter_map extract_fn stmts2 in
+  let added, removed, modified = diff_fn items1 items2 in
+
+  let diffs = ref [] in
+
+  (* Process added containers *)
+  List.iter
+    (fun (cond, rules) ->
+      diffs :=
+        Container_added { container_type; condition = cond; rules } :: !diffs)
+    added;
+
+  (* Process removed containers *)
+  List.iter
+    (fun (cond, rules) ->
+      diffs :=
+        Container_removed { container_type; condition = cond; rules } :: !diffs)
+    removed;
+
+  (* Process modified containers *)
+  List.iter
+    (fun (cond, rules1, rules2) ->
+      let rule_changes = to_rule_changes rules1 rules2 in
+      if rule_changes <> [] then
+        diffs :=
+          Container_modified
+            {
+              info = { container_type; condition = cond; rules = rules1 };
+              rule_changes;
+            }
+          :: !diffs;
+      (* Recursively check deeper nesting *)
+      let deeper = find_nested_differences ~depth:(depth + 1) rules1 rules2 in
+      diffs := deeper @ !diffs)
+    modified;
+
+  !diffs
+
+(* Layer diff function *)
+and layer_diff items1 items2 =
+  let key_of (name_opt, _) = Option.value ~default:"" name_opt in
+  let key_equal = String.equal in
+  let is_empty_diff (_, rules1) (_, rules2) =
+    let a_r, r_r, m_r = rule_diffs rules1 rules2 in
+    let has_immediate_diffs = a_r <> [] || r_r <> [] || m_r <> [] in
+    if has_immediate_diffs then false
+    else
+      (* Also check for nested differences *)
+      let nested_diffs = find_nested_differences ~depth:1 rules1 rules2 in
+      nested_diffs = []
+  in
+  let added, removed, modified_pairs =
+    find_diffs ~key_of ~key_equal ~is_empty_diff items1 items2
+  in
+  (* Transform to consistent format with media_diff *)
+  let added =
+    List.map
+      (fun (name_opt, rules) -> (Option.value ~default:"" name_opt, rules))
+      added
+  in
+  let removed =
+    List.map
+      (fun (name_opt, rules) -> (Option.value ~default:"" name_opt, rules))
+      removed
+  in
+  let modified =
+    List.map
+      (fun ((name_opt, rules1), (_, rules2)) ->
+        (Option.value ~default:"" name_opt, rules1, rules2))
+      modified_pairs
+  in
+  (added, removed, modified)
+
+(* Process layers separately due to different type signature *)
+and process_nested_layers ~depth stmts1 stmts2 =
+  let items1 = List.filter_map Css.as_layer stmts1 in
+  let items2 = List.filter_map Css.as_layer stmts2 in
+  let added, removed, modified = layer_diff items1 items2 in
+
+  let diffs = ref [] in
+
+  (* Process added/removed/modified using same logic as media *)
+  List.iter
+    (fun (name, rules) ->
+      diffs :=
+        Container_added { container_type = `Layer; condition = name; rules }
+        :: !diffs)
+    added;
+
+  List.iter
+    (fun (name, rules) ->
+      diffs :=
+        Container_removed { container_type = `Layer; condition = name; rules }
+        :: !diffs)
+    removed;
+
+  List.iter
+    (fun (name, rules1, rules2) ->
+      let rule_changes = to_rule_changes rules1 rules2 in
+      if rule_changes <> [] then
+        diffs :=
+          Container_modified
+            {
+              info =
+                { container_type = `Layer; condition = name; rules = rules1 };
+              rule_changes;
+            }
+          :: !diffs;
+      let deeper = find_nested_differences ~depth:(depth + 1) rules1 rules2 in
+      diffs := deeper @ !diffs)
+    modified;
+
+  !diffs
+
+(* Main recursive function for nested differences *)
+and find_nested_differences ?(depth = 0) (stmts1 : Css.statement list)
     (stmts2 : Css.statement list) : container_diff list =
   if depth > 3 then [] (* Prevent infinite recursion *)
   else
-    let nested_diffs = ref [] in
-
-    (* Handle nested media queries using media_diff helper *)
-    let nested_media1 = List.filter_map Css.as_media stmts1 in
-    let nested_media2 = List.filter_map Css.as_media stmts2 in
-    let media_added, media_removed, media_modified =
-      media_diff nested_media1 nested_media2
-    in
-
-    (* Process added media queries *)
-    List.iter
-      (fun (cond, rules) ->
-        let container_diff =
-          Container_added { container_type = `Media; condition = cond; rules }
-        in
-        nested_diffs := container_diff :: !nested_diffs)
-      media_added;
-
-    (* Process removed media queries *)
-    List.iter
-      (fun (cond, rules) ->
-        let container_diff =
-          Container_removed { container_type = `Media; condition = cond; rules }
-        in
-        nested_diffs := container_diff :: !nested_diffs)
-      media_removed;
-
-    (* Process modified media queries *)
-    List.iter
-      (fun (cond, rules1, rules2) ->
-        let r_added, r_removed, r_modified = rule_diffs rules1 rules2 in
-        (if r_added <> [] || r_removed <> [] || r_modified <> [] then
-           let rule_changes =
-             List.map convert_added_rule r_added
-             @ List.map convert_removed_rule r_removed
-             @ List.map convert_modified_rule r_modified
-           in
-           let container_diff =
-             Container_modified
-               {
-                 info =
-                   { container_type = `Media; condition = cond; rules = rules1 };
-                 rule_changes;
-               }
-           in
-           nested_diffs := container_diff :: !nested_diffs);
-
-        (* Recursively check deeper nesting *)
-        let deeper_diffs =
-          find_nested_differences ~depth:(depth + 1) rules1 rules2
-        in
-        nested_diffs := deeper_diffs @ !nested_diffs)
-      media_modified;
-
-    (* Handle nested layers using find_diffs helper *)
-    let nested_layers1 = List.filter_map Css.as_layer stmts1 in
-    let nested_layers2 = List.filter_map Css.as_layer stmts2 in
-    let layers_added, layers_removed, layers_modified =
-      let key_of (name_opt, _) = Option.value ~default:"" name_opt in
-      let key_equal = String.equal in
-      let is_empty_diff (_, rules1) (_, rules2) =
-        let a_r, r_r, m_r = rule_diffs rules1 rules2 in
-        a_r = [] && r_r = [] && m_r = []
-      in
-      find_diffs ~key_of ~key_equal ~is_empty_diff nested_layers1 nested_layers2
-    in
-
-    (* Process added layers *)
-    List.iter
-      (fun (name_opt, rules) ->
-        let name = Option.value ~default:"" name_opt in
-        let container_diff =
-          Container_added { container_type = `Layer; condition = name; rules }
-        in
-        nested_diffs := container_diff :: !nested_diffs)
-      layers_added;
-
-    (* Process removed layers *)
-    List.iter
-      (fun (name_opt, rules) ->
-        let name = Option.value ~default:"" name_opt in
-        let container_diff =
-          Container_removed { container_type = `Layer; condition = name; rules }
-        in
-        nested_diffs := container_diff :: !nested_diffs)
-      layers_removed;
-
-    (* Process modified layers *)
-    List.iter
-      (fun ((name_opt, rules1), (_, rules2)) ->
-        let name = Option.value ~default:"" name_opt in
-        let r_added, r_removed, r_modified = rule_diffs rules1 rules2 in
-        (if r_added <> [] || r_removed <> [] || r_modified <> [] then
-           let rule_changes =
-             List.map convert_added_rule r_added
-             @ List.map convert_removed_rule r_removed
-             @ List.map convert_modified_rule r_modified
-           in
-           let container_diff =
-             Container_modified
-               {
-                 info =
-                   { container_type = `Layer; condition = name; rules = rules1 };
-                 rule_changes;
-               }
-           in
-           nested_diffs := container_diff :: !nested_diffs);
-
-        (* Recursively check deeper nesting *)
-        let deeper_diffs =
-          find_nested_differences ~depth:(depth + 1) rules1 rules2
-        in
-        nested_diffs := deeper_diffs @ !nested_diffs)
-      layers_modified;
-
-    (* Handle nested supports using media_diff helper (same structure) *)
-    let nested_supports1 = List.filter_map Css.as_supports stmts1 in
-    let nested_supports2 = List.filter_map Css.as_supports stmts2 in
-    let supports_added, supports_removed, supports_modified =
-      media_diff nested_supports1 nested_supports2
-    in
-
-    (* Process added supports *)
-    List.iter
-      (fun (cond, rules) ->
-        let container_diff =
-          Container_added
-            { container_type = `Supports; condition = cond; rules }
-        in
-        nested_diffs := container_diff :: !nested_diffs)
-      supports_added;
-
-    (* Process removed supports *)
-    List.iter
-      (fun (cond, rules) ->
-        let container_diff =
-          Container_removed
-            { container_type = `Supports; condition = cond; rules }
-        in
-        nested_diffs := container_diff :: !nested_diffs)
-      supports_removed;
-
-    (* Process modified supports *)
-    List.iter
-      (fun (cond, rules1, rules2) ->
-        let r_added, r_removed, r_modified = rule_diffs rules1 rules2 in
-        (if r_added <> [] || r_removed <> [] || r_modified <> [] then
-           let rule_changes =
-             List.map convert_added_rule r_added
-             @ List.map convert_removed_rule r_removed
-             @ List.map convert_modified_rule r_modified
-           in
-           let container_diff =
-             Container_modified
-               {
-                 info =
-                   {
-                     container_type = `Supports;
-                     condition = cond;
-                     rules = rules1;
-                   };
-                 rule_changes;
-               }
-           in
-           nested_diffs := container_diff :: !nested_diffs);
-
-        (* Recursively check deeper nesting *)
-        let deeper_diffs =
-          find_nested_differences ~depth:(depth + 1) rules1 rules2
-        in
-        nested_diffs := deeper_diffs @ !nested_diffs)
-      supports_modified;
-
-    !nested_diffs
+    (* Process media queries *)
+    process_nested_containers ~container_type:`Media ~extract_fn:Css.as_media
+      ~diff_fn:media_diff ~depth stmts1 stmts2
+    (* Process layers - different type signature *)
+    @ process_nested_layers ~depth stmts1 stmts2
+    (* Process supports - reuses media_diff since they have the same
+       structure *)
+    @ process_nested_containers ~container_type:`Supports
+        ~extract_fn:Css.as_supports ~diff_fn:media_diff ~depth stmts1 stmts2
 
 let tree_diff ~(expected : Css.t) ~(actual : Css.t) : tree_diff =
   let rules1 = Css.rules expected in
@@ -1264,321 +1093,19 @@ let tree_diff ~(expected : Css.t) ~(actual : Css.t) : tree_diff =
   let added, removed, modified = rule_diffs rules1 rules2 in
 
   let rule_changes =
-    (* Convert added rules *)
-    List.map
-      (fun stmt ->
-        let sel, decls = convert_rule_to_strings stmt in
-        Rule_added { selector = sel; declarations = decls })
-      added
-    (* Convert removed rules *)
-    @ List.map
-        (fun stmt ->
-          let sel, decls = convert_rule_to_strings stmt in
-          Rule_removed { selector = sel; declarations = decls })
-        removed
-    @
-    (* Convert modified rules *)
-    List.filter_map
-      (fun (sel1, sel2, decls1, decls2) ->
-        let sel1_str = Css.Selector.to_string sel1 in
-        let sel2_str = Css.Selector.to_string sel2 in
-        let prop_diffs = properties_diff decls1 decls2 in
-        let props1 = List.map decl_to_prop_value decls1 |> List.sort compare in
-        let props2 = List.map decl_to_prop_value decls2 |> List.sort compare in
-        let only_selector_changed = sel1_str <> sel2_str && props1 = props2 in
-        let is_pure_reorder = props1 = props2 && decls1 <> decls2 in
-        let is_rule_only_reorder = decls1 = decls2 && sel1_str = sel2_str in
-
-        if only_selector_changed then
-          Some
-            (Rule_selector_changed
-               {
-                 old_selector = sel1_str;
-                 new_selector = sel2_str;
-                 declarations = decls1;
-               })
-        else if is_pure_reorder || is_rule_only_reorder then
-          Some (Rule_reordered { selector = sel1_str })
-        else if prop_diffs <> [] || decls1 <> decls2 then
-          Some
-            (Rule_content_changed
-               {
-                 selector = sel1_str;
-                 old_declarations = decls1;
-                 new_declarations = decls2;
-                 property_changes = prop_diffs;
-               })
-        else None)
-      modified
+    List.map convert_added_rule added
+    @ List.map convert_removed_rule removed
+    @ List.map convert_modified_rule modified
   in
 
-  (* Helper to extract all statements of a specific type *)
-  let extract_statements as_func ast =
-    Css.statements ast |> List.filter_map as_func
-  in
-
-  (* Handle containers (media, layers, supports, properties) *)
+  (* Delegate all container and nested-container diffs to the generic walker *)
   let containers =
-    (* Media queries *)
-    let media1 = Css.media_queries expected in
-    let media2 = Css.media_queries actual in
-    let media_added, media_removed, media_modified = media_diff media1 media2 in
-
-    (* Layer blocks *)
-    let layers1 = extract_statements Css.as_layer expected in
-    let layers2 = extract_statements Css.as_layer actual in
-    let layers_added, layers_removed, layers_modified =
-      let key_of (name_opt, _) = Option.value ~default:"" name_opt in
-      let key_equal = String.equal in
-      let is_empty_diff (_, rules1) (_, rules2) =
-        (* Check structural differences in immediate rules *)
-        let a_r, r_r, m_r = rule_diffs rules1 rules2 in
-        a_r = [] && r_r = [] && m_r = []
-      in
-      find_diffs ~key_of ~key_equal ~is_empty_diff layers1 layers2
-    in
-
-    (* Supports queries *)
-    let supports1 = extract_statements Css.as_supports expected in
-    let supports2 = extract_statements Css.as_supports actual in
-    let supports_added, supports_removed, supports_modified =
-      media_diff supports1 supports2
-    in
-
-    (* Container queries *)
-    let containers1 = extract_statements Css.as_container expected in
-    let containers2 = extract_statements Css.as_container actual in
-    let container_added, container_removed, container_modified =
-      let key_of (name, cond, _) = (name, cond) in
-      let key_equal (n1, c1) (n2, c2) = n1 = n2 && c1 = c2 in
-      let is_empty_diff (_, _, rules1) (_, _, rules2) =
-        let a_r, r_r, m_r = rule_diffs rules1 rules2 in
-        a_r = [] && r_r = [] && m_r = []
-      in
-      find_diffs ~key_of ~key_equal ~is_empty_diff containers1 containers2
-    in
-
-    (* @property rules *)
-    let properties1 = extract_statements Css.as_property expected in
-    let properties2 = extract_statements Css.as_property actual in
-    let prop_added, prop_removed, prop_modified =
-      let key_of prop_info =
-        match prop_info with Css.Property_info { name; _ } -> name
-      in
-      let key_equal = String.equal in
-      let is_empty_diff p1 p2 = p1 = p2 in
-      find_diffs ~key_of ~key_equal ~is_empty_diff properties1 properties2
-    in
-
-    (* Convert media queries *)
-    List.map
-      (fun (cond, rules) ->
-        Container_added { container_type = `Media; condition = cond; rules })
-      media_added
-    @ List.map
-        (fun (cond, rules) ->
-          Container_removed { container_type = `Media; condition = cond; rules })
-        media_removed
-    @ List.map
-        (fun (cond, rules1, rules2) ->
-          let r_added, r_removed, r_modified = rule_diffs rules1 rules2 in
-          let rule_changes =
-            List.map convert_added_rule r_added
-            @ List.map convert_removed_rule r_removed
-            @ List.map convert_modified_rule r_modified
-          in
-          Container_modified
-            {
-              info =
-                { container_type = `Media; condition = cond; rules = rules1 };
-              rule_changes;
-            })
-        media_modified
-    (* Convert layers *)
-    @ List.map
-        (fun (name_opt, rules) ->
-          let name = Option.value ~default:"" name_opt in
-          Container_added { container_type = `Layer; condition = name; rules })
-        layers_added
-    @ List.map
-        (fun (name_opt, rules) ->
-          let name = Option.value ~default:"" name_opt in
-          Container_removed { container_type = `Layer; condition = name; rules })
-        layers_removed
-    @ List.map
-        (fun ((name_opt, rules1), (_, rules2)) ->
-          let name = Option.value ~default:"" name_opt in
-          let r_added, r_removed, r_modified = rule_diffs rules1 rules2 in
-          let rule_changes =
-            List.map convert_added_rule r_added
-            @ List.map convert_removed_rule r_removed
-            @ List.map convert_modified_rule r_modified
-          in
-          Container_modified
-            {
-              info =
-                { container_type = `Layer; condition = name; rules = rules1 };
-              rule_changes;
-            })
-        layers_modified
-    (* Convert supports queries *)
-    @ List.map
-        (fun (cond, rules) ->
-          Container_added
-            { container_type = `Supports; condition = cond; rules })
-        supports_added
-    @ List.map
-        (fun (cond, rules) ->
-          Container_removed
-            { container_type = `Supports; condition = cond; rules })
-        supports_removed
-    @ List.map
-        (fun (cond, rules1, rules2) ->
-          let r_added, r_removed, _r_modified = rule_diffs rules1 rules2 in
-          let rule_changes =
-            List.map convert_added_rule r_added
-            @ List.map convert_removed_rule r_removed
-          in
-          Container_modified
-            {
-              info =
-                { container_type = `Supports; condition = cond; rules = rules1 };
-              rule_changes;
-            })
-        supports_modified
-    (* Convert container queries *)
-    @ List.map
-        (fun (name, cond, _) ->
-          let name_str = Option.value ~default:"" name in
-          let full_condition =
-            if name_str = "" then cond else name_str ^ " " ^ cond
-          in
-          Container_added
-            {
-              container_type = `Container;
-              condition = full_condition;
-              rules = [];
-            })
-        container_added
-    @ List.map
-        (fun (name, cond, _) ->
-          let name_str = Option.value ~default:"" name in
-          let full_condition =
-            if name_str = "" then cond else name_str ^ " " ^ cond
-          in
-          Container_removed
-            {
-              container_type = `Container;
-              condition = full_condition;
-              rules = [];
-            })
-        container_removed
-    @ List.map
-        (fun ((name, cond, rules1), (_, _, rules2)) ->
-          let name_str = Option.value ~default:"" name in
-          let full_condition =
-            if name_str = "" then cond else name_str ^ " " ^ cond
-          in
-          let r_added, r_removed, _r_modified = rule_diffs rules1 rules2 in
-          let rule_changes =
-            List.map convert_added_rule r_added
-            @ List.map convert_removed_rule r_removed
-          in
-          Container_modified
-            {
-              info =
-                {
-                  container_type = `Container;
-                  condition = full_condition;
-                  rules = [];
-                };
-              rule_changes;
-            })
-        container_modified
-    (* Convert @property rules *)
-    @ List.map
-        (fun prop_info ->
-          let name =
-            match prop_info with Css.Property_info { name; _ } -> name
-          in
-          Container_added
-            { container_type = `Property; condition = name; rules = [] })
-        prop_added
-    @ List.map
-        (fun prop_info ->
-          let name =
-            match prop_info with Css.Property_info { name; _ } -> name
-          in
-          Container_removed
-            { container_type = `Property; condition = name; rules = [] })
-        prop_removed
-    @ List.map
-        (fun (prop1, _prop2) ->
-          let name = match prop1 with Css.Property_info { name; _ } -> name in
-          (* For @property rules, we can show the changes as rule changes *)
-          Container_modified
-            {
-              info =
-                { container_type = `Property; condition = name; rules = [] };
-              rule_changes = [];
-              (* @property changes would need special handling *)
-            })
-        prop_modified
+    let stmts1 = Css.statements expected in
+    let stmts2 = Css.statements actual in
+    find_nested_differences ~depth:0 stmts1 stmts2
   in
 
-  (* Check for nested container differences only in matching top-level
-     containers *)
-  let nested_containers =
-    (* Check nested differences inside matching layers *)
-    List.fold_left
-      (fun acc container ->
-        match container with
-        | Container_modified
-            { info = { container_type = `Layer; condition; _ }; _ } ->
-            (* Find the matching layer statements from both expected and
-               actual *)
-            let find_layer_stmts css layer_name =
-              List.filter_map
-                (fun stmt ->
-                  match Css.as_layer stmt with
-                  | Some (name_opt, nested_stmts) ->
-                      let name = Option.value ~default:"" name_opt in
-                      if name = layer_name then Some nested_stmts else None
-                  | None -> None)
-                (Css.statements css)
-              |> List.concat
-            in
-            let expected_nested = find_layer_stmts expected condition in
-            let actual_nested = find_layer_stmts actual condition in
-            let deeper_diffs =
-              find_nested_differences expected_nested actual_nested
-            in
-            deeper_diffs @ acc
-        | Container_modified
-            { info = { container_type = `Media; condition; _ }; _ } ->
-            (* Find the matching media statements from both expected and
-               actual *)
-            let find_media_stmts css media_condition =
-              List.filter_map
-                (fun stmt ->
-                  match Css.as_media stmt with
-                  | Some (cond, nested_stmts) ->
-                      if cond = media_condition then Some nested_stmts else None
-                  | None -> None)
-                (Css.statements css)
-              |> List.concat
-            in
-            let expected_nested = find_media_stmts expected condition in
-            let actual_nested = find_media_stmts actual condition in
-            let deeper_diffs =
-              find_nested_differences expected_nested actual_nested
-            in
-            deeper_diffs @ acc
-        | _ -> acc)
-      [] containers
-  in
-
-  { rules = rule_changes; containers = containers @ nested_containers }
+  { rules = rule_changes; containers }
 
 (* Compare two CSS ASTs directly *)
 let compare_css css1 css2 =
@@ -1633,7 +1160,7 @@ let get_context_before lines line_num context_size =
 
 (* Create a string diff with context for character-level differences *)
 let string_diff ~expected ~actual =
-  match find_first_diff expected actual with
+  match Diff_format.first_diff_pos expected actual with
   | None -> None
   | Some pos ->
       let context_size = default_context_size in
@@ -1730,28 +1257,29 @@ let pp_string_diff ?(expected = "Expected") ?(actual = "Actual") fmt
   let diff_exp, diff_act = sdiff.diff_lines in
   let config =
     {
-      default_config with
-      max_width = stats_max_width;
+      Diff_format.max_width = stats_max_width;
+      short_threshold = 30;
       show_caret = true;
       indent = 1;
     }
   in
-  match format_value_diff ~config diff_exp diff_act with
-  | `No_diff ->
+  match Diff_format.diff ~config ~expected:diff_exp diff_act with
+  | `Equal ->
       (* Shouldn't happen if strings differ *)
       Fmt.pf fmt "-%s@," diff_exp;
       Fmt.pf fmt "+%s@," diff_act
-  | `Short_diff (exp, act) ->
+  | `Diff_short (exp, act) ->
       (* Short lines, show them completely *)
       Fmt.pf fmt "-%s@," exp;
       Fmt.pf fmt "+%s@," act;
       if sdiff.line_expected = sdiff.line_actual then
-        pp_caret ~indent:1 fmt sdiff.column_expected
-  | `Medium_diff (exp, act, pos) | `Long_diff (exp, act, pos) ->
+        Diff_format.pp_caret ~indent:1 fmt sdiff.column_expected
+  | `Diff_medium (exp, act, pos) | `Diff_long (exp, act, pos) ->
       (* Long lines with truncation *)
       Fmt.pf fmt "-%s@," exp;
       Fmt.pf fmt "+%s@," act;
-      if sdiff.line_expected = sdiff.line_actual then pp_caret ~indent:1 fmt pos;
+      if sdiff.line_expected = sdiff.line_actual then
+        Diff_format.pp_caret ~indent:1 fmt pos;
 
       (* Print context after *)
       List.iter (pp_line_pair fmt) sdiff.context_after;
