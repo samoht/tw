@@ -1,5 +1,8 @@
 (** String difference analysis and formatting. *)
 
+val default_max_width : int
+(** Default maximum width for formatted output (60 characters). *)
+
 type config = {
   max_width : int;  (** Maximum display width. *)
   short_threshold : int;  (** Threshold below which strings are shown inline. *)
@@ -7,10 +10,6 @@ type config = {
   indent : int;  (** Left margin for position indicators. *)
 }
 (** Configuration for formatting. *)
-
-val default_config : config
-(** Default configuration with [max_width = 60], [short_threshold = 30],
-    [show_caret = true], and [indent = 0]. *)
 
 type t = {
   position : int;  (** Character position of first difference. *)
@@ -51,7 +50,3 @@ val truncate_middle : int -> string -> string
 (** [truncate_middle max_len s] truncates [s] to at most [max_len] characters,
     preserving both the beginning and end with ellipsis in the middle if
     truncation occurs. *)
-
-val pp_caret : ?indent:int -> Format.formatter -> int -> unit
-(** [pp_caret ?indent fmt pos] formats a position indicator at column [pos] with
-    optional left margin. *)

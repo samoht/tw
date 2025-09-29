@@ -60,23 +60,79 @@ let check_tailwindcss_available () =
                native tailwindcss.@."
           else Fmt.epr "Using native tailwindcss (fast).@.";
 
+          (* Try --version first, fall back to --help if needed *)
           let temp_file = Filename.temp_file "tw_version" ".txt" in
-          let version_cmd = cmd ^ " --help 2>&1 | head -1 > " ^ temp_file in
+          let version_cmd = cmd ^ " --version 2>/dev/null > " ^ temp_file in
           let exit_code = Sys.command version_cmd in
-          if exit_code = 0 then (
-            let ic = open_in temp_file in
-            let version_line = input_line ic in
-            close_in ic;
-            Sys.remove temp_file;
-            if not (String.contains version_line '4') then
-              failwith
-                (Fmt.str
-                   "Expected Tailwind CSS v4.x but found: %s\n\
-                    Please install v4:\n\
-                    npm install -D tailwindcss"
-                   version_line);
-            Ok ())
-          else failwith "Failed to check tailwindcss version."
+          let version_line, fallback_used =
+            if exit_code = 0 then (
+              let ic = open_in temp_file in
+              let line = input_line ic in
+              close_in ic;
+              (line, false))
+            else
+              (* Fall back to --help if --version not supported *)
+              let help_cmd = cmd ^ " --help 2>&1 | head -1 > " ^ temp_file in
+              let help_exit = Sys.command help_cmd in
+              if help_exit = 0 then (
+                let ic = open_in temp_file in
+                let line = input_line ic in
+                close_in ic;
+                (line, true))
+              else failwith "Failed to check tailwindcss version."
+          in
+          Sys.remove temp_file;
+
+          (* More robust version checking using proper version parsing *)
+          let extract_version_number line =
+            (* Extract version number from strings like "tailwindcss v4.0.0" or
+               "4.0.0" *)
+            let parts = String.split_on_char ' ' (String.trim line) in
+            let version_candidates =
+              List.filter
+                (fun s ->
+                  let trimmed = String.trim s in
+                  String.length trimmed > 0
+                  && (Char.code trimmed.[0] >= Char.code '0'
+                      && Char.code trimmed.[0] <= Char.code '9'
+                     || String.length trimmed > 1
+                        && trimmed.[0] = 'v'
+                        && Char.code trimmed.[1] >= Char.code '0'
+                        && Char.code trimmed.[1] <= Char.code '9'))
+                parts
+            in
+            match version_candidates with
+            | [] -> None
+            | v :: _ ->
+                let clean_v =
+                  if String.length v > 0 && v.[0] = 'v' then
+                    String.sub v 1 (String.length v - 1)
+                  else v
+                in
+                Some clean_v
+          in
+
+          let is_v4 =
+            if fallback_used then
+              (* Less reliable check for --help output - just look for '4' *)
+              String.contains version_line '4'
+            else
+              (* More reliable check for --version output *)
+              match extract_version_number version_line with
+              | Some version_num -> (
+                  match String.split_on_char '.' version_num with
+                  | major :: _ -> major = "4"
+                  | [] -> false)
+              | None -> false
+          in
+          if not is_v4 then
+            failwith
+              (Fmt.str
+                 "Expected Tailwind CSS v4.x but found: %s\n\
+                  Please install v4:\n\
+                  npm install -D tailwindcss"
+                 version_line);
+          Ok ()
         with e -> Error e
       in
       availability_result := Some result;
@@ -133,12 +189,11 @@ let with_stats f =
 
 let generate ?(minify = false) ?(optimize = true) classnames =
   check_tailwindcss_available ();
-  let temp_dir = "temp_tailwind_test" in
-  let cleanup () = ignore (Sys.command "rm -rf temp_tailwind_test") in
+  let temp_dir = Filename.temp_dir "tw_test" "" in
+  let cleanup () = ignore (Sys.command ("rm -rf " ^ Filename.quote temp_dir)) in
   try
     let start_time = Stats.start_timer () in
 
-    let _ = Sys.command (Fmt.str "mkdir -p %s" temp_dir) in
     tailwind_files temp_dir classnames;
     let minify_flag = if minify then " --minify" else "" in
     let optimize_flag = if optimize then " --optimize" else "" in

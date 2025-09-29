@@ -101,10 +101,11 @@ let check_exact_match tw_styles =
       in
 
       (* Show diff statistics *)
-      Fmt.epr "%a@,@,"
-        (Tw_tools.Css_compare.pp_stats ~expected_str:tailwind_css
-           ~actual_str:tw_css)
-        diff_result;
+      let stats =
+        Tw_tools.Css_compare.stats ~expected_str:tailwind_css ~actual_str:tw_css
+          diff_result
+      in
+      Fmt.epr "%a@,@," Tw_tools.Css_compare.pp_stats stats;
 
       (* Show the actual diff *)
       Fmt.epr "%a@,"

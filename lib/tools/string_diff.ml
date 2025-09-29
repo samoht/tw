@@ -7,8 +7,16 @@ type config = {
   indent : int;
 }
 
+(** Default maximum width for formatted output *)
+let default_max_width = 60
+
 let default_config =
-  { max_width = 60; short_threshold = 30; show_caret = true; indent = 0 }
+  {
+    max_width = default_max_width;
+    short_threshold = 30;
+    show_caret = true;
+    indent = 0;
+  }
 
 (* ===== List Utilities ===== *)
 

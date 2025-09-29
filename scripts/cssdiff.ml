@@ -31,19 +31,21 @@ let () =
                 Fmt.pr "✓ CSS files are identical@.";
                 exit 0
             | String_diff _ ->
-                Fmt.pr "%a@,@,"
-                  (Tw_tools.Css_compare.pp_stats ~expected_str:css2
-                     ~actual_str:css1)
-                  result;
+                let stats =
+                  Tw_tools.Css_compare.stats ~expected_str:css2 ~actual_str:css1
+                    result
+                in
+                Fmt.pr "%a@,@," Tw_tools.Css_compare.pp_stats stats;
                 Fmt.pr "%a@,"
                   (Tw_tools.Css_compare.pp ~expected:"File 2" ~actual:"File 1")
                   result;
                 exit 1
             | Tree_diff _ | Both_errors _ | Expected_error _ | Actual_error _ ->
-                Fmt.pr "%a@,@,"
-                  (Tw_tools.Css_compare.pp_stats ~expected_str:css2
-                     ~actual_str:css1)
-                  result;
+                let stats =
+                  Tw_tools.Css_compare.stats ~expected_str:css2 ~actual_str:css1
+                    result
+                in
+                Fmt.pr "%a@,@," Tw_tools.Css_compare.pp_stats stats;
                 Fmt.pr "%a@,"
                   (Tw_tools.Css_compare.pp ~expected:"File 2" ~actual:"File 1")
                   result;
