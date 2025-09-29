@@ -581,7 +581,7 @@ let test_vendor_prefixes () =
   check bool "should detect vendor prefix removal" false (Td.is_empty diff);
   assert_rule_content_changed ".box" diff
 
-let test_selector_list_duplicates_and_whitespace () =
+let test_selector_list_reordering () =
   let css_expected = ".a,.b,.c>.d{color:red}" in
   let css_actual = ".b,.c>.d,.a{color:red}" in
   let diff = css_tree_diff ~expected:css_expected ~actual:css_actual in
@@ -668,7 +668,7 @@ let suite =
     test_case "vendor_prefixes" `Quick test_vendor_prefixes;
     (* Selector tests *)
     test_case "selector_list_duplicates_and_whitespace" `Quick
-      test_selector_list_duplicates_and_whitespace;
+      test_selector_list_reordering;
     test_case "escaped_selectors" `Quick test_escaped_selectors;
     (* Nested structures *)
     test_case "nested_rule_changes" `Quick test_nested_rule_changes;

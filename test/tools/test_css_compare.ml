@@ -348,7 +348,7 @@ let test_string_diff_context_multiline () =
       check string "actual diff line" "line too" act_line
   | None -> fail "expected diff context"
 
-let test_string_diff_context_at_end () =
+let test_string_diff_at_end () =
   let expected = "abc" in
   let actual = "abcd" in
   match Tw_tools.String_diff.diff ~expected actual with
@@ -537,7 +537,7 @@ let test_mixed_reordering_and_changes () =
          change"
   | _ -> fail "Expected Changed diff with property differences"
 
-let test_never_empty_diff_when_strings_differ () =
+let test_diff_never_empty () =
   (* Test that ensures we always show SOMETHING when input strings differ,
      either structural diffs or string diffs *)
   let test_cases =
@@ -592,7 +592,7 @@ let test_never_empty_diff_when_strings_differ () =
           expected actual)
     test_cases
 
-let test_grouped_selector_list_reorder_structural () =
+let test_selector_list_reorder_structural () =
   (* Reordering items inside a grouped selector SHOULD be detected as a
      structural diff - users want to know about ALL reorderings *)
   let css_expected = ".a,.b{color:red;padding:2px}" in
@@ -791,7 +791,7 @@ let test_complex_selector_change () =
 
 (* More complex selector changes that share a prefix but differ in
    composition *)
-let test_selector_change_shared_prefix_combinator_swap () =
+let test_shared_prefix_combinator_swap () =
   (* Both selectors share the same prefix ".wrap .menu" but differ in where the
      child combinator ">" is applied. This should be reported as a selector
      change, not an add/remove. *)
@@ -801,7 +801,7 @@ let test_selector_change_shared_prefix_combinator_swap () =
     ~old_selector:".wrap .menu > li.active a"
     ~new_selector:".wrap .menu li.active > a"
 
-let test_selector_change_shared_prefix_pseudo_moved () =
+let test_shared_prefix_pseudo_moved () =
   (* Move :hover from child to parent while keeping the ".container" prefix. *)
   let css_expected = ".container .item:hover .label{display:block}" in
   let css_actual = ".container:hover .item .label{display:block}" in
@@ -809,7 +809,7 @@ let test_selector_change_shared_prefix_pseudo_moved () =
     ~old_selector:".container .item:hover .label"
     ~new_selector:".container:hover .item .label"
 
-let test_selector_change_shared_prefix_compound_vs_descendant () =
+let test_compound_vs_descendant_selector () =
   (* Change from compound .b.c to descendant .b .c under the same .parent
      prefix. These are semantically different and should be a selector
      change. *)
@@ -819,21 +819,21 @@ let test_selector_change_shared_prefix_compound_vs_descendant () =
     ~old_selector:".parent .b.c .title" ~new_selector:".parent .b .c .title"
 
 (* Specific regressions: detect selector-only changes instead of add/remove. *)
-let test_selector_change_list_child_vs_descendant () =
+let test_list_child_vs_descendant () =
   (* ol > li, ul > li padding changed to ol li, ul li padding *)
   let css_expected = "ol > li, ul > li{padding-left:1em}" in
   let css_actual = "ol li, ul li{padding-left:1em}" in
   assert_single_selector_change ~expected:css_expected ~actual:css_actual
     ~old_selector:"ol > li, ul > li" ~new_selector:"ol li, ul li"
 
-let test_selector_change_ul_p_child_vs_descendant () =
+let test_ul_child_vs_descendant () =
   (* ul p changed to ul > p *)
   let css_expected = "ul p{margin-top:0}" in
   let css_actual = "ul > p{margin-top:0}" in
   assert_single_selector_change ~expected:css_expected ~actual:css_actual
     ~old_selector:"ul p" ~new_selector:"ul > p"
 
-let test_selector_change_hr_adjacent_vs_general_sibling () =
+let test_hr_adjacent_vs_sibling () =
   (* hr + * changed to hr ~ * *)
   let css_expected = "hr + *{margin-top:0}" in
   let css_actual = "hr ~ *{margin-top:0}" in
@@ -989,7 +989,7 @@ let test_reordered_rules_within_layer () =
         has_layer_with_reordering
   | _ -> fail "Expected structural diff for reordered utilities"
 
-let test_selector_complexity_difference_is_structural () =
+let test_selector_complexity_structural () =
   (* Test that css_compare detects differences in selector complexity as
      structural differences. E.g. `.hover\:prose:hover :where(ol>li)::marker` vs
      `.hover\:prose:hover` should be reported as structural, not just a string
@@ -1026,7 +1026,7 @@ let test_selector_complexity_difference_is_structural () =
   | Cc.Expected_error _ | Cc.Actual_error _ | Cc.Both_errors _ ->
       fail "Should not have parsing errors"
 
-let test_media_inside_layer_missing_rules () =
+let test_media_layer_missing_rules () =
   (* This test reproduces the hover:prose issue where @media is inside @layer
      utilities. The tree_diff function should detect differences inside nested
      structures. *)
@@ -1049,7 +1049,7 @@ let test_media_inside_layer_missing_rules () =
       fail "Should detect as structural difference, not string difference"
   | _ -> fail "Unexpected diff result"
 
-let test_media_inside_layer_string_fallback () =
+let test_media_layer_string_fallback () =
   (* This test shows that when tree_diff fails to detect nested differences, the
      string diff should still be helpful *)
   let expected =
@@ -1098,7 +1098,7 @@ let assert_detects_changes css1 css2 =
       Alcotest.fail "Expected structural differences but got No_diff"
   | _ -> Alcotest.fail "Expected structural differences"
 
-let test_nested_media_in_media_added () =
+let test_nested_media_added () =
   (* Adding nested @media inside @media *)
   let css1 =
     {|
@@ -1119,7 +1119,7 @@ let test_nested_media_in_media_added () =
   in
   assert_detects_changes css1 css2
 
-let test_nested_media_in_media_removed () =
+let test_nested_media_removed () =
   (* Removing nested @media from inside @media *)
   let css1 =
     {|
@@ -1140,7 +1140,7 @@ let test_nested_media_in_media_removed () =
   in
   assert_detects_changes css1 css2
 
-let test_nested_layer_in_media_added () =
+let test_layer_in_media_added () =
   (* Adding @layer inside @media *)
   let css1 =
     {|
@@ -1242,8 +1242,7 @@ let tests =
     test_case "string diff context basic" `Quick test_string_diff_context_basic;
     test_case "string diff context multiline" `Quick
       test_string_diff_context_multiline;
-    test_case "string diff context at end" `Quick
-      test_string_diff_context_at_end;
+    test_case "string diff context at end" `Quick test_string_diff_at_end;
     test_case "string diff context none" `Quick test_string_diff_context_none;
     test_case "pp diff result with string context" `Quick
       test_pp_with_string_context;
@@ -1256,9 +1255,9 @@ let tests =
     test_case "complex CSS unit differences" `Quick
       test_complex_css_unit_differences;
     test_case "never empty diff when strings differ" `Quick
-      test_never_empty_diff_when_strings_differ;
+      test_diff_never_empty;
     test_case "grouped selector reorder is structural" `Quick
-      test_grouped_selector_list_reorder_structural;
+      test_selector_list_reorder_structural;
     test_case "rule position reordering" `Quick test_rule_position_reordering;
     test_case "multiple rule reordering" `Quick test_multiple_rule_reordering;
     test_case "property reordering" `Quick test_property_reordering;
@@ -1279,17 +1278,16 @@ let tests =
     test_case "complex selector change with parent context" `Quick
       test_complex_selector_change;
     test_case "selector change: shared prefix combinator swap" `Quick
-      test_selector_change_shared_prefix_combinator_swap;
+      test_shared_prefix_combinator_swap;
     test_case "selector change: shared prefix pseudo moved" `Quick
-      test_selector_change_shared_prefix_pseudo_moved;
+      test_shared_prefix_pseudo_moved;
     test_case "selector change: shared prefix compound vs descendant" `Quick
-      test_selector_change_shared_prefix_compound_vs_descendant;
+      test_compound_vs_descendant_selector;
     test_case "selector change: list child vs descendant" `Quick
-      test_selector_change_list_child_vs_descendant;
+      test_list_child_vs_descendant;
     test_case "selector change: ul p child vs descendant" `Quick
-      test_selector_change_ul_p_child_vs_descendant;
-    test_case "selector change: hr + vs ~" `Quick
-      test_selector_change_hr_adjacent_vs_general_sibling;
+      test_ul_child_vs_descendant;
+    test_case "selector change: hr + vs ~" `Quick test_hr_adjacent_vs_sibling;
     (* New gap coverage tests *)
     test_case "multiple property changes" `Quick test_multiple_property_changes;
     test_case "pseudo element changes" `Quick test_pseudo_element_changes;
@@ -1302,18 +1300,18 @@ let tests =
     test_case "reordered rules within layer" `Quick
       test_reordered_rules_within_layer;
     test_case "selector complexity difference is structural" `Quick
-      test_selector_complexity_difference_is_structural;
+      test_selector_complexity_structural;
     test_case "media inside layer missing rules" `Quick
-      test_media_inside_layer_missing_rules;
+      test_media_layer_missing_rules;
     test_case "media inside layer string fallback" `Quick
-      test_media_inside_layer_string_fallback;
+      test_media_layer_string_fallback;
     test_case "simple media works" `Quick test_simple_media_works;
     test_case "nested containers - media in media added" `Quick
-      test_nested_media_in_media_added;
+      test_nested_media_added;
     test_case "nested containers - media in media removed" `Quick
-      test_nested_media_in_media_removed;
+      test_nested_media_removed;
     test_case "nested containers - layer in media added" `Quick
-      test_nested_layer_in_media_added;
+      test_layer_in_media_added;
     test_case "nested containers - supports in layer" `Quick
       test_nested_supports_in_layer;
     test_case "nested containers - deep nesting" `Quick test_nested_deep_nesting;
