@@ -53,12 +53,11 @@ let check_tailwindcss_available () =
           (* Store the command for future use *)
           tailwind_command := Some cmd;
 
-          (* Log which command we're using *)
+          (* Log which command we're using only if using npx (slower) *)
           if use_npx then
             Fmt.epr
               "Using npx tailwindcss (slower). For faster tests, install \
-               native tailwindcss.@."
-          else Fmt.epr "Using native tailwindcss (fast).@.";
+               native tailwindcss.@.";
 
           (* Try --version first, fall back to --help if needed *)
           let temp_file = Filename.temp_file "tw_version" ".txt" in
@@ -187,31 +186,41 @@ let with_stats f =
       Stats.print_stats ();
       raise exn
 
+let create_temp_dir () =
+  (* Ensure tmp directory exists in project root *)
+  if not (Sys.file_exists "tmp") then Unix.mkdir "tmp" 0o755;
+  (* Create unique temp directory in project root so tailwindcss can resolve
+     imports *)
+  Filename.temp_dir ~temp_dir:"tmp" "tw_gen_" ""
+
 let generate ?(minify = false) ?(optimize = true) classnames =
   check_tailwindcss_available ();
-  let temp_dir = Filename.temp_dir "tw_test" "" in
+
+  let temp_dir = create_temp_dir () in
   let cleanup () = ignore (Sys.command ("rm -rf " ^ Filename.quote temp_dir)) in
+
   try
     let start_time = Stats.start_timer () in
 
     tailwind_files temp_dir classnames;
+
     let minify_flag = if minify then " --minify" else "" in
     let optimize_flag = if optimize then " --optimize" else "" in
     let tailwind_cmd =
-      match !tailwind_command with
-      | Some cmd -> cmd
-      | None -> "tailwindcss" (* Fallback, should be set by check *)
+      match !tailwind_command with Some cmd -> cmd | None -> "tailwindcss"
     in
+
     let cmd =
       Fmt.str
         "cd %s && %s -i input.css -o output.css --content input.html%s%s \
          2>/dev/null"
         temp_dir tailwind_cmd minify_flag optimize_flag
     in
-    let exit_code = Sys.command cmd in
 
+    let exit_code = Sys.command cmd in
     let elapsed = Unix.gettimeofday () -. start_time in
     Stats.record_call elapsed;
+
     if exit_code = 0 then (
       let output_file = Filename.concat temp_dir "output.css" in
       let ic = open_in output_file in

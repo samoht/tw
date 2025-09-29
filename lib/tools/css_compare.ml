@@ -29,21 +29,25 @@ type stats = {
 let strip_header css =
   (* Strip a leading /*!...*/ header comment with simpler flow to reduce
      nesting *)
-  if not (String.starts_with ~prefix:"/*!" css) then css
-  else
-    let len = String.length css in
-    (* Find the end of the opening header comment "*/" starting at index 3 *)
-    let rec find_comment_end i =
-      if i + 1 >= len then None
-      else if css.[i] = '*' && css.[i + 1] = '/' then Some (i + 2)
-      else find_comment_end (i + 1)
-    in
-    match find_comment_end header_comment_start with
-    | None -> css
-    | Some j ->
-        let start_pos = if j < len && css.[j] = '\n' then j + 1 else j in
-        if start_pos >= len then ""
-        else String.sub css start_pos (len - start_pos)
+  let stripped =
+    if not (String.starts_with ~prefix:"/*!" css) then css
+    else
+      let len = String.length css in
+      (* Find the end of the opening header comment "*/" starting at index 3 *)
+      let rec find_comment_end i =
+        if i + 1 >= len then None
+        else if css.[i] = '*' && css.[i + 1] = '/' then Some (i + 2)
+        else find_comment_end (i + 1)
+      in
+      match find_comment_end header_comment_start with
+      | None -> css
+      | Some j ->
+          let start_pos = if j < len && css.[j] = '\n' then j + 1 else j in
+          if start_pos >= len then ""
+          else String.sub css start_pos (len - start_pos)
+  in
+  (* Trim trailing whitespace for consistent comparison *)
+  String.trim stripped
 
 (* Analyze differences between two parsed CSS ASTs, returning structural
    changes *)
@@ -51,15 +55,20 @@ let strip_header css =
 let tree_diff ~(expected : Css.t) ~(actual : Css.t) : Tree_diff.t =
   D.diff ~expected ~actual
 
-(* Compare two CSS ASTs directly *)
+(* Compare two CSS strings for structural and formatting equality *)
 let compare css1 css2 =
   let css1 = strip_header css1 in
   let css2 = strip_header css2 in
-  match (Css.of_string css1, Css.of_string css2) with
-  | Ok expected, Ok actual ->
-      let d = tree_diff ~expected ~actual in
-      is_empty d
-  | _ -> css1 = css2
+  (* If strings are identical, they're equal *)
+  if css1 = css2 then true
+  else
+    match (Css.of_string css1, Css.of_string css2) with
+    | Ok expected, Ok actual ->
+        let d = tree_diff ~expected ~actual in
+        (* Only consider them equal if both structural diff is empty AND strings
+           are identical *)
+        is_empty d && css1 = css2
+    | _ -> false (* Parse errors with different strings are not equal *)
 
 (* Parse two CSS strings and return their diff or parse errors *)
 type t =
@@ -74,25 +83,31 @@ let diff ~expected ~actual =
   let expected = strip_header expected in
   let actual = strip_header actual in
   match (Css.of_string expected, Css.of_string actual) with
-  | Ok expected_ast, Ok actual_ast ->
+  | Ok expected_ast, Ok actual_ast -> (
       let structural_diff =
         tree_diff ~expected:expected_ast ~actual:actual_ast
       in
-      (* If strings differ and structural diff is non-empty, show structural
-         diff. If strings differ but structural diff is empty (indicating
-         tree_diff limitations), fall back to string diff which is more
-         helpful. *)
-      if expected <> actual && not (is_empty structural_diff) then
-        Tree_diff structural_diff
-      else if expected <> actual then
-        (* Strings differ but structural diff is empty - show string diff
-           instead *)
+      (* First check if strings are identical *)
+      if expected = actual then
+        (* Strings are identical, so there should be no structural diff *)
+        if is_empty structural_diff then No_diff
+        else
+          (* This shouldn't happen - identical strings should produce identical
+             ASTs *)
+          failwith "BUG: identical strings produced different ASTs"
+      else if
+        (* Strings differ - always return a diff *)
+        not (is_empty structural_diff)
+      then Tree_diff structural_diff
+      else
+        (* Structural diff is empty but strings differ - return string diff *)
         match String_diff.diff ~expected actual with
         | Some sdiff -> String_diff sdiff
         | None ->
-            Tree_diff structural_diff (* Fallback to empty structural diff *)
-      else if is_empty structural_diff then No_diff
-      else Tree_diff structural_diff
+            (* This should not happen - if strings differ, String_diff.diff
+               should always find the difference *)
+            failwith
+              "BUG: different strings but String_diff found no difference")
   | Error e1, Error e2 -> Both_errors (e1, e2)
   | Ok _, Error e -> Actual_error e
   | Error e, Ok _ -> Expected_error e
