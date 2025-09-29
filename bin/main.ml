@@ -59,27 +59,93 @@ let rec files path patterns =
   then [ path ]
   else []
 
+(* Generation backend - determines which tool to use *)
+type backend =
+  | Native (* Use our tw implementation *)
+  | Tailwind (* Use real tailwindcss tool *)
+  | Diff (* Compare tw vs tailwindcss *)
+
 (* Main command implementation *)
 type gen_opts = {
   minify : bool;
   optimize : bool;
   quiet : bool;
-  mode : Tw.Css.mode;
+  css_mode : Tw.Css.mode;
+  backend : backend;
 }
 
 let eval_flag flag ~default =
   match flag with `Enable -> true | `Disable -> false | `Default -> default
 
 let process_single_class class_str flag ~(opts : gen_opts) =
-  let include_base = eval_flag flag ~default:false in
-  let tw_styles = parse_classes ~warn:false class_str in
-  match tw_styles with
-  | [] -> `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
-  | styles ->
-      let stylesheet = Tw.to_css ~base:include_base ~mode:opts.mode styles in
-      print_string
-        (Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize stylesheet);
-      `Ok ()
+  match opts.backend with
+  | Diff -> (
+      (* For diff mode: always use variables mode and include base layer *)
+      try
+        (* Generate legacy Tailwind CSS *)
+        let legacy_css =
+          Tw_tools.Tailwind_gen.generate ~minify:opts.minify
+            ~optimize:opts.optimize [ class_str ]
+        in
+
+        (* Generate our CSS with variables mode and base layer *)
+        let include_base = true in
+        let tw_styles = parse_classes ~warn:false class_str in
+        match tw_styles with
+        | [] -> `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
+        | styles ->
+            let stylesheet =
+              Tw.to_css ~base:include_base ~mode:Variables styles
+            in
+            let our_css =
+              Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize
+                stylesheet
+            in
+
+            (* Compare the two outputs *)
+            let diff =
+              Tw_tools.Css_compare.diff ~expected:legacy_css ~actual:our_css
+            in
+            (match diff with
+            | Tw_tools.Css_compare.No_diff ->
+                Fmt.pr
+                  "✓ No differences found between Tailwind and tw for '%s'@."
+                  class_str
+            | _ ->
+                Fmt.pr "Differences found for '%s':@.@." class_str;
+                Tw_tools.Css_compare.pp ~expected:"Tailwind" ~actual:"tw"
+                  Fmt.stdout diff;
+                Fmt.pr "@.");
+            `Ok ()
+      with e ->
+        `Error
+          (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e)))
+  | Tailwind -> (
+      try
+        let css =
+          Tw_tools.Tailwind_gen.generate ~minify:opts.minify
+            ~optimize:opts.optimize [ class_str ]
+        in
+        print_string css;
+        `Ok ()
+      with e ->
+        `Error
+          ( false,
+            Fmt.str "Error generating with Tailwind: %s" (Printexc.to_string e)
+          ))
+  | Native -> (
+      let include_base = eval_flag flag ~default:false in
+      let tw_styles = parse_classes ~warn:false class_str in
+      match tw_styles with
+      | [] -> `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
+      | styles ->
+          let stylesheet =
+            Tw.to_css ~base:include_base ~mode:opts.css_mode styles
+          in
+          print_string
+            (Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize
+               stylesheet);
+          `Ok ())
 
 let collect_files paths =
   List.concat_map
@@ -108,57 +174,151 @@ let print_stats ~quiet ~known ~unknown =
         (String.concat ", " (List.filteri (fun i _ -> i < 20) unique_unknown)))
 
 let process_files paths flag ~(opts : gen_opts) =
-  let include_base = eval_flag flag ~default:true in
-  try
-    let all_files = collect_files paths in
-    let all_classes =
-      List.concat_map extract_classes_from_file all_files
-      |> List.sort_uniq String.compare
-    in
-    let unknown_classes = ref [] in
-    let known_classes = ref [] in
-    let tw_styles =
-      List.concat_map
-        (fun classes_str ->
-          let class_names =
-            String.split_on_char ' ' classes_str
-            |> List.filter (fun s -> String.length s > 0)
-          in
-          List.filter_map
-            (fun cls ->
-              match Tw.of_string cls with
-              | Ok style ->
-                  known_classes := cls :: !known_classes;
-                  Some style
-              | Error _ ->
-                  unknown_classes := cls :: !unknown_classes;
-                  if not opts.quiet then
-                    Fmt.epr "Warning: Unknown class '%s'@." cls;
-                  None)
-            class_names)
-        all_classes
-    in
-    let stylesheet = Tw.to_css ~base:include_base ~mode:opts.mode tw_styles in
-    print_string
-      (Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize stylesheet);
+  match opts.backend with
+  | Diff -> (
+      (* For diff mode: always use variables mode and include base layer *)
+      try
+        let all_files = collect_files paths in
+        let all_classes_raw =
+          List.concat_map extract_classes_from_file all_files
+          |> List.sort_uniq String.compare
+        in
+        let all_classes =
+          all_classes_raw
+          |> List.concat_map (fun classes_str ->
+                 String.split_on_char ' ' classes_str
+                 |> List.filter (fun s -> String.length s > 0))
+          |> List.sort_uniq String.compare
+        in
 
-    (* Print statistics to stderr *)
-    print_stats ~quiet:opts.quiet ~known:!known_classes
-      ~unknown:!unknown_classes;
+        (* Generate legacy Tailwind CSS *)
+        let legacy_css =
+          Tw_tools.Tailwind_gen.generate ~minify:opts.minify
+            ~optimize:opts.optimize all_classes
+        in
 
-    `Ok ()
-  with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))
+        (* Generate our CSS with variables mode and base layer *)
+        let include_base = true in
+        let tw_styles =
+          List.concat_map
+            (fun classes_str ->
+              let class_names =
+                String.split_on_char ' ' classes_str
+                |> List.filter (fun s -> String.length s > 0)
+              in
+              List.filter_map
+                (fun cls ->
+                  match Tw.of_string cls with
+                  | Ok style -> Some style
+                  | Error _ -> None)
+                class_names)
+            all_classes_raw
+        in
+        let stylesheet =
+          Tw.to_css ~base:include_base ~mode:Variables tw_styles
+        in
+        let our_css =
+          Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize
+            stylesheet
+        in
 
-let tw_main single_class base_flag ~mode_choice ~minify ~optimize ~quiet paths =
-  (* Resolve default mode based on operation kind when not provided: *)
-  let resolved_mode : Css.mode =
-    match (single_class, mode_choice) with
-    | _, `Inline -> Inline
-    | _, `Variables -> Variables
-    | Some _, `Default -> Inline (* single-class defaults to inline mode *)
-    | None, `Default -> Variables (* files/scan default to variables *)
+        (* Compare the two outputs *)
+        let diff =
+          Tw_tools.Css_compare.diff ~expected:legacy_css ~actual:our_css
+        in
+        (match diff with
+        | Tw_tools.Css_compare.No_diff ->
+            Fmt.pr "✓ No differences found between Tailwind and tw@."
+        | _ ->
+            Fmt.pr "Differences found:@.@.";
+            Tw_tools.Css_compare.pp ~expected:"Tailwind" ~actual:"tw" Fmt.stdout
+              diff;
+            Fmt.pr "@.");
+        `Ok ()
+      with e ->
+        `Error
+          (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e)))
+  | Tailwind -> (
+      try
+        let all_files = collect_files paths in
+        let all_classes =
+          List.concat_map extract_classes_from_file all_files
+          |> List.sort_uniq String.compare
+          |> List.concat_map (fun classes_str ->
+                 String.split_on_char ' ' classes_str
+                 |> List.filter (fun s -> String.length s > 0))
+          |> List.sort_uniq String.compare
+        in
+        let css =
+          Tw_tools.Tailwind_gen.generate ~minify:opts.minify
+            ~optimize:opts.optimize all_classes
+        in
+        print_string css;
+        `Ok ()
+      with e ->
+        `Error
+          ( false,
+            Fmt.str "Error generating with Tailwind: %s" (Printexc.to_string e)
+          ))
+  | Native -> (
+      let include_base = eval_flag flag ~default:true in
+      try
+        let all_files = collect_files paths in
+        let all_classes =
+          List.concat_map extract_classes_from_file all_files
+          |> List.sort_uniq String.compare
+        in
+        let unknown_classes = ref [] in
+        let known_classes = ref [] in
+        let tw_styles =
+          List.concat_map
+            (fun classes_str ->
+              let class_names =
+                String.split_on_char ' ' classes_str
+                |> List.filter (fun s -> String.length s > 0)
+              in
+              List.filter_map
+                (fun cls ->
+                  match Tw.of_string cls with
+                  | Ok style ->
+                      known_classes := cls :: !known_classes;
+                      Some style
+                  | Error _ ->
+                      unknown_classes := cls :: !unknown_classes;
+                      if not opts.quiet then
+                        Fmt.epr "Warning: Unknown class '%s'@." cls;
+                      None)
+                class_names)
+            all_classes
+        in
+        let stylesheet =
+          Tw.to_css ~base:include_base ~mode:opts.css_mode tw_styles
+        in
+        print_string
+          (Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize
+             stylesheet);
+
+        (* Print statistics to stderr *)
+        print_stats ~quiet:opts.quiet ~known:!known_classes
+          ~unknown:!unknown_classes;
+
+        `Ok ()
+      with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e)))
+
+let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
+    paths =
+  (* Resolve default CSS mode based on operation kind when not provided *)
+  let resolved_css_mode : Css.mode =
+    match (single_class, backend, css_mode) with
+    | _, Diff, _ -> Variables (* Diff always uses variables mode *)
+    | _, _, `Inline -> Inline
+    | _, _, `Variables -> Variables
+    | Some _, _, `Default -> Inline (* single-class defaults to inline mode *)
+    | None, _, `Default -> Variables (* files/scan default to variables *)
   in
-  let opts : gen_opts = { minify; optimize; quiet; mode = resolved_mode } in
+  let opts : gen_opts =
+    { minify; optimize; quiet; css_mode = resolved_css_mode; backend }
+  in
   match single_class with
   | Some class_str -> process_single_class class_str base_flag ~opts
   | None -> (
@@ -191,8 +351,8 @@ let minify_flag =
 
 let optimize_flag =
   let doc =
-    "Apply CSS optimizations (deduplicate, merge consecutive rules, combine \n\
-     identical rules)"
+    "Apply CSS optimizations (deduplicate, merge consecutive rules, combine\n\n\
+    \     identical rules)"
   in
   Arg.(value & flag & info [ "optimize" ] ~doc)
 
@@ -200,7 +360,20 @@ let quiet_flag =
   let doc = "Suppress warnings about unknown classes" in
   Arg.(value & flag & info [ "q"; "quiet" ] ~doc)
 
-let mode_vflag =
+let backend_vflag =
+  let doc_tailwind = "Use the real tailwindcss tool to generate CSS" in
+  let doc_diff =
+    "Compare tw output with real Tailwind CSS (shows differences)"
+  in
+  Arg.(
+    value
+    & vflag Native
+        [
+          (Tailwind, info [ "tailwind" ] ~doc:doc_tailwind);
+          (Diff, info [ "diff" ] ~doc:doc_diff);
+        ])
+
+let css_mode_vflag =
   let doc_inline = "Inline mode: resolve values (no variables), no layers." in
   let doc_vars = "Variables mode: emit CSS variables and layered output." in
   Arg.(
@@ -242,6 +415,10 @@ let cmd =
       `Pre "  tw --optimize index.html src/";
       `P "Generate both minified and optimized CSS:";
       `Pre "  tw --minify --optimize index.html src/";
+      `P "Use real Tailwind CSS:";
+      `Pre "  tw -s bg-blue-500 --tailwind";
+      `P "Compare tw output with real Tailwind CSS:";
+      `Pre "  tw -s prose-sm --diff";
       `S Manpage.s_see_also;
       `P "https://tailwindcss.com";
     ]
@@ -250,9 +427,10 @@ let cmd =
   Cmd.v info
     Term.(
       ret
-        (const (fun s b m o q mode_choice paths ->
-             tw_main s b ~mode_choice ~minify:m ~optimize:o ~quiet:q paths)
-        $ single_flag $ base_flag $ minify_flag $ optimize_flag $ quiet_flag
-        $ mode_vflag $ paths_arg))
+        (const (fun s b css_m m o q backend paths ->
+             tw_main s b ~css_mode:css_m ~minify:m ~optimize:o ~quiet:q ~backend
+               paths)
+        $ single_flag $ base_flag $ css_mode_vflag $ minify_flag $ optimize_flag
+        $ quiet_flag $ backend_vflag $ paths_arg))
 
 let () = exit (Cmd.eval cmd)
