@@ -91,6 +91,18 @@ let where base_class elt =
   (* For now, just use the new helper *)
   class_ base_class ++ prose_where_element elt
 
+(* Helper for child selectors in prose size variants like prose-sm *)
+let prose_child_selector parent_selector child_element =
+  (* Create selector like: .prose-sm :where(.prose-sm>child):not(...) *)
+  let open Css.Selector in
+  let parent_child = combine parent_selector Child child_element in
+  let not_prose_class = attribute "class" (Whitespace_list "not-prose") in
+  let not_prose_descendant = combine not_prose_class Descendant universal in
+  let not_prose_where = where [ not_prose_class; not_prose_descendant ] in
+  let not_selector = not [ not_prose_where ] in
+  (* Wrap the parent>child in :where() then add :not() *)
+  parent_selector ++ compound [ where [ parent_child ]; not_selector ]
+
 let li = Css.Selector.element "li"
 let ol = Css.Selector.element "ol"
 let ul = Css.Selector.element "ul"
@@ -125,8 +137,8 @@ let strong = Css.Selector.element "strong"
 let video = Css.Selector.element "video"
 (* kbd selector no longer needed; size rules use direct element selectors *)
 
-(* Lead paragraph selector *)
-let lead = class_attr "lead"
+(* Lead paragraph selector - now unused since prose_where_element is used
+   directly *)
 
 (* Compound selectors for ol with type attributes *)
 (* ol type selectors were only used in removed duplicate rules *)
@@ -145,28 +157,13 @@ let pre_code = pre ++ code
 let thead_th = thead ++ th
 let tbody_tr = tbody ++ tr
 let tbody_tr_last_child = tbody ++ (tr && last_child)
-let tbody_td = tbody ++ td
-let tfoot_td = tfoot ++ td
-let picture_img = picture >> img
-let ol_li = ol >> li
-let ul_li = ul >> li
-let h2_code = h2 ++ code
-let h3_code = h3 ++ code
+
+(* tbody_td and tfoot_td now constructed inline *)
+(* picture_img now constructed inline *)
+(* ol_li and ul_li now constructed inline *)
+(* h2_code and h3_code now constructed inline in typography_rules *)
 let nested_lists = Css.Selector.list [ ul ++ ul; ul ++ ol; ol ++ ul; ol ++ ol ]
-let thead_th_first_child = thead ++ (th && first_child)
-let thead_th_last_child = thead ++ (th && last_child)
-
-(* marker selector only used in removed duplicate list rules *)
-let th_td = Css.Selector.list [ th; td ]
-let figure_all = Css.Selector.(combine figure Child universal) (* figure>* *)
-let tbody_td_tfoot_td = Css.Selector.list [ tbody ++ td; tfoot ++ td ]
-
-let tbody_td_first_child =
-  Css.Selector.list
-    [ tbody ++ (td && first_child); tfoot ++ (td && first_child) ]
-
-let tbody_td_last_child =
-  Css.Selector.list [ tbody ++ (td && last_child); tfoot ++ (td && last_child) ]
+(* These compound selectors are now constructed inline in typography_rules *)
 
 (* Theme record for all prose color variables *)
 type prose_theme = {
@@ -670,19 +667,22 @@ let table_rules base =
     Css.rule
       ~selector:(where base tbody_tr_last_child)
       [ border_bottom_width Zero ];
-    Css.rule ~selector:(where base tbody_td) [ vertical_align Baseline ];
+    Css.rule ~selector:(where base (tbody ++ td)) [ vertical_align Baseline ];
     Css.rule ~selector:(where base tfoot)
       [
         border_top_width (Px 1.); border_top_color (Css.Var prose_th_borders_v);
       ];
-    Css.rule ~selector:(where base tfoot_td) [ vertical_align Top ];
-    Css.rule ~selector:(where base th_td) [ text_align Start ];
+    Css.rule ~selector:(where base (tfoot ++ td)) [ vertical_align Top ];
+    Css.rule
+      ~selector:(where base (Css.Selector.list [ th; td ]))
+      [ text_align Start ];
   ]
 
 (* Figure and figcaption styles *)
 let figure_rules base =
   [
-    Css.rule ~selector:(where base figure_all)
+    Css.rule
+      ~selector:(where base Css.Selector.(combine figure Child universal))
       [ margin_top Zero; margin_bottom Zero ];
     Css.rule ~selector:(where base figcaption)
       [
@@ -697,13 +697,18 @@ let figure_rules base =
 let additional_rules base =
   [
     (* Picture img special handling *)
-    Css.rule ~selector:(where base picture_img)
+    Css.rule
+      ~selector:(where base (picture >> img))
       [ margin_top Zero; margin_bottom Zero ];
     (* List item styles *)
     Css.rule ~selector:(where base li)
       [ margin_top (Em 0.5); margin_bottom (Em 0.5) ];
-    Css.rule ~selector:(where base ol_li) [ padding_inline_start (Em 0.375) ];
-    Css.rule ~selector:(where base ul_li) [ padding_inline_start (Em 0.375) ];
+    Css.rule
+      ~selector:(where base (ol >> li))
+      [ padding_inline_start (Em 0.375) ];
+    Css.rule
+      ~selector:(where base (ul >> li))
+      [ padding_inline_start (Em 0.375) ];
     (* Nested list paragraph spacing *)
     Css.rule
       ~selector:
@@ -760,13 +765,13 @@ let additional_rules base =
     Css.rule ~selector:(where base (sibling h4)) [ margin_top Zero ];
     (* Table column padding *)
     Css.rule
-      ~selector:(where base thead_th_first_child)
+      ~selector:(where base (thead ++ (th && first_child)))
       [ padding_inline_start Zero ];
     Css.rule
-      ~selector:(where base thead_th_last_child)
+      ~selector:(where base (thead ++ (th && last_child)))
       [ padding_inline_end Zero ];
     Css.rule
-      ~selector:(where base tbody_td_tfoot_td)
+      ~selector:(where base (Css.Selector.list [ tbody ++ td; tfoot ++ td ]))
       [
         padding_top (Em 0.571429);
         padding_inline_end (Em 0.571429);
@@ -774,10 +779,16 @@ let additional_rules base =
         padding_inline_start (Em 0.571429);
       ];
     Css.rule
-      ~selector:(where base tbody_td_first_child)
+      ~selector:
+        (where base
+           (Css.Selector.list
+              [ tbody ++ (td && first_child); tfoot ++ (td && first_child) ]))
       [ padding_inline_start Zero ];
     Css.rule
-      ~selector:(where base tbody_td_last_child)
+      ~selector:
+        (where base
+           (Css.Selector.list
+              [ tbody ++ (td && last_child); tfoot ++ (td && last_child) ]))
       [ padding_inline_end Zero ];
     (* Figure *)
     Css.rule ~selector:(where base figure)
@@ -1108,7 +1119,8 @@ let typography_rules selector c =
       ~selector:(selector ++ prose_where_element p)
       [ margin_top c.p_margin_y; margin_bottom c.p_margin_y ];
     (* Lead paragraph *)
-    Css.rule ~selector:(selector ++ lead)
+    Css.rule
+      ~selector:(selector ++ prose_where_element (class_attr "lead"))
       [
         margin_top c.lead_margin_top;
         margin_bottom c.lead_margin_bottom;
@@ -1116,157 +1128,200 @@ let typography_rules selector c =
         line_height (Num c.lead_line_height);
       ];
     (* Blockquote *)
-    Css.rule ~selector:(selector ++ blockquote)
+    Css.rule
+      ~selector:(selector ++ prose_where_element blockquote)
       [
         margin_top c.blockquote_margin_y;
         margin_bottom c.blockquote_margin_y;
         padding_inline_start c.blockquote_padding_start;
       ];
     (* Headings *)
-    Css.rule ~selector:(selector ++ h1)
+    Css.rule
+      ~selector:(selector ++ prose_where_element h1)
       [
         margin_top c.h1_margin_top;
         margin_bottom c.h1_margin_bottom;
         font_size c.h1_font_size;
         line_height (Num c.h1_line_height);
       ];
-    Css.rule ~selector:(selector ++ h2)
+    Css.rule
+      ~selector:(selector ++ prose_where_element h2)
       [
         margin_top c.h2_margin_top;
         margin_bottom c.h2_margin_bottom;
         font_size c.h2_font_size;
         line_height (Num c.h2_line_height);
       ];
-    Css.rule ~selector:(selector ++ h3)
+    Css.rule
+      ~selector:(selector ++ prose_where_element h3)
       [
         margin_top c.h3_margin_top;
         margin_bottom c.h3_margin_bottom;
         font_size c.h3_font_size;
         line_height (Num c.h3_line_height);
       ];
-    Css.rule ~selector:(selector ++ h4)
+    Css.rule
+      ~selector:(selector ++ prose_where_element h4)
       [
         margin_top c.h4_margin_top;
         margin_bottom c.h4_margin_bottom;
         line_height (Num c.h4_line_height);
       ];
-    (* Images - separate rules to avoid combining *)
-    Css.rule ~selector:(selector ++ img)
+    (* Images *)
+    Css.rule
+      ~selector:(selector ++ prose_where_element img)
       [ margin_top c.img_margin_y; margin_bottom c.img_margin_y ];
     Css.rule
-      ~selector:(selector ++ element "picture")
+      ~selector:(selector ++ prose_where_element picture)
       [ margin_top c.img_margin_y; margin_bottom c.img_margin_y ];
-    Css.rule ~selector:(selector ++ picture_img)
+    Css.rule
+      ~selector:(selector ++ prose_where_element (picture >> img))
       [ margin_top Zero; margin_bottom Zero ];
     Css.rule
-      ~selector:(selector ++ element "video")
+      ~selector:(selector ++ prose_where_element video)
       [ margin_top c.img_margin_y; margin_bottom c.img_margin_y ];
     (* Code elements *)
     Css.rule
-      ~selector:(selector ++ element "kbd")
+      ~selector:(selector ++ prose_where_element (element "kbd"))
       [
         padding_top c.kbd_padding_y;
         padding_inline_end c.kbd_padding_x;
         padding_bottom c.kbd_padding_y;
-        padding_inline_start c.kbd_padding_x;
         border_radius (Rem 0.3125);
+        padding_inline_start c.kbd_padding_x;
         font_size c.kbd_font_size;
       ];
     Css.rule
-      ~selector:(selector ++ element "code")
+      ~selector:(selector ++ prose_where_element code)
       [ font_size c.code_font_size ];
-    Css.rule ~selector:(selector ++ h2_code) [ font_size c.h2_code_font_size ];
-    Css.rule ~selector:(selector ++ h3_code) [ font_size c.h3_code_font_size ];
     Css.rule
-      ~selector:(selector ++ element "pre")
+      ~selector:(selector ++ prose_where_element (h2 ++ code))
+      [ font_size c.h2_code_font_size ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element (h3 ++ code))
+      [ font_size c.h3_code_font_size ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element pre)
       [
         padding_top c.pre_padding_y;
         padding_inline_end c.pre_padding_x;
         padding_bottom c.pre_padding_y;
-        padding_inline_start c.pre_padding_x;
         border_radius c.pre_border_radius;
         margin_top c.pre_margin_top;
         margin_bottom c.pre_margin_bottom;
+        padding_inline_start c.pre_padding_x;
         font_size c.pre_font_size;
         line_height (Num c.pre_line_height);
       ];
-    (* Lists - separate ol and ul to avoid combining *)
+    (* Lists *)
     Css.rule
-      ~selector:(selector ++ element "ol")
+      ~selector:(selector ++ prose_where_element ol)
       [
         margin_top c.list_margin_y;
         margin_bottom c.list_margin_y;
         padding_inline_start c.list_padding_start;
       ];
     Css.rule
-      ~selector:(selector ++ element "ul")
+      ~selector:(selector ++ prose_where_element ul)
       [
         margin_top c.list_margin_y;
         margin_bottom c.list_margin_y;
         padding_inline_start c.list_padding_start;
       ];
     Css.rule
-      ~selector:(selector ++ element "li")
+      ~selector:(selector ++ prose_where_element li)
       [ margin_top c.li_margin_y; margin_bottom c.li_margin_y ];
-    (* Separate ol>li and ul>li to avoid combining *)
-    Css.rule ~selector:(selector ++ ol_li)
+    (* List items with padding *)
+    Css.rule
+      ~selector:(selector ++ prose_where_element (ol >> li))
       [ padding_inline_start c.li_padding_start ];
-    Css.rule ~selector:(selector ++ ul_li)
+    Css.rule
+      ~selector:(selector ++ prose_where_element (ul >> li))
       [ padding_inline_start c.li_padding_start ];
     (* Nested list paragraphs *)
     Css.rule
-      ~selector:(selector >> ul >> li ++ p)
+      ~selector:(prose_child_selector selector (ul >> li ++ p))
       [ margin_top c.li_p_margin_y; margin_bottom c.li_p_margin_y ];
     Css.rule
-      ~selector:(selector >> ul >> li >> p ++ first_child)
+      ~selector:(prose_child_selector selector (ul >> li >> (p && first_child)))
       [ margin_top c.li_p_first_margin_top ];
     Css.rule
-      ~selector:(selector >> ul >> li >> p ++ last_child)
+      ~selector:(prose_child_selector selector (ul >> li >> (p && last_child)))
       [ margin_bottom c.li_p_last_margin_bottom ];
     Css.rule
-      ~selector:(selector >> ol >> li >> p ++ first_child)
+      ~selector:(prose_child_selector selector (ol >> li >> (p && first_child)))
       [ margin_top c.li_p_first_margin_top ];
     Css.rule
-      ~selector:(selector >> ol >> li >> p ++ last_child)
+      ~selector:(prose_child_selector selector (ol >> li >> (p && last_child)))
       [ margin_bottom c.li_p_last_margin_bottom ];
     (* Nested lists *)
-    Css.rule ~selector:(selector ++ nested_lists)
+    Css.rule
+      ~selector:(selector ++ prose_where_element (ul ++ ul))
+      [
+        margin_top c.nested_list_margin_y; margin_bottom c.nested_list_margin_y;
+      ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element (ul ++ ol))
+      [
+        margin_top c.nested_list_margin_y; margin_bottom c.nested_list_margin_y;
+      ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element (ol ++ ul))
+      [
+        margin_top c.nested_list_margin_y; margin_bottom c.nested_list_margin_y;
+      ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element (ol ++ ol))
       [
         margin_top c.nested_list_margin_y; margin_bottom c.nested_list_margin_y;
       ];
     (* Definition lists *)
-    Css.rule ~selector:(selector ++ dl)
+    Css.rule
+      ~selector:(selector ++ prose_where_element dl)
       [ margin_top c.dl_margin_y; margin_bottom c.dl_margin_y ];
     Css.rule
-      ~selector:(selector ++ Css.Selector.element "dt")
+      ~selector:(selector ++ prose_where_element dt)
       [ margin_top c.dt_margin_top ];
-    Css.rule ~selector:(selector ++ dd)
+    Css.rule
+      ~selector:(selector ++ prose_where_element dd)
       [ margin_top c.dd_margin_top; padding_inline_start c.dd_padding_start ];
     (* Horizontal rule *)
-    Css.rule ~selector:(selector ++ hr)
+    Css.rule
+      ~selector:(selector ++ prose_where_element hr)
       [ margin_top c.hr_margin_y; margin_bottom c.hr_margin_y ];
-    (* Following elements - separate to avoid combining *)
-    Css.rule ~selector:(selector ++ sibling hr) [ margin_top Zero ];
-    Css.rule ~selector:(selector ++ sibling h2) [ margin_top Zero ];
-    Css.rule ~selector:(selector ++ sibling h3) [ margin_top Zero ];
-    Css.rule ~selector:(selector ++ sibling h4) [ margin_top Zero ];
+    (* Following elements *)
+    Css.rule
+      ~selector:(selector ++ prose_where_element (sibling hr))
+      [ margin_top Zero ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element (sibling h2))
+      [ margin_top Zero ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element (sibling h3))
+      [ margin_top Zero ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element (sibling h4))
+      [ margin_top Zero ];
     (* Tables *)
-    Css.rule ~selector:(selector ++ table)
+    Css.rule
+      ~selector:(selector ++ prose_where_element table)
       [ font_size c.table_font_size; line_height (Num c.table_line_height) ];
-    Css.rule ~selector:(selector ++ thead_th)
+    Css.rule
+      ~selector:(selector ++ prose_where_element (thead ++ th))
       [
         padding_inline_end c.thead_th_padding_x;
         padding_bottom c.thead_th_padding_bottom;
         padding_inline_start c.thead_th_padding_x;
       ];
     Css.rule
-      ~selector:(selector ++ thead_th_first_child)
+      ~selector:(selector ++ prose_where_element (thead ++ (th && first_child)))
       [ padding_inline_start Zero ];
     Css.rule
-      ~selector:(selector ++ thead_th_last_child)
+      ~selector:(selector ++ prose_where_element (thead ++ (th && last_child)))
       [ padding_inline_end Zero ];
+    (* Table body and footer cells *)
     Css.rule
-      ~selector:(selector ++ tbody_td_tfoot_td)
+      ~selector:(selector ++ prose_where_element (tbody ++ td))
       [
         padding_top c.tbody_td_padding_y;
         padding_inline_end c.tbody_td_padding_x;
@@ -1274,17 +1329,36 @@ let typography_rules selector c =
         padding_inline_start c.tbody_td_padding_x;
       ];
     Css.rule
-      ~selector:(selector ++ tbody_td_first_child)
+      ~selector:(selector ++ prose_where_element (tfoot ++ td))
+      [
+        padding_top c.tbody_td_padding_y;
+        padding_inline_end c.tbody_td_padding_x;
+        padding_bottom c.tbody_td_padding_y;
+        padding_inline_start c.tbody_td_padding_x;
+      ];
+    (* First and last table cells *)
+    Css.rule
+      ~selector:(selector ++ prose_where_element (tbody ++ (td && first_child)))
       [ padding_inline_start Zero ];
     Css.rule
-      ~selector:(selector ++ tbody_td_last_child)
+      ~selector:(selector ++ prose_where_element (tfoot ++ (td && first_child)))
+      [ padding_inline_start Zero ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element (tbody ++ (td && last_child)))
+      [ padding_inline_end Zero ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element (tfoot ++ (td && last_child)))
       [ padding_inline_end Zero ];
     (* Figure *)
-    Css.rule ~selector:(selector ++ figure)
+    Css.rule
+      ~selector:(selector ++ prose_where_element figure)
       [ margin_top c.figure_margin_y; margin_bottom c.figure_margin_y ];
-    Css.rule ~selector:(selector ++ figure_all)
+    Css.rule
+      ~selector:
+        (selector ++ prose_where_element (combine figure Child universal))
       [ margin_top Zero; margin_bottom Zero ];
-    Css.rule ~selector:(selector ++ figcaption)
+    Css.rule
+      ~selector:(selector ++ prose_where_element figcaption)
       [
         margin_top c.figcaption_margin_top;
         font_size c.figcaption_font_size;
@@ -1292,10 +1366,10 @@ let typography_rules selector c =
       ];
     (* First and last child margins *)
     Css.rule
-      ~selector:(selector >> Css.Selector.universal ++ first_child)
+      ~selector:(prose_child_selector selector first_child)
       [ margin_top Zero ];
     Css.rule
-      ~selector:(selector >> Css.Selector.universal ++ last_child)
+      ~selector:(prose_child_selector selector last_child)
       [ margin_bottom Zero ];
   ]
 

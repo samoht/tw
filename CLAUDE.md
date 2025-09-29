@@ -43,9 +43,36 @@ ALCOTEST_VERBOSE=1 dune exec test/test.exe
 dune exec -- tw -s "p-4" --variables
 dune exec -- tw -s "p-4" --variables --base
 
-# Compare with Tailwind (requires npx tailwindcss)
-echo '<div class="p-4">X</div>' > tmp/test.html
-npx tailwindcss --content tmp/test.html --minify --optimize 2>/dev/null
+# Compare with real Tailwind CSS
+## Method 1: Direct comparison using --diff (recommended)
+dune exec -- tw -s "p-4" --diff
+
+## Method 2: Generate with real Tailwind via --tailwind
+dune exec -- tw -s "p-4" --tailwind
+```
+
+### Backend modes (mutually exclusive)
+
+The `tw` binary supports three backend modes:
+
+- **Native** (default): Our OCaml implementation
+- **`--tailwind`**: Use real tailwindcss tool to generate CSS
+- **`--diff`**: Compare our output with real Tailwind and show differences
+
+**Important**: `--diff` mode always uses:
+- Variables mode (ignores `--inline` flag)
+- Base layer included (ignores `--no-base` flag)
+- This ensures consistent comparison conditions
+
+Example diff output:
+```bash
+$ dune exec -- tw -s "prose-sm" --diff
+Differences found for 'prose-sm':
+
+--- Tailwind
++++ tw
+- .prose-sm:
+    - modify: line-height 1.7142857 -> 1.71429
 ```
 
 > Note: Use `tmp/` (repo-local) for debug artefacts; do **not** use `/tmp`. Update any older scripts accordingly.
@@ -142,6 +169,10 @@ Utilities must not declare tokens; theme must not reference utility vars. See `c
 5. **Compare** against Tailwind:
 
    ```bash
+   # Quick comparison for any class
+   dune exec -- tw -s "border-2 border-solid" --diff
+
+   # Or for test files
    ALCOTEST_VERBOSE=1 dune exec test/test.exe test tw 10
    diff -u tmp/css_debug/test_10_tw.css tmp/css_debug/test_10_tailwind.css
    ```
@@ -151,6 +182,15 @@ Utilities must not declare tokens; theme must not reference utility vars. See `c
 ---
 
 ## 8) Debugging checklist
+
+* **Output differs from Tailwind?**
+
+  ```bash
+  # Quick comparison showing exact differences
+  dune exec -- tw -s "your-class" --diff
+  ```
+
+  This shows structural CSS differences between our implementation and real Tailwind.
 
 * **Wrong layer?**
 
@@ -217,7 +257,11 @@ Utilities must not declare tokens; theme must not reference utility vars. See `c
 
 ## 12) Known issues
 
-* **CSS comparison tool**: may report "no structural differences" while char counts differ. The issue is tracked in `lib/tools/css_compare.ml`. Prioritise a fix before relying on negative diffs for CI gating.
+* **CSS comparison tool limitations**:
+  - Reports string diffs instead of structural diffs when selectors are fundamentally different (e.g., missing pseudo-elements like `::marker`)
+  - May show "no structural differences" when only property values differ
+  - Does not detect when entire selector chains are missing (e.g., `.hover\:prose:hover :where(ol>li)::marker` vs `.hover\:prose:hover`)
+  - Issue tracked in `lib/tools/css_compare.ml`. Fix required for proper CI gating.
 
 ---
 

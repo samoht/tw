@@ -947,6 +947,116 @@ let test_reordered_rules_within_layer () =
         has_layer_with_reordering
   | _ -> fail "Expected structural diff for reordered utilities"
 
+let test_selector_complexity_difference_is_structural () =
+  (* Test that css_compare detects differences in selector complexity as
+     structural differences. E.g. `.hover\:prose:hover :where(ol>li)::marker` vs
+     `.hover\:prose:hover` should be reported as structural, not just a string
+     difference. *)
+  let expected =
+    {|.hover\:prose:hover :where(ol>li):not(:where([class~=not-prose],[class~=not-prose] *))::marker{color:var(--tw-prose-counters);font-weight:400}
+.hover\:prose:hover :where(ul>li):not(:where([class~=not-prose],[class~=not-prose] *))::marker{color:var(--tw-prose-bullets)}|}
+  in
+  let actual =
+    {|.hover\:prose:hover{color:var(--tw-prose-bullets);font-weight:400}|}
+  in
+
+  match Cc.diff ~expected ~actual with
+  | Cc.Tree_diff diff ->
+      (* Should detect rules with different selectors as structural changes *)
+      Printf.printf "Tree_diff found with %d rules, %d containers\n"
+        (List.length diff.rules)
+        (List.length diff.containers);
+      List.iter
+        (function
+          | Cc.Rule_added r -> Printf.printf "  Rule added: %s\n" r.selector
+          | Cc.Rule_removed r -> Printf.printf "  Rule removed: %s\n" r.selector
+          | Cc.Rule_selector_changed r ->
+              Printf.printf "  Selector changed: %s -> %s\n" r.old_selector
+                r.new_selector
+          | _ -> ())
+        diff.rules;
+
+      let has_structural_changes =
+        List.length diff.rules > 0
+        || List.exists
+             (function
+               | Cc.Container_modified { rule_changes; _ } ->
+                   List.length rule_changes > 0
+               | _ -> false)
+             diff.containers
+      in
+      Alcotest.(check bool)
+        "Should detect missing pseudo-element selectors as structural \
+         difference"
+        true has_structural_changes
+  | Cc.String_diff _ ->
+      fail
+        "Should detect missing pseudo-element as structural difference, not \
+         string difference"
+  | Cc.No_diff -> fail "Should detect difference between selectors"
+  | Cc.Expected_error _ | Cc.Actual_error _ | Cc.Both_errors _ ->
+      fail "Should not have parsing errors"
+
+let test_media_inside_layer_missing_rules () =
+  (* This test reproduces the hover:prose issue where @media is inside @layer
+     utilities. The tree_diff function should detect differences inside nested
+     structures. *)
+  let expected =
+    {|@layer utilities{@media (hover:hover){.a{color:red}.b::marker{color:blue}}}|}
+  in
+  let actual = {|@layer utilities{@media (hover:hover){.c{color:green}}}|} in
+
+  match Cc.diff ~expected ~actual with
+  | Cc.Tree_diff diff ->
+      (* Should detect structural changes in nested contexts *)
+      let has_changes =
+        List.length diff.rules > 0 || List.length diff.containers > 0
+      in
+      check bool "Should detect structural differences in nested media" true
+        has_changes
+  | Cc.String_diff _ ->
+      (* This is the bug we want to fix - should be structural not string
+         diff *)
+      fail "Should detect as structural difference, not string difference"
+  | _ -> fail "Unexpected diff result"
+
+let test_media_inside_layer_string_fallback () =
+  (* This test shows that when tree_diff fails to detect nested differences, the
+     string diff should still be helpful *)
+  let expected =
+    {|@layer utilities{@media (hover:hover){.hover\:prose:hover :where(ol>li)::marker{color:red}}}|}
+  in
+  let actual =
+    {|@layer utilities{@media (hover:hover){.hover\:prose:hover{color:blue}}}|}
+  in
+
+  match Cc.diff ~expected ~actual with
+  | Cc.String_diff sdiff ->
+      (* This is expected due to current tree_diff limitations *)
+      check bool "String diff should have valid position" true
+        (sdiff.position > 0)
+  | Cc.Tree_diff _ ->
+      (* If tree_diff works, that's great too *)
+      ()
+  | _ -> fail "Should get either structural or string diff"
+
+let test_simple_media_works () =
+  (* Control test: simple media (not inside layers) should work correctly *)
+  let expected =
+    {|@media (hover:hover){.a{color:red}.b::marker{color:blue}}|}
+  in
+  let actual = {|@media (hover:hover){.c{color:green}}|} in
+
+  match Cc.diff ~expected ~actual with
+  | Cc.Tree_diff diff ->
+      (* Should work correctly for simple media *)
+      let has_changes =
+        List.length diff.rules > 0 || List.length diff.containers > 0
+      in
+      check bool "Simple media should detect structural differences" true
+        has_changes
+  | _ -> fail "Simple media comparison should work"
+
 let tests =
   [
     test_case "strip header" `Quick test_strip_header;
@@ -1024,6 +1134,13 @@ let tests =
     test_case "media query differences" `Quick test_media_query_differences;
     test_case "reordered rules within layer" `Quick
       test_reordered_rules_within_layer;
+    test_case "selector complexity difference is structural" `Quick
+      test_selector_complexity_difference_is_structural;
+    test_case "media inside layer missing rules" `Quick
+      test_media_inside_layer_missing_rules;
+    test_case "media inside layer string fallback" `Quick
+      test_media_inside_layer_string_fallback;
+    test_case "simple media works" `Quick test_simple_media_works;
   ]
 
 let suite = ("css_compare", tests)
