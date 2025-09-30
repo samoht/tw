@@ -65,6 +65,15 @@ let absolute = style "absolute" [ position Absolute ]
 let fixed = style "fixed" [ position Fixed ]
 let sticky = style "sticky" [ position Sticky ]
 
+(** Suborder for position utilities. Tailwind orders them alphabetically. *)
+let position_suborder = function
+  | "absolute" -> 0
+  | "fixed" -> 1
+  | "relative" -> 2
+  | "static" -> 3
+  | "sticky" -> 4
+  | _ -> 5
+
 (** {1 Visibility Utilities} *)
 
 let visible = style "visible" [ visibility Visible ]

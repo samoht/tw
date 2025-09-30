@@ -42,6 +42,11 @@ val fixed : t
 val sticky : t
 (** [sticky] sets position to sticky. *)
 
+val position_suborder : string -> int
+(** [position_suborder class_name] returns the suborder for position utilities.
+    Tailwind orders position utilities alphabetically: absolute, fixed,
+    relative, static, sticky. *)
+
 (** {1 Visibility Utilities} *)
 
 val visible : t
