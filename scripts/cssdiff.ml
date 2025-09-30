@@ -37,7 +37,7 @@ let () =
                 in
                 Fmt.pr "%a@,@," Tw_tools.Css_compare.pp_stats stats;
                 Fmt.pr "%a@,"
-                  (Tw_tools.Css_compare.pp ~expected:"File 2" ~actual:"File 1")
+                  (Tw_tools.Css_compare.pp ~expected:file2 ~actual:file1)
                   result;
                 exit 1
             | Tree_diff _ | Both_errors _ | Expected_error _ | Actual_error _ ->
@@ -47,7 +47,7 @@ let () =
                 in
                 Fmt.pr "%a@,@," Tw_tools.Css_compare.pp_stats stats;
                 Fmt.pr "%a@,"
-                  (Tw_tools.Css_compare.pp ~expected:"File 2" ~actual:"File 1")
+                  (Tw_tools.Css_compare.pp ~expected:file2 ~actual:file1)
                   result;
                 exit 1)
       | _ -> exit 1)
