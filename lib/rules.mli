@@ -217,8 +217,9 @@ val rule_sets :
   * (string option * string * Css.statement list) list
 (** [rule_sets tw_classes] processes Tailwind classes into CSS rule sets. *)
 
-val classify : output list -> by_type
-(** [classify rules] classifies rules by their type. *)
+val classify_by_type : output list -> by_type
+(** [classify_by_type rules] classifies rules by their type (regular, media,
+    container, starting). *)
 
 (** {1 Variable Resolution} *)
 

@@ -386,7 +386,7 @@ let extract_selector_props_pairs rules =
 (* Rule Processing - Group and organize rules *)
 (* ======================================================================== *)
 
-let classify all_rules =
+let classify_by_type all_rules =
   let regular_rules, media_rules, container_rules, starting_rules =
     List.fold_left
       (fun (reg, media, cont, start) rule ->
@@ -559,28 +559,54 @@ let is_border_util core =
 let is_container_or_prose core =
   core = "container" || String.starts_with ~prefix:"prose" core
 
-(* Helper function to extract color order with shade for utilities like
-   bg-blue-500, text-red-400, etc. *)
+(* Conflict group classification - Utility categories ordered by priority (lower
+   number = higher priority). This ordering ensures proper cascade behavior in
+   CSS. *)
 
-(* Conflict group classification table Groups are ordered by priority (lower
-   number = higher priority) This ordering ensures proper cascade behavior in
-   CSS *)
-type utility_group = {
+(** Utility category variant - each utility belongs to exactly one category *)
+type utility_category =
+  | Position
+  | Grid_placement
+  | Margin
+  | Display
+  | Sizing
+  | Cursor
+  | Grid_template
+  | Flex_layout
+  | Alignment
+  | Gap
+  | Border
+  | Background
+  | Padding
+  | Text_align
+  | Typography
+  | Effects
+  | Interactivity
+  | Container_prose
+  | Unknown
+
+type category_info = {
+  category : utility_category;
   priority : int;
   name : string;
   classifier : string -> bool;
   suborder : string -> int;
 }
+(** Category definition with classifier and ordering information *)
 
-let utility_groups =
+(** Declarative table of utility categories, ordered by priority. First match
+    wins during classification. *)
+let category_table =
   [
     {
+      category = Position;
       priority = 0;
       name = "position";
       classifier = is_position_util;
       suborder = (fun _ -> 0);
     };
     {
+      category = Grid_placement;
       priority = 1;
       name = "grid_placement";
       classifier =
@@ -594,12 +620,14 @@ let utility_groups =
       suborder = Flow.utilities_suborder;
     };
     {
+      category = Margin;
       priority = 2;
       name = "margin";
       classifier = is_margin_util;
       suborder = Spacing.suborder;
     };
     {
+      category = Display;
       priority = 10;
       name = "display";
       classifier =
@@ -611,18 +639,21 @@ let utility_groups =
       suborder = (fun c -> if c = "hidden" then 3 else 1);
     };
     {
+      category = Sizing;
       priority = 12;
       name = "sizing";
       classifier = is_sizing_util;
       suborder = Sizing.suborder;
     };
     {
+      category = Cursor;
       priority = 13;
       name = "cursor";
       classifier = is_cursor_util;
       suborder = (fun _ -> 0);
     };
     {
+      category = Grid_template;
       priority = 14;
       name = "grid_template";
       classifier =
@@ -635,37 +666,40 @@ let utility_groups =
       suborder = Flow.utilities_suborder;
     };
     {
+      category = Flex_layout;
       priority = 15;
       name = "flex_layout";
       classifier =
         (fun c ->
-          (String.starts_with ~prefix:"flex-" c && not (c = "flex"))
-          (* flex is display:flex, not flex-direction *)
-          || c = "grow"
-          || c = "shrink"
+          (String.starts_with ~prefix:"flex-" c && c <> "flex")
+          || c = "grow" || c = "shrink"
           || String.starts_with ~prefix:"basis-" c
           || String.starts_with ~prefix:"order-" c);
       suborder = Flow.utilities_suborder;
     };
     {
+      category = Alignment;
       priority = 16;
       name = "alignment";
       classifier = (fun c -> Flow.alignment_suborder c >= 0);
       suborder = Flow.alignment_suborder;
     };
     {
+      category = Gap;
       priority = 16;
       name = "gap";
       classifier = is_gap_util;
       suborder = Spacing.suborder;
     };
     {
+      category = Border;
       priority = 17;
       name = "border";
       classifier = is_border_util;
       suborder = Borders.suborder;
     };
     {
+      category = Background;
       priority = 18;
       name = "background";
       classifier =
@@ -682,12 +716,14 @@ let utility_groups =
           else 0);
     };
     {
+      category = Padding;
       priority = 19;
       name = "padding";
       classifier = is_padding_util;
       suborder = Spacing.suborder;
     };
     {
+      category = Text_align;
       priority = 20;
       name = "text_align";
       classifier =
@@ -697,24 +733,28 @@ let utility_groups =
       suborder = (fun _ -> 0);
     };
     {
+      category = Typography;
       priority = 100;
       name = "typography";
       classifier = is_typography_util;
       suborder = Typography.suborder;
     };
     {
+      category = Effects;
       priority = 700;
       name = "effects";
       classifier = is_effects_util;
       suborder = Effects.suborder;
     };
     {
+      category = Interactivity;
       priority = 800;
       name = "interactivity";
       classifier = is_interactivity_util;
       suborder = (fun _ -> 0);
     };
     {
+      category = Container_prose;
       priority = 1000;
       name = "container_prose";
       classifier = is_container_or_prose;
@@ -723,6 +763,18 @@ let utility_groups =
       suborder = (fun _ -> 0);
     };
   ]
+
+(** Classify a utility by its core name - returns the first matching category *)
+let classify core =
+  match List.find_opt (fun info -> info.classifier core) category_table with
+  | Some info -> info.category
+  | None -> Unknown
+
+(** Get priority, name, and suborder function for a utility category *)
+let utility_group_of_category category =
+  match List.find_opt (fun info -> info.category = category) category_table with
+  | Some info -> (info.priority, info.name, info.suborder)
+  | None -> (9999, "unknown", fun _ -> 0)
 
 (* Enhanced conflict resolution function that returns a structured ordering *)
 type utility_order = {
@@ -757,15 +809,10 @@ let conflict_order selector =
     | None -> class_name
   in
 
-  (* Find the first matching group using base utility name *)
-  match List.find_opt (fun g -> g.classifier base_utility) utility_groups with
-  | Some group ->
-      {
-        utility_group = group.name;
-        priority = group.priority;
-        suborder = group.suborder base_utility;
-      }
-  | None -> { utility_group = "unknown"; priority = 9999; suborder = 0 }
+  (* Classify the utility and get its group information *)
+  let category = classify base_utility in
+  let priority, name, suborder_fn = utility_group_of_category category in
+  { utility_group = name; priority; suborder = suborder_fn base_utility }
 
 (* Legacy function for backward compatibility *)
 let conflict_group selector =
@@ -863,7 +910,7 @@ let deduplicate_selector_props pairs =
 (* Convert selector/props pairs to CSS rules. *)
 (* Internal: build rule sets from pre-extracted outputs. *)
 let rule_sets_from_selector_props all_rules =
-  let separated = classify all_rules in
+  let separated = classify_by_type all_rules in
   (* First separate hover from non-hover rules *)
   let hover_regular, non_hover_regular =
     List.partition is_hover_rule separated.regular
