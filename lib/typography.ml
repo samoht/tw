@@ -1005,31 +1005,33 @@ type typography_info =
   | Unknown
 
 let text_size_order = function
-  | "xs" -> 1
-  | "sm" -> 2
-  | "base" -> 3
-  | "lg" -> 4
-  | "xl" -> 5
-  | "2xl" -> 6
+  (* Reverse order - largest first to match Tailwind v4 *)
+  | "9xl" -> 1
+  | "8xl" -> 2
+  | "7xl" -> 3
+  | "6xl" -> 4
+  | "5xl" -> 5
+  | "4xl" -> 6
   | "3xl" -> 7
-  | "4xl" -> 8
-  | "5xl" -> 9
-  | "6xl" -> 10
-  | "7xl" -> 11
-  | "8xl" -> 12
-  | "9xl" -> 13
+  | "2xl" -> 8
+  | "xl" -> 9
+  | "lg" -> 10
+  | "base" -> 11
+  | "sm" -> 12
+  | "xs" -> 13
   | _ -> 100
 
 let font_weight_order = function
-  | "thin" -> 100
-  | "extralight" -> 200
-  | "light" -> 300
-  | "normal" -> 400
+  (* Reverse order - heaviest first to match Tailwind v4 *)
+  | "black" -> 100
+  | "extrabold" -> 200
+  | "bold" -> 300
+  | "semibold" -> 400
   | "medium" -> 500
-  | "semibold" -> 600
-  | "bold" -> 700
-  | "extrabold" -> 800
-  | "black" -> 900
+  | "normal" -> 600
+  | "light" -> 700
+  | "extralight" -> 800
+  | "thin" -> 900
   | _ -> 0
 
 let leading_order = function
@@ -1127,20 +1129,20 @@ let parse_class class_name =
 let suborder class_name : int =
   match parse_class class_name with
   | Text_size size -> 1000 + text_size_order size
+  | Font_weight weight -> 2000 + weight
   | Text_color (color, shade) -> (
       (* Use Color module's ordering for consistency *)
       try
         let _, color_order = Color.utilities_order color in
-        1500 + (color_order * 1000) + shade
-      with _ -> 1500 + shade)
-  | Font_weight weight -> 2000 + weight
+        3000 + (color_order * 1000) + shade
+      with _ -> 3000 + shade)
   | Font_family family -> (
-      3000
+      4000
       + match family with "sans" -> 1 | "serif" -> 2 | "mono" -> 3 | _ -> 0)
   | Font_style style -> (
-      4000 + match style with "italic" -> 1 | "not-italic" -> 2 | _ -> 0)
+      5000 + match style with "italic" -> 1 | "not-italic" -> 2 | _ -> 0)
   | Text_align align -> (
-      5000
+      6000
       +
       match align with
       | "left" -> 1
@@ -1149,7 +1151,7 @@ let suborder class_name : int =
       | "justify" -> 4
       | _ -> 0)
   | Text_decoration deco -> (
-      6000
+      7000
       +
       match deco with
       | "underline" -> 1
@@ -1158,10 +1160,10 @@ let suborder class_name : int =
       | "no-underline" -> 4
       | _ -> 0)
   | Leading (preset, num) -> (
-      7000 + match num with Some n -> 100 + n | None -> leading_order preset)
-  | Tracking spacing -> 8000 + tracking_order spacing
+      8000 + match num with Some n -> 100 + n | None -> leading_order preset)
+  | Tracking spacing -> 9000 + tracking_order spacing
   | Text_transform transform -> (
-      9000
+      10000
       +
       match transform with
       | "uppercase" -> 1
@@ -1169,4 +1171,4 @@ let suborder class_name : int =
       | "capitalize" -> 3
       | "normal-case" -> 4
       | _ -> 0)
-  | Unknown -> 10000
+  | Unknown -> 11000

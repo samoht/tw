@@ -316,6 +316,23 @@ let auto_rows_max =
 let auto_rows_fr =
   style "auto-rows-fr" [ Css.grid_auto_rows (Tracks [ Fr 1.0 ]) ]
 
+(** {1 Utilities Order} *)
+
+(* Extract numeric suborder from grid/flexbox utilities like grid-cols-2,
+   grid-rows-5, col-span-3, etc. This ensures numeric sorting within the
+   flexbox_grid utility group. *)
+let utilities_suborder class_name =
+  try
+    (* Extract the trailing number from utilities like: grid-cols-10,
+       grid-rows-3, col-span-2, row-span-4, etc. *)
+    let last_dash = String.rindex class_name '-' in
+    let num_str =
+      String.sub class_name (last_dash + 1)
+        (String.length class_name - last_dash - 1)
+    in
+    int_of_string num_str
+  with Not_found | Failure _ -> 0
+
 (** {1 Parsing} *)
 
 let of_string parts =

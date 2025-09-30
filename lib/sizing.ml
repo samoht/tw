@@ -136,20 +136,66 @@ let max_w' size =
   | `Xl_3 -> style "max-w-3xl" [ max_width (Rem 48.0) ]
   | `Full -> style "max-w-full" [ max_width (Pct 100.0) ]
 
+(* Container size theme variables *)
+let container_xs = Var.theme Css.Length "container-xs" ~order:(5, 0)
+let container_sm = Var.theme Css.Length "container-sm" ~order:(5, 1)
+let container_md = Var.theme Css.Length "container-md" ~order:(5, 2)
+let container_lg = Var.theme Css.Length "container-lg" ~order:(5, 3)
+let container_xl = Var.theme Css.Length "container-xl" ~order:(5, 4)
+let container_2xl = Var.theme Css.Length "container-2xl" ~order:(5, 5)
+let container_3xl = Var.theme Css.Length "container-3xl" ~order:(5, 6)
+let container_4xl = Var.theme Css.Length "container-4xl" ~order:(5, 7)
+let container_5xl = Var.theme Css.Length "container-5xl" ~order:(5, 8)
+let container_6xl = Var.theme Css.Length "container-6xl" ~order:(5, 9)
+let container_7xl = Var.theme Css.Length "container-7xl" ~order:(5, 10)
+
 let max_w_none =
   style "max-w-none" [ (* max-width: none not directly supported *) ]
 
-let max_w_xs = style "max-w-xs" [ max_width (Rem 20.0) ]
-let max_w_sm = style "max-w-sm" [ max_width (Rem 24.0) ]
-let max_w_md = style "max-w-md" [ max_width (Rem 28.0) ]
-let max_w_lg = style "max-w-lg" [ max_width (Rem 32.0) ]
-let max_w_xl = style "max-w-xl" [ max_width (Rem 36.0) ]
-let max_w_2xl = style "max-w-2xl" [ max_width (Rem 42.0) ]
-let max_w_3xl = style "max-w-3xl" [ max_width (Rem 48.0) ]
-let max_w_4xl = style "max-w-4xl" [ max_width (Rem 56.0) ]
-let max_w_5xl = style "max-w-5xl" [ max_width (Rem 64.0) ]
-let max_w_6xl = style "max-w-6xl" [ max_width (Rem 72.0) ]
-let max_w_7xl = style "max-w-7xl" [ max_width (Rem 80.0) ]
+let max_w_xs =
+  let decl, ref_ = Var.binding container_xs (Rem 20.0) in
+  style "max-w-xs" [ decl; max_width (Var ref_) ]
+
+let max_w_sm =
+  let decl, ref_ = Var.binding container_sm (Rem 24.0) in
+  style "max-w-sm" [ decl; max_width (Var ref_) ]
+
+let max_w_md =
+  let decl, ref_ = Var.binding container_md (Rem 28.0) in
+  style "max-w-md" [ decl; max_width (Var ref_) ]
+
+let max_w_lg =
+  let decl, ref_ = Var.binding container_lg (Rem 32.0) in
+  style "max-w-lg" [ decl; max_width (Var ref_) ]
+
+let max_w_xl =
+  let decl, ref_ = Var.binding container_xl (Rem 36.0) in
+  style "max-w-xl" [ decl; max_width (Var ref_) ]
+
+let max_w_2xl =
+  let decl, ref_ = Var.binding container_2xl (Rem 42.0) in
+  style "max-w-2xl" [ decl; max_width (Var ref_) ]
+
+let max_w_3xl =
+  let decl, ref_ = Var.binding container_3xl (Rem 48.0) in
+  style "max-w-3xl" [ decl; max_width (Var ref_) ]
+
+let max_w_4xl =
+  let decl, ref_ = Var.binding container_4xl (Rem 56.0) in
+  style "max-w-4xl" [ decl; max_width (Var ref_) ]
+
+let max_w_5xl =
+  let decl, ref_ = Var.binding container_5xl (Rem 64.0) in
+  style "max-w-5xl" [ decl; max_width (Var ref_) ]
+
+let max_w_6xl =
+  let decl, ref_ = Var.binding container_6xl (Rem 72.0) in
+  style "max-w-6xl" [ decl; max_width (Var ref_) ]
+
+let max_w_7xl =
+  let decl, ref_ = Var.binding container_7xl (Rem 80.0) in
+  style "max-w-7xl" [ decl; max_width (Var ref_) ]
+
 let max_w_full = style "max-w-full" [ max_width (Pct 100.0) ]
 let max_w_min = style "max-w-min" [ max_width Min_content ]
 let max_w_max = style "max-w-max" [ max_width Max_content ]
