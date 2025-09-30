@@ -919,6 +919,7 @@ let test_cascade_color_override () =
 
 (* Property-based test: verify utility group ordering with random selection *)
 let test_utility_group_ordering () =
+  Random.self_init ();
   let open Tw in
   (* Large pool of utilities from all groups - no clustering bias *)
   let all_utilities =
@@ -1194,7 +1195,7 @@ let test_utility_group_ordering () =
     ]
   in
 
-  (* Randomly pick 30 utilities from the pool *)
+  (* Randomly pick 30 utilities from the pool (may include duplicates) *)
   let pick_random_subset n lst =
     let arr = Array.of_list lst in
     let len = Array.length arr in
@@ -1208,8 +1209,14 @@ let test_utility_group_ordering () =
 
   let utilities = pick_random_subset 30 all_utilities in
 
+  (* Show the classes being tested for easy reproduction *)
+  let classnames = List.map Tw.pp utilities in
+  Fmt.epr "Testing with classes: %a@."
+    Fmt.(list ~sep:(const string " ") string)
+    classnames;
+
   (* Generate CSS with both our implementation and Tailwind *)
-  let tw_css = to_css ~base:false ~optimize:false utilities in
+  let tw_css = to_css ~base:true ~optimize:true utilities in
 
   (* Extract utilities layer from our CSS using proper API *)
   let extract_utilities_layer_rules css =
@@ -1238,20 +1245,22 @@ let test_utility_group_ordering () =
   let tw_order = extract_rule_selectors tw_utilities_rules in
 
   (* Generate Tailwind CSS for comparison *)
-  let classnames = List.map Tw.pp utilities in
   let tailwind_css_str =
-    Tw_tools.Tailwind_gen.generate ~minify:false ~optimize:false classnames
+    Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true classnames
   in
 
   (* Parse Tailwind CSS using our parser *)
   let tailwind_css =
     match Css.of_string tailwind_css_str with
     | Ok css -> css
-    | Error _ ->
-        Fmt.epr "Tailwind CSS output (first 500 chars):@.%s@."
-          (String.sub tailwind_css_str 0
-             (min 500 (String.length tailwind_css_str)));
-        fail "Failed to parse Tailwind CSS"
+    | Error err ->
+        (* Save to file for debugging *)
+        let oc = open_out "tmp/tailwind_parse_error.css" in
+        output_string oc tailwind_css_str;
+        close_out oc;
+        Fmt.epr "Tailwind CSS output saved to tmp/tailwind_parse_error.css@.";
+        let formatted_error = Css.pp_parse_error err in
+        Alcotest.fail ("Failed to parse Tailwind CSS: " ^ formatted_error)
   in
   let tailwind_utilities_rules = extract_utilities_layer_rules tailwind_css in
   let tailwind_order = extract_rule_selectors tailwind_utilities_rules in

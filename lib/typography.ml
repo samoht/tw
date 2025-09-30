@@ -1036,10 +1036,10 @@ let font_weight_order = function
 
 let leading_order = function
   | "none" -> 1
-  | "tight" -> 2
+  | "tight" -> 5
   | "snug" -> 3
   | "normal" -> 4
-  | "relaxed" -> 5
+  | "relaxed" -> 2
   | "loose" -> 6
   | _ -> 0
 

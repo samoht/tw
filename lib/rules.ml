@@ -580,9 +580,16 @@ let color_suborder_with_shade color_part =
 
 let alignment_suborder core =
   if String.starts_with ~prefix:"items-" core then 0
-  else if String.starts_with ~prefix:"justify-" core then 1
-  else if has_any_prefix [ "content-"; "self-"; "place-" ] core then 2
+  else if has_any_prefix [ "content-"; "self-"; "place-" ] core then 1
+  else if String.starts_with ~prefix:"justify-" core then 2
   else -1
+
+let effects_suborder core =
+  if String.starts_with ~prefix:"opacity-" core then 0
+  else if String.starts_with ~prefix:"shadow" core then 1
+  else if String.starts_with ~prefix:"mix-blend-" core then 2
+  else if String.starts_with ~prefix:"background-blend-" core then 3
+  else 4
 
 (* Conflict group classification table Groups are ordered by priority (lower
    number = higher priority) This ordering ensures proper cascade behavior in
@@ -596,6 +603,19 @@ type utility_group = {
 
 let utility_groups =
   [
+    {
+      priority = 0;
+      name = "grid_placement";
+      classifier =
+        (fun c ->
+          String.starts_with ~prefix:"col-span-" c
+          || String.starts_with ~prefix:"row-span-" c
+          || String.starts_with ~prefix:"col-start-" c
+          || String.starts_with ~prefix:"col-end-" c
+          || String.starts_with ~prefix:"row-start-" c
+          || String.starts_with ~prefix:"row-end-" c);
+      suborder = Flow.utilities_suborder;
+    };
     {
       priority = 1;
       name = "margin";
@@ -626,14 +646,18 @@ let utility_groups =
       suborder = (fun _ -> 0);
     };
     {
+      priority = 12;
+      name = "interactivity";
+      classifier = is_interactivity_util;
+      suborder = (fun _ -> 0);
+    };
+    {
       priority = 13;
-      name = "grid_layout";
+      name = "grid_template";
       classifier =
         (fun c ->
           String.starts_with ~prefix:"grid-cols-" c
           || String.starts_with ~prefix:"grid-rows-" c
-          || String.starts_with ~prefix:"col-" c
-          || String.starts_with ~prefix:"row-" c
           || String.starts_with ~prefix:"grid-flow-" c
           || String.starts_with ~prefix:"auto-cols-" c
           || String.starts_with ~prefix:"auto-rows-" c);
@@ -711,13 +735,7 @@ let utility_groups =
       priority = 700;
       name = "effects";
       classifier = is_effects_util;
-      suborder = (fun _ -> 0);
-    };
-    {
-      priority = 800;
-      name = "interactivity";
-      classifier = is_interactivity_util;
-      suborder = (fun _ -> 0);
+      suborder = effects_suborder;
     };
     {
       priority = 1000;
@@ -811,7 +829,9 @@ let of_grouped ?(filter_custom_props = false) grouped_list =
     sorted_indexed
 
 let build_utilities_layer ~rules ~media_queries ~container_queries =
-  (* Build statements, then sort all rules by conflict order *)
+  (* Rules are already sorted by of_grouped in the correct conflict order. Don't
+     re-sort them here as that would break the original source order for rules
+     with the same selector (e.g., prose rules). *)
   let statements =
     rules
     @ List.map
@@ -822,18 +842,7 @@ let build_utilities_layer ~rules ~media_queries ~container_queries =
         container_queries
   in
 
-  (* Sort all rules within statements (including nested in media queries) *)
-  let sorted_statements =
-    Css.sort
-      (fun (sel1, _) (sel2, _) ->
-        let prio1, sub1 = conflict_group (Css.Selector.to_string sel1) in
-        let prio2, sub2 = conflict_group (Css.Selector.to_string sel2) in
-        let prio_cmp = Int.compare prio1 prio2 in
-        if prio_cmp <> 0 then prio_cmp else Int.compare sub1 sub2)
-      statements
-  in
-
-  Css.of_statements [ Css.layer ~name:"utilities" sorted_statements ]
+  Css.of_statements [ Css.layer ~name:"utilities" statements ]
 
 let add_hover_to_media_map hover_rules media_map =
   (* Gate hover rules behind (hover:hover) media query to prevent them from
@@ -852,6 +861,18 @@ let add_hover_to_media_map hover_rules media_map =
     in
     update [] media_map
 
+(* Deduplicate selector/props pairs while preserving first occurrence order *)
+let deduplicate_selector_props pairs =
+  let seen = Hashtbl.create (List.length pairs) in
+  List.filter
+    (fun (sel, props) ->
+      let key = (Css.Selector.to_string sel, props) in
+      if Hashtbl.mem seen key then false
+      else (
+        Hashtbl.add seen key ();
+        true))
+    pairs
+
 (* Convert selector/props pairs to CSS rules. *)
 (* Internal: build rule sets from pre-extracted outputs. *)
 let rule_sets_from_selector_props all_rules =
@@ -860,8 +881,12 @@ let rule_sets_from_selector_props all_rules =
   let hover_regular, non_hover_regular =
     List.partition is_hover_rule separated.regular
   in
-  let non_hover_pairs = extract_selector_props_pairs non_hover_regular in
-  let hover_pairs = extract_selector_props_pairs hover_regular in
+  let non_hover_pairs =
+    extract_selector_props_pairs non_hover_regular |> deduplicate_selector_props
+  in
+  let hover_pairs =
+    extract_selector_props_pairs hover_regular |> deduplicate_selector_props
+  in
   let rules = of_grouped ~filter_custom_props:true non_hover_pairs in
   let media_queries_map =
     group_media_queries separated.media |> add_hover_to_media_map hover_pairs
@@ -869,14 +894,19 @@ let rule_sets_from_selector_props all_rules =
   let media_queries =
     List.map
       (fun (condition, rule_list) ->
-        (condition, of_grouped ~filter_custom_props:true rule_list))
+        ( condition,
+          of_grouped ~filter_custom_props:true
+            (deduplicate_selector_props rule_list) ))
       media_queries_map
   in
   let container_queries_map = group_container_queries separated.container in
   let container_queries =
     List.map
       (fun (condition, rule_list) ->
-        (None, condition, of_grouped ~filter_custom_props:true rule_list))
+        ( None,
+          condition,
+          of_grouped ~filter_custom_props:true
+            (deduplicate_selector_props rule_list) ))
       container_queries_map
   in
   (rules, media_queries, container_queries)
@@ -1053,7 +1083,8 @@ let build_properties_layer explicit_property_rules_statements =
       explicit_property_rules_statements
   in
 
-  (* Deduplicate @property rules by property name, preserving first occurrence order *)
+  (* Deduplicate @property rules by property name, preserving first occurrence
+     order *)
   let deduplicated_property_rules =
     let seen = Hashtbl.create 16 in
     List.filter
