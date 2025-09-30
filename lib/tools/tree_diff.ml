@@ -242,8 +242,8 @@ let pp ?(expected = "Expected") ?(actual = "Actual") fmt { rules; containers } =
        This may indicate reordering or subtle changes in rule organization."
   else (
     (* Print diff headers like a unified diff *)
-    Fmt.pf fmt "--- %s@," expected;
-    Fmt.pf fmt "+++ %s@," actual;
+    Fmt.pf fmt "--- %s@." expected;
+    Fmt.pf fmt "+++ %s@." actual;
     Fmt.pf fmt "@[<v>";
     let meaningful = meaningful_rules rules in
     let reordered_rules =
