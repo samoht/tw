@@ -26,6 +26,7 @@ type rule_diff =
       selector : string;
       expected_pos : int;
       actual_pos : int;
+      swapped_with : string option; (* Selector that moved to old position *)
     }
 
 type container_info = {
@@ -155,19 +156,28 @@ let pp_rule_diff fmt = function
       Fmt.pf fmt "    from: %s@," old_selector;
       Fmt.pf fmt "    to:   %s@," new_selector;
       if declarations <> [] then pp_declarations fmt "declarations" declarations
-  | Rule_reordered { selector; expected_pos; actual_pos } ->
+  | Rule_reordered { selector; expected_pos; actual_pos; swapped_with } -> (
       if expected_pos = actual_pos then assert false
-      else if abs (expected_pos - actual_pos) = 1 then
-        (* Adjacent swap - just show the positions *)
-        Fmt.pf fmt "- %s: (moved from position %d to %d)@," selector
-          expected_pos actual_pos
       else
-        (* Larger move - show direction *)
-        let direction =
-          if actual_pos > expected_pos then "later" else "earlier"
-        in
-        Fmt.pf fmt "- %s: (moved %s: position %d → %d)@," selector direction
-          expected_pos actual_pos
+        match swapped_with with
+        | Some other when abs (expected_pos - actual_pos) = 1 ->
+            (* Adjacent swap - show both elements *)
+            Fmt.pf fmt "- %s ↔ %s: (swapped positions %d and %d)@," selector
+              other expected_pos actual_pos
+        | Some other ->
+            (* Non-adjacent - show what's now at the old position *)
+            let direction =
+              if actual_pos > expected_pos then "later" else "earlier"
+            in
+            Fmt.pf fmt "- %s: (moved %s to position %d, %s now at %d)@,"
+              selector direction actual_pos other expected_pos
+        | None ->
+            (* No swap info available - fallback to simple message *)
+            let direction =
+              if actual_pos > expected_pos then "later" else "earlier"
+            in
+            Fmt.pf fmt "- %s: (moved %s: position %d → %d)@," selector direction
+              expected_pos actual_pos)
 
 let pp_rule_diff_simple fmt = function
   | Rule_added { selector; _ } -> Fmt.pf fmt "Added(%s)" selector
@@ -175,7 +185,7 @@ let pp_rule_diff_simple fmt = function
   | Rule_content_changed { selector; _ } -> Fmt.pf fmt "Changed(%s)" selector
   | Rule_selector_changed { old_selector; new_selector; _ } ->
       Fmt.pf fmt "SelectorChanged(%s->%s)" old_selector new_selector
-  | Rule_reordered { selector; expected_pos; actual_pos } ->
+  | Rule_reordered { selector; expected_pos; actual_pos; _ } ->
       Fmt.pf fmt "Reordered(%s:%d->%d)" selector expected_pos actual_pos
 
 let meaningful_rules rules =
@@ -805,6 +815,16 @@ let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
     |> Option.value ~default:(-1)
   in
 
+  (* Helper to find selector at a given position *)
+  let selector_at_position pos rules =
+    match List.nth_opt rules pos with
+    | Some stmt -> (
+        match Css.as_rule stmt with
+        | Some (s, _, _) -> Some (Css.Selector.to_string s)
+        | None -> None)
+    | None -> None
+  in
+
   if sel1_str <> sel2_str then
     Rule_selector_changed
       {
@@ -826,7 +846,10 @@ let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
           new_declarations = decls2;
           property_changes = [];
         }
-    else Rule_reordered { selector = sel1_str; expected_pos; actual_pos }
+    else
+      let swapped_with = selector_at_position expected_pos rules2 in
+      Rule_reordered
+        { selector = sel1_str; expected_pos; actual_pos; swapped_with }
   else
     (* Check if it's just property reordering (same properties, different
        order) *)
@@ -847,7 +870,10 @@ let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
             new_declarations = decls2;
             property_changes = [];
           }
-      else Rule_reordered { selector = sel1_str; expected_pos; actual_pos }
+      else
+        let swapped_with = selector_at_position expected_pos rules2 in
+        Rule_reordered
+          { selector = sel1_str; expected_pos; actual_pos; swapped_with }
     else
       Rule_content_changed
         {

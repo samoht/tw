@@ -41,7 +41,12 @@ let sample_rule_selector_changed =
 
 let sample_rule_reordered =
   Td.Rule_reordered
-    { selector = ".reordered"; expected_pos = 0; actual_pos = 1 }
+    {
+      selector = ".reordered";
+      expected_pos = 0;
+      actual_pos = 1;
+      swapped_with = Some ".other";
+    }
 
 let sample_container_added =
   Td.Container_added
