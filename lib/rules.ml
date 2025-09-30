@@ -1352,17 +1352,21 @@ let to_css ?(config = default_config) tw_classes =
 
   (* Generate layers whenever mode = Variables. Include the base layer only when
      [reset=true]. In Inline mode, emit raw rules without layers. *)
-  match config.mode with
-  | Css.Variables ->
-      let layers =
-        build_layers ~include_base:config.base ~selector_props tw_classes rules
-          media_queries container_queries
-      in
-      Css.concat layers
-  | Css.Inline ->
-      (* No layers - just raw utility rules with var() resolved to fallback
-         values *)
-      wrap_css_items ~rules ~media_queries ~container_queries
+  let stylesheet =
+    match config.mode with
+    | Css.Variables ->
+        let layers =
+          build_layers ~include_base:config.base ~selector_props tw_classes
+            rules media_queries container_queries
+        in
+        Css.concat layers
+    | Css.Inline ->
+        (* No layers - just raw utility rules with var() resolved to fallback
+           values *)
+        wrap_css_items ~rules ~media_queries ~container_queries
+  in
+  (* Apply optimization if requested *)
+  if config.optimize then Css.optimize stylesheet else stylesheet
 
 let to_inline_style styles =
   (* Collect all declarations from props and embedded rules. Build in reverse
