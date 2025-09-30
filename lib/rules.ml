@@ -761,13 +761,23 @@ let conflict_order selector =
     else selector
   in
 
-  (* Strip modifier prefixes (sm:, md:, hover:, etc.) to get the base utility
-     name *)
-  let base_utility =
-    match String.index_opt core ':' with
-    | Some colon_pos ->
-        String.sub core (colon_pos + 1) (String.length core - colon_pos - 1)
+  (* Extract just the first class name (before any space, combinator, etc.) to
+     avoid confusing descendant selectors like ".prose :where(p)" with modifier
+     prefixes like "hover:prose" *)
+  let class_name =
+    match String.index_opt core ' ' with
+    | Some space_pos -> String.sub core 0 space_pos
     | None -> core
+  in
+
+  (* Strip modifier prefixes (sm:, md:, hover:, etc.) from the class name to get
+     the base utility name *)
+  let base_utility =
+    match String.index_opt class_name ':' with
+    | Some colon_pos ->
+        String.sub class_name (colon_pos + 1)
+          (String.length class_name - colon_pos - 1)
+    | None -> class_name
   in
 
   (* Find the first matching group using base utility name *)
