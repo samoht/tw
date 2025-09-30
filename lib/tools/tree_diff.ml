@@ -148,9 +148,19 @@ let pp_rule_diff fmt = function
       { selector; old_declarations; new_declarations; property_changes } ->
       Fmt.pf fmt "- %s:@," selector;
       (* Show property changes *)
+      let has_prop_changes = property_changes <> [] in
       pp_property_diffs fmt property_changes;
       (* Check for declaration order changes *)
-      pp_reorder old_declarations new_declarations fmt
+      pp_reorder old_declarations new_declarations fmt;
+      (* If no visible changes shown yet, provide summary *)
+      if (not has_prop_changes) && old_declarations <> new_declarations then
+        let old_count = List.length old_declarations in
+        let new_count = List.length new_declarations in
+        if old_count <> new_count then
+          Fmt.pf fmt "    (declaration count: %d -> %d)@," old_count new_count
+        else Fmt.pf fmt "    (declarations differ in subtle ways)@,"
+      else if (not has_prop_changes) && old_declarations = new_declarations then
+        Fmt.pf fmt "    (rule appears in different context or nesting level)@,"
   | Rule_selector_changed { old_selector; new_selector; declarations } ->
       Fmt.pf fmt "- selector changed:@,";
       Fmt.pf fmt "    from: %s@," old_selector;
@@ -266,7 +276,69 @@ let rec pp_container_diff ?(indent = 0) fmt = function
       } ->
       let prefix = container_prefix container_type in
       let indent_str = String.make indent ' ' in
-      Fmt.pf fmt "%s- %s %s:@," indent_str prefix condition;
+      (* Count different types of changes *)
+      let added_count =
+        List.length
+          (List.filter
+             (function Rule_added _ -> true | _ -> false)
+             rule_changes)
+      in
+      let removed_count =
+        List.length
+          (List.filter
+             (function Rule_removed _ -> true | _ -> false)
+             rule_changes)
+      in
+      let modified_count =
+        List.length
+          (List.filter
+             (function Rule_content_changed _ -> true | _ -> false)
+             rule_changes)
+      in
+      let reordered_count =
+        List.length
+          (List.filter
+             (function Rule_reordered _ -> true | _ -> false)
+             rule_changes)
+      in
+      let selector_changed_count =
+        List.length
+          (List.filter
+             (function Rule_selector_changed _ -> true | _ -> false)
+             rule_changes)
+      in
+
+      (* Show summary of changes *)
+      Fmt.pf fmt "%s- %s %s: " indent_str prefix condition;
+      let changes_parts = [] in
+      let changes_parts =
+        if added_count > 0 then Fmt.str "%d added" added_count :: changes_parts
+        else changes_parts
+      in
+      let changes_parts =
+        if removed_count > 0 then
+          Fmt.str "%d removed" removed_count :: changes_parts
+        else changes_parts
+      in
+      let changes_parts =
+        if modified_count > 0 then
+          Fmt.str "%d modified" modified_count :: changes_parts
+        else changes_parts
+      in
+      let changes_parts =
+        if reordered_count > 0 then
+          Fmt.str "%d reordered" reordered_count :: changes_parts
+        else changes_parts
+      in
+      let changes_parts =
+        if selector_changed_count > 0 then
+          Fmt.str "%d selector changed" selector_changed_count :: changes_parts
+        else changes_parts
+      in
+      if changes_parts <> [] then
+        Fmt.pf fmt "(%s)@," (String.concat ", " (List.rev changes_parts))
+      else Fmt.pf fmt "@,";
+
       (* Show rule changes at this level *)
       List.iter
         (fun rule_diff ->
