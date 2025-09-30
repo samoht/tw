@@ -919,7 +919,6 @@ let test_cascade_color_override () =
 
 (* Property-based test: verify utility group ordering with random selection *)
 let test_utility_group_ordering () =
-  Random.self_init ();
   let open Tw in
   (* Large pool of utilities from all groups - no clustering bias *)
   let all_utilities =

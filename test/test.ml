@@ -1,6 +1,28 @@
+open Cmdliner
+
+(* Define --seed option *)
+let seed =
+  let doc = "Random seed for property-based tests (for reproducibility)" in
+  Arg.(value & opt (some int) None & info [ "seed" ] ~docv:"SEED" ~doc)
+
+(* Initialize random seed and return test suites *)
+let setup =
+  let init = function
+    | Some s ->
+        Random.init s;
+        Fmt.epr "Using random seed: %d\n%!" s
+    | None ->
+        Random.self_init ();
+        Fmt.epr
+          "Using auto-generated random seed (use --seed N to reproduce)\n%!"
+  in
+  Term.(const init $ seed)
+
 let () =
+  (* Use Alcotest.run_with_args for proper CLI integration *)
   Tw_tools.Tailwind_gen.with_stats @@ fun () ->
-  Alcotest.run "tw"
+  Alcotest.run_with_args "tw" setup
+    (* Return test suites *)
     [
       Test_tw.suite;
       Test_svg.suite;
