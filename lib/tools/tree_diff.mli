@@ -22,7 +22,11 @@ type rule_diff =
       new_selector : string;
       declarations : Css.declaration list;
     }
-  | Rule_reordered of { selector : string }
+  | Rule_reordered of {
+      selector : string;
+      expected_pos : int;
+      actual_pos : int;
+    }
 
 type container_info = {
   container_type : [ `Media | `Layer | `Supports | `Container | `Property ];

@@ -623,7 +623,7 @@ let test_rule_position_reordering () =
       let r = List.hd d.rules in
       (* Pattern match on the new rule_diff structure *)
       match r with
-      | Td.Rule_reordered { selector } ->
+      | Td.Rule_reordered { selector; _ } ->
           (* Either of the swapped selectors may be reported depending on
              pairing *)
           let ok = selector = ".a" || selector = ".b" in

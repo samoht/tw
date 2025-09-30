@@ -22,7 +22,11 @@ type rule_diff =
       new_selector : string;
       declarations : Css.declaration list;
     }
-  | Rule_reordered of { selector : string }
+  | Rule_reordered of {
+      selector : string;
+      expected_pos : int;
+      actual_pos : int;
+    }
 
 type container_info = {
   container_type : [ `Media | `Layer | `Supports | `Container | `Property ];
@@ -98,17 +102,39 @@ let pp_reorder decls1 decls2 fmt =
   let sorted1 = List.sort String.compare prop_names1 in
   let sorted2 = List.sort String.compare prop_names2 in
   if same_length && sorted1 = sorted2 && prop_names1 <> prop_names2 then
-    let old_str = String.concat ", " prop_names1 in
-    let new_str = String.concat ", " prop_names2 in
-    let max_inline_length = default_truncation_length in
-    if
-      String.length old_str <= max_inline_length
-      && String.length new_str <= max_inline_length
-    then Fmt.pf fmt "    - reorder: [%s] -> [%s]@," old_str new_str
+    (* Find first few properties that moved *)
+    let rec find_diffs lst1 lst2 acc count =
+      if count >= 3 then List.rev acc (* Show max 3 moves *)
+      else
+        match (lst1, lst2) with
+        | x1 :: rest1, x2 :: rest2 when x1 <> x2 ->
+            (* Find where x1 moved to in lst2 *)
+            let new_pos =
+              List.mapi (fun i x -> if x = x1 then Some i else None) prop_names2
+              |> List.find_map Fun.id |> Option.value ~default:(-1)
+            in
+            find_diffs rest1 rest2 ((x1, new_pos) :: acc) (count + 1)
+        | _ :: rest1, _ :: rest2 -> find_diffs rest1 rest2 acc count
+        | _, _ -> List.rev acc
+    in
+    let moves = find_diffs prop_names1 prop_names2 [] 0 in
+    let total_diffs =
+      List.fold_left2
+        (fun acc p1 p2 -> if p1 <> p2 then acc + 1 else acc)
+        0 prop_names1 prop_names2
+    in
+    if moves = [] then () (* No meaningful differences to show *)
     else (
-      Fmt.pf fmt "    - reorder:@,";
-      Fmt.pf fmt "        from: [%s]@," old_str;
-      Fmt.pf fmt "        to:   [%s]@," new_str)
+      Fmt.pf fmt "    - reorder: ";
+      List.iteri
+        (fun i (prop, new_pos) ->
+          if i > 0 then Fmt.pf fmt ", ";
+          if new_pos >= 0 then Fmt.pf fmt "%s→%d" prop new_pos
+          else Fmt.pf fmt "%s" prop)
+        moves;
+      if total_diffs > List.length moves then
+        Fmt.pf fmt " (and %d more)" (total_diffs - List.length moves);
+      Fmt.pf fmt "@,")
 
 let pp_rule_diff fmt = function
   | Rule_added { selector; declarations } ->
@@ -129,7 +155,19 @@ let pp_rule_diff fmt = function
       Fmt.pf fmt "    from: %s@," old_selector;
       Fmt.pf fmt "    to:   %s@," new_selector;
       if declarations <> [] then pp_declarations fmt "declarations" declarations
-  | Rule_reordered { selector } -> Fmt.pf fmt "- %s: (reordered)@," selector
+  | Rule_reordered { selector; expected_pos; actual_pos } ->
+      if expected_pos = actual_pos then assert false
+      else if abs (expected_pos - actual_pos) = 1 then
+        (* Adjacent swap - just show the positions *)
+        Fmt.pf fmt "- %s: (moved from position %d to %d)@," selector
+          expected_pos actual_pos
+      else
+        (* Larger move - show direction *)
+        let direction =
+          if actual_pos > expected_pos then "later" else "earlier"
+        in
+        Fmt.pf fmt "- %s: (moved %s: position %d → %d)@," selector direction
+          expected_pos actual_pos
 
 let pp_rule_diff_simple fmt = function
   | Rule_added { selector; _ } -> Fmt.pf fmt "Added(%s)" selector
@@ -137,7 +175,8 @@ let pp_rule_diff_simple fmt = function
   | Rule_content_changed { selector; _ } -> Fmt.pf fmt "Changed(%s)" selector
   | Rule_selector_changed { old_selector; new_selector; _ } ->
       Fmt.pf fmt "SelectorChanged(%s->%s)" old_selector new_selector
-  | Rule_reordered { selector } -> Fmt.pf fmt "Reordered(%s)" selector
+  | Rule_reordered { selector; expected_pos; actual_pos } ->
+      Fmt.pf fmt "Reordered(%s:%d->%d)" selector expected_pos actual_pos
 
 let meaningful_rules rules =
   List.filter (function Rule_reordered _ -> false | _ -> true) rules
@@ -749,9 +788,23 @@ let convert_removed_rule stmt =
   let sel, decls = convert_rule_to_strings stmt in
   Rule_removed { selector = sel; declarations = decls }
 
-let convert_modified_rule (sel1, sel2, decls1, decls2) =
+let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
   let sel1_str = Css.Selector.to_string sel1 in
   let sel2_str = Css.Selector.to_string sel2 in
+
+  (* Helper to find position of a selector in a rule list *)
+  let find_position sel rules =
+    let sel_key = selector_key_of_selector sel in
+    List.mapi
+      (fun i stmt ->
+        match Css.as_rule stmt with
+        | Some (s, _, _) when selector_key_of_selector s = sel_key -> Some i
+        | _ -> None)
+      rules
+    |> List.find_map (fun x -> x)
+    |> Option.value ~default:(-1)
+  in
+
   if sel1_str <> sel2_str then
     Rule_selector_changed
       {
@@ -762,7 +815,18 @@ let convert_modified_rule (sel1, sel2, decls1, decls2) =
   else if decls1 = decls2 then
     (* Same selector, same declarations in same order - this is pure
        reordering *)
-    Rule_reordered { selector = sel1_str }
+    let expected_pos = find_position sel1 rules1 in
+    let actual_pos = find_position sel2 rules2 in
+    if expected_pos = actual_pos then
+      (* No actual position change - this might be in different contexts *)
+      Rule_content_changed
+        {
+          selector = sel1_str;
+          old_declarations = decls1;
+          new_declarations = decls2;
+          property_changes = [];
+        }
+    else Rule_reordered { selector = sel1_str; expected_pos; actual_pos }
   else
     (* Check if it's just property reordering (same properties, different
        order) *)
@@ -772,7 +836,18 @@ let convert_modified_rule (sel1, sel2, decls1, decls2) =
     if property_changes = [] && decls_signature decls1 = decls_signature decls2
     then
       (* Properties are the same but reordered *)
-      Rule_reordered { selector = sel1_str }
+      let expected_pos = find_position sel1 rules1 in
+      let actual_pos = find_position sel2 rules2 in
+      if expected_pos = actual_pos then
+        (* No actual position change - this might be in different contexts *)
+        Rule_content_changed
+          {
+            selector = sel1_str;
+            old_declarations = decls1;
+            new_declarations = decls2;
+            property_changes = [];
+          }
+      else Rule_reordered { selector = sel1_str; expected_pos; actual_pos }
     else
       Rule_content_changed
         {
@@ -787,7 +862,7 @@ let to_rule_changes rules1 rules2 : rule_diff list =
   let r_added, r_removed, r_modified = rule_diffs rules1 rules2 in
   List.map convert_added_rule r_added
   @ List.map convert_removed_rule r_removed
-  @ List.map convert_modified_rule r_modified
+  @ List.map (convert_modified_rule ~rules1 ~rules2) r_modified
 
 (* Mutual recursion declarations *)
 let rec media_diff items1 items2 =
@@ -1282,7 +1357,7 @@ let diff ~(expected : Css.t) ~(actual : Css.t) : t =
   let rule_changes =
     List.map convert_added_rule added
     @ List.map convert_removed_rule removed
-    @ List.map convert_modified_rule modified
+    @ List.map (convert_modified_rule ~rules1 ~rules2) modified
   in
 
   (* Delegate all container and nested-container diffs to the generic walker *)

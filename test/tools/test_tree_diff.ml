@@ -39,7 +39,9 @@ let sample_rule_selector_changed =
       declarations = sample_declarations;
     }
 
-let sample_rule_reordered = Td.Rule_reordered { selector = ".reordered" }
+let sample_rule_reordered =
+  Td.Rule_reordered
+    { selector = ".reordered"; expected_pos = 0; actual_pos = 1 }
 
 let sample_container_added =
   Td.Container_added
@@ -134,7 +136,7 @@ let test_rule_selector_changed_structure () =
 
 let test_rule_reordered_structure () =
   match sample_rule_reordered with
-  | Td.Rule_reordered { selector } ->
+  | Td.Rule_reordered { selector; _ } ->
       check string "selector should match" ".reordered" selector
   | _ -> fail "Expected Rule_reordered"
 
@@ -292,7 +294,7 @@ let test_diff_identical_css () =
          | Td.Rule_removed { selector; _ }
          | Td.Rule_content_changed { selector; _ }
          | Td.Rule_selector_changed { new_selector = selector; _ }
-         | Td.Rule_reordered { selector } ->
+         | Td.Rule_reordered { selector; _ } ->
              selector)
        diff.rules);
   check (list string) "should have no container changes" []
@@ -349,7 +351,7 @@ let test_diff_rule_reordered () =
   let rule = single_rule_diff diff in
   (* Property reordering is detected as Rule_reordered *)
   match rule with
-  | Td.Rule_reordered { selector } -> check string "selector" ".a" selector
+  | Td.Rule_reordered { selector; _ } -> check string "selector" ".a" selector
   | _ -> fail "Expected Rule_reordered for property reordering"
 
 let test_diff_media_query () =
