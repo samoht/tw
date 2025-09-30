@@ -136,3 +136,9 @@ val outline_offset_8 : t
 
 val of_string : string list -> (t, [ `Msg of string ]) result
 (** [of_string parts] parses a border/rounded utility from string parts. *)
+
+(** {1 Utility Ordering} *)
+
+val suborder : string -> int
+(** [suborder core] returns the suborder for a border utility class name.
+    Borders come before rounded, then outlines. *)

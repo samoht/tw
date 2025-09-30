@@ -409,6 +409,11 @@ val utilities_suborder : string -> int
 (** [utilities_suborder class_name] extracts numeric suborder from grid/flexbox
     utilities for proper sorting (e.g., grid-cols-2 < grid-cols-10). *)
 
+val alignment_suborder : string -> int
+(** [alignment_suborder core] returns the suborder for alignment utilities
+    (content, items, justify, self, place) following Tailwind's canonical order.
+*)
+
 (** {1 Parsing} *)
 
 val of_string : string list -> (t, [ `Msg of string ]) result

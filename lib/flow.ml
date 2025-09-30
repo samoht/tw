@@ -322,6 +322,13 @@ let auto_rows_fr =
    grid-rows-5, col-span-3, etc. This ensures numeric sorting within the
    flexbox_grid utility group. *)
 let utilities_suborder class_name =
+  let prefix_offset =
+    if String.starts_with ~prefix:"grid-cols-" class_name then 0
+    else if String.starts_with ~prefix:"grid-rows-" class_name then 1000
+    else if String.starts_with ~prefix:"col-span-" class_name then 0
+    else if String.starts_with ~prefix:"row-span-" class_name then 1000
+    else 0
+  in
   try
     (* Extract the trailing number from utilities like: grid-cols-10,
        grid-rows-3, col-span-2, row-span-4, etc. *)
@@ -330,8 +337,31 @@ let utilities_suborder class_name =
       String.sub class_name (last_dash + 1)
         (String.length class_name - last_dash - 1)
     in
-    int_of_string num_str
-  with Not_found | Failure _ -> 0
+    prefix_offset + int_of_string num_str
+  with Not_found | Failure _ -> prefix_offset
+
+(* Suborder for alignment utilities (content, justify, items, self, place).
+   Returns -1 for non-alignment utilities. *)
+let alignment_suborder core =
+  (* Tailwind orders alignment utilities by their property values *)
+  if String.starts_with ~prefix:"content-" core then 0
+  else if String.starts_with ~prefix:"items-" core then 1000
+  else if String.starts_with ~prefix:"justify-" core then 2000
+  else if String.starts_with ~prefix:"self-" core then
+    (* self-* utilities sorted by Tailwind's canonical order *)
+    (* High base to sort after gap utilities (which use Spacing.suborder returning ~25000+) *)
+    30000
+    +
+    match core with
+    | "self-auto" -> 0
+    | "self-center" -> 1
+    | "self-start" -> 2
+    | "self-end" -> 3
+    | "self-stretch" -> 4
+    | "self-baseline" -> 5
+    | _ -> 9
+  else if String.starts_with ~prefix:"place-" core then 40000
+  else -1
 
 (** {1 Parsing} *)
 

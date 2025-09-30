@@ -532,7 +532,7 @@ let effects_prefixes =
   ]
 
 let interactivity_prefixes =
-  [ "cursor-"; "select-"; "resize-"; "scroll-"; "overflow-"; "overscroll-" ]
+  [ "select-"; "resize-"; "scroll-"; "overflow-"; "overscroll-" ]
 
 let gap_prefixes = [ "gap-"; "space-" ]
 
@@ -547,6 +547,7 @@ let is_padding_util = has_any_prefix padding_prefixes
 let is_typography_util = has_any_prefix typography_prefixes
 let is_sizing_util = has_any_prefix sizing_prefixes
 let is_effects_util = has_any_prefix effects_prefixes
+let is_cursor_util core = String.starts_with ~prefix:"cursor-" core
 let is_interactivity_util = has_any_prefix interactivity_prefixes
 let is_gap_util = has_any_prefix gap_prefixes
 
@@ -560,36 +561,6 @@ let is_container_or_prose core =
 
 (* Helper function to extract color order with shade for utilities like
    bg-blue-500, text-red-400, etc. *)
-let color_suborder_with_shade color_part =
-  try
-    let last_dash = String.rindex color_part '-' in
-    let color_name = String.sub color_part 0 last_dash in
-    let shade_str =
-      String.sub color_part (last_dash + 1)
-        (String.length color_part - last_dash - 1)
-    in
-    let shade = int_of_string shade_str in
-    let _, color_order = Color.utilities_order color_name in
-    (color_order * 1000) + shade
-  with Not_found | Failure _ -> (
-    (* Non-numeric or single-color names like "black", "white" *)
-    try
-      let _, color_order = Color.utilities_order color_part in
-      color_order * 1000
-    with _ -> 0 (* Default for unrecognized colors *))
-
-let alignment_suborder core =
-  if String.starts_with ~prefix:"items-" core then 0
-  else if has_any_prefix [ "content-"; "self-"; "place-" ] core then 1
-  else if String.starts_with ~prefix:"justify-" core then 2
-  else -1
-
-let effects_suborder core =
-  if String.starts_with ~prefix:"opacity-" core then 0
-  else if String.starts_with ~prefix:"shadow" core then 1
-  else if String.starts_with ~prefix:"mix-blend-" core then 2
-  else if String.starts_with ~prefix:"background-blend-" core then 3
-  else 4
 
 (* Conflict group classification table Groups are ordered by priority (lower
    number = higher priority) This ordering ensures proper cascade behavior in
@@ -605,6 +576,12 @@ let utility_groups =
   [
     {
       priority = 0;
+      name = "position";
+      classifier = is_position_util;
+      suborder = (fun _ -> 0);
+    };
+    {
+      priority = 1;
       name = "grid_placement";
       classifier =
         (fun c ->
@@ -617,7 +594,7 @@ let utility_groups =
       suborder = Flow.utilities_suborder;
     };
     {
-      priority = 1;
+      priority = 2;
       name = "margin";
       classifier = is_margin_util;
       suborder = Spacing.suborder;
@@ -634,25 +611,19 @@ let utility_groups =
       suborder = (fun c -> if c = "hidden" then 3 else 1);
     };
     {
-      priority = 11;
-      name = "position";
-      classifier = is_position_util;
-      suborder = (fun _ -> 0);
-    };
-    {
       priority = 12;
       name = "sizing";
       classifier = is_sizing_util;
-      suborder = (fun _ -> 0);
-    };
-    {
-      priority = 12;
-      name = "interactivity";
-      classifier = is_interactivity_util;
-      suborder = (fun _ -> 0);
+      suborder = Sizing.suborder;
     };
     {
       priority = 13;
+      name = "cursor";
+      classifier = is_cursor_util;
+      suborder = (fun _ -> 0);
+    };
+    {
+      priority = 14;
       name = "grid_template";
       classifier =
         (fun c ->
@@ -664,7 +635,7 @@ let utility_groups =
       suborder = Flow.utilities_suborder;
     };
     {
-      priority = 14;
+      priority = 15;
       name = "flex_layout";
       classifier =
         (fun c ->
@@ -677,10 +648,10 @@ let utility_groups =
       suborder = Flow.utilities_suborder;
     };
     {
-      priority = 15;
+      priority = 16;
       name = "alignment";
-      classifier = (fun c -> alignment_suborder c >= 0);
-      suborder = alignment_suborder;
+      classifier = (fun c -> Flow.alignment_suborder c >= 0);
+      suborder = Flow.alignment_suborder;
     };
     {
       priority = 16;
@@ -692,7 +663,7 @@ let utility_groups =
       priority = 17;
       name = "border";
       classifier = is_border_util;
-      suborder = (fun _ -> 0);
+      suborder = Borders.suborder;
     };
     {
       priority = 18;
@@ -707,7 +678,7 @@ let utility_groups =
         (fun c ->
           if String.starts_with ~prefix:"bg-" c then
             let color_part = drop_prefix "bg-" c in
-            color_suborder_with_shade color_part
+            Color.suborder_with_shade color_part
           else 0);
     };
     {
@@ -735,7 +706,13 @@ let utility_groups =
       priority = 700;
       name = "effects";
       classifier = is_effects_util;
-      suborder = effects_suborder;
+      suborder = Effects.suborder;
+    };
+    {
+      priority = 800;
+      name = "interactivity";
+      classifier = is_interactivity_util;
+      suborder = (fun _ -> 0);
     };
     {
       priority = 1000;

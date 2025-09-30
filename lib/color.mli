@@ -453,3 +453,8 @@ val theme_order_with_shade : string -> int -> int * int
 val utilities_order : string -> int * int
 (** Get utilities layer order for conflict resolution. See {!Rules} for detailed
     layer ordering rules. *)
+
+val suborder_with_shade : string -> int
+(** [suborder_with_shade color_part] extracts the numeric suborder for a color
+    utility with shade (e.g., "blue-500" returns 500 + color order offset). Used
+    for sorting color utilities within their priority group. *)

@@ -805,3 +805,29 @@ let of_string = function
   | [ "mix"; "blend"; "color" ] -> Ok mix_blend_color
   | [ "mix"; "blend"; "luminosity" ] -> Ok mix_blend_luminosity
   | _ -> Error (`Msg "Not an effects utility")
+
+(** Suborder function for sorting effects utilities within their priority group.
+    Opacity sorted numerically, shadows by size, then blend modes. *)
+let suborder core =
+  if String.starts_with ~prefix:"opacity-" core then
+    (* Extract numeric value for opacity *)
+    try
+      let num_str = String.sub core 8 (String.length core - 8) in
+      int_of_string num_str
+    with _ -> 0
+  else if core = "shadow" then 1000
+  else if core = "shadow-none" then 1001
+  else if String.starts_with ~prefix:"shadow-" core then
+    (* shadow-sm < shadow-md < shadow-lg < shadow-xl < shadow-2xl *)
+    1002
+    +
+    match core with
+    | "shadow-sm" -> 0
+    | "shadow-md" -> 1
+    | "shadow-lg" -> 2
+    | "shadow-xl" -> 3
+    | "shadow-2xl" -> 4
+    | _ -> 5
+  else if String.starts_with ~prefix:"mix-blend-" core then 2000
+  else if String.starts_with ~prefix:"background-blend-" core then 3000
+  else 9000

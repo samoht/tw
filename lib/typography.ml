@@ -1026,8 +1026,8 @@ let font_weight_order = function
   | "black" -> 100
   | "extrabold" -> 200
   | "bold" -> 300
-  | "semibold" -> 400
-  | "medium" -> 500
+  | "medium" -> 400
+  | "semibold" -> 500
   | "normal" -> 600
   | "light" -> 700
   | "extralight" -> 800
@@ -1129,29 +1129,31 @@ let parse_class class_name =
 let suborder class_name : int =
   match parse_class class_name with
   | Text_size size -> 1000 + text_size_order size
-  | Font_weight weight -> 2000 + weight
+  | Leading (preset, num) -> (
+      2000 + match num with Some n -> 100 + n | None -> leading_order preset)
+  | Font_weight weight -> 3000 + weight
   | Text_color (color, shade) -> (
       (* Use Color module's ordering for consistency *)
       try
         let _, color_order = Color.utilities_order color in
-        3000 + (color_order * 1000) + shade
-      with _ -> 3000 + shade)
+        4000 + (color_order * 1000) + shade
+      with _ -> 4000 + shade)
   | Font_family family -> (
-      4000
+      5000
       + match family with "sans" -> 1 | "serif" -> 2 | "mono" -> 3 | _ -> 0)
   | Font_style style -> (
-      5000 + match style with "italic" -> 1 | "not-italic" -> 2 | _ -> 0)
+      6000 + match style with "italic" -> 1 | "not-italic" -> 2 | _ -> 0)
   | Text_align align -> (
-      6000
+      7000
       +
       match align with
-      | "left" -> 1
-      | "center" -> 2
-      | "right" -> 3
-      | "justify" -> 4
+      | "justify" -> 1
+      | "left" -> 2
+      | "center" -> 3
+      | "right" -> 4
       | _ -> 0)
   | Text_decoration deco -> (
-      7000
+      8000
       +
       match deco with
       | "underline" -> 1
@@ -1159,8 +1161,6 @@ let suborder class_name : int =
       | "line-through" -> 3
       | "no-underline" -> 4
       | _ -> 0)
-  | Leading (preset, num) -> (
-      8000 + match num with Some n -> 100 + n | None -> leading_order preset)
   | Tracking spacing -> 9000 + tracking_order spacing
   | Text_transform transform -> (
       10000
