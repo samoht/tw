@@ -647,7 +647,7 @@ let test_classify () =
         ();
     ]
   in
-  let classified = Tw.Rules.classify rules in
+  let classified = Tw.Rules.classify_by_type rules in
   check int "2 regular rules" 2 (List.length classified.regular);
   check int "1 media rule" 1 (List.length classified.media);
   check int "1 container rule" 1 (List.length classified.container);
