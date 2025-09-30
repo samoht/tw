@@ -917,6 +917,349 @@ let test_cascade_color_override () =
       Fmt.pr "After sorting: blue at %d, red at %d (order preserved)@." bi ri
   | _ -> Fmt.pr "Could not find both colors in sorted output@."
 
+(* Property-based test: verify utility group ordering with random selection *)
+let test_utility_group_ordering () =
+  let open Tw in
+  (* Large pool of utilities from all groups - no clustering bias *)
+  let all_utilities =
+    [
+      (* Margin: priority 1 *)
+      m 0;
+      m 1;
+      m 2;
+      m 3;
+      m 4;
+      m 5;
+      m 6;
+      m 8;
+      m 10;
+      m 12;
+      m 16;
+      m 20;
+      mx 0;
+      mx 1;
+      mx 2;
+      mx 4;
+      mx 8;
+      my 0;
+      my 1;
+      my 2;
+      my 4;
+      my 8;
+      mt 0;
+      mt 1;
+      mt 2;
+      mt 4;
+      mt 6;
+      mt 8;
+      mb 0;
+      mb 1;
+      mb 2;
+      mb 3;
+      mb 4;
+      mb 6;
+      ml 0;
+      ml 1;
+      ml 2;
+      ml 4;
+      mr 0;
+      mr 1;
+      mr 2;
+      mr 4;
+      mr 5;
+      mr 8;
+      (* Display: priority 10 *)
+      block;
+      inline;
+      inline_block;
+      flex;
+      inline_flex;
+      grid;
+      inline_grid;
+      hidden;
+      (* Position: priority 11 *)
+      static;
+      fixed;
+      absolute;
+      relative;
+      sticky;
+      (* Sizing: priority 12 *)
+      w 0;
+      w 1;
+      w 2;
+      w 4;
+      w 6;
+      w 8;
+      w 10;
+      w 12;
+      w 16;
+      w 20;
+      w 24;
+      h 0;
+      h 1;
+      h 2;
+      h 4;
+      h 6;
+      h 8;
+      h 10;
+      h 12;
+      h 16;
+      h 20;
+      min_w 0;
+      min_h 0;
+      max_w_2xl;
+      max_w_3xl;
+      max_w_4xl;
+      max_w_5xl;
+      (* Grid layout: priority 13 *)
+      grid_cols 1;
+      grid_cols 2;
+      grid_cols 3;
+      grid_cols 4;
+      grid_cols 6;
+      grid_cols 12;
+      grid_rows 1;
+      grid_rows 2;
+      grid_rows 3;
+      grid_rows 4;
+      col_span 1;
+      col_span 2;
+      col_span 3;
+      col_span 4;
+      row_span 1;
+      row_span 2;
+      row_span 3;
+      (* Flex layout: priority 14 *)
+      flex_row;
+      flex_col;
+      (* Alignment: priority 15 *)
+      items_start;
+      items_center;
+      items_end;
+      items_baseline;
+      items_stretch;
+      justify_start;
+      justify_center;
+      justify_end;
+      justify_between;
+      justify_around;
+      content_start;
+      content_center;
+      content_end;
+      self_auto;
+      self_start;
+      self_center;
+      (* Gap: priority 16 *)
+      gap 0;
+      gap 1;
+      gap 2;
+      gap 3;
+      gap 4;
+      gap 6;
+      gap 8;
+      gap 10;
+      gap 12;
+      gap_x 0;
+      gap_x 2;
+      gap_x 4;
+      gap_y 0;
+      gap_y 2;
+      gap_y 4;
+      (* Border: priority 17 *)
+      rounded;
+      rounded_md;
+      rounded_lg;
+      rounded_full;
+      border;
+      (* Background: priority 18 *)
+      bg white 0;
+      bg black 0;
+      bg gray 50;
+      bg gray 100;
+      bg gray 200;
+      bg gray 300;
+      bg gray 500;
+      bg gray 900;
+      bg red 50;
+      bg red 100;
+      bg red 500;
+      bg red 600;
+      bg red 900;
+      bg blue 50;
+      bg blue 100;
+      bg blue 500;
+      bg blue 600;
+      bg blue 900;
+      bg green 50;
+      bg green 500;
+      bg green 600;
+      bg yellow 50;
+      bg yellow 500;
+      bg purple 500;
+      bg pink 500;
+      (* Padding: priority 19 *)
+      p 0;
+      p 1;
+      p 2;
+      p 3;
+      p 4;
+      p 5;
+      p 6;
+      p 8;
+      p 10;
+      p 12;
+      p 16;
+      px 0;
+      px 1;
+      px 2;
+      px 4;
+      px 6;
+      px 8;
+      py 0;
+      py 1;
+      py 2;
+      py 4;
+      py 6;
+      py 8;
+      pt 0;
+      pt 1;
+      pt 2;
+      pt 3;
+      pt 4;
+      pt 6;
+      pt 8;
+      pb 0;
+      pb 1;
+      pb 2;
+      pb 4;
+      pb 6;
+      pb 8;
+      pl 0;
+      pl 1;
+      pl 2;
+      pl 4;
+      pl 6;
+      pl 8;
+      pr 0;
+      pr 1;
+      pr 2;
+      pr 4;
+      pr 6;
+      pr 8;
+      (* Text align: priority 20 *)
+      text_left;
+      text_center;
+      text_right;
+      text_justify;
+      (* Typography: priority 100 *)
+      text_xs;
+      text_sm;
+      text_base;
+      text_lg;
+      text_xl;
+      text_2xl;
+      text_3xl;
+      font_thin;
+      font_normal;
+      font_medium;
+      font_semibold;
+      font_bold;
+      leading_tight;
+      leading_snug;
+      leading_normal;
+      leading_relaxed;
+      (* Effects: priority 700 *)
+      shadow;
+      shadow_sm;
+      shadow_md;
+      shadow_lg;
+      shadow_xl;
+      shadow_none;
+      opacity 0;
+      opacity 50;
+      opacity 75;
+      opacity 100;
+      (* Interactivity: priority 800 *)
+      cursor_pointer;
+      cursor_default;
+      cursor_wait;
+      cursor_not_allowed;
+      select_none;
+      select_text;
+      select_all;
+      (* Container/Prose: priority 1000 *)
+      prose;
+      prose_sm;
+      prose_lg;
+    ]
+  in
+
+  (* Randomly pick 30 utilities from the pool *)
+  let pick_random_subset n lst =
+    let arr = Array.of_list lst in
+    let len = Array.length arr in
+    let picked = ref [] in
+    for _ = 1 to min n len do
+      let idx = Random.int len in
+      picked := arr.(idx) :: !picked
+    done;
+    !picked
+  in
+
+  let utilities = pick_random_subset 30 all_utilities in
+
+  (* Generate CSS with both our implementation and Tailwind *)
+  let tw_css = to_css ~base:false ~optimize:false utilities in
+
+  (* Extract utilities layer from our CSS using proper API *)
+  let extract_utilities_layer_rules css =
+    let stmts = Css.statements css in
+    (* Find the utilities layer *)
+    List.find_map
+      (fun stmt ->
+        match Css.as_layer stmt with
+        | Some (Some "utilities", rules) -> Some rules
+        | _ -> None)
+      stmts
+    |> Option.value ~default:[]
+  in
+
+  (* Extract selectors from rules *)
+  let extract_rule_selectors stmts =
+    List.filter_map
+      (fun stmt ->
+        match Css.as_rule stmt with
+        | Some (selector, _, _) -> Some (Css.Selector.to_string selector)
+        | None -> None)
+      stmts
+  in
+
+  let tw_utilities_rules = extract_utilities_layer_rules tw_css in
+  let tw_order = extract_rule_selectors tw_utilities_rules in
+
+  (* Generate Tailwind CSS for comparison *)
+  let classnames = List.map Tw.pp utilities in
+  let tailwind_css_str =
+    Tw_tools.Tailwind_gen.generate ~minify:false ~optimize:false classnames
+  in
+
+  (* Parse Tailwind CSS using our parser *)
+  let tailwind_css =
+    match Css.of_string tailwind_css_str with
+    | Ok css -> css
+    | Error _ ->
+        Fmt.epr "Tailwind CSS output (first 500 chars):@.%s@."
+          (String.sub tailwind_css_str 0
+             (min 500 (String.length tailwind_css_str)));
+        fail "Failed to parse Tailwind CSS"
+  in
+  let tailwind_utilities_rules = extract_utilities_layer_rules tailwind_css in
+  let tailwind_order = extract_rule_selectors tailwind_utilities_rules in
+
+  (* Verify that the ordering matches *)
+  check (list string) "utility group ordering matches Tailwind" tailwind_order
+    tw_order
+
 let tests =
   [
     test_case "theme layer - empty" `Quick check_theme_layer_empty;
@@ -975,6 +1318,8 @@ let tests =
     test_case "source order preservation" `Quick test_cascade_order_violation;
     test_case "prose rule separation" `Quick test_cascade_prose_separation;
     test_case "color override cascading" `Quick test_cascade_color_override;
+    (* Utility group ordering *)
+    test_case "utility group ordering" `Quick test_utility_group_ordering;
   ]
 
 let suite = ("rules", tests)

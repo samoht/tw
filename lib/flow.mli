@@ -403,6 +403,12 @@ val place_self_center : t
 val place_self_stretch : t
 (** [place_self_stretch] stretches self to fill. *)
 
+(** {1 Utilities Order} *)
+
+val utilities_suborder : string -> int
+(** [utilities_suborder class_name] extracts numeric suborder from grid/flexbox
+    utilities for proper sorting (e.g., grid-cols-2 < grid-cols-10). *)
+
 (** {1 Parsing} *)
 
 val of_string : string list -> (t, [ `Msg of string ]) result

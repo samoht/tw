@@ -534,22 +534,6 @@ let effects_prefixes =
 let interactivity_prefixes =
   [ "cursor-"; "select-"; "resize-"; "scroll-"; "overflow-"; "overscroll-" ]
 
-let flexbox_grid_prefixes =
-  [
-    "flex-";
-    "grow";
-    "shrink";
-    "basis-";
-    "order-";
-    "grid-cols-";
-    "col-";
-    "grid-rows-";
-    "row-";
-    "grid-flow-";
-    "auto-cols-";
-    "auto-rows-";
-  ]
-
 let gap_prefixes = [ "gap-"; "space-" ]
 
 (* Utility classification functions *)
@@ -564,7 +548,6 @@ let is_typography_util = has_any_prefix typography_prefixes
 let is_sizing_util = has_any_prefix sizing_prefixes
 let is_effects_util = has_any_prefix effects_prefixes
 let is_interactivity_util = has_any_prefix interactivity_prefixes
-let is_flexbox_grid_util = has_any_prefix flexbox_grid_prefixes
 let is_gap_util = has_any_prefix gap_prefixes
 
 let is_border_util core =
@@ -614,9 +597,20 @@ type utility_group = {
 let utility_groups =
   [
     {
+      priority = 1;
+      name = "margin";
+      classifier = is_margin_util;
+      suborder = Spacing.suborder;
+    };
+    {
       priority = 10;
       name = "display";
-      classifier = (fun c -> c = "hidden" || is_display_util c);
+      classifier =
+        (fun c ->
+          c = "hidden"
+          || is_display_util c
+             && (not (String.starts_with ~prefix:"grid-" c))
+             && not (String.starts_with ~prefix:"flex-" c && c <> "flex"));
       suborder = (fun c -> if c = "hidden" then 3 else 1);
     };
     {
@@ -626,13 +620,58 @@ let utility_groups =
       suborder = (fun _ -> 0);
     };
     {
-      priority = 100;
-      name = "margin";
-      classifier = is_margin_util;
+      priority = 12;
+      name = "sizing";
+      classifier = is_sizing_util;
+      suborder = (fun _ -> 0);
+    };
+    {
+      priority = 13;
+      name = "grid_layout";
+      classifier =
+        (fun c ->
+          String.starts_with ~prefix:"grid-cols-" c
+          || String.starts_with ~prefix:"grid-rows-" c
+          || String.starts_with ~prefix:"col-" c
+          || String.starts_with ~prefix:"row-" c
+          || String.starts_with ~prefix:"grid-flow-" c
+          || String.starts_with ~prefix:"auto-cols-" c
+          || String.starts_with ~prefix:"auto-rows-" c);
+      suborder = Flow.utilities_suborder;
+    };
+    {
+      priority = 14;
+      name = "flex_layout";
+      classifier =
+        (fun c ->
+          (String.starts_with ~prefix:"flex-" c && not (c = "flex"))
+          (* flex is display:flex, not flex-direction *)
+          || c = "grow"
+          || c = "shrink"
+          || String.starts_with ~prefix:"basis-" c
+          || String.starts_with ~prefix:"order-" c);
+      suborder = Flow.utilities_suborder;
+    };
+    {
+      priority = 15;
+      name = "alignment";
+      classifier = (fun c -> alignment_suborder c >= 0);
+      suborder = alignment_suborder;
+    };
+    {
+      priority = 16;
+      name = "gap";
+      classifier = is_gap_util;
       suborder = Spacing.suborder;
     };
     {
-      priority = 200;
+      priority = 17;
+      name = "border";
+      classifier = is_border_util;
+      suborder = (fun _ -> 0);
+    };
+    {
+      priority = 18;
       name = "background";
       classifier =
         (fun c ->
@@ -648,28 +687,25 @@ let utility_groups =
           else 0);
     };
     {
-      priority = 250;
-      name = "border";
-      classifier = is_border_util;
-      suborder = (fun _ -> 0);
-    };
-    {
-      priority = 300;
+      priority = 19;
       name = "padding";
       classifier = is_padding_util;
       suborder = Spacing.suborder;
     };
     {
-      priority = 400;
+      priority = 20;
+      name = "text_align";
+      classifier =
+        (fun c ->
+          c = "text-left" || c = "text-center" || c = "text-right"
+          || c = "text-justify");
+      suborder = (fun _ -> 0);
+    };
+    {
+      priority = 100;
       name = "typography";
       classifier = is_typography_util;
       suborder = Typography.suborder;
-    };
-    {
-      priority = 600;
-      name = "sizing";
-      classifier = is_sizing_util;
-      suborder = (fun _ -> 0);
     };
     {
       priority = 700;
@@ -681,24 +717,6 @@ let utility_groups =
       priority = 800;
       name = "interactivity";
       classifier = is_interactivity_util;
-      suborder = (fun _ -> 0);
-    };
-    {
-      priority = 900;
-      name = "flexbox_grid";
-      classifier = is_flexbox_grid_util;
-      suborder = (fun _ -> 0);
-    };
-    {
-      priority = 901;
-      name = "alignment";
-      classifier = (fun c -> alignment_suborder c >= 0);
-      suborder = alignment_suborder;
-    };
-    {
-      priority = 902;
-      name = "gap";
-      classifier = is_gap_util;
       suborder = (fun _ -> 0);
     };
     {
@@ -725,13 +743,22 @@ let conflict_order selector =
     else selector
   in
 
-  (* Find the first matching group *)
-  match List.find_opt (fun g -> g.classifier core) utility_groups with
+  (* Strip modifier prefixes (sm:, md:, hover:, etc.) to get the base utility
+     name *)
+  let base_utility =
+    match String.index_opt core ':' with
+    | Some colon_pos ->
+        String.sub core (colon_pos + 1) (String.length core - colon_pos - 1)
+    | None -> core
+  in
+
+  (* Find the first matching group using base utility name *)
+  match List.find_opt (fun g -> g.classifier base_utility) utility_groups with
   | Some group ->
       {
         utility_group = group.name;
         priority = group.priority;
-        suborder = group.suborder core;
+        suborder = group.suborder base_utility;
       }
   | None -> { utility_group = "unknown"; priority = 9999; suborder = 0 }
 
@@ -740,37 +767,7 @@ let conflict_group selector =
   let order = conflict_order selector in
   (order.priority, order.suborder)
 
-let build_utilities_layer ~rules ~media_queries ~container_queries =
-  (* Preserve source order to maintain CSS cascade semantics *)
-  let statements =
-    rules
-    @ List.map
-        (fun (condition, rules) -> Css.media ~condition rules)
-        media_queries
-    @ List.map
-        (fun (name, condition, rules) -> Css.container ?name ~condition rules)
-        container_queries
-  in
-  Css.of_statements [ Css.layer ~name:"utilities" statements ]
-
-let add_hover_to_media_map hover_rules media_map =
-  (* Gate hover rules behind (hover:hover) media query to prevent them from
-     applying on touch devices where :hover can stick after tapping. This
-     follows modern CSS best practices for hover states. *)
-  if hover_rules = [] then media_map
-  else
-    let hover_condition = "(hover:hover)" in
-    (* Update association list in-place to avoid hashtable churn. *)
-    let rec update acc = function
-      | [] -> List.rev ((hover_condition, hover_rules) :: acc)
-      | (cond, rules) :: tl when String.equal cond hover_condition ->
-          (* Prepend hover rules to existing for this condition *)
-          List.rev_append acc ((hover_condition, hover_rules @ rules) :: tl)
-      | hd :: tl -> update (hd :: acc) tl
-    in
-    update [] media_map
-
-(* Convert selector/props pairs to CSS rules. *)
+(* Convert selector/props pairs to CSS rules with conflict ordering *)
 let of_grouped ?(filter_custom_props = false) grouped_list =
   (* Stable sort by (priority, suborder, original_index) to preserve authoring
      order within the same conflict bucket. *)
@@ -813,6 +810,49 @@ let of_grouped ?(filter_custom_props = false) grouped_list =
       Css.rule ~selector filtered_props)
     sorted_indexed
 
+let build_utilities_layer ~rules ~media_queries ~container_queries =
+  (* Build statements, then sort all rules by conflict order *)
+  let statements =
+    rules
+    @ List.map
+        (fun (condition, rules) -> Css.media ~condition rules)
+        media_queries
+    @ List.map
+        (fun (name, condition, rules) -> Css.container ?name ~condition rules)
+        container_queries
+  in
+
+  (* Sort all rules within statements (including nested in media queries) *)
+  let sorted_statements =
+    Css.sort
+      (fun (sel1, _) (sel2, _) ->
+        let prio1, sub1 = conflict_group (Css.Selector.to_string sel1) in
+        let prio2, sub2 = conflict_group (Css.Selector.to_string sel2) in
+        let prio_cmp = Int.compare prio1 prio2 in
+        if prio_cmp <> 0 then prio_cmp else Int.compare sub1 sub2)
+      statements
+  in
+
+  Css.of_statements [ Css.layer ~name:"utilities" sorted_statements ]
+
+let add_hover_to_media_map hover_rules media_map =
+  (* Gate hover rules behind (hover:hover) media query to prevent them from
+     applying on touch devices where :hover can stick after tapping. This
+     follows modern CSS best practices for hover states. *)
+  if hover_rules = [] then media_map
+  else
+    let hover_condition = "(hover:hover)" in
+    (* Update association list in-place to avoid hashtable churn. *)
+    let rec update acc = function
+      | [] -> List.rev ((hover_condition, hover_rules) :: acc)
+      | (cond, rules) :: tl when String.equal cond hover_condition ->
+          (* Prepend hover rules to existing for this condition *)
+          List.rev_append acc ((hover_condition, hover_rules @ rules) :: tl)
+      | hd :: tl -> update (hd :: acc) tl
+    in
+    update [] media_map
+
+(* Convert selector/props pairs to CSS rules. *)
 (* Internal: build rule sets from pre-extracted outputs. *)
 let rule_sets_from_selector_props all_rules =
   let separated = classify all_rules in
@@ -867,16 +907,13 @@ let extract_non_tw_custom_declarations selector_props =
          | Container_query { props; _ }
          | Starting_style { props; _ }
          ->
-         Css.extract_custom_declarations props
+         Css.custom_declarations ~layer:"theme" props
          |> List.iter (fun decl ->
-                match Css.custom_declaration_layer decl with
-                | Some layer when layer = "theme" -> (
-                    (* Add to hashtable if not already present *)
-                    match Css.custom_declaration_name decl with
-                    | Some name when not (Hashtbl.mem theme_vars name) ->
-                        Hashtbl.add theme_vars name decl;
-                        insertion_order := decl :: !insertion_order
-                    | _ -> ())
+                (* Add to hashtable if not already present *)
+                match Css.custom_declaration_name decl with
+                | Some name when not (Hashtbl.mem theme_vars name) ->
+                    Hashtbl.add theme_vars name decl;
+                    insertion_order := decl :: !insertion_order
                 | _ -> ()));
   (* Return in original insertion order *)
   List.rev !insertion_order
@@ -1016,6 +1053,20 @@ let build_properties_layer explicit_property_rules_statements =
       explicit_property_rules_statements
   in
 
+  (* Deduplicate @property rules by property name *)
+  let deduplicated_property_rules =
+    let module StringMap = Map.Make (String) in
+    let prop_map =
+      List.fold_left
+        (fun map stmt ->
+          match Css.as_property stmt with
+          | Some (Css.Property_info { name; _ }) -> StringMap.add name stmt map
+          | None -> map)
+        StringMap.empty property_rules
+    in
+    StringMap.bindings prop_map |> List.map snd
+  in
+
   (* Extract variable initial values from @property declarations *)
   let variable_initial_values =
     List.fold_left
@@ -1025,11 +1076,12 @@ let build_properties_layer explicit_property_rules_statements =
             let value = Var.property_initial_string prop_info in
             (info.name, value) :: acc
         | None -> acc)
-      [] property_rules
+      [] deduplicated_property_rules
     |> List.rev
   in
 
-  if property_rules = [] && variable_initial_values = [] then (Css.empty, [])
+  if deduplicated_property_rules = [] && variable_initial_values = [] then
+    (Css.empty, [])
   else
     (* Build the properties layer with browser detection but WITHOUT @property
        rules *)
@@ -1057,7 +1109,7 @@ let build_properties_layer explicit_property_rules_statements =
     let layer =
       Css.of_statements [ Css.layer ~name:"properties" layer_content ]
     in
-    (layer, property_rules)
+    (layer, deduplicated_property_rules)
 
 let build_layers ~include_base ~selector_props tw_classes rules media_queries
     container_queries =

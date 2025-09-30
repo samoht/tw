@@ -165,18 +165,12 @@ let pp_rule_diff fmt = function
             Fmt.pf fmt "- %s ↔ %s: (swapped positions %d and %d)@," selector
               other expected_pos actual_pos
         | Some other ->
-            (* Non-adjacent - show what's now at the old position *)
-            let direction =
-              if actual_pos > expected_pos then "later" else "earlier"
-            in
-            Fmt.pf fmt "- %s: (moved %s to position %d, %s now at %d)@,"
-              selector direction actual_pos other expected_pos
+            (* Non-adjacent - show move clearly with what replaced it *)
+            Fmt.pf fmt "- %s: moved from position %d to %d (%s now at %d)@,"
+              selector expected_pos actual_pos other expected_pos
         | None ->
             (* No swap info available - fallback to simple message *)
-            let direction =
-              if actual_pos > expected_pos then "later" else "earlier"
-            in
-            Fmt.pf fmt "- %s: (moved %s: position %d → %d)@," selector direction
+            Fmt.pf fmt "- %s: moved from position %d to %d@," selector
               expected_pos actual_pos)
 
 let pp_rule_diff_simple fmt = function
