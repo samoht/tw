@@ -1053,18 +1053,19 @@ let build_properties_layer explicit_property_rules_statements =
       explicit_property_rules_statements
   in
 
-  (* Deduplicate @property rules by property name *)
+  (* Deduplicate @property rules by property name, preserving first occurrence order *)
   let deduplicated_property_rules =
-    let module StringMap = Map.Make (String) in
-    let prop_map =
-      List.fold_left
-        (fun map stmt ->
-          match Css.as_property stmt with
-          | Some (Css.Property_info { name; _ }) -> StringMap.add name stmt map
-          | None -> map)
-        StringMap.empty property_rules
-    in
-    StringMap.bindings prop_map |> List.map snd
+    let seen = Hashtbl.create 16 in
+    List.filter
+      (fun stmt ->
+        match Css.as_property stmt with
+        | Some (Css.Property_info { name; _ }) ->
+            if Hashtbl.mem seen name then false
+            else (
+              Hashtbl.add seen name ();
+              true)
+        | None -> true)
+      property_rules
   in
 
   (* Extract variable initial values from @property declarations *)
