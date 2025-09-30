@@ -603,7 +603,7 @@ let category_table =
       priority = 0;
       name = "position";
       classifier = is_position_util;
-      suborder = (fun _ -> 0);
+      suborder = Layout.position_suborder;
     };
     {
       category = Grid_placement;
