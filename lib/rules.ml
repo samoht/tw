@@ -755,12 +755,17 @@ let category_table =
     };
     {
       category = Container_prose;
-      priority = 1000;
+      priority = 2;
       name = "container_prose";
       classifier = is_container_or_prose;
       (* Preserve source order within this group to maintain cascade semantics
-         for complex, multi-rule utilities like prose and container. *)
-      suborder = (fun _ -> 0);
+         for complex, multi-rule utilities like prose and container.
+
+         In Tailwind v4, prose/container share priority 2 with margins but have
+         a specific suborder (125000) that places them after my-* but before
+         mt-*: m-* (100000) < mx-* (110000) < my-* (120000) < prose (125000) <
+         mt-* (130000) < mr-* (140000) *)
+      suborder = (fun _ -> 125000);
     };
   ]
 
