@@ -12,9 +12,12 @@ let setup =
         Random.init s;
         Fmt.epr "Using random seed: %d\n%!" s
     | None ->
-        Random.self_init ();
-        Fmt.epr
-          "Using auto-generated random seed (use --seed N to reproduce)\n%!"
+        (* Generate a seed from system entropy (time + process id) *)
+        let s =
+          int_of_float (Unix.gettimeofday () *. 1000.0) lxor Unix.getpid ()
+        in
+        Random.init s;
+        Fmt.epr "Using random seed: %d (use --seed %d to reproduce)\n%!" s s
   in
   Term.(const init $ seed)
 

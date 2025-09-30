@@ -335,3 +335,14 @@ let of_string = function
   | [ "outline"; "offset"; "8" ] -> Ok outline_offset_8
   (* ring* handled in Effects *)
   | _ -> Error (`Msg "Not a border utility")
+
+(** Suborder function for sorting border utilities within their priority group.
+    Borders come before rounded, then outlines. *)
+let suborder core =
+  if
+    String.starts_with ~prefix:"border-" core
+    && not (String.starts_with ~prefix:"rounded" core)
+  then 0
+  else if String.starts_with ~prefix:"rounded" core then 1
+  else if String.starts_with ~prefix:"outline" core then 2
+  else 3

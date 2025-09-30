@@ -512,18 +512,18 @@ let suborder class_name : int =
       in
       1000 + side_offset + spacing_value_order value
   | Margin (neg, side, value) ->
-      let neg_offset = if neg then 5000 else 0 in
+      let neg_offset = if neg then 50000 else 0 in
       let side_offset =
         match side with
         | `All -> 0
-        | `X -> 100
-        | `Y -> 200
-        | `T -> 300
-        | `R -> 400
-        | `B -> 500
-        | `L -> 600
+        | `X -> 10000
+        | `Y -> 20000
+        | `T -> 30000
+        | `R -> 40000
+        | `B -> 50000
+        | `L -> 60000
       in
-      10000 + neg_offset + side_offset + margin_value_order value
+      100000 + neg_offset + side_offset + margin_value_order value
   | Space (neg, axis, value) ->
       let neg_offset = if neg then 1000 else 0 in
       let axis_offset = match axis with `X -> 0 | `Y -> 100 in

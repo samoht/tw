@@ -455,3 +455,32 @@ let of_string parts =
   | [ "aspect"; "square" ] -> Ok aspect_square
   | [ "aspect"; "video" ] -> Ok aspect_video
   | _ -> Error (`Msg "Not a sizing utility")
+
+(** Suborder function for sorting sizing utilities within their priority group.
+    Heights come before widths, with numeric values sorted numerically. *)
+let suborder core =
+  (* Extract numeric value for sorting *)
+  let extract_num prefix core =
+    if String.starts_with ~prefix core then
+      try
+        let num_str =
+          String.sub core (String.length prefix)
+            (String.length core - String.length prefix)
+        in
+        int_of_string num_str
+      with _ -> 0
+    else 0
+  in
+
+  if String.starts_with ~prefix:"h-" core then extract_num "h-" core
+  else if String.starts_with ~prefix:"w-" core then
+    10000 + extract_num "w-" core
+  else if String.starts_with ~prefix:"max-h-" core then
+    20000 + extract_num "max-h-" core
+  else if String.starts_with ~prefix:"max-w-" core then
+    30000 + extract_num "max-w-" core
+  else if String.starts_with ~prefix:"min-h-" core then
+    40000 + extract_num "min-h-" core
+  else if String.starts_with ~prefix:"min-w-" core then
+    50000 + extract_num "min-w-" core
+  else 60000

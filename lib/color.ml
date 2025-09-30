@@ -1026,6 +1026,26 @@ let utilities_order color_name =
   | None -> (2, 100)
 (* Unknown colors go last *)
 
+(* Helper function to extract color order with shade for utilities like
+   bg-blue-500, text-red-400, etc. *)
+let suborder_with_shade color_part =
+  try
+    let last_dash = String.rindex color_part '-' in
+    let color_name = String.sub color_part 0 last_dash in
+    let shade_str =
+      String.sub color_part (last_dash + 1)
+        (String.length color_part - last_dash - 1)
+    in
+    let shade = int_of_string shade_str in
+    let _, color_order = utilities_order color_name in
+    (color_order * 1000) + shade
+  with Not_found | Failure _ -> (
+    (* Non-numeric or single-color names like "black", "white" *)
+    try
+      let _, color_order = utilities_order color_part in
+      color_order * 1000
+    with _ -> 0 (* Default for unrecognized colors *))
+
 (* Get theme layer order for a color variable with shade. Formula: (priority=2,
    base_order * 1000 + shade) This ensures color variables are grouped by color
    with shades in ascending order. *)

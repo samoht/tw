@@ -135,3 +135,9 @@ val opacity : int -> t
 
 val of_string : string list -> (t, [ `Msg of string ]) result
 (** [of_string parts] parses an effects utility from string parts. *)
+
+(** {1 Utility Ordering} *)
+
+val suborder : string -> int
+(** [suborder core] returns the suborder for an effects utility class name.
+    Opacity sorted numerically, shadows by size, then blend modes. *)

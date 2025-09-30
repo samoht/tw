@@ -267,3 +267,9 @@ val aspect_ratio : int -> int -> t
 val of_string : string list -> (t, [ `Msg of string ]) result
 (** [of_string parts] parses a list of strings into a sizing utility. Returns
     [Ok t] if successful, or [Error msg] if the input is invalid. *)
+
+(** {1 Utility Ordering} *)
+
+val suborder : string -> int
+(** [suborder core] returns the suborder for a sizing utility class name.
+    Heights come before widths, with numeric values sorted numerically. *)
