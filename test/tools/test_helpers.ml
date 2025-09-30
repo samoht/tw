@@ -52,7 +52,7 @@ let assert_rule_reordered selector (diff : Td.t) =
   let found =
     List.exists
       (function
-        | Td.Rule_reordered { selector = s } -> s = selector | _ -> false)
+        | Td.Rule_reordered { selector = s; _ } -> s = selector | _ -> false)
       diff.rules
   in
   if not found then Alcotest.failf "Expected rule reordered: %s" selector
