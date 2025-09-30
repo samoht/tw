@@ -26,6 +26,7 @@ type rule_diff =
       selector : string;
       expected_pos : int;
       actual_pos : int;
+      swapped_with : string option;
     }
 
 type container_info = {

@@ -571,6 +571,13 @@ let color_shade_ordering () =
          --color-black, --color-blue-400, --color-blue-500, --color-blue-600, --color-white *)
     ]
 
+let grid_cols_reordering () =
+  (* Test case showing responsive grid columns that trigger reordering
+     detection. When both md:grid-cols-2 and md:grid-cols-10 are used, they
+     should appear in a specific order within the @media query. This test
+     ensures our diff tool can detect and clearly report such reorderings. *)
+  check_list [ md [ grid_cols 10 ]; md [ grid_cols 2 ] ]
+
 (* ===== TEST SUITE ===== *)
 
 let core_tests =
@@ -600,6 +607,7 @@ let core_tests =
     test_case "3d transforms" `Slow transforms_3d;
     test_case "flexbox" `Slow flexbox;
     test_case "grid" `Slow grid;
+    test_case "grid columns reordering" `Slow grid_cols_reordering;
     test_case "scroll snap" `Slow scroll_snap;
     test_case "content variants" `Slow content_variants;
     test_case "prose basic" `Slow prose_basic;
