@@ -1368,3 +1368,8 @@ let suborder = function
         suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
   | Border_transparent -> 20000
   | Border_current -> 20001
+
+(** Check if a utility is a background color (for priority calculation) *)
+let is_background_color = function
+  | Bg _ | Bg_transparent | Bg_current -> true
+  | _ -> false

@@ -7,6 +7,11 @@ module Parse = Parse
 (** {1 Positioning Utility Type} *)
 
 type utility =
+  | Static
+  | Relative
+  | Absolute
+  | Fixed
+  | Sticky
   | Inset_0
   | Inset_x_0
   | Inset_y_0
@@ -23,6 +28,14 @@ type utility =
 
 (* Use shared spacing variable from Theme *)
 let spacing_var = Theme.spacing_var
+
+(** {1 Position Utilities} *)
+
+let static = style "static" [ position Static ]
+let relative = style "relative" [ position Relative ]
+let absolute = style "absolute" [ position Absolute ]
+let fixed = style "fixed" [ position Fixed ]
+let sticky = style "sticky" [ position Sticky ]
 
 (* Helper to create spacing values using calc(var(--spacing) * n) *)
 let spacing_value n : Css.declaration * Css.length =
@@ -101,6 +114,11 @@ let z n =
 (** {1 Utility Conversion Functions} *)
 
 let to_style = function
+  | Static -> static
+  | Relative -> relative
+  | Absolute -> absolute
+  | Fixed -> fixed
+  | Sticky -> sticky
   | Inset_0 -> inset_0
   | Inset_x_0 -> inset_x_0
   | Inset_y_0 -> inset_y_0
@@ -116,6 +134,11 @@ let to_style = function
 let int_of_string_with_sign = Parse.int_any
 
 let of_string = function
+  | [ "static" ] -> Ok Static
+  | [ "relative" ] -> Ok Relative
+  | [ "absolute" ] -> Ok Absolute
+  | [ "fixed" ] -> Ok Fixed
+  | [ "sticky" ] -> Ok Sticky
   | [ "inset"; "0" ] -> Ok Inset_0
   | [ "inset"; "x"; "0" ] -> Ok Inset_x_0
   | [ "inset"; "y"; "0" ] -> Ok Inset_y_0
@@ -141,14 +164,19 @@ let of_string = function
   | _ -> Error (`Msg "Not a positioning utility")
 
 let suborder = function
-  | Inset_0 -> 0
-  | Inset_x_0 -> 1
-  | Inset_y_0 -> 2
-  | Inset n -> 100 + n
-  | Top_1_2 -> 200
-  | Top n -> 300 + n
-  | Right n -> 400 + n
-  | Bottom n -> 500 + n
-  | Left_1_2 -> 600
-  | Left n -> 700 + n
-  | Z n -> 800 + n
+  | Static -> 0
+  | Relative -> 1
+  | Absolute -> 2
+  | Fixed -> 3
+  | Sticky -> 4
+  | Inset_0 -> 100
+  | Inset_x_0 -> 101
+  | Inset_y_0 -> 102
+  | Inset n -> 200 + n
+  | Top_1_2 -> 300
+  | Top n -> 400 + n
+  | Right n -> 500 + n
+  | Bottom n -> 600 + n
+  | Left_1_2 -> 700
+  | Left n -> 800 + n
+  | Z n -> 900 + n

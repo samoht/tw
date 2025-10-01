@@ -373,89 +373,6 @@ let extract_selector_props tw =
   in
   extract tw
 
-(* Extract selector and props pairs from Regular rules. *)
-let extract_selector_props_pairs rules =
-  List.filter_map
-    (fun rule ->
-      match rule with
-      | Regular { selector; props; _ } -> Some (selector, props)
-      | _ -> None)
-    rules
-
-(* ======================================================================== *)
-(* Rule Processing - Group and organize rules *)
-(* ======================================================================== *)
-
-let classify_by_type all_rules =
-  let regular_rules, media_rules, container_rules, starting_rules =
-    List.fold_left
-      (fun (reg, media, cont, start) rule ->
-        match rule with
-        | Regular _ -> (rule :: reg, media, cont, start)
-        | Media_query _ -> (reg, rule :: media, cont, start)
-        | Container_query _ -> (reg, media, rule :: cont, start)
-        | Starting_style _ -> (reg, media, cont, rule :: start))
-      ([], [], [], []) all_rules
-  in
-  (* Reverse to maintain original order since we prepended *)
-  {
-    regular = List.rev regular_rules;
-    media = List.rev media_rules;
-    container = List.rev container_rules;
-    starting = List.rev starting_rules;
-  }
-
-let is_hover_rule = function
-  | Regular { has_hover; _ } -> has_hover
-  | _ -> false
-
-let group_media_queries media_rules =
-  let tbl = Hashtbl.create 16 in
-  List.iter
-    (fun rule ->
-      match rule with
-      | Media_query { condition; selector; props; _ } ->
-          let rules = try Hashtbl.find tbl condition with Not_found -> [] in
-          Hashtbl.replace tbl condition ((selector, props) :: rules)
-      | _ -> ())
-    media_rules;
-  (* Extract and sort media queries by breakpoint order *)
-  let media_list =
-    Hashtbl.fold (fun k v acc -> (k, List.rev v) :: acc) tbl []
-  in
-  (* Sort by min-width values to ensure correct cascading order *)
-  List.sort
-    (fun (a, _) (b, _) ->
-      (* Extract min-width values for comparison *)
-      let extract_min_width condition =
-        if String.contains condition '(' then
-          try
-            let start = String.index condition ':' + 1 in
-            let end_ = String.index_from condition start ')' in
-            let value = String.sub condition start (end_ - start) in
-            (* Parse rem values to floats for comparison *)
-            if String.contains value 'r' then
-              float_of_string (String.sub value 0 (String.index value 'r'))
-            else 0.0
-          with _ -> 0.0
-        else 0.0
-      in
-      compare (extract_min_width a) (extract_min_width b))
-    media_list
-
-let group_container_queries container_rules =
-  let tbl = Hashtbl.create 16 in
-  List.iter
-    (fun rule ->
-      match rule with
-      | Container_query { condition; selector; props; _ } ->
-          let rules = try Hashtbl.find tbl condition with Not_found -> [] in
-          Hashtbl.replace tbl condition ((selector, props) :: rules)
-      | _ -> ())
-    container_rules;
-  (* Reverse once to restore original insertion order per condition *)
-  Hashtbl.fold (fun k v acc -> (k, List.rev v) :: acc) tbl []
-
 (* ======================================================================== *)
 (* Conflict Resolution - Order utilities by specificity *)
 (* ======================================================================== *)
@@ -515,20 +432,150 @@ let conflict_order selector =
   let parts = String.split_on_char '-' base_utility in
   match Utility.base_of_string parts with
   | Ok u -> Utility.order u
-  | Error _ -> (9999, 0)
+  | Error _ ->
+      (* Some selectors (like .group, .peer, .container) are marker classes that
+         don't parse as utilities. Give them a default low priority. *)
+      (9999, 0)
 
-(* Convert selector/props pairs to CSS rules with conflict ordering *)
+(* Extract selector and props pairs from Regular rules. *)
+let extract_selector_props_pairs rules =
+  List.filter_map
+    (fun rule ->
+      match rule with
+      | Regular { selector; props; base_class; _ } ->
+          (* Compute ordering from base_class if available, otherwise parse
+             selector *)
+          let order =
+            match base_class with
+            | Some class_name -> (
+                let parts = String.split_on_char '-' class_name in
+                match Utility.base_of_string parts with
+                | Ok u -> Utility.order u
+                | Error _ ->
+                    (* base_class doesn't parse as a utility (e.g. "group"
+                       marker class). Fall back to parsing the selector
+                       string. *)
+                    let sel_str = Css.Selector.to_string selector in
+                    conflict_order sel_str)
+            | None ->
+                (* Fallback: parse selector if base_class is missing *)
+                let sel_str = Css.Selector.to_string selector in
+                conflict_order sel_str
+          in
+          Some (selector, props, order)
+      | _ -> None)
+    rules
+
+(* ======================================================================== *)
+(* Rule Processing - Group and organize rules *)
+(* ======================================================================== *)
+
+let classify_by_type all_rules =
+  let regular_rules, media_rules, container_rules, starting_rules =
+    List.fold_left
+      (fun (reg, media, cont, start) rule ->
+        match rule with
+        | Regular _ -> (rule :: reg, media, cont, start)
+        | Media_query _ -> (reg, rule :: media, cont, start)
+        | Container_query _ -> (reg, media, rule :: cont, start)
+        | Starting_style _ -> (reg, media, cont, rule :: start))
+      ([], [], [], []) all_rules
+  in
+  (* Reverse to maintain original order since we prepended *)
+  {
+    regular = List.rev regular_rules;
+    media = List.rev media_rules;
+    container = List.rev container_rules;
+    starting = List.rev starting_rules;
+  }
+
+let is_hover_rule = function
+  | Regular { has_hover; _ } -> has_hover
+  | _ -> false
+
+let group_media_queries media_rules =
+  let tbl = Hashtbl.create 16 in
+  List.iter
+    (fun rule ->
+      match rule with
+      | Media_query { condition; selector; props; base_class } ->
+          let order =
+            match base_class with
+            | Some class_name -> (
+                let parts = String.split_on_char '-' class_name in
+                match Utility.base_of_string parts with
+                | Ok u -> Utility.order u
+                | Error _ ->
+                    let sel_str = Css.Selector.to_string selector in
+                    conflict_order sel_str)
+            | None ->
+                let sel_str = Css.Selector.to_string selector in
+                conflict_order sel_str
+          in
+          let rules = try Hashtbl.find tbl condition with Not_found -> [] in
+          Hashtbl.replace tbl condition ((selector, props, order) :: rules)
+      | _ -> ())
+    media_rules;
+  (* Extract and sort media queries by breakpoint order *)
+  let media_list =
+    Hashtbl.fold (fun k v acc -> (k, List.rev v) :: acc) tbl []
+  in
+  (* Sort by min-width values to ensure correct cascading order *)
+  List.sort
+    (fun (a, _) (b, _) ->
+      (* Extract min-width values for comparison *)
+      let extract_min_width condition =
+        if String.contains condition '(' then
+          try
+            let start = String.index condition ':' + 1 in
+            let end_ = String.index_from condition start ')' in
+            let value = String.sub condition start (end_ - start) in
+            (* Parse rem values to floats for comparison *)
+            if String.contains value 'r' then
+              float_of_string (String.sub value 0 (String.index value 'r'))
+            else 0.0
+          with _ -> 0.0
+        else 0.0
+      in
+      compare (extract_min_width a) (extract_min_width b))
+    media_list
+
+let group_container_queries container_rules =
+  let tbl = Hashtbl.create 16 in
+  List.iter
+    (fun rule ->
+      match rule with
+      | Container_query { condition; selector; props; base_class } ->
+          let order =
+            match base_class with
+            | Some class_name -> (
+                let parts = String.split_on_char '-' class_name in
+                match Utility.base_of_string parts with
+                | Ok u -> Utility.order u
+                | Error _ ->
+                    let sel_str = Css.Selector.to_string selector in
+                    conflict_order sel_str)
+            | None ->
+                let sel_str = Css.Selector.to_string selector in
+                conflict_order sel_str
+          in
+          let rules = try Hashtbl.find tbl condition with Not_found -> [] in
+          Hashtbl.replace tbl condition ((selector, props, order) :: rules)
+      | _ -> ())
+    container_rules;
+  (* Reverse once to restore original insertion order per condition *)
+  Hashtbl.fold (fun k v acc -> (k, List.rev v) :: acc) tbl []
+
+(* Convert selector/props/order triples to CSS rules with conflict ordering *)
 let of_grouped ?(filter_custom_props = false) grouped_list =
   (* Stable sort by (priority, suborder, original_index) to preserve authoring
      order within the same conflict bucket. *)
   let indexed =
-    List.mapi (fun i (sel, props) -> (i, sel, props)) grouped_list
+    List.mapi (fun i (sel, props, order) -> (i, sel, props, order)) grouped_list
   in
   let sorted_indexed =
     List.sort
-      (fun (i1, sel1, _) (i2, sel2, _) ->
-        let prio1, sub1 = conflict_order (Css.Selector.to_string sel1) in
-        let prio2, sub2 = conflict_order (Css.Selector.to_string sel2) in
+      (fun (i1, _, _, (prio1, sub1)) (i2, _, _, (prio2, sub2)) ->
         let prio_cmp = Int.compare prio1 prio2 in
         if prio_cmp <> 0 then prio_cmp
         else
@@ -537,7 +584,7 @@ let of_grouped ?(filter_custom_props = false) grouped_list =
       indexed
   in
   List.map
-    (fun (_idx, selector, props) ->
+    (fun (_idx, selector, props, _order) ->
       let filtered_props =
         if filter_custom_props then
           (* In utilities, keep only declarations explicitly tagged for the
@@ -594,16 +641,16 @@ let add_hover_to_media_map hover_rules media_map =
     update [] media_map
 
 (* Deduplicate selector/props pairs while preserving first occurrence order *)
-let deduplicate_selector_props pairs =
-  let seen = Hashtbl.create (List.length pairs) in
+let deduplicate_selector_props triples =
+  let seen = Hashtbl.create (List.length triples) in
   List.filter
-    (fun (sel, props) ->
+    (fun (sel, props, _order) ->
       let key = (Css.Selector.to_string sel, props) in
       if Hashtbl.mem seen key then false
       else (
         Hashtbl.add seen key ();
         true))
-    pairs
+    triples
 
 (* Convert selector/props pairs to CSS rules. *)
 (* Internal: build rule sets from pre-extracted outputs. *)
@@ -932,10 +979,7 @@ let build_layers ~include_base ~selector_props tw_classes rules media_queries
   in
 
   (* Existing layers in exact order *)
-  let theme_defaults =
-    Typography.default_font_declarations
-    @ Typography.default_font_family_declarations
-  in
+  let theme_defaults = Typography.default_font_family_declarations in
   let theme_layer =
     compute_theme_layer_from_selector_props ~default_decls:theme_defaults
       selector_props

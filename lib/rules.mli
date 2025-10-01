@@ -195,10 +195,10 @@ val extract_selector_props : t -> output list
 (** [extract_selector_props tw] extracts CSS rules from a Tailwind class. *)
 
 val extract_selector_props_pairs :
-  output list -> (Css.Selector.t * Css.declaration list) list
+  output list -> (Css.Selector.t * Css.declaration list * (int * int)) list
 (** [extract_selector_props_pairs outputs] converts output list to
-    selector-props pairs. Used internally for rule processing. Exposed for
-    testing cascade ordering. *)
+    selector-props-order triples. The order tuple is (priority, suborder). Used
+    internally for rule processing. Exposed for testing cascade ordering. *)
 
 (** {1 Rule Extraction and Processing} *)
 
@@ -251,7 +251,7 @@ val escape_class_name : string -> string
 
 val of_grouped :
   ?filter_custom_props:bool ->
-  (Css.Selector.t * Css.declaration list) list ->
+  (Css.Selector.t * Css.declaration list * (int * int)) list ->
   Css.statement list
-(** [of_grouped grouped_pairs] converts selector/properties pairs to CSS rules.
-    Used for testing the rule generation pipeline. *)
+(** [of_grouped grouped_triples] converts selector/properties/order triples to
+    CSS rules. Used for testing the rule generation pipeline. *)

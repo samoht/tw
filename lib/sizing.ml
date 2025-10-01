@@ -651,59 +651,59 @@ let suborder = function
   | W_spacing n -> 100100 + int_of_float (n *. 100.)
   | W_px -> 110000
   | W_fraction _ -> 150000
-  (* Max-height utilities (20000-29999) *)
-  | Max_h_none -> 20000
-  | Max_h_full -> 20001
-  | Max_h_screen -> 20002
-  | Max_h_min -> 20003
-  | Max_h_max -> 20004
-  | Max_h_fit -> 20005
-  | Max_h_spacing n -> 20100 + int_of_float (n *. 100.)
-  (* Max-width utilities (30000-39999) *)
-  | Max_w_none -> 30000
-  | Max_w_xs -> 30001
-  | Max_w_sm -> 30002
-  | Max_w_md -> 30003
-  | Max_w_lg -> 30004
-  | Max_w_xl -> 30005
-  | Max_w_2xl -> 30006
-  | Max_w_3xl -> 30007
-  | Max_w_4xl -> 30008
-  | Max_w_5xl -> 30009
-  | Max_w_6xl -> 30010
-  | Max_w_7xl -> 30011
-  | Max_w_full -> 30012
-  | Max_w_min -> 30013
-  | Max_w_max -> 30014
-  | Max_w_fit -> 30015
-  | Max_w_prose -> 30016
-  | Max_w_screen_sm -> 30020
-  | Max_w_screen_md -> 30021
-  | Max_w_screen_lg -> 30022
-  | Max_w_screen_xl -> 30023
-  | Max_w_screen_2xl -> 30024
-  | Max_w_spacing n -> 30100 + int_of_float (n *. 100.)
-  (* Min-height utilities (40000-49999) *)
-  | Min_h_0 -> 40000
-  | Min_h_full -> 40001
-  | Min_h_screen -> 40002
-  | Min_h_spacing n -> 40100 + int_of_float (n *. 100.)
-  (* Min-width utilities (50000-59999) *)
-  | Min_w_0 -> 50000
-  | Min_w_full -> 50001
-  | Min_w_min -> 50002
-  | Min_w_max -> 50003
-  | Min_w_fit -> 50004
-  | Min_w_spacing n -> 50100 + int_of_float (n *. 100.)
-  (* Size utilities (60000-69999) *)
-  | Size_auto -> 60000
-  | Size_full -> 60001
-  | Size_min -> 60002
-  | Size_max -> 60003
-  | Size_fit -> 60004
-  | Size_spacing n -> 60100 + int_of_float (n *. 100.)
-  | Size_fraction _ -> 65000
-  (* Aspect utilities (70000-) *)
-  | Aspect_auto -> 70000
-  | Aspect_square -> 70001
-  | Aspect_video -> 70002
+  (* Min-width utilities (200000-299999) - comes after width *)
+  | Min_w_0 -> 200000
+  | Min_w_full -> 200001
+  | Min_w_min -> 200002
+  | Min_w_max -> 200003
+  | Min_w_fit -> 200004
+  | Min_w_spacing n -> 200100 + int_of_float (n *. 100.)
+  (* Min-height utilities (300000-399999) *)
+  | Min_h_0 -> 300000
+  | Min_h_full -> 300001
+  | Min_h_screen -> 300002
+  | Min_h_spacing n -> 300100 + int_of_float (n *. 100.)
+  (* Max-width utilities (400000-499999) - comes after min-* *)
+  | Max_w_none -> 400000
+  | Max_w_xs -> 400001
+  | Max_w_sm -> 400002
+  | Max_w_md -> 400003
+  | Max_w_lg -> 400004
+  | Max_w_xl -> 400005
+  | Max_w_2xl -> 400006
+  | Max_w_3xl -> 400007
+  | Max_w_4xl -> 400008
+  | Max_w_5xl -> 400009
+  | Max_w_6xl -> 400010
+  | Max_w_7xl -> 400011
+  | Max_w_full -> 400012
+  | Max_w_min -> 400013
+  | Max_w_max -> 400014
+  | Max_w_fit -> 400015
+  | Max_w_prose -> 400016
+  | Max_w_screen_sm -> 400020
+  | Max_w_screen_md -> 400021
+  | Max_w_screen_lg -> 400022
+  | Max_w_screen_xl -> 400023
+  | Max_w_screen_2xl -> 400024
+  | Max_w_spacing n -> 400100 + int_of_float (n *. 100.)
+  (* Max-height utilities (500000-599999) *)
+  | Max_h_none -> 500000
+  | Max_h_full -> 500001
+  | Max_h_screen -> 500002
+  | Max_h_min -> 500003
+  | Max_h_max -> 500004
+  | Max_h_fit -> 500005
+  | Max_h_spacing n -> 500100 + int_of_float (n *. 100.)
+  (* Size utilities (600000-699999) *)
+  | Size_auto -> 600000
+  | Size_full -> 600001
+  | Size_min -> 600002
+  | Size_max -> 600003
+  | Size_fit -> 600004
+  | Size_spacing n -> 600100 + int_of_float (n *. 100.)
+  | Size_fraction _ -> 650000
+  (* Aspect utilities (700000-) *)
+  | Aspect_auto -> 700000
+  | Aspect_square -> 700001
+  | Aspect_video -> 700002

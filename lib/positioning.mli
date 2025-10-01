@@ -20,6 +20,23 @@ val suborder : utility -> int
 (** [suborder u] returns the ordering value for positioning utility [u]. Used
     for deterministic CSS output ordering. *)
 
+(** {1 Position Utilities} *)
+
+val static : t
+(** [static] sets position to static. *)
+
+val relative : t
+(** [relative] sets position to relative. *)
+
+val absolute : t
+(** [absolute] sets position to absolute. *)
+
+val fixed : t
+(** [fixed] sets position to fixed. *)
+
+val sticky : t
+(** [sticky] sets position to sticky. *)
+
 (** {1 Inset Utilities} *)
 
 val inset : int -> t

@@ -31,12 +31,6 @@ type utility =
   | Hidden
   | Sr_only
   | Not_sr_only
-  (* Position *)
-  | Static
-  | Relative
-  | Absolute
-  | Fixed
-  | Sticky
   (* Visibility *)
   | Visible
   | Invisible
@@ -106,47 +100,41 @@ let suborder = function
   | Overflow_y_hidden -> 14
   | Overflow_y_scroll -> 15
   | Overflow_y_visible -> 16
-  (* Position utilities - alphabetically ordered *)
-  | Absolute -> 100
-  | Fixed -> 101
-  | Relative -> 102
-  | Static -> 103
-  | Sticky -> 104
   (* Visibility *)
-  | Visible -> 200
-  | Invisible -> 201
-  | Collapse -> 202
+  | Visible -> 100
+  | Invisible -> 101
+  | Collapse -> 102
   (* Isolation *)
-  | Isolate -> 300
+  | Isolate -> 200
   (* Z-index *)
-  | Z_0 -> 400
-  | Z_10 -> 401
-  | Z_20 -> 402
-  | Z_30 -> 403
-  | Z_40 -> 404
-  | Z_50 -> 405
-  | Z_auto -> 406
+  | Z_0 -> 300
+  | Z_10 -> 301
+  | Z_20 -> 302
+  | Z_30 -> 303
+  | Z_40 -> 304
+  | Z_50 -> 305
+  | Z_auto -> 306
   (* Object fit *)
-  | Object_contain -> 500
-  | Object_cover -> 501
-  | Object_fill -> 502
-  | Object_none -> 503
-  | Object_scale_down -> 504
+  | Object_contain -> 400
+  | Object_cover -> 401
+  | Object_fill -> 402
+  | Object_none -> 403
+  | Object_scale_down -> 404
   (* Object position *)
-  | Object_center -> 600
-  | Object_top -> 601
-  | Object_bottom -> 602
-  | Object_left -> 603
-  | Object_right -> 604
+  | Object_center -> 500
+  | Object_top -> 501
+  | Object_bottom -> 502
+  | Object_left -> 503
+  | Object_right -> 504
   (* Table *)
-  | Border_collapse -> 700
-  | Border_separate -> 701
-  | Border_spacing _ -> 702
-  | Table_auto -> 703
-  | Table_fixed -> 704
+  | Border_collapse -> 600
+  | Border_separate -> 601
+  | Border_spacing _ -> 602
+  | Table_auto -> 603
+  | Table_fixed -> 604
   (* Screen reader *)
-  | Sr_only -> 800
-  | Not_sr_only -> 801
+  | Sr_only -> 700
+  | Not_sr_only -> 701
 
 (** {1 Style Generation} *)
 
@@ -158,7 +146,7 @@ let to_style = function
   | Sr_only ->
       style "sr-only"
         [
-          position Absolute;
+          Css.position Absolute;
           width (Px 1.);
           height (Px 1.);
           padding [ Zero ];
@@ -171,7 +159,7 @@ let to_style = function
   | Not_sr_only ->
       style "not-sr-only"
         [
-          position Static;
+          Css.position Static;
           width Auto;
           height Auto;
           padding [ Zero ];
@@ -180,11 +168,6 @@ let to_style = function
           clip "auto";
           white_space Normal;
         ]
-  | Static -> style "static" [ position Static ]
-  | Relative -> style "relative" [ position Relative ]
-  | Absolute -> style "absolute" [ position Absolute ]
-  | Fixed -> style "fixed" [ position Fixed ]
-  | Sticky -> style "sticky" [ position Sticky ]
   | Visible -> style "visible" [ visibility Visible ]
   | Invisible -> style "invisible" [ visibility Hidden ]
   | Collapse -> style "collapse" [ visibility Collapse ]
@@ -234,11 +217,6 @@ let of_string = function
   | [ "inline" ] -> Ok Inline
   | [ "inline"; "block" ] -> Ok Inline_block
   | [ "hidden" ] -> Ok Hidden
-  | [ "static" ] -> Ok Static
-  | [ "relative" ] -> Ok Relative
-  | [ "absolute" ] -> Ok Absolute
-  | [ "fixed" ] -> Ok Fixed
-  | [ "sticky" ] -> Ok Sticky
   | [ "visible" ] -> Ok Visible
   | [ "invisible" ] -> Ok Invisible
   | [ "collapse" ] -> Ok Collapse
@@ -292,11 +270,6 @@ let block = to_style Block
 let inline = to_style Inline
 let inline_block = to_style Inline_block
 let hidden = to_style Hidden
-let static = to_style Static
-let relative = to_style Relative
-let absolute = to_style Absolute
-let fixed = to_style Fixed
-let sticky = to_style Sticky
 let visible = to_style Visible
 let invisible = to_style Invisible
 let collapse = to_style Collapse

@@ -63,10 +63,10 @@ let inline_has_property prop_name inline_style =
          | [] -> false)
 
 (* Check if declarations contain any var() references *)
-let has_var_in_declarations decls =
+let has_var_in_declarations ?(inline = false) decls =
   List.exists
     (fun decl ->
-      let value = Css.declaration_value decl in
+      let value = Css.declaration_value ~inline decl in
       String.length value >= 4 && String.sub value 0 4 = "var(")
     decls
 
@@ -149,9 +149,9 @@ let check_conflict_order () =
   let m4_prio, _ = conflict_order ".m-4" in
   let bg_prio, _ = conflict_order ".bg-blue-500" in
   check bool "margin before background" true (m4_prio < bg_prio);
-  (* bg-blue-500 is a Color utility (priority 100), which comes after Padding
+  (* bg-blue-500 is a background color (priority 18), which comes before Padding
      (priority 19) *)
-  check bool "padding before background color" true (prio < bg_prio);
+  check bool "background color before padding" true (bg_prio < prio);
 
   (* Test unknown utility gets high priority *)
   let unknown_prio, _ = conflict_order ".unknown-utility" in
@@ -198,9 +198,7 @@ let check_css_variables_with_base () =
   (* Check base layer contains reset selectors *)
   let base_selectors = selectors_in_layer "base" css in
   check bool "base has universal reset" true
-    (List.exists
-       (fun sel -> sel = "*" || sel = "*, ::after, ::before")
-       base_selectors)
+    (List.mem "*, ::after, ::before, ::backdrop" base_selectors)
 
 let check_css_variables_without_base () =
   let config =
@@ -502,7 +500,7 @@ let test_inline_no_vars_defaults () =
   | None -> fail "Expected at least one rule with declarations"
   | Some declarations ->
       check bool "no Var in declarations" false
-        (has_var_in_declarations declarations);
+        (has_var_in_declarations ~inline:true declarations);
       (* Check border-radius property exists *)
       let has_border_radius =
         List.exists
@@ -609,7 +607,8 @@ let test_inline_vs_variables_diff () =
   let inline_decls = extract_decls sheet_inline in
   check bool "variables: contains var()" true
     (has_var_in_declarations vars_decls);
-  check bool "inline: no var()" false (has_var_in_declarations inline_decls)
+  check bool "inline: no var()" false
+    (has_var_in_declarations ~inline:true inline_decls)
 
 let test_resolve_deps_dedup_queue () =
   (* Deduplication is now handled automatically by Css.vars_of_declarations This
@@ -845,19 +844,23 @@ let grouped_prose_pairs prose_body_var prose_class prose_p_sel =
   let _, prose_body_v =
     Tw.Var.binding prose_body_var (Tw.Css.oklch 37.3 0.034 259.733)
   in
+  (* Order doesn't matter for this test - all have same order *)
+  let order = (1000, 0) in
   [
     ( prose_class,
       [
         Tw.Css.color (Tw.Css.Var prose_body_v);
         Tw.Css.max_width (Tw.Css.Ch 65.0);
-      ] );
+      ],
+      order );
     ( prose_p_sel,
       [
         Tw.Css.margin_top (Tw.Css.Em 1.0); Tw.Css.margin_bottom (Tw.Css.Em 1.0);
-      ] );
+      ],
+      order );
     ( prose_class,
-      [ Tw.Css.font_size (Tw.Css.Rem 1.0); Tw.Css.line_height (Tw.Css.Num 1.5) ]
-    );
+      [ Tw.Css.font_size (Tw.Css.Rem 1.0); Tw.Css.line_height (Tw.Css.Num 1.5) ],
+      order );
   ]
 
 let count_prose_rules rules =
@@ -940,7 +943,7 @@ let test_cascade_prose_separation () =
 
   (* Count how many .prose rules there are *)
   let prose_rules =
-    List.filter (fun (sel, _) -> Css.Selector.to_string sel = ".prose") pairs
+    List.filter (fun (sel, _, _) -> Css.Selector.to_string sel = ".prose") pairs
   in
 
   Fmt.pr "Found %d rules with selector .prose@." (List.length prose_rules);
@@ -994,7 +997,7 @@ let test_cascade_color_override () =
   Fmt.pr "Original pairs: %d rules@." (List.length pairs);
 
   (* Check original order *)
-  let original_selectors = List.map fst pairs in
+  let original_selectors = List.map (fun (sel, _, _) -> sel) pairs in
   let orig_blue_idx =
     List.find_index
       (fun sel -> Css.Selector.to_string sel = ".bg-blue-500")
