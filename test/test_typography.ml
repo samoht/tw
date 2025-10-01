@@ -4,7 +4,8 @@ let check parts =
   let expected = String.concat "-" parts in
   match Tw.Typography.of_string parts with
   | Ok result ->
-      Alcotest.check string "typography class name" expected (Tw.Core.pp result)
+      let style = Tw.Typography.to_style result in
+      Alcotest.check string "typography class name" expected (Tw.Style.pp style)
   | Error (`Msg msg) -> fail msg
 
 let test_font_family () =

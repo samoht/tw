@@ -31,9 +31,16 @@ let () =
       Test_svg.suite;
       Test_tables.suite;
       Test_accessibility.suite;
-      Test_flow.suite;
+      Test_display.suite;
+      Test_flex.suite;
+      Test_alignment.suite;
+      Test_grid.suite;
+      Test_grid_template.suite;
+      Test_gap.suite;
+      Test_cursor.suite;
       Test_color.suite;
-      Test_spacing.suite;
+      Test_margin.suite;
+      Test_padding.suite;
       Test_borders.suite;
       Test_sizing.suite;
       Test_layout.suite;
@@ -43,7 +50,7 @@ let () =
       Test_animations.suite;
       Test_backgrounds.suite;
       Test_containers.suite;
-      Test_core.suite;
+      Test_style.suite;
       Test_filters.suite;
       Test_forms.suite;
       Test_interactivity.suite;
@@ -56,4 +63,6 @@ let () =
       Test_modifiers.suite;
       Test_pp.suite;
       Test_prose.suite;
+      Test_theme.suite;
+      Test_utility.suite;
     ]

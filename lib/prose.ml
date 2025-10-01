@@ -11,6 +11,28 @@ open Css
 type variant =
   [ `Base | `Sm | `Lg | `Xl | `Xl2 | `Gray | `Slate | `Zinc | `Neutral | `Stone ]
 
+(** {1 Prose Utility Type} *)
+
+type utility =
+  (* Size variants *)
+  | Prose
+  | Prose_sm
+  | Prose_lg
+  | Prose_xl
+  | Prose_2xl
+  (* Color variants *)
+  | Prose_gray
+  | Prose_slate
+  | Prose_zinc
+  | Prose_neutral
+  | Prose_stone
+  | Prose_invert
+  (* Markers *)
+  | Lead
+  | Not_prose
+  (* Container *)
+  | Container
+
 (* Create prose variables using the new API *)
 let prose_body_var = Var.channel Color "tw-prose-body"
 let prose_headings_var = Var.channel Color "tw-prose-headings"
@@ -1725,7 +1747,7 @@ let pp = function
 let prose_style variant =
   let name = to_class variant in
   let rules = to_css_rules variant in
-  Core.style ~rules:(Some rules) name []
+  Style.style ~rules:(Some rules) name []
 
 let prose = prose_style `Base
 let prose_sm = prose_style `Sm
@@ -1738,19 +1760,6 @@ let prose_zinc = prose_style `Zinc
 let prose_neutral = prose_style `Neutral
 let prose_stone = prose_style `Stone
 
-(** Parse prose utilities from string *)
-let of_string = function
-  | [ "prose" ] -> Ok prose
-  | [ "prose"; "sm" ] -> Ok prose_sm
-  | [ "prose"; "lg" ] -> Ok prose_lg
-  | [ "prose"; "xl" ] -> Ok prose_xl
-  | [ "prose"; "2xl" ] -> Ok prose_2xl
-  | [ "prose"; "gray" ] -> Ok prose_gray
-  | [ "prose"; "slate" ] -> Ok prose_slate
-  | [ "prose"; "zinc" ] -> Ok (prose_style `Zinc)
-  | [ "prose"; "neutral" ] -> Ok (prose_style `Neutral)
-  | [ "prose"; "stone" ] -> Ok (prose_style `Stone)
-  | _ -> Error (`Msg "Not a prose utility")
 
 (** Generate complete prose stylesheet *)
 let stylesheet () =
@@ -1780,6 +1789,58 @@ let stylesheet () =
   all_rules
 
 (** Marker utilities (no CSS output) *)
-let prose_lead = Core.style ~rules:(Some []) "lead" []
+let prose_lead = Style.style ~rules:(Some []) "lead" []
 
-let not_prose = Core.style ~rules:(Some []) "not-prose" []
+let not_prose = Style.style ~rules:(Some []) "not-prose" []
+
+(** {1 Utility Conversion Functions} *)
+
+let to_style = function
+  | Prose -> prose
+  | Prose_sm -> prose_sm
+  | Prose_lg -> prose_lg
+  | Prose_xl -> prose_xl
+  | Prose_2xl -> prose_2xl
+  | Prose_gray -> prose_gray
+  | Prose_slate -> prose_slate
+  | Prose_zinc -> prose_zinc
+  | Prose_neutral -> prose_neutral
+  | Prose_stone -> prose_stone
+  | Prose_invert -> Style.style ~rules:(Some []) "prose-invert" []
+  | Lead -> prose_lead
+  | Not_prose -> not_prose
+  | Container -> Style.style ~rules:(Some []) "container" []
+
+let of_string = function
+  | [ "prose" ] -> Ok Prose
+  | [ "prose"; "sm" ] -> Ok Prose_sm
+  | [ "prose"; "lg" ] -> Ok Prose_lg
+  | [ "prose"; "xl" ] -> Ok Prose_xl
+  | [ "prose"; "2xl" ] -> Ok Prose_2xl
+  | [ "prose"; "gray" ] -> Ok Prose_gray
+  | [ "prose"; "slate" ] -> Ok Prose_slate
+  | [ "prose"; "zinc" ] -> Ok Prose_zinc
+  | [ "prose"; "neutral" ] -> Ok Prose_neutral
+  | [ "prose"; "stone" ] -> Ok Prose_stone
+  | [ "prose"; "invert" ] -> Ok Prose_invert
+  | [ "lead" ] -> Ok Lead
+  | [ "not"; "prose" ] -> Ok Not_prose
+  | [ "container" ] -> Ok Container
+  | _ -> Error (`Msg "Not a prose/container utility")
+
+(** Suborder function for prose utilities - orders prose variants within priority 2. *)
+let suborder = function
+  | Prose -> 0
+  | Prose_sm -> 1
+  | Prose_lg -> 2
+  | Prose_xl -> 3
+  | Prose_2xl -> 4
+  | Prose_gray -> 5
+  | Prose_slate -> 6
+  | Prose_zinc -> 7
+  | Prose_neutral -> 8
+  | Prose_stone -> 9
+  | Prose_invert -> 10
+  | Lead -> 11
+  | Not_prose -> 12
+  | Container -> 13

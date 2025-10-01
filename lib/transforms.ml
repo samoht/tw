@@ -15,8 +15,41 @@
       ["perspective"; n], etc. Unknown tokens yield `Error (`Msg "Not a
       transform utility")`. *)
 
-open Core
+open Style
 open Css
+
+(** {1 Transforms Utility Type} *)
+
+type utility =
+  (* 2D Transforms *)
+  | Rotate of int
+  | Translate_x of int
+  | Translate_y of int
+  | Scale of int
+  | Scale_x of int
+  | Scale_y of int
+  | Skew_x of int
+  | Skew_y of int
+  (* 3D Transforms *)
+  | Translate_z of int
+  | Rotate_x of int
+  | Rotate_y of int
+  | Rotate_z of int
+  | Scale_z of int
+  | Perspective of int
+  (* Perspective origin *)
+  | Perspective_origin_center
+  | Perspective_origin_top
+  | Perspective_origin_bottom
+  | Perspective_origin_left
+  | Perspective_origin_right
+  (* Transform style *)
+  | Transform_style_3d
+  | Transform_style_flat
+  (* Transform control *)
+  | Transform
+  | Transform_none
+  | Transform_gpu
 
 (* Transform variables using new API *)
 let tw_translate_x_var = Var.channel Css.Length "tw-translate-x"
@@ -201,29 +234,83 @@ let transform_gpu = style "transform-gpu" [ Css.transform (Translate_z Zero) ]
 
 let ( >|= ) = Parse.( >|= )
 
+(** {1 Utility Conversion Functions} *)
+
+let to_style = function
+  | Rotate n -> rotate n
+  | Translate_x n -> translate_x n
+  | Translate_y n -> translate_y n
+  | Translate_z n -> translate_z n
+  | Scale n -> scale n
+  | Scale_x n -> scale_x n
+  | Scale_y n -> scale_y n
+  | Scale_z n -> scale_z n
+  | Skew_x n -> skew_x n
+  | Skew_y n -> skew_y n
+  | Rotate_x n -> rotate_x n
+  | Rotate_y n -> rotate_y n
+  | Rotate_z n -> rotate_z n
+  | Perspective n -> perspective n
+  | Perspective_origin_center -> perspective_origin_center
+  | Perspective_origin_top -> perspective_origin_top
+  | Perspective_origin_bottom -> perspective_origin_bottom
+  | Perspective_origin_left -> perspective_origin_left
+  | Perspective_origin_right -> perspective_origin_right
+  | Transform_style_3d -> transform_style_3d
+  | Transform_style_flat -> transform_style_flat
+  | Transform -> transform
+  | Transform_none -> transform_none
+  | Transform_gpu -> transform_gpu
+
 let of_string = function
-  | [ "rotate"; n ] -> Parse.int_any n >|= rotate
-  | [ "translate"; "x"; n ] -> Parse.int_any n >|= translate_x
-  | [ "translate"; "y"; n ] -> Parse.int_any n >|= translate_y
-  | [ "translate"; "z"; n ] -> Parse.int_any n >|= translate_z
-  | [ "scale"; n ] -> Parse.int_pos ~name:"scale" n >|= scale
-  | [ "scale"; "x"; n ] -> Parse.int_pos ~name:"scale-x" n >|= scale_x
-  | [ "scale"; "y"; n ] -> Parse.int_pos ~name:"scale-y" n >|= scale_y
-  | [ "scale"; "z"; n ] -> Parse.int_pos ~name:"scale-z" n >|= scale_z
-  | [ "skew"; "x"; n ] -> Parse.int_any n >|= skew_x
-  | [ "skew"; "y"; n ] -> Parse.int_any n >|= skew_y
-  | [ "rotate"; "x"; n ] -> Parse.int_any n >|= rotate_x
-  | [ "rotate"; "y"; n ] -> Parse.int_any n >|= rotate_y
-  | [ "rotate"; "z"; n ] -> Parse.int_any n >|= rotate_z
-  | [ "perspective"; n ] -> Parse.int_pos ~name:"perspective" n >|= perspective
-  | [ "perspective"; "origin"; "center" ] -> Ok perspective_origin_center
-  | [ "perspective"; "origin"; "top" ] -> Ok perspective_origin_top
-  | [ "perspective"; "origin"; "bottom" ] -> Ok perspective_origin_bottom
-  | [ "perspective"; "origin"; "left" ] -> Ok perspective_origin_left
-  | [ "perspective"; "origin"; "right" ] -> Ok perspective_origin_right
-  | [ "transform"; "style"; "3d" ] -> Ok transform_style_3d
-  | [ "transform"; "style"; "flat" ] -> Ok transform_style_flat
-  | [ "transform" ] -> Ok transform
-  | [ "transform"; "none" ] -> Ok transform_none
-  | [ "transform"; "gpu" ] -> Ok transform_gpu
+  | [ "rotate"; n ] -> Parse.int_any n >|= fun n -> Rotate n
+  | [ "translate"; "x"; n ] -> Parse.int_any n >|= fun n -> Translate_x n
+  | [ "translate"; "y"; n ] -> Parse.int_any n >|= fun n -> Translate_y n
+  | [ "translate"; "z"; n ] -> Parse.int_any n >|= fun n -> Translate_z n
+  | [ "scale"; n ] -> Parse.int_pos ~name:"scale" n >|= fun n -> Scale n
+  | [ "scale"; "x"; n ] -> Parse.int_pos ~name:"scale-x" n >|= fun n -> Scale_x n
+  | [ "scale"; "y"; n ] -> Parse.int_pos ~name:"scale-y" n >|= fun n -> Scale_y n
+  | [ "scale"; "z"; n ] -> Parse.int_pos ~name:"scale-z" n >|= fun n -> Scale_z n
+  | [ "skew"; "x"; n ] -> Parse.int_any n >|= fun n -> Skew_x n
+  | [ "skew"; "y"; n ] -> Parse.int_any n >|= fun n -> Skew_y n
+  | [ "rotate"; "x"; n ] -> Parse.int_any n >|= fun n -> Rotate_x n
+  | [ "rotate"; "y"; n ] -> Parse.int_any n >|= fun n -> Rotate_y n
+  | [ "rotate"; "z"; n ] -> Parse.int_any n >|= fun n -> Rotate_z n
+  | [ "perspective"; n ] -> Parse.int_pos ~name:"perspective" n >|= fun n -> Perspective n
+  | [ "perspective"; "origin"; "center" ] -> Ok Perspective_origin_center
+  | [ "perspective"; "origin"; "top" ] -> Ok Perspective_origin_top
+  | [ "perspective"; "origin"; "bottom" ] -> Ok Perspective_origin_bottom
+  | [ "perspective"; "origin"; "left" ] -> Ok Perspective_origin_left
+  | [ "perspective"; "origin"; "right" ] -> Ok Perspective_origin_right
+  | [ "transform"; "style"; "3d" ] -> Ok Transform_style_3d
+  | [ "transform"; "style"; "flat" ] -> Ok Transform_style_flat
+  | [ "transform" ] -> Ok Transform
+  | [ "transform"; "none" ] -> Ok Transform_none
+  | [ "transform"; "gpu" ] -> Ok Transform_gpu
   | _ -> Error (`Msg "Not a transform utility")
+
+let suborder = function
+  | Transform -> 0
+  | Transform_none -> 1
+  | Transform_gpu -> 2
+  | Rotate n -> 100 + n
+  | Rotate_x n -> 150 + n
+  | Rotate_y n -> 160 + n
+  | Rotate_z n -> 170 + n
+  | Scale n -> 200 + n
+  | Scale_x n -> 250 + n
+  | Scale_y n -> 260 + n
+  | Scale_z n -> 270 + n
+  | Translate_x n -> 300 + n
+  | Translate_y n -> 350 + n
+  | Translate_z n -> 360 + n
+  | Skew_x n -> 400 + n
+  | Skew_y n -> 450 + n
+  | Perspective n -> 500 + n
+  | Perspective_origin_center -> 600
+  | Perspective_origin_top -> 601
+  | Perspective_origin_bottom -> 602
+  | Perspective_origin_left -> 603
+  | Perspective_origin_right -> 604
+  | Transform_style_3d -> 700
+  | Transform_style_flat -> 701

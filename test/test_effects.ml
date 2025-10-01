@@ -4,7 +4,8 @@ let check parts =
   let expected = String.concat "-" parts in
   match Tw.Effects.of_string parts with
   | Ok result ->
-      Alcotest.check string "effects class name" expected (Tw.Core.pp result)
+      let style = Tw.Effects.to_style result in
+      Alcotest.check string "effects class name" expected (Tw.Style.pp style)
   | Error (`Msg msg) -> fail msg
 
 let of_string_valid () =

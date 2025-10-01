@@ -1,6 +1,22 @@
 (** Sizing utilities for width and height *)
 
-open Core
+open Style
+
+(** {1 Utility Types} *)
+
+type utility
+
+val to_style : utility -> t
+(** [to_style u] converts a structured sizing utility to a style.
+    For internal use by the Tw module. *)
+
+val suborder : utility -> int
+(** [suborder u] returns the ordering value for sizing utility [u].
+    Used for deterministic CSS output ordering. *)
+
+val of_string : string list -> (utility, [ `Msg of string ]) result
+(** [of_string parts] parses a sizing utility from string parts.
+    Returns an internal structured representation. *)
 
 (** {1 Width Utilities} *)
 
@@ -262,14 +278,5 @@ val aspect_ratio : int -> int -> t
 (** [aspect_ratio w h] creates a custom aspect ratio with width [w] and height
     [h]. *)
 
-(** {1 String Parsing} *)
-
-val of_string : string list -> (t, [ `Msg of string ]) result
-(** [of_string parts] parses a list of strings into a sizing utility. Returns
-    [Ok t] if successful, or [Error msg] if the input is invalid. *)
-
-(** {1 Utility Ordering} *)
-
-val suborder : string -> int
 (** [suborder core] returns the suborder for a sizing utility class name.
     Heights come before widths, with numeric values sorted numerically. *)

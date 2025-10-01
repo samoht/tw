@@ -1,5 +1,17 @@
-open Core
+open Style
 open Css
+
+(** {1 SVG Utility Type} *)
+
+type utility =
+  | Fill_none
+  | Fill_current
+  | Stroke_none
+  | Stroke_current
+  | Stroke_0
+  | Stroke_1
+  | Stroke_2
+  | Stroke_width of int
 
 (** Helper to create SVG color utilities *)
 let color_util prefix property color ?(shade = 500) () =
@@ -40,22 +52,38 @@ let stroke_width n =
     (String.concat "" [ "stroke-"; string_of_int n ])
     [ stroke_width (Px (float_of_int n)) ]
 
-(** {1 Parsing Functions} *)
+(** {1 Utility Conversion Functions} *)
+
+let to_style = function
+  | Fill_none -> fill_none
+  | Fill_current -> fill_current
+  | Stroke_none -> stroke_none
+  | Stroke_current -> stroke_current
+  | Stroke_0 -> stroke_0
+  | Stroke_1 -> stroke_1
+  | Stroke_2 -> stroke_2
+  | Stroke_width n -> stroke_width n
 
 let of_string = function
-  | [ "fill"; "none" ] -> Ok fill_none
-  | [ "fill"; "current" ] -> Ok fill_current
-  | [ "stroke"; "none" ] -> Ok stroke_none
-  | [ "stroke"; "current" ] -> Ok stroke_current
-  | [ "stroke"; "0" ] -> Ok stroke_0
-  | [ "stroke"; "1" ] -> Ok stroke_1
-  | [ "stroke"; "2" ] -> Ok stroke_2
+  | [ "fill"; "none" ] -> Ok Fill_none
+  | [ "fill"; "current" ] -> Ok Fill_current
+  | [ "stroke"; "none" ] -> Ok Stroke_none
+  | [ "stroke"; "current" ] -> Ok Stroke_current
+  | [ "stroke"; "0" ] -> Ok Stroke_0
+  | [ "stroke"; "1" ] -> Ok Stroke_1
+  | [ "stroke"; "2" ] -> Ok Stroke_2
   | [ "stroke"; n ] -> (
       match int_of_string_opt n with
-      | Some width -> Ok (stroke_width width)
-      | None -> Error (`Msg (String.concat "" [ "Invalid stroke width: "; n ])))
-  | parts ->
-      Error
-        (`Msg
-           (String.concat ""
-              [ "Unknown SVG utility: "; String.concat "-" parts ]))
+      | Some width -> Ok (Stroke_width width)
+      | None -> Error (`Msg ("Invalid stroke width: " ^ n)))
+  | _ -> Error (`Msg "Not an SVG utility")
+
+let suborder = function
+  | Fill_none -> 0
+  | Fill_current -> 1
+  | Stroke_none -> 2
+  | Stroke_current -> 3
+  | Stroke_0 -> 4
+  | Stroke_1 -> 5
+  | Stroke_2 -> 6
+  | Stroke_width n -> 10 + n

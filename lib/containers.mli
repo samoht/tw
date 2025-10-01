@@ -1,6 +1,18 @@
 (** Container query utilities for responsive design based on container size *)
 
-open Core
+open Style
+
+(** {1 Utility Types} *)
+
+type utility
+
+val to_style : utility -> t
+(** [to_style u] converts a structured container utility to a style.
+    For internal use by the Tw module. *)
+
+val suborder : utility -> int
+(** [suborder u] returns the ordering value for container utility [u].
+    Used for deterministic CSS output ordering. *)
 
 (** {1 Container Type Utilities} *)
 
@@ -56,5 +68,5 @@ val container_query_to_class_prefix : container_query -> string
 
 (** {1 Parsing Functions} *)
 
-val of_string : string list -> (t, [ `Msg of string ]) result
+val of_string : string list -> (utility, [ `Msg of string ]) result
 (** [of_string parts] parses a container utility from string parts. *)

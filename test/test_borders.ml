@@ -4,7 +4,8 @@ let check parts =
   let expected = String.concat "-" parts in
   match Tw.Borders.of_string parts with
   | Ok result ->
-      Alcotest.check string "border class name" expected (Tw.Core.pp result)
+      let style = Tw.Borders.to_style result in
+      Alcotest.check string "border class name" expected (Tw.Style.pp style)
   | Error (`Msg msg) -> fail msg
 
 let of_string_valid () =

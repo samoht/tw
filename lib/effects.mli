@@ -1,7 +1,25 @@
 (** Visual effects utilities for shadows, opacity, and filters *)
 
-open Core
+open Style
 open Color
+
+(** {1 Utility Types} *)
+
+type utility
+
+val of_string : string list -> (utility, [ `Msg of string ]) result
+(** [of_string parts] parses an effects utility from string parts.
+    Returns an internal structured representation. *)
+
+(** {1 Internal Conversion Functions} *)
+
+val to_style : utility -> Style.t
+(** [to_style u] converts a structured effects utility to a style.
+    For internal use by the Tw module. *)
+
+val suborder : utility -> int
+(** [suborder u] returns the ordering value for effects utility [u].
+    Used for deterministic CSS output ordering. *)
 
 (** {1 Shadow Utilities} *)
 
@@ -130,14 +148,3 @@ val duration : int -> t
 
 val opacity : int -> t
 (** [opacity n] sets element opacity to [n]% (0–100). *)
-
-(** {1 Parsing Functions} *)
-
-val of_string : string list -> (t, [ `Msg of string ]) result
-(** [of_string parts] parses an effects utility from string parts. *)
-
-(** {1 Utility Ordering} *)
-
-val suborder : string -> int
-(** [suborder core] returns the suborder for an effects utility class name.
-    Opacity sorted numerically, shadows by size, then blend modes. *)

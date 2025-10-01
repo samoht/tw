@@ -23,7 +23,7 @@
     Within groups, specific suborders apply (e.g., colors by palette order,
     spacing with all → axis → side-specific). *)
 
-open Core
+open Style
 
 (** {1 Types} *)
 
@@ -203,7 +203,7 @@ val extract_selector_props_pairs :
 (** {1 Rule Extraction and Processing} *)
 
 val modifier_to_rule :
-  Core.modifier -> string -> Css.Selector.t -> Css.declaration list -> output
+  Style.modifier -> string -> Css.Selector.t -> Css.declaration list -> output
 (** [modifier_to_rule modifier base_class selector props] converts a modifier
     into appropriate CSS rule output. *)
 
@@ -225,9 +225,9 @@ val classify_by_type : output list -> by_type
 
 (** {1 Conflict Resolution} *)
 
-val conflict_group : string -> int * int
-(** [conflict_group selector] returns the conflict group priority for utility
-    ordering. *)
+val conflict_order : string -> int * int
+(** [conflict_order selector] returns the (priority, suborder) tuple for utility
+    ordering by parsing the selector and delegating to Utility.order. *)
 
 (** {1 Layer Generation} *)
 

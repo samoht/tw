@@ -1,41 +1,45 @@
-(** Interactivity utilities for cursor, selection, and scroll behavior *)
+(** Interactivity utilities for selection, scroll behavior, and more *)
 
-open Core
+open Style
 
-(** {1 Cursor Utilities} *)
+(** {1 Utility Type} *)
 
-val cursor_auto : t
-(** [cursor_auto] lets the browser determine the cursor based on context. *)
+type utility =
+  | Select_none
+  | Select_text
+  | Select_all
+  | Select_auto
+  | Scroll_auto
+  | Scroll_smooth
+  | Snap_start
+  | Snap_end
+  | Snap_center
+  | Snap_none
+  | Snap_x
+  | Snap_y
+  | Snap_both
+  | Snap_mandatory
+  | Snap_proximity
+  | Snap_align_none
+  | Snap_normal
+  | Snap_always
+  | Resize_none
+  | Resize
+  | Resize_x
+  | Resize_y
+  | Pointer_events_none
+  | Pointer_events_auto
+  | Appearance_none
+  | Will_change_auto
+  | Will_change_scroll
+  | Will_change_contents
+  | Will_change_transform
 
-val cursor_default : t
-(** [cursor_default] uses the default cursor (usually an arrow). *)
+val to_style : utility -> t
+(** [to_style utility] converts an interactivity utility to a style. *)
 
-val cursor_pointer : t
-(** [cursor_pointer] uses the pointing hand cursor for clickable elements. *)
-
-val cursor_wait : t
-(** [cursor_wait] uses the wait cursor to indicate processing. *)
-
-val cursor_move : t
-(** [cursor_move] uses the move cursor for draggable elements. *)
-
-val cursor_not_allowed : t
-(** [cursor_not_allowed] uses the not-allowed cursor for disabled elements. *)
-
-val cursor_text : t
-(** [cursor_text] uses the text selection cursor. *)
-
-val cursor_crosshair : t
-(** [cursor_crosshair] uses the crosshair cursor. *)
-
-val cursor_help : t
-(** [cursor_help] uses the help cursor. *)
-
-val cursor_grab : t
-(** [cursor_grab] uses the open hand cursor for grabbable elements. *)
-
-val cursor_grabbing : t
-(** [cursor_grabbing] uses the closed hand cursor when grabbing. *)
+val suborder : utility -> int
+(** [suborder utility] returns the suborder for utility ordering. *)
 
 (** {1 User Select Utilities} *)
 
@@ -113,7 +117,7 @@ val resize_y : t
 
 (** {1 Parsing Functions} *)
 
-val of_string : string list -> (t, [ `Msg of string ]) result
+val of_string : string list -> (utility, [ `Msg of string ]) result
 (** [of_string parts] parses an interactivity utility from string parts. *)
 
 (** {1 Pointer Events} *)

@@ -1,8 +1,35 @@
 (** Animation and transition utilities *)
 
-open Core
+open Style
 open Css
 module Parse = Parse
+
+(** {1 Animations Utility Type} *)
+
+type utility =
+  (* Transitions *)
+  | Transition_none
+  | Transition_all
+  | Transition_colors
+  | Transition_opacity
+  | Transition_shadow
+  | Transition_transform
+  | Transition
+  (* Animations *)
+  | Animate_none
+  | Animate_spin
+  | Animate_ping
+  | Animate_pulse
+  | Animate_bounce
+  (* Duration *)
+  | Duration of int
+  (* Delay *)
+  | Delay of int
+  (* Easing *)
+  | Ease_linear
+  | Ease_in
+  | Ease_out
+  | Ease_in_out
 
 (** {1 Transition Utilities} *)
 
@@ -302,23 +329,69 @@ let delay n =
 
 (** {1 Parsing Functions} *)
 
+let ( >|= ) = Parse.( >|= )
+
+(** {1 Utility Conversion Functions} *)
+
+let to_style = function
+  | Transition_none -> transition_none
+  | Transition_all -> transition_all
+  | Transition_colors -> transition_colors
+  | Transition_opacity -> transition_opacity
+  | Transition_shadow -> transition_shadow
+  | Transition_transform -> transition_transform
+  | Transition -> transition
+  | Animate_none -> animate_none
+  | Animate_spin -> animate_spin
+  | Animate_ping -> animate_ping
+  | Animate_pulse -> animate_pulse
+  | Animate_bounce -> animate_bounce
+  | Duration n -> duration n
+  | Delay n -> delay n
+  | Ease_linear -> ease_linear
+  | Ease_in -> ease_in
+  | Ease_out -> ease_out
+  | Ease_in_out -> ease_in_out
+
 let of_string = function
-  | [ "transition"; "none" ] -> Ok transition_none
-  | [ "transition"; "all" ] -> Ok transition_all
-  | [ "transition"; "colors" ] -> Ok transition_colors
-  | [ "transition"; "opacity" ] -> Ok transition_opacity
-  | [ "transition"; "shadow" ] -> Ok transition_shadow
-  | [ "transition"; "transform" ] -> Ok transition_transform
-  | [ "transition" ] -> Ok transition (* Default transition *)
-  | [ "animate"; "none" ] -> Ok animate_none
-  | [ "animate"; "spin" ] -> Ok animate_spin
-  | [ "animate"; "ping" ] -> Ok animate_ping
-  | [ "animate"; "pulse" ] -> Ok animate_pulse
-  | [ "animate"; "bounce" ] -> Ok animate_bounce
-  | [ "duration"; n ] -> Parse.int_pos ~name:"duration" n |> Result.map duration
-  | [ "delay"; n ] -> Parse.int_pos ~name:"delay" n |> Result.map delay
-  | [ "ease"; "linear" ] -> Ok ease_linear
-  | [ "ease"; "in" ] -> Ok ease_in
-  | [ "ease"; "out" ] -> Ok ease_out
-  | [ "ease"; "in"; "out" ] -> Ok ease_in_out
+  | [ "transition"; "none" ] -> Ok Transition_none
+  | [ "transition"; "all" ] -> Ok Transition_all
+  | [ "transition"; "colors" ] -> Ok Transition_colors
+  | [ "transition"; "opacity" ] -> Ok Transition_opacity
+  | [ "transition"; "shadow" ] -> Ok Transition_shadow
+  | [ "transition"; "transform" ] -> Ok Transition_transform
+  | [ "transition" ] -> Ok Transition
+  | [ "animate"; "none" ] -> Ok Animate_none
+  | [ "animate"; "spin" ] -> Ok Animate_spin
+  | [ "animate"; "ping" ] -> Ok Animate_ping
+  | [ "animate"; "pulse" ] -> Ok Animate_pulse
+  | [ "animate"; "bounce" ] -> Ok Animate_bounce
+  | [ "duration"; n ] -> Parse.int_pos ~name:"duration" n >|= fun n -> Duration n
+  | [ "delay"; n ] -> Parse.int_pos ~name:"delay" n >|= fun n -> Delay n
+  | [ "ease"; "linear" ] -> Ok Ease_linear
+  | [ "ease"; "in" ] -> Ok Ease_in
+  | [ "ease"; "out" ] -> Ok Ease_out
+  | [ "ease"; "in"; "out" ] -> Ok Ease_in_out
   | _ -> Error (`Msg "Not an animation/transition utility")
+
+(** {1 Utility Ordering} *)
+
+let suborder = function
+  | Transition -> 0
+  | Transition_none -> 1
+  | Transition_all -> 2
+  | Transition_colors -> 3
+  | Transition_opacity -> 4
+  | Transition_shadow -> 5
+  | Transition_transform -> 6
+  | Duration n -> 100 + n
+  | Delay n -> 200 + n
+  | Ease_linear -> 300
+  | Ease_in -> 301
+  | Ease_out -> 302
+  | Ease_in_out -> 303
+  | Animate_none -> 400
+  | Animate_spin -> 401
+  | Animate_ping -> 402
+  | Animate_pulse -> 403
+  | Animate_bounce -> 404

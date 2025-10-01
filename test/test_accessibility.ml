@@ -1,5 +1,5 @@
 open Alcotest
-open Tw.Core
+open Tw.Style
 
 let check_class expected t = Alcotest.check string "class" expected (pp t)
 

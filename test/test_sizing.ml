@@ -4,7 +4,8 @@ let check parts =
   let expected = String.concat "-" parts in
   match Tw.Sizing.of_string parts with
   | Ok result ->
-      Alcotest.check string "sizing class name" expected (Tw.Core.pp result)
+      let style = Tw.Sizing.to_style result in
+      Alcotest.check string "sizing class name" expected (Tw.Style.pp style)
   | Error (`Msg msg) -> fail msg
 
 let test_widths () =

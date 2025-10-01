@@ -18,18 +18,98 @@
     - Errors: returns `Error (`Msg ..)` with a short reason, or `Error (`Msg
       "Not a sizing utility")` on unknown prefixes. *)
 
-open Core
+open Style
 open Css
 
 (* Use shared spacing variable from Theme *)
 let spacing_var = Theme.spacing_var
 
+(** {1 Utility Types} *)
+
+type utility =
+  (* Width utilities *)
+  | W_auto
+  | W_full
+  | W_screen
+  | W_min
+  | W_max
+  | W_fit
+  | W_px
+  | W_spacing of float
+  | W_fraction of string
+  (* Height utilities *)
+  | H_auto
+  | H_full
+  | H_screen
+  | H_min
+  | H_max
+  | H_fit
+  | H_px
+  | H_spacing of float
+  | H_fraction of string
+  (* Min-width utilities *)
+  | Min_w_0
+  | Min_w_full
+  | Min_w_min
+  | Min_w_max
+  | Min_w_fit
+  | Min_w_spacing of float
+  (* Max-width utilities *)
+  | Max_w_none
+  | Max_w_xs
+  | Max_w_sm
+  | Max_w_md
+  | Max_w_lg
+  | Max_w_xl
+  | Max_w_2xl
+  | Max_w_3xl
+  | Max_w_4xl
+  | Max_w_5xl
+  | Max_w_6xl
+  | Max_w_7xl
+  | Max_w_full
+  | Max_w_min
+  | Max_w_max
+  | Max_w_fit
+  | Max_w_prose
+  | Max_w_screen_sm
+  | Max_w_screen_md
+  | Max_w_screen_lg
+  | Max_w_screen_xl
+  | Max_w_screen_2xl
+  | Max_w_spacing of float
+  (* Min-height utilities *)
+  | Min_h_0
+  | Min_h_full
+  | Min_h_screen
+  | Min_h_spacing of float
+  (* Max-height utilities *)
+  | Max_h_none
+  | Max_h_full
+  | Max_h_screen
+  | Max_h_min
+  | Max_h_max
+  | Max_h_fit
+  | Max_h_spacing of float
+  (* Size utilities (both width and height) *)
+  | Size_auto
+  | Size_full
+  | Size_min
+  | Size_max
+  | Size_fit
+  | Size_spacing of float
+  | Size_fraction of string
+  (* Aspect utilities *)
+  | Aspect_auto
+  | Aspect_square
+  | Aspect_video
+
 (** Helper to create spacing-based utilities with consistent pattern *)
 let spacing_utility prefix css_prop n =
-  let class_name = prefix ^ string_of_int n in
+  let class_name = prefix ^ Css.Pp.to_string Css.Pp.float n in
   let decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
   let spacing_value : Css.length =
-    Calc Calc.(mul (length (Var spacing_ref)) (float (float_of_int n)))
+    Calc Calc.(mul (length (Var spacing_ref)) (float n))
   in
   style class_name (decl :: [ css_prop spacing_value ])
 
@@ -46,8 +126,10 @@ let w' size =
   | `Xl_2 -> style "w-2xl" [ width (Rem 4.0) ]
   | `Xl_3 -> style "w-3xl" [ width (Rem 6.0) ]
   | `Full -> style "w-full" [ width (Pct 100.0) ]
+  | `Rem n -> spacing_utility "w-" width n
 
 let w_auto = style "w-auto" [ width Auto ]
+let w_px = style "w-px" [ width (Px 1.0) ]
 let w_full = style "w-full" [ width (Pct 100.0) ]
 let w_screen = style "w-screen" [ width (Vw 100.0) ]
 let w_min = style "w-min" [ width Min_content ]
@@ -64,7 +146,7 @@ let w_3_5 = style "w-3/5" [ width (Pct 60.0) ]
 let w_4_5 = style "w-4/5" [ width (Pct 80.0) ]
 
 (* Int-based width function for Tailwind scale *)
-let w n = spacing_utility "w-" width n
+let w n = spacing_utility "w-" width (float_of_int n)
 
 (** {1 Height Utilities} *)
 
@@ -81,6 +163,7 @@ let h' size =
   | `Full -> style "h-full" [ height (Pct 100.0) ]
 
 let h_auto = style "h-auto" [ height Auto ]
+let h_px = style "h-px" [ height (Px 1.0) ]
 let h_full = style "h-full" [ height (Pct 100.0) ]
 let h_screen = style "h-screen" [ height (Vh 100.0) ]
 let h_min = style "h-min" [ height Min_content ]
@@ -97,7 +180,7 @@ let h_3_5 = style "h-3/5" [ height (Pct 60.0) ]
 let h_4_5 = style "h-4/5" [ height (Pct 80.0) ]
 
 (* Int-based height function for Tailwind scale *)
-let h n = spacing_utility "h-" height n
+let h n = spacing_utility "h-" height (float_of_int n)
 
 (** {1 Min Width Utilities} *)
 
@@ -120,7 +203,7 @@ let min_w_max = style "min-w-max" [ min_width Max_content ]
 let min_w_fit = style "min-w-fit" [ min_width Fit_content ]
 
 (* Int-based min-width function for Tailwind scale *)
-let min_w n = spacing_utility "min-w-" min_width n
+let min_w n = spacing_utility "min-w-" min_width (float_of_int n)
 
 (** {1 Max Width Utilities} *)
 
@@ -208,7 +291,7 @@ let max_w_screen_xl = style "max-w-screen-xl" [ max_width (Px 1280.) ]
 let max_w_screen_2xl = style "max-w-screen-2xl" [ max_width (Px 1536.) ]
 
 (* Int-based max-width function for Tailwind scale *)
-let max_w n = spacing_utility "max-w-" max_width n
+let max_w n = spacing_utility "max-w-" max_width (float_of_int n)
 
 (** {1 Min Height Utilities} *)
 
@@ -232,7 +315,7 @@ let min_h_max = style "min-h-max" [ min_height Max_content ]
 let min_h_fit = style "min-h-fit" [ min_height Fit_content ]
 
 (* Int-based min-height function for Tailwind scale *)
-let min_h n = spacing_utility "min-h-" min_height n
+let min_h n = spacing_utility "min-h-" min_height (float_of_int n)
 
 (** {1 Max Height Utilities} *)
 
@@ -259,7 +342,7 @@ let max_h_max = style "max-h-max" [ max_height Max_content ]
 let max_h_fit = style "max-h-fit" [ max_height Fit_content ]
 
 (* Int-based max-height function for Tailwind scale *)
-let max_h n = spacing_utility "max-h-" max_height n
+let max_h n = spacing_utility "max-h-" max_height (float_of_int n)
 
 (** {1 String Parsing} *)
 
@@ -278,17 +361,6 @@ let fraction_table =
     ("5/6", 83.333333);
   ]
 
-let parse_fraction prefix (prop : length -> declaration) frac =
-  match List.assoc_opt frac fraction_table with
-  | Some pct -> Ok (style (prefix ^ frac) [ prop (Pct pct) ])
-  | None -> Error (`Msg ("Invalid fraction: " ^ frac))
-
-let size_fraction_of_string frac =
-  match List.assoc_opt frac fraction_table with
-  | Some pct ->
-      Ok (style ("size-" ^ frac) [ width (Pct pct); height (Pct pct) ])
-  | None -> Error (`Msg ("Invalid fraction: " ^ frac))
-
 (** {1 Aspect Ratio Utilities} *)
 
 let aspect_auto = style "aspect-auto" [ Css.aspect_ratio Auto ]
@@ -301,146 +373,241 @@ let aspect_ratio w h =
   in
   style class_name [ Css.aspect_ratio (Ratio (float_of_int w, float_of_int h)) ]
 
-let spacing_value_of_string : string -> (length, _) result = function
-  | "0" -> Ok (Px 0.)
-  | "px" -> Ok (Px 1.)
-  | "0.5" -> Ok (Rem 0.125)
-  | "1" -> Ok (Rem 0.25)
-  | "1.5" -> Ok (Rem 0.375)
-  | "2" -> Ok (Rem 0.5)
-  | "2.5" -> Ok (Rem 0.625)
-  | "3" -> Ok (Rem 0.75)
-  | "3.5" -> Ok (Rem 0.875)
-  | "4" -> Ok (Rem 1.0)
-  | "5" -> Ok (Rem 1.25)
-  | "6" -> Ok (Rem 1.5)
-  | "7" -> Ok (Rem 1.75)
-  | "8" -> Ok (Rem 2.0)
-  | "9" -> Ok (Rem 2.25)
-  | "10" -> Ok (Rem 2.5)
-  | "11" -> Ok (Rem 2.75)
-  | "12" -> Ok (Rem 3.0)
-  | "14" -> Ok (Rem 3.5)
-  | "16" -> Ok (Rem 4.0)
-  | "20" -> Ok (Rem 5.0)
-  | "24" -> Ok (Rem 6.0)
-  | "28" -> Ok (Rem 7.0)
-  | "32" -> Ok (Rem 8.0)
-  | "36" -> Ok (Rem 9.0)
-  | "40" -> Ok (Rem 10.0)
-  | "44" -> Ok (Rem 11.0)
-  | "48" -> Ok (Rem 12.0)
-  | "52" -> Ok (Rem 13.0)
-  | "56" -> Ok (Rem 14.0)
-  | "60" -> Ok (Rem 15.0)
-  | "64" -> Ok (Rem 16.0)
-  | "72" -> Ok (Rem 18.0)
-  | "80" -> Ok (Rem 20.0)
-  | "96" -> Ok (Rem 24.0)
-  | s -> Error (`Msg ("Invalid spacing value: " ^ s))
+(** {1 Conversion Functions} *)
 
-let parse_with_keywords prefix prop keywords error_msg value =
-  match List.assoc_opt value keywords with
-  | Some style -> Ok style
-  | None when String.contains value '/' -> parse_fraction prefix prop value
-  | None -> (
-      match spacing_value_of_string value with
-      | Ok css_val -> Ok (style (prefix ^ value) [ prop css_val ])
-      | Error _ -> Error (`Msg (error_msg ^ value)))
+let to_style = function
+  (* Width utilities *)
+  | W_auto -> w_auto
+  | W_px -> w_px
+  | W_full -> w_full
+  | W_screen -> w_screen
+  | W_min -> w_min
+  | W_max -> w_max
+  | W_fit -> w_fit
+  | W_spacing n -> spacing_utility "w-" width n
+  | W_fraction f -> (
+      match f with
+      | "1/2" -> w_1_2
+      | "1/3" -> w_1_3
+      | "2/3" -> w_2_3
+      | "1/4" -> w_1_4
+      | "3/4" -> w_3_4
+      | "1/5" -> w_1_5
+      | "2/5" -> w_2_5
+      | "3/5" -> w_3_5
+      | "4/5" -> w_4_5
+      | _ -> failwith ("Unknown width fraction: " ^ f))
+  (* Height utilities *)
+  | H_auto -> h_auto
+  | H_px -> h_px
+  | H_full -> h_full
+  | H_screen -> h_screen
+  | H_min -> h_min
+  | H_max -> h_max
+  | H_fit -> h_fit
+  | H_spacing n -> spacing_utility "h-" height n
+  | H_fraction f -> (
+      match f with
+      | "1/2" -> h_1_2
+      | "1/3" -> h_1_3
+      | "2/3" -> h_2_3
+      | "1/4" -> h_1_4
+      | "3/4" -> h_3_4
+      | "1/5" -> h_1_5
+      | "2/5" -> h_2_5
+      | "3/5" -> h_3_5
+      | "4/5" -> h_4_5
+      | _ -> failwith ("Unknown height fraction: " ^ f))
+  (* Min-width utilities *)
+  | Min_w_0 -> min_w_0
+  | Min_w_full -> min_w_full
+  | Min_w_min -> min_w_min
+  | Min_w_max -> min_w_max
+  | Min_w_fit -> min_w_fit
+  | Min_w_spacing n -> spacing_utility "min-w-" min_width n
+  (* Max-width utilities *)
+  | Max_w_none -> max_w_none
+  | Max_w_xs -> max_w_xs
+  | Max_w_sm -> max_w_sm
+  | Max_w_md -> max_w_md
+  | Max_w_lg -> max_w_lg
+  | Max_w_xl -> max_w_xl
+  | Max_w_2xl -> max_w_2xl
+  | Max_w_3xl -> max_w_3xl
+  | Max_w_4xl -> max_w_4xl
+  | Max_w_5xl -> max_w_5xl
+  | Max_w_6xl -> max_w_6xl
+  | Max_w_7xl -> max_w_7xl
+  | Max_w_full -> max_w_full
+  | Max_w_min -> max_w_min
+  | Max_w_max -> max_w_max
+  | Max_w_fit -> max_w_fit
+  | Max_w_prose -> max_w_prose
+  | Max_w_screen_sm -> max_w_screen_sm
+  | Max_w_screen_md -> max_w_screen_md
+  | Max_w_screen_lg -> max_w_screen_lg
+  | Max_w_screen_xl -> max_w_screen_xl
+  | Max_w_screen_2xl -> max_w_screen_2xl
+  | Max_w_spacing n -> spacing_utility "max-w-" max_width n
+  (* Min-height utilities *)
+  | Min_h_0 -> min_h_0
+  | Min_h_full -> min_h_full
+  | Min_h_screen -> min_h_screen
+  | Min_h_spacing n -> spacing_utility "min-h-" min_height n
+  (* Max-height utilities *)
+  | Max_h_none -> max_h_none
+  | Max_h_full -> max_h_full
+  | Max_h_screen -> max_h_screen
+  | Max_h_min -> max_h_min
+  | Max_h_max -> max_h_max
+  | Max_h_fit -> max_h_fit
+  | Max_h_spacing n -> spacing_utility "max-h-" max_height n
+  (* Size utilities *)
+  | Size_auto -> style "size-auto" [ width Auto; height Auto ]
+  | Size_full -> style "size-full" [ width (Pct 100.0); height (Pct 100.0) ]
+  | Size_min -> style "size-min" [ width Min_content; height Min_content ]
+  | Size_max -> style "size-max" [ width Max_content; height Max_content ]
+  | Size_fit -> style "size-fit" [ width Fit_content; height Fit_content ]
+  | Size_spacing n ->
+      let class_name = "size-" ^ Css.Pp.to_string Css.Pp.float n in
+      let decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+      let spacing_value : Css.length =
+        Calc Calc.(mul (length (Var spacing_ref)) (float n))
+      in
+      style class_name (decl :: [ width spacing_value; height spacing_value ])
+  | Size_fraction f -> (
+      match
+        List.assoc_opt f
+          [
+            ("1/2", 50.0);
+            ("1/3", 33.333333);
+            ("2/3", 66.666667);
+            ("1/4", 25.0);
+            ("3/4", 75.0);
+            ("1/5", 20.0);
+            ("2/5", 40.0);
+            ("3/5", 60.0);
+            ("4/5", 80.0);
+            ("1/6", 16.666667);
+            ("5/6", 83.333333);
+          ]
+      with
+      | Some pct -> style ("size-" ^ f) [ width (Pct pct); height (Pct pct) ]
+      | None -> failwith ("Unknown size fraction: " ^ f))
+  (* Aspect utilities *)
+  | Aspect_auto -> aspect_auto
+  | Aspect_square -> aspect_square
+  | Aspect_video -> aspect_video
 
 let of_string parts =
-  let parse_w =
-    parse_with_keywords "w-" width
-      [
-        ("auto", w_auto);
-        ("full", w_full);
-        ("screen", w_screen);
-        ("min", w_min);
-        ("max", w_max);
-        ("fit", w_fit);
-      ]
-      "Invalid width value: "
+  let parse_w = function
+    | "auto" -> Ok W_auto
+    | "px" -> Ok W_px
+    | "full" -> Ok W_full
+    | "screen" -> Ok W_screen
+    | "min" -> Ok W_min
+    | "max" -> Ok W_max
+    | "fit" -> Ok W_fit
+    | frac when String.contains frac '/' ->
+        if List.mem_assoc frac fraction_table then Ok (W_fraction frac)
+        else Error (`Msg ("Invalid width fraction: " ^ frac))
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (W_spacing n)
+        | _ -> Error (`Msg ("Invalid width value: " ^ v)))
   in
-  let parse_h =
-    parse_with_keywords "h-" height
-      [
-        ("auto", h_auto);
-        ("full", h_full);
-        ("screen", h_screen);
-        ("min", h_min);
-        ("max", h_max);
-        ("fit", h_fit);
-      ]
-      "Invalid height value: "
+  let parse_h = function
+    | "auto" -> Ok H_auto
+    | "px" -> Ok H_px
+    | "full" -> Ok H_full
+    | "screen" -> Ok H_screen
+    | "min" -> Ok H_min
+    | "max" -> Ok H_max
+    | "fit" -> Ok H_fit
+    | frac when String.contains frac '/' ->
+        if List.mem_assoc frac fraction_table then Ok (H_fraction frac)
+        else Error (`Msg ("Invalid height fraction: " ^ frac))
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (H_spacing n)
+        | _ -> Error (`Msg ("Invalid height value: " ^ v)))
   in
-  let parse_min_w =
-    parse_with_keywords "min-w-" min_width
-      [
-        ("0", min_w_0);
-        ("full", min_w_full);
-        ("min", min_w_min);
-        ("max", min_w_max);
-        ("fit", min_w_fit);
-      ]
-      "Invalid min-width value: "
+  let parse_min_w = function
+    | "0" -> Ok Min_w_0
+    | "full" -> Ok Min_w_full
+    | "min" -> Ok Min_w_min
+    | "max" -> Ok Min_w_max
+    | "fit" -> Ok Min_w_fit
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (Min_w_spacing n)
+        | _ -> Error (`Msg ("Invalid min-width value: " ^ v)))
   in
-  let parse_min_h =
-    parse_with_keywords "min-h-" min_height
-      [ ("0", min_h_0); ("full", min_h_full); ("screen", min_h_screen) ]
-      "Invalid min-height value: "
+  let parse_min_h = function
+    | "0" -> Ok Min_h_0
+    | "full" -> Ok Min_h_full
+    | "screen" -> Ok Min_h_screen
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (Min_h_spacing n)
+        | _ -> Error (`Msg ("Invalid min-height value: " ^ v)))
   in
   let parse_max_w = function
-    | "none" -> Ok max_w_none
-    | "xs" -> Ok max_w_xs
-    | "sm" -> Ok max_w_sm
-    | "md" -> Ok max_w_md
-    | "lg" -> Ok max_w_lg
-    | "xl" -> Ok max_w_xl
-    | "2xl" -> Ok max_w_2xl
-    | "3xl" -> Ok max_w_3xl
-    | "4xl" -> Ok max_w_4xl
-    | "5xl" -> Ok max_w_5xl
-    | "6xl" -> Ok max_w_6xl
-    | "7xl" -> Ok max_w_7xl
-    | "full" -> Ok max_w_full
-    | "min" -> Ok max_w_min
-    | "max" -> Ok max_w_max
-    | "fit" -> Ok max_w_fit
-    | "prose" -> Ok max_w_prose
-    | v -> Error (`Msg ("Invalid max-width value: " ^ v))
+    | "none" -> Ok Max_w_none
+    | "xs" -> Ok Max_w_xs
+    | "sm" -> Ok Max_w_sm
+    | "md" -> Ok Max_w_md
+    | "lg" -> Ok Max_w_lg
+    | "xl" -> Ok Max_w_xl
+    | "2xl" -> Ok Max_w_2xl
+    | "3xl" -> Ok Max_w_3xl
+    | "4xl" -> Ok Max_w_4xl
+    | "5xl" -> Ok Max_w_5xl
+    | "6xl" -> Ok Max_w_6xl
+    | "7xl" -> Ok Max_w_7xl
+    | "full" -> Ok Max_w_full
+    | "min" -> Ok Max_w_min
+    | "max" -> Ok Max_w_max
+    | "fit" -> Ok Max_w_fit
+    | "prose" -> Ok Max_w_prose
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (Max_w_spacing n)
+        | _ -> Error (`Msg ("Invalid max-width value: " ^ v)))
   in
   let parse_max_w_screen = function
-    | "sm" -> Ok max_w_screen_sm
-    | "md" -> Ok max_w_screen_md
-    | "lg" -> Ok max_w_screen_lg
-    | "xl" -> Ok max_w_screen_xl
-    | "2xl" -> Ok max_w_screen_2xl
+    | "sm" -> Ok Max_w_screen_sm
+    | "md" -> Ok Max_w_screen_md
+    | "lg" -> Ok Max_w_screen_lg
+    | "xl" -> Ok Max_w_screen_xl
+    | "2xl" -> Ok Max_w_screen_2xl
     | s -> Error (`Msg ("Invalid max-width screen size: " ^ s))
   in
-  let parse_max_h =
-    parse_with_keywords "max-h-" max_height
-      [
-        ("none", max_h_none);
-        ("full", max_h_full);
-        ("screen", max_h_screen);
-        ("min", max_h_min);
-        ("max", max_h_max);
-        ("fit", max_h_fit);
-      ]
-      "Invalid max-height value: "
+  let parse_max_h = function
+    | "none" -> Ok Max_h_none
+    | "full" -> Ok Max_h_full
+    | "screen" -> Ok Max_h_screen
+    | "min" -> Ok Max_h_min
+    | "max" -> Ok Max_h_max
+    | "fit" -> Ok Max_h_fit
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (Max_h_spacing n)
+        | _ -> Error (`Msg ("Invalid max-height value: " ^ v)))
   in
   let parse_size = function
-    | "auto" -> Ok (style "size-auto" [ width Auto; height Auto ])
-    | "full" -> Ok (style "size-full" [ width (Pct 100.0); height (Pct 100.0) ])
-    | "min" -> Ok (style "size-min" [ width Min_content; height Min_content ])
-    | "max" -> Ok (style "size-max" [ width Max_content; height Max_content ])
-    | "fit" -> Ok (style "size-fit" [ width Fit_content; height Fit_content ])
-    | frac when String.contains frac '/' -> size_fraction_of_string frac
+    | "auto" -> Ok Size_auto
+    | "full" -> Ok Size_full
+    | "min" -> Ok Size_min
+    | "max" -> Ok Size_max
+    | "fit" -> Ok Size_fit
+    | frac when String.contains frac '/' ->
+        if List.mem_assoc frac fraction_table then Ok (Size_fraction frac)
+        else Error (`Msg ("Invalid size fraction: " ^ frac))
     | v -> (
-        match spacing_value_of_string v with
-        | Ok css_val ->
-            Ok (style ("size-" ^ v) [ width css_val; height css_val ])
-        | Error _ -> Error (`Msg ("Invalid size value: " ^ v)))
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (Size_spacing n)
+        | _ -> Error (`Msg ("Invalid size value: " ^ v)))
   in
   match parts with
   | [ "w"; value ] -> parse_w value
@@ -451,36 +618,87 @@ let of_string parts =
   | [ "max"; "w"; "screen"; size ] -> parse_max_w_screen size
   | [ "max"; "h"; value ] -> parse_max_h value
   | [ "size"; value ] -> parse_size value
-  | [ "aspect"; "auto" ] -> Ok aspect_auto
-  | [ "aspect"; "square" ] -> Ok aspect_square
-  | [ "aspect"; "video" ] -> Ok aspect_video
+  | [ "aspect"; "auto" ] -> Ok Aspect_auto
+  | [ "aspect"; "square" ] -> Ok Aspect_square
+  | [ "aspect"; "video" ] -> Ok Aspect_video
   | _ -> Error (`Msg "Not a sizing utility")
 
 (** Suborder function for sorting sizing utilities within their priority group.
     Heights come before widths, with numeric values sorted numerically. *)
-let suborder core =
-  (* Extract numeric value for sorting *)
-  let extract_num prefix core =
-    if String.starts_with ~prefix core then
-      try
-        let num_str =
-          String.sub core (String.length prefix)
-            (String.length core - String.length prefix)
-        in
-        int_of_string num_str
-      with _ -> 0
-    else 0
-  in
-
-  if String.starts_with ~prefix:"h-" core then extract_num "h-" core
-  else if String.starts_with ~prefix:"w-" core then
-    10000 + extract_num "w-" core
-  else if String.starts_with ~prefix:"max-h-" core then
-    20000 + extract_num "max-h-" core
-  else if String.starts_with ~prefix:"max-w-" core then
-    30000 + extract_num "max-w-" core
-  else if String.starts_with ~prefix:"min-h-" core then
-    40000 + extract_num "min-h-" core
-  else if String.starts_with ~prefix:"min-w-" core then
-    50000 + extract_num "min-w-" core
-  else 60000
+let suborder = function
+  (* Height utilities (0-9999) *)
+  | H_auto -> 0
+  | H_full -> 1
+  | H_screen -> 2
+  | H_min -> 3
+  | H_max -> 4
+  | H_fit -> 5
+  | H_spacing n -> 100 + int_of_float (n *. 100.)
+  | H_px -> 10000
+  | H_fraction _ -> 50000
+  (* Width utilities (100000-199999) *)
+  | W_auto -> 100000
+  | W_full -> 100001
+  | W_screen -> 100002
+  | W_min -> 100003
+  | W_max -> 100004
+  | W_fit -> 100005
+  | W_spacing n -> 100100 + int_of_float (n *. 100.)
+  | W_px -> 110000
+  | W_fraction _ -> 150000
+  (* Max-height utilities (20000-29999) *)
+  | Max_h_none -> 20000
+  | Max_h_full -> 20001
+  | Max_h_screen -> 20002
+  | Max_h_min -> 20003
+  | Max_h_max -> 20004
+  | Max_h_fit -> 20005
+  | Max_h_spacing n -> 20100 + int_of_float (n *. 100.)
+  (* Max-width utilities (30000-39999) *)
+  | Max_w_none -> 30000
+  | Max_w_xs -> 30001
+  | Max_w_sm -> 30002
+  | Max_w_md -> 30003
+  | Max_w_lg -> 30004
+  | Max_w_xl -> 30005
+  | Max_w_2xl -> 30006
+  | Max_w_3xl -> 30007
+  | Max_w_4xl -> 30008
+  | Max_w_5xl -> 30009
+  | Max_w_6xl -> 30010
+  | Max_w_7xl -> 30011
+  | Max_w_full -> 30012
+  | Max_w_min -> 30013
+  | Max_w_max -> 30014
+  | Max_w_fit -> 30015
+  | Max_w_prose -> 30016
+  | Max_w_screen_sm -> 30020
+  | Max_w_screen_md -> 30021
+  | Max_w_screen_lg -> 30022
+  | Max_w_screen_xl -> 30023
+  | Max_w_screen_2xl -> 30024
+  | Max_w_spacing n -> 30100 + int_of_float (n *. 100.)
+  (* Min-height utilities (40000-49999) *)
+  | Min_h_0 -> 40000
+  | Min_h_full -> 40001
+  | Min_h_screen -> 40002
+  | Min_h_spacing n -> 40100 + int_of_float (n *. 100.)
+  (* Min-width utilities (50000-59999) *)
+  | Min_w_0 -> 50000
+  | Min_w_full -> 50001
+  | Min_w_min -> 50002
+  | Min_w_max -> 50003
+  | Min_w_fit -> 50004
+  | Min_w_spacing n -> 50100 + int_of_float (n *. 100.)
+  (* Size utilities (60000-69999) *)
+  | Size_auto -> 60000
+  | Size_full -> 60001
+  | Size_min -> 60002
+  | Size_max -> 60003
+  | Size_fit -> 60004
+  | Size_spacing n -> 60100 + int_of_float (n *. 100.)
+  | Size_fraction _ -> 65000
+  (* Aspect utilities (70000-) *)
+  | Aspect_auto -> 70000
+  | Aspect_square -> 70001
+  | Aspect_video -> 70002

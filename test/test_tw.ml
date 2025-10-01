@@ -143,158 +143,11 @@ let responsive_classes () =
   check_list [ text_sm; sm [ text_base ]; md [ text_lg ]; lg [ text_xl ] ];
   check_list [ hidden; sm [ block ]; md [ flex ] ]
 
-let basic_spacing () =
-  check (p 4);
-  check (m 2);
-  check (px 6);
-  check (py 3);
-  check (pt 1);
-  check (pr 8);
-  check (pb 12);
-  check (pl 16);
-  check (mx 0);
-  check (my 10);
-  check (mt 20);
-  check (mr 24);
-  check (mb 56);
-  check (ml 6)
-
-let color_classes () =
-  check bg_white;
-  check (text gray 900);
-  check (border_color gray 200);
-  check (bg gray 500);
-  check (bg sky 600);
-  check (text yellow 400);
-  check (border_color teal 600)
-
-let display_classes () =
-  check block;
-  check inline;
-  check inline_block;
-  check flex;
-  check inline_flex;
-  check grid;
-  check inline_grid;
-  check hidden
-
-let sizing () =
-  check (w 4);
-  check (h 8);
-  check w_fit;
-  check h_fit;
-  check h_full;
-  check (min_w 0)
-
-let typography () =
-  check text_xs;
-  check text_sm;
-  check text_base;
-  check text_lg;
-  check text_xl;
-  check text_2xl;
-  check text_3xl;
-  check text_4xl;
-  check font_thin;
-  check font_light;
-  check font_normal;
-  check font_medium;
-  check font_semibold;
-  check font_bold;
-  check font_extrabold;
-  check font_black;
-  check font_sans;
-  check font_serif;
-  check font_mono
-
-let typography_new_utilities () =
-  (* Text decoration style *)
-  check decoration_solid;
-  check decoration_double;
-  check decoration_dotted;
-  check decoration_dashed;
-  check decoration_wavy;
-  (* Text decoration color & thickness *)
-  check (decoration_color ~shade:500 blue);
-  check (decoration_thickness 2);
-  check decoration_from_font;
-  (* Text underline offset *)
-  check underline_offset_2;
-  (* Text align already covered; add vertical-align *)
-  check align_top;
-  check align_middle;
-  check align_bottom;
-  check align_text_top;
-  check align_text_bottom;
-  check align_sub;
-  check align_super;
-  (* Letter spacing covered; add line-clamp *)
-  check (line_clamp 3);
-  (* Text wrap/overflow *)
-  check text_ellipsis;
-  check text_clip;
-  check text_wrap;
-  check text_nowrap;
-  check text_balance;
-  check text_pretty;
-  (* Word/overflow wrap and hyphens *)
-  check break_words;
-  check break_all;
-  check break_keep;
-  check hyphens_auto;
-  (* List styles *)
-  check list_none;
-  check list_disc;
-  check list_decimal;
-  check list_inside;
-  check list_outside;
-  check list_image_none;
-  (* Text indent *)
-  check (indent 4);
-  (* Font stretch (discrete) *)
-  check font_stretch_normal;
-  check font_stretch_condensed;
-  check font_stretch_expanded;
-  (* Numeric variants *)
-  check normal_nums;
-  check ordinal;
-  check slashed_zero;
-  check lining_nums;
-  check oldstyle_nums;
-  check proportional_nums;
-  check tabular_nums;
-  check diagonal_fractions;
-  check stacked_fractions
-
-let responsive () =
-  check (md [ block ]);
-  check (lg [ flex ]);
-  check (xl [ hidden ]);
-  check (sm [ p 4 ]);
-  check (md [ m 6 ])
-
 let states () =
   check (hover [ bg_white ]);
   check (focus [ bg sky 500 ]);
-  check (active [ text gray 900 ])
+  check (active [ text gray 900 ]);
 
-let borders () =
-  check border_none;
-  check border;
-  check border_sm;
-  check border_md;
-  check border_solid;
-  check border_dashed;
-  check border_dotted;
-  check rounded_none;
-  check rounded_sm;
-  check rounded;
-  check rounded_md;
-  check rounded_lg;
-  check rounded_xl;
-  check rounded_full
-
-let shadows () =
   check shadow_sm;
   check shadow;
   check shadow_md;
@@ -377,39 +230,8 @@ let transforms_3d () =
   check (rotate 180);
   check (scale 50);
   check (scale 75);
-  check (scale 125)
+  check (scale 125);
 
-let flexbox () =
-  check flex_row;
-  check flex_col;
-  check flex_wrap;
-  check items_center;
-  check items_start;
-  check items_end;
-  check items_baseline;
-  check items_stretch;
-  check justify_center;
-  check justify_between;
-  check justify_start;
-  check justify_end;
-  check justify_around;
-  check justify_evenly;
-  check flex_1
-
-let grid () =
-  check grid;
-  check inline_grid;
-  check (grid_cols 3);
-  check (grid_rows 2);
-  check justify_items_center;
-  check justify_self_start;
-  check justify_self_end;
-  check justify_self_center;
-  check justify_self_stretch;
-  check justify_self_auto
-
-let scroll_snap () =
-  check snap_x;
   check snap_y;
   check snap_both;
   check snap_mandatory;
@@ -583,16 +405,8 @@ let grid_cols_reordering () =
 let core_tests =
   [
     test_case "empty test" `Quick empty_test;
-    test_case "basic spacing" `Slow basic_spacing;
-    test_case "color classes" `Slow color_classes;
-    test_case "display classes" `Slow display_classes;
-    test_case "sizing" `Slow sizing;
-    test_case "typography" `Slow typography;
-    test_case "typography new utilities" `Slow typography_new_utilities;
-    test_case "responsive" `Slow responsive;
+    test_case "responsive classes" `Slow responsive_classes;
     test_case "states" `Slow states;
-    test_case "borders" `Slow borders;
-    test_case "shadows" `Slow shadows;
     test_case "negative spacing" `Slow negative_spacing;
     test_case "container queries" `Slow container_queries;
     test_case "hex colors" `Slow hex_colors;
@@ -605,10 +419,7 @@ let core_tests =
     test_case "aria selectors" `Slow aria_selectors;
     test_case "data selectors" `Slow data_selectors;
     test_case "3d transforms" `Slow transforms_3d;
-    test_case "flexbox" `Slow flexbox;
-    test_case "grid" `Slow grid;
     test_case "grid columns reordering" `Slow grid_cols_reordering;
-    test_case "scroll snap" `Slow scroll_snap;
     test_case "content variants" `Slow content_variants;
     test_case "prose basic" `Slow prose_basic;
     test_case "prose with modifiers" `Slow prose_with_modifiers;

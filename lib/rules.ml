@@ -9,7 +9,7 @@
     - Variable Resolution: Track CSS custom property dependencies
     - Media/Container Queries: Handle responsive modifiers *)
 
-open Core
+open Style
 
 (* ======================================================================== *)
 (* Types *)
@@ -460,334 +460,6 @@ let group_container_queries container_rules =
 (* Conflict Resolution - Order utilities by specificity *)
 (* ======================================================================== *)
 
-(* Centralized color ordering - matches Tailwind's color palette order *)
-(* Colors are ordered alphabetically for consistency and predictability *)
-
-(* Utility prefix constants for classification *)
-let display_prefixes =
-  [
-    "block";
-    "inline";
-    "inline-";
-    "flex";
-    "grid";
-    "table";
-    "contents";
-    "flow-root";
-  ]
-
-let position_prefixes = [ "static"; "fixed"; "absolute"; "relative"; "sticky" ]
-
-let margin_prefixes =
-  [
-    "m-";
-    "-m-";
-    "mx-";
-    "-mx-";
-    "my-";
-    "-my-";
-    "mt-";
-    "-mt-";
-    "mr-";
-    "-mr-";
-    "mb-";
-    "-mb-";
-    "ml-";
-    "-ml-";
-  ]
-
-let padding_prefixes = [ "p-"; "px-"; "py-"; "pt-"; "pr-"; "pb-"; "pl-" ]
-
-let typography_prefixes =
-  [
-    "font-";
-    "text-";
-    "tracking-";
-    "leading-";
-    "whitespace-";
-    "break-";
-    "list-";
-    "content-";
-  ]
-
-let sizing_prefixes = [ "w-"; "h-"; "min-w-"; "min-h-"; "max-w-"; "max-h-" ]
-
-let effects_prefixes =
-  [
-    "shadow-";
-    "shadow";
-    "opacity-";
-    "mix-blend-";
-    "background-blend-";
-    "transform";
-    "translate-";
-    "scale-";
-    "rotate-";
-    "skew-";
-    "transition";
-    "duration-";
-    "ease-";
-    "delay-";
-    "animate-";
-  ]
-
-let interactivity_prefixes =
-  [ "select-"; "resize-"; "scroll-"; "overflow-"; "overscroll-" ]
-
-let gap_prefixes = [ "gap-"; "space-" ]
-
-(* Utility classification functions *)
-let has_any_prefix prefixes core =
-  List.exists (fun p -> String.starts_with ~prefix:p core) prefixes
-
-let is_display_util = has_any_prefix display_prefixes
-let is_position_util = has_any_prefix position_prefixes
-let is_margin_util = has_any_prefix margin_prefixes
-let is_padding_util = has_any_prefix padding_prefixes
-let is_typography_util = has_any_prefix typography_prefixes
-let is_sizing_util = has_any_prefix sizing_prefixes
-let is_effects_util = has_any_prefix effects_prefixes
-let is_cursor_util core = String.starts_with ~prefix:"cursor-" core
-let is_interactivity_util = has_any_prefix interactivity_prefixes
-let is_gap_util = has_any_prefix gap_prefixes
-
-let is_border_util core =
-  String.starts_with ~prefix:"rounded" core
-  || String.starts_with ~prefix:"border" core
-  || String.starts_with ~prefix:"outline-" core
-
-let is_container_or_prose core =
-  core = "container" || String.starts_with ~prefix:"prose" core
-
-(* Conflict group classification - Utility categories ordered by priority (lower
-   number = higher priority). This ordering ensures proper cascade behavior in
-   CSS. *)
-
-(** Utility category variant - each utility belongs to exactly one category *)
-type utility_category =
-  | Position
-  | Grid_placement
-  | Margin
-  | Display
-  | Sizing
-  | Cursor
-  | Grid_template
-  | Flex_layout
-  | Alignment
-  | Gap
-  | Border
-  | Background
-  | Padding
-  | Text_align
-  | Typography
-  | Effects
-  | Interactivity
-  | Container_prose
-  | Unknown
-
-type category_info = {
-  category : utility_category;
-  priority : int;
-  name : string;
-  classifier : string -> bool;
-  suborder : string -> int;
-}
-(** Category definition with classifier and ordering information *)
-
-(** Declarative table of utility categories, ordered by priority. First match
-    wins during classification. *)
-let category_table =
-  [
-    {
-      category = Position;
-      priority = 0;
-      name = "position";
-      classifier = is_position_util;
-      suborder = Layout.position_suborder;
-    };
-    {
-      category = Grid_placement;
-      priority = 1;
-      name = "grid_placement";
-      classifier =
-        (fun c ->
-          String.starts_with ~prefix:"col-span-" c
-          || String.starts_with ~prefix:"row-span-" c
-          || String.starts_with ~prefix:"col-start-" c
-          || String.starts_with ~prefix:"col-end-" c
-          || String.starts_with ~prefix:"row-start-" c
-          || String.starts_with ~prefix:"row-end-" c);
-      suborder = Flow.utilities_suborder;
-    };
-    {
-      category = Margin;
-      priority = 2;
-      name = "margin";
-      classifier = is_margin_util;
-      suborder = Spacing.suborder;
-    };
-    {
-      category = Display;
-      priority = 10;
-      name = "display";
-      classifier =
-        (fun c ->
-          c = "hidden"
-          || is_display_util c
-             && (not (String.starts_with ~prefix:"grid-" c))
-             && not (String.starts_with ~prefix:"flex-" c && c <> "flex"));
-      suborder = (fun c -> if c = "hidden" then 3 else 1);
-    };
-    {
-      category = Sizing;
-      priority = 12;
-      name = "sizing";
-      classifier = is_sizing_util;
-      suborder = Sizing.suborder;
-    };
-    {
-      category = Cursor;
-      priority = 13;
-      name = "cursor";
-      classifier = is_cursor_util;
-      suborder = (fun _ -> 0);
-    };
-    {
-      category = Grid_template;
-      priority = 14;
-      name = "grid_template";
-      classifier =
-        (fun c ->
-          String.starts_with ~prefix:"grid-cols-" c
-          || String.starts_with ~prefix:"grid-rows-" c
-          || String.starts_with ~prefix:"grid-flow-" c
-          || String.starts_with ~prefix:"auto-cols-" c
-          || String.starts_with ~prefix:"auto-rows-" c);
-      suborder = Flow.utilities_suborder;
-    };
-    {
-      category = Flex_layout;
-      priority = 15;
-      name = "flex_layout";
-      classifier =
-        (fun c ->
-          (String.starts_with ~prefix:"flex-" c && c <> "flex")
-          || c = "grow" || c = "shrink"
-          || String.starts_with ~prefix:"basis-" c
-          || String.starts_with ~prefix:"order-" c);
-      suborder = Flow.utilities_suborder;
-    };
-    {
-      category = Alignment;
-      priority = 16;
-      name = "alignment";
-      classifier = (fun c -> Flow.alignment_suborder c >= 0);
-      suborder = Flow.alignment_suborder;
-    };
-    {
-      category = Gap;
-      priority = 16;
-      name = "gap";
-      classifier = is_gap_util;
-      suborder = Spacing.suborder;
-    };
-    {
-      category = Border;
-      priority = 17;
-      name = "border";
-      classifier = is_border_util;
-      suborder = Borders.suborder;
-    };
-    {
-      category = Background;
-      priority = 18;
-      name = "background";
-      classifier =
-        (fun c ->
-          String.starts_with ~prefix:"bg-" c
-          || String.starts_with ~prefix:"from-" c
-          || String.starts_with ~prefix:"via-" c
-          || String.starts_with ~prefix:"to-" c);
-      suborder =
-        (fun c ->
-          if String.starts_with ~prefix:"bg-" c then
-            let color_part = drop_prefix "bg-" c in
-            Color.suborder_with_shade color_part
-          else 0);
-    };
-    {
-      category = Padding;
-      priority = 19;
-      name = "padding";
-      classifier = is_padding_util;
-      suborder = Spacing.suborder;
-    };
-    {
-      category = Text_align;
-      priority = 20;
-      name = "text_align";
-      classifier =
-        (fun c ->
-          c = "text-left" || c = "text-center" || c = "text-right"
-          || c = "text-justify");
-      suborder = (fun _ -> 0);
-    };
-    {
-      category = Typography;
-      priority = 100;
-      name = "typography";
-      classifier = is_typography_util;
-      suborder = Typography.suborder;
-    };
-    {
-      category = Effects;
-      priority = 700;
-      name = "effects";
-      classifier = is_effects_util;
-      suborder = Effects.suborder;
-    };
-    {
-      category = Interactivity;
-      priority = 800;
-      name = "interactivity";
-      classifier = is_interactivity_util;
-      suborder = (fun _ -> 0);
-    };
-    {
-      category = Container_prose;
-      priority = 2;
-      name = "container_prose";
-      classifier = is_container_or_prose;
-      (* Preserve source order within this group to maintain cascade semantics
-         for complex, multi-rule utilities like prose and container.
-
-         In Tailwind v4, prose/container share priority 2 with margins but have
-         a specific suborder (125000) that places them after my-* but before
-         mt-*: m-* (100000) < mx-* (110000) < my-* (120000) < prose (125000) <
-         mt-* (130000) < mr-* (140000) *)
-      suborder = (fun _ -> 125000);
-    };
-  ]
-
-(** Classify a utility by its core name - returns the first matching category *)
-let classify core =
-  match List.find_opt (fun info -> info.classifier core) category_table with
-  | Some info -> info.category
-  | None -> Unknown
-
-(** Get priority, name, and suborder function for a utility category *)
-let utility_group_of_category category =
-  match List.find_opt (fun info -> info.category = category) category_table with
-  | Some info -> (info.priority, info.name, info.suborder)
-  | None -> (9999, "unknown", fun _ -> 0)
-
-(* Enhanced conflict resolution function that returns a structured ordering *)
-type utility_order = {
-  utility_group : string; (* Name of the utility group for debugging *)
-  priority : int; (* Inter-utility ordering (10, 100, 200, etc.) *)
-  suborder : int; (* Intra-utility ordering (specific to each utility) *)
-}
-
 let conflict_order selector =
   let core =
     if String.starts_with ~prefix:"." selector then
@@ -804,25 +476,46 @@ let conflict_order selector =
     | None -> core
   in
 
-  (* Strip modifier prefixes (sm:, md:, hover:, etc.) from the class name to get
-     the base utility name *)
-  let base_utility =
-    match String.index_opt class_name ':' with
-    | Some colon_pos ->
-        String.sub class_name (colon_pos + 1)
-          (String.length class_name - colon_pos - 1)
-    | None -> class_name
+  (* Strip CSS pseudo-selectors (like :has(img), :hover, etc.) that appear at
+     the end of the selector. These follow a pattern of :name or :name(args). We
+     look for colons that aren't escaped (\\:) and are followed by lowercase
+     letters or opening parenthesis, indicating a CSS pseudo-selector rather
+     than a modifier prefix. *)
+  let strip_pseudo_selectors s =
+    (* Find last occurrence of unescaped : that's followed by a lowercase letter
+       or ( *)
+    let len = String.length s in
+    let rec find_last_pseudo i =
+      if i < 0 then s
+      else if s.[i] = ':' && i + 1 < len then
+        let next_char = s.[i + 1] in
+        (* Check if this looks like a CSS pseudo-selector *)
+        if (next_char >= 'a' && next_char <= 'z') || next_char = '(' then
+          (* Found a pseudo-selector, strip from here *)
+          String.sub s 0 i
+        else find_last_pseudo (i - 1)
+      else find_last_pseudo (i - 1)
+    in
+    find_last_pseudo (len - 1)
   in
 
-  (* Classify the utility and get its group information *)
-  let category = classify base_utility in
-  let priority, name, suborder_fn = utility_group_of_category category in
-  { utility_group = name; priority; suborder = suborder_fn base_utility }
+  let class_name_no_pseudo = strip_pseudo_selectors class_name in
 
-(* Legacy function for backward compatibility *)
-let conflict_group selector =
-  let order = conflict_order selector in
-  (order.priority, order.suborder)
+  (* Strip modifier prefixes (sm:, md:, hover:, etc.) from the class name to get
+     the base utility name. Modifier prefixes come before the utility name. *)
+  let base_utility =
+    match String.rindex_opt class_name_no_pseudo ':' with
+    | Some colon_pos ->
+        String.sub class_name_no_pseudo (colon_pos + 1)
+          (String.length class_name_no_pseudo - colon_pos - 1)
+    | None -> class_name_no_pseudo
+  in
+
+  (* Parse the utility and get ordering from Utility.order *)
+  let parts = String.split_on_char '-' base_utility in
+  match Utility.base_of_string parts with
+  | Ok u -> Utility.order u
+  | Error _ -> (9999, 0)
 
 (* Convert selector/props pairs to CSS rules with conflict ordering *)
 let of_grouped ?(filter_custom_props = false) grouped_list =
@@ -834,8 +527,8 @@ let of_grouped ?(filter_custom_props = false) grouped_list =
   let sorted_indexed =
     List.sort
       (fun (i1, sel1, _) (i2, sel2, _) ->
-        let prio1, sub1 = conflict_group (Css.Selector.to_string sel1) in
-        let prio2, sub2 = conflict_group (Css.Selector.to_string sel2) in
+        let prio1, sub1 = conflict_order (Css.Selector.to_string sel1) in
+        let prio2, sub2 = conflict_order (Css.Selector.to_string sel2) in
         let prio_cmp = Int.compare prio1 prio2 in
         if prio_cmp <> 0 then prio_cmp
         else
@@ -881,7 +574,7 @@ let build_utilities_layer ~rules ~media_queries ~container_queries =
         container_queries
   in
 
-  Css.of_statements [ Css.layer ~name:"utilities" statements ]
+  Css.v [ Css.layer ~name:"utilities" statements ]
 
 let add_hover_to_media_map hover_rules media_map =
   (* Gate hover rules behind (hover:hover) media query to prevent them from
@@ -1065,11 +758,10 @@ let compute_theme_layer_from_selector_props ?(default_decls = []) selector_props
   in
   let sorted_vars = List.map fst sorted_vars_with_order in
 
-  if sorted_vars = [] then Css.of_statements [ Css.layer ~name:"theme" [] ]
+  if sorted_vars = [] then Css.v [ Css.layer ~name:"theme" [] ]
   else
     let selector = Css.Selector.(list [ Root; host () ]) in
-    Css.of_statements
-      [ Css.layer ~name:"theme" [ Css.rule ~selector sorted_vars ] ]
+    Css.v [ Css.layer ~name:"theme" [ Css.rule ~selector sorted_vars ] ]
 
 let compute_theme_layer ?(default_decls = []) tw_classes =
   let selector_props = collect_selector_props tw_classes in
@@ -1096,7 +788,7 @@ let placeholder_supports =
   let fallback_rule = Css.rule ~selector:placeholder [ Css.color Current ] in
   let outer_support_content = [ fallback_rule; modern_support_stmt ] in
 
-  Css.of_statements
+  Css.v
     [
       Css.supports
         ~condition:
@@ -1177,9 +869,7 @@ let build_properties_layer explicit_property_rules_statements =
     (* Properties layer only has the supports statement and other statements,
        NOT @property rules *)
     let layer_content = [ supports_stmt ] @ other_statements in
-    let layer =
-      Css.of_statements [ Css.layer ~name:"properties" layer_content ]
-    in
+    let layer = Css.v [ Css.layer ~name:"properties" layer_content ] in
     (layer, deduplicated_property_rules)
 
 let build_layers ~include_base ~selector_props tw_classes rules media_queries
@@ -1187,14 +877,14 @@ let build_layers ~include_base ~selector_props tw_classes rules media_queries
   (* Combined extraction of variables and property rules in a single
      traversal *)
   let rec extract_vars_and_property_rules = function
-    | Core.Style { props; rules; property_rules; _ } ->
+    | Style.Style { props; rules; property_rules; _ } ->
         let vars_from_props = Css.vars_of_declarations props in
         let vars_from_rules =
           match rules with Some r -> Css.vars_of_rules r | None -> []
         in
         (vars_from_props @ vars_from_rules, [ property_rules ])
-    | Core.Modified (_, t) -> extract_vars_and_property_rules t
-    | Core.Group ts ->
+    | Style.Modified (_, t) -> extract_vars_and_property_rules t
+    | Style.Group ts ->
         let vars_list, prop_rules_list =
           List.split (List.map extract_vars_and_property_rules ts)
         in
@@ -1278,9 +968,7 @@ let build_layers ~include_base ~selector_props tw_classes rules media_queries
     in
     (* Always generate separate components declaration and utilities layer to
        match Tailwind v4 behavior *)
-    let components_declaration =
-      Css.of_statements [ Css.layer_decl [ "components" ] ]
-    in
+    let components_declaration = Css.v [ Css.layer_decl [ "components" ] ] in
     let utilities_layer =
       build_utilities_layer ~rules ~media_queries ~container_queries
     in
@@ -1293,7 +981,7 @@ let build_layers ~include_base ~selector_props tw_classes rules media_queries
         if include_base then [ "theme"; "base"; "components"; "utilities" ]
         else [ "theme"; "components"; "utilities" ]
       in
-      Css.of_statements [ Css.layer_decl names ]
+      Css.v [ Css.layer_decl names ]
     in
 
     let initial_layers =
@@ -1308,7 +996,7 @@ let build_layers ~include_base ~selector_props tw_classes rules media_queries
        v4 *)
     let property_rules_css =
       if property_rules_for_end = [] then []
-      else [ Css.of_statements property_rules_for_end ]
+      else [ Css.v property_rules_for_end ]
     in
     layers_without_property @ property_rules_css
   in
@@ -1320,14 +1008,13 @@ let wrap_css_items ~rules ~media_queries ~container_queries =
   let rules_stylesheet = Css.v rules in
   let media_stylesheets =
     List.map
-      (fun (condition, rules) ->
-        Css.of_statements [ Css.media ~condition rules ])
+      (fun (condition, rules) -> Css.v [ Css.media ~condition rules ])
       media_queries
   in
   let container_stylesheets =
     List.map
       (fun (name, condition, rules) ->
-        Css.of_statements [ Css.container ?name ~condition rules ])
+        Css.v [ Css.container ?name ~condition rules ])
       container_queries
   in
   Css.concat (rules_stylesheet :: (media_stylesheets @ container_stylesheets))

@@ -1,6 +1,20 @@
 (** Table-related utilities *)
 
-open Core
+open Style
+
+(** {1 Utility Types} *)
+
+type utility
+
+val to_style : utility -> t
+(** [to_style u] converts a structured table utility to a style.
+    For internal use by the Tw module. *)
+
+val suborder : utility -> int
+(** [suborder u] returns the ordering value for table utility [u].
+    Used for deterministic CSS output ordering. *)
+
+(** {1 Table Utilities} *)
 
 val border_collapse : t
 (** [border_collapse] collapses table borders. *)
@@ -17,5 +31,5 @@ val table_auto : t
 val table_fixed : t
 (** [table_fixed] uses fixed table layout. *)
 
-val of_string : string list -> (t, [ `Msg of string ]) result
+val of_string : string list -> (utility, [ `Msg of string ]) result
 (** [of_string parts] parses table utilities from string [parts]. *)

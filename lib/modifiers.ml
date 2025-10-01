@@ -1,7 +1,7 @@
 (** Tailwind variant helpers (hover, focus, dark, responsive, group/peer, etc.)
 *)
 
-open Core
+open Style
 
 (** Helper to build escaped class selectors *)
 let build_class prefix cls = Css.Selector.Class (prefix ^ cls)
@@ -161,7 +161,7 @@ let xl styles =
   validate_no_nested_responsive styles;
   wrap (Responsive `Xl) styles
 
-let xxl styles =
+let xl2 styles =
   validate_no_nested_responsive styles;
   wrap (Responsive `Xl_2) styles
 
@@ -241,7 +241,7 @@ let apply modifiers base_style =
       | "xl" -> (
           match acc with Group styles -> xl styles | single -> xl [ single ])
       | "2xl" -> (
-          match acc with Group styles -> xxl styles | single -> xxl [ single ])
+          match acc with Group styles -> xl2 styles | single -> xl2 [ single ])
       | "hover" -> (
           match acc with
           | Group styles -> hover styles

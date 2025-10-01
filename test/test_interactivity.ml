@@ -3,7 +3,7 @@ open Alcotest
 let check parts =
   let expected = String.concat "-" parts in
   match Tw.Interactivity.of_string parts with
-  | Ok t -> check string "interactivity class" expected (Tw.Core.pp t)
+  | Ok u -> check string "interactivity class" expected (Tw.Style.pp (Tw.Interactivity.to_style u))
   | Error (`Msg msg) -> fail msg
 
 let test_cursor_select () =

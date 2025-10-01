@@ -3,7 +3,9 @@ open Alcotest
 let check parts =
   let expected = String.concat "-" parts in
   match Tw.Positioning.of_string parts with
-  | Ok t -> check string "positioning class" expected (Tw.Core.pp t)
+  | Ok util ->
+      let t = Tw.Positioning.to_style util in
+      check string "positioning class" expected (Tw.Style.pp t)
   | Error (`Msg msg) -> fail msg
 
 let test_inset_and_z () =
