@@ -26,11 +26,6 @@ val inline_block : Style.t
 val hidden : Style.t
 val sr_only : Style.t
 val not_sr_only : Style.t
-val static : Style.t
-val relative : Style.t
-val absolute : Style.t
-val fixed : Style.t
-val sticky : Style.t
 val visible : Style.t
 val invisible : Style.t
 val collapse : Style.t

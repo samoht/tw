@@ -1271,50 +1271,58 @@ let of_string = function
 (** {1 Ordering Support} *)
 
 let suborder = function
-  | Text_xs -> 1013
-  | Text_sm -> 1012
-  | Text_base -> 1011
-  | Text_lg -> 1010
-  | Text_xl -> 1009
-  | Text_2xl -> 1008
-  | Text_3xl -> 1007
-  | Text_4xl -> 1006
-  | Text_5xl -> 1005
-  | Text_6xl -> 1004
-  | Text_7xl -> 1003
-  | Text_8xl -> 1002
-  | Text_9xl -> 1001
-  | Leading_none -> 2001
-  | Leading_relaxed -> 2002
-  | Leading_snug -> 2003
-  | Leading_normal -> 2004
-  | Leading_tight -> 2005
-  | Leading_loose -> 2006
-  | Leading n -> 2100 + n
-  | Font_black -> 3100
-  | Font_extrabold -> 3200
-  | Font_bold -> 3300
-  | Font_medium -> 3400
-  | Font_semibold -> 3500
-  | Font_normal -> 3600
-  | Font_light -> 3700
-  | Font_extralight -> 3800
-  | Font_thin -> 3900
+  (* Text align comes first to match Tailwind ordering *)
+  | Text_justify -> 1001
+  | Text_left -> 1002
+  | Text_center -> 1003
+  | Text_right -> 1004
+  (* Font sizes come second - ordered from smallest to largest *)
+  | Text_xs -> 2001
+  | Text_sm -> 2002
+  | Text_base -> 2003
+  | Text_lg -> 2004
+  | Text_xl -> 2005
+  | Text_2xl -> 2006
+  | Text_3xl -> 2007
+  | Text_4xl -> 2008
+  | Text_5xl -> 2009
+  | Text_6xl -> 2010
+  | Text_7xl -> 2011
+  | Text_8xl -> 2012
+  | Text_9xl -> 2013
+  (* Leading comes third *)
+  | Leading_none -> 3001
+  | Leading_relaxed -> 3002
+  | Leading_snug -> 3003
+  | Leading_normal -> 3004
+  | Leading_tight -> 3005
+  | Leading_loose -> 3006
+  | Leading n -> 3100 + n
+  (* Font weight comes fourth *)
+  | Font_black -> 4100
+  | Font_extrabold -> 4200
+  | Font_bold -> 4300
+  | Font_medium -> 4400
+  | Font_semibold -> 4500
+  | Font_normal -> 4600
+  | Font_light -> 4700
+  | Font_extralight -> 4800
+  | Font_thin -> 4900
+  (* Decoration color comes after font weight *)
   | Decoration_color (color, shade_opt) -> (
       let shade = match shade_opt with Some s -> s | None -> 500 in
       try
         let _, color_order = Color.utilities_order (Color.pp color) in
-        4000 + (color_order * 1000) + shade
-      with _ -> 4000 + shade)
-  | Font_sans -> 5001
-  | Font_serif -> 5002
-  | Font_mono -> 5003
-  | Italic -> 6001
-  | Not_italic -> 6002
-  | Text_justify -> 7001
-  | Text_left -> 7002
-  | Text_center -> 7003
-  | Text_right -> 7004
+        5000 + (color_order * 1000) + shade
+      with _ -> 5000 + shade)
+  (* Font family *)
+  | Font_sans -> 6001
+  | Font_serif -> 6002
+  | Font_mono -> 6003
+  (* Italic *)
+  | Italic -> 7001
+  | Not_italic -> 7002
+  (* Text decoration - underline, etc. *)
   | Underline -> 8001
   | Overline -> 8002
   | Line_through -> 8003

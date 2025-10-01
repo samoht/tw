@@ -30,8 +30,20 @@ let var_in_theme_layer () =
   match theme_layer with
   | None -> fail "Expected @layer theme"
   | Some statements ->
-      let vars = Css.vars_of_rules statements in
-      check bool "theme has variables" (List.length vars > 0) true
+      let rules = Css.rules_from_statements statements in
+      let custom_props = Css.custom_props_from_rules rules in
+      check (list string) "theme custom properties"
+        [
+          "--color-red-500";
+          "--default-font-family";
+          "--default-mono-font-family";
+          "--font-mono";
+          "--font-sans";
+          "--spacing";
+          "--text-xl";
+          "--text-xl--line-height";
+        ]
+        (List.sort_uniq String.compare custom_props)
 
 let tests =
   [

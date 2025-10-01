@@ -1830,17 +1830,17 @@ let of_string = function
 (** Suborder function for prose utilities - orders prose variants within
     priority 2. *)
 let suborder = function
-  | Prose -> 0
-  | Prose_sm -> 1
-  | Prose_lg -> 2
-  | Prose_xl -> 3
-  | Prose_2xl -> 4
-  | Prose_gray -> 5
-  | Prose_slate -> 6
-  | Prose_zinc -> 7
-  | Prose_neutral -> 8
-  | Prose_stone -> 9
-  | Prose_invert -> 10
-  | Lead -> 11
-  | Not_prose -> 12
-  | Container -> 13
+  | Prose -> 20000
+  | Prose_sm -> 20001
+  | Prose_lg -> 20002
+  | Prose_xl -> 20003
+  | Prose_2xl -> 20004
+  | Prose_gray -> 20005
+  | Prose_slate -> 20006
+  | Prose_zinc -> 20007
+  | Prose_neutral -> 20008
+  | Prose_stone -> 20009
+  | Prose_invert -> 20010
+  | Lead -> 20011
+  | Not_prose -> 20012
+  | Container -> 10000

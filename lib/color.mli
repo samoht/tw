@@ -59,6 +59,10 @@ val suborder : utility -> int
 (** [suborder u] returns the ordering value for color utility [u]. Used for
     deterministic CSS output ordering. *)
 
+val is_background_color : utility -> bool
+(** [is_background_color u] returns true if the utility is a background color
+    (bg-), false otherwise. Used for priority calculation. *)
+
 val pp : color -> string
 (** [pp color] pretty-prints a color. *)
 

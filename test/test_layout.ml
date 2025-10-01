@@ -17,13 +17,6 @@ let test_display_utilities () =
   check [ "inline" ];
   check [ "hidden" ]
 
-let test_position_utilities () =
-  check [ "static" ];
-  check [ "fixed" ];
-  check [ "absolute" ];
-  check [ "relative" ];
-  check [ "sticky" ]
-
 let test_visibility () =
   check [ "visible" ];
   check [ "invisible" ];
@@ -77,7 +70,6 @@ let test_screen_reader () =
 let tests =
   [
     test_case "display utilities" `Quick test_display_utilities;
-    test_case "position utilities" `Quick test_position_utilities;
     test_case "visibility" `Quick test_visibility;
     test_case "z-index" `Quick test_z_index;
     test_case "overflow" `Quick test_overflow;
