@@ -8,6 +8,44 @@ let check parts =
         (Tw.Style.pp (Tw.Animations.to_style t))
   | Error (`Msg msg) -> fail msg
 
+(* Helper to check if animation property exists with expected name *)
+let has_animation_name expected_name css =
+  let open Tw in
+  Css.fold
+    (fun found stmt ->
+      if found then found
+      else
+        match Css.as_rule stmt with
+        | Some (_, decls, _) ->
+            List.exists
+              (fun decl ->
+                let name = Css.declaration_name decl in
+                let value = Css.declaration_value decl in
+                name = "animation"
+                && String.length value > 0
+                && (value = expected_name
+                   || String.length value > String.length expected_name
+                      && String.sub value 0 (String.length expected_name)
+                         = expected_name))
+              decls
+        | None -> false)
+    false css
+
+(* Helper to check if transition property exists *)
+let has_transition css =
+  let open Tw in
+  Css.fold
+    (fun found stmt ->
+      if found then found
+      else
+        match Css.as_rule stmt with
+        | Some (_, decls, _) ->
+            List.exists
+              (fun decl -> Css.declaration_name decl = "transition")
+              decls
+        | None -> false)
+    false css
+
 let test_transitions () =
   check [ "transition"; "none" ];
   check [ "transition"; "opacity" ];
@@ -26,29 +64,6 @@ let test_animation_css () =
   (* Test that animate utilities generate CSS with correct animation
      properties *)
   let open Tw in
-  (* Helper to check if animation property exists with expected name *)
-  let has_animation_name expected_name css =
-    Css.fold
-      (fun found stmt ->
-        if found then found
-        else
-          match Css.as_rule stmt with
-          | Some (_, decls, _) ->
-              List.exists
-                (fun decl ->
-                  let name = Css.declaration_name decl in
-                  let value = Css.declaration_value decl in
-                  name = "animation"
-                  && String.length value > 0
-                  && (value = expected_name
-                     || String.length value > String.length expected_name
-                        && String.sub value 0 (String.length expected_name)
-                           = expected_name))
-                decls
-          | None -> false)
-      false css
-  in
-
   Alcotest.check bool "animate-spin has animation:spin" true
     (has_animation_name "spin" (to_css [ animate_spin ]));
   Alcotest.check bool "animate-bounce has animation:bounce" true
@@ -60,21 +75,6 @@ let test_transition_css () =
   (* Test that transition utilities generate CSS with correct transition
      properties *)
   let open Tw in
-  (* Helper to check if transition property exists *)
-  let has_transition css =
-    Css.fold
-      (fun found stmt ->
-        if found then found
-        else
-          match Css.as_rule stmt with
-          | Some (_, decls, _) ->
-              List.exists
-                (fun decl -> Css.declaration_name decl = "transition")
-                decls
-          | None -> false)
-      false css
-  in
-
   Alcotest.check bool "transition-all has transition property" true
     (has_transition (to_css [ transition_all ]));
   Alcotest.check bool "transition-none has transition property" true

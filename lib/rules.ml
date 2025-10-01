@@ -178,7 +178,7 @@ let container_rule query base_class selector props =
   let cond =
     if String.starts_with ~prefix:"@container " condition then
       drop_prefix "@container " condition
-    else "(min-width: 0)"
+    else "(min-width:0)"
   in
   container_query ~condition:cond ~selector:new_selector ~props ~base_class ()
 

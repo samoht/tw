@@ -17,12 +17,7 @@ let has_layer name css =
     (Css.statements css)
 
 (* Get all custom property names from a layer *)
-let vars_in_layer layer_name css =
-  match Css.layer_block layer_name css with
-  | None -> []
-  | Some stmts ->
-      let rules = Css.rules_from_statements stmts in
-      Css.custom_props_from_rules rules
+let vars_in_layer layer_name css = Css.custom_props ~layer:layer_name css
 
 (* Check if a variable name exists in a layer *)
 let has_var_in_layer var_name layer_name css =
@@ -129,7 +124,8 @@ let check_extract_responsive () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      check string "media condition" "(min-width: 640px)" condition;
+      (* Match Tailwind's minified output: (min-width:40rem) *)
+      check string "media condition" "(min-width:40rem)" condition;
       check string "correct selector" ".sm\\:p-4"
         (Css.Selector.to_string selector)
   | _ -> fail "Expected Media_query rule"
@@ -153,7 +149,9 @@ let check_conflict_order () =
   let m4_prio, _ = conflict_order ".m-4" in
   let bg_prio, _ = conflict_order ".bg-blue-500" in
   check bool "margin before background" true (m4_prio < bg_prio);
-  check bool "padding after background" true (prio > bg_prio);
+  (* bg-blue-500 is a Color utility (priority 100), which comes after Padding
+     (priority 19) *)
+  check bool "padding before background color" true (prio < bg_prio);
 
   (* Test unknown utility gets high priority *)
   let unknown_prio, _ = conflict_order ".unknown-utility" in
