@@ -366,7 +366,8 @@ let of_string = function
   | [ "animate"; "ping" ] -> Ok Animate_ping
   | [ "animate"; "pulse" ] -> Ok Animate_pulse
   | [ "animate"; "bounce" ] -> Ok Animate_bounce
-  | [ "duration"; n ] -> Parse.int_pos ~name:"duration" n >|= fun n -> Duration n
+  | [ "duration"; n ] ->
+      Parse.int_pos ~name:"duration" n >|= fun n -> Duration n
   | [ "delay"; n ] -> Parse.int_pos ~name:"delay" n >|= fun n -> Delay n
   | [ "ease"; "linear" ] -> Ok Ease_linear
   | [ "ease"; "in" ] -> Ok Ease_in

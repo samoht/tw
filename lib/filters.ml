@@ -238,11 +238,15 @@ let of_string = function
   | [ "blur"; "xl" ] -> Ok Blur_xl
   | [ "blur"; "2xl" ] -> Ok Blur_2xl
   | [ "blur"; "3xl" ] -> Ok Blur_3xl
-  | [ "brightness"; n ] -> Parse.int_pos ~name:"brightness" n >|= fun x -> Brightness x
-  | [ "contrast"; n ] -> Parse.int_pos ~name:"contrast" n >|= fun x -> Contrast x
-  | [ "grayscale"; n ] -> Parse.int_pos ~name:"grayscale" n >|= fun x -> Grayscale x
+  | [ "brightness"; n ] ->
+      Parse.int_pos ~name:"brightness" n >|= fun x -> Brightness x
+  | [ "contrast"; n ] ->
+      Parse.int_pos ~name:"contrast" n >|= fun x -> Contrast x
+  | [ "grayscale"; n ] ->
+      Parse.int_pos ~name:"grayscale" n >|= fun x -> Grayscale x
   | [ "grayscale" ] -> Ok (Grayscale 100)
-  | [ "saturate"; n ] -> Parse.int_pos ~name:"saturate" n >|= fun x -> Saturate x
+  | [ "saturate"; n ] ->
+      Parse.int_pos ~name:"saturate" n >|= fun x -> Saturate x
   | [ "sepia"; n ] -> Parse.int_pos ~name:"sepia" n >|= fun x -> Sepia x
   | [ "sepia" ] -> Ok (Sepia 100)
   | [ "invert"; n ] -> Parse.int_pos ~name:"invert" n >|= fun x -> Invert x
@@ -258,7 +262,8 @@ let of_string = function
   | [ "backdrop"; "blur"; "2xl" ] -> Ok Backdrop_blur_2xl
   | [ "backdrop"; "blur"; "3xl" ] -> Ok Backdrop_blur_3xl
   | [ "backdrop"; "brightness"; n ] ->
-      Parse.int_pos ~name:"backdrop-brightness" n >|= fun x -> Backdrop_brightness x
+      Parse.int_pos ~name:"backdrop-brightness" n >|= fun x ->
+      Backdrop_brightness x
   | [ "backdrop"; "contrast"; n ] ->
       Parse.int_pos ~name:"backdrop-contrast" n >|= fun x -> Backdrop_contrast x
   | [ "backdrop"; "opacity"; n ] ->
@@ -266,7 +271,8 @@ let of_string = function
   | [ "backdrop"; "saturate"; n ] ->
       Parse.int_pos ~name:"backdrop-saturate" n >|= fun x -> Backdrop_saturate x
   | [ "backdrop"; "grayscale"; n ] ->
-      Parse.int_pos ~name:"backdrop-grayscale" n >|= fun x -> Backdrop_grayscale x
+      Parse.int_pos ~name:"backdrop-grayscale" n >|= fun x ->
+      Backdrop_grayscale x
   | [ "backdrop"; "grayscale" ] -> Ok (Backdrop_grayscale 100)
   | [ "backdrop"; "invert"; n ] ->
       Parse.int_pos ~name:"backdrop-invert" n >|= fun x -> Backdrop_invert x

@@ -1760,7 +1760,6 @@ let prose_zinc = prose_style `Zinc
 let prose_neutral = prose_style `Neutral
 let prose_stone = prose_style `Stone
 
-
 (** Generate complete prose stylesheet *)
 let stylesheet () =
   (* Generate CSS for all prose variants *)
@@ -1828,7 +1827,8 @@ let of_string = function
   | [ "container" ] -> Ok Container
   | _ -> Error (`Msg "Not a prose/container utility")
 
-(** Suborder function for prose utilities - orders prose variants within priority 2. *)
+(** Suborder function for prose utilities - orders prose variants within
+    priority 2. *)
 let suborder = function
   | Prose -> 0
   | Prose_sm -> 1

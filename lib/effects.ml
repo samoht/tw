@@ -880,7 +880,8 @@ let of_string = function
   | [ "transition"; "opacity" ] -> Ok Transition_opacity
   | [ "transition"; "shadow" ] -> Ok Transition_shadow
   | [ "transition"; "transform" ] -> Ok Transition_transform
-  | [ "duration"; n ] -> Parse.int_pos ~name:"duration" n >|= fun n -> Duration n
+  | [ "duration"; n ] ->
+      Parse.int_pos ~name:"duration" n >|= fun n -> Duration n
   | [ "mix"; "blend"; "normal" ] -> Ok Mix_blend_normal
   | [ "mix"; "blend"; "multiply" ] -> Ok Mix_blend_multiply
   | [ "mix"; "blend"; "screen" ] -> Ok Mix_blend_screen

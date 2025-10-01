@@ -8,9 +8,9 @@
     - Cursor utilities (now in Cursor module).
 
     Parsing contract (`of_string`):
-    - Accepts tokens like ["select"; "none"], ["scroll"; "smooth"], ["snap"; "x"],
-      ["resize"; "y"], etc. Unknown tokens yield `Error (`Msg "Not an
-      interactivity utility")`. *)
+    - Accepts tokens like ["select"; "none"], ["scroll"; "smooth"],
+      ["snap"; "x"], ["resize"; "y"], etc. Unknown tokens yield `Error (`Msg
+      "Not an interactivity utility")`. *)
 
 open Style
 open Css
@@ -54,7 +54,6 @@ let select_none = style "select-none" [ user_select None ]
 let select_text = style "select-text" [ user_select Text ]
 let select_all = style "select-all" [ user_select All ]
 let select_auto = style "select-auto" [ user_select Auto ]
-
 
 (** {1 Scroll Behavior Utilities} *)
 

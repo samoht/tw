@@ -7,16 +7,16 @@ open Style
 type utility
 
 val to_style : utility -> t
-(** [to_style u] converts a structured sizing utility to a style.
-    For internal use by the Tw module. *)
+(** [to_style u] converts a structured sizing utility to a style. For internal
+    use by the Tw module. *)
 
 val suborder : utility -> int
-(** [suborder u] returns the ordering value for sizing utility [u].
-    Used for deterministic CSS output ordering. *)
+(** [suborder u] returns the ordering value for sizing utility [u]. Used for
+    deterministic CSS output ordering. *)
 
 val of_string : string list -> (utility, [ `Msg of string ]) result
-(** [of_string parts] parses a sizing utility from string parts.
-    Returns an internal structured representation. *)
+(** [of_string parts] parses a sizing utility from string parts. Returns an
+    internal structured representation. *)
 
 (** {1 Width Utilities} *)
 

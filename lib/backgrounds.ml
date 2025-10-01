@@ -217,8 +217,11 @@ let to_style = function
 let suborder = function
   | Bg_gradient_to _ -> 0
   | From (color, shade) ->
-      1000 + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
+      1000
+      + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
   | Via (color, shade) ->
-      2000 + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
+      2000
+      + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
   | To (color, shade) ->
-      3000 + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
+      3000
+      + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)

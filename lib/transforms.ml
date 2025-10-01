@@ -268,15 +268,19 @@ let of_string = function
   | [ "translate"; "y"; n ] -> Parse.int_any n >|= fun n -> Translate_y n
   | [ "translate"; "z"; n ] -> Parse.int_any n >|= fun n -> Translate_z n
   | [ "scale"; n ] -> Parse.int_pos ~name:"scale" n >|= fun n -> Scale n
-  | [ "scale"; "x"; n ] -> Parse.int_pos ~name:"scale-x" n >|= fun n -> Scale_x n
-  | [ "scale"; "y"; n ] -> Parse.int_pos ~name:"scale-y" n >|= fun n -> Scale_y n
-  | [ "scale"; "z"; n ] -> Parse.int_pos ~name:"scale-z" n >|= fun n -> Scale_z n
+  | [ "scale"; "x"; n ] ->
+      Parse.int_pos ~name:"scale-x" n >|= fun n -> Scale_x n
+  | [ "scale"; "y"; n ] ->
+      Parse.int_pos ~name:"scale-y" n >|= fun n -> Scale_y n
+  | [ "scale"; "z"; n ] ->
+      Parse.int_pos ~name:"scale-z" n >|= fun n -> Scale_z n
   | [ "skew"; "x"; n ] -> Parse.int_any n >|= fun n -> Skew_x n
   | [ "skew"; "y"; n ] -> Parse.int_any n >|= fun n -> Skew_y n
   | [ "rotate"; "x"; n ] -> Parse.int_any n >|= fun n -> Rotate_x n
   | [ "rotate"; "y"; n ] -> Parse.int_any n >|= fun n -> Rotate_y n
   | [ "rotate"; "z"; n ] -> Parse.int_any n >|= fun n -> Rotate_z n
-  | [ "perspective"; n ] -> Parse.int_pos ~name:"perspective" n >|= fun n -> Perspective n
+  | [ "perspective"; n ] ->
+      Parse.int_pos ~name:"perspective" n >|= fun n -> Perspective n
   | [ "perspective"; "origin"; "center" ] -> Ok Perspective_origin_center
   | [ "perspective"; "origin"; "top" ] -> Ok Perspective_origin_top
   | [ "perspective"; "origin"; "bottom" ] -> Ok Perspective_origin_bottom

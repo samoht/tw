@@ -7,8 +7,8 @@ open Style
 type utility
 
 val to_style : utility -> t
-(** [to_style u] converts a structured typography utility to a style.
-    For internal use by the Tw module. *)
+(** [to_style u] converts a structured typography utility to a style. For
+    internal use by the Tw module. *)
 
 (** {1 Font Size Utilities} *)
 
@@ -443,5 +443,5 @@ val default_font_family_declarations : Css.declaration list
 (** {1 Ordering} *)
 
 val suborder : utility -> int
-(** [suborder u] returns the ordering value for typography utility [u].
-    Used for deterministic CSS output ordering. *)
+(** [suborder u] returns the ordering value for typography utility [u]. Used for
+    deterministic CSS output ordering. *)
