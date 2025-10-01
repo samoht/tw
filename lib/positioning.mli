@@ -1,6 +1,24 @@
 (** Positioning utilities for controlling element placement *)
 
-open Core
+open Style
+
+(** {1 Utility Types} *)
+
+type utility
+
+val of_string : string list -> (utility, [ `Msg of string ]) result
+(** [of_string parts] parses a positioning utility from string parts.
+    Returns an internal structured representation. *)
+
+(** {1 Internal Conversion Functions} *)
+
+val to_style : utility -> t
+(** [to_style u] converts a structured positioning utility to a style.
+    For internal use by the Tw module. *)
+
+val suborder : utility -> int
+(** [suborder u] returns the ordering value for positioning utility [u].
+    Used for deterministic CSS output ordering. *)
 
 (** {1 Inset Utilities} *)
 
@@ -42,8 +60,3 @@ val left_1_2 : t
 
 val z : int -> t
 (** [z n] sets z-index to n. *)
-
-(** {1 Parsing Functions} *)
-
-val of_string : string list -> (t, [ `Msg of string ]) result
-(** [of_string parts] parses a positioning utility from string parts. *)

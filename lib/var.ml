@@ -401,4 +401,4 @@ let properties vars =
         | None -> true)
       stmts
   in
-  Css.of_statements filtered
+  Css.v filtered

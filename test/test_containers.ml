@@ -3,7 +3,9 @@ open Alcotest
 let check parts =
   let expected = String.concat "-" parts in
   match Tw.Containers.of_string parts with
-  | Ok t -> check string "containers class" expected (Tw.Core.pp t)
+  | Ok t ->
+      let style = Tw.Containers.to_style t in
+      check string "containers class" expected (Tw.Style.pp style)
   | Error (`Msg msg) -> fail msg
 
 let test_container_types () =

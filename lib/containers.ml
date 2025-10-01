@@ -15,8 +15,16 @@
     - Accepts ["container"; "type"; ..] and ["container"; name]. Unknown tokens
       yield `Error (`Msg "Not a container utility")`. *)
 
-open Core
+open Style
 open Css
+
+(** {1 Utility Types} *)
+
+type utility =
+  | Container_type_size
+  | Container_type_inline_size
+  | Container_type_normal
+  | Container_name of string
 
 (** {1 Container Type Utilities} *)
 
@@ -68,11 +76,27 @@ let container_query_to_class_prefix = function
   | Container_named ("", width) -> "@" ^ string_of_int width ^ "px"
   | Container_named (name, width) -> "@" ^ name ^ "/" ^ string_of_int width
 
+(** {1 Conversion Functions} *)
+
+let to_style = function
+  | Container_type_size -> container_type_size
+  | Container_type_inline_size -> container_type_inline_size
+  | Container_type_normal -> container_type_normal
+  | Container_name name -> container_name name
+
 (** {1 Parsing Functions} *)
 
 let of_string = function
-  | [ "container"; "type"; "size" ] -> Ok container_type_size
-  | [ "container"; "type"; "inline"; "size" ] -> Ok container_type_inline_size
-  | [ "container"; "type"; "normal" ] -> Ok container_type_normal
-  | [ "container"; name ] -> Ok (container_name name)
+  | [ "container"; "type"; "size" ] -> Ok Container_type_size
+  | [ "container"; "type"; "inline"; "size" ] -> Ok Container_type_inline_size
+  | [ "container"; "type"; "normal" ] -> Ok Container_type_normal
+  | [ "container"; name ] -> Ok (Container_name name)
   | _ -> Error (`Msg "Not a container utility")
+
+(** {1 Ordering Support} *)
+
+let suborder = function
+  | Container_type_size -> 0
+  | Container_type_inline_size -> 1
+  | Container_type_normal -> 2
+  | Container_name _ -> 100

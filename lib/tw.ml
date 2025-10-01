@@ -12,17 +12,24 @@
     - Support for modern CSS features like container queries and 3D transforms
     - Minimal bundle size for js_of_ocaml by avoiding Format module. *)
 
-include Core
+include Style
 include Color
 include Backgrounds
-include Spacing
+include Margin
+include Gap
+include Padding
 include Sizing
 include Typography
 include Layout
-include Flow
+include Display
+include Grid
+include Grid_template
+include Flex
+include Alignment
 include Borders
 include Effects
 include Transforms
+include Cursor
 include Interactivity
 include Containers
 include Filters
@@ -43,16 +50,6 @@ let to_css ?(base = Rules.default_config.base)
   Rules.to_css ~config:{ base; mode; optimize } tw_classes
 
 let to_inline_style = Rules.to_inline_style
-
-(* Prose stylesheet *)
-let prose_stylesheet () =
-  let rules = Prose.stylesheet () in
-  Css.v rules
-
-(* Prose markers at top level *)
-let not_prose = Prose.not_prose
-
-(* Preflight reset rules *)
 let preflight = Preflight.stylesheet
 
 (* Class generation functions *)
@@ -64,49 +61,35 @@ let rec pp = function
   | Group styles -> styles |> List.map pp |> String.concat " "
 
 let to_classes styles = styles |> List.map pp |> String.concat " "
-
-(* Helper for "try this or else try that" *)
-let ( <|> ) r1 r2 = match r1 with Ok _ -> r1 | Error _ -> r2
-
-(* Modifiers parsing is now in Modifiers module *)
 let modifiers_of_string = Modifiers.of_string
-
-(* Apply modifiers to a base style *)
 
 (* Parse a single class string into a Tw.t *)
 let of_string class_str =
   let modifiers, base_class = modifiers_of_string class_str in
   let parts = String.split_on_char '-' base_class in
-  let base_result =
-    Color.classes_of_string parts
-    <|> Backgrounds.of_string parts
-    <|> Spacing.of_string parts <|> Sizing.of_string parts
-    <|> Layout.of_string parts <|> Flow.of_string parts
-    <|> Typography.of_string parts <|> Borders.of_string parts
-    <|> Effects.of_string parts <|> Transforms.of_string parts
-    <|> Interactivity.of_string parts
-    <|> Containers.of_string parts <|> Filters.of_string parts
-    <|> Positioning.of_string parts
-    <|> Animations.of_string parts <|> Forms.of_string parts
-    <|> Tables.of_string parts <|> Svg.of_string parts
-    <|> Accessibility.of_string parts
-    <|> Prose.of_string parts
-    <|> Error (`Msg ("Unknown class: " ^ class_str))
-  in
-  match base_result with
-  | Error _ as e -> e
-  | Ok base_style -> Ok (Modifiers.apply modifiers base_style)
+  match Utility.base_of_string parts with
+  | Error _ -> Error (`Msg ("Unknown class: " ^ class_str))
+  | Ok base_utility ->
+      let base_style = Utility.base_to_style base_utility in
+      Ok (Modifiers.apply modifiers base_style)
 
 (** {1 Module Exports} *)
 
-module Core = Core
+module Style = Style
 module Parse = Parse
-module Spacing = Spacing
+module Margin = Margin
+module Padding = Padding
+module Gap = Gap
+module Display = Display
+module Flex = Flex
+module Alignment = Alignment
+module Cursor = Cursor
 module Borders = Borders
 module Backgrounds = Backgrounds
 module Sizing = Sizing
 module Layout = Layout
-module Flow = Flow
+module Grid = Grid
+module Grid_template = Grid_template
 module Typography = Typography
 module Effects = Effects
 module Transforms = Transforms
@@ -125,3 +108,5 @@ module Css = Css
 module Color = Color
 module Modifiers = Modifiers
 module Var = Var
+module Theme = Theme
+module Utility = Utility

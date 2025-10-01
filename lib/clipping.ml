@@ -1,6 +1,6 @@
 (** Clipping utilities *)
 
-open Core
+open Style
 
 let clip_polygon points =
   let coords =

@@ -1,6 +1,24 @@
 (** Background and gradient utilities *)
 
-open Core
+open Style
+
+(** {1 Background Utility Type} *)
+
+type utility =
+  | Bg_gradient_to of direction
+  | From of Color.color * int
+  | Via of Color.color * int
+  | To of Color.color * int
+
+and direction =
+  | Bottom
+  | Bottom_right
+  | Right
+  | Top_right
+  | Top
+  | Top_left
+  | Left
+  | Bottom_left
 
 (* Gradient variables with proper @property definitions matching Tailwind v4 *)
 let gradient_position_var =
@@ -31,16 +49,6 @@ let gradient_via_position_var =
 
 let gradient_to_position_var =
   Var.property_default Percentage ~initial:(Pct 100.) "tw-gradient-to-position"
-
-type direction =
-  | Bottom
-  | Bottom_right
-  | Right
-  | Top_right
-  | Top
-  | Top_left
-  | Left
-  | Bottom_left
 
 let gradient_to_spec : direction -> string * Css.gradient_direction = function
   | Bottom -> ("bg-gradient-to-b", To_bottom)
@@ -175,25 +183,42 @@ let to_color ?(shade = 500) color =
 let of_string = function
   | [ "bg"; "gradient"; "to"; dir ] -> (
       match dir with
-      | "b" -> Ok (bg_gradient_to Bottom)
-      | "br" -> Ok (bg_gradient_to Bottom_right)
-      | "r" -> Ok (bg_gradient_to Right)
-      | "tr" -> Ok (bg_gradient_to Top_right)
-      | "t" -> Ok (bg_gradient_to Top)
-      | "tl" -> Ok (bg_gradient_to Top_left)
-      | "l" -> Ok (bg_gradient_to Left)
-      | "bl" -> Ok (bg_gradient_to Bottom_left)
+      | "b" -> Ok (Bg_gradient_to Bottom)
+      | "br" -> Ok (Bg_gradient_to Bottom_right)
+      | "r" -> Ok (Bg_gradient_to Right)
+      | "tr" -> Ok (Bg_gradient_to Top_right)
+      | "t" -> Ok (Bg_gradient_to Top)
+      | "tl" -> Ok (Bg_gradient_to Top_left)
+      | "l" -> Ok (Bg_gradient_to Left)
+      | "bl" -> Ok (Bg_gradient_to Bottom_left)
       | _ -> Error (`Msg "Unknown gradient direction"))
   | "from" :: rest -> (
       match Color.shade_of_strings rest with
-      | Ok (color, shade) -> Ok (from_color ~shade color)
+      | Ok (color, shade) -> Ok (From (color, shade))
       | Error _ -> Error (`Msg "Invalid from color"))
   | "via" :: rest -> (
       match Color.shade_of_strings rest with
-      | Ok (color, shade) -> Ok (via_color ~shade color)
+      | Ok (color, shade) -> Ok (Via (color, shade))
       | Error _ -> Error (`Msg "Invalid via color"))
   | "to" :: rest -> (
       match Color.shade_of_strings rest with
-      | Ok (color, shade) -> Ok (to_color ~shade color)
+      | Ok (color, shade) -> Ok (To (color, shade))
       | Error _ -> Error (`Msg "Invalid to color"))
   | _ -> Error (`Msg "Unknown background class")
+
+(** {1 Utility Conversion Functions} *)
+
+let to_style = function
+  | Bg_gradient_to dir -> bg_gradient_to dir
+  | From (color, shade) -> from_color ~shade color
+  | Via (color, shade) -> via_color ~shade color
+  | To (color, shade) -> to_color ~shade color
+
+let suborder = function
+  | Bg_gradient_to _ -> 0
+  | From (color, shade) ->
+      1000 + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
+  | Via (color, shade) ->
+      2000 + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
+  | To (color, shade) ->
+      3000 + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)

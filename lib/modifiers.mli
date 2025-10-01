@@ -1,7 +1,7 @@
 (** Tailwind variant helpers (hover, focus, dark, responsive, group/peer, etc.)
 *)
 
-open Core
+open Style
 
 (** {1 Internal Helpers} *)
 
@@ -107,8 +107,8 @@ val lg : t list -> t
 val xl : t list -> t
 (** [xl styles] applies [styles] at the extra-large breakpoint. *)
 
-val xxl : t list -> t
-(** [xxl styles] applies [styles] at the 2xl breakpoint. *)
+val xl2 : t list -> t
+(** [xl2 styles] applies [styles] at the 2xl breakpoint. *)
 
 (** {1 ARIA/Peer/Data Variants} *)
 

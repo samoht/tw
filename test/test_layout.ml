@@ -1,5 +1,5 @@
 open Alcotest
-open Tw.Core
+open Tw.Style
 
 let check_class expected t = Alcotest.check string "class" expected (pp t)
 
@@ -7,7 +7,8 @@ let check parts =
   let expected = String.concat "-" parts in
   match Tw.Layout.of_string parts with
   | Ok result ->
-      Alcotest.check string "layout class name" expected (Tw.Core.pp result)
+      let style = Tw.Layout.to_style result in
+      Alcotest.check string "layout class name" expected (Tw.Style.pp style)
   | Error (`Msg msg) -> fail msg
 
 let test_display_utilities () =

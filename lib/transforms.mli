@@ -1,6 +1,24 @@
 (** Transform utilities for 2D and 3D transformations *)
 
-open Core
+open Style
+
+(** {1 Utility Types} *)
+
+type utility
+
+val of_string : string list -> (utility, [ `Msg of string ]) result
+(** [of_string parts] parses a transform utility from string parts.
+    Returns an internal structured representation. *)
+
+(** {1 Internal Conversion Functions} *)
+
+val to_style : utility -> Style.t
+(** [to_style u] converts a structured transform utility to a style.
+    For internal use by the Tw module. *)
+
+val suborder : utility -> int
+(** [suborder u] returns the ordering value for transform utility [u].
+    Used for deterministic CSS output ordering. *)
 
 (** {1 2D Transform Utilities} *)
 
@@ -94,8 +112,3 @@ val transform_none : t
 
 val transform_gpu : t
 (** [transform_gpu] forces GPU acceleration for transforms. *)
-
-(** {1 Parsing Functions} *)
-
-val of_string : string list -> (t, [ `Msg of string ]) result
-(** [of_string parts] parses a transform utility from string parts. *)

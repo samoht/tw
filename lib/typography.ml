@@ -17,7 +17,7 @@
       ["underline"], ["uppercase"]. Unknown tokens yield `Error (`Msg "Not a
       typography utility")`. *)
 
-open Core
+open Style
 open Css
 
 (* Text size variables with line heights *)
@@ -158,6 +158,153 @@ let default_line_height_theme : line_height_theme =
   { leading = (leading_decl, leading_ref) }
 
 module Parse = Parse
+
+(** {1 Utility Types} *)
+
+type utility =
+  (* Text sizes *)
+  | Text_xs
+  | Text_sm
+  | Text_base
+  | Text_lg
+  | Text_xl
+  | Text_2xl
+  | Text_3xl
+  | Text_4xl
+  | Text_5xl
+  | Text_6xl
+  | Text_7xl
+  | Text_8xl
+  | Text_9xl
+  (* Font weights *)
+  | Font_thin
+  | Font_extralight
+  | Font_light
+  | Font_normal
+  | Font_medium
+  | Font_semibold
+  | Font_bold
+  | Font_extrabold
+  | Font_black
+  (* Font families *)
+  | Font_sans
+  | Font_serif
+  | Font_mono
+  (* Font styles *)
+  | Italic
+  | Not_italic
+  (* Text alignment *)
+  | Text_left
+  | Text_center
+  | Text_right
+  | Text_justify
+  (* Text decoration *)
+  | Underline
+  | Overline
+  | Line_through
+  | No_underline
+  (* Decoration styles *)
+  | Decoration_solid
+  | Decoration_double
+  | Decoration_dotted
+  | Decoration_dashed
+  | Decoration_wavy
+  (* Decoration color & thickness *)
+  | Decoration_color of Color.color * int option
+  | Decoration_thickness of int
+  | Decoration_from_font
+  (* Leading *)
+  | Leading_none
+  | Leading_tight
+  | Leading_snug
+  | Leading_normal
+  | Leading_relaxed
+  | Leading_loose
+  | Leading of int
+  (* Whitespace *)
+  | Whitespace_normal
+  | Whitespace_nowrap
+  | Whitespace_pre
+  | Whitespace_pre_line
+  | Whitespace_pre_wrap
+  (* Tracking *)
+  | Tracking_tighter
+  | Tracking_tight
+  | Tracking_normal
+  | Tracking_wide
+  | Tracking_wider
+  | Tracking_widest
+  (* Text transform *)
+  | Uppercase
+  | Lowercase
+  | Capitalize
+  | Normal_case
+  (* Vertical align *)
+  | Align_baseline
+  | Align_top
+  | Align_middle
+  | Align_bottom
+  | Align_text_top
+  | Align_text_bottom
+  | Align_sub
+  | Align_super
+  (* List *)
+  | List_none
+  | List_disc
+  | List_decimal
+  | List_inside
+  | List_outside
+  | List_image_none
+  (* Underline offset *)
+  | Underline_offset_auto
+  | Underline_offset_0
+  | Underline_offset_1
+  | Underline_offset_2
+  | Underline_offset_4
+  | Underline_offset_8
+  (* Rendering *)
+  | Antialiased
+  (* Text overflow *)
+  | Text_ellipsis
+  | Text_clip
+  (* Text wrap *)
+  | Text_wrap
+  | Text_nowrap
+  | Text_balance
+  | Text_pretty
+  (* Break *)
+  | Break_normal
+  | Break_words
+  | Break_all
+  | Break_keep
+  (* Overflow wrap *)
+  | Overflow_wrap_normal
+  | Overflow_wrap_anywhere
+  | Overflow_wrap_break_word
+  (* Hyphens *)
+  | Hyphens_none
+  | Hyphens_manual
+  | Hyphens_auto
+  (* Font stretch *)
+  | Font_stretch_normal
+  | Font_stretch_condensed
+  | Font_stretch_expanded
+  | Font_stretch_percent of int
+  (* Numeric variants *)
+  | Normal_nums
+  | Ordinal
+  | Slashed_zero
+  | Lining_nums
+  | Oldstyle_nums
+  | Proportional_nums
+  | Tabular_nums
+  | Diagonal_fractions
+  | Stacked_fractions
+  (* Indent & Line clamp *)
+  | Indent of int
+  | Line_clamp of int
+  (* Content *)
+  | Content_none
 
 (** {1 Font Size Utilities} *)
 
@@ -859,316 +1006,391 @@ let diagonal_fractions =
 let stacked_fractions =
   font_variant_numeric_utility `Fraction Stacked_fractions "stacked-fractions"
 
+(** {1 Conversion Functions} *)
+
+let to_style = function
+  | Text_xs -> text_xs
+  | Text_sm -> text_sm
+  | Text_base -> text_base
+  | Text_lg -> text_lg
+  | Text_xl -> text_xl
+  | Text_2xl -> text_2xl
+  | Text_3xl -> text_3xl
+  | Text_4xl -> text_4xl
+  | Text_5xl -> text_5xl
+  | Text_6xl -> text_6xl
+  | Text_7xl -> text_7xl
+  | Text_8xl -> text_8xl
+  | Text_9xl -> text_9xl
+  | Font_thin -> font_thin
+  | Font_extralight -> font_extralight
+  | Font_light -> font_light
+  | Font_normal -> font_normal
+  | Font_medium -> font_medium
+  | Font_semibold -> font_semibold
+  | Font_bold -> font_bold
+  | Font_extrabold -> font_extrabold
+  | Font_black -> font_black
+  | Font_sans -> font_sans
+  | Font_serif -> font_serif
+  | Font_mono -> font_mono
+  | Italic -> italic
+  | Not_italic -> not_italic
+  | Text_left -> text_left
+  | Text_center -> text_center
+  | Text_right -> text_right
+  | Text_justify -> text_justify
+  | Underline -> underline
+  | Overline -> overline
+  | Line_through -> line_through
+  | No_underline -> no_underline
+  | Decoration_solid -> decoration_solid
+  | Decoration_double -> decoration_double
+  | Decoration_dotted -> decoration_dotted
+  | Decoration_dashed -> decoration_dashed
+  | Decoration_wavy -> decoration_wavy
+  | Decoration_color (color, shade_opt) -> (
+      match shade_opt with
+      | Some shade -> decoration_color ~shade color
+      | None -> decoration_color color)
+  | Decoration_thickness n -> decoration_thickness n
+  | Decoration_from_font -> decoration_from_font
+  | Leading_none -> leading_none
+  | Leading_tight -> leading_tight
+  | Leading_snug -> leading_snug
+  | Leading_normal -> leading_normal
+  | Leading_relaxed -> leading_relaxed
+  | Leading_loose -> leading_loose
+  | Leading n -> leading n
+  | Whitespace_normal -> whitespace_normal
+  | Whitespace_nowrap -> whitespace_nowrap
+  | Whitespace_pre -> whitespace_pre
+  | Whitespace_pre_line -> whitespace_pre_line
+  | Whitespace_pre_wrap -> whitespace_pre_wrap
+  | Tracking_tighter -> tracking_tighter
+  | Tracking_tight -> tracking_tight
+  | Tracking_normal -> tracking_normal
+  | Tracking_wide -> tracking_wide
+  | Tracking_wider -> tracking_wider
+  | Tracking_widest -> tracking_widest
+  | Uppercase -> uppercase
+  | Lowercase -> lowercase
+  | Capitalize -> capitalize
+  | Normal_case -> normal_case
+  | Align_baseline -> align_baseline
+  | Align_top -> align_top
+  | Align_middle -> align_middle
+  | Align_bottom -> align_bottom
+  | Align_text_top -> align_text_top
+  | Align_text_bottom -> align_text_bottom
+  | Align_sub -> align_sub
+  | Align_super -> align_super
+  | List_none -> list_none
+  | List_disc -> list_disc
+  | List_decimal -> list_decimal
+  | List_inside -> list_inside
+  | List_outside -> list_outside
+  | List_image_none -> list_image_none
+  | Underline_offset_auto -> underline_offset_auto
+  | Underline_offset_0 -> underline_offset_0
+  | Underline_offset_1 -> underline_offset_1
+  | Underline_offset_2 -> underline_offset_2
+  | Underline_offset_4 -> underline_offset_4
+  | Underline_offset_8 -> underline_offset_8
+  | Antialiased -> antialiased
+  | Text_ellipsis -> text_ellipsis
+  | Text_clip -> text_clip
+  | Text_wrap -> text_wrap
+  | Text_nowrap -> text_nowrap
+  | Text_balance -> text_balance
+  | Text_pretty -> text_pretty
+  | Break_normal -> break_normal
+  | Break_words -> break_words
+  | Break_all -> break_all
+  | Break_keep -> break_keep
+  | Overflow_wrap_normal -> overflow_wrap_normal
+  | Overflow_wrap_anywhere -> overflow_wrap_anywhere
+  | Overflow_wrap_break_word -> overflow_wrap_break_word
+  | Hyphens_none -> hyphens_none
+  | Hyphens_manual -> hyphens_manual
+  | Hyphens_auto -> hyphens_auto
+  | Font_stretch_normal -> font_stretch_normal
+  | Font_stretch_condensed -> font_stretch_condensed
+  | Font_stretch_expanded -> font_stretch_expanded
+  | Font_stretch_percent n -> font_stretch_percent n
+  | Normal_nums -> normal_nums
+  | Ordinal -> ordinal
+  | Slashed_zero -> slashed_zero
+  | Lining_nums -> lining_nums
+  | Oldstyle_nums -> oldstyle_nums
+  | Proportional_nums -> proportional_nums
+  | Tabular_nums -> tabular_nums
+  | Diagonal_fractions -> diagonal_fractions
+  | Stacked_fractions -> stacked_fractions
+  | Indent n -> indent n
+  | Line_clamp n -> line_clamp n
+  | Content_none -> content_none
+
 (** {1 Parsing Functions} *)
 
 let ( >|= ) = Parse.( >|= )
 
 let of_string = function
-  | [ "text"; "xs" ] -> Ok text_xs
-  | [ "text"; "sm" ] -> Ok text_sm
-  | [ "text"; "base" ] -> Ok text_base
-  | [ "text"; "lg" ] -> Ok text_lg
-  | [ "text"; "xl" ] -> Ok text_xl
-  | [ "text"; "2xl" ] -> Ok text_2xl
-  | [ "text"; "3xl" ] -> Ok text_3xl
-  | [ "text"; "4xl" ] -> Ok text_4xl
-  | [ "text"; "5xl" ] -> Ok text_5xl
-  | [ "text"; "6xl" ] -> Ok text_6xl
-  | [ "text"; "7xl" ] -> Ok text_7xl
-  | [ "text"; "8xl" ] -> Ok text_8xl
-  | [ "text"; "9xl" ] -> Ok text_9xl
-  | [ "font"; "thin" ] -> Ok font_thin
-  | [ "font"; "extralight" ] -> Ok font_extralight
-  | [ "font"; "light" ] -> Ok font_light
-  | [ "font"; "normal" ] -> Ok font_normal
-  | [ "font"; "medium" ] -> Ok font_medium
-  | [ "font"; "semibold" ] -> Ok font_semibold
-  | [ "font"; "bold" ] -> Ok font_bold
-  | [ "font"; "extrabold" ] -> Ok font_extrabold
-  | [ "font"; "black" ] -> Ok font_black
-  | [ "font"; "sans" ] -> Ok font_sans
-  | [ "font"; "serif" ] -> Ok font_serif
-  | [ "font"; "mono" ] -> Ok font_mono
-  | [ "italic" ] -> Ok italic
-  | [ "not"; "italic" ] -> Ok not_italic
-  | [ "text"; "left" ] -> Ok text_left
-  | [ "text"; "center" ] -> Ok text_center
-  | [ "text"; "right" ] -> Ok text_right
-  | [ "text"; "justify" ] -> Ok text_justify
-  | [ "underline" ] -> Ok underline
-  | [ "overline" ] -> Ok overline
-  | [ "line"; "through" ] -> Ok line_through
-  | [ "no"; "underline" ] -> Ok no_underline
-  | [ "leading"; "none" ] -> Ok leading_none
-  | [ "leading"; "tight" ] -> Ok leading_tight
-  | [ "leading"; "snug" ] -> Ok leading_snug
-  | [ "leading"; "normal" ] -> Ok leading_normal
-  | [ "leading"; "relaxed" ] -> Ok leading_relaxed
-  | [ "leading"; "loose" ] -> Ok leading_loose
-  | [ "leading"; n ] -> (
-      match Parse.int_bounded ~name:"leading" ~min:3 ~max:10 n with
-      | Ok i -> Ok (leading i)
-      | Error e -> Error e)
-  | [ "tracking"; "tighter" ] -> Ok tracking_tighter
-  | [ "tracking"; "tight" ] -> Ok tracking_tight
-  | [ "tracking"; "normal" ] -> Ok tracking_normal
-  | [ "tracking"; "wide" ] -> Ok tracking_wide
-  | [ "tracking"; "wider" ] -> Ok tracking_wider
-  | [ "tracking"; "widest" ] -> Ok tracking_widest
-  | [ "decoration"; "from"; "font" ] -> Ok decoration_from_font
-  | [ "decoration"; "solid" ] -> Ok decoration_solid
-  | [ "decoration"; "double" ] -> Ok decoration_double
-  | [ "decoration"; "dotted" ] -> Ok decoration_dotted
-  | [ "decoration"; "dashed" ] -> Ok decoration_dashed
-  | [ "decoration"; "wavy" ] -> Ok decoration_wavy
+  | [ "text"; "xs" ] -> Ok Text_xs
+  | [ "text"; "sm" ] -> Ok Text_sm
+  | [ "text"; "base" ] -> Ok Text_base
+  | [ "text"; "lg" ] -> Ok Text_lg
+  | [ "text"; "xl" ] -> Ok Text_xl
+  | [ "text"; "2xl" ] -> Ok Text_2xl
+  | [ "text"; "3xl" ] -> Ok Text_3xl
+  | [ "text"; "4xl" ] -> Ok Text_4xl
+  | [ "text"; "5xl" ] -> Ok Text_5xl
+  | [ "text"; "6xl" ] -> Ok Text_6xl
+  | [ "text"; "7xl" ] -> Ok Text_7xl
+  | [ "text"; "8xl" ] -> Ok Text_8xl
+  | [ "text"; "9xl" ] -> Ok Text_9xl
+  | [ "font"; "thin" ] -> Ok Font_thin
+  | [ "font"; "extralight" ] -> Ok Font_extralight
+  | [ "font"; "light" ] -> Ok Font_light
+  | [ "font"; "normal" ] -> Ok Font_normal
+  | [ "font"; "medium" ] -> Ok Font_medium
+  | [ "font"; "semibold" ] -> Ok Font_semibold
+  | [ "font"; "bold" ] -> Ok Font_bold
+  | [ "font"; "extrabold" ] -> Ok Font_extrabold
+  | [ "font"; "black" ] -> Ok Font_black
+  | [ "font"; "sans" ] -> Ok Font_sans
+  | [ "font"; "serif" ] -> Ok Font_serif
+  | [ "font"; "mono" ] -> Ok Font_mono
+  | [ "italic" ] -> Ok Italic
+  | [ "not"; "italic" ] -> Ok Not_italic
+  | [ "text"; "left" ] -> Ok Text_left
+  | [ "text"; "center" ] -> Ok Text_center
+  | [ "text"; "right" ] -> Ok Text_right
+  | [ "text"; "justify" ] -> Ok Text_justify
+  | [ "underline" ] -> Ok Underline
+  | [ "overline" ] -> Ok Overline
+  | [ "line"; "through" ] -> Ok Line_through
+  | [ "no"; "underline" ] -> Ok No_underline
+  | [ "leading"; "none" ] -> Ok Leading_none
+  | [ "leading"; "tight" ] -> Ok Leading_tight
+  | [ "leading"; "snug" ] -> Ok Leading_snug
+  | [ "leading"; "normal" ] -> Ok Leading_normal
+  | [ "leading"; "relaxed" ] -> Ok Leading_relaxed
+  | [ "leading"; "loose" ] -> Ok Leading_loose
+  | [ "leading"; n ] ->
+      Parse.int_bounded ~name:"leading" ~min:3 ~max:10 n >|= fun i -> Leading i
+  | [ "whitespace"; "normal" ] -> Ok Whitespace_normal
+  | [ "whitespace"; "nowrap" ] -> Ok Whitespace_nowrap
+  | [ "whitespace"; "pre" ] -> Ok Whitespace_pre
+  | [ "whitespace"; "pre"; "line" ] -> Ok Whitespace_pre_line
+  | [ "whitespace"; "pre"; "wrap" ] -> Ok Whitespace_pre_wrap
+  | [ "tracking"; "tighter" ] -> Ok Tracking_tighter
+  | [ "tracking"; "tight" ] -> Ok Tracking_tight
+  | [ "tracking"; "normal" ] -> Ok Tracking_normal
+  | [ "tracking"; "wide" ] -> Ok Tracking_wide
+  | [ "tracking"; "wider" ] -> Ok Tracking_wider
+  | [ "tracking"; "widest" ] -> Ok Tracking_widest
+  | [ "decoration"; "from"; "font" ] -> Ok Decoration_from_font
+  | [ "decoration"; "solid" ] -> Ok Decoration_solid
+  | [ "decoration"; "double" ] -> Ok Decoration_double
+  | [ "decoration"; "dotted" ] -> Ok Decoration_dotted
+  | [ "decoration"; "dashed" ] -> Ok Decoration_dashed
+  | [ "decoration"; "wavy" ] -> Ok Decoration_wavy
   | [ "decoration"; color; shade ] -> (
       match (Color.of_string color, Parse.int_any shade) with
-      | Ok c, Ok s -> Ok (decoration_color ~shade:s c)
+      | Ok c, Ok s -> Ok (Decoration_color (c, Some s))
       | _ -> Error (`Msg "Not a typography utility"))
   | [ "decoration"; n ] -> (
       match Parse.int_pos ~name:"decoration thickness" n with
-      | Ok thickness -> Ok (decoration_thickness thickness)
+      | Ok thickness -> Ok (Decoration_thickness thickness)
       | Error _ -> (
           match Color.of_string n with
-          | Ok c -> Ok (decoration_color c)
+          | Ok c -> Ok (Decoration_color (c, None))
           | Error _ -> Error (`Msg "Not a typography utility")))
-  | [ "uppercase" ] -> Ok uppercase
-  | [ "lowercase" ] -> Ok lowercase
-  | [ "capitalize" ] -> Ok capitalize
-  | [ "normal"; "case" ] -> Ok normal_case
-  | [ "align"; "baseline" ] -> Ok align_baseline
-  | [ "align"; "top" ] -> Ok align_top
-  | [ "align"; "middle" ] -> Ok align_middle
-  | [ "align"; "bottom" ] -> Ok align_bottom
-  | [ "align"; "text"; "top" ] -> Ok align_text_top
-  | [ "align"; "text"; "bottom" ] -> Ok align_text_bottom
-  | [ "align"; "sub" ] -> Ok align_sub
-  | [ "align"; "super" ] -> Ok align_super
-  | [ "list"; "none" ] -> Ok list_none
-  | [ "list"; "disc" ] -> Ok list_disc
-  | [ "list"; "decimal" ] -> Ok list_decimal
-  | [ "list"; "inside" ] -> Ok list_inside
-  | [ "list"; "outside" ] -> Ok list_outside
-  | [ "list"; "image"; "none" ] -> Ok list_image_none
-  | [ "text"; "ellipsis" ] -> Ok text_ellipsis
-  | [ "text"; "clip" ] -> Ok text_clip
-  | [ "text"; "wrap" ] -> Ok text_wrap
-  | [ "text"; "nowrap" ] -> Ok text_nowrap
-  | [ "text"; "balance" ] -> Ok text_balance
-  | [ "text"; "pretty" ] -> Ok text_pretty
-  | [ "break"; "normal" ] -> Ok break_normal
-  | [ "break"; "words" ] -> Ok break_words
-  | [ "break"; "all" ] -> Ok break_all
-  | [ "break"; "keep" ] -> Ok break_keep
-  | [ "overflow"; "wrap"; "normal" ] -> Ok overflow_wrap_normal
-  | [ "overflow"; "wrap"; "anywhere" ] -> Ok overflow_wrap_anywhere
-  | [ "overflow"; "wrap"; "break"; "word" ] -> Ok overflow_wrap_break_word
-  | [ "hyphens"; "none" ] -> Ok hyphens_none
-  | [ "hyphens"; "manual" ] -> Ok hyphens_manual
-  | [ "hyphens"; "auto" ] -> Ok hyphens_auto
-  | [ "font"; "stretch"; "normal" ] -> Ok font_stretch_normal
-  | [ "font"; "stretch"; "condensed" ] -> Ok font_stretch_condensed
-  | [ "font"; "stretch"; "expanded" ] -> Ok font_stretch_expanded
+  | [ "uppercase" ] -> Ok Uppercase
+  | [ "lowercase" ] -> Ok Lowercase
+  | [ "capitalize" ] -> Ok Capitalize
+  | [ "normal"; "case" ] -> Ok Normal_case
+  | [ "align"; "baseline" ] -> Ok Align_baseline
+  | [ "align"; "top" ] -> Ok Align_top
+  | [ "align"; "middle" ] -> Ok Align_middle
+  | [ "align"; "bottom" ] -> Ok Align_bottom
+  | [ "align"; "text"; "top" ] -> Ok Align_text_top
+  | [ "align"; "text"; "bottom" ] -> Ok Align_text_bottom
+  | [ "align"; "sub" ] -> Ok Align_sub
+  | [ "align"; "super" ] -> Ok Align_super
+  | [ "list"; "none" ] -> Ok List_none
+  | [ "list"; "disc" ] -> Ok List_disc
+  | [ "list"; "decimal" ] -> Ok List_decimal
+  | [ "list"; "inside" ] -> Ok List_inside
+  | [ "list"; "outside" ] -> Ok List_outside
+  | [ "list"; "image"; "none" ] -> Ok List_image_none
+  | [ "underline"; "offset"; "auto" ] -> Ok Underline_offset_auto
+  | [ "underline"; "offset"; "0" ] -> Ok Underline_offset_0
+  | [ "underline"; "offset"; "1" ] -> Ok Underline_offset_1
+  | [ "underline"; "offset"; "2" ] -> Ok Underline_offset_2
+  | [ "underline"; "offset"; "4" ] -> Ok Underline_offset_4
+  | [ "underline"; "offset"; "8" ] -> Ok Underline_offset_8
+  | [ "antialiased" ] -> Ok Antialiased
+  | [ "text"; "ellipsis" ] -> Ok Text_ellipsis
+  | [ "text"; "clip" ] -> Ok Text_clip
+  | [ "text"; "wrap" ] -> Ok Text_wrap
+  | [ "text"; "nowrap" ] -> Ok Text_nowrap
+  | [ "text"; "balance" ] -> Ok Text_balance
+  | [ "text"; "pretty" ] -> Ok Text_pretty
+  | [ "break"; "normal" ] -> Ok Break_normal
+  | [ "break"; "words" ] -> Ok Break_words
+  | [ "break"; "all" ] -> Ok Break_all
+  | [ "break"; "keep" ] -> Ok Break_keep
+  | [ "overflow"; "wrap"; "normal" ] -> Ok Overflow_wrap_normal
+  | [ "overflow"; "wrap"; "anywhere" ] -> Ok Overflow_wrap_anywhere
+  | [ "overflow"; "wrap"; "break"; "word" ] -> Ok Overflow_wrap_break_word
+  | [ "hyphens"; "none" ] -> Ok Hyphens_none
+  | [ "hyphens"; "manual" ] -> Ok Hyphens_manual
+  | [ "hyphens"; "auto" ] -> Ok Hyphens_auto
+  | [ "font"; "stretch"; "normal" ] -> Ok Font_stretch_normal
+  | [ "font"; "stretch"; "condensed" ] -> Ok Font_stretch_condensed
+  | [ "font"; "stretch"; "expanded" ] -> Ok Font_stretch_expanded
   | [ "font"; "stretch"; n ] ->
-      Parse.int_pos ~name:"font-stretch" n >|= font_stretch_percent
-  | [ "normal"; "nums" ] -> Ok normal_nums
-  | [ "ordinal" ] -> Ok ordinal
-  | [ "slashed"; "zero" ] -> Ok slashed_zero
-  | [ "lining"; "nums" ] -> Ok lining_nums
-  | [ "oldstyle"; "nums" ] -> Ok oldstyle_nums
-  | [ "proportional"; "nums" ] -> Ok proportional_nums
-  | [ "tabular"; "nums" ] -> Ok tabular_nums
-  | [ "diagonal"; "fractions" ] -> Ok diagonal_fractions
-  | [ "stacked"; "fractions" ] -> Ok stacked_fractions
-  | [ "indent"; n ] -> Parse.int_pos ~name:"indent" n >|= indent
-  | [ "line"; "clamp"; n ] -> Parse.int_pos ~name:"line-clamp" n >|= line_clamp
-  | [ "content"; "none" ] -> Ok content_none
+      Parse.int_pos ~name:"font-stretch" n >|= fun n -> Font_stretch_percent n
+  | [ "normal"; "nums" ] -> Ok Normal_nums
+  | [ "ordinal" ] -> Ok Ordinal
+  | [ "slashed"; "zero" ] -> Ok Slashed_zero
+  | [ "lining"; "nums" ] -> Ok Lining_nums
+  | [ "oldstyle"; "nums" ] -> Ok Oldstyle_nums
+  | [ "proportional"; "nums" ] -> Ok Proportional_nums
+  | [ "tabular"; "nums" ] -> Ok Tabular_nums
+  | [ "diagonal"; "fractions" ] -> Ok Diagonal_fractions
+  | [ "stacked"; "fractions" ] -> Ok Stacked_fractions
+  | [ "indent"; n ] -> Parse.int_pos ~name:"indent" n >|= fun n -> Indent n
+  | [ "line"; "clamp"; n ] ->
+      Parse.int_pos ~name:"line-clamp" n >|= fun n -> Line_clamp n
+  | [ "content"; "none" ] -> Ok Content_none
   | _ -> Error (`Msg "Not a typography utility")
 
 (** {1 Ordering Support} *)
 
-type typography_info =
-  | Text_size of
-      string (* xs, sm, base, lg, xl, 2xl, 3xl, 4xl, 5xl, 6xl, 7xl, 8xl, 9xl *)
-  | Text_color of string * int (* color name and shade *)
-  | Font_weight of int (* 100-900 *)
-  | Font_family of string (* sans, serif, mono *)
-  | Font_style of string (* italic, not-italic *)
-  | Text_align of string (* left, center, right, justify *)
-  | Text_decoration of
-      string (* underline, overline, line-through, no-underline *)
-  | Leading of
-      string
-      * int option (* none, tight, snug, normal, relaxed, loose, or numeric *)
-  | Tracking of string (* tighter, tight, normal, wide, wider, widest *)
-  | Text_transform of string (* uppercase, lowercase, capitalize, normal-case *)
-  | Unknown
-
-let text_size_order = function
-  (* Reverse order - largest first to match Tailwind v4 *)
-  | "9xl" -> 1
-  | "8xl" -> 2
-  | "7xl" -> 3
-  | "6xl" -> 4
-  | "5xl" -> 5
-  | "4xl" -> 6
-  | "3xl" -> 7
-  | "2xl" -> 8
-  | "xl" -> 9
-  | "lg" -> 10
-  | "base" -> 11
-  | "sm" -> 12
-  | "xs" -> 13
-  | _ -> 100
-
-let font_weight_order = function
-  (* Reverse order - heaviest first to match Tailwind v4 *)
-  | "black" -> 100
-  | "extrabold" -> 200
-  | "bold" -> 300
-  | "medium" -> 400
-  | "semibold" -> 500
-  | "normal" -> 600
-  | "light" -> 700
-  | "extralight" -> 800
-  | "thin" -> 900
-  | _ -> 0
-
-let leading_order = function
-  | "none" -> 1
-  | "tight" -> 5
-  | "snug" -> 3
-  | "normal" -> 4
-  | "relaxed" -> 2
-  | "loose" -> 6
-  | _ -> 0
-
-let tracking_order = function
-  | "tighter" -> 1
-  | "tight" -> 2
-  | "normal" -> 3
-  | "wide" -> 4
-  | "wider" -> 5
-  | "widest" -> 6
-  | _ -> 0
-
-let parse_class class_name =
-  let parts = String.split_on_char '-' class_name in
-  match parts with
-  | [ "text"; size ]
-    when List.mem size
-           [
-             "xs";
-             "sm";
-             "base";
-             "lg";
-             "xl";
-             "2xl";
-             "3xl";
-             "4xl";
-             "5xl";
-             "6xl";
-             "7xl";
-             "8xl";
-             "9xl";
-           ] ->
-      Text_size size
-  | [ "text"; align ]
-    when List.mem align [ "left"; "center"; "right"; "justify" ] ->
-      Text_align align
-  | [ "text"; color; shade ] -> (
-      (* Handle text-blue-500 style color utilities *)
-      match int_of_string_opt shade with
-      | Some s -> Text_color (color, s)
-      | None -> Unknown)
-  | [ "text"; color ] ->
-      (* Handle text-black, text-white, etc. - but not text alignment *)
-      if List.mem color [ "left"; "center"; "right"; "justify" ] then Unknown
-        (* Already handled above *)
-      else Text_color (color, 0)
-  | [ "font"; weight ]
-    when List.mem weight
-           [
-             "thin";
-             "extralight";
-             "light";
-             "normal";
-             "medium";
-             "semibold";
-             "bold";
-             "extrabold";
-             "black";
-           ] ->
-      Font_weight (font_weight_order weight)
-  | [ "font"; family ] when List.mem family [ "sans"; "serif"; "mono" ] ->
-      Font_family family
-  | [ "italic" ] -> Font_style "italic"
-  | [ "not"; "italic" ] -> Font_style "not-italic"
-  | [ "underline" ] -> Text_decoration "underline"
-  | [ "overline" ] -> Text_decoration "overline"
-  | [ "line"; "through" ] -> Text_decoration "line-through"
-  | [ "no"; "underline" ] -> Text_decoration "no-underline"
-  | [ "leading"; preset ]
-    when List.mem preset
-           [ "none"; "tight"; "snug"; "normal"; "relaxed"; "loose" ] ->
-      Leading (preset, None)
-  | [ "leading"; n ] -> (
-      match int_of_string_opt n with
-      | Some i when i >= 3 && i <= 10 -> Leading ("numeric", Some i)
-      | _ -> Unknown)
-  | [ "tracking"; spacing ]
-    when List.mem spacing
-           [ "tighter"; "tight"; "normal"; "wide"; "wider"; "widest" ] ->
-      Tracking spacing
-  | [ "uppercase" ] -> Text_transform "uppercase"
-  | [ "lowercase" ] -> Text_transform "lowercase"
-  | [ "capitalize" ] -> Text_transform "capitalize"
-  | [ "normal"; "case" ] -> Text_transform "normal-case"
-  | _ -> Unknown
-
-let suborder class_name : int =
-  match parse_class class_name with
-  | Text_size size -> 1000 + text_size_order size
-  | Leading (preset, num) -> (
-      2000 + match num with Some n -> 100 + n | None -> leading_order preset)
-  | Font_weight weight -> 3000 + weight
-  | Text_color (color, shade) -> (
-      (* Use Color module's ordering for consistency *)
+let suborder = function
+  | Text_xs -> 1013
+  | Text_sm -> 1012
+  | Text_base -> 1011
+  | Text_lg -> 1010
+  | Text_xl -> 1009
+  | Text_2xl -> 1008
+  | Text_3xl -> 1007
+  | Text_4xl -> 1006
+  | Text_5xl -> 1005
+  | Text_6xl -> 1004
+  | Text_7xl -> 1003
+  | Text_8xl -> 1002
+  | Text_9xl -> 1001
+  | Leading_none -> 2001
+  | Leading_relaxed -> 2002
+  | Leading_snug -> 2003
+  | Leading_normal -> 2004
+  | Leading_tight -> 2005
+  | Leading_loose -> 2006
+  | Leading n -> 2100 + n
+  | Font_black -> 3100
+  | Font_extrabold -> 3200
+  | Font_bold -> 3300
+  | Font_medium -> 3400
+  | Font_semibold -> 3500
+  | Font_normal -> 3600
+  | Font_light -> 3700
+  | Font_extralight -> 3800
+  | Font_thin -> 3900
+  | Decoration_color (color, shade_opt) -> (
+      let shade = match shade_opt with Some s -> s | None -> 500 in
       try
-        let _, color_order = Color.utilities_order color in
+        let _, color_order = Color.utilities_order (Color.pp color) in
         4000 + (color_order * 1000) + shade
       with _ -> 4000 + shade)
-  | Font_family family -> (
-      5000
-      + match family with "sans" -> 1 | "serif" -> 2 | "mono" -> 3 | _ -> 0)
-  | Font_style style -> (
-      6000 + match style with "italic" -> 1 | "not-italic" -> 2 | _ -> 0)
-  | Text_align align -> (
-      7000
-      +
-      match align with
-      | "justify" -> 1
-      | "left" -> 2
-      | "center" -> 3
-      | "right" -> 4
-      | _ -> 0)
-  | Text_decoration deco -> (
-      8000
-      +
-      match deco with
-      | "underline" -> 1
-      | "overline" -> 2
-      | "line-through" -> 3
-      | "no-underline" -> 4
-      | _ -> 0)
-  | Tracking spacing -> 9000 + tracking_order spacing
-  | Text_transform transform -> (
-      10000
-      +
-      match transform with
-      | "uppercase" -> 1
-      | "lowercase" -> 2
-      | "capitalize" -> 3
-      | "normal-case" -> 4
-      | _ -> 0)
-  | Unknown -> 11000
+  | Font_sans -> 5001
+  | Font_serif -> 5002
+  | Font_mono -> 5003
+  | Italic -> 6001
+  | Not_italic -> 6002
+  | Text_justify -> 7001
+  | Text_left -> 7002
+  | Text_center -> 7003
+  | Text_right -> 7004
+  | Underline -> 8001
+  | Overline -> 8002
+  | Line_through -> 8003
+  | No_underline -> 8004
+  | Tracking_tighter -> 9001
+  | Tracking_tight -> 9002
+  | Tracking_normal -> 9003
+  | Tracking_wide -> 9004
+  | Tracking_wider -> 9005
+  | Tracking_widest -> 9006
+  | Uppercase -> 10001
+  | Lowercase -> 10002
+  | Capitalize -> 10003
+  | Normal_case -> 10004
+  | Decoration_solid -> 11000
+  | Decoration_double -> 11001
+  | Decoration_dotted -> 11002
+  | Decoration_dashed -> 11003
+  | Decoration_wavy -> 11004
+  | Decoration_thickness n -> 12000 + n
+  | Decoration_from_font -> 13000
+  | Whitespace_normal -> 14000
+  | Whitespace_nowrap -> 14001
+  | Whitespace_pre -> 14002
+  | Whitespace_pre_line -> 14003
+  | Whitespace_pre_wrap -> 14004
+  | Align_baseline -> 15000
+  | Align_top -> 15001
+  | Align_middle -> 15002
+  | Align_bottom -> 15003
+  | Align_text_top -> 15004
+  | Align_text_bottom -> 15005
+  | Align_sub -> 15006
+  | Align_super -> 15007
+  | List_none -> 16000
+  | List_disc -> 16001
+  | List_decimal -> 16002
+  | List_inside -> 16003
+  | List_outside -> 16004
+  | List_image_none -> 16005
+  | Underline_offset_auto -> 17000
+  | Underline_offset_0 -> 17001
+  | Underline_offset_1 -> 17002
+  | Underline_offset_2 -> 17003
+  | Underline_offset_4 -> 17004
+  | Underline_offset_8 -> 17005
+  | Antialiased -> 18000
+  | Text_ellipsis -> 19000
+  | Text_clip -> 19001
+  | Text_wrap -> 20000
+  | Text_nowrap -> 20001
+  | Text_balance -> 20002
+  | Text_pretty -> 20003
+  | Break_normal -> 21000
+  | Break_words -> 21001
+  | Break_all -> 21002
+  | Break_keep -> 21003
+  | Overflow_wrap_normal -> 22000
+  | Overflow_wrap_anywhere -> 22001
+  | Overflow_wrap_break_word -> 22002
+  | Hyphens_none -> 23000
+  | Hyphens_manual -> 23001
+  | Hyphens_auto -> 23002
+  | Font_stretch_normal -> 24000
+  | Font_stretch_condensed -> 24001
+  | Font_stretch_expanded -> 24002
+  | Font_stretch_percent n -> 24100 + n
+  | Normal_nums -> 25000
+  | Ordinal -> 25001
+  | Slashed_zero -> 25002
+  | Lining_nums -> 25003
+  | Oldstyle_nums -> 25004
+  | Proportional_nums -> 25005
+  | Tabular_nums -> 25006
+  | Diagonal_fractions -> 25007
+  | Stacked_fractions -> 25008
+  | Indent n -> 26000 + n
+  | Line_clamp n -> 27000 + n
+  | Content_none -> 28000

@@ -1,7 +1,8 @@
 open Alcotest
-open Tw.Core
+open Tw.Style
 open Tw.Modifiers
-open Tw.Spacing
+open Tw.Padding
+open Tw.Margin
 open Tw.Color
 
 (* Test responsive modifier detection *)
@@ -80,8 +81,8 @@ let test_responsive_functions_reject_nesting () =
   test_responsive_rejects "sm" sm (md [ p 4 ]);
   test_responsive_rejects "md" md (lg [ p 4 ]);
   test_responsive_rejects "lg" lg (xl [ p 4 ]);
-  test_responsive_rejects "xl" xl (xxl [ p 4 ]);
-  test_responsive_rejects "xxl" xxl (sm [ p 4 ])
+  test_responsive_rejects "xl" xl (xl2 [ p 4 ]);
+  test_responsive_rejects "xl2" xl2 (sm [ p 4 ])
 
 (* Test apply function *)
 let test_apply () =

@@ -1,7 +1,16 @@
 (** Form element utilities *)
 
-open Core
+open Style
 open Css
+
+(** {1 Utility Type} *)
+
+type utility =
+  | Form_input
+  | Form_textarea
+  | Form_select
+  | Form_checkbox
+  | Form_radio
 
 (** {1 Form Input Utilities} *)
 
@@ -82,12 +91,30 @@ let form_radio =
       Css.vertical_align Middle;
     ]
 
+(** {1 Conversion Functions} *)
+
+let to_style = function
+  | Form_input -> form_input
+  | Form_textarea -> form_textarea
+  | Form_select -> form_select
+  | Form_checkbox -> form_checkbox
+  | Form_radio -> form_radio
+
 (** {1 Parsing Functions} *)
 
 let of_string = function
-  | [ "form"; "input" ] -> Ok form_input
-  | [ "form"; "textarea" ] -> Ok form_textarea
-  | [ "form"; "select" ] -> Ok form_select
-  | [ "form"; "checkbox" ] -> Ok form_checkbox
-  | [ "form"; "radio" ] -> Ok form_radio
+  | [ "form"; "input" ] -> Ok Form_input
+  | [ "form"; "textarea" ] -> Ok Form_textarea
+  | [ "form"; "select" ] -> Ok Form_select
+  | [ "form"; "checkbox" ] -> Ok Form_checkbox
+  | [ "form"; "radio" ] -> Ok Form_radio
   | _ -> Error (`Msg "Not a form utility")
+
+(** {1 Suborder Function} *)
+
+let suborder = function
+  | Form_input -> 0
+  | Form_textarea -> 1
+  | Form_select -> 2
+  | Form_checkbox -> 3
+  | Form_radio -> 4

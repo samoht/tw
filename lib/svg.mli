@@ -1,6 +1,24 @@
 (** SVG utilities for fill, stroke, and stroke-width *)
 
-open Core
+open Style
+
+(** {1 Utility Types} *)
+
+type utility
+
+val of_string : string list -> (utility, [ `Msg of string ]) result
+(** [of_string parts] parses an SVG utility from string parts.
+    Returns an internal structured representation. *)
+
+(** {1 Internal Conversion Functions} *)
+
+val to_style : utility -> t
+(** [to_style u] converts a structured SVG utility to a style.
+    For internal use by the Tw module. *)
+
+val suborder : utility -> int
+(** [suborder u] returns the ordering value for SVG utility [u].
+    Used for deterministic CSS output ordering. *)
 
 (** {1 Fill Utilities} *)
 
@@ -37,8 +55,3 @@ val stroke_2 : t
 
 val stroke_width : int -> t
 (** [stroke_width n] sets stroke-width to n. *)
-
-(** {1 Parsing Functions} *)
-
-val of_string : string list -> (t, [ `Msg of string ]) result
-(** [of_string parts] parses an SVG utility from string parts. *)

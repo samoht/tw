@@ -3,7 +3,7 @@ open Alcotest
 let check parts =
   let expected = String.concat "-" parts in
   match Tw.Animations.of_string parts with
-  | Ok t -> check string "animations class" expected (Tw.Core.pp t)
+  | Ok t -> check string "animations class" expected (Tw.Style.pp (Tw.Animations.to_style t))
   | Error (`Msg msg) -> fail msg
 
 let test_transitions () =

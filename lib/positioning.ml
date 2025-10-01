@@ -1,8 +1,23 @@
 (** Positioning utilities for controlling element placement *)
 
-open Core
+open Style
 open Css
 module Parse = Parse
+
+(** {1 Positioning Utility Type} *)
+
+type utility =
+  | Inset_0
+  | Inset_x_0
+  | Inset_y_0
+  | Inset of int
+  | Top of int
+  | Top_1_2
+  | Right of int
+  | Bottom of int
+  | Left of int
+  | Left_1_2
+  | Z of int
 
 (** {1 Helper Functions} *)
 
@@ -83,32 +98,57 @@ let z n =
   let class_name = "z-" ^ string_of_int n in
   style class_name [ Css.z_index (Css.Index n) ]
 
-(** {1 Parsing Functions} *)
+(** {1 Utility Conversion Functions} *)
+
+let to_style = function
+  | Inset_0 -> inset_0
+  | Inset_x_0 -> inset_x_0
+  | Inset_y_0 -> inset_y_0
+  | Inset n -> inset n
+  | Top n -> top n
+  | Top_1_2 -> top_1_2
+  | Right n -> right n
+  | Bottom n -> bottom n
+  | Left n -> left n
+  | Left_1_2 -> left_1_2
+  | Z n -> z n
 
 let int_of_string_with_sign = Parse.int_any
 
 let of_string = function
-  | [ "inset"; "0" ] -> Ok inset_0
-  | [ "inset"; "x"; "0" ] -> Ok inset_x_0
-  | [ "inset"; "y"; "0" ] -> Ok inset_y_0
-  | [ "inset"; n ] -> int_of_string_with_sign n |> Result.map inset
+  | [ "inset"; "0" ] -> Ok Inset_0
+  | [ "inset"; "x"; "0" ] -> Ok Inset_x_0
+  | [ "inset"; "y"; "0" ] -> Ok Inset_y_0
+  | [ "inset"; n ] -> int_of_string_with_sign n |> Result.map (fun x -> Inset x)
   | [ "-"; "inset"; n ] ->
-      int_of_string_with_sign n |> Result.map (fun x -> inset (-x))
-  | [ "top"; "1/2" ] -> Ok top_1_2
-  | [ "top"; n ] -> int_of_string_with_sign n |> Result.map top
+      int_of_string_with_sign n |> Result.map (fun x -> Inset (-x))
+  | [ "top"; "1/2" ] -> Ok Top_1_2
+  | [ "top"; n ] -> int_of_string_with_sign n |> Result.map (fun x -> Top x)
   | [ "-"; "top"; n ] ->
-      int_of_string_with_sign n |> Result.map (fun x -> top (-x))
-  | [ "right"; n ] -> int_of_string_with_sign n |> Result.map right
+      int_of_string_with_sign n |> Result.map (fun x -> Top (-x))
+  | [ "right"; n ] -> int_of_string_with_sign n |> Result.map (fun x -> Right x)
   | [ "-"; "right"; n ] ->
-      int_of_string_with_sign n |> Result.map (fun x -> right (-x))
-  | [ "bottom"; n ] -> int_of_string_with_sign n |> Result.map bottom
+      int_of_string_with_sign n |> Result.map (fun x -> Right (-x))
+  | [ "bottom"; n ] ->
+      int_of_string_with_sign n |> Result.map (fun x -> Bottom x)
   | [ "-"; "bottom"; n ] ->
-      int_of_string_with_sign n |> Result.map (fun x -> bottom (-x))
-  | [ "left"; "1/2" ] -> Ok left_1_2
-  | [ "left"; n ] -> int_of_string_with_sign n |> Result.map left
+      int_of_string_with_sign n |> Result.map (fun x -> Bottom (-x))
+  | [ "left"; "1/2" ] -> Ok Left_1_2
+  | [ "left"; n ] -> int_of_string_with_sign n |> Result.map (fun x -> Left x)
   | [ "-"; "left"; n ] ->
-      int_of_string_with_sign n |> Result.map (fun x -> left (-x))
-  | [ "z"; n ] -> int_of_string_with_sign n |> Result.map z
+      int_of_string_with_sign n |> Result.map (fun x -> Left (-x))
+  | [ "z"; n ] -> int_of_string_with_sign n |> Result.map (fun x -> Z x)
   | _ -> Error (`Msg "Not a positioning utility")
 
-(* Removed spacing_theme_binding - unused and causing type issues *)
+let suborder = function
+  | Inset_0 -> 0
+  | Inset_x_0 -> 1
+  | Inset_y_0 -> 2
+  | Inset n -> 100 + n
+  | Top_1_2 -> 200
+  | Top n -> 300 + n
+  | Right n -> 400 + n
+  | Bottom n -> 500 + n
+  | Left_1_2 -> 600
+  | Left n -> 700 + n
+  | Z n -> 800 + n

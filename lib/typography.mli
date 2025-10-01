@@ -1,6 +1,14 @@
 (** Typography utilities for text and font styling *)
 
-open Core
+open Style
+
+(** {1 Utility Types} *)
+
+type utility
+
+val to_style : utility -> t
+(** [to_style u] converts a structured typography utility to a style.
+    For internal use by the Tw module. *)
 
 (** {1 Font Size Utilities} *)
 
@@ -233,7 +241,7 @@ val antialiased : t
 
 (** {1 Parsing Functions} *)
 
-val of_string : string list -> (t, [ `Msg of string ]) result
+val of_string : string list -> (utility, [ `Msg of string ]) result
 (** [of_string parts] parses a typography utility from string parts. *)
 
 (** {1 Vertical Align} *)
@@ -434,5 +442,6 @@ val default_font_family_declarations : Css.declaration list
 
 (** {1 Ordering} *)
 
-val suborder : string -> int
-(** [suborder class_name] returns the ordering for a typography class name *)
+val suborder : utility -> int
+(** [suborder u] returns the ordering value for typography utility [u].
+    Used for deterministic CSS output ordering. *)

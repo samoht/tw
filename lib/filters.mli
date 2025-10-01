@@ -1,7 +1,50 @@
 (** Filter utilities for visual effects like blur, brightness, and backdrop
     filters *)
 
-open Core
+open Style
+
+(** {1 Utility Type} *)
+
+type utility =
+  | Blur_none
+  | Blur_xs
+  | Blur_sm
+  | Blur
+  | Blur_md
+  | Blur_lg
+  | Blur_xl
+  | Blur_2xl
+  | Blur_3xl
+  | Brightness of int
+  | Contrast of int
+  | Grayscale of int
+  | Saturate of int
+  | Sepia of int
+  | Invert of int
+  | Hue_rotate of int
+  | Backdrop_blur_none
+  | Backdrop_blur_xs
+  | Backdrop_blur_sm
+  | Backdrop_blur
+  | Backdrop_blur_md
+  | Backdrop_blur_lg
+  | Backdrop_blur_xl
+  | Backdrop_blur_2xl
+  | Backdrop_blur_3xl
+  | Backdrop_brightness of int
+  | Backdrop_contrast of int
+  | Backdrop_opacity of int
+  | Backdrop_saturate of int
+  | Backdrop_grayscale of int
+  | Backdrop_invert of int
+  | Backdrop_sepia of int
+  | Backdrop_hue_rotate of int
+
+val to_style : utility -> t
+(** [to_style utility] converts a filter utility to a style. *)
+
+val suborder : utility -> int
+(** [suborder utility] returns the suborder for utility ordering. *)
 
 (** {1 Filter Utilities} *)
 
@@ -120,5 +163,5 @@ val backdrop_hue_rotate : int -> t
 
 (** {1 Parsing Functions} *)
 
-val of_string : string list -> (t, [ `Msg of string ]) result
+val of_string : string list -> (utility, [ `Msg of string ]) result
 (** [of_string parts] parses a filter utility from string parts. *)

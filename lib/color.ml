@@ -1,6 +1,6 @@
 (** Color conversion utilities for Tailwind v4 compatibility *)
 
-open Core
+open Style
 open Css
 
 type rgb = {
@@ -43,6 +43,23 @@ type color =
   | Hex of string
   | Rgb of { red : int; green : int; blue : int }
   | Oklch of oklch
+
+(** {1 Color Utility Type} *)
+
+type utility =
+  (* Background colors *)
+  | Bg of color * int
+  | Bg_transparent
+  | Bg_current
+  (* Text colors *)
+  | Text of color * int
+  | Text_transparent
+  | Text_current
+  | Text_inherit
+  (* Border colors *)
+  | Border of color * int
+  | Border_transparent
+  | Border_current
 
 (** Convert RGB to linear RGB (remove gamma correction) *)
 let linearize_channel c =
@@ -1044,7 +1061,7 @@ let suborder_with_shade color_part =
     try
       let _, color_order = utilities_order color_part in
       color_order * 1000
-    with _ -> 0 (* Default for unrecognized colors *))
+    with _ -> failwith ("Unknown color: " ^ color_part))
 
 (* Get theme layer order for a color variable with shade. Formula: (priority=2,
    base_order * 1000 + shade) This ensures color variables are grouped by color
@@ -1280,27 +1297,72 @@ let shade_of_strings = function
   | [] -> Error (`Msg "No color specified")
   | _ -> Error (`Msg "Too many color parts")
 
-let classes_of_string parts =
+(** {1 Parsing Functions} *)
+
+let utility_of_string parts =
   match parts with
-  | [ "bg"; "transparent" ] -> Ok bg_transparent
-  | [ "bg"; "current" ] -> Ok bg_current
+  | [ "bg"; "transparent" ] -> Ok Bg_transparent
+  | [ "bg"; "current" ] -> Ok Bg_current
   | "bg" :: color_parts -> (
       match shade_of_strings color_parts with
-      | Ok (color, shade) -> Ok (bg color shade)
+      | Ok (color, shade) -> Ok (Bg (color, shade))
       | Error _ -> Error (`Msg "Not a background color"))
-  | [ "text"; "transparent" ] -> Ok text_transparent
-  | [ "text"; "current" ] -> Ok text_current
-  | [ "text"; "inherit" ] -> Ok text_inherit
+  | [ "text"; "transparent" ] -> Ok Text_transparent
+  | [ "text"; "current" ] -> Ok Text_current
+  | [ "text"; "inherit" ] -> Ok Text_inherit
   | "text" :: color_parts -> (
       match shade_of_strings color_parts with
-      | Ok (color, shade) -> Ok (text color shade)
+      | Ok (color, shade) -> Ok (Text (color, shade))
       | Error _ -> Error (`Msg "Not a text color"))
-  | [ "border"; "transparent" ] -> Ok border_transparent
-  | [ "border"; "current" ] -> Ok border_current
+  | [ "border"; "transparent" ] -> Ok Border_transparent
+  | [ "border"; "current" ] -> Ok Border_current
   | "border" :: color_parts -> (
       match shade_of_strings color_parts with
-      | Ok (color, shade) -> Ok (border_color color shade)
+      | Ok (color, shade) -> Ok (Border (color, shade))
       | Error _ -> Error (`Msg "Not a border color"))
   | _ -> Error (`Msg "Not a color utility")
 
-(* Backward-compatible alias *)
+(** {1 Utility Conversion Functions} *)
+
+let to_style = function
+  | Bg (color, shade) -> bg color shade
+  | Bg_transparent -> bg_transparent
+  | Bg_current -> bg_current
+  | Text (color, shade) -> text color shade
+  | Text_transparent -> text_transparent
+  | Text_current -> text_current
+  | Text_inherit -> text_inherit
+  | Border (color, shade) -> border_color color shade
+  | Border_transparent -> border_transparent
+  | Border_current -> border_current
+
+(** Suborder function for sorting color utilities within their priority group.
+    Uses color ordering and shade for deterministic ordering. *)
+let suborder = function
+  | Bg (color, shade) ->
+      let color_str = pp color in
+      if is_base_color color then suborder_with_shade color_str
+      else suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
+  | Bg_transparent -> 0
+  | Bg_current -> 1
+  | Text (color, shade) ->
+      10000
+      + if is_base_color color then
+          let color_str = pp color in
+          suborder_with_shade color_str
+        else
+          let color_str = pp color in
+          suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
+  | Text_transparent -> 10000
+  | Text_current -> 10001
+  | Text_inherit -> 10002
+  | Border (color, shade) ->
+      20000
+      + if is_base_color color then
+          let color_str = pp color in
+          suborder_with_shade color_str
+        else
+          let color_str = pp color in
+          suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
+  | Border_transparent -> 20000
+  | Border_current -> 20001

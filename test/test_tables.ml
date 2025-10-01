@@ -1,7 +1,7 @@
 open Alcotest
 
 let check_class expected t =
-  Alcotest.check string "class" expected (Tw.Core.pp t)
+  Alcotest.check string "class" expected (Tw.Style.pp t)
 
 let basic_tables () =
   check_class "border-collapse" Tw.Tables.border_collapse;

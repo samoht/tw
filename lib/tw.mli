@@ -2966,18 +2966,6 @@ val prose_gray : t
 val prose_slate : t
 (** [prose_slate] uses the slate prose color theme. *)
 
-val prose_stylesheet : unit -> Css.t
-(** [prose_stylesheet ()] generates a complete prose stylesheet with all
-    typography rules. This includes descendant selectors for all HTML elements
-    (h1-h6, p, a, strong, em, code, pre, blockquote, ul, ol, li, etc.) and all
-    size variants.
-
-    Usage:
-    {[
-      let prose_css = prose_stylesheet () |> Css.to_string ~minify:true in
-      (* Include this CSS in your page to enable full prose functionality *)
-    ]} *)
-
 (** {2 Prose markers}
 
     Convenience utilities to apply marker classes used by prose selectors. *)
@@ -3265,8 +3253,8 @@ val lg : t list -> t
 val xl : t list -> t
 (** [xl styles] applies [styles] at extra-large breakpoint. *)
 
-val xxl : t list -> t
-(** [xxl styles] applies [styles] at 2xl breakpoint. *)
+val xl2 : t list -> t
+(** [xl2 styles] applies [styles] at 2xl breakpoint. *)
 
 (** {2 Pseudo-elements} *)
 
@@ -3316,16 +3304,22 @@ val peer_checked : t list -> t
 
 (**/**)
 
-(* Module exports for testing - not part of public API *)
-module Core = Core
+module Style = Style
 module Parse = Parse
-module Spacing = Spacing
+module Margin = Margin
+module Padding = Padding
+module Gap = Gap
+module Display = Display
+module Flex = Flex
+module Alignment = Alignment
+module Cursor = Cursor
 module Borders = Borders
 module Backgrounds = Backgrounds
 module Sizing = Sizing
 module Layout = Layout
 module Typography = Typography
-module Flow = Flow
+module Grid = Grid
+module Grid_template = Grid_template
 module Effects = Effects
 module Transforms = Transforms
 module Interactivity = Interactivity
@@ -3338,6 +3332,8 @@ module Tables = Tables
 module Svg = Svg
 module Accessibility = Accessibility
 module Rules = Rules
+module Theme = Theme
+module Utility = Utility
 
 (**/**)
 

@@ -15,9 +15,58 @@
     - Accepts `opacity-<n>` and common transition aliases. Unknown tokens yield
       `Error (`Msg "Not an effects utility")`. *)
 
-open Core
+open Style
 open Css
 module Parse = Parse
+
+(** {1 Effects Utility Type} *)
+
+type utility =
+  (* Shadows *)
+  | Shadow_none
+  | Shadow_sm
+  | Shadow
+  | Shadow_md
+  | Shadow_lg
+  | Shadow_xl
+  | Shadow_2xl
+  | Shadow_inner
+  (* Opacity *)
+  | Opacity of int
+  (* Rings *)
+  | Ring_none
+  | Ring_xs
+  | Ring_sm
+  | Ring_md
+  | Ring_lg
+  | Ring_xl
+  | Ring_inset
+  (* Transitions *)
+  | Transition_none
+  | Transition_all
+  | Transition_colors
+  | Transition_opacity
+  | Transition_shadow
+  | Transition_transform
+  (* Duration *)
+  | Duration of int
+  (* Mix blend modes *)
+  | Mix_blend_normal
+  | Mix_blend_multiply
+  | Mix_blend_screen
+  | Mix_blend_overlay
+  | Mix_blend_darken
+  | Mix_blend_lighten
+  | Mix_blend_color_dodge
+  | Mix_blend_color_burn
+  | Mix_blend_hard_light
+  | Mix_blend_soft_light
+  | Mix_blend_difference
+  | Mix_blend_exclusion
+  | Mix_blend_hue
+  | Mix_blend_saturation
+  | Mix_blend_color
+  | Mix_blend_luminosity
 
 (** {1 Shadow and Ring Variables} *)
 
@@ -711,7 +760,8 @@ let transition_transform =
 
 let duration n =
   let class_name = "duration-" ^ string_of_int n in
-  style class_name [ transition_duration (Ms (float_of_int n)) ]
+  let seconds = float_of_int n /. 1000.0 in
+  style class_name [ transition_duration (S seconds) ]
 
 (** {1 Opacity Utility} *)
 
@@ -761,73 +811,133 @@ let mix_blend_luminosity =
 
 let ( >|= ) = Parse.( >|= )
 
+(** {1 Utility Conversion Functions} *)
+
+let to_style = function
+  | Shadow_none -> shadow_none
+  | Shadow_sm -> shadow_sm
+  | Shadow -> shadow
+  | Shadow_md -> shadow_md
+  | Shadow_lg -> shadow_lg
+  | Shadow_xl -> shadow_xl
+  | Shadow_2xl -> shadow_2xl
+  | Shadow_inner -> shadow_inner
+  | Opacity n -> opacity n
+  | Ring_none -> ring_none
+  | Ring_xs -> ring_xs
+  | Ring_sm -> ring_sm
+  | Ring_md -> ring_md
+  | Ring_lg -> ring_lg
+  | Ring_xl -> ring_xl
+  | Ring_inset -> ring_inset
+  | Transition_none -> transition_none
+  | Transition_all -> transition_all
+  | Transition_colors -> transition_colors
+  | Transition_opacity -> transition_opacity
+  | Transition_shadow -> transition_shadow
+  | Transition_transform -> transition_transform
+  | Duration n -> duration n
+  | Mix_blend_normal -> mix_blend_normal
+  | Mix_blend_multiply -> mix_blend_multiply
+  | Mix_blend_screen -> mix_blend_screen
+  | Mix_blend_overlay -> mix_blend_overlay
+  | Mix_blend_darken -> mix_blend_darken
+  | Mix_blend_lighten -> mix_blend_lighten
+  | Mix_blend_color_dodge -> mix_blend_color_dodge
+  | Mix_blend_color_burn -> mix_blend_color_burn
+  | Mix_blend_hard_light -> mix_blend_hard_light
+  | Mix_blend_soft_light -> mix_blend_soft_light
+  | Mix_blend_difference -> mix_blend_difference
+  | Mix_blend_exclusion -> mix_blend_exclusion
+  | Mix_blend_hue -> mix_blend_hue
+  | Mix_blend_saturation -> mix_blend_saturation
+  | Mix_blend_color -> mix_blend_color
+  | Mix_blend_luminosity -> mix_blend_luminosity
+
 let of_string = function
-  | [ "shadow"; "none" ] -> Ok shadow_none
-  | [ "shadow"; "sm" ] -> Ok shadow_sm
-  | [ "shadow" ] -> Ok shadow
-  | [ "shadow"; "md" ] -> Ok shadow_md
-  | [ "shadow"; "lg" ] -> Ok shadow_lg
-  | [ "shadow"; "xl" ] -> Ok shadow_xl
-  | [ "shadow"; "2xl" ] -> Ok shadow_2xl
-  | [ "shadow"; "inner" ] -> Ok shadow_inner
+  | [ "shadow"; "none" ] -> Ok Shadow_none
+  | [ "shadow"; "sm" ] -> Ok Shadow_sm
+  | [ "shadow" ] -> Ok Shadow
+  | [ "shadow"; "md" ] -> Ok Shadow_md
+  | [ "shadow"; "lg" ] -> Ok Shadow_lg
+  | [ "shadow"; "xl" ] -> Ok Shadow_xl
+  | [ "shadow"; "2xl" ] -> Ok Shadow_2xl
+  | [ "shadow"; "inner" ] -> Ok Shadow_inner
   | [ "opacity"; n ] ->
-      Parse.int_bounded ~name:"opacity" ~min:0 ~max:100 n >|= opacity
-  | [ "ring" ] -> Ok ring
-  | [ "ring"; "0" ] -> Ok ring_none
-  | [ "ring"; "1" ] -> Ok ring_xs
-  | [ "ring"; "2" ] -> Ok ring_sm
-  | [ "ring"; "3" ] -> Ok ring_md
-  | [ "ring"; "4" ] -> Ok ring_lg
-  | [ "ring"; "8" ] -> Ok ring_xl
-  | [ "ring"; "inset" ] -> Ok ring_inset
-  | [ "transition" ] -> Ok transition_all
-  | [ "transition"; "none" ] -> Ok transition_none
-  | [ "transition"; "all" ] -> Ok transition_all
-  | [ "transition"; "colors" ] -> Ok transition_colors
-  | [ "transition"; "opacity" ] -> Ok transition_opacity
-  | [ "transition"; "shadow" ] -> Ok transition_shadow
-  | [ "transition"; "transform" ] -> Ok transition_transform
-  | [ "duration"; n ] -> Parse.int_pos ~name:"duration" n >|= duration
-  | [ "mix"; "blend"; "normal" ] -> Ok mix_blend_normal
-  | [ "mix"; "blend"; "multiply" ] -> Ok mix_blend_multiply
-  | [ "mix"; "blend"; "screen" ] -> Ok mix_blend_screen
-  | [ "mix"; "blend"; "overlay" ] -> Ok mix_blend_overlay
-  | [ "mix"; "blend"; "darken" ] -> Ok mix_blend_darken
-  | [ "mix"; "blend"; "lighten" ] -> Ok mix_blend_lighten
-  | [ "mix"; "blend"; "color-dodge" ] -> Ok mix_blend_color_dodge
-  | [ "mix"; "blend"; "color-burn" ] -> Ok mix_blend_color_burn
-  | [ "mix"; "blend"; "hard-light" ] -> Ok mix_blend_hard_light
-  | [ "mix"; "blend"; "soft-light" ] -> Ok mix_blend_soft_light
-  | [ "mix"; "blend"; "difference" ] -> Ok mix_blend_difference
-  | [ "mix"; "blend"; "exclusion" ] -> Ok mix_blend_exclusion
-  | [ "mix"; "blend"; "hue" ] -> Ok mix_blend_hue
-  | [ "mix"; "blend"; "saturation" ] -> Ok mix_blend_saturation
-  | [ "mix"; "blend"; "color" ] -> Ok mix_blend_color
-  | [ "mix"; "blend"; "luminosity" ] -> Ok mix_blend_luminosity
+      Parse.int_bounded ~name:"opacity" ~min:0 ~max:100 n >|= fun n -> Opacity n
+  | [ "ring" ] -> Ok Ring_md
+  | [ "ring"; "0" ] -> Ok Ring_none
+  | [ "ring"; "1" ] -> Ok Ring_xs
+  | [ "ring"; "2" ] -> Ok Ring_sm
+  | [ "ring"; "3" ] -> Ok Ring_md
+  | [ "ring"; "4" ] -> Ok Ring_lg
+  | [ "ring"; "8" ] -> Ok Ring_xl
+  | [ "ring"; "inset" ] -> Ok Ring_inset
+  | [ "transition" ] -> Ok Transition_all
+  | [ "transition"; "none" ] -> Ok Transition_none
+  | [ "transition"; "all" ] -> Ok Transition_all
+  | [ "transition"; "colors" ] -> Ok Transition_colors
+  | [ "transition"; "opacity" ] -> Ok Transition_opacity
+  | [ "transition"; "shadow" ] -> Ok Transition_shadow
+  | [ "transition"; "transform" ] -> Ok Transition_transform
+  | [ "duration"; n ] -> Parse.int_pos ~name:"duration" n >|= fun n -> Duration n
+  | [ "mix"; "blend"; "normal" ] -> Ok Mix_blend_normal
+  | [ "mix"; "blend"; "multiply" ] -> Ok Mix_blend_multiply
+  | [ "mix"; "blend"; "screen" ] -> Ok Mix_blend_screen
+  | [ "mix"; "blend"; "overlay" ] -> Ok Mix_blend_overlay
+  | [ "mix"; "blend"; "darken" ] -> Ok Mix_blend_darken
+  | [ "mix"; "blend"; "lighten" ] -> Ok Mix_blend_lighten
+  | [ "mix"; "blend"; "color-dodge" ] -> Ok Mix_blend_color_dodge
+  | [ "mix"; "blend"; "color-burn" ] -> Ok Mix_blend_color_burn
+  | [ "mix"; "blend"; "hard-light" ] -> Ok Mix_blend_hard_light
+  | [ "mix"; "blend"; "soft-light" ] -> Ok Mix_blend_soft_light
+  | [ "mix"; "blend"; "difference" ] -> Ok Mix_blend_difference
+  | [ "mix"; "blend"; "exclusion" ] -> Ok Mix_blend_exclusion
+  | [ "mix"; "blend"; "hue" ] -> Ok Mix_blend_hue
+  | [ "mix"; "blend"; "saturation" ] -> Ok Mix_blend_saturation
+  | [ "mix"; "blend"; "color" ] -> Ok Mix_blend_color
+  | [ "mix"; "blend"; "luminosity" ] -> Ok Mix_blend_luminosity
   | _ -> Error (`Msg "Not an effects utility")
 
 (** Suborder function for sorting effects utilities within their priority group.
     Opacity sorted numerically, shadows by size, then blend modes. *)
-let suborder core =
-  if String.starts_with ~prefix:"opacity-" core then
-    (* Extract numeric value for opacity *)
-    try
-      let num_str = String.sub core 8 (String.length core - 8) in
-      int_of_string num_str
-    with _ -> 0
-  else if core = "shadow" then 1000
-  else if core = "shadow-none" then 1001
-  else if String.starts_with ~prefix:"shadow-" core then
-    (* shadow-sm < shadow-md < shadow-lg < shadow-xl < shadow-2xl *)
-    1002
-    +
-    match core with
-    | "shadow-sm" -> 0
-    | "shadow-md" -> 1
-    | "shadow-lg" -> 2
-    | "shadow-xl" -> 3
-    | "shadow-2xl" -> 4
-    | _ -> 5
-  else if String.starts_with ~prefix:"mix-blend-" core then 2000
-  else if String.starts_with ~prefix:"background-blend-" core then 3000
-  else 9000
+let suborder = function
+  | Opacity n -> n
+  | Shadow_none -> 1001
+  | Shadow -> 1000
+  | Shadow_sm -> 1002
+  | Shadow_md -> 1003
+  | Shadow_lg -> 1004
+  | Shadow_xl -> 1005
+  | Shadow_2xl -> 1006
+  | Shadow_inner -> 1007
+  | Mix_blend_normal -> 2000
+  | Mix_blend_multiply -> 2001
+  | Mix_blend_screen -> 2002
+  | Mix_blend_overlay -> 2003
+  | Mix_blend_darken -> 2004
+  | Mix_blend_lighten -> 2005
+  | Mix_blend_color_dodge -> 2006
+  | Mix_blend_color_burn -> 2007
+  | Mix_blend_hard_light -> 2008
+  | Mix_blend_soft_light -> 2009
+  | Mix_blend_difference -> 2010
+  | Mix_blend_exclusion -> 2011
+  | Mix_blend_hue -> 2012
+  | Mix_blend_saturation -> 2013
+  | Mix_blend_color -> 2014
+  | Mix_blend_luminosity -> 2015
+  | Ring_none -> 4000
+  | Ring_xs -> 4001
+  | Ring_sm -> 4002
+  | Ring_md -> 4003
+  | Ring_lg -> 4004
+  | Ring_xl -> 4005
+  | Ring_inset -> 4006
+  | Transition_none -> 5000
+  | Transition_all -> 5001
+  | Transition_colors -> 5002
+  | Transition_opacity -> 5003
+  | Transition_shadow -> 5004
+  | Transition_transform -> 5005
+  | Duration n -> 6000 + n

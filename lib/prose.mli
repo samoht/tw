@@ -34,6 +34,24 @@ type variant =
   [ `Base | `Sm | `Lg | `Xl | `Xl2 | `Gray | `Slate | `Zinc | `Neutral | `Stone ]
 (** Prose variant types *)
 
+(** {1 Utility Types} *)
+
+type utility
+
+val of_string : string list -> (utility, [ `Msg of string ]) result
+(** [of_string parts] parses a prose/container utility from string parts.
+    Returns an internal structured representation. *)
+
+(** {1 Internal Conversion Functions} *)
+
+val to_style : utility -> Style.t
+(** [to_style u] converts a structured prose utility to a style.
+    For internal use by the Tw module. *)
+
+val suborder : utility -> int
+(** [suborder u] returns the ordering value for prose utility [u].
+    Used for deterministic CSS output ordering. *)
+
 val pp : variant -> string
 (** [pp variant] pretty-prints a prose variant. *)
 
@@ -69,38 +87,35 @@ val css_variables : Css.declaration list
 
 (** {2 Prose Utilities} *)
 
-val prose : Core.t
+val prose : Style.t
 (** [prose] applies base prose styling. *)
 
-val prose_sm : Core.t
+val prose_sm : Style.t
 (** [prose_sm] applies small prose styling. *)
 
-val prose_lg : Core.t
+val prose_lg : Style.t
 (** [prose_lg] applies large prose styling. *)
 
-val prose_xl : Core.t
+val prose_xl : Style.t
 (** [prose_xl] applies extra large prose styling. *)
 
-val prose_2xl : Core.t
+val prose_2xl : Style.t
 (** [prose_2xl] applies 2xl prose styling. *)
 
-val prose_gray : Core.t
+val prose_gray : Style.t
 (** [prose_gray] applies gray color theme. *)
 
-val prose_slate : Core.t
+val prose_slate : Style.t
 (** [prose_slate] applies slate color theme. *)
 
-val prose_zinc : Core.t
+val prose_zinc : Style.t
 (** [prose_zinc] applies zinc color theme. *)
 
-val prose_neutral : Core.t
+val prose_neutral : Style.t
 (** [prose_neutral] applies neutral color theme. *)
 
-val prose_stone : Core.t
+val prose_stone : Style.t
 (** [prose_stone] applies stone color theme. *)
-
-val of_string : string list -> (Core.t, [ `Msg of string ]) result
-(** [of_string parts] parses a prose utility from string parts. *)
 
 val stylesheet : unit -> Css.statement list
 (** [stylesheet ()] generates complete CSS rules for all prose variants. *)
@@ -110,10 +125,10 @@ val stylesheet : unit -> Css.statement list
     Helper utilities that add semantic markers used by prose selectors without
     emitting any CSS on their own. Useful to avoid raw class strings in HTML. *)
 
-val prose_lead : Core.t
+val prose_lead : Style.t
 (** [prose_lead] applies the "lead" marker class for emphasized first paragraphs
     inside prose. *)
 
-val not_prose : Core.t
+val not_prose : Style.t
 (** [not_prose] applies the "not-prose" marker class to exclude a subtree from
     prose styling. *)

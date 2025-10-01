@@ -17,8 +17,77 @@
       ["ring"; "2"], ["outline"; "offset"; "4"]. Unknown tokens yield `Error
       (`Msg "Not a border utility")`. *)
 
-open Core
+open Style
 open Css
+
+(** {1 Utility Types} *)
+
+type utility =
+  (* Border width utilities *)
+  | Border
+  | Border_0
+  | Border_2
+  | Border_4
+  | Border_8
+  (* Border side/axis utilities *)
+  | Border_t
+  | Border_r
+  | Border_b
+  | Border_l
+  | Border_x
+  | Border_y
+  (* Border side utilities with widths *)
+  | Border_t_0
+  | Border_t_2
+  | Border_t_4
+  | Border_t_8
+  | Border_r_0
+  | Border_r_2
+  | Border_r_4
+  | Border_r_8
+  | Border_b_0
+  | Border_b_2
+  | Border_b_4
+  | Border_b_8
+  | Border_l_0
+  | Border_l_2
+  | Border_l_4
+  | Border_l_8
+  (* Border style utilities *)
+  | Border_solid
+  | Border_dashed
+  | Border_dotted
+  | Border_double
+  | Border_none
+  (* Border radius utilities *)
+  | Rounded
+  | Rounded_none
+  | Rounded_sm
+  | Rounded_md
+  | Rounded_lg
+  | Rounded_xl
+  | Rounded_2xl
+  | Rounded_3xl
+  | Rounded_full
+  (* Side-specific rounded utilities *)
+  | Rounded_t
+  | Rounded_r
+  | Rounded_b
+  | Rounded_l
+  (* Corner-specific rounded utilities *)
+  | Rounded_tl
+  | Rounded_tr
+  | Rounded_br
+  | Rounded_bl
+  (* Corner-specific rounded utilities with sizes *)
+  | Rounded_t_lg
+  | Rounded_tl_2xl
+  (* Outline utilities *)
+  | Outline_offset_0
+  | Outline_offset_1
+  | Outline_offset_2
+  | Outline_offset_4
+  | Outline_offset_8
 
 (** {1 Border Width Utilities} *)
 
@@ -274,75 +343,202 @@ let outline_offset_2 = style "outline-offset-2" [ outline_offset (Px 2.) ]
 let outline_offset_4 = style "outline-offset-4" [ outline_offset (Px 4.) ]
 let outline_offset_8 = style "outline-offset-8" [ outline_offset (Px 8.) ]
 
+(** {1 Conversion Functions} *)
+
+let to_style = function
+  (* Border width utilities *)
+  | Border -> border
+  | Border_0 -> border_0
+  | Border_2 -> border_2
+  | Border_4 -> border_4
+  | Border_8 -> border_8
+  (* Border side/axis utilities *)
+  | Border_t -> border_t
+  | Border_r -> border_r
+  | Border_b -> border_b
+  | Border_l -> border_l
+  | Border_x -> border_x
+  | Border_y -> border_y
+  (* Border side utilities with widths *)
+  | Border_t_0 -> border_t_0
+  | Border_t_2 -> border_t_2
+  | Border_t_4 -> border_t_4
+  | Border_t_8 -> border_t_8
+  | Border_r_0 -> border_r_0
+  | Border_r_2 -> border_r_2
+  | Border_r_4 -> border_r_4
+  | Border_r_8 -> border_r_8
+  | Border_b_0 -> border_b_0
+  | Border_b_2 -> border_b_2
+  | Border_b_4 -> border_b_4
+  | Border_b_8 -> border_b_8
+  | Border_l_0 -> border_l_0
+  | Border_l_2 -> border_l_2
+  | Border_l_4 -> border_l_4
+  | Border_l_8 -> border_l_8
+  (* Border style utilities *)
+  | Border_solid -> border_solid
+  | Border_dashed -> border_dashed
+  | Border_dotted -> border_dotted
+  | Border_double -> border_double
+  | Border_none -> border_none
+  (* Border radius utilities *)
+  | Rounded -> rounded
+  | Rounded_none -> rounded_none
+  | Rounded_sm -> rounded_sm
+  | Rounded_md -> rounded_md
+  | Rounded_lg -> rounded_lg
+  | Rounded_xl -> rounded_xl
+  | Rounded_2xl -> rounded_2xl
+  | Rounded_3xl -> rounded_3xl
+  | Rounded_full -> rounded_full
+  (* Side-specific rounded utilities *)
+  | Rounded_t -> rounded_t
+  | Rounded_r -> rounded_r
+  | Rounded_b -> rounded_b
+  | Rounded_l -> rounded_l
+  (* Corner-specific rounded utilities *)
+  | Rounded_tl -> rounded_tl
+  | Rounded_tr -> rounded_tr
+  | Rounded_br -> rounded_br
+  | Rounded_bl -> rounded_bl
+  (* Corner-specific rounded utilities with sizes *)
+  | Rounded_t_lg -> rounded_t_lg
+  | Rounded_tl_2xl -> rounded_tl_2xl
+  (* Outline utilities *)
+  | Outline_offset_0 -> outline_offset_0
+  | Outline_offset_1 -> outline_offset_1
+  | Outline_offset_2 -> outline_offset_2
+  | Outline_offset_4 -> outline_offset_4
+  | Outline_offset_8 -> outline_offset_8
+
 (** {1 Parsing Functions} *)
 
 let of_string = function
-  | [ "border" ] -> Ok border
-  | [ "border"; "0" ] -> Ok border_0
-  | [ "border"; "2" ] -> Ok border_2
-  | [ "border"; "4" ] -> Ok border_4
-  | [ "border"; "8" ] -> Ok border_8
-  | [ "border"; "t" ] -> Ok border_t
-  | [ "border"; "r" ] -> Ok border_r
-  | [ "border"; "b" ] -> Ok border_b
-  | [ "border"; "l" ] -> Ok border_l
-  | [ "border"; "x" ] -> Ok border_x
-  | [ "border"; "y" ] -> Ok border_y
-  | [ "border"; "t"; "0" ] -> Ok border_t_0
-  | [ "border"; "t"; "2" ] -> Ok border_t_2
-  | [ "border"; "t"; "4" ] -> Ok border_t_4
-  | [ "border"; "t"; "8" ] -> Ok border_t_8
-  | [ "border"; "r"; "0" ] -> Ok border_r_0
-  | [ "border"; "r"; "2" ] -> Ok border_r_2
-  | [ "border"; "r"; "4" ] -> Ok border_r_4
-  | [ "border"; "r"; "8" ] -> Ok border_r_8
-  | [ "border"; "b"; "0" ] -> Ok border_b_0
-  | [ "border"; "b"; "2" ] -> Ok border_b_2
-  | [ "border"; "b"; "4" ] -> Ok border_b_4
-  | [ "border"; "b"; "8" ] -> Ok border_b_8
-  | [ "border"; "l"; "0" ] -> Ok border_l_0
-  | [ "border"; "l"; "2" ] -> Ok border_l_2
-  | [ "border"; "l"; "4" ] -> Ok border_l_4
-  | [ "border"; "l"; "8" ] -> Ok border_l_8
-  | [ "border"; "solid" ] -> Ok border_solid
-  | [ "border"; "dashed" ] -> Ok border_dashed
-  | [ "border"; "dotted" ] -> Ok border_dotted
-  | [ "border"; "double" ] -> Ok border_double
-  | [ "border"; "none" ] -> Ok border_none
-  | [ "rounded" ] -> Ok rounded
-  | [ "rounded"; "none" ] -> Ok rounded_none
-  | [ "rounded"; "sm" ] -> Ok rounded_sm
-  | [ "rounded"; "md" ] -> Ok rounded_md
-  | [ "rounded"; "lg" ] -> Ok rounded_lg
-  | [ "rounded"; "xl" ] -> Ok rounded_xl
-  | [ "rounded"; "2xl" ] -> Ok rounded_2xl
-  | [ "rounded"; "3xl" ] -> Ok rounded_3xl
-  | [ "rounded"; "full" ] -> Ok rounded_full
-  | [ "rounded"; "t" ] -> Ok rounded_t
-  | [ "rounded"; "r" ] -> Ok rounded_r
-  | [ "rounded"; "b" ] -> Ok rounded_b
-  | [ "rounded"; "l" ] -> Ok rounded_l
-  | [ "rounded"; "tl" ] -> Ok rounded_tl
-  | [ "rounded"; "tr" ] -> Ok rounded_tr
-  | [ "rounded"; "br" ] -> Ok rounded_br
-  | [ "rounded"; "bl" ] -> Ok rounded_bl
-  | [ "rounded"; "t"; "lg" ] -> Ok rounded_t_lg
-  | [ "rounded"; "tl"; "2xl" ] -> Ok rounded_tl_2xl
-  | [ "outline"; "offset"; "0" ] -> Ok outline_offset_0
-  | [ "outline"; "offset"; "1" ] -> Ok outline_offset_1
-  | [ "outline"; "offset"; "2" ] -> Ok outline_offset_2
-  | [ "outline"; "offset"; "4" ] -> Ok outline_offset_4
-  | [ "outline"; "offset"; "8" ] -> Ok outline_offset_8
+  | [ "border" ] -> Ok Border
+  | [ "border"; "0" ] -> Ok Border_0
+  | [ "border"; "2" ] -> Ok Border_2
+  | [ "border"; "4" ] -> Ok Border_4
+  | [ "border"; "8" ] -> Ok Border_8
+  | [ "border"; "t" ] -> Ok Border_t
+  | [ "border"; "r" ] -> Ok Border_r
+  | [ "border"; "b" ] -> Ok Border_b
+  | [ "border"; "l" ] -> Ok Border_l
+  | [ "border"; "x" ] -> Ok Border_x
+  | [ "border"; "y" ] -> Ok Border_y
+  | [ "border"; "t"; "0" ] -> Ok Border_t_0
+  | [ "border"; "t"; "2" ] -> Ok Border_t_2
+  | [ "border"; "t"; "4" ] -> Ok Border_t_4
+  | [ "border"; "t"; "8" ] -> Ok Border_t_8
+  | [ "border"; "r"; "0" ] -> Ok Border_r_0
+  | [ "border"; "r"; "2" ] -> Ok Border_r_2
+  | [ "border"; "r"; "4" ] -> Ok Border_r_4
+  | [ "border"; "r"; "8" ] -> Ok Border_r_8
+  | [ "border"; "b"; "0" ] -> Ok Border_b_0
+  | [ "border"; "b"; "2" ] -> Ok Border_b_2
+  | [ "border"; "b"; "4" ] -> Ok Border_b_4
+  | [ "border"; "b"; "8" ] -> Ok Border_b_8
+  | [ "border"; "l"; "0" ] -> Ok Border_l_0
+  | [ "border"; "l"; "2" ] -> Ok Border_l_2
+  | [ "border"; "l"; "4" ] -> Ok Border_l_4
+  | [ "border"; "l"; "8" ] -> Ok Border_l_8
+  | [ "border"; "solid" ] -> Ok Border_solid
+  | [ "border"; "dashed" ] -> Ok Border_dashed
+  | [ "border"; "dotted" ] -> Ok Border_dotted
+  | [ "border"; "double" ] -> Ok Border_double
+  | [ "border"; "none" ] -> Ok Border_none
+  | [ "rounded" ] -> Ok Rounded
+  | [ "rounded"; "none" ] -> Ok Rounded_none
+  | [ "rounded"; "sm" ] -> Ok Rounded_sm
+  | [ "rounded"; "md" ] -> Ok Rounded_md
+  | [ "rounded"; "lg" ] -> Ok Rounded_lg
+  | [ "rounded"; "xl" ] -> Ok Rounded_xl
+  | [ "rounded"; "2xl" ] -> Ok Rounded_2xl
+  | [ "rounded"; "3xl" ] -> Ok Rounded_3xl
+  | [ "rounded"; "full" ] -> Ok Rounded_full
+  | [ "rounded"; "t" ] -> Ok Rounded_t
+  | [ "rounded"; "r" ] -> Ok Rounded_r
+  | [ "rounded"; "b" ] -> Ok Rounded_b
+  | [ "rounded"; "l" ] -> Ok Rounded_l
+  | [ "rounded"; "tl" ] -> Ok Rounded_tl
+  | [ "rounded"; "tr" ] -> Ok Rounded_tr
+  | [ "rounded"; "br" ] -> Ok Rounded_br
+  | [ "rounded"; "bl" ] -> Ok Rounded_bl
+  | [ "rounded"; "t"; "lg" ] -> Ok Rounded_t_lg
+  | [ "rounded"; "tl"; "2xl" ] -> Ok Rounded_tl_2xl
+  | [ "outline"; "offset"; "0" ] -> Ok Outline_offset_0
+  | [ "outline"; "offset"; "1" ] -> Ok Outline_offset_1
+  | [ "outline"; "offset"; "2" ] -> Ok Outline_offset_2
+  | [ "outline"; "offset"; "4" ] -> Ok Outline_offset_4
+  | [ "outline"; "offset"; "8" ] -> Ok Outline_offset_8
   (* ring* handled in Effects *)
   | _ -> Error (`Msg "Not a border utility")
 
 (** Suborder function for sorting border utilities within their priority group.
     Borders come before rounded, then outlines. *)
-let suborder core =
-  if
-    String.starts_with ~prefix:"border-" core
-    && not (String.starts_with ~prefix:"rounded" core)
-  then 0
-  else if String.starts_with ~prefix:"rounded" core then 1
-  else if String.starts_with ~prefix:"outline" core then 2
-  else 3
+let suborder = function
+  (* Border width utilities (0-99) *)
+  | Border -> 0
+  | Border_0 -> 1
+  | Border_2 -> 2
+  | Border_4 -> 3
+  | Border_8 -> 4
+  (* Border side/axis utilities (100-199) *)
+  | Border_t -> 100
+  | Border_r -> 101
+  | Border_b -> 102
+  | Border_l -> 103
+  | Border_x -> 104
+  | Border_y -> 105
+  (* Border side utilities with widths (200-399) *)
+  | Border_t_0 -> 200
+  | Border_t_2 -> 201
+  | Border_t_4 -> 202
+  | Border_t_8 -> 203
+  | Border_r_0 -> 210
+  | Border_r_2 -> 211
+  | Border_r_4 -> 212
+  | Border_r_8 -> 213
+  | Border_b_0 -> 220
+  | Border_b_2 -> 221
+  | Border_b_4 -> 222
+  | Border_b_8 -> 223
+  | Border_l_0 -> 230
+  | Border_l_2 -> 231
+  | Border_l_4 -> 232
+  | Border_l_8 -> 233
+  (* Border style utilities (400-499) *)
+  | Border_solid -> 400
+  | Border_dashed -> 401
+  | Border_dotted -> 402
+  | Border_double -> 403
+  | Border_none -> 404
+  (* Border radius utilities (1000-1099) *)
+  | Rounded -> 1000
+  | Rounded_none -> 1001
+  | Rounded_sm -> 1002
+  | Rounded_md -> 1003
+  | Rounded_lg -> 1004
+  | Rounded_xl -> 1005
+  | Rounded_2xl -> 1006
+  | Rounded_3xl -> 1007
+  | Rounded_full -> 1008
+  (* Side-specific rounded utilities (1100-1199) *)
+  | Rounded_t -> 1100
+  | Rounded_r -> 1101
+  | Rounded_b -> 1102
+  | Rounded_l -> 1103
+  (* Corner-specific rounded utilities (1200-1299) *)
+  | Rounded_tl -> 1200
+  | Rounded_tr -> 1201
+  | Rounded_br -> 1202
+  | Rounded_bl -> 1203
+  (* Corner-specific rounded utilities with sizes (1300-1399) *)
+  | Rounded_t_lg -> 1300
+  | Rounded_tl_2xl -> 1301
+  (* Outline utilities (2000-2099) *)
+  | Outline_offset_0 -> 2000
+  | Outline_offset_1 -> 2001
+  | Outline_offset_2 -> 2002
+  | Outline_offset_4 -> 2003
+  | Outline_offset_8 -> 2004
