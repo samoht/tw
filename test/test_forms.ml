@@ -3,7 +3,8 @@ open Alcotest
 let check parts =
   let expected = String.concat "-" parts in
   match Tw.Forms.of_string parts with
-  | Ok u -> check string "forms class" expected (Tw.Style.pp (Tw.Forms.to_style u))
+  | Ok u ->
+      check string "forms class" expected (Tw.Style.pp (Tw.Forms.to_style u))
   | Error (`Msg msg) -> fail msg
 
 let test_inputs () =

@@ -7,12 +7,12 @@ open Style
 type utility
 
 val to_style : utility -> t
-(** [to_style u] converts a structured container utility to a style.
-    For internal use by the Tw module. *)
+(** [to_style u] converts a structured container utility to a style. For
+    internal use by the Tw module. *)
 
 val suborder : utility -> int
-(** [suborder u] returns the ordering value for container utility [u].
-    Used for deterministic CSS output ordering. *)
+(** [suborder u] returns the ordering value for container utility [u]. Used for
+    deterministic CSS output ordering. *)
 
 (** {1 Container Type Utilities} *)
 

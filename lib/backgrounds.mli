@@ -17,18 +17,18 @@ type direction =
   | Bottom_left
 
 val of_string : string list -> (utility, [ `Msg of string ]) result
-(** [of_string parts] parses a background utility from string parts.
-    Returns an internal structured representation. *)
+(** [of_string parts] parses a background utility from string parts. Returns an
+    internal structured representation. *)
 
 (** {1 Internal Conversion Functions} *)
 
 val to_style : utility -> Style.t
-(** [to_style u] converts a structured background utility to a style.
-    For internal use by the Tw module. *)
+(** [to_style u] converts a structured background utility to a style. For
+    internal use by the Tw module. *)
 
 val suborder : utility -> int
-(** [suborder u] returns the ordering value for background utility [u].
-    Used for deterministic CSS output ordering. *)
+(** [suborder u] returns the ordering value for background utility [u]. Used for
+    deterministic CSS output ordering. *)
 
 val bg_gradient_to : direction -> t
 (** [bg_gradient_to dir] sets gradient direction. Prefer this typed variant over

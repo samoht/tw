@@ -48,16 +48,16 @@ type utility
 (** {1 Internal Conversion Functions} *)
 
 val to_style : utility -> Style.t
-(** [to_style u] converts a structured color utility to a style.
-    For internal use by the Tw module. *)
+(** [to_style u] converts a structured color utility to a style. For internal
+    use by the Tw module. *)
 
 val utility_of_string : string list -> (utility, [ `Msg of string ]) result
-(** [utility_of_string parts] parses a color utility from string parts.
-    Returns an internal structured representation. *)
+(** [utility_of_string parts] parses a color utility from string parts. Returns
+    an internal structured representation. *)
 
 val suborder : utility -> int
-(** [suborder u] returns the ordering value for color utility [u].
-    Used for deterministic CSS output ordering. *)
+(** [suborder u] returns the ordering value for color utility [u]. Used for
+    deterministic CSS output ordering. *)
 
 val pp : color -> string
 (** [pp color] pretty-prints a color. *)

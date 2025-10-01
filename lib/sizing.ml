@@ -145,8 +145,8 @@ let w_2_5 = style "w-2/5" [ width (Pct 40.0) ]
 let w_3_5 = style "w-3/5" [ width (Pct 60.0) ]
 let w_4_5 = style "w-4/5" [ width (Pct 80.0) ]
 
-(* Int-based width function for Tailwind scale *)
-let w n = spacing_utility "w-" width (float_of_int n)
+(* Int-based width function for Tailwind scale (n * 0.25rem) *)
+let w n = w' (`Rem (float_of_int n))
 
 (** {1 Height Utilities} *)
 
@@ -161,6 +161,7 @@ let h' size =
   | `Xl_2 -> style "h-2xl" [ height (Rem 4.0) ]
   | `Xl_3 -> style "h-3xl" [ height (Rem 6.0) ]
   | `Full -> style "h-full" [ height (Pct 100.0) ]
+  | `Rem n -> spacing_utility "h-" height n
 
 let h_auto = style "h-auto" [ height Auto ]
 let h_px = style "h-px" [ height (Px 1.0) ]
@@ -179,8 +180,8 @@ let h_2_5 = style "h-2/5" [ height (Pct 40.0) ]
 let h_3_5 = style "h-3/5" [ height (Pct 60.0) ]
 let h_4_5 = style "h-4/5" [ height (Pct 80.0) ]
 
-(* Int-based height function for Tailwind scale *)
-let h n = spacing_utility "h-" height (float_of_int n)
+(* Int-based height function for Tailwind scale (n * 0.25rem) *)
+let h n = h' (`Rem (float_of_int n))
 
 (** {1 Min Width Utilities} *)
 
@@ -195,6 +196,7 @@ let min_w' size =
   | `Xl_2 -> style "min-w-2xl" [ min_width (Rem 4.0) ]
   | `Xl_3 -> style "min-w-3xl" [ min_width (Rem 6.0) ]
   | `Full -> style "min-w-full" [ min_width (Pct 100.0) ]
+  | `Rem n -> spacing_utility "min-w-" min_width n
 
 let min_w_0 = style "min-w-0" [ min_width (Px 0.) ]
 let min_w_full = style "min-w-full" [ min_width (Pct 100.0) ]
@@ -202,8 +204,8 @@ let min_w_min = style "min-w-min" [ min_width Min_content ]
 let min_w_max = style "min-w-max" [ min_width Max_content ]
 let min_w_fit = style "min-w-fit" [ min_width Fit_content ]
 
-(* Int-based min-width function for Tailwind scale *)
-let min_w n = spacing_utility "min-w-" min_width (float_of_int n)
+(* Int-based min-width function for Tailwind scale (n * 0.25rem) *)
+let min_w n = min_w' (`Rem (float_of_int n))
 
 (** {1 Max Width Utilities} *)
 
@@ -218,6 +220,7 @@ let max_w' size =
   | `Xl_2 -> style "max-w-2xl" [ max_width (Rem 42.0) ]
   | `Xl_3 -> style "max-w-3xl" [ max_width (Rem 48.0) ]
   | `Full -> style "max-w-full" [ max_width (Pct 100.0) ]
+  | `Rem n -> spacing_utility "max-w-" max_width n
 
 (* Container size theme variables *)
 let container_xs = Var.theme Css.Length "container-xs" ~order:(5, 0)
@@ -290,8 +293,8 @@ let max_w_screen_lg = style "max-w-screen-lg" [ max_width (Px 1024.) ]
 let max_w_screen_xl = style "max-w-screen-xl" [ max_width (Px 1280.) ]
 let max_w_screen_2xl = style "max-w-screen-2xl" [ max_width (Px 1536.) ]
 
-(* Int-based max-width function for Tailwind scale *)
-let max_w n = spacing_utility "max-w-" max_width (float_of_int n)
+(* Int-based max-width function for Tailwind scale (n * 0.25rem) *)
+let max_w n = max_w' (`Rem (float_of_int n))
 
 (** {1 Min Height Utilities} *)
 
@@ -306,6 +309,7 @@ let min_h' size =
   | `Xl_2 -> style "min-h-2xl" [ min_height (Rem 4.0) ]
   | `Xl_3 -> style "min-h-3xl" [ min_height (Rem 6.0) ]
   | `Full -> style "min-h-full" [ min_height (Pct 100.0) ]
+  | `Rem n -> spacing_utility "min-h-" min_height n
 
 let min_h_0 = style "min-h-0" [ min_height (Px 0.) ]
 let min_h_full = style "min-h-full" [ min_height (Pct 100.0) ]
@@ -314,8 +318,8 @@ let min_h_min = style "min-h-min" [ min_height Min_content ]
 let min_h_max = style "min-h-max" [ min_height Max_content ]
 let min_h_fit = style "min-h-fit" [ min_height Fit_content ]
 
-(* Int-based min-height function for Tailwind scale *)
-let min_h n = spacing_utility "min-h-" min_height (float_of_int n)
+(* Int-based min-height function for Tailwind scale (n * 0.25rem) *)
+let min_h n = min_h' (`Rem (float_of_int n))
 
 (** {1 Max Height Utilities} *)
 
@@ -331,6 +335,7 @@ let max_h' size =
   | `Xl_2 -> style "max-h-2xl" [ max_height (Rem 4.0) ]
   | `Xl_3 -> style "max-h-3xl" [ max_height (Rem 6.0) ]
   | `Full -> style "max-h-full" [ max_height (Pct 100.0) ]
+  | `Rem n -> spacing_utility "max-h-" max_height n
 
 let max_h_none =
   style "max-h-none" [ (* max-height: none not directly supported *) ]
@@ -341,8 +346,8 @@ let max_h_min = style "max-h-min" [ max_height Min_content ]
 let max_h_max = style "max-h-max" [ max_height Max_content ]
 let max_h_fit = style "max-h-fit" [ max_height Fit_content ]
 
-(* Int-based max-height function for Tailwind scale *)
-let max_h n = spacing_utility "max-h-" max_height (float_of_int n)
+(* Int-based max-height function for Tailwind scale (n * 0.25rem) *)
+let max_h n = max_h' (`Rem (float_of_int n))
 
 (** {1 String Parsing} *)
 
@@ -384,7 +389,7 @@ let to_style = function
   | W_min -> w_min
   | W_max -> w_max
   | W_fit -> w_fit
-  | W_spacing n -> spacing_utility "w-" width n
+  | W_spacing n -> w' (`Rem n)
   | W_fraction f -> (
       match f with
       | "1/2" -> w_1_2
@@ -405,7 +410,7 @@ let to_style = function
   | H_min -> h_min
   | H_max -> h_max
   | H_fit -> h_fit
-  | H_spacing n -> spacing_utility "h-" height n
+  | H_spacing n -> h' (`Rem n)
   | H_fraction f -> (
       match f with
       | "1/2" -> h_1_2
@@ -424,7 +429,7 @@ let to_style = function
   | Min_w_min -> min_w_min
   | Min_w_max -> min_w_max
   | Min_w_fit -> min_w_fit
-  | Min_w_spacing n -> spacing_utility "min-w-" min_width n
+  | Min_w_spacing n -> min_w' (`Rem n)
   (* Max-width utilities *)
   | Max_w_none -> max_w_none
   | Max_w_xs -> max_w_xs
@@ -448,12 +453,12 @@ let to_style = function
   | Max_w_screen_lg -> max_w_screen_lg
   | Max_w_screen_xl -> max_w_screen_xl
   | Max_w_screen_2xl -> max_w_screen_2xl
-  | Max_w_spacing n -> spacing_utility "max-w-" max_width n
+  | Max_w_spacing n -> max_w' (`Rem n)
   (* Min-height utilities *)
   | Min_h_0 -> min_h_0
   | Min_h_full -> min_h_full
   | Min_h_screen -> min_h_screen
-  | Min_h_spacing n -> spacing_utility "min-h-" min_height n
+  | Min_h_spacing n -> min_h' (`Rem n)
   (* Max-height utilities *)
   | Max_h_none -> max_h_none
   | Max_h_full -> max_h_full
@@ -461,7 +466,7 @@ let to_style = function
   | Max_h_min -> max_h_min
   | Max_h_max -> max_h_max
   | Max_h_fit -> max_h_fit
-  | Max_h_spacing n -> spacing_utility "max-h-" max_height n
+  | Max_h_spacing n -> max_h' (`Rem n)
   (* Size utilities *)
   | Size_auto -> style "size-auto" [ width Auto; height Auto ]
   | Size_full -> style "size-full" [ width (Pct 100.0); height (Pct 100.0) ]

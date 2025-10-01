@@ -45,12 +45,12 @@ val of_string : string list -> (utility, [ `Msg of string ]) result
 (** {1 Internal Conversion Functions} *)
 
 val to_style : utility -> Style.t
-(** [to_style u] converts a structured prose utility to a style.
-    For internal use by the Tw module. *)
+(** [to_style u] converts a structured prose utility to a style. For internal
+    use by the Tw module. *)
 
 val suborder : utility -> int
-(** [suborder u] returns the ordering value for prose utility [u].
-    Used for deterministic CSS output ordering. *)
+(** [suborder u] returns the ordering value for prose utility [u]. Used for
+    deterministic CSS output ordering. *)
 
 val pp : variant -> string
 (** [pp variant] pretty-prints a prose variant. *)

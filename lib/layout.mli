@@ -5,18 +5,18 @@
 type utility
 
 val of_string : string list -> (utility, [ `Msg of string ]) result
-(** [of_string parts] parses a layout utility from string parts.
-    Returns an internal structured representation. *)
+(** [of_string parts] parses a layout utility from string parts. Returns an
+    internal structured representation. *)
 
 (** {1 Internal Conversion Functions} *)
 
 val to_style : utility -> Style.t
-(** [to_style u] converts a structured layout utility to a style.
-    For internal use by the Tw module. *)
+(** [to_style u] converts a structured layout utility to a style. For internal
+    use by the Tw module. *)
 
 val suborder : utility -> int
-(** [suborder u] returns the ordering value for layout utility [u].
-    Used for deterministic CSS output ordering. *)
+(** [suborder u] returns the ordering value for layout utility [u]. Used for
+    deterministic CSS output ordering. *)
 
 (** {1 Display Utilities} *)
 
@@ -74,7 +74,8 @@ val table_fixed : Style.t
 (** Legacy string-based functions for backward compatibility *)
 
 val position_suborder : string -> int
-(** [position_suborder class_name] returns the suborder for position utilities. *)
+(** [position_suborder class_name] returns the suborder for position utilities.
+*)
 
 val display_suborder : string -> int
 (** [display_suborder class_name] returns the suborder for display utilities. *)

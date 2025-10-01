@@ -3,7 +3,9 @@ open Alcotest
 let check parts =
   let expected = String.concat "-" parts in
   match Tw.Transforms.of_string parts with
-  | Ok t -> check string "transforms class" expected (Tw.Style.pp (Tw.Transforms.to_style t))
+  | Ok t ->
+      check string "transforms class" expected
+        (Tw.Style.pp (Tw.Transforms.to_style t))
   | Error (`Msg msg) -> fail msg
 
 let test_translate_rotate () =

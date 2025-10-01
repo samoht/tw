@@ -1347,22 +1347,24 @@ let suborder = function
   | Bg_current -> 1
   | Text (color, shade) ->
       10000
-      + if is_base_color color then
-          let color_str = pp color in
-          suborder_with_shade color_str
-        else
-          let color_str = pp color in
-          suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
+      +
+      if is_base_color color then
+        let color_str = pp color in
+        suborder_with_shade color_str
+      else
+        let color_str = pp color in
+        suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
   | Text_transparent -> 10000
   | Text_current -> 10001
   | Text_inherit -> 10002
   | Border (color, shade) ->
       20000
-      + if is_base_color color then
-          let color_str = pp color in
-          suborder_with_shade color_str
-        else
-          let color_str = pp color in
-          suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
+      +
+      if is_base_color color then
+        let color_str = pp color in
+        suborder_with_shade color_str
+      else
+        let color_str = pp color in
+        suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
   | Border_transparent -> 20000
   | Border_current -> 20001

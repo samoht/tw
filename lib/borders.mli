@@ -7,12 +7,12 @@ open Style
 type utility
 
 val to_style : utility -> t
-(** [to_style u] converts a structured border utility to a style.
-    For internal use by the Tw module. *)
+(** [to_style u] converts a structured border utility to a style. For internal
+    use by the Tw module. *)
 
 val suborder : utility -> int
-(** [suborder u] returns the ordering value for border utility [u].
-    Used for deterministic CSS output ordering. *)
+(** [suborder u] returns the ordering value for border utility [u]. Used for
+    deterministic CSS output ordering. *)
 
 (** {1 Border Width Utilities} *)
 
@@ -147,5 +147,5 @@ val outline_offset_8 : t
 (** {1 Parsing Functions} *)
 
 val of_string : string list -> (utility, [ `Msg of string ]) result
-(** [of_string parts] parses a border/rounded utility from string parts.
-    Returns an internal structured representation. *)
+(** [of_string parts] parses a border/rounded utility from string parts. Returns
+    an internal structured representation. *)
