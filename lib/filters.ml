@@ -219,9 +219,12 @@ let to_style = function
   | Backdrop_contrast n -> backdrop_contrast n
   | Backdrop_opacity n -> backdrop_opacity n
   | Backdrop_saturate n -> backdrop_saturate n
-  | Backdrop_grayscale n -> backdrop_grayscale n
-  | Backdrop_invert n -> backdrop_invert n
-  | Backdrop_sepia n -> backdrop_sepia n
+  | Backdrop_grayscale n ->
+      if n = 100 then backdrop_grayscale_default else backdrop_grayscale n
+  | Backdrop_invert n ->
+      if n = 100 then backdrop_invert_default else backdrop_invert n
+  | Backdrop_sepia n ->
+      if n = 100 then backdrop_sepia_default else backdrop_sepia n
   | Backdrop_hue_rotate n -> backdrop_hue_rotate n
 
 (** {1 Parsing Functions} *)
