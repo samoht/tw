@@ -67,8 +67,7 @@ let container_type_normal' =
   style "container-type-normal" [ container_type Normal ]
 
 (** Container name utility for setting container-name *)
-let container_name' name =
-  style ("container-name-" ^ name) [ container_name name ]
+let container_name' name = style ("container-" ^ name) [ container_name name ]
 
 let container_type_size = base Container_type_size
 let container_type_inline_size = base Container_type_inline_size

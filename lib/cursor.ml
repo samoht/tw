@@ -15,6 +15,11 @@ type t =
   | Cursor_wait
   | Cursor_move
   | Cursor_not_allowed
+  | Cursor_text
+  | Cursor_crosshair
+  | Cursor_help
+  | Cursor_grab
+  | Cursor_grabbing
 
 (** Extensible variant for cursor utilities *)
 type Utility.base += Cursor of t
@@ -30,6 +35,11 @@ let cursor_pointer' = style "cursor-pointer" [ cursor Pointer ]
 let cursor_wait' = style "cursor-wait" [ cursor Wait ]
 let cursor_move' = style "cursor-move" [ cursor Move ]
 let cursor_not_allowed' = style "cursor-not-allowed" [ cursor Not_allowed ]
+let cursor_text' = style "cursor-text" [ cursor Text ]
+let cursor_crosshair' = style "cursor-crosshair" [ cursor Crosshair ]
+let cursor_help' = style "cursor-help" [ cursor Help ]
+let cursor_grab' = style "cursor-grab" [ cursor Grab ]
+let cursor_grabbing' = style "cursor-grabbing" [ cursor Grabbing ]
 
 (** Convert cursor utility to style *)
 let to_style = function
@@ -39,6 +49,11 @@ let to_style = function
   | Cursor_wait -> cursor_wait'
   | Cursor_move -> cursor_move'
   | Cursor_not_allowed -> cursor_not_allowed'
+  | Cursor_text -> cursor_text'
+  | Cursor_crosshair -> cursor_crosshair'
+  | Cursor_help -> cursor_help'
+  | Cursor_grab -> cursor_grab'
+  | Cursor_grabbing -> cursor_grabbing'
 
 (** Suborder for cursor utilities *)
 let suborder = function
@@ -48,6 +63,11 @@ let suborder = function
   | Cursor_wait -> 3
   | Cursor_move -> 4
   | Cursor_not_allowed -> 5
+  | Cursor_text -> 6
+  | Cursor_crosshair -> 7
+  | Cursor_help -> 8
+  | Cursor_grab -> 9
+  | Cursor_grabbing -> 10
 
 (** Parse string parts to cursor utility *)
 let of_string = function
@@ -57,6 +77,11 @@ let of_string = function
   | [ "cursor"; "wait" ] -> Ok Cursor_wait
   | [ "cursor"; "move" ] -> Ok Cursor_move
   | [ "cursor"; "not"; "allowed" ] -> Ok Cursor_not_allowed
+  | [ "cursor"; "text" ] -> Ok Cursor_text
+  | [ "cursor"; "crosshair" ] -> Ok Cursor_crosshair
+  | [ "cursor"; "help" ] -> Ok Cursor_help
+  | [ "cursor"; "grab" ] -> Ok Cursor_grab
+  | [ "cursor"; "grabbing" ] -> Ok Cursor_grabbing
   | _ -> err_not_utility
 
 (** Priority for cursor utilities *)
@@ -79,6 +104,11 @@ let cursor_pointer = utility Cursor_pointer
 let cursor_wait = utility Cursor_wait
 let cursor_move = utility Cursor_move
 let cursor_not_allowed = utility Cursor_not_allowed
+let cursor_text = utility Cursor_text
+let cursor_crosshair = utility Cursor_crosshair
+let cursor_help = utility Cursor_help
+let cursor_grab = utility Cursor_grab
+let cursor_grabbing = utility Cursor_grabbing
 
 (** Register the cursor utility handlers *)
 let () = Utility.register ~wrap ~unwrap handler
