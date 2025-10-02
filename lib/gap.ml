@@ -1,95 +1,84 @@
-(** Gap and space-between utilities *)
+(** Gap and space-between utilities
+
+    What's included:
+    - `gap-*` - Gap between flex/grid items (all, x-axis, y-axis).
+    - `space-x-*`, `space-y-*` - Space between children using margin.
+
+    What's not:
+    - Arbitrary gap values beyond the spacing scale.
+    - Padding-based spacing (use padding utilities instead).
+
+    Parsing contract (`of_string`):
+    - Accepts ["gap"; n], ["gap"; "x" | "y"; n], ["space"; "x" | "y"; n],
+      ["-space"; "x" | "y"; n] for negative space. Unknown tokens yield `Error
+      (`Msg "Not a gap utility")`. *)
 
 open Style
 open Css
 
-let spacing_var = Theme.spacing_var
+(** Error helper *)
+let err_not_utility = Error (`Msg "Not a gap utility")
 
-let pp_spacing_suffix : spacing -> string = function
-  | `Px -> "px"
-  | `Full -> "full"
-  | `Rem f ->
-      let scale = f /. 0.25 in
-      if Float.is_integer scale then string_of_int (abs (int_of_float scale))
-      else
-        let abs_scale = Float.abs scale in
-        let s = string_of_float abs_scale in
-        if String.contains s '.' then
-          let len = String.length s in
-          let rec find_end i =
-            if i < 0 then 0
-            else if s.[i] = '0' then find_end (i - 1)
-            else if s.[i] = '.' then i
-            else i + 1
-          in
-          String.sub s 0 (find_end (len - 1))
-        else s
-
-let to_length spacing_ref : spacing -> length = function
-  | `Px -> Px 1.
-  | `Full -> Pct 100.0
-  | `Rem f ->
-      let n = int_of_float (f /. 0.25) in
-      Calc
-        (Calc.mul (Calc.length (Var spacing_ref)) (Calc.float (float_of_int n)))
-
-let int n = `Rem (float_of_int n *. 0.25)
-
-type utility =
+type Utility.base +=
   | Gap of [ `All | `X | `Y ] * spacing
   | Space of bool (* negative *) * [ `X | `Y ] * spacing
+
+(** Helpers to create Utility.t from Gap/Space *)
+let gap_util axis value = Utility.Utility (Gap (axis, value))
+
+let space_util neg axis value = Utility.Utility (Space (neg, axis, value))
 
 (** {2 Typed Gap Utilities} *)
 
 let gap' (s : spacing) =
-  let class_name = "gap-" ^ pp_spacing_suffix s in
-  let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
-  let len = to_length spacing_ref s in
+  let class_name = "gap-" ^ Spacing.pp_spacing_suffix s in
+  let spacing_decl, spacing_ref = Var.binding Spacing.spacing_var (Rem 0.25) in
+  let len = Spacing.to_length spacing_ref s in
   let gap_value = { row_gap = Some len; column_gap = Some len } in
   match s with
   | `Rem _ -> style class_name [ spacing_decl; gap gap_value ]
   | _ -> style class_name [ gap gap_value ]
 
 let gap_x' (s : spacing) =
-  let class_name = "gap-x-" ^ pp_spacing_suffix s in
-  let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
-  let len = to_length spacing_ref s in
+  let class_name = "gap-x-" ^ Spacing.pp_spacing_suffix s in
+  let spacing_decl, spacing_ref = Var.binding Spacing.spacing_var (Rem 0.25) in
+  let len = Spacing.to_length spacing_ref s in
   match s with
   | `Rem _ -> style class_name [ spacing_decl; column_gap len ]
   | _ -> style class_name [ column_gap len ]
 
 let gap_y' (s : spacing) =
-  let class_name = "gap-y-" ^ pp_spacing_suffix s in
-  let spacing_decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
-  let len = to_length spacing_ref s in
+  let class_name = "gap-y-" ^ Spacing.pp_spacing_suffix s in
+  let spacing_decl, spacing_ref = Var.binding Spacing.spacing_var (Rem 0.25) in
+  let len = Spacing.to_length spacing_ref s in
   match s with
   | `Rem _ -> style class_name [ spacing_decl; row_gap len ]
   | _ -> style class_name [ row_gap len ]
 
 (** {2 Int-based Gap Utilities} *)
 
-let gap n = gap' (int n)
-let gap_x n = gap_x' (int n)
-let gap_y n = gap_y' (int n)
+let gap n = gap_util `All (Spacing.int n)
+let gap_x n = gap_util `X (Spacing.int n)
+let gap_y n = gap_util `Y (Spacing.int n)
 
 (** {2 Special Gap Values} *)
 
-let gap_px = gap' `Px
-let gap_full = gap' `Full
-let gap_x_px = gap_x' `Px
-let gap_x_full = gap_x' `Full
-let gap_y_px = gap_y' `Px
-let gap_y_full = gap_y' `Full
+let gap_px = gap_util `All `Px
+let gap_full = gap_util `All `Full
+let gap_x_px = gap_util `X `Px
+let gap_x_full = gap_util `X `Full
+let gap_y_px = gap_util `Y `Px
+let gap_y_full = gap_util `Y `Full
 
 (** {2 Space Between Utilities} *)
 
-let space_x n =
-  let s = int n in
+let space_x' n =
+  let s = Spacing.int n in
   let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "space-x-" ^ pp_spacing_suffix s in
+  let class_name = prefix ^ "space-x-" ^ Spacing.pp_spacing_suffix s in
   match s with
   | `Rem _ ->
-      let decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+      let decl, spacing_ref = Var.binding Spacing.spacing_var (Rem 0.25) in
       let n_units =
         int_of_float ((match s with `Rem f -> f | _ -> 0.) /. 0.25)
       in
@@ -101,13 +90,18 @@ let space_x n =
   | `Px -> style class_name [ margin_left (Px 1.) ]
   | `Full -> style class_name [ margin_left (Pct 100.0) ]
 
-let space_y n =
-  let s = int n in
+let space_x n =
+  let s = Spacing.int n in
+  let neg = n < 0 in
+  space_util neg `X s
+
+let space_y' n =
+  let s = Spacing.int n in
   let prefix = if n < 0 then "-" else "" in
-  let class_name = prefix ^ "space-y-" ^ pp_spacing_suffix s in
+  let class_name = prefix ^ "space-y-" ^ Spacing.pp_spacing_suffix s in
   match s with
   | `Rem _ ->
-      let decl, spacing_ref = Var.binding spacing_var (Rem 0.25) in
+      let decl, spacing_ref = Var.binding Spacing.spacing_var (Rem 0.25) in
       let n_units =
         int_of_float ((match s with `Rem f -> f | _ -> 0.) /. 0.25)
       in
@@ -118,6 +112,11 @@ let space_y n =
       style class_name (decl :: [ margin_top len ])
   | `Px -> style class_name [ margin_top (Px 1.) ]
   | `Full -> style class_name [ margin_top (Pct 100.0) ]
+
+let space_y n =
+  let s = Spacing.int n in
+  let neg = n < 0 in
+  space_util neg `Y s
 
 (** {1 Conversion Functions} *)
 
@@ -135,7 +134,8 @@ let to_style = function
         | `Full -> 0
       in
       let n = if neg then -n else n in
-      match axis with `X -> space_x n | `Y -> space_y n)
+      match axis with `X -> space_x' n | `Y -> space_y' n)
+  | _ -> failwith "Not a gap or space utility"
 
 let spacing_value_order = function
   | `Px -> 1
@@ -185,9 +185,7 @@ let of_string parts =
         | Error _ -> None)
     | _ -> None
   in
-  match parse_class parts with
-  | Some u -> Ok u
-  | None -> Error (`Msg "Not a gap utility")
+  match parse_class parts with Some u -> Ok u | None -> err_not_utility
 
 let suborder = function
   | Gap (axis, value) ->
@@ -199,3 +197,26 @@ let suborder = function
       let neg_offset = if neg then 100000 else 0 in
       let axis_offset = match axis with `X -> 0 | `Y -> 10000 in
       20000 + neg_offset + axis_offset + spacing_value_order value
+  | _ -> failwith "Not a gap or space utility"
+
+(** Priority for gap utilities *)
+let priority = 16
+
+(** Register gap handler with Utility system *)
+let () =
+  Utility.register
+    {
+      to_style =
+        (function
+        | Gap (_, _) as x -> Some (to_style x)
+        | Space (_, _, _) as x -> Some (to_style x)
+        | _ -> None);
+      order =
+        (function
+        | Gap (_, _) as x -> Some (priority, suborder x)
+        | Space (_, _, _) as x -> Some (priority, suborder x)
+        | _ -> None);
+      of_string =
+        (fun parts ->
+          match of_string parts with Ok u -> Some (Ok u) | Error _ -> None);
+    }

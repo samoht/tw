@@ -1,12 +1,10 @@
 (** Gap and space-between utilities *)
 
-open Style
+open Utility
 
-(** {1 Helper Functions} *)
+(** {1 Type Definitions} *)
 
-val to_length : Css.length Css.var -> spacing -> Css.length
-(** [to_length spacing_ref s] converts spacing to CSS length using the provided
-    spacing variable reference. *)
+(** Spacing values are defined in the {!Style} module. *)
 
 (** {1 Gap Utilities} *)
 
@@ -19,13 +17,13 @@ val gap_x : int -> t
 val gap_y : int -> t
 (** [gap_y n] sets row-gap to [n] × 0.25rem. *)
 
-val gap' : spacing -> t
+val gap' : Style.spacing -> Style.t
 (** [gap' s] sets gap using typed spacing [s]. *)
 
-val gap_x' : spacing -> t
+val gap_x' : Style.spacing -> Style.t
 (** [gap_x' s] sets column-gap using typed spacing [s]. *)
 
-val gap_y' : spacing -> t
+val gap_y' : Style.spacing -> Style.t
 (** [gap_y' s] sets row-gap using typed spacing [s]. *)
 
 (** {1 Special Gap Values} *)
@@ -55,23 +53,3 @@ val space_x : int -> t
 
 val space_y : int -> t
 (** [space_y n] creates vertical space between child elements. *)
-
-(** {1 Utility Types} *)
-
-type utility =
-  | Gap of [ `All | `X | `Y ] * spacing
-  | Space of bool (* negative *) * [ `X | `Y ] * spacing
-
-val to_style : utility -> t
-(** [to_style u] converts a structured gap utility to a style. For internal use
-    by the Tw module. *)
-
-val suborder : utility -> int
-(** [suborder u] returns the ordering value for gap utility [u]. Used for
-    deterministic CSS output ordering. *)
-
-(** {1 Parsing Functions} *)
-
-val of_string : string list -> (utility, [ `Msg of string ]) result
-(** [of_string parts] parses a gap utility from string parts. Returns an
-    internal structured representation. *)
