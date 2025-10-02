@@ -46,5 +46,4 @@ module Handler : sig
   val of_string : string list -> (t, [ `Msg of string ]) result
   val suborder : t -> int
   val to_style : t -> Style.t
-  val order : t -> int * int
 end

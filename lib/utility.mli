@@ -1,4 +1,80 @@
-(** Utility module for common utility types and functions *)
+(** Utility module for common utility types and functions
+
+    {1 Styling Guide for Utility Modules}
+
+    All utility modules should follow this standardized pattern:
+
+    {2 Module Structure}
+
+    {[
+      (** Module documentation with links to Tailwind CSS docs *)
+
+      open Style
+      open Css
+
+      module Handler = struct
+        type t =
+          | Variant1
+          | Variant2
+          | ...
+
+        type Utility.base += Self of t
+
+        let priority = N  (* See priority table below *)
+
+        let variant1 = style "class-name" [ css_prop value ]
+        let variant2 = style "class-name" [ css_prop value ]
+
+        (* Note: Use Css.prop qualified names if helper name conflicts with CSS property *)
+        let example = style "example" [ Css.flex Auto ]
+
+        let to_style = function
+          | Variant1 -> variant1
+          | Variant2 -> variant2
+          | ...
+
+        let suborder = function
+          | Variant1 -> 0
+          | Variant2 -> 1
+          | ...
+
+        let of_string =
+          let err_not_utility = Error (`Msg "Not a <category> utility") in
+          function
+          | [ "class"; "name" ] -> Ok Variant1
+          | [ "other"; "class" ] -> Ok Variant2
+          | _ -> err_not_utility
+      end
+
+      open Handler
+
+      let () = Utility.register (module Handler)
+
+      let utility x = Utility.base (Self x)
+
+      (* Public API *)
+      let variant1 = utility Variant1
+      let variant2 = utility Variant2
+    ]}
+
+    {2 Key Rules}
+
+    + All helper functions go inside Handler module
+    + Use [Css.property] qualification when helper name conflicts with CSS
+      property
+    + Public API functions shadow Handler helpers after [open Handler]
+    + Use descriptive error messages in [of_string]
+
+    {2 Priority Assignment}
+
+    Utilities are ordered by (priority, suborder). Common priorities:
+    - 1-10: Layout fundamentals (position, display)
+    - 11-20: Flexbox, Grid, Spacing
+    - 21-30: Sizing, Typography
+    - 31-50: Colors, Borders, Effects
+    - 51-100: Transforms, Transitions, Animations
+    - 100+: Modifiers and special utilities
+    - 800+: Component-level utilities (forms, etc.) *)
 
 type base = ..
 (** Base utility type without modifiers - extensible variant *)
@@ -9,20 +85,28 @@ type t = Base of base | Modified of Style.modifier * t | Group of t list
 val base : base -> t
 (** [base u] wraps a base utility into a Utility.t *)
 
-type 'a handler = {
-  to_style : 'a -> Style.t;
-  priority : int;
-  suborder : 'a -> int;
-  of_string : string list -> ('a, [ `Msg of string ]) result;
-}
-(** Generic handler for a specific utility type 'a *)
+(** Handler module type for utility registration *)
+module type Handler = sig
+  type t
+  (** The utility type *)
 
-val register :
-  wrap:('a -> base) -> unwrap:(base -> 'a option) -> 'a handler -> unit
-(** [register ~wrap ~unwrap handler] registers a typed utility handler.
-    - [wrap] converts from the local type to the extensible variant
-    - [unwrap] attempts to extract the local type from the extensible variant
-    - [handler] is the typed handler for the local utility type *)
+  type base += Self of t  (** Extension of the base utility type *)
+
+  val to_style : t -> Style.t
+  (** Convert utility to style *)
+
+  val priority : int
+  (** Priority for ordering utilities *)
+
+  val suborder : t -> int
+  (** Suborder within the same priority *)
+
+  val of_string : string list -> (t, [ `Msg of string ]) result
+  (** Parse string parts into utility *)
+end
+
+val register : (module Handler with type t = 'a) -> unit
+(** [register (module H)] registers a utility handler module *)
 
 (** Parse CSS string into AST *)
 val css_of_string :

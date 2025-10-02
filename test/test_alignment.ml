@@ -1,10 +1,11 @@
 open Alcotest
+open Tw.Alignment.Handler
 
 let check parts =
   let expected = String.concat "-" parts in
-  match Tw.Alignment.Handler.of_string parts with
+  match of_string parts with
   | Ok result ->
-      let style = Tw.Alignment.Handler.to_style result in
+      let style = to_style result in
       Alcotest.check string "alignment class name" expected (Tw.Style.pp style)
   | Error (`Msg msg) -> fail msg
 
@@ -78,7 +79,7 @@ let of_string_valid () =
 
 let of_string_invalid () =
   let fail_maybe input =
-    match Tw.Alignment.Handler.of_string input with
+    match of_string input with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in

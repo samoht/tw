@@ -1,4 +1,5 @@
 open Alcotest
+open Tw.Backgrounds.Handler
 
 let test_gradient_direction () =
   let u = Tw.Backgrounds.bg_gradient_to Tw.Backgrounds.Bottom in
@@ -17,7 +18,7 @@ let test_gradient_colors () =
 let test_of_string_invalid () =
   (* Invalid background utilities *)
   let test_invalid input =
-    match Tw.Backgrounds.Handler.of_string input with
+    match of_string input with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in

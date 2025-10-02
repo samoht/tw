@@ -3,100 +3,86 @@
     @see <https://tailwindcss.com/docs/cursor> Tailwind CSS Cursor documentation
 *)
 
-open Utility
-open Style
-open Css
+module Handler = struct
+  open Style
+  open Css
 
-(** Local cursor utility type *)
-type t =
-  | Cursor_auto
-  | Cursor_default
-  | Cursor_pointer
-  | Cursor_wait
-  | Cursor_move
-  | Cursor_not_allowed
-  | Cursor_text
-  | Cursor_crosshair
-  | Cursor_help
-  | Cursor_grab
-  | Cursor_grabbing
+  type t =
+    | Cursor_auto
+    | Cursor_default
+    | Cursor_pointer
+    | Cursor_wait
+    | Cursor_move
+    | Cursor_not_allowed
+    | Cursor_text
+    | Cursor_crosshair
+    | Cursor_help
+    | Cursor_grab
+    | Cursor_grabbing
 
-(** Extensible variant for cursor utilities *)
-type Utility.base += Cursor of t
+  type Utility.base += Self of t
 
-(** Error helper *)
-let err_not_utility = Error (`Msg "Not a cursor utility")
+  let priority = 90
+  let cursor_auto = style "cursor-auto" [ cursor Auto ]
+  let cursor_default = style "cursor-default" [ cursor Default ]
+  let cursor_pointer = style "cursor-pointer" [ cursor Pointer ]
+  let cursor_wait = style "cursor-wait" [ cursor Wait ]
+  let cursor_move = style "cursor-move" [ cursor Move ]
+  let cursor_not_allowed = style "cursor-not-allowed" [ cursor Not_allowed ]
+  let cursor_text = style "cursor-text" [ cursor Text ]
+  let cursor_crosshair = style "cursor-crosshair" [ cursor Crosshair ]
+  let cursor_help = style "cursor-help" [ cursor Help ]
+  let cursor_grab = style "cursor-grab" [ cursor Grab ]
+  let cursor_grabbing = style "cursor-grabbing" [ cursor Grabbing ]
 
-(** Helper functions returning Style.t *)
-let cursor_auto' = style "cursor-auto" [ cursor Auto ]
+  let to_style = function
+    | Cursor_auto -> cursor_auto
+    | Cursor_default -> cursor_default
+    | Cursor_pointer -> cursor_pointer
+    | Cursor_wait -> cursor_wait
+    | Cursor_move -> cursor_move
+    | Cursor_not_allowed -> cursor_not_allowed
+    | Cursor_text -> cursor_text
+    | Cursor_crosshair -> cursor_crosshair
+    | Cursor_help -> cursor_help
+    | Cursor_grab -> cursor_grab
+    | Cursor_grabbing -> cursor_grabbing
 
-let cursor_default' = style "cursor-default" [ cursor Default ]
-let cursor_pointer' = style "cursor-pointer" [ cursor Pointer ]
-let cursor_wait' = style "cursor-wait" [ cursor Wait ]
-let cursor_move' = style "cursor-move" [ cursor Move ]
-let cursor_not_allowed' = style "cursor-not-allowed" [ cursor Not_allowed ]
-let cursor_text' = style "cursor-text" [ cursor Text ]
-let cursor_crosshair' = style "cursor-crosshair" [ cursor Crosshair ]
-let cursor_help' = style "cursor-help" [ cursor Help ]
-let cursor_grab' = style "cursor-grab" [ cursor Grab ]
-let cursor_grabbing' = style "cursor-grabbing" [ cursor Grabbing ]
+  let suborder = function
+    | Cursor_auto -> 0
+    | Cursor_default -> 1
+    | Cursor_pointer -> 2
+    | Cursor_wait -> 3
+    | Cursor_move -> 4
+    | Cursor_not_allowed -> 5
+    | Cursor_text -> 6
+    | Cursor_crosshair -> 7
+    | Cursor_help -> 8
+    | Cursor_grab -> 9
+    | Cursor_grabbing -> 10
 
-(** Convert cursor utility to style *)
-let to_style = function
-  | Cursor_auto -> cursor_auto'
-  | Cursor_default -> cursor_default'
-  | Cursor_pointer -> cursor_pointer'
-  | Cursor_wait -> cursor_wait'
-  | Cursor_move -> cursor_move'
-  | Cursor_not_allowed -> cursor_not_allowed'
-  | Cursor_text -> cursor_text'
-  | Cursor_crosshair -> cursor_crosshair'
-  | Cursor_help -> cursor_help'
-  | Cursor_grab -> cursor_grab'
-  | Cursor_grabbing -> cursor_grabbing'
+  let of_string = function
+    | [ "cursor"; "auto" ] -> Ok Cursor_auto
+    | [ "cursor"; "default" ] -> Ok Cursor_default
+    | [ "cursor"; "pointer" ] -> Ok Cursor_pointer
+    | [ "cursor"; "wait" ] -> Ok Cursor_wait
+    | [ "cursor"; "move" ] -> Ok Cursor_move
+    | [ "cursor"; "not"; "allowed" ] -> Ok Cursor_not_allowed
+    | [ "cursor"; "text" ] -> Ok Cursor_text
+    | [ "cursor"; "crosshair" ] -> Ok Cursor_crosshair
+    | [ "cursor"; "help" ] -> Ok Cursor_help
+    | [ "cursor"; "grab" ] -> Ok Cursor_grab
+    | [ "cursor"; "grabbing" ] -> Ok Cursor_grabbing
+    | _ -> Error (`Msg "Not a cursor utility")
+end
 
-(** Suborder for cursor utilities *)
-let suborder = function
-  | Cursor_auto -> 0
-  | Cursor_default -> 1
-  | Cursor_pointer -> 2
-  | Cursor_wait -> 3
-  | Cursor_move -> 4
-  | Cursor_not_allowed -> 5
-  | Cursor_text -> 6
-  | Cursor_crosshair -> 7
-  | Cursor_help -> 8
-  | Cursor_grab -> 9
-  | Cursor_grabbing -> 10
+open Handler
 
-(** Parse string parts to cursor utility *)
-let of_string = function
-  | [ "cursor"; "auto" ] -> Ok Cursor_auto
-  | [ "cursor"; "default" ] -> Ok Cursor_default
-  | [ "cursor"; "pointer" ] -> Ok Cursor_pointer
-  | [ "cursor"; "wait" ] -> Ok Cursor_wait
-  | [ "cursor"; "move" ] -> Ok Cursor_move
-  | [ "cursor"; "not"; "allowed" ] -> Ok Cursor_not_allowed
-  | [ "cursor"; "text" ] -> Ok Cursor_text
-  | [ "cursor"; "crosshair" ] -> Ok Cursor_crosshair
-  | [ "cursor"; "help" ] -> Ok Cursor_help
-  | [ "cursor"; "grab" ] -> Ok Cursor_grab
-  | [ "cursor"; "grabbing" ] -> Ok Cursor_grabbing
-  | _ -> err_not_utility
-
-(** Priority for cursor utilities *)
-let priority = 90
-
-(** Typed handler for cursor utilities *)
-let handler : t Utility.handler = { to_style; priority; suborder; of_string }
-
-(** Wrapper functions for extensible variant *)
-let wrap x = Cursor x
-
-let unwrap = function Cursor x -> Some x | _ -> None
+(** Register the cursor utility handlers *)
+let () = Utility.register (module Handler)
 
 (** Public API returning Utility.t *)
-let utility x = Utility.base (Cursor x)
+let utility x = Utility.base (Self x)
 
 let cursor_auto = utility Cursor_auto
 let cursor_default = utility Cursor_default
@@ -109,15 +95,3 @@ let cursor_crosshair = utility Cursor_crosshair
 let cursor_help = utility Cursor_help
 let cursor_grab = utility Cursor_grab
 let cursor_grabbing = utility Cursor_grabbing
-
-(** Register the cursor utility handlers *)
-let () = Utility.register ~wrap ~unwrap handler
-
-module Handler = struct
-  type nonrec t = t
-
-  let of_string = of_string
-  let suborder = suborder
-  let to_style = to_style
-  let order x = (priority, suborder x)
-end

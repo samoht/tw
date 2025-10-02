@@ -69,12 +69,4 @@ module Handler : sig
       deterministic CSS output ordering. *)
 
   val to_style : t -> Style.t
-  val order : t -> int * int
-end
-
-module Private : sig
-  type t
-
-  val of_string : string list -> (t, [ `Msg of string ]) result
-  val suborder : t -> int
 end

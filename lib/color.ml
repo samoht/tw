@@ -1,8 +1,5 @@
 (** Color conversion utilities for Tailwind v4 compatibility *)
 
-open Style
-open Css
-
 type rgb = {
   r : int;  (** Red channel (0-255) *)
   g : int;  (** Green channel (0-255) *)
@@ -44,37 +41,10 @@ type color =
   | Rgb of { red : int; green : int; blue : int }
   | Oklch of oklch
 
-(** {1 Color Utility Type} *)
-
-(** Local color utility type *)
-type t =
-  (* Background colors *)
-  | Bg of color * int
-  | Bg_transparent
-  | Bg_current
-  (* Text colors *)
-  | Text of color * int
-  | Text_transparent
-  | Text_current
-  | Text_inherit
-  (* Border colors *)
-  | Border of color * int
-  | Border_transparent
-  | Border_current
-
-(** Extensible variant for color utilities *)
-type Utility.base += Color of t
-
-let wrap x = Color x
-let unwrap = function Color x -> Some x | _ -> None
-let base x = Utility.base (wrap x)
-
-(** Convert RGB to linear RGB (remove gamma correction) *)
 let linearize_channel c =
   let c' = float_of_int c /. 255.0 in
   if c' <= 0.04045 then c' /. 12.92 else ((c' +. 0.055) /. 1.055) ** 2.4
 
-(** Convert linear RGB to gamma-corrected RGB *)
 let gamma_correct c =
   let c' =
     if c <= 0.0031308 then c *. 12.92
@@ -82,7 +52,6 @@ let gamma_correct c =
   in
   int_of_float ((c' *. 255.0) +. 0.5)
 
-(** Convert RGB to OKLCH color space *)
 let rgb_to_oklch rgb =
   (* Convert to linear RGB *)
   let r_lin = linearize_channel rgb.r in
@@ -129,7 +98,6 @@ let rgb_to_oklch rgb =
 
   { l = lightness; c = chroma; h = hue }
 
-(** Convert OKLCH to RGB color space *)
 let oklch_to_rgb oklch =
   (* Convert LCH to Lab *)
   let ok_l = oklch.l /. 100.0 in
@@ -165,7 +133,6 @@ let oklch_to_rgb oklch =
     b = clamp (gamma_correct b_lin);
   }
 
-(** Parse hex color string to RGB *)
 let hex_to_rgb hex =
   try
     let hex_str =
@@ -192,7 +159,6 @@ let hex_to_rgb hex =
     else None
   with Invalid_argument _ | Failure _ -> None
 
-(** Convert RGB to hex string *)
 let rgb_to_hex rgb =
   let to_hex_byte n =
     let hex = "0123456789abcdef" in
@@ -200,27 +166,24 @@ let rgb_to_hex rgb =
   in
   "#" ^ to_hex_byte rgb.r ^ to_hex_byte rgb.g ^ to_hex_byte rgb.b
 
-(** Format OKLCH for CSS *)
 let oklch_to_css oklch =
   let pp_oklch ctx oklch =
-    Pp.string ctx "oklch(";
-    Pp.float_n 1 ctx oklch.l;
-    Pp.string ctx "% ";
-    Pp.float_n 3 ctx oklch.c;
-    Pp.string ctx " ";
-    Pp.float_n 3 ctx oklch.h;
-    Pp.string ctx ")"
+    Css.Pp.string ctx "oklch(";
+    Css.Pp.float_n 1 ctx oklch.l;
+    Css.Pp.string ctx "% ";
+    Css.Pp.float_n 3 ctx oklch.c;
+    Css.Pp.string ctx " ";
+    Css.Pp.float_n 3 ctx oklch.h;
+    Css.Pp.string ctx ")"
   in
-  Pp.to_string ~minify:false pp_oklch oklch
+  Css.Pp.to_string ~minify:false pp_oklch oklch
 
-(** Convert hex color to OKLCH CSS string *)
 let hex_to_oklch_css hex =
   match hex_to_rgb hex with
   | Some rgb -> oklch_to_css (rgb_to_oklch rgb)
   | None -> hex (* Fallback to original hex if parsing fails *)
 
 module Tailwind = struct
-  (* These are the actual OKLCH values used by Tailwind v4 *)
   let gray =
     [
       (50, { l = 98.5; c = 0.002; h = 247.839 });
@@ -872,33 +835,33 @@ let to_name = function
         else h
       in
       let pp_hex ctx h =
-        Pp.string ctx "[";
-        Pp.string ctx h;
-        Pp.string ctx "]"
+        Css.Pp.string ctx "[";
+        Css.Pp.string ctx h;
+        Css.Pp.string ctx "]"
       in
-      Pp.to_string ~minify:false pp_hex h_stripped
+      Css.Pp.to_string ~minify:false pp_hex h_stripped
   | Rgb { red; green; blue } ->
       let pp_rgb ctx (r, g, b) =
-        Pp.string ctx "[rgb(";
-        Pp.int ctx r;
-        Pp.string ctx ",";
-        Pp.int ctx g;
-        Pp.string ctx ",";
-        Pp.int ctx b;
-        Pp.string ctx ")]"
+        Css.Pp.string ctx "[rgb(";
+        Css.Pp.int ctx r;
+        Css.Pp.string ctx ",";
+        Css.Pp.int ctx g;
+        Css.Pp.string ctx ",";
+        Css.Pp.int ctx b;
+        Css.Pp.string ctx ")]"
       in
-      Pp.to_string ~minify:false pp_rgb (red, green, blue)
+      Css.Pp.to_string ~minify:false pp_rgb (red, green, blue)
   | Oklch oklch ->
       let pp_oklch ctx oklch =
-        Pp.string ctx "[oklch(";
-        Pp.float ctx oklch.l;
-        Pp.string ctx "%,";
-        Pp.float ctx oklch.c;
-        Pp.string ctx ",";
-        Pp.float ctx oklch.h;
-        Pp.string ctx ")]"
+        Css.Pp.string ctx "[oklch(";
+        Css.Pp.float ctx oklch.l;
+        Css.Pp.string ctx "%,";
+        Css.Pp.float ctx oklch.c;
+        Css.Pp.string ctx ",";
+        Css.Pp.float ctx oklch.h;
+        Css.Pp.string ctx ")]"
       in
-      Pp.to_string ~minify:false pp_oklch oklch
+      Css.Pp.to_string ~minify:false pp_oklch oklch
 
 (* Pretty printer for colors *)
 let pp = function
@@ -930,33 +893,33 @@ let pp = function
       (* Use Tailwind's arbitrary value syntax [#hex] for hex colors *)
       let hex_value = if String.starts_with ~prefix:"#" s then s else "#" ^ s in
       let pp_hex_val ctx v =
-        Pp.string ctx "[";
-        Pp.string ctx v;
-        Pp.string ctx "]"
+        Css.Pp.string ctx "[";
+        Css.Pp.string ctx v;
+        Css.Pp.string ctx "]"
       in
-      Pp.to_string ~minify:false pp_hex_val hex_value
+      Css.Pp.to_string ~minify:false pp_hex_val hex_value
   | Rgb { red; green; blue } ->
       let pp_rgb_val ctx (r, g, b) =
-        Pp.string ctx "Rgb(";
-        Pp.int ctx r;
-        Pp.string ctx ",";
-        Pp.int ctx g;
-        Pp.string ctx ",";
-        Pp.int ctx b;
-        Pp.string ctx ")"
+        Css.Pp.string ctx "Rgb(";
+        Css.Pp.int ctx r;
+        Css.Pp.string ctx ",";
+        Css.Pp.int ctx g;
+        Css.Pp.string ctx ",";
+        Css.Pp.int ctx b;
+        Css.Pp.string ctx ")"
       in
-      Pp.to_string ~minify:false pp_rgb_val (red, green, blue)
+      Css.Pp.to_string ~minify:false pp_rgb_val (red, green, blue)
   | Oklch { l; c; h } ->
       let pp_oklch_val ctx (l, c, h) =
-        Pp.string ctx "Oklch(";
-        Pp.float ctx l;
-        Pp.string ctx ",";
-        Pp.float ctx c;
-        Pp.string ctx ",";
-        Pp.float ctx h;
-        Pp.string ctx ")"
+        Css.Pp.string ctx "Oklch(";
+        Css.Pp.float ctx l;
+        Css.Pp.string ctx ",";
+        Css.Pp.float ctx c;
+        Css.Pp.string ctx ",";
+        Css.Pp.float ctx h;
+        Css.Pp.string ctx ")"
       in
-      Pp.to_string ~minify:false pp_oklch_val (l, c, h)
+      Css.Pp.to_string ~minify:false pp_oklch_val (l, c, h)
 
 (* Check if a color is black or white *)
 let is_base_color = function Black | White -> true | _ -> false
@@ -1109,188 +1072,66 @@ let get_color_var color shade =
       Hashtbl.add color_var_cache name var;
       var
 
-let bg' color shade =
-  let class_name =
-    if is_base_color color || is_custom_color color then
-      let pp_class_name ctx color =
-        Pp.string ctx "bg-";
-        Pp.string ctx (pp color)
+let color_to_string (c : color) : string =
+  match c with
+  | Black -> "black"
+  | White -> "white"
+  | Gray -> "gray"
+  | Slate -> "slate"
+  | Zinc -> "zinc"
+  | Neutral -> "neutral"
+  | Stone -> "stone"
+  | Red -> "red"
+  | Orange -> "orange"
+  | Amber -> "amber"
+  | Yellow -> "yellow"
+  | Lime -> "lime"
+  | Green -> "green"
+  | Emerald -> "emerald"
+  | Teal -> "teal"
+  | Cyan -> "cyan"
+  | Sky -> "sky"
+  | Blue -> "blue"
+  | Indigo -> "indigo"
+  | Violet -> "violet"
+  | Purple -> "purple"
+  | Fuchsia -> "fuchsia"
+  | Pink -> "pink"
+  | Rose -> "rose"
+  | Hex h ->
+      let h_stripped =
+        if String.starts_with ~prefix:"#" h then
+          String.sub h 1 (String.length h - 1)
+        else h
       in
-      Pp.to_string ~minify:false pp_class_name color
-    else
-      let pp_class_name ctx (color, shade) =
-        Pp.string ctx "bg-";
-        Pp.string ctx (pp color);
-        Pp.string ctx "-";
-        Pp.int ctx shade
-      in
-      Pp.to_string ~minify:false pp_class_name (color, shade)
-  in
-  if is_custom_color color then
-    let css_color = to_css color shade in
-    style class_name [ Css.background_color css_color ]
-  else
-    let color_var = get_color_var color shade in
-    let color_value =
-      to_css color (if is_base_color color then 500 else shade)
-    in
-    let decl, color_ref = Var.binding color_var color_value in
-    style class_name (decl :: [ Css.background_color (Css.Var color_ref) ])
-
-let bg color shade = base (Bg (color, shade))
-let bg_transparent' = style "bg-transparent" [ background_color Transparent ]
-let bg_transparent = base Bg_transparent
-let bg_current' = style "bg-current" [ background_color Current ]
-let bg_current = base Bg_current
-let bg_black = bg black 500
-let bg_white = bg white 500
-let bg_gray = bg gray 500
-let bg_slate = bg slate 500
-let bg_zinc = bg zinc 500
-let bg_neutral = bg neutral 500
-let bg_stone = bg stone 500
-let bg_red = bg red 500
-let bg_orange = bg orange 500
-let bg_amber = bg amber 500
-let bg_yellow = bg yellow 500
-let bg_lime = bg lime 500
-let bg_green = bg green 500
-let bg_emerald = bg emerald 500
-let bg_teal = bg teal 500
-let bg_cyan = bg cyan 500
-let bg_sky = bg sky 500
-let bg_blue = bg blue 500
-let bg_indigo = bg indigo 500
-let bg_violet = bg violet 500
-let bg_purple = bg purple 500
-let bg_fuchsia = bg fuchsia 500
-let bg_pink = bg pink 500
-let bg_rose = bg rose 500
-
-(** Text color utilities *)
-
-let text' color shade =
-  let class_name =
-    if is_base_color color || is_custom_color color then
-      let pp_class_name ctx color =
-        Pp.string ctx "text-";
-        Pp.string ctx (pp color)
-      in
-      Pp.to_string ~minify:false pp_class_name color
-    else
-      let pp_class_name ctx (color, shade) =
-        Pp.string ctx "text-";
-        Pp.string ctx (pp color);
-        Pp.string ctx "-";
-        Pp.int ctx shade
-      in
-      Pp.to_string ~minify:false pp_class_name (color, shade)
-  in
-  if is_custom_color color then
-    let css_color = to_css color shade in
-    style class_name [ Css.color css_color ]
-  else
-    let color_var = get_color_var color shade in
-    let color_value =
-      to_css color (if is_base_color color then 500 else shade)
-    in
-    let decl, color_ref = Var.binding color_var color_value in
-    style class_name (decl :: [ Css.color (Var color_ref) ])
-
-let text color shade = base (Text (color, shade))
-let text_transparent' = style "text-transparent" [ Css.color Transparent ]
-let text_transparent = base Text_transparent
-let text_current' = style "text-current" [ Css.color Current ]
-let text_current = base Text_current
-let text_inherit' = style "text-inherit" [ Css.color Inherit ]
-let text_inherit = base Text_inherit
-let text_black = text black 500
-let text_white = text white 500
-let text_gray = text gray 500
-let text_slate = text slate 500
-let text_zinc = text zinc 500
-let text_neutral = text neutral 500
-let text_stone = text stone 500
-let text_red = text red 500
-let text_orange = text orange 500
-let text_amber = text amber 500
-let text_yellow = text yellow 500
-let text_lime = text lime 500
-let text_green = text green 500
-let text_emerald = text emerald 500
-let text_teal = text teal 500
-let text_cyan = text cyan 500
-let text_sky = text sky 500
-let text_blue = text blue 500
-let text_indigo = text indigo 500
-let text_violet = text violet 500
-let text_purple = text purple 500
-let text_fuchsia = text fuchsia 500
-let text_pink = text pink 500
-let text_rose = text rose 500
-
-(** Border color utilities *)
-
-let border_color' color shade =
-  let class_name =
-    if is_base_color color || is_custom_color color then
-      let pp_class_name ctx color =
-        Pp.string ctx "border-";
-        Pp.string ctx (pp color)
-      in
-      Pp.to_string ~minify:false pp_class_name color
-    else
-      let pp_class_name ctx (color, shade) =
-        Pp.string ctx "border-";
-        Pp.string ctx (pp color);
-        Pp.string ctx "-";
-        Pp.int ctx shade
-      in
-      Pp.to_string ~minify:false pp_class_name (color, shade)
-  in
-  if is_custom_color color then
-    let css_color = to_css color shade in
-    style class_name [ Css.border_color css_color ]
-  else
-    let color_var = get_color_var color shade in
-    let color_value =
-      to_css color (if is_base_color color then 500 else shade)
-    in
-    let decl, color_ref = Var.binding color_var color_value in
-    style class_name (decl :: [ Css.border_color (Var color_ref) ])
-
-let border_color color shade = base (Border (color, shade))
-
-let border_transparent' =
-  style "border-transparent" [ Css.border_color Transparent ]
-
-let border_transparent = base Border_transparent
-let border_current' = style "border-current" [ Css.border_color Current ]
-let border_current = base Border_current
-let border_black = border_color black 500
-let border_white = border_color white 500
-let border_gray = border_color gray 500
-let border_slate = border_color slate 500
-let border_zinc = border_color zinc 500
-let border_neutral = border_color neutral 500
-let border_stone = border_color stone 500
-let border_red = border_color red 500
-let border_orange = border_color orange 500
-let border_amber = border_color amber 500
-let border_yellow = border_color yellow 500
-let border_lime = border_color lime 500
-let border_green = border_color green 500
-let border_emerald = border_color emerald 500
-let border_teal = border_color teal 500
-let border_cyan = border_color cyan 500
-let border_sky = border_color sky 500
-let border_blue = border_color blue 500
-let border_indigo = border_color indigo 500
-let border_violet = border_color violet 500
-let border_purple = border_color purple 500
-let border_fuchsia = border_color fuchsia 500
-let border_pink = border_color pink 500
-let border_rose = border_color rose 500
+      Css.Pp.to_string ~minify:false
+        (fun ctx s ->
+          Css.Pp.string ctx "[";
+          Css.Pp.string ctx s;
+          Css.Pp.string ctx "]")
+        h_stripped
+  | Rgb { red; green; blue } ->
+      Css.Pp.to_string ~minify:false
+        (fun ctx (r, g, b) ->
+          Css.Pp.string ctx "[rgb(";
+          Css.Pp.int ctx r;
+          Css.Pp.string ctx ",";
+          Css.Pp.int ctx g;
+          Css.Pp.string ctx ",";
+          Css.Pp.int ctx b;
+          Css.Pp.string ctx ")]")
+        (red, green, blue)
+  | Oklch oklch ->
+      Css.Pp.to_string ~minify:false
+        (fun ctx o ->
+          Css.Pp.string ctx "[oklch(";
+          Css.Pp.float ctx o.l;
+          Css.Pp.string ctx "%,";
+          Css.Pp.float ctx o.c;
+          Css.Pp.string ctx ",";
+          Css.Pp.float ctx o.h;
+          Css.Pp.string ctx ")]")
+        oklch
 
 (** Color parsing utilities *)
 
@@ -1313,7 +1154,29 @@ let shade_of_strings = function
 (** {1 Parsing Functions} *)
 
 module Handler = struct
-  type nonrec t = t
+  (** Local color utility type *)
+  type t =
+    (* Background colors *)
+    | Bg of color * int
+    | Bg_transparent
+    | Bg_current
+    (* Text colors *)
+    | Text of color * int
+    | Text_transparent
+    | Text_current
+    | Text_inherit
+    (* Border colors *)
+    | Border of color * int
+    | Border_transparent
+    | Border_current
+
+  (** Extensible variant for color utilities *)
+  type Utility.base += Self of t
+
+  open Style
+  open Css
+
+  let priority = 18
 
   let of_string parts =
     match parts with
@@ -1338,25 +1201,87 @@ module Handler = struct
         | Error e -> Error e)
     | _ -> Error (`Msg "Not a color utility")
 
-  (** {1 Utility Conversion Functions} *)
+  let bg' c shade =
+    let class_name =
+      if is_base_color c || is_custom_color c then "bg-" ^ color_to_string c
+      else "bg-" ^ color_to_string c ^ "-" ^ string_of_int shade
+    in
+    if is_custom_color c then
+      let css_color = to_css c shade in
+      style class_name [ Css.background_color css_color ]
+    else
+      let color_var = get_color_var c shade in
+      let color_value = to_css c (if is_base_color c then 500 else shade) in
+      let decl, color_ref = Var.binding color_var color_value in
+      style class_name (decl :: [ Css.background_color (Css.Var color_ref) ])
+
+  let bg_transparent =
+    style "bg-transparent" [ Css.background_color Css.Transparent ]
+
+  let bg_current = style "bg-current" [ Css.background_color Css.Current ]
+
+  (** Text color utilities *)
+
+  let text' color shade =
+    let class_name =
+      if is_base_color color || is_custom_color color then
+        "text-" ^ color_to_string color
+      else "text-" ^ color_to_string color ^ "-" ^ string_of_int shade
+    in
+    if is_custom_color color then
+      let css_color = to_css color shade in
+      style class_name [ Css.color css_color ]
+    else
+      let color_var = get_color_var color shade in
+      let color_value =
+        to_css color (if is_base_color color then 500 else shade)
+      in
+      let decl, color_ref = Var.binding color_var color_value in
+      style class_name (decl :: [ Css.color (Var color_ref) ])
+
+  let text_transparent = style "text-transparent" [ Css.color Transparent ]
+  let text_current = style "text-current" [ Css.color Current ]
+  let text_inherit = style "text-inherit" [ Css.color Inherit ]
+
+  (** Border color utilities *)
+
+  let border_color' color shade =
+    let class_name =
+      if is_base_color color || is_custom_color color then
+        "border-" ^ color_to_string color
+      else "border-" ^ color_to_string color ^ "-" ^ string_of_int shade
+    in
+    if is_custom_color color then
+      let css_color = to_css color shade in
+      style class_name [ Css.border_color css_color ]
+    else
+      let color_var = get_color_var color shade in
+      let color_value =
+        to_css color (if is_base_color color then 500 else shade)
+      in
+      let decl, color_ref = Var.binding color_var color_value in
+      style class_name (decl :: [ Css.border_color (Var color_ref) ])
+
+  let border_transparent =
+    style "border-transparent" [ Css.border_color Transparent ]
+
+  let border_current = style "border-current" [ Css.border_color Current ]
 
   let to_style = function
     | Bg (color, shade) -> bg' color shade
-    | Bg_transparent -> bg_transparent'
-    | Bg_current -> bg_current'
+    | Bg_transparent -> bg_transparent
+    | Bg_current -> bg_current
     | Text (color, shade) -> text' color shade
-    | Text_transparent -> text_transparent'
-    | Text_current -> text_current'
-    | Text_inherit -> text_inherit'
+    | Text_transparent -> text_transparent
+    | Text_current -> text_current
+    | Text_inherit -> text_inherit
     | Border (color, shade) -> border_color' color shade
-    | Border_transparent -> border_transparent'
-    | Border_current -> border_current'
+    | Border_transparent -> border_transparent
+    | Border_current -> border_current
 
-  (** Suborder function for sorting color utilities within their priority group.
-      Uses color ordering and shade for deterministic ordering. *)
   let suborder = function
     | Bg (color, shade) ->
-        let color_str = pp color in
+        let color_str = color_to_string color in
         if is_base_color color then suborder_with_shade color_str
         else suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
     | Bg_transparent -> 0
@@ -1364,10 +1289,10 @@ module Handler = struct
     | Text (color, shade) ->
         let base =
           if is_base_color color then
-            let color_str = pp color in
+            let color_str = color_to_string color in
             suborder_with_shade color_str
           else
-            let color_str = pp color in
+            let color_str = color_to_string color in
             suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
         in
         10000 + base
@@ -1377,20 +1302,106 @@ module Handler = struct
     | Border (color, shade) ->
         let base =
           if is_base_color color then
-            let color_str = pp color in
+            let color_str = color_to_string color in
             suborder_with_shade color_str
           else
-            let color_str = pp color in
+            let color_str = color_to_string color in
             suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
         in
         20000 + base
     | Border_transparent -> 20000
     | Border_current -> 20001
-
-  (** Priority for color utilities *)
-  let priority = 18
-
-  (** Register color handler with Utility system *)
-  let () =
-    Utility.register ~wrap ~unwrap { to_style; priority; suborder; of_string }
 end
+
+open Handler
+
+(** Register color handler with Utility system *)
+let () = Utility.register (module Handler)
+
+(** Public API *)
+let utility x = Utility.base (Self x)
+
+let bg color shade = utility (Bg (color, shade))
+let text color shade = utility (Text (color, shade))
+let border_color color shade = utility (Border (color, shade))
+let bg_transparent = utility Bg_transparent
+let bg_current = utility Bg_current
+let text_transparent = utility Text_transparent
+let text_current = utility Text_current
+let text_inherit = utility Text_inherit
+let border_transparent = utility Border_transparent
+let border_current = utility Border_current
+
+(* Convenient semantic wrappers for default 500 shade *)
+let bg_black = bg black 500
+let bg_white = bg white 500
+let bg_gray = bg gray 500
+let bg_slate = bg slate 500
+let bg_zinc = bg zinc 500
+let bg_neutral = bg neutral 500
+let bg_stone = bg stone 500
+let bg_red = bg red 500
+let bg_orange = bg orange 500
+let bg_amber = bg amber 500
+let bg_yellow = bg yellow 500
+let bg_lime = bg lime 500
+let bg_green = bg green 500
+let bg_emerald = bg emerald 500
+let bg_teal = bg teal 500
+let bg_cyan = bg cyan 500
+let bg_sky = bg sky 500
+let bg_blue = bg blue 500
+let bg_indigo = bg indigo 500
+let bg_violet = bg violet 500
+let bg_purple = bg purple 500
+let bg_fuchsia = bg fuchsia 500
+let bg_pink = bg pink 500
+let bg_rose = bg rose 500
+let text_black = text black 500
+let text_white = text white 500
+let text_gray = text gray 500
+let text_slate = text slate 500
+let text_zinc = text zinc 500
+let text_neutral = text neutral 500
+let text_stone = text stone 500
+let text_red = text red 500
+let text_orange = text orange 500
+let text_amber = text amber 500
+let text_yellow = text yellow 500
+let text_lime = text lime 500
+let text_green = text green 500
+let text_emerald = text emerald 500
+let text_teal = text teal 500
+let text_cyan = text cyan 500
+let text_sky = text sky 500
+let text_blue = text blue 500
+let text_indigo = text indigo 500
+let text_violet = text violet 500
+let text_purple = text purple 500
+let text_fuchsia = text fuchsia 500
+let text_pink = text pink 500
+let text_rose = text rose 500
+let border_black = border_color black 500
+let border_white = border_color white 500
+let border_gray = border_color gray 500
+let border_slate = border_color slate 500
+let border_zinc = border_color zinc 500
+let border_neutral = border_color neutral 500
+let border_stone = border_color stone 500
+let border_red = border_color red 500
+let border_orange = border_color orange 500
+let border_amber = border_color amber 500
+let border_yellow = border_color yellow 500
+let border_lime = border_color lime 500
+let border_green = border_color green 500
+let border_emerald = border_color emerald 500
+let border_teal = border_color teal 500
+let border_cyan = border_color cyan 500
+let border_sky = border_color sky 500
+let border_blue = border_color blue 500
+let border_indigo = border_color indigo 500
+let border_violet = border_color violet 500
+let border_purple = border_color purple 500
+let border_fuchsia = border_color fuchsia 500
+let border_pink = border_color pink 500
+let border_rose = border_color rose 500

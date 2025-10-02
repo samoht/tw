@@ -1,10 +1,11 @@
 open Alcotest
+open Tw.Cursor.Handler
 
 let check parts =
   let expected = String.concat "-" parts in
-  match Tw.Cursor.Handler.of_string parts with
+  match of_string parts with
   | Ok result ->
-      let style = Tw.Cursor.Handler.to_style result in
+      let style = to_style result in
       Alcotest.check string "cursor class name" expected (Tw.Style.pp style)
   | Error (`Msg msg) -> fail msg
 
@@ -23,7 +24,7 @@ let of_string_valid () =
 
 let of_string_invalid () =
   let fail_maybe input =
-    match Tw.Cursor.Handler.of_string input with
+    match of_string input with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in

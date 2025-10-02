@@ -2484,6 +2484,9 @@ val ease_out : t
 val ease_in_out : t
 (** [ease_in_out] uses an ease-in-out transition timing function. *)
 
+val delay : int -> t
+(** [delay ms] sets transition/animation delay in milliseconds. *)
+
 (** {1 Transforms} *)
 
 (** {2 Backface Visibility}
@@ -3285,7 +3288,26 @@ val data_inactive : t list -> t
 val peer_checked : t list -> t
 (** [peer_checked styles] applies [styles] when a preceding [.peer]:checked. *)
 
-(** {1 Module Exports} *)
+(** {2 Animation}
+    @see <https://tailwindcss.com/docs/animation> Animation *)
+
+(* Inserted to match v4 order *)
+(** {2 Transition Behavior}
+    @see <https://tailwindcss.com/docs/transition-behavior> Transition Behavior
+*)
+
+val transition_behavior_normal : t
+(** [transition_behavior_normal] uses normal transition behavior (default). *)
+
+val transition_behavior_allow_discrete : t
+(** [transition_behavior_allow_discrete] allows discrete transitions where
+    supported. Useful for toggling properties like visibility in a discrete
+    manner. *)
+
+(* Inserted to match v4 order *)
+(** {2 Transition Delay}
+    @see <https://tailwindcss.com/docs/transition-delay> Transition Delay *)
+(* Exposed via [delay] above in the Transitions & Animations section. *)
 
 (**/**)
 
@@ -3318,21 +3340,4 @@ module Accessibility = Accessibility
 module Rules = Rules
 module Theme = Theme
 module Utility = Utility
-
-(**/**)
-
-(** {2 Animation}
-    @see <https://tailwindcss.com/docs/animation> Animation *)
-
-(* Inserted to match v4 order *)
-(** {2 Transition Behavior}
-    @see <https://tailwindcss.com/docs/transition-behavior> Transition Behavior
-*)
-
-(** TODO: Implement transition-behavior utilities. *)
-
-(* Inserted to match v4 order *)
-(** {2 Transition Delay}
-    @see <https://tailwindcss.com/docs/transition-delay> Transition Delay *)
-
-(** TODO: Implement transition-delay utilities. *)
+module Spacing = Spacing

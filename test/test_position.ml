@@ -28,4 +28,4 @@ let tests =
     test_case "position utilities" `Quick test_position_utilities;
   ]
 
-let suite = ("positioning", tests)
+let suite = ("position", tests)

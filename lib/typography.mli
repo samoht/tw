@@ -444,13 +444,10 @@ val default_font_family_declarations : Css.declaration list
 
 (** {Internal types} *)
 
-val order : base -> (int * int) option
-
 module Handler : sig
   type t
 
   val of_string : string list -> (t, [ `Msg of string ]) result
   val suborder : t -> int
   val to_style : t -> Style.t
-  val order : t -> int * int
 end

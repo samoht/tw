@@ -15,14 +15,8 @@ val gap_x : int -> t
 val gap_y : int -> t
 (** [gap_y n] sets row-gap to [n] × 0.25rem. *)
 
-val gap' : Style.spacing -> Style.t
-(** [gap' s] sets gap using typed spacing [s]. *)
-
-val gap_x' : Style.spacing -> Style.t
-(** [gap_x' s] sets column-gap using typed spacing [s]. *)
-
-val gap_y' : Style.spacing -> Style.t
-(** [gap_y' s] sets row-gap using typed spacing [s]. *)
+(* Helper style functions live inside `Handler` and are not part of the public
+   API. See Utility module pattern. *)
 
 (** {1 Special Gap Values} *)
 
@@ -58,5 +52,4 @@ module Handler : sig
   val of_string : string list -> (t, [ `Msg of string ]) result
   val suborder : t -> int
   val to_style : t -> Style.t
-  val order : t -> int * int
 end

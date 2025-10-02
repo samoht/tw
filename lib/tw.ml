@@ -80,6 +80,7 @@ module Style = Style
 module Margin = Margin
 module Padding = Padding
 module Gap = Gap
+module Spacing = Spacing
 module Display = Display
 module Flex = Flex
 module Alignment = Alignment
