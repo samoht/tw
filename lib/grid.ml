@@ -170,7 +170,7 @@ let of_string = function
   | _ -> err_not_utility
 
 (** Priority for grid utilities *)
-let priority = 51
+let priority = 1
 
 (** Register handler with Utility system *)
 let () =
