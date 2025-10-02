@@ -25,6 +25,21 @@ val cursor_move : t
 val cursor_not_allowed : t
 (** [cursor_not_allowed] sets cursor to not-allowed indicator. *)
 
+val cursor_text : t
+(** [cursor_text] sets cursor to text/I-beam cursor. *)
+
+val cursor_crosshair : t
+(** [cursor_crosshair] sets cursor to crosshair. *)
+
+val cursor_help : t
+(** [cursor_help] sets cursor to help cursor. *)
+
+val cursor_grab : t
+(** [cursor_grab] sets cursor to grab/open hand. *)
+
+val cursor_grabbing : t
+(** [cursor_grabbing] sets cursor to grabbing/closed hand. *)
+
 module Handler : sig
   type t
 

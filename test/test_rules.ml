@@ -1372,29 +1372,6 @@ let test_utility_group_ordering () =
     ]
   in
 
-  (* Randomly pick 30 utilities from the pool (may include duplicates) *)
-  let pick_random_subset n lst =
-    let arr = Array.of_list lst in
-    let len = Array.length arr in
-    let picked = ref [] in
-    for _ = 1 to min n len do
-      let idx = Random.int len in
-      picked := arr.(idx) :: !picked
-    done;
-    !picked
-  in
-
-  let utilities = pick_random_subset 30 all_utilities in
-
-  (* Show the classes being tested for easy reproduction *)
-  let classnames = List.map Tw.pp utilities in
-  Fmt.epr "Testing with classes: %a@."
-    Fmt.(list ~sep:(const string " ") string)
-    classnames;
-
-  (* Generate CSS with both our implementation and Tailwind *)
-  let tw_css = to_css ~base:true ~optimize:true utilities in
-
   (* Extract utilities layer from our CSS using proper API *)
   let extract_utilities_layer_rules css =
     let stmts = Css.statements css in
@@ -1418,33 +1395,149 @@ let test_utility_group_ordering () =
       stmts
   in
 
-  let tw_utilities_rules = extract_utilities_layer_rules tw_css in
-  let tw_order = extract_rule_selectors tw_utilities_rules in
-
-  (* Generate Tailwind CSS for comparison *)
-  let tailwind_css_str =
-    Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true classnames
+  (* Pick 5 random utilities *)
+  let pick_random n lst =
+    let arr = Array.of_list lst in
+    let len = Array.length arr in
+    let picked = ref [] in
+    for _ = 1 to min n len do
+      let idx = Random.int len in
+      picked := arr.(idx) :: !picked
+    done;
+    !picked
   in
 
-  (* Parse Tailwind CSS using our parser *)
-  let tailwind_css =
-    match Css.of_string tailwind_css_str with
-    | Ok css -> css
-    | Error err ->
-        (* Save to file for debugging *)
-        let oc = open_out "tmp/tailwind_parse_error.css" in
-        output_string oc tailwind_css_str;
-        close_out oc;
-        Fmt.epr "Tailwind CSS output saved to tmp/tailwind_parse_error.css@.";
-        let formatted_error = Css.pp_parse_error err in
-        Alcotest.fail ("Failed to parse Tailwind CSS: " ^ formatted_error)
-  in
-  let tailwind_utilities_rules = extract_utilities_layer_rules tailwind_css in
-  let tailwind_order = extract_rule_selectors tailwind_utilities_rules in
+  (* Helper to check if utilities fail *)
+  let check_fails utilities =
+    let classnames = List.map Tw.pp utilities in
+    let tw_css = to_css ~base:true ~optimize:true utilities in
+    let tw_utilities_rules = extract_utilities_layer_rules tw_css in
+    let tw_order = extract_rule_selectors tw_utilities_rules in
 
-  (* Verify that the ordering matches *)
-  check (list string) "utility group ordering matches Tailwind" tailwind_order
-    tw_order
+    let tailwind_css_str =
+      Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true classnames
+    in
+    let tailwind_css =
+      match Css.of_string tailwind_css_str with
+      | Ok css -> css
+      | Error _ -> failwith "Failed to parse Tailwind CSS"
+    in
+    let tailwind_utilities_rules = extract_utilities_layer_rules tailwind_css in
+    let tailwind_order = extract_rule_selectors tailwind_utilities_rules in
+
+    tw_order <> tailwind_order
+  in
+
+  let initial = pick_random 30 all_utilities in
+  Fmt.epr "Testing with %d utilities@." (List.length initial);
+
+  if not (check_fails initial) then () (* Test passes *)
+  else (
+    Fmt.epr "Initial set fails, minimizing with delta debugging...@.";
+
+    (* Delta Debugging (ddmin algorithm by Zeller) *)
+    let rec ddmin lst n =
+      let len = List.length lst in
+      if len = 1 then lst
+      else
+        (* Split into n subsets *)
+        let subset_size = max 1 (len / n) in
+        let rec make_subsets acc remaining =
+          if remaining = [] then List.rev acc
+          else
+            let rec take k l =
+              match (k, l) with
+              | 0, _ | _, [] -> ([], l)
+              | k, x :: xs ->
+                  let taken, rest = take (k - 1) xs in
+                  (x :: taken, rest)
+            in
+            let subset, rest = take subset_size remaining in
+            make_subsets (subset :: acc) rest
+        in
+        let subsets = make_subsets [] lst in
+
+        (* Test 1: Try each subset alone (reduce to subset) *)
+        let rec try_subsets = function
+          | [] -> None
+          | subset :: rest ->
+              if check_fails subset then Some subset else try_subsets rest
+        in
+
+        match try_subsets subsets with
+        | Some subset ->
+            Fmt.epr "Reduced to %d utilities@." (List.length subset);
+            ddmin subset 2
+        | None -> (
+            (* Test 2: Try removing each subset (reduce to complement) *)
+            let rec try_complements idx = function
+              | [] -> None
+              | _ :: rest ->
+                  let complement =
+                    List.concat (List.filteri (fun i _ -> i <> idx) subsets)
+                  in
+                  if List.length complement < len && check_fails complement then
+                    Some complement
+                  else try_complements (idx + 1) rest
+            in
+
+            match try_complements 0 subsets with
+            | Some complement ->
+                Fmt.epr "Reduced to %d utilities@." (List.length complement);
+                ddmin complement (max (n - 1) 2)
+            | None ->
+                (* Increase granularity *)
+                if n < len then ddmin lst (min (n * 2) len) else lst)
+    in
+
+    let minimal = ddmin initial 2 in
+
+    (* If we have more than 2 items, try to find a minimal pair *)
+    let final =
+      if List.length minimal > 2 then (
+        Fmt.epr "Delta debugging gave %d utilities, finding minimal pair...@."
+          (List.length minimal);
+        let rec find_pair lst =
+          match lst with
+          | [] | [ _ ] -> None
+          | a :: rest ->
+              let rec try_with = function
+                | [] -> find_pair rest
+                | b :: rest' ->
+                    if check_fails [ a; b ] then Some [ a; b ]
+                    else try_with rest'
+              in
+              try_with rest
+        in
+        match find_pair minimal with Some pair -> pair | None -> minimal)
+      else minimal
+    in
+
+    let final_classes = List.map Tw.pp final in
+    Fmt.epr "@.Minimal failing case (%d utilities): %a@." (List.length final)
+      Fmt.(list ~sep:(const string " ") string)
+      final_classes;
+
+    (* Now run the actual test with minimal case *)
+    let tw_css = to_css ~base:true ~optimize:true final in
+    let tw_utilities_rules = extract_utilities_layer_rules tw_css in
+    let tw_order = extract_rule_selectors tw_utilities_rules in
+
+    let tailwind_css_str =
+      Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true final_classes
+    in
+    let tailwind_css =
+      match Css.of_string tailwind_css_str with
+      | Ok css -> css
+      | Error err ->
+          let formatted_error = Css.pp_parse_error err in
+          Alcotest.fail ("Failed to parse Tailwind CSS: " ^ formatted_error)
+    in
+    let tailwind_utilities_rules = extract_utilities_layer_rules tailwind_css in
+    let tailwind_order = extract_rule_selectors tailwind_utilities_rules in
+
+    check (list string) "utility group ordering matches Tailwind" tailwind_order
+      tw_order)
 
 let tests =
   [
@@ -1506,7 +1599,7 @@ let tests =
     test_case "prose rule separation" `Quick test_cascade_prose_separation;
     test_case "color override cascading" `Quick test_cascade_color_override;
     (* Utility group ordering *)
-    test_case "utility group ordering" `Quick test_utility_group_ordering;
+    test_case "utility group ordering" `Slow test_utility_group_ordering;
   ]
 
 let suite = ("rules", tests)

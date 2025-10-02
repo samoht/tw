@@ -266,7 +266,7 @@ let suborder = function
       3000
       + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
 
-let priority = 50
+let priority = 18
 
 let () =
   Utility.register ~wrap ~unwrap { to_style; priority; suborder; of_string }

@@ -1388,7 +1388,7 @@ module Handler = struct
     | Border_current -> 20001
 
   (** Priority for color utilities *)
-  let priority = 60
+  let priority = 18
 
   (** Register color handler with Utility system *)
   let () =

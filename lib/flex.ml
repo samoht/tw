@@ -182,7 +182,7 @@ let of_string : string list -> (t, _) result = function
   | [ "order"; "none" ] -> Ok Order_none
   | [ "order"; n ] -> (
       match int_of_string_opt n with
-      | Some n -> Ok (Order n)
+      | Some n when n >= 1 && n <= 6 -> Ok (Order n)
       | _ -> err_not_utility)
   | _ -> err_not_utility
 
