@@ -233,27 +233,11 @@ module Handler = struct
 
   (* Transition behavior (CSS Transitions Level 2) *)
   let transition_behavior_normal =
-    (* Using parser to construct declaration as property isn't in typed API *)
-    let decl =
-      match
-        Css.Declaration.read_declaration
-          (Css.Reader.of_string "transition-behavior: normal")
-      with
-      | Some d -> d
-      | None -> Css.Declaration.custom_property "--tw-unused" "0"
-    in
-    style "transition-behavior-normal" [ decl ]
+    style "transition-behavior-normal" [ Css.transition_behavior Normal ]
 
   let transition_behavior_allow_discrete =
-    let decl =
-      match
-        Css.Declaration.read_declaration
-          (Css.Reader.of_string "transition-behavior: allow-discrete")
-      with
-      | Some d -> d
-      | None -> Css.Declaration.custom_property "--tw-unused" "0"
-    in
-    style "transition-behavior-allow-discrete" [ decl ]
+    style "transition-behavior-allow-discrete"
+      [ Css.transition_behavior Allow_discrete ]
 
   let animate_none =
     style "animate-none"
@@ -393,6 +377,8 @@ module Handler = struct
     | Transition_opacity -> 4
     | Transition_shadow -> 5
     | Transition_transform -> 6
+    | Transition_behavior_normal -> 7
+    | Transition_behavior_allow_discrete -> 8
     | Duration n -> 100 + n
     | Delay n -> 200 + n
     | Ease_linear -> 300
@@ -444,6 +430,11 @@ let transition_colors = utility Transition_colors
 let transition_opacity = utility Transition_opacity
 let transition_shadow = utility Transition_shadow
 let transition_transform = utility Transition_transform
+let transition_behavior_normal = utility Transition_behavior_normal
+
+let transition_behavior_allow_discrete =
+  utility Transition_behavior_allow_discrete
+
 let animate_none = utility Animate_none
 let animate_spin = utility Animate_spin
 let animate_ping = utility Animate_ping

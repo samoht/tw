@@ -2461,6 +2461,18 @@ val transition_shadow : t
 val transition_transform : t
 (** [transition_transform] transitions transform. *)
 
+(** {2 Transition Behavior}
+    @see <https://tailwindcss.com/docs/transition-behavior> Transition Behavior
+*)
+
+val transition_behavior_normal : t
+(** [transition_behavior_normal] uses normal transition behavior (default). *)
+
+val transition_behavior_allow_discrete : t
+(** [transition_behavior_allow_discrete] allows discrete transitions where
+    supported. Useful for toggling properties like visibility in a discrete
+    manner. *)
+
 (** {2 Transition Duration}
     @see <https://tailwindcss.com/docs/transition-duration> Transition Duration
 *)
@@ -2483,6 +2495,9 @@ val ease_out : t
 
 val ease_in_out : t
 (** [ease_in_out] uses an ease-in-out transition timing function. *)
+
+(** {2 Transition Delay}
+    @see <https://tailwindcss.com/docs/transition-delay> Transition Delay *)
 
 val delay : int -> t
 (** [delay ms] sets transition/animation delay in milliseconds. *)
@@ -3287,29 +3302,6 @@ val data_inactive : t list -> t
 
 val peer_checked : t list -> t
 (** [peer_checked styles] applies [styles] when a preceding [.peer]:checked. *)
-
-(** {2 Animation}
-    @see <https://tailwindcss.com/docs/animation> Animation *)
-
-(* Inserted to match v4 order *)
-(** {2 Transition Behavior}
-    @see <https://tailwindcss.com/docs/transition-behavior> Transition Behavior
-*)
-
-val transition_behavior_normal : t
-(** [transition_behavior_normal] uses normal transition behavior (default). *)
-
-val transition_behavior_allow_discrete : t
-(** [transition_behavior_allow_discrete] allows discrete transitions where
-    supported. Useful for toggling properties like visibility in a discrete
-    manner. *)
-
-(* Inserted to match v4 order *)
-(** {2 Transition Delay}
-    @see <https://tailwindcss.com/docs/transition-delay> Transition Delay *)
-(* Exposed via [delay] above in the Transitions & Animations section. *)
-
-(**/**)
 
 module Style = Style
 module Margin = Margin
