@@ -1,18 +1,9 @@
-(** Container query utilities for responsive design based on container size *)
+(** Container query utilities for responsive design based on container size
 
-open Style
+    https://tailwindcss.com/docs/container
+    https://tailwindcss.com/docs/container-queries *)
 
-(** {1 Utility Types} *)
-
-type utility
-
-val to_style : utility -> t
-(** [to_style u] converts a structured container utility to a style. For
-    internal use by the Tw module. *)
-
-val suborder : utility -> int
-(** [suborder u] returns the ordering value for container utility [u]. Used for
-    deterministic CSS output ordering. *)
+open Utility
 
 (** {1 Container Type Utilities} *)
 
@@ -27,8 +18,13 @@ val container_type_inline_size : t
 val container_type_normal : t
 (** [container_type_normal] disables container queries (default). *)
 
+val container_name_util : string -> t
+(** [container_name_util name] creates a utility for setting a container name
+    for targeted queries. *)
+
 val container_name : string -> t
-(** [container_name name] sets a container name for targeted queries. *)
+(** [container_name name] directly creates a style for setting a container name.
+*)
 
 (** {1 Container Query Modifiers} *)
 
@@ -58,15 +54,27 @@ val container : ?name:string -> int -> t list -> t
 
 (** {1 Helper Functions} *)
 
-val container_query_to_css_prefix : container_query -> string
+val container_query_to_css_prefix : Style.container_query -> string
 (** [container_query_to_css_prefix q] converts [q] to its CSS [@container] rule
     prefix. *)
 
-val container_query_to_class_prefix : container_query -> string
+val container_query_to_class_prefix : Style.container_query -> string
 (** [container_query_to_class_prefix q] converts [q] to its class name prefix
     (e.g., "@sm"). *)
 
-(** {1 Parsing Functions} *)
+(** {1 Internal types} *)
 
-val of_string : string list -> (utility, [ `Msg of string ]) result
-(** [of_string parts] parses a container utility from string parts. *)
+module Handler : sig
+  type t
+
+  val of_string : string list -> (t, [ `Msg of string ]) result
+  (** [of_string parts] parses string parts into a flex utility. For internal
+      use by the Tw module. *)
+
+  val suborder : t -> int
+  (** [suborder u] returns the ordering value for flex utility [u]. Used for
+      deterministic CSS output ordering. *)
+
+  val to_style : t -> Style.t
+  val order : t -> int * int
+end

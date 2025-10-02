@@ -1,14 +1,21 @@
-(** Typography utilities for text and font styling *)
+(** Typography utilities for text and font styling
 
-open Style
+    https://tailwindcss.com/docs/font-size
+    https://tailwindcss.com/docs/font-weight
+    https://tailwindcss.com/docs/font-family
+    https://tailwindcss.com/docs/font-style
+    https://tailwindcss.com/docs/text-align
+    https://tailwindcss.com/docs/text-decoration
+    https://tailwindcss.com/docs/line-height
+    https://tailwindcss.com/docs/letter-spacing
+    https://tailwindcss.com/docs/text-transform
+    https://tailwindcss.com/docs/vertical-align
+    https://tailwindcss.com/docs/list-style-type
+    https://tailwindcss.com/docs/line-clamp
+    https://tailwindcss.com/docs/text-overflow
+    https://tailwindcss.com/docs/word-break *)
 
-(** {1 Utility Types} *)
-
-type utility
-
-val to_style : utility -> t
-(** [to_style u] converts a structured typography utility to a style. For
-    internal use by the Tw module. *)
+open Utility
 
 (** {1 Font Size Utilities} *)
 
@@ -239,11 +246,6 @@ val antialiased : t
 
 (** {1 Rendering} *)
 
-(** {1 Parsing Functions} *)
-
-val of_string : string list -> (utility, [ `Msg of string ]) result
-(** [of_string parts] parses a typography utility from string parts. *)
-
 (** {1 Vertical Align} *)
 
 val align_baseline : t
@@ -440,8 +442,15 @@ val default_font_family_declarations : Css.declaration list
 (** [default_font_family_declarations] are the default font-family variable
     declarations for the theme layer. *)
 
-(** {1 Ordering} *)
+(** {Internal types} *)
 
-val suborder : utility -> int
-(** [suborder u] returns the ordering value for typography utility [u]. Used for
-    deterministic CSS output ordering. *)
+val order : base -> (int * int) option
+
+module Handler : sig
+  type t
+
+  val of_string : string list -> (t, [ `Msg of string ]) result
+  val suborder : t -> int
+  val to_style : t -> Style.t
+  val order : t -> int * int
+end

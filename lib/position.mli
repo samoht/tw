@@ -1,79 +1,38 @@
-(** Positioning utilities for controlling element placement *)
+(** Position utilities for controlling element placement
 
-open Style
+    https://tailwindcss.com/docs/position
+    https://tailwindcss.com/docs/top-right-bottom-left *)
 
-(** {1 Utility Types} *)
-
-type utility
-
-val of_string : string list -> (utility, [ `Msg of string ]) result
-(** [of_string parts] parses a positioning utility from string parts. Returns an
-    internal structured representation. *)
-
-(** {1 Internal Conversion Functions} *)
-
-val to_style : utility -> t
-(** [to_style u] converts a structured positioning utility to a style. For
-    internal use by the Tw module. *)
-
-val suborder : utility -> int
-(** [suborder u] returns the ordering value for positioning utility [u]. Used
-    for deterministic CSS output ordering. *)
+open Utility
 
 (** {1 Position Utilities} *)
 
 val static : t
-(** [static] sets position to static. *)
-
 val relative : t
-(** [relative] sets position to relative. *)
-
 val absolute : t
-(** [absolute] sets position to absolute. *)
-
 val fixed : t
-(** [fixed] sets position to fixed. *)
-
 val sticky : t
-(** [sticky] sets position to sticky. *)
-
-(** {1 Inset Utilities} *)
-
 val inset : int -> t
-(** [inset n] sets all four sides (top, right, bottom, left) to n * spacing. *)
-
 val inset_0 : t
-(** [inset_0] sets all sides to 0. *)
-
 val inset_x_0 : t
-(** [inset_x_0] sets left and right to 0. *)
-
 val inset_y_0 : t
-(** [inset_y_0] sets top and bottom to 0. *)
-
-(** {1 Individual Side Positioning} *)
-
 val top : int -> t
-(** [top n] sets top position to n * spacing (can be negative). *)
-
 val right : int -> t
-(** [right n] sets right position to n * spacing (can be negative). *)
-
 val bottom : int -> t
-(** [bottom n] sets bottom position to n * spacing (can be negative). *)
-
 val left : int -> t
-(** [left n] sets left position to n * spacing (can be negative). *)
-
-(** {1 Fractional Positioning} *)
-
 val top_1_2 : t
-(** [top_1_2] sets top to 50%. *)
-
 val left_1_2 : t
-(** [left_1_2] sets left to 50%. *)
-
-(** {1 Z-Index} *)
-
 val z : int -> t
-(** [z n] sets z-index to n. *)
+
+module Handler : sig
+  type t
+
+  val of_string : string list -> (t, [ `Msg of string ]) result
+  (** [of_string parts] parses a positioning utility from string parts. *)
+
+  val suborder : t -> int
+  (** [suborder u] returns the ordering value for positioning utility [u]. *)
+
+  val to_style : t -> Style.t
+  val order : t -> int * int
+end

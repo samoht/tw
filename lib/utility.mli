@@ -1,37 +1,28 @@
 (** Utility module for common utility types and functions *)
 
-(** Base utility type without modifiers *)
-type base =
-  | Positioning of Positioning.utility
-  | Grid of Grid.utility
-  | Margin of Margin.utility
-  | Containers of Containers.utility
-  | Prose of Prose.utility
-  | Display of Display.utility
-  | Layout of Layout.utility
-  | Tables of Tables.utility
-  | Sizing of Sizing.utility
-  | Cursor of Cursor.utility
-  | Grid_template of Grid_template.utility
-  | Flex of Flex.utility
-  | Alignment of Alignment.utility
-  | Gap of Gap.utility
-  | Borders of Borders.utility
-  | Backgrounds of Backgrounds.utility
-  | Padding of Padding.utility
-  | Typography of Typography.utility
-  | Color of Color.utility
-  | Effects of Effects.utility
-  | Filters of Filters.utility
-  | Transforms of Transforms.utility
-  | Animations of Animations.utility
-  | Interactivity of Interactivity.utility
-  | Forms of Forms.utility
-  | Svg of Svg.utility
-  | Accessibility of Accessibility.utility
+type base = ..
+(** Base utility type without modifiers - extensible variant *)
 
 (** Unified utility type with modifiers support *)
-type t = Utility of base | Modified of Style.modifier * t | Group of t list
+type t = Base of base | Modified of Style.modifier * t | Group of t list
+
+val base : base -> t
+(** [base u] wraps a base utility into a Utility.t *)
+
+type 'a handler = {
+  to_style : 'a -> Style.t;
+  priority : int;
+  suborder : 'a -> int;
+  of_string : string list -> ('a, [ `Msg of string ]) result;
+}
+(** Generic handler for a specific utility type 'a *)
+
+val register :
+  wrap:('a -> base) -> unwrap:(base -> 'a option) -> 'a handler -> unit
+(** [register ~wrap ~unwrap handler] registers a typed utility handler.
+    - [wrap] converts from the local type to the extensible variant
+    - [unwrap] attempts to extract the local type from the extensible variant
+    - [handler] is the typed handler for the local utility type *)
 
 (** Parse CSS string into AST *)
 val css_of_string :
@@ -49,9 +40,6 @@ val base_to_style : base -> Style.t
 
 val to_style : t -> Style.t
 (** Convert Utility.t (with modifiers) to Style.t *)
-
-val priority : base -> int
-(** Get the priority for a base utility *)
 
 val order : base -> int * int
 (** Get the ordering information (priority, suborder) for a base utility *)

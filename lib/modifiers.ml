@@ -1,7 +1,9 @@
 (** Tailwind variant helpers (hover, focus, dark, responsive, group/peer, etc.)
 *)
 
+(* We work with Utility.t instead of Style.t *)
 open Style
+(** We still need Style.modifier type *)
 
 (** Helper to build escaped class selectors *)
 let build_class prefix cls = Css.Selector.Class (prefix ^ cls)
@@ -89,8 +91,8 @@ let is_hover = function Hover | Group_hover | Peer_hover -> true | _ -> false
 
 let wrap m styles =
   match styles with
-  | [] -> Group []
-  | _ -> Group (List.map (fun t -> Modified (m, t)) styles)
+  | [] -> Utility.Group []
+  | _ -> Utility.Group (List.map (fun t -> Utility.Modified (m, t)) styles)
 
 (* State variants *)
 let hover = wrap Hover
@@ -101,8 +103,8 @@ let focus_within = wrap Focus_within
 let focus_visible = wrap Focus_visible
 
 (* Group/peer markers *)
-let group = style "group" []
-let peer = style "peer" []
+let group = Interactivity.group
+let peer = Interactivity.peer
 
 (* Group/peer variants *)
 let group_hover = wrap Group_hover
@@ -127,12 +129,12 @@ let starting = wrap Starting
 let before = wrap Pseudo_before
 let after = wrap Pseudo_after
 
-(* Check if a style already has a responsive modifier *)
+(* Check if a utility already has a responsive modifier *)
 let rec has_responsive_modifier = function
-  | Style _ -> false
-  | Modified (Responsive _, _) -> true
-  | Modified (_, t) -> has_responsive_modifier t
-  | Group styles -> List.exists has_responsive_modifier styles
+  | Utility.Base _ -> false
+  | Utility.Modified (Responsive _, _) -> true
+  | Utility.Modified (_, t) -> has_responsive_modifier t
+  | Utility.Group styles -> List.exists has_responsive_modifier styles
 
 (* Validate no nested responsive modifiers *)
 let validate_no_nested_responsive styles =
@@ -171,9 +173,12 @@ let aria_checked styles = wrap Aria_checked styles
 let aria_expanded styles = wrap Aria_expanded styles
 let aria_selected styles = wrap Aria_selected styles
 let aria_disabled styles = wrap Aria_disabled styles
-let data_state value style = Modified (Data_state value, style)
-let data_variant value style = Modified (Data_variant value, style)
-let data_custom key value style = Modified (Data_custom (key, value), style)
+let data_state value style = Utility.Modified (Data_state value, style)
+let data_variant value style = Utility.Modified (Data_variant value, style)
+
+let data_custom key value style =
+  Utility.Modified (Data_custom (key, value), style)
+
 let data_active styles = wrap Data_active styles
 let data_inactive styles = wrap Data_inactive styles
 
@@ -227,40 +232,50 @@ let pp_modifier = function
   | Pseudo_before -> "before"
   | Pseudo_after -> "after"
 
-(* Apply a list of modifier strings to a base style *)
-let apply modifiers base_style =
+(* Apply a list of modifier strings to a base utility *)
+let apply modifiers base_utility =
   List.fold_left
     (fun acc modifier ->
       match modifier with
       | "sm" -> (
-          match acc with Group styles -> sm styles | single -> sm [ single ])
+          match acc with
+          | Utility.Group styles -> sm styles
+          | single -> sm [ single ])
       | "md" -> (
-          match acc with Group styles -> md styles | single -> md [ single ])
+          match acc with
+          | Utility.Group styles -> md styles
+          | single -> md [ single ])
       | "lg" -> (
-          match acc with Group styles -> lg styles | single -> lg [ single ])
+          match acc with
+          | Utility.Group styles -> lg styles
+          | single -> lg [ single ])
       | "xl" -> (
-          match acc with Group styles -> xl styles | single -> xl [ single ])
+          match acc with
+          | Utility.Group styles -> xl styles
+          | single -> xl [ single ])
       | "2xl" -> (
-          match acc with Group styles -> xl2 styles | single -> xl2 [ single ])
+          match acc with
+          | Utility.Group styles -> xl2 styles
+          | single -> xl2 [ single ])
       | "hover" -> (
           match acc with
-          | Group styles -> hover styles
+          | Utility.Group styles -> hover styles
           | single -> hover [ single ])
       | "focus" -> (
           match acc with
-          | Group styles -> focus styles
+          | Utility.Group styles -> focus styles
           | single -> focus [ single ])
       | "active" -> (
           match acc with
-          | Group styles -> active styles
+          | Utility.Group styles -> active styles
           | single -> active [ single ])
       | "disabled" -> (
           match acc with
-          | Group styles -> disabled styles
+          | Utility.Group styles -> disabled styles
           | single -> disabled [ single ])
       | "dark" -> (
           match acc with
-          | Group styles -> dark styles
+          | Utility.Group styles -> dark styles
           | single -> dark [ single ])
       | _ -> acc (* ignore unknown modifiers for now *))
-    base_style modifiers
+    base_utility modifiers

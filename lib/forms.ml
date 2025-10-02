@@ -1,23 +1,40 @@
-(** Form element utilities *)
+(** Form element utilities
+
+    What's included:
+    - `form-input` - Standard text input styling.
+    - `form-textarea` - Textarea styling.
+    - `form-select` - Select dropdown styling.
+    - `form-checkbox` - Checkbox styling.
+    - `form-radio` - Radio button styling.
+
+    What's not:
+    - Custom form validation states or error styling.
+    - File input or other specialized input types.
+
+    Parsing contract (`of_string`):
+    - Accepts ["form"; "input" | "textarea" | "select" | "checkbox" | "radio"].
+      Unknown tokens yield `Error (`Msg "Not a form utility")`. *)
 
 open Style
 open Css
 
-(** {1 Utility Type} *)
+(** Local form utility type *)
+type t = Form_input | Form_textarea | Form_select | Form_checkbox | Form_radio
 
-type utility =
-  | Form_input
-  | Form_textarea
-  | Form_select
-  | Form_checkbox
-  | Form_radio
+(** Extensible variant for form utilities *)
+type Utility.base += Forms of t
 
-(** {1 Form Input Utilities} *)
+let wrap x = Forms x
+let unwrap = function Forms x -> Some x | _ -> None
+let base x = Utility.base (wrap x)
 
-(* Basic form input placeholder - actual styling would be plugin-specific *)
-let form_input = style "form-input" []
+(** Error helper *)
+let err_not_utility = Error (`Msg "Not a form utility")
 
-let form_textarea =
+(** Style definitions *)
+let form_input_style = style "form-input" []
+
+let form_textarea_style =
   style "form-textarea"
     [
       Css.appearance None;
@@ -34,7 +51,7 @@ let form_textarea =
       Css.resize Vertical;
     ]
 
-let form_select =
+let form_select_style =
   style "form-select"
     [
       Css.appearance None;
@@ -59,7 +76,7 @@ let form_select =
       Css.background_size (Size (Em 1.5, Em 1.5));
     ]
 
-let form_checkbox =
+let form_checkbox_style =
   style "form-checkbox"
     [
       Css.appearance None;
@@ -75,7 +92,7 @@ let form_checkbox =
       Css.vertical_align Middle;
     ]
 
-let form_radio =
+let form_radio_style =
   style "form-radio"
     [
       Css.appearance None;
@@ -91,26 +108,13 @@ let form_radio =
       Css.vertical_align Middle;
     ]
 
-(** {1 Conversion Functions} *)
-
+(** Typed conversion functions *)
 let to_style = function
-  | Form_input -> form_input
-  | Form_textarea -> form_textarea
-  | Form_select -> form_select
-  | Form_checkbox -> form_checkbox
-  | Form_radio -> form_radio
-
-(** {1 Parsing Functions} *)
-
-let of_string = function
-  | [ "form"; "input" ] -> Ok Form_input
-  | [ "form"; "textarea" ] -> Ok Form_textarea
-  | [ "form"; "select" ] -> Ok Form_select
-  | [ "form"; "checkbox" ] -> Ok Form_checkbox
-  | [ "form"; "radio" ] -> Ok Form_radio
-  | _ -> Error (`Msg "Not a form utility")
-
-(** {1 Suborder Function} *)
+  | Form_input -> form_input_style
+  | Form_textarea -> form_textarea_style
+  | Form_select -> form_select_style
+  | Form_checkbox -> form_checkbox_style
+  | Form_radio -> form_radio_style
 
 let suborder = function
   | Form_input -> 0
@@ -118,3 +122,36 @@ let suborder = function
   | Form_select -> 2
   | Form_checkbox -> 3
   | Form_radio -> 4
+
+let of_string = function
+  | [ "form"; "input" ] -> Ok Form_input
+  | [ "form"; "textarea" ] -> Ok Form_textarea
+  | [ "form"; "select" ] -> Ok Form_select
+  | [ "form"; "checkbox" ] -> Ok Form_checkbox
+  | [ "form"; "radio" ] -> Ok Form_radio
+  | _ -> err_not_utility
+
+(** Priority for form utilities *)
+let priority = 800
+
+(** Typed handler *)
+let handler : t Utility.handler = { to_style; priority; suborder; of_string }
+
+let form_input = base Form_input
+let form_textarea = base Form_textarea
+let form_select = base Form_select
+let form_checkbox = base Form_checkbox
+let form_radio = base Form_radio
+
+(** Register handler with Utility system *)
+
+let () = Utility.register ~wrap ~unwrap handler
+
+module Handler = struct
+  type nonrec t = t
+
+  let of_string = of_string
+  let suborder = suborder
+  let to_style = to_style
+  let order x = (priority, suborder x)
+end

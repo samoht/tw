@@ -93,7 +93,8 @@ let check_theme_layer_with_color () =
     @ Tw.Typography.default_font_family_declarations
   in
   let theme_layer =
-    Tw.Rules.compute_theme_layer ~default_decls [ bg blue 500 ]
+    Tw.Rules.compute_theme_layer ~default_decls
+      [ Tw.Utility.to_style (bg blue 500) ]
   in
   (* Should include color variable when referenced *)
   check bool "includes --color-blue-500" true
@@ -103,7 +104,7 @@ let check_theme_layer_with_color () =
     (has_var_in_layer "--font-sans" "theme" theme_layer)
 
 let check_extract_selector_props () =
-  let rules = Tw.Rules.extract_selector_props (p 4) in
+  let rules = Tw.Rules.extract_selector_props (Tw.Utility.to_style (p 4)) in
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Regular { selector; _ } ] ->
@@ -111,7 +112,9 @@ let check_extract_selector_props () =
   | _ -> fail "Expected Regular rule"
 
 let check_extract_hover () =
-  let rules = extract_selector_props (hover [ bg blue 500 ]) in
+  let rules =
+    extract_selector_props (Tw.Utility.to_style (hover [ bg blue 500 ]))
+  in
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Regular { selector; _ } ] ->
@@ -120,7 +123,7 @@ let check_extract_hover () =
   | _ -> fail "Expected Regular rule with hover"
 
 let check_extract_responsive () =
-  let rules = extract_selector_props (sm [ p 4 ]) in
+  let rules = extract_selector_props (Tw.Utility.to_style (sm [ p 4 ])) in
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
@@ -170,7 +173,9 @@ let check_properties_layer () =
   let config =
     { Tw.Rules.base = false; mode = Css.Variables; optimize = false }
   in
-  let actual_css = Tw.Rules.to_css ~config [ Tw.Effects.shadow_sm ] in
+  let actual_css =
+    Tw.Rules.to_css ~config [ Tw.Utility.to_style Tw.Effects.shadow_sm ]
+  in
 
   (* Verify properties layer exists *)
   check bool "has properties layer" true (has_layer "properties" actual_css);
@@ -204,7 +209,7 @@ let check_css_variables_without_base () =
   let config =
     { Tw.Rules.base = false; mode = Css.Variables; optimize = false }
   in
-  let css = Tw.Rules.to_css ~config [ p 4 ] in
+  let css = Tw.Rules.to_css ~config [ Tw.Utility.to_style (p 4) ] in
   (* Base=false under Variables: theme + components + utilities, but no base. *)
   check bool "has theme layer" true (has_layer "theme" css);
   check bool "no base layer" false (has_layer "base" css);
@@ -214,7 +219,7 @@ let check_css_variables_without_base () =
 
 let check_css_inline_with_base () =
   let config = { Tw.Rules.base = true; mode = Css.Inline; optimize = false } in
-  let css = Tw.Rules.to_css ~config [ p 4 ] in
+  let css = Tw.Rules.to_css ~config [ Tw.Utility.to_style (p 4) ] in
   (* Inline mode never emits layers; base has no effect. *)
   check bool "no theme layer" false (has_layer "theme" css);
   check bool "no base layer" false (has_layer "base" css);
@@ -236,7 +241,7 @@ let check_css_inline_with_base () =
 
 let check_css_inline_without_base () =
   let config = { Tw.Rules.base = false; mode = Css.Inline; optimize = false } in
-  let css = Tw.Rules.to_css ~config [ p 4 ] in
+  let css = Tw.Rules.to_css ~config [ Tw.Utility.to_style (p 4) ] in
   (* Inline mode never emits layers. *)
   check bool "no theme layer" false (has_layer "theme" css);
   check bool "no base layer" false (has_layer "base" css);
@@ -253,7 +258,14 @@ let check_css_inline_without_base () =
   check bool "has padding rule" true (List.mem ".p-4" all_sels)
 
 let check_inline_style () =
-  let style = Tw.Rules.to_inline_style [ p 4; m 2; bg blue 500 ] in
+  let style =
+    Tw.Rules.to_inline_style
+      [
+        Tw.Utility.to_style (p 4);
+        Tw.Utility.to_style (m 2);
+        Tw.Utility.to_style (bg blue 500);
+      ]
+  in
   check bool "has padding" true (inline_has_property "padding" style);
   check bool "has margin" true (inline_has_property "margin" style);
   check bool "has background-color" true
@@ -334,7 +346,7 @@ let or_fail msg = function Some x -> x | None -> fail msg
 
 let check_layer_declaration_and_ordering () =
   (* Use a utility that triggers properties + @property rules *)
-  let sheet = sheet_of [ Tw.Effects.shadow_sm ] in
+  let sheet = sheet_of [ Tw.Utility.to_style Tw.Effects.shadow_sm ] in
   let layer_names = layers_of sheet in
   let expected = [ "properties"; "theme"; "components"; "utilities" ] in
   check bool "layer decl order prefix" true (is_prefix expected layer_names);
@@ -342,7 +354,7 @@ let check_layer_declaration_and_ordering () =
     (Css.layer_block "properties" sheet <> None)
 
 let check_properties_layer_internal_order () =
-  let sheet = sheet_of [ Tw.Effects.shadow_sm ] in
+  let sheet = sheet_of [ Tw.Utility.to_style Tw.Effects.shadow_sm ] in
   let props =
     Css.layer_block "properties" sheet
     |> or_fail "Expected a @layer properties block"
@@ -370,7 +382,7 @@ let check_properties_layer_internal_order () =
     (take (List.length expected) names)
 
 let check_property_rules_trailing_and_order () =
-  let sheet = sheet_of [ Tw.Effects.shadow_sm ] in
+  let sheet = sheet_of [ Tw.Utility.to_style Tw.Effects.shadow_sm ] in
   let names = property_rule_names sheet in
   let expected =
     [
@@ -418,8 +430,13 @@ let test_color_order () =
 
 let test_is_hover_rule () =
   (* Test simple hover *)
-  let hover_rules = Tw.Rules.extract_selector_props (hover [ bg blue 500 ]) in
-  let non_hover_rules = Tw.Rules.extract_selector_props (bg blue 500) in
+  let hover_rules =
+    Tw.Rules.extract_selector_props
+      (Tw.Utility.to_style (hover [ bg blue 500 ]))
+  in
+  let non_hover_rules =
+    Tw.Rules.extract_selector_props (Tw.Utility.to_style (bg blue 500))
+  in
 
   (match hover_rules with
   | [ hover_rule ] ->
@@ -434,7 +451,9 @@ let test_is_hover_rule () =
   | _ -> fail "Expected single non-hover rule");
 
   (* Test hover combined with responsive *)
-  let sm_hover_rules = Tw.Rules.extract_selector_props (sm [ hover [ p 4 ] ]) in
+  let sm_hover_rules =
+    Tw.Rules.extract_selector_props (Tw.Utility.to_style (sm [ hover [ p 4 ] ]))
+  in
   (match sm_hover_rules with
   | [ media_rule ] ->
       (* Responsive + hover creates a media query, not a regular rule with
@@ -445,7 +464,8 @@ let test_is_hover_rule () =
 
   (* Test hover combined with dark mode *)
   let dark_hover_rules =
-    Tw.Rules.extract_selector_props (dark [ hover [ m 2 ] ])
+    Tw.Rules.extract_selector_props
+      (Tw.Utility.to_style (dark [ hover [ m 2 ] ]))
   in
   (match dark_hover_rules with
   | [ media_rule ] ->
@@ -454,7 +474,9 @@ let test_is_hover_rule () =
   | _ -> fail "Expected single media rule");
 
   (* Test focus without hover *)
-  let focus_rules = Tw.Rules.extract_selector_props (focus [ bg red 400 ]) in
+  let focus_rules =
+    Tw.Rules.extract_selector_props (Tw.Utility.to_style (focus [ bg red 400 ]))
+  in
   (match focus_rules with
   | [ focus_rule ] ->
       check bool "focus alone is not hover" false
@@ -463,7 +485,8 @@ let test_is_hover_rule () =
 
   (* Test group hover *)
   let group_hover_rules =
-    Tw.Rules.extract_selector_props (group_hover [ text white 0 ])
+    Tw.Rules.extract_selector_props
+      (Tw.Utility.to_style (group_hover [ text white 0 ]))
   in
   match group_hover_rules with
   | [ group_rule ] ->
@@ -484,7 +507,9 @@ let test_inline_no_vars_defaults () =
   (* Ensure Inline mode resolves defaults and does not emit var(--...). Use
      rounded_sm which sets a default on its CSS var. *)
   let config = { Tw.Rules.base = false; mode = Css.Inline; optimize = false } in
-  let sheet = Tw.Rules.to_css ~config [ Tw.Borders.rounded_sm ] in
+  let sheet =
+    Tw.Rules.to_css ~config [ Tw.Utility.to_style Tw.Borders.rounded_sm ]
+  in
   (* Find first rule with declarations using fold *)
   let find_first_decls css =
     Css.fold
@@ -534,13 +559,27 @@ let extract_utility_selectors sheet =
   |> Option.value ~default:[]
 
 let test_theme_layer_color_order () =
-  let sheet = sheet_of [ bg cyan 500; bg sky 500; bg blue 500 ] in
+  let sheet =
+    sheet_of
+      [
+        Tw.Utility.to_style (bg cyan 500);
+        Tw.Utility.to_style (bg sky 500);
+        Tw.Utility.to_style (bg blue 500);
+      ]
+  in
   let theme_colors = extract_theme_color_vars sheet in
   check (list string) "theme layer: cyan, sky, blue" [ "cyan"; "sky"; "blue" ]
     theme_colors
 
 let test_utilities_layer_color_order () =
-  let sheet = sheet_of [ bg cyan 500; bg sky 500; bg blue 500 ] in
+  let sheet =
+    sheet_of
+      [
+        Tw.Utility.to_style (bg cyan 500);
+        Tw.Utility.to_style (bg sky 500);
+        Tw.Utility.to_style (bg blue 500);
+      ]
+  in
   let util_colors = extract_utility_selectors sheet in
   check (list string) "utilities layer: blue, cyan, sky"
     [ "blue"; "cyan"; "sky" ] util_colors
@@ -556,7 +595,7 @@ let test_deterministic_ordering () =
   let results =
     List.map
       (fun utilities ->
-        let sheet = sheet_of utilities in
+        let sheet = sheet_of (List.map Tw.Utility.to_style utilities) in
         Css.to_string ~minify:true sheet)
       inputs
   in
@@ -587,12 +626,12 @@ let test_inline_vs_variables_diff () =
   let sheet_vars =
     Tw.Rules.to_css
       ~config:{ Tw.Rules.base = false; mode = Css.Variables; optimize = false }
-      [ Tw.Borders.rounded_sm ]
+      [ Tw.Utility.to_style Tw.Borders.rounded_sm ]
   in
   let sheet_inline =
     Tw.Rules.to_css
       ~config:{ Tw.Rules.base = false; mode = Css.Inline; optimize = false }
-      [ Tw.Borders.rounded_sm ]
+      [ Tw.Utility.to_style Tw.Borders.rounded_sm ]
   in
   (* Extract all declarations using fold *)
   let extract_decls css =
@@ -626,7 +665,8 @@ let test_theme_layer_media_refs () =
       Tw.Typography.default_font_declarations
       @ Tw.Typography.default_font_family_declarations
     in
-    Tw.Rules.compute_theme_layer ~default_decls [ sm [ Tw.Typography.text_xl ] ]
+    Tw.Rules.compute_theme_layer ~default_decls
+      [ Tw.Utility.to_style (sm [ Tw.Typography.text_xl ]) ]
   in
   let all_vars =
     Css.layer_block "theme" theme_layer
@@ -643,7 +683,7 @@ let test_theme_layer_media_refs () =
 let test_rule_sets_hover_media () =
   (* A bare hover utility produces a rule that should be gated behind
      (hover:hover) *)
-  let css = Tw.Rules.to_css [ hover [ p 4 ] ] in
+  let css = Tw.Rules.to_css [ Tw.Utility.to_style (hover [ p 4 ]) ] in
   (* Check for exact media condition *)
   check bool "has (hover:hover) media query" true
     (has_media_condition "(hover:hover)" css);
@@ -675,7 +715,10 @@ let test_modifier_to_rule () =
   | _ -> fail "Expected Regular rule for hover"
 
 let test_rule_sets () =
-  let rules, media, container = Tw.Rules.rule_sets [ p 4; sm [ m 2 ] ] in
+  let rules, media, container =
+    Tw.Rules.rule_sets
+      [ Tw.Utility.to_style (p 4); Tw.Utility.to_style (sm [ m 2 ]) ]
+  in
   check bool "has regular rules" true (List.length rules > 0);
   check bool "has media queries" true (List.length media > 0);
   check int "no container queries" 0 (List.length container)
@@ -897,7 +940,10 @@ let test_cascade_order_violation () =
   (* User wants p-2 to win *)
 
   (* Extract the rules and convert to pairs *)
-  let rules = user_intent |> List.concat_map Tw.Rules.extract_selector_props in
+  let rules =
+    List.map Tw.Utility.to_style user_intent
+    |> List.concat_map Tw.Rules.extract_selector_props
+  in
 
   (* Get selector strings from the rules *)
   let selectors =
@@ -935,7 +981,9 @@ let test_cascade_prose_separation () =
   (* Test showing how sorting breaks intentional separation of .prose rules *)
 
   (* Extract prose rules to see their structure *)
-  let outputs = Tw.Rules.extract_selector_props Tw.Prose.prose in
+  let outputs =
+    Tw.Rules.extract_selector_props (Tw.Utility.to_style Tw.Prose.prose)
+  in
   let pairs = Tw.Rules.extract_selector_props_pairs outputs in
 
   Fmt.pr "@.=== Prose Rule Separation Test ===@.";
@@ -989,7 +1037,10 @@ let test_cascade_color_override () =
   in
 
   (* Extract rules *)
-  let outputs = styles |> List.concat_map Tw.Rules.extract_selector_props in
+  let outputs =
+    List.map Tw.Utility.to_style styles
+    |> List.concat_map Tw.Rules.extract_selector_props
+  in
   let pairs = Tw.Rules.extract_selector_props_pairs outputs in
 
   Fmt.pr "@.=== Color Override Cascade Test ===@.";

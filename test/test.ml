@@ -55,7 +55,7 @@ let () =
       Test_forms.suite;
       Test_interactivity.suite;
       Test_parse.suite;
-      Test_positioning.suite;
+      Test_position.suite;
       Test_rules.suite;
       Test_preflight.suite;
       Test_transforms.suite;

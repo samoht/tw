@@ -46,7 +46,8 @@ type color =
 
 (** {1 Color Utility Type} *)
 
-type utility =
+(** Local color utility type *)
+type t =
   (* Background colors *)
   | Bg of color * int
   | Bg_transparent
@@ -60,6 +61,13 @@ type utility =
   | Border of color * int
   | Border_transparent
   | Border_current
+
+(** Extensible variant for color utilities *)
+type Utility.base += Color of t
+
+let wrap x = Color x
+let unwrap = function Color x -> Some x | _ -> None
+let base x = Utility.base (wrap x)
 
 (** Convert RGB to linear RGB (remove gamma correction) *)
 let linearize_channel c =
@@ -1101,7 +1109,7 @@ let get_color_var color shade =
       Hashtbl.add color_var_cache name var;
       var
 
-let bg color shade =
+let bg' color shade =
   let class_name =
     if is_base_color color || is_custom_color color then
       let pp_class_name ctx color =
@@ -1129,10 +1137,11 @@ let bg color shade =
     let decl, color_ref = Var.binding color_var color_value in
     style class_name (decl :: [ Css.background_color (Css.Var color_ref) ])
 
-let bg_transparent = style "bg-transparent" [ background_color Transparent ]
-let bg_current = style "bg-current" [ background_color Current ]
-
-(* Default color backgrounds - using shade 500 *)
+let bg color shade = base (Bg (color, shade))
+let bg_transparent' = style "bg-transparent" [ background_color Transparent ]
+let bg_transparent = base Bg_transparent
+let bg_current' = style "bg-current" [ background_color Current ]
+let bg_current = base Bg_current
 let bg_black = bg black 500
 let bg_white = bg white 500
 let bg_gray = bg gray 500
@@ -1160,7 +1169,7 @@ let bg_rose = bg rose 500
 
 (** Text color utilities *)
 
-let text color shade =
+let text' color shade =
   let class_name =
     if is_base_color color || is_custom_color color then
       let pp_class_name ctx color =
@@ -1188,11 +1197,13 @@ let text color shade =
     let decl, color_ref = Var.binding color_var color_value in
     style class_name (decl :: [ Css.color (Var color_ref) ])
 
-let text_transparent = style "text-transparent" [ Css.color Transparent ]
-let text_current = style "text-current" [ Css.color Current ]
-let text_inherit = style "text-inherit" [ Css.color Inherit ]
-
-(* Default text colors - using shade 500 *)
+let text color shade = base (Text (color, shade))
+let text_transparent' = style "text-transparent" [ Css.color Transparent ]
+let text_transparent = base Text_transparent
+let text_current' = style "text-current" [ Css.color Current ]
+let text_current = base Text_current
+let text_inherit' = style "text-inherit" [ Css.color Inherit ]
+let text_inherit = base Text_inherit
 let text_black = text black 500
 let text_white = text white 500
 let text_gray = text gray 500
@@ -1220,7 +1231,7 @@ let text_rose = text rose 500
 
 (** Border color utilities *)
 
-let border_color color shade =
+let border_color' color shade =
   let class_name =
     if is_base_color color || is_custom_color color then
       let pp_class_name ctx color =
@@ -1248,12 +1259,14 @@ let border_color color shade =
     let decl, color_ref = Var.binding color_var color_value in
     style class_name (decl :: [ Css.border_color (Var color_ref) ])
 
-let border_transparent =
+let border_color color shade = base (Border (color, shade))
+
+let border_transparent' =
   style "border-transparent" [ Css.border_color Transparent ]
 
-let border_current = style "border-current" [ Css.border_color Current ]
-
-(* Default border colors - using shade 500 *)
+let border_transparent = base Border_transparent
+let border_current' = style "border-current" [ Css.border_color Current ]
+let border_current = base Border_current
 let border_black = border_color black 500
 let border_white = border_color white 500
 let border_gray = border_color gray 500
@@ -1299,77 +1312,85 @@ let shade_of_strings = function
 
 (** {1 Parsing Functions} *)
 
-let utility_of_string parts =
-  match parts with
-  | [ "bg"; "transparent" ] -> Ok Bg_transparent
-  | [ "bg"; "current" ] -> Ok Bg_current
-  | "bg" :: color_parts -> (
-      match shade_of_strings color_parts with
-      | Ok (color, shade) -> Ok (Bg (color, shade))
-      | Error _ -> Error (`Msg "Not a background color"))
-  | [ "text"; "transparent" ] -> Ok Text_transparent
-  | [ "text"; "current" ] -> Ok Text_current
-  | [ "text"; "inherit" ] -> Ok Text_inherit
-  | "text" :: color_parts -> (
-      match shade_of_strings color_parts with
-      | Ok (color, shade) -> Ok (Text (color, shade))
-      | Error _ -> Error (`Msg "Not a text color"))
-  | [ "border"; "transparent" ] -> Ok Border_transparent
-  | [ "border"; "current" ] -> Ok Border_current
-  | "border" :: color_parts -> (
-      match shade_of_strings color_parts with
-      | Ok (color, shade) -> Ok (Border (color, shade))
-      | Error _ -> Error (`Msg "Not a border color"))
-  | _ -> Error (`Msg "Not a color utility")
+module Handler = struct
+  type nonrec t = t
 
-(** {1 Utility Conversion Functions} *)
+  let of_string parts =
+    match parts with
+    | [ "bg"; "transparent" ] -> Ok Bg_transparent
+    | [ "bg"; "current" ] -> Ok Bg_current
+    | "bg" :: color_parts -> (
+        match shade_of_strings color_parts with
+        | Ok (color, shade) -> Ok (Bg (color, shade))
+        | Error e -> Error e)
+    | [ "text"; "transparent" ] -> Ok Text_transparent
+    | [ "text"; "current" ] -> Ok Text_current
+    | [ "text"; "inherit" ] -> Ok Text_inherit
+    | "text" :: color_parts -> (
+        match shade_of_strings color_parts with
+        | Ok (color, shade) -> Ok (Text (color, shade))
+        | Error e -> Error e)
+    | [ "border"; "transparent" ] -> Ok Border_transparent
+    | [ "border"; "current" ] -> Ok Border_current
+    | "border" :: color_parts -> (
+        match shade_of_strings color_parts with
+        | Ok (color, shade) -> Ok (Border (color, shade))
+        | Error e -> Error e)
+    | _ -> Error (`Msg "Not a color utility")
 
-let to_style = function
-  | Bg (color, shade) -> bg color shade
-  | Bg_transparent -> bg_transparent
-  | Bg_current -> bg_current
-  | Text (color, shade) -> text color shade
-  | Text_transparent -> text_transparent
-  | Text_current -> text_current
-  | Text_inherit -> text_inherit
-  | Border (color, shade) -> border_color color shade
-  | Border_transparent -> border_transparent
-  | Border_current -> border_current
+  (** {1 Utility Conversion Functions} *)
 
-(** Suborder function for sorting color utilities within their priority group.
-    Uses color ordering and shade for deterministic ordering. *)
-let suborder = function
-  | Bg (color, shade) ->
-      let color_str = pp color in
-      if is_base_color color then suborder_with_shade color_str
-      else suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
-  | Bg_transparent -> 0
-  | Bg_current -> 1
-  | Text (color, shade) ->
-      10000
-      +
-      if is_base_color color then
-        let color_str = pp color in
-        suborder_with_shade color_str
-      else
-        let color_str = pp color in
-        suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
-  | Text_transparent -> 10000
-  | Text_current -> 10001
-  | Text_inherit -> 10002
-  | Border (color, shade) ->
-      20000
-      +
-      if is_base_color color then
-        let color_str = pp color in
-        suborder_with_shade color_str
-      else
-        let color_str = pp color in
-        suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
-  | Border_transparent -> 20000
-  | Border_current -> 20001
+  let to_style = function
+    | Bg (color, shade) -> bg' color shade
+    | Bg_transparent -> bg_transparent'
+    | Bg_current -> bg_current'
+    | Text (color, shade) -> text' color shade
+    | Text_transparent -> text_transparent'
+    | Text_current -> text_current'
+    | Text_inherit -> text_inherit'
+    | Border (color, shade) -> border_color' color shade
+    | Border_transparent -> border_transparent'
+    | Border_current -> border_current'
 
-(** Check if a utility is a background color (for priority calculation) *)
-let is_background_color = function
-  | Bg _ | Bg_transparent | Bg_current -> true
-  | _ -> false
+  (** Suborder function for sorting color utilities within their priority group.
+      Uses color ordering and shade for deterministic ordering. *)
+  let suborder = function
+    | Bg (color, shade) ->
+        let color_str = pp color in
+        if is_base_color color then suborder_with_shade color_str
+        else suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
+    | Bg_transparent -> 0
+    | Bg_current -> 1
+    | Text (color, shade) ->
+        let base =
+          if is_base_color color then
+            let color_str = pp color in
+            suborder_with_shade color_str
+          else
+            let color_str = pp color in
+            suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
+        in
+        10000 + base
+    | Text_transparent -> 10000
+    | Text_current -> 10001
+    | Text_inherit -> 10002
+    | Border (color, shade) ->
+        let base =
+          if is_base_color color then
+            let color_str = pp color in
+            suborder_with_shade color_str
+          else
+            let color_str = pp color in
+            suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
+        in
+        20000 + base
+    | Border_transparent -> 20000
+    | Border_current -> 20001
+
+  (** Priority for color utilities *)
+  let priority = 60
+
+  (** Register color handler with Utility system *)
+  let () =
+    Utility.register ~wrap ~unwrap { to_style; priority; suborder; of_string }
+end

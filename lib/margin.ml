@@ -20,17 +20,28 @@
 
 open Style
 open Css
-module Parse = Parse
 
-(** Error helpers *)
+type t = {
+  negative : bool;
+  axis : [ `All | `X | `Y | `T | `R | `B | `L ];
+  value : margin;
+}
+(** Local margin utility type *)
+
+(** Extensible variant for margin utilities *)
+type Utility.base += Margin of t
+
+(** Wrapper functions *)
+let wrap x = Margin x
+
+let unwrap = function Margin x -> Some x | _ -> None
+let base x = Utility.base (wrap x)
+
+(** Error helper *)
 let err_not_utility = Error (`Msg "Not a margin utility")
 
-type Utility.base +=
-  | Margin of
-      bool (* negative *) * [ `All | `X | `Y | `T | `R | `B | `L ] * margin
-
 (** Helper to create Utility.t from Margin *)
-let margin_t neg axis value = Utility.Utility (Margin (neg, axis, value))
+let margin_t negative axis value = base { negative; axis; value }
 
 (** {2 Typed Margin Utilities} *)
 
@@ -123,30 +134,6 @@ let margin_list_util_neg prefix prop (m : margin) =
   | `Auto -> style class_name [ prop [ len ] ]
   | #spacing -> style class_name [ spacing_decl; prop [ len ] ]
 
-let to_style = function
-  | Margin (neg, side, value) ->
-      let abs_value =
-        match value with `Rem f -> `Rem (Float.abs f) | other -> other
-      in
-      Some
-        (match (neg, side, abs_value) with
-        | false, `All, _ -> m' abs_value
-        | false, `X, _ -> mx' abs_value
-        | false, `Y, _ -> my' abs_value
-        | false, `T, _ -> mt' abs_value
-        | false, `R, _ -> mr' abs_value
-        | false, `B, _ -> mb' abs_value
-        | false, `L, _ -> ml' abs_value
-        | true, `All, (#spacing as s) -> margin_list_util_neg "m-" margin s
-        | true, `X, (#spacing as s) -> margin_util_neg "mx-" margin_inline s
-        | true, `Y, (#spacing as s) -> margin_util_neg "my-" margin_block s
-        | true, `T, (#spacing as s) -> margin_util_neg "mt-" margin_top s
-        | true, `R, (#spacing as s) -> margin_util_neg "mr-" margin_right s
-        | true, `B, (#spacing as s) -> margin_util_neg "mb-" margin_bottom s
-        | true, `L, (#spacing as s) -> margin_util_neg "ml-" margin_left s
-        | true, _, `Auto -> failwith "Negative auto margin not supported")
-  | _ -> None
-
 let spacing_value_order = function
   | `Px -> 1
   | `Full -> 10000
@@ -158,6 +145,44 @@ let margin_value_order = function
   | `Auto -> 0
   | #spacing as s -> spacing_value_order s
 
+(** Convert margin utility to style *)
+let to_style { negative; axis; value } =
+  let abs_value =
+    match value with `Rem f -> `Rem (Float.abs f) | other -> other
+  in
+  match (negative, axis, abs_value) with
+  | false, `All, _ -> m' abs_value
+  | false, `X, _ -> mx' abs_value
+  | false, `Y, _ -> my' abs_value
+  | false, `T, _ -> mt' abs_value
+  | false, `R, _ -> mr' abs_value
+  | false, `B, _ -> mb' abs_value
+  | false, `L, _ -> ml' abs_value
+  | true, `All, (#spacing as s) -> margin_list_util_neg "m-" margin s
+  | true, `X, (#spacing as s) -> margin_util_neg "mx-" margin_inline s
+  | true, `Y, (#spacing as s) -> margin_util_neg "my-" margin_block s
+  | true, `T, (#spacing as s) -> margin_util_neg "mt-" margin_top s
+  | true, `R, (#spacing as s) -> margin_util_neg "mr-" margin_right s
+  | true, `B, (#spacing as s) -> margin_util_neg "mb-" margin_bottom s
+  | true, `L, (#spacing as s) -> margin_util_neg "ml-" margin_left s
+  | true, _, `Auto -> failwith "Negative auto margin not supported"
+
+(** Suborder for margin utilities *)
+let suborder { negative; axis; value } =
+  let neg_offset = if negative then 5000 else 0 in
+  let side_offset =
+    match axis with
+    | `All -> 0
+    | `X -> 1000
+    | `Y -> 2000
+    | `T -> 3000
+    | `R -> 4000
+    | `B -> 5000
+    | `L -> 6000
+  in
+  neg_offset + side_offset + margin_value_order value
+
+(** Parse string parts to margin utility *)
 let of_string parts =
   let parse_margin_value value =
     if value = "px" then Some `Px
@@ -172,64 +197,48 @@ let of_string parts =
     | Ok f -> Some (`Rem (f *. 0.25))
     | Error _ -> None
   in
-  let make_margin neg side value = Margin (neg, side, value) in
-  let parse_positive _prefix side value =
+  let parse_positive _prefix axis value =
     match parse_margin_value value with
-    | Some v -> Some (make_margin false side v)
-    | None -> None
+    | Some v -> Ok { negative = false; axis; value = v }
+    | None -> err_not_utility
   in
-  let parse_negative side value =
+  let parse_negative axis value =
     match parse_spacing_only value with
-    | Some v -> Some (make_margin true side v)
-    | None -> None
+    | Some v -> Ok { negative = true; axis; value = v }
+    | None -> err_not_utility
   in
-  let parse_class = function
-    | [ "m"; value ] -> parse_positive "m" `All value
-    | [ "mx"; value ] -> parse_positive "mx" `X value
-    | [ "my"; value ] -> parse_positive "my" `Y value
-    | [ "mt"; value ] -> parse_positive "mt" `T value
-    | [ "mr"; value ] -> parse_positive "mr" `R value
-    | [ "mb"; value ] -> parse_positive "mb" `B value
-    | [ "ml"; value ] -> parse_positive "ml" `L value
-    | [ "-m"; value ] -> parse_negative `All value
-    | [ "-mx"; value ] -> parse_negative `X value
-    | [ "-my"; value ] -> parse_negative `Y value
-    | [ "-mt"; value ] -> parse_negative `T value
-    | [ "-mr"; value ] -> parse_negative `R value
-    | [ "-mb"; value ] -> parse_negative `B value
-    | [ "-ml"; value ] -> parse_negative `L value
-    | _ -> None
-  in
-  match parse_class parts with Some u -> Ok u | None -> err_not_utility
-
-let suborder = function
-  | Margin (neg, side, value) ->
-      let neg_offset = if neg then 5000 else 0 in
-      let side_offset =
-        match side with
-        | `All -> 0
-        | `X -> 1000
-        | `Y -> 2000
-        | `T -> 3000
-        | `R -> 4000
-        | `B -> 5000
-        | `L -> 6000
-      in
-      Some (neg_offset + side_offset + margin_value_order value)
-  | _ -> None
+  match parts with
+  | [ "m"; value ] -> parse_positive "m" `All value
+  | [ "mx"; value ] -> parse_positive "mx" `X value
+  | [ "my"; value ] -> parse_positive "my" `Y value
+  | [ "mt"; value ] -> parse_positive "mt" `T value
+  | [ "mr"; value ] -> parse_positive "mr" `R value
+  | [ "mb"; value ] -> parse_positive "mb" `B value
+  | [ "ml"; value ] -> parse_positive "ml" `L value
+  | [ "-m"; value ] -> parse_negative `All value
+  | [ "-mx"; value ] -> parse_negative `X value
+  | [ "-my"; value ] -> parse_negative `Y value
+  | [ "-mt"; value ] -> parse_negative `T value
+  | [ "-mr"; value ] -> parse_negative `R value
+  | [ "-mb"; value ] -> parse_negative `B value
+  | [ "-ml"; value ] -> parse_negative `L value
+  | _ -> err_not_utility
 
 (** Priority for margin utilities *)
 let priority = 2
 
-let order u = Option.map (fun s -> (priority, s)) (suborder u)
+(** Typed handler for margin utilities *)
+let handler : t Utility.handler = { to_style; priority; suborder; of_string }
 
-(** Register margin handler with Utility system *)
-let () =
-  Utility.register
-    {
-      to_style;
-      order;
-      of_string =
-        (fun parts ->
-          match of_string parts with Ok u -> Some (Ok u) | Error _ -> None);
-    }
+(** Register handler with Utility system *)
+
+let () = Utility.register ~wrap ~unwrap handler
+
+module Handler = struct
+  type nonrec t = t
+
+  let of_string = of_string
+  let suborder = suborder
+  let to_style = to_style
+  let order x = (priority, suborder x)
+end

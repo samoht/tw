@@ -28,11 +28,11 @@ let test_has_responsive_modifier () =
   check bool "hover is not responsive" false (has_responsive_modifier style5);
 
   (* Group with at least one responsive should be detected *)
-  let style6 = Group [ p 4; sm [ m 2 ] ] in
+  let style6 = Tw.Utility.Group [ p 4; sm [ m 2 ] ] in
   check bool "group with responsive" true (has_responsive_modifier style6);
 
   (* Group without responsive should not be detected *)
-  let style7 = Group [ p 4; m 2 ] in
+  let style7 = Tw.Utility.Group [ p 4; m 2 ] in
   check bool "group without responsive" false (has_responsive_modifier style7)
 
 (* Test responsive nesting validation *)

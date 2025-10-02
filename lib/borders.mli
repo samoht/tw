@@ -1,18 +1,12 @@
-(** Border utilities for border styles, widths, and radii *)
+(** Border utilities for border styles, widths, and radii
 
-open Style
+    https://tailwindcss.com/docs/border-width
+    https://tailwindcss.com/docs/border-style
+    https://tailwindcss.com/docs/border-radius
+    https://tailwindcss.com/docs/outline-width
+    https://tailwindcss.com/docs/outline-offset *)
 
-(** {1 Utility Types} *)
-
-type utility
-
-val to_style : utility -> t
-(** [to_style u] converts a structured border utility to a style. For internal
-    use by the Tw module. *)
-
-val suborder : utility -> int
-(** [suborder u] returns the ordering value for border utility [u]. Used for
-    deterministic CSS output ordering. *)
+open Utility
 
 (** {1 Border Width Utilities} *)
 
@@ -144,8 +138,11 @@ val outline_offset_4 : t
 val outline_offset_8 : t
 (** [outline_offset_8] sets outline offset to 8px. *)
 
-(** {1 Parsing Functions} *)
+module Handler : sig
+  type t
 
-val of_string : string list -> (utility, [ `Msg of string ]) result
-(** [of_string parts] parses a border/rounded utility from string parts. Returns
-    an internal structured representation. *)
+  val of_string : string list -> (t, [ `Msg of string ]) result
+  val suborder : t -> int
+  val to_style : t -> Style.t
+  val order : t -> int * int
+end

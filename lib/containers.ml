@@ -15,47 +15,68 @@
     - Accepts ["container"; "type"; ..] and ["container"; name]. Unknown tokens
       yield `Error (`Msg "Not a container utility")`. *)
 
-open Style
 open Css
 
-(** {1 Utility Types} *)
-
-type utility =
+(** Local container utility type *)
+type t =
   | Container_type_size
   | Container_type_inline_size
   | Container_type_normal
   | Container_name of string
 
-(** {1 Container Type Utilities} *)
+type Utility.base += Containers of t
 
-let container_type_size = style "container-type-size" [ container_type Size ]
+let wrap x = Containers x
+let unwrap = function Containers x -> Some x | _ -> None
+let base x = Utility.base (Containers x)
+let err_not_utility = Error (`Msg "Not a container utility")
 
-let container_type_inline_size =
-  style "container-type-inline-size" [ container_type Inline_size ]
+(** Container Query Modifiers *)
+let container_sm styles =
+  Utility.Modified (Style.Container Style.Container_sm, Utility.Group styles)
 
-let container_type_normal =
-  style "container-type-normal" [ container_type Normal ]
+let container_md styles =
+  Utility.Modified (Style.Container Style.Container_md, Utility.Group styles)
 
-let container_name name = style ("container-" ^ name) [ container_name name ]
+let container_lg styles =
+  Utility.Modified (Style.Container Style.Container_lg, Utility.Group styles)
 
-(** {1 Container Query Modifiers} *)
+let container_xl styles =
+  Utility.Modified (Style.Container Style.Container_xl, Utility.Group styles)
 
-let container_sm styles = Modified (Container Container_sm, Group styles)
-let container_md styles = Modified (Container Container_md, Group styles)
-let container_lg styles = Modified (Container Container_lg, Group styles)
-let container_xl styles = Modified (Container Container_xl, Group styles)
-let container_2xl styles = Modified (Container Container_2xl, Group styles)
+let container_2xl styles =
+  Utility.Modified (Style.Container Style.Container_2xl, Utility.Group styles)
 
 let container ?name min_width styles =
   let query =
     match name with
-    | None -> Container_named ("", min_width)
-    | Some n -> Container_named (n, min_width)
+    | None -> Style.Container_named ("", min_width)
+    | Some n -> Style.Container_named (n, min_width)
   in
-  Group (List.map (fun t -> Modified (Container query, t)) styles)
+  Utility.Group
+    (List.map (fun t -> Utility.Modified (Style.Container query, t)) styles)
 
-(** {1 Helper Functions} *)
+open Style
 
+let container_type_size' = style "container-type-size" [ container_type Size ]
+
+let container_type_inline_size' =
+  style "container-type-inline-size" [ container_type Inline_size ]
+
+let container_type_normal' =
+  style "container-type-normal" [ container_type Normal ]
+
+(** Container name utility for setting container-name *)
+let container_name' name =
+  style ("container-name-" ^ name) [ container_name name ]
+
+let container_type_size = base Container_type_size
+let container_type_inline_size = base Container_type_inline_size
+let container_type_normal = base Container_type_normal
+let container_name_util name = base (Container_name name)
+let container_name = container_name_util
+
+(** Helper Functions *)
 let container_query_to_css_prefix = function
   | Container_sm -> "@container (min-width:24rem)"
   | Container_md -> "@container (min-width:28rem)"
@@ -76,27 +97,54 @@ let container_query_to_class_prefix = function
   | Container_named ("", width) -> "@" ^ string_of_int width ^ "px"
   | Container_named (name, width) -> "@" ^ name ^ "/" ^ string_of_int width
 
-(** {1 Conversion Functions} *)
-
 let to_style = function
-  | Container_type_size -> container_type_size
-  | Container_type_inline_size -> container_type_inline_size
-  | Container_type_normal -> container_type_normal
-  | Container_name name -> container_name name
-
-(** {1 Parsing Functions} *)
-
-let of_string = function
-  | [ "container"; "type"; "size" ] -> Ok Container_type_size
-  | [ "container"; "type"; "inline"; "size" ] -> Ok Container_type_inline_size
-  | [ "container"; "type"; "normal" ] -> Ok Container_type_normal
-  | [ "container"; name ] -> Ok (Container_name name)
-  | _ -> Error (`Msg "Not a container utility")
-
-(** {1 Ordering Support} *)
+  | Container_type_size -> container_type_size'
+  | Container_type_inline_size -> container_type_inline_size'
+  | Container_type_normal -> container_type_normal'
+  | Container_name name -> container_name' name
 
 let suborder = function
   | Container_type_size -> 0
   | Container_type_inline_size -> 1
   | Container_type_normal -> 2
   | Container_name _ -> 100
+
+let of_string = function
+  | [ "container"; "type"; "size" ] -> Ok Container_type_size
+  | [ "container"; "type"; "inline"; "size" ] -> Ok Container_type_inline_size
+  | [ "container"; "type"; "normal" ] -> Ok Container_type_normal
+  | [ "container"; name ] -> Ok (Container_name name)
+  | _ -> err_not_utility
+
+let priority = 14
+let handler = { Utility.of_string; priority; suborder; to_style }
+let () = Utility.register ~wrap ~unwrap handler
+
+module Handler = struct
+  type t =
+    | Container_type_size
+    | Container_type_inline_size
+    | Container_type_normal
+    | Container_name of string
+
+  let of_string : string list -> (t, [ `Msg of string ]) result = function
+    | [ "container"; "type"; "size" ] -> Ok Container_type_size
+    | [ "container"; "type"; "inline"; "size" ] -> Ok Container_type_inline_size
+    | [ "container"; "type"; "normal" ] -> Ok Container_type_normal
+    | [ "container"; name ] -> Ok (Container_name name)
+    | _ -> err_not_utility
+
+  let suborder = function
+    | Container_type_size -> 0
+    | Container_type_inline_size -> 1
+    | Container_type_normal -> 2
+    | Container_name _ -> 100
+
+  let to_style = function
+    | Container_type_size -> container_type_size'
+    | Container_type_inline_size -> container_type_inline_size'
+    | Container_type_normal -> container_type_normal'
+    | Container_name name -> container_name' name
+
+  let order x = (priority, suborder x)
+end

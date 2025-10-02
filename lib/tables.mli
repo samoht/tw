@@ -1,18 +1,10 @@
-(** Table-related utilities *)
+(** Table-related utilities
 
-open Style
+    https://tailwindcss.com/docs/border-collapse
+    https://tailwindcss.com/docs/border-spacing
+    https://tailwindcss.com/docs/table-layout *)
 
-(** {1 Utility Types} *)
-
-type utility
-
-val to_style : utility -> t
-(** [to_style u] converts a structured table utility to a style. For internal
-    use by the Tw module. *)
-
-val suborder : utility -> int
-(** [suborder u] returns the ordering value for table utility [u]. Used for
-    deterministic CSS output ordering. *)
+open Utility
 
 (** {1 Table Utilities} *)
 
@@ -30,6 +22,3 @@ val table_auto : t
 
 val table_fixed : t
 (** [table_fixed] uses fixed table layout. *)
-
-val of_string : string list -> (utility, [ `Msg of string ]) result
-(** [of_string parts] parses table utilities from string [parts]. *)

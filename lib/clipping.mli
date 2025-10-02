@@ -1,6 +1,6 @@
 (** Clipping utilities *)
 
-open Style
+open Utility
 
 val clip_polygon : (float * float) list -> t
 (** [clip_polygon points] clips element to a polygon defined by percentage

@@ -1,21 +1,4 @@
-(** Typography utilities for text and font styling
-
-    What's included:
-    - Font size scale text-xs through text-9xl with matching line-height
-      variables.
-    - Font weight, font family, font style, text alignment, text decoration,
-      line-height presets and `leading-N`, letter-spacing presets, case.
-
-    What's not:
-    - Some advanced text decoration options (thickness, underline offset) and
-      typography nuances not present in the typed `Css` API. Extend with `style`
-      and raw `Css.property` when needed.
-
-    Parsing contract (`of_string`):
-    - Accepts tokens for the above utilities, e.g. ["text"; "xl"],
-      ["font"; "semibold"], ["leading"; n], ["tracking"; "wider"],
-      ["underline"], ["uppercase"]. Unknown tokens yield `Error (`Msg "Not a
-      typography utility")`. *)
+(** Typography utilities for text and font styling. *)
 
 open Style
 open Css
@@ -157,13 +140,11 @@ let default_line_height_theme : line_height_theme =
   in
   { leading = (leading_decl, leading_ref) }
 
-module Parse = Parse
-
 (** {1 Utility Types} *)
 
-type utility =
-  (* Text sizes *)
-  | Text_xs
+type t =
+  | (* Text sizes *)
+    Text_xs
   | Text_sm
   | Text_base
   | Text_lg
@@ -176,8 +157,8 @@ type utility =
   | Text_7xl
   | Text_8xl
   | Text_9xl
-  (* Font weights *)
-  | Font_thin
+  | (* Font weights *)
+    Font_thin
   | Font_extralight
   | Font_light
   | Font_normal
@@ -186,61 +167,61 @@ type utility =
   | Font_bold
   | Font_extrabold
   | Font_black
-  (* Font families *)
-  | Font_sans
+  | (* Font families *)
+    Font_sans
   | Font_serif
   | Font_mono
-  (* Font styles *)
-  | Italic
+  | (* Font styles *)
+    Italic
   | Not_italic
-  (* Text alignment *)
-  | Text_left
+  | (* Text alignment *)
+    Text_left
   | Text_center
   | Text_right
   | Text_justify
-  (* Text decoration *)
-  | Underline
+  | (* Text decoration *)
+    Underline
   | Overline
   | Line_through
   | No_underline
-  (* Decoration styles *)
-  | Decoration_solid
+  | (* Decoration styles *)
+    Decoration_solid
   | Decoration_double
   | Decoration_dotted
   | Decoration_dashed
   | Decoration_wavy
-  (* Decoration color & thickness *)
-  | Decoration_color of Color.color * int option
+  | (* Decoration color & thickness *)
+    Decoration_color of Color.color * int option
   | Decoration_thickness of int
   | Decoration_from_font
-  (* Leading *)
-  | Leading_none
+  | (* Leading *)
+    Leading_none
   | Leading_tight
   | Leading_snug
   | Leading_normal
   | Leading_relaxed
   | Leading_loose
   | Leading of int
-  (* Whitespace *)
-  | Whitespace_normal
+  | (* Whitespace *)
+    Whitespace_normal
   | Whitespace_nowrap
   | Whitespace_pre
   | Whitespace_pre_line
   | Whitespace_pre_wrap
-  (* Tracking *)
-  | Tracking_tighter
+  | (* Tracking *)
+    Tracking_tighter
   | Tracking_tight
   | Tracking_normal
   | Tracking_wide
   | Tracking_wider
   | Tracking_widest
-  (* Text transform *)
-  | Uppercase
+  | (* Text transform *)
+    Uppercase
   | Lowercase
   | Capitalize
   | Normal_case
-  (* Vertical align *)
-  | Align_baseline
+  | (* Vertical align *)
+    Align_baseline
   | Align_top
   | Align_middle
   | Align_bottom
@@ -248,50 +229,51 @@ type utility =
   | Align_text_bottom
   | Align_sub
   | Align_super
-  (* List *)
-  | List_none
+  | (* List *)
+    List_none
   | List_disc
   | List_decimal
   | List_inside
   | List_outside
   | List_image_none
-  (* Underline offset *)
-  | Underline_offset_auto
+  | List_image_url of string
+  | (* Underline offset *)
+    Underline_offset_auto
   | Underline_offset_0
   | Underline_offset_1
   | Underline_offset_2
   | Underline_offset_4
   | Underline_offset_8
-  (* Rendering *)
-  | Antialiased
-  (* Text overflow *)
-  | Text_ellipsis
+  | (* Rendering *)
+    Antialiased
+  | (* Text overflow *)
+    Text_ellipsis
   | Text_clip
-  (* Text wrap *)
-  | Text_wrap
+  | (* Text wrap *)
+    Text_wrap
   | Text_nowrap
   | Text_balance
   | Text_pretty
-  (* Break *)
-  | Break_normal
+  | (* Break *)
+    Break_normal
   | Break_words
   | Break_all
   | Break_keep
-  (* Overflow wrap *)
-  | Overflow_wrap_normal
+  | (* Overflow wrap *)
+    Overflow_wrap_normal
   | Overflow_wrap_anywhere
   | Overflow_wrap_break_word
-  (* Hyphens *)
-  | Hyphens_none
+  | (* Hyphens *)
+    Hyphens_none
   | Hyphens_manual
   | Hyphens_auto
-  (* Font stretch *)
-  | Font_stretch_normal
+  | (* Font stretch *)
+    Font_stretch_normal
   | Font_stretch_condensed
   | Font_stretch_expanded
   | Font_stretch_percent of int
-  (* Numeric variants *)
-  | Normal_nums
+  | (* Numeric variants *)
+    Normal_nums
   | Ordinal
   | Slashed_zero
   | Lining_nums
@@ -300,11 +282,18 @@ type utility =
   | Tabular_nums
   | Diagonal_fractions
   | Stacked_fractions
-  (* Indent & Line clamp *)
-  | Indent of int
+  | (* Indent & Line clamp *)
+    Indent of int
   | Line_clamp of int
-  (* Content *)
-  | Content_none
+  | (* Content *)
+    Content_none
+  | Content of string
+
+type Utility.base += Typography of t
+
+let wrap x = Typography x
+let unwrap = function Typography x -> Some x | _ -> None
+let base x = Utility.base (wrap x)
 
 (** {1 Font Size Utilities} *)
 
@@ -325,52 +314,66 @@ let text_size_utility name (size_var : Css.length Var.theme)
       line_height (Var leading_with_fallback);
     ]
 
-let text_xs =
+let text_xs' =
   text_size_utility "text-xs" text_xs_var text_xs_lh_var 0.75
     (calc_line_height 1.0 0.75)
 
-let text_sm =
+let text_sm' =
   text_size_utility "text-sm" text_sm_var text_sm_lh_var 0.875
     (calc_line_height 1.25 0.875)
 
-let text_base =
+let text_base' =
   text_size_utility "text-base" text_base_var text_base_lh_var 1.0
     (calc_line_height 1.5 1.0)
 
-let text_lg =
+let text_lg' =
   text_size_utility "text-lg" text_lg_var text_lg_lh_var 1.125
     (calc_line_height 1.75 1.125)
 
-let text_xl =
+let text_xl' =
   text_size_utility "text-xl" text_xl_var text_xl_lh_var 1.25
     (calc_line_height 1.75 1.25)
 
-let text_2xl =
+let text_2xl' =
   text_size_utility "text-2xl" text_2xl_var text_2xl_lh_var 1.5
     (calc_line_height 2.0 1.5)
 
-let text_3xl =
+let text_3xl' =
   text_size_utility "text-3xl" text_3xl_var text_3xl_lh_var 1.875
     (calc_line_height 2.25 1.875)
 
-let text_4xl =
+let text_4xl' =
   text_size_utility "text-4xl" text_4xl_var text_4xl_lh_var 2.25
     (calc_line_height 2.5 2.25)
 
-let text_5xl =
+let text_5xl' =
   text_size_utility "text-5xl" text_5xl_var text_5xl_lh_var 3.0 (Num 1.0)
 
-let text_6xl =
+let text_6xl' =
   text_size_utility "text-6xl" text_6xl_var text_6xl_lh_var 3.75 (Num 1.0)
 
-let text_7xl =
+let text_7xl' =
   text_size_utility "text-7xl" text_7xl_var text_7xl_lh_var 4.5 (Num 1.0)
 
-let text_8xl =
+let text_8xl' =
   text_size_utility "text-8xl" text_8xl_var text_8xl_lh_var 6.0 (Num 1.0)
 
-let text_9xl =
+let text_9xl' =
   text_size_utility "text-9xl" text_9xl_var text_9xl_lh_var 8.0 (Num 1.0)
+
+let text_xs = base Text_xs
+let text_sm = base Text_sm
+let text_base = base Text_base
+let text_lg = base Text_lg
+let text_xl = base Text_xl
+let text_2xl = base Text_2xl
+let text_3xl = base Text_3xl
+let text_4xl = base Text_4xl
+let text_5xl = base Text_5xl
+let text_6xl = base Text_6xl
+let text_7xl = base Text_7xl
+let text_8xl = base Text_8xl
+let text_9xl = base Text_9xl
 
 (* Font weight utilities set --tw-font-weight for animation but use theme var
    directly *)
@@ -394,29 +397,39 @@ let font_weight_utility name weight_var weight_value =
       font_weight (Css.Var weight_theme_ref);
     ]
 
-(* Font weight utilities *)
-let font_thin = font_weight_utility "thin" font_weight_thin_var (Weight 100)
+let font_thin' = font_weight_utility "thin" font_weight_thin_var (Weight 100)
+let font_thin = base Font_thin
 
-let font_extralight =
+let font_extralight' =
   font_weight_utility "extralight" font_weight_extralight_var (Weight 200)
 
-let font_light = font_weight_utility "light" font_weight_light_var (Weight 300)
+let font_extralight = base Font_extralight
+let font_light' = font_weight_utility "light" font_weight_light_var (Weight 300)
+let font_light = base Font_light
 
-let font_normal =
+let font_normal' =
   font_weight_utility "normal" font_weight_normal_var (Weight 400)
 
-let font_medium =
+let font_normal = base Font_normal
+
+let font_medium' =
   font_weight_utility "medium" font_weight_medium_var (Weight 500)
 
-let font_semibold =
+let font_medium = base Font_medium
+
+let font_semibold' =
   font_weight_utility "semibold" font_weight_semibold_var (Weight 600)
 
-let font_bold = font_weight_utility "bold" font_weight_bold_var (Weight 700)
+let font_semibold = base Font_semibold
+let font_bold' = font_weight_utility "bold" font_weight_bold_var (Weight 700)
+let font_bold = base Font_bold
 
-let font_extrabold =
+let font_extrabold' =
   font_weight_utility "extrabold" font_weight_extrabold_var (Weight 800)
 
-let font_black = font_weight_utility "black" font_weight_black_var (Weight 900)
+let font_extrabold = base Font_extrabold
+let font_black' = font_weight_utility "black" font_weight_black_var (Weight 900)
+let font_black = base Font_black
 
 (** {1 Font Family Utilities} *)
 
@@ -501,7 +514,7 @@ let default_font_family_declarations =
   [ sans_decl; mono_decl; default_font_decl; default_mono_decl ]
 
 (* Font family utilities use the font variables directly *)
-let font_sans =
+let font_sans' =
   let sans_decl, sans_ref =
     Var.binding font_sans_var
       (List
@@ -517,14 +530,18 @@ let font_sans =
   in
   style "font-sans" [ sans_decl; font_family (Css.Var sans_ref) ]
 
-let font_serif =
+let font_sans = base Font_sans
+
+let font_serif' =
   let serif_decl, serif_ref =
     Var.binding font_serif_var
       (List [ Ui_serif; Georgia; Cambria; Times_new_roman; Times; Serif ])
   in
   style "font-serif" [ serif_decl; font_family (Css.Var serif_ref) ]
 
-let font_mono =
+let font_serif = base Font_serif
+
+let font_mono' =
   let mono_decl, mono_ref =
     Var.binding font_mono_var
       (List
@@ -541,21 +558,30 @@ let font_mono =
   in
   style "font-mono" [ mono_decl; font_family (Css.Var mono_ref) ]
 
+let font_mono = base Font_mono
+
 (** {1 Font Style Utilities} *)
 
-let italic = style "italic" [ font_style Italic ]
-let not_italic = style "not-italic" [ font_style Normal ]
+let italic' = style "italic" [ font_style Italic ]
+let italic = base Italic
+let not_italic' = style "not-italic" [ font_style Normal ]
 
 (** {1 Text Alignment Utilities} *)
 
-let text_left = style "text-left" [ text_align Left ]
-let text_center = style "text-center" [ text_align Center ]
-let text_right = style "text-right" [ text_align Right ]
-let text_justify = style "text-justify" [ text_align Justify ]
+let not_italic = base Not_italic
+let text_left' = style "text-left" [ text_align Left ]
+let text_left = base Text_left
+let text_center' = style "text-center" [ text_align Center ]
+let text_center = base Text_center
+let text_right' = style "text-right" [ text_align Right ]
+let text_right = base Text_right
+let text_justify' = style "text-justify" [ text_align Justify ]
 
 (** {1 Text Decoration Utilities} *)
 
-let underline =
+let text_justify = base Text_justify
+
+let underline' =
   style "underline"
     [
       text_decoration
@@ -568,7 +594,9 @@ let underline =
            });
     ]
 
-let overline =
+let underline = base Underline
+
+let overline' =
   style "overline"
     [
       text_decoration
@@ -581,7 +609,9 @@ let overline =
            });
     ]
 
-let line_through =
+let overline = base Overline
+
+let line_through' =
   style "line-through"
     [
       text_decoration
@@ -594,26 +624,36 @@ let line_through =
            });
     ]
 
-let no_underline = style "no-underline" [ text_decoration None ]
+let line_through = base Line_through
+let no_underline' = style "no-underline" [ text_decoration None ]
 
 (** {1 Text Decoration Style} *)
 
-let decoration_solid = style "decoration-solid" [ text_decoration_style Solid ]
+let no_underline = base No_underline
+let decoration_solid' = style "decoration-solid" [ text_decoration_style Solid ]
+let decoration_solid = base Decoration_solid
 
-let decoration_double =
+let decoration_double' =
   style "decoration-double" [ text_decoration_style Double ]
 
-let decoration_dotted =
+let decoration_double = base Decoration_double
+
+let decoration_dotted' =
   style "decoration-dotted" [ text_decoration_style Dotted ]
 
-let decoration_dashed =
+let decoration_dotted = base Decoration_dotted
+
+let decoration_dashed' =
   style "decoration-dashed" [ text_decoration_style Dashed ]
 
-let decoration_wavy = style "decoration-wavy" [ text_decoration_style Wavy ]
+let decoration_dashed = base Decoration_dashed
+let decoration_wavy' = style "decoration-wavy" [ text_decoration_style Wavy ]
 
 (** {1 Text Decoration Color & Thickness} *)
 
-let decoration_color ?(shade = 500) (color : Color.color) =
+let decoration_wavy = base Decoration_wavy
+
+let decoration_color' ?(shade = 500) (color : Color.color) =
   let class_name =
     if Color.is_base_color color then
       String.concat "" [ "decoration-"; Color.pp color ]
@@ -640,122 +680,191 @@ let decoration_color ?(shade = 500) (color : Color.color) =
         text_decoration_color (Css.Var color_ref);
       ]
 
-let decoration_thickness n =
+let decoration_color ?(shade = 500) color =
+  base (Decoration_color (color, Some shade))
+
+let decoration_thickness' n =
   let class_name = "decoration-" ^ string_of_int n in
   style class_name [ text_decoration_thickness (Px (float_of_int n)) ]
 
-let decoration_from_font =
+let decoration_thickness n = base (Decoration_thickness n)
+
+let decoration_from_font' =
   style "decoration-from-font" [ text_decoration_thickness From_font ]
 
 (** {1 Line Height Utilities} *)
 
-let leading_none =
+let decoration_from_font = base Decoration_from_font
+
+let leading_none' =
   let leading_decl, leading_ref = Var.binding leading_var (Num 1.0) in
   style "leading-none" [ leading_decl; line_height (Css.Var leading_ref) ]
 
-let leading_tight =
+let leading_none = base Leading_none
+
+let leading_tight' =
   let leading_decl, leading_ref = Var.binding leading_var (Num 1.25) in
   style "leading-tight" [ leading_decl; line_height (Css.Var leading_ref) ]
 
-let leading_snug =
+let leading_tight = base Leading_tight
+
+let leading_snug' =
   let leading_decl, leading_ref = Var.binding leading_var (Num 1.375) in
   style "leading-snug" [ leading_decl; line_height (Css.Var leading_ref) ]
 
-let leading_normal =
+let leading_snug = base Leading_snug
+
+let leading_normal' =
   let leading_decl, leading_ref = Var.binding leading_var (Num 1.5) in
   style "leading-normal" [ leading_decl; line_height (Css.Var leading_ref) ]
 
-let leading_relaxed =
+let leading_normal = base Leading_normal
+
+let leading_relaxed' =
   let leading_decl, leading_ref = Var.binding leading_var (Num 1.625) in
   style "leading-relaxed" [ leading_decl; line_height (Css.Var leading_ref) ]
 
-let leading_loose =
+let leading_relaxed = base Leading_relaxed
+
+let leading_loose' =
   let leading_decl, leading_ref = Var.binding leading_var (Num 2.0) in
   style "leading-loose" [ leading_decl; line_height (Css.Var leading_ref) ]
 
-let leading n =
+let leading_loose = base Leading_loose
+
+let leading' n =
   let class_name = "leading-" ^ string_of_int n in
   let lh_value : line_height = Rem (float_of_int n *. 0.25) in
   let leading_decl, leading_ref = Var.binding leading_var lh_value in
   style class_name [ leading_decl; line_height (Css.Var leading_ref) ]
 
+let leading n = base (Leading n)
+
 (* Additional whitespace utilities *)
-let whitespace_normal = style "whitespace-normal" [ white_space Normal ]
-let whitespace_nowrap = style "whitespace-nowrap" [ white_space Nowrap ]
-let whitespace_pre = style "whitespace-pre" [ white_space Pre ]
-let whitespace_pre_line = style "whitespace-pre-line" [ white_space Pre_line ]
-let whitespace_pre_wrap = style "whitespace-pre-wrap" [ white_space Pre_wrap ]
+let whitespace_normal' = style "whitespace-normal" [ white_space Normal ]
+let whitespace_normal = base Whitespace_normal
+let whitespace_nowrap' = style "whitespace-nowrap" [ white_space Nowrap ]
+let whitespace_nowrap = base Whitespace_nowrap
+let whitespace_pre' = style "whitespace-pre" [ white_space Pre ]
+let whitespace_pre = base Whitespace_pre
+let whitespace_pre_line' = style "whitespace-pre-line" [ white_space Pre_line ]
+let whitespace_pre_line = base Whitespace_pre_line
+let whitespace_pre_wrap' = style "whitespace-pre-wrap" [ white_space Pre_wrap ]
 
 (** {1 Letter Spacing Utilities} *)
 
-let tracking_tighter = style "tracking-tighter" [ letter_spacing (Em (-0.05)) ]
-let tracking_tight = style "tracking-tight" [ letter_spacing (Em (-0.025)) ]
-let tracking_normal = style "tracking-normal" [ letter_spacing Zero ]
-let tracking_wide = style "tracking-wide" [ letter_spacing (Em 0.025) ]
-let tracking_wider = style "tracking-wider" [ letter_spacing (Em 0.05) ]
-let tracking_widest = style "tracking-widest" [ letter_spacing (Em 0.1) ]
+let whitespace_pre_wrap = base Whitespace_pre_wrap
+let tracking_tighter' = style "tracking-tighter" [ letter_spacing (Em (-0.05)) ]
+let tracking_tighter = base Tracking_tighter
+let tracking_tight' = style "tracking-tight" [ letter_spacing (Em (-0.025)) ]
+let tracking_tight = base Tracking_tight
+let tracking_normal' = style "tracking-normal" [ letter_spacing Zero ]
+let tracking_normal = base Tracking_normal
+let tracking_wide' = style "tracking-wide" [ letter_spacing (Em 0.025) ]
+let tracking_wide = base Tracking_wide
+let tracking_wider' = style "tracking-wider" [ letter_spacing (Em 0.05) ]
+let tracking_wider = base Tracking_wider
+let tracking_widest' = style "tracking-widest" [ letter_spacing (Em 0.1) ]
 
 (** {1 Text Transform Utilities} *)
 
-let uppercase = style "uppercase" [ text_transform Uppercase ]
-let lowercase = style "lowercase" [ text_transform Lowercase ]
-let capitalize = style "capitalize" [ text_transform Capitalize ]
-let normal_case = style "normal-case" [ text_transform None ]
+let tracking_widest = base Tracking_widest
+let uppercase' = style "uppercase" [ text_transform Uppercase ]
+let uppercase = base Uppercase
+let lowercase' = style "lowercase" [ text_transform Lowercase ]
+let lowercase = base Lowercase
+let capitalize' = style "capitalize" [ text_transform Capitalize ]
+let capitalize = base Capitalize
+let normal_case' = style "normal-case" [ text_transform None ]
 
 (** {1 Underline Offset} *)
 
-let underline_offset_auto =
+let normal_case = base Normal_case
+
+let underline_offset_auto' =
   style "underline-offset-auto" [ text_underline_offset "auto" ]
 
-let underline_offset_0 =
+let underline_offset_auto = base Underline_offset_auto
+
+let underline_offset_0' =
   style "underline-offset-0" [ text_underline_offset "0" ]
 
-let underline_offset_1 =
+let underline_offset_0 = base Underline_offset_0
+
+let underline_offset_1' =
   style "underline-offset-1" [ text_underline_offset "1px" ]
 
-let underline_offset_2 =
+let underline_offset_1 = base Underline_offset_1
+
+let underline_offset_2' =
   style "underline-offset-2" [ text_underline_offset "2px" ]
 
-let underline_offset_4 =
+let underline_offset_2 = base Underline_offset_2
+
+let underline_offset_4' =
   style "underline-offset-4" [ text_underline_offset "4px" ]
 
-let underline_offset_8 =
+let underline_offset_4 = base Underline_offset_4
+
+let underline_offset_8' =
   style "underline-offset-8" [ text_underline_offset "8px" ]
+
+let underline_offset_8 = base Underline_offset_8
 
 (** {1 Rendering} *)
 
-let antialiased =
+let antialiased' =
   style "antialiased"
     [ webkit_font_smoothing Antialiased; moz_osx_font_smoothing Grayscale ]
 
 (** {1 Vertical Align} *)
 
-let align_baseline = style "align-baseline" [ vertical_align Baseline ]
-let align_top = style "align-top" [ vertical_align Top ]
-let align_middle = style "align-middle" [ vertical_align Middle ]
-let align_bottom = style "align-bottom" [ vertical_align Bottom ]
-let align_text_top = style "align-text-top" [ vertical_align Text_top ]
-let align_text_bottom = style "align-text-bottom" [ vertical_align Text_bottom ]
-let align_sub = style "align-sub" [ vertical_align Sub ]
-let align_super = style "align-super" [ vertical_align Super ]
+let antialiased = base Antialiased
+let align_baseline' = style "align-baseline" [ vertical_align Baseline ]
+let align_baseline = base Align_baseline
+let align_top' = style "align-top" [ vertical_align Top ]
+let align_top = base Align_top
+let align_middle' = style "align-middle" [ vertical_align Middle ]
+let align_middle = base Align_middle
+let align_bottom' = style "align-bottom" [ vertical_align Bottom ]
+let align_bottom = base Align_bottom
+let align_text_top' = style "align-text-top" [ vertical_align Text_top ]
+let align_text_top = base Align_text_top
+
+let align_text_bottom' =
+  style "align-text-bottom" [ vertical_align Text_bottom ]
+
+let align_text_bottom = base Align_text_bottom
+let align_sub' = style "align-sub" [ vertical_align Sub ]
+let align_sub = base Align_sub
+let align_super' = style "align-super" [ vertical_align Super ]
 
 (** {1 List Style} *)
 
-let list_none = style "list-none" [ list_style_type None ]
-let list_disc = style "list-disc" [ list_style_type Disc ]
-let list_decimal = style "list-decimal" [ list_style_type Decimal ]
-let list_inside = style "list-inside" [ list_style_position Inside ]
-let list_outside = style "list-outside" [ list_style_position Outside ]
-let list_image_none = style "list-image-none" [ list_style_image None ]
+let align_super = base Align_super
+let list_none' = style "list-none" [ list_style_type None ]
+let list_none = base List_none
+let list_disc' = style "list-disc" [ list_style_type Disc ]
+let list_disc = base List_disc
+let list_decimal' = style "list-decimal" [ list_style_type Decimal ]
+let list_decimal = base List_decimal
+let list_inside' = style "list-inside" [ list_style_position Inside ]
+let list_inside = base List_inside
+let list_outside' = style "list-outside" [ list_style_position Outside ]
+let list_outside = base List_outside
+let list_image_none' = style "list-image-none" [ list_style_image None ]
+let list_image_none = base List_image_none
 
-let list_image_url url =
+let list_image_url' url =
   style
     (String.concat "" [ "list-image-url-"; url ])
     [ list_style_image (Url url) ]
 
+let list_image_url url = base (List_image_url url)
+
 (** {1 Text Indent} *)
 
-let indent n =
+let indent' n =
   let class_name = "indent-" ^ string_of_int n in
   let spacing_decl, spacing_ref = Var.binding Theme.spacing_var (Rem 0.25) in
   style class_name
@@ -765,9 +874,11 @@ let indent n =
         (Calc Calc.(length (Css.Var spacing_ref) * float (float_of_int n)));
     ]
 
+let indent n = base (Indent n)
+
 (** {1 Line Clamp} *)
 
-let line_clamp n =
+let line_clamp' n =
   if n = 0 then
     style "line-clamp-0"
       [ webkit_line_clamp 0; overflow Visible; display Block ]
@@ -781,17 +892,21 @@ let line_clamp n =
         overflow Hidden;
       ]
 
+let line_clamp n = base (Line_clamp n)
+
 (** {1 Content} *)
 
 (* Content variable *)
 let content_var =
   Var.property_default Content ~initial:(String "") ~universal:true "tw-content"
 
-let content_none =
+let content_none' =
   let content_decl, content_ref = Var.binding content_var None in
   let property_rules = Var.property_rules content_var in
   style "content-none" ~property_rules
     [ content (Css.Var content_ref); content_decl; content None ]
+
+let content_none = base Content_none
 
 let escape_css_string s =
   (* Escape backslashes and quotes inside CSS string literal *)
@@ -804,7 +919,7 @@ let escape_css_string s =
     s;
   Buffer.contents buf
 
-let content s =
+let content' s =
   (* The content value is the string itself, not double-quoted *)
   (* The class name needs to escape the quotes properly for CSS *)
   let class_name =
@@ -817,62 +932,94 @@ let content s =
       content (Css.Var content_ref); content_decl; content (Css.Var content_ref);
     ]
 
+let content s = base (Content s)
+
 (** {1 Text Overflow} *)
 
-let text_ellipsis = style "text-ellipsis" [ text_overflow Ellipsis ]
-let text_clip = style "text-clip" [ text_overflow Clip ]
+let text_ellipsis' = style "text-ellipsis" [ text_overflow Ellipsis ]
+let text_ellipsis = base Text_ellipsis
+let text_clip' = style "text-clip" [ text_overflow Clip ]
 
 (** {1 Text Wrap} *)
 
-let text_wrap = style "text-wrap" [ Css.text_wrap Wrap ]
-let text_nowrap = style "text-nowrap" [ Css.text_wrap No_wrap ]
-let text_balance = style "text-balance" [ Css.text_wrap Balance ]
-let text_pretty = style "text-pretty" [ Css.text_wrap Pretty ]
+let text_clip = base Text_clip
+let text_wrap' = style "text-wrap" [ Css.text_wrap Wrap ]
+let text_wrap = base Text_wrap
+let text_nowrap' = style "text-nowrap" [ Css.text_wrap No_wrap ]
+let text_nowrap = base Text_nowrap
+let text_balance' = style "text-balance" [ Css.text_wrap Balance ]
+let text_balance = base Text_balance
+let text_pretty' = style "text-pretty" [ Css.text_wrap Pretty ]
 
 (** {1 Word/Overflow Wrap} *)
 
-let break_normal =
+let text_pretty = base Text_pretty
+
+let break_normal' =
   style "break-normal" [ word_break Normal; overflow_wrap Normal ]
 
-let break_words = style "break-words" [ overflow_wrap Break_word ]
-let break_all = style "break-all" [ word_break Break_all ]
-let break_keep = style "break-keep" [ word_break Keep_all ]
-let overflow_wrap_normal = style "overflow-wrap-normal" [ overflow_wrap Normal ]
+let break_normal = base Break_normal
+let break_words' = style "break-words" [ overflow_wrap Break_word ]
+let break_words = base Break_words
+let break_all' = style "break-all" [ word_break Break_all ]
+let break_all = base Break_all
+let break_keep' = style "break-keep" [ word_break Keep_all ]
+let break_keep = base Break_keep
 
-let overflow_wrap_anywhere =
+let overflow_wrap_normal' =
+  style "overflow-wrap-normal" [ overflow_wrap Normal ]
+
+let overflow_wrap_normal = base Overflow_wrap_normal
+
+let overflow_wrap_anywhere' =
   style "overflow-wrap-anywhere" [ overflow_wrap Anywhere ]
 
-let overflow_wrap_break_word =
+let overflow_wrap_anywhere = base Overflow_wrap_anywhere
+
+let overflow_wrap_break_word' =
   style "overflow-wrap-break-word" [ overflow_wrap Break_word ]
 
 (** {1 Hyphens} *)
 
-let hyphens_none = style "hyphens-none" [ webkit_hyphens None; hyphens None ]
+let overflow_wrap_break_word = base Overflow_wrap_break_word
+let hyphens_none' = style "hyphens-none" [ webkit_hyphens None; hyphens None ]
+let hyphens_none = base Hyphens_none
 
-let hyphens_manual =
+let hyphens_manual' =
   style "hyphens-manual" [ webkit_hyphens Manual; hyphens Manual ]
 
-let hyphens_auto = style "hyphens-auto" [ webkit_hyphens Auto; hyphens Auto ]
+let hyphens_manual = base Hyphens_manual
+let hyphens_auto' = style "hyphens-auto" [ webkit_hyphens Auto; hyphens Auto ]
 
 (** {1 Font Stretch} *)
 
-let font_stretch_normal =
+let hyphens_auto = base Hyphens_auto
+
+let font_stretch_normal' =
   style "font-stretch-normal" [ font_stretch (Pct 100.) ]
 
-let font_stretch_condensed =
+let font_stretch_normal = base Font_stretch_normal
+
+let font_stretch_condensed' =
   style "font-stretch-condensed" [ font_stretch (Pct 75.) ]
 
-let font_stretch_expanded =
+let font_stretch_condensed = base Font_stretch_condensed
+
+let font_stretch_expanded' =
   style "font-stretch-expanded" [ font_stretch (Pct 125.) ]
 
-let font_stretch_percent n =
+let font_stretch_expanded = base Font_stretch_expanded
+
+let font_stretch_percent' n =
   style
     ("font-stretch-" ^ string_of_int n)
     [ font_stretch (Pct (float_of_int n)) ]
 
+let font_stretch_percent n = base (Font_stretch_percent n)
+
 (** {1 Numeric Variants} *)
 
-let normal_nums =
+let normal_nums' =
   style "normal-nums" [ font_variant_numeric (Tokens [ Normal ]) ]
 
 (* Default theme for font variant numeric variables *)
@@ -886,6 +1033,8 @@ type font_variant_theme = {
 
 (* Default theme with empty fallbacks for Tailwind's var(--name,) pattern *)
 (* Created once and shared across all utilities for performance *)
+let normal_nums = base Normal_nums
+
 let default_font_variant_theme : font_variant_theme =
   let ordinal_decl, ordinal_ref =
     Var.binding ordinal_var ~fallback:Css.Empty Normal
@@ -984,156 +1133,173 @@ let font_variant_numeric_utility var_to_set value class_name =
     ~property_rules:(Css.concat property_rules)
     [ active_decl; font_variant_numeric composed_value ]
 
-let ordinal = font_variant_numeric_utility `Ordinal Ordinal "ordinal"
+let ordinal' = font_variant_numeric_utility `Ordinal Ordinal "ordinal"
+let ordinal = base Ordinal
 
-let slashed_zero =
+let slashed_zero' =
   font_variant_numeric_utility `Slashed Slashed_zero "slashed-zero"
 
-let lining_nums = font_variant_numeric_utility `Figure Lining_nums "lining-nums"
+let slashed_zero = base Slashed_zero
 
-let oldstyle_nums =
+let lining_nums' =
+  font_variant_numeric_utility `Figure Lining_nums "lining-nums"
+
+let lining_nums = base Lining_nums
+
+let oldstyle_nums' =
   font_variant_numeric_utility `Figure Oldstyle_nums "oldstyle-nums"
 
-let proportional_nums =
+let oldstyle_nums = base Oldstyle_nums
+
+let proportional_nums' =
   font_variant_numeric_utility `Spacing Proportional_nums "proportional-nums"
 
-let tabular_nums =
+let proportional_nums = base Proportional_nums
+
+let tabular_nums' =
   font_variant_numeric_utility `Spacing Tabular_nums "tabular-nums"
 
-let diagonal_fractions =
+let tabular_nums = base Tabular_nums
+
+let diagonal_fractions' =
   font_variant_numeric_utility `Fraction Diagonal_fractions "diagonal-fractions"
 
-let stacked_fractions =
+let diagonal_fractions = base Diagonal_fractions
+
+let stacked_fractions' =
   font_variant_numeric_utility `Fraction Stacked_fractions "stacked-fractions"
+
+let stacked_fractions = base Stacked_fractions
 
 (** {1 Conversion Functions} *)
 
 let to_style = function
-  | Text_xs -> text_xs
-  | Text_sm -> text_sm
-  | Text_base -> text_base
-  | Text_lg -> text_lg
-  | Text_xl -> text_xl
-  | Text_2xl -> text_2xl
-  | Text_3xl -> text_3xl
-  | Text_4xl -> text_4xl
-  | Text_5xl -> text_5xl
-  | Text_6xl -> text_6xl
-  | Text_7xl -> text_7xl
-  | Text_8xl -> text_8xl
-  | Text_9xl -> text_9xl
-  | Font_thin -> font_thin
-  | Font_extralight -> font_extralight
-  | Font_light -> font_light
-  | Font_normal -> font_normal
-  | Font_medium -> font_medium
-  | Font_semibold -> font_semibold
-  | Font_bold -> font_bold
-  | Font_extrabold -> font_extrabold
-  | Font_black -> font_black
-  | Font_sans -> font_sans
-  | Font_serif -> font_serif
-  | Font_mono -> font_mono
-  | Italic -> italic
-  | Not_italic -> not_italic
-  | Text_left -> text_left
-  | Text_center -> text_center
-  | Text_right -> text_right
-  | Text_justify -> text_justify
-  | Underline -> underline
-  | Overline -> overline
-  | Line_through -> line_through
-  | No_underline -> no_underline
-  | Decoration_solid -> decoration_solid
-  | Decoration_double -> decoration_double
-  | Decoration_dotted -> decoration_dotted
-  | Decoration_dashed -> decoration_dashed
-  | Decoration_wavy -> decoration_wavy
-  | Decoration_color (color, shade_opt) -> (
-      match shade_opt with
-      | Some shade -> decoration_color ~shade color
-      | None -> decoration_color color)
-  | Decoration_thickness n -> decoration_thickness n
-  | Decoration_from_font -> decoration_from_font
-  | Leading_none -> leading_none
-  | Leading_tight -> leading_tight
-  | Leading_snug -> leading_snug
-  | Leading_normal -> leading_normal
-  | Leading_relaxed -> leading_relaxed
-  | Leading_loose -> leading_loose
-  | Leading n -> leading n
-  | Whitespace_normal -> whitespace_normal
-  | Whitespace_nowrap -> whitespace_nowrap
-  | Whitespace_pre -> whitespace_pre
-  | Whitespace_pre_line -> whitespace_pre_line
-  | Whitespace_pre_wrap -> whitespace_pre_wrap
-  | Tracking_tighter -> tracking_tighter
-  | Tracking_tight -> tracking_tight
-  | Tracking_normal -> tracking_normal
-  | Tracking_wide -> tracking_wide
-  | Tracking_wider -> tracking_wider
-  | Tracking_widest -> tracking_widest
-  | Uppercase -> uppercase
-  | Lowercase -> lowercase
-  | Capitalize -> capitalize
-  | Normal_case -> normal_case
-  | Align_baseline -> align_baseline
-  | Align_top -> align_top
-  | Align_middle -> align_middle
-  | Align_bottom -> align_bottom
-  | Align_text_top -> align_text_top
-  | Align_text_bottom -> align_text_bottom
-  | Align_sub -> align_sub
-  | Align_super -> align_super
-  | List_none -> list_none
-  | List_disc -> list_disc
-  | List_decimal -> list_decimal
-  | List_inside -> list_inside
-  | List_outside -> list_outside
-  | List_image_none -> list_image_none
-  | Underline_offset_auto -> underline_offset_auto
-  | Underline_offset_0 -> underline_offset_0
-  | Underline_offset_1 -> underline_offset_1
-  | Underline_offset_2 -> underline_offset_2
-  | Underline_offset_4 -> underline_offset_4
-  | Underline_offset_8 -> underline_offset_8
-  | Antialiased -> antialiased
-  | Text_ellipsis -> text_ellipsis
-  | Text_clip -> text_clip
-  | Text_wrap -> text_wrap
-  | Text_nowrap -> text_nowrap
-  | Text_balance -> text_balance
-  | Text_pretty -> text_pretty
-  | Break_normal -> break_normal
-  | Break_words -> break_words
-  | Break_all -> break_all
-  | Break_keep -> break_keep
-  | Overflow_wrap_normal -> overflow_wrap_normal
-  | Overflow_wrap_anywhere -> overflow_wrap_anywhere
-  | Overflow_wrap_break_word -> overflow_wrap_break_word
-  | Hyphens_none -> hyphens_none
-  | Hyphens_manual -> hyphens_manual
-  | Hyphens_auto -> hyphens_auto
-  | Font_stretch_normal -> font_stretch_normal
-  | Font_stretch_condensed -> font_stretch_condensed
-  | Font_stretch_expanded -> font_stretch_expanded
-  | Font_stretch_percent n -> font_stretch_percent n
-  | Normal_nums -> normal_nums
-  | Ordinal -> ordinal
-  | Slashed_zero -> slashed_zero
-  | Lining_nums -> lining_nums
-  | Oldstyle_nums -> oldstyle_nums
-  | Proportional_nums -> proportional_nums
-  | Tabular_nums -> tabular_nums
-  | Diagonal_fractions -> diagonal_fractions
-  | Stacked_fractions -> stacked_fractions
-  | Indent n -> indent n
-  | Line_clamp n -> line_clamp n
-  | Content_none -> content_none
+  | Text_xs -> text_xs'
+  | Text_sm -> text_sm'
+  | Text_base -> text_base'
+  | Text_lg -> text_lg'
+  | Text_xl -> text_xl'
+  | Text_2xl -> text_2xl'
+  | Text_3xl -> text_3xl'
+  | Text_4xl -> text_4xl'
+  | Text_5xl -> text_5xl'
+  | Text_6xl -> text_6xl'
+  | Text_7xl -> text_7xl'
+  | Text_8xl -> text_8xl'
+  | Text_9xl -> text_9xl'
+  | Font_thin -> font_thin'
+  | Font_extralight -> font_extralight'
+  | Font_light -> font_light'
+  | Font_normal -> font_normal'
+  | Font_medium -> font_medium'
+  | Font_semibold -> font_semibold'
+  | Font_bold -> font_bold'
+  | Font_extrabold -> font_extrabold'
+  | Font_black -> font_black'
+  | Font_sans -> font_sans'
+  | Font_serif -> font_serif'
+  | Font_mono -> font_mono'
+  | Italic -> italic'
+  | Not_italic -> not_italic'
+  | Text_left -> text_left'
+  | Text_center -> text_center'
+  | Text_right -> text_right'
+  | Text_justify -> text_justify'
+  | Underline -> underline'
+  | Overline -> overline'
+  | Line_through -> line_through'
+  | No_underline -> no_underline'
+  | Decoration_solid -> decoration_solid'
+  | Decoration_double -> decoration_double'
+  | Decoration_dotted -> decoration_dotted'
+  | Decoration_dashed -> decoration_dashed'
+  | Decoration_wavy -> decoration_wavy'
+  | Decoration_color (color, None) -> decoration_color' color
+  | Decoration_color (color, Some shade) -> decoration_color' ~shade color
+  | Decoration_thickness n -> decoration_thickness' n
+  | Decoration_from_font -> decoration_from_font'
+  | Leading_none -> leading_none'
+  | Leading_tight -> leading_tight'
+  | Leading_snug -> leading_snug'
+  | Leading_normal -> leading_normal'
+  | Leading_relaxed -> leading_relaxed'
+  | Leading_loose -> leading_loose'
+  | Leading n -> leading' n
+  | Whitespace_normal -> whitespace_normal'
+  | Whitespace_nowrap -> whitespace_nowrap'
+  | Whitespace_pre -> whitespace_pre'
+  | Whitespace_pre_line -> whitespace_pre_line'
+  | Whitespace_pre_wrap -> whitespace_pre_wrap'
+  | Tracking_tighter -> tracking_tighter'
+  | Tracking_tight -> tracking_tight'
+  | Tracking_normal -> tracking_normal'
+  | Tracking_wide -> tracking_wide'
+  | Tracking_wider -> tracking_wider'
+  | Tracking_widest -> tracking_widest'
+  | Uppercase -> uppercase'
+  | Lowercase -> lowercase'
+  | Capitalize -> capitalize'
+  | Normal_case -> normal_case'
+  | Align_baseline -> align_baseline'
+  | Align_top -> align_top'
+  | Align_middle -> align_middle'
+  | Align_bottom -> align_bottom'
+  | Align_text_top -> align_text_top'
+  | Align_text_bottom -> align_text_bottom'
+  | Align_sub -> align_sub'
+  | Align_super -> align_super'
+  | List_none -> list_none'
+  | List_disc -> list_disc'
+  | List_decimal -> list_decimal'
+  | List_inside -> list_inside'
+  | List_outside -> list_outside'
+  | List_image_none -> list_image_none'
+  | List_image_url url -> list_image_url' url
+  | Underline_offset_auto -> underline_offset_auto'
+  | Underline_offset_0 -> underline_offset_0'
+  | Underline_offset_1 -> underline_offset_1'
+  | Underline_offset_2 -> underline_offset_2'
+  | Underline_offset_4 -> underline_offset_4'
+  | Underline_offset_8 -> underline_offset_8'
+  | Antialiased -> antialiased'
+  | Text_ellipsis -> text_ellipsis'
+  | Text_clip -> text_clip'
+  | Text_wrap -> text_wrap'
+  | Text_nowrap -> text_nowrap'
+  | Text_balance -> text_balance'
+  | Text_pretty -> text_pretty'
+  | Break_normal -> break_normal'
+  | Break_words -> break_words'
+  | Break_all -> break_all'
+  | Break_keep -> break_keep'
+  | Overflow_wrap_normal -> overflow_wrap_normal'
+  | Overflow_wrap_anywhere -> overflow_wrap_anywhere'
+  | Overflow_wrap_break_word -> overflow_wrap_break_word'
+  | Hyphens_none -> hyphens_none'
+  | Hyphens_manual -> hyphens_manual'
+  | Hyphens_auto -> hyphens_auto'
+  | Font_stretch_normal -> font_stretch_normal'
+  | Font_stretch_condensed -> font_stretch_condensed'
+  | Font_stretch_expanded -> font_stretch_expanded'
+  | Font_stretch_percent n -> font_stretch_percent' n
+  | Normal_nums -> normal_nums'
+  | Ordinal -> ordinal'
+  | Slashed_zero -> slashed_zero'
+  | Lining_nums -> lining_nums'
+  | Oldstyle_nums -> oldstyle_nums'
+  | Proportional_nums -> proportional_nums'
+  | Tabular_nums -> tabular_nums'
+  | Diagonal_fractions -> diagonal_fractions'
+  | Stacked_fractions -> stacked_fractions'
+  | Indent n -> indent' n
+  | Line_clamp n -> line_clamp' n
+  | Content_none -> content_none'
+  | Content s -> content' s
 
 (** {1 Parsing Functions} *)
 
 let ( >|= ) = Parse.( >|= )
+let err_not_utility = Error (`Msg "Not a typography utility")
 
 let of_string = function
   | [ "text"; "xs" ] -> Ok Text_xs
@@ -1199,14 +1365,14 @@ let of_string = function
   | [ "decoration"; color; shade ] -> (
       match (Color.of_string color, Parse.int_any shade) with
       | Ok c, Ok s -> Ok (Decoration_color (c, Some s))
-      | _ -> Error (`Msg "Not a typography utility"))
+      | _ -> err_not_utility)
   | [ "decoration"; n ] -> (
       match Parse.int_pos ~name:"decoration thickness" n with
       | Ok thickness -> Ok (Decoration_thickness thickness)
       | Error _ -> (
           match Color.of_string n with
           | Ok c -> Ok (Decoration_color (c, None))
-          | Error _ -> Error (`Msg "Not a typography utility")))
+          | Error _ -> err_not_utility))
   | [ "uppercase" ] -> Ok Uppercase
   | [ "lowercase" ] -> Ok Lowercase
   | [ "capitalize" ] -> Ok Capitalize
@@ -1266,7 +1432,7 @@ let of_string = function
   | [ "line"; "clamp"; n ] ->
       Parse.int_pos ~name:"line-clamp" n >|= fun n -> Line_clamp n
   | [ "content"; "none" ] -> Ok Content_none
-  | _ -> Error (`Msg "Not a typography utility")
+  | _ -> err_not_utility
 
 (** {1 Ordering Support} *)
 
@@ -1363,6 +1529,7 @@ let suborder = function
   | List_inside -> 16003
   | List_outside -> 16004
   | List_image_none -> 16005
+  | List_image_url _ -> 16006
   | Underline_offset_auto -> 17000
   | Underline_offset_0 -> 17001
   | Underline_offset_1 -> 17002
@@ -1402,3 +1569,21 @@ let suborder = function
   | Indent n -> 26000 + n
   | Line_clamp n -> 27000 + n
   | Content_none -> 28000
+  | Content _ -> 28001
+
+let priority = 70
+
+let order u =
+  match unwrap u with Some x -> Some (priority, suborder x) | None -> None
+
+let () =
+  Utility.register ~wrap ~unwrap { to_style; priority; suborder; of_string }
+
+module Handler = struct
+  type nonrec t = t
+
+  let of_string = of_string
+  let suborder = suborder
+  let to_style = to_style
+  let order x = (priority, suborder x)
+end

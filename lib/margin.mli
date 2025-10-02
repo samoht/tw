@@ -1,4 +1,6 @@
-(** Margin utilities with negative value support *)
+(** Margin utilities with negative value support
+
+    https://tailwindcss.com/docs/margin *)
 
 open Style
 open Utility
@@ -70,19 +72,11 @@ val mb_auto : t
 val ml_auto : t
 (** [ml_auto] sets left margin to auto. *)
 
-(** {1 Internal Functions} *)
+module Handler : sig
+  type t
 
-val to_style : base -> Style.t option
-(** [to_style u] converts a structured margin utility to a style. For internal
-    use by the Tw module. *)
-
-val suborder : base -> int option
-(** [suborder u] returns the ordering value for margin utility [u]. Used for
-    deterministic CSS output ordering. *)
-
-val order : base -> (int * int) option
-(** [order u] returns the (priority, suborder) pair for margin utility [u]. *)
-
-val of_string : string list -> (base, [ `Msg of string ]) result
-(** [of_string parts] parses a margin utility from string parts. Returns an
-    internal structured representation. *)
+  val of_string : string list -> (t, [ `Msg of string ]) result
+  val suborder : t -> int
+  val to_style : t -> Style.t
+  val order : t -> int * int
+end

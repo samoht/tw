@@ -15,9 +15,12 @@
 open Style
 open Css
 
+(** Error helpers *)
+let err_not_utility = Error (`Msg "Not an interactivity utility")
+
 (** {1 Utility Type} *)
 
-type utility =
+type t =
   | Select_none
   | Select_text
   | Select_all
@@ -47,18 +50,31 @@ type utility =
   | Will_change_scroll
   | Will_change_contents
   | Will_change_transform
+  | Group  (** Marker class for group parent *)
+  | Peer  (** Marker class for peer sibling *)
+
+type Utility.base += Interactivity of t
+
+let wrap x = Interactivity x
+let base x = Utility.base (wrap x)
 
 (** {1 User Select Utilities} *)
 
-let select_none = style "select-none" [ user_select None ]
-let select_text = style "select-text" [ user_select Text ]
-let select_all = style "select-all" [ user_select All ]
-let select_auto = style "select-auto" [ user_select Auto ]
+let select_none_s = style "select-none" [ user_select None ]
+let select_text_s = style "select-text" [ user_select Text ]
+let select_all_s = style "select-all" [ user_select All ]
+let select_auto_s = style "select-auto" [ user_select Auto ]
+let select_none = base Select_none
+let select_text = base Select_text
+let select_all = base Select_all
+let select_auto = base Select_auto
 
 (** {1 Scroll Behavior Utilities} *)
 
-let scroll_auto = style "scroll-auto" [ scroll_behavior Auto ]
-let scroll_smooth = style "scroll-smooth" [ scroll_behavior Smooth ]
+let scroll_auto_s = style "scroll-auto" [ scroll_behavior Auto ]
+let scroll_smooth_s = style "scroll-smooth" [ scroll_behavior Smooth ]
+let scroll_auto = base Scroll_auto
+let scroll_smooth = base Scroll_smooth
 
 (** {1 Scroll Snap Utilities} *)
 
@@ -67,14 +83,14 @@ let scroll_snap_strictness_var =
   Var.property_default Css.Scroll_snap_strictness ~initial:Proximity
     "tw-scroll-snap-strictness"
 
-let snap_start = style "snap-start" [ scroll_snap_align Start ]
-let snap_end = style "snap-end" [ scroll_snap_align End ]
-let snap_center = style "snap-center" [ scroll_snap_align Center ]
-let snap_none = style "snap-none" [ scroll_snap_type (Axis None) ]
+let snap_start_s = style "snap-start" [ scroll_snap_align Start ]
+let snap_end_s = style "snap-end" [ scroll_snap_align End ]
+let snap_center_s = style "snap-center" [ scroll_snap_align Center ]
+let snap_none_s = style "snap-none" [ scroll_snap_type (Axis None) ]
 
 (* For snap-x, snap-y, snap-both we compose the axis with a variable reference
    to strictness *)
-let snap_x =
+let snap_x_s =
   let ref_ = Var.reference scroll_snap_strictness_var in
   let property_rules =
     match Var.property_rule scroll_snap_strictness_var with
@@ -84,7 +100,7 @@ let snap_x =
   style "snap-x" ~property_rules
     [ scroll_snap_type (Axis_with_strictness (X, Var ref_)) ]
 
-let snap_y =
+let snap_y_s =
   let ref_ = Var.reference scroll_snap_strictness_var in
   let property_rules =
     match Var.property_rule scroll_snap_strictness_var with
@@ -94,7 +110,7 @@ let snap_y =
   style "snap-y" ~property_rules
     [ scroll_snap_type (Axis_with_strictness (Y, Var ref_)) ]
 
-let snap_both =
+let snap_both_s =
   let ref_ = Var.reference scroll_snap_strictness_var in
   let property_rules =
     match Var.property_rule scroll_snap_strictness_var with
@@ -104,7 +120,7 @@ let snap_both =
   style "snap-both" ~property_rules
     [ scroll_snap_type (Axis_with_strictness (Both, Var ref_)) ]
 
-let snap_mandatory =
+let snap_mandatory_s =
   let d, _ = Var.binding scroll_snap_strictness_var Mandatory in
   let property_rules =
     match Var.property_rule scroll_snap_strictness_var with
@@ -113,7 +129,7 @@ let snap_mandatory =
   in
   style "snap-mandatory" ~property_rules (d :: [])
 
-let snap_proximity =
+let snap_proximity_s =
   let d, _ = Var.binding scroll_snap_strictness_var Proximity in
   let property_rules =
     match Var.property_rule scroll_snap_strictness_var with
@@ -122,64 +138,97 @@ let snap_proximity =
   in
   style "snap-proximity" ~property_rules (d :: [])
 
-let snap_align_none = style "snap-align-none" [ scroll_snap_align None ]
-let snap_normal = style "snap-normal" [ scroll_snap_stop Normal ]
-let snap_always = style "snap-always" [ scroll_snap_stop Always ]
+let snap_align_none_s = style "snap-align-none" [ scroll_snap_align None ]
+let snap_normal_s = style "snap-normal" [ scroll_snap_stop Normal ]
+let snap_always_s = style "snap-always" [ scroll_snap_stop Always ]
+let snap_start = base Snap_start
+let snap_end = base Snap_end
+let snap_center = base Snap_center
+let snap_none = base Snap_none
+let snap_x = base Snap_x
+let snap_y = base Snap_y
+let snap_both = base Snap_both
+let snap_mandatory = base Snap_mandatory
+let snap_proximity = base Snap_proximity
+let snap_align_none = base Snap_align_none
+let snap_normal = base Snap_normal
+let snap_always = base Snap_always
 
 (** {1 Resize Utilities} *)
 
-let resize_none = style "resize-none" [ Css.resize None ]
-let resize = style "resize" [ Css.resize Both ]
-let resize_x = style "resize-x" [ Css.resize Horizontal ]
-let resize_y = style "resize-y" [ Css.resize Vertical ]
+let resize_none_s = style "resize-none" [ Css.resize None ]
+let resize_s = style "resize" [ Css.resize Both ]
+let resize_x_s = style "resize-x" [ Css.resize Horizontal ]
+let resize_y_s = style "resize-y" [ Css.resize Vertical ]
+let resize_none = base Resize_none
+let resize = base Resize
+let resize_x = base Resize_x
+let resize_y = base Resize_y
 
 (* Additional utilities *)
-let pointer_events_none = style "pointer-events-none" [ pointer_events None ]
-let pointer_events_auto = style "pointer-events-auto" [ pointer_events Auto ]
-let appearance_none = style "appearance-none" [ appearance None ]
-let will_change_auto = style "will-change-auto" [ will_change "auto" ]
+let pointer_events_none_s = style "pointer-events-none" [ pointer_events None ]
+let pointer_events_auto_s = style "pointer-events-auto" [ pointer_events Auto ]
+let appearance_none_s = style "appearance-none" [ appearance None ]
+let will_change_auto_s = style "will-change-auto" [ will_change "auto" ]
 
-let will_change_scroll =
+let will_change_scroll_s =
   style "will-change-scroll" [ will_change "scroll-position" ]
 
-let will_change_contents =
+let will_change_contents_s =
   style "will-change-contents" [ will_change "contents" ]
 
-let will_change_transform =
+let will_change_transform_s =
   style "will-change-transform" [ will_change "transform" ]
+
+let pointer_events_none = base Pointer_events_none
+let pointer_events_auto = base Pointer_events_auto
+let appearance_none = base Appearance_none
+let will_change_auto = base Will_change_auto
+let will_change_scroll = base Will_change_scroll
+let will_change_contents = base Will_change_contents
+let will_change_transform = base Will_change_transform
+
+(** {1 Marker Classes} *)
+
+let group_s = style "group" []
+let peer_s = style "peer" []
+let group = base Group
+let peer = base Peer
 
 (** {1 Conversion Functions} *)
 
 let to_style = function
-  | Select_none -> select_none
-  | Select_text -> select_text
-  | Select_all -> select_all
-  | Select_auto -> select_auto
-  | Scroll_auto -> scroll_auto
-  | Scroll_smooth -> scroll_smooth
-  | Snap_start -> snap_start
-  | Snap_end -> snap_end
-  | Snap_center -> snap_center
-  | Snap_none -> snap_none
-  | Snap_x -> snap_x
-  | Snap_y -> snap_y
-  | Snap_both -> snap_both
-  | Snap_mandatory -> snap_mandatory
-  | Snap_proximity -> snap_proximity
-  | Snap_align_none -> snap_align_none
-  | Snap_normal -> snap_normal
-  | Snap_always -> snap_always
-  | Resize_none -> resize_none
-  | Resize -> resize
-  | Resize_x -> resize_x
-  | Resize_y -> resize_y
-  | Pointer_events_none -> pointer_events_none
-  | Pointer_events_auto -> pointer_events_auto
-  | Appearance_none -> appearance_none
-  | Will_change_auto -> will_change_auto
-  | Will_change_scroll -> will_change_scroll
-  | Will_change_contents -> will_change_contents
-  | Will_change_transform -> will_change_transform
+  | Select_none -> select_none_s
+  | Select_text -> select_text_s
+  | Select_all -> select_all_s
+  | Select_auto -> select_auto_s
+  | Scroll_auto -> scroll_auto_s
+  | Scroll_smooth -> scroll_smooth_s
+  | Snap_start -> snap_start_s
+  | Snap_end -> snap_end_s
+  | Snap_center -> snap_center_s
+  | Snap_none -> snap_none_s
+  | Snap_x -> snap_x_s
+  | Snap_y -> snap_y_s
+  | Snap_both -> snap_both_s
+  | Snap_mandatory -> snap_mandatory_s
+  | Snap_proximity -> snap_proximity_s
+  | Snap_align_none -> snap_align_none_s
+  | Snap_normal -> snap_normal_s
+  | Snap_always -> snap_always_s
+  | Resize_none -> resize_none_s
+  | Resize -> resize_s
+  | Resize_x -> resize_x_s
+  | Resize_y -> resize_y_s
+  | Pointer_events_none -> pointer_events_none_s
+  | Pointer_events_auto -> pointer_events_auto_s
+  | Appearance_none -> appearance_none_s
+  | Will_change_auto -> will_change_auto_s
+  | Will_change_scroll -> will_change_scroll_s
+  | Will_change_contents -> will_change_contents_s
+  | Will_change_transform -> will_change_transform_s
+  | Group -> group_s
+  | Peer -> peer_s
 
 (** {1 Parsing Functions} *)
 
@@ -213,7 +262,9 @@ let of_string = function
   | [ "will"; "change"; "scroll" ] -> Ok Will_change_scroll
   | [ "will"; "change"; "contents" ] -> Ok Will_change_contents
   | [ "will"; "change"; "transform" ] -> Ok Will_change_transform
-  | _ -> Error (`Msg "Not an interactivity utility")
+  | [ "group" ] -> Ok Group
+  | [ "peer" ] -> Ok Peer
+  | _ -> err_not_utility
 
 (** {1 Suborder Function} *)
 
@@ -247,3 +298,20 @@ let suborder = function
   | Will_change_contents -> 37
   | Will_change_scroll -> 38
   | Will_change_transform -> 39
+  | Group -> 40
+  | Peer -> 41
+
+let priority = 800
+let unwrap = function Interactivity x -> Some x | _ -> None
+
+let () =
+  Utility.register ~wrap ~unwrap { to_style; priority; suborder; of_string }
+
+module Handler = struct
+  type nonrec t = t
+
+  let of_string = of_string
+  let suborder = suborder
+  let to_style = to_style
+  let order x = (priority, suborder x)
+end

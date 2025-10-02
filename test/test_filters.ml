@@ -2,10 +2,10 @@ open Alcotest
 
 let check parts =
   let expected = String.concat "-" parts in
-  match Tw.Filters.of_string parts with
+  match Tw.Filters.Handler.of_string parts with
   | Ok u ->
       check string "filters class" expected
-        (Tw.Style.pp (Tw.Filters.to_style u))
+        (Tw.Style.pp (Tw.Filters.Handler.to_style u))
   | Error (`Msg msg) -> fail msg
 
 let test_blur () =

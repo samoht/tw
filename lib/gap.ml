@@ -16,17 +16,27 @@
 open Style
 open Css
 
+(** Local gap utility type *)
+type t =
+  | Gap of { axis : [ `All | `X | `Y ]; value : spacing }
+  | Space of { negative : bool; axis : [ `X | `Y ]; value : spacing }
+
+(** Extensible variant for gap utilities *)
+type Utility.base += Gap_util of t
+
+(** Wrapper functions *)
+let wrap x = Gap_util x
+
+let unwrap = function Gap_util x -> Some x | _ -> None
+let base x = Utility.base (wrap x)
+
 (** Error helper *)
 let err_not_utility = Error (`Msg "Not a gap utility")
 
-type Utility.base +=
-  | Gap of [ `All | `X | `Y ] * spacing
-  | Space of bool (* negative *) * [ `X | `Y ] * spacing
-
 (** Helpers to create Utility.t from Gap/Space *)
-let gap_util axis value = Utility.Utility (Gap (axis, value))
+let gap_util axis value = base (Gap { axis; value })
 
-let space_util neg axis value = Utility.Utility (Space (neg, axis, value))
+let space_util negative axis value = base (Space { negative; axis; value })
 
 (** {2 Typed Gap Utilities} *)
 
@@ -120,23 +130,6 @@ let space_y n =
 
 (** {1 Conversion Functions} *)
 
-let to_style = function
-  | Gap (axis, value) -> (
-      match axis with
-      | `All -> gap' value
-      | `X -> gap_x' value
-      | `Y -> gap_y' value)
-  | Space (neg, axis, value) -> (
-      let n =
-        match value with
-        | `Rem f -> int_of_float (f /. 0.25)
-        | `Px -> 0
-        | `Full -> 0
-      in
-      let n = if neg then -n else n in
-      match axis with `X -> space_x' n | `Y -> space_y' n)
-  | _ -> failwith "Not a gap or space utility"
-
 let spacing_value_order = function
   | `Px -> 1
   | `Full -> 10000
@@ -144,79 +137,122 @@ let spacing_value_order = function
       let units = f /. 0.25 in
       int_of_float (units *. 10.)
 
-let of_string parts =
-  let parse_class = function
-    | [ "gap"; value ] -> (
-        match Parse.spacing_value ~name:"gap" value with
-        | Ok f -> Some (Gap (`All, `Rem (f *. 0.25)))
-        | Error _ ->
-            if value = "px" then Some (Gap (`All, `Px))
-            else if value = "full" then Some (Gap (`All, `Full))
-            else None)
-    | [ "gap"; "x"; value ] -> (
-        match Parse.spacing_value ~name:"gap-x" value with
-        | Ok f -> Some (Gap (`X, `Rem (f *. 0.25)))
-        | Error _ ->
-            if value = "px" then Some (Gap (`X, `Px))
-            else if value = "full" then Some (Gap (`X, `Full))
-            else None)
-    | [ "gap"; "y"; value ] -> (
-        match Parse.spacing_value ~name:"gap-y" value with
-        | Ok f -> Some (Gap (`Y, `Rem (f *. 0.25)))
-        | Error _ ->
-            if value = "px" then Some (Gap (`Y, `Px))
-            else if value = "full" then Some (Gap (`Y, `Full))
-            else None)
-    | [ "space"; "x"; value ] -> (
-        match Parse.int_pos ~name:"space-x" value with
-        | Ok n -> Some (Space (false, `X, `Rem (float_of_int n *. 0.25)))
-        | Error _ -> None)
-    | [ "space"; "y"; value ] -> (
-        match Parse.int_pos ~name:"space-y" value with
-        | Ok n -> Some (Space (false, `Y, `Rem (float_of_int n *. 0.25)))
-        | Error _ -> None)
-    | [ "-space"; "x"; value ] -> (
-        match Parse.int_pos ~name:"space-x" value with
-        | Ok n -> Some (Space (true, `X, `Rem (float_of_int n *. 0.25)))
-        | Error _ -> None)
-    | [ "-space"; "y"; value ] -> (
-        match Parse.int_pos ~name:"space-y" value with
-        | Ok n -> Some (Space (true, `Y, `Rem (float_of_int n *. 0.25)))
-        | Error _ -> None)
-    | _ -> None
-  in
-  match parse_class parts with Some u -> Ok u | None -> err_not_utility
+(** Convert gap utility to style *)
+let to_style = function
+  | Gap { axis; value } -> (
+      match axis with
+      | `All -> gap' value
+      | `X -> gap_x' value
+      | `Y -> gap_y' value)
+  | Space { negative; axis; value } -> (
+      let n =
+        match value with
+        | `Rem f -> int_of_float (f /. 0.25)
+        | `Px -> 0
+        | `Full -> 0
+      in
+      let n = if negative then -n else n in
+      match axis with `X -> space_x' n | `Y -> space_y' n)
 
+(** Suborder for gap utilities *)
 let suborder = function
-  | Gap (axis, value) ->
+  | Gap { axis; value } ->
       let axis_offset =
         match axis with `All -> 0 | `X -> 20000 | `Y -> 40000
       in
       25000 + axis_offset + spacing_value_order value
-  | Space (neg, axis, value) ->
-      let neg_offset = if neg then 100000 else 0 in
+  | Space { negative; axis; value } ->
+      let neg_offset = if negative then 100000 else 0 in
       let axis_offset = match axis with `X -> 0 | `Y -> 10000 in
       20000 + neg_offset + axis_offset + spacing_value_order value
-  | _ -> failwith "Not a gap or space utility"
+
+(** Parse string parts to gap utility *)
+let of_string parts =
+  let parse_class = function
+    | [ "gap"; value ] -> (
+        match Parse.spacing_value ~name:"gap" value with
+        | Ok f -> Ok (Gap { axis = `All; value = `Rem (f *. 0.25) })
+        | Error _ ->
+            if value = "px" then Ok (Gap { axis = `All; value = `Px })
+            else if value = "full" then Ok (Gap { axis = `All; value = `Full })
+            else err_not_utility)
+    | [ "gap"; "x"; value ] -> (
+        match Parse.spacing_value ~name:"gap-x" value with
+        | Ok f -> Ok (Gap { axis = `X; value = `Rem (f *. 0.25) })
+        | Error _ ->
+            if value = "px" then Ok (Gap { axis = `X; value = `Px })
+            else if value = "full" then Ok (Gap { axis = `X; value = `Full })
+            else err_not_utility)
+    | [ "gap"; "y"; value ] -> (
+        match Parse.spacing_value ~name:"gap-y" value with
+        | Ok f -> Ok (Gap { axis = `Y; value = `Rem (f *. 0.25) })
+        | Error _ ->
+            if value = "px" then Ok (Gap { axis = `Y; value = `Px })
+            else if value = "full" then Ok (Gap { axis = `Y; value = `Full })
+            else err_not_utility)
+    | [ "space"; "x"; value ] -> (
+        match Parse.int_pos ~name:"space-x" value with
+        | Ok n ->
+            Ok
+              (Space
+                 {
+                   negative = false;
+                   axis = `X;
+                   value = `Rem (float_of_int n *. 0.25);
+                 })
+        | Error _ -> err_not_utility)
+    | [ "space"; "y"; value ] -> (
+        match Parse.int_pos ~name:"space-y" value with
+        | Ok n ->
+            Ok
+              (Space
+                 {
+                   negative = false;
+                   axis = `Y;
+                   value = `Rem (float_of_int n *. 0.25);
+                 })
+        | Error _ -> err_not_utility)
+    | [ "-space"; "x"; value ] -> (
+        match Parse.int_pos ~name:"space-x" value with
+        | Ok n ->
+            Ok
+              (Space
+                 {
+                   negative = true;
+                   axis = `X;
+                   value = `Rem (float_of_int n *. 0.25);
+                 })
+        | Error _ -> err_not_utility)
+    | [ "-space"; "y"; value ] -> (
+        match Parse.int_pos ~name:"space-y" value with
+        | Ok n ->
+            Ok
+              (Space
+                 {
+                   negative = true;
+                   axis = `Y;
+                   value = `Rem (float_of_int n *. 0.25);
+                 })
+        | Error _ -> err_not_utility)
+    | _ -> err_not_utility
+  in
+  parse_class parts
 
 (** Priority for gap utilities *)
 let priority = 16
 
-(** Register gap handler with Utility system *)
-let () =
-  Utility.register
-    {
-      to_style =
-        (function
-        | Gap (_, _) as x -> Some (to_style x)
-        | Space (_, _, _) as x -> Some (to_style x)
-        | _ -> None);
-      order =
-        (function
-        | Gap (_, _) as x -> Some (priority, suborder x)
-        | Space (_, _, _) as x -> Some (priority, suborder x)
-        | _ -> None);
-      of_string =
-        (fun parts ->
-          match of_string parts with Ok u -> Some (Ok u) | Error _ -> None);
-    }
+(** Typed handler for gap utilities *)
+let handler : t Utility.handler = { to_style; priority; suborder; of_string }
+
+(** Register handler with Utility system *)
+
+let () = Utility.register ~wrap ~unwrap handler
+
+module Handler = struct
+  type nonrec t = t
+
+  let of_string = of_string
+  let suborder = suborder
+  let to_style = to_style
+  let order x = (priority, suborder x)
+end

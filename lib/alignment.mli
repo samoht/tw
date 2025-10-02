@@ -1,76 +1,14 @@
-(** Alignment utilities for flexbox and grid layouts *)
+(** Alignment utilities for flexbox and grid layouts
 
-open Style
+    https://tailwindcss.com/docs/justify-content
+    https://tailwindcss.com/docs/align-items
+    https://tailwindcss.com/docs/align-content
+    https://tailwindcss.com/docs/align-self
+    https://tailwindcss.com/docs/place-content
+    https://tailwindcss.com/docs/place-items
+    https://tailwindcss.com/docs/place-self *)
 
-type utility =
-  (* Justify content *)
-  | Justify_start
-  | Justify_end
-  | Justify_center
-  | Justify_between
-  | Justify_around
-  | Justify_evenly
-  (* Align items *)
-  | Items_start
-  | Items_end
-  | Items_center
-  | Items_baseline
-  | Items_stretch
-  (* Align content *)
-  | Content_start
-  | Content_end
-  | Content_center
-  | Content_between
-  | Content_around
-  | Content_evenly
-  | Content_stretch
-  (* Align self *)
-  | Self_auto
-  | Self_start
-  | Self_end
-  | Self_center
-  | Self_baseline
-  | Self_stretch
-  (* Justify items *)
-  | Justify_items_start
-  | Justify_items_end
-  | Justify_items_center
-  | Justify_items_stretch
-  (* Justify self *)
-  | Justify_self_auto
-  | Justify_self_start
-  | Justify_self_end
-  | Justify_self_center
-  | Justify_self_stretch
-  (* Place content *)
-  | Place_content_start
-  | Place_content_end
-  | Place_content_center
-  | Place_content_between
-  | Place_content_around
-  | Place_content_evenly
-  | Place_content_stretch
-  (* Place items *)
-  | Place_items_start
-  | Place_items_end
-  | Place_items_center
-  | Place_items_stretch
-  (* Place self *)
-  | Place_self_auto
-  | Place_self_start
-  | Place_self_end
-  | Place_self_center
-  | Place_self_stretch
-
-val to_style : utility -> t
-(** [to_style u] converts a structured alignment utility to a style. *)
-
-val of_string : string list -> (utility, [> `Msg of string ]) result
-(** [of_string parts] parses a list of string parts into an alignment utility.
-*)
-
-val suborder : utility -> int
-(** [suborder u] returns the ordering value for alignment utility [u]. *)
+open Utility
 
 (** {1 Justify Content Utilities} *)
 
@@ -236,3 +174,12 @@ val place_self_center : t
 
 val place_self_stretch : t
 (** [place_self_stretch] stretches self to fill. *)
+
+module Handler : sig
+  type t
+
+  val of_string : string list -> (t, [ `Msg of string ]) result
+  val suborder : t -> int
+  val to_style : t -> Style.t
+  val order : t -> int * int
+end
