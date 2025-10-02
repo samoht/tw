@@ -9,6 +9,10 @@ let check parts =
   | Error (`Msg msg) -> fail msg
 
 let of_string_valid () =
+  (* Display *)
+  check [ "grid" ];
+  check [ "inline"; "grid" ];
+
   (* Column placement *)
   check [ "col"; "auto" ];
   check [ "col"; "span"; "1" ];

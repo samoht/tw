@@ -899,12 +899,12 @@ let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
         declarations = decls2;
       }
   else if decls1 = decls2 then
-    (* Same selector, same declarations in same order - this is pure
-       reordering *)
+    (* Same selector, same declarations in same order *)
     let expected_pos = find_position sel1 rules1 in
     let actual_pos = find_position sel2 rules2 in
     if expected_pos = actual_pos then
-      (* No actual position change - this might be in different contexts *)
+      (* No actual change - same position, same declarations This case shouldn't
+         normally occur in diffing, but handle it gracefully *)
       Rule_content_changed
         {
           selector = sel1_str;
@@ -913,6 +913,7 @@ let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
           property_changes = [];
         }
     else
+      (* Same declarations but different position - this is rule reordering *)
       let swapped_with = selector_at_position expected_pos rules2 in
       Rule_reordered
         { selector = sel1_str; expected_pos; actual_pos; swapped_with }
@@ -924,22 +925,13 @@ let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
     in
     if property_changes = [] && decls_signature decls1 = decls_signature decls2
     then
-      (* Properties are the same but reordered *)
+      (* Properties are the same but reordered - always classify as
+         Rule_reordered *)
       let expected_pos = find_position sel1 rules1 in
       let actual_pos = find_position sel2 rules2 in
-      if expected_pos = actual_pos then
-        (* No actual position change - this might be in different contexts *)
-        Rule_content_changed
-          {
-            selector = sel1_str;
-            old_declarations = decls1;
-            new_declarations = decls2;
-            property_changes = [];
-          }
-      else
-        let swapped_with = selector_at_position expected_pos rules2 in
-        Rule_reordered
-          { selector = sel1_str; expected_pos; actual_pos; swapped_with }
+      let swapped_with = selector_at_position expected_pos rules2 in
+      Rule_reordered
+        { selector = sel1_str; expected_pos; actual_pos; swapped_with }
     else
       Rule_content_changed
         {

@@ -12,10 +12,6 @@ let of_string_valid () =
   check [ "block" ];
   check [ "inline" ];
   check [ "inline"; "block" ];
-  check [ "flex" ];
-  check [ "inline"; "flex" ];
-  check [ "grid" ];
-  check [ "inline"; "grid" ];
   check [ "hidden" ]
 
 let of_string_invalid () =
