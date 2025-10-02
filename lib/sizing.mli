@@ -1,26 +1,31 @@
-(** Sizing utilities for width and height *)
+(** Sizing utilities for width and height
 
-open Style
+    https://tailwindcss.com/docs/width https://tailwindcss.com/docs/height
+    https://tailwindcss.com/docs/min-width
+    https://tailwindcss.com/docs/max-width
+    https://tailwindcss.com/docs/min-height
+    https://tailwindcss.com/docs/max-height
+    https://tailwindcss.com/docs/aspect-ratio *)
 
-(** {1 Utility Types} *)
+open Utility
 
-type utility
+type size =
+  [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full | `Rem of float ]
 
-val to_style : utility -> t
-(** [to_style u] converts a structured sizing utility to a style. For internal
-    use by the Tw module. *)
+val order : base -> (int * int) option
 
-val suborder : utility -> int
-(** [suborder u] returns the ordering value for sizing utility [u]. Used for
-    deterministic CSS output ordering. *)
+module Handler : sig
+  type t
 
-val of_string : string list -> (utility, [ `Msg of string ]) result
-(** [of_string parts] parses a sizing utility from string parts. Returns an
-    internal structured representation. *)
+  val of_string : string list -> (t, [ `Msg of string ]) result
+  val suborder : t -> int
+  val to_style : t -> Style.t
+  val order : t -> int * int
+end
 
 (** {1 Width Utilities} *)
 
-val w' : size -> t
+val w' : size -> Style.t
 (** [w' sz] sets width to predefined size [sz] (e.g., [`Sm], [`Full]). *)
 
 val w : int -> t
@@ -71,7 +76,7 @@ val w_3_5 : t
 val w_4_5 : t
 (** [w_4_5] sets width to 4/5. *)
 
-val h' : size -> t
+val h' : size -> Style.t
 (** [h' sz] sets height to predefined size [sz]. *)
 
 val h : int -> t
@@ -122,7 +127,7 @@ val h_3_5 : t
 val h_4_5 : t
 (** [h_4_5] sets height to 4/5. *)
 
-val min_w' : size -> t
+val min_w' : size -> Style.t
 (** [min_w' sz] sets min-width to predefined size [sz]. *)
 
 val min_w : int -> t
@@ -143,7 +148,7 @@ val min_w_max : t
 val min_w_fit : t
 (** [min_w_fit] sets min-width to fit-content. *)
 
-val max_w' : size -> t
+val max_w' : size -> Style.t
 (** [max_w' sz] sets max-width to predefined size [sz]. *)
 
 val max_w : int -> t
@@ -215,7 +220,7 @@ val max_w_screen_xl : t
 val max_w_screen_2xl : t
 (** [max_w_screen_2xl] sets max-width to 2× extra-large breakpoint width. *)
 
-val min_h' : size -> t
+val min_h' : size -> Style.t
 (** [min_h' sz] sets min-height to predefined size [sz]. *)
 
 val min_h : int -> t
@@ -239,7 +244,7 @@ val min_h_max : t
 val min_h_fit : t
 (** [min_h_fit] sets min-height to fit-content. *)
 
-val max_h' : size -> t
+val max_h' : size -> Style.t
 (** [max_h' sz] sets max-height to predefined size [sz]. *)
 
 val max_h : int -> t

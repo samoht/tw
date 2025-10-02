@@ -1,50 +1,12 @@
 (** Filter utilities for visual effects like blur, brightness, and backdrop
-    filters *)
+    filters
 
-open Style
+    https://tailwindcss.com/docs/blur https://tailwindcss.com/docs/brightness
+    https://tailwindcss.com/docs/contrast https://tailwindcss.com/docs/grayscale
+    https://tailwindcss.com/docs/saturate
+    https://tailwindcss.com/docs/backdrop-blur *)
 
-(** {1 Utility Type} *)
-
-type utility =
-  | Blur_none
-  | Blur_xs
-  | Blur_sm
-  | Blur
-  | Blur_md
-  | Blur_lg
-  | Blur_xl
-  | Blur_2xl
-  | Blur_3xl
-  | Brightness of int
-  | Contrast of int
-  | Grayscale of int
-  | Saturate of int
-  | Sepia of int
-  | Invert of int
-  | Hue_rotate of int
-  | Backdrop_blur_none
-  | Backdrop_blur_xs
-  | Backdrop_blur_sm
-  | Backdrop_blur
-  | Backdrop_blur_md
-  | Backdrop_blur_lg
-  | Backdrop_blur_xl
-  | Backdrop_blur_2xl
-  | Backdrop_blur_3xl
-  | Backdrop_brightness of int
-  | Backdrop_contrast of int
-  | Backdrop_opacity of int
-  | Backdrop_saturate of int
-  | Backdrop_grayscale of int
-  | Backdrop_invert of int
-  | Backdrop_sepia of int
-  | Backdrop_hue_rotate of int
-
-val to_style : utility -> t
-(** [to_style utility] converts a filter utility to a style. *)
-
-val suborder : utility -> int
-(** [suborder utility] returns the suborder for utility ordering. *)
+open Utility
 
 (** {1 Filter Utilities} *)
 
@@ -140,28 +102,26 @@ val backdrop_saturate : int -> t
 (** [backdrop_saturate n] sets backdrop saturation to n% (0-200, 100 is normal).
 *)
 
-val backdrop_grayscale_default : t
-(** [backdrop_grayscale_default] applies 100% grayscale to backdrop. *)
+val backdrop_grayscale : ?n:int -> unit -> t
+(** [backdrop_grayscale ~n ()] applies n% grayscale to backdrop (0-100).
+    Defaults to 100%. *)
 
-val backdrop_grayscale : int -> t
-(** [backdrop_grayscale n] applies n% grayscale to backdrop (0-100). *)
+val backdrop_invert : ?n:int -> unit -> t
+(** [backdrop_invert ~n ()] inverts backdrop colors by n% (0-100). Defaults to
+    100%. *)
 
-val backdrop_invert_default : t
-(** [backdrop_invert_default] inverts backdrop colors 100%. *)
-
-val backdrop_invert : int -> t
-(** [backdrop_invert n] inverts backdrop colors by n% (0-100). *)
-
-val backdrop_sepia_default : t
-(** [backdrop_sepia_default] applies 100% sepia effect to backdrop. *)
-
-val backdrop_sepia : int -> t
-(** [backdrop_sepia n] applies n% sepia effect to backdrop (0-100). *)
+val backdrop_sepia : ?n:int -> unit -> t
+(** [backdrop_sepia ~n ()] applies n% sepia effect to backdrop (0-100). Defaults
+    to 100%. *)
 
 val backdrop_hue_rotate : int -> t
 (** [backdrop_hue_rotate deg] rotates backdrop hue by deg degrees. *)
 
-(** {1 Parsing Functions} *)
+module Handler : sig
+  type t
 
-val of_string : string list -> (utility, [ `Msg of string ]) result
-(** [of_string parts] parses a filter utility from string parts. *)
+  val of_string : string list -> (t, [ `Msg of string ]) result
+  val suborder : t -> int
+  val to_style : t -> Style.t
+  val order : t -> int * int
+end

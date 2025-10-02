@@ -1,24 +1,9 @@
-(** SVG utilities for fill, stroke, and stroke-width *)
+(** SVG utilities for fill, stroke, and stroke-width
 
-open Style
+    https://tailwindcss.com/docs/fill https://tailwindcss.com/docs/stroke
+    https://tailwindcss.com/docs/stroke-width *)
 
-(** {1 Utility Types} *)
-
-type utility
-
-val of_string : string list -> (utility, [ `Msg of string ]) result
-(** [of_string parts] parses an SVG utility from string parts. Returns an
-    internal structured representation. *)
-
-(** {1 Internal Conversion Functions} *)
-
-val to_style : utility -> t
-(** [to_style u] converts a structured SVG utility to a style. For internal use
-    by the Tw module. *)
-
-val suborder : utility -> int
-(** [suborder u] returns the ordering value for SVG utility [u]. Used for
-    deterministic CSS output ordering. *)
+open Utility
 
 (** {1 Fill Utilities} *)
 
@@ -28,7 +13,7 @@ val fill_none : t
 val fill_current : t
 (** [fill_current] sets fill to currentColor. *)
 
-val fill : Color.color -> ?shade:int -> unit -> t
+val fill : Color.color -> ?shade:int -> unit -> Style.t
 (** [fill color ?shade ()] sets SVG fill color. *)
 
 (** {1 Stroke Utilities} *)
@@ -39,7 +24,7 @@ val stroke_none : t
 val stroke_current : t
 (** [stroke_current] sets stroke to currentColor. *)
 
-val stroke : Color.color -> ?shade:int -> unit -> t
+val stroke : Color.color -> ?shade:int -> unit -> Style.t
 (** [stroke color ?shade ()] sets SVG stroke color. *)
 
 (** {1 Stroke Width Utilities} *)

@@ -1,44 +1,24 @@
-(** Layout utilities for basic display, positioning, and object properties
-
-    What's included:
-    - Display: `block`, `inline`, `inline-block`, `hidden`.
-    - Position utilities: `static`, `relative`, `absolute`, `fixed`, `sticky`.
-    - Object-fit/position, overflow, z-index.
-    - Table utilities for border-collapse, border-spacing, table-layout.
-
-    What's not:
-    - Flex/grid utilities: see Flow module.
-    - Some niche shorthands are omitted; prefer the typed helpers exposed in
-      `Css` rather than raw properties.
-
-    Parsing contract (`of_string`):
-    - Accepted tokens include a subset of Tailwind layout utilities, e.g.:
-      ["block"], ["inline"], ["hidden"], ["static"], ["relative"], etc.
-    - Errors: returns `Error (`Msg "Not a layout utility")` for unknown
-      patterns. *)
+(** Layout utilities for basic display, positioning, and object properties *)
 
 open Style
 open Css
-module Parse = Parse
 
-(** {1 Layout Utility Type} *)
-
-type utility =
-  (* Display *)
-  | Block
+type t =
+  | (* Display *)
+    Block
   | Inline
   | Inline_block
   | Hidden
   | Sr_only
   | Not_sr_only
-  (* Visibility *)
-  | Visible
+  | (* Visibility *)
+    Visible
   | Invisible
   | Collapse
-  (* Isolation *)
-  | Isolate
-  (* Overflow *)
-  | Overflow_auto
+  | (* Isolation *)
+    Isolate
+  | (* Overflow *)
+    Overflow_auto
   | Overflow_hidden
   | Overflow_clip
   | Overflow_visible
@@ -51,34 +31,38 @@ type utility =
   | Overflow_y_hidden
   | Overflow_y_visible
   | Overflow_y_scroll
-  (* Z-index *)
-  | Z_0
+  | (* Z-index *)
+    Z_0
   | Z_10
   | Z_20
   | Z_30
   | Z_40
   | Z_50
   | Z_auto
-  (* Object fit *)
-  | Object_contain
+  | (* Object fit *)
+    Object_contain
   | Object_cover
   | Object_fill
   | Object_none
   | Object_scale_down
-  (* Object position *)
-  | Object_center
+  | (* Object position *)
+    Object_center
   | Object_top
   | Object_bottom
   | Object_left
   | Object_right
-  (* Table *)
-  | Border_collapse
+  | (* Table *)
+    Border_collapse
   | Border_separate
   | Border_spacing of int
   | Table_auto
   | Table_fixed
 
-(** {1 Suborder Function} *)
+type Utility.base += Layout of t
+
+let wrap x = Layout x
+let unwrap = function Layout x -> Some x | _ -> None
+let base x = Utility.base (wrap x)
 
 let suborder = function
   (* Display utilities - alphabetically ordered *)
@@ -212,6 +196,8 @@ let to_style = function
 
 (** {1 Parsing Functions} *)
 
+let err_not_utility = Error (`Msg "Not a layout utility")
+
 let of_string = function
   | [ "block" ] -> Ok Block
   | [ "inline" ] -> Ok Inline
@@ -258,90 +244,73 @@ let of_string = function
   | [ "border"; "spacing"; n ] -> (
       match int_of_string_opt n with
       | Some i -> Ok (Border_spacing i)
-      | None -> Error (`Msg "Not a layout utility"))
+      | None -> err_not_utility)
   | [ "table"; "auto" ] -> Ok Table_auto
   | [ "table"; "fixed" ] -> Ok Table_fixed
-  | _ -> Error (`Msg "Not a layout utility")
+  | _ -> err_not_utility
 
 (** {1 Public API - Utility Values} *)
 
 (* These provide the public API for layout utilities *)
-let block = to_style Block
-let inline = to_style Inline
-let inline_block = to_style Inline_block
-let hidden = to_style Hidden
-let visible = to_style Visible
-let invisible = to_style Invisible
-let collapse = to_style Collapse
-let isolate = to_style Isolate
-let overflow_auto = to_style Overflow_auto
-let overflow_hidden = to_style Overflow_hidden
-let overflow_clip = to_style Overflow_clip
-let overflow_visible = to_style Overflow_visible
-let overflow_scroll = to_style Overflow_scroll
-let overflow_x_auto = to_style Overflow_x_auto
-let overflow_x_hidden = to_style Overflow_x_hidden
-let overflow_x_visible = to_style Overflow_x_visible
-let overflow_x_scroll = to_style Overflow_x_scroll
-let overflow_y_auto = to_style Overflow_y_auto
-let overflow_y_hidden = to_style Overflow_y_hidden
-let overflow_y_visible = to_style Overflow_y_visible
-let overflow_y_scroll = to_style Overflow_y_scroll
-let z_0 = to_style Z_0
-let z_10 = to_style Z_10
-let z_20 = to_style Z_20
-let z_30 = to_style Z_30
-let z_40 = to_style Z_40
-let z_50 = to_style Z_50
-let z_auto = to_style Z_auto
-let object_contain = to_style Object_contain
-let object_cover = to_style Object_cover
-let object_fill = to_style Object_fill
-let object_none = to_style Object_none
-let object_scale_down = to_style Object_scale_down
-let object_center = to_style Object_center
-let object_top = to_style Object_top
-let object_bottom = to_style Object_bottom
-let object_left = to_style Object_left
-let object_right = to_style Object_right
-let sr_only = to_style Sr_only
-let not_sr_only = to_style Not_sr_only
-let border_collapse = to_style Border_collapse
-let border_separate = to_style Border_separate
-let border_spacing n = to_style (Border_spacing n)
-let table_auto = to_style Table_auto
-let table_fixed = to_style Table_fixed
+let block = base Block
+let inline = base Inline
+let inline_block = base Inline_block
+let hidden = base Hidden
+let visible = base Visible
+let invisible = base Invisible
+let collapse = base Collapse
+let isolate = base Isolate
+let overflow_auto = base Overflow_auto
+let overflow_hidden = base Overflow_hidden
+let overflow_clip = base Overflow_clip
+let overflow_visible = base Overflow_visible
+let overflow_scroll = base Overflow_scroll
+let overflow_x_auto = base Overflow_x_auto
+let overflow_x_hidden = base Overflow_x_hidden
+let overflow_x_visible = base Overflow_x_visible
+let overflow_x_scroll = base Overflow_x_scroll
+let overflow_y_auto = base Overflow_y_auto
+let overflow_y_hidden = base Overflow_y_hidden
+let overflow_y_visible = base Overflow_y_visible
+let overflow_y_scroll = base Overflow_y_scroll
+let z_0 = base Z_0
+let z_10 = base Z_10
+let z_20 = base Z_20
+let z_30 = base Z_30
+let z_40 = base Z_40
+let z_50 = base Z_50
+let z_auto = base Z_auto
+let object_contain = base Object_contain
+let object_cover = base Object_cover
+let object_fill = base Object_fill
+let object_none = base Object_none
+let object_scale_down = base Object_scale_down
+let object_center = base Object_center
+let object_top = base Object_top
+let object_bottom = base Object_bottom
+let object_left = base Object_left
+let object_right = base Object_right
+let sr_only = base Sr_only
+let not_sr_only = base Not_sr_only
+let border_collapse = base Border_collapse
+let border_separate = base Border_separate
+let border_spacing n = base (Border_spacing n)
+let table_auto = base Table_auto
+let table_fixed = base Table_fixed
 
-(** {1 Legacy string-based functions for compatibility} *)
+(** Priority for layout utilities *)
+let priority = 15
 
-let position_suborder = function
-  | "absolute" -> 0
-  | "fixed" -> 1
-  | "relative" -> 2
-  | "static" -> 3
-  | "sticky" -> 4
-  | c -> failwith ("Unknown position utility: " ^ c)
+let () =
+  Utility.register ~wrap ~unwrap { to_style; priority; suborder; of_string }
 
-let display_suborder = function
-  | "block" -> 0
-  | "flex" -> 1
-  | "grid" -> 2
-  | "hidden" -> 3
-  | "inline" -> 4
-  | "inline-block" -> 5
-  | "inline-flex" -> 6
-  | "inline-grid" -> 7
-  | "overflow-auto" -> 8
-  | "overflow-clip" -> 9
-  | "overflow-hidden" -> 10
-  | "overflow-scroll" -> 11
-  | "overflow-visible" -> 12
-  | "overflow-x-auto" -> 13
-  | "overflow-x-hidden" -> 14
-  | "overflow-x-scroll" -> 15
-  | "overflow-x-visible" -> 16
-  | "overflow-y-auto" -> 17
-  | "overflow-y-hidden" -> 18
-  | "overflow-y-scroll" -> 19
-  | "overflow-y-visible" -> 20
-  | c -> failwith ("Unknown display utility: " ^ c)
+module Handler = struct
+  type nonrec t = t
+
+  let of_string = of_string
+  let suborder = suborder
+  let to_style = to_style
+  let order x = (priority, suborder x)
+end
+
+module Private = Handler

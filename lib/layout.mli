@@ -1,76 +1,80 @@
-(** Layout utilities for basic display, positioning, and object properties *)
+(** Layout utilities for basic display, positioning, and object properties
 
-(** {1 Utility Types} *)
+    https://tailwindcss.com/docs/display https://tailwindcss.com/docs/visibility
+    https://tailwindcss.com/docs/overflow https://tailwindcss.com/docs/z-index
+    https://tailwindcss.com/docs/object-fit
+    https://tailwindcss.com/docs/object-position
+    https://tailwindcss.com/docs/border-collapse
+    https://tailwindcss.com/docs/table-layout *)
 
-type utility
-
-val of_string : string list -> (utility, [ `Msg of string ]) result
-(** [of_string parts] parses a layout utility from string parts. Returns an
-    internal structured representation. *)
-
-(** {1 Internal Conversion Functions} *)
-
-val to_style : utility -> Style.t
-(** [to_style u] converts a structured layout utility to a style. For internal
-    use by the Tw module. *)
-
-val suborder : utility -> int
-(** [suborder u] returns the ordering value for layout utility [u]. Used for
-    deterministic CSS output ordering. *)
+open Utility
 
 (** {1 Display Utilities} *)
 
-val block : Style.t
-val inline : Style.t
-val inline_block : Style.t
-val hidden : Style.t
-val sr_only : Style.t
-val not_sr_only : Style.t
-val visible : Style.t
-val invisible : Style.t
-val collapse : Style.t
-val isolate : Style.t
-val overflow_auto : Style.t
-val overflow_hidden : Style.t
-val overflow_clip : Style.t
-val overflow_visible : Style.t
-val overflow_scroll : Style.t
-val overflow_x_auto : Style.t
-val overflow_x_hidden : Style.t
-val overflow_x_visible : Style.t
-val overflow_x_scroll : Style.t
-val overflow_y_auto : Style.t
-val overflow_y_hidden : Style.t
-val overflow_y_visible : Style.t
-val overflow_y_scroll : Style.t
-val z_0 : Style.t
-val z_10 : Style.t
-val z_20 : Style.t
-val z_30 : Style.t
-val z_40 : Style.t
-val z_50 : Style.t
-val z_auto : Style.t
-val object_contain : Style.t
-val object_cover : Style.t
-val object_fill : Style.t
-val object_none : Style.t
-val object_scale_down : Style.t
-val object_center : Style.t
-val object_top : Style.t
-val object_bottom : Style.t
-val object_left : Style.t
-val object_right : Style.t
-val border_collapse : Style.t
-val border_separate : Style.t
-val border_spacing : int -> Style.t
-val table_auto : Style.t
-val table_fixed : Style.t
+val block : t
+val inline : t
+val inline_block : t
+val hidden : t
+val sr_only : t
+val not_sr_only : t
+val visible : t
+val invisible : t
+val collapse : t
+val isolate : t
+val overflow_auto : t
+val overflow_hidden : t
+val overflow_clip : t
+val overflow_visible : t
+val overflow_scroll : t
+val overflow_x_auto : t
+val overflow_x_hidden : t
+val overflow_x_visible : t
+val overflow_x_scroll : t
+val overflow_y_auto : t
+val overflow_y_hidden : t
+val overflow_y_visible : t
+val overflow_y_scroll : t
+val z_0 : t
+val z_10 : t
+val z_20 : t
+val z_30 : t
+val z_40 : t
+val z_50 : t
+val z_auto : t
+val object_contain : t
+val object_cover : t
+val object_fill : t
+val object_none : t
+val object_scale_down : t
+val object_center : t
+val object_top : t
+val object_bottom : t
+val object_left : t
+val object_right : t
+val border_collapse : t
+val border_separate : t
+val border_spacing : int -> t
+val table_auto : t
+val table_fixed : t
 
-(** Legacy string-based functions for backward compatibility *)
+module Handler : sig
+  type t
 
-val position_suborder : string -> int
-(** [position_suborder class_name] returns the suborder for position utilities.
-*)
+  val of_string : string list -> (t, [ `Msg of string ]) result
+  (** [of_string parts] parses a layout utility from string parts. Returns an
+      internal structured representation. *)
 
-val display_suborder : string -> int
-(** [display_suborder class_name] returns the suborder for display utilities. *)
+  val suborder : t -> int
+  (** [suborder u] returns the ordering value for layout utility [u]. Used for
+      deterministic CSS output ordering. *)
+
+  val to_style : t -> Style.t
+  val order : t -> int * int
+end
+
+module Private : sig
+  type t
+
+  val of_string : string list -> (t, [ `Msg of string ]) result
+  val suborder : t -> int
+end

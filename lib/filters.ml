@@ -17,11 +17,14 @@
 
 open Style
 open Css
-module Parse = Parse
+
+(** Error helpers *)
+let err_not_utility = Error (`Msg "Not a filter utility")
 
 (** {1 Utility Type} *)
 
-type utility =
+(** Local filter utility type *)
+type t =
   | Blur_none
   | Blur_xs
   | Blur_sm
@@ -56,6 +59,9 @@ type utility =
   | Backdrop_sepia of int
   | Backdrop_hue_rotate of int
 
+(** Extensible variant for filter utilities *)
+type Utility.base += Filters of t
+
 (** {1 Filter Utilities} *)
 
 let blur_internal = function
@@ -69,15 +75,15 @@ let blur_internal = function
   | `Xl_3 -> style "blur-3xl" [ filter (Blur (Px 64.)) ]
   | `Full -> style "blur-full" [ filter (Blur (Px 9999.)) ]
 
-let blur_none = blur_internal `None
-let blur_xs = blur_internal `Xs
-let blur_sm = blur_internal `Sm
-let blur = blur_internal `Md (* Default blur *)
-let blur_md = blur_internal `Md
-let blur_lg = blur_internal `Lg
-let blur_xl = blur_internal `Xl
-let blur_2xl = blur_internal `Xl_2
-let blur_3xl = blur_internal `Xl_3
+let blur_none' = blur_internal `None
+let blur_xs' = blur_internal `Xs
+let blur_sm' = blur_internal `Sm
+let blur' = blur_internal `Md (* Default blur *)
+let blur_md' = blur_internal `Md
+let blur_lg' = blur_internal `Lg
+let blur_xl' = blur_internal `Xl
+let blur_2xl' = blur_internal `Xl_2
+let blur_3xl' = blur_internal `Xl_3
 
 let brightness n =
   let class_name = "brightness-" ^ string_of_int n in
@@ -126,15 +132,15 @@ let backdrop_blur_internal = function
   | `Xl_3 -> style "backdrop-blur-3xl" [ backdrop_filter (Blur (Px 64.)) ]
   | `Full -> style "backdrop-blur-full" [ backdrop_filter (Blur (Px 9999.)) ]
 
-let backdrop_blur_none = backdrop_blur_internal `None
-let backdrop_blur_xs = backdrop_blur_internal `Xs
-let backdrop_blur_sm = backdrop_blur_internal `Sm
-let backdrop_blur = backdrop_blur_internal `Md (* Default backdrop blur *)
-let backdrop_blur_md = backdrop_blur_internal `Md
-let backdrop_blur_lg = backdrop_blur_internal `Lg
-let backdrop_blur_xl = backdrop_blur_internal `Xl
-let backdrop_blur_2xl = backdrop_blur_internal `Xl_2
-let backdrop_blur_3xl = backdrop_blur_internal `Xl_3
+let backdrop_blur_none' = backdrop_blur_internal `None
+let backdrop_blur_xs' = backdrop_blur_internal `Xs
+let backdrop_blur_sm' = backdrop_blur_internal `Sm
+let backdrop_blur' = backdrop_blur_internal `Md (* Default backdrop blur *)
+let backdrop_blur_md' = backdrop_blur_internal `Md
+let backdrop_blur_lg' = backdrop_blur_internal `Lg
+let backdrop_blur_xl' = backdrop_blur_internal `Xl
+let backdrop_blur_2xl' = backdrop_blur_internal `Xl_2
+let backdrop_blur_3xl' = backdrop_blur_internal `Xl_3
 
 let backdrop_brightness n =
   let class_name =
@@ -157,7 +163,7 @@ let backdrop_saturate n =
   style class_name
     [ backdrop_filter (Saturate (Num (float_of_int n /. 100.0))) ]
 
-let backdrop_grayscale_default =
+let backdrop_grayscale_default' =
   style "backdrop-grayscale" [ backdrop_filter (Grayscale (Num 1.0)) ]
 
 let backdrop_grayscale n =
@@ -167,14 +173,14 @@ let backdrop_grayscale n =
   style class_name
     [ backdrop_filter (Grayscale (Num (float_of_int n /. 100.0))) ]
 
-let backdrop_invert_default =
+let backdrop_invert_default' =
   style "backdrop-invert" [ backdrop_filter (Invert (Num 1.0)) ]
 
 let backdrop_invert n =
   let class_name = String.concat "" [ "backdrop-invert-"; string_of_int n ] in
   style class_name [ backdrop_filter (Invert (Num (float_of_int n /. 100.0))) ]
 
-let backdrop_sepia_default =
+let backdrop_sepia_default' =
   style "backdrop-sepia" [ backdrop_filter (Sepia (Num 1.0)) ]
 
 let backdrop_sepia n =
@@ -190,15 +196,15 @@ let backdrop_hue_rotate n =
 (** {1 Conversion Functions} *)
 
 let to_style = function
-  | Blur_none -> blur_none
-  | Blur_xs -> blur_xs
-  | Blur_sm -> blur_sm
-  | Blur -> blur
-  | Blur_md -> blur_md
-  | Blur_lg -> blur_lg
-  | Blur_xl -> blur_xl
-  | Blur_2xl -> blur_2xl
-  | Blur_3xl -> blur_3xl
+  | Blur_none -> blur_none'
+  | Blur_xs -> blur_xs'
+  | Blur_sm -> blur_sm'
+  | Blur -> blur'
+  | Blur_md -> blur_md'
+  | Blur_lg -> blur_lg'
+  | Blur_xl -> blur_xl'
+  | Blur_2xl -> blur_2xl'
+  | Blur_3xl -> blur_3xl'
   | Brightness n -> brightness n
   | Contrast n -> contrast n
   | Grayscale n -> grayscale n
@@ -206,25 +212,25 @@ let to_style = function
   | Sepia n -> sepia n
   | Invert n -> invert n
   | Hue_rotate n -> hue_rotate n
-  | Backdrop_blur_none -> backdrop_blur_none
-  | Backdrop_blur_xs -> backdrop_blur_xs
-  | Backdrop_blur_sm -> backdrop_blur_sm
-  | Backdrop_blur -> backdrop_blur
-  | Backdrop_blur_md -> backdrop_blur_md
-  | Backdrop_blur_lg -> backdrop_blur_lg
-  | Backdrop_blur_xl -> backdrop_blur_xl
-  | Backdrop_blur_2xl -> backdrop_blur_2xl
-  | Backdrop_blur_3xl -> backdrop_blur_3xl
+  | Backdrop_blur_none -> backdrop_blur_none'
+  | Backdrop_blur_xs -> backdrop_blur_xs'
+  | Backdrop_blur_sm -> backdrop_blur_sm'
+  | Backdrop_blur -> backdrop_blur'
+  | Backdrop_blur_md -> backdrop_blur_md'
+  | Backdrop_blur_lg -> backdrop_blur_lg'
+  | Backdrop_blur_xl -> backdrop_blur_xl'
+  | Backdrop_blur_2xl -> backdrop_blur_2xl'
+  | Backdrop_blur_3xl -> backdrop_blur_3xl'
   | Backdrop_brightness n -> backdrop_brightness n
   | Backdrop_contrast n -> backdrop_contrast n
   | Backdrop_opacity n -> backdrop_opacity n
   | Backdrop_saturate n -> backdrop_saturate n
   | Backdrop_grayscale n ->
-      if n = 100 then backdrop_grayscale_default else backdrop_grayscale n
+      if n = 100 then backdrop_grayscale_default' else backdrop_grayscale n
   | Backdrop_invert n ->
-      if n = 100 then backdrop_invert_default else backdrop_invert n
+      if n = 100 then backdrop_invert_default' else backdrop_invert n
   | Backdrop_sepia n ->
-      if n = 100 then backdrop_sepia_default else backdrop_sepia n
+      if n = 100 then backdrop_sepia_default' else backdrop_sepia n
   | Backdrop_hue_rotate n -> backdrop_hue_rotate n
 
 (** {1 Parsing Functions} *)
@@ -285,7 +291,7 @@ let of_string = function
   | [ "backdrop"; "sepia" ] -> Ok (Backdrop_sepia 100)
   | [ "backdrop"; "hue"; "rotate"; n ] ->
       Parse.int_any n >|= fun x -> Backdrop_hue_rotate x
-  | _ -> Error (`Msg "Not a filter utility")
+  | _ -> err_not_utility
 
 (** {1 Suborder Function} *)
 
@@ -323,3 +329,66 @@ let suborder = function
   | Backdrop_invert n -> 160000 + n
   | Backdrop_sepia n -> 170000 + n
   | Backdrop_hue_rotate n -> 180000 + n
+
+(** Priority for filter utilities *)
+let priority = 60
+
+(** {1 Public API - Utility Values} *)
+
+let blur_none = Utility.base (Filters Blur_none)
+let blur_xs = Utility.base (Filters Blur_xs)
+let blur_sm = Utility.base (Filters Blur_sm)
+let blur = Utility.base (Filters Blur)
+let blur_md = Utility.base (Filters Blur_md)
+let blur_lg = Utility.base (Filters Blur_lg)
+let blur_xl = Utility.base (Filters Blur_xl)
+let blur_2xl = Utility.base (Filters Blur_2xl)
+let blur_3xl = Utility.base (Filters Blur_3xl)
+let brightness n = Utility.base (Filters (Brightness n))
+let contrast n = Utility.base (Filters (Contrast n))
+let grayscale n = Utility.base (Filters (Grayscale n))
+let saturate n = Utility.base (Filters (Saturate n))
+let sepia n = Utility.base (Filters (Sepia n))
+let invert n = Utility.base (Filters (Invert n))
+let hue_rotate n = Utility.base (Filters (Hue_rotate n))
+let backdrop_blur_none = Utility.base (Filters Backdrop_blur_none)
+let backdrop_blur_xs = Utility.base (Filters Backdrop_blur_xs)
+let backdrop_blur_sm = Utility.base (Filters Backdrop_blur_sm)
+let backdrop_blur = Utility.base (Filters Backdrop_blur)
+let backdrop_blur_md = Utility.base (Filters Backdrop_blur_md)
+let backdrop_blur_lg = Utility.base (Filters Backdrop_blur_lg)
+let backdrop_blur_xl = Utility.base (Filters Backdrop_blur_xl)
+let backdrop_blur_2xl = Utility.base (Filters Backdrop_blur_2xl)
+let backdrop_blur_3xl = Utility.base (Filters Backdrop_blur_3xl)
+let backdrop_brightness n = Utility.base (Filters (Backdrop_brightness n))
+let backdrop_contrast n = Utility.base (Filters (Backdrop_contrast n))
+let backdrop_opacity n = Utility.base (Filters (Backdrop_opacity n))
+let backdrop_saturate n = Utility.base (Filters (Backdrop_saturate n))
+
+let backdrop_grayscale ?(n = 100) () =
+  Utility.base (Filters (Backdrop_grayscale n))
+
+let backdrop_invert ?(n = 100) () = Utility.base (Filters (Backdrop_invert n))
+let backdrop_sepia ?(n = 100) () = Utility.base (Filters (Backdrop_sepia n))
+let backdrop_hue_rotate n = Utility.base (Filters (Backdrop_hue_rotate n))
+
+(** Typed handler for filter utilities *)
+let handler : t Utility.handler = { to_style; priority; suborder; of_string }
+
+(** Wrapper functions for extensible variant *)
+let wrap x = Filters x
+
+let unwrap = function Filters x -> Some x | _ -> None
+
+(** Register handler with Utility system *)
+
+let () = Utility.register ~wrap ~unwrap handler
+
+module Handler = struct
+  type nonrec t = t
+
+  let of_string = of_string
+  let suborder = suborder
+  let to_style = to_style
+  let order x = (priority, suborder x)
+end

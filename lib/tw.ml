@@ -12,7 +12,8 @@
     - Support for modern CSS features like container queries and 3D transforms
     - Minimal bundle size for js_of_ocaml by avoiding Format module. *)
 
-include Style
+type t = Utility.t
+
 include Color
 include Backgrounds
 include Margin
@@ -34,7 +35,7 @@ include Interactivity
 include Containers
 include Filters
 include Clipping
-include Positioning
+include Position
 include Animations
 include Forms
 include Tables
@@ -46,19 +47,19 @@ include Prose
 (* CSS rule generation from Rules module *)
 let to_css ?(base = Rules.default_config.base)
     ?(mode = Rules.default_config.mode)
-    ?(optimize = Rules.default_config.optimize) tw_classes =
-  Rules.to_css ~config:{ base; mode; optimize } tw_classes
+    ?(optimize = Rules.default_config.optimize) utilities =
+  let styles = List.map Utility.to_style utilities in
+  Rules.to_css ~config:{ base; mode; optimize } styles
 
-let to_inline_style = Rules.to_inline_style
+let to_inline_style utilities =
+  List.map Utility.to_style utilities |> Rules.to_inline_style
+
 let preflight = Preflight.stylesheet
 
 (* Class generation functions *)
-let rec pp = function
-  | Style { name = class_name; _ } -> class_name
-  | Modified (modifier, t) ->
-      let base_class = pp t in
-      Modifiers.pp_modifier modifier ^ ":" ^ base_class
-  | Group styles -> styles |> List.map pp |> String.concat " "
+let pp utility =
+  (* Convert Utility.t to Style.t and use Style.pp *)
+  Utility.to_style utility |> Style.pp
 
 let to_classes styles = styles |> List.map pp |> String.concat " "
 let modifiers_of_string = Modifiers.of_string
@@ -70,13 +71,12 @@ let of_string class_str =
   match Utility.base_of_string parts with
   | Error _ -> Error (`Msg ("Unknown class: " ^ class_str))
   | Ok base_utility ->
-      let base_style = Utility.base_to_style base_utility in
-      Ok (Modifiers.apply modifiers base_style)
+      let base_util = Utility.base base_utility in
+      Ok (Modifiers.apply modifiers base_util)
 
 (** {1 Module Exports} *)
 
 module Style = Style
-module Parse = Parse
 module Margin = Margin
 module Padding = Padding
 module Gap = Gap
@@ -96,7 +96,7 @@ module Transforms = Transforms
 module Interactivity = Interactivity
 module Containers = Containers
 module Filters = Filters
-module Positioning = Positioning
+module Position = Position
 module Animations = Animations
 module Forms = Forms
 module Tables = Tables
@@ -110,3 +110,12 @@ module Modifiers = Modifiers
 module Var = Var
 module Theme = Theme
 module Utility = Utility
+
+(* Include flex utilities *)
+include Flex
+
+(* Include grid utilities *)
+include Grid
+
+(* Include cursor utilities *)
+include Cursor

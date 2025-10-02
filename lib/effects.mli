@@ -1,25 +1,22 @@
-(** Visual effects utilities for shadows, opacity, and filters *)
+(** Visual effects utilities for shadows, opacity, and filters
 
-open Style
+    https://tailwindcss.com/docs/box-shadow https://tailwindcss.com/docs/opacity
+    https://tailwindcss.com/docs/ring-width
+    https://tailwindcss.com/docs/ring-color *)
+
+open Utility
 open Color
 
-(** {1 Utility Types} *)
+val order : base -> (int * int) option
 
-type utility
+module Handler : sig
+  type t
 
-val of_string : string list -> (utility, [ `Msg of string ]) result
-(** [of_string parts] parses an effects utility from string parts. Returns an
-    internal structured representation. *)
-
-(** {1 Internal Conversion Functions} *)
-
-val to_style : utility -> Style.t
-(** [to_style u] converts a structured effects utility to a style. For internal
-    use by the Tw module. *)
-
-val suborder : utility -> int
-(** [suborder u] returns the ordering value for effects utility [u]. Used for
-    deterministic CSS output ordering. *)
+  val of_string : string list -> (t, [ `Msg of string ]) result
+  val suborder : t -> int
+  val to_style : t -> Style.t
+  val order : t -> int * int
+end
 
 (** {1 Shadow Utilities} *)
 
@@ -47,52 +44,8 @@ val shadow_2xl : t
 val shadow_inner : t
 (** [shadow_inner] applies an inner (inset) shadow. *)
 
-val opacity_0 : t
-(** [opacity_0] sets opacity to 0%. *)
-
-val opacity_5 : t
-(** [opacity_5] sets opacity to 5%. *)
-
-val opacity_10 : t
-(** [opacity_10] sets opacity to 10%. *)
-
-val opacity_20 : t
-(** [opacity_20] sets opacity to 20%. *)
-
-val opacity_25 : t
-(** [opacity_25] sets opacity to 25%. *)
-
-val opacity_30 : t
-(** [opacity_30] sets opacity to 30%. *)
-
-val opacity_40 : t
-(** [opacity_40] sets opacity to 40%. *)
-
-val opacity_50 : t
-(** [opacity_50] sets opacity to 50%. *)
-
-val opacity_60 : t
-(** [opacity_60] sets opacity to 60%. *)
-
-val opacity_70 : t
-(** [opacity_70] sets opacity to 70%. *)
-
-val opacity_75 : t
-(** [opacity_75] sets opacity to 75%. *)
-
-val opacity_80 : t
-(** [opacity_80] sets opacity to 80%. *)
-
-val opacity_90 : t
-(** [opacity_90] sets opacity to 90%. *)
-
-val opacity_95 : t
-(** [opacity_95] sets opacity to 95%. *)
-
-val opacity_100 : t
-(** [opacity_100] sets opacity to 100%. *)
-
-(* Mix blend modes not supported by Css module *)
+val opacity : int -> t
+(** [opacity n] sets opacity to n%. *)
 
 (** {1 Ring Utilities} *)
 
@@ -121,6 +74,9 @@ val ring_color : color -> int -> t
 (** [ring_color color shade] sets the ring color class, e.g., [ring blue 500].
 *)
 
+val ring_inset : t
+(** [ring_inset] applies an inset ring. *)
+
 (** {1 Transition Utilities} *)
 
 val transition_none : t
@@ -144,7 +100,52 @@ val transition_transform : t
 val duration : int -> t
 (** [duration ms] sets animation/transition duration to [ms] milliseconds. *)
 
-(** {1 Opacity Utility} *)
+(** {1 Mix Blend Mode Utilities} *)
 
-val opacity : int -> t
-(** [opacity n] sets element opacity to [n]% (0–100). *)
+val mix_blend_normal : t
+(** [mix_blend_normal] sets mix-blend-mode to normal. *)
+
+val mix_blend_multiply : t
+(** [mix_blend_multiply] sets mix-blend-mode to multiply. *)
+
+val mix_blend_screen : t
+(** [mix_blend_screen] sets mix-blend-mode to screen. *)
+
+val mix_blend_overlay : t
+(** [mix_blend_overlay] sets mix-blend-mode to overlay. *)
+
+val mix_blend_darken : t
+(** [mix_blend_darken] sets mix-blend-mode to darken. *)
+
+val mix_blend_lighten : t
+(** [mix_blend_lighten] sets mix-blend-mode to lighten. *)
+
+val mix_blend_color_dodge : t
+(** [mix_blend_color_dodge] sets mix-blend-mode to color-dodge. *)
+
+val mix_blend_color_burn : t
+(** [mix_blend_color_burn] sets mix-blend-mode to color-burn. *)
+
+val mix_blend_hard_light : t
+(** [mix_blend_hard_light] sets mix-blend-mode to hard-light. *)
+
+val mix_blend_soft_light : t
+(** [mix_blend_soft_light] sets mix-blend-mode to soft-light. *)
+
+val mix_blend_difference : t
+(** [mix_blend_difference] sets mix-blend-mode to difference. *)
+
+val mix_blend_exclusion : t
+(** [mix_blend_exclusion] sets mix-blend-mode to exclusion. *)
+
+val mix_blend_hue : t
+(** [mix_blend_hue] sets mix-blend-mode to hue. *)
+
+val mix_blend_saturation : t
+(** [mix_blend_saturation] sets mix-blend-mode to saturation. *)
+
+val mix_blend_color : t
+(** [mix_blend_color] sets mix-blend-mode to color. *)
+
+val mix_blend_luminosity : t
+(** [mix_blend_luminosity] sets mix-blend-mode to luminosity. *)

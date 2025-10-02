@@ -1,4 +1,6 @@
-(** Padding utilities *)
+(** Padding utilities
+
+    https://tailwindcss.com/docs/padding *)
 
 open Style
 open Utility
@@ -91,19 +93,11 @@ val pl_px : t
 val pl_full : t
 (** [pl_full] sets left padding to 100%. *)
 
-(** {1 Internal Functions} *)
+module Handler : sig
+  type t
 
-val to_style : base -> Style.t option
-(** [to_style u] converts a structured padding utility to a style. For internal
-    use by the Tw module. *)
-
-val suborder : base -> int option
-(** [suborder u] returns the ordering value for padding utility [u]. Used for
-    deterministic CSS output ordering. *)
-
-val order : base -> (int * int) option
-(** [order u] returns the (priority, suborder) pair for padding utility [u]. *)
-
-val of_string : string list -> (base, [ `Msg of string ]) result
-(** [of_string parts] parses a padding utility from string parts. Returns an
-    internal structured representation. *)
+  val of_string : string list -> (t, [ `Msg of string ]) result
+  val suborder : t -> int
+  val to_style : t -> Style.t
+  val order : t -> int * int
+end

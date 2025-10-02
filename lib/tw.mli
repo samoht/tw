@@ -585,23 +585,8 @@ val flex_shrink_0 : t
 (** {2 Order}
     @see <https://tailwindcss.com/docs/order> Order *)
 
-val order_1 : t
-(** [order_1] sets order to 1. *)
-
-val order_2 : t
-(** [order_2] sets order to 2. *)
-
-val order_3 : t
-(** [order_3] sets order to 3. *)
-
-val order_4 : t
-(** [order_4] sets order to 4. *)
-
-val order_5 : t
-(** [order_5] sets order to 5. *)
-
-val order_6 : t
-(** [order_6] sets order to 6. *)
+val order : int -> t
+(** [order n] sets order to n. *)
 
 val order_first : t
 (** [order_first] sets order to minimum value. *)
@@ -3305,7 +3290,6 @@ val peer_checked : t list -> t
 (**/**)
 
 module Style = Style
-module Parse = Parse
 module Margin = Margin
 module Padding = Padding
 module Gap = Gap
@@ -3325,7 +3309,7 @@ module Transforms = Transforms
 module Interactivity = Interactivity
 module Containers = Containers
 module Filters = Filters
-module Positioning = Positioning
+module Position = Position
 module Animations = Animations
 module Forms = Forms
 module Tables = Tables

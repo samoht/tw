@@ -20,24 +20,28 @@
 open Style
 open Css
 
+(** Error helper *)
+let err_not_utility = Error (`Msg "Not a border utility")
+
 (** {1 Utility Types} *)
 
-type utility =
-  (* Border width utilities *)
-  | Border
+(** Local border utility type *)
+type t =
+  | (* Border width utilities *)
+    Border
   | Border_0
   | Border_2
   | Border_4
   | Border_8
-  (* Border side/axis utilities *)
-  | Border_t
+  | (* Border side/axis utilities *)
+    Border_t
   | Border_r
   | Border_b
   | Border_l
   | Border_x
   | Border_y
-  (* Border side utilities with widths *)
-  | Border_t_0
+  | (* Border side utilities with widths *)
+    Border_t_0
   | Border_t_2
   | Border_t_4
   | Border_t_8
@@ -53,14 +57,14 @@ type utility =
   | Border_l_2
   | Border_l_4
   | Border_l_8
-  (* Border style utilities *)
-  | Border_solid
+  | (* Border style utilities *)
+    Border_solid
   | Border_dashed
   | Border_dotted
   | Border_double
   | Border_none
-  (* Border radius utilities *)
-  | Rounded
+  | (* Border radius utilities *)
+    Rounded
   | Rounded_none
   | Rounded_sm
   | Rounded_md
@@ -69,25 +73,32 @@ type utility =
   | Rounded_2xl
   | Rounded_3xl
   | Rounded_full
-  (* Side-specific rounded utilities *)
-  | Rounded_t
+  | (* Side-specific rounded utilities *)
+    Rounded_t
   | Rounded_r
   | Rounded_b
   | Rounded_l
-  (* Corner-specific rounded utilities *)
-  | Rounded_tl
+  | (* Corner-specific rounded utilities *)
+    Rounded_tl
   | Rounded_tr
   | Rounded_br
   | Rounded_bl
-  (* Corner-specific rounded utilities with sizes *)
-  | Rounded_t_lg
+  | (* Corner-specific rounded utilities with sizes *)
+    Rounded_t_lg
   | Rounded_tl_2xl
-  (* Outline utilities *)
+  | (* Outline utilities *)
+    Outline_none
   | Outline_offset_0
   | Outline_offset_1
   | Outline_offset_2
   | Outline_offset_4
   | Outline_offset_8
+
+(** Extensible variant for border utilities *)
+type Utility.base += Borders of t
+
+let wrap x = Borders x
+let base x = Utility.base (wrap x)
 
 (** {1 Border Width Utilities} *)
 
@@ -115,11 +126,16 @@ let border_style_util class_name border_style_value =
   let decl, _ = Var.binding border_style_var border_style_value in
   style class_name [ decl; border_style border_style_value ]
 
-let border = make_border_util "border" [ border_width (Px 1.) ]
-let border_0 = make_border_util "border-0" [ border_width (Px 0.) ]
-let border_2 = make_border_util "border-2" [ border_width (Px 2.) ]
-let border_4 = make_border_util "border-4" [ border_width (Px 4.) ]
-let border_8 = make_border_util "border-8" [ border_width (Px 8.) ]
+let border' = make_border_util "border" [ border_width (Px 1.) ]
+let border_0' = make_border_util "border-0" [ border_width (Px 0.) ]
+let border_2' = make_border_util "border-2" [ border_width (Px 2.) ]
+let border_4' = make_border_util "border-4" [ border_width (Px 4.) ]
+let border_8' = make_border_util "border-8" [ border_width (Px 8.) ]
+let border = base Border
+let border_0 = base Border_0
+let border_2 = base Border_2
+let border_4 = base Border_4
+let border_8 = base Border_8
 
 (* Helper for border side utilities that reference the variable with @property
    default *)
@@ -132,23 +148,31 @@ let make_side_util class_name side_props_fn =
   in
   style class_name ~property_rules:property_rule (side_props_fn border_ref)
 
-let border_t =
+let border_t' =
   make_side_util "border-t" (fun border_var ->
       [ border_top_style (Var border_var); border_top_width (Px 1.) ])
 
-let border_r =
+let border_t = Utility.base (Borders Border_t)
+
+let border_r' =
   make_side_util "border-r" (fun border_var ->
       [ border_right_style (Var border_var); border_right_width (Px 1.) ])
 
-let border_b =
+let border_r = Utility.base (Borders Border_r)
+
+let border_b' =
   make_side_util "border-b" (fun border_var ->
       [ border_bottom_style (Var border_var); border_bottom_width (Px 1.) ])
 
-let border_l =
+let border_b = Utility.base (Borders Border_b)
+
+let border_l' =
   make_side_util "border-l" (fun border_var ->
       [ border_left_style (Var border_var); border_left_width (Px 1.) ])
 
-let border_x =
+let border_l = Utility.base (Borders Border_l)
+
+let border_x' =
   make_side_util "border-x" (fun border_var ->
       [
         border_left_style (Var border_var);
@@ -157,7 +181,9 @@ let border_x =
         border_right_width (Px 1.);
       ])
 
-let border_y =
+let border_x = Utility.base (Borders Border_x)
+
+let border_y' =
   make_side_util "border-y" (fun border_var ->
       [
         border_top_style (Var border_var);
@@ -166,78 +192,85 @@ let border_y =
         border_bottom_width (Px 1.);
       ])
 
+let border_y = Utility.base (Borders Border_y)
+
 (** Border side utilities with specific widths *)
-let border_t_0 =
+let border_t_0' =
   make_side_util "border-t-0" (fun border_var ->
       [ border_top_style (Var border_var); border_top_width (Px 0.) ])
 
-let border_t_2 =
+let border_t_2' =
   make_side_util "border-t-2" (fun border_var ->
       [ border_top_style (Var border_var); border_top_width (Px 2.) ])
 
-let border_t_4 =
+let border_t_4' =
   make_side_util "border-t-4" (fun border_var ->
       [ border_top_style (Var border_var); border_top_width (Px 4.) ])
 
-let border_t_8 =
+let border_t_8' =
   make_side_util "border-t-8" (fun border_var ->
       [ border_top_style (Var border_var); border_top_width (Px 8.) ])
 
-let border_r_0 =
+let border_r_0' =
   make_side_util "border-r-0" (fun border_var ->
       [ border_right_style (Var border_var); border_right_width (Px 0.) ])
 
-let border_r_2 =
+let border_r_2' =
   make_side_util "border-r-2" (fun border_var ->
       [ border_right_style (Var border_var); border_right_width (Px 2.) ])
 
-let border_r_4 =
+let border_r_4' =
   make_side_util "border-r-4" (fun border_var ->
       [ border_right_style (Var border_var); border_right_width (Px 4.) ])
 
-let border_r_8 =
+let border_r_8' =
   make_side_util "border-r-8" (fun border_var ->
       [ border_right_style (Var border_var); border_right_width (Px 8.) ])
 
-let border_b_0 =
+let border_b_0' =
   make_side_util "border-b-0" (fun border_var ->
       [ border_bottom_style (Var border_var); border_bottom_width (Px 0.) ])
 
-let border_b_2 =
+let border_b_2' =
   make_side_util "border-b-2" (fun border_var ->
       [ border_bottom_style (Var border_var); border_bottom_width (Px 2.) ])
 
-let border_b_4 =
+let border_b_4' =
   make_side_util "border-b-4" (fun border_var ->
       [ border_bottom_style (Var border_var); border_bottom_width (Px 4.) ])
 
-let border_b_8 =
+let border_b_8' =
   make_side_util "border-b-8" (fun border_var ->
       [ border_bottom_style (Var border_var); border_bottom_width (Px 8.) ])
 
-let border_l_0 =
+let border_l_0' =
   make_side_util "border-l-0" (fun border_var ->
       [ border_left_style (Var border_var); border_left_width (Px 0.) ])
 
-let border_l_2 =
+let border_l_2' =
   make_side_util "border-l-2" (fun border_var ->
       [ border_left_style (Var border_var); border_left_width (Px 2.) ])
 
-let border_l_4 =
+let border_l_4' =
   make_side_util "border-l-4" (fun border_var ->
       [ border_left_style (Var border_var); border_left_width (Px 4.) ])
 
-let border_l_8 =
+let border_l_8' =
   make_side_util "border-l-8" (fun border_var ->
       [ border_left_style (Var border_var); border_left_width (Px 8.) ])
 
 (** {1 Border Style Utilities} *)
 
-let border_solid = border_style_util "border-solid" Solid
-let border_dashed = border_style_util "border-dashed" Dashed
-let border_dotted = border_style_util "border-dotted" Dotted
-let border_double = border_style_util "border-double" Double
-let border_none = border_style_util "border-none" None
+let border_solid' = border_style_util "border-solid" Solid
+let border_solid = Utility.base (Borders Border_solid)
+let border_dashed' = border_style_util "border-dashed" Dashed
+let border_dashed = Utility.base (Borders Border_dashed)
+let border_dotted' = border_style_util "border-dotted" Dotted
+let border_dotted = Utility.base (Borders Border_dotted)
+let border_double' = border_style_util "border-double" Double
+let border_double = Utility.base (Borders Border_double)
+let border_none' = border_style_util "border-none" None
+let border_none = Utility.base (Borders Border_none)
 
 (* Border width utilities with semantic names matching tw.mli *)
 let border_xs = border (* 1px *)
@@ -258,159 +291,184 @@ let radius_lg_var = Var.theme Css.Length "radius-lg" ~order:(7, 2)
 let radius_xl_var = Var.theme Css.Length "radius-xl" ~order:(7, 3)
 let radius_2xl_var = Var.theme Css.Length "radius-2xl" ~order:(7, 4)
 let radius_3xl_var = Var.theme Css.Length "radius-3xl" ~order:(7, 5)
-let rounded_none = style "rounded-none" [ border_radius Zero ]
+let rounded_none' = style "rounded-none" [ border_radius Zero ]
+let rounded_none = Utility.base (Borders Rounded_none)
 
-let rounded_sm =
+let rounded_sm' =
   let decl, r = Var.binding radius_sm_var (Rem 0.25) in
   style "rounded-sm" (decl :: [ border_radius (Var r) ])
 
-let rounded = style "rounded" [ border_radius (Rem 0.25) ]
+let rounded_sm = Utility.base (Borders Rounded_sm)
+let rounded' = style "rounded" [ border_radius (Rem 0.25) ]
+let rounded = Utility.base (Borders Rounded)
 
-let rounded_md =
+let rounded_md' =
   let decl, r = Var.binding radius_md_var (Rem 0.375) in
   style "rounded-md" (decl :: [ border_radius (Var r) ])
 
-let rounded_lg =
+let rounded_md = Utility.base (Borders Rounded_md)
+
+let rounded_lg' =
   let decl, r = Var.binding radius_lg_var (Rem 0.5) in
   style "rounded-lg" (decl :: [ border_radius (Var r) ])
 
-let rounded_xl =
+let rounded_lg = Utility.base (Borders Rounded_lg)
+
+let rounded_xl' =
   let decl, r = Var.binding radius_xl_var (Rem 0.75) in
   style "rounded-xl" (decl :: [ border_radius (Var r) ])
 
-let rounded_2xl =
+let rounded_xl = Utility.base (Borders Rounded_xl)
+
+let rounded_2xl' =
   let decl, r = Var.binding radius_2xl_var (Rem 1.0) in
   style "rounded-2xl" (decl :: [ border_radius (Var r) ])
 
-let rounded_3xl =
+let rounded_2xl = Utility.base (Borders Rounded_2xl)
+
+let rounded_3xl' =
   let decl, r = Var.binding radius_3xl_var (Rem 1.5) in
   style "rounded-3xl" (decl :: [ border_radius (Var r) ])
 
-let rounded_full =
+let rounded_3xl = Utility.base (Borders Rounded_3xl)
+
+let rounded_full' =
   (* Tailwind v4 uses calc(infinity * 1px) which gets optimized to
      3.40282e38px *)
   style "rounded-full" [ border_radius (Calc Calc.(infinity * px 1.)) ]
 
+let rounded_full = Utility.base (Borders Rounded_full)
+
 (** Corner-specific rounded utilities *)
-let rounded_t =
+let rounded_t' =
   style "rounded-t"
     [
       border_radius (Rem 0.25);
       (* TODO: Use individual corner properties when available *)
     ]
 
-let rounded_r =
+let rounded_r' =
   style "rounded-r"
     [
       border_radius (Rem 0.25);
       (* TODO: Use individual corner properties when available *)
     ]
 
-let rounded_b =
+let rounded_b' =
   style "rounded-b"
     [
       border_radius (Rem 0.25);
       (* TODO: Use individual corner properties when available *)
     ]
 
-let rounded_l =
+let rounded_l' =
   style "rounded-l"
     [
       border_radius (Rem 0.25);
       (* TODO: Use individual corner properties when available *)
     ]
 
-let rounded_tl = style "rounded-tl" [ border_radius (Rem 0.25) ]
-let rounded_tr = style "rounded-tr" [ border_radius (Rem 0.25) ]
-let rounded_br = style "rounded-br" [ border_radius (Rem 0.25) ]
-let rounded_bl = style "rounded-bl" [ border_radius (Rem 0.25) ]
+let rounded_tl' = style "rounded-tl" [ border_radius (Rem 0.25) ]
+let rounded_tr' = style "rounded-tr" [ border_radius (Rem 0.25) ]
+let rounded_br' = style "rounded-br" [ border_radius (Rem 0.25) ]
+let rounded_bl' = style "rounded-bl" [ border_radius (Rem 0.25) ]
 
 (** Corner-specific rounded utilities with sizes *)
-let rounded_t_lg =
+
+let rounded_t_lg' =
   style "rounded-t-lg" [ border_radius (Rem 0.5); border_radius (Rem 0.5) ]
 
-let rounded_tl_2xl = style "rounded-tl-2xl" [ border_radius (Rem 1.0) ]
+let rounded_tl_2xl' = style "rounded-tl-2xl" [ border_radius (Rem 1.0) ]
 
 (** {1 Outline Utilities} *)
 
 (* Outline style *)
-let outline_none = style "outline-none" [ Css.outline_style Css.None ]
+
+let outline_none' = style "outline-none" [ Css.outline_style Css.None ]
 
 (* Outline offset *)
-let outline_offset_0 = style "outline-offset-0" [ outline_offset (Px 0.) ]
-let outline_offset_1 = style "outline-offset-1" [ outline_offset (Px 1.) ]
-let outline_offset_2 = style "outline-offset-2" [ outline_offset (Px 2.) ]
-let outline_offset_4 = style "outline-offset-4" [ outline_offset (Px 4.) ]
-let outline_offset_8 = style "outline-offset-8" [ outline_offset (Px 8.) ]
+let outline_none = Utility.base (Borders Outline_none)
+let outline_offset_0' = style "outline-offset-0" [ outline_offset (Px 0.) ]
+let outline_offset_0 = Utility.base (Borders Outline_offset_0)
+let outline_offset_1' = style "outline-offset-1" [ outline_offset (Px 1.) ]
+let outline_offset_1 = Utility.base (Borders Outline_offset_1)
+let outline_offset_2' = style "outline-offset-2" [ outline_offset (Px 2.) ]
+let outline_offset_2 = Utility.base (Borders Outline_offset_2)
+let outline_offset_4' = style "outline-offset-4" [ outline_offset (Px 4.) ]
+let outline_offset_4 = Utility.base (Borders Outline_offset_4)
+let outline_offset_8' = style "outline-offset-8" [ outline_offset (Px 8.) ]
 
 (** {1 Conversion Functions} *)
 
+let outline_offset_8 = Utility.base (Borders Outline_offset_8)
+
 let to_style = function
   (* Border width utilities *)
-  | Border -> border
-  | Border_0 -> border_0
-  | Border_2 -> border_2
-  | Border_4 -> border_4
-  | Border_8 -> border_8
+  | Border -> border'
+  | Border_0 -> border_0'
+  | Border_2 -> border_2'
+  | Border_4 -> border_4'
+  | Border_8 -> border_8'
   (* Border side/axis utilities *)
-  | Border_t -> border_t
-  | Border_r -> border_r
-  | Border_b -> border_b
-  | Border_l -> border_l
-  | Border_x -> border_x
-  | Border_y -> border_y
+  | Border_t -> border_t'
+  | Border_r -> border_r'
+  | Border_b -> border_b'
+  | Border_l -> border_l'
+  | Border_x -> border_x'
+  | Border_y -> border_y'
   (* Border side utilities with widths *)
-  | Border_t_0 -> border_t_0
-  | Border_t_2 -> border_t_2
-  | Border_t_4 -> border_t_4
-  | Border_t_8 -> border_t_8
-  | Border_r_0 -> border_r_0
-  | Border_r_2 -> border_r_2
-  | Border_r_4 -> border_r_4
-  | Border_r_8 -> border_r_8
-  | Border_b_0 -> border_b_0
-  | Border_b_2 -> border_b_2
-  | Border_b_4 -> border_b_4
-  | Border_b_8 -> border_b_8
-  | Border_l_0 -> border_l_0
-  | Border_l_2 -> border_l_2
-  | Border_l_4 -> border_l_4
-  | Border_l_8 -> border_l_8
+  | Border_t_0 -> border_t_0'
+  | Border_t_2 -> border_t_2'
+  | Border_t_4 -> border_t_4'
+  | Border_t_8 -> border_t_8'
+  | Border_r_0 -> border_r_0'
+  | Border_r_2 -> border_r_2'
+  | Border_r_4 -> border_r_4'
+  | Border_r_8 -> border_r_8'
+  | Border_b_0 -> border_b_0'
+  | Border_b_2 -> border_b_2'
+  | Border_b_4 -> border_b_4'
+  | Border_b_8 -> border_b_8'
+  | Border_l_0 -> border_l_0'
+  | Border_l_2 -> border_l_2'
+  | Border_l_4 -> border_l_4'
+  | Border_l_8 -> border_l_8'
   (* Border style utilities *)
-  | Border_solid -> border_solid
-  | Border_dashed -> border_dashed
-  | Border_dotted -> border_dotted
-  | Border_double -> border_double
-  | Border_none -> border_none
+  | Border_solid -> border_solid'
+  | Border_dashed -> border_dashed'
+  | Border_dotted -> border_dotted'
+  | Border_double -> border_double'
+  | Border_none -> border_none'
   (* Border radius utilities *)
-  | Rounded -> rounded
-  | Rounded_none -> rounded_none
-  | Rounded_sm -> rounded_sm
-  | Rounded_md -> rounded_md
-  | Rounded_lg -> rounded_lg
-  | Rounded_xl -> rounded_xl
-  | Rounded_2xl -> rounded_2xl
-  | Rounded_3xl -> rounded_3xl
-  | Rounded_full -> rounded_full
-  (* Side-specific rounded utilities *)
-  | Rounded_t -> rounded_t
-  | Rounded_r -> rounded_r
-  | Rounded_b -> rounded_b
-  | Rounded_l -> rounded_l
-  (* Corner-specific rounded utilities *)
-  | Rounded_tl -> rounded_tl
-  | Rounded_tr -> rounded_tr
-  | Rounded_br -> rounded_br
-  | Rounded_bl -> rounded_bl
-  (* Corner-specific rounded utilities with sizes *)
-  | Rounded_t_lg -> rounded_t_lg
-  | Rounded_tl_2xl -> rounded_tl_2xl
+  | Rounded -> rounded'
+  | Rounded_none -> rounded_none'
+  | Rounded_sm -> rounded_sm'
+  | Rounded_md -> rounded_md'
+  | Rounded_lg -> rounded_lg'
+  | Rounded_xl -> rounded_xl'
+  | Rounded_2xl -> rounded_2xl'
+  | Rounded_3xl -> rounded_3xl'
+  | Rounded_full -> rounded_full'
+  (* Side-specific rounded' utilities *)
+  | Rounded_t -> rounded_t'
+  | Rounded_r -> rounded_r'
+  | Rounded_b -> rounded_b'
+  | Rounded_l -> rounded_l'
+  (* Corner-specific rounded' utilities *)
+  | Rounded_tl -> rounded_tl'
+  | Rounded_tr -> rounded_tr'
+  | Rounded_br -> rounded_br'
+  | Rounded_bl -> rounded_bl'
+  (* Corner-specific rounded' utilities with sizes *)
+  | Rounded_t_lg -> rounded_t_lg'
+  | Rounded_tl_2xl -> rounded_tl_2xl'
   (* Outline utilities *)
-  | Outline_offset_0 -> outline_offset_0
-  | Outline_offset_1 -> outline_offset_1
-  | Outline_offset_2 -> outline_offset_2
-  | Outline_offset_4 -> outline_offset_4
-  | Outline_offset_8 -> outline_offset_8
+  | Outline_none -> outline_none'
+  | Outline_offset_0 -> outline_offset_0'
+  | Outline_offset_1 -> outline_offset_1'
+  | Outline_offset_2 -> outline_offset_2'
+  | Outline_offset_4 -> outline_offset_4'
+  | Outline_offset_8 -> outline_offset_8'
 
 (** {1 Parsing Functions} *)
 
@@ -472,7 +530,7 @@ let of_string = function
   | [ "outline"; "offset"; "4" ] -> Ok Outline_offset_4
   | [ "outline"; "offset"; "8" ] -> Ok Outline_offset_8
   (* ring* handled in Effects *)
-  | _ -> Error (`Msg "Not a border utility")
+  | _ -> err_not_utility
 
 (** Suborder function for sorting border utilities within their priority group.
     Borders come before rounded, then outlines. *)
@@ -537,8 +595,31 @@ let suborder = function
   | Rounded_t_lg -> 1300
   | Rounded_tl_2xl -> 1301
   (* Outline utilities (2000-2099) *)
+  | Outline_none -> 1999
   | Outline_offset_0 -> 2000
   | Outline_offset_1 -> 2001
   | Outline_offset_2 -> 2002
   | Outline_offset_4 -> 2003
   | Outline_offset_8 -> 2004
+
+(** Priority for border utilities *)
+let priority = 30
+
+(** Typed handler for border utilities *)
+let handler : t Utility.handler = { to_style; priority; suborder; of_string }
+
+(** Wrapper functions for extensible variant *)
+let unwrap = function Borders x -> Some x | _ -> None
+
+(** Register border handler with Utility system *)
+
+let () = Utility.register ~wrap ~unwrap handler
+
+module Handler = struct
+  type nonrec t = t
+
+  let of_string = of_string
+  let suborder = suborder
+  let to_style = to_style
+  let order x = (priority, suborder x)
+end

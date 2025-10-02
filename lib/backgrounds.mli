@@ -1,10 +1,11 @@
-(** Background and gradient utilities *)
+(** Background and gradient utilities
 
-open Style
+    https://tailwindcss.com/docs/background-image
+    https://tailwindcss.com/docs/gradient-color-stops *)
+
+open Utility
 
 (** {1 Utility Types} *)
-
-type utility
 
 type direction =
   | Bottom
@@ -15,20 +16,6 @@ type direction =
   | Top_left
   | Left
   | Bottom_left
-
-val of_string : string list -> (utility, [ `Msg of string ]) result
-(** [of_string parts] parses a background utility from string parts. Returns an
-    internal structured representation. *)
-
-(** {1 Internal Conversion Functions} *)
-
-val to_style : utility -> Style.t
-(** [to_style u] converts a structured background utility to a style. For
-    internal use by the Tw module. *)
-
-val suborder : utility -> int
-(** [suborder u] returns the ordering value for background utility [u]. Used for
-    deterministic CSS output ordering. *)
 
 val bg_gradient_to : direction -> t
 (** [bg_gradient_to dir] sets gradient direction. Prefer this typed variant over
@@ -43,3 +30,12 @@ val via_color : ?shade:int -> Color.color -> t
 
 val to_color : ?shade:int -> Color.color -> t
 (** [to_color ?shade color] sets the gradient "to" color (end stop). *)
+
+module Handler : sig
+  type t
+
+  val of_string : string list -> (t, [ `Msg of string ]) result
+  val suborder : t -> int
+  val to_style : t -> Style.t
+  val order : t -> int * int
+end

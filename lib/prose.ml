@@ -13,7 +13,8 @@ type variant =
 
 (** {1 Prose Utility Type} *)
 
-type utility =
+(** Local prose utility type *)
+type t =
   (* Size variants *)
   | Prose
   | Prose_sm
@@ -32,6 +33,13 @@ type utility =
   | Not_prose
   (* Container *)
   | Container
+
+(** Extensible variant for prose utilities *)
+type Utility.base += Prose_util of t
+
+let wrap x = Prose_util x
+let unwrap = function Prose_util x -> Some x | _ -> None
+let base x = Utility.base (wrap x)
 
 (* Create prose variables using the new API *)
 let prose_body_var = Var.channel Color "tw-prose-body"
@@ -1749,16 +1757,16 @@ let prose_style variant =
   let rules = to_css_rules variant in
   Style.style ~rules:(Some rules) name []
 
-let prose = prose_style `Base
-let prose_sm = prose_style `Sm
-let prose_lg = prose_style `Lg
-let prose_xl = prose_style `Xl
-let prose_2xl = prose_style `Xl2
-let prose_gray = prose_style `Gray
-let prose_slate = prose_style `Slate
-let prose_zinc = prose_style `Zinc
-let prose_neutral = prose_style `Neutral
-let prose_stone = prose_style `Stone
+let prose = base Prose
+let prose_sm = base Prose_sm
+let prose_lg = base Prose_lg
+let prose_xl = base Prose_xl
+let prose_2xl = base Prose_2xl
+let prose_gray = base Prose_gray
+let prose_slate = base Prose_slate
+let prose_zinc = base Prose_zinc
+let prose_neutral = base Prose_neutral
+let prose_stone = base Prose_stone
 
 (** Generate complete prose stylesheet *)
 let stylesheet () =
@@ -1788,27 +1796,31 @@ let stylesheet () =
   all_rules
 
 (** Marker utilities (no CSS output) *)
-let prose_lead = Style.style ~rules:(Some []) "lead" []
+let prose_lead' = Style.style ~rules:(Some []) "prose-lead" []
 
-let not_prose = Style.style ~rules:(Some []) "not-prose" []
+let prose_lead = base Lead
+let not_prose' = Style.style ~rules:(Some []) "not-prose" []
+let not_prose = base Not_prose
+let prose_invert' = Style.style ~rules:(Some []) "prose-invert" []
+let container' = Style.style ~rules:(Some []) "container" []
 
 (** {1 Utility Conversion Functions} *)
 
 let to_style = function
-  | Prose -> prose
-  | Prose_sm -> prose_sm
-  | Prose_lg -> prose_lg
-  | Prose_xl -> prose_xl
-  | Prose_2xl -> prose_2xl
-  | Prose_gray -> prose_gray
-  | Prose_slate -> prose_slate
-  | Prose_zinc -> prose_zinc
-  | Prose_neutral -> prose_neutral
-  | Prose_stone -> prose_stone
-  | Prose_invert -> Style.style ~rules:(Some []) "prose-invert" []
-  | Lead -> prose_lead
-  | Not_prose -> not_prose
-  | Container -> Style.style ~rules:(Some []) "container" []
+  | Prose -> prose_style `Base
+  | Prose_sm -> prose_style `Sm
+  | Prose_lg -> prose_style `Lg
+  | Prose_xl -> prose_style `Xl
+  | Prose_2xl -> prose_style `Xl2
+  | Prose_gray -> prose_style `Gray
+  | Prose_slate -> prose_style `Slate
+  | Prose_zinc -> prose_style `Zinc
+  | Prose_neutral -> prose_style `Neutral
+  | Prose_stone -> prose_style `Stone
+  | Prose_invert -> prose_invert'
+  | Lead -> prose_lead'
+  | Not_prose -> not_prose'
+  | Container -> container'
 
 let of_string = function
   | [ "prose" ] -> Ok Prose
@@ -1825,7 +1837,7 @@ let of_string = function
   | [ "lead" ] -> Ok Lead
   | [ "not"; "prose" ] -> Ok Not_prose
   | [ "container" ] -> Ok Container
-  | _ -> Error (`Msg "Not a prose/container utility")
+  | _ -> Error (`Msg "Not a prose utility")
 
 (** Suborder function for prose utilities - orders prose variants within
     priority 2. *)
@@ -1844,3 +1856,11 @@ let suborder = function
   | Lead -> 20011
   | Not_prose -> 20012
   | Container -> 10000
+
+(** Priority for prose utilities *)
+let priority = 20
+
+(** Typed handler for prose utilities *)
+let handler : t Utility.handler = { to_style; priority; suborder; of_string }
+
+let () = Utility.register ~wrap ~unwrap handler

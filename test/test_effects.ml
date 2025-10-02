@@ -2,9 +2,9 @@ open Alcotest
 
 let check parts =
   let expected = String.concat "-" parts in
-  match Tw.Effects.of_string parts with
+  match Tw.Effects.Handler.of_string parts with
   | Ok result ->
-      let style = Tw.Effects.to_style result in
+      let style = Tw.Effects.Handler.to_style result in
       Alcotest.check string "effects class name" expected (Tw.Style.pp style)
   | Error (`Msg msg) -> fail msg
 
@@ -49,10 +49,10 @@ let test_filters_css_generation () =
   let css =
     Rules.to_css
       [
-        Filters.blur;
-        Filters.backdrop_blur_lg;
-        Filters.backdrop_brightness 125;
-        Filters.backdrop_opacity 50;
+        Utility.to_style Filters.blur;
+        Utility.to_style Filters.backdrop_blur_lg;
+        Utility.to_style (Filters.backdrop_brightness 125);
+        Utility.to_style (Filters.backdrop_opacity 50);
       ]
     |> Css.to_string
   in
@@ -64,7 +64,7 @@ let test_filters_css_generation () =
 let of_string_invalid () =
   (* Invalid effects values *)
   let fail_maybe input =
-    match Tw.Effects.of_string input with
+    match Tw.Effects.Handler.of_string input with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in

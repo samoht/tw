@@ -5,9 +5,9 @@ let check_class expected t = Alcotest.check string "class" expected (pp t)
 
 let check parts =
   let expected = String.concat "-" parts in
-  match Tw.Layout.of_string parts with
+  match Tw.Layout.Handler.of_string parts with
   | Ok result ->
-      let style = Tw.Layout.to_style result in
+      let style = Tw.Layout.Handler.to_style result in
       Alcotest.check string "layout class name" expected (Tw.Style.pp style)
   | Error (`Msg msg) -> fail msg
 
@@ -43,7 +43,7 @@ let test_overflow () =
 let of_string_invalid () =
   (* Invalid layout values *)
   let fail_maybe input =
-    match Tw.Layout.of_string input with
+    match Tw.Layout.Handler.of_string input with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in
@@ -64,8 +64,8 @@ let of_string_invalid () =
 (* Unknown layout type *)
 
 let test_screen_reader () =
-  check_class "sr-only" Tw.Layout.sr_only;
-  check_class "not-sr-only" Tw.Layout.not_sr_only
+  check_class "sr-only" (Tw.Utility.to_style Tw.Layout.sr_only);
+  check_class "not-sr-only" (Tw.Utility.to_style Tw.Layout.not_sr_only)
 
 let tests =
   [

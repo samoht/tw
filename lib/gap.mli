@@ -1,10 +1,8 @@
-(** Gap and space-between utilities *)
+(** Gap and space-between utilities
+
+    https://tailwindcss.com/docs/gap https://tailwindcss.com/docs/space *)
 
 open Utility
-
-(** {1 Type Definitions} *)
-
-(** Spacing values are defined in the {!Style} module. *)
 
 (** {1 Gap Utilities} *)
 
@@ -53,3 +51,12 @@ val space_x : int -> t
 
 val space_y : int -> t
 (** [space_y n] creates vertical space between child elements. *)
+
+module Handler : sig
+  type t
+
+  val of_string : string list -> (t, [ `Msg of string ]) result
+  val suborder : t -> int
+  val to_style : t -> Style.t
+  val order : t -> int * int
+end

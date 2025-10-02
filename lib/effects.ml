@@ -1,27 +1,9 @@
-(** Visual effects utilities for shadows, opacity, and filters
-
-    What's included:
-    - Shadows: `shadow-none/sm/(default)/md/lg/xl/2xl/inner`.
-    - Opacity: [opacity-0..100].
-    - Filter & backdrop-filter helpers: see Filters module for full coverage.
-    - Ring and transition helpers.
-
-    What's not:
-    - Full mix-blend and backdrop-blend sets are not exposed where the typed
-      `Css` API lacks variants. You can extend with `style "mix-blend-multiply"
-      [Css.property "mix-blend-mode" "multiply"]`.
-
-    Parsing contract (`of_string`):
-    - Accepts `opacity-<n>` and common transition aliases. Unknown tokens yield
-      `Error (`Msg "Not an effects utility")`. *)
+(** Visual effects utilities for shadows, opacity, and filters. *)
 
 open Style
 open Css
-module Parse = Parse
 
-(** {1 Effects Utility Type} *)
-
-type utility =
+type t =
   (* Shadows *)
   | Shadow_none
   | Shadow_sm
@@ -41,6 +23,7 @@ type utility =
   | Ring_lg
   | Ring_xl
   | Ring_inset
+  | Ring_color of Color.color * int
   (* Transitions *)
   | Transition_none
   | Transition_all
@@ -67,6 +50,13 @@ type utility =
   | Mix_blend_saturation
   | Mix_blend_color
   | Mix_blend_luminosity
+
+type Utility.base += Effects of t
+
+let wrap x = Effects x
+let unwrap = function Effects x -> Some x | _ -> None
+let base x = Utility.base (wrap x)
+let err_not_utility = Error (`Msg "Not an effects utility")
 
 (** {1 Shadow and Ring Variables} *)
 
@@ -135,7 +125,7 @@ let ring_width_var = Var.channel Css.Length "tw-ring-width"
 
 (** {1 Shadow Utilities} *)
 
-let shadow_none =
+let shadow_none' =
   (* Shadow-none sets shadow to transparent 0 0 *)
   let shadow_value =
     Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ()
@@ -185,7 +175,7 @@ let shadow_none =
     ~property_rules:(Css.concat property_rules)
     [ d_shadow; Css.box_shadow box_shadow_vars ]
 
-let shadow_sm =
+let shadow_sm' =
   (* Shadow-sm with composite shadows matching Tailwind v4 *)
   (* Reference color variable with fallback *)
   let color_ref =
@@ -242,7 +232,7 @@ let shadow_sm =
     ~property_rules:(Css.concat property_rules)
     (d_shadow :: [ Css.box_shadows box_shadow_vars ])
 
-let shadow =
+let shadow' =
   (* Default shadow - same as shadow-sm in Tailwind v4 *)
   (* Reference color variable with fallback *)
   let color_ref =
@@ -300,7 +290,7 @@ let shadow =
     ~property_rules:(Css.concat property_rules)
     [ d_shadow; Css.box_shadows box_shadow_vars ]
 
-let shadow_md =
+let shadow_md' =
   (* Shadow-md with CSS variable for color *)
   let color_ref =
     Var.reference_with_fallback shadow_color_var (Css.hex "#0000001a")
@@ -354,7 +344,7 @@ let shadow_md =
     ~property_rules:(Css.concat property_rules)
     [ d_shadow; Css.box_shadows box_shadow_vars ]
 
-let shadow_lg =
+let shadow_lg' =
   (* Shadow-lg with CSS variable for color *)
   let color_ref =
     Var.reference_with_fallback shadow_color_var (Css.hex "#0000001a")
@@ -408,7 +398,7 @@ let shadow_lg =
     ~property_rules:(Css.concat property_rules)
     [ d_shadow; Css.box_shadows box_shadow_vars ]
 
-let shadow_xl =
+let shadow_xl' =
   (* Shadow-xl with CSS variable for color *)
   let color_ref =
     Var.reference_with_fallback shadow_color_var (Css.hex "#0000001a")
@@ -462,7 +452,7 @@ let shadow_xl =
     ~property_rules:(Css.concat property_rules)
     [ d_shadow; Css.box_shadows box_shadow_vars ]
 
-let shadow_2xl =
+let shadow_2xl' =
   (* Shadow-2xl with CSS variable for color *)
   let color_ref =
     Var.reference_with_fallback shadow_color_var (Css.hex "#0000001a")
@@ -514,7 +504,7 @@ let shadow_2xl =
     ~property_rules:(Css.concat property_rules)
     [ d_shadow; Css.box_shadows box_shadow_vars ]
 
-let shadow_inner =
+let shadow_inner' =
   (* Define inset shadow variable *)
   let inset_shadow_value =
     Css.shadow ~inset:true ~h_offset:(Px 0.) ~v_offset:(Px 2.) ~blur:(Px 4.) ()
@@ -538,23 +528,16 @@ let shadow_inner =
   style "shadow-inner"
     (d_inset :: d_inset_ring :: d_ring_offset :: d_ring :: [ box_shadow_decl ])
 
-(** {1 Opacity Utilities} *)
+let shadow_none = base Shadow_none
+let shadow_sm = base Shadow_sm
+let shadow = base Shadow
+let shadow_md = base Shadow_md
+let shadow_lg = base Shadow_lg
+let shadow_xl = base Shadow_xl
+let shadow_2xl = base Shadow_2xl
+let shadow_inner = base Shadow_inner
 
-let opacity_0 = style "opacity-0" [ opacity 0.0 ]
-let opacity_5 = style "opacity-5" [ opacity 0.05 ]
-let opacity_10 = style "opacity-10" [ opacity 0.1 ]
-let opacity_20 = style "opacity-20" [ opacity 0.2 ]
-let opacity_25 = style "opacity-25" [ opacity 0.25 ]
-let opacity_30 = style "opacity-30" [ opacity 0.3 ]
-let opacity_40 = style "opacity-40" [ opacity 0.4 ]
-let opacity_50 = style "opacity-50" [ opacity 0.5 ]
-let opacity_60 = style "opacity-60" [ opacity 0.6 ]
-let opacity_70 = style "opacity-70" [ opacity 0.7 ]
-let opacity_75 = style "opacity-75" [ opacity 0.75 ]
-let opacity_80 = style "opacity-80" [ opacity 0.8 ]
-let opacity_90 = style "opacity-90" [ opacity 0.9 ]
-let opacity_95 = style "opacity-95" [ opacity 0.95 ]
-let opacity_100 = style "opacity-100" [ opacity 1.0 ]
+(** {1 Opacity Utilities} *)
 
 (** {1 Mix Blend Mode Utilities} *)
 
@@ -626,19 +609,26 @@ let ring_internal (w : ring_width) =
    :: d_ring :: d_shadow
     :: [ Css.box_shadows box_shadow_vars ])
 
-let ring_none = ring_internal `None
-let ring_xs = ring_internal `Xs
-let ring_sm = ring_internal `Sm
-let ring = ring_internal `Md (* Default ring *)
-let ring_md = ring_internal `Md
-let ring_lg = ring_internal `Lg
-let ring_xl = ring_internal `Xl
+let ring_none' = ring_internal `None
+let ring_xs' = ring_internal `Xs
+let ring_sm' = ring_internal `Sm
+let ring_md' = ring_internal `Md
+let ring_lg' = ring_internal `Lg
+let ring_xl' = ring_internal `Xl
 
-let ring_inset =
+let ring_inset' =
   let decl, _var_ref = Var.binding ring_inset_var "inset" in
   style "ring-inset" [ decl ]
 
-let ring_color color shade =
+let ring_none = base Ring_none
+let ring_xs = base Ring_xs
+let ring_sm = base Ring_sm
+let ring = base Ring_md
+let ring_md = base Ring_md
+let ring_lg = base Ring_lg
+let ring_xl = base Ring_xl
+
+let ring_color' color shade =
   let class_name =
     if Color.is_base_color color then
       String.concat "" [ "ring-"; Color.pp color ]
@@ -648,9 +638,11 @@ let ring_color color shade =
   let d, _ = Var.binding ring_color_var color_value in
   style class_name (d :: [])
 
+let ring_color color shade = base (Ring_color (color, shade))
+
 (** {1 Transition Utilities} *)
 
-let transition_none =
+let transition_none' =
   style "transition-none"
     [
       transition
@@ -663,7 +655,9 @@ let transition_none =
            });
     ]
 
-let transition_all =
+let transition_none = base Transition_none
+
+let transition_all' =
   style "transition-all"
     [
       transition
@@ -676,7 +670,9 @@ let transition_all =
            });
     ]
 
-let transition_colors =
+let transition_all = base Transition_all
+
+let transition_colors' =
   style "transition-colors"
     [
       Css.transitions
@@ -719,7 +715,9 @@ let transition_colors =
         ];
     ]
 
-let transition_opacity =
+let transition_colors = base Transition_colors
+
+let transition_opacity' =
   style "transition-opacity"
     [
       transition
@@ -732,7 +730,9 @@ let transition_opacity =
            });
     ]
 
-let transition_shadow =
+let transition_opacity = base Transition_opacity
+
+let transition_shadow' =
   style "transition-shadow"
     [
       transition
@@ -745,7 +745,9 @@ let transition_shadow =
            });
     ]
 
-let transition_transform =
+let transition_shadow = base Transition_shadow
+
+let transition_transform' =
   style "transition-transform"
     [
       transition
@@ -758,54 +760,78 @@ let transition_transform =
            });
     ]
 
-let duration n =
+let transition_transform = base Transition_transform
+
+let duration' n =
   let class_name = "duration-" ^ string_of_int n in
   let seconds = float_of_int n /. 1000.0 in
   style class_name [ transition_duration (S seconds) ]
 
+let duration n = base (Duration n)
+
 (** {1 Opacity Utility} *)
 
-let opacity n =
+let opacity' n =
   let class_name = "opacity-" ^ string_of_int n in
   let value = float_of_int n /. 100.0 in
   style class_name [ opacity value ]
 
+let opacity n = base (Opacity n)
+
 (** {1 Mix Blend Mode Utilities} *)
 
-let mix_blend_normal = style "mix-blend-normal" [ mix_blend_mode Normal ]
-let mix_blend_multiply = style "mix-blend-multiply" [ mix_blend_mode Multiply ]
-let mix_blend_screen = style "mix-blend-screen" [ mix_blend_mode Screen ]
-let mix_blend_overlay = style "mix-blend-overlay" [ mix_blend_mode Overlay ]
-let mix_blend_darken = style "mix-blend-darken" [ mix_blend_mode Darken ]
-let mix_blend_lighten = style "mix-blend-lighten" [ mix_blend_mode Lighten ]
+let mix_blend_normal' = style "mix-blend-normal" [ mix_blend_mode Normal ]
+let mix_blend_multiply' = style "mix-blend-multiply" [ mix_blend_mode Multiply ]
+let mix_blend_screen' = style "mix-blend-screen" [ mix_blend_mode Screen ]
+let mix_blend_overlay' = style "mix-blend-overlay" [ mix_blend_mode Overlay ]
+let mix_blend_darken' = style "mix-blend-darken" [ mix_blend_mode Darken ]
+let mix_blend_lighten' = style "mix-blend-lighten" [ mix_blend_mode Lighten ]
 
-let mix_blend_color_dodge =
+let mix_blend_color_dodge' =
   style "mix-blend-color-dodge" [ mix_blend_mode Color_dodge ]
 
-let mix_blend_color_burn =
+let mix_blend_color_burn' =
   style "mix-blend-color-burn" [ mix_blend_mode Color_burn ]
 
-let mix_blend_hard_light =
+let mix_blend_hard_light' =
   style "mix-blend-hard-light" [ mix_blend_mode Hard_light ]
 
-let mix_blend_soft_light =
+let mix_blend_soft_light' =
   style "mix-blend-soft-light" [ mix_blend_mode Soft_light ]
 
-let mix_blend_difference =
+let mix_blend_difference' =
   style "mix-blend-difference" [ mix_blend_mode Difference ]
 
-let mix_blend_exclusion =
+let mix_blend_exclusion' =
   style "mix-blend-exclusion" [ mix_blend_mode Exclusion ]
 
-let mix_blend_hue = style "mix-blend-hue" [ mix_blend_mode Hue ]
+let mix_blend_hue' = style "mix-blend-hue" [ mix_blend_mode Hue ]
 
-let mix_blend_saturation =
+let mix_blend_saturation' =
   style "mix-blend-saturation" [ mix_blend_mode Saturation ]
 
-let mix_blend_color = style "mix-blend-color" [ mix_blend_mode Color ]
+let mix_blend_color' = style "mix-blend-color" [ mix_blend_mode Color ]
 
-let mix_blend_luminosity =
+let mix_blend_luminosity' =
   style "mix-blend-luminosity" [ mix_blend_mode Luminosity ]
+
+let mix_blend_normal = base Mix_blend_normal
+let mix_blend_multiply = base Mix_blend_multiply
+let mix_blend_screen = base Mix_blend_screen
+let mix_blend_overlay = base Mix_blend_overlay
+let mix_blend_darken = base Mix_blend_darken
+let mix_blend_lighten = base Mix_blend_lighten
+let mix_blend_color_dodge = base Mix_blend_color_dodge
+let mix_blend_color_burn = base Mix_blend_color_burn
+let mix_blend_hard_light = base Mix_blend_hard_light
+let mix_blend_soft_light = base Mix_blend_soft_light
+let mix_blend_difference = base Mix_blend_difference
+let mix_blend_exclusion = base Mix_blend_exclusion
+let mix_blend_hue = base Mix_blend_hue
+let mix_blend_saturation = base Mix_blend_saturation
+let mix_blend_color = base Mix_blend_color
+let mix_blend_luminosity = base Mix_blend_luminosity
+let ring_inset = base Ring_inset
 
 (** {1 Parsing Functions} *)
 
@@ -814,45 +840,46 @@ let ( >|= ) = Parse.( >|= )
 (** {1 Utility Conversion Functions} *)
 
 let to_style = function
-  | Shadow_none -> shadow_none
-  | Shadow_sm -> shadow_sm
-  | Shadow -> shadow
-  | Shadow_md -> shadow_md
-  | Shadow_lg -> shadow_lg
-  | Shadow_xl -> shadow_xl
-  | Shadow_2xl -> shadow_2xl
-  | Shadow_inner -> shadow_inner
-  | Opacity n -> opacity n
-  | Ring_none -> ring_none
-  | Ring_xs -> ring_xs
-  | Ring_sm -> ring_sm
-  | Ring_md -> ring_md
-  | Ring_lg -> ring_lg
-  | Ring_xl -> ring_xl
-  | Ring_inset -> ring_inset
-  | Transition_none -> transition_none
-  | Transition_all -> transition_all
-  | Transition_colors -> transition_colors
-  | Transition_opacity -> transition_opacity
-  | Transition_shadow -> transition_shadow
-  | Transition_transform -> transition_transform
-  | Duration n -> duration n
-  | Mix_blend_normal -> mix_blend_normal
-  | Mix_blend_multiply -> mix_blend_multiply
-  | Mix_blend_screen -> mix_blend_screen
-  | Mix_blend_overlay -> mix_blend_overlay
-  | Mix_blend_darken -> mix_blend_darken
-  | Mix_blend_lighten -> mix_blend_lighten
-  | Mix_blend_color_dodge -> mix_blend_color_dodge
-  | Mix_blend_color_burn -> mix_blend_color_burn
-  | Mix_blend_hard_light -> mix_blend_hard_light
-  | Mix_blend_soft_light -> mix_blend_soft_light
-  | Mix_blend_difference -> mix_blend_difference
-  | Mix_blend_exclusion -> mix_blend_exclusion
-  | Mix_blend_hue -> mix_blend_hue
-  | Mix_blend_saturation -> mix_blend_saturation
-  | Mix_blend_color -> mix_blend_color
-  | Mix_blend_luminosity -> mix_blend_luminosity
+  | Shadow_none -> shadow_none'
+  | Shadow_sm -> shadow_sm'
+  | Shadow -> shadow'
+  | Shadow_md -> shadow_md'
+  | Shadow_lg -> shadow_lg'
+  | Shadow_xl -> shadow_xl'
+  | Shadow_2xl -> shadow_2xl'
+  | Shadow_inner -> shadow_inner'
+  | Opacity n -> opacity' n
+  | Ring_none -> ring_none'
+  | Ring_xs -> ring_xs'
+  | Ring_sm -> ring_sm'
+  | Ring_md -> ring_md'
+  | Ring_lg -> ring_lg'
+  | Ring_xl -> ring_xl'
+  | Ring_inset -> ring_inset'
+  | Ring_color (color, shade) -> ring_color' color shade
+  | Transition_none -> transition_none'
+  | Transition_all -> transition_all'
+  | Transition_colors -> transition_colors'
+  | Transition_opacity -> transition_opacity'
+  | Transition_shadow -> transition_shadow'
+  | Transition_transform -> transition_transform'
+  | Duration n -> duration' n
+  | Mix_blend_normal -> mix_blend_normal'
+  | Mix_blend_multiply -> mix_blend_multiply'
+  | Mix_blend_screen -> mix_blend_screen'
+  | Mix_blend_overlay -> mix_blend_overlay'
+  | Mix_blend_darken -> mix_blend_darken'
+  | Mix_blend_lighten -> mix_blend_lighten'
+  | Mix_blend_color_dodge -> mix_blend_color_dodge'
+  | Mix_blend_color_burn -> mix_blend_color_burn'
+  | Mix_blend_hard_light -> mix_blend_hard_light'
+  | Mix_blend_soft_light -> mix_blend_soft_light'
+  | Mix_blend_difference -> mix_blend_difference'
+  | Mix_blend_exclusion -> mix_blend_exclusion'
+  | Mix_blend_hue -> mix_blend_hue'
+  | Mix_blend_saturation -> mix_blend_saturation'
+  | Mix_blend_color -> mix_blend_color'
+  | Mix_blend_luminosity -> mix_blend_luminosity'
 
 let of_string = function
   | [ "shadow"; "none" ] -> Ok Shadow_none
@@ -898,7 +925,7 @@ let of_string = function
   | [ "mix"; "blend"; "saturation" ] -> Ok Mix_blend_saturation
   | [ "mix"; "blend"; "color" ] -> Ok Mix_blend_color
   | [ "mix"; "blend"; "luminosity" ] -> Ok Mix_blend_luminosity
-  | _ -> Error (`Msg "Not an effects utility")
+  | _ -> err_not_utility
 
 (** Suborder function for sorting effects utilities within their priority group.
     Opacity sorted numerically, shadows by size, then blend modes. *)
@@ -935,6 +962,9 @@ let suborder = function
   | Ring_lg -> 4004
   | Ring_xl -> 4005
   | Ring_inset -> 4006
+  | Ring_color (color, shade) ->
+      4100
+      + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
   | Transition_none -> 5000
   | Transition_all -> 5001
   | Transition_colors -> 5002
@@ -942,3 +972,21 @@ let suborder = function
   | Transition_shadow -> 5004
   | Transition_transform -> 5005
   | Duration n -> 6000 + n
+
+(** Priority for effects utilities *)
+let priority = 40
+
+let order u =
+  match unwrap u with Some x -> Some (priority, suborder x) | None -> None
+
+let handler : t Utility.handler = { to_style; priority; suborder; of_string }
+let () = Utility.register ~wrap ~unwrap handler
+
+module Handler = struct
+  type nonrec t = t
+
+  let of_string = of_string
+  let suborder = suborder
+  let to_style = to_style
+  let order x = (priority, suborder x)
+end

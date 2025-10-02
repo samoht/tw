@@ -2,10 +2,10 @@ open Alcotest
 
 let check parts =
   let expected = String.concat "-" parts in
-  match Tw.Transforms.of_string parts with
+  match Tw.Transforms.Handler.of_string parts with
   | Ok t ->
       check string "transforms class" expected
-        (Tw.Style.pp (Tw.Transforms.to_style t))
+        (Tw.Style.pp (Tw.Transforms.Handler.to_style t))
   | Error (`Msg msg) -> fail msg
 
 let test_translate_rotate () =
@@ -15,7 +15,7 @@ let test_translate_rotate () =
 let test_of_string_invalid () =
   (* Invalid transform utilities *)
   let test_invalid input =
-    match Tw.Transforms.of_string input with
+    match Tw.Transforms.Handler.of_string input with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in

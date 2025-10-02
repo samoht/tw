@@ -2,9 +2,9 @@ open Alcotest
 
 let check parts =
   let expected = String.concat "-" parts in
-  match Tw.Positioning.of_string parts with
+  match Tw.Position.Handler.of_string parts with
   | Ok util ->
-      let t = Tw.Positioning.to_style util in
+      let t = Tw.Position.Handler.to_style util in
       check string "positioning class" expected (Tw.Style.pp t)
   | Error (`Msg msg) -> fail msg
 

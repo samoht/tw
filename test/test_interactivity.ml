@@ -2,10 +2,10 @@ open Alcotest
 
 let check parts =
   let expected = String.concat "-" parts in
-  match Tw.Interactivity.of_string parts with
+  match Tw.Interactivity.Handler.of_string parts with
   | Ok u ->
       check string "interactivity class" expected
-        (Tw.Style.pp (Tw.Interactivity.to_style u))
+        (Tw.Style.pp (Tw.Interactivity.Handler.to_style u))
   | Error (`Msg msg) -> fail msg
 
 let test_select () = check [ "select"; "none" ]
@@ -17,7 +17,7 @@ let test_scroll_snap () =
 let test_of_string_invalid () =
   (* Invalid interactivity utilities *)
   let test_invalid input =
-    match Tw.Interactivity.of_string input with
+    match Tw.Interactivity.Handler.of_string input with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in

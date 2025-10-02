@@ -1,219 +1,300 @@
-(** Alignment utilities for flexbox and grid layouts *)
+(** Alignment utilities for flexbox and grid layouts
+
+    What's included:
+    - `justify-*` - Justify content, items, and self alignment.
+    - `items-*` - Align items in flex/grid containers.
+    - `content-*` - Align content in flex/grid containers.
+    - `self-*` - Align self in flex/grid items.
+    - `place-*` - Shorthand for align and justify.
+
+    What's not:
+    - Advanced grid alignment features not covered by basic flex/grid alignment.
+
+    Parsing contract (`of_string`):
+    - Accepts ["justify"; ...], ["items"; ...], ["content"; ...], ["self"; ...],
+      ["place"; ...]. Unknown tokens yield `Error (`Msg "Not an alignment
+      utility")`. *)
 
 open Style
 open Css
 
-type utility =
-  (* Justify content *)
-  | Justify_start
+(** Local alignment utility type *)
+type t =
+  | (* Justify content *)
+    Justify_start
   | Justify_end
   | Justify_center
   | Justify_between
   | Justify_around
   | Justify_evenly
-  (* Align items *)
-  | Items_start
+  | (* Align items *)
+    Items_start
   | Items_end
   | Items_center
   | Items_baseline
   | Items_stretch
-  (* Align content *)
-  | Content_start
+  | (* Align content *)
+    Content_start
   | Content_end
   | Content_center
   | Content_between
   | Content_around
   | Content_evenly
   | Content_stretch
-  (* Align self *)
-  | Self_auto
+  | (* Align self *)
+    Self_auto
   | Self_start
   | Self_end
   | Self_center
   | Self_baseline
   | Self_stretch
-  (* Justify items *)
-  | Justify_items_start
+  | (* Justify items *)
+    Justify_items_start
   | Justify_items_end
   | Justify_items_center
   | Justify_items_stretch
-  (* Justify self *)
-  | Justify_self_auto
+  | (* Justify self *)
+    Justify_self_auto
   | Justify_self_start
   | Justify_self_end
   | Justify_self_center
   | Justify_self_stretch
-  (* Place content *)
-  | Place_content_start
+  | (* Place content *)
+    Place_content_start
   | Place_content_end
   | Place_content_center
   | Place_content_between
   | Place_content_around
   | Place_content_evenly
   | Place_content_stretch
-  (* Place items *)
-  | Place_items_start
+  | (* Place items *)
+    Place_items_start
   | Place_items_end
   | Place_items_center
   | Place_items_stretch
-  (* Place self *)
-  | Place_self_auto
+  | (* Place self *)
+    Place_self_auto
   | Place_self_start
   | Place_self_end
   | Place_self_center
   | Place_self_stretch
 
+(** Extensible variant for alignment utilities *)
+type Utility.base += Alignment of t
+
+(** Error helper *)
+let err_not_utility = Error (`Msg "Not an alignment utility")
+
 (** {1 Justify Content Utilities} *)
 
-let justify_start = style "justify-start" [ justify_content Flex_start ]
-let justify_end = style "justify-end" [ justify_content Flex_end ]
-let justify_center = style "justify-center" [ justify_content Center ]
-let justify_between = style "justify-between" [ justify_content Space_between ]
-let justify_around = style "justify-around" [ justify_content Space_around ]
-let justify_evenly = style "justify-evenly" [ justify_content Space_evenly ]
+let justify_start' = style "justify-start" [ justify_content Flex_start ]
+let justify_end' = style "justify-end" [ justify_content Flex_end ]
+let justify_center' = style "justify-center" [ justify_content Center ]
+let justify_between' = style "justify-between" [ justify_content Space_between ]
+let justify_around' = style "justify-around" [ justify_content Space_around ]
+let justify_evenly' = style "justify-evenly" [ justify_content Space_evenly ]
+let justify_start = Utility.base (Alignment Justify_start)
+let justify_end = Utility.base (Alignment Justify_end)
+let justify_center = Utility.base (Alignment Justify_center)
+let justify_between = Utility.base (Alignment Justify_between)
+let justify_around = Utility.base (Alignment Justify_around)
+let justify_evenly = Utility.base (Alignment Justify_evenly)
 
 (** {1 Align Items Utilities} *)
 
-let items_start = style "items-start" [ align_items Flex_start ]
-let items_end = style "items-end" [ align_items Flex_end ]
-let items_center = style "items-center" [ align_items Center ]
-let items_baseline = style "items-baseline" [ align_items Baseline ]
-let items_stretch = style "items-stretch" [ align_items Stretch ]
+let items_start' = style "items-start" [ align_items Flex_start ]
+let items_end' = style "items-end" [ align_items Flex_end ]
+let items_center' = style "items-center" [ align_items Center ]
+let items_baseline' = style "items-baseline" [ align_items Baseline ]
+let items_stretch' = style "items-stretch" [ align_items Stretch ]
+let items_start = Utility.base (Alignment Items_start)
+let items_end = Utility.base (Alignment Items_end)
+let items_center = Utility.base (Alignment Items_center)
+let items_baseline = Utility.base (Alignment Items_baseline)
+let items_stretch = Utility.base (Alignment Items_stretch)
 
 (** {1 Align Content Utilities} *)
 
-let content_start = style "content-start" [ align_content Start ]
-let content_end = style "content-end" [ align_content End ]
-let content_center = style "content-center" [ align_content Center ]
-let content_between = style "content-between" [ align_content Space_between ]
-let content_around = style "content-around" [ align_content Space_around ]
-let content_evenly = style "content-evenly" [ align_content Space_evenly ]
-let content_stretch = style "content-stretch" [ align_content Stretch ]
+let content_start' = style "content-start" [ align_content Start ]
+let content_end' = style "content-end" [ align_content End ]
+let content_center' = style "content-center" [ align_content Center ]
+let content_between' = style "content-between" [ align_content Space_between ]
+let content_around' = style "content-around" [ align_content Space_around ]
+let content_evenly' = style "content-evenly" [ align_content Space_evenly ]
+let content_stretch' = style "content-stretch" [ align_content Stretch ]
+let content_start = Utility.base (Alignment Content_start)
+let content_end = Utility.base (Alignment Content_end)
+let content_center = Utility.base (Alignment Content_center)
+let content_between = Utility.base (Alignment Content_between)
+let content_around = Utility.base (Alignment Content_around)
+let content_evenly = Utility.base (Alignment Content_evenly)
+let content_stretch = Utility.base (Alignment Content_stretch)
 
 (** {1 Align Self Utilities} *)
 
-let self_auto = style "self-auto" [ align_self Auto ]
-let self_start = style "self-start" [ align_self Flex_start ]
-let self_end = style "self-end" [ align_self Flex_end ]
-let self_center = style "self-center" [ align_self Center ]
-let self_baseline = style "self-baseline" [ align_self Baseline ]
-let self_stretch = style "self-stretch" [ align_self Stretch ]
+let self_auto' = style "self-auto" [ align_self Auto ]
+let self_start' = style "self-start" [ align_self Flex_start ]
+let self_end' = style "self-end" [ align_self Flex_end ]
+let self_center' = style "self-center" [ align_self Center ]
+let self_baseline' = style "self-baseline" [ align_self Baseline ]
+let self_stretch' = style "self-stretch" [ align_self Stretch ]
+let self_auto = Utility.base (Alignment Self_auto)
+let self_start = Utility.base (Alignment Self_start)
+let self_end = Utility.base (Alignment Self_end)
+let self_center = Utility.base (Alignment Self_center)
+let self_baseline = Utility.base (Alignment Self_baseline)
+let self_stretch = Utility.base (Alignment Self_stretch)
 
 (** {1 Justify Items Utilities} *)
 
-let justify_items_start = style "justify-items-start" [ justify_items Start ]
-let justify_items_end = style "justify-items-end" [ justify_items End ]
-let justify_items_center = style "justify-items-center" [ justify_items Center ]
+let justify_items_start' = style "justify-items-start" [ justify_items Start ]
+let justify_items_end' = style "justify-items-end" [ justify_items End ]
 
-let justify_items_stretch =
+let justify_items_center' =
+  style "justify-items-center" [ justify_items Center ]
+
+let justify_items_stretch' =
   style "justify-items-stretch" [ justify_items Stretch ]
+
+let justify_items_start = Utility.base (Alignment Justify_items_start)
+let justify_items_end = Utility.base (Alignment Justify_items_end)
+let justify_items_center = Utility.base (Alignment Justify_items_center)
+let justify_items_stretch = Utility.base (Alignment Justify_items_stretch)
 
 (** {1 Justify Self Utilities} *)
 
-let justify_self_auto = style "justify-self-auto" [ justify_self Auto ]
-let justify_self_start = style "justify-self-start" [ justify_self Flex_start ]
-let justify_self_end = style "justify-self-end" [ justify_self Flex_end ]
-let justify_self_center = style "justify-self-center" [ justify_self Center ]
-let justify_self_stretch = style "justify-self-stretch" [ justify_self Stretch ]
+let justify_self_auto' = style "justify-self-auto" [ justify_self Auto ]
+let justify_self_start' = style "justify-self-start" [ justify_self Flex_start ]
+let justify_self_end' = style "justify-self-end" [ justify_self Flex_end ]
+let justify_self_center' = style "justify-self-center" [ justify_self Center ]
+
+let justify_self_stretch' =
+  style "justify-self-stretch" [ justify_self Stretch ]
+
+let justify_self_auto = Utility.base (Alignment Justify_self_auto)
+let justify_self_start = Utility.base (Alignment Justify_self_start)
+let justify_self_end = Utility.base (Alignment Justify_self_end)
+let justify_self_center = Utility.base (Alignment Justify_self_center)
+let justify_self_stretch = Utility.base (Alignment Justify_self_stretch)
 
 (** {1 Place Content Utilities} *)
 
-let place_content_start = style "place-content-start" [ place_content Start ]
-let place_content_end = style "place-content-end" [ place_content End ]
-let place_content_center = style "place-content-center" [ place_content Center ]
+let place_content_start' = style "place-content-start" [ place_content Start ]
+let place_content_end' = style "place-content-end" [ place_content End ]
 
-let place_content_between =
+let place_content_center' =
+  style "place-content-center" [ place_content Center ]
+
+let place_content_between' =
   style "place-content-between" [ place_content Space_between ]
 
-let place_content_around =
+let place_content_around' =
   style "place-content-around" [ place_content Space_around ]
 
-let place_content_evenly =
+let place_content_evenly' =
   style "place-content-evenly" [ place_content Space_evenly ]
 
-let place_content_stretch =
+let place_content_stretch' =
   style "place-content-stretch" [ place_content Stretch ]
+
+let place_content_start = Utility.base (Alignment Place_content_start)
+let place_content_end = Utility.base (Alignment Place_content_end)
+let place_content_center = Utility.base (Alignment Place_content_center)
+let place_content_between = Utility.base (Alignment Place_content_between)
+let place_content_around = Utility.base (Alignment Place_content_around)
+let place_content_evenly = Utility.base (Alignment Place_content_evenly)
+let place_content_stretch = Utility.base (Alignment Place_content_stretch)
 
 (** {1 Place Items Utilities} *)
 
-let place_items_start = style "place-items-start" [ place_items Start ]
-let place_items_end = style "place-items-end" [ place_items End ]
-let place_items_center = style "place-items-center" [ place_items Center ]
-let place_items_stretch = style "place-items-stretch" [ place_items Stretch ]
+let place_items_start' = style "place-items-start" [ place_items Start ]
+let place_items_end' = style "place-items-end" [ place_items End ]
+let place_items_center' = style "place-items-center" [ place_items Center ]
+let place_items_stretch' = style "place-items-stretch" [ place_items Stretch ]
+let place_items_start = Utility.base (Alignment Place_items_start)
+let place_items_end = Utility.base (Alignment Place_items_end)
+let place_items_center = Utility.base (Alignment Place_items_center)
+let place_items_stretch = Utility.base (Alignment Place_items_stretch)
 
 (** {1 Place Self Utilities} *)
 
-let place_self_auto = style "place-self-auto" [ place_self (Auto, Auto) ]
-let place_self_start = style "place-self-start" [ place_self (Start, Start) ]
-let place_self_end = style "place-self-end" [ place_self (End, End) ]
+let place_self_auto' = style "place-self-auto" [ place_self (Auto, Auto) ]
+let place_self_start' = style "place-self-start" [ place_self (Start, Start) ]
+let place_self_end' = style "place-self-end" [ place_self (End, End) ]
 
-let place_self_center =
+let place_self_center' =
   style "place-self-center" [ place_self (Center, Center) ]
 
-let place_self_stretch =
+let place_self_stretch' =
   style "place-self-stretch" [ place_self (Stretch, Stretch) ]
+
+let place_self_auto = Utility.base (Alignment Place_self_auto)
+let place_self_start = Utility.base (Alignment Place_self_start)
+let place_self_end = Utility.base (Alignment Place_self_end)
+let place_self_center = Utility.base (Alignment Place_self_center)
+let place_self_stretch = Utility.base (Alignment Place_self_stretch)
 
 (** {1 Conversion Functions} *)
 
 let to_style = function
   (* Justify content *)
-  | Justify_start -> justify_start
-  | Justify_end -> justify_end
-  | Justify_center -> justify_center
-  | Justify_between -> justify_between
-  | Justify_around -> justify_around
-  | Justify_evenly -> justify_evenly
+  | Justify_start -> justify_start'
+  | Justify_end -> justify_end'
+  | Justify_center -> justify_center'
+  | Justify_between -> justify_between'
+  | Justify_around -> justify_around'
+  | Justify_evenly -> justify_evenly'
   (* Align items *)
-  | Items_start -> items_start
-  | Items_end -> items_end
-  | Items_center -> items_center
-  | Items_baseline -> items_baseline
-  | Items_stretch -> items_stretch
+  | Items_start -> items_start'
+  | Items_end -> items_end'
+  | Items_center -> items_center'
+  | Items_baseline -> items_baseline'
+  | Items_stretch -> items_stretch'
   (* Align content *)
-  | Content_start -> content_start
-  | Content_end -> content_end
-  | Content_center -> content_center
-  | Content_between -> content_between
-  | Content_around -> content_around
-  | Content_evenly -> content_evenly
-  | Content_stretch -> content_stretch
+  | Content_start -> content_start'
+  | Content_end -> content_end'
+  | Content_center -> content_center'
+  | Content_between -> content_between'
+  | Content_around -> content_around'
+  | Content_evenly -> content_evenly'
+  | Content_stretch -> content_stretch'
   (* Align self *)
-  | Self_auto -> self_auto
-  | Self_start -> self_start
-  | Self_end -> self_end
-  | Self_center -> self_center
-  | Self_baseline -> self_baseline
-  | Self_stretch -> self_stretch
+  | Self_auto -> self_auto'
+  | Self_start -> self_start'
+  | Self_end -> self_end'
+  | Self_center -> self_center'
+  | Self_baseline -> self_baseline'
+  | Self_stretch -> self_stretch'
   (* Justify items *)
-  | Justify_items_start -> justify_items_start
-  | Justify_items_end -> justify_items_end
-  | Justify_items_center -> justify_items_center
-  | Justify_items_stretch -> justify_items_stretch
+  | Justify_items_start -> justify_items_start'
+  | Justify_items_end -> justify_items_end'
+  | Justify_items_center -> justify_items_center'
+  | Justify_items_stretch -> justify_items_stretch'
   (* Justify self *)
-  | Justify_self_auto -> justify_self_auto
-  | Justify_self_start -> justify_self_start
-  | Justify_self_end -> justify_self_end
-  | Justify_self_center -> justify_self_center
-  | Justify_self_stretch -> justify_self_stretch
+  | Justify_self_auto -> justify_self_auto'
+  | Justify_self_start -> justify_self_start'
+  | Justify_self_end -> justify_self_end'
+  | Justify_self_center -> justify_self_center'
+  | Justify_self_stretch -> justify_self_stretch'
   (* Place content *)
-  | Place_content_start -> place_content_start
-  | Place_content_end -> place_content_end
-  | Place_content_center -> place_content_center
-  | Place_content_between -> place_content_between
-  | Place_content_around -> place_content_around
-  | Place_content_evenly -> place_content_evenly
-  | Place_content_stretch -> place_content_stretch
+  | Place_content_start -> place_content_start'
+  | Place_content_end -> place_content_end'
+  | Place_content_center -> place_content_center'
+  | Place_content_between -> place_content_between'
+  | Place_content_around -> place_content_around'
+  | Place_content_evenly -> place_content_evenly'
+  | Place_content_stretch -> place_content_stretch'
   (* Place items *)
-  | Place_items_start -> place_items_start
-  | Place_items_end -> place_items_end
-  | Place_items_center -> place_items_center
-  | Place_items_stretch -> place_items_stretch
+  | Place_items_start -> place_items_start'
+  | Place_items_end -> place_items_end'
+  | Place_items_center -> place_items_center'
+  | Place_items_stretch -> place_items_stretch'
   (* Place self *)
-  | Place_self_auto -> place_self_auto
-  | Place_self_start -> place_self_start
-  | Place_self_end -> place_self_end
-  | Place_self_center -> place_self_center
-  | Place_self_stretch -> place_self_stretch
+  | Place_self_auto -> place_self_auto'
+  | Place_self_start -> place_self_start'
+  | Place_self_end -> place_self_end'
+  | Place_self_center -> place_self_center'
+  | Place_self_stretch -> place_self_stretch'
 
 let of_string = function
   (* Justify content *)
@@ -274,7 +355,7 @@ let of_string = function
   | [ "place"; "self"; "end" ] -> Ok Place_self_end
   | [ "place"; "self"; "center" ] -> Ok Place_self_center
   | [ "place"; "self"; "stretch" ] -> Ok Place_self_stretch
-  | _ -> Error (`Msg "Not an alignment utility")
+  | _ -> err_not_utility
 
 let suborder = function
   (* Align content (1000-1099) - comes first *)
@@ -332,3 +413,26 @@ let suborder = function
   | Place_self_end -> 30202
   | Place_self_center -> 30203
   | Place_self_stretch -> 30204
+
+(** Priority for alignment utilities *)
+let priority = 16
+
+(** Typed handler for alignment utilities *)
+let handler : t Utility.handler = { to_style; priority; suborder; of_string }
+
+(** Wrapper functions for extensible variant *)
+let wrap x = Alignment x
+
+let unwrap = function Alignment x -> Some x | _ -> None
+
+(** Register alignment handler with Utility system *)
+let () = Utility.register ~wrap ~unwrap handler
+
+module Handler = struct
+  type nonrec t = t
+
+  let of_string = of_string
+  let suborder = suborder
+  let to_style = to_style
+  let order x = (priority, suborder x)
+end

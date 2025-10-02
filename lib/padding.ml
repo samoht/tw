@@ -17,15 +17,24 @@
 
 open Style
 open Css
-module Parse = Parse
 
-(** Error helpers *)
+type t = { axis : [ `All | `X | `Y | `T | `R | `B | `L ]; value : spacing }
+(** Local padding utility type *)
+
+(** Extensible variant for padding utilities *)
+type Utility.base += Padding of t
+
+(** Wrapper functions *)
+let wrap x = Padding x
+
+let unwrap = function Padding x -> Some x | _ -> None
+let base x = Utility.base (wrap x)
+
+(** Error helper *)
 let err_not_utility = Error (`Msg "Not a padding utility")
 
-type Utility.base += Padding of [ `All | `X | `Y | `T | `R | `B | `L ] * spacing
-
 (** Helper to create Utility.t from Padding *)
-let padding_t axis value = Utility.Utility (Padding (axis, value))
+let padding_t axis value = base { axis; value }
 
 (** {2 Typed Padding Utilities} *)
 
@@ -82,18 +91,6 @@ let pl_full = padding_t `L `Full
 
 (** {1 Conversion Functions} *)
 
-let to_style = function
-  | Padding (side, value) -> (
-      match side with
-      | `All -> Some (p' value)
-      | `X -> Some (px' value)
-      | `Y -> Some (py' value)
-      | `T -> Some (pt' value)
-      | `R -> Some (pr' value)
-      | `B -> Some (pb' value)
-      | `L -> Some (pl' value))
-  | _ -> None
-
 let spacing_value_order = function
   | `Px -> 1
   | `Full -> 10000
@@ -101,88 +98,102 @@ let spacing_value_order = function
       let units = f /. 0.25 in
       int_of_float (units *. 10.)
 
+(** Convert padding utility to style *)
+let to_style { axis; value } =
+  match axis with
+  | `All -> p' value
+  | `X -> px' value
+  | `Y -> py' value
+  | `T -> pt' value
+  | `R -> pr' value
+  | `B -> pb' value
+  | `L -> pl' value
+
+(** Suborder for padding utilities *)
+let suborder { axis; value } =
+  let side_offset =
+    match axis with
+    | `All -> 0
+    | `X -> 100
+    | `Y -> 200
+    | `T -> 300
+    | `R -> 400
+    | `B -> 500
+    | `L -> 600
+  in
+  1000 + side_offset + spacing_value_order value
+
+(** Parse string parts to padding utility *)
 let of_string parts =
   let parse_class = function
     | [ "p"; value ] -> (
         match Parse.spacing_value ~name:"padding" value with
-        | Ok f -> Some (Padding (`All, `Rem (f *. 0.25)))
+        | Ok f -> Ok { axis = `All; value = `Rem (f *. 0.25) }
         | Error _ ->
-            if value = "px" then Some (Padding (`All, `Px))
-            else if value = "full" then Some (Padding (`All, `Full))
-            else None)
+            if value = "px" then Ok { axis = `All; value = `Px }
+            else if value = "full" then Ok { axis = `All; value = `Full }
+            else err_not_utility)
     | [ "px"; value ] -> (
         match Parse.spacing_value ~name:"padding-x" value with
-        | Ok f -> Some (Padding (`X, `Rem (f *. 0.25)))
+        | Ok f -> Ok { axis = `X; value = `Rem (f *. 0.25) }
         | Error _ ->
-            if value = "px" then Some (Padding (`X, `Px))
-            else if value = "full" then Some (Padding (`X, `Full))
-            else None)
+            if value = "px" then Ok { axis = `X; value = `Px }
+            else if value = "full" then Ok { axis = `X; value = `Full }
+            else err_not_utility)
     | [ "py"; value ] -> (
         match Parse.spacing_value ~name:"padding-y" value with
-        | Ok f -> Some (Padding (`Y, `Rem (f *. 0.25)))
+        | Ok f -> Ok { axis = `Y; value = `Rem (f *. 0.25) }
         | Error _ ->
-            if value = "px" then Some (Padding (`Y, `Px))
-            else if value = "full" then Some (Padding (`Y, `Full))
-            else None)
+            if value = "px" then Ok { axis = `Y; value = `Px }
+            else if value = "full" then Ok { axis = `Y; value = `Full }
+            else err_not_utility)
     | [ "pt"; value ] -> (
         match Parse.spacing_value ~name:"padding-top" value with
-        | Ok f -> Some (Padding (`T, `Rem (f *. 0.25)))
+        | Ok f -> Ok { axis = `T; value = `Rem (f *. 0.25) }
         | Error _ ->
-            if value = "px" then Some (Padding (`T, `Px))
-            else if value = "full" then Some (Padding (`T, `Full))
-            else None)
+            if value = "px" then Ok { axis = `T; value = `Px }
+            else if value = "full" then Ok { axis = `T; value = `Full }
+            else err_not_utility)
     | [ "pr"; value ] -> (
         match Parse.spacing_value ~name:"padding-right" value with
-        | Ok f -> Some (Padding (`R, `Rem (f *. 0.25)))
+        | Ok f -> Ok { axis = `R; value = `Rem (f *. 0.25) }
         | Error _ ->
-            if value = "px" then Some (Padding (`R, `Px))
-            else if value = "full" then Some (Padding (`R, `Full))
-            else None)
+            if value = "px" then Ok { axis = `R; value = `Px }
+            else if value = "full" then Ok { axis = `R; value = `Full }
+            else err_not_utility)
     | [ "pb"; value ] -> (
         match Parse.spacing_value ~name:"padding-bottom" value with
-        | Ok f -> Some (Padding (`B, `Rem (f *. 0.25)))
+        | Ok f -> Ok { axis = `B; value = `Rem (f *. 0.25) }
         | Error _ ->
-            if value = "px" then Some (Padding (`B, `Px))
-            else if value = "full" then Some (Padding (`B, `Full))
-            else None)
+            if value = "px" then Ok { axis = `B; value = `Px }
+            else if value = "full" then Ok { axis = `B; value = `Full }
+            else err_not_utility)
     | [ "pl"; value ] -> (
         match Parse.spacing_value ~name:"padding-left" value with
-        | Ok f -> Some (Padding (`L, `Rem (f *. 0.25)))
+        | Ok f -> Ok { axis = `L; value = `Rem (f *. 0.25) }
         | Error _ ->
-            if value = "px" then Some (Padding (`L, `Px))
-            else if value = "full" then Some (Padding (`L, `Full))
-            else None)
-    | _ -> None
+            if value = "px" then Ok { axis = `L; value = `Px }
+            else if value = "full" then Ok { axis = `L; value = `Full }
+            else err_not_utility)
+    | _ -> err_not_utility
   in
-  match parse_class parts with Some u -> Ok u | None -> err_not_utility
-
-let suborder = function
-  | Padding (side, value) ->
-      let side_offset =
-        match side with
-        | `All -> 0
-        | `X -> 100
-        | `Y -> 200
-        | `T -> 300
-        | `R -> 400
-        | `B -> 500
-        | `L -> 600
-      in
-      Some (1000 + side_offset + spacing_value_order value)
-  | _ -> None
+  parse_class parts
 
 (** Priority for padding utilities *)
 let priority = 19
 
-let order u = Option.map (fun s -> (priority, s)) (suborder u)
+(** Typed handler for padding utilities *)
+let handler : t Utility.handler = { to_style; priority; suborder; of_string }
 
-(** Register padding handler with Utility system *)
-let () =
-  Utility.register
-    {
-      to_style;
-      order;
-      of_string =
-        (fun parts ->
-          match of_string parts with Ok u -> Some (Ok u) | Error _ -> None);
-    }
+(** Register handler with Utility system *)
+
+let () = Utility.register ~wrap ~unwrap handler
+
+module Handler = struct
+  type nonrec t = t
+
+  let of_string = of_string
+  let suborder = suborder
+  let to_style = to_style
+  let order x = (priority, suborder x)
+end

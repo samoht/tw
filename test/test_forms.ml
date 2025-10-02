@@ -2,9 +2,10 @@ open Alcotest
 
 let check parts =
   let expected = String.concat "-" parts in
-  match Tw.Forms.of_string parts with
+  match Tw.Forms.Handler.of_string parts with
   | Ok u ->
-      check string "forms class" expected (Tw.Style.pp (Tw.Forms.to_style u))
+      check string "forms class" expected
+        (Tw.Style.pp (Tw.Forms.Handler.to_style u))
   | Error (`Msg msg) -> fail msg
 
 let test_inputs () =
@@ -14,7 +15,7 @@ let test_inputs () =
 let test_of_string_invalid () =
   (* Invalid form utilities *)
   let test_invalid input =
-    match Tw.Forms.of_string input with
+    match Tw.Forms.Handler.of_string input with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in

@@ -1,39 +1,79 @@
-(** Animation and transition utilities *)
+(** Animation and transition utilities
+
+    What's included:
+    - `transition-*` - Transition properties (none, all, colors, opacity,
+      shadow, transform).
+    - `animate-*` - Predefined animations (spin, ping, pulse, bounce).
+    - `duration-*` - Animation/transition duration values.
+    - `delay-*` - Animation/transition delay values.
+    - `ease-*` - Easing functions (linear, in, out, in-out).
+
+    What's not:
+    - Custom keyframe animations beyond the predefined ones.
+    - Complex timing functions beyond basic easing.
+
+    Parsing contract (`of_string`):
+    - Accepts ["transition"; ...], ["animate"; ...], ["duration"; n],
+      ["delay"; n], ["ease"; ...]. Unknown tokens yield `Error (`Msg "Not an
+      animation/transition utility")`. *)
 
 open Style
 open Css
-module Parse = Parse
 
 (** {1 Animations Utility Type} *)
 
-type utility =
-  (* Transitions *)
-  | Transition_none
+type t =
+  | (* Transitions *)
+    Transition_none
   | Transition_all
   | Transition_colors
   | Transition_opacity
   | Transition_shadow
   | Transition_transform
   | Transition
-  (* Animations *)
-  | Animate_none
+  | (* Animations *)
+    Animate_none
   | Animate_spin
   | Animate_ping
   | Animate_pulse
   | Animate_bounce
-  (* Duration *)
-  | Duration of int
-  (* Delay *)
-  | Delay of int
-  (* Easing *)
-  | Ease_linear
+  | (* Duration *)
+    Duration of int
+  | (* Delay *)
+    Delay of int
+  | (* Easing *)
+    Ease_linear
   | Ease_in
   | Ease_out
   | Ease_in_out
 
+type Utility.base += Animations of t
+
+let wrap x = Animations x
+let base x = Utility.base (wrap x)
+
 (** {1 Transition Utilities} *)
 
-let transition_none =
+let transition_none = base Transition_none
+let transition = base Transition
+let transition_all = base Transition_all
+let transition_colors = base Transition_colors
+let transition_opacity = base Transition_opacity
+let transition_shadow = base Transition_shadow
+let transition_transform = base Transition_transform
+let animate_none = base Animate_none
+let animate_spin = base Animate_spin
+let animate_ping = base Animate_ping
+let animate_pulse = base Animate_pulse
+let animate_bounce = base Animate_bounce
+let duration n = base (Duration n)
+let delay n = base (Delay n)
+let ease_linear = base Ease_linear
+let ease_in = base Ease_in
+let ease_out = base Ease_out
+let ease_in_out = base Ease_in_out
+
+let transition_none' =
   style "transition-none"
     [
       Css.transition
@@ -46,7 +86,7 @@ let transition_none =
            });
     ]
 
-let transition =
+let transition' =
   style "transition"
     [
       Css.transitions
@@ -117,7 +157,7 @@ let transition =
         ];
     ]
 
-let transition_all =
+let transition_all' =
   style "transition-all"
     [
       Css.transition
@@ -130,7 +170,7 @@ let transition_all =
            });
     ]
 
-let transition_colors =
+let transition_colors' =
   style "transition-colors"
     [
       Css.transitions
@@ -173,7 +213,7 @@ let transition_colors =
         ];
     ]
 
-let transition_opacity =
+let transition_opacity' =
   style "transition-opacity"
     [
       Css.transition
@@ -186,7 +226,7 @@ let transition_opacity =
            });
     ]
 
-let transition_shadow =
+let transition_shadow' =
   style "transition-shadow"
     [
       Css.transition
@@ -199,7 +239,7 @@ let transition_shadow =
            });
     ]
 
-let transition_transform =
+let transition_transform' =
   style "transition-transform"
     [
       Css.transition
@@ -214,7 +254,7 @@ let transition_transform =
 
 (** {1 Animation Utilities} *)
 
-let animate_none =
+let animate_none' =
   style "animate-none"
     [
       Css.animation
@@ -231,7 +271,7 @@ let animate_none =
            });
     ]
 
-let animate_spin =
+let animate_spin' =
   style "animate-spin"
     [
       Css.animation
@@ -248,7 +288,7 @@ let animate_spin =
            });
     ]
 
-let animate_ping =
+let animate_ping' =
   style "animate-ping"
     [
       Css.animation
@@ -265,7 +305,7 @@ let animate_ping =
            });
     ]
 
-let animate_pulse =
+let animate_pulse' =
   style "animate-pulse"
     [
       Css.animation
@@ -282,7 +322,7 @@ let animate_pulse =
            });
     ]
 
-let animate_bounce =
+let animate_bounce' =
   style "animate-bounce"
     [
       Css.animation
@@ -301,29 +341,29 @@ let animate_bounce =
 
 (** {1 Duration Utilities} *)
 
-let duration n =
+let duration' n =
   let class_name = "duration-" ^ string_of_int n in
   style class_name [ Css.transition_duration (Css.Ms (float_of_int n)) ]
 
 (** {1 Timing Function Utilities} *)
 
-let ease_linear = style "ease-linear" [ Css.transition_timing_function Linear ]
+let ease_linear' = style "ease-linear" [ Css.transition_timing_function Linear ]
 
-let ease_in =
+let ease_in' =
   style "ease-in"
     [ Css.transition_timing_function (Cubic_bezier (0.4, 0.0, 1.0, 1.0)) ]
 
-let ease_out =
+let ease_out' =
   style "ease-out"
     [ Css.transition_timing_function (Cubic_bezier (0.0, 0.0, 0.2, 1.0)) ]
 
-let ease_in_out =
+let ease_in_out' =
   style "ease-in-out"
     [ Css.transition_timing_function (Cubic_bezier (0.4, 0.0, 0.2, 1.0)) ]
 
 (** {1 Delay Utilities} *)
 
-let delay n =
+let delay' n =
   let class_name = "delay-" ^ string_of_int n in
   style class_name [ Css.transition_delay (Css.Ms (float_of_int n)) ]
 
@@ -334,24 +374,26 @@ let ( >|= ) = Parse.( >|= )
 (** {1 Utility Conversion Functions} *)
 
 let to_style = function
-  | Transition_none -> transition_none
-  | Transition_all -> transition_all
-  | Transition_colors -> transition_colors
-  | Transition_opacity -> transition_opacity
-  | Transition_shadow -> transition_shadow
-  | Transition_transform -> transition_transform
-  | Transition -> transition
-  | Animate_none -> animate_none
-  | Animate_spin -> animate_spin
-  | Animate_ping -> animate_ping
-  | Animate_pulse -> animate_pulse
-  | Animate_bounce -> animate_bounce
-  | Duration n -> duration n
-  | Delay n -> delay n
-  | Ease_linear -> ease_linear
-  | Ease_in -> ease_in
-  | Ease_out -> ease_out
-  | Ease_in_out -> ease_in_out
+  | Transition_none -> transition_none'
+  | Transition_all -> transition_all'
+  | Transition_colors -> transition_colors'
+  | Transition_opacity -> transition_opacity'
+  | Transition_shadow -> transition_shadow'
+  | Transition_transform -> transition_transform'
+  | Transition -> transition'
+  | Animate_none -> animate_none'
+  | Animate_spin -> animate_spin'
+  | Animate_ping -> animate_ping'
+  | Animate_pulse -> animate_pulse'
+  | Animate_bounce -> animate_bounce'
+  | Duration n -> duration' n
+  | Delay n -> delay' n
+  | Ease_linear -> ease_linear'
+  | Ease_in -> ease_in'
+  | Ease_out -> ease_out'
+  | Ease_in_out -> ease_in_out'
+
+let err_not_utility = Error (`Msg "Not an animation utility")
 
 let of_string = function
   | [ "transition"; "none" ] -> Ok Transition_none
@@ -373,7 +415,7 @@ let of_string = function
   | [ "ease"; "in" ] -> Ok Ease_in
   | [ "ease"; "out" ] -> Ok Ease_out
   | [ "ease"; "in"; "out" ] -> Ok Ease_in_out
-  | _ -> Error (`Msg "Not an animation/transition utility")
+  | _ -> err_not_utility
 
 (** {1 Utility Ordering} *)
 
@@ -396,3 +438,20 @@ let suborder = function
   | Animate_ping -> 402
   | Animate_pulse -> 403
   | Animate_bounce -> 404
+
+(** Priority for animation utilities *)
+let priority = 200
+
+let unwrap = function Animations a -> Some a | _ -> None
+
+let () =
+  Utility.register ~wrap ~unwrap { to_style; priority; suborder; of_string }
+
+module Handler = struct
+  type nonrec t = t
+
+  let of_string = of_string
+  let suborder = suborder
+  let to_style = to_style
+  let order x = (priority, suborder x)
+end

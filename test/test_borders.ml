@@ -2,9 +2,9 @@ open Alcotest
 
 let check parts =
   let expected = String.concat "-" parts in
-  match Tw.Borders.of_string parts with
+  match Tw.Borders.Handler.of_string parts with
   | Ok result ->
-      let style = Tw.Borders.to_style result in
+      let style = Tw.Borders.Handler.to_style result in
       Alcotest.check string "border class name" expected (Tw.Style.pp style)
   | Error (`Msg msg) -> fail msg
 
@@ -57,7 +57,7 @@ let of_string_valid () =
 let of_string_invalid () =
   (* Invalid border values *)
   let fail_maybe input =
-    match Tw.Borders.of_string input with
+    match Tw.Borders.Handler.of_string input with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in

@@ -2,9 +2,9 @@ open Alcotest
 
 let check parts =
   let expected = String.concat "-" parts in
-  match Tw.Containers.of_string parts with
+  match Tw.Containers.Handler.of_string parts with
   | Ok t ->
-      let style = Tw.Containers.to_style t in
+      let style = Tw.Containers.Handler.to_style t in
       check string "containers class" expected (Tw.Style.pp style)
   | Error (`Msg msg) -> fail msg
 
@@ -17,7 +17,7 @@ let test_container_name () = check [ "container"; "sidebar" ]
 let test_of_string_invalid () =
   (* Invalid container utilities *)
   let test_invalid input =
-    match Tw.Containers.of_string input with
+    match Tw.Containers.Handler.of_string input with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in

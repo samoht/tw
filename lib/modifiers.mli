@@ -2,6 +2,7 @@
 *)
 
 open Style
+open Utility
 
 (** {1 Internal Helpers} *)
 

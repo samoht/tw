@@ -2,10 +2,10 @@ open Alcotest
 
 let check parts =
   let expected = String.concat "-" parts in
-  match Tw.Animations.of_string parts with
+  match Tw.Animations.Handler.of_string parts with
   | Ok t ->
       check string "animations class" expected
-        (Tw.Style.pp (Tw.Animations.to_style t))
+        (Tw.Style.pp (Tw.Animations.Handler.to_style t))
   | Error (`Msg msg) -> fail msg
 
 (* Helper to check if animation property exists with expected name *)

@@ -1,21 +1,9 @@
-(** Form element utilities *)
+(** Form element utilities
 
-open Style
+    https://tailwindcss.com/docs/accent-color
+    https://tailwindcss.com/docs/appearance *)
 
-(** {1 Utility Type} *)
-
-type utility =
-  | Form_input
-  | Form_textarea
-  | Form_select
-  | Form_checkbox
-  | Form_radio
-
-val to_style : utility -> t
-(** [to_style utility] converts a form utility to a style. *)
-
-val suborder : utility -> int
-(** [suborder utility] returns the suborder for utility ordering. *)
+open Utility
 
 (** {1 Form Input Utilities} *)
 
@@ -34,7 +22,11 @@ val form_checkbox : t
 val form_radio : t
 (** [form_radio] applies radio button input styles. *)
 
-(** {1 Parsing Functions} *)
+module Handler : sig
+  type t
 
-val of_string : string list -> (utility, [ `Msg of string ]) result
-(** [of_string parts] parses a form utility from string parts. *)
+  val of_string : string list -> (t, [ `Msg of string ]) result
+  val suborder : t -> int
+  val to_style : t -> Style.t
+  val order : t -> int * int
+end
