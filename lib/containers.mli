@@ -76,5 +76,4 @@ module Handler : sig
       deterministic CSS output ordering. *)
 
   val to_style : t -> Style.t
-  val order : t -> int * int
 end

@@ -7,7 +7,7 @@ val extract_utilities_layer_rules : Css.t -> Css.statement list
 val extract_rule_selectors : Css.statement list -> string list
 (** [extract_rule_selectors stmts] extracts selector strings from CSS rules *)
 
-val check_ordering_fails : Tw.Utility.t list -> bool
+val check_ordering_fails : Tw.t list -> bool
 (** [check_ordering_fails utilities] checks if utilities produce different
     ordering than Tailwind CSS *)
 

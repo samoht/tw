@@ -2,7 +2,6 @@
 
     https://tailwindcss.com/docs/padding *)
 
-open Style
 open Utility
 
 (** {1 Padding Utilities} *)
@@ -27,27 +26,6 @@ val pb : int -> t
 
 val pl : int -> t
 (** [pl n] creates left padding. *)
-
-val p' : spacing -> Style.t
-(** [p' s] sets padding on all sides using typed spacing [s]. *)
-
-val px' : spacing -> Style.t
-(** [px' s] sets horizontal padding using typed spacing [s]. *)
-
-val py' : spacing -> Style.t
-(** [py' s] sets vertical padding using typed spacing [s]. *)
-
-val pt' : spacing -> Style.t
-(** [pt' s] sets top padding using typed spacing [s]. *)
-
-val pr' : spacing -> Style.t
-(** [pr' s] sets right padding using typed spacing [s]. *)
-
-val pb' : spacing -> Style.t
-(** [pb' s] sets bottom padding using typed spacing [s]. *)
-
-val pl' : spacing -> Style.t
-(** [pl' s] sets left padding using typed spacing [s]. *)
 
 (** {1 Special Values} *)
 
@@ -99,5 +77,4 @@ module Handler : sig
   val of_string : string list -> (t, [ `Msg of string ]) result
   val suborder : t -> int
   val to_style : t -> Style.t
-  val order : t -> int * int
 end

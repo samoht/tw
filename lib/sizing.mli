@@ -20,12 +20,11 @@ module Handler : sig
   val of_string : string list -> (t, [ `Msg of string ]) result
   val suborder : t -> int
   val to_style : t -> Style.t
-  val order : t -> int * int
 end
 
 (** {1 Width Utilities} *)
 
-val w' : size -> Style.t
+val w' : size -> t
 (** [w' sz] sets width to predefined size [sz] (e.g., [`Sm], [`Full]). *)
 
 val w : int -> t
@@ -76,7 +75,7 @@ val w_3_5 : t
 val w_4_5 : t
 (** [w_4_5] sets width to 4/5. *)
 
-val h' : size -> Style.t
+val h' : size -> t
 (** [h' sz] sets height to predefined size [sz]. *)
 
 val h : int -> t
@@ -127,7 +126,7 @@ val h_3_5 : t
 val h_4_5 : t
 (** [h_4_5] sets height to 4/5. *)
 
-val min_w' : size -> Style.t
+val min_w' : size -> t
 (** [min_w' sz] sets min-width to predefined size [sz]. *)
 
 val min_w : int -> t
@@ -148,7 +147,7 @@ val min_w_max : t
 val min_w_fit : t
 (** [min_w_fit] sets min-width to fit-content. *)
 
-val max_w' : size -> Style.t
+val max_w' : size -> t
 (** [max_w' sz] sets max-width to predefined size [sz]. *)
 
 val max_w : int -> t
@@ -220,7 +219,7 @@ val max_w_screen_xl : t
 val max_w_screen_2xl : t
 (** [max_w_screen_2xl] sets max-width to 2× extra-large breakpoint width. *)
 
-val min_h' : size -> Style.t
+val min_h' : size -> t
 (** [min_h' sz] sets min-height to predefined size [sz]. *)
 
 val min_h : int -> t
@@ -244,7 +243,7 @@ val min_h_max : t
 val min_h_fit : t
 (** [min_h_fit] sets min-height to fit-content. *)
 
-val max_h' : size -> Style.t
+val max_h' : size -> t
 (** [max_h' sz] sets max-height to predefined size [sz]. *)
 
 val max_h : int -> t

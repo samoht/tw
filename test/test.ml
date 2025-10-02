@@ -65,4 +65,5 @@ let () =
       Test_prose.suite;
       Test_theme.suite;
       Test_utility.suite;
+      Test_spacing.suite;
     ]

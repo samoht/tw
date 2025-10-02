@@ -32,6 +32,15 @@ val transition_shadow : t
 val transition_transform : t
 (** [transition_transform] enables transitions for transform. *)
 
+(** {1 Transition Behavior} *)
+
+val transition_behavior_normal : t
+(** [transition_behavior_normal] uses normal transition behavior (default). *)
+
+val transition_behavior_allow_discrete : t
+(** [transition_behavior_allow_discrete] enables discrete transitions for
+    certain properties where supported. *)
+
 (** {1 Animation Utilities} *)
 
 val animate_none : t
@@ -79,5 +88,4 @@ module Handler : sig
   val of_string : string list -> (t, [ `Msg of string ]) result
   val suborder : t -> int
   val to_style : t -> Style.t
-  val order : t -> int * int
 end

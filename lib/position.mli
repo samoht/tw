@@ -28,11 +28,6 @@ module Handler : sig
   type t
 
   val of_string : string list -> (t, [ `Msg of string ]) result
-  (** [of_string parts] parses a positioning utility from string parts. *)
-
   val suborder : t -> int
-  (** [suborder u] returns the ordering value for positioning utility [u]. *)
-
   val to_style : t -> Style.t
-  val order : t -> int * int
 end
