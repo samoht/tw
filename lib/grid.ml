@@ -102,8 +102,8 @@ module Handler = struct
   let suborder = function
     (* Display - suborder matches alphabetical position across all display
        utilities *)
-    | Grid -> 2
-    | Inline_grid -> 7
+    | Grid -> 3
+    | Inline_grid -> 8
     | Col_auto -> 10
     | Col_span n -> 20 + n
     | Col_span_full -> 33

@@ -50,7 +50,7 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  let priority = 200
+  let priority = 14
 
   let transition_none =
     style "transition-none"
@@ -370,26 +370,26 @@ module Handler = struct
     | Ease_in_out -> ease_in_out
 
   let suborder = function
-    | Transition -> 0
-    | Transition_none -> 1
-    | Transition_all -> 2
-    | Transition_colors -> 3
-    | Transition_opacity -> 4
-    | Transition_shadow -> 5
-    | Transition_transform -> 6
-    | Transition_behavior_normal -> 7
-    | Transition_behavior_allow_discrete -> 8
-    | Duration n -> 100 + n
-    | Delay n -> 200 + n
-    | Ease_linear -> 300
-    | Ease_in -> 301
-    | Ease_out -> 302
-    | Ease_in_out -> 303
-    | Animate_none -> 400
-    | Animate_spin -> 401
-    | Animate_ping -> 402
-    | Animate_pulse -> 403
-    | Animate_bounce -> 404
+    | Transition -> 500
+    | Transition_none -> 501
+    | Transition_all -> 502
+    | Transition_colors -> 503
+    | Transition_opacity -> 504
+    | Transition_shadow -> 505
+    | Transition_transform -> 506
+    | Transition_behavior_normal -> 507
+    | Transition_behavior_allow_discrete -> 508
+    | Duration n -> 600 + n
+    | Delay n -> 700 + n
+    | Ease_linear -> 800
+    | Ease_in -> 801
+    | Ease_out -> 802
+    | Ease_in_out -> 803
+    | Animate_none -> 900
+    | Animate_spin -> 901
+    | Animate_ping -> 902
+    | Animate_pulse -> 903
+    | Animate_bounce -> 904
 
   let ( >|= ) = Parse.( >|= )
 

@@ -67,60 +67,60 @@ module Handler = struct
   let priority = 4
 
   let suborder = function
+    (* Screen reader - must come before display utilities *)
+    | Sr_only -> 0
+    | Not_sr_only -> 1
     (* Display utilities - suborder matches alphabetical position *)
-    | Block -> 0
-    | Hidden -> 3
-    | Inline -> 4
-    | Inline_block -> 5
-    (* Overflow utilities - start after display utilities *)
-    | Overflow_auto -> 10
-    | Overflow_clip -> 11
-    | Overflow_hidden -> 12
-    | Overflow_scroll -> 13
-    | Overflow_visible -> 14
-    | Overflow_x_auto -> 15
-    | Overflow_x_hidden -> 16
-    | Overflow_x_scroll -> 17
-    | Overflow_x_visible -> 18
-    | Overflow_y_auto -> 19
-    | Overflow_y_hidden -> 20
-    | Overflow_y_scroll -> 21
-    | Overflow_y_visible -> 22
+    | Block -> 1
+    | Hidden -> 4
+    | Inline -> 5
+    | Inline_block -> 6
+    (* Table utilities - come before overflow *)
+    | Border_collapse -> 20
+    | Border_separate -> 21
+    | Border_spacing _ -> 22
+    | Table_auto -> 23
+    | Table_fixed -> 24
+    (* Overflow utilities - after table *)
+    | Overflow_auto -> 30
+    | Overflow_clip -> 31
+    | Overflow_hidden -> 32
+    | Overflow_scroll -> 33
+    | Overflow_visible -> 34
+    | Overflow_x_auto -> 35
+    | Overflow_x_hidden -> 36
+    | Overflow_x_scroll -> 37
+    | Overflow_x_visible -> 38
+    | Overflow_y_auto -> 39
+    | Overflow_y_hidden -> 40
+    | Overflow_y_scroll -> 41
+    | Overflow_y_visible -> 42
     (* Visibility *)
     | Visible -> 100
     | Invisible -> 101
     | Collapse -> 102
     (* Isolation *)
     | Isolate -> 200
-    (* Screen reader *)
-    | Sr_only -> 300
-    | Not_sr_only -> 301
     (* Z-index *)
-    | Z_0 -> 400
-    | Z_10 -> 401
-    | Z_20 -> 402
-    | Z_30 -> 403
-    | Z_40 -> 404
-    | Z_50 -> 405
-    | Z_auto -> 406
+    | Z_0 -> 500
+    | Z_10 -> 501
+    | Z_20 -> 502
+    | Z_30 -> 503
+    | Z_40 -> 504
+    | Z_50 -> 505
+    | Z_auto -> 506
     (* Object fit *)
-    | Object_contain -> 500
-    | Object_cover -> 501
-    | Object_fill -> 502
-    | Object_none -> 503
-    | Object_scale_down -> 504
+    | Object_contain -> 600
+    | Object_cover -> 601
+    | Object_fill -> 602
+    | Object_none -> 603
+    | Object_scale_down -> 604
     (* Object position *)
-    | Object_center -> 600
-    | Object_top -> 601
-    | Object_bottom -> 602
-    | Object_left -> 603
-    | Object_right -> 604
-    (* Table *)
-    | Border_collapse -> 700
-    | Border_separate -> 701
-    | Border_spacing _ -> 702
-    | Table_auto -> 703
-    | Table_fixed -> 704
+    | Object_center -> 700
+    | Object_top -> 701
+    | Object_bottom -> 702
+    | Object_left -> 703
+    | Object_right -> 704
 
   (** {1 Style Generation} *)
 
@@ -239,8 +239,8 @@ module Handler = struct
     | [ "object"; "bottom" ] -> Ok Object_bottom
     | [ "object"; "left" ] -> Ok Object_left
     | [ "object"; "right" ] -> Ok Object_right
-    | [ "sr-only" ] -> Ok Sr_only
-    | [ "not-sr-only" ] -> Ok Not_sr_only
+    | [ "sr"; "only" ] -> Ok Sr_only
+    | [ "not"; "sr"; "only" ] -> Ok Not_sr_only
     | [ "border"; "collapse" ] -> Ok Border_collapse
     | [ "border"; "separate" ] -> Ok Border_separate
     | [ "border"; "spacing"; n ] -> (

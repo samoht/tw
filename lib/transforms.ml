@@ -47,7 +47,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   (** Priority for transform utilities *)
-  let priority = 1
+  let priority = 6
 
   (* Transform variables using new API *)
   let tw_translate_x_var = Var.channel Css.Length "tw-translate-x"
@@ -301,34 +301,34 @@ module Handler = struct
     | _ -> err_not_utility
 
   let suborder = function
-    | Transform -> 0
-    | Transform_none -> 1
-    | Transform_gpu -> 2
-    | Rotate n -> 100 + n
-    | Rotate_x n -> 150 + n
-    | Rotate_y n -> 160 + n
-    | Rotate_z n -> 170 + n
-    | Scale n -> 200 + n
-    | Scale_x n -> 250 + n
-    | Scale_y n -> 260 + n
-    | Scale_z n -> 270 + n
-    | Translate_x n -> 300 + n
-    | Neg_translate_x_1_2 -> 380
-    | Translate_y n -> 350 + n
-    | Neg_translate_y_1_2 -> 390
-    | Translate_z n -> 360 + n
-    | Skew_x n -> 400 + n
-    | Skew_y n -> 450 + n
-    | Perspective n -> 500 + n
-    | Perspective_origin_center -> 600
-    | Perspective_origin_top -> 601
-    | Perspective_origin_bottom -> 602
-    | Perspective_origin_left -> 603
-    | Perspective_origin_right -> 604
-    | Transform_style_3d -> 700
-    | Transform_style_flat -> 701
-    | Backface_visible -> 702
-    | Backface_hidden -> 703
+    | Transform -> 1000000
+    | Transform_none -> 1000001
+    | Transform_gpu -> 1000002
+    | Rotate n -> 1000100 + n
+    | Rotate_x n -> 1000150 + n
+    | Rotate_y n -> 1000160 + n
+    | Rotate_z n -> 1000170 + n
+    | Scale n -> 1000200 + n
+    | Scale_x n -> 1000250 + n
+    | Scale_y n -> 1000260 + n
+    | Scale_z n -> 1000270 + n
+    | Translate_x n -> 1000300 + n
+    | Neg_translate_x_1_2 -> 1000380
+    | Translate_y n -> 1000350 + n
+    | Neg_translate_y_1_2 -> 1000390
+    | Translate_z n -> 1000360 + n
+    | Skew_x n -> 1000400 + n
+    | Skew_y n -> 1000450 + n
+    | Perspective n -> 1000500 + n
+    | Perspective_origin_center -> 1000600
+    | Perspective_origin_top -> 1000601
+    | Perspective_origin_bottom -> 1000602
+    | Perspective_origin_left -> 1000603
+    | Perspective_origin_right -> 1000604
+    | Transform_style_3d -> 1000700
+    | Transform_style_flat -> 1000701
+    | Backface_visible -> 1000702
+    | Backface_hidden -> 1000703
 end
 
 open Handler

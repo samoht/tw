@@ -7,7 +7,7 @@ module Handler = struct
   type t = { axis : [ `All | `X | `Y | `T | `R | `B | `L ]; value : spacing }
   type Utility.base += Self of t
 
-  let priority = 13
+  let priority = 14
 
   let v prefix prop (s : spacing) =
     let class_name = prefix ^ Spacing.pp_spacing_suffix s in
@@ -60,15 +60,15 @@ module Handler = struct
   let suborder { axis; value } =
     let side_offset =
       match axis with
-      | `All -> 0
-      | `X -> 100000
-      | `Y -> 200000
-      | `T -> 300000
-      | `R -> 400000
-      | `B -> 500000
-      | `L -> 600000
+      | `All -> 905
+      | `X -> 910
+      | `Y -> 915
+      | `T -> 920
+      | `R -> 925
+      | `B -> 930
+      | `L -> 935
     in
-    side_offset + spacing_value_order value
+    side_offset + (spacing_value_order value / 1000)
 
   (** Parse string parts to padding utility *)
   let of_string parts =

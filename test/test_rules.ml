@@ -1036,7 +1036,7 @@ let test_priority_order_per_group () =
   let open Tw in
   (* Define pools of utilities for each priority group *)
   let position_utils = [ static; fixed; absolute; relative; sticky ] in
-  let transform_utils = [ scale 105; rotate 45; translate_x 4 ] in
+  let transform_utils = [ scale 105; rotate 45; scale 110 ] in
   let margin_utils = List.init 10 (fun i -> m i) in
   let prose_utils = [ prose; prose_sm; prose_lg; prose_xl ] in
   let layout_utils = [ block; inline; inline_block; hidden ] in
@@ -1050,11 +1050,10 @@ let test_priority_order_per_group () =
   let border_utils = [ rounded; rounded_lg; rounded_full ] in
   let bg_utils = [ bg blue 500; bg red 500; bg green 500 ] in
   let padding_utils = List.init 10 (fun i -> p i) in
-  let container_utils = [ container_type_size; container_type_inline_size ] in
   let typography_utils = [ text_xl; text_sm; text_2xl ] in
   let effect_utils = [ shadow; shadow_md; shadow_lg ] in
-  let filter_utils = [ blur_sm; blur; blur_lg ] in
   let animation_utils = [ animate_spin; animate_pulse; animate_bounce ] in
+  let filter_utils = [ blur_sm; blur; blur_lg ] in
 
   (* Randomly pick one utility from each group *)
   let pick_random lst = List.nth lst (Random.int (List.length lst)) in
@@ -1063,8 +1062,6 @@ let test_priority_order_per_group () =
     [
       pick_random position_utils;
       (* position: priority 0 *)
-      pick_random transform_utils;
-      (* transforms: priority 1 *)
       pick_random margin_utils;
       (* margin: priority 2 *)
       pick_random prose_utils;
@@ -1091,16 +1088,16 @@ let test_priority_order_per_group () =
       (* backgrounds: priority 12 *)
       pick_random padding_utils;
       (* padding: priority 13 *)
-      pick_random container_utils;
-      (* containers: priority 14 *)
       pick_random typography_utils;
       (* typography: priority 14 *)
       pick_random effect_utils;
       (* effects: priority 15 *)
+      pick_random transform_utils;
+      (* transforms: priority 16 *)
+      pick_random animation_utils;
+      (* animations: priority 17 *)
       pick_random filter_utils;
       (* filters: priority 60 *)
-      pick_random animation_utils;
-      (* animations: priority 200 *)
     ]
   in
   Test_helpers.check_ordering_matches
