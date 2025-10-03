@@ -92,35 +92,35 @@ module Handler = struct
     | Collapse -> 102
     (* Isolation *)
     | Isolate -> 200
-    (* Z-index *)
-    | Z_0 -> 300
-    | Z_10 -> 301
-    | Z_20 -> 302
-    | Z_30 -> 303
-    | Z_40 -> 304
-    | Z_50 -> 305
-    | Z_auto -> 306
-    (* Object fit *)
-    | Object_contain -> 400
-    | Object_cover -> 401
-    | Object_fill -> 402
-    | Object_none -> 403
-    | Object_scale_down -> 404
-    (* Object position *)
-    | Object_center -> 500
-    | Object_top -> 501
-    | Object_bottom -> 502
-    | Object_left -> 503
-    | Object_right -> 504
-    (* Table *)
-    | Border_collapse -> 600
-    | Border_separate -> 601
-    | Border_spacing _ -> 602
-    | Table_auto -> 603
-    | Table_fixed -> 604
     (* Screen reader *)
-    | Sr_only -> 700
-    | Not_sr_only -> 701
+    | Sr_only -> 300
+    | Not_sr_only -> 301
+    (* Z-index *)
+    | Z_0 -> 400
+    | Z_10 -> 401
+    | Z_20 -> 402
+    | Z_30 -> 403
+    | Z_40 -> 404
+    | Z_50 -> 405
+    | Z_auto -> 406
+    (* Object fit *)
+    | Object_contain -> 500
+    | Object_cover -> 501
+    | Object_fill -> 502
+    | Object_none -> 503
+    | Object_scale_down -> 504
+    (* Object position *)
+    | Object_center -> 600
+    | Object_top -> 601
+    | Object_bottom -> 602
+    | Object_left -> 603
+    | Object_right -> 604
+    (* Table *)
+    | Border_collapse -> 700
+    | Border_separate -> 701
+    | Border_spacing _ -> 702
+    | Table_auto -> 703
+    | Table_fixed -> 704
 
   (** {1 Style Generation} *)
 
