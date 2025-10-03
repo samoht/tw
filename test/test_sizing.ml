@@ -1,12 +1,7 @@
 open Alcotest
+open Test_helpers
 
-let check parts =
-  let expected = String.concat "-" parts in
-  match Tw.Sizing.Handler.of_string parts with
-  | Ok result ->
-      let style = Tw.Sizing.Handler.to_style result in
-      Alcotest.check string "sizing class name" expected (Tw.Style.pp style)
-  | Error (`Msg msg) -> fail msg
+let check = check_handler_roundtrip (module Tw.Sizing.Handler)
 
 let test_widths () =
   check [ "w"; "0" ];
@@ -62,11 +57,7 @@ let test_square_sizes () =
 
 let of_string_invalid () =
   (* Invalid sizing values *)
-  let test_invalid input =
-    match Tw.Sizing.Handler.of_string input with
-    | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
-    | Error _ -> ()
-  in
+  let test_invalid = check_invalid_input (module Tw.Sizing.Handler) in
 
   test_invalid [ "w" ];
   (* Missing value *)

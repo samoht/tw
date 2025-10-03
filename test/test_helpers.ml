@@ -174,7 +174,108 @@ let check_ordering_matches ~test_name utilities =
           minimal_tw_order;
         Fmt.epr "Received (tw):       %a@.@."
           Fmt.(list ~sep:(const string ", ") (quote string))
-          minimal_our_order
-    | None -> ());
+          minimal_our_order;
+        (* Fail with minimal test case for clearer error message *)
+        Alcotest.(check (list string))
+          test_name minimal_tw_order minimal_our_order
+    | None ->
+        (* No minimization possible, fail with full test case *)
+        Alcotest.(check (list string)) test_name tailwind_order our_order)
+  else
+    (* Test passes *)
+    Alcotest.(check (list string)) test_name tailwind_order our_order
 
-  Alcotest.(check (list string)) test_name tailwind_order our_order
+(** CSS Test Helpers *)
+
+(** Check if a layer exists in the stylesheet *)
+let has_layer name css =
+  List.exists
+    (fun stmt ->
+      match Css.as_layer stmt with
+      | Some (Some layer_name, _) when layer_name = name -> true
+      | _ -> false)
+    (Css.statements css)
+
+(** Get all custom property names from a layer *)
+let vars_in_layer layer_name css = Css.custom_props ~layer:layer_name css
+
+(** Check if a variable name exists in a layer *)
+let has_var_in_layer var_name layer_name css =
+  let vars = vars_in_layer layer_name css in
+  List.exists (fun v -> v = var_name) vars
+
+(** Get all selectors from a layer *)
+let selectors_in_layer layer_name css =
+  match Css.layer_block layer_name css with
+  | None -> []
+  | Some stmts ->
+      List.filter_map
+        (fun stmt ->
+          match Css.as_rule stmt with
+          | Some (sel, _, _) -> Some (Css.Selector.to_string sel)
+          | None -> None)
+        stmts
+
+(** Check if a selector exists in a layer *)
+let has_selector_in_layer selector layer_name css =
+  let sels = selectors_in_layer layer_name css in
+  List.mem selector sels
+
+(** Get all media query conditions from stylesheet, recursively *)
+let media_conditions css =
+  Css.fold
+    (fun acc stmt ->
+      match Css.as_media stmt with Some (cond, _) -> cond :: acc | None -> acc)
+    [] css
+  |> List.rev
+
+(** Check if a specific media condition exists *)
+let has_media_condition condition css =
+  List.mem condition (media_conditions css)
+
+(** Check if inline style contains a specific property *)
+let inline_has_property prop_name inline_style =
+  String.split_on_char ';' inline_style
+  |> List.exists (fun prop ->
+         String.trim prop |> String.split_on_char ':' |> function
+         | prop :: _ -> String.trim prop = prop_name
+         | [] -> false)
+
+(** Check if declarations contain any var() references *)
+let has_var_in_declarations ?(inline = false) decls =
+  List.exists
+    (fun decl ->
+      let value = Css.declaration_value ~inline decl in
+      String.length value >= 4 && String.sub value 0 4 = "var(")
+    decls
+
+(** {1 Generic Test Patterns} *)
+
+module type Handler = sig
+  type t
+
+  val of_string : string list -> (t, [ `Msg of string ]) result
+  val to_style : t -> Tw.Style.t
+end
+
+module type Parser = sig
+  type t
+
+  val of_string : string list -> (t, [ `Msg of string ]) result
+end
+
+(** Generic handler test - checks that parsing and pretty-printing round-trip
+    correctly *)
+let check_handler_roundtrip (module H : Handler) parts =
+  let expected = String.concat "-" parts in
+  match H.of_string parts with
+  | Ok result ->
+      let style = H.to_style result in
+      Alcotest.(check string) expected expected (Tw.Style.pp style)
+  | Error (`Msg msg) -> Alcotest.fail msg
+
+(** Generic test for invalid inputs - expects parsing to fail *)
+let check_invalid_input (module H : Parser) input =
+  match H.of_string input with
+  | Ok _ -> Alcotest.fail ("Expected error for: " ^ String.concat "-" input)
+  | Error _ -> ()
