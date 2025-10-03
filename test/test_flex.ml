@@ -1,12 +1,7 @@
 open Alcotest
+open Test_helpers
 
-let check parts =
-  let expected = String.concat "-" parts in
-  match Tw.Flex.Handler.of_string parts with
-  | Ok result ->
-      let style = Tw.Flex.Handler.to_style result in
-      Alcotest.check string "flex class name" expected (Tw.Style.pp style)
-  | Error (`Msg msg) -> fail msg
+let check = check_handler_roundtrip (module Tw.Flex.Handler)
 
 let of_string_valid () =
   (* Display *)
@@ -54,11 +49,7 @@ let of_string_valid () =
   check [ "order"; "none" ]
 
 let of_string_invalid () =
-  let fail_maybe input =
-    match Tw.Flex.Handler.of_string input with
-    | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
-    | Error _ -> ()
-  in
+  let fail_maybe = check_invalid_input (module Tw.Flex.Handler) in
 
   fail_maybe [ "flex"; "invalid" ];
   fail_maybe [ "basis" ];

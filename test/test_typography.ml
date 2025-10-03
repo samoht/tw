@@ -1,12 +1,7 @@
 open Alcotest
+open Test_helpers
 
-let check parts =
-  let expected = String.concat "-" parts in
-  match Tw.Typography.Handler.of_string parts with
-  | Ok result ->
-      let style = Tw.Typography.Handler.to_style result in
-      Alcotest.check string "typography class name" expected (Tw.Style.pp style)
-  | Error (`Msg msg) -> fail msg
+let check = check_handler_roundtrip (module Tw.Typography.Handler)
 
 let test_font_family () =
   check [ "font"; "sans" ];
@@ -160,11 +155,7 @@ let test_content () = check [ "content"; "none" ]
 
 let of_string_invalid () =
   (* Invalid typography values *)
-  let fail_maybe input =
-    match Tw.Typography.Handler.of_string input with
-    | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
-    | Error _ -> ()
-  in
+  let fail_maybe = check_invalid_input (module Tw.Typography.Handler) in
 
   fail_maybe [ "font"; "invalid" ];
   (* Invalid font family *)

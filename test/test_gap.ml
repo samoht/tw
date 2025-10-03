@@ -1,12 +1,7 @@
 open Alcotest
+open Test_helpers
 
-let check parts =
-  let expected = String.concat "-" parts in
-  match Tw.Gap.Handler.of_string parts with
-  | Ok result ->
-      let style = Tw.Gap.Handler.to_style result in
-      Alcotest.check string "gap class name" expected (Tw.Style.pp style)
-  | Error (`Msg msg) -> fail msg
+let check = check_handler_roundtrip (module Tw.Gap.Handler)
 
 let of_string_valid () =
   (* Gap all *)
@@ -36,11 +31,7 @@ let of_string_valid () =
   check [ "-space"; "y"; "2" ]
 
 let of_string_invalid () =
-  let fail_maybe input =
-    match Tw.Gap.Handler.of_string input with
-    | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
-    | Error _ -> ()
-  in
+  let fail_maybe = check_invalid_input (module Tw.Gap.Handler) in
 
   fail_maybe [ "gap" ];
   fail_maybe [ "gap"; "invalid" ];
