@@ -66,6 +66,15 @@ val has_var_in_declarations : ?inline:bool -> Css.declaration list -> bool
 (** [has_var_in_declarations ~inline decls] checks if declarations contain any
     var() references *)
 
+(** {1 Utility Generators} *)
+
+val spacing_values : int list
+(** Common spacing values used in Tailwind utilities *)
+
+val shuffle : 'a list -> 'a list
+(** [shuffle lst] returns a shuffled copy of the list using Fisher-Yates
+    algorithm *)
+
 (** {1 Generic Test Patterns} *)
 
 module type Handler = sig

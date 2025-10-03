@@ -249,6 +249,24 @@ let has_var_in_declarations ?(inline = false) decls =
       String.length value >= 4 && String.sub value 0 4 = "var(")
     decls
 
+(** {1 Utility Generators} *)
+
+(** Common spacing values used in Tailwind *)
+let spacing_values =
+  [ 0; 1; 2; 3; 4; 5; 6; 8; 10; 12; 16; 20; 24; 32; 40; 48; 64 ]
+
+(** Shuffle a list in place using Fisher-Yates algorithm *)
+let shuffle lst =
+  let arr = Array.of_list lst in
+  let n = Array.length arr in
+  for i = n - 1 downto 1 do
+    let j = Random.int (i + 1) in
+    let temp = arr.(i) in
+    arr.(i) <- arr.(j);
+    arr.(j) <- temp
+  done;
+  Array.to_list arr
+
 (** {1 Generic Test Patterns} *)
 
 module type Handler = sig

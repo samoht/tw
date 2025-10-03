@@ -1100,12 +1100,7 @@ let test_suborder_within_group () =
   (* Generate utilities programmatically for comprehensive testing *)
   let spacing_values = [ 0; 1; 2; 3; 4; 6; 8; 12 ] in
 
-  (* Margin utilities: test all axes and values *)
-  let margin_utils =
-    List.concat_map
-      (fun n -> [ m n; mx n; my n; mt n; mb n; ml n; mr n ])
-      spacing_values
-  in
+  (* Note: margin has its own suborder test in test_margin.ml *)
 
   (* Padding utilities: test all axes and values *)
   let padding_utils =
@@ -1207,17 +1202,7 @@ let test_suborder_within_group () =
         Fmt.str "suborder for %s group matches Tailwind" group_name
       in
       (* Shuffle utilities to test ordering, not insertion order *)
-      let shuffled =
-        let arr = Array.of_list utilities in
-        let n = Array.length arr in
-        for i = n - 1 downto 1 do
-          let j = Random.int (i + 1) in
-          let temp = arr.(i) in
-          arr.(i) <- arr.(j);
-          arr.(j) <- temp
-        done;
-        Array.to_list arr
-      in
+      let shuffled = Test_helpers.shuffle utilities in
       (* check_ordering_matches already includes delta debugging *)
       Test_helpers.check_ordering_matches ~test_name shuffled)
     test_groups
