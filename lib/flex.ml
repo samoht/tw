@@ -133,8 +133,8 @@ module Handler = struct
   let suborder : t -> int = function
     (* Display - suborder matches alphabetical position across all display
        utilities *)
-    | Flex -> 1
-    | Inline_flex -> 6
+    | Flex -> 2
+    | Inline_flex -> 7
     (* Direction *)
     | Flex_row -> 10
     | Flex_row_reverse -> 11
