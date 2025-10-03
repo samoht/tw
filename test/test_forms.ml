@@ -39,10 +39,21 @@ let test_of_string_invalid () =
   test_invalid []
 (* Empty input *)
 
+let all_utilities () =
+  let open Tw in
+  [ form_input; form_checkbox ]
+
+let suborder_matches_tailwind () =
+  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+
+  Test_helpers.check_ordering_matches
+    ~test_name:"forms suborder matches Tailwind" shuffled
+
 let tests =
   [
     test_case "inputs" `Quick test_inputs;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
+    test_case "forms suborder matches Tailwind" `Slow suborder_matches_tailwind;
   ]
 
 let suite = ("forms", tests)

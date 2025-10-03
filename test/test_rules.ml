@@ -1106,6 +1106,20 @@ let test_suborder_within_group () =
       ("flex", Test_flex.all_utilities ());
       ("grid", Test_grid_template.all_utilities ());
       ("typography", Test_typography.all_utilities ());
+      ("borders", Test_borders.all_utilities ());
+      ("cursor", Test_cursor.all_utilities ());
+      ("alignment", Test_alignment.all_utilities ());
+      ("layout", Test_layout.all_utilities ());
+      ("grid_placement", Test_grid.all_utilities ());
+      ("effects", Test_effects.all_utilities ());
+      ("position", Test_position.all_utilities ());
+      ("display", Test_display.all_utilities ());
+      ("forms", Test_forms.all_utilities ());
+      ("transforms", Test_transforms.all_utilities ());
+      ("interactivity", Test_interactivity.all_utilities ());
+      ("filters", Test_filters.all_utilities ());
+      ("containers", Test_containers.all_utilities ());
+      ("animations", Test_animations.all_utilities ());
     ]
   in
 

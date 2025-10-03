@@ -80,6 +80,25 @@ let test_transition_css () =
   Alcotest.check bool "transition-none has transition property" true
     (has_transition (to_css [ transition_none ]))
 
+let all_utilities () =
+  let open Tw in
+  [
+    animate_spin;
+    animate_ping;
+    animate_pulse;
+    animate_bounce;
+    transition_all;
+    transition_none;
+    duration 150;
+    delay 200;
+  ]
+
+let suborder_matches_tailwind () =
+  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+
+  Test_helpers.check_ordering_matches
+    ~test_name:"animations suborder matches Tailwind" shuffled
+
 let tests =
   [
     test_case "transitions" `Quick test_transitions;
@@ -87,6 +106,8 @@ let tests =
     test_case "duration + delay" `Quick test_duration_delay;
     test_case "animation CSS output" `Quick test_animation_css;
     test_case "transition CSS output" `Quick test_transition_css;
+    test_case "animations suborder matches Tailwind" `Slow
+      suborder_matches_tailwind;
   ]
 
 let suite = ("animations", tests)

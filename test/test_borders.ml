@@ -66,10 +66,41 @@ let of_string_invalid () =
   fail_maybe [ "unknown" ]
 (* Unknown border type *)
 
+let all_utilities () =
+  let open Tw in
+  [
+    border_xs;
+    border_sm;
+    border_md;
+    border_lg;
+    border_solid;
+    border_dashed;
+    border_dotted;
+    border_double;
+    border_none;
+    rounded_none;
+    rounded_sm;
+    rounded;
+    rounded_md;
+    rounded_lg;
+    rounded_xl;
+    rounded_2xl;
+    rounded_3xl;
+    rounded_full;
+  ]
+
+let suborder_matches_tailwind () =
+  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+
+  Test_helpers.check_ordering_matches
+    ~test_name:"borders suborder matches Tailwind" shuffled
+
 let tests =
   [
     test_case "borders of_string - valid values" `Quick of_string_valid;
     test_case "borders of_string - invalid values" `Quick of_string_invalid;
+    test_case "borders suborder matches Tailwind" `Slow
+      suborder_matches_tailwind;
   ]
 
 let suite = ("borders", tests)
