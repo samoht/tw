@@ -78,12 +78,33 @@ let of_string_invalid () =
   fail_maybe [ "unknown" ]
 (* Unknown effects type *)
 
+let all_utilities () =
+  let open Tw in
+  [
+    shadow_sm;
+    shadow;
+    shadow_md;
+    shadow_lg;
+    shadow_none;
+    opacity 0;
+    opacity 50;
+    opacity 100;
+  ]
+
+let suborder_matches_tailwind () =
+  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+
+  Test_helpers.check_ordering_matches
+    ~test_name:"effects suborder matches Tailwind" shuffled
+
 let tests =
   [
     test_case "effects of_string - valid values" `Quick of_string_valid;
     test_case "effects of_string - invalid values" `Quick of_string_invalid;
     test_case "ring of_string - valid values" `Quick test_ring_of_string_valid;
     test_case "filters css generation" `Quick test_filters_css_generation;
+    test_case "effects suborder matches Tailwind" `Slow
+      suborder_matches_tailwind;
   ]
 
 let suite = ("effects", tests)

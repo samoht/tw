@@ -93,10 +93,42 @@ let of_string_invalid () =
   fail_maybe [ "place"; "content" ];
   fail_maybe []
 
+let all_utilities () =
+  let open Tw in
+  [
+    justify_start;
+    justify_end;
+    justify_center;
+    justify_between;
+    items_start;
+    items_end;
+    items_center;
+    items_baseline;
+    content_start;
+    content_end;
+    content_center;
+    self_auto;
+    self_start;
+    self_end;
+    justify_items_start;
+    justify_self_auto;
+    place_content_start;
+    place_items_start;
+    place_self_auto;
+  ]
+
+let suborder_matches_tailwind () =
+  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+
+  Test_helpers.check_ordering_matches
+    ~test_name:"alignment suborder matches Tailwind" shuffled
+
 let tests =
   [
     test_case "alignment of_string - valid values" `Quick of_string_valid;
     test_case "alignment of_string - invalid values" `Quick of_string_invalid;
+    test_case "alignment suborder matches Tailwind" `Slow
+      suborder_matches_tailwind;
   ]
 
 let suite = ("alignment", tests)

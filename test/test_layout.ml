@@ -67,6 +67,33 @@ let test_screen_reader () =
   check_class "sr-only" (Tw.Utility.to_style Tw.Layout.sr_only);
   check_class "not-sr-only" (Tw.Utility.to_style Tw.Layout.not_sr_only)
 
+let all_utilities () =
+  let open Tw in
+  [
+    block;
+    inline;
+    inline_block;
+    hidden;
+    overflow_auto;
+    overflow_hidden;
+    overflow_visible;
+    overflow_x_auto;
+    overflow_y_hidden;
+    object_contain;
+    object_cover;
+    object_fill;
+    sr_only;
+    not_sr_only;
+    table_auto;
+    table_fixed;
+  ]
+
+let suborder_matches_tailwind () =
+  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+
+  Test_helpers.check_ordering_matches
+    ~test_name:"layout suborder matches Tailwind" shuffled
+
 let tests =
   [
     test_case "display utilities" `Quick test_display_utilities;
@@ -75,6 +102,7 @@ let tests =
     test_case "overflow" `Quick test_overflow;
     test_case "screen reader utilities" `Quick test_screen_reader;
     test_case "layout of_string - invalid values" `Quick of_string_invalid;
+    test_case "layout suborder matches Tailwind" `Slow suborder_matches_tailwind;
   ]
 
 let suite = ("layout", tests)

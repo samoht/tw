@@ -60,10 +60,22 @@ let test_of_string_invalid () =
   test_invalid []
 (* Empty *)
 
+let all_utilities () =
+  let open Tw in
+  [ translate_x 4; translate_y 2; rotate 90; scale 50 ]
+
+let suborder_matches_tailwind () =
+  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+
+  Test_helpers.check_ordering_matches
+    ~test_name:"transforms suborder matches Tailwind" shuffled
+
 let tests =
   [
     test_case "translate+rotate" `Quick test_translate_rotate;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
+    test_case "transforms suborder matches Tailwind" `Slow
+      suborder_matches_tailwind;
   ]
 
 let suite = ("transforms", tests)

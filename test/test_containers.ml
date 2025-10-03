@@ -43,11 +43,23 @@ let test_of_string_invalid () =
   test_invalid [ "type"; "size" ]
 (* Missing container prefix *)
 
+let all_utilities () =
+  let open Tw in
+  [ container_type_size; container_type_inline_size ]
+
+let suborder_matches_tailwind () =
+  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+
+  Test_helpers.check_ordering_matches
+    ~test_name:"containers suborder matches Tailwind" shuffled
+
 let tests =
   [
     test_case "types" `Quick test_container_types;
     test_case "name" `Quick test_container_name;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
+    test_case "containers suborder matches Tailwind" `Slow
+      suborder_matches_tailwind;
   ]
 
 let suite = ("containers", tests)
