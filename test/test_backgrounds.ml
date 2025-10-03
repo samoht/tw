@@ -52,11 +52,27 @@ let test_of_string_invalid () =
   test_invalid [ "unknown"; "red" ]
 (* Unknown prefix *)
 
+let all_utilities () =
+  let open Tw in
+  let colors = [ red; blue; green; yellow; purple; pink ] in
+  let shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900 ] in
+  List.concat_map
+    (fun color -> List.map (fun shade -> bg color shade) shades)
+    colors
+
+let suborder_matches_tailwind () =
+  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+
+  Test_helpers.check_ordering_matches
+    ~test_name:"backgrounds suborder matches Tailwind" shuffled
+
 let tests =
   [
     test_case "gradient direction" `Quick test_gradient_direction;
     test_case "gradient colors" `Quick test_gradient_colors;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
+    test_case "backgrounds suborder matches Tailwind" `Slow
+      suborder_matches_tailwind;
   ]
 
 let suite = ("backgrounds", tests)

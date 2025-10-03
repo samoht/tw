@@ -102,16 +102,16 @@ module Handler = struct
     | true, _, `Auto -> failwith "Negative auto margin not supported"
 
   let suborder { negative; axis; value } =
-    let neg_offset = if negative then 5000 else 0 in
+    let neg_offset = if negative then 5000000 else 0 in
     let side_offset =
       match axis with
       | `All -> 0
-      | `X -> 1000
-      | `Y -> 2000
-      | `T -> 3000
-      | `R -> 4000
-      | `B -> 5000
-      | `L -> 6000
+      | `X -> 100000
+      | `Y -> 200000
+      | `T -> 300000
+      | `R -> 400000
+      | `B -> 500000
+      | `L -> 600000
     in
     neg_offset + side_offset + margin_value_order value
 

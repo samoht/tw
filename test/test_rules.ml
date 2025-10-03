@@ -1096,103 +1096,16 @@ let test_priority_order_per_group () =
 
 (* Test 2: Verify suborder within same group *)
 let test_suborder_within_group () =
-  let open Tw in
-  (* Generate utilities programmatically for comprehensive testing *)
-  let spacing_values = [ 0; 1; 2; 3; 4; 6; 8; 12 ] in
-
-  (* Note: margin has its own suborder test in test_margin.ml *)
-
-  (* Padding utilities: test all axes and values *)
-  let padding_utils =
-    List.concat_map
-      (fun n -> [ p n; px n; py n; pt n; pb n; pl n; pr n ])
-      spacing_values
-  in
-
-  (* Sizing utilities: width, height, min/max variants *)
-  let sizing_utils =
-    List.concat_map (fun n -> [ w n; h n ]) [ 0; 1; 2; 4; 8; 12; 16; 24; 32 ]
-    @ [
-        min_w 0;
-        min_h 0;
-        max_w_none;
-        max_w_full;
-        max_w_2xl;
-        max_w_3xl;
-        max_w_4xl;
-        max_w_5xl;
-        max_w_6xl;
-      ]
-  in
-
-  (* Gap utilities: gap, gap-x, gap-y *)
-  let gap_utils =
-    List.concat_map (fun n -> [ gap n; gap_x n; gap_y n ]) spacing_values
-  in
-
-  (* Background colors: test different colors and shades *)
-  let bg_utils =
-    let colors = [ red; blue; green; yellow; purple; pink ] in
-    let shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900 ] in
-    List.concat_map
-      (fun color -> List.map (fun shade -> bg color shade) shades)
-      colors
-  in
-
-  (* Flex utilities: direction, wrap, etc. *)
-  let flex_utils =
-    [
-      flex_row;
-      flex_row_reverse;
-      flex_col;
-      flex_col_reverse;
-      flex_wrap;
-      flex_wrap_reverse;
-      flex_nowrap;
-    ]
-  in
-
-  (* Grid template utilities *)
-  let grid_utils =
-    List.init 12 (fun i -> grid_cols (i + 1))
-    @ List.init 6 (fun i -> grid_rows (i + 1))
-  in
-
-  (* Typography utilities *)
-  let typography_utils =
-    [
-      text_xs;
-      text_sm;
-      text_base;
-      text_lg;
-      text_xl;
-      text_2xl;
-      text_3xl;
-      font_thin;
-      font_light;
-      font_normal;
-      font_medium;
-      font_semibold;
-      font_bold;
-      font_extrabold;
-      font_black;
-      text_left;
-      text_center;
-      text_right;
-      text_justify;
-    ]
-  in
-
   let test_groups =
     [
-      (* Note: margin has its own suborder test in test_margin.ml *)
-      ("padding", padding_utils);
-      ("sizing", sizing_utils);
-      ("gap", gap_utils);
-      ("backgrounds", bg_utils);
-      ("flex", flex_utils);
-      ("grid", grid_utils);
-      ("typography", typography_utils);
+      ("margin", Test_margin.all_utilities ());
+      ("padding", Test_padding.all_utilities ());
+      ("sizing", Test_sizing.all_utilities ());
+      ("gap", Test_gap.all_utilities ());
+      ("backgrounds", Test_backgrounds.all_utilities ());
+      ("flex", Test_flex.all_utilities ());
+      ("grid", Test_grid_template.all_utilities ());
+      ("typography", Test_typography.all_utilities ());
     ]
   in
 
@@ -1201,9 +1114,7 @@ let test_suborder_within_group () =
       let test_name =
         Fmt.str "suborder for %s group matches Tailwind" group_name
       in
-      (* Shuffle utilities to test ordering, not insertion order *)
       let shuffled = Test_helpers.shuffle utilities in
-      (* check_ordering_matches already includes delta debugging *)
       Test_helpers.check_ordering_matches ~test_name shuffled)
     test_groups
 

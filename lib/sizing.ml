@@ -189,8 +189,7 @@ module Handler = struct
 
   let max_w' size =
     match size with
-    | `None ->
-        style "max-w-none" [ (* max-width: none not directly supported *) ]
+    | `None -> style "max-w-none" [ max_width None ]
     | `Xs -> style "max-w-xs" [ max_width (Rem 20.0) ]
     | `Sm -> style "max-w-sm" [ max_width (Rem 24.0) ]
     | `Md -> style "max-w-md" [ max_width (Rem 28.0) ]
@@ -213,9 +212,7 @@ module Handler = struct
   let container_5xl = Var.theme Css.Length "container-5xl" ~order:(5, 8)
   let container_6xl = Var.theme Css.Length "container-6xl" ~order:(5, 9)
   let container_7xl = Var.theme Css.Length "container-7xl" ~order:(5, 10)
-
-  let max_w_none' =
-    style "max-w-none" [ (* max-width: none not directly supported *) ]
+  let max_w_none' = style "max-w-none" [ max_width None ]
 
   let max_w_xs' =
     let decl, ref_ = Var.binding container_xs (Rem 20.0) in
@@ -298,8 +295,7 @@ module Handler = struct
 
   let max_h' size =
     match size with
-    | `None ->
-        style "max-h-none" [ (* max-height: none not directly supported *) ]
+    | `None -> style "max-h-none" [ max_height None ]
     | `Xs -> style "max-h-xs" [ max_height (Rem 0.5) ]
     | `Sm -> style "max-h-sm" [ max_height (Rem 1.0) ]
     | `Md -> style "max-h-md" [ max_height (Rem 1.5) ]
@@ -310,9 +306,7 @@ module Handler = struct
     | `Full -> style "max-h-full" [ max_height (Pct 100.0) ]
     | `Rem n -> spacing_utility "max-h-" max_height n
 
-  let max_h_none' =
-    style "max-h-none" [ (* max-height: none not directly supported *) ]
-
+  let max_h_none' = style "max-h-none" [ max_height None ]
   let max_h_full' = style "max-h-full" [ max_height (Pct 100.0) ]
   let max_h_screen' = style "max-h-screen" [ max_height (Vh 100.0) ]
   let max_h_min' = style "max-h-min" [ max_height Min_content ]
@@ -609,6 +603,20 @@ module Handler = struct
     | [ "aspect"; "video" ] -> Ok Aspect_video
     | _ -> err_not_utility
 
+  (* Tailwind spacing order helper: matches canonical spacing scale order *)
+  let spacing_suborder n =
+    let integer = int_of_float (floor n) in
+    let frac = n -. float_of_int integer in
+    (* Fractional part order: .0, .5, .25, .75 (not numeric!) *)
+    let frac_order =
+      if frac = 0.0 then 0
+      else if abs_float (frac -. 0.5) < 0.01 then 1
+      else if abs_float (frac -. 0.25) < 0.01 then 2
+      else if abs_float (frac -. 0.75) < 0.01 then 3
+      else 4 (* fallback for other values *)
+    in
+    (integer * 4) + frac_order
+
   let suborder = function
     (* Height utilities (0-9999) *)
     | H_auto -> 0
@@ -617,73 +625,77 @@ module Handler = struct
     | H_min -> 3
     | H_max -> 4
     | H_fit -> 5
-    | H_spacing n -> 100 + int_of_float (n *. 100.)
+    | H_spacing n -> 100 + spacing_suborder n
     | H_px -> 10000
     | H_fraction _ -> 50000
-    (* Width utilities (100000-199999) *)
-    | W_auto -> 100000
-    | W_full -> 100001
-    | W_screen -> 100002
-    | W_min -> 100003
-    | W_max -> 100004
-    | W_fit -> 100005
-    | W_spacing n -> 100100 + int_of_float (n *. 100.)
-    | W_px -> 110000
-    | W_fraction _ -> 150000
-    (* Min-width utilities (200000-299999) - comes after width *)
-    | Min_w_0 -> 200000
-    | Min_w_full -> 200001
-    | Min_w_min -> 200002
-    | Min_w_max -> 200003
-    | Min_w_fit -> 200004
-    | Min_w_spacing n -> 200100 + int_of_float (n *. 100.)
-    (* Min-height utilities (300000-399999) *)
-    | Min_h_0 -> 300000
-    | Min_h_full -> 300001
-    | Min_h_screen -> 300002
-    | Min_h_min -> 300003
-    | Min_h_max -> 300004
-    | Min_h_fit -> 300005
-    | Min_h_spacing n -> 300100 + int_of_float (n *. 100.)
-    (* Max-width utilities (400000-499999) - comes after min-* *)
-    | Max_w_none -> 400000
-    | Max_w_xs -> 400001
-    | Max_w_sm -> 400002
-    | Max_w_md -> 400003
-    | Max_w_lg -> 400004
-    | Max_w_xl -> 400005
-    | Max_w_2xl -> 400006
-    | Max_w_3xl -> 400007
-    | Max_w_4xl -> 400008
-    | Max_w_5xl -> 400009
-    | Max_w_6xl -> 400010
-    | Max_w_7xl -> 400011
+    (* Max-height utilities (100000-199999) - comes after height *)
+    (* Order: fit, full, max, min, none, screen *)
+    | Max_h_fit -> 100000
+    | Max_h_full -> 100001
+    | Max_h_max -> 100002
+    | Max_h_min -> 100003
+    | Max_h_none -> 100004
+    | Max_h_screen -> 100005
+    | Max_h_spacing n -> 100100 + spacing_suborder n
+    (* Min-height utilities (200000-299999) - comes after max-height *)
+    | Min_h_0 -> 200000
+    | Min_h_full -> 200001
+    | Min_h_screen -> 200002
+    | Min_h_min -> 200003
+    | Min_h_max -> 200004
+    | Min_h_fit -> 200005
+    | Min_h_spacing n -> 200100 + spacing_suborder n
+    (* Width utilities (300000-399999) *)
+    | W_auto -> 300000
+    | W_full -> 300001
+    | W_screen -> 300002
+    | W_min -> 300003
+    | W_max -> 300004
+    | W_fit -> 300005
+    | W_spacing n -> 300100 + spacing_suborder n
+    | W_px -> 310000
+    | W_fraction _ -> 350000
+    (* Max-width utilities (400000-499999) - comes after width *)
+    (* Numbered containers first *)
+    | Max_w_xs -> 400000
+    | Max_w_sm -> 400001
+    | Max_w_md -> 400002
+    | Max_w_lg -> 400003
+    | Max_w_xl -> 400004
+    | Max_w_2xl -> 400005
+    | Max_w_3xl -> 400006
+    | Max_w_4xl -> 400007
+    | Max_w_5xl -> 400008
+    | Max_w_6xl -> 400009
+    | Max_w_7xl -> 400010
+    (* Keywords after numbered containers - order: fit, full, max, min, none,
+       prose *)
+    | Max_w_fit -> 400011
     | Max_w_full -> 400012
-    | Max_w_min -> 400013
-    | Max_w_max -> 400014
-    | Max_w_fit -> 400015
+    | Max_w_max -> 400013
+    | Max_w_min -> 400014
+    | Max_w_none -> 400015
     | Max_w_prose -> 400016
     | Max_w_screen_sm -> 400020
     | Max_w_screen_md -> 400021
     | Max_w_screen_lg -> 400022
     | Max_w_screen_xl -> 400023
     | Max_w_screen_2xl -> 400024
-    | Max_w_spacing n -> 400100 + int_of_float (n *. 100.)
-    (* Max-height utilities (500000-599999) *)
-    | Max_h_none -> 500000
-    | Max_h_full -> 500001
-    | Max_h_screen -> 500002
-    | Max_h_min -> 500003
-    | Max_h_max -> 500004
-    | Max_h_fit -> 500005
-    | Max_h_spacing n -> 500100 + int_of_float (n *. 100.)
+    | Max_w_spacing n -> 400100 + spacing_suborder n
+    (* Min-width utilities (500000-599999) - comes after max-width *)
+    | Min_w_0 -> 500000
+    | Min_w_full -> 500001
+    | Min_w_min -> 500002
+    | Min_w_max -> 500003
+    | Min_w_fit -> 500004
+    | Min_w_spacing n -> 500100 + spacing_suborder n
     (* Size utilities (600000-699999) *)
     | Size_auto -> 600000
     | Size_full -> 600001
     | Size_min -> 600002
     | Size_max -> 600003
     | Size_fit -> 600004
-    | Size_spacing n -> 600100 + int_of_float (n *. 100.)
+    | Size_spacing n -> 600100 + spacing_suborder n
     | Size_fraction _ -> 650000
     (* Aspect utilities (700000-) *)
     | Aspect_auto -> 700000

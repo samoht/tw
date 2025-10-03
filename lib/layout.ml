@@ -61,28 +61,31 @@ module Handler = struct
 
   type Utility.base += Self of t
 
+  (** Priority for layout utilities. Set to 4 for display utilities (block,
+      inline, inline-block, hidden). All display utilities share priority 4 to
+      group together and sort alphabetically. *)
   let priority = 4
 
   let suborder = function
-    (* Display utilities - alphabetically ordered *)
+    (* Display utilities - suborder matches alphabetical position *)
     | Block -> 0
-    | Inline -> 1
-    | Inline_block -> 2
     | Hidden -> 3
-    (* Overflow utilities - alphabetically ordered *)
-    | Overflow_auto -> 4
-    | Overflow_clip -> 5
-    | Overflow_hidden -> 6
-    | Overflow_scroll -> 7
-    | Overflow_visible -> 8
-    | Overflow_x_auto -> 9
-    | Overflow_x_hidden -> 10
-    | Overflow_x_scroll -> 11
-    | Overflow_x_visible -> 12
-    | Overflow_y_auto -> 13
-    | Overflow_y_hidden -> 14
-    | Overflow_y_scroll -> 15
-    | Overflow_y_visible -> 16
+    | Inline -> 4
+    | Inline_block -> 5
+    (* Overflow utilities - start after display utilities *)
+    | Overflow_auto -> 10
+    | Overflow_clip -> 11
+    | Overflow_hidden -> 12
+    | Overflow_scroll -> 13
+    | Overflow_visible -> 14
+    | Overflow_x_auto -> 15
+    | Overflow_x_hidden -> 16
+    | Overflow_x_scroll -> 17
+    | Overflow_x_visible -> 18
+    | Overflow_y_auto -> 19
+    | Overflow_y_hidden -> 20
+    | Overflow_y_scroll -> 21
+    | Overflow_y_visible -> 22
     (* Visibility *)
     | Visible -> 100
     | Invisible -> 101

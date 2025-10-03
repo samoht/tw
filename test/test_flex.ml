@@ -58,10 +58,29 @@ let of_string_invalid () =
   fail_maybe [ "order"; "7" ];
   fail_maybe []
 
+let all_utilities () =
+  let open Tw in
+  [
+    flex_row;
+    flex_row_reverse;
+    flex_col;
+    flex_col_reverse;
+    flex_wrap;
+    flex_wrap_reverse;
+    flex_nowrap;
+  ]
+
+let suborder_matches_tailwind () =
+  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+
+  Test_helpers.check_ordering_matches
+    ~test_name:"flex suborder matches Tailwind" shuffled
+
 let tests =
   [
     test_case "flex of_string - valid values" `Quick of_string_valid;
     test_case "flex of_string - invalid values" `Quick of_string_invalid;
+    test_case "flex suborder matches Tailwind" `Slow suborder_matches_tailwind;
   ]
 
 let suite = ("flex", tests)

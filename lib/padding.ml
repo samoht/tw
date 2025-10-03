@@ -61,14 +61,14 @@ module Handler = struct
     let side_offset =
       match axis with
       | `All -> 0
-      | `X -> 100
-      | `Y -> 200
-      | `T -> 300
-      | `R -> 400
-      | `B -> 500
-      | `L -> 600
+      | `X -> 100000
+      | `Y -> 200000
+      | `T -> 300000
+      | `R -> 400000
+      | `B -> 500000
+      | `L -> 600000
     in
-    1000 + side_offset + spacing_value_order value
+    side_offset + spacing_value_order value
 
   (** Parse string parts to padding utility *)
   let of_string parts =
