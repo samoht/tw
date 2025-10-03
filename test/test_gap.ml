@@ -41,10 +41,23 @@ let of_string_invalid () =
   fail_maybe [ "space"; "x" ];
   fail_maybe []
 
+let all_utilities () =
+  let open Tw in
+  List.concat_map
+    (fun n -> [ gap n; gap_x n; gap_y n ])
+    Test_helpers.spacing_values
+
+let suborder_matches_tailwind () =
+  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+
+  Test_helpers.check_ordering_matches ~test_name:"gap suborder matches Tailwind"
+    shuffled
+
 let tests =
   [
     test_case "gap of_string - valid values" `Quick of_string_valid;
     test_case "gap of_string - invalid values" `Quick of_string_invalid;
+    test_case "gap suborder matches Tailwind" `Slow suborder_matches_tailwind;
   ]
 
 let suite = ("gap", tests)

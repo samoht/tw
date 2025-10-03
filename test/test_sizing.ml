@@ -93,6 +93,27 @@ let test_aspect_css () =
   Alcotest.check bool "has 16/9" true
     (Astring.String.is_infix ~affix:"16/9" css)
 
+let all_utilities () =
+  let open Tw in
+  List.concat_map (fun n -> [ w n; h n ]) [ 0; 1; 2; 4; 8; 12; 16; 24; 32 ]
+  @ [
+      min_w 0;
+      min_h 0;
+      max_w_none;
+      max_w_full;
+      max_w_2xl;
+      max_w_3xl;
+      max_w_4xl;
+      max_w_5xl;
+      max_w_6xl;
+    ]
+
+let suborder_matches_tailwind () =
+  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+
+  Test_helpers.check_ordering_matches
+    ~test_name:"sizing suborder matches Tailwind" shuffled
+
 let tests =
   [
     test_case "widths" `Quick test_widths;
@@ -103,6 +124,7 @@ let tests =
     test_case "sizing of_string - invalid values" `Quick of_string_invalid;
     test_case "aspect classes" `Quick test_aspect_classes;
     test_case "aspect css" `Quick test_aspect_css;
+    test_case "sizing suborder matches Tailwind" `Slow suborder_matches_tailwind;
   ]
 
 let suite = ("sizing", tests)

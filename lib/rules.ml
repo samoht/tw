@@ -546,22 +546,45 @@ let group_container_queries container_rules =
   (* Reverse once to restore original insertion order per condition *)
   Hashtbl.fold (fun k v acc -> (k, List.rev v) :: acc) tbl []
 
+let is_simple_class_selector sel =
+  (* Check if selector is a simple class without combinators or
+     pseudo-elements *)
+  match sel with
+  | Css.Selector.Class _ -> true
+  | _ -> false
+
+let compare_indexed ~filter_custom_props (i1, sel1, _, (prio1, sub1))
+    (i2, sel2, _, (prio2, sub2)) =
+  let prio_cmp = Int.compare prio1 prio2 in
+  if prio_cmp <> 0 then prio_cmp
+  else
+    (* First sort by suborder *)
+    let sub_cmp = Int.compare sub1 sub2 in
+    if sub_cmp <> 0 then sub_cmp
+    else if
+      filter_custom_props
+      && is_simple_class_selector sel1
+      && is_simple_class_selector sel2
+    then
+      (* For utilities with same priority and suborder, sort alphabetically.
+         This handles display utilities from different modules (flex, grid,
+         block) which all have priority=4 and suborder=0. *)
+      let sel1_str = Css.Selector.to_string sel1 in
+      let sel2_str = Css.Selector.to_string sel2 in
+      String.compare sel1_str sel2_str
+    else
+      (* For complex selectors or non-utilities, preserve original order *)
+      Int.compare i1 i2
+
 (* Convert selector/props/order triples to CSS rules with conflict ordering *)
 let of_grouped ?(filter_custom_props = false) grouped_list =
-  (* Stable sort by (priority, suborder, original_index) to preserve authoring
-     order within the same conflict bucket. *)
+  (* Sort by (priority, suborder, selector_name, original_index) to match
+     Tailwind v4 ordering. *)
   let indexed =
     List.mapi (fun i (sel, props, order) -> (i, sel, props, order)) grouped_list
   in
   let sorted_indexed =
-    List.sort
-      (fun (i1, _, _, (prio1, sub1)) (i2, _, _, (prio2, sub2)) ->
-        let prio_cmp = Int.compare prio1 prio2 in
-        if prio_cmp <> 0 then prio_cmp
-        else
-          let sub_cmp = Int.compare sub1 sub2 in
-          if sub_cmp <> 0 then sub_cmp else Int.compare i1 i2)
-      indexed
+    List.sort (compare_indexed ~filter_custom_props) indexed
   in
   List.map
     (fun (_idx, selector, props, _order) ->

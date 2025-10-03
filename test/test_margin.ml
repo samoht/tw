@@ -44,17 +44,14 @@ let of_string_invalid () =
   fail_maybe [ "m"; "invalid" ]
 (* Invalid value *)
 
-let suborder_matches_tailwind () =
+let all_utilities () =
   let open Tw in
-  (* Generate all margin utilities: all axes × all spacing values *)
-  let margin_utils =
-    List.concat_map
-      (fun n -> [ m n; mx n; my n; mt n; mb n; ml n; mr n ])
-      Test_helpers.spacing_values
-  in
+  List.concat_map
+    (fun n -> [ m n; mx n; my n; mt n; mb n; ml n; mr n ])
+    Test_helpers.spacing_values
 
-  (* Shuffle utilities to test ordering, not insertion order *)
-  let shuffled = Test_helpers.shuffle margin_utils in
+let suborder_matches_tailwind () =
+  let shuffled = Test_helpers.shuffle (all_utilities ()) in
 
   Test_helpers.check_ordering_matches
     ~test_name:"margin suborder matches Tailwind" shuffled

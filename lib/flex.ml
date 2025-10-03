@@ -47,7 +47,10 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  let priority = 5
+  (** Priority for flex utilities. Set to 4 to match other display utilities
+      (block, inline, grid, etc.) since flex and inline-flex set the display
+      property. *)
+  let priority = 4
 
   (* Helper functions returning Style.t *)
 
@@ -128,9 +131,10 @@ module Handler = struct
     | Order_none -> order_none
 
   let suborder : t -> int = function
-    (* Display *)
-    | Flex -> 0
-    | Inline_flex -> 1
+    (* Display - suborder matches alphabetical position across all display
+       utilities *)
+    | Flex -> 1
+    | Inline_flex -> 6
     (* Direction *)
     | Flex_row -> 10
     | Flex_row_reverse -> 11

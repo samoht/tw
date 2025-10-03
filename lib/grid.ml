@@ -29,8 +29,10 @@ module Handler = struct
   (** Extensible variant for grid utilities *)
   type Utility.base += Self of t
 
-  (** Priority for grid utilities *)
-  let priority = 1
+  (** Priority for grid utilities. Set to 4 to match other display utilities
+      (block, inline, flex, etc.) since grid and inline-grid set the display
+      property. *)
+  let priority = 4
 
   let grid = style "grid" [ display Grid ]
   let inline_grid = style "inline-grid" [ display Inline_grid ]
@@ -98,8 +100,10 @@ module Handler = struct
     | Row_end_auto -> row_end_auto
 
   let suborder = function
-    | Grid -> 0
-    | Inline_grid -> 1
+    (* Display - suborder matches alphabetical position across all display
+       utilities *)
+    | Grid -> 2
+    | Inline_grid -> 7
     | Col_auto -> 10
     | Col_span n -> 20 + n
     | Col_span_full -> 33

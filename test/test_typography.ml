@@ -174,6 +174,36 @@ let of_string_invalid () =
   fail_maybe [ "unknown" ]
 (* Unknown typography type *)
 
+let all_utilities () =
+  let open Tw in
+  [
+    text_xs;
+    text_sm;
+    text_base;
+    text_lg;
+    text_xl;
+    text_2xl;
+    text_3xl;
+    font_thin;
+    font_light;
+    font_normal;
+    font_medium;
+    font_semibold;
+    font_bold;
+    font_extrabold;
+    font_black;
+    text_left;
+    text_center;
+    text_right;
+    text_justify;
+  ]
+
+let suborder_matches_tailwind () =
+  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+
+  Test_helpers.check_ordering_matches
+    ~test_name:"typography suborder matches Tailwind" shuffled
+
 let tests =
   [
     test_case "font family" `Quick test_font_family;
@@ -195,6 +225,8 @@ let tests =
     test_case "numeric variants" `Quick test_numeric_variants;
     test_case "content" `Quick test_content;
     test_case "typography of_string - invalid values" `Quick of_string_invalid;
+    test_case "typography suborder matches Tailwind" `Slow
+      suborder_matches_tailwind;
   ]
 
 let suite = ("typography", tests)
