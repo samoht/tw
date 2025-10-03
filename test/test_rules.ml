@@ -1034,41 +1034,61 @@ let test_cascade_color_override () =
 (* Test 1: Verify priority order - one utility per group *)
 let test_priority_order_per_group () =
   let open Tw in
-  (* One representative utility from each priority group *)
+  (* Define pools of utilities for each priority group *)
+  let position_utils = [ static; fixed; absolute; relative; sticky ] in
+  let grid_utils = List.init 12 (fun i -> grid_cols (i + 1)) in
+  let margin_utils = List.init 10 (fun i -> m i) in
+  let prose_utils = [ prose; prose_sm; prose_lg; prose_xl ] in
+  let layout_utils = [ block; inline; inline_block; hidden ] in
+  let flex_utils = [ flex; inline_flex ] in
+  let sizing_utils = List.init 10 (fun i -> w i) in
+  let cursor_utils = [ cursor_pointer; cursor_default; cursor_wait ] in
+  let grid_template_utils = List.init 6 (fun i -> grid_rows (i + 1)) in
+  let alignment_utils = [ items_center; items_start; items_end ] in
+  let gap_utils = List.init 10 (fun i -> gap i) in
+  let border_utils = [ rounded; rounded_lg; rounded_full ] in
+  let bg_utils = [ bg blue 500; bg red 500; bg green 500 ] in
+  let padding_utils = List.init 10 (fun i -> p i) in
+  let typography_utils = [ text_xl; text_sm; text_2xl ] in
+  let effect_utils = [ shadow; shadow_md; shadow_lg ] in
+
+  (* Randomly pick one utility from each group *)
+  let pick_random lst = List.nth lst (Random.int (List.length lst)) in
+
   let utilities =
     [
-      static;
+      pick_random position_utils;
       (* position: priority 0 *)
-      grid_cols 2;
+      pick_random grid_utils;
       (* grid: priority 1 *)
-      m 4;
+      pick_random margin_utils;
       (* margin: priority 2 *)
-      prose;
+      pick_random prose_utils;
       (* prose: priority 3 *)
-      w 4;
-      (* sizing: priority 10 *)
-      p 4;
+      pick_random layout_utils;
+      (* layout: priority 4 *)
+      pick_random flex_utils;
+      (* flex: priority 5 *)
+      pick_random sizing_utils;
+      (* sizing: priority 6 *)
+      pick_random cursor_utils;
+      (* cursor: priority 7 *)
+      pick_random grid_template_utils;
+      (* grid_template: priority 8 *)
+      pick_random alignment_utils;
+      (* alignment: priority 9 *)
+      pick_random gap_utils;
+      (* gap: priority 10 *)
+      pick_random border_utils;
+      (* borders: priority 11 *)
+      pick_random bg_utils;
+      (* backgrounds: priority 12 *)
+      pick_random padding_utils;
       (* padding: priority 13 *)
-      flex;
-      (* containers: priority 14 *)
-      items_center;
-      (* alignment: priority 16 *)
-      gap 4;
-      (* gap: priority 16 *)
-      rounded;
-      (* borders: priority 30 *)
-      bg blue 500;
-      (* backgrounds: priority 18 *)
-      shadow;
-      (* effects: priority 40 *)
-      blur;
-      (* filters: priority 60 *)
-      text_xl;
-      (* typography: priority 70 *)
-      cursor_pointer;
-      (* cursor: priority 90 *)
-      select_none;
-      (* interactivity: priority 800 *)
+      pick_random typography_utils;
+      (* typography: priority 14 *)
+      pick_random effect_utils;
+      (* effects: priority 15 *)
     ]
   in
   Test_helpers.check_ordering_matches
@@ -1077,14 +1097,107 @@ let test_priority_order_per_group () =
 (* Test 2: Verify suborder within same group *)
 let test_suborder_within_group () =
   let open Tw in
-  (* Pick multiple utilities from the same group to test suborder *)
+  (* Generate utilities programmatically for comprehensive testing *)
+  let spacing_values = [ 0; 1; 2; 3; 4; 6; 8; 12 ] in
+
+  (* Margin utilities: test all axes and values *)
+  let margin_utils =
+    List.concat_map
+      (fun n -> [ m n; mx n; my n; mt n; mb n; ml n; mr n ])
+      spacing_values
+  in
+
+  (* Padding utilities: test all axes and values *)
+  let padding_utils =
+    List.concat_map
+      (fun n -> [ p n; px n; py n; pt n; pb n; pl n; pr n ])
+      spacing_values
+  in
+
+  (* Sizing utilities: width, height, min/max variants *)
+  let sizing_utils =
+    List.concat_map (fun n -> [ w n; h n ]) [ 0; 1; 2; 4; 8; 12; 16; 24; 32 ]
+    @ [
+        min_w 0;
+        min_h 0;
+        max_w_none;
+        max_w_full;
+        max_w_2xl;
+        max_w_3xl;
+        max_w_4xl;
+        max_w_5xl;
+        max_w_6xl;
+      ]
+  in
+
+  (* Gap utilities: gap, gap-x, gap-y *)
+  let gap_utils =
+    List.concat_map (fun n -> [ gap n; gap_x n; gap_y n ]) spacing_values
+  in
+
+  (* Background colors: test different colors and shades *)
+  let bg_utils =
+    let colors = [ red; blue; green; yellow; purple; pink ] in
+    let shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900 ] in
+    List.concat_map
+      (fun color -> List.map (fun shade -> bg color shade) shades)
+      colors
+  in
+
+  (* Flex utilities: direction, wrap, etc. *)
+  let flex_utils =
+    [
+      flex_row;
+      flex_row_reverse;
+      flex_col;
+      flex_col_reverse;
+      flex_wrap;
+      flex_wrap_reverse;
+      flex_nowrap;
+    ]
+  in
+
+  (* Grid template utilities *)
+  let grid_utils =
+    List.init 12 (fun i -> grid_cols (i + 1))
+    @ List.init 6 (fun i -> grid_rows (i + 1))
+  in
+
+  (* Typography utilities *)
+  let typography_utils =
+    [
+      text_xs;
+      text_sm;
+      text_base;
+      text_lg;
+      text_xl;
+      text_2xl;
+      text_3xl;
+      font_thin;
+      font_light;
+      font_normal;
+      font_medium;
+      font_semibold;
+      font_bold;
+      font_extrabold;
+      font_black;
+      text_left;
+      text_center;
+      text_right;
+      text_justify;
+    ]
+  in
+
   let test_groups =
     [
-      ("margin", [ m 0; m 2; m 4; mx 2; my 4; mt 1; mb 2; ml 3; mr 4 ]);
-      ("padding", [ p 0; p 2; p 4; px 2; py 4; pt 1; pb 2; pl 3; pr 4 ]);
-      ("sizing", [ w 0; w 4; w 12; h 0; h 4; h 12; min_w 0; max_w_2xl ]);
-      ("gap", [ gap 0; gap 2; gap 4; gap_x 2; gap_y 4 ]);
-      ("backgrounds", [ bg blue 50; bg blue 500; bg red 500; bg green 500 ]);
+      ("margin", margin_utils);
+      ("padding", padding_utils);
+      ("sizing", sizing_utils);
+      ("gap", gap_utils);
+      ("backgrounds", bg_utils);
+      ("flex", flex_utils);
+      ("grid", grid_utils);
+      ("typography", typography_utils);
     ]
   in
 
@@ -1093,8 +1206,20 @@ let test_suborder_within_group () =
       let test_name =
         Fmt.str "suborder for %s group matches Tailwind" group_name
       in
+      (* Shuffle utilities to test ordering, not insertion order *)
+      let shuffled =
+        let arr = Array.of_list utilities in
+        let n = Array.length arr in
+        for i = n - 1 downto 1 do
+          let j = Random.int (i + 1) in
+          let temp = arr.(i) in
+          arr.(i) <- arr.(j);
+          arr.(j) <- temp
+        done;
+        Array.to_list arr
+      in
       (* check_ordering_matches already includes delta debugging *)
-      Test_helpers.check_ordering_matches ~test_name utilities)
+      Test_helpers.check_ordering_matches ~test_name shuffled)
     test_groups
 
 (* Test 3: Random utilities with minimization *)

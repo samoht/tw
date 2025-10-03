@@ -1,12 +1,7 @@
 open Alcotest
+open Test_helpers
 
-let check parts =
-  let expected = String.concat "-" parts in
-  match Tw.Borders.Handler.of_string parts with
-  | Ok result ->
-      let style = Tw.Borders.Handler.to_style result in
-      Alcotest.check string "border class name" expected (Tw.Style.pp style)
-  | Error (`Msg msg) -> fail msg
+let check = check_handler_roundtrip (module Tw.Borders.Handler)
 
 let of_string_valid () =
   check [ "border" ];
@@ -56,11 +51,7 @@ let of_string_valid () =
 
 let of_string_invalid () =
   (* Invalid border values *)
-  let fail_maybe input =
-    match Tw.Borders.Handler.of_string input with
-    | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
-    | Error _ -> ()
-  in
+  let fail_maybe = check_invalid_input (module Tw.Borders.Handler) in
 
   fail_maybe [ "border"; "3" ];
   (* Invalid width *)
