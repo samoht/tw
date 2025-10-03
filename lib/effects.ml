@@ -54,7 +54,7 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  let priority = 40
+  let priority = 15
 
   (* Shadow variables with property registration - using convert for type
      compatibility *)

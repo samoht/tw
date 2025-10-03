@@ -81,7 +81,7 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  let priority = 16
+  let priority = 9
   let justify_start = style "justify-start" [ justify_content Flex_start ]
   let justify_end = style "justify-end" [ justify_content Flex_end ]
   let justify_center = style "justify-center" [ justify_content Center ]

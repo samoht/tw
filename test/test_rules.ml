@@ -139,7 +139,7 @@ let check_conflict_order () =
 
   (* Test basic selector parsing *)
   let prio, sub = conflict_order ".p-4" in
-  check int "p-4 priority" 19 prio;
+  check int "p-4 priority" 13 prio;
 
   (* Padding priority *)
 
@@ -1095,13 +1095,79 @@ let test_cascade_color_override () =
       Fmt.pr "After sorting: blue at %d, red at %d (order preserved)@." bi ri
   | _ -> Fmt.pr "Could not find both colors in sorted output@."
 
-(* Property-based test: verify utility group ordering with random selection *)
-let test_utility_group_ordering () =
+(* Test 1: Verify priority order - one utility per group *)
+let test_priority_order_per_group () =
   let open Tw in
-  (* Large pool of utilities from all groups - no clustering bias *)
+  (* One representative utility from each priority group *)
+  let utilities =
+    [
+      static;
+      (* position: priority 0 *)
+      grid_cols 2;
+      (* grid: priority 1 *)
+      m 4;
+      (* margin: priority 2 *)
+      prose;
+      (* prose: priority 3 *)
+      w 4;
+      (* sizing: priority 10 *)
+      p 4;
+      (* padding: priority 13 *)
+      flex;
+      (* containers: priority 14 *)
+      items_center;
+      (* alignment: priority 16 *)
+      gap 4;
+      (* gap: priority 16 *)
+      rounded;
+      (* borders: priority 30 *)
+      bg blue 500;
+      (* backgrounds: priority 18 *)
+      shadow;
+      (* effects: priority 40 *)
+      blur;
+      (* filters: priority 60 *)
+      text_xl;
+      (* typography: priority 70 *)
+      cursor_pointer;
+      (* cursor: priority 90 *)
+      select_none;
+      (* interactivity: priority 800 *)
+    ]
+  in
+  Test_helpers.check_ordering_matches
+    ~test_name:"priority order matches Tailwind" utilities
+
+(* Test 2: Verify suborder within same group *)
+let test_suborder_within_group () =
+  let open Tw in
+  (* Pick multiple utilities from the same group to test suborder *)
+  let test_groups =
+    [
+      ("margin", [ m 0; m 2; m 4; mx 2; my 4; mt 1; mb 2; ml 3; mr 4 ]);
+      ("padding", [ p 0; p 2; p 4; px 2; py 4; pt 1; pb 2; pl 3; pr 4 ]);
+      ("sizing", [ w 0; w 4; w 12; h 0; h 4; h 12; min_w 0; max_w_2xl ]);
+      ("gap", [ gap 0; gap 2; gap 4; gap_x 2; gap_y 4 ]);
+      ("backgrounds", [ bg blue 50; bg blue 500; bg red 500; bg green 500 ]);
+    ]
+  in
+
+  List.iter
+    (fun (group_name, utilities) ->
+      let test_name =
+        Fmt.str "suborder for %s group matches Tailwind" group_name
+      in
+      (* check_ordering_matches already includes delta debugging *)
+      Test_helpers.check_ordering_matches ~test_name utilities)
+    test_groups
+
+(* Test 3: Random utilities with minimization *)
+let test_random_utilities_with_minimization () =
+  let open Tw in
+  (* Large pool of utilities from all groups *)
   let all_utilities =
     [
-      (* Margin: priority 1 *)
+      (* Margin: priority 2 *)
       m 0;
       m 1;
       m 2;
@@ -1398,31 +1464,8 @@ let test_utility_group_ordering () =
         final_classes;
 
       (* Now run the actual test with minimal case *)
-      let tw_css = to_css ~base:true ~optimize:true final in
-      let tw_utilities_rules =
-        Test_helpers.extract_utilities_layer_rules tw_css
-      in
-      let tw_order = Test_helpers.extract_rule_selectors tw_utilities_rules in
-
-      let tailwind_css_str =
-        Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true final_classes
-      in
-      let tailwind_css =
-        match Css.of_string tailwind_css_str with
-        | Ok css -> css
-        | Error err ->
-            let formatted_error = Css.pp_parse_error err in
-            Alcotest.fail ("Failed to parse Tailwind CSS: " ^ formatted_error)
-      in
-      let tailwind_utilities_rules =
-        Test_helpers.extract_utilities_layer_rules tailwind_css
-      in
-      let tailwind_order =
-        Test_helpers.extract_rule_selectors tailwind_utilities_rules
-      in
-
-      check (list string) "utility group ordering matches Tailwind"
-        tailwind_order tw_order
+      Test_helpers.check_ordering_matches
+        ~test_name:"random utilities ordering matches Tailwind" final
 
 let tests =
   [
@@ -1484,7 +1527,10 @@ let tests =
     test_case "prose rule separation" `Quick test_cascade_prose_separation;
     test_case "color override cascading" `Quick test_cascade_color_override;
     (* Utility group ordering *)
-    test_case "utility group ordering" `Slow test_utility_group_ordering;
+    test_case "priority order per group" `Quick test_priority_order_per_group;
+    test_case "suborder within group" `Slow test_suborder_within_group;
+    test_case "random utilities with minimization" `Slow
+      test_random_utilities_with_minimization;
   ]
 
 let suite = ("rules", tests)

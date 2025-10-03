@@ -1176,7 +1176,7 @@ module Handler = struct
   open Style
   open Css
 
-  let priority = 18
+  let priority = 12
 
   let of_string parts =
     match parts with

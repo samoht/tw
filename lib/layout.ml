@@ -61,7 +61,7 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  let priority = 15
+  let priority = 4
 
   let suborder = function
     (* Display utilities - alphabetically ordered *)

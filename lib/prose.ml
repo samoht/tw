@@ -1815,7 +1815,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   (** Priority for prose utilities *)
-  let priority = 20
+  let priority = 3
 
   (** {1 Utility Conversion Functions} *)
 

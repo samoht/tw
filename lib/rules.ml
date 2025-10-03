@@ -137,10 +137,10 @@ let selector_with_data_key selector key value =
   Css.Selector.combine selector Descendant attr_selector
 
 let media_modifier ~condition ~prefix base_class props =
-  let selector_str = prefix ^ escape_class_name base_class in
+  let selector_str = prefix ^ base_class in
   (* For now, create a simple class selector - this needs proper parsing *)
   let selector =
-    Css.Selector.class_
+    Css.Selector.class_raw
       (String.sub selector_str 1 (String.length selector_str - 1))
   in
   media_query ~condition ~selector ~props ~base_class ()
@@ -157,21 +157,18 @@ let replace_class_in_selector ~old_class ~new_class selector =
 let responsive_rule breakpoint base_class selector props =
   let prefix = string_of_breakpoint breakpoint in
   let condition = "(min-width:" ^ responsive_breakpoint prefix ^ ")" in
-  let escaped_class = escape_class_name base_class in
-  let modified_class = prefix ^ "\\:" ^ escaped_class in
+  let modified_class = prefix ^ ":" ^ base_class in
   let new_selector =
-    replace_class_in_selector ~old_class:escaped_class ~new_class:modified_class
+    replace_class_in_selector ~old_class:base_class ~new_class:modified_class
       selector
   in
   media_query ~condition ~selector:new_selector ~props ~base_class ()
 
 let container_rule query base_class selector props =
   let prefix = Containers.container_query_to_class_prefix query in
-  let escaped_prefix = escape_class_name prefix in
-  let escaped_class = escape_class_name base_class in
-  let modified_class = escaped_prefix ^ "\\:" ^ escaped_class in
+  let modified_class = prefix ^ ":" ^ base_class in
   let new_selector =
-    replace_class_in_selector ~old_class:escaped_class ~new_class:modified_class
+    replace_class_in_selector ~old_class:base_class ~new_class:modified_class
       selector
   in
   let condition = Containers.container_query_to_css_prefix query in
@@ -184,46 +181,37 @@ let container_rule query base_class selector props =
 
 let has_like_selector kind selector_str base_class props =
   let open Css.Selector in
-  let escaped_selector = escape_class_name selector_str in
   (* Parse the selector string to get a proper selector *)
   let parsed_selector =
     let reader = Css.Reader.of_string selector_str in
     try Css.Selector.read reader with
     | Css.Reader.Parse_error _ ->
         (* Fallback to a simple class selector if parsing fails *)
-        class_ selector_str
+        class_raw selector_str
     | Invalid_argument _ ->
         (* Invalid identifier; degrade gracefully to raw class name *)
-        class_ selector_str
+        class_raw selector_str
   in
   match kind with
   | `Has ->
       let sel =
         compound
           [
-            class_
-              ("has-\\[" ^ escaped_selector ^ "\\]\\:"
-              ^ escape_class_name base_class);
+            class_raw ("has-[" ^ selector_str ^ "]:" ^ base_class);
             has [ parsed_selector ];
           ]
       in
       regular ~selector:sel ~props ~base_class ()
   | `Group_has ->
-      let left = compound [ class_ "group"; has [ parsed_selector ] ] in
+      let left = compound [ class_raw "group"; has [ parsed_selector ] ] in
       let right =
-        class_
-          ("group-has-\\[" ^ escaped_selector ^ "\\]\\:"
-          ^ escape_class_name base_class)
+        class_raw ("group-has-[" ^ selector_str ^ "]:" ^ base_class)
       in
       let sel = combine left Descendant right in
       regular ~selector:sel ~props ~base_class ()
   | `Peer_has ->
-      let left = compound [ class_ "peer"; has [ parsed_selector ] ] in
-      let right =
-        class_
-          ("peer-has-\\[" ^ escaped_selector ^ "\\]\\:"
-          ^ escape_class_name base_class)
-      in
+      let left = compound [ class_raw "peer"; has [ parsed_selector ] ] in
+      let right = class_raw ("peer-has-[" ^ selector_str ^ "]:" ^ base_class) in
       let sel = combine left Subsequent_sibling right in
       regular ~selector:sel ~props ~base_class ()
 
@@ -250,10 +238,8 @@ let modifier_to_rule modifier base_class selector props =
   | Not _modifier ->
       regular
         ~selector:
-          (Css.Selector.class_
-             ("not-"
-             ^ escape_class_name base_class
-             ^ ":not("
+          (Css.Selector.class_raw
+             ("not-" ^ base_class ^ ":not("
              ^ Css.Selector.to_string selector
              ^ ")"))
         ~props ~base_class ()
@@ -264,7 +250,7 @@ let modifier_to_rule modifier base_class selector props =
       has_like_selector `Peer_has selector_str base_class props
   | Starting ->
       starting_style
-        ~selector:(Css.Selector.class_ (escape_class_name base_class))
+        ~selector:(Css.Selector.class_raw base_class)
         ~props ~base_class ()
   | Motion_safe ->
       media_modifier ~condition:"(prefers-reduced-motion: no-preference)"
@@ -282,36 +268,32 @@ let modifier_to_rule modifier base_class selector props =
       (* For complex selectors (like prose :where(...)), we need to apply the
          modifier to the base class part while preserving the complex structure,
          AND replace all occurrences of the base class inside the selector *)
-      let escaped_class = escape_class_name base_class in
-      let modified_base_selector =
-        Modifiers.to_selector modifier escaped_class
-      in
+      let modified_base_selector = Modifiers.to_selector modifier base_class in
       (* Extract just the class name from the modified selector for replacement
          inside child selectors (without pseudo-class) *)
-      let escaped_modified_class =
+      let modified_class =
         match modified_base_selector with
         | Css.Selector.Class cls -> cls
         | Css.Selector.Compound selectors ->
-            (* For compound selectors like .hover\:prose:hover, extract just the
+            (* For compound selectors like .hover:prose:hover, extract just the
                class name *)
             List.find_map
               (function Css.Selector.Class cls -> Some cls | _ -> None)
               selectors
-            |> Option.value ~default:escaped_class
-        | _ -> escaped_class
+            |> Option.value ~default:base_class
+        | _ -> base_class
       in
       let has_hover = Modifiers.is_hover modifier in
       (* Replace class names in child/descendant selectors (without
          pseudo-class) *)
       let replace_in_children =
-        replace_class_in_selector ~old_class:escaped_class
-          ~new_class:escaped_modified_class
+        replace_class_in_selector ~old_class:base_class
+          ~new_class:modified_class
       in
       (* Apply transformation: root gets full modified selector with
          pseudo-class, descendants get just the class name *)
       let rec transform_selector = function
-        | Css.Selector.Class cls when cls = escaped_class ->
-            modified_base_selector
+        | Css.Selector.Class cls when cls = base_class -> modified_base_selector
         | Css.Selector.Combined (base_sel, combinator, complex_sel) ->
             Css.Selector.Combined
               ( transform_selector base_sel,
@@ -324,8 +306,7 @@ let modifier_to_rule modifier base_class selector props =
       let modified_selector = transform_selector selector in
       regular ~selector:modified_selector ~props ~base_class ~has_hover ()
   | _ ->
-      let escaped_class = escape_class_name base_class in
-      let sel = Modifiers.to_selector modifier escaped_class in
+      let sel = Modifiers.to_selector modifier base_class in
       let has_hover = Modifiers.is_hover modifier in
       regular ~selector:sel ~props ~base_class ~has_hover ()
 
@@ -333,8 +314,7 @@ let modifier_to_rule modifier base_class selector props =
 let extract_selector_props tw =
   let rec extract = function
     | Style { name; props; rules; _ } -> (
-        let escaped_name = escape_class_name name in
-        let sel = Css.Selector.class_ escaped_name in
+        let sel = Css.Selector.class_raw name in
         match rules with
         | None -> [ regular ~selector:sel ~props ~base_class:name () ]
         | Some rule_list ->
