@@ -52,12 +52,6 @@ module Handler = struct
     | Object_bottom
     | Object_left
     | Object_right
-    | (* Table *)
-      Border_collapse
-    | Border_separate
-    | Border_spacing of int
-    | Table_auto
-    | Table_fixed
 
   type Utility.base += Self of t
 
@@ -75,26 +69,20 @@ module Handler = struct
     | Hidden -> 4
     | Inline -> 5
     | Inline_block -> 6
-    (* Table utilities - come before overflow *)
-    | Border_collapse -> 20
-    | Border_separate -> 21
-    | Border_spacing _ -> 22
-    | Table_auto -> 23
-    | Table_fixed -> 24
-    (* Overflow utilities - after table *)
-    | Overflow_auto -> 30
-    | Overflow_clip -> 31
-    | Overflow_hidden -> 32
-    | Overflow_scroll -> 33
-    | Overflow_visible -> 34
-    | Overflow_x_auto -> 35
-    | Overflow_x_hidden -> 36
-    | Overflow_x_scroll -> 37
-    | Overflow_x_visible -> 38
-    | Overflow_y_auto -> 39
-    | Overflow_y_hidden -> 40
-    | Overflow_y_scroll -> 41
-    | Overflow_y_visible -> 42
+    (* Overflow utilities *)
+    | Overflow_auto -> 10
+    | Overflow_clip -> 11
+    | Overflow_hidden -> 12
+    | Overflow_scroll -> 13
+    | Overflow_visible -> 14
+    | Overflow_x_auto -> 15
+    | Overflow_x_hidden -> 16
+    | Overflow_x_scroll -> 17
+    | Overflow_x_visible -> 18
+    | Overflow_y_auto -> 19
+    | Overflow_y_hidden -> 20
+    | Overflow_y_scroll -> 21
+    | Overflow_y_visible -> 22
     (* Visibility *)
     | Visible -> 100
     | Invisible -> 101
@@ -188,15 +176,6 @@ module Handler = struct
     | Object_bottom -> style "object-bottom" [ object_position Center_bottom ]
     | Object_left -> style "object-left" [ object_position Left_center ]
     | Object_right -> style "object-right" [ object_position Right_center ]
-    | Border_collapse ->
-        style "border-collapse" [ Css.border_collapse Collapse ]
-    | Border_separate ->
-        style "border-separate" [ Css.border_collapse Separate ]
-    | Border_spacing n ->
-        let class_name = "border-spacing-" ^ string_of_int n in
-        style class_name [ Css.border_spacing (Rem (float_of_int n *. 0.25)) ]
-    | Table_auto -> style "table-auto" [ Css.table_layout Auto ]
-    | Table_fixed -> style "table-fixed" [ Css.table_layout Fixed ]
 
   (** {1 Parsing Functions} *)
 
@@ -241,14 +220,6 @@ module Handler = struct
     | [ "object"; "right" ] -> Ok Object_right
     | [ "sr"; "only" ] -> Ok Sr_only
     | [ "not"; "sr"; "only" ] -> Ok Not_sr_only
-    | [ "border"; "collapse" ] -> Ok Border_collapse
-    | [ "border"; "separate" ] -> Ok Border_separate
-    | [ "border"; "spacing"; n ] -> (
-        match int_of_string_opt n with
-        | Some i -> Ok (Border_spacing i)
-        | None -> Error (`Msg "Not a layout utility"))
-    | [ "table"; "auto" ] -> Ok Table_auto
-    | [ "table"; "fixed" ] -> Ok Table_fixed
     | _ -> Error (`Msg "Not a layout utility")
 end
 
@@ -301,8 +272,3 @@ let object_left = utility Object_left
 let object_right = utility Object_right
 let sr_only = utility Sr_only
 let not_sr_only = utility Not_sr_only
-let border_collapse = utility Border_collapse
-let border_separate = utility Border_separate
-let border_spacing n = utility (Border_spacing n)
-let table_auto = utility Table_auto
-let table_fixed = utility Table_fixed
