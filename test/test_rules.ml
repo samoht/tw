@@ -1190,7 +1190,7 @@ let test_suborder_within_group () =
 
   let test_groups =
     [
-      ("margin", margin_utils);
+      (* Note: margin has its own suborder test in test_margin.ml *)
       ("padding", padding_utils);
       ("sizing", sizing_utils);
       ("gap", gap_utils);
