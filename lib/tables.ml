@@ -28,8 +28,9 @@ module Handler = struct
   (** Extensible variant for table utilities *)
   type Utility.base += Self of t
 
-  (** Priority for table utilities *)
-  let priority = 10
+  (** Priority for table utilities - matches layout priority for correct
+      ordering *)
+  let priority = 4
 
   let err_not_utility = Error (`Msg "Not a table utility")
 
@@ -47,9 +48,9 @@ module Handler = struct
   let suborder = function
     | Border_collapse -> 0
     | Border_separate -> 1
-    | Border_spacing n -> 100 + n
-    | Table_auto -> 200
-    | Table_fixed -> 201
+    | Border_spacing n -> 2 + n
+    | Table_auto -> 6
+    | Table_fixed -> 7
 
   let of_string = function
     | [ "border"; "collapse" ] -> Ok Border_collapse

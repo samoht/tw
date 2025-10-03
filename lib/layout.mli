@@ -51,11 +51,6 @@ val object_top : t
 val object_bottom : t
 val object_left : t
 val object_right : t
-val border_collapse : t
-val border_separate : t
-val border_spacing : int -> t
-val table_auto : t
-val table_fixed : t
 
 module Handler : sig
   type t

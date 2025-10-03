@@ -22,7 +22,7 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  let priority = 7
+  let priority = 8
   let cursor_auto = style "cursor-auto" [ cursor Auto ]
   let cursor_default = style "cursor-default" [ cursor Default ]
   let cursor_pointer = style "cursor-pointer" [ cursor Pointer ]

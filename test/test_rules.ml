@@ -1507,7 +1507,7 @@ let tests =
     test_case "prose rule separation" `Quick test_cascade_prose_separation;
     test_case "color override cascading" `Quick test_cascade_color_override;
     (* Utility group ordering *)
-    test_case "priority order per group" `Quick test_priority_order_per_group;
+    test_case "priority order per group" `Slow test_priority_order_per_group;
     test_case "suborder within group" `Slow test_suborder_within_group;
     test_case "random utilities with minimization" `Slow
       test_random_utilities_with_minimization;

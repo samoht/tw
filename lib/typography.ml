@@ -402,7 +402,7 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  let priority = 14
+  let priority = 15
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not a typography utility")
 
