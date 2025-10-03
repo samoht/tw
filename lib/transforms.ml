@@ -47,7 +47,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   (** Priority for transform utilities *)
-  let priority = 70
+  let priority = 1
 
   (* Transform variables using new API *)
   let tw_translate_x_var = Var.channel Css.Length "tw-translate-x"
