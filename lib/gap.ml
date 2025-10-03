@@ -10,7 +10,7 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  let priority = 16
+  let priority = 10
 
   (** {2 Typed Gap Utilities} *)
 

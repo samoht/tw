@@ -91,7 +91,7 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  let priority = 10
+  let priority = 6
 
   (** Helper to create spacing-based utilities with consistent pattern *)
   let spacing_utility prefix css_prop n =

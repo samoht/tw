@@ -7,7 +7,7 @@ module Handler = struct
   type t = { axis : [ `All | `X | `Y | `T | `R | `B | `L ]; value : spacing }
   type Utility.base += Self of t
 
-  let priority = 19
+  let priority = 13
 
   let v prefix prop (s : spacing) =
     let class_name = prefix ^ Spacing.pp_spacing_suffix s in

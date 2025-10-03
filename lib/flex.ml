@@ -47,7 +47,7 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  let priority = 14
+  let priority = 5
 
   (* Helper functions returning Style.t *)
 

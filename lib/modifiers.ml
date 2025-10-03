@@ -5,30 +5,30 @@
 open Style
 (** We still need Style.modifier type *)
 
-(** Helper to build escaped class selectors *)
+(** Helper to build class selectors *)
 let build_class prefix cls = Css.Selector.Class (prefix ^ cls)
 
-(** Helper functions for building escaped class names *)
-let hover cls = build_class "hover\\:" cls
+(** Helper functions for building class names *)
+let hover cls = build_class "hover:" cls
 
-let focus cls = build_class "focus\\:" cls
-let active cls = build_class "active\\:" cls
-let disabled cls = build_class "disabled\\:" cls
-let group_hover cls = build_class "group-hover\\:" cls
-let group_focus cls = build_class "group-focus\\:" cls
-let peer_hover cls = build_class "peer-hover\\:" cls
-let peer_focus cls = build_class "peer-focus\\:" cls
-let peer_checked cls = build_class "peer-checked\\:" cls
-let aria_checked cls = build_class "aria-checked\\:" cls
-let aria_expanded cls = build_class "aria-expanded\\:" cls
-let aria_selected cls = build_class "aria-selected\\:" cls
-let aria_disabled cls = build_class "aria-disabled\\:" cls
-let data_active cls = build_class "data-\\[active\\]\\:" cls
-let data_inactive cls = build_class "data-\\[inactive\\]\\:" cls
-let focus_within cls = build_class "focus-within\\:" cls
-let focus_visible cls = build_class "focus-visible\\:" cls
-let before cls = build_class "before\\:" cls
-let after cls = build_class "after\\:" cls
+let focus cls = build_class "focus:" cls
+let active cls = build_class "active:" cls
+let disabled cls = build_class "disabled:" cls
+let group_hover cls = build_class "group-hover:" cls
+let group_focus cls = build_class "group-focus:" cls
+let peer_hover cls = build_class "peer-hover:" cls
+let peer_focus cls = build_class "peer-focus:" cls
+let peer_checked cls = build_class "peer-checked:" cls
+let aria_checked cls = build_class "aria-checked:" cls
+let aria_expanded cls = build_class "aria-expanded:" cls
+let aria_selected cls = build_class "aria-selected:" cls
+let aria_disabled cls = build_class "aria-disabled:" cls
+let data_active cls = build_class "data-[active]:" cls
+let data_inactive cls = build_class "data-[inactive]:" cls
+let focus_within cls = build_class "focus-within:" cls
+let focus_visible cls = build_class "focus-visible:" cls
+let before cls = build_class "before:" cls
+let after cls = build_class "after:" cls
 
 (** Base marker classes *)
 let group = Css.Selector.Class "group"

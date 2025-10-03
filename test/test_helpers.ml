@@ -129,3 +129,52 @@ let minimize_failing_case check_fails initial =
       else minimal
     in
     Some final
+
+(** Get rule selector ordering from Tailwind CSS *)
+let get_tailwind_order classes =
+  let tailwind_css_str =
+    Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true classes
+  in
+  let tailwind_css =
+    match Css.of_string tailwind_css_str with
+    | Ok css -> css
+    | Error err ->
+        let formatted_error = Css.pp_parse_error err in
+        Alcotest.fail ("Failed to parse Tailwind CSS: " ^ formatted_error)
+  in
+  let tailwind_utilities_rules = extract_utilities_layer_rules tailwind_css in
+  extract_rule_selectors tailwind_utilities_rules
+
+(** Get rule selector ordering from our implementation *)
+let get_our_order utilities =
+  let tw_css = Tw.to_css ~base:true ~optimize:true utilities in
+  let tw_utilities_rules = extract_utilities_layer_rules tw_css in
+  extract_rule_selectors tw_utilities_rules
+
+(** Compare ordering between our implementation and Tailwind *)
+let check_ordering_matches ~test_name utilities =
+  let classes = List.map Tw.pp utilities in
+  let tailwind_order = get_tailwind_order classes in
+  let our_order = get_our_order utilities in
+
+  (* If ordering doesn't match, try to minimize the test case *)
+  if tailwind_order <> our_order then (
+    Fmt.epr "@.Ordering mismatch detected. Minimizing test case...@.";
+    match minimize_failing_case check_ordering_fails utilities with
+    | Some minimal ->
+        let minimal_classes = List.map Tw.pp minimal in
+        Fmt.epr "@.Minimal failing case (%d utilities): %a@."
+          (List.length minimal)
+          Fmt.(list ~sep:(const string " ") string)
+          minimal_classes;
+        let minimal_tw_order = get_tailwind_order minimal_classes in
+        let minimal_our_order = get_our_order minimal in
+        Fmt.epr "@.Expected (Tailwind): %a@."
+          Fmt.(list ~sep:(const string ", ") (quote string))
+          minimal_tw_order;
+        Fmt.epr "Received (tw):       %a@.@."
+          Fmt.(list ~sep:(const string ", ") (quote string))
+          minimal_our_order
+    | None -> ());
+
+  Alcotest.(check (list string)) test_name tailwind_order our_order
