@@ -1176,9 +1176,11 @@ module Handler = struct
   open Style
   open Css
 
+  let name = "color"
   let priority = 12
 
-  let of_string parts =
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
     match parts with
     | [ "bg"; "transparent" ] -> Ok Bg_transparent
     | [ "bg"; "current" ] -> Ok Bg_current
@@ -1202,70 +1204,52 @@ module Handler = struct
     | _ -> Error (`Msg "Not a color utility")
 
   let bg' c shade =
-    let class_name =
-      if is_base_color c || is_custom_color c then "bg-" ^ color_to_string c
-      else "bg-" ^ color_to_string c ^ "-" ^ string_of_int shade
-    in
     if is_custom_color c then
       let css_color = to_css c shade in
-      style class_name [ Css.background_color css_color ]
+      style [ Css.background_color css_color ]
     else
       let color_var = get_color_var c shade in
       let color_value = to_css c (if is_base_color c then 500 else shade) in
       let decl, color_ref = Var.binding color_var color_value in
-      style class_name (decl :: [ Css.background_color (Css.Var color_ref) ])
+      style (decl :: [ Css.background_color (Css.Var color_ref) ])
 
-  let bg_transparent =
-    style "bg-transparent" [ Css.background_color Css.Transparent ]
-
-  let bg_current = style "bg-current" [ Css.background_color Css.Current ]
+  let bg_transparent = style [ Css.background_color Css.Transparent ]
+  let bg_current = style [ Css.background_color Css.Current ]
 
   (** Text color utilities *)
 
   let text' color shade =
-    let class_name =
-      if is_base_color color || is_custom_color color then
-        "text-" ^ color_to_string color
-      else "text-" ^ color_to_string color ^ "-" ^ string_of_int shade
-    in
     if is_custom_color color then
       let css_color = to_css color shade in
-      style class_name [ Css.color css_color ]
+      style [ Css.color css_color ]
     else
       let color_var = get_color_var color shade in
       let color_value =
         to_css color (if is_base_color color then 500 else shade)
       in
       let decl, color_ref = Var.binding color_var color_value in
-      style class_name (decl :: [ Css.color (Var color_ref) ])
+      style (decl :: [ Css.color (Var color_ref) ])
 
-  let text_transparent = style "text-transparent" [ Css.color Transparent ]
-  let text_current = style "text-current" [ Css.color Current ]
-  let text_inherit = style "text-inherit" [ Css.color Inherit ]
+  let text_transparent = style [ Css.color Transparent ]
+  let text_current = style [ Css.color Current ]
+  let text_inherit = style [ Css.color Inherit ]
 
   (** Border color utilities *)
 
   let border_color' color shade =
-    let class_name =
-      if is_base_color color || is_custom_color color then
-        "border-" ^ color_to_string color
-      else "border-" ^ color_to_string color ^ "-" ^ string_of_int shade
-    in
     if is_custom_color color then
       let css_color = to_css color shade in
-      style class_name [ Css.border_color css_color ]
+      style [ Css.border_color css_color ]
     else
       let color_var = get_color_var color shade in
       let color_value =
         to_css color (if is_base_color color then 500 else shade)
       in
       let decl, color_ref = Var.binding color_var color_value in
-      style class_name (decl :: [ Css.border_color (Var color_ref) ])
+      style (decl :: [ Css.border_color (Var color_ref) ])
 
-  let border_transparent =
-    style "border-transparent" [ Css.border_color Transparent ]
-
-  let border_current = style "border-current" [ Css.border_color Current ]
+  let border_transparent = style [ Css.border_color Transparent ]
+  let border_current = style [ Css.border_color Current ]
 
   let to_style = function
     | Bg (color, shade) -> bg' color shade
@@ -1311,6 +1295,25 @@ module Handler = struct
         20000 + base
     | Border_transparent -> 20000
     | Border_current -> 20001
+
+  let to_class = function
+    | Bg (c, shade) ->
+        if is_base_color c || is_custom_color c then "bg-" ^ color_to_string c
+        else "bg-" ^ color_to_string c ^ "-" ^ string_of_int shade
+    | Bg_transparent -> "bg-transparent"
+    | Bg_current -> "bg-current"
+    | Text (c, shade) ->
+        if is_base_color c || is_custom_color c then "text-" ^ color_to_string c
+        else "text-" ^ color_to_string c ^ "-" ^ string_of_int shade
+    | Text_transparent -> "text-transparent"
+    | Text_current -> "text-current"
+    | Text_inherit -> "text-inherit"
+    | Border (c, shade) ->
+        if is_base_color c || is_custom_color c then
+          "border-" ^ color_to_string c
+        else "border-" ^ color_to_string c ^ "-" ^ string_of_int shade
+    | Border_transparent -> "border-transparent"
+    | Border_current -> "border-current"
 end
 
 open Handler

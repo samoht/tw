@@ -13,11 +13,12 @@ module Handler = struct
 
   type Utility.base += Self of t
 
+  let name = "forms"
   let priority = 800
-  let form_input = style "form-input" []
+  let form_input = style []
 
   let form_textarea =
-    style "form-textarea"
+    style
       [
         Css.appearance None;
         Css.background_color (Css.rgb 255 255 255);
@@ -34,7 +35,7 @@ module Handler = struct
       ]
 
   let form_select =
-    style "form-select"
+    style
       [
         Css.appearance None;
         Css.background_color (Css.rgb 255 255 255);
@@ -59,7 +60,7 @@ module Handler = struct
       ]
 
   let form_checkbox =
-    style "form-checkbox"
+    style
       [
         Css.appearance None;
         Css.width (Rem 1.0);
@@ -75,7 +76,7 @@ module Handler = struct
       ]
 
   let form_radio =
-    style "form-radio"
+    style
       [
         Css.appearance None;
         Css.width (Rem 1.0);
@@ -104,15 +105,20 @@ module Handler = struct
     | Form_checkbox -> 3
     | Form_radio -> 4
 
-  let of_string =
-    let err_not_utility = Error (`Msg "Not a form utility") in
-    function
-    | [ "form"; "input" ] -> Ok Form_input
-    | [ "form"; "textarea" ] -> Ok Form_textarea
-    | [ "form"; "select" ] -> Ok Form_select
-    | [ "form"; "checkbox" ] -> Ok Form_checkbox
-    | [ "form"; "radio" ] -> Ok Form_radio
-    | _ -> err_not_utility
+  let of_class = function
+    | "form-input" -> Ok Form_input
+    | "form-textarea" -> Ok Form_textarea
+    | "form-select" -> Ok Form_select
+    | "form-checkbox" -> Ok Form_checkbox
+    | "form-radio" -> Ok Form_radio
+    | _ -> Error (`Msg "Not a form utility")
+
+  let to_class = function
+    | Form_input -> "form-input"
+    | Form_textarea -> "form-textarea"
+    | Form_select -> "form-select"
+    | Form_checkbox -> "form-checkbox"
+    | Form_radio -> "form-radio"
 end
 
 open Handler

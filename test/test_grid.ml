@@ -1,51 +1,46 @@
 open Alcotest
 
-let check parts =
-  let expected = String.concat "-" parts in
-  match Tw.Grid.Handler.of_string parts with
-  | Ok result ->
-      let style = Tw.Grid.Handler.to_style result in
-      Alcotest.check string "grid class name" expected (Tw.Style.pp style)
-  | Error (`Msg msg) -> fail msg
+let check = Test_helpers.check_handler_roundtrip (module Tw.Grid.Handler)
 
 let of_string_valid () =
   (* Display *)
-  check [ "grid" ];
-  check [ "inline"; "grid" ];
+  check "grid";
+  check "inline-grid";
 
   (* Column placement *)
-  check [ "col"; "auto" ];
-  check [ "col"; "span"; "1" ];
-  check [ "col"; "span"; "2" ];
-  check [ "col"; "span"; "3" ];
-  check [ "col"; "span"; "6" ];
-  check [ "col"; "span"; "12" ];
-  check [ "col"; "span"; "full" ];
-  check [ "col"; "start"; "1" ];
-  check [ "col"; "start"; "2" ];
-  check [ "col"; "start"; "auto" ];
-  check [ "col"; "end"; "1" ];
-  check [ "col"; "end"; "7" ];
-  check [ "col"; "end"; "auto" ];
+  check "col-auto";
+  check "col-span-1";
+  check "col-span-2";
+  check "col-span-3";
+  check "col-span-6";
+  check "col-span-12";
+  check "col-span-full";
+  check "col-start-1";
+  check "col-start-2";
+  check "col-start-auto";
+  check "col-end-1";
+  check "col-end-7";
+  check "col-end-auto";
 
   (* Row placement *)
-  check [ "row"; "auto" ];
-  check [ "row"; "span"; "1" ];
-  check [ "row"; "span"; "2" ];
-  check [ "row"; "span"; "3" ];
-  check [ "row"; "span"; "6" ];
-  check [ "row"; "span"; "12" ];
-  check [ "row"; "span"; "full" ];
-  check [ "row"; "start"; "1" ];
-  check [ "row"; "start"; "2" ];
-  check [ "row"; "start"; "auto" ];
-  check [ "row"; "end"; "1" ];
-  check [ "row"; "end"; "7" ];
-  check [ "row"; "end"; "auto" ]
+  check "row-auto";
+  check "row-span-1";
+  check "row-span-2";
+  check "row-span-3";
+  check "row-span-6";
+  check "row-span-12";
+  check "row-span-full";
+  check "row-start-1";
+  check "row-start-2";
+  check "row-start-auto";
+  check "row-end-1";
+  check "row-end-7";
+  check "row-end-auto"
 
 let of_string_invalid () =
   let fail_maybe input =
-    match Tw.Grid.Handler.of_string input with
+    let class_name = String.concat "-" input in
+    match Tw.Grid.Handler.of_class class_name with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in

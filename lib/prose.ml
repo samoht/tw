@@ -1751,9 +1751,8 @@ let pp = function
 
 (** Prose utility constructors *)
 let prose_style variant =
-  let name = to_class variant in
   let rules = to_css_rules variant in
-  Style.style ~rules:(Some rules) name []
+  Style.style ~rules:(Some rules) []
 
 (** Generate complete prose stylesheet *)
 let stylesheet () =
@@ -1783,11 +1782,11 @@ let stylesheet () =
   all_rules
 
 (** Marker utilities (no CSS output) *)
-let prose_lead' = Style.style ~rules:(Some []) "prose-lead" []
+let prose_lead' = Style.style ~rules:(Some []) []
 
-let not_prose' = Style.style ~rules:(Some []) "not-prose" []
-let prose_invert' = Style.style ~rules:(Some []) "prose-invert" []
-let container' = Style.style ~rules:(Some []) "container" []
+let not_prose' = Style.style ~rules:(Some []) []
+let prose_invert' = Style.style ~rules:(Some []) []
+let container' = Style.style ~rules:(Some []) []
 
 module Handler = struct
   (** Local prose utility type *)
@@ -1815,6 +1814,8 @@ module Handler = struct
   type Utility.base += Self of t
 
   (** Priority for prose utilities *)
+  let name = "prose"
+
   let priority = 3
 
   (** {1 Utility Conversion Functions} *)
@@ -1835,7 +1836,25 @@ module Handler = struct
     | Not_prose -> not_prose'
     | Container -> container'
 
-  let of_string = function
+  let to_class = function
+    | Prose -> "prose"
+    | Prose_sm -> "prose-sm"
+    | Prose_lg -> "prose-lg"
+    | Prose_xl -> "prose-xl"
+    | Prose_2xl -> "prose-2xl"
+    | Prose_gray -> "prose-gray"
+    | Prose_slate -> "prose-slate"
+    | Prose_zinc -> "prose-zinc"
+    | Prose_neutral -> "prose-neutral"
+    | Prose_stone -> "prose-stone"
+    | Prose_invert -> "prose-invert"
+    | Lead -> "lead"
+    | Not_prose -> "not-prose"
+    | Container -> "container"
+
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
+    match parts with
     | [ "prose" ] -> Ok Prose
     | [ "prose"; "sm" ] -> Ok Prose_sm
     | [ "prose"; "lg" ] -> Ok Prose_lg

@@ -47,7 +47,9 @@ module Handler = struct
   type Utility.base += Self of t
 
   (** Priority for transform utilities *)
-  let priority = 6
+  let name = "transforms"
+
+  let priority = 7
 
   (* Transform variables using new API *)
   let tw_translate_x_var = Var.channel Css.Length "tw-translate-x"
@@ -71,24 +73,17 @@ module Handler = struct
 
   (** {1 2D Transform Utilities} *)
 
-  let rotate n =
-    let class_name = "rotate-" ^ string_of_int n in
-    style class_name [ Css.transform (Rotate (Deg (float_of_int n))) ]
+  let rotate n = style [ Css.transform (Rotate (Deg (float_of_int n))) ]
 
   let translate_x n =
-    let prefix = if n < 0 then "-" else "" in
-    let class_name = prefix ^ "translate-x-" ^ string_of_int (abs n) in
     let len : length = if n = 0 then Zero else Rem (float_of_int n *. 0.25) in
-    style class_name [ Css.transform (Translate_x len) ]
+    style [ Css.transform (Translate_x len) ]
 
   let translate_y n =
-    let prefix = if n < 0 then "-" else "" in
-    let class_name = prefix ^ "translate-y-" ^ string_of_int (abs n) in
     let len : length = if n = 0 then Zero else Rem (float_of_int n *. 0.25) in
-    style class_name [ Css.transform (Translate_y len) ]
+    style [ Css.transform (Translate_y len) ]
 
   let scale n =
-    let class_name = "scale-" ^ string_of_int n in
     let value : Css.number_percentage = Css.Pct (float_of_int n) in
     let dx, _ = Var.binding tw_scale_x_var value in
     let dy, _ = Var.binding tw_scale_y_var value in
@@ -105,102 +100,63 @@ module Handler = struct
     (* Also set the scale property with variable references *)
     let scale_x_ref = Var.reference tw_scale_x_var in
     let scale_y_ref = Var.reference tw_scale_y_var in
-    style class_name ~property_rules:props
+    style ~property_rules:props
       (dx :: dy :: dz :: [ Css.scale (XY (Var scale_x_ref, Var scale_y_ref)) ])
 
   let scale_x n =
     let value : Css.number_percentage = Css.Pct (float_of_int n) in
-    let class_name = "scale-x-" ^ string_of_int n in
     (* Only uses X variable *)
     let d, _ = Var.binding tw_scale_x_var value in
-    style class_name (d :: [ Css.transform (Scale_x (float_of_int n /. 100.0)) ])
+    style (d :: [ Css.transform (Scale_x (float_of_int n /. 100.0)) ])
 
   let scale_y n =
     let value : Css.number_percentage = Css.Pct (float_of_int n) in
-    let class_name = "scale-y-" ^ string_of_int n in
     (* Only uses Y variable *)
     let d, _ = Var.binding tw_scale_y_var value in
-    style class_name (d :: [ Css.transform (Scale_y (float_of_int n /. 100.0)) ])
+    style (d :: [ Css.transform (Scale_y (float_of_int n /. 100.0)) ])
 
   let skew_x deg =
-    let prefix = if deg < 0 then "-" else "" in
-    let class_name = prefix ^ "skew-x-" ^ string_of_int (abs deg) in
     let d, v = Var.binding tw_skew_x_var (Deg (float_of_int deg)) in
-    style class_name (d :: [ Css.transform (Skew_x (Var v)) ])
+    style (d :: [ Css.transform (Skew_x (Var v)) ])
 
   let skew_y deg =
-    let prefix = if deg < 0 then "-" else "" in
-    let class_name = prefix ^ "skew-y-" ^ string_of_int (abs deg) in
     let d, v = Var.binding tw_skew_y_var (Deg (float_of_int deg)) in
-    style class_name (d :: [ Css.transform (Skew_y (Var v)) ])
+    style (d :: [ Css.transform (Skew_y (Var v)) ])
 
   (* Negative translate utilities for centering *)
   let neg_translate_x_1_2 =
-    style "-translate-x-1/2"
-      [ Css.transform (Css.Translate_x (Css.Pct (-50.0))) ]
+    style [ Css.transform (Css.Translate_x (Css.Pct (-50.0))) ]
 
   let neg_translate_y_1_2 =
-    style "-translate-y-1/2"
-      [ Css.transform (Css.Translate_y (Css.Pct (-50.0))) ]
+    style [ Css.transform (Css.Translate_y (Css.Pct (-50.0))) ]
 
   (** {1 3D Transform Utilities} *)
 
-  let rotate_x n =
-    let prefix = if n < 0 then "-" else "" in
-    let class_name = prefix ^ "rotate-x-" ^ string_of_int (abs n) in
-    style class_name [ Css.transform (Rotate_x (Deg (float_of_int n))) ]
-
-  let rotate_y n =
-    let prefix = if n < 0 then "-" else "" in
-    let class_name = prefix ^ "rotate-y-" ^ string_of_int (abs n) in
-    style class_name [ Css.transform (Rotate_y (Deg (float_of_int n))) ]
-
-  let rotate_z n =
-    let prefix = if n < 0 then "-" else "" in
-    let class_name = prefix ^ "rotate-z-" ^ string_of_int (abs n) in
-    style class_name [ Css.transform (Rotate_z (Deg (float_of_int n))) ]
+  let rotate_x n = style [ Css.transform (Rotate_x (Deg (float_of_int n))) ]
+  let rotate_y n = style [ Css.transform (Rotate_y (Deg (float_of_int n))) ]
+  let rotate_z n = style [ Css.transform (Rotate_z (Deg (float_of_int n))) ]
 
   let translate_z n =
-    let prefix = if n < 0 then "-" else "" in
-    let class_name = prefix ^ "translate-z-" ^ string_of_int (abs n) in
-    style class_name [ Css.transform (Translate_z (Px (float_of_int n))) ]
+    style [ Css.transform (Translate_z (Px (float_of_int n))) ]
 
   let scale_z n =
     let value : Css.number_percentage = Css.Pct (float_of_int n) in
-    let class_name = "scale-z-" ^ string_of_int n in
     let d, _ = Var.binding tw_scale_z_var value in
-    style class_name (d :: [ Css.transform (Scale_z (float_of_int n /. 100.0)) ])
+    style (d :: [ Css.transform (Scale_z (float_of_int n /. 100.0)) ])
 
   let perspective n =
-    let class_name = "perspective-" ^ string_of_int n in
     let value : length = if n = 0 then Zero else Px (float_of_int n) in
-    style class_name [ Css.perspective value ]
+    style [ Css.perspective value ]
 
-  let perspective_origin_center =
-    style "perspective-origin-center" [ perspective_origin "center" ]
-
-  let perspective_origin_top =
-    style "perspective-origin-top" [ perspective_origin "top" ]
-
-  let perspective_origin_bottom =
-    style "perspective-origin-bottom" [ perspective_origin "bottom" ]
-
-  let perspective_origin_left =
-    style "perspective-origin-left" [ perspective_origin "left" ]
-
-  let perspective_origin_right =
-    style "perspective-origin-right" [ perspective_origin "right" ]
-
-  let transform_style_3d =
-    style "transform-style-3d" [ transform_style Preserve_3d ]
-
-  let transform_style_flat =
-    style "transform-style-flat" [ transform_style Flat ]
-
-  let backface_visible =
-    style "backface-visible" [ backface_visibility Visible ]
-
-  let backface_hidden = style "backface-hidden" [ backface_visibility Hidden ]
+  let perspective_origin_center = style [ perspective_origin "center" ]
+  let perspective_origin_top = style [ perspective_origin "top" ]
+  let perspective_origin_bottom = style [ perspective_origin "bottom" ]
+  let perspective_origin_left = style [ perspective_origin "left" ]
+  let perspective_origin_right = style [ perspective_origin "right" ]
+  let transform_style_3d = style [ transform_style Preserve_3d ]
+  let transform_style_flat = style [ transform_style Flat ]
+  let backface_visible = style [ backface_visibility Visible ]
+  let backface_hidden = style [ backface_visibility Hidden ]
 
   (** {1 Transform Control Utilities} *)
 
@@ -214,7 +170,7 @@ module Handler = struct
     let rotate_decl, rotate_var = Var.binding tw_rotate_var (Deg 0.0) in
     let skew_x_decl, skew_x_var = Var.binding tw_skew_x_var (Deg 0.0) in
     let skew_y_decl, skew_y_var = Var.binding tw_skew_y_var (Deg 0.0) in
-    style "transform"
+    style
       (translate_x_decl :: translate_y_decl :: rotate_decl :: skew_x_decl
      :: skew_y_decl
       :: [
@@ -230,8 +186,8 @@ module Handler = struct
              ];
          ])
 
-  let transform_none = style "transform-none" [ Css.transform None ]
-  let transform_gpu = style "transform-gpu" [ Css.transform (Translate_z Zero) ]
+  let transform_none = style [ Css.transform None ]
+  let transform_gpu = style [ Css.transform (Translate_z Zero) ]
 
   (** {1 Parsing Functions} *)
 
@@ -269,7 +225,44 @@ module Handler = struct
     | Transform_none -> transform_none
     | Transform_gpu -> transform_gpu
 
-  let of_string = function
+  let suborder = function
+    | Transform -> 0
+    | Transform_none -> 1
+    | Transform_gpu -> 2
+    (* Translate utilities come first *)
+    | Translate_x n -> 100 + n
+    | Neg_translate_x_1_2 -> 150
+    | Translate_y n -> 200 + n
+    | Neg_translate_y_1_2 -> 250
+    | Translate_z n -> 300 + n
+    (* Scale utilities *)
+    | Scale n -> 400 + n
+    | Scale_x n -> 500 + n
+    | Scale_y n -> 600 + n
+    | Scale_z n -> 700 + n
+    (* Rotate utilities *)
+    | Rotate n -> 800 + n
+    | Rotate_x n -> 900 + n
+    | Rotate_y n -> 1000 + n
+    | Rotate_z n -> 1100 + n
+    (* Skew utilities *)
+    | Skew_x n -> 1200 + n
+    | Skew_y n -> 1300 + n
+    (* Other transform utilities *)
+    | Perspective n -> 1400 + n
+    | Perspective_origin_center -> 1500
+    | Perspective_origin_top -> 1501
+    | Perspective_origin_bottom -> 1502
+    | Perspective_origin_left -> 1503
+    | Perspective_origin_right -> 1504
+    | Transform_style_3d -> 1600
+    | Transform_style_flat -> 1601
+    | Backface_visible -> 1602
+    | Backface_hidden -> 1603
+
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
+    match parts with
     | [ "rotate"; n ] -> Parse.int_any n >|= fun n -> Rotate n
     | [ "translate"; "x"; n ] -> Parse.int_any n >|= fun n -> Translate_x n
     | [ "translate"; "y"; n ] -> Parse.int_any n >|= fun n -> Translate_y n
@@ -300,35 +293,51 @@ module Handler = struct
     | [ "transform"; "gpu" ] -> Ok Transform_gpu
     | _ -> err_not_utility
 
-  let suborder = function
-    | Transform -> 1000000
-    | Transform_none -> 1000001
-    | Transform_gpu -> 1000002
-    | Rotate n -> 1000100 + n
-    | Rotate_x n -> 1000150 + n
-    | Rotate_y n -> 1000160 + n
-    | Rotate_z n -> 1000170 + n
-    | Scale n -> 1000200 + n
-    | Scale_x n -> 1000250 + n
-    | Scale_y n -> 1000260 + n
-    | Scale_z n -> 1000270 + n
-    | Translate_x n -> 1000300 + n
-    | Neg_translate_x_1_2 -> 1000380
-    | Translate_y n -> 1000350 + n
-    | Neg_translate_y_1_2 -> 1000390
-    | Translate_z n -> 1000360 + n
-    | Skew_x n -> 1000400 + n
-    | Skew_y n -> 1000450 + n
-    | Perspective n -> 1000500 + n
-    | Perspective_origin_center -> 1000600
-    | Perspective_origin_top -> 1000601
-    | Perspective_origin_bottom -> 1000602
-    | Perspective_origin_left -> 1000603
-    | Perspective_origin_right -> 1000604
-    | Transform_style_3d -> 1000700
-    | Transform_style_flat -> 1000701
-    | Backface_visible -> 1000702
-    | Backface_hidden -> 1000703
+  let to_class = function
+    | Rotate n -> "rotate-" ^ string_of_int n
+    | Translate_x n ->
+        let prefix = if n < 0 then "-" else "" in
+        prefix ^ "translate-x-" ^ string_of_int (abs n)
+    | Translate_y n ->
+        let prefix = if n < 0 then "-" else "" in
+        prefix ^ "translate-y-" ^ string_of_int (abs n)
+    | Translate_z n ->
+        let prefix = if n < 0 then "-" else "" in
+        prefix ^ "translate-z-" ^ string_of_int (abs n)
+    | Neg_translate_x_1_2 -> "-translate-x-1/2"
+    | Neg_translate_y_1_2 -> "-translate-y-1/2"
+    | Scale n -> "scale-" ^ string_of_int n
+    | Scale_x n -> "scale-x-" ^ string_of_int n
+    | Scale_y n -> "scale-y-" ^ string_of_int n
+    | Scale_z n -> "scale-z-" ^ string_of_int n
+    | Skew_x n ->
+        let prefix = if n < 0 then "-" else "" in
+        prefix ^ "skew-x-" ^ string_of_int (abs n)
+    | Skew_y n ->
+        let prefix = if n < 0 then "-" else "" in
+        prefix ^ "skew-y-" ^ string_of_int (abs n)
+    | Rotate_x n ->
+        let prefix = if n < 0 then "-" else "" in
+        prefix ^ "rotate-x-" ^ string_of_int (abs n)
+    | Rotate_y n ->
+        let prefix = if n < 0 then "-" else "" in
+        prefix ^ "rotate-y-" ^ string_of_int (abs n)
+    | Rotate_z n ->
+        let prefix = if n < 0 then "-" else "" in
+        prefix ^ "rotate-z-" ^ string_of_int (abs n)
+    | Perspective n -> "perspective-" ^ string_of_int n
+    | Perspective_origin_center -> "perspective-origin-center"
+    | Perspective_origin_top -> "perspective-origin-top"
+    | Perspective_origin_bottom -> "perspective-origin-bottom"
+    | Perspective_origin_left -> "perspective-origin-left"
+    | Perspective_origin_right -> "perspective-origin-right"
+    | Transform_style_3d -> "transform-style-3d"
+    | Transform_style_flat -> "transform-style-flat"
+    | Backface_visible -> "backface-visible"
+    | Backface_hidden -> "backface-hidden"
+    | Transform -> "transform"
+    | Transform_none -> "transform-none"
+    | Transform_gpu -> "transform-gpu"
 end
 
 open Handler

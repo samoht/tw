@@ -91,7 +91,8 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  let priority = 12
+  let name = "borders"
+  let priority = 13
 
   (* Create border style variable with @property for utilities that reference
      it *)
@@ -102,56 +103,56 @@ module Handler = struct
 
   (* Helper for border utilities that reference the variable with @property
      default *)
-  let make_border_util class_name additional_props =
+  let make_border_util additional_props =
     let border_ref = Var.reference border_style_var in
     let property_rule =
       match Var.property_rule border_style_var with
       | Some rule -> rule
       | None -> Css.empty
     in
-    style class_name ~property_rules:property_rule
+    style ~property_rules:property_rule
       (border_style (Var border_ref) :: additional_props)
 
   (* Helper for border style utilities that set the variable *)
-  let border_style_util class_name border_style_value =
+  let border_style_util border_style_value =
     let decl, _ = Var.binding border_style_var border_style_value in
-    style class_name [ decl; border_style border_style_value ]
+    style [ decl; border_style border_style_value ]
 
-  let border = make_border_util "border" [ Css.border_width (Px 1.) ]
-  let border_0 = make_border_util "border-0" [ Css.border_width (Px 0.) ]
-  let border_2 = make_border_util "border-2" [ Css.border_width (Px 2.) ]
-  let border_4 = make_border_util "border-4" [ Css.border_width (Px 4.) ]
-  let border_8 = make_border_util "border-8" [ Css.border_width (Px 8.) ]
+  let border = make_border_util [ Css.border_width (Px 1.) ]
+  let border_0 = make_border_util [ Css.border_width (Px 0.) ]
+  let border_2 = make_border_util [ Css.border_width (Px 2.) ]
+  let border_4 = make_border_util [ Css.border_width (Px 4.) ]
+  let border_8 = make_border_util [ Css.border_width (Px 8.) ]
 
   (* Helper for border side utilities that reference the variable with @property
      default *)
-  let make_side_util class_name side_props_fn =
+  let make_side_util side_props_fn =
     let border_ref = Var.reference border_style_var in
     let property_rule =
       match Var.property_rule border_style_var with
       | Some rule -> rule
       | None -> Css.empty
     in
-    style class_name ~property_rules:property_rule (side_props_fn border_ref)
+    style ~property_rules:property_rule (side_props_fn border_ref)
 
   let border_t =
-    make_side_util "border-t" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_top_style (Var border_var); border_top_width (Px 1.) ])
 
   let border_r =
-    make_side_util "border-r" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_right_style (Var border_var); border_right_width (Px 1.) ])
 
   let border_b =
-    make_side_util "border-b" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_bottom_style (Var border_var); border_bottom_width (Px 1.) ])
 
   let border_l =
-    make_side_util "border-l" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_left_style (Var border_var); border_left_width (Px 1.) ])
 
   let border_x =
-    make_side_util "border-x" (fun border_var ->
+    make_side_util (fun border_var ->
         [
           border_left_style (Var border_var);
           border_left_width (Px 1.);
@@ -160,7 +161,7 @@ module Handler = struct
         ])
 
   let border_y =
-    make_side_util "border-y" (fun border_var ->
+    make_side_util (fun border_var ->
         [
           border_top_style (Var border_var);
           border_top_width (Px 1.);
@@ -170,74 +171,74 @@ module Handler = struct
 
   (** Border side utilities with specific widths *)
   let border_t_0 =
-    make_side_util "border-t-0" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_top_style (Var border_var); border_top_width (Px 0.) ])
 
   let border_t_2 =
-    make_side_util "border-t-2" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_top_style (Var border_var); border_top_width (Px 2.) ])
 
   let border_t_4 =
-    make_side_util "border-t-4" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_top_style (Var border_var); border_top_width (Px 4.) ])
 
   let border_t_8 =
-    make_side_util "border-t-8" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_top_style (Var border_var); border_top_width (Px 8.) ])
 
   let border_r_0 =
-    make_side_util "border-r-0" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_right_style (Var border_var); border_right_width (Px 0.) ])
 
   let border_r_2 =
-    make_side_util "border-r-2" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_right_style (Var border_var); border_right_width (Px 2.) ])
 
   let border_r_4 =
-    make_side_util "border-r-4" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_right_style (Var border_var); border_right_width (Px 4.) ])
 
   let border_r_8 =
-    make_side_util "border-r-8" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_right_style (Var border_var); border_right_width (Px 8.) ])
 
   let border_b_0 =
-    make_side_util "border-b-0" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_bottom_style (Var border_var); border_bottom_width (Px 0.) ])
 
   let border_b_2 =
-    make_side_util "border-b-2" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_bottom_style (Var border_var); border_bottom_width (Px 2.) ])
 
   let border_b_4 =
-    make_side_util "border-b-4" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_bottom_style (Var border_var); border_bottom_width (Px 4.) ])
 
   let border_b_8 =
-    make_side_util "border-b-8" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_bottom_style (Var border_var); border_bottom_width (Px 8.) ])
 
   let border_l_0 =
-    make_side_util "border-l-0" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_left_style (Var border_var); border_left_width (Px 0.) ])
 
   let border_l_2 =
-    make_side_util "border-l-2" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_left_style (Var border_var); border_left_width (Px 2.) ])
 
   let border_l_4 =
-    make_side_util "border-l-4" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_left_style (Var border_var); border_left_width (Px 4.) ])
 
   let border_l_8 =
-    make_side_util "border-l-8" (fun border_var ->
+    make_side_util (fun border_var ->
         [ border_left_style (Var border_var); border_left_width (Px 8.) ])
 
-  let border_solid = border_style_util "border-solid" Solid
-  let border_dashed = border_style_util "border-dashed" Dashed
-  let border_dotted = border_style_util "border-dotted" Dotted
-  let border_double = border_style_util "border-double" Double
-  let border_none = border_style_util "border-none" None
+  let border_solid = border_style_util Solid
+  let border_dashed = border_style_util Dashed
+  let border_dotted = border_style_util Dotted
+  let border_double = border_style_util Double
+  let border_none = border_style_util None
 
   (* Create radius theme variables with fallback values for inline mode *)
   let radius_sm_var = Var.theme Css.Length "radius-sm" ~order:(7, 0)
@@ -246,93 +247,92 @@ module Handler = struct
   let radius_xl_var = Var.theme Css.Length "radius-xl" ~order:(7, 3)
   let radius_2xl_var = Var.theme Css.Length "radius-2xl" ~order:(7, 4)
   let radius_3xl_var = Var.theme Css.Length "radius-3xl" ~order:(7, 5)
-  let rounded_none = style "rounded-none" [ Css.border_radius Zero ]
+  let rounded_none = style [ Css.border_radius Zero ]
 
   let rounded_sm =
     let decl, r = Var.binding radius_sm_var (Rem 0.25) in
-    style "rounded-sm" (decl :: [ Css.border_radius (Var r) ])
+    style (decl :: [ Css.border_radius (Var r) ])
 
-  let rounded = style "rounded" [ Css.border_radius (Rem 0.25) ]
+  let rounded = style [ Css.border_radius (Rem 0.25) ]
 
   let rounded_md =
     let decl, r = Var.binding radius_md_var (Rem 0.375) in
-    style "rounded-md" (decl :: [ Css.border_radius (Var r) ])
+    style (decl :: [ Css.border_radius (Var r) ])
 
   let rounded_lg =
     let decl, r = Var.binding radius_lg_var (Rem 0.5) in
-    style "rounded-lg" (decl :: [ Css.border_radius (Var r) ])
+    style (decl :: [ Css.border_radius (Var r) ])
 
   let rounded_xl =
     let decl, r = Var.binding radius_xl_var (Rem 0.75) in
-    style "rounded-xl" (decl :: [ Css.border_radius (Var r) ])
+    style (decl :: [ Css.border_radius (Var r) ])
 
   let rounded_2xl =
     let decl, r = Var.binding radius_2xl_var (Rem 1.0) in
-    style "rounded-2xl" (decl :: [ Css.border_radius (Var r) ])
+    style (decl :: [ Css.border_radius (Var r) ])
 
   let rounded_3xl =
     let decl, r = Var.binding radius_3xl_var (Rem 1.5) in
-    style "rounded-3xl" (decl :: [ Css.border_radius (Var r) ])
+    style (decl :: [ Css.border_radius (Var r) ])
 
   let rounded_full =
     (* Tailwind v4 uses calc(infinity * 1px) which gets optimized to
        3.40282e38px *)
-    style "rounded-full" [ Css.border_radius (Calc Calc.(infinity * px 1.)) ]
+    style [ Css.border_radius (Calc Calc.(infinity * px 1.)) ]
 
   (** Corner-specific rounded utilities *)
   let rounded_t =
-    style "rounded-t"
+    style
       [
         Css.border_radius (Rem 0.25);
         (* TODO: Use individual corner properties when available *)
       ]
 
   let rounded_r =
-    style "rounded-r"
+    style
       [
         Css.border_radius (Rem 0.25);
         (* TODO: Use individual corner properties when available *)
       ]
 
   let rounded_b =
-    style "rounded-b"
+    style
       [
         Css.border_radius (Rem 0.25);
         (* TODO: Use individual corner properties when available *)
       ]
 
   let rounded_l =
-    style "rounded-l"
+    style
       [
         Css.border_radius (Rem 0.25);
         (* TODO: Use individual corner properties when available *)
       ]
 
-  let rounded_tl = style "rounded-tl" [ Css.border_radius (Rem 0.25) ]
-  let rounded_tr = style "rounded-tr" [ Css.border_radius (Rem 0.25) ]
-  let rounded_br = style "rounded-br" [ Css.border_radius (Rem 0.25) ]
-  let rounded_bl = style "rounded-bl" [ Css.border_radius (Rem 0.25) ]
+  let rounded_tl = style [ Css.border_radius (Rem 0.25) ]
+  let rounded_tr = style [ Css.border_radius (Rem 0.25) ]
+  let rounded_br = style [ Css.border_radius (Rem 0.25) ]
+  let rounded_bl = style [ Css.border_radius (Rem 0.25) ]
 
   (** Corner-specific rounded utilities with sizes *)
 
   let rounded_t_lg =
-    style "rounded-t-lg"
-      [ Css.border_radius (Rem 0.5); Css.border_radius (Rem 0.5) ]
+    style [ Css.border_radius (Rem 0.5); Css.border_radius (Rem 0.5) ]
 
-  let rounded_tl_2xl = style "rounded-tl-2xl" [ Css.border_radius (Rem 1.0) ]
+  let rounded_tl_2xl = style [ Css.border_radius (Rem 1.0) ]
 
   (* Outline style *)
 
-  let outline_none = style "outline-none" [ Css.outline_style Css.None ]
+  let outline_none = style [ Css.outline_style Css.None ]
 
   (* Outline offset *)
-  let outline_offset_0 = style "outline-offset-0" [ Css.outline_offset (Px 0.) ]
-  let outline_offset_1 = style "outline-offset-1" [ Css.outline_offset (Px 1.) ]
-  let outline_offset_2 = style "outline-offset-2" [ Css.outline_offset (Px 2.) ]
-  let outline_offset_4 = style "outline-offset-4" [ Css.outline_offset (Px 4.) ]
-  let outline_offset_8 = style "outline-offset-8" [ Css.outline_offset (Px 8.) ]
+  let outline_offset_0 = style [ Css.outline_offset (Px 0.) ]
+  let outline_offset_1 = style [ Css.outline_offset (Px 1.) ]
+  let outline_offset_2 = style [ Css.outline_offset (Px 2.) ]
+  let outline_offset_4 = style [ Css.outline_offset (Px 4.) ]
+  let outline_offset_8 = style [ Css.outline_offset (Px 8.) ]
 
-  let to_style = function
+  let to_style : t -> Style.t = function
     (* Border width utilities *)
     | Border -> border
     | Border_0 -> border_0
@@ -402,66 +402,6 @@ module Handler = struct
 
   let err_not_utility = Error (`Msg "Not a border utility")
 
-  let of_string = function
-    | [ "border" ] -> Ok Border
-    | [ "border"; "0" ] -> Ok Border_0
-    | [ "border"; "2" ] -> Ok Border_2
-    | [ "border"; "4" ] -> Ok Border_4
-    | [ "border"; "8" ] -> Ok Border_8
-    | [ "border"; "t" ] -> Ok Border_t
-    | [ "border"; "r" ] -> Ok Border_r
-    | [ "border"; "b" ] -> Ok Border_b
-    | [ "border"; "l" ] -> Ok Border_l
-    | [ "border"; "x" ] -> Ok Border_x
-    | [ "border"; "y" ] -> Ok Border_y
-    | [ "border"; "t"; "0" ] -> Ok Border_t_0
-    | [ "border"; "t"; "2" ] -> Ok Border_t_2
-    | [ "border"; "t"; "4" ] -> Ok Border_t_4
-    | [ "border"; "t"; "8" ] -> Ok Border_t_8
-    | [ "border"; "r"; "0" ] -> Ok Border_r_0
-    | [ "border"; "r"; "2" ] -> Ok Border_r_2
-    | [ "border"; "r"; "4" ] -> Ok Border_r_4
-    | [ "border"; "r"; "8" ] -> Ok Border_r_8
-    | [ "border"; "b"; "0" ] -> Ok Border_b_0
-    | [ "border"; "b"; "2" ] -> Ok Border_b_2
-    | [ "border"; "b"; "4" ] -> Ok Border_b_4
-    | [ "border"; "b"; "8" ] -> Ok Border_b_8
-    | [ "border"; "l"; "0" ] -> Ok Border_l_0
-    | [ "border"; "l"; "2" ] -> Ok Border_l_2
-    | [ "border"; "l"; "4" ] -> Ok Border_l_4
-    | [ "border"; "l"; "8" ] -> Ok Border_l_8
-    | [ "border"; "solid" ] -> Ok Border_solid
-    | [ "border"; "dashed" ] -> Ok Border_dashed
-    | [ "border"; "dotted" ] -> Ok Border_dotted
-    | [ "border"; "double" ] -> Ok Border_double
-    | [ "border"; "none" ] -> Ok Border_none
-    | [ "rounded" ] -> Ok Rounded
-    | [ "rounded"; "none" ] -> Ok Rounded_none
-    | [ "rounded"; "sm" ] -> Ok Rounded_sm
-    | [ "rounded"; "md" ] -> Ok Rounded_md
-    | [ "rounded"; "lg" ] -> Ok Rounded_lg
-    | [ "rounded"; "xl" ] -> Ok Rounded_xl
-    | [ "rounded"; "2xl" ] -> Ok Rounded_2xl
-    | [ "rounded"; "3xl" ] -> Ok Rounded_3xl
-    | [ "rounded"; "full" ] -> Ok Rounded_full
-    | [ "rounded"; "t" ] -> Ok Rounded_t
-    | [ "rounded"; "r" ] -> Ok Rounded_r
-    | [ "rounded"; "b" ] -> Ok Rounded_b
-    | [ "rounded"; "l" ] -> Ok Rounded_l
-    | [ "rounded"; "tl" ] -> Ok Rounded_tl
-    | [ "rounded"; "tr" ] -> Ok Rounded_tr
-    | [ "rounded"; "br" ] -> Ok Rounded_br
-    | [ "rounded"; "bl" ] -> Ok Rounded_bl
-    | [ "rounded"; "t"; "lg" ] -> Ok Rounded_t_lg
-    | [ "rounded"; "tl"; "2xl" ] -> Ok Rounded_tl_2xl
-    | [ "outline"; "offset"; "0" ] -> Ok Outline_offset_0
-    | [ "outline"; "offset"; "1" ] -> Ok Outline_offset_1
-    | [ "outline"; "offset"; "2" ] -> Ok Outline_offset_2
-    | [ "outline"; "offset"; "4" ] -> Ok Outline_offset_4
-    | [ "outline"; "offset"; "8" ] -> Ok Outline_offset_8
-    (* ring* handled in Effects *)
-    | _ -> err_not_utility
-
   let suborder = function
     (* Border width utilities (0-99) *)
     | Border -> 0
@@ -529,6 +469,127 @@ module Handler = struct
     | Outline_offset_2 -> 2002
     | Outline_offset_4 -> 2003
     | Outline_offset_8 -> 2004
+
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
+    match parts with
+    | [ "border" ] -> Ok Border
+    | [ "border"; "0" ] -> Ok Border_0
+    | [ "border"; "2" ] -> Ok Border_2
+    | [ "border"; "4" ] -> Ok Border_4
+    | [ "border"; "8" ] -> Ok Border_8
+    | [ "border"; "t" ] -> Ok Border_t
+    | [ "border"; "r" ] -> Ok Border_r
+    | [ "border"; "b" ] -> Ok Border_b
+    | [ "border"; "l" ] -> Ok Border_l
+    | [ "border"; "x" ] -> Ok Border_x
+    | [ "border"; "y" ] -> Ok Border_y
+    | [ "border"; "t"; "0" ] -> Ok Border_t_0
+    | [ "border"; "t"; "2" ] -> Ok Border_t_2
+    | [ "border"; "t"; "4" ] -> Ok Border_t_4
+    | [ "border"; "t"; "8" ] -> Ok Border_t_8
+    | [ "border"; "r"; "0" ] -> Ok Border_r_0
+    | [ "border"; "r"; "2" ] -> Ok Border_r_2
+    | [ "border"; "r"; "4" ] -> Ok Border_r_4
+    | [ "border"; "r"; "8" ] -> Ok Border_r_8
+    | [ "border"; "b"; "0" ] -> Ok Border_b_0
+    | [ "border"; "b"; "2" ] -> Ok Border_b_2
+    | [ "border"; "b"; "4" ] -> Ok Border_b_4
+    | [ "border"; "b"; "8" ] -> Ok Border_b_8
+    | [ "border"; "l"; "0" ] -> Ok Border_l_0
+    | [ "border"; "l"; "2" ] -> Ok Border_l_2
+    | [ "border"; "l"; "4" ] -> Ok Border_l_4
+    | [ "border"; "l"; "8" ] -> Ok Border_l_8
+    | [ "border"; "solid" ] -> Ok Border_solid
+    | [ "border"; "dashed" ] -> Ok Border_dashed
+    | [ "border"; "dotted" ] -> Ok Border_dotted
+    | [ "border"; "double" ] -> Ok Border_double
+    | [ "border"; "none" ] -> Ok Border_none
+    | [ "rounded" ] -> Ok Rounded
+    | [ "rounded"; "none" ] -> Ok Rounded_none
+    | [ "rounded"; "sm" ] -> Ok Rounded_sm
+    | [ "rounded"; "md" ] -> Ok Rounded_md
+    | [ "rounded"; "lg" ] -> Ok Rounded_lg
+    | [ "rounded"; "xl" ] -> Ok Rounded_xl
+    | [ "rounded"; "2xl" ] -> Ok Rounded_2xl
+    | [ "rounded"; "3xl" ] -> Ok Rounded_3xl
+    | [ "rounded"; "full" ] -> Ok Rounded_full
+    | [ "rounded"; "t" ] -> Ok Rounded_t
+    | [ "rounded"; "r" ] -> Ok Rounded_r
+    | [ "rounded"; "b" ] -> Ok Rounded_b
+    | [ "rounded"; "l" ] -> Ok Rounded_l
+    | [ "rounded"; "tl" ] -> Ok Rounded_tl
+    | [ "rounded"; "tr" ] -> Ok Rounded_tr
+    | [ "rounded"; "br" ] -> Ok Rounded_br
+    | [ "rounded"; "bl" ] -> Ok Rounded_bl
+    | [ "rounded"; "t"; "lg" ] -> Ok Rounded_t_lg
+    | [ "rounded"; "tl"; "2xl" ] -> Ok Rounded_tl_2xl
+    | [ "outline"; "offset"; "0" ] -> Ok Outline_offset_0
+    | [ "outline"; "offset"; "1" ] -> Ok Outline_offset_1
+    | [ "outline"; "offset"; "2" ] -> Ok Outline_offset_2
+    | [ "outline"; "offset"; "4" ] -> Ok Outline_offset_4
+    | [ "outline"; "offset"; "8" ] -> Ok Outline_offset_8
+    (* ring* handled in Effects *)
+    | _ -> err_not_utility
+
+  let to_class = function
+    | Border -> "border"
+    | Border_0 -> "border-0"
+    | Border_2 -> "border-2"
+    | Border_4 -> "border-4"
+    | Border_8 -> "border-8"
+    | Border_t -> "border-t"
+    | Border_r -> "border-r"
+    | Border_b -> "border-b"
+    | Border_l -> "border-l"
+    | Border_x -> "border-x"
+    | Border_y -> "border-y"
+    | Border_t_0 -> "border-t-0"
+    | Border_t_2 -> "border-t-2"
+    | Border_t_4 -> "border-t-4"
+    | Border_t_8 -> "border-t-8"
+    | Border_r_0 -> "border-r-0"
+    | Border_r_2 -> "border-r-2"
+    | Border_r_4 -> "border-r-4"
+    | Border_r_8 -> "border-r-8"
+    | Border_b_0 -> "border-b-0"
+    | Border_b_2 -> "border-b-2"
+    | Border_b_4 -> "border-b-4"
+    | Border_b_8 -> "border-b-8"
+    | Border_l_0 -> "border-l-0"
+    | Border_l_2 -> "border-l-2"
+    | Border_l_4 -> "border-l-4"
+    | Border_l_8 -> "border-l-8"
+    | Border_solid -> "border-solid"
+    | Border_dashed -> "border-dashed"
+    | Border_dotted -> "border-dotted"
+    | Border_double -> "border-double"
+    | Border_none -> "border-none"
+    | Rounded -> "rounded"
+    | Rounded_none -> "rounded-none"
+    | Rounded_sm -> "rounded-sm"
+    | Rounded_md -> "rounded-md"
+    | Rounded_lg -> "rounded-lg"
+    | Rounded_xl -> "rounded-xl"
+    | Rounded_2xl -> "rounded-2xl"
+    | Rounded_3xl -> "rounded-3xl"
+    | Rounded_full -> "rounded-full"
+    | Rounded_t -> "rounded-t"
+    | Rounded_r -> "rounded-r"
+    | Rounded_b -> "rounded-b"
+    | Rounded_l -> "rounded-l"
+    | Rounded_tl -> "rounded-tl"
+    | Rounded_tr -> "rounded-tr"
+    | Rounded_br -> "rounded-br"
+    | Rounded_bl -> "rounded-bl"
+    | Rounded_t_lg -> "rounded-t-lg"
+    | Rounded_tl_2xl -> "rounded-tl-2xl"
+    | Outline_none -> "outline-none"
+    | Outline_offset_0 -> "outline-offset-0"
+    | Outline_offset_1 -> "outline-offset-1"
+    | Outline_offset_2 -> "outline-offset-2"
+    | Outline_offset_4 -> "outline-offset-4"
+    | Outline_offset_8 -> "outline-offset-8"
 end
 
 open Handler

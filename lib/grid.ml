@@ -32,54 +32,25 @@ module Handler = struct
   (** Priority for grid utilities. Set to 4 to match other display utilities
       (block, inline, flex, etc.) since grid and inline-grid set the display
       property. *)
+  let name = "grid"
+
   let priority = 4
-
-  let grid = style "grid" [ display Grid ]
-  let inline_grid = style "inline-grid" [ display Inline_grid ]
-  let col_auto = style "col-auto" [ grid_column_start Auto ]
-
-  let col_span n =
-    style
-      (String.concat "-" [ "col"; "span"; string_of_int n ])
-      [ grid_column (Span n, Auto) ]
-
-  let col_span_full = style "col-span-full" [ grid_column (Num 1, Num (-1)) ]
-
-  let col_start n =
-    style
-      (String.concat "-" [ "col"; "start"; string_of_int n ])
-      [ grid_column_start (Num n) ]
-
-  let col_start_auto = style "col-start-auto" [ grid_column_start Auto ]
-
-  let col_end n =
-    style
-      (String.concat "-" [ "col"; "end"; string_of_int n ])
-      [ grid_column_end (Num n) ]
-
-  let col_end_auto = style "col-end-auto" [ grid_column_end Auto ]
-  let row_auto = style "row-auto" [ grid_row_start Auto ]
-
-  let row_span n =
-    style
-      (String.concat "-" [ "row"; "span"; string_of_int n ])
-      [ grid_row (Span n, Auto) ]
-
-  let row_span_full = style "row-span-full" [ grid_row (Num 1, Num (-1)) ]
-
-  let row_start n =
-    style
-      (String.concat "-" [ "row"; "start"; string_of_int n ])
-      [ grid_row_start (Num n) ]
-
-  let row_start_auto = style "row-start-auto" [ grid_row_start Auto ]
-
-  let row_end n =
-    style
-      (String.concat "-" [ "row"; "end"; string_of_int n ])
-      [ grid_row_end (Num n) ]
-
-  let row_end_auto = style "row-end-auto" [ grid_row_end Auto ]
+  let grid = style [ display Grid ]
+  let inline_grid = style [ display Inline_grid ]
+  let col_auto = style [ grid_column_start Auto ]
+  let col_span n = style [ grid_column (Span n, Auto) ]
+  let col_span_full = style [ grid_column (Num 1, Num (-1)) ]
+  let col_start n = style [ grid_column_start (Num n) ]
+  let col_start_auto = style [ grid_column_start Auto ]
+  let col_end n = style [ grid_column_end (Num n) ]
+  let col_end_auto = style [ grid_column_end Auto ]
+  let row_auto = style [ grid_row_start Auto ]
+  let row_span n = style [ grid_row (Span n, Auto) ]
+  let row_span_full = style [ grid_row (Num 1, Num (-1)) ]
+  let row_start n = style [ grid_row_start (Num n) ]
+  let row_start_auto = style [ grid_row_start Auto ]
+  let row_end n = style [ grid_row_end (Num n) ]
+  let row_end_auto = style [ grid_row_end Auto ]
 
   let to_style = function
     | Grid -> grid
@@ -121,7 +92,9 @@ module Handler = struct
 
   let err_not_utility = Error (`Msg "Not a grid utility")
 
-  let of_string = function
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
+    match parts with
     | [ "grid" ] -> Ok Grid
     | [ "inline"; "grid" ] -> Ok Inline_grid
     | [ "col"; "auto" ] -> Ok Col_auto
@@ -157,6 +130,27 @@ module Handler = struct
         | Ok i -> Ok (Row_end i)
         | Error _ -> err_not_utility)
     | _ -> err_not_utility
+
+  let to_class = function
+    (* Display *)
+    | Grid -> "grid"
+    | Inline_grid -> "inline-grid"
+    (* Column *)
+    | Col_auto -> "col-auto"
+    | Col_span n -> "col-span-" ^ string_of_int n
+    | Col_span_full -> "col-span-full"
+    | Col_start n -> "col-start-" ^ string_of_int n
+    | Col_start_auto -> "col-start-auto"
+    | Col_end n -> "col-end-" ^ string_of_int n
+    | Col_end_auto -> "col-end-auto"
+    (* Row *)
+    | Row_auto -> "row-auto"
+    | Row_span n -> "row-span-" ^ string_of_int n
+    | Row_span_full -> "row-span-full"
+    | Row_start n -> "row-start-" ^ string_of_int n
+    | Row_start_auto -> "row-start-auto"
+    | Row_end n -> "row-end-" ^ string_of_int n
+    | Row_end_auto -> "row-end-auto"
 end
 
 open Handler

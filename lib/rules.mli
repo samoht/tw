@@ -191,7 +191,7 @@ val to_inline_style : t list -> string
 
 (** {1 Helper Functions} *)
 
-val extract_selector_props : t -> output list
+val extract_selector_props : ?base_class:string -> t -> output list
 (** [extract_selector_props tw] extracts CSS rules from a Tailwind class. *)
 
 val extract_selector_props_pairs :

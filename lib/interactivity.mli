@@ -121,7 +121,8 @@ val peer : Utility.t
 module Handler : sig
   type t
 
-  val of_string : string list -> (t, [ `Msg of string ]) result
+  val of_class : string -> (t, [ `Msg of string ]) result
+  val to_class : t -> string
   val suborder : t -> int
   val to_style : t -> Style.t
 end

@@ -48,7 +48,6 @@ type modifier =
 
 type t =
   | Style of {
-      name : string;
       props : Css.declaration list;
       rules : Css.statement list option;
       property_rules : Css.t;
@@ -66,14 +65,8 @@ type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
 (* Helper to create a style *)
-let style ?(rules = None) ?(property_rules = Css.empty) name props =
-  Style { name; props; rules; property_rules }
-
-(* Extract base class name(s) from Core.t. Modifiers are ignored. *)
-let rec class_name = function
-  | Style { name; _ } -> name
-  | Modified (_, t) -> class_name t
-  | Group ts -> String.concat " " (List.map class_name ts)
+let style ?(rules = None) ?(property_rules = Css.empty) props =
+  Style { props; rules; property_rules }
 
 (* Convert modifier to string prefix *)
 let rec pp_modifier = function
@@ -121,9 +114,3 @@ let rec pp_modifier = function
   | Contrast_less -> "contrast-less:"
   | Pseudo_before -> "before:"
   | Pseudo_after -> "after:"
-
-(* Extract full class name including modifiers *)
-let rec pp = function
-  | Style { name; _ } -> name
-  | Modified (m, t) -> String.concat "" [ pp_modifier m; pp t ]
-  | Group ts -> String.concat " " (List.map pp ts)

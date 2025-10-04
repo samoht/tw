@@ -4,26 +4,29 @@ open Test_helpers
 let check = check_handler_roundtrip (module Tw.Padding.Handler)
 
 let of_string_valid () =
-  check [ "p"; "0" ];
-  check [ "p"; "1" ];
-  check [ "p"; "4" ];
-  check [ "p"; "px" ];
-  check [ "p"; "0.5" ];
-  check [ "p"; "1.5" ];
+  check "p-0";
+  check "p-1";
+  check "p-4";
+  check "p-px";
+  check "p-0.5";
+  check "p-1.5";
 
-  check [ "px"; "4" ];
-  check [ "px"; "0" ];
-  check [ "px"; "8" ];
-  check [ "py"; "2" ];
-  check [ "py"; "6" ];
+  check "px-4";
+  check "px-0";
+  check "px-8";
+  check "py-2";
+  check "py-6";
 
-  check [ "pt"; "2" ];
-  check [ "pr"; "4" ];
-  check [ "pb"; "6" ];
-  check [ "pl"; "8" ]
+  check "pt-2";
+  check "pr-4";
+  check "pb-6";
+  check "pl-8"
 
 let of_string_invalid () =
-  let fail_maybe = check_invalid_input (module Tw.Padding.Handler) in
+  let fail_maybe input =
+    let class_name = String.concat "-" input in
+    check_invalid_input (module Tw.Padding.Handler) class_name
+  in
 
   fail_maybe [ "p" ];
   (* Missing value *)

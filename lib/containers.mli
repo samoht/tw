@@ -67,9 +67,14 @@ val container_query_to_class_prefix : Style.container_query -> string
 module Handler : sig
   type t
 
-  val of_string : string list -> (t, [ `Msg of string ]) result
   (** [of_string parts] parses string parts into a flex utility. For internal
       use by the Tw module. *)
+
+  val of_class : string -> (t, [ `Msg of string ]) result
+  (** [of_class class_name] parses a class name into a container utility. *)
+
+  val to_class : t -> string
+  (** [to_class t] returns the class name for the utility. *)
 
   val suborder : t -> int
   (** [suborder u] returns the ordering value for flex utility [u]. Used for

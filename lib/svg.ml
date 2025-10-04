@@ -18,20 +18,18 @@ module Handler = struct
 
   type Utility.base += Self of t
 
+  let name = "svg"
   let priority = 800
 
   let to_style = function
-    | Fill_none -> style "fill-none" Css.[ fill None ]
-    | Fill_current -> style "fill-current" Css.[ fill Current_color ]
-    | Stroke_none -> style "stroke-none" Css.[ stroke None ]
-    | Stroke_current -> style "stroke-current" Css.[ stroke Current_color ]
-    | Stroke_0 -> style "stroke-0" Css.[ stroke_width (Px 0.) ]
-    | Stroke_1 -> style "stroke-1" Css.[ stroke_width (Px 1.) ]
-    | Stroke_2 -> style "stroke-2" Css.[ stroke_width (Px 2.) ]
-    | Stroke_width n ->
-        style
-          (String.concat "" [ "stroke-"; string_of_int n ])
-          Css.[ stroke_width (Px (float_of_int n)) ]
+    | Fill_none -> style Css.[ fill None ]
+    | Fill_current -> style Css.[ fill Current_color ]
+    | Stroke_none -> style Css.[ stroke None ]
+    | Stroke_current -> style Css.[ stroke Current_color ]
+    | Stroke_0 -> style Css.[ stroke_width (Px 0.) ]
+    | Stroke_1 -> style Css.[ stroke_width (Px 1.) ]
+    | Stroke_2 -> style Css.[ stroke_width (Px 2.) ]
+    | Stroke_width n -> style Css.[ stroke_width (Px (float_of_int n)) ]
 
   let suborder = function
     | Fill_none -> 0
@@ -43,7 +41,19 @@ module Handler = struct
     | Stroke_2 -> 6
     | Stroke_width n -> 10 + n
 
-  let of_string = function
+  let to_class = function
+    | Fill_none -> "fill-none"
+    | Fill_current -> "fill-current"
+    | Stroke_none -> "stroke-none"
+    | Stroke_current -> "stroke-current"
+    | Stroke_0 -> "stroke-0"
+    | Stroke_1 -> "stroke-1"
+    | Stroke_2 -> "stroke-2"
+    | Stroke_width n -> "stroke-" ^ string_of_int n
+
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
+    match parts with
     | [ "fill"; "none" ] -> Ok Fill_none
     | [ "fill"; "current" ] -> Ok Fill_current
     | [ "stroke"; "none" ] -> Ok Stroke_none
@@ -62,11 +72,7 @@ let () = Utility.register (module Handler)
 
 open Handler
 
-let color_util prefix property color ?(shade = 500) () =
-  let class_name =
-    if Color.is_base_color color then prefix ^ "-" ^ Color.to_name color
-    else prefix ^ "-" ^ Color.to_name color ^ "-" ^ string_of_int shade
-  in
+let color_util property color ?(shade = 500) () =
   let var_name =
     if Color.is_base_color color then "color-" ^ Color.to_name color
     else "color-" ^ Color.to_name color ^ "-" ^ string_of_int shade
@@ -75,12 +81,11 @@ let color_util prefix property color ?(shade = 500) () =
     Color.to_css color (if Color.is_base_color color then 500 else shade)
   in
   let def, css_var = Css.var var_name Css.Color typed_color in
-  Style.style class_name
-    [ def; property (Css.Color (Css.Var css_var) : Css.svg_paint) ]
+  Style.style [ def; property (Css.Color (Css.Var css_var) : Css.svg_paint) ]
 
 let utility x = Utility.base (Self x)
-let fill = color_util "fill" Css.fill
-let stroke = color_util "stroke" Css.stroke
+let fill = color_util Css.fill
+let stroke = color_util Css.stroke
 let fill_none = utility Fill_none
 let fill_current = utility Fill_current
 let stroke_none = utility Stroke_none

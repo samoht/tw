@@ -4,54 +4,56 @@ open Test_helpers
 let check = check_handler_roundtrip (module Tw.Borders.Handler)
 
 let of_string_valid () =
-  check [ "border" ];
-  check [ "border"; "0" ];
-  check [ "border"; "2" ];
-  check [ "border"; "4" ];
-  check [ "border"; "8" ];
+  check "border";
+  check "border-0";
+  check "border-2";
+  check "border-4";
+  check "border-8";
 
-  check [ "border"; "t" ];
-  check [ "border"; "r" ];
-  check [ "border"; "b" ];
-  check [ "border"; "l" ];
-  check [ "border"; "x" ];
-  check [ "border"; "y" ];
+  check "border-t";
+  check "border-r";
+  check "border-b";
+  check "border-l";
+  check "border-x";
+  check "border-y";
 
-  check [ "border"; "t"; "2" ];
-  check [ "border"; "r"; "4" ];
+  check "border-t-2";
+  check "border-r-4";
 
-  check [ "border"; "solid" ];
-  check [ "border"; "dashed" ];
-  check [ "border"; "dotted" ];
-  check [ "border"; "double" ];
-  check [ "border"; "none" ];
+  check "border-solid";
+  check "border-dashed";
+  check "border-dotted";
+  check "border-double";
+  check "border-none";
 
-  check [ "rounded" ];
-  check [ "rounded"; "none" ];
-  check [ "rounded"; "sm" ];
-  check [ "rounded"; "md" ];
-  check [ "rounded"; "lg" ];
-  check [ "rounded"; "xl" ];
-  check [ "rounded"; "2xl" ];
-  check [ "rounded"; "3xl" ];
-  check [ "rounded"; "full" ];
+  check "rounded";
+  check "rounded-none";
+  check "rounded-sm";
+  check "rounded-md";
+  check "rounded-lg";
+  check "rounded-xl";
+  check "rounded-2xl";
+  check "rounded-3xl";
+  check "rounded-full";
 
-  check [ "rounded"; "t" ];
-  check [ "rounded"; "r" ];
-  check [ "rounded"; "b" ];
-  check [ "rounded"; "l" ];
+  check "rounded-t";
+  check "rounded-r";
+  check "rounded-b";
+  check "rounded-l";
 
-  check [ "rounded"; "tl" ];
-  check [ "rounded"; "tr" ];
-  check [ "rounded"; "br" ];
-  check [ "rounded"; "bl" ];
+  check "rounded-tl";
+  check "rounded-tr";
+  check "rounded-br";
+  check "rounded-bl";
 
-  check [ "rounded"; "t"; "lg" ];
-  check [ "rounded"; "tl"; "2xl" ]
+  check "rounded-t-lg";
+  check "rounded-tl-2xl"
 
 let of_string_invalid () =
   (* Invalid border values *)
-  let fail_maybe = check_invalid_input (module Tw.Borders.Handler) in
+  let fail_maybe =
+    Test_helpers.check_invalid_parts (module Tw.Borders.Handler)
+  in
 
   fail_maybe [ "border"; "3" ];
   (* Invalid width *)

@@ -54,7 +54,8 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  let priority = 16
+  let name = "effects"
+  let priority = 17
 
   (* Shadow variables with property registration - using convert for type
      compatibility *)
@@ -172,7 +173,7 @@ module Handler = struct
       |> List.filter_map (fun x -> x)
     in
 
-    style "shadow-none"
+    style
       ~property_rules:(Css.concat property_rules)
       [ d_shadow; Css.box_shadow box_shadow_vars ]
 
@@ -229,7 +230,7 @@ module Handler = struct
       ]
       |> List.filter_map (fun x -> x)
     in
-    style "shadow-sm"
+    style
       ~property_rules:(Css.concat property_rules)
       (d_shadow :: [ Css.box_shadows box_shadow_vars ])
 
@@ -287,7 +288,7 @@ module Handler = struct
       ]
       |> List.filter_map (fun x -> x)
     in
-    style "shadow"
+    style
       ~property_rules:(Css.concat property_rules)
       [ d_shadow; Css.box_shadows box_shadow_vars ]
 
@@ -341,7 +342,7 @@ module Handler = struct
       ]
       |> List.filter_map (fun x -> x)
     in
-    style "shadow-md"
+    style
       ~property_rules:(Css.concat property_rules)
       [ d_shadow; Css.box_shadows box_shadow_vars ]
 
@@ -395,7 +396,7 @@ module Handler = struct
       ]
       |> List.filter_map (fun x -> x)
     in
-    style "shadow-lg"
+    style
       ~property_rules:(Css.concat property_rules)
       [ d_shadow; Css.box_shadows box_shadow_vars ]
 
@@ -449,7 +450,7 @@ module Handler = struct
       ]
       |> List.filter_map (fun x -> x)
     in
-    style "shadow-xl"
+    style
       ~property_rules:(Css.concat property_rules)
       [ d_shadow; Css.box_shadows box_shadow_vars ]
 
@@ -501,7 +502,7 @@ module Handler = struct
       ]
       |> List.filter_map (fun x -> x)
     in
-    style "shadow-2xl"
+    style
       ~property_rules:(Css.concat property_rules)
       [ d_shadow; Css.box_shadows box_shadow_vars ]
 
@@ -527,23 +528,20 @@ module Handler = struct
       Var.binding ring_shadow_var
         (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
     in
-    style "shadow-inner"
+    style
       (d_inset :: d_inset_ring :: d_ring_offset :: d_ring :: [ box_shadow_decl ])
 
   type ring_width = [ `None | `Xs | `Sm | `Md | `Lg | `Xl ]
 
   let ring_internal (w : ring_width) =
-    let width, class_suffix =
+    let width =
       match w with
-      | `None -> ("0", "0")
-      | `Xs -> ("1px", "1")
-      | `Sm -> ("2px", "2")
-      | `Md -> ("3px", "")
-      | `Lg -> ("4px", "4")
-      | `Xl -> ("8px", "8")
-    in
-    let class_name =
-      if class_suffix = "" then "ring" else "ring-" ^ class_suffix
+      | `None -> "0"
+      | `Xs -> "1px"
+      | `Sm -> "2px"
+      | `Md -> "3px"
+      | `Lg -> "4px"
+      | `Xl -> "8px"
     in
     let width_len : length =
       match width with
@@ -591,7 +589,7 @@ module Handler = struct
     in
 
     let d_width, _ = Var.binding ring_width_var width_len in
-    style class_name
+    style
       (d_ring_color :: d_width :: d_inset :: d_inset_ring :: d_ring_offset
      :: d_ring :: d_shadow
       :: [ Css.box_shadows box_shadow_vars ])
@@ -605,21 +603,15 @@ module Handler = struct
 
   let ring_inset =
     let decl, _var_ref = Var.binding ring_inset_var "inset" in
-    style "ring-inset" [ decl ]
+    style [ decl ]
 
   let ring_color color shade =
-    let class_name =
-      if Color.is_base_color color then
-        String.concat "" [ "ring-"; Color.pp color ]
-      else
-        String.concat "" [ "ring-"; Color.pp color; "-"; string_of_int shade ]
-    in
     let color_value = Color.to_css color shade in
     let d, _ = Var.binding ring_color_var color_value in
-    style class_name (d :: [])
+    style (d :: [])
 
   let transition_none =
-    style "transition-none"
+    style
       [
         transition
           (Shorthand
@@ -632,7 +624,7 @@ module Handler = struct
       ]
 
   let transition_all =
-    style "transition-all"
+    style
       [
         transition
           (Shorthand
@@ -645,7 +637,7 @@ module Handler = struct
       ]
 
   let transition_colors =
-    style "transition-colors"
+    style
       [
         Css.transitions
           [
@@ -688,7 +680,7 @@ module Handler = struct
       ]
 
   let transition_opacity =
-    style "transition-opacity"
+    style
       [
         transition
           (Shorthand
@@ -701,7 +693,7 @@ module Handler = struct
       ]
 
   let transition_shadow =
-    style "transition-shadow"
+    style
       [
         transition
           (Shorthand
@@ -714,7 +706,7 @@ module Handler = struct
       ]
 
   let transition_transform =
-    style "transition-transform"
+    style
       [
         transition
           (Shorthand
@@ -727,53 +719,29 @@ module Handler = struct
       ]
 
   let duration n =
-    let class_name = "duration-" ^ string_of_int n in
     let seconds = float_of_int n /. 1000.0 in
-    style class_name [ transition_duration (S seconds) ]
+    style [ transition_duration (S seconds) ]
 
   let opacity n =
-    let class_name = "opacity-" ^ string_of_int n in
     let value = float_of_int n /. 100.0 in
-    style class_name [ opacity value ]
+    style [ opacity value ]
 
-  let mix_blend_normal = style "mix-blend-normal" [ mix_blend_mode Normal ]
-
-  let mix_blend_multiply =
-    style "mix-blend-multiply" [ mix_blend_mode Multiply ]
-
-  let mix_blend_screen = style "mix-blend-screen" [ mix_blend_mode Screen ]
-  let mix_blend_overlay = style "mix-blend-overlay" [ mix_blend_mode Overlay ]
-  let mix_blend_darken = style "mix-blend-darken" [ mix_blend_mode Darken ]
-  let mix_blend_lighten = style "mix-blend-lighten" [ mix_blend_mode Lighten ]
-
-  let mix_blend_color_dodge =
-    style "mix-blend-color-dodge" [ mix_blend_mode Color_dodge ]
-
-  let mix_blend_color_burn =
-    style "mix-blend-color-burn" [ mix_blend_mode Color_burn ]
-
-  let mix_blend_hard_light =
-    style "mix-blend-hard-light" [ mix_blend_mode Hard_light ]
-
-  let mix_blend_soft_light =
-    style "mix-blend-soft-light" [ mix_blend_mode Soft_light ]
-
-  let mix_blend_difference =
-    style "mix-blend-difference" [ mix_blend_mode Difference ]
-
-  let mix_blend_exclusion =
-    style "mix-blend-exclusion" [ mix_blend_mode Exclusion ]
-
-  let mix_blend_hue = style "mix-blend-hue" [ mix_blend_mode Hue ]
-
-  let mix_blend_saturation =
-    style "mix-blend-saturation" [ mix_blend_mode Saturation ]
-
-  let mix_blend_color = style "mix-blend-color" [ mix_blend_mode Color ]
-
-  let mix_blend_luminosity =
-    style "mix-blend-luminosity" [ mix_blend_mode Luminosity ]
-
+  let mix_blend_normal = style [ mix_blend_mode Normal ]
+  let mix_blend_multiply = style [ mix_blend_mode Multiply ]
+  let mix_blend_screen = style [ mix_blend_mode Screen ]
+  let mix_blend_overlay = style [ mix_blend_mode Overlay ]
+  let mix_blend_darken = style [ mix_blend_mode Darken ]
+  let mix_blend_lighten = style [ mix_blend_mode Lighten ]
+  let mix_blend_color_dodge = style [ mix_blend_mode Color_dodge ]
+  let mix_blend_color_burn = style [ mix_blend_mode Color_burn ]
+  let mix_blend_hard_light = style [ mix_blend_mode Hard_light ]
+  let mix_blend_soft_light = style [ mix_blend_mode Soft_light ]
+  let mix_blend_difference = style [ mix_blend_mode Difference ]
+  let mix_blend_exclusion = style [ mix_blend_mode Exclusion ]
+  let mix_blend_hue = style [ mix_blend_mode Hue ]
+  let mix_blend_saturation = style [ mix_blend_mode Saturation ]
+  let mix_blend_color = style [ mix_blend_mode Color ]
+  let mix_blend_luminosity = style [ mix_blend_mode Luminosity ]
   let ( >|= ) = Parse.( >|= )
 
   let to_style = function
@@ -820,7 +788,9 @@ module Handler = struct
 
   let err_not_utility = Error (`Msg "Not an effects utility")
 
-  let of_string = function
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
+    match parts with
     | [ "shadow"; "none" ] -> Ok Shadow_none
     | [ "shadow"; "sm" ] -> Ok Shadow_sm
     | [ "shadow" ] -> Ok Shadow
@@ -866,6 +836,49 @@ module Handler = struct
     | [ "mix"; "blend"; "color" ] -> Ok Mix_blend_color
     | [ "mix"; "blend"; "luminosity" ] -> Ok Mix_blend_luminosity
     | _ -> err_not_utility
+
+  let to_class = function
+    | Shadow_none -> "shadow-none"
+    | Shadow_sm -> "shadow-sm"
+    | Shadow -> "shadow"
+    | Shadow_md -> "shadow-md"
+    | Shadow_lg -> "shadow-lg"
+    | Shadow_xl -> "shadow-xl"
+    | Shadow_2xl -> "shadow-2xl"
+    | Shadow_inner -> "shadow-inner"
+    | Opacity n -> "opacity-" ^ string_of_int n
+    | Ring_none -> "ring-0"
+    | Ring_xs -> "ring-1"
+    | Ring_sm -> "ring-2"
+    | Ring_md -> "ring-3"
+    | Ring_lg -> "ring-4"
+    | Ring_xl -> "ring-8"
+    | Ring_inset -> "ring-inset"
+    | Ring_color (color, shade) ->
+        "ring-" ^ Color.pp color ^ "-" ^ string_of_int shade
+    | Transition_none -> "transition-none"
+    | Transition_all -> "transition-all"
+    | Transition_colors -> "transition-colors"
+    | Transition_opacity -> "transition-opacity"
+    | Transition_shadow -> "transition-shadow"
+    | Transition_transform -> "transition-transform"
+    | Duration n -> "duration-" ^ string_of_int n
+    | Mix_blend_normal -> "mix-blend-normal"
+    | Mix_blend_multiply -> "mix-blend-multiply"
+    | Mix_blend_screen -> "mix-blend-screen"
+    | Mix_blend_overlay -> "mix-blend-overlay"
+    | Mix_blend_darken -> "mix-blend-darken"
+    | Mix_blend_lighten -> "mix-blend-lighten"
+    | Mix_blend_color_dodge -> "mix-blend-color-dodge"
+    | Mix_blend_color_burn -> "mix-blend-color-burn"
+    | Mix_blend_hard_light -> "mix-blend-hard-light"
+    | Mix_blend_soft_light -> "mix-blend-soft-light"
+    | Mix_blend_difference -> "mix-blend-difference"
+    | Mix_blend_exclusion -> "mix-blend-exclusion"
+    | Mix_blend_hue -> "mix-blend-hue"
+    | Mix_blend_saturation -> "mix-blend-saturation"
+    | Mix_blend_color -> "mix-blend-color"
+    | Mix_blend_luminosity -> "mix-blend-luminosity"
 
   let suborder = function
     | Opacity n -> n

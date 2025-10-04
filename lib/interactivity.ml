@@ -53,23 +53,24 @@ module Handler = struct
 
   type Utility.base += Self of t
 
+  let name = "interactivity"
   let priority = 800
-  let select_none_s = style "select-none" [ user_select None ]
-  let select_text_s = style "select-text" [ user_select Text ]
-  let select_all_s = style "select-all" [ user_select All ]
-  let select_auto_s = style "select-auto" [ user_select Auto ]
-  let scroll_auto_s = style "scroll-auto" [ scroll_behavior Auto ]
-  let scroll_smooth_s = style "scroll-smooth" [ scroll_behavior Smooth ]
+  let select_none_s = style [ user_select None ]
+  let select_text_s = style [ user_select Text ]
+  let select_all_s = style [ user_select All ]
+  let select_auto_s = style [ user_select Auto ]
+  let scroll_auto_s = style [ scroll_behavior Auto ]
+  let scroll_smooth_s = style [ scroll_behavior Smooth ]
 
   (* Reference to the global scroll snap strictness variable *)
   let scroll_snap_strictness_var =
     Var.property_default Css.Scroll_snap_strictness ~initial:Proximity
       "tw-scroll-snap-strictness"
 
-  let snap_start_s = style "snap-start" [ scroll_snap_align Start ]
-  let snap_end_s = style "snap-end" [ scroll_snap_align End ]
-  let snap_center_s = style "snap-center" [ scroll_snap_align Center ]
-  let snap_none_s = style "snap-none" [ scroll_snap_type (Axis None) ]
+  let snap_start_s = style [ scroll_snap_align Start ]
+  let snap_end_s = style [ scroll_snap_align End ]
+  let snap_center_s = style [ scroll_snap_align Center ]
+  let snap_none_s = style [ scroll_snap_type (Axis None) ]
 
   (* For snap-x, snap-y, snap-both we compose the axis with a variable reference
      to strictness *)
@@ -80,7 +81,7 @@ module Handler = struct
       | Some r -> r
       | None -> Css.empty
     in
-    style "snap-x" ~property_rules
+    style ~property_rules
       [ scroll_snap_type (Axis_with_strictness (X, Var ref_)) ]
 
   let snap_y_s =
@@ -90,7 +91,7 @@ module Handler = struct
       | Some r -> r
       | None -> Css.empty
     in
-    style "snap-y" ~property_rules
+    style ~property_rules
       [ scroll_snap_type (Axis_with_strictness (Y, Var ref_)) ]
 
   let snap_both_s =
@@ -100,7 +101,7 @@ module Handler = struct
       | Some r -> r
       | None -> Css.empty
     in
-    style "snap-both" ~property_rules
+    style ~property_rules
       [ scroll_snap_type (Axis_with_strictness (Both, Var ref_)) ]
 
   let snap_mandatory_s =
@@ -110,7 +111,7 @@ module Handler = struct
       | Some r -> r
       | None -> Css.empty
     in
-    style "snap-mandatory" ~property_rules (d :: [])
+    style ~property_rules (d :: [])
 
   let snap_proximity_s =
     let d, _ = Var.binding scroll_snap_strictness_var Proximity in
@@ -119,37 +120,26 @@ module Handler = struct
       | Some r -> r
       | None -> Css.empty
     in
-    style "snap-proximity" ~property_rules (d :: [])
+    style ~property_rules (d :: [])
 
-  let snap_align_none_s = style "snap-align-none" [ scroll_snap_align None ]
-  let snap_normal_s = style "snap-normal" [ scroll_snap_stop Normal ]
-  let snap_always_s = style "snap-always" [ scroll_snap_stop Always ]
-  let resize_none_s = style "resize-none" [ Css.resize None ]
-  let resize_s = style "resize" [ Css.resize Both ]
-  let resize_x_s = style "resize-x" [ Css.resize Horizontal ]
-  let resize_y_s = style "resize-y" [ Css.resize Vertical ]
+  let snap_align_none_s = style [ scroll_snap_align None ]
+  let snap_normal_s = style [ scroll_snap_stop Normal ]
+  let snap_always_s = style [ scroll_snap_stop Always ]
+  let resize_none_s = style [ Css.resize None ]
+  let resize_s = style [ Css.resize Both ]
+  let resize_x_s = style [ Css.resize Horizontal ]
+  let resize_y_s = style [ Css.resize Vertical ]
 
   (* Additional utilities *)
-  let pointer_events_none_s =
-    style "pointer-events-none" [ pointer_events None ]
-
-  let pointer_events_auto_s =
-    style "pointer-events-auto" [ pointer_events Auto ]
-
-  let appearance_none_s = style "appearance-none" [ appearance None ]
-  let will_change_auto_s = style "will-change-auto" [ will_change "auto" ]
-
-  let will_change_scroll_s =
-    style "will-change-scroll" [ will_change "scroll-position" ]
-
-  let will_change_contents_s =
-    style "will-change-contents" [ will_change "contents" ]
-
-  let will_change_transform_s =
-    style "will-change-transform" [ will_change "transform" ]
-
-  let group_s = style "group" []
-  let peer_s = style "peer" []
+  let pointer_events_none_s = style [ pointer_events None ]
+  let pointer_events_auto_s = style [ pointer_events Auto ]
+  let appearance_none_s = style [ appearance None ]
+  let will_change_auto_s = style [ will_change "auto" ]
+  let will_change_scroll_s = style [ will_change "scroll-position" ]
+  let will_change_contents_s = style [ will_change "contents" ]
+  let will_change_transform_s = style [ will_change "transform" ]
+  let group_s = style []
+  let peer_s = style []
 
   let to_style = function
     | Select_none -> select_none_s
@@ -184,7 +174,42 @@ module Handler = struct
     | Group -> group_s
     | Peer -> peer_s
 
-  let of_string = function
+  let suborder = function
+    | Select_all -> 0
+    | Select_auto -> 1
+    | Select_none -> 2
+    | Select_text -> 3
+    | Scroll_auto -> 4
+    | Scroll_smooth -> 16
+    | Snap_align_none -> 17
+    | Snap_always -> 18
+    | Snap_both -> 19
+    | Snap_center -> 20
+    | Snap_end -> 21
+    | Snap_mandatory -> 22
+    | Snap_none -> 23
+    | Snap_normal -> 24
+    | Snap_proximity -> 25
+    | Snap_start -> 26
+    | Snap_x -> 27
+    | Snap_y -> 28
+    | Resize -> 29
+    | Resize_none -> 30
+    | Resize_x -> 31
+    | Resize_y -> 32
+    | Pointer_events_auto -> 33
+    | Pointer_events_none -> 34
+    | Appearance_none -> 35
+    | Will_change_auto -> 36
+    | Will_change_contents -> 37
+    | Will_change_scroll -> 38
+    | Will_change_transform -> 39
+    | Group -> 40
+    | Peer -> 41
+
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
+    match parts with
     | [ "select"; "none" ] -> Ok Select_none
     | [ "select"; "text" ] -> Ok Select_text
     | [ "select"; "all" ] -> Ok Select_all
@@ -218,38 +243,38 @@ module Handler = struct
     | [ "peer" ] -> Ok Peer
     | _ -> err_not_utility
 
-  let suborder = function
-    | Select_all -> 0
-    | Select_auto -> 1
-    | Select_none -> 2
-    | Select_text -> 3
-    | Scroll_auto -> 4
-    | Scroll_smooth -> 16
-    | Snap_align_none -> 17
-    | Snap_always -> 18
-    | Snap_both -> 19
-    | Snap_center -> 20
-    | Snap_end -> 21
-    | Snap_mandatory -> 22
-    | Snap_none -> 23
-    | Snap_normal -> 24
-    | Snap_proximity -> 25
-    | Snap_start -> 26
-    | Snap_x -> 27
-    | Snap_y -> 28
-    | Resize -> 29
-    | Resize_none -> 30
-    | Resize_x -> 31
-    | Resize_y -> 32
-    | Pointer_events_auto -> 33
-    | Pointer_events_none -> 34
-    | Appearance_none -> 35
-    | Will_change_auto -> 36
-    | Will_change_contents -> 37
-    | Will_change_scroll -> 38
-    | Will_change_transform -> 39
-    | Group -> 40
-    | Peer -> 41
+  let to_class = function
+    | Select_none -> "select-none"
+    | Select_text -> "select-text"
+    | Select_all -> "select-all"
+    | Select_auto -> "select-auto"
+    | Scroll_auto -> "scroll-auto"
+    | Scroll_smooth -> "scroll-smooth"
+    | Snap_start -> "snap-start"
+    | Snap_end -> "snap-end"
+    | Snap_center -> "snap-center"
+    | Snap_none -> "snap-none"
+    | Snap_x -> "snap-x"
+    | Snap_y -> "snap-y"
+    | Snap_both -> "snap-both"
+    | Snap_mandatory -> "snap-mandatory"
+    | Snap_proximity -> "snap-proximity"
+    | Snap_align_none -> "snap-align-none"
+    | Snap_normal -> "snap-normal"
+    | Snap_always -> "snap-always"
+    | Resize_none -> "resize-none"
+    | Resize -> "resize"
+    | Resize_x -> "resize-x"
+    | Resize_y -> "resize-y"
+    | Pointer_events_none -> "pointer-events-none"
+    | Pointer_events_auto -> "pointer-events-auto"
+    | Appearance_none -> "appearance-none"
+    | Will_change_auto -> "will-change-auto"
+    | Will_change_scroll -> "will-change-scroll"
+    | Will_change_contents -> "will-change-contents"
+    | Will_change_transform -> "will-change-transform"
+    | Group -> "group"
+    | Peer -> "peer"
 end
 
 open Handler

@@ -58,6 +58,8 @@ module Handler = struct
   (** Priority for layout utilities. Set to 4 for display utilities (block,
       inline, inline-block, hidden). All display utilities share priority 4 to
       group together and sort alphabetically. *)
+  let name = "layout"
+
   let priority = 4
 
   let suborder = function
@@ -112,13 +114,55 @@ module Handler = struct
 
   (** {1 Style Generation} *)
 
+  let to_class = function
+    | Block -> "block"
+    | Inline -> "inline"
+    | Inline_block -> "inline-block"
+    | Hidden -> "hidden"
+    | Sr_only -> "sr-only"
+    | Not_sr_only -> "not-sr-only"
+    | Visible -> "visible"
+    | Invisible -> "invisible"
+    | Collapse -> "collapse"
+    | Isolate -> "isolate"
+    | Overflow_auto -> "overflow-auto"
+    | Overflow_hidden -> "overflow-hidden"
+    | Overflow_clip -> "overflow-clip"
+    | Overflow_visible -> "overflow-visible"
+    | Overflow_scroll -> "overflow-scroll"
+    | Overflow_x_auto -> "overflow-x-auto"
+    | Overflow_x_hidden -> "overflow-x-hidden"
+    | Overflow_x_visible -> "overflow-x-visible"
+    | Overflow_x_scroll -> "overflow-x-scroll"
+    | Overflow_y_auto -> "overflow-y-auto"
+    | Overflow_y_hidden -> "overflow-y-hidden"
+    | Overflow_y_visible -> "overflow-y-visible"
+    | Overflow_y_scroll -> "overflow-y-scroll"
+    | Z_0 -> "z-0"
+    | Z_10 -> "z-10"
+    | Z_20 -> "z-20"
+    | Z_30 -> "z-30"
+    | Z_40 -> "z-40"
+    | Z_50 -> "z-50"
+    | Z_auto -> "z-auto"
+    | Object_contain -> "object-contain"
+    | Object_cover -> "object-cover"
+    | Object_fill -> "object-fill"
+    | Object_none -> "object-none"
+    | Object_scale_down -> "object-scale-down"
+    | Object_center -> "object-center"
+    | Object_top -> "object-top"
+    | Object_bottom -> "object-bottom"
+    | Object_left -> "object-left"
+    | Object_right -> "object-right"
+
   let to_style = function
-    | Block -> style "block" [ display Block ]
-    | Inline -> style "inline" [ display Inline ]
-    | Inline_block -> style "inline-block" [ display Inline_block ]
-    | Hidden -> style "hidden" [ display None ]
+    | Block -> style [ display Block ]
+    | Inline -> style [ display Inline ]
+    | Inline_block -> style [ display Inline_block ]
+    | Hidden -> style [ display None ]
     | Sr_only ->
-        style "sr-only"
+        style
           [
             Css.position Absolute;
             width (Px 1.);
@@ -131,7 +175,7 @@ module Handler = struct
             border_width Zero;
           ]
     | Not_sr_only ->
-        style "not-sr-only"
+        style
           [
             Css.position Static;
             width Auto;
@@ -142,44 +186,46 @@ module Handler = struct
             clip "auto";
             white_space Normal;
           ]
-    | Visible -> style "visible" [ visibility Visible ]
-    | Invisible -> style "invisible" [ visibility Hidden ]
-    | Collapse -> style "collapse" [ visibility Collapse ]
-    | Isolate -> style "isolate" [ isolation Isolate ]
-    | Overflow_auto -> style "overflow-auto" [ overflow Auto ]
-    | Overflow_hidden -> style "overflow-hidden" [ overflow Hidden ]
-    | Overflow_clip -> style "overflow-clip" [ overflow Clip ]
-    | Overflow_visible -> style "overflow-visible" [ overflow Visible ]
-    | Overflow_scroll -> style "overflow-scroll" [ overflow Scroll ]
-    | Overflow_x_auto -> style "overflow-x-auto" [ overflow_x Auto ]
-    | Overflow_x_hidden -> style "overflow-x-hidden" [ overflow_x Hidden ]
-    | Overflow_x_visible -> style "overflow-x-visible" [ overflow_x Visible ]
-    | Overflow_x_scroll -> style "overflow-x-scroll" [ overflow_x Scroll ]
-    | Overflow_y_auto -> style "overflow-y-auto" [ overflow_y Auto ]
-    | Overflow_y_hidden -> style "overflow-y-hidden" [ overflow_y Hidden ]
-    | Overflow_y_visible -> style "overflow-y-visible" [ overflow_y Visible ]
-    | Overflow_y_scroll -> style "overflow-y-scroll" [ overflow_y Scroll ]
-    | Z_0 -> style "z-0" [ z_index (Index 0) ]
-    | Z_10 -> style "z-10" [ z_index (Index 10) ]
-    | Z_20 -> style "z-20" [ z_index (Index 20) ]
-    | Z_30 -> style "z-30" [ z_index (Index 30) ]
-    | Z_40 -> style "z-40" [ z_index (Index 40) ]
-    | Z_50 -> style "z-50" [ z_index (Index 50) ]
-    | Z_auto -> style "z-auto" [ z_index_auto ]
-    | Object_contain -> style "object-contain" [ object_fit Contain ]
-    | Object_cover -> style "object-cover" [ object_fit Cover ]
-    | Object_fill -> style "object-fill" [ object_fit Fill ]
-    | Object_none -> style "object-none" [ object_fit None ]
-    | Object_scale_down -> style "object-scale-down" [ object_fit Scale_down ]
-    | Object_center -> style "object-center" [ object_position Center ]
-    | Object_top -> style "object-top" [ object_position Center_top ]
-    | Object_bottom -> style "object-bottom" [ object_position Center_bottom ]
-    | Object_left -> style "object-left" [ object_position Left_center ]
-    | Object_right -> style "object-right" [ object_position Right_center ]
+    | Visible -> style [ visibility Visible ]
+    | Invisible -> style [ visibility Hidden ]
+    | Collapse -> style [ visibility Collapse ]
+    | Isolate -> style [ isolation Isolate ]
+    | Overflow_auto -> style [ overflow Auto ]
+    | Overflow_hidden -> style [ overflow Hidden ]
+    | Overflow_clip -> style [ overflow Clip ]
+    | Overflow_visible -> style [ overflow Visible ]
+    | Overflow_scroll -> style [ overflow Scroll ]
+    | Overflow_x_auto -> style [ overflow_x Auto ]
+    | Overflow_x_hidden -> style [ overflow_x Hidden ]
+    | Overflow_x_visible -> style [ overflow_x Visible ]
+    | Overflow_x_scroll -> style [ overflow_x Scroll ]
+    | Overflow_y_auto -> style [ overflow_y Auto ]
+    | Overflow_y_hidden -> style [ overflow_y Hidden ]
+    | Overflow_y_visible -> style [ overflow_y Visible ]
+    | Overflow_y_scroll -> style [ overflow_y Scroll ]
+    | Z_0 -> style [ z_index (Index 0) ]
+    | Z_10 -> style [ z_index (Index 10) ]
+    | Z_20 -> style [ z_index (Index 20) ]
+    | Z_30 -> style [ z_index (Index 30) ]
+    | Z_40 -> style [ z_index (Index 40) ]
+    | Z_50 -> style [ z_index (Index 50) ]
+    | Z_auto -> style [ z_index_auto ]
+    | Object_contain -> style [ object_fit Contain ]
+    | Object_cover -> style [ object_fit Cover ]
+    | Object_fill -> style [ object_fit Fill ]
+    | Object_none -> style [ object_fit None ]
+    | Object_scale_down -> style [ object_fit Scale_down ]
+    | Object_center -> style [ object_position Center ]
+    | Object_top -> style [ object_position Center_top ]
+    | Object_bottom -> style [ object_position Center_bottom ]
+    | Object_left -> style [ object_position Left_center ]
+    | Object_right -> style [ object_position Right_center ]
 
   (** {1 Parsing Functions} *)
 
-  let of_string = function
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
+    match parts with
     | [ "block" ] -> Ok Block
     | [ "inline" ] -> Ok Inline
     | [ "inline"; "block" ] -> Ok Inline_block

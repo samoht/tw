@@ -1,47 +1,41 @@
 open Alcotest
 
-let check parts =
-  let expected = String.concat "-" parts in
-  match Tw.Effects.Handler.of_string parts with
-  | Ok result ->
-      let style = Tw.Effects.Handler.to_style result in
-      Alcotest.check string "effects class name" expected (Tw.Style.pp style)
-  | Error (`Msg msg) -> fail msg
+let check = Test_helpers.check_handler_roundtrip (module Tw.Effects.Handler)
 
 let of_string_valid () =
   (* Box shadow *)
-  check [ "shadow" ];
-  check [ "shadow"; "sm" ];
-  check [ "shadow"; "md" ];
-  check [ "shadow"; "lg" ];
-  check [ "shadow"; "xl" ];
-  check [ "shadow"; "2xl" ];
-  check [ "shadow"; "inner" ];
-  check [ "shadow"; "none" ];
+  check "shadow";
+  check "shadow-sm";
+  check "shadow-md";
+  check "shadow-lg";
+  check "shadow-xl";
+  check "shadow-2xl";
+  check "shadow-inner";
+  check "shadow-none";
 
   (* Opacity *)
-  check [ "opacity"; "0" ];
-  check [ "opacity"; "5" ];
-  check [ "opacity"; "10" ];
-  check [ "opacity"; "25" ];
-  check [ "opacity"; "50" ];
-  check [ "opacity"; "75" ];
-  check [ "opacity"; "100" ];
+  check "opacity-0";
+  check "opacity-5";
+  check "opacity-10";
+  check "opacity-25";
+  check "opacity-50";
+  check "opacity-75";
+  check "opacity-100";
 
   (* Mix blend mode *)
-  check [ "mix"; "blend"; "normal" ];
-  check [ "mix"; "blend"; "multiply" ];
-  check [ "mix"; "blend"; "screen" ];
-  check [ "mix"; "blend"; "overlay" ]
+  check "mix-blend-normal";
+  check "mix-blend-multiply";
+  check "mix-blend-screen";
+  check "mix-blend-overlay"
 
 let test_ring_of_string_valid () =
-  check [ "ring" ];
-  check [ "ring"; "0" ];
-  check [ "ring"; "1" ];
-  check [ "ring"; "2" ];
-  check [ "ring"; "4" ];
-  check [ "ring"; "8" ];
-  check [ "ring"; "inset" ]
+  check "ring";
+  check "ring-0";
+  check "ring-1";
+  check "ring-2";
+  check "ring-4";
+  check "ring-8";
+  check "ring-inset"
 
 let test_filters_css_generation () =
   (* Spot-check a few filter/backdrop utilities *)
@@ -64,8 +58,9 @@ let test_filters_css_generation () =
 let of_string_invalid () =
   (* Invalid effects values *)
   let fail_maybe input =
-    match Tw.Effects.Handler.of_string input with
-    | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
+    let class_name = String.concat "-" input in
+    match Tw.Effects.Handler.of_class class_name with
+    | Ok _ -> fail ("Expected error for: " ^ class_name)
     | Error _ -> ()
   in
 

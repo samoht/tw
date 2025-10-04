@@ -100,16 +100,4 @@ val order_none : t
 
 (** {1 Internal types} *)
 
-module Handler : sig
-  type t
-
-  val of_string : string list -> (t, [ `Msg of string ]) result
-  (** [of_string parts] parses string parts into a flex utility. For internal
-      use by the Tw module. *)
-
-  val suborder : t -> int
-  (** [suborder u] returns the ordering value for flex utility [u]. Used for
-      deterministic CSS output ordering. *)
-
-  val to_style : t -> Style.t
-end
+module Handler : Utility.Handler

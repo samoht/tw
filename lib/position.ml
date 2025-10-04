@@ -39,20 +39,22 @@ module Handler = struct
   (** Extensible variant for position utilities *)
   type Utility.base += Self of t
 
+  let name = "position"
+
   (** Priority for position utilities *)
   let priority = 0
 
   (** {1 Utility Conversion Functions} *)
 
   let to_style = function
-    | Position_static -> style "static" [ position Static ]
-    | Position_relative -> style "relative" [ position Relative ]
-    | Position_absolute -> style "absolute" [ position Absolute ]
-    | Position_fixed -> style "fixed" [ position Fixed ]
-    | Position_sticky -> style "sticky" [ position Sticky ]
+    | Position_static -> style [ position Static ]
+    | Position_relative -> style [ position Relative ]
+    | Position_absolute -> style [ position Absolute ]
+    | Position_fixed -> style [ position Fixed ]
+    | Position_sticky -> style [ position Sticky ]
     | Inset_0 ->
         let decl, zero_value = spacing_value 0 in
-        style "inset-0"
+        style
           (decl
           :: [
                Css.top zero_value;
@@ -62,78 +64,34 @@ module Handler = struct
              ])
     | Inset_x_0 ->
         let decl, zero_value = spacing_value 0 in
-        style "inset-x-0" (decl :: [ Css.left zero_value; Css.right zero_value ])
+        style (decl :: [ Css.left zero_value; Css.right zero_value ])
     | Inset_y_0 ->
         let decl, zero_value = spacing_value 0 in
-        style "inset-y-0" (decl :: [ Css.bottom zero_value; Css.top zero_value ])
+        style (decl :: [ Css.bottom zero_value; Css.top zero_value ])
     | Inset n ->
-        let prefix = if n < 0 then "--" else "" in
-        let class_name = prefix ^ "inset-" ^ string_of_int (abs n) in
         let decl, value = spacing_value n in
-        style class_name
+        style
           (decl
           :: [
                Css.top value; Css.right value; Css.bottom value; Css.left value;
              ])
     | Top n ->
-        let prefix = if n < 0 then "--" else "" in
-        let class_name = prefix ^ "top-" ^ string_of_int (abs n) in
         let decl, value = spacing_value n in
-        style class_name (decl :: [ Css.top value ])
-    | Top_1_2 -> style "top-1/2" [ Css.top (Pct 50.0) ]
+        style (decl :: [ Css.top value ])
+    | Top_1_2 -> style [ Css.top (Pct 50.0) ]
     | Right n ->
-        let prefix = if n < 0 then "--" else "" in
-        let class_name = prefix ^ "right-" ^ string_of_int (abs n) in
         let decl, value = spacing_value n in
-        style class_name (decl :: [ Css.right value ])
+        style (decl :: [ Css.right value ])
     | Bottom n ->
-        let prefix = if n < 0 then "--" else "" in
-        let class_name = prefix ^ "bottom-" ^ string_of_int (abs n) in
         let decl, value = spacing_value n in
-        style class_name (decl :: [ Css.bottom value ])
+        style (decl :: [ Css.bottom value ])
     | Left n ->
-        let prefix = if n < 0 then "--" else "" in
-        let class_name = prefix ^ "left-" ^ string_of_int (abs n) in
         let decl, value = spacing_value n in
-        style class_name (decl :: [ Css.left value ])
-    | Left_1_2 -> style "left-1/2" [ Css.left (Pct 50.0) ]
-    | Z n ->
-        let class_name = "z-" ^ string_of_int n in
-        style class_name [ Css.z_index (Css.Index n) ]
+        style (decl :: [ Css.left value ])
+    | Left_1_2 -> style [ Css.left (Pct 50.0) ]
+    | Z n -> style [ Css.z_index (Css.Index n) ]
 
   let int_of_string_with_sign = Parse.int_any
-
-  let of_string = function
-    | [ "static" ] -> Ok Position_static
-    | [ "relative" ] -> Ok Position_relative
-    | [ "absolute" ] -> Ok Position_absolute
-    | [ "fixed" ] -> Ok Position_fixed
-    | [ "sticky" ] -> Ok Position_sticky
-    | [ "inset"; "0" ] -> Ok Inset_0
-    | [ "inset"; "x"; "0" ] -> Ok Inset_x_0
-    | [ "inset"; "y"; "0" ] -> Ok Inset_y_0
-    | [ "inset"; n ] ->
-        int_of_string_with_sign n |> Result.map (fun x -> Inset x)
-    | [ "-"; "inset"; n ] ->
-        int_of_string_with_sign n |> Result.map (fun x -> Inset (-x))
-    | [ "top"; "1/2" ] -> Ok Top_1_2
-    | [ "top"; n ] -> int_of_string_with_sign n |> Result.map (fun x -> Top x)
-    | [ "-"; "top"; n ] ->
-        int_of_string_with_sign n |> Result.map (fun x -> Top (-x))
-    | [ "right"; n ] ->
-        int_of_string_with_sign n |> Result.map (fun x -> Right x)
-    | [ "-"; "right"; n ] ->
-        int_of_string_with_sign n |> Result.map (fun x -> Right (-x))
-    | [ "bottom"; n ] ->
-        int_of_string_with_sign n |> Result.map (fun x -> Bottom x)
-    | [ "-"; "bottom"; n ] ->
-        int_of_string_with_sign n |> Result.map (fun x -> Bottom (-x))
-    | [ "left"; "1/2" ] -> Ok Left_1_2
-    | [ "left"; n ] -> int_of_string_with_sign n |> Result.map (fun x -> Left x)
-    | [ "-"; "left"; n ] ->
-        int_of_string_with_sign n |> Result.map (fun x -> Left (-x))
-    | [ "z"; n ] -> int_of_string_with_sign n |> Result.map (fun x -> Z x)
-    | _ -> Error (`Msg "Not a position utility")
 
   let suborder = function
     | Position_static -> 0
@@ -152,6 +110,68 @@ module Handler = struct
     | Left_1_2 -> 700
     | Left n -> 800 + n
     | Z n -> 900 + n
+
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
+    match parts with
+    | [ "static" ] -> Ok Position_static
+    | [ "relative" ] -> Ok Position_relative
+    | [ "absolute" ] -> Ok Position_absolute
+    | [ "fixed" ] -> Ok Position_fixed
+    | [ "sticky" ] -> Ok Position_sticky
+    | [ "inset"; "0" ] -> Ok Inset_0
+    | [ "inset"; "x"; "0" ] -> Ok Inset_x_0
+    | [ "inset"; "y"; "0" ] -> Ok Inset_y_0
+    | [ "inset"; n ] ->
+        int_of_string_with_sign n |> Result.map (fun x -> Inset x)
+    | [ ""; "inset"; n ] ->
+        int_of_string_with_sign n |> Result.map (fun x -> Inset (-x))
+    | [ "top"; "1/2" ] -> Ok Top_1_2
+    | [ "top"; n ] -> int_of_string_with_sign n |> Result.map (fun x -> Top x)
+    | [ ""; "top"; n ] ->
+        int_of_string_with_sign n |> Result.map (fun x -> Top (-x))
+    | [ "right"; n ] ->
+        int_of_string_with_sign n |> Result.map (fun x -> Right x)
+    | [ ""; "right"; n ] ->
+        int_of_string_with_sign n |> Result.map (fun x -> Right (-x))
+    | [ "bottom"; n ] ->
+        int_of_string_with_sign n |> Result.map (fun x -> Bottom x)
+    | [ ""; "bottom"; n ] ->
+        int_of_string_with_sign n |> Result.map (fun x -> Bottom (-x))
+    | [ "left"; "1/2" ] -> Ok Left_1_2
+    | [ "left"; n ] -> int_of_string_with_sign n |> Result.map (fun x -> Left x)
+    | [ ""; "left"; n ] ->
+        int_of_string_with_sign n |> Result.map (fun x -> Left (-x))
+    | [ "z"; n ] -> int_of_string_with_sign n |> Result.map (fun x -> Z x)
+    | _ -> Error (`Msg "Not a position utility")
+
+  let to_class = function
+    | Position_static -> "static"
+    | Position_relative -> "relative"
+    | Position_absolute -> "absolute"
+    | Position_fixed -> "fixed"
+    | Position_sticky -> "sticky"
+    | Inset_0 -> "inset-0"
+    | Inset_x_0 -> "inset-x-0"
+    | Inset_y_0 -> "inset-y-0"
+    | Inset n ->
+        let prefix = if n < 0 then "-" else "" in
+        prefix ^ "inset-" ^ string_of_int (abs n)
+    | Top_1_2 -> "top-1/2"
+    | Top n ->
+        let prefix = if n < 0 then "-" else "" in
+        prefix ^ "top-" ^ string_of_int (abs n)
+    | Right n ->
+        let prefix = if n < 0 then "-" else "" in
+        prefix ^ "right-" ^ string_of_int (abs n)
+    | Bottom n ->
+        let prefix = if n < 0 then "-" else "" in
+        prefix ^ "bottom-" ^ string_of_int (abs n)
+    | Left_1_2 -> "left-1/2"
+    | Left n ->
+        let prefix = if n < 0 then "-" else "" in
+        prefix ^ "left-" ^ string_of_int (abs n)
+    | Z n -> "z-" ^ string_of_int n
 end
 
 open Handler

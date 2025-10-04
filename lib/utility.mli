@@ -38,12 +38,15 @@
           | Variant2 -> 1
           | ...
 
-        let of_string =
-          let err_not_utility = Error (`Msg "Not a <category> utility") in
+        let err_not_utility = Error (`Msg "Not a <category> utility")
+        let of_strings =
           function
           | [ "class"; "name" ] -> Ok Variant1
           | [ "other"; "class" ] -> Ok Variant2
           | _ -> err_not_utility
+
+        let to_class = function
+          | ...
       end
 
       open Handler
@@ -92,6 +95,9 @@ module type Handler = sig
 
   type base += Self of t  (** Extension of the base utility type *)
 
+  val name : string
+  (** Name of this utility handler *)
+
   val to_style : t -> Style.t
   (** Convert utility to style *)
 
@@ -101,29 +107,36 @@ module type Handler = sig
   val suborder : t -> int
   (** Suborder within the same priority *)
 
-  val of_string : string list -> (t, [ `Msg of string ]) result
-  (** Parse string parts into utility *)
+  val of_class : string -> (t, [ `Msg of string ]) result
+  (** Parse class name into utility *)
+
+  val to_class : t -> string
+  (* TODO *)
 end
 
 val register : (module Handler with type t = 'a) -> unit
 (** [register (module H)] registers a utility handler module *)
 
-(** Parse CSS string into AST *)
-val css_of_string :
-  ?filename:string -> string -> (Css.t, Css.parse_error) result
-(** [css_of_string ?filename css_str] parses a CSS string into an AST. Returns
-    [Ok ast] on success or [Error err] on parse failure. *)
-
 (** Parse a class string into a base utility (without modifiers) *)
-val base_of_string : string list -> (base, [ `Msg of string ]) result
-(** [base_of_string parts] parses a list of string parts into a base utility.
-    For internal use by the Tw module. *)
+val base_of_class : string -> (base, [ `Msg of string ]) result
+(** [base_of_class class_name] parses a class name into a base utility. For
+    internal use by the Tw module. *)
+
+val base_of_strings : string list -> (base, [ `Msg of string ]) result
+(** [base_of_strings parts] parses a list of string parts into a base utility.
+    Deprecated: use base_of_class. For backward compatibility with tests. *)
 
 val base_to_style : base -> Style.t
 (** Convert a base utility (without modifiers) to Style.t *)
 
+val name_of_base : base -> string
+val class_of_base : base -> string
+
 val to_style : t -> Style.t
 (** Convert Utility.t (with modifiers) to Style.t *)
+
+val to_class : t -> string
+(** Convert Utility.t (with modifiers) to class name string *)
 
 val order : base -> int * int
 (** Get the ordering information (priority, suborder) for a base utility *)

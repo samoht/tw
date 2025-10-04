@@ -1,22 +1,20 @@
 open Alcotest
 
-let check parts =
-  let expected = String.concat "-" parts in
-  match Tw.Forms.Handler.of_string parts with
-  | Ok u ->
-      check string "forms class" expected
-        (Tw.Style.pp (Tw.Forms.Handler.to_style u))
+let check class_name =
+  match Tw.Forms.Handler.of_class class_name with
+  | Ok u -> check string "forms class" class_name (Tw.Forms.Handler.to_class u)
   | Error (`Msg msg) -> fail msg
 
 let test_inputs () =
-  check [ "form"; "input" ];
-  check [ "form"; "checkbox" ]
+  check "form-input";
+  check "form-checkbox"
 
 let test_of_string_invalid () =
   (* Invalid form utilities *)
   let test_invalid input =
-    match Tw.Forms.Handler.of_string input with
-    | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
+    let class_name = String.concat "-" input in
+    match Tw.Forms.Handler.of_class class_name with
+    | Ok _ -> fail ("Expected error for: " ^ class_name)
     | Error _ -> ()
   in
 

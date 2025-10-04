@@ -82,10 +82,4 @@ val ease_in_out : t
 val delay : int -> t
 (** [delay ms] sets animation/transition delay in milliseconds. *)
 
-module Handler : sig
-  type t
-
-  val of_string : string list -> (t, [ `Msg of string ]) result
-  val suborder : t -> int
-  val to_style : t -> Style.t
-end
+module Handler : Utility.Handler

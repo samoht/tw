@@ -42,10 +42,4 @@ val auto_rows_min : t
 val auto_rows_max : t
 val auto_rows_fr : t
 
-module Handler : sig
-  type t
-
-  val of_string : string list -> (t, [ `Msg of string ]) result
-  val suborder : t -> int
-  val to_style : t -> Style.t
-end
+module Handler : Utility.Handler

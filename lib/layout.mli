@@ -52,16 +52,4 @@ val object_bottom : t
 val object_left : t
 val object_right : t
 
-module Handler : sig
-  type t
-
-  val of_string : string list -> (t, [ `Msg of string ]) result
-  (** [of_string parts] parses a layout utility from string parts. Returns an
-      internal structured representation. *)
-
-  val suborder : t -> int
-  (** [suborder u] returns the ordering value for layout utility [u]. Used for
-      deterministic CSS output ordering. *)
-
-  val to_style : t -> Style.t
-end
+module Handler : Utility.Handler

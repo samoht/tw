@@ -28,17 +28,19 @@ module Handler = struct
 
   type Utility.base += Self of t
 
+  let name = "containers"
   let priority = 14
-  let container_type_size = style "container-type-size" [ container_type Size ]
 
-  let container_type_inline_size =
-    style "container-type-inline-size" [ container_type Inline_size ]
+  let to_class = function
+    | Container_type_size -> "container-type-size"
+    | Container_type_inline_size -> "container-type-inline-size"
+    | Container_type_normal -> "container-type-normal"
+    | Container_name name -> "container-" ^ name
 
-  let container_type_normal =
-    style "container-type-normal" [ container_type Normal ]
-
-  (** Container name utility for setting container-name *)
-  let container_name name = style ("container-" ^ name) [ container_name name ]
+  let container_type_size = style [ container_type Size ]
+  let container_type_inline_size = style [ container_type Inline_size ]
+  let container_type_normal = style [ container_type Normal ]
+  let container_name name = style [ container_name name ]
 
   let to_style = function
     | Container_type_size -> container_type_size
@@ -52,7 +54,9 @@ module Handler = struct
     | Container_type_normal -> 2
     | Container_name _ -> 100
 
-  let of_string = function
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
+    match parts with
     | [ "container"; "type"; "size" ] -> Ok Container_type_size
     | [ "container"; "type"; "inline"; "size" ] -> Ok Container_type_inline_size
     | [ "container"; "type"; "normal" ] -> Ok Container_type_normal
