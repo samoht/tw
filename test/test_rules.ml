@@ -775,8 +775,8 @@ let test_style_rules_props () =
   in
   let props = [ color (Hex { hash = false; value = "ff0000" }) ] in
 
-  let style = Tw.Style.style ~rules:(Some custom_rules) "test" props in
-  let extracted = Tw.Rules.extract_selector_props style in
+  let style = Tw.Style.style ~rules:(Some custom_rules) props in
+  let extracted = Tw.Rules.extract_selector_props ~base_class:"test" style in
 
   (* Should generate rules in order: custom rules first, then base props *)
   check int "correct number of rules" 3 (List.length extracted);
@@ -1084,6 +1084,10 @@ let test_priority_order_per_group () =
       (* gap: priority 10 *)
       pick_random border_utils;
       (* borders: priority 11 *)
+      pick_random transform_utils;
+      (* transforms: priority 6 *)
+      pick_random animation_utils;
+      (* animations: priority 7 *)
       pick_random bg_utils;
       (* backgrounds: priority 12 *)
       pick_random padding_utils;
@@ -1092,16 +1096,61 @@ let test_priority_order_per_group () =
       (* typography: priority 14 *)
       pick_random effect_utils;
       (* effects: priority 15 *)
-      pick_random transform_utils;
-      (* transforms: priority 16 *)
-      pick_random animation_utils;
-      (* animations: priority 17 *)
       pick_random filter_utils;
       (* filters: priority 60 *)
     ]
   in
   Test_helpers.check_ordering_matches
     ~test_name:"priority order matches Tailwind" utilities
+
+(* Verify Handler.priority values are in correct relative order *)
+let test_handler_priority_ordering () =
+  (* Get priority values directly from Handler modules. Note: Some modules
+     (Prose, Display, Tables) don't expose Handler in their .mli, so we skip
+     them in this test. Their ordering is still verified by
+     test_priority_order_per_group which compares against Tailwind output. *)
+  let position_prio = Tw.Position.Handler.priority in
+  let margin_prio = Tw.Margin.Handler.priority in
+  let layout_prio = Tw.Layout.Handler.priority in
+  let flex_prio = Tw.Flex.Handler.priority in
+  let grid_prio = Tw.Grid.Handler.priority in
+  let sizing_prio = Tw.Sizing.Handler.priority in
+  let cursor_prio = Tw.Cursor.Handler.priority in
+  let grid_template_prio = Tw.Grid_template.Handler.priority in
+  let alignment_prio = Tw.Alignment.Handler.priority in
+  let gap_prio = Tw.Gap.Handler.priority in
+  let border_prio = Tw.Borders.Handler.priority in
+  let bg_prio = Tw.Backgrounds.Handler.priority in
+  let padding_prio = Tw.Padding.Handler.priority in
+  let typography_prio = Tw.Typography.Handler.priority in
+  let effect_prio = Tw.Effects.Handler.priority in
+  let transform_prio = Tw.Transforms.Handler.priority in
+  let animation_prio = Tw.Animations.Handler.priority in
+  let filter_prio = Tw.Filters.Handler.priority in
+
+  (* Verify priority ordering relationships *)
+  check bool "position < margin" true (position_prio < margin_prio);
+  (* prose priority 3 skipped - Handler not exposed *)
+  check bool "margin < layout" true (margin_prio < layout_prio);
+  check bool "layout < sizing" true (layout_prio < sizing_prio);
+  check bool "sizing < transform" true (sizing_prio < transform_prio);
+  check bool "transform < animation" true (transform_prio < animation_prio);
+  check bool "animation < cursor" true (animation_prio < cursor_prio);
+  check bool "cursor < grid_template" true (cursor_prio < grid_template_prio);
+  check bool "grid_template < alignment" true
+    (grid_template_prio < alignment_prio);
+  check bool "alignment < gap" true (alignment_prio < gap_prio);
+  check bool "gap < border" true (gap_prio < border_prio);
+  check bool "border < bg" true (border_prio < bg_prio);
+  check bool "bg < padding" true (bg_prio < padding_prio);
+  check bool "padding < typography" true (padding_prio < typography_prio);
+  check bool "typography < effect" true (typography_prio < effect_prio);
+  check bool "effect < filter" true (effect_prio < filter_prio);
+
+  (* Verify utilities in same priority group have same priority *)
+  check int "layout == flex" layout_prio flex_prio;
+  check int "layout == grid" layout_prio grid_prio
+(* display and tables priority checked in test_priority_order_per_group *)
 
 (* Test 2: Verify suborder within same group *)
 let test_suborder_within_group () =
@@ -1507,7 +1556,8 @@ let tests =
     test_case "prose rule separation" `Quick test_cascade_prose_separation;
     test_case "color override cascading" `Quick test_cascade_color_override;
     (* Utility group ordering *)
-    test_case "priority order per group" `Slow test_priority_order_per_group;
+    test_case "priority order per group" `Quick test_priority_order_per_group;
+    test_case "handler priority ordering" `Quick test_handler_priority_ordering;
     test_case "suborder within group" `Slow test_suborder_within_group;
     test_case "random utilities with minimization" `Slow
       test_random_utilities_with_minimization;

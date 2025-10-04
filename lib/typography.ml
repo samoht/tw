@@ -402,11 +402,14 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  let priority = 15
+  let name = "typography"
+  let priority = 16
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not a typography utility")
 
-  let of_string = function
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
+    match parts with
     | [ "text"; "xs" ] -> Ok Text_xs
     | [ "text"; "sm" ] -> Ok Text_sm
     | [ "text"; "base" ] -> Ok Text_base
@@ -539,6 +542,141 @@ module Handler = struct
         Parse.int_pos ~name:"line-clamp" n >|= fun n -> Line_clamp n
     | [ "content"; "none" ] -> Ok Content_none
     | _ -> err_not_utility
+
+  let to_class = function
+    | Text_xs -> "text-xs"
+    | Text_sm -> "text-sm"
+    | Text_base -> "text-base"
+    | Text_lg -> "text-lg"
+    | Text_xl -> "text-xl"
+    | Text_2xl -> "text-2xl"
+    | Text_3xl -> "text-3xl"
+    | Text_4xl -> "text-4xl"
+    | Text_5xl -> "text-5xl"
+    | Text_6xl -> "text-6xl"
+    | Text_7xl -> "text-7xl"
+    | Text_8xl -> "text-8xl"
+    | Text_9xl -> "text-9xl"
+    | Font_thin -> "font-thin"
+    | Font_extralight -> "font-extralight"
+    | Font_light -> "font-light"
+    | Font_normal -> "font-normal"
+    | Font_medium -> "font-medium"
+    | Font_semibold -> "font-semibold"
+    | Font_bold -> "font-bold"
+    | Font_extrabold -> "font-extrabold"
+    | Font_black -> "font-black"
+    | Font_sans -> "font-sans"
+    | Font_serif -> "font-serif"
+    | Font_mono -> "font-mono"
+    | Italic -> "italic"
+    | Not_italic -> "not-italic"
+    | Text_left -> "text-left"
+    | Text_center -> "text-center"
+    | Text_right -> "text-right"
+    | Text_justify -> "text-justify"
+    | Underline -> "underline"
+    | Overline -> "overline"
+    | Line_through -> "line-through"
+    | No_underline -> "no-underline"
+    | Decoration_solid -> "decoration-solid"
+    | Decoration_double -> "decoration-double"
+    | Decoration_dotted -> "decoration-dotted"
+    | Decoration_dashed -> "decoration-dashed"
+    | Decoration_wavy -> "decoration-wavy"
+    | Decoration_color (color, None) -> "decoration-" ^ Color.pp color
+    | Decoration_color (color, Some shade) ->
+        "decoration-" ^ Color.pp color ^ "-" ^ string_of_int shade
+    | Decoration_thickness n -> "decoration-" ^ string_of_int n
+    | Decoration_from_font -> "decoration-from-font"
+    | Leading_none -> "leading-none"
+    | Leading_tight -> "leading-tight"
+    | Leading_snug -> "leading-snug"
+    | Leading_normal -> "leading-normal"
+    | Leading_relaxed -> "leading-relaxed"
+    | Leading_loose -> "leading-loose"
+    | Leading n -> "leading-" ^ string_of_int n
+    | Whitespace_normal -> "whitespace-normal"
+    | Whitespace_nowrap -> "whitespace-nowrap"
+    | Whitespace_pre -> "whitespace-pre"
+    | Whitespace_pre_line -> "whitespace-pre-line"
+    | Whitespace_pre_wrap -> "whitespace-pre-wrap"
+    | Tracking_tighter -> "tracking-tighter"
+    | Tracking_tight -> "tracking-tight"
+    | Tracking_normal -> "tracking-normal"
+    | Tracking_wide -> "tracking-wide"
+    | Tracking_wider -> "tracking-wider"
+    | Tracking_widest -> "tracking-widest"
+    | Uppercase -> "uppercase"
+    | Lowercase -> "lowercase"
+    | Capitalize -> "capitalize"
+    | Normal_case -> "normal-case"
+    | Align_baseline -> "align-baseline"
+    | Align_top -> "align-top"
+    | Align_middle -> "align-middle"
+    | Align_bottom -> "align-bottom"
+    | Align_text_top -> "align-text-top"
+    | Align_text_bottom -> "align-text-bottom"
+    | Align_sub -> "align-sub"
+    | Align_super -> "align-super"
+    | List_none -> "list-none"
+    | List_disc -> "list-disc"
+    | List_decimal -> "list-decimal"
+    | List_inside -> "list-inside"
+    | List_outside -> "list-outside"
+    | List_image_none -> "list-image-none"
+    | List_image_url url -> "list-image-" ^ url
+    | Underline_offset_auto -> "underline-offset-auto"
+    | Underline_offset_0 -> "underline-offset-0"
+    | Underline_offset_1 -> "underline-offset-1"
+    | Underline_offset_2 -> "underline-offset-2"
+    | Underline_offset_4 -> "underline-offset-4"
+    | Underline_offset_8 -> "underline-offset-8"
+    | Antialiased -> "antialiased"
+    | Text_ellipsis -> "text-ellipsis"
+    | Text_clip -> "text-clip"
+    | Text_wrap -> "text-wrap"
+    | Text_nowrap -> "text-nowrap"
+    | Text_balance -> "text-balance"
+    | Text_pretty -> "text-pretty"
+    | Break_normal -> "break-normal"
+    | Break_words -> "break-words"
+    | Break_all -> "break-all"
+    | Break_keep -> "break-keep"
+    | Overflow_wrap_normal -> "overflow-wrap-normal"
+    | Overflow_wrap_anywhere -> "overflow-wrap-anywhere"
+    | Overflow_wrap_break_word -> "overflow-wrap-break-word"
+    | Hyphens_none -> "hyphens-none"
+    | Hyphens_manual -> "hyphens-manual"
+    | Hyphens_auto -> "hyphens-auto"
+    | Font_stretch_normal -> "font-stretch-normal"
+    | Font_stretch_condensed -> "font-stretch-condensed"
+    | Font_stretch_expanded -> "font-stretch-expanded"
+    | Font_stretch_percent n -> "font-stretch-" ^ string_of_int n
+    | Normal_nums -> "normal-nums"
+    | Ordinal -> "ordinal"
+    | Slashed_zero -> "slashed-zero"
+    | Lining_nums -> "lining-nums"
+    | Oldstyle_nums -> "oldstyle-nums"
+    | Proportional_nums -> "proportional-nums"
+    | Tabular_nums -> "tabular-nums"
+    | Diagonal_fractions -> "diagonal-fractions"
+    | Stacked_fractions -> "stacked-fractions"
+    | Indent n -> "indent-" ^ string_of_int n
+    | Line_clamp n -> "line-clamp-" ^ string_of_int n
+    | Content_none -> "content-none"
+    | Content s ->
+        let escape_css_string s =
+          let buf = Buffer.create (String.length s + 8) in
+          String.iter
+            (function
+              | '\\' -> Buffer.add_string buf "\\\\"
+              | '"' -> Buffer.add_string buf "\\\""
+              | c -> Buffer.add_char buf c)
+            s;
+          Buffer.contents buf
+        in
+        String.concat "" [ "content-[\""; escape_css_string s; "\"]" ]
 
   (** {1 Ordering Support} *)
 
@@ -678,7 +816,7 @@ module Handler = struct
     | Content _ -> 28001
 
   (* Text utilities use theme record for line height variable reference *)
-  let text_size_utility name (size_var : Css.length Var.theme)
+  let text_size_utility (size_var : Css.length Var.theme)
       (lh_var : Css.line_height Var.theme) size_rem lh_value =
     let size_decl, size_ref = Var.binding size_var (Rem size_rem) in
     let lh_decl, lh_ref = Var.binding lh_var lh_value in
@@ -688,7 +826,7 @@ module Handler = struct
     let leading_with_fallback =
       Css.with_fallback leading_ref (Css.Var lh_ref)
     in
-    style name
+    style
       [
         size_decl;
         lh_decl;
@@ -697,55 +835,46 @@ module Handler = struct
       ]
 
   let text_xs =
-    text_size_utility "text-xs" text_xs_var text_xs_lh_var 0.75
+    text_size_utility text_xs_var text_xs_lh_var 0.75
       (calc_line_height 1.0 0.75)
 
   let text_sm =
-    text_size_utility "text-sm" text_sm_var text_sm_lh_var 0.875
+    text_size_utility text_sm_var text_sm_lh_var 0.875
       (calc_line_height 1.25 0.875)
 
   let text_base =
-    text_size_utility "text-base" text_base_var text_base_lh_var 1.0
+    text_size_utility text_base_var text_base_lh_var 1.0
       (calc_line_height 1.5 1.0)
 
   let text_lg =
-    text_size_utility "text-lg" text_lg_var text_lg_lh_var 1.125
+    text_size_utility text_lg_var text_lg_lh_var 1.125
       (calc_line_height 1.75 1.125)
 
   let text_xl =
-    text_size_utility "text-xl" text_xl_var text_xl_lh_var 1.25
+    text_size_utility text_xl_var text_xl_lh_var 1.25
       (calc_line_height 1.75 1.25)
 
   let text_2xl =
-    text_size_utility "text-2xl" text_2xl_var text_2xl_lh_var 1.5
+    text_size_utility text_2xl_var text_2xl_lh_var 1.5
       (calc_line_height 2.0 1.5)
 
   let text_3xl =
-    text_size_utility "text-3xl" text_3xl_var text_3xl_lh_var 1.875
+    text_size_utility text_3xl_var text_3xl_lh_var 1.875
       (calc_line_height 2.25 1.875)
 
   let text_4xl =
-    text_size_utility "text-4xl" text_4xl_var text_4xl_lh_var 2.25
+    text_size_utility text_4xl_var text_4xl_lh_var 2.25
       (calc_line_height 2.5 2.25)
 
-  let text_5xl =
-    text_size_utility "text-5xl" text_5xl_var text_5xl_lh_var 3.0 (Num 1.0)
-
-  let text_6xl =
-    text_size_utility "text-6xl" text_6xl_var text_6xl_lh_var 3.75 (Num 1.0)
-
-  let text_7xl =
-    text_size_utility "text-7xl" text_7xl_var text_7xl_lh_var 4.5 (Num 1.0)
-
-  let text_8xl =
-    text_size_utility "text-8xl" text_8xl_var text_8xl_lh_var 6.0 (Num 1.0)
-
-  let text_9xl =
-    text_size_utility "text-9xl" text_9xl_var text_9xl_lh_var 8.0 (Num 1.0)
+  let text_5xl = text_size_utility text_5xl_var text_5xl_lh_var 3.0 (Num 1.0)
+  let text_6xl = text_size_utility text_6xl_var text_6xl_lh_var 3.75 (Num 1.0)
+  let text_7xl = text_size_utility text_7xl_var text_7xl_lh_var 4.5 (Num 1.0)
+  let text_8xl = text_size_utility text_8xl_var text_8xl_lh_var 6.0 (Num 1.0)
+  let text_9xl = text_size_utility text_9xl_var text_9xl_lh_var 8.0 (Num 1.0)
 
   (* Font weight utilities set --tw-font-weight for animation but use theme var
      directly *)
-  let font_weight_utility name weight_var weight_value =
+  let font_weight_utility weight_var weight_value =
     let weight_theme_decl, weight_theme_ref =
       Var.binding weight_var weight_value
     in
@@ -758,44 +887,35 @@ module Handler = struct
       | None -> Css.empty
       | Some rule -> rule
     in
-    style ("font-" ^ name) ~property_rules
+    style ~property_rules
       [
         weight_theme_decl;
         weight_util_decl;
         font_weight (Css.Var weight_theme_ref);
       ]
 
-  let font_thin = font_weight_utility "thin" font_weight_thin_var (Weight 100)
+  let font_thin = font_weight_utility font_weight_thin_var (Weight 100)
 
   let font_extralight =
-    font_weight_utility "extralight" font_weight_extralight_var (Weight 200)
+    font_weight_utility font_weight_extralight_var (Weight 200)
 
-  let font_light =
-    font_weight_utility "light" font_weight_light_var (Weight 300)
-
-  let font_normal =
-    font_weight_utility "normal" font_weight_normal_var (Weight 400)
-
-  let font_medium =
-    font_weight_utility "medium" font_weight_medium_var (Weight 500)
-
-  let font_semibold =
-    font_weight_utility "semibold" font_weight_semibold_var (Weight 600)
-
-  let font_bold = font_weight_utility "bold" font_weight_bold_var (Weight 700)
+  let font_light = font_weight_utility font_weight_light_var (Weight 300)
+  let font_normal = font_weight_utility font_weight_normal_var (Weight 400)
+  let font_medium = font_weight_utility font_weight_medium_var (Weight 500)
+  let font_semibold = font_weight_utility font_weight_semibold_var (Weight 600)
+  let font_bold = font_weight_utility font_weight_bold_var (Weight 700)
 
   let font_extrabold =
-    font_weight_utility "extrabold" font_weight_extrabold_var (Weight 800)
+    font_weight_utility font_weight_extrabold_var (Weight 800)
 
-  let font_black =
-    font_weight_utility "black" font_weight_black_var (Weight 900)
+  let font_black = font_weight_utility font_weight_black_var (Weight 900)
 
   let font_serif =
     let serif_decl, serif_ref =
       Var.binding font_serif_var
         (List [ Ui_serif; Georgia; Cambria; Times_new_roman; Times; Serif ])
     in
-    style "font-serif" [ serif_decl; font_family (Css.Var serif_ref) ]
+    style [ serif_decl; font_family (Css.Var serif_ref) ]
 
   let font_mono =
     let mono_decl, mono_ref =
@@ -812,7 +932,7 @@ module Handler = struct
              Monospace;
            ])
     in
-    style "font-mono" [ mono_decl; font_family (Css.Var mono_ref) ]
+    style [ mono_decl; font_family (Css.Var mono_ref) ]
 
   (* Font family utilities use the font variables directly *)
   let font_sans =
@@ -829,17 +949,17 @@ module Handler = struct
              Noto_color_emoji;
            ])
     in
-    style "font-sans" [ sans_decl; font_family (Css.Var sans_ref) ]
+    style [ sans_decl; font_family (Css.Var sans_ref) ]
 
-  let italic = style "italic" [ font_style Italic ]
-  let not_italic = style "not-italic" [ font_style Normal ]
-  let text_left = style "text-left" [ text_align Left ]
-  let text_center = style "text-center" [ text_align Center ]
-  let text_right = style "text-right" [ text_align Right ]
-  let text_justify = style "text-justify" [ text_align Justify ]
+  let italic = style [ font_style Italic ]
+  let not_italic = style [ font_style Normal ]
+  let text_left = style [ text_align Left ]
+  let text_center = style [ text_align Center ]
+  let text_right = style [ text_align Right ]
+  let text_justify = style [ text_align Justify ]
 
   let underline =
-    style "underline"
+    style
       [
         text_decoration
           (Shorthand
@@ -852,7 +972,7 @@ module Handler = struct
       ]
 
   let overline =
-    style "overline"
+    style
       [
         text_decoration
           (Shorthand
@@ -865,7 +985,7 @@ module Handler = struct
       ]
 
   let line_through =
-    style "line-through"
+    style
       [
         text_decoration
           (Shorthand
@@ -877,33 +997,17 @@ module Handler = struct
              });
       ]
 
-  let no_underline = style "no-underline" [ text_decoration None ]
-
-  let decoration_solid =
-    style "decoration-solid" [ text_decoration_style Solid ]
-
-  let decoration_double =
-    style "decoration-double" [ text_decoration_style Double ]
-
-  let decoration_dotted =
-    style "decoration-dotted" [ text_decoration_style Dotted ]
-
-  let decoration_dashed =
-    style "decoration-dashed" [ text_decoration_style Dashed ]
-
-  let decoration_wavy = style "decoration-wavy" [ text_decoration_style Wavy ]
+  let no_underline = style [ text_decoration None ]
+  let decoration_solid = style [ text_decoration_style Solid ]
+  let decoration_double = style [ text_decoration_style Double ]
+  let decoration_dotted = style [ text_decoration_style Dotted ]
+  let decoration_dashed = style [ text_decoration_style Dashed ]
+  let decoration_wavy = style [ text_decoration_style Wavy ]
 
   let decoration_color ?(shade = 500) (color : Color.color) =
-    let class_name =
-      if Color.is_base_color color then
-        String.concat "" [ "decoration-"; Color.pp color ]
-      else
-        String.concat ""
-          [ "decoration-"; Color.pp color; "-"; string_of_int shade ]
-    in
     if Color.is_custom_color color then
       let css_color = Color.to_css color shade in
-      style class_name
+      style
         [
           webkit_text_decoration_color css_color;
           text_decoration_color css_color;
@@ -914,7 +1018,7 @@ module Handler = struct
         Color.to_css color (if Color.is_base_color color then 500 else shade)
       in
       let color_decl, color_ref = Var.binding color_var default_color in
-      style class_name
+      style
         [
           color_decl;
           webkit_text_decoration_color (Css.Var color_ref);
@@ -922,92 +1026,70 @@ module Handler = struct
         ]
 
   let decoration_thickness n =
-    let class_name = "decoration-" ^ string_of_int n in
-    style class_name [ text_decoration_thickness (Px (float_of_int n)) ]
+    style [ text_decoration_thickness (Px (float_of_int n)) ]
 
-  let decoration_from_font =
-    style "decoration-from-font" [ text_decoration_thickness From_font ]
+  let decoration_from_font = style [ text_decoration_thickness From_font ]
 
   let leading_none =
     let leading_decl, leading_ref = Var.binding leading_var (Num 1.0) in
-    style "leading-none" [ leading_decl; line_height (Css.Var leading_ref) ]
+    style [ leading_decl; line_height (Css.Var leading_ref) ]
 
   let leading_tight =
     let leading_decl, leading_ref = Var.binding leading_var (Num 1.25) in
-    style "leading-tight" [ leading_decl; line_height (Css.Var leading_ref) ]
+    style [ leading_decl; line_height (Css.Var leading_ref) ]
 
   let leading_snug =
     let leading_decl, leading_ref = Var.binding leading_var (Num 1.375) in
-    style "leading-snug" [ leading_decl; line_height (Css.Var leading_ref) ]
+    style [ leading_decl; line_height (Css.Var leading_ref) ]
 
   let leading_normal =
     let leading_decl, leading_ref = Var.binding leading_var (Num 1.5) in
-    style "leading-normal" [ leading_decl; line_height (Css.Var leading_ref) ]
+    style [ leading_decl; line_height (Css.Var leading_ref) ]
 
   let leading_relaxed =
     let leading_decl, leading_ref = Var.binding leading_var (Num 1.625) in
-    style "leading-relaxed" [ leading_decl; line_height (Css.Var leading_ref) ]
+    style [ leading_decl; line_height (Css.Var leading_ref) ]
 
   let leading_loose =
     let leading_decl, leading_ref = Var.binding leading_var (Num 2.0) in
-    style "leading-loose" [ leading_decl; line_height (Css.Var leading_ref) ]
+    style [ leading_decl; line_height (Css.Var leading_ref) ]
 
   let leading n =
-    let class_name = "leading-" ^ string_of_int n in
     let lh_value : line_height = Rem (float_of_int n *. 0.25) in
     let leading_decl, leading_ref = Var.binding leading_var lh_value in
-    style class_name [ leading_decl; line_height (Css.Var leading_ref) ]
+    style [ leading_decl; line_height (Css.Var leading_ref) ]
 
-  let whitespace_normal = style "whitespace-normal" [ white_space Normal ]
-  let whitespace_nowrap = style "whitespace-nowrap" [ white_space Nowrap ]
-  let whitespace_pre = style "whitespace-pre" [ white_space Pre ]
-  let whitespace_pre_line = style "whitespace-pre-line" [ white_space Pre_line ]
-  let whitespace_pre_wrap = style "whitespace-pre-wrap" [ white_space Pre_wrap ]
-
-  let tracking_tighter =
-    style "tracking-tighter" [ letter_spacing (Em (-0.05)) ]
-
-  let tracking_tight = style "tracking-tight" [ letter_spacing (Em (-0.025)) ]
-  let tracking_normal = style "tracking-normal" [ letter_spacing Zero ]
-  let tracking_wide = style "tracking-wide" [ letter_spacing (Em 0.025) ]
-  let tracking_wider = style "tracking-wider" [ letter_spacing (Em 0.05) ]
-  let tracking_widest = style "tracking-widest" [ letter_spacing (Em 0.1) ]
-  let uppercase = style "uppercase" [ text_transform Uppercase ]
-  let lowercase = style "lowercase" [ text_transform Lowercase ]
-  let capitalize = style "capitalize" [ text_transform Capitalize ]
-  let normal_case = style "normal-case" [ text_transform None ]
-
-  let underline_offset_auto =
-    style "underline-offset-auto" [ text_underline_offset "auto" ]
-
-  let underline_offset_0 =
-    style "underline-offset-0" [ text_underline_offset "0" ]
-
-  let underline_offset_1 =
-    style "underline-offset-1" [ text_underline_offset "1px" ]
-
-  let underline_offset_2 =
-    style "underline-offset-2" [ text_underline_offset "2px" ]
-
-  let underline_offset_4 =
-    style "underline-offset-4" [ text_underline_offset "4px" ]
-
-  let underline_offset_8 =
-    style "underline-offset-8" [ text_underline_offset "8px" ]
+  let whitespace_normal = style [ white_space Normal ]
+  let whitespace_nowrap = style [ white_space Nowrap ]
+  let whitespace_pre = style [ white_space Pre ]
+  let whitespace_pre_line = style [ white_space Pre_line ]
+  let whitespace_pre_wrap = style [ white_space Pre_wrap ]
+  let tracking_tighter = style [ letter_spacing (Em (-0.05)) ]
+  let tracking_tight = style [ letter_spacing (Em (-0.025)) ]
+  let tracking_normal = style [ letter_spacing Zero ]
+  let tracking_wide = style [ letter_spacing (Em 0.025) ]
+  let tracking_wider = style [ letter_spacing (Em 0.05) ]
+  let tracking_widest = style [ letter_spacing (Em 0.1) ]
+  let uppercase = style [ text_transform Uppercase ]
+  let lowercase = style [ text_transform Lowercase ]
+  let capitalize = style [ text_transform Capitalize ]
+  let normal_case = style [ text_transform None ]
+  let underline_offset_auto = style [ text_underline_offset "auto" ]
+  let underline_offset_0 = style [ text_underline_offset "0" ]
+  let underline_offset_1 = style [ text_underline_offset "1px" ]
+  let underline_offset_2 = style [ text_underline_offset "2px" ]
+  let underline_offset_4 = style [ text_underline_offset "4px" ]
+  let underline_offset_8 = style [ text_underline_offset "8px" ]
 
   let antialiased =
-    style "antialiased"
+    style
       [ webkit_font_smoothing Antialiased; moz_osx_font_smoothing Grayscale ]
 
-  let list_image_url url =
-    style
-      (String.concat "" [ "list-image-url-"; url ])
-      [ list_style_image (Url url) ]
+  let list_image_url url = style [ list_style_image (Url url) ]
 
   let indent n =
-    let class_name = "indent-" ^ string_of_int n in
     let spacing_decl, spacing_ref = Var.binding Theme.spacing_var (Rem 0.25) in
-    style class_name
+    style
       [
         spacing_decl;
         text_indent
@@ -1015,12 +1097,9 @@ module Handler = struct
       ]
 
   let line_clamp n =
-    if n = 0 then
-      style "line-clamp-0"
-        [ webkit_line_clamp 0; overflow Visible; display Block ]
+    if n = 0 then style [ webkit_line_clamp 0; overflow Visible; display Block ]
     else
-      let class_name = "line-clamp-" ^ string_of_int n in
-      style class_name
+      style
         [
           webkit_line_clamp n;
           webkit_box_orient Vertical;
@@ -1031,100 +1110,58 @@ module Handler = struct
   let content_none =
     let content_decl, content_ref = Var.binding content_var None in
     let property_rules = Var.property_rules content_var in
-    style "content-none" ~property_rules
+    style ~property_rules
       [ content (Css.Var content_ref); content_decl; content None ]
-
-  let escape_css_string s =
-    (* Escape backslashes and quotes inside CSS string literal *)
-    let buf = Buffer.create (String.length s + 8) in
-    String.iter
-      (function
-        | '\\' -> Buffer.add_string buf "\\\\"
-        | '"' -> Buffer.add_string buf "\\\""
-        | c -> Buffer.add_char buf c)
-      s;
-    Buffer.contents buf
 
   let content s =
     (* The content value is the string itself, not double-quoted *)
     (* The class name needs to escape the quotes properly for CSS *)
-    let class_name =
-      String.concat "" [ "content-[\""; escape_css_string s; "\"]" ]
-    in
     let content_decl, content_ref = Var.binding content_var (String s) in
     let property_rules = Var.property_rules content_var in
-    style class_name ~property_rules
+    style ~property_rules
       [
         content (Css.Var content_ref);
         content_decl;
         content (Css.Var content_ref);
       ]
 
-  let align_baseline = style "align-baseline" [ vertical_align Baseline ]
-  let align_top = style "align-top" [ vertical_align Top ]
-  let align_middle = style "align-middle" [ vertical_align Middle ]
-  let align_bottom = style "align-bottom" [ vertical_align Bottom ]
-  let align_text_top = style "align-text-top" [ vertical_align Text_top ]
+  let align_baseline = style [ vertical_align Baseline ]
+  let align_top = style [ vertical_align Top ]
+  let align_middle = style [ vertical_align Middle ]
+  let align_bottom = style [ vertical_align Bottom ]
+  let align_text_top = style [ vertical_align Text_top ]
+  let align_text_bottom = style [ vertical_align Text_bottom ]
+  let align_sub = style [ vertical_align Sub ]
+  let align_super = style [ vertical_align Super ]
+  let list_none = style [ list_style_type None ]
+  let list_disc = style [ list_style_type Disc ]
+  let list_decimal = style [ list_style_type Decimal ]
+  let list_inside = style [ list_style_position Inside ]
+  let list_outside = style [ list_style_position Outside ]
+  let list_image_none = style [ list_style_image None ]
+  let text_ellipsis = style [ text_overflow Ellipsis ]
+  let text_clip = style [ text_overflow Clip ]
+  let text_wrap = style [ Css.text_wrap Wrap ]
+  let text_nowrap = style [ Css.text_wrap No_wrap ]
+  let text_balance = style [ Css.text_wrap Balance ]
+  let text_pretty = style [ Css.text_wrap Pretty ]
+  let break_normal = style [ word_break Normal; overflow_wrap Normal ]
+  let break_words = style [ overflow_wrap Break_word ]
+  let break_all = style [ word_break Break_all ]
+  let break_keep = style [ word_break Keep_all ]
+  let overflow_wrap_normal = style [ overflow_wrap Normal ]
+  let overflow_wrap_anywhere = style [ overflow_wrap Anywhere ]
+  let overflow_wrap_break_word = style [ overflow_wrap Break_word ]
+  let hyphens_none = style [ webkit_hyphens None; hyphens None ]
+  let hyphens_manual = style [ webkit_hyphens Manual; hyphens Manual ]
+  let hyphens_auto = style [ webkit_hyphens Auto; hyphens Auto ]
+  let font_stretch_normal = style [ font_stretch (Pct 100.) ]
+  let font_stretch_condensed = style [ font_stretch (Pct 75.) ]
+  let font_stretch_expanded = style [ font_stretch (Pct 125.) ]
+  let font_stretch_percent n = style [ font_stretch (Pct (float_of_int n)) ]
+  let normal_nums = style [ font_variant_numeric (Tokens [ Normal ]) ]
 
-  let align_text_bottom =
-    style "align-text-bottom" [ vertical_align Text_bottom ]
-
-  let align_sub = style "align-sub" [ vertical_align Sub ]
-  let align_super = style "align-super" [ vertical_align Super ]
-  let list_none = style "list-none" [ list_style_type None ]
-  let list_disc = style "list-disc" [ list_style_type Disc ]
-  let list_decimal = style "list-decimal" [ list_style_type Decimal ]
-  let list_inside = style "list-inside" [ list_style_position Inside ]
-  let list_outside = style "list-outside" [ list_style_position Outside ]
-  let list_image_none = style "list-image-none" [ list_style_image None ]
-  let text_ellipsis = style "text-ellipsis" [ text_overflow Ellipsis ]
-  let text_clip = style "text-clip" [ text_overflow Clip ]
-  let text_wrap = style "text-wrap" [ Css.text_wrap Wrap ]
-  let text_nowrap = style "text-nowrap" [ Css.text_wrap No_wrap ]
-  let text_balance = style "text-balance" [ Css.text_wrap Balance ]
-  let text_pretty = style "text-pretty" [ Css.text_wrap Pretty ]
-
-  let break_normal =
-    style "break-normal" [ word_break Normal; overflow_wrap Normal ]
-
-  let break_words = style "break-words" [ overflow_wrap Break_word ]
-  let break_all = style "break-all" [ word_break Break_all ]
-  let break_keep = style "break-keep" [ word_break Keep_all ]
-
-  let overflow_wrap_normal =
-    style "overflow-wrap-normal" [ overflow_wrap Normal ]
-
-  let overflow_wrap_anywhere =
-    style "overflow-wrap-anywhere" [ overflow_wrap Anywhere ]
-
-  let overflow_wrap_break_word =
-    style "overflow-wrap-break-word" [ overflow_wrap Break_word ]
-
-  let hyphens_none = style "hyphens-none" [ webkit_hyphens None; hyphens None ]
-
-  let hyphens_manual =
-    style "hyphens-manual" [ webkit_hyphens Manual; hyphens Manual ]
-
-  let hyphens_auto = style "hyphens-auto" [ webkit_hyphens Auto; hyphens Auto ]
-
-  let font_stretch_normal =
-    style "font-stretch-normal" [ font_stretch (Pct 100.) ]
-
-  let font_stretch_condensed =
-    style "font-stretch-condensed" [ font_stretch (Pct 75.) ]
-
-  let font_stretch_expanded =
-    style "font-stretch-expanded" [ font_stretch (Pct 125.) ]
-
-  let font_stretch_percent n =
-    style
-      ("font-stretch-" ^ string_of_int n)
-      [ font_stretch (Pct (float_of_int n)) ]
-
-  let normal_nums =
-    style "normal-nums" [ font_variant_numeric (Tokens [ Normal ]) ]
-
-  let font_variant_numeric_utility var_to_set value class_name =
+  let font_variant_numeric_utility var_to_set value =
     (* Use the shared default theme *)
     let theme = default_font_variant_theme in
 
@@ -1194,33 +1231,25 @@ module Handler = struct
         ]
     in
 
-    style class_name
+    style
       ~property_rules:(Css.concat property_rules)
       [ active_decl; font_variant_numeric composed_value ]
 
-  let ordinal = font_variant_numeric_utility `Ordinal Ordinal "ordinal"
-
-  let slashed_zero =
-    font_variant_numeric_utility `Slashed Slashed_zero "slashed-zero"
-
-  let lining_nums =
-    font_variant_numeric_utility `Figure Lining_nums "lining-nums"
-
-  let oldstyle_nums =
-    font_variant_numeric_utility `Figure Oldstyle_nums "oldstyle-nums"
+  let ordinal = font_variant_numeric_utility `Ordinal Ordinal
+  let slashed_zero = font_variant_numeric_utility `Slashed Slashed_zero
+  let lining_nums = font_variant_numeric_utility `Figure Lining_nums
+  let oldstyle_nums = font_variant_numeric_utility `Figure Oldstyle_nums
 
   let proportional_nums =
-    font_variant_numeric_utility `Spacing Proportional_nums "proportional-nums"
+    font_variant_numeric_utility `Spacing Proportional_nums
 
-  let tabular_nums =
-    font_variant_numeric_utility `Spacing Tabular_nums "tabular-nums"
+  let tabular_nums = font_variant_numeric_utility `Spacing Tabular_nums
 
   let diagonal_fractions =
     font_variant_numeric_utility `Fraction Diagonal_fractions
-      "diagonal-fractions"
 
   let stacked_fractions =
-    font_variant_numeric_utility `Fraction Stacked_fractions "stacked-fractions"
+    font_variant_numeric_utility `Fraction Stacked_fractions
 
   let to_style = function
     | Text_xs -> text_xs

@@ -4,13 +4,13 @@ open Test_helpers
 let check = check_handler_roundtrip (module Tw.Typography.Handler)
 
 let test_font_family () =
-  check [ "font"; "sans" ];
-  check [ "font"; "serif" ];
-  check [ "font"; "mono" ]
+  check "font-sans";
+  check "font-serif";
+  check "font-mono"
 
 let test_font_size () =
   List.iter
-    (fun s -> check [ "text"; s ])
+    (fun s -> check ("text-" ^ s))
     [
       "xs";
       "sm";
@@ -29,7 +29,7 @@ let test_font_size () =
 
 let test_font_weight () =
   List.iter
-    (fun w -> check [ "font"; w ])
+    (fun v -> check ("font-" ^ v))
     [
       "thin";
       "extralight";
@@ -44,28 +44,28 @@ let test_font_weight () =
 
 let test_text_alignment () =
   List.iter
-    (fun a -> check [ "text"; a ])
+    (fun v -> check ("text-" ^ v))
     [ "left"; "center"; "right"; "justify" ]
 
 let test_text_decoration () =
-  check [ "underline" ];
-  check [ "overline" ];
-  check [ "line"; "through" ];
-  check [ "no"; "underline" ];
+  check "underline";
+  check "overline";
+  check "line-through";
+  check "no-underline";
   (* decoration color/thickness *)
-  check [ "decoration"; "from"; "font" ];
-  check [ "decoration"; "2" ];
-  check [ "decoration"; "blue"; "500" ]
+  check "decoration-from-font";
+  check "decoration-2";
+  check "decoration-blue-500"
 
 let test_text_transform () =
-  check [ "uppercase" ];
-  check [ "lowercase" ];
-  check [ "capitalize" ];
-  check [ "normal"; "case" ]
+  check "uppercase";
+  check "lowercase";
+  check "capitalize";
+  check "normal-case"
 
 let test_line_height () =
   List.iter
-    (fun v -> check [ "leading"; v ])
+    (fun v -> check ("leading-" ^ v))
     [
       "3";
       "4";
@@ -85,77 +85,80 @@ let test_line_height () =
 
 let test_letter_spacing () =
   List.iter
-    (fun v -> check [ "tracking"; v ])
+    (fun v -> check ("tracking-" ^ v))
     [ "tighter"; "tight"; "normal"; "wide"; "wider"; "widest" ]
 
 let test_line_clamp () =
-  check [ "line"; "clamp"; "0" ];
-  check [ "line"; "clamp"; "3" ]
+  check "line-clamp-0";
+  check "line-clamp-3"
 
 let test_text_overflow_wrap () =
-  check [ "text"; "ellipsis" ];
-  check [ "text"; "clip" ];
-  check [ "text"; "wrap" ];
-  check [ "text"; "nowrap" ];
-  check [ "text"; "balance" ];
-  check [ "text"; "pretty" ]
+  check "text-ellipsis";
+  check "text-clip";
+  check "text-wrap";
+  check "text-nowrap";
+  check "text-balance";
+  check "text-pretty"
 
 let test_word_overflow_wrap () =
-  check [ "break"; "normal" ];
-  check [ "break"; "words" ];
-  check [ "break"; "all" ];
-  check [ "break"; "keep" ];
-  check [ "overflow"; "wrap"; "normal" ];
-  check [ "overflow"; "wrap"; "anywhere" ];
-  check [ "overflow"; "wrap"; "break"; "word" ]
+  check "break-normal";
+  check "break-words";
+  check "break-all";
+  check "break-keep";
+  check "overflow-wrap-normal";
+  check "overflow-wrap-anywhere";
+  check "overflow-wrap-break-word"
 
 let test_hyphens () =
-  check [ "hyphens"; "none" ];
-  check [ "hyphens"; "manual" ];
-  check [ "hyphens"; "auto" ]
+  check "hyphens-none";
+  check "hyphens-manual";
+  check "hyphens-auto"
 
 let test_list_style () =
-  check [ "list"; "none" ];
-  check [ "list"; "disc" ];
-  check [ "list"; "decimal" ];
-  check [ "list"; "inside" ];
-  check [ "list"; "outside" ];
-  check [ "list"; "image"; "none" ]
+  check "list-none";
+  check "list-disc";
+  check "list-decimal";
+  check "list-inside";
+  check "list-outside";
+  check "list-image-none"
 
-let test_text_indent () = check [ "indent"; "4" ]
+let test_text_indent () = check "indent-4"
 
 let test_vertical_align () =
-  check [ "align"; "baseline" ];
-  check [ "align"; "top" ];
-  check [ "align"; "middle" ];
-  check [ "align"; "bottom" ];
-  check [ "align"; "text"; "top" ];
-  check [ "align"; "text"; "bottom" ];
-  check [ "align"; "sub" ];
-  check [ "align"; "super" ]
+  check "align-baseline";
+  check "align-top";
+  check "align-middle";
+  check "align-bottom";
+  check "align-text-top";
+  check "align-text-bottom";
+  check "align-sub";
+  check "align-super"
 
 let test_font_stretch () =
-  check [ "font"; "stretch"; "normal" ];
-  check [ "font"; "stretch"; "condensed" ];
-  check [ "font"; "stretch"; "expanded" ];
-  check [ "font"; "stretch"; "150" ]
+  check "font-stretch-normal";
+  check "font-stretch-condensed";
+  check "font-stretch-expanded";
+  check "font-stretch-150"
 
 let test_numeric_variants () =
-  check [ "normal"; "nums" ];
-  check [ "ordinal" ];
-  check [ "slashed"; "zero" ];
-  check [ "lining"; "nums" ];
-  check [ "oldstyle"; "nums" ];
-  check [ "proportional"; "nums" ];
-  check [ "tabular"; "nums" ];
-  check [ "diagonal"; "fractions" ];
-  check [ "stacked"; "fractions" ]
+  check "normal-nums";
+  check "ordinal";
+  check "slashed-zero";
+  check "lining-nums";
+  check "oldstyle-nums";
+  check "proportional-nums";
+  check "tabular-nums";
+  check "diagonal-fractions";
+  check "stacked-fractions"
 
-let test_content () = check [ "content"; "none" ]
+let test_content () = check "content-none"
 
 let of_string_invalid () =
   (* Invalid typography values *)
-  let fail_maybe = check_invalid_input (module Tw.Typography.Handler) in
+  let fail_maybe input =
+    let class_name = String.concat "-" input in
+    check_invalid_input (module Tw.Typography.Handler) class_name
+  in
 
   fail_maybe [ "font"; "invalid" ];
   (* Invalid font family *)

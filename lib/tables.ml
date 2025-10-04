@@ -30,20 +30,18 @@ module Handler = struct
 
   (** Priority for table utilities - matches layout priority for correct
       ordering *)
-  let priority = 4
+  let name = "tables"
 
+  let priority = 4
   let err_not_utility = Error (`Msg "Not a table utility")
 
   let to_style = function
-    | Border_collapse ->
-        style "border-collapse" [ Css.border_collapse Collapse ]
-    | Border_separate ->
-        style "border-separate" [ Css.border_collapse Separate ]
+    | Border_collapse -> style [ Css.border_collapse Collapse ]
+    | Border_separate -> style [ Css.border_collapse Separate ]
     | Border_spacing n ->
-        let class_name = "border-spacing-" ^ string_of_int n in
-        style class_name [ Css.border_spacing (Rem (float_of_int n *. 0.25)) ]
-    | Table_auto -> style "table-auto" [ Css.table_layout Auto ]
-    | Table_fixed -> style "table-fixed" [ Css.table_layout Fixed ]
+        style [ Css.border_spacing (Rem (float_of_int n *. 0.25)) ]
+    | Table_auto -> style [ Css.table_layout Auto ]
+    | Table_fixed -> style [ Css.table_layout Fixed ]
 
   let suborder = function
     | Border_collapse -> 0
@@ -52,7 +50,9 @@ module Handler = struct
     | Table_auto -> 6
     | Table_fixed -> 7
 
-  let of_string = function
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
+    match parts with
     | [ "border"; "collapse" ] -> Ok Border_collapse
     | [ "border"; "separate" ] -> Ok Border_separate
     | [ "border"; "spacing"; n ] -> (
@@ -62,6 +62,13 @@ module Handler = struct
     | [ "table"; "auto" ] -> Ok Table_auto
     | [ "table"; "fixed" ] -> Ok Table_fixed
     | _ -> err_not_utility
+
+  let to_class = function
+    | Border_collapse -> "border-collapse"
+    | Border_separate -> "border-separate"
+    | Border_spacing n -> "border-spacing-" ^ string_of_int n
+    | Table_auto -> "table-auto"
+    | Table_fixed -> "table-fixed"
 end
 
 open Handler

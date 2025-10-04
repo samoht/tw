@@ -10,47 +10,43 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  let priority = 11
+  let name = "gap"
+  let priority = 12
 
   (** {2 Typed Gap Utilities} *)
 
   let gap (s : spacing) =
-    let class_name = "gap-" ^ Spacing.pp_spacing_suffix s in
     let spacing_decl, spacing_ref =
       Var.binding Spacing.spacing_var (Rem 0.25)
     in
     let len = Spacing.to_length spacing_ref s in
     let gap_value = { row_gap = Some len; column_gap = Some len } in
     match s with
-    | `Rem _ -> style class_name [ spacing_decl; gap gap_value ]
-    | _ -> style class_name [ gap gap_value ]
+    | `Rem _ -> style [ spacing_decl; gap gap_value ]
+    | _ -> style [ gap gap_value ]
 
   let gap_x (s : spacing) =
-    let class_name = "gap-x-" ^ Spacing.pp_spacing_suffix s in
     let spacing_decl, spacing_ref =
       Var.binding Spacing.spacing_var (Rem 0.25)
     in
     let len = Spacing.to_length spacing_ref s in
     match s with
-    | `Rem _ -> style class_name [ spacing_decl; column_gap len ]
-    | _ -> style class_name [ column_gap len ]
+    | `Rem _ -> style [ spacing_decl; column_gap len ]
+    | _ -> style [ column_gap len ]
 
   let gap_y (s : spacing) =
-    let class_name = "gap-y-" ^ Spacing.pp_spacing_suffix s in
     let spacing_decl, spacing_ref =
       Var.binding Spacing.spacing_var (Rem 0.25)
     in
     let len = Spacing.to_length spacing_ref s in
     match s with
-    | `Rem _ -> style class_name [ spacing_decl; row_gap len ]
-    | _ -> style class_name [ row_gap len ]
+    | `Rem _ -> style [ spacing_decl; row_gap len ]
+    | _ -> style [ row_gap len ]
 
   (** {2 Space Between Utilities} *)
 
   let space_x n =
     let s = Spacing.int n in
-    let prefix = if n < 0 then "-" else "" in
-    let class_name = prefix ^ "space-x-" ^ Spacing.pp_spacing_suffix s in
     match s with
     | `Rem _ ->
         let decl, spacing_ref = Var.binding Spacing.spacing_var (Rem 0.25) in
@@ -61,14 +57,12 @@ module Handler = struct
           Calc
             Calc.(mul (length (Var spacing_ref)) (float (float_of_int n_units)))
         in
-        style class_name (decl :: [ margin_left len ])
-    | `Px -> style class_name [ margin_left (Px 1.) ]
-    | `Full -> style class_name [ margin_left (Pct 100.0) ]
+        style (decl :: [ margin_left len ])
+    | `Px -> style [ margin_left (Px 1.) ]
+    | `Full -> style [ margin_left (Pct 100.0) ]
 
   let space_y n =
     let s = Spacing.int n in
-    let prefix = if n < 0 then "-" else "" in
-    let class_name = prefix ^ "space-y-" ^ Spacing.pp_spacing_suffix s in
     match s with
     | `Rem _ ->
         let decl, spacing_ref = Var.binding Spacing.spacing_var (Rem 0.25) in
@@ -79,9 +73,9 @@ module Handler = struct
           Calc
             Calc.(mul (length (Var spacing_ref)) (float (float_of_int n_units)))
         in
-        style class_name (decl :: [ margin_top len ])
-    | `Px -> style class_name [ margin_top (Px 1.) ]
-    | `Full -> style class_name [ margin_top (Pct 100.0) ]
+        style (decl :: [ margin_top len ])
+    | `Px -> style [ margin_top (Px 1.) ]
+    | `Full -> style [ margin_top (Pct 100.0) ]
 
   let spacing_value_order = function
     | `Px -> 1
@@ -117,7 +111,22 @@ module Handler = struct
         let axis_offset = match axis with `X -> 0 | `Y -> 10000 in
         20000 + neg_offset + axis_offset + spacing_value_order value
 
-  let of_string parts =
+  let to_class = function
+    | Gap { axis; value } -> (
+        let suffix = Spacing.pp_spacing_suffix value in
+        match axis with
+        | `All -> "gap-" ^ suffix
+        | `X -> "gap-x-" ^ suffix
+        | `Y -> "gap-y-" ^ suffix)
+    | Space { negative; axis; value } -> (
+        let suffix = Spacing.pp_spacing_suffix value in
+        let prefix = if negative then "-" else "" in
+        match axis with
+        | `X -> prefix ^ "space-x-" ^ suffix
+        | `Y -> prefix ^ "space-y-" ^ suffix)
+
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
     let err_not_utility = Error (`Msg "Not a gap utility") in
     let parse_class = function
       | [ "gap"; value ] -> (
@@ -164,7 +173,7 @@ module Handler = struct
                      value = `Rem (float_of_int n *. 0.25);
                    })
           | Error _ -> err_not_utility)
-      | [ "-space"; "x"; value ] -> (
+      | [ ""; "space"; "x"; value ] -> (
           match Parse.int_pos ~name:"space-x" value with
           | Ok n ->
               Ok
@@ -175,7 +184,7 @@ module Handler = struct
                      value = `Rem (float_of_int n *. 0.25);
                    })
           | Error _ -> err_not_utility)
-      | [ "-space"; "y"; value ] -> (
+      | [ ""; "space"; "y"; value ] -> (
           match Parse.int_pos ~name:"space-y" value with
           | Ok n ->
               Ok

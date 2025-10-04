@@ -50,10 +50,4 @@ val mb_auto : t
 val ml_auto : t
 (** [ml_auto] sets left margin to auto. *)
 
-module Handler : sig
-  type t
-
-  val of_string : string list -> (t, [ `Msg of string ]) result
-  val suborder : t -> int
-  val to_style : t -> Style.t
-end
+module Handler : Utility.Handler

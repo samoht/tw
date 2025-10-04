@@ -50,58 +50,52 @@ module Handler = struct
   (** Priority for flex utilities. Set to 4 to match other display utilities
       (block, inline, grid, etc.) since flex and inline-flex set the display
       property. *)
+  let name = "flex"
+
   let priority = 4
 
   (* Helper functions returning Style.t *)
 
   (* Display *)
-  let flex = style "flex" [ Css.display Flex ]
-  let inline_flex = style "inline-flex" [ Css.display Inline_flex ]
+  let flex = style [ Css.display Flex ]
+  let inline_flex = style [ Css.display Inline_flex ]
 
   (* Direction *)
-  let flex_row = style "flex-row" [ Css.flex_direction Row ]
-
-  let flex_row_reverse =
-    style "flex-row-reverse" [ Css.flex_direction Row_reverse ]
-
-  let flex_col = style "flex-col" [ Css.flex_direction Column ]
-
-  let flex_col_reverse =
-    style "flex-col-reverse" [ Css.flex_direction Column_reverse ]
+  let flex_row = style [ Css.flex_direction Row ]
+  let flex_row_reverse = style [ Css.flex_direction Row_reverse ]
+  let flex_col = style [ Css.flex_direction Column ]
+  let flex_col_reverse = style [ Css.flex_direction Column_reverse ]
 
   (* Wrap *)
-  let flex_wrap = style "flex-wrap" [ Css.flex_wrap Wrap ]
-
-  let flex_wrap_reverse =
-    style "flex-wrap-reverse" [ Css.flex_wrap Wrap_reverse ]
-
-  let flex_nowrap = style "flex-nowrap" [ Css.flex_wrap Nowrap ]
+  let flex_wrap = style [ Css.flex_wrap Wrap ]
+  let flex_wrap_reverse = style [ Css.flex_wrap Wrap_reverse ]
+  let flex_nowrap = style [ Css.flex_wrap Nowrap ]
 
   (* Flex shortcuts *)
-  let flex_1 = style "flex-1" [ Css.flex (Full (1.0, 1.0, Pct 0.0)) ]
-  let flex_auto = style "flex-auto" [ Css.flex Auto ]
-  let flex_initial = style "flex-initial" [ Css.flex Initial ]
-  let flex_none = style "flex-none" [ Css.flex None ]
+  let flex_1 = style [ Css.flex (Full (1.0, 1.0, Pct 0.0)) ]
+  let flex_auto = style [ Css.flex Auto ]
+  let flex_initial = style [ Css.flex Initial ]
+  let flex_none = style [ Css.flex None ]
 
   (* Grow *)
-  let flex_grow = style "flex-grow" [ Css.flex_grow 1.0 ]
-  let flex_grow_0 = style "flex-grow-0" [ Css.flex_grow 0.0 ]
+  let flex_grow = style [ Css.flex_grow 1.0 ]
+  let flex_grow_0 = style [ Css.flex_grow 0.0 ]
 
   (* Shrink *)
-  let flex_shrink = style "flex-shrink" [ Css.flex_shrink 1.0 ]
-  let flex_shrink_0 = style "flex-shrink-0" [ Css.flex_shrink 0.0 ]
+  let flex_shrink = style [ Css.flex_shrink 1.0 ]
+  let flex_shrink_0 = style [ Css.flex_shrink 0.0 ]
 
   (* Basis *)
-  let basis_0 = style "basis-0" [ Css.flex_basis Zero ]
-  let basis_1 = style "basis-1" [ Css.flex_basis (Pct 100.0) ]
-  let basis_auto = style "basis-auto" [ Css.flex_basis Auto ]
-  let basis_full = style "basis-full" [ Css.flex_basis (Pct 100.0) ]
+  let basis_0 = style [ Css.flex_basis Zero ]
+  let basis_1 = style [ Css.flex_basis (Pct 100.0) ]
+  let basis_auto = style [ Css.flex_basis Auto ]
+  let basis_full = style [ Css.flex_basis (Pct 100.0) ]
 
   (* Order *)
-  let order_style n = style ("order-" ^ string_of_int n) [ Css.order n ]
-  let order_first = style "order-first" [ Css.order (-9999) ]
-  let order_last = style "order-last" [ Css.order 9999 ]
-  let order_none = style "order-none" [ Css.order 0 ]
+  let order_style n = style [ Css.order n ]
+  let order_first = style [ Css.order (-9999) ]
+  let order_last = style [ Css.order 9999 ]
+  let order_none = style [ Css.order 0 ]
 
   let to_style : t -> Style.t = function
     | Flex -> flex
@@ -166,9 +160,10 @@ module Handler = struct
     | Order_first -> 100
     | Order_last -> 101
 
-  let of_string : string list -> (t, _) result =
+  let of_class class_name =
     let err_not_utility = Error (`Msg "Not a flex utility") in
-    function
+    let parts = String.split_on_char '-' class_name in
+    match parts with
     | [ "flex" ] -> Ok Flex
     | [ "inline"; "flex" ] -> Ok Inline_flex
     | [ "flex"; "row" ] -> Ok Flex_row
@@ -198,6 +193,41 @@ module Handler = struct
         | Some n when n >= 1 && n <= 6 -> Ok (Order n)
         | _ -> err_not_utility)
     | _ -> err_not_utility
+
+  let to_class = function
+    (* Display *)
+    | Flex -> "flex"
+    | Inline_flex -> "inline-flex"
+    (* Direction *)
+    | Flex_row -> "flex-row"
+    | Flex_row_reverse -> "flex-row-reverse"
+    | Flex_col -> "flex-col"
+    | Flex_col_reverse -> "flex-col-reverse"
+    (* Wrap *)
+    | Flex_wrap -> "flex-wrap"
+    | Flex_wrap_reverse -> "flex-wrap-reverse"
+    | Flex_nowrap -> "flex-nowrap"
+    (* Flex shortcuts *)
+    | Flex_1 -> "flex-1"
+    | Flex_auto -> "flex-auto"
+    | Flex_initial -> "flex-initial"
+    | Flex_none -> "flex-none"
+    (* Grow *)
+    | Flex_grow -> "flex-grow"
+    | Flex_grow_0 -> "flex-grow-0"
+    (* Shrink *)
+    | Flex_shrink -> "flex-shrink"
+    | Flex_shrink_0 -> "flex-shrink-0"
+    (* Basis *)
+    | Basis_0 -> "basis-0"
+    | Basis_1 -> "basis-1"
+    | Basis_auto -> "basis-auto"
+    | Basis_full -> "basis-full"
+    (* Order *)
+    | Order n -> "order-" ^ string_of_int n
+    | Order_first -> "order-first"
+    | Order_last -> "order-last"
+    | Order_none -> "order-none"
 end
 
 open Handler

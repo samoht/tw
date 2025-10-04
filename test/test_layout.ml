@@ -1,49 +1,44 @@
 open Alcotest
-open Tw.Style
 
-let check_class expected t = Alcotest.check string "class" expected (pp t)
+let check_class expected t =
+  Alcotest.check string "class" expected (Tw.Utility.to_class t)
 
-let check parts =
-  let expected = String.concat "-" parts in
-  match Tw.Layout.Handler.of_string parts with
-  | Ok result ->
-      let style = Tw.Layout.Handler.to_style result in
-      Alcotest.check string "layout class name" expected (Tw.Style.pp style)
-  | Error (`Msg msg) -> fail msg
+let check = Test_helpers.check_handler_roundtrip (module Tw.Layout.Handler)
 
 let test_display_utilities () =
-  check [ "block" ];
-  check [ "inline"; "block" ];
-  check [ "inline" ];
-  check [ "hidden" ]
+  check "block";
+  check "inline-block";
+  check "inline";
+  check "hidden"
 
 let test_visibility () =
-  check [ "visible" ];
-  check [ "invisible" ];
-  check [ "collapse" ]
+  check "visible";
+  check "invisible";
+  check "collapse"
 
 let test_z_index () =
-  check [ "z"; "0" ];
-  check [ "z"; "10" ];
-  check [ "z"; "20" ];
-  check [ "z"; "30" ];
-  check [ "z"; "40" ];
-  check [ "z"; "50" ];
-  check [ "z"; "auto" ]
+  check "z-0";
+  check "z-10";
+  check "z-20";
+  check "z-30";
+  check "z-40";
+  check "z-50";
+  check "z-auto"
 
 let test_overflow () =
-  check [ "overflow"; "auto" ];
-  check [ "overflow"; "hidden" ];
-  check [ "overflow"; "clip" ];
-  check [ "overflow"; "visible" ];
-  check [ "overflow"; "scroll" ];
-  check [ "overflow"; "x"; "auto" ];
-  check [ "overflow"; "y"; "hidden" ]
+  check "overflow-auto";
+  check "overflow-hidden";
+  check "overflow-clip";
+  check "overflow-visible";
+  check "overflow-scroll";
+  check "overflow-x-auto";
+  check "overflow-y-hidden"
 
 let of_string_invalid () =
   (* Invalid layout values *)
   let fail_maybe input =
-    match Tw.Layout.Handler.of_string input with
+    let class_name = String.concat "-" input in
+    match Tw.Layout.Handler.of_class class_name with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in
@@ -64,8 +59,8 @@ let of_string_invalid () =
 (* Unknown layout type *)
 
 let test_screen_reader () =
-  check_class "sr-only" (Tw.Utility.to_style Tw.Layout.sr_only);
-  check_class "not-sr-only" (Tw.Utility.to_style Tw.Layout.not_sr_only)
+  check_class "sr-only" Tw.Layout.sr_only;
+  check_class "not-sr-only" Tw.Layout.not_sr_only
 
 let all_utilities () =
   let open Tw in

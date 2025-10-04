@@ -461,6 +461,5 @@ val suborder_with_shade : string -> int
 module Handler : sig
   type t
 
-  val of_string : string list -> (t, [ `Msg of string ]) result
   val suborder : t -> int
 end

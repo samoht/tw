@@ -1,12 +1,6 @@
 open Alcotest
 
-let check parts =
-  let expected = String.concat "-" parts in
-  match Tw.Animations.Handler.of_string parts with
-  | Ok t ->
-      check string "animations class" expected
-        (Tw.Style.pp (Tw.Animations.Handler.to_style t))
-  | Error (`Msg msg) -> fail msg
+let check = Test_helpers.check_handler_roundtrip (module Tw.Animations.Handler)
 
 (* Helper to check if animation property exists with expected name *)
 let has_animation_name expected_name css =
@@ -47,18 +41,18 @@ let has_transition css =
     false css
 
 let test_transitions () =
-  check [ "transition"; "none" ];
-  check [ "transition"; "opacity" ];
-  check [ "transition" ]
+  check "transition-none";
+  check "transition-opacity";
+  check "transition"
 
 let animate_utilities () =
-  check [ "animate"; "none" ];
-  check [ "animate"; "spin" ];
-  check [ "animate"; "bounce" ]
+  check "animate-none";
+  check "animate-spin";
+  check "animate-bounce"
 
 let test_duration_delay () =
-  check [ "duration"; "300" ];
-  check [ "delay"; "150" ]
+  check "duration-300";
+  check "delay-150"
 
 let test_animation_css () =
   (* Test that animate utilities generate CSS with correct animation

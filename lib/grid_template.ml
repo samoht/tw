@@ -46,7 +46,8 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  let priority = 9
+  let name = "grid_template"
+  let priority = 10
 
   let grid_cols n =
     if n < 1 || n > 12 then
@@ -55,13 +56,10 @@ module Handler = struct
            [ "grid_cols: "; string_of_int n; " is out of range (1-12)" ])
     else
       style
-        (String.concat "" [ "grid-cols-"; string_of_int n ])
         [ Css.grid_template_columns (Tracks (List.init n (fun _ -> Fr 1.0))) ]
 
-  let grid_cols_none = style "grid-cols-none" [ Css.grid_template_columns None ]
-
-  let grid_cols_subgrid =
-    style "grid-cols-subgrid" [ Css.grid_template_columns (Tracks [ Auto ]) ]
+  let grid_cols_none = style [ Css.grid_template_columns None ]
+  let grid_cols_subgrid = style [ Css.grid_template_columns (Tracks [ Auto ]) ]
 
   let grid_rows n =
     if n < 1 || n > 12 then
@@ -69,50 +67,26 @@ module Handler = struct
         (String.concat ""
            [ "grid_rows: "; string_of_int n; " is out of range (1-12)" ])
     else
-      style
-        (String.concat "" [ "grid-rows-"; string_of_int n ])
-        [ Css.grid_template_rows (Tracks (List.init n (fun _ -> Fr 1.0))) ]
+      style [ Css.grid_template_rows (Tracks (List.init n (fun _ -> Fr 1.0))) ]
 
-  let grid_rows_none = style "grid-rows-none" [ Css.grid_template_rows None ]
-
-  let grid_rows_subgrid =
-    style "grid-rows-subgrid" [ Css.grid_template_rows (Tracks [ Auto ]) ]
-
-  let grid_flow_row = style "grid-flow-row" [ Css.grid_auto_flow Row ]
-  let grid_flow_col = style "grid-flow-col" [ Css.grid_auto_flow Column ]
-  let grid_flow_dense = style "grid-flow-dense" [ Css.grid_auto_flow Row_dense ]
-
-  let grid_flow_row_dense =
-    style "grid-flow-row-dense" [ Css.grid_auto_flow Row_dense ]
-
-  let grid_flow_col_dense =
-    style "grid-flow-col-dense" [ Css.grid_auto_flow Column_dense ]
-
-  let auto_cols_auto =
-    style "auto-cols-auto" [ Css.grid_auto_columns (Tracks [ Auto ]) ]
-
-  let auto_cols_min =
-    style "auto-cols-min" [ Css.grid_auto_columns (Tracks [ Auto ]) ]
-
-  let auto_cols_max =
-    style "auto-cols-max" [ Css.grid_auto_columns (Tracks [ Auto ]) ]
-
-  let auto_cols_fr =
-    style "auto-cols-fr" [ Css.grid_auto_columns (Tracks [ Fr 1.0 ]) ]
+  let grid_rows_none = style [ Css.grid_template_rows None ]
+  let grid_rows_subgrid = style [ Css.grid_template_rows (Tracks [ Auto ]) ]
+  let grid_flow_row = style [ Css.grid_auto_flow Row ]
+  let grid_flow_col = style [ Css.grid_auto_flow Column ]
+  let grid_flow_dense = style [ Css.grid_auto_flow Row_dense ]
+  let grid_flow_row_dense = style [ Css.grid_auto_flow Row_dense ]
+  let grid_flow_col_dense = style [ Css.grid_auto_flow Column_dense ]
+  let auto_cols_auto = style [ Css.grid_auto_columns (Tracks [ Auto ]) ]
+  let auto_cols_min = style [ Css.grid_auto_columns (Tracks [ Auto ]) ]
+  let auto_cols_max = style [ Css.grid_auto_columns (Tracks [ Auto ]) ]
+  let auto_cols_fr = style [ Css.grid_auto_columns (Tracks [ Fr 1.0 ]) ]
 
   (** {1 Grid Auto Rows} *)
 
-  let auto_rows_auto =
-    style "auto-rows-auto" [ Css.grid_auto_rows (Tracks [ Auto ]) ]
-
-  let auto_rows_min =
-    style "auto-rows-min" [ Css.grid_auto_rows (Tracks [ Auto ]) ]
-
-  let auto_rows_max =
-    style "auto-rows-max" [ Css.grid_auto_rows (Tracks [ Auto ]) ]
-
-  let auto_rows_fr =
-    style "auto-rows-fr" [ Css.grid_auto_rows (Tracks [ Fr 1.0 ]) ]
+  let auto_rows_auto = style [ Css.grid_auto_rows (Tracks [ Auto ]) ]
+  let auto_rows_min = style [ Css.grid_auto_rows (Tracks [ Auto ]) ]
+  let auto_rows_max = style [ Css.grid_auto_rows (Tracks [ Auto ]) ]
+  let auto_rows_fr = style [ Css.grid_auto_rows (Tracks [ Fr 1.0 ]) ]
 
   (** Convert grid template utility to style *)
   let to_style = function
@@ -136,7 +110,35 @@ module Handler = struct
     | Auto_rows_max -> auto_rows_max
     | Auto_rows_fr -> auto_rows_fr
 
-  let of_string = function
+  let suborder = function
+    (* Grid template columns (10000-10999) *)
+    | Grid_cols n -> 10000 + n
+    | Grid_cols_none -> 10900
+    | Grid_cols_subgrid -> 10901
+    (* Grid template rows (11000-11999) *)
+    | Grid_rows n -> 11000 + n
+    | Grid_rows_none -> 11900
+    | Grid_rows_subgrid -> 11901
+    (* Grid auto flow (14000-14099) *)
+    | Grid_flow_row -> 14000
+    | Grid_flow_col -> 14001
+    | Grid_flow_dense -> 14002
+    | Grid_flow_row_dense -> 14003
+    | Grid_flow_col_dense -> 14004
+    (* Grid auto columns (15000-15099) *)
+    | Auto_cols_auto -> 15000
+    | Auto_cols_min -> 15001
+    | Auto_cols_max -> 15002
+    | Auto_cols_fr -> 15003
+    (* Grid auto rows (15100-15199) *)
+    | Auto_rows_auto -> 15100
+    | Auto_rows_min -> 15101
+    | Auto_rows_max -> 15102
+    | Auto_rows_fr -> 15103
+
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
+    match parts with
     | [ "grid"; "cols"; "none" ] -> Ok Grid_cols_none
     | [ "grid"; "cols"; "subgrid" ] -> Ok Grid_cols_subgrid
     | [ "grid"; "cols"; n ] -> (
@@ -164,31 +166,26 @@ module Handler = struct
     | [ "auto"; "rows"; "fr" ] -> Ok Auto_rows_fr
     | _ -> err_not_utility
 
-  let suborder = function
-    (* Grid template columns (10000-10999) *)
-    | Grid_cols n -> 10000 + n
-    | Grid_cols_none -> 10900
-    | Grid_cols_subgrid -> 10901
-    (* Grid template rows (11000-11999) *)
-    | Grid_rows n -> 11000 + n
-    | Grid_rows_none -> 11900
-    | Grid_rows_subgrid -> 11901
-    (* Grid auto flow (14000-14099) *)
-    | Grid_flow_row -> 14000
-    | Grid_flow_col -> 14001
-    | Grid_flow_dense -> 14002
-    | Grid_flow_row_dense -> 14003
-    | Grid_flow_col_dense -> 14004
-    (* Grid auto columns (15000-15099) *)
-    | Auto_cols_auto -> 15000
-    | Auto_cols_min -> 15001
-    | Auto_cols_max -> 15002
-    | Auto_cols_fr -> 15003
-    (* Grid auto rows (15100-15199) *)
-    | Auto_rows_auto -> 15100
-    | Auto_rows_min -> 15101
-    | Auto_rows_max -> 15102
-    | Auto_rows_fr -> 15103
+  let to_class = function
+    | Grid_cols n -> "grid-cols-" ^ string_of_int n
+    | Grid_cols_none -> "grid-cols-none"
+    | Grid_cols_subgrid -> "grid-cols-subgrid"
+    | Grid_rows n -> "grid-rows-" ^ string_of_int n
+    | Grid_rows_none -> "grid-rows-none"
+    | Grid_rows_subgrid -> "grid-rows-subgrid"
+    | Grid_flow_row -> "grid-flow-row"
+    | Grid_flow_col -> "grid-flow-col"
+    | Grid_flow_dense -> "grid-flow-dense"
+    | Grid_flow_row_dense -> "grid-flow-row-dense"
+    | Grid_flow_col_dense -> "grid-flow-col-dense"
+    | Auto_cols_auto -> "auto-cols-auto"
+    | Auto_cols_min -> "auto-cols-min"
+    | Auto_cols_max -> "auto-cols-max"
+    | Auto_cols_fr -> "auto-cols-fr"
+    | Auto_rows_auto -> "auto-rows-auto"
+    | Auto_rows_min -> "auto-rows-min"
+    | Auto_rows_max -> "auto-rows-max"
+    | Auto_rows_fr -> "auto-rows-fr"
 end
 
 open Handler

@@ -1,23 +1,18 @@
 open Alcotest
 
-let check parts =
-  let expected = String.concat "-" parts in
-  match Tw.Layout.Handler.of_string parts with
-  | Ok result ->
-      let style = Tw.Layout.Handler.to_style result in
-      Alcotest.check string "display class name" expected (Tw.Style.pp style)
-  | Error (`Msg msg) -> fail msg
+let check = Test_helpers.check_handler_roundtrip (module Tw.Layout.Handler)
 
 let of_string_valid () =
-  check [ "block" ];
-  check [ "inline" ];
-  check [ "inline"; "block" ];
-  check [ "hidden" ]
+  check "block";
+  check "inline";
+  check "inline-block";
+  check "hidden"
 
 let of_string_invalid () =
   let fail_maybe input =
-    match Tw.Layout.Handler.of_string input with
-    | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
+    let class_name = String.concat "-" input in
+    match Tw.Layout.Handler.of_class class_name with
+    | Ok _ -> fail ("Expected error for: " ^ class_name)
     | Error _ -> ()
   in
 

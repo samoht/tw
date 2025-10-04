@@ -80,20 +80,24 @@ val shuffle : 'a list -> 'a list
 module type Handler = sig
   type t
 
-  val of_string : string list -> (t, [ `Msg of string ]) result
+  val of_class : string -> (t, [ `Msg of string ]) result
+  val to_class : t -> string
   val to_style : t -> Tw.Style.t
 end
 
-module type Parser = sig
-  type t
+val check_handler_roundtrip : (module Handler) -> string -> unit
+(** [check_handler_roundtrip (module H) class_name] tests that parsing with
+    [of_class] and converting back with [to_class] round-trip correctly. Useful
+    for testing Handler modules. *)
 
-  val of_string : string list -> (t, [ `Msg of string ]) result
-end
-
-val check_handler_roundtrip : (module Handler) -> string list -> unit
-(** [check_handler_roundtrip (module H) parts] tests that parsing and
-    pretty-printing round-trip correctly. Useful for testing Handler modules. *)
-
-val check_invalid_input : (module Parser) -> string list -> unit
+val check_invalid_input : (module Handler) -> string -> unit
 (** [check_invalid_input (module H) input] tests that parsing fails for invalid
     input as expected *)
+
+val check_parts : (module Handler) -> string list -> unit
+(** [check_parts (module H) parts] concatenates parts with "-" and tests
+    roundtrip *)
+
+val check_invalid_parts : (module Handler) -> string list -> unit
+(** [check_invalid_parts (module H) parts] concatenates parts with "-" and tests
+    that parsing fails *)

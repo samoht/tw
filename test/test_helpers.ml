@@ -272,28 +272,38 @@ let shuffle lst =
 module type Handler = sig
   type t
 
-  val of_string : string list -> (t, [ `Msg of string ]) result
+  val of_class : string -> (t, [ `Msg of string ]) result
+  val to_class : t -> string
   val to_style : t -> Tw.Style.t
 end
 
-module type Parser = sig
-  type t
-
-  val of_string : string list -> (t, [ `Msg of string ]) result
-end
-
 (** Generic handler test - checks that parsing and pretty-printing round-trip
-    correctly *)
-let check_handler_roundtrip (module H : Handler) parts =
-  let expected = String.concat "-" parts in
-  match H.of_string parts with
+    correctly. Takes a class name string, parses it with of_class, converts back
+    with to_class, and verifies they match. *)
+let check_handler_roundtrip (module H : Handler) class_name =
+  (* Test of_class -> to_class roundtrip *)
+  match H.of_class class_name with
   | Ok result ->
-      let style = H.to_style result in
-      Alcotest.(check string) expected expected (Tw.Style.pp style)
-  | Error (`Msg msg) -> Alcotest.fail msg
+      let class_name2 = H.to_class result in
+      Alcotest.(check string)
+        "of_class -> to_class roundtrip" class_name class_name2
+  | Error (`Msg msg) ->
+      Alcotest.fail ("of_class failed for '" ^ class_name ^ "': " ^ msg)
 
 (** Generic test for invalid inputs - expects parsing to fail *)
-let check_invalid_input (module H : Parser) input =
-  match H.of_string input with
-  | Ok _ -> Alcotest.fail ("Expected error for: " ^ String.concat "-" input)
+let check_invalid_input (module H : Handler) input =
+  match H.of_class input with
+  | Ok _ -> Alcotest.fail ("Expected error for: " ^ input)
   | Error _ -> ()
+
+(** Helper that takes a list of parts, concatenates with "-", and checks
+    roundtrip *)
+let check_parts (module H : Handler) parts =
+  let class_name = String.concat "-" parts in
+  check_handler_roundtrip (module H) class_name
+
+(** Helper that takes a list of parts, concatenates with "-", and checks that
+    parsing fails *)
+let check_invalid_parts (module H : Handler) parts =
+  let class_name = String.concat "-" parts in
+  check_invalid_input (module H) class_name

@@ -22,18 +22,32 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  let priority = 8
-  let cursor_auto = style "cursor-auto" [ cursor Auto ]
-  let cursor_default = style "cursor-default" [ cursor Default ]
-  let cursor_pointer = style "cursor-pointer" [ cursor Pointer ]
-  let cursor_wait = style "cursor-wait" [ cursor Wait ]
-  let cursor_move = style "cursor-move" [ cursor Move ]
-  let cursor_not_allowed = style "cursor-not-allowed" [ cursor Not_allowed ]
-  let cursor_text = style "cursor-text" [ cursor Text ]
-  let cursor_crosshair = style "cursor-crosshair" [ cursor Crosshair ]
-  let cursor_help = style "cursor-help" [ cursor Help ]
-  let cursor_grab = style "cursor-grab" [ cursor Grab ]
-  let cursor_grabbing = style "cursor-grabbing" [ cursor Grabbing ]
+  let name = "cursor"
+  let priority = 9
+  let cursor_auto = style [ cursor Auto ]
+  let cursor_default = style [ cursor Default ]
+  let cursor_pointer = style [ cursor Pointer ]
+  let cursor_wait = style [ cursor Wait ]
+  let cursor_move = style [ cursor Move ]
+  let cursor_not_allowed = style [ cursor Not_allowed ]
+  let cursor_text = style [ cursor Text ]
+  let cursor_crosshair = style [ cursor Crosshair ]
+  let cursor_help = style [ cursor Help ]
+  let cursor_grab = style [ cursor Grab ]
+  let cursor_grabbing = style [ cursor Grabbing ]
+
+  let to_class = function
+    | Cursor_auto -> "cursor-auto"
+    | Cursor_default -> "cursor-default"
+    | Cursor_pointer -> "cursor-pointer"
+    | Cursor_wait -> "cursor-wait"
+    | Cursor_move -> "cursor-move"
+    | Cursor_not_allowed -> "cursor-not-allowed"
+    | Cursor_text -> "cursor-text"
+    | Cursor_crosshair -> "cursor-crosshair"
+    | Cursor_help -> "cursor-help"
+    | Cursor_grab -> "cursor-grab"
+    | Cursor_grabbing -> "cursor-grabbing"
 
   let to_style = function
     | Cursor_auto -> cursor_auto
@@ -61,18 +75,18 @@ module Handler = struct
     | Cursor_grab -> 9
     | Cursor_grabbing -> 10
 
-  let of_string = function
-    | [ "cursor"; "auto" ] -> Ok Cursor_auto
-    | [ "cursor"; "default" ] -> Ok Cursor_default
-    | [ "cursor"; "pointer" ] -> Ok Cursor_pointer
-    | [ "cursor"; "wait" ] -> Ok Cursor_wait
-    | [ "cursor"; "move" ] -> Ok Cursor_move
-    | [ "cursor"; "not"; "allowed" ] -> Ok Cursor_not_allowed
-    | [ "cursor"; "text" ] -> Ok Cursor_text
-    | [ "cursor"; "crosshair" ] -> Ok Cursor_crosshair
-    | [ "cursor"; "help" ] -> Ok Cursor_help
-    | [ "cursor"; "grab" ] -> Ok Cursor_grab
-    | [ "cursor"; "grabbing" ] -> Ok Cursor_grabbing
+  let of_class = function
+    | "cursor-auto" -> Ok Cursor_auto
+    | "cursor-default" -> Ok Cursor_default
+    | "cursor-pointer" -> Ok Cursor_pointer
+    | "cursor-wait" -> Ok Cursor_wait
+    | "cursor-move" -> Ok Cursor_move
+    | "cursor-not-allowed" -> Ok Cursor_not_allowed
+    | "cursor-text" -> Ok Cursor_text
+    | "cursor-crosshair" -> Ok Cursor_crosshair
+    | "cursor-help" -> Ok Cursor_help
+    | "cursor-grab" -> Ok Cursor_grab
+    | "cursor-grabbing" -> Ok Cursor_grabbing
     | _ -> Error (`Msg "Not a cursor utility")
 end
 

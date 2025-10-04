@@ -138,10 +138,4 @@ val outline_offset_4 : t
 val outline_offset_8 : t
 (** [outline_offset_8] sets outline offset to 8px. *)
 
-module Handler : sig
-  type t
-
-  val of_string : string list -> (t, [ `Msg of string ]) result
-  val suborder : t -> int
-  val to_style : t -> Style.t
-end
+module Handler : Utility.Handler

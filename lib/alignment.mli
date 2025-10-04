@@ -175,10 +175,4 @@ val place_self_center : t
 val place_self_stretch : t
 (** [place_self_stretch] stretches self to fill. *)
 
-module Handler : sig
-  type t
-
-  val of_string : string list -> (t, [ `Msg of string ]) result
-  val suborder : t -> int
-  val to_style : t -> Style.t
-end
+module Handler : Utility.Handler

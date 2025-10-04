@@ -48,7 +48,6 @@ type modifier =
 
 type t =
   | Style of {
-      name : string;
       props : Css.declaration list;
       rules : Css.statement list option;
       property_rules : Css.t;
@@ -65,25 +64,18 @@ type scale = [ spacing | size | `Screen | `Min | `Max | `Fit ]
 type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
+val pp_modifier : modifier -> string
+(** Convert a modifier to its string representation *)
+
 val style :
   ?rules:Css.statement list option ->
   ?property_rules:Css.t ->
-  string ->
   Css.declaration list ->
   t
-(** [style ?vars ?rules ?property_rules name props] defines a utility [name]
-    with CSS [props].
+(** [style ?vars ?rules ?property_rules props] defines a utility [name] with CSS
+    [props].
     - [vars]: Optional variable bindings that will be extracted as declarations.
     - [rules]: Optional custom CSS rules (for utilities like prose that generate
       multiple rules with descendant selectors).
     - [property_rules]: Optional CSS property rules needed by this utility.
-    - [name]: The CSS class name.
     - [props]: CSS properties to apply. *)
-
-val class_name : t -> string
-(** [class_name t] returns the base class name(s) for [t]. Note: modifiers
-    (e.g., hover:, md:) are ignored; for composed class strings with modifiers,
-    use Tw.pp/Tw.to_classes. *)
-
-val pp : t -> string
-(** [pp t] returns the full class name(s) for [t] including modifiers. *)

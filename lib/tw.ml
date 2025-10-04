@@ -22,7 +22,6 @@ include Padding
 include Sizing
 include Typography
 include Layout
-include Display
 include Grid
 include Grid_template
 include Flex
@@ -57,18 +56,14 @@ let to_inline_style utilities =
 let preflight = Preflight.stylesheet
 
 (* Class generation functions *)
-let pp utility =
-  (* Convert Utility.t to Style.t and use Style.pp *)
-  Utility.to_style utility |> Style.pp
-
-let to_classes styles = styles |> List.map pp |> String.concat " "
+let pp utility = Utility.to_class utility
+let to_classes styles = styles |> List.map Utility.to_class |> String.concat " "
 let modifiers_of_string = Modifiers.of_string
 
 (* Parse a single class string into a Tw.t *)
 let of_string class_str =
   let modifiers, base_class = modifiers_of_string class_str in
-  let parts = String.split_on_char '-' base_class in
-  match Utility.base_of_string parts with
+  match Utility.base_of_class base_class with
   | Error _ -> Error (`Msg ("Unknown class: " ^ class_str))
   | Ok base_utility ->
       let base_util = Utility.base base_utility in
@@ -81,7 +76,6 @@ module Margin = Margin
 module Padding = Padding
 module Gap = Gap
 module Spacing = Spacing
-module Display = Display
 module Flex = Flex
 module Alignment = Alignment
 module Cursor = Cursor

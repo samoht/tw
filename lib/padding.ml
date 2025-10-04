@@ -7,37 +7,32 @@ module Handler = struct
   type t = { axis : [ `All | `X | `Y | `T | `R | `B | `L ]; value : spacing }
   type Utility.base += Self of t
 
-  let priority = 14
+  let name = "padding"
+  let priority = 15
 
-  let v prefix prop (s : spacing) =
-    let class_name = prefix ^ Spacing.pp_spacing_suffix s in
+  let to_class { axis; value } =
+    let prefix =
+      match axis with
+      | `All -> "p-"
+      | `X -> "px-"
+      | `Y -> "py-"
+      | `T -> "pt-"
+      | `R -> "pr-"
+      | `B -> "pb-"
+      | `L -> "pl-"
+    in
+    prefix ^ Spacing.pp_spacing_suffix value
+
+  let v prop t =
     let spacing_decl, spacing_ref =
       Var.binding Spacing.spacing_var (Rem 0.25)
     in
-    let len = Spacing.to_length spacing_ref s in
-    match s with
-    | `Rem _ -> style class_name [ spacing_decl; prop len ]
-    | _ -> style class_name [ prop len ]
+    let len = Spacing.to_length spacing_ref t.value in
+    match t.value with
+    | `Rem _ -> style [ spacing_decl; prop len ]
+    | _ -> style [ prop len ]
 
-  let vs prefix prop (s : spacing) =
-    let class_name = prefix ^ Spacing.pp_spacing_suffix s in
-    let spacing_decl, spacing_ref =
-      Var.binding Spacing.spacing_var (Rem 0.25)
-    in
-    let len = Spacing.to_length spacing_ref s in
-    match s with
-    | `Rem _ -> style class_name [ spacing_decl; prop [ len ] ]
-    | _ -> style class_name [ prop [ len ] ]
-
-  let p = vs "p-" padding
-  let px = v "px-" padding_inline
-  let py = v "py-" padding_block
-  let pt = v "pt-" padding_top
-  let pr = v "pr-" padding_right
-  let pb = v "pb-" padding_bottom
-  let pl = v "pl-" padding_left
-
-  (** {1 Conversion Functions} *)
+  let vs prop t = v (fun n -> prop [ n ]) t
 
   let spacing_value_order = function
     | `Px -> 1
@@ -46,16 +41,15 @@ module Handler = struct
         let units = f /. 0.25 in
         int_of_float (units *. 10.)
 
-  (** Convert padding utility to style *)
-  let to_style { axis; value } =
-    match axis with
-    | `All -> p value
-    | `X -> px value
-    | `Y -> py value
-    | `T -> pt value
-    | `R -> pr value
-    | `B -> pb value
-    | `L -> pl value
+  let to_style t =
+    match t.axis with
+    | `All -> vs padding t
+    | `X -> v padding_inline t
+    | `Y -> v padding_block t
+    | `T -> v padding_top t
+    | `R -> v padding_bottom t
+    | `B -> v padding_bottom t
+    | `L -> v padding_left t
 
   let suborder { axis; value } =
     let side_offset =
@@ -70,8 +64,8 @@ module Handler = struct
     in
     side_offset + (spacing_value_order value / 1000)
 
-  (** Parse string parts to padding utility *)
-  let of_string parts =
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
     let parse_class = function
       | [ "p"; value ] -> (
           match Parse.spacing_value ~name:"padding" value with

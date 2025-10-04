@@ -1,20 +1,18 @@
 open Alcotest
 
-let check parts =
-  let expected = String.concat "-" parts in
-  match Tw.Filters.Handler.of_string parts with
+let check class_name =
+  match Tw.Filters.Handler.of_class class_name with
   | Ok u ->
-      check string "filters class" expected
-        (Tw.Style.pp (Tw.Filters.Handler.to_style u))
+      check string "filters class" class_name (Tw.Filters.Handler.to_class u)
   | Error (`Msg msg) -> fail msg
 
 let test_blur () =
-  check [ "blur"; "sm" ];
-  check [ "blur"; "2xl" ]
+  check "blur-sm";
+  check "blur-2xl"
 
 let test_backdrop () =
-  check [ "backdrop"; "opacity"; "50" ];
-  check [ "backdrop"; "invert" ]
+  check "backdrop-opacity-50";
+  check "backdrop-invert"
 
 let all_utilities () =
   let open Tw in

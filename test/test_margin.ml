@@ -4,40 +4,43 @@ open Test_helpers
 let check = check_handler_roundtrip (module Tw.Margin.Handler)
 
 let of_string_valid () =
-  check [ "m"; "0" ];
-  check [ "m"; "1" ];
-  check [ "m"; "4" ];
-  check [ "m"; "px" ];
-  check [ "m"; "0.5" ];
-  check [ "m"; "1.5" ];
-  check [ "m"; "auto" ];
-  check [ "-m"; "1" ];
-  check [ "-m"; "4" ];
+  check "m-0";
+  check "m-1";
+  check "m-4";
+  check "m-px";
+  check "m-0.5";
+  check "m-1.5";
+  check "m-auto";
+  check "-m-1";
+  check "-m-4";
 
-  check [ "mx"; "auto" ];
-  check [ "mx"; "0" ];
-  check [ "mx"; "4" ];
-  check [ "-mx"; "2" ];
-  check [ "-mx"; "4" ];
-  check [ "my"; "8" ];
-  check [ "my"; "2" ];
-  check [ "-my"; "2" ];
-  check [ "-my"; "8" ];
+  check "mx-auto";
+  check "mx-0";
+  check "mx-4";
+  check "-mx-2";
+  check "-mx-4";
+  check "my-8";
+  check "my-2";
+  check "-my-2";
+  check "-my-8";
 
-  check [ "mt"; "auto" ];
-  check [ "mt"; "0" ];
-  check [ "mt"; "2" ];
-  check [ "mr"; "0" ];
-  check [ "mr"; "4" ];
-  check [ "mb"; "6" ];
-  check [ "ml"; "8" ];
-  check [ "-mt"; "2" ];
-  check [ "-mr"; "4" ];
-  check [ "-mb"; "6" ];
-  check [ "-ml"; "8" ]
+  check "mt-auto";
+  check "mt-0";
+  check "mt-2";
+  check "mr-0";
+  check "mr-4";
+  check "mb-6";
+  check "ml-8";
+  check "-mt-2";
+  check "-mr-4";
+  check "-mb-6";
+  check "-ml-8"
 
 let of_string_invalid () =
-  let fail_maybe = check_invalid_input (module Tw.Margin.Handler) in
+  let fail_maybe input =
+    let class_name = String.concat "-" input in
+    check_invalid_input (module Tw.Margin.Handler) class_name
+  in
 
   fail_maybe [ "m" ];
   (* Missing value *)

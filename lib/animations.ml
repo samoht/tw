@@ -50,10 +50,11 @@ module Handler = struct
 
   type Utility.base += Self of t
 
-  let priority = 7
+  let name = "animations"
+  let priority = 8
 
   let transition_none =
-    style "transition-none"
+    style
       [
         Css.transition
           (Css.Shorthand
@@ -66,7 +67,7 @@ module Handler = struct
       ]
 
   let transition =
-    style "transition"
+    style
       [
         Css.transitions
           [
@@ -137,7 +138,7 @@ module Handler = struct
       ]
 
   let transition_all =
-    style "transition-all"
+    style
       [
         Css.transition
           (Css.Shorthand
@@ -150,7 +151,7 @@ module Handler = struct
       ]
 
   let transition_colors =
-    style "transition-colors"
+    style
       [
         Css.transitions
           [
@@ -193,7 +194,7 @@ module Handler = struct
       ]
 
   let transition_opacity =
-    style "transition-opacity"
+    style
       [
         Css.transition
           (Css.Shorthand
@@ -206,7 +207,7 @@ module Handler = struct
       ]
 
   let transition_shadow =
-    style "transition-shadow"
+    style
       [
         Css.transition
           (Css.Shorthand
@@ -219,7 +220,7 @@ module Handler = struct
       ]
 
   let transition_transform =
-    style "transition-transform"
+    style
       [
         Css.transition
           (Css.Shorthand
@@ -232,15 +233,13 @@ module Handler = struct
       ]
 
   (* Transition behavior (CSS Transitions Level 2) *)
-  let transition_behavior_normal =
-    style "transition-behavior-normal" [ Css.transition_behavior Normal ]
+  let transition_behavior_normal = style [ Css.transition_behavior Normal ]
 
   let transition_behavior_allow_discrete =
-    style "transition-behavior-allow-discrete"
-      [ Css.transition_behavior Allow_discrete ]
+    style [ Css.transition_behavior Allow_discrete ]
 
   let animate_none =
-    style "animate-none"
+    style
       [
         Css.animation
           (Css.Shorthand
@@ -257,7 +256,7 @@ module Handler = struct
       ]
 
   let animate_spin =
-    style "animate-spin"
+    style
       [
         Css.animation
           (Css.Shorthand
@@ -274,7 +273,7 @@ module Handler = struct
       ]
 
   let animate_ping =
-    style "animate-ping"
+    style
       [
         Css.animation
           (Css.Shorthand
@@ -291,7 +290,7 @@ module Handler = struct
       ]
 
   let animate_pulse =
-    style "animate-pulse"
+    style
       [
         Css.animation
           (Css.Shorthand
@@ -308,7 +307,7 @@ module Handler = struct
       ]
 
   let animate_bounce =
-    style "animate-bounce"
+    style
       [
         Css.animation
           (Css.Shorthand
@@ -324,28 +323,19 @@ module Handler = struct
              });
       ]
 
-  let duration n =
-    let class_name = "duration-" ^ string_of_int n in
-    style class_name [ Css.transition_duration (Css.Ms (float_of_int n)) ]
-
-  let ease_linear =
-    style "ease-linear" [ Css.transition_timing_function Linear ]
+  let duration n = style [ Css.transition_duration (Css.Ms (float_of_int n)) ]
+  let ease_linear = style [ Css.transition_timing_function Linear ]
 
   let ease_in =
-    style "ease-in"
-      [ Css.transition_timing_function (Cubic_bezier (0.4, 0.0, 1.0, 1.0)) ]
+    style [ Css.transition_timing_function (Cubic_bezier (0.4, 0.0, 1.0, 1.0)) ]
 
   let ease_out =
-    style "ease-out"
-      [ Css.transition_timing_function (Cubic_bezier (0.0, 0.0, 0.2, 1.0)) ]
+    style [ Css.transition_timing_function (Cubic_bezier (0.0, 0.0, 0.2, 1.0)) ]
 
   let ease_in_out =
-    style "ease-in-out"
-      [ Css.transition_timing_function (Cubic_bezier (0.4, 0.0, 0.2, 1.0)) ]
+    style [ Css.transition_timing_function (Cubic_bezier (0.4, 0.0, 0.2, 1.0)) ]
 
-  let delay n =
-    let class_name = "delay-" ^ string_of_int n in
-    style class_name [ Css.transition_delay (Css.Ms (float_of_int n)) ]
+  let delay n = style [ Css.transition_delay (Css.Ms (float_of_int n)) ]
 
   let to_style = function
     | Transition_none -> transition_none
@@ -393,7 +383,9 @@ module Handler = struct
 
   let ( >|= ) = Parse.( >|= )
 
-  let of_string = function
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
+    match parts with
     | [ "transition"; "none" ] -> Ok Transition_none
     | [ "transition"; "all" ] -> Ok Transition_all
     | [ "transition"; "colors" ] -> Ok Transition_colors
@@ -417,6 +409,33 @@ module Handler = struct
     | [ "ease"; "out" ] -> Ok Ease_out
     | [ "ease"; "in"; "out" ] -> Ok Ease_in_out
     | _ -> Error (`Msg "Not an animation utility")
+
+  let to_class = function
+    (* Transitions *)
+    | Transition_none -> "transition-none"
+    | Transition_all -> "transition-all"
+    | Transition_colors -> "transition-colors"
+    | Transition_opacity -> "transition-opacity"
+    | Transition_shadow -> "transition-shadow"
+    | Transition_transform -> "transition-transform"
+    | Transition_behavior_normal -> "transition-behavior-normal"
+    | Transition_behavior_allow_discrete -> "transition-behavior-allow-discrete"
+    | Transition -> "transition"
+    (* Animations *)
+    | Animate_none -> "animate-none"
+    | Animate_spin -> "animate-spin"
+    | Animate_ping -> "animate-ping"
+    | Animate_pulse -> "animate-pulse"
+    | Animate_bounce -> "animate-bounce"
+    (* Duration *)
+    | Duration n -> "duration-" ^ string_of_int n
+    (* Delay *)
+    | Delay n -> "delay-" ^ string_of_int n
+    (* Easing *)
+    | Ease_linear -> "ease-linear"
+    | Ease_in -> "ease-in"
+    | Ease_out -> "ease-out"
+    | Ease_in_out -> "ease-in-out"
 end
 
 open Handler

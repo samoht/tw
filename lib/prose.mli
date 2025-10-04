@@ -118,3 +118,5 @@ val prose_lead : t
 val not_prose : t
 (** [not_prose] applies the "not-prose" marker class to exclude a subtree from
     prose styling. *)
+
+module Handler : Utility.Handler

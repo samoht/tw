@@ -5,51 +5,51 @@ let check = check_handler_roundtrip (module Tw.Flex.Handler)
 
 let of_string_valid () =
   (* Display *)
-  check [ "flex" ];
-  check [ "inline"; "flex" ];
+  check "flex";
+  check "inline-flex";
 
   (* Direction *)
-  check [ "flex"; "row" ];
-  check [ "flex"; "row"; "reverse" ];
-  check [ "flex"; "col" ];
-  check [ "flex"; "col"; "reverse" ];
+  check "flex-row";
+  check "flex-row-reverse";
+  check "flex-col";
+  check "flex-col-reverse";
 
   (* Wrap *)
-  check [ "flex"; "wrap" ];
-  check [ "flex"; "wrap"; "reverse" ];
-  check [ "flex"; "nowrap" ];
+  check "flex-wrap";
+  check "flex-wrap-reverse";
+  check "flex-nowrap";
 
   (* Flex shortcuts *)
-  check [ "flex"; "1" ];
-  check [ "flex"; "auto" ];
-  check [ "flex"; "initial" ];
-  check [ "flex"; "none" ];
+  check "flex-1";
+  check "flex-auto";
+  check "flex-initial";
+  check "flex-none";
 
   (* Grow/Shrink *)
-  check [ "flex"; "grow" ];
-  check [ "flex"; "grow"; "0" ];
-  check [ "flex"; "shrink" ];
-  check [ "flex"; "shrink"; "0" ];
+  check "flex-grow";
+  check "flex-grow-0";
+  check "flex-shrink";
+  check "flex-shrink-0";
 
   (* Basis *)
-  check [ "basis"; "0" ];
-  check [ "basis"; "1" ];
-  check [ "basis"; "auto" ];
-  check [ "basis"; "full" ];
+  check "basis-0";
+  check "basis-1";
+  check "basis-auto";
+  check "basis-full";
 
   (* Order *)
-  check [ "order"; "1" ];
-  check [ "order"; "2" ];
-  check [ "order"; "3" ];
-  check [ "order"; "4" ];
-  check [ "order"; "5" ];
-  check [ "order"; "6" ];
-  check [ "order"; "first" ];
-  check [ "order"; "last" ];
-  check [ "order"; "none" ]
+  check "order-1";
+  check "order-2";
+  check "order-3";
+  check "order-4";
+  check "order-5";
+  check "order-6";
+  check "order-first";
+  check "order-last";
+  check "order-none"
 
 let of_string_invalid () =
-  let fail_maybe = check_invalid_input (module Tw.Flex.Handler) in
+  let fail_maybe = Test_helpers.check_invalid_parts (module Tw.Flex.Handler) in
 
   fail_maybe [ "flex"; "invalid" ];
   fail_maybe [ "basis" ];

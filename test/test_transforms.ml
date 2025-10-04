@@ -1,21 +1,21 @@
 open Alcotest
 
-let check parts =
-  let expected = String.concat "-" parts in
-  match Tw.Transforms.Handler.of_string parts with
+let check class_name =
+  match Tw.Transforms.Handler.of_class class_name with
   | Ok t ->
-      check string "transforms class" expected
-        (Tw.Style.pp (Tw.Transforms.Handler.to_style t))
+      check string "transforms class" class_name
+        (Tw.Transforms.Handler.to_class t)
   | Error (`Msg msg) -> fail msg
 
 let test_translate_rotate () =
-  check [ "translate"; "x"; "4" ];
-  check [ "rotate"; "90" ]
+  check "translate-x-4";
+  check "rotate-90"
 
 let test_of_string_invalid () =
   (* Invalid transform utilities *)
   let test_invalid input =
-    match Tw.Transforms.Handler.of_string input with
+    let class_name = String.concat "-" input in
+    match Tw.Transforms.Handler.of_class class_name with
     | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
     | Error _ -> ()
   in

@@ -46,10 +46,4 @@ val space_x : int -> t
 val space_y : int -> t
 (** [space_y n] creates vertical space between child elements. *)
 
-module Handler : sig
-  type t
-
-  val of_string : string list -> (t, [ `Msg of string ]) result
-  val suborder : t -> int
-  val to_style : t -> Style.t
-end
+module Handler : Utility.Handler

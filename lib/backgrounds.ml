@@ -26,17 +26,6 @@ type direction =
   | Left
   | Bottom_left
 
-let gradient_to_spec dir : string * Css.gradient_direction =
-  match dir with
-  | Bottom -> ("bg-gradient-to-b", Css.To_bottom)
-  | Bottom_right -> ("bg-gradient-to-br", Css.To_bottom_right)
-  | Right -> ("bg-gradient-to-r", Css.To_right)
-  | Top_right -> ("bg-gradient-to-tr", Css.To_top_right)
-  | Top -> ("bg-gradient-to-t", Css.To_top)
-  | Top_left -> ("bg-gradient-to-tl", Css.To_top_left)
-  | Left -> ("bg-gradient-to-l", Css.To_left)
-  | Bottom_left -> ("bg-gradient-to-bl", Css.To_bottom_left)
-
 module Handler = struct
   type t =
     | Bg_gradient_to of direction
@@ -46,10 +35,39 @@ module Handler = struct
 
   type Utility.base += Self of t
 
+  let to_class (t : t) =
+    match t with
+    | Bg_gradient_to dir -> (
+        match dir with
+        | Bottom -> "bg-gradient-to-b"
+        | Bottom_right -> "bg-gradient-to-br"
+        | Right -> "bg-gradient-to-r"
+        | Top_right -> "bg-gradient-to-tr"
+        | Top -> "bg-gradient-to-t"
+        | Top_left -> "bg-gradient-to-tl"
+        | Left -> "bg-gradient-to-l"
+        | Bottom_left -> "bg-gradient-to-bl")
+    | From (color, shade) ->
+        "from-" ^ Color.pp color ^ "-" ^ string_of_int shade
+    | Via (color, shade) -> "via-" ^ Color.pp color ^ "-" ^ string_of_int shade
+    | To (color, shade) -> "to-" ^ Color.pp color ^ "-" ^ string_of_int shade
+
+  let to_spec (dir : direction) : Css.gradient_direction =
+    match dir with
+    | Bottom -> To_bottom
+    | Bottom_right -> To_bottom_right
+    | Right -> To_right
+    | Top_right -> To_top_right
+    | Top -> To_top
+    | Top_left -> To_top_left
+    | Left -> To_left
+    | Bottom_left -> To_bottom_left
+
   open Style
   open Css
 
-  let priority = 13
+  let name = "backgrounds"
+  let priority = 14
 
   (* Gradient variables with proper @property definitions matching Tailwind
      v4 *)
@@ -86,18 +104,11 @@ module Handler = struct
       "tw-gradient-to-position"
 
   let bg_gradient_to' dir =
-    let class_name, dir_val = gradient_to_spec dir in
-    style class_name [ Css.background_image (Linear_gradient (dir_val, [])) ]
-
-  (** Helper to build gradient color class names *)
-  let gradient_color_class_name ~prefix ?(shade = 500) color =
-    if Color.is_base_color color || Color.is_custom_color color then
-      prefix ^ Color.pp color
-    else String.concat "" [ prefix; Color.pp color; "-"; string_of_int shade ]
+    let dir_val = to_spec dir in
+    style [ Css.background_image (Linear_gradient (dir_val, [])) ]
 
   (** Common helper for gradient color utilities *)
   let gradient_color ~prefix ~set_var ?(shade = 500) color =
-    let class_name = gradient_color_class_name ~prefix ~shade color in
     (* Use the shared color variable from Color module *)
     let color_theme_var = Color.get_color_var color shade in
     let color_value = Color.to_css color shade in
@@ -179,7 +190,7 @@ module Handler = struct
       | None -> [ d_color; d_var; d_stops ]
     in
 
-    style class_name ~property_rules declarations
+    style ~property_rules declarations
 
   let from_color' ?(shade = 500) color =
     gradient_color ~prefix:"from-" ~set_var:gradient_from_var ~shade color
@@ -208,7 +219,9 @@ module Handler = struct
         3000
         + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
 
-  let of_string = function
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
+    match parts with
     | [ "bg"; "gradient"; "to"; dir ] -> (
         match dir with
         | "b" -> Ok (Bg_gradient_to Bottom)

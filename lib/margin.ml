@@ -14,59 +14,56 @@ module Handler = struct
   (** Extensible variant for margin utilities *)
   type Utility.base += Self of t
 
+  let name = "margin"
   let priority = 2
 
   (** {2 Typed Margin Utilities} *)
 
-  let v prefix prop (m : margin) =
-    let class_name = prefix ^ Spacing.pp_margin_suffix m in
+  let v prop (m : margin) =
     let spacing_decl, spacing_ref =
       Var.binding Spacing.spacing_var (Rem 0.25)
     in
     let len = Spacing.margin_to_length spacing_ref m in
     match m with
-    | `Auto -> style class_name [ prop len ]
-    | #spacing -> style class_name [ spacing_decl; prop len ]
+    | `Auto -> style [ prop len ]
+    | #spacing -> style [ spacing_decl; prop len ]
 
-  let vs prefix prop (m : margin) =
-    let class_name = prefix ^ Spacing.pp_margin_suffix m in
+  let vs prop (m : margin) =
     let spacing_decl, spacing_ref =
       Var.binding Spacing.spacing_var (Rem 0.25)
     in
     let len = Spacing.margin_to_length spacing_ref m in
     match m with
-    | `Auto -> style class_name [ prop [ len ] ]
-    | #spacing -> style class_name [ spacing_decl; prop [ len ] ]
+    | `Auto -> style [ prop [ len ] ]
+    | #spacing -> style [ spacing_decl; prop [ len ] ]
 
-  let m = vs "m-" margin
-  let mx = v "mx-" margin_inline
-  let my = v "my-" margin_block
-  let mt = v "mt-" margin_top
-  let mr = v "mr-" margin_right
-  let mb = v "mb-" margin_bottom
-  let ml = v "ml-" margin_left
+  let m = vs margin
+  let mx = v margin_inline
+  let my = v margin_block
+  let mt = v margin_top
+  let mr = v margin_right
+  let mb = v margin_bottom
+  let ml = v margin_left
 
   (** {1 Conversion Functions} *)
 
-  let margin_util_neg prefix prop (m : margin) =
-    let class_name = "-" ^ prefix ^ Spacing.pp_margin_suffix m in
+  let margin_util_neg prop (m : margin) =
     let spacing_decl, spacing_ref =
       Var.binding Spacing.spacing_var (Rem 0.25)
     in
     let len = Spacing.margin_to_length spacing_ref m in
     match m with
-    | `Auto -> style class_name [ prop len ]
-    | #spacing -> style class_name [ spacing_decl; prop len ]
+    | `Auto -> style [ prop len ]
+    | #spacing -> style [ spacing_decl; prop len ]
 
-  let margin_list_util_neg prefix prop (m : margin) =
-    let class_name = "-" ^ prefix ^ Spacing.pp_margin_suffix m in
+  let margin_list_util_neg prop (m : margin) =
     let spacing_decl, spacing_ref =
       Var.binding Spacing.spacing_var (Rem 0.25)
     in
     let len = Spacing.margin_to_length spacing_ref m in
     match m with
-    | `Auto -> style class_name [ prop [ len ] ]
-    | #spacing -> style class_name [ spacing_decl; prop [ len ] ]
+    | `Auto -> style [ prop [ len ] ]
+    | #spacing -> style [ spacing_decl; prop [ len ] ]
 
   let spacing_value_order = function
     | `Px -> 1
@@ -92,13 +89,13 @@ module Handler = struct
     | false, `R, _ -> mr abs_value
     | false, `B, _ -> mb abs_value
     | false, `L, _ -> ml abs_value
-    | true, `All, (#spacing as s) -> margin_list_util_neg "m-" margin s
-    | true, `X, (#spacing as s) -> margin_util_neg "mx-" margin_inline s
-    | true, `Y, (#spacing as s) -> margin_util_neg "my-" margin_block s
-    | true, `T, (#spacing as s) -> margin_util_neg "mt-" margin_top s
-    | true, `R, (#spacing as s) -> margin_util_neg "mr-" margin_right s
-    | true, `B, (#spacing as s) -> margin_util_neg "mb-" margin_bottom s
-    | true, `L, (#spacing as s) -> margin_util_neg "ml-" margin_left s
+    | true, `All, (#spacing as s) -> margin_list_util_neg margin s
+    | true, `X, (#spacing as s) -> margin_util_neg margin_inline s
+    | true, `Y, (#spacing as s) -> margin_util_neg margin_block s
+    | true, `T, (#spacing as s) -> margin_util_neg margin_top s
+    | true, `R, (#spacing as s) -> margin_util_neg margin_right s
+    | true, `B, (#spacing as s) -> margin_util_neg margin_bottom s
+    | true, `L, (#spacing as s) -> margin_util_neg margin_left s
     | true, _, `Auto -> failwith "Negative auto margin not supported"
 
   let suborder { negative; axis; value } =
@@ -115,8 +112,23 @@ module Handler = struct
     in
     neg_offset + side_offset + margin_value_order value
 
+  let to_class { negative; axis; value } =
+    let prefix =
+      match axis with
+      | `All -> "m-"
+      | `X -> "mx-"
+      | `Y -> "my-"
+      | `T -> "mt-"
+      | `R -> "mr-"
+      | `B -> "mb-"
+      | `L -> "ml-"
+    in
+    let neg_prefix = if negative then "-" else "" in
+    neg_prefix ^ prefix ^ Spacing.pp_margin_suffix value
+
   (** Parse string parts to margin utility *)
-  let of_string parts =
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
     let parse_margin_value value =
       if value = "px" then Some `Px
       else if value = "auto" then Some `Auto
@@ -148,13 +160,13 @@ module Handler = struct
     | [ "mr"; value ] -> parse_positive "mr" `R value
     | [ "mb"; value ] -> parse_positive "mb" `B value
     | [ "ml"; value ] -> parse_positive "ml" `L value
-    | [ "-m"; value ] -> parse_negative `All value
-    | [ "-mx"; value ] -> parse_negative `X value
-    | [ "-my"; value ] -> parse_negative `Y value
-    | [ "-mt"; value ] -> parse_negative `T value
-    | [ "-mr"; value ] -> parse_negative `R value
-    | [ "-mb"; value ] -> parse_negative `B value
-    | [ "-ml"; value ] -> parse_negative `L value
+    | [ ""; "m"; value ] -> parse_negative `All value
+    | [ ""; "mx"; value ] -> parse_negative `X value
+    | [ ""; "my"; value ] -> parse_negative `Y value
+    | [ ""; "mt"; value ] -> parse_negative `T value
+    | [ ""; "mr"; value ] -> parse_negative `R value
+    | [ ""; "mb"; value ] -> parse_negative `B value
+    | [ ""; "ml"; value ] -> parse_negative `L value
     | _ -> Error (`Msg "Not a margin utility")
 end
 

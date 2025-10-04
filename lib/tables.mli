@@ -22,3 +22,5 @@ val table_auto : t
 
 val table_fixed : t
 (** [table_fixed] uses fixed table layout. *)
+
+module Handler : Utility.Handler
