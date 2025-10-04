@@ -28,6 +28,7 @@ type direction =
 
 module Handler = struct
   type t =
+    | Bg of Color.color * int
     | Bg_gradient_to of direction
     | From of Color.color * int
     | Via of Color.color * int
@@ -37,6 +38,7 @@ module Handler = struct
 
   let to_class (t : t) =
     match t with
+    | Bg (color, shade) -> "bg-" ^ Color.pp color ^ "-" ^ string_of_int shade
     | Bg_gradient_to dir -> (
         match dir with
         | Bottom -> "bg-gradient-to-b"
@@ -201,38 +203,49 @@ module Handler = struct
   let to_color' ?(shade = 500) color =
     gradient_color ~prefix:"to-" ~set_var:gradient_to_var ~shade color
 
+  let bg' ?(shade = 500) color =
+    (* Use the shared color variable from Color module *)
+    let color_theme_var = Color.get_color_var color shade in
+    let color_value = Color.to_css color shade in
+    let d_color, color_ref = Var.binding color_theme_var color_value in
+    style [ d_color; Css.background_color (Var color_ref) ]
+
   let to_style = function
+    | Bg (color, shade) -> bg' ~shade color
     | Bg_gradient_to dir -> bg_gradient_to' dir
     | From (color, shade) -> from_color' ~shade color
     | Via (color, shade) -> via_color' ~shade color
     | To (color, shade) -> to_color' ~shade color
 
   let suborder = function
-    | Bg_gradient_to _ -> 0
+    | Bg (color, shade) ->
+        Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
+    | Bg_gradient_to _ -> 10000
     | From (color, shade) ->
-        1000
+        11000
         + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
     | Via (color, shade) ->
-        2000
+        12000
         + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
     | To (color, shade) ->
-        3000
+        13000
         + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
     match parts with
-    | [ "bg"; "gradient"; "to"; dir ] -> (
-        match dir with
-        | "b" -> Ok (Bg_gradient_to Bottom)
-        | "br" -> Ok (Bg_gradient_to Bottom_right)
-        | "r" -> Ok (Bg_gradient_to Right)
-        | "tr" -> Ok (Bg_gradient_to Top_right)
-        | "t" -> Ok (Bg_gradient_to Top)
-        | "tl" -> Ok (Bg_gradient_to Top_left)
-        | "l" -> Ok (Bg_gradient_to Left)
-        | "bl" -> Ok (Bg_gradient_to Bottom_left)
-        | _ -> Error (`Msg "Unknown gradient direction"))
+    | [ "bg"; "gradient"; "to"; "b" ] -> Ok (Bg_gradient_to Bottom)
+    | [ "bg"; "gradient"; "to"; "br" ] -> Ok (Bg_gradient_to Bottom_right)
+    | [ "bg"; "gradient"; "to"; "r" ] -> Ok (Bg_gradient_to Right)
+    | [ "bg"; "gradient"; "to"; "tr" ] -> Ok (Bg_gradient_to Top_right)
+    | [ "bg"; "gradient"; "to"; "t" ] -> Ok (Bg_gradient_to Top)
+    | [ "bg"; "gradient"; "to"; "tl" ] -> Ok (Bg_gradient_to Top_left)
+    | [ "bg"; "gradient"; "to"; "l" ] -> Ok (Bg_gradient_to Left)
+    | [ "bg"; "gradient"; "to"; "bl" ] -> Ok (Bg_gradient_to Bottom_left)
+    | "bg" :: rest -> (
+        match Color.shade_of_strings rest with
+        | Ok (color, shade) -> Ok (Bg (color, shade))
+        | Error _ -> Error (`Msg "Invalid background color"))
     | "from" :: rest -> (
         match Color.shade_of_strings rest with
         | Ok (color, shade) -> Ok (From (color, shade))
@@ -252,6 +265,7 @@ open Handler
 
 let () = Utility.register (module Handler)
 let utility x = Utility.base (Self x)
+let bg color shade = utility (Bg (color, shade))
 let bg_gradient_to dir = utility (Bg_gradient_to dir)
 let from_color ?(shade = 500) color = utility (From (color, shade))
 let via_color ?(shade = 500) color = utility (Via (color, shade))

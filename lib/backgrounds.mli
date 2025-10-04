@@ -17,6 +17,10 @@ type direction =
   | Left
   | Bottom_left
 
+val bg : Color.color -> int -> t
+(** [bg color shade] sets the background color. [shade] selects a color shade
+    (e.g., 50..900) when using Tailwind colors. *)
+
 val bg_gradient_to : direction -> t
 (** [bg_gradient_to dir] sets gradient direction. Prefer this typed variant over
     the fixed functions when composing logic. *)
