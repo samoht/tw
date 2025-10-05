@@ -71,17 +71,17 @@ module Handler = struct
     | Row_end_auto -> row_end_auto
 
   let suborder = function
-    (* Display - suborder matches alphabetical position across all display
-       utilities *)
-    | Grid -> 3
-    | Inline_grid -> 8
-    | Col_auto -> 10
-    | Col_span n -> 20 + n
-    | Col_span_full -> 33
-    | Col_start n -> 40 + n
-    | Col_start_auto -> 53
-    | Col_end n -> 60 + n
-    | Col_end_auto -> 73
+    (* Order: col-auto, col-span, col-start, col-end, grid, inline-grid,
+       row-auto, row-span, row-start, row-end *)
+    | Col_auto -> 0
+    | Col_span n -> 10 + n
+    | Col_span_full -> 23
+    | Col_start n -> 30 + n
+    | Col_start_auto -> 43
+    | Col_end n -> 50 + n
+    | Col_end_auto -> 63
+    | Grid -> 70
+    | Inline_grid -> 71
     | Row_auto -> 80
     | Row_span n -> 90 + n
     | Row_span_full -> 103
