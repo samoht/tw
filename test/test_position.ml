@@ -35,7 +35,7 @@ let tests =
     test_case "inset and z" `Quick test_inset_and_z;
     test_case "negative top" `Quick test_negative;
     test_case "position utilities" `Quick test_position_utilities;
-    test_case "position suborder matches Tailwind" `Slow
+    test_case "position suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
 

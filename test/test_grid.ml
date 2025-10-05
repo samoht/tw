@@ -109,7 +109,7 @@ let tests =
   [
     test_case "grid of_string - valid values" `Quick of_string_valid;
     test_case "grid of_string - invalid values" `Quick of_string_invalid;
-    test_case "grid suborder matches Tailwind" `Slow suborder_matches_tailwind;
+    test_case "grid suborder matches Tailwind" `Quick suborder_matches_tailwind;
   ]
 
 let suite = ("grid", tests)

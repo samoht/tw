@@ -80,7 +80,7 @@ let tests =
     test_case "gradient direction" `Quick test_gradient_direction;
     test_case "gradient colors" `Quick test_gradient_colors;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
-    test_case "backgrounds suborder matches Tailwind" `Slow
+    test_case "backgrounds suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
 

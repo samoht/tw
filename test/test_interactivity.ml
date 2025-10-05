@@ -87,7 +87,7 @@ let tests =
     test_case "select" `Quick test_select;
     test_case "scroll+snap" `Quick test_scroll_snap;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
-    test_case "interactivity suborder matches Tailwind" `Slow
+    test_case "interactivity suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
 

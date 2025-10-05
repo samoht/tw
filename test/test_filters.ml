@@ -28,7 +28,7 @@ let tests =
   [
     test_case "blur" `Quick test_blur;
     test_case "backdrop" `Quick test_backdrop;
-    test_case "filters suborder matches Tailwind" `Slow
+    test_case "filters suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
 

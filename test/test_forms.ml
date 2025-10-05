@@ -51,7 +51,7 @@ let tests =
   [
     test_case "inputs" `Quick test_inputs;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
-    test_case "forms suborder matches Tailwind" `Slow suborder_matches_tailwind;
+    test_case "forms suborder matches Tailwind" `Quick suborder_matches_tailwind;
   ]
 
 let suite = ("forms", tests)

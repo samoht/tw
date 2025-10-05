@@ -58,7 +58,7 @@ let tests =
     test_case "types" `Quick test_container_types;
     test_case "name" `Quick test_container_name;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
-    test_case "containers suborder matches Tailwind" `Slow
+    test_case "containers suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
 

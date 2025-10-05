@@ -100,7 +100,7 @@ let tests =
     test_case "duration + delay" `Quick test_duration_delay;
     test_case "animation CSS output" `Quick test_animation_css;
     test_case "transition CSS output" `Quick test_transition_css;
-    test_case "animations suborder matches Tailwind" `Slow
+    test_case "animations suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
 

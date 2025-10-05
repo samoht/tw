@@ -80,7 +80,7 @@ let tests =
   [
     test_case "flex of_string - valid values" `Quick of_string_valid;
     test_case "flex of_string - invalid values" `Quick of_string_invalid;
-    test_case "flex suborder matches Tailwind" `Slow suborder_matches_tailwind;
+    test_case "flex suborder matches Tailwind" `Quick suborder_matches_tailwind;
   ]
 
 let suite = ("flex", tests)

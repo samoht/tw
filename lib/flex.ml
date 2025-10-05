@@ -129,15 +129,15 @@ module Handler = struct
        utilities *)
     | Flex -> 2
     | Inline_flex -> 7
-    (* Direction *)
-    | Flex_row -> 10
-    | Flex_row_reverse -> 11
-    | Flex_col -> 12
-    | Flex_col_reverse -> 13
-    (* Wrap *)
-    | Flex_wrap -> 20
-    | Flex_wrap_reverse -> 21
-    | Flex_nowrap -> 22
+    (* Direction - alphabetical order: col, col-reverse, row, row-reverse *)
+    | Flex_col -> 10
+    | Flex_col_reverse -> 11
+    | Flex_row -> 12
+    | Flex_row_reverse -> 13
+    (* Wrap - alphabetical order: nowrap, wrap, wrap-reverse *)
+    | Flex_nowrap -> 20
+    | Flex_wrap -> 21
+    | Flex_wrap_reverse -> 22
     (* Flex shortcuts *)
     | Flex_1 -> 30
     | Flex_auto -> 31

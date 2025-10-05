@@ -98,7 +98,7 @@ let tests =
     test_case "effects of_string - invalid values" `Quick of_string_invalid;
     test_case "ring of_string - valid values" `Quick test_ring_of_string_valid;
     test_case "filters css generation" `Quick test_filters_css_generation;
-    test_case "effects suborder matches Tailwind" `Slow
+    test_case "effects suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
 

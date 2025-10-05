@@ -194,61 +194,64 @@ module Handler = struct
     | Place_self_stretch -> place_self_stretch
 
   let suborder = function
-    (* Align content (1000-1099) - comes first *)
-    | Content_start -> 1000
-    | Content_end -> 1001
-    | Content_center -> 1002
-    | Content_between -> 1003
-    | Content_around -> 1004
-    | Content_evenly -> 1005
-    | Content_stretch -> 1006
-    (* Align items (2000-2099) *)
-    | Items_start -> 2000
-    | Items_end -> 2001
-    | Items_center -> 2002
-    | Items_baseline -> 2003
-    | Items_stretch -> 2004
-    (* Justify content (3000-3099) *)
-    | Justify_start -> 3000
-    | Justify_end -> 3001
-    | Justify_center -> 3002
-    | Justify_between -> 3003
-    | Justify_around -> 3004
-    | Justify_evenly -> 3005
-    (* Align self (100000-100099) - comes after Gap priority group *)
-    | Self_auto -> 100000
-    | Self_start -> 100001
-    | Self_end -> 100002
-    | Self_center -> 100003
-    | Self_baseline -> 100004
-    | Self_stretch -> 100005
-    (* Justify items/self (20000-20199) *)
-    | Justify_items_start -> 20000
-    | Justify_items_end -> 20001
-    | Justify_items_center -> 20002
-    | Justify_items_stretch -> 20003
-    | Justify_self_auto -> 20100
-    | Justify_self_start -> 20101
-    | Justify_self_end -> 20102
-    | Justify_self_center -> 20103
-    | Justify_self_stretch -> 20104
-    (* Place content/items/self (30000-30299) *)
-    | Place_content_start -> 30000
-    | Place_content_end -> 30001
-    | Place_content_center -> 30002
-    | Place_content_between -> 30003
-    | Place_content_around -> 30004
-    | Place_content_evenly -> 30005
-    | Place_content_stretch -> 30006
-    | Place_items_start -> 30100
-    | Place_items_end -> 30101
-    | Place_items_center -> 30102
-    | Place_items_stretch -> 30103
-    | Place_self_auto -> 30200
-    | Place_self_start -> 30201
-    | Place_self_end -> 30202
-    | Place_self_center -> 30203
-    | Place_self_stretch -> 30204
+    (* Place content (1000-1099) - alphabetical *)
+    | Place_content_around -> 1000
+    | Place_content_between -> 1001
+    | Place_content_center -> 1002
+    | Place_content_end -> 1003
+    | Place_content_evenly -> 1004
+    | Place_content_start -> 1005
+    | Place_content_stretch -> 1006
+    (* Place items (1100-1199) - alphabetical *)
+    | Place_items_center -> 1100
+    | Place_items_end -> 1101
+    | Place_items_start -> 1102
+    | Place_items_stretch -> 1103
+    (* Align content (2000-2099) - alphabetical *)
+    | Content_around -> 2000
+    | Content_between -> 2001
+    | Content_center -> 2002
+    | Content_end -> 2003
+    | Content_evenly -> 2004
+    | Content_start -> 2005
+    | Content_stretch -> 2006
+    (* Align items (3000-3099) - alphabetical *)
+    | Items_baseline -> 3000
+    | Items_center -> 3001
+    | Items_end -> 3002
+    | Items_start -> 3003
+    | Items_stretch -> 3004
+    (* Justify content (4000-4099) - alphabetical *)
+    | Justify_around -> 4000
+    | Justify_between -> 4001
+    | Justify_center -> 4002
+    | Justify_end -> 4003
+    | Justify_evenly -> 4004
+    | Justify_start -> 4005
+    (* Justify items (5000-5099) - alphabetical *)
+    | Justify_items_center -> 5000
+    | Justify_items_end -> 5001
+    | Justify_items_start -> 5002
+    | Justify_items_stretch -> 5003
+    (* Place self (6000-6099) - alphabetical *)
+    | Place_self_auto -> 6000
+    | Place_self_center -> 6001
+    | Place_self_end -> 6002
+    | Place_self_start -> 6003
+    | Place_self_stretch -> 6004
+    (* Align self (7000-7099) - alphabetical *)
+    | Self_auto -> 7000
+    | Self_baseline -> 7001
+    | Self_center -> 7002
+    | Self_end -> 7003
+    | Self_start -> 7004
+    | Self_stretch -> 7005
+    (* Justify self (8000-8099) - alphabetical *)
+    | Justify_self_auto -> 8000
+    | Justify_self_center -> 8001
+    | Justify_self_end -> 8002
+    | Justify_self_start -> 8003
+    | Justify_self_stretch -> 8004
 
   let of_class = function
     (* Justify content *)

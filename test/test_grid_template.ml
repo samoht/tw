@@ -93,7 +93,7 @@ let tests =
     test_case "grid_template of_string - valid values" `Quick of_string_valid;
     test_case "grid_template of_string - invalid values" `Quick
       of_string_invalid;
-    test_case "grid_template suborder matches Tailwind" `Slow
+    test_case "grid_template suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
 
