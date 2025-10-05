@@ -52,17 +52,19 @@ module Handler = struct
     | Cursor_grabbing -> style [ cursor Grabbing ]
 
   let suborder = function
+    (* Alphabetical order: auto, crosshair, default, grab, grabbing, help, move,
+       not-allowed, pointer, text, wait *)
     | Cursor_auto -> 0
-    | Cursor_default -> 1
-    | Cursor_pointer -> 2
-    | Cursor_wait -> 3
-    | Cursor_move -> 4
-    | Cursor_not_allowed -> 5
-    | Cursor_text -> 6
-    | Cursor_crosshair -> 7
-    | Cursor_help -> 8
-    | Cursor_grab -> 9
-    | Cursor_grabbing -> 10
+    | Cursor_crosshair -> 1
+    | Cursor_default -> 2
+    | Cursor_grab -> 3
+    | Cursor_grabbing -> 4
+    | Cursor_help -> 5
+    | Cursor_move -> 6
+    | Cursor_not_allowed -> 7
+    | Cursor_pointer -> 8
+    | Cursor_text -> 9
+    | Cursor_wait -> 10
 
   let of_class = function
     | "cursor-auto" -> Ok Cursor_auto
