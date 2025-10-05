@@ -774,7 +774,8 @@ module Handler = struct
     | Aspect_auto -> "aspect-auto"
     | Aspect_square -> "aspect-square"
     | Aspect_video -> "aspect-video"
-    | Aspect_ratio (w, h) -> "aspect-" ^ string_of_int w ^ "/" ^ string_of_int h
+    | Aspect_ratio (w, h) ->
+        "aspect-[" ^ string_of_int w ^ "/" ^ string_of_int h ^ "]"
 end
 
 open Handler

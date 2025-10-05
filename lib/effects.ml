@@ -850,7 +850,7 @@ module Handler = struct
     | Ring_none -> "ring-0"
     | Ring_xs -> "ring-1"
     | Ring_sm -> "ring-2"
-    | Ring_md -> "ring-3"
+    | Ring_md -> "ring"
     | Ring_lg -> "ring-4"
     | Ring_xl -> "ring-8"
     | Ring_inset -> "ring-inset"

@@ -311,12 +311,12 @@ let modifier_to_rule modifier base_class selector props =
       regular ~selector:sel ~props ~base_class ~has_hover ()
 
 (* Extract selector and properties from a single Tw style *)
-let extract_selector_props ?(base_class = "") tw =
-  let rec extract bc = function
-    | Style { props; rules; _ } -> (
-        let sel = Css.Selector.class_raw bc in
+let extract_selector_props tw =
+  let rec extract = function
+    | Style { name; props; rules; _ } -> (
+        let sel = Css.Selector.class_raw name in
         match rules with
-        | None -> [ regular ~selector:sel ~props ~base_class:bc () ]
+        | None -> [ regular ~selector:sel ~props ~base_class:name () ]
         | Some rule_list ->
             (* Convert custom rules to selector/props pairs *)
             let custom_rules =
@@ -324,32 +324,33 @@ let extract_selector_props ?(base_class = "") tw =
               |> List.map (fun rule ->
                      match Css.as_rule rule with
                      | Some (selector, declarations, _) ->
-                         regular ~selector ~props:declarations ~base_class:bc ()
+                         regular ~selector ~props:declarations ~base_class:name
+                           ()
                      | None ->
                          regular ~selector:Css.Selector.universal ~props:[]
-                           ~base_class:bc ())
+                           ~base_class:name ())
             in
 
             (* If there are base props, add them after the custom rules to match
                Tailwind's order *)
             if props = [] then custom_rules
             else
-              custom_rules @ [ regular ~selector:sel ~props ~base_class:bc () ])
+              custom_rules
+              @ [ regular ~selector:sel ~props ~base_class:name () ])
     | Modified (modifier, t) ->
-        let base = extract bc t in
+        let base = extract t in
         List.concat_map
           (fun rule_out ->
             match rule_out with
             | Regular { selector; props; base_class; _ } ->
-                (* Use the base_class from the rule, not extract from
-                   selector *)
-                let bc' = Option.value base_class ~default:bc in
-                [ modifier_to_rule modifier bc' selector props ]
+                (* Use the base_class from the rule *)
+                let bc = Option.value base_class ~default:"" in
+                [ modifier_to_rule modifier bc selector props ]
             | _ -> [ rule_out ])
           base
-    | Group styles -> List.concat_map (extract bc) styles
+    | Group styles -> List.concat_map extract styles
   in
-  extract base_class tw
+  extract tw
 
 (* ======================================================================== *)
 (* Conflict Resolution - Order utilities by specificity *)
