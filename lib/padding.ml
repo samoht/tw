@@ -54,15 +54,15 @@ module Handler = struct
   let suborder { axis; value } =
     let side_offset =
       match axis with
-      | `All -> 905
-      | `X -> 910
-      | `Y -> 915
-      | `T -> 920
-      | `R -> 925
-      | `B -> 930
-      | `L -> 935
+      | `All -> 0
+      | `X -> 10000
+      | `Y -> 20000
+      | `T -> 30000
+      | `R -> 40000
+      | `B -> 50000
+      | `L -> 60000
     in
-    side_offset + (spacing_value_order value / 1000)
+    side_offset + spacing_value_order value
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
