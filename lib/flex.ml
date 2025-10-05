@@ -97,7 +97,7 @@ module Handler = struct
   let order_last = style [ Css.order 9999 ]
   let order_none = style [ Css.order 0 ]
 
-  let to_style : t -> Style.t = function
+  let to_style = function
     | Flex -> flex
     | Inline_flex -> inline_flex
     | Flex_row -> flex_row

@@ -59,3 +59,44 @@ val int : int -> Style.spacing
 
     @param n The scale factor (will be multiplied by 0.25 to get rem value)
     @return A spacing value in rem units *)
+
+(** {1 Shared Parsing Logic} *)
+
+type axis = [ `All | `X | `Y | `T | `R | `B | `L ]
+(** Axis for spacing utilities (all, x, y, top, right, bottom, left) *)
+
+val parse_value_string : allow_auto:bool -> string -> Style.margin option
+(** Parse a spacing value string (px, full, auto, or numeric).
+
+    @param allow_auto Whether to accept "auto" as a valid value
+    @param value The string to parse ("px", "full", "auto", or a number)
+    @return Parsed margin value or None if invalid *)
+
+val axis_of_prefix : string -> axis option
+(** Map a class prefix to its axis.
+
+    Examples:
+    - "p" or "m" -> [`All]
+    - "px" or "mx" -> [`X]
+    - "pt" or "mt" -> [`T]
+
+    @param prefix The class prefix (e.g., "p", "px", "m", "ml")
+    @return The corresponding axis, or None if invalid *)
+
+val is_margin_prefix : string -> bool
+(** Check if a prefix is for margin (vs padding).
+
+    @param prefix The class prefix
+    @return [true] if it's a margin prefix ("m", "mx", etc.), [false] otherwise
+*)
+
+val parse_class_parts : string list -> (bool * string * string) option
+(** Parse class name parts into (is_negative, prefix, value).
+
+    Handles both positive and negative values:
+    - [["p"; "4"]] -> [Some (false, "p", "4")]
+    - [[""; "m"; "4"]] -> [Some (true, "m", "4")] (negative margin)
+    - Other patterns -> [None]
+
+    @param parts List of strings from [String.split_on_char '-']
+    @return [(is_negative, prefix, value)] tuple or None if invalid *)

@@ -54,3 +54,40 @@ let margin_to_length spacing_ref : margin -> length = function
 (** {1 Spacing Constructors} *)
 
 let int n = `Rem (float_of_int n *. 0.25)
+
+(** {1 Shared Parsing Logic} *)
+
+(** Parse a spacing value from a string, with optional support for auto *)
+let parse_value_string ~allow_auto value : margin option =
+  if value = "px" then Some `Px
+  else if value = "full" then Some `Full
+  else if allow_auto && value = "auto" then Some `Auto
+  else
+    match Parse.spacing_value ~name:"spacing" value with
+    | Ok f -> Some (`Rem (f *. 0.25))
+    | Error _ -> None
+
+type axis = [ `All | `X | `Y | `T | `R | `B | `L ]
+(** Parse axis from a prefix string *)
+
+let axis_of_prefix = function
+  | "p" | "m" -> Some `All
+  | "px" | "mx" -> Some `X
+  | "py" | "my" -> Some `Y
+  | "pt" | "mt" -> Some `T
+  | "pr" | "mr" -> Some `R
+  | "pb" | "mb" -> Some `B
+  | "pl" | "ml" -> Some `L
+  | _ -> None
+
+(** Check if a prefix is for margin (vs padding) *)
+let is_margin_prefix = function
+  | "m" | "mx" | "my" | "mt" | "mr" | "mb" | "ml" -> true
+  | _ -> false
+
+(** Parse class name parts into (is_negative, prefix, value) *)
+let parse_class_parts parts =
+  match parts with
+  | [ ""; prefix; value ] -> Some (true, prefix, value)
+  | [ prefix; value ] -> Some (false, prefix, value)
+  | _ -> None

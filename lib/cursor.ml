@@ -24,17 +24,6 @@ module Handler = struct
 
   let name = "cursor"
   let priority = 9
-  let cursor_auto = style [ cursor Auto ]
-  let cursor_default = style [ cursor Default ]
-  let cursor_pointer = style [ cursor Pointer ]
-  let cursor_wait = style [ cursor Wait ]
-  let cursor_move = style [ cursor Move ]
-  let cursor_not_allowed = style [ cursor Not_allowed ]
-  let cursor_text = style [ cursor Text ]
-  let cursor_crosshair = style [ cursor Crosshair ]
-  let cursor_help = style [ cursor Help ]
-  let cursor_grab = style [ cursor Grab ]
-  let cursor_grabbing = style [ cursor Grabbing ]
 
   let to_class = function
     | Cursor_auto -> "cursor-auto"
@@ -50,17 +39,17 @@ module Handler = struct
     | Cursor_grabbing -> "cursor-grabbing"
 
   let to_style = function
-    | Cursor_auto -> cursor_auto
-    | Cursor_default -> cursor_default
-    | Cursor_pointer -> cursor_pointer
-    | Cursor_wait -> cursor_wait
-    | Cursor_move -> cursor_move
-    | Cursor_not_allowed -> cursor_not_allowed
-    | Cursor_text -> cursor_text
-    | Cursor_crosshair -> cursor_crosshair
-    | Cursor_help -> cursor_help
-    | Cursor_grab -> cursor_grab
-    | Cursor_grabbing -> cursor_grabbing
+    | Cursor_auto -> style [ cursor Auto ]
+    | Cursor_default -> style [ cursor Default ]
+    | Cursor_pointer -> style [ cursor Pointer ]
+    | Cursor_wait -> style [ cursor Wait ]
+    | Cursor_move -> style [ cursor Move ]
+    | Cursor_not_allowed -> style [ cursor Not_allowed ]
+    | Cursor_text -> style [ cursor Text ]
+    | Cursor_crosshair -> style [ cursor Crosshair ]
+    | Cursor_help -> style [ cursor Help ]
+    | Cursor_grab -> style [ cursor Grab ]
+    | Cursor_grabbing -> style [ cursor Grabbing ]
 
   let suborder = function
     | Cursor_auto -> 0

@@ -47,12 +47,9 @@ include Prose
 let to_css ?(base = Rules.default_config.base)
     ?(mode = Rules.default_config.mode)
     ?(optimize = Rules.default_config.optimize) utilities =
-  let styles = List.map Utility.to_style utilities in
-  Rules.to_css ~config:{ base; mode; optimize } styles
+  Rules.to_css ~config:{ base; mode; optimize } utilities
 
-let to_inline_style utilities =
-  List.map Utility.to_style utilities |> Rules.to_inline_style
-
+let to_inline_style utilities = Rules.to_inline_style utilities
 let preflight = Preflight.stylesheet
 
 (* Class generation functions *)

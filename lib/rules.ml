@@ -9,8 +9,6 @@
     - Variable Resolution: Track CSS custom property dependencies
     - Media/Container Queries: Handle responsive modifiers *)
 
-open Style
-
 (* ======================================================================== *)
 (* Types *)
 (* ======================================================================== *)
@@ -215,27 +213,92 @@ let has_like_selector kind selector_str base_class props =
       let sel = combine left Subsequent_sibling right in
       regular ~selector:sel ~props ~base_class ()
 
+(** Extract class name from a modified selector (with or without pseudo-class)
+*)
+let extract_modified_class_name modified_base_selector base_class =
+  match modified_base_selector with
+  | Css.Selector.Class cls -> cls
+  | Css.Selector.Compound selectors ->
+      (* For compound selectors like .hover:prose:hover, extract just the class
+         name *)
+      List.find_map
+        (function Css.Selector.Class cls -> Some cls | _ -> None)
+        selectors
+      |> Option.value ~default:base_class
+  | _ -> base_class
+
+(** Transform selector by applying modifier to base class and updating
+    descendants *)
+let transform_selector_with_modifier modified_base_selector base_class
+    modified_class selector =
+  let replace_in_children =
+    replace_class_in_selector ~old_class:base_class ~new_class:modified_class
+  in
+  let rec transform = function
+    | Css.Selector.Class cls when cls = base_class -> modified_base_selector
+    | Css.Selector.Combined (base_sel, combinator, complex_sel) ->
+        Css.Selector.Combined
+          (transform base_sel, combinator, replace_in_children complex_sel)
+    | Css.Selector.Compound selectors ->
+        Css.Selector.Compound (List.map transform selectors)
+    | other -> other
+  in
+  transform selector
+
+(** Handle data attribute modifiers (data-state, data-variant, etc.) *)
+let handle_data_modifier key value selector props base_class =
+  regular
+    ~selector:(selector_with_data_key selector ("data-" ^ key) value)
+    ~props ~base_class ()
+
+(** Handle media query modifiers (dark, motion-safe, etc.) *)
+let handle_media_modifier ~condition ?(prefix = None) base_class selector props
+    =
+  match prefix with
+  | Some pfx -> media_modifier ~condition ~prefix:pfx base_class props
+  | None -> media_query ~condition ~selector ~props ~base_class ()
+
+(** Handle pseudo-class modifiers (hover, focus, active, etc.) *)
+let handle_pseudo_class_modifier modifier base_class selector props =
+  let modified_base_selector = Modifiers.to_selector modifier base_class in
+  let modified_class =
+    extract_modified_class_name modified_base_selector base_class
+  in
+  let has_hover = Modifiers.is_hover modifier in
+  let modified_selector =
+    transform_selector_with_modifier modified_base_selector base_class
+      modified_class selector
+  in
+  regular ~selector:modified_selector ~props ~base_class ~has_hover ()
+
+(** Convert a modifier and its context to a CSS rule *)
 let modifier_to_rule modifier base_class selector props =
   match modifier with
-  | Data_state value ->
-      regular
-        ~selector:(selector_with_data_key selector "data-state" value)
-        ~props ~base_class ()
-  | Data_variant value ->
-      regular
-        ~selector:(selector_with_data_key selector "data-variant" value)
-        ~props ~base_class ()
-  | Data_custom (key, value) ->
-      regular
-        ~selector:(selector_with_data_key selector ("data-" ^ key) value)
-        ~props ~base_class ()
-  | Dark ->
-      media_query ~condition:"(prefers-color-scheme: dark)" ~selector ~props
-        ~base_class ()
-  | Responsive breakpoint ->
+  | Style.Data_state value ->
+      handle_data_modifier "state" value selector props base_class
+  | Style.Data_variant value ->
+      handle_data_modifier "variant" value selector props base_class
+  | Style.Data_custom (key, value) ->
+      handle_data_modifier key value selector props base_class
+  | Style.Dark ->
+      handle_media_modifier ~condition:"(prefers-color-scheme: dark)" base_class
+        selector props
+  | Style.Motion_safe ->
+      handle_media_modifier ~condition:"(prefers-reduced-motion: no-preference)"
+        ~prefix:(Some ".motion-safe\\:") base_class selector props
+  | Style.Motion_reduce ->
+      handle_media_modifier ~condition:"(prefers-reduced-motion: reduce)"
+        ~prefix:(Some ".motion-reduce\\:") base_class selector props
+  | Style.Contrast_more ->
+      handle_media_modifier ~condition:"(prefers-contrast: more)"
+        ~prefix:(Some ".contrast-more\\:") base_class selector props
+  | Style.Contrast_less ->
+      handle_media_modifier ~condition:"(prefers-contrast: less)"
+        ~prefix:(Some ".contrast-less\\:") base_class selector props
+  | Style.Responsive breakpoint ->
       responsive_rule breakpoint base_class selector props
-  | Container query -> container_rule query base_class selector props
-  | Not _modifier ->
+  | Style.Container query -> container_rule query base_class selector props
+  | Style.Not _modifier ->
       regular
         ~selector:
           (Css.Selector.class_raw
@@ -243,80 +306,31 @@ let modifier_to_rule modifier base_class selector props =
              ^ Css.Selector.to_string selector
              ^ ")"))
         ~props ~base_class ()
-  | Has selector_str -> has_like_selector `Has selector_str base_class props
-  | Group_has selector_str ->
+  | Style.Has selector_str ->
+      has_like_selector `Has selector_str base_class props
+  | Style.Group_has selector_str ->
       has_like_selector `Group_has selector_str base_class props
-  | Peer_has selector_str ->
+  | Style.Peer_has selector_str ->
       has_like_selector `Peer_has selector_str base_class props
-  | Starting ->
+  | Style.Starting ->
       starting_style
         ~selector:(Css.Selector.class_raw base_class)
         ~props ~base_class ()
-  | Motion_safe ->
-      media_modifier ~condition:"(prefers-reduced-motion: no-preference)"
-        ~prefix:".motion-safe\\:" base_class props
-  | Motion_reduce ->
-      media_modifier ~condition:"(prefers-reduced-motion: reduce)"
-        ~prefix:".motion-reduce\\:" base_class props
-  | Contrast_more ->
-      media_modifier ~condition:"(prefers-contrast: more)"
-        ~prefix:".contrast-more\\:" base_class props
-  | Contrast_less ->
-      media_modifier ~condition:"(prefers-contrast: less)"
-        ~prefix:".contrast-less\\:" base_class props
-  | Hover | Focus | Active | Focus_within | Focus_visible | Disabled ->
-      (* For complex selectors (like prose :where(...)), we need to apply the
-         modifier to the base class part while preserving the complex structure,
-         AND replace all occurrences of the base class inside the selector *)
-      let modified_base_selector = Modifiers.to_selector modifier base_class in
-      (* Extract just the class name from the modified selector for replacement
-         inside child selectors (without pseudo-class) *)
-      let modified_class =
-        match modified_base_selector with
-        | Css.Selector.Class cls -> cls
-        | Css.Selector.Compound selectors ->
-            (* For compound selectors like .hover:prose:hover, extract just the
-               class name *)
-            List.find_map
-              (function Css.Selector.Class cls -> Some cls | _ -> None)
-              selectors
-            |> Option.value ~default:base_class
-        | _ -> base_class
-      in
-      let has_hover = Modifiers.is_hover modifier in
-      (* Replace class names in child/descendant selectors (without
-         pseudo-class) *)
-      let replace_in_children =
-        replace_class_in_selector ~old_class:base_class
-          ~new_class:modified_class
-      in
-      (* Apply transformation: root gets full modified selector with
-         pseudo-class, descendants get just the class name *)
-      let rec transform_selector = function
-        | Css.Selector.Class cls when cls = base_class -> modified_base_selector
-        | Css.Selector.Combined (base_sel, combinator, complex_sel) ->
-            Css.Selector.Combined
-              ( transform_selector base_sel,
-                combinator,
-                replace_in_children complex_sel )
-        | Css.Selector.Compound selectors ->
-            Css.Selector.Compound (List.map transform_selector selectors)
-        | other -> other
-      in
-      let modified_selector = transform_selector selector in
-      regular ~selector:modified_selector ~props ~base_class ~has_hover ()
+  | Style.Hover | Style.Focus | Style.Active | Style.Focus_within
+  | Style.Focus_visible | Style.Disabled ->
+      handle_pseudo_class_modifier modifier base_class selector props
   | _ ->
       let sel = Modifiers.to_selector modifier base_class in
       let has_hover = Modifiers.is_hover modifier in
       regular ~selector:sel ~props ~base_class ~has_hover ()
 
-(* Extract selector and properties from a single Tw style *)
-let extract_selector_props tw =
-  let rec extract = function
-    | Style { name; props; rules; _ } -> (
-        let sel = Css.Selector.class_raw name in
+(* Extract selector and properties from a single Utility *)
+let extract_selector_props util =
+  let rec extract_with_class class_name util_inner = function
+    | Style.Style { props; rules; _ } -> (
+        let sel = Css.Selector.class_raw class_name in
         match rules with
-        | None -> [ regular ~selector:sel ~props ~base_class:name () ]
+        | None -> [ regular ~selector:sel ~props ~base_class:class_name () ]
         | Some rule_list ->
             (* Convert custom rules to selector/props pairs *)
             let custom_rules =
@@ -324,11 +338,11 @@ let extract_selector_props tw =
               |> List.map (fun rule ->
                      match Css.as_rule rule with
                      | Some (selector, declarations, _) ->
-                         regular ~selector ~props:declarations ~base_class:name
-                           ()
+                         regular ~selector ~props:declarations
+                           ~base_class:class_name ()
                      | None ->
                          regular ~selector:Css.Selector.universal ~props:[]
-                           ~base_class:name ())
+                           ~base_class:class_name ())
             in
 
             (* If there are base props, add them after the custom rules to match
@@ -336,9 +350,18 @@ let extract_selector_props tw =
             if props = [] then custom_rules
             else
               custom_rules
-              @ [ regular ~selector:sel ~props ~base_class:name () ])
-    | Modified (modifier, t) ->
-        let base = extract t in
+              @ [ regular ~selector:sel ~props ~base_class:class_name () ])
+    | Style.Modified (modifier, t) ->
+        (* For Modified, we need to extract the base class from the inner
+           utility *)
+        let base_util, base_style =
+          match util_inner with
+          | Utility.Modified (_, inner_util) -> (inner_util, t)
+          | _ -> (util_inner, t)
+          (* shouldn't happen *)
+        in
+        let base_class_name = Utility.to_class base_util in
+        let base = extract_with_class base_class_name base_util base_style in
         List.concat_map
           (fun rule_out ->
             match rule_out with
@@ -348,66 +371,68 @@ let extract_selector_props tw =
                 [ modifier_to_rule modifier bc selector props ]
             | _ -> [ rule_out ])
           base
-    | Group styles -> List.concat_map extract styles
+    | Style.Group styles -> (
+        (* For Group, extract each element *)
+        let extract_group_item style_item util_item =
+          let class_name_item = Utility.to_class util_item in
+          extract_with_class class_name_item util_item style_item
+        in
+        match util_inner with
+        | Utility.Group util_items ->
+            List.map2 extract_group_item styles util_items |> List.concat
+        | _ -> List.concat_map (extract_with_class class_name util_inner) styles
+        )
   in
-  extract tw
+  let class_name = Utility.to_class util in
+  let style = Utility.to_style util in
+  extract_with_class class_name util style
 
 (* ======================================================================== *)
 (* Conflict Resolution - Order utilities by specificity *)
 (* ======================================================================== *)
 
-let conflict_order selector =
-  let core =
-    if String.starts_with ~prefix:"." selector then
-      String.sub selector 1 (String.length selector - 1)
-    else selector
-  in
+(** Strip leading dot from selector string *)
+let extract_core_selector selector =
+  if String.starts_with ~prefix:"." selector then
+    String.sub selector 1 (String.length selector - 1)
+  else selector
 
-  (* Extract just the first class name (before any space, combinator, etc.) to
-     avoid confusing descendant selectors like ".prose :where(p)" with modifier
-     prefixes like "hover:prose" *)
-  let class_name =
-    match String.index_opt core ' ' with
-    | Some space_pos -> String.sub core 0 space_pos
-    | None -> core
-  in
+(** Extract first class name before any space, combinator, etc. This avoids
+    confusing descendant selectors like ".prose :where(p)" with modifier
+    prefixes like "hover:prose" *)
+let extract_first_class_name core =
+  match String.index_opt core ' ' with
+  | Some space_pos -> String.sub core 0 space_pos
+  | None -> core
 
-  (* Strip CSS pseudo-selectors (like :has(img), :hover, etc.) that appear at
-     the end of the selector. These follow a pattern of :name or :name(args). We
-     look for colons that aren't escaped (\\:) and are followed by lowercase
-     letters or opening parenthesis, indicating a CSS pseudo-selector rather
-     than a modifier prefix. *)
-  let strip_pseudo_selectors s =
-    (* Find last occurrence of unescaped : that's followed by a lowercase letter
-       or ( *)
-    let len = String.length s in
-    let rec find_last_pseudo i =
-      if i < 0 then s
-      else if s.[i] = ':' && i + 1 < len then
-        let next_char = s.[i + 1] in
-        (* Check if this looks like a CSS pseudo-selector *)
-        if (next_char >= 'a' && next_char <= 'z') || next_char = '(' then
-          (* Found a pseudo-selector, strip from here *)
-          String.sub s 0 i
-        else find_last_pseudo (i - 1)
+(** Strip CSS pseudo-selectors from the end of a class name. Pseudo-selectors
+    like :has(img), :hover follow the pattern :name or :name(args). We look for
+    colons followed by lowercase letters or opening parenthesis, indicating a
+    CSS pseudo-selector rather than a modifier prefix. *)
+let strip_pseudo_selectors s =
+  let len = String.length s in
+  let rec find_last_pseudo i =
+    if i < 0 then s
+    else if s.[i] = ':' && i + 1 < len then
+      let next_char = s.[i + 1] in
+      if (next_char >= 'a' && next_char <= 'z') || next_char = '(' then
+        String.sub s 0 i
       else find_last_pseudo (i - 1)
-    in
-    find_last_pseudo (len - 1)
+    else find_last_pseudo (i - 1)
   in
+  find_last_pseudo (len - 1)
 
-  let class_name_no_pseudo = strip_pseudo_selectors class_name in
+(** Strip modifier prefixes (sm:, md:, hover:, etc.) to extract base utility
+    name. Modifier prefixes come before the utility name. *)
+let extract_base_utility class_name_no_pseudo =
+  match String.rindex_opt class_name_no_pseudo ':' with
+  | Some colon_pos ->
+      String.sub class_name_no_pseudo (colon_pos + 1)
+        (String.length class_name_no_pseudo - colon_pos - 1)
+  | None -> class_name_no_pseudo
 
-  (* Strip modifier prefixes (sm:, md:, hover:, etc.) from the class name to get
-     the base utility name. Modifier prefixes come before the utility name. *)
-  let base_utility =
-    match String.rindex_opt class_name_no_pseudo ':' with
-    | Some colon_pos ->
-        String.sub class_name_no_pseudo (colon_pos + 1)
-          (String.length class_name_no_pseudo - colon_pos - 1)
-    | None -> class_name_no_pseudo
-  in
-
-  (* Parse the utility and get ordering from Utility.order *)
+(** Parse utility and get ordering, with fallback for non-utility classes *)
+let parse_utility_order base_utility =
   let parts = String.split_on_char '-' base_utility in
   match Utility.base_of_strings parts with
   | Ok u -> Utility.order u
@@ -415,6 +440,12 @@ let conflict_order selector =
       (* Some selectors (like .group, .peer, .container) are marker classes that
          don't parse as utilities. Give them a default low priority. *)
       (9999, 0)
+
+(** Compute conflict resolution order from a CSS selector string. Returns
+    (priority, suborder) tuple for ordering utilities. *)
+let conflict_order selector =
+  selector |> extract_core_selector |> extract_first_class_name
+  |> strip_pseudo_selectors |> extract_base_utility |> parse_utility_order
 
 (* Extract selector and props pairs from Regular rules. *)
 let extract_selector_props_pairs rules =
@@ -918,44 +949,29 @@ let build_properties_layer explicit_property_rules_statements =
     let layer = Css.v [ Css.layer ~name:"properties" layer_content ] in
     (layer, deduplicated_property_rules)
 
-let build_layers ~include_base ~selector_props tw_classes rules media_queries
-    container_queries =
-  (* Combined extraction of variables and property rules in a single
-     traversal *)
-  let rec extract_vars_and_property_rules = function
-    | Style.Style { props; rules; property_rules; _ } ->
-        let vars_from_props = Css.vars_of_declarations props in
-        let vars_from_rules =
-          match rules with Some r -> Css.vars_of_rules r | None -> []
-        in
-        (vars_from_props @ vars_from_rules, [ property_rules ])
-    | Style.Modified (_, t) -> extract_vars_and_property_rules t
-    | Style.Group ts ->
-        let vars_list, prop_rules_list =
-          List.split (List.map extract_vars_and_property_rules ts)
-        in
-        (List.concat vars_list, List.concat prop_rules_list)
-  in
-  (* Collect CSS variables and property rules in a single pass *)
-  let vars_from_utilities, property_rules_lists =
-    let results = List.map extract_vars_and_property_rules tw_classes in
-    let vars_list, prop_rules_list = List.split results in
-    (List.concat vars_list, List.concat prop_rules_list)
-  in
-  (* Collect explicit property_rules from Style objects first *)
-  (* We need this before processing other variables *)
-  let explicit_property_rules_statements =
-    property_rules_lists |> List.concat_map Css.statements
-  in
+(** Extract variables and property rules from utility styles recursively *)
+let rec extract_vars_and_property_rules_from_style = function
+  | Style.Style { props; rules; property_rules; _ } ->
+      let vars_from_props = Css.vars_of_declarations props in
+      let vars_from_rules =
+        match rules with Some r -> Css.vars_of_rules r | None -> []
+      in
+      (vars_from_props @ vars_from_rules, [ property_rules ])
+  | Style.Modified (_, t) -> extract_vars_and_property_rules_from_style t
+  | Style.Group ts ->
+      let vars_list, prop_rules_list =
+        List.split (List.map extract_vars_and_property_rules_from_style ts)
+      in
+      (List.concat vars_list, List.concat prop_rules_list)
 
-  (* Get variables that need @property rules (from ~property flag) *)
+(** Collect all property rules: explicit ones and auto-generated ones *)
+let collect_all_property_rules vars_from_utilities
+    explicit_property_rules_statements =
+  (* Get variables that need @property rules *)
   let vars_needing_property =
     vars_from_utilities
     |> List.filter (fun (Css.V v) -> Var.var_needs_property v)
   in
-
-  (* Generate @property rules for variables that need them but don't have
-     explicit rules *)
   (* Compute names of variables that already have explicit @property rules *)
   let explicit_property_var_names_set =
     explicit_property_rules_statements
@@ -965,87 +981,94 @@ let build_layers ~include_base ~selector_props tw_classes rules media_queries
            | None -> None)
     |> List.fold_left (fun acc n -> Strings.add n acc) Strings.empty
   in
+  (* Generate @property rules for variables without explicit rules *)
   let property_rules_from_utilities =
     vars_needing_property
     |> List.filter (fun (Css.V v) ->
-           (* Don't generate automatic @property if there's an explicit one *)
            let var_name = "--" ^ Css.var_name v in
            not (Strings.mem var_name explicit_property_var_names_set))
     |> List.map (fun (Css.V v) ->
            let var_name = "--" ^ Css.var_name v in
-           (* For now, use Universal syntax ("*") which accepts any value *)
            Css.property ~name:var_name Css.Universal ~inherits:false ())
   in
+  let property_rules_from_utilities_as_statements =
+    property_rules_from_utilities |> List.concat_map Css.statements
+  in
+  explicit_property_rules_statements
+  @ property_rules_from_utilities_as_statements
 
-  (* Existing layers in exact order *)
+(** Build layer declaration list based on which layers are present *)
+let build_layer_declaration ~has_properties ~include_base =
+  let names =
+    (if has_properties then [ "properties" ] else [])
+    @
+    if include_base then [ "theme"; "base"; "components"; "utilities" ]
+    else [ "theme"; "components"; "utilities" ]
+  in
+  Css.v [ Css.layer_decl names ]
+
+(** Assemble all CSS layers in the correct order *)
+let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
+    ~utilities_layer ~property_rules_for_end =
+  let base_layers =
+    if include_base then [ theme_layer; base_layer ] else [ theme_layer ]
+  in
+  let components_declaration = Css.v [ Css.layer_decl [ "components" ] ] in
+  let layer_names =
+    build_layer_declaration
+      ~has_properties:(Option.is_some properties_layer)
+      ~include_base
+  in
+  let initial_layers =
+    match properties_layer with None -> [] | Some l -> [ l ]
+  in
+  let layers_without_property =
+    [ layer_names ] @ initial_layers @ base_layers
+    @ [ components_declaration; utilities_layer ]
+  in
+  let property_rules_css =
+    if property_rules_for_end = [] then [] else [ Css.v property_rules_for_end ]
+  in
+  layers_without_property @ property_rules_css
+
+(** Build all CSS layers from utilities and rules *)
+let build_layers ~include_base ~selector_props tw_classes rules media_queries
+    container_queries =
+  (* Convert Utility.t list to Style.t list *)
+  let styles = List.map Utility.to_style tw_classes in
+  (* Extract variables and property rules in a single pass *)
+  let vars_from_utilities, property_rules_lists =
+    let results = List.map extract_vars_and_property_rules_from_style styles in
+    let vars_list, prop_rules_list = List.split results in
+    (List.concat vars_list, List.concat prop_rules_list)
+  in
+  let explicit_property_rules_statements =
+    property_rules_lists |> List.concat_map Css.statements
+  in
+  (* Collect all property rules (explicit + auto-generated) *)
+  let all_property_statements =
+    collect_all_property_rules vars_from_utilities
+      explicit_property_rules_statements
+  in
+  (* Build individual layers *)
   let theme_defaults = Typography.default_font_family_declarations in
   let theme_layer =
     compute_theme_layer_from_selector_props ~default_decls:theme_defaults
       selector_props
   in
   let base_layer = build_base_layer ~supports:placeholder_supports () in
-
-  (* Build layer list with properties layer first if we have property rules *)
-  let layers =
-    (* Properties layer is built from ALL property rules (explicit +
-       auto-generated) *)
-    let property_rules_from_utilities_as_statements =
-      property_rules_from_utilities |> List.concat_map Css.statements
-    in
-    let all_property_statements =
-      explicit_property_rules_statements
-      @ property_rules_from_utilities_as_statements
-    in
-    let properties_layer, property_rules_for_end =
-      if all_property_statements = [] then (None, [])
-      else
-        let layer, prop_rules =
-          build_properties_layer all_property_statements
-        in
-        (* Check if the properties layer is actually empty (Css.empty) *)
-        if layer = Css.empty then (None, prop_rules)
-        else (Some layer, prop_rules)
-    in
-    let base_layers =
-      if include_base then [ theme_layer; base_layer ] else [ theme_layer ]
-    in
-    (* Always generate separate components declaration and utilities layer to
-       match Tailwind v4 behavior *)
-    let components_declaration = Css.v [ Css.layer_decl [ "components" ] ] in
-    let utilities_layer =
-      build_utilities_layer ~rules ~media_queries ~container_queries
-    in
-
-    (* Add layer declaration list at beginning *)
-    let layer_names =
-      let names =
-        (match properties_layer with Some _ -> [ "properties" ] | None -> [])
-        @
-        if include_base then [ "theme"; "base"; "components"; "utilities" ]
-        else [ "theme"; "components"; "utilities" ]
-      in
-      Css.v [ Css.layer_decl names ]
-    in
-
-    let initial_layers =
-      match properties_layer with None -> [] | Some l -> [ l ]
-    in
-    (* Layers without @property rules *)
-    let layers_without_property =
-      [ layer_names ] @ initial_layers @ base_layers
-      @ [ components_declaration; utilities_layer ]
-    in
-    (* Append @property rules at the END (after all layers) to match Tailwind
-       v4 *)
-    let property_rules_css =
-      if property_rules_for_end = [] then []
-      else [ Css.v property_rules_for_end ]
-    in
-    layers_without_property @ property_rules_css
+  let properties_layer, property_rules_for_end =
+    if all_property_statements = [] then (None, [])
+    else
+      let layer, prop_rules = build_properties_layer all_property_statements in
+      if layer = Css.empty then (None, prop_rules) else (Some layer, prop_rules)
   in
-
-  (* Return layers with @property rules at the end *)
-  layers
+  let utilities_layer =
+    build_utilities_layer ~rules ~media_queries ~container_queries
+  in
+  (* Assemble everything in the correct order *)
+  assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
+    ~utilities_layer ~property_rules_for_end
 
 let wrap_css_items ~rules ~media_queries ~container_queries =
   let rules_stylesheet = Css.v rules in
@@ -1098,11 +1121,13 @@ let to_css ?(config = default_config) tw_classes =
   (* Apply optimization if requested *)
   if config.optimize then Css.optimize stylesheet else stylesheet
 
-let to_inline_style styles =
+let to_inline_style utilities =
+  (* Convert Utility.t list to Style.t list *)
+  let styles = List.map Utility.to_style utilities in
   (* Collect all declarations from props and embedded rules. Build in reverse
      using [rev_append] to avoid quadratic concatenations, then reverse once. *)
   let rec collect acc = function
-    | Style { props; rules; _ } ->
+    | Style.Style { props; rules; _ } ->
         let from_rules =
           match rules with
           | None -> []
@@ -1118,8 +1143,8 @@ let to_inline_style styles =
         in
         let acc = List.rev_append from_rules acc in
         List.rev_append props acc
-    | Modified (_, t) -> collect acc t
-    | Group ts -> List.fold_left collect acc ts
+    | Style.Modified (_, t) -> collect acc t
+    | Style.Group ts -> List.fold_left collect acc ts
   in
   let all_props = List.rev (List.fold_left collect [] styles) in
   (* Filter out CSS custom properties (variables) - they shouldn't be in inline
