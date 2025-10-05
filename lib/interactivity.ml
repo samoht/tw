@@ -175,37 +175,38 @@ module Handler = struct
     | Peer -> peer_s
 
   let suborder = function
-    | Select_all -> 0
-    | Select_auto -> 1
-    | Select_none -> 2
-    | Select_text -> 3
-    | Scroll_auto -> 4
-    | Scroll_smooth -> 16
-    | Snap_align_none -> 17
-    | Snap_always -> 18
-    | Snap_both -> 19
-    | Snap_center -> 20
-    | Snap_end -> 21
-    | Snap_mandatory -> 22
-    | Snap_none -> 23
-    | Snap_normal -> 24
-    | Snap_proximity -> 25
-    | Snap_start -> 26
-    | Snap_x -> 27
-    | Snap_y -> 28
-    | Resize -> 29
-    | Resize_none -> 30
-    | Resize_x -> 31
-    | Resize_y -> 32
-    | Pointer_events_auto -> 33
-    | Pointer_events_none -> 34
-    | Appearance_none -> 35
-    | Will_change_auto -> 36
-    | Will_change_contents -> 37
-    | Will_change_scroll -> 38
-    | Will_change_transform -> 39
-    | Group -> 40
-    | Peer -> 41
+    (* Alphabetical order: scroll before select *)
+    | Scroll_auto -> 0
+    | Scroll_smooth -> 1
+    | Select_all -> 2
+    | Select_auto -> 3
+    | Select_none -> 4
+    | Select_text -> 5
+    | Snap_align_none -> 10
+    | Snap_always -> 11
+    | Snap_both -> 12
+    | Snap_center -> 13
+    | Snap_end -> 14
+    | Snap_mandatory -> 15
+    | Snap_none -> 16
+    | Snap_normal -> 17
+    | Snap_proximity -> 18
+    | Snap_start -> 19
+    | Snap_x -> 20
+    | Snap_y -> 21
+    | Resize -> 22
+    | Resize_none -> 23
+    | Resize_x -> 24
+    | Resize_y -> 25
+    | Pointer_events_auto -> 26
+    | Pointer_events_none -> 27
+    | Appearance_none -> 28
+    | Will_change_auto -> 29
+    | Will_change_contents -> 30
+    | Will_change_scroll -> 31
+    | Will_change_transform -> 32
+    | Group -> 33
+    | Peer -> 34
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in

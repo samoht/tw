@@ -94,10 +94,10 @@ module Handler = struct
   let int_of_string_with_sign = Parse.int_any
 
   let suborder = function
-    | Position_static -> 0
-    | Position_relative -> 1
-    | Position_absolute -> 2
-    | Position_fixed -> 3
+    | Position_absolute -> 0
+    | Position_fixed -> 1
+    | Position_relative -> 2
+    | Position_static -> 3
     | Position_sticky -> 4
     | Inset_0 -> 100
     | Inset_x_0 -> 101
