@@ -403,72 +403,72 @@ module Handler = struct
   let err_not_utility = Error (`Msg "Not a border utility")
 
   let suborder = function
-    (* Border width utilities (0-99) *)
-    | Border -> 0
-    | Border_0 -> 1
-    | Border_2 -> 2
-    | Border_4 -> 3
-    | Border_8 -> 4
-    (* Border side/axis utilities (100-199) *)
-    | Border_t -> 100
-    | Border_r -> 101
-    | Border_b -> 102
-    | Border_l -> 103
-    | Border_x -> 104
-    | Border_y -> 105
-    (* Border side utilities with widths (200-399) *)
-    | Border_t_0 -> 200
-    | Border_t_2 -> 201
-    | Border_t_4 -> 202
-    | Border_t_8 -> 203
-    | Border_r_0 -> 210
-    | Border_r_2 -> 211
-    | Border_r_4 -> 212
-    | Border_r_8 -> 213
-    | Border_b_0 -> 220
-    | Border_b_2 -> 221
-    | Border_b_4 -> 222
-    | Border_b_8 -> 223
-    | Border_l_0 -> 230
-    | Border_l_2 -> 231
-    | Border_l_4 -> 232
-    | Border_l_8 -> 233
-    (* Border style utilities (400-499) *)
-    | Border_solid -> 400
-    | Border_dashed -> 401
-    | Border_dotted -> 402
-    | Border_double -> 403
-    | Border_none -> 404
-    (* Border radius utilities (1000-1099) *)
-    | Rounded -> 1000
-    | Rounded_none -> 1001
-    | Rounded_sm -> 1002
-    | Rounded_md -> 1003
-    | Rounded_lg -> 1004
-    | Rounded_xl -> 1005
-    | Rounded_2xl -> 1006
-    | Rounded_3xl -> 1007
-    | Rounded_full -> 1008
-    (* Side-specific rounded utilities (1100-1199) *)
-    | Rounded_t -> 1100
-    | Rounded_r -> 1101
-    | Rounded_b -> 1102
-    | Rounded_l -> 1103
-    (* Corner-specific rounded utilities (1200-1299) *)
-    | Rounded_tl -> 1200
-    | Rounded_tr -> 1201
-    | Rounded_br -> 1202
-    | Rounded_bl -> 1203
-    (* Corner-specific rounded utilities with sizes (1300-1399) *)
-    | Rounded_t_lg -> 1300
-    | Rounded_tl_2xl -> 1301
+    (* Border radius utilities (0-99) - alphabetical, comes before border *)
+    | Rounded -> 0
+    | Rounded_2xl -> 1
+    | Rounded_3xl -> 2
+    | Rounded_full -> 3
+    | Rounded_lg -> 4
+    | Rounded_md -> 5
+    | Rounded_none -> 6
+    | Rounded_sm -> 7
+    | Rounded_xl -> 8
+    (* Side-specific rounded utilities (100-199) *)
+    | Rounded_t -> 100
+    | Rounded_r -> 101
+    | Rounded_b -> 102
+    | Rounded_l -> 103
+    (* Corner-specific rounded utilities (200-299) *)
+    | Rounded_tl -> 200
+    | Rounded_tr -> 201
+    | Rounded_br -> 202
+    | Rounded_bl -> 203
+    (* Corner-specific rounded utilities with sizes (300-399) *)
+    | Rounded_t_lg -> 300
+    | Rounded_tl_2xl -> 301
+    (* Border width utilities (1000-1099) *)
+    | Border -> 1000
+    | Border_0 -> 1001
+    | Border_2 -> 1002
+    | Border_4 -> 1003
+    | Border_8 -> 1004
+    (* Border side/axis utilities (1100-1199) - alphabetical *)
+    | Border_b -> 1100
+    | Border_l -> 1101
+    | Border_r -> 1102
+    | Border_t -> 1103
+    | Border_x -> 1104
+    | Border_y -> 1105
+    (* Border side utilities with widths (1200-1399) *)
+    | Border_t_0 -> 1200
+    | Border_t_2 -> 1201
+    | Border_t_4 -> 1202
+    | Border_t_8 -> 1203
+    | Border_r_0 -> 1210
+    | Border_r_2 -> 1211
+    | Border_r_4 -> 1212
+    | Border_r_8 -> 1213
+    | Border_b_0 -> 1220
+    | Border_b_2 -> 1221
+    | Border_b_4 -> 1222
+    | Border_b_8 -> 1223
+    | Border_l_0 -> 1230
+    | Border_l_2 -> 1231
+    | Border_l_4 -> 1232
+    | Border_l_8 -> 1233
+    (* Border style utilities (1400-1499) - alphabetical *)
+    | Border_dashed -> 1400
+    | Border_dotted -> 1401
+    | Border_double -> 1402
+    | Border_none -> 1403
+    | Border_solid -> 1404
     (* Outline utilities (2000-2099) *)
-    | Outline_none -> 1999
-    | Outline_offset_0 -> 2000
-    | Outline_offset_1 -> 2001
-    | Outline_offset_2 -> 2002
-    | Outline_offset_4 -> 2003
-    | Outline_offset_8 -> 2004
+    | Outline_none -> 2000
+    | Outline_offset_0 -> 2001
+    | Outline_offset_1 -> 2002
+    | Outline_offset_2 -> 2003
+    | Outline_offset_4 -> 2004
+    | Outline_offset_8 -> 2005
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in

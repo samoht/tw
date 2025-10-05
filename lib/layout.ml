@@ -63,14 +63,12 @@ module Handler = struct
   let priority = 4
 
   let suborder = function
-    (* Screen reader - must come before display utilities *)
     | Sr_only -> 0
     | Not_sr_only -> 1
-    (* Display utilities - suborder matches alphabetical position *)
-    | Block -> 1
-    | Hidden -> 4
-    | Inline -> 5
-    | Inline_block -> 6
+    | Block -> 2
+    | Hidden -> 3
+    | Inline -> 4
+    | Inline_block -> 5
     (* Overflow utilities *)
     | Overflow_auto -> 10
     | Overflow_clip -> 11

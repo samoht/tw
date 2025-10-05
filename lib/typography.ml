@@ -681,25 +681,25 @@ module Handler = struct
   (** {1 Ordering Support} *)
 
   let suborder = function
-    (* Text align comes first to match Tailwind ordering *)
-    | Text_justify -> 1001
-    | Text_left -> 1002
-    | Text_center -> 1003
+    (* Text align comes first - alphabetical order *)
+    | Text_center -> 1001
+    | Text_justify -> 1002
+    | Text_left -> 1003
     | Text_right -> 1004
-    (* Font sizes come second - ordered from smallest to largest *)
-    | Text_xs -> 2001
-    | Text_sm -> 2002
-    | Text_base -> 2003
-    | Text_lg -> 2004
-    | Text_xl -> 2005
-    | Text_2xl -> 2006
-    | Text_3xl -> 2007
-    | Text_4xl -> 2008
-    | Text_5xl -> 2009
-    | Text_6xl -> 2010
-    | Text_7xl -> 2011
-    | Text_8xl -> 2012
-    | Text_9xl -> 2013
+    (* Font sizes come second - alphabetical order *)
+    | Text_2xl -> 2001
+    | Text_3xl -> 2002
+    | Text_4xl -> 2003
+    | Text_5xl -> 2004
+    | Text_6xl -> 2005
+    | Text_7xl -> 2006
+    | Text_8xl -> 2007
+    | Text_9xl -> 2008
+    | Text_base -> 2009
+    | Text_lg -> 2010
+    | Text_sm -> 2011
+    | Text_xl -> 2012
+    | Text_xs -> 2013
     (* Leading comes third *)
     | Leading_none -> 3001
     | Leading_relaxed -> 3002
@@ -708,15 +708,15 @@ module Handler = struct
     | Leading_tight -> 3005
     | Leading_loose -> 3006
     | Leading n -> 3100 + n
-    (* Font weight comes fourth *)
+    (* Font weight comes fourth - alphabetical order *)
     | Font_black -> 4100
-    | Font_extrabold -> 4200
-    | Font_bold -> 4300
-    | Font_medium -> 4400
-    | Font_semibold -> 4500
-    | Font_normal -> 4600
-    | Font_light -> 4700
-    | Font_extralight -> 4800
+    | Font_bold -> 4200
+    | Font_extrabold -> 4300
+    | Font_extralight -> 4400
+    | Font_light -> 4500
+    | Font_medium -> 4600
+    | Font_normal -> 4700
+    | Font_semibold -> 4800
     | Font_thin -> 4900
     (* Decoration color comes after font weight *)
     | Decoration_color (color, shade_opt) -> (
