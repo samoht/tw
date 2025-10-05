@@ -48,6 +48,7 @@ type modifier =
 
 type t =
   | Style of {
+      name : string;
       props : Css.declaration list;
       rules : Css.statement list option;
       property_rules : Css.t;
@@ -70,12 +71,13 @@ val pp_modifier : modifier -> string
 val style :
   ?rules:Css.statement list option ->
   ?property_rules:Css.t ->
+  string ->
   Css.declaration list ->
   t
-(** [style ?vars ?rules ?property_rules props] defines a utility [name] with CSS
+(** [style ?rules ?property_rules name props] defines a utility [name] with CSS
     [props].
-    - [vars]: Optional variable bindings that will be extracted as declarations.
     - [rules]: Optional custom CSS rules (for utilities like prose that generate
       multiple rules with descendant selectors).
     - [property_rules]: Optional CSS property rules needed by this utility.
+    - [name]: The name of the utility (for debugging).
     - [props]: CSS properties to apply. *)
