@@ -74,7 +74,7 @@ let tests =
   [
     test_case "translate+rotate" `Quick test_translate_rotate;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
-    test_case "transforms suborder matches Tailwind" `Slow
+    test_case "transforms suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
 

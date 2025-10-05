@@ -63,7 +63,8 @@ let tests =
   [
     test_case "margin of_string - valid values" `Quick of_string_valid;
     test_case "margin of_string - invalid values" `Quick of_string_invalid;
-    test_case "margin suborder matches Tailwind" `Slow suborder_matches_tailwind;
+    test_case "margin suborder matches Tailwind" `Quick
+      suborder_matches_tailwind;
   ]
 
 let suite = ("margin", tests)

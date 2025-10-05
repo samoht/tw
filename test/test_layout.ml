@@ -97,7 +97,8 @@ let tests =
     test_case "overflow" `Quick test_overflow;
     test_case "screen reader utilities" `Quick test_screen_reader;
     test_case "layout of_string - invalid values" `Quick of_string_invalid;
-    test_case "layout suborder matches Tailwind" `Slow suborder_matches_tailwind;
+    test_case "layout suborder matches Tailwind" `Quick
+      suborder_matches_tailwind;
   ]
 
 let suite = ("layout", tests)

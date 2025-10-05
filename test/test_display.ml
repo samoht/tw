@@ -34,7 +34,7 @@ let tests =
   [
     test_case "display of_string - valid values" `Quick of_string_valid;
     test_case "display of_string - invalid values" `Quick of_string_invalid;
-    test_case "display suborder matches Tailwind" `Slow
+    test_case "display suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
 

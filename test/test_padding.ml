@@ -55,7 +55,7 @@ let tests =
   [
     test_case "padding of_string - valid values" `Quick of_string_valid;
     test_case "padding of_string - invalid values" `Quick of_string_invalid;
-    test_case "padding suborder matches Tailwind" `Slow
+    test_case "padding suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
 

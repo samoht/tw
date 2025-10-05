@@ -101,7 +101,7 @@ let tests =
   [
     test_case "borders of_string - valid values" `Quick of_string_valid;
     test_case "borders of_string - invalid values" `Quick of_string_invalid;
-    test_case "borders suborder matches Tailwind" `Slow
+    test_case "borders suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
 

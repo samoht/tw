@@ -127,7 +127,8 @@ let tests =
     test_case "sizing of_string - invalid values" `Quick of_string_invalid;
     test_case "aspect classes" `Quick test_aspect_classes;
     test_case "aspect css" `Quick test_aspect_css;
-    test_case "sizing suborder matches Tailwind" `Slow suborder_matches_tailwind;
+    test_case "sizing suborder matches Tailwind" `Quick
+      suborder_matches_tailwind;
   ]
 
 let suite = ("sizing", tests)

@@ -228,7 +228,7 @@ let tests =
     test_case "numeric variants" `Quick test_numeric_variants;
     test_case "content" `Quick test_content;
     test_case "typography of_string - invalid values" `Quick of_string_invalid;
-    test_case "typography suborder matches Tailwind" `Slow
+    test_case "typography suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]
 
