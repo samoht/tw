@@ -25,15 +25,6 @@ module Handler = struct
     | Ring_xl
     | Ring_inset
     | Ring_color of Color.color * int
-    (* Transitions *)
-    | Transition_none
-    | Transition_all
-    | Transition_colors
-    | Transition_opacity
-    | Transition_shadow
-    | Transition_transform
-    (* Duration *)
-    | Duration of int
     (* Mix blend modes *)
     | Mix_blend_normal
     | Mix_blend_multiply
@@ -610,118 +601,6 @@ module Handler = struct
     let d, _ = Var.binding ring_color_var color_value in
     style (d :: [])
 
-  let transition_none =
-    style
-      [
-        transition
-          (Shorthand
-             {
-               property = None;
-               duration = Some (S 0.0);
-               timing_function = None;
-               delay = None;
-             });
-      ]
-
-  let transition_all =
-    style
-      [
-        transition
-          (Shorthand
-             {
-               property = All;
-               duration = Some (Ms 150.);
-               timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-               delay = None;
-             });
-      ]
-
-  let transition_colors =
-    style
-      [
-        Css.transitions
-          [
-            Shorthand
-              {
-                property = Property "background-color";
-                duration = Some (Ms 150.);
-                timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-                delay = None;
-              };
-            Shorthand
-              {
-                property = Property "border-color";
-                duration = Some (Ms 150.);
-                timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-                delay = None;
-              };
-            Shorthand
-              {
-                property = Property "color";
-                duration = Some (Ms 150.);
-                timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-                delay = None;
-              };
-            Shorthand
-              {
-                property = Property "fill";
-                duration = Some (Ms 150.);
-                timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-                delay = None;
-              };
-            Shorthand
-              {
-                property = Property "stroke";
-                duration = Some (Ms 150.);
-                timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-                delay = None;
-              };
-          ];
-      ]
-
-  let transition_opacity =
-    style
-      [
-        transition
-          (Shorthand
-             {
-               property = Property "opacity";
-               duration = Some (Ms 150.);
-               timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-               delay = None;
-             });
-      ]
-
-  let transition_shadow =
-    style
-      [
-        transition
-          (Shorthand
-             {
-               property = Property "box-shadow";
-               duration = Some (Ms 150.);
-               timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-               delay = None;
-             });
-      ]
-
-  let transition_transform =
-    style
-      [
-        transition
-          (Shorthand
-             {
-               property = Property "transform";
-               duration = Some (Ms 150.);
-               timing_function = Some (Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-               delay = None;
-             });
-      ]
-
-  let duration n =
-    let seconds = float_of_int n /. 1000.0 in
-    style [ transition_duration (S seconds) ]
-
   let opacity n =
     let value = float_of_int n /. 100.0 in
     style [ opacity value ]
@@ -762,13 +641,6 @@ module Handler = struct
     | Ring_xl -> ring_xl
     | Ring_inset -> ring_inset
     | Ring_color (color, shade) -> ring_color color shade
-    | Transition_none -> transition_none
-    | Transition_all -> transition_all
-    | Transition_colors -> transition_colors
-    | Transition_opacity -> transition_opacity
-    | Transition_shadow -> transition_shadow
-    | Transition_transform -> transition_transform
-    | Duration n -> duration n
     | Mix_blend_normal -> mix_blend_normal
     | Mix_blend_multiply -> mix_blend_multiply
     | Mix_blend_screen -> mix_blend_screen
@@ -810,15 +682,6 @@ module Handler = struct
     | [ "ring"; "4" ] -> Ok Ring_lg
     | [ "ring"; "8" ] -> Ok Ring_xl
     | [ "ring"; "inset" ] -> Ok Ring_inset
-    | [ "transition" ] -> Ok Transition_all
-    | [ "transition"; "none" ] -> Ok Transition_none
-    | [ "transition"; "all" ] -> Ok Transition_all
-    | [ "transition"; "colors" ] -> Ok Transition_colors
-    | [ "transition"; "opacity" ] -> Ok Transition_opacity
-    | [ "transition"; "shadow" ] -> Ok Transition_shadow
-    | [ "transition"; "transform" ] -> Ok Transition_transform
-    | [ "duration"; n ] ->
-        Parse.int_pos ~name:"duration" n >|= fun n -> Duration n
     | [ "mix"; "blend"; "normal" ] -> Ok Mix_blend_normal
     | [ "mix"; "blend"; "multiply" ] -> Ok Mix_blend_multiply
     | [ "mix"; "blend"; "screen" ] -> Ok Mix_blend_screen
@@ -856,13 +719,6 @@ module Handler = struct
     | Ring_inset -> "ring-inset"
     | Ring_color (color, shade) ->
         "ring-" ^ Color.pp color ^ "-" ^ string_of_int shade
-    | Transition_none -> "transition-none"
-    | Transition_all -> "transition-all"
-    | Transition_colors -> "transition-colors"
-    | Transition_opacity -> "transition-opacity"
-    | Transition_shadow -> "transition-shadow"
-    | Transition_transform -> "transition-transform"
-    | Duration n -> "duration-" ^ string_of_int n
     | Mix_blend_normal -> "mix-blend-normal"
     | Mix_blend_multiply -> "mix-blend-multiply"
     | Mix_blend_screen -> "mix-blend-screen"
@@ -882,14 +738,15 @@ module Handler = struct
 
   let suborder = function
     | Opacity n -> n
-    | Shadow_none -> 1001
+    (* Shadow utilities - alphabetical order *)
     | Shadow -> 1000
-    | Shadow_sm -> 1002
-    | Shadow_md -> 1003
-    | Shadow_lg -> 1004
-    | Shadow_xl -> 1005
-    | Shadow_2xl -> 1006
-    | Shadow_inner -> 1007
+    | Shadow_2xl -> 1001
+    | Shadow_inner -> 1002
+    | Shadow_lg -> 1003
+    | Shadow_md -> 1004
+    | Shadow_none -> 1005
+    | Shadow_sm -> 1006
+    | Shadow_xl -> 1007
     | Mix_blend_normal -> 2000
     | Mix_blend_multiply -> 2001
     | Mix_blend_screen -> 2002
@@ -916,13 +773,6 @@ module Handler = struct
     | Ring_color (color, shade) ->
         4100
         + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
-    | Transition_none -> 5000
-    | Transition_all -> 5001
-    | Transition_colors -> 5002
-    | Transition_opacity -> 5003
-    | Transition_shadow -> 5004
-    | Transition_transform -> 5005
-    | Duration n -> 6000 + n
 end
 
 open Handler
@@ -948,13 +798,6 @@ let ring_md = utility Ring_md
 let ring_lg = utility Ring_lg
 let ring_xl = utility Ring_xl
 let ring_color color shade = utility (Ring_color (color, shade))
-let transition_none = utility Transition_none
-let transition_all = utility Transition_all
-let transition_colors = utility Transition_colors
-let transition_opacity = utility Transition_opacity
-let transition_shadow = utility Transition_shadow
-let transition_transform = utility Transition_transform
-let duration n = utility (Duration n)
 let opacity n = utility (Opacity n)
 let mix_blend_normal = utility Mix_blend_normal
 let mix_blend_multiply = utility Mix_blend_multiply

@@ -70,29 +70,6 @@ val ring_color : color -> int -> t
 val ring_inset : t
 (** [ring_inset] applies an inset ring. *)
 
-(** {1 Transition Utilities} *)
-
-val transition_none : t
-(** [transition_none] disables all transitions. *)
-
-val transition_all : t
-(** [transition_all] enables transitions on all properties. *)
-
-val transition_colors : t
-(** [transition_colors] transitions only color-related properties. *)
-
-val transition_opacity : t
-(** [transition_opacity] transitions only [opacity]. *)
-
-val transition_shadow : t
-(** [transition_shadow] transitions only [box-shadow]. *)
-
-val transition_transform : t
-(** [transition_transform] transitions only [transform]. *)
-
-val duration : int -> t
-(** [duration ms] sets animation/transition duration to [ms] milliseconds. *)
-
 (** {1 Mix Blend Mode Utilities} *)
 
 val mix_blend_normal : t

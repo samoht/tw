@@ -360,26 +360,26 @@ module Handler = struct
     | Ease_in_out -> ease_in_out
 
   let suborder = function
-    | Transition -> 0
-    | Transition_none -> 1
-    | Transition_all -> 2
-    | Transition_colors -> 3
-    | Transition_opacity -> 4
-    | Transition_shadow -> 5
-    | Transition_transform -> 6
-    | Transition_behavior_normal -> 7
-    | Transition_behavior_allow_discrete -> 8
-    | Duration n -> 100 + n
+    | Animate_bounce -> 0
+    | Animate_none -> 1
+    | Animate_ping -> 2
+    | Animate_pulse -> 3
+    | Animate_spin -> 4
+    | Transition -> 100
+    | Transition_all -> 101
+    | Transition_colors -> 102
+    | Transition_opacity -> 103
+    | Transition_shadow -> 104
+    | Transition_transform -> 105
+    | Transition_none -> 106
+    | Transition_behavior_normal -> 107
+    | Transition_behavior_allow_discrete -> 108
     | Delay n -> 200 + n
-    | Ease_linear -> 300
-    | Ease_in -> 301
-    | Ease_out -> 302
-    | Ease_in_out -> 303
-    | Animate_none -> 400
-    | Animate_spin -> 401
-    | Animate_ping -> 402
-    | Animate_pulse -> 403
-    | Animate_bounce -> 404
+    | Duration n -> 300 + n
+    | Ease_linear -> 400
+    | Ease_in -> 401
+    | Ease_out -> 402
+    | Ease_in_out -> 403
 
   let ( >|= ) = Parse.( >|= )
 
