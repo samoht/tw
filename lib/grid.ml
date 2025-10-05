@@ -71,8 +71,8 @@ module Handler = struct
     | Row_end_auto -> row_end_auto
 
   let suborder = function
-    (* Order: col-auto, col-span, col-start, col-end, grid, inline-grid,
-       row-auto, row-span, row-start, row-end *)
+    (* Order: col-auto, col-span, col-start, col-end, row-auto, row-span,
+       row-start, row-end, grid, inline-grid *)
     | Col_auto -> 0
     | Col_span n -> 10 + n
     | Col_span_full -> 23
@@ -80,15 +80,15 @@ module Handler = struct
     | Col_start_auto -> 43
     | Col_end n -> 50 + n
     | Col_end_auto -> 63
-    | Grid -> 70
-    | Inline_grid -> 71
-    | Row_auto -> 80
-    | Row_span n -> 90 + n
-    | Row_span_full -> 103
-    | Row_start n -> 110 + n
-    | Row_start_auto -> 123
-    | Row_end n -> 130 + n
-    | Row_end_auto -> 143
+    | Row_auto -> 70
+    | Row_span n -> 80 + n
+    | Row_span_full -> 93
+    | Row_start n -> 100 + n
+    | Row_start_auto -> 113
+    | Row_end n -> 120 + n
+    | Row_end_auto -> 133
+    | Grid -> 140
+    | Inline_grid -> 141
 
   let err_not_utility = Error (`Msg "Not a grid utility")
 
