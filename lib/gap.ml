@@ -84,7 +84,8 @@ module Handler = struct
         let units = f /. 0.25 in
         int_of_float (units *. 10.)
 
-  let to_style = function
+  let to_style t =
+    match t with
     | Gap { axis; value } -> (
         match axis with
         | `All -> gap value

@@ -66,59 +66,27 @@ module Handler = struct
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
-    let parse_class = function
-      | [ "p"; value ] -> (
-          match Parse.spacing_value ~name:"padding" value with
-          | Ok f -> Ok { axis = `All; value = `Rem (f *. 0.25) }
-          | Error _ ->
-              if value = "px" then Ok { axis = `All; value = `Px }
-              else if value = "full" then Ok { axis = `All; value = `Full }
-              else Error (`Msg "Not a padding utility"))
-      | [ "px"; value ] -> (
-          match Parse.spacing_value ~name:"padding-x" value with
-          | Ok f -> Ok { axis = `X; value = `Rem (f *. 0.25) }
-          | Error _ ->
-              if value = "px" then Ok { axis = `X; value = `Px }
-              else if value = "full" then Ok { axis = `X; value = `Full }
-              else Error (`Msg "Not a padding utility"))
-      | [ "py"; value ] -> (
-          match Parse.spacing_value ~name:"padding-y" value with
-          | Ok f -> Ok { axis = `Y; value = `Rem (f *. 0.25) }
-          | Error _ ->
-              if value = "px" then Ok { axis = `Y; value = `Px }
-              else if value = "full" then Ok { axis = `Y; value = `Full }
-              else Error (`Msg "Not a padding utility"))
-      | [ "pt"; value ] -> (
-          match Parse.spacing_value ~name:"padding-top" value with
-          | Ok f -> Ok { axis = `T; value = `Rem (f *. 0.25) }
-          | Error _ ->
-              if value = "px" then Ok { axis = `T; value = `Px }
-              else if value = "full" then Ok { axis = `T; value = `Full }
-              else Error (`Msg "Not a padding utility"))
-      | [ "pr"; value ] -> (
-          match Parse.spacing_value ~name:"padding-right" value with
-          | Ok f -> Ok { axis = `R; value = `Rem (f *. 0.25) }
-          | Error _ ->
-              if value = "px" then Ok { axis = `R; value = `Px }
-              else if value = "full" then Ok { axis = `R; value = `Full }
-              else Error (`Msg "Not a padding utility"))
-      | [ "pb"; value ] -> (
-          match Parse.spacing_value ~name:"padding-bottom" value with
-          | Ok f -> Ok { axis = `B; value = `Rem (f *. 0.25) }
-          | Error _ ->
-              if value = "px" then Ok { axis = `B; value = `Px }
-              else if value = "full" then Ok { axis = `B; value = `Full }
-              else Error (`Msg "Not a padding utility"))
-      | [ "pl"; value ] -> (
-          match Parse.spacing_value ~name:"padding-left" value with
-          | Ok f -> Ok { axis = `L; value = `Rem (f *. 0.25) }
-          | Error _ ->
-              if value = "px" then Ok { axis = `L; value = `Px }
-              else if value = "full" then Ok { axis = `L; value = `Full }
-              else Error (`Msg "Not a padding utility"))
-      | _ -> Error (`Msg "Not a padding utility")
-    in
-    parse_class parts
+    match Spacing.parse_class_parts parts with
+    | Some (true, _, _) ->
+        (* Padding doesn't support negative values *)
+        Error (`Msg "Not a padding utility")
+    | Some (false, prefix, value) -> (
+        if
+          (* Only accept padding prefixes *)
+          Spacing.is_margin_prefix prefix
+        then Error (`Msg "Not a padding utility")
+        else
+          match Spacing.axis_of_prefix prefix with
+          | None -> Error (`Msg "Not a padding utility")
+          | Some axis -> (
+              match Spacing.parse_value_string ~allow_auto:false value with
+              | None -> Error (`Msg "Not a padding utility")
+              | Some (#spacing as spacing_val) ->
+                  Ok { axis; value = spacing_val }
+              | Some `Auto ->
+                  (* Auto not allowed for padding *)
+                  Error (`Msg "Not a padding utility")))
+    | None -> Error (`Msg "Not a padding utility")
 end
 
 open Handler

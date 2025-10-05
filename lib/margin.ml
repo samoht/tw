@@ -126,48 +126,28 @@ module Handler = struct
     let neg_prefix = if negative then "-" else "" in
     neg_prefix ^ prefix ^ Spacing.pp_margin_suffix value
 
-  (** Parse string parts to margin utility *)
+  (** Parse string parts to margin utility using shared logic *)
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
-    let parse_margin_value value =
-      if value = "px" then Some `Px
-      else if value = "auto" then Some `Auto
-      else
-        match Parse.spacing_value ~name:"margin" value with
-        | Ok f -> Some (`Rem (f *. 0.25))
-        | Error _ -> None
-    in
-    let parse_spacing_only value =
-      match Parse.spacing_value ~name:"margin" value with
-      | Ok f -> Some (`Rem (f *. 0.25))
-      | Error _ -> None
-    in
-    let parse_positive _prefix axis value =
-      match parse_margin_value value with
-      | Some v -> Ok { negative = false; axis; value = v }
-      | None -> Error (`Msg "Not a margin utility")
-    in
-    let parse_negative axis value =
-      match parse_spacing_only value with
-      | Some v -> Ok { negative = true; axis; value = v }
-      | None -> Error (`Msg "Not a margin utility")
-    in
-    match parts with
-    | [ "m"; value ] -> parse_positive "m" `All value
-    | [ "mx"; value ] -> parse_positive "mx" `X value
-    | [ "my"; value ] -> parse_positive "my" `Y value
-    | [ "mt"; value ] -> parse_positive "mt" `T value
-    | [ "mr"; value ] -> parse_positive "mr" `R value
-    | [ "mb"; value ] -> parse_positive "mb" `B value
-    | [ "ml"; value ] -> parse_positive "ml" `L value
-    | [ ""; "m"; value ] -> parse_negative `All value
-    | [ ""; "mx"; value ] -> parse_negative `X value
-    | [ ""; "my"; value ] -> parse_negative `Y value
-    | [ ""; "mt"; value ] -> parse_negative `T value
-    | [ ""; "mr"; value ] -> parse_negative `R value
-    | [ ""; "mb"; value ] -> parse_negative `B value
-    | [ ""; "ml"; value ] -> parse_negative `L value
-    | _ -> Error (`Msg "Not a margin utility")
+    match Spacing.parse_class_parts parts with
+    | Some (is_negative, prefix, value) -> (
+        if
+          (* Only accept margin prefixes *)
+          not (Spacing.is_margin_prefix prefix)
+        then Error (`Msg "Not a margin utility")
+        else
+          match Spacing.axis_of_prefix prefix with
+          | None -> Error (`Msg "Not a margin utility")
+          | Some axis -> (
+              let allow_auto = not is_negative in
+              match Spacing.parse_value_string ~allow_auto value with
+              | None -> Error (`Msg "Not a margin utility")
+              | Some (#spacing as spacing_val) ->
+                  Ok { negative = is_negative; axis; value = spacing_val }
+              | Some `Auto ->
+                  if is_negative then Error (`Msg "Not a margin utility")
+                  else Ok { negative = false; axis; value = `Auto }))
+    | None -> Error (`Msg "Not a margin utility")
 end
 
 open Handler

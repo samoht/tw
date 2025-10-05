@@ -43,10 +43,10 @@ let test_filters_css_generation () =
   let css =
     Rules.to_css
       [
-        Utility.to_style Filters.blur;
-        Utility.to_style Filters.backdrop_blur_lg;
-        Utility.to_style (Filters.backdrop_brightness 125);
-        Utility.to_style (Filters.backdrop_opacity 50);
+        Filters.blur;
+        Filters.backdrop_blur_lg;
+        Filters.backdrop_brightness 125;
+        Filters.backdrop_opacity 50;
       ]
     |> Css.to_string
   in

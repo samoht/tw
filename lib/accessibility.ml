@@ -25,11 +25,9 @@ module Handler = struct
     | Forced_color_adjust_auto -> "forced-color-adjust-auto"
     | Forced_color_adjust_none -> "forced-color-adjust-none"
 
-  let to_style t =
-    let class_name = to_class t in
-    match t with
-    | Forced_color_adjust_auto -> style class_name [ forced_color_adjust Auto ]
-    | Forced_color_adjust_none -> style class_name [ forced_color_adjust None ]
+  let to_style = function
+    | Forced_color_adjust_auto -> style [ forced_color_adjust Auto ]
+    | Forced_color_adjust_none -> style [ forced_color_adjust None ]
 
   let suborder = function
     | Forced_color_adjust_auto -> 0

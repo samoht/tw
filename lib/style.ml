@@ -48,7 +48,6 @@ type modifier =
 
 type t =
   | Style of {
-      name : string;
       props : Css.declaration list;
       rules : Css.statement list option;
       property_rules : Css.t;
@@ -66,8 +65,8 @@ type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
 (* Helper to create a style *)
-let style ?(rules = None) ?(property_rules = Css.empty) name props =
-  Style { name; props; rules; property_rules }
+let style ?(rules = None) ?(property_rules = Css.empty) props =
+  Style { props; rules; property_rules }
 
 (* Convert modifier to string prefix *)
 let rec pp_modifier = function
