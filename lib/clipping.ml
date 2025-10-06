@@ -8,7 +8,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "clipping"
-  let priority = 99
+  let priority = 24
 
   let clip_polygon' points =
     let coords =
