@@ -43,7 +43,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "filters"
-  let priority = 60
+  let priority = 23
 
   let blur_internal = function
     | `None -> style [ filter (Blur (Px 0.)) ]
