@@ -43,7 +43,7 @@ let all_utilities () =
 
 let suborder_matches_tailwind () =
   let shuffled = Test_helpers.shuffle (all_utilities ()) in
-  Test_helpers.check_ordering_matches
+  Test_helpers.check_ordering_matches ~forms:false
     ~test_name:"forms suborder matches Tailwind" shuffled
 
 let tests =

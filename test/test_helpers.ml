@@ -131,9 +131,9 @@ let minimize_failing_case check_fails initial =
     Some final
 
 (** Get rule selector ordering from Tailwind CSS *)
-let get_tailwind_order classes =
+let get_tailwind_order ?(forms = false) classes =
   let tailwind_css_str =
-    Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true classes
+    Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true ~forms classes
   in
   let tailwind_css =
     match Css.of_string tailwind_css_str with
@@ -152,9 +152,9 @@ let get_our_order utilities =
   extract_rule_selectors tw_utilities_rules
 
 (** Compare ordering between our implementation and Tailwind *)
-let check_ordering_matches ~test_name utilities =
+let check_ordering_matches ?(forms = false) ~test_name utilities =
   let classes = List.map Tw.pp utilities in
-  let tailwind_order = get_tailwind_order classes in
+  let tailwind_order = get_tailwind_order ~forms classes in
   let our_order = get_our_order utilities in
 
   (* If ordering doesn't match, try to minimize the test case *)

@@ -24,7 +24,8 @@ val minimize_failing_case : ('a list -> bool) -> 'a list -> 'a list option
     the smallest possible set using delta debugging. Returns [None] if the
     initial case doesn't fail. *)
 
-val check_ordering_matches : test_name:string -> Tw.t list -> unit
+val check_ordering_matches :
+  ?forms:bool -> test_name:string -> Tw.t list -> unit
 (** [check_ordering_matches ~test_name utilities] compares the ordering of
     utilities between our implementation and Tailwind CSS, failing the test if
     they differ *)
