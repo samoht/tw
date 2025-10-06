@@ -1,62 +1,71 @@
 open Alcotest
 open Test_helpers
 
-let check = check_handler_roundtrip (module Tw.Flex.Handler)
+let check_display = check_handler_roundtrip (module Tw.Flex.Handler)
+let check_props = check_handler_roundtrip (module Tw.Flex_props.Handler)
 
 let of_string_valid () =
   (* Display *)
-  check "flex";
-  check "inline-flex";
+  check_display "flex";
+  check_display "inline-flex";
 
   (* Direction *)
-  check "flex-row";
-  check "flex-row-reverse";
-  check "flex-col";
-  check "flex-col-reverse";
+  check_props "flex-row";
+  check_props "flex-row-reverse";
+  check_props "flex-col";
+  check_props "flex-col-reverse";
 
   (* Wrap *)
-  check "flex-wrap";
-  check "flex-wrap-reverse";
-  check "flex-nowrap";
+  check_props "flex-wrap";
+  check_props "flex-wrap-reverse";
+  check_props "flex-nowrap";
 
   (* Flex shortcuts *)
-  check "flex-1";
-  check "flex-auto";
-  check "flex-initial";
-  check "flex-none";
+  check_props "flex-1";
+  check_props "flex-auto";
+  check_props "flex-initial";
+  check_props "flex-none";
 
   (* Grow/Shrink *)
-  check "flex-grow";
-  check "flex-grow-0";
-  check "flex-shrink";
-  check "flex-shrink-0";
+  check_props "flex-grow";
+  check_props "flex-grow-0";
+  check_props "flex-shrink";
+  check_props "flex-shrink-0";
 
   (* Basis *)
-  check "basis-0";
-  check "basis-1";
-  check "basis-auto";
-  check "basis-full";
+  check_props "basis-0";
+  check_props "basis-1";
+  check_props "basis-auto";
+  check_props "basis-full";
 
   (* Order *)
-  check "order-1";
-  check "order-2";
-  check "order-3";
-  check "order-4";
-  check "order-5";
-  check "order-6";
-  check "order-first";
-  check "order-last";
-  check "order-none"
+  check_props "order-1";
+  check_props "order-2";
+  check_props "order-3";
+  check_props "order-4";
+  check_props "order-5";
+  check_props "order-6";
+  check_props "order-first";
+  check_props "order-last";
+  check_props "order-none"
 
 let of_string_invalid () =
-  let fail_maybe = Test_helpers.check_invalid_parts (module Tw.Flex.Handler) in
+  let fail_display =
+    Test_helpers.check_invalid_parts (module Tw.Flex.Handler)
+  in
+  let fail_props =
+    Test_helpers.check_invalid_parts (module Tw.Flex_props.Handler)
+  in
 
-  fail_maybe [ "flex"; "invalid" ];
-  fail_maybe [ "basis" ];
-  fail_maybe [ "order" ];
-  fail_maybe [ "order"; "0" ];
-  fail_maybe [ "order"; "7" ];
-  fail_maybe []
+  fail_display [ "flex"; "invalid" ];
+  fail_display [ "flex"; "col" ];
+  (* Now in flex_props *)
+  fail_props [ "flex"; "invalid" ];
+  fail_props [ "basis" ];
+  fail_props [ "order" ];
+  fail_props [ "order"; "0" ];
+  fail_props [ "order"; "7" ];
+  fail_props []
 
 let all_utilities () =
   let open Tw in

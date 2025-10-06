@@ -3352,6 +3352,7 @@ module Margin = Margin
 module Padding = Padding
 module Gap = Gap
 module Flex = Flex
+module Flex_props = Flex_props
 module Alignment = Alignment
 module Cursor = Cursor
 module Borders = Borders

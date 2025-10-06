@@ -26,6 +26,7 @@ include Grid
 include Grid_item
 include Grid_template
 include Flex
+include Flex_props
 include Alignment
 include Borders
 include Effects
@@ -75,6 +76,7 @@ module Padding = Padding
 module Gap = Gap
 module Spacing = Spacing
 module Flex = Flex
+module Flex_props = Flex_props
 module Alignment = Alignment
 module Cursor = Cursor
 module Borders = Borders
