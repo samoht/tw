@@ -1115,6 +1115,21 @@ val min_w_full : t
 val max_w : int -> t
 (** [max_w n] sets maximum width using Tailwind scale. *)
 
+val max_w_xs : t
+(** [max_w_xs] sets maximum width to 20rem. *)
+
+val max_w_sm : t
+(** [max_w_sm] sets maximum width to 24rem. *)
+
+val max_w_md : t
+(** [max_w_md] sets maximum width to 28rem. *)
+
+val max_w_lg : t
+(** [max_w_lg] sets maximum width to 32rem. *)
+
+val max_w_xl : t
+(** [max_w_xl] sets maximum width to 36rem. *)
+
 val max_w_2xl : t
 (** [max_w_2xl] sets maximum width to 42rem. *)
 
@@ -1130,11 +1145,41 @@ val max_w_5xl : t
 val max_w_6xl : t
 (** [max_w_6xl] sets maximum width to 72rem. *)
 
+val max_w_7xl : t
+(** [max_w_7xl] sets maximum width to 80rem. *)
+
 val max_w_none : t
 (** [max_w_none] removes the maximum width constraint. *)
 
 val max_w_full : t
 (** [max_w_full] sets maximum width to 100% of parent. *)
+
+val max_w_min : t
+(** [max_w_min] sets maximum width to min-content. *)
+
+val max_w_max : t
+(** [max_w_max] sets maximum width to max-content. *)
+
+val max_w_fit : t
+(** [max_w_fit] sets maximum width to fit-content. *)
+
+val max_w_prose : t
+(** [max_w_prose] sets maximum width to 65ch (ideal for reading). *)
+
+val max_w_screen_sm : t
+(** [max_w_screen_sm] sets maximum width to 640px. *)
+
+val max_w_screen_md : t
+(** [max_w_screen_md] sets maximum width to 768px. *)
+
+val max_w_screen_lg : t
+(** [max_w_screen_lg] sets maximum width to 1024px. *)
+
+val max_w_screen_xl : t
+(** [max_w_screen_xl] sets maximum width to 1280px. *)
+
+val max_w_screen_2xl : t
+(** [max_w_screen_2xl] sets maximum width to 1536px. *)
 
 (** {2 Height}
     @see <https://tailwindcss.com/docs/height> Height *)
@@ -2636,19 +2681,18 @@ val transform_style_flat : t
     Container queries allow elements to respond to their container's size rather
     than the viewport. Inspired by modern CSS capabilities. *)
 
-val container_type_size : t
-(** [container_type_size] enables container queries based on both width and
-    height. *)
+val container : t
+(** [container] enables container queries based on inline-size (equivalent to
+    [@container] in Tailwind v4). Sets [container-type: inline-size]. *)
 
-val container_type_inline_size : t
-(** [container_type_inline_size] enables container queries based on inline size
-    (width in horizontal writing). *)
+val container_normal : t
+(** [container_normal] disables container queries (equivalent to
+    [@container-normal] in Tailwind v4). Sets [container-type: normal]. *)
 
-val container_type_normal : t
-(** [container_type_normal] disables container queries (default). *)
-
-val container_name : string -> t
-(** [container_name "sidebar"] names a container for targeted queries. *)
+val container_named : string -> t
+(** [container_named name] creates a named container (equivalent to
+    [@container/name] in Tailwind v4). Sets [container-type: inline-size] and
+    [container-name: name]. *)
 
 val container_sm : t list -> t
 (** [container_sm styles] applies [styles] when container is ≥640px wide. *)
@@ -2665,9 +2709,9 @@ val container_xl : t list -> t
 val container_2xl : t list -> t
 (** [container_2xl styles] applies [styles] when container is ≥1536px wide. *)
 
-val container : ?name:string -> int -> t list -> t
-(** [container 500 styles] applies styles when container is ≥500px.
-    [container ~name:"sidebar" 500 styles] targets a named container. *)
+val container_query : ?name:string -> int -> t list -> t
+(** [container_query 500 styles] applies styles when container is ≥500px.
+    [container_query ~name:"sidebar" 500 styles] targets a named container. *)
 
 val animate_none : t
 (** [animate_none] applies no animation. *)

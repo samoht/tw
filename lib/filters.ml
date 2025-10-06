@@ -186,15 +186,16 @@ module Handler = struct
   let err_not_utility = Error (`Msg "Not a filter utility")
 
   let suborder = function
-    | Blur_none -> 0
-    | Blur_xs -> 1
-    | Blur_sm -> 2
-    | Blur -> 3
-    | Blur_md -> 4
-    | Blur_lg -> 5
-    | Blur_xl -> 6
-    | Blur_2xl -> 7
-    | Blur_3xl -> 8
+    (* Alphabetical order by class name *)
+    | Blur -> 0 (* blur *)
+    | Blur_2xl -> 1 (* blur-2xl *)
+    | Blur_3xl -> 2 (* blur-3xl *)
+    | Blur_lg -> 3 (* blur-lg *)
+    | Blur_md -> 4 (* blur-md *)
+    | Blur_none -> 5 (* blur-none *)
+    | Blur_sm -> 6 (* blur-sm *)
+    | Blur_xl -> 7 (* blur-xl *)
+    | Blur_xs -> 8 (* blur-xs *)
     | Brightness n -> 100 + n
     | Contrast n -> 10000 + n
     | Grayscale n -> 20000 + n
@@ -202,15 +203,16 @@ module Handler = struct
     | Sepia n -> 40000 + n
     | Invert n -> 50000 + n
     | Hue_rotate n -> 60000 + n
-    | Backdrop_blur_none -> 100000
-    | Backdrop_blur_xs -> 100001
-    | Backdrop_blur_sm -> 100002
-    | Backdrop_blur -> 100003
-    | Backdrop_blur_md -> 100004
-    | Backdrop_blur_lg -> 100005
-    | Backdrop_blur_xl -> 100006
-    | Backdrop_blur_2xl -> 100007
-    | Backdrop_blur_3xl -> 100008
+    (* Alphabetical order by class name *)
+    | Backdrop_blur -> 100000 (* backdrop-blur *)
+    | Backdrop_blur_2xl -> 100001 (* backdrop-blur-2xl *)
+    | Backdrop_blur_3xl -> 100002 (* backdrop-blur-3xl *)
+    | Backdrop_blur_lg -> 100003 (* backdrop-blur-lg *)
+    | Backdrop_blur_md -> 100004 (* backdrop-blur-md *)
+    | Backdrop_blur_none -> 100005 (* backdrop-blur-none *)
+    | Backdrop_blur_sm -> 100006 (* backdrop-blur-sm *)
+    | Backdrop_blur_xl -> 100007 (* backdrop-blur-xl *)
+    | Backdrop_blur_xs -> 100008 (* backdrop-blur-xs *)
     | Backdrop_brightness n -> 110000 + n
     | Backdrop_contrast n -> 120000 + n
     | Backdrop_opacity n -> 130000 + n
