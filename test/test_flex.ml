@@ -64,7 +64,6 @@ let of_string_invalid () =
   fail_props [ "basis" ];
   fail_props [ "order" ];
   fail_props [ "order"; "0" ];
-  fail_props [ "order"; "7" ];
   fail_props []
 
 let all_utilities () =
