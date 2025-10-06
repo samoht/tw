@@ -203,8 +203,9 @@ let generate ?(minify = false) ?(optimize = true) ?(forms = false) classnames =
   try
     let start_time = Stats.start_timer () in
 
-    (* Use the forms parameter as provided, no auto-detection *)
-    tailwind_files ~forms dir classnames;
+    (* Don't include forms plugin when no classes are provided *)
+    let use_forms = forms && classnames <> [] in
+    tailwind_files ~forms:use_forms dir classnames;
 
     let minify_flag = if minify then " --minify" else "" in
     let optimize_flag = if optimize then " --optimize" else "" in

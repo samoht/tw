@@ -91,17 +91,29 @@ let process_single_class class_str flag ~(opts : gen_opts) =
         (* Generate our CSS with variables mode and base layer *)
         let include_base = true in
         let tw_styles = parse_classes ~warn:false class_str in
+        let styles = match tw_styles with [] -> [] | s -> s in
+        let stylesheet = Tw.to_css ~base:include_base ~mode:Variables styles in
+        let our_css =
+          Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize
+            stylesheet
+        in
         match tw_styles with
+        | [] when class_str = "" ->
+            (* Empty class string - just output base layer *)
+            let diff =
+              Tw_tools.Css_compare.diff ~expected:legacy_css ~actual:our_css
+            in
+            (match diff with
+            | Tw_tools.Css_compare.No_diff ->
+                Fmt.pr "✓ No differences found (empty/base only)@."
+            | _ ->
+                Fmt.pr "Differences found (empty/base only):@.@.";
+                Tw_tools.Css_compare.pp ~expected:"Tailwind" ~actual:"tw"
+                  Fmt.stdout diff;
+                Fmt.pr "@.");
+            `Ok ()
         | [] -> `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
-        | styles ->
-            let stylesheet =
-              Tw.to_css ~base:include_base ~mode:Variables styles
-            in
-            let our_css =
-              Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize
-                stylesheet
-            in
-
+        | _ ->
             (* Compare the two outputs *)
             let diff =
               Tw_tools.Css_compare.diff ~expected:legacy_css ~actual:our_css
@@ -136,9 +148,11 @@ let process_single_class class_str flag ~(opts : gen_opts) =
   | Native -> (
       let include_base = eval_flag flag ~default:false in
       let tw_styles = parse_classes ~warn:false class_str in
+      let styles = match tw_styles with [] -> [] | s -> s in
       match tw_styles with
-      | [] -> `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
-      | styles ->
+      | [] when class_str <> "" ->
+          `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
+      | _ ->
           let stylesheet =
             Tw.to_css ~base:include_base ~mode:opts.css_mode styles
           in
