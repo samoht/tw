@@ -28,8 +28,7 @@ module Handler = struct
   (** Extensible variant for table utilities *)
   type Utility.base += Self of t
 
-  (** Priority for table utilities - matches layout priority for correct
-      ordering *)
+  (** Priority for table utilities - comes before layout utilities *)
   let name = "tables"
 
   let priority = 4

@@ -28,7 +28,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "containers"
-  let priority = 14
+  let priority = 17
 
   let to_class = function
     | Container -> "@container"

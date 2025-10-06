@@ -1257,10 +1257,13 @@ let test_handler_priority_ordering () =
   let animation_prio = Tw.Animations.Handler.priority in
   let filter_prio = Tw.Filters.Handler.priority in
 
-  (* Verify total priority ordering - each module has unique priority *)
+  (* Verify priority ordering - mostly total order with one exception: layout
+     and tables share priority 4 *)
   check bool "position < margin" true (position_prio < margin_prio);
   (* prose priority 3 skipped - Handler not exposed *)
   check bool "margin < layout" true (margin_prio < layout_prio);
+  (* tables priority 4 skipped - Handler not exposed, but shares priority with
+     layout *)
   check bool "layout < flex" true (layout_prio < flex_prio);
   check bool "flex < grid" true (flex_prio < grid_prio);
   check bool "grid < sizing" true (grid_prio < sizing_prio);
@@ -1268,8 +1271,10 @@ let test_handler_priority_ordering () =
   check bool "transform < animation" true (transform_prio < animation_prio);
   check bool "animation < cursor" true (animation_prio < cursor_prio);
   check bool "cursor < grid_template" true (cursor_prio < grid_template_prio);
-  check bool "grid_template < alignment" true
-    (grid_template_prio < alignment_prio);
+  check bool "grid_template < flex_props" true
+    (grid_template_prio < Tw.Flex_props.Handler.priority);
+  check bool "flex_props < alignment" true
+    (Tw.Flex_props.Handler.priority < alignment_prio);
   check bool "alignment < gap" true (alignment_prio < gap_prio);
   check bool "gap < border" true (gap_prio < border_prio);
   check bool "border < bg" true (border_prio < bg_prio);
