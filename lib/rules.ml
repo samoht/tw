@@ -259,7 +259,10 @@ let handle_pseudo_class_modifier modifier base_class selector props =
     transform_selector_with_modifier modified_base_selector base_class
       modified_class selector
   in
-  regular ~selector:modified_selector ~props ~base_class ~has_hover ()
+  (* Use modified_class as the new base_class to preserve the full modifier
+     chain *)
+  regular ~selector:modified_selector ~props ~base_class:modified_class
+    ~has_hover ()
 
 (** Convert a modifier and its context to a CSS rule *)
 let modifier_to_rule modifier base_class selector props =
@@ -341,16 +344,16 @@ let extract_selector_props util =
               custom_rules
               @ [ regular ~selector:sel ~props ~base_class:class_name () ])
     | Style.Modified (modifier, t) ->
-        (* For Modified, we need to extract the base class from the inner
-           utility *)
-        let base_util, base_style =
+        (* For Modified, we unwrap one level to process recursively. The
+           base_class should be the full class name of inner_util (the utility
+           one level down, preserving its modifiers). *)
+        let inner_util, base_style =
           match util_inner with
-          | Utility.Modified (_, inner_util) -> (inner_util, t)
+          | Utility.Modified (_, u) -> (u, t)
           | _ -> (util_inner, t)
-          (* shouldn't happen *)
         in
-        let base_class_name = Utility.to_class base_util in
-        let base = extract_with_class base_class_name base_util base_style in
+        let base_class_name = Utility.to_class inner_util in
+        let base = extract_with_class base_class_name inner_util base_style in
         List.concat_map
           (fun rule_out ->
             match rule_out with
