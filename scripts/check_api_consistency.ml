@@ -877,10 +877,103 @@ let () =
   (* Check for variable system issues *)
   let var_issues = check_var_usage () in
 
+  (* Check for duplicate priorities across Handler modules *)
+  let check_unique_priorities () =
+    let lib_dir = root // "lib" in
+    let ml_files =
+      Fs.list_dir lib_dir
+      |> List.filter (fun f -> Filename.check_suffix f ".ml")
+      |> List.map (fun f -> lib_dir // f)
+    in
+
+    (* Pattern to match Handler modules and extract priority *)
+    let handler_re = Re.Perl.compile_pat "module\\s+Handler\\s*=" in
+    let priority_re = Re.Perl.compile_pat "let\\s+priority\\s*=\\s*([0-9]+)" in
+    let name_re = Re.Perl.compile_pat "let\\s+name\\s*=\\s*\"([^\"]+)\"" in
+
+    let priorities = Hashtbl.create 50 in
+
+    List.iter
+      (fun file ->
+        let lines = Fs.read_lines file in
+        let relative_file =
+          if String.starts_with ~prefix:(root ^ "/") file then
+            String.sub file
+              (String.length root + 1)
+              (String.length file - String.length root - 1)
+          else file
+        in
+
+        (* Check if file contains a Handler module *)
+        let has_handler = List.exists (fun l -> Re.execp handler_re l) lines in
+
+        if has_handler then
+          (* Find priority and name within the handler module *)
+          let rec find_in_handler in_handler prio name idx = function
+            | [] -> (prio, name)
+            | l :: rest ->
+                if (not in_handler) && Re.execp handler_re l then
+                  find_in_handler true prio name (idx + 1) rest
+                else if
+                  in_handler
+                  && Re.execp (Re.Perl.compile_pat "^end\\s*$\\|^end\\s*//") l
+                then (prio, name)
+                else if in_handler then
+                  let new_prio =
+                    match Re.exec_opt priority_re l with
+                    | Some g -> Some (int_of_string (Re.Group.get g 1), idx + 1)
+                    | None -> prio
+                  in
+                  let new_name =
+                    match Re.exec_opt name_re l with
+                    | Some g -> Some (Re.Group.get g 1)
+                    | None -> name
+                  in
+                  find_in_handler true new_prio new_name (idx + 1) rest
+                else find_in_handler in_handler prio name (idx + 1) rest
+          in
+
+          match find_in_handler false None None 0 lines with
+          | Some (prio_val, line), Some module_name ->
+              let existing =
+                try Hashtbl.find priorities prio_val with Not_found -> []
+              in
+              Hashtbl.replace priorities prio_val
+                ((module_name, relative_file, line) :: existing)
+          | _ -> ())
+      ml_files;
+
+    (* Find duplicates *)
+    let duplicates = ref [] in
+    Hashtbl.iter
+      (fun prio modules ->
+        if List.length modules > 1 then
+          duplicates := (prio, List.rev modules) :: !duplicates)
+      priorities;
+
+    if !duplicates <> [] then (
+      Fmt.pr "@.%s@." (colored bold "Handler Priority Conflicts:");
+      Fmt.pr "%s Multiple Handler modules with the same priority:@."
+        (colored red "Critical:");
+      List.iter
+        (fun (prio, modules) ->
+          Fmt.pr "@.  Priority %d shared by:@." prio;
+          List.iter
+            (fun (name, file, line) ->
+              Fmt.pr "    - %s (%s:%d)@." (colored yellow name) file line)
+            modules)
+        (List.sort compare !duplicates);
+      Fmt.pr "@.";
+      true)
+    else false
+  in
+
+  let priority_issues = check_unique_priorities () in
+
   let exit_code =
     if
       api_missing > 0 || !consistency_warnings > 0 || var_issues
-      || vars_of_issues
+      || vars_of_issues || priority_issues
     then 1
     else 0
   in
