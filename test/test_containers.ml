@@ -11,7 +11,10 @@ let test_container_types () =
   check "@container";
   check "@container-normal"
 
-let test_container_name () = check "@container/sidebar"
+let test_container_name () =
+  check "@container/sidebar";
+  check "@container/header";
+  check "@container/main"
 
 let test_of_string_invalid () =
   (* Invalid container utilities *)
@@ -45,7 +48,13 @@ let test_of_string_invalid () =
 
 let all_utilities () =
   let open Tw in
-  [ container; container_normal; container_named "sidebar" ]
+  [
+    container;
+    container_normal;
+    container_named "sidebar";
+    container_named "header";
+    container_named "main";
+  ]
 
 let suborder_matches_tailwind () =
   let shuffled = Test_helpers.shuffle (all_utilities ()) in
