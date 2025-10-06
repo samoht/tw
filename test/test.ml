@@ -33,6 +33,7 @@ let () =
       Test_accessibility.suite;
       Test_display.suite;
       Test_flex.suite;
+      Test_flex_props.suite;
       Test_alignment.suite;
       Test_grid.suite;
       Test_grid_item.suite;

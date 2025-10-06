@@ -51,7 +51,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "animations"
-  let priority = 8
+  let priority = 10
 
   let transition_none =
     style

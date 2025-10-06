@@ -69,7 +69,7 @@ module Handler = struct
   open Css
 
   let name = "backgrounds"
-  let priority = 14
+  let priority = 17
 
   (* Gradient variables with proper @property definitions matching Tailwind
      v4 *)

@@ -49,7 +49,7 @@ module Handler = struct
   (** Priority for transform utilities *)
   let name = "transforms"
 
-  let priority = 7
+  let priority = 9
 
   (* Transform variables using new API *)
   let tw_translate_x_var = Var.channel Css.Length "tw-translate-x"

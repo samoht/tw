@@ -23,7 +23,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "cursor"
-  let priority = 9
+  let priority = 11
 
   let to_class = function
     | Cursor_auto -> "cursor-auto"

@@ -47,7 +47,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "grid_template"
-  let priority = 10
+  let priority = 12
 
   let grid_cols n =
     if n < 1 || n > 12 then
