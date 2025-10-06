@@ -21,14 +21,14 @@ let extract_rule_selectors stmts =
     stmts
 
 (** Check if utilities produce different ordering than Tailwind *)
-let check_ordering_fails utilities =
+let check_ordering_fails ?(forms = false) utilities =
   let classnames = List.map Tw.pp utilities in
   let tw_css = Tw.to_css ~base:true ~optimize:true utilities in
   let tw_utilities_rules = extract_utilities_layer_rules tw_css in
   let tw_order = extract_rule_selectors tw_utilities_rules in
 
   let tailwind_css_str =
-    Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true classnames
+    Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true ~forms classnames
   in
   let tailwind_css =
     match Css.of_string tailwind_css_str with
@@ -160,14 +160,14 @@ let check_ordering_matches ?(forms = false) ~test_name utilities =
   (* If ordering doesn't match, try to minimize the test case *)
   if tailwind_order <> our_order then (
     Fmt.epr "@.Ordering mismatch detected. Minimizing test case...@.";
-    match minimize_failing_case check_ordering_fails utilities with
+    match minimize_failing_case (check_ordering_fails ~forms) utilities with
     | Some minimal ->
         let minimal_classes = List.map Tw.pp minimal in
         Fmt.epr "@.Minimal failing case (%d utilities): %a@."
           (List.length minimal)
           Fmt.(list ~sep:(const string " ") string)
           minimal_classes;
-        let minimal_tw_order = get_tailwind_order minimal_classes in
+        let minimal_tw_order = get_tailwind_order ~forms minimal_classes in
         let minimal_our_order = get_our_order minimal in
         Fmt.epr "@.Expected (Tailwind): %a@."
           Fmt.(list ~sep:(const string ", ") (quote string))
