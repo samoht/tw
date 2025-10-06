@@ -233,6 +233,36 @@ let media_conditions css =
 let has_media_condition condition css =
   List.mem condition (media_conditions css)
 
+(** Return statements for a given media condition, if present *)
+let media_block condition css =
+  Css.fold
+    (fun acc stmt ->
+      match (acc, Css.as_media stmt) with
+      | Some _, _ -> acc
+      | None, Some (cond, inner) when String.equal cond condition -> Some inner
+      | None, _ -> None)
+    None css
+
+let selectors_in_media ~condition css =
+  match media_block condition css with
+  | None -> []
+  | Some stmts ->
+      List.filter_map
+        (fun s ->
+          match Css.as_rule s with
+          | Some (sel, _, _) -> Some (Css.Selector.to_string sel)
+          | None -> None)
+        stmts
+
+let has_selector_in_media ~condition ~selector css =
+  List.mem selector (selectors_in_media ~condition css)
+
+let count_selector_in_media ~condition ~selector css =
+  selectors_in_media ~condition css
+  |> List.fold_left
+       (fun acc s -> if String.equal s selector then acc + 1 else acc)
+       0
+
 (** Check if inline style contains a specific property *)
 let inline_has_property prop_name inline_style =
   String.split_on_char ';' inline_style

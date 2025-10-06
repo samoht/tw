@@ -7,9 +7,9 @@ val extract_utilities_layer_rules : Css.t -> Css.statement list
 val extract_rule_selectors : Css.statement list -> string list
 (** [extract_rule_selectors stmts] extracts selector strings from CSS rules *)
 
-val check_ordering_fails : Tw.t list -> bool
-(** [check_ordering_fails utilities] checks if utilities produce different
-    ordering than Tailwind CSS *)
+val check_ordering_fails : ?forms:bool -> Tw.t list -> bool
+(** [check_ordering_fails ~forms utilities] checks if utilities produce
+    different ordering than Tailwind CSS *)
 
 val delta_debug : ('a list -> bool) -> 'a list -> 'a list
 (** [delta_debug check_fails lst] uses delta debugging (ddmin algorithm) to
@@ -58,6 +58,20 @@ val media_conditions : Css.t -> string list
 val has_media_condition : string -> Css.t -> bool
 (** [has_media_condition condition css] checks if a specific media condition
     exists *)
+
+val selectors_in_media : condition:string -> Css.t -> string list
+(** [selectors_in_media ~condition css] returns all selector strings contained
+    within the media query that matches [condition]. Returns [[]] if not found
+    or if the block has no rules. *)
+
+val has_selector_in_media : condition:string -> selector:string -> Css.t -> bool
+(** [has_selector_in_media ~condition ~selector css] checks whether [selector]
+    appears inside the media query identified by [condition]. *)
+
+val count_selector_in_media :
+  condition:string -> selector:string -> Css.t -> int
+(** [count_selector_in_media ~condition ~selector css] counts how many times
+    [selector] appears inside the media query identified by [condition]. *)
 
 val inline_has_property : string -> string -> bool
 (** [inline_has_property prop_name inline_style] checks if inline style contains
