@@ -1257,15 +1257,15 @@ let test_handler_priority_ordering () =
   let animation_prio = Tw.Animations.Handler.priority in
   let filter_prio = Tw.Filters.Handler.priority in
 
-  (* Verify priority ordering - mostly total order with one exception: layout
-     and tables share priority 4 *)
+  (* Verify priority ordering - mostly total order with one exception: display
+     utilities (layout, flex, grid, tables) all share priority 4 *)
   check bool "position < margin" true (position_prio < margin_prio);
   (* prose priority 3 skipped - Handler not exposed *)
   check bool "margin < layout" true (margin_prio < layout_prio);
-  (* tables priority 4 skipped - Handler not exposed, but shares priority with
-     layout *)
-  check bool "layout < flex" true (layout_prio < flex_prio);
-  check bool "flex < grid" true (flex_prio < grid_prio);
+  (* Display utilities all share priority 4: layout, flex, grid, tables. They
+     are ordered by suborder instead of priority. *)
+  check bool "layout = flex" true (layout_prio = flex_prio);
+  check bool "flex = grid" true (flex_prio = grid_prio);
   check bool "grid < sizing" true (grid_prio < sizing_prio);
   check bool "sizing < transform" true (sizing_prio < transform_prio);
   check bool "transform < animation" true (transform_prio < animation_prio);
