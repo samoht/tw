@@ -4,6 +4,7 @@ open Tw.Modifiers
 open Tw.Padding
 open Tw.Margin
 open Tw.Color
+open Tw.Grid_template
 
 (* Test responsive modifier detection *)
 let test_has_responsive_modifier () =
@@ -134,6 +135,37 @@ let test_apply () =
     | Modified (Responsive `Sm, Modified (Hover, _)) -> true
     | _ -> false)
 
+(* Test modifier class name format *)
+let test_modifier_class_names () =
+  (* Test responsive modifiers produce single colon *)
+  check string "sm: single colon" "sm:p-4" (Tw.Utility.to_class (sm [ p 4 ]));
+
+  check string "md: single colon" "md:grid-cols-2"
+    (Tw.Utility.to_class (md [ grid_cols 2 ]));
+
+  check string "lg: single colon" "lg:bg-blue-500"
+    (Tw.Utility.to_class (lg [ bg blue 500 ]));
+
+  (* 2xl prefix formatting *)
+  check string "2xl: single colon" "2xl:p-4" (Tw.Utility.to_class (xl2 [ p 4 ]));
+
+  (* Test hover modifier *)
+  check string "hover: single colon" "hover:p-4"
+    (Tw.Utility.to_class (hover [ p 4 ]));
+
+  (* Test combined modifiers *)
+  check string "md:hover: single colons" "md:hover:m-2"
+    (Tw.Utility.to_class (md [ hover [ m 2 ] ]));
+
+  (* Test multiple utilities with modifiers in a list *)
+  let classes =
+    Tw.to_classes Tw.[ grid; grid_cols 5; md [ grid_cols 10 ]; gap 2 ]
+  in
+  check string "multiple utilities with md:"
+    "grid grid-cols-5 md:grid-cols-10 gap-2" classes
+
+(* Media query behavior for md [...] *)
+
 (* Test suite *)
 let tests =
   [
@@ -143,6 +175,7 @@ let tests =
     test_case "responsive functions reject nesting" `Quick
       test_responsive_functions_reject_nesting;
     test_case "apply modifiers" `Quick test_apply;
+    test_case "modifier class names" `Quick test_modifier_class_names;
   ]
 
 let suite = ("modifiers", tests)

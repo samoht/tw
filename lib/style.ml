@@ -70,47 +70,47 @@ let style ?(rules = None) ?(property_rules = Css.empty) props =
 
 (* Convert modifier to string prefix *)
 let rec pp_modifier = function
-  | Hover -> "hover:"
-  | Focus -> "focus:"
-  | Active -> "active:"
-  | Disabled -> "disabled:"
-  | Dark -> "dark:"
-  | Responsive `Sm -> "sm:"
-  | Responsive `Md -> "md:"
-  | Responsive `Lg -> "lg:"
-  | Responsive `Xl -> "xl:"
-  | Responsive `Xl_2 -> "2xl:"
-  | Container Container_sm -> "@sm:"
-  | Container Container_md -> "@md:"
-  | Container Container_lg -> "@lg:"
-  | Container Container_xl -> "@xl:"
-  | Container Container_2xl -> "@2xl:"
+  | Hover -> "hover"
+  | Focus -> "focus"
+  | Active -> "active"
+  | Disabled -> "disabled"
+  | Dark -> "dark"
+  | Responsive `Sm -> "sm"
+  | Responsive `Md -> "md"
+  | Responsive `Lg -> "lg"
+  | Responsive `Xl -> "xl"
+  | Responsive `Xl_2 -> "2xl"
+  | Container Container_sm -> "@sm"
+  | Container Container_md -> "@md"
+  | Container Container_lg -> "@lg"
+  | Container Container_xl -> "@xl"
+  | Container Container_2xl -> "@2xl"
   | Container (Container_named (n, size)) ->
-      String.concat "" [ "@"; n; "/"; string_of_int size; ":" ]
-  | Group_hover -> "group-hover:"
-  | Group_focus -> "group-focus:"
-  | Peer_hover -> "peer-hover:"
-  | Peer_focus -> "peer-focus:"
-  | Peer_checked -> "peer-checked:"
-  | Aria_checked -> "aria-checked:"
-  | Aria_expanded -> "aria-expanded:"
-  | Aria_selected -> "aria-selected:"
-  | Aria_disabled -> "aria-disabled:"
-  | Data_state s -> String.concat "" [ "data-state="; s; ":" ]
-  | Data_variant s -> String.concat "" [ "data-variant="; s; ":" ]
-  | Data_active -> "data-active:"
-  | Data_inactive -> "data-inactive:"
-  | Data_custom (k, v) -> String.concat "" [ "data-"; k; "="; v; ":" ]
+      String.concat "" [ "@"; n; "/"; string_of_int size ]
+  | Group_hover -> "group-hover"
+  | Group_focus -> "group-focus"
+  | Peer_hover -> "peer-hover"
+  | Peer_focus -> "peer-focus"
+  | Peer_checked -> "peer-checked"
+  | Aria_checked -> "aria-checked"
+  | Aria_expanded -> "aria-expanded"
+  | Aria_selected -> "aria-selected"
+  | Aria_disabled -> "aria-disabled"
+  | Data_state s -> String.concat "" [ "data-state="; s ]
+  | Data_variant s -> String.concat "" [ "data-variant="; s ]
+  | Data_active -> "data-active"
+  | Data_inactive -> "data-inactive"
+  | Data_custom (k, v) -> String.concat "" [ "data-"; k; "="; v ]
   | Not m -> String.concat "" [ "not("; pp_modifier m; ")" ]
-  | Has s -> String.concat "" [ "has("; s; "):" ]
-  | Group_has s -> String.concat "" [ "group-has("; s; "):" ]
-  | Peer_has s -> String.concat "" [ "peer-has("; s; "):" ]
-  | Starting -> "starting:"
-  | Focus_within -> "focus-within:"
-  | Focus_visible -> "focus-visible:"
-  | Motion_safe -> "motion-safe:"
-  | Motion_reduce -> "motion-reduce:"
-  | Contrast_more -> "contrast-more:"
-  | Contrast_less -> "contrast-less:"
-  | Pseudo_before -> "before:"
-  | Pseudo_after -> "after:"
+  | Has s -> String.concat "" [ "has("; s; ")" ]
+  | Group_has s -> String.concat "" [ "group-has("; s; ")" ]
+  | Peer_has s -> String.concat "" [ "peer-has("; s; ")" ]
+  | Starting -> "starting"
+  | Focus_within -> "focus-within"
+  | Focus_visible -> "focus-visible"
+  | Motion_safe -> "motion-safe"
+  | Motion_reduce -> "motion-reduce"
+  | Contrast_more -> "contrast-more"
+  | Contrast_less -> "contrast-less"
+  | Pseudo_before -> "before"
+  | Pseudo_after -> "after"
