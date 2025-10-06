@@ -263,6 +263,33 @@ let count_selector_in_media ~condition ~selector css =
        (fun acc s -> if String.equal s selector then acc + 1 else acc)
        0
 
+(* Selector testable and utilities *)
+let pp_selector fmt sel = Fmt.string fmt (Css.Selector.to_string sel)
+let selector_testable = Alcotest.testable pp_selector ( = )
+
+let sort_selectors sels =
+  let cmp a b =
+    String.compare (Css.Selector.to_string a) (Css.Selector.to_string b)
+  in
+  List.sort cmp sels
+
+let selectors_in_media_sel ~condition css =
+  match media_block condition css with
+  | None -> []
+  | Some stmts ->
+      List.filter_map
+        (fun s ->
+          match Css.as_rule s with Some (sel, _, _) -> Some sel | None -> None)
+        stmts
+
+let has_selector_in_media_sel ~condition ~selector css =
+  selectors_in_media_sel ~condition css
+  |> List.exists (fun sel -> sel = selector)
+
+let count_selector_in_media_sel ~condition ~selector css =
+  selectors_in_media_sel ~condition css
+  |> List.fold_left (fun acc sel -> if sel = selector then acc + 1 else acc) 0
+
 (** Check if inline style contains a specific property *)
 let inline_has_property prop_name inline_style =
   String.split_on_char ';' inline_style

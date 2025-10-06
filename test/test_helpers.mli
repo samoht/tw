@@ -32,6 +32,14 @@ val check_ordering_matches :
 
 (** {1 CSS Test Helpers} *)
 
+val selector_testable : Css.Selector.t Alcotest.testable
+(** [selector_testable] Alcotest testable for CSS selectors, using structural
+    equality and pretty-printing via [Css.Selector.to_string]. *)
+
+val sort_selectors : Css.Selector.t list -> Css.Selector.t list
+(** [sort_selectors sels] returns selectors sorted by their string
+    representation. Useful for order-insensitive comparisons in tests. *)
+
 val has_layer : string -> Css.t -> bool
 (** [has_layer name css] checks if a layer with the given name exists in the
     stylesheet *)
@@ -60,7 +68,7 @@ val has_media_condition : string -> Css.t -> bool
     exists *)
 
 val selectors_in_media : condition:string -> Css.t -> string list
-(** [selectors_in_media ~condition css] returns all selector strings contained
+(** [selectors_in_media ~condition css] returns the selector strings contained
     within the media query that matches [condition]. Returns [[]] if not found
     or if the block has no rules. *)
 
@@ -72,6 +80,20 @@ val count_selector_in_media :
   condition:string -> selector:string -> Css.t -> int
 (** [count_selector_in_media ~condition ~selector css] counts how many times
     [selector] appears inside the media query identified by [condition]. *)
+
+val selectors_in_media_sel : condition:string -> Css.t -> Css.Selector.t list
+(** [selectors_in_media_sel ~condition css] returns the raw selector ASTs inside
+    the matching media query. *)
+
+val has_selector_in_media_sel :
+  condition:string -> selector:Css.Selector.t -> Css.t -> bool
+(** [has_selector_in_media_sel ~condition ~selector css] checks for a selector
+    using structural equality on the selector AST. *)
+
+val count_selector_in_media_sel :
+  condition:string -> selector:Css.Selector.t -> Css.t -> int
+(** [count_selector_in_media_sel ~condition ~selector css] counts selectors by
+    structural equality on the selector AST. *)
 
 val inline_has_property : string -> string -> bool
 (** [inline_has_property prop_name inline_style] checks if inline style contains
