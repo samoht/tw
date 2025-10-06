@@ -35,6 +35,7 @@ let () =
       Test_flex.suite;
       Test_alignment.suite;
       Test_grid.suite;
+      Test_grid_item.suite;
       Test_grid_template.suite;
       Test_gap.suite;
       Test_cursor.suite;

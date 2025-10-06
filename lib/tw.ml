@@ -23,6 +23,7 @@ include Sizing
 include Typography
 include Layout
 include Grid
+include Grid_item
 include Grid_template
 include Flex
 include Alignment
@@ -81,6 +82,7 @@ module Backgrounds = Backgrounds
 module Sizing = Sizing
 module Layout = Layout
 module Grid = Grid
+module Grid_item = Grid_item
 module Grid_template = Grid_template
 module Typography = Typography
 module Effects = Effects
