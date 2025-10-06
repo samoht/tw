@@ -19,7 +19,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "svg"
-  let priority = 800
+  let priority = 28
 
   let to_style = function
     | Fill_none -> style Css.[ fill None ]

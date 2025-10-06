@@ -28,7 +28,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "forms"
-  let priority = 800
+  let priority = 26
 
   let form_input =
     let open Css in
