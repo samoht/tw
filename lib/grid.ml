@@ -15,7 +15,7 @@ module Handler = struct
       display property. *)
   let name = "grid"
 
-  let priority = 4
+  let priority = 6
   let grid = style [ display Grid ]
   let inline_grid = style [ display Inline_grid ]
   let to_style = function Grid -> grid | Inline_grid -> inline_grid

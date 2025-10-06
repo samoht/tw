@@ -44,9 +44,8 @@ module Handler = struct
 
   let name = "flex_props"
 
-  (** Priority 11 - after sizing (5) and grid-template (10), same as alignment,
-      before gap (12) *)
-  let priority = 11
+  (** Priority 13 - after grid-template (12), before alignment (14) *)
+  let priority = 13
 
   (* Direction *)
   let flex_row = style [ flex_direction Row ]
@@ -111,36 +110,37 @@ module Handler = struct
     | Order_none -> order_none
 
   let suborder : t -> int = function
-    (* Direction - alphabetical order: col, col-reverse, row, row-reverse *)
-    | Flex_col -> 0
-    | Flex_col_reverse -> 1
-    | Flex_row -> 2
-    | Flex_row_reverse -> 3
-    (* Wrap - alphabetical order: nowrap, wrap, wrap-reverse *)
-    | Flex_nowrap -> 10
-    | Flex_wrap -> 11
-    | Flex_wrap_reverse -> 12
-    (* Flex shortcuts *)
+    (* Order - comes first in Tailwind's output. Ordering: order-1..6,
+       order-first, order-last, order-none *)
+    | Order n -> n
+    | Order_first -> 7
+    | Order_last -> 8
+    | Order_none -> 9
+    (* Flex shortcuts - alphabetical: 1, auto, initial, none *)
     | Flex_1 -> 20
     | Flex_auto -> 21
     | Flex_initial -> 22
     | Flex_none -> 23
-    (* Grow *)
-    | Flex_grow -> 30
-    | Flex_grow_0 -> 31
-    (* Shrink *)
-    | Flex_shrink -> 40
-    | Flex_shrink_0 -> 41
-    (* Basis *)
+    (* Shrink - alphabetical: shrink, shrink-0 *)
+    | Flex_shrink -> 30
+    | Flex_shrink_0 -> 31
+    (* Grow - alphabetical: grow, grow-0 *)
+    | Flex_grow -> 40
+    | Flex_grow_0 -> 41
+    (* Basis - alphabetical: 0, 1, auto, full *)
     | Basis_0 -> 50
     | Basis_1 -> 51
     | Basis_auto -> 52
     | Basis_full -> 53
-    (* Order *)
-    | Order_none -> 60 (* order-0 *)
-    | Order n -> 60 + n
-    | Order_first -> 90
-    | Order_last -> 91
+    (* Direction - alphabetical: col, col-reverse, row, row-reverse *)
+    | Flex_col -> 60
+    | Flex_col_reverse -> 61
+    | Flex_row -> 62
+    | Flex_row_reverse -> 63
+    (* Wrap - alphabetical: nowrap, wrap, wrap-reverse *)
+    | Flex_nowrap -> 70
+    | Flex_wrap -> 71
+    | Flex_wrap_reverse -> 72
 
   let err_not_utility = Error (`Msg "Not a flex property utility")
 
@@ -171,7 +171,7 @@ module Handler = struct
     | [ "order"; "none" ] -> Ok Order_none
     | [ "order"; n ] -> (
         match int_of_string_opt n with
-        | Some n when n >= 1 && n <= 6 -> Ok (Order n)
+        | Some n when n >= 1 -> Ok (Order n)
         | _ -> err_not_utility)
     | _ -> err_not_utility
 

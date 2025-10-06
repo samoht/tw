@@ -69,15 +69,7 @@ let of_string_invalid () =
 
 let all_utilities () =
   let open Tw in
-  [
-    flex_row;
-    flex_row_reverse;
-    flex_col;
-    flex_col_reverse;
-    flex_wrap;
-    flex_wrap_reverse;
-    flex_nowrap;
-  ]
+  [ flex; inline_flex ]
 
 let suborder_matches_tailwind () =
   let shuffled = Test_helpers.shuffle (all_utilities ()) in

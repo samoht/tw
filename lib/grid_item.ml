@@ -29,8 +29,8 @@ module Handler = struct
 
   let name = "grid_item"
 
-  (** Priority 2 - same as margin, before display utilities (priority 4) *)
-  let priority = 2
+  (** Priority 1 - before margin (priority 2) *)
+  let priority = 1
 
   let col_auto = style [ grid_column_start Auto ]
   let col_span n = style [ grid_column (Span n, Auto) ]
