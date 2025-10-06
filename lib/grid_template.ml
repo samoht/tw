@@ -56,7 +56,7 @@ module Handler = struct
            [ "grid_cols: "; string_of_int n; " is out of range (1-12)" ])
     else
       style
-        [ Css.grid_template_columns (Tracks (List.init n (fun _ -> Fr 1.0))) ]
+        [ Css.grid_template_columns (Repeat (n, [ Min_max (Zero, Fr 1.0) ])) ]
 
   let grid_cols_none = style [ Css.grid_template_columns None ]
   let grid_cols_subgrid = style [ Css.grid_template_columns (Tracks [ Auto ]) ]
@@ -67,7 +67,7 @@ module Handler = struct
         (String.concat ""
            [ "grid_rows: "; string_of_int n; " is out of range (1-12)" ])
     else
-      style [ Css.grid_template_rows (Tracks (List.init n (fun _ -> Fr 1.0))) ]
+      style [ Css.grid_template_rows (Repeat (n, [ Min_max (Zero, Fr 1.0) ])) ]
 
   let grid_rows_none = style [ Css.grid_template_rows None ]
   let grid_rows_subgrid = style [ Css.grid_template_rows (Tracks [ Auto ]) ]
