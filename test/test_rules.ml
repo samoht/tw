@@ -62,8 +62,9 @@ let check_extract_responsive () =
   | [ Media_query { condition; selector; _ } ] ->
       (* Match Tailwind's minified output: (min-width:40rem) *)
       check string "media condition" "(min-width:40rem)" condition;
-      check string "correct selector" ".sm\\:p-4"
-        (Css.Selector.to_string selector)
+      check Test_helpers.selector_testable "sm selector"
+        (Css.Selector.class_ "sm\\:p-4")
+        selector
   | _ -> fail "Expected Media_query rule"
 
 let check_extract_responsive_md () =
@@ -73,7 +74,9 @@ let check_extract_responsive_md () =
   | [ Media_query { condition; selector; _ } ] ->
       (* md breakpoint should be 48rem *)
       check string "md media condition" "(min-width:48rem)" condition;
-      check string "md selector" ".md\\:p-4" (Css.Selector.to_string selector)
+      check Test_helpers.selector_testable "md selector"
+        (Css.Selector.class_ "md\\:p-4")
+        selector
   | _ -> fail "Expected Media_query rule for md"
 
 let check_extract_responsive_lg () =
@@ -82,7 +85,9 @@ let check_extract_responsive_lg () =
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
       check string "lg media condition" "(min-width:64rem)" condition;
-      check string "lg selector" ".lg\\:p-4" (Css.Selector.to_string selector)
+      check Test_helpers.selector_testable "lg selector"
+        (Css.Selector.class_ "lg\\:p-4")
+        selector
   | _ -> fail "Expected Media_query rule for lg"
 
 let check_extract_responsive_xl () =
@@ -91,7 +96,9 @@ let check_extract_responsive_xl () =
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
       check string "xl media condition" "(min-width:80rem)" condition;
-      check string "xl selector" ".xl\\:p-4" (Css.Selector.to_string selector)
+      check Test_helpers.selector_testable "xl selector"
+        (Css.Selector.class_ "xl\\:p-4")
+        selector
   | _ -> fail "Expected Media_query rule for xl"
 
 let check_extract_responsive_2xl () =
@@ -100,7 +107,9 @@ let check_extract_responsive_2xl () =
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
       check string "2xl media condition" "(min-width:96rem)" condition;
-      check string "2xl selector" ".2xl\\:p-4" (Css.Selector.to_string selector)
+      check Test_helpers.selector_testable "2xl selector"
+        (Css.Selector.class_ "2xl\\:p-4")
+        selector
   | _ -> fail "Expected Media_query rule for 2xl"
 
 let check_conflict_order () =
@@ -641,17 +650,23 @@ let test_rule_sets_hover_media () =
   (* Check for exact media condition *)
   check bool "has (hover:hover) media query" true
     (has_media_condition "(hover:hover)" css);
-  (* Extract selectors using fold *)
+  (* Extract selectors structurally and check exact match *)
   let selectors =
     Css.fold
       (fun acc stmt ->
         match Css.as_rule stmt with
-        | Some (sel, _, _) -> Css.Selector.to_string sel :: acc
+        | Some (sel, _, _) -> sel :: acc
         | None -> acc)
       [] css
+    |> List.rev
   in
-  check bool "hover rule is inside media query" true
-    (List.mem ".hover\\:p-4:hover" selectors)
+  let expected =
+    Css.Selector.compound
+      [ Css.Selector.class_ "hover\\:p-4"; Css.Selector.Hover ]
+  in
+  check
+    (list Test_helpers.selector_testable)
+    "hover selector in media" [ expected ] selectors
 
 let test_rule_sets_md_media () =
   (* Multiple md[...] utilities should group under a single (min-width:48rem) *)
@@ -677,14 +692,20 @@ let test_rule_sets_md_media () =
         List.filter_map
           (fun s ->
             match Css.as_rule s with
-            | Some (sel, _, _) -> Some (Css.Selector.to_string sel)
+            | Some (sel, _, _) -> Some sel
             | None -> None)
           stmts
       in
-      check bool "contains .md:p-4" true (List.mem ".md\\:p-4" selectors);
-      check bool "contains .md:m-2" true (List.mem ".md\\:m-2" selectors)
+      let expected =
+        Test_helpers.sort_selectors
+          [ Css.Selector.class_ "md\\:p-4"; Css.Selector.class_ "md\\:m-2" ]
+      in
+      let actual = Test_helpers.sort_selectors selectors in
+      check
+        (list Test_helpers.selector_testable)
+        "md block selectors" expected actual
 
-let test_multi_breakpoint_media_grouping_and_order () =
+let test_media_grouping_order () =
   let css =
     Tw.Rules.to_css [ sm [ p 2 ]; md [ m 4 ]; lg [ Tw.Typography.text_xl ] ]
   in
@@ -694,33 +715,49 @@ let test_multi_breakpoint_media_grouping_and_order () =
     [ "(min-width:40rem)"; "(min-width:48rem)"; "(min-width:64rem)" ]
     conditions;
   (* Each block contains only its selectors *)
-  check bool "sm contains .sm:p-2" true
-    (has_selector_in_media ~condition:"(min-width:40rem)" ~selector:".sm\\:p-2"
-       css);
-  check bool "md contains .md:m-4" true
-    (has_selector_in_media ~condition:"(min-width:48rem)" ~selector:".md\\:m-4"
-       css);
-  check bool "lg contains .lg:text-xl" true
-    (has_selector_in_media ~condition:"(min-width:64rem)"
-       ~selector:".lg\\:text-xl" css)
+  let sm_sels = selectors_in_media_sel ~condition:"(min-width:40rem)" css in
+  let md_sels = selectors_in_media_sel ~condition:"(min-width:48rem)" css in
+  let lg_sels = selectors_in_media_sel ~condition:"(min-width:64rem)" css in
+  check
+    (list Test_helpers.selector_testable)
+    "sm selectors"
+    [ Css.Selector.class_ "sm\\:p-2" ]
+    sm_sels;
+  check
+    (list Test_helpers.selector_testable)
+    "md selectors"
+    [ Css.Selector.class_ "md\\:m-4" ]
+    md_sels;
+  check
+    (list Test_helpers.selector_testable)
+    "lg selectors"
+    [ Css.Selector.class_ "lg\\:text-xl" ]
+    lg_sels
 
 let test_md_media_dedup () =
   let css = Tw.Rules.to_css [ md [ p 4 ]; md [ p 4 ] ] in
-  check int "only one .md:p-4 in media" 1
-    (count_selector_in_media ~condition:"(min-width:48rem)"
-       ~selector:".md\\:p-4" css)
+  check int "only one .md:p-4 in media (structural)" 1
+    (count_selector_in_media_sel ~condition:"(min-width:48rem)"
+       ~selector:(Css.Selector.class_ "md\\:p-4")
+       css)
 
-let test_md_hover_no_global_hover_media () =
+let test_md_hover_no_extra_media () =
   (* Responsive+hover should not introduce a separate (hover:hover) gate *)
   let css = Tw.Rules.to_css [ md [ hover [ p 4 ] ] ] in
   check bool "no (hover:hover) condition" false
     (has_media_condition "(hover:hover)" css);
-  (* Selector is inside md media block with :hover pseudo *)
-  check bool "md hover selector exists" true
-    (has_selector_in_media ~condition:"(min-width:48rem)"
-       ~selector:".md\\:hover\\:p-4:hover" css)
+  (* Selector is inside md media block with :hover pseudo, assert
+     structurally *)
+  let md_sels = selectors_in_media_sel ~condition:"(min-width:48rem)" css in
+  let expected =
+    Css.Selector.compound
+      [ Css.Selector.class_ "md\\:hover\\:p-4"; Css.Selector.Hover ]
+  in
+  check
+    (list Test_helpers.selector_testable)
+    "md:hover selector in md block" [ expected ] md_sels
 
-let test_rule_sets_container_and_media () =
+let test_container_and_media () =
   let rules, media, container =
     Tw.Rules.rule_sets [ Tw.Containers.container_md [ p 4 ]; md [ m 2 ] ]
   in
@@ -1644,13 +1681,11 @@ let tests =
     test_case "rule_sets_injects_hover_media_query" `Quick
       test_rule_sets_hover_media;
     test_case "rule_sets_groups_md_media_query" `Quick test_rule_sets_md_media;
-    test_case "multi-breakpoint grouping+order" `Quick
-      test_multi_breakpoint_media_grouping_and_order;
+    test_case "multi-breakpoint grouping+order" `Quick test_media_grouping_order;
     test_case "md media dedup" `Quick test_md_media_dedup;
     test_case "md:hover has no global hover gate" `Quick
-      test_md_hover_no_global_hover_media;
-    test_case "container + media together" `Quick
-      test_rule_sets_container_and_media;
+      test_md_hover_no_extra_media;
+    test_case "container + media together" `Quick test_container_and_media;
     test_case "modifier_to_rule" `Quick test_modifier_to_rule;
     test_case "rule_sets" `Quick test_rule_sets;
     test_case "build_utilities_layer" `Quick test_build_utilities_layer;

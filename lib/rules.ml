@@ -138,7 +138,7 @@ let media_modifier ~condition ~prefix base_class props =
   let selector_str = prefix ^ base_class in
   (* For now, create a simple class selector - this needs proper parsing *)
   let selector =
-    Css.Selector.class_raw
+    Css.Selector.class_
       (String.sub selector_str 1 (String.length selector_str - 1))
   in
   media_query ~condition ~selector ~props ~base_class ()
@@ -180,36 +180,26 @@ let container_rule query base_class selector props =
 let has_like_selector kind selector_str base_class props =
   let open Css.Selector in
   (* Parse the selector string to get a proper selector *)
-  let parsed_selector =
-    let reader = Css.Reader.of_string selector_str in
-    try Css.Selector.read reader with
-    | Css.Reader.Parse_error _ ->
-        (* Fallback to a simple class selector if parsing fails *)
-        class_raw selector_str
-    | Invalid_argument _ ->
-        (* Invalid identifier; degrade gracefully to raw class name *)
-        class_raw selector_str
-  in
+  let reader = Css.Reader.of_string selector_str in
+  let parsed_selector = Css.Selector.read reader in
   match kind with
   | `Has ->
       let sel =
         compound
           [
-            class_raw ("has-[" ^ selector_str ^ "]:" ^ base_class);
+            class_ ("has-[" ^ selector_str ^ "]:" ^ base_class);
             has [ parsed_selector ];
           ]
       in
       regular ~selector:sel ~props ~base_class ()
   | `Group_has ->
-      let left = compound [ class_raw "group"; has [ parsed_selector ] ] in
-      let right =
-        class_raw ("group-has-[" ^ selector_str ^ "]:" ^ base_class)
-      in
+      let left = compound [ Class "group"; has [ parsed_selector ] ] in
+      let right = Class ("group-has-[" ^ selector_str ^ "]:" ^ base_class) in
       let sel = combine left Descendant right in
       regular ~selector:sel ~props ~base_class ()
   | `Peer_has ->
-      let left = compound [ class_raw "peer"; has [ parsed_selector ] ] in
-      let right = class_raw ("peer-has-[" ^ selector_str ^ "]:" ^ base_class) in
+      let left = compound [ Class "peer"; has [ parsed_selector ] ] in
+      let right = Class ("peer-has-[" ^ selector_str ^ "]:" ^ base_class) in
       let sel = combine left Subsequent_sibling right in
       regular ~selector:sel ~props ~base_class ()
 
@@ -301,7 +291,7 @@ let modifier_to_rule modifier base_class selector props =
   | Style.Not _modifier ->
       regular
         ~selector:
-          (Css.Selector.class_raw
+          (Css.Selector.Class
              ("not-" ^ base_class ^ ":not("
              ^ Css.Selector.to_string selector
              ^ ")"))
@@ -313,9 +303,8 @@ let modifier_to_rule modifier base_class selector props =
   | Style.Peer_has selector_str ->
       has_like_selector `Peer_has selector_str base_class props
   | Style.Starting ->
-      starting_style
-        ~selector:(Css.Selector.class_raw base_class)
-        ~props ~base_class ()
+      starting_style ~selector:(Css.Selector.Class base_class) ~props
+        ~base_class ()
   | Style.Hover | Style.Focus | Style.Active | Style.Focus_within
   | Style.Focus_visible | Style.Disabled ->
       handle_pseudo_class_modifier modifier base_class selector props
@@ -328,7 +317,7 @@ let modifier_to_rule modifier base_class selector props =
 let extract_selector_props util =
   let rec extract_with_class class_name util_inner = function
     | Style.Style { props; rules; _ } -> (
-        let sel = Css.Selector.class_raw class_name in
+        let sel = Css.Selector.Class class_name in
         match rules with
         | None -> [ regular ~selector:sel ~props ~base_class:class_name () ]
         | Some rule_list ->
