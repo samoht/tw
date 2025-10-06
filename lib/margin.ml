@@ -51,19 +51,21 @@ module Handler = struct
     let spacing_decl, spacing_ref =
       Var.binding Spacing.spacing_var (Rem 0.25)
     in
-    let len = Spacing.margin_to_length spacing_ref m in
     match m with
-    | `Auto -> style [ prop len ]
-    | #spacing -> style [ spacing_decl; prop len ]
+    | `Auto -> style [ prop (Spacing.margin_to_length spacing_ref m) ]
+    | #spacing as s ->
+        style
+          [ spacing_decl; prop (Spacing.margin_to_length_neg spacing_ref s) ]
 
   let margin_list_util_neg prop (m : margin) =
     let spacing_decl, spacing_ref =
       Var.binding Spacing.spacing_var (Rem 0.25)
     in
-    let len = Spacing.margin_to_length spacing_ref m in
     match m with
-    | `Auto -> style [ prop [ len ] ]
-    | #spacing -> style [ spacing_decl; prop [ len ] ]
+    | `Auto -> style [ prop [ Spacing.margin_to_length spacing_ref m ] ]
+    | #spacing as s ->
+        style
+          [ spacing_decl; prop [ Spacing.margin_to_length_neg spacing_ref s ] ]
 
   let spacing_value_order = function
     | `Px -> 1

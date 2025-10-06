@@ -10,9 +10,8 @@ module Handler = struct
   type t = Flex | Inline_flex
   type Utility.base += Self of t
 
-  (** Priority for flex display utilities. Set to 4 to match other display
-      utilities (block, inline, grid, etc.) since flex and inline-flex set the
-      display property. *)
+  (** Priority for flex display utilities. Display utilities all share priority
+      4 and are ordered alphabetically by suborder. *)
   let name = "flex"
 
   let priority = 4

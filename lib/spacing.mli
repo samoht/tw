@@ -46,6 +46,19 @@ val margin_to_length : Css.length Css.var -> Style.margin -> Css.length
     @param margin The margin value to convert
     @return CSS length (or Auto) *)
 
+val margin_to_length_neg : Css.length Css.var -> Style.spacing -> Css.length
+(** Convert a spacing value to a negated CSS length for negative margins.
+
+    Similar to {!to_length} but negates the value:
+    - [`Px] becomes [Css.Px (-1.)]
+    - [`Full] becomes [Css.Pct (-100.0)]
+    - [`Rem f] creates [calc(var(--spacing) * -n)] where n = f / 0.25
+
+    @param spacing_ref
+      Reference to the spacing theme variable (from Var.binding)
+    @param spacing The spacing value to convert (will be negated)
+    @return CSS length with negated value *)
+
 (** {1 Spacing Constructors} *)
 
 val int : int -> Style.spacing
