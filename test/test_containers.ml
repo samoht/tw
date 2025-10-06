@@ -16,6 +16,16 @@ let test_container_name () =
   check "@container/header";
   check "@container/main"
 
+let test_multiple_named_containers () =
+  (* Test multiple named containers together - should match Tailwind output *)
+  Test_helpers.check_ordering_matches ~test_name:"multiple named containers"
+    Tw.
+      [
+        container_named "sidebar";
+        container_named "header";
+        container_named "main";
+      ]
+
 let test_of_string_invalid () =
   (* Invalid container utilities *)
   let test_invalid input =
@@ -65,6 +75,7 @@ let tests =
   [
     test_case "types" `Quick test_container_types;
     test_case "name" `Quick test_container_name;
+    test_case "multiple named containers" `Quick test_multiple_named_containers;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "containers suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
