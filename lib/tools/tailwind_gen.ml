@@ -5,7 +5,7 @@ let write_file path content =
   output_string oc content;
   close_out oc
 
-let tailwind_files temp_dir classnames =
+let tailwind_files ?(forms = false) temp_dir classnames =
   let html_content =
     Fmt.str
       {|<!DOCTYPE html>
@@ -18,7 +18,11 @@ let tailwind_files temp_dir classnames =
       (String.concat " " classnames)
   in
   let input_css_content =
-    "@import \"tailwindcss\";\n@plugin \"@tailwindcss/typography\";"
+    if forms then
+      "@import \"tailwindcss\";\n\
+       @plugin \"@tailwindcss/typography\";\n\
+       @plugin \"@tailwindcss/forms\";"
+    else "@import \"tailwindcss\";\n@plugin \"@tailwindcss/typography\";"
   in
   write_file (Filename.concat temp_dir "input.html") html_content;
   write_file (Filename.concat temp_dir "input.css") input_css_content
@@ -189,7 +193,13 @@ let temp_dir () =
      imports *)
   Filename.temp_dir ~temp_dir:"tmp" "tw_gen_" ""
 
-let generate ?(minify = false) ?(optimize = true) classnames =
+(** Detect if any class names use forms utilities *)
+let uses_forms classnames =
+  List.exists
+    (fun class_name -> String.starts_with ~prefix:"form-" class_name)
+    classnames
+
+let generate ?(minify = false) ?(optimize = true) ?(forms = false) classnames =
   check_tailwindcss_available ();
 
   let dir = temp_dir () in
@@ -198,7 +208,10 @@ let generate ?(minify = false) ?(optimize = true) classnames =
   try
     let start_time = Stats.start_timer () in
 
-    tailwind_files dir classnames;
+    (* Auto-detect forms usage if not explicitly set *)
+    let forms = forms || uses_forms classnames in
+
+    tailwind_files ~forms dir classnames;
 
     let minify_flag = if minify then " --minify" else "" in
     let optimize_flag = if optimize then " --optimize" else "" in

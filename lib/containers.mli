@@ -7,24 +7,18 @@ open Utility
 
 (** {1 Container Type Utilities} *)
 
-val container_type_size : t
-(** [container_type_size] enables container queries based on both width and
-    height. *)
+val container : t
+(** [container] enables container queries based on inline-size (equivalent to
+    [@container] in Tailwind v4). Sets [container-type: inline-size]. *)
 
-val container_type_inline_size : t
-(** [container_type_inline_size] enables container queries based on inline size
-    (width in horizontal writing). *)
+val container_normal : t
+(** [container_normal] disables container queries (equivalent to
+    [@container-normal] in Tailwind v4). Sets [container-type: normal]. *)
 
-val container_type_normal : t
-(** [container_type_normal] disables container queries (default). *)
-
-val container_name_util : string -> t
-(** [container_name_util name] creates a utility for setting a container name
-    for targeted queries. *)
-
-val container_name : string -> t
-(** [container_name name] directly creates a style for setting a container name.
-*)
+val container_named : string -> t
+(** [container_named name] creates a named container (equivalent to
+    [@container/name] in Tailwind v4). Sets [container-type: inline-size] and
+    [container-name: name]. *)
 
 (** {1 Container Query Modifiers} *)
 
@@ -48,9 +42,10 @@ val container_2xl : t list -> t
 (** [container_2xl styles] applies [styles] when the container is at least 42rem
     (672px) wide. *)
 
-val container : ?name:string -> int -> t list -> t
-(** [container ?name min_width styles] applies styles when the named container
-    (or nearest container if no name) is at least [min_width] pixels wide. *)
+val container_query : ?name:string -> int -> t list -> t
+(** [container_query ?name min_width styles] applies styles when the named
+    container (or nearest container if no name) is at least [min_width] pixels
+    wide. *)
 
 (** {1 Helper Functions} *)
 

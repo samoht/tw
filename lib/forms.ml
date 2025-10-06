@@ -105,10 +105,13 @@ module Handler = struct
     | Form_checkbox -> 3
     | Form_radio -> 4
 
-  let of_class _ =
-    (* Form utilities are not part of Tailwind v4 core. They were removed from
-       @tailwindcss/forms plugin. *)
-    Error (`Msg "Not a form utility")
+  let of_class = function
+    | "form-input" -> Ok Form_input
+    | "form-textarea" -> Ok Form_textarea
+    | "form-select" -> Ok Form_select
+    | "form-checkbox" -> Ok Form_checkbox
+    | "form-radio" -> Ok Form_radio
+    | _ -> Error (`Msg "Not a form utility")
 
   let to_class = function
     | Form_input -> "form-input"

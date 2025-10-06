@@ -8,10 +8,10 @@ let check class_name =
   | Error (`Msg msg) -> fail msg
 
 let test_container_types () =
-  check "container-type-size";
-  check "container-type-normal"
+  check "@container";
+  check "@container-normal"
 
-let test_container_name () = check "container-sidebar"
+let test_container_name () = check "@container/sidebar"
 
 let test_of_string_invalid () =
   (* Invalid container utilities *)
@@ -45,11 +45,10 @@ let test_of_string_invalid () =
 
 let all_utilities () =
   let open Tw in
-  [ container_type_size; container_type_inline_size ]
+  [ container; container_normal; container_named "sidebar" ]
 
 let suborder_matches_tailwind () =
   let shuffled = Test_helpers.shuffle (all_utilities ()) in
-
   Test_helpers.check_ordering_matches
     ~test_name:"containers suborder matches Tailwind" shuffled
 

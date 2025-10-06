@@ -21,10 +21,9 @@ module Handler = struct
 
   (** Local container utility type *)
   type t =
-    | Container_type_size
-    | Container_type_inline_size
-    | Container_type_normal
-    | Container_name of string
+    | Container (* @container - sets container-type: inline-size *)
+    | Container_normal (* @container-normal - sets container-type: normal *)
+    | Container_named of string (* @container/name *)
 
   type Utility.base += Self of t
 
@@ -32,36 +31,34 @@ module Handler = struct
   let priority = 14
 
   let to_class = function
-    | Container_type_size -> "container-type-size"
-    | Container_type_inline_size -> "container-type-inline-size"
-    | Container_type_normal -> "container-type-normal"
-    | Container_name name -> "container-" ^ name
+    | Container -> "@container"
+    | Container_normal -> "@container-normal"
+    | Container_named name -> "@container/" ^ name
 
-  let container_type_size = style [ container_type Size ]
-  let container_type_inline_size = style [ container_type Inline_size ]
-  let container_type_normal = style [ container_type Normal ]
-  let container_name name = style [ container_name name ]
+  let container = style [ container_type Inline_size ]
+  let container_normal = style [ container_type Normal ]
+
+  let container_named name =
+    style [ container_type Inline_size; container_name name ]
 
   let to_style = function
-    | Container_type_size -> container_type_size
-    | Container_type_inline_size -> container_type_inline_size
-    | Container_type_normal -> container_type_normal
-    | Container_name name -> container_name name
+    | Container -> container
+    | Container_normal -> container_normal
+    | Container_named name -> container_named name
 
   let suborder = function
-    | Container_type_size -> 0
-    | Container_type_inline_size -> 1
-    | Container_type_normal -> 2
-    | Container_name _ -> 100
+    | Container -> 1
+    | Container_named _ -> 0
+    | Container_normal -> 100
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
-    match parts with
-    | [ "container"; "type"; "size" ] -> Ok Container_type_size
-    | [ "container"; "type"; "inline"; "size" ] -> Ok Container_type_inline_size
-    | [ "container"; "type"; "normal" ] -> Ok Container_type_normal
-    | [ "container"; name ] -> Ok (Container_name name)
-    | _ -> Error (`Msg "Not a container utility")
+    (* Handle @container syntax used in Tailwind v4 *)
+    if class_name = "@container" then Ok Container
+    else if class_name = "@container-normal" then Ok Container_normal
+    else if String.starts_with ~prefix:"@container/" class_name then
+      let name = String.sub class_name 11 (String.length class_name - 11) in
+      Ok (Container_named name)
+    else Error (`Msg "Not a container utility")
 end
 
 open Handler
@@ -85,7 +82,7 @@ let container_xl styles =
 let container_2xl styles =
   Utility.Modified (Container Container_2xl, Utility.Group styles)
 
-let container ?name min_width styles =
+let container_query ?name min_width styles =
   let query =
     match name with
     | None -> Style.Container_named ("", min_width)
@@ -94,11 +91,9 @@ let container ?name min_width styles =
   Utility.Group
     (List.map (fun t -> Utility.Modified (Container query, t)) styles)
 
-let container_type_size = utility Container_type_size
-let container_type_inline_size = utility Container_type_inline_size
-let container_type_normal = utility Container_type_normal
-let container_name_util name = utility (Container_name name)
-let container_name = container_name_util
+let container = utility Container
+let container_normal = utility Container_normal
+let container_named name = utility (Container_named name)
 
 (** Helper Functions *)
 let container_query_to_css_prefix = function
