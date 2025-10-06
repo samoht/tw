@@ -15,7 +15,7 @@ module Handler = struct
       display property. *)
   let name = "flex"
 
-  let priority = 5
+  let priority = 4
   let flex = style [ display Flex ]
   let inline_flex = style [ display Inline_flex ]
   let to_style = function Flex -> flex | Inline_flex -> inline_flex
