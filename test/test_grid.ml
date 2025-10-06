@@ -5,37 +5,7 @@ let check = Test_helpers.check_handler_roundtrip (module Tw.Grid.Handler)
 let of_string_valid () =
   (* Display *)
   check "grid";
-  check "inline-grid";
-
-  (* Column placement *)
-  check "col-auto";
-  check "col-span-1";
-  check "col-span-2";
-  check "col-span-3";
-  check "col-span-6";
-  check "col-span-12";
-  check "col-span-full";
-  check "col-start-1";
-  check "col-start-2";
-  check "col-start-auto";
-  check "col-end-1";
-  check "col-end-7";
-  check "col-end-auto";
-
-  (* Row placement *)
-  check "row-auto";
-  check "row-span-1";
-  check "row-span-2";
-  check "row-span-3";
-  check "row-span-6";
-  check "row-span-12";
-  check "row-span-full";
-  check "row-start-1";
-  check "row-start-2";
-  check "row-start-auto";
-  check "row-end-1";
-  check "row-end-7";
-  check "row-end-auto"
+  check "inline-grid"
 
 let of_string_invalid () =
   let fail_maybe input =
@@ -45,59 +15,16 @@ let of_string_invalid () =
     | Error _ -> ()
   in
 
-  fail_maybe [ "col" ];
-  (* Missing value *)
-  fail_maybe [ "col"; "span" ];
-  (* Missing span value *)
-  fail_maybe [ "col"; "span"; "0" ];
-  (* Out of range (below 1) *)
-  fail_maybe [ "col"; "span"; "13" ];
-  (* Out of range (above 12) *)
-  fail_maybe [ "col"; "span"; "invalid" ];
-  (* Invalid value *)
-  fail_maybe [ "col"; "start" ];
-  (* Missing start value *)
-  fail_maybe [ "col"; "end" ];
-
-  (* Missing end value *)
-  fail_maybe [ "row" ];
-  (* Missing value *)
-  fail_maybe [ "row"; "span" ];
-  (* Missing span value *)
-  fail_maybe [ "row"; "span"; "0" ];
-  (* Out of range (below 1) *)
-  fail_maybe [ "row"; "span"; "13" ];
-  (* Out of range (above 12) *)
-  fail_maybe [ "row"; "span"; "invalid" ];
-  (* Invalid value *)
-  fail_maybe [ "row"; "start" ];
-  (* Missing start value *)
-  fail_maybe [ "row"; "end" ]
-(* Missing end value *)
+  fail_maybe [ "grid"; "cols" ];
+  (* Wrong utility - this is grid_template *)
+  fail_maybe [ "col"; "auto" ];
+  (* Wrong utility - this is grid_item *)
+  fail_maybe [ "row"; "span"; "1" ]
+(* Wrong utility - this is grid_item *)
 
 let all_utilities () =
   let open Tw in
-  [
-    grid;
-    inline_grid;
-    col_auto;
-    col_span 1;
-    col_span 2;
-    col_span 6;
-    col_span_full;
-    col_start 1;
-    col_start_auto;
-    col_end 1;
-    col_end_auto;
-    row_auto;
-    row_span 1;
-    row_span 3;
-    row_span_full;
-    row_start 2;
-    row_start_auto;
-    row_end 7;
-    row_end_auto;
-  ]
+  [ grid; inline_grid ]
 
 let suborder_matches_tailwind () =
   let shuffled = Test_helpers.shuffle (all_utilities ()) in

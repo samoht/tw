@@ -3360,6 +3360,7 @@ module Sizing = Sizing
 module Layout = Layout
 module Typography = Typography
 module Grid = Grid
+module Grid_item = Grid_item
 module Grid_template = Grid_template
 module Effects = Effects
 module Transforms = Transforms
