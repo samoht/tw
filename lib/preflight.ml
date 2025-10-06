@@ -347,38 +347,20 @@ let form_misc_resets () =
 (** Webkit-specific form resets *)
 let webkit_form_resets () =
   [
-    rule ~selector:(Selector.Pseudo_element "-webkit-search-decoration")
-      [ webkit_appearance None ];
-    rule ~selector:(Selector.Pseudo_element "-webkit-date-and-time-value")
+    rule ~selector:Webkit_search_decoration [ webkit_appearance None ];
+    rule ~selector:Webkit_date_and_time_value
       [ min_height (Lh 1.0); text_align Inherit ];
-    rule ~selector:(Selector.Pseudo_element "-webkit-datetime-edit")
-      [ display Inline_flex ];
-    rule
-      ~selector:(Selector.Pseudo_element "-webkit-datetime-edit-fields-wrapper")
-      [ padding [ Zero ] ];
-    rule ~selector:(Selector.Pseudo_element "-webkit-datetime-edit")
-      [ padding_block Zero ];
-    rule ~selector:(Selector.Pseudo_element "-webkit-datetime-edit-year-field")
-      [ padding_block Zero ];
-    rule ~selector:(Selector.Pseudo_element "-webkit-datetime-edit-month-field")
-      [ padding_block Zero ];
-    rule ~selector:(Selector.Pseudo_element "-webkit-datetime-edit-day-field")
-      [ padding_block Zero ];
-    rule ~selector:(Selector.Pseudo_element "-webkit-datetime-edit-hour-field")
-      [ padding_block Zero ];
-    rule
-      ~selector:(Selector.Pseudo_element "-webkit-datetime-edit-minute-field")
-      [ padding_block Zero ];
-    rule
-      ~selector:(Selector.Pseudo_element "-webkit-datetime-edit-second-field")
-      [ padding_block Zero ];
-    rule
-      ~selector:
-        (Selector.Pseudo_element "-webkit-datetime-edit-millisecond-field")
-      [ padding_block Zero ];
-    rule
-      ~selector:(Selector.Pseudo_element "-webkit-datetime-edit-meridiem-field")
-      [ padding_block Zero ];
+    rule ~selector:Webkit_datetime_edit [ display Inline_flex ];
+    rule ~selector:Webkit_datetime_edit_fields_wrapper [ padding [ Zero ] ];
+    rule ~selector:Webkit_datetime_edit [ padding_block Zero ];
+    rule ~selector:Webkit_datetime_edit_year_field [ padding_block Zero ];
+    rule ~selector:Webkit_datetime_edit_month_field [ padding_block Zero ];
+    rule ~selector:Webkit_datetime_edit_day_field [ padding_block Zero ];
+    rule ~selector:Webkit_datetime_edit_hour_field [ padding_block Zero ];
+    rule ~selector:Webkit_datetime_edit_minute_field [ padding_block Zero ];
+    rule ~selector:Webkit_datetime_edit_second_field [ padding_block Zero ];
+    rule ~selector:Webkit_datetime_edit_millisecond_field [ padding_block Zero ];
+    rule ~selector:Webkit_datetime_edit_meridiem_field [ padding_block Zero ];
   ]
 
 (** Firefox-specific form resets *)
@@ -398,10 +380,8 @@ let button_specific_resets () =
 let button_resets () =
   [
     rule ~selector:File_selector_button [ appearance Button ];
-    rule ~selector:(Selector.Pseudo_element "-webkit-inner-spin-button")
-      [ height Auto ];
-    rule ~selector:(Selector.Pseudo_element "-webkit-outer-spin-button")
-      [ height Auto ];
+    rule ~selector:Webkit_inner_spin_button [ height Auto ];
+    rule ~selector:Webkit_outer_spin_button [ height Auto ];
   ]
 
 (** Hidden elements *)
