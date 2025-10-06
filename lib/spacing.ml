@@ -51,6 +51,13 @@ let margin_to_length spacing_ref : margin -> length = function
       let n = f /. 0.25 in
       Calc (Calc.mul (Calc.length (Var spacing_ref)) (Calc.float n))
 
+let margin_to_length_neg spacing_ref : spacing -> length = function
+  | `Px -> Px (-1.)
+  | `Full -> Pct (-100.0)
+  | `Rem f ->
+      let n = f /. 0.25 in
+      Calc (Calc.mul (Calc.length (Var spacing_ref)) (Calc.float (-.n)))
+
 (** {1 Spacing Constructors} *)
 
 let int n = `Rem (float_of_int n *. 0.25)

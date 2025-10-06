@@ -10,9 +10,8 @@ module Handler = struct
   type t = Grid | Inline_grid
   type Utility.base += Self of t
 
-  (** Priority for grid display utilities. Set to 4 to match other display
-      utilities (block, inline, flex, etc.) since grid and inline-grid set the
-      display property. *)
+  (** Priority for grid display utilities. Display utilities all share priority
+      4 and are ordered alphabetically by suborder. *)
   let name = "grid"
 
   let priority = 4
