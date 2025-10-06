@@ -92,7 +92,11 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "sizing"
-  let priority = 6
+
+  (** Priority 5: Between display utilities (4) and other layout utilities.
+      Sizing utilities (w-*, h-*, max-w-*, etc.) come after display utilities
+      but before flex direction/wrap utilities in Tailwind's order. *)
+  let priority = 5
 
   (** Helper to create spacing-based utilities with consistent pattern *)
   let spacing_utility css_prop n =
