@@ -118,7 +118,7 @@ let check_conflict_order () =
 
   (* Test basic selector parsing *)
   let prio, sub = conflict_order ".p-4" in
-  check int "p-4 priority" 15 prio;
+  check int "p-4 priority" 19 prio;
 
   (* Padding priority *)
 
@@ -1257,11 +1257,13 @@ let test_handler_priority_ordering () =
   let animation_prio = Tw.Animations.Handler.priority in
   let filter_prio = Tw.Filters.Handler.priority in
 
-  (* Verify priority ordering relationships *)
+  (* Verify total priority ordering - each module has unique priority *)
   check bool "position < margin" true (position_prio < margin_prio);
   (* prose priority 3 skipped - Handler not exposed *)
   check bool "margin < layout" true (margin_prio < layout_prio);
-  check bool "layout < sizing" true (layout_prio < sizing_prio);
+  check bool "layout < flex" true (layout_prio < flex_prio);
+  check bool "flex < grid" true (flex_prio < grid_prio);
+  check bool "grid < sizing" true (grid_prio < sizing_prio);
   check bool "sizing < transform" true (sizing_prio < transform_prio);
   check bool "transform < animation" true (transform_prio < animation_prio);
   check bool "animation < cursor" true (animation_prio < cursor_prio);
@@ -1274,11 +1276,7 @@ let test_handler_priority_ordering () =
   check bool "bg < padding" true (bg_prio < padding_prio);
   check bool "padding < typography" true (padding_prio < typography_prio);
   check bool "typography < effect" true (typography_prio < effect_prio);
-  check bool "effect < filter" true (effect_prio < filter_prio);
-
-  (* Verify utilities in same priority group have same priority *)
-  check int "layout == flex" layout_prio flex_prio;
-  check int "layout == grid" layout_prio grid_prio
+  check bool "effect < filter" true (effect_prio < filter_prio)
 (* display and tables priority checked in test_priority_order_per_group *)
 
 (* Test 2: Verify suborder within same group *)
