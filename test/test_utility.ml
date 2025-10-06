@@ -78,9 +78,9 @@ let test_order_priorities () =
   let typo_prio, _ = parse_and_order "text-xl" in
 
   (* Verify relative ordering (what matters for CSS) *)
-  check bool "positioning before margin" true (pos_prio < margin_prio);
-  check bool "margin before grid" true (margin_prio < grid_prio);
-  check bool "grid before padding" true (grid_prio < padding_prio);
+  check bool "positioning before grid" true (pos_prio < grid_prio);
+  check bool "grid before margin" true (grid_prio < margin_prio);
+  check bool "margin before padding" true (margin_prio < padding_prio);
   check bool "padding before typography" true (padding_prio < typo_prio)
 
 (* Test suborder within same priority group *)
