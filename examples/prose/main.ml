@@ -182,7 +182,21 @@ let page_content =
 let doc =
   page ~title:"Prose Typography Demo" ~tw_css:"prose.css" []
     [
-      div ~tw:Tw.[ max_w_4xl; mx_auto; p 8; flex; flex_col; gap 8 ] page_content;
+      div
+        ~tw:
+          Tw.
+            [
+              container;
+              inline;
+              table;
+              max_w_4xl;
+              mx_auto;
+              p 8;
+              flex;
+              flex_col;
+              gap 8;
+            ]
+        page_content;
     ]
 
 let () =

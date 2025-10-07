@@ -13,8 +13,6 @@ module Handler = struct
     | Hidden
     | Sr_only
     | Not_sr_only
-    | (* Layout Container *)
-      Layout_container
     | (* Visibility *)
       Visible
     | Invisible
@@ -69,11 +67,10 @@ module Handler = struct
     | Sr_only -> 0
     | Not_sr_only -> 1
     | Block -> 2
-    | Layout_container -> 3
-    | Hidden -> 4
-    | Inline -> 5
-    | Inline_block -> 6
-    | Table -> 7
+    | Hidden -> 3
+    | Inline -> 4
+    | Inline_block -> 5
+    | Table -> 6
     (* Overflow utilities *)
     | Overflow_auto -> 10
     | Overflow_clip -> 11
@@ -122,7 +119,6 @@ module Handler = struct
     | Inline -> "inline"
     | Inline_block -> "inline-block"
     | Table -> "table"
-    | Layout_container -> "container"
     | Hidden -> "hidden"
     | Sr_only -> "sr-only"
     | Not_sr_only -> "not-sr-only"
@@ -166,7 +162,6 @@ module Handler = struct
     | Inline -> style [ display Inline ]
     | Inline_block -> style [ display Inline_block ]
     | Table -> style [ display Table ]
-    | Layout_container -> style [ width (Pct 100.) ]
     | Hidden -> style [ display None ]
     | Sr_only ->
         style
@@ -237,7 +232,6 @@ module Handler = struct
     | [ "inline" ] -> Ok Inline
     | [ "inline"; "block" ] -> Ok Inline_block
     | [ "hidden" ] -> Ok Hidden
-    | [ "container" ] -> Ok Layout_container
     | [ "visible" ] -> Ok Visible
     | [ "invisible" ] -> Ok Invisible
     | [ "collapse" ] -> Ok Collapse
@@ -290,7 +284,6 @@ let block = utility Block
 let inline = utility Inline
 let inline_block = utility Inline_block
 let table = utility Table
-let layout_container = utility Layout_container
 let hidden = utility Hidden
 let visible = utility Visible
 let invisible = utility Invisible

@@ -275,6 +275,9 @@ val inline : t
 val inline_block : t
 (** [inline_block] flows inline but can have width/height like a block. *)
 
+val table : t
+(** [table] makes the element behave like a <table> element. *)
+
 val hidden : t
 (** [hidden] completely hides the element; no space is reserved and screen
     readers skip it. Use [sr_only] to hide visually but keep accessible. *)
@@ -2682,15 +2685,20 @@ val transform_style_flat : t
     than the viewport. Inspired by modern CSS capabilities. *)
 
 val container : t
-(** [container] enables container queries based on inline-size (equivalent to
+(** [container] creates a responsive layout container (equivalent to
+    [.container] in Tailwind v4). Sets [width: 100%]. Note: Responsive
+    [max-width] at various breakpoints not yet implemented. *)
+
+val at_container : t
+(** [at_container] enables container queries based on inline-size (equivalent to
     [@container] in Tailwind v4). Sets [container-type: inline-size]. *)
 
-val container_normal : t
-(** [container_normal] disables container queries (equivalent to
+val at_container_normal : t
+(** [at_container_normal] disables container queries (equivalent to
     [@container-normal] in Tailwind v4). Sets [container-type: normal]. *)
 
-val container_named : string -> t
-(** [container_named name] creates a named container (equivalent to
+val at_container_named : string -> t
+(** [at_container_named name] creates a named container (equivalent to
     [@container/name] in Tailwind v4). Sets [container-type: inline-size] and
     [container-name: name]. *)
 
