@@ -38,7 +38,10 @@ module Handler = struct
 
   let to_class (t : t) =
     match t with
-    | Bg (color, shade) -> "bg-" ^ Color.pp color ^ "-" ^ string_of_int shade
+    | Bg (color, shade) ->
+        if Color.is_base_color color || Color.is_custom_color color then
+          "bg-" ^ Color.pp color
+        else "bg-" ^ Color.pp color ^ "-" ^ string_of_int shade
     | Bg_gradient_to dir -> (
         match dir with
         | Bottom -> "bg-gradient-to-b"
@@ -50,9 +53,17 @@ module Handler = struct
         | Left -> "bg-gradient-to-l"
         | Bottom_left -> "bg-gradient-to-bl")
     | From (color, shade) ->
-        "from-" ^ Color.pp color ^ "-" ^ string_of_int shade
-    | Via (color, shade) -> "via-" ^ Color.pp color ^ "-" ^ string_of_int shade
-    | To (color, shade) -> "to-" ^ Color.pp color ^ "-" ^ string_of_int shade
+        if Color.is_base_color color || Color.is_custom_color color then
+          "from-" ^ Color.pp color
+        else "from-" ^ Color.pp color ^ "-" ^ string_of_int shade
+    | Via (color, shade) ->
+        if Color.is_base_color color || Color.is_custom_color color then
+          "via-" ^ Color.pp color
+        else "via-" ^ Color.pp color ^ "-" ^ string_of_int shade
+    | To (color, shade) ->
+        if Color.is_base_color color || Color.is_custom_color color then
+          "to-" ^ Color.pp color
+        else "to-" ^ Color.pp color ^ "-" ^ string_of_int shade
 
   let to_spec (dir : direction) : Css.gradient_direction =
     match dir with
@@ -109,15 +120,26 @@ module Handler = struct
     let dir_val = to_spec dir in
     style [ Css.background_image (Linear_gradient (dir_val, [])) ]
 
+  (** Helper to get color value and optional theme variable declaration. For
+      custom/arbitrary colors: returns ([], color_value) - no theme variable.
+      For named colors: returns ([theme_var_decl], Var(theme_var_ref)) *)
+  let color_binding ?(shade = 500) color =
+    let color_value = Color.to_css color shade in
+    if Color.is_custom_color color then
+      (* Arbitrary color: no theme variable, use value directly *)
+      ([], color_value)
+    else
+      (* Named color: create theme variable *)
+      let color_theme_var = Color.get_color_var color shade in
+      let d_color, color_ref = Var.binding color_theme_var color_value in
+      ([ d_color ], (Var color_ref : Css.color))
+
   (** Common helper for gradient color utilities *)
   let gradient_color ~prefix ~set_var ?(shade = 500) color =
-    (* Use the shared color variable from Color module *)
-    let color_theme_var = Color.get_color_var color shade in
-    let color_value = Color.to_css color shade in
-    let d_color, color_ref = Var.binding color_theme_var color_value in
+    let theme_decls, gradient_color_value = color_binding ~shade color in
 
     (* Set the appropriate gradient variable *)
-    let d_var, _ = Var.binding set_var (Var color_ref : Css.color) in
+    let d_var, _ = Var.binding set_var gradient_color_value in
 
     (* Build variable references for gradient stops *)
     let position_ref = Var.reference gradient_position_var in
@@ -186,10 +208,11 @@ module Handler = struct
     in
 
     (* Build declarations list *)
+    let base_declarations = theme_decls @ [ d_var ] in
     let declarations =
       match d_via_stops_opt with
-      | Some d_via_stops -> [ d_color; d_var; d_via_stops; d_stops ]
-      | None -> [ d_color; d_var; d_stops ]
+      | Some d_via_stops -> base_declarations @ [ d_via_stops; d_stops ]
+      | None -> base_declarations @ [ d_stops ]
     in
 
     style ~property_rules declarations
@@ -204,11 +227,8 @@ module Handler = struct
     gradient_color ~prefix:"to-" ~set_var:gradient_to_var ~shade color
 
   let bg' ?(shade = 500) color =
-    (* Use the shared color variable from Color module *)
-    let color_theme_var = Color.get_color_var color shade in
-    let color_value = Color.to_css color shade in
-    let d_color, color_ref = Var.binding color_theme_var color_value in
-    style [ d_color; Css.background_color (Var color_ref) ]
+    let theme_decls, color_value = color_binding ~shade color in
+    style (theme_decls @ [ Css.background_color color_value ])
 
   let to_style = function
     | Bg (color, shade) -> bg' ~shade color
