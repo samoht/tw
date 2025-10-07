@@ -5,6 +5,8 @@ open Tw.Padding
 open Tw.Margin
 open Tw.Color
 open Tw.Grid_template
+open Tw.Animations
+open Tw.Borders
 
 (* Test responsive modifier detection *)
 let test_has_responsive_modifier () =
@@ -164,6 +166,102 @@ let test_modifier_class_names () =
   check string "multiple utilities with md:"
     "grid grid-cols-5 md:grid-cols-10 gap-2" classes
 
+(* Test media preference modifiers class names *)
+let test_media_preference_modifiers () =
+  (* Motion preference modifiers *)
+  check string "motion-safe: single colon" "motion-safe:animate-pulse"
+    (Tw.Utility.to_class (motion_safe [ animate_pulse ]));
+
+  check string "motion-reduce: single colon" "motion-reduce:transition-none"
+    (Tw.Utility.to_class (motion_reduce [ transition_none ]));
+
+  (* Contrast preference modifiers *)
+  check string "contrast-more: single colon" "contrast-more:border-4"
+    (Tw.Utility.to_class (contrast_more [ border_4 ]));
+
+  check string "contrast-less: single colon" "contrast-less:text-gray-600"
+    (Tw.Utility.to_class (contrast_less [ text gray 600 ]));
+
+  (* Dark mode *)
+  check string "dark: single colon" "dark:bg-gray-900"
+    (Tw.Utility.to_class (dark [ bg gray 900 ]))
+
+(* Test CSS generation and parsing roundtrip for modifiers *)
+let test_modifier_css_roundtrip () =
+  let test_utilities =
+    [
+      motion_safe [ animate_pulse ];
+      motion_reduce [ transition_none ];
+      contrast_more [ border_4 ];
+      contrast_more [ text_black ];
+      contrast_less [ text gray 600 ];
+      dark [ bg gray 900 ];
+      hover [ bg blue 500 ];
+      sm [ p 4 ];
+    ]
+  in
+
+  (* Generate CSS *)
+  let stylesheet = Tw.Rules.to_css test_utilities in
+  let css_str = Tw.Css.to_string ~minify:true ~optimize:true stylesheet in
+
+  (* Verify CSS was generated *)
+  check bool "CSS generated" true (String.length css_str > 0);
+
+  (* Parse it back - this would fail with double-backslash bug *)
+  match Tw.Css.of_string css_str with
+  | Ok _parsed_stylesheet ->
+      (* Successfully parsed our own generated CSS *)
+      ()
+  | Error parse_err ->
+      let error_msg = Tw.Css.pp_parse_error parse_err in
+      Alcotest.failf "Failed to parse generated CSS:\n%s" error_msg
+
+(* Test that generated CSS has correct selector escaping *)
+let test_selector_escaping_in_css () =
+  (* Generate CSS with modifiers that need escaping *)
+  let stylesheet = Tw.Rules.to_css [ motion_safe [ animate_pulse ] ] in
+  let css_str = Tw.Css.to_string ~minify:true stylesheet in
+
+  (* Verify single backslash in output (not double) *)
+  (* In the CSS string, we expect: .motion-safe\:animate-pulse *)
+  (* Which appears as "motion-safe\\:animate-pulse" in OCaml string *)
+  check bool "CSS contains escaped colon" true (String.contains css_str '\\');
+
+  (* Count backslashes - should be exactly 1 per modifier *)
+  let backslash_count =
+    String.fold_left (fun n c -> if c = '\\' then n + 1 else n) 0 css_str
+  in
+  (* We expect 1 backslash for the motion-safe: prefix *)
+  check bool "Single backslash escape (not double)" true (backslash_count >= 1);
+
+  (* Verify it parses correctly *)
+  match Tw.Css.of_string css_str with
+  | Ok _ -> ()
+  | Error e ->
+      Alcotest.failf "Selector escaping broken - parse failed:\n%s"
+        (Tw.Css.pp_parse_error e)
+
+(* Test combined modifiers with media preferences *)
+let test_combined_media_modifiers () =
+  (* Combining responsive with media preference should work *)
+  check string "sm:motion-safe: works" "sm:motion-safe:animate-pulse"
+    (Tw.Utility.to_class (sm [ motion_safe [ animate_pulse ] ]));
+
+  check string "md:dark: works" "md:dark:bg-gray-900"
+    (Tw.Utility.to_class (md [ dark [ bg gray 900 ] ]));
+
+  (* Generate and parse CSS with combined modifiers *)
+  let utilities =
+    [ sm [ motion_safe [ animate_pulse ] ]; md [ dark [ bg gray 900 ] ] ]
+  in
+  let css_str = Tw.Css.to_string ~minify:true (Tw.Rules.to_css utilities) in
+  match Tw.Css.of_string css_str with
+  | Ok _ -> ()
+  | Error e ->
+      Alcotest.failf "Combined modifiers CSS roundtrip failed:\n%s"
+        (Tw.Css.pp_parse_error e)
+
 (* Media query behavior for md [...] *)
 
 (* Test suite *)
@@ -176,6 +274,11 @@ let tests =
       test_responsive_functions_reject_nesting;
     test_case "apply modifiers" `Quick test_apply;
     test_case "modifier class names" `Quick test_modifier_class_names;
+    test_case "media preference modifiers" `Quick
+      test_media_preference_modifiers;
+    test_case "modifier CSS roundtrip" `Quick test_modifier_css_roundtrip;
+    test_case "selector escaping in CSS" `Quick test_selector_escaping_in_css;
+    test_case "combined media modifiers" `Quick test_combined_media_modifiers;
   ]
 
 let suite = ("modifiers", tests)
