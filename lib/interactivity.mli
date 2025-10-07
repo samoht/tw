@@ -118,11 +118,4 @@ val group : Utility.t
 val peer : Utility.t
 (** [peer] marks an element as a peer for peer-hover, peer-focus, etc. *)
 
-module Handler : sig
-  type t
-
-  val of_class : string -> (t, [ `Msg of string ]) result
-  val to_class : t -> string
-  val suborder : t -> int
-  val to_style : t -> Style.t
-end
+module Handler : Utility.Handler
