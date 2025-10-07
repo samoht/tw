@@ -21,23 +21,21 @@ module El = struct
   let void = Void
   let unsafe_raw s = Raw s
 
+  let escape_html s =
+    let b = Buffer.create (String.length s) in
+    String.iter
+      (function
+        | '<' -> Buffer.add_string b "&lt;"
+        | '>' -> Buffer.add_string b "&gt;"
+        | '&' -> Buffer.add_string b "&amp;"
+        | '"' -> Buffer.add_string b "&quot;"
+        | '\'' -> Buffer.add_string b "&#x27;"
+        | c -> Buffer.add_char b c)
+      s;
+    Buffer.contents b
+
   let rec to_string ?(doctype = false) = function
-    | Text s ->
-        (* HTML escape *)
-        let escape_html s =
-          let b = Buffer.create (String.length s) in
-          String.iter
-            (function
-              | '<' -> Buffer.add_string b "&lt;"
-              | '>' -> Buffer.add_string b "&gt;"
-              | '&' -> Buffer.add_string b "&amp;"
-              | '"' -> Buffer.add_string b "&quot;"
-              | '\'' -> Buffer.add_string b "&#x27;"
-              | c -> Buffer.add_char b c)
-            s;
-          Buffer.contents b
-        in
-        escape_html s
+    | Text s -> escape_html s
     | Raw s -> s
     | Void -> ""
     | Element (name, attrs, children) ->
@@ -50,7 +48,7 @@ module El = struct
             Buffer.add_char b ' ';
             Buffer.add_string b k;
             Buffer.add_string b "=\"";
-            Buffer.add_string b v;
+            Buffer.add_string b (escape_html v);
             Buffer.add_char b '"')
           attrs;
         if
