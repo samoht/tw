@@ -787,13 +787,14 @@ let to_css color shade =
   | Black -> Css.Hex { hash = true; value = "000" }
   | White -> Css.Hex { hash = true; value = "fff" }
   | Hex hex ->
-      (* For arbitrary hex colors, determine if # was present *)
-      let has_hash = String.starts_with ~prefix:"#" hex in
+      (* For arbitrary hex colors, always output valid CSS with # prefix. Per
+         MDN spec, hex colors MUST have # prefix. *)
       let hex_value =
-        if has_hash then String.sub hex 1 (String.length hex - 1) else hex
+        if String.starts_with ~prefix:"#" hex then
+          String.sub hex 1 (String.length hex - 1)
+        else hex
       in
-      (* Tailwind v4 arbitrary values: preserve original format *)
-      Css.Hex { hash = false; value = hex_value }
+      Css.Hex { hash = true; value = hex_value }
   | Oklch oklch ->
       (* Use the new Oklch constructor *)
       Css.oklch oklch.l oklch.c oklch.h
@@ -1049,9 +1050,20 @@ let color_var_cache : (string, Css.color Var.theme) Hashtbl.t =
    variables with deterministic ordering based on color and shade. *)
 let get_color_var color shade =
   let base = pp color in
+  (* Escape brackets in variable names - CSS variable names can't have unescaped
+     [] *)
+  let escaped_base =
+    let s = String.to_seq base |> List.of_seq in
+    let escaped =
+      List.concat_map
+        (function '[' -> [ '\\'; '[' ] | ']' -> [ '\\'; ']' ] | c -> [ c ])
+        s
+    in
+    String.of_seq (List.to_seq escaped)
+  in
   let name =
-    if is_base_color color then "color-" ^ base
-    else "color-" ^ base ^ "-" ^ string_of_int shade
+    if is_base_color color then "color-" ^ escaped_base
+    else "color-" ^ escaped_base ^ "-" ^ string_of_int shade
   in
   (* Check if variable already exists in cache *)
   match Hashtbl.find_opt color_var_cache name with
@@ -1099,17 +1111,17 @@ let color_to_string (c : color) : string =
   | Pink -> "pink"
   | Rose -> "rose"
   | Hex h ->
-      let h_stripped =
-        if String.starts_with ~prefix:"#" h then
-          String.sub h 1 (String.length h - 1)
-        else h
+      (* Hex values stored without # by shorten_hex_str, add it back for class
+         name *)
+      let h_with_hash =
+        if String.starts_with ~prefix:"#" h then h else "#" ^ h
       in
       Css.Pp.to_string ~minify:false
         (fun ctx s ->
           Css.Pp.string ctx "[";
           Css.Pp.string ctx s;
           Css.Pp.string ctx "]")
-        h_stripped
+        h_with_hash
   | Rgb { red; green; blue } ->
       Css.Pp.to_string ~minify:false
         (fun ctx (r, g, b) ->

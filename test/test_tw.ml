@@ -167,7 +167,7 @@ let container_queries () =
 
 let hex_colors () =
   check (bg (hex "#1da1f2") 0);
-  check (text (hex "ff5733") 0);
+  check (text (hex "#ff5733") 0);
   check (border_color (hex "#00ff00") 0);
   check (bg (hex "rgb(29,161,242)") 0)
 
