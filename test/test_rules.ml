@@ -1319,7 +1319,8 @@ let test_suborder_within_group () =
         Fmt.str "suborder for %s group matches Tailwind" group_name
       in
       let shuffled = Test_helpers.shuffle utilities in
-      Test_helpers.check_ordering_matches ~test_name shuffled)
+      let forms = group_name = "forms" in
+      Test_helpers.check_ordering_matches ~forms ~test_name shuffled)
     test_groups
 
 (* Test 3: Random utilities with minimization *)
