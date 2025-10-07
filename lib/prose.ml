@@ -1992,12 +1992,7 @@ let stylesheet () =
   (* Return raw rules; caller composes into a stylesheet if needed *)
   all_rules
 
-(** Marker utilities (no CSS output) *)
-let prose_lead' = Style.style ~rules:(Some []) []
-
-let not_prose' = Style.style ~rules:(Some []) []
-let prose_invert' = Style.style ~rules:(Some []) []
-let container' = Style.style ~rules:(Some []) []
+let niet = Style.style ~rules:(Some []) []
 
 module Handler = struct
   (** Local prose utility type *)
@@ -2018,8 +2013,6 @@ module Handler = struct
     (* Markers *)
     | Lead
     | Not_prose
-    (* Container *)
-    | Container
 
   (** Extensible variant for prose utilities *)
   type Utility.base += Self of t
@@ -2042,10 +2035,9 @@ module Handler = struct
     | Prose_zinc -> prose_style `Zinc
     | Prose_neutral -> prose_style `Neutral
     | Prose_stone -> prose_style `Stone
-    | Prose_invert -> prose_invert'
-    | Lead -> prose_lead'
-    | Not_prose -> not_prose'
-    | Container -> container'
+    | Prose_invert -> niet
+    | Lead -> niet
+    | Not_prose -> niet
 
   let to_class = function
     | Prose -> "prose"
@@ -2061,7 +2053,6 @@ module Handler = struct
     | Prose_invert -> "prose-invert"
     | Lead -> "lead"
     | Not_prose -> "not-prose"
-    | Container -> "container"
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
@@ -2079,7 +2070,6 @@ module Handler = struct
     | [ "prose"; "invert" ] -> Ok Prose_invert
     | [ "lead" ] -> Ok Lead
     | [ "not"; "prose" ] -> Ok Not_prose
-    | [ "container" ] -> Ok Container
     | _ -> Error (`Msg "Not a prose utility")
 
   let suborder = function
@@ -2096,7 +2086,6 @@ module Handler = struct
     | Prose_invert -> 20010
     | Lead -> 20011
     | Not_prose -> 20012
-    | Container -> 10000
 end
 
 open Handler

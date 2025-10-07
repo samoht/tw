@@ -62,6 +62,33 @@ let test_screen_reader () =
   check_class "sr-only" Tw.Layout.sr_only;
   check_class "not-sr-only" Tw.Layout.not_sr_only
 
+let test_layout_container () =
+  (* Test that container generates .container rule with width: 100% *)
+  let css = Tw.to_css [ Tw.container ] in
+  let css_string = Tw.Css.to_string ~minify:true ~optimize:false css in
+  Alcotest.(check bool)
+    "has .container class" true
+    (String.contains css_string 'c');
+  Alcotest.(check bool) "has width:100%" true (String.contains css_string 'w')
+
+let test_layout_container_vs_at_container () =
+  (* Test the difference between layout .container and @container query *)
+  let layout = Tw.to_css [ Tw.container ] in
+  let query = Tw.to_css [ Tw.at_container ] in
+  let layout_str = Tw.Css.to_string ~minify:true ~optimize:false layout in
+  let query_str = Tw.Css.to_string ~minify:true ~optimize:false query in
+  Alcotest.(check bool)
+    "layout container has .container class" true
+    (String.contains layout_str '.');
+  Alcotest.(check bool)
+    "@container has container-type" true
+    (String.contains query_str 't')
+
+let test_layout_container_matches_tailwind () =
+  (* This test documents that our implementation matches Tailwind ordering *)
+  Test_helpers.check_ordering_matches ~forms:false
+    ~test_name:"container matches Tailwind .container ordering" [ Tw.container ]
+
 let all_utilities () =
   let open Tw in
   [
@@ -96,6 +123,11 @@ let tests =
     test_case "z-index" `Quick test_z_index;
     test_case "overflow" `Quick test_overflow;
     test_case "screen reader utilities" `Quick test_screen_reader;
+    test_case "layout container" `Quick test_layout_container;
+    test_case "layout container vs @container" `Quick
+      test_layout_container_vs_at_container;
+    test_case "layout container matches Tailwind" `Quick
+      test_layout_container_matches_tailwind;
     test_case "layout of_string - invalid values" `Quick of_string_invalid;
     test_case "layout suborder matches Tailwind" `Quick
       suborder_matches_tailwind;

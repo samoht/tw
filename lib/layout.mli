@@ -14,6 +14,7 @@ open Utility
 val block : t
 val inline : t
 val inline_block : t
+val table : t
 val hidden : t
 val sr_only : t
 val not_sr_only : t

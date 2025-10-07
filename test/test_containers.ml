@@ -21,9 +21,9 @@ let test_multiple_named_containers () =
   Test_helpers.check_ordering_matches ~test_name:"multiple named containers"
     Tw.
       [
-        container_named "sidebar";
-        container_named "header";
-        container_named "main";
+        at_container_named "sidebar";
+        at_container_named "header";
+        at_container_named "main";
       ]
 
 let test_of_string_invalid () =
@@ -45,8 +45,6 @@ let test_of_string_invalid () =
   (* Incomplete inline-size *)
 
   (* Invalid container formats *)
-  test_invalid [ "container" ];
-  (* Missing qualifier *)
   test_invalid [ "container"; "type"; "size"; "extra" ];
   (* Extra tokens *)
   test_invalid [ "not"; "container" ];
@@ -60,10 +58,11 @@ let all_utilities () =
   let open Tw in
   [
     container;
-    container_normal;
-    container_named "sidebar";
-    container_named "header";
-    container_named "main";
+    at_container;
+    at_container_normal;
+    at_container_named "sidebar";
+    at_container_named "header";
+    at_container_named "main";
   ]
 
 let suborder_matches_tailwind () =

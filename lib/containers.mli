@@ -5,18 +5,25 @@
 
 open Utility
 
-(** {1 Container Type Utilities} *)
+(** {1 Layout Container} *)
 
 val container : t
-(** [container] enables container queries based on inline-size (equivalent to
+(** [container] creates a responsive layout container (equivalent to
+    [.container] in Tailwind v4). Sets [width: 100%]. Note: Responsive
+    [max-width] at various breakpoints not yet implemented. *)
+
+(** {1 Container Query Utilities} *)
+
+val at_container : t
+(** [at_container] enables container queries based on inline-size (equivalent to
     [@container] in Tailwind v4). Sets [container-type: inline-size]. *)
 
-val container_normal : t
-(** [container_normal] disables container queries (equivalent to
+val at_container_normal : t
+(** [at_container_normal] disables container queries (equivalent to
     [@container-normal] in Tailwind v4). Sets [container-type: normal]. *)
 
-val container_named : string -> t
-(** [container_named name] creates a named container (equivalent to
+val at_container_named : string -> t
+(** [at_container_named name] creates a named container (equivalent to
     [@container/name] in Tailwind v4). Sets [container-type: inline-size] and
     [container-name: name]. *)
 

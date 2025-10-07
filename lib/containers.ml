@@ -1,19 +1,4 @@
-(** Container query utilities for responsive design based on container size
-
-    What's included:
-    - `container-type-size`, `container-type-inline-size`,
-      `container-type-normal` and named containers via `container-<name>`
-      helpers.
-    - Container query modifiers (`container_*`, `container ?name min_width`).
-
-    What's not:
-    - Arbitrary complex container conditions. Use `container ~name width` for
-      the common `min-width` pattern; extend with a custom `Modified (Container
-      ...)` if you need more.
-
-    Parsing contract (`of_string`):
-    - Accepts ["container"; "type"; ..] and ["container"; name]. Unknown tokens
-      yield `Error (`Msg "Not a container utility")`. *)
+(** Container query utilities for responsive design based on container size. *)
 
 module Handler = struct
   open Style
@@ -21,6 +6,7 @@ module Handler = struct
 
   (** Local container utility type *)
   type t =
+    | Layout_container (* .container - layout container with width:100% *)
     | Container (* @container - sets container-type: inline-size *)
     | Container_normal (* @container-normal - sets container-type: normal *)
     | Container_named of string (* @container/name *)
@@ -31,34 +17,57 @@ module Handler = struct
   let priority = 17
 
   let to_class = function
+    | Layout_container -> "container"
     | Container -> "@container"
     | Container_normal -> "@container-normal"
     | Container_named name -> "@container/" ^ name
 
-  let container = style [ container_type Inline_size ]
-  let container_normal = style [ container_type Normal ]
+  let layout_container_style =
+    let open Css in
+    let open Css.Selector in
+    let base_sel = class_ "container" in
+    let media_rules =
+      [
+        media ~condition:"(min-width:40rem)"
+          [ rule ~selector:base_sel [ max_width (Rem 40.) ] ];
+        media ~condition:"(min-width:48rem)"
+          [ rule ~selector:base_sel [ max_width (Rem 48.) ] ];
+        media ~condition:"(min-width:64rem)"
+          [ rule ~selector:base_sel [ max_width (Rem 64.) ] ];
+        media ~condition:"(min-width:80rem)"
+          [ rule ~selector:base_sel [ max_width (Rem 80.) ] ];
+        media ~condition:"(min-width:96rem)"
+          [ rule ~selector:base_sel [ max_width (Rem 96.) ] ];
+      ]
+    in
+    style ~rules:(Some media_rules) [ width (Pct 100.) ]
 
-  let container_named name =
+  let container_query = style [ container_type Inline_size ]
+  let container_normal_style = style [ container_type Normal ]
+
+  let container_named_style name =
     style [ container_type Inline_size; container_name name ]
 
   let to_style = function
-    | Container -> container
-    | Container_normal -> container_normal
-    | Container_named name -> container_named name
+    | Layout_container -> layout_container_style
+    | Container -> container_query
+    | Container_normal -> container_normal_style
+    | Container_named name -> container_named_style name
 
   let suborder = function
-    | Container -> 1
     | Container_named _ -> 0
-    | Container_normal -> 100
+    | Container -> 1
+    | Container_normal -> 2
+    | Layout_container -> 100
 
-  let of_class class_name =
-    (* Handle @container syntax used in Tailwind v4 *)
-    if class_name = "@container" then Ok Container
-    else if class_name = "@container-normal" then Ok Container_normal
-    else if String.starts_with ~prefix:"@container/" class_name then
-      let name = String.sub class_name 11 (String.length class_name - 11) in
-      Ok (Container_named name)
-    else Error (`Msg "Not a container utility")
+  let of_class = function
+    | "container" -> Ok Layout_container
+    | "@container" -> Ok Container
+    | "@container-normal" -> Ok Container_normal
+    | n when String.starts_with ~prefix:"@container/" n ->
+        let name = String.sub n 11 (String.length n - 11) in
+        Ok (Container_named name)
+    | _ -> Error (`Msg "Not a container utility")
 end
 
 open Handler
@@ -91,9 +100,10 @@ let container_query ?name min_width styles =
   Utility.Group
     (List.map (fun t -> Utility.Modified (Container query, t)) styles)
 
-let container = utility Container
-let container_normal = utility Container_normal
-let container_named name = utility (Container_named name)
+let container = utility Layout_container
+let at_container = utility Container
+let at_container_normal = utility Container_normal
+let at_container_named name = utility (Container_named name)
 
 (** Helper Functions *)
 let container_query_to_css_prefix = function

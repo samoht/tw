@@ -327,14 +327,33 @@ let extract_selector_props util =
             (* Convert custom rules to selector/props pairs *)
             let custom_rules =
               rule_list
-              |> List.map (fun rule ->
-                     match Css.as_rule rule with
+              |> List.concat_map (fun stmt ->
+                     match Css.as_rule stmt with
                      | Some (selector, declarations, _) ->
-                         regular ~selector ~props:declarations
-                           ~base_class:class_name ()
-                     | None ->
-                         regular ~selector:Css.Selector.universal ~props:[]
-                           ~base_class:class_name ())
+                         [
+                           regular ~selector ~props:declarations
+                             ~base_class:class_name ();
+                         ]
+                     | None -> (
+                         (* Check if it's a media query *)
+                         match Css.as_media stmt with
+                         | Some (condition, statements) ->
+                             (* Extract rules from media query statements *)
+                             statements
+                             |> List.filter_map (fun inner_stmt ->
+                                    match Css.as_rule inner_stmt with
+                                    | Some (selector, declarations, _) ->
+                                        Some
+                                          (media_query ~condition ~selector
+                                             ~props:declarations
+                                             ~base_class:class_name ())
+                                    | None -> None)
+                         | None ->
+                             (* Unknown statement type - create empty rule *)
+                             [
+                               regular ~selector:Css.Selector.universal
+                                 ~props:[] ~base_class:class_name ();
+                             ]))
             in
 
             (* If there are base props, add them after the custom rules to match
