@@ -278,16 +278,16 @@ let modifier_to_rule modifier base_class selector props =
         selector props
   | Style.Motion_safe ->
       handle_media_modifier ~condition:"(prefers-reduced-motion: no-preference)"
-        ~prefix:(Some ".motion-safe\\:") base_class selector props
+        ~prefix:(Some ".motion-safe:") base_class selector props
   | Style.Motion_reduce ->
       handle_media_modifier ~condition:"(prefers-reduced-motion: reduce)"
-        ~prefix:(Some ".motion-reduce\\:") base_class selector props
+        ~prefix:(Some ".motion-reduce:") base_class selector props
   | Style.Contrast_more ->
       handle_media_modifier ~condition:"(prefers-contrast: more)"
-        ~prefix:(Some ".contrast-more\\:") base_class selector props
+        ~prefix:(Some ".contrast-more:") base_class selector props
   | Style.Contrast_less ->
       handle_media_modifier ~condition:"(prefers-contrast: less)"
-        ~prefix:(Some ".contrast-less\\:") base_class selector props
+        ~prefix:(Some ".contrast-less:") base_class selector props
   | Style.Responsive breakpoint ->
       responsive_rule breakpoint base_class selector props
   | Style.Container query -> container_rule query base_class selector props
