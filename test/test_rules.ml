@@ -1160,6 +1160,24 @@ let test_cascade_color_override () =
       Fmt.pr "After sorting: blue at %d, red at %d (order preserved)@." bi ri
   | _ -> Fmt.pr "Could not find both colors in sorted output@."
 
+(* Test typography utilities come before color utilities *)
+let test_typography_before_color () =
+  let open Tw in
+  (* Text alignment, size, and weight should come before text color *)
+  let utilities =
+    [
+      text_center;
+      text_4xl;
+      font_bold;
+      text gray 600;
+      text_sm;
+      text gray 800;
+      text_white;
+    ]
+  in
+  Test_helpers.check_ordering_matches
+    ~test_name:"typography before color utilities" utilities
+
 (* Test 1: Verify priority order - one utility per group *)
 let test_priority_order_per_group () =
   let open Tw in
@@ -1252,6 +1270,7 @@ let test_handler_priority_ordering () =
   let bg_prio = Tw.Backgrounds.Handler.priority in
   let padding_prio = Tw.Padding.Handler.priority in
   let typography_prio = Tw.Typography.Handler.priority in
+  let color_prio = Tw.Color.Handler.priority in
   let effect_prio = Tw.Effects.Handler.priority in
   let transform_prio = Tw.Transforms.Handler.priority in
   let animation_prio = Tw.Animations.Handler.priority in
@@ -1280,7 +1299,8 @@ let test_handler_priority_ordering () =
   check bool "border < bg" true (border_prio < bg_prio);
   check bool "bg < padding" true (bg_prio < padding_prio);
   check bool "padding < typography" true (padding_prio < typography_prio);
-  check bool "typography < effect" true (typography_prio < effect_prio);
+  check bool "typography < color" true (typography_prio < color_prio);
+  check bool "color < effect" true (color_prio < effect_prio);
   check bool "effect < filter" true (effect_prio < filter_prio)
 (* display and tables priority checked in test_priority_order_per_group *)
 
@@ -1705,6 +1725,7 @@ let tests =
     test_case "prose rule separation" `Quick test_cascade_prose_separation;
     test_case "color override cascading" `Quick test_cascade_color_override;
     (* Utility group ordering *)
+    test_case "typography before color" `Quick test_typography_before_color;
     test_case "priority order per group" `Quick test_priority_order_per_group;
     test_case "handler priority ordering" `Quick test_handler_priority_ordering;
     test_case "suborder within group" `Slow test_suborder_within_group;

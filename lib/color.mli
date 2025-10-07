@@ -458,8 +458,4 @@ val suborder_with_shade : string -> int
     utility with shade (e.g., "blue-500" returns 500 + color order offset). Used
     for sorting color utilities within their priority group. *)
 
-module Handler : sig
-  type t
-
-  val suborder : t -> int
-end
+module Handler : Utility.Handler

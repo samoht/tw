@@ -45,11 +45,4 @@ val form_checkbox : t
 val form_radio : t
 (** [form_radio] applies radio button input styles. *)
 
-module Handler : sig
-  type t
-
-  val of_class : string -> (t, [ `Msg of string ]) result
-  val to_class : t -> string
-  val suborder : t -> int
-  val to_style : t -> Style.t
-end
+module Handler : Utility.Handler
