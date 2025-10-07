@@ -1658,13 +1658,14 @@ let xl2_size_rules selector =
 let color_theme_bindings theme_name =
   match theme_name with
   | "gray" ->
-      let d1, _ = Var.binding prose_body_var (Css.oklch 55.1 0.027 264.364) in
+      (* Normal theme *)
+      let d1, _ = Var.binding prose_body_var (Css.oklch 37.3 0.034 259.733) in
       let d2, _ =
-        Var.binding prose_headings_var (Css.oklch 27.8 0.033 256.848)
+        Var.binding prose_headings_var (Css.oklch 21.0 0.034 264.665)
       in
       let d3, _ = Var.binding prose_lead_var (Css.oklch 44.6 0.030 256.802) in
-      let d4, _ = Var.binding prose_links_var (Css.oklch 27.8 0.033 256.848) in
-      let d5, _ = Var.binding prose_bold_var (Css.oklch 27.8 0.033 256.848) in
+      let d4, _ = Var.binding prose_links_var (Css.oklch 21.0 0.034 264.665) in
+      let d5, _ = Var.binding prose_bold_var (Css.oklch 21.0 0.034 264.665) in
       let d6, _ =
         Var.binding prose_counters_var (Css.oklch 55.1 0.027 264.364)
       in
@@ -1672,28 +1673,238 @@ let color_theme_bindings theme_name =
         Var.binding prose_bullets_var (Css.oklch 87.2 0.010 258.338)
       in
       let d8, _ = Var.binding prose_hr_var (Css.oklch 92.8 0.006 264.531) in
-      let d9, _ = Var.binding prose_quotes_var (Css.oklch 27.8 0.033 256.848) in
+      let d9, _ = Var.binding prose_quotes_var (Css.oklch 21.0 0.034 264.665) in
       let d10, _ =
         Var.binding prose_quote_borders_var (Css.oklch 92.8 0.006 264.531)
       in
       let d11, _ =
-        Var.binding prose_captions_var (Css.oklch 70.7 0.022 261.325)
+        Var.binding prose_captions_var (Css.oklch 55.1 0.027 264.364)
       in
-      let d12, _ = Var.binding prose_code_var (Css.oklch 27.8 0.033 256.848) in
+      let d12, _ = Var.binding prose_kbd_var (Css.oklch 21.0 0.034 264.665) in
       let d13, _ =
+        Var.binding prose_kbd_shadows_var
+          (Css.Channels { r = Num nan; g = Num nan; b = Num nan })
+      in
+      let d14, _ = Var.binding prose_code_var (Css.oklch 21.0 0.034 264.665) in
+      let d15, _ =
         Var.binding prose_pre_code_var (Css.oklch 92.8 0.006 264.531)
       in
-      let d14, _ =
+      let d16, _ =
         Var.binding prose_pre_bg_var (Css.oklch 27.8 0.033 256.848)
       in
-      let d15, _ =
+      let d17, _ =
         Var.binding prose_th_borders_var (Css.oklch 87.2 0.010 258.338)
       in
-      let d16, _ =
+      let d18, _ =
         Var.binding prose_td_borders_var (Css.oklch 92.8 0.006 264.531)
       in
-      [ d1; d2; d3; d4; d5; d6; d7; d8; d9; d10; d11; d12; d13; d14; d15; d16 ]
-  | "slate" -> [] (* TODO: Add slate theme bindings *)
+      (* Invert theme *)
+      let d19, _ =
+        Var.binding prose_invert_body_var (Css.oklch 87.2 0.010 258.338)
+      in
+      let d20, _ = Var.binding prose_invert_headings_var (Css.hex "fff") in
+      let d21, _ =
+        Var.binding prose_invert_lead_var (Css.oklch 70.7 0.022 261.325)
+      in
+      let d22, _ = Var.binding prose_invert_links_var (Css.hex "fff") in
+      let d23, _ = Var.binding prose_invert_bold_var (Css.hex "fff") in
+      let d24, _ =
+        Var.binding prose_invert_counters_var (Css.oklch 70.7 0.022 261.325)
+      in
+      let d25, _ =
+        Var.binding prose_invert_bullets_var (Css.oklch 44.6 0.030 256.802)
+      in
+      let d26, _ =
+        Var.binding prose_invert_hr_var (Css.oklch 37.3 0.034 259.733)
+      in
+      let d27, _ =
+        Var.binding prose_invert_quotes_var (Css.oklch 96.7 0.003 264.542)
+      in
+      let d28, _ =
+        Var.binding prose_invert_quote_borders_var
+          (Css.oklch 37.3 0.034 259.733)
+      in
+      let d29, _ =
+        Var.binding prose_invert_captions_var (Css.oklch 70.7 0.022 261.325)
+      in
+      let d30, _ = Var.binding prose_invert_kbd_var (Css.hex "fff") in
+      let d31, _ =
+        Var.binding prose_invert_kbd_shadows_var
+          (Css.Channels { r = Num 255.0; g = Num 255.0; b = Num 255.0 })
+      in
+      let d32, _ = Var.binding prose_invert_code_var (Css.hex "fff") in
+      let d33, _ =
+        Var.binding prose_invert_pre_code_var (Css.oklch 87.2 0.010 258.338)
+      in
+      let d34, _ = Var.binding prose_invert_pre_bg_var (Css.hex "00000080") in
+      let d35, _ =
+        Var.binding prose_invert_th_borders_var (Css.oklch 44.6 0.030 256.802)
+      in
+      let d36, _ =
+        Var.binding prose_invert_td_borders_var (Css.oklch 37.3 0.034 259.733)
+      in
+      [
+        d1;
+        d2;
+        d3;
+        d4;
+        d5;
+        d6;
+        d7;
+        d8;
+        d9;
+        d10;
+        d11;
+        d12;
+        d13;
+        d14;
+        d15;
+        d16;
+        d17;
+        d18;
+        d19;
+        d20;
+        d21;
+        d22;
+        d23;
+        d24;
+        d25;
+        d26;
+        d27;
+        d28;
+        d29;
+        d30;
+        d31;
+        d32;
+        d33;
+        d34;
+        d35;
+        d36;
+      ]
+  | "slate" ->
+      (* Normal theme *)
+      let d1, _ = Var.binding prose_body_var (Css.oklch 37.2 0.044 257.287) in
+      let d2, _ =
+        Var.binding prose_headings_var (Css.oklch 20.8 0.042 265.755)
+      in
+      let d3, _ = Var.binding prose_lead_var (Css.oklch 44.6 0.043 257.281) in
+      let d4, _ = Var.binding prose_links_var (Css.oklch 20.8 0.042 265.755) in
+      let d5, _ = Var.binding prose_bold_var (Css.oklch 20.8 0.042 265.755) in
+      let d6, _ =
+        Var.binding prose_counters_var (Css.oklch 55.4 0.046 257.417)
+      in
+      let d7, _ =
+        Var.binding prose_bullets_var (Css.oklch 86.9 0.022 252.894)
+      in
+      let d8, _ = Var.binding prose_hr_var (Css.oklch 92.9 0.013 255.508) in
+      let d9, _ = Var.binding prose_quotes_var (Css.oklch 20.8 0.042 265.755) in
+      let d10, _ =
+        Var.binding prose_quote_borders_var (Css.oklch 92.9 0.013 255.508)
+      in
+      let d11, _ =
+        Var.binding prose_captions_var (Css.oklch 55.4 0.046 257.417)
+      in
+      let d12, _ = Var.binding prose_kbd_var (Css.oklch 20.8 0.042 265.755) in
+      let d13, _ =
+        Var.binding prose_kbd_shadows_var
+          (Css.Channels { r = Num nan; g = Num nan; b = Num nan })
+      in
+      let d14, _ = Var.binding prose_code_var (Css.oklch 20.8 0.042 265.755) in
+      let d15, _ =
+        Var.binding prose_pre_code_var (Css.oklch 92.9 0.013 255.508)
+      in
+      let d16, _ =
+        Var.binding prose_pre_bg_var (Css.oklch 27.9 0.041 260.031)
+      in
+      let d17, _ =
+        Var.binding prose_th_borders_var (Css.oklch 86.9 0.022 252.894)
+      in
+      let d18, _ =
+        Var.binding prose_td_borders_var (Css.oklch 92.9 0.013 255.508)
+      in
+      (* Invert theme *)
+      let d19, _ =
+        Var.binding prose_invert_body_var (Css.oklch 86.9 0.022 252.894)
+      in
+      let d20, _ = Var.binding prose_invert_headings_var (Css.hex "fff") in
+      let d21, _ =
+        Var.binding prose_invert_lead_var (Css.oklch 70.4 0.040 256.788)
+      in
+      let d22, _ = Var.binding prose_invert_links_var (Css.hex "fff") in
+      let d23, _ = Var.binding prose_invert_bold_var (Css.hex "fff") in
+      let d24, _ =
+        Var.binding prose_invert_counters_var (Css.oklch 70.4 0.040 256.788)
+      in
+      let d25, _ =
+        Var.binding prose_invert_bullets_var (Css.oklch 44.6 0.043 257.281)
+      in
+      let d26, _ =
+        Var.binding prose_invert_hr_var (Css.oklch 37.2 0.044 257.287)
+      in
+      let d27, _ =
+        Var.binding prose_invert_quotes_var (Css.oklch 96.8 0.007 247.896)
+      in
+      let d28, _ =
+        Var.binding prose_invert_quote_borders_var
+          (Css.oklch 37.2 0.044 257.287)
+      in
+      let d29, _ =
+        Var.binding prose_invert_captions_var (Css.oklch 70.4 0.040 256.788)
+      in
+      let d30, _ = Var.binding prose_invert_kbd_var (Css.hex "fff") in
+      let d31, _ =
+        Var.binding prose_invert_kbd_shadows_var
+          (Css.Channels { r = Num 255.0; g = Num 255.0; b = Num 255.0 })
+      in
+      let d32, _ = Var.binding prose_invert_code_var (Css.hex "fff") in
+      let d33, _ =
+        Var.binding prose_invert_pre_code_var (Css.oklch 86.9 0.022 252.894)
+      in
+      let d34, _ = Var.binding prose_invert_pre_bg_var (Css.hex "00000080") in
+      let d35, _ =
+        Var.binding prose_invert_th_borders_var (Css.oklch 44.6 0.043 257.281)
+      in
+      let d36, _ =
+        Var.binding prose_invert_td_borders_var (Css.oklch 37.2 0.044 257.287)
+      in
+      [
+        d1;
+        d2;
+        d3;
+        d4;
+        d5;
+        d6;
+        d7;
+        d8;
+        d9;
+        d10;
+        d11;
+        d12;
+        d13;
+        d14;
+        d15;
+        d16;
+        d17;
+        d18;
+        d19;
+        d20;
+        d21;
+        d22;
+        d23;
+        d24;
+        d25;
+        d26;
+        d27;
+        d28;
+        d29;
+        d30;
+        d31;
+        d32;
+        d33;
+        d34;
+        d35;
+        d36;
+      ]
   | "zinc" -> [] (* TODO: Add zinc theme bindings *)
   | "neutral" -> [] (* TODO: Add neutral theme bindings *)
   | "stone" -> [] (* TODO: Add stone theme bindings *)
