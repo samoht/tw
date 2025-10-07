@@ -23,8 +23,8 @@ let aria_checked cls = build_class "aria-checked:" cls
 let aria_expanded cls = build_class "aria-expanded:" cls
 let aria_selected cls = build_class "aria-selected:" cls
 let aria_disabled cls = build_class "aria-disabled:" cls
-let data_active cls = build_class "data-[active]:" cls
-let data_inactive cls = build_class "data-[inactive]:" cls
+let data_active cls = build_class "data-active:" cls
+let data_inactive cls = build_class "data-inactive:" cls
 let focus_within cls = build_class "focus-within:" cls
 let focus_visible cls = build_class "focus-visible:" cls
 let before cls = build_class "before:" cls
@@ -206,8 +206,8 @@ let pp_modifier = function
   | Aria_disabled -> "aria-disabled"
   | Data_state value -> "data-[state=" ^ value ^ "]"
   | Data_variant value -> "data-[variant=" ^ value ^ "]"
-  | Data_active -> "data-[active]"
-  | Data_inactive -> "data-[inactive]"
+  | Data_active -> "data-active"
+  | Data_inactive -> "data-inactive"
   | Data_custom (key, value) -> "data-[" ^ key ^ "=" ^ value ^ "]"
   | Dark -> "dark"
   | Responsive breakpoint -> (
