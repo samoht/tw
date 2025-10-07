@@ -73,7 +73,7 @@ module Handler = struct
 
   (** {1 2D Transform Utilities} *)
 
-  let rotate n = style [ Css.transform (Rotate (Deg (float_of_int n))) ]
+  let rotate n = style [ Css.rotate (Deg (float_of_int n)) ]
 
   let translate_x n =
     let len : length = if n = 0 then Zero else Rem (float_of_int n *. 0.25) in
