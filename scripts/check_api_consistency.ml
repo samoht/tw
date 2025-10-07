@@ -879,6 +879,11 @@ let () =
 
   (* Check for duplicate priorities across Handler modules *)
   let check_unique_priorities () =
+    (* Allow certain priority values to be shared by related handler groups.
+       Priority 4: Display utilities (layout, flex, grid, tables) - these are
+       ordered by suborder within the same priority group. *)
+    let allowed_shared_priorities = [ 4 ] in
+
     let lib_dir = root // "lib" in
     let ml_files =
       Fs.list_dir lib_dir
@@ -943,12 +948,14 @@ let () =
           | _ -> ())
       ml_files;
 
-    (* Find duplicates *)
+    (* Find duplicates, excluding allowed shared priorities *)
     let duplicates = ref [] in
     Hashtbl.iter
       (fun prio modules ->
-        if List.length modules > 1 then
-          duplicates := (prio, List.rev modules) :: !duplicates)
+        if
+          List.length modules > 1
+          && not (List.mem prio allowed_shared_priorities)
+        then duplicates := (prio, List.rev modules) :: !duplicates)
       priorities;
 
     if !duplicates <> [] then (
