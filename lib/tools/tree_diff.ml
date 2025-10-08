@@ -213,19 +213,12 @@ let pp_rule_diff ?(style = default_style) ?(is_last = false)
       let child_prefix = tree_continuation ~style ~is_last ~parent_prefix in
       (* Show property changes *)
       let has_prop_changes = property_changes <> [] in
-      (* If no changes, show what properties are in this rule *)
+      (* If no changes and declarations are identical, this should have been
+         filtered by meaningful_rules *)
       if (not has_prop_changes) && old_declarations = new_declarations then
-        let prop_names = List.map Css.declaration_name old_declarations in
-        let preview =
-          match prop_names with
-          | [] -> "no properties"
-          | [ p ] -> p
-          | [ p1; p2 ] -> p1 ^ ", " ^ p2
-          | [ p1; p2; p3 ] -> p1 ^ ", " ^ p2 ^ ", " ^ p3
-          | p1 :: p2 :: p3 :: _ -> p1 ^ ", " ^ p2 ^ ", " ^ p3 ^ ", ..."
-        in
-        Fmt.pf fmt "%s%s (%s) moved to different nesting@," prefix selector
-          preview
+        (* This shouldn't be reached since meaningful_rules filters these out,
+           but just in case *)
+        ()
       else (
         Fmt.pf fmt "%s%s@," prefix selector;
         pp_property_diffs ~style ~parent_prefix:child_prefix fmt

@@ -14,7 +14,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "containers"
-  let priority = 17
+  let priority = 0 (* Container appears first in utilities layer *)
 
   let to_class = function
     | Layout_container -> "container"
