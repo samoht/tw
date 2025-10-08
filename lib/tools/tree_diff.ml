@@ -215,22 +215,17 @@ let pp_rule_diff ?(style = default_style) ?(is_last = false)
       let has_prop_changes = property_changes <> [] in
       (* If no changes, show what properties are in this rule *)
       if (not has_prop_changes) && old_declarations = new_declarations then
-        match old_declarations with
-        | [] ->
-            (* Skip empty rules - they're not meaningful *)
-            ()
-        | decls ->
-            let prop_names = List.map Css.declaration_name decls in
-            let preview =
-              match prop_names with
-              | [] -> "no properties"
-              | [ p ] -> p
-              | [ p1; p2 ] -> p1 ^ ", " ^ p2
-              | [ p1; p2; p3 ] -> p1 ^ ", " ^ p2 ^ ", " ^ p3
-              | p1 :: p2 :: p3 :: _ -> p1 ^ ", " ^ p2 ^ ", " ^ p3 ^ ", ..."
-            in
-            Fmt.pf fmt "%s%s (%s) moved to different nesting@," prefix selector
-              preview
+        let prop_names = List.map Css.declaration_name old_declarations in
+        let preview =
+          match prop_names with
+          | [] -> "no properties"
+          | [ p ] -> p
+          | [ p1; p2 ] -> p1 ^ ", " ^ p2
+          | [ p1; p2; p3 ] -> p1 ^ ", " ^ p2 ^ ", " ^ p3
+          | p1 :: p2 :: p3 :: _ -> p1 ^ ", " ^ p2 ^ ", " ^ p3 ^ ", ..."
+        in
+        Fmt.pf fmt "%s%s (%s) moved to different nesting@," prefix selector
+          preview
       else (
         Fmt.pf fmt "%s%s@," prefix selector;
         pp_property_diffs ~style ~parent_prefix:child_prefix fmt
@@ -290,7 +285,17 @@ let pp_rule_diff_simple fmt = function
       Fmt.pf fmt "Reordered(%s:%d->%d)" selector expected_pos actual_pos
 
 let meaningful_rules rules =
-  List.filter (function Rule_reordered _ -> false | _ -> true) rules
+  List.filter
+    (function
+      | Rule_reordered _ -> false
+      | Rule_content_changed
+          { property_changes = []; old_declarations; new_declarations; _ }
+        when old_declarations = new_declarations ->
+          (* Filter out rules that moved to different nesting but have no
+             changes *)
+          false
+      | _ -> true)
+    rules
 
 (** Query functions *)
 let single_rule_diff (diff : t) =
@@ -1032,55 +1037,81 @@ let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
     | None -> None
   in
 
-  if sel1_str <> sel2_str then
-    Rule_selector_changed
-      {
-        old_selector = sel1_str;
-        new_selector = sel2_str;
-        declarations = decls2;
-      }
-  else if decls1 = decls2 then
-    (* Same selector, same declarations in same order *)
-    let expected_pos = find_position sel1 rules1 in
-    let actual_pos = find_position sel2 rules2 in
-    if expected_pos = actual_pos then
-      (* No actual change - same position, same declarations This case shouldn't
-         normally occur in diffing, but handle it gracefully *)
-      Rule_content_changed
-        {
-          selector = sel1_str;
-          old_declarations = decls1;
-          new_declarations = decls2;
-          property_changes = [];
-        }
-    else
-      (* Same declarations but different position - this is rule reordering *)
-      let swapped_with = selector_at_position expected_pos rules2 in
-      Rule_reordered
-        { selector = sel1_str; expected_pos; actual_pos; swapped_with }
-  else
-    (* Check if it's just property reordering (same properties, different
-       order) *)
-    let property_changes, _added_props, _removed_props =
-      properties_diff decls1 decls2
-    in
-    if property_changes = [] && decls_signature decls1 = decls_signature decls2
-    then
-      (* Properties are the same but reordered - always classify as
-         Rule_reordered *)
+  (* Handle empty rules specially - treat as added/removed *)
+  match (decls1, decls2) with
+  | [], [] ->
+      (* Both empty - no meaningful change, treat as reordering *)
       let expected_pos = find_position sel1 rules1 in
       let actual_pos = find_position sel2 rules2 in
-      let swapped_with = selector_at_position expected_pos rules2 in
-      Rule_reordered
-        { selector = sel1_str; expected_pos; actual_pos; swapped_with }
-    else
-      Rule_content_changed
+      if expected_pos = actual_pos then
+        (* Same position too - this shouldn't be reported at all *)
+        Rule_content_changed
+          {
+            selector = sel1_str;
+            old_declarations = [];
+            new_declarations = [];
+            property_changes = [];
+          }
+      else
+        let swapped_with = selector_at_position expected_pos rules2 in
+        Rule_reordered
+          { selector = sel1_str; expected_pos; actual_pos; swapped_with }
+  | [], _ ->
+      (* Was empty, now has content - treat as added *)
+      Rule_added { selector = sel2_str; declarations = decls2 }
+  | _, [] ->
+      (* Had content, now empty - treat as removed *)
+      Rule_removed { selector = sel1_str; declarations = decls1 }
+  | _, _ when sel1_str <> sel2_str ->
+      Rule_selector_changed
         {
-          selector = sel1_str;
-          old_declarations = decls1;
-          new_declarations = decls2;
-          property_changes;
+          old_selector = sel1_str;
+          new_selector = sel2_str;
+          declarations = decls2;
         }
+  | _, _ when decls1 = decls2 ->
+      (* Same selector, same declarations in same order *)
+      let expected_pos = find_position sel1 rules1 in
+      let actual_pos = find_position sel2 rules2 in
+      if expected_pos = actual_pos then
+        (* No actual change - same position, same declarations This case
+           shouldn't normally occur in diffing, but handle it gracefully *)
+        Rule_content_changed
+          {
+            selector = sel1_str;
+            old_declarations = decls1;
+            new_declarations = decls2;
+            property_changes = [];
+          }
+      else
+        (* Same declarations but different position - this is rule reordering *)
+        let swapped_with = selector_at_position expected_pos rules2 in
+        Rule_reordered
+          { selector = sel1_str; expected_pos; actual_pos; swapped_with }
+  | _, _ ->
+      (* Check if it's just property reordering (same properties, different
+         order) *)
+      let property_changes, _added_props, _removed_props =
+        properties_diff decls1 decls2
+      in
+      if
+        property_changes = [] && decls_signature decls1 = decls_signature decls2
+      then
+        (* Properties are the same but reordered - always classify as
+           Rule_reordered *)
+        let expected_pos = find_position sel1 rules1 in
+        let actual_pos = find_position sel2 rules2 in
+        let swapped_with = selector_at_position expected_pos rules2 in
+        Rule_reordered
+          { selector = sel1_str; expected_pos; actual_pos; swapped_with }
+      else
+        Rule_content_changed
+          {
+            selector = sel1_str;
+            old_declarations = decls1;
+            new_declarations = decls2;
+            property_changes;
+          }
 
 (* Assemble rule changes (added/removed/modified) between two rule lists *)
 let to_rule_changes rules1 rules2 : rule_diff list =
