@@ -46,6 +46,26 @@ type by_type = {
   starting : output list;
 }
 
+(* Indexed rule for sorting with typed fields *)
+type indexed_rule = {
+  index : int;
+  rule_type :
+    [ `Regular | `Media of string | `Container of string | `Starting ];
+  selector : Css.Selector.t;
+  props : Css.declaration list;
+  order : int * int;
+  nested : Css.statement list;
+}
+
+(* Result of building individual layers *)
+type layers_result = {
+  theme_layer : Css.t;
+  base_layer : Css.t;
+  properties_layer : Css.t option;
+  utilities_layer : Css.t;
+  property_rules : Css.statement list;
+}
+
 (* ======================================================================== *)
 (* Smart constructors for output *)
 (* ======================================================================== *)
@@ -261,76 +281,90 @@ let handle_pseudo_class_modifier modifier base_class selector props =
     transform_selector_with_modifier modified_base_selector base_class
       modified_class selector
   in
-  (* Use modified_class as the new base_class to preserve the full modifier
-     chain *)
   regular ~selector:modified_selector ~props ~base_class:modified_class
     ~has_hover ()
 
-(* Type-directed modifier handlers *)
-let handle_preference_media ~kind ~value base_class selector props =
+(* Route data modifiers to appropriate handler *)
+let route_data_modifier modifier base_class selector props =
+  let key, value =
+    match modifier with
+    | Style.Data_state v -> ("state", v)
+    | Style.Data_variant v -> ("variant", v)
+    | Style.Data_custom (k, v) -> (k, v)
+    | _ -> failwith "Invalid data modifier"
+  in
+  handle_data_modifier key value selector props base_class
+
+(* Route preference media modifiers to appropriate handler *)
+let route_preference_modifier modifier base_class selector props =
+  let kind, value =
+    match modifier with
+    | Style.Motion_safe -> ("reduced-motion", "no-preference")
+    | Style.Motion_reduce -> ("reduced-motion", "reduce")
+    | Style.Contrast_more -> ("contrast", "more")
+    | Style.Contrast_less -> ("contrast", "less")
+    | _ -> failwith "Invalid preference modifier"
+  in
   let prefix_map =
     [
-      ("motion-safe", ".motion-safe:");
-      ("motion-reduce", ".motion-reduce:");
-      ("contrast-more", ".contrast-more:");
-      ("contrast-less", ".contrast-less:");
+      (("reduced-motion", "no-preference"), ".motion-safe:");
+      (("reduced-motion", "reduce"), ".motion-reduce:");
+      (("contrast", "more"), ".contrast-more:");
+      (("contrast", "less"), ".contrast-less:");
     ]
   in
-  let prefix = List.assoc_opt kind prefix_map in
+  let prefix = List.assoc_opt (kind, value) prefix_map in
   handle_media_modifier
     ~condition:(Printf.sprintf "(prefers-%s: %s)" kind value)
     ~prefix base_class selector props
 
-let handle_not_modifier base_class selector props =
-  regular
-    ~selector:
-      (Css.Selector.Class
-         ("not-" ^ base_class ^ ":not(" ^ Css.Selector.to_string selector ^ ")"))
-    ~props ~base_class ()
-
-let handle_has_variant ~kind selector_str base_class props =
+(* Route :has() variants to appropriate handler *)
+let route_has_modifier modifier base_class props =
+  let kind, selector_str =
+    match modifier with
+    | Style.Has s -> (`Has, s)
+    | Style.Group_has s -> (`Group_has, s)
+    | Style.Peer_has s -> (`Peer_has, s)
+    | _ -> failwith "Invalid has modifier"
+  in
   has_like_selector kind selector_str base_class props
+
+(* Handle fallback for unmatched modifiers *)
+let handle_fallback_modifier modifier base_class props =
+  let sel = Modifiers.to_selector modifier base_class in
+  let has_hover = Modifiers.is_hover modifier in
+  regular ~selector:sel ~props ~base_class ~has_hover ()
 
 (** Convert a modifier and its context to a CSS rule *)
 let modifier_to_rule modifier base_class selector props =
   match modifier with
   (* Data modifiers *)
-  | Style.Data_state value | Style.Data_variant value ->
-      let key =
-        match modifier with Data_state _ -> "state" | _ -> "variant"
-      in
-      handle_data_modifier key value selector props base_class
-  | Style.Data_custom (key, value) ->
-      handle_data_modifier key value selector props base_class
-  (* Media preference modifiers *)
+  | Style.Data_state _ | Style.Data_variant _ | Style.Data_custom _ ->
+      route_data_modifier modifier base_class selector props
+  (* Color scheme *)
   | Style.Dark ->
       handle_media_modifier ~condition:"(prefers-color-scheme: dark)" base_class
         selector props
-  | Style.Motion_safe ->
-      handle_preference_media ~kind:"reduced-motion" ~value:"no-preference"
-        base_class selector props
-  | Style.Motion_reduce ->
-      handle_preference_media ~kind:"reduced-motion" ~value:"reduce" base_class
-        selector props
-  | Style.Contrast_more ->
-      handle_preference_media ~kind:"contrast" ~value:"more" base_class selector
-        props
+  (* Preference media modifiers *)
+  | Style.Motion_safe | Style.Motion_reduce | Style.Contrast_more
   | Style.Contrast_less ->
-      handle_preference_media ~kind:"contrast" ~value:"less" base_class selector
-        props
+      route_preference_modifier modifier base_class selector props
   (* Responsive and container *)
   | Style.Responsive breakpoint ->
       responsive_rule breakpoint base_class selector props
   | Style.Container query -> container_rule query base_class selector props
   (* :not() pseudo-class *)
-  | Style.Not _modifier -> handle_not_modifier base_class selector props
+  | Style.Not _modifier ->
+      regular
+        ~selector:
+          (Css.Selector.Class
+             ("not-" ^ base_class ^ ":not("
+             ^ Css.Selector.to_string selector
+             ^ ")"))
+        ~props ~base_class ()
   (* :has() variants *)
-  | Style.Has selector_str ->
-      handle_has_variant ~kind:`Has selector_str base_class props
-  | Style.Group_has selector_str ->
-      handle_has_variant ~kind:`Group_has selector_str base_class props
-  | Style.Peer_has selector_str ->
-      handle_has_variant ~kind:`Peer_has selector_str base_class props
+  | Style.Has _ | Style.Group_has _ | Style.Peer_has _ ->
+      route_has_modifier modifier base_class props
   (* Starting style *)
   | Style.Starting ->
       starting_style ~selector:(Css.Selector.Class base_class) ~props
@@ -340,12 +374,76 @@ let modifier_to_rule modifier base_class selector props =
   | Style.Focus_visible | Style.Disabled ->
       handle_pseudo_class_modifier modifier base_class selector props
   (* Fallback for other modifiers *)
-  | _ ->
-      let sel = Modifiers.to_selector modifier base_class in
-      let has_hover = Modifiers.is_hover modifier in
-      regular ~selector:sel ~props ~base_class ~has_hover ()
+  | _ -> handle_fallback_modifier modifier base_class props
 
 (* Extract selector and properties from a single Utility *)
+(* Build base rule from props if non-empty *)
+let base_rule_of class_name props =
+  if props = [] then []
+  else
+    let sel = Css.Selector.Class class_name in
+    [ regular ~selector:sel ~props ~base_class:class_name () ]
+
+(* Extract custom rule from CSS statement *)
+let custom_rule_of class_name = function
+  | stmt -> (
+      match Css.as_rule stmt with
+      | Some (selector, declarations, _) ->
+          Some (regular ~selector ~props:declarations ~base_class:class_name ())
+      | None -> None)
+
+(* Extract media query rules from CSS statement *)
+let media_rules_of class_name = function
+  | stmt -> (
+      match Css.as_media stmt with
+      | Some (condition, statements) ->
+          statements
+          |> List.filter_map (fun inner ->
+                 match Css.as_rule inner with
+                 | Some (selector, declarations, _) ->
+                     Some
+                       (media_query ~condition ~selector ~props:declarations
+                          ~base_class:class_name ())
+                 | None -> None)
+      | None -> [])
+
+(* Partition and extract rules from statement list *)
+let partition_rules class_name statements =
+  let custom_rules = List.filter_map (custom_rule_of class_name) statements in
+  let media_queries =
+    statements |> List.concat_map (media_rules_of class_name)
+  in
+  (custom_rules, media_queries)
+
+(* Apply modifier to extracted rule *)
+let apply_modifier_to_rule modifier = function
+  | Regular { selector; props; base_class; _ } ->
+      let bc = Option.value base_class ~default:"" in
+      [ modifier_to_rule modifier bc selector props ]
+  | other -> [ other ]
+
+(* Handle Modified style by recursively extracting and applying modifier *)
+let handle_modified util_inner modifier base_style extract_fn =
+  let inner_util, style =
+    match util_inner with
+    | Utility.Modified (_, u) -> (u, base_style)
+    | _ -> (util_inner, base_style)
+  in
+  let base_class_name = Utility.to_class inner_util in
+  let base_rules = extract_fn base_class_name inner_util style in
+  List.concat_map (apply_modifier_to_rule modifier) base_rules
+
+(* Handle Group style by extracting each item *)
+let handle_group class_name util_inner styles extract_fn =
+  match util_inner with
+  | Utility.Group util_items ->
+      let extract_item style_item util_item =
+        let class_name_item = Utility.to_class util_item in
+        extract_fn class_name_item util_item style_item
+      in
+      List.map2 extract_item styles util_items |> List.concat
+  | _ -> List.concat_map (extract_fn class_name util_inner) styles
+
 let extract_selector_props util =
   let rec extract_with_class class_name util_inner = function
     | Style.Style { props; rules; _ } -> (
@@ -353,79 +451,15 @@ let extract_selector_props util =
         match rules with
         | None -> [ regular ~selector:sel ~props ~base_class:class_name () ]
         | Some rule_list ->
-            (* Extract nested rules (media queries) as separate outputs but keep
-               them grouped with the base utility by using the same base_class.
-               This matches Tailwind behavior where each utility's media queries
-               appear immediately after the base rule, sorted by priority. *)
-            let base_rule =
-              if props = [] then []
-              else [ regular ~selector:sel ~props ~base_class:class_name () ]
-            in
-            (* Separate custom rules from media queries *)
+            let base_rule = base_rule_of class_name props in
             let custom_rules, media_queries =
-              rule_list
-              |> List.partition_map (fun stmt ->
-                     match Css.as_rule stmt with
-                     | Some (selector, declarations, _) ->
-                         (* Custom rule - should come before base props *)
-                         Left
-                           (regular ~selector ~props:declarations
-                              ~base_class:class_name ())
-                     | None -> (
-                         match Css.as_media stmt with
-                         | Some (condition, statements) ->
-                             (* Media query - should come after base props *)
-                             Right
-                               (statements
-                               |> List.filter_map (fun inner_stmt ->
-                                      match Css.as_rule inner_stmt with
-                                      | Some (selector, declarations, _) ->
-                                          Some
-                                            (media_query ~condition ~selector
-                                               ~props:declarations
-                                               ~base_class:class_name ())
-                                      | None -> None))
-                         | None ->
-                             Right
-                               [
-                                 regular ~selector:Css.Selector.universal
-                                   ~props:[] ~base_class:class_name ();
-                               ]))
+              partition_rules class_name rule_list
             in
-            let media_queries = List.concat media_queries in
-            (* Order: custom rules, base props, media queries *)
             custom_rules @ base_rule @ media_queries)
-    | Style.Modified (modifier, t) ->
-        (* For Modified, we unwrap one level to process recursively. The
-           base_class should be the full class name of inner_util (the utility
-           one level down, preserving its modifiers). *)
-        let inner_util, base_style =
-          match util_inner with
-          | Utility.Modified (_, u) -> (u, t)
-          | _ -> (util_inner, t)
-        in
-        let base_class_name = Utility.to_class inner_util in
-        let base = extract_with_class base_class_name inner_util base_style in
-        List.concat_map
-          (fun rule_out ->
-            match rule_out with
-            | Regular { selector; props; base_class; _ } ->
-                (* Use the base_class from the rule *)
-                let bc = Option.value base_class ~default:"" in
-                [ modifier_to_rule modifier bc selector props ]
-            | _ -> [ rule_out ])
-          base
-    | Style.Group styles -> (
-        (* For Group, extract each element *)
-        let extract_group_item style_item util_item =
-          let class_name_item = Utility.to_class util_item in
-          extract_with_class class_name_item util_item style_item
-        in
-        match util_inner with
-        | Utility.Group util_items ->
-            List.map2 extract_group_item styles util_items |> List.concat
-        | _ -> List.concat_map (extract_with_class class_name util_inner) styles
-        )
+    | Style.Modified (modifier, base_style) ->
+        handle_modified util_inner modifier base_style extract_with_class
+    | Style.Group styles ->
+        handle_group class_name util_inner styles extract_with_class
   in
   let class_name = Utility.to_class util in
   let style = Utility.to_style util in
@@ -652,7 +686,8 @@ let extract_media_breakpoint = function
   | _ -> 0
 
 (* Compare rules by priority, then suborder, then alphabetically (for simple
-   class selectors), then by original index. *)
+   class selectors), then by original index. Lower priority values come
+   first. *)
 let compare_by_priority_suborder_alpha sel1 sel2 (p1, s1) (p2, s2) i1 i2 =
   let prio_cmp = Int.compare p1 p2 in
   if prio_cmp <> 0 then prio_cmp
@@ -678,7 +713,7 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 =
 
 (* Compare Regular vs Media rules - Regular comes before Media of same priority.
    When priorities are equal, preserve original order to maintain user's class
-   ordering. *)
+   ordering. Lower priority values come first. *)
 let compare_regular_vs_media i1 i2 (p1, _s1) (p2, _s2) regular_first =
   let prio_cmp = Int.compare p1 p2 in
   if prio_cmp <> 0 then prio_cmp
@@ -690,18 +725,24 @@ let compare_regular_vs_media i1 i2 (p1, _s1) (p2, _s2) regular_first =
   else Int.compare i1 i2
 
 (* Main comparison dispatcher for typed rules *)
-let compare_typed_rules (i1, typ1, sel1, _, order1, _)
-    (i2, typ2, sel2, _, order2, _) =
-  let type_cmp = Int.compare (rule_type_order typ1) (rule_type_order typ2) in
+let compare_typed_rules r1 r2 =
+  let type_cmp =
+    Int.compare (rule_type_order r1.rule_type) (rule_type_order r2.rule_type)
+  in
   if type_cmp <> 0 then type_cmp
   else
-    match (typ1, typ2) with
-    | `Regular, `Regular -> compare_regular_rules sel1 sel2 order1 order2 i1 i2
+    match (r1.rule_type, r2.rule_type) with
+    | `Regular, `Regular ->
+        compare_regular_rules r1.selector r2.selector r1.order r2.order r1.index
+          r2.index
     | `Media _, `Media _ ->
-        compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2
-    | `Regular, `Media _ -> compare_regular_vs_media i1 i2 order1 order2 true
-    | `Media _, `Regular -> compare_regular_vs_media i2 i1 order2 order1 false
-    | _, _ -> Int.compare i1 i2
+        compare_media_rules r1.rule_type r2.rule_type r1.selector r2.selector
+          r1.order r2.order r1.index r2.index
+    | `Regular, `Media _ ->
+        compare_regular_vs_media r1.index r2.index r1.order r2.order true
+    | `Media _, `Regular ->
+        compare_regular_vs_media r2.index r1.index r2.order r1.order true
+    | _, _ -> Int.compare r1.index r2.index
 
 (* Filter properties to only include utilities layer declarations *)
 let filter_utility_properties props =
@@ -716,15 +757,16 @@ let filter_utility_properties props =
           | Some _ -> false))
     props
 
-(* Convert typed rule tuple to CSS statement *)
-let typed_rule_to_statement (_idx, typ, selector, props, _order, nested) =
-  let filtered_props = filter_utility_properties props in
-  match typ with
-  | `Regular | `Starting -> Css.rule ~selector ~nested filtered_props
+(* Convert typed rule record to CSS statement *)
+let typed_rule_to_statement r =
+  let filtered_props = filter_utility_properties r.props in
+  match r.rule_type with
+  | `Regular | `Starting ->
+      Css.rule ~selector:r.selector ~nested:r.nested filtered_props
   | `Media condition ->
-      Css.media ~condition [ Css.rule ~selector filtered_props ]
+      Css.media ~condition [ Css.rule ~selector:r.selector filtered_props ]
   | `Container condition ->
-      Css.container ~condition [ Css.rule ~selector filtered_props ]
+      Css.container ~condition [ Css.rule ~selector:r.selector filtered_props ]
 
 (* Deduplicate typed triples while preserving first occurrence order *)
 let deduplicate_typed_triples triples =
@@ -738,69 +780,69 @@ let deduplicate_typed_triples triples =
         true))
     triples
 
+(* Get utility order from base class, with fallback to conflict order *)
+let order_of_base base_class selector =
+  match base_class with
+  | Some class_name -> (
+      match Utility.base_of_class class_name with
+      | Ok u -> Utility.order u
+      | Error _ -> conflict_order (Css.Selector.to_string selector))
+  | None -> conflict_order (Css.Selector.to_string selector)
+
+(* Convert each rule type to typed triple *)
+let rule_to_triple = function
+  | Regular { selector; props; base_class; nested; _ } ->
+      Some (`Regular, selector, props, order_of_base base_class selector, nested)
+  | Media_query { condition; selector; props; base_class } ->
+      Some
+        ( `Media condition,
+          selector,
+          props,
+          order_of_base base_class selector,
+          [] )
+  | Container_query { condition; selector; props; base_class } ->
+      Some
+        ( `Container condition,
+          selector,
+          props,
+          order_of_base base_class selector,
+          [] )
+  | Starting_style { selector; props; base_class } ->
+      Some (`Starting, selector, props, order_of_base base_class selector, [])
+
+(* Add index to each triple for stable sorting *)
+let add_index triples =
+  List.mapi
+    (fun i (typ, sel, props, order, nested) ->
+      { index = i; rule_type = typ; selector = sel; props; order; nested })
+    triples
+
+(* Build hover media query block from hover rules *)
+let hover_media_block hover_rules =
+  let pairs =
+    extract_selector_props_pairs hover_rules |> deduplicate_selector_props
+  in
+  if pairs = [] then None
+  else
+    let rules = of_grouped ~filter_custom_props:true pairs in
+    Some (Css.media ~condition:"(hover:hover)" rules)
+
 (* Convert selector/props pairs to CSS rules. *)
 (* Internal: build rule sets from pre-extracted outputs. *)
 let rule_sets_from_selector_props all_rules =
-  (* Separate hover rules for special handling *)
   let hover_rules, non_hover_rules = List.partition is_hover_rule all_rules in
 
-  (* Convert all non-hover outputs to (typ, selector, props, order, nested)
-     tuples *)
-  let triples_of_output rule =
-    let get_order base_class selector =
-      match base_class with
-      | Some class_name -> (
-          match Utility.base_of_class class_name with
-          | Ok u -> Utility.order u
-          | Error _ -> conflict_order (Css.Selector.to_string selector))
-      | None -> conflict_order (Css.Selector.to_string selector)
-    in
-    match rule with
-    | Regular { selector; props; base_class; nested; _ } ->
-        Some (`Regular, selector, props, get_order base_class selector, nested)
-    | Media_query { condition; selector; props; base_class } ->
-        Some
-          (`Media condition, selector, props, get_order base_class selector, [])
-    | Container_query { condition; selector; props; base_class } ->
-        Some
-          ( `Container condition,
-            selector,
-            props,
-            get_order base_class selector,
-            [] )
-    | Starting_style { selector; props; base_class } ->
-        Some (`Starting, selector, props, get_order base_class selector, [])
+  let css_statements =
+    non_hover_rules
+    |> List.filter_map rule_to_triple
+    |> deduplicate_typed_triples |> add_index
+    |> List.sort compare_typed_rules
+    |> List.map typed_rule_to_statement
   in
 
-  let all_triples = List.filter_map triples_of_output non_hover_rules in
-
-  (* Deduplicate and sort by utility order *)
-  let deduped_triples = deduplicate_typed_triples all_triples in
-  let indexed =
-    List.mapi
-      (fun i (typ, sel, props, order, nested) ->
-        (i, typ, sel, props, order, nested))
-      deduped_triples
-  in
-  let sorted = List.sort compare_typed_rules indexed in
-
-  (* Convert to CSS statements *)
-  let css_statements = List.map typed_rule_to_statement sorted in
-
-  (* Handle hover rules separately - they go at the end in (hover:hover) media
-     query *)
-  let hover_pairs =
-    extract_selector_props_pairs hover_rules |> deduplicate_selector_props
-  in
-  let statements_with_hover =
-    if hover_pairs = [] then css_statements
-    else
-      let hover_condition = "(hover:hover)" in
-      let hover_css_rules = of_grouped ~filter_custom_props:true hover_pairs in
-      css_statements @ [ Css.media ~condition:hover_condition hover_css_rules ]
-  in
-
-  statements_with_hover
+  match hover_media_block hover_rules with
+  | None -> css_statements
+  | Some media -> css_statements @ [ media ]
 
 let rule_sets tw_classes =
   let all_rules = tw_classes |> List.concat_map extract_selector_props in
@@ -845,82 +887,78 @@ let extract_non_tw_custom_declarations selector_props =
 (* assemble_theme_decls_metadata no longer used; ordering handled in
    compute_theme_layer *)
 
+(* Check if declaration name is a default font family indirection *)
+let is_default_family_name = function
+  | "default-font-family" | "default-mono-font-family" -> true
+  | _ -> false
+
+(* Build set of declaration names for fast lookup *)
+let names_set_of decls =
+  List.fold_left
+    (fun acc d ->
+      match Css.custom_declaration_name d with
+      | Some n -> Strings.add n acc
+      | None -> acc)
+    Strings.empty decls
+
+(* Filter declarations whose names are not in the excluded set *)
+let filter_non_duplicates excluded_names decls =
+  List.filter
+    (fun d ->
+      match Css.custom_declaration_name d with
+      | Some n -> not (Strings.mem n excluded_names)
+      | None -> false)
+    decls
+
+(* Split defaults into pre (font families) and post (default-* indirections) *)
+let split_defaults defaults =
+  List.partition
+    (fun decl ->
+      match Css.custom_declaration_name decl with
+      | Some n -> not (is_default_family_name n)
+      | None -> false)
+    defaults
+
+(* Compare two order pairs *)
+let compare_orders order_a order_b =
+  match (order_a, order_b) with
+  | Some (prio_a, sub_a), Some (prio_b, sub_b) ->
+      let prio_cmp = Int.compare prio_a prio_b in
+      if prio_cmp = 0 then Int.compare sub_a sub_b else prio_cmp
+  | Some _, None -> -1
+  | None, Some _ -> 1
+  | None, None -> 0
+
+(* Sort declarations by their Var order metadata *)
+let sort_by_var_order decls =
+  decls
+  |> List.map (fun d -> (d, Var.order_of_declaration d))
+  |> List.sort (fun (_, a) (_, b) -> compare_orders a b)
+  |> List.map fst
+
+(* Build theme layer rule from declarations *)
+let theme_layer_rule = function
+  | [] -> Css.v [ Css.layer ~name:"theme" [] ]
+  | decls ->
+      let selector = Css.Selector.(list [ Root; host () ]) in
+      Css.v [ Css.layer ~name:"theme" [ Css.rule ~selector decls ] ]
+
 (* Internal helper to compute theme layer from pre-extracted outputs. *)
 let compute_theme_layer_from_selector_props ?(default_decls = []) selector_props
     =
   let extracted = extract_non_tw_custom_declarations selector_props in
-  (* Split defaults so we can place base font family vars before extracted
-     tokens, and the indirection defaults (default-font-family,
-     default-mono-font-family) after extracted tokens to match Tailwind's
-     order. *)
-  let is_default_family name =
-    name = "default-font-family" || name = "default-mono-font-family"
-  in
-  let pre_defaults, post_defaults =
-    List.partition
-      (fun decl ->
-        match Css.custom_declaration_name decl with
-        | Some n -> not (is_default_family n)
-        | None -> false)
-      default_decls
-  in
-  (* Filter out defaults already present by name (use sets for faster
-     lookups) *)
-  let names_set_of lst =
-    List.fold_left
-      (fun acc d ->
-        match Css.custom_declaration_name d with
-        | Some n -> Strings.add n acc
-        | None -> acc)
-      Strings.empty lst
-  in
+  let pre_defaults, post_defaults = split_defaults default_decls in
+
+  (* Filter defaults to remove duplicates of extracted vars *)
   let extracted_names = names_set_of extracted in
-  let pre =
-    pre_defaults
-    |> List.filter (fun d ->
-           match Css.custom_declaration_name d with
-           | Some n -> not (Strings.mem n extracted_names)
-           | None -> false)
-  in
-  let pre_names = names_set_of pre in
+  let pre = filter_non_duplicates extracted_names pre_defaults in
   let post =
-    post_defaults
-    |> List.filter (fun d ->
-           match Css.custom_declaration_name d with
-           | Some n ->
-               (not (Strings.mem n extracted_names))
-               && not (Strings.mem n pre_names)
-           | None -> false)
+    filter_non_duplicates
+      (Strings.union extracted_names (names_set_of pre))
+      post_defaults
   in
-  let theme_generated_vars = pre @ extracted @ post in
 
-  (* Sort variables by their order metadata *)
-  (* Pre-extract metadata once to avoid repeated extraction during sorting *)
-  let vars_with_order =
-    List.map
-      (fun decl ->
-        let order = Var.order_of_declaration decl in
-        (decl, order))
-      theme_generated_vars
-  in
-  let sorted_vars_with_order =
-    List.sort
-      (fun (_, order_a) (_, order_b) ->
-        match (order_a, order_b) with
-        | Some (prio_a, sub_a), Some (prio_b, sub_b) ->
-            let prio_cmp = Int.compare prio_a prio_b in
-            if prio_cmp = 0 then Int.compare sub_a sub_b else prio_cmp
-        | Some _, None -> -1
-        | None, Some _ -> 1
-        | None, None -> 0)
-      vars_with_order
-  in
-  let sorted_vars = List.map fst sorted_vars_with_order in
-
-  if sorted_vars = [] then Css.v [ Css.layer ~name:"theme" [] ]
-  else
-    let selector = Css.Selector.(list [ Root; host () ]) in
-    Css.v [ Css.layer ~name:"theme" [ Css.rule ~selector sorted_vars ] ]
+  pre @ extracted @ post |> sort_by_var_order |> theme_layer_rule
 
 let compute_theme_layer ?(default_decls = []) tw_classes =
   let selector_props = collect_selector_props tw_classes in
@@ -962,74 +1000,70 @@ let build_base_layer ?supports () =
 
 (* Use the centralized conversion function from Var module *)
 
+(* Partition statements into @property rules and other statements *)
+let partition_properties statements =
+  List.partition
+    (fun stmt ->
+      match Css.as_property stmt with Some _ -> true | None -> false)
+    statements
+
+(* Deduplicate @property rules by name, preserving first occurrence *)
+let dedup_properties property_rules =
+  let seen = Hashtbl.create 16 in
+  List.filter
+    (fun stmt ->
+      match Css.as_property stmt with
+      | Some (Css.Property_info { name; _ }) ->
+          if Hashtbl.mem seen name then false
+          else (
+            Hashtbl.add seen name ();
+            true)
+      | None -> true)
+    property_rules
+
+(* Extract variable initial values from @property declarations *)
+let initial_values_of property_rules =
+  List.fold_left
+    (fun acc stmt ->
+      match Css.as_property stmt with
+      | Some (Css.Property_info info as prop_info) ->
+          let value = Var.property_initial_string prop_info in
+          (info.name, value) :: acc
+      | None -> acc)
+    [] property_rules
+  |> List.rev
+
+(* Browser detection condition for properties layer *)
+let browser_detection =
+  "(((-webkit-hyphens:none)) and (not (margin-trim:inline))) or \
+   ((-moz-orient:inline) and (not (color:rgb(from red r g b))))"
+
+(* Build property layer content with browser detection *)
+let property_layer_content initial_values other_statements =
+  let selector = Css.Selector.(list [ universal; Before; After; Backdrop ]) in
+  let initial_declarations =
+    List.map
+      (fun (name, value) -> Css.custom_property name value)
+      initial_values
+  in
+  let rule = Css.rule ~selector initial_declarations in
+  let supports_stmt = Css.supports ~condition:browser_detection [ rule ] in
+  let layer_content = [ supports_stmt ] @ other_statements in
+  Css.v [ Css.layer ~name:"properties" layer_content ]
+
 (* Build the properties layer with browser detection for initial values *)
 (* Returns (properties_layer, property_rules) - @property rules are separate *)
 let build_properties_layer explicit_property_rules_statements =
-  (* Split statements into @property rules and other statements *)
   let property_rules, other_statements =
-    List.partition
-      (fun stmt ->
-        match Css.as_property stmt with Some _ -> true | None -> false)
-      explicit_property_rules_statements
+    partition_properties explicit_property_rules_statements
   in
+  let deduplicated = dedup_properties property_rules in
+  let initial_values = initial_values_of deduplicated in
 
-  (* Deduplicate @property rules by property name, preserving first occurrence
-     order *)
-  let deduplicated_property_rules =
-    let seen = Hashtbl.create 16 in
-    List.filter
-      (fun stmt ->
-        match Css.as_property stmt with
-        | Some (Css.Property_info { name; _ }) ->
-            if Hashtbl.mem seen name then false
-            else (
-              Hashtbl.add seen name ();
-              true)
-        | None -> true)
-      property_rules
-  in
-
-  (* Extract variable initial values from @property declarations *)
-  let variable_initial_values =
-    List.fold_left
-      (fun acc stmt ->
-        match Css.as_property stmt with
-        | Some (Css.Property_info info as prop_info) ->
-            let value = Var.property_initial_string prop_info in
-            (info.name, value) :: acc
-        | None -> acc)
-      [] deduplicated_property_rules
-    |> List.rev
-  in
-
-  if deduplicated_property_rules = [] && variable_initial_values = [] then
-    (Css.empty, [])
+  if deduplicated = [] && initial_values = [] then (Css.empty, [])
   else
-    (* Build the properties layer with browser detection but WITHOUT @property
-       rules *)
-    let browser_detection_condition =
-      "(((-webkit-hyphens:none)) and (not (margin-trim:inline))) or \
-       ((-moz-orient:inline) and (not (color:rgb(from red r g b))))"
-    in
-    (* Create the selector for universal + pseudo-elements *)
-    let selector = Css.Selector.(list [ universal; Before; After; Backdrop ]) in
-    (* Create initial declarations for each property with their actual initial
-       values *)
-    let initial_declarations =
-      List.map
-        (fun (name, value) -> Css.custom_property name value)
-        variable_initial_values
-    in
-    let rule = Css.rule ~selector initial_declarations in
-    let supports_content = [ rule ] in
-    let supports_stmt =
-      Css.supports ~condition:browser_detection_condition supports_content
-    in
-    (* Properties layer only has the supports statement and other statements,
-       NOT @property rules *)
-    let layer_content = [ supports_stmt ] @ other_statements in
-    let layer = Css.v [ Css.layer ~name:"properties" layer_content ] in
-    (layer, deduplicated_property_rules)
+    let layer = property_layer_content initial_values other_statements in
+    (layer, deduplicated)
 
 (** Extract variables and property rules from utility styles recursively *)
 let rec extract_vars_and_property_rules_from_style = function
@@ -1046,38 +1080,45 @@ let rec extract_vars_and_property_rules_from_style = function
       in
       (List.concat vars_list, List.concat prop_rules_list)
 
+(* Filter variables that need @property rules *)
+let filter_vars_needing_property vars =
+  List.filter (fun (Css.V v) -> Var.var_needs_property v) vars
+
+(* Extract names from explicit @property rules into a set *)
+let explicit_property_names statements =
+  statements
+  |> List.filter_map (fun stmt ->
+         match Css.as_property stmt with
+         | Some (Css.Property_info info) -> Some info.name
+         | None -> None)
+  |> List.fold_left (fun acc n -> Strings.add n acc) Strings.empty
+
+(* Generate @property rules for variables not in explicit set *)
+let generate_property_rules vars excluded_names =
+  vars
+  |> List.filter (fun (Css.V v) ->
+         let var_name = "--" ^ Css.var_name v in
+         not (Strings.mem var_name excluded_names))
+  |> List.map (fun (Css.V v) ->
+         let var_name = "--" ^ Css.var_name v in
+         Css.property ~name:var_name Css.Universal ~inherits:false ())
+
 (** Collect all property rules: explicit ones and auto-generated ones *)
 let collect_all_property_rules vars_from_utilities
     explicit_property_rules_statements =
-  (* Get variables that need @property rules *)
   let vars_needing_property =
-    vars_from_utilities
-    |> List.filter (fun (Css.V v) -> Var.var_needs_property v)
+    filter_vars_needing_property vars_from_utilities
   in
-  (* Compute names of variables that already have explicit @property rules *)
-  let explicit_property_var_names_set =
-    explicit_property_rules_statements
-    |> List.filter_map (fun stmt ->
-           match Css.as_property stmt with
-           | Some (Css.Property_info info) -> Some info.name
-           | None -> None)
-    |> List.fold_left (fun acc n -> Strings.add n acc) Strings.empty
+  let explicit_names =
+    explicit_property_names explicit_property_rules_statements
   in
-  (* Generate @property rules for variables without explicit rules *)
-  let property_rules_from_utilities =
-    vars_needing_property
-    |> List.filter (fun (Css.V v) ->
-           let var_name = "--" ^ Css.var_name v in
-           not (Strings.mem var_name explicit_property_var_names_set))
-    |> List.map (fun (Css.V v) ->
-           let var_name = "--" ^ Css.var_name v in
-           Css.property ~name:var_name Css.Universal ~inherits:false ())
+  let generated_rules =
+    generate_property_rules vars_needing_property explicit_names
   in
-  let property_rules_from_utilities_as_statements =
-    property_rules_from_utilities |> List.concat_map Css.statements
+  let generated_statements =
+    generated_rules |> List.concat_map Css.statements
   in
-  explicit_property_rules_statements
-  @ property_rules_from_utilities_as_statements
+  explicit_property_rules_statements @ generated_statements
 
 (** Build layer declaration list based on which layers are present *)
 let build_layer_declaration ~has_properties ~include_base =
@@ -1113,41 +1154,50 @@ let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
   in
   layers_without_property @ property_rules_css
 
-(** Build all CSS layers from utilities and rules *)
-let build_layers ~include_base ~selector_props tw_classes statements =
-  (* Convert Utility.t list to Style.t list *)
-  let styles = List.map Utility.to_style tw_classes in
-  (* Extract variables and property rules in a single pass *)
-  let vars_from_utilities, property_rules_lists =
-    let results = List.map extract_vars_and_property_rules_from_style styles in
-    let vars_list, prop_rules_list = List.split results in
-    (List.concat vars_list, List.concat prop_rules_list)
-  in
-  let explicit_property_rules_statements =
-    property_rules_lists |> List.concat_map Css.statements
-  in
-  (* Collect all property rules (explicit + auto-generated) *)
-  let all_property_statements =
-    collect_all_property_rules vars_from_utilities
-      explicit_property_rules_statements
-  in
-  (* Build individual layers *)
+(* Extract variables and property rules from all utilities *)
+let extract_vars_and_rules utilities =
+  let styles = List.map Utility.to_style utilities in
+  let results = List.map extract_vars_and_property_rules_from_style styles in
+  let vars_list, prop_rules_list = List.split results in
+  (List.concat vars_list, List.concat prop_rules_list)
+
+(* Flatten property rules into CSS statements *)
+let flatten_property_rules property_rules_lists =
+  property_rules_lists |> List.concat_map Css.statements
+
+(* Build individual CSS layers *)
+let build_individual_layers selector_props all_property_statements statements =
   let theme_defaults = Typography.default_font_family_declarations in
   let theme_layer =
     compute_theme_layer_from_selector_props ~default_decls:theme_defaults
       selector_props
   in
   let base_layer = build_base_layer ~supports:placeholder_supports () in
-  let properties_layer, property_rules_for_end =
+  let properties_layer, property_rules =
     if all_property_statements = [] then (None, [])
     else
       let layer, prop_rules = build_properties_layer all_property_statements in
       if layer = Css.empty then (None, prop_rules) else (Some layer, prop_rules)
   in
   let utilities_layer = build_utilities_layer ~statements in
-  (* Assemble everything in the correct order *)
-  assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
-    ~utilities_layer ~property_rules_for_end
+  { theme_layer; base_layer; properties_layer; utilities_layer; property_rules }
+
+(** Build all CSS layers from utilities and rules *)
+let build_layers ~include_base ~selector_props tw_classes statements =
+  let vars_from_utilities, property_rules_lists =
+    extract_vars_and_rules tw_classes
+  in
+  let explicit_property_rules = flatten_property_rules property_rules_lists in
+  let all_property_statements =
+    collect_all_property_rules vars_from_utilities explicit_property_rules
+  in
+  let layers =
+    build_individual_layers selector_props all_property_statements statements
+  in
+  assemble_all_layers ~include_base ~properties_layer:layers.properties_layer
+    ~theme_layer:layers.theme_layer ~base_layer:layers.base_layer
+    ~utilities_layer:layers.utilities_layer
+    ~property_rules_for_end:layers.property_rules
 
 let wrap_css_items statements =
   (* For inline mode, just wrap the statements in a stylesheet *)
@@ -1187,35 +1237,33 @@ let to_css ?(config = default_config) tw_classes =
   (* Apply optimization if requested *)
   if config.optimize then Css.optimize stylesheet else stylesheet
 
+(* Recursively collect all declarations from a style *)
+let rec collect_declarations acc = function
+  | Style.Style { props; rules; _ } ->
+      let from_rules =
+        match rules with
+        | None -> []
+        | Some rs ->
+            List.concat
+              (List.filter_map
+                 (fun rule ->
+                   match Css.as_rule rule with
+                   | Some (_selector, declarations, _important) ->
+                       Some declarations
+                   | None -> None)
+                 rs)
+      in
+      let acc = List.rev_append from_rules acc in
+      List.rev_append props acc
+  | Style.Modified (_, t) -> collect_declarations acc t
+  | Style.Group ts -> List.fold_left collect_declarations acc ts
+
+(* Filter out CSS custom properties (variables) *)
+let filter_non_variables decls =
+  List.filter (fun decl -> Css.custom_declaration_name decl = None) decls
+
 let to_inline_style utilities =
-  (* Convert Utility.t list to Style.t list *)
   let styles = List.map Utility.to_style utilities in
-  (* Collect all declarations from props and embedded rules. Build in reverse
-     using [rev_append] to avoid quadratic concatenations, then reverse once. *)
-  let rec collect acc = function
-    | Style.Style { props; rules; _ } ->
-        let from_rules =
-          match rules with
-          | None -> []
-          | Some rs ->
-              List.concat
-                (List.filter_map
-                   (fun rule ->
-                     match Css.as_rule rule with
-                     | Some (_selector, declarations, _important) ->
-                         Some declarations
-                     | None -> None)
-                   rs)
-        in
-        let acc = List.rev_append from_rules acc in
-        List.rev_append props acc
-    | Style.Modified (_, t) -> collect acc t
-    | Style.Group ts -> List.fold_left collect acc ts
-  in
-  let all_props = List.rev (List.fold_left collect [] styles) in
-  (* Filter out CSS custom properties (variables) - they shouldn't be in inline
-     styles *)
-  let non_variable_props =
-    List.filter (fun decl -> Css.custom_declaration_name decl = None) all_props
-  in
+  let all_props = List.rev (List.fold_left collect_declarations [] styles) in
+  let non_variable_props = filter_non_variables all_props in
   Css.inline_style_of_declarations non_variable_props
