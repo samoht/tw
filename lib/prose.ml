@@ -1994,30 +1994,22 @@ let stylesheet () =
 
 let niet = Style.style ~rules:(Some []) []
 
+(* Handler for prose size variants - priority 2 *)
 module Handler = struct
-  (** Local prose utility type *)
+  (** Local prose utility type for size variants *)
   type t =
-    (* Size variants *)
     | Prose
     | Prose_sm
     | Prose_lg
     | Prose_xl
     | Prose_2xl
-    (* Color variants *)
-    | Prose_gray
-    | Prose_slate
-    | Prose_zinc
-    | Prose_neutral
-    | Prose_stone
-    | Prose_invert
-    (* Markers *)
     | Lead
     | Not_prose
 
   (** Extensible variant for prose utilities *)
   type Utility.base += Self of t
 
-  (** Priority for prose utilities *)
+  (** Priority for prose size utilities *)
   let name = "prose"
 
   let priority = 2 (* Same as margin to allow interleaving by suborder *)
@@ -2030,12 +2022,6 @@ module Handler = struct
     | Prose_lg -> prose_style `Lg
     | Prose_xl -> prose_style `Xl
     | Prose_2xl -> prose_style `Xl2
-    | Prose_gray -> prose_style `Gray
-    | Prose_slate -> prose_style `Slate
-    | Prose_zinc -> prose_style `Zinc
-    | Prose_neutral -> prose_style `Neutral
-    | Prose_stone -> prose_style `Stone
-    | Prose_invert -> niet
     | Lead -> niet
     | Not_prose -> niet
 
@@ -2045,12 +2031,6 @@ module Handler = struct
     | Prose_lg -> "prose-lg"
     | Prose_xl -> "prose-xl"
     | Prose_2xl -> "prose-2xl"
-    | Prose_gray -> "prose-gray"
-    | Prose_slate -> "prose-slate"
-    | Prose_zinc -> "prose-zinc"
-    | Prose_neutral -> "prose-neutral"
-    | Prose_stone -> "prose-stone"
-    | Prose_invert -> "prose-invert"
     | Lead -> "lead"
     | Not_prose -> "not-prose"
 
@@ -2062,50 +2042,98 @@ module Handler = struct
     | [ "prose"; "lg" ] -> Ok Prose_lg
     | [ "prose"; "xl" ] -> Ok Prose_xl
     | [ "prose"; "2xl" ] -> Ok Prose_2xl
+    | [ "lead" ] -> Ok Lead
+    | [ "not"; "prose" ] -> Ok Not_prose
+    | _ -> Error (`Msg "Not a prose size utility")
+
+  let suborder = function
+    (* Prose size utilities appear between mx-auto (100000) and mb-*
+       (500000+) *)
+    | Prose -> 200000
+    | Prose_2xl -> 200001 (* Alphabetical: 2xl before lg, sm, xl *)
+    | Prose_lg -> 200002
+    | Prose_sm -> 200003
+    | Prose_xl -> 200004
+    | Lead -> 200005
+    | Not_prose -> 200006
+end
+
+(* Handler for prose color variants - priority 21 *)
+module Color_Handler = struct
+  (** Local prose utility type for color variants *)
+  type t =
+    | Prose_gray
+    | Prose_slate
+    | Prose_zinc
+    | Prose_neutral
+    | Prose_stone
+    | Prose_invert
+
+  (** Extensible variant for prose color utilities *)
+  type Utility.base += Self of t
+
+  (** Priority for prose color utilities *)
+  let name = "prose-color"
+
+  let priority = 21 (* Same as color utilities *)
+
+  (** {1 Utility Conversion Functions} *)
+
+  let to_style = function
+    | Prose_gray -> prose_style `Gray
+    | Prose_slate -> prose_style `Slate
+    | Prose_zinc -> prose_style `Zinc
+    | Prose_neutral -> prose_style `Neutral
+    | Prose_stone -> prose_style `Stone
+    | Prose_invert -> niet
+
+  let to_class = function
+    | Prose_gray -> "prose-gray"
+    | Prose_slate -> "prose-slate"
+    | Prose_zinc -> "prose-zinc"
+    | Prose_neutral -> "prose-neutral"
+    | Prose_stone -> "prose-stone"
+    | Prose_invert -> "prose-invert"
+
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
+    match parts with
     | [ "prose"; "gray" ] -> Ok Prose_gray
     | [ "prose"; "slate" ] -> Ok Prose_slate
     | [ "prose"; "zinc" ] -> Ok Prose_zinc
     | [ "prose"; "neutral" ] -> Ok Prose_neutral
     | [ "prose"; "stone" ] -> Ok Prose_stone
     | [ "prose"; "invert" ] -> Ok Prose_invert
-    | [ "lead" ] -> Ok Lead
-    | [ "not"; "prose" ] -> Ok Not_prose
-    | _ -> Error (`Msg "Not a prose utility")
+    | _ -> Error (`Msg "Not a prose color utility")
 
   let suborder = function
-    (* Prose utilities appear between mx-auto (100000) and mb-* (500000+) *)
-    | Prose -> 200000
-    | Prose_2xl -> 200001 (* Alphabetical: 2xl before lg, sm, xl *)
-    | Prose_lg -> 200002
-    | Prose_sm -> 200003
-    | Prose_xl -> 200004
-    | Prose_gray -> 600000 (* Color variants appear after mb-* *)
-    | Prose_slate -> 600001
-    | Prose_zinc -> 600002
-    | Prose_neutral -> 600003
-    | Prose_stone -> 600004
-    | Prose_invert -> 600005
-    | Lead -> 200005
-    | Not_prose -> 200006
+    (* Prose color utilities are ordered alphabetically *)
+    | Prose_gray -> 0
+    | Prose_slate -> 1
+    | Prose_zinc -> 2
+    | Prose_neutral -> 3
+    | Prose_stone -> 4
+    | Prose_invert -> 5
 end
 
-open Handler
-
-(** Register handler with Utility system *)
+(** Register both handlers with Utility system *)
 let () = Utility.register (module Handler)
 
-(** Public API *)
-let utility x = Utility.base (Self x)
+let () = Utility.register (module Color_Handler)
 
-let prose = utility Prose
-let prose_sm = utility Prose_sm
-let prose_lg = utility Prose_lg
-let prose_xl = utility Prose_xl
-let prose_2xl = utility Prose_2xl
-let prose_gray = utility Prose_gray
-let prose_slate = utility Prose_slate
-let prose_zinc = utility Prose_zinc
-let prose_neutral = utility Prose_neutral
-let prose_stone = utility Prose_stone
-let prose_lead = utility Lead
-let not_prose = utility Not_prose
+(** Public API *)
+let utility x = Utility.base (Handler.Self x)
+
+let color_utility x = Utility.base (Color_Handler.Self x)
+let prose = utility Handler.Prose
+let prose_sm = utility Handler.Prose_sm
+let prose_lg = utility Handler.Prose_lg
+let prose_xl = utility Handler.Prose_xl
+let prose_2xl = utility Handler.Prose_2xl
+let prose_gray = color_utility Color_Handler.Prose_gray
+let prose_slate = color_utility Color_Handler.Prose_slate
+let prose_zinc = color_utility Color_Handler.Prose_zinc
+let prose_neutral = color_utility Color_Handler.Prose_neutral
+let prose_stone = color_utility Color_Handler.Prose_stone
+let prose_lead = utility Handler.Lead
+let not_prose = utility Handler.Not_prose
