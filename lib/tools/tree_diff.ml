@@ -16,6 +16,8 @@ type rule_diff =
       old_declarations : Css.declaration list;
       new_declarations : Css.declaration list;
       property_changes : declaration list;
+      added_properties : string list;
+      removed_properties : string list;
     }
   | Rule_selector_changed of {
       old_selector : string;
@@ -149,6 +151,48 @@ let pp_property_diffs ?(style = default_style) ?(parent_prefix = "") fmt
     prop_diffs =
   List.iter (pp_property_diff ~style ~parent_prefix fmt) prop_diffs
 
+(* Helper to find adjacent property swap *)
+let find_adjacent_swap lst1 lst2 =
+  let rec scan l1 l2 =
+    match (l1, l2) with
+    | x1 :: x2 :: _, y1 :: y2 :: _ when x1 = y2 && x2 = y1 -> Some (x1, x2)
+    | _ :: rest1, _ :: rest2 -> scan rest1 rest2
+    | _, _ -> None
+  in
+  scan lst1 lst2
+
+(* Helper to find property moves (up to max_count) *)
+let find_property_moves ~max_count prop_names1 prop_names2 =
+  let rec scan lst1 lst2 acc count =
+    if count >= max_count then List.rev acc
+    else
+      match (lst1, lst2) with
+      | x1 :: rest1, x2 :: rest2 when x1 <> x2 ->
+          let new_pos =
+            List.find_mapi
+              (fun i x -> if x = x1 then Some i else None)
+              prop_names2
+            |> Option.value ~default:(-1)
+          in
+          scan rest1 rest2 ((x1, new_pos) :: acc) (count + 1)
+      | _ :: rest1, _ :: rest2 -> scan rest1 rest2 acc count
+      | _, _ -> List.rev acc
+  in
+  scan prop_names1 prop_names2 [] 0
+
+(* Helper to print property moves *)
+let pp_property_moves fmt indent moves total_diffs =
+  Fmt.pf fmt "%s* reorder: " indent;
+  List.iteri
+    (fun i (prop, new_pos) ->
+      if i > 0 then Fmt.pf fmt ", ";
+      if new_pos >= 0 then Fmt.pf fmt "%s→%d" prop new_pos
+      else Fmt.pf fmt "%s" prop)
+    moves;
+  if total_diffs > List.length moves then
+    Fmt.pf fmt " (and %d more)" (total_diffs - List.length moves);
+  Fmt.pf fmt "@,"
+
 let pp_reorder ?(style = default_style) ?(parent_prefix = "") decls1 decls2 fmt
     =
   let indent =
@@ -156,43 +200,25 @@ let pp_reorder ?(style = default_style) ?(parent_prefix = "") decls1 decls2 fmt
   in
   let prop_names1 = List.map Css.declaration_name decls1 in
   let prop_names2 = List.map Css.declaration_name decls2 in
-  let same_length = List.length prop_names1 = List.length prop_names2 in
-  let sorted1 = List.sort String.compare prop_names1 in
-  let sorted2 = List.sort String.compare prop_names2 in
-  if same_length && sorted1 = sorted2 && prop_names1 <> prop_names2 then
-    (* Find first few properties that moved *)
-    let rec find_diffs lst1 lst2 acc count =
-      if count >= 3 then List.rev acc (* Show max 3 moves *)
-      else
-        match (lst1, lst2) with
-        | x1 :: rest1, x2 :: rest2 when x1 <> x2 ->
-            (* Find where x1 moved to in lst2 *)
-            let new_pos =
-              List.mapi (fun i x -> if x = x1 then Some i else None) prop_names2
-              |> List.find_map Fun.id |> Option.value ~default:(-1)
-            in
-            find_diffs rest1 rest2 ((x1, new_pos) :: acc) (count + 1)
-        | _ :: rest1, _ :: rest2 -> find_diffs rest1 rest2 acc count
-        | _, _ -> List.rev acc
-    in
-    let moves = find_diffs prop_names1 prop_names2 [] 0 in
-    let total_diffs =
-      List.fold_left2
-        (fun acc p1 p2 -> if p1 <> p2 then acc + 1 else acc)
-        0 prop_names1 prop_names2
-    in
-    if moves = [] then () (* No meaningful differences to show *)
-    else (
-      Fmt.pf fmt "%s* reorder: " indent;
-      List.iteri
-        (fun i (prop, new_pos) ->
-          if i > 0 then Fmt.pf fmt ", ";
-          if new_pos >= 0 then Fmt.pf fmt "%s→%d" prop new_pos
-          else Fmt.pf fmt "%s" prop)
-        moves;
-      if total_diffs > List.length moves then
-        Fmt.pf fmt " (and %d more)" (total_diffs - List.length moves);
-      Fmt.pf fmt "@,")
+  let same_props =
+    List.length prop_names1 = List.length prop_names2
+    && List.sort String.compare prop_names1
+       = List.sort String.compare prop_names2
+  in
+  if same_props && prop_names1 <> prop_names2 then
+    match find_adjacent_swap prop_names1 prop_names2 with
+    | Some (prop1, prop2) ->
+        let truncate s = String_diff.truncate_middle 20 s in
+        Fmt.pf fmt "%s* %s ↔ %s@," indent (truncate prop1) (truncate prop2)
+    | None ->
+        let moves = find_property_moves ~max_count:3 prop_names1 prop_names2 in
+        if moves <> [] then
+          let total_diffs =
+            List.fold_left2
+              (fun acc p1 p2 -> if p1 <> p2 then acc + 1 else acc)
+              0 prop_names1 prop_names2
+          in
+          pp_property_moves fmt indent moves total_diffs
 
 let pp_rule_diff ?(style = default_style) ?(is_last = false)
     ?(parent_prefix = "") fmt = function
@@ -208,32 +234,61 @@ let pp_rule_diff ?(style = default_style) ?(is_last = false)
       pp_declarations ~style ~parent_prefix:child_prefix fmt "remove"
         declarations
   | Rule_content_changed
-      { selector; old_declarations; new_declarations; property_changes } ->
+      {
+        selector;
+        old_declarations;
+        new_declarations;
+        property_changes;
+        added_properties;
+        removed_properties;
+      } ->
       let prefix = tree_prefix ~style ~is_last ~parent_prefix in
       let child_prefix = tree_continuation ~style ~is_last ~parent_prefix in
+      let indent =
+        if style.use_tree then child_prefix ^ "   " else child_prefix ^ "    "
+      in
+      let green_styled = get_style "add" in
+      let red_styled = get_style "remove" in
+
       (* Show property changes *)
       let has_prop_changes = property_changes <> [] in
+      let has_added = added_properties <> [] in
+      let has_removed = removed_properties <> [] in
+      let has_any_changes = has_prop_changes || has_added || has_removed in
+
       (* If no changes and declarations are identical, this should have been
          filtered by meaningful_rules *)
-      if (not has_prop_changes) && old_declarations = new_declarations then
+      if (not has_any_changes) && old_declarations = new_declarations then
         (* This shouldn't be reached since meaningful_rules filters these out,
            but just in case *)
         ()
       else (
         Fmt.pf fmt "%s%s@," prefix selector;
+
+        (* Print removed properties *)
+        List.iter
+          (fun prop_name ->
+            Fmt.pf fmt "%s%a@," indent red_styled (Fmt.str "- %s" prop_name))
+          removed_properties;
+
+        (* Print added properties *)
+        List.iter
+          (fun prop_name ->
+            Fmt.pf fmt "%s%a@," indent green_styled (Fmt.str "+ %s" prop_name))
+          added_properties;
+
+        (* Print modified properties *)
         pp_property_diffs ~style ~parent_prefix:child_prefix fmt
           property_changes;
+
         (* Check for declaration order changes *)
         pp_reorder ~style ~parent_prefix:child_prefix old_declarations
           new_declarations fmt;
+
         (* If no visible changes shown yet, provide summary *)
-        if (not has_prop_changes) && old_declarations <> new_declarations then
+        if (not has_any_changes) && old_declarations <> new_declarations then
           let old_count = List.length old_declarations in
           let new_count = List.length new_declarations in
-          let indent =
-            if style.use_tree then child_prefix ^ "   "
-            else child_prefix ^ "    "
-          in
           if old_count <> new_count then
             Fmt.pf fmt "%s(declaration count: %d -> %d)@," indent old_count
               new_count
@@ -283,7 +338,14 @@ let meaningful_rules rules =
     (function
       | Rule_reordered _ -> false
       | Rule_content_changed
-          { property_changes = []; old_declarations; new_declarations; _ }
+          {
+            property_changes = [];
+            added_properties = [];
+            removed_properties = [];
+            old_declarations;
+            new_declarations;
+            _;
+          }
         when old_declarations = new_declarations ->
           (* Filter out rules that moved to different nesting but have no
              changes *)
@@ -1021,42 +1083,110 @@ let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
     |> Option.value ~default:(-1)
   in
 
-  (* Helper to find selector at a given position *)
-  let selector_at_position pos rules =
-    match List.nth_opt rules pos with
-    | Some stmt -> (
-        match Css.as_rule stmt with
-        | Some (s, _, _) -> Some (Css.Selector.to_string s)
-        | None -> None)
-    | None -> None
+  (* Type-directed helpers to describe statements *)
+  let describe_rule stmt =
+    Option.map (fun (s, _, _) -> Css.Selector.to_string s) (Css.as_rule stmt)
   in
 
-  (* Handle empty rules specially - treat as added/removed *)
+  let describe_media stmt =
+    Option.map (fun (cond, _) -> "@media " ^ cond) (Css.as_media stmt)
+  in
+
+  let describe_layer stmt =
+    Option.map
+      (fun (name_opt, _) ->
+        match name_opt with Some name -> "@layer " ^ name | None -> "@layer")
+      (Css.as_layer stmt)
+  in
+
+  let describe_container stmt =
+    Option.map
+      (fun (name_opt, cond, _) ->
+        let prefix = match name_opt with Some n -> n ^ " " | None -> "" in
+        "@container " ^ prefix ^ cond)
+      (Css.as_container stmt)
+  in
+
+  let describe_supports stmt =
+    Option.map (fun (cond, _) -> "@supports " ^ cond) (Css.as_supports stmt)
+  in
+
+  let describe_property stmt =
+    Option.map (fun _ -> "@property") (Css.as_property stmt)
+  in
+
+  let describe_keyframes stmt =
+    Option.map (fun (name, _) -> "@keyframes " ^ name) (Css.as_keyframes stmt)
+  in
+
+  let describe_font_face stmt =
+    Option.map (fun _ -> "@font-face") (Css.as_font_face stmt)
+  in
+
+  let describe_statement stmt =
+    let matchers =
+      [
+        describe_rule;
+        describe_media;
+        describe_layer;
+        describe_container;
+        describe_supports;
+        describe_property;
+        describe_keyframes;
+        describe_font_face;
+      ]
+    in
+    match List.find_map (fun f -> f stmt) matchers with
+    | Some desc -> Some desc
+    | None -> Some "(other statement)"
+  in
+
+  let selector_at_position pos rules =
+    Option.bind (List.nth_opt rules pos) describe_statement
+  in
+
+  (* Helper to create Rule_content_changed with property diffs *)
+  let make_content_changed selector old_decls new_decls =
+    let property_changes, added_props, removed_props =
+      properties_diff old_decls new_decls
+    in
+    Rule_content_changed
+      {
+        selector;
+        old_declarations = old_decls;
+        new_declarations = new_decls;
+        property_changes;
+        added_properties = added_props;
+        removed_properties = removed_props;
+      }
+  in
+
+  (* Helper to create Rule_reordered for position changes *)
+  let make_reordered selector =
+    let expected_pos = find_position sel1 rules1 in
+    let actual_pos = find_position sel2 rules2 in
+    let swapped_with = selector_at_position expected_pos rules2 in
+    Rule_reordered { selector; expected_pos; actual_pos; swapped_with }
+  in
+
+  (* Helper to check if rule position changed *)
+  let position_changed () =
+    let expected_pos = find_position sel1 rules1 in
+    let actual_pos = find_position sel2 rules2 in
+    expected_pos <> actual_pos
+  in
+
+  (* Handle each modification case *)
   match (decls1, decls2) with
   | [], [] ->
-      (* Both empty - no meaningful change, treat as reordering *)
-      let expected_pos = find_position sel1 rules1 in
-      let actual_pos = find_position sel2 rules2 in
-      if expected_pos = actual_pos then
-        (* Same position too - this shouldn't be reported at all *)
-        Rule_content_changed
-          {
-            selector = sel1_str;
-            old_declarations = [];
-            new_declarations = [];
-            property_changes = [];
-          }
-      else
-        let swapped_with = selector_at_position expected_pos rules2 in
-        Rule_reordered
-          { selector = sel1_str; expected_pos; actual_pos; swapped_with }
-  | [], _ ->
-      (* Was empty, now has content - treat as added *)
-      Rule_added { selector = sel2_str; declarations = decls2 }
-  | _, [] ->
-      (* Had content, now empty - treat as removed *)
-      Rule_removed { selector = sel1_str; declarations = decls1 }
+      (* Both empty *)
+      if position_changed () then make_reordered sel1_str
+      else make_content_changed sel1_str decls1 decls2
+  | [], _ | _, [] ->
+      (* Properties added or removed *)
+      make_content_changed sel1_str decls1 decls2
   | _, _ when sel1_str <> sel2_str ->
+      (* Selector changed *)
       Rule_selector_changed
         {
           old_selector = sel1_str;
@@ -1064,48 +1194,24 @@ let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
           declarations = decls2;
         }
   | _, _ when decls1 = decls2 ->
-      (* Same selector, same declarations in same order *)
-      let expected_pos = find_position sel1 rules1 in
-      let actual_pos = find_position sel2 rules2 in
-      if expected_pos = actual_pos then
-        (* No actual change - same position, same declarations This case
-           shouldn't normally occur in diffing, but handle it gracefully *)
-        Rule_content_changed
-          {
-            selector = sel1_str;
-            old_declarations = decls1;
-            new_declarations = decls2;
-            property_changes = [];
-          }
-      else
-        (* Same declarations but different position - this is rule reordering *)
-        let swapped_with = selector_at_position expected_pos rules2 in
-        Rule_reordered
-          { selector = sel1_str; expected_pos; actual_pos; swapped_with }
+      (* Same declarations *)
+      if position_changed () then make_reordered sel1_str
+      else make_content_changed sel1_str decls1 decls2
   | _, _ ->
-      (* Check if it's just property reordering (same properties, different
-         order) *)
-      let property_changes, _added_props, _removed_props =
+      (* Content differs - check if it's pure property reordering *)
+      let property_changes, added_props, removed_props =
         properties_diff decls1 decls2
       in
-      if
-        property_changes = [] && decls_signature decls1 = decls_signature decls2
-      then
-        (* Properties are the same but reordered - always classify as
-           Rule_reordered *)
-        let expected_pos = find_position sel1 rules1 in
-        let actual_pos = find_position sel2 rules2 in
-        let swapped_with = selector_at_position expected_pos rules2 in
-        Rule_reordered
-          { selector = sel1_str; expected_pos; actual_pos; swapped_with }
+      let is_pure_reordering =
+        property_changes = [] && added_props = [] && removed_props = []
+        && decls_signature decls1 = decls_signature decls2
+      in
+      if is_pure_reordering then
+        (* Same properties, different order - always Rule_reordered *)
+        make_reordered sel1_str
       else
-        Rule_content_changed
-          {
-            selector = sel1_str;
-            old_declarations = decls1;
-            new_declarations = decls2;
-            property_changes;
-          }
+        (* Properties changed *)
+        make_content_changed sel1_str decls1 decls2
 
 (* Assemble rule changes (added/removed/modified) between two rule lists *)
 let to_rule_changes rules1 rules2 : rule_diff list =
@@ -1116,34 +1222,73 @@ let to_rule_changes rules1 rules2 : rule_diff list =
 
 (* Mutual recursion declarations *)
 let rec media_diff items1 items2 =
-  let key_of (cond, _) = cond in
-  let key_equal = String.equal in
-
-  (* Check if two media queries have any differences (immediate or nested) *)
-  let is_empty_diff (_, rules1) (_, rules2) =
-    let added_r, removed_r, modified_r = rule_diffs rules1 rules2 in
-    let has_immediate_diffs =
-      added_r <> [] || removed_r <> [] || modified_r <> []
-    in
-    if has_immediate_diffs then false
-    else
-      (* Also check for nested differences *)
-      let nested_diffs = nested_differences ~depth:1 rules1 rules2 in
-      nested_diffs = []
-  in
-  let added, removed, modified_pairs =
-    diffs ~key_of ~key_equal ~is_empty_diff items1 items2
+  (* Group media blocks by condition - like properties_diff groups by property
+     name *)
+  let group_by_condition items =
+    let tbl = Hashtbl.create 16 in
+    List.iter
+      (fun (cond, rules) ->
+        let existing = try Hashtbl.find tbl cond with Not_found -> [] in
+        Hashtbl.replace tbl cond (existing @ [ rules ]))
+      items;
+    tbl
   in
 
-  (* Transform to expected format *)
-  let added = List.map (fun (cond, rules) -> (cond, rules)) added in
-  let removed = List.map (fun (cond, rules) -> (cond, rules)) removed in
-  let modified =
-    List.map
-      (fun ((cond, rules1), (_, rules2)) -> (cond, rules1, rules2))
-      modified_pairs
-  in
-  (added, removed, modified)
+  let groups1 = group_by_condition items1 in
+  let groups2 = group_by_condition items2 in
+
+  let added = ref [] in
+  let removed = ref [] in
+  let modified = ref [] in
+
+  (* Find modified and removed blocks *)
+  Hashtbl.iter
+    (fun cond rules_list1 ->
+      match Hashtbl.find_opt groups2 cond with
+      | None ->
+          (* Condition exists in items1 but not items2 - removed *)
+          List.iter
+            (fun rules -> removed := (cond, rules) :: !removed)
+            rules_list1
+      | Some rules_list2 ->
+          (* Same condition in both - check if content or structure differs *)
+          let all_rules1 = List.concat rules_list1 in
+          let all_rules2 = List.concat rules_list2 in
+
+          (* Check for content differences *)
+          let added_r, removed_r, modified_r =
+            rule_diffs all_rules1 all_rules2
+          in
+          let has_immediate_diffs =
+            added_r <> [] || removed_r <> [] || modified_r <> []
+          in
+          let has_nested_diffs =
+            let nested_diffs =
+              nested_differences ~depth:1 all_rules1 all_rules2
+            in
+            nested_diffs <> []
+          in
+
+          (* Also check if number of blocks differs - this is a structural
+             difference even if merged content is the same (e.g., 2 separate
+             blocks vs 1 merged block) *)
+          let block_count_differs =
+            List.length rules_list1 <> List.length rules_list2
+          in
+
+          if has_immediate_diffs || has_nested_diffs || block_count_differs then
+            modified := (cond, all_rules1, all_rules2) :: !modified)
+    groups1;
+
+  (* Find added blocks *)
+  Hashtbl.iter
+    (fun cond rules_list2 ->
+      if not (Hashtbl.mem groups1 cond) then
+        (* Condition exists in items2 but not items1 - added *)
+        List.iter (fun rules -> added := (cond, rules) :: !added) rules_list2)
+    groups2;
+
+  (!added, !removed, !modified)
 
 (* Generic helper for processing nested containers *)
 and process_nested_containers ~container_type ~extract_fn ~diff_fn ~depth stmts1
@@ -1176,15 +1321,16 @@ and process_nested_containers ~container_type ~extract_fn ~diff_fn ~depth stmts1
       let nested_containers =
         nested_differences ~depth:(depth + 1) rules1 rules2
       in
-      if rule_changes <> [] || nested_containers <> [] then
-        diffs :=
-          Container_modified
-            {
-              info = { container_type; condition = cond; rules = rules1 };
-              rule_changes;
-              container_changes = nested_containers;
-            }
-          :: !diffs)
+      (* Always report modified containers - they were marked as modified for a
+         reason (e.g., different number of blocks with same condition) *)
+      diffs :=
+        Container_modified
+          {
+            info = { container_type; condition = cond; rules = rules1 };
+            rule_changes;
+            container_changes = nested_containers;
+          }
+        :: !diffs)
     modified;
 
   (* Check for ordering changes: same containers but different order *)
@@ -1568,6 +1714,8 @@ and keyframe_frames_diff frames1 frames2 =
                  old_declarations = [];
                  new_declarations = [];
                  property_changes = [];
+                 added_properties = [];
+                 removed_properties = [];
                })
         else None)
       modified_pairs

@@ -36,4 +36,4 @@
  (alias runtest)
  (deps prose.css tailwind.css ../../scripts/cssdiff.exe)
  (action
-  (run ../../scripts/cssdiff.exe --color=always prose.css tailwind.css)))
+  (run ../../scripts/cssdiff.exe --color=always tailwind.css prose.css)))
