@@ -724,8 +724,8 @@ let compare_regular_vs_media i1 i2 (p1, _s1) (p2, _s2) regular_first =
   then if regular_first then -1 else 1
   else Int.compare i1 i2
 
-(* Main comparison dispatcher for typed rules *)
-let compare_typed_rules r1 r2 =
+(* Compare indexed rules for sorting *)
+let compare_indexed_rules r1 r2 =
   let type_cmp =
     Int.compare (rule_type_order r1.rule_type) (rule_type_order r2.rule_type)
   in
@@ -757,8 +757,8 @@ let filter_utility_properties props =
           | Some _ -> false))
     props
 
-(* Convert typed rule record to CSS statement *)
-let typed_rule_to_statement r =
+(* Convert indexed rule to CSS statement *)
+let indexed_rule_to_statement r =
   let filtered_props = filter_utility_properties r.props in
   match r.rule_type with
   | `Regular | `Starting ->
@@ -836,8 +836,8 @@ let rule_sets_from_selector_props all_rules =
     non_hover_rules
     |> List.filter_map rule_to_triple
     |> deduplicate_typed_triples |> add_index
-    |> List.sort compare_typed_rules
-    |> List.map typed_rule_to_statement
+    |> List.sort compare_indexed_rules
+    |> List.map indexed_rule_to_statement
   in
 
   match hover_media_block hover_rules with
@@ -1081,11 +1081,11 @@ let rec extract_vars_and_property_rules_from_style = function
       (List.concat vars_list, List.concat prop_rules_list)
 
 (* Filter variables that need @property rules *)
-let filter_vars_needing_property vars =
+let vars_needing_property vars =
   List.filter (fun (Css.V v) -> Var.var_needs_property v) vars
 
 (* Extract names from explicit @property rules into a set *)
-let explicit_property_names statements =
+let property_names_of statements =
   statements
   |> List.filter_map (fun stmt ->
          match Css.as_property stmt with
@@ -1094,7 +1094,7 @@ let explicit_property_names statements =
   |> List.fold_left (fun acc n -> Strings.add n acc) Strings.empty
 
 (* Generate @property rules for variables not in explicit set *)
-let generate_property_rules vars excluded_names =
+let property_rules_for vars excluded_names =
   vars
   |> List.filter (fun (Css.V v) ->
          let var_name = "--" ^ Css.var_name v in
@@ -1106,15 +1106,9 @@ let generate_property_rules vars excluded_names =
 (** Collect all property rules: explicit ones and auto-generated ones *)
 let collect_all_property_rules vars_from_utilities
     explicit_property_rules_statements =
-  let vars_needing_property =
-    filter_vars_needing_property vars_from_utilities
-  in
-  let explicit_names =
-    explicit_property_names explicit_property_rules_statements
-  in
-  let generated_rules =
-    generate_property_rules vars_needing_property explicit_names
-  in
+  let needing_property = vars_needing_property vars_from_utilities in
+  let explicit_names = property_names_of explicit_property_rules_statements in
+  let generated_rules = property_rules_for needing_property explicit_names in
   let generated_statements =
     generated_rules |> List.concat_map Css.statements
   in
