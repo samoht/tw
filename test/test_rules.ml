@@ -664,8 +664,13 @@ let test_rule_sets_hover_media () =
     "hover selector in media" [ expected ] selectors
 
 let test_rule_sets_md_media () =
-  (* Multiple md[...] utilities should group under a single (min-width:48rem) *)
-  let css = Tw.Rules.to_css [ md [ p 4 ]; md [ m 2 ] ] in
+  (* Multiple md[...] utilities should group under a single (min-width:48rem)
+     when optimized *)
+  let css =
+    Tw.Rules.to_css
+      ~config:{ base = true; mode = Css.Variables; optimize = true }
+      [ md [ p 4 ]; md [ m 2 ] ]
+  in
   (* Check for exact media condition *)
   check bool "has (min-width:48rem) media query" true
     (has_media_condition "(min-width:48rem)" css);
@@ -753,13 +758,26 @@ let test_md_hover_no_extra_media () =
     "md:hover selector in md block" [ expected ] md_sels
 
 let test_container_and_media () =
-  let rules, media, container =
+  let statements =
     Tw.Rules.rule_sets [ Tw.Containers.container_md [ p 4 ]; md [ m 2 ] ]
   in
-  check bool "has media queries" true (List.length media > 0);
-  check bool "has container queries" true (List.length container > 0);
-  (* sanity: regular rules can be empty for this input *)
-  ignore rules
+  (* Check that we have some statements *)
+  check bool "has statements" true (List.length statements > 0);
+  (* Check that we have both media and container queries in the output *)
+  let has_media =
+    List.exists
+      (fun stmt ->
+        match Tw.Css.as_media stmt with Some _ -> true | None -> false)
+      statements
+  in
+  let has_container =
+    List.exists
+      (fun stmt ->
+        match Tw.Css.as_container stmt with Some _ -> true | None -> false)
+      statements
+  in
+  check bool "has media queries" true has_media;
+  check bool "has container queries" true has_container
 
 let test_modifier_to_rule () =
   let rule =
@@ -777,13 +795,28 @@ let test_modifier_to_rule () =
   | _ -> fail "Expected Regular rule for hover"
 
 let test_rule_sets () =
-  let rules, media, container = Tw.Rules.rule_sets [ p 4; sm [ m 2 ] ] in
-  check bool "has regular rules" true (List.length rules > 0);
-  check bool "has media queries" true (List.length media > 0);
-  check int "no container queries" 0 (List.length container)
+  let statements = Tw.Rules.rule_sets [ p 4; sm [ m 2 ] ] in
+  (* Check that we have statements *)
+  check bool "has statements" true (List.length statements > 0);
+  (* Check for media queries *)
+  let has_media =
+    List.exists
+      (fun stmt ->
+        match Tw.Css.as_media stmt with Some _ -> true | None -> false)
+      statements
+  in
+  check bool "has media queries" true has_media;
+  (* Check no container queries *)
+  let has_container =
+    List.exists
+      (fun stmt ->
+        match Tw.Css.as_container stmt with Some _ -> true | None -> false)
+      statements
+  in
+  check bool "no container queries" false has_container
 
 let test_build_utilities_layer () =
-  let rules =
+  let statements =
     [
       Css.rule
         ~selector:(Css.Selector.class_ "p-4")
@@ -793,10 +826,7 @@ let test_build_utilities_layer () =
         [ Css.margin [ Css.Rem 0.5 ] ];
     ]
   in
-  let layer =
-    Tw.Rules.build_utilities_layer ~rules ~media_queries:[]
-      ~container_queries:[]
-  in
+  let layer = Tw.Rules.build_utilities_layer ~statements in
   (* Check for utilities layer and selectors *)
   check bool "creates utilities layer" true (has_layer "utilities" layer);
   check bool "includes padding rule" true
@@ -806,7 +836,7 @@ let test_build_utilities_layer () =
 
 let test_build_utils_layer_order () =
   (* Test that build_utilities_layer preserves rule order and doesn't sort *)
-  let rules =
+  let statements =
     [
       Css.rule ~selector:(Css.Selector.class_ "a")
         [ Css.color (Css.Hex { hash = false; value = "ff0000" }) ];
@@ -818,10 +848,7 @@ let test_build_utils_layer_order () =
         [ Css.font_size (Css.Rem 1.0) ];
     ]
   in
-  let layer =
-    Tw.Rules.build_utilities_layer ~rules ~media_queries:[]
-      ~container_queries:[]
-  in
+  let layer = Tw.Rules.build_utilities_layer ~statements in
   let css = Css.to_string ~minify:true layer in
 
   (* Find positions of each rule in the output *)
@@ -1649,6 +1676,60 @@ let test_random_utilities_with_minimization () =
       Test_helpers.check_ordering_matches
         ~test_name:"random utilities ordering matches Tailwind" final
 
+let test_media_query_deduplication () =
+  (* Test that media queries preserve cascade order by NOT merging non-consecutive queries.
+   *
+   * When container and md:grid-cols-2 are used together, they have different priorities
+   * and will be separated by other utilities in the output. Their media queries should
+   * remain separate to preserve cascade semantics.
+   *
+   * Example (correct):
+   *   .container { width: 100% }
+   *   @media (min-width:48rem) { .container { max-width: 48rem } }
+   *   .mx-auto { margin-inline: auto }
+   *   @media (min-width:48rem) { .md\:grid-cols-2 { ... } }
+   *
+   * If they were merged (incorrect):
+   *   .container { width: 100% }
+   *   .mx-auto { margin-inline: auto }
+   *   @media (min-width:48rem) {
+   *     .container { max-width: 48rem }
+   *     .md\:grid-cols-2 { ... }
+   *   }
+   * This would move .container's media rule after .mx-auto, breaking cascade.
+   *)
+  let utilities = Tw.[ container; md [ grid_cols 2 ] ] in
+  let css = Tw.to_css ~base:false ~optimize:false utilities in
+
+  (* Count media queries by recursively traversing the stylesheet *)
+  let rec count_media_queries condition stmt =
+    match Tw.Css.as_media stmt with
+    | Some (cond, content) ->
+        let this_count = if cond = condition then 1 else 0 in
+        let nested_count =
+          List.fold_left ( + ) 0
+            (List.map (count_media_queries condition) content)
+        in
+        this_count + nested_count
+    | None -> (
+        match Tw.Css.as_layer stmt with
+        | Some (_, content) ->
+            List.fold_left ( + ) 0
+              (List.map (count_media_queries condition) content)
+        | None -> 0)
+  in
+
+  let count_48rem =
+    List.fold_left ( + ) 0
+      (List.map
+         (count_media_queries "(min-width:48rem)")
+         (Tw.Css.statements css))
+  in
+
+  (* Should have 2 separate media queries to preserve cascade order *)
+  Alcotest.(check int)
+    "preserves cascade by keeping media queries separate" 2 count_48rem
+
 let tests =
   [
     test_case "theme layer - empty" `Quick check_theme_layer_empty;
@@ -1705,6 +1786,7 @@ let tests =
     test_case "md:hover has no global hover gate" `Quick
       test_md_hover_no_extra_media;
     test_case "container + media together" `Quick test_container_and_media;
+    test_case "media query deduplication" `Quick test_media_query_deduplication;
     test_case "modifier_to_rule" `Quick test_modifier_to_rule;
     test_case "rule_sets" `Quick test_rule_sets;
     test_case "build_utilities_layer" `Quick test_build_utilities_layer;
