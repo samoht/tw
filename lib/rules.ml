@@ -19,6 +19,7 @@ type output =
       props : Css.declaration list;
       base_class : string option; (* Base class name without the dot *)
       has_hover : bool; (* Track if this rule has hover modifier *)
+      nested : Css.statement list; (* Nested statements (e.g., @media) *)
     }
   | Media_query of {
       condition : string;
@@ -49,8 +50,9 @@ type by_type = {
 (* Smart constructors for output *)
 (* ======================================================================== *)
 
-let regular ~selector ~props ?base_class ?(has_hover = false) () =
-  Regular { selector; props; base_class; has_hover }
+let regular ~selector ~props ?base_class ?(has_hover = false) ?(nested = []) ()
+    =
+  Regular { selector; props; base_class; has_hover; nested }
 
 let media_query ~condition ~selector ~props ?base_class () =
   Media_query { condition; selector; props; base_class }
@@ -324,7 +326,8 @@ let extract_selector_props util =
         match rules with
         | None -> [ regular ~selector:sel ~props ~base_class:class_name () ]
         | Some rule_list ->
-            (* Convert custom rules to selector/props pairs *)
+            (* Flatten nested rules to separate outputs - matches Tailwind
+               behavior *)
             let custom_rules =
               rule_list
               |> List.concat_map (fun stmt ->
@@ -513,77 +516,6 @@ let is_hover_rule = function
   | Regular { has_hover; _ } -> has_hover
   | _ -> false
 
-let group_media_queries media_rules =
-  let tbl = Hashtbl.create 16 in
-  List.iter
-    (fun rule ->
-      match rule with
-      | Media_query { condition; selector; props; base_class } ->
-          let order =
-            match base_class with
-            | Some class_name -> (
-                match Utility.base_of_class class_name with
-                | Ok u -> Utility.order u
-                | Error _ ->
-                    let sel_str = Css.Selector.to_string selector in
-                    conflict_order sel_str)
-            | None ->
-                let sel_str = Css.Selector.to_string selector in
-                conflict_order sel_str
-          in
-          let rules = try Hashtbl.find tbl condition with Not_found -> [] in
-          Hashtbl.replace tbl condition ((selector, props, order) :: rules)
-      | _ -> ())
-    media_rules;
-  (* Extract and sort media queries by breakpoint order *)
-  let media_list =
-    Hashtbl.fold (fun k v acc -> (k, List.rev v) :: acc) tbl []
-  in
-  (* Sort by min-width values to ensure correct cascading order *)
-  List.sort
-    (fun (a, _) (b, _) ->
-      (* Extract min-width values for comparison *)
-      let extract_min_width condition =
-        if String.contains condition '(' then
-          try
-            let start = String.index condition ':' + 1 in
-            let end_ = String.index_from condition start ')' in
-            let value = String.sub condition start (end_ - start) in
-            (* Parse rem values to floats for comparison *)
-            if String.contains value 'r' then
-              float_of_string (String.sub value 0 (String.index value 'r'))
-            else 0.0
-          with _ -> 0.0
-        else 0.0
-      in
-      compare (extract_min_width a) (extract_min_width b))
-    media_list
-
-let group_container_queries container_rules =
-  let tbl = Hashtbl.create 16 in
-  List.iter
-    (fun rule ->
-      match rule with
-      | Container_query { condition; selector; props; base_class } ->
-          let order =
-            match base_class with
-            | Some class_name -> (
-                match Utility.base_of_class class_name with
-                | Ok u -> Utility.order u
-                | Error _ ->
-                    let sel_str = Css.Selector.to_string selector in
-                    conflict_order sel_str)
-            | None ->
-                let sel_str = Css.Selector.to_string selector in
-                conflict_order sel_str
-          in
-          let rules = try Hashtbl.find tbl condition with Not_found -> [] in
-          Hashtbl.replace tbl condition ((selector, props, order) :: rules)
-      | _ -> ())
-    container_rules;
-  (* Reverse once to restore original insertion order per condition *)
-  Hashtbl.fold (fun k v acc -> (k, List.rev v) :: acc) tbl []
-
 let is_simple_class_selector sel =
   (* Check if selector is a simple class without combinators or
      pseudo-elements *)
@@ -648,38 +580,11 @@ let of_grouped ?(filter_custom_props = false) grouped_list =
       Css.rule ~selector filtered_props)
     sorted_indexed
 
-let build_utilities_layer ~rules ~media_queries ~container_queries =
-  (* Rules are already sorted by of_grouped in the correct conflict order. Don't
-     re-sort them here as that would break the original source order for rules
-     with the same selector (e.g., prose rules). *)
-  let statements =
-    rules
-    @ List.map
-        (fun (condition, rules) -> Css.media ~condition rules)
-        media_queries
-    @ List.map
-        (fun (name, condition, rules) -> Css.container ?name ~condition rules)
-        container_queries
-  in
-
+let build_utilities_layer ~statements =
+  (* Statements are already in the correct order with media queries interleaved.
+     Consecutive media queries with the same condition will be merged by the
+     optimizer (css/optimize.ml) while preserving cascade order. *)
   Css.v [ Css.layer ~name:"utilities" statements ]
-
-let add_hover_to_media_map hover_rules media_map =
-  (* Gate hover rules behind (hover:hover) media query to prevent them from
-     applying on touch devices where :hover can stick after tapping. This
-     follows modern CSS best practices for hover states. *)
-  if hover_rules = [] then media_map
-  else
-    let hover_condition = "(hover:hover)" in
-    (* Update association list in-place to avoid hashtable churn. *)
-    let rec update acc = function
-      | [] -> List.rev ((hover_condition, hover_rules) :: acc)
-      | (cond, rules) :: tl when String.equal cond hover_condition ->
-          (* Prepend hover rules to existing for this condition *)
-          List.rev_append acc ((hover_condition, hover_rules @ rules) :: tl)
-      | hd :: tl -> update (hd :: acc) tl
-    in
-    update [] media_map
 
 (* Deduplicate selector/props pairs while preserving first occurrence order *)
 let deduplicate_selector_props triples =
@@ -696,40 +601,175 @@ let deduplicate_selector_props triples =
 (* Convert selector/props pairs to CSS rules. *)
 (* Internal: build rule sets from pre-extracted outputs. *)
 let rule_sets_from_selector_props all_rules =
-  let separated = classify_by_type all_rules in
-  (* First separate hover from non-hover rules *)
-  let hover_regular, non_hover_regular =
-    List.partition is_hover_rule separated.regular
+  (* Separate hover rules for special handling *)
+  let hover_rules, non_hover_rules = List.partition is_hover_rule all_rules in
+
+  (* Convert all non-hover outputs to (typ, selector, props, order, nested)
+     tuples *)
+  let triples_of_output rule =
+    let get_order base_class selector =
+      match base_class with
+      | Some class_name -> (
+          match Utility.base_of_class class_name with
+          | Ok u -> Utility.order u
+          | Error _ -> conflict_order (Css.Selector.to_string selector))
+      | None -> conflict_order (Css.Selector.to_string selector)
+    in
+    match rule with
+    | Regular { selector; props; base_class; nested; _ } ->
+        Some (`Regular, selector, props, get_order base_class selector, nested)
+    | Media_query { condition; selector; props; base_class } ->
+        Some
+          (`Media condition, selector, props, get_order base_class selector, [])
+    | Container_query { condition; selector; props; base_class } ->
+        Some
+          ( `Container condition,
+            selector,
+            props,
+            get_order base_class selector,
+            [] )
+    | Starting_style { selector; props; base_class } ->
+        Some (`Starting, selector, props, get_order base_class selector, [])
   in
-  let non_hover_pairs =
-    extract_selector_props_pairs non_hover_regular |> deduplicate_selector_props
+
+  let all_triples = List.filter_map triples_of_output non_hover_rules in
+
+  (* Deduplicate (type, selector, props, order, nested) tuples while preserving
+     first occurrence order *)
+  let deduped_triples =
+    let seen = Hashtbl.create (List.length all_triples) in
+    List.filter
+      (fun (typ, sel, props, _order, nested) ->
+        (* Key includes type to allow same selector with different types (e.g.,
+           regular vs media) *)
+        let key = (typ, Css.Selector.to_string sel, props, nested) in
+        if Hashtbl.mem seen key then false
+        else (
+          Hashtbl.add seen key ();
+          true))
+      all_triples
   in
+
+  (* Sort by (priority, suborder, index) to maintain utility order *)
+  let indexed =
+    List.mapi
+      (fun i (typ, sel, props, order, nested) ->
+        (i, typ, sel, props, order, nested))
+      deduped_triples
+  in
+
+  (* Type order: Regular < Media < Container < Starting *)
+  let type_order = function
+    | `Regular -> 0
+    | `Media _ -> 1
+    | `Container _ -> 2
+    | `Starting -> 3
+  in
+
+  (* Extract breakpoint size from media condition for sorting *)
+  let media_breakpoint_order = function
+    | `Media cond -> (
+        (* Extract rem value from "(min-width:XXrem)" *)
+        try
+          let start = String.index cond ':' + 1 in
+          let end_pos = String.index_from cond start 'r' in
+          let value_str = String.sub cond start (end_pos - start) in
+          int_of_string value_str
+        with _ -> max_int (* Put unrecognized media queries at the end *))
+    | _ -> 0
+  in
+
+  let sorted =
+    List.sort
+      (fun (i1, typ1, sel1, _, (p1, s1), _) (i2, typ2, sel2, _, (p2, s2), _) ->
+        (* Sort by type first (Regular < Media < Container) to ensure
+           non-responsive rules come before media queries *)
+        let type_cmp = Int.compare (type_order typ1) (type_order typ2) in
+        if type_cmp <> 0 then type_cmp
+        else
+          (* Within same type, different logic applies *)
+          match (typ1, typ2) with
+          | `Media _, `Media _ ->
+              (* For media queries, sort by breakpoint first, then priority,
+                 then suborder *)
+              let breakpoint_cmp =
+                Int.compare
+                  (media_breakpoint_order typ1)
+                  (media_breakpoint_order typ2)
+              in
+              if breakpoint_cmp <> 0 then breakpoint_cmp
+              else
+                let prio_cmp = Int.compare p1 p2 in
+                if prio_cmp <> 0 then prio_cmp
+                else
+                  let sub_cmp = Int.compare s1 s2 in
+                  if sub_cmp <> 0 then sub_cmp
+                  else if
+                    is_simple_class_selector sel1
+                    && is_simple_class_selector sel2
+                  then
+                    String.compare
+                      (Css.Selector.to_string sel1)
+                      (Css.Selector.to_string sel2)
+                  else Int.compare i1 i2
+          | _, _ ->
+              (* For non-media queries, sort by priority, then suborder *)
+              let prio_cmp = Int.compare p1 p2 in
+              if prio_cmp <> 0 then prio_cmp
+              else
+                let sub_cmp = Int.compare s1 s2 in
+                if sub_cmp <> 0 then sub_cmp
+                else if
+                  is_simple_class_selector sel1 && is_simple_class_selector sel2
+                then
+                  String.compare
+                    (Css.Selector.to_string sel1)
+                    (Css.Selector.to_string sel2)
+                else Int.compare i1 i2)
+      indexed
+  in
+
+  (* Convert to CSS statements. Media/container queries are kept separate here;
+     consecutive ones with the same condition will be merged by the
+     optimizer. *)
+  let css_statements =
+    List.map
+      (fun (_idx, typ, selector, props, _order, nested) ->
+        let filtered_props =
+          List.filter
+            (fun decl ->
+              match Css.custom_declaration_layer decl with
+              | Some layer when layer = "utilities" -> true
+              | Some _ -> false
+              | None -> (
+                  match Css.custom_declaration_name decl with
+                  | None -> true
+                  | Some _ -> false))
+            props
+        in
+        match typ with
+        | `Regular | `Starting -> Css.rule ~selector ~nested filtered_props
+        | `Media condition ->
+            Css.media ~condition [ Css.rule ~selector filtered_props ]
+        | `Container condition ->
+            Css.container ~condition [ Css.rule ~selector filtered_props ])
+      sorted
+  in
+
+  (* Handle hover rules separately - they go at the end in (hover:hover) media
+     query *)
   let hover_pairs =
-    extract_selector_props_pairs hover_regular |> deduplicate_selector_props
+    extract_selector_props_pairs hover_rules |> deduplicate_selector_props
   in
-  let rules = of_grouped ~filter_custom_props:true non_hover_pairs in
-  let media_queries_map =
-    group_media_queries separated.media |> add_hover_to_media_map hover_pairs
+  let statements_with_hover =
+    if hover_pairs = [] then css_statements
+    else
+      let hover_condition = "(hover:hover)" in
+      let hover_css_rules = of_grouped ~filter_custom_props:true hover_pairs in
+      css_statements @ [ Css.media ~condition:hover_condition hover_css_rules ]
   in
-  let media_queries =
-    List.map
-      (fun (condition, rule_list) ->
-        ( condition,
-          of_grouped ~filter_custom_props:true
-            (deduplicate_selector_props rule_list) ))
-      media_queries_map
-  in
-  let container_queries_map = group_container_queries separated.container in
-  let container_queries =
-    List.map
-      (fun (condition, rule_list) ->
-        ( None,
-          condition,
-          of_grouped ~filter_custom_props:true
-            (deduplicate_selector_props rule_list) ))
-      container_queries_map
-  in
-  (rules, media_queries, container_queries)
+
+  statements_with_hover
 
 let rule_sets tw_classes =
   let all_rules = tw_classes |> List.concat_map extract_selector_props in
@@ -1043,8 +1083,7 @@ let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
   layers_without_property @ property_rules_css
 
 (** Build all CSS layers from utilities and rules *)
-let build_layers ~include_base ~selector_props tw_classes rules media_queries
-    container_queries =
+let build_layers ~include_base ~selector_props tw_classes statements =
   (* Convert Utility.t list to Style.t list *)
   let styles = List.map Utility.to_style tw_classes in
   (* Extract variables and property rules in a single pass *)
@@ -1074,27 +1113,14 @@ let build_layers ~include_base ~selector_props tw_classes rules media_queries
       let layer, prop_rules = build_properties_layer all_property_statements in
       if layer = Css.empty then (None, prop_rules) else (Some layer, prop_rules)
   in
-  let utilities_layer =
-    build_utilities_layer ~rules ~media_queries ~container_queries
-  in
+  let utilities_layer = build_utilities_layer ~statements in
   (* Assemble everything in the correct order *)
   assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
     ~utilities_layer ~property_rules_for_end
 
-let wrap_css_items ~rules ~media_queries ~container_queries =
-  let rules_stylesheet = Css.v rules in
-  let media_stylesheets =
-    List.map
-      (fun (condition, rules) -> Css.v [ Css.media ~condition rules ])
-      media_queries
-  in
-  let container_stylesheets =
-    List.map
-      (fun (name, condition, rules) ->
-        Css.v [ Css.container ?name ~condition rules ])
-      container_queries
-  in
-  Css.concat (rules_stylesheet :: (media_stylesheets @ container_stylesheets))
+let wrap_css_items statements =
+  (* For inline mode, just wrap the statements in a stylesheet *)
+  Css.v statements
 
 (* ======================================================================== *)
 (* Main API - Convert Tw styles to CSS *)
@@ -1110,9 +1136,7 @@ let to_css ?(config = default_config) tw_classes =
   (* Extract once and share for rule sets and theme layer *)
   let selector_props = List.concat_map extract_selector_props tw_classes in
 
-  let rules, media_queries, container_queries =
-    rule_sets_from_selector_props selector_props
-  in
+  let statements = rule_sets_from_selector_props selector_props in
 
   (* Generate layers whenever mode = Variables. Include the base layer only when
      [reset=true]. In Inline mode, emit raw rules without layers. *)
@@ -1121,13 +1145,13 @@ let to_css ?(config = default_config) tw_classes =
     | Css.Variables ->
         let layers =
           build_layers ~include_base:config.base ~selector_props tw_classes
-            rules media_queries container_queries
+            statements
         in
         Css.concat layers
     | Css.Inline ->
         (* No layers - just raw utility rules with var() resolved to fallback
            values *)
-        wrap_css_items ~rules ~media_queries ~container_queries
+        wrap_css_items statements
   in
   (* Apply optimization if requested *)
   if config.optimize then Css.optimize stylesheet else stylesheet

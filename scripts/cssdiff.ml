@@ -1,56 +1,109 @@
-(** Script to compare two CSS files with structural parsing for better diffs
-    Usage: cssdiff.exe <css_file1> <css_file2> *)
+(** Script to compare two CSS files with structural parsing for better diffs *)
+
+open Cmdliner
 
 let read_file path =
   try
     let ic = open_in path in
     let content = really_input_string ic (in_channel_length ic) in
     close_in ic;
-    Some content
-  with Sys_error msg ->
-    Fmt.epr "Error reading %s: %s@." path msg;
-    None
+    Ok content
+  with Sys_error msg -> Error (`Msg (Fmt.str "Error reading %s: %s" path msg))
 
-let () =
-  (* Parse command line arguments *)
-  let args = Array.to_list Sys.argv |> List.tl in
-  match args with
-  | [ file1; file2 ] -> (
-      match (read_file file1, read_file file2) with
-      | Some css1, Some css2 -> (
-          if css1 = css2 then (
+let compare_files file1 file2 style_renderer =
+  (* Check NO_COLOR environment variable (https://no-color.org/) When present
+     and not empty, disable colors regardless of other settings *)
+  let style_renderer =
+    match Sys.getenv_opt "NO_COLOR" with
+    | Some s when s <> "" -> Some `None (* NO_COLOR is set and non-empty *)
+    | _ -> style_renderer (* Use command line option *)
+  in
+  (* Setup Fmt with the style renderer from command line/env *)
+  Fmt_tty.setup_std_outputs ?style_renderer ();
+
+  match (read_file file1, read_file file2) with
+  | Ok css1, Ok css2 -> (
+      if css1 = css2 then (
+        Fmt.pr "✓ CSS files are identical@.";
+        Ok ())
+      else
+        (* Use css_compare for detailed structural comparison *)
+        let result = Tw_tools.Css_compare.diff ~expected:css2 ~actual:css1 in
+        match result with
+        | No_diff ->
             Fmt.pr "✓ CSS files are identical@.";
-            exit 0)
-          else
-            (* Use css_compare for detailed structural comparison *)
-            let result =
-              Tw_tools.Css_compare.diff ~expected:css2 ~actual:css1
+            Ok ()
+        | String_diff _ | Tree_diff _ | Both_errors _ | Expected_error _
+        | Actual_error _ ->
+            let stats =
+              Tw_tools.Css_compare.stats ~expected_str:css2 ~actual_str:css1
+                result
             in
-            match result with
-            | No_diff ->
-                Fmt.pr "✓ CSS files are identical@.";
-                exit 0
-            | String_diff _ ->
-                let stats =
-                  Tw_tools.Css_compare.stats ~expected_str:css2 ~actual_str:css1
-                    result
-                in
-                Fmt.pr "%a@,@," Tw_tools.Css_compare.pp_stats stats;
-                Fmt.pr "%a@,"
-                  (Tw_tools.Css_compare.pp ~expected:file2 ~actual:file1)
-                  result;
-                exit 1
-            | Tree_diff _ | Both_errors _ | Expected_error _ | Actual_error _ ->
-                let stats =
-                  Tw_tools.Css_compare.stats ~expected_str:css2 ~actual_str:css1
-                    result
-                in
-                Fmt.pr "%a@,@," Tw_tools.Css_compare.pp_stats stats;
-                Fmt.pr "%a@,"
-                  (Tw_tools.Css_compare.pp ~expected:file2 ~actual:file1)
-                  result;
-                exit 1)
-      | _ -> exit 1)
-  | _ ->
-      Fmt.epr "Usage: %s <css_file1> <css_file2>@." Sys.argv.(0);
-      exit 1
+            Fmt.pr "%a@,@," Tw_tools.Css_compare.pp_stats stats;
+            Fmt.pr "%a@."
+              (Tw_tools.Css_compare.pp ~expected:file2 ~actual:file1)
+              result;
+            Error (`Msg "CSS files differ"))
+  | Error e, _ | _, Error e -> Error e
+
+(* Command line interface *)
+let file1_arg =
+  let doc = "First CSS file to compare (expected/reference)" in
+  Arg.(required & pos 0 (some file) None & info [] ~docv:"FILE1" ~doc)
+
+let file2_arg =
+  let doc = "Second CSS file to compare (actual/test)" in
+  Arg.(required & pos 1 (some file) None & info [] ~docv:"FILE2" ~doc)
+
+let cssdiff_t =
+  let open Term in
+  (* CSSDIFF_COLOR env var for auto|always|never *)
+  let style_renderer_with_env =
+    Fmt_cli.style_renderer ~env:(Cmd.Env.info "CSSDIFF_COLOR") ()
+  in
+  term_result
+    (const compare_files $ file1_arg $ file2_arg $ style_renderer_with_env)
+
+let cmd =
+  let doc = "Compare two CSS files with structural analysis" in
+  let man =
+    [
+      `S Manpage.s_description;
+      `P
+        "$(tname) compares two CSS files and reports structural differences \
+         using a tree-based diff format with syntax highlighting.";
+      `P "The comparison parses both CSS files and detects:";
+      `I ("•", "Added, removed, or modified rules");
+      `I ("•", "Property value changes");
+      `I ("•", "Reordered rules");
+      `I ("•", "Changes in @media, @layer, and other at-rules");
+      `S Manpage.s_options;
+      `S Manpage.s_exit_status;
+      `P "$(tname) exits with:";
+      `I ("0", "if the CSS files are identical");
+      `I ("1", "if the CSS files differ or an error occurred");
+      `S Manpage.s_environment;
+      `P "Color output can be controlled via environment variables:";
+      `I
+        ( "NO_COLOR",
+          "When set to any non-empty value, disables color output (see \
+           https://no-color.org/)" );
+      `I
+        ( "CSSDIFF_COLOR",
+          "Set to 'auto', 'always', or 'never' to control color output \
+           (overridden by NO_COLOR)" );
+      `S Manpage.s_examples;
+      `P "Compare two CSS files:";
+      `Pre "  $(tname) reference.css output.css";
+      `P "Disable colors using flag:";
+      `Pre "  $(tname) --color=never reference.css output.css";
+      `P "Disable colors using NO_COLOR environment variable:";
+      `Pre "  NO_COLOR=1 $(tname) reference.css output.css";
+      `S Manpage.s_bugs;
+      `P "Report bugs at https://github.com/samoht/cascade";
+    ]
+  in
+  let info = Cmd.info "cssdiff" ~version:"%%VERSION%%" ~doc ~man in
+  Cmd.v info cssdiff_t
+
+let () = exit (Cmd.eval cmd)

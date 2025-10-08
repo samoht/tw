@@ -33,6 +33,7 @@ type output =
       props : Css.declaration list;
       base_class : string option;
       has_hover : bool;
+      nested : Css.statement list;
     }
   | Media_query of {
       condition : string;
@@ -64,10 +65,11 @@ val regular :
   props:Css.declaration list ->
   ?base_class:string ->
   ?has_hover:bool ->
+  ?nested:Css.statement list ->
   unit ->
   output
-(** [regular ~selector ~props ?base_class ?has_hover ()] constructs a regular
-    rule. *)
+(** [regular ~selector ~props ?base_class ?has_hover ?nested ()] constructs a regular
+    rule with optional nested statements (e.g., @media queries). *)
 
 val media_query :
   condition:string ->
@@ -210,12 +212,10 @@ val modifier_to_rule :
 val is_hover_rule : output -> bool
 (** [is_hover_rule output] checks if an output is a hover rule. *)
 
-val rule_sets :
-  t list ->
-  Css.statement list
-  * (string * Css.statement list) list
-  * (string option * string * Css.statement list) list
-(** [rule_sets tw_classes] processes Tailwind classes into CSS rule sets. *)
+val rule_sets : t list -> Css.statement list
+(** [rule_sets tw_classes] processes Tailwind classes into CSS statements with
+    media queries interleaved in the correct order. Consecutive media queries
+    with the same condition will be merged by {!build_utilities_layer}. *)
 
 val classify_by_type : output list -> by_type
 (** [classify_by_type rules] classifies rules by their type (regular, media,
@@ -236,13 +236,11 @@ val compute_theme_layer : ?default_decls:Css.declaration list -> t list -> Css.t
     with CSS variables referenced in the classes plus any [default_decls]
     provided (e.g., baseline theme tokens like default font families). *)
 
-val build_utilities_layer :
-  rules:Css.statement list ->
-  media_queries:(string * Css.statement list) list ->
-  container_queries:(string option * string * Css.statement list) list ->
-  Css.t
-(** [build_utilities_layer ~rules ~media_queries ~container_queries] builds the
-    utilities layer with proper conflict ordering. *)
+val build_utilities_layer : statements:Css.statement list -> Css.t
+(** [build_utilities_layer ~statements] builds the utilities layer. The
+    statements should already be in the correct order with media queries
+    interleaved. Consecutive media queries with the same condition will be
+    merged to reduce output size while preserving cascade order. *)
 
 (** {1 Utility Functions} *)
 

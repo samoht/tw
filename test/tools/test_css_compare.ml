@@ -392,7 +392,7 @@ let test_pp_structural () =
   let has_headers = contains output "--- " && contains output "+++ " in
   check bool "has diff headers" true has_headers;
   (* Verify property modification text appears for short values *)
-  let has_modify = contains output "modify:" in
+  let has_modify = contains output "*" in
   let has_arrow = contains output "->" in
   check bool "shows color change inline" true (has_modify && has_arrow)
 
@@ -1209,6 +1209,31 @@ let test_nested_deep_nesting () =
      added *)
   assert_detects_changes css1 css2
 
+(* Test that media query ordering is detected as a structural difference *)
+let test_media_query_ordering () =
+  let css1 =
+    {|
+    @media (min-width: 768px) {
+      .md { display: block; }
+    }
+    @media (min-width: 1024px) {
+      .lg { display: flex; }
+    }
+  |}
+  in
+  let css2 =
+    {|
+    @media (min-width: 1024px) {
+      .lg { display: flex; }
+    }
+    @media (min-width: 768px) {
+      .md { display: block; }
+    }
+  |}
+  in
+  (* Media queries in different order should be detected as structural change *)
+  assert_detects_changes css1 css2
+
 let tests =
   [
     test_case "strip header" `Quick test_strip_header;
@@ -1315,6 +1340,7 @@ let tests =
     test_case "nested containers - supports in layer" `Quick
       test_nested_supports_in_layer;
     test_case "nested containers - deep nesting" `Quick test_nested_deep_nesting;
+    test_case "media query order matters" `Quick test_media_query_ordering;
   ]
 
 let suite = ("css_compare", tests)

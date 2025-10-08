@@ -22,4 +22,4 @@
  (alias runtest)
  (deps cards.css tailwind.css ../../scripts/cssdiff.exe)
  (action
-  (run ../../scripts/cssdiff.exe cards.css tailwind.css)))
+  (run ../../scripts/cssdiff.exe --color=always cards.css tailwind.css)))
