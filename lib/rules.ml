@@ -266,53 +266,80 @@ let handle_pseudo_class_modifier modifier base_class selector props =
   regular ~selector:modified_selector ~props ~base_class:modified_class
     ~has_hover ()
 
+(* Type-directed modifier handlers *)
+let handle_preference_media ~kind ~value base_class selector props =
+  let prefix_map =
+    [
+      ("motion-safe", ".motion-safe:");
+      ("motion-reduce", ".motion-reduce:");
+      ("contrast-more", ".contrast-more:");
+      ("contrast-less", ".contrast-less:");
+    ]
+  in
+  let prefix = List.assoc_opt kind prefix_map in
+  handle_media_modifier
+    ~condition:(Printf.sprintf "(prefers-%s: %s)" kind value)
+    ~prefix base_class selector props
+
+let handle_not_modifier base_class selector props =
+  regular
+    ~selector:
+      (Css.Selector.Class
+         ("not-" ^ base_class ^ ":not(" ^ Css.Selector.to_string selector ^ ")"))
+    ~props ~base_class ()
+
+let handle_has_variant ~kind selector_str base_class props =
+  has_like_selector kind selector_str base_class props
+
 (** Convert a modifier and its context to a CSS rule *)
 let modifier_to_rule modifier base_class selector props =
   match modifier with
-  | Style.Data_state value ->
-      handle_data_modifier "state" value selector props base_class
-  | Style.Data_variant value ->
-      handle_data_modifier "variant" value selector props base_class
+  (* Data modifiers *)
+  | Style.Data_state value | Style.Data_variant value ->
+      let key =
+        match modifier with Data_state _ -> "state" | _ -> "variant"
+      in
+      handle_data_modifier key value selector props base_class
   | Style.Data_custom (key, value) ->
       handle_data_modifier key value selector props base_class
+  (* Media preference modifiers *)
   | Style.Dark ->
       handle_media_modifier ~condition:"(prefers-color-scheme: dark)" base_class
         selector props
   | Style.Motion_safe ->
-      handle_media_modifier ~condition:"(prefers-reduced-motion: no-preference)"
-        ~prefix:(Some ".motion-safe:") base_class selector props
+      handle_preference_media ~kind:"reduced-motion" ~value:"no-preference"
+        base_class selector props
   | Style.Motion_reduce ->
-      handle_media_modifier ~condition:"(prefers-reduced-motion: reduce)"
-        ~prefix:(Some ".motion-reduce:") base_class selector props
+      handle_preference_media ~kind:"reduced-motion" ~value:"reduce" base_class
+        selector props
   | Style.Contrast_more ->
-      handle_media_modifier ~condition:"(prefers-contrast: more)"
-        ~prefix:(Some ".contrast-more:") base_class selector props
+      handle_preference_media ~kind:"contrast" ~value:"more" base_class selector
+        props
   | Style.Contrast_less ->
-      handle_media_modifier ~condition:"(prefers-contrast: less)"
-        ~prefix:(Some ".contrast-less:") base_class selector props
+      handle_preference_media ~kind:"contrast" ~value:"less" base_class selector
+        props
+  (* Responsive and container *)
   | Style.Responsive breakpoint ->
       responsive_rule breakpoint base_class selector props
   | Style.Container query -> container_rule query base_class selector props
-  | Style.Not _modifier ->
-      regular
-        ~selector:
-          (Css.Selector.Class
-             ("not-" ^ base_class ^ ":not("
-             ^ Css.Selector.to_string selector
-             ^ ")"))
-        ~props ~base_class ()
+  (* :not() pseudo-class *)
+  | Style.Not _modifier -> handle_not_modifier base_class selector props
+  (* :has() variants *)
   | Style.Has selector_str ->
-      has_like_selector `Has selector_str base_class props
+      handle_has_variant ~kind:`Has selector_str base_class props
   | Style.Group_has selector_str ->
-      has_like_selector `Group_has selector_str base_class props
+      handle_has_variant ~kind:`Group_has selector_str base_class props
   | Style.Peer_has selector_str ->
-      has_like_selector `Peer_has selector_str base_class props
+      handle_has_variant ~kind:`Peer_has selector_str base_class props
+  (* Starting style *)
   | Style.Starting ->
       starting_style ~selector:(Css.Selector.Class base_class) ~props
         ~base_class ()
+  (* Interactive pseudo-classes *)
   | Style.Hover | Style.Focus | Style.Active | Style.Focus_within
   | Style.Focus_visible | Style.Disabled ->
       handle_pseudo_class_modifier modifier base_class selector props
+  (* Fallback for other modifiers *)
   | _ ->
       let sel = Modifiers.to_selector modifier base_class in
       let has_hover = Modifiers.is_hover modifier in
@@ -334,34 +361,40 @@ let extract_selector_props util =
               if props = [] then []
               else [ regular ~selector:sel ~props ~base_class:class_name () ]
             in
-            let nested_outputs =
+            (* Separate custom rules from media queries *)
+            let custom_rules, media_queries =
               rule_list
-              |> List.concat_map (fun stmt ->
+              |> List.partition_map (fun stmt ->
                      match Css.as_rule stmt with
                      | Some (selector, declarations, _) ->
-                         [
-                           regular ~selector ~props:declarations
-                             ~base_class:class_name ();
-                         ]
+                         (* Custom rule - should come before base props *)
+                         Left
+                           (regular ~selector ~props:declarations
+                              ~base_class:class_name ())
                      | None -> (
                          match Css.as_media stmt with
                          | Some (condition, statements) ->
-                             statements
-                             |> List.filter_map (fun inner_stmt ->
-                                    match Css.as_rule inner_stmt with
-                                    | Some (selector, declarations, _) ->
-                                        Some
-                                          (media_query ~condition ~selector
-                                             ~props:declarations
-                                             ~base_class:class_name ())
-                                    | None -> None)
+                             (* Media query - should come after base props *)
+                             Right
+                               (statements
+                               |> List.filter_map (fun inner_stmt ->
+                                      match Css.as_rule inner_stmt with
+                                      | Some (selector, declarations, _) ->
+                                          Some
+                                            (media_query ~condition ~selector
+                                               ~props:declarations
+                                               ~base_class:class_name ())
+                                      | None -> None))
                          | None ->
-                             [
-                               regular ~selector:Css.Selector.universal
-                                 ~props:[] ~base_class:class_name ();
-                             ]))
+                             Right
+                               [
+                                 regular ~selector:Css.Selector.universal
+                                   ~props:[] ~base_class:class_name ();
+                               ]))
             in
-            base_rule @ nested_outputs)
+            let media_queries = List.concat media_queries in
+            (* Order: custom rules, base props, media queries *)
+            custom_rules @ base_rule @ media_queries)
     | Style.Modified (modifier, t) ->
         (* For Modified, we unwrap one level to process recursively. The
            base_class should be the full class name of inner_util (the utility
@@ -595,6 +628,116 @@ let deduplicate_selector_props triples =
         true))
     triples
 
+(* Type-directed helpers for rule sorting and construction *)
+
+(* Determine sort group for rule types. Regular and Media are grouped together
+   to preserve utility grouping - media queries appear immediately after their
+   base utility rule. *)
+let rule_type_order = function
+  | `Regular -> 0
+  | `Media _ -> 0 (* Same as Regular to keep grouped *)
+  | `Container _ -> 1
+  | `Starting -> 2
+
+(* Extract breakpoint size (in rem) from media condition for sorting. Returns
+   max_int for unrecognized conditions to sort them at the end. *)
+let extract_media_breakpoint = function
+  | `Media cond -> (
+      try
+        let start = String.index cond ':' + 1 in
+        let end_pos = String.index_from cond start 'r' in
+        let value_str = String.sub cond start (end_pos - start) in
+        int_of_string value_str
+      with _ -> max_int)
+  | _ -> 0
+
+(* Compare rules by priority, then suborder, then alphabetically (for simple
+   class selectors), then by original index. *)
+let compare_by_priority_suborder_alpha sel1 sel2 (p1, s1) (p2, s2) i1 i2 =
+  let prio_cmp = Int.compare p1 p2 in
+  if prio_cmp <> 0 then prio_cmp
+  else
+    let sub_cmp = Int.compare s1 s2 in
+    if sub_cmp <> 0 then sub_cmp
+    else if is_simple_class_selector sel1 && is_simple_class_selector sel2 then
+      String.compare (Css.Selector.to_string sel1) (Css.Selector.to_string sel2)
+    else Int.compare i1 i2
+
+(* Compare two regular rules *)
+let compare_regular_rules sel1 sel2 order1 order2 i1 i2 =
+  compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+
+(* Compare two media query rules - sort by breakpoint first, then by base
+   utility priority/suborder *)
+let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 =
+  let breakpoint_cmp =
+    Int.compare (extract_media_breakpoint typ1) (extract_media_breakpoint typ2)
+  in
+  if breakpoint_cmp <> 0 then breakpoint_cmp
+  else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+
+(* Compare Regular vs Media rules - Regular comes before Media of same priority.
+   When priorities are equal, preserve original order to maintain user's class
+   ordering. *)
+let compare_regular_vs_media i1 i2 (p1, _s1) (p2, _s2) regular_first =
+  let prio_cmp = Int.compare p1 p2 in
+  if prio_cmp <> 0 then prio_cmp
+  else if
+    (* When priority is the same, preserve original order unless both rules come
+       from the same utility (same index), in which case Regular comes first *)
+    i1 = i2
+  then if regular_first then -1 else 1
+  else Int.compare i1 i2
+
+(* Main comparison dispatcher for typed rules *)
+let compare_typed_rules (i1, typ1, sel1, _, order1, _)
+    (i2, typ2, sel2, _, order2, _) =
+  let type_cmp = Int.compare (rule_type_order typ1) (rule_type_order typ2) in
+  if type_cmp <> 0 then type_cmp
+  else
+    match (typ1, typ2) with
+    | `Regular, `Regular -> compare_regular_rules sel1 sel2 order1 order2 i1 i2
+    | `Media _, `Media _ ->
+        compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2
+    | `Regular, `Media _ -> compare_regular_vs_media i1 i2 order1 order2 true
+    | `Media _, `Regular -> compare_regular_vs_media i2 i1 order2 order1 false
+    | _, _ -> Int.compare i1 i2
+
+(* Filter properties to only include utilities layer declarations *)
+let filter_utility_properties props =
+  List.filter
+    (fun decl ->
+      match Css.custom_declaration_layer decl with
+      | Some layer when layer = "utilities" -> true
+      | Some _ -> false
+      | None -> (
+          match Css.custom_declaration_name decl with
+          | None -> true
+          | Some _ -> false))
+    props
+
+(* Convert typed rule tuple to CSS statement *)
+let typed_rule_to_statement (_idx, typ, selector, props, _order, nested) =
+  let filtered_props = filter_utility_properties props in
+  match typ with
+  | `Regular | `Starting -> Css.rule ~selector ~nested filtered_props
+  | `Media condition ->
+      Css.media ~condition [ Css.rule ~selector filtered_props ]
+  | `Container condition ->
+      Css.container ~condition [ Css.rule ~selector filtered_props ]
+
+(* Deduplicate typed triples while preserving first occurrence order *)
+let deduplicate_typed_triples triples =
+  let seen = Hashtbl.create (List.length triples) in
+  List.filter
+    (fun (typ, sel, props, _order, nested) ->
+      let key = (typ, Css.Selector.to_string sel, props, nested) in
+      if Hashtbl.mem seen key then false
+      else (
+        Hashtbl.add seen key ();
+        true))
+    triples
+
 (* Convert selector/props pairs to CSS rules. *)
 (* Internal: build rule sets from pre-extracted outputs. *)
 let rule_sets_from_selector_props all_rules =
@@ -631,149 +774,18 @@ let rule_sets_from_selector_props all_rules =
 
   let all_triples = List.filter_map triples_of_output non_hover_rules in
 
-  (* Deduplicate (type, selector, props, order, nested) tuples while preserving
-     first occurrence order *)
-  let deduped_triples =
-    let seen = Hashtbl.create (List.length all_triples) in
-    List.filter
-      (fun (typ, sel, props, _order, nested) ->
-        (* Key includes type to allow same selector with different types (e.g.,
-           regular vs media) *)
-        let key = (typ, Css.Selector.to_string sel, props, nested) in
-        if Hashtbl.mem seen key then false
-        else (
-          Hashtbl.add seen key ();
-          true))
-      all_triples
-  in
-
-  (* Sort by (priority, suborder, index) to maintain utility order *)
+  (* Deduplicate and sort by utility order *)
+  let deduped_triples = deduplicate_typed_triples all_triples in
   let indexed =
     List.mapi
       (fun i (typ, sel, props, order, nested) ->
         (i, typ, sel, props, order, nested))
       deduped_triples
   in
+  let sorted = List.sort compare_typed_rules indexed in
 
-  (* Type order: Don't separate Regular and Media to preserve utility grouping.
-     Media queries should appear immediately after their base utility rule, not
-     sorted globally to the end. Container and Starting are still separate. *)
-  let type_order = function
-    | `Regular -> 0
-    | `Media _ -> 0 (* Same as Regular to keep grouped *)
-    | `Container _ -> 1
-    | `Starting -> 2
-  in
-
-  (* Extract breakpoint size from media condition for sorting *)
-  let media_breakpoint_order = function
-    | `Media cond -> (
-        (* Extract rem value from "(min-width:XXrem)" *)
-        try
-          let start = String.index cond ':' + 1 in
-          let end_pos = String.index_from cond start 'r' in
-          let value_str = String.sub cond start (end_pos - start) in
-          int_of_string value_str
-        with _ -> max_int (* Put unrecognized media queries at the end *))
-    | _ -> 0
-  in
-
-  let sorted =
-    List.sort
-      (fun (i1, typ1, sel1, _, (p1, s1), _) (i2, typ2, sel2, _, (p2, s2), _) ->
-        (* Sort by type group first (Regular/Media together, then Container,
-           then Starting) *)
-        let type_cmp = Int.compare (type_order typ1) (type_order typ2) in
-        if type_cmp <> 0 then type_cmp
-        else
-          (* Within same type group, apply specific sorting logic *)
-          match (typ1, typ2) with
-          | `Regular, `Regular ->
-              (* For regular rules, sort by priority, then suborder, then
-                 alphabetically *)
-              let prio_cmp = Int.compare p1 p2 in
-              if prio_cmp <> 0 then prio_cmp
-              else
-                let sub_cmp = Int.compare s1 s2 in
-                if sub_cmp <> 0 then sub_cmp
-                else if
-                  is_simple_class_selector sel1 && is_simple_class_selector sel2
-                then
-                  String.compare
-                    (Css.Selector.to_string sel1)
-                    (Css.Selector.to_string sel2)
-                else Int.compare i1 i2
-          | `Media _, `Media _ ->
-              (* For media queries, sort by breakpoint, then by
-                 priority/suborder of the base utility *)
-              let breakpoint_cmp =
-                Int.compare
-                  (media_breakpoint_order typ1)
-                  (media_breakpoint_order typ2)
-              in
-              if breakpoint_cmp <> 0 then breakpoint_cmp
-              else
-                (* Within same breakpoint, sort by priority/suborder to match
-                   Tailwind *)
-                let prio_cmp = Int.compare p1 p2 in
-                if prio_cmp <> 0 then prio_cmp
-                else
-                  let sub_cmp = Int.compare s1 s2 in
-                  if sub_cmp <> 0 then sub_cmp
-                  else if
-                    is_simple_class_selector sel1
-                    && is_simple_class_selector sel2
-                  then
-                    String.compare
-                      (Css.Selector.to_string sel1)
-                      (Css.Selector.to_string sel2)
-                  else Int.compare i1 i2
-          | `Regular, `Media _ ->
-              (* Regular before Media of same priority *)
-              let prio_cmp = Int.compare p1 p2 in
-              if prio_cmp <> 0 then prio_cmp
-              else
-                let sub_cmp = Int.compare s1 s2 in
-                if sub_cmp <> 0 then sub_cmp else -1 (* Regular before Media *)
-          | `Media _, `Regular ->
-              (* Regular before Media of same priority *)
-              let prio_cmp = Int.compare p1 p2 in
-              if prio_cmp <> 0 then prio_cmp
-              else
-                let sub_cmp = Int.compare s1 s2 in
-                if sub_cmp <> 0 then sub_cmp else 1 (* Regular before Media *)
-          | _, _ ->
-              (* For other combinations, preserve source order *)
-              Int.compare i1 i2)
-      indexed
-  in
-
-  (* Convert to CSS statements. Media/container queries are kept separate here;
-     consecutive ones with the same condition will be merged by the
-     optimizer. *)
-  let css_statements =
-    List.map
-      (fun (_idx, typ, selector, props, _order, nested) ->
-        let filtered_props =
-          List.filter
-            (fun decl ->
-              match Css.custom_declaration_layer decl with
-              | Some layer when layer = "utilities" -> true
-              | Some _ -> false
-              | None -> (
-                  match Css.custom_declaration_name decl with
-                  | None -> true
-                  | Some _ -> false))
-            props
-        in
-        match typ with
-        | `Regular | `Starting -> Css.rule ~selector ~nested filtered_props
-        | `Media condition ->
-            Css.media ~condition [ Css.rule ~selector filtered_props ]
-        | `Container condition ->
-            Css.container ~condition [ Css.rule ~selector filtered_props ])
-      sorted
-  in
+  (* Convert to CSS statements *)
+  let css_statements = List.map typed_rule_to_statement sorted in
 
   (* Handle hover rules separately - they go at the end in (hover:hover) media
      query *)
