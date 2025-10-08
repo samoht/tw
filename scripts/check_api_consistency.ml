@@ -881,11 +881,12 @@ let () =
   let check_unique_priorities () =
     (* Allow certain priority values to be shared by related handler groups.
        Priority 0: Container and position utilities - ordered by suborder within
-       the same priority group. Priority 2: Margin and prose utilities - ordered
-       by suborder within the same priority group. Priority 4: Display utilities
-       (layout, flex, grid, tables) - these are ordered by suborder within the
-       same priority group. *)
-    let allowed_shared_priorities = [ 0; 2; 4 ] in
+       the same priority group. Priority 2: Margin and prose size utilities -
+       ordered by suborder within the same priority group. Priority 4: Display
+       utilities (layout, flex, grid, tables) - these are ordered by suborder
+       within the same priority group. Priority 21: Color and prose-color
+       utilities - ordered by suborder within the same priority group. *)
+    let allowed_shared_priorities = [ 0; 2; 4; 21 ] in
 
     let lib_dir = root // "lib" in
     let ml_files =

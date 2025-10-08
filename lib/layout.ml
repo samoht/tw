@@ -231,6 +231,7 @@ module Handler = struct
     | [ "block" ] -> Ok Block
     | [ "inline" ] -> Ok Inline
     | [ "inline"; "block" ] -> Ok Inline_block
+    | [ "table" ] -> Ok Table
     | [ "hidden" ] -> Ok Hidden
     | [ "visible" ] -> Ok Visible
     | [ "invisible" ] -> Ok Invisible
