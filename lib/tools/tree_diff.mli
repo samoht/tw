@@ -16,6 +16,8 @@ type rule_diff =
       old_declarations : Css.declaration list;
       new_declarations : Css.declaration list;
       property_changes : declaration list;
+      added_properties : string list;
+      removed_properties : string list;
     }
   | Rule_selector_changed of {
       old_selector : string;

@@ -29,6 +29,8 @@ let sample_rule_content_changed =
       old_declarations = [ Css.color (Css.hex "ff0000") ];
       new_declarations = [ Css.color (Css.hex "0000ff") ];
       property_changes = [ sample_property_change ];
+      added_properties = [];
+      removed_properties = [];
     }
 
 let sample_rule_selector_changed =
@@ -120,11 +122,22 @@ let test_rule_removed_structure () =
 let test_rule_content_changed_structure () =
   match sample_rule_content_changed with
   | Td.Rule_content_changed
-      { selector; property_changes; old_declarations; new_declarations } ->
+      {
+        selector;
+        property_changes;
+        old_declarations;
+        new_declarations;
+        added_properties;
+        removed_properties;
+      } ->
       check string "selector should match" ".changed" selector;
       check int "should have property changes" 1 (List.length property_changes);
       check int "should have old declarations" 1 (List.length old_declarations);
       check int "should have new declarations" 1 (List.length new_declarations);
+      check int "should have no added properties" 0
+        (List.length added_properties);
+      check int "should have no removed properties" 0
+        (List.length removed_properties);
       let change = List.hd property_changes in
       check string "property name" "color" change.property_name;
       check string "expected value" "red" change.expected_value;
@@ -625,6 +638,75 @@ let test_large_diff_structure () =
   check int "should have five rules" 5 (List.length large_diff.rules);
   check int "should have three containers" 3 (List.length large_diff.containers)
 
+(* Tests for added_properties and removed_properties fields *)
+
+let test_property_added_field () =
+  (* Test that added_properties field is populated *)
+  let css_expected = ".test{color:red}" in
+  let css_actual = ".test{color:red;margin:10px}" in
+  let diff = css_tree_diff ~expected:css_expected ~actual:css_actual in
+  let rule = single_rule_diff diff in
+  match rule with
+  | Td.Rule_content_changed
+      { added_properties; removed_properties; property_changes; _ } ->
+      check int "should have one added property" 1
+        (List.length added_properties);
+      check int "should have no removed properties" 0
+        (List.length removed_properties);
+      check int "should have no property changes" 0
+        (List.length property_changes);
+      check string "added property name" "margin" (List.hd added_properties)
+  | _ -> fail "Expected Rule_content_changed"
+
+let test_property_removed_field () =
+  (* Test that removed_properties field is populated *)
+  let css_expected = ".test{color:red;margin:10px}" in
+  let css_actual = ".test{color:red}" in
+  let diff = css_tree_diff ~expected:css_expected ~actual:css_actual in
+  let rule = single_rule_diff diff in
+  match rule with
+  | Td.Rule_content_changed
+      { added_properties; removed_properties; property_changes; _ } ->
+      check int "should have no added properties" 0
+        (List.length added_properties);
+      check int "should have one removed property" 1
+        (List.length removed_properties);
+      check int "should have no property changes" 0
+        (List.length property_changes);
+      check string "removed property name" "margin" (List.hd removed_properties)
+  | _ -> fail "Expected Rule_content_changed"
+
+let test_property_added_and_removed () =
+  (* Test that both added and removed properties work together *)
+  let css_expected = ".test{color:red;margin:10px}" in
+  let css_actual = ".test{color:red;padding:5px}" in
+  let diff = css_tree_diff ~expected:css_expected ~actual:css_actual in
+  let rule = single_rule_diff diff in
+  match rule with
+  | Td.Rule_content_changed
+      { added_properties; removed_properties; property_changes; _ } ->
+      check int "should have one added property" 1
+        (List.length added_properties);
+      check int "should have one removed property" 1
+        (List.length removed_properties);
+      check int "should have no property changes" 0
+        (List.length property_changes);
+      check string "added property name" "padding" (List.hd added_properties);
+      check string "removed property name" "margin" (List.hd removed_properties)
+  | _ -> fail "Expected Rule_content_changed"
+
+let test_property_swap_display () =
+  (* Test that property swap is displayed consistently with rule swap *)
+  let css_expected = ".test{color:red;margin:0}" in
+  let css_actual = ".test{margin:0;color:red}" in
+  let diff = css_tree_diff ~expected:css_expected ~actual:css_actual in
+  let rule = single_rule_diff diff in
+  (* Should be Rule_reordered since properties are same, just reordered *)
+  match rule with
+  | Td.Rule_reordered { selector; _ } ->
+      check string "selector" ".test" selector
+  | _ -> fail "Expected Rule_reordered for property swap"
+
 (* ===== Test Suite ===== *)
 
 let suite =
@@ -697,4 +779,10 @@ let suite =
     test_case "mixed_nested_changes" `Quick test_mixed_nested_changes;
     (* Complex cases *)
     test_case "large_diff_structure" `Quick test_large_diff_structure;
+    (* Property addition/removal field tests *)
+    test_case "property_added_field" `Quick test_property_added_field;
+    test_case "property_removed_field" `Quick test_property_removed_field;
+    test_case "property_added_and_removed" `Quick
+      test_property_added_and_removed;
+    test_case "property_swap_display" `Quick test_property_swap_display;
   ]
