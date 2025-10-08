@@ -28,7 +28,7 @@ let compare_files file1 file2 style_renderer =
         Ok ())
       else
         (* Use css_compare for detailed structural comparison *)
-        let result = Tw_tools.Css_compare.diff ~expected:css2 ~actual:css1 in
+        let result = Tw_tools.Css_compare.diff ~expected:css1 ~actual:css2 in
         match result with
         | No_diff ->
             Fmt.pr "✓ CSS files are identical@.";
@@ -36,12 +36,12 @@ let compare_files file1 file2 style_renderer =
         | String_diff _ | Tree_diff _ | Both_errors _ | Expected_error _
         | Actual_error _ ->
             let stats =
-              Tw_tools.Css_compare.stats ~expected_str:css2 ~actual_str:css1
+              Tw_tools.Css_compare.stats ~expected_str:css1 ~actual_str:css2
                 result
             in
             Fmt.pr "%a@,@," Tw_tools.Css_compare.pp_stats stats;
             Fmt.pr "%a@."
-              (Tw_tools.Css_compare.pp ~expected:file2 ~actual:file1)
+              (Tw_tools.Css_compare.pp ~expected:file1 ~actual:file2)
               result;
             Error (`Msg "CSS files differ"))
   | Error e, _ | _, Error e -> Error e

@@ -258,11 +258,12 @@ let pp_rule_diff ?(style = default_style) ?(is_last = false)
         match swapped_with with
         | Some other when abs (expected_pos - actual_pos) = 1 ->
             (* Adjacent swap - show both elements *)
-            Fmt.pf fmt "%s%s ↔ %s@," prefix (truncate selector) (truncate other)
-        | Some _ ->
-            (* Non-adjacent - show position change *)
-            Fmt.pf fmt "%s%s (position %d → %d)@," prefix (truncate selector)
-              expected_pos actual_pos
+            Fmt.pf fmt "%s%s ↔  %s@," prefix (truncate selector)
+              (truncate other)
+        | Some other ->
+            (* Non-adjacent - show both elements with their positions *)
+            Fmt.pf fmt "%s%s (position %d) ↔  %s (position %d)@," prefix
+              (truncate selector) actual_pos (truncate other) expected_pos
         | None ->
             (* No swap info available - fallback to simple message *)
             Fmt.pf fmt "%s%s (position %d → %d)@," prefix (truncate selector)
