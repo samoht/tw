@@ -2020,7 +2020,7 @@ module Handler = struct
   (** Priority for prose utilities *)
   let name = "prose"
 
-  let priority = 3
+  let priority = 2 (* Same as margin to allow interleaving by suborder *)
 
   (** {1 Utility Conversion Functions} *)
 
@@ -2073,19 +2073,20 @@ module Handler = struct
     | _ -> Error (`Msg "Not a prose utility")
 
   let suborder = function
-    | Prose -> 20000
-    | Prose_sm -> 20001
-    | Prose_lg -> 20002
-    | Prose_xl -> 20003
-    | Prose_2xl -> 20004
-    | Prose_gray -> 20005
-    | Prose_slate -> 20006
-    | Prose_zinc -> 20007
-    | Prose_neutral -> 20008
-    | Prose_stone -> 20009
-    | Prose_invert -> 20010
-    | Lead -> 20011
-    | Not_prose -> 20012
+    (* Prose utilities appear between mx-auto (100000) and mb-* (500000+) *)
+    | Prose -> 200000
+    | Prose_2xl -> 200001 (* Alphabetical: 2xl before lg, sm, xl *)
+    | Prose_lg -> 200002
+    | Prose_sm -> 200003
+    | Prose_xl -> 200004
+    | Prose_gray -> 600000 (* Color variants appear after mb-* *)
+    | Prose_slate -> 600001
+    | Prose_zinc -> 600002
+    | Prose_neutral -> 600003
+    | Prose_stone -> 600004
+    | Prose_invert -> 600005
+    | Lead -> 200005
+    | Not_prose -> 200006
 end
 
 open Handler

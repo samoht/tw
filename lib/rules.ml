@@ -326,9 +326,15 @@ let extract_selector_props util =
         match rules with
         | None -> [ regular ~selector:sel ~props ~base_class:class_name () ]
         | Some rule_list ->
-            (* Flatten nested rules to separate outputs - matches Tailwind
-               behavior *)
-            let custom_rules =
+            (* Extract nested rules (media queries) as separate outputs but keep
+               them grouped with the base utility by using the same base_class.
+               This matches Tailwind behavior where each utility's media queries
+               appear immediately after the base rule, sorted by priority. *)
+            let base_rule =
+              if props = [] then []
+              else [ regular ~selector:sel ~props ~base_class:class_name () ]
+            in
+            let nested_outputs =
               rule_list
               |> List.concat_map (fun stmt ->
                      match Css.as_rule stmt with
@@ -338,10 +344,8 @@ let extract_selector_props util =
                              ~base_class:class_name ();
                          ]
                      | None -> (
-                         (* Check if it's a media query *)
                          match Css.as_media stmt with
                          | Some (condition, statements) ->
-                             (* Extract rules from media query statements *)
                              statements
                              |> List.filter_map (fun inner_stmt ->
                                     match Css.as_rule inner_stmt with
@@ -352,19 +356,12 @@ let extract_selector_props util =
                                              ~base_class:class_name ())
                                     | None -> None)
                          | None ->
-                             (* Unknown statement type - create empty rule *)
                              [
                                regular ~selector:Css.Selector.universal
                                  ~props:[] ~base_class:class_name ();
                              ]))
             in
-
-            (* If there are base props, add them after the custom rules to match
-               Tailwind's order *)
-            if props = [] then custom_rules
-            else
-              custom_rules
-              @ [ regular ~selector:sel ~props ~base_class:class_name () ])
+            base_rule @ nested_outputs)
     | Style.Modified (modifier, t) ->
         (* For Modified, we unwrap one level to process recursively. The
            base_class should be the full class name of inner_util (the utility
@@ -658,12 +655,14 @@ let rule_sets_from_selector_props all_rules =
       deduped_triples
   in
 
-  (* Type order: Regular < Media < Container < Starting *)
+  (* Type order: Don't separate Regular and Media to preserve utility grouping.
+     Media queries should appear immediately after their base utility rule, not
+     sorted globally to the end. Container and Starting are still separate. *)
   let type_order = function
     | `Regular -> 0
-    | `Media _ -> 1
-    | `Container _ -> 2
-    | `Starting -> 3
+    | `Media _ -> 0 (* Same as Regular to keep grouped *)
+    | `Container _ -> 1
+    | `Starting -> 2
   in
 
   (* Extract breakpoint size from media condition for sorting *)
@@ -682,34 +681,16 @@ let rule_sets_from_selector_props all_rules =
   let sorted =
     List.sort
       (fun (i1, typ1, sel1, _, (p1, s1), _) (i2, typ2, sel2, _, (p2, s2), _) ->
-        (* Sort by type first (Regular < Media < Container) to ensure
-           non-responsive rules come before media queries *)
+        (* Sort by type group first (Regular/Media together, then Container,
+           then Starting) *)
         let type_cmp = Int.compare (type_order typ1) (type_order typ2) in
         if type_cmp <> 0 then type_cmp
         else
-          (* Within same type, different logic applies *)
+          (* Within same type group, apply specific sorting logic *)
           match (typ1, typ2) with
-          | `Media _, `Media _ ->
-              (* For media queries, sort by breakpoint first, then by selector
-                 name (alphabetically) to match Tailwind's behavior *)
-              let breakpoint_cmp =
-                Int.compare
-                  (media_breakpoint_order typ1)
-                  (media_breakpoint_order typ2)
-              in
-              if breakpoint_cmp <> 0 then breakpoint_cmp
-              else if
-                is_simple_class_selector sel1 && is_simple_class_selector sel2
-              then
-                (* Sort alphabetically by selector for simple class selectors *)
-                String.compare
-                  (Css.Selector.to_string sel1)
-                  (Css.Selector.to_string sel2)
-              else
-                (* For complex selectors, preserve source order *)
-                Int.compare i1 i2
-          | _, _ ->
-              (* For non-media queries, sort by priority, then suborder *)
+          | `Regular, `Regular ->
+              (* For regular rules, sort by priority, then suborder, then
+                 alphabetically *)
               let prio_cmp = Int.compare p1 p2 in
               if prio_cmp <> 0 then prio_cmp
               else
@@ -721,7 +702,49 @@ let rule_sets_from_selector_props all_rules =
                   String.compare
                     (Css.Selector.to_string sel1)
                     (Css.Selector.to_string sel2)
-                else Int.compare i1 i2)
+                else Int.compare i1 i2
+          | `Media _, `Media _ ->
+              (* For media queries, sort by breakpoint, then by
+                 priority/suborder of the base utility *)
+              let breakpoint_cmp =
+                Int.compare
+                  (media_breakpoint_order typ1)
+                  (media_breakpoint_order typ2)
+              in
+              if breakpoint_cmp <> 0 then breakpoint_cmp
+              else
+                (* Within same breakpoint, sort by priority/suborder to match
+                   Tailwind *)
+                let prio_cmp = Int.compare p1 p2 in
+                if prio_cmp <> 0 then prio_cmp
+                else
+                  let sub_cmp = Int.compare s1 s2 in
+                  if sub_cmp <> 0 then sub_cmp
+                  else if
+                    is_simple_class_selector sel1
+                    && is_simple_class_selector sel2
+                  then
+                    String.compare
+                      (Css.Selector.to_string sel1)
+                      (Css.Selector.to_string sel2)
+                  else Int.compare i1 i2
+          | `Regular, `Media _ ->
+              (* Regular before Media of same priority *)
+              let prio_cmp = Int.compare p1 p2 in
+              if prio_cmp <> 0 then prio_cmp
+              else
+                let sub_cmp = Int.compare s1 s2 in
+                if sub_cmp <> 0 then sub_cmp else -1 (* Regular before Media *)
+          | `Media _, `Regular ->
+              (* Regular before Media of same priority *)
+              let prio_cmp = Int.compare p1 p2 in
+              if prio_cmp <> 0 then prio_cmp
+              else
+                let sub_cmp = Int.compare s1 s2 in
+                if sub_cmp <> 0 then sub_cmp else 1 (* Regular before Media *)
+          | _, _ ->
+              (* For other combinations, preserve source order *)
+              Int.compare i1 i2)
       indexed
   in
 
