@@ -68,11 +68,11 @@ let tree_style = { use_tree = true }
 let get_style action =
   match action with
   | "add" ->
-      (* Green background with white bold text *)
-      Fmt.(styled `Bold (styled (`Bg `Green) (styled (`Fg `White) string)))
+      (* Green foreground *)
+      Fmt.(styled (`Fg `Green) string)
   | "remove" ->
-      (* Red background with white bold text *)
-      Fmt.(styled `Bold (styled (`Bg `Red) (styled (`Fg `White) string)))
+      (* Red foreground *)
+      Fmt.(styled (`Fg `Red) string)
   | _ -> Fmt.nop
 
 (* Get the appropriate prefix for tree-style formatting *)
@@ -211,30 +211,45 @@ let pp_rule_diff ?(style = default_style) ?(is_last = false)
       { selector; old_declarations; new_declarations; property_changes } ->
       let prefix = tree_prefix ~style ~is_last ~parent_prefix in
       let child_prefix = tree_continuation ~style ~is_last ~parent_prefix in
-      Fmt.pf fmt "%s%s@," prefix selector;
       (* Show property changes *)
       let has_prop_changes = property_changes <> [] in
-      pp_property_diffs ~style ~parent_prefix:child_prefix fmt property_changes;
-      (* Check for declaration order changes *)
-      pp_reorder ~style ~parent_prefix:child_prefix old_declarations
-        new_declarations fmt;
-      (* If no visible changes shown yet, provide summary *)
-      if (not has_prop_changes) && old_declarations <> new_declarations then
-        let old_count = List.length old_declarations in
-        let new_count = List.length new_declarations in
-        let indent =
-          if style.use_tree then child_prefix ^ "   " else child_prefix ^ "    "
-        in
-        if old_count <> new_count then
-          Fmt.pf fmt "%s(declaration count: %d -> %d)@," indent old_count
-            new_count
-        else Fmt.pf fmt "%s(declarations differ in subtle ways)@," indent
-      else if (not has_prop_changes) && old_declarations = new_declarations then
-        let indent =
-          if style.use_tree then child_prefix ^ "   " else child_prefix ^ "    "
-        in
-        Fmt.pf fmt "%s(rule appears in different context or nesting level)@,"
-          indent
+      (* If no changes, show what properties are in this rule *)
+      if (not has_prop_changes) && old_declarations = new_declarations then
+        match old_declarations with
+        | [] ->
+            (* Skip empty rules - they're not meaningful *)
+            ()
+        | decls ->
+            let prop_names = List.map Css.declaration_name decls in
+            let preview =
+              match prop_names with
+              | [] -> "no properties"
+              | [ p ] -> p
+              | [ p1; p2 ] -> p1 ^ ", " ^ p2
+              | [ p1; p2; p3 ] -> p1 ^ ", " ^ p2 ^ ", " ^ p3
+              | p1 :: p2 :: p3 :: _ -> p1 ^ ", " ^ p2 ^ ", " ^ p3 ^ ", ..."
+            in
+            Fmt.pf fmt "%s%s (%s) moved to different nesting@," prefix selector
+              preview
+      else (
+        Fmt.pf fmt "%s%s@," prefix selector;
+        pp_property_diffs ~style ~parent_prefix:child_prefix fmt
+          property_changes;
+        (* Check for declaration order changes *)
+        pp_reorder ~style ~parent_prefix:child_prefix old_declarations
+          new_declarations fmt;
+        (* If no visible changes shown yet, provide summary *)
+        if (not has_prop_changes) && old_declarations <> new_declarations then
+          let old_count = List.length old_declarations in
+          let new_count = List.length new_declarations in
+          let indent =
+            if style.use_tree then child_prefix ^ "   "
+            else child_prefix ^ "    "
+          in
+          if old_count <> new_count then
+            Fmt.pf fmt "%s(declaration count: %d -> %d)@," indent old_count
+              new_count
+          else Fmt.pf fmt "%s(declarations differ in subtle ways)@," indent)
   | Rule_selector_changed { old_selector; new_selector; declarations } ->
       let prefix = tree_prefix ~style ~is_last ~parent_prefix in
       let child_prefix = tree_continuation ~style ~is_last ~parent_prefix in
@@ -251,18 +266,18 @@ let pp_rule_diff ?(style = default_style) ?(is_last = false)
       let prefix = tree_prefix ~style ~is_last ~parent_prefix in
       if expected_pos = actual_pos then assert false
       else
+        let truncate s = String_diff.truncate_middle 40 s in
         match swapped_with with
         | Some other when abs (expected_pos - actual_pos) = 1 ->
             (* Adjacent swap - show both elements *)
-            Fmt.pf fmt "%s%s ↔ %s (swapped positions %d and %d)@," prefix
-              selector other expected_pos actual_pos
-        | Some other ->
-            (* Non-adjacent - show move clearly with what replaced it *)
-            Fmt.pf fmt "%s%s moved from position %d to %d (%s now at %d)@,"
-              prefix selector expected_pos actual_pos other expected_pos
+            Fmt.pf fmt "%s%s ↔ %s@," prefix (truncate selector) (truncate other)
+        | Some _ ->
+            (* Non-adjacent - show position change *)
+            Fmt.pf fmt "%s%s (position %d → %d)@," prefix (truncate selector)
+              expected_pos actual_pos
         | None ->
             (* No swap info available - fallback to simple message *)
-            Fmt.pf fmt "%s%s moved from position %d to %d@," prefix selector
+            Fmt.pf fmt "%s%s (position %d → %d)@," prefix (truncate selector)
               expected_pos actual_pos)
 
 let pp_rule_diff_simple fmt = function
@@ -463,9 +478,17 @@ let pp ?(expected = "Expected") ?(actual = "Actual") fmt { rules; containers } =
        but no rule-level differences found.@,\
        This may indicate reordering or subtle changes in rule organization."
   else (
-    (* Print diff headers like a unified diff *)
-    Fmt.pf fmt "--- %s@." expected;
-    Fmt.pf fmt "+++ %s@." actual;
+    (* Print diff headers like git diff *)
+    Fmt.pf fmt "%a %a@."
+      Fmt.(styled (`Fg `Yellow) string)
+      "---"
+      Fmt.(styled (`Fg `Yellow) string)
+      expected;
+    Fmt.pf fmt "%a %a@."
+      Fmt.(styled (`Fg `Yellow) string)
+      "+++"
+      Fmt.(styled (`Fg `Yellow) string)
+      actual;
     Fmt.pf fmt "@[<v>";
     let meaningful = meaningful_rules rules in
     let reordered_rules =

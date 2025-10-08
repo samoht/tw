@@ -690,28 +690,24 @@ let rule_sets_from_selector_props all_rules =
           (* Within same type, different logic applies *)
           match (typ1, typ2) with
           | `Media _, `Media _ ->
-              (* For media queries, sort by breakpoint first, then priority,
-                 then suborder *)
+              (* For media queries, sort by breakpoint first, then by selector
+                 name (alphabetically) to match Tailwind's behavior *)
               let breakpoint_cmp =
                 Int.compare
                   (media_breakpoint_order typ1)
                   (media_breakpoint_order typ2)
               in
               if breakpoint_cmp <> 0 then breakpoint_cmp
+              else if
+                is_simple_class_selector sel1 && is_simple_class_selector sel2
+              then
+                (* Sort alphabetically by selector for simple class selectors *)
+                String.compare
+                  (Css.Selector.to_string sel1)
+                  (Css.Selector.to_string sel2)
               else
-                let prio_cmp = Int.compare p1 p2 in
-                if prio_cmp <> 0 then prio_cmp
-                else
-                  let sub_cmp = Int.compare s1 s2 in
-                  if sub_cmp <> 0 then sub_cmp
-                  else if
-                    is_simple_class_selector sel1
-                    && is_simple_class_selector sel2
-                  then
-                    String.compare
-                      (Css.Selector.to_string sel1)
-                      (Css.Selector.to_string sel2)
-                  else Int.compare i1 i2
+                (* For complex selectors, preserve source order *)
+                Int.compare i1 i2
           | _, _ ->
               (* For non-media queries, sort by priority, then suborder *)
               let prio_cmp = Int.compare p1 p2 in
