@@ -1321,7 +1321,8 @@ let test_handler_priority_ordering () =
     (grid_template_prio < Tw.Flex_props.Handler.priority);
   check bool "flex_props < alignment" true
     (Tw.Flex_props.Handler.priority < alignment_prio);
-  check bool "alignment < gap" true (alignment_prio < gap_prio);
+  (* Alignment and gap share priority 15, differentiated by suborder *)
+  check bool "alignment = gap" true (alignment_prio = gap_prio);
   check bool "gap < border" true (gap_prio < border_prio);
   check bool "border < bg" true (border_prio < bg_prio);
   check bool "bg < padding" true (bg_prio < padding_prio);
@@ -1485,7 +1486,7 @@ let test_random_utilities_with_minimization () =
       (* Flex layout: priority 14 *)
       flex_row;
       flex_col;
-      (* Alignment: priority 15 *)
+      (* Container alignment: priority 15, suborder 0-999 *)
       items_start;
       items_center;
       items_end;
@@ -1499,10 +1500,7 @@ let test_random_utilities_with_minimization () =
       content_start;
       content_center;
       content_end;
-      self_auto;
-      self_start;
-      self_center;
-      (* Gap: priority 16 *)
+      (* Gap: priority 15, suborder 25000+ *)
       gap 0;
       gap 1;
       gap 2;
@@ -1518,6 +1516,10 @@ let test_random_utilities_with_minimization () =
       gap_y 0;
       gap_y 2;
       gap_y 4;
+      (* Self alignment: priority 15, suborder 50000+ *)
+      self_auto;
+      self_start;
+      self_center;
       (* Border: priority 17 *)
       rounded;
       rounded_md;

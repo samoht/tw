@@ -82,7 +82,11 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "alignment"
-  let priority = 14
+
+  (* Same priority as gap (15), differentiated by suborder: - Container
+     alignment: suborder 0-999 (before gap's 25000+) - Self alignment: suborder
+     50000+ (after gap) *)
+  let priority = 15
   let justify_start = style [ justify_content Flex_start ]
   let justify_end = style [ justify_content Flex_end ]
   let justify_center = style [ justify_content Center ]
@@ -194,6 +198,7 @@ module Handler = struct
     | Place_self_stretch -> place_self_stretch
 
   let suborder = function
+    (* Container alignments: 0-999 (before gap's 25000+) *)
     (* Place content (0-9) - alphabetical *)
     | Place_content_around -> 0
     | Place_content_between -> 1
@@ -233,25 +238,26 @@ module Handler = struct
     | Justify_items_end -> 51
     | Justify_items_start -> 52
     | Justify_items_stretch -> 53
-    (* Place self (60-69) - alphabetical *)
-    | Place_self_auto -> 60
-    | Place_self_center -> 61
-    | Place_self_end -> 62
-    | Place_self_start -> 63
-    | Place_self_stretch -> 64
-    (* Align self (70-79) - alphabetical *)
-    | Self_auto -> 70
-    | Self_baseline -> 71
-    | Self_center -> 72
-    | Self_end -> 73
-    | Self_start -> 74
-    | Self_stretch -> 75
-    (* Justify self (80-89) - alphabetical *)
-    | Justify_self_auto -> 80
-    | Justify_self_center -> 81
-    | Justify_self_end -> 82
-    | Justify_self_start -> 83
-    | Justify_self_stretch -> 84
+    (* Self alignments: 50000+ (after gap's 25000+) *)
+    (* Place self (50000-50009) - alphabetical *)
+    | Place_self_auto -> 50000
+    | Place_self_center -> 50001
+    | Place_self_end -> 50002
+    | Place_self_start -> 50003
+    | Place_self_stretch -> 50004
+    (* Align self (50010-50019) - alphabetical *)
+    | Self_auto -> 50010
+    | Self_baseline -> 50011
+    | Self_center -> 50012
+    | Self_end -> 50013
+    | Self_start -> 50014
+    | Self_stretch -> 50015
+    (* Justify self (50020-50029) - alphabetical *)
+    | Justify_self_auto -> 50020
+    | Justify_self_center -> 50021
+    | Justify_self_end -> 50022
+    | Justify_self_start -> 50023
+    | Justify_self_stretch -> 50024
 
   let of_class = function
     (* Justify content *)
