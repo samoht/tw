@@ -41,9 +41,15 @@ type container_diff =
   | Container_added of container_info
   | Container_removed of container_info
   | Container_modified of {
-      info : container_info;
+      info : container_info; (* expected *)
+      actual_rules : Css.statement list; (* actual *)
       rule_changes : rule_diff list;
       container_changes : container_diff list; (* Nested container changes *)
+    }
+  | Container_reordered of {
+      info : container_info;
+      expected_pos : int;
+      actual_pos : int;
     }
 
 type t = { rules : rule_diff list; containers : container_diff list }
@@ -363,7 +369,8 @@ let rec count_containers_in_list container_type containers =
       let this_count =
         match cont with
         | Container_added { container_type = ct; _ }
-        | Container_removed { container_type = ct; _ } ->
+        | Container_removed { container_type = ct; _ }
+        | Container_reordered { info = { container_type = ct; _ }; _ } ->
             if ct = container_type then 1 else 0
         | Container_modified
             { info = { container_type = ct; _ }; container_changes; _ } ->
@@ -443,7 +450,8 @@ let rec pp_container_diff ?(style = default_style) ?(is_last = false)
           rules
   | Container_modified
       {
-        info = { container_type; condition; rules = _ };
+        info = { container_type; condition; rules = container_rules };
+        actual_rules;
         rule_changes;
         container_changes;
       } ->
@@ -509,8 +517,45 @@ let rec pp_container_diff ?(style = default_style) ?(is_last = false)
           Fmt.str "%d selector changed" selector_changed_count :: changes_parts
         else changes_parts
       in
-      if changes_parts <> [] then
+
+      (* If no explicit changes but container is modified, explain why *)
+      let has_explicit_changes = changes_parts <> [] in
+      let has_nested_changes = container_changes <> [] in
+
+      if has_explicit_changes then
         Fmt.pf fmt "(%s)@," (String.concat ", " (List.rev changes_parts))
+      else if not has_nested_changes then
+        (* Container modified but no rule or nested changes - this is a block
+           structure difference. If we're here, it means media_diff marked this
+           as modified due to block_count_differs, OR the container appears at a
+           different position. *)
+        let rule_count_expected = List.length container_rules in
+        let rule_count_actual = List.length actual_rules in
+        if rule_count_expected = 0 && rule_count_actual = 0 then
+          (* No rules shown - this means position changed *)
+          Fmt.pf fmt "(position changed)@,"
+        else if rule_count_expected > 0 || rule_count_actual > 0 then (
+          Fmt.pf fmt "(different number of blocks with same rules)@,";
+          (* Show the rules that appear in different block structures *)
+          let indent =
+            if style.use_tree then child_prefix ^ "   "
+            else child_prefix ^ "    "
+          in
+          let extract_selectors stmts =
+            List.filter_map
+              (fun stmt ->
+                match Css.as_rule stmt with
+                | Some (selector, _, _) ->
+                    Some (Css.Selector.to_string selector)
+                | None -> None)
+              stmts
+          in
+          let selectors_expected = extract_selectors container_rules in
+
+          if selectors_expected <> [] then
+            Fmt.pf fmt "%sRules: %s@," indent
+              (String.concat ", " selectors_expected))
+        else Fmt.pf fmt "(block structure changed)@,"
       else Fmt.pf fmt "@,";
 
       (* Show rule changes at this level *)
@@ -530,6 +575,12 @@ let rec pp_container_diff ?(style = default_style) ?(is_last = false)
           pp_container_diff ~style ~is_last:is_last_cont
             ~parent_prefix:child_prefix fmt cont_diff)
         container_changes
+  | Container_reordered
+      { info = { container_type; condition; _ }; expected_pos; actual_pos } ->
+      let cont_prefix = container_prefix container_type in
+      let prefix = tree_prefix ~style ~is_last ~parent_prefix in
+      Fmt.pf fmt "%s%s %s (position %d → %d)@," prefix cont_prefix condition
+        expected_pos actual_pos
 
 let pp ?(expected = "Expected") ?(actual = "Actual") fmt { rules; containers } =
   if rules = [] && containers = [] then
@@ -1321,16 +1372,41 @@ and process_nested_containers ~container_type ~extract_fn ~diff_fn ~depth stmts1
       let nested_containers =
         nested_differences ~depth:(depth + 1) rules1 rules2
       in
-      (* Always report modified containers - they were marked as modified for a
-         reason (e.g., different number of blocks with same condition) *)
-      diffs :=
-        Container_modified
-          {
-            info = { container_type; condition = cond; rules = rules1 };
-            rule_changes;
-            container_changes = nested_containers;
-          }
-        :: !diffs)
+      (* Check for position changes within parent container *)
+      let find_position cond stmts =
+        List.find_mapi
+          (fun i stmt ->
+            match extract_fn stmt with
+            | Some (c, _) when c = cond -> Some i
+            | _ -> None)
+          stmts
+      in
+      let pos1 = find_position cond stmts1 |> Option.value ~default:(-1) in
+      let pos2 = find_position cond stmts2 |> Option.value ~default:(-1) in
+      let position_changed = pos1 >= 0 && pos2 >= 0 && abs (pos2 - pos1) > 3 in
+
+      (* If only position changed with no content changes, report as
+         reordered *)
+      if position_changed && rule_changes = [] && nested_containers = [] then
+        diffs :=
+          Container_reordered
+            {
+              info = { container_type; condition = cond; rules = rules1 };
+              expected_pos = pos1;
+              actual_pos = pos2;
+            }
+          :: !diffs
+      else
+        (* Container was modified in content, not just position *)
+        diffs :=
+          Container_modified
+            {
+              info = { container_type; condition = cond; rules = rules1 };
+              actual_rules = rules2;
+              rule_changes;
+              container_changes = nested_containers;
+            }
+          :: !diffs)
     modified;
 
   (* Check for ordering changes: same containers but different order *)
@@ -1351,18 +1427,19 @@ and process_nested_containers ~container_type ~extract_fn ~diff_fn ~depth stmts1
   (* If only order changed, report first container as having a reordering
      change *)
   (if order_changed && !diffs = [] then
-     match items1 with
-     | (cond, rules) :: _ ->
+     match (items1, items2) with
+     | (cond, rules1) :: _, (_, rules2) :: _ ->
          diffs :=
            [
              Container_modified
                {
-                 info = { container_type; condition = cond; rules };
+                 info = { container_type; condition = cond; rules = rules1 };
+                 actual_rules = rules2;
                  rule_changes = [];
                  container_changes = [];
                };
            ]
-     | [] -> ());
+     | _, _ -> ());
 
   !diffs
 
@@ -1436,6 +1513,7 @@ and process_nested_layers ~depth stmts1 stmts2 =
             {
               info =
                 { container_type = `Layer; condition = name; rules = rules1 };
+              actual_rules = rules2;
               rule_changes;
               container_changes = nested_containers;
             }
@@ -1564,6 +1642,7 @@ and process_nested_containers_with_name ~depth stmts1 stmts2 =
           Container_modified
             {
               info = { container_type = `Container; condition; rules = rules1 };
+              actual_rules = rules2;
               rule_changes;
               container_changes = nested_containers;
             }
@@ -1609,6 +1688,7 @@ and process_nested_properties ~depth stmts1 stmts2 =
           {
             info =
               { container_type = `Property; condition = name; rules = rules1 };
+            actual_rules = rules2;
             rule_changes;
             container_changes = nested_containers;
           }
@@ -1668,6 +1748,7 @@ and process_nested_keyframes ~depth:_ stmts1 stmts2 =
             (Container_modified
                {
                  info = keyframes_container_info name;
+                 actual_rules = [];
                  rule_changes = frame_diffs;
                  container_changes = [];
                })
@@ -1769,6 +1850,7 @@ and process_font_face_rules ~depth:_ stmts1 stmts2 =
                   condition = "@font-face";
                   rules = [];
                 };
+              actual_rules = [];
               rule_changes = [];
               (* Font-face descriptors are not rules *)
               container_changes = [];
@@ -1776,6 +1858,53 @@ and process_font_face_rules ~depth:_ stmts1 stmts2 =
             }
           :: !diffs;
       !diffs
+
+(* Check if containers appear at different positions in statement sequence *)
+let detect_container_position_changes stmts1 stmts2 containers =
+  (* Build position maps for @media containers *)
+  let build_media_position_map stmts =
+    List.mapi
+      (fun i stmt ->
+        match Css.as_media stmt with
+        | Some (cond, _) -> Some (cond, i)
+        | None -> None)
+      stmts
+    |> List.filter_map (fun x -> x)
+    |> List.fold_left
+         (fun acc (cond, pos) ->
+           let existing = try List.assoc cond acc with Not_found -> [] in
+           (cond, pos :: existing) :: List.remove_assoc cond acc)
+         []
+  in
+
+  let pos_map1 = build_media_position_map stmts1 in
+  let pos_map2 = build_media_position_map stmts2 in
+
+  (* Enhance container_diffs with position info *)
+  List.map
+    (function
+      | Container_modified
+          ({
+             info = { container_type = `Media; condition; _ };
+             rule_changes;
+             container_changes;
+             _;
+           } as cm)
+        when rule_changes = [] && container_changes = [] ->
+          (* No content changes - check if position changed *)
+          let pos1 =
+            try List.assoc condition pos_map1 |> List.hd with _ -> -1
+          in
+          let pos2 =
+            try List.assoc condition pos_map2 |> List.hd with _ -> -1
+          in
+          if pos1 >= 0 && pos2 >= 0 && abs (pos2 - pos1) > 5 then
+            (* Significant position change - report as structure difference *)
+            Container_modified
+              { cm with info = { cm.info with rules = [] }; actual_rules = [] }
+          else Container_modified cm
+      | other -> other)
+    containers
 
 (* Main diff function *)
 let diff ~(expected : Css.t) ~(actual : Css.t) : t =
@@ -1793,7 +1922,8 @@ let diff ~(expected : Css.t) ~(actual : Css.t) : t =
   let containers =
     let stmts1 = Css.statements expected in
     let stmts2 = Css.statements actual in
-    nested_differences ~depth:0 stmts1 stmts2
+    let base_containers = nested_differences ~depth:0 stmts1 stmts2 in
+    detect_container_position_changes stmts1 stmts2 base_containers
   in
 
   { rules = rule_changes; containers }

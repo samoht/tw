@@ -10,7 +10,9 @@ let read_file path =
     Ok content
   with Sys_error msg -> Error (`Msg (Fmt.str "Error reading %s: %s" path msg))
 
-let compare_files file1 file2 style_renderer =
+type diff_mode = Auto | Tree | String
+
+let compare_files file1 file2 style_renderer diff_mode =
   (* Check NO_COLOR environment variable (https://no-color.org/) When present
      and not empty, disable colors regardless of other settings *)
   let style_renderer =
@@ -28,7 +30,16 @@ let compare_files file1 file2 style_renderer =
         Ok ())
       else
         (* Use css_compare for detailed structural comparison *)
-        let result = Tw_tools.Css_compare.diff ~expected:css1 ~actual:css2 in
+        let result =
+          match diff_mode with
+          | Auto -> Tw_tools.Css_compare.diff ~expected:css1 ~actual:css2
+          | Tree ->
+              Tw_tools.Css_compare.diff_with_mode ~mode:`Tree ~expected:css1
+                ~actual:css2
+          | String ->
+              Tw_tools.Css_compare.diff_with_mode ~mode:`String ~expected:css1
+                ~actual:css2
+        in
         match result with
         | No_diff ->
             Fmt.pr "✓ CSS files are identical@.";
@@ -55,6 +66,16 @@ let file2_arg =
   let doc = "Second CSS file to compare (actual/test)" in
   Arg.(required & pos 1 (some file) None & info [] ~docv:"FILE2" ~doc)
 
+let diff_mode_arg =
+  let doc =
+    "Diff mode: 'auto' (smart detection), 'tree' (force structural diff), or \
+     'string' (force string diff)"
+  in
+  let diff_mode_conv =
+    Arg.enum [ ("auto", Auto); ("tree", Tree); ("string", String) ]
+  in
+  Arg.(value & opt diff_mode_conv Auto & info [ "diff" ] ~docv:"MODE" ~doc)
+
 let cssdiff_t =
   let open Term in
   (* CSSDIFF_COLOR env var for auto|always|never *)
@@ -62,7 +83,8 @@ let cssdiff_t =
     Fmt_cli.style_renderer ~env:(Cmd.Env.info "CSSDIFF_COLOR") ()
   in
   term_result
-    (const compare_files $ file1_arg $ file2_arg $ style_renderer_with_env)
+    (const compare_files $ file1_arg $ file2_arg $ style_renderer_with_env
+   $ diff_mode_arg)
 
 let cmd =
   let doc = "Compare two CSS files with structural analysis" in
@@ -78,6 +100,19 @@ let cmd =
       `I ("•", "Reordered rules");
       `I ("•", "Changes in @media, @layer, and other at-rules");
       `S Manpage.s_options;
+      `P "The --diff option controls the comparison mode:";
+      `I
+        ( "--diff=auto",
+          "Smart detection: use tree diff for structural changes, string diff \
+           otherwise (default)" );
+      `I
+        ( "--diff=tree",
+          "Force structural tree-based diff (useful for debugging CSS parser \
+           behavior)" );
+      `I
+        ( "--diff=string",
+          "Force character-by-character string diff (faster, less intelligent)"
+        );
       `S Manpage.s_exit_status;
       `P "$(tname) exits with:";
       `I ("0", "if the CSS files are identical");

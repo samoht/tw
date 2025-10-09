@@ -37,7 +37,17 @@ type t =
 
 val diff : expected:string -> actual:string -> t
 (** [diff ~expected ~actual] parses both CSS strings and returns their diff or
-    parse errors if parsing fails. *)
+    parse errors if parsing fails. Uses smart detection to choose between tree
+    and string diff. *)
+
+val diff_with_mode :
+  mode:[ `Auto | `Tree | `String ] -> expected:string -> actual:string -> t
+(** [diff_with_mode ~mode ~expected ~actual] compares CSS with explicit diff
+    mode selection.
+    @param mode
+      [`Auto] (default behavior): use tree diff for structural changes, string
+      diff otherwise. [`Tree]: force structural tree-based diff. [`String]:
+      force string diff, skip parsing. *)
 
 val as_tree_diff : t -> Tree_diff.t option
 (** [as_tree_diff result] extracts [Tree_diff.t] from a diff result, returning

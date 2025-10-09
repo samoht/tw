@@ -673,9 +673,9 @@ let test_selector_change_suppression () =
       let is_util_layer = function
         | Td.Container_modified
             {
-              info = { container_type = `Layer; condition; rules = _ };
+              info = { container_type = `Layer; condition; _ };
               rule_changes;
-              container_changes = _;
+              _;
             } ->
             if String.equal condition "utilities" then Some rule_changes
             else None
@@ -974,8 +974,7 @@ let test_reordered_rules_within_layer () =
       let has_layer_with_reordering =
         List.exists
           (function
-            | Td.Container_modified
-                { info; rule_changes; container_changes = _ }
+            | Td.Container_modified { info; rule_changes; _ }
               when info.container_type = `Layer ->
                 (* Check if any rules are marked as reordered *)
                 List.exists

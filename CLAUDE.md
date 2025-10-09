@@ -222,6 +222,38 @@ Utilities must not declare tokens; theme must not reference utility vars. See `c
   ALCOTEST_VERBOSE=1 dune exec test/test.exe test tw <N>
   ```
 
+* **Example test failures (e.g., `dune runtest` in `examples/prose/`):**
+
+  When example tests fail, follow this workflow to isolate and fix the issue:
+
+  1. **Reproduce with minimal utilities**: Use `tw -s '<utilities>' --diff` to identify the problematic ordering/generation
+     ```bash
+     # Start with the full set of utilities that fail
+     dune exec -- tw -s 'md:grid-cols-2 max-w-4xl prose' --diff
+
+     # Remove utilities one by one until you find the minimal set
+     dune exec -- tw -s 'md:grid-cols-2 max-w-4xl' --diff
+     ```
+
+  2. **Add a unit test**: Create a test in `test/test_rules.ml` that codifies the expected behavior
+     ```ocaml
+     let test_your_case () =
+       let utilities = Tw.[ md [ grid_cols 2 ]; max_w_4xl ] in
+       Test_helpers.check_ordering_matches
+         ~test_name:"regular before media" utilities
+     ```
+
+  3. **Fix the issue**: Modify the relevant code (usually in `lib/rules.ml`)
+     - Pay attention to comparison functions and ordering logic
+     - Ensure symmetric comparisons negate results when arguments are swapped
+     - Regular rules should come before media queries at the same priority
+
+  4. **Verify**: Run both the unit test and the original example test
+     ```bash
+     ALCOTEST_VERBOSE=1 dune exec test/test.exe test rules <N>
+     dune runtest
+     ```
+
 ---
 
 ## 9) Common pitfalls (and fixes)

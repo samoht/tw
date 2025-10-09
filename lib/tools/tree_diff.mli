@@ -43,9 +43,15 @@ type container_diff =
   | Container_added of container_info
   | Container_removed of container_info
   | Container_modified of {
-      info : container_info;
+      info : container_info; (* expected *)
+      actual_rules : Css.statement list; (* actual *)
       rule_changes : rule_diff list;
       container_changes : container_diff list; (* Nested container changes *)
+    }
+  | Container_reordered of {
+      info : container_info;
+      expected_pos : int;
+      actual_pos : int;
     }
 
 type t = { rules : rule_diff list; containers : container_diff list }
