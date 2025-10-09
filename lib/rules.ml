@@ -377,44 +377,6 @@ let modifier_to_rule modifier base_class selector props =
   | _ -> handle_fallback_modifier modifier base_class props
 
 (* Extract selector and properties from a single Utility *)
-(* Build base rule from props if non-empty *)
-let base_rule_of class_name props =
-  if props = [] then []
-  else
-    let sel = Css.Selector.Class class_name in
-    [ regular ~selector:sel ~props ~base_class:class_name () ]
-
-(* Extract custom rule from CSS statement *)
-let custom_rule_of class_name = function
-  | stmt -> (
-      match Css.as_rule stmt with
-      | Some (selector, declarations, _) ->
-          Some (regular ~selector ~props:declarations ~base_class:class_name ())
-      | None -> None)
-
-(* Extract media query rules from CSS statement *)
-let media_rules_of class_name = function
-  | stmt -> (
-      match Css.as_media stmt with
-      | Some (condition, statements) ->
-          statements
-          |> List.filter_map (fun inner ->
-                 match Css.as_rule inner with
-                 | Some (selector, declarations, _) ->
-                     Some
-                       (media_query ~condition ~selector ~props:declarations
-                          ~base_class:class_name ())
-                 | None -> None)
-      | None -> [])
-
-(* Partition and extract rules from statement list *)
-let partition_rules class_name statements =
-  let custom_rules = List.filter_map (custom_rule_of class_name) statements in
-  let media_queries =
-    statements |> List.concat_map (media_rules_of class_name)
-  in
-  (custom_rules, media_queries)
-
 (* Apply modifier to extracted rule *)
 let apply_modifier_to_rule modifier = function
   | Regular { selector; props; base_class; _ } ->
@@ -451,11 +413,38 @@ let extract_selector_props util =
         match rules with
         | None -> [ regular ~selector:sel ~props ~base_class:class_name () ]
         | Some rule_list ->
-            let base_rule = base_rule_of class_name props in
-            let custom_rules, media_queries =
-              partition_rules class_name rule_list
+            (* Separate rules into nested containers (@media, @supports, etc.)
+               and plain rules *)
+            let nested_containers, plain_rules =
+              List.partition
+                (fun stmt ->
+                  Css.as_media stmt <> None
+                  || Css.as_container stmt <> None
+                  || Css.as_supports stmt <> None)
+                rule_list
             in
-            custom_rules @ base_rule @ media_queries)
+            (* Extract plain rules as separate outputs *)
+            let extracted_plain_rules =
+              List.filter_map
+                (fun stmt ->
+                  match Css.as_rule stmt with
+                  | Some (selector, declarations, _) ->
+                      Some
+                        (regular ~selector ~props:declarations
+                           ~base_class:class_name ())
+                  | None -> None)
+                plain_rules
+            in
+            (* Base rule with nested containers *)
+            let base_with_nested =
+              if props = [] && nested_containers = [] then []
+              else
+                [
+                  regular ~selector:sel ~props ~base_class:class_name
+                    ~nested:nested_containers ();
+                ]
+            in
+            extracted_plain_rules @ base_with_nested)
     | Style.Modified (modifier, base_style) ->
         handle_modified util_inner modifier base_style extract_with_class
     | Style.Group styles ->
