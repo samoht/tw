@@ -67,6 +67,7 @@ let sample_container_modified =
           condition = "(display: grid)";
           rules = [];
         };
+      actual_rules = [];
       rule_changes = [ sample_rule_content_changed ];
       container_changes = [];
     }
@@ -178,7 +179,7 @@ let test_container_removed_structure () =
 
 let test_container_modified_structure () =
   match sample_container_modified with
-  | Td.Container_modified { info; rule_changes; container_changes = _ } ->
+  | Td.Container_modified { info; rule_changes; _ } ->
       check bool "should be Supports type" true (info.container_type = `Supports);
       check string "condition should match" "(display: grid)" info.condition;
       check int "should have rule changes" 1 (List.length rule_changes)
@@ -287,6 +288,7 @@ let test_nested_rule_changes () =
     Td.Container_modified
       {
         info = { container_type = `Layer; condition = "components"; rules = [] };
+        actual_rules = [];
         rule_changes =
           [
             sample_rule_added;

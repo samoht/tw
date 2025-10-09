@@ -1732,6 +1732,15 @@ let test_media_query_deduplication () =
   Alcotest.(check int)
     "preserves cascade by keeping media queries separate" 2 count_48rem
 
+let test_regular_before_media_same_priority () =
+  (* Test that regular rules ALWAYS come before media queries, regardless of their priorities.
+   * Example: max-w-4xl (regular, priority 8) and md:grid-cols-2 (media, priority 12).
+   * Even though md:grid-cols-2 has higher priority, max-w-4xl (regular) should come first
+   * because Tailwind emits all regular utilities before any media query utilities. *)
+  let utilities = Tw.[ md [ grid_cols 2 ]; max_w_4xl ] in
+  Test_helpers.check_ordering_matches ~test_name:"regular always before media"
+    utilities
+
 let tests =
   [
     test_case "theme layer - empty" `Quick check_theme_layer_empty;
@@ -1789,6 +1798,8 @@ let tests =
       test_md_hover_no_extra_media;
     test_case "container + media together" `Quick test_container_and_media;
     test_case "media query deduplication" `Quick test_media_query_deduplication;
+    test_case "regular before media same priority" `Quick
+      test_regular_before_media_same_priority;
     test_case "modifier_to_rule" `Quick test_modifier_to_rule;
     test_case "rule_sets" `Quick test_rule_sets;
     test_case "build_utilities_layer" `Quick test_build_utilities_layer;

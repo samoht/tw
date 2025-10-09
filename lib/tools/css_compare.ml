@@ -112,6 +112,32 @@ let diff ~expected ~actual =
   | Ok _, Error e -> Actual_error e
   | Error e, Ok _ -> Expected_error e
 
+let diff_with_mode ~mode ~expected ~actual =
+  let expected = strip_header expected in
+  let actual = strip_header actual in
+  match mode with
+  | `Auto -> diff ~expected ~actual
+  | `String -> (
+      if
+        (* Force string diff mode *)
+        expected = actual
+      then No_diff
+      else
+        match String_diff.diff ~expected actual with
+        | Some sdiff -> String_diff sdiff
+        | None -> No_diff)
+  | `Tree -> (
+      (* Force tree diff mode *)
+      match (Css.of_string expected, Css.of_string actual) with
+      | Ok expected_ast, Ok actual_ast ->
+          let structural_diff =
+            tree_diff ~expected:expected_ast ~actual:actual_ast
+          in
+          if expected = actual then No_diff else Tree_diff structural_diff
+      | Error e1, Error e2 -> Both_errors (e1, e2)
+      | Ok _, Error e -> Actual_error e
+      | Error e, Ok _ -> Expected_error e)
+
 let as_tree_diff = function
   | Tree_diff d -> Some d
   | String_diff _ | No_diff | Both_errors _ | Expected_error _ | Actual_error _

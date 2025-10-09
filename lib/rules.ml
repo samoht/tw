@@ -711,18 +711,12 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 =
   if breakpoint_cmp <> 0 then breakpoint_cmp
   else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
 
-(* Compare Regular vs Media rules - Regular comes before Media of same priority.
-   When priorities are equal, preserve original order to maintain user's class
-   ordering. Lower priority values come first. *)
-let compare_regular_vs_media i1 i2 (p1, _s1) (p2, _s2) regular_first =
-  let prio_cmp = Int.compare p1 p2 in
-  if prio_cmp <> 0 then prio_cmp
-  else if
-    (* When priority is the same, preserve original order unless both rules come
-       from the same utility (same index), in which case Regular comes first *)
-    i1 = i2
-  then if regular_first then -1 else 1
-  else Int.compare i1 i2
+(* Compare Regular vs Media rules - Regular ALWAYS comes before Media,
+   regardless of priority. This matches Tailwind's behavior where all regular
+   utilities are emitted before any media queries. *)
+let compare_regular_vs_media _i1 _i2 _order1 _order2 regular_first =
+  (* Regular always comes before Media, ignoring priority *)
+  if regular_first then -1 else 1
 
 (* Compare indexed rules for sorting *)
 let compare_indexed_rules r1 r2 =
@@ -741,7 +735,8 @@ let compare_indexed_rules r1 r2 =
     | `Regular, `Media _ ->
         compare_regular_vs_media r1.index r2.index r1.order r2.order true
     | `Media _, `Regular ->
-        compare_regular_vs_media r2.index r1.index r2.order r1.order true
+        (* Negate because we're comparing in the opposite direction *)
+        -compare_regular_vs_media r2.index r1.index r2.order r1.order true
     | _, _ -> Int.compare r1.index r2.index
 
 (* Filter properties to only include utilities layer declarations *)
