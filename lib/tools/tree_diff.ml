@@ -459,8 +459,8 @@ let rec pp_container_diff ?(style = default_style) ?(is_last = false)
           rules
   | Container_modified
       {
-        info = { container_type; condition; rules = container_rules };
-        actual_rules;
+        info = { container_type; condition; rules = _ };
+        actual_rules = _;
         rule_changes;
         container_changes;
       } ->
@@ -534,37 +534,9 @@ let rec pp_container_diff ?(style = default_style) ?(is_last = false)
       if has_explicit_changes then
         Fmt.pf fmt "(%s)@," (String.concat ", " (List.rev changes_parts))
       else if not has_nested_changes then
-        (* Container modified but no rule or nested changes - this is a block
-           structure difference. If we're here, it means media_diff marked this
-           as modified due to block_count_differs, OR the container appears at a
-           different position. *)
-        let rule_count_expected = List.length container_rules in
-        let rule_count_actual = List.length actual_rules in
-        if rule_count_expected = 0 && rule_count_actual = 0 then
-          (* No rules shown - this means position changed *)
-          Fmt.pf fmt "(position changed)@,"
-        else if rule_count_expected > 0 || rule_count_actual > 0 then (
-          Fmt.pf fmt "(different number of blocks with same rules)@,";
-          (* Show the rules that appear in different block structures *)
-          let indent =
-            if style.use_tree then child_prefix ^ "   "
-            else child_prefix ^ "    "
-          in
-          let extract_selectors stmts =
-            List.filter_map
-              (fun stmt ->
-                match Css.as_rule stmt with
-                | Some (selector, _, _) ->
-                    Some (Css.Selector.to_string selector)
-                | None -> None)
-              stmts
-          in
-          let selectors_expected = extract_selectors container_rules in
-
-          if selectors_expected <> [] then
-            Fmt.pf fmt "%sRules: %s@," indent
-              (String.concat ", " selectors_expected))
-        else Fmt.pf fmt "(block structure changed)@,"
+        (* Container modified but no rule or nested changes - just position
+           changed *)
+        Fmt.pf fmt "(position changed)@,"
       else Fmt.pf fmt "@,";
 
       (* Show rule changes at this level *)
