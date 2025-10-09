@@ -583,8 +583,9 @@ let rec pp_container_diff ?(style = default_style) ?(is_last = false)
         Fmt.pf fmt "%s%s %s (%d block split into %d)@," prefix cont_prefix
           condition exp_count act_count
       else
-        Fmt.pf fmt "%s%s %s (block structure differs)@," prefix cont_prefix
-          condition;
+        (* Same count but different positions *)
+        Fmt.pf fmt "%s%s %s (%d blocks at different positions)@," prefix
+          cont_prefix condition exp_count;
 
       (* Show expected blocks *)
       List.iter
@@ -1417,15 +1418,28 @@ and process_nested_containers ~container_type ~extract_fn ~diff_fn ~depth stmts1
   let blocks1 = group_by_cond items_with_pos1 in
   let blocks2 = group_by_cond items_with_pos2 in
 
-  (* Detect conditions where block count differs *)
+  (* Detect conditions where block count differs OR positions differ
+     significantly *)
   let block_structure_changed = Hashtbl.create 16 in
   Hashtbl.iter
     (fun cond blocks1_list ->
       match Hashtbl.find_opt blocks2 cond with
-      | Some blocks2_list
-        when List.length blocks1_list <> List.length blocks2_list ->
-          Hashtbl.replace block_structure_changed cond
-            (blocks1_list, blocks2_list)
+      | Some blocks2_list ->
+          let count_differs =
+            List.length blocks1_list <> List.length blocks2_list
+          in
+          (* Check if block positions differ significantly *)
+          let positions_differ_significantly =
+            if List.length blocks1_list = List.length blocks2_list then
+              let pos1_list = List.map fst blocks1_list in
+              let pos2_list = List.map fst blocks2_list in
+              (* Check if any corresponding positions differ by more than 10 *)
+              List.exists2 (fun p1 p2 -> abs (p1 - p2) > 10) pos1_list pos2_list
+            else false
+          in
+          if count_differs || positions_differ_significantly then
+            Hashtbl.replace block_structure_changed cond
+              (blocks1_list, blocks2_list)
       | _ -> ())
     blocks1;
 
