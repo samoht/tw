@@ -270,6 +270,10 @@ let test_container_types () =
     | Td.Container_removed { container_type; _ } -> container_type
     | Td.Container_modified { info = { container_type; _ }; _ } ->
         container_type
+    | Td.Container_reordered { info = { container_type; _ }; _ } ->
+        container_type
+    | Td.Container_block_structure_changed { container_type; _ } ->
+        container_type
   in
 
   check bool "media container type" true (get_type media_container = `Media);
@@ -322,7 +326,9 @@ let test_diff_identical_css () =
        (function
          | Td.Container_added { condition; _ }
          | Td.Container_removed { condition; _ }
-         | Td.Container_modified { info = { condition; _ }; _ } ->
+         | Td.Container_modified { info = { condition; _ }; _ }
+         | Td.Container_reordered { info = { condition; _ }; _ }
+         | Td.Container_block_structure_changed { condition; _ } ->
              condition)
        diff.containers)
 

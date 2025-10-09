@@ -53,6 +53,14 @@ type container_diff =
       expected_pos : int;
       actual_pos : int;
     }
+  | Container_block_structure_changed of {
+      container_type : [ `Media | `Layer | `Supports | `Container | `Property ];
+      condition : string;
+      expected_blocks : (int * Css.statement list) list;
+          (** (position, rules) for each block in expected *)
+      actual_blocks : (int * Css.statement list) list;
+          (** (position, rules) for each block in actual *)
+    }
 
 type t = { rules : rule_diff list; containers : container_diff list }
 (** Structured CSS differences. *)

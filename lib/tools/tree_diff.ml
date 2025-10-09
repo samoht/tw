@@ -51,6 +51,14 @@ type container_diff =
       expected_pos : int;
       actual_pos : int;
     }
+  | Container_block_structure_changed of {
+      container_type : [ `Media | `Layer | `Supports | `Container | `Property ];
+      condition : string;
+      expected_blocks : (int * Css.statement list) list;
+          (** (position, rules) for each block in expected *)
+      actual_blocks : (int * Css.statement list) list;
+          (** (position, rules) for each block in actual *)
+    }
 
 type t = { rules : rule_diff list; containers : container_diff list }
 
@@ -370,7 +378,8 @@ let rec count_containers_in_list container_type containers =
         match cont with
         | Container_added { container_type = ct; _ }
         | Container_removed { container_type = ct; _ }
-        | Container_reordered { info = { container_type = ct; _ }; _ } ->
+        | Container_reordered { info = { container_type = ct; _ }; _ }
+        | Container_block_structure_changed { container_type = ct; _ } ->
             if ct = container_type then 1 else 0
         | Container_modified
             { info = { container_type = ct; _ }; container_changes; _ } ->
@@ -581,6 +590,63 @@ let rec pp_container_diff ?(style = default_style) ?(is_last = false)
       let prefix = tree_prefix ~style ~is_last ~parent_prefix in
       Fmt.pf fmt "%s%s %s (position %d → %d)@," prefix cont_prefix condition
         expected_pos actual_pos
+  | Container_block_structure_changed
+      { container_type; condition; expected_blocks; actual_blocks } ->
+      let cont_prefix = container_prefix container_type in
+      let prefix = tree_prefix ~style ~is_last ~parent_prefix in
+      let child_prefix = tree_continuation ~style ~is_last ~parent_prefix in
+      let indent =
+        if style.use_tree then child_prefix ^ "   " else child_prefix ^ "    "
+      in
+      let red_styled = get_style "remove" in
+      let green_styled = get_style "add" in
+
+      (* Show the merge/split summary *)
+      let exp_count = List.length expected_blocks in
+      let act_count = List.length actual_blocks in
+      if exp_count > act_count then
+        Fmt.pf fmt "%s%s %s (%d blocks merged into %d)@," prefix cont_prefix
+          condition exp_count act_count
+      else if exp_count < act_count then
+        Fmt.pf fmt "%s%s %s (%d block split into %d)@," prefix cont_prefix
+          condition exp_count act_count
+      else
+        Fmt.pf fmt "%s%s %s (block structure differs)@," prefix cont_prefix
+          condition;
+
+      (* Show expected blocks *)
+      List.iter
+        (fun (pos, rules) ->
+          let selectors =
+            List.filter_map
+              (fun stmt ->
+                match Css.as_rule stmt with
+                | Some (sel, _, _) -> Some (Css.Selector.to_string sel)
+                | None -> None)
+              rules
+          in
+          if selectors <> [] then
+            Fmt.pf fmt "%s%a@," indent red_styled
+              (Fmt.str "- Block at position %d: %s" pos
+                 (String.concat ", " selectors)))
+        expected_blocks;
+
+      (* Show actual blocks *)
+      List.iter
+        (fun (pos, rules) ->
+          let selectors =
+            List.filter_map
+              (fun stmt ->
+                match Css.as_rule stmt with
+                | Some (sel, _, _) -> Some (Css.Selector.to_string sel)
+                | None -> None)
+              rules
+          in
+          if selectors <> [] then
+            Fmt.pf fmt "%s%a@," indent green_styled
+              (Fmt.str "+ Block at position %d: %s" pos
+                 (String.concat ", " selectors)))
+        actual_blocks
 
 let pp ?(expected = "Expected") ?(actual = "Actual") fmt { rules; containers } =
   if rules = [] && containers = [] then
@@ -1303,6 +1369,14 @@ let rec media_diff items1 items2 =
             rules_list1
       | Some rules_list2 ->
           (* Same condition in both - check if content or structure differs *)
+
+          (* Check if number of blocks differs - this is a structural difference
+             (e.g., 2 separate @media blocks vs 1 merged block) *)
+          let block_count_differs =
+            List.length rules_list1 <> List.length rules_list2
+          in
+
+          (* Merge rules for content comparison *)
           let all_rules1 = List.concat rules_list1 in
           let all_rules2 = List.concat rules_list2 in
 
@@ -1318,13 +1392,6 @@ let rec media_diff items1 items2 =
               nested_differences ~depth:1 all_rules1 all_rules2
             in
             nested_diffs <> []
-          in
-
-          (* Also check if number of blocks differs - this is a structural
-             difference even if merged content is the same (e.g., 2 separate
-             blocks vs 1 merged block) *)
-          let block_count_differs =
-            List.length rules_list1 <> List.length rules_list2
           in
 
           if has_immediate_diffs || has_nested_diffs || block_count_differs then
@@ -1344,11 +1411,66 @@ let rec media_diff items1 items2 =
 (* Generic helper for processing nested containers *)
 and process_nested_containers ~container_type ~extract_fn ~diff_fn ~depth stmts1
     stmts2 =
+  (* Extract items with their positions *)
+  let items_with_pos1 =
+    List.mapi
+      (fun i stmt ->
+        match extract_fn stmt with
+        | Some (cond, rules) -> Some (i, cond, rules)
+        | None -> None)
+      stmts1
+    |> List.filter_map (fun x -> x)
+  in
+  let items_with_pos2 =
+    List.mapi
+      (fun i stmt ->
+        match extract_fn stmt with
+        | Some (cond, rules) -> Some (i, cond, rules)
+        | None -> None)
+      stmts2
+    |> List.filter_map (fun x -> x)
+  in
+
+  (* Group by condition to detect block structure changes *)
+  let group_by_cond items =
+    let tbl = Hashtbl.create 16 in
+    List.iter
+      (fun (pos, cond, rules) ->
+        let existing = try Hashtbl.find tbl cond with Not_found -> [] in
+        Hashtbl.replace tbl cond (existing @ [ (pos, rules) ]))
+      items;
+    tbl
+  in
+
+  let blocks1 = group_by_cond items_with_pos1 in
+  let blocks2 = group_by_cond items_with_pos2 in
+
+  (* Detect conditions where block count differs *)
+  let block_structure_changed = Hashtbl.create 16 in
+  Hashtbl.iter
+    (fun cond blocks1_list ->
+      match Hashtbl.find_opt blocks2 cond with
+      | Some blocks2_list
+        when List.length blocks1_list <> List.length blocks2_list ->
+          Hashtbl.replace block_structure_changed cond
+            (blocks1_list, blocks2_list)
+      | _ -> ())
+    blocks1;
+
   let items1 = List.filter_map extract_fn stmts1 in
   let items2 = List.filter_map extract_fn stmts2 in
   let added, removed, modified = diff_fn items1 items2 in
 
   let diffs = ref [] in
+
+  (* Process block structure changes first *)
+  Hashtbl.iter
+    (fun cond (expected_blocks, actual_blocks) ->
+      diffs :=
+        Container_block_structure_changed
+          { container_type; condition = cond; expected_blocks; actual_blocks }
+        :: !diffs)
+    block_structure_changed;
 
   (* Process added containers *)
   List.iter
@@ -1364,49 +1486,53 @@ and process_nested_containers ~container_type ~extract_fn ~diff_fn ~depth stmts1
         Container_removed { container_type; condition = cond; rules } :: !diffs)
     removed;
 
-  (* Process modified containers *)
+  (* Process modified containers - skip those with block structure changes *)
   List.iter
     (fun (cond, rules1, rules2) ->
-      let rule_changes = to_rule_changes rules1 rules2 in
-      (* Recursively check deeper nesting *)
-      let nested_containers =
-        nested_differences ~depth:(depth + 1) rules1 rules2
-      in
-      (* Check for position changes within parent container *)
-      let find_position cond stmts =
-        List.find_mapi
-          (fun i stmt ->
-            match extract_fn stmt with
-            | Some (c, _) when c = cond -> Some i
-            | _ -> None)
-          stmts
-      in
-      let pos1 = find_position cond stmts1 |> Option.value ~default:(-1) in
-      let pos2 = find_position cond stmts2 |> Option.value ~default:(-1) in
-      let position_changed = pos1 >= 0 && pos2 >= 0 && abs (pos2 - pos1) > 3 in
+      (* Skip if this condition has a block structure change *)
+      if not (Hashtbl.mem block_structure_changed cond) then
+        let rule_changes = to_rule_changes rules1 rules2 in
+        (* Recursively check deeper nesting *)
+        let nested_containers =
+          nested_differences ~depth:(depth + 1) rules1 rules2
+        in
+        (* Check for position changes within parent container *)
+        let find_position cond stmts =
+          List.find_mapi
+            (fun i stmt ->
+              match extract_fn stmt with
+              | Some (c, _) when c = cond -> Some i
+              | _ -> None)
+            stmts
+        in
+        let pos1 = find_position cond stmts1 |> Option.value ~default:(-1) in
+        let pos2 = find_position cond stmts2 |> Option.value ~default:(-1) in
+        let position_changed =
+          pos1 >= 0 && pos2 >= 0 && abs (pos2 - pos1) > 3
+        in
 
-      (* If only position changed with no content changes, report as
-         reordered *)
-      if position_changed && rule_changes = [] && nested_containers = [] then
-        diffs :=
-          Container_reordered
-            {
-              info = { container_type; condition = cond; rules = rules1 };
-              expected_pos = pos1;
-              actual_pos = pos2;
-            }
-          :: !diffs
-      else
-        (* Container was modified in content, not just position *)
-        diffs :=
-          Container_modified
-            {
-              info = { container_type; condition = cond; rules = rules1 };
-              actual_rules = rules2;
-              rule_changes;
-              container_changes = nested_containers;
-            }
-          :: !diffs)
+        (* If only position changed with no content changes, report as
+           reordered *)
+        if position_changed && rule_changes = [] && nested_containers = [] then
+          diffs :=
+            Container_reordered
+              {
+                info = { container_type; condition = cond; rules = rules1 };
+                expected_pos = pos1;
+                actual_pos = pos2;
+              }
+            :: !diffs
+        else
+          (* Container was modified in content, not just position *)
+          diffs :=
+            Container_modified
+              {
+                info = { container_type; condition = cond; rules = rules1 };
+                actual_rules = rules2;
+                rule_changes;
+                container_changes = nested_containers;
+              }
+            :: !diffs)
     modified;
 
   (* Check for ordering changes: same containers but different order *)
