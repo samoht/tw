@@ -55,6 +55,7 @@ type indexed_rule = {
   props : Css.declaration list;
   order : int * int;
   nested : Css.statement list;
+  base_class : string option;
 }
 
 (* Result of building individual layers *)
@@ -413,38 +414,63 @@ let extract_selector_props util =
         match rules with
         | None -> [ regular ~selector:sel ~props ~base_class:class_name () ]
         | Some rule_list ->
-            (* Separate rules into nested containers (@media, @supports, etc.)
-               and plain rules *)
-            let nested_containers, plain_rules =
-              List.partition
-                (fun stmt ->
-                  Css.as_media stmt <> None
-                  || Css.as_container stmt <> None
-                  || Css.as_supports stmt <> None)
-                rule_list
+            (* Extract media queries as separate Media_query outputs *)
+            let media_queries =
+              rule_list
+              |> List.filter_map (fun stmt ->
+                     match Css.as_media stmt with
+                     | Some (condition, statements) ->
+                         statements
+                         |> List.filter_map (fun inner ->
+                                match Css.as_rule inner with
+                                | Some (selector, declarations, _) ->
+                                    Some
+                                      (media_query ~condition ~selector
+                                         ~props:declarations
+                                         ~base_class:class_name ())
+                                | None -> None)
+                         |> fun l -> Some l
+                     | None -> None)
+              |> List.concat
+            in
+            (* Extract container queries as separate outputs *)
+            let container_queries =
+              rule_list
+              |> List.filter_map (fun stmt ->
+                     match Css.as_container stmt with
+                     | Some (_, condition, statements) ->
+                         statements
+                         |> List.filter_map (fun inner ->
+                                match Css.as_rule inner with
+                                | Some (selector, declarations, _) ->
+                                    Some
+                                      (container_query ~condition ~selector
+                                         ~props:declarations
+                                         ~base_class:class_name ())
+                                | None -> None)
+                         |> fun l -> Some l
+                     | None -> None)
+              |> List.concat
             in
             (* Extract plain rules as separate outputs *)
-            let extracted_plain_rules =
-              List.filter_map
-                (fun stmt ->
-                  match Css.as_rule stmt with
-                  | Some (selector, declarations, _) ->
-                      Some
-                        (regular ~selector ~props:declarations
-                           ~base_class:class_name ())
-                  | None -> None)
-                plain_rules
+            let plain_rules =
+              rule_list
+              |> List.filter_map (fun stmt ->
+                     match Css.as_rule stmt with
+                     | Some (selector, declarations, _) ->
+                         Some
+                           (regular ~selector ~props:declarations
+                              ~base_class:class_name ())
+                     | None -> None)
             in
-            (* Base rule with nested containers *)
-            let base_with_nested =
-              if props = [] && nested_containers = [] then []
-              else
-                [
-                  regular ~selector:sel ~props ~base_class:class_name
-                    ~nested:nested_containers ();
-                ]
+            (* Base rule (only if it has props) *)
+            let base_rule =
+              if props = [] then []
+              else [ regular ~selector:sel ~props ~base_class:class_name () ]
             in
-            extracted_plain_rules @ base_with_nested)
+            (* Combine: base rule, then plain rules, then media/container
+               queries *)
+            base_rule @ plain_rules @ media_queries @ container_queries)
     | Style.Modified (modifier, base_style) ->
         handle_modified util_inner modifier base_style extract_with_class
     | Style.Group styles ->
@@ -700,12 +726,23 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 =
   if breakpoint_cmp <> 0 then breakpoint_cmp
   else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
 
-(* Compare Regular vs Media rules - Regular ALWAYS comes before Media,
-   regardless of priority. This matches Tailwind's behavior where all regular
-   utilities are emitted before any media queries. *)
-let compare_regular_vs_media _i1 _i2 _order1 _order2 regular_first =
-  (* Regular always comes before Media, ignoring priority *)
-  if regular_first then -1 else 1
+(* Compare Regular vs Media rules.
+
+   When they share the same base_class, preserve original order so media queries
+   appear immediately after their base utility (e.g., .container followed by its
+   responsive @media blocks).
+
+   When they have different base classes, compare by priority/suborder as normal
+   to maintain proper utility ordering across different utilities. *)
+let compare_regular_vs_media base_class1 base_class2 i1 i2 order1 order2 sel1
+    sel2 =
+  match (base_class1, base_class2) with
+  | Some bc1, Some bc2 when bc1 = bc2 ->
+      (* Same base class - preserve original order *)
+      Int.compare i1 i2
+  | _ ->
+      (* Different base classes - compare by priority/suborder/selector/index *)
+      compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
 
 (* Compare indexed rules for sorting *)
 let compare_indexed_rules r1 r2 =
@@ -722,10 +759,12 @@ let compare_indexed_rules r1 r2 =
         compare_media_rules r1.rule_type r2.rule_type r1.selector r2.selector
           r1.order r2.order r1.index r2.index
     | `Regular, `Media _ ->
-        compare_regular_vs_media r1.index r2.index r1.order r2.order true
+        compare_regular_vs_media r1.base_class r2.base_class r1.index r2.index
+          r1.order r2.order r1.selector r2.selector
     | `Media _, `Regular ->
         (* Negate because we're comparing in the opposite direction *)
-        -compare_regular_vs_media r2.index r1.index r2.order r1.order true
+        -compare_regular_vs_media r2.base_class r1.base_class r2.index r1.index
+           r2.order r1.order r2.selector r1.selector
     | _, _ -> Int.compare r1.index r2.index
 
 (* Filter properties to only include utilities layer declarations *)
@@ -756,7 +795,7 @@ let indexed_rule_to_statement r =
 let deduplicate_typed_triples triples =
   let seen = Hashtbl.create (List.length triples) in
   List.filter
-    (fun (typ, sel, props, _order, nested) ->
+    (fun (typ, sel, props, _order, nested, _base_class) ->
       let key = (typ, Css.Selector.to_string sel, props, nested) in
       if Hashtbl.mem seen key then false
       else (
@@ -776,29 +815,51 @@ let order_of_base base_class selector =
 (* Convert each rule type to typed triple *)
 let rule_to_triple = function
   | Regular { selector; props; base_class; nested; _ } ->
-      Some (`Regular, selector, props, order_of_base base_class selector, nested)
+      Some
+        ( `Regular,
+          selector,
+          props,
+          order_of_base base_class selector,
+          nested,
+          base_class )
   | Media_query { condition; selector; props; base_class } ->
       Some
         ( `Media condition,
           selector,
           props,
           order_of_base base_class selector,
-          [] )
+          [],
+          base_class )
   | Container_query { condition; selector; props; base_class } ->
       Some
         ( `Container condition,
           selector,
           props,
           order_of_base base_class selector,
-          [] )
+          [],
+          base_class )
   | Starting_style { selector; props; base_class } ->
-      Some (`Starting, selector, props, order_of_base base_class selector, [])
+      Some
+        ( `Starting,
+          selector,
+          props,
+          order_of_base base_class selector,
+          [],
+          base_class )
 
 (* Add index to each triple for stable sorting *)
 let add_index triples =
   List.mapi
-    (fun i (typ, sel, props, order, nested) ->
-      { index = i; rule_type = typ; selector = sel; props; order; nested })
+    (fun i (typ, sel, props, order, nested, base_class) ->
+      {
+        index = i;
+        rule_type = typ;
+        selector = sel;
+        props;
+        order;
+        nested;
+        base_class;
+      })
     triples
 
 (* Build hover media query block from hover rules *)
