@@ -732,8 +732,13 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 =
    appear immediately after their base utility (e.g., .container followed by its
    responsive @media blocks).
 
-   When they have different base classes, compare by priority/suborder as normal
-   to maintain proper utility ordering across different utilities. *)
+   When they have different base classes: - Compare by priority/suborder first
+   (to respect utility ordering) - If priorities and suborders are equal,
+   Regular before Media
+
+   This ensures container (p=0) and its media queries stay at the top, while
+   flex-col (p=13) comes before md:grid-cols-2 (p=12 media) when they have the
+   same priority level. *)
 let compare_regular_vs_media base_class1 base_class2 i1 i2 order1 order2 sel1
     sel2 =
   match (base_class1, base_class2) with
@@ -741,8 +746,25 @@ let compare_regular_vs_media base_class1 base_class2 i1 i2 order1 order2 sel1
       (* Same base class - preserve original order *)
       Int.compare i1 i2
   | _ ->
-      (* Different base classes - compare by priority/suborder/selector/index *)
-      compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+      (* Different base classes or missing base_class *)
+      let p1, _s1 = order1 in
+      let p2, _s2 = order2 in
+
+      (* Special handling for low-priority utilities like container (p=0) *)
+      if p1 < 5 || p2 < 5 then
+        (* Low-priority utilities should stay grouped with their media queries
+           via priority comparison, so container and its responsive variants
+           appear together at the top of the utilities layer *)
+        let prio_cmp = Int.compare p1 p2 in
+        if prio_cmp <> 0 then prio_cmp
+        else
+          (* Same low priority: compare by selector to maintain stable order *)
+          String.compare
+            (Css.Selector.to_string sel1)
+            (Css.Selector.to_string sel2)
+      else
+        (* For normal utilities: Regular before Media regardless of priority *)
+        -1
 
 (* Compare indexed rules for sorting *)
 let compare_indexed_rules r1 r2 =
