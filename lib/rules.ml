@@ -468,9 +468,10 @@ let extract_selector_props util =
               if props = [] then []
               else [ regular ~selector:sel ~props ~base_class:class_name () ]
             in
-            (* Combine: base rule, then plain rules, then media/container
-               queries *)
-            base_rule @ plain_rules @ media_queries @ container_queries)
+            (* Combine: plain rules first, then base rule, then media/container
+               queries. This ensures that when a Style has both props and rules,
+               the custom rules come before the base props. *)
+            plain_rules @ base_rule @ media_queries @ container_queries)
     | Style.Modified (modifier, base_style) ->
         handle_modified util_inner modifier base_style extract_with_class
     | Style.Group styles ->
