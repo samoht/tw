@@ -886,7 +886,8 @@ let () =
        utilities (layout, flex, grid, tables) - these are ordered by suborder
        within the same priority group. Priority 21: Color and prose-color
        utilities - ordered by suborder within the same priority group. *)
-    let allowed_shared_priorities = [ 0; 2; 4; 21 ] in
+    (* Gap and alignment share priority 15 - alignment suborder ensures correct output *)
+    let allowed_shared_priorities = [ 0; 2; 4; 15; 21 ] in
 
     let lib_dir = root // "lib" in
     let ml_files =

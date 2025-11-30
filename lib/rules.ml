@@ -316,7 +316,7 @@ let route_preference_modifier modifier base_class selector props =
   in
   let prefix = List.assoc_opt (kind, value) prefix_map in
   handle_media_modifier
-    ~condition:(Printf.sprintf "(prefers-%s: %s)" kind value)
+    ~condition:(Printf.sprintf "(prefers-%s:%s)" kind value)
     ~prefix base_class selector props
 
 (* Route :has() variants to appropriate handler *)
@@ -344,8 +344,8 @@ let modifier_to_rule modifier base_class selector props =
       route_data_modifier modifier base_class selector props
   (* Color scheme *)
   | Style.Dark ->
-      handle_media_modifier ~condition:"(prefers-color-scheme: dark)" base_class
-        selector props
+      handle_media_modifier ~condition:"(prefers-color-scheme:dark)"
+        ~prefix:(Some ".dark:") base_class selector props
   (* Preference media modifiers *)
   | Style.Motion_safe | Style.Motion_reduce | Style.Contrast_more
   | Style.Contrast_less ->
