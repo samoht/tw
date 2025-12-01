@@ -58,6 +58,10 @@ module Handler = struct
     | Border_dotted
     | Border_double
     | Border_none
+    | (* Border color utilities *)
+      Border_color of Color.color * int
+    | Border_transparent
+    | Border_current
     | (* Border radius utilities *)
       Rounded
     | Rounded_none
@@ -240,6 +244,22 @@ module Handler = struct
   let border_double = border_style_util Double
   let border_none = border_style_util None
 
+  (* Border color utilities *)
+  let border_color' color shade =
+    if Color.is_custom_color color then
+      let css_color = Color.to_css color shade in
+      style [ Css.border_color css_color ]
+    else
+      let color_var = Color.get_color_var color shade in
+      let color_value =
+        Color.to_css color (if Color.is_base_color color then 500 else shade)
+      in
+      let decl, color_ref = Var.binding color_var color_value in
+      style (decl :: [ Css.border_color (Var color_ref) ])
+
+  let border_transparent' = style [ Css.border_color Transparent ]
+  let border_current' = style [ Css.border_color Current ]
+
   (* Create radius theme variables with fallback values for inline mode *)
   let radius_sm_var = Var.theme Css.Length "radius-sm" ~order:(7, 0)
   let radius_md_var = Var.theme Css.Length "radius-md" ~order:(7, 1)
@@ -369,6 +389,10 @@ module Handler = struct
     | Border_dotted -> border_dotted
     | Border_double -> border_double
     | Border_none -> border_none
+    (* Border color utilities *)
+    | Border_color (color, shade) -> border_color' color shade
+    | Border_transparent -> border_transparent'
+    | Border_current -> border_current'
     (* Border radius utilities *)
     | Rounded -> rounded
     | Rounded_none -> rounded_none
@@ -462,6 +486,18 @@ module Handler = struct
     | Border_double -> 1402
     | Border_none -> 1403
     | Border_solid -> 1404
+    (* Border color utilities (1500-1999) *)
+    | Border_color (color, shade) ->
+        let base =
+          if Color.is_base_color color then
+            Color.suborder_with_shade (Color.to_name color)
+          else
+            Color.suborder_with_shade
+              (Color.to_name color ^ "-" ^ string_of_int shade)
+        in
+        1500 + base
+    | Border_transparent -> 1500
+    | Border_current -> 1501
     (* Outline utilities (2000-2099) *)
     | Outline_none -> 2000
     | Outline_offset_0 -> 2001
@@ -505,6 +541,12 @@ module Handler = struct
     | [ "border"; "dotted" ] -> Ok Border_dotted
     | [ "border"; "double" ] -> Ok Border_double
     | [ "border"; "none" ] -> Ok Border_none
+    | [ "border"; "transparent" ] -> Ok Border_transparent
+    | [ "border"; "current" ] -> Ok Border_current
+    | "border" :: color_parts -> (
+        match Color.shade_of_strings color_parts with
+        | Ok (color, shade) -> Ok (Border_color (color, shade))
+        | Error _ -> err_not_utility)
     | [ "rounded" ] -> Ok Rounded
     | [ "rounded"; "none" ] -> Ok Rounded_none
     | [ "rounded"; "sm" ] -> Ok Rounded_sm
@@ -565,6 +607,12 @@ module Handler = struct
     | Border_dotted -> "border-dotted"
     | Border_double -> "border-double"
     | Border_none -> "border-none"
+    | Border_color (c, shade) ->
+        if Color.is_base_color c || Color.is_custom_color c then
+          "border-" ^ Color.color_to_string c
+        else "border-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
+    | Border_transparent -> "border-transparent"
+    | Border_current -> "border-current"
     | Rounded -> "rounded"
     | Rounded_none -> "rounded-none"
     | Rounded_sm -> "rounded-sm"
@@ -618,6 +666,12 @@ let border_dashed = utility Border_dashed
 let border_dotted = utility Border_dotted
 let border_double = utility Border_double
 let border_none = utility Border_none
+
+(** {1 Border Color Utilities} *)
+
+let border_color color shade = utility (Border_color (color, shade))
+let border_transparent = utility Border_transparent
+let border_current = utility Border_current
 
 (* Border width utilities with semantic names matching tw.mli *)
 let border_xs = border (* 1px *)
