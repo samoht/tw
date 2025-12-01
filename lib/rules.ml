@@ -689,17 +689,27 @@ let rule_type_order = function
   | `Container _ -> 1
   | `Starting -> 2
 
-(* Extract breakpoint size (in rem) from media condition for sorting. Returns
-   max_int for unrecognized conditions to sort them at the end. *)
-let extract_media_breakpoint = function
-  | `Media cond -> (
-      try
-        let start = String.index cond ':' + 1 in
-        let end_pos = String.index_from cond start 'r' in
-        let value_str = String.sub cond start (end_pos - start) in
-        int_of_string value_str
-      with _ -> max_int)
-  | _ -> 0
+(* Extract media query sort key for ordering. Responsive breakpoints come last,
+   sorted by breakpoint size. Other media queries like hover and prefers-* come
+   first. Returns a tuple for comparison: higher values sort later. *)
+let extract_media_sort_key = function
+  | `Media cond ->
+      if
+        (* Check if this is a responsive breakpoint (min-width:XXrem) *)
+        String.length cond > 10 && String.sub cond 0 10 = "(min-width"
+      then
+        try
+          let start = String.index cond ':' + 1 in
+          let end_pos = String.index_from cond start 'r' in
+          let value_str = String.sub cond start (end_pos - start) in
+          (* Responsive breakpoints: use 1000 + breakpoint to sort after
+             others *)
+          (1000 + int_of_string value_str, 0)
+        with _ -> (1000, 0) (* Fallback for unparseable responsive queries *)
+      else
+        (* Non-responsive media queries like hover come first *)
+        (0, 0)
+  | _ -> (0, 0)
 
 (* Compare rules by priority, then suborder, then alphabetically (for simple
    class selectors), then by original index. Lower priority values come
@@ -718,13 +728,13 @@ let compare_by_priority_suborder_alpha sel1 sel2 (p1, s1) (p2, s2) i1 i2 =
 let compare_regular_rules sel1 sel2 order1 order2 i1 i2 =
   compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
 
-(* Compare two media query rules - sort by breakpoint first, then by base
-   utility priority/suborder *)
+(* Compare two media query rules - sort by media type first (responsive last),
+   then by breakpoint size, then by base utility priority/suborder *)
 let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 =
-  let breakpoint_cmp =
-    Int.compare (extract_media_breakpoint typ1) (extract_media_breakpoint typ2)
-  in
-  if breakpoint_cmp <> 0 then breakpoint_cmp
+  let key1, _ = extract_media_sort_key typ1 in
+  let key2, _ = extract_media_sort_key typ2 in
+  let key_cmp = Int.compare key1 key2 in
+  if key_cmp <> 0 then key_cmp
   else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
 
 (* Compare Regular vs Media rules.
@@ -733,39 +743,29 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 =
    appear immediately after their base utility (e.g., .container followed by its
    responsive @media blocks).
 
-   When they have different base classes: - Compare by priority/suborder first
-   (to respect utility ordering) - If priorities and suborders are equal,
-   Regular before Media
-
-   This ensures container (p=0) and its media queries stay at the top, while
-   flex-col (p=13) comes before md:grid-cols-2 (p=12 media) when they have the
-   same priority level. *)
-let compare_regular_vs_media base_class1 base_class2 i1 i2 order1 order2 sel1
-    sel2 =
+   When they have different base classes: Compare by priority first. This
+   ensures container (p=0) and its media queries stay at the top before other
+   utilities with higher priority values. Only when priorities are equal do we
+   put Regular before Media for proper CSS cascade ordering. *)
+let compare_regular_vs_media base_class1 base_class2 i1 i2 order1 order2 _sel1
+    _sel2 =
   match (base_class1, base_class2) with
   | Some bc1, Some bc2 when bc1 = bc2 ->
-      (* Same base class - preserve original order *)
+      (* Same base class - preserve original order so container and its
+         responsive @media blocks stay together *)
       Int.compare i1 i2
   | _ ->
-      (* Different base classes or missing base_class *)
-      let p1, _s1 = order1 in
-      let p2, _s2 = order2 in
-
-      (* Special handling for low-priority utilities like container (p=0) *)
-      if p1 < 5 || p2 < 5 then
-        (* Low-priority utilities should stay grouped with their media queries
-           via priority comparison, so container and its responsive variants
-           appear together at the top of the utilities layer *)
-        let prio_cmp = Int.compare p1 p2 in
-        if prio_cmp <> 0 then prio_cmp
-        else
-          (* Same low priority: compare by selector to maintain stable order *)
-          String.compare
-            (Css.Selector.to_string sel1)
-            (Css.Selector.to_string sel2)
+      (* Different base classes: compare by priority/suborder only. This ensures
+         low-priority utilities (like container p=0) and their media queries
+         appear before higher-priority utilities (like colors p=21). When
+         priorities are equal, Regular comes before Media. *)
+      let (p1, s1), (p2, s2) = (order1, order2) in
+      let prio_cmp = Int.compare p1 p2 in
+      if prio_cmp <> 0 then prio_cmp
       else
-        (* For normal utilities: Regular before Media regardless of priority *)
-        -1
+        let sub_cmp = Int.compare s1 s2 in
+        if sub_cmp <> 0 then sub_cmp
+        else -1 (* Regular before Media at same priority *)
 
 (* Compare indexed rules for sorting *)
 let compare_indexed_rules r1 r2 =
@@ -908,9 +908,12 @@ let rule_sets_from_selector_props all_rules =
     |> List.map indexed_rule_to_statement
   in
 
+  (* The sorted statements already have the correct interleaved order where
+     low-priority utilities (like container p=0) and their media queries appear
+     before higher-priority utilities. Insert hover media block at the end. *)
   match hover_media_block hover_rules with
   | None -> css_statements
-  | Some media -> css_statements @ [ media ]
+  | Some hover_media -> css_statements @ [ hover_media ]
 
 let rule_sets tw_classes =
   let all_rules = tw_classes |> List.concat_map extract_selector_props in

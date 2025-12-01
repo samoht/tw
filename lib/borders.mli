@@ -63,6 +63,18 @@ val border_none : t
 (** [border_none] sets [--tw-border-style] to [none] and applies
     [border-style: none]. *)
 
+(** {1 Border Color Utilities} *)
+
+val border_color : Color.color -> int -> t
+(** [border_color color shade] sets the border color to the specified color and
+    shade. *)
+
+val border_transparent : t
+(** [border_transparent] sets the border color to transparent. *)
+
+val border_current : t
+(** [border_current] sets the border color to currentColor. *)
+
 val border_xs : t
 (** [border_xs] is a semantic width alias – 1px. *)
 
