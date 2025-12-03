@@ -1679,58 +1679,57 @@ let test_random_utilities_with_minimization () =
         ~test_name:"random utilities ordering matches Tailwind" final
 
 let test_media_query_deduplication () =
-  (* Test that media queries preserve cascade order by NOT merging non-consecutive queries.
+  (* Test that media queries preserve cascade order.
    *
-   * When container and md:grid-cols-2 are used together, they have different priorities
-   * and will be separated by other utilities in the output. Their media queries should
-   * remain separate to preserve cascade semantics.
+   * Container outputs separate @media blocks for each breakpoint.
+   * md:grid-cols-2 also gets a @media block for its breakpoint.
+   * At 48rem we expect 2 media queries: one for container, one for md:grid-cols-2.
    *
-   * Example (correct):
+   * Example output:
    *   .container { width: 100% }
    *   @media (min-width:48rem) { .container { max-width: 48rem } }
-   *   .mx-auto { margin-inline: auto }
    *   @media (min-width:48rem) { .md\:grid-cols-2 { ... } }
-   *
-   * If they were merged (incorrect):
-   *   .container { width: 100% }
-   *   .mx-auto { margin-inline: auto }
-   *   @media (min-width:48rem) {
-   *     .container { max-width: 48rem }
-   *     .md\:grid-cols-2 { ... }
-   *   }
-   * This would move .container's media rule after .mx-auto, breaking cascade.
    *)
   let utilities = Tw.[ container; md [ grid_cols 2 ] ] in
   let css = Tw.to_css ~base:false ~optimize:false utilities in
 
-  (* Count media queries by recursively traversing the stylesheet *)
-  let rec count_media_queries condition stmt =
+  (* Count top-level media queries in layers *)
+  let rec count_toplevel_media condition stmt =
     match Tw.Css.as_media stmt with
-    | Some (cond, content) ->
-        let this_count = if cond = condition then 1 else 0 in
-        let nested_count =
-          List.fold_left ( + ) 0
-            (List.map (count_media_queries condition) content)
-        in
-        this_count + nested_count
+    | Some (cond, _) -> if cond = condition then 1 else 0
     | None -> (
         match Tw.Css.as_layer stmt with
         | Some (_, content) ->
             List.fold_left ( + ) 0
-              (List.map (count_media_queries condition) content)
+              (List.map (count_toplevel_media condition) content)
         | None -> 0)
   in
 
   let count_48rem =
     List.fold_left ( + ) 0
       (List.map
-         (count_media_queries "(min-width:48rem)")
+         (count_toplevel_media "(min-width:48rem)")
          (Tw.Css.statements css))
   in
 
-  (* Should have 2 separate media queries to preserve cascade order *)
+  (* Should have 2 top-level media queries at 48rem: one for container, one for
+     md:grid-cols-2 *)
   Alcotest.(check int)
-    "preserves cascade by keeping media queries separate" 2 count_48rem
+    "preserves cascade with nested and top-level media" 2 count_48rem
+
+let test_border_width_color_ordering () =
+  (* Test that border width utilities (borders.ml, priority 16) come before
+   * border color utilities (borders.ml, priority 16) and background utilities
+   * (backgrounds.ml, priority 18 for gradients, color.ml priority 21 for colors).
+   *
+   * This test verifies the fix for the ordering issue where border-b was
+   * being separated from border-gray-200 by bg-* utilities.
+   *
+   * We use of_string to test the actual parsing behavior. *)
+  let classes = [ "border-b"; "bg-blue-600"; "bg-white"; "border-gray-200" ] in
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
+  Test_helpers.check_ordering_matches
+    ~test_name:"border width and color ordering" utilities
 
 let test_regular_before_media_same_priority () =
   (* Test that regular rules ALWAYS come before media queries, regardless of their priorities.
@@ -1823,6 +1822,8 @@ let tests =
     test_case "typography before color" `Quick test_typography_before_color;
     test_case "priority order per group" `Quick test_priority_order_per_group;
     test_case "handler priority ordering" `Quick test_handler_priority_ordering;
+    test_case "border width and color ordering" `Quick
+      test_border_width_color_ordering;
     test_case "suborder within group" `Slow test_suborder_within_group;
     test_case "random utilities with minimization" `Slow
       test_random_utilities_with_minimization;

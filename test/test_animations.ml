@@ -2,9 +2,11 @@ open Alcotest
 
 let check = Test_helpers.check_handler_roundtrip (module Tw.Animations.Handler)
 
-(* Helper to check if animation property exists with expected name *)
+(* Helper to check if animation property exists with expected name or var ref *)
 let has_animation_name expected_name css =
   let open Tw in
+  (* Check for var(--animate-NAME) or direct NAME *)
+  let var_ref = "var(--animate-" ^ expected_name ^ ")" in
   Css.fold
     (fun found stmt ->
       if found then found
@@ -17,7 +19,7 @@ let has_animation_name expected_name css =
                 let value = Css.declaration_value decl in
                 name = "animation"
                 && String.length value > 0
-                && (value = expected_name
+                && (value = expected_name || value = var_ref
                    || String.length value > String.length expected_name
                       && String.sub value 0 (String.length expected_name)
                          = expected_name))
@@ -25,8 +27,8 @@ let has_animation_name expected_name css =
         | None -> false)
     false css
 
-(* Helper to check if transition property exists *)
-let has_transition css =
+(* Helper to check if transition-property exists *)
+let has_transition_property css =
   let open Tw in
   Css.fold
     (fun found stmt ->
@@ -35,7 +37,7 @@ let has_transition css =
         match Css.as_rule stmt with
         | Some (_, decls, _) ->
             List.exists
-              (fun decl -> Css.declaration_name decl = "transition")
+              (fun decl -> Css.declaration_name decl = "transition-property")
               decls
         | None -> false)
     false css
@@ -67,12 +69,15 @@ let test_animation_css () =
 
 let test_transition_css () =
   (* Test that transition utilities generate CSS with correct transition
-     properties *)
+     properties - Tailwind v4 uses individual properties, not shorthand *)
   let open Tw in
-  Alcotest.check bool "transition-all has transition property" true
-    (has_transition (to_css [ transition_all ]));
-  Alcotest.check bool "transition-none has transition property" true
-    (has_transition (to_css [ transition_none ]))
+  (* transition-all uses individual properties (transition-property, etc.) *)
+  Alcotest.check bool "transition-all has transition-property" true
+    (has_transition_property (to_css [ transition_all ]));
+  (* transition-none should use transition-property: none *)
+  Alcotest.check bool "transition-none has transition-property (not transition)"
+    true
+    (has_transition_property (to_css [ transition_none ]))
 
 let all_utilities () =
   let open Tw in

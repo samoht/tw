@@ -51,20 +51,27 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "animations"
-  let priority = 10
 
-  let transition_none =
-    style
-      [
-        Css.transition
-          (Css.Shorthand
-             {
-               property = Css.None;
-               duration = Some (Css.S 0.0);
-               timing_function = None;
-               delay = None;
-             });
-      ]
+  let priority =
+    30 (* Transition utilities come after all other styling utilities *)
+
+  (* Theme variables for default transition settings *)
+  let default_transition_duration_var =
+    Var.theme Css.Duration "default-transition-duration" ~order:(8, 0)
+
+  let default_transition_timing_function_var =
+    Var.theme Css.Timing_function "default-transition-timing-function"
+      ~order:(8, 1)
+
+  (* Variable for transition duration with @property *)
+  let tw_duration_var =
+    Var.channel ~needs_property:true Css.Duration "tw-duration"
+
+  (* Variable for transition timing function with @property *)
+  let tw_ease_var =
+    Var.channel ~needs_property:true Css.Timing_function "tw-ease"
+
+  let transition_none = style [ Css.transition_property Css.None ]
 
   let transition =
     style
@@ -138,16 +145,34 @@ module Handler = struct
       ]
 
   let transition_all =
+    (* Use individual properties with nested var fallbacks Output:
+       transition-property: all; transition-timing-function: var(--tw-ease,
+       var(--default-transition-timing-function)); transition-duration:
+       var(--tw-duration, var(--default-transition-duration)); *)
+    let ease_ref =
+      Var.reference_with_var_fallback tw_ease_var
+        default_transition_timing_function_var
+        (Css.Cubic_bezier (0., 0., 0., 0.))
+    in
+    let duration_ref =
+      Var.reference_with_var_fallback tw_duration_var
+        default_transition_duration_var (Css.Ms 0.)
+    in
+    (* Include theme bindings for default transition values *)
+    let duration_theme_decl, _ =
+      Var.binding default_transition_duration_var (Css.Ms 150.)
+    in
+    let timing_theme_decl, _ =
+      Var.binding default_transition_timing_function_var
+        (Css.Cubic_bezier (0.4, 0., 0.2, 1.))
+    in
     style
       [
-        Css.transition
-          (Css.Shorthand
-             {
-               property = Css.All;
-               duration = Some (Css.Ms 150.);
-               timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-               delay = None;
-             });
+        duration_theme_decl;
+        timing_theme_decl;
+        Css.transition_property Css.All;
+        Css.transition_timing_function (Css.Var ease_ref);
+        Css.transition_duration (Css.Var duration_ref);
       ]
 
   let transition_colors =
@@ -289,22 +314,37 @@ module Handler = struct
              });
       ]
 
+  (* Theme variable for animate-pulse - order (7, 10) places it after radius (7,
+     0-5) but before default-font-family (9, x) to match Tailwind ordering *)
+  let animate_pulse_var = Var.theme Css.Animation "animate-pulse" ~order:(7, 10)
+
   let animate_pulse =
-    style
-      [
-        Css.animation
-          (Css.Shorthand
-             {
-               name = Some "pulse";
-               duration = Some (S 2.0);
-               timing_function = Some (Cubic_bezier (0.4, 0.0, 0.6, 1.0));
-               delay = None;
-               iteration_count = Some Infinite;
-               direction = None;
-               fill_mode = None;
-               play_state = None;
-             });
-      ]
+    (* The animation value stored as theme variable *)
+    let pulse_animation =
+      Css.Shorthand
+        {
+          name = Some "pulse";
+          duration = Some (S 2.0);
+          timing_function = Some (Cubic_bezier (0.4, 0., 0.6, 1.));
+          delay = None;
+          iteration_count = Some Infinite;
+          direction = None;
+          fill_mode = None;
+          play_state = None;
+        }
+    in
+    let theme_decl, pulse_var = Var.binding animate_pulse_var pulse_animation in
+    let pulse_keyframes =
+      Css.keyframes "pulse"
+        [
+          {
+            Css.Stylesheet.keyframe_selector = "50%";
+            keyframe_declarations = [ Css.Declaration.opacity 0.5 ];
+          };
+        ]
+    in
+    style ~rules:(Some [ pulse_keyframes ])
+      [ theme_decl; Css.animation (Css.Var pulse_var) ]
 
   let animate_bounce =
     style
@@ -323,7 +363,16 @@ module Handler = struct
              });
       ]
 
-  let duration n = style [ Css.transition_duration (Css.Ms (float_of_int n)) ]
+  let duration n =
+    let duration_val = Css.Ms (float_of_int n) in
+    let tw_duration_decl, _ = Var.binding tw_duration_var duration_val in
+    let prop_rule = Var.property_rule tw_duration_var in
+    let property_rules =
+      match prop_rule with Some r -> r | None -> Css.empty
+    in
+    style ~property_rules
+      [ tw_duration_decl; Css.transition_duration duration_val ]
+
   let ease_linear = style [ Css.transition_timing_function Linear ]
 
   let ease_in =
@@ -465,3 +514,16 @@ let ease_linear = utility Ease_linear
 let ease_in = utility Ease_in
 let ease_out = utility Ease_out
 let ease_in_out = utility Ease_in_out
+
+(* Theme declarations for default transition values *)
+let default_transition_declarations =
+  (* --default-transition-duration: 150ms *)
+  let duration_decl, _ =
+    Var.binding Handler.default_transition_duration_var (Css.Ms 150.)
+  in
+  (* --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) *)
+  let timing_decl, _ =
+    Var.binding Handler.default_transition_timing_function_var
+      (Css.Cubic_bezier (0.4, 0., 0.2, 1.))
+  in
+  [ duration_decl; timing_decl ]
