@@ -168,6 +168,11 @@ val to_oklch_css : color -> int -> string
 val to_name : color -> string
 (** [to_name color] gets the name of a color as a string. *)
 
+val color_to_string : color -> string
+(** [color_to_string color] converts a color to its string representation for
+    class names. For hex colors, includes the # prefix in the arbitrary value
+    syntax (e.g., "[#0f0]"). *)
+
 val is_base_color : color -> bool
 (** [is_base_color color] checks if a color is black or white (doesn't need a
     shade). *)

@@ -440,13 +440,16 @@ val binding :
 val reference : ('a, [< `Ref_only | `Property_default ]) t -> 'a Css.var
 
 val reference_with_fallback : ('a, [< `Theme | `Channel ]) t -> 'a -> 'a Css.var
-(** [reference var] creates a variable reference for variables with built-in
-    defaults. Works with property_default (uses initial value) and ref_only
-    (uses built-in fallback). *)
-
 (** [reference_with_fallback var fallback_value] creates a variable reference
     with an explicit fallback value. Required for theme and channel variables.
 *)
+
+val reference_with_var_fallback :
+  ('a, [< `Channel ]) t -> ('a, [< `Theme ]) t -> 'a -> 'a Css.var
+(** [reference_with_var_fallback channel_var theme_var dummy_value] creates a
+    variable reference to [channel_var] with a nested var fallback to
+    [theme_var]. Produces: [var(--channel, var(--theme-fallback))]. The
+    [dummy_value] is used for type inference but not in the output. *)
 
 val property_rule : ('a, [< `Property_default | `Channel ]) t -> Css.t option
 (** [property_rule var] generates the [@property] rule if metadata is present.

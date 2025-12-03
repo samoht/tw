@@ -24,20 +24,21 @@ module Handler = struct
 
   let layout_container_style =
     let open Css in
-    let open Css.Selector in
-    let base_sel = class_ "container" in
+    (* Use top-level media queries to match Tailwind's minified output. The
+       minifier transforms CSS nesting to separate media blocks. *)
+    let container_selector = Selector.class_ "container" in
     let media_rules =
       [
         media ~condition:"(min-width:40rem)"
-          [ rule ~selector:base_sel [ max_width (Rem 40.) ] ];
+          [ rule ~selector:container_selector [ max_width (Rem 40.) ] ];
         media ~condition:"(min-width:48rem)"
-          [ rule ~selector:base_sel [ max_width (Rem 48.) ] ];
+          [ rule ~selector:container_selector [ max_width (Rem 48.) ] ];
         media ~condition:"(min-width:64rem)"
-          [ rule ~selector:base_sel [ max_width (Rem 64.) ] ];
+          [ rule ~selector:container_selector [ max_width (Rem 64.) ] ];
         media ~condition:"(min-width:80rem)"
-          [ rule ~selector:base_sel [ max_width (Rem 80.) ] ];
+          [ rule ~selector:container_selector [ max_width (Rem 80.) ] ];
         media ~condition:"(min-width:96rem)"
-          [ rule ~selector:base_sel [ max_width (Rem 96.) ] ];
+          [ rule ~selector:container_selector [ max_width (Rem 96.) ] ];
       ]
     in
     style ~rules:(Some media_rules) [ width (Pct 100.) ]

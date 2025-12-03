@@ -82,4 +82,11 @@ val ease_in_out : t
 val delay : int -> t
 (** [delay ms] sets animation/transition delay in milliseconds. *)
 
+(** {1 Theme Declarations} *)
+
+val default_transition_declarations : Css.declaration list
+(** [default_transition_declarations] are theme layer declarations for
+    [--default-transition-duration] (150ms) and
+    [--default-transition-timing-function] (cubic-bezier(0.4, 0, 0.2, 1)). *)
+
 module Handler : Utility.Handler

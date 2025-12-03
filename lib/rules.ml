@@ -177,13 +177,16 @@ let replace_class_in_selector ~old_class ~new_class selector =
 
 let responsive_rule breakpoint base_class selector props =
   let prefix = string_of_breakpoint breakpoint in
+  (* Use (min-width:Xrem) syntax to match Tailwind's minified output *)
   let condition = "(min-width:" ^ responsive_breakpoint prefix ^ ")" in
   let modified_class = prefix ^ ":" ^ base_class in
   let new_selector =
     replace_class_in_selector ~old_class:base_class ~new_class:modified_class
       selector
   in
-  media_query ~condition ~selector:new_selector ~props ~base_class ()
+  (* Use top-level media query to match Tailwind's minified output format *)
+  media_query ~condition ~selector:new_selector ~props
+    ~base_class:modified_class ()
 
 let container_rule query base_class selector props =
   let prefix = Containers.container_query_to_class_prefix query in
@@ -366,10 +369,11 @@ let modifier_to_rule modifier base_class selector props =
   (* :has() variants *)
   | Style.Has _ | Style.Group_has _ | Style.Peer_has _ ->
       route_has_modifier modifier base_class props
-  (* Starting style *)
+  (* Starting style - selector includes starting: prefix *)
   | Style.Starting ->
-      starting_style ~selector:(Css.Selector.Class base_class) ~props
-        ~base_class ()
+      let modified_class = "starting:" ^ base_class in
+      starting_style ~selector:(Css.Selector.Class modified_class) ~props
+        ~base_class:modified_class ()
   (* Interactive pseudo-classes *)
   | Style.Hover | Style.Focus | Style.Active | Style.Focus_within
   | Style.Focus_visible | Style.Disabled ->
@@ -414,25 +418,6 @@ let extract_selector_props util =
         match rules with
         | None -> [ regular ~selector:sel ~props ~base_class:class_name () ]
         | Some rule_list ->
-            (* Extract media queries as separate Media_query outputs *)
-            let media_queries =
-              rule_list
-              |> List.filter_map (fun stmt ->
-                     match Css.as_media stmt with
-                     | Some (condition, statements) ->
-                         statements
-                         |> List.filter_map (fun inner ->
-                                match Css.as_rule inner with
-                                | Some (selector, declarations, _) ->
-                                    Some
-                                      (media_query ~condition ~selector
-                                         ~props:declarations
-                                         ~base_class:class_name ())
-                                | None -> None)
-                         |> fun l -> Some l
-                     | None -> None)
-              |> List.concat
-            in
             (* Extract container queries as separate outputs *)
             let container_queries =
               rule_list
@@ -463,15 +448,42 @@ let extract_selector_props util =
                               ~base_class:class_name ())
                      | None -> None)
             in
-            (* Base rule (only if it has props) *)
-            let base_rule =
-              if props = [] then []
-              else [ regular ~selector:sel ~props ~base_class:class_name () ]
+            (* Separate nested media (CSS nesting) from top-level media. Nested
+               media (from media_nested) stay inside the rule. Top-level media
+               (from media with rules inside) are extracted. *)
+            let nested_media = rule_list |> List.filter Css.is_nested_media in
+            let toplevel_media =
+              rule_list
+              |> List.filter_map (fun stmt ->
+                     if Css.is_nested_media stmt then None
+                     else
+                       match Css.as_media stmt with
+                       | Some (condition, statements) ->
+                           statements
+                           |> List.filter_map (fun inner ->
+                                  match Css.as_rule inner with
+                                  | Some (selector, declarations, _) ->
+                                      Some
+                                        (media_query ~condition ~selector
+                                           ~props:declarations
+                                           ~base_class:class_name ())
+                                  | None -> None)
+                           |> fun l -> Some l
+                       | None -> None)
+              |> List.concat
             in
-            (* Combine: plain rules first, then base rule, then media/container
-               queries. This ensures that when a Style has both props and rules,
-               the custom rules come before the base props. *)
-            plain_rules @ base_rule @ media_queries @ container_queries)
+            (* Base rule with nested media (only if it has props or nested) *)
+            let base_rule =
+              if props = [] && nested_media = [] then []
+              else
+                [
+                  regular ~selector:sel ~props ~base_class:class_name
+                    ~nested:nested_media ();
+                ]
+            in
+            (* Combine: plain rules first, then base rule with nested media,
+               then top-level media rules, then container queries. *)
+            plain_rules @ base_rule @ toplevel_media @ container_queries)
     | Style.Modified (modifier, base_style) ->
         handle_modified util_inner modifier base_style extract_with_class
     | Style.Group styles ->
@@ -740,32 +752,26 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 =
 (* Compare Regular vs Media rules.
 
    When they share the same base_class, preserve original order so media queries
-   appear immediately after their base utility (e.g., .container followed by its
-   responsive @media blocks).
+   appear immediately after their base utility.
 
-   When they have different base classes: Compare by priority first. This
-   ensures container (p=0) and its media queries stay at the top before other
-   utilities with higher priority values. Only when priorities are equal do we
-   put Regular before Media for proper CSS cascade ordering. *)
+   When they have different base classes: Use priority ordering first. Lower
+   priority values come first (e.g., container with priority 0 comes before
+   other utilities). If priorities match, Regular comes before Media. *)
 let compare_regular_vs_media base_class1 base_class2 i1 i2 order1 order2 _sel1
     _sel2 =
   match (base_class1, base_class2) with
   | Some bc1, Some bc2 when bc1 = bc2 ->
-      (* Same base class - preserve original order so container and its
-         responsive @media blocks stay together *)
+      (* Same base class - preserve original order *)
       Int.compare i1 i2
   | _ ->
-      (* Different base classes: compare by priority/suborder only. This ensures
-         low-priority utilities (like container p=0) and their media queries
-         appear before higher-priority utilities (like colors p=21). When
-         priorities are equal, Regular comes before Media. *)
-      let (p1, s1), (p2, s2) = (order1, order2) in
+      (* Different base classes: Compare by priority first *)
+      let p1, _ = order1 in
+      let p2, _ = order2 in
       let prio_cmp = Int.compare p1 p2 in
       if prio_cmp <> 0 then prio_cmp
       else
-        let sub_cmp = Int.compare s1 s2 in
-        if sub_cmp <> 0 then sub_cmp
-        else -1 (* Regular before Media at same priority *)
+        (* Same priority: Regular before Media *)
+        -1
 
 (* Compare indexed rules for sorting *)
 let compare_indexed_rules r1 r2 =
@@ -788,6 +794,11 @@ let compare_indexed_rules r1 r2 =
         (* Negate because we're comparing in the opposite direction *)
         -compare_regular_vs_media r2.base_class r1.base_class r2.index r1.index
            r2.order r1.order r2.selector r1.selector
+    | `Starting, `Starting ->
+        (* Starting style rules are sorted by their utility order (priority,
+           suborder) *)
+        let order_cmp = compare r1.order r2.order in
+        if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
     | _, _ -> Int.compare r1.index r2.index
 
 (* Filter properties to only include utilities layer declarations *)
@@ -807,8 +818,11 @@ let filter_utility_properties props =
 let indexed_rule_to_statement r =
   let filtered_props = filter_utility_properties r.props in
   match r.rule_type with
-  | `Regular | `Starting ->
-      Css.rule ~selector:r.selector ~nested:r.nested filtered_props
+  | `Regular -> Css.rule ~selector:r.selector ~nested:r.nested filtered_props
+  | `Starting ->
+      (* Wrap selector+declarations in @starting-style block
+         (Tailwind-compatible format) *)
+      Css.starting_style [ Css.rule ~selector:r.selector filtered_props ]
   | `Media condition ->
       Css.media ~condition [ Css.rule ~selector:r.selector filtered_props ]
   | `Container condition ->
@@ -826,11 +840,16 @@ let deduplicate_typed_triples triples =
         true))
     triples
 
-(* Get utility order from base class, with fallback to conflict order *)
+(* Get utility order from base class, with fallback to conflict order. Note:
+   base_class may contain modifier prefixes (e.g., "md:grid-cols-2"), so we need
+   to strip those before looking up the utility. *)
 let order_of_base base_class selector =
   match base_class with
   | Some class_name -> (
-      match Utility.base_of_class class_name with
+      (* Strip modifier prefix to get base utility name *)
+      let base_utility = extract_base_utility class_name in
+      let parts = String.split_on_char '-' base_utility in
+      match Utility.base_of_strings parts with
       | Ok u -> Utility.order u
       | Error _ -> conflict_order (Css.Selector.to_string selector))
   | None -> conflict_order (Css.Selector.to_string selector)
@@ -1109,13 +1128,51 @@ let browser_detection =
   "(((-webkit-hyphens:none)) and (not (margin-trim:inline))) or \
    ((-moz-orient:inline) and (not (color:rgb(from red r g b))))"
 
+(* Property ordering to match Tailwind's output. Properties are grouped by
+   category, with transform first, then gradients, typography, and animations
+   last. *)
+let property_order name =
+  (* Strip leading -- *)
+  let name =
+    if String.starts_with ~prefix:"--" name then
+      String.sub name 2 (String.length name - 2)
+    else name
+  in
+  match name with
+  (* Transform variables first *)
+  | "tw-scale-x" -> 0
+  | "tw-scale-y" -> 1
+  | "tw-scale-z" -> 2
+  (* Gradient variables *)
+  | "tw-gradient-position" -> 10
+  | "tw-gradient-from" -> 11
+  | "tw-gradient-via" -> 12
+  | "tw-gradient-to" -> 13
+  | "tw-gradient-stops" -> 14
+  | "tw-gradient-via-stops" -> 15
+  | "tw-gradient-from-position" -> 16
+  | "tw-gradient-via-position" -> 17
+  | "tw-gradient-to-position" -> 18
+  (* Typography variables *)
+  | "tw-font-weight" -> 30
+  (* Animation variables *)
+  | "tw-duration" -> 40
+  | "tw-ease" -> 41
+  (* Other variables - maintain relative order *)
+  | _ -> 100
+
+let sort_properties_by_order initial_values =
+  List.sort
+    (fun (name1, _) (name2, _) ->
+      compare (property_order name1) (property_order name2))
+    initial_values
+
 (* Build property layer content with browser detection *)
 let property_layer_content initial_values other_statements =
   let selector = Css.Selector.(list [ universal; Before; After; Backdrop ]) in
+  let sorted_values = sort_properties_by_order initial_values in
   let initial_declarations =
-    List.map
-      (fun (name, value) -> Css.custom_property name value)
-      initial_values
+    List.map (fun (name, value) -> Css.custom_property name value) sorted_values
   in
   let rule = Css.rule ~selector initial_declarations in
   let supports_stmt = Css.supports ~condition:browser_detection [ rule ] in
@@ -1197,7 +1254,7 @@ let build_layer_declaration ~has_properties ~include_base =
 
 (** Assemble all CSS layers in the correct order *)
 let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
-    ~utilities_layer ~property_rules_for_end =
+    ~utilities_layer ~property_rules_for_end ~keyframes =
   let base_layers =
     if include_base then [ theme_layer; base_layer ] else [ theme_layer ]
   in
@@ -1214,10 +1271,29 @@ let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
     [ layer_names ] @ initial_layers @ base_layers
     @ [ components_declaration; utilities_layer ]
   in
-  let property_rules_css =
-    if property_rules_for_end = [] then [] else [ Css.v property_rules_for_end ]
+  (* Sort @property rules to match Tailwind's output order *)
+  let sorted_property_rules =
+    property_rules_for_end
+    |> List.sort (fun s1 s2 ->
+           match (Css.as_property s1, Css.as_property s2) with
+           | ( Some (Css.Property_info { name = n1; _ }),
+               Some (Css.Property_info { name = n2; _ }) ) ->
+               compare (property_order n1) (property_order n2)
+           | _ -> 0)
   in
-  layers_without_property @ property_rules_css
+  let property_rules_css =
+    if sorted_property_rules = [] then [] else [ Css.v sorted_property_rules ]
+  in
+  (* Convert keyframes to statements (deduplicated by name) *)
+  let keyframes_stmts =
+    keyframes
+    |> List.sort_uniq (fun (n1, _) (n2, _) -> String.compare n1 n2)
+    |> List.map (fun (name, frames) -> Css.keyframes name frames)
+  in
+  let keyframes_css =
+    if keyframes_stmts = [] then [] else [ Css.v keyframes_stmts ]
+  in
+  layers_without_property @ property_rules_css @ keyframes_css
 
 (* Extract variables and property rules from all utilities *)
 let extract_vars_and_rules utilities =
@@ -1232,6 +1308,8 @@ let flatten_property_rules property_rules_lists =
 
 (* Build individual CSS layers *)
 let build_individual_layers selector_props all_property_statements statements =
+  (* Only include font family defaults - transition defaults are added when
+     transition utilities are used, to match Tailwind's behavior *)
   let theme_defaults = Typography.default_font_family_declarations in
   let theme_layer =
     compute_theme_layer_from_selector_props ~default_decls:theme_defaults
@@ -1247,8 +1325,22 @@ let build_individual_layers selector_props all_property_statements statements =
   let utilities_layer = build_utilities_layer ~statements in
   { theme_layer; base_layer; properties_layer; utilities_layer; property_rules }
 
+(* Extract @keyframes from Style.rules *)
+let rec collect_keyframes acc = function
+  | Style.Style { rules = Some rs; _ } ->
+      List.fold_left
+        (fun acc stmt ->
+          match Css.as_keyframes stmt with
+          | Some (name, frames) -> (name, frames) :: acc
+          | None -> acc)
+        acc rs
+  | Style.Style { rules = None; _ } -> acc
+  | Style.Modified (_, t) -> collect_keyframes acc t
+  | Style.Group ts -> List.fold_left collect_keyframes acc ts
+
 (** Build all CSS layers from utilities and rules *)
 let build_layers ~include_base ~selector_props tw_classes statements =
+  let styles = List.map Utility.to_style tw_classes in
   let vars_from_utilities, property_rules_lists =
     extract_vars_and_rules tw_classes
   in
@@ -1259,10 +1351,12 @@ let build_layers ~include_base ~selector_props tw_classes statements =
   let layers =
     build_individual_layers selector_props all_property_statements statements
   in
+  (* Extract keyframes from all utilities *)
+  let keyframes = List.fold_left collect_keyframes [] styles in
   assemble_all_layers ~include_base ~properties_layer:layers.properties_layer
     ~theme_layer:layers.theme_layer ~base_layer:layers.base_layer
     ~utilities_layer:layers.utilities_layer
-    ~property_rules_for_end:layers.property_rules
+    ~property_rules_for_end:layers.property_rules ~keyframes
 
 let wrap_css_items statements =
   (* For inline mode, just wrap the statements in a stylesheet *)

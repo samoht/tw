@@ -264,6 +264,33 @@ let test_combined_media_modifiers () =
 
 (* Media query behavior for md [...] *)
 
+(* Test that motion-reduce:transition-none outputs transition-property: none *)
+let test_motion_reduce_transition_none () =
+  (* Tailwind v4 uses transition-property: none, not transition: none *)
+  let css = Tw.Rules.to_css [ motion_reduce [ transition_none ] ] in
+  let css_str = Tw.Css.to_string ~minify:true css in
+
+  (* Should contain transition-property:none *)
+  let has_transition_property =
+    try
+      let _ = Str.search_forward (Str.regexp "transition-property") css_str 0 in
+      true
+    with Not_found -> false
+  in
+  check bool "has transition-property (not transition shorthand)" true
+    has_transition_property;
+
+  (* Should NOT contain the shorthand 'transition: none' (with zero duration) *)
+  let has_shorthand =
+    try
+      let _ =
+        Str.search_forward (Str.regexp "transition: *none *0s") css_str 0
+      in
+      true
+    with Not_found -> false
+  in
+  check bool "should NOT have shorthand transition: none 0s" false has_shorthand
+
 (* Test suite *)
 let tests =
   [
@@ -279,6 +306,8 @@ let tests =
     test_case "modifier CSS roundtrip" `Quick test_modifier_css_roundtrip;
     test_case "selector escaping in CSS" `Quick test_selector_escaping_in_css;
     test_case "combined media modifiers" `Quick test_combined_media_modifiers;
+    test_case "motion-reduce:transition-none uses transition-property" `Quick
+      test_motion_reduce_transition_none;
   ]
 
 let suite = ("modifiers", tests)

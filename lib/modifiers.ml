@@ -277,5 +277,29 @@ let apply modifiers base_utility =
           match acc with
           | Utility.Group styles -> dark styles
           | single -> dark [ single ])
+      | "motion-safe" -> (
+          match acc with
+          | Utility.Group styles -> motion_safe styles
+          | single -> motion_safe [ single ])
+      | "motion-reduce" -> (
+          match acc with
+          | Utility.Group styles -> motion_reduce styles
+          | single -> motion_reduce [ single ])
+      | "contrast-more" -> (
+          match acc with
+          | Utility.Group styles -> contrast_more styles
+          | single -> contrast_more [ single ])
+      | "contrast-less" -> (
+          match acc with
+          | Utility.Group styles -> contrast_less styles
+          | single -> contrast_less [ single ])
+      | "before" -> (
+          match acc with
+          | Utility.Group styles -> before styles
+          | single -> before [ single ])
+      | "after" -> (
+          match acc with
+          | Utility.Group styles -> after styles
+          | single -> after [ single ])
       | _ -> acc (* ignore unknown modifiers for now *))
     base_utility modifiers

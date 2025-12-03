@@ -1275,38 +1275,43 @@ module Handler = struct
     | Border_transparent -> border_transparent
     | Border_current -> border_current
 
+  (* Suborder determines order within the color priority group. Tailwind orders:
+     border -> bg -> text So we use: border (0-9999), bg (10000-19999), text
+     (20000-29999) NOTE: Bg must be first pattern to infer local type t vs
+     shadowed Css.Border *)
   let suborder = function
     | Bg (color, shade) ->
         let color_str = color_to_string color in
-        if is_base_color color then suborder_with_shade color_str
-        else suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
-    | Bg_transparent -> 0
-    | Bg_current -> 1
+        let base =
+          if is_base_color color then suborder_with_shade color_str
+          else suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
+        in
+        10000 + base
+    | Bg_transparent -> 10000
+    | Bg_current -> 10001
     | Text (color, shade) ->
         let base =
           if is_base_color color then
-            let color_str = color_to_string color in
-            suborder_with_shade color_str
+            suborder_with_shade (color_to_string color)
           else
-            let color_str = color_to_string color in
-            suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
+            suborder_with_shade
+              (color_to_string color ^ "-" ^ string_of_int shade)
         in
-        10000 + base
-    | Text_transparent -> 10000
-    | Text_current -> 10001
-    | Text_inherit -> 10002
+        20000 + base
+    | Text_transparent -> 20000
+    | Text_current -> 20001
+    | Text_inherit -> 20002
     | Border (color, shade) ->
         let base =
           if is_base_color color then
-            let color_str = color_to_string color in
-            suborder_with_shade color_str
+            suborder_with_shade (color_to_string color)
           else
-            let color_str = color_to_string color in
-            suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
+            suborder_with_shade
+              (color_to_string color ^ "-" ^ string_of_int shade)
         in
-        20000 + base
-    | Border_transparent -> 20000
-    | Border_current -> 20001
+        base (* Border comes first: 0-9999 *)
+    | Border_transparent -> 0
+    | Border_current -> 1
 
   let to_class = function
     | Bg (c, shade) ->

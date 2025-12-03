@@ -142,6 +142,7 @@ let value_to_css_string : type a. a Css.kind -> a -> string =
           channel_to_string r ^ " " ^ channel_to_string g ^ " "
           ^ channel_to_string b
       | Css.Var _ -> "initial")
+  | Css.Animation -> Css.Pp.to_string Css.pp_animation value
   | _ -> "initial"
 
 (* Alias for backward compatibility *)
@@ -334,6 +335,18 @@ let reference_with_fallback : type a b. (a, b) t -> a -> a Css.var =
       var_ref
   | Property_default | Ref_only -> assert false
 
+(* Reference a channel variable with a var fallback to a theme variable
+   Produces: var(--channel, var(--theme-fallback)) IMPORTANT: This creates a
+   reference WITHOUT property metadata to avoid generating @property rules when
+   the variable is only referenced, not set. *)
+let reference_with_var_fallback : type a.
+    (a, [< `Channel ]) t -> (a, [< `Theme ]) t -> a -> a Css.var =
+ fun channel_var theme_var _dummy_value ->
+  let fallback_name = theme_var.name in
+  (* Create a var reference directly without going through binding, to avoid
+     adding property metadata that would trigger @property rules *)
+  Css.var_ref ~fallback:(Css.Var_fallback fallback_name) channel_var.name
+
 let ref_only kind name ~fallback =
   (* Create a utility variable that's only referenced, never set *)
   create kind ~fallback ~role:Ref_only name ~layer:Utility
@@ -364,7 +377,10 @@ let property_info_to_declaration_value (Css.Property_info info) =
 
 let var_needs_property v =
   match Css.var_meta v with
-  | None -> failwith ("raw CSS variable: " ^ Css.var_name v)
+  | None ->
+      (* Variables without metadata (e.g., raw theme variable references like
+         --animate-pulse) don't need @property rules *)
+      false
   | Some meta -> (
       match info_of_meta meta with
       | Some (Info i) -> i.need_property
