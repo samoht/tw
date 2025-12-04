@@ -22,11 +22,13 @@ include Padding
 include Sizing
 include Typography
 include Layout
+include Overflow
 include Grid
 include Grid_item
 include Grid_template
 include Flex
 include Flex_props
+include Flex_layout
 include Alignment
 include Borders
 include Effects
@@ -78,12 +80,14 @@ module Gap = Gap
 module Spacing = Spacing
 module Flex = Flex
 module Flex_props = Flex_props
+module Flex_layout = Flex_layout
 module Alignment = Alignment
 module Cursor = Cursor
 module Borders = Borders
 module Backgrounds = Backgrounds
 module Sizing = Sizing
 module Layout = Layout
+module Overflow = Overflow
 module Grid = Grid
 module Grid_item = Grid_item
 module Grid_template = Grid_template

@@ -3,16 +3,7 @@ open Alcotest
 let check = Test_helpers.check_handler_roundtrip (module Tw.Flex_props.Handler)
 
 let of_string_valid () =
-  (* Direction *)
-  check "flex-row";
-  check "flex-row-reverse";
-  check "flex-col";
-  check "flex-col-reverse";
-
-  (* Wrap *)
-  check "flex-wrap";
-  check "flex-wrap-reverse";
-  check "flex-nowrap";
+  (* Note: Direction and Wrap utilities are now in Flex_layout module *)
 
   (* Flex shortcuts *)
   check "flex-1";
@@ -63,15 +54,7 @@ let of_string_invalid () =
 let all_utilities () =
   let open Tw in
   [
-    (* Direction *)
-    flex_row;
-    flex_row_reverse;
-    flex_col;
-    flex_col_reverse;
-    (* Wrap *)
-    flex_wrap;
-    flex_wrap_reverse;
-    flex_nowrap;
+    (* Note: Direction and Wrap utilities are now in Flex_layout module *)
     (* Flex shortcuts *)
     flex_1;
     flex_auto;

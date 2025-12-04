@@ -47,16 +47,19 @@ let utility x = Utility.base (Self x)
 let flex = utility Flex
 let inline_flex = utility Inline_flex
 
-(** Re-export Flex_props utilities for backward compatibility *)
-let flex_row = Flex_props.flex_row
+(** Re-export Flex_layout utilities for backward compatibility *)
+let flex_row = Flex_layout.flex_row
 
-let flex_row_reverse = Flex_props.flex_row_reverse
-let flex_col = Flex_props.flex_col
-let flex_col_reverse = Flex_props.flex_col_reverse
-let flex_wrap = Flex_props.flex_wrap
-let flex_wrap_reverse = Flex_props.flex_wrap_reverse
-let flex_nowrap = Flex_props.flex_nowrap
+let flex_row_reverse = Flex_layout.flex_row_reverse
+let flex_col = Flex_layout.flex_col
+let flex_col_reverse = Flex_layout.flex_col_reverse
+let flex_wrap = Flex_layout.flex_wrap
+let flex_wrap_reverse = Flex_layout.flex_wrap_reverse
+let flex_nowrap = Flex_layout.flex_nowrap
+
+(** Re-export Flex_props utilities for backward compatibility *)
 let flex_1 = Flex_props.flex_1
+
 let flex_auto = Flex_props.flex_auto
 let flex_initial = Flex_props.flex_initial
 let flex_none = Flex_props.flex_none

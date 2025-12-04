@@ -1,41 +1,14 @@
-(** Flexbox property utilities (direction, wrap, grow, shrink, basis, order).
+(** Flexbox property utilities (grow, shrink, basis, order, flex shortcuts).
 
-    These utilities control flexbox behavior and come after sizing utilities in
-    the cascade order. For flex display utilities (flex, inline-flex), see
-    {!Flex} module.
+    These utilities control flexbox item behavior and come after sizing
+    utilities in the cascade order. For flex display utilities (flex,
+    inline-flex), see {!Flex} module. For direction/wrap utilities, see
+    {!Flex_layout} module.
 
-    @see <https://tailwindcss.com/docs/flex-direction> Flex Direction
-    @see <https://tailwindcss.com/docs/flex-wrap> Flex Wrap
     @see <https://tailwindcss.com/docs/flex-grow> Flex Grow
     @see <https://tailwindcss.com/docs/flex-shrink> Flex Shrink *)
 
 open Utility
-
-(** {1 Direction} *)
-
-val flex_row : t
-(** [flex_row] arranges flex items horizontally (left to right). *)
-
-val flex_row_reverse : t
-(** [flex_row_reverse] arranges flex items horizontally but reversed. *)
-
-val flex_col : t
-(** [flex_col] arranges flex items vertically (top to bottom). *)
-
-val flex_col_reverse : t
-(** [flex_col_reverse] arranges flex items vertically but reversed. *)
-
-(** {1 Wrap} *)
-
-val flex_wrap : t
-(** [flex_wrap] allows flex items to wrap onto multiple lines. *)
-
-val flex_wrap_reverse : t
-(** [flex_wrap_reverse] wraps flex items onto multiple lines in reverse order.
-*)
-
-val flex_nowrap : t
-(** [flex_nowrap] prevents flex items from wrapping. *)
 
 (** {1 Flex Shortcuts} *)
 

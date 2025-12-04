@@ -1,7 +1,8 @@
 (** Flexbox display utilities (flex, inline-flex).
 
-    For flexbox property utilities (direction, wrap, grow, shrink, basis,
-    order), see {!Flex_props} module.
+    For flexbox layout utilities (direction, wrap), see {!Flex_layout} module.
+    For flexbox property utilities (grow, shrink, basis, order), see
+    {!Flex_props} module.
 
     @see <https://tailwindcss.com/docs/flex> Tailwind CSS Flex documentation *)
 
@@ -15,39 +16,44 @@ val flex : t
 val inline_flex : t
 (** [inline_flex] creates an inline flex container. *)
 
-(** {1 Re-exported from Flex_props}
+(** {1 Re-exported from Flex_layout}
 
     These utilities are re-exported for backward compatibility. New code should
-    use {!Flex_props} directly. *)
+    use {!Flex_layout} directly. *)
 
 (** {2 Direction} *)
 
 val flex_row : t
-(** [flex_row] arranges flex items horizontally. See {!Flex_props.flex_row}. *)
+(** [flex_row] arranges flex items horizontally. See {!Flex_layout.flex_row}. *)
 
 val flex_row_reverse : t
 (** [flex_row_reverse] arranges flex items horizontally but reversed. See
-    {!Flex_props.flex_row_reverse}. *)
+    {!Flex_layout.flex_row_reverse}. *)
 
 val flex_col : t
-(** [flex_col] arranges flex items vertically. See {!Flex_props.flex_col}. *)
+(** [flex_col] arranges flex items vertically. See {!Flex_layout.flex_col}. *)
 
 val flex_col_reverse : t
 (** [flex_col_reverse] arranges flex items vertically but reversed. See
-    {!Flex_props.flex_col_reverse}. *)
+    {!Flex_layout.flex_col_reverse}. *)
 
 (** {2 Wrap} *)
 
 val flex_wrap : t
-(** [flex_wrap] allows flex items to wrap. See {!Flex_props.flex_wrap}. *)
+(** [flex_wrap] allows flex items to wrap. See {!Flex_layout.flex_wrap}. *)
 
 val flex_wrap_reverse : t
 (** [flex_wrap_reverse] wraps flex items in reverse. See
-    {!Flex_props.flex_wrap_reverse}. *)
+    {!Flex_layout.flex_wrap_reverse}. *)
 
 val flex_nowrap : t
 (** [flex_nowrap] prevents flex items from wrapping. See
-    {!Flex_props.flex_nowrap}. *)
+    {!Flex_layout.flex_nowrap}. *)
+
+(** {1 Re-exported from Flex_props}
+
+    These utilities are re-exported for backward compatibility. New code should
+    use {!Flex_props} directly. *)
 
 (** {2 Flex Shortcuts} *)
 
