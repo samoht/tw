@@ -28,7 +28,7 @@ Every CSS variable in our system follows one of these patterns (4 variable types
 **Purpose**: Variables that utilities only reference (with fallback), never set
 **Examples**: `--tw-shadow-color`, `--tw-ring-color`
 **Layer**: Not set by referencing utilities (set elsewhere)
-**Usage**: `Var.reference ~fallback:(Css.Fallback v)`; never set in the referencing module
+**Usage**: Create with `Var.ref_only kind name ~fallback:value`, then use `Var.reference var` (fallback is built-in); never set in the referencing module
 
 ### Pattern 5: Always-set Variables (variant of Pattern 3)
 **Purpose**: Variables that are always set when used
@@ -51,15 +51,20 @@ Use this decision tree:
 - `Var.theme`: defines a Theme variable (design token) with explicit `~order`
 - `Var.property_default`: defines a Utility variable with typed @property defaults
 - `Var.channel`: defines a Utility composition variable without @property
+- `Var.ref_only`: defines a variable that's only referenced (fallback built-in)
 
 - `Var.binding`: creates both declaration and reference (Patterns 1, 3, 5)
   - Returns `(declaration, var_ref)` tuple
   - Declaration sets the variable
-  - Reference uses it with optional fallback
+  - Reference uses it
 
-- `Var.reference`: creates only reference without declaration (Patterns 2, 4)
-  - Pattern 2: Requires `~property_rules` for @property
-  - Pattern 4: Requires `~fallback` parameter
+- `Var.reference`: creates only reference without declaration (Pattern 2)
+  - For `property_default` variables - uses built-in @property default
+  - For `ref_only` variables - uses built-in fallback
+
+- `Var.reference_with_fallback`: creates reference with explicit fallback (Patterns 3, 4)
+  - Use for `channel` variables when you need a fallback value
+  - Signature: `Var.reference_with_fallback var fallback_value`
 
 - `Var.property_rule`: generates @property rule (Pattern 2 only)
   - Returns `Some rule` if variable has property metadata
@@ -112,7 +117,8 @@ let border =
 (* Individual channel variables *)
 let translate_x_var = Var.channel Css.Length "tw-translate-x"
 let rotate_var = Var.channel Css.Angle "tw-rotate"
-let scale_var = Var.channel Css.Float "tw-scale"
+(* For channels that need @property defaults, use property_default instead *)
+let scale_var = Var.property_default Css.Number_percentage ~initial:(Num 1.0) "tw-scale"
 
 (* Contributing utilities set their channels *)
 let translate_x_4 =
@@ -123,11 +129,11 @@ let rotate_45 =
   let decl, _ = Var.binding rotate_var (Deg 45.) in
   style "rotate-45" [ decl ]
 
-(* Aggregator utility combines all channels *)
+(* Aggregator utility combines all channels - use reference_with_fallback for channels *)
 let transform =
-  let tx_ref = Var.reference translate_x_var ~fallback:(Css.Fallback Zero) in
-  let rot_ref = Var.reference rotate_var ~fallback:(Css.Fallback (Deg 0.)) in
-  let scale_ref = Var.reference scale_var ~fallback:(Css.Fallback 1.) in
+  let tx_ref = Var.reference_with_fallback translate_x_var Zero in
+  let rot_ref = Var.reference_with_fallback rotate_var (Deg 0.) in
+  let scale_ref = Var.reference scale_var in  (* property_default has built-in default *)
   style "transform" [
     transform (Transform [
       TranslateX (Var tx_ref);
@@ -139,14 +145,12 @@ let transform =
 
 ### Pattern 4: Ref_only Variables (Shadows)
 ```ocaml
-(* Variable that's only referenced, never set by shadows *)
+(* Variable that's only referenced, never set by shadows - use Var.channel *)
 let shadow_color_var = Var.channel Css.Color "tw-shadow-color"
 
-(* Shadow utilities reference with fallback *)
+(* Shadow utilities reference with fallback using reference_with_fallback *)
 let shadow_sm =
-  let color_ref =
-    Var.reference shadow_color_var
-      ~fallback:(Css.Fallback (Css.hex "#0000001a")) in
+  let color_ref = Var.reference_with_fallback shadow_color_var (Css.hex "#0000001a") in
   style "shadow-sm" [
     box_shadow (Shadow [0; 1; 3; 0; Var color_ref])
   ]
@@ -354,10 +358,10 @@ let set_channel_a value =
   let decl, _ = Var.binding channel_a_var value in
   style "channel-a" [ decl ]
 
-(* Aggregator utility *)
+(* Aggregator utility - use reference_with_fallback for channels *)
 let aggregate =
-  let a_ref = Var.reference channel_a_var ~fallback:(Css.Fallback Zero) in
-  let b_ref = Var.reference channel_b_var ~fallback:(Css.Fallback (Deg 0.)) in
+  let a_ref = Var.reference_with_fallback channel_a_var Zero in
+  let b_ref = Var.reference_with_fallback channel_b_var (Deg 0.) in
   style "aggregate" [
     my_composite_property [Var a_ref; Var b_ref]
   ]
@@ -365,15 +369,12 @@ let aggregate =
 
 ### Pattern 4: Ref_only Template
 ```ocaml
-(* Variable only referenced, never set here *)
-let color_override_var =
-  Var.channel Css.Color "tw-my-color"
+(* Variable only referenced, never set here - use Var.channel *)
+let color_override_var = Var.channel Css.Color "tw-my-color"
 
-(* Reference with fallback *)
+(* Reference with fallback using reference_with_fallback *)
 let my_colored_thing =
-  let color_ref =
-    Var.reference color_override_var
-      ~fallback:(Css.Fallback default_color) in
+  let color_ref = Var.reference_with_fallback color_override_var default_color in
   style "my-thing" [
     background_color (Var color_ref)
   ]
