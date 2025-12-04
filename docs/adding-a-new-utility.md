@@ -1,10 +1,10 @@
-Title: CSS Variables in Utilities - The 5 Pattern System
+Title: CSS Variables in Utilities - The Variable Pattern System
 
-This doc explains the 5 distinct CSS variable patterns used in Tailwind CSS v4 and how to implement them correctly in OCaml. Each pattern has specific use cases and constraints.
+This doc explains the CSS variable patterns used in Tailwind CSS v4 and how to implement them correctly in OCaml. There are 4 core variable types (`Var.theme`, `Var.property_default`, `Var.channel`, `Var.ref_only`) with 5 usage patterns. Each pattern has specific use cases and constraints.
 
-## The 5 Variable Patterns
+## The Variable Patterns
 
-Every CSS variable in our system follows exactly one of these patterns:
+Every CSS variable in our system follows one of these patterns (4 variable types, 5 usage patterns):
 
 ### Pattern 1: Theme Variables
 **Purpose**: Design tokens set once in theme layer, referenced by utilities
@@ -30,11 +30,12 @@ Every CSS variable in our system follows exactly one of these patterns:
 **Layer**: Not set by referencing utilities (set elsewhere)
 **Usage**: `Var.reference ~fallback:(Css.Fallback v)`; never set in the referencing module
 
-### Pattern 5: Always-set Variables
+### Pattern 5: Always-set Variables (variant of Pattern 3)
 **Purpose**: Variables that are always set when used
 **Examples**: `--tw-font-weight` in font utilities
 **Layer**: Set in `@layer utilities`
-**Usage**: Standard `Var.binding` pattern
+**Usage**: Uses `Var.channel` like Pattern 3, but every utility both sets and uses the variable (no separate aggregator)
+**Note**: This is technically a usage pattern of `Var.channel`, not a distinct variable type
 
 ## Choosing the Right Pattern
 
@@ -419,7 +420,7 @@ Common pitfalls and solutions
 - **Why**: 
   - String literals containing `var(...)` break the Rules engine's ability to track dependencies, resolve variables, and generate correct layers
   - `Css.custom` is a code smell - it bypasses the type system and makes the code fragile
-- **Instead**: Always use typed `Var` references from `Var.theme` or `Var.utility`
+- **Instead**: Always use typed `Var` references from `Var.theme`, `Var.channel`, or `Var.property_default`
 - **Exception**: When a CSS variable's actual value contains `var(...)` references (like Tailwind v4's `--tw-gradient-stops`), the string is the proper CSS value, not a reference. In these cases:
   - The variable type should be `string t` in var.ml
   - Use `Css.Computed_stops` or similar typed constructors when available
@@ -434,7 +435,7 @@ Common pitfalls and solutions
       | Var of box_shadow var  (* Standard pattern: Var (no suffix) with typed variable *)
     ```
   - The naming convention is always `Var` (not `Var_list`, `Var_composition`, etc.)
-  - The `Var` constructor holds a typed variable reference created by `Var.utility` or `Var.theme`
+  - The `Var` constructor holds a typed variable reference created by `Var.channel`, `Var.property_default`, or `Var.theme`
   - Never work around the type system with strings
 
 1. **Border utilities setting variables incorrectly**
@@ -466,4 +467,4 @@ Common pitfalls and solutions
    - **Problem**: Repetitive code for similar utilities (e.g., all font-variant-numeric utilities had similar structure)
    - **Solution**: Create helper functions with optional parameters using OCaml's labeled argument pattern
    - **Example**: `?(param : type = default_value)` allows callers to override only what they need
-   - **Key**: Pass the variable reference (from `Var.utility`) to the helper, not the definition
+   - **Key**: Pass the variable reference (from `Var.channel` or similar) to the helper, not the definition
