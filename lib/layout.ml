@@ -19,20 +19,6 @@ module Handler = struct
     | Collapse
     | (* Isolation *)
       Isolate
-    | (* Overflow *)
-      Overflow_auto
-    | Overflow_hidden
-    | Overflow_clip
-    | Overflow_visible
-    | Overflow_scroll
-    | Overflow_x_auto
-    | Overflow_x_hidden
-    | Overflow_x_visible
-    | Overflow_x_scroll
-    | Overflow_y_auto
-    | Overflow_y_hidden
-    | Overflow_y_visible
-    | Overflow_y_scroll
     | (* Z-index *)
       Z_0
     | Z_10
@@ -71,20 +57,6 @@ module Handler = struct
     | Inline -> 4
     | Inline_block -> 5
     | Table -> 6
-    (* Overflow utilities *)
-    | Overflow_auto -> 10
-    | Overflow_clip -> 11
-    | Overflow_hidden -> 12
-    | Overflow_scroll -> 13
-    | Overflow_visible -> 14
-    | Overflow_x_auto -> 15
-    | Overflow_x_hidden -> 16
-    | Overflow_x_scroll -> 17
-    | Overflow_x_visible -> 18
-    | Overflow_y_auto -> 19
-    | Overflow_y_hidden -> 20
-    | Overflow_y_scroll -> 21
-    | Overflow_y_visible -> 22
     (* Visibility *)
     | Visible -> 100
     | Invisible -> 101
@@ -126,19 +98,6 @@ module Handler = struct
     | Invisible -> "invisible"
     | Collapse -> "collapse"
     | Isolate -> "isolate"
-    | Overflow_auto -> "overflow-auto"
-    | Overflow_hidden -> "overflow-hidden"
-    | Overflow_clip -> "overflow-clip"
-    | Overflow_visible -> "overflow-visible"
-    | Overflow_scroll -> "overflow-scroll"
-    | Overflow_x_auto -> "overflow-x-auto"
-    | Overflow_x_hidden -> "overflow-x-hidden"
-    | Overflow_x_visible -> "overflow-x-visible"
-    | Overflow_x_scroll -> "overflow-x-scroll"
-    | Overflow_y_auto -> "overflow-y-auto"
-    | Overflow_y_hidden -> "overflow-y-hidden"
-    | Overflow_y_visible -> "overflow-y-visible"
-    | Overflow_y_scroll -> "overflow-y-scroll"
     | Z_0 -> "z-0"
     | Z_10 -> "z-10"
     | Z_20 -> "z-20"
@@ -192,19 +151,6 @@ module Handler = struct
     | Invisible -> style [ visibility Hidden ]
     | Collapse -> style [ visibility Collapse ]
     | Isolate -> style [ isolation Isolate ]
-    | Overflow_auto -> style [ overflow Auto ]
-    | Overflow_hidden -> style [ overflow Hidden ]
-    | Overflow_clip -> style [ overflow Clip ]
-    | Overflow_visible -> style [ overflow Visible ]
-    | Overflow_scroll -> style [ overflow Scroll ]
-    | Overflow_x_auto -> style [ overflow_x Auto ]
-    | Overflow_x_hidden -> style [ overflow_x Hidden ]
-    | Overflow_x_visible -> style [ overflow_x Visible ]
-    | Overflow_x_scroll -> style [ overflow_x Scroll ]
-    | Overflow_y_auto -> style [ overflow_y Auto ]
-    | Overflow_y_hidden -> style [ overflow_y Hidden ]
-    | Overflow_y_visible -> style [ overflow_y Visible ]
-    | Overflow_y_scroll -> style [ overflow_y Scroll ]
     | Z_0 -> style [ z_index (Index 0) ]
     | Z_10 -> style [ z_index (Index 10) ]
     | Z_20 -> style [ z_index (Index 20) ]
@@ -237,19 +183,6 @@ module Handler = struct
     | [ "invisible" ] -> Ok Invisible
     | [ "collapse" ] -> Ok Collapse
     | [ "isolate" ] -> Ok Isolate
-    | [ "overflow"; "auto" ] -> Ok Overflow_auto
-    | [ "overflow"; "hidden" ] -> Ok Overflow_hidden
-    | [ "overflow"; "clip" ] -> Ok Overflow_clip
-    | [ "overflow"; "visible" ] -> Ok Overflow_visible
-    | [ "overflow"; "scroll" ] -> Ok Overflow_scroll
-    | [ "overflow"; "x"; "auto" ] -> Ok Overflow_x_auto
-    | [ "overflow"; "x"; "hidden" ] -> Ok Overflow_x_hidden
-    | [ "overflow"; "x"; "visible" ] -> Ok Overflow_x_visible
-    | [ "overflow"; "x"; "scroll" ] -> Ok Overflow_x_scroll
-    | [ "overflow"; "y"; "auto" ] -> Ok Overflow_y_auto
-    | [ "overflow"; "y"; "hidden" ] -> Ok Overflow_y_hidden
-    | [ "overflow"; "y"; "visible" ] -> Ok Overflow_y_visible
-    | [ "overflow"; "y"; "scroll" ] -> Ok Overflow_y_scroll
     | [ "z"; "0" ] -> Ok Z_0
     | [ "z"; "10" ] -> Ok Z_10
     | [ "z"; "20" ] -> Ok Z_20
@@ -290,19 +223,6 @@ let visible = utility Visible
 let invisible = utility Invisible
 let collapse = utility Collapse
 let isolate = utility Isolate
-let overflow_auto = utility Overflow_auto
-let overflow_hidden = utility Overflow_hidden
-let overflow_clip = utility Overflow_clip
-let overflow_visible = utility Overflow_visible
-let overflow_scroll = utility Overflow_scroll
-let overflow_x_auto = utility Overflow_x_auto
-let overflow_x_hidden = utility Overflow_x_hidden
-let overflow_x_visible = utility Overflow_x_visible
-let overflow_x_scroll = utility Overflow_x_scroll
-let overflow_y_auto = utility Overflow_y_auto
-let overflow_y_hidden = utility Overflow_y_hidden
-let overflow_y_visible = utility Overflow_y_visible
-let overflow_y_scroll = utility Overflow_y_scroll
 let z_0 = utility Z_0
 let z_10 = utility Z_10
 let z_20 = utility Z_20

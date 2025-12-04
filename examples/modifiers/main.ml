@@ -11,7 +11,7 @@ let group_example =
       h3 ~tw:Tw.[ font_semibold; mb 2 ] [ txt "Group & Group Hover" ];
       p
         ~tw:Tw.[ text gray 600; group_hover [ text blue 600; font_semibold ] ]
-        [ txt "Hover the container to style this text" ];
+        [ txt "Hover the box to style this text" ];
     ]
 
 let group_has_example =

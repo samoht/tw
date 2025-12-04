@@ -8,7 +8,7 @@ This repo provides a type-safe Tailwind v4 implementation in OCaml. Utilities ar
 
 ## 2) Core principles
 
-1. **Type safety over strings.** Never write `"var(--name)"` or `Css.custom`; represent variables and properties via `Var` and typed constructors.
+1. **Type safety over strings.** Never write `"var(--name)"` or `Css.custom`; represent variables and properties via `Var` and typed constructors. **NEVER add `Raw of string` or similar escape hatches to CSS types** — if a pattern cannot be expressed with existing types, extend the type system properly.
 2. **Spec-driven tests.** CSS behaviour is tested against MDN/W3C where applicable; utilities against Tailwind v4 output.
 3. **Variables follow four patterns.** See patterns below and `docs/adding-a-new-utility.md`.
 4. **Respect layers.** `theme → properties → base → components → utilities`. Utilities must not leak into theme or properties.
@@ -375,6 +375,8 @@ When `--diff` shows ordering differences:
 6. Using non-existent `Css.kind` constructors → check `lib/css/declaration_intf.ml` for valid kinds.
    If the kind genuinely needs its own type, add it to `declaration_intf.ml`. Otherwise, use an
    existing kind (e.g., `Length` for letter-spacing since it takes length values).
+7. Adding `Raw of string` or similar escape hatches to bypass type safety → **NEVER**. Always add
+   the properly typed properties/variants you need. Extend the type system rather than escape it.
 
 ---
 

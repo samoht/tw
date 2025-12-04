@@ -25,8 +25,8 @@ module Handler = struct
 
   let name = "animations"
 
-  let priority =
-    10 (* Animation utilities come before other styling utilities *)
+  (* Match Tailwind ordering: animations after transforms, before cursor *)
+  let priority = 10
 
   let animate_none =
     style

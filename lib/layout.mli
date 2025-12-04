@@ -1,8 +1,7 @@
 (** Layout utilities for basic display, positioning, and object properties
 
     https://tailwindcss.com/docs/display https://tailwindcss.com/docs/visibility
-    https://tailwindcss.com/docs/overflow https://tailwindcss.com/docs/z-index
-    https://tailwindcss.com/docs/object-fit
+    https://tailwindcss.com/docs/z-index https://tailwindcss.com/docs/object-fit
     https://tailwindcss.com/docs/object-position
     https://tailwindcss.com/docs/border-collapse
     https://tailwindcss.com/docs/table-layout *)
@@ -22,19 +21,6 @@ val visible : t
 val invisible : t
 val collapse : t
 val isolate : t
-val overflow_auto : t
-val overflow_hidden : t
-val overflow_clip : t
-val overflow_visible : t
-val overflow_scroll : t
-val overflow_x_auto : t
-val overflow_x_hidden : t
-val overflow_x_visible : t
-val overflow_x_scroll : t
-val overflow_y_auto : t
-val overflow_y_hidden : t
-val overflow_y_visible : t
-val overflow_y_scroll : t
 val z_0 : t
 val z_10 : t
 val z_20 : t

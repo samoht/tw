@@ -1189,7 +1189,7 @@ module Handler = struct
   open Css
 
   let name = "color"
-  let priority = 21
+  let priority = 23
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in

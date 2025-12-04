@@ -590,21 +590,32 @@ let code_rules base =
         Css.font_size (Em 0.875);
         Css.font_weight (Weight 600);
       ];
-    (* Code pseudo-element content - apply pseudo AFTER the where clause *)
-    Css.rule ~selector:(with_before (where base code)) [ content (String "`") ];
-    Css.rule ~selector:(with_after (where base code)) [ content (String "`") ];
+    (* Code pseudo-element content - group ::before and ::after in one rule *)
+    Css.rule
+      ~selector:
+        (Css.Selector.list
+           [ with_before (where base code); with_after (where base code) ])
+      [ content (String "`") ];
     (* Code inherits color in certain contexts *)
-    Css.rule ~selector:(where base (a ++ code)) [ Css.color Inherit ];
-    Css.rule ~selector:(where base (h1 ++ code)) [ Css.color Inherit ];
+    Css.rule
+      ~selector:
+        (Css.Selector.list [ where base (a ++ code); where base (h1 ++ code) ])
+      [ Css.color Inherit ];
     Css.rule
       ~selector:(where base (h2 ++ code))
       [ Css.color Inherit; Css.font_size (Em 0.875) ];
     Css.rule
       ~selector:(where base (h3 ++ code))
       [ Css.color Inherit; Css.font_size (Em 0.9) ];
-    Css.rule ~selector:(where base (h4 ++ code)) [ Css.color Inherit ];
-    Css.rule ~selector:(where base blockquote_code) [ Css.color Inherit ];
-    Css.rule ~selector:(where base thead_th_code) [ Css.color Inherit ];
+    Css.rule
+      ~selector:
+        (Css.Selector.list
+           [
+             where base (h4 ++ code);
+             where base blockquote_code;
+             where base thead_th_code;
+           ])
+      [ Css.color Inherit ];
     (* Pre code block styles *)
     Css.rule ~selector:(where base pre)
       [
@@ -634,10 +645,14 @@ let code_rules base =
         border_radius Zero;
         padding [ Zero ];
       ];
-    (* Pre code pseudo-element content removal - apply pseudo AFTER the where
-       clause *)
-    Css.rule ~selector:(with_before (where base pre_code)) [ content None ];
-    Css.rule ~selector:(with_after (where base pre_code)) [ content None ];
+    (* Pre code pseudo-element content removal - group ::before and ::after *)
+    Css.rule
+      ~selector:
+        (Css.Selector.list
+           [
+             with_before (where base pre_code); with_after (where base pre_code);
+           ])
+      [ content None ];
   ]
 
 (* Table styles *)
@@ -712,10 +727,8 @@ let additional_rules base =
     Css.rule ~selector:(where base li)
       [ Css.margin_top (Em 0.5); Css.margin_bottom (Em 0.5) ];
     Css.rule
-      ~selector:(where base (ol >> li))
-      [ Css.padding_inline_start (Em 0.375) ];
-    Css.rule
-      ~selector:(where base (ul >> li))
+      ~selector:
+        (Css.Selector.list [ where base (ol >> li); where base (ul >> li) ])
       [ Css.padding_inline_start (Em 0.375) ];
     (* Nested list paragraph spacing *)
     Css.rule
@@ -767,10 +780,16 @@ let additional_rules base =
     Css.rule ~selector:(where base dd)
       [ Css.margin_top (Em 0.5); padding_inline_start (Em 1.625) ];
     (* Adjacent element spacing *)
-    Css.rule ~selector:(where base (sibling hr)) [ Css.margin_top Zero ];
-    Css.rule ~selector:(where base (sibling h2)) [ Css.margin_top Zero ];
-    Css.rule ~selector:(where base (sibling h3)) [ Css.margin_top Zero ];
-    Css.rule ~selector:(where base (sibling h4)) [ Css.margin_top Zero ];
+    Css.rule
+      ~selector:
+        (Css.Selector.list
+           [
+             where base (sibling hr);
+             where base (sibling h2);
+             where base (sibling h3);
+             where base (sibling h4);
+           ])
+      [ Css.margin_top Zero ];
     (* Table column padding *)
     Css.rule
       ~selector:(where base (thead ++ (th && first_child)))
@@ -875,23 +894,20 @@ let base_prose_rules () =
       (* Strong *)
       Css.rule ~selector:(where base strong)
         [ Css.color (Css.Var prose_bold_v); Css.font_weight (Weight 600) ];
-      (* Strong inherit rules - separate for now, will be grouped in CSS
-         output *)
+      (* Strong inherit rules - group multiple selectors *)
       Css.rule
         ~selector:
-          (where base (Css.Selector.combine a Css.Selector.Descendant strong))
-        [ Css.color Inherit ];
-      Css.rule
-        ~selector:
-          (where base
-             (Css.Selector.combine blockquote Css.Selector.Descendant strong))
-        [ Css.color Inherit ];
-      Css.rule
-        ~selector:
-          (where base
-             (Css.Selector.combine
-                (Css.Selector.combine thead Css.Selector.Descendant th)
-                Css.Selector.Descendant strong))
+          (Css.Selector.list
+             [
+               where base
+                 (Css.Selector.combine a Css.Selector.Descendant strong);
+               where base
+                 (Css.Selector.combine blockquote Css.Selector.Descendant strong);
+               where base
+                 (Css.Selector.combine
+                    (Css.Selector.combine thead Css.Selector.Descendant th)
+                    Css.Selector.Descendant strong);
+             ])
         [ Css.color Inherit ];
     ]
   in
@@ -1180,10 +1196,12 @@ let typography_rules selector c =
       ];
     (* Images *)
     Css.rule
-      ~selector:(selector ++ prose_where_element img)
-      [ Css.margin_top c.img_margin_y; Css.margin_bottom c.img_margin_y ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element picture)
+      ~selector:
+        (Css.Selector.list
+           [
+             selector ++ prose_where_element img;
+             selector ++ prose_where_element picture;
+           ])
       [ Css.margin_top c.img_margin_y; Css.margin_bottom c.img_margin_y ];
     Css.rule
       ~selector:(selector ++ prose_where_element (picture >> img))
@@ -1226,14 +1244,12 @@ let typography_rules selector c =
       ];
     (* Lists *)
     Css.rule
-      ~selector:(selector ++ prose_where_element ol)
-      [
-        Css.margin_top c.list_margin_y;
-        Css.margin_bottom c.list_margin_y;
-        Css.padding_inline_start c.list_padding_start;
-      ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element ul)
+      ~selector:
+        (Css.Selector.list
+           [
+             selector ++ prose_where_element ol;
+             selector ++ prose_where_element ul;
+           ])
       [
         Css.margin_top c.list_margin_y;
         Css.margin_bottom c.list_margin_y;
@@ -1244,10 +1260,12 @@ let typography_rules selector c =
       [ Css.margin_top c.li_margin_y; Css.margin_bottom c.li_margin_y ];
     (* List items with padding *)
     Css.rule
-      ~selector:(selector ++ prose_where_element (ol >> li))
-      [ Css.padding_inline_start c.li_padding_start ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element (ul >> li))
+      ~selector:
+        (Css.Selector.list
+           [
+             selector ++ prose_where_element (ol >> li);
+             selector ++ prose_where_element (ul >> li);
+           ])
       [ Css.padding_inline_start c.li_padding_start ];
     (* Nested list paragraphs *)
     Css.rule
@@ -1290,16 +1308,14 @@ let typography_rules selector c =
       [ Css.margin_top c.hr_margin_y; Css.margin_bottom c.hr_margin_y ];
     (* Following elements *)
     Css.rule
-      ~selector:(selector ++ prose_where_element (sibling hr))
-      [ Css.margin_top Zero ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element (sibling h2))
-      [ Css.margin_top Zero ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element (sibling h3))
-      [ Css.margin_top Zero ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element (sibling h4))
+      ~selector:
+        (Css.Selector.list
+           [
+             selector ++ prose_where_element (sibling hr);
+             selector ++ prose_where_element (sibling h2);
+             selector ++ prose_where_element (sibling h3);
+             selector ++ prose_where_element (sibling h4);
+           ])
       [ Css.margin_top Zero ];
     (* Tables *)
     Css.rule
@@ -2075,7 +2091,7 @@ module Color_Handler = struct
   (** Priority for prose color utilities *)
   let name = "prose-color"
 
-  let priority = 21 (* Same as color utilities *)
+  let priority = 23 (* Same as color utilities *)
 
   (** {1 Utility Conversion Functions} *)
 

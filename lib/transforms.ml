@@ -49,16 +49,23 @@ module Handler = struct
   (** Priority for transform utilities *)
   let name = "transforms"
 
+  (* Match Tailwind ordering: transforms before animations and cursor *)
   let priority = 9
 
-  (* Transform variables using new API *)
-  let tw_translate_x_var = Var.channel Css.Length "tw-translate-x"
-  let tw_translate_y_var = Var.channel Css.Length "tw-translate-y"
-  let tw_rotate_var = Var.channel Css.Angle "tw-rotate"
+  (* Tailwind v4 uses rotate-x/y/z and skew-x/y variables for the transform
+     utility. These variables contain the full transform function values, e.g.:
+     --tw-rotate-x: rotateX(45deg) --tw-skew-x: skewX(10deg) *)
+  let tw_rotate_x_var =
+    Var.channel ~needs_property:true Css.Transform "tw-rotate-x"
 
-  (* Tailwind v4 uses individual skew-x/y variables with @property *)
-  let tw_skew_x_var = Var.channel ~needs_property:true Css.Angle "tw-skew-x"
-  let tw_skew_y_var = Var.channel ~needs_property:true Css.Angle "tw-skew-y"
+  let tw_rotate_y_var =
+    Var.channel ~needs_property:true Css.Transform "tw-rotate-y"
+
+  let tw_rotate_z_var =
+    Var.channel ~needs_property:true Css.Transform "tw-rotate-z"
+
+  let tw_skew_x_var = Var.channel ~needs_property:true Css.Transform "tw-skew-x"
+  let tw_skew_y_var = Var.channel ~needs_property:true Css.Transform "tw-skew-y"
 
   (* Scale variables need @property defaults for composition *)
   let tw_scale_x_var =
@@ -118,12 +125,16 @@ module Handler = struct
     style (d :: [ Css.transform (Scale_y (float_of_int n /. 100.0)) ])
 
   let skew_x deg =
-    let d, v = Var.binding tw_skew_x_var (Deg (float_of_int deg)) in
-    style (d :: [ Css.transform (Skew_x (Var v)) ])
+    (* Store the full transform value: Skew_x angle *)
+    let transform_val : Css.transform = Skew_x (Deg (float_of_int deg)) in
+    let d, _ = Var.binding tw_skew_x_var transform_val in
+    style [ d; Css.transform transform_val ]
 
   let skew_y deg =
-    let d, v = Var.binding tw_skew_y_var (Deg (float_of_int deg)) in
-    style (d :: [ Css.transform (Skew_y (Var v)) ])
+    (* Store the full transform value: Skew_y angle *)
+    let transform_val : Css.transform = Skew_y (Deg (float_of_int deg)) in
+    let d, _ = Var.binding tw_skew_y_var transform_val in
+    style [ d; Css.transform transform_val ]
 
   (* Negative translate utilities for centering *)
   let neg_translate_x_1_2 =
@@ -162,29 +173,51 @@ module Handler = struct
 
   (** {1 Transform Control Utilities} *)
 
-  (* Tailwind v4 uses individual rotate-x/y/z and skew-x/y variables with empty
-     fallbacks. When set, each variable contains the full transform function
-     like "rotateX(45deg)". *)
+  (* Tailwind v4 transform utility uses individual rotate-x/y/z and skew-x/y
+     variables with empty fallbacks. The output is: transform:
+     var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,)
+     var(--tw-skew-x,) var(--tw-skew-y,); When a variable is set (e.g.,
+     --tw-rotate-x: rotateX(45deg)), it becomes part of the transform. *)
   let transform =
-    (* Build property rules for all the transform variables *)
+    (* Create var references with Empty fallbacks *)
+    let rotate_x_ref : Css.transform Css.var =
+      Css.var_ref ~fallback:Empty "tw-rotate-x"
+    in
+    let rotate_y_ref : Css.transform Css.var =
+      Css.var_ref ~fallback:Empty "tw-rotate-y"
+    in
+    let rotate_z_ref : Css.transform Css.var =
+      Css.var_ref ~fallback:Empty "tw-rotate-z"
+    in
+    let skew_x_ref : Css.transform Css.var =
+      Css.var_ref ~fallback:Empty "tw-skew-x"
+    in
+    let skew_y_ref : Css.transform Css.var =
+      Css.var_ref ~fallback:Empty "tw-skew-y"
+    in
+    (* Collect @property rules for these variables *)
     let property_rules =
       [
-        tw_rotate_x_var;
-        tw_rotate_y_var;
-        tw_rotate_z_var;
-        tw_skew_x_var;
-        tw_skew_y_var;
+        Var.property_rule tw_rotate_x_var;
+        Var.property_rule tw_rotate_y_var;
+        Var.property_rule tw_rotate_z_var;
+        Var.property_rule tw_skew_x_var;
+        Var.property_rule tw_skew_y_var;
       ]
-      |> List.filter_map (fun v -> Var.property_rule v)
+      |> List.filter_map (fun x -> x)
       |> Css.concat
     in
-    (* The transform value is a concatenation of var() references with empty
-       fallbacks *)
-    let transform_value =
-      "var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) \
-       var(--tw-skew-x,) var(--tw-skew-y,)"
-    in
-    style ~property_rules [ Css.transform (Raw transform_value) ]
+    style ~property_rules
+      [
+        transforms
+          [
+            Var rotate_x_ref;
+            Var rotate_y_ref;
+            Var rotate_z_ref;
+            Var skew_x_ref;
+            Var skew_y_ref;
+          ];
+      ]
 
   let transform_none = style [ Css.transform None ]
   let transform_gpu = style [ Css.transform (Translate_z Zero) ]

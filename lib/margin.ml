@@ -75,7 +75,7 @@ module Handler = struct
         int_of_float (units *. 10.)
 
   let margin_value_order = function
-    | `Auto -> 0
+    | `Auto -> 99999 (* Auto comes after numeric values in Tailwind *)
     | #spacing as s -> spacing_value_order s
 
   (** Convert margin utility to style *)

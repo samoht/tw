@@ -47,7 +47,9 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "grid_template"
-  let priority = 12
+
+  (* Before flex_props (16) and alignment/gap (17) *)
+  let priority = 15
 
   let grid_cols n =
     if n < 1 || n > 12 then

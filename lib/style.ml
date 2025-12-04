@@ -102,9 +102,9 @@ let rec pp_modifier = function
   | Data_inactive -> "data-inactive"
   | Data_custom (k, v) -> String.concat "" [ "data-"; k; "="; v ]
   | Not m -> String.concat "" [ "not("; pp_modifier m; ")" ]
-  | Has s -> String.concat "" [ "has("; s; ")" ]
-  | Group_has s -> String.concat "" [ "group-has("; s; ")" ]
-  | Peer_has s -> String.concat "" [ "peer-has("; s; ")" ]
+  | Has s -> String.concat "" [ "has-["; s; "]" ]
+  | Group_has s -> String.concat "" [ "group-has-["; s; "]" ]
+  | Peer_has s -> String.concat "" [ "peer-has-["; s; "]" ]
   | Starting -> "starting"
   | Focus_within -> "focus-within"
   | Focus_visible -> "focus-visible"

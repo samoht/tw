@@ -8,7 +8,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "padding"
-  let priority = 19
+  let priority = 21
 
   let to_class { axis; value } =
     let prefix =
