@@ -1297,13 +1297,9 @@ let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
         && decls_signature decls1 = decls_signature decls2
       in
       if is_pure_reordering then
-        (* Same properties, different order within the rule - only report as
-           Rule_reordered if the rule's position in the list changed *)
-        if position_changed () then make_reordered sel1_str
-        else
-          (* Declaration order changed but rule position didn't - not
-             significant *)
-          make_content_changed sel1_str decls1 decls2
+        (* Same properties, different order within the rule - report as
+           Rule_reordered since the declaration order changed *)
+        make_reordered sel1_str
       else
         (* Properties changed *)
         make_content_changed sel1_str decls1 decls2
