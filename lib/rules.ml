@@ -749,22 +749,33 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 =
   if key_cmp <> 0 then key_cmp
   else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
 
+(* Check if a base_class represents a responsive media query (has modifier
+   prefix like "md:", "lg:", etc.) *)
+let is_responsive_media_class base_class = String.contains base_class ':'
+
 (* Compare Regular vs Media rules.
 
    When they share the same base_class, preserve original order so media queries
    appear immediately after their base utility.
 
-   When they have different base classes: Use priority ordering first. Lower
-   priority values come first (e.g., container with priority 0 comes before
-   other utilities). If priorities match, Regular comes before Media. *)
+   When they have different base classes: - If the Media rule is a responsive
+   modifier (has ":" in base_class like "md:grid-cols-2"), Regular always comes
+   before Media - If the Media rule is NOT a responsive modifier (like
+   container's media with base_class "container"), compare by priority so that
+   low-priority utilities (container, p=0) and their media stay grouped
+   together *)
 let compare_regular_vs_media base_class1 base_class2 i1 i2 order1 order2 _sel1
     _sel2 =
   match (base_class1, base_class2) with
   | Some bc1, Some bc2 when bc1 = bc2 ->
       (* Same base class - preserve original order *)
       Int.compare i1 i2
+  | Some _, Some bc2 when is_responsive_media_class bc2 ->
+      (* Media is a responsive modifier - Regular always comes before Media *)
+      -1
   | _ ->
-      (* Different base classes: Compare by priority first *)
+      (* Media is not a responsive modifier (like container's media) - compare
+         by priority so container's media stays with container *)
       let p1, _ = order1 in
       let p2, _ = order2 in
       let prio_cmp = Int.compare p1 p2 in

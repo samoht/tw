@@ -25,7 +25,7 @@ module Handler = struct
   let layout_container_style =
     let open Css in
     (* Use top-level media queries to match Tailwind's minified output. The
-       minifier transforms CSS nesting to separate media blocks. *)
+       sorting logic groups them with .container via matching base_class. *)
     let container_selector = Selector.class_ "container" in
     let media_rules =
       [
