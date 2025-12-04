@@ -1,6 +1,10 @@
 open Alcotest
 
-let check = Test_helpers.check_handler_roundtrip (module Tw.Animations.Handler)
+let check_animation =
+  Test_helpers.check_handler_roundtrip (module Tw.Animations.Handler)
+
+let check_transition =
+  Test_helpers.check_handler_roundtrip (module Tw.Transitions.Handler)
 
 (* Helper to check if animation property exists with expected name or var ref *)
 let has_animation_name expected_name css =
@@ -43,18 +47,18 @@ let has_transition_property css =
     false css
 
 let test_transitions () =
-  check "transition-none";
-  check "transition-opacity";
-  check "transition"
+  check_transition "transition-none";
+  check_transition "transition-opacity";
+  check_transition "transition"
 
 let animate_utilities () =
-  check "animate-none";
-  check "animate-spin";
-  check "animate-bounce"
+  check_animation "animate-none";
+  check_animation "animate-spin";
+  check_animation "animate-bounce"
 
 let test_duration_delay () =
-  check "duration-300";
-  check "delay-150"
+  check_transition "duration-300";
+  check_transition "delay-150"
 
 let test_animation_css () =
   (* Test that animate utilities generate CSS with correct animation

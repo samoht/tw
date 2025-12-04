@@ -38,6 +38,7 @@ include Filters
 include Clipping
 include Position
 include Animations
+include Transitions
 include Forms
 include Tables
 include Svg
@@ -94,6 +95,7 @@ module Containers = Containers
 module Filters = Filters
 module Position = Position
 module Animations = Animations
+module Transitions = Transitions
 module Forms = Forms
 module Tables = Tables
 module Svg = Svg

@@ -3378,6 +3378,7 @@ module Containers = Containers
 module Filters = Filters
 module Position = Position
 module Animations = Animations
+module Transitions = Transitions
 module Forms = Forms
 module Tables = Tables
 module Svg = Svg

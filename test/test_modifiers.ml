@@ -6,6 +6,7 @@ open Tw.Margin
 open Tw.Color
 open Tw.Grid_template
 open Tw.Animations
+open Tw.Transitions
 open Tw.Borders
 
 (* Test responsive modifier detection *)
