@@ -1296,12 +1296,19 @@ let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
         property_changes = [] && added_props = [] && removed_props = []
         && decls_signature decls1 = decls_signature decls2
       in
-      if is_pure_reordering then
+      if is_pure_reordering && position_changed () then
         (* Same properties, different order within the rule - report as
            Rule_reordered since the declaration order changed *)
         make_reordered sel1_str
-      else
+      else if property_changes <> [] || added_props <> [] || removed_props <> []
+      then
         (* Properties changed *)
+        make_content_changed sel1_str decls1 decls2
+      else if position_changed () then
+        (* Position changed but content is the same *)
+        make_reordered sel1_str
+      else
+        (* No actual changes - should not happen in modified list *)
         make_content_changed sel1_str decls1 decls2
 
 (* Assemble rule changes (added/removed/modified) between two rule lists *)
