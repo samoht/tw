@@ -161,14 +161,34 @@ Within the utilities layer, rules are sorted by `compare_indexed_rules` in `rule
 
 1. **Rule types are grouped**: Regular, Media, Container, Starting (via `rule_type_order`)
 2. **Within Regular rules**: sorted by (priority, suborder, alphabetical)
-3. **Within Media rules**: preference media (hover, dark, contrast) before responsive media (sm, md, lg)
+3. **Within Media rules**: sorted by (media condition key, then priority, then alphabetical)
 4. **Regular vs Media comparison** (`compare_regular_vs_media`):
    - Same `base_class` → preserve original order (keeps utility groups together)
-   - Media is **responsive** (has `:` in base_class like `md:grid-cols-2`) → Regular always first
-   - Media is **non-responsive** (like container's media with base_class `container`) → compare by priority
+   - Modifier-prefixed media (selector contains `\:` like `.motion-safe\:animate-pulse`) → Regular always first
+   - Plain media (like container's breakpoints) → compare by priority
 
-**Key insight**: Container's media queries (priority 0) must stay grouped with `.container`, while
-responsive media queries like `md:grid-cols-2` should come after ALL regular utilities.
+**Key insight**: Media queries from modifiers (responsive, motion-safe, dark) should appear after
+regular utilities, but built-in media (like container's max-width breakpoints) should stay grouped
+with their base utility by priority.
+
+### Debugging rule ordering issues
+
+When `--diff` shows ordering differences:
+
+1. **Identify the rule type**:
+   ```bash
+   # Check if it's a modifier-based media or built-in media
+   dune exec -- tw -s "motion-safe:animate-pulse" --variables | grep -A2 "@media"
+   ```
+
+2. **Check the comparison logic in `compare_regular_vs_media`** (in `rules.ml`):
+   - Modifier media uses `is_modifier_selector` to detect `\:` in selector
+   - Plain media uses priority comparison
+
+3. **Common fixes**:
+   - If modifier media appears too early: check `is_modifier_selector` pattern matching
+   - If container/built-in media appears too late: check priority comparison fallback
+   - If same base_class rules are reordered: check `i1`/`i2` index comparison
 
 ---
 
@@ -300,9 +320,9 @@ responsive media queries like `md:grid-cols-2` should come after ALL regular uti
         └─ .flex-col ↔  @media (min-width:48rem)
      ```
      **Fix**: This is a Regular vs Media ordering issue. Check `compare_regular_vs_media` in
-     `lib/rules.ml`. Key insight: responsive media (with `:` like `md:`) should come after
-     all Regular rules, but non-responsive media (like container's media) should stay
-     grouped with their base utility via priority comparison.
+     `lib/rules.ml`. Uses `is_modifier_selector` to detect `\:` in CSS selector - modifier media
+     (like `.md\:grid-cols-2`) comes after Regular rules, but built-in media (like container's
+     breakpoints) stays grouped with its base utility via priority comparison.
 
   4. **Property value differences**:
      ```

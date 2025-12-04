@@ -749,40 +749,48 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 =
   if key_cmp <> 0 then key_cmp
   else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
 
-(* Check if a base_class represents a responsive media query (has modifier
-   prefix like "md:", "lg:", etc.) *)
-let is_responsive_media_class base_class = String.contains base_class ':'
+(* Check if a selector represents a modifier-prefixed class (contains escaped
+   colon like "motion-safe\:animate-pulse" or "md\:grid-cols-2") *)
+let is_modifier_selector sel_str =
+  (* Look for \: pattern which indicates an escaped colon from modifier *)
+  let rec find_escaped_colon i =
+    if i >= String.length sel_str - 1 then false
+    else if sel_str.[i] = '\\' && sel_str.[i + 1] = ':' then true
+    else find_escaped_colon (i + 1)
+  in
+  find_escaped_colon 0
 
 (* Compare Regular vs Media rules.
 
    When they share the same base_class, preserve original order so media queries
    appear immediately after their base utility.
 
-   When they have different base classes: - If the Media rule is a responsive
-   modifier (has ":" in base_class like "md:grid-cols-2"), Regular always comes
-   before Media - If the Media rule is NOT a responsive modifier (like
-   container's media with base_class "container"), compare by priority so that
-   low-priority utilities (container, p=0) and their media stay grouped
-   together *)
+   When they have different base classes: - If the Media rule has a modifier
+   prefix in selector (like motion-safe:, md:), Regular always comes before
+   Media. This matches Tailwind's behavior. - If the Media rule is a plain
+   utility with responsive breakpoints (like container's max-width media),
+   compare by priority so low-priority utilities stay grouped together. *)
 let compare_regular_vs_media base_class1 base_class2 i1 i2 order1 order2 _sel1
-    _sel2 =
+    sel2 =
   match (base_class1, base_class2) with
   | Some bc1, Some bc2 when bc1 = bc2 ->
       (* Same base class - preserve original order *)
       Int.compare i1 i2
-  | Some _, Some bc2 when is_responsive_media_class bc2 ->
-      (* Media is a responsive modifier - Regular always comes before Media *)
-      -1
   | _ ->
-      (* Media is not a responsive modifier (like container's media) - compare
-         by priority so container's media stays with container *)
-      let p1, _ = order1 in
-      let p2, _ = order2 in
-      let prio_cmp = Int.compare p1 p2 in
-      if prio_cmp <> 0 then prio_cmp
-      else
-        (* Same priority: Regular before Media *)
+      let sel2_str = Css.Selector.to_string sel2 in
+      if is_modifier_selector sel2_str then
+        (* Media rule has a modifier prefix - Regular always comes before *)
         -1
+      else
+        (* Plain media rule (like container's breakpoints) - compare by priority
+           so they stay grouped with their base utility *)
+        let p1, _ = order1 in
+        let p2, _ = order2 in
+        let prio_cmp = Int.compare p1 p2 in
+        if prio_cmp <> 0 then prio_cmp
+        else
+          (* Same priority: Regular before Media *)
+          -1
 
 (* Compare indexed rules for sorting *)
 let compare_indexed_rules r1 r2 =
