@@ -155,6 +155,21 @@ Useful when the value originates upstream (theme/properties).
 
 Utilities must not declare tokens; theme must not reference utility vars. See `compute_theme_layer`and`build_properties_layer`.
 
+### Rule ordering within utilities layer
+
+Within the utilities layer, rules are sorted by `compare_indexed_rules` in `rules.ml`:
+
+1. **Rule types are grouped**: Regular, Media, Container, Starting (via `rule_type_order`)
+2. **Within Regular rules**: sorted by (priority, suborder, alphabetical)
+3. **Within Media rules**: preference media (hover, dark, contrast) before responsive media (sm, md, lg)
+4. **Regular vs Media comparison** (`compare_regular_vs_media`):
+   - Same `base_class` → preserve original order (keeps utility groups together)
+   - Media is **responsive** (has `:` in base_class like `md:grid-cols-2`) → Regular always first
+   - Media is **non-responsive** (like container's media with base_class `container`) → compare by priority
+
+**Key insight**: Container's media queries (priority 0) must stay grouped with `.container`, while
+responsive media queries like `md:grid-cols-2` should come after ALL regular utilities.
+
 ---
 
 ## 7) Adding a new utility — minimal workflow
@@ -253,6 +268,58 @@ Utilities must not declare tokens; theme must not reference utility vars. See `c
      ALCOTEST_VERBOSE=1 dune exec test/test.exe test rules <N>
      dune runtest
      ```
+
+* **Common CSS diff patterns and fixes:**
+
+  When `cssdiff` shows differences, here's how to interpret and fix them:
+
+  1. **"blocks merged into 1"** - Multiple media blocks with same condition should be merged:
+     ```
+     @media (prefers-contrast:more) (2 blocks merged into 1)
+       - Block at position 14: .contrast-more\:border-4
+       - Block at position 26: .contrast-more\:text-black
+       + Block at position 27: .contrast-more\:border-4, .contrast-more\:text-black
+     ```
+     **Fix**: Check `lib/css/optimize.ml` for media query merging. Consecutive `@media` blocks
+     with the same condition should be merged. The `merge_consecutive_media` function handles this.
+
+  2. **"blocks at different positions"** - Media query appears at wrong location:
+     ```
+     @media (prefers-reduced-motion:no-preference) (1 blocks at different positions)
+       - Block at position 8: .motion-safe\:animate-pulse
+       + Block at position 25: .motion-safe\:animate-pulse
+     ```
+     **Fix**: Check `lib/rules.ml` comparison functions. The issue is usually in:
+     - `compare_regular_vs_media`: Regular rules vs Media rules ordering
+     - `compare_media_rules`: Media rules vs Media rules ordering
+     - `extract_media_sort_key`: How media queries are sorted (responsive vs preference)
+
+  3. **"reordered"** - Rules within a container are in wrong order:
+     ```
+     └─ @layer utilities (1 reordered)
+        └─ .flex-col ↔  @media (min-width:48rem)
+     ```
+     **Fix**: This is a Regular vs Media ordering issue. Check `compare_regular_vs_media` in
+     `lib/rules.ml`. Key insight: responsive media (with `:` like `md:`) should come after
+     all Regular rules, but non-responsive media (like container's media) should stay
+     grouped with their base utility via priority comparison.
+
+  4. **Property value differences**:
+     ```
+     .leading-relaxed
+       * --tw-leading: 1.625 -> var(--leading-relaxed)
+     ```
+     **Fix**: Check if we're using the right variable pattern. Tailwind v4 often uses
+     theme variables like `var(--leading-relaxed)` instead of raw values.
+
+  5. **Missing/added properties**:
+     ```
+     *, ::before, ::after, ::backdrop
+       + --tw-ring-color
+       + --tw-ring-shadow
+     ```
+     **Fix**: Check `lib/rules.ml` `build_properties_layer` and ensure the utility
+     properly declares its variables using `Var.property_rule`.
 
 ---
 
