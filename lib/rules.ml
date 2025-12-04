@@ -1172,8 +1172,12 @@ let property_order name =
   | "tw-gradient-from-position" -> 16
   | "tw-gradient-via-position" -> 17
   | "tw-gradient-to-position" -> 18
-  (* Typography variables *)
+  (* Border variables *)
+  | "tw-border-style" -> 25
+  (* Typography variables - leading before font-weight before tracking *)
+  | "tw-leading" -> 28
   | "tw-font-weight" -> 30
+  | "tw-tracking" -> 32
   (* Animation variables *)
   | "tw-duration" -> 40
   | "tw-ease" -> 41
@@ -1212,20 +1216,33 @@ let build_properties_layer explicit_property_rules_statements =
     let layer = property_layer_content initial_values other_statements in
     (layer, deduplicated)
 
-(** Extract variables and property rules from utility styles recursively *)
+(** Extract SET variable names from Custom_declarations *)
+let set_var_names_from_props props = Css.custom_prop_names props
+
+(** Extract variables and property rules from utility styles recursively.
+    Returns (all_vars, set_var_names, property_rules) where:
+    - all_vars: all referenced variables (for theme layer)
+    - set_var_names: names of variables that are SET via Custom_declaration
+    - property_rules: explicit property rules from utilities *)
 let rec extract_vars_and_property_rules_from_style = function
   | Style.Style { props; rules; property_rules; _ } ->
       let vars_from_props = Css.vars_of_declarations props in
       let vars_from_rules =
         match rules with Some r -> Css.vars_of_rules r | None -> []
       in
-      (vars_from_props @ vars_from_rules, [ property_rules ])
+      let set_names = set_var_names_from_props props in
+      (vars_from_props @ vars_from_rules, set_names, [ property_rules ])
   | Style.Modified (_, t) -> extract_vars_and_property_rules_from_style t
   | Style.Group ts ->
-      let vars_list, prop_rules_list =
-        List.split (List.map extract_vars_and_property_rules_from_style ts)
+      let results = List.map extract_vars_and_property_rules_from_style ts in
+      let vars_list, set_names_list, prop_rules_list =
+        List.fold_right
+          (fun (v, s, p) (vs, ss, ps) -> (v :: vs, s :: ss, p :: ps))
+          results ([], [], [])
       in
-      (List.concat vars_list, List.concat prop_rules_list)
+      ( List.concat vars_list,
+        List.concat set_names_list,
+        List.concat prop_rules_list )
 
 (* Filter variables that need @property rules *)
 let vars_needing_property vars =
@@ -1250,10 +1267,22 @@ let property_rules_for vars excluded_names =
          let var_name = "--" ^ Css.var_name v in
          Css.property ~name:var_name Css.Universal ~inherits:false ())
 
-(** Collect all property rules: explicit ones and auto-generated ones *)
-let collect_all_property_rules vars_from_utilities
+(** Collect all property rules: explicit ones and auto-generated ones.
+    Only auto-generates @property for variables that are:
+    1. Actually SET (via Custom_declaration) in the utilities
+    2. Have needs_property=true in their metadata *)
+let collect_all_property_rules vars_from_utilities set_var_names
     explicit_property_rules_statements =
-  let needing_property = vars_needing_property vars_from_utilities in
+  let set_names_set =
+    List.fold_left (fun acc n -> Strings.add n acc) Strings.empty set_var_names
+  in
+  (* Filter to only vars that are SET, not just referenced *)
+  let needing_property =
+    vars_needing_property vars_from_utilities
+    |> List.filter (fun (Css.V v) ->
+           let var_name = "--" ^ Css.var_name v in
+           Strings.mem var_name set_names_set)
+  in
   let explicit_names = property_names_of explicit_property_rules_statements in
   let generated_rules = property_rules_for needing_property explicit_names in
   let generated_statements =
@@ -1314,12 +1343,18 @@ let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
   in
   layers_without_property @ property_rules_css @ keyframes_css
 
-(* Extract variables and property rules from all utilities *)
+(* Extract variables, set var names, and property rules from all utilities *)
 let extract_vars_and_rules utilities =
   let styles = List.map Utility.to_style utilities in
   let results = List.map extract_vars_and_property_rules_from_style styles in
-  let vars_list, prop_rules_list = List.split results in
-  (List.concat vars_list, List.concat prop_rules_list)
+  let vars_list, set_names_list, prop_rules_list =
+    List.fold_right
+      (fun (v, s, p) (vs, ss, ps) -> (v :: vs, s :: ss, p :: ps))
+      results ([], [], [])
+  in
+  ( List.concat vars_list,
+    List.concat set_names_list,
+    List.concat prop_rules_list )
 
 (* Flatten property rules into CSS statements *)
 let flatten_property_rules property_rules_lists =
@@ -1360,12 +1395,13 @@ let rec collect_keyframes acc = function
 (** Build all CSS layers from utilities and rules *)
 let build_layers ~include_base ~selector_props tw_classes statements =
   let styles = List.map Utility.to_style tw_classes in
-  let vars_from_utilities, property_rules_lists =
+  let vars_from_utilities, set_var_names, property_rules_lists =
     extract_vars_and_rules tw_classes
   in
   let explicit_property_rules = flatten_property_rules property_rules_lists in
   let all_property_statements =
-    collect_all_property_rules vars_from_utilities explicit_property_rules
+    collect_all_property_rules vars_from_utilities set_var_names
+      explicit_property_rules
   in
   let layers =
     build_individual_layers selector_props all_property_statements statements

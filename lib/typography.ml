@@ -93,10 +93,18 @@ let font_weight_extrabold_var =
 let font_weight_black_var =
   Var.theme Css.Font_weight "font-weight-black" ~order:(6, 38)
 
+(* Theme variables for named tracking values *)
+let tracking_tight_var = Var.theme Css.Length "tracking-tight" ~order:(6, 40)
+
+(* Theme variables for named leading values *)
+let leading_relaxed_var =
+  Var.theme Css.Line_height "leading-relaxed" ~order:(6, 50)
+
 let font_weight_var =
   Var.channel ~needs_property:true Css.Font_weight "tw-font-weight"
 
-let leading_var = Var.channel Css.Line_height "tw-leading"
+let leading_var = Var.channel ~needs_property:true Css.Line_height "tw-leading"
+let tracking_var = Var.channel ~needs_property:true Css.Length "tw-tracking"
 
 let ordinal_var =
   Var.channel ~needs_property:true Css.Font_variant_numeric_token "tw-ordinal"
@@ -1047,8 +1055,16 @@ module Handler = struct
     style [ leading_decl; line_height (Css.Var leading_ref) ]
 
   let leading_relaxed =
-    let leading_decl, leading_ref = Var.binding leading_var (Num 1.625) in
-    style [ leading_decl; line_height (Css.Var leading_ref) ]
+    (* Theme var: --leading-relaxed: 1.625 *)
+    let theme_decl, theme_ref = Var.binding leading_relaxed_var (Num 1.625) in
+    (* Channel var: --tw-leading: var(--leading-relaxed) *)
+    let channel_decl, _ = Var.binding leading_var (Css.Var theme_ref) in
+    (* Property: line-height: var(--leading-relaxed) *)
+    let property_rules =
+      Var.property_rule leading_var |> Option.to_list |> Css.concat
+    in
+    style ~property_rules
+      [ theme_decl; channel_decl; line_height (Css.Var theme_ref) ]
 
   let leading_loose =
     let leading_decl, leading_ref = Var.binding leading_var (Num 2.0) in
@@ -1065,7 +1081,19 @@ module Handler = struct
   let whitespace_pre_line = style [ white_space Pre_line ]
   let whitespace_pre_wrap = style [ white_space Pre_wrap ]
   let tracking_tighter = style [ letter_spacing (Em (-0.05)) ]
-  let tracking_tight = style [ letter_spacing (Em (-0.025)) ]
+
+  let tracking_tight =
+    (* Theme var: --tracking-tight: -0.025em *)
+    let theme_decl, theme_ref = Var.binding tracking_tight_var (Em (-0.025)) in
+    (* Channel var: --tw-tracking: var(--tracking-tight) *)
+    let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
+    (* Property: letter-spacing: var(--tracking-tight) *)
+    let property_rules =
+      Var.property_rule tracking_var |> Option.to_list |> Css.concat
+    in
+    style ~property_rules
+      [ theme_decl; channel_decl; letter_spacing (Css.Var theme_ref) ]
+
   let tracking_normal = style [ letter_spacing Zero ]
   let tracking_wide = style [ letter_spacing (Em 0.025) ]
   let tracking_wider = style [ letter_spacing (Em 0.05) ]
