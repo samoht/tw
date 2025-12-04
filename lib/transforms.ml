@@ -55,8 +55,10 @@ module Handler = struct
   let tw_translate_x_var = Var.channel Css.Length "tw-translate-x"
   let tw_translate_y_var = Var.channel Css.Length "tw-translate-y"
   let tw_rotate_var = Var.channel Css.Angle "tw-rotate"
-  let tw_skew_x_var = Var.channel Css.Angle "tw-skew-x"
-  let tw_skew_y_var = Var.channel Css.Angle "tw-skew-y"
+
+  (* Tailwind v4 uses individual skew-x/y variables with @property *)
+  let tw_skew_x_var = Var.channel ~needs_property:true Css.Angle "tw-skew-x"
+  let tw_skew_y_var = Var.channel ~needs_property:true Css.Angle "tw-skew-y"
 
   (* Scale variables need @property defaults for composition *)
   let tw_scale_x_var =
@@ -160,31 +162,29 @@ module Handler = struct
 
   (** {1 Transform Control Utilities} *)
 
+  (* Tailwind v4 uses individual rotate-x/y/z and skew-x/y variables with empty
+     fallbacks. When set, each variable contains the full transform function
+     like "rotateX(45deg)". *)
   let transform =
-    let translate_x_decl, translate_x_var =
-      Var.binding tw_translate_x_var Zero
+    (* Build property rules for all the transform variables *)
+    let property_rules =
+      [
+        tw_rotate_x_var;
+        tw_rotate_y_var;
+        tw_rotate_z_var;
+        tw_skew_x_var;
+        tw_skew_y_var;
+      ]
+      |> List.filter_map (fun v -> Var.property_rule v)
+      |> Css.concat
     in
-    let translate_y_decl, translate_y_var =
-      Var.binding tw_translate_y_var Zero
+    (* The transform value is a concatenation of var() references with empty
+       fallbacks *)
+    let transform_value =
+      "var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) \
+       var(--tw-skew-x,) var(--tw-skew-y,)"
     in
-    let rotate_decl, rotate_var = Var.binding tw_rotate_var (Deg 0.0) in
-    let skew_x_decl, skew_x_var = Var.binding tw_skew_x_var (Deg 0.0) in
-    let skew_y_decl, skew_y_var = Var.binding tw_skew_y_var (Deg 0.0) in
-    style
-      (translate_x_decl :: translate_y_decl :: rotate_decl :: skew_x_decl
-     :: skew_y_decl
-      :: [
-           transforms
-             [
-               Translate_x (Var translate_x_var);
-               Translate_y (Var translate_y_var);
-               Rotate (Var rotate_var);
-               Skew_x (Var skew_x_var);
-               Skew_y (Var skew_y_var);
-               Scale_x 1.0;
-               Scale_y 1.0;
-             ];
-         ])
+    style ~property_rules [ Css.transform (Raw transform_value) ]
 
   let transform_none = style [ Css.transform None ]
   let transform_gpu = style [ Css.transform (Translate_z Zero) ]

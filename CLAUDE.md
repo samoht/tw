@@ -243,6 +243,28 @@ When `--diff` shows ordering differences:
 
   Ensure `~property_rules` is passed and `Var.property_rule` invoked.
 
+* **Unexpected `@property` being emitted?**
+
+  `@property` rules are only generated for variables that are **SET** (via `Var.binding` creating
+  a Custom_declaration), not for variables that are merely **referenced** with a fallback.
+
+  Example: `text-2xl` uses `line-height: var(--tw-leading, var(--text-2xl--line-height))` but
+  does NOT emit `@property --tw-leading` because it only references the variable with a fallback.
+  However, `leading-relaxed` sets `--tw-leading: var(--leading-relaxed)` and DOES emit `@property`.
+
+  The logic is in `collect_all_property_rules` in `rules.ml` which filters by `set_var_names`
+  extracted from Custom_declarations.
+
+* **Wrong property order in `@layer properties`?**
+
+  Check `property_order` in `rules.ml`. Properties are sorted by category:
+  - Transform (0-9): `tw-scale-x`, `tw-scale-y`, etc.
+  - Gradients (10-19): `tw-gradient-*`
+  - Borders (25): `tw-border-style`
+  - Typography (28-32): `tw-leading`, `tw-font-weight`, `tw-tracking`
+  - Animation (40-41): `tw-duration`, `tw-ease`
+  - Default (100): everything else
+
 * **Order mismatch?**
 
   ```bash
@@ -350,6 +372,9 @@ When `--diff` shows ordering differences:
 3. Forgetting `~property_rules` on referrers → `@property` never emitted.
 4. Spreading tests across multiple concerns → one concept per file.
 5. Silencing warnings with `OCAMLPARAM=_,w=-32` → address them; do not suppress.
+6. Using non-existent `Css.kind` constructors → check `lib/css/declaration_intf.ml` for valid kinds.
+   If the kind genuinely needs its own type, add it to `declaration_intf.ml`. Otherwise, use an
+   existing kind (e.g., `Length` for letter-spacing since it takes length values).
 
 ---
 

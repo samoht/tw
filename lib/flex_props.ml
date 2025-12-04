@@ -59,7 +59,7 @@ module Handler = struct
   let flex_nowrap_utility = style [ flex_wrap Nowrap ]
 
   (* Flex shortcuts *)
-  let flex_1 = style [ flex (Full (1.0, 1.0, Pct 0.0)) ]
+  let flex_1 = style [ flex (Grow 1.0) ]
   let flex_auto = style [ flex Auto ]
   let flex_initial = style [ flex Initial ]
   let flex_none = style [ flex None ]
