@@ -65,34 +65,29 @@ module Handler = struct
           "to-" ^ Color.pp color
         else "to-" ^ Color.pp color ^ "-" ^ string_of_int shade
 
-  (* Convert direction to Tailwind's gradient position string format e.g., "to
-     right in oklab" *)
-  let direction_to_position_string (dir : direction) : string =
-    let dir_str =
-      match dir with
-      | Bottom -> "to bottom"
-      | Bottom_right -> "to bottom right"
-      | Right -> "to right"
-      | Top_right -> "to top right"
-      | Top -> "to top"
-      | Top_left -> "to top left"
-      | Left -> "to left"
-      | Bottom_left -> "to bottom left"
-    in
-    dir_str ^ " in oklab"
+  let to_spec (dir : direction) : Css.gradient_direction =
+    match dir with
+    | Bottom -> To_bottom
+    | Bottom_right -> To_bottom_right
+    | Right -> To_right
+    | Top_right -> To_top_right
+    | Top -> To_top
+    | Top_left -> To_top_left
+    | Left -> To_left
+    | Bottom_left -> To_bottom_left
 
   open Style
   open Css
 
   let name = "backgrounds"
-  let priority = 18
+  let priority = 20
 
   (* Gradient variables with proper @property definitions matching Tailwind
      v4 *)
-  (* --tw-gradient-position stores the gradient direction + color space
-     e.g., "to right in oklab" *)
   let gradient_position_var =
-    Var.channel ~needs_property:true String "tw-gradient-position"
+    (* This is used as a placeholder/initial value in gradient stops. *)
+    Var.property_default Percentage ~initial:(Pct 0.) ~universal:true
+      "tw-gradient-position"
 
   let gradient_from_var =
     Var.property_default Color ~initial:(Css.hex "#0000") "tw-gradient-from"
@@ -122,15 +117,8 @@ module Handler = struct
       "tw-gradient-to-position"
 
   let bg_gradient_to' dir =
-    (* Set --tw-gradient-position with direction string (e.g., "to right in
-       oklab") *)
-    let position_str = direction_to_position_string dir in
-    let d_position, _ = Var.binding gradient_position_var position_str in
-    (* Create a reference to --tw-gradient-stops for the linear-gradient *)
-    let stops_ref : Css.gradient_stop Css.var =
-      Css.var_ref "tw-gradient-stops"
-    in
-    style [ d_position; Css.background_image (Linear_gradient_var stops_ref) ]
+    let dir_val = to_spec dir in
+    style [ Css.background_image (Linear_gradient (dir_val, [])) ]
 
   (** Helper to get color value and optional theme variable declaration. For
       custom/arbitrary colors: returns ([], color_value) - no theme variable.
@@ -146,18 +134,6 @@ module Handler = struct
       let d_color, color_ref = Var.binding color_theme_var color_value in
       ([ d_color ], (Var color_ref : Css.color))
 
-  (** Build the raw CSS string for gradient stops without via. Format:
-      var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-to)var(--tw-gradient-to-position)
-      Note: No spaces - matches Tailwind's minified output format *)
-  let fallback_stops_string =
-    "var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-to)var(--tw-gradient-to-position)"
-
-  (** Build the raw CSS string for gradient stops with via. Format:
-      var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-via)var(--tw-gradient-via-position),var(--tw-gradient-to)var(--tw-gradient-to-position)
-      Note: No spaces - matches Tailwind's minified output format *)
-  let via_stops_string =
-    "var(--tw-gradient-position),var(--tw-gradient-from)var(--tw-gradient-from-position),var(--tw-gradient-via)var(--tw-gradient-via-position),var(--tw-gradient-to)var(--tw-gradient-to-position)"
-
   (** Common helper for gradient color utilities *)
   let gradient_color ~prefix ~set_var ?(shade = 500) color =
     let theme_decls, gradient_color_value = color_binding ~shade color in
@@ -165,26 +141,50 @@ module Handler = struct
     (* Set the appropriate gradient variable *)
     let d_var, _ = Var.binding set_var gradient_color_value in
 
+    (* Build variable references for gradient stops *)
+    let position_ref = Var.reference gradient_position_var in
+    let from_ref = Var.reference gradient_from_var in
+    let from_pos_ref = Var.reference gradient_from_position_var in
+    let to_ref = Var.reference gradient_to_var in
+    let to_pos_ref = Var.reference gradient_to_position_var in
+
+    (* Build the fallback gradient stop list (without via) *)
+    let fallback_stops : Css.gradient_stop =
+      List
+        [
+          Percentage (Var position_ref);
+          Color_percentage (Var from_ref, Some (Var from_pos_ref), None);
+          Color_percentage (Var to_ref, Some (Var to_pos_ref), None);
+        ]
+    in
+
     (* Handle via-specific logic *)
     let d_stops, d_via_stops_opt =
       match prefix with
       | "via-" ->
-          (* For via: --tw-gradient-via-stops: <via_stops_string>;
-             --tw-gradient-stops: var(--tw-gradient-via-stops); *)
-          let via_stops_value : Css.gradient_stop = Raw via_stops_string in
+          (* For via, build complete stop list with via in the middle *)
+          let via_ref = Var.reference gradient_via_var in
+          let via_pos_ref = Var.reference gradient_via_position_var in
+          let via_stop_list : Css.gradient_stop =
+            List
+              [
+                Percentage (Var position_ref);
+                Color_percentage (Var from_ref, Some (Var from_pos_ref), None);
+                Color_percentage (Var via_ref, Some (Var via_pos_ref), None);
+                Color_percentage (Var to_ref, Some (Var to_pos_ref), None);
+              ]
+          in
           let d_via_stops, via_stops_ref =
-            Var.binding gradient_via_stops_var via_stops_value
+            Var.binding gradient_via_stops_var via_stop_list
           in
           let d_stops_via, _ =
             Var.binding gradient_stops_var (Var via_stops_ref)
           in
           (d_stops_via, Some d_via_stops)
       | _ ->
-          (* For from/to: --tw-gradient-stops: var(--tw-gradient-via-stops,
-             <fallback_stops_string>); *)
-          let fallback_value : Css.gradient_stop = Raw fallback_stops_string in
+          (* For from/to, reference via-stops with fallback *)
           let via_stops_ref =
-            Var.reference_with_fallback gradient_via_stops_var fallback_value
+            Var.reference_with_fallback gradient_via_stops_var fallback_stops
           in
           let d_stops, _ = Var.binding gradient_stops_var (Var via_stops_ref) in
           (d_stops, None)

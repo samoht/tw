@@ -210,24 +210,37 @@ let has_like_selector kind selector_str base_class props =
   let parsed_selector = Css.Selector.read reader in
   match kind with
   | `Has ->
+      (* Tailwind wraps the selector in :is(): .has-[img]:p-0:has(:is(img)) *)
       let sel =
         compound
           [
             class_ ("has-[" ^ selector_str ^ "]:" ^ base_class);
-            has [ parsed_selector ];
+            has [ is_ [ parsed_selector ] ];
           ]
       in
       regular ~selector:sel ~props ~base_class ()
   | `Group_has ->
-      let left = compound [ Class "group"; has [ parsed_selector ] ] in
-      let right = Class ("group-has-[" ^ selector_str ^ "]:" ^ base_class) in
-      let sel = combine left Descendant right in
-      regular ~selector:sel ~props ~base_class ()
+      (* Tailwind uses: .group-has-[...]:cls:is(:where(.group):has(:is(...))
+         x) *)
+      let class_name = "group-has-[" ^ selector_str ^ "]:" ^ base_class in
+      let rel =
+        combine
+          (compound
+             [ where [ Class "group" ]; has [ is_ [ parsed_selector ] ] ])
+          Descendant universal
+      in
+      let sel = compound [ Class class_name; is_ [ rel ] ] in
+      regular ~selector:sel ~props ~base_class:class_name ()
   | `Peer_has ->
-      let left = compound [ Class "peer"; has [ parsed_selector ] ] in
-      let right = Class ("peer-has-[" ^ selector_str ^ "]:" ^ base_class) in
-      let sel = combine left Subsequent_sibling right in
-      regular ~selector:sel ~props ~base_class ()
+      (* Tailwind uses: .peer-has-[...]:cls:is(:where(.peer):has(...) ~ x) *)
+      let class_name = "peer-has-[" ^ selector_str ^ "]:" ^ base_class in
+      let rel =
+        combine
+          (compound [ where [ Class "peer" ]; has [ parsed_selector ] ])
+          Subsequent_sibling universal
+      in
+      let sel = compound [ Class class_name; is_ [ rel ] ] in
+      regular ~selector:sel ~props ~base_class:class_name ()
 
 (** Extract class name from a modified selector (with or without pseudo-class)
 *)
@@ -257,6 +270,9 @@ let transform_selector_with_modifier modified_base_selector base_class
           (transform base_sel, combinator, replace_in_children complex_sel)
     | Css.Selector.Compound selectors ->
         Css.Selector.Compound (List.map transform selectors)
+    | Css.Selector.List selectors ->
+        (* Apply transform to each selector in a comma-separated list *)
+        Css.Selector.List (List.map transform selectors)
     | other -> other
   in
   transform selector
@@ -416,7 +432,10 @@ let extract_selector_props util =
     | Style.Style { props; rules; _ } -> (
         let sel = Css.Selector.Class class_name in
         match rules with
-        | None -> [ regular ~selector:sel ~props ~base_class:class_name () ]
+        | None ->
+            (* Do not emit empty marker classes like .group or .peer *)
+            if props = [] then []
+            else [ regular ~selector:sel ~props ~base_class:class_name () ]
         | Some rule_list ->
             (* Extract container queries as separate outputs *)
             let container_queries =
@@ -615,6 +634,21 @@ let is_simple_class_selector sel =
   | Css.Selector.Class _ -> true
   | _ -> false
 
+let selector_to_string = Css.Selector.to_string
+
+(* Detect standalone has-[...] utility (not group-has/peer-has) *)
+let contains_standalone_has sel =
+  let s = selector_to_string sel in
+  let sub = ".has-\\[" in
+  let ls = String.length s in
+  let lsub = String.length sub in
+  let rec loop i =
+    if i > ls - lsub then false
+    else if String.sub s i lsub = sub then true
+    else loop (i + 1)
+  in
+  if lsub = 0 then false else loop 0
+
 let compare_indexed ~filter_custom_props (i1, sel1, _, (prio1, sub1))
     (i2, sel2, _, (prio2, sub2)) =
   let prio_cmp = Int.compare prio1 prio2 in
@@ -678,18 +712,6 @@ let build_utilities_layer ~statements =
      optimizer (css/optimize.ml) while preserving cascade order. *)
   Css.v [ Css.layer ~name:"utilities" statements ]
 
-(* Deduplicate selector/props pairs while preserving first occurrence order *)
-let deduplicate_selector_props triples =
-  let seen = Hashtbl.create (List.length triples) in
-  List.filter
-    (fun (sel, props, _order) ->
-      let key = (Css.Selector.to_string sel, props) in
-      if Hashtbl.mem seen key then false
-      else (
-        Hashtbl.add seen key ();
-        true))
-    triples
-
 (* Type-directed helpers for rule sorting and construction *)
 
 (* Determine sort group for rule types. Regular and Media are grouped together
@@ -701,9 +723,9 @@ let rule_type_order = function
   | `Container _ -> 1
   | `Starting -> 2
 
-(* Extract media query sort key for ordering. Responsive breakpoints come last,
-   sorted by breakpoint size. Other media queries like hover and prefers-* come
-   first. Returns a tuple for comparison: higher values sort later. *)
+(* Extract media query sort key for ordering. Order: hover queries (0),
+   responsive breakpoints (1000+), prefers-* (2000). Returns a tuple for
+   comparison: higher values sort later. *)
 let extract_media_sort_key = function
   | `Media cond ->
       if
@@ -714,12 +736,17 @@ let extract_media_sort_key = function
           let start = String.index cond ':' + 1 in
           let end_pos = String.index_from cond start 'r' in
           let value_str = String.sub cond start (end_pos - start) in
-          (* Responsive breakpoints: use 1000 + breakpoint to sort after
-             others *)
+          (* Responsive breakpoints: use 1000 + breakpoint *)
           (1000 + int_of_string value_str, 0)
         with _ -> (1000, 0) (* Fallback for unparseable responsive queries *)
+      else if
+        (* Check if this is a prefers-* query (e.g., prefers-color-scheme) *)
+        String.length cond > 8 && String.sub cond 1 7 = "prefers"
+      then
+        (* prefers-* queries come after responsive breakpoints *)
+        (2000, 0)
       else
-        (* Non-responsive media queries like hover come first *)
+        (* Other media queries like hover come first *)
         (0, 0)
   | _ -> (0, 0)
 
@@ -727,18 +754,56 @@ let extract_media_sort_key = function
    class selectors), then by original index. Lower priority values come
    first. *)
 let compare_by_priority_suborder_alpha sel1 sel2 (p1, s1) (p2, s2) i1 i2 =
-  let prio_cmp = Int.compare p1 p2 in
-  if prio_cmp <> 0 then prio_cmp
-  else
-    let sub_cmp = Int.compare s1 s2 in
-    if sub_cmp <> 0 then sub_cmp
-    else if is_simple_class_selector sel1 && is_simple_class_selector sel2 then
-      String.compare (Css.Selector.to_string sel1) (Css.Selector.to_string sel2)
-    else Int.compare i1 i2
+  let s1_simple = is_simple_class_selector sel1 in
+  let s2_simple = is_simple_class_selector sel2 in
+  (* Prefer simple class selectors over complex ones, even across suborders, to
+     better match Tailwind's grouping of plain utilities before relational or
+     pseudo-class heavy selectors. *)
+  match (s1_simple, s2_simple) with
+  | true, false -> -1
+  | false, true -> 1
+  | _ ->
+      let prio_cmp = Int.compare p1 p2 in
+      if prio_cmp <> 0 then prio_cmp
+      else if s1_simple && s2_simple then
+        (* Both simple: use suborder then alphabetical *)
+        let sub_cmp = Int.compare s1 s2 in
+        if sub_cmp <> 0 then sub_cmp
+        else
+          String.compare
+            (Css.Selector.to_string sel1)
+            (Css.Selector.to_string sel2)
+      else
+        (* Both complex: order by focus kind first, then suborder, then index *)
+        let s1_str = Css.Selector.to_string sel1 in
+        let s2_str = Css.Selector.to_string sel2 in
+        let contains s sub =
+          let lsub = String.length sub and ls = String.length s in
+          let rec loop i =
+            if i > ls - lsub then false
+            else if String.sub s i lsub = sub then true
+            else loop (i + 1)
+          in
+          lsub <> 0 && loop 0
+        in
+        let focus_kind s =
+          if contains s "focus-within\\:" then 1
+          else if contains s "focus-visible\\:" then 2
+          else 0
+        in
+        let k1 = focus_kind s1_str and k2 = focus_kind s2_str in
+        if k1 <> k2 then Int.compare k1 k2
+        else
+          let sub_cmp = Int.compare s1 s2 in
+          if sub_cmp <> 0 then sub_cmp else Int.compare i1 i2
 
 (* Compare two regular rules *)
 let compare_regular_rules sel1 sel2 order1 order2 i1 i2 =
-  compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+  (* Push selectors that use :has(...) after non-:has selectors *)
+  match (contains_standalone_has sel1, contains_standalone_has sel2) with
+  | true, false -> 1
+  | false, true -> -1
+  | _ -> compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
 
 (* Compare two media query rules - sort by media type first (responsive last),
    then by breakpoint size, then by base utility priority/suborder *)
@@ -770,7 +835,7 @@ let is_modifier_selector sel_str =
    Media. This matches Tailwind's behavior. - If the Media rule is a plain
    utility with responsive breakpoints (like container's max-width media),
    compare by priority so low-priority utilities stay grouped together. *)
-let compare_regular_vs_media base_class1 base_class2 i1 i2 order1 order2 _sel1
+let compare_regular_vs_media base_class1 base_class2 i1 i2 order1 order2 sel1
     sel2 =
   match (base_class1, base_class2) with
   | Some bc1, Some bc2 when bc1 = bc2 ->
@@ -779,8 +844,11 @@ let compare_regular_vs_media base_class1 base_class2 i1 i2 order1 order2 _sel1
   | _ ->
       let sel2_str = Css.Selector.to_string sel2 in
       if is_modifier_selector sel2_str then
-        (* Media rule has a modifier prefix - Regular always comes before *)
-        -1
+        (* Media rule has a modifier prefix (e.g., hover, dark, responsive).
+           Prefer simple Regular utilities before Media, but place Media before
+           complex Regular selectors (like :has(...) or relational selectors) to
+           match Tailwind's ordering. *)
+        if is_simple_class_selector sel1 then -1 else 1
       else
         (* Plain media rule (like container's breakpoints) - compare by priority
            so they stay grouped with their base utility *)
@@ -875,14 +943,24 @@ let order_of_base base_class selector =
 
 (* Convert each rule type to typed triple *)
 let rule_to_triple = function
-  | Regular { selector; props; base_class; nested; _ } ->
-      Some
-        ( `Regular,
-          selector,
-          props,
-          order_of_base base_class selector,
-          nested,
-          base_class )
+  | Regular { selector; props; base_class; nested; has_hover } ->
+      if has_hover then
+        (* Hover rules become Media rules with (hover:hover) condition *)
+        Some
+          ( `Media "(hover:hover)",
+            selector,
+            props,
+            order_of_base base_class selector,
+            nested,
+            base_class )
+      else
+        Some
+          ( `Regular,
+            selector,
+            props,
+            order_of_base base_class selector,
+            nested,
+            base_class )
   | Media_query { condition; selector; props; base_class } ->
       Some
         ( `Media condition,
@@ -923,35 +1001,17 @@ let add_index triples =
       })
     triples
 
-(* Build hover media query block from hover rules *)
-let hover_media_block hover_rules =
-  let pairs =
-    extract_selector_props_pairs hover_rules |> deduplicate_selector_props
-  in
-  if pairs = [] then None
-  else
-    let rules = of_grouped ~filter_custom_props:true pairs in
-    Some (Css.media ~condition:"(hover:hover)" rules)
-
 (* Convert selector/props pairs to CSS rules. *)
 (* Internal: build rule sets from pre-extracted outputs. *)
 let rule_sets_from_selector_props all_rules =
-  let hover_rules, non_hover_rules = List.partition is_hover_rule all_rules in
-
-  let css_statements =
-    non_hover_rules
-    |> List.filter_map rule_to_triple
-    |> deduplicate_typed_triples |> add_index
-    |> List.sort compare_indexed_rules
-    |> List.map indexed_rule_to_statement
-  in
-
-  (* The sorted statements already have the correct interleaved order where
-     low-priority utilities (like container p=0) and their media queries appear
-     before higher-priority utilities. Insert hover media block at the end. *)
-  match hover_media_block hover_rules with
-  | None -> css_statements
-  | Some hover_media -> css_statements @ [ hover_media ]
+  (* All rules (including hover) are now sorted together. Hover rules are
+     converted to Media "(hover:hover)" rules in rule_to_triple, so they
+     participate in the normal media query sorting. *)
+  all_rules
+  |> List.filter_map rule_to_triple
+  |> deduplicate_typed_triples |> add_index
+  |> List.sort compare_indexed_rules
+  |> List.map indexed_rule_to_statement
 
 let rule_sets tw_classes =
   let all_rules = tw_classes |> List.concat_map extract_selector_props in
@@ -1147,9 +1207,10 @@ let browser_detection =
   "(((-webkit-hyphens:none)) and (not (margin-trim:inline))) or \
    ((-moz-orient:inline) and (not (color:rgb(from red r g b))))"
 
-(* Property ordering to match Tailwind's output. Properties are grouped by
-   category, with transform first, then gradients, typography, and animations
-   last. *)
+(* Property ordering to match Tailwind's output. The initial values that appear
+   inside @layer properties @supports must follow Tailwind v4's order. Keep a
+   precise order for known variables (as observed in Tailwind output), and fall
+   back to a high default for everything else. *)
 let property_order name =
   (* Strip leading -- *)
   let name =
@@ -1158,30 +1219,47 @@ let property_order name =
     else name
   in
   match name with
-  (* Transform variables first *)
-  | "tw-scale-x" -> 0
-  | "tw-scale-y" -> 1
-  | "tw-scale-z" -> 2
-  (* Gradient variables *)
-  | "tw-gradient-position" -> 10
-  | "tw-gradient-from" -> 11
-  | "tw-gradient-via" -> 12
-  | "tw-gradient-to" -> 13
-  | "tw-gradient-stops" -> 14
-  | "tw-gradient-via-stops" -> 15
-  | "tw-gradient-from-position" -> 16
-  | "tw-gradient-via-position" -> 17
-  | "tw-gradient-to-position" -> 18
-  (* Border variables *)
-  | "tw-border-style" -> 25
-  (* Typography variables - leading before font-weight before tracking *)
-  | "tw-leading" -> 28
-  | "tw-font-weight" -> 30
-  | "tw-tracking" -> 32
-  (* Animation variables *)
-  | "tw-duration" -> 40
-  | "tw-ease" -> 41
-  (* Other variables - maintain relative order *)
+  (* Tailwind v4 initial-values order observed in @supports block *)
+  | "tw-border-style" -> 0
+  | "tw-font-weight" -> 1
+  | "tw-shadow" -> 2
+  | "tw-shadow-color" -> 3
+  | "tw-shadow-alpha" -> 4
+  | "tw-inset-shadow" -> 5
+  | "tw-inset-shadow-color" -> 6
+  | "tw-inset-shadow-alpha" -> 7
+  | "tw-ring-color" -> 8
+  | "tw-ring-shadow" -> 9
+  | "tw-inset-ring-color" -> 10
+  | "tw-inset-ring-shadow" -> 11
+  | "tw-ring-inset" -> 12
+  | "tw-ring-offset-width" -> 13
+  | "tw-ring-offset-color" -> 14
+  | "tw-ring-offset-shadow" -> 15
+  (* Additional known variables — keep stable but after the core set above *)
+  | "tw-leading" -> 20
+  | "tw-tracking" -> 21
+  | "tw-duration" -> 22
+  | "tw-ease" -> 23
+  (* Transforms / gradients if present — order after core props *)
+  | "tw-rotate-x" -> 30
+  | "tw-rotate-y" -> 31
+  | "tw-rotate-z" -> 32
+  | "tw-skew-x" -> 33
+  | "tw-skew-y" -> 34
+  | "tw-scale-x" -> 35
+  | "tw-scale-y" -> 36
+  | "tw-scale-z" -> 37
+  | "tw-gradient-position" -> 40
+  | "tw-gradient-from" -> 41
+  | "tw-gradient-via" -> 42
+  | "tw-gradient-to" -> 43
+  | "tw-gradient-stops" -> 44
+  | "tw-gradient-via-stops" -> 45
+  | "tw-gradient-from-position" -> 46
+  | "tw-gradient-via-position" -> 47
+  | "tw-gradient-to-position" -> 48
+  (* Fallback for unknowns *)
   | _ -> 100
 
 let sort_properties_by_order initial_values =

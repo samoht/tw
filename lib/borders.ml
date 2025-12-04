@@ -96,7 +96,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "borders"
-  let priority = 16
+  let priority = 19
 
   (* Create border style variable with @property for utilities that reference
      it *)

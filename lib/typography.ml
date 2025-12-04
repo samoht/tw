@@ -411,7 +411,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "typography"
-  let priority = 20
+  let priority = 22
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not a typography utility")
 
@@ -708,12 +708,13 @@ module Handler = struct
     | Text_sm -> 2011
     | Text_xl -> 2012
     | Text_xs -> 2013
-    (* Leading comes third *)
+    (* Leading comes third — Tailwind order: none, tight, snug, normal, relaxed,
+       loose *)
     | Leading_none -> 3001
-    | Leading_relaxed -> 3002
+    | Leading_tight -> 3002
     | Leading_snug -> 3003
     | Leading_normal -> 3004
-    | Leading_tight -> 3005
+    | Leading_relaxed -> 3005
     | Leading_loose -> 3006
     | Leading n -> 3100 + n
     (* Font weight comes fourth - alphabetical order *)
@@ -733,10 +734,10 @@ module Handler = struct
           let _, color_order = Color.utilities_order (Color.pp color) in
           5000 + (color_order * 1000) + shade
         with _ -> 5000 + shade)
-    (* Font family *)
-    | Font_sans -> 6001
-    | Font_serif -> 6002
-    | Font_mono -> 6003
+    (* Font family - comes between text-align and text-size *)
+    | Font_sans -> 1501
+    | Font_serif -> 1502
+    | Font_mono -> 1503
     (* Italic *)
     | Italic -> 7001
     | Not_italic -> 7002

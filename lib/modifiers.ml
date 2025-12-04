@@ -44,9 +44,16 @@ let to_selector (modifier : modifier) cls =
   | Active -> compound [ active cls; Active ]
   | Disabled -> compound [ disabled cls; Disabled ]
   | Group_hover ->
-      combine (compound [ group; Hover ]) Descendant (group_hover cls)
+      (* Tailwind uses: .group-hover\:cls:is(:where(.group):hover x) *)
+      let rel =
+        combine (compound [ where [ group ]; Hover ]) Descendant universal
+      in
+      compound [ group_hover cls; is_ [ rel ] ]
   | Group_focus ->
-      combine (compound [ group; Focus ]) Descendant (group_focus cls)
+      let rel =
+        combine (compound [ where [ group ]; Focus ]) Descendant universal
+      in
+      compound [ group_focus cls; is_ [ rel ] ]
   | Peer_hover ->
       let rel =
         combine

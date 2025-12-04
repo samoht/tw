@@ -5,6 +5,9 @@ let check_class expected t =
 
 let check = Test_helpers.check_handler_roundtrip (module Tw.Layout.Handler)
 
+let check_overflow =
+  Test_helpers.check_handler_roundtrip (module Tw.Overflow.Handler)
+
 let test_display_utilities () =
   check "block";
   check "inline-block";
@@ -26,13 +29,13 @@ let test_z_index () =
   check "z-auto"
 
 let test_overflow () =
-  check "overflow-auto";
-  check "overflow-hidden";
-  check "overflow-clip";
-  check "overflow-visible";
-  check "overflow-scroll";
-  check "overflow-x-auto";
-  check "overflow-y-hidden"
+  check_overflow "overflow-auto";
+  check_overflow "overflow-hidden";
+  check_overflow "overflow-clip";
+  check_overflow "overflow-visible";
+  check_overflow "overflow-scroll";
+  check_overflow "overflow-x-auto";
+  check_overflow "overflow-y-hidden"
 
 let of_string_invalid () =
   (* Invalid layout values *)
@@ -51,10 +54,6 @@ let of_string_invalid () =
   (* Invalid z-index *)
   fail_maybe [ "z"; "-10" ];
   (* Negative z-index *)
-  fail_maybe [ "overflow"; "invalid" ];
-  (* Invalid overflow *)
-  fail_maybe [ "overflow"; "z"; "auto" ];
-  (* Invalid axis *)
   fail_maybe [ "unknown" ]
 (* Unknown layout type *)
 
@@ -96,11 +95,6 @@ let all_utilities () =
     inline;
     inline_block;
     hidden;
-    overflow_auto;
-    overflow_hidden;
-    overflow_visible;
-    overflow_x_auto;
-    overflow_y_hidden;
     object_contain;
     object_cover;
     object_fill;
