@@ -1,7 +1,8 @@
-(** Flexbox property utilities (direction, wrap, grow, shrink, basis, order).
+(** Flexbox property utilities (grow, shrink, basis, order, flex shortcuts).
 
-    These utilities control flexbox behavior and come after sizing utilities in
-    the cascade order. For flex display utilities (flex, inline-flex), see Flex
+    These utilities control flexbox item behavior and come after sizing
+    utilities in the cascade order. For flex display utilities (flex,
+    inline-flex), see Flex module. For direction/wrap utilities, see Flex_layout
     module. *)
 
 module Handler = struct
@@ -9,15 +10,6 @@ module Handler = struct
   open Css
 
   type t =
-    (* Direction *)
-    | Flex_row
-    | Flex_row_reverse
-    | Flex_col
-    | Flex_col_reverse
-    (* Wrap *)
-    | Flex_wrap
-    | Flex_wrap_reverse
-    | Flex_nowrap
     (* Flex shortcuts *)
     | Flex_1
     | Flex_auto
@@ -44,19 +36,8 @@ module Handler = struct
 
   let name = "flex_props"
 
-  (** Priority 13 - after grid-template (12), before alignment (14) *)
-  let priority = 13
-
-  (* Direction *)
-  let flex_row = style [ flex_direction Row ]
-  let flex_row_reverse = style [ flex_direction Row_reverse ]
-  let flex_col = style [ flex_direction Column ]
-  let flex_col_reverse = style [ flex_direction Column_reverse ]
-
-  (* Wrap *)
-  let flex_wrap_utility = style [ flex_wrap Wrap ]
-  let flex_wrap_reverse_utility = style [ flex_wrap Wrap_reverse ]
-  let flex_nowrap_utility = style [ flex_wrap Nowrap ]
+  (** Priority 7 - after sizing (6), before transforms (9) *)
+  let priority = 7
 
   (* Flex shortcuts *)
   let flex_1 = style [ flex (Grow 1.0) ]
@@ -85,13 +66,6 @@ module Handler = struct
   let order_none = style [ order 0 ]
 
   let to_style = function
-    | Flex_row -> flex_row
-    | Flex_row_reverse -> flex_row_reverse
-    | Flex_col -> flex_col
-    | Flex_col_reverse -> flex_col_reverse
-    | Flex_wrap -> flex_wrap_utility
-    | Flex_wrap_reverse -> flex_wrap_reverse_utility
-    | Flex_nowrap -> flex_nowrap_utility
     | Flex_1 -> flex_1
     | Flex_auto -> flex_auto
     | Flex_initial -> flex_initial
@@ -132,28 +106,12 @@ module Handler = struct
     | Basis_1 -> 51
     | Basis_auto -> 52
     | Basis_full -> 53
-    (* Direction - alphabetical: col, col-reverse, row, row-reverse *)
-    | Flex_col -> 60
-    | Flex_col_reverse -> 61
-    | Flex_row -> 62
-    | Flex_row_reverse -> 63
-    (* Wrap - alphabetical: nowrap, wrap, wrap-reverse *)
-    | Flex_nowrap -> 70
-    | Flex_wrap -> 71
-    | Flex_wrap_reverse -> 72
 
   let err_not_utility = Error (`Msg "Not a flex property utility")
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
     match parts with
-    | [ "flex"; "row" ] -> Ok Flex_row
-    | [ "flex"; "row"; "reverse" ] -> Ok Flex_row_reverse
-    | [ "flex"; "col" ] -> Ok Flex_col
-    | [ "flex"; "col"; "reverse" ] -> Ok Flex_col_reverse
-    | [ "flex"; "wrap" ] -> Ok Flex_wrap
-    | [ "flex"; "wrap"; "reverse" ] -> Ok Flex_wrap_reverse
-    | [ "flex"; "nowrap" ] -> Ok Flex_nowrap
     | [ "flex"; "1" ] -> Ok Flex_1
     | [ "flex"; "auto" ] -> Ok Flex_auto
     | [ "flex"; "initial" ] -> Ok Flex_initial
@@ -176,15 +134,6 @@ module Handler = struct
     | _ -> err_not_utility
 
   let to_class = function
-    (* Direction *)
-    | Flex_row -> "flex-row"
-    | Flex_row_reverse -> "flex-row-reverse"
-    | Flex_col -> "flex-col"
-    | Flex_col_reverse -> "flex-col-reverse"
-    (* Wrap *)
-    | Flex_wrap -> "flex-wrap"
-    | Flex_wrap_reverse -> "flex-wrap-reverse"
-    | Flex_nowrap -> "flex-nowrap"
     (* Flex shortcuts *)
     | Flex_1 -> "flex-1"
     | Flex_auto -> "flex-auto"
@@ -214,13 +163,6 @@ open Handler
 let () = Utility.register (module Handler)
 
 let utility x = Utility.base (Self x)
-let flex_row = utility Flex_row
-let flex_row_reverse = utility Flex_row_reverse
-let flex_col = utility Flex_col
-let flex_col_reverse = utility Flex_col_reverse
-let flex_wrap = utility Flex_wrap
-let flex_wrap_reverse = utility Flex_wrap_reverse
-let flex_nowrap = utility Flex_nowrap
 let flex_1 = utility Flex_1
 let flex_auto = utility Flex_auto
 let flex_initial = utility Flex_initial

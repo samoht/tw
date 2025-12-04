@@ -118,7 +118,7 @@ let check_conflict_order () =
 
   (* Test basic selector parsing *)
   let prio, sub = conflict_order ".p-4" in
-  check int "p-4 priority" 19 prio;
+  check int "p-4 priority" 21 prio;
 
   (* Padding priority *)
 
@@ -131,8 +131,8 @@ let check_conflict_order () =
   let m4_prio, _ = conflict_order ".m-4" in
   let bg_prio, _ = conflict_order ".bg-blue-500" in
   check bool "margin before background" true (m4_prio < bg_prio);
-  (* bg-blue-500 is a background color (priority 18), which comes before Padding
-     (priority 19) *)
+  (* bg-blue-500 is a background color (priority 20), which comes before Padding
+     (priority 21) *)
   check bool "background color before padding" true (bg_prio < prio);
 
   (* Test unknown utility gets high priority *)
@@ -1313,14 +1313,17 @@ let test_handler_priority_ordering () =
   check bool "layout = flex" true (layout_prio = flex_prio);
   check bool "flex = grid" true (flex_prio = grid_prio);
   check bool "grid < sizing" true (grid_prio < sizing_prio);
-  check bool "sizing < transform" true (sizing_prio < transform_prio);
+  check bool "sizing < flex_props" true
+    (sizing_prio < Tw.Flex_props.Handler.priority);
+  check bool "flex_props < transform" true
+    (Tw.Flex_props.Handler.priority < transform_prio);
   check bool "transform < animation" true (transform_prio < animation_prio);
   check bool "animation < cursor" true (animation_prio < cursor_prio);
   check bool "cursor < grid_template" true (cursor_prio < grid_template_prio);
-  check bool "grid_template < flex_props" true
-    (grid_template_prio < Tw.Flex_props.Handler.priority);
-  check bool "flex_props < alignment" true
-    (Tw.Flex_props.Handler.priority < alignment_prio);
+  check bool "grid_template < flex_layout" true
+    (grid_template_prio < Tw.Flex_layout.Handler.priority);
+  check bool "flex_layout < alignment" true
+    (Tw.Flex_layout.Handler.priority < alignment_prio);
   (* Alignment and gap share priority 15, differentiated by suborder *)
   check bool "alignment = gap" true (alignment_prio = gap_prio);
   check bool "gap < border" true (gap_prio < border_prio);

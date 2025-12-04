@@ -2,6 +2,7 @@ open Alcotest
 open Test_helpers
 
 let check_display = check_handler_roundtrip (module Tw.Flex.Handler)
+let check_layout = check_handler_roundtrip (module Tw.Flex_layout.Handler)
 let check_props = check_handler_roundtrip (module Tw.Flex_props.Handler)
 
 let of_string_valid () =
@@ -9,16 +10,16 @@ let of_string_valid () =
   check_display "flex";
   check_display "inline-flex";
 
-  (* Direction *)
-  check_props "flex-row";
-  check_props "flex-row-reverse";
-  check_props "flex-col";
-  check_props "flex-col-reverse";
+  (* Direction - now in Flex_layout *)
+  check_layout "flex-row";
+  check_layout "flex-row-reverse";
+  check_layout "flex-col";
+  check_layout "flex-col-reverse";
 
-  (* Wrap *)
-  check_props "flex-wrap";
-  check_props "flex-wrap-reverse";
-  check_props "flex-nowrap";
+  (* Wrap - now in Flex_layout *)
+  check_layout "flex-wrap";
+  check_layout "flex-wrap-reverse";
+  check_layout "flex-nowrap";
 
   (* Flex shortcuts *)
   check_props "flex-1";
