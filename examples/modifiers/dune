@@ -14,7 +14,7 @@
  (targets tailwind.css)
  (deps index.html)
  (action
-  (run npx tailwindcss --content %{deps} -o %{targets} --minify))
+  (run npx tailwindcss --cwd . --content %{deps} -o %{targets} --minify))
  (mode
   (promote (until-clean))))
 

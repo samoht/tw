@@ -46,7 +46,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "effects"
-  let priority = 22
+  let priority = 24
 
   (* Shadow variables with property registration - using convert for type
      compatibility *)
@@ -116,7 +116,9 @@ module Handler = struct
       ~initial:(Zero : Css.length)
       "tw-ring-offset-width"
 
-  let ring_width_var = Var.channel Css.Length "tw-ring-width"
+  (* Note: ring_width_var was removed - Tailwind v4 embeds the width directly in
+     the --tw-ring-shadow calc() expression instead of using a separate
+     variable *)
 
   let shadow_none =
     (* Shadow-none sets shadow to transparent 0 0 *)
@@ -525,50 +527,41 @@ module Handler = struct
   type ring_width = [ `None | `Xs | `Sm | `Md | `Lg | `Xl ]
 
   let ring_internal (w : ring_width) =
-    let width =
+    (* Tailwind v4 ring widths: ring=1px, ring-1=1px, ring-2=2px, ring-4=4px,
+       ring-8=8px *)
+    let width_px =
       match w with
-      | `None -> "0"
-      | `Xs -> "1px"
-      | `Sm -> "2px"
-      | `Md -> "3px"
-      | `Lg -> "4px"
-      | `Xl -> "8px"
-    in
-    let width_len : length =
-      match width with
-      | "0" -> Zero
-      | "1px" -> Px 1.
-      | "2px" -> Px 2.
-      | "4px" -> Px 4.
-      | "8px" -> Px 8.
-      | _ -> Px 3.
-    in
-    let d_ring_color, ring_color_ref =
-      Var.binding ring_color_var (Css.hex "#0000001a")
-    in
-    let ring_shadow_value =
-      Css.shadow ~h_offset:Zero ~v_offset:Zero ~spread:width_len
-        ~color:(Var ring_color_ref) ()
+      | `None -> 0
+      | `Xs -> 1
+      | `Sm -> 2
+      | `Md -> 1 (* Default ring is 1px in v4 *)
+      | `Lg -> 4
+      | `Xl -> 8
     in
 
-    (* Create box-shadow using CSS variable composition *)
-    let d_inset, v_inset =
-      Var.binding inset_shadow_var
-        (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+    (* Tailwind v4 uses a complex ring-shadow format: var(--tw-ring-inset,) 0 0
+       0 calc(Xpx + var(--tw-ring-offset-width)) var(--tw-ring-color,
+       currentcolor)
+
+       Since our typed shadow system cannot express calc() in spread, we use
+       custom_property to create the raw CSS value directly. *)
+    let ring_shadow_str =
+      Printf.sprintf
+        "var(--tw-ring-inset,)0 0 0 calc(%dpx + \
+         var(--tw-ring-offset-width))var(--tw-ring-color,currentcolor)"
+        width_px
     in
-    let d_inset_ring, v_inset_ring =
-      Var.binding inset_ring_shadow_var
-        (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+    let d_ring =
+      Css.custom_property ~layer:"utilities" "--tw-ring-shadow" ring_shadow_str
     in
-    let d_ring_offset, v_ring_offset =
-      Var.binding ring_offset_shadow_var
-        (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
-    in
-    let d_ring, v_ring = Var.binding ring_shadow_var ring_shadow_value in
-    let d_shadow, v_shadow =
-      Var.binding shadow_var
-        (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
-    in
+
+    (* Reference shadow variables through @property defaults *)
+    let v_inset = Var.reference inset_shadow_var in
+    let v_inset_ring = Var.reference inset_ring_shadow_var in
+    let v_ring_offset = Var.reference ring_offset_shadow_var in
+    let v_ring = Var.reference ring_shadow_var in
+    let v_shadow = Var.reference shadow_var in
+
     let box_shadow_vars : Css.shadow list =
       [
         Css.Var v_inset;
@@ -579,11 +572,30 @@ module Handler = struct
       ]
     in
 
-    let d_width, _ = Var.binding ring_width_var width_len in
+    (* Collect all property rules needed for ring *)
+    let property_rules =
+      [
+        Var.property_rule shadow_var;
+        Var.property_rule shadow_color_var;
+        Var.property_rule shadow_alpha_var;
+        Var.property_rule inset_shadow_var;
+        Var.property_rule inset_shadow_color_var;
+        Var.property_rule inset_shadow_alpha_var;
+        Var.property_rule ring_color_var;
+        Var.property_rule ring_shadow_var;
+        Var.property_rule inset_ring_color_var;
+        Var.property_rule inset_ring_shadow_var;
+        Var.property_rule ring_inset_var;
+        Var.property_rule ring_offset_width_var;
+        Var.property_rule ring_offset_color_var;
+        Var.property_rule ring_offset_shadow_var;
+      ]
+      |> List.filter_map (fun x -> x)
+    in
+
     style
-      (d_ring_color :: d_width :: d_inset :: d_inset_ring :: d_ring_offset
-     :: d_ring :: d_shadow
-      :: [ Css.box_shadows box_shadow_vars ])
+      ~property_rules:(Css.concat property_rules)
+      [ d_ring; Css.box_shadows box_shadow_vars ]
 
   let ring_none = ring_internal `None
   let ring_xs = ring_internal `Xs
@@ -597,9 +609,16 @@ module Handler = struct
     style [ decl ]
 
   let ring_color color shade =
+    (* Use theme color variable reference like text color does: --tw-ring-color:
+       var(--color-blue-400) *)
+    let color_theme_var = Color.get_color_var color shade in
     let color_value = Color.to_css color shade in
-    let d, _ = Var.binding ring_color_var color_value in
-    style (d :: [])
+    (* Bind the theme variable to get its declaration and reference *)
+    let color_decl, color_ref = Var.binding color_theme_var color_value in
+    (* Now set ring-color-var to reference the theme variable *)
+    let d, _ = Var.binding ring_color_var (Css.Var color_ref) in
+    (* Include color_decl so the theme variable gets emitted to @layer theme *)
+    style [ color_decl; d ]
 
   let opacity n =
     let value = float_of_int n /. 100.0 in
@@ -682,6 +701,10 @@ module Handler = struct
     | [ "ring"; "4" ] -> Ok Ring_lg
     | [ "ring"; "8" ] -> Ok Ring_xl
     | [ "ring"; "inset" ] -> Ok Ring_inset
+    | [ "ring"; color; shade ] -> (
+        match (Color.of_string color, Parse.int_any shade) with
+        | Ok c, Ok s -> Ok (Ring_color (c, s))
+        | _ -> err_not_utility)
     | [ "mix"; "blend"; "normal" ] -> Ok Mix_blend_normal
     | [ "mix"; "blend"; "multiply" ] -> Ok Mix_blend_multiply
     | [ "mix"; "blend"; "screen" ] -> Ok Mix_blend_screen
