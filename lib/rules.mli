@@ -193,6 +193,9 @@ val to_inline_style : t list -> string
 
 (** {1 Helper Functions} *)
 
+val set_debug_compare : bool -> unit
+(** [set_debug_compare true] enables debug output for rule comparison. *)
+
 val extract_selector_props : t -> output list
 (** [extract_selector_props tw] extracts CSS rules from a Tailwind class. *)
 
