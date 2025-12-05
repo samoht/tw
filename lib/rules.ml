@@ -899,15 +899,29 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 =
     original index order. *)
 let compare_same_utility_regular_media i1 i2 = Int.compare i1 i2
 
+(** Check if a selector kind is a "late modifier" that should come after media.
+    This is a local version used before the full is_late_modifier is defined. *)
+let is_late_modifier_kind = function
+  | Complex { has_group_has = true; _ } -> true
+  | Complex { has_peer_has = true; _ } -> true
+  | Complex { has_focus_within = true; _ } -> true
+  | Complex { has_focus_visible = true; _ } -> true
+  | Complex { has_standalone_has = true; _ } -> true
+  | _ -> false
+
 (** Compare Regular vs Media rules from different utilities. Uses selector
     classification to determine ordering. *)
 let compare_different_utility_regular_media sel1 sel2 order1 order2 =
   let sel2_str = Css.Selector.to_string sel2 in
   if has_modifier_prefix sel2_str then
-    (* Media rule has modifier prefix - Regular simple utilities come first *)
-    match classify_selector sel1 with
-    | Simple -> -1
-    | Complex _ -> 1
+    (* Media rule has modifier prefix - check if regular is a late modifier *)
+    let kind1 = classify_selector sel1 in
+    if is_late_modifier_kind kind1 then
+      (* Late modifiers (group-has, peer-has, focus-within, etc.) come after *)
+      1
+    else
+      (* All other utilities (including prose) come before modifier media *)
+      -1
   else
     (* Plain media rule - compare by priority *)
     let p1, _ = order1 in
