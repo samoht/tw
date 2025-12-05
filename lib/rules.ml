@@ -74,8 +74,13 @@ type layers_result = {
 (** Classification of CSS selectors for ordering purposes *)
 type selector_kind =
   | Simple  (** Plain class selector like .foo *)
-  | Complex of { has_focus_within : bool; has_focus_visible : bool }
-      (** Selector with combinators, pseudo-elements, etc. *)
+  | Complex of {
+      has_focus_within : bool;
+      has_focus_visible : bool;
+      has_group_has : bool;
+      has_peer_has : bool;
+      has_standalone_has : bool;
+    }  (** Selector with combinators, pseudo-elements, etc. *)
 
 (** Relationship between two rules being compared *)
 type rule_relationship =
@@ -672,7 +677,7 @@ let contains_substring s sub =
   in
   lsub <> 0 && loop 0
 
-(** Classify a selector into Simple or Complex with focus analysis *)
+(** Classify a selector into Simple or Complex with focus/has analysis *)
 let classify_selector sel =
   if is_simple_class_selector sel then Simple
   else
@@ -681,12 +686,20 @@ let classify_selector sel =
       {
         has_focus_within = contains_substring s "focus-within\\:";
         has_focus_visible = contains_substring s "focus-visible\\:";
+        (* Detect :has() modifier type *)
+        has_group_has = contains_substring s "group-has-\\[";
+        has_peer_has = contains_substring s "peer-has-\\[";
+        has_standalone_has = contains_substring s ".has-\\[";
       }
 
-(** Compare focus kinds: focus-within (1) < focus-visible (2) < other (0) *)
-let focus_order = function
-  | Complex { has_focus_within = true; _ } -> 1
-  | Complex { has_focus_visible = true; _ } -> 2
+(** Compare complex selector kinds. Returns ordering value for sorting. Order:
+    other < group-has < peer-has < focus-within < focus-visible < has *)
+let complex_selector_order = function
+  | Complex { has_group_has = true; _ } -> 10
+  | Complex { has_peer_has = true; _ } -> 20
+  | Complex { has_focus_within = true; _ } -> 30
+  | Complex { has_focus_visible = true; _ } -> 40
+  | Complex { has_standalone_has = true; _ } -> 50
   | _ -> 0
 
 (** Check if selector has modifier prefix (contains escaped colon like \:) *)
@@ -840,10 +853,10 @@ let compare_simple_selectors sel1 sel2 s1 s2 i1 i2 =
     in
     if sel_cmp <> 0 then sel_cmp else Int.compare i1 i2
 
-(** Compare two complex selectors by focus kind, then suborder, then index.
-    Focus-within comes before focus-visible to match Tailwind's ordering. *)
+(** Compare two complex selectors by kind, then suborder, then index. Order:
+    focus < group-has < peer-has < has *)
 let compare_complex_selectors kind1 kind2 s1 s2 i1 i2 =
-  let k1 = focus_order kind1 and k2 = focus_order kind2 in
+  let k1 = complex_selector_order kind1 and k2 = complex_selector_order kind2 in
   if k1 <> k2 then Int.compare k1 k2
   else
     let sub_cmp = Int.compare s1 s2 in
@@ -922,25 +935,101 @@ let compare_same_utility_regular r1 r2 =
   let prio_cmp = compare r1.order r2.order in
   if prio_cmp <> 0 then prio_cmp else Int.compare r1.index r2.index
 
+(* Debug flag for tracing comparisons *)
+let debug_compare = ref false
+let set_debug_compare b = debug_compare := b
+
+(** Check if a selector has special modifiers that should come at the end. This
+    includes :has() variants (group-has, peer-has, has) and focus variants
+    (focus-within, focus-visible). These modifiers all come after normal
+    utilities in Tailwind's output order. *)
+let is_late_modifier = function
+  | Complex { has_group_has = true; _ } -> true
+  | Complex { has_peer_has = true; _ } -> true
+  | Complex { has_focus_within = true; _ } -> true
+  | Complex { has_focus_visible = true; _ } -> true
+  | Complex { has_standalone_has = true; _ } -> true
+  | _ -> false
+
 (** Compare regular rules from different base utilities. Groups all rules from
-    one utility together by sorting on base_class after priority. *)
+    one utility together by sorting on base_class after priority.
+
+    "Late modifier" utilities (group-has, peer-has, focus-within, focus-visible,
+    has) always come after all other utilities, then are sorted by modifier
+    type. Other complex selectors (with :focus, :checked, etc.) are sorted
+    normally with their priority group.
+
+    Order: late_modifier -> priority -> suborder -> modifier_kind -> base_class
+    -> index *)
 let compare_cross_utility_regular r1 r2 =
-  let prio_cmp = compare r1.order r2.order in
-  if prio_cmp <> 0 then prio_cmp
+  let p1, s1 = r1.order in
+  let p2, s2 = r2.order in
+  let kind1 = classify_selector r1.selector in
+  let kind2 = classify_selector r2.selector in
+  if !debug_compare then (
+    Format.eprintf "compare_cross_prio: %s (%d,%d) vs %s (%d,%d)@."
+      (Css.Selector.to_string r1.selector)
+      p1 s1
+      (Css.Selector.to_string r2.selector)
+      p2 s2;
+    Format.eprintf "compare_cross_kind: %s (%s) vs %s (%s)@."
+      (Css.Selector.to_string r1.selector)
+      (match kind1 with Simple -> "Simple" | Complex _ -> "Complex")
+      (Css.Selector.to_string r2.selector)
+      (match kind2 with Simple -> "Simple" | Complex _ -> "Complex"));
+  let late1 = is_late_modifier kind1 in
+  let late2 = is_late_modifier kind2 in
+  (* Late modifier utilities always come last *)
+  if late1 && not late2 then 1
+  else if late2 && not late1 then -1
+  else if late1 && late2 then
+    (* Both have late modifiers - order by modifier type *)
+    let k1 = complex_selector_order kind1
+    and k2 = complex_selector_order kind2 in
+    if k1 <> k2 then Int.compare k1 k2
+    else
+      let prio_cmp = Int.compare p1 p2 in
+      if prio_cmp <> 0 then prio_cmp
+      else
+        let sub_cmp = Int.compare s1 s2 in
+        if sub_cmp <> 0 then sub_cmp
+        else
+          let bc_cmp =
+            match (r1.base_class, r2.base_class) with
+            | Some bc1, Some bc2 -> String.compare bc1 bc2
+            | Some _, None -> -1
+            | None, Some _ -> 1
+            | None, None -> 0
+          in
+          if bc_cmp <> 0 then bc_cmp else Int.compare r1.index r2.index
   else
-    (* Same priority: group by base_class to keep utility rules together *)
-    let bc_cmp =
-      match (r1.base_class, r2.base_class) with
-      | Some bc1, Some bc2 -> String.compare bc1 bc2
-      | Some _, None -> -1
-      | None, Some _ -> 1
-      | None, None -> 0
-    in
-    if bc_cmp <> 0 then bc_cmp else Int.compare r1.index r2.index
+    (* Neither has late modifier - sort normally by priority *)
+    let prio_cmp = Int.compare p1 p2 in
+    if prio_cmp <> 0 then prio_cmp
+    else
+      let sub_cmp = Int.compare s1 s2 in
+      if sub_cmp <> 0 then sub_cmp
+      else
+        let bc_cmp =
+          match (r1.base_class, r2.base_class) with
+          | Some bc1, Some bc2 -> String.compare bc1 bc2
+          | Some _, None -> -1
+          | None, Some _ -> 1
+          | None, None -> 0
+        in
+        if bc_cmp <> 0 then bc_cmp else Int.compare r1.index r2.index
 
 (** Compare two Regular rules using rule relationship dispatch. *)
 let compare_regular_rules r1 r2 =
-  match rule_relationship r1 r2 with
+  let rel = rule_relationship r1 r2 in
+  if !debug_compare then
+    Format.eprintf "compare_regular: %s vs %s -> %s@."
+      (Css.Selector.to_string r1.selector)
+      (Css.Selector.to_string r2.selector)
+      (match rel with
+      | Same_utility bc -> "Same:" ^ bc
+      | Different_utilities -> "Different");
+  match rel with
   | Same_utility _ -> compare_same_utility_regular r1 r2
   | Different_utilities -> compare_cross_utility_regular r1 r2
 
@@ -956,6 +1045,20 @@ let compare_starting_rules r1 r2 =
 (** Compare indexed rules for sorting. Uses type-directed dispatch based on
     rule_type. *)
 let compare_indexed_rules r1 r2 =
+  if !debug_compare then
+    Format.eprintf "compare_indexed: %s vs %s (types: %s/%s)@."
+      (Css.Selector.to_string r1.selector)
+      (Css.Selector.to_string r2.selector)
+      (match r1.rule_type with
+      | `Regular -> "R"
+      | `Media _ -> "M"
+      | `Container _ -> "C"
+      | `Starting -> "S")
+      (match r2.rule_type with
+      | `Regular -> "R"
+      | `Media _ -> "M"
+      | `Container _ -> "C"
+      | `Starting -> "S");
   (* First compare by rule type group *)
   let type_cmp =
     Int.compare (rule_type_order r1.rule_type) (rule_type_order r2.rule_type)
