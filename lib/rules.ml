@@ -1244,6 +1244,20 @@ let rule_sets_from_selector_props all_rules =
   |> List.sort compare_indexed_rules
   |> List.map indexed_rule_to_statement
 
+(* Get sorted indexed rules - used for extracting first-usage order of
+   variables *)
+let sorted_indexed_rules all_rules =
+  all_rules
+  |> List.filter_map rule_to_triple
+  |> deduplicate_typed_triples |> add_index
+  |> List.sort compare_indexed_rules
+
+(* Extract set_var_names from sorted indexed rules to get correct first-usage
+   order. This iterates through sorted rules and collects custom property
+   names. *)
+let set_var_names_from_sorted_rules sorted_rules =
+  sorted_rules |> List.concat_map (fun r -> Css.custom_prop_names r.props)
+
 let rule_sets tw_classes =
   let all_rules = tw_classes |> List.concat_map extract_selector_props in
   rule_sets_from_selector_props all_rules
@@ -1438,71 +1452,51 @@ let browser_detection =
   "(((-webkit-hyphens:none)) and (not (margin-trim:inline))) or \
    ((-moz-orient:inline) and (not (color:rgb(from red r g b))))"
 
-(* Property ordering to match Tailwind's output. The initial values that appear
-   inside @layer properties @supports must follow Tailwind v4's order. Keep a
-   precise order for known variables (as observed in Tailwind output), and fall
-   back to a high default for everything else. *)
-let property_order name =
-  (* Strip leading -- *)
-  let name =
-    if String.starts_with ~prefix:"--" name then
-      String.sub name 2 (String.length name - 2)
-    else name
-  in
-  match name with
-  (* Tailwind v4 initial-values order observed in @supports block *)
-  | "tw-border-style" -> 0
-  | "tw-font-weight" -> 1
-  | "tw-shadow" -> 2
-  | "tw-shadow-color" -> 3
-  | "tw-shadow-alpha" -> 4
-  | "tw-inset-shadow" -> 5
-  | "tw-inset-shadow-color" -> 6
-  | "tw-inset-shadow-alpha" -> 7
-  | "tw-ring-color" -> 8
-  | "tw-ring-shadow" -> 9
-  | "tw-inset-ring-color" -> 10
-  | "tw-inset-ring-shadow" -> 11
-  | "tw-ring-inset" -> 12
-  | "tw-ring-offset-width" -> 13
-  | "tw-ring-offset-color" -> 14
-  | "tw-ring-offset-shadow" -> 15
-  (* Additional known variables — keep stable but after the core set above *)
-  | "tw-leading" -> 20
-  | "tw-tracking" -> 21
-  | "tw-duration" -> 22
-  | "tw-ease" -> 23
-  (* Transforms / gradients if present — order after core props *)
-  | "tw-rotate-x" -> 30
-  | "tw-rotate-y" -> 31
-  | "tw-rotate-z" -> 32
-  | "tw-skew-x" -> 33
-  | "tw-skew-y" -> 34
-  | "tw-scale-x" -> 35
-  | "tw-scale-y" -> 36
-  | "tw-scale-z" -> 37
-  | "tw-gradient-position" -> 40
-  | "tw-gradient-from" -> 41
-  | "tw-gradient-via" -> 42
-  | "tw-gradient-to" -> 43
-  | "tw-gradient-stops" -> 44
-  | "tw-gradient-via-stops" -> 45
-  | "tw-gradient-from-position" -> 46
-  | "tw-gradient-via-position" -> 47
-  | "tw-gradient-to-position" -> 48
-  (* Fallback for unknowns *)
-  | _ -> 100
+(* Build a mapping from property names to their first-usage index. Tailwind
+   orders properties in @supports and @property by first usage order in the
+   sorted utilities output. Names already include -- prefix. *)
+let build_first_usage_order set_var_names =
+  let seen = Hashtbl.create 16 in
+  let idx = ref 0 in
+  List.iter
+    (fun name ->
+      (* Names from custom_prop_names already include -- prefix *)
+      if not (Hashtbl.mem seen name) then (
+        Hashtbl.add seen name !idx;
+        incr idx))
+    set_var_names;
+  seen
 
-let sort_properties_by_order initial_values =
+(* Get property order from first-usage table, or fallback to static registry.
+   Note: Properties that are only REFERENCED (not SET) will use static ordering.
+   This is a simplification - Tailwind's exact order depends on reference
+   chains. *)
+let property_order_from first_usage_order name =
+  match Hashtbl.find_opt first_usage_order name with
+  | Some order -> order
+  | None -> (
+      (* Fall back to static registry for properties not in first_usage. These
+         are typically properties that are referenced but not set. They keep
+         their static order without offset, so they integrate with SET
+         properties at roughly the position they'd appear. *)
+      match Var.get_property_order name with
+      | Some order -> order
+      | None -> 100000 (* Unknowns appear at the end *))
+
+let sort_properties_by_order first_usage_order initial_values =
   List.sort
     (fun (name1, _) (name2, _) ->
-      compare (property_order name1) (property_order name2))
+      compare
+        (property_order_from first_usage_order name1)
+        (property_order_from first_usage_order name2))
     initial_values
 
 (* Build property layer content with browser detection *)
-let property_layer_content initial_values other_statements =
+let property_layer_content first_usage_order initial_values other_statements =
   let selector = Css.Selector.(list [ universal; Before; After; Backdrop ]) in
-  let sorted_values = sort_properties_by_order initial_values in
+  let sorted_values =
+    sort_properties_by_order first_usage_order initial_values
+  in
   let initial_declarations =
     List.map (fun (name, value) -> Css.custom_property name value) sorted_values
   in
@@ -1513,7 +1507,8 @@ let property_layer_content initial_values other_statements =
 
 (* Build the properties layer with browser detection for initial values *)
 (* Returns (properties_layer, property_rules) - @property rules are separate *)
-let build_properties_layer explicit_property_rules_statements =
+let build_properties_layer first_usage_order explicit_property_rules_statements
+    =
   let property_rules, other_statements =
     partition_properties explicit_property_rules_statements
   in
@@ -1522,7 +1517,9 @@ let build_properties_layer explicit_property_rules_statements =
 
   if deduplicated = [] && initial_values = [] then (Css.empty, [])
   else
-    let layer = property_layer_content initial_values other_statements in
+    let layer =
+      property_layer_content first_usage_order initial_values other_statements
+    in
     (layer, deduplicated)
 
 (** Extract SET variable names from Custom_declarations *)
@@ -1610,8 +1607,9 @@ let build_layer_declaration ~has_properties ~include_base =
   Css.v [ Css.layer_decl names ]
 
 (** Assemble all CSS layers in the correct order *)
-let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
-    ~utilities_layer ~property_rules_for_end ~keyframes =
+let assemble_all_layers ~first_usage_order ~include_base ~properties_layer
+    ~theme_layer ~base_layer ~utilities_layer ~property_rules_for_end ~keyframes
+    =
   let base_layers =
     if include_base then [ theme_layer; base_layer ] else [ theme_layer ]
   in
@@ -1635,7 +1633,9 @@ let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
            match (Css.as_property s1, Css.as_property s2) with
            | ( Some (Css.Property_info { name = n1; _ }),
                Some (Css.Property_info { name = n2; _ }) ) ->
-               compare (property_order n1) (property_order n2)
+               compare
+                 (property_order_from first_usage_order n1)
+                 (property_order_from first_usage_order n2)
            | _ -> 0)
   in
   let property_rules_css =
@@ -1670,7 +1670,8 @@ let flatten_property_rules property_rules_lists =
   property_rules_lists |> List.concat_map Css.statements
 
 (* Build individual CSS layers *)
-let build_individual_layers selector_props all_property_statements statements =
+let build_individual_layers first_usage_order selector_props
+    all_property_statements statements =
   (* Only include font family defaults - transition defaults are added when
      transition utilities are used, to match Tailwind's behavior *)
   let theme_defaults = Typography.default_font_family_declarations in
@@ -1682,7 +1683,9 @@ let build_individual_layers selector_props all_property_statements statements =
   let properties_layer, property_rules =
     if all_property_statements = [] then (None, [])
     else
-      let layer, prop_rules = build_properties_layer all_property_statements in
+      let layer, prop_rules =
+        build_properties_layer first_usage_order all_property_statements
+      in
       if layer = Css.empty then (None, prop_rules) else (Some layer, prop_rules)
   in
   let utilities_layer = build_utilities_layer ~statements in
@@ -1707,19 +1710,25 @@ let build_layers ~include_base ~selector_props tw_classes statements =
   let vars_from_utilities, set_var_names, property_rules_lists =
     extract_vars_and_rules tw_classes
   in
+  (* Get sorted indexed_rules to extract first-usage order from sorted output *)
+  let sorted_rules = sorted_indexed_rules selector_props in
+  let sorted_set_var_names = set_var_names_from_sorted_rules sorted_rules in
+  (* Build first-usage order mapping from the sorted order of variables *)
+  let first_usage_order = build_first_usage_order sorted_set_var_names in
   let explicit_property_rules = flatten_property_rules property_rules_lists in
   let all_property_statements =
     collect_all_property_rules vars_from_utilities set_var_names
       explicit_property_rules
   in
   let layers =
-    build_individual_layers selector_props all_property_statements statements
+    build_individual_layers first_usage_order selector_props
+      all_property_statements statements
   in
   (* Extract keyframes from all utilities *)
   let keyframes = List.fold_left collect_keyframes [] styles in
-  assemble_all_layers ~include_base ~properties_layer:layers.properties_layer
-    ~theme_layer:layers.theme_layer ~base_layer:layers.base_layer
-    ~utilities_layer:layers.utilities_layer
+  assemble_all_layers ~first_usage_order ~include_base
+    ~properties_layer:layers.properties_layer ~theme_layer:layers.theme_layer
+    ~base_layer:layers.base_layer ~utilities_layer:layers.utilities_layer
     ~property_rules_for_end:layers.property_rules ~keyframes
 
 let wrap_css_items statements =

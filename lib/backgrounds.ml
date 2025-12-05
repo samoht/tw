@@ -85,40 +85,60 @@ module Handler = struct
   (* Gradient variables with proper @property definitions matching Tailwind
      v4 *)
   let gradient_position_var =
-    (* This is used as a placeholder/initial value in gradient stops. *)
-    Var.property_default Percentage ~initial:(Pct 0.) ~universal:true
-      "tw-gradient-position"
+    (* The gradient direction. Default is to bottom if not specified. *)
+    Var.property_default Gradient_direction ~initial:To_bottom ~universal:true
+      ~property_order:3 "tw-gradient-position"
 
   let gradient_from_var =
-    Var.property_default Color ~initial:(Css.hex "#0000") "tw-gradient-from"
+    Var.property_default Color ~initial:(Css.hex "#0000") ~property_order:4
+      "tw-gradient-from"
 
   let gradient_via_var =
-    Var.property_default Color ~initial:(Css.hex "#0000") "tw-gradient-via"
+    Var.property_default Color ~initial:(Css.hex "#0000") ~property_order:5
+      "tw-gradient-via"
 
   let gradient_to_var =
-    Var.property_default Color ~initial:(Css.hex "#0000") "tw-gradient-to"
+    Var.property_default Color ~initial:(Css.hex "#0000") ~property_order:6
+      "tw-gradient-to"
 
   let gradient_stops_var =
-    Var.channel ~needs_property:true Gradient_stop "tw-gradient-stops"
+    Var.property_default Gradient_stop ~initial:(List []) ~universal:true
+      ~property_order:7 "tw-gradient-stops"
 
   let gradient_via_stops_var =
-    Var.channel ~needs_property:true Gradient_stop "tw-gradient-via-stops"
+    Var.channel ~needs_property:true ~property_order:8 Gradient_stop
+      "tw-gradient-via-stops"
 
   let gradient_from_position_var =
-    Var.property_default Percentage ~initial:(Pct 0.)
+    Var.property_default Percentage ~initial:(Pct 0.) ~property_order:9
       "tw-gradient-from-position"
 
   let gradient_via_position_var =
-    Var.property_default Percentage ~initial:(Pct 50.)
+    Var.property_default Percentage ~initial:(Pct 50.) ~property_order:10
       "tw-gradient-via-position"
 
   let gradient_to_position_var =
-    Var.property_default Percentage ~initial:(Pct 100.)
+    Var.property_default Percentage ~initial:(Pct 100.) ~property_order:11
       "tw-gradient-to-position"
 
   let bg_gradient_to' dir =
-    let dir_val = to_spec dir in
-    style [ Css.background_image (Linear_gradient (dir_val, [])) ]
+    (* Set --tw-gradient-position to the typed direction with oklab
+       interpolation *)
+    let dir_val = With_interpolation (to_spec dir, In_oklab) in
+    let d_position, _ = Var.binding gradient_position_var dir_val in
+    (* Reference --tw-gradient-stops for linear-gradient *)
+    let stops_ref = Var.reference gradient_stops_var in
+    (* Include property rules for the variables *)
+    let property_rules =
+      [
+        Var.property_rule gradient_position_var;
+        Var.property_rule gradient_stops_var;
+      ]
+      |> List.filter_map (fun x -> x)
+      |> Css.concat
+    in
+    style ~property_rules
+      [ d_position; Css.background_image (Linear_gradient_var stops_ref) ]
 
   (** Helper to get color value and optional theme variable declaration. For
       custom/arbitrary colors: returns ([], color_value) - no theme variable.
@@ -152,7 +172,7 @@ module Handler = struct
     let fallback_stops : Css.gradient_stop =
       List
         [
-          Percentage (Var position_ref);
+          Direction (Var position_ref);
           Color_percentage (Var from_ref, Some (Var from_pos_ref), None);
           Color_percentage (Var to_ref, Some (Var to_pos_ref), None);
         ]
@@ -168,7 +188,7 @@ module Handler = struct
           let via_stop_list : Css.gradient_stop =
             List
               [
-                Percentage (Var position_ref);
+                Direction (Var position_ref);
                 Color_percentage (Var from_ref, Some (Var from_pos_ref), None);
                 Color_percentage (Var via_ref, Some (Var via_pos_ref), None);
                 Color_percentage (Var to_ref, Some (Var to_pos_ref), None);

@@ -101,29 +101,35 @@ let leading_relaxed_var =
   Var.theme Css.Line_height "leading-relaxed" ~order:(6, 50)
 
 let font_weight_var =
-  Var.channel ~needs_property:true Css.Font_weight "tw-font-weight"
+  Var.channel ~needs_property:true ~property_order:6 Css.Font_weight
+    "tw-font-weight"
 
-let leading_var = Var.channel ~needs_property:true Css.Line_height "tw-leading"
-let tracking_var = Var.channel ~needs_property:true Css.Length "tw-tracking"
+let leading_var =
+  Var.channel ~needs_property:true ~property_order:5 Css.Line_height
+    "tw-leading"
+
+let tracking_var =
+  Var.channel ~needs_property:true ~property_order:8 Css.Length "tw-tracking"
 
 let ordinal_var =
-  Var.channel ~needs_property:true Css.Font_variant_numeric_token "tw-ordinal"
+  Var.channel ~needs_property:true ~property_order:10
+    Css.Font_variant_numeric_token "tw-ordinal"
 
 let slashed_var =
-  Var.channel ~needs_property:true Css.Font_variant_numeric_token
-    "tw-slashed-zero"
+  Var.channel ~needs_property:true ~property_order:11
+    Css.Font_variant_numeric_token "tw-slashed-zero"
 
 let figure_var =
-  Var.channel ~needs_property:true Css.Font_variant_numeric_token
-    "tw-numeric-figure"
+  Var.channel ~needs_property:true ~property_order:12
+    Css.Font_variant_numeric_token "tw-numeric-figure"
 
 let spacing_var =
-  Var.channel ~needs_property:true Css.Font_variant_numeric_token
-    "tw-numeric-spacing"
+  Var.channel ~needs_property:true ~property_order:13
+    Css.Font_variant_numeric_token "tw-numeric-spacing"
 
 let fraction_var =
-  Var.channel ~needs_property:true Css.Font_variant_numeric_token
-    "tw-numeric-fraction"
+  Var.channel ~needs_property:true ~property_order:14
+    Css.Font_variant_numeric_token "tw-numeric-fraction"
 
 (* Helper to get line height calc value *)
 let calc_line_height lh_rem size_rem =
@@ -142,7 +148,8 @@ let default_line_height_theme : line_height_theme =
 
 (* Content variable *)
 let content_var =
-  Var.property_default Content ~initial:(String "") ~universal:true "tw-content"
+  Var.property_default Content ~initial:(String "") ~universal:true
+    ~property_order:100 "tw-content"
 
 (* Default theme for font variant numeric variables *)
 type font_variant_theme = {

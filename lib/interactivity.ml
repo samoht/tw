@@ -65,7 +65,7 @@ module Handler = struct
   (* Reference to the global scroll snap strictness variable *)
   let scroll_snap_strictness_var =
     Var.property_default Css.Scroll_snap_strictness ~initial:Proximity
-      "tw-scroll-snap-strictness"
+      ~property_order:90 "tw-scroll-snap-strictness"
 
   let snap_start_s = style [ scroll_snap_align Start ]
   let snap_end_s = style [ scroll_snap_align End ]

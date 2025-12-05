@@ -48,11 +48,13 @@ module Handler = struct
 
   (* Variable for transition duration with @property *)
   let tw_duration_var =
-    Var.channel ~needs_property:true Css.Duration "tw-duration"
+    Var.channel ~needs_property:true ~property_order:21 Css.Duration
+      "tw-duration"
 
   (* Variable for transition timing function with @property *)
   let tw_ease_var =
-    Var.channel ~needs_property:true Css.Timing_function "tw-ease"
+    Var.channel ~needs_property:true ~property_order:26 Css.Timing_function
+      "tw-ease"
 
   let transition_none = style [ Css.transition_property Css.None ]
 
