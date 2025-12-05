@@ -379,12 +379,16 @@ val property_default :
   initial:'a ->
   ?inherits:bool ->
   ?universal:bool ->
+  ?property_order:int ->
   string ->
   'a property_default
-(** [property_default kind ~initial name ?inherits ?universal] creates a Utility
-    variable with a typed [@property] registration and an initial value used for
-    referencing utilities and inline mode. The initial value is required for
-    proper [@property] registration and reference fallbacks.
+(** [property_default kind ~initial name ?inherits ?universal ?property_order]
+    creates a Utility variable with a typed [@property] registration and an
+    initial value used for referencing utilities and inline mode. The initial
+    value is required for proper [@property] registration and reference fallbacks.
+
+    [property_order] specifies the ordering of this variable in the [@layer
+    properties] @supports block. Lower values appear first.
 
     {b IMPORTANT}: Due to current architecture limitations, any style that uses
     a [property_default] variable MUST include its [property_rule] explicitly:
@@ -409,11 +413,22 @@ val property_default :
     rules for property_default variables in rules.ml without requiring explicit
     inclusion. *)
 
-val channel : ?needs_property:bool -> 'a Css.kind -> string -> 'a channel
-(** [channel ?needs_property kind name] creates a Utility variable. When
-    [needs_property] is true, generates an [@property] rule for animation
-    support. Ideal for composition patterns where contributing utilities set
+val channel :
+  ?needs_property:bool ->
+  ?property_order:int ->
+  'a Css.kind ->
+  string ->
+  'a channel
+(** [channel ?needs_property ?property_order kind name] creates a Utility variable.
+    When [needs_property] is true, generates an [@property] rule for animation
+    support. [property_order] specifies ordering in the @supports block.
+    Ideal for composition patterns where contributing utilities set
     declarations and aggregators reference values. *)
+
+val get_property_order : string -> int option
+(** [get_property_order name] returns the property order for a variable name,
+    used for sorting properties in the @layer properties @supports block.
+    Returns [None] if no order was registered. *)
 
 val ref_only : 'a Css.kind -> string -> fallback:'a -> 'a ref_only
 (** [ref_only kind name ~fallback] creates a reference-only handle to a Utility

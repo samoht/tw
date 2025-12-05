@@ -32,6 +32,8 @@ type ('a, 'r) t = {
   property : 'a property_info option; (* For @property registration *)
   order : (int * int) option;
       (* Explicit ordering for theme layer (utility_priority, suborder) *)
+  property_order : int option;
+      (* Explicit ordering for properties layer @supports block *)
   fallback : 'a option; (* Built-in fallback for ref_only variables *)
 }
 
@@ -48,6 +50,10 @@ module Registry = struct
 
   (* Table mapping variable_name -> (priority, suborder) *)
   let name_registry : (string, int * int) Hashtbl.t = Hashtbl.create 128
+
+  (* Table mapping variable_name -> property_order for @supports block
+     ordering *)
+  let property_order_registry : (string, int) Hashtbl.t = Hashtbl.create 128
 
   let register_variable ~name ~order =
     (* Check for order conflicts *)
@@ -80,7 +86,22 @@ module Registry = struct
     (* Register the variable *)
     Hashtbl.replace order_registry order name;
     Hashtbl.replace name_registry name order
+
+  let register_property_order ~name ~order =
+    Hashtbl.replace property_order_registry name order
+
+  let get_property_order name =
+    (* Strip leading -- if present *)
+    let name =
+      if String.starts_with ~prefix:"--" name then
+        String.sub name 2 (String.length name - 2)
+      else name
+    in
+    Hashtbl.find_opt property_order_registry name
 end
+
+(* Get property order for a variable name (for external use in rules.ml) *)
+let get_property_order = Registry.get_property_order
 
 type info =
   | Info : {
@@ -143,6 +164,7 @@ let value_to_css_string : type a. a Css.kind -> a -> string =
           ^ channel_to_string b
       | Css.Var _ -> "initial")
   | Css.Animation -> Css.Pp.to_string Css.pp_animation value
+  | Css.Gradient_direction -> Css.Pp.to_string Css.pp_gradient_direction value
   | _ -> "initial"
 
 (* Alias for backward compatibility *)
@@ -153,12 +175,13 @@ let create : type a r.
     a Css.kind ->
     ?property:a property_info ->
     ?order:int * int ->
+    ?property_order:int ->
     ?fallback:a ->
     role:r role ->
     string ->
     layer:layer ->
     (a, r) t =
- fun kind ?property ?order ?fallback ~role name ~layer ->
+ fun kind ?property ?order ?property_order ?fallback ~role name ~layer ->
   (* Ensure theme variables have an order *)
   (match (layer, order) with
   | Theme, None ->
@@ -168,6 +191,11 @@ let create : type a r.
   (* Register the variable in the global registry to prevent conflicts *)
   (match order with
   | Some ord -> Registry.register_variable ~name ~order:ord
+  | None -> ());
+
+  (* Register property order if provided *)
+  (match property_order with
+  | Some ord -> Registry.register_property_order ~name ~order:ord
   | None -> ());
 
   let info = Info { kind; name; need_property = property <> None; order } in
@@ -185,26 +213,37 @@ let create : type a r.
     Css.var ~default:value ~fallback:actual_fallback ?layer:layer_name ~meta
       name kind value
   in
-  { kind; name; layer; role; binding; property; order; fallback }
+  {
+    kind;
+    name;
+    layer;
+    role;
+    binding;
+    property;
+    order;
+    property_order;
+    fallback;
+  }
 
 (* Convenience constructors to encode patterns safely *)
 
 let theme kind name ~order =
   create kind ?property:None ?order:(Some order) ~role:Theme name ~layer:Theme
 
-let property_default kind ~initial ?(inherits = false) ?(universal = false) name
-    =
+let property_default kind ~initial ?(inherits = false) ?(universal = false)
+    ?property_order name =
   let property = property_info ~initial ~inherits ~universal () in
-  create kind ~property ~role:Property_default name ~layer:Utility
+  create kind ~property ?property_order ~role:Property_default name
+    ~layer:Utility
 
-let channel ?(needs_property = false) kind name =
+let channel ?(needs_property = false) ?property_order kind name =
   if needs_property then
     (* Channels that need @property for animations/transitions *)
     let property =
       property_info ?initial:None ~inherits:false ~universal:true ()
     in
-    create kind ~property ~role:Channel name ~layer:Utility
-  else create kind ~role:Channel name ~layer:Utility
+    create kind ~property ?property_order ~role:Channel name ~layer:Utility
+  else create kind ?property_order ~role:Channel name ~layer:Utility
 
 (* Place after [reference] to avoid forward reference issues *)
 
@@ -225,6 +264,7 @@ let create_property : type a.
         match (kind, v) with
         | Gradient_stop, List [] -> property ~name Universal ~inherits ()
         | Percentage, Pct 0. -> property ~name Universal ~inherits ()
+        | Gradient_direction, To_bottom -> property ~name Universal ~inherits ()
         | _ ->
             let initial_str = value_to_css_string kind v in
             property ~name Universal ~initial_value:initial_str ~inherits ())
