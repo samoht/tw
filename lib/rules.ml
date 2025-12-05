@@ -743,6 +743,16 @@ let media_kind_order = function
   | Responsive rem -> 1000 + rem
   | Preference -> 2000
 
+(** Get sort key for preference media conditions. Tailwind order: reduced-motion
+    (no-preference, reduce) < contrast (more, less) *)
+let preference_condition_order cond =
+  if contains_substring cond "reduced-motion:no-preference" then 0
+  else if contains_substring cond "reduced-motion:reduce" then 1
+  else if contains_substring cond "contrast:more" then 2
+  else if contains_substring cond "contrast:less" then 3
+  else if contains_substring cond "color-scheme" then 4
+  else 10 (* Other preferences *)
+
 (* Detect standalone has-[...] utility (not group-has/peer-has). Currently
    unused but kept for potential future :has() handling. *)
 let _contains_standalone_has sel =
@@ -883,13 +893,31 @@ let compare_by_priority_suborder_alpha sel1 sel2 (p1, s1) (p2, s2) i1 i2 =
    at the selector level if needed. *)
 
 (* Compare two media query rules - sort by media type first (responsive last),
-   then by breakpoint size, then by base utility priority/suborder *)
+   then by media condition (to group related queries), then by
+   priority/suborder *)
 let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 =
   let key1, _ = extract_media_sort_key typ1 in
   let key2, _ = extract_media_sort_key typ2 in
   let key_cmp = Int.compare key1 key2 in
   if key_cmp <> 0 then key_cmp
-  else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+  else
+    (* Same media kind - compare by condition to keep related queries
+       together *)
+    let cond1 = match typ1 with `Media c -> c | _ -> "" in
+    let cond2 = match typ2 with `Media c -> c | _ -> "" in
+    (* For preference media, use specific ordering (reduced-motion <
+       contrast) *)
+    let kind1 = classify_media_condition cond1 in
+    let cond_cmp =
+      match kind1 with
+      | Preference ->
+          Int.compare
+            (preference_condition_order cond1)
+            (preference_condition_order cond2)
+      | _ -> String.compare cond1 cond2
+    in
+    if cond_cmp <> 0 then cond_cmp
+    else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
 
 (* ======================================================================== *)
 (* Regular vs Media Comparison - Type-directed comparison for mixed rules *)
