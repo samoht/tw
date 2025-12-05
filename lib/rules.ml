@@ -636,8 +636,9 @@ let is_simple_class_selector sel =
 
 let selector_to_string = Css.Selector.to_string
 
-(* Detect standalone has-[...] utility (not group-has/peer-has) *)
-let contains_standalone_has sel =
+(* Detect standalone has-[...] utility (not group-has/peer-has). Currently
+   unused but kept for potential future :has() handling. *)
+let _contains_standalone_has sel =
   let s = selector_to_string sel in
   let sub = ".has-\\[" in
   let ls = String.length s in
@@ -756,24 +757,32 @@ let extract_media_sort_key = function
 let compare_by_priority_suborder_alpha sel1 sel2 (p1, s1) (p2, s2) i1 i2 =
   let s1_simple = is_simple_class_selector sel1 in
   let s2_simple = is_simple_class_selector sel2 in
-  (* Prefer simple class selectors over complex ones, even across suborders, to
-     better match Tailwind's grouping of plain utilities before relational or
-     pseudo-class heavy selectors. *)
-  match (s1_simple, s2_simple) with
-  | true, false -> -1
-  | false, true -> 1
-  | _ ->
-      let prio_cmp = Int.compare p1 p2 in
-      if prio_cmp <> 0 then prio_cmp
-      else if s1_simple && s2_simple then
-        (* Both simple: use suborder then alphabetical *)
+  (* Priority comes first - utilities with different priorities should be
+     grouped by priority, not by simple/complex distinction. *)
+  let prio_cmp = Int.compare p1 p2 in
+  if prio_cmp <> 0 then prio_cmp
+  else
+    (* Same priority: prefer simple class selectors over complex ones to better
+       match Tailwind's grouping of plain utilities before relational or
+       pseudo-class heavy selectors. *)
+    match (s1_simple, s2_simple) with
+    | true, false -> -1
+    | false, true -> 1
+    | _ when s1_simple && s2_simple ->
+        (* Both simple: use suborder then alphabetical, then index for
+           stability. Index fallback is critical for utilities like prose that
+           emit multiple rules with the same selector - preserves original order
+           to prevent merging by optimize.ml. *)
         let sub_cmp = Int.compare s1 s2 in
         if sub_cmp <> 0 then sub_cmp
         else
-          String.compare
-            (Css.Selector.to_string sel1)
-            (Css.Selector.to_string sel2)
-      else
+          let sel_cmp =
+            String.compare
+              (Css.Selector.to_string sel1)
+              (Css.Selector.to_string sel2)
+          in
+          if sel_cmp <> 0 then sel_cmp else Int.compare i1 i2
+    | _ ->
         (* Both complex: order by focus kind first, then suborder, then index *)
         let s1_str = Css.Selector.to_string sel1 in
         let s2_str = Css.Selector.to_string sel2 in
@@ -797,13 +806,9 @@ let compare_by_priority_suborder_alpha sel1 sel2 (p1, s1) (p2, s2) i1 i2 =
           let sub_cmp = Int.compare s1 s2 in
           if sub_cmp <> 0 then sub_cmp else Int.compare i1 i2
 
-(* Compare two regular rules *)
-let compare_regular_rules sel1 sel2 order1 order2 i1 i2 =
-  (* Push selectors that use :has(...) after non-:has selectors *)
-  match (contains_standalone_has sel1, contains_standalone_has sel2) with
-  | true, false -> 1
-  | false, true -> -1
-  | _ -> compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+(* Note: compare_regular_rules was removed - now using compare_same_utility and
+   compare_cross_utility in compare_indexed_rules. The :has() handling is done
+   at the selector level if needed. *)
 
 (* Compare two media query rules - sort by media type first (responsive last),
    then by breakpoint size, then by base utility priority/suborder *)
@@ -860,6 +865,32 @@ let compare_regular_vs_media base_class1 base_class2 i1 i2 order1 order2 sel1
           (* Same priority: Regular before Media *)
           -1
 
+(* Compare regular rules from the same base utility (e.g., all prose-sm rules).
+   Preserves original index order to prevent merging rules with same
+   selector. *)
+let compare_same_utility r1 r2 =
+  let prio_cmp = compare r1.order r2.order in
+  if prio_cmp <> 0 then prio_cmp else Int.compare r1.index r2.index
+
+(* Compare regular rules from different base utilities. Groups all rules from
+   one utility together by sorting on base_class after priority. *)
+let compare_cross_utility r1 r2 =
+  let prio_cmp = compare r1.order r2.order in
+  if prio_cmp <> 0 then prio_cmp
+  else
+    (* Same priority: group by base_class to keep utility rules together *)
+    let bc_cmp =
+      match (r1.base_class, r2.base_class) with
+      | Some bc1, Some bc2 -> String.compare bc1 bc2
+      | Some _, None -> -1
+      | None, Some _ -> 1
+      | None, None -> 0
+    in
+    if bc_cmp <> 0 then bc_cmp
+    else
+      (* Same base_class (shouldn't happen here, but handle gracefully) *)
+      Int.compare r1.index r2.index
+
 (* Compare indexed rules for sorting *)
 let compare_indexed_rules r1 r2 =
   let type_cmp =
@@ -868,9 +899,16 @@ let compare_indexed_rules r1 r2 =
   if type_cmp <> 0 then type_cmp
   else
     match (r1.rule_type, r2.rule_type) with
-    | `Regular, `Regular ->
-        compare_regular_rules r1.selector r2.selector r1.order r2.order r1.index
-          r2.index
+    | `Regular, `Regular -> (
+        (* Different comparison strategies for same vs different utilities *)
+        match (r1.base_class, r2.base_class) with
+        | Some bc1, Some bc2 when bc1 = bc2 ->
+            (* Same utility: preserve original index order. Critical for prose
+               that emits multiple rules with same selector. *)
+            compare_same_utility r1 r2
+        | _ ->
+            (* Different utilities: group by base_class after priority *)
+            compare_cross_utility r1 r2)
     | `Media _, `Media _ ->
         compare_media_rules r1.rule_type r2.rule_type r1.selector r2.selector
           r1.order r2.order r1.index r2.index
