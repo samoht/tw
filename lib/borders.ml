@@ -103,7 +103,7 @@ module Handler = struct
   let border_style_var =
     Var.property_default Css.Border_style
       ~initial:(Solid : Css.border_style)
-      ~property_order:0 "tw-border-style"
+      ~property_order:0 ~family:`Border "tw-border-style"
 
   (* Helper for border utilities that reference the variable with @property
      default *)

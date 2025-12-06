@@ -57,22 +57,24 @@ module Handler = struct
      --tw-rotate-x: rotateX(45deg) --tw-skew-x: skewX(10deg) *)
   (* Property ordering matches Tailwind's landing output order *)
   let tw_rotate_x_var =
-    Var.channel ~needs_property:true ~property_order:0 Css.Transform
-      "tw-rotate-x"
+    Var.channel ~needs_property:true ~property_order:0 ~family:`Rotate
+      Css.Transform "tw-rotate-x"
 
   let tw_rotate_y_var =
-    Var.channel ~needs_property:true ~property_order:1 Css.Transform
-      "tw-rotate-y"
+    Var.channel ~needs_property:true ~property_order:1 ~family:`Rotate
+      Css.Transform "tw-rotate-y"
 
   let tw_rotate_z_var =
-    Var.channel ~needs_property:true ~property_order:2 Css.Transform
-      "tw-rotate-z"
+    Var.channel ~needs_property:true ~property_order:2 ~family:`Rotate
+      Css.Transform "tw-rotate-z"
 
   let tw_skew_x_var =
-    Var.channel ~needs_property:true ~property_order:3 Css.Transform "tw-skew-x"
+    Var.channel ~needs_property:true ~property_order:3 ~family:`Skew
+      Css.Transform "tw-skew-x"
 
   let tw_skew_y_var =
-    Var.channel ~needs_property:true ~property_order:4 Css.Transform "tw-skew-y"
+    Var.channel ~needs_property:true ~property_order:4 ~family:`Skew
+      Css.Transform "tw-skew-y"
 
   (* Scale variables - position in @supports depends on usage order in
      utilities. In landing: appears after duration (position 22-24) due to hover
@@ -81,15 +83,15 @@ module Handler = struct
      case. *)
   let tw_scale_x_var =
     Var.property_default Css.Number_percentage ~initial:(Num 1.0)
-      ~universal:true ~property_order:22 "tw-scale-x"
+      ~universal:true ~property_order:22 ~family:`Scale "tw-scale-x"
 
   let tw_scale_y_var =
     Var.property_default Css.Number_percentage ~initial:(Num 1.0)
-      ~universal:true ~property_order:23 "tw-scale-y"
+      ~universal:true ~property_order:23 ~family:`Scale "tw-scale-y"
 
   let tw_scale_z_var =
     Var.property_default Css.Number_percentage ~initial:(Num 1.0)
-      ~universal:true ~property_order:24 "tw-scale-z"
+      ~universal:true ~property_order:24 ~family:`Scale "tw-scale-z"
 
   (** {1 2D Transform Utilities} *)
 

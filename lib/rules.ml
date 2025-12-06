@@ -1398,23 +1398,61 @@ let build_first_usage_order set_var_names =
    This is a simplification - Tailwind's exact order depends on reference
    chains. *)
 let property_order_from first_usage_order name =
-  (* Prefer explicit Var property order when available to preserve canonical
-     ordering (e.g., gradient-position before gradient-from). Use first-usage
-     order as a secondary key with a large offset. *)
-  match Var.get_property_order name with
-  | Some static_order -> static_order
-  | None -> (
-      match Hashtbl.find_opt first_usage_order name with
-      | Some usage_idx -> 100000 + usage_idx
-      | None -> 200000)
+  (* Pair-based ordering: (group, suborder) - group: coarse category to mimic
+     Tailwind's grouping - suborder: prefer static Var order; break ties with
+     first-usage position Note: Gradient family indices are handled only when
+     comparing two gradient properties (see sort_properties_by_order). *)
+  let group_rank n =
+    match Var.get_family n with
+    | Some `Border -> 0
+    | Some `Rotate | Some `Skew -> 1
+    | Some `Leading -> 4
+    | Some `Font_weight -> 5
+    | Some `Duration -> 6
+    | Some `Tracking -> 8
+    | Some `Shadow | Some `Inset_shadow -> 10
+    | Some `Ring | Some `Inset_ring -> 20
+    | Some `Scale -> 30
+    | Some `Gradient -> 40 (* handled specially when comparing two gradients *)
+    | None -> 100
+  in
+  let static =
+    match Var.get_property_order name with Some o -> o | None -> 9_999
+  in
+  let usage =
+    match Hashtbl.find_opt first_usage_order name with
+    | Some i -> i
+    | None -> 5_000
+  in
+  (* Combine static and usage into a single secondary rank while keeping
+     lexicographic pair comparison clean and intention-revealing. *)
+  let suborder = (static * 100) + usage in
+  (group_rank name, suborder)
 
 let sort_properties_by_order first_usage_order initial_values =
-  List.sort
-    (fun (name1, _) (name2, _) ->
+  let is_gradient n = String.starts_with ~prefix:"--tw-gradient-" n in
+  let gradient_family_index n =
+    if not (is_gradient n) then 100
+    else if String.equal n "--tw-gradient-position" then 0
+    else if String.equal n "--tw-gradient-from" then 1
+    else if String.equal n "--tw-gradient-via" then 2
+    else if String.equal n "--tw-gradient-to" then 3
+    else if String.equal n "--tw-gradient-stops" then 4
+    else if String.equal n "--tw-gradient-via-stops" then 5
+    else if String.equal n "--tw-gradient-from-position" then 6
+    else if String.equal n "--tw-gradient-via-position" then 7
+    else if String.equal n "--tw-gradient-to-position" then 8
+    else 100
+  in
+  let cmp (n1, _) (n2, _) =
+    if is_gradient n1 && is_gradient n2 then
+      compare (gradient_family_index n1) (gradient_family_index n2)
+    else
       compare
-        (property_order_from first_usage_order name1)
-        (property_order_from first_usage_order name2))
-    initial_values
+        (property_order_from first_usage_order n1)
+        (property_order_from first_usage_order n2)
+  in
+  List.sort cmp initial_values
 
 (* Build property layer content with browser detection *)
 let property_layer_content first_usage_order initial_values other_statements =
@@ -1552,15 +1590,34 @@ let assemble_all_layers ~first_usage_order ~include_base ~properties_layer
     @ [ components_declaration; utilities_layer ]
   in
   (* Sort @property rules to match Tailwind's output order *)
+  let gradient_family_index n =
+    if not (String.starts_with ~prefix:"--tw-gradient-" n) then 100
+    else if String.equal n "--tw-gradient-position" then 0
+    else if String.equal n "--tw-gradient-from" then 1
+    else if String.equal n "--tw-gradient-via" then 2
+    else if String.equal n "--tw-gradient-to" then 3
+    else if String.equal n "--tw-gradient-stops" then 4
+    else if String.equal n "--tw-gradient-via-stops" then 5
+    else if String.equal n "--tw-gradient-from-position" then 6
+    else if String.equal n "--tw-gradient-via-position" then 7
+    else if String.equal n "--tw-gradient-to-position" then 8
+    else 100
+  in
   let sorted_property_rules =
     property_rules_for_end
     |> List.sort (fun s1 s2 ->
            match (Css.as_property s1, Css.as_property s2) with
            | ( Some (Css.Property_info { name = n1; _ }),
                Some (Css.Property_info { name = n2; _ }) ) ->
-               compare
-                 (property_order_from first_usage_order n1)
-                 (property_order_from first_usage_order n2)
+               if
+                 String.starts_with ~prefix:"--tw-gradient-" n1
+                 && String.starts_with ~prefix:"--tw-gradient-" n2
+               then
+                 compare (gradient_family_index n1) (gradient_family_index n2)
+               else
+                 compare
+                   (property_order_from first_usage_order n1)
+                   (property_order_from first_usage_order n2)
            | _ -> 0)
   in
   let property_rules_css =

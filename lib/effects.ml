@@ -55,34 +55,34 @@ module Handler = struct
       ~initial:
         (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000")
            ())
-      ~universal:true ~property_order:7 "tw-shadow"
+      ~universal:true ~property_order:7 ~family:`Shadow "tw-shadow"
 
   let shadow_color_var =
-    Var.channel ~needs_property:true ~property_order:8 Css.Color
+    Var.channel ~needs_property:true ~property_order:8 ~family:`Shadow Css.Color
       "tw-shadow-color"
 
   let shadow_alpha_var =
     Var.property_default Css.Float ~initial:100.0 ~property_order:9
-      "tw-shadow-alpha"
+      ~family:`Shadow "tw-shadow-alpha"
 
   let inset_shadow_var =
     Var.property_default Css.Shadow
       ~initial:
         (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000")
            ())
-      ~universal:true ~property_order:10 "tw-inset-shadow"
+      ~universal:true ~property_order:10 ~family:`Inset_shadow "tw-inset-shadow"
 
   let inset_shadow_color_var =
-    Var.channel ~needs_property:true ~property_order:11 Css.Color
-      "tw-inset-shadow-color"
+    Var.channel ~needs_property:true ~property_order:11 ~family:`Inset_shadow
+      Css.Color "tw-inset-shadow-color"
 
   let inset_shadow_alpha_var =
     Var.property_default Css.Float ~initial:100.0 ~property_order:12
-      "tw-inset-shadow-alpha"
+      ~family:`Inset_shadow "tw-inset-shadow-alpha"
 
   (* Ring variables - order matches Tailwind landing *)
   let ring_color_var =
-    Var.channel ~needs_property:true ~property_order:13 Css.Color
+    Var.channel ~needs_property:true ~property_order:13 ~family:`Ring Css.Color
       "tw-ring-color"
 
   let ring_shadow_var =
@@ -90,38 +90,39 @@ module Handler = struct
       ~initial:
         (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000")
            ())
-      ~universal:true ~property_order:14 "tw-ring-shadow"
+      ~universal:true ~property_order:14 ~family:`Ring "tw-ring-shadow"
 
   let inset_ring_color_var =
-    Var.channel ~needs_property:true ~property_order:15 Css.Color
-      "tw-inset-ring-color"
+    Var.channel ~needs_property:true ~property_order:15 ~family:`Inset_ring
+      Css.Color "tw-inset-ring-color"
 
   let inset_ring_shadow_var =
     Var.property_default Css.Shadow
       ~initial:
         (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000")
            ())
-      ~universal:true ~property_order:16 "tw-inset-ring-shadow"
+      ~universal:true ~property_order:16 ~family:`Inset_ring
+      "tw-inset-ring-shadow"
 
   let ring_inset_var =
-    Var.channel ~needs_property:true ~property_order:17 Css.String
+    Var.channel ~needs_property:true ~property_order:17 ~family:`Ring Css.String
       "tw-ring-inset"
 
   let ring_offset_width_var =
     Var.property_default Css.Length
       ~initial:(Zero : Css.length)
-      ~property_order:18 "tw-ring-offset-width"
+      ~property_order:18 ~family:`Ring "tw-ring-offset-width"
 
   let ring_offset_color_var =
     Var.property_default Css.Color ~initial:(Css.hex "#fff") ~universal:true
-      ~property_order:19 "tw-ring-offset-color"
+      ~property_order:19 ~family:`Ring "tw-ring-offset-color"
 
   let ring_offset_shadow_var =
     Var.property_default Css.Shadow
       ~initial:
         (shadow ~h_offset:(Px 0.0) ~v_offset:(Px 0.0) ~color:(Css.hex "#0000")
            ())
-      ~universal:true ~property_order:20 "tw-ring-offset-shadow"
+      ~universal:true ~property_order:20 ~family:`Ring "tw-ring-offset-shadow"
 
   (* Note: ring_width_var was removed - Tailwind v4 embeds the width directly in
      the --tw-ring-shadow calc() expression instead of using a separate

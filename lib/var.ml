@@ -55,6 +55,24 @@ module Registry = struct
      ordering *)
   let property_order_registry : (string, int) Hashtbl.t = Hashtbl.create 128
 
+  (* Families for ordering/grouping without string prefixes *)
+  type family =
+    [ `Border
+    | `Rotate
+    | `Skew
+    | `Scale
+    | `Gradient
+    | `Shadow
+    | `Inset_shadow
+    | `Ring
+    | `Inset_ring
+    | `Leading
+    | `Font_weight
+    | `Duration
+    | `Tracking ]
+
+  let family_registry : (string, family) Hashtbl.t = Hashtbl.create 128
+
   let register_variable ~name ~order =
     (* Check for order conflicts *)
     (match Hashtbl.find_opt order_registry order with
@@ -98,10 +116,25 @@ module Registry = struct
       else name
     in
     Hashtbl.find_opt property_order_registry name
+
+  let register_family ~name ~family =
+    Hashtbl.replace family_registry name family
+
+  let get_family name =
+    (* Strip leading -- if present *)
+    let name =
+      if String.starts_with ~prefix:"--" name then
+        String.sub name 2 (String.length name - 2)
+      else name
+    in
+    Hashtbl.find_opt family_registry name
 end
 
 (* Get property order for a variable name (for external use in rules.ml) *)
 let get_property_order = Registry.get_property_order
+let get_family = Registry.get_family
+
+type family = Registry.family
 
 type info =
   | Info : {
@@ -176,12 +209,14 @@ let create : type a r.
     ?property:a property_info ->
     ?order:int * int ->
     ?property_order:int ->
+    ?family:family ->
     ?fallback:a ->
     role:r role ->
     string ->
     layer:layer ->
     (a, r) t =
- fun kind ?property ?order ?property_order ?fallback ~role name ~layer ->
+ fun kind ?property ?order ?property_order ?family ?fallback ~role name
+     ~layer ->
   (* Ensure theme variables have an order *)
   (match (layer, order) with
   | Theme, None ->
@@ -196,6 +231,10 @@ let create : type a r.
   (* Register property order if provided *)
   (match property_order with
   | Some ord -> Registry.register_property_order ~name ~order:ord
+  | None -> ());
+
+  (match family with
+  | Some fam -> Registry.register_family ~name ~family:fam
   | None -> ());
 
   let info = Info { kind; name; need_property = property <> None; order } in
@@ -231,19 +270,20 @@ let theme kind name ~order =
   create kind ?property:None ?order:(Some order) ~role:Theme name ~layer:Theme
 
 let property_default kind ~initial ?(inherits = false) ?(universal = false)
-    ?property_order name =
+    ?property_order ?family name =
   let property = property_info ~initial ~inherits ~universal () in
-  create kind ~property ?property_order ~role:Property_default name
+  create kind ~property ?property_order ?family ~role:Property_default name
     ~layer:Utility
 
-let channel ?(needs_property = false) ?property_order kind name =
+let channel ?(needs_property = false) ?property_order ?family kind name =
   if needs_property then
     (* Channels that need @property for animations/transitions *)
     let property =
       property_info ?initial:None ~inherits:false ~universal:true ()
     in
-    create kind ~property ?property_order ~role:Channel name ~layer:Utility
-  else create kind ?property_order ~role:Channel name ~layer:Utility
+    create kind ~property ?property_order ?family ~role:Channel name
+      ~layer:Utility
+  else create kind ?property_order ?family ~role:Channel name ~layer:Utility
 
 (* Place after [reference] to avoid forward reference issues *)
 
