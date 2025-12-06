@@ -87,13 +87,6 @@ type rule_relationship =
   | Same_utility of string  (** Both rules from same base utility *)
   | Different_utilities  (** Rules from different utilities *)
 
-(** Media query classification for sorting *)
-type media_kind =
-  | Hover_media  (** (hover:hover) queries *)
-  | Responsive of int  (** min-width breakpoints, int is rem value *)
-  | Preference  (** prefers-* queries (color-scheme, reduced-motion, etc.) *)
-  | Other_media  (** Other media types *)
-
 (* ======================================================================== *)
 (* Smart constructors for output *)
 (* ======================================================================== *)
@@ -146,33 +139,17 @@ let escape_class_name name =
   match Hashtbl.find_opt escape_cache name with
   | Some v -> v
   | None ->
-      (* Escape special CSS selector characters for Tailwind class names. This
-         covers the common characters used in Tailwind utilities like arbitrary
-         values (p-[10px]), responsive prefixes (sm:p-4), fractions (w-1/2), and
-         other special cases. Note: This is not a complete CSS.escape
-         implementation but handles all characters typically found in Tailwind
-         class names. *)
-      let buf = Buffer.create (String.length name * 2) in
-      String.iter
-        (function
-          | '[' -> Buffer.add_string buf "\\["
-          | ']' -> Buffer.add_string buf "\\]"
-          | '(' -> Buffer.add_string buf "\\("
-          | ')' -> Buffer.add_string buf "\\)"
-          | ',' -> Buffer.add_string buf "\\,"
-          | '/' -> Buffer.add_string buf "\\/"
-          | ':' -> Buffer.add_string buf "\\:"
-          | '%' -> Buffer.add_string buf "\\%"
-          | '.' -> Buffer.add_string buf "\\."
-          | '#' -> Buffer.add_string buf "\\#"
-          | ' ' -> Buffer.add_string buf "\\ "
-          | '"' -> Buffer.add_string buf "\\\""
-          | '\'' -> Buffer.add_string buf "\\'"
-          | '@' -> Buffer.add_string buf "\\@"
-          | '*' -> Buffer.add_string buf "\\*"
-          | c -> Buffer.add_char buf c)
-        name;
-      let escaped = Buffer.contents buf in
+      (* Delegate escaping to the selector printer for correctness and parity
+         with the rest of the system. This covers all special characters per CSS
+         rules, including ones Tailwind often uses (e.g., !, |, ^, ~, etc.) We
+         strip the leading '.' from the rendered class selector. *)
+      let sel = Css.Selector.class_ name in
+      let rendered = Css.Selector.to_string sel in
+      let escaped =
+        if String.length rendered > 0 && rendered.[0] = '.' then
+          String.sub rendered 1 (String.length rendered - 1)
+        else rendered
+      in
       Hashtbl.add escape_cache name escaped;
       escaped
 
@@ -180,38 +157,118 @@ let escape_class_name name =
 (* Rule Extraction - Convert Core.t to CSS rules *)
 (* ======================================================================== *)
 
+(* Selector helpers: centralized operations for transforming selector ASTs when
+   applying modifiers. This removes brittle string-based handling and keeps
+   selector semantics together. *)
+module Rules_selector = struct
+  (* Replace every occurrence of a class name in a selector AST. *)
+  let rec replace_class_in_selector ~old_class ~new_class = function
+    | Css.Selector.Class cls when String.equal cls old_class ->
+        Css.Selector.Class new_class
+    | Css.Selector.Compound selectors ->
+        Css.Selector.Compound
+          (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
+    | Css.Selector.Combined (a, comb, b) ->
+        Css.Selector.Combined
+          ( replace_class_in_selector ~old_class ~new_class a,
+            comb,
+            replace_class_in_selector ~old_class ~new_class b )
+    | Css.Selector.List selectors ->
+        Css.Selector.List
+          (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
+    | Css.Selector.Is selectors ->
+        Css.Selector.Is
+          (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
+    | Css.Selector.Where selectors ->
+        Css.Selector.Where
+          (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
+    | Css.Selector.Not selectors ->
+        Css.Selector.Not
+          (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
+    | Css.Selector.Has selectors ->
+        Css.Selector.Has
+          (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
+    | Css.Selector.Slotted selectors ->
+        Css.Selector.Slotted
+          (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
+    | Css.Selector.Cue selectors ->
+        Css.Selector.Cue
+          (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
+    | Css.Selector.Cue_region selectors ->
+        Css.Selector.Cue_region
+          (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
+    | Css.Selector.Nth_child (nth, of_) ->
+        Css.Selector.Nth_child
+          ( nth,
+            Option.map
+              (List.map (replace_class_in_selector ~old_class ~new_class))
+              of_ )
+    | Css.Selector.Nth_last_child (nth, of_) ->
+        Css.Selector.Nth_last_child
+          ( nth,
+            Option.map
+              (List.map (replace_class_in_selector ~old_class ~new_class))
+              of_ )
+    | Css.Selector.Nth_of_type (nth, of_) ->
+        Css.Selector.Nth_of_type
+          ( nth,
+            Option.map
+              (List.map (replace_class_in_selector ~old_class ~new_class))
+              of_ )
+    | Css.Selector.Nth_last_of_type (nth, of_) ->
+        Css.Selector.Nth_last_of_type
+          ( nth,
+            Option.map
+              (List.map (replace_class_in_selector ~old_class ~new_class))
+              of_ )
+    | other -> other
+
+  (* Extract class name from a modified selector (with or without
+     pseudo-class). *)
+  let extract_modified_class_name modified_base_selector base_class =
+    match modified_base_selector with
+    | Css.Selector.Class cls -> cls
+    | Css.Selector.Compound selectors ->
+        List.find_map
+          (function Css.Selector.Class cls -> Some cls | _ -> None)
+          selectors
+        |> Option.value ~default:base_class
+    | _ -> base_class
+
+  (* Transform selector by applying modifier to base class and updating
+     descendants. *)
+  let transform_selector_with_modifier modified_base_selector base_class
+      modified_class selector =
+    let replace_in_children =
+      replace_class_in_selector ~old_class:base_class ~new_class:modified_class
+    in
+    let rec transform = function
+      | Css.Selector.Class cls when String.equal cls base_class ->
+          modified_base_selector
+      | Css.Selector.Combined (base_sel, combinator, complex_sel) ->
+          Css.Selector.Combined
+            (transform base_sel, combinator, replace_in_children complex_sel)
+      | Css.Selector.Compound selectors ->
+          Css.Selector.Compound (List.map transform selectors)
+      | Css.Selector.List selectors ->
+          Css.Selector.List (List.map transform selectors)
+      | other -> other
+    in
+    transform selector
+end
+
 let selector_with_data_key selector key value =
   let attr_selector = Css.Selector.attribute key (Exact value) in
   Css.Selector.combine selector Descendant attr_selector
 
-let media_modifier ~condition ~prefix base_class props =
-  let selector_str = prefix ^ base_class in
-  (* For now, create a simple class selector - this needs proper parsing *)
-  let selector =
-    Css.Selector.class_
-      (String.sub selector_str 1 (String.length selector_str - 1))
-  in
-  media_query ~condition ~selector ~props ~base_class ()
-
-(** Replace all occurrences of [old_class] with [new_class] in a selector *)
-let replace_class_in_selector ~old_class ~new_class selector =
-  Css.Selector.map
-    (function
-      | Css.Selector.Class cls when cls = old_class ->
-          Css.Selector.Class new_class
-      | other -> other)
-    selector
-
 let responsive_rule breakpoint base_class selector props =
   let prefix = string_of_breakpoint breakpoint in
-  (* Use (min-width:Xrem) syntax to match Tailwind's minified output *)
   let condition = "(min-width:" ^ responsive_breakpoint prefix ^ ")" in
   let modified_class = prefix ^ ":" ^ base_class in
   let new_selector =
-    replace_class_in_selector ~old_class:base_class ~new_class:modified_class
-      selector
+    Rules_selector.replace_class_in_selector ~old_class:base_class
+      ~new_class:modified_class selector
   in
-  (* Use top-level media query to match Tailwind's minified output format *)
   media_query ~condition ~selector:new_selector ~props
     ~base_class:modified_class ()
 
@@ -219,25 +276,23 @@ let container_rule query base_class selector props =
   let prefix = Containers.container_query_to_class_prefix query in
   let modified_class = prefix ^ ":" ^ base_class in
   let new_selector =
-    replace_class_in_selector ~old_class:base_class ~new_class:modified_class
-      selector
+    Rules_selector.replace_class_in_selector ~old_class:base_class
+      ~new_class:modified_class selector
   in
   let condition = Containers.container_query_to_css_prefix query in
   let cond =
     if String.starts_with ~prefix:"@container " condition then
       drop_prefix "@container " condition
-    else "(min-width:0)"
+    else condition
   in
   container_query ~condition:cond ~selector:new_selector ~props ~base_class ()
 
 let has_like_selector kind selector_str base_class props =
   let open Css.Selector in
-  (* Parse the selector string to get a proper selector *)
   let reader = Css.Reader.of_string selector_str in
   let parsed_selector = Css.Selector.read reader in
   match kind with
   | `Has ->
-      (* Tailwind wraps the selector in :is(): .has-[img]:p-0:has(:is(img)) *)
       let sel =
         compound
           [
@@ -247,8 +302,6 @@ let has_like_selector kind selector_str base_class props =
       in
       regular ~selector:sel ~props ~base_class ()
   | `Group_has ->
-      (* Tailwind uses: .group-has-[...]:cls:is(:where(.group):has(:is(...))
-         x) *)
       let class_name = "group-has-[" ^ selector_str ^ "]:" ^ base_class in
       let rel =
         combine
@@ -259,7 +312,6 @@ let has_like_selector kind selector_str base_class props =
       let sel = compound [ Class class_name; is_ [ rel ] ] in
       regular ~selector:sel ~props ~base_class:class_name ()
   | `Peer_has ->
-      (* Tailwind uses: .peer-has-[...]:cls:is(:where(.peer):has(...) ~ x) *)
       let class_name = "peer-has-[" ^ selector_str ^ "]:" ^ base_class in
       let rel =
         combine
@@ -269,40 +321,19 @@ let has_like_selector kind selector_str base_class props =
       let sel = compound [ Class class_name; is_ [ rel ] ] in
       regular ~selector:sel ~props ~base_class:class_name ()
 
-(** Extract class name from a modified selector (with or without pseudo-class)
-*)
-let extract_modified_class_name modified_base_selector base_class =
-  match modified_base_selector with
-  | Css.Selector.Class cls -> cls
-  | Css.Selector.Compound selectors ->
-      (* For compound selectors like .hover:prose:hover, extract just the class
-         name *)
-      List.find_map
-        (function Css.Selector.Class cls -> Some cls | _ -> None)
-        selectors
-      |> Option.value ~default:base_class
-  | _ -> base_class
-
-(** Transform selector by applying modifier to base class and updating
-    descendants *)
-let transform_selector_with_modifier modified_base_selector base_class
-    modified_class selector =
-  let replace_in_children =
-    replace_class_in_selector ~old_class:base_class ~new_class:modified_class
+(* Pseudo-class modifiers: transform the base selector and mark hover when
+   needed. *)
+let handle_pseudo_class_modifier modifier base_class selector props =
+  let modified_base_selector = Modifiers.to_selector modifier base_class in
+  let modified_class =
+    Rules_selector.extract_modified_class_name modified_base_selector base_class
   in
-  let rec transform = function
-    | Css.Selector.Class cls when cls = base_class -> modified_base_selector
-    | Css.Selector.Combined (base_sel, combinator, complex_sel) ->
-        Css.Selector.Combined
-          (transform base_sel, combinator, replace_in_children complex_sel)
-    | Css.Selector.Compound selectors ->
-        Css.Selector.Compound (List.map transform selectors)
-    | Css.Selector.List selectors ->
-        (* Apply transform to each selector in a comma-separated list *)
-        Css.Selector.List (List.map transform selectors)
-    | other -> other
+  let new_selector =
+    Rules_selector.transform_selector_with_modifier modified_base_selector
+      base_class modified_class selector
   in
-  transform selector
+  let has_hover = Modifiers.is_hover modifier in
+  regular ~selector:new_selector ~props ~base_class:modified_class ~has_hover ()
 
 (** Handle data attribute modifiers (data-state, data-variant, etc.) *)
 let handle_data_modifier key value selector props base_class =
@@ -310,60 +341,53 @@ let handle_data_modifier key value selector props base_class =
     ~selector:(selector_with_data_key selector ("data-" ^ key) value)
     ~props ~base_class ()
 
-(** Handle media query modifiers (dark, motion-safe, etc.) *)
-let handle_media_modifier ~condition ?(prefix = None) base_class selector props
-    =
-  match prefix with
-  | Some pfx -> media_modifier ~condition ~prefix:pfx base_class props
-  | None -> media_query ~condition ~selector ~props ~base_class ()
-
-(** Handle pseudo-class modifiers (hover, focus, active, etc.) *)
-let handle_pseudo_class_modifier modifier base_class selector props =
+(* Media-like modifiers (dark, motion/contrast prefs) should transform the
+   existing selector structure rather than rebuilding a flat class selector. *)
+let handle_media_like_modifier (modifier : Style.modifier) ~condition base_class
+    selector props =
   let modified_base_selector = Modifiers.to_selector modifier base_class in
   let modified_class =
-    extract_modified_class_name modified_base_selector base_class
+    Rules_selector.extract_modified_class_name modified_base_selector base_class
   in
-  let has_hover = Modifiers.is_hover modifier in
-  let modified_selector =
-    transform_selector_with_modifier modified_base_selector base_class
-      modified_class selector
+  let new_selector =
+    Rules_selector.transform_selector_with_modifier modified_base_selector
+      base_class modified_class selector
   in
-  regular ~selector:modified_selector ~props ~base_class:modified_class
-    ~has_hover ()
+  media_query ~condition ~selector:new_selector ~props
+    ~base_class:modified_class ()
 
-(* Route data modifiers to appropriate handler *)
+(* Route data attribute modifiers *)
 let route_data_modifier modifier base_class selector props =
-  let key, value =
-    match modifier with
-    | Style.Data_state v -> ("state", v)
-    | Style.Data_variant v -> ("variant", v)
-    | Style.Data_custom (k, v) -> (k, v)
-    | _ -> failwith "Invalid data modifier"
-  in
-  handle_data_modifier key value selector props base_class
+  match modifier with
+  | Style.Data_state v ->
+      handle_data_modifier "state" v selector props base_class
+  | Style.Data_variant v ->
+      handle_data_modifier "variant" v selector props base_class
+  | Style.Data_active ->
+      handle_data_modifier "active" "" selector props base_class
+  | Style.Data_inactive ->
+      handle_data_modifier "inactive" "" selector props base_class
+  | Style.Data_custom (k, v) ->
+      handle_data_modifier k v selector props base_class
+  | _ -> regular ~selector ~props ~base_class ()
 
-(* Route preference media modifiers to appropriate handler *)
+(* Route preference media modifiers *)
 let route_preference_modifier modifier base_class selector props =
-  let kind, value =
-    match modifier with
-    | Style.Motion_safe -> ("reduced-motion", "no-preference")
-    | Style.Motion_reduce -> ("reduced-motion", "reduce")
-    | Style.Contrast_more -> ("contrast", "more")
-    | Style.Contrast_less -> ("contrast", "less")
-    | _ -> failwith "Invalid preference modifier"
-  in
-  let prefix_map =
-    [
-      (("reduced-motion", "no-preference"), ".motion-safe:");
-      (("reduced-motion", "reduce"), ".motion-reduce:");
-      (("contrast", "more"), ".contrast-more:");
-      (("contrast", "less"), ".contrast-less:");
-    ]
-  in
-  let prefix = List.assoc_opt (kind, value) prefix_map in
-  handle_media_modifier
-    ~condition:(Printf.sprintf "(prefers-%s:%s)" kind value)
-    ~prefix base_class selector props
+  match modifier with
+  | Style.Motion_safe ->
+      handle_media_like_modifier Style.Motion_safe
+        ~condition:"(prefers-reduced-motion:no-preference)" base_class selector
+        props
+  | Style.Motion_reduce ->
+      handle_media_like_modifier Style.Motion_reduce
+        ~condition:"(prefers-reduced-motion:reduce)" base_class selector props
+  | Style.Contrast_more ->
+      handle_media_like_modifier Style.Contrast_more
+        ~condition:"(prefers-contrast:more)" base_class selector props
+  | Style.Contrast_less ->
+      handle_media_like_modifier Style.Contrast_less
+        ~condition:"(prefers-contrast:less)" base_class selector props
+  | _ -> regular ~selector ~props ~base_class ()
 
 (* Route :has() variants to appropriate handler *)
 let route_has_modifier modifier base_class props =
@@ -390,8 +414,8 @@ let modifier_to_rule modifier base_class selector props =
       route_data_modifier modifier base_class selector props
   (* Color scheme *)
   | Style.Dark ->
-      handle_media_modifier ~condition:"(prefers-color-scheme:dark)"
-        ~prefix:(Some ".dark:") base_class selector props
+      handle_media_like_modifier Style.Dark
+        ~condition:"(prefers-color-scheme:dark)" base_class selector props
   (* Preference media modifiers *)
   | Style.Motion_safe | Style.Motion_reduce | Style.Contrast_more
   | Style.Contrast_less ->
@@ -543,37 +567,6 @@ let outputs util =
 (* Conflict Resolution - Order utilities by specificity *)
 (* ======================================================================== *)
 
-(** Strip leading dot from selector string *)
-let extract_core_selector selector =
-  if String.starts_with ~prefix:"." selector then
-    String.sub selector 1 (String.length selector - 1)
-  else selector
-
-(** Extract first class name before any space, combinator, etc. This avoids
-    confusing descendant selectors like ".prose :where(p)" with modifier
-    prefixes like "hover:prose" *)
-let extract_first_class_name core =
-  match String.index_opt core ' ' with
-  | Some space_pos -> String.sub core 0 space_pos
-  | None -> core
-
-(** Strip CSS pseudo-selectors from the end of a class name. Pseudo-selectors
-    like :has(img), :hover follow the pattern :name or :name(args). We look for
-    colons followed by lowercase letters or opening parenthesis, indicating a
-    CSS pseudo-selector rather than a modifier prefix. *)
-let strip_pseudo_selectors s =
-  let len = String.length s in
-  let rec find_last_pseudo i =
-    if i < 0 then s
-    else if s.[i] = ':' && i + 1 < len then
-      let next_char = s.[i + 1] in
-      if (next_char >= 'a' && next_char <= 'z') || next_char = '(' then
-        String.sub s 0 i
-      else find_last_pseudo (i - 1)
-    else find_last_pseudo (i - 1)
-  in
-  find_last_pseudo (len - 1)
-
 (** Strip modifier prefixes (sm:, md:, hover:, etc.) to extract base utility
     name. Modifier prefixes come before the utility name. *)
 let extract_base_utility class_name_no_pseudo =
@@ -593,11 +586,16 @@ let parse_utility_order base_utility =
          don't parse as utilities. Give them a default low priority. *)
       (9999, 0)
 
-(** Compute conflict resolution order from a CSS selector string. Returns
-    (priority, suborder) tuple for ordering utilities. *)
+(** Compute conflict resolution order from selector string using the AST. Parses
+    the selector, finds the first class token (ignoring pseudo-tokens), strips
+    modifier prefixes (e.g., "hover:"), and maps to Utility.order. Falls back to
+    a default low priority when no class is found. *)
 let conflict_order selector =
-  selector |> extract_core_selector |> extract_first_class_name
-  |> strip_pseudo_selectors |> extract_base_utility |> parse_utility_order
+  let reader = Css.Reader.of_string selector in
+  let sel = Css.Selector.read reader in
+  match Css.Selector.first_class sel with
+  | Some class_name -> class_name |> extract_base_utility |> parse_utility_order
+  | None -> (9999, 0)
 
 (* Extract selector and props pairs from Regular rules. *)
 let selector_props_pairs rules =
@@ -661,37 +659,6 @@ let is_simple_class_selector sel =
   | Css.Selector.Class _ -> true
   | _ -> false
 
-let selector_to_string = Css.Selector.to_string
-
-(* ======================================================================== *)
-(* Selector Analysis - Type-directed helpers for selector classification *)
-(* ======================================================================== *)
-
-(** Check if a string contains a substring *)
-let contains_substring s sub =
-  let lsub = String.length sub and ls = String.length s in
-  let rec loop i =
-    if i > ls - lsub then false
-    else if String.sub s i lsub = sub then true
-    else loop (i + 1)
-  in
-  lsub <> 0 && loop 0
-
-(** Classify a selector into Simple or Complex with focus/has analysis *)
-let classify_selector sel =
-  if is_simple_class_selector sel then Simple
-  else
-    let s = selector_to_string sel in
-    Complex
-      {
-        has_focus_within = contains_substring s "focus-within\\:";
-        has_focus_visible = contains_substring s "focus-visible\\:";
-        (* Detect :has() modifier type *)
-        has_group_has = contains_substring s "group-has-\\[";
-        has_peer_has = contains_substring s "peer-has-\\[";
-        has_standalone_has = contains_substring s ".has-\\[";
-      }
-
 (** Compare complex selector kinds. Returns ordering value for sorting. Order:
     other < group-has < peer-has < focus-within < focus-visible < has *)
 let complex_selector_order = function
@@ -709,61 +676,39 @@ let rule_relationship r1 r2 =
   | _ -> Different_utilities
 
 (* ======================================================================== *)
-(* Media Query Analysis - Type-directed helpers for media classification *)
-(* ======================================================================== *)
 
-(** Classify a media query condition string *)
-let classify_media_condition cond =
-  if String.length cond > 10 && String.sub cond 0 10 = "(min-width" then
-    (* Try to parse the rem value for responsive breakpoints *)
-    try
-      let start = String.index cond ':' + 1 in
-      let end_pos = String.index_from cond start 'r' in
-      let value_str = String.sub cond start (end_pos - start) in
-      Responsive (int_of_string value_str)
-    with _ -> Responsive 0
-  else if String.length cond > 8 && String.sub cond 1 7 = "prefers" then
-    Preference
-  else if cond = "(hover:hover)" then Hover_media
-  else Other_media
-
-(** Get sort key for media kind. Lower values sort first. *)
-let media_kind_order = function
-  | Hover_media -> 0
-  | Other_media -> 500
-  | Responsive rem -> 1000 + rem
-  | Preference -> 2000
+(** Classify a selector into Simple or Complex with focus/has analysis *)
+let classify_selector sel =
+  if is_simple_class_selector sel then Simple
+  else
+    Complex
+      {
+        has_focus_within = Css.Selector.has_focus_within sel;
+        has_focus_visible = Css.Selector.has_focus_visible sel;
+        has_group_has =
+          Css.Selector.exists_class
+            (fun n -> String.starts_with ~prefix:"group-has-[" n)
+            sel;
+        has_peer_has =
+          Css.Selector.exists_class
+            (fun n -> String.starts_with ~prefix:"peer-has-[" n)
+            sel;
+        has_standalone_has =
+          Css.Selector.exists_class
+            (fun n -> String.starts_with ~prefix:"has-[" n)
+            sel;
+      }
 
 (** Get sort key for preference media conditions. Tailwind order: reduced-motion
     (no-preference, reduce) < contrast (more, less) *)
-let preference_condition_order cond =
-  if contains_substring cond "reduced-motion:no-preference" then 0
-  else if contains_substring cond "reduced-motion:reduce" then 1
-  else if contains_substring cond "contrast:more" then 2
-  else if contains_substring cond "contrast:less" then 3
-  else if contains_substring cond "color-scheme" then 4
-  else 10 (* Other preferences *)
-
-(* Detect standalone has-[...] utility (not group-has/peer-has). Currently
-   unused but kept for potential future :has() handling. *)
-let _contains_standalone_has sel =
-  let s = selector_to_string sel in
-  let sub = ".has-\\[" in
-  let ls = String.length s in
-  let lsub = String.length sub in
-  let rec loop i =
-    if i > ls - lsub then false
-    else if String.sub s i lsub = sub then true
-    else loop (i + 1)
-  in
-  if lsub = 0 then false else loop 0
+let preference_condition_order cond = Css.Media.preference_order cond
 
 let compare_indexed ~filter_custom_props (i1, sel1, _, (prio1, sub1))
     (i2, sel2, _, (prio2, sub2)) =
   let prio_cmp = Int.compare prio1 prio2 in
   if prio_cmp <> 0 then prio_cmp
   else
-    (* First sort by suborder *)
+    (* Then by suborder *)
     let sub_cmp = Int.compare sub1 sub2 in
     if sub_cmp <> 0 then sub_cmp
     else if
@@ -771,15 +716,15 @@ let compare_indexed ~filter_custom_props (i1, sel1, _, (prio1, sub1))
       && is_simple_class_selector sel1
       && is_simple_class_selector sel2
     then
-      (* For utilities with same priority and suborder, sort alphabetically.
-         This handles display utilities from different modules (flex, grid,
-         block) which all have priority=4 and suborder=0. *)
-      let sel1_str = Css.Selector.to_string sel1 in
-      let sel2_str = Css.Selector.to_string sel2 in
-      String.compare sel1_str sel2_str
-    else
-      (* For complex selectors or non-utilities, preserve original order *)
-      Int.compare i1 i2
+      (* Same priority/suborder: sort alphabetically for simple class selectors,
+         then by original index for stability. *)
+      let sel_cmp =
+        String.compare
+          (Css.Selector.to_string sel1)
+          (Css.Selector.to_string sel2)
+      in
+      if sel_cmp <> 0 then sel_cmp else Int.compare i1 i2
+    else Int.compare i1 i2
 
 (* Convert selector/props/order triples to CSS rules with conflict ordering *)
 let of_grouped ?(filter_custom_props = false) grouped_list =
@@ -832,11 +777,16 @@ let rule_type_order = function
   | `Container _ -> 1
   | `Starting -> 2
 
-(* Extract media query sort key using the media_kind type. Returns (sort_key, 0)
-   for compatibility with existing comparisons. *)
+(* Extract media sort key using Css.Media.classify. Returns (group, subkey)
+   where subkey is rem value for responsive conditions. *)
 let extract_media_sort_key = function
-  | `Media cond -> (media_kind_order (classify_media_condition cond), 0)
-  | _ -> (0, 0)
+  | `Media cond -> (
+      match Css.Media.classify cond with
+      | Css.Media.Hover -> (0, 0.)
+      | Css.Media.Other -> (500, 0.)
+      | Css.Media.Responsive rem -> (1000, rem)
+      | Css.Media.Preference -> (2000, 0.))
+  | _ -> (0, 0.)
 
 (* ======================================================================== *)
 (* Priority Comparison - Type-directed comparison helpers *)
@@ -887,36 +837,45 @@ let compare_by_priority_suborder_alpha sel1 sel2 (p1, s1) (p2, s2) i1 i2 =
    then by media condition (to group related queries), then by
    priority/suborder *)
 let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 =
-  let key1, _ = extract_media_sort_key typ1 in
-  let key2, _ = extract_media_sort_key typ2 in
-  let key_cmp = Int.compare key1 key2 in
+  let group1, sub1 = extract_media_sort_key typ1 in
+  let group2, sub2 = extract_media_sort_key typ2 in
+  let key_cmp = Int.compare group1 group2 in
   if key_cmp <> 0 then key_cmp
   else
-    (* Same media kind - compare by condition to keep related queries
-       together *)
+    (* Same media group. For Responsive, sort by rem value (ascending). For
+       Preference, use preference_condition_order. Otherwise, fallback to
+       lexicographic condition compare. *)
     let cond1 = match typ1 with `Media c -> c | _ -> "" in
     let cond2 = match typ2 with `Media c -> c | _ -> "" in
-    (* For preference media, use specific ordering (reduced-motion <
-       contrast) *)
-    let kind1 = classify_media_condition cond1 in
-    let cond_cmp =
-      match kind1 with
-      | Preference ->
-          Int.compare
-            (preference_condition_order cond1)
-            (preference_condition_order cond2)
-      | _ -> String.compare cond1 cond2
-    in
-    if cond_cmp <> 0 then cond_cmp
-    else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+    if group1 = 1000 then
+      let sub_cmp = Float.compare sub1 sub2 in
+      if sub_cmp <> 0 then sub_cmp
+      else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+    else if group1 = 2000 then
+      let pref_cmp =
+        Int.compare
+          (preference_condition_order cond1)
+          (preference_condition_order cond2)
+      in
+      if pref_cmp <> 0 then pref_cmp
+      else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+    else
+      let cond_cmp = String.compare cond1 cond2 in
+      if cond_cmp <> 0 then cond_cmp
+      else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
 
 (* ======================================================================== *)
 (* Regular vs Media Comparison - Type-directed comparison for mixed rules *)
 (* ======================================================================== *)
 
-(** Compare Regular vs Media rules when they're from the same utility. Preserves
-    original index order. *)
-let compare_same_utility_regular_media i1 i2 = Int.compare i1 i2
+(* For the same base utility, ensure the regular rule comes before its
+   modifier-media rule (e.g., hover gated by (hover:hover)). Fall back to index
+   for stability when types match. *)
+let compare_same_utility_regular_media r1 r2 =
+  match (r1.rule_type, r2.rule_type) with
+  | `Regular, `Media _ -> -1
+  | `Media _, `Regular -> 1
+  | _ -> Int.compare r1.index r2.index
 
 (** Check if a selector kind is a "late modifier" that should come after media.
     This is a local version used before the full is_late_modifier is defined. *)
@@ -951,7 +910,7 @@ let compare_different_utility_regular_media sel1 sel2 order1 order2 =
 (** Compare Regular vs Media rules using rule relationship dispatch. *)
 let compare_regular_vs_media r1 r2 =
   match rule_relationship r1 r2 with
-  | Same_utility _ -> compare_same_utility_regular_media r1.index r2.index
+  | Same_utility _ -> compare_same_utility_regular_media r1 r2
   | Different_utilities ->
       compare_different_utility_regular_media r1.selector r2.selector r1.order
         r2.order
@@ -1246,7 +1205,13 @@ let sorted_indexed_rules all_rules =
    order. This iterates through sorted rules and collects custom property
    names. *)
 let set_var_names_from_sorted_rules sorted_rules =
-  sorted_rules |> List.concat_map (fun r -> Css.custom_prop_names r.props)
+  (* Must mirror the same filtering used when emitting utilities so the first
+     usage order reflects only declarations that actually render in the
+     utilities layer. *)
+  sorted_rules
+  |> List.concat_map (fun r ->
+         let filtered = filter_utility_properties r.props in
+         Css.custom_prop_names filtered)
 
 let rule_sets tw_classes =
   let all_rules = tw_classes |> List.concat_map outputs in
@@ -1403,38 +1368,10 @@ let build_base_layer ?supports () =
 
 (* Use the centralized conversion function from Var module *)
 
-(* Partition statements into @property rules and other statements *)
-let partition_properties statements =
-  List.partition
-    (fun stmt ->
-      match Css.as_property stmt with Some _ -> true | None -> false)
-    statements
-
-(* Deduplicate @property rules by name, preserving first occurrence *)
-let dedup_properties property_rules =
-  let seen = Hashtbl.create 16 in
-  List.filter
-    (fun stmt ->
-      match Css.as_property stmt with
-      | Some (Css.Property_info { name; _ }) ->
-          if Hashtbl.mem seen name then false
-          else (
-            Hashtbl.add seen name ();
-            true)
-      | None -> true)
-    property_rules
-
-(* Extract variable initial values from @property declarations *)
-let initial_values_of property_rules =
-  List.fold_left
-    (fun acc stmt ->
-      match Css.as_property stmt with
-      | Some (Css.Property_info info as prop_info) ->
-          let value = Var.property_initial_string prop_info in
-          (info.name, value) :: acc
-      | None -> acc)
-    [] property_rules
-  |> List.rev
+(* Property helpers are centralized in Property module *)
+let partition_properties = Property.split
+let dedup_properties = Property.dedup
+let initial_values_of = Property.initial_values
 
 (* Browser detection condition for properties layer *)
 let browser_detection =
@@ -1788,5 +1725,3 @@ let to_inline_style utilities =
   let all_props = List.rev (List.fold_left collect_declarations [] styles) in
   let non_variable_props = filter_non_variables all_props in
   Css.inline_style_of_declarations non_variable_props
-(* Compatibility aliases to match the .mli names after refactor *)
-(* Removed compatibility aliases after renaming: functions now have their final names. *)
