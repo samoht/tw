@@ -45,7 +45,8 @@ let compare_files file1 file2 style_renderer diff_mode =
             Fmt.pr "✓ CSS files are identical@.";
             Ok ()
         | String_diff _ ->
-            (* Only formatting/order differences: report but do not fail. *)
+            (* Treat pure string differences as failures so tests catch ordering
+               changes. Encourage --diff=tree for more detail. *)
             let stats =
               Tw_tools.Css_compare.stats ~expected_str:css1 ~actual_str:css2
                 result
@@ -54,7 +55,7 @@ let compare_files file1 file2 style_renderer diff_mode =
             Fmt.pr "%a@."
               (Tw_tools.Css_compare.pp ~expected:file1 ~actual:file2)
               result;
-            Ok ()
+            Error (`Msg "CSS files differ (string diff)")
         | Tree_diff _ | Both_errors _ | Expected_error _ | Actual_error _ ->
             let stats =
               Tw_tools.Css_compare.stats ~expected_str:css1 ~actual_str:css2
