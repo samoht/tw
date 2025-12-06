@@ -353,6 +353,22 @@ type ('a, 'r) t
 
 (** {2 Type shortcuts for common patterns} *)
 
+(* Family classification for ordering without string-prefix checks *)
+type family =
+  [ `Border
+  | `Rotate
+  | `Skew
+  | `Scale
+  | `Gradient
+  | `Shadow
+  | `Inset_shadow
+  | `Ring
+  | `Inset_ring
+  | `Leading
+  | `Font_weight
+  | `Duration
+  | `Tracking ]
+
 type 'a theme = ('a, [ `Theme ]) t
 (** Theme variables (Pattern 1) - design tokens set in theme layer *)
 
@@ -380,6 +396,7 @@ val property_default :
   ?inherits:bool ->
   ?universal:bool ->
   ?property_order:int ->
+  ?family:family ->
   string ->
   'a property_default
 (** [property_default kind ~initial name ?inherits ?universal ?property_order]
@@ -416,6 +433,7 @@ val property_default :
 val channel :
   ?needs_property:bool ->
   ?property_order:int ->
+  ?family:family ->
   'a Css.kind ->
   string ->
   'a channel
@@ -429,6 +447,8 @@ val get_property_order : string -> int option
 (** [get_property_order name] returns the property order for a variable name,
     used for sorting properties in the @layer properties @supports block.
     Returns [None] if no order was registered. *)
+
+val get_family : string -> family option
 
 val ref_only : 'a Css.kind -> string -> fallback:'a -> 'a ref_only
 (** [ref_only kind name ~fallback] creates a reference-only handle to a Utility
@@ -524,5 +544,5 @@ val order_of_declaration : Css.declaration -> (int * int) option
     declaration. *)
 
 val property_initial_string : Css.property_info -> string
-(** [property_initial_string info] converts the typed initial value of a
-    [@property] declaration into a string suitable for [initial-value:]. *)
+(* [property_initial_string info] converts the typed initial value of a
+   [@property] declaration into a string suitable for [initial-value:]. *)
