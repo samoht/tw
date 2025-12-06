@@ -29,6 +29,11 @@ type rule_diff =
       expected_pos : int;
       actual_pos : int;
       swapped_with : string option; (* Selector that moved to old position *)
+      (* When only declarations order changed within the rule, we carry the
+         before/after declarations to pretty-print a property reorder
+         summary. *)
+      old_declarations : Css.declaration list option;
+      new_declarations : Css.declaration list option;
     }
 
 type container_info = {
@@ -319,24 +324,43 @@ let pp_rule_diff ?(style = default_style) ?(is_last = false)
       if declarations <> [] then
         pp_declarations ~style ~parent_prefix:child_prefix fmt "declarations"
           declarations
-  | Rule_reordered { selector; expected_pos; actual_pos; swapped_with } -> (
+  | Rule_reordered
+      {
+        selector;
+        expected_pos;
+        actual_pos;
+        swapped_with;
+        old_declarations;
+        new_declarations;
+      } -> (
       let prefix = tree_prefix ~style ~is_last ~parent_prefix in
-      if expected_pos = actual_pos then assert false
-      else
-        let truncate s = String_diff.truncate_middle 40 s in
-        match swapped_with with
-        | Some other when abs (expected_pos - actual_pos) = 1 ->
-            (* Adjacent swap - show both elements *)
-            Fmt.pf fmt "%s%s ↔  %s@," prefix (truncate selector)
-              (truncate other)
-        | Some other ->
-            (* Non-adjacent - show both elements with their positions *)
-            Fmt.pf fmt "%s%s (position %d) ↔  %s (position %d)@," prefix
-              (truncate selector) actual_pos (truncate other) expected_pos
-        | None ->
-            (* No swap info available - fallback to simple message *)
-            Fmt.pf fmt "%s%s (position %d → %d)@," prefix (truncate selector)
-              expected_pos actual_pos)
+      match (old_declarations, new_declarations) with
+      | Some old_decls, Some new_decls ->
+          (* Property-only reordering within a rule: show selector and a reorder
+             summary for declarations. *)
+          let child_prefix = tree_continuation ~style ~is_last ~parent_prefix in
+          Fmt.pf fmt "%s%s@," prefix selector;
+          pp_reorder ~style ~parent_prefix:child_prefix old_decls new_decls fmt
+      | _ -> (
+          if
+            (* Rule position reordering between selectors *)
+            expected_pos = actual_pos
+          then assert false
+          else
+            let truncate s = String_diff.truncate_middle 40 s in
+            match swapped_with with
+            | Some other when abs (expected_pos - actual_pos) = 1 ->
+                (* Adjacent swap - show both elements *)
+                Fmt.pf fmt "%s%s ↔  %s@," prefix (truncate selector)
+                  (truncate other)
+            | Some other ->
+                (* Non-adjacent - show both elements with their positions *)
+                Fmt.pf fmt "%s%s (position %d) ↔  %s (position %d)@," prefix
+                  (truncate selector) actual_pos (truncate other) expected_pos
+            | None ->
+                (* No swap info available - fallback to simple message *)
+                Fmt.pf fmt "%s%s (position %d → %d)@," prefix
+                  (truncate selector) expected_pos actual_pos))
 
 let pp_rule_diff_simple fmt = function
   | Rule_added { selector; _ } -> Fmt.pf fmt "Added(%s)" selector
@@ -1256,7 +1280,15 @@ let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
     let expected_pos = find_position sel1 rules1 in
     let actual_pos = find_position sel2 rules2 in
     let swapped_with = selector_at_position expected_pos rules2 in
-    Rule_reordered { selector; expected_pos; actual_pos; swapped_with }
+    Rule_reordered
+      {
+        selector;
+        expected_pos;
+        actual_pos;
+        swapped_with;
+        old_declarations = None;
+        new_declarations = None;
+      }
   in
 
   (* Helper to check if rule position changed *)
@@ -1296,10 +1328,23 @@ let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
         property_changes = [] && added_props = [] && removed_props = []
         && decls_signature decls1 = decls_signature decls2
       in
-      if is_pure_reordering && position_changed () then
-        (* Same properties, different order within the rule - report as
-           Rule_reordered since the declaration order changed *)
-        make_reordered sel1_str
+      if is_pure_reordering then
+        (* Pure declaration reordering inside the rule: classify as
+           Rule_reordered and carry declarations to pretty-print a reorder
+           summary. If the rule position also changed, expected_pos/actual_pos
+           will reflect that via make_reordered; otherwise, mark as a
+           declaration-level reorder with sentinel positions. *)
+        if position_changed () then make_reordered sel1_str
+        else
+          Rule_reordered
+            {
+              selector = sel1_str;
+              expected_pos = -1;
+              actual_pos = -1;
+              swapped_with = None;
+              old_declarations = Some decls1;
+              new_declarations = Some decls2;
+            }
       else if property_changes <> [] || added_props <> [] || removed_props <> []
       then
         (* Properties changed *)
@@ -1518,15 +1563,31 @@ and process_nested_containers ~container_type ~extract_fn ~diff_fn ~depth stmts1
             :: !diffs
         else
           (* Container was modified in content, not just position *)
-          diffs :=
-            Container_modified
-              {
-                info = { container_type; condition = cond; rules = rules1 };
-                actual_rules = rules2;
-                rule_changes;
-                container_changes = nested_containers;
-              }
-            :: !diffs)
+          let only_decl_reorders =
+            rule_changes <> []
+            && List.for_all
+                 (function
+                   | Rule_reordered
+                       {
+                         old_declarations = Some _;
+                         new_declarations = Some _;
+                         _;
+                       } ->
+                       true
+                   | _ -> false)
+                 rule_changes
+            && nested_containers = []
+          in
+          if not only_decl_reorders then
+            diffs :=
+              Container_modified
+                {
+                  info = { container_type; condition = cond; rules = rules1 };
+                  actual_rules = rules2;
+                  rule_changes;
+                  container_changes = nested_containers;
+                }
+              :: !diffs)
     modified;
 
   (* Check for ordering changes: same containers but different order *)
@@ -1627,7 +1688,22 @@ and process_nested_layers ~depth stmts1 stmts2 =
       let nested_containers =
         nested_differences ~depth:(depth + 1) rules1 rules2
       in
-      if rule_changes <> [] || nested_containers <> [] then
+      let only_decl_reorders =
+        rule_changes <> []
+        && List.for_all
+             (function
+               | Rule_reordered
+                   { old_declarations = Some _; new_declarations = Some _; _ }
+                 ->
+                   true
+               | _ -> false)
+             rule_changes
+        && nested_containers = []
+      in
+      if
+        (rule_changes <> [] || nested_containers <> [])
+        && not only_decl_reorders
+      then
         diffs :=
           Container_modified
             {
@@ -1757,7 +1833,22 @@ and process_nested_containers_with_name ~depth stmts1 stmts2 =
       let nested_containers =
         nested_differences ~depth:(depth + 1) rules1 rules2
       in
-      if rule_changes <> [] || nested_containers <> [] then
+      let only_decl_reorders =
+        rule_changes <> []
+        && List.for_all
+             (function
+               | Rule_reordered
+                   { old_declarations = Some _; new_declarations = Some _; _ }
+                 ->
+                   true
+               | _ -> false)
+             rule_changes
+        && nested_containers = []
+      in
+      if
+        (rule_changes <> [] || nested_containers <> [])
+        && not only_decl_reorders
+      then
         diffs :=
           Container_modified
             {

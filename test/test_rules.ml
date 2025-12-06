@@ -13,7 +13,7 @@ let check_theme_layer_empty () =
     Tw.Typography.default_font_declarations
     @ Tw.Typography.default_font_family_declarations
   in
-  let theme_layer = compute_theme_layer ~default_decls [] in
+  let theme_layer = theme_layer_of ~default_decls [] in
   (* Should include font variables even for empty input *)
   let vars = vars_in_layer "theme" theme_layer in
   check bool "includes --font-sans" true (List.mem "--font-sans" vars);
@@ -28,9 +28,7 @@ let check_theme_layer_with_color () =
     Tw.Typography.default_font_declarations
     @ Tw.Typography.default_font_family_declarations
   in
-  let theme_layer =
-    Tw.Rules.compute_theme_layer ~default_decls [ bg blue 500 ]
-  in
+  let theme_layer = Tw.Rules.theme_layer_of ~default_decls [ bg blue 500 ] in
   (* Should include color variable when referenced *)
   check bool "includes --color-blue-500" true
     (has_var_in_layer "--color-blue-500" "theme" theme_layer);
@@ -39,7 +37,7 @@ let check_theme_layer_with_color () =
     (has_var_in_layer "--font-sans" "theme" theme_layer)
 
 let check_extract_selector_props () =
-  let rules = Tw.Rules.extract_selector_props (p 4) in
+  let rules = Tw.Rules.outputs (p 4) in
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Regular { selector; _ } ] ->
@@ -47,7 +45,7 @@ let check_extract_selector_props () =
   | _ -> fail "Expected Regular rule"
 
 let check_extract_hover () =
-  let rules = extract_selector_props (hover [ bg blue 500 ]) in
+  let rules = outputs (hover [ bg blue 500 ]) in
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Regular { selector; _ } ] ->
@@ -56,7 +54,7 @@ let check_extract_hover () =
   | _ -> fail "Expected Regular rule with hover"
 
 let check_extract_responsive () =
-  let rules = extract_selector_props (sm [ p 4 ]) in
+  let rules = outputs (sm [ p 4 ]) in
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
@@ -68,7 +66,7 @@ let check_extract_responsive () =
   | _ -> fail "Expected Media_query rule"
 
 let check_extract_responsive_md () =
-  let rules = extract_selector_props (md [ p 4 ]) in
+  let rules = outputs (md [ p 4 ]) in
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
@@ -80,7 +78,7 @@ let check_extract_responsive_md () =
   | _ -> fail "Expected Media_query rule for md"
 
 let check_extract_responsive_lg () =
-  let rules = extract_selector_props (lg [ p 4 ]) in
+  let rules = outputs (lg [ p 4 ]) in
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
@@ -91,7 +89,7 @@ let check_extract_responsive_lg () =
   | _ -> fail "Expected Media_query rule for lg"
 
 let check_extract_responsive_xl () =
-  let rules = extract_selector_props (xl [ p 4 ]) in
+  let rules = outputs (xl [ p 4 ]) in
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
@@ -102,7 +100,7 @@ let check_extract_responsive_xl () =
   | _ -> fail "Expected Media_query rule for xl"
 
 let check_extract_responsive_2xl () =
-  let rules = extract_selector_props (xl2 [ p 4 ]) in
+  let rules = outputs (xl2 [ p 4 ]) in
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
@@ -400,8 +398,8 @@ let test_color_order () =
 
 let test_is_hover_rule () =
   (* Test simple hover *)
-  let hover_rules = Tw.Rules.extract_selector_props (hover [ bg blue 500 ]) in
-  let non_hover_rules = Tw.Rules.extract_selector_props (bg blue 500) in
+  let hover_rules = Tw.Rules.outputs (hover [ bg blue 500 ]) in
+  let non_hover_rules = Tw.Rules.outputs (bg blue 500) in
 
   (match hover_rules with
   | [ hover_rule ] ->
@@ -416,7 +414,7 @@ let test_is_hover_rule () =
   | _ -> fail "Expected single non-hover rule");
 
   (* Test hover combined with responsive *)
-  let sm_hover_rules = Tw.Rules.extract_selector_props (sm [ hover [ p 4 ] ]) in
+  let sm_hover_rules = Tw.Rules.outputs (sm [ hover [ p 4 ] ]) in
   (match sm_hover_rules with
   | [ media_rule ] ->
       (* Responsive + hover creates a media query, not a regular rule with
@@ -426,9 +424,7 @@ let test_is_hover_rule () =
   | _ -> fail "Expected single media rule");
 
   (* Test hover combined with dark mode *)
-  let dark_hover_rules =
-    Tw.Rules.extract_selector_props (dark [ hover [ m 2 ] ])
-  in
+  let dark_hover_rules = Tw.Rules.outputs (dark [ hover [ m 2 ] ]) in
   (match dark_hover_rules with
   | [ media_rule ] ->
       check bool "dark+hover is not detected as hover" false
@@ -436,7 +432,7 @@ let test_is_hover_rule () =
   | _ -> fail "Expected single media rule");
 
   (* Test focus without hover *)
-  let focus_rules = Tw.Rules.extract_selector_props (focus [ bg red 400 ]) in
+  let focus_rules = Tw.Rules.outputs (focus [ bg red 400 ]) in
   (match focus_rules with
   | [ focus_rule ] ->
       check bool "focus alone is not hover" false
@@ -444,9 +440,7 @@ let test_is_hover_rule () =
   | _ -> fail "Expected single focus rule");
 
   (* Test group hover *)
-  let group_hover_rules =
-    Tw.Rules.extract_selector_props (group_hover [ text white 0 ])
-  in
+  let group_hover_rules = Tw.Rules.outputs (group_hover [ text white 0 ]) in
   match group_hover_rules with
   | [ group_rule ] ->
       check bool "group-hover is detected as hover" true
@@ -608,7 +602,7 @@ let test_theme_layer_media_refs () =
       Tw.Typography.default_font_declarations
       @ Tw.Typography.default_font_family_declarations
     in
-    Tw.Rules.compute_theme_layer ~default_decls [ sm [ Tw.Typography.text_xl ] ]
+    Tw.Rules.theme_layer_of ~default_decls [ sm [ Tw.Typography.text_xl ] ]
   in
   let all_vars =
     Css.layer_block "theme" theme_layer
@@ -630,7 +624,7 @@ let test_theme_layer_media_refs_md () =
       Tw.Typography.default_font_declarations
       @ Tw.Typography.default_font_family_declarations
     in
-    Tw.Rules.compute_theme_layer ~default_decls [ md [ Tw.Typography.text_xl ] ]
+    Tw.Rules.theme_layer_of ~default_decls [ md [ Tw.Typography.text_xl ] ]
   in
   let all_vars =
     Css.layer_block "theme" theme_layer
@@ -940,7 +934,7 @@ let test_style_rules_props () =
   end in
   let () = Tw.Utility.register (module TestHandler) in
   let test_utility = Tw.Utility.base (TestHandler.Self TestHandler.Test) in
-  let extracted = Tw.Rules.extract_selector_props test_utility in
+  let extracted = Tw.Rules.outputs test_utility in
 
   (* Should generate rules in order: custom rules first, then base props *)
   check int "correct number of rules" 3 (List.length extracted);
@@ -1040,7 +1034,7 @@ let test_cascade_order_violation () =
   (* User wants p-2 to win *)
 
   (* Extract the rules and convert to pairs *)
-  let rules = user_intent |> List.concat_map Tw.Rules.extract_selector_props in
+  let rules = user_intent |> List.concat_map Tw.Rules.outputs in
 
   (* Get selector strings from the rules *)
   let selectors =
@@ -1078,8 +1072,8 @@ let test_cascade_prose_separation () =
   (* Test showing how sorting breaks intentional separation of .prose rules *)
 
   (* Extract prose rules to see their structure *)
-  let outputs = Tw.Rules.extract_selector_props Tw.Prose.prose in
-  let pairs = Tw.Rules.extract_selector_props_pairs outputs in
+  let outputs = Tw.Rules.outputs Tw.Prose.prose in
+  let pairs = Tw.Rules.selector_props_pairs outputs in
 
   Fmt.pr "@.=== Prose Rule Separation Test ===@.";
   Fmt.pr "Prose generates %d rules total@." (List.length pairs);
@@ -1132,8 +1126,8 @@ let test_cascade_color_override () =
   in
 
   (* Extract rules *)
-  let outputs = styles |> List.concat_map Tw.Rules.extract_selector_props in
-  let pairs = Tw.Rules.extract_selector_props_pairs outputs in
+  let outputs = styles |> List.concat_map Tw.Rules.outputs in
+  let pairs = Tw.Rules.selector_props_pairs outputs in
 
   Fmt.pr "@.=== Color Override Cascade Test ===@.";
   Fmt.pr "User intent: bg-blue-500, text-white, bg-red-500 (red should win)@.";

@@ -196,14 +196,14 @@ val to_inline_style : t list -> string
 val set_debug_compare : bool -> unit
 (** [set_debug_compare true] enables debug output for rule comparison. *)
 
-val extract_selector_props : t -> output list
-(** [extract_selector_props tw] extracts CSS rules from a Tailwind class. *)
+val outputs : t -> output list
+(** [outputs tw] extracts CSS rules from a Tailwind class. *)
 
-val extract_selector_props_pairs :
+val selector_props_pairs :
   output list -> (Css.Selector.t * Css.declaration list * (int * int)) list
-(** [extract_selector_props_pairs outputs] converts output list to
-    selector-props-order triples. The order tuple is (priority, suborder). Used
-    internally for rule processing. Exposed for testing cascade ordering. *)
+(** [selector_props_pairs outputs] converts output list to selector-props-order
+    triples. The order tuple is (priority, suborder). Used internally for rule
+    processing. Exposed for testing cascade ordering. *)
 
 (** {1 Rule Extraction and Processing} *)
 
@@ -234,10 +234,10 @@ val conflict_order : string -> int * int
 
 (** {1 Layer Generation} *)
 
-val compute_theme_layer : ?default_decls:Css.declaration list -> t list -> Css.t
-(** [compute_theme_layer ?default_decls tw_classes] generates the theme layer
-    with CSS variables referenced in the classes plus any [default_decls]
-    provided (e.g., baseline theme tokens like default font families). *)
+val theme_layer_of : ?default_decls:Css.declaration list -> t list -> Css.t
+(** [theme_layer_of ?default_decls tw_classes] generates the theme layer with
+    CSS variables referenced in the classes plus any [default_decls] provided
+    (e.g., baseline theme tokens like default font families). *)
 
 val build_utilities_layer : statements:Css.statement list -> Css.t
 (** [build_utilities_layer ~statements] builds the utilities layer. The

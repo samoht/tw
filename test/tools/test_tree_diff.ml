@@ -48,6 +48,8 @@ let sample_rule_reordered =
       expected_pos = 0;
       actual_pos = 1;
       swapped_with = Some ".other";
+      old_declarations = None;
+      new_declarations = None;
     }
 
 let sample_container_added =
