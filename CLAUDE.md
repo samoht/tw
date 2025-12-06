@@ -279,6 +279,13 @@ When `--diff` shows ordering differences:
   ALCOTEST_VERBOSE=1 dune exec test/test.exe test tw <N>
   ```
 
+  For tools tests (css diff, tree diff, etc.):
+
+  ```bash
+  # Note the required -- before args
+  ALCOTEST_VERBOSE=1 dune exec test/tools/test.exe -- test css_compare 12
+  ```
+
 * **Example test failures (e.g., `dune runtest` in `examples/prose/`):**
 
   When example tests fail, follow this workflow to isolate and fix the issue:

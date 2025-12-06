@@ -44,8 +44,18 @@ let compare_files file1 file2 style_renderer diff_mode =
         | No_diff ->
             Fmt.pr "✓ CSS files are identical@.";
             Ok ()
-        | String_diff _ | Tree_diff _ | Both_errors _ | Expected_error _
-        | Actual_error _ ->
+        | String_diff _ ->
+            (* Only formatting/order differences: report but do not fail. *)
+            let stats =
+              Tw_tools.Css_compare.stats ~expected_str:css1 ~actual_str:css2
+                result
+            in
+            Fmt.pr "%a@,@," Tw_tools.Css_compare.pp_stats stats;
+            Fmt.pr "%a@."
+              (Tw_tools.Css_compare.pp ~expected:file1 ~actual:file2)
+              result;
+            Ok ()
+        | Tree_diff _ | Both_errors _ | Expected_error _ | Actual_error _ ->
             let stats =
               Tw_tools.Css_compare.stats ~expected_str:css1 ~actual_str:css2
                 result

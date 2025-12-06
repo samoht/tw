@@ -29,6 +29,12 @@ type rule_diff =
       expected_pos : int;
       actual_pos : int;
       swapped_with : string option;
+          (** When only declaration order changed inside the rule, positions may
+              be irrelevant; in that case [old_declarations]/[new_declarations]
+              carry the before/after declarations to allow detailed
+              pretty-printing. *)
+      old_declarations : Css.declaration list option;
+      new_declarations : Css.declaration list option;
     }
 
 type container_info = {

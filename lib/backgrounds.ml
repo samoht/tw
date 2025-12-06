@@ -85,40 +85,42 @@ module Handler = struct
   (* Gradient variables with proper @property definitions matching Tailwind
      v4 *)
   let gradient_position_var =
-    (* The gradient direction. Default is to bottom if not specified. *)
+    (* The gradient direction. Use To_bottom as a sentinel so @property
+       initial-value is omitted, matching Tailwind's "initial" in the properties
+       layer. Put before --tw-gradient-from. *)
     Var.property_default Gradient_direction ~initial:To_bottom ~universal:true
-      ~property_order:3 "tw-gradient-position"
+      ~property_order:60 "tw-gradient-position"
 
   let gradient_from_var =
-    Var.property_default Color ~initial:(Css.hex "#0000") ~property_order:4
+    Var.property_default Color ~initial:(Css.hex "#0000") ~property_order:61
       "tw-gradient-from"
 
   let gradient_via_var =
-    Var.property_default Color ~initial:(Css.hex "#0000") ~property_order:5
+    Var.property_default Color ~initial:(Css.hex "#0000") ~property_order:62
       "tw-gradient-via"
 
   let gradient_to_var =
-    Var.property_default Color ~initial:(Css.hex "#0000") ~property_order:6
+    Var.property_default Color ~initial:(Css.hex "#0000") ~property_order:63
       "tw-gradient-to"
 
   let gradient_stops_var =
     Var.property_default Gradient_stop ~initial:(List []) ~universal:true
-      ~property_order:7 "tw-gradient-stops"
+      ~property_order:64 "tw-gradient-stops"
 
   let gradient_via_stops_var =
-    Var.channel ~needs_property:true ~property_order:8 Gradient_stop
+    Var.channel ~needs_property:true ~property_order:65 Gradient_stop
       "tw-gradient-via-stops"
 
   let gradient_from_position_var =
-    Var.property_default Percentage ~initial:(Pct 0.) ~property_order:9
+    Var.property_default Percentage ~initial:(Pct 0.) ~property_order:66
       "tw-gradient-from-position"
 
   let gradient_via_position_var =
-    Var.property_default Percentage ~initial:(Pct 50.) ~property_order:10
+    Var.property_default Percentage ~initial:(Pct 50.) ~property_order:67
       "tw-gradient-via-position"
 
   let gradient_to_position_var =
-    Var.property_default Percentage ~initial:(Pct 100.) ~property_order:11
+    Var.property_default Percentage ~initial:(Pct 100.) ~property_order:68
       "tw-gradient-to-position"
 
   let bg_gradient_to' dir =

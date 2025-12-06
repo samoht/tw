@@ -454,7 +454,7 @@ let handle_group class_name util_inner styles extract_fn =
       List.map2 extract_item styles util_items |> List.concat
   | _ -> List.concat_map (extract_fn class_name util_inner) styles
 
-let extract_selector_props util =
+let outputs util =
   let rec extract_with_class class_name util_inner = function
     | Style.Style { props; rules; _ } -> (
         let sel = Css.Selector.Class class_name in
@@ -600,7 +600,7 @@ let conflict_order selector =
   |> strip_pseudo_selectors |> extract_base_utility |> parse_utility_order
 
 (* Extract selector and props pairs from Regular rules. *)
-let extract_selector_props_pairs rules =
+let selector_props_pairs rules =
   List.filter_map
     (fun rule ->
       match rule with
@@ -701,15 +701,6 @@ let complex_selector_order = function
   | Complex { has_focus_visible = true; _ } -> 40
   | Complex { has_standalone_has = true; _ } -> 50
   | _ -> 0
-
-(** Check if selector has modifier prefix (contains escaped colon like \:) *)
-let has_modifier_prefix sel_str =
-  let rec find_escaped_colon i =
-    if i >= String.length sel_str - 1 then false
-    else if sel_str.[i] = '\\' && sel_str.[i + 1] = ':' then true
-    else find_escaped_colon (i + 1)
-  in
-  find_escaped_colon 0
 
 (** Determine the relationship between two rules *)
 let rule_relationship r1 r2 =
@@ -940,8 +931,7 @@ let is_late_modifier_kind = function
 (** Compare Regular vs Media rules from different utilities. Uses selector
     classification to determine ordering. *)
 let compare_different_utility_regular_media sel1 sel2 order1 order2 =
-  let sel2_str = Css.Selector.to_string sel2 in
-  if has_modifier_prefix sel2_str then
+  if Css.Selector.contains_modifier_colon sel2 then
     (* Media rule has modifier prefix - check if regular is a late modifier *)
     let kind1 = classify_selector sel1 in
     if is_late_modifier_kind kind1 then
@@ -1259,7 +1249,7 @@ let set_var_names_from_sorted_rules sorted_rules =
   sorted_rules |> List.concat_map (fun r -> Css.custom_prop_names r.props)
 
 let rule_sets tw_classes =
-  let all_rules = tw_classes |> List.concat_map extract_selector_props in
+  let all_rules = tw_classes |> List.concat_map outputs in
   rule_sets_from_selector_props all_rules
 
 (* ======================================================================== *)
@@ -1269,8 +1259,7 @@ let rule_sets tw_classes =
 module Strings = Set.Make (String)
 
 (* Helpers for theme layer extraction and ordering *)
-let collect_selector_props tw_classes =
-  List.concat_map extract_selector_props tw_classes
+let collect_selector_props tw_classes = List.concat_map outputs tw_classes
 
 let extract_non_tw_custom_declarations selector_props =
   (* Use Hashtbl to collect unique theme variables efficiently *)
@@ -1374,7 +1363,7 @@ let compute_theme_layer_from_selector_props ?(default_decls = []) selector_props
 
   pre @ extracted @ post |> sort_by_var_order |> theme_layer_rule
 
-let compute_theme_layer ?(default_decls = []) tw_classes =
+let theme_layer_of ?(default_decls = []) tw_classes =
   let selector_props = collect_selector_props tw_classes in
   compute_theme_layer_from_selector_props ~default_decls selector_props
 
@@ -1747,7 +1736,7 @@ let default_config = { base = true; mode = Css.Variables; optimize = false }
 
 let to_css ?(config = default_config) tw_classes =
   (* Extract once and share for rule sets and theme layer *)
-  let selector_props = List.concat_map extract_selector_props tw_classes in
+  let selector_props = List.concat_map outputs tw_classes in
 
   let statements = rule_sets_from_selector_props selector_props in
 
@@ -1799,3 +1788,5 @@ let to_inline_style utilities =
   let all_props = List.rev (List.fold_left collect_declarations [] styles) in
   let non_variable_props = filter_non_variables all_props in
   Css.inline_style_of_declarations non_variable_props
+(* Compatibility aliases to match the .mli names after refactor *)
+(* Removed compatibility aliases after renaming: functions now have their final names. *)
