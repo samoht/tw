@@ -646,14 +646,8 @@ let rec pp_container_diff ?(style = default_style) ?(is_last = false)
         actual_blocks
 
 let pp ?(expected = "Expected") ?(actual = "Actual") fmt { rules; containers } =
-  if rules = [] && containers = [] then
-    Fmt.pf fmt
-      "Structural differences detected in nested contexts (e.g., @media inside \
-       @layer)@,\
-       but no rule-level differences found.@,\
-       This may indicate reordering or subtle changes in rule organization."
-  else (
-    (* Print diff headers like git diff *)
+  (* Small local helpers to keep the pretty-printer readable *)
+  let pp_diff_headers fmt expected actual =
     Fmt.pf fmt "%a %a@."
       Fmt.(styled (`Fg `Yellow) string)
       "---"
@@ -663,32 +657,60 @@ let pp ?(expected = "Expected") ?(actual = "Actual") fmt { rules; containers } =
       Fmt.(styled (`Fg `Yellow) string)
       "+++"
       Fmt.(styled (`Fg `Yellow) string)
-      actual;
+      actual
+  in
+  let pp_rule_list ~style ~container_count fmt rule_list =
+    let rule_count = List.length rule_list in
+    List.iteri
+      (fun i rule_diff ->
+        let is_last = i = rule_count - 1 && container_count = 0 in
+        pp_rule_diff ~style ~is_last ~parent_prefix:"" fmt rule_diff)
+      rule_list
+  in
+  let pp_reordered_section ~style ~container_count fmt reordered =
+    match reordered with
+    | [] -> ()
+    | lst ->
+        Fmt.pf fmt "Rules reordered (%d rules):@," (List.length lst);
+        pp_rule_list ~style ~container_count fmt lst
+  in
+  let pp_containers_section ~style fmt containers =
+    let container_count = List.length containers in
+    List.iteri
+      (fun i cont_diff ->
+        let is_last = i = container_count - 1 in
+        pp_container_diff ~style ~is_last ~parent_prefix:"" fmt cont_diff)
+      containers
+  in
+
+  if rules = [] && containers = [] then
+    Fmt.pf fmt
+      "Structural differences detected in nested contexts (e.g., @media inside \
+       @layer)@,\
+       but no rule-level differences found.@,\
+       This may indicate reordering or subtle changes in rule organization."
+  else (
+    (* Print diff headers like git diff *)
+    pp_diff_headers fmt expected actual;
     Fmt.pf fmt "@[<v>";
+
     let meaningful = meaningful_rules rules in
     let reordered_rules =
       List.filter (function Rule_reordered _ -> true | _ -> false) rules
     in
 
-    if reordered_rules <> [] then
-      Fmt.pf fmt "Rules reordered (%d rules):@," (List.length reordered_rules);
-
     (* Show the actual differences with tree style *)
     let style = tree_style in
-    let rule_count = List.length meaningful in
     let container_count = List.length containers in
-    List.iteri
-      (fun i rule_diff ->
-        let is_last = i = rule_count - 1 && container_count = 0 in
-        pp_rule_diff ~style ~is_last ~parent_prefix:"" fmt rule_diff)
-      meaningful;
 
-    (* Show container differences *)
-    List.iteri
-      (fun i cont_diff ->
-        let is_last = i = container_count - 1 in
-        pp_container_diff ~style ~is_last ~parent_prefix:"" fmt cont_diff)
-      containers;
+    (* Meaningful rule diffs *)
+    pp_rule_list ~style ~container_count fmt meaningful;
+
+    (* Detailed reordered rules (includes its own header) *)
+    pp_reordered_section ~style ~container_count fmt reordered_rules;
+
+    (* Container diffs *)
+    pp_containers_section ~style fmt containers;
     Fmt.pf fmt "@]")
 
 (* ===== Tree Diff Computation Functions ===== *)

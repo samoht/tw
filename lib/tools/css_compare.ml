@@ -95,19 +95,114 @@ let diff ~expected ~actual =
           (* This shouldn't happen - identical strings should produce identical
              ASTs *)
           failwith "BUG: identical strings produced different ASTs"
-      else if
-        (* Strings differ - always return a diff *)
-        not (is_empty structural_diff)
-      then Tree_diff structural_diff
+      else if not (is_empty structural_diff) then Tree_diff structural_diff
       else
-        (* Structural diff is empty but strings differ - return string diff *)
-        match String_diff.diff ~expected actual with
-        | Some sdiff -> String_diff sdiff
-        | None ->
-            (* This should not happen - if strings differ, String_diff.diff
-               should always find the difference *)
-            failwith
-              "BUG: different strings but String_diff found no difference")
+        (* Structural diff is empty but strings differ - attempt to classify
+           declaration ordering-only differences throughout the stylesheet
+           (recursively inside containers) as structural Rule_reordered changes.
+           If none detected, fall back to string diff. *)
+        let build_reorder_diff () =
+          let rec collect acc path stmts =
+            List.fold_left
+              (fun acc stmt ->
+                match Css.as_rule stmt with
+                | Some (sel, decls, _) ->
+                    let key =
+                      String.concat " " (path @ [ Css.Selector.to_string sel ])
+                    in
+                    (key, decls) :: acc
+                | None -> (
+                    match Css.as_supports stmt with
+                    | Some (cond, inner) ->
+                        collect acc (path @ [ "@supports " ^ cond ]) inner
+                    | None -> (
+                        match Css.as_media stmt with
+                        | Some (cond, inner) ->
+                            collect acc (path @ [ "@media " ^ cond ]) inner
+                        | None -> (
+                            match Css.as_layer stmt with
+                            | Some (name_opt, inner) ->
+                                let name =
+                                  match name_opt with Some n -> n | None -> ""
+                                in
+                                collect acc (path @ [ "@layer " ^ name ]) inner
+                            | None -> (
+                                match Css.as_container stmt with
+                                | Some (name_opt, cond, inner) ->
+                                    let prefix =
+                                      match name_opt with
+                                      | Some n -> n ^ " "
+                                      | None -> ""
+                                    in
+                                    collect acc
+                                      (path @ [ "@container " ^ prefix ^ cond ])
+                                      inner
+                                | None -> acc)))))
+              acc stmts
+          in
+          let sig_of_decls decls =
+            decls
+            |> List.map (fun d ->
+                   (Css.declaration_name d, Css.declaration_value d))
+            |> List.sort (fun (a1, b1) (a2, b2) ->
+                   let c = String.compare a1 a2 in
+                   if c <> 0 then c else String.compare b1 b2)
+          in
+          let rules1 =
+            collect [] [] (Css.statements expected_ast) |> List.rev
+          in
+          let rules2 = collect [] [] (Css.statements actual_ast) |> List.rev in
+          let tbl1 = Hashtbl.create 128 and tbl2 = Hashtbl.create 128 in
+          List.iter
+            (fun (k, d) ->
+              let lst =
+                match Hashtbl.find_opt tbl1 k with Some l -> l | None -> []
+              in
+              Hashtbl.replace tbl1 k (lst @ [ d ]))
+            rules1;
+          List.iter
+            (fun (k, d) ->
+              let lst =
+                match Hashtbl.find_opt tbl2 k with Some l -> l | None -> []
+              in
+              Hashtbl.replace tbl2 k (lst @ [ d ]))
+            rules2;
+          let diffs = ref [] in
+          Hashtbl.iter
+            (fun key ds1 ->
+              match Hashtbl.find_opt tbl2 key with
+              | Some ds2 ->
+                  let pairs = List.combine ds1 ds2 in
+                  List.iter
+                    (fun (d1, d2) ->
+                      let same_set = sig_of_decls d1 = sig_of_decls d2 in
+                      let same_order = d1 = d2 in
+                      if same_set && not same_order then
+                        diffs :=
+                          D.Rule_reordered
+                            {
+                              selector = key;
+                              expected_pos = -1;
+                              actual_pos = -1;
+                              swapped_with = None;
+                              old_declarations = Some d1;
+                              new_declarations = Some d2;
+                            }
+                          :: !diffs)
+                    pairs
+              | None -> ())
+            tbl1;
+          if !diffs = [] then None
+          else Some D.{ rules = List.rev !diffs; containers = [] }
+        in
+        match build_reorder_diff () with
+        | Some d -> Tree_diff d
+        | None -> (
+            match String_diff.diff ~expected actual with
+            | Some sdiff -> String_diff sdiff
+            | None ->
+                failwith
+                  "BUG: different strings but String_diff found no difference"))
   | Error e1, Error e2 -> Both_errors (e1, e2)
   | Ok _, Error e -> Actual_error e
   | Error e, Ok _ -> Expected_error e
