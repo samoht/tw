@@ -71,22 +71,24 @@ let css_testable =
     String.equal
 
 let check_exact_match tw_styles =
+  (* Prepare classnames and raw CSS strings outside the try to use in
+     handlers *)
+  let tw_styles = match tw_styles with [] -> [] | styles -> styles in
+  let classnames = List.map pp tw_styles in
+  let tw_css_raw = ref "" in
+  let tailwind_css_raw = ref "" in
   try
-    let tw_styles = match tw_styles with [] -> [] | styles -> styles in
-    let classnames = List.map pp tw_styles in
-
     (* Generate CSS without stripping for original comparison *)
-    let tw_css_raw = generate_tw_css ~minify:true ~optimize:true tw_styles in
-    let tailwind_css_raw =
-      generate_tailwind_css ~minify:true ~optimize:true classnames
-    in
+    tw_css_raw := generate_tw_css ~minify:true ~optimize:true tw_styles;
+    tailwind_css_raw :=
+      generate_tailwind_css ~minify:true ~optimize:true classnames;
 
     (* Strip headers for both outputs before any comparison *)
     let tw_css =
-      tw_css_raw |> Tw_tools.Css_compare.strip_header |> String.trim
+      !tw_css_raw |> Tw_tools.Css_compare.strip_header |> String.trim
     in
     let tailwind_css =
-      tailwind_css_raw |> Tw_tools.Css_compare.strip_header |> String.trim
+      !tailwind_css_raw |> Tw_tools.Css_compare.strip_header |> String.trim
     in
 
     let test_name = test_name_of classnames in
@@ -120,7 +122,28 @@ let check_exact_match tw_styles =
     Alcotest.check css_testable test_label tailwind_css tw_css
   with
   | Failure msg -> fail ("Test setup failed: " ^ msg)
-  | exn -> fail ("Unexpected error: " ^ Printexc.to_string exn)
+  | Css.Reader.Parse_error err ->
+      let details = Css.pp_parse_error err in
+      (* Print a more helpful parse error with context and callstack. *)
+      Fmt.epr "CSS parse error:\n%s@." details;
+      (* Also try to show a quick 80-char window around the position in both
+         strings for extra context. *)
+      let show_window name s pos =
+        let start = max 0 (pos - 40) in
+        let len = min (String.length s - start) 80 in
+        if len > 0 then
+          let snippet = String.sub s start len in
+          Fmt.epr "[%s context @ %d]: %S@." name pos snippet
+      in
+      show_window "Our TW" !tw_css_raw err.position;
+      show_window "Tailwind" !tailwind_css_raw err.position;
+      fail ("CSS parse error: " ^ details)
+  | exn ->
+      (* Fallback: print full exception type/name if it's not a CSS parse
+         error. *)
+      let exn_str = Printexc.to_string exn in
+      Fmt.epr "Unexpected exception: %s@." exn_str;
+      fail ("Unexpected error: " ^ exn_str)
 
 let check tw_style = check_exact_match [ tw_style ]
 let check_list tw_styles = check_exact_match tw_styles

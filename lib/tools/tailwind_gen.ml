@@ -6,16 +6,28 @@ let write_file path content =
   close_out oc
 
 let tailwind_files ?(forms = false) temp_dir classnames =
+  (* Use single-quoted class attribute to allow double quotes inside arbitrary
+     variants (e.g., content-["→"]). Also escape any single quotes to HTML
+     entity to keep HTML valid. *)
+  let escape_single_quotes s =
+    let b = Buffer.create (String.length s) in
+    String.iter
+      (fun c ->
+        if c = '\'' then Buffer.add_string b "&#39;" else Buffer.add_char b c)
+      s;
+    Buffer.contents b
+  in
+  let classes = classnames |> String.concat " " |> escape_single_quotes in
   let html_content =
     Fmt.str
       {|<!DOCTYPE html>
 <html>
 <head></head>
 <body>
-  <div class="%s"></div>
+  <div class='%s'></div>
 </body>
 </html>|}
-      (String.concat " " classnames)
+      classes
   in
   let input_css_content =
     if forms then
