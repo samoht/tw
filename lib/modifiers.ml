@@ -91,6 +91,13 @@ let to_selector (modifier : modifier) cls =
   | Focus_visible -> compound [ focus_visible cls; Focus_visible ]
   | Pseudo_before -> compound [ before cls; Before ]
   | Pseudo_after -> compound [ after cls; After ]
+  (* Media-like modifiers that only prefix the class; actual media gating is
+     handled by rules. *)
+  | Dark -> Css.Selector.Class ("dark:" ^ cls)
+  | Motion_safe -> Css.Selector.Class ("motion-safe:" ^ cls)
+  | Motion_reduce -> Css.Selector.Class ("motion-reduce:" ^ cls)
+  | Contrast_more -> Css.Selector.Class ("contrast-more:" ^ cls)
+  | Contrast_less -> Css.Selector.Class ("contrast-less:" ^ cls)
   | _ -> Css.Selector.Class cls (* fallback for complex modifiers *)
 
 (** Check if a modifier generates a hover rule *)
