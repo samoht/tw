@@ -1398,16 +1398,15 @@ let build_first_usage_order set_var_names =
    This is a simplification - Tailwind's exact order depends on reference
    chains. *)
 let property_order_from first_usage_order name =
-  match Hashtbl.find_opt first_usage_order name with
-  | Some order -> order
+  (* Prefer explicit Var property order when available to preserve canonical
+     ordering (e.g., gradient-position before gradient-from). Use first-usage
+     order as a secondary key with a large offset. *)
+  match Var.get_property_order name with
+  | Some static_order -> static_order
   | None -> (
-      (* Fall back to static registry for properties not in first_usage. These
-         are typically properties that are referenced but not set. They keep
-         their static order without offset, so they integrate with SET
-         properties at roughly the position they'd appear. *)
-      match Var.get_property_order name with
-      | Some order -> order
-      | None -> 100000 (* Unknowns appear at the end *))
+      match Hashtbl.find_opt first_usage_order name with
+      | Some usage_idx -> 100000 + usage_idx
+      | None -> 200000)
 
 let sort_properties_by_order first_usage_order initial_values =
   List.sort
