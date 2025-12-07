@@ -311,8 +311,6 @@ let tests =
       test_motion_reduce_transition_none;
   ]
 
-let suite = ("modifiers", tests)
-
 (* Additional tests for modifiers parsing, rendering, and variants *)
 
 (* Test is_hover flags *)
@@ -324,23 +322,23 @@ let test_is_hover () =
 
 (* Test of_string parsing *)
 let test_of_string_parsing () =
-  let mods, cls = of_string "hover:bg-blue-500" in
+  let mods, cls = Tw.Modifiers.of_string "hover:bg-blue-500" in
   check (list string) "hover modifier parsed" [ "hover" ] mods;
   check string "base class parsed (bg-blue-500)" "bg-blue-500" cls;
 
-  let mods, cls = of_string "md:hover:p-4" in
+  let mods, cls = Tw.Modifiers.of_string "md:hover:p-4" in
   check (list string) "md:hover parsed order" [ "md"; "hover" ] mods;
   check string "base class parsed (p-4)" "p-4" cls;
 
-  let mods, cls = of_string "2xl:m-2" in
+  let mods, cls = Tw.Modifiers.of_string "2xl:m-2" in
   check (list string) "2xl parsed" [ "2xl" ] mods;
   check string "base class parsed (m-2)" "m-2" cls;
 
-  let mods, cls = of_string "has-[.foo>bar]:p-4" in
+  let mods, cls = Tw.Modifiers.of_string "has-[.foo>bar]:p-4" in
   check (list string) "has-[...] parsed" [ "has-[.foo>bar]" ] mods;
   check string "base class parsed (p-4)" "p-4" cls;
 
-  let mods, cls = of_string "group-has-[.bar]:hover:m-1" in
+  let mods, cls = Tw.Modifiers.of_string "group-has-[.bar]:hover:m-1" in
   check (list string) "group-has + hover parsed"
     [ "group-has-[.bar]"; "hover" ]
     mods;
@@ -350,9 +348,9 @@ let test_of_string_parsing () =
 let test_pp_modifier_strings () =
   check string "pp sm" "sm" (pp_modifier (Responsive `Sm));
   check string "pp container md" "@md"
-    (pp_modifier (Container Style.Container_md));
+    (pp_modifier (Container Tw.Style.Container_md));
   check string "pp container named width" "@600px"
-    (pp_modifier (Container (Style.Container_named ("", 600))));
+    (pp_modifier (Container (Tw.Style.Container_named ("", 600))));
   check string "pp has[...]" "has-[.foo]" (pp_modifier (Has ".foo"));
   check string "pp group-has[...]" "group-has-[.bar]"
     (pp_modifier (Group_has ".bar"));

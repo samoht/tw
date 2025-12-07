@@ -877,16 +877,25 @@ let compare_same_utility_regular_media r1 r2 =
   | `Media _, `Regular -> 1
   | _ -> Int.compare r1.index r2.index
 
+(* Local checker to decide if a selector is a late modifier kind. *)
+
 (** Compare Regular vs Media rules from different utilities. Uses selector
     classification to determine ordering. *)
-let compare_different_utility_regular_media _sel1 sel2 order1 order2 =
+let is_late_modifier_kind = function
+  | Complex { has_group_has = true; _ } -> true
+  | Complex { has_peer_has = true; _ } -> true
+  | Complex { has_focus_within = true; _ } -> true
+  | Complex { has_focus_visible = true; _ } -> true
+  | Complex { has_standalone_has = true; _ } -> true
+  | _ -> false
+
+let compare_different_utility_regular_media sel1 sel2 order1 order2 =
   if Css.Selector.contains_modifier_colon sel2 then
-    (* Modifier-prefixed media (e.g., responsive, dark, motion-safe) should
-       always come after regular utilities, regardless of whether the regular
-       selector is a "late modifier" (group-has, peer-has, focus-within, etc.).
-       This matches Tailwind's ordering, which keeps all regular rules before
-       modifier media from other utilities. *)
-    -1
+    (* Modifier-prefixed media: Regular usually before media, except when the
+       Regular is a late modifier (group-has, peer-has, focus-within, etc.),
+       which Tailwind places after. *)
+    let kind1 = classify_selector sel1 in
+    if is_late_modifier_kind kind1 then 1 else -1
   else
     (* Plain/built-in media (e.g., container breakpoints emitted without a
        modifier prefix) - compare by priority; at equal priority keep regular
@@ -1387,9 +1396,7 @@ let build_first_usage_order set_var_names =
    This is a simplification - Tailwind's exact order depends on reference
    chains. *)
 let property_order_from _first_usage_order name =
-  (* Use statically-registered property order to match Tailwind’s canonical
-     properties block order. Fail if a variable participates without an
-     order. *)
+  (* Static canonical order only; no dynamic first-usage. *)
   match Var.get_property_order name with
   | Some o -> (0, o)
   | None ->
@@ -1580,13 +1587,26 @@ let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
          ^ "' used in @property. Register ~property_order when defining the \
             variable.")
   in
+  let family_order name =
+    match Var.get_family name with
+    | Some `Border -> 0
+    | Some `Rotate | Some `Skew -> 5
+    | Some `Gradient -> 10
+    | Some `Font_weight | Some `Leading | Some `Tracking -> 20
+    | Some `Shadow | Some `Inset_shadow | Some `Ring | Some `Inset_ring -> 30
+    | Some `Duration -> 40
+    | Some `Scale -> 90
+    | None -> 100
+  in
   let sorted_property_rules =
     property_rules_for_end
     |> List.sort (fun s1 s2 ->
            match (Css.as_property s1, Css.as_property s2) with
            | ( Some (Css.Property_info { name = n1; _ }),
                Some (Css.Property_info { name = n2; _ }) ) ->
-               if
+               let f1 = family_order n1 and f2 = family_order n2 in
+               if f1 <> f2 then Int.compare f1 f2
+               else if
                  String.starts_with ~prefix:"--tw-gradient-" n1
                  && String.starts_with ~prefix:"--tw-gradient-" n2
                then

@@ -48,9 +48,8 @@ module Handler = struct
 
   (* Variable for transition duration with @property *)
   let tw_duration_var =
-    (* In Tailwind landing, duration appears after ring-offset-shadow (index
-       21). *)
-    Var.channel ~needs_property:true ~property_order:21 ~family:`Duration
+    (* Keep duration after transforms and gradients in properties layer. *)
+    Var.channel ~needs_property:true ~property_order:80 ~family:`Duration
       Css.Duration "tw-duration"
 
   (* Variable for transition timing function with @property *)

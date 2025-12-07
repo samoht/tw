@@ -248,120 +248,138 @@ let pp_modifier = function
 
 (* Apply a list of modifier strings to a base utility *)
 let apply modifiers base_utility =
-  List.fold_left
-    (fun acc modifier ->
-      match modifier with
-      | "sm" -> (
-          match acc with
-          | Utility.Group styles -> sm styles
-          | single -> sm [ single ])
-      | "md" -> (
-          match acc with
-          | Utility.Group styles -> md styles
-          | single -> md [ single ])
-      | "lg" -> (
-          match acc with
-          | Utility.Group styles -> lg styles
-          | single -> lg [ single ])
-      | "xl" -> (
-          match acc with
-          | Utility.Group styles -> xl styles
-          | single -> xl [ single ])
-      | "2xl" -> (
-          match acc with
-          | Utility.Group styles -> xl2 styles
-          | single -> xl2 [ single ])
-      | "hover" -> (
-          match acc with
-          | Utility.Group styles -> hover styles
-          | single -> hover [ single ])
-      | "focus" -> (
-          match acc with
-          | Utility.Group styles -> focus styles
-          | single -> focus [ single ])
-      | "active" -> (
-          match acc with
-          | Utility.Group styles -> active styles
-          | single -> active [ single ])
-      | "disabled" -> (
-          match acc with
-          | Utility.Group styles -> disabled styles
-          | single -> disabled [ single ])
-      | "focus-within" -> (
-          match acc with
-          | Utility.Group styles -> focus_within styles
-          | single -> focus_within [ single ])
-      | "focus-visible" -> (
-          match acc with
-          | Utility.Group styles -> focus_visible styles
-          | single -> focus_visible [ single ])
-      | "dark" -> (
-          match acc with
-          | Utility.Group styles -> dark styles
-          | single -> dark [ single ])
-      | "motion-safe" -> (
-          match acc with
-          | Utility.Group styles -> motion_safe styles
-          | single -> motion_safe [ single ])
-      | "motion-reduce" -> (
-          match acc with
-          | Utility.Group styles -> motion_reduce styles
-          | single -> motion_reduce [ single ])
-      | "contrast-more" -> (
-          match acc with
-          | Utility.Group styles -> contrast_more styles
-          | single -> contrast_more [ single ])
-      | "contrast-less" -> (
-          match acc with
-          | Utility.Group styles -> contrast_less styles
-          | single -> contrast_less [ single ])
-      | "before" -> (
-          match acc with
-          | Utility.Group styles -> before styles
-          | single -> before [ single ])
-      | "after" -> (
-          match acc with
-          | Utility.Group styles -> after styles
-          | single -> after [ single ])
-      (* Bracketed :has() variants *)
-      | _ when String.starts_with ~prefix:"group-has-[" modifier -> (
-          let rest =
-            String.sub modifier
-              (String.length "group-has-[")
-              (String.length modifier - String.length "group-has-[")
-          in
-          (* rest is like "<selector>]..."; take up to ']' *)
-          match String.index_opt rest ']' with
-          | Some i -> (
-              let sel = String.sub rest 0 i in
-              match acc with
-              | Utility.Group styles -> group_has sel styles
-              | single -> group_has sel [ single ])
-          | None -> acc)
-      | _ when String.starts_with ~prefix:"peer-has-[" modifier -> (
-          let rest =
-            String.sub modifier
-              (String.length "peer-has-[")
-              (String.length modifier - String.length "peer-has-[")
-          in
-          match String.index_opt rest ']' with
-          | Some i -> (
-              let sel = String.sub rest 0 i in
-              match acc with
-              | Utility.Group styles -> peer_has sel styles
-              | single -> peer_has sel [ single ])
-          | None -> acc)
-      | _ when String.starts_with ~prefix:"has-[" modifier -> (
-          let rest =
-            String.sub modifier (String.length "has-[")
-              (String.length modifier - String.length "has-[")
-          in
-          match String.index_opt rest ']' with
-          | Some i -> (
-              let sel = String.sub rest 0 i in
-              match acc with
-              | Utility.Group styles -> has sel styles
-              | single -> has sel [ single ])
-          | None -> acc)
-      | _ -> acc (* ignore unknown modifiers for now *))
-    base_utility modifiers
+  (* Apply a single modifier to an accumulated utility *)
+  let apply_one acc modifier =
+    match modifier with
+    | "sm" -> (
+        match acc with
+        | Utility.Group styles -> sm styles
+        | single -> sm [ single ])
+    | "md" -> (
+        match acc with
+        | Utility.Group styles -> md styles
+        | single -> md [ single ])
+    | "lg" -> (
+        match acc with
+        | Utility.Group styles -> lg styles
+        | single -> lg [ single ])
+    | "xl" -> (
+        match acc with
+        | Utility.Group styles -> xl styles
+        | single -> xl [ single ])
+    | "2xl" -> (
+        match acc with
+        | Utility.Group styles -> xl2 styles
+        | single -> xl2 [ single ])
+    | "hover" -> (
+        match acc with
+        | Utility.Group styles -> hover styles
+        | single -> hover [ single ])
+    | "focus" -> (
+        match acc with
+        | Utility.Group styles -> focus styles
+        | single -> focus [ single ])
+    | "active" -> (
+        match acc with
+        | Utility.Group styles -> active styles
+        | single -> active [ single ])
+    | "disabled" -> (
+        match acc with
+        | Utility.Group styles -> disabled styles
+        | single -> disabled [ single ])
+    | "starting" -> (
+        match acc with
+        | Utility.Group styles -> starting styles
+        | single -> starting [ single ])
+    | "focus-within" -> (
+        match acc with
+        | Utility.Group styles -> focus_within styles
+        | single -> focus_within [ single ])
+    | "focus-visible" -> (
+        match acc with
+        | Utility.Group styles -> focus_visible styles
+        | single -> focus_visible [ single ])
+    | "dark" -> (
+        match acc with
+        | Utility.Group styles -> dark styles
+        | single -> dark [ single ])
+    | "motion-safe" -> (
+        match acc with
+        | Utility.Group styles -> motion_safe styles
+        | single -> motion_safe [ single ])
+    | "motion-reduce" -> (
+        match acc with
+        | Utility.Group styles -> motion_reduce styles
+        | single -> motion_reduce [ single ])
+    | "contrast-more" -> (
+        match acc with
+        | Utility.Group styles -> contrast_more styles
+        | single -> contrast_more [ single ])
+    | "contrast-less" -> (
+        match acc with
+        | Utility.Group styles -> contrast_less styles
+        | single -> contrast_less [ single ])
+    | "before" -> (
+        match acc with
+        | Utility.Group styles -> before styles
+        | single -> before [ single ])
+    | "after" -> (
+        match acc with
+        | Utility.Group styles -> after styles
+        | single -> after [ single ])
+    (* Bracketed :has() variants *)
+    | _ when String.starts_with ~prefix:"group-has-[" modifier -> (
+        let rest =
+          String.sub modifier
+            (String.length "group-has-[")
+            (String.length modifier - String.length "group-has-[")
+        in
+        (* rest is like "<selector>]..."; take up to ']' *)
+        match String.index_opt rest ']' with
+        | Some i -> (
+            let sel = String.sub rest 0 i in
+            match acc with
+            | Utility.Group styles -> group_has sel styles
+            | single -> group_has sel [ single ])
+        | None -> acc)
+    | _ when String.starts_with ~prefix:"peer-has-[" modifier -> (
+        let rest =
+          String.sub modifier
+            (String.length "peer-has-[")
+            (String.length modifier - String.length "peer-has-[")
+        in
+        match String.index_opt rest ']' with
+        | Some i -> (
+            let sel = String.sub rest 0 i in
+            match acc with
+            | Utility.Group styles -> peer_has sel styles
+            | single -> peer_has sel [ single ])
+        | None -> acc)
+    | _ when String.starts_with ~prefix:"has-[" modifier -> (
+        let rest =
+          String.sub modifier (String.length "has-[")
+            (String.length modifier - String.length "has-[")
+        in
+        match String.index_opt rest ']' with
+        | Some i -> (
+            let sel = String.sub rest 0 i in
+            match acc with
+            | Utility.Group styles -> has sel styles
+            | single -> has sel [ single ])
+        | None -> acc)
+    | _ -> acc (* ignore unknown modifiers for now *)
+  in
+  (* Bracketed :has variants should wrap last so they appear outermost *)
+  let is_bracketed m =
+    String.starts_with ~prefix:"group-has-[" m
+    || String.starts_with ~prefix:"peer-has-[" m
+    || String.starts_with ~prefix:"has-[" m
+  in
+  let others, brackets =
+    List.fold_right
+      (fun m (os, bs) ->
+        if is_bracketed m then (os, m :: bs) else (m :: os, bs))
+      modifiers ([], [])
+  in
+  let acc = List.fold_left apply_one base_utility others in
+  List.fold_left apply_one acc brackets
