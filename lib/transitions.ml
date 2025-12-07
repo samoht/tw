@@ -48,8 +48,10 @@ module Handler = struct
 
   (* Variable for transition duration with @property *)
   let tw_duration_var =
-    (* Keep duration after transforms and gradients in properties layer. *)
-    Var.channel ~needs_property:true ~property_order:80 ~family:`Duration
+    (* Order in @layer properties: scale (0-2), rotate (3-5), skew (6-7),
+       gradient (8-16), leading (17), font-weight (18), tracking (19), duration
+       (20). *)
+    Var.channel ~needs_property:true ~property_order:20 ~family:`Duration
       Css.Duration "tw-duration"
 
   (* Variable for transition timing function with @property *)

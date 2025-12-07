@@ -777,15 +777,10 @@ let rule_type_order = function
   | `Container _ -> 1
   | `Starting -> 2
 
-(* Extract media sort key using Css.Media.classify. Returns (group, subkey)
-   where subkey is rem value for responsive conditions. *)
+(* Extract media sort key using Css.Media.classify and group_order. Returns
+   (group, subkey) where subkey is rem value for responsive conditions. *)
 let extract_media_sort_key = function
-  | `Media cond -> (
-      match Css.Media.classify cond with
-      | Css.Media.Hover -> (0, 0.)
-      | Css.Media.Other -> (500, 0.)
-      | Css.Media.Responsive rem -> (1000, rem)
-      | Css.Media.Preference -> (2000, 0.))
+  | `Media cond -> Css.Media.group_order (Css.Media.classify cond)
   | _ -> (0, 0.)
 
 (* ======================================================================== *)
@@ -842,16 +837,18 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 =
   let key_cmp = Int.compare group1 group2 in
   if key_cmp <> 0 then key_cmp
   else
-    (* Same media group. For Responsive, sort by rem value (ascending). For
-       Preference, use preference_condition_order. Otherwise, fallback to
-       lexicographic condition compare. *)
+    (* Same media group. For Responsive (2000), sort by rem value (ascending).
+       For Preference_accessibility (1000), use preference_condition_order. For
+       Preference_appearance (3000) and others, use lexicographic compare. *)
     let cond1 = match typ1 with `Media c -> c | _ -> "" in
     let cond2 = match typ2 with `Media c -> c | _ -> "" in
-    if group1 = 1000 then
+    if group1 = 2000 then
+      (* Responsive: sort by rem value ascending *)
       let sub_cmp = Float.compare sub1 sub2 in
       if sub_cmp <> 0 then sub_cmp
       else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
-    else if group1 = 2000 then
+    else if group1 = 1000 then
+      (* Preference_accessibility: sort by preference_condition_order *)
       let pref_cmp =
         Int.compare
           (preference_condition_order cond1)
@@ -1391,14 +1388,12 @@ let build_first_usage_order set_var_names =
     set_var_names;
   seen
 
-(* Get property order from first-usage table, or fallback to static registry.
-   Note: Properties that are only REFERENCED (not SET) will use static ordering.
-   This is a simplification - Tailwind's exact order depends on reference
-   chains. *)
+(* Get property order from static registry. Tailwind v4 groups related variables
+   together (e.g., all gradient vars stay together) regardless of utility order.
+   Uses static property_order. *)
 let property_order_from _first_usage_order name =
-  (* Static canonical order only; no dynamic first-usage. *)
   match Var.get_property_order name with
-  | Some o -> (0, o)
+  | Some o -> o
   | None ->
       failwith
         ("Missing property_order for variable '" ^ name
@@ -1547,7 +1542,7 @@ let build_layer_declaration ~has_properties ~include_base =
 
 (** Assemble all CSS layers in the correct order *)
 let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
-    ~utilities_layer ~property_rules_for_end ~keyframes =
+    ~utilities_layer ~property_rules_for_end ~keyframes ~first_usage_order =
   let base_layers =
     if include_base then [ theme_layer; base_layer ] else [ theme_layer ]
   in
@@ -1564,54 +1559,16 @@ let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
     [ layer_names ] @ initial_layers @ base_layers
     @ [ components_declaration; utilities_layer ]
   in
-  (* Sort @property rules to match Tailwind's output order *)
-  let gradient_family_index n =
-    if not (String.starts_with ~prefix:"--tw-gradient-" n) then 100
-    else if String.equal n "--tw-gradient-position" then 0
-    else if String.equal n "--tw-gradient-from" then 1
-    else if String.equal n "--tw-gradient-via" then 2
-    else if String.equal n "--tw-gradient-to" then 3
-    else if String.equal n "--tw-gradient-stops" then 4
-    else if String.equal n "--tw-gradient-via-stops" then 5
-    else if String.equal n "--tw-gradient-from-position" then 6
-    else if String.equal n "--tw-gradient-via-position" then 7
-    else if String.equal n "--tw-gradient-to-position" then 8
-    else 100
-  in
-  let static_order name =
-    match Var.get_property_order name with
-    | Some o -> o
-    | None ->
-        failwith
-          ("Missing property_order for variable '" ^ name
-         ^ "' used in @property. Register ~property_order when defining the \
-            variable.")
-  in
-  let family_order name =
-    match Var.get_family name with
-    | Some `Border -> 0
-    | Some `Rotate | Some `Skew -> 5
-    | Some `Gradient -> 10
-    | Some `Font_weight | Some `Leading | Some `Tracking -> 20
-    | Some `Shadow | Some `Inset_shadow | Some `Ring | Some `Inset_ring -> 30
-    | Some `Duration -> 40
-    | Some `Scale -> 90
-    | None -> 100
-  in
+  (* Sort @property rules using static property_order *)
   let sorted_property_rules =
     property_rules_for_end
     |> List.sort (fun s1 s2 ->
            match (Css.as_property s1, Css.as_property s2) with
            | ( Some (Css.Property_info { name = n1; _ }),
                Some (Css.Property_info { name = n2; _ }) ) ->
-               let f1 = family_order n1 and f2 = family_order n2 in
-               if f1 <> f2 then Int.compare f1 f2
-               else if
-                 String.starts_with ~prefix:"--tw-gradient-" n1
-                 && String.starts_with ~prefix:"--tw-gradient-" n2
-               then
-                 compare (gradient_family_index n1) (gradient_family_index n2)
-               else compare (static_order n1) (static_order n2)
+               let o1 = property_order_from first_usage_order n1 in
+               let o2 = property_order_from first_usage_order n2 in
+               compare o1 o2
            | _ -> 0)
   in
   let property_rules_css =
@@ -1705,7 +1662,7 @@ let build_layers ~include_base ~selector_props tw_classes statements =
   assemble_all_layers ~include_base ~properties_layer:layers.properties_layer
     ~theme_layer:layers.theme_layer ~base_layer:layers.base_layer
     ~utilities_layer:layers.utilities_layer
-    ~property_rules_for_end:layers.property_rules ~keyframes
+    ~property_rules_for_end:layers.property_rules ~keyframes ~first_usage_order
 
 let wrap_css_items statements =
   (* For inline mode, just wrap the statements in a stylesheet *)
