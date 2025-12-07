@@ -312,3 +312,102 @@ let tests =
   ]
 
 let suite = ("modifiers", tests)
+
+(* Additional tests for modifiers parsing, rendering, and variants *)
+
+(* Test is_hover flags *)
+let test_is_hover () =
+  check bool "Hover is hover" true (is_hover Hover);
+  check bool "Group_hover is hover" true (is_hover Group_hover);
+  check bool "Peer_hover is hover" true (is_hover Peer_hover);
+  check bool "Focus is not hover" false (is_hover Focus)
+
+(* Test of_string parsing *)
+let test_of_string_parsing () =
+  let mods, cls = of_string "hover:bg-blue-500" in
+  check (list string) "hover modifier parsed" [ "hover" ] mods;
+  check string "base class parsed (bg-blue-500)" "bg-blue-500" cls;
+
+  let mods, cls = of_string "md:hover:p-4" in
+  check (list string) "md:hover parsed order" [ "md"; "hover" ] mods;
+  check string "base class parsed (p-4)" "p-4" cls;
+
+  let mods, cls = of_string "2xl:m-2" in
+  check (list string) "2xl parsed" [ "2xl" ] mods;
+  check string "base class parsed (m-2)" "m-2" cls;
+
+  let mods, cls = of_string "has-[.foo>bar]:p-4" in
+  check (list string) "has-[...] parsed" [ "has-[.foo>bar]" ] mods;
+  check string "base class parsed (p-4)" "p-4" cls;
+
+  let mods, cls = of_string "group-has-[.bar]:hover:m-1" in
+  check (list string) "group-has + hover parsed"
+    [ "group-has-[.bar]"; "hover" ]
+    mods;
+  check string "base class parsed (m-1)" "m-1" cls
+
+(* Test pp_modifier rendering *)
+let test_pp_modifier_strings () =
+  check string "pp sm" "sm" (pp_modifier (Responsive `Sm));
+  check string "pp container md" "@md"
+    (pp_modifier (Container Style.Container_md));
+  check string "pp container named width" "@600px"
+    (pp_modifier (Container (Style.Container_named ("", 600))));
+  check string "pp has[...]" "has-[.foo]" (pp_modifier (Has ".foo"));
+  check string "pp group-has[...]" "group-has-[.bar]"
+    (pp_modifier (Group_has ".bar"));
+  check string "pp peer-has[...]" "peer-has-[.baz]"
+    (pp_modifier (Peer_has ".baz"));
+  check string "pp data state bracketed" "data-[state=open]"
+    (pp_modifier (Data_state "open"));
+  check string "pp before" "before" (pp_modifier Pseudo_before);
+  check string "pp not simplified" "not" (pp_modifier (Not Hover))
+
+(* Test apply with bracketed has/group-has/peer-has modifiers *)
+let test_apply_bracketed_has () =
+  let u1 = apply [ "has-[.x]" ] (p 4) in
+  check string "has-[.x]:p-4" "has-[.x]:p-4" (Tw.Utility.to_class u1);
+
+  let u2 = apply [ "group-has-[.y]"; "hover" ] (m 2) in
+  check string "group-has + hover order" "group-has-[.y]:hover:m-2"
+    (Tw.Utility.to_class u2);
+
+  let u3 = apply [ "peer-has-[.z]" ] (bg blue 500) in
+  check string "peer-has class" "peer-has-[.z]:bg-blue-500"
+    (Tw.Utility.to_class u3)
+
+(* Test ARIA and data modifiers class names *)
+let test_aria_and_data_modifiers () =
+  check string "aria-checked:p-4" "aria-checked:p-4"
+    (Tw.Utility.to_class (aria_checked [ p 4 ]));
+  check string "aria-disabled:m-1" "aria-disabled:m-1"
+    (Tw.Utility.to_class (aria_disabled [ m 1 ]));
+  check string "data-active:p-1" "data-active:p-1"
+    (Tw.Utility.to_class (data_active [ p 1 ]));
+  check string "data-inactive:m-2" "data-inactive:m-2"
+    (Tw.Utility.to_class (data_inactive [ m 2 ]));
+  check string "data-state=open:bg-blue-500" "data-state=open:bg-blue-500"
+    (Tw.Utility.to_class (data_state "open" (bg blue 500)));
+  check string "data-variant=primary:p-3" "data-variant=primary:p-3"
+    (Tw.Utility.to_class (data_variant "primary" (p 3)));
+  check string "data-status=on:m-4" "data-status=on:m-4"
+    (Tw.Utility.to_class (data_custom "status" "on" (m 4)))
+
+(* Test before/after pseudo-element modifiers *)
+let test_before_after_modifiers () =
+  check string "before:p-4" "before:p-4" (Tw.Utility.to_class (before [ p 4 ]));
+  check string "after:m-2" "after:m-2" (Tw.Utility.to_class (after [ m 2 ]))
+
+(* Extend the suite with new tests *)
+let tests =
+  tests
+  @ [
+      test_case "is_hover flags" `Quick test_is_hover;
+      test_case "of_string parsing" `Quick test_of_string_parsing;
+      test_case "pp_modifier strings" `Quick test_pp_modifier_strings;
+      test_case "apply bracketed has variants" `Quick test_apply_bracketed_has;
+      test_case "ARIA and data modifiers" `Quick test_aria_and_data_modifiers;
+      test_case "before/after modifiers" `Quick test_before_after_modifiers;
+    ]
+
+let suite = ("modifiers", tests)

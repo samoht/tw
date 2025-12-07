@@ -423,6 +423,42 @@ let grid_cols_reordering () =
      ensures our diff tool can detect and clearly report such reorderings. *)
   check_list [ md [ grid_cols 10 ]; md [ grid_cols 2 ] ]
 
+(* ===== STABLE ORDERING TESTS ===== *)
+
+let gen_minified_css styles =
+  to_css ~base:true ~optimize:true styles |> Css.to_string ~minify:true
+
+let assert_stable_ordering ~label styles_a styles_b =
+  let a = gen_minified_css styles_a |> Tw_tools.Css_compare.strip_header in
+  let b = gen_minified_css styles_b |> Tw_tools.Css_compare.strip_header in
+  if a <> b then (
+    Fmt.epr "Stable ordering failed for %s\n" label;
+    Fmt.epr "--- A (%s)\n%s\n" label a;
+    Fmt.epr "+++ B (%s)\n%s\n" label b;
+    Alcotest.fail ("stable ordering differs for " ^ label))
+  else Alcotest.(check bool) (label ^ " is stable") true true
+
+let stable_order_basic () =
+  (* Order of independent base utilities must not affect CSS output *)
+  assert_stable_ordering ~label:"base utils" Tw.[ p 4; m 2 ] Tw.[ m 2; p 4 ]
+
+let stable_order_with_modifiers () =
+  (* Regular vs responsive media ordering should be independent of input
+     order *)
+  assert_stable_ordering ~label:"responsive vs regular"
+    Tw.[ bg blue 500; md [ bg red 500 ] ]
+    Tw.[ md [ bg red 500 ]; bg blue 500 ]
+
+let stable_order_complex_modifiers () =
+  (* Complex selectors like group-has/focus-within must also sort
+     deterministically *)
+  assert_stable_ordering ~label:"group-has vs responsive"
+    Tw.[ group_has "a" [ text black 0 ]; md [ text white 0 ] ]
+    Tw.[ md [ text white 0 ]; group_has "a" [ text black 0 ] ];
+  assert_stable_ordering ~label:"focus-within vs responsive"
+    Tw.[ focus_within [ bg red 500 ]; md [ bg blue 500 ] ]
+    Tw.[ md [ bg blue 500 ]; focus_within [ bg red 500 ] ]
+
 (* ===== TEST SUITE ===== *)
 
 let core_tests =
@@ -443,6 +479,10 @@ let core_tests =
     test_case "data selectors" `Slow data_selectors;
     test_case "3d transforms" `Slow transforms_3d;
     test_case "grid columns reordering" `Slow grid_cols_reordering;
+    (* Stable ordering tests *)
+    test_case "stable: base utils order" `Quick stable_order_basic;
+    test_case "stable: responsive vs regular" `Quick stable_order_with_modifiers;
+    test_case "stable: complex modifiers" `Quick stable_order_complex_modifiers;
     test_case "content variants" `Slow content_variants;
     test_case "prose basic" `Slow prose_basic;
     test_case "prose with modifiers" `Slow prose_with_modifiers;

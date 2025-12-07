@@ -287,6 +287,14 @@ let apply modifiers base_utility =
           match acc with
           | Utility.Group styles -> disabled styles
           | single -> disabled [ single ])
+      | "focus-within" -> (
+          match acc with
+          | Utility.Group styles -> focus_within styles
+          | single -> focus_within [ single ])
+      | "focus-visible" -> (
+          match acc with
+          | Utility.Group styles -> focus_visible styles
+          | single -> focus_visible [ single ])
       | "dark" -> (
           match acc with
           | Utility.Group styles -> dark styles
@@ -315,5 +323,45 @@ let apply modifiers base_utility =
           match acc with
           | Utility.Group styles -> after styles
           | single -> after [ single ])
+      (* Bracketed :has() variants *)
+      | _ when String.starts_with ~prefix:"group-has-[" modifier -> (
+          let rest =
+            String.sub modifier
+              (String.length "group-has-[")
+              (String.length modifier - String.length "group-has-[")
+          in
+          (* rest is like "<selector>]..."; take up to ']' *)
+          match String.index_opt rest ']' with
+          | Some i -> (
+              let sel = String.sub rest 0 i in
+              match acc with
+              | Utility.Group styles -> group_has sel styles
+              | single -> group_has sel [ single ])
+          | None -> acc)
+      | _ when String.starts_with ~prefix:"peer-has-[" modifier -> (
+          let rest =
+            String.sub modifier
+              (String.length "peer-has-[")
+              (String.length modifier - String.length "peer-has-[")
+          in
+          match String.index_opt rest ']' with
+          | Some i -> (
+              let sel = String.sub rest 0 i in
+              match acc with
+              | Utility.Group styles -> peer_has sel styles
+              | single -> peer_has sel [ single ])
+          | None -> acc)
+      | _ when String.starts_with ~prefix:"has-[" modifier -> (
+          let rest =
+            String.sub modifier (String.length "has-[")
+              (String.length modifier - String.length "has-[")
+          in
+          match String.index_opt rest ']' with
+          | Some i -> (
+              let sel = String.sub rest 0 i in
+              match acc with
+              | Utility.Group styles -> has sel styles
+              | single -> has sel [ single ])
+          | None -> acc)
       | _ -> acc (* ignore unknown modifiers for now *))
     base_utility modifiers

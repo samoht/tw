@@ -877,35 +877,24 @@ let compare_same_utility_regular_media r1 r2 =
   | `Media _, `Regular -> 1
   | _ -> Int.compare r1.index r2.index
 
-(** Check if a selector kind is a "late modifier" that should come after media.
-    This is a local version used before the full is_late_modifier is defined. *)
-let is_late_modifier_kind = function
-  | Complex { has_group_has = true; _ } -> true
-  | Complex { has_peer_has = true; _ } -> true
-  | Complex { has_focus_within = true; _ } -> true
-  | Complex { has_focus_visible = true; _ } -> true
-  | Complex { has_standalone_has = true; _ } -> true
-  | _ -> false
-
 (** Compare Regular vs Media rules from different utilities. Uses selector
     classification to determine ordering. *)
-let compare_different_utility_regular_media sel1 sel2 order1 order2 =
+let compare_different_utility_regular_media _sel1 sel2 order1 order2 =
   if Css.Selector.contains_modifier_colon sel2 then
-    (* Media rule has modifier prefix - check if regular is a late modifier *)
-    let kind1 = classify_selector sel1 in
-    if is_late_modifier_kind kind1 then
-      (* Late modifiers (group-has, peer-has, focus-within, etc.) come after *)
-      1
-    else
-      (* All other utilities (including prose) come before modifier media *)
-      -1
+    (* Modifier-prefixed media (e.g., responsive, dark, motion-safe) should
+       always come after regular utilities, regardless of whether the regular
+       selector is a "late modifier" (group-has, peer-has, focus-within, etc.).
+       This matches Tailwind's ordering, which keeps all regular rules before
+       modifier media from other utilities. *)
+    -1
   else
-    (* Plain media rule - compare by priority *)
+    (* Plain/built-in media (e.g., container breakpoints emitted without a
+       modifier prefix) - compare by priority; at equal priority keep regular
+       before media. *)
     let p1, _ = order1 in
     let p2, _ = order2 in
     let prio_cmp = Int.compare p1 p2 in
-    if prio_cmp <> 0 then prio_cmp
-    else -1 (* Regular before Media at same priority *)
+    if prio_cmp <> 0 then prio_cmp else -1
 
 (** Compare Regular vs Media rules using rule relationship dispatch. *)
 let compare_regular_vs_media r1 r2 =
@@ -1397,37 +1386,17 @@ let build_first_usage_order set_var_names =
    Note: Properties that are only REFERENCED (not SET) will use static ordering.
    This is a simplification - Tailwind's exact order depends on reference
    chains. *)
-let property_order_from first_usage_order name =
-  (* Pair-based ordering: (group, suborder) - group: coarse category to mimic
-     Tailwind's grouping - suborder: prefer static Var order; break ties with
-     first-usage position Note: Gradient family indices are handled only when
-     comparing two gradient properties (see sort_properties_by_order). *)
-  let group_rank n =
-    match Var.get_family n with
-    | Some `Border -> 0
-    | Some `Rotate | Some `Skew -> 1
-    | Some `Leading -> 4
-    | Some `Font_weight -> 5
-    | Some `Duration -> 6
-    | Some `Tracking -> 8
-    | Some `Shadow | Some `Inset_shadow -> 10
-    | Some `Ring | Some `Inset_ring -> 20
-    | Some `Scale -> 30
-    | Some `Gradient -> 40 (* handled specially when comparing two gradients *)
-    | None -> 100
-  in
-  let static =
-    match Var.get_property_order name with Some o -> o | None -> 9_999
-  in
-  let usage =
-    match Hashtbl.find_opt first_usage_order name with
-    | Some i -> i
-    | None -> 5_000
-  in
-  (* Combine static and usage into a single secondary rank while keeping
-     lexicographic pair comparison clean and intention-revealing. *)
-  let suborder = (static * 100) + usage in
-  (group_rank name, suborder)
+let property_order_from _first_usage_order name =
+  (* Use statically-registered property order to match Tailwind’s canonical
+     properties block order. Fail if a variable participates without an
+     order. *)
+  match Var.get_property_order name with
+  | Some o -> (0, o)
+  | None ->
+      failwith
+        ("Missing property_order for variable '" ^ name
+       ^ "'. Register ~property_order when defining the variable \
+          (Var.channel/property_default).")
 
 let sort_properties_by_order first_usage_order initial_values =
   let is_gradient n = String.starts_with ~prefix:"--tw-gradient-" n in
@@ -1570,9 +1539,8 @@ let build_layer_declaration ~has_properties ~include_base =
   Css.v [ Css.layer_decl names ]
 
 (** Assemble all CSS layers in the correct order *)
-let assemble_all_layers ~first_usage_order ~include_base ~properties_layer
-    ~theme_layer ~base_layer ~utilities_layer ~property_rules_for_end ~keyframes
-    =
+let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
+    ~utilities_layer ~property_rules_for_end ~keyframes =
   let base_layers =
     if include_base then [ theme_layer; base_layer ] else [ theme_layer ]
   in
@@ -1603,6 +1571,15 @@ let assemble_all_layers ~first_usage_order ~include_base ~properties_layer
     else if String.equal n "--tw-gradient-to-position" then 8
     else 100
   in
+  let static_order name =
+    match Var.get_property_order name with
+    | Some o -> o
+    | None ->
+        failwith
+          ("Missing property_order for variable '" ^ name
+         ^ "' used in @property. Register ~property_order when defining the \
+            variable.")
+  in
   let sorted_property_rules =
     property_rules_for_end
     |> List.sort (fun s1 s2 ->
@@ -1614,10 +1591,7 @@ let assemble_all_layers ~first_usage_order ~include_base ~properties_layer
                  && String.starts_with ~prefix:"--tw-gradient-" n2
                then
                  compare (gradient_family_index n1) (gradient_family_index n2)
-               else
-                 compare
-                   (property_order_from first_usage_order n1)
-                   (property_order_from first_usage_order n2)
+               else compare (static_order n1) (static_order n2)
            | _ -> 0)
   in
   let property_rules_css =
@@ -1708,9 +1682,9 @@ let build_layers ~include_base ~selector_props tw_classes statements =
   in
   (* Extract keyframes from all utilities *)
   let keyframes = List.fold_left collect_keyframes [] styles in
-  assemble_all_layers ~first_usage_order ~include_base
-    ~properties_layer:layers.properties_layer ~theme_layer:layers.theme_layer
-    ~base_layer:layers.base_layer ~utilities_layer:layers.utilities_layer
+  assemble_all_layers ~include_base ~properties_layer:layers.properties_layer
+    ~theme_layer:layers.theme_layer ~base_layer:layers.base_layer
+    ~utilities_layer:layers.utilities_layer
     ~property_rules_for_end:layers.property_rules ~keyframes
 
 let wrap_css_items statements =
