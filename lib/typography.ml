@@ -106,16 +106,17 @@ let leading_relaxed_var =
   Var.theme Css.Line_height "leading-relaxed" ~order:(6, 50)
 
 let font_weight_var =
-  (* Ensure font-weight appears before tracking in properties order *)
-  Var.channel ~needs_property:true ~property_order:6 ~family:`Font_weight
+  (* Order in @layer properties: scale (0-2), rotate (3-5), skew (6-7), gradient
+     (8-16), leading (17), font-weight (18), tracking (19), duration (20). *)
+  Var.channel ~needs_property:true ~property_order:18 ~family:`Font_weight
     Css.Font_weight "tw-font-weight"
 
 let leading_var =
-  Var.channel ~needs_property:true ~property_order:5 ~family:`Leading
+  Var.channel ~needs_property:true ~property_order:17 ~family:`Leading
     Css.Line_height "tw-leading"
 
 let tracking_var =
-  Var.channel ~needs_property:true ~property_order:8 ~family:`Tracking
+  Var.channel ~needs_property:true ~property_order:19 ~family:`Tracking
     Css.Length "tw-tracking"
 
 let ordinal_var =
