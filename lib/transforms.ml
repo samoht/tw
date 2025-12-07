@@ -83,15 +83,15 @@ module Handler = struct
      case. *)
   let tw_scale_x_var =
     Var.property_default Css.Number_percentage ~initial:(Num 1.0)
-      ~universal:true ~property_order:22 ~family:`Scale "tw-scale-x"
+      ~universal:true ~property_order:90 ~family:`Scale "tw-scale-x"
 
   let tw_scale_y_var =
     Var.property_default Css.Number_percentage ~initial:(Num 1.0)
-      ~universal:true ~property_order:23 ~family:`Scale "tw-scale-y"
+      ~universal:true ~property_order:91 ~family:`Scale "tw-scale-y"
 
   let tw_scale_z_var =
     Var.property_default Css.Number_percentage ~initial:(Num 1.0)
-      ~universal:true ~property_order:24 ~family:`Scale "tw-scale-z"
+      ~universal:true ~property_order:92 ~family:`Scale "tw-scale-z"
 
   (** {1 2D Transform Utilities} *)
 
@@ -272,7 +272,7 @@ module Handler = struct
     | Transform_gpu -> transform_gpu
 
   let suborder = function
-    | Transform -> 0
+    | Transform -> 2000
     | Transform_none -> 1
     | Transform_gpu -> 2
     (* Translate utilities come first *)

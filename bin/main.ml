@@ -85,7 +85,7 @@ let process_single_class class_str flag ~(opts : gen_opts) =
         (* Generate legacy Tailwind CSS *)
         let legacy_css =
           Tw_tools.Tailwind_gen.generate ~minify:opts.minify
-            ~optimize:opts.optimize [ class_str ]
+            ~optimize:opts.optimize ~forms:true [ class_str ]
         in
 
         (* Generate our CSS with variables mode and base layer *)
@@ -136,7 +136,7 @@ let process_single_class class_str flag ~(opts : gen_opts) =
       try
         let css =
           Tw_tools.Tailwind_gen.generate ~minify:opts.minify
-            ~optimize:opts.optimize [ class_str ]
+            ~optimize:opts.optimize ~forms:true [ class_str ]
         in
         print_string css;
         `Ok ()
@@ -208,7 +208,7 @@ let process_files paths flag ~(opts : gen_opts) =
         (* Generate legacy Tailwind CSS *)
         let legacy_css =
           Tw_tools.Tailwind_gen.generate ~minify:opts.minify
-            ~optimize:opts.optimize all_classes
+            ~optimize:opts.optimize ~forms:true all_classes
         in
 
         (* Generate our CSS with variables mode and base layer *)
@@ -265,7 +265,7 @@ let process_files paths flag ~(opts : gen_opts) =
         in
         let css =
           Tw_tools.Tailwind_gen.generate ~minify:opts.minify
-            ~optimize:opts.optimize all_classes
+            ~optimize:opts.optimize ~forms:true all_classes
         in
         print_string css;
         `Ok ()

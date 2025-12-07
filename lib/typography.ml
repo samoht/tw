@@ -94,7 +94,12 @@ let font_weight_black_var =
   Var.theme Css.Font_weight "font-weight-black" ~order:(6, 38)
 
 (* Theme variables for named tracking values *)
+let tracking_tighter_var = Var.theme Css.Length "tracking-tighter" ~order:(6, 39)
 let tracking_tight_var = Var.theme Css.Length "tracking-tight" ~order:(6, 40)
+let tracking_normal_var = Var.theme Css.Length "tracking-normal" ~order:(6, 41)
+let tracking_wide_var = Var.theme Css.Length "tracking-wide" ~order:(6, 42)
+let tracking_wider_var = Var.theme Css.Length "tracking-wider" ~order:(6, 43)
+let tracking_widest_var = Var.theme Css.Length "tracking-widest" ~order:(6, 44)
 
 (* Theme variables for named leading values *)
 let leading_relaxed_var =
@@ -1090,7 +1095,15 @@ module Handler = struct
   let whitespace_pre = style [ white_space Pre ]
   let whitespace_pre_line = style [ white_space Pre_line ]
   let whitespace_pre_wrap = style [ white_space Pre_wrap ]
-  let tracking_tighter = style [ letter_spacing (Em (-0.05)) ]
+
+  let tracking_tighter =
+    let theme_decl, theme_ref = Var.binding tracking_tighter_var (Em (-0.05)) in
+    let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
+    let property_rules =
+      Var.property_rule tracking_var |> Option.to_list |> Css.concat
+    in
+    style ~property_rules
+      [ theme_decl; channel_decl; letter_spacing (Css.Var theme_ref) ]
 
   let tracking_tight =
     (* Theme var: --tracking-tight: -0.025em *)
@@ -1104,10 +1117,42 @@ module Handler = struct
     style ~property_rules
       [ theme_decl; channel_decl; letter_spacing (Css.Var theme_ref) ]
 
-  let tracking_normal = style [ letter_spacing Zero ]
-  let tracking_wide = style [ letter_spacing (Em 0.025) ]
-  let tracking_wider = style [ letter_spacing (Em 0.05) ]
-  let tracking_widest = style [ letter_spacing (Em 0.1) ]
+  let tracking_normal =
+    let theme_decl, theme_ref = Var.binding tracking_normal_var Zero in
+    let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
+    let property_rules =
+      Var.property_rule tracking_var |> Option.to_list |> Css.concat
+    in
+    style ~property_rules
+      [ theme_decl; channel_decl; letter_spacing (Css.Var theme_ref) ]
+
+  let tracking_wide =
+    let theme_decl, theme_ref = Var.binding tracking_wide_var (Em 0.025) in
+    let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
+    let property_rules =
+      Var.property_rule tracking_var |> Option.to_list |> Css.concat
+    in
+    style ~property_rules
+      [ theme_decl; channel_decl; letter_spacing (Css.Var theme_ref) ]
+
+  let tracking_wider =
+    let theme_decl, theme_ref = Var.binding tracking_wider_var (Em 0.05) in
+    let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
+    let property_rules =
+      Var.property_rule tracking_var |> Option.to_list |> Css.concat
+    in
+    style ~property_rules
+      [ theme_decl; channel_decl; letter_spacing (Css.Var theme_ref) ]
+
+  let tracking_widest =
+    let theme_decl, theme_ref = Var.binding tracking_widest_var (Em 0.1) in
+    let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
+    let property_rules =
+      Var.property_rule tracking_var |> Option.to_list |> Css.concat
+    in
+    style ~property_rules
+      [ theme_decl; channel_decl; letter_spacing (Css.Var theme_ref) ]
+
   let uppercase = style [ text_transform Uppercase ]
   let lowercase = style [ text_transform Lowercase ]
   let capitalize = style [ text_transform Capitalize ]
