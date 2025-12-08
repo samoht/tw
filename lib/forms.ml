@@ -298,43 +298,34 @@ module Handler = struct
 
     let rules =
       [
-        (* Base state *)
+        (* Base state - order matches Tailwind output *)
         rule ~selector:base_sel
           [
             appearance None;
-            padding [ Px 0. ];
             print_color_adjust Exact;
-            display Inline_block;
             vertical_align Middle;
-            background_origin Border_box;
             webkit_user_select None;
             user_select None;
-            flex_shrink 0.0;
-            height (Rem 1.);
-            width (Rem 1.);
             color blue_600;
-            background_color (hex "#fff");
-            border_color gray_500;
-            border_width (Px 1.);
             d_shadow;
+            background_color (hex "#fff");
+            background_origin Border_box;
+            border_width (Px 1.);
+            border_color gray_500;
             border_radius (Px 0.);
+            flex_shrink 0.0;
+            width (Rem 1.);
+            height (Rem 1.);
+            padding [ Px 0. ];
+            display Inline_block;
           ];
         (* :focus state *)
         rule ~selector:(compound [ base_sel; Focus ]) checkbox_focus_decls;
-        (* :checked state properties *)
+        (* :checked state - order matches Tailwind output *)
         rule
           ~selector:(compound [ base_sel; Checked ])
           [
-            border_color (hex "#0000");
             background_color Current;
-            background_size (Size (Pct 100., Pct 100.));
-            background_position [ XY (Pct 50., Pct 50.) ];
-            background_repeat No_repeat;
-          ];
-        (* :checked state background image *)
-        rule
-          ~selector:(compound [ base_sel; Checked ])
-          [
             background_image
               (Url
                  "data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' \
@@ -342,6 +333,10 @@ module Handler = struct
                   4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 \
                   011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 \
                   0z'/%3e%3c/svg%3e");
+            background_position [ XY (Pct 50., Pct 50.) ];
+            background_repeat No_repeat;
+            background_size (Size (Pct 100., Pct 100.));
+            border_color (hex "#0000");
           ];
         (* :checked:hover, :checked:focus - combined selector *)
         rule
@@ -381,7 +376,7 @@ module Handler = struct
                  compound [ base_sel; Indeterminate; Hover ];
                  compound [ base_sel; Indeterminate; Focus ];
                ])
-          [ border_color (hex "#0000"); background_color Current ];
+          [ background_color Current; border_color (hex "#0000") ];
         (* @media (forced-colors:active) for indeterminate *)
         media ~condition:"(forced-colors:active)"
           [
@@ -405,48 +400,43 @@ module Handler = struct
 
     let rules =
       [
-        (* Base state *)
+        (* Base state - order matches Tailwind output *)
         rule ~selector:base_sel
           [
             appearance None;
-            padding [ Px 0. ];
             print_color_adjust Exact;
-            display Inline_block;
             vertical_align Middle;
-            background_origin Border_box;
             webkit_user_select None;
             user_select None;
-            flex_shrink 0.0;
-            height (Rem 1.);
-            width (Rem 1.);
             color blue_600;
-            background_color (hex "#fff");
-            border_color gray_500;
-            border_width (Px 1.);
             d_shadow;
+            background_color (hex "#fff");
+            background_origin Border_box;
+            border_width (Px 1.);
+            border_color gray_500;
             border_radius (Pct 100.0);
+            flex_shrink 0.0;
+            width (Rem 1.);
+            height (Rem 1.);
+            padding [ Px 0. ];
+            display Inline_block;
           ];
         (* :focus state *)
         rule ~selector:(compound [ base_sel; Focus ]) checkbox_focus_decls;
-        (* :checked state properties *)
+        (* :checked state - order matches Tailwind output *)
         rule
           ~selector:(compound [ base_sel; Checked ])
           [
-            border_color (hex "#0000");
             background_color Current;
-            background_size (Size (Pct 100., Pct 100.));
-            background_position [ XY (Pct 50., Pct 50.) ];
-            background_repeat No_repeat;
-          ];
-        (* :checked state background image *)
-        rule
-          ~selector:(compound [ base_sel; Checked ])
-          [
             background_image
               (Url
                  "data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' \
                   xmlns='http://www.w3.org/2000/svg'%3e%3ccircle cx='8' cy='8' \
                   r='3'/%3e%3c/svg%3e");
+            background_position [ XY (Pct 50., Pct 50.) ];
+            background_repeat No_repeat;
+            background_size (Size (Pct 100., Pct 100.));
+            border_color (hex "#0000");
           ];
         (* :checked:hover, :checked:focus - combined selector *)
         rule
