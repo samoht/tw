@@ -488,58 +488,50 @@ let outputs util =
             if props = [] then []
             else [ regular ~selector:sel ~props ~base_class:class_name () ]
         | Some rule_list ->
-            (* Extract container queries as separate outputs *)
-            let container_queries =
-              rule_list
-              |> List.filter_map (fun stmt ->
-                     match Css.as_container stmt with
-                     | Some (_, condition, statements) ->
-                         statements
-                         |> List.filter_map (fun inner ->
-                                match Css.as_rule inner with
-                                | Some (selector, declarations, _) ->
-                                    Some
-                                      (container_query ~condition ~selector
-                                         ~props:declarations
-                                         ~base_class:class_name ())
-                                | None -> None)
-                         |> fun l -> Some l
-                     | None -> None)
-              |> List.concat
-            in
-            (* Extract plain rules as separate outputs *)
-            let plain_rules =
-              rule_list
-              |> List.filter_map (fun stmt ->
-                     match Css.as_rule stmt with
-                     | Some (selector, declarations, _) ->
-                         Some
-                           (regular ~selector ~props:declarations
-                              ~base_class:class_name ())
-                     | None -> None)
-            in
-            (* Separate nested media (CSS nesting) from top-level media. Nested
-               media (from media_nested) stay inside the rule. Top-level media
-               (from media with rules inside) are extracted. *)
+            (* Extract nested media (CSS nesting) for the base rule *)
             let nested_media = rule_list |> List.filter Css.is_nested_media in
-            let toplevel_media =
+            (* Process rules in order, preserving original sequence. This keeps
+               media rules adjacent to their related state rules (e.g., @media
+               (forced-colors:active) right after :checked state). *)
+            let ordered_rules =
               rule_list
               |> List.filter_map (fun stmt ->
                      if Css.is_nested_media stmt then None
                      else
-                       match Css.as_media stmt with
-                       | Some (condition, statements) ->
-                           statements
-                           |> List.filter_map (fun inner ->
-                                  match Css.as_rule inner with
-                                  | Some (selector, declarations, _) ->
-                                      Some
-                                        (media_query ~condition ~selector
-                                           ~props:declarations
-                                           ~base_class:class_name ())
-                                  | None -> None)
-                           |> fun l -> Some l
-                       | None -> None)
+                       match Css.as_rule stmt with
+                       | Some (selector, declarations, _) ->
+                           Some
+                             [
+                               regular ~selector ~props:declarations
+                                 ~base_class:class_name ();
+                             ]
+                       | None -> (
+                           match Css.as_media stmt with
+                           | Some (condition, statements) ->
+                               statements
+                               |> List.filter_map (fun inner ->
+                                      match Css.as_rule inner with
+                                      | Some (selector, declarations, _) ->
+                                          Some
+                                            (media_query ~condition ~selector
+                                               ~props:declarations
+                                               ~base_class:class_name ())
+                                      | None -> None)
+                               |> fun l -> Some l
+                           | None -> (
+                               match Css.as_container stmt with
+                               | Some (_, condition, statements) ->
+                                   statements
+                                   |> List.filter_map (fun inner ->
+                                          match Css.as_rule inner with
+                                          | Some (selector, declarations, _) ->
+                                              Some
+                                                (container_query ~condition
+                                                   ~selector ~props:declarations
+                                                   ~base_class:class_name ())
+                                          | None -> None)
+                                   |> fun l -> Some l
+                               | None -> None)))
               |> List.concat
             in
             (* Base rule with nested media (only if it has props or nested) *)
@@ -551,9 +543,8 @@ let outputs util =
                     ~nested:nested_media ();
                 ]
             in
-            (* Combine: plain rules first, then base rule with nested media,
-               then top-level media rules, then container queries. *)
-            plain_rules @ base_rule @ toplevel_media @ container_queries)
+            (* Combine: base rule first, then rules in original order *)
+            base_rule @ ordered_rules)
     | Style.Modified (modifier, base_style) ->
         handle_modified util_inner modifier base_style extract_with_class
     | Style.Group styles ->
@@ -865,14 +856,10 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 =
 (* Regular vs Media Comparison - Type-directed comparison for mixed rules *)
 (* ======================================================================== *)
 
-(* For the same base utility, ensure the regular rule comes before its
-   modifier-media rule (e.g., hover gated by (hover:hover)). Fall back to index
-   for stability when types match. *)
-let compare_same_utility_regular_media r1 r2 =
-  match (r1.rule_type, r2.rule_type) with
-  | `Regular, `Media _ -> -1
-  | `Media _, `Regular -> 1
-  | _ -> Int.compare r1.index r2.index
+(* For the same base utility, preserve original order (index) to keep media
+   rules adjacent to their related state rules. This matches Tailwind's behavior
+   where @media (forced-colors:active) appears right after :checked state. *)
+let compare_same_utility_regular_media r1 r2 = Int.compare r1.index r2.index
 
 (* Local checker to decide if a selector is a late modifier kind. *)
 
