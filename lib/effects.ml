@@ -845,3 +845,12 @@ let mix_blend_exclusion = utility Mix_blend_exclusion
 let mix_blend_hue = utility Mix_blend_hue
 let mix_blend_saturation = utility Mix_blend_saturation
 let mix_blend_color = utility Mix_blend_color
+
+(* Export ring/shadow variables for use by Forms *)
+let shadow_var = Handler.shadow_var
+let ring_inset_var = Handler.ring_inset_var
+let ring_offset_width_var = Handler.ring_offset_width_var
+let ring_offset_color_var = Handler.ring_offset_color_var
+let ring_color_var = Handler.ring_color_var
+let ring_offset_shadow_var = Handler.ring_offset_shadow_var
+let ring_shadow_var = Handler.ring_shadow_var
