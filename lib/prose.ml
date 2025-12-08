@@ -554,6 +554,7 @@ let kbd_rules base =
             Css.Shadow
               {
                 inset = false;
+                inset_var = None;
                 h_offset = Zero;
                 v_offset = Zero;
                 blur = Some Zero;
@@ -563,6 +564,7 @@ let kbd_rules base =
             Css.Shadow
               {
                 inset = false;
+                inset_var = None;
                 h_offset = Zero;
                 v_offset = Px 3.0;
                 blur = Some Zero;
