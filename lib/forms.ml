@@ -307,6 +307,7 @@ module Handler = struct
             display Inline_block;
             vertical_align Middle;
             background_origin Border_box;
+            webkit_user_select None;
             user_select None;
             flex_shrink 0.0;
             height (Rem 1.);
@@ -413,6 +414,7 @@ module Handler = struct
             display Inline_block;
             vertical_align Middle;
             background_origin Border_box;
+            webkit_user_select None;
             user_select None;
             flex_shrink 0.0;
             height (Rem 1.);
