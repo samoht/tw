@@ -5,29 +5,6 @@
 
 open Utility
 
-(** {1 Form Variables} *)
-
-val tw_shadow_var : (Css.shadow, [ `Property_default ]) Var.t
-(** Variable for shadow effects used in form focus states *)
-
-val tw_ring_inset_var : (string, [ `Channel ]) Var.t
-(** Variable for ring inset mode *)
-
-val tw_ring_offset_width_var : (string, [ `Channel ]) Var.t
-(** Variable for ring offset width *)
-
-val tw_ring_offset_color_var : (string, [ `Channel ]) Var.t
-(** Variable for ring offset color *)
-
-val tw_ring_color_var : (string, [ `Channel ]) Var.t
-(** Variable for ring color *)
-
-val tw_ring_offset_shadow_var : (string, [ `Channel ]) Var.t
-(** Variable for ring offset shadow *)
-
-val tw_ring_shadow_var : (string, [ `Channel ]) Var.t
-(** Variable for ring shadow *)
-
 (** {1 Form Input Utilities} *)
 
 val form_input : t

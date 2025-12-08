@@ -1,19 +1,7 @@
-(** Form element utilities. *)
+(** Form element utilities - matching Tailwind v4's @tailwindcss/forms plugin.
 
-(* Define form-specific variables using the Var system *)
-let tw_shadow_var =
-  Var.property_default Css.Shadow
-    ~initial:
-      (Css.shadow ~h_offset:Css.Zero ~v_offset:Css.Zero ~color:(Css.hex "#0000")
-         ())
-    "tw-shadow"
-
-let tw_ring_inset_var = Var.channel Css.String "tw-ring-inset"
-let tw_ring_offset_width_var = Var.channel Css.String "tw-ring-offset-width"
-let tw_ring_offset_color_var = Var.channel Css.String "tw-ring-offset-color"
-let tw_ring_color_var = Var.channel Css.String "tw-ring-color"
-let tw_ring_offset_shadow_var = Var.channel Css.String "tw-ring-offset-shadow"
-let tw_ring_shadow_var = Var.channel Css.String "tw-ring-shadow"
+    These utilities use the ring/shadow variable system from Effects for focus
+    states, ensuring proper type-safety and variable composition. *)
 
 module Handler = struct
   open Style
@@ -30,207 +18,241 @@ module Handler = struct
   let name = "forms"
   let priority = 28
 
+  (* Colors used in forms *)
+  let blue_600 = Css.oklch 54.6 0.245 262.881
+  let gray_500 = Css.oklch 55.1 0.027 264.364
+
+  (* Focus state declarations using the ring system from Effects. We build typed
+     shadow values using Calc and Var to avoid raw strings. *)
+  let focus_ring_decls ~offset_width ~ring_width_px =
+    let open Css in
+    (* Set ring variables for focus state *)
+    let d_offset_width, _ =
+      Var.binding Effects.ring_offset_width_var offset_width
+    in
+    let d_offset_color, _ =
+      Var.binding Effects.ring_offset_color_var (hex "#fff")
+    in
+    let d_ring_color, _ = Var.binding Effects.ring_color_var blue_600 in
+
+    (* Build ring-offset-shadow: 0 0 0 var(--tw-ring-offset-width)
+       var(--tw-ring-offset-color) Using typed Shadow with Var references for
+       spread and color *)
+    let offset_shadow_spread : length = Var (var_ref "tw-ring-offset-width") in
+    let offset_shadow_color : color = Var (var_ref "tw-ring-offset-color") in
+    let ring_offset_shadow_value =
+      shadow ~inset:false ~h_offset:Zero ~v_offset:Zero ~blur:Zero
+        ~spread:offset_shadow_spread ~color:offset_shadow_color ()
+    in
+    let d_ring_offset_shadow, _ =
+      Var.binding Effects.ring_offset_shadow_var ring_offset_shadow_value
+    in
+
+    (* Build ring-shadow: 0 0 0 calc(Npx + var(--tw-ring-offset-width))
+       var(--tw-ring-color) Using typed Shadow with Calc for spread and Var for
+       color *)
+    let offset_width_default : length = Px 0. in
+    let ring_shadow_spread : length =
+      Calc
+        Calc.(
+          add
+            (px (float_of_int ring_width_px))
+            (var ~default:offset_width_default "tw-ring-offset-width"))
+    in
+    let ring_shadow_color : color = Var (var_ref "tw-ring-color") in
+    let ring_shadow_value =
+      shadow ~inset:false ~h_offset:Zero ~v_offset:Zero ~blur:Zero
+        ~spread:ring_shadow_spread ~color:ring_shadow_color ()
+    in
+    let d_ring_shadow, _ =
+      Var.binding Effects.ring_shadow_var ring_shadow_value
+    in
+
+    (* Compose box-shadow from variable references *)
+    let v_ring_offset = Var.reference Effects.ring_offset_shadow_var in
+    let v_ring = Var.reference Effects.ring_shadow_var in
+    let v_shadow = Var.reference Effects.shadow_var in
+
+    let box_shadow_vars : shadow list =
+      [ Var v_ring_offset; Var v_ring; Var v_shadow ]
+    in
+
+    [
+      outline_offset (Px 2.);
+      d_offset_width;
+      d_offset_color;
+      d_ring_color;
+      d_ring_offset_shadow;
+      d_ring_shadow;
+      box_shadows box_shadow_vars;
+      outline "2px solid #0000";
+    ]
+
+  (* Focus state for input/textarea/select (1px ring, no offset) *)
+  let input_focus_decls =
+    let open Css in
+    focus_ring_decls ~offset_width:Zero ~ring_width_px:1
+    @ [ border_color blue_600 ]
+
+  (* Focus state for checkbox/radio (2px ring, 2px offset) *)
+  let checkbox_focus_decls =
+    focus_ring_decls ~offset_width:(Css.Px 2.0) ~ring_width_px:2
+
   let form_input =
     let open Css in
     let open Css.Selector in
-    (* Base class selector *)
     let base_sel = class_ "form-input" in
 
-    (* Create all rules including base as first rule *)
+    (* Shadow initial value for base state *)
+    let d_shadow, _ =
+      Var.binding Effects.shadow_var
+        (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
+    in
+
     let rules =
       [
-        (* Base state - MUST be first *)
         rule ~selector:base_sel
           [
             appearance None;
             background_color (hex "#fff");
-            border_color (oklch 55.1 0.027 264.364);
+            border_color gray_500;
             border_width (Px 1.);
             border_radius (Px 0.);
             padding_top (Rem 0.5);
+            padding_right (Rem 0.75);
             padding_bottom (Rem 0.5);
             padding_left (Rem 0.75);
-            padding_right (Rem 0.75);
             font_size (Rem 1.);
             line_height (Rem 1.5);
+            d_shadow;
           ];
-        (* :focus state *)
-        rule
-          ~selector:(compound [ base_sel; Focus ])
-          [
-            outline_offset (Px 2.);
-            custom_property "--tw-ring-inset" "var(--tw-empty, )";
-            custom_property "--tw-ring-offset-width" "2px";
-            custom_property "--tw-ring-offset-color" "#fff";
-            custom_property "--tw-ring-color" "oklch(54.6% 0.245 262.881)";
-            custom_property "--tw-ring-offset-shadow"
-              "var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) \
-               var(--tw-ring-offset-color)";
-            custom_property "--tw-ring-shadow"
-              "var(--tw-ring-inset) 0 0 0 calc(2px + \
-               var(--tw-ring-offset-width)) var(--tw-ring-color)";
-            outline "2px solid #0000";
-          ];
-        (* ::placeholder *)
+        rule ~selector:(compound [ base_sel; Focus ]) input_focus_decls;
         rule
           ~selector:(compound [ base_sel; Placeholder ])
-          [ color (oklch 55.1 0.027 264.364); opacity 1. ];
-        (* Webkit datetime pseudo-elements - all with padding: 0 *)
+          [ color gray_500; opacity 1. ];
         rule
           ~selector:(compound [ base_sel; Webkit_datetime_edit_fields_wrapper ])
           [ padding [ Px 0. ] ];
         rule
           ~selector:(compound [ base_sel; Webkit_date_and_time_value ])
-          [ min_height (Rem 1.5) ];
+          [ min_height (Em 1.5) ];
         rule
           ~selector:(compound [ base_sel; Webkit_date_and_time_value ])
           [ text_align Inherit ];
         rule
           ~selector:(compound [ base_sel; Webkit_datetime_edit ])
           [ display Inline_flex ];
-        (* webkit-datetime-edit padding *)
         rule
           ~selector:(compound [ base_sel; Webkit_datetime_edit ])
-          [ padding [ Px 0. ] ];
-        (* All datetime field selectors with padding *)
+          [ padding_top (Px 0.); padding_bottom (Px 0.) ];
         rule
           ~selector:(compound [ base_sel; Webkit_datetime_edit_year_field ])
-          [ padding [ Px 0. ] ];
+          [ padding_top (Px 0.); padding_bottom (Px 0.) ];
         rule
           ~selector:(compound [ base_sel; Webkit_datetime_edit_month_field ])
-          [ padding [ Px 0. ] ];
+          [ padding_top (Px 0.); padding_bottom (Px 0.) ];
         rule
           ~selector:(compound [ base_sel; Webkit_datetime_edit_day_field ])
-          [ padding [ Px 0. ] ];
+          [ padding_top (Px 0.); padding_bottom (Px 0.) ];
         rule
           ~selector:(compound [ base_sel; Webkit_datetime_edit_hour_field ])
-          [ padding [ Px 0. ] ];
+          [ padding_top (Px 0.); padding_bottom (Px 0.) ];
         rule
           ~selector:(compound [ base_sel; Webkit_datetime_edit_minute_field ])
-          [ padding [ Px 0. ] ];
+          [ padding_top (Px 0.); padding_bottom (Px 0.) ];
         rule
           ~selector:(compound [ base_sel; Webkit_datetime_edit_second_field ])
-          [ padding [ Px 0. ] ];
+          [ padding_top (Px 0.); padding_bottom (Px 0.) ];
         rule
           ~selector:
             (compound [ base_sel; Webkit_datetime_edit_millisecond_field ])
-          [ padding [ Px 0. ] ];
+          [ padding_top (Px 0.); padding_bottom (Px 0.) ];
         rule
           ~selector:(compound [ base_sel; Webkit_datetime_edit_meridiem_field ])
-          [ padding [ Px 0. ] ];
+          [ padding_top (Px 0.); padding_bottom (Px 0.) ];
       ]
     in
-
-    (* Return style with only rules, no base declarations *)
     style ~rules:(Some rules) []
 
   let form_textarea =
     let open Css in
     let open Css.Selector in
-    (* Base class selector *)
     let base_sel = class_ "form-textarea" in
 
-    (* Create all rules including base as first rule *)
+    let d_shadow, _ =
+      Var.binding Effects.shadow_var
+        (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
+    in
+
     let rules =
       [
-        (* Base state - MUST be first *)
         rule ~selector:base_sel
           [
             appearance None;
             background_color (hex "#fff");
-            border_color (oklch 55.1 0.027 264.364);
+            border_color gray_500;
             border_width (Px 1.);
             border_radius (Px 0.);
             padding_top (Rem 0.5);
+            padding_right (Rem 0.75);
             padding_bottom (Rem 0.5);
             padding_left (Rem 0.75);
-            padding_right (Rem 0.75);
             font_size (Rem 1.);
             line_height (Rem 1.5);
-            resize Vertical;
+            d_shadow;
           ];
-        (* :focus state *)
-        rule
-          ~selector:(compound [ base_sel; Focus ])
-          [
-            outline_offset (Px 2.);
-            custom_property "--tw-ring-inset" "var(--tw-empty, )";
-            custom_property "--tw-ring-offset-width" "2px";
-            custom_property "--tw-ring-offset-color" "#fff";
-            custom_property "--tw-ring-color" "oklch(54.6% 0.245 262.881)";
-            custom_property "--tw-ring-offset-shadow"
-              "var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) \
-               var(--tw-ring-offset-color)";
-            custom_property "--tw-ring-shadow"
-              "var(--tw-ring-inset) 0 0 0 calc(2px + \
-               var(--tw-ring-offset-width)) var(--tw-ring-color)";
-            outline "2px solid #0000";
-          ];
-        (* ::placeholder *)
+        rule ~selector:(compound [ base_sel; Focus ]) input_focus_decls;
         rule
           ~selector:(compound [ base_sel; Placeholder ])
-          [ color (oklch 55.1 0.027 264.364); opacity 1. ];
+          [ color gray_500; opacity 1. ];
       ]
     in
-
-    (* Return style with only rules, no base declarations *)
     style ~rules:(Some rules) []
 
   let form_select =
     let open Css in
     let open Css.Selector in
-    (* Base class selector *)
     let base_sel = class_ "form-select" in
 
-    (* Create all rules including base as first rule *)
+    let d_shadow, _ =
+      Var.binding Effects.shadow_var
+        (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
+    in
+
     let rules =
       [
-        (* Base state - MUST be first *)
         rule ~selector:base_sel
           [
             appearance None;
             background_color (hex "#fff");
-            border_color (oklch 55.1 0.027 264.364);
+            border_color gray_500;
             border_width (Px 1.);
             border_radius (Px 0.);
             padding_top (Rem 0.5);
+            padding_right (Rem 0.75);
             padding_bottom (Rem 0.5);
             padding_left (Rem 0.75);
-            padding_right (Rem 2.5);
             font_size (Rem 1.);
             line_height (Rem 1.5);
+            d_shadow;
           ];
-        (* :focus state *)
-        rule
-          ~selector:(compound [ base_sel; Focus ])
-          [
-            outline_offset (Px 2.);
-            custom_property "--tw-ring-inset" "var(--tw-empty, )";
-            custom_property "--tw-ring-offset-width" "2px";
-            custom_property "--tw-ring-offset-color" "#fff";
-            custom_property "--tw-ring-color" "oklch(54.6% 0.245 262.881)";
-            custom_property "--tw-ring-offset-shadow"
-              "var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) \
-               var(--tw-ring-offset-color)";
-            custom_property "--tw-ring-shadow"
-              "var(--tw-ring-inset) 0 0 0 calc(2px + \
-               var(--tw-ring-offset-width)) var(--tw-ring-color)";
-            outline "2px solid #0000";
-          ];
-        (* Base with background image - for single select *)
+        rule ~selector:(compound [ base_sel; Focus ]) input_focus_decls;
         rule ~selector:base_sel
           [
             background_image
               (Url
                  "data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' \
-                  fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' \
-                  stroke-linecap='round' stroke-linejoin='round' \
-                  stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-            background_position [ Right_center ];
+                  fill='none' viewBox='0 0 20 20'%3e%3cpath \
+                  stroke='oklch(55.1%25 0.027 264.364)' stroke-linecap='round' \
+                  stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 \
+                  4-4'/%3e%3c/svg%3e");
+            background_position
+              [ Edge_offset_axis ("right", Rem 0.5, "center") ];
             background_repeat No_repeat;
             background_size (Size (Em 1.5, Em 1.5));
+            padding_right (Rem 2.5);
+            print_color_adjust Exact;
           ];
-        (* Multi-select override - :where([size]:not([size="1"])) *)
         rule
           ~selector:
             (compound
@@ -245,61 +267,66 @@ module Handler = struct
                        ];
                    ];
                ])
-          [ background_image None; padding_right (Rem 0.75) ];
+          [
+            background_image Initial;
+            background_position [ Initial ];
+            background_repeat Initial;
+            background_size Initial;
+            padding_right (Rem 0.75);
+            print_color_adjust Unset;
+          ];
       ]
     in
-
-    (* Return style with only rules, no base declarations *)
     style ~rules:(Some rules) []
 
   let form_checkbox =
     let open Css in
     let open Css.Selector in
-    (* Base class selector *)
     let base_sel = class_ "form-checkbox" in
 
-    (* Create all rules including base as first rule *)
+    let d_shadow, _ =
+      Var.binding Effects.shadow_var
+        (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
+    in
+
     let rules =
       [
-        (* Base state - MUST be first *)
+        (* Base state *)
         rule ~selector:base_sel
           [
             appearance None;
-            vertical_align Middle;
-            user_select None;
-            color (oklch 54.6 0.245 262.881);
-            custom_property "--tw-shadow" "0 0 #0000";
-            background_color (hex "#fff");
-            border_width (Px 1.);
-            border_color (oklch 55.1 0.027 264.364);
-            border_radius (Px 0.);
-            flex_shrink 0.0;
-            width (Rem 1.);
-            height (Rem 1.);
+            padding [ Px 0. ];
+            print_color_adjust Exact;
             display Inline_block;
+            vertical_align Middle;
+            background_origin Border_box;
+            user_select None;
+            flex_shrink 0.0;
+            height (Rem 1.);
+            width (Rem 1.);
+            color blue_600;
+            background_color (hex "#fff");
+            border_color gray_500;
+            border_width (Px 1.);
+            d_shadow;
+            border_radius (Px 0.);
           ];
         (* :focus state *)
-        rule
-          ~selector:(compound [ base_sel; Focus ])
-          [
-            outline_offset (Px 2.);
-            custom_property "--tw-ring-inset" "var(--tw-empty, )";
-            custom_property "--tw-ring-offset-width" "2px";
-            custom_property "--tw-ring-offset-color" "#fff";
-            custom_property "--tw-ring-color" "oklch(54.6% 0.245 262.881)";
-            custom_property "--tw-ring-offset-shadow"
-              "var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) \
-               var(--tw-ring-offset-color)";
-            custom_property "--tw-ring-shadow"
-              "var(--tw-ring-inset) 0 0 0 calc(2px + \
-               var(--tw-ring-offset-width)) var(--tw-ring-color)";
-            outline "2px solid #0000";
-          ];
-        (* :checked state *)
+        rule ~selector:(compound [ base_sel; Focus ]) checkbox_focus_decls;
+        (* :checked state properties *)
         rule
           ~selector:(compound [ base_sel; Checked ])
           [
+            border_color (hex "#0000");
             background_color Current;
+            background_size (Size (Pct 100., Pct 100.));
+            background_position [ XY (Pct 50., Pct 50.) ];
+            background_repeat No_repeat;
+          ];
+        (* :checked state background image *)
+        rule
+          ~selector:(compound [ base_sel; Checked ])
+          [
             background_image
               (Url
                  "data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' \
@@ -307,123 +334,127 @@ module Handler = struct
                   4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 \
                   011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 \
                   0z'/%3e%3c/svg%3e");
-            background_position [ Center ];
-            background_repeat No_repeat;
-            background_size Cover;
-            border_color (hex "#0000");
           ];
-        (* :checked:hover, :checked:focus state *)
+        (* :checked:hover, :checked:focus - combined selector *)
         rule
           ~selector:
-            (list
+            (Selector.list
                [
                  compound [ base_sel; Checked; Hover ];
                  compound [ base_sel; Checked; Focus ];
                ])
           [ border_color (hex "#0000"); background_color Current ];
+        (* @media (forced-colors:active) for checked *)
+        media ~condition:"(forced-colors:active)"
+          [
+            rule ~selector:(compound [ base_sel; Checked ]) [ appearance Auto ];
+          ];
         (* :indeterminate state *)
         rule
           ~selector:(compound [ base_sel; Indeterminate ])
           [
-            background_color Current;
             background_image
               (Url
                  "data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' \
                   fill='none' viewBox='0 0 16 16'%3e%3cpath stroke='white' \
                   stroke-linecap='round' stroke-linejoin='round' \
                   stroke-width='2' d='M4 8h8'/%3e%3c/svg%3e");
-            background_position [ Center ];
-            background_repeat No_repeat;
-            background_size (Size (Pct 100., Pct 100.));
             border_color (hex "#0000");
+            background_color Current;
+            background_size (Size (Pct 100., Pct 100.));
+            background_position [ XY (Pct 50., Pct 50.) ];
+            background_repeat No_repeat;
           ];
-        (* :indeterminate:hover, :indeterminate:focus state *)
+        (* :indeterminate:hover, :indeterminate:focus - combined selector *)
         rule
           ~selector:
-            (list
+            (Selector.list
                [
                  compound [ base_sel; Indeterminate; Hover ];
                  compound [ base_sel; Indeterminate; Focus ];
                ])
           [ border_color (hex "#0000"); background_color Current ];
+        (* @media (forced-colors:active) for indeterminate *)
+        media ~condition:"(forced-colors:active)"
+          [
+            rule
+              ~selector:(compound [ base_sel; Indeterminate ])
+              [ appearance Auto ];
+          ];
       ]
     in
-
-    (* Return style with only rules, no base declarations *)
     style ~rules:(Some rules) []
 
   let form_radio =
     let open Css in
     let open Css.Selector in
-    (* Base class selector *)
     let base_sel = class_ "form-radio" in
 
-    (* Create all rules including base as first rule *)
+    let d_shadow, _ =
+      Var.binding Effects.shadow_var
+        (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
+    in
+
     let rules =
       [
-        (* Base state - MUST be first *)
+        (* Base state *)
         rule ~selector:base_sel
           [
             appearance None;
-            vertical_align Middle;
-            user_select None;
-            color (oklch 54.6 0.245 262.881);
-            custom_property "--tw-shadow" "0 0 #0000";
-            background_color (hex "#fff");
-            border_width (Px 1.);
-            border_color (oklch 55.1 0.027 264.364);
-            border_radius (Pct 100.0);
-            (* Circular for radio buttons *)
-            flex_shrink 0.0;
-            width (Rem 1.);
-            height (Rem 1.);
+            padding [ Px 0. ];
+            print_color_adjust Exact;
             display Inline_block;
+            vertical_align Middle;
+            background_origin Border_box;
+            user_select None;
+            flex_shrink 0.0;
+            height (Rem 1.);
+            width (Rem 1.);
+            color blue_600;
+            background_color (hex "#fff");
+            border_color gray_500;
+            border_width (Px 1.);
+            d_shadow;
+            border_radius (Pct 100.0);
           ];
         (* :focus state *)
-        rule
-          ~selector:(compound [ base_sel; Focus ])
-          [
-            outline_offset (Px 2.);
-            custom_property "--tw-ring-inset" "var(--tw-empty, )";
-            custom_property "--tw-ring-offset-width" "2px";
-            custom_property "--tw-ring-offset-color" "#fff";
-            custom_property "--tw-ring-color" "oklch(54.6% 0.245 262.881)";
-            custom_property "--tw-ring-offset-shadow"
-              "var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) \
-               var(--tw-ring-offset-color)";
-            custom_property "--tw-ring-shadow"
-              "var(--tw-ring-inset) 0 0 0 calc(2px + \
-               var(--tw-ring-offset-width)) var(--tw-ring-color)";
-            outline "2px solid #0000";
-          ];
-        (* :checked state *)
+        rule ~selector:(compound [ base_sel; Focus ]) checkbox_focus_decls;
+        (* :checked state properties *)
         rule
           ~selector:(compound [ base_sel; Checked ])
           [
+            border_color (hex "#0000");
             background_color Current;
+            background_size (Size (Pct 100., Pct 100.));
+            background_position [ XY (Pct 50., Pct 50.) ];
+            background_repeat No_repeat;
+          ];
+        (* :checked state background image *)
+        rule
+          ~selector:(compound [ base_sel; Checked ])
+          [
             background_image
               (Url
                  "data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' \
                   xmlns='http://www.w3.org/2000/svg'%3e%3ccircle cx='8' cy='8' \
                   r='3'/%3e%3c/svg%3e");
-            background_position [ Center ];
-            background_repeat No_repeat;
-            background_size Cover;
-            border_color (hex "#0000");
           ];
-        (* :checked:hover, :checked:focus state *)
+        (* :checked:hover, :checked:focus - combined selector *)
         rule
           ~selector:
-            (list
+            (Selector.list
                [
                  compound [ base_sel; Checked; Hover ];
                  compound [ base_sel; Checked; Focus ];
                ])
           [ border_color (hex "#0000"); background_color Current ];
+        (* @media (forced-colors:active) for checked *)
+        media ~condition:"(forced-colors:active)"
+          [
+            rule ~selector:(compound [ base_sel; Checked ]) [ appearance Auto ];
+          ];
       ]
     in
-
-    (* Return style with only rules, no base declarations *)
     style ~rules:(Some rules) []
 
   let to_style = function

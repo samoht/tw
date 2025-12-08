@@ -31,11 +31,25 @@ let tailwind_files ?(forms = false) temp_dir classnames =
   in
   let input_css_content =
     if forms then
+      (* forms plugin with strategy: 'class' requires a config file *)
       "@import \"tailwindcss\";\n\
        @plugin \"@tailwindcss/typography\";\n\
-       @plugin \"@tailwindcss/forms\";"
+       @config \"./tailwind.config.js\";"
     else "@import \"tailwindcss\";\n@plugin \"@tailwindcss/typography\";"
   in
+  (* Generate tailwind.config.js when forms plugin is needed *)
+  (if forms then
+     let config_content =
+       {|import forms from '@tailwindcss/forms'
+
+export default {
+  plugins: [
+    forms({ strategy: 'class' })
+  ]
+}
+|}
+     in
+     write_file (Filename.concat temp_dir "tailwind.config.js") config_content);
   write_file (Filename.concat temp_dir "input.html") html_content;
   write_file (Filename.concat temp_dir "input.css") input_css_content
 

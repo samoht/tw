@@ -70,6 +70,32 @@ val ring_color : color -> int -> t
 val ring_inset : t
 (** [ring_inset] applies an inset ring. *)
 
+(** {1 Ring/Shadow Variables}
+
+    These variables are used internally by ring and shadow utilities, and are
+    exported for use by the Forms utilities. *)
+
+val shadow_var : Css.shadow Var.property_default
+(** The --tw-shadow variable. *)
+
+val ring_inset_var : string Var.channel
+(** The --tw-ring-inset variable. *)
+
+val ring_offset_width_var : Css.length Var.property_default
+(** The --tw-ring-offset-width variable. *)
+
+val ring_offset_color_var : Css.color Var.property_default
+(** The --tw-ring-offset-color variable. *)
+
+val ring_color_var : Css.color Var.channel
+(** The --tw-ring-color variable. *)
+
+val ring_offset_shadow_var : Css.shadow Var.property_default
+(** The --tw-ring-offset-shadow variable. *)
+
+val ring_shadow_var : Css.shadow Var.property_default
+(** The --tw-ring-shadow variable. *)
+
 (** {1 Mix Blend Mode Utilities} *)
 
 val mix_blend_normal : t

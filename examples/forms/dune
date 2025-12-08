@@ -2,6 +2,8 @@
  (name main)
  (libraries tw tw.html))
 
+; Generate HTML/CSS for forms example
+
 (rule
  (targets index.html forms.css)
  (deps main.exe)
@@ -10,11 +12,23 @@
  (mode
   (promote (until-clean))))
 
+; Generate reference CSS with Tailwind CLI (requires forms plugin)
+
 (rule
  (targets tailwind.css)
- (deps index.html)
+ (deps index.html input.css tailwind.config.js)
  (action
-  (run npx tailwindcss --content %{deps} -o %{targets} --minify))
+  (run
+   npx
+   tailwindcss
+   -i
+   input.css
+   --content
+   index.html
+   -o
+   %{targets}
+   --minify
+   --optimize))
  (mode
   (promote (until-clean))))
 
@@ -22,4 +36,4 @@
  (alias runtest)
  (deps forms.css tailwind.css ../../scripts/cssdiff.exe)
  (action
-  (run ../../scripts/cssdiff.exe --color=always forms.css tailwind.css)))
+  (run ../../scripts/cssdiff.exe --color=always tailwind.css forms.css)))
