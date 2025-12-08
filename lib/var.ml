@@ -72,6 +72,7 @@ module Registry = struct
     | `Tracking ]
 
   let family_registry : (string, family) Hashtbl.t = Hashtbl.create 128
+  let needs_property_registry : (string, bool) Hashtbl.t = Hashtbl.create 128
 
   let register_variable ~name ~order =
     (* Check for order conflicts *)
@@ -128,11 +129,26 @@ module Registry = struct
       else name
     in
     Hashtbl.find_opt family_registry name
+
+  let register_needs_property ~name ~needs =
+    Hashtbl.replace needs_property_registry name needs
+
+  let get_needs_property name =
+    (* Strip leading -- if present *)
+    let name =
+      if String.starts_with ~prefix:"--" name then
+        String.sub name 2 (String.length name - 2)
+      else name
+    in
+    match Hashtbl.find_opt needs_property_registry name with
+    | Some b -> b
+    | None -> false
 end
 
 (* Get property order for a variable name (for external use in rules.ml) *)
 let get_property_order = Registry.get_property_order
 let get_family = Registry.get_family
+let get_needs_property = Registry.get_needs_property
 
 type family = Registry.family
 
@@ -237,7 +253,11 @@ let create : type a r.
   | Some fam -> Registry.register_family ~name ~family:fam
   | None -> ());
 
-  let info = Info { kind; name; need_property = property <> None; order } in
+  (* Register needs_property so we can look it up by name *)
+  let need_property = property <> None in
+  if need_property then Registry.register_needs_property ~name ~needs:true;
+
+  let info = Info { kind; name; need_property; order } in
   let binding ?fallback:fb value =
     let meta = meta_of_info info in
     let layer_name = Some (layer_name layer) in

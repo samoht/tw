@@ -1196,17 +1196,43 @@ let sorted_indexed_rules all_rules =
   |> deduplicate_typed_triples |> add_index
   |> List.sort compare_indexed_rules
 
-(* Extract set_var_names from sorted indexed rules to get correct first-usage
-   order. This iterates through sorted rules and collects custom property
-   names. *)
-let set_var_names_from_sorted_rules sorted_rules =
-  (* Must mirror the same filtering used when emitting utilities so the first
-     usage order reflects only declarations that actually render in the
-     utilities layer. *)
+(* Sort var names by property_order. Names include -- prefix. *)
+let sort_vars_by_property_order vars =
+  let get_order name =
+    (* Strip -- prefix for lookup *)
+    let name_without_prefix =
+      if String.starts_with ~prefix:"--" name then
+        String.sub name 2 (String.length name - 2)
+      else name
+    in
+    match Var.get_property_order name_without_prefix with
+    | Some o -> o
+    | None -> 1000 (* Default for vars without property_order *)
+  in
+  List.sort (fun n1 n2 -> compare (get_order n1) (get_order n2)) vars
+
+(* Extract all var names from sorted indexed rules in utility order. For each
+   utility, collects: 1. Vars that are SET (custom declarations) 2. Vars that
+   are REFERENCED and need @property (e.g., transform refs rotate/skew) Within
+   each utility, vars are sorted by property_order to ensure consistent family
+   ordering (e.g., ring before inset-ring regardless of CSS value order). *)
+let all_var_names_from_sorted_rules sorted_rules =
   sorted_rules
   |> List.concat_map (fun r ->
+         (* Vars that this utility SETS *)
          let filtered = filter_utility_properties r.props in
-         Css.custom_prop_names filtered)
+         let set_vars = Css.custom_prop_names filtered in
+         (* Vars that this utility REFERENCES and need @property *)
+         let all_vars = Css.vars_of_declarations r.props in
+         let ref_vars =
+           all_vars
+           |> List.filter (fun (Css.V v) ->
+                  let name = Css.var_name v in
+                  Var.get_needs_property name)
+           |> List.map (fun (Css.V v) -> "--" ^ Css.var_name v)
+         in
+         (* Sort all vars from this utility by property_order *)
+         sort_vars_by_property_order (set_vars @ ref_vars))
 
 let rule_sets tw_classes =
   let all_rules = tw_classes |> List.concat_map outputs in
@@ -1388,10 +1414,8 @@ let build_first_usage_order set_var_names =
     set_var_names;
   seen
 
-(* Get property order from static registry. Tailwind v4 groups related variables
-   together (e.g., all gradient vars stay together) regardless of utility order.
-   Uses static property_order. *)
-let property_order_from _first_usage_order name =
+(* Get property order from static registry. *)
+let property_order_from name =
   match Var.get_property_order name with
   | Some o -> o
   | None ->
@@ -1400,10 +1424,34 @@ let property_order_from _first_usage_order name =
        ^ "'. Register ~property_order when defining the variable \
           (Var.channel/property_default).")
 
+(* Build family first-usage order from the first_usage_order hashtbl. Returns a
+   hashtbl mapping family to its first occurrence index. *)
+let build_family_order first_usage_order =
+  let family_order = Hashtbl.create 16 in
+  Hashtbl.iter
+    (fun name idx ->
+      match Var.get_family name with
+      | Some fam -> (
+          match Hashtbl.find_opt family_order fam with
+          | None -> Hashtbl.add family_order fam idx
+          | Some existing ->
+              if idx < existing then Hashtbl.replace family_order fam idx)
+      | None -> ())
+    first_usage_order;
+  family_order
+
 let sort_properties_by_order first_usage_order initial_values =
-  let is_gradient n = String.starts_with ~prefix:"--tw-gradient-" n in
+  let family_order = build_family_order first_usage_order in
+  let get_family_order name =
+    match Var.get_family name with
+    | Some fam -> (
+        match Hashtbl.find_opt family_order fam with
+        | Some o -> o
+        | None -> 1000)
+    | None -> 1000 (* Fallback for vars without family *)
+  in
   let gradient_family_index n =
-    if not (is_gradient n) then 100
+    if not (String.starts_with ~prefix:"--tw-gradient-" n) then 100
     else if String.equal n "--tw-gradient-position" then 0
     else if String.equal n "--tw-gradient-from" then 1
     else if String.equal n "--tw-gradient-via" then 2
@@ -1415,13 +1463,30 @@ let sort_properties_by_order first_usage_order initial_values =
     else if String.equal n "--tw-gradient-to-position" then 8
     else 100
   in
+  (* Check if a family is a shadow-related family that should use property_order
+     directly *)
+  let is_shadow_family = function
+    | Some (`Shadow | `Inset_shadow | `Ring | `Inset_ring) -> true
+    | _ -> false
+  in
   let cmp (n1, _) (n2, _) =
-    if is_gradient n1 && is_gradient n2 then
-      compare (gradient_family_index n1) (gradient_family_index n2)
-    else
-      compare
-        (property_order_from first_usage_order n1)
-        (property_order_from first_usage_order n2)
+    let fam1 = Var.get_family n1 in
+    let fam2 = Var.get_family n2 in
+    match (fam1, fam2) with
+    | Some `Gradient, Some `Gradient ->
+        (* Special ordering within gradients *)
+        compare (gradient_family_index n1) (gradient_family_index n2)
+    | _ when is_shadow_family fam1 && is_shadow_family fam2 ->
+        (* Shadow-related families use property_order directly without family
+           grouping. This handles interleaved property_orders like
+           Ring(13-14,17-20) and Inset_ring(15-16). *)
+        compare (property_order_from n1) (property_order_from n2)
+    | _ ->
+        (* Compare by family first-usage order, then property_order *)
+        let fo1 = get_family_order n1 in
+        let fo2 = get_family_order n2 in
+        if fo1 <> fo2 then compare fo1 fo2
+        else compare (property_order_from n1) (property_order_from n2)
   in
   List.sort cmp initial_values
 
@@ -1559,16 +1624,37 @@ let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
     [ layer_names ] @ initial_layers @ base_layers
     @ [ components_declaration; utilities_layer ]
   in
-  (* Sort @property rules using static property_order *)
+  (* Sort @property rules using family-based first-usage order *)
+  let family_order = build_family_order first_usage_order in
+  let get_family_order name =
+    match Var.get_family name with
+    | Some fam -> (
+        match Hashtbl.find_opt family_order fam with
+        | Some o -> o
+        | None -> 1000)
+    | None -> 1000
+  in
+  (* Check if a family is shadow-related (uses property_order directly) *)
+  let is_shadow_family = function
+    | Some (`Shadow | `Inset_shadow | `Ring | `Inset_ring) -> true
+    | _ -> false
+  in
   let sorted_property_rules =
     property_rules_for_end
     |> List.sort (fun s1 s2 ->
            match (Css.as_property s1, Css.as_property s2) with
            | ( Some (Css.Property_info { name = n1; _ }),
                Some (Css.Property_info { name = n2; _ }) ) ->
-               let o1 = property_order_from first_usage_order n1 in
-               let o2 = property_order_from first_usage_order n2 in
-               compare o1 o2
+               let fam1 = Var.get_family n1 in
+               let fam2 = Var.get_family n2 in
+               if is_shadow_family fam1 && is_shadow_family fam2 then
+                 (* Shadow-related families use property_order directly *)
+                 compare (property_order_from n1) (property_order_from n2)
+               else
+                 let fo1 = get_family_order n1 in
+                 let fo2 = get_family_order n2 in
+                 if fo1 <> fo2 then compare fo1 fo2
+                 else compare (property_order_from n1) (property_order_from n2)
            | _ -> 0)
   in
   let property_rules_css =
@@ -1645,9 +1731,11 @@ let build_layers ~include_base ~selector_props tw_classes statements =
   in
   (* Get sorted indexed_rules to extract first-usage order from sorted output *)
   let sorted_rules = sorted_indexed_rules selector_props in
-  let sorted_set_var_names = set_var_names_from_sorted_rules sorted_rules in
-  (* Build first-usage order mapping from the sorted order of variables *)
-  let first_usage_order = build_first_usage_order sorted_set_var_names in
+  (* Build first-usage order from ALL vars per utility in utility order. For
+     each utility, collects SET vars then REFERENCED vars needing @property.
+     This ensures proper ordering: utility 1's vars, utility 2's vars, etc. *)
+  let all_vars = all_var_names_from_sorted_rules sorted_rules in
+  let first_usage_order = build_first_usage_order all_vars in
   let explicit_property_rules = flatten_property_rules property_rules_lists in
   let all_property_statements =
     collect_all_property_rules vars_from_utilities set_var_names

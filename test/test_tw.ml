@@ -459,6 +459,20 @@ let stable_order_complex_modifiers () =
     Tw.[ focus_within [ bg red 500 ]; md [ bg blue 500 ] ]
     Tw.[ md [ bg blue 500 ]; focus_within [ bg red 500 ] ]
 
+(* ===== PROPERTY ORDERING TESTS ===== *)
+(* These tests verify that the @layer properties @supports block ordering
+   matches Tailwind. The order depends on which utility groups are used:
+   - Direct scale (scale-105) puts scale vars before duration
+   - Hover scale (hover:scale-105) puts duration before scale *)
+
+let property_order_scale_first () =
+  (* When scale is used directly, scale vars should come before duration *)
+  check_list Tw.[ transform; duration 300; scale 105 ]
+
+let property_order_duration_first () =
+  (* When scale is only via hover, duration should come before scale *)
+  check_list Tw.[ transform; duration 300; hover [ scale 105 ] ]
+
 (* ===== TEST SUITE ===== *)
 
 let core_tests =
@@ -483,6 +497,10 @@ let core_tests =
     test_case "stable: base utils order" `Quick stable_order_basic;
     test_case "stable: responsive vs regular" `Quick stable_order_with_modifiers;
     test_case "stable: complex modifiers" `Quick stable_order_complex_modifiers;
+    (* Property ordering tests *)
+    test_case "property order: scale first" `Slow property_order_scale_first;
+    test_case "property order: duration first" `Slow
+      property_order_duration_first;
     test_case "content variants" `Slow content_variants;
     test_case "prose basic" `Slow prose_basic;
     test_case "prose with modifiers" `Slow prose_with_modifiers;

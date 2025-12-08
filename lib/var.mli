@@ -450,6 +450,10 @@ val get_property_order : string -> int option
 
 val get_family : string -> family option
 
+val get_needs_property : string -> bool
+(** [get_needs_property name] returns whether a variable needs an @property rule.
+    Returns [false] if the variable is not registered or doesn't need @property. *)
+
 val ref_only : 'a Css.kind -> string -> fallback:'a -> 'a ref_only
 (** [ref_only kind name ~fallback] creates a reference-only handle to a Utility
     variable with a concrete fallback for inline mode. No declaration is
