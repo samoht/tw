@@ -106,9 +106,9 @@ let leading_relaxed_var =
   Var.theme Css.Line_height "leading-relaxed" ~order:(6, 50)
 
 let font_weight_var =
-  (* Order in @layer properties: scale (0-2), rotate (3-5), skew (6-7), gradient
-     (8-16), leading (17), font-weight (18), tracking (19), duration (20). *)
-  Var.channel ~needs_property:true ~property_order:18 ~family:`Font_weight
+  (* In @supports block: font-weight comes first, before shadow family.
+     property_order: font-weight (0), shadow (7+), ring (14+), etc. *)
+  Var.channel ~needs_property:true ~property_order:0 ~family:`Font_weight
     Css.Font_weight "tw-font-weight"
 
 let leading_var =

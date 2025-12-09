@@ -1,7 +1,12 @@
-(** Form element utilities
+(** Form element utilities - matching Tailwind v4's [@tailwindcss/forms] plugin.
 
     https://tailwindcss.com/docs/accent-color
-    https://tailwindcss.com/docs/appearance *)
+    https://tailwindcss.com/docs/appearance
+
+    Form utilities are split into two priority groups to match Tailwind's
+    output:
+    - checkbox, radio, input: priority 3 (before layout at 4)
+    - select, textarea: priority 7 (after sizing at 6) *)
 
 open Utility
 
@@ -23,3 +28,7 @@ val form_radio : t
 (** [form_radio] applies radio button input styles. *)
 
 module Handler : Utility.Handler
+(** Handler for checkbox/radio/input (priority 3) *)
+
+module Select : Utility.Handler
+(** Handler for select/textarea (priority 7) *)
