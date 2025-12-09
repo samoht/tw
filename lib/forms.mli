@@ -1,4 +1,5 @@
-(** Form element utilities - matching Tailwind v4's [@tailwindcss/forms] plugin.
+(** Form element utilities - matching Tailwind v4's [\@tailwindcss/forms]
+    plugin.
 
     https://tailwindcss.com/docs/accent-color
     https://tailwindcss.com/docs/appearance
