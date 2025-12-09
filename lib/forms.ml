@@ -1,4 +1,5 @@
-(** Form element utilities - matching Tailwind v4's [@tailwindcss/forms] plugin.
+(** Form element utilities - matching Tailwind v4's [\@tailwindcss/forms]
+    plugin.
 
     These utilities use the ring/shadow variable system from Effects for focus
     states, ensuring proper type-safety and variable composition.
