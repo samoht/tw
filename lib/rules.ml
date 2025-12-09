@@ -882,12 +882,15 @@ let compare_different_utility_regular_media sel1 sel2 order1 order2 =
     if is_late_modifier_kind kind1 then 1 else -1
   else
     (* Plain/built-in media (e.g., container breakpoints emitted without a
-       modifier prefix) - compare by priority; at equal priority keep regular
-       before media. *)
-    let p1, _ = order1 in
-    let p2, _ = order2 in
+       modifier prefix) - compare by priority and suborder. At equal priority
+       and suborder, keep regular before media. *)
+    let p1, s1 = order1 in
+    let p2, s2 = order2 in
     let prio_cmp = Int.compare p1 p2 in
-    if prio_cmp <> 0 then prio_cmp else -1
+    if prio_cmp <> 0 then prio_cmp
+    else
+      let sub_cmp = Int.compare s1 s2 in
+      if sub_cmp <> 0 then sub_cmp else -1
 
 (** Compare Regular vs Media rules using rule relationship dispatch. *)
 let compare_regular_vs_media r1 r2 =
@@ -1450,10 +1453,11 @@ let sort_properties_by_order first_usage_order initial_values =
     else if String.equal n "--tw-gradient-to-position" then 8
     else 100
   in
-  (* Check if a family is a shadow-related family that should use property_order
-     directly *)
-  let is_shadow_family = function
-    | Some (`Shadow | `Inset_shadow | `Ring | `Inset_ring) -> true
+  (* Check if a family should use property_order directly (not first-usage
+     order). Font_weight comes before shadow in Tailwind's @supports block. *)
+  let uses_direct_property_order = function
+    | Some (`Shadow | `Inset_shadow | `Ring | `Inset_ring | `Font_weight) ->
+        true
     | _ -> false
   in
   let cmp (n1, _) (n2, _) =
@@ -1463,10 +1467,12 @@ let sort_properties_by_order first_usage_order initial_values =
     | Some `Gradient, Some `Gradient ->
         (* Special ordering within gradients *)
         compare (gradient_family_index n1) (gradient_family_index n2)
-    | _ when is_shadow_family fam1 && is_shadow_family fam2 ->
-        (* Shadow-related families use property_order directly without family
-           grouping. This handles interleaved property_orders like
-           Ring(13-14,17-20) and Inset_ring(15-16). *)
+    | _ when uses_direct_property_order fam1 && uses_direct_property_order fam2
+      ->
+        (* These families use property_order directly without family grouping.
+           This handles: font-weight (0) < shadow (7+) < ring (14+), and
+           interleaved property_orders like Ring(13-14,17-20) and
+           Inset_ring(15-16). *)
         compare (property_order_from n1) (property_order_from n2)
     | _ ->
         (* Compare by family first-usage order, then property_order *)
@@ -1621,9 +1627,10 @@ let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
         | None -> 1000)
     | None -> 1000
   in
-  (* Check if a family is shadow-related (uses property_order directly) *)
-  let is_shadow_family = function
-    | Some (`Shadow | `Inset_shadow | `Ring | `Inset_ring) -> true
+  (* Check if a family uses property_order directly *)
+  let uses_direct_property_order = function
+    | Some (`Shadow | `Inset_shadow | `Ring | `Inset_ring | `Font_weight) ->
+        true
     | _ -> false
   in
   let sorted_property_rules =
@@ -1634,8 +1641,11 @@ let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
                Some (Css.Property_info { name = n2; _ }) ) ->
                let fam1 = Var.get_family n1 in
                let fam2 = Var.get_family n2 in
-               if is_shadow_family fam1 && is_shadow_family fam2 then
-                 (* Shadow-related families use property_order directly *)
+               if
+                 uses_direct_property_order fam1
+                 && uses_direct_property_order fam2
+               then
+                 (* These families use property_order directly *)
                  compare (property_order_from n1) (property_order_from n2)
                else
                  let fo1 = get_family_order n1 in
