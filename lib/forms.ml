@@ -342,7 +342,7 @@ module Select = struct
   type Utility.base += Self of t
 
   let name = "forms_select"
-  let priority = 7
+  let priority = 8 (* After sizing (6), flex_props (7) *)
 
   let form_textarea =
     let open Css in
