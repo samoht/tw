@@ -79,116 +79,27 @@ Differences found for 'prose-sm':
 
 ---
 
-## 5) Variable system (the four patterns)
+## 5) Variable system
 
-All variables are declared and referenced via `Var`. Pick **one** pattern and apply it consistently.
+The variable system is documented in **`lib/var.mli`**. Key points:
 
-### Pattern 1 — `theme` (design tokens)
+- **Four patterns**: `theme`, `property_default`, `channel`, `ref_only`
+- Always use `Var.binding` to create declaration + reference pairs
+- Never write raw `"var(--name)"` strings
 
-Use for named scales: font sizes, spacing, colours.
-
-```ocaml
-let v = Var.theme kind "text-xl" ~order:N
-let decl, ref_ = Var.binding v (Css.rem 1.25)
-style "text-xl" [ decl; prop (Var ref_) ]
-```
-
-Typical users: typography, spacing. Order must match Tailwind canonical ordering in `var.ml`.
-
-### Pattern 2 — `property_default`
-
-For variables with `@property` defaults that utilities may override.
-**Setter:**
-
-```ocaml
-let v = Var.property_default kind ~initial:default "border-style"
-let decl, ref_ = Var.binding v Css.solid
-style "border-solid" [ decl; prop (Var ref_) ]
-```
-
-**Referrer:**
-
-```ocaml
-let ref_ = Var.reference v
-let props = match Var.property_rule v with Some r -> r | None -> Css.empty
-style "border" ~property_rules:props [ prop (Var ref_) ]
-```
-
-Ensure the referrer passes `~property_rules` so `@property` is emitted.
-
-### Pattern 3 — `channel` (compositional)
-
-For transform/filters channels (e.g. `--tw-rotate`).
-
-```ocaml
-let v = Var.channel kind "rotate"
-let decl, _ = Var.binding v (Css.deg 45)
-style "rotate-45" [ decl ]
-```
-
-The final composed property is built elsewhere from channels.
-
-### Pattern 4 — `ref_only`
-
-Referenced with a fallback; never set by the utility.
-
-```ocaml
-let v = Var.ref_only kind "blur" ~fallback:(Css.px 0)
-let r = Var.reference v
-style "backdrop" [ prop (Var r) ]
-```
-
-Useful when the value originates upstream (theme/properties).
-
+See `lib/var.mli` for detailed documentation and examples.
 
 ---
 
-## 6) Layers (how we emit CSS)
+## 6) Layers and rule ordering
 
-`rules.ml` builds layers in order:
+Layer architecture is documented in **`lib/rules.mli`**. Key points:
 
-1. **theme** (tokens)
-2. **properties** (`@property` and defaults)
-3. **base**
-4. **components**
-5. **utilities**
+- **Layer order**: `properties → theme → base → components → utilities`
+- **Utilities layer**: Sorted by (priority, suborder) for conflict resolution
+- **Media queries**: Modifier-based media comes after regular rules; built-in media stays grouped with its utility
 
-Utilities must not declare tokens; theme must not reference utility vars. See `compute_theme_layer`and`build_properties_layer`.
-
-### Rule ordering within utilities layer
-
-Within the utilities layer, rules are sorted by `compare_indexed_rules` in `rules.ml`:
-
-1. **Rule types are grouped**: Regular, Media, Container, Starting (via `rule_type_order`)
-2. **Within Regular rules**: sorted by (priority, suborder, alphabetical)
-3. **Within Media rules**: sorted by (media condition key, then priority, then alphabetical)
-4. **Regular vs Media comparison** (`compare_regular_vs_media`):
-   - Same `base_class` → preserve original order (keeps utility groups together)
-   - Modifier-prefixed media (selector contains `\:` like `.motion-safe\:animate-pulse`) → Regular always first
-   - Plain media (like container's breakpoints) → compare by priority
-
-**Key insight**: Media queries from modifiers (responsive, motion-safe, dark) should appear after
-regular utilities, but built-in media (like container's max-width breakpoints) should stay grouped
-with their base utility by priority.
-
-### Debugging rule ordering issues
-
-When `--diff` shows ordering differences:
-
-1. **Identify the rule type**:
-   ```bash
-   # Check if it's a modifier-based media or built-in media
-   dune exec -- tw -s "motion-safe:animate-pulse" --variables | grep -A2 "@media"
-   ```
-
-2. **Check the comparison logic in `compare_regular_vs_media`** (in `rules.ml`):
-   - Modifier media uses `is_modifier_selector` to detect `\:` in selector
-   - Plain media uses priority comparison
-
-3. **Common fixes**:
-   - If modifier media appears too early: check `is_modifier_selector` pattern matching
-   - If container/built-in media appears too late: check priority comparison fallback
-   - If same base_class rules are reordered: check `i1`/`i2` index comparison
+See `lib/rules.mli` for the complete layer model documentation.
 
 ---
 

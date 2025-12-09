@@ -2125,13 +2125,13 @@ module Color_Handler = struct
     | _ -> Error (`Msg "Not a prose color utility")
 
   let suborder = function
-    (* Prose color utilities are ordered alphabetically *)
-    | Prose_gray -> 0
-    | Prose_slate -> 1
-    | Prose_zinc -> 2
-    | Prose_neutral -> 3
-    | Prose_stone -> 4
-    | Prose_invert -> 5
+    (* Prose color utilities come after text colors (20000-29999) *)
+    | Prose_gray -> 30000
+    | Prose_slate -> 30001
+    | Prose_zinc -> 30002
+    | Prose_neutral -> 30003
+    | Prose_stone -> 30004
+    | Prose_invert -> 30005
 end
 
 (** Register both handlers with Utility system *)

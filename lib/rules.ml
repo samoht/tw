@@ -543,8 +543,9 @@ let outputs util =
                     ~nested:nested_media ();
                 ]
             in
-            (* Combine: base rule first, then rules in original order *)
-            base_rule @ ordered_rules)
+            (* Combine: custom rules first, then base rule (props after
+               rules) *)
+            ordered_rules @ base_rule)
     | Style.Modified (modifier, base_style) ->
         handle_modified util_inner modifier base_style extract_with_class
     | Style.Group styles ->
