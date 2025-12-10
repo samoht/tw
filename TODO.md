@@ -31,20 +31,11 @@ Still string-based (TODO):
 - `Font_feature_settings` - uses existing Properties type
 - `Font_variation_settings` - uses existing Properties type
 
-### 5. Type import_rule fields
+### ~~5. Type import_rule fields~~ DONE
 
-**Status**: Pending
-
-Import rules use strings for supports and media:
-
-```ocaml
-type import_rule = {
-  url: string;
-  layer: string option;
-  supports: string option;  (* Should be Supports.t option *)
-  media: string option;     (* Should be Media.t option *)
-}
-```
+Import rules now use typed fields:
+- `supports : Supports.t option` instead of `string option`
+- `media : Media.t option` instead of `string option`
 
 ## Low Priority
 
@@ -61,3 +52,4 @@ type import_rule = {
 - [x] Add structured `Supports.t` type (`lib/css/supports.ml`)
 - [x] Add `Keyframe.selector` type (`lib/css/keyframe.ml`)
 - [x] Add `Font_face` types for src, metric overrides, size-adjust (`lib/css/font_face.ml`)
+- [x] Type `import_rule` fields with `Supports.t` and `Media.t`
