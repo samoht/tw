@@ -245,7 +245,8 @@ let table_resets () =
 (** Interactive elements *)
 let interactive_resets () =
   [
-    rule ~selector:Moz_focusring [ outline "auto" ];
+    rule ~selector:Moz_focusring
+      [ outline (Shorthand { width = None; style = Some Auto; color = None }) ];
     rule ~selector:(Selector.element "progress") [ vertical_align Baseline ];
     rule ~selector:(Selector.element "summary") [ display List_item ];
   ]

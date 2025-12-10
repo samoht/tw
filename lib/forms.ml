@@ -72,12 +72,29 @@ let focus_ring_decls ~offset_width ~ring_width_px =
 let input_focus_decls =
   let open Css in
   focus_ring_decls ~offset_width:(Px 0.) ~ring_width_px:1
-  @ [ border_color blue_600; outline "2px solid #0000" ]
+  @ [
+      border_color blue_600;
+      outline
+        (Shorthand
+           {
+             width = Some (Px 2.);
+             style = Some Solid;
+             color = Some (hex "#0000");
+           });
+    ]
 
 let checkbox_focus_decls =
   let open Css in
   focus_ring_decls ~offset_width:(Px 2.) ~ring_width_px:2
-  @ [ outline "2px solid #0000" ]
+  @ [
+      outline
+        (Shorthand
+           {
+             width = Some (Px 2.);
+             style = Some Solid;
+             color = Some (hex "#0000");
+           });
+    ]
 
 (* Handler for checkbox/radio/input - priority 3 *)
 module Handler = struct
