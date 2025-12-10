@@ -1359,7 +1359,8 @@ let placeholder_supports =
       ]
   in
   let modern_support_stmt =
-    Css.supports ~condition:"(color:color-mix(in lab, red, red))"
+    Css.supports
+      ~condition:(Css.Supports.Raw "(color:color-mix(in lab, red, red))")
       [ modern_rule ]
   in
 
@@ -1372,8 +1373,9 @@ let placeholder_supports =
     [
       Css.supports
         ~condition:
-          "(not ((-webkit-appearance:-apple-pay-button))) or \
-           (contain-intrinsic-size:1px)"
+          (Css.Supports.Raw
+             "(not ((-webkit-appearance:-apple-pay-button))) or \
+              (contain-intrinsic-size:1px)")
         outer_support_content;
     ]
 
@@ -1390,8 +1392,9 @@ let initial_values_of = Property.initial_values
 
 (* Browser detection condition for properties layer *)
 let browser_detection =
-  "(((-webkit-hyphens:none)) and (not (margin-trim:inline))) or \
-   ((-moz-orient:inline) and (not (color:rgb(from red r g b))))"
+  Css.Supports.Raw
+    "(((-webkit-hyphens:none)) and (not (margin-trim:inline))) or \
+     ((-moz-orient:inline) and (not (color:rgb(from red r g b))))"
 
 (* Build a mapping from property names to their first-usage index. Tailwind
    orders properties in @supports and @property by first usage order in the

@@ -8,29 +8,9 @@ This file tracks string-based operations that should be replaced with proper CSS
 
 The AST now stores `Media.t` and `Container.t` directly instead of strings.
 
-### 2. Add Supports.t structured type
+### ~~2. Add Supports.t structured type~~ DONE
 
-**Status**: Pending
-
-Currently `@supports` conditions are raw strings:
-
-```ocaml
-| Supports of string * block  (* string condition *)
-```
-
-Should have a structured type like:
-
-```ocaml
-module Supports : sig
-  type t =
-    | Property of string * string  (* property: value *)
-    | Selector of Selector.t
-    | Not of t
-    | And of t * t
-    | Or of t * t
-    | Raw of string  (* escape hatch *)
-end
-```
+The AST now stores `Supports.t` directly instead of strings (`lib/css/supports.ml`).
 
 ### 3. Add Keyframe.position type
 
@@ -99,3 +79,4 @@ type import_rule = {
 
 - [x] Add structured `Media.t` type (`lib/css/media.ml`)
 - [x] Add structured `Container.t` type (`lib/css/container.ml`)
+- [x] Add structured `Supports.t` type (`lib/css/supports.ml`)
