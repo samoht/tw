@@ -2015,9 +2015,9 @@ and process_nested_keyframes ~depth:_ stmts1 stmts2 =
 and keyframe_frames_diff frames1 frames2 =
   (* Key by frame selector (e.g., "0%", "from", "to", "100%") *)
   let key_of (frame : Css.keyframe) = frame.keyframe_selector in
-  let key_equal = String.equal in
+  let key_equal = Css.Keyframe.selector_equal in
   let is_empty_diff (f1 : Css.keyframe) (f2 : Css.keyframe) =
-    f1.keyframe_selector = f2.keyframe_selector
+    Css.Keyframe.selector_equal f1.keyframe_selector f2.keyframe_selector
     && f1.keyframe_declarations = f2.keyframe_declarations
   in
   let added, removed, modified_pairs =
@@ -2025,16 +2025,19 @@ and keyframe_frames_diff frames1 frames2 =
   in
 
   (* Convert frame changes to rule_diff format *)
+  let selector_str (frame : Css.keyframe) =
+    Css.Keyframe.selector_to_string frame.keyframe_selector
+  in
   let added_changes =
     List.map
       (fun (frame : Css.keyframe) ->
-        Rule_added { selector = frame.keyframe_selector; declarations = [] })
+        Rule_added { selector = selector_str frame; declarations = [] })
       added
   in
   let removed_changes =
     List.map
       (fun (frame : Css.keyframe) ->
-        Rule_removed { selector = frame.keyframe_selector; declarations = [] })
+        Rule_removed { selector = selector_str frame; declarations = [] })
       removed
   in
   let modified_changes =
@@ -2044,7 +2047,7 @@ and keyframe_frames_diff frames1 frames2 =
           Some
             (Rule_content_changed
                {
-                 selector = f1.keyframe_selector;
+                 selector = selector_str f1;
                  old_declarations = [];
                  new_declarations = [];
                  property_changes = [];

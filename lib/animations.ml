@@ -103,7 +103,8 @@ module Handler = struct
       Css.keyframes "pulse"
         [
           {
-            Css.Stylesheet.keyframe_selector = "50%";
+            Css.Stylesheet.keyframe_selector =
+              Css.Keyframe.Positions [ Css.Keyframe.Percent 50. ];
             keyframe_declarations = [ Css.Declaration.opacity 0.5 ];
           };
         ]
