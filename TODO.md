@@ -18,20 +18,18 @@ The AST now stores `Keyframe.selector` instead of strings (`lib/css/keyframe.ml`
 
 ## Medium Priority
 
-### 4. Type font-face descriptors
+### ~~4. Type font-face descriptors~~ PARTIALLY DONE
 
-**Status**: Pending
+Created `lib/css/font_face.ml` with typed descriptors:
+- `Src` now uses `Font_face.src` (with `Url`, `Local`, `Raw` variants)
+- `Size_adjust` now uses `Font_face.size_adjust` (float percentage)
+- `Ascent_override`, `Descent_override`, `Line_gap_override` now use
+  `Font_face.metric_override` (`Normal | Percent of float`)
 
-Font-face has many string-based descriptors marked with TODOs:
-
-```ocaml
-(* In font_face_descriptor *)
-| Src of string  (* TODO: url(), local(), format() *)
-| Font_variant of string  (* TODO: proper variant type *)
-| Font_feature_settings of string
-| Font_variation_settings of string
-| Font_named_instance of string
-```
+Still string-based (TODO):
+- `Font_variant` - complex CSS property with many sub-values
+- `Font_feature_settings` - uses existing Properties type
+- `Font_variation_settings` - uses existing Properties type
 
 ### 5. Type import_rule fields
 
@@ -62,3 +60,4 @@ type import_rule = {
 - [x] Add structured `Container.t` type (`lib/css/container.ml`)
 - [x] Add structured `Supports.t` type (`lib/css/supports.ml`)
 - [x] Add `Keyframe.selector` type (`lib/css/keyframe.ml`)
+- [x] Add `Font_face` types for src, metric overrides, size-adjust (`lib/css/font_face.ml`)
