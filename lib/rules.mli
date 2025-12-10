@@ -36,13 +36,13 @@ type output =
       nested : Css.statement list;
     }
   | Media_query of {
-      condition : string;
+      condition : Css.Media.t;
       selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
     }
   | Container_query of {
-      condition : string;
+      condition : Css.Container.t;
       selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
@@ -72,7 +72,7 @@ val regular :
     rule with optional nested statements (e.g., @media queries). *)
 
 val media_query :
-  condition:string ->
+  condition:Css.Media.t ->
   selector:Css.Selector.t ->
   props:Css.declaration list ->
   ?base_class:string ->
@@ -82,7 +82,7 @@ val media_query :
     query rule. *)
 
 val container_query :
-  condition:string ->
+  condition:Css.Container.t ->
   selector:Css.Selector.t ->
   props:Css.declaration list ->
   ?base_class:string ->

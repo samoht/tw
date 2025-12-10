@@ -59,7 +59,8 @@ let check_extract_responsive () =
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
       (* Match Tailwind's minified output: (min-width:40rem) *)
-      check string "media condition" "(min-width:40rem)" condition;
+      check string "media condition" "(min-width:40rem)"
+        (Css.Media.to_string condition);
       check Test_helpers.selector_testable "sm selector"
         (Css.Selector.class_ "sm:p-4")
         selector
@@ -71,7 +72,8 @@ let check_extract_responsive_md () =
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
       (* md breakpoint should be 48rem *)
-      check string "md media condition" "(min-width:48rem)" condition;
+      check string "md media condition" "(min-width:48rem)"
+        (Css.Media.to_string condition);
       check Test_helpers.selector_testable "md selector"
         (Css.Selector.class_ "md:p-4")
         selector
@@ -82,7 +84,8 @@ let check_extract_responsive_lg () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      check string "lg media condition" "(min-width:64rem)" condition;
+      check string "lg media condition" "(min-width:64rem)"
+        (Css.Media.to_string condition);
       check Test_helpers.selector_testable "lg selector"
         (Css.Selector.class_ "lg:p-4")
         selector
@@ -93,7 +96,8 @@ let check_extract_responsive_xl () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      check string "xl media condition" "(min-width:80rem)" condition;
+      check string "xl media condition" "(min-width:80rem)"
+        (Css.Media.to_string condition);
       check Test_helpers.selector_testable "xl selector"
         (Css.Selector.class_ "xl:p-4")
         selector
@@ -104,7 +108,8 @@ let check_extract_responsive_2xl () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      check string "2xl media condition" "(min-width:96rem)" condition;
+      check string "2xl media condition" "(min-width:96rem)"
+        (Css.Media.to_string condition);
       check Test_helpers.selector_testable "2xl selector"
         (Css.Selector.class_ "2xl:p-4")
         selector
@@ -875,11 +880,11 @@ let test_classify () =
         ~selector:(Css.Selector.class_ "p-4")
         ~props:[ Css.padding [ Css.Rem 1.0 ] ]
         ();
-      Tw.Rules.media_query ~condition:"(min-width: 640px)"
+      Tw.Rules.media_query ~condition:(Css.Media.Min_width 40.)
         ~selector:(Css.Selector.class_ "sm\\:p-4")
         ~props:[ Css.padding [ Css.Rem 1.0 ] ]
         ();
-      Tw.Rules.container_query ~condition:"(min-width: 640px)"
+      Tw.Rules.container_query ~condition:(Css.Container.Min_width_px 640)
         ~selector:(Css.Selector.class_ "\\@sm\\:p-4")
         ~props:[ Css.padding [ Css.Rem 1.0 ] ]
         ();

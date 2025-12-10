@@ -22,13 +22,13 @@ type output =
       nested : Css.statement list; (* Nested statements (e.g., @media) *)
     }
   | Media_query of {
-      condition : string;
+      condition : Css.Media.t;
       selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
     }
   | Container_query of {
-      condition : string;
+      condition : Css.Container.t;
       selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
@@ -50,7 +50,10 @@ type by_type = {
 type indexed_rule = {
   index : int;
   rule_type :
-    [ `Regular | `Media of string | `Container of string | `Starting ];
+    [ `Regular
+    | `Media of Css.Media.t
+    | `Container of Css.Container.t
+    | `Starting ];
   selector : Css.Selector.t;
   props : Css.declaration list;
   order : int * int;
@@ -108,28 +111,12 @@ let starting_style ~selector ~props ?base_class () =
 (* Basic Utilities *)
 (* ======================================================================== *)
 
-(* String manipulation helpers *)
-let drop_prefix prefix s =
-  if String.starts_with ~prefix s then
-    let lp = String.length prefix in
-    let ls = String.length s in
-    String.sub s lp (ls - lp)
-  else s
-
 let string_of_breakpoint = function
   | `Sm -> "sm"
   | `Md -> "md"
   | `Lg -> "lg"
   | `Xl -> "xl"
   | `Xl_2 -> "2xl"
-
-let responsive_breakpoint = function
-  | "sm" -> "40rem" (* 640px / 16 = 40rem *)
-  | "md" -> "48rem" (* 768px / 16 = 48rem *)
-  | "lg" -> "64rem" (* 1024px / 16 = 64rem *)
-  | "xl" -> "80rem" (* 1280px / 16 = 80rem *)
-  | "2xl" -> "96rem" (* 1536px / 16 = 96rem *)
-  | _ -> "0rem"
 
 (* Small memoization for escaping, as many utilities reuse the same base class
    names across modifiers. *)
@@ -263,14 +250,22 @@ let selector_with_data_key selector key value =
 
 let responsive_rule breakpoint base_class selector props =
   let prefix = string_of_breakpoint breakpoint in
-  let condition = "(min-width:" ^ responsive_breakpoint prefix ^ ")" in
+  let rem_value =
+    match prefix with
+    | "sm" -> 40.
+    | "md" -> 48.
+    | "lg" -> 64.
+    | "xl" -> 80.
+    | "2xl" -> 96.
+    | _ -> 0.
+  in
   let modified_class = prefix ^ ":" ^ base_class in
   let new_selector =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
   in
-  media_query ~condition ~selector:new_selector ~props
-    ~base_class:modified_class ()
+  media_query ~condition:(Css.Media.Min_width rem_value) ~selector:new_selector
+    ~props ~base_class:modified_class ()
 
 let container_rule query base_class selector props =
   let prefix = Containers.container_query_to_class_prefix query in
@@ -279,13 +274,8 @@ let container_rule query base_class selector props =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
   in
-  let condition = Containers.container_query_to_css_prefix query in
-  let cond =
-    if String.starts_with ~prefix:"@container " condition then
-      drop_prefix "@container " condition
-    else condition
-  in
-  container_query ~condition:cond ~selector:new_selector ~props ~base_class ()
+  let condition = Containers.container_query_to_condition query in
+  container_query ~condition ~selector:new_selector ~props ~base_class ()
 
 let has_like_selector kind selector_str base_class props =
   let open Css.Selector in
@@ -343,8 +333,8 @@ let handle_data_modifier key value selector props base_class =
 
 (* Media-like modifiers (dark, motion/contrast prefs) should transform the
    existing selector structure rather than rebuilding a flat class selector. *)
-let handle_media_like_modifier (modifier : Style.modifier) ~condition base_class
-    selector props =
+let handle_media_like_modifier (modifier : Style.modifier)
+    ~(condition : Css.Media.t) base_class selector props =
   let modified_base_selector = Modifiers.to_selector modifier base_class in
   let modified_class =
     Rules_selector.extract_modified_class_name modified_base_selector base_class
@@ -376,17 +366,18 @@ let route_preference_modifier modifier base_class selector props =
   match modifier with
   | Style.Motion_safe ->
       handle_media_like_modifier Style.Motion_safe
-        ~condition:"(prefers-reduced-motion:no-preference)" base_class selector
-        props
+        ~condition:(Css.Media.Prefers_reduced_motion `No_preference) base_class
+        selector props
   | Style.Motion_reduce ->
       handle_media_like_modifier Style.Motion_reduce
-        ~condition:"(prefers-reduced-motion:reduce)" base_class selector props
+        ~condition:(Css.Media.Prefers_reduced_motion `Reduce) base_class
+        selector props
   | Style.Contrast_more ->
       handle_media_like_modifier Style.Contrast_more
-        ~condition:"(prefers-contrast:more)" base_class selector props
+        ~condition:(Css.Media.Prefers_contrast `More) base_class selector props
   | Style.Contrast_less ->
       handle_media_like_modifier Style.Contrast_less
-        ~condition:"(prefers-contrast:less)" base_class selector props
+        ~condition:(Css.Media.Prefers_contrast `Less) base_class selector props
   | _ -> regular ~selector ~props ~base_class ()
 
 (* Route :has() variants to appropriate handler *)
@@ -415,7 +406,8 @@ let modifier_to_rule modifier base_class selector props =
   (* Color scheme *)
   | Style.Dark ->
       handle_media_like_modifier Style.Dark
-        ~condition:"(prefers-color-scheme:dark)" base_class selector props
+        ~condition:(Css.Media.Prefers_color_scheme `Dark) base_class selector
+        props
   (* Preference media modifiers *)
   | Style.Motion_safe | Style.Motion_reduce | Style.Contrast_more
   | Style.Contrast_less ->
@@ -493,6 +485,7 @@ let outputs util =
             (* Process rules in order, preserving original sequence. This keeps
                media rules adjacent to their related state rules (e.g., @media
                (forced-colors:active) right after :checked state). *)
+            let has_regular_rules = ref false in
             let ordered_rules =
               rule_list
               |> List.filter_map (fun stmt ->
@@ -500,6 +493,7 @@ let outputs util =
                      else
                        match Css.as_rule stmt with
                        | Some (selector, declarations, _) ->
+                           has_regular_rules := true;
                            Some
                              [
                                regular ~selector ~props:declarations
@@ -507,27 +501,32 @@ let outputs util =
                              ]
                        | None -> (
                            match Css.as_media stmt with
-                           | Some (condition, statements) ->
+                           | Some (condition_str, statements) ->
                                statements
                                |> List.filter_map (fun inner ->
                                       match Css.as_rule inner with
                                       | Some (selector, declarations, _) ->
                                           Some
-                                            (media_query ~condition ~selector
-                                               ~props:declarations
+                                            (media_query
+                                               ~condition:
+                                                 (Css.Media.Raw condition_str)
+                                               ~selector ~props:declarations
                                                ~base_class:class_name ())
                                       | None -> None)
                                |> fun l -> Some l
                            | None -> (
                                match Css.as_container stmt with
-                               | Some (_, condition, statements) ->
+                               | Some (_, condition_str, statements) ->
                                    statements
                                    |> List.filter_map (fun inner ->
                                           match Css.as_rule inner with
                                           | Some (selector, declarations, _) ->
                                               Some
-                                                (container_query ~condition
-                                                   ~selector ~props:declarations
+                                                (container_query
+                                                   ~condition:
+                                                     (Css.Container.Raw
+                                                        condition_str) ~selector
+                                                   ~props:declarations
                                                    ~base_class:class_name ())
                                           | None -> None)
                                    |> fun l -> Some l
@@ -543,9 +542,11 @@ let outputs util =
                     ~nested:nested_media ();
                 ]
             in
-            (* Combine: custom rules first, then base rule (props after
-               rules) *)
-            ordered_rules @ base_rule)
+            (* Combine rules with base. If there are regular rules, they should
+               come first (forms plugin has interleaved regular/media rules). If
+               there are only media rules, base comes first (container). *)
+            if !has_regular_rules then ordered_rules @ base_rule
+            else base_rule @ ordered_rules)
     | Style.Modified (modifier, base_style) ->
         handle_modified util_inner modifier base_style extract_with_class
     | Style.Group styles ->
@@ -769,10 +770,10 @@ let rule_type_order = function
   | `Container _ -> 1
   | `Starting -> 2
 
-(* Extract media sort key using Css.Media.classify and group_order. Returns
-   (group, subkey) where subkey is rem value for responsive conditions. *)
+(* Extract media sort key using Css.Media.kind and group_order. Returns (group,
+   subkey) where subkey is rem value for responsive conditions. *)
 let extract_media_sort_key = function
-  | `Media cond -> Css.Media.group_order (Css.Media.classify cond)
+  | `Media cond -> Css.Media.group_order (Css.Media.kind cond)
   | _ -> (0, 0.)
 
 (* ======================================================================== *)
@@ -831,9 +832,9 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 =
   else
     (* Same media group. For Responsive (2000), sort by rem value (ascending).
        For Preference_accessibility (1000), use preference_condition_order. For
-       Preference_appearance (3000) and others, use lexicographic compare. *)
-    let cond1 = match typ1 with `Media c -> c | _ -> "" in
-    let cond2 = match typ2 with `Media c -> c | _ -> "" in
+       Preference_appearance (3000) and others, use Css.Media.compare. *)
+    let cond1 = match typ1 with `Media c -> Some c | _ -> None in
+    let cond2 = match typ2 with `Media c -> Some c | _ -> None in
     if group1 = 2000 then
       (* Responsive: sort by rem value ascending *)
       let sub_cmp = Float.compare sub1 sub2 in
@@ -842,14 +843,21 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 =
     else if group1 = 1000 then
       (* Preference_accessibility: sort by preference_condition_order *)
       let pref_cmp =
-        Int.compare
-          (preference_condition_order cond1)
-          (preference_condition_order cond2)
+        match (cond1, cond2) with
+        | Some c1, Some c2 ->
+            Int.compare
+              (preference_condition_order c1)
+              (preference_condition_order c2)
+        | _ -> 0
       in
       if pref_cmp <> 0 then pref_cmp
       else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
     else
-      let cond_cmp = String.compare cond1 cond2 in
+      let cond_cmp =
+        match (cond1, cond2) with
+        | Some c1, Some c2 -> Css.Media.compare c1 c2
+        | _ -> 0
+      in
       if cond_cmp <> 0 then cond_cmp
       else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
 
@@ -1113,7 +1121,7 @@ let rule_to_triple = function
       if has_hover then
         (* Hover rules become Media rules with (hover:hover) condition *)
         Some
-          ( `Media "(hover:hover)",
+          ( `Media Css.Media.Hover,
             selector,
             props,
             order_of_base base_class selector,

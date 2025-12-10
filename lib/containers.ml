@@ -24,20 +24,22 @@ module Handler = struct
 
   let layout_container_style =
     let open Css in
-    (* Use top-level media queries to match Tailwind's minified output. The
-       sorting logic groups them with .container via matching base_class. *)
+    (* Use top-level media queries to match Tailwind's minified output.
+       Container media queries should come AFTER the base .container rule.
+       rules.ml handles this ordering since container has only media rules and
+       base props. *)
     let container_selector = Selector.class_ "container" in
     let media_rules =
       [
-        media ~condition:"(min-width:40rem)"
+        media ~condition:(Media.Min_width 40.)
           [ rule ~selector:container_selector [ max_width (Rem 40.) ] ];
-        media ~condition:"(min-width:48rem)"
+        media ~condition:(Media.Min_width 48.)
           [ rule ~selector:container_selector [ max_width (Rem 48.) ] ];
-        media ~condition:"(min-width:64rem)"
+        media ~condition:(Media.Min_width 64.)
           [ rule ~selector:container_selector [ max_width (Rem 64.) ] ];
-        media ~condition:"(min-width:80rem)"
+        media ~condition:(Media.Min_width 80.)
           [ rule ~selector:container_selector [ max_width (Rem 80.) ] ];
-        media ~condition:"(min-width:96rem)"
+        media ~condition:(Media.Min_width 96.)
           [ rule ~selector:container_selector [ max_width (Rem 96.) ] ];
       ]
     in
@@ -107,16 +109,17 @@ let at_container_normal = utility Container_normal
 let at_container_named name = utility (Container_named name)
 
 (** Helper Functions *)
-let container_query_to_css_prefix = function
-  | Style.Container_sm -> "@container (min-width:24rem)"
-  | Style.Container_md -> "@container (min-width:28rem)"
-  | Style.Container_lg -> "@container (min-width:32rem)"
-  | Style.Container_xl -> "@container (min-width:36rem)"
-  | Style.Container_2xl -> "@container (min-width:42rem)"
-  | Style.Container_named ("", width) ->
-      "@container (min-width:" ^ string_of_int width ^ "px)"
+
+(** Convert a container query modifier to a structured Container.t condition *)
+let container_query_to_condition = function
+  | Style.Container_sm -> Css.Container.Min_width_rem 24.
+  | Style.Container_md -> Css.Container.Min_width_rem 28.
+  | Style.Container_lg -> Css.Container.Min_width_rem 32.
+  | Style.Container_xl -> Css.Container.Min_width_rem 36.
+  | Style.Container_2xl -> Css.Container.Min_width_rem 42.
+  | Style.Container_named ("", width) -> Css.Container.Min_width_px width
   | Style.Container_named (name, width) ->
-      "@container " ^ name ^ " (min-width:" ^ string_of_int width ^ "px)"
+      Css.Container.Named (name, Min_width_px width)
 
 let container_query_to_class_prefix = function
   | Style.Container_sm -> "@sm"
