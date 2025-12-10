@@ -1225,7 +1225,9 @@ let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
   in
 
   let describe_media stmt =
-    Option.map (fun (cond, _) -> "@media " ^ cond) (Css.as_media stmt)
+    Option.map
+      (fun (cond, _) -> "@media " ^ Css.Media.to_string cond)
+      (Css.as_media stmt)
   in
 
   let describe_layer stmt =
@@ -1239,7 +1241,7 @@ let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
     Option.map
       (fun (name_opt, cond, _) ->
         let prefix = match name_opt with Some n -> n ^ " " | None -> "" in
-        "@container " ^ prefix ^ cond)
+        "@container " ^ prefix ^ Css.Container.to_string cond)
       (Css.as_container stmt)
   in
 
@@ -1744,9 +1746,8 @@ and process_nested_layers ~depth stmts1 stmts2 =
 and container_diff items1 items2 =
   let key_of (name_opt, condition, _) =
     (* Use both name and condition as key to distinguish different containers *)
-    match name_opt with
-    | Some name -> name ^ ":" ^ condition
-    | None -> condition
+    let cond_str = Css.Container.to_string condition in
+    match name_opt with Some name -> name ^ ":" ^ cond_str | None -> cond_str
   in
   let key_equal = String.equal in
   let is_empty_diff (_, _, rules1) (_, _, rules2) =
@@ -1765,10 +1766,11 @@ and container_diff items1 items2 =
   let added =
     List.map
       (fun (name_opt, condition, rules) ->
+        let cond_str = Css.Container.to_string condition in
         let condition_str =
           match name_opt with
-          | Some name -> name ^ " " ^ condition
-          | None -> condition
+          | Some name -> name ^ " " ^ cond_str
+          | None -> cond_str
         in
         (condition_str, rules))
       added
@@ -1776,10 +1778,11 @@ and container_diff items1 items2 =
   let removed =
     List.map
       (fun (name_opt, condition, rules) ->
+        let cond_str = Css.Container.to_string condition in
         let condition_str =
           match name_opt with
-          | Some name -> name ^ " " ^ condition
-          | None -> condition
+          | Some name -> name ^ " " ^ cond_str
+          | None -> cond_str
         in
         (condition_str, rules))
       removed
@@ -1787,10 +1790,11 @@ and container_diff items1 items2 =
   let modified =
     List.map
       (fun ((name_opt, condition, rules1), (_, _, rules2)) ->
+        let cond_str = Css.Container.to_string condition in
         let condition_str =
           match name_opt with
-          | Some name -> name ^ " " ^ condition
-          | None -> condition
+          | Some name -> name ^ " " ^ cond_str
+          | None -> cond_str
         in
         (condition_str, rules1, rules2))
       modified_pairs
@@ -1930,14 +1934,21 @@ and process_nested_properties ~depth stmts1 stmts2 =
 
   !diffs
 
+(* Wrapper to extract media with string condition for diffing *)
+and extract_media_as_string stmt =
+  match Css.as_media stmt with
+  | Some (cond, rules) -> Some (Css.Media.to_string cond, rules)
+  | None -> None
+
 (* Main recursive function for nested differences *)
 and nested_differences ?(depth = 0) (stmts1 : Css.statement list)
     (stmts2 : Css.statement list) : container_diff list =
   if depth > 3 then [] (* Prevent infinite recursion *)
   else
     (* Process media queries *)
-    process_nested_containers ~container_type:`Media ~extract_fn:Css.as_media
-      ~diff_fn:media_diff ~depth stmts1 stmts2
+    process_nested_containers ~container_type:`Media
+      ~extract_fn:extract_media_as_string ~diff_fn:media_diff ~depth stmts1
+      stmts2
     (* Process layers - different type signature *)
     @ process_nested_layers ~depth stmts1 stmts2
     (* Process supports - reuses media_diff since they have the same
@@ -2099,7 +2110,7 @@ let detect_container_position_changes stmts1 stmts2 containers =
     List.mapi
       (fun i stmt ->
         match Css.as_media stmt with
-        | Some (cond, _) -> Some (cond, i)
+        | Some (cond, _) -> Some (Css.Media.to_string cond, i)
         | None -> None)
       stmts
     |> List.filter_map (fun x -> x)

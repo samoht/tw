@@ -680,7 +680,8 @@ let test_rule_sets_md_media () =
       (fun acc stmt ->
         match (acc, Css.as_media stmt) with
         | Some _, _ -> acc
-        | None, Some (cond, inner) when cond = "(min-width:48rem)" -> Some inner
+        | None, Some (cond, inner) when cond = Css.Media.Min_width 48. ->
+            Some inner
         | None, _ -> None)
       None css
   in
@@ -1698,7 +1699,7 @@ let test_media_query_deduplication () =
   (* Count top-level media queries in layers *)
   let rec count_toplevel_media condition stmt =
     match Tw.Css.as_media stmt with
-    | Some (cond, _) -> if cond = condition then 1 else 0
+    | Some (cond, _) -> if Tw.Css.Media.equal cond condition then 1 else 0
     | None -> (
         match Tw.Css.as_layer stmt with
         | Some (_, content) ->
@@ -1710,7 +1711,7 @@ let test_media_query_deduplication () =
   let count_48rem =
     List.fold_left ( + ) 0
       (List.map
-         (count_toplevel_media "(min-width:48rem)")
+         (count_toplevel_media (Tw.Css.Media.Min_width 48.))
          (Tw.Css.statements css))
   in
 

@@ -26,6 +26,30 @@ type stats = {
 
 (* ===== Helper Functions ===== *)
 
+(** Extract path component for an at-rule statement. Returns Some (path_segment,
+    inner_statements) if the statement is an at-rule, None otherwise. *)
+let at_rule_path_and_inner stmt =
+  match Css.as_supports stmt with
+  | Some (cond, inner) -> Some ("@supports " ^ cond, inner)
+  | None -> (
+      match Css.as_media stmt with
+      | Some (cond, inner) -> Some ("@media " ^ Css.Media.to_string cond, inner)
+      | None -> (
+          match Css.as_layer stmt with
+          | Some (name_opt, inner) ->
+              let name = match name_opt with Some n -> n | None -> "" in
+              Some ("@layer " ^ name, inner)
+          | None -> (
+              match Css.as_container stmt with
+              | Some (name_opt, cond, inner) ->
+                  let prefix =
+                    match name_opt with Some n -> n ^ " " | None -> ""
+                  in
+                  Some
+                    ( "@container " ^ prefix ^ Css.Container.to_string cond,
+                      inner )
+              | None -> None)))
+
 let strip_header css =
   (* Strip a leading /*!...*/ header comment with simpler flow to reduce
      nesting *)
@@ -112,32 +136,10 @@ let diff ~expected ~actual =
                     in
                     (key, decls) :: acc
                 | None -> (
-                    match Css.as_supports stmt with
-                    | Some (cond, inner) ->
-                        collect acc (path @ [ "@supports " ^ cond ]) inner
-                    | None -> (
-                        match Css.as_media stmt with
-                        | Some (cond, inner) ->
-                            collect acc (path @ [ "@media " ^ cond ]) inner
-                        | None -> (
-                            match Css.as_layer stmt with
-                            | Some (name_opt, inner) ->
-                                let name =
-                                  match name_opt with Some n -> n | None -> ""
-                                in
-                                collect acc (path @ [ "@layer " ^ name ]) inner
-                            | None -> (
-                                match Css.as_container stmt with
-                                | Some (name_opt, cond, inner) ->
-                                    let prefix =
-                                      match name_opt with
-                                      | Some n -> n ^ " "
-                                      | None -> ""
-                                    in
-                                    collect acc
-                                      (path @ [ "@container " ^ prefix ^ cond ])
-                                      inner
-                                | None -> acc)))))
+                    match at_rule_path_and_inner stmt with
+                    | Some (segment, inner) ->
+                        collect acc (path @ [ segment ]) inner
+                    | None -> acc))
               acc stmts
           in
           let sig_of_decls decls =
