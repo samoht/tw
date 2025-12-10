@@ -16,7 +16,7 @@
 
 (rule
  (targets tailwind.css)
- (deps index.html input.css tailwind.config.js)
+ (deps index.html input.css)
  (action
   (run
    npx

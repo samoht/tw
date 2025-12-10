@@ -1158,12 +1158,12 @@ module Handler = struct
   let lowercase = style [ text_transform Lowercase ]
   let capitalize = style [ text_transform Capitalize ]
   let normal_case = style [ text_transform None ]
-  let underline_offset_auto = style [ text_underline_offset "auto" ]
-  let underline_offset_0 = style [ text_underline_offset "0" ]
-  let underline_offset_1 = style [ text_underline_offset "1px" ]
-  let underline_offset_2 = style [ text_underline_offset "2px" ]
-  let underline_offset_4 = style [ text_underline_offset "4px" ]
-  let underline_offset_8 = style [ text_underline_offset "8px" ]
+  let underline_offset_auto = style [ text_underline_offset Auto ]
+  let underline_offset_0 = style [ text_underline_offset Zero ]
+  let underline_offset_1 = style [ text_underline_offset (Px 1.) ]
+  let underline_offset_2 = style [ text_underline_offset (Px 2.) ]
+  let underline_offset_4 = style [ text_underline_offset (Px 4.) ]
+  let underline_offset_8 = style [ text_underline_offset (Px 8.) ]
 
   let antialiased =
     style
