@@ -1027,7 +1027,13 @@ let base_prose_rules () =
           border_inline_start_width (Rem 0.25);
           border_inline_start_color (Css.Var prose_quote_borders_v);
           quotes
-            "\"\xe2\x80\x9c\"\"\xe2\x80\x9d\"\"\xe2\x80\x98\"\"\xe2\x80\x99\"";
+            (Pairs
+               [
+                 (* " and " - left/right double quotes *)
+                 ("\xe2\x80\x9c", "\xe2\x80\x9d");
+                 (* ' and ' - left/right single quotes *)
+                 ("\xe2\x80\x98", "\xe2\x80\x99");
+               ]);
           margin_top (Em 1.6);
           margin_bottom (Em 1.6);
           padding_inline_start (Em 1.0);
