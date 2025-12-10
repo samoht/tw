@@ -239,26 +239,26 @@ module Handler = struct
     | Justify_items_end -> 51
     | Justify_items_start -> 52
     | Justify_items_stretch -> 53
-    (* Self alignments: 50000+ (after gap's 25000+) *)
-    (* Place self (50000-50009) - alphabetical *)
-    | Place_self_auto -> 50000
-    | Place_self_center -> 50001
-    | Place_self_end -> 50002
-    | Place_self_start -> 50003
-    | Place_self_stretch -> 50004
-    (* Align self (50010-50019) - alphabetical *)
-    | Self_auto -> 50010
-    | Self_baseline -> 50011
-    | Self_center -> 50012
-    | Self_end -> 50013
-    | Self_start -> 50014
-    | Self_stretch -> 50015
-    (* Justify self (50020-50029) - alphabetical *)
-    | Justify_self_auto -> 50020
-    | Justify_self_center -> 50021
-    | Justify_self_end -> 50022
-    | Justify_self_start -> 50023
-    | Justify_self_stretch -> 50024
+    (* Self alignments: 76000+ (after gap's max of 75000 for gap-y-full) *)
+    (* Place self (76000-76009) - alphabetical *)
+    | Place_self_auto -> 76000
+    | Place_self_center -> 76001
+    | Place_self_end -> 76002
+    | Place_self_start -> 76003
+    | Place_self_stretch -> 76004
+    (* Align self (76010-76019) - alphabetical *)
+    | Self_auto -> 76010
+    | Self_baseline -> 76011
+    | Self_center -> 76012
+    | Self_end -> 76013
+    | Self_start -> 76014
+    | Self_stretch -> 76015
+    (* Justify self (76020-76029) - alphabetical *)
+    | Justify_self_auto -> 76020
+    | Justify_self_center -> 76021
+    | Justify_self_end -> 76022
+    | Justify_self_start -> 76023
+    | Justify_self_stretch -> 76024
 
   let of_class = function
     (* Justify content *)
