@@ -12,28 +12,9 @@ The AST now stores `Media.t` and `Container.t` directly instead of strings.
 
 The AST now stores `Supports.t` directly instead of strings (`lib/css/supports.ml`).
 
-### 3. Add Keyframe.position type
+### ~~3. Add Keyframe.position type~~ DONE
 
-**Status**: Pending
-
-Keyframe selectors are currently strings:
-
-```ocaml
-type keyframe = string * declaration list  (* "from", "to", "50%" *)
-```
-
-Should be:
-
-```ocaml
-module Keyframe : sig
-  type position =
-    | From
-    | To
-    | Percent of float
-
-  type frame = position list * declaration list
-end
-```
+The AST now stores `Keyframe.selector` instead of strings (`lib/css/keyframe.ml`).
 
 ## Medium Priority
 
@@ -80,3 +61,4 @@ type import_rule = {
 - [x] Add structured `Media.t` type (`lib/css/media.ml`)
 - [x] Add structured `Container.t` type (`lib/css/container.ml`)
 - [x] Add structured `Supports.t` type (`lib/css/supports.ml`)
+- [x] Add `Keyframe.selector` type (`lib/css/keyframe.ml`)
