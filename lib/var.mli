@@ -483,6 +483,11 @@ val reference_with_fallback : ('a, [< `Theme | `Channel ]) t -> 'a -> 'a Css.var
     with an explicit fallback value. Required for theme and channel variables.
 *)
 
+val reference_with_empty_fallback : ('a, [< `Channel ]) t -> 'a Css.var
+(** [reference_with_empty_fallback var] creates a variable reference with an
+    empty fallback, producing [var(--name,)]. Used for optional transform
+    components where unset variables should contribute nothing. *)
+
 val reference_with_var_fallback :
   ('a, [< `Channel ]) t -> ('a, [< `Theme ]) t -> 'a -> 'a Css.var
 (** [reference_with_var_fallback channel_var theme_var dummy_value] creates a
