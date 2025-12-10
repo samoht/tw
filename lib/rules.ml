@@ -501,32 +501,27 @@ let outputs util =
                              ]
                        | None -> (
                            match Css.as_media stmt with
-                           | Some (condition_str, statements) ->
+                           | Some (condition, statements) ->
                                statements
                                |> List.filter_map (fun inner ->
                                       match Css.as_rule inner with
                                       | Some (selector, declarations, _) ->
                                           Some
-                                            (media_query
-                                               ~condition:
-                                                 (Css.Media.Raw condition_str)
-                                               ~selector ~props:declarations
+                                            (media_query ~condition ~selector
+                                               ~props:declarations
                                                ~base_class:class_name ())
                                       | None -> None)
                                |> fun l -> Some l
                            | None -> (
                                match Css.as_container stmt with
-                               | Some (_, condition_str, statements) ->
+                               | Some (_, condition, statements) ->
                                    statements
                                    |> List.filter_map (fun inner ->
                                           match Css.as_rule inner with
                                           | Some (selector, declarations, _) ->
                                               Some
-                                                (container_query
-                                                   ~condition:
-                                                     (Css.Container.Raw
-                                                        condition_str) ~selector
-                                                   ~props:declarations
+                                                (container_query ~condition
+                                                   ~selector ~props:declarations
                                                    ~base_class:class_name ())
                                           | None -> None)
                                    |> fun l -> Some l

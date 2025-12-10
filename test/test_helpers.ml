@@ -225,7 +225,9 @@ let has_selector_in_layer selector layer_name css =
 let media_conditions css =
   Css.fold
     (fun acc stmt ->
-      match Css.as_media stmt with Some (cond, _) -> cond :: acc | None -> acc)
+      match Css.as_media stmt with
+      | Some (cond, _) -> Css.Media.to_string cond :: acc
+      | None -> acc)
     [] css
   |> List.rev
 
@@ -239,7 +241,9 @@ let media_block condition css =
     (fun acc stmt ->
       match (acc, Css.as_media stmt) with
       | Some _, _ -> acc
-      | None, Some (cond, inner) when String.equal cond condition -> Some inner
+      | None, Some (cond, inner)
+        when String.equal (Css.Media.to_string cond) condition ->
+          Some inner
       | None, _ -> None)
     None css
 
