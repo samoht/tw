@@ -1246,7 +1246,9 @@ let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
   in
 
   let describe_supports stmt =
-    Option.map (fun (cond, _) -> "@supports " ^ cond) (Css.as_supports stmt)
+    Option.map
+      (fun (cond, _) -> "@supports " ^ Css.Supports.to_string cond)
+      (Css.as_supports stmt)
   in
 
   let describe_property stmt =
@@ -1940,6 +1942,12 @@ and extract_media_as_string stmt =
   | Some (cond, rules) -> Some (Css.Media.to_string cond, rules)
   | None -> None
 
+(* Wrapper to extract supports with string condition for diffing *)
+and extract_supports_as_string stmt =
+  match Css.as_supports stmt with
+  | Some (cond, rules) -> Some (Css.Supports.to_string cond, rules)
+  | None -> None
+
 (* Main recursive function for nested differences *)
 and nested_differences ?(depth = 0) (stmts1 : Css.statement list)
     (stmts2 : Css.statement list) : container_diff list =
@@ -1954,7 +1962,8 @@ and nested_differences ?(depth = 0) (stmts1 : Css.statement list)
     (* Process supports - reuses media_diff since they have the same
        structure *)
     @ process_nested_containers ~container_type:`Supports
-        ~extract_fn:Css.as_supports ~diff_fn:media_diff ~depth stmts1 stmts2
+        ~extract_fn:extract_supports_as_string ~diff_fn:media_diff ~depth stmts1
+        stmts2
     (* Process container queries *)
     @ process_nested_containers_with_name ~depth stmts1 stmts2
     (* Process property declarations *)

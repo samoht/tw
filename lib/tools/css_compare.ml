@@ -30,7 +30,8 @@ type stats = {
     inner_statements) if the statement is an at-rule, None otherwise. *)
 let at_rule_path_and_inner stmt =
   match Css.as_supports stmt with
-  | Some (cond, inner) -> Some ("@supports " ^ cond, inner)
+  | Some (cond, inner) ->
+      Some ("@supports " ^ Css.Supports.to_string cond, inner)
   | None -> (
       match Css.as_media stmt with
       | Some (cond, inner) -> Some ("@media " ^ Css.Media.to_string cond, inner)
