@@ -1205,6 +1205,17 @@ let test_typography_before_color () =
   Test_helpers.check_ordering_matches
     ~test_name:"typography before color utilities" utilities
 
+(* Test gap utilities come before self-alignment utilities *)
+let test_gap_before_self_alignment () =
+  let open Tw in
+  (* gap-y-4 should come before self-start because gap-y suborders (65000+) are
+     lower than self-* suborders (76000+). Both share priority 17. *)
+  let utilities =
+    [ gap_y 4; self_start; gap_x 2; self_end; gap 8; self_center ]
+  in
+  Test_helpers.check_ordering_matches
+    ~test_name:"gap utilities before self-alignment" utilities
+
 (* Test 1: Verify priority order - one utility per group *)
 let test_priority_order_per_group () =
   let open Tw in
@@ -1823,6 +1834,7 @@ let tests =
     test_case "color override cascading" `Quick test_cascade_color_override;
     (* Utility group ordering *)
     test_case "typography before color" `Quick test_typography_before_color;
+    test_case "gap before self-alignment" `Quick test_gap_before_self_alignment;
     test_case "priority order per group" `Quick test_priority_order_per_group;
     test_case "handler priority ordering" `Quick test_handler_priority_ordering;
     test_case "border width and color ordering" `Quick
