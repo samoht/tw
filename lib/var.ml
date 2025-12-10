@@ -435,6 +435,12 @@ let reference_with_fallback : type a b. (a, b) t -> a -> a Css.var =
       var_ref
   | Property_default | Ref_only -> assert false
 
+(* Reference a channel variable with an empty fallback. Produces: var(--name,) -
+   empty fallback means unset variables contribute nothing. Used for optional
+   transform components. *)
+let reference_with_empty_fallback : type a. (a, [< `Channel ]) t -> a Css.var =
+ fun var -> Css.var_ref ~fallback:Css.Empty var.name
+
 (* Reference a channel variable with a var fallback to a theme variable
    Produces: var(--channel, var(--theme-fallback)) IMPORTANT: This creates a
    reference WITHOUT property metadata to avoid generating @property rules when

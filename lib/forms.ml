@@ -206,7 +206,7 @@ module Handler = struct
             background_size (Size (Pct 100., Pct 100.));
             border_color (hex "#0000");
           ];
-        media ~condition:"(forced-colors:active)"
+        media ~condition:(Media.Forced_colors `Active)
           [
             rule ~selector:(compound [ base_sel; Checked ]) [ appearance Auto ];
           ];
@@ -233,7 +233,7 @@ module Handler = struct
             background_size (Size (Pct 100., Pct 100.));
             border_color (hex "#0000");
           ];
-        media ~condition:"(forced-colors:active)"
+        media ~condition:(Media.Forced_colors `Active)
           [
             rule
               ~selector:(compound [ base_sel; Indeterminate ])
@@ -296,7 +296,7 @@ module Handler = struct
             background_size (Size (Pct 100., Pct 100.));
             border_color (hex "#0000");
           ];
-        media ~condition:"(forced-colors:active)"
+        media ~condition:(Media.Forced_colors `Active)
           [
             rule ~selector:(compound [ base_sel; Checked ]) [ appearance Auto ];
           ];

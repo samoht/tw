@@ -189,22 +189,13 @@ module Handler = struct
      var(--tw-skew-x,) var(--tw-skew-y,); When a variable is set (e.g.,
      --tw-rotate-x: rotateX(45deg)), it becomes part of the transform. *)
   let transform =
-    (* Create var references with Empty fallbacks *)
-    let rotate_x_ref : Css.transform Css.var =
-      Css.var_ref ~fallback:Empty "tw-rotate-x"
-    in
-    let rotate_y_ref : Css.transform Css.var =
-      Css.var_ref ~fallback:Empty "tw-rotate-y"
-    in
-    let rotate_z_ref : Css.transform Css.var =
-      Css.var_ref ~fallback:Empty "tw-rotate-z"
-    in
-    let skew_x_ref : Css.transform Css.var =
-      Css.var_ref ~fallback:Empty "tw-skew-x"
-    in
-    let skew_y_ref : Css.transform Css.var =
-      Css.var_ref ~fallback:Empty "tw-skew-y"
-    in
+    (* Create var references with Empty fallbacks for optional transform
+       components *)
+    let rotate_x_ref = Var.reference_with_empty_fallback tw_rotate_x_var in
+    let rotate_y_ref = Var.reference_with_empty_fallback tw_rotate_y_var in
+    let rotate_z_ref = Var.reference_with_empty_fallback tw_rotate_z_var in
+    let skew_x_ref = Var.reference_with_empty_fallback tw_skew_x_var in
+    let skew_y_ref = Var.reference_with_empty_fallback tw_skew_y_var in
     (* Collect @property rules for these variables *)
     let property_rules =
       [

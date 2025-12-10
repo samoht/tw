@@ -474,9 +474,11 @@ let check_var_usage () =
               Hashtbl.replace var_creates var_name (location :: existing)
           | None -> ());
 
-          (* Check for Css.var_ref *)
-          if Re.execp css_var_ref_re line then
-            var_ref_uses := (relative_file, idx + 1, line) :: !var_ref_uses)
+          (* Check for Css.var_ref - exclude var.ml (implementation module) *)
+          if
+            Re.execp css_var_ref_re line
+            && not (String.ends_with ~suffix:"var.ml" relative_file)
+          then var_ref_uses := (relative_file, idx + 1, line) :: !var_ref_uses)
         lines)
     ml_files;
 
@@ -884,10 +886,11 @@ let () =
        the same priority group. Priority 2: Margin and prose size utilities -
        ordered by suborder within the same priority group. Priority 4: Display
        utilities (layout, flex, grid, tables) - these are ordered by suborder
-       within the same priority group. Priority 21: Color and prose-color
-       utilities - ordered by suborder within the same priority group. *)
-    (* Gap and alignment share priority 15 - alignment suborder ensures correct output *)
-    let allowed_shared_priorities = [ 0; 2; 4; 15; 21 ] in
+       within the same priority group. Priority 17: Gap and alignment utilities
+       - ordered by suborder within the same priority group. Priority 23: Color
+       and prose-color utilities - ordered by suborder within the same priority
+       group. *)
+    let allowed_shared_priorities = [ 0; 2; 4; 17; 23 ] in
 
     let lib_dir = root // "lib" in
     let ml_files =
