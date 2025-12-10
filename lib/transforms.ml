@@ -171,11 +171,20 @@ module Handler = struct
     let value : length = if n = 0 then Zero else Px (float_of_int n) in
     style [ Css.perspective value ]
 
-  let perspective_origin_center = style [ perspective_origin "center" ]
-  let perspective_origin_top = style [ perspective_origin "top" ]
-  let perspective_origin_bottom = style [ perspective_origin "bottom" ]
-  let perspective_origin_left = style [ perspective_origin "left" ]
-  let perspective_origin_right = style [ perspective_origin "right" ]
+  let perspective_origin_center =
+    style [ perspective_origin Css.Perspective_center ]
+
+  let perspective_origin_top = style [ perspective_origin Css.Perspective_top ]
+
+  let perspective_origin_bottom =
+    style [ perspective_origin Css.Perspective_bottom ]
+
+  let perspective_origin_left =
+    style [ perspective_origin Css.Perspective_left ]
+
+  let perspective_origin_right =
+    style [ perspective_origin Css.Perspective_right ]
+
   let transform_style_3d = style [ transform_style Preserve_3d ]
   let transform_style_flat = style [ transform_style Flat ]
   let backface_visible = style [ backface_visibility Visible ]

@@ -37,9 +37,63 @@ Import rules now use typed fields:
 - `supports : Supports.t option` instead of `string option`
 - `media : Media.t option` instead of `string option`
 
+## High Priority (New)
+
+### 7. Type `will_change` property
+
+**File**: `lib/interactivity.ml:137-140`
+
+Currently uses raw strings like `"auto"`, `"scroll-position"`, `"contents"`, `"transform"`.
+
+```ocaml
+type will_change =
+  | Auto
+  | Scroll_position
+  | Contents
+  | Transform
+  | Property of string list  (* For custom property names *)
+```
+
+### 8. Type `perspective_origin` property
+
+**File**: `lib/transforms.ml:174-178`
+
+Currently uses raw strings like `"center"`, `"top"`, `"bottom"`.
+
+Should reuse `position_value` type or create a simpler variant.
+
+### 9. Type `clip` property (deprecated)
+
+**File**: `lib/layout.ml:134, 147`
+
+Currently uses raw strings like `"rect(0, 0, 0, 0)"` and `"auto"`.
+
+```ocaml
+type clip =
+  | Auto
+  | Rect of { top: length; right: length; bottom: length; left: length }
+```
+
+### 10. Type `clip_path` property
+
+**File**: `lib/clipping.ml:16-30`
+
+Currently builds `"polygon(...)"` via string concatenation.
+
+```ocaml
+type clip_path =
+  | None
+  | Url of string
+  | Inset of length * length * length * length
+  | Circle of length option * position_value option
+  | Ellipse of length * length * position_value option
+  | Polygon of (length * length) list
+  | Path of string  (* SVG path data *)
+```
+
 ## Low Priority
 
-### 6. Review other string escapes
+### 11. Review other string escapes
 
 - `Selector.Raw` - Sometimes needed for complex selectors
 - `Container.Raw` - Escape hatch for unparsed conditions

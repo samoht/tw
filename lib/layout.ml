@@ -131,7 +131,7 @@ module Handler = struct
             padding [ Zero ];
             margin [ Px (-1.) ];
             overflow Hidden;
-            clip "rect(0, 0, 0, 0)";
+            clip (Css.Clip_rect (Zero, Zero, Zero, Zero));
             white_space Nowrap;
             border_width Zero;
           ]
@@ -144,7 +144,7 @@ module Handler = struct
             padding [ Zero ];
             margin [ Zero ];
             overflow Visible;
-            clip "auto";
+            clip Css.Clip_auto;
             white_space Normal;
           ]
     | Visible -> style [ visibility Visible ]
