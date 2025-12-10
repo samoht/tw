@@ -10,24 +10,36 @@ module Handler = struct
   let name = "clipping"
   let priority = 26
 
-  let clip_polygon' points =
-    let coords =
+  (** Convert float percentage pairs to typed length pairs for clip-path polygon
+  *)
+  let points_to_lengths points : (Css.length * Css.length) list =
+    List.map
+      (fun (x, y) ->
+        let x' : Css.length = Pct x in
+        let y' : Css.length = Pct y in
+        (x', y'))
       points
-      |> List.map (fun (x, y) -> Printf.sprintf "%g%% %g%%" x y)
-      |> String.concat ", "
-    in
-    let func = "polygon(" ^ coords ^ ")" in
-    style [ clip func ]
+
+  let clip_polygon' points =
+    style [ clip_path (Css.Clip_path_polygon (points_to_lengths points)) ]
+
+  (** Format a float without trailing zeros for class name generation *)
+  let format_float f =
+    let s = string_of_float f in
+    (* Remove trailing dot if present (e.g., "5." -> "5") *)
+    if String.length s > 0 && s.[String.length s - 1] = '.' then
+      String.sub s 0 (String.length s - 1)
+    else s
 
   let to_class = function
     | Clip_polygon points ->
         let coords =
           points
-          |> List.map (fun (x, y) -> Printf.sprintf "%g%% %g%%" x y)
+          |> List.map (fun (x, y) ->
+                 format_float x ^ "% " ^ format_float y ^ "%")
           |> String.concat ", "
         in
-        let func = "polygon(" ^ coords ^ ")" in
-        "clip-[" ^ func ^ "]"
+        "clip-[polygon(" ^ coords ^ ")]"
 
   let to_style = function Clip_polygon points -> clip_polygon' points
   let suborder = function Clip_polygon _ -> 0
