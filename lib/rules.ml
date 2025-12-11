@@ -1379,8 +1379,14 @@ let placeholder_supports =
         outer_support_content;
     ]
 
-let build_base_layer ?supports () =
-  let base = Preflight.stylesheet ?placeholder_supports:supports () in
+let build_base_layer ?supports ?(forms_base = false) () =
+  let preflight =
+    Preflight.stylesheet ?placeholder_supports:supports ~forms:forms_base ()
+  in
+  let base =
+    if forms_base then Css.concat [ preflight; Forms.base_stylesheet () ]
+    else preflight
+  in
   Css.layer_of ~name:"base" base
 
 (* Use the centralized conversion function from Var module *)
@@ -1693,7 +1699,18 @@ let flatten_property_rules property_rules_lists =
   property_rules_lists |> List.concat_map Css.statements
 
 (* Build individual CSS layers *)
-let build_individual_layers first_usage_order selector_props
+(* Detect if forms utilities are used - triggers including forms base layer *)
+let has_forms_utilities tw_classes =
+  let rec check_utility = function
+    | Utility.Base u ->
+        let name = Utility.name_of_base u in
+        name = "forms" || name = "forms_select"
+    | Utility.Modified (_, u) -> check_utility u
+    | Utility.Group us -> List.exists check_utility us
+  in
+  List.exists check_utility tw_classes
+
+let build_individual_layers ~forms_base first_usage_order selector_props
     all_property_statements statements =
   (* Only include font family defaults - transition defaults are added when
      transition utilities are used, to match Tailwind's behavior *)
@@ -1702,7 +1719,9 @@ let build_individual_layers first_usage_order selector_props
     compute_theme_layer_from_selector_props ~default_decls:theme_defaults
       selector_props
   in
-  let base_layer = build_base_layer ~supports:placeholder_supports () in
+  let base_layer =
+    build_base_layer ~supports:placeholder_supports ~forms_base ()
+  in
   let properties_layer, property_rules =
     if all_property_statements = [] then (None, [])
     else
@@ -1745,8 +1764,9 @@ let build_layers ~include_base ~selector_props tw_classes statements =
     collect_all_property_rules vars_from_utilities set_var_names
       explicit_property_rules
   in
+  let forms_base = has_forms_utilities tw_classes in
   let layers =
-    build_individual_layers first_usage_order selector_props
+    build_individual_layers ~forms_base first_usage_order selector_props
       all_property_statements statements
   in
   (* Extract keyframes from all utilities *)

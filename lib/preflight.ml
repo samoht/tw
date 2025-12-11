@@ -347,24 +347,41 @@ let form_misc_resets () =
     rule ~selector:(Selector.element "textarea") [ resize Vertical ];
   ]
 
-(** Webkit-specific form resets *)
-let webkit_form_resets () =
-  [
-    rule ~selector:Webkit_search_decoration [ webkit_appearance None ];
-    rule ~selector:Webkit_date_and_time_value
-      [ min_height (Lh 1.0); text_align Inherit ];
-    rule ~selector:Webkit_datetime_edit [ display Inline_flex ];
-    rule ~selector:Webkit_datetime_edit_fields_wrapper [ padding [ Zero ] ];
-    rule ~selector:Webkit_datetime_edit [ padding_block Zero ];
-    rule ~selector:Webkit_datetime_edit_year_field [ padding_block Zero ];
-    rule ~selector:Webkit_datetime_edit_month_field [ padding_block Zero ];
-    rule ~selector:Webkit_datetime_edit_day_field [ padding_block Zero ];
-    rule ~selector:Webkit_datetime_edit_hour_field [ padding_block Zero ];
-    rule ~selector:Webkit_datetime_edit_minute_field [ padding_block Zero ];
-    rule ~selector:Webkit_datetime_edit_second_field [ padding_block Zero ];
-    rule ~selector:Webkit_datetime_edit_millisecond_field [ padding_block Zero ];
-    rule ~selector:Webkit_datetime_edit_meridiem_field [ padding_block Zero ];
-  ]
+(** Webkit-specific form resets. When [~forms:true], omits rules that the forms
+    plugin provides (display:inline-flex and fields-wrapper padding) to avoid
+    duplicates. *)
+let webkit_form_resets ?(forms = false) () =
+  let base_rules =
+    [
+      rule ~selector:Webkit_search_decoration [ webkit_appearance None ];
+      rule ~selector:Webkit_date_and_time_value
+        [ min_height (Lh 1.0); text_align Inherit ];
+    ]
+  in
+  (* When forms plugin is active, it provides these rules, so skip them here *)
+  let forms_provided_rules =
+    if forms then []
+    else
+      [
+        rule ~selector:Webkit_datetime_edit [ display Inline_flex ];
+        rule ~selector:Webkit_datetime_edit_fields_wrapper [ padding [ Zero ] ];
+      ]
+  in
+  let padding_block_rules =
+    [
+      rule ~selector:Webkit_datetime_edit [ padding_block Zero ];
+      rule ~selector:Webkit_datetime_edit_year_field [ padding_block Zero ];
+      rule ~selector:Webkit_datetime_edit_month_field [ padding_block Zero ];
+      rule ~selector:Webkit_datetime_edit_day_field [ padding_block Zero ];
+      rule ~selector:Webkit_datetime_edit_hour_field [ padding_block Zero ];
+      rule ~selector:Webkit_datetime_edit_minute_field [ padding_block Zero ];
+      rule ~selector:Webkit_datetime_edit_second_field [ padding_block Zero ];
+      rule ~selector:Webkit_datetime_edit_millisecond_field
+        [ padding_block Zero ];
+      rule ~selector:Webkit_datetime_edit_meridiem_field [ padding_block Zero ];
+    ]
+  in
+  base_rules @ forms_provided_rules @ padding_block_rules
 
 (** Firefox-specific form resets *)
 let firefox_form_resets () =
@@ -391,7 +408,7 @@ let button_resets () =
 let hidden_resets () =
   [ rule ~selector:hidden_not_until_found [ important (display None) ] ]
 
-let stylesheet ?placeholder_supports () =
+let stylesheet ?placeholder_supports ?(forms = false) () =
   (* Get variable references for theme-declared variables *)
   let fallback_stack : font_family =
     List
@@ -459,7 +476,7 @@ let stylesheet ?placeholder_supports () =
         form_control_resets ();
         select_resets ();
         form_misc_resets ();
-        webkit_form_resets ();
+        webkit_form_resets ~forms ();
         firefox_form_resets ();
         button_specific_resets ();
         button_resets ();
