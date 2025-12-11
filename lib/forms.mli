@@ -33,3 +33,17 @@ module Handler : Utility.Handler
 
 module Select : Utility.Handler
 (** Handler for select/textarea (priority 7) *)
+
+(** {1 Base Layer Stylesheet} *)
+
+val base_stylesheet : unit -> Css.t
+(** [base_stylesheet ()] returns the CSS stylesheet containing base layer rules
+    for native HTML form elements. This is included in the base layer when forms
+    utilities are used, matching the [\@tailwindcss/forms] plugin behavior.
+
+    Includes:
+    - Text input base styles ([type=text], textarea, select, etc.)
+    - Select dropdown arrow styling
+    - Checkbox/radio styling with focus rings
+    - File input styling
+    - Forced-colors media queries for accessibility *)

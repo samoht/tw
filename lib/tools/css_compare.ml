@@ -174,13 +174,16 @@ let diff ~expected ~actual =
           Hashtbl.iter
             (fun key ds1 ->
               match Hashtbl.find_opt tbl2 key with
-              | Some ds2 ->
+              | Some ds2 when List.length ds1 = List.length ds2 ->
                   let pairs = List.combine ds1 ds2 in
                   List.iter
                     (fun (d1, d2) ->
-                      let same_set = sig_of_decls d1 = sig_of_decls d2 in
+                      let sig1 = sig_of_decls d1 in
+                      let sig2 = sig_of_decls d2 in
+                      let same_set = sig1 = sig2 in
                       let same_order = d1 = d2 in
                       if same_set && not same_order then
+                        (* Same properties but different order within rule *)
                         diffs :=
                           D.Rule_reordered
                             {
@@ -191,8 +194,57 @@ let diff ~expected ~actual =
                               old_declarations = Some d1;
                               new_declarations = Some d2;
                             }
+                          :: !diffs
+                      else if not same_set then
+                        (* Different properties at same selector position - this
+                           is a content change, not just reordering *)
+                        diffs :=
+                          D.Rule_content_changed
+                            {
+                              selector = key;
+                              old_declarations = d1;
+                              new_declarations = d2;
+                              property_changes = [];
+                              added_properties =
+                                List.filter_map
+                                  (fun (p, _) ->
+                                    if List.mem_assoc p sig1 then None
+                                    else Some p)
+                                  sig2;
+                              removed_properties =
+                                List.filter_map
+                                  (fun (p, _) ->
+                                    if List.mem_assoc p sig2 then None
+                                    else Some p)
+                                  sig1;
+                            }
                           :: !diffs)
                     pairs
+              | Some ds2 ->
+                  (* Different number of rules with same selector - report as
+                     structural difference. ds1 = expected (tailwind), ds2 =
+                     actual (ours) *)
+                  let n1 = List.length ds1 in
+                  let n2 = List.length ds2 in
+                  if n2 > n1 then
+                    (* Actual has more rules than expected - we have extra *)
+                    diffs :=
+                      D.Rule_added
+                        {
+                          selector = key ^ " (duplicate)";
+                          declarations = List.nth ds2 (n2 - 1);
+                        }
+                      :: !diffs
+                  else
+                    (* Expected has more rules than actual - we're missing
+                       some *)
+                    diffs :=
+                      D.Rule_removed
+                        {
+                          selector = key ^ " (missing)";
+                          declarations = List.nth ds1 (n1 - 1);
+                        }
+                      :: !diffs
               | None -> ())
             tbl1;
           if !diffs = [] then None

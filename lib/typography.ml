@@ -723,14 +723,14 @@ module Handler = struct
     | Text_sm -> 2011
     | Text_xl -> 2012
     | Text_xs -> 2013
-    (* Leading comes third — Tailwind order: none, tight, snug, normal, relaxed,
-       loose *)
-    | Leading_none -> 3001
-    | Leading_tight -> 3002
-    | Leading_snug -> 3003
-    | Leading_normal -> 3004
-    | Leading_relaxed -> 3005
-    | Leading_loose -> 3006
+    (* Leading comes third — Tailwind uses alphabetical order: loose, none,
+       normal, relaxed, snug, tight *)
+    | Leading_loose -> 3001
+    | Leading_none -> 3002
+    | Leading_normal -> 3003
+    | Leading_relaxed -> 3004
+    | Leading_snug -> 3005
+    | Leading_tight -> 3006
     | Leading n -> 3100 + n
     (* Font weight comes fourth - alphabetical order *)
     | Font_black -> 4100

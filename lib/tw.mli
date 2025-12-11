@@ -200,13 +200,17 @@ val rgb : int -> int -> int -> color
 (** Preflight provides Tailwind’s base CSS reset. It is included automatically
     when generating full CSS with this library. *)
 
-val preflight : ?placeholder_supports:Css.t -> unit -> Css.t
-(** [preflight ?placeholder_supports ()] returns Tailwind's Preflight base reset
-    rules.
+val preflight : ?placeholder_supports:Css.t -> ?forms:bool -> unit -> Css.t
+(** [preflight ?placeholder_supports ?forms ()] returns Tailwind's Preflight
+    base reset rules.
 
     Use this to compose the base reset manually when needed. When using
     {!to_css} with [~base:true] (the default), the base reset is already
     included.
+
+    If [forms] is [true], omits webkit datetime rules that the forms plugin
+    provides (display:inline-flex and fields-wrapper padding) to avoid
+    duplicates.
 
     Usage:
     - [Css.stylesheet (preflight () |> List.map (fun r -> Css.Rule r))]
