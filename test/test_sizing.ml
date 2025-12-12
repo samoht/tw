@@ -19,11 +19,21 @@ let test_widths () =
   check "w-min";
   check "w-max";
   check "w-fit";
-  check "w-auto"
+  check "w-auto";
+  (* Large sizes - the bug that was fixed *)
+  check "w-10";
+  check "w-32";
+  check "w-64";
+  check "w-96"
 
 let test_heights () =
   check "h-0";
+  check "h-1";
   check "h-4";
+  check "h-5";
+  check "h-10";
+  check "h-32";
+  check "h-64";
   check "h-full";
   check "h-screen";
   check "h-1/2"
@@ -111,6 +121,48 @@ let all_utilities () =
       max_w_6xl;
     ]
 
+(** Test that the programmatic API generates correct class names *)
+let test_class_generation () =
+  let open Tw in
+  (* Width: w n should generate w-{n} class *)
+  Alcotest.check string "w 1 -> w-1" "w-1" (Tw.pp (w 1));
+  Alcotest.check string "w 4 -> w-4" "w-4" (Tw.pp (w 4));
+  Alcotest.check string "w 10 -> w-10" "w-10" (Tw.pp (w 10));
+  Alcotest.check string "w 64 -> w-64" "w-64" (Tw.pp (w 64));
+  Alcotest.check string "w 96 -> w-96" "w-96" (Tw.pp (w 96));
+
+  (* Height: h n should generate h-{n} class *)
+  Alcotest.check string "h 1 -> h-1" "h-1" (Tw.pp (h 1));
+  Alcotest.check string "h 5 -> h-5" "h-5" (Tw.pp (h 5));
+  Alcotest.check string "h 10 -> h-10" "h-10" (Tw.pp (h 10));
+  Alcotest.check string "h 64 -> h-64" "h-64" (Tw.pp (h 64));
+
+  (* Verify CSS values are correct. These use calc(var(--spacing)*N) format
+     where N is the class number (NOT the rem value). Tailwind v4: w-64 =>
+     calc(var(--spacing)*64), h-10 => calc(var(--spacing)*10) *)
+  let css_for cls = Tw.to_css [ cls ] |> Tw.Css.pp ~minify:true in
+  (* w-64 => calc(var(--spacing)*64) *)
+  Alcotest.check bool "w-64 uses spacing*64" true
+    (Astring.String.is_infix ~affix:"*64)" (css_for (w 64)));
+  (* h-10 => calc(var(--spacing)*10) *)
+  Alcotest.check bool "h-10 uses spacing*10" true
+    (Astring.String.is_infix ~affix:"*10)" (css_for (h 10)));
+  (* w-4 => calc(var(--spacing)*4) *)
+  Alcotest.check bool "w-4 uses spacing*4" true
+    (Astring.String.is_infix ~affix:"*4)" (css_for (w 4)));
+  (* min-w-64 => calc(var(--spacing)*64) *)
+  Alcotest.check bool "min_w 64 uses spacing*64" true
+    (Astring.String.is_infix ~affix:"*64)" (css_for (min_w 64)));
+  (* max-h-32 => calc(var(--spacing)*32) *)
+  Alcotest.check bool "max_h 32 uses spacing*32" true
+    (Astring.String.is_infix ~affix:"*32)" (css_for (max_h 32)));
+  (* size-64 => calc(var(--spacing)*64) for both width and height *)
+  Alcotest.check bool "size 64 uses spacing*64" true
+    (Astring.String.is_infix ~affix:"*64)" (css_for (size 64)));
+  (* size-4 => calc(var(--spacing)*4) *)
+  Alcotest.check bool "size 4 uses spacing*4" true
+    (Astring.String.is_infix ~affix:"*4)" (css_for (size 4)))
+
 let suborder_matches_tailwind () =
   let shuffled = Test_helpers.shuffle (all_utilities ()) in
 
@@ -127,6 +179,7 @@ let tests =
     test_case "sizing of_string - invalid values" `Quick of_string_invalid;
     test_case "aspect classes" `Quick test_aspect_classes;
     test_case "aspect css" `Quick test_aspect_css;
+    test_case "class generation" `Quick test_class_generation;
     test_case "sizing suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
   ]

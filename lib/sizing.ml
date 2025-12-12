@@ -97,11 +97,15 @@ module Handler = struct
       flex-1/flex-col etc. in Tailwind's order. *)
   let priority = 6
 
-  (** Helper to create spacing-based utilities with consistent pattern *)
+  (** Helper to create spacing-based utilities with consistent pattern. [n] is
+      in rem units (e.g., 16.0 for w-64). We convert to class units by
+      multiplying by 4, since --spacing is 0.25rem and the CSS should be
+      calc(var(--spacing) * 64) for w-64. *)
   let spacing_utility css_prop n =
     let decl, spacing_ref = Var.binding Theme.spacing_var (Rem 0.25) in
+    let class_units = n *. 4. in
     let spacing_value : Css.length =
-      Calc Calc.(mul (length (Var spacing_ref)) (float n))
+      Calc Calc.(mul (length (Var spacing_ref)) (float class_units))
     in
     style (decl :: [ css_prop spacing_value ])
 
@@ -438,8 +442,9 @@ module Handler = struct
     | Size_fit -> style [ width Fit_content; height Fit_content ]
     | Size_spacing n ->
         let decl, spacing_ref = Var.binding Theme.spacing_var (Rem 0.25) in
+        let class_units = n *. 4. in
         let spacing_value : Css.length =
-          Calc Calc.(mul (length (Var spacing_ref)) (float n))
+          Calc Calc.(mul (length (Var spacing_ref)) (float class_units))
         in
         style (decl :: [ width spacing_value; height spacing_value ])
     | Size_fraction f -> (
@@ -487,7 +492,7 @@ module Handler = struct
           else err_invalid_value "width fraction" frac
       | v -> (
           match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (W_spacing n)
+          | Some n when n >= 0. -> Ok (W_spacing (n *. 0.25))
           | _ -> err_invalid_value "width" v)
     in
     let parse_h = function
@@ -503,7 +508,7 @@ module Handler = struct
           else err_invalid_value "height fraction" frac
       | v -> (
           match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (H_spacing n)
+          | Some n when n >= 0. -> Ok (H_spacing (n *. 0.25))
           | _ -> err_invalid_value "height" v)
     in
     let parse_min_w = function
@@ -514,7 +519,7 @@ module Handler = struct
       | "fit" -> Ok Min_w_fit
       | v -> (
           match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (Min_w_spacing n)
+          | Some n when n >= 0. -> Ok (Min_w_spacing (n *. 0.25))
           | _ -> err_invalid_value "min-width" v)
     in
     let parse_min_h = function
@@ -523,7 +528,7 @@ module Handler = struct
       | "screen" -> Ok Min_h_screen
       | v -> (
           match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (Min_h_spacing n)
+          | Some n when n >= 0. -> Ok (Min_h_spacing (n *. 0.25))
           | _ -> err_invalid_value "min-height" v)
     in
     let parse_max_w = function
@@ -546,7 +551,7 @@ module Handler = struct
       | "prose" -> Ok Max_w_prose
       | v -> (
           match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (Max_w_spacing n)
+          | Some n when n >= 0. -> Ok (Max_w_spacing (n *. 0.25))
           | _ -> err_invalid_value "max-width" v)
     in
     let parse_max_w_screen = function
@@ -566,7 +571,7 @@ module Handler = struct
       | "fit" -> Ok Max_h_fit
       | v -> (
           match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (Max_h_spacing n)
+          | Some n when n >= 0. -> Ok (Max_h_spacing (n *. 0.25))
           | _ -> err_invalid_value "max-height" v)
     in
     let parse_size = function
@@ -580,7 +585,7 @@ module Handler = struct
           else err_invalid_value "size fraction" frac
       | v -> (
           match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (Size_spacing n)
+          | Some n when n >= 0. -> Ok (Size_spacing (n *. 0.25))
           | _ -> err_invalid_value "size" v)
     in
     match parts with
@@ -597,10 +602,12 @@ module Handler = struct
     | [ "aspect"; "video" ] -> Ok Aspect_video
     | _ -> err_not_utility
 
-  (* Tailwind spacing order helper: matches canonical spacing scale order *)
+  (* Tailwind spacing order helper: matches canonical spacing scale order. n is
+     the rem value, so we convert to class units (multiply by 4). *)
   let spacing_suborder n =
-    let integer = int_of_float (floor n) in
-    let frac = n -. float_of_int integer in
+    let class_units = n *. 4. in
+    let integer = int_of_float (floor class_units) in
+    let frac = class_units -. float_of_int integer in
     (* Fractional part order: .0, .5, .25, .75 (not numeric!) *)
     let frac_order =
       if frac = 0.0 then 0
@@ -712,7 +719,7 @@ module Handler = struct
     | W_max -> "w-max"
     | W_fit -> "w-fit"
     | W_px -> "w-px"
-    | W_spacing n -> "w-" ^ Css.Pp.to_string Css.Pp.float n
+    | W_spacing n -> "w-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
     | W_fraction f -> "w-" ^ f
     (* Height utilities *)
     | H_auto -> "h-auto"
@@ -722,7 +729,7 @@ module Handler = struct
     | H_max -> "h-max"
     | H_fit -> "h-fit"
     | H_px -> "h-px"
-    | H_spacing n -> "h-" ^ Css.Pp.to_string Css.Pp.float n
+    | H_spacing n -> "h-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
     | H_fraction f -> "h-" ^ f
     (* Min-width utilities *)
     | Min_w_0 -> "min-w-0"
@@ -730,7 +737,7 @@ module Handler = struct
     | Min_w_min -> "min-w-min"
     | Min_w_max -> "min-w-max"
     | Min_w_fit -> "min-w-fit"
-    | Min_w_spacing n -> "min-w-" ^ Css.Pp.to_string Css.Pp.float n
+    | Min_w_spacing n -> "min-w-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
     (* Max-width utilities *)
     | Max_w_none -> "max-w-none"
     | Max_w_xs -> "max-w-xs"
@@ -754,7 +761,7 @@ module Handler = struct
     | Max_w_screen_lg -> "max-w-screen-lg"
     | Max_w_screen_xl -> "max-w-screen-xl"
     | Max_w_screen_2xl -> "max-w-screen-2xl"
-    | Max_w_spacing n -> "max-w-" ^ Css.Pp.to_string Css.Pp.float n
+    | Max_w_spacing n -> "max-w-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
     (* Min-height utilities *)
     | Min_h_0 -> "min-h-0"
     | Min_h_full -> "min-h-full"
@@ -762,7 +769,7 @@ module Handler = struct
     | Min_h_min -> "min-h-min"
     | Min_h_max -> "min-h-max"
     | Min_h_fit -> "min-h-fit"
-    | Min_h_spacing n -> "min-h-" ^ Css.Pp.to_string Css.Pp.float n
+    | Min_h_spacing n -> "min-h-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
     (* Max-height utilities *)
     | Max_h_none -> "max-h-none"
     | Max_h_full -> "max-h-full"
@@ -770,14 +777,14 @@ module Handler = struct
     | Max_h_min -> "max-h-min"
     | Max_h_max -> "max-h-max"
     | Max_h_fit -> "max-h-fit"
-    | Max_h_spacing n -> "max-h-" ^ Css.Pp.to_string Css.Pp.float n
+    | Max_h_spacing n -> "max-h-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
     (* Size utilities *)
     | Size_auto -> "size-auto"
     | Size_full -> "size-full"
     | Size_min -> "size-min"
     | Size_max -> "size-max"
     | Size_fit -> "size-fit"
-    | Size_spacing n -> "size-" ^ Css.Pp.to_string Css.Pp.float n
+    | Size_spacing n -> "size-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
     | Size_fraction f -> "size-" ^ f
     (* Aspect utilities *)
     | Aspect_auto -> "aspect-auto"
@@ -959,6 +966,14 @@ let max_h_screen = utility Max_h_screen
 let max_h_min = utility Max_h_min
 let max_h_max = utility Max_h_max
 let max_h_fit = utility Max_h_fit
+
+(* Size (width and height combined) *)
+let size n = utility (Size_spacing (float_of_int n *. 0.25))
+let size_auto = utility Size_auto
+let size_full = utility Size_full
+let size_min = utility Size_min
+let size_max = utility Size_max
+let size_fit = utility Size_fit
 
 (* Aspect ratio *)
 let aspect_auto = utility Aspect_auto

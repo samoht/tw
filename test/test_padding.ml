@@ -51,12 +51,28 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"padding suborder matches Tailwind" shuffled
 
+(** Test that CSS values use the correct spacing multiplier. p-64 should
+    generate calc(var(--spacing)*64), not calc(var(--spacing)*16) *)
+let test_css_values () =
+  let open Tw in
+  let css_for cls = Tw.to_css [ cls ] |> Tw.Css.pp ~minify:true in
+  (* p-64 => calc(var(--spacing)*64) *)
+  Alcotest.check bool "p-64 uses spacing*64" true
+    (Astring.String.is_infix ~affix:"*64)" (css_for (p 64)));
+  (* p-4 => calc(var(--spacing)*4) *)
+  Alcotest.check bool "p-4 uses spacing*4" true
+    (Astring.String.is_infix ~affix:"*4)" (css_for (p 4)));
+  (* px-10 => calc(var(--spacing)*10) *)
+  Alcotest.check bool "px-10 uses spacing*10" true
+    (Astring.String.is_infix ~affix:"*10)" (css_for (px 10)))
+
 let tests =
   [
     test_case "padding of_string - valid values" `Quick of_string_valid;
     test_case "padding of_string - invalid values" `Quick of_string_invalid;
     test_case "padding suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "padding CSS values" `Quick test_css_values;
   ]
 
 let suite = ("padding", tests)
