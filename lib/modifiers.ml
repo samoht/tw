@@ -196,9 +196,27 @@ let data_custom key value style =
 let data_active styles = wrap Data_active styles
 let data_inactive styles = wrap Data_inactive styles
 
-(* Parse modifiers (responsive, states) from class string *)
+(* Parse modifiers (responsive, states) from class string. Handles brackets
+   properly so has-[:checked]:bg-red-500 parses as modifiers=["has-[:checked]"]
+   and base_class="bg-red-500" *)
 let of_string class_str =
-  let parts = String.split_on_char ':' class_str in
+  let len = String.length class_str in
+  let rec split_parts acc current_start i bracket_depth =
+    if i >= len then
+      (* End of string - add final part *)
+      let part = String.sub class_str current_start (len - current_start) in
+      List.rev (part :: acc)
+    else
+      match class_str.[i] with
+      | '[' -> split_parts acc current_start (i + 1) (bracket_depth + 1)
+      | ']' -> split_parts acc current_start (i + 1) (max 0 (bracket_depth - 1))
+      | ':' when bracket_depth = 0 ->
+          (* Split here - colon outside brackets *)
+          let part = String.sub class_str current_start (i - current_start) in
+          split_parts (part :: acc) (i + 1) (i + 1) 0
+      | _ -> split_parts acc current_start (i + 1) bracket_depth
+  in
+  let parts = split_parts [] 0 0 0 in
   match List.rev parts with
   | [] -> ([], class_str)
   | cls :: modifiers -> (List.rev modifiers, cls)

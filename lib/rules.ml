@@ -288,7 +288,7 @@ let has_like_selector kind selector_str base_class props =
         compound
           [
             class_ ("has-[" ^ selector_str ^ "]:" ^ base_class);
-            has [ is_ [ parsed_selector ] ];
+            has [ parsed_selector ];
           ]
       in
       regular ~selector:sel ~props ~base_class ()
@@ -296,8 +296,7 @@ let has_like_selector kind selector_str base_class props =
       let class_name = "group-has-[" ^ selector_str ^ "]:" ^ base_class in
       let rel =
         combine
-          (compound
-             [ where [ Class "group" ]; has [ is_ [ parsed_selector ] ] ])
+          (compound [ where [ Class "group" ]; has [ parsed_selector ] ])
           Descendant universal
       in
       let sel = compound [ Class class_name; is_ [ rel ] ] in
