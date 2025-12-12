@@ -981,47 +981,10 @@ module Handler = struct
   let text_center = style [ text_align Center ]
   let text_right = style [ text_align Right ]
   let text_justify = style [ text_align Justify ]
-
-  let underline =
-    style
-      [
-        text_decoration
-          (Shorthand
-             {
-               lines = [ Underline ];
-               style = None;
-               color = None;
-               thickness = None;
-             });
-      ]
-
-  let overline =
-    style
-      [
-        text_decoration
-          (Shorthand
-             {
-               lines = [ Overline ];
-               style = None;
-               color = None;
-               thickness = None;
-             });
-      ]
-
-  let line_through =
-    style
-      [
-        text_decoration
-          (Shorthand
-             {
-               lines = [ Line_through ];
-               style = None;
-               color = None;
-               thickness = None;
-             });
-      ]
-
-  let no_underline = style [ text_decoration None ]
+  let underline = style [ text_decoration_line Underline ]
+  let overline = style [ text_decoration_line Overline ]
+  let line_through = style [ text_decoration_line Line_through ]
+  let no_underline = style [ text_decoration_line None ]
   let decoration_solid = style [ text_decoration_style Solid ]
   let decoration_double = style [ text_decoration_style Double ]
   let decoration_dotted = style [ text_decoration_style Dotted ]
