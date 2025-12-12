@@ -45,22 +45,38 @@ module Handler = struct
              });
       ]
 
+  (* Theme variable for animate-spin - order (7, 9) places it after radius but
+     before animate-pulse (7, 10) *)
+  let animate_spin_var = Var.theme Css.Animation "animate-spin" ~order:(7, 9)
+
   let animate_spin =
-    style
-      [
-        Css.animation
-          (Css.Shorthand
-             {
-               name = Some "spin";
-               duration = Some (S 1.0);
-               timing_function = Some Linear;
-               delay = None;
-               iteration_count = Some Infinite;
-               direction = None;
-               fill_mode = None;
-               play_state = None;
-             });
-      ]
+    let spin_animation =
+      Css.Shorthand
+        {
+          name = Some "spin";
+          duration = Some (S 1.0);
+          timing_function = Some Linear;
+          delay = None;
+          iteration_count = Some Infinite;
+          direction = None;
+          fill_mode = None;
+          play_state = None;
+        }
+    in
+    let theme_decl, spin_var = Var.binding animate_spin_var spin_animation in
+    let spin_keyframes =
+      Css.keyframes "spin"
+        [
+          {
+            Css.Stylesheet.keyframe_selector =
+              Css.Keyframe.Positions [ Css.Keyframe.To ];
+            keyframe_declarations =
+              [ Css.Declaration.transform (Rotate (Deg 360.)) ];
+          };
+        ]
+    in
+    style ~rules:(Some [ spin_keyframes ])
+      [ theme_decl; Css.animation (Css.Var spin_var) ]
 
   let animate_ping =
     style
@@ -112,22 +128,56 @@ module Handler = struct
     style ~rules:(Some [ pulse_keyframes ])
       [ theme_decl; Css.animation (Css.Var pulse_var) ]
 
+  (* Theme variable for animate-bounce - order (7, 11) places it after
+     animate-pulse (7, 10) *)
+  let animate_bounce_var =
+    Var.theme Css.Animation "animate-bounce" ~order:(7, 11)
+
   let animate_bounce =
-    style
-      [
-        Css.animation
-          (Css.Shorthand
-             {
-               name = Some "bounce";
-               duration = Some (S 1.0);
-               timing_function = None;
-               delay = None;
-               iteration_count = Some Infinite;
-               direction = None;
-               fill_mode = None;
-               play_state = None;
-             });
-      ]
+    let bounce_animation =
+      Css.Shorthand
+        {
+          name = Some "bounce";
+          duration = Some (S 1.0);
+          timing_function = None;
+          delay = None;
+          iteration_count = Some Infinite;
+          direction = None;
+          fill_mode = None;
+          play_state = None;
+        }
+    in
+    let theme_decl, bounce_var =
+      Var.binding animate_bounce_var bounce_animation
+    in
+    let bounce_keyframes =
+      Css.keyframes "bounce"
+        [
+          {
+            Css.Stylesheet.keyframe_selector =
+              Css.Keyframe.Positions
+                [ Css.Keyframe.Percent 0.; Css.Keyframe.To ];
+            keyframe_declarations =
+              [
+                Css.Declaration.animation_timing_function
+                  (Cubic_bezier (0.8, 0., 1., 1.));
+                Css.Declaration.transform (Translate_y (Pct (-25.)));
+              ];
+          };
+          {
+            Css.Stylesheet.keyframe_selector =
+              Css.Keyframe.Positions [ Css.Keyframe.Percent 50. ];
+            keyframe_declarations =
+              [
+                Css.Declaration.animation_timing_function
+                  (Cubic_bezier (0., 0., 0.2, 1.));
+                Css.Declaration.transform None;
+              ];
+          };
+        ]
+    in
+    style ~rules:(Some [ bounce_keyframes ])
+      [ theme_decl; Css.animation (Css.Var bounce_var) ]
 
   let to_style = function
     | Animate_none -> animate_none
