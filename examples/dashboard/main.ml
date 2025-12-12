@@ -66,12 +66,13 @@ let sidebar =
     ~tw:
       Tw.
         [
-          w 64;
+          (* Hidden on mobile, shown on lg screens *)
+          hidden;
+          lg [ flex; w 64 ];
           min_h_screen;
           bg_white;
           border_r;
           border_color gray 200;
-          flex;
           flex_col;
           dark [ bg gray 800; border_color gray 700 ];
         ]
@@ -174,6 +175,36 @@ let sidebar =
 
 (* ========== Header ========== *)
 
+let icon_menu =
+  span ~tw:Tw.[ w 6; h 6; flex; items_center; justify_center ] [ txt "☰" ]
+
+let mobile_logo =
+  div
+    ~tw:Tw.[ flex; items_center; gap 2; lg [ hidden ] ]
+    [
+      div
+        ~tw:
+          Tw.
+            [
+              w 8;
+              h 8;
+              rounded_lg;
+              bg_gradient_to Bottom_right;
+              from_color ~shade:500 blue;
+              to_color ~shade:600 indigo;
+              flex;
+              items_center;
+              justify_center;
+              text_white;
+              font_bold;
+              text_sm;
+            ]
+        [ txt "D" ];
+      span
+        ~tw:Tw.[ font_bold; text gray 900; dark [ text_white ] ]
+        [ txt "Dashboard" ];
+    ]
+
 let header_section =
   header
     ~tw:
@@ -182,27 +213,49 @@ let header_section =
           bg_white;
           border_b;
           border_color gray 200;
-          px 6;
-          py 4;
+          px 4;
+          py 3;
+          md [ px 6; py 4 ];
           dark [ bg gray 800; border_color gray 700 ];
         ]
     [
       div
-        ~tw:Tw.[ flex; items_center; justify_between ]
+        ~tw:Tw.[ flex; items_center; justify_between; gap 4 ]
         [
-          (* Search bar *)
+          (* Mobile: menu button and logo *)
+          div
+            ~tw:Tw.[ flex; items_center; gap 3 ]
+            [
+              (* Menu button - only on mobile *)
+              div
+                ~tw:
+                  Tw.
+                    [
+                      lg [ hidden ];
+                      p 2;
+                      rounded_lg;
+                      hover [ bg gray 100 ];
+                      cursor_pointer;
+                      dark [ hover [ bg gray 700 ] ];
+                    ]
+                [ icon_menu ];
+              mobile_logo;
+            ];
+          (* Search bar - hidden on small screens, visible from md *)
           div
             ~tw:
               Tw.
                 [
-                  flex;
+                  hidden;
+                  md [ flex ];
                   items_center;
                   gap 3;
                   bg gray 100;
                   rounded_lg;
                   px 4;
                   py 2;
-                  w 96;
+                  flex_1;
+                  max_w_md;
                   dark [ bg gray 700 ];
                 ]
             [
@@ -213,8 +266,21 @@ let header_section =
             ];
           (* Right side actions *)
           div
-            ~tw:Tw.[ flex; items_center; gap 4 ]
+            ~tw:Tw.[ flex; items_center; gap 2; md [ gap 4 ] ]
             [
+              (* Search icon on mobile *)
+              div
+                ~tw:
+                  Tw.
+                    [
+                      md [ hidden ];
+                      p 2;
+                      rounded_lg;
+                      hover [ bg gray 100 ];
+                      cursor_pointer;
+                      dark [ hover [ bg gray 700 ] ];
+                    ]
+                [ icon_search ];
               (* Notifications *)
               div
                 ~tw:
@@ -552,21 +618,36 @@ let charts_section =
 
 let main_content =
   main
-    ~tw:Tw.[ flex_1; bg gray 50; dark [ bg gray 900 ] ]
+    ~tw:Tw.[ flex_1; bg gray 50; dark [ bg gray 900 ]; min_w 0 ]
     [
       header_section;
       div
-        ~tw:Tw.[ p 6; space_y 6 ]
+        ~tw:Tw.[ p 4; space_y 4; md [ p 6; space_y 6 ] ]
         [
           (* Page title *)
           div
             [
               h1
                 ~tw:
-                  Tw.[ text_2xl; font_bold; text gray 900; dark [ text_white ] ]
+                  Tw.
+                    [
+                      text_xl;
+                      md [ text_2xl ];
+                      font_bold;
+                      text gray 900;
+                      dark [ text_white ];
+                    ]
                 [ txt "Dashboard Overview" ];
               p
-                ~tw:Tw.[ text gray 500; mt 1; dark [ text gray 400 ] ]
+                ~tw:
+                  Tw.
+                    [
+                      text_sm;
+                      md [ text_base ];
+                      text gray 500;
+                      mt 1;
+                      dark [ text gray 400 ];
+                    ]
                 [ txt "Welcome back! Here's what's happening today." ];
             ];
           stats_section;
