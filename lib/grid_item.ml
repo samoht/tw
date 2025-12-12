@@ -33,14 +33,14 @@ module Handler = struct
   let priority = 1
 
   let col_auto = style [ grid_column_start Auto ]
-  let col_span n = style [ grid_column (Span n, Auto) ]
+  let col_span n = style [ grid_column (Span n, Span n) ]
   let col_span_full = style [ grid_column (Num 1, Num (-1)) ]
   let col_start n = style [ grid_column_start (Num n) ]
   let col_start_auto = style [ grid_column_start Auto ]
   let col_end n = style [ grid_column_end (Num n) ]
   let col_end_auto = style [ grid_column_end Auto ]
   let row_auto = style [ grid_row_start Auto ]
-  let row_span n = style [ grid_row (Span n, Auto) ]
+  let row_span n = style [ grid_row (Span n, Span n) ]
   let row_span_full = style [ grid_row (Num 1, Num (-1)) ]
   let row_start n = style [ grid_row_start (Num n) ]
   let row_start_auto = style [ grid_row_start Auto ]

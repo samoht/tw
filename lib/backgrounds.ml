@@ -261,17 +261,18 @@ module Handler = struct
     | To (color, shade) -> to_color' ~shade color
 
   let suborder = function
+    (* Tailwind order: solid bg-colors before gradient utilities *)
     | Bg (color, shade) ->
         Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
-    | Bg_gradient_to _ -> 10000
+    | Bg_gradient_to _ -> 100000
     | From (color, shade) ->
-        11000
+        110000
         + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
     | Via (color, shade) ->
-        12000
+        120000
         + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
     | To (color, shade) ->
-        13000
+        130000
         + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
 
   let of_class class_name =

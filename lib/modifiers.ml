@@ -381,5 +381,9 @@ let apply modifiers base_utility =
         if is_bracketed m then (os, m :: bs) else (m :: os, bs))
       modifiers ([], [])
   in
-  let acc = List.fold_left apply_one base_utility others in
+  (* Apply modifiers in reverse order so that the first modifier in the string
+     (e.g., "dark" in "dark:hover:...") ends up as the outermost wrapper
+     (Modified(Dark, Modified(Hover, base))). This matches how the programmatic
+     API works: dark [ hover [ ... ] ] *)
+  let acc = List.fold_left apply_one base_utility (List.rev others) in
   List.fold_left apply_one acc brackets

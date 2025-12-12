@@ -428,13 +428,15 @@ let test_is_hover_rule () =
         (Tw.Rules.is_hover_rule media_rule)
   | _ -> fail "Expected single media rule");
 
-  (* Test hover combined with dark mode *)
+  (* Test hover combined with dark mode - now produces a Regular rule with
+     nested CSS nesting, so it's not detected as hover (the hover is inside the
+     nested structure) *)
   let dark_hover_rules = Tw.Rules.outputs (dark [ hover [ m 2 ] ]) in
   (match dark_hover_rules with
-  | [ media_rule ] ->
+  | [ regular_rule ] ->
       check bool "dark+hover is not detected as hover" false
-        (Tw.Rules.is_hover_rule media_rule)
-  | _ -> fail "Expected single media rule");
+        (Tw.Rules.is_hover_rule regular_rule)
+  | _ -> fail "Expected single regular rule with nested CSS");
 
   (* Test focus without hover *)
   let focus_rules = Tw.Rules.outputs (focus [ bg red 400 ]) in

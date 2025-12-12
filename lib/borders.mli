@@ -126,9 +126,225 @@ val rounded_3xl : t
 val rounded_full : t
 (** [rounded_full] sets a fully rounded (max) border radius. *)
 
-(* Individual corner radius utilities not supported by Css module: rounded_t,
-   rounded_r, rounded_b, rounded_l, rounded_tl, rounded_tr, rounded_br,
-   rounded_bl *)
+(** {2 Side-specific border radius} *)
+
+val rounded_t : t
+(** [rounded_t] rounds top corners with default radius. *)
+
+val rounded_t_none : t
+(** [rounded_t_none] sets no rounding on top corners. *)
+
+val rounded_t_sm : t
+(** [rounded_t_sm] sets small rounding on top corners. *)
+
+val rounded_t_md : t
+(** [rounded_t_md] sets medium rounding on top corners. *)
+
+val rounded_t_lg : t
+(** [rounded_t_lg] sets large rounding on top corners. *)
+
+val rounded_t_xl : t
+(** [rounded_t_xl] sets extra large rounding on top corners. *)
+
+val rounded_t_2xl : t
+(** [rounded_t_2xl] sets 2× rounding on top corners. *)
+
+val rounded_t_3xl : t
+(** [rounded_t_3xl] sets 3× rounding on top corners. *)
+
+val rounded_t_full : t
+(** [rounded_t_full] sets full rounding on top corners. *)
+
+val rounded_r : t
+(** [rounded_r] rounds right corners with default radius. *)
+
+val rounded_r_none : t
+(** [rounded_r_none] sets no rounding on right corners. *)
+
+val rounded_r_sm : t
+(** [rounded_r_sm] sets small rounding on right corners. *)
+
+val rounded_r_md : t
+(** [rounded_r_md] sets medium rounding on right corners. *)
+
+val rounded_r_lg : t
+(** [rounded_r_lg] sets large rounding on right corners. *)
+
+val rounded_r_xl : t
+(** [rounded_r_xl] sets extra large rounding on right corners. *)
+
+val rounded_r_2xl : t
+(** [rounded_r_2xl] sets 2× rounding on right corners. *)
+
+val rounded_r_3xl : t
+(** [rounded_r_3xl] sets 3× rounding on right corners. *)
+
+val rounded_r_full : t
+(** [rounded_r_full] sets full rounding on right corners. *)
+
+val rounded_b : t
+(** [rounded_b] rounds bottom corners with default radius. *)
+
+val rounded_b_none : t
+(** [rounded_b_none] sets no rounding on bottom corners. *)
+
+val rounded_b_sm : t
+(** [rounded_b_sm] sets small rounding on bottom corners. *)
+
+val rounded_b_md : t
+(** [rounded_b_md] sets medium rounding on bottom corners. *)
+
+val rounded_b_lg : t
+(** [rounded_b_lg] sets large rounding on bottom corners. *)
+
+val rounded_b_xl : t
+(** [rounded_b_xl] sets extra large rounding on bottom corners. *)
+
+val rounded_b_2xl : t
+(** [rounded_b_2xl] sets 2× rounding on bottom corners. *)
+
+val rounded_b_3xl : t
+(** [rounded_b_3xl] sets 3× rounding on bottom corners. *)
+
+val rounded_b_full : t
+(** [rounded_b_full] sets full rounding on bottom corners. *)
+
+val rounded_l : t
+(** [rounded_l] rounds left corners with default radius. *)
+
+val rounded_l_none : t
+(** [rounded_l_none] sets no rounding on left corners. *)
+
+val rounded_l_sm : t
+(** [rounded_l_sm] sets small rounding on left corners. *)
+
+val rounded_l_md : t
+(** [rounded_l_md] sets medium rounding on left corners. *)
+
+val rounded_l_lg : t
+(** [rounded_l_lg] sets large rounding on left corners. *)
+
+val rounded_l_xl : t
+(** [rounded_l_xl] sets extra large rounding on left corners. *)
+
+val rounded_l_2xl : t
+(** [rounded_l_2xl] sets 2× rounding on left corners. *)
+
+val rounded_l_3xl : t
+(** [rounded_l_3xl] sets 3× rounding on left corners. *)
+
+val rounded_l_full : t
+(** [rounded_l_full] sets full rounding on left corners. *)
+
+(** {2 Corner-specific border radius} *)
+
+val rounded_tl : t
+(** [rounded_tl] rounds the top-left corner with default radius. *)
+
+val rounded_tl_none : t
+(** [rounded_tl_none] sets no rounding on top-left corner. *)
+
+val rounded_tl_sm : t
+(** [rounded_tl_sm] sets small rounding on top-left corner. *)
+
+val rounded_tl_md : t
+(** [rounded_tl_md] sets medium rounding on top-left corner. *)
+
+val rounded_tl_lg : t
+(** [rounded_tl_lg] sets large rounding on top-left corner. *)
+
+val rounded_tl_xl : t
+(** [rounded_tl_xl] sets extra large rounding on top-left corner. *)
+
+val rounded_tl_2xl : t
+(** [rounded_tl_2xl] sets 2× rounding on top-left corner. *)
+
+val rounded_tl_3xl : t
+(** [rounded_tl_3xl] sets 3× rounding on top-left corner. *)
+
+val rounded_tl_full : t
+(** [rounded_tl_full] sets full rounding on top-left corner. *)
+
+val rounded_tr : t
+(** [rounded_tr] rounds the top-right corner with default radius. *)
+
+val rounded_tr_none : t
+(** [rounded_tr_none] sets no rounding on top-right corner. *)
+
+val rounded_tr_sm : t
+(** [rounded_tr_sm] sets small rounding on top-right corner. *)
+
+val rounded_tr_md : t
+(** [rounded_tr_md] sets medium rounding on top-right corner. *)
+
+val rounded_tr_lg : t
+(** [rounded_tr_lg] sets large rounding on top-right corner. *)
+
+val rounded_tr_xl : t
+(** [rounded_tr_xl] sets extra large rounding on top-right corner. *)
+
+val rounded_tr_2xl : t
+(** [rounded_tr_2xl] sets 2× rounding on top-right corner. *)
+
+val rounded_tr_3xl : t
+(** [rounded_tr_3xl] sets 3× rounding on top-right corner. *)
+
+val rounded_tr_full : t
+(** [rounded_tr_full] sets full rounding on top-right corner. *)
+
+val rounded_br : t
+(** [rounded_br] rounds the bottom-right corner with default radius. *)
+
+val rounded_br_none : t
+(** [rounded_br_none] sets no rounding on bottom-right corner. *)
+
+val rounded_br_sm : t
+(** [rounded_br_sm] sets small rounding on bottom-right corner. *)
+
+val rounded_br_md : t
+(** [rounded_br_md] sets medium rounding on bottom-right corner. *)
+
+val rounded_br_lg : t
+(** [rounded_br_lg] sets large rounding on bottom-right corner. *)
+
+val rounded_br_xl : t
+(** [rounded_br_xl] sets extra large rounding on bottom-right corner. *)
+
+val rounded_br_2xl : t
+(** [rounded_br_2xl] sets 2× rounding on bottom-right corner. *)
+
+val rounded_br_3xl : t
+(** [rounded_br_3xl] sets 3× rounding on bottom-right corner. *)
+
+val rounded_br_full : t
+(** [rounded_br_full] sets full rounding on bottom-right corner. *)
+
+val rounded_bl : t
+(** [rounded_bl] rounds the bottom-left corner with default radius. *)
+
+val rounded_bl_none : t
+(** [rounded_bl_none] sets no rounding on bottom-left corner. *)
+
+val rounded_bl_sm : t
+(** [rounded_bl_sm] sets small rounding on bottom-left corner. *)
+
+val rounded_bl_md : t
+(** [rounded_bl_md] sets medium rounding on bottom-left corner. *)
+
+val rounded_bl_lg : t
+(** [rounded_bl_lg] sets large rounding on bottom-left corner. *)
+
+val rounded_bl_xl : t
+(** [rounded_bl_xl] sets extra large rounding on bottom-left corner. *)
+
+val rounded_bl_2xl : t
+(** [rounded_bl_2xl] sets 2× rounding on bottom-left corner. *)
+
+val rounded_bl_3xl : t
+(** [rounded_bl_3xl] sets 3× rounding on bottom-left corner. *)
+
+val rounded_bl_full : t
+(** [rounded_bl_full] sets full rounding on bottom-left corner. *)
 
 (** {1 Outline Utilities} *)
 

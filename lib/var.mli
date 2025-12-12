@@ -5,34 +5,39 @@
 
     {1 CSS Output Architecture}
 
-    The variable system generates CSS across multiple layers following Tailwind v4's
-    architecture. Each layer has its own deterministic ordering rules:
+    The variable system generates CSS across multiple layers following Tailwind
+    v4's architecture. Each layer has its own deterministic ordering rules:
 
     {b Layer Ordering Rules (Tailwind v4, mirrored by tw):}
 
     - {b Theme layer}: Order is stable and intentional, not raw alphabetical.
       Tokens appear in a canonical sequence (e.g., default font families, then
-      color palette in palette order, then scales like radius/shadow/spacing, etc.).
-      In this repo, theme order is explicitly sorted by metadata (priority,
-      subindex) attached to each variable; lower priority first, then subindex.
+      color palette in palette order, then scales like radius/shadow/spacing,
+      etc.). In this repo, theme order is explicitly sorted by metadata
+      (priority, subindex) attached to each variable; lower priority first, then
+      subindex.
 
-    - {b Properties layer}: Split into two parts for parity with Tailwind's output shape:
-      - Properties layer (near top): Emits initial values for custom properties
-        inside a guarded @supports block (applies to "*, ::before, ::after, ::backdrop").
-        Ordering follows the order of corresponding @property rules.
-      - @property rules (at end): Appended at the very end of stylesheet (after
-        all layers), in first-seen order: explicit rules from utilities first, then
-        auto-generated ones for variables flagged as "needs @property".
+    - {b Properties layer}: Split into two parts for parity with Tailwind's
+      output shape:
+    - Properties layer (near top): Emits initial values for custom properties
+      inside a guarded {i \@supports} block (applies to "*, ::before, ::after,
+      ::backdrop"). Ordering follows the order of corresponding {i \@property}
+      rules.
+    - {i \@property} rules (at end): Appended at the very end of stylesheet
+      (after all layers), in first-seen order: explicit rules from utilities
+      first, then auto-generated ones for variables flagged as "needs
+      {i \@property}".
 
-    - {b Utilities layer}: Ordered by "conflict resolution" groups to ensure predictable cascade.
-      Utilities are grouped and sorted by group priority, then by per-group suborder.
-      Examples: display → position → margin → background → padding → typography
-      → border → sizing → effects → interactivity → flexbox/grid → gap → container/prose.
-      Within background colors, sort uses canonical palette order; for margins/padding,
-      "all" precedes axis which precedes side-specific.
+    - {b Utilities layer}: Ordered by "conflict resolution" groups to ensure
+      predictable cascade. Utilities are grouped and sorted by group priority,
+      then by per-group suborder. Examples: display → position → margin →
+      background → padding → typography → border → sizing → effects →
+      interactivity → flexbox/grid → gap → container/prose. Within background
+      colors, sort uses canonical palette order; for margins/padding, "all"
+      precedes axis which precedes side-specific.
 
-    {2 [@layer properties]}
-    Contains initial values for utility variables that need [@property]
+    {2 [\@layer properties]}
+    Contains initial values for utility variables that need [\@property]
     registration:
     {[
       @layer properties {
@@ -400,12 +405,13 @@ val property_default :
   string ->
   'a property_default
 (** [property_default kind ~initial name ?inherits ?universal ?property_order]
-    creates a Utility variable with a typed [@property] registration and an
+    creates a Utility variable with a typed [\@property] registration and an
     initial value used for referencing utilities and inline mode. The initial
-    value is required for proper [@property] registration and reference fallbacks.
+    value is required for proper [\@property] registration and reference
+    fallbacks.
 
-    [property_order] specifies the ordering of this variable in the [@layer
-    properties] @supports block. Lower values appear first.
+    [property_order] specifies the ordering of this variable in the
+    {i \@layer properties \@supports} block. Lower values appear first.
 
     {b IMPORTANT}: Due to current architecture limitations, any style that uses
     a [property_default] variable MUST include its [property_rule] explicitly:
@@ -422,9 +428,9 @@ val property_default :
         style "my-class" ~property_rules [ decl; ... ]
     ]}
 
-    This ensures the [@property] rule with the correct initial value flows
-    through the system. Without this, a generic [@property] rule without initial
-    value may be generated, breaking the CSS output.
+    This ensures the [\@property] rule with the correct initial value flows
+    through the system. Without this, a generic [\@property] rule without
+    initial value may be generated, breaking the CSS output.
 
     TODO: Fix this architecture limitation to automatically include property
     rules for property_default variables in rules.ml without requiring explicit
@@ -437,22 +443,23 @@ val channel :
   'a Css.kind ->
   string ->
   'a channel
-(** [channel ?needs_property ?property_order kind name] creates a Utility variable.
-    When [needs_property] is true, generates an [@property] rule for animation
-    support. [property_order] specifies ordering in the @supports block.
-    Ideal for composition patterns where contributing utilities set
+(** [channel ?needs_property ?property_order kind name] creates a Utility
+    variable. When [needs_property] is true, generates an [\@property] rule for
+    animation support. [property_order] specifies ordering in the {i \@supports}
+    block. Ideal for composition patterns where contributing utilities set
     declarations and aggregators reference values. *)
 
 val get_property_order : string -> int option
 (** [get_property_order name] returns the property order for a variable name,
-    used for sorting properties in the @layer properties @supports block.
+    used for sorting properties in the {i \@layer properties \@supports} block.
     Returns [None] if no order was registered. *)
 
 val get_family : string -> family option
 
 val get_needs_property : string -> bool
-(** [get_needs_property name] returns whether a variable needs an @property rule.
-    Returns [false] if the variable is not registered or doesn't need @property. *)
+(** [get_needs_property name] returns whether a variable needs an [\@property]
+    rule. Returns [false] if the variable is not registered or doesn't need
+    [\@property]. *)
 
 val ref_only : 'a Css.kind -> string -> fallback:'a -> 'a ref_only
 (** [ref_only kind name ~fallback] creates a reference-only handle to a Utility
@@ -543,6 +550,11 @@ val properties : any_var list -> Css.t
     that need them, sorted deterministically by (name, kind) *)
 
 (** {1 Helper Types and Functions} *)
+
+val css_name : ('a, _) t -> string
+(** [css_name var] returns the full CSS property name with [--] prefix. For
+    example, [css_name gradient_from_var] returns ["--tw-gradient-from"]. Use
+    this when you need the property name (e.g., for [transition-property]). *)
 
 val var_needs_property : 'a Css.var -> bool
 (** [var_needs_property v] is [true] if [v]'s underlying Var.t has property
