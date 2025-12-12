@@ -23,30 +23,69 @@ let content =
       [ txt "Explore focused, feature-based examples. Each is embedded below." ];
     ul
       [
-        li [ a ~at:[ At.href "landing/" ] [ txt "Landing" ] ];
-        li [ a ~at:[ At.href "prose/" ] [ txt "Prose" ] ];
-        li [ a ~at:[ At.href "colors/" ] [ txt "Colors" ] ];
-        li [ a ~at:[ At.href "layout/" ] [ txt "Layout" ] ];
-        li [ a ~at:[ At.href "navigation/" ] [ txt "Navigation" ] ];
-        li [ a ~at:[ At.href "hero/" ] [ txt "Hero" ] ];
-        li [ a ~at:[ At.href "cards/" ] [ txt "Cards" ] ];
-        li [ a ~at:[ At.href "modifiers/" ] [ txt "Modifiers" ] ];
-        li [ a ~at:[ At.href "dark_mode/" ] [ txt "Dark Mode" ] ];
-        li [ a ~at:[ At.href "accessibility/" ] [ txt "Accessibility" ] ];
-        li [ a ~at:[ At.href "animations/" ] [ txt "Animations" ] ];
+        li
+          [
+            a
+              ~at:[ At.href "landing/" ]
+              [ txt "Landing — Marketing page with gradients and CTA" ];
+          ];
+        li
+          [
+            a
+              ~at:[ At.href "dashboard/" ]
+              [ txt "Dashboard — Responsive admin layout" ];
+          ];
+        li
+          [
+            a ~at:[ At.href "prose/" ] [ txt "Prose — Typography for articles" ];
+          ];
+        li
+          [
+            a
+              ~at:[ At.href "forms/" ]
+              [ txt "Forms — Input states and validation" ];
+          ];
+        li
+          [
+            a
+              ~at:[ At.href "colors/" ]
+              [ txt "Colors — Full palette and alpha variants" ];
+          ];
+        li
+          [
+            a
+              ~at:[ At.href "layout/" ]
+              [ txt "Layout — Flexbox and Grid patterns" ];
+          ];
+        li
+          [
+            a
+              ~at:[ At.href "modifiers/" ]
+              [ txt "Modifiers — State, group, peer, and ARIA" ];
+          ];
+        li
+          [
+            a
+              ~at:[ At.href "animations/" ]
+              [ txt "Animations — Keyframes and transitions" ];
+          ];
+        li
+          [
+            a
+              ~at:[ At.href "accessibility/" ]
+              [ txt "Accessibility — Contrast, motion, focus" ];
+          ];
       ];
     hr ();
     example_card ~title:"Landing" ~path:"landing/" ~height:700;
+    example_card ~title:"Dashboard" ~path:"dashboard/" ~height:800;
     example_card ~title:"Prose" ~path:"prose/" ~height:1200;
+    example_card ~title:"Forms" ~path:"forms/" ~height:600;
     example_card ~title:"Colors" ~path:"colors/" ~height:900;
-    example_card ~title:"Layout" ~path:"layout/" ~height:700;
-    example_card ~title:"Navigation" ~path:"navigation/" ~height:120;
-    example_card ~title:"Hero" ~path:"hero/" ~height:400;
-    example_card ~title:"Cards" ~path:"cards/" ~height:500;
-    example_card ~title:"Modifiers" ~path:"modifiers/" ~height:500;
-    example_card ~title:"Dark Mode" ~path:"dark_mode/" ~height:250;
-    example_card ~title:"Accessibility" ~path:"accessibility/" ~height:300;
-    example_card ~title:"Animations" ~path:"animations/" ~height:220;
+    example_card ~title:"Layout" ~path:"layout/" ~height:1800;
+    example_card ~title:"Modifiers" ~path:"modifiers/" ~height:1600;
+    example_card ~title:"Animations" ~path:"animations/" ~height:1500;
+    example_card ~title:"Accessibility" ~path:"accessibility/" ~height:1400;
   ]
 
 let page_view =
