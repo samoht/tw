@@ -98,12 +98,14 @@ let test_apply () =
     | Modified (Hover, _) -> true
     | _ -> false);
 
-  (* Test multiple modifiers *)
+  (* Test multiple modifiers - "sm:hover:..." means sm is outermost, hover is
+     inner. The structure is Modified(Sm, Modified(Hover, base)) which generates
+     "sm:hover:..." *)
   let style2 = apply [ "sm"; "hover" ] (bg blue 500) in
   check bool "multiple modifiers applied" true
     (match style2 with
-    | Group [ Modified (Hover, Modified (Responsive `Sm, _)) ] -> true
-    | Modified (Hover, Modified (Responsive `Sm, _)) -> true
+    | Group [ Modified (Responsive `Sm, Modified (Hover, _)) ] -> true
+    | Modified (Responsive `Sm, Modified (Hover, _)) -> true
     | _ -> false);
 
   (* Test unknown modifier (should be ignored) *)
@@ -130,12 +132,17 @@ let test_apply () =
     | Modified (Dark, _) -> true
     | _ -> false);
 
-  (* Test modifier order *)
+  (* Test modifier order - modifiers are applied so that the first modifier in
+     the list becomes the outermost wrapper. This matches how string parsing
+     works: "hover:sm:p-4" has modifiers ["hover"; "sm"], and produces
+     Modified(Hover, Modified(Sm, base)) which generates "hover:sm:p-4". Note:
+     In practice, Tailwind expects responsive modifiers like "sm" to come before
+     state modifiers like "hover", so valid classes are "sm:hover:p-4". *)
   let style6 = apply [ "hover"; "sm" ] (p 4) in
   check bool "modifier order correct" true
     (match style6 with
-    | Group [ Modified (Responsive `Sm, Modified (Hover, _)) ] -> true
-    | Modified (Responsive `Sm, Modified (Hover, _)) -> true
+    | Group [ Modified (Hover, Modified (Responsive `Sm, _)) ] -> true
+    | Modified (Hover, Modified (Responsive `Sm, _)) -> true
     | _ -> false)
 
 (* Test modifier class name format *)
@@ -396,6 +403,89 @@ let test_before_after_modifiers () =
   check string "before:p-4" "before:p-4" (Tw.Utility.to_class (before [ p 4 ]));
   check string "after:m-2" "after:m-2" (Tw.Utility.to_class (after [ m 2 ]))
 
+(* Test nested modifier class generation *)
+let test_nested_modifier_class_names () =
+  (* Basic dark:hover: nesting *)
+  check string "dark:hover:text-white" "dark:hover:text-white"
+    Tw.(to_classes [ dark [ hover [ text_white ] ] ]);
+
+  (* Multiple utilities in nested modifier group *)
+  check string "dark:[hover group with multiple items]"
+    "dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
+    Tw.(
+      to_classes [ dark [ text gray 300; hover [ bg gray 700; text_white ] ] ]);
+
+  (* Triple nesting: sm:dark:hover *)
+  check string "sm:dark:hover:bg-blue-500" "sm:dark:hover:bg-blue-500"
+    Tw.(to_classes [ sm [ dark [ hover [ bg blue 500 ] ] ] ]);
+
+  (* focus:before: nesting *)
+  check string "focus:before:content-*" "focus:before:content-[\"'*'\"]"
+    Tw.(to_classes [ focus [ before [ content "'*'" ] ] ]);
+
+  (* md:hover: group with multiple items *)
+  check string "md:hover:[multiple items]"
+    "md:hover:bg-blue-500 md:hover:text-white"
+    Tw.(to_classes [ md [ hover [ bg blue 500; text_white ] ] ]);
+
+  (* dark:focus-within: nesting *)
+  check string "dark:focus-within:ring" "dark:focus-within:ring-2"
+    Tw.(to_classes [ dark [ focus_within [ ring_sm ] ] ]);
+
+  (* group-hover inside dark *)
+  check string "dark:group-hover:text-white" "dark:group-hover:text-white"
+    Tw.(to_classes [ dark [ group_hover [ text_white ] ] ]);
+
+  (* Complex nested group structure - this is the pattern from dashboard
+     main.ml *)
+  let complex_styles =
+    Tw.
+      [
+        text gray 600;
+        hover [ bg gray 100; text gray 900 ];
+        dark [ text gray 300; hover [ bg gray 700; text_white ] ];
+      ]
+  in
+  check string "complex nested structure"
+    "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 \
+     dark:hover:bg-gray-700 dark:hover:text-white"
+    (Tw.to_classes complex_styles)
+
+(* Test CSS generation for nested modifiers *)
+let test_nested_modifier_css_generation () =
+  (* Ensure dark:hover: generates valid CSS with proper media query nesting *)
+  let utilities = [ dark [ hover [ bg blue 500 ] ] ] in
+  let css_str = Tw.Css.to_string ~minify:true (Tw.Rules.to_css utilities) in
+
+  (* Should contain the escaped class name *)
+  let has_class =
+    try
+      let _ =
+        Str.search_forward (Str.regexp {|dark\\:hover\\:bg-blue-500|}) css_str 0
+      in
+      true
+    with Not_found -> false
+  in
+  check bool "CSS contains dark:hover: class selector" true has_class;
+
+  (* Should contain prefers-color-scheme:dark media query *)
+  let has_dark_media =
+    try
+      let _ =
+        Str.search_forward (Str.regexp "prefers-color-scheme:dark") css_str 0
+      in
+      true
+    with Not_found -> false
+  in
+  check bool "CSS contains dark mode media query" true has_dark_media;
+
+  (* Should parse correctly *)
+  match Tw.Css.of_string css_str with
+  | Ok _ -> ()
+  | Error e ->
+      Alcotest.failf "Nested modifier CSS parse failed:\n%s"
+        (Tw.Css.pp_parse_error e)
+
 (* Extend the suite with new tests *)
 let tests =
   tests
@@ -406,6 +496,10 @@ let tests =
       test_case "apply bracketed has variants" `Quick test_apply_bracketed_has;
       test_case "ARIA and data modifiers" `Quick test_aria_and_data_modifiers;
       test_case "before/after modifiers" `Quick test_before_after_modifiers;
+      test_case "nested modifier class names" `Quick
+        test_nested_modifier_class_names;
+      test_case "nested modifier CSS generation" `Quick
+        test_nested_modifier_css_generation;
     ]
 
 let suite = ("modifiers", tests)

@@ -45,12 +45,16 @@ let test_dispatching_to_tree_diff () =
   | _ -> fail "Expected Tree_diff"
 
 let test_dispatching_to_string_diff () =
-  (* Test case where structural diff is empty but strings differ *)
+  (* Test case where AST-irrelevant differences exist but the CSS is
+     structurally equivalent. Whitespace-only differences should return
+     String_diff since the input strings differ. *)
   let css_expected = ".a { color : red }" in
   let css_actual = ".a{color:red}" in
   match Cc.diff ~expected:css_expected ~actual:css_actual with
-  | Cc.String_diff _ -> () (* Expected when only formatting differs *)
-  | _ -> fail "Expected String_diff for formatting differences"
+  | Cc.String_diff _ -> () (* Expected: structurally same but strings differ *)
+  | Cc.Tree_diff _ -> fail "Expected String_diff, got Tree_diff"
+  | Cc.No_diff -> fail "Expected String_diff, got No_diff (strings differ!)"
+  | _ -> fail "Expected String_diff"
 
 let test_dispatching_no_diff () =
   let css = ".a{color:red}" in
@@ -100,15 +104,21 @@ let test_compare_with_parse_errors () =
 let test_diff_parse_errors () =
   let valid_css = ".a{color:red}" in
   let invalid_css = ".a{color:}" in
+  let other_invalid_css = ".b{margin:}" in
   (match Cc.diff ~expected:valid_css ~actual:invalid_css with
   | Cc.Actual_error _ -> () (* Expected *)
   | _ -> fail "Expected Actual_error for invalid actual CSS");
   (match Cc.diff ~expected:invalid_css ~actual:valid_css with
   | Cc.Expected_error _ -> () (* Expected *)
   | _ -> fail "Expected Expected_error for invalid expected CSS");
-  match Cc.diff ~expected:invalid_css ~actual:invalid_css with
+  (* When both strings are IDENTICAL (even if invalid), there's no diff *)
+  (match Cc.diff ~expected:invalid_css ~actual:invalid_css with
+  | Cc.No_diff -> () (* Expected: identical strings = no diff *)
+  | _ -> fail "Expected No_diff for identical invalid CSS strings");
+  (* When both strings are DIFFERENT and both invalid, expect Both_errors *)
+  match Cc.diff ~expected:invalid_css ~actual:other_invalid_css with
   | Cc.Both_errors _ -> () (* Expected *)
-  | _ -> fail "Expected Both_errors for both invalid CSS"
+  | _ -> fail "Expected Both_errors for different invalid CSS strings"
 
 let test_pp_stats_tree_diff () =
   let css_expected = ".a{color:red}.b{margin:0}" in
@@ -732,8 +742,9 @@ let test_actual_error_result () =
   | _ -> fail "Expected Actual_error for invalid actual CSS"
 
 let test_both_errors_result () =
-  let bad1 = "{" in
-  let bad2 = "{" in
+  (* Use DIFFERENT invalid CSS strings to trigger Both_errors *)
+  let bad1 = "{invalid1" in
+  let bad2 = "}invalid2" in
   match Cc.diff ~expected:bad1 ~actual:bad2 with
   | Cc.Both_errors _ -> ()
   | _ -> fail "Expected Both_errors when both CSS inputs are invalid"

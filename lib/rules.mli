@@ -40,6 +40,7 @@ type output =
       selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
+      nested : Css.statement list;
     }
   | Container_query of {
       condition : Css.Container.t;
@@ -68,18 +69,20 @@ val regular :
   ?nested:Css.statement list ->
   unit ->
   output
-(** [regular ~selector ~props ?base_class ?has_hover ?nested ()] constructs a regular
-    rule with optional nested statements (e.g., @media queries). *)
+(** [regular ~selector ~props ?base_class ?has_hover ?nested ()] constructs a
+    regular rule with optional nested statements (e.g., {i \@media} queries). *)
 
 val media_query :
   condition:Css.Media.t ->
   selector:Css.Selector.t ->
   props:Css.declaration list ->
   ?base_class:string ->
+  ?nested:Css.statement list ->
   unit ->
   output
-(** [media_query ~condition ~selector ~props ?base_class ()] constructs a media
-    query rule. *)
+(** [media_query ~condition ~selector ~props ?base_class ?nested ()] constructs
+    a media query rule with optional nested statements (e.g., inner
+    {i \@media}). *)
 
 val container_query :
   condition:Css.Container.t ->
@@ -208,9 +211,17 @@ val selector_props_pairs :
 (** {1 Rule Extraction and Processing} *)
 
 val modifier_to_rule :
-  Style.modifier -> string -> Css.Selector.t -> Css.declaration list -> output
-(** [modifier_to_rule modifier base_class selector props] converts a modifier
-    into appropriate CSS rule output. *)
+  ?inner_has_hover:bool ->
+  Style.modifier ->
+  string ->
+  Css.Selector.t ->
+  Css.declaration list ->
+  output
+(** [modifier_to_rule ?inner_has_hover modifier base_class selector props]
+    converts a modifier into appropriate CSS rule output. When [inner_has_hover]
+    is true and the modifier is a media-like modifier (dark, motion-safe, etc.),
+    the output will use CSS nesting to properly wrap the hover state with
+    [@media (hover:hover)]. *)
 
 val is_hover_rule : output -> bool
 (** [is_hover_rule output] checks if an output is a hover rule. *)

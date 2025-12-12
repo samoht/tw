@@ -612,16 +612,22 @@ module Handler = struct
     (integer * 4) + frac_order
 
   let suborder = function
-    (* Height utilities (0-9999) *)
-    | H_auto -> 0
-    | H_full -> 1
-    | H_screen -> 2
-    | H_min -> 3
-    | H_max -> 4
-    | H_fit -> 5
-    | H_spacing n -> 100 + spacing_suborder n
-    | H_px -> 10000
-    | H_fraction _ -> 50000
+    (* Height utilities (0-99999) Tailwind sorts: spacing values first, then
+       keywords alphabetically (auto, fit, full, max, min, px, screen).
+       Fractions sort with their integer part. *)
+    | H_spacing n -> spacing_suborder n
+    | H_fraction f -> (
+        (* Extract the numerator to sort fractions with their integer part *)
+        match String.split_on_char '/' f with
+        | [ num; _ ] -> ( try int_of_string num * 10000 with _ -> 50000)
+        | _ -> 50000)
+    | H_auto -> 90000
+    | H_fit -> 90001
+    | H_full -> 90002
+    | H_max -> 90003
+    | H_min -> 90004
+    | H_px -> 90005
+    | H_screen -> 90006
     (* Max-height utilities (100000-199999) - comes after height *)
     (* Order: fit, full, max, min, none, screen *)
     | Max_h_fit -> 100000

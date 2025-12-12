@@ -13,6 +13,17 @@ module Handler = struct
   let name = "gap"
   let priority = 17
 
+  (** Space-y reverse variable for flex-row-reverse support. Property order -1
+      ensures this comes FIRST in {i \@layer properties} (Tailwind places it
+      before --tw-border-style). *)
+  let space_y_reverse_var =
+    Var.property_default Css.Number_percentage ~initial:(Css.Num 0.0)
+      ~property_order:(-1) "tw-space-y-reverse"
+
+  (* TODO: Space-x reverse variable for flex-col-reverse support let
+     space_x_reverse_var = Var.property_default Css.Float ~initial:0.0
+     ~property_order:25 "tw-space-x-reverse" *)
+
   (** {2 Typed Gap Utilities} *)
 
   let gap (s : spacing) =
@@ -63,19 +74,69 @@ module Handler = struct
 
   let space_y n =
     let s = Spacing.int n in
+    let class_name = "space-y-" ^ string_of_int (abs n) in
+    (* Tailwind v4 minified output uses flat selector: :where(.space-y-N >
+       :not(:last-child)) This matches exactly what Tailwind's minifier
+       produces. *)
+    let selector =
+      Css.Selector.(where [ class_ class_name >> not [ Last_child ] ])
+    in
     match s with
     | `Rem _ ->
-        let decl, spacing_ref = Var.binding Spacing.spacing_var (Rem 0.25) in
+        let _spacing_decl, spacing_ref =
+          Var.binding Spacing.spacing_var (Rem 0.25)
+        in
         let n_units =
           int_of_float ((match s with `Rem f -> f | _ -> 0.) /. 0.25)
         in
-        let len : Css.length =
-          Calc
-            Calc.(mul (length (Var spacing_ref)) (float (float_of_int n_units)))
+        (* Create reverse_decl and reverse_ref for the --tw-space-y-reverse
+           var *)
+        let reverse_decl, reverse_ref =
+          Var.binding space_y_reverse_var (Css.Num 0.0)
         in
-        style (decl :: [ margin_top len ])
-    | `Px -> style [ margin_top (Px 1.) ]
-    | `Full -> style [ margin_top (Pct 100.0) ]
+        (* margin-block-start = calc(calc(var(--spacing) * N) *
+           var(--tw-space-y-reverse)) - matches Tailwind's nested calc format *)
+        let reverse_var_name = Css.var_name reverse_ref in
+        let spacing_times_n =
+          Calc.(mul (length (Var spacing_ref)) (float (float_of_int n_units)))
+        in
+        let margin_start : Css.length =
+          Calc Calc.(mul (nested spacing_times_n) (var reverse_var_name))
+        in
+        (* margin-block-end = calc(calc(var(--spacing) * N) * calc(1 -
+           var(--tw-space-y-reverse))) - matches Tailwind's format *)
+        let margin_end : Css.length =
+          Calc
+            Calc.(
+              mul (nested spacing_times_n)
+                (nested (sub (float 1.0) (var reverse_var_name))))
+        in
+        let property_rules =
+          [ Var.property_rule space_y_reverse_var ] |> List.filter_map Fun.id
+        in
+        let rule =
+          Css.rule ~selector
+            [
+              reverse_decl;
+              margin_block_start margin_start;
+              margin_block_end margin_end;
+            ]
+        in
+        style ~rules:(Some [ rule ])
+          ~property_rules:(Css.concat property_rules)
+          []
+    | `Px ->
+        let rule =
+          Css.rule ~selector
+            [ margin_block_start (Px 1.); margin_block_end Zero ]
+        in
+        style ~rules:(Some [ rule ]) []
+    | `Full ->
+        let rule =
+          Css.rule ~selector
+            [ margin_block_start (Pct 100.0); margin_block_end Zero ]
+        in
+        style ~rules:(Some [ rule ]) []
 
   let spacing_value_order = function
     | `Px -> 1

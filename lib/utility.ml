@@ -76,7 +76,14 @@ let rec to_style = function
 
 let rec to_class = function
   | Base u -> class_of_base u
-  | Modified (m, u) -> Style.pp_modifier m ^ ":" ^ to_class u
+  | Modified (m, u) -> (
+      match u with
+      | Group us ->
+          (* When a modifier wraps a group, apply it to each item in the
+             group *)
+          String.concat " "
+            (List.map (fun item -> to_class (Modified (m, item))) us)
+      | _ -> Style.pp_modifier m ^ ":" ^ to_class u)
   | Group us -> String.concat " " (List.map to_class us)
 
 let order (u : base) : int * int =

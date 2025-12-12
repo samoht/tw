@@ -35,4 +35,12 @@ val via_color : ?shade:int -> Color.color -> t
 val to_color : ?shade:int -> Color.color -> t
 (** [to_color ?shade color] sets the gradient "to" color (end stop). *)
 
-module Handler : Utility.Handler
+module Handler : sig
+  include Utility.Handler
+
+  (** Gradient variables for use by other modules (e.g., transition-colors) *)
+
+  val gradient_from_var : Css.color Var.property_default
+  val gradient_via_var : Css.color Var.property_default
+  val gradient_to_var : Css.color Var.property_default
+end
