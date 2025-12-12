@@ -1230,6 +1230,27 @@ val max_h : int -> t
 val max_h_full : t
 (** [max_h_full] sets maximum height to 100% of parent. *)
 
+(** {2 Size}
+    @see <https://tailwindcss.com/docs/size> Size *)
+
+val size : int -> t
+(** [size n] sets both width and height using Tailwind scale (n × 0.25rem). *)
+
+val size_auto : t
+(** [size_auto] sets both width and height to auto. *)
+
+val size_full : t
+(** [size_full] sets both width and height to 100% of parent. *)
+
+val size_min : t
+(** [size_min] sets both width and height to min-content. *)
+
+val size_max : t
+(** [size_max] sets both width and height to max-content. *)
+
+val size_fit : t
+(** [size_fit] sets both width and height to fit-content. *)
+
 (** {1 Typography} *)
 
 (** {2 Font Family}
