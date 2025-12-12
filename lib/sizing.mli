@@ -261,6 +261,27 @@ val max_h_max : t
 val max_h_fit : t
 (** [max_h_fit] sets max-height to fit-content. *)
 
+(** {1 Size Utilities (Width and Height Combined)} *)
+
+val size : int -> t
+(** [size n] sets both width and height using spacing scale (n * 0.25rem).
+    Equivalent to combining [w n] and [h n]. *)
+
+val size_auto : t
+(** [size_auto] sets both width and height to auto. *)
+
+val size_full : t
+(** [size_full] sets both width and height to 100%. *)
+
+val size_min : t
+(** [size_min] sets both width and height to min-content. *)
+
+val size_max : t
+(** [size_max] sets both width and height to max-content. *)
+
+val size_fit : t
+(** [size_fit] sets both width and height to fit-content. *)
+
 (** {1 Aspect Ratio Utilities} *)
 
 val aspect_auto : t
