@@ -442,7 +442,7 @@ val default_font_family_declarations : Css.declaration list
 (** [default_font_family_declarations] are the default font-family variable
     declarations for the theme layer. *)
 
-(** {Internal types} *)
+(** {1 Internal types} *)
 
 val content_var : Css.content Var.property_default
 (** [content_var] is the CSS variable for content, used by before/after
