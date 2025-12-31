@@ -322,7 +322,7 @@ module Handler = struct
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.border_color (Var color_ref) ])
 
-  let border_transparent' = style [ Css.border_color Transparent ]
+  let border_transparent' = style [ Css.border_color (Css.hex "#0000") ]
   let border_current' = style [ Css.border_color Current ]
 
   (* Create radius theme variables with fallback values for inline mode *)

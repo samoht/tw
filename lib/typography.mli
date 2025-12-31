@@ -444,4 +444,8 @@ val default_font_family_declarations : Css.declaration list
 
 (** {Internal types} *)
 
+val content_var : Css.content Var.property_default
+(** [content_var] is the CSS variable for content, used by before/after
+    pseudo-elements. Initial value is empty string. *)
+
 module Handler : Utility.Handler

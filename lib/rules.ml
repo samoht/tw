@@ -453,6 +453,22 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
   | Style.Hover | Style.Focus | Style.Active | Style.Focus_within
   | Style.Focus_visible | Style.Disabled ->
       handle_pseudo_class_modifier modifier base_class selector props
+  (* Pseudo-elements ::before and ::after - add content property if not already
+     set by the inner utility *)
+  | Style.Pseudo_before | Style.Pseudo_after ->
+      let sel = Modifiers.to_selector modifier base_class in
+      (* Check if any prop already sets the content property *)
+      let has_content_prop =
+        List.exists (fun decl -> Css.declaration_name decl = "content") props
+      in
+      let final_props =
+        if has_content_prop then props
+        else
+          let content_ref = Var.reference Typography.content_var in
+          let content_decl = Css.content (Var content_ref) in
+          content_decl :: props
+      in
+      regular ~selector:sel ~props:final_props ~base_class ()
   (* Fallback for other modifiers *)
   | _ -> handle_fallback_modifier modifier base_class props
 
@@ -1827,6 +1843,19 @@ let has_forms_utilities tw_classes =
   in
   List.exists check_utility tw_classes
 
+(* Detect if before/after pseudo-elements are used - triggers content var
+   property rule *)
+let has_pseudo_elements tw_classes =
+  let rec has_pseudo = function
+    | Style.Pseudo_before | Style.Pseudo_after -> true
+    | _ -> false
+  and check_utility = function
+    | Utility.Base _ -> false
+    | Utility.Modified (modifier, u) -> has_pseudo modifier || check_utility u
+    | Utility.Group us -> List.exists check_utility us
+  in
+  List.exists check_utility tw_classes
+
 let build_individual_layers ~forms_base first_usage_order selector_props
     all_property_statements statements =
   (* Only include font family defaults - transition defaults are added when
@@ -1876,7 +1905,16 @@ let build_layers ~include_base ~selector_props tw_classes statements =
      This ensures proper ordering: utility 1's vars, utility 2's vars, etc. *)
   let all_vars = all_var_names_from_sorted_rules sorted_rules in
   let first_usage_order = build_first_usage_order all_vars in
-  let explicit_property_rules = flatten_property_rules property_rules_lists in
+  let base_property_rules = flatten_property_rules property_rules_lists in
+  (* Add content_var's property_rule if before/after pseudo-elements are used *)
+  let explicit_property_rules =
+    if has_pseudo_elements tw_classes then
+      let content_property_rule =
+        Var.property_rules Typography.content_var |> Css.statements
+      in
+      base_property_rules @ content_property_rule
+    else base_property_rules
+  in
   let all_property_statements =
     collect_all_property_rules vars_from_utilities set_var_names
       explicit_property_rules
