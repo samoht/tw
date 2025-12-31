@@ -791,7 +791,12 @@ module Handler = struct
 
   (* Outline style *)
 
-  let outline_none = style [ Css.outline_style Css.None ]
+  let outline_none =
+    style
+      [
+        Css.custom_property ~layer:"utilities" "--tw-outline-style" "none";
+        Css.outline_style Css.None;
+      ]
 
   (* Outline offset *)
   let outline_offset_0 = style [ Css.outline_offset (Px 0.) ]
@@ -1219,6 +1224,7 @@ module Handler = struct
     | [ "rounded"; "bl"; "2xl" ] -> Ok Rounded_bl_2xl
     | [ "rounded"; "bl"; "3xl" ] -> Ok Rounded_bl_3xl
     | [ "rounded"; "bl"; "full" ] -> Ok Rounded_bl_full
+    | [ "outline"; "none" ] -> Ok Outline_none
     | [ "outline"; "offset"; "0" ] -> Ok Outline_offset_0
     | [ "outline"; "offset"; "1" ] -> Ok Outline_offset_1
     | [ "outline"; "offset"; "2" ] -> Ok Outline_offset_2
