@@ -1225,7 +1225,7 @@ module Handler = struct
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.background_color (Css.Var color_ref) ])
 
-  let bg_transparent = style [ Css.background_color Css.Transparent ]
+  let bg_transparent = style [ Css.background_color (Css.hex "#0000") ]
   let bg_current = style [ Css.background_color Css.Current ]
 
   (** Text color utilities *)
@@ -1242,7 +1242,7 @@ module Handler = struct
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.color (Var color_ref) ])
 
-  let text_transparent = style [ Css.color Transparent ]
+  let text_transparent = style [ Css.color (Css.hex "#0000") ]
   let text_current = style [ Css.color Current ]
   let text_inherit = style [ Css.color Inherit ]
 
@@ -1260,7 +1260,7 @@ module Handler = struct
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.border_color (Var color_ref) ])
 
-  let border_transparent = style [ Css.border_color Transparent ]
+  let border_transparent = style [ Css.border_color (Css.hex "#0000") ]
   let border_current = style [ Css.border_color Current ]
 
   let to_style = function
