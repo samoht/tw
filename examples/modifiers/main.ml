@@ -434,7 +434,7 @@ let has_section =
                       input ~tw:Tw.[ w 5; h 5 ] ~at:[ At.type' "checkbox" ] ();
                       span
                         ~tw:Tw.[ text gray 700; dark [ text gray 300 ] ]
-                        [ txt "Check to change container style" ];
+                        [ txt "Check to change wrapper style" ];
                     ];
                 ];
             ];
@@ -517,7 +517,7 @@ let focus_section =
                       mb 2;
                       dark [ text gray 300 ];
                     ]
-                [ txt "focus-within (container)" ];
+                [ txt "focus-within (wrapper)" ];
               div
                 ~tw:
                   Tw.

@@ -789,14 +789,16 @@ module Handler = struct
   let rounded_bl_full =
     style [ Css.border_bottom_left_radius (infinity_radius ()) ]
 
-  (* Outline style *)
+  (* Outline style variable - used by outline utilities that set the style *)
+  let outline_style_var =
+    Var.property_default Css.Outline_style
+      ~initial:(Auto : Css.outline_style)
+      ~property_order:0 ~family:`Border "tw-outline-style"
 
+  (* Outline style utilities that set the variable *)
   let outline_none =
-    style
-      [
-        Css.custom_property ~layer:"utilities" "--tw-outline-style" "none";
-        Css.outline_style Css.None;
-      ]
+    let decl, _ = Var.binding outline_style_var Css.None in
+    style [ decl; Css.outline_style Css.None ]
 
   (* Outline offset *)
   let outline_offset_0 = style [ Css.outline_offset (Px 0.) ]

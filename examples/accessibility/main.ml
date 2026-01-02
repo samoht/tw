@@ -123,7 +123,7 @@ let motion_section =
         [
           txt
             "These animations respect the prefers-reduced-motion media query. \
-             Users who prefer reduced motion will see static elements instead.";
+             Users who prefer reduced motion will see still elements instead.";
         ];
       div
         ~tw:Tw.[ flex; gap 8; items_center; justify_center; flex_wrap ]
@@ -243,8 +243,8 @@ let focus_section =
         ~tw:Tw.[ text gray 600; dark [ text gray 300 ]; mb 6 ]
         [
           txt
-            "Use Tab to navigate these interactive elements. Each has a \
-             visible focus indicator for keyboard users.";
+            "Use Tab to navigate these interactive elements. Each has a clear \
+             focus indicator for keyboard users.";
         ];
       div
         ~tw:Tw.[ flex; flex_wrap; gap 4 ]

@@ -1,5 +1,62 @@
 (** Layout utilities for basic display, positioning, and object properties *)
 
+(** Screen reader utilities handler - priority 0 to appear first *)
+module Screen_reader_handler = struct
+  open Style
+  open Css
+
+  type t = Sr_only | Not_sr_only
+  type Utility.base += Self of t
+
+  let name = "screen_reader"
+  let priority = 0
+
+  let suborder = function
+    (* Negative suborders to appear before absolute (suborder 0) *)
+    | Sr_only -> -2
+    | Not_sr_only -> -1
+
+  let to_class = function Sr_only -> "sr-only" | Not_sr_only -> "not-sr-only"
+
+  let to_style = function
+    | Sr_only ->
+        (* Property order matches Tailwind: clip, white-space, border-width,
+           width, height, margin, padding, position, overflow *)
+        style
+          [
+            clip (Css.Clip_rect (Zero, Zero, Zero, Zero));
+            white_space Nowrap;
+            border_width Zero;
+            width (Px 1.);
+            height (Px 1.);
+            margin [ Px (-1.) ];
+            padding [ Zero ];
+            Css.position Absolute;
+            overflow Hidden;
+          ]
+    | Not_sr_only ->
+        (* Property order matches Tailwind: clip, white-space, width, height,
+           margin, padding, position, overflow *)
+        style
+          [
+            clip Css.Clip_auto;
+            white_space Normal;
+            width Auto;
+            height Auto;
+            margin [ Zero ];
+            padding [ Zero ];
+            Css.position Static;
+            overflow Visible;
+          ]
+
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
+    match parts with
+    | [ "sr"; "only" ] -> Ok Sr_only
+    | [ "not"; "sr"; "only" ] -> Ok Not_sr_only
+    | _ -> Error (`Msg "Not a screen reader utility")
+end
+
 module Handler = struct
   open Style
   open Css
@@ -11,8 +68,6 @@ module Handler = struct
     | Inline_block
     | Table
     | Hidden
-    | Sr_only
-    | Not_sr_only
     | (* Visibility *)
       Visible
     | Invisible
@@ -50,13 +105,14 @@ module Handler = struct
   let priority = 4
 
   let suborder = function
-    | Sr_only -> 0
-    | Not_sr_only -> 1
-    | Block -> 2
-    | Hidden -> 3
-    | Inline -> 4
-    | Inline_block -> 5
-    | Table -> 6
+    (* Display utilities - ordered to match Tailwind: block(3), flex(4),
+       grid(5), hidden(6), inline(7), inline-block(8), inline-flex(9),
+       inline-grid(10), table(11) *)
+    | Block -> 3
+    | Hidden -> 6
+    | Inline -> 7
+    | Inline_block -> 8
+    | Table -> 11
     (* Visibility *)
     | Visible -> 100
     | Invisible -> 101
@@ -92,8 +148,6 @@ module Handler = struct
     | Inline_block -> "inline-block"
     | Table -> "table"
     | Hidden -> "hidden"
-    | Sr_only -> "sr-only"
-    | Not_sr_only -> "not-sr-only"
     | Visible -> "visible"
     | Invisible -> "invisible"
     | Collapse -> "collapse"
@@ -122,31 +176,6 @@ module Handler = struct
     | Inline_block -> style [ display Inline_block ]
     | Table -> style [ display Table ]
     | Hidden -> style [ display None ]
-    | Sr_only ->
-        style
-          [
-            Css.position Absolute;
-            width (Px 1.);
-            height (Px 1.);
-            padding [ Zero ];
-            margin [ Px (-1.) ];
-            overflow Hidden;
-            clip (Css.Clip_rect (Zero, Zero, Zero, Zero));
-            white_space Nowrap;
-            border_width Zero;
-          ]
-    | Not_sr_only ->
-        style
-          [
-            Css.position Static;
-            width Auto;
-            height Auto;
-            padding [ Zero ];
-            margin [ Zero ];
-            overflow Visible;
-            clip Css.Clip_auto;
-            white_space Normal;
-          ]
     | Visible -> style [ visibility Visible ]
     | Invisible -> style [ visibility Hidden ]
     | Collapse -> style [ visibility Collapse ]
@@ -200,19 +229,19 @@ module Handler = struct
     | [ "object"; "bottom" ] -> Ok Object_bottom
     | [ "object"; "left" ] -> Ok Object_left
     | [ "object"; "right" ] -> Ok Object_right
-    | [ "sr"; "only" ] -> Ok Sr_only
-    | [ "not"; "sr"; "only" ] -> Ok Not_sr_only
     | _ -> Error (`Msg "Not a layout utility")
 end
 
 open Handler
 
-(** Register layout handler with Utility system *)
+(** Register both handlers with Utility system *)
+let () = Utility.register (module Screen_reader_handler)
+
 let () = Utility.register (module Handler)
 
 (** {1 Public API - Utility Values} *)
 
-(* These provide the public API for layout utilities *)
+(* Layout utilities *)
 let utility x = Utility.base (Self x)
 let block = utility Block
 let inline = utility Inline
@@ -240,5 +269,8 @@ let object_top = utility Object_top
 let object_bottom = utility Object_bottom
 let object_left = utility Object_left
 let object_right = utility Object_right
-let sr_only = utility Sr_only
-let not_sr_only = utility Not_sr_only
+
+(* Screen reader utilities *)
+let sr_utility x = Utility.base (Screen_reader_handler.Self x)
+let sr_only = sr_utility Screen_reader_handler.Sr_only
+let not_sr_only = sr_utility Screen_reader_handler.Not_sr_only

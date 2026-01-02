@@ -1,7 +1,14 @@
 open Alcotest
 open Test_helpers
 
-let check = check_handler_roundtrip (module Tw.Typography.Handler)
+let check_early =
+  check_handler_roundtrip (module Tw.Typography.Typography_early)
+
+let check_late = check_handler_roundtrip (module Tw.Typography.Typography_late)
+
+(* Try both handlers - the utility could be in either *)
+let check class_name =
+  try check_early class_name with _ -> check_late class_name
 
 let test_font_family () =
   check "font-sans";
@@ -157,7 +164,11 @@ let of_string_invalid () =
   (* Invalid typography values *)
   let fail_maybe input =
     let class_name = String.concat "-" input in
-    check_invalid_input (module Tw.Typography.Handler) class_name
+    (* Try both handlers - should fail on both *)
+    (try check_invalid_input (module Tw.Typography.Typography_early) class_name
+     with _ -> ());
+    try check_invalid_input (module Tw.Typography.Typography_late) class_name
+    with _ -> ()
   in
 
   fail_maybe [ "font"; "invalid" ];

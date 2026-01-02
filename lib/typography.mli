@@ -448,4 +448,12 @@ val content_var : Css.content Var.property_default
 (** [content_var] is the CSS variable for content, used by before/after
     pseudo-elements. Initial value is empty string. *)
 
-module Handler : Utility.Handler
+module Typography_early : Utility.Handler
+(** Early typography handler - priority 22, comes before color utilities.
+    Includes: text sizes, font weights, font families, text alignment, leading,
+    italic, and decoration-color. *)
+
+module Typography_late : Utility.Handler
+(** Late typography handler - priority 24, comes after color utilities.
+    Includes: underline, tracking, text transform, decoration styles,
+    whitespace, and other text utilities. *)
