@@ -20,11 +20,11 @@ module Handler = struct
   let to_style = function Grid -> grid | Inline_grid -> inline_grid
 
   let suborder = function
-    (* Display utilities - alphabetical order among all display utilities:
-       block(1), flex(2), grid(3), inline(4), inline-block(5/6), inline-flex(7),
-       inline-grid(8) *)
-    | Grid -> 3
-    | Inline_grid -> 8
+    (* Display utilities - ordered to match Tailwind: sr-only(1),
+       not-sr-only(2), block(3), flex(4), grid(5), hidden(6), inline(7),
+       inline-block(8), inline-flex(9), inline-grid(10), table(11) *)
+    | Grid -> 5
+    | Inline_grid -> 10
 
   let err_not_utility = Error (`Msg "Not a grid display utility")
 

@@ -2071,15 +2071,15 @@ module Handler = struct
     | _ -> Error (`Msg "Not a prose size utility")
 
   let suborder = function
-    (* Prose size utilities appear between mx-auto (100000) and mb-*
-       (500000+) *)
-    | Prose -> 200000
-    | Prose_2xl -> 200001 (* Alphabetical: 2xl before lg, sm, xl *)
-    | Prose_lg -> 200002
-    | Prose_sm -> 200003
-    | Prose_xl -> 200004
-    | Lead -> 200005
-    | Not_prose -> 200006
+    (* Prose size utilities appear between my-* (200000-299999) and mt-*
+       (300000+). Place them at 290000+ to come after all my-* utilities. *)
+    | Prose -> 290000
+    | Prose_2xl -> 290001 (* Alphabetical: 2xl before lg, sm, xl *)
+    | Prose_lg -> 290002
+    | Prose_sm -> 290003
+    | Prose_xl -> 290004
+    | Lead -> 290005
+    | Not_prose -> 290006
 end
 
 (* Handler for prose color variants - priority 21 *)

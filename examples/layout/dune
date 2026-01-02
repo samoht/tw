@@ -12,9 +12,9 @@
 
 (rule
  (targets tailwind.css)
- (deps index.html)
+ (deps index.html input.css)
  (action
-  (run npx tailwindcss --content %{deps} -o %{targets} --minify))
+  (run npx tailwindcss -i input.css -o %{targets} --minify))
  (mode
   (promote (until-clean))))
 

@@ -46,7 +46,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "effects"
-  let priority = 24
+  let priority = 25
 
   (* Shadow variables with property registration - order matches Tailwind
      landing *)

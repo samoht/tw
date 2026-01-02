@@ -285,7 +285,7 @@ let transform_section =
         [ txt "Transforms" ];
       p
         ~tw:Tw.[ text gray 600; dark [ text gray 300 ]; mb 6 ]
-        [ txt "Various transform utilities: rotate, scale, translate." ];
+        [ txt "Various transformation utilities: rotate, scale, translate." ];
       div
         ~tw:Tw.[ grid; grid_cols 2; gap 6; md [ grid_cols 4 ] ]
         [
@@ -713,7 +713,7 @@ let page_view =
                     [
                       txt
                         "Explore Tailwind's animation system: keyframe \
-                         animations, transitions, transforms, and motion \
+                         animations, transitions, transformations, and motion \
                          preferences.";
                     ];
                 ];

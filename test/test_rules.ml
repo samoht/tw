@@ -1309,7 +1309,8 @@ let test_handler_priority_ordering () =
   let border_prio = Tw.Borders.Handler.priority in
   let bg_prio = Tw.Backgrounds.Handler.priority in
   let padding_prio = Tw.Padding.Handler.priority in
-  let typography_prio = Tw.Typography.Handler.priority in
+  let typography_early_prio = Tw.Typography.Typography_early.priority in
+  let typography_late_prio = Tw.Typography.Typography_late.priority in
   let color_prio = Tw.Color.Handler.priority in
   let effect_prio = Tw.Effects.Handler.priority in
   let transform_prio = Tw.Transforms.Handler.priority in
@@ -1342,9 +1343,11 @@ let test_handler_priority_ordering () =
   check bool "gap < border" true (gap_prio < border_prio);
   check bool "border < bg" true (border_prio < bg_prio);
   check bool "bg < padding" true (bg_prio < padding_prio);
-  check bool "padding < typography" true (padding_prio < typography_prio);
-  check bool "typography < color" true (typography_prio < color_prio);
-  check bool "color < effect" true (color_prio < effect_prio);
+  check bool "padding < typography_early" true
+    (padding_prio < typography_early_prio);
+  check bool "typography_early < color" true (typography_early_prio < color_prio);
+  check bool "color < typography_late" true (color_prio < typography_late_prio);
+  check bool "typography_late < effect" true (typography_late_prio < effect_prio);
   check bool "effect < filter" true (effect_prio < filter_prio)
 (* display and tables priority checked in test_priority_order_per_group *)
 

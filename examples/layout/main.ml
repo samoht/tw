@@ -497,7 +497,7 @@ let grid_span_section =
           box "2";
           box "3";
           box ~extra:Tw.[ col_span 3 ] "col-span-3";
-          box ~extra:Tw.[ col_span 4 ] "col-span-full";
+          box ~extra:Tw.[ col_span 4 ] "span-all-4";
         ];
     ]
 
@@ -759,7 +759,7 @@ let layout_pattern_section =
                     [
                       txt
                         "This area uses flex-1 to fill the remaining space. \
-                         The sidebar is fixed width on large screens, while \
+                         The sidebar has a set width on large screens, while \
                          the main content area expands to fill available \
                          space.";
                     ];
