@@ -86,7 +86,7 @@ module Handler = struct
     Var.property_default Css.Length ~initial:Css.Zero ~universal:true
       ~property_order:9 ~family:`Translate "tw-translate-y"
 
-  let _tw_translate_z_var =
+  let tw_translate_z_var =
     Var.property_default Css.Length ~initial:Css.Zero ~universal:true
       ~property_order:10 ~family:`Translate "tw-translate-z"
 
@@ -125,6 +125,7 @@ module Handler = struct
       [
         Var.property_rule tw_translate_x_var;
         Var.property_rule tw_translate_y_var;
+        Var.property_rule tw_translate_z_var;
       ]
       |> List.filter_map (fun x -> x)
       |> concat
@@ -150,6 +151,7 @@ module Handler = struct
       [
         Var.property_rule tw_translate_x_var;
         Var.property_rule tw_translate_y_var;
+        Var.property_rule tw_translate_z_var;
       ]
       |> List.filter_map (fun x -> x)
       |> concat
