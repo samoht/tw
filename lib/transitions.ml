@@ -62,74 +62,63 @@ module Handler = struct
   let transition_none = style [ Css.transition_property [ Css.None ] ]
 
   let transition =
+    (* Use longhand properties with variable references like transition-all *)
+    let ease_ref =
+      Var.reference_with_var_fallback tw_ease_var
+        default_transition_timing_function_var
+        (Css.Cubic_bezier (0., 0., 0., 0.))
+    in
+    let duration_ref =
+      Var.reference_with_var_fallback tw_duration_var
+        default_transition_duration_var (Css.Ms 0.)
+    in
+    (* Include theme bindings for default transition values *)
+    let duration_theme_decl, _ =
+      Var.binding default_transition_duration_var (Css.Ms 150.)
+    in
+    let timing_theme_decl, _ =
+      Var.binding default_transition_timing_function_var
+        (Css.Cubic_bezier (0.4, 0., 0.2, 1.))
+    in
+    (* Use typed variable names for gradient properties *)
+    let gradient_from_name =
+      Var.css_name Backgrounds.Handler.gradient_from_var
+    in
+    let gradient_via_name = Var.css_name Backgrounds.Handler.gradient_via_var in
+    let gradient_to_name = Var.css_name Backgrounds.Handler.gradient_to_var in
     style
       [
-        Css.transitions
+        duration_theme_decl;
+        timing_theme_decl;
+        Css.transition_property
           [
-            Css.Shorthand
-              {
-                property = Css.Property "color";
-                duration = Some (Css.Ms 150.);
-                timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-                delay = None;
-              };
-            Css.Shorthand
-              {
-                property = Css.Property "background-color";
-                duration = Some (Css.Ms 150.);
-                timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-                delay = None;
-              };
-            Css.Shorthand
-              {
-                property = Css.Property "border-color";
-                duration = Some (Css.Ms 150.);
-                timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-                delay = None;
-              };
-            Css.Shorthand
-              {
-                property = Css.Property "text-decoration-color";
-                duration = Some (Css.Ms 150.);
-                timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-                delay = None;
-              };
-            Css.Shorthand
-              {
-                property = Css.Property "fill";
-                duration = Some (Css.Ms 150.);
-                timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-                delay = None;
-              };
-            Css.Shorthand
-              {
-                property = Css.Property "stroke";
-                duration = Some (Css.Ms 150.);
-                timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-                delay = None;
-              };
-            Css.Shorthand
-              {
-                property = Css.Property "opacity";
-                duration = Some (Css.Ms 150.);
-                timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-                delay = None;
-              };
-            Css.Shorthand
-              {
-                property = Css.Property "box-shadow";
-                duration = Some (Css.Ms 150.);
-                timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-                delay = None;
-              };
-            Css.Shorthand
-              {
-                property = Css.Property "transform";
-                duration = Some (Css.Ms 150.);
-                timing_function = Some (Css.Cubic_bezier (0.4, 0.0, 0.2, 1.0));
-                delay = None;
-              };
+            Css.Property "color";
+            Css.Property "background-color";
+            Css.Property "border-color";
+            Css.Property "outline-color";
+            Css.Property "text-decoration-color";
+            Css.Property "fill";
+            Css.Property "stroke";
+            Css.Property gradient_from_name;
+            Css.Property gradient_via_name;
+            Css.Property gradient_to_name;
+            Css.Property "opacity";
+            Css.Property "box-shadow";
+            Css.Property "transform";
+            Css.Property "translate";
+            Css.Property "scale";
+            Css.Property "rotate";
+            Css.Property "filter";
+            Css.Property "-webkit-backdrop-filter";
+            Css.Property "backdrop-filter";
+            Css.Property "display";
+            Css.Property "visibility";
+            Css.Property "content-visibility";
+            Css.Property "overlay";
+            Css.Property "pointer-events";
           ];
+        Css.transition_timing_function (Css.Var ease_ref);
+        Css.transition_duration (Css.Var duration_ref);
       ]
 
   let transition_all =

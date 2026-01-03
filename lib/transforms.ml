@@ -86,7 +86,7 @@ module Handler = struct
     Var.property_default Css.Length ~initial:Css.Zero ~universal:true
       ~property_order:9 ~family:`Translate "tw-translate-y"
 
-  let tw_translate_z_var =
+  let _tw_translate_z_var =
     Var.property_default Css.Length ~initial:Css.Zero ~universal:true
       ~property_order:10 ~family:`Translate "tw-translate-z"
 
@@ -130,7 +130,8 @@ module Handler = struct
       |> concat
     in
     style ~property_rules:props
-      (spacing_decl :: tx_decl :: [ Css.translate (Var tx_ref) (Var ty_ref) ])
+      (spacing_decl :: tx_decl
+      :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
 
   let translate_y n =
     let spacing_decl, spacing_ref =
@@ -154,7 +155,8 @@ module Handler = struct
       |> concat
     in
     style ~property_rules:props
-      (spacing_decl :: ty_decl :: [ Css.translate (Var tx_ref) (Var ty_ref) ])
+      (spacing_decl :: ty_decl
+      :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
 
   let scale n =
     let value : Css.number_percentage = Css.Pct (float_of_int n) in
