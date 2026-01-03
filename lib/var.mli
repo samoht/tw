@@ -364,6 +364,7 @@ type family =
   | `Rotate
   | `Skew
   | `Scale
+  | `Translate
   | `Gradient
   | `Shadow
   | `Inset_shadow
