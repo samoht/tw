@@ -79,6 +79,7 @@ type layers_result = {
 type selector_kind =
   | Simple  (** Plain class selector like .foo *)
   | Complex of {
+      has_focus : bool;
       has_focus_within : bool;
       has_focus_visible : bool;
       has_group_has : bool;
@@ -478,6 +479,64 @@ let apply_modifier_to_rule modifier = function
   | Regular { selector; props; base_class; has_hover; _ } ->
       let bc = Option.value base_class ~default:"" in
       [ modifier_to_rule ~inner_has_hover:has_hover modifier bc selector props ]
+  | Media_query
+      { condition = inner_condition; selector; props; base_class; nested; _ }
+    -> (
+      (* Wrap media query in another media query for stacked modifiers like
+         contrast-more:dark:text-white. The structure is: @media
+         (outer-condition) { @media (inner-condition) {
+         .contrast-more\:dark\:text-white { props } nested... } } The selector
+         needs to be updated to include the outer modifier prefix. *)
+      let bc = Option.value base_class ~default:"" in
+      let new_selector = Modifiers.to_selector modifier bc in
+      let inner_rule = Css.rule ~selector:new_selector props in
+      let inner_media =
+        Css.media ~condition:inner_condition (inner_rule :: nested)
+      in
+      match modifier with
+      | Style.Dark ->
+          [
+            media_query ~condition:(Css.Media.Prefers_color_scheme `Dark)
+              ~selector:new_selector ~props:[] ?base_class
+              ~nested:[ inner_media ] ();
+          ]
+      | Style.Contrast_more ->
+          [
+            media_query ~condition:(Css.Media.Prefers_contrast `More)
+              ~selector:new_selector ~props:[] ?base_class
+              ~nested:[ inner_media ] ();
+          ]
+      | Style.Contrast_less ->
+          [
+            media_query ~condition:(Css.Media.Prefers_contrast `Less)
+              ~selector:new_selector ~props:[] ?base_class
+              ~nested:[ inner_media ] ();
+          ]
+      | Style.Motion_safe ->
+          [
+            media_query
+              ~condition:(Css.Media.Prefers_reduced_motion `No_preference)
+              ~selector:new_selector ~props:[] ?base_class
+              ~nested:[ inner_media ] ();
+          ]
+      | Style.Motion_reduce ->
+          [
+            media_query ~condition:(Css.Media.Prefers_reduced_motion `Reduce)
+              ~selector:new_selector ~props:[] ?base_class
+              ~nested:[ inner_media ] ();
+          ]
+      | _ ->
+          (* For other modifiers, return unchanged *)
+          [
+            Media_query
+              {
+                condition = inner_condition;
+                selector;
+                props;
+                base_class;
+                nested;
+              };
+          ])
   | other -> [ other ]
 
 (* Handle Modified style by recursively extracting and applying modifier *)
@@ -703,6 +762,7 @@ let classify_selector sel =
   else
     Complex
       {
+        has_focus = Css.Selector.has_focus sel;
         has_focus_within = Css.Selector.has_focus_within sel;
         has_focus_visible = Css.Selector.has_focus_visible sel;
         has_group_has =
@@ -906,6 +966,7 @@ let compare_same_utility_regular_media r1 r2 = Int.compare r1.index r2.index
 (** Compare Regular vs Media rules from different utilities. Uses selector
     classification to determine ordering. *)
 let is_late_modifier_kind = function
+  | Complex { has_focus = true; _ } -> true
   | Complex { has_group_has = true; _ } -> true
   | Complex { has_peer_has = true; _ } -> true
   | Complex { has_focus_within = true; _ } -> true
@@ -957,9 +1018,10 @@ let set_debug_compare b = debug_compare := b
 
 (** Check if a selector has special modifiers that should come at the end. This
     includes :has() variants (group-has, peer-has, has) and focus variants
-    (focus-within, focus-visible). These modifiers all come after normal
+    (:focus, focus-within, focus-visible). These modifiers all come after normal
     utilities in Tailwind's output order. *)
 let is_late_modifier = function
+  | Complex { has_focus = true; _ } -> true
   | Complex { has_group_has = true; _ } -> true
   | Complex { has_peer_has = true; _ } -> true
   | Complex { has_focus_within = true; _ } -> true
