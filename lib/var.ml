@@ -61,6 +61,7 @@ module Registry = struct
     | `Rotate
     | `Skew
     | `Scale
+    | `Translate
     | `Gradient
     | `Shadow
     | `Inset_shadow

@@ -77,6 +77,19 @@ module Handler = struct
     Var.channel ~needs_property:true ~property_order:7 ~family:`Skew
       Css.Transform "tw-skew-y"
 
+  (* Translate variables - use property_default pattern with initial 0 *)
+  let tw_translate_x_var =
+    Var.property_default Css.Length ~initial:Css.Zero ~universal:true
+      ~property_order:8 ~family:`Translate "tw-translate-x"
+
+  let tw_translate_y_var =
+    Var.property_default Css.Length ~initial:Css.Zero ~universal:true
+      ~property_order:9 ~family:`Translate "tw-translate-y"
+
+  let tw_translate_z_var =
+    Var.property_default Css.Length ~initial:Css.Zero ~universal:true
+      ~property_order:10 ~family:`Translate "tw-translate-z"
+
   (* Scale variables - first in @layer properties (before gradients). *)
   let tw_scale_x_var =
     Var.property_default Css.Number_percentage ~initial:(Num 1.0)
@@ -95,12 +108,53 @@ module Handler = struct
   let rotate n = style [ Css.rotate (Deg (float_of_int n)) ]
 
   let translate_x n =
-    let len : length = if n = 0 then Zero else Rem (float_of_int n *. 0.25) in
-    style [ Css.transform (Translate_x len) ]
+    (* Create spacing value using the same pattern as position.ml *)
+    let spacing_decl, spacing_ref =
+      Var.binding Theme.spacing_var (Css.Rem 0.25)
+    in
+    let spacing_value : Css.length =
+      Css.Calc
+        (Css.Calc.mul
+           (Css.Calc.length (Css.Var spacing_ref))
+           (Css.Calc.float (float_of_int n)))
+    in
+    let tx_decl, _ = Var.binding tw_translate_x_var spacing_value in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    let props =
+      [
+        Var.property_rule tw_translate_x_var;
+        Var.property_rule tw_translate_y_var;
+      ]
+      |> List.filter_map (fun x -> x)
+      |> concat
+    in
+    style ~property_rules:props
+      (spacing_decl :: tx_decl :: [ Css.translate (Var tx_ref) (Var ty_ref) ])
 
   let translate_y n =
-    let len : length = if n = 0 then Zero else Rem (float_of_int n *. 0.25) in
-    style [ Css.transform (Translate_y len) ]
+    let spacing_decl, spacing_ref =
+      Var.binding Theme.spacing_var (Css.Rem 0.25)
+    in
+    let spacing_value : Css.length =
+      Css.Calc
+        (Css.Calc.mul
+           (Css.Calc.length (Css.Var spacing_ref))
+           (Css.Calc.float (float_of_int n)))
+    in
+    let ty_decl, _ = Var.binding tw_translate_y_var spacing_value in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    let props =
+      [
+        Var.property_rule tw_translate_x_var;
+        Var.property_rule tw_translate_y_var;
+      ]
+      |> List.filter_map (fun x -> x)
+      |> concat
+    in
+    style ~property_rules:props
+      (spacing_decl :: ty_decl :: [ Css.translate (Var tx_ref) (Var ty_ref) ])
 
   let scale n =
     let value : Css.number_percentage = Css.Pct (float_of_int n) in
