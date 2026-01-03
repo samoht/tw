@@ -966,7 +966,6 @@ let compare_same_utility_regular_media r1 r2 = Int.compare r1.index r2.index
 (** Compare Regular vs Media rules from different utilities. Uses selector
     classification to determine ordering. *)
 let is_late_modifier_kind = function
-  | Complex { has_focus = true; _ } -> true
   | Complex { has_group_has = true; _ } -> true
   | Complex { has_peer_has = true; _ } -> true
   | Complex { has_focus_within = true; _ } -> true
