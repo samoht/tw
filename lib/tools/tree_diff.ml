@@ -600,50 +600,73 @@ let rec pp_container_diff ?(style = default_style) ?(is_last = false)
       (* Show the merge/split summary *)
       let exp_count = List.length expected_blocks in
       let act_count = List.length actual_blocks in
-      if exp_count > act_count then
-        Fmt.pf fmt "%s%s %s (%d blocks merged into %d)@," prefix cont_prefix
-          condition exp_count act_count
-      else if exp_count < act_count then
-        Fmt.pf fmt "%s%s %s (%d block split into %d)@," prefix cont_prefix
-          condition exp_count act_count
-      else
-        (* Same count but different positions *)
-        Fmt.pf fmt "%s%s %s (%d blocks at different positions)@," prefix
-          cont_prefix condition exp_count;
 
-      (* Show expected blocks *)
-      List.iter
-        (fun (pos, rules) ->
-          let selectors =
-            List.filter_map
-              (fun stmt ->
+      (* Collect all selectors from both sides to check if identical *)
+      let collect_all_selectors blocks =
+        List.fold_left
+          (fun acc (_, rules) ->
+            List.fold_left
+              (fun acc stmt ->
                 match Css.as_rule stmt with
-                | Some (sel, _, _) -> Some (Css.Selector.to_string sel)
-                | None -> None)
-              rules
-          in
-          if selectors <> [] then
-            Fmt.pf fmt "%s%a@," indent red_styled
-              (Fmt.str "- Block at position %d: %s" pos
-                 (String.concat ", " selectors)))
-        expected_blocks;
+                | Some (sel, _, _) -> Css.Selector.to_string sel :: acc
+                | None -> acc)
+              acc rules)
+          [] blocks
+        |> List.sort String.compare
+      in
+      let exp_selectors = collect_all_selectors expected_blocks in
+      let act_selectors = collect_all_selectors actual_blocks in
+      let selectors_identical = exp_selectors = act_selectors in
 
-      (* Show actual blocks *)
-      List.iter
-        (fun (pos, rules) ->
-          let selectors =
-            List.filter_map
-              (fun stmt ->
-                match Css.as_rule stmt with
-                | Some (sel, _, _) -> Some (Css.Selector.to_string sel)
-                | None -> None)
-              rules
-          in
-          if selectors <> [] then
-            Fmt.pf fmt "%s%a@," indent green_styled
-              (Fmt.str "+ Block at position %d: %s" pos
-                 (String.concat ", " selectors)))
-        actual_blocks
+      (* Only report block structure changes if selectors are actually
+         different *)
+      if not selectors_identical then (
+        if exp_count > act_count then
+          Fmt.pf fmt "%s%s %s (%d blocks merged into %d)@," prefix cont_prefix
+            condition exp_count act_count
+        else if exp_count < act_count then
+          Fmt.pf fmt "%s%s %s (%d block split into %d)@," prefix cont_prefix
+            condition exp_count act_count
+        else
+          (* Same count but different positions *)
+          Fmt.pf fmt "%s%s %s (%d blocks at different positions)@," prefix
+            cont_prefix condition exp_count;
+
+        (* Show expected blocks *)
+        List.iter
+          (fun (pos, rules) ->
+            let selectors =
+              List.filter_map
+                (fun stmt ->
+                  match Css.as_rule stmt with
+                  | Some (sel, _, _) -> Some (Css.Selector.to_string sel)
+                  | None -> None)
+                rules
+            in
+            if selectors <> [] then
+              Fmt.pf fmt "%s%a@," indent red_styled
+                (Fmt.str "- Block at position %d: %s" pos
+                   (String.concat ", " selectors)))
+          expected_blocks;
+
+        (* Show actual blocks *)
+        List.iter
+          (fun (pos, rules) ->
+            let selectors =
+              List.filter_map
+                (fun stmt ->
+                  match Css.as_rule stmt with
+                  | Some (sel, _, _) -> Some (Css.Selector.to_string sel)
+                  | None -> None)
+                rules
+            in
+            if selectors <> [] then
+              Fmt.pf fmt "%s%a@," indent green_styled
+                (Fmt.str "+ Block at position %d: %s" pos
+                   (String.concat ", " selectors)))
+          actual_blocks)
+(* If selectors are identical, don't report this as a diff - it's likely a false
+   positive from CSS serialization differences *)
 
 let pp ?(expected = "Expected") ?(actual = "Actual") fmt { rules; containers } =
   (* Small local helpers to keep the pretty-printer readable *)
