@@ -54,14 +54,7 @@ module Handler = struct
     | Position_sticky -> style [ position Sticky ]
     | Inset_0 ->
         let decl, zero_value = spacing_value 0 in
-        style
-          (decl
-          :: [
-               Css.top zero_value;
-               Css.right zero_value;
-               Css.bottom zero_value;
-               Css.left zero_value;
-             ])
+        style (decl :: [ Css.inset zero_value ])
     | Inset_x_0 ->
         let decl, zero_value = spacing_value 0 in
         style (decl :: [ Css.left zero_value; Css.right zero_value ])
@@ -70,11 +63,7 @@ module Handler = struct
         style (decl :: [ Css.bottom zero_value; Css.top zero_value ])
     | Inset n ->
         let decl, value = spacing_value n in
-        style
-          (decl
-          :: [
-               Css.top value; Css.right value; Css.bottom value; Css.left value;
-             ])
+        style (decl :: [ Css.inset value ])
     | Top n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.top value ])

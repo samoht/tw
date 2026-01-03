@@ -78,26 +78,47 @@ module Handler = struct
     style ~rules:(Some [ spin_keyframes ])
       [ theme_decl; Css.animation (Css.Var spin_var) ]
 
-  let animate_ping =
-    style
-      [
-        Css.animation
-          (Css.Shorthand
-             {
-               name = Some "ping";
-               duration = Some (S 1.0);
-               timing_function = Some (Cubic_bezier (0.0, 0.0, 0.2, 1.0));
-               delay = None;
-               iteration_count = Some Infinite;
-               direction = None;
-               fill_mode = None;
-               play_state = None;
-             });
-      ]
+  (* Theme variable for animate-ping - order (7, 10) places it after
+     animate-spin (7, 9) *)
+  let animate_ping_var = Var.theme Css.Animation "animate-ping" ~order:(7, 10)
 
-  (* Theme variable for animate-pulse - order (7, 10) places it after radius (7,
-     0-5) but before default-font-family (9, x) to match Tailwind ordering *)
-  let animate_pulse_var = Var.theme Css.Animation "animate-pulse" ~order:(7, 10)
+  let animate_ping =
+    let ping_animation =
+      Css.Shorthand
+        {
+          name = Some "ping";
+          duration = Some (S 1.0);
+          timing_function = Some (Cubic_bezier (0.0, 0.0, 0.2, 1.0));
+          delay = None;
+          iteration_count = Some Infinite;
+          direction = None;
+          fill_mode = None;
+          play_state = None;
+        }
+    in
+    let theme_decl, ping_var = Var.binding animate_ping_var ping_animation in
+    let ping_keyframes =
+      Css.keyframes "ping"
+        [
+          {
+            Css.Stylesheet.keyframe_selector =
+              Css.Keyframe.Positions
+                [ Css.Keyframe.Percent 75.; Css.Keyframe.To ];
+            keyframe_declarations =
+              [
+                Css.Declaration.opacity 0.0;
+                Css.Declaration.transform (Scale (2.0, None));
+              ];
+          };
+        ]
+    in
+    style ~rules:(Some [ ping_keyframes ])
+      [ theme_decl; Css.animation (Css.Var ping_var) ]
+
+  (* Theme variable for animate-pulse - order (7, 11) places it after
+     animate-ping (7, 10) but before default-font-family (9, x) to match
+     Tailwind ordering *)
+  let animate_pulse_var = Var.theme Css.Animation "animate-pulse" ~order:(7, 11)
 
   let animate_pulse =
     (* The animation value stored as theme variable *)
@@ -128,10 +149,10 @@ module Handler = struct
     style ~rules:(Some [ pulse_keyframes ])
       [ theme_decl; Css.animation (Css.Var pulse_var) ]
 
-  (* Theme variable for animate-bounce - order (7, 11) places it after
-     animate-pulse (7, 10) *)
+  (* Theme variable for animate-bounce - order (7, 12) places it after
+     animate-pulse (7, 11) *)
   let animate_bounce_var =
-    Var.theme Css.Animation "animate-bounce" ~order:(7, 11)
+    Var.theme Css.Animation "animate-bounce" ~order:(7, 12)
 
   let animate_bounce =
     let bounce_animation =
