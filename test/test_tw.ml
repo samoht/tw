@@ -268,7 +268,9 @@ let content_variants () =
   check_list [ before [ content_none ] ];
   check_list [ after [ content_none ] ];
   (* before + content with auto quotes and arbitrary value class name *)
-  check_list [ before [ content "→" ] ];
+  (* NOTE: Using ASCII character instead of Unicode (→) because Tailwind v4
+     doesn't support Unicode in class names *)
+  check_list [ before [ content ">" ] ];
   (* another simple ASCII content *)
   check_list [ after [ content "*" ] ]
 

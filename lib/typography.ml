@@ -901,7 +901,19 @@ module Typography_late = struct
         Parse.int_bounded ~name:"line-clamp" ~min:0 ~max:6 n >|= fun i ->
         Line_clamp i
     | [ "content"; "none" ] -> Ok Content_none
-    | "content" :: rest -> Ok (Content (String.concat "-" rest))
+    | "content" :: rest ->
+        let joined = String.concat "-" rest in
+        (* Parse arbitrary value syntax: content-["value"] -> value *)
+        if
+          String.length joined >= 4
+          && String.get joined 0 = '['
+          && String.get joined 1 = '"'
+          && String.get joined (String.length joined - 1) = ']'
+          && String.get joined (String.length joined - 2) = '"'
+        then
+          let value = String.sub joined 2 (String.length joined - 4) in
+          Ok (Content value)
+        else Ok (Content joined)
     | _ -> err_not_utility
 
   let to_class = function
@@ -988,7 +1000,7 @@ module Typography_late = struct
     | Indent n -> "indent-" ^ string_of_int n
     | Line_clamp n -> "line-clamp-" ^ string_of_int n
     | Content_none -> "content-none"
-    | Content s -> "content-" ^ s
+    | Content s -> "content-[\"" ^ s ^ "\"]"
 
   (** {1 Ordering Support} *)
 
