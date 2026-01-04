@@ -756,27 +756,37 @@ let rule_relationship r1 r2 =
 
 (* ======================================================================== *)
 
-(** Classify a selector into Simple or Complex with focus/has analysis *)
+(** Classify a selector into Simple or Complex with focus/has analysis. For List
+    selectors (merged selectors like `.a, .b`), classify based on the first
+    element to preserve sort order. *)
 let classify_selector sel =
-  if is_simple_class_selector sel then Simple
+  (* For List selectors (created by optimizer when merging), use first element's
+     classification *)
+  let sel_to_classify =
+    match Css.Selector.as_list sel with
+    | Some (first :: _) -> first
+    | Some [] -> sel (* Empty list shouldn't happen, but handle it *)
+    | None -> sel
+  in
+  if is_simple_class_selector sel_to_classify then Simple
   else
     Complex
       {
-        has_focus = Css.Selector.has_focus sel;
-        has_focus_within = Css.Selector.has_focus_within sel;
-        has_focus_visible = Css.Selector.has_focus_visible sel;
+        has_focus = Css.Selector.has_focus sel_to_classify;
+        has_focus_within = Css.Selector.has_focus_within sel_to_classify;
+        has_focus_visible = Css.Selector.has_focus_visible sel_to_classify;
         has_group_has =
           Css.Selector.exists_class
             (fun n -> String.starts_with ~prefix:"group-has-[" n)
-            sel;
+            sel_to_classify;
         has_peer_has =
           Css.Selector.exists_class
             (fun n -> String.starts_with ~prefix:"peer-has-[" n)
-            sel;
+            sel_to_classify;
         has_standalone_has =
           Css.Selector.exists_class
             (fun n -> String.starts_with ~prefix:"has-[" n)
-            sel;
+            sel_to_classify;
       }
 
 (** Get sort key for preference media conditions. Tailwind order: reduced-motion
@@ -961,25 +971,34 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 nested1 nested2
    where @media (forced-colors:active) appears right after :checked state. *)
 let compare_same_utility_regular_media r1 r2 = Int.compare r1.index r2.index
 
-(* Local checker to decide if a selector is a late modifier kind. *)
+(** Check if a selector has special modifiers that should come at the end. This
+    includes :has() variants (group-has, peer-has, has) and focus variants
+    (:focus, focus-within, focus-visible) that have modifier prefixes.
 
-(** Compare Regular vs Media rules from different utilities. Uses selector
-    classification to determine ordering. *)
-let is_late_modifier_kind = function
+    IMPORTANT: Only selectors with modifier colons (like
+    `.focus\:text-blue-500`) are late modifiers. Native pseudo-classes like
+    `.form-radio:focus` (no modifier prefix) should NOT be treated as late
+    modifiers - they're just regular rules from the base utility. *)
+let is_late_modifier sel_kind selector =
+  let has_modifier_colon = Css.Selector.contains_modifier_colon selector in
+  match sel_kind with
+  | Complex { has_focus = true; _ } -> has_modifier_colon
   | Complex { has_group_has = true; _ } -> true
   | Complex { has_peer_has = true; _ } -> true
-  | Complex { has_focus_within = true; _ } -> true
-  | Complex { has_focus_visible = true; _ } -> true
+  | Complex { has_focus_within = true; _ } -> has_modifier_colon
+  | Complex { has_focus_visible = true; _ } -> has_modifier_colon
   | Complex { has_standalone_has = true; _ } -> true
   | _ -> false
 
+(** Compare Regular vs Media rules from different utilities. Uses selector
+    classification to determine ordering. *)
 let compare_different_utility_regular_media sel1 sel2 order1 order2 =
   if Css.Selector.contains_modifier_colon sel2 then
     (* Modifier-prefixed media: Regular usually before media, except when the
        Regular is a late modifier (group-has, peer-has, focus-within, etc.),
        which Tailwind places after. *)
     let kind1 = classify_selector sel1 in
-    if is_late_modifier_kind kind1 then 1 else -1
+    if is_late_modifier kind1 sel1 then 1 else -1
   else
     (* Plain/built-in media (e.g., container breakpoints emitted without a
        modifier prefix) - compare by priority and suborder. At equal priority
@@ -1015,19 +1034,6 @@ let compare_same_utility_regular r1 r2 =
 let debug_compare = ref false
 let set_debug_compare b = debug_compare := b
 
-(** Check if a selector has special modifiers that should come at the end. This
-    includes :has() variants (group-has, peer-has, has) and focus variants
-    (:focus, focus-within, focus-visible). These modifiers all come after normal
-    utilities in Tailwind's output order. *)
-let is_late_modifier = function
-  | Complex { has_focus = true; _ } -> true
-  | Complex { has_group_has = true; _ } -> true
-  | Complex { has_peer_has = true; _ } -> true
-  | Complex { has_focus_within = true; _ } -> true
-  | Complex { has_focus_visible = true; _ } -> true
-  | Complex { has_standalone_has = true; _ } -> true
-  | _ -> false
-
 (** Compare regular rules from different base utilities. Groups all rules from
     one utility together by sorting on base_class after priority.
 
@@ -1054,8 +1060,8 @@ let compare_cross_utility_regular r1 r2 =
       (match kind1 with Simple -> "Simple" | Complex _ -> "Complex")
       (Css.Selector.to_string r2.selector)
       (match kind2 with Simple -> "Simple" | Complex _ -> "Complex"));
-  let late1 = is_late_modifier kind1 in
-  let late2 = is_late_modifier kind2 in
+  let late1 = is_late_modifier kind1 r1.selector in
+  let late2 = is_late_modifier kind2 r2.selector in
   (* Late modifier utilities always come last *)
   if late1 && not late2 then 1
   else if late2 && not late1 then -1
