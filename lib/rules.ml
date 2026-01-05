@@ -541,10 +541,18 @@ let apply_modifier_to_rule modifier = function
 
 (* Handle Modified style by recursively extracting and applying modifier *)
 let handle_modified util_inner modifier base_style extract_fn =
+  (* Strip the outermost modifier if it matches the one being applied, to avoid
+     doubled prefixes like .focus\:focus\:ring. But preserve inner modifiers for
+     nested cases like dark [ aria_selected [...] ] ->
+     .dark\:aria-selected\:... *)
   let inner_util, style =
     match util_inner with
-    | Utility.Modified (_, u) -> (u, base_style)
-    | _ -> (util_inner, base_style)
+    | Utility.Modified (inner_mod, u) when inner_mod = modifier ->
+        (* Same modifier - strip it to avoid doubling *)
+        (u, base_style)
+    | _ ->
+        (* Different or no modifier - preserve it *)
+        (util_inner, base_style)
   in
   let base_class_name = Utility.to_class inner_util in
   let base_rules = extract_fn base_class_name inner_util style in
