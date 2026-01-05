@@ -8,7 +8,7 @@ open Tw_html
 (* Page header *)
 let page_header =
   header
-    ~tw:Tw.[ bg_white; shadow_sm; dark [ bg gray 900 ] ]
+    ~tw:Tw.[ bg_white; shadow; shadow_sm; dark [ bg gray 900 ] ]
     [
       div
         ~tw:Tw.[ max_w_5xl; mx_auto; px 4; py 4 ]
@@ -182,6 +182,7 @@ let transitions_section =
                   rounded_lg;
                   text_center;
                   font_medium;
+                  transition;
                   transition_colors;
                   duration 300;
                   hover [ bg blue 700 ];
