@@ -2728,6 +2728,10 @@ val table_fixed : t
 val transition_none : t
 (** [transition_none] enables no transition. *)
 
+val transition : t
+(** [transition] enables transitions for common properties (colors, opacity,
+    shadow, transform). *)
+
 val transition_all : t
 (** [transition_all] transitions all properties. *)
 
