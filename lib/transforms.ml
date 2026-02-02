@@ -368,6 +368,14 @@ module Handler = struct
     | [ "translate"; "x"; n ] -> Parse.int_any n >|= fun n -> Translate_x n
     | [ "translate"; "y"; n ] -> Parse.int_any n >|= fun n -> Translate_y n
     | [ "translate"; "z"; n ] -> Parse.int_any n >|= fun n -> Translate_z n
+    (* Negative translate utilities: -translate-x-N, -translate-y-N,
+       -translate-z-N Split by '-' gives [""; "translate"; axis; n] *)
+    | [ ""; "translate"; "x"; n ] ->
+        Parse.int_pos ~name:"translate-x" n >|= fun n -> Translate_x (-n)
+    | [ ""; "translate"; "y"; n ] ->
+        Parse.int_pos ~name:"translate-y" n >|= fun n -> Translate_y (-n)
+    | [ ""; "translate"; "z"; n ] ->
+        Parse.int_pos ~name:"translate-z" n >|= fun n -> Translate_z (-n)
     | [ "scale"; n ] -> Parse.int_pos ~name:"scale" n >|= fun n -> Scale n
     | [ "scale"; "x"; n ] ->
         Parse.int_pos ~name:"scale-x" n >|= fun n -> Scale_x n

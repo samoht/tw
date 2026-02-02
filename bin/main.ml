@@ -200,8 +200,8 @@ let process_files paths flag ~(opts : gen_opts) =
         let all_classes =
           all_classes_raw
           |> List.concat_map (fun classes_str ->
-                 String.split_on_char ' ' classes_str
-                 |> List.filter (fun s -> String.length s > 0))
+              String.split_on_char ' ' classes_str
+              |> List.filter (fun s -> String.length s > 0))
           |> List.sort_uniq String.compare
         in
 
@@ -259,8 +259,8 @@ let process_files paths flag ~(opts : gen_opts) =
           List.concat_map extract_classes_from_file all_files
           |> List.sort_uniq String.compare
           |> List.concat_map (fun classes_str ->
-                 String.split_on_char ' ' classes_str
-                 |> List.filter (fun s -> String.length s > 0))
+              String.split_on_char ' ' classes_str
+              |> List.filter (fun s -> String.length s > 0))
           |> List.sort_uniq String.compare
         in
         let css =

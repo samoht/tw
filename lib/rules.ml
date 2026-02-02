@@ -285,14 +285,9 @@ let has_like_selector kind selector_str base_class props =
   let parsed_selector = Css.Selector.read reader in
   match kind with
   | `Has ->
-      let sel =
-        compound
-          [
-            class_ ("has-[" ^ selector_str ^ "]:" ^ base_class);
-            has [ parsed_selector ];
-          ]
-      in
-      regular ~selector:sel ~props ~base_class ()
+      let class_name = "has-[" ^ selector_str ^ "]:" ^ base_class in
+      let sel = compound [ class_ class_name; has [ parsed_selector ] ] in
+      regular ~selector:sel ~props ~base_class:class_name ()
   | `Group_has ->
       let class_name = "group-has-[" ^ selector_str ^ "]:" ^ base_class in
       let rel =
@@ -346,17 +341,18 @@ let handle_media_like_modifier (modifier : Style.modifier)
   if inner_has_hover then
     (* For compound dark:hover: case, generate a Media_query with nested hover
        media. This allows the optimizer to group these rules together. The
-       selector needs :hover appended. *)
-    let base_selector = Css.Selector.Class modified_class in
+       selector already has :hover from the inner rule transformation - do NOT
+       add another one. *)
     let hover_selector =
-      Css.Selector.Compound [ base_selector; Css.Selector.Hover ]
+      Rules_selector.transform_selector_with_modifier modified_base_selector
+        base_class modified_class selector
     in
     (* Nested @media (hover:hover) { .dark\:hover\:X:hover { props } } *)
     let inner_hover_media =
       Css.media ~condition:Css.Media.Hover
         [ Css.rule ~selector:hover_selector props ]
     in
-    media_query ~condition ~selector:base_selector ~props:[]
+    media_query ~condition ~selector:hover_selector ~props:[]
       ~base_class:modified_class ~nested:[ inner_hover_media ] ()
   else
     let new_selector =
@@ -392,11 +388,15 @@ let route_has_modifier modifier base_class props =
   in
   has_like_selector kind selector_str base_class props
 
-(* Handle fallback for unmatched modifiers *)
+(* Handle fallback for unmatched modifiers. Must extract modified_class so that
+   outer modifiers like dark: can properly transform the selector. *)
 let handle_fallback_modifier modifier base_class props =
   let sel = Modifiers.to_selector modifier base_class in
+  let modified_class =
+    Rules_selector.extract_modified_class_name sel base_class
+  in
   let has_hover = Modifiers.is_hover modifier in
-  regular ~selector:sel ~props ~base_class ~has_hover ()
+  regular ~selector:sel ~props ~base_class:modified_class ~has_hover ()
 
 (** Convert a modifier and its context to a CSS rule. [inner_has_hover]
     indicates if the inner rule has a hover modifier that needs to be wrapped in
@@ -488,7 +488,14 @@ let apply_modifier_to_rule modifier = function
          .contrast-more\:dark\:text-white { props } nested... } } The selector
          needs to be updated to include the outer modifier prefix. *)
       let bc = Option.value base_class ~default:"" in
-      let new_selector = Modifiers.to_selector modifier bc in
+      let modified_base_selector = Modifiers.to_selector modifier bc in
+      let modified_class =
+        Rules_selector.extract_modified_class_name modified_base_selector bc
+      in
+      let new_selector =
+        Rules_selector.transform_selector_with_modifier modified_base_selector
+          bc modified_class selector
+      in
       let inner_rule = Css.rule ~selector:new_selector props in
       let inner_media =
         Css.media ~condition:inner_condition (inner_rule :: nested)
@@ -588,43 +595,43 @@ let outputs util =
             let ordered_rules =
               rule_list
               |> List.filter_map (fun stmt ->
-                     if Css.is_nested_media stmt then None
-                     else
-                       match Css.as_rule stmt with
-                       | Some (selector, declarations, nested) ->
-                           has_regular_rules := true;
-                           Some
-                             [
-                               regular ~selector ~props:declarations
-                                 ~base_class:class_name ~nested ();
-                             ]
-                       | None -> (
-                           match Css.as_media stmt with
-                           | Some (condition, statements) ->
-                               statements
-                               |> List.filter_map (fun inner ->
-                                      match Css.as_rule inner with
-                                      | Some (selector, declarations, _) ->
-                                          Some
-                                            (media_query ~condition ~selector
-                                               ~props:declarations
-                                               ~base_class:class_name ())
-                                      | None -> None)
-                               |> fun l -> Some l
-                           | None -> (
-                               match Css.as_container stmt with
-                               | Some (_, condition, statements) ->
-                                   statements
-                                   |> List.filter_map (fun inner ->
-                                          match Css.as_rule inner with
-                                          | Some (selector, declarations, _) ->
-                                              Some
-                                                (container_query ~condition
-                                                   ~selector ~props:declarations
-                                                   ~base_class:class_name ())
-                                          | None -> None)
-                                   |> fun l -> Some l
-                               | None -> None)))
+                  if Css.is_nested_media stmt then None
+                  else
+                    match Css.as_rule stmt with
+                    | Some (selector, declarations, nested) ->
+                        has_regular_rules := true;
+                        Some
+                          [
+                            regular ~selector ~props:declarations
+                              ~base_class:class_name ~nested ();
+                          ]
+                    | None -> (
+                        match Css.as_media stmt with
+                        | Some (condition, statements) ->
+                            statements
+                            |> List.filter_map (fun inner ->
+                                match Css.as_rule inner with
+                                | Some (selector, declarations, _) ->
+                                    Some
+                                      (media_query ~condition ~selector
+                                         ~props:declarations
+                                         ~base_class:class_name ())
+                                | None -> None)
+                            |> fun l -> Some l
+                        | None -> (
+                            match Css.as_container stmt with
+                            | Some (_, condition, statements) ->
+                                statements
+                                |> List.filter_map (fun inner ->
+                                    match Css.as_rule inner with
+                                    | Some (selector, declarations, _) ->
+                                        Some
+                                          (container_query ~condition ~selector
+                                             ~props:declarations
+                                             ~base_class:class_name ())
+                                    | None -> None)
+                                |> fun l -> Some l
+                            | None -> None)))
               |> List.concat
             in
             (* Base rule with nested media (only if it has props or nested) *)
@@ -1362,20 +1369,20 @@ let sort_vars_by_property_order vars =
 let all_var_names_from_sorted_rules sorted_rules =
   sorted_rules
   |> List.concat_map (fun r ->
-         (* Vars that this utility SETS *)
-         let filtered = filter_utility_properties r.props in
-         let set_vars = Css.custom_prop_names filtered in
-         (* Vars that this utility REFERENCES and need @property *)
-         let all_vars = Css.vars_of_declarations r.props in
-         let ref_vars =
-           all_vars
-           |> List.filter (fun (Css.V v) ->
-                  let name = Css.var_name v in
-                  Var.get_needs_property name)
-           |> List.map (fun (Css.V v) -> "--" ^ Css.var_name v)
-         in
-         (* Sort all vars from this utility by property_order *)
-         sort_vars_by_property_order (set_vars @ ref_vars))
+      (* Vars that this utility SETS *)
+      let filtered = filter_utility_properties r.props in
+      let set_vars = Css.custom_prop_names filtered in
+      (* Vars that this utility REFERENCES and need @property *)
+      let all_vars = Css.vars_of_declarations r.props in
+      let ref_vars =
+        all_vars
+        |> List.filter (fun (Css.V v) ->
+            let name = Css.var_name v in
+            Var.get_needs_property name)
+        |> List.map (fun (Css.V v) -> "--" ^ Css.var_name v)
+      in
+      (* Sort all vars from this utility by property_order *)
+      sort_vars_by_property_order (set_vars @ ref_vars))
 
 let rule_sets tw_classes =
   let all_rules = tw_classes |> List.concat_map outputs in
@@ -1400,11 +1407,11 @@ let rec extract_theme_from_statements theme_vars insertion_order statements =
       | Some props ->
           Css.custom_declarations ~layer:"theme" props
           |> List.iter (fun decl ->
-                 match Css.custom_declaration_name decl with
-                 | Some name when not (Hashtbl.mem theme_vars name) ->
-                     Hashtbl.add theme_vars name decl;
-                     insertion_order := decl :: !insertion_order
-                 | _ -> ())
+              match Css.custom_declaration_name decl with
+              | Some name when not (Hashtbl.mem theme_vars name) ->
+                  Hashtbl.add theme_vars name decl;
+                  insertion_order := decl :: !insertion_order
+              | _ -> ())
       | None -> ());
       (* Recurse into nested statements *)
       (match Css.as_rule stmt with
@@ -1432,27 +1439,27 @@ let extract_non_tw_custom_declarations selector_props =
 
   selector_props
   |> List.iter (function
-       | Regular { props; nested; _ } ->
-           (* Extract from top-level props *)
-           Css.custom_declarations ~layer:"theme" props
-           |> List.iter (fun decl ->
-                  match Css.custom_declaration_name decl with
-                  | Some name when not (Hashtbl.mem theme_vars name) ->
-                      Hashtbl.add theme_vars name decl;
-                      insertion_order := decl :: !insertion_order
-                  | _ -> ());
-           (* Extract from nested statements *)
-           extract_theme_from_statements theme_vars insertion_order nested
-       | Media_query { props; _ }
-       | Container_query { props; _ }
-       | Starting_style { props; _ } ->
-           Css.custom_declarations ~layer:"theme" props
-           |> List.iter (fun decl ->
-                  match Css.custom_declaration_name decl with
-                  | Some name when not (Hashtbl.mem theme_vars name) ->
-                      Hashtbl.add theme_vars name decl;
-                      insertion_order := decl :: !insertion_order
-                  | _ -> ()));
+    | Regular { props; nested; _ } ->
+        (* Extract from top-level props *)
+        Css.custom_declarations ~layer:"theme" props
+        |> List.iter (fun decl ->
+            match Css.custom_declaration_name decl with
+            | Some name when not (Hashtbl.mem theme_vars name) ->
+                Hashtbl.add theme_vars name decl;
+                insertion_order := decl :: !insertion_order
+            | _ -> ());
+        (* Extract from nested statements *)
+        extract_theme_from_statements theme_vars insertion_order nested
+    | Media_query { props; _ }
+    | Container_query { props; _ }
+    | Starting_style { props; _ } ->
+        Css.custom_declarations ~layer:"theme" props
+        |> List.iter (fun decl ->
+            match Css.custom_declaration_name decl with
+            | Some name when not (Hashtbl.mem theme_vars name) ->
+                Hashtbl.add theme_vars name decl;
+                insertion_order := decl :: !insertion_order
+            | _ -> ()));
   (* Return in original insertion order *)
   List.rev !insertion_order
 
@@ -1761,20 +1768,20 @@ let vars_needing_property vars =
 let property_names_of statements =
   statements
   |> List.filter_map (fun stmt ->
-         match Css.as_property stmt with
-         | Some (Css.Property_info info) -> Some info.name
-         | None -> None)
+      match Css.as_property stmt with
+      | Some (Css.Property_info info) -> Some info.name
+      | None -> None)
   |> List.fold_left (fun acc n -> Strings.add n acc) Strings.empty
 
 (* Generate @property rules for variables not in explicit set *)
 let property_rules_for vars excluded_names =
   vars
   |> List.filter (fun (Css.V v) ->
-         let var_name = "--" ^ Css.var_name v in
-         not (Strings.mem var_name excluded_names))
+      let var_name = "--" ^ Css.var_name v in
+      not (Strings.mem var_name excluded_names))
   |> List.map (fun (Css.V v) ->
-         let var_name = "--" ^ Css.var_name v in
-         Css.property ~name:var_name Css.Universal ~inherits:false ())
+      let var_name = "--" ^ Css.var_name v in
+      Css.property ~name:var_name Css.Universal ~inherits:false ())
 
 (** Collect all property rules: explicit ones and auto-generated ones. Only
     auto-generates [\@property] for variables that are: 1. Actually SET (via
@@ -1789,8 +1796,8 @@ let collect_all_property_rules vars_from_utilities set_var_names
   let needing_property =
     vars_needing_property vars_from_utilities
     |> List.filter (fun (Css.V v) ->
-           let var_name = "--" ^ Css.var_name v in
-           Strings.mem var_name set_names_set)
+        let var_name = "--" ^ Css.var_name v in
+        Strings.mem var_name set_names_set)
   in
   let explicit_names = property_names_of explicit_property_rules_statements in
   let generated_rules = property_rules_for needing_property explicit_names in
@@ -1847,33 +1854,32 @@ let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
   let sorted_property_rules =
     property_rules_for_end
     |> List.sort (fun s1 s2 ->
-           match (Css.as_property s1, Css.as_property s2) with
-           | ( Some (Css.Property_info { name = n1; _ }),
-               Some (Css.Property_info { name = n2; _ }) ) ->
-               let fam1 = Var.get_family n1 in
-               let fam2 = Var.get_family n2 in
-               let po1 = property_order_from n1 in
-               let po2 = property_order_from n2 in
-               (* Variables with no family and negative property_order come
-                  first *)
-               let no_family_negative_first =
-                 match (fam1, fam2) with
-                 | None, Some _ when po1 < 0 -> -1
-                 | Some _, None when po2 < 0 -> 1
-                 | _ -> 0
-               in
-               if no_family_negative_first <> 0 then no_family_negative_first
-               else if
-                 uses_direct_property_order fam1
-                 && uses_direct_property_order fam2
-               then
-                 (* These families use property_order directly *)
-                 compare po1 po2
-               else
-                 let fo1 = get_family_order n1 in
-                 let fo2 = get_family_order n2 in
-                 if fo1 <> fo2 then compare fo1 fo2 else compare po1 po2
-           | _ -> 0)
+        match (Css.as_property s1, Css.as_property s2) with
+        | ( Some (Css.Property_info { name = n1; _ }),
+            Some (Css.Property_info { name = n2; _ }) ) ->
+            let fam1 = Var.get_family n1 in
+            let fam2 = Var.get_family n2 in
+            let po1 = property_order_from n1 in
+            let po2 = property_order_from n2 in
+            (* Variables with no family and negative property_order come
+               first *)
+            let no_family_negative_first =
+              match (fam1, fam2) with
+              | None, Some _ when po1 < 0 -> -1
+              | Some _, None when po2 < 0 -> 1
+              | _ -> 0
+            in
+            if no_family_negative_first <> 0 then no_family_negative_first
+            else if
+              uses_direct_property_order fam1 && uses_direct_property_order fam2
+            then
+              (* These families use property_order directly *)
+              compare po1 po2
+            else
+              let fo1 = get_family_order n1 in
+              let fo2 = get_family_order n2 in
+              if fo1 <> fo2 then compare fo1 fo2 else compare po1 po2
+        | _ -> 0)
   in
   let property_rules_css =
     if sorted_property_rules = [] then [] else [ Css.v sorted_property_rules ]

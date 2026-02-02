@@ -36,7 +36,7 @@ module Handler = struct
         let coords =
           points
           |> List.map (fun (x, y) ->
-                 format_float x ^ "% " ^ format_float y ^ "%")
+              format_float x ^ "% " ^ format_float y ^ "%")
           |> String.concat ", "
         in
         "clip-[polygon(" ^ coords ^ ")]"

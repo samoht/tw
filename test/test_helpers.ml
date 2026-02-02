@@ -298,9 +298,9 @@ let count_selector_in_media_sel ~condition ~selector css =
 let inline_has_property prop_name inline_style =
   String.split_on_char ';' inline_style
   |> List.exists (fun prop ->
-         String.trim prop |> String.split_on_char ':' |> function
-         | prop :: _ -> String.trim prop = prop_name
-         | [] -> false)
+      String.trim prop |> String.split_on_char ':' |> function
+      | prop :: _ -> String.trim prop = prop_name
+      | [] -> false)
 
 (** Check if declarations contain any var() references *)
 let has_var_in_declarations ?(inline = false) decls =
