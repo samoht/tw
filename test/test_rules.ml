@@ -274,9 +274,9 @@ let first_rule_decls (stmts : Css.statement list) : Css.declaration list option
 let property_rule_names (sheet : Css.t) : string list =
   Css.statements sheet
   |> List.filter_map (fun s ->
-         match Css.as_property s with
-         | Some (Css.Property_info { name; _ }) -> Some name
-         | None -> None)
+      match Css.as_property s with
+      | Some (Css.Property_info { name; _ }) -> Some name
+      | None -> None)
 
 let extract_var_names_with_prefix (prefix : string) (props : string list) :
     string list =
@@ -504,16 +504,15 @@ let extract_theme_color_vars sheet =
 let extract_utility_selectors sheet =
   Css.layer_block "utilities" sheet
   |> Option.map (fun stmts ->
-         Css.rules_from_statements stmts
-         |> List.filter_map (fun (sel, _) ->
-                let sel_str = Css.Selector.to_string sel in
-                if String.length sel_str > 4 && String.sub sel_str 0 4 = ".bg-"
-                then
-                  let rest = String.sub sel_str 4 (String.length sel_str - 4) in
-                  match String.index_opt rest '-' with
-                  | Some idx -> Some (String.sub rest 0 idx)
-                  | None -> None
-                else None))
+      Css.rules_from_statements stmts
+      |> List.filter_map (fun (sel, _) ->
+          let sel_str = Css.Selector.to_string sel in
+          if String.length sel_str > 4 && String.sub sel_str 0 4 = ".bg-" then
+            let rest = String.sub sel_str 4 (String.length sel_str - 4) in
+            match String.index_opt rest '-' with
+            | Some idx -> Some (String.sub rest 0 idx)
+            | None -> None
+          else None))
   |> Option.value ~default:[]
 
 let test_theme_layer_color_order () =

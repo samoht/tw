@@ -261,9 +261,8 @@ let check_module_consistency lib_css test_css mod_name =
     let invalid_tests =
       tests
       |> List.filter (fun (n, _body, (_hdr, _ln, ign)) ->
-             (not ign)
-             && not
-                  (List.exists (fun t -> expected_test_name t = n) valid_types))
+          (not ign)
+          && not (List.exists (fun t -> expected_test_name t = n) valid_types))
       |> List.map (fun (n, _, _) -> n)
       |> List.sort_uniq compare
     in

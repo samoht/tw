@@ -164,10 +164,10 @@ let diff ~expected ~actual =
             let sig_of_decls decls =
               decls
               |> List.map (fun d ->
-                     (Css.declaration_name d, Css.declaration_value d))
+                  (Css.declaration_name d, Css.declaration_value d))
               |> List.sort (fun (a1, b1) (a2, b2) ->
-                     let c = String.compare a1 a2 in
-                     if c <> 0 then c else String.compare b1 b2)
+                  let c = String.compare a1 a2 in
+                  if c <> 0 then c else String.compare b1 b2)
             in
             let rules1 =
               collect [] [] (Css.statements expected_norm) |> List.rev

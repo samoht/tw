@@ -393,10 +393,13 @@ module Handler = struct
     | Transition_behavior_allow_discrete -> 8
     | Delay n -> 100 + n
     | Duration n -> 200 + n
-    | Ease_linear -> 300
-    | Ease_in -> 301
-    | Ease_out -> 302
-    | Ease_in_out -> 303
+    (* Ease utilities come after Duration. Tailwind orders: duration then ease.
+       Use a high base to ensure even duration-5000 (suborder 5200) < ease.
+       Within ease, Tailwind orders alphabetically: in, in-out, linear, out. *)
+    | Ease_in -> 100000
+    | Ease_in_out -> 100001
+    | Ease_linear -> 100002
+    | Ease_out -> 100003
 
   let ( >|= ) = Parse.( >|= )
 

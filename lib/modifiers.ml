@@ -345,6 +345,44 @@ let apply modifiers base_utility =
         match acc with
         | Utility.Group styles -> after styles
         | single -> after [ single ])
+    (* Group/peer variants *)
+    | "group-hover" -> (
+        match acc with
+        | Utility.Group styles -> group_hover styles
+        | single -> group_hover [ single ])
+    | "group-focus" -> (
+        match acc with
+        | Utility.Group styles -> group_focus styles
+        | single -> group_focus [ single ])
+    | "peer-hover" -> (
+        match acc with
+        | Utility.Group styles -> peer_hover styles
+        | single -> peer_hover [ single ])
+    | "peer-focus" -> (
+        match acc with
+        | Utility.Group styles -> peer_focus styles
+        | single -> peer_focus [ single ])
+    | "peer-checked" -> (
+        match acc with
+        | Utility.Group styles -> peer_checked styles
+        | single -> peer_checked [ single ])
+    (* ARIA variants *)
+    | "aria-checked" -> (
+        match acc with
+        | Utility.Group styles -> aria_checked styles
+        | single -> aria_checked [ single ])
+    | "aria-expanded" -> (
+        match acc with
+        | Utility.Group styles -> aria_expanded styles
+        | single -> aria_expanded [ single ])
+    | "aria-selected" -> (
+        match acc with
+        | Utility.Group styles -> aria_selected styles
+        | single -> aria_selected [ single ])
+    | "aria-disabled" -> (
+        match acc with
+        | Utility.Group styles -> aria_disabled styles
+        | single -> aria_disabled [ single ])
     (* Bracketed :has() variants *)
     | _ when String.starts_with ~prefix:"group-has-[" modifier -> (
         let rest =
@@ -387,21 +425,13 @@ let apply modifiers base_utility =
         | None -> acc)
     | _ -> acc (* ignore unknown modifiers for now *)
   in
-  (* Bracketed :has variants should wrap last so they appear outermost *)
-  let is_bracketed m =
-    String.starts_with ~prefix:"group-has-[" m
-    || String.starts_with ~prefix:"peer-has-[" m
-    || String.starts_with ~prefix:"has-[" m
-  in
-  let others, brackets =
-    List.fold_right
-      (fun m (os, bs) ->
-        if is_bracketed m then (os, m :: bs) else (m :: os, bs))
-      modifiers ([], [])
-  in
   (* Apply modifiers in reverse order so that the first modifier in the string
      (e.g., "dark" in "dark:hover:...") ends up as the outermost wrapper
      (Modified(Dark, Modified(Hover, base))). This matches how the programmatic
-     API works: dark [ hover [ ... ] ] *)
-  let acc = List.fold_left apply_one base_utility (List.rev others) in
-  List.fold_left apply_one acc brackets
+     API works: dark [ hover [ ... ] ]
+
+     We apply ALL modifiers in reverse order to preserve their relative
+     positions. This handles both "dark:has-[:checked]:X" -> Modified(Dark,
+     Modified(Has, X)) and "group-has-[.y]:hover:m-2" -> Modified(Group_has,
+     Modified(Hover, X)). *)
+  List.fold_left apply_one base_utility (List.rev modifiers)
