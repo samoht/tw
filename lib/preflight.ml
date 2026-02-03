@@ -379,6 +379,7 @@ let webkit_form_resets ?(forms = false) () =
       rule ~selector:Webkit_datetime_edit_millisecond_field
         [ padding_block Zero ];
       rule ~selector:Webkit_datetime_edit_meridiem_field [ padding_block Zero ];
+      rule ~selector:Webkit_calendar_picker_indicator [ line_height (Num 1.) ];
     ]
   in
   base_rules @ forms_provided_rules @ padding_block_rules

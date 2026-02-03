@@ -57,3 +57,8 @@ package-lock.json
 examples/**/*.css
 examples/**/*.html
 examples/**/*.tailwind.css
+
+# Root-level generated/temp files
+index.html
+animations.css
+prose.css
