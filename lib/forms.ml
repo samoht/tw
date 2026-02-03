@@ -439,8 +439,9 @@ module Select = struct
                    [
                      Compound
                        [
-                         Attribute (None, "size", Presence, None);
-                         Not [ Attribute (None, "size", Exact "1", None) ];
+                         Attribute (None, Regular "size", Presence, None);
+                         Not
+                           [ Attribute (None, Regular "size", Exact "1", None) ];
                        ];
                    ];
                ])
@@ -488,28 +489,62 @@ let form_textarea = Utility.base (Select.Self Select.Form_textarea)
    @tailwindcss/forms plugin is used
    ======================================================================== *)
 
-(** Type selectors for form elements *)
-let type_text = Css.Selector.attribute "type" (Exact "text")
+(** Type selectors for form elements - wrapped with input:where() to match
+    Tailwind v4 *)
+let type_text =
+  Css.Selector.(element "input" && where [ attribute "type" (Exact "text") ])
 
-let type_email = Css.Selector.attribute "type" (Exact "email")
-let type_url = Css.Selector.attribute "type" (Exact "url")
-let type_password = Css.Selector.attribute "type" (Exact "password")
-let type_number = Css.Selector.attribute "type" (Exact "number")
-let type_date = Css.Selector.attribute "type" (Exact "date")
-let type_datetime_local = Css.Selector.attribute "type" (Exact "datetime-local")
-let type_month = Css.Selector.attribute "type" (Exact "month")
-let type_search = Css.Selector.attribute "type" (Exact "search")
-let type_tel = Css.Selector.attribute "type" (Exact "tel")
-let type_time = Css.Selector.attribute "type" (Exact "time")
-let type_week = Css.Selector.attribute "type" (Exact "week")
-let type_checkbox = Css.Selector.attribute "type" (Exact "checkbox")
-let type_radio = Css.Selector.attribute "type" (Exact "radio")
-let type_file = Css.Selector.attribute "type" (Exact "file")
+let type_email =
+  Css.Selector.(element "input" && where [ attribute "type" (Exact "email") ])
+
+let type_url =
+  Css.Selector.(element "input" && where [ attribute "type" (Exact "url") ])
+
+let type_password =
+  Css.Selector.(
+    element "input" && where [ attribute "type" (Exact "password") ])
+
+let type_number =
+  Css.Selector.(element "input" && where [ attribute "type" (Exact "number") ])
+
+let type_date =
+  Css.Selector.(element "input" && where [ attribute "type" (Exact "date") ])
+
+let type_datetime_local =
+  Css.Selector.(
+    element "input" && where [ attribute "type" (Exact "datetime-local") ])
+
+let type_month =
+  Css.Selector.(element "input" && where [ attribute "type" (Exact "month") ])
+
+let type_search =
+  Css.Selector.(element "input" && where [ attribute "type" (Exact "search") ])
+
+let type_tel =
+  Css.Selector.(element "input" && where [ attribute "type" (Exact "tel") ])
+
+let type_time =
+  Css.Selector.(element "input" && where [ attribute "type" (Exact "time") ])
+
+let type_week =
+  Css.Selector.(element "input" && where [ attribute "type" (Exact "week") ])
+
+let type_checkbox =
+  Css.Selector.(
+    element "input" && where [ attribute "type" (Exact "checkbox") ])
+
+let type_radio =
+  Css.Selector.(element "input" && where [ attribute "type" (Exact "radio") ])
+
+let type_file =
+  Css.Selector.(element "input" && where [ attribute "type" (Exact "file") ])
 
 let input_no_type =
   Css.Selector.(element "input" && where [ not [ attribute "type" Presence ] ])
 
-let multiple = Css.Selector.(attribute "multiple" Presence)
+let multiple =
+  Css.Selector.(element "select" && where [ attribute "multiple" Presence ])
+
 let size = Css.Selector.(attribute "size" Presence)
 let size_1 = Css.Selector.attribute "size" (Exact "1")
 
@@ -667,7 +702,7 @@ let select_base () =
           list
             [
               multiple;
-              size && where [ Selector.element "select" && not [ size_1 ] ];
+              Selector.element "select" && where [ size && not [ size_1 ] ];
             ])
       [
         background_image Initial;

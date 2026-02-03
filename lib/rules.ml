@@ -78,14 +78,20 @@ type layers_result = {
 (** Classification of CSS selectors for ordering purposes *)
 type selector_kind =
   | Simple  (** Plain class selector like .foo *)
+  | Pseudo_element
+      (** Selector with pseudo-element like .before:absolute::before *)
   | Complex of {
       has_focus : bool;
       has_focus_within : bool;
       has_focus_visible : bool;
+      has_group : bool;  (** group-* without :has() like group-focus *)
+      has_peer : bool;  (** peer-* without :has() like peer-checked *)
       has_group_has : bool;
-      has_peer_has : bool;
+          (** group-* with :has() like group-has-[:checked] *)
+      has_peer_has : bool;  (** peer-* with :has() like peer-has-[:checked] *)
       has_standalone_has : bool;
-    }  (** Selector with combinators, pseudo-elements, etc. *)
+      has_aria : bool;
+    }  (** Selector with combinators, pseudo-classes, etc. *)
 
 (** Relationship between two rules being compared *)
 type rule_relationship =
@@ -754,13 +760,17 @@ let is_simple_class_selector sel =
   | _ -> false
 
 (** Compare complex selector kinds. Returns ordering value for sorting. Order:
-    other < group-has < peer-has < focus-within < focus-visible < has *)
+    other < group < group-has < peer < peer-has < focus-within < focus-visible <
+    has < aria *)
 let complex_selector_order = function
-  | Complex { has_group_has = true; _ } -> 10
-  | Complex { has_peer_has = true; _ } -> 20
-  | Complex { has_focus_within = true; _ } -> 30
-  | Complex { has_focus_visible = true; _ } -> 40
+  | Complex { has_aria = true; _ } -> 60
   | Complex { has_standalone_has = true; _ } -> 50
+  | Complex { has_focus_visible = true; _ } -> 40
+  | Complex { has_focus_within = true; _ } -> 30
+  | Complex { has_peer_has = true; _ } -> 21
+  | Complex { has_peer = true; _ } -> 20
+  | Complex { has_group_has = true; _ } -> 11
+  | Complex { has_group = true; _ } -> 10
   | _ -> 0
 
 (** Determine the relationship between two rules *)
@@ -784,25 +794,47 @@ let classify_selector sel =
     | None -> sel
   in
   if is_simple_class_selector sel_to_classify then Simple
+  else if Css.Selector.has_pseudo_element sel_to_classify then Pseudo_element
   else
+    (* Helper to detect :has() pseudo-class *)
+    let rec has_has_pseudo = function
+      | Css.Selector.Has _ -> true
+      | Css.Selector.Compound sels -> List.exists has_has_pseudo sels
+      | Css.Selector.Combined (left, _, right) ->
+          has_has_pseudo left || has_has_pseudo right
+      | Css.Selector.List sels -> List.exists has_has_pseudo sels
+      | Css.Selector.Not sels -> List.exists has_has_pseudo sels
+      | Css.Selector.Is sels -> List.exists has_has_pseudo sels
+      | Css.Selector.Where sels -> List.exists has_has_pseudo sels
+      | _ -> false
+    in
+    (* Helper to detect aria-* attributes *)
+    let rec has_aria_attr = function
+      | Css.Selector.Attribute (_, Css.Selector.Aria _, _, _) -> true
+      | Css.Selector.Compound sels -> List.exists has_aria_attr sels
+      | Css.Selector.Combined (left, _, right) ->
+          has_aria_attr left || has_aria_attr right
+      | Css.Selector.List sels -> List.exists has_aria_attr sels
+      | Css.Selector.Not sels -> List.exists has_aria_attr sels
+      | Css.Selector.Is sels -> List.exists has_aria_attr sels
+      | Css.Selector.Where sels -> List.exists has_aria_attr sels
+      | Css.Selector.Has sels -> List.exists has_aria_attr sels
+      | _ -> false
+    in
+    let has_group = Css.Selector.has_group_marker sel_to_classify in
+    let has_peer = Css.Selector.has_peer_marker sel_to_classify in
+    let has_has = has_has_pseudo sel_to_classify in
     Complex
       {
         has_focus = Css.Selector.has_focus sel_to_classify;
         has_focus_within = Css.Selector.has_focus_within sel_to_classify;
         has_focus_visible = Css.Selector.has_focus_visible sel_to_classify;
-        has_group_has =
-          (* Detect any group-* modifier using structured selector analysis.
-             Group modifiers generate selectors with :where(.group) inside
-             :is() *)
-          Css.Selector.has_group_marker sel_to_classify;
-        has_peer_has =
-          (* Detect any peer-* modifier using structured selector analysis. Peer
-             modifiers generate selectors with :where(.peer) inside :is() *)
-          Css.Selector.has_peer_marker sel_to_classify;
-        has_standalone_has =
-          Css.Selector.exists_class
-            (fun n -> String.starts_with ~prefix:"has-[" n)
-            sel_to_classify;
+        has_group = has_group && not has_has;
+        has_peer = has_peer && not has_has;
+        has_group_has = has_group && has_has;
+        has_peer_has = has_peer && has_has;
+        has_standalone_has = has_has && (not has_group) && not has_peer;
+        has_aria = has_aria_attr sel_to_classify;
       }
 
 (** Get sort key for preference media conditions. Tailwind order: reduced-motion
@@ -905,17 +937,37 @@ let compare_simple_selectors sel1 sel2 s1 s2 i1 i2 =
     in
     if sel_cmp <> 0 then sel_cmp else Int.compare i1 i2
 
-(** Compare two complex selectors by kind, then suborder, then index. Order:
-    focus < group-has < peer-has < has *)
-let compare_complex_selectors kind1 kind2 s1 s2 i1 i2 =
+(** Compare two complex selectors by kind, then selector string (for aria), then
+    suborder, then index. Order: focus < group-has < peer-has < has < aria. For
+    aria selectors, sort by attribute name before property to match Tailwind. *)
+let compare_complex_selectors sel1 sel2 kind1 kind2 s1 s2 i1 i2 =
   let k1 = complex_selector_order kind1 and k2 = complex_selector_order kind2 in
   if k1 <> k2 then Int.compare k1 k2
+  else if k1 = 60 then
+    (* Both are aria selectors - compare by selector string (aria attribute)
+       before suborder (property shade) to match Tailwind v4 behavior *)
+    let sel_cmp =
+      String.compare (Css.Selector.to_string sel1) (Css.Selector.to_string sel2)
+    in
+    if sel_cmp <> 0 then sel_cmp
+    else
+      let sub_cmp = Int.compare s1 s2 in
+      if sub_cmp <> 0 then sub_cmp else Int.compare i1 i2
   else
+    (* Other complex selectors - use suborder first *)
     let sub_cmp = Int.compare s1 s2 in
-    if sub_cmp <> 0 then sub_cmp else Int.compare i1 i2
+    if sub_cmp <> 0 then sub_cmp
+    else
+      let sel_cmp =
+        String.compare
+          (Css.Selector.to_string sel1)
+          (Css.Selector.to_string sel2)
+      in
+      if sel_cmp <> 0 then sel_cmp else Int.compare i1 i2
 
 (** Compare rules by priority, then by selector kind, then by suborder. Uses
-    type-directed dispatch based on selector classification. *)
+    type-directed dispatch based on selector classification. Order is:
+    Pseudo_element < Simple < Complex *)
 let compare_by_priority_suborder_alpha sel1 sel2 (p1, s1) (p2, s2) i1 i2 =
   (* Priority comes first *)
   let prio_cmp = Int.compare p1 p2 in
@@ -926,9 +978,16 @@ let compare_by_priority_suborder_alpha sel1 sel2 (p1, s1) (p2, s2) i1 i2 =
     let kind2 = classify_selector sel2 in
     match (kind1, kind2) with
     | Simple, Simple -> compare_simple_selectors sel1 sel2 s1 s2 i1 i2
+    | Pseudo_element, Pseudo_element ->
+        compare_simple_selectors sel1 sel2 s1 s2 i1 i2
+    | Pseudo_element, Simple -> -1 (* Pseudo-elements before simple *)
+    | Pseudo_element, Complex _ -> -1 (* Pseudo-elements before complex *)
+    | Simple, Pseudo_element -> 1
     | Simple, Complex _ -> -1 (* Simple before complex *)
+    | Complex _, Pseudo_element -> 1
     | Complex _, Simple -> 1
-    | Complex _, Complex _ -> compare_complex_selectors kind1 kind2 s1 s2 i1 i2
+    | Complex _, Complex _ ->
+        compare_complex_selectors sel1 sel2 kind1 kind2 s1 s2 i1 i2
 
 (* Note: compare_regular_rules was removed - now using compare_same_utility and
    compare_cross_utility in compare_indexed_rules. The :has() handling is done
@@ -976,6 +1035,27 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 nested1 nested2
       let has_nested2 = nested2 <> [] in
       let nested_cmp = Bool.compare has_nested1 has_nested2 in
       if nested_cmp <> 0 then nested_cmp
+      else if group1 = 3000 then
+        (* Preference_appearance (dark mode) - prioritize complexity over
+           property. This groups all simple variants first, then all group/peer,
+           then has, then aria, matching Tailwind v4's behavior. *)
+        let kind1 = classify_selector sel1 in
+        let kind2 = classify_selector sel2 in
+        match (kind1, kind2) with
+        | Simple, Simple | Pseudo_element, Pseudo_element ->
+            (* Both simple or both pseudo-element - use standard ordering *)
+            compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+        | Pseudo_element, Simple | Pseudo_element, Complex _ -> -1
+        | Simple, Pseudo_element -> 1
+        | Simple, Complex _ -> -1
+        | Complex _, Pseudo_element | Complex _, Simple -> 1
+        | Complex _, Complex _ ->
+            (* Both complex - order by complexity first *)
+            let c1 = complex_selector_order kind1 in
+            let c2 = complex_selector_order kind2 in
+            if c1 <> c2 then Int.compare c1 c2
+            else
+              compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
       else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
 
 (* ======================================================================== *)
@@ -1106,9 +1186,15 @@ let compare_cross_utility_regular r1 r2 =
       p2 s2;
     Format.eprintf "compare_cross_kind: %s (%s) vs %s (%s)@."
       (Css.Selector.to_string r1.selector)
-      (match kind1 with Simple -> "Simple" | Complex _ -> "Complex")
+      (match kind1 with
+      | Simple -> "Simple"
+      | Pseudo_element -> "Pseudo_element"
+      | Complex _ -> "Complex")
       (Css.Selector.to_string r2.selector)
-      (match kind2 with Simple -> "Simple" | Complex _ -> "Complex"));
+      (match kind2 with
+      | Simple -> "Simple"
+      | Pseudo_element -> "Pseudo_element"
+      | Complex _ -> "Complex"));
   let late1 = is_late_modifier kind1 r1.selector in
   let late2 = is_late_modifier kind2 r2.selector in
   (* Late modifier utilities always come last *)

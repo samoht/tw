@@ -20,11 +20,11 @@ module Screen_reader_handler = struct
 
   let to_style = function
     | Sr_only ->
-        (* Property order matches Tailwind: clip, white-space, border-width,
-           width, height, margin, padding, position, overflow *)
+        (* Property order matches Tailwind: clip-path, white-space,
+           border-width, width, height, margin, padding, position, overflow *)
         style
           [
-            clip (Css.Clip_rect (Zero, Zero, Zero, Zero));
+            clip_path (Css.Clip_path_inset (Pct 50., None, None, None));
             white_space Nowrap;
             border_width Zero;
             width (Px 1.);
@@ -35,11 +35,11 @@ module Screen_reader_handler = struct
             overflow Hidden;
           ]
     | Not_sr_only ->
-        (* Property order matches Tailwind: clip, white-space, width, height,
-           margin, padding, position, overflow *)
+        (* Property order matches Tailwind: clip-path, white-space, width,
+           height, margin, padding, position, overflow *)
         style
           [
-            clip Css.Clip_auto;
+            clip_path Css.Clip_path_none;
             white_space Normal;
             width Auto;
             height Auto;
