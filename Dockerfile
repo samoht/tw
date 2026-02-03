@@ -22,8 +22,7 @@ WORKDIR /work
 
 # Install OCaml dependencies (including test deps and missing ones)
 COPY --chown=opam:opam *.opam dune-project ./
-RUN opam install . --deps-only --with-test --yes && \
-    opam install dune-build-info fmt ocaml-crunch --yes
+RUN opam install . --deps-only --with-test --yes
 
 # Copy source
 COPY --chown=opam:opam . .
