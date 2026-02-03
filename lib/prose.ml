@@ -24,9 +24,7 @@ let prose_quotes_var = Var.channel Color "tw-prose-quotes"
 let prose_quote_borders_var = Var.channel Color "tw-prose-quote-borders"
 let prose_captions_var = Var.channel Color "tw-prose-captions"
 let prose_kbd_var = Var.channel Color "tw-prose-kbd"
-
-(* Special handling for kbd-shadows - it's RGB values without rgb() wrapper *)
-let prose_kbd_shadows_var = Var.channel Rgb "tw-prose-kbd-shadows"
+let prose_kbd_shadows_var = Var.channel Color "tw-prose-kbd-shadows"
 let prose_code_var = Var.channel Color "tw-prose-code"
 let prose_pre_code_var = Var.channel Color "tw-prose-pre-code"
 let prose_pre_bg_var = Var.channel Color "tw-prose-pre-bg"
@@ -49,7 +47,10 @@ let prose_invert_quote_borders_var =
 
 let prose_invert_captions_var = Var.channel Color "tw-prose-invert-captions"
 let prose_invert_kbd_var = Var.channel Color "tw-prose-invert-kbd"
-let prose_invert_kbd_shadows_var = Var.channel Rgb "tw-prose-invert-kbd-shadows"
+
+let prose_invert_kbd_shadows_var =
+  Var.channel Color "tw-prose-invert-kbd-shadows"
+
 let prose_invert_code_var = Var.channel Color "tw-prose-invert-code"
 let prose_invert_pre_code_var = Var.channel Color "tw-prose-invert-pre-code"
 let prose_invert_pre_bg_var = Var.channel Color "tw-prose-invert-pre-bg"
@@ -179,7 +180,7 @@ type prose_theme = {
   quote_borders : Css.declaration * Css.color Css.var;
   captions : Css.declaration * Css.color Css.var;
   kbd : Css.declaration * Css.color Css.var;
-  kbd_shadows : Css.declaration * Css.rgb Css.var;
+  kbd_shadows : Css.declaration * Css.color Css.var;
   code : Css.declaration * Css.color Css.var;
   pre_code : Css.declaration * Css.color Css.var;
   pre_bg : Css.declaration * Css.color Css.var;
@@ -198,7 +199,7 @@ type prose_theme = {
   invert_quote_borders : Css.declaration * Css.color Css.var;
   invert_captions : Css.declaration * Css.color Css.var;
   invert_kbd : Css.declaration * Css.color Css.var;
-  invert_kbd_shadows : Css.declaration * Css.rgb Css.var;
+  invert_kbd_shadows : Css.declaration * Css.color Css.var;
   invert_code : Css.declaration * Css.color Css.var;
   invert_pre_code : Css.declaration * Css.color Css.var;
   invert_pre_bg : Css.declaration * Css.color Css.var;
@@ -241,9 +242,8 @@ let default_prose_theme : prose_theme =
   in
   let kbd_d, kbd_v = Var.binding prose_kbd_var (Css.oklch 21.0 0.034 264.665) in
   let kbd_shadows_d, kbd_shadows_v =
-    (* Use NaN float values to match Tailwind's buggy behavior *)
     Var.binding prose_kbd_shadows_var
-      (Css.Channels { r = Css.Num nan; g = Css.Num nan; b = Css.Num nan })
+      (Css.oklaba 21.0 (-0.00316127) (-0.0338527) 0.1)
   in
   let code_d, code_v =
     Var.binding prose_code_var (Css.oklch 21.0 0.034 264.665)
@@ -298,8 +298,7 @@ let default_prose_theme : prose_theme =
     Var.binding prose_invert_kbd_var (Css.hex "fff")
   in
   let invert_kbd_shadows_d, invert_kbd_shadows_v =
-    Var.binding prose_invert_kbd_shadows_var
-      (Css.Channels { r = Css.Int 255; g = Css.Int 255; b = Css.Int 255 })
+    Var.binding prose_invert_kbd_shadows_var (Css.hex "#ffffff1a")
   in
   let invert_code_d, invert_code_v =
     Var.binding prose_invert_code_var (Css.hex "fff")
@@ -378,9 +377,6 @@ let prose_pre_code_d, prose_pre_code_v = theme.pre_code
 let prose_pre_bg_d, prose_pre_bg_v = theme.pre_bg
 let prose_th_borders_d, prose_th_borders_v = theme.th_borders
 let prose_td_borders_d, prose_td_borders_v = theme.td_borders
-
-(* Local helpers for prose utilities *)
-let rgba_var rgb_var alpha = Css.Rgba { rgb = Css.Var rgb_var; a = alpha }
 
 (* Invert variants *)
 let prose_invert_body_d, _prose_invert_body_v = theme.invert_body
@@ -559,7 +555,7 @@ let kbd_rules base =
                 v_offset = Zero;
                 blur = Some Zero;
                 spread = Some (Px 1.0);
-                color = Some (rgba_var prose_kbd_shadows_v (Css.Pct 10.));
+                color = Some (Css.Var prose_kbd_shadows_v);
               };
             Css.Shadow
               {
@@ -569,7 +565,7 @@ let kbd_rules base =
                 v_offset = Px 3.0;
                 blur = Some Zero;
                 spread = None;
-                color = Some (rgba_var prose_kbd_shadows_v (Css.Pct 10.));
+                color = Some (Css.Var prose_kbd_shadows_v);
               };
           ];
         Css.padding_top (Em 0.1875);
@@ -1707,7 +1703,7 @@ let color_theme_bindings theme_name =
       let d12, _ = Var.binding prose_kbd_var (Css.oklch 21.0 0.034 264.665) in
       let d13, _ =
         Var.binding prose_kbd_shadows_var
-          (Css.Channels { r = Num nan; g = Num nan; b = Num nan })
+          (Css.oklaba 21.0 (-0.00316127) (-0.0338527) 0.1)
       in
       let d14, _ = Var.binding prose_code_var (Css.oklch 21.0 0.034 264.665) in
       let d15, _ =
@@ -1753,8 +1749,7 @@ let color_theme_bindings theme_name =
       in
       let d30, _ = Var.binding prose_invert_kbd_var (Css.hex "fff") in
       let d31, _ =
-        Var.binding prose_invert_kbd_shadows_var
-          (Css.Channels { r = Num 255.0; g = Num 255.0; b = Num 255.0 })
+        Var.binding prose_invert_kbd_shadows_var (Css.hex "#ffffff1a")
       in
       let d32, _ = Var.binding prose_invert_code_var (Css.hex "fff") in
       let d33, _ =
@@ -1831,7 +1826,7 @@ let color_theme_bindings theme_name =
       let d12, _ = Var.binding prose_kbd_var (Css.oklch 20.8 0.042 265.755) in
       let d13, _ =
         Var.binding prose_kbd_shadows_var
-          (Css.Channels { r = Num nan; g = Num nan; b = Num nan })
+          (Css.oklaba 20.8 (-0.00310889) (-0.0418848) 0.1)
       in
       let d14, _ = Var.binding prose_code_var (Css.oklch 20.8 0.042 265.755) in
       let d15, _ =
@@ -1877,8 +1872,7 @@ let color_theme_bindings theme_name =
       in
       let d30, _ = Var.binding prose_invert_kbd_var (Css.hex "fff") in
       let d31, _ =
-        Var.binding prose_invert_kbd_shadows_var
-          (Css.Channels { r = Num 255.0; g = Num 255.0; b = Num 255.0 })
+        Var.binding prose_invert_kbd_shadows_var (Css.hex "#ffffff1a")
       in
       let d32, _ = Var.binding prose_invert_code_var (Css.hex "fff") in
       let d33, _ =

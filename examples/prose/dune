@@ -8,7 +8,7 @@
  (targets index.html prose.css)
  (deps main.exe)
  (action
-  (run ./main.exe))
+  (bash "cp main.exe /tmp/prose_main.exe && /tmp/prose_main.exe"))
  (mode
   (promote (until-clean))))
 
@@ -36,4 +36,5 @@
  (alias runtest)
  (deps prose.css tailwind.css ../../scripts/cssdiff.exe)
  (action
-  (run ../../scripts/cssdiff.exe --color=always tailwind.css prose.css)))
+  (bash
+   "cp ../../scripts/cssdiff.exe /tmp/cssdiff.exe && /tmp/cssdiff.exe --color=always tailwind.css prose.css")))

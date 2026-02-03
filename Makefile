@@ -9,7 +9,7 @@
 #   make clean                        # Remove image and auth volume
 #
 # Auth: run `make login` once, persists in ~/.claude-container
-# Security: git hosts blocked, tmpfs shadows host node_modules
+# Security: git hosts blocked, tmpfs shadows host node_modules and _build
 
 IMAGE_NAME := tw-claude
 MODEL := sonnet
@@ -37,43 +37,54 @@ build:
 test: build
 	docker run --rm --network none \
 		-v $(PWD):/work \
-		--mount type=tmpfs,destination=/work/node_modules \
+		--mount type=tmpfs,destination=/work/node_modules,uid=1000,gid=1000 \
+		--mount type=tmpfs,destination=/work/_build,uid=1000,gid=1000 \
 		$(IMAGE_NAME) \
-		opam exec -- dune test $(TEST)
+		opam exec -- dune test --force $(TEST)
 
 # Loop until tests pass (no limit)
 fix: build
-	@test_cmd="opam exec -- dune test $(TEST)"; \
+	@set -x; \
+	test_cmd="opam exec -- dune test --force $(TEST)"; \
 	attempt=0; \
 	while true; do \
 		attempt=$$((attempt + 1)); \
 		echo "=== Attempt $$attempt ==="; \
 		if [ $$attempt -eq 1 ]; then \
-			docker run --rm \
+			docker run --rm -t \
 				$(DOCKER_OPTS) \
 				-v $(PWD):/work \
 				--mount type=tmpfs,destination=/work/node_modules \
+				--mount type=tmpfs,destination=/work/_build \
 				$(IMAGE_NAME) \
 				claude -p "Run '$$test_cmd' and fix any failures. Be concise." \
 					--dangerously-skip-permissions \
-					--model $(MODEL); \
+					--model $(MODEL) \
+					--verbose; \
 		else \
-			docker run --rm \
+			docker run --rm -t \
 				$(DOCKER_OPTS) \
 				-v $(PWD):/work \
 				--mount type=tmpfs,destination=/work/node_modules \
+				--mount type=tmpfs,destination=/work/_build \
 				$(IMAGE_NAME) \
 				claude -p "Continue fixing test failures. Run '$$test_cmd' to check." \
 					--continue \
 					--dangerously-skip-permissions \
-					--model $(MODEL); \
+					--model $(MODEL) \
+					--verbose; \
 		fi; \
 		echo "=== Checking if tests pass ==="; \
-		if docker run --rm --network none \
+		test_output=$$(docker run --rm --network none \
 			-v $(PWD):/work \
-			--mount type=tmpfs,destination=/work/node_modules \
+			--mount type=tmpfs,destination=/work/node_modules,uid=1000,gid=1000 \
+			--mount type=tmpfs,destination=/work/_build,uid=1000,gid=1000 \
 			$(IMAGE_NAME) \
-			$$test_cmd 2>&1; then \
+			$$test_cmd 2>&1); \
+		test_exit=$$?; \
+		echo "$$test_output"; \
+		echo "=== Test exit code: $$test_exit ==="; \
+		if [ $$test_exit -eq 0 ]; then \
 			echo "All tests passed after $$attempt attempts!"; \
 			exit 0; \
 		fi; \
@@ -85,6 +96,7 @@ shell: build
 		$(DOCKER_OPTS) \
 		-v $(PWD):/work \
 		--mount type=tmpfs,destination=/work/node_modules \
+		--mount type=tmpfs,destination=/work/_build \
 		$(IMAGE_NAME) \
 		bash
 

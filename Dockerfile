@@ -35,9 +35,8 @@ WORKDIR /work
 COPY --chown=opam:opam *.opam dune-project ./
 RUN opam install . --deps-only --with-test --yes
 
-# Copy source and build
-COPY --chown=opam:opam . .
-RUN opam exec -- dune build
+# Don't copy source or build - code comes from bind mount at runtime
+# This ensures `make fix` sees current local changes
 
-# Default: run tests
+# Default: run tests (builds first if needed)
 CMD ["opam", "exec", "--", "dune", "test"]
