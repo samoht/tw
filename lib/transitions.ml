@@ -112,7 +112,6 @@ module Handler = struct
             Css.Property "-webkit-backdrop-filter";
             Css.Property "backdrop-filter";
             Css.Property "display";
-            Css.Property "visibility";
             Css.Property "content-visibility";
             Css.Property "overlay";
             Css.Property "pointer-events";
