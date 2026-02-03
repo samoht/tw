@@ -37,6 +37,9 @@ _doc/
 # opam local switch
 _opam/
 
+# Secrets
+.env
+
 # Temporary files
 *.tmp
 temp_*/

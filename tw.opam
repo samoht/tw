@@ -11,10 +11,13 @@ bug-reports: "https://github.com/username/tw/issues"
 depends: [
   "ocaml"
   "dune" {>= "3.0"}
+  "dune-build-info"
   "cmdliner"
+  "fmt"
   "re"
   "alcotest" {with-test}
   "astring" {with-test}
+  "crunch" {with-test}
   "odoc" {with-doc}
 ]
 build: [
