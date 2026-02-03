@@ -319,13 +319,27 @@ See `lib/rules.mli` for the complete layer model documentation.
 
 ---
 
-## 12) Known issues
+## 12) CSS comparison tool bugs — MUST FIX IMMEDIATELY
 
-* **CSS comparison tool limitations**:
-  - Reports string diffs instead of structural diffs when selectors are fundamentally different (e.g., missing pseudo-elements like `::marker`)
-  - May show "no structural differences" when only property values differ
-  - Does not detect when entire selector chains are missing (e.g., `.hover\:prose:hover :where(ol>li)::marker` vs `.hover\:prose:hover`)
-  - Issue tracked in `lib/tools/css_compare.ml`. Fix required for proper CI gating.
+⚠️ **CRITICAL**: If `--diff` or cssdiff reports **"No structural differences"** but there ARE actual differences in the CSS output, this is **NOT** a known limitation to work around. It is a **bug in the cssdiff tool that MUST be fixed before doing any other work**.
+
+**Do NOT:**
+- Mark tests as "effectively passing" when cssdiff fails to detect real differences
+- Proceed with utility implementation while cssdiff is broken
+- Treat cssdiff bugs as acceptable limitations
+
+**Instead:**
+1. **STOP** all other work immediately
+2. **FIX** the cssdiff tool in `lib/tools/css_compare.ml`
+3. **VERIFY** it correctly detects the differences it was missing
+4. **THEN** resume your original task
+
+**Known cssdiff bugs that need fixing** (not "limitations" — actual bugs):
+- Reports string diffs instead of structural diffs when selectors are fundamentally different (e.g., missing pseudo-elements like `::marker`)
+- Shows "no structural differences" when property values differ (e.g., `clip-path: inset(50%)` syntax)
+- Does not detect when entire selector chains are missing (e.g., `.hover\:prose:hover :where(ol>li)::marker` vs `.hover\:prose:hover`)
+
+The cssdiff tool is the foundation of our Tailwind parity testing. If it cannot reliably detect differences, we cannot trust any of our tests. Fixing it is always the highest priority.
 
 ---
 
