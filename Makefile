@@ -1,25 +1,25 @@
 # Claude Code unattended test-fixing loop
 #
 # Usage:
-#   make build                        # Build the container
-#   make test                         # Run all tests once
-#   make test TEST=examples           # Run specific tests
-#   make fix TEST=examples            # Fix until 'dune test examples' passes
-#   make fix TEST=examples/prose      # Fix until 'dune test examples/prose' passes
+#   make login                        # One-time: authenticate with Max plan
+#   make check-key                    # Verify auth works
+#   make fix TEST=examples/prose      # Fix until tests pass
+#   make test TEST=examples           # Run tests once
+#   make shell                        # Debug shell
+#   make clean                        # Remove image and auth volume
 #
-# API key: create .env with ANTHROPIC_API_KEY=sk-...
-#
-# Security: Network restricted to api.anthropic.com only, git push disabled
-
--include .env
-export ANTHROPIC_API_KEY
+# Auth: run `make login` once, persists in ~/.claude-container
+# Security: git hosts blocked, tmpfs shadows host node_modules
 
 IMAGE_NAME := tw-claude
 MODEL := sonnet
 TEST ?=
 
-# Block git push/fetch and restrict network
-SECURITY_OPTS := \
+# Mount container-specific Claude config (run `make login` once to authenticate)
+CLAUDE_HOME := $(HOME)/.claude-container
+DOCKER_OPTS := \
+	-v $(CLAUDE_HOME):/home/opam/.claude \
+	-v $(CLAUDE_HOME).json:/home/opam/.claude.json \
 	-e GIT_TERMINAL_PROMPT=0 \
 	-e GIT_ASKPASS=/bin/false \
 	-e GIT_SSH_COMMAND=/bin/false \
@@ -27,14 +27,13 @@ SECURITY_OPTS := \
 	--add-host=gitlab.com:127.0.0.1 \
 	--add-host=bitbucket.org:127.0.0.1
 
-.PHONY: build test fix shell clean
+.PHONY: build test fix shell clean check-key login
 
 # Build the container (use `make build NOCACHE=1` to force rebuild)
 build:
 	docker build $(if $(NOCACHE),--no-cache,) -t $(IMAGE_NAME) .
 
 # Run tests once (no network needed)
-# tmpfs shadows host's node_modules (wrong platform binaries)
 test: build
 	docker run --rm --network none \
 		-v $(PWD):/work \
@@ -44,9 +43,6 @@ test: build
 
 # Loop until tests pass (no limit)
 fix: build
-	@if [ -z "$$ANTHROPIC_API_KEY" ]; then \
-		echo "Error: ANTHROPIC_API_KEY not set"; exit 1; \
-	fi
 	@test_cmd="opam exec -- dune test $(TEST)"; \
 	attempt=0; \
 	while true; do \
@@ -54,8 +50,7 @@ fix: build
 		echo "=== Attempt $$attempt ==="; \
 		if [ $$attempt -eq 1 ]; then \
 			docker run --rm \
-				$(SECURITY_OPTS) \
-				-e ANTHROPIC_API_KEY \
+				$(DOCKER_OPTS) \
 				-v $(PWD):/work \
 				--mount type=tmpfs,destination=/work/node_modules \
 				$(IMAGE_NAME) \
@@ -64,8 +59,7 @@ fix: build
 					--model $(MODEL); \
 		else \
 			docker run --rm \
-				$(SECURITY_OPTS) \
-				-e ANTHROPIC_API_KEY \
+				$(DOCKER_OPTS) \
 				-v $(PWD):/work \
 				--mount type=tmpfs,destination=/work/node_modules \
 				$(IMAGE_NAME) \
@@ -85,15 +79,32 @@ fix: build
 		fi; \
 	done
 
-# Interactive shell for debugging (with security opts)
+# Interactive shell for debugging
 shell: build
 	docker run --rm -it \
-		$(SECURITY_OPTS) \
-		-e ANTHROPIC_API_KEY \
+		$(DOCKER_OPTS) \
 		-v $(PWD):/work \
 		--mount type=tmpfs,destination=/work/node_modules \
 		$(IMAGE_NAME) \
 		bash
+
+# Smoke test: verify Claude auth works
+check-key: build
+	docker run --rm -it \
+		$(DOCKER_OPTS) \
+		$(IMAGE_NAME) \
+		claude -p "OK" --max-turns 1 --model haiku --verbose
+
+# Login to Claude (one-time: run /login inside, then Ctrl-D to exit)
+login: build
+	@mkdir -p $(CLAUDE_HOME)
+	@test -f $(CLAUDE_HOME).json || echo '{}' > $(CLAUDE_HOME).json
+	@echo "Run /login inside Claude, authenticate with Max plan, then Ctrl-D"
+	docker run --rm -it \
+		-v $(CLAUDE_HOME):/home/opam/.claude \
+		-v $(CLAUDE_HOME).json:/home/opam/.claude.json \
+		$(IMAGE_NAME) \
+		claude
 
 # Clean up
 clean:
