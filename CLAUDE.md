@@ -4,6 +4,12 @@
 
 This repo provides a type-safe Tailwind v4 implementation in OCaml. Utilities are compiled to CSS through a strongly-typed variable system and layered rules that mirror Tailwind's pipeline. The goal: **no raw `"var(--...)"` strings; no `Css.custom`; spec-faithful output.**
 
+### Scope
+
+All core Tailwind v4 utilities and all official plugins are in scope, including:
+- `@tailwindcss/forms` — **fully supported**
+- `@tailwindcss/typography` — **fully supported**
+
 ---
 
 ## 2) Core principles
