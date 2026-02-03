@@ -791,13 +791,14 @@ let classify_selector sel =
         has_focus_within = Css.Selector.has_focus_within sel_to_classify;
         has_focus_visible = Css.Selector.has_focus_visible sel_to_classify;
         has_group_has =
-          Css.Selector.exists_class
-            (fun n -> String.starts_with ~prefix:"group-has-[" n)
-            sel_to_classify;
+          (* Detect any group-* modifier using structured selector analysis.
+             Group modifiers generate selectors with :where(.group) inside
+             :is() *)
+          Css.Selector.has_group_marker sel_to_classify;
         has_peer_has =
-          Css.Selector.exists_class
-            (fun n -> String.starts_with ~prefix:"peer-has-[" n)
-            sel_to_classify;
+          (* Detect any peer-* modifier using structured selector analysis. Peer
+             modifiers generate selectors with :where(.peer) inside :is() *)
+          Css.Selector.has_peer_marker sel_to_classify;
         has_standalone_has =
           Css.Selector.exists_class
             (fun n -> String.starts_with ~prefix:"has-[" n)
@@ -987,17 +988,20 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 nested1 nested2
 let compare_same_utility_regular_media r1 r2 = Int.compare r1.index r2.index
 
 (** Check if a selector has special modifiers that should come at the end. This
-    includes :has() variants (group-has, peer-has, has) and focus variants
-    (:focus, focus-within, focus-visible) that have modifier prefixes.
+    includes :has() variants (group-has, peer-has, has) and focus-within/
+    focus-visible variants that have modifier prefixes.
 
-    IMPORTANT: Only selectors with modifier colons (like
-    `.focus\:text-blue-500`) are late modifiers. Native pseudo-classes like
-    `.form-radio:focus` (no modifier prefix) should NOT be treated as late
-    modifiers - they're just regular rules from the base utility. *)
+    Note: Regular focus: with modifier prefix is NOT a late modifier - it comes
+    before motion-safe/motion-reduce media rules. Only focus-within: and
+    focus-visible: are late modifiers.
+
+    IMPORTANT: Only selectors with modifier colons (like `.focus-within\:ring`)
+    are late modifiers. Native pseudo-classes like `.form-radio:focus` (no
+    modifier prefix) should NOT be treated as late modifiers - they're just
+    regular rules from the base utility. *)
 let is_late_modifier sel_kind selector =
   let has_modifier_colon = Css.Selector.contains_modifier_colon selector in
   match sel_kind with
-  | Complex { has_focus = true; _ } -> has_modifier_colon
   | Complex { has_group_has = true; _ } -> true
   | Complex { has_peer_has = true; _ } -> true
   | Complex { has_focus_within = true; _ } -> has_modifier_colon
@@ -1005,34 +1009,64 @@ let is_late_modifier sel_kind selector =
   | Complex { has_standalone_has = true; _ } -> true
   | _ -> false
 
+(** Check if a selector is a focus: modifier rule (has :focus pseudo-class and
+    modifier colon). These rules come AFTER hover:hover media but BEFORE other
+    modifier-prefixed media like motion-safe:/motion-reduce:/contrast-more:. *)
+let is_focus_modifier_rule sel_kind selector =
+  Css.Selector.contains_modifier_colon selector
+  && match sel_kind with Complex { has_focus = true; _ } -> true | _ -> false
+
 (** Compare Regular vs Media rules from different utilities. Uses selector
     classification to determine ordering. *)
-let compare_different_utility_regular_media sel1 sel2 order1 order2 =
+let compare_different_utility_regular_media sel1 sel2 order1 order2 media_type =
+  let kind1 = classify_selector sel1 in
+  (* Check if regular rule is a focus: modifier rule *)
+  let is_focus = is_focus_modifier_rule kind1 sel1 in
   if Css.Selector.contains_modifier_colon sel2 then
-    (* Modifier-prefixed media: Regular usually before media, except when the
-       Regular is a late modifier (group-has, peer-has, focus-within, etc.),
-       which Tailwind places after. *)
-    let kind1 = classify_selector sel1 in
-    if is_late_modifier kind1 sel1 then 1 else -1
-  else
-    (* Plain/built-in media (e.g., container breakpoints emitted without a
-       modifier prefix) - compare by priority and suborder. At equal priority
-       and suborder, keep regular before media. *)
-    let p1, s1 = order1 in
-    let p2, s2 = order2 in
-    let prio_cmp = Int.compare p1 p2 in
-    if prio_cmp <> 0 then prio_cmp
+    (* Modifier-prefixed media (like motion-safe:, dark:, contrast-more:) *)
+    if is_late_modifier kind1 sel1 then
+      (* Late modifiers (group-has, peer-has, focus-within, etc.) come after *)
+      1
+    else if is_focus then
+      (* focus: rules come BEFORE modifier-prefixed media like motion-safe:, but
+         AFTER hover:hover media. Check media type. *)
+      match media_type with
+      | Some Css.Media.Hover ->
+          (* focus: comes AFTER hover:hover media *)
+          1
+      | _ ->
+          (* focus: comes BEFORE other media (motion-safe, contrast-more,
+             etc.) *)
+          -1
     else
-      let sub_cmp = Int.compare s1 s2 in
-      if sub_cmp <> 0 then sub_cmp else -1
+      (* Other regular rules come before modifier-prefixed media *)
+      -1
+  else
+    (* Plain/built-in media (e.g., container breakpoints, hover:hover without
+       modifier prefix) - compare by priority and suborder. *)
+    match media_type with
+    | Some Css.Media.Hover when is_focus ->
+        (* focus: rules come AFTER hover:hover media *)
+        1
+    | _ ->
+        let p1, s1 = order1 in
+        let p2, s2 = order2 in
+        let prio_cmp = Int.compare p1 p2 in
+        if prio_cmp <> 0 then prio_cmp
+        else
+          let sub_cmp = Int.compare s1 s2 in
+          if sub_cmp <> 0 then sub_cmp else -1
 
 (** Compare Regular vs Media rules using rule relationship dispatch. *)
 let compare_regular_vs_media r1 r2 =
   match rule_relationship r1 r2 with
   | Same_utility _ -> compare_same_utility_regular_media r1 r2
   | Different_utilities ->
+      let media_type =
+        match r2.rule_type with `Media m -> Some m | _ -> None
+      in
       compare_different_utility_regular_media r1.selector r2.selector r1.order
-        r2.order
+        r2.order media_type
 
 (* ======================================================================== *)
 (* Regular Rule Comparison - Type-directed comparison for Regular rules *)
@@ -1101,21 +1135,67 @@ let compare_cross_utility_regular r1 r2 =
           in
           if bc_cmp <> 0 then bc_cmp else Int.compare r1.index r2.index
   else
-    (* Neither has late modifier - sort normally by priority *)
-    let prio_cmp = Int.compare p1 p2 in
-    if prio_cmp <> 0 then prio_cmp
-    else
-      let sub_cmp = Int.compare s1 s2 in
-      if sub_cmp <> 0 then sub_cmp
+    (* Neither has late modifier - check for focus: modifier. focus: rules come
+       after regular rules but before late modifiers. *)
+    let focus1 = is_focus_modifier_rule kind1 r1.selector in
+    let focus2 = is_focus_modifier_rule kind2 r2.selector in
+    if focus1 && not focus2 then 1
+    else if focus2 && not focus1 then -1
+    else if focus1 && focus2 then
+      (* Both have focus: modifier - sort by priority then base class. Tailwind
+         v4 sorts focus: rules by their utility priority, then alphabetically by
+         base class for deterministic output. Special case: outline utilities
+         come after ring utilities for proper cascade (outline-none should be
+         able to override ring focus styles). *)
+      let is_outline bc =
+        match bc with
+        | Some s ->
+            (* base_class includes modifier prefix, so check if it contains
+               ":outline" (e.g., "focus:outline-none") *)
+            let outline_pattern = ":outline" in
+            let rec find_substring s i =
+              if i + 8 > String.length s then false
+              else if String.sub s i 8 = outline_pattern then true
+              else find_substring s (i + 1)
+            in
+            find_substring s 0
+        | None -> false
+      in
+      let outline1 = is_outline r1.base_class in
+      let outline2 = is_outline r2.base_class in
+      if outline1 && not outline2 then 1
+      else if outline2 && not outline1 then -1
       else
-        let bc_cmp =
-          match (r1.base_class, r2.base_class) with
-          | Some bc1, Some bc2 -> String.compare bc1 bc2
-          | Some _, None -> -1
-          | None, Some _ -> 1
-          | None, None -> 0
-        in
-        if bc_cmp <> 0 then bc_cmp else Int.compare r1.index r2.index
+        let prio_cmp = Int.compare p1 p2 in
+        if prio_cmp <> 0 then prio_cmp
+        else
+          let sub_cmp = Int.compare s1 s2 in
+          if sub_cmp <> 0 then sub_cmp
+          else
+            let bc_cmp =
+              match (r1.base_class, r2.base_class) with
+              | Some bc1, Some bc2 -> String.compare bc1 bc2
+              | Some _, None -> -1
+              | None, Some _ -> 1
+              | None, None -> 0
+            in
+            if bc_cmp <> 0 then bc_cmp else Int.compare r1.index r2.index
+    else
+      (* Neither has focus: - sort normally by priority *)
+      let prio_cmp = Int.compare p1 p2 in
+      if prio_cmp <> 0 then prio_cmp
+      else
+        let sub_cmp = Int.compare s1 s2 in
+        if sub_cmp <> 0 then sub_cmp
+        else
+          let bc_cmp =
+            match (r1.base_class, r2.base_class) with
+            | Some bc1, Some bc2 -> String.compare bc1 bc2
+            | Some _, None -> -1
+            | None, Some _ -> 1
+            | None, None -> 0
+          in
+          if bc_cmp <> 0 then bc_cmp else Int.compare r1.index r2.index
 
 (** Compare two Regular rules using rule relationship dispatch. *)
 let compare_regular_rules r1 r2 =
@@ -1884,10 +1964,20 @@ let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
   let property_rules_css =
     if sorted_property_rules = [] then [] else [ Css.v sorted_property_rules ]
   in
-  (* Convert keyframes to statements (deduplicated by name) *)
+  (* Convert keyframes to statements - preserve first-usage order (matching
+     Tailwind) and deduplicate by name (keeping first occurrence) *)
+  let dedup_keyframes kfs =
+    let seen = Hashtbl.create 8 in
+    List.filter
+      (fun (name, _) ->
+        if Hashtbl.mem seen name then false
+        else (
+          Hashtbl.add seen name ();
+          true))
+      kfs
+  in
   let keyframes_stmts =
-    keyframes
-    |> List.sort_uniq (fun (n1, _) (n2, _) -> String.compare n1 n2)
+    keyframes |> dedup_keyframes
     |> List.map (fun (name, frames) -> Css.keyframes name frames)
   in
   let keyframes_css =
@@ -2005,8 +2095,9 @@ let build_layers ~include_base ~selector_props tw_classes statements =
     build_individual_layers ~forms_base first_usage_order selector_props
       all_property_statements statements
   in
-  (* Extract keyframes from all utilities *)
-  let keyframes = List.fold_left collect_keyframes [] styles in
+  (* Extract keyframes from all utilities - reverse to get first-usage order
+     since collect_keyframes prepends to accumulator *)
+  let keyframes = List.fold_left collect_keyframes [] styles |> List.rev in
   assemble_all_layers ~include_base ~properties_layer:layers.properties_layer
     ~theme_layer:layers.theme_layer ~base_layer:layers.base_layer
     ~utilities_layer:layers.utilities_layer
