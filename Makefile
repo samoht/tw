@@ -29,13 +29,17 @@ SECURITY_OPTS := \
 
 .PHONY: build test fix shell clean
 
-# Build the container
+# Build the container (use `make build NOCACHE=1` to force rebuild)
 build:
-	docker build -t $(IMAGE_NAME) .
+	docker build $(if $(NOCACHE),--no-cache,) -t $(IMAGE_NAME) .
 
 # Run tests once (no network needed)
+# tmpfs shadows host's node_modules (wrong platform binaries)
 test: build
-	docker run --rm --network none -v $(PWD):/work $(IMAGE_NAME) \
+	docker run --rm --network none \
+		-v $(PWD):/work \
+		--mount type=tmpfs,destination=/work/node_modules \
+		$(IMAGE_NAME) \
 		opam exec -- dune test $(TEST)
 
 # Loop until tests pass (no limit)
@@ -53,6 +57,7 @@ fix: build
 				$(SECURITY_OPTS) \
 				-e ANTHROPIC_API_KEY \
 				-v $(PWD):/work \
+				--mount type=tmpfs,destination=/work/node_modules \
 				$(IMAGE_NAME) \
 				claude -p "Run '$$test_cmd' and fix any failures. Be concise." \
 					--dangerously-skip-permissions \
@@ -62,6 +67,7 @@ fix: build
 				$(SECURITY_OPTS) \
 				-e ANTHROPIC_API_KEY \
 				-v $(PWD):/work \
+				--mount type=tmpfs,destination=/work/node_modules \
 				$(IMAGE_NAME) \
 				claude -p "Continue fixing test failures. Run '$$test_cmd' to check." \
 					--continue \
@@ -69,7 +75,10 @@ fix: build
 					--model $(MODEL); \
 		fi; \
 		echo "=== Checking if tests pass ==="; \
-		if docker run --rm --network none -v $(PWD):/work $(IMAGE_NAME) \
+		if docker run --rm --network none \
+			-v $(PWD):/work \
+			--mount type=tmpfs,destination=/work/node_modules \
+			$(IMAGE_NAME) \
 			$$test_cmd 2>&1; then \
 			echo "All tests passed after $$attempt attempts!"; \
 			exit 0; \
@@ -82,6 +91,7 @@ shell: build
 		$(SECURITY_OPTS) \
 		-e ANTHROPIC_API_KEY \
 		-v $(PWD):/work \
+		--mount type=tmpfs,destination=/work/node_modules \
 		$(IMAGE_NAME) \
 		bash
 

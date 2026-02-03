@@ -20,7 +20,10 @@
  (depends
   ocaml
   dune
+  dune-build-info
   cmdliner
+  fmt
   re
   (alcotest :with-test)
-  (astring :with-test)))
+  (astring :with-test)
+  (crunch :with-test)))

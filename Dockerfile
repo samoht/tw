@@ -3,31 +3,40 @@
 
 FROM ocaml/opam:ubuntu-24.04-ocaml-5.3
 
-# Install system dependencies
+# Install system dependencies (including build tools for native npm modules)
 USER root
 RUN apt-get update && apt-get install -y \
     curl \
     git \
-    nodejs \
-    npm \
     jq \
+    build-essential \
+    python3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Claude Code CLI
-RUN npm install -g @anthropic-ai/claude-code
+# Install Node.js 20.x
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs
 
-# Switch back to opam user
+# Install npm packages globally (Claude Code + Tailwind CSS)
+RUN npm install -g @anthropic-ai/claude-code \
+    @tailwindcss/cli tailwindcss @tailwindcss/forms @tailwindcss/typography
+
+# Set NODE_PATH so tailwindcss can find its modules
+ENV NODE_PATH=/usr/lib/node_modules
+
+# Fix npm cache ownership for opam user
+RUN mkdir -p /home/opam/.npm && chown -R opam:opam /home/opam/.npm
+
+# Switch to opam user
 USER opam
 WORKDIR /work
 
-# Install OCaml dependencies (including test deps and missing ones)
+# Install OCaml dependencies (cached unless opam files change)
 COPY --chown=opam:opam *.opam dune-project ./
 RUN opam install . --deps-only --with-test --yes
 
-# Copy source
+# Copy source and build
 COPY --chown=opam:opam . .
-
-# Build the project
 RUN opam exec -- dune build
 
 # Default: run tests
