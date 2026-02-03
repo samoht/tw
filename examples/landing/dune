@@ -16,9 +16,9 @@
 
 (rule
  (targets tailwind.css)
- (deps index.html)
+ (deps index.html ../../package-lock.json)
  (action
-  (run npx tailwindcss --content %{deps} -o %{targets} --minify))
+  (run npx tailwindcss --content index.html -o %{targets} --minify))
  (mode
   (promote (until-clean))))
 

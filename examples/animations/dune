@@ -12,7 +12,7 @@
 
 (rule
  (targets tailwind.css)
- (deps index.html input.css)
+ (deps index.html input.css ../../package-lock.json)
  (action
   (run npx tailwindcss -i input.css -o %{targets} --minify))
  (mode
