@@ -105,38 +105,40 @@ let tracking_widest_var = Var.theme Css.Length "tracking-widest" ~order:(6, 44)
 let leading_relaxed_var =
   Var.theme Css.Line_height "leading-relaxed" ~order:(6, 50)
 
-let font_weight_var =
-  (* In @supports block: font-weight comes first, before shadow family.
-     property_order: font-weight (0), shadow (7+), ring (14+), etc. *)
-  Var.channel ~needs_property:true ~property_order:0 ~family:`Font_weight
-    Css.Font_weight "tw-font-weight"
-
 let leading_var =
-  Var.channel ~needs_property:true ~property_order:17 ~family:`Leading
+  (* Leading appears in @layer properties after skew (position 5) *)
+  Var.channel ~needs_property:true ~property_order:5 ~family:`Leading
     Css.Line_height "tw-leading"
 
+let font_weight_var =
+  (* Font-weight appears in @layer properties after leading (position 6) *)
+  Var.channel ~needs_property:true ~property_order:16 ~family:`Font_weight
+    Css.Font_weight "tw-font-weight"
+
 let tracking_var =
-  Var.channel ~needs_property:true ~property_order:19 ~family:`Tracking
+  (* Tracking doesn't appear in @layer properties in standard Tailwind - only
+     referenced *)
+  Var.channel ~needs_property:true ~property_order:101 ~family:`Tracking
     Css.Length "tw-tracking"
 
 let ordinal_var =
-  Var.channel ~needs_property:true ~property_order:10
+  Var.channel ~needs_property:true ~property_order:102
     Css.Font_variant_numeric_token "tw-ordinal"
 
 let slashed_var =
-  Var.channel ~needs_property:true ~property_order:11
+  Var.channel ~needs_property:true ~property_order:103
     Css.Font_variant_numeric_token "tw-slashed-zero"
 
 let figure_var =
-  Var.channel ~needs_property:true ~property_order:12
+  Var.channel ~needs_property:true ~property_order:104
     Css.Font_variant_numeric_token "tw-numeric-figure"
 
 let spacing_var =
-  Var.channel ~needs_property:true ~property_order:13
+  Var.channel ~needs_property:true ~property_order:105
     Css.Font_variant_numeric_token "tw-numeric-spacing"
 
 let fraction_var =
-  Var.channel ~needs_property:true ~property_order:14
+  Var.channel ~needs_property:true ~property_order:106
     Css.Font_variant_numeric_token "tw-numeric-fraction"
 
 (* Helper to get line height calc value *)

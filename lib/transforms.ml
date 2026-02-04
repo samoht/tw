@@ -55,53 +55,57 @@ module Handler = struct
   (* Tailwind v4 uses rotate-x/y/z and skew-x/y variables for the transform
      utility. These variables contain the full transform function values, e.g.:
      --tw-rotate-x: rotateX(45deg) --tw-skew-x: skewX(10deg) *)
-  (* Property ordering: scale (0-2) comes before rotate/skew (3-7) in
-     @layer properties *)
-  let tw_rotate_x_var =
-    Var.channel ~needs_property:true ~property_order:3 ~family:`Rotate
-      Css.Transform "tw-rotate-x"
-
-  let tw_rotate_y_var =
-    Var.channel ~needs_property:true ~property_order:4 ~family:`Rotate
-      Css.Transform "tw-rotate-y"
-
-  let tw_rotate_z_var =
-    Var.channel ~needs_property:true ~property_order:5 ~family:`Rotate
-      Css.Transform "tw-rotate-z"
-
-  let tw_skew_x_var =
-    Var.channel ~needs_property:true ~property_order:6 ~family:`Skew
-      Css.Transform "tw-skew-x"
-
-  let tw_skew_y_var =
-    Var.channel ~needs_property:true ~property_order:7 ~family:`Skew
-      Css.Transform "tw-skew-y"
+  (* Property ordering to match Tailwind v4:
+     translate (0-2), scale (3-5), then other properties follow *)
 
   (* Translate variables - use property_default pattern with initial 0 *)
+  (* Translate properties don't appear in @layer properties in standard Tailwind - only used locally *)
   let tw_translate_x_var =
     Var.property_default Css.Length ~initial:Css.Zero ~universal:true
-      ~property_order:8 ~family:`Translate "tw-translate-x"
+      ~property_order:0 ~family:`Translate "tw-translate-x"
 
   let tw_translate_y_var =
     Var.property_default Css.Length ~initial:Css.Zero ~universal:true
-      ~property_order:9 ~family:`Translate "tw-translate-y"
+      ~property_order:1 ~family:`Translate "tw-translate-y"
 
   let tw_translate_z_var =
     Var.property_default Css.Length ~initial:Css.Zero ~universal:true
-      ~property_order:10 ~family:`Translate "tw-translate-z"
+      ~property_order:2 ~family:`Translate "tw-translate-z"
 
-  (* Scale variables - first in @layer properties (before gradients). *)
+  (* Scale variables - use first-usage order with low property_order (5-7) for
+     tie-breaking *)
   let tw_scale_x_var =
     Var.property_default Css.Number_percentage ~initial:(Num 1.0)
-      ~universal:true ~property_order:0 ~family:`Scale "tw-scale-x"
+      ~universal:true ~property_order:5 ~family:`Scale "tw-scale-x"
 
   let tw_scale_y_var =
     Var.property_default Css.Number_percentage ~initial:(Num 1.0)
-      ~universal:true ~property_order:1 ~family:`Scale "tw-scale-y"
+      ~universal:true ~property_order:6 ~family:`Scale "tw-scale-y"
 
   let tw_scale_z_var =
     Var.property_default Css.Number_percentage ~initial:(Num 1.0)
-      ~universal:true ~property_order:2 ~family:`Scale "tw-scale-z"
+      ~universal:true ~property_order:7 ~family:`Scale "tw-scale-z"
+
+  (* Rotate and skew properties appear FIRST in @layer properties (0-4) *)
+  let tw_rotate_x_var =
+    Var.channel ~needs_property:true ~property_order:0 ~family:`Rotate
+      Css.Transform "tw-rotate-x"
+
+  let tw_rotate_y_var =
+    Var.channel ~needs_property:true ~property_order:1 ~family:`Rotate
+      Css.Transform "tw-rotate-y"
+
+  let tw_rotate_z_var =
+    Var.channel ~needs_property:true ~property_order:2 ~family:`Rotate
+      Css.Transform "tw-rotate-z"
+
+  let tw_skew_x_var =
+    Var.channel ~needs_property:true ~property_order:3 ~family:`Skew
+      Css.Transform "tw-skew-x"
+
+  let tw_skew_y_var =
+    Var.channel ~needs_property:true ~property_order:4 ~family:`Skew
+      Css.Transform "tw-skew-y"
 
   (** {1 2D Transform Utilities} *)
 
