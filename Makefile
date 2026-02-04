@@ -34,6 +34,21 @@ CRITICAL PRIORITIES (in order):
 3. Cosmetic formatting differences (whitespace, nesting format, property order) ARE structural differences and MUST be fixed to match Tailwind exactly.
 
 See CLAUDE.md section 12 for cssdiff bug details.
+
+APPROACH:
+- Always step back and fix issues THE CORRECT WAY
+- Do not hack around problems - understand and fix root causes
+- If ordering is wrong, fix the comparison functions properly
+- If rules are missing, add them to the right place in the pipeline
+- When in doubt, ADD MORE TYPES - let the compiler guide you
+
+FORBIDDEN - NEVER say any of these:
+- "This would require significant time"
+- "Fixing all of these would take time"
+- "This is complex and needs more work"
+- "These are known issues / technical debt"
+- "I'll leave this for later"
+You have UNLIMITED time. Fix EVERYTHING until tests pass. No excuses.
 endef
 PROMPT ?= $(subst $(newline), ,$(DEFAULT_PROMPT))
 
@@ -92,7 +107,7 @@ lint: build
 	while true; do \
 		attempt=$$((attempt + 1)); \
 		echo "=== Lint attempt $$attempt ==="; \
-		$(RUN) --claude -- claude $$cont -p "Run 'opam exec -- merlint lib/ --exclude lib/css/examples/' and fix ALL reported issues. YOU MUST FIX EVERY LINT ISSUE. No excuses about refactoring, API changes, or complexity - just fix them. Do NOT run tests. Do NOT mention tests. ONLY fix merlint issues." \
+		$(RUN) --claude -- claude $$cont -p "Run 'opam exec -- merlint lib/ --exclude lib/css/examples/' and fix ALL reported issues. YOU MUST FIX EVERY LINT ISSUE. No excuses about refactoring, API changes, complexity, or time - just fix them correctly. Add types, extract functions, do the refactoring properly. Do NOT run tests. Do NOT mention tests. ONLY fix merlint issues." \
 			--dangerously-skip-permissions --model $(MODEL) --verbose; \
 		cont="--continue"; \
 		echo "=== Checking for remaining issues ==="; \
