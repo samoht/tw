@@ -219,8 +219,14 @@ let temp_dir () =
      imports *)
   Filename.temp_dir ~temp_dir:"tmp" "tw_gen_" ""
 
-(** Detect if any class names use forms utilities *)
-let generate ?(minify = false) ?(optimize = true) ?(forms = false) classnames =
+(** Detect if any class names use forms utilities (form-input, form-select,
+    etc.) *)
+let has_forms_class classnames =
+  List.exists
+    (fun cls -> String.length cls >= 5 && String.sub cls 0 5 = "form-")
+    classnames
+
+let generate ?(minify = false) ?(optimize = true) ?forms classnames =
   check_tailwindcss_available ();
 
   let dir = temp_dir () in
@@ -229,8 +235,12 @@ let generate ?(minify = false) ?(optimize = true) ?(forms = false) classnames =
   try
     let start_time = Stats.start_timer () in
 
-    (* Don't include forms plugin when no classes are provided *)
-    let use_forms = forms && classnames <> [] in
+    (* Auto-detect forms plugin usage if not explicitly specified *)
+    let use_forms =
+      match forms with
+      | Some f -> f && classnames <> []
+      | None -> has_forms_class classnames
+    in
     tailwind_files ~forms:use_forms dir classnames;
 
     let minify_flag = if minify then " --minify" else "" in
