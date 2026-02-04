@@ -158,6 +158,7 @@ let check_properties_layer () =
       mode = Css.Variables;
       optimize = false;
       forms = None;
+      layers = true;
     }
   in
   let actual_css = Tw.Rules.to_css ~config [ Tw.Effects.shadow_sm ] in
@@ -183,6 +184,7 @@ let check_css_variables_with_base () =
       mode = Css.Variables;
       optimize = false;
       forms = None;
+      layers = true;
     }
   in
   let css = Tw.Rules.to_css ~config [] in
@@ -202,6 +204,7 @@ let check_css_variables_without_base () =
       mode = Css.Variables;
       optimize = false;
       forms = None;
+      layers = true;
     }
   in
   let css = Tw.Rules.to_css ~config [ p 4 ] in
@@ -214,7 +217,13 @@ let check_css_variables_without_base () =
 
 let check_css_inline_with_base () =
   let config =
-    { Tw.Rules.base = true; mode = Css.Inline; optimize = false; forms = None }
+    {
+      Tw.Rules.base = true;
+      mode = Css.Inline;
+      optimize = false;
+      forms = None;
+      layers = true;
+    }
   in
   let css = Tw.Rules.to_css ~config [ p 4 ] in
   (* Inline mode never emits layers; base has no effect. *)
@@ -238,7 +247,13 @@ let check_css_inline_with_base () =
 
 let check_css_inline_without_base () =
   let config =
-    { Tw.Rules.base = false; mode = Css.Inline; optimize = false; forms = None }
+    {
+      Tw.Rules.base = false;
+      mode = Css.Inline;
+      optimize = false;
+      forms = None;
+      layers = true;
+    }
   in
   let css = Tw.Rules.to_css ~config [ p 4 ] in
   (* Inline mode never emits layers. *)
@@ -270,7 +285,9 @@ let check_inline_style () =
 (* Short, reusable helpers *)
 let sheet_of ?(base = false) ?(mode = Css.Variables) ?(optimize = false) styles
     =
-  Tw.Rules.to_css ~config:{ Tw.Rules.base; mode; optimize; forms = None } styles
+  Tw.Rules.to_css
+    ~config:{ Tw.Rules.base; mode; optimize; forms = None; layers = true }
+    styles
 
 let layers_of (sheet : Css.t) : string list = Css.layers sheet
 
@@ -486,7 +503,13 @@ let test_inline_no_vars_defaults () =
   (* Ensure Inline mode resolves defaults and does not emit var(--...). Use
      rounded_sm which sets a default on its CSS var. *)
   let config =
-    { Tw.Rules.base = false; mode = Css.Inline; optimize = false; forms = None }
+    {
+      Tw.Rules.base = false;
+      mode = Css.Inline;
+      optimize = false;
+      forms = None;
+      layers = true;
+    }
   in
   let sheet = Tw.Rules.to_css ~config [ Tw.Borders.rounded_sm ] in
   (* Find first rule with declarations using fold *)
@@ -595,6 +618,7 @@ let test_inline_vs_variables_diff () =
           mode = Css.Variables;
           optimize = false;
           forms = None;
+          layers = true;
         }
       [ Tw.Borders.rounded_sm ]
   in
@@ -606,6 +630,7 @@ let test_inline_vs_variables_diff () =
           mode = Css.Inline;
           optimize = false;
           forms = None;
+          layers = true;
         }
       [ Tw.Borders.rounded_sm ]
   in
@@ -685,6 +710,7 @@ let test_rule_sets_hover_media () =
       mode = Css.Variables;
       optimize = false;
       forms = None;
+      layers = true;
     }
   in
   let css = Tw.Rules.to_css ~config [ hover [ p 4 ] ] in
@@ -707,7 +733,13 @@ let test_rule_sets_md_media () =
   let css =
     Tw.Rules.to_css
       ~config:
-        { base = true; mode = Css.Variables; optimize = true; forms = None }
+        {
+          base = true;
+          mode = Css.Variables;
+          optimize = true;
+          forms = None;
+          layers = true;
+        }
       [ md [ p 4 ]; md [ m 2 ] ]
   in
   (* Check for exact media condition *)
@@ -866,7 +898,7 @@ let test_build_utilities_layer () =
         [ Css.margin [ Css.Rem 0.5 ] ];
     ]
   in
-  let layer = Tw.Rules.build_utilities_layer ~statements in
+  let layer = Tw.Rules.build_utilities_layer ~layers:true ~statements in
   (* Check for utilities layer and selectors *)
   check bool "creates utilities layer" true (has_layer "utilities" layer);
   check bool "includes padding rule" true
@@ -888,7 +920,7 @@ let test_build_utils_layer_order () =
         [ Css.font_size (Css.Rem 1.0) ];
     ]
   in
-  let layer = Tw.Rules.build_utilities_layer ~statements in
+  let layer = Tw.Rules.build_utilities_layer ~layers:true ~statements in
   let css = Css.to_string ~minify:true layer in
 
   (* Find positions of each rule in the output *)
