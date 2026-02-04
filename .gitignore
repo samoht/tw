@@ -62,3 +62,4 @@ examples/**/*.tailwind.css
 /*.css
 /*.html
 lib/theme.mli
+.claude/settings.local.json
