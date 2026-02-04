@@ -1261,28 +1261,29 @@ let compare_cross_utility_regular r1 r2 =
       | Simple -> "Simple"
       | Pseudo_element -> "Pseudo_element"
       | Complex _ -> "Complex"));
-  (* First compare by priority and suborder - these take precedence *)
-  let prio_cmp = Int.compare p1 p2 in
-  if prio_cmp <> 0 then prio_cmp
+  (* Check for focus-modified rules BEFORE priority - they always come late *)
+  let focus1 = is_focus_modifier_rule kind1 r1.selector in
+  let focus2 = is_focus_modifier_rule kind2 r2.selector in
+  if focus1 && not focus2 then 1
+  else if focus2 && not focus1 then -1
+  else if focus1 && focus2 then compare_focus_modifiers r1 r2
   else
-    let sub_cmp = Int.compare s1 s2 in
-    if sub_cmp <> 0 then sub_cmp
+    (* Compare by priority and suborder *)
+    let prio_cmp = Int.compare p1 p2 in
+    if prio_cmp <> 0 then prio_cmp
     else
-      (* Within same priority/suborder, apply pseudo-element ordering *)
-      match compare_pseudo_elements kind1 kind2 with
-      | Some cmp -> cmp
-      | None ->
-          let late1 = is_late_modifier kind1 r1.selector in
-          let late2 = is_late_modifier kind2 r2.selector in
-          if late1 && not late2 then 1
-          else if late2 && not late1 then -1
-          else if late1 && late2 then compare_late_modifiers r1 r2 kind1 kind2
-          else
-            let focus1 = is_focus_modifier_rule kind1 r1.selector in
-            let focus2 = is_focus_modifier_rule kind2 r2.selector in
-            if focus1 && not focus2 then 1
-            else if focus2 && not focus1 then -1
-            else if focus1 && focus2 then compare_focus_modifiers r1 r2
+      let sub_cmp = Int.compare s1 s2 in
+      if sub_cmp <> 0 then sub_cmp
+      else
+        (* Within same priority/suborder, apply pseudo-element ordering *)
+        match compare_pseudo_elements kind1 kind2 with
+        | Some cmp -> cmp
+        | None ->
+            let late1 = is_late_modifier kind1 r1.selector in
+            let late2 = is_late_modifier kind2 r2.selector in
+            if late1 && not late2 then 1
+            else if late2 && not late1 then -1
+            else if late1 && late2 then compare_late_modifiers r1 r2 kind1 kind2
             else
               (* Same priority/suborder, sort by base_class then index *)
               let bc_cmp =
