@@ -48,15 +48,13 @@ module Handler = struct
 
   (* Variable for transition duration with @property *)
   let tw_duration_var =
-    (* Order in @layer properties: scale (0-2), rotate (3-5), skew (6-7),
-       gradient (8-16), leading (17), font-weight (18), tracking (19), duration
-       (20). *)
-    Var.channel ~needs_property:true ~property_order:20 ~family:`Duration
+    (* Duration appears at position 21 in @layer properties *)
+    Var.channel ~needs_property:true ~property_order:21 ~family:`Duration
       Css.Duration "tw-duration"
 
   (* Variable for transition timing function with @property *)
   let tw_ease_var =
-    Var.channel ~needs_property:true ~property_order:26 Css.Timing_function
+    Var.channel ~needs_property:true ~property_order:22 Css.Timing_function
       "tw-ease"
 
   let transition_none = style [ Css.transition_property [ Css.None ] ]

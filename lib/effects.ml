@@ -48,8 +48,9 @@ module Handler = struct
   let name = "effects"
   let priority = 25
 
-  (* Shadow variables with property registration - order matches Tailwind
-     landing *)
+  (* Shadow variables with property registration. Order: translate (0-2), scale
+     (3-5), border-style (6), gradients (7-15), font-weight (16), shadows
+     (17-22), rings (23-30), animation (31-32). *)
   let shadow_var =
     Var.property_default Css.Shadow
       ~initial:
@@ -80,7 +81,7 @@ module Handler = struct
     Var.property_default Css.Float ~initial:100.0 ~property_order:12
       ~family:`Inset_shadow "tw-inset-shadow-alpha"
 
-  (* Ring variables - order matches Tailwind landing *)
+  (* Ring variables - positions 13-20 *)
   let ring_color_var =
     Var.channel ~needs_property:true ~property_order:13 ~family:`Ring Css.Color
       "tw-ring-color"
