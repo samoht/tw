@@ -284,6 +284,11 @@ let parse_file filename =
                 String.sub expected 1 (String.length expected - 2)
               else expected
             in
+            (* Unescape template literal backslashes: \\\\ -> \\ *)
+            let expected =
+              Astring.String.concat ~sep:{|\|}
+                (Astring.String.cuts ~sep:{|\\|} expected)
+            in
             flush_test name (Some expected);
             current_classes := [];
             state := InTest name)
