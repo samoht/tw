@@ -23,7 +23,7 @@ let contact_form =
                 [ txt "Name" ];
               input
                 ~at:[ type' "text"; placeholder "Enter your name" ]
-                ~tw:Tw.[ form_input; w_full ]
+                ~tw:Tw.[ w_full ]
                 ();
             ];
           (* Email input *)
@@ -35,7 +35,7 @@ let contact_form =
                 [ txt "Email" ];
               input
                 ~at:[ type' "email"; placeholder "you@example.com" ]
-                ~tw:Tw.[ form_input; w_full ]
+                ~tw:Tw.[ w_full ]
                 ();
             ];
           (* Select dropdown *)
@@ -46,7 +46,7 @@ let contact_form =
                 ~tw:Tw.[ block; text gray 700; font_medium; mb 2 ]
                 [ txt "Topic" ];
               select
-                ~tw:Tw.[ form_select; w_full ]
+                ~tw:Tw.[ w_full ]
                 [
                   option [ txt "General Inquiry" ];
                   option [ txt "Technical Support" ];
@@ -62,7 +62,7 @@ let contact_form =
                 [ txt "Message" ];
               textarea
                 ~at:[ rows 4; placeholder "Tell us what you're thinking..." ]
-                ~tw:Tw.[ form_textarea; w_full ]
+                ~tw:Tw.[ w_full ]
                 [];
             ];
           (* Checkbox group *)
@@ -72,10 +72,7 @@ let contact_form =
               label
                 ~tw:Tw.[ flex; items_center; gap 2 ]
                 [
-                  input
-                    ~at:[ type' "checkbox" ]
-                    ~tw:Tw.[ form_checkbox; text blue 600 ]
-                    ();
+                  input ~at:[ type' "checkbox" ] ~tw:Tw.[ accent blue 600 ] ();
                   span
                     ~tw:Tw.[ text gray 700 ]
                     [ txt "I agree to the terms and conditions" ];
@@ -96,7 +93,7 @@ let contact_form =
                     [
                       input
                         ~at:[ type' "radio"; name "contact" ]
-                        ~tw:Tw.[ form_radio; text blue 600 ]
+                        ~tw:Tw.[ accent blue 600 ]
                         ();
                       span ~tw:Tw.[ text gray 700 ] [ txt "Email" ];
                     ];
@@ -105,7 +102,7 @@ let contact_form =
                     [
                       input
                         ~at:[ type' "radio"; name "contact" ]
-                        ~tw:Tw.[ form_radio; text blue 600 ]
+                        ~tw:Tw.[ accent blue 600 ]
                         ();
                       span ~tw:Tw.[ text gray 700 ] [ txt "Phone" ];
                     ];
