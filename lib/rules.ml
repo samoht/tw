@@ -895,12 +895,6 @@ let of_grouped ?(filter_custom_props = false) grouped_list =
       Css.rule ~selector filtered_props)
     sorted_indexed
 
-let build_utilities_layer ~statements =
-  (* Statements are already in the correct order with media queries interleaved.
-     Consecutive media queries with the same condition will be merged by the
-     optimizer (css/optimize.ml) while preserving cascade order. *)
-  Css.v [ Css.layer ~name:"utilities" statements ]
-
 (* Type-directed helpers for rule sorting and construction *)
 
 (* Determine sort group for rule types. Regular and Media are grouped together
@@ -1014,26 +1008,9 @@ let compare_media_conditions group1 sub1 sub2 cond1 cond2 =
     | Some c1, Some c2 -> Css.Media.compare c1 c2
     | _ -> 0
 
-(** Compare selectors by complexity for appearance/hover media groups *)
-let compare_by_selector_complexity sel1 sel2 order1 order2 i1 i2 =
-  let kind1 = classify_selector sel1 in
-  let kind2 = classify_selector sel2 in
-  match (kind1, kind2) with
-  | Simple, Simple | Pseudo_element, Pseudo_element ->
-      (* Both simple or both pseudo-element - use standard ordering *)
-      compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
-  | Pseudo_element, Simple -> 1 (* Pseudo-elements after simple *)
-  | Pseudo_element, Complex _ -> 1 (* Pseudo-elements after complex *)
-  | Simple, Pseudo_element -> -1
-  | Simple, Complex _ -> -1
-  | Complex _, Pseudo_element -> -1 (* Complex before pseudo-elements *)
-  | Complex _, Simple -> 1
-  | Complex _, Complex _ ->
-      (* Both complex - order by complexity first *)
-      let c1 = complex_selector_order kind1 in
-      let c2 = complex_selector_order kind2 in
-      if c1 <> c2 then Int.compare c1 c2
-      else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+(* compare_by_selector_complexity was removed - we now use
+   compare_by_priority_suborder_alpha for all media groups to preserve source
+   order and avoid artificial media block merging *)
 
 let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 nested1 nested2
     =
@@ -1060,13 +1037,12 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 nested1 nested2
       let cond2 = match typ2 with `Media c -> Some c | _ -> None in
       let cond_cmp = compare_media_conditions group1 sub1 sub2 cond1 cond2 in
       if cond_cmp <> 0 then cond_cmp
-      else if group1 = 3000 || group1 = 0 then
-        (* Preference_appearance (dark mode, group 3000) and hover media (group
-           0) - prioritize complexity over property. This groups all simple
-           variants first, then all group/peer, then has, then aria, matching
-           Tailwind v4's behavior. *)
-        compare_by_selector_complexity sel1 sel2 order1 order2 i1 i2
-      else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+      else
+        (* For all media groups, use priority/suborder/index to preserve source
+           order. This keeps media blocks from being artificially merged by the
+           optimizer when they should stay separate based on their position in
+           the source utilities list. *)
+        compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
 
 (* ======================================================================== *)
 (* Regular vs Media Comparison - Type-directed comparison for mixed rules *)
@@ -1521,6 +1497,12 @@ let rule_sets_from_selector_props all_rules =
   |> deduplicate_typed_triples |> add_index
   |> List.sort compare_indexed_rules
   |> List.map indexed_rule_to_statement
+
+let build_utilities_layer ~statements =
+  (* Statements are already in the correct order with media queries interleaved.
+     Consecutive media queries with the same condition will be merged by the
+     optimizer (css/optimize.ml) while preserving cascade order. *)
+  Css.v [ Css.layer ~name:"utilities" statements ]
 
 (* Get sorted indexed rules - used for extracting first-usage order of
    variables *)
@@ -2162,7 +2144,7 @@ let rec collect_keyframes acc = function
   | Style.Group ts -> List.fold_left collect_keyframes acc ts
 
 (** Build all CSS layers from utilities and rules *)
-let build_layers ~include_base ~selector_props tw_classes statements =
+let build_layers ~include_base ?forms ~selector_props tw_classes statements =
   let styles = List.map Utility.to_style tw_classes in
   let vars_from_utilities, set_var_names, property_rules_lists =
     extract_vars_and_rules tw_classes
@@ -2188,7 +2170,11 @@ let build_layers ~include_base ~selector_props tw_classes statements =
     collect_all_property_rules vars_from_utilities set_var_names
       explicit_property_rules
   in
-  let forms_base = has_forms_utilities tw_classes in
+  (* Use explicit forms flag if provided, otherwise auto-detect from
+     utilities *)
+  let forms_base =
+    match forms with Some f -> f | None -> has_forms_utilities tw_classes
+  in
   let layers =
     build_individual_layers ~forms_base first_usage_order selector_props
       all_property_statements statements
@@ -2232,14 +2218,49 @@ let wrap_css_items statements =
 
 (* ======================================================================== *)
 
-type config = { base : bool; mode : Css.mode; optimize : bool }
-(** Configuration for CSS generation *)
+type config = {
+  base : bool;
+  forms : bool option;
+  mode : Css.mode;
+  optimize : bool;
+}
+(** Configuration for CSS generation. [forms] can be [None] for auto-detection,
+    [Some true] to force forms base styles, or [Some false] to disable them. *)
 
-let default_config = { base = true; mode = Css.Variables; optimize = false }
+let default_config =
+  { base = true; forms = None; mode = Css.Variables; optimize = false }
 
 let to_css ?(config = default_config) tw_classes =
   (* Extract once and share for rule sets and theme layer *)
-  let selector_props = List.concat_map outputs tw_classes in
+  let tw_classes_with_base =
+    (* Tailwind v4: when modified ring utilities are used (e.g., focus:ring),
+       also include the base ring utility. This ensures both .focus\:ring:focus
+       and .ring are generated. *)
+    let has_modified_ring =
+      List.exists
+        (fun util ->
+          let class_name = Utility.to_class util in
+          (* Check if any of the space-separated classes contains :ring *)
+          let classes = String.split_on_char ' ' class_name in
+          List.exists
+            (fun cls ->
+              match String.rindex_opt cls ':' with
+              | Some idx ->
+                  let base =
+                    String.sub cls (idx + 1) (String.length cls - idx - 1)
+                  in
+                  base = "ring"
+              | None -> false)
+            classes)
+        tw_classes
+    in
+    let has_base_ring =
+      List.exists (fun u -> Utility.to_class u = "ring") tw_classes
+    in
+    if has_modified_ring && not has_base_ring then tw_classes @ [ Effects.ring ]
+    else tw_classes
+  in
+  let selector_props = List.concat_map outputs tw_classes_with_base in
 
   let statements = rule_sets_from_selector_props selector_props in
 
@@ -2249,8 +2270,8 @@ let to_css ?(config = default_config) tw_classes =
     match config.mode with
     | Css.Variables ->
         let layers =
-          build_layers ~include_base:config.base ~selector_props tw_classes
-            statements
+          build_layers ~include_base:config.base ?forms:config.forms
+            ~selector_props tw_classes_with_base statements
         in
         Css.concat layers
     | Css.Inline ->

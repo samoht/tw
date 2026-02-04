@@ -111,6 +111,11 @@ type config = {
           defaults). In [Variables] mode this controls whether the [@layer base]
           is emitted. In [Inline] mode this flag has no effect on layering
           (inline mode never emits layers). *)
+  forms : bool option;
+      (** Include forms plugin base styles. When [Some true] and [base=true],
+          the base layer includes styling for native HTML form elements (input,
+          select, textarea, checkbox, radio) matching the [\@tailwindcss/forms]
+          plugin. When [None], auto-detected from utility classes. *)
   mode : Css.mode;
       (** CSS generation mode:
           - [Variables]: Generates CSS with layers (Theme, Base when

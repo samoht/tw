@@ -434,8 +434,14 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css head_content
   (* Add styles from head content *)
   let all_tw = all_tw @ List.concat_map to_tw head_content in
 
+  (* Detect if forms plugin base styles are needed. Check body and head content
+     for form elements (input, select, textarea). *)
+  let forms_in_body = has_forms body_element in
+  let forms_in_head = List.exists has_forms head_content in
+  let need_forms = forms_in_body || forms_in_head in
+
   (* Generate CSS and compute MD5 hash for cache busting *)
-  let css_stylesheet = Tw.to_css all_tw in
+  let css_stylesheet = Tw.to_css ~forms:need_forms all_tw in
   let css_string = Tw.Css.to_string ~minify:true css_stylesheet in
 
   (* Compute MD5 hash of the CSS content for cache busting *)
