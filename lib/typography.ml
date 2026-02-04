@@ -738,6 +738,7 @@ module Typography_late = struct
     | Whitespace_pre
     | Whitespace_pre_line
     | Whitespace_pre_wrap
+    | Whitespace_break_spaces
     | (* Vertical align *)
       Align_baseline
     | Align_top
@@ -858,6 +859,7 @@ module Typography_late = struct
     | [ "whitespace"; "pre" ] -> Ok Whitespace_pre
     | [ "whitespace"; "pre"; "line" ] -> Ok Whitespace_pre_line
     | [ "whitespace"; "pre"; "wrap" ] -> Ok Whitespace_pre_wrap
+    | [ "whitespace"; "break"; "spaces" ] -> Ok Whitespace_break_spaces
     | [ "align"; "baseline" ] -> Ok Align_baseline
     | [ "align"; "top" ] -> Ok Align_top
     | [ "align"; "middle" ] -> Ok Align_middle
@@ -962,6 +964,7 @@ module Typography_late = struct
     | Whitespace_pre -> "whitespace-pre"
     | Whitespace_pre_line -> "whitespace-pre-line"
     | Whitespace_pre_wrap -> "whitespace-pre-wrap"
+    | Whitespace_break_spaces -> "whitespace-break-spaces"
     | Align_baseline -> "align-baseline"
     | Align_top -> "align-top"
     | Align_middle -> "align-middle"
@@ -1054,28 +1057,29 @@ module Typography_late = struct
     | Lowercase -> 8401
     | Normal_case -> 8402
     | Uppercase -> 8403
-    (* Whitespace *)
-    | Whitespace_normal -> 8500
-    | Whitespace_nowrap -> 8501
-    | Whitespace_pre -> 8502
-    | Whitespace_pre_line -> 8503
-    | Whitespace_pre_wrap -> 8504
-    (* Vertical align *)
+    (* Whitespace - alphabetical order *)
+    | Whitespace_break_spaces -> 8500
+    | Whitespace_normal -> 8501
+    | Whitespace_nowrap -> 8502
+    | Whitespace_pre -> 8503
+    | Whitespace_pre_line -> 8504
+    | Whitespace_pre_wrap -> 8505
+    (* Vertical align - alphabetical order *)
     | Align_baseline -> 8600
-    | Align_top -> 8601
+    | Align_bottom -> 8601
     | Align_middle -> 8602
-    | Align_bottom -> 8603
-    | Align_text_top -> 8604
+    | Align_sub -> 8603
+    | Align_super -> 8604
     | Align_text_bottom -> 8605
-    | Align_sub -> 8606
-    | Align_super -> 8607
-    (* List utilities *)
-    | List_none -> 8700
+    | Align_text_top -> 8606
+    | Align_top -> 8607
+    (* List utilities - alphabetical order *)
+    | List_decimal -> 8700
     | List_disc -> 8701
-    | List_decimal -> 8702
+    | List_image_none -> 8702
     | List_inside -> 8703
-    | List_outside -> 8704
-    | List_image_none -> 8705
+    | List_none -> 8704
+    | List_outside -> 8705
     | List_image_url _ -> 8706
     (* Underline offset *)
     | Underline_offset_auto -> 8800
@@ -1172,6 +1176,7 @@ module Typography_late = struct
   let whitespace_pre = style [ white_space Pre ]
   let whitespace_pre_line = style [ white_space Pre_line ]
   let whitespace_pre_wrap = style [ white_space Pre_wrap ]
+  let whitespace_break_spaces = style [ white_space Break_spaces ]
 
   let tracking_tighter =
     let theme_decl, theme_ref = Var.binding tracking_tighter_var (Em (-0.05)) in
@@ -1443,6 +1448,7 @@ module Typography_late = struct
     | Whitespace_pre -> whitespace_pre
     | Whitespace_pre_line -> whitespace_pre_line
     | Whitespace_pre_wrap -> whitespace_pre_wrap
+    | Whitespace_break_spaces -> whitespace_break_spaces
     | Align_baseline -> align_baseline
     | Align_top -> align_top
     | Align_middle -> align_middle
@@ -1575,6 +1581,10 @@ let whitespace_nowrap = utility_late Typography_late.Whitespace_nowrap
 let whitespace_pre = utility_late Typography_late.Whitespace_pre
 let whitespace_pre_line = utility_late Typography_late.Whitespace_pre_line
 let whitespace_pre_wrap = utility_late Typography_late.Whitespace_pre_wrap
+
+let whitespace_break_spaces =
+  utility_late Typography_late.Whitespace_break_spaces
+
 let tracking_tighter = utility_late Typography_late.Tracking_tighter
 let tracking_tight = utility_late Typography_late.Tracking_tight
 let tracking_normal = utility_late Typography_late.Tracking_normal

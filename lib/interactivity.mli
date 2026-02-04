@@ -92,6 +92,9 @@ val pointer_events_auto : Utility.t
 
 (** {1 Appearance} *)
 
+val appearance_auto : Utility.t
+(** [appearance_auto] uses native OS/browser control styling (default). *)
+
 val appearance_none : Utility.t
 (** [appearance_none] removes native OS/browser control styling. *)
 

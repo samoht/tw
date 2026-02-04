@@ -294,20 +294,6 @@ let parse_file filename =
 
   List.rev !tests
 
-let escape s =
-  let b = Buffer.create (String.length s * 2) in
-  String.iter
-    (function
-      | '\n' ->
-          Buffer.add_char b '\\';
-          Buffer.add_char b 'n'
-      | '\\' ->
-          Buffer.add_char b '\\';
-          Buffer.add_char b '\\'
-      | c -> Buffer.add_char b c)
-    s;
-  Buffer.contents b
-
 let () =
   if Array.length Sys.argv < 2 then (
     Fmt.epr "Usage: %s <path-to-utilities.test.ts>@." Sys.argv.(0);
@@ -317,14 +303,18 @@ let () =
   Fmt.epr "Parsing %s...@." filename;
   let tests = parse_file filename in
 
+  (* Output in simple delimiter format: # test-name class1 class2 --- css output
+     here with newlines preserved <<<>>> *)
   List.iter
     (fun test ->
       Fmt.pr "# %s@." test.name;
-      Fmt.pr "classes: %s@." (String.concat " " test.classes);
+      Fmt.pr "%s@." (String.concat " " test.classes);
       (match test.expected with
-      | Some css -> Fmt.pr "expected: %s@." (escape css)
+      | Some css ->
+          Fmt.pr "---@.";
+          Fmt.pr "%s@." css
       | None -> ());
-      Fmt.pr "@.")
+      Fmt.pr "<<<>>>@.")
     tests;
 
   let with_expected = List.filter (fun t -> t.expected <> None) tests in

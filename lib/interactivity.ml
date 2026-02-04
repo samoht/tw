@@ -43,6 +43,7 @@ module Handler = struct
     | Resize_y
     | Pointer_events_none
     | Pointer_events_auto
+    | Appearance_auto
     | Appearance_none
     | Will_change_auto
     | Will_change_scroll
@@ -55,10 +56,10 @@ module Handler = struct
 
   let name = "interactivity"
   let priority = 29
-  let select_none_s = style [ user_select None ]
-  let select_text_s = style [ user_select Text ]
-  let select_all_s = style [ user_select All ]
-  let select_auto_s = style [ user_select Auto ]
+  let select_none_s = style [ webkit_user_select None; user_select None ]
+  let select_text_s = style [ webkit_user_select Text; user_select Text ]
+  let select_all_s = style [ webkit_user_select All; user_select All ]
+  let select_auto_s = style [ webkit_user_select Auto; user_select Auto ]
   let scroll_auto_s = style [ scroll_behavior Auto ]
   let scroll_smooth_s = style [ scroll_behavior Smooth ]
 
@@ -133,6 +134,7 @@ module Handler = struct
   (* Additional utilities *)
   let pointer_events_none_s = style [ pointer_events None ]
   let pointer_events_auto_s = style [ pointer_events Auto ]
+  let appearance_auto_s = style [ appearance Auto ]
   let appearance_none_s = style [ appearance None ]
   let will_change_auto_s = style [ will_change Css.Will_change_auto ]
   let will_change_scroll_s = style [ will_change Css.Scroll_position ]
@@ -166,6 +168,7 @@ module Handler = struct
     | Resize_y -> resize_y_s
     | Pointer_events_none -> pointer_events_none_s
     | Pointer_events_auto -> pointer_events_auto_s
+    | Appearance_auto -> appearance_auto_s
     | Appearance_none -> appearance_none_s
     | Will_change_auto -> will_change_auto_s
     | Will_change_scroll -> will_change_scroll_s
@@ -200,13 +203,14 @@ module Handler = struct
     | Resize_y -> 25
     | Pointer_events_auto -> 26
     | Pointer_events_none -> 27
-    | Appearance_none -> 28
-    | Will_change_auto -> 29
-    | Will_change_contents -> 30
-    | Will_change_scroll -> 31
-    | Will_change_transform -> 32
-    | Group -> 33
-    | Peer -> 34
+    | Appearance_auto -> 28
+    | Appearance_none -> 29
+    | Will_change_auto -> 31
+    | Will_change_contents -> 32
+    | Will_change_scroll -> 33
+    | Will_change_transform -> 34
+    | Group -> 35
+    | Peer -> 36
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
@@ -235,6 +239,7 @@ module Handler = struct
     | [ "resize"; "y" ] -> Ok Resize_y
     | [ "pointer"; "events"; "none" ] -> Ok Pointer_events_none
     | [ "pointer"; "events"; "auto" ] -> Ok Pointer_events_auto
+    | [ "appearance"; "auto" ] -> Ok Appearance_auto
     | [ "appearance"; "none" ] -> Ok Appearance_none
     | [ "will"; "change"; "auto" ] -> Ok Will_change_auto
     | [ "will"; "change"; "scroll" ] -> Ok Will_change_scroll
@@ -269,6 +274,7 @@ module Handler = struct
     | Resize_y -> "resize-y"
     | Pointer_events_none -> "pointer-events-none"
     | Pointer_events_auto -> "pointer-events-auto"
+    | Appearance_auto -> "appearance-auto"
     | Appearance_none -> "appearance-none"
     | Will_change_auto -> "will-change-auto"
     | Will_change_scroll -> "will-change-scroll"
@@ -306,6 +312,7 @@ let resize_x = utility Resize_x
 let resize_y = utility Resize_y
 let pointer_events_none = utility Pointer_events_none
 let pointer_events_auto = utility Pointer_events_auto
+let appearance_auto = utility Appearance_auto
 let appearance_none = utility Appearance_none
 let will_change_auto = utility Will_change_auto
 let will_change_scroll = utility Will_change_scroll

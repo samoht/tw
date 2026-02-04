@@ -125,6 +125,10 @@ type config = {
           - [Inline]: Generates raw CSS rules without layers, suitable for
             inline styles or environments without CSS variable support.
             Variables are resolved to their default values when available. *)
+  layers : bool;
+      (** Wrap output in [@layer] directives. When [false], the same content is
+          generated but without [@layer theme] and [@layer utilities] wrappers.
+          [@layer properties] is always kept. Default: [true]. *)
   optimize : bool;
       (** Enable CSS optimizations. When true, applies various optimizations:
           - Merges adjacent rules with identical selectors
@@ -255,7 +259,8 @@ val theme_layer_of : ?default_decls:Css.declaration list -> t list -> Css.t
     CSS variables referenced in the classes plus any [default_decls] provided
     (e.g., baseline theme tokens like default font families). *)
 
-val build_utilities_layer : statements:Css.statement list -> Css.t
+val build_utilities_layer :
+  layers:bool -> statements:Css.statement list -> Css.t
 (** [build_utilities_layer ~statements] builds the utilities layer. The
     statements should already be in the correct order with media queries
     interleaved. Consecutive media queries with the same condition will be

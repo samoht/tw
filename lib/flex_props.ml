@@ -42,7 +42,7 @@ module Handler = struct
   (* Flex shortcuts *)
   let flex_1 = style [ flex (Grow 1.0) ]
   let flex_auto = style [ flex Auto ]
-  let flex_initial = style [ flex Initial ]
+  let flex_initial = style [ flex (Full (0., 1., Auto)) ]
   let flex_none = style [ flex None ]
 
   (* Grow *)

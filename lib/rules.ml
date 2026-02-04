@@ -1631,11 +1631,12 @@ let rule_sets_from_selector_props all_rules =
   |> List.sort compare_indexed_rules
   |> List.map indexed_rule_to_statement
 
-let build_utilities_layer ~statements =
+let build_utilities_layer ~layers ~statements =
   (* Statements are already in the correct order with media queries interleaved.
      Consecutive media queries with the same condition will be merged by the
      optimizer (css/optimize.ml) while preserving cascade order. *)
-  Css.v [ Css.layer ~name:"utilities" statements ]
+  if layers then Css.v [ Css.layer ~name:"utilities" statements ]
+  else Css.v statements
 
 (* Get sorted indexed rules - used for extracting first-usage order of
    variables *)
@@ -1818,15 +1819,17 @@ let sort_by_var_order decls =
   |> List.map fst
 
 (* Build theme layer rule from declarations *)
-let theme_layer_rule = function
-  | [] -> Css.v [ Css.layer ~name:"theme" [] ]
+let theme_layer_rule ~layers = function
+  | [] -> if layers then Css.v [ Css.layer ~name:"theme" [] ] else Css.empty
   | decls ->
       let selector = Css.Selector.(list [ Root; host () ]) in
-      Css.v [ Css.layer ~name:"theme" [ Css.rule ~selector decls ] ]
+      let rule = Css.rule ~selector decls in
+      if layers then Css.v [ Css.layer ~name:"theme" [ rule ] ]
+      else Css.v [ rule ]
 
 (* Internal helper to compute theme layer from pre-extracted outputs. *)
-let compute_theme_layer_from_selector_props ?(default_decls = []) selector_props
-    =
+let compute_theme_layer_from_selector_props ?(layers = true)
+    ?(default_decls = []) selector_props =
   let extracted = extract_non_tw_custom_declarations selector_props in
   let pre_defaults, post_defaults = split_defaults default_decls in
 
@@ -1839,7 +1842,7 @@ let compute_theme_layer_from_selector_props ?(default_decls = []) selector_props
       post_defaults
   in
 
-  pre @ extracted @ post |> sort_by_var_order |> theme_layer_rule
+  pre @ extracted @ post |> sort_by_var_order |> theme_layer_rule ~layers
 
 let theme_layer_of ?(default_decls = []) tw_classes =
   let selector_props = collect_selector_props tw_classes in
@@ -1858,7 +1861,7 @@ let placeholder_supports =
   in
   let modern_support_stmt =
     Css.supports
-      ~condition:(Css.Supports.Raw "(color:color-mix(in lab, red, red))")
+      ~condition:(Css.Supports.Raw "(color: color-mix(in lab, red, red))")
       [ modern_rule ]
   in
 
@@ -1872,8 +1875,8 @@ let placeholder_supports =
       Css.supports
         ~condition:
           (Css.Supports.Raw
-             "(not ((-webkit-appearance:-apple-pay-button))) or \
-              (contain-intrinsic-size:1px)")
+             "(not ((-webkit-appearance: -apple-pay-button))) or \
+              (contain-intrinsic-size: 1px)")
         outer_support_content;
     ]
 
@@ -2114,23 +2117,26 @@ let build_layer_declaration ~has_properties ~include_base =
   Css.v [ Css.layer_decl names ]
 
 (** Assemble all CSS layers in the correct order *)
-let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
-    ~utilities_layer ~property_rules_for_end ~keyframes ~first_usage_order =
+let assemble_all_layers ~layers ~include_base ~properties_layer ~theme_layer
+    ~base_layer ~utilities_layer ~property_rules_for_end ~keyframes
+    ~first_usage_order =
   let base_layers =
     if include_base then [ theme_layer; base_layer ] else [ theme_layer ]
-  in
-  let components_declaration = Css.v [ Css.layer_decl [ "components" ] ] in
-  let layer_names =
-    build_layer_declaration
-      ~has_properties:(Option.is_some properties_layer)
-      ~include_base
   in
   let initial_layers =
     match properties_layer with None -> [] | Some l -> [ l ]
   in
   let layers_without_property =
-    [ layer_names ] @ initial_layers @ base_layers
-    @ [ components_declaration; utilities_layer ]
+    if layers then
+      let components_declaration = Css.v [ Css.layer_decl [ "components" ] ] in
+      let layer_names =
+        build_layer_declaration
+          ~has_properties:(Option.is_some properties_layer)
+          ~include_base
+      in
+      [ layer_names ] @ initial_layers @ base_layers
+      @ [ components_declaration; utilities_layer ]
+    else initial_layers @ base_layers @ [ utilities_layer ]
   in
   (* Sort @property rules using family-based first-usage order *)
   let family_order = build_family_order first_usage_order in
@@ -2273,14 +2279,14 @@ let has_focus_ring_and_contrast_more tw_classes =
   in
   has_focus_ring && has_contrast_more
 
-let build_individual_layers ~forms_base first_usage_order selector_props
+let build_individual_layers ~layers ~forms_base first_usage_order selector_props
     all_property_statements statements =
   (* Only include font family defaults - transition defaults are added when
      transition utilities are used, to match Tailwind's behavior *)
   let theme_defaults = Typography.default_font_family_declarations in
   let theme_layer =
-    compute_theme_layer_from_selector_props ~default_decls:theme_defaults
-      selector_props
+    compute_theme_layer_from_selector_props ~layers
+      ~default_decls:theme_defaults selector_props
   in
   let base_layer =
     build_base_layer ~supports:placeholder_supports ~forms_base ()
@@ -2293,7 +2299,7 @@ let build_individual_layers ~forms_base first_usage_order selector_props
       in
       if layer = Css.empty then (None, prop_rules) else (Some layer, prop_rules)
   in
-  let utilities_layer = build_utilities_layer ~statements in
+  let utilities_layer = build_utilities_layer ~layers ~statements in
   { theme_layer; base_layer; properties_layer; utilities_layer; property_rules }
 
 (* Extract @keyframes from Style.rules *)
@@ -2310,7 +2316,8 @@ let rec collect_keyframes acc = function
   | Style.Group ts -> List.fold_left collect_keyframes acc ts
 
 (** Build all CSS layers from utilities and rules *)
-let build_layers ~include_base ?forms ~selector_props tw_classes statements =
+let build_layers ~layers ~include_base ?forms ~selector_props tw_classes
+    statements =
   let styles = List.map Utility.to_style tw_classes in
   let vars_from_utilities, set_var_names, property_rules_lists =
     extract_vars_and_rules tw_classes
@@ -2343,8 +2350,8 @@ let build_layers ~include_base ?forms ~selector_props tw_classes statements =
   let forms_base =
     match forms with Some f -> f | None -> has_forms_utilities tw_classes
   in
-  let layers =
-    build_individual_layers ~forms_base first_usage_order selector_props
+  let individual =
+    build_individual_layers ~layers ~forms_base first_usage_order selector_props
       all_property_statements statements
   in
   (* Extract keyframes from all utilities and sort by theme variable order.
@@ -2372,10 +2379,12 @@ let build_layers ~include_base ?forms ~selector_props tw_classes statements =
         if order_cmp <> 0 then order_cmp
         else String.compare name1 name2 (* Stable sort for same order *))
   in
-  assemble_all_layers ~include_base ~properties_layer:layers.properties_layer
-    ~theme_layer:layers.theme_layer ~base_layer:layers.base_layer
-    ~utilities_layer:layers.utilities_layer
-    ~property_rules_for_end:layers.property_rules ~keyframes ~first_usage_order
+  assemble_all_layers ~layers ~include_base
+    ~properties_layer:individual.properties_layer
+    ~theme_layer:individual.theme_layer ~base_layer:individual.base_layer
+    ~utilities_layer:individual.utilities_layer
+    ~property_rules_for_end:individual.property_rules ~keyframes
+    ~first_usage_order
 
 let wrap_css_items statements =
   (* For inline mode, just wrap the statements in a stylesheet *)
@@ -2390,13 +2399,23 @@ type config = {
   base : bool;
   forms : bool option;
   mode : Css.mode;
+  layers : bool;
   optimize : bool;
 }
 (** Configuration for CSS generation. [forms] can be [None] for auto-detection,
-    [Some true] to force forms base styles, or [Some false] to disable them. *)
+    [Some true] to force forms base styles, or [Some false] to disable them.
+    [layers] controls whether CSS output is wrapped in [@layer] directives; when
+    [false], the content is the same but without [@layer theme] and
+    [@layer utilities] wrappers ([@layer properties] is always kept). *)
 
 let default_config =
-  { base = true; forms = None; mode = Css.Variables; optimize = false }
+  {
+    base = true;
+    forms = None;
+    mode = Css.Variables;
+    layers = true;
+    optimize = false;
+  }
 
 let to_css ?(config = default_config) tw_classes =
   (* When focus:ring + contrast-more are used, include base .ring utility to
@@ -2416,11 +2435,11 @@ let to_css ?(config = default_config) tw_classes =
   let stylesheet =
     match config.mode with
     | Css.Variables ->
-        let layers =
-          build_layers ~include_base:config.base ?forms:config.forms
-            ~selector_props tw_classes_with_ring statements
+        let layer_results =
+          build_layers ~layers:config.layers ~include_base:config.base
+            ?forms:config.forms ~selector_props tw_classes_with_ring statements
         in
-        Css.concat layers
+        Css.concat layer_results
     | Css.Inline ->
         (* No layers - just raw utility rules with var() resolved to fallback
            values *)

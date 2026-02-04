@@ -66,7 +66,19 @@ module Handler = struct
       Block
     | Inline
     | Inline_block
+    | Inline_table
     | Table
+    | Table_caption
+    | Table_cell
+    | Table_column
+    | Table_column_group
+    | Table_footer_group
+    | Table_header_group
+    | Table_row
+    | Table_row_group
+    | List_item
+    | Flow_root
+    | Contents
     | Hidden
     | (* Visibility *)
       Visible
@@ -74,6 +86,7 @@ module Handler = struct
     | Collapse
     | (* Isolation *)
       Isolate
+    | Isolation_auto
     | (* Z-index *)
       Z_0
     | Z_10
@@ -94,6 +107,12 @@ module Handler = struct
     | Object_bottom
     | Object_left
     | Object_right
+    | (* Float *)
+      Float_left
+    | Float_right
+    | Float_none
+    | Float_start
+    | Float_end
 
   type Utility.base += Self of t
 
@@ -105,20 +124,31 @@ module Handler = struct
   let priority = 4
 
   let suborder = function
-    (* Display utilities - ordered to match Tailwind: block(3), flex(4),
-       grid(5), hidden(6), inline(7), inline-block(8), inline-flex(9),
-       inline-grid(10), table(11) *)
-    | Block -> 3
-    | Hidden -> 6
-    | Inline -> 7
-    | Inline_block -> 8
-    | Table -> 11
+    (* Display utilities - ordered alphabetically per Tailwind *)
+    | Block -> 1
+    | Contents -> 2
+    | Flow_root -> 3
+    | Hidden -> 4
+    | Inline -> 5
+    | Inline_block -> 6
+    | Inline_table -> 7
+    | List_item -> 8
+    | Table -> 9
+    | Table_caption -> 10
+    | Table_cell -> 11
+    | Table_column -> 12
+    | Table_column_group -> 13
+    | Table_footer_group -> 14
+    | Table_header_group -> 15
+    | Table_row -> 16
+    | Table_row_group -> 17
     (* Visibility - alphabetical order: collapse, invisible, visible *)
     | Collapse -> 100
     | Invisible -> 101
     | Visible -> 102
-    (* Isolation *)
+    (* Isolation - order: isolate, isolation-auto *)
     | Isolate -> 200
+    | Isolation_auto -> 201
     (* Z-index *)
     | Z_0 -> 500
     | Z_10 -> 501
@@ -139,6 +169,12 @@ module Handler = struct
     | Object_bottom -> 702
     | Object_left -> 703
     | Object_right -> 704
+    (* Float - alphabetical order: end, left, none, right, start *)
+    | Float_end -> 800
+    | Float_left -> 801
+    | Float_none -> 802
+    | Float_right -> 803
+    | Float_start -> 804
 
   (** {1 Style Generation} *)
 
@@ -146,12 +182,25 @@ module Handler = struct
     | Block -> "block"
     | Inline -> "inline"
     | Inline_block -> "inline-block"
+    | Inline_table -> "inline-table"
     | Table -> "table"
+    | Table_caption -> "table-caption"
+    | Table_cell -> "table-cell"
+    | Table_column -> "table-column"
+    | Table_column_group -> "table-column-group"
+    | Table_footer_group -> "table-footer-group"
+    | Table_header_group -> "table-header-group"
+    | Table_row -> "table-row"
+    | Table_row_group -> "table-row-group"
+    | List_item -> "list-item"
+    | Flow_root -> "flow-root"
+    | Contents -> "contents"
     | Hidden -> "hidden"
     | Visible -> "visible"
     | Invisible -> "invisible"
     | Collapse -> "collapse"
     | Isolate -> "isolate"
+    | Isolation_auto -> "isolation-auto"
     | Z_0 -> "z-0"
     | Z_10 -> "z-10"
     | Z_20 -> "z-20"
@@ -169,17 +218,35 @@ module Handler = struct
     | Object_bottom -> "object-bottom"
     | Object_left -> "object-left"
     | Object_right -> "object-right"
+    | Float_left -> "float-left"
+    | Float_right -> "float-right"
+    | Float_none -> "float-none"
+    | Float_start -> "float-start"
+    | Float_end -> "float-end"
 
   let to_style = function
     | Block -> style [ display Block ]
     | Inline -> style [ display Inline ]
     | Inline_block -> style [ display Inline_block ]
+    | Inline_table -> style [ display Inline_table ]
     | Table -> style [ display Table ]
+    | Table_caption -> style [ display Table_caption ]
+    | Table_cell -> style [ display Table_cell ]
+    | Table_column -> style [ display Table_column ]
+    | Table_column_group -> style [ display Table_column_group ]
+    | Table_footer_group -> style [ display Table_footer_group ]
+    | Table_header_group -> style [ display Table_header_group ]
+    | Table_row -> style [ display Table_row ]
+    | Table_row_group -> style [ display Table_row_group ]
+    | List_item -> style [ display List_item ]
+    | Flow_root -> style [ display Flow_root ]
+    | Contents -> style [ display Contents ]
     | Hidden -> style [ display None ]
     | Visible -> style [ visibility Visible ]
     | Invisible -> style [ visibility Hidden ]
     | Collapse -> style [ visibility Collapse ]
     | Isolate -> style [ isolation Isolate ]
+    | Isolation_auto -> style [ isolation Auto ]
     | Z_0 -> style [ z_index (Index 0) ]
     | Z_10 -> style [ z_index (Index 10) ]
     | Z_20 -> style [ z_index (Index 20) ]
@@ -197,6 +264,11 @@ module Handler = struct
     | Object_bottom -> style [ object_position Center_bottom ]
     | Object_left -> style [ object_position Left_center ]
     | Object_right -> style [ object_position Right_center ]
+    | Float_left -> style [ Css.float Left ]
+    | Float_right -> style [ Css.float Right ]
+    | Float_none -> style [ Css.float None ]
+    | Float_start -> style [ Css.float Inline_start ]
+    | Float_end -> style [ Css.float Inline_end ]
 
   (** {1 Parsing Functions} *)
 
@@ -204,14 +276,27 @@ module Handler = struct
     let parts = String.split_on_char '-' class_name in
     match parts with
     | [ "block" ] -> Ok Block
+    | [ "contents" ] -> Ok Contents
+    | [ "flow"; "root" ] -> Ok Flow_root
     | [ "inline" ] -> Ok Inline
     | [ "inline"; "block" ] -> Ok Inline_block
+    | [ "inline"; "table" ] -> Ok Inline_table
+    | [ "list"; "item" ] -> Ok List_item
     | [ "table" ] -> Ok Table
+    | [ "table"; "caption" ] -> Ok Table_caption
+    | [ "table"; "cell" ] -> Ok Table_cell
+    | [ "table"; "column" ] -> Ok Table_column
+    | [ "table"; "column"; "group" ] -> Ok Table_column_group
+    | [ "table"; "footer"; "group" ] -> Ok Table_footer_group
+    | [ "table"; "header"; "group" ] -> Ok Table_header_group
+    | [ "table"; "row" ] -> Ok Table_row
+    | [ "table"; "row"; "group" ] -> Ok Table_row_group
     | [ "hidden" ] -> Ok Hidden
     | [ "visible" ] -> Ok Visible
     | [ "invisible" ] -> Ok Invisible
     | [ "collapse" ] -> Ok Collapse
     | [ "isolate" ] -> Ok Isolate
+    | [ "isolation"; "auto" ] -> Ok Isolation_auto
     | [ "z"; "0" ] -> Ok Z_0
     | [ "z"; "10" ] -> Ok Z_10
     | [ "z"; "20" ] -> Ok Z_20
@@ -229,6 +314,11 @@ module Handler = struct
     | [ "object"; "bottom" ] -> Ok Object_bottom
     | [ "object"; "left" ] -> Ok Object_left
     | [ "object"; "right" ] -> Ok Object_right
+    | [ "float"; "left" ] -> Ok Float_left
+    | [ "float"; "right" ] -> Ok Float_right
+    | [ "float"; "none" ] -> Ok Float_none
+    | [ "float"; "start" ] -> Ok Float_start
+    | [ "float"; "end" ] -> Ok Float_end
     | _ -> Error (`Msg "Not a layout utility")
 end
 
@@ -244,14 +334,27 @@ let () = Utility.register (module Handler)
 (* Layout utilities *)
 let utility x = Utility.base (Self x)
 let block = utility Block
+let contents = utility Contents
+let flow_root = utility Flow_root
 let inline = utility Inline
 let inline_block = utility Inline_block
+let inline_table = utility Inline_table
+let list_item = utility List_item
 let table = utility Table
+let table_caption = utility Table_caption
+let table_cell = utility Table_cell
+let table_column = utility Table_column
+let table_column_group = utility Table_column_group
+let table_footer_group = utility Table_footer_group
+let table_header_group = utility Table_header_group
+let table_row = utility Table_row
+let table_row_group = utility Table_row_group
 let hidden = utility Hidden
 let visible = utility Visible
 let invisible = utility Invisible
 let collapse = utility Collapse
 let isolate = utility Isolate
+let isolation_auto = utility Isolation_auto
 let z_0 = utility Z_0
 let z_10 = utility Z_10
 let z_20 = utility Z_20
@@ -269,6 +372,11 @@ let object_top = utility Object_top
 let object_bottom = utility Object_bottom
 let object_left = utility Object_left
 let object_right = utility Object_right
+let float_left = utility Float_left
+let float_right = utility Float_right
+let float_none = utility Float_none
+let float_start = utility Float_start
+let float_end = utility Float_end
 
 (* Screen reader utilities *)
 let sr_utility x = Utility.base (Screen_reader_handler.Self x)

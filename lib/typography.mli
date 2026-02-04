@@ -195,6 +195,10 @@ val whitespace_pre_line : t
 val whitespace_pre_wrap : t
 (** [whitespace_pre_wrap] preserves whitespace and wraps when needed. *)
 
+val whitespace_break_spaces : t
+(** [whitespace_break_spaces] preserves whitespace with breaking at soft wrap
+    opportunities. *)
+
 (** {1 Letter Spacing Utilities} *)
 
 val tracking_tighter : t

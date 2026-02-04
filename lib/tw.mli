@@ -3404,6 +3404,7 @@ val to_css :
   ?base:bool ->
   ?forms:bool ->
   ?mode:Css.mode ->
+  ?layers:bool ->
   ?optimize:bool ->
   t list ->
   Css.t

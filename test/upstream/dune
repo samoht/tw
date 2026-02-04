@@ -3,6 +3,6 @@
  (libraries re fmt astring))
 
 (test
- (name test_upstream)
+ (name test)
  (libraries alcotest tw tw_tools tw.css fmt)
  (deps utilities.txt))
