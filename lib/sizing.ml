@@ -654,16 +654,23 @@ module Handler = struct
     | Min_h_max -> 200004
     | Min_h_fit -> 200005
     | Min_h_spacing n -> 200100 + spacing_suborder n
-    (* Width utilities (300000-399999) *)
-    | W_auto -> 300000
-    | W_full -> 300001
-    | W_screen -> 300002
-    | W_min -> 300003
-    | W_max -> 300004
-    | W_fit -> 300005
-    | W_spacing n -> 300100 + spacing_suborder n
-    | W_px -> 310000
-    | W_fraction _ -> 350000
+    (* Width utilities (300000-399999) Numeric widths (w-0, w-1, etc.) are
+       ordered by their numeric value via spacing_suborder. Keyword widths
+       (w-auto, w-full, etc.) use fixed suborders and sort alphabetically within
+       that group. *)
+    | W_spacing n -> 300000 + spacing_suborder n
+    (* Keyword widths: use a suborder range (300500-300599) that comes after all
+       numeric widths (which max out around 300000 + 96*4 = 300384 for w-96),
+       allowing them to sort alphabetically. *)
+    | W_auto -> 300500
+    | W_fit -> 300501
+    | W_full -> 300502
+    | W_max -> 300503
+    | W_min -> 300504
+    | W_px -> 300505
+    | W_screen -> 300506
+    (* Fractions come after keywords *)
+    | W_fraction _ -> 300600
     (* Max-width utilities (400000-499999) - comes after width *)
     (* Numbered containers first *)
     | Max_w_xs -> 400000
