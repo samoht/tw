@@ -2279,11 +2279,13 @@ let has_focus_ring_and_contrast_more tw_classes =
   in
   has_focus_ring && has_contrast_more
 
-let build_individual_layers ~layers ~forms_base first_usage_order selector_props
-    all_property_statements statements =
-  (* Only include font family defaults - transition defaults are added when
-     transition utilities are used, to match Tailwind's behavior *)
-  let theme_defaults = Typography.default_font_family_declarations in
+let build_individual_layers ~layers ~include_base ~forms_base first_usage_order
+    selector_props all_property_statements statements =
+  (* Only include font family defaults when base is enabled - these are defaults
+     that should not appear in bare utility-only output *)
+  let theme_defaults =
+    if include_base then Typography.default_font_family_declarations else []
+  in
   let theme_layer =
     compute_theme_layer_from_selector_props ~layers
       ~default_decls:theme_defaults selector_props
@@ -2351,8 +2353,8 @@ let build_layers ~layers ~include_base ?forms ~selector_props tw_classes
     match forms with Some f -> f | None -> has_forms_utilities tw_classes
   in
   let individual =
-    build_individual_layers ~layers ~forms_base first_usage_order selector_props
-      all_property_statements statements
+    build_individual_layers ~layers ~include_base ~forms_base first_usage_order
+      selector_props all_property_statements statements
   in
   (* Extract keyframes from all utilities and sort by theme variable order.
      Keyframes like "spin"/"pulse"/"bounce" are associated with theme variables
