@@ -9,6 +9,9 @@ open Utility
 
 (** {1 Column Placement} *)
 
+val col : int -> t
+(** [col n] sets grid-column to start at line n. *)
+
 val col_auto : t
 (** [col_auto] sets grid-column to auto. *)
 
@@ -31,6 +34,9 @@ val col_end_auto : t
 (** [col_end_auto] sets grid-column-end to auto. *)
 
 (** {1 Row Placement} *)
+
+val row : int -> t
+(** [row n] sets grid-row to start at line n. *)
 
 val row_auto : t
 (** [row_auto] sets grid-row to auto. *)

@@ -113,6 +113,13 @@ module Handler = struct
     | Float_none
     | Float_start
     | Float_end
+    | (* Clear *)
+      Clear_left
+    | Clear_right
+    | Clear_none
+    | Clear_both
+    | Clear_start
+    | Clear_end
 
   type Utility.base += Self of t
 
@@ -175,6 +182,13 @@ module Handler = struct
     | Float_none -> 802
     | Float_right -> 803
     | Float_start -> 804
+    (* Clear - alphabetical order: both, end, left, none, right, start *)
+    | Clear_both -> 900
+    | Clear_end -> 901
+    | Clear_left -> 902
+    | Clear_none -> 903
+    | Clear_right -> 904
+    | Clear_start -> 905
 
   (** {1 Style Generation} *)
 
@@ -223,6 +237,12 @@ module Handler = struct
     | Float_none -> "float-none"
     | Float_start -> "float-start"
     | Float_end -> "float-end"
+    | Clear_left -> "clear-left"
+    | Clear_right -> "clear-right"
+    | Clear_none -> "clear-none"
+    | Clear_both -> "clear-both"
+    | Clear_start -> "clear-start"
+    | Clear_end -> "clear-end"
 
   let to_style = function
     | Block -> style [ display Block ]
@@ -269,6 +289,12 @@ module Handler = struct
     | Float_none -> style [ Css.float None ]
     | Float_start -> style [ Css.float Inline_start ]
     | Float_end -> style [ Css.float Inline_end ]
+    | Clear_left -> style [ Css.clear Left ]
+    | Clear_right -> style [ Css.clear Right ]
+    | Clear_none -> style [ Css.clear None ]
+    | Clear_both -> style [ Css.clear Both ]
+    | Clear_start -> style [ Css.clear Inline_start ]
+    | Clear_end -> style [ Css.clear Inline_end ]
 
   (** {1 Parsing Functions} *)
 
@@ -319,6 +345,12 @@ module Handler = struct
     | [ "float"; "none" ] -> Ok Float_none
     | [ "float"; "start" ] -> Ok Float_start
     | [ "float"; "end" ] -> Ok Float_end
+    | [ "clear"; "left" ] -> Ok Clear_left
+    | [ "clear"; "right" ] -> Ok Clear_right
+    | [ "clear"; "none" ] -> Ok Clear_none
+    | [ "clear"; "both" ] -> Ok Clear_both
+    | [ "clear"; "start" ] -> Ok Clear_start
+    | [ "clear"; "end" ] -> Ok Clear_end
     | _ -> Error (`Msg "Not a layout utility")
 end
 

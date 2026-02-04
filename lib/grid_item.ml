@@ -9,6 +9,7 @@ module Handler = struct
 
   type t =
     (* Column *)
+    | Col of int
     | Col_auto
     | Col_span of int
     | Col_span_full
@@ -17,6 +18,7 @@ module Handler = struct
     | Col_end of int
     | Col_end_auto
     (* Row *)
+    | Row of int
     | Row_auto
     | Row_span of int
     | Row_span_full
@@ -32,14 +34,16 @@ module Handler = struct
   (** Priority 1 - before margin (priority 2) *)
   let priority = 1
 
-  let col_auto = style [ grid_column_start Auto ]
+  let col n = style [ grid_column (Num n, Auto) ]
+  let col_auto = style [ grid_column (Auto, Auto) ]
   let col_span n = style [ grid_column (Span n, Span n) ]
   let col_span_full = style [ grid_column (Num 1, Num (-1)) ]
   let col_start n = style [ grid_column_start (Num n) ]
   let col_start_auto = style [ grid_column_start Auto ]
   let col_end n = style [ grid_column_end (Num n) ]
   let col_end_auto = style [ grid_column_end Auto ]
-  let row_auto = style [ grid_row_start Auto ]
+  let row n = style [ grid_row (Num n, Auto) ]
+  let row_auto = style [ grid_row (Auto, Auto) ]
   let row_span n = style [ grid_row (Span n, Span n) ]
   let row_span_full = style [ grid_row (Num 1, Num (-1)) ]
   let row_start n = style [ grid_row_start (Num n) ]
@@ -48,6 +52,7 @@ module Handler = struct
   let row_end_auto = style [ grid_row_end Auto ]
 
   let to_style = function
+    | Col n -> col n
     | Col_auto -> col_auto
     | Col_span n -> col_span n
     | Col_span_full -> col_span_full
@@ -55,6 +60,7 @@ module Handler = struct
     | Col_start_auto -> col_start_auto
     | Col_end n -> col_end n
     | Col_end_auto -> col_end_auto
+    | Row n -> row n
     | Row_auto -> row_auto
     | Row_span n -> row_span n
     | Row_span_full -> row_span_full
@@ -65,6 +71,7 @@ module Handler = struct
 
   let suborder = function
     (* Column utilities *)
+    | Col n -> -20 + n
     | Col_auto -> 0
     | Col_span n -> 10 + n
     | Col_span_full -> 23
@@ -73,6 +80,7 @@ module Handler = struct
     | Col_end n -> 50 + n
     | Col_end_auto -> 63
     (* Row utilities *)
+    | Row n -> 65 + n
     | Row_auto -> 70
     | Row_span n -> 80 + n
     | Row_span_full -> 93
@@ -89,7 +97,7 @@ module Handler = struct
     | [ "col"; "auto" ] -> Ok Col_auto
     | [ "col"; "span"; "full" ] -> Ok Col_span_full
     | [ "col"; "span"; n ] -> (
-        match Parse.int_bounded ~name:"col-span" ~min:1 ~max:12 n with
+        match Parse.int_pos ~name:"col-span" n with
         | Ok i -> Ok (Col_span i)
         | Error _ -> err_not_utility)
     | [ "col"; "start"; "auto" ] -> Ok Col_start_auto
@@ -102,11 +110,19 @@ module Handler = struct
         match Parse.int_pos ~name:"col-end" n with
         | Ok i -> Ok (Col_end i)
         | Error _ -> err_not_utility)
+    | [ "col"; n ] -> (
+        match Parse.int_pos ~name:"col" n with
+        | Ok i -> Ok (Col i)
+        | Error _ -> err_not_utility)
     | [ "row"; "auto" ] -> Ok Row_auto
     | [ "row"; "span"; "full" ] -> Ok Row_span_full
     | [ "row"; "span"; n ] -> (
-        match Parse.int_bounded ~name:"row-span" ~min:1 ~max:12 n with
+        match Parse.int_pos ~name:"row-span" n with
         | Ok i -> Ok (Row_span i)
+        | Error _ -> err_not_utility)
+    | [ "row"; n ] -> (
+        match Parse.int_pos ~name:"row" n with
+        | Ok i -> Ok (Row i)
         | Error _ -> err_not_utility)
     | [ "row"; "start"; "auto" ] -> Ok Row_start_auto
     | [ "row"; "start"; n ] -> (
@@ -122,6 +138,7 @@ module Handler = struct
 
   let to_class = function
     (* Column *)
+    | Col n -> "col-" ^ string_of_int n
     | Col_auto -> "col-auto"
     | Col_span n -> "col-span-" ^ string_of_int n
     | Col_span_full -> "col-span-full"
@@ -130,6 +147,7 @@ module Handler = struct
     | Col_end n -> "col-end-" ^ string_of_int n
     | Col_end_auto -> "col-end-auto"
     (* Row *)
+    | Row n -> "row-" ^ string_of_int n
     | Row_auto -> "row-auto"
     | Row_span n -> "row-span-" ^ string_of_int n
     | Row_span_full -> "row-span-full"
@@ -145,6 +163,7 @@ open Handler
 let () = Utility.register (module Handler)
 
 let utility x = Utility.base (Self x)
+let col n = utility (Col n)
 let col_auto = utility Col_auto
 let col_span n = utility (Col_span n)
 let col_span_full = utility Col_span_full
@@ -152,6 +171,7 @@ let col_start n = utility (Col_start n)
 let col_start_auto = utility Col_start_auto
 let col_end n = utility (Col_end n)
 let col_end_auto = utility Col_end_auto
+let row n = utility (Row n)
 let row_auto = utility Row_auto
 let row_span n = utility (Row_span n)
 let row_span_full = utility Row_span_full
