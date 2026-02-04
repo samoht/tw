@@ -8,6 +8,7 @@ open Utility
 open Color
 
 val order : base -> (int * int) option
+(** [order u] returns the priority and suborder for the given effect utility. *)
 
 module Handler : Utility.Handler
 
@@ -76,25 +77,25 @@ val ring_inset : t
     exported for use by the Forms utilities. *)
 
 val shadow_var : Css.shadow Var.property_default
-(** The --tw-shadow variable. *)
+(** [shadow_var] is the --tw-shadow variable. *)
 
 val ring_inset_var : string Var.channel
-(** The --tw-ring-inset variable. *)
+(** [ring_inset_var] is the --tw-ring-inset variable. *)
 
 val ring_offset_width_var : Css.length Var.property_default
-(** The --tw-ring-offset-width variable. *)
+(** [ring_offset_width_var] is the --tw-ring-offset-width variable. *)
 
 val ring_offset_color_var : Css.color Var.property_default
-(** The --tw-ring-offset-color variable. *)
+(** [ring_offset_color_var] is the --tw-ring-offset-color variable. *)
 
 val ring_color_var : Css.color Var.channel
-(** The --tw-ring-color variable. *)
+(** [ring_color_var] is the --tw-ring-color variable. *)
 
 val ring_offset_shadow_var : Css.shadow Var.property_default
-(** The --tw-ring-offset-shadow variable. *)
+(** [ring_offset_shadow_var] is the --tw-ring-offset-shadow variable. *)
 
 val ring_shadow_var : Css.shadow Var.property_default
-(** The --tw-ring-shadow variable. *)
+(** [ring_shadow_var] is the --tw-ring-shadow variable. *)
 
 (** {1 Mix Blend Mode Utilities} *)
 

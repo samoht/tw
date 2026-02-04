@@ -448,15 +448,15 @@ val shade_of_strings : string list -> (color * int, [ `Msg of string ]) result
     Example: ["blue"; "500"] -> Ok (Blue, 500). *)
 
 val theme_order : string -> int * int
-(** Get theme layer order for a color variable. See {!Rules} for detailed layer
-    ordering rules. *)
+(** [theme_order c] returns the theme layer order for a color variable. *)
 
 val theme_order_with_shade : string -> int -> int * int
-(** Get theme layer order for a color variable with shade *)
+(** [theme_order_with_shade c s] returns the theme layer order for a color with
+    shade. *)
 
 val utilities_order : string -> int * int
-(** Get utilities layer order for conflict resolution. See {!Rules} for detailed
-    layer ordering rules. *)
+(** [utilities_order c] returns the utilities layer order for conflict
+    resolution. *)
 
 val suborder_with_shade : string -> int
 (** [suborder_with_shade color_part] extracts the numeric suborder for a color

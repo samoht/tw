@@ -963,8 +963,8 @@ let compare_complex_selectors sel1 sel2 kind1 kind2 s1 s2 i1 i2 =
       if sel_cmp <> 0 then sel_cmp else Int.compare i1 i2
 
 (** Compare rules by priority, then by selector kind, then by suborder. Uses
-    type-directed dispatch based on selector classification. Order is:
-    Pseudo_element < Simple < Complex *)
+    type-directed dispatch based on selector classification. Order is: Simple <
+    Complex < Pseudo_element *)
 let compare_by_priority_suborder_alpha sel1 sel2 (p1, s1) (p2, s2) i1 i2 =
   (* Priority comes first *)
   let prio_cmp = Int.compare p1 p2 in
@@ -977,11 +977,11 @@ let compare_by_priority_suborder_alpha sel1 sel2 (p1, s1) (p2, s2) i1 i2 =
     | Simple, Simple -> compare_simple_selectors sel1 sel2 s1 s2 i1 i2
     | Pseudo_element, Pseudo_element ->
         compare_simple_selectors sel1 sel2 s1 s2 i1 i2
-    | Pseudo_element, Simple -> -1 (* Pseudo-elements before simple *)
-    | Pseudo_element, Complex _ -> -1 (* Pseudo-elements before complex *)
-    | Simple, Pseudo_element -> 1
+    | Pseudo_element, Simple -> 1 (* Pseudo-elements after simple *)
+    | Pseudo_element, Complex _ -> 1 (* Pseudo-elements after complex *)
+    | Simple, Pseudo_element -> -1
     | Simple, Complex _ -> -1 (* Simple before complex *)
-    | Complex _, Pseudo_element -> 1
+    | Complex _, Pseudo_element -> -1 (* Complex before pseudo-elements *)
     | Complex _, Simple -> 1
     | Complex _, Complex _ ->
         compare_complex_selectors sel1 sel2 kind1 kind2 s1 s2 i1 i2
@@ -1022,10 +1022,12 @@ let compare_by_selector_complexity sel1 sel2 order1 order2 i1 i2 =
   | Simple, Simple | Pseudo_element, Pseudo_element ->
       (* Both simple or both pseudo-element - use standard ordering *)
       compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
-  | Pseudo_element, Simple | Pseudo_element, Complex _ -> -1
-  | Simple, Pseudo_element -> 1
+  | Pseudo_element, Simple -> 1 (* Pseudo-elements after simple *)
+  | Pseudo_element, Complex _ -> 1 (* Pseudo-elements after complex *)
+  | Simple, Pseudo_element -> -1
   | Simple, Complex _ -> -1
-  | Complex _, Pseudo_element | Complex _, Simple -> 1
+  | Complex _, Pseudo_element -> -1 (* Complex before pseudo-elements *)
+  | Complex _, Simple -> 1
   | Complex _, Complex _ ->
       (* Both complex - order by complexity first *)
       let c1 = complex_selector_order kind1 in
@@ -1160,12 +1162,29 @@ let compare_regular_vs_media r1 r2 =
 (* Regular Rule Comparison - Type-directed comparison for Regular rules *)
 (* ======================================================================== *)
 
+(** Compare pseudo-element vs non-pseudo-element selectors. Returns Some(cmp) if
+    one is pseudo-element and the other isn't, None if both are same kind.
+    Pseudo-elements always come after both simple and complex selectors. Order:
+    Simple < Complex < Pseudo_element *)
+let compare_pseudo_elements kind1 kind2 =
+  match (kind1, kind2) with
+  | Pseudo_element, Pseudo_element -> None
+  | Pseudo_element, Simple -> Some 1 (* Pseudo-elements after simple *)
+  | Pseudo_element, Complex _ -> Some 1 (* Pseudo-elements after complex *)
+  | Simple, Pseudo_element -> Some (-1)
+  | Complex _, Pseudo_element -> Some (-1)
+  | _, _ -> None
+
 (** Compare regular rules from the same base utility (e.g., all prose-sm rules).
-    Preserves original index order to prevent merging rules with same selector.
-*)
+    Preserves original index order to maintain source ordering within a utility.
+    This ensures that pseudo-elements like ::marker stay in their natural
+    position relative to their parent elements, matching Tailwind's behavior. *)
 let compare_same_utility_regular r1 r2 =
   let prio_cmp = compare r1.order r2.order in
-  if prio_cmp <> 0 then prio_cmp else Int.compare r1.index r2.index
+  if prio_cmp <> 0 then prio_cmp
+  else
+    (* Within the same utility and priority, preserve source order *)
+    Int.compare r1.index r2.index
 
 (* Debug flag for tracing comparisons *)
 let debug_compare = ref false
@@ -1219,15 +1238,6 @@ let is_outline_utility bc =
       idx + 8 <= String.length s && String.sub s idx 8 = ":outline"
   | None -> false
 
-let compare_pseudo_elements kind1 kind2 =
-  match (kind1, kind2) with
-  | Pseudo_element, Pseudo_element -> None
-  | Pseudo_element, Simple -> Some 1
-  | Pseudo_element, Complex _ -> Some (-1)
-  | Simple, Pseudo_element -> Some (-1)
-  | Complex _, Pseudo_element -> Some 1
-  | _, _ -> None
-
 let compare_late_modifiers r1 r2 kind1 kind2 =
   let k1 = complex_selector_order kind1 and k2 = complex_selector_order kind2 in
   if k1 <> k2 then Int.compare k1 k2
@@ -1272,13 +1282,13 @@ let compare_cross_utility_regular r1 r2 =
     let prio_cmp = Int.compare p1 p2 in
     if prio_cmp <> 0 then prio_cmp
     else
-      let sub_cmp = Int.compare s1 s2 in
-      if sub_cmp <> 0 then sub_cmp
-      else
-        (* Within same priority/suborder, apply pseudo-element ordering *)
-        match compare_pseudo_elements kind1 kind2 with
-        | Some cmp -> cmp
-        | None ->
+      (* Check pseudo-elements BEFORE suborder - they always come late *)
+      match compare_pseudo_elements kind1 kind2 with
+      | Some cmp -> cmp
+      | None ->
+          let sub_cmp = Int.compare s1 s2 in
+          if sub_cmp <> 0 then sub_cmp
+          else
             let late1 = is_late_modifier kind1 r1.selector in
             let late2 = is_late_modifier kind2 r2.selector in
             if late1 && not late2 then 1

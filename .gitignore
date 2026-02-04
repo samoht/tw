@@ -61,3 +61,4 @@ examples/**/*.tailwind.css
 # Root-level generated/temp files
 /*.css
 /*.html
+lib/theme.mli

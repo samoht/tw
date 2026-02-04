@@ -86,7 +86,7 @@ type base = ..
 type t = Base of base | Modified of Style.modifier * t | Group of t list
 
 val base : base -> t
-(** [base u] wraps a base utility into a Utility.t *)
+(** [base u] wraps a base utility into a Utility.t. *)
 
 (** Handler module type for utility registration *)
 module type Handler = sig
@@ -115,31 +115,35 @@ module type Handler = sig
 end
 
 val register : (module Handler with type t = 'a) -> unit
-(** [register (module H)] registers a utility handler module *)
+(** [register (module H)] registers a utility handler module. *)
 
-(** Parse a class string into a base utility (without modifiers) *)
 val base_of_class : string -> (base, [ `Msg of string ]) result
-(** [base_of_class class_name] parses a class name into a base utility. For
-    internal use by the Tw module. *)
+(** [base_of_class class_name] parses a class name into a base utility (without
+    modifiers). For internal use by the Tw module. *)
 
 val base_of_strings : string list -> (base, [ `Msg of string ]) result
 (** [base_of_strings parts] parses a list of string parts into a base utility.
     Deprecated: use base_of_class. For backward compatibility with tests. *)
 
 val base_to_style : base -> Style.t
-(** Convert a base utility (without modifiers) to Style.t *)
+(** [base_to_style u] converts a base utility (without modifiers) to Style.t. *)
 
 val name_of_base : base -> string
+(** [name_of_base u] returns the utility name. *)
+
 val class_of_base : base -> string
+(** [class_of_base u] returns the CSS class name for a base utility. *)
 
 val to_style : t -> Style.t
-(** Convert Utility.t (with modifiers) to Style.t *)
+(** [to_style u] converts Utility.t (with modifiers) to Style.t. *)
 
 val to_class : t -> string
-(** Convert Utility.t (with modifiers) to class name string *)
+(** [to_class u] converts Utility.t (with modifiers) to class name string. *)
 
 val order : base -> int * int
-(** Get the ordering information (priority, suborder) for a base utility *)
+(** [order u] gets the ordering information (priority, suborder) for a base
+    utility. *)
 
 val deduplicate : t list -> t list
-(** Deduplicate utilities while preserving order (last occurrence wins) *)
+(** [deduplicate utils] deduplicates utilities while preserving order (last
+    occurrence wins). *)

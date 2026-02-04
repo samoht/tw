@@ -13,6 +13,7 @@ type size =
   [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full | `Rem of float ]
 
 val order : base -> (int * int) option
+(** [order u] returns the priority and suborder for sizing utilities. *)
 
 module Handler : Utility.Handler
 
