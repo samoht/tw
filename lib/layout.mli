@@ -11,14 +11,50 @@ open Utility
 val block : t
 (** [block] sets display to block. *)
 
+val contents : t
+(** [contents] sets display to contents. *)
+
+val flow_root : t
+(** [flow_root] sets display to flow-root. *)
+
 val inline : t
 (** [inline] sets display to inline. *)
 
 val inline_block : t
 (** [inline_block] sets display to inline-block. *)
 
+val inline_table : t
+(** [inline_table] sets display to inline-table. *)
+
+val list_item : t
+(** [list_item] sets display to list-item. *)
+
 val table : t
 (** [table] sets display to table. *)
+
+val table_caption : t
+(** [table_caption] sets display to table-caption. *)
+
+val table_cell : t
+(** [table_cell] sets display to table-cell. *)
+
+val table_column : t
+(** [table_column] sets display to table-column. *)
+
+val table_column_group : t
+(** [table_column_group] sets display to table-column-group. *)
+
+val table_footer_group : t
+(** [table_footer_group] sets display to table-footer-group. *)
+
+val table_header_group : t
+(** [table_header_group] sets display to table-header-group. *)
+
+val table_row : t
+(** [table_row] sets display to table-row. *)
+
+val table_row_group : t
+(** [table_row_group] sets display to table-row-group. *)
 
 val hidden : t
 (** [hidden] sets display to none. *)
@@ -41,6 +77,9 @@ val collapse : t
 
 val isolate : t
 (** [isolate] creates a new stacking context. *)
+
+val isolation_auto : t
+(** [isolation_auto] does not create a new stacking context (auto). *)
 
 val z_0 : t
 (** [z_0] sets z-index to 0. *)
@@ -92,5 +131,22 @@ val object_left : t
 
 val object_right : t
 (** [object_right] sets object-position to right. *)
+
+(** {1 Float Utilities} *)
+
+val float_left : t
+(** [float_left] sets float to left. *)
+
+val float_right : t
+(** [float_right] sets float to right. *)
+
+val float_none : t
+(** [float_none] sets float to none. *)
+
+val float_start : t
+(** [float_start] sets float to inline-start. *)
+
+val float_end : t
+(** [float_end] sets float to inline-end. *)
 
 module Handler : Utility.Handler

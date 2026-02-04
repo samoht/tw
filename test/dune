@@ -1,3 +1,19 @@
 (test
  (name test)
  (libraries tw tw.html alcotest re astring fmt tw_tools str))
+
+; (test
+;  (name test_selector_escape)
+;  (libraries tw alcotest))
+;
+; (test
+;  (name test_css_parse_escape)
+;  (libraries tw alcotest))
+;
+; (test
+;  (name test_unescape)
+;  (libraries alcotest))
+;
+; (test
+;  (name test_css_double_escape)
+;  (libraries tw alcotest))

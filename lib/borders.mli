@@ -59,6 +59,10 @@ val border_double : t
 (** [border_double] sets [--tw-border-style] to [double] and applies
     [border-style: double]. *)
 
+val border_hidden : t
+(** [border_hidden] sets [--tw-border-style] to [hidden] and applies
+    [border-style: hidden]. *)
+
 val border_none : t
 (** [border_none] sets [--tw-border-style] to [none] and applies
     [border-style: none]. *)

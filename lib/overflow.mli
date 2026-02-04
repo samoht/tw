@@ -20,6 +20,9 @@ val overflow_scroll : t
 val overflow_x_auto : t
 (** [overflow_x_auto] sets overflow-x to auto. *)
 
+val overflow_x_clip : t
+(** [overflow_x_clip] sets overflow-x to clip. *)
+
 val overflow_x_hidden : t
 (** [overflow_x_hidden] sets overflow-x to hidden. *)
 
@@ -31,6 +34,9 @@ val overflow_x_scroll : t
 
 val overflow_y_auto : t
 (** [overflow_y_auto] sets overflow-y to auto. *)
+
+val overflow_y_clip : t
+(** [overflow_y_clip] sets overflow-y to clip. *)
 
 val overflow_y_hidden : t
 (** [overflow_y_hidden] sets overflow-y to hidden. *)

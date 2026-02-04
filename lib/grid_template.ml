@@ -75,7 +75,7 @@ module Handler = struct
   let grid_rows_subgrid = style [ Css.grid_template_rows (Tracks [ Auto ]) ]
   let grid_flow_row = style [ Css.grid_auto_flow Row ]
   let grid_flow_col = style [ Css.grid_auto_flow Column ]
-  let grid_flow_dense = style [ Css.grid_auto_flow Row_dense ]
+  let grid_flow_dense = style [ Css.grid_auto_flow Dense ]
   let grid_flow_row_dense = style [ Css.grid_auto_flow Row_dense ]
   let grid_flow_col_dense = style [ Css.grid_auto_flow Column_dense ]
   let auto_cols_auto = style [ Css.grid_auto_columns (Tracks [ Auto ]) ]
@@ -121,12 +121,12 @@ module Handler = struct
     | Grid_rows n -> 11000 + n
     | Grid_rows_none -> 11900
     | Grid_rows_subgrid -> 11901
-    (* Grid auto flow (14000-14099) *)
-    | Grid_flow_row -> 14000
-    | Grid_flow_col -> 14001
+    (* Grid auto flow (14000-14099) - alphabetical order *)
+    | Grid_flow_col -> 14000
+    | Grid_flow_col_dense -> 14001
     | Grid_flow_dense -> 14002
-    | Grid_flow_row_dense -> 14003
-    | Grid_flow_col_dense -> 14004
+    | Grid_flow_row -> 14003
+    | Grid_flow_row_dense -> 14004
     (* Grid auto columns (15000-15099) *)
     | Auto_cols_auto -> 15000
     | Auto_cols_min -> 15001

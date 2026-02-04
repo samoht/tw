@@ -55,6 +55,7 @@ module Handler = struct
     | Border_dashed
     | Border_dotted
     | Border_double
+    | Border_hidden
     | Border_none
     | (* Border color utilities *)
       Border_color of Color.color * int
@@ -308,6 +309,7 @@ module Handler = struct
   let border_dashed = border_style_util Dashed
   let border_dotted = border_style_util Dotted
   let border_double = border_style_util Double
+  let border_hidden = border_style_util Hidden
   let border_none = border_style_util None
 
   (* Border color utilities *)
@@ -844,6 +846,7 @@ module Handler = struct
     | Border_dashed -> border_dashed
     | Border_dotted -> border_dotted
     | Border_double -> border_double
+    | Border_hidden -> border_hidden
     | Border_none -> border_none
     (* Border color utilities *)
     | Border_color (color, shade) -> border_color' color shade
@@ -1075,8 +1078,9 @@ module Handler = struct
     | Border_dashed -> 1400
     | Border_dotted -> 1401
     | Border_double -> 1402
-    | Border_none -> 1403
-    | Border_solid -> 1404
+    | Border_hidden -> 1403
+    | Border_none -> 1404
+    | Border_solid -> 1405
     (* Border color utilities (1500-1999) All border colors use the same
        suborder (1500) to allow alphabetical sorting, matching Tailwind v4
        behavior. *)
@@ -1127,6 +1131,7 @@ module Handler = struct
     | [ "border"; "dashed" ] -> Ok Border_dashed
     | [ "border"; "dotted" ] -> Ok Border_dotted
     | [ "border"; "double" ] -> Ok Border_double
+    | [ "border"; "hidden" ] -> Ok Border_hidden
     | [ "border"; "none" ] -> Ok Border_none
     | [ "border"; "transparent" ] -> Ok Border_transparent
     | [ "border"; "current" ] -> Ok Border_current
@@ -1264,6 +1269,7 @@ module Handler = struct
     | Border_dashed -> "border-dashed"
     | Border_dotted -> "border-dotted"
     | Border_double -> "border-double"
+    | Border_hidden -> "border-hidden"
     | Border_none -> "border-none"
     | Border_color (c, shade) ->
         if Color.is_base_color c || Color.is_custom_color c then
@@ -1393,6 +1399,7 @@ let border_solid = utility Border_solid
 let border_dashed = utility Border_dashed
 let border_dotted = utility Border_dotted
 let border_double = utility Border_double
+let border_hidden = utility Border_hidden
 let border_none = utility Border_none
 
 (** {1 Border Color Utilities} *)
