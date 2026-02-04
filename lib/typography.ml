@@ -1011,7 +1011,7 @@ module Typography_late = struct
         try
           let _, color_order = Color.utilities_order (Color.pp color) in
           5000 + (color_order * 1000) + shade
-        with _ -> 5000 + shade)
+        with Not_found | Failure _ -> 5000 + shade)
     (* Text decoration lines - suborder >= 8000 *)
     | Underline -> 8000
     | Overline -> 8001

@@ -626,7 +626,9 @@ module Handler = struct
     | H_fraction f -> (
         (* Extract the numerator to sort fractions with their integer part *)
         match String.split_on_char '/' f with
-        | [ num; _ ] -> ( try int_of_string num * 10000 with _ -> 50000)
+        | [ num; _ ] -> (
+            try int_of_string num * 10000
+            with Failure _ -> 50000 (* Invalid numerator *))
         | _ -> 50000)
     | H_auto -> 90000
     | H_fit -> 90001

@@ -865,6 +865,18 @@ let compare_indexed ~filter_custom_props (i1, sel1, _, (prio1, sub1))
     else Int.compare i1 i2
 
 (* Convert selector/props/order triples to CSS rules with conflict ordering *)
+(* Helper to filter custom properties for utilities layer *)
+let should_keep_in_utilities decl =
+  match Css.custom_declaration_layer decl with
+  | Some layer when layer = "utilities" -> true
+  | Some _ -> false
+  | None -> (
+      (* No fallback to name prefixes: keep only non-custom declarations when
+         metadata is missing. *)
+      match Css.custom_declaration_name decl with
+      | None -> true
+      | Some _ -> false)
+
 let of_grouped ?(filter_custom_props = false) grouped_list =
   (* Sort by (priority, suborder, selector_name, original_index) to match
      Tailwind v4 ordering. *)
@@ -877,22 +889,7 @@ let of_grouped ?(filter_custom_props = false) grouped_list =
   List.map
     (fun (_idx, selector, props, _order) ->
       let filtered_props =
-        if filter_custom_props then
-          (* In utilities, keep only declarations explicitly tagged for the
-             utilities layer via Var metadata. Non-custom declarations are
-             always kept. Custom declarations without metadata are dropped. *)
-          List.filter
-            (fun decl ->
-              match Css.custom_declaration_layer decl with
-              | Some layer when layer = "utilities" -> true
-              | Some _ -> false
-              | None -> (
-                  (* No fallback to name prefixes: keep only non-custom
-                     declarations when metadata is missing. *)
-                  match Css.custom_declaration_name decl with
-                  | None -> true
-                  | Some _ -> false))
-            props
+        if filter_custom_props then List.filter should_keep_in_utilities props
         else props
       in
       Css.rule ~selector filtered_props)
@@ -998,64 +995,75 @@ let compare_by_priority_suborder_alpha sel1 sel2 (p1, s1) (p2, s2) i1 i2 =
    nested media (rules with nested come after), then by priority/suborder. The
    nested sorting ensures that dark:hover:X rules come after dark:X rules,
    allowing the optimizer to merge consecutive @media (hover:hover) blocks. *)
+
+(** Compare two media conditions within the same group *)
+let compare_media_conditions group1 sub1 sub2 cond1 cond2 =
+  if group1 = 2000 then
+    (* Responsive: sort by rem value ascending *)
+    Float.compare sub1 sub2
+  else if group1 = 1000 then
+    (* Preference_accessibility: sort by preference_condition_order *)
+    match (cond1, cond2) with
+    | Some c1, Some c2 ->
+        Int.compare
+          (preference_condition_order c1)
+          (preference_condition_order c2)
+    | _ -> 0
+  else
+    match (cond1, cond2) with
+    | Some c1, Some c2 -> Css.Media.compare c1 c2
+    | _ -> 0
+
+(** Compare selectors by complexity for appearance/hover media groups *)
+let compare_by_selector_complexity sel1 sel2 order1 order2 i1 i2 =
+  let kind1 = classify_selector sel1 in
+  let kind2 = classify_selector sel2 in
+  match (kind1, kind2) with
+  | Simple, Simple | Pseudo_element, Pseudo_element ->
+      (* Both simple or both pseudo-element - use standard ordering *)
+      compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+  | Pseudo_element, Simple | Pseudo_element, Complex _ -> -1
+  | Simple, Pseudo_element -> 1
+  | Simple, Complex _ -> -1
+  | Complex _, Pseudo_element | Complex _, Simple -> 1
+  | Complex _, Complex _ ->
+      (* Both complex - order by complexity first *)
+      let c1 = complex_selector_order kind1 in
+      let c2 = complex_selector_order kind2 in
+      if c1 <> c2 then Int.compare c1 c2
+      else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+
 let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 nested1 nested2
     =
-  let group1, sub1 = extract_media_sort_key typ1 in
-  let group2, sub2 = extract_media_sort_key typ2 in
-  let key_cmp = Int.compare group1 group2 in
-  if key_cmp <> 0 then key_cmp
+  (* First, check nesting status - nested/compound media queries (like
+     contrast-more:dark:text-white) should come after all simple media queries,
+     regardless of their group order. This matches Tailwind v4 behavior where
+     simple media queries (hover, motion-*, contrast-more, md, dark) all come
+     before compound queries (contrast-more > dark nested). *)
+  let has_nested1 = nested1 <> [] in
+  let has_nested2 = nested2 <> [] in
+  let nested_cmp = Bool.compare has_nested1 has_nested2 in
+  if nested_cmp <> 0 then nested_cmp
   else
-    (* Same media group. For Responsive (2000), sort by rem value (ascending).
-       For Preference_accessibility (1000), use preference_condition_order. For
-       Preference_appearance (3000) and others, use Css.Media.compare. *)
-    let cond1 = match typ1 with `Media c -> Some c | _ -> None in
-    let cond2 = match typ2 with `Media c -> Some c | _ -> None in
-    let cond_cmp =
-      if group1 = 2000 then
-        (* Responsive: sort by rem value ascending *)
-        Float.compare sub1 sub2
-      else if group1 = 1000 then
-        (* Preference_accessibility: sort by preference_condition_order *)
-        match (cond1, cond2) with
-        | Some c1, Some c2 ->
-            Int.compare
-              (preference_condition_order c1)
-              (preference_condition_order c2)
-        | _ -> 0
-      else
-        match (cond1, cond2) with
-        | Some c1, Some c2 -> Css.Media.compare c1 c2
-        | _ -> 0
-    in
-    if cond_cmp <> 0 then cond_cmp
+    (* Both are nested or both are simple - compare by group *)
+    let group1, sub1 = extract_media_sort_key typ1 in
+    let group2, sub2 = extract_media_sort_key typ2 in
+    let key_cmp = Int.compare group1 group2 in
+    if key_cmp <> 0 then key_cmp
     else
-      (* Same condition - sort rules with nested media after rules without. This
-         groups dark:X before dark:hover:X for proper media merging. *)
-      let has_nested1 = nested1 <> [] in
-      let has_nested2 = nested2 <> [] in
-      let nested_cmp = Bool.compare has_nested1 has_nested2 in
-      if nested_cmp <> 0 then nested_cmp
-      else if group1 = 3000 then
-        (* Preference_appearance (dark mode) - prioritize complexity over
-           property. This groups all simple variants first, then all group/peer,
-           then has, then aria, matching Tailwind v4's behavior. *)
-        let kind1 = classify_selector sel1 in
-        let kind2 = classify_selector sel2 in
-        match (kind1, kind2) with
-        | Simple, Simple | Pseudo_element, Pseudo_element ->
-            (* Both simple or both pseudo-element - use standard ordering *)
-            compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
-        | Pseudo_element, Simple | Pseudo_element, Complex _ -> -1
-        | Simple, Pseudo_element -> 1
-        | Simple, Complex _ -> -1
-        | Complex _, Pseudo_element | Complex _, Simple -> 1
-        | Complex _, Complex _ ->
-            (* Both complex - order by complexity first *)
-            let c1 = complex_selector_order kind1 in
-            let c2 = complex_selector_order kind2 in
-            if c1 <> c2 then Int.compare c1 c2
-            else
-              compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+      (* Same media group. For Responsive (2000), sort by rem value (ascending).
+         For Preference_accessibility (1000), use preference_condition_order.
+         For Preference_appearance (3000) and others, use Css.Media.compare. *)
+      let cond1 = match typ1 with `Media c -> Some c | _ -> None in
+      let cond2 = match typ2 with `Media c -> Some c | _ -> None in
+      let cond_cmp = compare_media_conditions group1 sub1 sub2 cond1 cond2 in
+      if cond_cmp <> 0 then cond_cmp
+      else if group1 = 3000 || group1 = 0 then
+        (* Preference_appearance (dark mode, group 3000) and hover media (group
+           0) - prioritize complexity over property. This groups all simple
+           variants first, then all group/peer, then has, then aria, matching
+           Tailwind v4's behavior. *)
+        compare_by_selector_complexity sel1 sel2 order1 order2 i1 i2
       else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
 
 (* ======================================================================== *)
@@ -1173,9 +1181,67 @@ let set_debug_compare b = debug_compare := b
 
     Order: late_modifier -> priority -> suborder -> modifier_kind -> base_class
     -> index *)
+let compare_base_class_option bc1 bc2 =
+  match (bc1, bc2) with
+  | Some bc1, Some bc2 -> String.compare bc1 bc2
+  | Some _, None -> -1
+  | None, Some _ -> 1
+  | None, None -> 0
+
+let compare_by_priority_suborder_baseclass_index r1 r2 =
+  let p1, s1 = r1.order and p2, s2 = r2.order in
+  let prio_cmp = Int.compare p1 p2 in
+  if prio_cmp <> 0 then prio_cmp
+  else
+    let sub_cmp = Int.compare s1 s2 in
+    if sub_cmp <> 0 then sub_cmp
+    else
+      let bc_cmp = compare_base_class_option r1.base_class r2.base_class in
+      if bc_cmp <> 0 then bc_cmp
+      else
+        (* Compare by index first to preserve source order within same
+           utility *)
+        let idx_cmp = Int.compare r1.index r2.index in
+        if idx_cmp <> 0 then idx_cmp
+        else
+          (* For rules from different utilities with same everything else, sort
+             by selector name for deterministic ordering *)
+          String.compare
+            (Css.Selector.to_string r1.selector)
+            (Css.Selector.to_string r2.selector)
+
+let is_outline_utility bc =
+  match bc with
+  | Some s ->
+      String.contains s ':' && String.contains s 'o'
+      &&
+      let idx = String.index s ':' in
+      idx + 8 <= String.length s && String.sub s idx 8 = ":outline"
+  | None -> false
+
+let compare_pseudo_elements kind1 kind2 =
+  match (kind1, kind2) with
+  | Pseudo_element, Pseudo_element -> None
+  | Pseudo_element, Simple -> Some 1
+  | Pseudo_element, Complex _ -> Some (-1)
+  | Simple, Pseudo_element -> Some (-1)
+  | Complex _, Pseudo_element -> Some 1
+  | _, _ -> None
+
+let compare_late_modifiers r1 r2 kind1 kind2 =
+  let k1 = complex_selector_order kind1 and k2 = complex_selector_order kind2 in
+  if k1 <> k2 then Int.compare k1 k2
+  else compare_by_priority_suborder_baseclass_index r1 r2
+
+let compare_focus_modifiers r1 r2 =
+  let outline1 = is_outline_utility r1.base_class in
+  let outline2 = is_outline_utility r2.base_class in
+  if outline1 && not outline2 then 1
+  else if outline2 && not outline1 then -1
+  else compare_by_priority_suborder_baseclass_index r1 r2
+
 let compare_cross_utility_regular r1 r2 =
-  let p1, s1 = r1.order in
-  let p2, s2 = r2.order in
+  let p1, s1 = r1.order and p2, s2 = r2.order in
   let kind1 = classify_selector r1.selector in
   let kind2 = classify_selector r2.selector in
   if !debug_compare then (
@@ -1195,93 +1261,34 @@ let compare_cross_utility_regular r1 r2 =
       | Simple -> "Simple"
       | Pseudo_element -> "Pseudo_element"
       | Complex _ -> "Complex"));
-  let late1 = is_late_modifier kind1 r1.selector in
-  let late2 = is_late_modifier kind2 r2.selector in
-  (* Late modifier utilities always come last *)
-  if late1 && not late2 then 1
-  else if late2 && not late1 then -1
-  else if late1 && late2 then
-    (* Both have late modifiers - order by modifier type *)
-    let k1 = complex_selector_order kind1
-    and k2 = complex_selector_order kind2 in
-    if k1 <> k2 then Int.compare k1 k2
-    else
-      let prio_cmp = Int.compare p1 p2 in
-      if prio_cmp <> 0 then prio_cmp
-      else
-        let sub_cmp = Int.compare s1 s2 in
-        if sub_cmp <> 0 then sub_cmp
-        else
-          let bc_cmp =
-            match (r1.base_class, r2.base_class) with
-            | Some bc1, Some bc2 -> String.compare bc1 bc2
-            | Some _, None -> -1
-            | None, Some _ -> 1
-            | None, None -> 0
-          in
-          if bc_cmp <> 0 then bc_cmp else Int.compare r1.index r2.index
+  (* First compare by priority and suborder - these take precedence *)
+  let prio_cmp = Int.compare p1 p2 in
+  if prio_cmp <> 0 then prio_cmp
   else
-    (* Neither has late modifier - check for focus: modifier. focus: rules come
-       after regular rules but before late modifiers. *)
-    let focus1 = is_focus_modifier_rule kind1 r1.selector in
-    let focus2 = is_focus_modifier_rule kind2 r2.selector in
-    if focus1 && not focus2 then 1
-    else if focus2 && not focus1 then -1
-    else if focus1 && focus2 then
-      (* Both have focus: modifier - sort by priority then base class. Tailwind
-         v4 sorts focus: rules by their utility priority, then alphabetically by
-         base class for deterministic output. Special case: outline utilities
-         come after ring utilities for proper cascade (outline-none should be
-         able to override ring focus styles). *)
-      let is_outline bc =
-        match bc with
-        | Some s ->
-            (* base_class includes modifier prefix, so check if it contains
-               ":outline" (e.g., "focus:outline-none") *)
-            let outline_pattern = ":outline" in
-            let rec find_substring s i =
-              if i + 8 > String.length s then false
-              else if String.sub s i 8 = outline_pattern then true
-              else find_substring s (i + 1)
-            in
-            find_substring s 0
-        | None -> false
-      in
-      let outline1 = is_outline r1.base_class in
-      let outline2 = is_outline r2.base_class in
-      if outline1 && not outline2 then 1
-      else if outline2 && not outline1 then -1
-      else
-        let prio_cmp = Int.compare p1 p2 in
-        if prio_cmp <> 0 then prio_cmp
-        else
-          let sub_cmp = Int.compare s1 s2 in
-          if sub_cmp <> 0 then sub_cmp
-          else
-            let bc_cmp =
-              match (r1.base_class, r2.base_class) with
-              | Some bc1, Some bc2 -> String.compare bc1 bc2
-              | Some _, None -> -1
-              | None, Some _ -> 1
-              | None, None -> 0
-            in
-            if bc_cmp <> 0 then bc_cmp else Int.compare r1.index r2.index
+    let sub_cmp = Int.compare s1 s2 in
+    if sub_cmp <> 0 then sub_cmp
     else
-      (* Neither has focus: - sort normally by priority *)
-      let prio_cmp = Int.compare p1 p2 in
-      if prio_cmp <> 0 then prio_cmp
-      else
-        let sub_cmp = Int.compare s1 s2 in
-        if sub_cmp <> 0 then sub_cmp
-        else
-          let bc_cmp =
-            match (r1.base_class, r2.base_class) with
-            | Some bc1, Some bc2 -> String.compare bc1 bc2
-            | Some _, None -> -1
-            | None, Some _ -> 1
-            | None, None -> 0
-          in
-          if bc_cmp <> 0 then bc_cmp else Int.compare r1.index r2.index
+      (* Within same priority/suborder, apply pseudo-element ordering *)
+      match compare_pseudo_elements kind1 kind2 with
+      | Some cmp -> cmp
+      | None ->
+          let late1 = is_late_modifier kind1 r1.selector in
+          let late2 = is_late_modifier kind2 r2.selector in
+          if late1 && not late2 then 1
+          else if late2 && not late1 then -1
+          else if late1 && late2 then compare_late_modifiers r1 r2 kind1 kind2
+          else
+            let focus1 = is_focus_modifier_rule kind1 r1.selector in
+            let focus2 = is_focus_modifier_rule kind2 r2.selector in
+            if focus1 && not focus2 then 1
+            else if focus2 && not focus1 then -1
+            else if focus1 && focus2 then compare_focus_modifiers r1 r2
+            else
+              (* Same priority/suborder, sort by base_class then index *)
+              let bc_cmp =
+                compare_base_class_option r1.base_class r2.base_class
+              in
+              if bc_cmp <> 0 then bc_cmp else Int.compare r1.index r2.index
 
 (** Compare two Regular rules using rule relationship dispatch. *)
 let compare_regular_rules r1 r2 =
@@ -1808,6 +1815,40 @@ let build_family_order first_usage_order =
     first_usage_order;
   family_order
 
+let gradient_family_index n =
+  if not (String.starts_with ~prefix:"--tw-gradient-" n) then 100
+  else
+    match n with
+    | "--tw-gradient-position" -> 0
+    | "--tw-gradient-from" -> 1
+    | "--tw-gradient-via" -> 2
+    | "--tw-gradient-to" -> 3
+    | "--tw-gradient-stops" -> 4
+    | "--tw-gradient-via-stops" -> 5
+    | "--tw-gradient-from-position" -> 6
+    | "--tw-gradient-via-position" -> 7
+    | "--tw-gradient-to-position" -> 8
+    | _ -> 100
+
+let uses_direct_property_order = function
+  | Some (`Shadow | `Inset_shadow | `Ring | `Inset_ring | `Font_weight) -> true
+  | _ -> false
+
+let compare_property_vars ~get_family_order n1 n2 po1 po2 fam1 fam2 =
+  (* Variables with negative property_order and no family come FIRST *)
+  match (fam1, po1 < 0, fam2, po2 < 0) with
+  | None, true, None, true -> compare po1 po2
+  | None, true, _, _ -> -1
+  | _, _, None, true -> 1
+  | Some `Gradient, _, Some `Gradient, _ ->
+      compare (gradient_family_index n1) (gradient_family_index n2)
+  | _ when uses_direct_property_order fam1 && uses_direct_property_order fam2 ->
+      compare po1 po2
+  | _ ->
+      let fo1 = get_family_order n1 in
+      let fo2 = get_family_order n2 in
+      if fo1 <> fo2 then compare fo1 fo2 else compare po1 po2
+
 let sort_properties_by_order first_usage_order initial_values =
   let family_order = build_family_order first_usage_order in
   let get_family_order name =
@@ -1816,54 +1857,14 @@ let sort_properties_by_order first_usage_order initial_values =
         match Hashtbl.find_opt family_order fam with
         | Some o -> o
         | None -> 1000)
-    | None -> 1000 (* Fallback for vars without family *)
-  in
-  let gradient_family_index n =
-    if not (String.starts_with ~prefix:"--tw-gradient-" n) then 100
-    else if String.equal n "--tw-gradient-position" then 0
-    else if String.equal n "--tw-gradient-from" then 1
-    else if String.equal n "--tw-gradient-via" then 2
-    else if String.equal n "--tw-gradient-to" then 3
-    else if String.equal n "--tw-gradient-stops" then 4
-    else if String.equal n "--tw-gradient-via-stops" then 5
-    else if String.equal n "--tw-gradient-from-position" then 6
-    else if String.equal n "--tw-gradient-via-position" then 7
-    else if String.equal n "--tw-gradient-to-position" then 8
-    else 100
-  in
-  (* Check if a family should use property_order directly (not first-usage
-     order). Font_weight comes before shadow in Tailwind's @supports block. *)
-  let uses_direct_property_order = function
-    | Some (`Shadow | `Inset_shadow | `Ring | `Inset_ring | `Font_weight) ->
-        true
-    | _ -> false
+    | None -> 1000
   in
   let cmp (n1, _) (n2, _) =
     let fam1 = Var.get_family n1 in
     let fam2 = Var.get_family n2 in
     let po1 = property_order_from n1 in
     let po2 = property_order_from n2 in
-    (* Variables with negative property_order and no family come FIRST. This
-       handles --tw-space-y-reverse which Tailwind puts before everything. *)
-    match (fam1, po1 < 0, fam2, po2 < 0) with
-    | None, true, None, true -> compare po1 po2
-    | None, true, _, _ -> -1
-    | _, _, None, true -> 1
-    | Some `Gradient, _, Some `Gradient, _ ->
-        (* Special ordering within gradients *)
-        compare (gradient_family_index n1) (gradient_family_index n2)
-    | _ when uses_direct_property_order fam1 && uses_direct_property_order fam2
-      ->
-        (* These families use property_order directly without family grouping.
-           This handles: font-weight (0) < shadow (7+) < ring (14+), and
-           interleaved property_orders like Ring(13-14,17-20) and
-           Inset_ring(15-16). *)
-        compare po1 po2
-    | _ ->
-        (* Compare by family first-usage order, then property_order *)
-        let fo1 = get_family_order n1 in
-        let fo2 = get_family_order n2 in
-        if fo1 <> fo2 then compare fo1 fo2 else compare po1 po2
+    compare_property_vars ~get_family_order n1 n2 po1 po2 fam1 fam2
   in
   List.sort cmp initial_values
 
@@ -2181,9 +2182,31 @@ let build_layers ~include_base ~selector_props tw_classes statements =
     build_individual_layers ~forms_base first_usage_order selector_props
       all_property_statements statements
   in
-  (* Extract keyframes from all utilities - reverse to get first-usage order
-     since collect_keyframes prepends to accumulator *)
-  let keyframes = List.fold_left collect_keyframes [] styles |> List.rev in
+  (* Extract keyframes from all utilities and sort by theme variable order.
+     Keyframes like "spin"/"pulse"/"bounce" are associated with theme variables
+     "animate-spin"/"animate-pulse"/"animate-bounce" that have explicit
+     (priority, suborder) tuples registered. Convert to integer for
+     comparison. *)
+  let keyframes =
+    List.fold_left collect_keyframes [] styles
+    |> List.rev
+    |> List.sort (fun (name1, _) (name2, _) ->
+        let var_name1 = "animate-" ^ name1 in
+        let var_name2 = "animate-" ^ name2 in
+        let order1 =
+          match Var.get_order var_name1 with
+          | Some (p, s) -> (p * 1000) + s
+          | None -> 1000000 (* Unknown keyframes sort last *)
+        in
+        let order2 =
+          match Var.get_order var_name2 with
+          | Some (p, s) -> (p * 1000) + s
+          | None -> 1000000
+        in
+        let order_cmp = Int.compare order1 order2 in
+        if order_cmp <> 0 then order_cmp
+        else String.compare name1 name2 (* Stable sort for same order *))
+  in
   assemble_all_layers ~include_base ~properties_layer:layers.properties_layer
     ~theme_layer:layers.theme_layer ~base_layer:layers.base_layer
     ~utilities_layer:layers.utilities_layer

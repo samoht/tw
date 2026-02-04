@@ -1033,7 +1033,7 @@ let suborder_with_shade color_part =
     try
       let _, color_order = utilities_order color_part in
       color_order * 1000
-    with _ -> failwith ("Unknown color: " ^ color_part))
+    with Not_found | Failure _ -> failwith ("Unknown color: " ^ color_part))
 
 (* Get theme layer order for a color variable with shade. Formula: (priority=2,
    base_order * 1000 + shade) This ensures color variables are grouped by color

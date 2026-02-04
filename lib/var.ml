@@ -119,6 +119,15 @@ module Registry = struct
     in
     Hashtbl.find_opt property_order_registry name
 
+  let get_order name =
+    (* Strip leading -- if present *)
+    let name =
+      if String.starts_with ~prefix:"--" name then
+        String.sub name 2 (String.length name - 2)
+      else name
+    in
+    Hashtbl.find_opt name_registry name
+
   let register_family ~name ~family =
     Hashtbl.replace family_registry name family
 
@@ -148,6 +157,7 @@ end
 
 (* Get property order for a variable name (for external use in rules.ml) *)
 let get_property_order = Registry.get_property_order
+let get_order = Registry.get_order
 let get_family = Registry.get_family
 let get_needs_property = Registry.get_needs_property
 
