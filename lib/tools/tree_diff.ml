@@ -1937,6 +1937,58 @@ and process_nested_properties ~depth stmts1 stmts2 =
         :: !diffs)
     modified;
 
+  (* Check for @property reordering: same names, different order *)
+  let get_names items =
+    List.map (fun (Css.Property_info { name; _ }) -> name) items
+  in
+  let names1 = get_names items1 in
+  let names2 = get_names items2 in
+  (* Only report reordering if sets are equal but order differs *)
+  let names1_set = List.sort String.compare names1 in
+  let names2_set = List.sort String.compare names2 in
+  if names1_set = names2_set && names1 <> names2 && names1 <> [] then (
+    (* @property rules are reordered - create Rule_reordered diffs for each
+       one *)
+    let reorder_diffs = ref [] in
+    List.iteri
+      (fun i1 name1 ->
+        let i2 =
+          List.find_index (( = ) name1) names2 |> Option.value ~default:i1
+        in
+        if i1 <> i2 then
+          reorder_diffs :=
+            Rule_reordered
+              {
+                selector = "@property " ^ name1;
+                expected_pos = i1;
+                actual_pos = i2;
+                swapped_with =
+                  (if i1 < List.length names2 then
+                     Some ("@property " ^ List.nth names2 i1)
+                   else None);
+                old_declarations = None;
+                new_declarations = None;
+              }
+            :: !reorder_diffs)
+      names1;
+    (* Wrap the reorder diffs in a Container_modified for the @property
+       container *)
+    if !reorder_diffs <> [] then
+      diffs :=
+        Container_modified
+          {
+            info =
+              {
+                container_type = `Property;
+                condition = "@property rules";
+                rules = stmts1;
+              };
+            actual_rules = stmts2;
+            rule_changes = List.rev !reorder_diffs;
+            container_changes = [];
+          }
+        :: !diffs);
+
   !diffs
 
 (* Wrapper to extract media with string condition for diffing *)

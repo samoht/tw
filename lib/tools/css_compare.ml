@@ -74,24 +74,9 @@ let strip_header css =
   (* Trim trailing whitespace for consistent comparison *)
   String.trim stripped
 
-(* Sort @property rules alphabetically by name for order-independent comparison.
-   @property rules are order-independent, so their ordering shouldn't affect
-   whether two stylesheets are considered equivalent. *)
-let normalize_property_order ast =
-  let stmts = Css.statements ast in
-  let is_property stmt = Option.is_some (Css.as_property stmt) in
-  let property_name stmt =
-    match Css.as_property stmt with
-    | Some (Css.Property_info { name; _ }) -> name
-    | None -> ""
-  in
-  let props, others = List.partition is_property stmts in
-  let sorted_props =
-    List.sort
-      (fun a b -> String.compare (property_name a) (property_name b))
-      props
-  in
-  Css.v (others @ sorted_props)
+(* Note: We do NOT normalize @property order because their order matters for
+   testing property_order values in our implementation. The order of @property
+   rules in @layer properties reflects the intended cascade behavior. *)
 
 (* Analyze differences between two parsed CSS ASTs, returning structural
    changes *)
@@ -131,10 +116,9 @@ let diff ~expected ~actual =
   else
     match (Css.of_string expected, Css.of_string actual) with
     | Ok expected_ast, Ok actual_ast -> (
-        (* Normalize @property order for structural comparison - they're
-           order-independent *)
-        let expected_norm = normalize_property_order expected_ast in
-        let actual_norm = normalize_property_order actual_ast in
+        (* Do NOT normalize @property order - their order matters for tests *)
+        let expected_norm = expected_ast in
+        let actual_norm = actual_ast in
         let structural_diff =
           tree_diff ~expected:expected_norm ~actual:actual_norm
         in
