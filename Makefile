@@ -4,8 +4,7 @@
 #   make login                        # One-time: authenticate with Max plan
 #   make check-key                    # Verify auth works
 #   make fix TEST=examples/prose      # Fix until tests pass
-#   make fix-upstream                  # Fix upstream tests one by one
-#   make fix-upstream N=42             # Fix a specific upstream test
+#   make fix TEST=test/upstream       # Fix upstream Tailwind parity tests
 #   make test TEST=examples           # Run tests once
 #   make lint                         # Run merlint + fix issues with Claude
 #   make lint-check                   # Just show lint issues (no fix)
@@ -125,98 +124,6 @@ lint: build
 		fi; \
 	done
 
-# Fix upstream tests one at a time
-# Usage:
-#   make fix-upstream              # Fix all failing upstream tests
-#   make fix-upstream N=42         # Fix a specific test number
-define UPSTREAM_PROMPT
-Fix the failing upstream Tailwind CSS test.
-
-Run: dune exec test/upstream/test.exe test utilities $(N)
-
-This runs a SINGLE upstream test extracted from the tailwindcss repository.
-It compares our tw output (inline mode, no layers) against the expected CSS
-from Tailwind's own test snapshots.
-
-STEP 1 - UNDERSTAND THE FAILURE:
-- Read the test output carefully: it shows expected vs actual CSS
-- Check what classes are being tested
-- Run: dune exec -- tw -s "<class>" to see what we generate
-- The expected CSS comes from https://github.com/tailwindlabs/tailwindcss
-  (~/git/tailwindcss/packages/tailwindcss/src/utilities.test.ts)
-
-STEP 2 - CHECK UPSTREAM FOR INSPIRATION:
-- Look at how Tailwind implements it: ~/git/tailwindcss/packages/tailwindcss/src/
-- Key files: utilities.ts, theme.ts, property-order.ts
-- Understand their LOGIC and APPROACH, not the code
-- NEVER copy TypeScript code - translate concepts to typed OCaml
-- Use their implementation to understand edge cases and expected behavior
-
-STEP 3 - IDENTIFY ROOT CAUSE:
-- Is it a missing utility? -> Add it in the right lib/<area>.ml
-- Is it wrong CSS output? -> Fix the utility implementation
-- Is it wrong property values? -> Check the variable/theme system
-- Is it a parsing issue? -> Fix lib/css/ parser
-- Is it a comparison tool bug? -> Fix lib/tools/css_compare.ml FIRST
-
-STEP 4 - FIX THE CORRECT WAY:
-- Use typed Var and constructors - no raw strings
-- Place declarations in the correct layer
-- Add types when needed - let the compiler guide you
-- Verify fix: dune exec test/upstream/test.exe test utilities $(N)
-
-FORBIDDEN - NEVER say:
-- "This would require significant time"
-- "This is complex and needs more work"
-- "Leave this for later"
-You have UNLIMITED time. Fix it correctly.
-endef
-UPSTREAM_PROMPT_TEXT = $(subst $(newline), ,$(UPSTREAM_PROMPT))
-
-UPSTREAM_TEST = ./_build/default/test/upstream/test.exe
-
-fix-upstream:
-	@dune build test/upstream/test.exe
-ifndef N
-	@echo "Finding first failing upstream test..."; \
-	cont=""; \
-	while true; do \
-		fail=$$($(UPSTREAM_TEST) 2>&1 \
-			| grep '\[FAIL\]' | head -1 \
-			| sed 's/.*utilities[[:space:]]*//' | sed 's/[[:space:]].*//'); \
-		if [ -z "$$fail" ]; then \
-			echo "All upstream tests pass!"; \
-			exit 0; \
-		fi; \
-		echo "=== Fixing test $$fail ==="; \
-		$(RUN) --claude -- claude $$cont -p "Fix the failing upstream test. Run: dune exec test/upstream/test.exe test utilities $$fail $(UPSTREAM_PROMPT_TEXT)" \
-			--dangerously-skip-permissions --model $(MODEL) --verbose; \
-		cont="--continue"; \
-		dune build test/upstream/test.exe; \
-		echo "=== Checking test $$fail ==="; \
-		if ! $(UPSTREAM_TEST) test utilities $$fail 2>&1; then \
-			echo "Test $$fail still failing, retrying..."; \
-			continue; \
-		fi; \
-		echo "Test $$fail fixed! Finding next failure..."; \
-		cont=""; \
-	done
-else
-	@cont=""; attempt=0; \
-	while true; do \
-		attempt=$$((attempt + 1)); \
-		echo "=== Attempt $$attempt for test $(N) ==="; \
-		$(RUN) --claude -- claude $$cont -p "Fix the failing upstream test. Run: dune exec test/upstream/test.exe test utilities $(N) $(UPSTREAM_PROMPT_TEXT)" \
-			--dangerously-skip-permissions --model $(MODEL) --verbose; \
-		cont="--continue"; \
-		dune build test/upstream/test.exe; \
-		echo "=== Checking test $(N) ==="; \
-		if $(UPSTREAM_TEST) test utilities $(N); then \
-			echo "Test $(N) fixed after $$attempt attempts!"; \
-			exit 0; \
-		fi; \
-	done
-endif
 
 clean:
 	docker rmi $(IMAGE_NAME) 2>/dev/null || true
