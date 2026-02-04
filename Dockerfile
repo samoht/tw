@@ -35,6 +35,13 @@ WORKDIR /work
 COPY --chown=opam:opam *.opam dune-project ./
 RUN opam install . --deps-only --with-test --yes
 
+# Install OCaml development tools (required by merlint)
+RUN opam install ocamlformat ocaml-lsp-server merlin --yes
+
+# Install merlint for code linting
+RUN opam pin add -n merlint https://github.com/samoht/merlint.git && \
+    opam install merlint --yes
+
 # Don't copy source or build - code comes from bind mount at runtime
 # This ensures `make fix` sees current local changes
 

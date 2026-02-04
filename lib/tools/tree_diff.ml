@@ -601,72 +601,52 @@ let rec pp_container_diff ?(style = default_style) ?(is_last = false)
       let exp_count = List.length expected_blocks in
       let act_count = List.length actual_blocks in
 
-      (* Collect all selectors from both sides to check if identical *)
-      let collect_all_selectors blocks =
-        List.fold_left
-          (fun acc (_, rules) ->
-            List.fold_left
-              (fun acc stmt ->
+      (* Report block structure changes - this is a meaningful difference even
+         if selectors are identical *)
+      if exp_count > act_count then
+        Fmt.pf fmt "%s%s %s (%d blocks merged into %d)@," prefix cont_prefix
+          condition exp_count act_count
+      else if exp_count < act_count then
+        Fmt.pf fmt "%s%s %s (%d block split into %d)@," prefix cont_prefix
+          condition exp_count act_count
+      else
+        (* Same count but different positions *)
+        Fmt.pf fmt "%s%s %s (%d blocks at different positions)@," prefix
+          cont_prefix condition exp_count;
+
+      (* Show expected blocks *)
+      List.iter
+        (fun (pos, rules) ->
+          let selectors =
+            List.filter_map
+              (fun stmt ->
                 match Css.as_rule stmt with
-                | Some (sel, _, _) -> Css.Selector.to_string sel :: acc
-                | None -> acc)
-              acc rules)
-          [] blocks
-        |> List.sort String.compare
-      in
-      let exp_selectors = collect_all_selectors expected_blocks in
-      let act_selectors = collect_all_selectors actual_blocks in
-      let selectors_identical = exp_selectors = act_selectors in
+                | Some (sel, _, _) -> Some (Css.Selector.to_string sel)
+                | None -> None)
+              rules
+          in
+          if selectors <> [] then
+            Fmt.pf fmt "%s%a@," indent red_styled
+              (Fmt.str "- Block at position %d: %s" pos
+                 (String.concat ", " selectors)))
+        expected_blocks;
 
-      (* Only report block structure changes if selectors are actually
-         different *)
-      if not selectors_identical then (
-        if exp_count > act_count then
-          Fmt.pf fmt "%s%s %s (%d blocks merged into %d)@," prefix cont_prefix
-            condition exp_count act_count
-        else if exp_count < act_count then
-          Fmt.pf fmt "%s%s %s (%d block split into %d)@," prefix cont_prefix
-            condition exp_count act_count
-        else
-          (* Same count but different positions *)
-          Fmt.pf fmt "%s%s %s (%d blocks at different positions)@," prefix
-            cont_prefix condition exp_count;
-
-        (* Show expected blocks *)
-        List.iter
-          (fun (pos, rules) ->
-            let selectors =
-              List.filter_map
-                (fun stmt ->
-                  match Css.as_rule stmt with
-                  | Some (sel, _, _) -> Some (Css.Selector.to_string sel)
-                  | None -> None)
-                rules
-            in
-            if selectors <> [] then
-              Fmt.pf fmt "%s%a@," indent red_styled
-                (Fmt.str "- Block at position %d: %s" pos
-                   (String.concat ", " selectors)))
-          expected_blocks;
-
-        (* Show actual blocks *)
-        List.iter
-          (fun (pos, rules) ->
-            let selectors =
-              List.filter_map
-                (fun stmt ->
-                  match Css.as_rule stmt with
-                  | Some (sel, _, _) -> Some (Css.Selector.to_string sel)
-                  | None -> None)
-                rules
-            in
-            if selectors <> [] then
-              Fmt.pf fmt "%s%a@," indent green_styled
-                (Fmt.str "+ Block at position %d: %s" pos
-                   (String.concat ", " selectors)))
-          actual_blocks)
-(* If selectors are identical, don't report this as a diff - it's likely a false
-   positive from CSS serialization differences *)
+      (* Show actual blocks *)
+      List.iter
+        (fun (pos, rules) ->
+          let selectors =
+            List.filter_map
+              (fun stmt ->
+                match Css.as_rule stmt with
+                | Some (sel, _, _) -> Some (Css.Selector.to_string sel)
+                | None -> None)
+              rules
+          in
+          if selectors <> [] then
+            Fmt.pf fmt "%s%a@," indent green_styled
+              (Fmt.str "+ Block at position %d: %s" pos
+                 (String.concat ", " selectors)))
+        actual_blocks
 
 let pp ?(expected = "Expected") ?(actual = "Actual") fmt { rules; containers } =
   (* Small local helpers to keep the pretty-printer readable *)
@@ -1484,44 +1464,28 @@ let rec media_diff items1 items2 =
   (!added, !removed, !modified)
 
 (* Generic helper for processing nested containers *)
-and process_nested_containers ~container_type ~extract_fn ~diff_fn ~depth stmts1
-    stmts2 =
-  (* Extract items with their positions *)
-  let items_with_pos1 =
-    List.mapi
-      (fun i stmt ->
-        match extract_fn stmt with
-        | Some (cond, rules) -> Some (i, cond, rules)
-        | None -> None)
-      stmts1
-    |> List.filter_map (fun x -> x)
-  in
-  let items_with_pos2 =
-    List.mapi
-      (fun i stmt ->
-        match extract_fn stmt with
-        | Some (cond, rules) -> Some (i, cond, rules)
-        | None -> None)
-      stmts2
-    |> List.filter_map (fun x -> x)
-  in
+(* Extract items with their positions from statements *)
+and extract_items_with_positions extract_fn stmts =
+  List.mapi
+    (fun i stmt ->
+      match extract_fn stmt with
+      | Some (cond, rules) -> Some (i, cond, rules)
+      | None -> None)
+    stmts
+  |> List.filter_map (fun x -> x)
 
-  (* Group by condition to detect block structure changes *)
-  let group_by_cond items =
-    let tbl = Hashtbl.create 16 in
-    List.iter
-      (fun (pos, cond, rules) ->
-        let existing = try Hashtbl.find tbl cond with Not_found -> [] in
-        Hashtbl.replace tbl cond (existing @ [ (pos, rules) ]))
-      items;
-    tbl
-  in
+(* Group items by condition *)
+and group_by_condition items =
+  let tbl = Hashtbl.create 16 in
+  List.iter
+    (fun (pos, cond, rules) ->
+      let existing = try Hashtbl.find tbl cond with Not_found -> [] in
+      Hashtbl.replace tbl cond (existing @ [ (pos, rules) ]))
+    items;
+  tbl
 
-  let blocks1 = group_by_cond items_with_pos1 in
-  let blocks2 = group_by_cond items_with_pos2 in
-
-  (* Detect conditions where block count differs OR positions differ
-     significantly *)
+(* Detect block structure changes between two groups *)
+and detect_block_structure_changes blocks1 blocks2 =
   let block_structure_changed = Hashtbl.create 16 in
   Hashtbl.iter
     (fun cond blocks1_list ->
@@ -1544,6 +1508,76 @@ and process_nested_containers ~container_type ~extract_fn ~diff_fn ~depth stmts1
               (blocks1_list, blocks2_list)
       | _ -> ())
     blocks1;
+  block_structure_changed
+
+(* Check if only declaration reorders occurred *)
+and only_declaration_reorders rule_changes nested_containers =
+  rule_changes <> []
+  && List.for_all
+       (function
+         | Rule_reordered
+             { old_declarations = Some _; new_declarations = Some _; _ } ->
+             true
+         | _ -> false)
+       rule_changes
+  && nested_containers = []
+
+(* Process a modified container and generate appropriate diff *)
+and process_modified_container ~container_type ~extract_fn ~depth ~stmts1
+    ~stmts2 ~block_structure_changed cond rules1 rules2 =
+  (* Skip if this condition has a block structure change *)
+  if Hashtbl.mem block_structure_changed cond then None
+  else
+    let rule_changes = to_rule_changes rules1 rules2 in
+    (* Recursively check deeper nesting *)
+    let nested_containers =
+      nested_differences ~depth:(depth + 1) rules1 rules2
+    in
+    (* Check for position changes within parent container *)
+    let find_position cond stmts =
+      List.find_mapi
+        (fun i stmt ->
+          match extract_fn stmt with
+          | Some (c, _) when c = cond -> Some i
+          | _ -> None)
+        stmts
+    in
+    let pos1 = find_position cond stmts1 |> Option.value ~default:(-1) in
+    let pos2 = find_position cond stmts2 |> Option.value ~default:(-1) in
+    let position_changed = pos1 >= 0 && pos2 >= 0 && abs (pos2 - pos1) > 3 in
+
+    (* If only position changed with no content changes, report as reordered *)
+    if position_changed && rule_changes = [] && nested_containers = [] then
+      Some
+        (Container_reordered
+           {
+             info = { container_type; condition = cond; rules = rules1 };
+             expected_pos = pos1;
+             actual_pos = pos2;
+           })
+    else if not (only_declaration_reorders rule_changes nested_containers) then
+      (* Container was modified in content, not just position *)
+      Some
+        (Container_modified
+           {
+             info = { container_type; condition = cond; rules = rules1 };
+             actual_rules = rules2;
+             rule_changes;
+             container_changes = nested_containers;
+           })
+    else None
+
+and process_nested_containers ~container_type ~extract_fn ~diff_fn ~depth stmts1
+    stmts2 =
+  let items_with_pos1 = extract_items_with_positions extract_fn stmts1 in
+  let items_with_pos2 = extract_items_with_positions extract_fn stmts2 in
+
+  let blocks1 = group_by_condition items_with_pos1 in
+  let blocks2 = group_by_condition items_with_pos2 in
+
+  let block_structure_changed =
+    detect_block_structure_changes blocks1 blocks2
+  in
 
   let items1 = List.filter_map extract_fn stmts1 in
   let items2 = List.filter_map extract_fn stmts2 in
@@ -1577,66 +1611,12 @@ and process_nested_containers ~container_type ~extract_fn ~diff_fn ~depth stmts1
   (* Process modified containers - skip those with block structure changes *)
   List.iter
     (fun (cond, rules1, rules2) ->
-      (* Skip if this condition has a block structure change *)
-      if not (Hashtbl.mem block_structure_changed cond) then
-        let rule_changes = to_rule_changes rules1 rules2 in
-        (* Recursively check deeper nesting *)
-        let nested_containers =
-          nested_differences ~depth:(depth + 1) rules1 rules2
-        in
-        (* Check for position changes within parent container *)
-        let find_position cond stmts =
-          List.find_mapi
-            (fun i stmt ->
-              match extract_fn stmt with
-              | Some (c, _) when c = cond -> Some i
-              | _ -> None)
-            stmts
-        in
-        let pos1 = find_position cond stmts1 |> Option.value ~default:(-1) in
-        let pos2 = find_position cond stmts2 |> Option.value ~default:(-1) in
-        let position_changed =
-          pos1 >= 0 && pos2 >= 0 && abs (pos2 - pos1) > 3
-        in
-
-        (* If only position changed with no content changes, report as
-           reordered *)
-        if position_changed && rule_changes = [] && nested_containers = [] then
-          diffs :=
-            Container_reordered
-              {
-                info = { container_type; condition = cond; rules = rules1 };
-                expected_pos = pos1;
-                actual_pos = pos2;
-              }
-            :: !diffs
-        else
-          (* Container was modified in content, not just position *)
-          let only_decl_reorders =
-            rule_changes <> []
-            && List.for_all
-                 (function
-                   | Rule_reordered
-                       {
-                         old_declarations = Some _;
-                         new_declarations = Some _;
-                         _;
-                       } ->
-                       true
-                   | _ -> false)
-                 rule_changes
-            && nested_containers = []
-          in
-          if not only_decl_reorders then
-            diffs :=
-              Container_modified
-                {
-                  info = { container_type; condition = cond; rules = rules1 };
-                  actual_rules = rules2;
-                  rule_changes;
-                  container_changes = nested_containers;
-                }
-              :: !diffs)
+      match
+        process_modified_container ~container_type ~extract_fn ~depth ~stmts1
+          ~stmts2 ~block_structure_changed cond rules1 rules2
+      with
+      | Some diff -> diffs := diff :: !diffs
+      | None -> ())
     modified;
 
   (* Check for ordering changes: same containers but different order *)
@@ -2172,10 +2152,12 @@ let detect_container_position_changes stmts1 stmts2 containers =
         when rule_changes = [] && container_changes = [] ->
           (* No content changes - check if position changed *)
           let pos1 =
-            try List.assoc condition pos_map1 |> List.hd with _ -> -1
+            try List.assoc condition pos_map1 |> List.hd
+            with Not_found | Failure _ -> -1
           in
           let pos2 =
-            try List.assoc condition pos_map2 |> List.hd with _ -> -1
+            try List.assoc condition pos_map2 |> List.hd
+            with Not_found | Failure _ -> -1
           in
           if pos1 >= 0 && pos2 >= 0 && abs (pos2 - pos1) > 5 then
             (* Significant position change - report as structure difference *)

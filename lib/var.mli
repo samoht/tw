@@ -455,6 +455,10 @@ val get_property_order : string -> int option
     used for sorting properties in the {i \@layer properties \@supports} block.
     Returns [None] if no order was registered. *)
 
+val get_order : string -> (int * int) option
+(** [get_order name] returns the theme layer order for a variable name. None if
+    no order was set (i.e., not a theme variable). *)
+
 val get_family : string -> family option
 
 val get_needs_property : string -> bool
