@@ -1,4 +1,4 @@
 (library
  (public_name tw)
  (name tw)
- (libraries css))
+ (libraries css str))
