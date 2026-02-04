@@ -106,13 +106,13 @@ let leading_relaxed_var =
   Var.theme Css.Line_height "leading-relaxed" ~order:(6, 50)
 
 let leading_var =
-  (* Leading appears in @layer properties after skew (position 5) *)
-  Var.channel ~needs_property:true ~property_order:5 ~family:`Leading
+  (* Leading appears in @layer properties after transforms (position 11) *)
+  Var.channel ~needs_property:true ~property_order:11 ~family:`Leading
     Css.Line_height "tw-leading"
 
 let font_weight_var =
-  (* Font-weight appears in @layer properties after leading (position 6) *)
-  Var.channel ~needs_property:true ~property_order:16 ~family:`Font_weight
+  (* Font-weight appears in @layer properties after leading (position 12) *)
+  Var.channel ~needs_property:true ~property_order:12 ~family:`Font_weight
     Css.Font_weight "tw-font-weight"
 
 let tracking_var =
@@ -316,6 +316,8 @@ module Typography_early = struct
     | Text_center
     | Text_right
     | Text_justify
+    | Text_start
+    | Text_end
     | (* Leading *)
       Leading_none
     | Leading_tight
@@ -366,6 +368,8 @@ module Typography_early = struct
     | [ "text"; "center" ] -> Ok Text_center
     | [ "text"; "right" ] -> Ok Text_right
     | [ "text"; "justify" ] -> Ok Text_justify
+    | [ "text"; "start" ] -> Ok Text_start
+    | [ "text"; "end" ] -> Ok Text_end
     | [ "leading"; "none" ] -> Ok Leading_none
     | [ "leading"; "tight" ] -> Ok Leading_tight
     | [ "leading"; "snug" ] -> Ok Leading_snug
@@ -409,6 +413,8 @@ module Typography_early = struct
     | Text_center -> "text-center"
     | Text_right -> "text-right"
     | Text_justify -> "text-justify"
+    | Text_start -> "text-start"
+    | Text_end -> "text-end"
     | Leading_none -> "leading-none"
     | Leading_tight -> "leading-tight"
     | Leading_snug -> "leading-snug"
@@ -422,9 +428,11 @@ module Typography_early = struct
   let suborder = function
     (* Text align comes first - alphabetical order *)
     | Text_center -> 1001
-    | Text_justify -> 1002
-    | Text_left -> 1003
-    | Text_right -> 1004
+    | Text_end -> 1002
+    | Text_justify -> 1003
+    | Text_left -> 1004
+    | Text_right -> 1005
+    | Text_start -> 1006
     (* Font family - comes between text-align and text-size *)
     | Font_sans -> 1501
     | Font_serif -> 1502
@@ -608,6 +616,8 @@ module Typography_early = struct
   let text_center = style [ text_align Center ]
   let text_right = style [ text_align Right ]
   let text_justify = style [ text_align Justify ]
+  let text_start = style [ text_align Start ]
+  let text_end = style [ text_align End ]
 
   let leading_none =
     let leading_decl, leading_ref = Var.binding leading_var (Num 1.0) in
@@ -678,6 +688,8 @@ module Typography_early = struct
     | Text_center -> text_center
     | Text_right -> text_right
     | Text_justify -> text_justify
+    | Text_start -> text_start
+    | Text_end -> text_end
     | Leading_none -> leading_none
     | Leading_tight -> leading_tight
     | Leading_snug -> leading_snug
@@ -752,6 +764,7 @@ module Typography_late = struct
     | Underline_offset_8
     | (* Antialiased *)
       Antialiased
+    | Subpixel_antialiased
     | (* Text overflow *)
       Text_ellipsis
     | Text_clip
@@ -867,6 +880,7 @@ module Typography_late = struct
     | [ "underline"; "offset"; "4" ] -> Ok Underline_offset_4
     | [ "underline"; "offset"; "8" ] -> Ok Underline_offset_8
     | [ "antialiased" ] -> Ok Antialiased
+    | [ "subpixel"; "antialiased" ] -> Ok Subpixel_antialiased
     | [ "text"; "ellipsis" ] -> Ok Text_ellipsis
     | [ "text"; "clip" ] -> Ok Text_clip
     | [ "text"; "wrap" ] -> Ok Text_wrap
@@ -970,6 +984,7 @@ module Typography_late = struct
     | Underline_offset_4 -> "underline-offset-4"
     | Underline_offset_8 -> "underline-offset-8"
     | Antialiased -> "antialiased"
+    | Subpixel_antialiased -> "subpixel-antialiased"
     | Text_ellipsis -> "text-ellipsis"
     | Text_clip -> "text-clip"
     | Text_wrap -> "text-wrap"
@@ -1014,11 +1029,11 @@ module Typography_late = struct
           let _, color_order = Color.utilities_order (Color.pp color) in
           5000 + (color_order * 1000) + shade
         with Not_found | Failure _ -> 5000 + shade)
-    (* Text decoration lines - suborder >= 8000 *)
-    | Underline -> 8000
-    | Overline -> 8001
-    | Line_through -> 8002
-    | No_underline -> 8003
+    (* Text decoration lines - suborder >= 8000 (alphabetical) *)
+    | Line_through -> 8000
+    | No_underline -> 8001
+    | Overline -> 8002
+    | Underline -> 8003
     (* Decoration styles *)
     | Decoration_solid -> 8100
     | Decoration_double -> 8101
@@ -1034,11 +1049,11 @@ module Typography_late = struct
     | Tracking_wide -> 8303
     | Tracking_wider -> 8304
     | Tracking_widest -> 8305
-    (* Text transform *)
-    | Uppercase -> 8400
+    (* Text transform - alphabetical order *)
+    | Capitalize -> 8400
     | Lowercase -> 8401
-    | Capitalize -> 8402
-    | Normal_case -> 8403
+    | Normal_case -> 8402
+    | Uppercase -> 8403
     (* Whitespace *)
     | Whitespace_normal -> 8500
     | Whitespace_nowrap -> 8501
@@ -1071,14 +1086,15 @@ module Typography_late = struct
     | Underline_offset_8 -> 8805
     (* Antialiased *)
     | Antialiased -> 8900
-    (* Text overflow *)
-    | Text_ellipsis -> 9000
-    | Text_clip -> 9001
-    (* Text wrap *)
-    | Text_wrap -> 9100
+    | Subpixel_antialiased -> 8901
+    (* Text overflow - alphabetical order *)
+    | Text_clip -> 9000
+    | Text_ellipsis -> 9001
+    (* Text wrap - alphabetical order *)
+    | Text_balance -> 9100
     | Text_nowrap -> 9101
-    | Text_balance -> 9102
-    | Text_pretty -> 9103
+    | Text_pretty -> 9102
+    | Text_wrap -> 9103
     (* Break utilities *)
     | Break_normal -> 9200
     | Break_words -> 9201
@@ -1088,10 +1104,10 @@ module Typography_late = struct
     | Overflow_wrap_normal -> 9300
     | Overflow_wrap_anywhere -> 9301
     | Overflow_wrap_break_word -> 9302
-    (* Hyphens *)
-    | Hyphens_none -> 9400
+    (* Hyphens - alphabetical order *)
+    | Hyphens_auto -> 9400
     | Hyphens_manual -> 9401
-    | Hyphens_auto -> 9402
+    | Hyphens_none -> 9402
     (* Font stretch *)
     | Font_stretch_normal -> 9500
     | Font_stretch_condensed -> 9501
@@ -1229,6 +1245,9 @@ module Typography_late = struct
     style
       [ webkit_font_smoothing Antialiased; moz_osx_font_smoothing Grayscale ]
 
+  let subpixel_antialiased =
+    style [ webkit_font_smoothing Auto; moz_osx_font_smoothing Auto ]
+
   let list_image_url url = style [ list_style_image (Url url) ]
 
   let indent n =
@@ -1289,7 +1308,7 @@ module Typography_late = struct
   let text_nowrap = style [ Css.text_wrap No_wrap ]
   let text_balance = style [ Css.text_wrap Balance ]
   let text_pretty = style [ Css.text_wrap Pretty ]
-  let break_normal = style [ word_break Normal; overflow_wrap Normal ]
+  let break_normal = style [ overflow_wrap Normal; word_break Normal ]
   let break_words = style [ overflow_wrap Break_word ]
   let break_all = style [ word_break Break_all ]
   let break_keep = style [ word_break Keep_all ]
@@ -1446,6 +1465,7 @@ module Typography_late = struct
     | Underline_offset_4 -> underline_offset_4
     | Underline_offset_8 -> underline_offset_8
     | Antialiased -> antialiased
+    | Subpixel_antialiased -> subpixel_antialiased
     | Text_ellipsis -> text_ellipsis
     | Text_clip -> text_clip
     | Text_wrap -> text_wrap
@@ -1520,6 +1540,8 @@ let text_left = utility_early Typography_early.Text_left
 let text_center = utility_early Typography_early.Text_center
 let text_right = utility_early Typography_early.Text_right
 let text_justify = utility_early Typography_early.Text_justify
+let text_start = utility_early Typography_early.Text_start
+let text_end = utility_early Typography_early.Text_end
 let leading_none = utility_early Typography_early.Leading_none
 let leading_tight = utility_early Typography_early.Leading_tight
 let leading_snug = utility_early Typography_early.Leading_snug
@@ -1570,6 +1592,7 @@ let underline_offset_2 = utility_late Typography_late.Underline_offset_2
 let underline_offset_4 = utility_late Typography_late.Underline_offset_4
 let underline_offset_8 = utility_late Typography_late.Underline_offset_8
 let antialiased = utility_late Typography_late.Antialiased
+let subpixel_antialiased = utility_late Typography_late.Subpixel_antialiased
 let align_baseline = utility_late Typography_late.Align_baseline
 let align_top = utility_late Typography_late.Align_top
 let align_middle = utility_late Typography_late.Align_middle
