@@ -23,32 +23,38 @@ CLAUDE_HOME := $(HOME)/.claude-container
 TEST_CMD = opam exec -- dune test --force $(TEST)
 
 # Default prompt - can be overridden with PROMPT="..."
-# Note: Cosmetic formatting differences ARE real differences and MUST be fixed.
-# Priority: Fix cssdiff/parser bugs BEFORE fixing utility implementation bugs.
 define DEFAULT_PROMPT
 Run '$(TEST_CMD)' and fix any failures.
 
-CRITICAL PRIORITIES (in order):
-1. If cssdiff reports "No structural differences" but there ARE actual CSS differences, STOP and fix the cssdiff tool in lib/tools/css_compare.ml FIRST.
-2. If the CSS parser fails to parse valid CSS syntax, fix the parser in lib/css/properties.ml FIRST.
-3. Cosmetic formatting differences (whitespace, nesting format, property order) ARE structural differences and MUST be fixed to match Tailwind exactly.
+STEP 1 - DIAGNOSE FIRST (before changing ANY code):
+- Run: dune exec -- tw -s "failing-utility" --diff
+- This shows EXACTLY what differs between our output and Tailwind
+- Run: dune exec -- tw -s "failing-utility" --tailwind
+- This shows what Tailwind actually outputs
+- Understand the EXACT difference before touching code
 
-See CLAUDE.md section 12 for cssdiff bug details.
+STEP 2 - IDENTIFY ROOT CAUSE:
+- Is it a cssdiff bug? (reports "no differences" but there are differences)
+  -> Fix lib/tools/css_compare.ml or lib/tools/tree_diff.ml FIRST
+- Is it a parser bug? (fails to parse valid CSS)
+  -> Fix lib/css/properties.ml FIRST
+- Is it wrong ordering? (rules in wrong position)
+  -> Fix comparison functions in lib/rules.ml
+- Is it wrong values? (property values differ)
+  -> Fix the utility implementation
 
-APPROACH:
-- Always step back and fix issues THE CORRECT WAY
-- Do not hack around problems - understand and fix root causes
-- If ordering is wrong, fix the comparison functions properly
-- If rules are missing, add them to the right place in the pipeline
+STEP 3 - FIX THE CORRECT WAY:
+- Do NOT hack around problems
+- Understand and fix root causes
+- If ordering is wrong, fix comparison functions properly
+- If rules are missing, add them to the right place
 - When in doubt, ADD MORE TYPES - let the compiler guide you
 
-FORBIDDEN - NEVER say any of these:
+FORBIDDEN - NEVER say:
 - "This would require significant time"
-- "Fixing all of these would take time"
 - "This is complex and needs more work"
-- "These are known issues / technical debt"
 - "Leave this for later"
-You have UNLIMITED time. Fix EVERYTHING until tests pass. No excuses.
+You have UNLIMITED time. Fix EVERYTHING correctly.
 endef
 PROMPT ?= $(subst $(newline), ,$(DEFAULT_PROMPT))
 
