@@ -423,6 +423,27 @@ let apply modifiers base_utility =
             | Utility.Group styles -> has sel styles
             | single -> has sel [ single ])
         | None -> acc)
+    (* Container query modifiers (@sm, @md, @lg, @xl, @2xl) *)
+    | "@sm" -> (
+        match acc with
+        | Utility.Group styles -> Containers.container_sm styles
+        | single -> Containers.container_sm [ single ])
+    | "@md" -> (
+        match acc with
+        | Utility.Group styles -> Containers.container_md styles
+        | single -> Containers.container_md [ single ])
+    | "@lg" -> (
+        match acc with
+        | Utility.Group styles -> Containers.container_lg styles
+        | single -> Containers.container_lg [ single ])
+    | "@xl" -> (
+        match acc with
+        | Utility.Group styles -> Containers.container_xl styles
+        | single -> Containers.container_xl [ single ])
+    | "@2xl" -> (
+        match acc with
+        | Utility.Group styles -> Containers.container_2xl styles
+        | single -> Containers.container_2xl [ single ])
     | _ -> acc (* ignore unknown modifiers for now *)
   in
   (* Apply modifiers in reverse order so that the first modifier in the string
