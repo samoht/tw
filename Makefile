@@ -47,7 +47,7 @@ FORBIDDEN - NEVER say any of these:
 - "Fixing all of these would take time"
 - "This is complex and needs more work"
 - "These are known issues / technical debt"
-- "I'll leave this for later"
+- "Leave this for later"
 You have UNLIMITED time. Fix EVERYTHING until tests pass. No excuses.
 endef
 PROMPT ?= $(subst $(newline), ,$(DEFAULT_PROMPT))
