@@ -759,9 +759,9 @@ let is_simple_class_selector sel =
   | Css.Selector.Class _ -> true
   | _ -> false
 
-(** Compare complex selector kinds. Returns ordering value for sorting. Order:
-    other < group < group-has < peer < peer-has < focus-within < focus-visible <
-    has < aria *)
+(** Compare complex selector kinds. Returns ordering value for sorting. At equal
+    priority levels, the order is: simple/complex < pseudo-element < group <
+    group-has < peer < peer-has < focus-within < focus-visible < has < aria *)
 let complex_selector_order = function
   | Complex { has_aria = true; _ } -> 60
   | Complex { has_standalone_has = true; _ } -> 50
@@ -771,7 +771,9 @@ let complex_selector_order = function
   | Complex { has_peer = true; _ } -> 20
   | Complex { has_group_has = true; _ } -> 11
   | Complex { has_group = true; _ } -> 10
-  | _ -> 0
+  | Pseudo_element -> 5 (* After simple/complex but before late modifiers *)
+  | Simple -> 0
+  | Complex _ -> 0
 
 (** Determine the relationship between two rules *)
 let rule_relationship r1 r2 =
@@ -956,29 +958,42 @@ let compare_complex_selectors sel1 sel2 kind1 kind2 s1 s2 i1 i2 =
       in
       if sel_cmp <> 0 then sel_cmp else Int.compare i1 i2
 
-(** Compare rules by priority, then by selector kind, then by suborder. Uses
-    type-directed dispatch based on selector classification. Order is: Simple <
-    Complex < Pseudo_element *)
+(** Compare rules by priority, then suborder, then by selector kind. Uses
+    type-directed dispatch based on selector classification. Pseudo-elements,
+    simple, and complex selectors are all sorted by priority/suborder/index,
+    with pseudo-elements coming before complex at same priority/suborder. *)
 let compare_by_priority_suborder_alpha sel1 sel2 (p1, s1) (p2, s2) i1 i2 =
   (* Priority comes first *)
   let prio_cmp = Int.compare p1 p2 in
   if prio_cmp <> 0 then prio_cmp
   else
-    (* Same priority: dispatch based on selector kinds *)
-    let kind1 = classify_selector sel1 in
-    let kind2 = classify_selector sel2 in
-    match (kind1, kind2) with
-    | Simple, Simple -> compare_simple_selectors sel1 sel2 s1 s2 i1 i2
-    | Pseudo_element, Pseudo_element ->
-        compare_simple_selectors sel1 sel2 s1 s2 i1 i2
-    | Pseudo_element, Simple -> 1 (* Pseudo-elements after simple *)
-    | Pseudo_element, Complex _ -> 1 (* Pseudo-elements after complex *)
-    | Simple, Pseudo_element -> -1
-    | Simple, Complex _ -> -1 (* Simple before complex *)
-    | Complex _, Pseudo_element -> -1 (* Complex before pseudo-elements *)
-    | Complex _, Simple -> 1
-    | Complex _, Complex _ ->
-        compare_complex_selectors sel1 sel2 kind1 kind2 s1 s2 i1 i2
+    (* Same priority: compare by suborder *)
+    let sub_cmp = Int.compare s1 s2 in
+    if sub_cmp <> 0 then sub_cmp
+    else
+      (* Same priority and suborder: dispatch based on selector kinds *)
+      let kind1 = classify_selector sel1 in
+      let kind2 = classify_selector sel2 in
+      match (kind1, kind2) with
+      | Simple, Simple -> compare_simple_selectors sel1 sel2 s1 s2 i1 i2
+      | Pseudo_element, Pseudo_element ->
+          compare_simple_selectors sel1 sel2 s1 s2 i1 i2
+      | Pseudo_element, Simple ->
+          (* At same priority/suborder, preserve source order via index *)
+          Int.compare i1 i2
+      | Pseudo_element, Complex _ ->
+          (* Pseudo-elements before complex selectors *)
+          -1
+      | Simple, Pseudo_element ->
+          (* At same priority/suborder, preserve source order via index *)
+          Int.compare i1 i2
+      | Simple, Complex _ -> -1 (* Simple before complex *)
+      | Complex _, Pseudo_element ->
+          (* Complex after pseudo-elements *)
+          1
+      | Complex _, Simple -> 1
+      | Complex _, Complex _ ->
+          compare_complex_selectors sel1 sel2 kind1 kind2 s1 s2 i1 i2
 
 (* Note: compare_regular_rules was removed - now using compare_same_utility and
    compare_cross_utility in compare_indexed_rules. The :has() handling is done
@@ -1038,10 +1053,12 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 nested1 nested2
       let cond_cmp = compare_media_conditions group1 sub1 sub2 cond1 cond2 in
       if cond_cmp <> 0 then cond_cmp
       else
-        (* For all media groups, use priority/suborder/index to preserve source
-           order. This keeps media blocks from being artificially merged by the
-           optimizer when they should stay separate based on their position in
-           the source utilities list. *)
+        (* Same media condition - compare by priority/suborder first to match
+           Tailwind's ordering. Within the same media query (e.g., @media
+           (min-width:48rem)), utilities are sorted by priority/suborder, not by
+           selector complexity. For example, md:space-y-6 (priority 17) comes
+           before md:p-6 (priority 21) even though space-y has a complex
+           :where() selector. *)
         compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
 
 (* ======================================================================== *)
@@ -1075,6 +1092,24 @@ let is_late_modifier sel_kind selector =
   | Complex { has_standalone_has = true; _ } -> true
   | _ -> false
 
+(** Check if a selector is a state modifier rule. These include :active,
+    :disabled, [aria-*], and :has() selectors with modifier colons. These come
+    very late in the utilities layer, after focus-visible but before media
+    queries. *)
+let is_state_modifier_rule sel_kind selector =
+  if not (Css.Selector.contains_modifier_colon selector) then false
+  else
+    match sel_kind with
+    | Complex { has_aria = true; _ } -> true
+    | Complex { has_standalone_has = true; _ } -> true
+    | Complex _ ->
+        (* Check for :active or :disabled pseudo-classes in the selector *)
+        let sel_str = Css.Selector.to_string selector in
+        String.contains sel_str ':'
+        && (Str.string_match (Str.regexp ".*:active$") sel_str 0
+           || Str.string_match (Str.regexp ".*:disabled$") sel_str 0)
+    | _ -> false
+
 (** Check if a selector is a focus: modifier rule (has :focus pseudo-class and
     modifier colon). These rules come AFTER hover:hover media but BEFORE other
     modifier-prefixed media like motion-safe:/motion-reduce:/contrast-more:. *)
@@ -1088,40 +1123,89 @@ let compare_different_utility_regular_media sel1 sel2 order1 order2 media_type =
   let kind1 = classify_selector sel1 in
   (* Check if regular rule is a focus: modifier rule *)
   let is_focus = is_focus_modifier_rule kind1 sel1 in
-  if Css.Selector.contains_modifier_colon sel2 then
+  (* Check if this is truly modifier-prefixed media (like dark:hover:,
+     motion-safe:hover:) vs plain media with modifiers in the class name (like
+     hover:bg in @media (hover:hover)) *)
+  let is_modifier_prefixed_media =
+    Css.Selector.contains_modifier_colon sel2
+    &&
+    match media_type with
+    | Some
+        ( Css.Media.Prefers_color_scheme _ | Css.Media.Prefers_reduced_motion _
+        | Css.Media.Prefers_contrast _ ) ->
+        true
+    | _ -> false
+  in
+  (* Check focus modifier rules FIRST - they should come after ALL media
+     queries *)
+  if is_focus then
+    (* ALL focus: utilities come AFTER all media queries (hover, responsive,
+       preference) *)
+    1
+  else if is_modifier_prefixed_media then
     (* Modifier-prefixed media (like motion-safe:, dark:, contrast-more:) *)
     if is_late_modifier kind1 sel1 then
       (* Late modifiers (group-has, peer-has, focus-within, etc.) come after *)
       1
-    else if is_focus then
-      (* focus: rules come BEFORE modifier-prefixed media like motion-safe:, but
-         AFTER hover:hover media. Check media type. *)
-      match media_type with
-      | Some Css.Media.Hover ->
-          (* focus: comes AFTER hover:hover media *)
-          1
-      | _ ->
-          (* focus: comes BEFORE other media (motion-safe, contrast-more,
-             etc.) *)
-          -1
     else
       (* Other regular rules come before modifier-prefixed media *)
       -1
   else
     (* Plain/built-in media (e.g., container breakpoints, hover:hover without
-       modifier prefix) - compare by priority and suborder. *)
-    match media_type with
-    | Some Css.Media.Hover when is_focus ->
-        (* focus: rules come AFTER hover:hover media *)
-        1
-    | _ ->
-        let p1, s1 = order1 in
-        let p2, s2 = order2 in
-        let prio_cmp = Int.compare p1 p2 in
-        if prio_cmp <> 0 then prio_cmp
-        else
-          let sub_cmp = Int.compare s1 s2 in
-          if sub_cmp <> 0 then sub_cmp else -1
+       modifier prefix). Check if this is truly built-in media (no modifier
+       colon in selector) vs modifier-based responsive media (like md:). *)
+    let has_modifier_colon = Css.Selector.contains_modifier_colon sel2 in
+    let p1, s1 = order1 in
+    let p2, s2 = order2 in
+
+    if not has_modifier_colon then
+      (* Built-in media (e.g., container breakpoints) - respect priority *)
+      let prio_cmp = Int.compare p1 p2 in
+      if prio_cmp <> 0 then prio_cmp
+      else
+        (* Same priority - Regular before its media variants *)
+        match media_type with
+        | Some (Css.Media.Min_width _ | Css.Media.Hover) -> -1
+        | _ ->
+            let sub_cmp = Int.compare s1 s2 in
+            if sub_cmp <> 0 then sub_cmp else -1
+    else if
+      (* Modifier-based responsive/hover media (md:, lg:, hover:, group-hover:) *)
+      (* Check focus FIRST before media type to ensure all focus utilities group together *)
+      is_focus
+    then
+      (* ALL focus: utilities come AFTER hover:hover and responsive media,
+         regardless of their underlying utility's priority *)
+      match media_type with
+      | Some (Css.Media.Hover | Css.Media.Min_width _) -> 1
+      | _ ->
+          (* For other media types, compare by priority *)
+          let prio_cmp = Int.compare p1 p2 in
+          if prio_cmp <> 0 then prio_cmp
+          else
+            let sub_cmp = Int.compare s1 s2 in
+            if sub_cmp <> 0 then sub_cmp else -1
+    else
+      match media_type with
+      | Some Css.Media.Hover ->
+          (* For modifier-based hover media (hover:, group-hover:), @media
+             (hover:hover) comes before other Regular utilities by priority. *)
+          let prio_cmp = Int.compare p1 p2 in
+          if prio_cmp <> 0 then prio_cmp
+          else
+            (* Same priority - Media comes first *)
+            1
+      | Some (Css.Media.Min_width _) ->
+          (* For responsive media (md:, lg:), Regular always comes before Media
+             when comparing different utilities *)
+          -1
+      | _ ->
+          (* For other media types, compare by priority *)
+          let prio_cmp = Int.compare p1 p2 in
+          if prio_cmp <> 0 then prio_cmp
+          else
+            let sub_cmp = Int.compare s1 s2 in
+            if sub_cmp <> 0 then sub_cmp else -1
 
 (** Compare Regular vs Media rules using rule relationship dispatch. *)
 let compare_regular_vs_media r1 r2 =
@@ -1138,18 +1222,16 @@ let compare_regular_vs_media r1 r2 =
 (* Regular Rule Comparison - Type-directed comparison for Regular rules *)
 (* ======================================================================== *)
 
-(** Compare pseudo-element vs non-pseudo-element selectors. Returns Some(cmp) if
-    one is pseudo-element and the other isn't, None if both are same kind.
-    Pseudo-elements always come after both simple and complex selectors. Order:
-    Simple < Complex < Pseudo_element *)
-let compare_pseudo_elements kind1 kind2 =
+(** Compare pseudo-element vs non-pseudo-element selectors. In Tailwind v4,
+    Simple selectors ALWAYS come before Pseudo_element selectors, regardless of
+    priority or suborder. This ensures that `.mx-auto` comes before
+    `.before\:absolute::before` even though they have different priorities. *)
+let compare_pseudo_elements kind1 kind2 _sel1 _sel2 =
   match (kind1, kind2) with
-  | Pseudo_element, Pseudo_element -> None
-  | Pseudo_element, Simple -> Some 1 (* Pseudo-elements after simple *)
-  | Pseudo_element, Complex _ -> Some 1 (* Pseudo-elements after complex *)
-  | Simple, Pseudo_element -> Some (-1)
-  | Complex _, Pseudo_element -> Some (-1)
-  | _, _ -> None
+  | Simple, Pseudo_element -> Some (-1) (* Simple before Pseudo_element *)
+  | Pseudo_element, Simple -> Some 1 (* Pseudo_element after Simple *)
+  | Pseudo_element, Pseudo_element -> None (* Compare by priority *)
+  | _, _ -> None (* Let priority comparison handle other cases *)
 
 (** Compare regular rules from the same base utility (e.g., all prose-sm rules).
     Preserves original index order to maintain source ordering within a utility.
@@ -1247,35 +1329,72 @@ let compare_cross_utility_regular r1 r2 =
       | Simple -> "Simple"
       | Pseudo_element -> "Pseudo_element"
       | Complex _ -> "Complex"));
-  (* Check for focus-modified rules BEFORE priority - they always come late *)
-  let focus1 = is_focus_modifier_rule kind1 r1.selector in
-  let focus2 = is_focus_modifier_rule kind2 r2.selector in
-  if focus1 && not focus2 then 1
-  else if focus2 && not focus1 then -1
-  else if focus1 && focus2 then compare_focus_modifiers r1 r2
-  else
-    (* Compare by priority and suborder *)
-    let prio_cmp = Int.compare p1 p2 in
-    if prio_cmp <> 0 then prio_cmp
-    else
-      (* Check pseudo-elements BEFORE suborder - they always come late *)
-      match compare_pseudo_elements kind1 kind2 with
-      | Some cmp -> cmp
-      | None ->
-          let sub_cmp = Int.compare s1 s2 in
-          if sub_cmp <> 0 then sub_cmp
+  (* Check pseudo-elements BEFORE priority *)
+  match compare_pseudo_elements kind1 kind2 r1.selector r2.selector with
+  | Some cmp -> cmp
+  | None ->
+      (* Check for focus-visible modifiers BEFORE priority *)
+      let focus_visible1 =
+        is_late_modifier kind1 r1.selector
+        &&
+        match kind1 with
+        | Complex { has_focus_visible = true; _ } -> true
+        | _ -> false
+      in
+      let focus_visible2 =
+        is_late_modifier kind2 r2.selector
+        &&
+        match kind2 with
+        | Complex { has_focus_visible = true; _ } -> true
+        | _ -> false
+      in
+      (* Check for state-modified rules *)
+      let state1 = is_state_modifier_rule kind1 r1.selector in
+      let state2 = is_state_modifier_rule kind2 r2.selector in
+
+      (* Order: focus-visible < state modifiers *)
+      if focus_visible1 && state2 then -1 (* focus-visible before state *)
+      else if state1 && focus_visible2 then 1 (* state after focus-visible *)
+      else if focus_visible1 && (not focus_visible2) && not state2 then 1
+      else if focus_visible2 && (not focus_visible1) && not state1 then -1
+      else if focus_visible1 && focus_visible2 then
+        compare_by_priority_suborder_baseclass_index r1 r2
+      else if state1 && not state2 then 1
+      else if state2 && not state1 then -1
+      else if state1 && state2 then
+        compare_by_priority_suborder_baseclass_index r1 r2
+      else
+        (* Check for other focus-modified rules BEFORE priority - they always
+           come late *)
+        let focus1 = is_focus_modifier_rule kind1 r1.selector in
+        let focus2 = is_focus_modifier_rule kind2 r2.selector in
+        if focus1 && not focus2 then 1
+        else if focus2 && not focus1 then -1
+        else if focus1 && focus2 then compare_focus_modifiers r1 r2
+        else
+          (* Compare by priority *)
+          let prio_cmp = Int.compare p1 p2 in
+          if prio_cmp <> 0 then prio_cmp
           else
-            let late1 = is_late_modifier kind1 r1.selector in
-            let late2 = is_late_modifier kind2 r2.selector in
-            if late1 && not late2 then 1
-            else if late2 && not late1 then -1
-            else if late1 && late2 then compare_late_modifiers r1 r2 kind1 kind2
+            (* Same priority - compare by suborder *)
+            let sub_cmp = Int.compare s1 s2 in
+            if sub_cmp <> 0 then sub_cmp
             else
-              (* Same priority/suborder, sort by base_class then index *)
-              let bc_cmp =
-                compare_base_class_option r1.base_class r2.base_class
-              in
-              if bc_cmp <> 0 then bc_cmp else Int.compare r1.index r2.index
+              (* When priority and suborder are equal, check late modifiers
+                 first *)
+              let late1 = is_late_modifier kind1 r1.selector in
+              let late2 = is_late_modifier kind2 r2.selector in
+              if late1 && not late2 then 1
+              else if late2 && not late1 then -1
+              else if late1 && late2 then
+                compare_late_modifiers r1 r2 kind1 kind2
+              else
+                (* Not late modifiers - sort alphabetically by selector name. In
+                   Tailwind v4, utilities with the same priority AND suborder
+                   are sorted alphabetically by selector name. *)
+                String.compare
+                  (Css.Selector.to_string r1.selector)
+                  (Css.Selector.to_string r2.selector)
 
 (** Compare two Regular rules using rule relationship dispatch. *)
 let compare_regular_rules r1 r2 =
@@ -1414,15 +1533,29 @@ let deduplicate_typed_triples triples =
 
 (* Get utility order from base class, with fallback to conflict order. Note:
    base_class may contain modifier prefixes (e.g., "md:grid-cols-2"), so we need
-   to strip those before looking up the utility. *)
+   to strip those before looking up the utility. Pseudo-element modifiers
+   (before:, after:) use a fixed high suborder to preserve source order. *)
 let order_of_base base_class selector =
   match base_class with
   | Some class_name -> (
+      (* Check if this has a pseudo-element modifier prefix *)
+      let has_pseudo_element_modifier =
+        String.starts_with ~prefix:"before:" class_name
+        || String.starts_with ~prefix:"after:" class_name
+      in
       (* Strip modifier prefix to get base utility name *)
       let base_utility = extract_base_utility class_name in
       let parts = String.split_on_char '-' base_utility in
       match Utility.base_of_strings parts with
-      | Ok u -> Utility.order u
+      | Ok u ->
+          let prio, suborder = Utility.order u in
+          if has_pseudo_element_modifier then
+            (* Pseudo-element modifiers add 5000 to the base utility's suborder.
+               This keeps them near their base utility but after all regular
+               utilities, matching Tailwind v4 behavior where pseudo-elements
+               appear late. *)
+            (prio, suborder + 5000)
+          else Utility.order u
       | Error _ -> conflict_order (Css.Selector.to_string selector))
   | None -> conflict_order (Css.Selector.to_string selector)
 
@@ -1824,8 +1957,12 @@ let gradient_family_index n =
     | _ -> 100
 
 let uses_direct_property_order = function
-  | Some (`Shadow | `Inset_shadow | `Ring | `Inset_ring | `Font_weight) -> true
-  | _ -> false
+  | Some
+      ( `Gradient | `Translate | `Rotate | `Skew | `Scale | `Font_weight
+      | `Leading ) ->
+      false (* Transforms, gradient, and typography use first-usage order *)
+  | Some _ -> true (* All other families use property_order *)
+  | None -> true (* Variables without families also use property_order *)
 
 let compare_property_vars ~get_family_order n1 n2 po1 po2 fam1 fam2 =
   (* Variables with negative property_order and no family come FIRST *)
@@ -2007,9 +2144,12 @@ let assemble_all_layers ~include_base ~properties_layer ~theme_layer ~base_layer
   in
   (* Check if a family uses property_order directly *)
   let uses_direct_property_order = function
-    | Some (`Shadow | `Inset_shadow | `Ring | `Inset_ring | `Font_weight) ->
-        true
-    | _ -> false
+    | Some (`Gradient | `Translate | `Rotate | `Skew | `Font_weight | `Leading)
+      ->
+        false (* Transforms and typography use first-usage order *)
+    | Some _ ->
+        true (* All other families (including Scale) use property_order *)
+    | None -> true (* Variables without families also use property_order *)
   in
   let sorted_property_rules =
     property_rules_for_end
@@ -2107,6 +2247,32 @@ let has_pseudo_elements tw_classes =
   in
   List.exists check_utility tw_classes
 
+(* Detect if focus:ring + contrast-more combination is used *)
+let has_focus_ring_and_contrast_more tw_classes =
+  let has_focus_ring =
+    let rec check_utility = function
+      | Utility.Modified (Style.Focus, Utility.Base u) ->
+          let class_name = Utility.class_of_base u in
+          class_name = "ring" || check_utility (Utility.Base u)
+      | Utility.Modified (_, u) -> check_utility u
+      | Utility.Group us -> List.exists check_utility us
+      | Utility.Base u ->
+          let class_name = Utility.class_of_base u in
+          class_name = "ring"
+    in
+    List.exists check_utility tw_classes
+  in
+  let has_contrast_more =
+    let rec check_modifier = function
+      | Utility.Modified (Style.Contrast_more, _) -> true
+      | Utility.Modified (_, u) -> check_modifier u
+      | Utility.Group us -> List.exists check_modifier us
+      | Utility.Base _ -> false
+    in
+    List.exists check_modifier tw_classes
+  in
+  has_focus_ring && has_contrast_more
+
 let build_individual_layers ~forms_base first_usage_order selector_props
     all_property_statements statements =
   (* Only include font family defaults - transition defaults are added when
@@ -2153,7 +2319,9 @@ let build_layers ~include_base ?forms ~selector_props tw_classes statements =
   let sorted_rules = sorted_indexed_rules selector_props in
   (* Build first-usage order from ALL vars per utility in utility order. For
      each utility, collects SET vars then REFERENCED vars needing @property.
-     This ensures proper ordering: utility 1's vars, utility 2's vars, etc. *)
+     Within each utility, vars are sorted by property_order (done in
+     all_var_names_from_sorted_rules). Across utilities, we preserve first-usage
+     order to match Tailwind's behavior. *)
   let all_vars = all_var_names_from_sorted_rules sorted_rules in
   let first_usage_order = build_first_usage_order all_vars in
   let base_property_rules = flatten_property_rules property_rules_lists in
@@ -2231,36 +2399,15 @@ let default_config =
   { base = true; forms = None; mode = Css.Variables; optimize = false }
 
 let to_css ?(config = default_config) tw_classes =
-  (* Extract once and share for rule sets and theme layer *)
-  let tw_classes_with_base =
-    (* Tailwind v4: when modified ring utilities are used (e.g., focus:ring),
-       also include the base ring utility. This ensures both .focus\:ring:focus
-       and .ring are generated. *)
-    let has_modified_ring =
-      List.exists
-        (fun util ->
-          let class_name = Utility.to_class util in
-          (* Check if any of the space-separated classes contains :ring *)
-          let classes = String.split_on_char ' ' class_name in
-          List.exists
-            (fun cls ->
-              match String.rindex_opt cls ':' with
-              | Some idx ->
-                  let base =
-                    String.sub cls (idx + 1) (String.length cls - idx - 1)
-                  in
-                  base = "ring"
-              | None -> false)
-            classes)
-        tw_classes
-    in
-    let has_base_ring =
-      List.exists (fun u -> Utility.to_class u = "ring") tw_classes
-    in
-    if has_modified_ring && not has_base_ring then tw_classes @ [ Effects.ring ]
+  (* When focus:ring + contrast-more are used, include base .ring utility to
+     match Tailwind *)
+  let tw_classes_with_ring =
+    if has_focus_ring_and_contrast_more tw_classes then
+      tw_classes @ [ Effects.ring ]
     else tw_classes
   in
-  let selector_props = List.concat_map outputs tw_classes_with_base in
+  (* Extract once and share for rule sets and theme layer *)
+  let selector_props = List.concat_map outputs tw_classes_with_ring in
 
   let statements = rule_sets_from_selector_props selector_props in
 
@@ -2271,7 +2418,7 @@ let to_css ?(config = default_config) tw_classes =
     | Css.Variables ->
         let layers =
           build_layers ~include_base:config.base ?forms:config.forms
-            ~selector_props tw_classes_with_base statements
+            ~selector_props tw_classes_with_ring statements
         in
         Css.concat layers
     | Css.Inline ->
