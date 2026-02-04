@@ -113,10 +113,10 @@ module Handler = struct
     | Inline -> 7
     | Inline_block -> 8
     | Table -> 11
-    (* Visibility *)
-    | Visible -> 100
+    (* Visibility - alphabetical order: collapse, invisible, visible *)
+    | Collapse -> 100
     | Invisible -> 101
-    | Collapse -> 102
+    | Visible -> 102
     (* Isolation *)
     | Isolate -> 200
     (* Z-index *)
