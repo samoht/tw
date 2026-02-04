@@ -241,7 +241,7 @@ let header_section =
                 [ icon_menu ];
               mobile_logo;
             ];
-          (* Search bar - hidden on small screens, visible from md *)
+          (* Search bar - hidden on small screens, shown from md *)
           div
             ~tw:
               Tw.
