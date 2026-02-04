@@ -1341,7 +1341,11 @@ module Handler = struct
             suborder_with_shade
               (color_to_string color ^ "-" ^ string_of_int shade)
         in
-        30000 + base (* Accent comes after text: 30000-39999 *)
+        (* Accent comes after ALL text colors. Since text uses 20000 +
+           color*1000 and colors go up to ~25, max text suborder is ~45000. Use
+           50000 base to ensure accent always comes after text regardless of
+           color. *)
+        50000 + base
 
   let to_class = function
     | Bg (c, shade) ->

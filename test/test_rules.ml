@@ -153,7 +153,12 @@ let check_properties_layer () =
   (* Test that shadow utilities generate proper @layer properties with initial
      values *)
   let config =
-    { Tw.Rules.base = false; mode = Css.Variables; optimize = false }
+    {
+      Tw.Rules.base = false;
+      mode = Css.Variables;
+      optimize = false;
+      forms = None;
+    }
   in
   let actual_css = Tw.Rules.to_css ~config [ Tw.Effects.shadow_sm ] in
 
@@ -173,7 +178,12 @@ let check_properties_layer () =
 
 let check_css_variables_with_base () =
   let config =
-    { Tw.Rules.base = true; mode = Css.Variables; optimize = false }
+    {
+      Tw.Rules.base = true;
+      mode = Css.Variables;
+      optimize = false;
+      forms = None;
+    }
   in
   let css = Tw.Rules.to_css ~config [] in
   (* Base=true under Variables: all layers including base are present. *)
@@ -187,7 +197,12 @@ let check_css_variables_with_base () =
 
 let check_css_variables_without_base () =
   let config =
-    { Tw.Rules.base = false; mode = Css.Variables; optimize = false }
+    {
+      Tw.Rules.base = false;
+      mode = Css.Variables;
+      optimize = false;
+      forms = None;
+    }
   in
   let css = Tw.Rules.to_css ~config [ p 4 ] in
   (* Base=false under Variables: theme + components + utilities, but no base. *)
@@ -198,7 +213,9 @@ let check_css_variables_without_base () =
     (has_selector_in_layer ".p-4" "utilities" css)
 
 let check_css_inline_with_base () =
-  let config = { Tw.Rules.base = true; mode = Css.Inline; optimize = false } in
+  let config =
+    { Tw.Rules.base = true; mode = Css.Inline; optimize = false; forms = None }
+  in
   let css = Tw.Rules.to_css ~config [ p 4 ] in
   (* Inline mode never emits layers; base has no effect. *)
   check bool "no theme layer" false (has_layer "theme" css);
@@ -220,7 +237,9 @@ let check_css_inline_with_base () =
     List.mem ".p-4" all_sels)
 
 let check_css_inline_without_base () =
-  let config = { Tw.Rules.base = false; mode = Css.Inline; optimize = false } in
+  let config =
+    { Tw.Rules.base = false; mode = Css.Inline; optimize = false; forms = None }
+  in
   let css = Tw.Rules.to_css ~config [ p 4 ] in
   (* Inline mode never emits layers. *)
   check bool "no theme layer" false (has_layer "theme" css);
@@ -251,7 +270,7 @@ let check_inline_style () =
 (* Short, reusable helpers *)
 let sheet_of ?(base = false) ?(mode = Css.Variables) ?(optimize = false) styles
     =
-  Tw.Rules.to_css ~config:{ Tw.Rules.base; mode; optimize } styles
+  Tw.Rules.to_css ~config:{ Tw.Rules.base; mode; optimize; forms = None } styles
 
 let layers_of (sheet : Css.t) : string list = Css.layers sheet
 
@@ -466,7 +485,9 @@ let test_resolve_dependencies () =
 let test_inline_no_vars_defaults () =
   (* Ensure Inline mode resolves defaults and does not emit var(--...). Use
      rounded_sm which sets a default on its CSS var. *)
-  let config = { Tw.Rules.base = false; mode = Css.Inline; optimize = false } in
+  let config =
+    { Tw.Rules.base = false; mode = Css.Inline; optimize = false; forms = None }
+  in
   let sheet = Tw.Rules.to_css ~config [ Tw.Borders.rounded_sm ] in
   (* Find first rule with declarations using fold *)
   let find_first_decls css =
@@ -568,12 +589,24 @@ let test_inline_vs_variables_diff () =
      that may still contain var() in declarations. *)
   let sheet_vars =
     Tw.Rules.to_css
-      ~config:{ Tw.Rules.base = false; mode = Css.Variables; optimize = false }
+      ~config:
+        {
+          Tw.Rules.base = false;
+          mode = Css.Variables;
+          optimize = false;
+          forms = None;
+        }
       [ Tw.Borders.rounded_sm ]
   in
   let sheet_inline =
     Tw.Rules.to_css
-      ~config:{ Tw.Rules.base = false; mode = Css.Inline; optimize = false }
+      ~config:
+        {
+          Tw.Rules.base = false;
+          mode = Css.Inline;
+          optimize = false;
+          forms = None;
+        }
       [ Tw.Borders.rounded_sm ]
   in
   (* Extract all declarations using fold *)
@@ -647,7 +680,12 @@ let test_rule_sets_hover_media () =
   (* A bare hover utility produces a rule that should be gated behind
      (hover:hover) *)
   let config =
-    { Tw.Rules.base = false; mode = Css.Variables; optimize = false }
+    {
+      Tw.Rules.base = false;
+      mode = Css.Variables;
+      optimize = false;
+      forms = None;
+    }
   in
   let css = Tw.Rules.to_css ~config [ hover [ p 4 ] ] in
   (* Check for exact media condition *)
@@ -668,7 +706,8 @@ let test_rule_sets_md_media () =
      when optimized *)
   let css =
     Tw.Rules.to_css
-      ~config:{ base = true; mode = Css.Variables; optimize = true }
+      ~config:
+        { base = true; mode = Css.Variables; optimize = true; forms = None }
       [ md [ p 4 ]; md [ m 2 ] ]
   in
   (* Check for exact media condition *)

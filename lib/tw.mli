@@ -3400,9 +3400,15 @@ module Var = Var
 
 (* Version module is now in the css library *)
 
-val to_css : ?base:bool -> ?mode:Css.mode -> ?optimize:bool -> t list -> Css.t
-(** [to_css ?base ?mode ?optimize styles] generates a CSS stylesheet for the
-    given styles.
+val to_css :
+  ?base:bool ->
+  ?forms:bool ->
+  ?mode:Css.mode ->
+  ?optimize:bool ->
+  t list ->
+  Css.t
+(** [to_css ?base ?forms ?mode ?optimize styles] generates a CSS stylesheet for
+    the given styles.
 
     The generated CSS follows Tailwind's layering and ordering conventions:
 
@@ -3447,6 +3453,10 @@ val to_css : ?base:bool -> ?mode:Css.mode -> ?optimize:bool -> t list -> Css.t
       this mode, [reset] has no effect on layering.
 
     @param base Include base (Preflight) styles (default: [true])
+    @param forms
+      Include forms plugin base styles. When [true], adds base styles for native
+      HTML form elements. When not specified, auto-detects based on utility
+      classes (form-input, etc.)
     @param mode CSS generation mode (default: [Variables])
 
     Use this to generate your main stylesheet for inclusion in HTML [<head>]. *)

@@ -49,10 +49,10 @@ include Modifiers
 include Prose
 
 (* CSS rule generation from Rules module *)
-let to_css ?(base = Rules.default_config.base)
+let to_css ?(base = Rules.default_config.base) ?forms
     ?(mode = Rules.default_config.mode)
     ?(optimize = Rules.default_config.optimize) utilities =
-  Rules.to_css ~config:{ base; mode; optimize } utilities
+  Rules.to_css ~config:{ base; forms; mode; optimize } utilities
 
 let to_inline_style utilities = Rules.to_inline_style utilities
 let preflight = Preflight.stylesheet
