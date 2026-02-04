@@ -14,7 +14,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "containers"
-  let priority = 0 (* Container appears first in utilities layer *)
+  let priority = -1 (* Container appears first in utilities layer *)
 
   let to_class = function
     | Layout_container -> "container"
@@ -61,7 +61,7 @@ module Handler = struct
     | Container_named _ -> 0
     | Container -> 1
     | Container_normal -> 2
-    | Layout_container -> 100
+    | Layout_container -> 0 (* Very low to appear early with media queries *)
 
   let of_class = function
     | "container" -> Ok Layout_container
