@@ -164,11 +164,12 @@ module Handler = struct
   let priority = 19
 
   (* Create border style variable with @property for utilities that reference
-     it *)
+     it. Position 6 to match Tailwind's order after translate (0-2) and scale
+     (3-5). *)
   let border_style_var =
     Var.property_default Css.Border_style
       ~initial:(Solid : Css.border_style)
-      ~property_order:0 ~family:`Border "tw-border-style"
+      ~property_order:6 ~family:`Border "tw-border-style"
 
   (* Helper for border utilities that reference the variable with @property
      default *)
@@ -1076,18 +1077,14 @@ module Handler = struct
     | Border_double -> 1402
     | Border_none -> 1403
     | Border_solid -> 1404
-    (* Border color utilities (1500-1999) *)
+    (* Border color utilities (1500-1999) All border colors use the same
+       suborder (1500) to allow alphabetical sorting, matching Tailwind v4
+       behavior. *)
     | Border_color (color, shade) ->
-        let base =
-          if Color.is_base_color color then
-            Color.suborder_with_shade (Color.to_name color)
-          else
-            Color.suborder_with_shade
-              (Color.to_name color ^ "-" ^ string_of_int shade)
-        in
-        1500 + base
+        let _ = (color, shade) in
+        1500
     | Border_transparent -> 1500
-    | Border_current -> 1501
+    | Border_current -> 1500
     (* Outline utilities (2000-2099) *)
     | Outline_none -> 2000
     | Outline_offset_0 -> 2001

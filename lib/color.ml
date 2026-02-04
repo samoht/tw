@@ -1302,37 +1302,27 @@ module Handler = struct
      shadowed Css.Border *)
   let suborder = function
     | Bg (color, shade) ->
-        let color_str = color_to_string color in
-        let base =
-          if is_base_color color then suborder_with_shade color_str
-          else suborder_with_shade (color_str ^ "-" ^ string_of_int shade)
-        in
-        10000 + base
+        (* All background colors use the same suborder (10000) to allow
+           alphabetical sorting, matching Tailwind v4 behavior. *)
+        let _ = (color, shade) in
+        10000
     | Bg_transparent -> 10000
-    | Bg_current -> 10001
+    | Bg_current -> 10000
     | Text (color, shade) ->
-        let base =
-          if is_base_color color then
-            suborder_with_shade (color_to_string color)
-          else
-            suborder_with_shade
-              (color_to_string color ^ "-" ^ string_of_int shade)
-        in
-        20000 + base
+        (* All text colors use the same suborder (20000) to allow alphabetical
+           sorting, matching Tailwind v4 behavior. *)
+        let _ = (color, shade) in
+        20000
     | Text_transparent -> 20000
-    | Text_current -> 20001
-    | Text_inherit -> 20002
+    | Text_current -> 20000
+    | Text_inherit -> 20000
     | Border (color, shade) ->
-        let base =
-          if is_base_color color then
-            suborder_with_shade (color_to_string color)
-          else
-            suborder_with_shade
-              (color_to_string color ^ "-" ^ string_of_int shade)
-        in
-        base (* Border comes first: 0-9999 *)
+        (* All border colors use the same suborder (0) to allow alphabetical
+           sorting, matching Tailwind v4 behavior. *)
+        let _ = (color, shade) in
+        0
     | Border_transparent -> 0
-    | Border_current -> 1
+    | Border_current -> 0
     | Accent (color, shade) ->
         let base =
           if is_base_color color then
