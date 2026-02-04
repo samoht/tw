@@ -69,3 +69,33 @@ let () =
       Test_utility.suite;
       Test_spacing.suite;
     ]
+
+(* Debug test for escape parsing *)
+let test_escape_in_selector () =
+  let test_css = ".inset-3\\/4 { inset: 75%; }" in
+  Printf.printf "\n=== ESCAPE DEBUG ===\n";
+  Printf.printf "Input: %S\n" test_css;
+  Printf.printf "Chars: ";
+  for i = 0 to min 14 (String.length test_css - 1) do
+    Printf.printf "[%d]='%c'(0x%02x) " i test_css.[i] (Char.code test_css.[i])
+  done;
+  Printf.printf "\n";
+  match Css.of_string test_css with
+  | Ok _ -> Printf.printf "✓ Parsed OK\n"
+  | Error e ->
+      Printf.printf "✗ Error: %s\n" (Css.pp_parse_error e);
+      Alcotest.fail "parse failed"
+
+let () = test_escape_in_selector ()
+
+let () =
+  Printf.printf "Testing CSS escape parsing...\n";
+  let css = ".w-1\\/2 { width: 50%%; }" in
+  Printf.printf "Input: %S\n" css;
+  match Css.of_string css with
+  | Ok stylesheet ->
+      Printf.printf "✓ SUCCESS! Parsed correctly.\n";
+      Printf.printf "Output: %s\n" (Css.to_string stylesheet)
+  | Error e ->
+      Printf.printf "✗ FAILED:\n%s\n" (Css.pp_parse_error e);
+      exit 1

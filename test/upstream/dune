@@ -1,0 +1,8 @@
+(executable
+ (name extract_tests)
+ (libraries re fmt astring))
+
+(test
+ (name test_upstream)
+ (libraries alcotest tw tw_tools tw.css fmt)
+ (deps utilities.txt))
