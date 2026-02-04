@@ -409,8 +409,8 @@ let button_resets () =
 let hidden_resets () =
   [ rule ~selector:hidden_not_until_found [ important (display None) ] ]
 
-let stylesheet ?placeholder_supports ?(forms = false) () =
-  (* Get variable references for theme-declared variables *)
+(* Get default sans-serif font family reference *)
+let default_font_family_ref () =
   let fallback_stack : font_family =
     List
       [
@@ -423,11 +423,11 @@ let stylesheet ?placeholder_supports ?(forms = false) () =
         Noto_color_emoji;
       ]
   in
-  let _, default_font_ref =
-    Var.binding Typography.default_font_family_var fallback_stack
-  in
+  let _, ref = Var.binding Typography.default_font_family_var fallback_stack in
+  ref
 
-  (* Get variable references for monospace fonts *)
+(* Get default monospace font family reference *)
+let default_mono_family_ref () =
   let mono_fallback_stack : font_family =
     List
       [
@@ -441,11 +441,13 @@ let stylesheet ?placeholder_supports ?(forms = false) () =
         Monospace;
       ]
   in
-  let _, default_mono_ref =
+  let _, ref =
     Var.binding Typography.default_mono_font_family_var mono_fallback_stack
   in
+  ref
 
-  (* Get variable references for optional customization hooks using helper *)
+(* Get all font customization variable references *)
+let font_customization_refs () =
   let font_feature_ref : Css.font_feature_settings Css.var =
     var_ref font_feature ~fallback:(Css.Normal : Css.font_feature_settings)
   in
@@ -458,6 +460,20 @@ let stylesheet ?placeholder_supports ?(forms = false) () =
   let mono_font_variation_ref : Css.font_variation_settings Css.var =
     var_ref mono_font_variation
       ~fallback:(Css.Normal : Css.font_variation_settings)
+  in
+  ( font_feature_ref,
+    font_variation_ref,
+    mono_font_feature_ref,
+    mono_font_variation_ref )
+
+let stylesheet ?placeholder_supports ?(forms = false) () =
+  let default_font_ref = default_font_family_ref () in
+  let default_mono_ref = default_mono_family_ref () in
+  let ( font_feature_ref,
+        font_variation_ref,
+        mono_font_feature_ref,
+        mono_font_variation_ref ) =
+    font_customization_refs ()
   in
 
   let base_rules =

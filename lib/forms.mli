@@ -46,4 +46,4 @@ val base_stylesheet : unit -> Css.t
     - Select dropdown arrow styling
     - Checkbox/radio styling with focus rings
     - File input styling
-    - Forced-colors media queries for accessibility *)
+    - Forced-colors media queries for accessibility. *)

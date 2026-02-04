@@ -55,6 +55,9 @@ type t =
   | Modified of modifier * t
   | Group of t list
 
+val pp : Format.formatter -> t -> unit
+(** [pp ppf t] pretty-prints a style. *)
+
 type size =
   [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full | `Rem of float ]
 
@@ -65,7 +68,7 @@ type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
 val pp_modifier : modifier -> string
-(** Convert a modifier to its string representation *)
+(** [pp_modifier m] converts a modifier to its string representation. *)
 
 val style :
   ?rules:Css.statement list option ->

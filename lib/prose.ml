@@ -588,7 +588,7 @@ let code_rules base =
         Css.font_size (Em 0.875);
         Css.font_weight (Weight 600);
       ];
-    (* Code pseudo-element content - group ::before and ::after in one rule *)
+    (* Code pseudo-elements come AFTER code rule to match Tailwind *)
     Css.rule
       ~selector:
         (Css.Selector.list
@@ -643,7 +643,7 @@ let code_rules base =
         border_radius Zero;
         padding [ Zero ];
       ];
-    (* Pre code pseudo-element content removal - group ::before and ::after *)
+    (* Pre code pseudo-elements come AFTER pre code rule *)
     Css.rule
       ~selector:
         (Css.Selector.list
@@ -910,6 +910,8 @@ let base_prose_rules () =
     ]
   in
 
+  (* All prose rules to match Tailwind exactly *)
+  (* Lists with markers (markers come AFTER the ul rule like Tailwind) *)
   let list_and_marker_rules =
     [
       (* Lists *)
@@ -979,7 +981,7 @@ let base_prose_rules () =
           padding_inline_start (Em 1.625);
           list_style_type Disc;
         ];
-      (* Markers with correct syntax to match Tailwind *)
+      (* Markers come AFTER ul rule to match Tailwind *)
       Css.rule
         ~selector:
           (Css.Selector.compound
@@ -998,7 +1000,7 @@ let base_prose_rules () =
         [ Css.color (Css.Var prose_bullets_v) ];
     ]
   in
-
+  (* Structural elements with blockquote pseudo-elements interleaved *)
   let structural_element_rules =
     [
       (* Definition terms *)
@@ -1036,7 +1038,7 @@ let base_prose_rules () =
           font_style Italic;
           Css.font_weight (Weight 500);
         ];
-      (* Blockquote pseudo-elements - apply pseudo AFTER the where clause *)
+      (* Blockquote pseudo-elements come AFTER blockquote rule *)
       Css.rule
         ~selector:
           (with_before
@@ -1059,9 +1061,7 @@ let base_prose_rules () =
         [ content Close_quote ];
     ]
   in
-
-  (* All prose rules to match Tailwind exactly *)
-  (* Put main_rule first, then element rules, then variables_rule at end like Tailwind *)
+  (* Put main_rule first, then element rules in the same order as before *)
   [ main_rule ] @ paragraph_and_text_rules @ link_and_strong_rules
   @ list_and_marker_rules @ structural_element_rules @ heading_rules base
   @ media_rules base @ kbd_rules base @ code_rules base @ table_rules base

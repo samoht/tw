@@ -537,3 +537,5 @@ let properties vars =
       stmts
   in
   Css.v filtered
+
+let pp ppf v = Format.fprintf ppf "Var(--%s)" v.name

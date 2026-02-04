@@ -114,3 +114,9 @@ let rec pp_modifier = function
   | Contrast_less -> "contrast-less"
   | Pseudo_before -> "before"
   | Pseudo_after -> "after"
+
+let rec pp ppf = function
+  | Style { props; _ } ->
+      Format.fprintf ppf "Style(%d props)" (List.length props)
+  | Modified (m, s) -> Format.fprintf ppf "%s:%a" (pp_modifier m) pp s
+  | Group styles -> Format.fprintf ppf "Group(%d)" (List.length styles)

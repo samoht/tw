@@ -351,10 +351,14 @@ type 'a property_info = {
 
 val property_info :
   ?initial:'a -> ?inherits:bool -> ?universal:bool -> unit -> 'a property_info
-(** Create property metadata with defaults: inherits=false, universal=false *)
+(** [property_info ?initial ?inherits ?universal ()] creates property metadata
+    with defaults: inherits=false, universal=false. *)
 
 type ('a, 'r) t
 (** The type for CSS variables with phantom type for role *)
+
+val pp : Format.formatter -> ('a, 'r) t -> unit
+(** [pp ppf v] pretty-prints a variable. *)
 
 (** {2 Type shortcuts for common patterns} *)
 
@@ -460,6 +464,8 @@ val get_order : string -> (int * int) option
     no order was set (i.e., not a theme variable). *)
 
 val get_family : string -> family option
+(** [get_family name] returns the family for a variable name. None if the
+    variable is not registered. *)
 
 val get_needs_property : string -> bool
 (** [get_needs_property name] returns whether a variable needs an [\@property]
@@ -489,6 +495,8 @@ val binding :
       fallback). *)
 
 val reference : ('a, [< `Ref_only | `Property_default ]) t -> 'a Css.var
+(** [reference var] creates a reference to a variable. For ref_only and
+    property_default variables only. *)
 
 val reference_with_fallback : ('a, [< `Theme | `Channel ]) t -> 'a -> 'a Css.var
 (** [reference_with_fallback var fallback_value] creates a variable reference
@@ -552,7 +560,7 @@ type any_var =
 
 val properties : any_var list -> Css.t
 (** [properties vars] generates deduplicated [@property] rules for all variables
-    that need them, sorted deterministically by (name, kind) *)
+    that need them, sorted deterministically by (name, kind). *)
 
 (** {1 Helper Types and Functions} *)
 
@@ -570,5 +578,5 @@ val order_of_declaration : Css.declaration -> (int * int) option
     declaration. *)
 
 val property_initial_string : Css.property_info -> string
-(* [property_initial_string info] converts the typed initial value of a
-   [@property] declaration into a string suitable for [initial-value:]. *)
+(** [property_initial_string info] converts the typed initial value of a
+    [@property] declaration into a string suitable for [initial-value:]. *)
