@@ -351,6 +351,10 @@ val to_string : ?doctype:bool -> t -> string
 val to_tw : t -> tw list
 (** [to_tw t] extracts all styling classes from an HTML tree. *)
 
+val has_forms : t -> bool
+(** [has_forms t] returns true if the HTML tree contains form elements (input,
+    select, textarea) that benefit from the forms plugin base styles. *)
+
 (** {1 Page generation} *)
 
 type page

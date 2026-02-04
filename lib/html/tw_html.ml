@@ -168,7 +168,7 @@ end
 type tw = Tw.t
 
 (* Type that combines HTML element with its Tailwind classes *)
-type t = { el : El.html; tw : tw list }
+type t = { el : El.html; tw : tw list; forms : bool }
 
 (* Attribute type - abstract to prevent direct usage of class' *)
 type attr = At.t
@@ -187,18 +187,19 @@ end
 (* Internal helper to convert to El.html *)
 let to_htmlit t = t.el
 let to_tw t = t.tw
+let has_forms t = t.forms
 
 (* Text helpers *)
-let txt s = { el = El.txt s; tw = [] }
+let txt s = { el = El.txt s; tw = []; forms = false }
 let txtf segments = txt (str segments)
-let raw s = { el = El.unsafe_raw s; tw = [] }
+let raw s = { el = El.unsafe_raw s; tw = []; forms = false }
 let rawf segments = raw (str segments)
 
 (* Empty element *)
-let empty = { el = El.void; tw = [] }
+let empty = { el = El.void; tw = []; forms = false }
 
 (* Helper to create elements - applies tw classes immediately *)
-let el_with_tw name ?at ?(tw = []) children =
+let el_with_tw ?(forms = false) name ?at ?(tw = []) children =
   let atts = Option.value ~default:[] at in
   (* Add tw classes to attributes *)
   let atts_with_tw =
@@ -210,7 +211,9 @@ let el_with_tw name ?at ?(tw = []) children =
   let child_els = List.map to_htmlit children in
   (* Collect all tw styles from this element and its children *)
   let all_tw = tw @ List.concat_map to_tw children in
-  { el = El.v ~at:atts_with_tw name child_els; tw = all_tw }
+  (* Propagate forms flag from children or this element *)
+  let has_forms = forms || List.exists (fun c -> c.forms) children in
+  { el = El.v ~at:atts_with_tw name child_els; tw = all_tw; forms = has_forms }
 
 (* Convert to string *)
 let to_string ?(doctype = false) t = El.to_string ~doctype (to_htmlit t)
@@ -269,7 +272,7 @@ let head ?at ?tw children = el_with_tw "head" ?at ?tw children
 let body ?at ?tw children = el_with_tw "body" ?at ?tw children
 let root ?at ?tw children = el_with_tw "html" ?at ?tw children
 let option ?at ?tw children = el_with_tw "option" ?at ?tw children
-let select ?at ?tw children = el_with_tw "select" ?at ?tw children
+let select ?at ?tw children = el_with_tw ~forms:true "select" ?at ?tw children
 let main ?at ?tw children = el_with_tw "main" ?at ?tw children
 let aside ?at ?tw children = el_with_tw "aside" ?at ?tw children
 let time ?at ?tw children = el_with_tw "time" ?at ?tw children
@@ -287,7 +290,7 @@ let img ?at ?(tw = []) () =
     | [] -> atts
     | tw_styles -> At.class' (Tw.to_classes tw_styles) :: atts
   in
-  { el = El.v ~at:atts_with_tw "img" []; tw }
+  { el = El.v ~at:atts_with_tw "img" []; tw; forms = false }
 
 let meta ?at ?(tw = []) () =
   let atts = Option.value ~default:[] at in
@@ -296,7 +299,7 @@ let meta ?at ?(tw = []) () =
     | [] -> atts
     | tw_styles -> At.class' (Tw.to_classes tw_styles) :: atts
   in
-  { el = El.v ~at:atts_with_tw "meta" []; tw }
+  { el = El.v ~at:atts_with_tw "meta" []; tw; forms = false }
 
 let link ?at ?(tw = []) () =
   let atts = Option.value ~default:[] at in
@@ -305,7 +308,7 @@ let link ?at ?(tw = []) () =
     | [] -> atts
     | tw_styles -> At.class' (Tw.to_classes tw_styles) :: atts
   in
-  { el = El.v ~at:atts_with_tw "link" []; tw }
+  { el = El.v ~at:atts_with_tw "link" []; tw; forms = false }
 
 (* Void is now an alias for empty *)
 let void = empty
@@ -320,9 +323,11 @@ let input ?at ?(tw = []) () =
     | [] -> atts
     | tw_styles -> At.class' (Tw.to_classes tw_styles) :: atts
   in
-  { el = El.v ~at:atts_with_tw "input" []; tw }
+  { el = El.v ~at:atts_with_tw "input" []; tw; forms = true }
 
-let textarea ?at ?tw children = el_with_tw "textarea" ?at ?tw children
+let textarea ?at ?tw children =
+  el_with_tw ~forms:true "textarea" ?at ?tw children
+
 let button ?at ?tw children = el_with_tw "button" ?at ?tw children
 let label ?at ?tw children = el_with_tw "label" ?at ?tw children
 let fieldset ?at ?tw children = el_with_tw "fieldset" ?at ?tw children
@@ -349,7 +354,7 @@ let br ?at ?(tw = []) () =
     | [] -> atts
     | tw_styles -> At.class' (Tw.to_classes tw_styles) :: atts
   in
-  { el = El.v ~at:atts_with_tw "br" []; tw }
+  { el = El.v ~at:atts_with_tw "br" []; tw; forms = false }
 
 let hr ?at ?(tw = []) () =
   let atts = Option.value ~default:[] at in
@@ -358,7 +363,7 @@ let hr ?at ?(tw = []) () =
     | [] -> atts
     | tw_styles -> At.class' (Tw.to_classes tw_styles) :: atts
   in
-  { el = El.v ~at:atts_with_tw "hr" []; tw }
+  { el = El.v ~at:atts_with_tw "hr" []; tw; forms = false }
 
 (* Tables *)
 let table ?at ?tw children = el_with_tw "table" ?at ?tw children
@@ -393,7 +398,7 @@ let source ?at ?(tw = []) () =
     | [] -> atts
     | tw_styles -> At.class' (Tw.to_classes tw_styles) :: atts
   in
-  { el = El.v ~at:atts_with_tw "source" []; tw }
+  { el = El.v ~at:atts_with_tw "source" []; tw; forms = false }
 
 (* Embedded content *)
 let canvas ?at ?tw children = el_with_tw "canvas" ?at ?tw children
