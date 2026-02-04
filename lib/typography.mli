@@ -112,6 +112,12 @@ val text_right : t
 val text_justify : t
 (** [text_justify] justifies text. *)
 
+val text_start : t
+(** [text_start] aligns text to the start (left in LTR, right in RTL). *)
+
+val text_end : t
+(** [text_end] aligns text to the end (right in LTR, left in RTL). *)
+
 val underline : t
 (** [underline] underlines text. *)
 
@@ -243,6 +249,9 @@ val underline_offset_8 : t
 
 val antialiased : t
 (** [antialiased] enables font smoothing (antialiasing). *)
+
+val subpixel_antialiased : t
+(** [subpixel_antialiased] disables font smoothing (uses subpixel rendering). *)
 
 (** {1 Rendering} *)
 
