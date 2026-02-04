@@ -1181,6 +1181,8 @@ module Handler = struct
     | Border of color * int
     | Border_transparent
     | Border_current
+    (* Accent colors *)
+    | Accent of color * int
 
   (** Extensible variant for color utilities *)
   type Utility.base += Self of t
@@ -1212,6 +1214,10 @@ module Handler = struct
     | "border" :: color_parts -> (
         match shade_of_strings color_parts with
         | Ok (color, shade) -> Ok (Border (color, shade))
+        | Error e -> Error e)
+    | "accent" :: color_parts -> (
+        match shade_of_strings color_parts with
+        | Ok (color, shade) -> Ok (Accent (color, shade))
         | Error e -> Error e)
     | _ -> Error (`Msg "Not a color utility")
 
@@ -1263,6 +1269,20 @@ module Handler = struct
   let border_transparent = style [ Css.border_color (Css.hex "#0000") ]
   let border_current = style [ Css.border_color Current ]
 
+  (** Accent color utilities *)
+
+  let accent' color shade =
+    if is_custom_color color then
+      let css_color = to_css color shade in
+      style [ Css.accent_color css_color ]
+    else
+      let color_var = get_color_var color shade in
+      let color_value =
+        to_css color (if is_base_color color then 500 else shade)
+      in
+      let decl, color_ref = Var.binding color_var color_value in
+      style (decl :: [ Css.accent_color (Var color_ref) ])
+
   let to_style = function
     | Bg (color, shade) -> bg' color shade
     | Bg_transparent -> bg_transparent
@@ -1274,6 +1294,7 @@ module Handler = struct
     | Border (color, shade) -> border_color' color shade
     | Border_transparent -> border_transparent
     | Border_current -> border_current
+    | Accent (color, shade) -> accent' color shade
 
   (* Suborder determines order within the color priority group. Tailwind orders:
      border -> bg -> text So we use: border (0-9999), bg (10000-19999), text
@@ -1312,6 +1333,15 @@ module Handler = struct
         base (* Border comes first: 0-9999 *)
     | Border_transparent -> 0
     | Border_current -> 1
+    | Accent (color, shade) ->
+        let base =
+          if is_base_color color then
+            suborder_with_shade (color_to_string color)
+          else
+            suborder_with_shade
+              (color_to_string color ^ "-" ^ string_of_int shade)
+        in
+        30000 + base (* Accent comes after text: 30000-39999 *)
 
   let to_class = function
     | Bg (c, shade) ->
@@ -1331,6 +1361,10 @@ module Handler = struct
         else "border-" ^ color_to_string c ^ "-" ^ string_of_int shade
     | Border_transparent -> "border-transparent"
     | Border_current -> "border-current"
+    | Accent (c, shade) ->
+        if is_base_color c || is_custom_color c then
+          "accent-" ^ color_to_string c
+        else "accent-" ^ color_to_string c ^ "-" ^ string_of_int shade
 end
 
 open Handler
@@ -1351,6 +1385,7 @@ let text_current = utility Text_current
 let text_inherit = utility Text_inherit
 let border_transparent = utility Border_transparent
 let border_current = utility Border_current
+let accent color shade = utility (Accent (color, shade))
 
 (* Convenient semantic wrappers for default 500 shade *)
 let bg_black = bg black 500

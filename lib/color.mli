@@ -443,6 +443,9 @@ val border_pink : t
 val border_rose : t
 (** [border_rose] uses the rose palette for border color. *)
 
+val accent : color -> int -> t
+(** [accent color shade] sets the accent color for form controls. *)
+
 val shade_of_strings : string list -> (color * int, [ `Msg of string ]) result
 (** [shade_of_strings parts] parses a color and shade from a list of strings.
     Example: ["blue"; "500"] -> Ok (Blue, 500). *)

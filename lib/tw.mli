@@ -3022,7 +3022,9 @@ val form_radio : t
 (** {2 Accent Color}
     @see <https://tailwindcss.com/docs/accent-color> Accent Color *)
 
-(** TODO: Implement accent-color utilities. *)
+val accent : color -> int -> t
+(** [accent color shade] sets the accent color for form controls like checkboxes
+    and radio buttons. *)
 
 (** {2 Caret Color}
     @see <https://tailwindcss.com/docs/caret-color> Caret Color *)

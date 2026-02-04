@@ -1,4 +1,2 @@
 @import "tailwindcss";
-@plugin "@tailwindcss/forms" {
-  strategy: "class";
-}
+@plugin "@tailwindcss/forms";
