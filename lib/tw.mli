@@ -2818,9 +2818,15 @@ val backface_hidden : t
 (** {2 Perspective}
     @see <https://tailwindcss.com/docs/perspective> Perspective *)
 
-val perspective : int -> t
-(** [perspective n] sets perspective distance in pixels for 3D transforms. Lower
-    values create more dramatic 3D effects. Common values: 500-2000. *)
+val perspective_none : t
+(** [perspective_none] removes perspective ({i perspective: none}). *)
+
+val perspective_dramatic : t
+(** [perspective_dramatic] sets a short perspective distance for dramatic 3D
+    effects. *)
+
+val perspective_normal : t
+(** [perspective_normal] sets a normal perspective distance. *)
 
 (** {2 Perspective Origin}
     @see <https://tailwindcss.com/docs/perspective-origin> Perspective Origin *)
