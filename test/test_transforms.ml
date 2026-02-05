@@ -41,8 +41,10 @@ let test_of_string_invalid () =
   test_invalid [ "skew"; "x" ];
   test_invalid [ "skew"; "y" ];
 
-  (* Invalid perspective - missing value *)
+  (* Invalid perspective *)
   test_invalid [ "perspective" ];
+  test_invalid [ "perspective"; "123" ];
+  test_invalid [ "perspective"; "potato" ];
 
   (* Invalid perspective origin *)
   test_invalid [ "perspective"; "origin" ];

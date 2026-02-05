@@ -26,7 +26,10 @@ module Handler = struct
     | Rotate_y of int
     | Rotate_z of int
     | Scale_z of int
-    | Perspective of int
+    | Perspective_none
+    | Perspective_dramatic
+    | Perspective_normal
+    | Perspective_arbitrary of Css.length
     | (* Perspective origin *)
       Perspective_origin_center
     | Perspective_origin_top
@@ -43,6 +46,16 @@ module Handler = struct
       Transform
     | Transform_none
     | Transform_gpu
+    | (* Transform origin *)
+      Origin_center
+    | Origin_top
+    | Origin_bottom
+    | Origin_left
+    | Origin_right
+    | Origin_top_left
+    | Origin_top_right
+    | Origin_bottom_left
+    | Origin_bottom_right
 
   type Utility.base += Self of t
 
@@ -107,12 +120,59 @@ module Handler = struct
     Var.channel ~needs_property:true ~property_order:4 ~family:`Skew
       Css.Transform "tw-skew-y"
 
+  (* Perspective theme variables *)
+  let perspective_dramatic_var =
+    Var.theme Css.Length "perspective-dramatic" ~order:(7, 13)
+
+  let perspective_normal_var =
+    Var.theme Css.Length "perspective-normal" ~order:(7, 14)
+
+  (** {1 Helpers} *)
+
+  let collect_property_rules vars =
+    List.filter_map Var.property_rule vars |> concat
+
+  let neg_class name n =
+    let prefix = if n < 0 then "-" else "" in
+    prefix ^ name ^ string_of_int (abs n)
+
+  let parse_bracket_length s : (Css.length, _) result =
+    if String.length s >= 3 && s.[0] = '[' && s.[String.length s - 1] = ']' then (
+      let inner = String.sub s 1 (String.length s - 2) in
+      let slen = String.length inner in
+      let i = ref 0 in
+      while
+        !i < slen
+        && ((inner.[!i] >= '0' && inner.[!i] <= '9') || inner.[!i] = '.')
+      do
+        incr i
+      done;
+      if !i = 0 || !i = slen then
+        Error (`Msg ("Invalid length value: " ^ inner))
+      else
+        let num_s = String.sub inner 0 !i in
+        let unit_s = String.sub inner !i (slen - !i) in
+        match Float.of_string_opt num_s with
+        | Option.None -> Error (`Msg ("Invalid length value: " ^ inner))
+        | Option.Some n -> (
+            match unit_s with
+            | "px" -> Ok (Px n : Css.length)
+            | "rem" -> Ok (Rem n)
+            | "em" -> Ok (Em n)
+            | "vw" -> Ok (Vw n)
+            | "vh" -> Ok (Vh n)
+            | "cm" -> Ok (Cm n)
+            | "mm" -> Ok (Mm n)
+            | "pt" -> Ok (Pt n)
+            | "%" -> Ok (Pct n)
+            | _ -> Error (`Msg ("Invalid length unit: " ^ unit_s))))
+    else Error (`Msg ("Not a bracket value: " ^ s))
+
   (** {1 2D Transform Utilities} *)
 
   let rotate n = style [ Css.rotate (Deg (float_of_int n)) ]
 
-  let translate_x n =
-    (* Create spacing value using the same pattern as position.ml *)
+  let translate_axis axis_var n =
     let spacing_decl, spacing_ref =
       Var.binding Theme.spacing_var (Css.Rem 0.25)
     in
@@ -122,47 +182,19 @@ module Handler = struct
            (Css.Calc.length (Css.Var spacing_ref))
            (Css.Calc.float (float_of_int n)))
     in
-    let tx_decl, _ = Var.binding tw_translate_x_var spacing_value in
+    let axis_decl, _ = Var.binding axis_var spacing_value in
     let tx_ref = Var.reference tw_translate_x_var in
     let ty_ref = Var.reference tw_translate_y_var in
     let props =
-      [
-        Var.property_rule tw_translate_x_var;
-        Var.property_rule tw_translate_y_var;
-        Var.property_rule tw_translate_z_var;
-      ]
-      |> List.filter_map (fun x -> x)
-      |> concat
+      collect_property_rules
+        [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
     in
     style ~property_rules:props
-      (spacing_decl :: tx_decl
+      (spacing_decl :: axis_decl
       :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
 
-  let translate_y n =
-    let spacing_decl, spacing_ref =
-      Var.binding Theme.spacing_var (Css.Rem 0.25)
-    in
-    let spacing_value : Css.length =
-      Css.Calc
-        (Css.Calc.mul
-           (Css.Calc.length (Css.Var spacing_ref))
-           (Css.Calc.float (float_of_int n)))
-    in
-    let ty_decl, _ = Var.binding tw_translate_y_var spacing_value in
-    let tx_ref = Var.reference tw_translate_x_var in
-    let ty_ref = Var.reference tw_translate_y_var in
-    let props =
-      [
-        Var.property_rule tw_translate_x_var;
-        Var.property_rule tw_translate_y_var;
-        Var.property_rule tw_translate_z_var;
-      ]
-      |> List.filter_map (fun x -> x)
-      |> concat
-    in
-    style ~property_rules:props
-      (spacing_decl :: ty_decl
-      :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+  let translate_x n = translate_axis tw_translate_x_var n
+  let translate_y n = translate_axis tw_translate_y_var n
 
   let scale n =
     let value : Css.number_percentage = Css.Pct (float_of_int n) in
@@ -170,13 +202,7 @@ module Handler = struct
     let dy, _ = Var.binding tw_scale_y_var value in
     let dz, _ = Var.binding tw_scale_z_var value in
     let props =
-      [
-        Var.property_rule tw_scale_x_var;
-        Var.property_rule tw_scale_y_var;
-        Var.property_rule tw_scale_z_var;
-      ]
-      |> List.filter_map (fun x -> x)
-      |> concat
+      collect_property_rules [ tw_scale_x_var; tw_scale_y_var; tw_scale_z_var ]
     in
     (* Also set the scale property with variable references *)
     let scale_x_ref = Var.reference tw_scale_x_var in
@@ -196,17 +222,13 @@ module Handler = struct
     let d, _ = Var.binding tw_scale_y_var value in
     style (d :: [ Css.transform (Scale_y (float_of_int n /. 100.0)) ])
 
-  let skew_x deg =
-    (* Store the full transform value: Skew_x angle *)
-    let transform_val : Css.transform = Skew_x (Deg (float_of_int deg)) in
-    let d, _ = Var.binding tw_skew_x_var transform_val in
+  let skew_axis var mk_transform deg =
+    let transform_val = mk_transform (Css.Deg (float_of_int deg)) in
+    let d, _ = Var.binding var transform_val in
     style [ d; Css.transform transform_val ]
 
-  let skew_y deg =
-    (* Store the full transform value: Skew_y angle *)
-    let transform_val : Css.transform = Skew_y (Deg (float_of_int deg)) in
-    let d, _ = Var.binding tw_skew_y_var transform_val in
-    style [ d; Css.transform transform_val ]
+  let skew_x deg = skew_axis tw_skew_x_var (fun a -> Css.Skew_x a) deg
+  let skew_y deg = skew_axis tw_skew_y_var (fun a -> Css.Skew_y a) deg
 
   (* Negative translate utilities for centering *)
   let neg_translate_x_1_2 =
@@ -229,9 +251,17 @@ module Handler = struct
     let d, _ = Var.binding tw_scale_z_var value in
     style (d :: [ Css.transform (Scale_z (float_of_int n /. 100.0)) ])
 
-  let perspective n =
-    let value : length = if n = 0 then Zero else Px (float_of_int n) in
-    style [ Css.perspective value ]
+  let perspective_none = style [ Css.perspective None ]
+
+  let perspective_dramatic =
+    let decl, r = Var.binding perspective_dramatic_var (Px 100.0) in
+    style (decl :: [ Css.perspective (Var r) ])
+
+  let perspective_normal =
+    let decl, r = Var.binding perspective_normal_var (Px 500.0) in
+    style (decl :: [ Css.perspective (Var r) ])
+
+  let perspective_arbitrary len = style [ Css.perspective len ]
 
   let perspective_origin_center =
     style [ perspective_origin Css.Perspective_center ]
@@ -252,6 +282,24 @@ module Handler = struct
   let backface_visible = style [ backface_visibility Visible ]
   let backface_hidden = style [ backface_visibility Hidden ]
 
+  (** {1 Transform Origin Utilities} *)
+
+  let origin_center = style [ transform_origin Center ]
+  let origin_top = style [ transform_origin Center_top ]
+  let origin_bottom = style [ transform_origin Center_bottom ]
+
+  (* left/right use single percentage values *)
+  let origin_left = style [ transform_origin (XY (Pct 0.0, Pct 50.0)) ]
+  let origin_right = style [ transform_origin (XY (Pct 100.0, Pct 50.0)) ]
+
+  (* corners use two percentage values *)
+  let origin_top_left = style [ transform_origin (XY (Pct 0.0, Pct 0.0)) ]
+  let origin_top_right = style [ transform_origin (XY (Pct 100.0, Pct 0.0)) ]
+  let origin_bottom_left = style [ transform_origin (XY (Pct 0.0, Pct 100.0)) ]
+
+  let origin_bottom_right =
+    style [ transform_origin (XY (Pct 100.0, Pct 100.0)) ]
+
   (** {1 Transform Control Utilities} *)
 
   (* Tailwind v4 transform utility uses individual rotate-x/y/z and skew-x/y
@@ -269,15 +317,14 @@ module Handler = struct
     let skew_y_ref = Var.reference_with_empty_fallback tw_skew_y_var in
     (* Collect @property rules for these variables *)
     let property_rules =
-      [
-        Var.property_rule tw_rotate_x_var;
-        Var.property_rule tw_rotate_y_var;
-        Var.property_rule tw_rotate_z_var;
-        Var.property_rule tw_skew_x_var;
-        Var.property_rule tw_skew_y_var;
-      ]
-      |> List.filter_map (fun x -> x)
-      |> Css.concat
+      collect_property_rules
+        [
+          tw_rotate_x_var;
+          tw_rotate_y_var;
+          tw_rotate_z_var;
+          tw_skew_x_var;
+          tw_skew_y_var;
+        ]
     in
     style ~property_rules
       [
@@ -316,7 +363,10 @@ module Handler = struct
     | Rotate_x n -> rotate_x n
     | Rotate_y n -> rotate_y n
     | Rotate_z n -> rotate_z n
-    | Perspective n -> perspective n
+    | Perspective_none -> perspective_none
+    | Perspective_dramatic -> perspective_dramatic
+    | Perspective_normal -> perspective_normal
+    | Perspective_arbitrary len -> perspective_arbitrary len
     | Perspective_origin_center -> perspective_origin_center
     | Perspective_origin_top -> perspective_origin_top
     | Perspective_origin_bottom -> perspective_origin_bottom
@@ -329,6 +379,15 @@ module Handler = struct
     | Transform -> transform
     | Transform_none -> transform_none
     | Transform_gpu -> transform_gpu
+    | Origin_center -> origin_center
+    | Origin_top -> origin_top
+    | Origin_bottom -> origin_bottom
+    | Origin_left -> origin_left
+    | Origin_right -> origin_right
+    | Origin_top_left -> origin_top_left
+    | Origin_top_right -> origin_top_right
+    | Origin_bottom_left -> origin_bottom_left
+    | Origin_bottom_right -> origin_bottom_right
 
   let suborder = function
     | Transform -> 2000
@@ -353,8 +412,12 @@ module Handler = struct
     (* Skew utilities *)
     | Skew_x n -> 1200 + n
     | Skew_y n -> 1300 + n
-    (* Other transform utilities *)
-    | Perspective n -> 1400 + n
+    (* Other transform utilities - arbitrary before named (alphabetical by
+       class) *)
+    | Perspective_arbitrary _ -> 1399
+    | Perspective_dramatic -> 1400
+    | Perspective_none -> 1401
+    | Perspective_normal -> 1402
     | Perspective_origin_center -> 1500
     | Perspective_origin_top -> 1501
     | Perspective_origin_bottom -> 1502
@@ -364,6 +427,17 @@ module Handler = struct
     | Transform_style_flat -> 1601
     | Backface_visible -> 1602
     | Backface_hidden -> 1603
+    (* Transform origin - alphabetical: bottom, bottom-left, bottom-right,
+       center, left, right, top, top-left, top-right *)
+    | Origin_bottom -> 1700
+    | Origin_bottom_left -> 1701
+    | Origin_bottom_right -> 1702
+    | Origin_center -> 1703
+    | Origin_left -> 1704
+    | Origin_right -> 1705
+    | Origin_top -> 1706
+    | Origin_top_left -> 1707
+    | Origin_top_right -> 1708
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
@@ -392,8 +466,15 @@ module Handler = struct
     | [ "rotate"; "x"; n ] -> Parse.int_any n >|= fun n -> Rotate_x n
     | [ "rotate"; "y"; n ] -> Parse.int_any n >|= fun n -> Rotate_y n
     | [ "rotate"; "z"; n ] -> Parse.int_any n >|= fun n -> Rotate_z n
-    | [ "perspective"; n ] ->
-        Parse.int_pos ~name:"perspective" n >|= fun n -> Perspective n
+    | [ "perspective"; "none" ] -> Ok Perspective_none
+    | [ "perspective"; "dramatic" ] -> Ok Perspective_dramatic
+    | [ "perspective"; "normal" ] -> Ok Perspective_normal
+    | "perspective" :: rest
+      when match rest with "origin" :: _ | [] -> false | _ -> true -> (
+        let value = String.concat "-" rest in
+        match parse_bracket_length value with
+        | Ok len -> Ok (Perspective_arbitrary len)
+        | Error _ -> err_not_utility)
     | [ "perspective"; "origin"; "center" ] -> Ok Perspective_origin_center
     | [ "perspective"; "origin"; "top" ] -> Ok Perspective_origin_top
     | [ "perspective"; "origin"; "bottom" ] -> Ok Perspective_origin_bottom
@@ -404,41 +485,38 @@ module Handler = struct
     | [ "transform" ] -> Ok Transform
     | [ "transform"; "none" ] -> Ok Transform_none
     | [ "transform"; "gpu" ] -> Ok Transform_gpu
+    | [ "origin"; "center" ] -> Ok Origin_center
+    | [ "origin"; "top" ] -> Ok Origin_top
+    | [ "origin"; "bottom" ] -> Ok Origin_bottom
+    | [ "origin"; "left" ] -> Ok Origin_left
+    | [ "origin"; "right" ] -> Ok Origin_right
+    | [ "origin"; "top"; "left" ] -> Ok Origin_top_left
+    | [ "origin"; "top"; "right" ] -> Ok Origin_top_right
+    | [ "origin"; "bottom"; "left" ] -> Ok Origin_bottom_left
+    | [ "origin"; "bottom"; "right" ] -> Ok Origin_bottom_right
     | _ -> err_not_utility
 
   let to_class = function
     | Rotate n -> "rotate-" ^ string_of_int n
-    | Translate_x n ->
-        let prefix = if n < 0 then "-" else "" in
-        prefix ^ "translate-x-" ^ string_of_int (abs n)
-    | Translate_y n ->
-        let prefix = if n < 0 then "-" else "" in
-        prefix ^ "translate-y-" ^ string_of_int (abs n)
-    | Translate_z n ->
-        let prefix = if n < 0 then "-" else "" in
-        prefix ^ "translate-z-" ^ string_of_int (abs n)
+    | Translate_x n -> neg_class "translate-x-" n
+    | Translate_y n -> neg_class "translate-y-" n
+    | Translate_z n -> neg_class "translate-z-" n
     | Neg_translate_x_1_2 -> "-translate-x-1/2"
     | Neg_translate_y_1_2 -> "-translate-y-1/2"
     | Scale n -> "scale-" ^ string_of_int n
     | Scale_x n -> "scale-x-" ^ string_of_int n
     | Scale_y n -> "scale-y-" ^ string_of_int n
     | Scale_z n -> "scale-z-" ^ string_of_int n
-    | Skew_x n ->
-        let prefix = if n < 0 then "-" else "" in
-        prefix ^ "skew-x-" ^ string_of_int (abs n)
-    | Skew_y n ->
-        let prefix = if n < 0 then "-" else "" in
-        prefix ^ "skew-y-" ^ string_of_int (abs n)
-    | Rotate_x n ->
-        let prefix = if n < 0 then "-" else "" in
-        prefix ^ "rotate-x-" ^ string_of_int (abs n)
-    | Rotate_y n ->
-        let prefix = if n < 0 then "-" else "" in
-        prefix ^ "rotate-y-" ^ string_of_int (abs n)
-    | Rotate_z n ->
-        let prefix = if n < 0 then "-" else "" in
-        prefix ^ "rotate-z-" ^ string_of_int (abs n)
-    | Perspective n -> "perspective-" ^ string_of_int n
+    | Skew_x n -> neg_class "skew-x-" n
+    | Skew_y n -> neg_class "skew-y-" n
+    | Rotate_x n -> neg_class "rotate-x-" n
+    | Rotate_y n -> neg_class "rotate-y-" n
+    | Rotate_z n -> neg_class "rotate-z-" n
+    | Perspective_none -> "perspective-none"
+    | Perspective_dramatic -> "perspective-dramatic"
+    | Perspective_normal -> "perspective-normal"
+    | Perspective_arbitrary len ->
+        "perspective-[" ^ Css.Pp.to_string (pp_length ~always:true) len ^ "]"
     | Perspective_origin_center -> "perspective-origin-center"
     | Perspective_origin_top -> "perspective-origin-top"
     | Perspective_origin_bottom -> "perspective-origin-bottom"
@@ -451,6 +529,15 @@ module Handler = struct
     | Transform -> "transform"
     | Transform_none -> "transform-none"
     | Transform_gpu -> "transform-gpu"
+    | Origin_center -> "origin-center"
+    | Origin_top -> "origin-top"
+    | Origin_bottom -> "origin-bottom"
+    | Origin_left -> "origin-left"
+    | Origin_right -> "origin-right"
+    | Origin_top_left -> "origin-top-left"
+    | Origin_top_right -> "origin-top-right"
+    | Origin_bottom_left -> "origin-bottom-left"
+    | Origin_bottom_right -> "origin-bottom-right"
 end
 
 open Handler
@@ -474,7 +561,9 @@ let rotate_x n = utility (Rotate_x n)
 let rotate_y n = utility (Rotate_y n)
 let rotate_z n = utility (Rotate_z n)
 let scale_z n = utility (Scale_z n)
-let perspective n = utility (Perspective n)
+let perspective_none = utility Perspective_none
+let perspective_dramatic = utility Perspective_dramatic
+let perspective_normal = utility Perspective_normal
 let neg_translate_x_1_2 = utility Neg_translate_x_1_2
 let neg_translate_y_1_2 = utility Neg_translate_y_1_2
 let perspective_origin_center = utility Perspective_origin_center
@@ -489,3 +578,12 @@ let backface_hidden = utility Backface_hidden
 let transform = utility Transform
 let transform_none = utility Transform_none
 let transform_gpu = utility Transform_gpu
+let origin_center = utility Origin_center
+let origin_top = utility Origin_top
+let origin_bottom = utility Origin_bottom
+let origin_left = utility Origin_left
+let origin_right = utility Origin_right
+let origin_top_left = utility Origin_top_left
+let origin_top_right = utility Origin_top_right
+let origin_bottom_left = utility Origin_bottom_left
+let origin_bottom_right = utility Origin_bottom_right

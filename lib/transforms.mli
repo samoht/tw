@@ -57,8 +57,16 @@ val translate_z : int -> t
 val scale_z : int -> t
 (** [scale_z n] scales element along Z axis by n%. *)
 
-val perspective : int -> t
-(** [perspective n] sets perspective distance in pixels. *)
+val perspective_none : t
+(** [perspective_none] removes perspective ({i perspective: none}). *)
+
+val perspective_dramatic : t
+(** [perspective_dramatic] sets a short perspective distance for dramatic 3D
+    effects ({i perspective: var(--perspective-dramatic)}). *)
+
+val perspective_normal : t
+(** [perspective_normal] sets a normal perspective distance
+    ({i perspective: var(--perspective-normal)}). *)
 
 val perspective_origin_center : t
 (** [perspective_origin_center] sets perspective origin to center. *)
@@ -98,5 +106,34 @@ val transform_none : t
 
 val transform_gpu : t
 (** [transform_gpu] forces GPU acceleration for transforms. *)
+
+(** {1 Transform Origin Utilities} *)
+
+val origin_center : t
+(** [origin_center] sets transform origin to center. *)
+
+val origin_top : t
+(** [origin_top] sets transform origin to top center. *)
+
+val origin_bottom : t
+(** [origin_bottom] sets transform origin to bottom center. *)
+
+val origin_left : t
+(** [origin_left] sets transform origin to left center. *)
+
+val origin_right : t
+(** [origin_right] sets transform origin to right center. *)
+
+val origin_top_left : t
+(** [origin_top_left] sets transform origin to top left. *)
+
+val origin_top_right : t
+(** [origin_top_right] sets transform origin to top right. *)
+
+val origin_bottom_left : t
+(** [origin_bottom_left] sets transform origin to bottom left. *)
+
+val origin_bottom_right : t
+(** [origin_bottom_right] sets transform origin to bottom right. *)
 
 module Handler : Utility.Handler
