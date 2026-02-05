@@ -43,12 +43,14 @@ module Handler = struct
     | Table_fixed -> style [ Css.table_layout Fixed ]
 
   let suborder = function
-    | Border_collapse -> 14
-    | Border_separate -> 15
-    | Border_spacing n -> 16 + n
-    (* Table layout utilities come after table display utility (11) *)
-    | Table_auto -> 12
-    | Table_fixed -> 13
+    (* Alphabetical among display utilities (shared priority 4). table=13,
+       table-auto=14, table-caption=15, ..., table-fixed=19,
+       table-footer-group=20, ... *)
+    | Table_auto -> 14
+    | Table_fixed -> 19
+    | Border_collapse -> 30
+    | Border_separate -> 31
+    | Border_spacing n -> 32 + n
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
