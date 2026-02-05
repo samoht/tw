@@ -14,6 +14,14 @@ module Handler = struct
     | Shadow_xl
     | Shadow_2xl
     | Shadow_inner
+    (* Inset shadows *)
+    | Inset_shadow_none
+    | Inset_shadow_sm
+    | Inset_shadow
+    | Inset_shadow_md
+    | Inset_shadow_lg
+    | Inset_shadow_xl
+    | Inset_shadow_2xl
     (* Opacity *)
     | Opacity of int
     (* Rings *)
@@ -533,6 +541,94 @@ module Handler = struct
     style
       (d_inset :: d_inset_ring :: d_ring_offset :: d_ring :: [ box_shadow_decl ])
 
+  (* Inset shadow utilities - sets --tw-inset-shadow and composites
+     box-shadow *)
+  type inset_shadow_size = [ `None | `Sm | `Default | `Md | `Lg | `Xl | `Xxl ]
+
+  let inset_shadow_internal (size : inset_shadow_size) =
+    (* Inset shadow sizes matching Tailwind v4: inset-shadow-none: 0 0 #0000
+       inset-shadow-sm: inset 0 2px 4px color inset-shadow: inset 0 2px 4px
+       color inset-shadow-md: inset 0 4px 6px color inset-shadow-lg: inset 0 4px
+       8px color inset-shadow-xl: inset 0 6px 10px color inset-shadow-2xl: inset
+       0 8px 25px color *)
+    let color_ref =
+      Var.reference_with_fallback inset_shadow_color_var (Css.hex "#0000000d")
+    in
+    let inset_value =
+      match size with
+      | `None ->
+          Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ()
+      | `Sm ->
+          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:(Px 2.) ~blur:(Px 4.)
+            ~color:(Var color_ref) ()
+      | `Default | `Md ->
+          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:(Px 4.) ~blur:(Px 6.)
+            ~color:(Var color_ref) ()
+      | `Lg ->
+          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:(Px 4.) ~blur:(Px 8.)
+            ~color:(Var color_ref) ()
+      | `Xl ->
+          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:(Px 6.) ~blur:(Px 10.)
+            ~color:(Var color_ref) ()
+      | `Xxl ->
+          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:(Px 8.) ~blur:(Px 25.)
+            ~color:(Var color_ref) ()
+    in
+
+    (* Set --tw-inset-shadow variable *)
+    let d_inset_shadow, v_inset_shadow =
+      Var.binding inset_shadow_var inset_value
+    in
+
+    (* Reference other shadow variables through @property defaults *)
+    let v_inset_ring = Var.reference inset_ring_shadow_var in
+    let v_ring_offset = Var.reference ring_offset_shadow_var in
+    let v_ring = Var.reference ring_shadow_var in
+    let v_shadow = Var.reference shadow_var in
+
+    let box_shadow_vars : Css.shadow list =
+      [
+        Css.Var v_inset_shadow;
+        Css.Var v_inset_ring;
+        Css.Var v_ring_offset;
+        Css.Var v_ring;
+        Css.Var v_shadow;
+      ]
+    in
+
+    (* Collect property rules *)
+    let property_rules =
+      [
+        Var.property_rule shadow_var;
+        Var.property_rule shadow_color_var;
+        Var.property_rule shadow_alpha_var;
+        Var.property_rule inset_shadow_var;
+        Var.property_rule inset_shadow_color_var;
+        Var.property_rule inset_shadow_alpha_var;
+        Var.property_rule ring_color_var;
+        Var.property_rule ring_shadow_var;
+        Var.property_rule inset_ring_color_var;
+        Var.property_rule inset_ring_shadow_var;
+        Var.property_rule ring_inset_var;
+        Var.property_rule ring_offset_width_var;
+        Var.property_rule ring_offset_color_var;
+        Var.property_rule ring_offset_shadow_var;
+      ]
+      |> List.filter_map (fun x -> x)
+    in
+
+    style
+      ~property_rules:(Css.concat property_rules)
+      [ d_inset_shadow; Css.box_shadows box_shadow_vars ]
+
+  let inset_shadow_none = inset_shadow_internal `None
+  let inset_shadow_sm = inset_shadow_internal `Sm
+  let inset_shadow = inset_shadow_internal `Default
+  let inset_shadow_md = inset_shadow_internal `Md
+  let inset_shadow_lg = inset_shadow_internal `Lg
+  let inset_shadow_xl = inset_shadow_internal `Xl
+  let inset_shadow_2xl = inset_shadow_internal `Xxl
+
   type ring_width = [ `None | `Xs | `Sm | `Md | `Lg | `Xl ]
 
   let ring_internal (w : ring_width) =
@@ -660,6 +756,13 @@ module Handler = struct
     | Shadow_xl -> shadow_xl
     | Shadow_2xl -> shadow_2xl
     | Shadow_inner -> shadow_inner
+    | Inset_shadow_none -> inset_shadow_none
+    | Inset_shadow_sm -> inset_shadow_sm
+    | Inset_shadow -> inset_shadow
+    | Inset_shadow_md -> inset_shadow_md
+    | Inset_shadow_lg -> inset_shadow_lg
+    | Inset_shadow_xl -> inset_shadow_xl
+    | Inset_shadow_2xl -> inset_shadow_2xl
     | Opacity n -> opacity n
     | Ring_none -> ring_none
     | Ring_xs -> ring_xs
@@ -699,6 +802,13 @@ module Handler = struct
     | [ "shadow"; "xl" ] -> Ok Shadow_xl
     | [ "shadow"; "2xl" ] -> Ok Shadow_2xl
     | [ "shadow"; "inner" ] -> Ok Shadow_inner
+    | [ "inset"; "shadow"; "none" ] -> Ok Inset_shadow_none
+    | [ "inset"; "shadow"; "sm" ] -> Ok Inset_shadow_sm
+    | [ "inset"; "shadow" ] -> Ok Inset_shadow
+    | [ "inset"; "shadow"; "md" ] -> Ok Inset_shadow_md
+    | [ "inset"; "shadow"; "lg" ] -> Ok Inset_shadow_lg
+    | [ "inset"; "shadow"; "xl" ] -> Ok Inset_shadow_xl
+    | [ "inset"; "shadow"; "2xl" ] -> Ok Inset_shadow_2xl
     | [ "opacity"; n ] ->
         Parse.int_bounded ~name:"opacity" ~min:0 ~max:100 n >|= fun n ->
         Opacity n
@@ -741,6 +851,13 @@ module Handler = struct
     | Shadow_xl -> "shadow-xl"
     | Shadow_2xl -> "shadow-2xl"
     | Shadow_inner -> "shadow-inner"
+    | Inset_shadow_none -> "inset-shadow-none"
+    | Inset_shadow_sm -> "inset-shadow-sm"
+    | Inset_shadow -> "inset-shadow"
+    | Inset_shadow_md -> "inset-shadow-md"
+    | Inset_shadow_lg -> "inset-shadow-lg"
+    | Inset_shadow_xl -> "inset-shadow-xl"
+    | Inset_shadow_2xl -> "inset-shadow-2xl"
     | Opacity n -> "opacity-" ^ string_of_int n
     | Ring_none -> "ring-0"
     | Ring_xs -> "ring-1"
@@ -779,6 +896,14 @@ module Handler = struct
     | Shadow_none -> 1005
     | Shadow_sm -> 1006
     | Shadow_xl -> 1007
+    (* Inset shadow utilities - alphabetical order *)
+    | Inset_shadow -> 1100
+    | Inset_shadow_2xl -> 1101
+    | Inset_shadow_lg -> 1102
+    | Inset_shadow_md -> 1103
+    | Inset_shadow_none -> 1104
+    | Inset_shadow_sm -> 1105
+    | Inset_shadow_xl -> 1106
     | Mix_blend_normal -> 2000
     | Mix_blend_multiply -> 2001
     | Mix_blend_screen -> 2002
@@ -821,6 +946,13 @@ let shadow_lg = utility Shadow_lg
 let shadow_xl = utility Shadow_xl
 let shadow_2xl = utility Shadow_2xl
 let shadow_inner = utility Shadow_inner
+let inset_shadow_none = utility Inset_shadow_none
+let inset_shadow_sm = utility Inset_shadow_sm
+let inset_shadow = utility Inset_shadow
+let inset_shadow_md = utility Inset_shadow_md
+let inset_shadow_lg = utility Inset_shadow_lg
+let inset_shadow_xl = utility Inset_shadow_xl
+let inset_shadow_2xl = utility Inset_shadow_2xl
 let ring_inset = utility Ring_inset
 let ring_none = utility Ring_none
 let ring_xs = utility Ring_xs

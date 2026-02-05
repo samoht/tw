@@ -94,22 +94,13 @@ module Handler = struct
         style (decl :: [ Css.bottom zero_value; Css.top zero_value ])
     | Inset_auto -> style [ Css.inset Auto ]
     | Inset_full -> style [ Css.inset (Pct 100.0) ]
-    | Inset_3_4 ->
-        let fraction = Css.Calc.(float 3.0 / float 4.0) in
-        let calc_value = Css.Calc.(fraction * pct 100.0) in
-        style [ Css.inset (Css.Calc calc_value) ]
+    | Inset_3_4 -> style [ Css.inset (Pct 75.0) ]
     | Inset_x_auto -> style [ Css.inset_inline Auto ]
     | Inset_x_full -> style [ Css.inset_inline (Pct 100.0) ]
-    | Inset_x_3_4 ->
-        let fraction = Css.Calc.(float 3.0 / float 4.0) in
-        let calc_value = Css.Calc.(fraction * pct 100.0) in
-        style [ Css.inset_inline (Css.Calc calc_value) ]
+    | Inset_x_3_4 -> style [ Css.inset_inline (Pct 75.0) ]
     | Inset_y_auto -> style [ Css.inset_block Auto ]
     | Inset_y_full -> style [ Css.inset_block (Pct 100.0) ]
-    | Inset_y_3_4 ->
-        let fraction = Css.Calc.(float 3.0 / float 4.0) in
-        let calc_value = Css.Calc.(fraction * pct 100.0) in
-        style [ Css.inset_block (Css.Calc calc_value) ]
+    | Inset_y_3_4 -> style [ Css.inset_block (Pct 75.0) ]
     | Inset n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.inset value ])
@@ -125,56 +116,38 @@ module Handler = struct
     | Top_1_2 -> style [ Css.top (Pct 50.0) ]
     | Top_auto -> style [ Css.top Auto ]
     | Top_full -> style [ Css.top (Pct 100.0) ]
-    | Top_3_4 ->
-        let fraction = Css.Calc.(float 3.0 / float 4.0) in
-        let calc_value = Css.Calc.(fraction * pct 100.0) in
-        style [ Css.top (Css.Calc calc_value) ]
+    | Top_3_4 -> style [ Css.top (Pct 75.0) ]
     | Right n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.right value ])
     | Right_auto -> style [ Css.right Auto ]
     | Right_full -> style [ Css.right (Pct 100.0) ]
-    | Right_3_4 ->
-        let fraction = Css.Calc.(float 3.0 / float 4.0) in
-        let calc_value = Css.Calc.(fraction * pct 100.0) in
-        style [ Css.right (Css.Calc calc_value) ]
+    | Right_3_4 -> style [ Css.right (Pct 75.0) ]
     | Bottom n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.bottom value ])
     | Bottom_auto -> style [ Css.bottom Auto ]
     | Bottom_full -> style [ Css.bottom (Pct 100.0) ]
-    | Bottom_3_4 ->
-        let fraction = Css.Calc.(float 3.0 / float 4.0) in
-        let calc_value = Css.Calc.(fraction * pct 100.0) in
-        style [ Css.bottom (Css.Calc calc_value) ]
+    | Bottom_3_4 -> style [ Css.bottom (Pct 75.0) ]
     | Left n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.left value ])
     | Left_1_2 -> style [ Css.left (Pct 50.0) ]
     | Left_auto -> style [ Css.left Auto ]
     | Left_full -> style [ Css.left (Pct 100.0) ]
-    | Left_3_4 ->
-        let fraction = Css.Calc.(float 3.0 / float 4.0) in
-        let calc_value = Css.Calc.(fraction * pct 100.0) in
-        style [ Css.left (Css.Calc calc_value) ]
+    | Left_3_4 -> style [ Css.left (Pct 75.0) ]
     | Start n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.inset_inline_start value ])
     | Start_auto -> style [ Css.inset_inline_start Auto ]
     | Start_full -> style [ Css.inset_inline_start (Pct 100.0) ]
-    | Start_3_4 ->
-        let fraction = Css.Calc.(float 3.0 / float 4.0) in
-        let calc_value = Css.Calc.(fraction * pct 100.0) in
-        style [ Css.inset_inline_start (Css.Calc calc_value) ]
+    | Start_3_4 -> style [ Css.inset_inline_start (Pct 75.0) ]
     | End n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.inset_inline_end value ])
     | End_auto -> style [ Css.inset_inline_end Auto ]
     | End_full -> style [ Css.inset_inline_end (Pct 100.0) ]
-    | End_3_4 ->
-        let fraction = Css.Calc.(float 3.0 / float 4.0) in
-        let calc_value = Css.Calc.(fraction * pct 100.0) in
-        style [ Css.inset_inline_end (Css.Calc calc_value) ]
+    | End_3_4 -> style [ Css.inset_inline_end (Pct 75.0) ]
     | Z n -> style [ Css.z_index (Css.Index n) ]
 
   let int_of_string_with_sign = Parse.int_any
