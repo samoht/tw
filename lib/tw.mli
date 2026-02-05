@@ -389,7 +389,44 @@ val overflow_y_scroll : t
     @see <https://tailwindcss.com/docs/overscroll-behavior> Overscroll Behavior
 *)
 
-(** TODO: Implement overscroll-behavior utilities. *)
+val overscroll_auto : t
+(** [overscroll_auto] uses default scroll chaining behavior. *)
+
+val overscroll_contain : t
+(** [overscroll_contain] prevents scroll chaining to parent elements. *)
+
+val overscroll_none : t
+(** [overscroll_none] prevents scroll chaining and overscroll effects. *)
+
+val overscroll_x_auto : t
+(** [overscroll_x_auto] uses default horizontal overscroll behavior. *)
+
+val overscroll_x_contain : t
+(** [overscroll_x_contain] prevents horizontal scroll chaining. *)
+
+val overscroll_x_none : t
+(** [overscroll_x_none] prevents horizontal scroll chaining and effects. *)
+
+val overscroll_y_auto : t
+(** [overscroll_y_auto] uses default vertical overscroll behavior. *)
+
+val overscroll_y_contain : t
+(** [overscroll_y_contain] prevents vertical scroll chaining. *)
+
+val overscroll_y_none : t
+(** [overscroll_y_none] prevents vertical scroll chaining and effects. *)
+
+(** {2 Overflow Wrap}
+    @see <https://tailwindcss.com/docs/overflow-wrap> Overflow Wrap *)
+
+val wrap_normal : t
+(** [wrap_normal] uses default word wrapping behavior. *)
+
+val wrap_break_word : t
+(** [wrap_break_word] breaks words to prevent overflow. *)
+
+val wrap_anywhere : t
+(** [wrap_anywhere] breaks at any character to prevent overflow. *)
 
 (** {2 Position}
     @see <https://tailwindcss.com/docs/position> Position *)

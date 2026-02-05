@@ -131,24 +131,30 @@ module Handler = struct
   let priority = 4
 
   let suborder = function
-    (* Display utilities - ordered alphabetically per Tailwind *)
+    (* Display utilities - ordered alphabetically per Tailwind. Gaps left for
+       flex(3), grid(5), inline-flex(9), inline-grid(10) which live in flex.ml
+       and grid.ml with the same priority. *)
     | Block -> 1
     | Contents -> 2
-    | Flow_root -> 3
-    | Hidden -> 4
-    | Inline -> 5
-    | Inline_block -> 6
-    | Inline_table -> 7
-    | List_item -> 8
-    | Table -> 9
-    | Table_caption -> 10
-    | Table_cell -> 11
-    | Table_column -> 12
-    | Table_column_group -> 13
-    | Table_footer_group -> 14
-    | Table_header_group -> 15
-    | Table_row -> 16
-    | Table_row_group -> 17
+    (* flex = 3, in flex.ml *)
+    | Flow_root -> 4
+    (* grid = 5, in grid.ml *)
+    | Hidden -> 6
+    | Inline -> 7
+    | Inline_block -> 8
+    (* inline-flex = 9, in flex.ml *)
+    (* inline-grid = 10, in grid.ml *)
+    | Inline_table -> 11
+    | List_item -> 12
+    | Table -> 13
+    | Table_caption -> 15
+    | Table_cell -> 16
+    | Table_column -> 17
+    | Table_column_group -> 18
+    | Table_footer_group -> 20
+    | Table_header_group -> 21
+    | Table_row -> 22
+    | Table_row_group -> 23
     (* Visibility - alphabetical order: collapse, invisible, visible *)
     | Collapse -> 100
     | Invisible -> 101

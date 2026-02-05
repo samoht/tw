@@ -20,10 +20,10 @@ module Handler = struct
   let to_style = function Flex -> flex | Inline_flex -> inline_flex
 
   let suborder = function
-    (* Display utilities - ordered to match Tailwind: sr-only(1),
-       not-sr-only(2), block(3), flex(4), grid(5), hidden(6), inline(7),
-       inline-block(8), inline-flex(9), table(10) *)
-    | Flex -> 4
+    (* Alphabetical among all display utilities (shared priority 4). block=1,
+       contents=2, flex=3, flow-root=4, grid=5, hidden=6, inline=7,
+       inline-block=8, inline-flex=9, inline-grid=10 *)
+    | Flex -> 3
     | Inline_flex -> 9
 
   let err_not_utility = Error (`Msg "Not a flex display utility")

@@ -23,6 +23,8 @@ include Sizing
 include Typography
 include Layout
 include Overflow
+include Overscroll
+include Overflow_wrap
 include Grid
 include Grid_item
 include Grid_template
@@ -88,6 +90,8 @@ module Backgrounds = Backgrounds
 module Sizing = Sizing
 module Layout = Layout
 module Overflow = Overflow
+module Overscroll = Overscroll
+module Overflow_wrap = Overflow_wrap
 module Grid = Grid
 module Grid_item = Grid_item
 module Grid_template = Grid_template
