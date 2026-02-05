@@ -769,6 +769,7 @@ module Typography_late = struct
     | (* Text overflow *)
       Text_ellipsis
     | Text_clip
+    | Truncate
     | (* Text wrap *)
       Text_wrap
     | Text_nowrap
@@ -885,6 +886,7 @@ module Typography_late = struct
     | [ "subpixel"; "antialiased" ] -> Ok Subpixel_antialiased
     | [ "text"; "ellipsis" ] -> Ok Text_ellipsis
     | [ "text"; "clip" ] -> Ok Text_clip
+    | [ "truncate" ] -> Ok Truncate
     | [ "text"; "wrap" ] -> Ok Text_wrap
     | [ "text"; "nowrap" ] -> Ok Text_nowrap
     | [ "text"; "balance" ] -> Ok Text_balance
@@ -990,6 +992,7 @@ module Typography_late = struct
     | Subpixel_antialiased -> "subpixel-antialiased"
     | Text_ellipsis -> "text-ellipsis"
     | Text_clip -> "text-clip"
+    | Truncate -> "truncate"
     | Text_wrap -> "text-wrap"
     | Text_nowrap -> "text-nowrap"
     | Text_balance -> "text-balance"
@@ -1091,9 +1094,10 @@ module Typography_late = struct
     (* Antialiased *)
     | Antialiased -> 8900
     | Subpixel_antialiased -> 8901
-    (* Text overflow - alphabetical order *)
+    (* Text overflow - alphabetical order: text-clip, text-ellipsis, truncate *)
     | Text_clip -> 9000
     | Text_ellipsis -> 9001
+    | Truncate -> 9002
     (* Text wrap - alphabetical order *)
     | Text_balance -> 9100
     | Text_nowrap -> 9101
@@ -1309,6 +1313,10 @@ module Typography_late = struct
   let list_image_none = style [ list_style_image None ]
   let text_ellipsis = style [ text_overflow Ellipsis ]
   let text_clip = style [ text_overflow Clip ]
+
+  let truncate =
+    style [ text_overflow Ellipsis; white_space Nowrap; overflow Hidden ]
+
   let text_wrap = style [ Css.text_wrap Wrap ]
   let text_nowrap = style [ Css.text_wrap No_wrap ]
   let text_balance = style [ Css.text_wrap Balance ]
@@ -1474,6 +1482,7 @@ module Typography_late = struct
     | Subpixel_antialiased -> subpixel_antialiased
     | Text_ellipsis -> text_ellipsis
     | Text_clip -> text_clip
+    | Truncate -> truncate
     | Text_wrap -> text_wrap
     | Text_nowrap -> text_nowrap
     | Text_balance -> text_balance
