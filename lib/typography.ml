@@ -1269,11 +1269,12 @@ module Typography_late = struct
       ]
 
   let line_clamp n =
-    if n = 0 then style [ webkit_line_clamp 0; overflow Visible; display Block ]
+    if n = 0 then
+      style [ webkit_line_clamp Unset; overflow Visible; display Block ]
     else
       style
         [
-          webkit_line_clamp n;
+          webkit_line_clamp (Lines n);
           webkit_box_orient Vertical;
           display Webkit_box;
           overflow Hidden;
