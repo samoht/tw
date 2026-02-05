@@ -116,10 +116,10 @@ module Handler = struct
     | [ "flex"; "auto" ] -> Ok Flex_auto
     | [ "flex"; "initial" ] -> Ok Flex_initial
     | [ "flex"; "none" ] -> Ok Flex_none
-    | [ "flex"; "grow" ] -> Ok Flex_grow
-    | [ "flex"; "grow"; "0" ] -> Ok Flex_grow_0
-    | [ "flex"; "shrink" ] -> Ok Flex_shrink
-    | [ "flex"; "shrink"; "0" ] -> Ok Flex_shrink_0
+    | [ "flex"; "grow" ] | [ "grow" ] -> Ok Flex_grow
+    | [ "flex"; "grow"; "0" ] | [ "grow"; "0" ] -> Ok Flex_grow_0
+    | [ "flex"; "shrink" ] | [ "shrink" ] -> Ok Flex_shrink
+    | [ "flex"; "shrink"; "0" ] | [ "shrink"; "0" ] -> Ok Flex_shrink_0
     | [ "basis"; "0" ] -> Ok Basis_0
     | [ "basis"; "1" ] -> Ok Basis_1
     | [ "basis"; "auto" ] -> Ok Basis_auto

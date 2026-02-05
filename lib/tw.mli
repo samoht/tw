@@ -428,6 +428,15 @@ val wrap_break_word : t
 val wrap_anywhere : t
 (** [wrap_anywhere] breaks at any character to prevent overflow. *)
 
+(** {2 Box Sizing}
+    @see <https://tailwindcss.com/docs/box-sizing> Box Sizing *)
+
+val box_border : t
+(** [box_border] includes borders and padding in the element's size. *)
+
+val box_content : t
+(** [box_content] excludes borders and padding from the element's size. *)
+
 (** {2 Position}
     @see <https://tailwindcss.com/docs/position> Position *)
 
