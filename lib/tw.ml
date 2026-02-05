@@ -26,6 +26,7 @@ include Overflow
 include Overscroll
 include Overflow_wrap
 include Box_sizing
+include Field_sizing
 include Grid
 include Grid_item
 include Grid_template
@@ -94,6 +95,7 @@ module Overflow = Overflow
 module Overscroll = Overscroll
 module Overflow_wrap = Overflow_wrap
 module Box_sizing = Box_sizing
+module Field_sizing = Field_sizing
 module Grid = Grid
 module Grid_item = Grid_item
 module Grid_template = Grid_template

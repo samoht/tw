@@ -38,6 +38,29 @@ val shadow_2xl : t
 val shadow_inner : t
 (** [shadow_inner] applies an inner (inset) shadow. *)
 
+(** {1 Inset Shadow Utilities} *)
+
+val inset_shadow_none : t
+(** [inset_shadow_none] removes the inset shadow. *)
+
+val inset_shadow_sm : t
+(** [inset_shadow_sm] applies a small inset shadow. *)
+
+val inset_shadow : t
+(** [inset_shadow] applies the default inset shadow. *)
+
+val inset_shadow_md : t
+(** [inset_shadow_md] applies a medium inset shadow. *)
+
+val inset_shadow_lg : t
+(** [inset_shadow_lg] applies a large inset shadow. *)
+
+val inset_shadow_xl : t
+(** [inset_shadow_xl] applies an extra-large inset shadow. *)
+
+val inset_shadow_2xl : t
+(** [inset_shadow_2xl] applies a 2× extra-large inset shadow. *)
+
 val opacity : int -> t
 (** [opacity n] sets opacity to n%. *)
 
