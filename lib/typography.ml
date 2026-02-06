@@ -1121,16 +1121,16 @@ module Typography_late = struct
     | Font_stretch_condensed -> 9501
     | Font_stretch_expanded -> 9502
     | Font_stretch_percent n -> 9600 + n
-    (* Numeric variants *)
-    | Normal_nums -> 9700
-    | Ordinal -> 9701
-    | Slashed_zero -> 9702
-    | Lining_nums -> 9703
-    | Oldstyle_nums -> 9704
-    | Proportional_nums -> 9705
-    | Tabular_nums -> 9706
-    | Diagonal_fractions -> 9707
-    | Stacked_fractions -> 9708
+    (* Numeric variants - alphabetical order with normal-nums last *)
+    | Diagonal_fractions -> 9700
+    | Lining_nums -> 9701
+    | Oldstyle_nums -> 9702
+    | Ordinal -> 9703
+    | Proportional_nums -> 9704
+    | Slashed_zero -> 9705
+    | Stacked_fractions -> 9706
+    | Tabular_nums -> 9707
+    | Normal_nums -> 9708
     (* Indent and line clamp *)
     | Indent n -> 9800 + n
     | Line_clamp n -> 9900 + n
