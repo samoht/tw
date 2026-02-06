@@ -386,8 +386,8 @@ module Handler = struct
     | Transition_shadow -> 4
     | Transition_transform -> 5
     | Transition_none -> 6
-    | Transition_behavior_normal -> 7
-    | Transition_behavior_allow_discrete -> 8
+    | Transition_behavior_allow_discrete -> 7 (* transition-discrete *)
+    | Transition_behavior_normal -> 8 (* transition-normal *)
     | Delay n -> 100 + n
     | Duration n -> 200 + n
     (* Ease utilities come after Duration. Tailwind orders: duration then ease.
@@ -412,6 +412,8 @@ module Handler = struct
     | [ "transition"; "behavior"; "normal" ] -> Ok Transition_behavior_normal
     | [ "transition"; "behavior"; "allow"; "discrete" ] ->
         Ok Transition_behavior_allow_discrete
+    | [ "transition"; "normal" ] -> Ok Transition_behavior_normal
+    | [ "transition"; "discrete" ] -> Ok Transition_behavior_allow_discrete
     | [ "transition" ] -> Ok Transition
     | [ "duration"; n ] ->
         Parse.int_pos ~name:"duration" n >|= fun n -> Duration n
@@ -429,8 +431,8 @@ module Handler = struct
     | Transition_opacity -> "transition-opacity"
     | Transition_shadow -> "transition-shadow"
     | Transition_transform -> "transition-transform"
-    | Transition_behavior_normal -> "transition-behavior-normal"
-    | Transition_behavior_allow_discrete -> "transition-behavior-allow-discrete"
+    | Transition_behavior_normal -> "transition-normal"
+    | Transition_behavior_allow_discrete -> "transition-discrete"
     | Transition -> "transition"
     | Duration n -> "duration-" ^ string_of_int n
     | Delay n -> "delay-" ^ string_of_int n
