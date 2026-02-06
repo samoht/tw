@@ -36,6 +36,10 @@ module Handler = struct
     | Bg_origin_border
     | Bg_origin_padding
     | Bg_origin_content
+    | Bg_clip_border
+    | Bg_clip_padding
+    | Bg_clip_content
+    | Bg_clip_text
 
   type Utility.base += Self of t
 
@@ -70,6 +74,10 @@ module Handler = struct
     | Bg_origin_border -> "bg-origin-border"
     | Bg_origin_padding -> "bg-origin-padding"
     | Bg_origin_content -> "bg-origin-content"
+    | Bg_clip_border -> "bg-clip-border"
+    | Bg_clip_padding -> "bg-clip-padding"
+    | Bg_clip_content -> "bg-clip-content"
+    | Bg_clip_text -> "bg-clip-text"
 
   let to_spec (dir : direction) : Css.gradient_direction =
     match dir with
@@ -263,6 +271,10 @@ module Handler = struct
   let bg_origin_border = style [ Css.background_origin Border_box ]
   let bg_origin_padding = style [ Css.background_origin Padding_box ]
   let bg_origin_content = style [ Css.background_origin Content_box ]
+  let bg_clip_border = style [ Css.background_clip Border_box ]
+  let bg_clip_padding = style [ Css.background_clip Padding_box ]
+  let bg_clip_content = style [ Css.background_clip Content_box ]
+  let bg_clip_text = style [ Css.background_clip Text ]
 
   let to_style = function
     | Bg (color, shade) -> bg' ~shade color
@@ -273,6 +285,10 @@ module Handler = struct
     | Bg_origin_border -> bg_origin_border
     | Bg_origin_padding -> bg_origin_padding
     | Bg_origin_content -> bg_origin_content
+    | Bg_clip_border -> bg_clip_border
+    | Bg_clip_padding -> bg_clip_padding
+    | Bg_clip_content -> bg_clip_content
+    | Bg_clip_text -> bg_clip_text
 
   let suborder = function
     (* Tailwind order: solid bg-colors before gradient utilities *)
@@ -292,6 +308,11 @@ module Handler = struct
     | Bg_origin_border -> 140000
     | Bg_origin_content -> 140001
     | Bg_origin_padding -> 140002
+    (* bg-clip utilities - alphabetical: border, content, padding, text *)
+    | Bg_clip_border -> 150000
+    | Bg_clip_content -> 150001
+    | Bg_clip_padding -> 150002
+    | Bg_clip_text -> 150003
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
@@ -307,6 +328,10 @@ module Handler = struct
     | [ "bg"; "origin"; "border" ] -> Ok Bg_origin_border
     | [ "bg"; "origin"; "padding" ] -> Ok Bg_origin_padding
     | [ "bg"; "origin"; "content" ] -> Ok Bg_origin_content
+    | [ "bg"; "clip"; "border" ] -> Ok Bg_clip_border
+    | [ "bg"; "clip"; "padding" ] -> Ok Bg_clip_padding
+    | [ "bg"; "clip"; "content" ] -> Ok Bg_clip_content
+    | [ "bg"; "clip"; "text" ] -> Ok Bg_clip_text
     | "bg" :: rest -> (
         match Color.shade_of_strings rest with
         | Ok (color, shade) -> Ok (Bg (color, shade))
