@@ -47,6 +47,7 @@ module Handler = struct
     | Backface_hidden
     | (* Transform control *)
       Transform
+    | Transform_cpu
     | Transform_none
     | Transform_gpu
     | (* Transform origin *)
@@ -370,7 +371,65 @@ module Handler = struct
       ]
 
   let transform_none = style [ Css.transform None ]
-  let transform_gpu = style [ Css.transform (Translate_z Zero) ]
+
+  (* transform-cpu is an alias for transform *)
+  let transform_cpu =
+    let rotate_x_ref = Var.reference_with_empty_fallback tw_rotate_x_var in
+    let rotate_y_ref = Var.reference_with_empty_fallback tw_rotate_y_var in
+    let rotate_z_ref = Var.reference_with_empty_fallback tw_rotate_z_var in
+    let skew_x_ref = Var.reference_with_empty_fallback tw_skew_x_var in
+    let skew_y_ref = Var.reference_with_empty_fallback tw_skew_y_var in
+    let property_rules =
+      collect_property_rules
+        [
+          tw_rotate_x_var;
+          tw_rotate_y_var;
+          tw_rotate_z_var;
+          tw_skew_x_var;
+          tw_skew_y_var;
+        ]
+    in
+    style ~property_rules
+      [
+        transforms
+          [
+            Var rotate_x_ref;
+            Var rotate_y_ref;
+            Var rotate_z_ref;
+            Var skew_x_ref;
+            Var skew_y_ref;
+          ];
+      ]
+
+  (* transform-gpu adds translateZ(0) for GPU acceleration plus all var refs *)
+  let transform_gpu =
+    let rotate_x_ref = Var.reference_with_empty_fallback tw_rotate_x_var in
+    let rotate_y_ref = Var.reference_with_empty_fallback tw_rotate_y_var in
+    let rotate_z_ref = Var.reference_with_empty_fallback tw_rotate_z_var in
+    let skew_x_ref = Var.reference_with_empty_fallback tw_skew_x_var in
+    let skew_y_ref = Var.reference_with_empty_fallback tw_skew_y_var in
+    let property_rules =
+      collect_property_rules
+        [
+          tw_rotate_x_var;
+          tw_rotate_y_var;
+          tw_rotate_z_var;
+          tw_skew_x_var;
+          tw_skew_y_var;
+        ]
+    in
+    style ~property_rules
+      [
+        transforms
+          [
+            Translate_z Zero;
+            Var rotate_x_ref;
+            Var rotate_y_ref;
+            Var rotate_z_ref;
+            Var skew_x_ref;
+            Var skew_y_ref;
+          ];
+      ]
 
   (** {1 Parsing Functions} *)
 
@@ -410,6 +469,7 @@ module Handler = struct
     | Backface_visible -> backface_visible
     | Backface_hidden -> backface_hidden
     | Transform -> transform
+    | Transform_cpu -> transform_cpu
     | Transform_none -> transform_none
     | Transform_gpu -> transform_gpu
     | Origin_center -> origin_center
@@ -424,8 +484,9 @@ module Handler = struct
 
   let suborder = function
     | Transform -> 2000
-    | Transform_none -> 1
-    | Transform_gpu -> 2
+    | Transform_cpu -> 2001
+    | Transform_gpu -> 2002
+    | Transform_none -> 2003
     (* Combined translate utilities - alphabetical: 1/2 before full *)
     | Translate_1_2 -> 90
     | Translate_full -> 91
@@ -521,6 +582,7 @@ module Handler = struct
     | [ "transform"; "style"; "3d" ] -> Ok Transform_style_3d
     | [ "transform"; "style"; "flat" ] -> Ok Transform_style_flat
     | [ "transform" ] -> Ok Transform
+    | [ "transform"; "cpu" ] -> Ok Transform_cpu
     | [ "transform"; "none" ] -> Ok Transform_none
     | [ "transform"; "gpu" ] -> Ok Transform_gpu
     | [ "origin"; "center" ] -> Ok Origin_center
@@ -567,6 +629,7 @@ module Handler = struct
     | Backface_visible -> "backface-visible"
     | Backface_hidden -> "backface-hidden"
     | Transform -> "transform"
+    | Transform_cpu -> "transform-cpu"
     | Transform_none -> "transform-none"
     | Transform_gpu -> "transform-gpu"
     | Origin_center -> "origin-center"
