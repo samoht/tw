@@ -17,6 +17,9 @@ module Handler = struct
     | Scale_y of int
     | Skew_x of int
     | Skew_y of int
+    | (* Combined translate utilities *)
+      Translate_full
+    | Translate_1_2
     | (* Negative translate utilities for centering *)
       Neg_translate_x_1_2
     | Neg_translate_y_1_2
@@ -230,6 +233,38 @@ module Handler = struct
   let skew_x deg = skew_axis tw_skew_x_var (fun a -> Css.Skew_x a) deg
   let skew_y deg = skew_axis tw_skew_y_var (fun a -> Css.Skew_y a) deg
 
+  (* Combined translate utilities *)
+  let translate_full =
+    let dx, _ = Var.binding tw_translate_x_var (Pct 100.0) in
+    let dy, _ = Var.binding tw_translate_y_var (Pct 100.0) in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    let props =
+      collect_property_rules
+        [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
+    in
+    style ~property_rules:props
+      (dx :: dy :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
+  let translate_1_2 =
+    (* Tailwind outputs calc(1 / 2 * 100%) rather than 50% *)
+    let half_pct : Css.length =
+      Css.Calc
+        (Css.Calc.mul
+           (Css.Calc.div (Css.Calc.float 1.) (Css.Calc.float 2.))
+           (Css.Calc.length (Css.Pct 100.)))
+    in
+    let dx, _ = Var.binding tw_translate_x_var half_pct in
+    let dy, _ = Var.binding tw_translate_y_var half_pct in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    let props =
+      collect_property_rules
+        [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
+    in
+    style ~property_rules:props
+      (dx :: dy :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
   (* Negative translate utilities for centering *)
   let neg_translate_x_1_2 =
     style [ Css.transform (Css.Translate_x (Css.Pct (-50.0))) ]
@@ -347,6 +382,8 @@ module Handler = struct
     | Rotate n -> rotate n
     | Translate_x n -> translate_x n
     | Translate_y n -> translate_y n
+    | Translate_full -> translate_full
+    | Translate_1_2 -> translate_1_2
     | Neg_translate_x_1_2 -> neg_translate_x_1_2
     | Neg_translate_y_1_2 -> neg_translate_y_1_2
     | Translate_z n -> translate_z n
@@ -389,6 +426,9 @@ module Handler = struct
     | Transform -> 2000
     | Transform_none -> 1
     | Transform_gpu -> 2
+    (* Combined translate utilities - alphabetical: 1/2 before full *)
+    | Translate_1_2 -> 90
+    | Translate_full -> 91
     (* Translate utilities come first *)
     | Translate_x n -> 100 + n
     | Neg_translate_x_1_2 -> 150
@@ -442,6 +482,8 @@ module Handler = struct
     | [ "translate"; "x"; n ] -> Parse.int_any n >|= fun n -> Translate_x n
     | [ "translate"; "y"; n ] -> Parse.int_any n >|= fun n -> Translate_y n
     | [ "translate"; "z"; n ] -> Parse.int_any n >|= fun n -> Translate_z n
+    | [ "translate"; "full" ] -> Ok Translate_full
+    | [ "translate"; "1/2" ] -> Ok Translate_1_2
     (* Negative translate utilities: -translate-x-N, -translate-y-N,
        -translate-z-N Split by '-' gives [""; "translate"; axis; n] *)
     | [ ""; "translate"; "x"; n ] ->
@@ -497,6 +539,8 @@ module Handler = struct
     | Translate_x n -> neg_class "translate-x-" n
     | Translate_y n -> neg_class "translate-y-" n
     | Translate_z n -> neg_class "translate-z-" n
+    | Translate_full -> "translate-full"
+    | Translate_1_2 -> "translate-1/2"
     | Neg_translate_x_1_2 -> "-translate-x-1/2"
     | Neg_translate_y_1_2 -> "-translate-y-1/2"
     | Scale n -> "scale-" ^ string_of_int n
