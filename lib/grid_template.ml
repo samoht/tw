@@ -52,27 +52,27 @@ module Handler = struct
   let priority = 15
 
   let grid_cols n =
-    if n < 1 || n > 12 then
+    if n < 1 || n > 999 then
       invalid_arg
         (String.concat ""
-           [ "grid_cols: "; string_of_int n; " is out of range (1-12)" ])
+           [ "grid_cols: "; string_of_int n; " is out of range (1-999)" ])
     else
       style
         [ Css.grid_template_columns (Repeat (n, [ Min_max (Zero, Fr 1.0) ])) ]
 
   let grid_cols_none = style [ Css.grid_template_columns None ]
-  let grid_cols_subgrid = style [ Css.grid_template_columns (Tracks [ Auto ]) ]
+  let grid_cols_subgrid = style [ Css.grid_template_columns Subgrid ]
 
   let grid_rows n =
-    if n < 1 || n > 12 then
+    if n < 1 || n > 999 then
       invalid_arg
         (String.concat ""
-           [ "grid_rows: "; string_of_int n; " is out of range (1-12)" ])
+           [ "grid_rows: "; string_of_int n; " is out of range (1-999)" ])
     else
       style [ Css.grid_template_rows (Repeat (n, [ Min_max (Zero, Fr 1.0) ])) ]
 
   let grid_rows_none = style [ Css.grid_template_rows None ]
-  let grid_rows_subgrid = style [ Css.grid_template_rows (Tracks [ Auto ]) ]
+  let grid_rows_subgrid = style [ Css.grid_template_rows Subgrid ]
   let grid_flow_row = style [ Css.grid_auto_flow Row ]
   let grid_flow_col = style [ Css.grid_auto_flow Column ]
   let grid_flow_dense = style [ Css.grid_auto_flow Dense ]
