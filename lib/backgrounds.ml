@@ -33,6 +33,9 @@ module Handler = struct
     | From of Color.color * int
     | Via of Color.color * int
     | To of Color.color * int
+    | Bg_origin_border
+    | Bg_origin_padding
+    | Bg_origin_content
 
   type Utility.base += Self of t
 
@@ -64,6 +67,9 @@ module Handler = struct
         if Color.is_base_color color || Color.is_custom_color color then
           "to-" ^ Color.pp color
         else "to-" ^ Color.pp color ^ "-" ^ string_of_int shade
+    | Bg_origin_border -> "bg-origin-border"
+    | Bg_origin_padding -> "bg-origin-padding"
+    | Bg_origin_content -> "bg-origin-content"
 
   let to_spec (dir : direction) : Css.gradient_direction =
     match dir with
@@ -254,12 +260,19 @@ module Handler = struct
     let theme_decls, color_value = color_binding ~shade color in
     style (theme_decls @ [ Css.background_color color_value ])
 
+  let bg_origin_border = style [ Css.background_origin Border_box ]
+  let bg_origin_padding = style [ Css.background_origin Padding_box ]
+  let bg_origin_content = style [ Css.background_origin Content_box ]
+
   let to_style = function
     | Bg (color, shade) -> bg' ~shade color
     | Bg_gradient_to dir -> bg_gradient_to' dir
     | From (color, shade) -> from_color' ~shade color
     | Via (color, shade) -> via_color' ~shade color
     | To (color, shade) -> to_color' ~shade color
+    | Bg_origin_border -> bg_origin_border
+    | Bg_origin_padding -> bg_origin_padding
+    | Bg_origin_content -> bg_origin_content
 
   let suborder = function
     (* Tailwind order: solid bg-colors before gradient utilities *)
@@ -275,6 +288,10 @@ module Handler = struct
     | To (color, shade) ->
         130000
         + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
+    (* bg-origin utilities - alphabetical: border, content, padding *)
+    | Bg_origin_border -> 140000
+    | Bg_origin_content -> 140001
+    | Bg_origin_padding -> 140002
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
@@ -287,6 +304,9 @@ module Handler = struct
     | [ "bg"; "gradient"; "to"; "tl" ] -> Ok (Bg_gradient_to Top_left)
     | [ "bg"; "gradient"; "to"; "l" ] -> Ok (Bg_gradient_to Left)
     | [ "bg"; "gradient"; "to"; "bl" ] -> Ok (Bg_gradient_to Bottom_left)
+    | [ "bg"; "origin"; "border" ] -> Ok Bg_origin_border
+    | [ "bg"; "origin"; "padding" ] -> Ok Bg_origin_padding
+    | [ "bg"; "origin"; "content" ] -> Ok Bg_origin_content
     | "bg" :: rest -> (
         match Color.shade_of_strings rest with
         | Ok (color, shade) -> Ok (Bg (color, shade))
