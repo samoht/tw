@@ -23,4 +23,10 @@ val table_auto : t
 val table_fixed : t
 (** [table_fixed] uses fixed table layout. *)
 
+val caption_top : t
+(** [caption_top] positions a table caption above the table. *)
+
+val caption_bottom : t
+(** [caption_bottom] positions a table caption below the table. *)
+
 module Handler : Utility.Handler
