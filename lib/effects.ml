@@ -50,6 +50,25 @@ module Handler = struct
     | Mix_blend_saturation
     | Mix_blend_color
     | Mix_blend_luminosity
+    | Mix_blend_plus_darker
+    | Mix_blend_plus_lighter
+    (* Background blend modes *)
+    | Bg_blend_normal
+    | Bg_blend_multiply
+    | Bg_blend_screen
+    | Bg_blend_overlay
+    | Bg_blend_darken
+    | Bg_blend_lighten
+    | Bg_blend_color_dodge
+    | Bg_blend_color_burn
+    | Bg_blend_hard_light
+    | Bg_blend_soft_light
+    | Bg_blend_difference
+    | Bg_blend_exclusion
+    | Bg_blend_hue
+    | Bg_blend_saturation
+    | Bg_blend_color
+    | Bg_blend_luminosity
 
   type Utility.base += Self of t
 
@@ -745,6 +764,26 @@ module Handler = struct
   let mix_blend_saturation = style [ mix_blend_mode Saturation ]
   let mix_blend_color = style [ mix_blend_mode Color ]
   let mix_blend_luminosity = style [ mix_blend_mode Luminosity ]
+  let mix_blend_plus_darker = style [ mix_blend_mode Plus_darker ]
+  let mix_blend_plus_lighter = style [ mix_blend_mode Plus_lighter ]
+
+  (* Background blend mode styles *)
+  let bg_blend_normal = style [ background_blend_mode Normal ]
+  let bg_blend_multiply = style [ background_blend_mode Multiply ]
+  let bg_blend_screen = style [ background_blend_mode Screen ]
+  let bg_blend_overlay = style [ background_blend_mode Overlay ]
+  let bg_blend_darken = style [ background_blend_mode Darken ]
+  let bg_blend_lighten = style [ background_blend_mode Lighten ]
+  let bg_blend_color_dodge = style [ background_blend_mode Color_dodge ]
+  let bg_blend_color_burn = style [ background_blend_mode Color_burn ]
+  let bg_blend_hard_light = style [ background_blend_mode Hard_light ]
+  let bg_blend_soft_light = style [ background_blend_mode Soft_light ]
+  let bg_blend_difference = style [ background_blend_mode Difference ]
+  let bg_blend_exclusion = style [ background_blend_mode Exclusion ]
+  let bg_blend_hue = style [ background_blend_mode Hue ]
+  let bg_blend_saturation = style [ background_blend_mode Saturation ]
+  let bg_blend_color = style [ background_blend_mode Color ]
+  let bg_blend_luminosity = style [ background_blend_mode Luminosity ]
   let ( >|= ) = Parse.( >|= )
 
   let to_style = function
@@ -788,6 +827,24 @@ module Handler = struct
     | Mix_blend_saturation -> mix_blend_saturation
     | Mix_blend_color -> mix_blend_color
     | Mix_blend_luminosity -> mix_blend_luminosity
+    | Mix_blend_plus_darker -> mix_blend_plus_darker
+    | Mix_blend_plus_lighter -> mix_blend_plus_lighter
+    | Bg_blend_normal -> bg_blend_normal
+    | Bg_blend_multiply -> bg_blend_multiply
+    | Bg_blend_screen -> bg_blend_screen
+    | Bg_blend_overlay -> bg_blend_overlay
+    | Bg_blend_darken -> bg_blend_darken
+    | Bg_blend_lighten -> bg_blend_lighten
+    | Bg_blend_color_dodge -> bg_blend_color_dodge
+    | Bg_blend_color_burn -> bg_blend_color_burn
+    | Bg_blend_hard_light -> bg_blend_hard_light
+    | Bg_blend_soft_light -> bg_blend_soft_light
+    | Bg_blend_difference -> bg_blend_difference
+    | Bg_blend_exclusion -> bg_blend_exclusion
+    | Bg_blend_hue -> bg_blend_hue
+    | Bg_blend_saturation -> bg_blend_saturation
+    | Bg_blend_color -> bg_blend_color
+    | Bg_blend_luminosity -> bg_blend_luminosity
 
   let err_not_utility = Error (`Msg "Not an effects utility")
 
@@ -830,16 +887,34 @@ module Handler = struct
     | [ "mix"; "blend"; "overlay" ] -> Ok Mix_blend_overlay
     | [ "mix"; "blend"; "darken" ] -> Ok Mix_blend_darken
     | [ "mix"; "blend"; "lighten" ] -> Ok Mix_blend_lighten
-    | [ "mix"; "blend"; "color-dodge" ] -> Ok Mix_blend_color_dodge
-    | [ "mix"; "blend"; "color-burn" ] -> Ok Mix_blend_color_burn
-    | [ "mix"; "blend"; "hard-light" ] -> Ok Mix_blend_hard_light
-    | [ "mix"; "blend"; "soft-light" ] -> Ok Mix_blend_soft_light
+    | [ "mix"; "blend"; "color"; "dodge" ] -> Ok Mix_blend_color_dodge
+    | [ "mix"; "blend"; "color"; "burn" ] -> Ok Mix_blend_color_burn
+    | [ "mix"; "blend"; "hard"; "light" ] -> Ok Mix_blend_hard_light
+    | [ "mix"; "blend"; "soft"; "light" ] -> Ok Mix_blend_soft_light
     | [ "mix"; "blend"; "difference" ] -> Ok Mix_blend_difference
     | [ "mix"; "blend"; "exclusion" ] -> Ok Mix_blend_exclusion
     | [ "mix"; "blend"; "hue" ] -> Ok Mix_blend_hue
     | [ "mix"; "blend"; "saturation" ] -> Ok Mix_blend_saturation
     | [ "mix"; "blend"; "color" ] -> Ok Mix_blend_color
     | [ "mix"; "blend"; "luminosity" ] -> Ok Mix_blend_luminosity
+    | [ "mix"; "blend"; "plus"; "darker" ] -> Ok Mix_blend_plus_darker
+    | [ "mix"; "blend"; "plus"; "lighter" ] -> Ok Mix_blend_plus_lighter
+    | [ "bg"; "blend"; "normal" ] -> Ok Bg_blend_normal
+    | [ "bg"; "blend"; "multiply" ] -> Ok Bg_blend_multiply
+    | [ "bg"; "blend"; "screen" ] -> Ok Bg_blend_screen
+    | [ "bg"; "blend"; "overlay" ] -> Ok Bg_blend_overlay
+    | [ "bg"; "blend"; "darken" ] -> Ok Bg_blend_darken
+    | [ "bg"; "blend"; "lighten" ] -> Ok Bg_blend_lighten
+    | [ "bg"; "blend"; "color"; "dodge" ] -> Ok Bg_blend_color_dodge
+    | [ "bg"; "blend"; "color"; "burn" ] -> Ok Bg_blend_color_burn
+    | [ "bg"; "blend"; "hard"; "light" ] -> Ok Bg_blend_hard_light
+    | [ "bg"; "blend"; "soft"; "light" ] -> Ok Bg_blend_soft_light
+    | [ "bg"; "blend"; "difference" ] -> Ok Bg_blend_difference
+    | [ "bg"; "blend"; "exclusion" ] -> Ok Bg_blend_exclusion
+    | [ "bg"; "blend"; "hue" ] -> Ok Bg_blend_hue
+    | [ "bg"; "blend"; "saturation" ] -> Ok Bg_blend_saturation
+    | [ "bg"; "blend"; "color" ] -> Ok Bg_blend_color
+    | [ "bg"; "blend"; "luminosity" ] -> Ok Bg_blend_luminosity
     | _ -> err_not_utility
 
   let to_class = function
@@ -884,6 +959,24 @@ module Handler = struct
     | Mix_blend_saturation -> "mix-blend-saturation"
     | Mix_blend_color -> "mix-blend-color"
     | Mix_blend_luminosity -> "mix-blend-luminosity"
+    | Mix_blend_plus_darker -> "mix-blend-plus-darker"
+    | Mix_blend_plus_lighter -> "mix-blend-plus-lighter"
+    | Bg_blend_normal -> "bg-blend-normal"
+    | Bg_blend_multiply -> "bg-blend-multiply"
+    | Bg_blend_screen -> "bg-blend-screen"
+    | Bg_blend_overlay -> "bg-blend-overlay"
+    | Bg_blend_darken -> "bg-blend-darken"
+    | Bg_blend_lighten -> "bg-blend-lighten"
+    | Bg_blend_color_dodge -> "bg-blend-color-dodge"
+    | Bg_blend_color_burn -> "bg-blend-color-burn"
+    | Bg_blend_hard_light -> "bg-blend-hard-light"
+    | Bg_blend_soft_light -> "bg-blend-soft-light"
+    | Bg_blend_difference -> "bg-blend-difference"
+    | Bg_blend_exclusion -> "bg-blend-exclusion"
+    | Bg_blend_hue -> "bg-blend-hue"
+    | Bg_blend_saturation -> "bg-blend-saturation"
+    | Bg_blend_color -> "bg-blend-color"
+    | Bg_blend_luminosity -> "bg-blend-luminosity"
 
   let suborder = function
     | Opacity n -> n
@@ -904,22 +997,42 @@ module Handler = struct
     | Inset_shadow_none -> 1104
     | Inset_shadow_sm -> 1105
     | Inset_shadow_xl -> 1106
-    | Mix_blend_normal -> 2000
-    | Mix_blend_multiply -> 2001
-    | Mix_blend_screen -> 2002
-    | Mix_blend_overlay -> 2003
-    | Mix_blend_darken -> 2004
-    | Mix_blend_lighten -> 2005
-    | Mix_blend_color_dodge -> 2006
-    | Mix_blend_color_burn -> 2007
-    | Mix_blend_hard_light -> 2008
-    | Mix_blend_soft_light -> 2009
-    | Mix_blend_difference -> 2010
-    | Mix_blend_exclusion -> 2011
-    | Mix_blend_hue -> 2012
-    | Mix_blend_saturation -> 2013
-    | Mix_blend_color -> 2014
-    | Mix_blend_luminosity -> 2015
+    (* Mix blend modes - alphabetical order *)
+    | Mix_blend_color -> 2000
+    | Mix_blend_color_burn -> 2001
+    | Mix_blend_color_dodge -> 2002
+    | Mix_blend_darken -> 2003
+    | Mix_blend_difference -> 2004
+    | Mix_blend_exclusion -> 2005
+    | Mix_blend_hard_light -> 2006
+    | Mix_blend_hue -> 2007
+    | Mix_blend_lighten -> 2008
+    | Mix_blend_luminosity -> 2009
+    | Mix_blend_multiply -> 2010
+    | Mix_blend_normal -> 2011
+    | Mix_blend_overlay -> 2012
+    | Mix_blend_plus_darker -> 2013
+    | Mix_blend_plus_lighter -> 2014
+    | Mix_blend_saturation -> 2015
+    | Mix_blend_screen -> 2016
+    | Mix_blend_soft_light -> 2017
+    (* Background blend modes - alphabetical order *)
+    | Bg_blend_color -> 3000
+    | Bg_blend_color_burn -> 3001
+    | Bg_blend_color_dodge -> 3002
+    | Bg_blend_darken -> 3003
+    | Bg_blend_difference -> 3004
+    | Bg_blend_exclusion -> 3005
+    | Bg_blend_hard_light -> 3006
+    | Bg_blend_hue -> 3007
+    | Bg_blend_lighten -> 3008
+    | Bg_blend_luminosity -> 3009
+    | Bg_blend_multiply -> 3010
+    | Bg_blend_normal -> 3011
+    | Bg_blend_overlay -> 3012
+    | Bg_blend_saturation -> 3013
+    | Bg_blend_screen -> 3014
+    | Bg_blend_soft_light -> 3015
     | Ring_none -> 4000
     | Ring_xs -> 4001
     | Ring_sm -> 4002
@@ -978,6 +1091,8 @@ let mix_blend_exclusion = utility Mix_blend_exclusion
 let mix_blend_hue = utility Mix_blend_hue
 let mix_blend_saturation = utility Mix_blend_saturation
 let mix_blend_color = utility Mix_blend_color
+let mix_blend_plus_darker = utility Mix_blend_plus_darker
+let mix_blend_plus_lighter = utility Mix_blend_plus_lighter
 
 (* Export ring/shadow variables for use by Forms *)
 let shadow_var = Handler.shadow_var

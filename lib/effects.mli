@@ -169,3 +169,9 @@ val mix_blend_color : t
 
 val mix_blend_luminosity : t
 (** [mix_blend_luminosity] sets mix-blend-mode to luminosity. *)
+
+val mix_blend_plus_darker : t
+(** [mix_blend_plus_darker] sets mix-blend-mode to plus-darker (Safari). *)
+
+val mix_blend_plus_lighter : t
+(** [mix_blend_plus_lighter] sets mix-blend-mode to plus-lighter (Safari). *)
