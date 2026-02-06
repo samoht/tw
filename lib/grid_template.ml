@@ -78,17 +78,17 @@ module Handler = struct
   let grid_flow_dense = style [ Css.grid_auto_flow Dense ]
   let grid_flow_row_dense = style [ Css.grid_auto_flow Row_dense ]
   let grid_flow_col_dense = style [ Css.grid_auto_flow Column_dense ]
-  let auto_cols_auto = style [ Css.grid_auto_columns (Tracks [ Auto ]) ]
-  let auto_cols_min = style [ Css.grid_auto_columns (Tracks [ Auto ]) ]
-  let auto_cols_max = style [ Css.grid_auto_columns (Tracks [ Auto ]) ]
-  let auto_cols_fr = style [ Css.grid_auto_columns (Tracks [ Fr 1.0 ]) ]
+  let auto_cols_auto = style [ Css.grid_auto_columns Auto ]
+  let auto_cols_min = style [ Css.grid_auto_columns Min_content ]
+  let auto_cols_max = style [ Css.grid_auto_columns Max_content ]
+  let auto_cols_fr = style [ Css.grid_auto_columns (Min_max (Zero, Fr 1.0)) ]
 
   (** {1 Grid Auto Rows} *)
 
-  let auto_rows_auto = style [ Css.grid_auto_rows (Tracks [ Auto ]) ]
-  let auto_rows_min = style [ Css.grid_auto_rows (Tracks [ Auto ]) ]
-  let auto_rows_max = style [ Css.grid_auto_rows (Tracks [ Auto ]) ]
-  let auto_rows_fr = style [ Css.grid_auto_rows (Tracks [ Fr 1.0 ]) ]
+  let auto_rows_auto = style [ Css.grid_auto_rows Auto ]
+  let auto_rows_min = style [ Css.grid_auto_rows Min_content ]
+  let auto_rows_max = style [ Css.grid_auto_rows Max_content ]
+  let auto_rows_fr = style [ Css.grid_auto_rows (Min_max (Zero, Fr 1.0)) ]
 
   (** Convert grid template utility to style *)
   let to_style = function
