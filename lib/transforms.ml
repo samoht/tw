@@ -285,14 +285,10 @@ module Handler = struct
   (** {1 Transform Origin Utilities} *)
 
   let origin_center = style [ transform_origin Center ]
-  let origin_top = style [ transform_origin Center_top ]
-  let origin_bottom = style [ transform_origin Center_bottom ]
-
-  (* left/right use single percentage values *)
-  let origin_left = style [ transform_origin (XY (Pct 0.0, Pct 50.0)) ]
-  let origin_right = style [ transform_origin (XY (Pct 100.0, Pct 50.0)) ]
-
-  (* corners use two percentage values *)
+  let origin_top = style [ transform_origin Top ]
+  let origin_bottom = style [ transform_origin Bottom ]
+  let origin_left = style [ transform_origin (X (Pct 0.0)) ]
+  let origin_right = style [ transform_origin (X (Pct 100.0)) ]
   let origin_top_left = style [ transform_origin (XY (Pct 0.0, Pct 0.0)) ]
   let origin_top_right = style [ transform_origin (XY (Pct 100.0, Pct 0.0)) ]
   let origin_bottom_left = style [ transform_origin (XY (Pct 0.0, Pct 100.0)) ]
