@@ -139,12 +139,12 @@ module Handler = struct
     | Flex_auto -> "flex-auto"
     | Flex_initial -> "flex-initial"
     | Flex_none -> "flex-none"
-    (* Grow *)
-    | Flex_grow -> "flex-grow"
-    | Flex_grow_0 -> "flex-grow-0"
-    (* Shrink *)
-    | Flex_shrink -> "flex-shrink"
-    | Flex_shrink_0 -> "flex-shrink-0"
+    (* Grow - Tailwind v4 uses shorter names *)
+    | Flex_grow -> "grow"
+    | Flex_grow_0 -> "grow-0"
+    (* Shrink - Tailwind v4 uses shorter names *)
+    | Flex_shrink -> "shrink"
+    | Flex_shrink_0 -> "shrink-0"
     (* Basis *)
     | Basis_0 -> "basis-0"
     | Basis_1 -> "basis-1"

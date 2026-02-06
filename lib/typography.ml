@@ -806,6 +806,7 @@ module Typography_late = struct
     | (* Indent and line clamp *)
       Indent of int
     | Line_clamp of int
+    | Line_clamp_none
     | (* Content *)
       Content_none
     | Content of string
@@ -917,8 +918,9 @@ module Typography_late = struct
     | [ "diagonal"; "fractions" ] -> Ok Diagonal_fractions
     | [ "stacked"; "fractions" ] -> Ok Stacked_fractions
     | [ "indent"; n ] -> Parse.int_any n >|= fun i -> Indent i
+    | [ "line"; "clamp"; "none" ] -> Ok Line_clamp_none
     | [ "line"; "clamp"; n ] ->
-        Parse.int_bounded ~name:"line-clamp" ~min:0 ~max:6 n >|= fun i ->
+        Parse.int_bounded ~name:"line-clamp" ~min:1 ~max:999 n >|= fun i ->
         Line_clamp i
     | [ "content"; "none" ] -> Ok Content_none
     | "content" :: rest ->
@@ -1022,6 +1024,7 @@ module Typography_late = struct
     | Stacked_fractions -> "stacked-fractions"
     | Indent n -> "indent-" ^ string_of_int n
     | Line_clamp n -> "line-clamp-" ^ string_of_int n
+    | Line_clamp_none -> "line-clamp-none"
     | Content_none -> "content-none"
     | Content s -> "content-[\"" ^ s ^ "\"]"
 
@@ -1134,6 +1137,7 @@ module Typography_late = struct
     (* Indent and line clamp *)
     | Indent n -> 9800 + n
     | Line_clamp n -> 9900 + n
+    | Line_clamp_none -> 9999
     (* Content *)
     | Content_none -> 10000
     | Content _ -> 10001
@@ -1269,16 +1273,22 @@ module Typography_late = struct
       ]
 
   let line_clamp n =
-    if n = 0 then
-      style [ webkit_line_clamp Unset; overflow Visible; display Block ]
-    else
-      style
-        [
-          webkit_line_clamp (Lines n);
-          webkit_box_orient Vertical;
-          display Webkit_box;
-          overflow Hidden;
-        ]
+    style
+      [
+        webkit_line_clamp (Lines n);
+        webkit_box_orient Vertical;
+        display Webkit_box;
+        overflow Hidden;
+      ]
+
+  let line_clamp_none_style =
+    style
+      [
+        webkit_line_clamp Unset;
+        webkit_box_orient Horizontal;
+        display Block;
+        overflow Visible;
+      ]
 
   let content_none =
     let content_decl, content_ref = Var.binding content_var None in
@@ -1513,6 +1523,7 @@ module Typography_late = struct
     | Stacked_fractions -> stacked_fractions
     | Indent n -> indent n
     | Line_clamp n -> line_clamp n
+    | Line_clamp_none -> line_clamp_none_style
     | Content_none -> content_none
     | Content s -> content s
 end
