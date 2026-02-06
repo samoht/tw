@@ -24,6 +24,8 @@ module Handler = struct
     | Border_spacing of int
     | Table_auto
     | Table_fixed
+    | Caption_top
+    | Caption_bottom
 
   (** Extensible variant for table utilities *)
   type Utility.base += Self of t
@@ -41,11 +43,15 @@ module Handler = struct
         style [ Css.border_spacing (Rem (float_of_int n *. 0.25)) ]
     | Table_auto -> style [ Css.table_layout Auto ]
     | Table_fixed -> style [ Css.table_layout Fixed ]
+    | Caption_top -> style [ Css.caption_side Top ]
+    | Caption_bottom -> style [ Css.caption_side Bottom ]
 
   let suborder = function
     (* Alphabetical among display utilities (shared priority 4). table=13,
        table-auto=14, table-caption=15, ..., table-fixed=19,
        table-footer-group=20, ... *)
+    | Caption_bottom -> 1
+    | Caption_top -> 2
     | Table_auto -> 14
     | Table_fixed -> 19
     | Border_collapse -> 30
@@ -63,6 +69,8 @@ module Handler = struct
         | _ -> err_not_utility)
     | [ "table"; "auto" ] -> Ok Table_auto
     | [ "table"; "fixed" ] -> Ok Table_fixed
+    | [ "caption"; "top" ] -> Ok Caption_top
+    | [ "caption"; "bottom" ] -> Ok Caption_bottom
     | _ -> err_not_utility
 
   let to_class = function
@@ -71,6 +79,8 @@ module Handler = struct
     | Border_spacing n -> "border-spacing-" ^ string_of_int n
     | Table_auto -> "table-auto"
     | Table_fixed -> "table-fixed"
+    | Caption_top -> "caption-top"
+    | Caption_bottom -> "caption-bottom"
 end
 
 open Handler
@@ -86,3 +96,5 @@ let border_separate = utility Border_separate
 let border_spacing n = utility (Border_spacing n)
 let table_auto = utility Table_auto
 let table_fixed = utility Table_fixed
+let caption_top = utility Caption_top
+let caption_bottom = utility Caption_bottom
