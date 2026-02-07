@@ -274,7 +274,9 @@ module Handler = struct
   let bg_clip_border = style [ Css.background_clip Border_box ]
   let bg_clip_padding = style [ Css.background_clip Padding_box ]
   let bg_clip_content = style [ Css.background_clip Content_box ]
-  let bg_clip_text = style [ Css.background_clip Text ]
+
+  let bg_clip_text =
+    style [ Css.webkit_background_clip Text; Css.background_clip Text ]
 
   let to_style = function
     | Bg (color, shade) -> bg' ~shade color
