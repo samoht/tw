@@ -9,9 +9,7 @@
 
 let is_valid_class s =
   String.length s > 0
-  && s.[0] <> '-'
   && s.[0] <> '@'
-  && (not (String.contains s '['))
   && (not (String.contains s '('))
   && (not (Astring.String.is_suffix ~affix:"/foo" s))
   && (not (Astring.String.is_suffix ~affix:"/bar" s))
