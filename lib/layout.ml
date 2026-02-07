@@ -107,6 +107,14 @@ module Handler = struct
     | Object_bottom
     | Object_left
     | Object_right
+    | Object_bottom_left
+    | Object_bottom_right
+    | Object_left_bottom
+    | Object_left_top
+    | Object_right_bottom
+    | Object_right_top
+    | Object_top_left
+    | Object_top_right
     | (* Float *)
       Float_left
     | Float_right
@@ -200,12 +208,20 @@ module Handler = struct
     | Object_fill -> 602
     | Object_none -> 603
     | Object_scale_down -> 604
-    (* Object position - alphabetical: bottom, center, left, right, top *)
+    (* Object position - alphabetical: bottom, bottom-left, ..., top-right *)
     | Object_bottom -> 700
-    | Object_center -> 701
-    | Object_left -> 702
-    | Object_right -> 703
-    | Object_top -> 704
+    | Object_bottom_left -> 701
+    | Object_bottom_right -> 702
+    | Object_center -> 703
+    | Object_left -> 704
+    | Object_left_bottom -> 705
+    | Object_left_top -> 706
+    | Object_right -> 707
+    | Object_right_bottom -> 708
+    | Object_right_top -> 709
+    | Object_top -> 710
+    | Object_top_left -> 711
+    | Object_top_right -> 712
     (* Float - alphabetical order: end, left, none, right, start *)
     | Float_end -> 800
     | Float_left -> 801
@@ -289,6 +305,14 @@ module Handler = struct
     | Object_bottom -> "object-bottom"
     | Object_left -> "object-left"
     | Object_right -> "object-right"
+    | Object_bottom_left -> "object-bottom-left"
+    | Object_bottom_right -> "object-bottom-right"
+    | Object_left_bottom -> "object-left-bottom"
+    | Object_left_top -> "object-left-top"
+    | Object_right_bottom -> "object-right-bottom"
+    | Object_right_top -> "object-right-top"
+    | Object_top_left -> "object-top-left"
+    | Object_top_right -> "object-top-right"
     | Float_left -> "float-left"
     | Float_right -> "float-right"
     | Float_none -> "float-none"
@@ -363,6 +387,14 @@ module Handler = struct
     | Object_bottom -> style [ object_position Bottom ]
     | Object_left -> style [ object_position Left ]
     | Object_right -> style [ object_position Right ]
+    | Object_bottom_left -> style [ object_position Bottom_left ]
+    | Object_bottom_right -> style [ object_position Bottom_right ]
+    | Object_left_bottom -> style [ object_position Left_bottom ]
+    | Object_left_top -> style [ object_position Left_top ]
+    | Object_right_bottom -> style [ object_position Right_bottom ]
+    | Object_right_top -> style [ object_position Right_top ]
+    | Object_top_left -> style [ object_position Top_left ]
+    | Object_top_right -> style [ object_position Top_right ]
     | Float_left -> style [ Css.float Left ]
     | Float_right -> style [ Css.float Right ]
     | Float_none -> style [ Css.float None ]
@@ -454,6 +486,14 @@ module Handler = struct
     | [ "object"; "bottom" ] -> Ok Object_bottom
     | [ "object"; "left" ] -> Ok Object_left
     | [ "object"; "right" ] -> Ok Object_right
+    | [ "object"; "bottom"; "left" ] -> Ok Object_bottom_left
+    | [ "object"; "bottom"; "right" ] -> Ok Object_bottom_right
+    | [ "object"; "left"; "bottom" ] -> Ok Object_left_bottom
+    | [ "object"; "left"; "top" ] -> Ok Object_left_top
+    | [ "object"; "right"; "bottom" ] -> Ok Object_right_bottom
+    | [ "object"; "right"; "top" ] -> Ok Object_right_top
+    | [ "object"; "top"; "left" ] -> Ok Object_top_left
+    | [ "object"; "top"; "right" ] -> Ok Object_top_right
     | [ "float"; "left" ] -> Ok Float_left
     | [ "float"; "right" ] -> Ok Float_right
     | [ "float"; "none" ] -> Ok Float_none
@@ -543,6 +583,14 @@ let object_top = utility Object_top
 let object_bottom = utility Object_bottom
 let object_left = utility Object_left
 let object_right = utility Object_right
+let object_bottom_left = utility Object_bottom_left
+let object_bottom_right = utility Object_bottom_right
+let object_left_bottom = utility Object_left_bottom
+let object_left_top = utility Object_left_top
+let object_right_bottom = utility Object_right_bottom
+let object_right_top = utility Object_right_top
+let object_top_left = utility Object_top_left
+let object_top_right = utility Object_top_right
 let float_left = utility Float_left
 let float_right = utility Float_right
 let float_none = utility Float_none
