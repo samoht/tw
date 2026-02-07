@@ -132,6 +132,30 @@ val object_left : t
 val object_right : t
 (** [object_right] sets object-position to right. *)
 
+val object_bottom_left : t
+(** [object_bottom_left] sets object-position to left bottom. *)
+
+val object_bottom_right : t
+(** [object_bottom_right] sets object-position to right bottom. *)
+
+val object_left_bottom : t
+(** [object_left_bottom] sets object-position to left bottom. *)
+
+val object_left_top : t
+(** [object_left_top] sets object-position to left top. *)
+
+val object_right_bottom : t
+(** [object_right_bottom] sets object-position to right bottom. *)
+
+val object_right_top : t
+(** [object_right_top] sets object-position to right top. *)
+
+val object_top_left : t
+(** [object_top_left] sets object-position to left top. *)
+
+val object_top_right : t
+(** [object_top_right] sets object-position to right top. *)
+
 (** {1 Float Utilities} *)
 
 val float_left : t
