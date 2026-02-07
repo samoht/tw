@@ -27,12 +27,20 @@ module Handler = struct
     | Justify_between
     | Justify_around
     | Justify_evenly
+    | Justify_normal
+    | Justify_stretch
+    | Justify_center_safe
+    | Justify_end_safe
     | (* Align items *)
       Items_start
     | Items_end
     | Items_center
     | Items_baseline
     | Items_stretch
+    | Items_baseline_last
+    | Items_center_safe
+    | Items_end_safe
+    | Items_start_safe
     | (* Align content *)
       Content_start
     | Content_end
@@ -101,11 +109,23 @@ module Handler = struct
   let justify_between = style [ justify_content Space_between ]
   let justify_around = style [ justify_content Space_around ]
   let justify_evenly = style [ justify_content Space_evenly ]
+  let justify_normal = style [ justify_content Normal ]
+  let justify_stretch = style [ justify_content Stretch ]
+
+  (* Safe variants - safe is the default behavior in CSS *)
+  let justify_center_safe = style [ justify_content Center ]
+  let justify_end_safe = style [ justify_content Flex_end ]
   let items_start = style [ align_items Flex_start ]
   let items_end = style [ align_items Flex_end ]
   let items_center = style [ align_items Center ]
   let items_baseline = style [ align_items Baseline ]
   let items_stretch = style [ align_items Stretch ]
+  let items_baseline_last = style [ align_items Last_baseline ]
+
+  (* Safe variants - safe is the default behavior in CSS *)
+  let items_center_safe = style [ align_items Center ]
+  let items_end_safe = style [ align_items Flex_end ]
+  let items_start_safe = style [ align_items Flex_start ]
   let content_start = style [ align_content Start ]
   let content_end = style [ align_content End ]
   let content_center = style [ align_content Center ]
@@ -162,12 +182,20 @@ module Handler = struct
     | Justify_between -> justify_between
     | Justify_around -> justify_around
     | Justify_evenly -> justify_evenly
+    | Justify_normal -> justify_normal
+    | Justify_stretch -> justify_stretch
+    | Justify_center_safe -> justify_center_safe
+    | Justify_end_safe -> justify_end_safe
     (* Align items *)
     | Items_start -> items_start
     | Items_end -> items_end
     | Items_center -> items_center
     | Items_baseline -> items_baseline
     | Items_stretch -> items_stretch
+    | Items_baseline_last -> items_baseline_last
+    | Items_center_safe -> items_center_safe
+    | Items_end_safe -> items_end_safe
+    | Items_start_safe -> items_start_safe
     (* Align content *)
     | Content_start -> content_start
     | Content_end -> content_end
@@ -244,24 +272,32 @@ module Handler = struct
     | Content_evenly -> 24
     | Content_start -> 25
     | Content_stretch -> 26
-    (* Align items (30-39) - alphabetical *)
+    (* Align items (30-49) - alphabetical *)
     | Items_baseline -> 30
-    | Items_center -> 31
-    | Items_end -> 32
-    | Items_start -> 33
-    | Items_stretch -> 34
-    (* Justify content (40-49) - alphabetical *)
-    | Justify_around -> 40
-    | Justify_between -> 41
-    | Justify_center -> 42
-    | Justify_end -> 43
-    | Justify_evenly -> 44
-    | Justify_start -> 45
-    (* Justify items (50-59) - alphabetical *)
-    | Justify_items_center -> 50
-    | Justify_items_end -> 51
-    | Justify_items_start -> 52
-    | Justify_items_stretch -> 53
+    | Items_baseline_last -> 31
+    | Items_center -> 32
+    | Items_center_safe -> 33
+    | Items_end -> 34
+    | Items_end_safe -> 35
+    | Items_start -> 36
+    | Items_start_safe -> 37
+    | Items_stretch -> 38
+    (* Justify content (50-69) - alphabetical *)
+    | Justify_around -> 50
+    | Justify_between -> 51
+    | Justify_center -> 52
+    | Justify_center_safe -> 53
+    | Justify_end -> 54
+    | Justify_end_safe -> 55
+    | Justify_evenly -> 56
+    | Justify_normal -> 57
+    | Justify_start -> 58
+    | Justify_stretch -> 59
+    (* Justify items (70-79) - alphabetical *)
+    | Justify_items_center -> 70
+    | Justify_items_end -> 71
+    | Justify_items_start -> 72
+    | Justify_items_stretch -> 73
     (* Self alignments: 76000+ (after gap's max of 75000 for gap-y-full) *)
     (* Place self (76000-76009) - alphabetical *)
     | Place_self_auto -> 76000
@@ -298,12 +334,20 @@ module Handler = struct
     | "justify-between" -> Ok Justify_between
     | "justify-around" -> Ok Justify_around
     | "justify-evenly" -> Ok Justify_evenly
+    | "justify-normal" -> Ok Justify_normal
+    | "justify-stretch" -> Ok Justify_stretch
+    | "justify-center-safe" -> Ok Justify_center_safe
+    | "justify-end-safe" -> Ok Justify_end_safe
     (* Align items *)
     | "items-start" -> Ok Items_start
     | "items-end" -> Ok Items_end
     | "items-center" -> Ok Items_center
     | "items-baseline" -> Ok Items_baseline
     | "items-stretch" -> Ok Items_stretch
+    | "items-baseline-last" -> Ok Items_baseline_last
+    | "items-center-safe" -> Ok Items_center_safe
+    | "items-end-safe" -> Ok Items_end_safe
+    | "items-start-safe" -> Ok Items_start_safe
     (* Align content *)
     | "content-start" -> Ok Content_start
     | "content-end" -> Ok Content_end
@@ -366,12 +410,20 @@ module Handler = struct
     | Justify_between -> "justify-between"
     | Justify_around -> "justify-around"
     | Justify_evenly -> "justify-evenly"
+    | Justify_normal -> "justify-normal"
+    | Justify_stretch -> "justify-stretch"
+    | Justify_center_safe -> "justify-center-safe"
+    | Justify_end_safe -> "justify-end-safe"
     (* Align items *)
     | Items_start -> "items-start"
     | Items_end -> "items-end"
     | Items_center -> "items-center"
     | Items_baseline -> "items-baseline"
     | Items_stretch -> "items-stretch"
+    | Items_baseline_last -> "items-baseline-last"
+    | Items_center_safe -> "items-center-safe"
+    | Items_end_safe -> "items-end-safe"
+    | Items_start_safe -> "items-start-safe"
     (* Align content *)
     | Content_start -> "content-start"
     | Content_end -> "content-end"
