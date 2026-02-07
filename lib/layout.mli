@@ -149,4 +149,10 @@ val float_start : t
 val float_end : t
 (** [float_end] sets float to inline-end. *)
 
+val box_decoration_clone : t
+(** [box_decoration_clone] sets box-decoration-break to clone. *)
+
+val box_decoration_slice : t
+(** [box_decoration_slice] sets box-decoration-break to slice. *)
+
 module Handler : Utility.Handler
