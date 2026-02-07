@@ -47,7 +47,11 @@ module Handler = struct
     | Self_end
     | Self_center
     | Self_baseline
+    | Self_baseline_last
     | Self_stretch
+    | Self_center_safe
+    | Self_end_safe
+    | Self_start_safe
     | (* Justify items *)
       Justify_items_start
     | Justify_items_end
@@ -111,7 +115,13 @@ module Handler = struct
   let self_end = style [ align_self Flex_end ]
   let self_center = style [ align_self Center ]
   let self_baseline = style [ align_self Baseline ]
+  let self_baseline_last = style [ align_self Last_baseline ]
   let self_stretch = style [ align_self Stretch ]
+
+  (* Safe variants - safe is the default behavior in CSS *)
+  let self_center_safe = style [ align_self Center ]
+  let self_end_safe = style [ align_self Flex_end ]
+  let self_start_safe = style [ align_self Flex_start ]
   let justify_items_start = style [ justify_items Start ]
   let justify_items_end = style [ justify_items End ]
   let justify_items_center = style [ justify_items Center ]
@@ -166,7 +176,11 @@ module Handler = struct
     | Self_end -> self_end
     | Self_center -> self_center
     | Self_baseline -> self_baseline
+    | Self_baseline_last -> self_baseline_last
     | Self_stretch -> self_stretch
+    | Self_center_safe -> self_center_safe
+    | Self_end_safe -> self_end_safe
+    | Self_start_safe -> self_start_safe
     (* Justify items *)
     | Justify_items_start -> justify_items_start
     | Justify_items_end -> justify_items_end
@@ -246,19 +260,23 @@ module Handler = struct
     | Place_self_end -> 76002
     | Place_self_start -> 76003
     | Place_self_stretch -> 76004
-    (* Align self (76010-76019) - alphabetical *)
+    (* Align self (76010-76029) - alphabetical *)
     | Self_auto -> 76010
     | Self_baseline -> 76011
-    | Self_center -> 76012
-    | Self_end -> 76013
-    | Self_start -> 76014
-    | Self_stretch -> 76015
-    (* Justify self (76020-76029) - alphabetical *)
-    | Justify_self_auto -> 76020
-    | Justify_self_center -> 76021
-    | Justify_self_end -> 76022
-    | Justify_self_start -> 76023
-    | Justify_self_stretch -> 76024
+    | Self_baseline_last -> 76012
+    | Self_center -> 76013
+    | Self_center_safe -> 76014
+    | Self_end -> 76015
+    | Self_end_safe -> 76016
+    | Self_start -> 76017
+    | Self_start_safe -> 76018
+    | Self_stretch -> 76019
+    (* Justify self (76030-76039) - alphabetical *)
+    | Justify_self_auto -> 76030
+    | Justify_self_center -> 76031
+    | Justify_self_end -> 76032
+    | Justify_self_start -> 76033
+    | Justify_self_stretch -> 76034
 
   let of_class = function
     (* Justify content *)
@@ -288,7 +306,11 @@ module Handler = struct
     | "self-end" -> Ok Self_end
     | "self-center" -> Ok Self_center
     | "self-baseline" -> Ok Self_baseline
+    | "self-baseline-last" -> Ok Self_baseline_last
     | "self-stretch" -> Ok Self_stretch
+    | "self-center-safe" -> Ok Self_center_safe
+    | "self-end-safe" -> Ok Self_end_safe
+    | "self-start-safe" -> Ok Self_start_safe
     (* Justify items *)
     | "justify-items-start" -> Ok Justify_items_start
     | "justify-items-end" -> Ok Justify_items_end
@@ -349,7 +371,11 @@ module Handler = struct
     | Self_end -> "self-end"
     | Self_center -> "self-center"
     | Self_baseline -> "self-baseline"
+    | Self_baseline_last -> "self-baseline-last"
     | Self_stretch -> "self-stretch"
+    | Self_center_safe -> "self-center-safe"
+    | Self_end_safe -> "self-end-safe"
+    | Self_start_safe -> "self-start-safe"
     (* Justify items *)
     | Justify_items_start -> "justify-items-start"
     | Justify_items_end -> "justify-items-end"
