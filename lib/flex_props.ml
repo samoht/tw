@@ -15,6 +15,8 @@ module Handler = struct
     | Flex_auto
     | Flex_initial
     | Flex_none
+    | Flex_n of int (* flex-N where N is any integer *)
+    | Flex_fraction of int * int (* flex-N/M where N/M is a fraction *)
     (* Grow *)
     | Flex_grow
     | Flex_grow_0
@@ -45,6 +47,14 @@ module Handler = struct
   let flex_initial = style [ flex (Full (0., 1., Auto)) ]
   let flex_none = style [ flex None ]
 
+  (* flex-N: flex: N *)
+  let flex_n_style n = style [ flex (Grow (float_of_int n)) ]
+
+  (* flex-N/M: flex: (N/M * 100)% - evaluates the fraction *)
+  let flex_fraction_style n m =
+    let pct_value = float_of_int n /. float_of_int m *. 100.0 in
+    style [ flex (Basis (Pct pct_value)) ]
+
   (* Grow *)
   let flex_grow_utility = style [ flex_grow 1.0 ]
   let flex_grow_0_utility = style [ flex_grow 0.0 ]
@@ -70,6 +80,8 @@ module Handler = struct
     | Flex_auto -> flex_auto
     | Flex_initial -> flex_initial
     | Flex_none -> flex_none
+    | Flex_n n -> flex_n_style n
+    | Flex_fraction (n, m) -> flex_fraction_style n m
     | Flex_grow -> flex_grow_utility
     | Flex_grow_0 -> flex_grow_0_utility
     | Flex_shrink -> flex_shrink_utility
@@ -90,24 +102,40 @@ module Handler = struct
     | Order_first -> 7
     | Order_last -> 8
     | Order_none -> 9
-    (* Flex shortcuts - alphabetical: 1, auto, initial, none *)
-    | Flex_1 -> 20
-    | Flex_auto -> 21
-    | Flex_initial -> 22
-    | Flex_none -> 23
-    (* Shrink - alphabetical: shrink, shrink-0 *)
-    | Flex_shrink -> 30
-    | Flex_shrink_0 -> 31
-    (* Grow - alphabetical: grow, grow-0 *)
-    | Flex_grow -> 40
-    | Flex_grow_0 -> 41
-    (* Basis - alphabetical: 0, 1, auto, full *)
-    | Basis_0 -> 50
-    | Basis_1 -> 51
-    | Basis_auto -> 52
-    | Basis_full -> 53
+    (* Tailwind flex order: flex-1 < fractions < numbers < auto < initial <
+       none *)
+    | Flex_1 -> 10
+    (* Fractions: sorted by numerator then denominator (1/2 < 1/3 < 1/4 <
+       2/3...) *)
+    | Flex_fraction (n, m) -> 20 + (n * 100) + m
+    (* flex-N values: after fractions, ordered by value *)
+    | Flex_n n -> 2000 + n
+    (* Named shortcuts come last *)
+    | Flex_auto -> 10000
+    | Flex_initial -> 10001
+    | Flex_none -> 10002
+    (* Shrink *)
+    | Flex_shrink -> 20000
+    | Flex_shrink_0 -> 20001
+    (* Grow *)
+    | Flex_grow -> 30000
+    | Flex_grow_0 -> 30001
+    (* Basis *)
+    | Basis_0 -> 40000
+    | Basis_1 -> 40001
+    | Basis_auto -> 40002
+    | Basis_full -> 40003
 
   let err_not_utility = Error (`Msg "Not a flex property utility")
+
+  let parse_fraction s =
+    (* Parse "N/M" into (N, M) *)
+    match String.split_on_char '/' s with
+    | [ n_str; m_str ] -> (
+        match (int_of_string_opt n_str, int_of_string_opt m_str) with
+        | Some n, Some m when n > 0 && m > 0 -> Some (n, m)
+        | _ -> None)
+    | _ -> None
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
@@ -131,6 +159,15 @@ module Handler = struct
         match int_of_string_opt n with
         | Some n when n >= 1 -> Ok (Order n)
         | _ -> err_not_utility)
+    | [ "flex"; value ] -> (
+        (* Try fraction first (e.g., "1/2") *)
+        match parse_fraction value with
+        | Some (n, m) -> Ok (Flex_fraction (n, m))
+        | None -> (
+            (* Try numeric value (e.g., "99") *)
+            match int_of_string_opt value with
+            | Some n when n > 1 -> Ok (Flex_n n)
+            | _ -> err_not_utility))
     | _ -> err_not_utility
 
   let to_class = function
@@ -139,6 +176,8 @@ module Handler = struct
     | Flex_auto -> "flex-auto"
     | Flex_initial -> "flex-initial"
     | Flex_none -> "flex-none"
+    | Flex_n n -> "flex-" ^ string_of_int n
+    | Flex_fraction (n, m) -> "flex-" ^ string_of_int n ^ "/" ^ string_of_int m
     (* Grow - Tailwind v4 uses shorter names *)
     | Flex_grow -> "grow"
     | Flex_grow_0 -> "grow-0"

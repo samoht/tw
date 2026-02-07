@@ -33,6 +33,9 @@ module Handler = struct
     | Ring_xl
     | Ring_inset
     | Ring_color of Color.color * int
+    | Ring_offset_width of int
+    | Ring_offset_color of Color.color * int
+    | Inset_ring_color of Color.color * int
     (* Mix blend modes *)
     | Mix_blend_normal
     | Mix_blend_multiply
@@ -566,7 +569,7 @@ module Handler = struct
 
   let inset_shadow_internal (size : inset_shadow_size) =
     (* Inset shadow sizes matching Tailwind v4: inset-shadow-none: 0 0 #0000
-       inset-shadow-sm: inset 0 2px 4px color inset-shadow: inset 0 2px 4px
+       inset-shadow-sm: inset 0 1px 1px color inset-shadow: inset 0 2px 4px
        color inset-shadow-md: inset 0 4px 6px color inset-shadow-lg: inset 0 4px
        8px color inset-shadow-xl: inset 0 6px 10px color inset-shadow-2xl: inset
        0 8px 25px color *)
@@ -578,7 +581,7 @@ module Handler = struct
       | `None ->
           Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ()
       | `Sm ->
-          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:(Px 2.) ~blur:(Px 4.)
+          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 1.)
             ~color:(Var color_ref) ()
       | `Default | `Md ->
           Css.shadow ~inset:true ~h_offset:Zero ~v_offset:(Px 4.) ~blur:(Px 6.)
@@ -744,6 +747,37 @@ module Handler = struct
     (* Include color_decl so the theme variable gets emitted to @layer theme *)
     style [ color_decl; d ]
 
+  let ring_offset_width n =
+    (* Sets --tw-ring-offset-width and --tw-ring-offset-shadow Format:
+       var(--tw-ring-inset,) 0 0 0 var(--tw-ring-offset-width)
+       var(--tw-ring-offset-color) *)
+    let width_value : Css.length = Px (float_of_int n) in
+    let d_width, width_ref = Var.binding ring_offset_width_var width_value in
+    let color_ref = Var.reference ring_offset_color_var in
+    let shadow_value =
+      Css.shadow ~inset:false ~inset_var:"tw-ring-inset" ~h_offset:Zero
+        ~v_offset:Zero ~blur:Zero ~spread:(Var width_ref) ~color:(Var color_ref)
+        ()
+    in
+    let d_shadow, _ = Var.binding ring_offset_shadow_var shadow_value in
+    style [ d_width; d_shadow ]
+
+  let ring_offset_color color shade =
+    (* Sets --tw-ring-offset-color to reference theme color variable *)
+    let color_theme_var = Color.get_color_var color shade in
+    let color_value = Color.to_css color shade in
+    let color_decl, color_ref = Var.binding color_theme_var color_value in
+    let d, _ = Var.binding ring_offset_color_var (Css.Var color_ref) in
+    style [ color_decl; d ]
+
+  let inset_ring_color color shade =
+    (* Sets --tw-inset-ring-color to reference theme color variable *)
+    let color_theme_var = Color.get_color_var color shade in
+    let color_value = Color.to_css color shade in
+    let color_decl, color_ref = Var.binding color_theme_var color_value in
+    let d, _ = Var.binding inset_ring_color_var (Css.Var color_ref) in
+    style [ color_decl; d ]
+
   let opacity n =
     let value = float_of_int n /. 100.0 in
     style [ opacity value ]
@@ -811,6 +845,9 @@ module Handler = struct
     | Ring_xl -> ring_xl
     | Ring_inset -> ring_inset
     | Ring_color (color, shade) -> ring_color color shade
+    | Ring_offset_width n -> ring_offset_width n
+    | Ring_offset_color (color, shade) -> ring_offset_color color shade
+    | Inset_ring_color (color, shade) -> inset_ring_color color shade
     | Mix_blend_normal -> mix_blend_normal
     | Mix_blend_multiply -> mix_blend_multiply
     | Mix_blend_screen -> mix_blend_screen
@@ -877,9 +914,21 @@ module Handler = struct
     | [ "ring"; "4" ] -> Ok Ring_lg
     | [ "ring"; "8" ] -> Ok Ring_xl
     | [ "ring"; "inset" ] -> Ok Ring_inset
+    | [ "ring"; "offset"; n ] -> (
+        match Parse.int_any n with
+        | Ok width -> Ok (Ring_offset_width width)
+        | Error _ -> err_not_utility)
     | [ "ring"; color; shade ] -> (
         match (Color.of_string color, Parse.int_any shade) with
         | Ok c, Ok s -> Ok (Ring_color (c, s))
+        | _ -> err_not_utility)
+    | [ "ring"; "offset"; color; shade ] -> (
+        match (Color.of_string color, Parse.int_any shade) with
+        | Ok c, Ok s -> Ok (Ring_offset_color (c, s))
+        | _ -> err_not_utility)
+    | [ "inset"; "ring"; color; shade ] -> (
+        match (Color.of_string color, Parse.int_any shade) with
+        | Ok c, Ok s -> Ok (Inset_ring_color (c, s))
         | _ -> err_not_utility)
     | [ "mix"; "blend"; "normal" ] -> Ok Mix_blend_normal
     | [ "mix"; "blend"; "multiply" ] -> Ok Mix_blend_multiply
@@ -943,6 +992,11 @@ module Handler = struct
     | Ring_inset -> "ring-inset"
     | Ring_color (color, shade) ->
         "ring-" ^ Color.pp color ^ "-" ^ string_of_int shade
+    | Ring_offset_width n -> "ring-offset-" ^ string_of_int n
+    | Ring_offset_color (color, shade) ->
+        "ring-offset-" ^ Color.pp color ^ "-" ^ string_of_int shade
+    | Inset_ring_color (color, shade) ->
+        "inset-ring-" ^ Color.pp color ^ "-" ^ string_of_int shade
     | Mix_blend_normal -> "mix-blend-normal"
     | Mix_blend_multiply -> "mix-blend-multiply"
     | Mix_blend_screen -> "mix-blend-screen"
@@ -1033,16 +1087,26 @@ module Handler = struct
     | Bg_blend_saturation -> 3013
     | Bg_blend_screen -> 3014
     | Bg_blend_soft_light -> 3015
-    | Ring_none -> 4000
-    | Ring_xs -> 4001
-    | Ring_sm -> 4002
-    | Ring_md -> 4003
-    | Ring_lg -> 4004
-    | Ring_xl -> 4005
-    | Ring_inset -> 4006
+    (* Ring utilities ordered to match Tailwind: 1. ring widths, 2. ring-color,
+       3. inset-ring-color, 4. ring-offset-width, 5. ring-offset-color, 6.
+       ring-inset *)
+    | Ring_md -> 10000 (* ring - comes first *)
+    | Ring_none -> 10001 (* ring-0 *)
+    | Ring_xs -> 10002 (* ring-1 *)
+    | Ring_sm -> 10003 (* ring-2 *)
+    | Ring_lg -> 10004 (* ring-4 *)
+    | Ring_xl -> 10005 (* ring-8 *)
     | Ring_color (color, shade) ->
-        4100
+        20000
         + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
+    | Inset_ring_color (color, shade) ->
+        50000
+        + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
+    | Ring_offset_width n -> 80000 + n
+    | Ring_offset_color (color, shade) ->
+        100000
+        + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
+    | Ring_inset -> 150000
 end
 
 open Handler
