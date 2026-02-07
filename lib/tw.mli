@@ -258,7 +258,12 @@ val aspect_ratio : int -> int -> t
     @see <https://tailwindcss.com/docs/box-decoration-break>
       Box Decoration Break *)
 
-(** TODO: Implement box-decoration-break utilities. *)
+val box_decoration_clone : t
+(** [box_decoration_clone] replicates the element's box decoration across
+    fragment boxes. *)
+
+val box_decoration_slice : t
+(** [box_decoration_slice] slices the box decoration across fragment boxes. *)
 
 (** {2 Box Sizing}
     @see <https://tailwindcss.com/docs/box-sizing> Box Sizing *)
