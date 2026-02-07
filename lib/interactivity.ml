@@ -51,6 +51,12 @@ module Handler = struct
     | Will_change_transform
     | Group  (** Marker class for group parent *)
     | Peer  (** Marker class for peer sibling *)
+    | Scheme_dark
+    | Scheme_light
+    | Scheme_light_dark
+    | Scheme_normal
+    | Scheme_only_dark
+    | Scheme_only_light
 
   type Utility.base += Self of t
 
@@ -142,6 +148,12 @@ module Handler = struct
   let will_change_transform_s = style [ will_change Css.Transform ]
   let group_s = style []
   let peer_s = style []
+  let scheme_dark_s = style [ color_scheme Dark ]
+  let scheme_light_s = style [ color_scheme Light ]
+  let scheme_light_dark_s = style [ color_scheme Light_dark ]
+  let scheme_normal_s = style [ color_scheme Normal ]
+  let scheme_only_dark_s = style [ color_scheme Only_dark ]
+  let scheme_only_light_s = style [ color_scheme Only_light ]
 
   let to_style = function
     | Select_none -> select_none_s
@@ -176,6 +188,12 @@ module Handler = struct
     | Will_change_transform -> will_change_transform_s
     | Group -> group_s
     | Peer -> peer_s
+    | Scheme_dark -> scheme_dark_s
+    | Scheme_light -> scheme_light_s
+    | Scheme_light_dark -> scheme_light_dark_s
+    | Scheme_normal -> scheme_normal_s
+    | Scheme_only_dark -> scheme_only_dark_s
+    | Scheme_only_light -> scheme_only_light_s
 
   let suborder = function
     (* Alphabetical order: scroll before select *)
@@ -211,6 +229,12 @@ module Handler = struct
     | Will_change_transform -> 34
     | Group -> 35
     | Peer -> 36
+    | Scheme_dark -> 40
+    | Scheme_light -> 41
+    | Scheme_light_dark -> 42
+    | Scheme_normal -> 43
+    | Scheme_only_dark -> 44
+    | Scheme_only_light -> 45
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
@@ -247,6 +271,12 @@ module Handler = struct
     | [ "will"; "change"; "transform" ] -> Ok Will_change_transform
     | [ "group" ] -> Ok Group
     | [ "peer" ] -> Ok Peer
+    | [ "scheme"; "dark" ] -> Ok Scheme_dark
+    | [ "scheme"; "light" ] -> Ok Scheme_light
+    | [ "scheme"; "light"; "dark" ] -> Ok Scheme_light_dark
+    | [ "scheme"; "normal" ] -> Ok Scheme_normal
+    | [ "scheme"; "only"; "dark" ] -> Ok Scheme_only_dark
+    | [ "scheme"; "only"; "light" ] -> Ok Scheme_only_light
     | _ -> err_not_utility
 
   let to_class = function
@@ -282,6 +312,12 @@ module Handler = struct
     | Will_change_transform -> "will-change-transform"
     | Group -> "group"
     | Peer -> "peer"
+    | Scheme_dark -> "scheme-dark"
+    | Scheme_light -> "scheme-light"
+    | Scheme_light_dark -> "scheme-light-dark"
+    | Scheme_normal -> "scheme-normal"
+    | Scheme_only_dark -> "scheme-only-dark"
+    | Scheme_only_light -> "scheme-only-light"
 end
 
 open Handler
@@ -320,3 +356,9 @@ let will_change_contents = utility Will_change_contents
 let will_change_transform = utility Will_change_transform
 let group = utility Group
 let peer = utility Peer
+let scheme_dark = utility Scheme_dark
+let scheme_light = utility Scheme_light
+let scheme_light_dark = utility Scheme_light_dark
+let scheme_normal = utility Scheme_normal
+let scheme_only_dark = utility Scheme_only_dark
+let scheme_only_light = utility Scheme_only_light
