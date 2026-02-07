@@ -120,6 +120,9 @@ module Handler = struct
     | Clear_both
     | Clear_start
     | Clear_end
+    | (* Box decoration break *)
+      Box_decoration_clone
+    | Box_decoration_slice
 
   type Utility.base += Self of t
 
@@ -195,6 +198,9 @@ module Handler = struct
     | Clear_none -> 903
     | Clear_right -> 904
     | Clear_start -> 905
+    (* Box decoration break - alphabetical: clone, slice *)
+    | Box_decoration_clone -> 1000
+    | Box_decoration_slice -> 1001
 
   (** {1 Style Generation} *)
 
@@ -249,6 +255,8 @@ module Handler = struct
     | Clear_both -> "clear-both"
     | Clear_start -> "clear-start"
     | Clear_end -> "clear-end"
+    | Box_decoration_clone -> "box-decoration-clone"
+    | Box_decoration_slice -> "box-decoration-slice"
 
   let to_style = function
     | Block -> style [ display Block ]
@@ -301,6 +309,18 @@ module Handler = struct
     | Clear_both -> style [ Css.clear Both ]
     | Clear_start -> style [ Css.clear Inline_start ]
     | Clear_end -> style [ Css.clear Inline_end ]
+    | Box_decoration_clone ->
+        style
+          [
+            Css.webkit_box_decoration_break Clone;
+            Css.box_decoration_break Clone;
+          ]
+    | Box_decoration_slice ->
+        style
+          [
+            Css.webkit_box_decoration_break Slice;
+            Css.box_decoration_break Slice;
+          ]
 
   (** {1 Parsing Functions} *)
 
@@ -357,6 +377,8 @@ module Handler = struct
     | [ "clear"; "both" ] -> Ok Clear_both
     | [ "clear"; "start" ] -> Ok Clear_start
     | [ "clear"; "end" ] -> Ok Clear_end
+    | [ "box"; "decoration"; "clone" ] -> Ok Box_decoration_clone
+    | [ "box"; "decoration"; "slice" ] -> Ok Box_decoration_slice
     | _ -> Error (`Msg "Not a layout utility")
 end
 
@@ -420,3 +442,7 @@ let float_end = utility Float_end
 let sr_utility x = Utility.base (Screen_reader_handler.Self x)
 let sr_only = sr_utility Screen_reader_handler.Sr_only
 let not_sr_only = sr_utility Screen_reader_handler.Not_sr_only
+
+(* Box decoration break utilities *)
+let box_decoration_clone = utility Box_decoration_clone
+let box_decoration_slice = utility Box_decoration_slice
