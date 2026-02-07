@@ -179,12 +179,12 @@ module Handler = struct
     | Object_fill -> 602
     | Object_none -> 603
     | Object_scale_down -> 604
-    (* Object position *)
-    | Object_center -> 700
-    | Object_top -> 701
-    | Object_bottom -> 702
-    | Object_left -> 703
-    | Object_right -> 704
+    (* Object position - alphabetical: bottom, center, left, right, top *)
+    | Object_bottom -> 700
+    | Object_center -> 701
+    | Object_left -> 702
+    | Object_right -> 703
+    | Object_top -> 704
     (* Float - alphabetical order: end, left, none, right, start *)
     | Float_end -> 800
     | Float_left -> 801
@@ -294,10 +294,10 @@ module Handler = struct
     | Object_none -> style [ object_fit None ]
     | Object_scale_down -> style [ object_fit Scale_down ]
     | Object_center -> style [ object_position Center ]
-    | Object_top -> style [ object_position Center_top ]
-    | Object_bottom -> style [ object_position Center_bottom ]
-    | Object_left -> style [ object_position Left_center ]
-    | Object_right -> style [ object_position Right_center ]
+    | Object_top -> style [ object_position Top ]
+    | Object_bottom -> style [ object_position Bottom ]
+    | Object_left -> style [ object_position Left ]
+    | Object_right -> style [ object_position Right ]
     | Float_left -> style [ Css.float Left ]
     | Float_right -> style [ Css.float Right ]
     | Float_none -> style [ Css.float None ]

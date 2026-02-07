@@ -2,16 +2,24 @@
 
 (** {1 Helper Functions} *)
 
-(* Use shared spacing variable from Theme *)
-let spacing_var = Theme.spacing_var
-
+(* Create a spacing value using the named spacing variable --spacing-N. Returns
+   the theme declaration and a length that references the variable. For negative
+   values, uses calc(var(--spacing-N) * -1) where N is absolute. *)
 let spacing_value n : Css.declaration * Css.length =
-  let decl, spacing_ref = Var.binding spacing_var (Css.Rem 0.25) in
-  ( decl,
-    Css.Calc
-      (Css.Calc.mul
-         (Css.Calc.length (Css.Var spacing_ref))
-         (Css.Calc.float (float_of_int n))) )
+  let abs_n = abs n in
+  let spacing_var = Theme.get_spacing_var abs_n in
+  let concrete_value = Theme.spacing_value abs_n in
+  let decl, spacing_ref = Var.binding spacing_var concrete_value in
+  let len : Css.length =
+    if n < 0 then
+      (* For negative: calc(var(--spacing-N) * -1) *)
+      Css.Calc
+        (Css.Calc.mul
+           (Css.Calc.length (Css.Var spacing_ref))
+           (Css.Calc.float (-1.)))
+    else Css.Var spacing_ref
+  in
+  (decl, len)
 
 module Handler = struct
   open Style
