@@ -1,4 +1,3 @@
-Parsing /Users/samoht/git/tailwindcss/packages/tailwindcss/src/utilities.test.ts...
 # sr-only
 sr-only
 ---
@@ -16305,4 +16304,3 @@ ring-offset-inset ring-offset-red-500 ring-offset-red-500/50
       --tw-ring-offset-color: transparent;
     }
 <<<>>>
-Extracted 354 test cases (223 with expected CSS)

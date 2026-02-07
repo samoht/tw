@@ -123,6 +123,27 @@ module Handler = struct
     | (* Box decoration break *)
       Box_decoration_clone
     | Box_decoration_slice
+    | (* Break before/after/inside - page/column breaks *)
+      Break_before_all
+    | Break_before_auto
+    | Break_before_avoid
+    | Break_before_avoid_page
+    | Break_before_column
+    | Break_before_left
+    | Break_before_page
+    | Break_before_right
+    | Break_after_all
+    | Break_after_auto
+    | Break_after_avoid
+    | Break_after_avoid_page
+    | Break_after_column
+    | Break_after_left
+    | Break_after_page
+    | Break_after_right
+    | Break_inside_auto
+    | Break_inside_avoid
+    | Break_inside_avoid_column
+    | Break_inside_avoid_page
 
   type Utility.base += Self of t
 
@@ -201,6 +222,30 @@ module Handler = struct
     (* Box decoration break - alphabetical: clone, slice *)
     | Box_decoration_clone -> 1000
     | Box_decoration_slice -> 1001
+    (* Break before - alphabetical order (Tailwind: break-before < break-inside
+       < break-after) *)
+    | Break_before_all -> 1100
+    | Break_before_auto -> 1101
+    | Break_before_avoid -> 1102
+    | Break_before_avoid_page -> 1103
+    | Break_before_column -> 1104
+    | Break_before_left -> 1105
+    | Break_before_page -> 1106
+    | Break_before_right -> 1107
+    (* Break inside - alphabetical order *)
+    | Break_inside_auto -> 1200
+    | Break_inside_avoid -> 1201
+    | Break_inside_avoid_column -> 1202
+    | Break_inside_avoid_page -> 1203
+    (* Break after - alphabetical order *)
+    | Break_after_all -> 1300
+    | Break_after_auto -> 1301
+    | Break_after_avoid -> 1302
+    | Break_after_avoid_page -> 1303
+    | Break_after_column -> 1304
+    | Break_after_left -> 1305
+    | Break_after_page -> 1306
+    | Break_after_right -> 1307
 
   (** {1 Style Generation} *)
 
@@ -257,6 +302,26 @@ module Handler = struct
     | Clear_end -> "clear-end"
     | Box_decoration_clone -> "box-decoration-clone"
     | Box_decoration_slice -> "box-decoration-slice"
+    | Break_before_all -> "break-before-all"
+    | Break_before_auto -> "break-before-auto"
+    | Break_before_avoid -> "break-before-avoid"
+    | Break_before_avoid_page -> "break-before-avoid-page"
+    | Break_before_column -> "break-before-column"
+    | Break_before_left -> "break-before-left"
+    | Break_before_page -> "break-before-page"
+    | Break_before_right -> "break-before-right"
+    | Break_after_all -> "break-after-all"
+    | Break_after_auto -> "break-after-auto"
+    | Break_after_avoid -> "break-after-avoid"
+    | Break_after_avoid_page -> "break-after-avoid-page"
+    | Break_after_column -> "break-after-column"
+    | Break_after_left -> "break-after-left"
+    | Break_after_page -> "break-after-page"
+    | Break_after_right -> "break-after-right"
+    | Break_inside_auto -> "break-inside-auto"
+    | Break_inside_avoid -> "break-inside-avoid"
+    | Break_inside_avoid_column -> "break-inside-avoid-column"
+    | Break_inside_avoid_page -> "break-inside-avoid-page"
 
   let to_style = function
     | Block -> style [ display Block ]
@@ -321,6 +386,29 @@ module Handler = struct
             Css.webkit_box_decoration_break Slice;
             Css.box_decoration_break Slice;
           ]
+    (* Break before *)
+    | Break_before_all -> style [ Css.break_before All ]
+    | Break_before_auto -> style [ Css.break_before Auto ]
+    | Break_before_avoid -> style [ Css.break_before Avoid ]
+    | Break_before_avoid_page -> style [ Css.break_before Avoid_page ]
+    | Break_before_column -> style [ Css.break_before Column ]
+    | Break_before_left -> style [ Css.break_before Left ]
+    | Break_before_page -> style [ Css.break_before Page ]
+    | Break_before_right -> style [ Css.break_before Right ]
+    (* Break after *)
+    | Break_after_all -> style [ Css.break_after All ]
+    | Break_after_auto -> style [ Css.break_after Auto ]
+    | Break_after_avoid -> style [ Css.break_after Avoid ]
+    | Break_after_avoid_page -> style [ Css.break_after Avoid_page ]
+    | Break_after_column -> style [ Css.break_after Column ]
+    | Break_after_left -> style [ Css.break_after Left ]
+    | Break_after_page -> style [ Css.break_after Page ]
+    | Break_after_right -> style [ Css.break_after Right ]
+    (* Break inside *)
+    | Break_inside_auto -> style [ Css.break_inside Auto ]
+    | Break_inside_avoid -> style [ Css.break_inside Avoid ]
+    | Break_inside_avoid_column -> style [ Css.break_inside Avoid_column ]
+    | Break_inside_avoid_page -> style [ Css.break_inside Avoid_page ]
 
   (** {1 Parsing Functions} *)
 
@@ -379,6 +467,29 @@ module Handler = struct
     | [ "clear"; "end" ] -> Ok Clear_end
     | [ "box"; "decoration"; "clone" ] -> Ok Box_decoration_clone
     | [ "box"; "decoration"; "slice" ] -> Ok Box_decoration_slice
+    (* Break before *)
+    | [ "break"; "before"; "all" ] -> Ok Break_before_all
+    | [ "break"; "before"; "auto" ] -> Ok Break_before_auto
+    | [ "break"; "before"; "avoid" ] -> Ok Break_before_avoid
+    | [ "break"; "before"; "avoid"; "page" ] -> Ok Break_before_avoid_page
+    | [ "break"; "before"; "column" ] -> Ok Break_before_column
+    | [ "break"; "before"; "left" ] -> Ok Break_before_left
+    | [ "break"; "before"; "page" ] -> Ok Break_before_page
+    | [ "break"; "before"; "right" ] -> Ok Break_before_right
+    (* Break after *)
+    | [ "break"; "after"; "all" ] -> Ok Break_after_all
+    | [ "break"; "after"; "auto" ] -> Ok Break_after_auto
+    | [ "break"; "after"; "avoid" ] -> Ok Break_after_avoid
+    | [ "break"; "after"; "avoid"; "page" ] -> Ok Break_after_avoid_page
+    | [ "break"; "after"; "column" ] -> Ok Break_after_column
+    | [ "break"; "after"; "left" ] -> Ok Break_after_left
+    | [ "break"; "after"; "page" ] -> Ok Break_after_page
+    | [ "break"; "after"; "right" ] -> Ok Break_after_right
+    (* Break inside *)
+    | [ "break"; "inside"; "auto" ] -> Ok Break_inside_auto
+    | [ "break"; "inside"; "avoid" ] -> Ok Break_inside_avoid
+    | [ "break"; "inside"; "avoid"; "column" ] -> Ok Break_inside_avoid_column
+    | [ "break"; "inside"; "avoid"; "page" ] -> Ok Break_inside_avoid_page
     | _ -> Error (`Msg "Not a layout utility")
 end
 
@@ -446,3 +557,25 @@ let not_sr_only = sr_utility Screen_reader_handler.Not_sr_only
 (* Box decoration break utilities *)
 let box_decoration_clone = utility Box_decoration_clone
 let box_decoration_slice = utility Box_decoration_slice
+
+(* Break before/after/inside utilities - page/column breaks *)
+let break_before_all = utility Break_before_all
+let break_before_auto = utility Break_before_auto
+let break_before_avoid = utility Break_before_avoid
+let break_before_avoid_page = utility Break_before_avoid_page
+let break_before_column = utility Break_before_column
+let break_before_left = utility Break_before_left
+let break_before_page = utility Break_before_page
+let break_before_right = utility Break_before_right
+let break_after_all = utility Break_after_all
+let break_after_auto = utility Break_after_auto
+let break_after_avoid = utility Break_after_avoid
+let break_after_avoid_page = utility Break_after_avoid_page
+let break_after_column = utility Break_after_column
+let break_after_left = utility Break_after_left
+let break_after_page = utility Break_after_page
+let break_after_right = utility Break_after_right
+let break_inside_auto = utility Break_inside_auto
+let break_inside_avoid = utility Break_inside_avoid
+let break_inside_avoid_column = utility Break_inside_avoid_column
+let break_inside_avoid_page = utility Break_inside_avoid_page
