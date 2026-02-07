@@ -121,4 +121,27 @@ val group : Utility.t
 val peer : Utility.t
 (** [peer] marks an element as a peer for peer-hover, peer-focus, etc. *)
 
+(** {1 Color Scheme} *)
+
+val scheme_dark : Utility.t
+(** [scheme_dark] indicates dark color scheme is supported. *)
+
+val scheme_light : Utility.t
+(** [scheme_light] indicates light color scheme is supported. *)
+
+val scheme_light_dark : Utility.t
+(** [scheme_light_dark] indicates both light and dark color schemes are
+    supported. *)
+
+val scheme_normal : Utility.t
+(** [scheme_normal] uses the browser's default color scheme behavior. *)
+
+val scheme_only_dark : Utility.t
+(** [scheme_only_dark] indicates only dark color scheme is supported and
+    prevents user-agent modifications. *)
+
+val scheme_only_light : Utility.t
+(** [scheme_only_light] indicates only light color scheme is supported and
+    prevents user-agent modifications. *)
+
 module Handler : Utility.Handler
