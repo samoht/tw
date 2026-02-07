@@ -63,6 +63,9 @@ module Handler = struct
     | Justify_self_end
     | Justify_self_center
     | Justify_self_stretch
+    | Justify_self_center_safe
+    | Justify_self_end_safe
+    | Justify_self_start_safe
     | (* Place content *)
       Place_content_start
     | Place_content_end
@@ -131,6 +134,9 @@ module Handler = struct
   let justify_self_end = style [ justify_self Flex_end ]
   let justify_self_center = style [ justify_self Center ]
   let justify_self_stretch = style [ justify_self Stretch ]
+  let justify_self_center_safe = style [ justify_self Safe_center ]
+  let justify_self_end_safe = style [ justify_self Safe_flex_end ]
+  let justify_self_start_safe = style [ justify_self Safe_flex_start ]
   let place_content_start = style [ place_content Start ]
   let place_content_end = style [ place_content End ]
   let place_content_center = style [ place_content Center ]
@@ -192,6 +198,9 @@ module Handler = struct
     | Justify_self_end -> justify_self_end
     | Justify_self_center -> justify_self_center
     | Justify_self_stretch -> justify_self_stretch
+    | Justify_self_center_safe -> justify_self_center_safe
+    | Justify_self_end_safe -> justify_self_end_safe
+    | Justify_self_start_safe -> justify_self_start_safe
     (* Place content *)
     | Place_content_start -> place_content_start
     | Place_content_end -> place_content_end
@@ -271,12 +280,15 @@ module Handler = struct
     | Self_start -> 76017
     | Self_start_safe -> 76018
     | Self_stretch -> 76019
-    (* Justify self (76030-76039) - alphabetical *)
+    (* Justify self (76030-76049) - alphabetical *)
     | Justify_self_auto -> 76030
     | Justify_self_center -> 76031
-    | Justify_self_end -> 76032
-    | Justify_self_start -> 76033
-    | Justify_self_stretch -> 76034
+    | Justify_self_center_safe -> 76032
+    | Justify_self_end -> 76033
+    | Justify_self_end_safe -> 76034
+    | Justify_self_start -> 76035
+    | Justify_self_start_safe -> 76036
+    | Justify_self_stretch -> 76037
 
   let of_class = function
     (* Justify content *)
@@ -322,6 +334,9 @@ module Handler = struct
     | "justify-self-end" -> Ok Justify_self_end
     | "justify-self-center" -> Ok Justify_self_center
     | "justify-self-stretch" -> Ok Justify_self_stretch
+    | "justify-self-center-safe" -> Ok Justify_self_center_safe
+    | "justify-self-end-safe" -> Ok Justify_self_end_safe
+    | "justify-self-start-safe" -> Ok Justify_self_start_safe
     (* Place content *)
     | "place-content-start" -> Ok Place_content_start
     | "place-content-end" -> Ok Place_content_end
@@ -387,6 +402,9 @@ module Handler = struct
     | Justify_self_end -> "justify-self-end"
     | Justify_self_center -> "justify-self-center"
     | Justify_self_stretch -> "justify-self-stretch"
+    | Justify_self_center_safe -> "justify-self-center-safe"
+    | Justify_self_end_safe -> "justify-self-end-safe"
+    | Justify_self_start_safe -> "justify-self-start-safe"
     (* Place content *)
     | Place_content_start -> "place-content-start"
     | Place_content_end -> "place-content-end"
