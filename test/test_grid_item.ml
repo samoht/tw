@@ -57,10 +57,7 @@ let of_string_invalid () =
   (* Missing value *)
   fail_maybe [ "row"; "span" ];
   (* Missing span value *)
-  fail_maybe [ "row"; "span"; "0" ];
-  (* Out of range (below 1) *)
-  fail_maybe [ "row"; "span"; "13" ];
-  (* Out of range (above 12) *)
+  (* Note: Tailwind v4 accepts row-span-0 and values beyond 12 *)
   fail_maybe [ "row"; "span"; "invalid" ];
   (* Invalid value *)
   fail_maybe [ "row"; "start" ];
