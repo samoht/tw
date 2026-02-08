@@ -127,18 +127,15 @@ let run_test_case test () =
           match Tw.of_string cls with Ok u -> Some u | Error _ -> None)
         test.classes
     in
-    if utilities = [] then
-      (* If we can't parse any classes, but expected CSS exists, that's a
-         failure *)
-      if String.trim test.expected <> "" then
-        Alcotest.failf "Could not parse any classes: %s"
-          (String.concat " " test.classes)
-      else ()
-    else
-      let our_css =
+    (* Generate our CSS (empty string if no utilities parsed) *)
+    let our_css =
+      if utilities = [] then ""
+      else
         Tw.to_css ~base:false ~layers:false ~optimize:true utilities
         |> Css.to_string ~minify:false
-      in
+    in
+    if our_css = "" && String.trim test.expected = "" then ()
+    else
       (* Compare *)
       let diff =
         Tw_tools.Css_compare.diff ~expected:test.expected ~actual:our_css
