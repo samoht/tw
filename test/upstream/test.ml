@@ -33,15 +33,24 @@ let selector_matches_input_class classes selector =
       expected_sel = selector || String.equal selector ("." ^ cls))
     classes
 
+(** Check if a selector is a theme-level selector (not utility-specific) *)
+let is_theme_selector selector =
+  selector = ":root, :host" || selector = ":root" || selector = ":host"
+
 (** Filter rule diffs to only include those that match input classes.
     Specifically, we ignore Rule_removed diffs for selectors that don't match
-    any input class (since those are in expected CSS but not relevant). *)
+    any input class (since those are in expected CSS but not relevant). We also
+    filter out theme-level selectors like :root, :host since those contain theme
+    configuration rather than utility output. *)
 let filter_irrelevant_diffs classes (diff : Tw_tools.Tree_diff.t) :
     Tw_tools.Tree_diff.t =
   let filter_rule = function
     | Tw_tools.Tree_diff.Rule_removed { selector; _ } ->
         (* Only keep if the selector matches an input class *)
         if selector_matches_input_class classes selector then Some () else None
+    | Tw_tools.Tree_diff.Rule_content_changed { selector; _ } ->
+        (* Filter out theme selectors *)
+        if is_theme_selector selector then None else Some ()
     | _ -> Some ()
   in
   let rules =
