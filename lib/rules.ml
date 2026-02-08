@@ -1861,7 +1861,7 @@ let placeholder_supports =
   in
   let modern_support_stmt =
     Css.supports
-      ~condition:(Css.Supports.Raw "(color: color-mix(in lab, red, red))")
+      ~condition:(Css.Supports.Raw "(color:color-mix(in lab, red, red))")
       [ modern_rule ]
   in
 
@@ -1875,8 +1875,8 @@ let placeholder_supports =
       Css.supports
         ~condition:
           (Css.Supports.Raw
-             "(not ((-webkit-appearance: -apple-pay-button))) or \
-              (contain-intrinsic-size: 1px)")
+             "(not ((-webkit-appearance:-apple-pay-button))) or \
+              (contain-intrinsic-size:1px)")
         outer_support_content;
     ]
 
