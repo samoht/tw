@@ -30,6 +30,8 @@ module Handler = struct
     | Basis_full
     (* Order *)
     | Order of int
+    | Neg_order of int (* -order-4 = calc(4 * -1) *)
+    | Order_arbitrary of string (* order-[123] *)
     | Order_first
     | Order_last
     | Order_none
@@ -70,10 +72,10 @@ module Handler = struct
   let basis_full = style [ flex_basis (Pct 100.0) ]
 
   (* Order *)
-  let order_style n = style [ order n ]
-  let order_first = style [ order (-9999) ]
-  let order_last = style [ order 9999 ]
-  let order_none = style [ order 0 ]
+  let order_style n = style [ order (Order_int n) ]
+  let order_first = style [ order (Order_int (-9999)) ]
+  let order_last = style [ order (Order_int 9999) ]
+  let order_none = style [ order (Order_int 0) ]
 
   let to_style = function
     | Flex_1 -> flex_1
@@ -91,17 +93,25 @@ module Handler = struct
     | Basis_auto -> basis_auto
     | Basis_full -> basis_full
     | Order n -> order_style n
+    | Neg_order n ->
+        style [ order (Order_calc ("calc(" ^ string_of_int n ^ " * -1)")) ]
+    | Order_arbitrary s -> (
+        match int_of_string_opt s with
+        | Some n -> style [ order (Order_int n) ]
+        | None -> style [ order (Order_calc s) ])
     | Order_first -> order_first
     | Order_last -> order_last
     | Order_none -> order_none
 
   let suborder : t -> int = function
-    (* Order - comes first in Tailwind's output. Ordering: order-1..6,
-       order-first, order-last, order-none *)
-    | Order n -> n
-    | Order_first -> 7
-    | Order_last -> 8
-    | Order_none -> 9
+    (* Order - comes first in Tailwind's output. Ordering: negative first, then
+       positive, then first/last/none, then arbitrary *)
+    | Neg_order n -> n (* negative comes first *)
+    | Order n -> 100 + n
+    | Order_first -> 200
+    | Order_last -> 201
+    | Order_none -> 202
+    | Order_arbitrary _ -> 250
     (* Tailwind flex order: flex-1 < fractions < numbers < auto < initial <
        none *)
     | Flex_1 -> 10
@@ -155,9 +165,20 @@ module Handler = struct
     | [ "order"; "first" ] -> Ok Order_first
     | [ "order"; "last" ] -> Ok Order_last
     | [ "order"; "none" ] -> Ok Order_none
+    | [ "order"; n ] when String.length n > 0 && n.[0] = '[' ->
+        (* Arbitrary value: order-[123] *)
+        let len = String.length n in
+        if len > 2 && n.[len - 1] = ']' then
+          Ok (Order_arbitrary (String.sub n 1 (len - 2)))
+        else err_not_utility
     | [ "order"; n ] -> (
         match int_of_string_opt n with
         | Some n when n >= 1 -> Ok (Order n)
+        | _ -> err_not_utility)
+    | [ ""; "order"; n ] -> (
+        (* Negative order: -order-4 *)
+        match int_of_string_opt n with
+        | Some n when n >= 1 -> Ok (Neg_order n)
         | _ -> err_not_utility)
     | [ "flex"; value ] -> (
         (* Try fraction first (e.g., "1/2") *)
@@ -191,6 +212,8 @@ module Handler = struct
     | Basis_full -> "basis-full"
     (* Order *)
     | Order n -> "order-" ^ string_of_int n
+    | Neg_order n -> "-order-" ^ string_of_int n
+    | Order_arbitrary s -> "order-[" ^ s ^ "]"
     | Order_first -> "order-first"
     | Order_last -> "order-last"
     | Order_none -> "order-none"

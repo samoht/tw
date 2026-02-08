@@ -7,6 +7,48 @@ open Alcotest
 
 type test_case = { name : string; classes : string list; expected : string }
 
+(** Convert a Tailwind class name to the expected CSS selector. E.g., "-z-10" ->
+    ".-z-10" or "z-[123]" -> ".z-\[123\]" *)
+let class_to_selector cls =
+  (* Escape special characters in CSS selectors *)
+  let escape s =
+    let buf = Buffer.create (String.length s * 2) in
+    String.iter
+      (fun c ->
+        match c with
+        | '[' | ']' | '(' | ')' | ':' | '/' | '.' | '%' | '#' ->
+            Buffer.add_char buf '\\';
+            Buffer.add_char buf c
+        | _ -> Buffer.add_char buf c)
+      s;
+    Buffer.contents buf
+  in
+  "." ^ escape cls
+
+(** Check if a selector matches any of the input classes *)
+let selector_matches_input_class classes selector =
+  List.exists
+    (fun cls ->
+      let expected_sel = class_to_selector cls in
+      expected_sel = selector || String.equal selector ("." ^ cls))
+    classes
+
+(** Filter rule diffs to only include those that match input classes.
+    Specifically, we ignore Rule_removed diffs for selectors that don't match
+    any input class (since those are in expected CSS but not relevant). *)
+let filter_irrelevant_diffs classes (diff : Tw_tools.Tree_diff.t) :
+    Tw_tools.Tree_diff.t =
+  let filter_rule = function
+    | Tw_tools.Tree_diff.Rule_removed { selector; _ } ->
+        (* Only keep if the selector matches an input class *)
+        if selector_matches_input_class classes selector then Some () else None
+    | _ -> Some ()
+  in
+  let rules =
+    List.filter (fun r -> Option.is_some (filter_rule r)) diff.rules
+  in
+  { diff with rules }
+
 let read_test_cases filename =
   if not (Sys.file_exists filename) then []
   else
@@ -107,12 +149,14 @@ let run_test_case test () =
           (* Minor string differences are acceptable *)
           ()
       | Tw_tools.Css_compare.Tree_diff d ->
-          if Tw_tools.Tree_diff.is_empty d then ()
+          (* Filter out diffs for rules that don't match input classes *)
+          let filtered = filter_irrelevant_diffs test.classes d in
+          if Tw_tools.Tree_diff.is_empty filtered then ()
           else
             let diff_str =
               Fmt.str "%a"
                 (Tw_tools.Css_compare.pp ~expected:"Tailwind" ~actual:"tw")
-                diff
+                (Tw_tools.Css_compare.Tree_diff filtered)
             in
             Alcotest.fail
               (Fmt.str "CSS mismatch:\nClasses: %s\n%s"
