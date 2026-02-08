@@ -2,22 +2,15 @@
 
 (** {1 Helper Functions} *)
 
-(* Create a spacing value using the named spacing variable --spacing-N. Returns
-   the theme declaration and a length that references the variable. For negative
-   values, uses calc(var(--spacing-N) * -1) where N is absolute. *)
+(* Create a spacing value using calc(var(--spacing) * N). Returns the theme
+   declaration and a length that references the base spacing variable. *)
 let spacing_value n : Css.declaration * Css.length =
-  let abs_n = abs n in
-  let spacing_var = Theme.get_spacing_var abs_n in
-  let concrete_value = Theme.spacing_value abs_n in
-  let decl, spacing_ref = Var.binding spacing_var concrete_value in
+  let decl, spacing_ref = Var.binding Theme.spacing_var (Css.Rem 0.25) in
   let len : Css.length =
-    if n < 0 then
-      (* For negative: calc(var(--spacing-N) * -1) *)
-      Css.Calc
-        (Css.Calc.mul
-           (Css.Calc.length (Css.Var spacing_ref))
-           (Css.Calc.float (-1.)))
-    else Css.Var spacing_ref
+    Css.Calc
+      (Css.Calc.mul
+         (Css.Calc.length (Css.Var spacing_ref))
+         (Css.Calc.float (float_of_int n)))
   in
   (decl, len)
 
