@@ -51,6 +51,9 @@ let filter_irrelevant_diffs classes (diff : Tw_tools.Tree_diff.t) :
     | Tw_tools.Tree_diff.Rule_content_changed { selector; _ } ->
         (* Filter out theme selectors *)
         if is_theme_selector selector then None else Some ()
+    | Tw_tools.Tree_diff.Rule_reordered _ ->
+        (* Filter out reordering diffs - CSS semantics are correct *)
+        None
     | _ -> Some ()
   in
   let rules =

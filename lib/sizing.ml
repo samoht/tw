@@ -83,6 +83,7 @@ module Handler = struct
     | Size_fit
     | Size_spacing of float
     | Size_fraction of string
+    | Size_arbitrary of Css.length
     (* Aspect utilities *)
     | Aspect_auto
     | Aspect_square
@@ -441,11 +442,11 @@ module Handler = struct
     | Size_max -> style [ width Max_content; height Max_content ]
     | Size_fit -> style [ width Fit_content; height Fit_content ]
     | Size_spacing n ->
-        let decl, spacing_ref = Var.binding Theme.spacing_var (Rem 0.25) in
-        let class_units = n *. 4. in
-        let spacing_value : Css.length =
-          Calc Calc.(mul (length (Var spacing_ref)) (float class_units))
-        in
+        let class_units = int_of_float (n *. 4.) in
+        let spacing_v = Theme.get_spacing_var class_units in
+        let concrete_value = Theme.spacing_value class_units in
+        let decl, spacing_ref = Var.binding spacing_v concrete_value in
+        let spacing_value : Css.length = Css.Var spacing_ref in
         style (decl :: [ width spacing_value; height spacing_value ])
     | Size_fraction f -> (
         match
@@ -466,6 +467,7 @@ module Handler = struct
         with
         | Some pct -> style [ width (Pct pct); height (Pct pct) ]
         | None -> failwith ("Unknown size fraction: " ^ f))
+    | Size_arbitrary len -> style [ width len; height len ]
     (* Aspect utilities *)
     | Aspect_auto -> aspect_auto'
     | Aspect_square -> aspect_square'
@@ -476,6 +478,24 @@ module Handler = struct
 
   let err_invalid_value name value =
     Error (`Msg ("Invalid " ^ name ^ " value: " ^ value))
+
+  let parse_arbitrary s : Css.length option =
+    (* Parse [4px] or [1rem] etc. *)
+    let len = String.length s in
+    if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
+      let inner = String.sub s 1 (len - 2) in
+      if String.ends_with ~suffix:"px" inner then
+        let n = String.sub inner 0 (String.length inner - 2) in
+        match float_of_string_opt n with
+        | Some f -> Some (Css.Px f)
+        | None -> None
+      else if String.ends_with ~suffix:"rem" inner then
+        let n = String.sub inner 0 (String.length inner - 3) in
+        match float_of_string_opt n with
+        | Some f -> Some (Css.Rem f)
+        | None -> None
+      else None
+    else None
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
@@ -583,6 +603,10 @@ module Handler = struct
       | frac when String.contains frac '/' ->
           if List.mem_assoc frac fraction_table then Ok (Size_fraction frac)
           else err_invalid_value "size fraction" frac
+      | v when String.length v > 0 && v.[0] = '[' -> (
+          match parse_arbitrary v with
+          | Some len -> Ok (Size_arbitrary len)
+          | None -> err_invalid_value "size" v)
       | v -> (
           match float_of_string_opt v with
           | Some n when n >= 0. -> Ok (Size_spacing (n *. 0.25))
@@ -713,6 +737,7 @@ module Handler = struct
     | Size_fit -> 600004
     | Size_spacing n -> 600100 + spacing_suborder n
     | Size_fraction _ -> 650000
+    | Size_arbitrary _ -> 660000
     (* Aspect utilities (700000-) *)
     | Aspect_auto -> 700000
     | Aspect_square -> 700001
@@ -795,6 +820,20 @@ module Handler = struct
     | Size_fit -> "size-fit"
     | Size_spacing n -> "size-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
     | Size_fraction f -> "size-" ^ f
+    | Size_arbitrary len ->
+        let pp_float n =
+          let s = string_of_float n in
+          if String.ends_with ~suffix:"." s then
+            String.sub s 0 (String.length s - 1)
+          else s
+        in
+        let len_str =
+          match len with
+          | Css.Px n -> pp_float n ^ "px"
+          | Css.Rem n -> pp_float n ^ "rem"
+          | _ -> Css.Pp.to_string Css.pp_length len
+        in
+        "size-[" ^ len_str ^ "]"
     (* Aspect utilities *)
     | Aspect_auto -> "aspect-auto"
     | Aspect_square -> "aspect-square"
