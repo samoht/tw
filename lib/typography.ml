@@ -920,7 +920,7 @@ module Typography_late = struct
     | [ "indent"; n ] -> Parse.int_any n >|= fun i -> Indent i
     | [ "line"; "clamp"; "none" ] -> Ok Line_clamp_none
     | [ "line"; "clamp"; n ] ->
-        Parse.int_bounded ~name:"line-clamp" ~min:1 ~max:999 n >|= fun i ->
+        Parse.int_bounded ~name:"line-clamp" ~min:0 ~max:999 n >|= fun i ->
         Line_clamp i
     | [ "content"; "none" ] -> Ok Content_none
     | "content" :: rest ->

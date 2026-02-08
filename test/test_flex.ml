@@ -27,11 +27,11 @@ let of_string_valid () =
   check_props "flex-initial";
   check_props "flex-none";
 
-  (* Grow/Shrink *)
-  check_props "flex-grow";
-  check_props "flex-grow-0";
-  check_props "flex-shrink";
-  check_props "flex-shrink-0";
+  (* Grow/Shrink - Tailwind v4 uses shorter names *)
+  check_props "grow";
+  check_props "grow-0";
+  check_props "shrink";
+  check_props "shrink-0";
 
   (* Basis *)
   check_props "basis-0";
