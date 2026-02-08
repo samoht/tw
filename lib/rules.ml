@@ -1188,13 +1188,13 @@ let compare_different_utility_regular_media sel1 sel2 order1 order2 media_type =
     else
       match media_type with
       | Some Css.Media.Hover ->
-          (* For modifier-based hover media (hover:, group-hover:), @media
-             (hover:hover) comes before other Regular utilities by priority. *)
+          (* For modifier-based hover media (hover:, group-hover:), Regular
+             utilities come first, then @media (hover:hover) media queries. *)
           let prio_cmp = Int.compare p1 p2 in
           if prio_cmp <> 0 then prio_cmp
           else
-            (* Same priority - Media comes first *)
-            1
+            (* Same priority - Regular comes first *)
+            -1
       | Some (Css.Media.Min_width _) ->
           (* For responsive media (md:, lg:), Regular always comes before Media
              when comparing different utilities *)
