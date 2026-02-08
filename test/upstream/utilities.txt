@@ -13,6 +13,9 @@ sr-only
       overflow: hidden;
     }
 <<<>>>
+# sr-only
+-sr-only
+<<<>>>
 # not-sr-only
 not-sr-only
 ---
@@ -27,6 +30,9 @@ not-sr-only
       overflow: visible;
     }
 <<<>>>
+# not-sr-only
+-not-sr-only
+<<<>>>
 # pointer-events
 pointer-events-auto pointer-events-none
 ---
@@ -37,6 +43,9 @@ pointer-events-auto pointer-events-none
     .pointer-events-none {
       pointer-events: none;
     }
+<<<>>>
+# pointer-events
+-pointer-events-auto -pointer-events-none
 <<<>>>
 # visibility
 collapse invisible visible
@@ -52,6 +61,9 @@ collapse invisible visible
     .visible {
       visibility: visible;
     }
+<<<>>>
+# visibility
+-collapse -invisible -visible
 <<<>>>
 # position
 absolute fixed relative static sticky
@@ -76,8 +88,11 @@ absolute fixed relative static sticky
       position: sticky;
     }
 <<<>>>
+# position
+-absolute -fixed -relative -static -sticky
+<<<>>>
 # inset
-inset-3/4 inset-4 inset-auto inset-full inset-shadow-sm inset-shadowned
+-inset-4 -inset-full inset-3/4 inset-4 inset-[4px] inset-auto inset-full inset-shadow-sm inset-shadowned
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -225,7 +240,7 @@ inset-3/4 inset-4 inset-auto inset-full inset-shadow-sm inset-shadowned
 inset--1 inset--1/-2 inset--1/2 inset-1/-2
 <<<>>>
 # inset-x
-inset-x-3/4 inset-x-4 inset-x-auto inset-x-full inset-x-shadowned
+-inset-x-4 -inset-x-full inset-x-3/4 inset-x-4 inset-x-[4px] inset-x-auto inset-x-full inset-x-shadowned
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -268,7 +283,7 @@ inset-x-3/4 inset-x-4 inset-x-auto inset-x-full inset-x-shadowned
 inset-x--1 inset-x--1/-2 inset-x--1/2 inset-x-1/-2 inset-x-shadow-sm
 <<<>>>
 # inset-y
-inset-y-3/4 inset-y-4 inset-y-auto inset-y-full inset-y-shadowned
+-inset-y-4 -inset-y-full inset-y-3/4 inset-y-4 inset-y-[4px] inset-y-auto inset-y-full inset-y-shadowned
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -311,7 +326,7 @@ inset-y-3/4 inset-y-4 inset-y-auto inset-y-full inset-y-shadowned
 inset-1/-2 inset-y--1 inset-y--1/-2 inset-y--1/2 inset-y-shadow-sm
 <<<>>>
 # inset-s
-inset-s-3/4 inset-s-4 inset-s-auto inset-s-full inset-s-shadowned
+-inset-s-4 -inset-s-full inset-s-3/4 inset-s-4 inset-s-[4px] inset-s-auto inset-s-full inset-s-shadowned
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -354,7 +369,7 @@ inset-s-3/4 inset-s-4 inset-s-auto inset-s-full inset-s-shadowned
 inset-s inset-s--1 inset-s--1/-2 inset-s--1/2 inset-s-1/-2 inset-s-shadow-sm
 <<<>>>
 # inset-e
-inset-e-3/4 inset-e-4 inset-e-auto inset-e-full inset-e-shadowned
+-inset-e-4 -inset-e-full inset-e-3/4 inset-e-4 inset-e-[4px] inset-e-auto inset-e-full inset-e-shadowned
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -397,7 +412,7 @@ inset-e-3/4 inset-e-4 inset-e-auto inset-e-full inset-e-shadowned
 inset-e inset-e--1 inset-e--1/-2 inset-e--1/2 inset-e-1/-2 inset-e-shadow-sm
 <<<>>>
 # inset-bs
-inset-bs-3/4 inset-bs-4 inset-bs-auto inset-bs-full inset-bs-shadowned
+-inset-bs-4 -inset-bs-full inset-bs-3/4 inset-bs-4 inset-bs-[4px] inset-bs-auto inset-bs-full inset-bs-shadowned
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -440,7 +455,7 @@ inset-bs-3/4 inset-bs-4 inset-bs-auto inset-bs-full inset-bs-shadowned
 inset-bs inset-bs--1 inset-bs--1/-2 inset-bs--1/2 inset-bs-1/-2 inset-bs-shadow-sm
 <<<>>>
 # inset-be
-inset-be-3/4 inset-be-4 inset-be-auto inset-be-full inset-be-shadowned
+-inset-be-4 -inset-be-full inset-be-3/4 inset-be-4 inset-be-[4px] inset-be-auto inset-be-full inset-be-shadowned
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -483,7 +498,7 @@ inset-be-3/4 inset-be-4 inset-be-auto inset-be-full inset-be-shadowned
 inset-be inset-be--1 inset-be--1/-2 inset-be--1/2 inset-be-1/-2 inset-be-shadow-sm
 <<<>>>
 # top
-top-3/4 top-4 top-auto top-full top-shadowned
+-top-4 -top-full top-3/4 top-4 top-[4px] top-auto top-full top-shadowned
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -526,7 +541,7 @@ top-3/4 top-4 top-auto top-full top-shadowned
 top--1 top--1/-2 top--1/2 top-1/-2 top-shadow-sm
 <<<>>>
 # right
-right-3/4 right-4 right-auto right-full right-shadowned
+-right-4 -right-full right-3/4 right-4 right-[4px] right-auto right-full right-shadowned
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -569,7 +584,7 @@ right-3/4 right-4 right-auto right-full right-shadowned
 right--1 right--1/-2 right--1/2 right-1/-2 right-shadow-sm
 <<<>>>
 # bottom
-bottom-3/4 bottom-4 bottom-auto bottom-full bottom-shadowned
+-bottom-4 -bottom-full bottom-3/4 bottom-4 bottom-[4px] bottom-auto bottom-full bottom-shadowned
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -612,7 +627,7 @@ bottom-3/4 bottom-4 bottom-auto bottom-full bottom-shadowned
 bottom--1 bottom--1/-2 bottom--1/2 bottom-1/-2 bottom-shadow-sm
 <<<>>>
 # left
-left-3/4 left-4 left-auto left-full left-shadowned
+-left-4 -left-full left-3/4 left-4 left-[4px] left-auto left-full left-shadowned
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -665,8 +680,11 @@ isolate isolation-auto
       isolation: auto;
     }
 <<<>>>
+# isolation
+-isolate -isolation-auto
+<<<>>>
 # z-index
-z-10 z-auto
+-z-10 z-10 z-auto
 ---
 .-z-10 {
         z-index: calc(10 * -1);
@@ -689,7 +707,7 @@ z-10 z-auto
       }
 <<<>>>
 # z-index
-z--1 z-123.5 z-unknown
+-z-auto z--1 z-123.5 z-unknown
 ---
 :root, :host {
       --z-index-auto: 42;
@@ -700,7 +718,7 @@ z--1 z-123.5 z-unknown
     }
 <<<>>>
 # order
-order-4
+-order-4 order-4 order-[123]
 ---
 .-order-4 {
       order: calc(4 * -1);
@@ -731,7 +749,7 @@ order-4
     }
 <<<>>>
 # order
-order--4 order-123.5 order-unknown
+-order-first -order-last -order-none order--4 order-123.5 order-unknown
 ---
 :root, :host {
       --order-first: 1;
@@ -742,7 +760,7 @@ order--4 order-123.5 order-unknown
     }
 <<<>>>
 # col
-col-11 col-auto col-span-17 col-span-4 col-span-full
+-col-12 col-11 col-[span_123/span_123] col-auto col-span-17 col-span-4 col-span-full
 ---
 .-col-12 {
       grid-column: calc(12 * -1);
@@ -777,7 +795,7 @@ col-11 col-auto col-span-17 col-span-4 col-span-full
     }
 <<<>>>
 # col
-col-span--1 col-span-unknown
+-col-span-4 col-span--1 col-span-unknown
 ---
 :root, :host {
       --grid-column-auto: 5;
@@ -788,7 +806,7 @@ col-span--1 col-span-unknown
     }
 <<<>>>
 # col-start
-col-start-4 col-start-99 col-start-auto
+col-start-4 col-start-99 col-start-[123] col-start-auto
 ---
 :root, :host {
       --grid-column-start-custom: 1 column-start;
@@ -841,7 +859,7 @@ col-end--1 col-end-unknown
     }
 <<<>>>
 # row
-row-11 row-auto row-span-17 row-span-4 row-span-full
+-row-12 row-11 row-[span_123/span_123] row-auto row-span-17 row-span-4 row-span-full
 ---
 .-row-12 {
       grid-row: calc(12 * -1);
@@ -876,7 +894,7 @@ row-11 row-auto row-span-17 row-span-4 row-span-full
     }
 <<<>>>
 # row
-row-span--1 row-span-unknown
+-row-span-4 row-span--1 row-span-unknown
 ---
 :root, :host {
       --grid-row-auto: 9;
@@ -887,7 +905,7 @@ row-span--1 row-span-unknown
     }
 <<<>>>
 # row-start
-row-start-4 row-start-99 row-start-auto
+row-start-4 row-start-99 row-start-[123] row-start-auto
 ---
 :root, :host {
       --grid-row-start-custom: 1 row-start;
@@ -963,7 +981,7 @@ float-end float-left float-none float-right float-start
       }
 <<<>>>
 # float
-float
+-float-end -float-left -float-none -float-right -float-start float
 <<<>>>
 # clear
 clear-both clear-end clear-left clear-none clear-right clear-start
@@ -993,10 +1011,10 @@ clear-both clear-end clear-left clear-none clear-right clear-start
     }
 <<<>>>
 # clear
-clear
+-clear-both -clear-end -clear-left -clear-none -clear-right -clear-start clear
 <<<>>>
 # mx
-mx-1 mx-4 mx-99 mx-auto mx-big
+mx-1 mx-4 mx-99 mx-[4px] mx-auto mx-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1048,7 +1066,7 @@ mx-1 mx-4 mx-99 mx-auto mx-big
     }
 <<<>>>
 # my
-my-1 my-2.5 my-99 my-big
+my-1 my-2.5 my-99 my-[4px] my-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1100,7 +1118,7 @@ my-1 my-2.5 my-99 my-big
     }
 <<<>>>
 # mt
-mt-1 mt-2.5 mt-99 mt-big
+mt-1 mt-2.5 mt-99 mt-[4px] mt-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1152,7 +1170,7 @@ mt-1 mt-2.5 mt-99 mt-big
     }
 <<<>>>
 # ms
-ms-1 ms-2.5 ms-99 ms-big
+ms-1 ms-2.5 ms-99 ms-[4px] ms-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1204,7 +1222,7 @@ ms-1 ms-2.5 ms-99 ms-big
     }
 <<<>>>
 # me
-me-1 me-2.5 me-99 me-big
+me-1 me-2.5 me-99 me-[4px] me-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1256,7 +1274,7 @@ me-1 me-2.5 me-99 me-big
     }
 <<<>>>
 # mbs
-mbs-1 mbs-2.5 mbs-99 mbs-big
+mbs-1 mbs-2.5 mbs-99 mbs-[4px] mbs-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1308,7 +1326,7 @@ mbs-1 mbs-2.5 mbs-99 mbs-big
     }
 <<<>>>
 # mbe
-mbe-1 mbe-2.5 mbe-99 mbe-big
+mbe-1 mbe-2.5 mbe-99 mbe-[4px] mbe-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1360,7 +1378,7 @@ mbe-1 mbe-2.5 mbe-99 mbe-big
     }
 <<<>>>
 # mr
-mr-1 mr-2.5 mr-99 mr-big
+mr-1 mr-2.5 mr-99 mr-[4px] mr-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1412,7 +1430,7 @@ mr-1 mr-2.5 mr-99 mr-big
     }
 <<<>>>
 # mb
-mb-1 mb-2.5 mb-99 mb-big
+mb-1 mb-2.5 mb-99 mb-[4px] mb-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1464,7 +1482,7 @@ mb-1 mb-2.5 mb-99 mb-big
     }
 <<<>>>
 # ml
-ml-1 ml-2.5 ml-99 ml-big
+ml-1 ml-2.5 ml-99 ml-[4px] ml-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1527,7 +1545,7 @@ box-border box-content
     }
 <<<>>>
 # box-sizing
-box
+-box-border -box-content box
 <<<>>>
 # line-clamp
 line-clamp-4 line-clamp-99
@@ -1561,7 +1579,7 @@ line-clamp-4 line-clamp-99
       }
 <<<>>>
 # line-clamp
-line-clamp--4
+-line-clamp-4 -line-clamp-[123] line-clamp--4
 ---
 :root, :host {
       --line-clamp-none: 0;
@@ -1661,6 +1679,9 @@ block contents flex flow-root grid hidden inline inline-block inline-flex inline
       display: table-row-group;
     }
 <<<>>>
+# display
+-block -contents -flex -flow-root -grid -hidden -inline -inline-block -inline-flex -inline-grid -inline-table -list-item -table -table-caption -table-cell -table-column -table-column-group -table-footer-group -table-header-group -table-row -table-row-group
+<<<>>>
 # field-sizing
 field-sizing-content field-sizing-fixed
 ---
@@ -1673,10 +1694,10 @@ field-sizing-content field-sizing-fixed
     }
 <<<>>>
 # aspect-ratio
-aspect-potato
+-aspect-[10/9] -aspect-video aspect-potato
 <<<>>>
 # size
-size-1/2 size-4 size-auto size-fit size-full size-max size-min
+size-1/2 size-4 size-[4px] size-auto size-fit size-full size-max size-min
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -1723,10 +1744,10 @@ size-1/2 size-4 size-auto size-fit size-full size-max size-min
     }
 <<<>>>
 # size
-size--1 size--1/-2 size--1/2 size-1/-2
+-size-1/2 -size-4 -size-[4px] size--1 size--1/-2 size--1/2 size-1/-2
 <<<>>>
 # width
-w-1/2 w-4 w-auto w-dvw w-fit w-full w-lvw w-max w-min w-screen w-svw w-xl
+w-1/2 w-4 w-[4px] w-auto w-dvw w-fit w-full w-lvw w-max w-min w-screen w-svw w-xl
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -1786,10 +1807,10 @@ w-1/2 w-4 w-auto w-dvw w-fit w-full w-lvw w-max w-min w-screen w-svw w-xl
     }
 <<<>>>
 # width
-w--1 w--1/-2 w--1/2 w-1/-2
+-w-1/2 -w-4 -w-[4px] w--1 w--1/-2 w--1/2 w-1/-2
 <<<>>>
 # min-width
-min-w-4 min-w-auto min-w-fit min-w-full min-w-max min-w-min min-w-xl
+min-w-4 min-w-[4px] min-w-auto min-w-fit min-w-full min-w-max min-w-min min-w-xl
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -1828,11 +1849,14 @@ min-w-4 min-w-auto min-w-fit min-w-full min-w-max min-w-min min-w-xl
       min-width: var(--container-xl);
     }
 <<<>>>
+# min-width
+-min-w-4 -min-w-[4px]
+<<<>>>
 # max-width
-max-w-auto
+-max-w-4 -max-w-[4px] max-w-auto
 <<<>>>
 # height
-h-1/2 h-4 h-auto h-dvh h-fit h-full h-lh h-lvh h-max h-min h-screen h-svh
+h-1/2 h-4 h-[4px] h-auto h-dvh h-fit h-full h-lh h-lvh h-max h-min h-screen h-svh
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -1891,10 +1915,10 @@ h-1/2 h-4 h-auto h-dvh h-fit h-full h-lh h-lvh h-max h-min h-screen h-svh
     }
 <<<>>>
 # height
-h--1 h--1/-2 h--1/2 h-1/-2
+-h-1/2 -h-4 -h-[4px] h--1 h--1/-2 h--1/2 h-1/-2
 <<<>>>
 # min-height
-min-h-4 min-h-auto min-h-dvh min-h-fit min-h-full min-h-lh min-h-lvh min-h-max min-h-min min-h-screen min-h-svh
+min-h-4 min-h-[4px] min-h-auto min-h-dvh min-h-fit min-h-full min-h-lh min-h-lvh min-h-max min-h-min min-h-screen min-h-svh
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -1948,8 +1972,11 @@ min-h-4 min-h-auto min-h-dvh min-h-fit min-h-full min-h-lh min-h-lvh min-h-max m
       min-height: 100svh;
     }
 <<<>>>
+# min-height
+-min-h-4 -min-h-[4px]
+<<<>>>
 # max-height
-max-h-4 max-h-dvh max-h-fit max-h-full max-h-lh max-h-lvh max-h-max max-h-min max-h-none max-h-screen max-h-svh
+max-h-4 max-h-[4px] max-h-dvh max-h-fit max-h-full max-h-lh max-h-lvh max-h-max max-h-min max-h-none max-h-screen max-h-svh
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -2004,10 +2031,10 @@ max-h-4 max-h-dvh max-h-fit max-h-full max-h-lh max-h-lvh max-h-max max-h-min ma
     }
 <<<>>>
 # max-height
-max-h-auto
+-max-h-4 -max-h-[4px] max-h-auto
 <<<>>>
 # inline-size
-inline-1/2 inline-4 inline-auto inline-dvw inline-fit inline-full inline-lvw inline-max inline-min inline-screen inline-svw inline-xl
+inline-1/2 inline-4 inline-[4px] inline-auto inline-dvw inline-fit inline-full inline-lvw inline-max inline-min inline-screen inline-svw inline-xl
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -2067,10 +2094,10 @@ inline-1/2 inline-4 inline-auto inline-dvw inline-fit inline-full inline-lvw inl
     }
 <<<>>>
 # inline-size
-inline--1 inline--1/-2 inline--1/2 inline-1/-2
+-inline-1/2 -inline-4 -inline-[4px] inline--1 inline--1/-2 inline--1/2 inline-1/-2
 <<<>>>
 # min-inline-size
-min-inline-4 min-inline-auto min-inline-fit min-inline-full min-inline-max min-inline-min min-inline-xl
+min-inline-4 min-inline-[4px] min-inline-auto min-inline-fit min-inline-full min-inline-max min-inline-min min-inline-xl
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -2110,10 +2137,10 @@ min-inline-4 min-inline-auto min-inline-fit min-inline-full min-inline-max min-i
     }
 <<<>>>
 # min-inline-size
-min-inline
+-min-inline-4 -min-inline-[4px] min-inline
 <<<>>>
 # max-inline-size
-max-inline-4 max-inline-fit max-inline-full max-inline-max max-inline-none max-inline-xl
+max-inline-4 max-inline-[4px] max-inline-fit max-inline-full max-inline-max max-inline-none max-inline-xl
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -2149,10 +2176,10 @@ max-inline-4 max-inline-fit max-inline-full max-inline-max max-inline-none max-i
     }
 <<<>>>
 # max-inline-size
-max-inline max-inline-auto
+-max-inline-4 -max-inline-[4px] max-inline max-inline-auto
 <<<>>>
 # block-size
-block-1/2 block-4 block-auto block-dvh block-fit block-full block-lh block-lvh block-max block-min block-screen block-svh
+block-1/2 block-4 block-[4px] block-auto block-dvh block-fit block-full block-lh block-lvh block-max block-min block-screen block-svh
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -2211,10 +2238,10 @@ block-1/2 block-4 block-auto block-dvh block-fit block-full block-lh block-lvh b
     }
 <<<>>>
 # block-size
-block--1 block--1/-2 block--1/2 block-1/-2
+-block-1/2 -block-4 -block-[4px] block--1 block--1/-2 block--1/2 block-1/-2
 <<<>>>
 # min-block-size
-min-block-4 min-block-auto min-block-dvh min-block-fit min-block-full min-block-lh min-block-lvh min-block-max min-block-min min-block-screen min-block-svh
+min-block-4 min-block-[4px] min-block-auto min-block-dvh min-block-fit min-block-full min-block-lh min-block-lvh min-block-max min-block-min min-block-screen min-block-svh
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -2269,10 +2296,10 @@ min-block-4 min-block-auto min-block-dvh min-block-fit min-block-full min-block-
     }
 <<<>>>
 # min-block-size
-min-block
+-min-block-4 -min-block-[4px] min-block
 <<<>>>
 # max-block-size
-max-block-4 max-block-dvh max-block-fit max-block-full max-block-lh max-block-lvh max-block-max max-block-min max-block-none max-block-screen max-block-svh
+max-block-4 max-block-[4px] max-block-dvh max-block-fit max-block-full max-block-lh max-block-lvh max-block-max max-block-min max-block-none max-block-screen max-block-svh
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -2327,10 +2354,10 @@ max-block-4 max-block-dvh max-block-fit max-block-full max-block-lh max-block-lv
     }
 <<<>>>
 # max-block-size
-max-block max-block-auto
+-max-block-4 -max-block-[4px] max-block max-block-auto
 <<<>>>
 # flex
-flex-1 flex-1/2 flex-99 flex-auto flex-initial flex-none
+flex-1 flex-1/2 flex-99 flex-[123] flex-auto flex-initial flex-none
 ---
 .flex-1 {
       flex: 1;
@@ -2361,7 +2388,7 @@ flex-1 flex-1/2 flex-99 flex-auto flex-initial flex-none
     }
 <<<>>>
 # flex
-flex--1
+-flex-1 -flex-[123] -flex-auto -flex-initial -flex-none flex--1
 <<<>>>
 # flex-shrink
 shrink-0
@@ -2379,7 +2406,7 @@ shrink-0
     }
 <<<>>>
 # flex-shrink
-shrink--1 shrink-1.5
+-shrink -shrink-0 -shrink-[123] shrink--1 shrink-1.5
 <<<>>>
 # flex-grow
 grow-0
@@ -2397,10 +2424,10 @@ grow-0
     }
 <<<>>>
 # flex-grow
-grow--1 grow-1.5
+-grow -grow-0 -grow-[123] grow--1 grow-1.5
 <<<>>>
 # flex-basis
-basis--1 basis--1/-2 basis--1/2 basis-1/-2
+-basis-[123px] -basis-full basis--1 basis--1/-2 basis--1/2 basis-1/-2
 <<<>>>
 # table-layout
 table-auto table-fixed
@@ -2413,6 +2440,9 @@ table-auto table-fixed
       table-layout: fixed;
     }
 <<<>>>
+# table-layout
+-table-auto -table-fixed
+<<<>>>
 # caption-side
 caption-bottom caption-top
 ---
@@ -2423,6 +2453,9 @@ caption-bottom caption-top
     .caption-top {
       caption-side: top;
     }
+<<<>>>
+# caption-side
+-caption-bottom -caption-top
 <<<>>>
 # border-collapse
 border-collapse border-separate
@@ -2435,17 +2468,20 @@ border-collapse border-separate
       border-collapse: separate;
     }
 <<<>>>
+# border-collapse
+-border-collapse -border-separate
+<<<>>>
 # border-spacing
-border-spacing
+-border-spacing-1 -border-spacing-[123px] border-spacing
 <<<>>>
 # border-spacing-x
-border-spacing-x
+-border-spacing-x-1 -border-spacing-x-[123px] border-spacing-x
 <<<>>>
 # border-spacing-y
-border-spacing-x
+-border-spacing-y-1 -border-spacing-y-[123px] border-spacing-x
 <<<>>>
 # origin
-origin-bottom origin-bottom-left origin-bottom-right origin-center origin-left origin-right origin-top origin-top-left origin-top-right
+origin-[50px_100px] origin-bottom origin-bottom-left origin-bottom-right origin-center origin-left origin-right origin-top origin-top-left origin-top-right
 ---
 .origin-\[50px_100px\] {
       transform-origin: 50px 100px;
@@ -2491,8 +2527,19 @@ origin-bottom origin-bottom-left origin-bottom-right origin-center origin-left o
       transform-origin: 100% 0;
     }
 <<<>>>
+# origin
+-origin-center
+---
+:root, :host {
+      --transform-origin-top: 10px 20px;
+    }
+
+    .origin-top {
+      transform-origin: var(--transform-origin-top);
+    }
+<<<>>>
 # perspective-origin
-perspective-origin-bottom perspective-origin-bottom-left perspective-origin-bottom-right perspective-origin-center perspective-origin-left perspective-origin-right perspective-origin-top perspective-origin-top-left perspective-origin-top-right
+perspective-origin-[50px_100px] perspective-origin-bottom perspective-origin-bottom-left perspective-origin-bottom-right perspective-origin-center perspective-origin-left perspective-origin-right perspective-origin-top perspective-origin-top-left perspective-origin-top-right
 ---
 .perspective-origin-\[50px_100px\] {
       perspective-origin: 50px 100px;
@@ -2538,8 +2585,20 @@ perspective-origin-bottom perspective-origin-bottom-left perspective-origin-bott
       perspective-origin: 100% 0;
     }
 <<<>>>
+# perspective-origin
+-perspective-origin-center
+---
+:root, :host {
+      --perspective-origin-top: 10px 20px;
+    }
+
+    .perspective-origin-top {
+      perspective-origin: var(--perspective-origin-top);
+      perspective: var(--perspective-origin-top);
+    }
+<<<>>>
 # translate
-translate-1/2 translate-full
+-translate-full translate-1/2 translate-[123px] translate-full
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -2603,7 +2662,7 @@ translate-1/2 translate-full
 translate--1 translate--1/-2 translate--1/2 translate-1/-2
 <<<>>>
 # translate-x
-translate-x-full translate-x-px
+-translate-x-full translate-x-full translate-x-px
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -2705,10 +2764,10 @@ translate-x--1 translate-x--1/-2 translate-x--1/2 translate-x-1/-2
     }
 <<<>>>
 # translate-x
-perspective-123 perspective-potato
+-perspective perspective-123 perspective-potato
 <<<>>>
 # translate-y
-translate-y-full translate-y-px
+-translate-y-full translate-y-full translate-y-px
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -2810,10 +2869,10 @@ translate-y--1 translate-y--1/-2 translate-y--1/2 translate-y-1/-2
     }
 <<<>>>
 # translate-y
-perspective-123 perspective-potato
+-perspective perspective-123 perspective-potato
 <<<>>>
 # translate-z
-translate-z-px
+-translate-z-px translate-z-px
 ---
 @layer properties {
         @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -2859,7 +2918,7 @@ translate-z-px
       }
 <<<>>>
 # translate-z
-translate-z--1 translate-z--1/-2 translate-z--1/2 translate-z-1/-2 translate-z-1/2 translate-z-full
+-translate-z-full translate-z--1 translate-z--1/-2 translate-z--1/2 translate-z-1/-2 translate-z-1/2 translate-z-full
 <<<>>>
 # translate-3d
 translate-3d
@@ -2896,8 +2955,11 @@ translate-3d
       initial-value: 0;
     }
 <<<>>>
+# translate-3d
+-translate-3d
+<<<>>>
 # rotate
-rotate-45
+-rotate-45 rotate-45 rotate-[123deg]
 ---
 .-rotate-\(--var\) {
       rotate: calc(var(--var) * -1);
@@ -2931,7 +2993,7 @@ rotate-45
 rotate--2 rotate-unknown
 <<<>>>
 # rotate-x
-rotate-x-45
+-rotate-x-45 rotate-x-45 rotate-x-[123deg]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -2996,10 +3058,10 @@ rotate-x-45
     }
 <<<>>>
 # rotate-x
-rotate-x--1 rotate-x-potato
+-rotate-x rotate-x--1 rotate-x-potato
 <<<>>>
 # rotate-y
-rotate-y-45
+rotate-y-45 rotate-y-[123deg]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -3069,10 +3131,10 @@ rotate-y-45
     }
 <<<>>>
 # rotate-y
-rotate-y--1 rotate-y-potato
+-rotate-y rotate-y--1 rotate-y-potato
 <<<>>>
 # rotate-z
-rotate-z-45
+rotate-z-45 rotate-z-[123deg]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -3142,10 +3204,10 @@ rotate-z-45
     }
 <<<>>>
 # rotate-z
-rotate-z--1 rotate-z-potato
+-rotate-z rotate-z--1 rotate-z-potato
 <<<>>>
 # skew
-skew-6
+-skew-6 skew-6
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -3206,7 +3268,7 @@ skew-6
 skew--1 skew-unknown
 <<<>>>
 # skew-x
-skew-x-6
+-skew-x-6 skew-x-6
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -3264,7 +3326,7 @@ skew-x-6
 skew-x--1 skew-x-unknown
 <<<>>>
 # skew-y
-skew-y-6
+-skew-y-6 skew-y-6
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -3322,7 +3384,7 @@ skew-y-6
 skew-y--1 skew-y-unknown
 <<<>>>
 # scale
-scale-50
+-scale-50 scale-50
 ---
 @layer properties {
         @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -3412,8 +3474,11 @@ scale-3d
       initial-value: 1;
     }
 <<<>>>
+# scale-3d
+-scale-3d
+<<<>>>
 # scale-x
-scale-x-50
+-scale-x-50 scale-x-50
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -3505,7 +3570,7 @@ scale-200 scale-x-400
 scale-x--1 scale-x-1.5 scale-x-unknown
 <<<>>>
 # scale-y
-scale-y-50
+-scale-y-50 scale-y-50
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -3554,7 +3619,7 @@ scale-y-50
 scale-y--1 scale-y-1.5 scale-y-unknown
 <<<>>>
 # scale-z
-scale-z-50
+-scale-z-50 scale-z-50
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -3701,8 +3766,11 @@ backface-hidden backface-visible transform-3d transform-border transform-content
       transform-box: view-box;
     }
 <<<>>>
+# transform
+-transform -transform-cpu -transform-gpu -transform-none
+<<<>>>
 # perspective
-perspective-123 perspective-potato
+-perspective perspective-123 perspective-potato
 ---
 :root, :host {
       --perspective-none: 400px;
@@ -3871,6 +3939,9 @@ cursor-alias cursor-all-scroll cursor-auto cursor-cell cursor-col-resize cursor-
       cursor: zoom-out;
     }
 <<<>>>
+# cursor
+-cursor-alias -cursor-all-scroll -cursor-auto -cursor-cell -cursor-col-resize -cursor-context-menu -cursor-copy -cursor-crosshair -cursor-default -cursor-e-resize -cursor-ew-resize -cursor-grab -cursor-grabbing -cursor-help -cursor-move -cursor-n-resize -cursor-ne-resize -cursor-nesw-resize -cursor-no-drop -cursor-none -cursor-not-allowed -cursor-ns-resize -cursor-nw-resize -cursor-nwse-resize -cursor-pointer -cursor-progress -cursor-row-resize -cursor-s-resize -cursor-se-resize -cursor-sw-resize -cursor-text -cursor-vertical-text -cursor-w-resize -cursor-wait -cursor-zoom-in -cursor-zoom-out
+<<<>>>
 # touch-action
 touch-auto touch-manipulation touch-none
 ---
@@ -3885,6 +3956,9 @@ touch-auto touch-manipulation touch-none
     .touch-none {
       touch-action: none;
     }
+<<<>>>
+# touch-action
+-touch-auto -touch-manipulation -touch-none
 <<<>>>
 # touch-pan
 touch-pan-down touch-pan-left touch-pan-right touch-pan-up touch-pan-x touch-pan-y
@@ -3944,6 +4018,9 @@ touch-pan-down touch-pan-left touch-pan-right touch-pan-up touch-pan-x touch-pan
       inherits: false
     }
 <<<>>>
+# touch-pan
+-touch-pan-down -touch-pan-left -touch-pan-right -touch-pan-up -touch-pan-x -touch-pan-y
+<<<>>>
 # touch-pinch-zoom
 touch-pinch-zoom
 ---
@@ -3977,6 +4054,9 @@ touch-pinch-zoom
       inherits: false
     }
 <<<>>>
+# touch-pinch-zoom
+-touch-pinch-zoom
+<<<>>>
 # select
 select-all select-auto select-none select-text
 ---
@@ -4000,6 +4080,9 @@ select-all select-auto select-none select-text
         user-select: text;
       }
 <<<>>>
+# select
+-select-all -select-auto -select-none -select-text
+<<<>>>
 # resize
 resize resize-none resize-x resize-y
 ---
@@ -4018,6 +4101,9 @@ resize resize-none resize-x resize-y
     .resize-y {
       resize: vertical;
     }
+<<<>>>
+# resize
+-resize -resize-none -resize-x -resize-y
 <<<>>>
 # scroll-snap-type
 snap-both snap-none snap-x snap-y
@@ -4052,6 +4138,9 @@ snap-both snap-none snap-x snap-y
       initial-value: proximity;
     }
 <<<>>>
+# scroll-snap-type
+-snap-both -snap-none -snap-x -snap-y
+<<<>>>
 # --tw-scroll-snap-strictness
 snap-mandatory snap-proximity
 ---
@@ -4077,6 +4166,9 @@ snap-mandatory snap-proximity
       initial-value: proximity;
     }
 <<<>>>
+# --tw-scroll-snap-strictness
+-snap-mandatory -snap-proximity
+<<<>>>
 # scroll-snap-align
 snap-align-none snap-center snap-end snap-start
 ---
@@ -4096,6 +4188,9 @@ snap-align-none snap-center snap-end snap-start
         scroll-snap-align: start;
       }
 <<<>>>
+# scroll-snap-align
+-snap-align-none -snap-center -snap-end -snap-start
+<<<>>>
 # scroll-snap-stop
 snap-always snap-normal
 ---
@@ -4106,6 +4201,9 @@ snap-always snap-normal
     .snap-normal {
       scroll-snap-stop: normal;
     }
+<<<>>>
+# scroll-snap-stop
+-snap-always -snap-normal
 <<<>>>
 # scroll-mbs
 scroll-mbs
@@ -4130,6 +4228,9 @@ list-inside list-outside
       list-style-position: outside;
     }
 <<<>>>
+# list-style-position
+-list-inside -list-outside
+<<<>>>
 # list
 list-decimal list-disc list-none
 ---
@@ -4149,6 +4250,17 @@ list-decimal list-disc list-none
         list-style-type: none;
       }
 <<<>>>
+# list
+-list-decimal -list-disc -list-none
+---
+:root, :host {
+      --list-style-type-none: disc;
+    }
+
+    .list-none {
+      list-style-type: var(--list-style-type-none);
+    }
+<<<>>>
 # list-image
 list-image-none
 ---
@@ -4158,6 +4270,17 @@ list-image-none
 
     .list-image-none {
       list-style-image: none;
+    }
+<<<>>>
+# list-image
+-list-image-none
+---
+:root, :host {
+      --list-style-image-none: url("../foo.png");
+    }
+
+    .list-image-none {
+      list-style-image: var(--list-style-image-none);
     }
 <<<>>>
 # appearance
@@ -4172,7 +4295,7 @@ appearance-auto appearance-none
     }
 <<<>>>
 # appearance
-appearance
+-appearance-auto -appearance-none appearance
 <<<>>>
 # color-scheme
 scheme-dark scheme-light scheme-light-dark scheme-normal scheme-only-dark scheme-only-light
@@ -4202,10 +4325,10 @@ scheme-dark scheme-light scheme-light-dark scheme-normal scheme-only-dark scheme
     }
 <<<>>>
 # color-scheme
-scheme
+-scheme-dark -scheme-dark-only -scheme-light -scheme-light-dark -scheme-light-only scheme
 <<<>>>
 # columns
-columns-3xs columns-4 columns-7xl columns-99 columns-auto
+columns-3xs columns-4 columns-7xl columns-99 columns-[123] columns-auto
 ---
 :root, :host {
       --container-3xs: 16rem;
@@ -4241,7 +4364,7 @@ columns-3xs columns-4 columns-7xl columns-99 columns-auto
     }
 <<<>>>
 # columns
-columns--4
+-columns-4 -columns-[123] columns--4
 ---
 :root, :host {
       --columns-auto: 3;
@@ -4287,7 +4410,7 @@ break-before-all break-before-auto break-before-avoid break-before-avoid-page br
     }
 <<<>>>
 # break-before
-break-before
+-break-before-all -break-before-auto -break-before-avoid -break-before-avoid-page -break-before-column -break-before-left -break-before-page -break-before-right break-before
 <<<>>>
 # break-inside
 break-inside-auto break-inside-avoid break-inside-avoid-column break-inside-avoid-page
@@ -4309,7 +4432,7 @@ break-inside-auto break-inside-avoid break-inside-avoid-column break-inside-avoi
     }
 <<<>>>
 # break-inside
-break-inside
+-break-inside-auto -break-inside-avoid -break-inside-avoid-column -break-inside-avoid-page break-inside
 <<<>>>
 # break-after
 break-after-all break-after-auto break-after-avoid break-after-avoid-page break-after-column break-after-left break-after-page break-after-right
@@ -4347,10 +4470,10 @@ break-after-all break-after-auto break-after-avoid break-after-avoid-page break-
     }
 <<<>>>
 # break-after
-break-after
+-break-after-all -break-after-auto -break-after-avoid -break-after-avoid-page -break-after-column -break-after-left -break-after-page -break-after-right break-after
 <<<>>>
 # auto-cols
-auto-cols-auto auto-cols-fr auto-cols-max auto-cols-min
+auto-cols-[2fr] auto-cols-auto auto-cols-fr auto-cols-max auto-cols-min
 ---
 .auto-cols-\[2fr\] {
       grid-auto-columns: 2fr;
@@ -4370,6 +4493,17 @@ auto-cols-auto auto-cols-fr auto-cols-max auto-cols-min
 
     .auto-cols-min {
       grid-auto-columns: min-content;
+    }
+<<<>>>
+# auto-cols
+-auto-cols-[2fr] -auto-cols-auto
+---
+:root, :host {
+      --grid-auto-columns-auto: 2fr;
+    }
+
+    .auto-cols-auto {
+      grid-auto-columns: var(--grid-auto-columns-auto);
     }
 <<<>>>
 # grid-flow
@@ -4396,10 +4530,10 @@ grid-flow-col grid-flow-col-dense grid-flow-dense grid-flow-row grid-flow-row-de
     }
 <<<>>>
 # grid-flow
-grid-flow
+-grid-flow-col -grid-flow-col-dense -grid-flow-dense -grid-flow-row -grid-flow-row-dense grid-flow
 <<<>>>
 # auto-rows
-auto-rows-auto auto-rows-fr auto-rows-max auto-rows-min
+auto-rows-[2fr] auto-rows-auto auto-rows-fr auto-rows-max auto-rows-min
 ---
 .auto-rows-\[2fr\] {
       grid-auto-rows: 2fr;
@@ -4421,8 +4555,19 @@ auto-rows-auto auto-rows-fr auto-rows-max auto-rows-min
       grid-auto-rows: min-content;
     }
 <<<>>>
+# auto-rows
+-auto-rows-[2fr] -auto-rows-auto
+---
+:root, :host {
+      --grid-auto-rows-auto: 2fr;
+    }
+
+    .auto-rows-auto {
+      grid-auto-rows: var(--grid-auto-rows-auto);
+    }
+<<<>>>
 # grid-cols
-grid-cols-12 grid-cols-99 grid-cols-none grid-cols-subgrid
+grid-cols-12 grid-cols-99 grid-cols-[123] grid-cols-none grid-cols-subgrid
 ---
 .grid-cols-12 {
       grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -4445,7 +4590,7 @@ grid-cols-12 grid-cols-99 grid-cols-none grid-cols-subgrid
     }
 <<<>>>
 # grid-cols
-grid-cols--12 grid-cols-0
+-grid-cols-12 -grid-cols-[123] -grid-cols-none -grid-cols-subgrid grid-cols--12 grid-cols-0
 ---
 :root, :host {
       --grid-template-columns-none: 200px 1fr;
@@ -4456,7 +4601,7 @@ grid-cols--12 grid-cols-0
     }
 <<<>>>
 # grid-rows
-grid-rows-12 grid-rows-99 grid-rows-none grid-rows-subgrid
+grid-rows-12 grid-rows-99 grid-rows-[123] grid-rows-none grid-rows-subgrid
 ---
 .grid-rows-12 {
       grid-template-rows: repeat(12, minmax(0, 1fr));
@@ -4479,7 +4624,7 @@ grid-rows-12 grid-rows-99 grid-rows-none grid-rows-subgrid
     }
 <<<>>>
 # grid-rows
-grid-rows--12 grid-rows-0
+-grid-rows-12 -grid-rows-[123] -grid-rows-none -grid-rows-subgrid grid-rows--12 grid-rows-0
 ---
 :root, :host {
       --grid-template-rows-none: 200px 1fr;
@@ -4508,6 +4653,9 @@ flex-col flex-col-reverse flex-row flex-row-reverse
         flex-direction: row-reverse;
       }
 <<<>>>
+# flex-direction
+-flex-col -flex-col-reverse -flex-row -flex-row-reverse
+<<<>>>
 # flex-wrap
 flex-nowrap flex-wrap flex-wrap-reverse
 ---
@@ -4522,6 +4670,9 @@ flex-nowrap flex-wrap flex-wrap-reverse
     .flex-wrap-reverse {
       flex-wrap: wrap-reverse;
     }
+<<<>>>
+# flex-wrap
+-flex-nowrap -flex-wrap -flex-wrap-reverse
 <<<>>>
 # place-content
 place-content-around place-content-baseline place-content-between place-content-center place-content-center-safe place-content-end place-content-end-safe place-content-evenly place-content-start place-content-stretch
@@ -4567,7 +4718,7 @@ place-content-around place-content-baseline place-content-between place-content-
     }
 <<<>>>
 # place-content
-place-content
+-place-content-around -place-content-baseline -place-content-between -place-content-center -place-content-end -place-content-evenly -place-content-start -place-content-stretch place-content
 <<<>>>
 # place-items
 place-items-baseline place-items-center place-items-center-safe place-items-end place-items-end-safe place-items-start place-items-stretch
@@ -4601,7 +4752,7 @@ place-items-baseline place-items-center place-items-center-safe place-items-end 
     }
 <<<>>>
 # place-items
-place-items
+-place-items-baseline -place-items-center -place-items-end -place-items-start -place-items-stretch place-items
 <<<>>>
 # align-content
 content-around content-baseline content-between content-center content-center-safe content-end content-end-safe content-evenly content-normal content-start content-stretch
@@ -4651,7 +4802,7 @@ content-around content-baseline content-between content-center content-center-sa
     }
 <<<>>>
 # align-content
-content
+-content-around -content-baseline -content-between -content-center -content-end -content-evenly -content-normal -content-start -content-stretch content
 <<<>>>
 # items
 items-baseline items-baseline-last items-center items-center-safe items-end items-end-safe items-start items-stretch
@@ -4689,7 +4840,7 @@ items-baseline items-baseline-last items-center items-center-safe items-end item
     }
 <<<>>>
 # items
-items
+-items-baseline -items-center -items-end -items-first-baseline -items-last-baseline -items-start -items-stretch items
 <<<>>>
 # justify
 justify-around justify-between justify-center justify-center-safe justify-end justify-end-safe justify-evenly justify-normal justify-start justify-stretch
@@ -4735,7 +4886,7 @@ justify-around justify-between justify-center justify-center-safe justify-end ju
     }
 <<<>>>
 # justify
-justify
+-justify-around -justify-between -justify-center -justify-end -justify-evenly -justify-normal -justify-start -justify-stretch justify
 <<<>>>
 # justify-items
 justify-items-center justify-items-center-safe justify-items-end justify-items-end-safe justify-items-start justify-items-stretch
@@ -4765,7 +4916,16 @@ justify-items-center justify-items-center-safe justify-items-end justify-items-e
     }
 <<<>>>
 # justify-items
-justify-items
+-justify-items-center -justify-items-end -justify-items-start -justify-items-stretch justify-items
+<<<>>>
+# gap
+-gap-4
+<<<>>>
+# gap-x
+-gap-x-4
+<<<>>>
+# gap-y
+-gap-y-4
 <<<>>>
 # space-x-reverse
 space-x-reverse
@@ -4788,6 +4948,9 @@ space-x-reverse
       initial-value: 0;
     }
 <<<>>>
+# space-x-reverse
+-space-x-reverse
+<<<>>>
 # space-y-reverse
 space-y-reverse
 ---
@@ -4809,11 +4972,14 @@ space-y-reverse
       initial-value: 0;
     }
 <<<>>>
+# space-y-reverse
+-space-y-reverse
+<<<>>>
 # divide-x
-divide-x--4 divide-x-unknown
+-divide-x -divide-x-123 -divide-x-4 divide-x--4 divide-x-unknown
 <<<>>>
 # divide-y
-divide-y--4 divide-y-unknown
+-divide-y -divide-y-123 -divide-y-4 divide-y--4 divide-y-unknown
 <<<>>>
 # divide-x-reverse
 divide-x-reverse
@@ -4836,6 +5002,9 @@ divide-x-reverse
       initial-value: 0;
     }
 <<<>>>
+# divide-x-reverse
+-divide-x-reverse
+<<<>>>
 # divide-y-reverse
 divide-y-reverse
 ---
@@ -4856,6 +5025,9 @@ divide-y-reverse
       inherits: false;
       initial-value: 0;
     }
+<<<>>>
+# divide-y-reverse
+-divide-y-reverse
 <<<>>>
 # divide-style
 divide-dashed divide-dotted divide-double divide-none divide-solid
@@ -4886,10 +5058,10 @@ divide-dashed divide-dotted divide-double divide-none divide-solid
     }
 <<<>>>
 # divide-style
-divide
+-divide-dashed -divide-dotted -divide-double -divide-none -divide-solid divide
 <<<>>>
 # accent
-accent-red-500 accent-red-500/2.25 accent-red-500/2.5 accent-red-500/2.75 accent-red-500/50
+accent-red-500 accent-red-500/2.25 accent-red-500/2.5 accent-red-500/2.75 accent-red-500/50 accent-red-500/[0.5]
 ---
 :root, :host {
       --color-red-500: #ef4444;
@@ -5011,10 +5183,10 @@ accent-red-500 accent-red-500/2.25 accent-red-500/2.5 accent-red-500/2.75 accent
     }
 <<<>>>
 # accent
-accent-red-500/-50
+-accent-red-500 -accent-red-500/50 -accent-red-500/[0.5] accent-red-500/-50
 <<<>>>
 # caret
-caret-red-500 caret-red-500/2.25 caret-red-500/2.5 caret-red-500/2.75 caret-red-500/50
+caret-red-500 caret-red-500/2.25 caret-red-500/2.5 caret-red-500/2.75 caret-red-500/50 caret-red-500/[0.5]
 ---
 :root, :host {
       --color-red-500: #ef4444;
@@ -5135,8 +5307,11 @@ caret-red-500 caret-red-500/2.25 caret-red-500/2.5 caret-red-500/2.75 caret-red-
       caret-color: #0000;
     }
 <<<>>>
+# caret
+-caret-red-500 -caret-red-500/50 -caret-red-500/[0.5]
+<<<>>>
 # divide-color
-divide-red-500 divide-red-500/2.25 divide-red-500/2.5 divide-red-500/2.75 divide-red-500/50
+divide-red-500 divide-red-500/2.25 divide-red-500/2.5 divide-red-500/2.75 divide-red-500/50 divide-red-500/[0.5]
 ---
 :root, :host {
       --color-red-500: #ef4444;
@@ -5258,7 +5433,7 @@ divide-red-500 divide-red-500/2.25 divide-red-500/2.5 divide-red-500/2.75 divide
     }
 <<<>>>
 # divide-color
-divide
+-divide-red-500 -divide-red-500/50 -divide-red-500/[0.5] divide
 <<<>>>
 # place-self
 place-self-auto place-self-center place-self-center-safe place-self-end place-self-end-safe place-self-start place-self-stretch
@@ -5292,7 +5467,7 @@ place-self-auto place-self-center place-self-center-safe place-self-end place-se
     }
 <<<>>>
 # place-self
-place-self
+-place-self-auto -place-self-center -place-self-end -place-self-start -place-self-stretch place-self
 <<<>>>
 # self
 self-auto self-baseline self-baseline-last self-center self-center-safe self-end self-end-safe self-start self-stretch
@@ -5334,7 +5509,7 @@ self-auto self-baseline self-baseline-last self-center self-center-safe self-end
     }
 <<<>>>
 # self
-self
+-self-auto -self-baseline -self-center -self-end -self-start -self-stretch self
 <<<>>>
 # justify-self
 justify-self-auto justify-self-baseline justify-self-center justify-self-center-safe justify-self-end justify-self-end-safe justify-self-start justify-self-stretch
@@ -5368,7 +5543,7 @@ justify-self-auto justify-self-baseline justify-self-center justify-self-center-
     }
 <<<>>>
 # justify-self
-justify-self
+-justify-self-auto -justify-self-baseline -justify-self-center -justify-self-end -justify-self-start -justify-self-stretch justify-self
 <<<>>>
 # overflow
 overflow-auto overflow-clip overflow-hidden overflow-scroll overflow-visible
@@ -5394,7 +5569,7 @@ overflow-auto overflow-clip overflow-hidden overflow-scroll overflow-visible
     }
 <<<>>>
 # overflow
-overflow
+-overflow-auto -overflow-clip -overflow-hidden -overflow-scroll -overflow-visible overflow
 <<<>>>
 # overflow-x
 overflow-x-auto overflow-x-clip overflow-x-hidden overflow-x-scroll overflow-x-visible
@@ -5420,7 +5595,7 @@ overflow-x-auto overflow-x-clip overflow-x-hidden overflow-x-scroll overflow-x-v
     }
 <<<>>>
 # overflow-x
-overflow-x
+-overflow-x-auto -overflow-x-clip -overflow-x-hidden -overflow-x-scroll -overflow-x-visible overflow-x
 <<<>>>
 # overflow-y
 overflow-y-auto overflow-y-clip overflow-y-hidden overflow-y-scroll overflow-y-visible
@@ -5446,7 +5621,7 @@ overflow-y-auto overflow-y-clip overflow-y-hidden overflow-y-scroll overflow-y-v
     }
 <<<>>>
 # overflow-y
-overflow-y
+-overflow-y-auto -overflow-y-clip -overflow-y-hidden -overflow-y-scroll -overflow-y-visible overflow-y
 <<<>>>
 # overscroll
 overscroll-auto overscroll-contain overscroll-none
@@ -5464,7 +5639,7 @@ overscroll-auto overscroll-contain overscroll-none
       }
 <<<>>>
 # overscroll
-overscroll
+-overscroll-auto -overscroll-contain -overscroll-none overscroll
 <<<>>>
 # overscroll-x
 overscroll-x-auto overscroll-x-contain overscroll-x-none
@@ -5482,7 +5657,7 @@ overscroll-x-auto overscroll-x-contain overscroll-x-none
       }
 <<<>>>
 # overscroll-x
-overscroll-x
+-overscroll-x-auto -overscroll-x-contain -overscroll-x-none overscroll-x
 <<<>>>
 # overscroll-y
 overscroll-y-auto overscroll-y-contain overscroll-y-none
@@ -5500,7 +5675,7 @@ overscroll-y-auto overscroll-y-contain overscroll-y-none
       }
 <<<>>>
 # overscroll-y
-overscroll-y
+-overscroll-y-auto -overscroll-y-contain -overscroll-y-none overscroll-y
 <<<>>>
 # scroll-behavior
 scroll-auto scroll-smooth
@@ -5514,7 +5689,7 @@ scroll-auto scroll-smooth
     }
 <<<>>>
 # scroll-behavior
-scroll
+-scroll-auto -scroll-smooth scroll
 <<<>>>
 # truncate
 truncate
@@ -5524,6 +5699,9 @@ truncate
       white-space: nowrap;
       overflow: hidden;
     }
+<<<>>>
+# truncate
+-truncate
 <<<>>>
 # text-overflow
 text-clip text-ellipsis
@@ -5535,6 +5713,9 @@ text-clip text-ellipsis
     .text-ellipsis {
       text-overflow: ellipsis;
     }
+<<<>>>
+# text-overflow
+-text-clip -text-ellipsis
 <<<>>>
 # hyphens
 hyphens-auto hyphens-manual hyphens-none
@@ -5555,7 +5736,7 @@ hyphens-auto hyphens-manual hyphens-none
     }
 <<<>>>
 # hyphens
-hyphens
+-hyphens-auto -hyphens-manual -hyphens-none hyphens
 <<<>>>
 # whitespace
 whitespace-break-spaces whitespace-normal whitespace-nowrap whitespace-pre whitespace-pre-line whitespace-pre-wrap
@@ -5585,7 +5766,7 @@ whitespace-break-spaces whitespace-normal whitespace-nowrap whitespace-pre white
     }
 <<<>>>
 # whitespace
-whitespace
+-whitespace-break-spaces -whitespace-normal -whitespace-nowrap -whitespace-pre -whitespace-pre-line -whitespace-pre-wrap whitespace
 <<<>>>
 # text-wrap
 text-balance text-nowrap text-pretty text-wrap
@@ -5605,6 +5786,9 @@ text-balance text-nowrap text-pretty text-wrap
       .text-wrap {
         text-wrap: wrap;
       }
+<<<>>>
+# text-wrap
+-text-balance -text-nowrap -text-pretty -text-wrap
 <<<>>>
 # word-break
 break-all break-keep break-normal break-words
@@ -5626,6 +5810,9 @@ break-all break-keep break-normal break-words
         word-break: keep-all;
       }
 <<<>>>
+# word-break
+-break-all -break-keep -break-normal -break-words
+<<<>>>
 # overflow-wrap
 wrap-anywhere wrap-break-word wrap-normal
 ---
@@ -5640,6 +5827,54 @@ wrap-anywhere wrap-break-word wrap-normal
     .wrap-normal {
       overflow-wrap: normal;
     }
+<<<>>>
+# overflow-wrap
+-wrap-anywhere -wrap-break-word -wrap-normal
+<<<>>>
+# rounded
+-rounded -rounded-[4px] -rounded-full -rounded-none -rounded-sm
+<<<>>>
+# rounded-s
+-rounded-s -rounded-s-[4px] -rounded-s-full -rounded-s-none -rounded-s-sm
+<<<>>>
+# rounded-e
+-rounded-e -rounded-e-[4px] -rounded-e-full -rounded-e-none -rounded-e-sm
+<<<>>>
+# rounded-t
+-rounded-t -rounded-t-[4px] -rounded-t-full -rounded-t-none -rounded-t-sm
+<<<>>>
+# rounded-r
+-rounded-r -rounded-r-[4px] -rounded-r-full -rounded-r-none -rounded-r-sm
+<<<>>>
+# rounded-b
+-rounded-b -rounded-b-[4px] -rounded-b-full -rounded-b-none -rounded-b-sm
+<<<>>>
+# rounded-l
+-rounded-l -rounded-l-[4px] -rounded-l-full -rounded-l-none -rounded-l-sm
+<<<>>>
+# rounded-ss
+-rounded-ss -rounded-ss-[4px] -rounded-ss-full -rounded-ss-none -rounded-ss-sm
+<<<>>>
+# rounded-se
+-rounded-se -rounded-se-[4px] -rounded-se-full -rounded-se-none -rounded-se-sm
+<<<>>>
+# rounded-ee
+-rounded-ee -rounded-ee-[4px] -rounded-ee-full -rounded-ee-none -rounded-ee-sm
+<<<>>>
+# rounded-es
+-rounded-es -rounded-es-[4px] -rounded-es-full -rounded-es-none -rounded-es-sm
+<<<>>>
+# rounded-tl
+-rounded-tl -rounded-tl-[4px] -rounded-tl-full -rounded-tl-none -rounded-tl-sm
+<<<>>>
+# rounded-tr
+-rounded-tr -rounded-tr-[4px] -rounded-tr-full -rounded-tr-none -rounded-tr-sm
+<<<>>>
+# rounded-br
+-rounded-br -rounded-br-[4px] -rounded-br-full -rounded-br-none -rounded-br-sm
+<<<>>>
+# rounded-bl
+-rounded-bl -rounded-bl-[4px] -rounded-bl-full -rounded-bl-none -rounded-bl-sm
 <<<>>>
 # border-style
 border-dashed border-dotted border-double border-hidden border-none border-solid
@@ -5674,8 +5909,14 @@ border-dashed border-dotted border-double border-hidden border-none border-solid
       border-style: solid;
     }
 <<<>>>
+# border-style
+-border-dashed -border-dotted -border-double -border-hidden -border-none -border-solid
+<<<>>>
+# border with custom default border width
+-border
+<<<>>>
 # bg
-bg-red-500 bg-red-500/2.25 bg-red-500/2.5 bg-red-500/2.75 bg-red-500/50
+bg-red-500 bg-red-500/2.25 bg-red-500/2.5 bg-red-500/2.75 bg-red-500/50 bg-red-500/[0.5]
 ---
 :root, :host {
       --color-red-500: #ef4444;
@@ -6495,7 +6736,7 @@ bg-red-500 bg-red-500/2.25 bg-red-500/2.5 bg-red-500/2.75 bg-red-500/50
     }
 <<<>>>
 # bg
-bg-unknown
+-bg-red-500 -bg-red-500/50 -bg-red-500/[0.5] bg-unknown
 ---
 .bg-current\/custom {
       background-color: currentColor;
@@ -6528,13 +6769,13 @@ bg-unknown
     }
 <<<>>>
 # bg-position
-bg-position
+-bg-position bg-position
 <<<>>>
 # bg-size
-bg-size
+-bg-size bg-size
 <<<>>>
 # from
-from-red-500 from-red-500/50
+from-red-500 from-red-500/50 from-red-500/[0.5]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -6840,10 +7081,10 @@ from-red-500 from-red-500/50
     }
 <<<>>>
 # from
-from--123 from--5% from-123 from-25.% from-25.0% from-unknown from-unknown%
+-from-red-500 -from-red-500/50 -from-red-500/[0.5] from--123 from--5% from-123 from-25.% from-25.0% from-unknown from-unknown%
 <<<>>>
 # via
-via-red-500 via-red-500/50
+via-red-500 via-red-500/50 via-red-500/[0.5]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -7169,10 +7410,10 @@ via-red-500 via-red-500/50
     }
 <<<>>>
 # via
-via--123 via--5% via-123 via-unknown via-unknown%
+-via-red-500 -via-red-500/50 -via-red-500/[0.5] via--123 via--5% via-123 via-unknown via-unknown%
 <<<>>>
 # to
-to-red-500 to-red-500/50
+to-red-500 to-red-500/50 to-red-500/[0.5]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -7478,7 +7719,7 @@ to-red-500 to-red-500/50
     }
 <<<>>>
 # to
-to--123 to--5% to-123 to-unknown to-unknown%
+-to-red-500 -to-red-500/50 -to-red-500/[0.5] to--123 to--5% to-123 to-unknown to-unknown%
 <<<>>>
 # mask
 mask-none
@@ -7681,7 +7922,7 @@ mask-none
     }
 <<<>>>
 # mask
-mask mask-unknown
+-mask-none mask mask-unknown
 ---
 .\[color\:red\]\/half {
       color: color-mix(in srgb, red .5, transparent);
@@ -7694,13 +7935,13 @@ mask mask-unknown
     }
 <<<>>>
 # mask-position
-mask-position
+-mask-position mask-position
 <<<>>>
 # mask-size
-mask-size
+-mask-size mask-size
 <<<>>>
 # mask-t-from
-mask-t-from-0 mask-t-from-0% mask-t-from-1.5 mask-t-from-2 mask-t-from-2%
+mask-t-from-0 mask-t-from-0% mask-t-from-1.5 mask-t-from-2 mask-t-from-2% mask-t-from-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -7899,10 +8140,10 @@ mask-t-from-0 mask-t-from-0% mask-t-from-1.5 mask-t-from-2 mask-t-from-2%
     }
 <<<>>>
 # mask-t-from
-mask-t-from mask-t-from--1.5 mask-t-from--2 mask-t-from--5% mask-t-from-2.5% mask-t-from-2.8175 mask-t-from-unknown mask-t-from-unknown%
+-mask-t-from-0 -mask-t-from-0% -mask-t-from-1.5 -mask-t-from-2 -mask-t-from-2% -mask-t-from-[0px] mask-t-from mask-t-from--1.5 mask-t-from--2 mask-t-from--5% mask-t-from-2.5% mask-t-from-2.8175 mask-t-from-unknown mask-t-from-unknown%
 <<<>>>
 # mask-t-to
-mask-t-to-0 mask-t-to-0% mask-t-to-1.5 mask-t-to-2 mask-t-to-2%
+mask-t-to-0 mask-t-to-0% mask-t-to-1.5 mask-t-to-2 mask-t-to-2% mask-t-to-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -8101,10 +8342,10 @@ mask-t-to-0 mask-t-to-0% mask-t-to-1.5 mask-t-to-2 mask-t-to-2%
     }
 <<<>>>
 # mask-t-to
-mask-t-to mask-t-to--1.5 mask-t-to--2 mask-t-to--5% mask-t-to-2.5% mask-t-to-2.8175 mask-t-to-unknown mask-t-to-unknown%
+-mask-t-to-0 -mask-t-to-0% -mask-t-to-1.5 -mask-t-to-2 -mask-t-to-2% -mask-t-to-[0px] mask-t-to mask-t-to--1.5 mask-t-to--2 mask-t-to--5% mask-t-to-2.5% mask-t-to-2.8175 mask-t-to-unknown mask-t-to-unknown%
 <<<>>>
 # mask-r-from
-mask-r-from-0 mask-r-from-0% mask-r-from-1.5 mask-r-from-2 mask-r-from-2%
+mask-r-from-0 mask-r-from-0% mask-r-from-1.5 mask-r-from-2 mask-r-from-2% mask-r-from-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -8303,10 +8544,10 @@ mask-r-from-0 mask-r-from-0% mask-r-from-1.5 mask-r-from-2 mask-r-from-2%
     }
 <<<>>>
 # mask-r-from
-mask-r-from mask-r-from--1.5 mask-r-from--2 mask-r-from--5% mask-r-from-2.5% mask-r-from-2.8175 mask-r-from-unknown mask-r-from-unknown%
+-mask-r-from-0 -mask-r-from-0% -mask-r-from-1.5 -mask-r-from-2 -mask-r-from-2% -mask-r-from-[0px] mask-r-from mask-r-from--1.5 mask-r-from--2 mask-r-from--5% mask-r-from-2.5% mask-r-from-2.8175 mask-r-from-unknown mask-r-from-unknown%
 <<<>>>
 # mask-r-to
-mask-r-to-0 mask-r-to-0% mask-r-to-1.5 mask-r-to-2 mask-r-to-2%
+mask-r-to-0 mask-r-to-0% mask-r-to-1.5 mask-r-to-2 mask-r-to-2% mask-r-to-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -8505,10 +8746,10 @@ mask-r-to-0 mask-r-to-0% mask-r-to-1.5 mask-r-to-2 mask-r-to-2%
     }
 <<<>>>
 # mask-r-to
-mask-r-to mask-r-to--1.5 mask-r-to--2 mask-r-to--5% mask-r-to-2.5% mask-r-to-2.8175 mask-r-to-unknown mask-r-to-unknown%
+-mask-r-to-0 -mask-r-to-0% -mask-r-to-1.5 -mask-r-to-2 -mask-r-to-2% -mask-r-to-[0px] mask-r-to mask-r-to--1.5 mask-r-to--2 mask-r-to--5% mask-r-to-2.5% mask-r-to-2.8175 mask-r-to-unknown mask-r-to-unknown%
 <<<>>>
 # mask-b-from
-mask-b-from-0 mask-b-from-0% mask-b-from-1.5 mask-b-from-2 mask-b-from-2%
+mask-b-from-0 mask-b-from-0% mask-b-from-1.5 mask-b-from-2 mask-b-from-2% mask-b-from-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -8707,10 +8948,10 @@ mask-b-from-0 mask-b-from-0% mask-b-from-1.5 mask-b-from-2 mask-b-from-2%
     }
 <<<>>>
 # mask-b-from
-mask-b-from mask-b-from--1.5 mask-b-from--2 mask-b-from--5% mask-b-from-2.5% mask-b-from-2.8175 mask-b-from-unknown mask-b-from-unknown%
+-mask-b-from-0 -mask-b-from-0% -mask-b-from-1.5 -mask-b-from-2 -mask-b-from-2% -mask-b-from-[0px] mask-b-from mask-b-from--1.5 mask-b-from--2 mask-b-from--5% mask-b-from-2.5% mask-b-from-2.8175 mask-b-from-unknown mask-b-from-unknown%
 <<<>>>
 # mask-b-to
-mask-b-to-0 mask-b-to-0% mask-b-to-1.5 mask-b-to-2 mask-b-to-2%
+mask-b-to-0 mask-b-to-0% mask-b-to-1.5 mask-b-to-2 mask-b-to-2% mask-b-to-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -8909,10 +9150,10 @@ mask-b-to-0 mask-b-to-0% mask-b-to-1.5 mask-b-to-2 mask-b-to-2%
     }
 <<<>>>
 # mask-b-to
-mask-b-to mask-b-to--1.5 mask-b-to--2 mask-b-to--5% mask-b-to-2.5% mask-b-to-2.8175 mask-b-to-unknown mask-b-to-unknown%
+-mask-b-to-0 -mask-b-to-0% -mask-b-to-1.5 -mask-b-to-2 -mask-b-to-2% -mask-b-to-[0px] mask-b-to mask-b-to--1.5 mask-b-to--2 mask-b-to--5% mask-b-to-2.5% mask-b-to-2.8175 mask-b-to-unknown mask-b-to-unknown%
 <<<>>>
 # mask-l-from
-mask-l-from-0 mask-l-from-0% mask-l-from-1.5 mask-l-from-2 mask-l-from-2%
+mask-l-from-0 mask-l-from-0% mask-l-from-1.5 mask-l-from-2 mask-l-from-2% mask-l-from-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -9111,10 +9352,10 @@ mask-l-from-0 mask-l-from-0% mask-l-from-1.5 mask-l-from-2 mask-l-from-2%
     }
 <<<>>>
 # mask-l-from
-mask-l-from mask-l-from--1.5 mask-l-from--2 mask-l-from--5% mask-l-from-2.5% mask-l-from-2.8175 mask-l-from-unknown mask-l-from-unknown%
+-mask-l-from-0 -mask-l-from-0% -mask-l-from-1.5 -mask-l-from-2 -mask-l-from-2% -mask-l-from-[0px] mask-l-from mask-l-from--1.5 mask-l-from--2 mask-l-from--5% mask-l-from-2.5% mask-l-from-2.8175 mask-l-from-unknown mask-l-from-unknown%
 <<<>>>
 # mask-l-to
-mask-l-to-0 mask-l-to-0% mask-l-to-1.5 mask-l-to-2 mask-l-to-2%
+mask-l-to-0 mask-l-to-0% mask-l-to-1.5 mask-l-to-2 mask-l-to-2% mask-l-to-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -9313,10 +9554,10 @@ mask-l-to-0 mask-l-to-0% mask-l-to-1.5 mask-l-to-2 mask-l-to-2%
     }
 <<<>>>
 # mask-l-to
-mask-l-to mask-l-to--1.5 mask-l-to--2 mask-l-to--5% mask-l-to-2.5% mask-l-to-2.8175 mask-l-to-unknown mask-l-to-unknown%
+-mask-l-to-0 -mask-l-to-0% -mask-l-to-1.5 -mask-l-to-2 -mask-l-to-2% -mask-l-to-[0px] mask-l-to mask-l-to--1.5 mask-l-to--2 mask-l-to--5% mask-l-to-2.5% mask-l-to-2.8175 mask-l-to-unknown mask-l-to-unknown%
 <<<>>>
 # mask-x-from
-mask-x-from-0 mask-x-from-0% mask-x-from-1.5 mask-x-from-2 mask-x-from-2%
+mask-x-from-0 mask-x-from-0% mask-x-from-1.5 mask-x-from-2 mask-x-from-2% mask-x-from-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -9561,10 +9802,10 @@ mask-x-from-0 mask-x-from-0% mask-x-from-1.5 mask-x-from-2 mask-x-from-2%
     }
 <<<>>>
 # mask-x-from
-mask-x-from mask-x-from--1.5 mask-x-from--2 mask-x-from--5% mask-x-from-2.5% mask-x-from-2.8175 mask-x-from-unknown mask-x-from-unknown%
+-mask-x-from-0 -mask-x-from-0% -mask-x-from-1.5 -mask-x-from-2 -mask-x-from-2% -mask-x-from-[0px] mask-x-from mask-x-from--1.5 mask-x-from--2 mask-x-from--5% mask-x-from-2.5% mask-x-from-2.8175 mask-x-from-unknown mask-x-from-unknown%
 <<<>>>
 # mask-x-to
-mask-x-to-0 mask-x-to-0% mask-x-to-1.5 mask-x-to-2 mask-x-to-2%
+mask-x-to-0 mask-x-to-0% mask-x-to-1.5 mask-x-to-2 mask-x-to-2% mask-x-to-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -9809,10 +10050,10 @@ mask-x-to-0 mask-x-to-0% mask-x-to-1.5 mask-x-to-2 mask-x-to-2%
     }
 <<<>>>
 # mask-x-to
-mask-x-to mask-x-to--1.5 mask-x-to--2 mask-x-to--5% mask-x-to-2.5% mask-x-to-2.8175 mask-x-to-unknown mask-x-to-unknown%
+-mask-x-to-0 -mask-x-to-0% -mask-x-to-1.5 -mask-x-to-2 -mask-x-to-2% -mask-x-to-[0px] mask-x-to mask-x-to--1.5 mask-x-to--2 mask-x-to--5% mask-x-to-2.5% mask-x-to-2.8175 mask-x-to-unknown mask-x-to-unknown%
 <<<>>>
 # mask-y-from
-mask-y-from-0 mask-y-from-0% mask-y-from-1.5 mask-y-from-2 mask-y-from-2%
+mask-y-from-0 mask-y-from-0% mask-y-from-1.5 mask-y-from-2 mask-y-from-2% mask-y-from-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -10057,10 +10298,10 @@ mask-y-from-0 mask-y-from-0% mask-y-from-1.5 mask-y-from-2 mask-y-from-2%
     }
 <<<>>>
 # mask-y-from
-mask-y-from mask-y-from--1.5 mask-y-from--2 mask-y-from--5% mask-y-from-2.5% mask-y-from-2.8175 mask-y-from-unknown mask-y-from-unknown%
+-mask-y-from-0 -mask-y-from-0% -mask-y-from-1.5 -mask-y-from-2 -mask-y-from-2% -mask-y-from-[0px] mask-y-from mask-y-from--1.5 mask-y-from--2 mask-y-from--5% mask-y-from-2.5% mask-y-from-2.8175 mask-y-from-unknown mask-y-from-unknown%
 <<<>>>
 # mask-y-to
-mask-y-to-0 mask-y-to-0% mask-y-to-1.5 mask-y-to-2 mask-y-to-2%
+mask-y-to-0 mask-y-to-0% mask-y-to-1.5 mask-y-to-2 mask-y-to-2% mask-y-to-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -10305,13 +10546,13 @@ mask-y-to-0 mask-y-to-0% mask-y-to-1.5 mask-y-to-2 mask-y-to-2%
     }
 <<<>>>
 # mask-y-to
-mask-y-to mask-y-to--1.5 mask-y-to--2 mask-y-to--5% mask-y-to-2.5% mask-y-to-2.8175 mask-y-to-unknown mask-y-to-unknown%
+-mask-y-to-0 -mask-y-to-0% -mask-y-to-1.5 -mask-y-to-2 -mask-y-to-2% -mask-y-to-[0px] mask-y-to mask-y-to--1.5 mask-y-to--2 mask-y-to--5% mask-y-to-2.5% mask-y-to-2.8175 mask-y-to-unknown mask-y-to-unknown%
 <<<>>>
 # mask-linear
-mask-linear mask-linear--75 mask-linear-unknown
+-mask-linear mask-linear mask-linear--75 mask-linear-unknown
 <<<>>>
 # mask-linear-from
-mask-linear-from-0 mask-linear-from-0% mask-linear-from-1.5 mask-linear-from-2 mask-linear-from-2%
+mask-linear-from-0 mask-linear-from-0% mask-linear-from-1.5 mask-linear-from-2 mask-linear-from-2% mask-linear-from-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -10489,10 +10730,10 @@ mask-linear-from-0 mask-linear-from-0% mask-linear-from-1.5 mask-linear-from-2 m
     }
 <<<>>>
 # mask-linear-from
-mask-linear-from mask-linear-from--1.5 mask-linear-from--2 mask-linear-from--5% mask-linear-from-2.5% mask-linear-from-2.8175 mask-linear-from-unknown mask-linear-from-unknown%
+-mask-linear-from-0 -mask-linear-from-0% -mask-linear-from-1.5 -mask-linear-from-2 -mask-linear-from-2% -mask-linear-from-[0px] mask-linear-from mask-linear-from--1.5 mask-linear-from--2 mask-linear-from--5% mask-linear-from-2.5% mask-linear-from-2.8175 mask-linear-from-unknown mask-linear-from-unknown%
 <<<>>>
 # mask-linear-to
-mask-linear-to-0 mask-linear-to-0% mask-linear-to-1.5 mask-linear-to-2 mask-linear-to-2%
+mask-linear-to-0 mask-linear-to-0% mask-linear-to-1.5 mask-linear-to-2 mask-linear-to-2% mask-linear-to-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -10670,10 +10911,10 @@ mask-linear-to-0 mask-linear-to-0% mask-linear-to-1.5 mask-linear-to-2 mask-line
     }
 <<<>>>
 # mask-linear-to
-mask-linear-to mask-linear-to--1.5 mask-linear-to--2 mask-linear-to--5% mask-linear-to-2.5% mask-linear-to-2.8175 mask-linear-to-unknown mask-linear-to-unknown%
+-mask-linear-to-0 -mask-linear-to-0% -mask-linear-to-1.5 -mask-linear-to-2 -mask-linear-to-2% -mask-linear-to-[0px] mask-linear-to mask-linear-to--1.5 mask-linear-to--2 mask-linear-to--5% mask-linear-to-2.5% mask-linear-to-2.8175 mask-linear-to-unknown mask-linear-to-unknown%
 <<<>>>
 # mask-radial
-mask-circle mask-ellipse mask-radial-closest-corner mask-radial-closest-side mask-radial-farthest-corner mask-radial-farthest-side
+mask-circle mask-ellipse mask-radial-[25%_25%] mask-radial-closest-corner mask-radial-closest-side mask-radial-farthest-corner mask-radial-farthest-side
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -10791,7 +11032,7 @@ mask-circle mask-ellipse mask-radial-closest-corner mask-radial-closest-side mas
 mask-radial
 <<<>>>
 # mask-radial-at
-mask-radial-at-bottom mask-radial-at-bottom-left mask-radial-at-bottom-right mask-radial-at-left mask-radial-at-right mask-radial-at-top mask-radial-at-top-left mask-radial-at-top-right
+mask-radial-at-[25%] mask-radial-at-bottom mask-radial-at-bottom-left mask-radial-at-bottom-right mask-radial-at-left mask-radial-at-right mask-radial-at-top mask-radial-at-top-left mask-radial-at-top-right
 ---
 .mask-radial-at-\[25\%\] {
       --tw-mask-radial-position: 25%;
@@ -10833,7 +11074,7 @@ mask-radial-at-bottom mask-radial-at-bottom-left mask-radial-at-bottom-right mas
 mask-radial-at mask-radial-at-25 mask-radial-at-unknown
 <<<>>>
 # mask-radial-from
-mask-radial-from-0 mask-radial-from-0% mask-radial-from-1.5 mask-radial-from-2 mask-radial-from-2%
+mask-radial-from-0 mask-radial-from-0% mask-radial-from-1.5 mask-radial-from-2 mask-radial-from-2% mask-radial-from-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -11025,10 +11266,10 @@ mask-radial-from-0 mask-radial-from-0% mask-radial-from-1.5 mask-radial-from-2 m
     }
 <<<>>>
 # mask-radial-from
-mask-radial-from mask-radial-from--1.5 mask-radial-from--2 mask-radial-from--5% mask-radial-from-2.5% mask-radial-from-2.8175 mask-radial-from-unknown mask-radial-from-unknown%
+-mask-radial-from-0 -mask-radial-from-0% -mask-radial-from-1.5 -mask-radial-from-2 -mask-radial-from-2% -mask-radial-from-[0px] mask-radial-from mask-radial-from--1.5 mask-radial-from--2 mask-radial-from--5% mask-radial-from-2.5% mask-radial-from-2.8175 mask-radial-from-unknown mask-radial-from-unknown%
 <<<>>>
 # mask-radial-to
-mask-radial-to-0 mask-radial-to-0% mask-radial-to-1.5 mask-radial-to-2 mask-radial-to-2%
+mask-radial-to-0 mask-radial-to-0% mask-radial-to-1.5 mask-radial-to-2 mask-radial-to-2% mask-radial-to-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -11220,13 +11461,13 @@ mask-radial-to-0 mask-radial-to-0% mask-radial-to-1.5 mask-radial-to-2 mask-radi
     }
 <<<>>>
 # mask-radial-to
-mask-radial-to mask-radial-to--1.5 mask-radial-to--2 mask-radial-to--5% mask-radial-to-2.5% mask-radial-to-2.8175 mask-radial-to-unknown mask-radial-to-unknown%
+-mask-radial-to-0 -mask-radial-to-0% -mask-radial-to-1.5 -mask-radial-to-2 -mask-radial-to-2% -mask-radial-to-[0px] mask-radial-to mask-radial-to--1.5 mask-radial-to--2 mask-radial-to--5% mask-radial-to-2.5% mask-radial-to-2.8175 mask-radial-to-unknown mask-radial-to-unknown%
 <<<>>>
 # mask-conic
-mask-conic mask-conic--75 mask-conic-unknown
+-mask-conic mask-conic mask-conic--75 mask-conic-unknown
 <<<>>>
 # mask-conic-from
-mask-conic-from-0 mask-conic-from-0% mask-conic-from-1.5 mask-conic-from-2 mask-conic-from-2%
+mask-conic-from-0 mask-conic-from-0% mask-conic-from-1.5 mask-conic-from-2 mask-conic-from-2% mask-conic-from-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -11404,10 +11645,10 @@ mask-conic-from-0 mask-conic-from-0% mask-conic-from-1.5 mask-conic-from-2 mask-
     }
 <<<>>>
 # mask-conic-from
-mask-conic-from mask-conic-from--1.5 mask-conic-from--2 mask-conic-from--5% mask-conic-from-2.5% mask-conic-from-2.8175 mask-conic-from-unknown mask-conic-from-unknown%
+-mask-conic-from-0 -mask-conic-from-0% -mask-conic-from-1.5 -mask-conic-from-2 -mask-conic-from-2% -mask-conic-from-[0px] mask-conic-from mask-conic-from--1.5 mask-conic-from--2 mask-conic-from--5% mask-conic-from-2.5% mask-conic-from-2.8175 mask-conic-from-unknown mask-conic-from-unknown%
 <<<>>>
 # mask-conic-to
-mask-conic-to-0 mask-conic-to-0% mask-conic-to-1.5 mask-conic-to-2 mask-conic-to-2%
+mask-conic-to-0 mask-conic-to-0% mask-conic-to-1.5 mask-conic-to-2 mask-conic-to-2% mask-conic-to-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -11585,7 +11826,7 @@ mask-conic-to-0 mask-conic-to-0% mask-conic-to-1.5 mask-conic-to-2 mask-conic-to
     }
 <<<>>>
 # mask-conic-to
-mask-conic-to mask-conic-to--1.5 mask-conic-to--2 mask-conic-to--5% mask-conic-to-2.5% mask-conic-to-2.8175 mask-conic-to-unknown mask-conic-to-unknown%
+-mask-conic-to-0 -mask-conic-to-0% -mask-conic-to-1.5 -mask-conic-to-2 -mask-conic-to-2% -mask-conic-to-[0px] mask-conic-to mask-conic-to--1.5 mask-conic-to--2 mask-conic-to--5% mask-conic-to-2.5% mask-conic-to-2.8175 mask-conic-to-unknown mask-conic-to-unknown%
 <<<>>>
 # box-decoration
 box-decoration-clone box-decoration-slice
@@ -11601,7 +11842,7 @@ box-decoration-clone box-decoration-slice
     }
 <<<>>>
 # box-decoration
-box box-decoration
+-box-decoration-clone -box-decoration-slice box box-decoration
 <<<>>>
 # bg-clip
 bg-clip-border bg-clip-content bg-clip-padding bg-clip-text
@@ -11624,7 +11865,7 @@ bg-clip-border bg-clip-content bg-clip-padding bg-clip-text
       }
 <<<>>>
 # bg-clip
-bg-clip
+-bg-clip-border -bg-clip-content -bg-clip-padding -bg-clip-text bg-clip
 <<<>>>
 # bg-origin
 bg-origin-border bg-origin-content bg-origin-padding
@@ -11642,7 +11883,7 @@ bg-origin-border bg-origin-content bg-origin-padding
       }
 <<<>>>
 # bg-origin
-bg-origin
+-bg-origin-border -bg-origin-content -bg-origin-padding bg-origin
 <<<>>>
 # mask-clip
 mask-clip-border mask-clip-content mask-clip-fill mask-clip-padding mask-clip-stroke mask-clip-view mask-no-clip
@@ -11683,7 +11924,7 @@ mask-clip-border mask-clip-content mask-clip-fill mask-clip-padding mask-clip-st
     }
 <<<>>>
 # mask-clip
-mask-clip
+-mask-clip-border -mask-clip-content -mask-clip-fill -mask-clip-padding -mask-clip-stroke -mask-clip-view -mask-no-clip mask-clip
 <<<>>>
 # mask-origin
 mask-origin-border mask-origin-content mask-origin-fill mask-origin-padding mask-origin-stroke mask-origin-view
@@ -11719,7 +11960,7 @@ mask-origin-border mask-origin-content mask-origin-fill mask-origin-padding mask
     }
 <<<>>>
 # mask-origin
-mask-origin
+-mask-origin-border -mask-origin-content -mask-origin-fill -mask-origin-padding -mask-origin-stroke -mask-origin-view mask-origin
 <<<>>>
 # bg-blend
 bg-blend-color bg-blend-color-burn bg-blend-color-dodge bg-blend-darken bg-blend-difference bg-blend-exclusion bg-blend-hard-light bg-blend-hue bg-blend-lighten bg-blend-luminosity bg-blend-multiply bg-blend-normal bg-blend-overlay bg-blend-saturation bg-blend-screen bg-blend-soft-light
@@ -11789,7 +12030,7 @@ bg-blend-color bg-blend-color-burn bg-blend-color-dodge bg-blend-darken bg-blend
     }
 <<<>>>
 # bg-blend
-bg-blend
+-bg-blend-color -bg-blend-color-burn -bg-blend-color-dodge -bg-blend-darken -bg-blend-difference -bg-blend-exclusion -bg-blend-hard-light -bg-blend-hue -bg-blend-lighten -bg-blend-luminosity -bg-blend-multiply -bg-blend-normal -bg-blend-overlay -bg-blend-saturation -bg-blend-screen -bg-blend-soft-light bg-blend
 <<<>>>
 # mix-blend
 mix-blend-color mix-blend-color-burn mix-blend-color-dodge mix-blend-darken mix-blend-difference mix-blend-exclusion mix-blend-hard-light mix-blend-hue mix-blend-lighten mix-blend-luminosity mix-blend-multiply mix-blend-normal mix-blend-overlay mix-blend-plus-darker mix-blend-plus-lighter mix-blend-saturation mix-blend-screen mix-blend-soft-light
@@ -11867,10 +12108,10 @@ mix-blend-color mix-blend-color-burn mix-blend-color-dodge mix-blend-darken mix-
     }
 <<<>>>
 # mix-blend
-mix-blend
+-mix-blend-color -mix-blend-color-burn -mix-blend-color-dodge -mix-blend-darken -mix-blend-difference -mix-blend-exclusion -mix-blend-hard-light -mix-blend-hue -mix-blend-lighten -mix-blend-luminosity -mix-blend-multiply -mix-blend-normal -mix-blend-overlay -mix-blend-plus-lighter -mix-blend-saturation -mix-blend-screen -mix-blend-soft-light mix-blend
 <<<>>>
 # fill
-fill-red-500 fill-red-500/2.25 fill-red-500/2.5 fill-red-500/2.75 fill-red-500/50
+fill-red-500 fill-red-500/2.25 fill-red-500/2.5 fill-red-500/2.75 fill-red-500/50 fill-red-500/[0.5]
 ---
 :root, :host {
       --color-red-500: #ef4444;
@@ -11992,10 +12233,10 @@ fill-red-500 fill-red-500/2.25 fill-red-500/2.5 fill-red-500/2.75 fill-red-500/5
     }
 <<<>>>
 # fill
-fill-unknown
+-fill-red-500 -fill-red-500/50 -fill-red-500/[0.5] fill-unknown
 <<<>>>
 # stroke
-stroke-red-500 stroke-red-500/2.25 stroke-red-500/2.5 stroke-red-500/2.75 stroke-red-500/50
+stroke-red-500 stroke-red-500/2.25 stroke-red-500/2.5 stroke-red-500/2.75 stroke-red-500/50 stroke-red-500/[0.5]
 ---
 :root, :host {
       --color-red-500: #ef4444;
@@ -12209,7 +12450,7 @@ stroke-red-500 stroke-red-500/2.25 stroke-red-500/2.5 stroke-red-500/2.75 stroke
     }
 <<<>>>
 # stroke
-stroke-unknown
+-stroke-red-500 -stroke-red-500/50 -stroke-red-500/[0.5] stroke-unknown
 <<<>>>
 # object
 object-contain object-cover object-fill object-none object-scale-down
@@ -12291,7 +12532,7 @@ object-contain object-cover object-fill object-none object-scale-down
     }
 <<<>>>
 # object
-object
+-object-contain -object-cover -object-fill -object-none -object-scale-down object
 ---
 :root, :host {
       --object-position-center: top left;
@@ -12300,6 +12541,39 @@ object
     .object-center {
       object-position: var(--object-position-center);
     }
+<<<>>>
+# p
+-p-4
+<<<>>>
+# px
+-px-4
+<<<>>>
+# py
+-py-4
+<<<>>>
+# pt
+-pt-4
+<<<>>>
+# ps
+-ps-4
+<<<>>>
+# pe
+-pe-4
+<<<>>>
+# pbs
+-pbs-4
+<<<>>>
+# pbe
+-pbe-4
+<<<>>>
+# pr
+-pr-4
+<<<>>>
+# pb
+-pb-4
+<<<>>>
+# pl
+-pl-4
 <<<>>>
 # text-align
 text-center text-end text-justify text-left text-right text-start
@@ -12327,6 +12601,9 @@ text-center text-end text-justify text-left text-right text-start
     .text-start {
       text-align: start;
     }
+<<<>>>
+# text-align
+-text-center -text-end -text-justify -text-left -text-right -text-start
 <<<>>>
 # align
 align-baseline align-bottom align-middle align-sub align-super align-text-bottom align-text-top align-top
@@ -12368,10 +12645,10 @@ align-baseline align-bottom align-middle align-sub align-super align-text-bottom
     }
 <<<>>>
 # align
-align
+-align-baseline -align-bottom -align-middle -align-sub -align-super -align-text-bottom -align-text-top -align-top align
 <<<>>>
 # font
-font-sans
+font-["arial_rounded"] font-sans
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -12429,10 +12706,29 @@ font-sans
     }
 <<<>>>
 # font
-font-weight-bold
+-font-bold -font-sans font-weight-bold
 <<<>>>
 # font-features
-font-features
+font-features-["smcp"]
+---
+.font-features-\(--my-features\) {
+      font-feature-settings: var(--my-features);
+    }
+
+    .font-features-\[\"c2sc\"\,\"smcp\"\] {
+      font-feature-settings: "c2sc","smcp";
+    }
+
+    .font-features-\[\"smcp\"\] {
+      font-feature-settings: "smcp";
+    }
+
+    .font-features-\[var\(--my-features\)\] {
+      font-feature-settings: var(--my-features);
+    }
+<<<>>>
+# font-features
+-font-features-["smcp"] font-features
 <<<>>>
 # text-transform
 capitalize lowercase normal-case uppercase
@@ -12453,6 +12749,9 @@ capitalize lowercase normal-case uppercase
       text-transform: uppercase;
     }
 <<<>>>
+# text-transform
+-capitalize -lowercase -normal-case -uppercase
+<<<>>>
 # font-style
 italic not-italic
 ---
@@ -12463,6 +12762,9 @@ italic not-italic
     .not-italic {
       font-style: normal;
     }
+<<<>>>
+# font-style
+-italic -not-italic
 <<<>>>
 # font-stretch
 font-stretch-200% font-stretch-50% font-stretch-ultra-expanded
@@ -12501,8 +12803,11 @@ line-through no-underline overline underline
         text-decoration-line: underline;
       }
 <<<>>>
+# text-decoration-line
+-line-through -no-underline -overline -underline
+<<<>>>
 # placeholder
-placeholder-red-500 placeholder-red-500/2.25 placeholder-red-500/2.5 placeholder-red-500/2.75 placeholder-red-500/50
+placeholder-red-500 placeholder-red-500/2.25 placeholder-red-500/2.5 placeholder-red-500/2.75 placeholder-red-500/50 placeholder-red-500/[0.5]
 ---
 :root, :host {
       --color-red-500: #ef4444;
@@ -12619,10 +12924,10 @@ placeholder-red-500 placeholder-red-500/2.25 placeholder-red-500/2.5 placeholder
     }
 <<<>>>
 # placeholder
-placeholder
+-placeholder-red-500 -placeholder-red-500/50 -placeholder-red-500/[0.5] placeholder
 <<<>>>
 # decoration
-decoration-red-500 decoration-red-500/50
+decoration-red-500 decoration-red-500/50 decoration-red-500/[0.5]
 ---
 :root, :host {
       --color-red-500: #ef4444;
@@ -12875,8 +13180,11 @@ decoration-red-500 decoration-red-500/50
       text-decoration-thickness: from-font;
     }
 <<<>>>
+# decoration
+-decoration-red-500 -decoration-red-500/50 -decoration-red-500/[0.5]
+<<<>>>
 # animate
-animate
+-animate-[bounce_1s_infinite] -animate-none -animate-spin animate
 ---
 :root, :host {
       --animate-none: bounce 1s infinite;
@@ -13115,6 +13423,104 @@ filter filter-none
 
     .filter-none {
       filter: none;
+    }
+
+    @property --tw-blur {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-brightness {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-contrast {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-grayscale {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-hue-rotate {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-invert {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-opacity {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-saturate {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-sepia {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-drop-shadow {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-drop-shadow-color {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-drop-shadow-alpha {
+      syntax: "<percentage>";
+      inherits: false;
+      initial-value: 100%;
+    }
+
+    @property --tw-drop-shadow-size {
+      syntax: "*";
+      inherits: false
+    }
+<<<>>>
+# filter
+-filter -filter-none
+---
+@layer properties {
+      @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
+        *, :before, :after, ::backdrop {
+          --tw-blur: initial;
+          --tw-brightness: initial;
+          --tw-contrast: initial;
+          --tw-grayscale: initial;
+          --tw-hue-rotate: initial;
+          --tw-invert: initial;
+          --tw-opacity: initial;
+          --tw-saturate: initial;
+          --tw-sepia: initial;
+          --tw-drop-shadow: initial;
+          --tw-drop-shadow-color: initial;
+          --tw-drop-shadow-alpha: 100%;
+          --tw-drop-shadow-size: initial;
+        }
+      }
+    }
+
+    :root, :host {
+      --blur-none: 2px;
+    }
+
+    .blur-none {
+      --tw-blur: blur(var(--blur-none));
+      filter: var(--tw-blur,  ) var(--tw-brightness,  ) var(--tw-contrast,  ) var(--tw-grayscale,  ) var(--tw-hue-rotate,  ) var(--tw-invert,  ) var(--tw-saturate,  ) var(--tw-sepia,  ) var(--tw-drop-shadow,  );
     }
 
     @property --tw-blur {
@@ -13446,6 +13852,80 @@ backdrop-filter backdrop-filter-none
       inherits: false
     }
 <<<>>>
+# backdrop-filter
+-backdrop-filter -backdrop-filter-none
+---
+@layer properties {
+      @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
+        *, :before, :after, ::backdrop {
+          --tw-backdrop-blur: initial;
+          --tw-backdrop-brightness: initial;
+          --tw-backdrop-contrast: initial;
+          --tw-backdrop-grayscale: initial;
+          --tw-backdrop-hue-rotate: initial;
+          --tw-backdrop-invert: initial;
+          --tw-backdrop-opacity: initial;
+          --tw-backdrop-saturate: initial;
+          --tw-backdrop-sepia: initial;
+        }
+      }
+    }
+
+    :root, :host {
+      --backdrop-blur-none: 2px;
+    }
+
+    .backdrop-blur-none {
+      --tw-backdrop-blur: blur(var(--backdrop-blur-none));
+      -webkit-backdrop-filter: var(--tw-backdrop-blur,  ) var(--tw-backdrop-brightness,  ) var(--tw-backdrop-contrast,  ) var(--tw-backdrop-grayscale,  ) var(--tw-backdrop-hue-rotate,  ) var(--tw-backdrop-invert,  ) var(--tw-backdrop-opacity,  ) var(--tw-backdrop-saturate,  ) var(--tw-backdrop-sepia,  );
+      backdrop-filter: var(--tw-backdrop-blur,  ) var(--tw-backdrop-brightness,  ) var(--tw-backdrop-contrast,  ) var(--tw-backdrop-grayscale,  ) var(--tw-backdrop-hue-rotate,  ) var(--tw-backdrop-invert,  ) var(--tw-backdrop-opacity,  ) var(--tw-backdrop-saturate,  ) var(--tw-backdrop-sepia,  );
+    }
+
+    @property --tw-backdrop-blur {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-backdrop-brightness {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-backdrop-contrast {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-backdrop-grayscale {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-backdrop-hue-rotate {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-backdrop-invert {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-backdrop-opacity {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-backdrop-saturate {
+      syntax: "*";
+      inherits: false
+    }
+
+    @property --tw-backdrop-sepia {
+      syntax: "*";
+      inherits: false
+    }
+<<<>>>
 # transition
 transition-all transition-colors transition-none transition-opacity transition-shadow transition-transform
 ---
@@ -13501,6 +13981,19 @@ transition-all transition-colors transition-none transition-opacity transition-s
       transition-property: none;
     }
 <<<>>>
+# transition
+-transition -transition-all -transition-none -transition-opacity
+---
+:root, :host {
+      --transition-property-colors: transform;
+    }
+
+    .transition-colors {
+      transition-property: var(--transition-property-colors);
+      transition-timing-function: var(--tw-ease, ease);
+      transition-duration: var(--tw-duration, 0s);
+    }
+<<<>>>
 # transition-behavior
 transition-discrete transition-normal
 ---
@@ -13511,6 +14004,9 @@ transition-discrete transition-normal
     .transition-normal {
       transition-behavior: normal;
     }
+<<<>>>
+# transition-behavior
+-transition-discrete -transition-normal
 <<<>>>
 # delay
 delay-123 delay-200
@@ -13528,7 +14024,7 @@ delay-123 delay-200
     }
 <<<>>>
 # delay
-delay--200
+-delay-200 -delay-[300ms] delay--200
 <<<>>>
 # duration
 duration-123 duration-200
@@ -13562,7 +14058,32 @@ duration-123 duration-200
     }
 <<<>>>
 # duration
-duration--200
+-duration-200 -duration-[300ms] duration--200
+<<<>>>
+# ease
+-ease-in -ease-out
+---
+@layer properties {
+      @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
+        *, :before, :after, ::backdrop {
+          --tw-ease: initial;
+        }
+      }
+    }
+
+    :root, :host {
+      --ease-linear: steps(4);
+    }
+
+    .ease-linear {
+      --tw-ease: var(--ease-linear);
+      transition-timing-function: var(--ease-linear);
+    }
+
+    @property --tw-ease {
+      syntax: "*";
+      inherits: false
+    }
 <<<>>>
 # will-change
 will-change-auto will-change-contents will-change-scroll will-change-transform
@@ -13588,10 +14109,10 @@ will-change-auto will-change-contents will-change-scroll will-change-transform
     }
 <<<>>>
 # will-change
-will-change
+-will-change-auto -will-change-contents -will-change-scroll -will-change-transform will-change
 <<<>>>
 # contain
-contain-content contain-inline-size contain-layout contain-none contain-paint contain-size contain-strict contain-style
+contain-[unset] contain-content contain-inline-size contain-layout contain-none contain-paint contain-size contain-strict contain-style
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -13680,7 +14201,32 @@ forced-color-adjust-auto forced-color-adjust-none
       }
 <<<>>>
 # forced-color-adjust
-forced forced-color forced-color-adjust
+-forced-color-adjust-auto -forced-color-adjust-none forced forced-color forced-color-adjust
+<<<>>>
+# leading
+-leading-6 -leading-tight
+---
+@layer properties {
+      @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
+        *, :before, :after, ::backdrop {
+          --tw-leading: initial;
+        }
+      }
+    }
+
+    :root, :host {
+      --leading-none: 2;
+    }
+
+    .leading-none {
+      --tw-leading: var(--leading-none);
+      line-height: var(--leading-none);
+    }
+
+    @property --tw-leading {
+      syntax: "*";
+      inherits: false
+    }
 <<<>>>
 # font-smoothing
 antialiased subpixel-antialiased
@@ -13694,6 +14240,9 @@ antialiased subpixel-antialiased
       -webkit-font-smoothing: auto;
       -moz-osx-font-smoothing: auto;
     }
+<<<>>>
+# font-smoothing
+-antialiased -subpixel-antialiased
 <<<>>>
 # font-variant-numeric
 diagonal-fractions lining-nums normal-nums oldstyle-nums ordinal proportional-nums slashed-zero stacked-fractions tabular-nums
@@ -13779,8 +14328,11 @@ diagonal-fractions lining-nums normal-nums oldstyle-nums ordinal proportional-nu
       inherits: false
     }
 <<<>>>
+# font-variant-numeric
+-diagonal-fractions -lining-nums -normal-nums -oldstyle-nums -ordinal -proportional-nums -slashed-zero -stacked-fractions -tabular-nums
+<<<>>>
 # outline
-outline-dashed outline-dotted outline-double outline-hidden outline-none outline-red-500 outline-red-500/50 outline-solid
+outline-dashed outline-dotted outline-double outline-hidden outline-none outline-red-500 outline-red-500/50 outline-red-500/[0.5] outline-solid
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -14028,8 +14580,11 @@ outline-dashed outline-dotted outline-double outline-hidden outline-none outline
       initial-value: solid;
     }
 <<<>>>
+# outline
+-outline -outline-dashed -outline-dotted -outline-double -outline-none -outline-red-500 -outline-red-500/50 -outline-red-500/[0.5]
+<<<>>>
 # outline-offset
-outline-offset-4
+-outline-offset-4 outline-offset-4
 ---
 .-outline-offset-4 {
       outline-offset: calc(4px * -1);
@@ -14074,10 +14629,10 @@ opacity-15 opacity-2.5 opacity-3.25 opacity-4.75
     }
 <<<>>>
 # opacity
-opacity--15 opacity-1.125
+-opacity-15 opacity--15 opacity-1.125
 <<<>>>
 # underline-offset
-underline-offset-123 underline-offset-4 underline-offset-auto
+-underline-offset-123 -underline-offset-4 underline-offset-123 underline-offset-4 underline-offset-auto
 ---
 .-underline-offset-4 {
       text-underline-offset: calc(4px * -1);
@@ -14108,7 +14663,7 @@ underline-offset-123 underline-offset-4 underline-offset-auto
     }
 <<<>>>
 # underline-offset
-underline-offset--4 underline-offset-unknown
+-underline-offset-auto underline-offset--4 underline-offset-unknown
 ---
 :root, :host {
       --text-underline-offset-auto: 4px;
@@ -14119,7 +14674,7 @@ underline-offset--4 underline-offset-unknown
     }
 <<<>>>
 # text
-text-red-500 text-red-500/2.25 text-red-500/2.5 text-red-500/2.75 text-red-500/50
+text-red-500 text-red-500/2.25 text-red-500/2.5 text-red-500/2.75 text-red-500/50 text-red-500/[0.5]
 ---
 :root, :host {
       --spacing: .25rem;
@@ -14391,8 +14946,11 @@ text-red-500 text-red-500/2.25 text-red-500/2.5 text-red-500/2.75 text-red-500/5
       color: #0000;
     }
 <<<>>>
+# text
+-text-red-500 -text-red-500/50 -text-red-500/[0.5]
+<<<>>>
 # text-shadow
-text-shadow-2xs text-shadow-none text-shadow-sm
+text-shadow-2xs text-shadow-[12px_12px_#0088cc] text-shadow-none text-shadow-sm
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -14682,8 +15240,11 @@ text-shadow-2xs text-shadow-none text-shadow-sm
       initial-value: 100%;
     }
 <<<>>>
+# text-shadow
+-shadow-none -shadow-red-500 -shadow-red-500/50 -shadow-red-500/[0.5] -shadow-xl
+<<<>>>
 # shadow
-shadow-none shadow-sm shadow-xl
+shadow-[12px_12px_#0088cc] shadow-none shadow-sm shadow-xl
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -15081,8 +15642,11 @@ shadow-none shadow-sm shadow-xl
       initial-value: 0 0 #0000;
     }
 <<<>>>
+# shadow
+-shadow-none -shadow-red-500 -shadow-red-500/50 -shadow-red-500/[0.5] -shadow-xl
+<<<>>>
 # inset-shadow
-inset-shadow-none inset-shadow-sm
+inset-shadow-[12px_12px_#0088cc] inset-shadow-none inset-shadow-sm
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -15489,8 +16053,11 @@ inset-shadow-none inset-shadow-sm
       initial-value: 0 0 #0000;
     }
 <<<>>>
+# inset-shadow
+-inset-shadow-none -inset-shadow-red-500 -inset-shadow-red-500/50 -inset-shadow-red-500/[0.5] -inset-shadow-sm
+<<<>>>
 # ring
-ring-inset ring-red-500 ring-red-500/2.25 ring-red-500/2.5 ring-red-500/2.75 ring-red-500/50
+ring-inset ring-red-500 ring-red-500/2.25 ring-red-500/2.5 ring-red-500/2.75 ring-red-500/50 ring-red-500/[0.5]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -15810,8 +16377,11 @@ ring-inset ring-red-500 ring-red-500/2.25 ring-red-500/2.5 ring-red-500/2.75 rin
       initial-value: 0 0 #0000;
     }
 <<<>>>
+# ring
+-ring-inset -ring-red-500 -ring-red-500/50 -ring-red-500/[0.5]
+<<<>>>
 # inset-ring
-inset-ring-red-500 inset-ring-red-500/2.25 inset-ring-red-500/2.5 inset-ring-red-500/2.75 inset-ring-red-500/50
+inset-ring-red-500 inset-ring-red-500/2.25 inset-ring-red-500/2.5 inset-ring-red-500/2.75 inset-ring-red-500/50 inset-ring-red-500/[0.5]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -16122,8 +16692,11 @@ inset-ring-red-500 inset-ring-red-500/2.25 inset-ring-red-500/2.5 inset-ring-red
       initial-value: 0 0 #0000;
     }
 <<<>>>
+# inset-ring
+-inset-ring-red-500 -inset-ring-red-500/50 -inset-ring-red-500/[0.5]
+<<<>>>
 # ring-offset
-ring-offset-inset ring-offset-red-500 ring-offset-red-500/50
+ring-offset-inset ring-offset-red-500 ring-offset-red-500/50 ring-offset-red-500/[0.5]
 ---
 :root, :host {
       --color-red-500: #ef4444;
@@ -16303,4 +16876,10 @@ ring-offset-inset ring-offset-red-500 ring-offset-red-500/50
     .ring-offset-transparent {
       --tw-ring-offset-color: transparent;
     }
+<<<>>>
+# ring-offset
+-ring-offset-inset -ring-offset-red-500 -ring-offset-red-500/50 -ring-offset-red-500/[0.5]
+<<<>>>
+# @container
+-@container -@container-normal -@container-size
 <<<>>>
