@@ -18,6 +18,10 @@ module Handler = struct
     | W_px
     | W_spacing of float
     | W_fraction of string
+    | W_arbitrary of Css.length
+    | W_dvw (* 100dvw - dynamic viewport width *)
+    | W_lvw (* 100lvw - large viewport width *)
+    | W_svw (* 100svw - small viewport width *)
     (* Height utilities *)
     | H_auto
     | H_full
@@ -28,6 +32,10 @@ module Handler = struct
     | H_px
     | H_spacing of float
     | H_fraction of string
+    | H_arbitrary of Css.length
+    | H_dvh (* 100dvh - dynamic viewport height *)
+    | H_lvh (* 100lvh - large viewport height *)
+    | H_svh (* 100svh - small viewport height *)
     (* Min-width utilities *)
     | Min_w_0
     | Min_w_full
@@ -100,14 +108,14 @@ module Handler = struct
 
   (** Helper to create spacing-based utilities with consistent pattern. [n] is
       in rem units (e.g., 16.0 for w-64). We convert to class units by
-      multiplying by 4, since --spacing is 0.25rem and the CSS should be
-      calc(var(--spacing) * 64) for w-64. *)
+      multiplying by 4, since --spacing is 0.25rem. Now uses named spacing
+      variables like --spacing-4 for Tailwind v4 compatibility. *)
   let spacing_utility css_prop n =
-    let decl, spacing_ref = Var.binding Theme.spacing_var (Rem 0.25) in
-    let class_units = n *. 4. in
-    let spacing_value : Css.length =
-      Calc Calc.(mul (length (Var spacing_ref)) (float class_units))
-    in
+    let class_units = int_of_float (n *. 4.) in
+    let spacing_v = Theme.get_spacing_var class_units in
+    let concrete_value = Theme.spacing_value class_units in
+    let decl, spacing_ref = Var.binding spacing_v concrete_value in
+    let spacing_value : Css.length = Css.Var spacing_ref in
     style (decl :: [ css_prop spacing_value ])
 
   let w' size =
@@ -367,6 +375,10 @@ module Handler = struct
         | "3/5" -> w_3_5'
         | "4/5" -> w_4_5'
         | _ -> failwith ("Unknown width fraction: " ^ f))
+    | W_arbitrary len -> style [ width len ]
+    | W_dvw -> style [ width (Dvw 100.) ]
+    | W_lvw -> style [ width (Lvw 100.) ]
+    | W_svw -> style [ width (Svw 100.) ]
     (* Height utilities *)
     | H_auto -> h_auto'
     | H_px -> h_px'
@@ -388,6 +400,10 @@ module Handler = struct
         | "3/5" -> h_3_5'
         | "4/5" -> h_4_5'
         | _ -> failwith ("Unknown height fraction: " ^ f))
+    | H_arbitrary len -> style [ height len ]
+    | H_dvh -> style [ height (Dvh 100.) ]
+    | H_lvh -> style [ height (Lvh 100.) ]
+    | H_svh -> style [ height (Svh 100.) ]
     (* Min-width utilities *)
     | Min_w_0 -> min_w_0'
     | Min_w_full -> min_w_full'
@@ -507,9 +523,16 @@ module Handler = struct
       | "min" -> Ok W_min
       | "max" -> Ok W_max
       | "fit" -> Ok W_fit
+      | "dvw" -> Ok W_dvw
+      | "lvw" -> Ok W_lvw
+      | "svw" -> Ok W_svw
       | frac when String.contains frac '/' ->
           if List.mem_assoc frac fraction_table then Ok (W_fraction frac)
           else err_invalid_value "width fraction" frac
+      | v when String.length v > 0 && v.[0] = '[' -> (
+          match parse_arbitrary v with
+          | Some len -> Ok (W_arbitrary len)
+          | None -> err_invalid_value "width" v)
       | v -> (
           match float_of_string_opt v with
           | Some n when n >= 0. -> Ok (W_spacing (n *. 0.25))
@@ -523,9 +546,16 @@ module Handler = struct
       | "min" -> Ok H_min
       | "max" -> Ok H_max
       | "fit" -> Ok H_fit
+      | "dvh" -> Ok H_dvh
+      | "lvh" -> Ok H_lvh
+      | "svh" -> Ok H_svh
       | frac when String.contains frac '/' ->
           if List.mem_assoc frac fraction_table then Ok (H_fraction frac)
           else err_invalid_value "height fraction" frac
+      | v when String.length v > 0 && v.[0] = '[' -> (
+          match parse_arbitrary v with
+          | Some len -> Ok (H_arbitrary len)
+          | None -> err_invalid_value "height" v)
       | v -> (
           match float_of_string_opt v with
           | Some n when n >= 0. -> Ok (H_spacing (n *. 0.25))
@@ -661,6 +691,10 @@ module Handler = struct
     | H_min -> 90004
     | H_px -> 90005
     | H_screen -> 90006
+    | H_dvh -> 90007
+    | H_lvh -> 90008
+    | H_svh -> 90009
+    | H_arbitrary _ -> 95000
     (* Max-height utilities (100000-199999) - comes after height *)
     (* Order: fit, full, max, min, none, screen *)
     | Max_h_fit -> 100000
@@ -693,8 +727,12 @@ module Handler = struct
     | W_min -> 300504
     | W_px -> 300505
     | W_screen -> 300506
+    | W_dvw -> 300507
+    | W_lvw -> 300508
+    | W_svw -> 300509
     (* Fractions come after keywords *)
     | W_fraction _ -> 300600
+    | W_arbitrary _ -> 300700
     (* Max-width utilities (400000-499999) - comes after width *)
     (* Numbered containers first *)
     | Max_w_xs -> 400000
@@ -755,6 +793,23 @@ module Handler = struct
     | W_px -> "w-px"
     | W_spacing n -> "w-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
     | W_fraction f -> "w-" ^ f
+    | W_arbitrary len ->
+        let pp_float n =
+          let s = string_of_float n in
+          if String.ends_with ~suffix:"." s then
+            String.sub s 0 (String.length s - 1)
+          else s
+        in
+        let len_str =
+          match len with
+          | Css.Px n -> pp_float n ^ "px"
+          | Css.Rem n -> pp_float n ^ "rem"
+          | _ -> Css.Pp.to_string Css.pp_length len
+        in
+        "w-[" ^ len_str ^ "]"
+    | W_dvw -> "w-dvw"
+    | W_lvw -> "w-lvw"
+    | W_svw -> "w-svw"
     (* Height utilities *)
     | H_auto -> "h-auto"
     | H_full -> "h-full"
@@ -765,6 +820,23 @@ module Handler = struct
     | H_px -> "h-px"
     | H_spacing n -> "h-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
     | H_fraction f -> "h-" ^ f
+    | H_arbitrary len ->
+        let pp_float n =
+          let s = string_of_float n in
+          if String.ends_with ~suffix:"." s then
+            String.sub s 0 (String.length s - 1)
+          else s
+        in
+        let len_str =
+          match len with
+          | Css.Px n -> pp_float n ^ "px"
+          | Css.Rem n -> pp_float n ^ "rem"
+          | _ -> Css.Pp.to_string Css.pp_length len
+        in
+        "h-[" ^ len_str ^ "]"
+    | H_dvh -> "h-dvh"
+    | H_lvh -> "h-lvh"
+    | H_svh -> "h-svh"
     (* Min-width utilities *)
     | Min_w_0 -> "min-w-0"
     | Min_w_full -> "min-w-full"
