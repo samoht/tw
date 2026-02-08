@@ -11,11 +11,11 @@ let of_string_valid () =
   check "flex-initial";
   check "flex-none";
 
-  (* Grow/Shrink *)
-  check "flex-grow";
-  check "flex-grow-0";
-  check "flex-shrink";
-  check "flex-shrink-0";
+  (* Grow/Shrink - Tailwind v4 uses shorter names *)
+  check "grow";
+  check "grow-0";
+  check "shrink";
+  check "shrink-0";
 
   (* Basis *)
   check "basis-0";
