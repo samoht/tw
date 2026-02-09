@@ -25,7 +25,9 @@ module Handler = struct
     | Transition_behavior_allow_discrete
     | Transition
     | Duration of int
+    | Duration_arbitrary of Css.duration
     | Delay of int
+    | Delay_arbitrary of Css.duration
     | Ease_linear
     | Ease_in
     | Ease_out
@@ -360,6 +362,8 @@ module Handler = struct
       ]
 
   let delay n = style [ Css.transition_delay (Css.Ms (float_of_int n)) ]
+  let delay_arbitrary d = style [ Css.transition_delay d ]
+  let duration_arbitrary d = style [ Css.transition_duration d ]
 
   let to_style = function
     | Transition_none -> transition_none
@@ -372,7 +376,9 @@ module Handler = struct
     | Transition_behavior_allow_discrete -> transition_behavior_allow_discrete
     | Transition -> transition
     | Duration n -> duration n
+    | Duration_arbitrary d -> duration_arbitrary d
     | Delay n -> delay n
+    | Delay_arbitrary d -> delay_arbitrary d
     | Ease_linear -> ease_linear
     | Ease_in -> ease_in
     | Ease_out -> ease_out
@@ -389,7 +395,9 @@ module Handler = struct
     | Transition_behavior_allow_discrete -> 7 (* transition-discrete *)
     | Transition_behavior_normal -> 8 (* transition-normal *)
     | Delay n -> 100 + n
+    | Delay_arbitrary _ -> 199
     | Duration n -> 200 + n
+    | Duration_arbitrary _ -> 299
     (* Ease utilities come after Duration. Tailwind orders: duration then ease.
        Use a high base to ensure even duration-5000 (suborder 5200) < ease.
        Within ease, Tailwind orders alphabetically: in, in-out, linear, out. *)
@@ -415,8 +423,42 @@ module Handler = struct
     | [ "transition"; "normal" ] -> Ok Transition_behavior_normal
     | [ "transition"; "discrete" ] -> Ok Transition_behavior_allow_discrete
     | [ "transition" ] -> Ok Transition
+    | [ "duration"; n ] when String.length n > 0 && n.[0] = '[' ->
+        (* Arbitrary duration: duration-[300ms] *)
+        let len = String.length n in
+        if len > 2 && n.[len - 1] = ']' then
+          let inner = String.sub n 1 (len - 2) in
+          if String.ends_with ~suffix:"ms" inner then
+            let num = String.sub inner 0 (String.length inner - 2) in
+            match float_of_string_opt num with
+            | Some f -> Ok (Duration_arbitrary (Css.Ms f))
+            | None -> Error (`Msg "Invalid duration value")
+          else if String.ends_with ~suffix:"s" inner then
+            let num = String.sub inner 0 (String.length inner - 1) in
+            match float_of_string_opt num with
+            | Some f -> Ok (Duration_arbitrary (Css.S f))
+            | None -> Error (`Msg "Invalid duration value")
+          else Error (`Msg "Invalid duration unit")
+        else Error (`Msg "Invalid arbitrary syntax")
     | [ "duration"; n ] ->
         Parse.int_pos ~name:"duration" n >|= fun n -> Duration n
+    | [ "delay"; n ] when String.length n > 0 && n.[0] = '[' ->
+        (* Arbitrary delay: delay-[300ms] *)
+        let len = String.length n in
+        if len > 2 && n.[len - 1] = ']' then
+          let inner = String.sub n 1 (len - 2) in
+          if String.ends_with ~suffix:"ms" inner then
+            let num = String.sub inner 0 (String.length inner - 2) in
+            match float_of_string_opt num with
+            | Some f -> Ok (Delay_arbitrary (Css.Ms f))
+            | None -> Error (`Msg "Invalid delay value")
+          else if String.ends_with ~suffix:"s" inner then
+            let num = String.sub inner 0 (String.length inner - 1) in
+            match float_of_string_opt num with
+            | Some f -> Ok (Delay_arbitrary (Css.S f))
+            | None -> Error (`Msg "Invalid delay value")
+          else Error (`Msg "Invalid delay unit")
+        else Error (`Msg "Invalid arbitrary syntax")
     | [ "delay"; n ] -> Parse.int_pos ~name:"delay" n >|= fun n -> Delay n
     | [ "ease"; "linear" ] -> Ok Ease_linear
     | [ "ease"; "in" ] -> Ok Ease_in
@@ -435,7 +477,10 @@ module Handler = struct
     | Transition_behavior_allow_discrete -> "transition-discrete"
     | Transition -> "transition"
     | Duration n -> "duration-" ^ string_of_int n
+    | Duration_arbitrary d ->
+        "duration-[" ^ Css.Pp.to_string Css.pp_duration d ^ "]"
     | Delay n -> "delay-" ^ string_of_int n
+    | Delay_arbitrary d -> "delay-[" ^ Css.Pp.to_string Css.pp_duration d ^ "]"
     | Ease_linear -> "ease-linear"
     | Ease_in -> "ease-in"
     | Ease_out -> "ease-out"
