@@ -41,10 +41,12 @@ module Handler = struct
     | Auto_cols_min
     | Auto_cols_max
     | Auto_cols_fr
+    | Auto_cols_arbitrary of string
     | Auto_rows_auto
     | Auto_rows_min
     | Auto_rows_max
     | Auto_rows_fr
+    | Auto_rows_arbitrary of string
 
   type Utility.base += Self of t
 
@@ -132,12 +134,20 @@ module Handler = struct
   let auto_cols_max = style [ Css.grid_auto_columns Max_content ]
   let auto_cols_fr = style [ Css.grid_auto_columns (Min_max (Zero, Fr 1.0)) ]
 
+  let auto_cols_arbitrary s =
+    let template = parse_arbitrary_grid_template s in
+    style [ Css.grid_auto_columns template ]
+
   (** {1 Grid Auto Rows} *)
 
   let auto_rows_auto = style [ Css.grid_auto_rows Auto ]
   let auto_rows_min = style [ Css.grid_auto_rows Min_content ]
   let auto_rows_max = style [ Css.grid_auto_rows Max_content ]
   let auto_rows_fr = style [ Css.grid_auto_rows (Min_max (Zero, Fr 1.0)) ]
+
+  let auto_rows_arbitrary s =
+    let template = parse_arbitrary_grid_template s in
+    style [ Css.grid_auto_rows template ]
 
   (** Convert grid template utility to style *)
   let to_style = function
@@ -158,10 +168,12 @@ module Handler = struct
     | Auto_cols_min -> auto_cols_min
     | Auto_cols_max -> auto_cols_max
     | Auto_cols_fr -> auto_cols_fr
+    | Auto_cols_arbitrary s -> auto_cols_arbitrary s
     | Auto_rows_auto -> auto_rows_auto
     | Auto_rows_min -> auto_rows_min
     | Auto_rows_max -> auto_rows_max
     | Auto_rows_fr -> auto_rows_fr
+    | Auto_rows_arbitrary s -> auto_rows_arbitrary s
 
   let suborder = function
     (* Grid template columns (10000-10999) *)
@@ -185,11 +197,13 @@ module Handler = struct
     | Auto_cols_min -> 15001
     | Auto_cols_max -> 15002
     | Auto_cols_fr -> 15003
+    | Auto_cols_arbitrary _ -> 15004
     (* Grid auto rows (15100-15199) *)
     | Auto_rows_auto -> 15100
     | Auto_rows_min -> 15101
     | Auto_rows_max -> 15102
     | Auto_rows_fr -> 15103
+    | Auto_rows_arbitrary _ -> 15104
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
@@ -225,10 +239,22 @@ module Handler = struct
     | [ "auto"; "cols"; "min" ] -> Ok Auto_cols_min
     | [ "auto"; "cols"; "max" ] -> Ok Auto_cols_max
     | [ "auto"; "cols"; "fr" ] -> Ok Auto_cols_fr
+    | [ "auto"; "cols"; n ] ->
+        let len = String.length n in
+        if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
+          let inner = String.sub n 1 (len - 2) in
+          Ok (Auto_cols_arbitrary inner)
+        else err_not_utility
     | [ "auto"; "rows"; "auto" ] -> Ok Auto_rows_auto
     | [ "auto"; "rows"; "min" ] -> Ok Auto_rows_min
     | [ "auto"; "rows"; "max" ] -> Ok Auto_rows_max
     | [ "auto"; "rows"; "fr" ] -> Ok Auto_rows_fr
+    | [ "auto"; "rows"; n ] ->
+        let len = String.length n in
+        if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
+          let inner = String.sub n 1 (len - 2) in
+          Ok (Auto_rows_arbitrary inner)
+        else err_not_utility
     | _ -> err_not_utility
 
   let to_class = function
@@ -249,10 +275,12 @@ module Handler = struct
     | Auto_cols_min -> "auto-cols-min"
     | Auto_cols_max -> "auto-cols-max"
     | Auto_cols_fr -> "auto-cols-fr"
+    | Auto_cols_arbitrary s -> "auto-cols-[" ^ s ^ "]"
     | Auto_rows_auto -> "auto-rows-auto"
     | Auto_rows_min -> "auto-rows-min"
     | Auto_rows_max -> "auto-rows-max"
     | Auto_rows_fr -> "auto-rows-fr"
+    | Auto_rows_arbitrary s -> "auto-rows-[" ^ s ^ "]"
 end
 
 open Handler
