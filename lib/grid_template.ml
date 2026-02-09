@@ -27,9 +27,11 @@ module Handler = struct
     | Grid_cols of int
     | Grid_cols_none
     | Grid_cols_subgrid
+    | Grid_cols_arbitrary of string
     | Grid_rows of int
     | Grid_rows_none
     | Grid_rows_subgrid
+    | Grid_rows_arbitrary of string
     | Grid_flow_row
     | Grid_flow_col
     | Grid_flow_dense
@@ -63,6 +65,53 @@ module Handler = struct
   let grid_cols_none = style [ Css.grid_template_columns None ]
   let grid_cols_subgrid = style [ Css.grid_template_columns Subgrid ]
 
+  let parse_arbitrary_length s : Css.length option =
+    let value = String.trim s in
+    let len = String.length value in
+    if len = 0 then None
+    else if len >= 2 && String.sub value (len - 2) 2 = "px" then
+      match float_of_string_opt (String.sub value 0 (len - 2)) with
+      | Some n -> Some (Px n)
+      | None -> None
+    else if len >= 3 && String.sub value (len - 3) 3 = "rem" then
+      match float_of_string_opt (String.sub value 0 (len - 3)) with
+      | Some n -> Some (Rem n)
+      | None -> None
+    else if len >= 2 && String.sub value (len - 2) 2 = "em" then
+      match float_of_string_opt (String.sub value 0 (len - 2)) with
+      | Some n -> Some (Em n)
+      | None -> None
+    else if len >= 2 && String.sub value (len - 2) 2 = "fr" then
+      (* Handle fr values *)
+      None (* fr needs special handling as grid_template type *)
+    else
+      match int_of_string_opt value with
+      | Some n -> Some (Px (float_of_int n))
+      | None -> None
+
+  let parse_arbitrary_grid_template s : Css.grid_template =
+    let value = String.trim s in
+    (* First try to parse as a simple length *)
+    match parse_arbitrary_length value with
+    | Some len ->
+        Px (match len with Px n -> n | Rem n -> n *. 16.0 | _ -> 0.0)
+    | None ->
+        (* Try to parse fr values *)
+        let len = String.length value in
+        if len >= 2 && String.sub value (len - 2) 2 = "fr" then
+          match float_of_string_opt (String.sub value 0 (len - 2)) with
+          | Some n -> Fr n
+          | None -> Auto
+        else Auto
+
+  let grid_cols_arbitrary s =
+    let template = parse_arbitrary_grid_template s in
+    style [ Css.grid_template_columns template ]
+
+  let grid_rows_arbitrary s =
+    let template = parse_arbitrary_grid_template s in
+    style [ Css.grid_template_rows template ]
+
   let grid_rows n =
     if n < 1 || n > 999 then
       invalid_arg
@@ -95,9 +144,11 @@ module Handler = struct
     | Grid_cols n -> grid_cols n
     | Grid_cols_none -> grid_cols_none
     | Grid_cols_subgrid -> grid_cols_subgrid
+    | Grid_cols_arbitrary s -> grid_cols_arbitrary s
     | Grid_rows n -> grid_rows n
     | Grid_rows_none -> grid_rows_none
     | Grid_rows_subgrid -> grid_rows_subgrid
+    | Grid_rows_arbitrary s -> grid_rows_arbitrary s
     | Grid_flow_row -> grid_flow_row
     | Grid_flow_col -> grid_flow_col
     | Grid_flow_dense -> grid_flow_dense
@@ -117,10 +168,12 @@ module Handler = struct
     | Grid_cols n -> 10000 + n
     | Grid_cols_none -> 10900
     | Grid_cols_subgrid -> 10901
+    | Grid_cols_arbitrary _ -> 10902
     (* Grid template rows (11000-11999) *)
     | Grid_rows n -> 11000 + n
     | Grid_rows_none -> 11900
     | Grid_rows_subgrid -> 11901
+    | Grid_rows_arbitrary _ -> 11902
     (* Grid auto flow (14000-14099) - alphabetical order *)
     | Grid_flow_col -> 14000
     | Grid_flow_col_dense -> 14001
@@ -144,15 +197,25 @@ module Handler = struct
     | [ "grid"; "cols"; "none" ] -> Ok Grid_cols_none
     | [ "grid"; "cols"; "subgrid" ] -> Ok Grid_cols_subgrid
     | [ "grid"; "cols"; n ] -> (
-        match int_of_string_opt n with
-        | Some i -> Ok (Grid_cols i)
-        | None -> err_invalid_cols)
+        let len = String.length n in
+        if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
+          let inner = String.sub n 1 (len - 2) in
+          Ok (Grid_cols_arbitrary inner)
+        else
+          match int_of_string_opt n with
+          | Some i -> Ok (Grid_cols i)
+          | None -> err_invalid_cols)
     | [ "grid"; "rows"; "none" ] -> Ok Grid_rows_none
     | [ "grid"; "rows"; "subgrid" ] -> Ok Grid_rows_subgrid
     | [ "grid"; "rows"; n ] -> (
-        match int_of_string_opt n with
-        | Some i -> Ok (Grid_rows i)
-        | None -> err_invalid_rows)
+        let len = String.length n in
+        if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
+          let inner = String.sub n 1 (len - 2) in
+          Ok (Grid_rows_arbitrary inner)
+        else
+          match int_of_string_opt n with
+          | Some i -> Ok (Grid_rows i)
+          | None -> err_invalid_rows)
     | [ "grid"; "flow"; "row" ] -> Ok Grid_flow_row
     | [ "grid"; "flow"; "col" ] -> Ok Grid_flow_col
     | [ "grid"; "flow"; "dense" ] -> Ok Grid_flow_dense
@@ -172,9 +235,11 @@ module Handler = struct
     | Grid_cols n -> "grid-cols-" ^ string_of_int n
     | Grid_cols_none -> "grid-cols-none"
     | Grid_cols_subgrid -> "grid-cols-subgrid"
+    | Grid_cols_arbitrary s -> "grid-cols-[" ^ s ^ "]"
     | Grid_rows n -> "grid-rows-" ^ string_of_int n
     | Grid_rows_none -> "grid-rows-none"
     | Grid_rows_subgrid -> "grid-rows-subgrid"
+    | Grid_rows_arbitrary s -> "grid-rows-[" ^ s ^ "]"
     | Grid_flow_row -> "grid-flow-row"
     | Grid_flow_col -> "grid-flow-col"
     | Grid_flow_dense -> "grid-flow-dense"
