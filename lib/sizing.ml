@@ -37,6 +37,7 @@ module Handler = struct
     | H_dvh (* 100dvh - dynamic viewport height *)
     | H_lvh (* 100lvh - large viewport height *)
     | H_svh (* 100svh - small viewport height *)
+    | H_lh (* 1lh - line height *)
     (* Min-width utilities *)
     | Min_w_0
     | Min_w_full
@@ -78,7 +79,13 @@ module Handler = struct
     | Min_h_min
     | Min_h_max
     | Min_h_fit
+    | Min_h_auto
+    | Min_h_dvh
+    | Min_h_lvh
+    | Min_h_svh
+    | Min_h_lh
     | Min_h_spacing of float
+    | Min_h_arbitrary of Css.length
     (* Max-height utilities *)
     | Max_h_none
     | Max_h_full
@@ -86,7 +93,12 @@ module Handler = struct
     | Max_h_min
     | Max_h_max
     | Max_h_fit
+    | Max_h_dvh
+    | Max_h_lvh
+    | Max_h_svh
+    | Max_h_lh
     | Max_h_spacing of float
+    | Max_h_arbitrary of Css.length
     (* Size utilities (both width and height) *)
     | Size_auto
     | Size_full
@@ -414,6 +426,7 @@ module Handler = struct
     | H_dvh -> style [ height (Dvh 100.) ]
     | H_lvh -> style [ height (Lvh 100.) ]
     | H_svh -> style [ height (Svh 100.) ]
+    | H_lh -> style [ height (Lh 1.) ]
     (* Min-width utilities *)
     | Min_w_0 -> min_w_0'
     | Min_w_full -> min_w_full'
@@ -457,7 +470,13 @@ module Handler = struct
     | Min_h_min -> min_h_min'
     | Min_h_max -> min_h_max'
     | Min_h_fit -> min_h_fit'
+    | Min_h_auto -> style [ min_height Auto ]
+    | Min_h_dvh -> style [ min_height (Dvh 100.) ]
+    | Min_h_lvh -> style [ min_height (Lvh 100.) ]
+    | Min_h_svh -> style [ min_height (Svh 100.) ]
+    | Min_h_lh -> style [ min_height (Lh 1.) ]
     | Min_h_spacing n -> min_h' (`Rem n)
+    | Min_h_arbitrary len -> style [ min_height len ]
     (* Max-height utilities *)
     | Max_h_none -> max_h_none'
     | Max_h_full -> max_h_full'
@@ -465,7 +484,12 @@ module Handler = struct
     | Max_h_min -> max_h_min'
     | Max_h_max -> max_h_max'
     | Max_h_fit -> max_h_fit'
+    | Max_h_dvh -> style [ max_height (Dvh 100.) ]
+    | Max_h_lvh -> style [ max_height (Lvh 100.) ]
+    | Max_h_svh -> style [ max_height (Svh 100.) ]
+    | Max_h_lh -> style [ max_height (Lh 1.) ]
     | Max_h_spacing n -> max_h' (`Rem n)
+    | Max_h_arbitrary len -> style [ max_height len ]
     (* Size utilities *)
     | Size_auto -> style [ width Auto; height Auto ]
     | Size_full -> style [ width (Pct 100.0); height (Pct 100.0) ]
@@ -565,6 +589,7 @@ module Handler = struct
       | "dvh" -> Ok H_dvh
       | "lvh" -> Ok H_lvh
       | "svh" -> Ok H_svh
+      | "lh" -> Ok H_lh
       | frac when String.contains frac '/' ->
           if List.mem_assoc frac fraction_table then Ok (H_fraction frac)
           else err_invalid_value "height fraction" frac
@@ -598,6 +623,18 @@ module Handler = struct
       | "0" -> Ok Min_h_0
       | "full" -> Ok Min_h_full
       | "screen" -> Ok Min_h_screen
+      | "min" -> Ok Min_h_min
+      | "max" -> Ok Min_h_max
+      | "fit" -> Ok Min_h_fit
+      | "auto" -> Ok Min_h_auto
+      | "dvh" -> Ok Min_h_dvh
+      | "lvh" -> Ok Min_h_lvh
+      | "svh" -> Ok Min_h_svh
+      | "lh" -> Ok Min_h_lh
+      | v when String.length v > 0 && v.[0] = '[' -> (
+          match parse_arbitrary v with
+          | Some len -> Ok (Min_h_arbitrary len)
+          | None -> err_invalid_value "min-height" v)
       | v -> (
           match float_of_string_opt v with
           | Some n when n >= 0. -> Ok (Min_h_spacing (n *. 0.25))
@@ -641,6 +678,14 @@ module Handler = struct
       | "min" -> Ok Max_h_min
       | "max" -> Ok Max_h_max
       | "fit" -> Ok Max_h_fit
+      | "dvh" -> Ok Max_h_dvh
+      | "lvh" -> Ok Max_h_lvh
+      | "svh" -> Ok Max_h_svh
+      | "lh" -> Ok Max_h_lh
+      | v when String.length v > 0 && v.[0] = '[' -> (
+          match parse_arbitrary v with
+          | Some len -> Ok (Max_h_arbitrary len)
+          | None -> err_invalid_value "max-height" v)
       | v -> (
           match float_of_string_opt v with
           | Some n when n >= 0. -> Ok (Max_h_spacing (n *. 0.25))
@@ -714,8 +759,9 @@ module Handler = struct
     | H_px -> 90005
     | H_screen -> 90006
     | H_dvh -> 90007
-    | H_lvh -> 90008
-    | H_svh -> 90009
+    | H_lh -> 90008
+    | H_lvh -> 90009
+    | H_svh -> 90010
     | H_arbitrary _ -> 95000
     (* Max-height utilities (100000-199999) - comes after height *)
     (* Order: fit, full, max, min, none, screen *)
@@ -725,7 +771,12 @@ module Handler = struct
     | Max_h_min -> 100003
     | Max_h_none -> 100004
     | Max_h_screen -> 100005
+    | Max_h_dvh -> 100006
+    | Max_h_lvh -> 100007
+    | Max_h_svh -> 100008
+    | Max_h_lh -> 100009
     | Max_h_spacing n -> 100100 + spacing_suborder n
+    | Max_h_arbitrary _ -> 100200
     (* Min-height utilities (200000-299999) - comes after max-height *)
     | Min_h_0 -> 200000
     | Min_h_full -> 200001
@@ -733,7 +784,13 @@ module Handler = struct
     | Min_h_min -> 200003
     | Min_h_max -> 200004
     | Min_h_fit -> 200005
+    | Min_h_auto -> 200006
+    | Min_h_dvh -> 200007
+    | Min_h_lvh -> 200008
+    | Min_h_svh -> 200009
+    | Min_h_lh -> 200010
     | Min_h_spacing n -> 200100 + spacing_suborder n
+    | Min_h_arbitrary _ -> 200200
     (* Width utilities (300000-399999) Numeric widths (w-0, w-1, etc.) are
        ordered by their numeric value via spacing_suborder. Keyword widths
        (w-auto, w-full, etc.) use fixed suborders and sort alphabetically within
@@ -863,6 +920,7 @@ module Handler = struct
         in
         "h-[" ^ len_str ^ "]"
     | H_dvh -> "h-dvh"
+    | H_lh -> "h-lh"
     | H_lvh -> "h-lvh"
     | H_svh -> "h-svh"
     (* Min-width utilities *)
@@ -919,7 +977,26 @@ module Handler = struct
     | Min_h_min -> "min-h-min"
     | Min_h_max -> "min-h-max"
     | Min_h_fit -> "min-h-fit"
+    | Min_h_auto -> "min-h-auto"
+    | Min_h_dvh -> "min-h-dvh"
+    | Min_h_lvh -> "min-h-lvh"
+    | Min_h_svh -> "min-h-svh"
+    | Min_h_lh -> "min-h-lh"
     | Min_h_spacing n -> "min-h-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
+    | Min_h_arbitrary len ->
+        let pp_float n =
+          let s = string_of_float n in
+          if String.ends_with ~suffix:"." s then
+            String.sub s 0 (String.length s - 1)
+          else s
+        in
+        let len_str =
+          match len with
+          | Css.Px n -> pp_float n ^ "px"
+          | Css.Rem n -> pp_float n ^ "rem"
+          | _ -> Css.Pp.to_string Css.pp_length len
+        in
+        "min-h-[" ^ len_str ^ "]"
     (* Max-height utilities *)
     | Max_h_none -> "max-h-none"
     | Max_h_full -> "max-h-full"
@@ -927,7 +1004,25 @@ module Handler = struct
     | Max_h_min -> "max-h-min"
     | Max_h_max -> "max-h-max"
     | Max_h_fit -> "max-h-fit"
+    | Max_h_dvh -> "max-h-dvh"
+    | Max_h_lvh -> "max-h-lvh"
+    | Max_h_svh -> "max-h-svh"
+    | Max_h_lh -> "max-h-lh"
     | Max_h_spacing n -> "max-h-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
+    | Max_h_arbitrary len ->
+        let pp_float n =
+          let s = string_of_float n in
+          if String.ends_with ~suffix:"." s then
+            String.sub s 0 (String.length s - 1)
+          else s
+        in
+        let len_str =
+          match len with
+          | Css.Px n -> pp_float n ^ "px"
+          | Css.Rem n -> pp_float n ^ "rem"
+          | _ -> Css.Pp.to_string Css.pp_length len
+        in
+        "max-h-[" ^ len_str ^ "]"
     (* Size utilities *)
     | Size_auto -> "size-auto"
     | Size_full -> "size-full"
