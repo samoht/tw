@@ -22,6 +22,7 @@ module Handler = struct
     | W_dvw (* 100dvw - dynamic viewport width *)
     | W_lvw (* 100lvw - large viewport width *)
     | W_svw (* 100svw - small viewport width *)
+    | W_xl (* width: var(--width-xl) *)
     (* Height utilities *)
     | H_auto
     | H_full
@@ -42,7 +43,10 @@ module Handler = struct
     | Min_w_min
     | Min_w_max
     | Min_w_fit
+    | Min_w_auto
     | Min_w_spacing of float
+    | Min_w_arbitrary of Css.length
+    | Min_w_xl (* min-width: var(--container-xl) *)
     (* Max-width utilities *)
     | Max_w_none
     | Max_w_xs
@@ -216,6 +220,9 @@ module Handler = struct
     | `Full -> style [ max_width (Pct 100.0) ]
     | `Rem n -> spacing_utility max_width n
 
+  (* Named width theme variable *)
+  let width_xl = Var.theme Css.Length "width-xl" ~order:(5, 20)
+
   (* Container size theme variables *)
   let container_xs = Var.theme Css.Length "container-xs" ~order:(5, 0)
   let container_sm = Var.theme Css.Length "container-sm" ~order:(5, 1)
@@ -379,6 +386,9 @@ module Handler = struct
     | W_dvw -> style [ width (Dvw 100.) ]
     | W_lvw -> style [ width (Lvw 100.) ]
     | W_svw -> style [ width (Svw 100.) ]
+    | W_xl ->
+        let decl, ref_ = Var.binding width_xl (Rem 36.0) in
+        style [ decl; width (Var ref_) ]
     (* Height utilities *)
     | H_auto -> h_auto'
     | H_px -> h_px'
@@ -410,7 +420,12 @@ module Handler = struct
     | Min_w_min -> min_w_min'
     | Min_w_max -> min_w_max'
     | Min_w_fit -> min_w_fit'
+    | Min_w_auto -> style [ min_width Auto ]
     | Min_w_spacing n -> min_w' (`Rem n)
+    | Min_w_arbitrary len -> style [ min_width len ]
+    | Min_w_xl ->
+        let decl, ref_ = Var.binding container_xl (Rem 36.0) in
+        style [ decl; min_width (Var ref_) ]
     (* Max-width utilities *)
     | Max_w_none -> max_w_none'
     | Max_w_xs -> max_w_xs'
@@ -526,6 +541,7 @@ module Handler = struct
       | "dvw" -> Ok W_dvw
       | "lvw" -> Ok W_lvw
       | "svw" -> Ok W_svw
+      | "xl" -> Ok W_xl
       | frac when String.contains frac '/' ->
           if List.mem_assoc frac fraction_table then Ok (W_fraction frac)
           else err_invalid_value "width fraction" frac
@@ -567,6 +583,12 @@ module Handler = struct
       | "min" -> Ok Min_w_min
       | "max" -> Ok Min_w_max
       | "fit" -> Ok Min_w_fit
+      | "auto" -> Ok Min_w_auto
+      | "xl" -> Ok Min_w_xl
+      | v when String.length v > 0 && v.[0] = '[' -> (
+          match parse_arbitrary v with
+          | Some len -> Ok (Min_w_arbitrary len)
+          | None -> err_invalid_value "min-width" v)
       | v -> (
           match float_of_string_opt v with
           | Some n when n >= 0. -> Ok (Min_w_spacing (n *. 0.25))
@@ -730,6 +752,8 @@ module Handler = struct
     | W_dvw -> 300507
     | W_lvw -> 300508
     | W_svw -> 300509
+    (* Named widths after dvw/lvw/svw *)
+    | W_xl -> 300510
     (* Fractions come after keywords *)
     | W_fraction _ -> 300600
     | W_arbitrary _ -> 300700
@@ -766,7 +790,10 @@ module Handler = struct
     | Min_w_min -> 500002
     | Min_w_max -> 500003
     | Min_w_fit -> 500004
+    | Min_w_auto -> 500005
     | Min_w_spacing n -> 500100 + spacing_suborder n
+    | Min_w_arbitrary _ -> 500200
+    | Min_w_xl -> 500006
     (* Size utilities (600000-699999) *)
     | Size_auto -> 600000
     | Size_full -> 600001
@@ -810,6 +837,7 @@ module Handler = struct
     | W_dvw -> "w-dvw"
     | W_lvw -> "w-lvw"
     | W_svw -> "w-svw"
+    | W_xl -> "w-xl"
     (* Height utilities *)
     | H_auto -> "h-auto"
     | H_full -> "h-full"
@@ -843,7 +871,23 @@ module Handler = struct
     | Min_w_min -> "min-w-min"
     | Min_w_max -> "min-w-max"
     | Min_w_fit -> "min-w-fit"
+    | Min_w_auto -> "min-w-auto"
     | Min_w_spacing n -> "min-w-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
+    | Min_w_arbitrary len ->
+        let pp_float n =
+          let s = string_of_float n in
+          if String.ends_with ~suffix:"." s then
+            String.sub s 0 (String.length s - 1)
+          else s
+        in
+        let len_str =
+          match len with
+          | Css.Px n -> pp_float n ^ "px"
+          | Css.Rem n -> pp_float n ^ "rem"
+          | _ -> Css.Pp.to_string Css.pp_length len
+        in
+        "min-w-[" ^ len_str ^ "]"
+    | Min_w_xl -> "min-w-xl"
     (* Max-width utilities *)
     | Max_w_none -> "max-w-none"
     | Max_w_xs -> "max-w-xs"
