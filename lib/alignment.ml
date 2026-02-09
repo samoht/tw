@@ -108,6 +108,8 @@ module Handler = struct
     | Place_self_end
     | Place_self_center
     | Place_self_stretch
+    | Place_self_center_safe
+    | Place_self_end_safe
 
   type Utility.base += Self of t
 
@@ -206,6 +208,8 @@ module Handler = struct
   let place_self_end = style [ place_self (End, End) ]
   let place_self_center = style [ place_self (Center, Center) ]
   let place_self_stretch = style [ place_self (Stretch, Stretch) ]
+  let place_self_center_safe = style [ place_self (Safe_center, Safe_center) ]
+  let place_self_end_safe = style [ place_self (Safe_end, Safe_end) ]
 
   let to_style = function
     (* Justify content *)
@@ -296,6 +300,8 @@ module Handler = struct
     | Place_self_end -> place_self_end
     | Place_self_center -> place_self_center
     | Place_self_stretch -> place_self_stretch
+    | Place_self_center_safe -> place_self_center_safe
+    | Place_self_end_safe -> place_self_end_safe
 
   let suborder = function
     (* Container alignments: 0-999 (before gap's 25000+) *)
@@ -365,9 +371,11 @@ module Handler = struct
     (* Place self (76000-76009) - alphabetical *)
     | Place_self_auto -> 76000
     | Place_self_center -> 76001
-    | Place_self_end -> 76002
-    | Place_self_start -> 76003
-    | Place_self_stretch -> 76004
+    | Place_self_center_safe -> 76002
+    | Place_self_end -> 76003
+    | Place_self_end_safe -> 76004
+    | Place_self_start -> 76005
+    | Place_self_stretch -> 76006
     (* Align self (76010-76029) - alphabetical *)
     | Self_auto -> 76010
     | Self_baseline -> 76011
@@ -478,6 +486,8 @@ module Handler = struct
     | "place-self-end" -> Ok Place_self_end
     | "place-self-center" -> Ok Place_self_center
     | "place-self-stretch" -> Ok Place_self_stretch
+    | "place-self-center-safe" -> Ok Place_self_center_safe
+    | "place-self-end-safe" -> Ok Place_self_end_safe
     | _ -> Error (`Msg "Not an alignment utility")
 
   let to_class = function
@@ -569,6 +579,8 @@ module Handler = struct
     | Place_self_end -> "place-self-end"
     | Place_self_center -> "place-self-center"
     | Place_self_stretch -> "place-self-stretch"
+    | Place_self_center_safe -> "place-self-center-safe"
+    | Place_self_end_safe -> "place-self-end-safe"
 end
 
 open Handler
@@ -665,3 +677,5 @@ let place_self_start = utility Place_self_start
 let place_self_end = utility Place_self_end
 let place_self_center = utility Place_self_center
 let place_self_stretch = utility Place_self_stretch
+let place_self_center_safe = utility Place_self_center_safe
+let place_self_end_safe = utility Place_self_end_safe
