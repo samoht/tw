@@ -10,13 +10,21 @@ module Handler = struct
   type t =
     | (* 2D Transforms *)
       Rotate of int
+    | Rotate_arbitrary of Css.angle
     | Translate_x of int
+    | Translate_x_arbitrary of Css.length
     | Translate_y of int
+    | Translate_y_arbitrary of Css.length
     | Scale of int
+    | Scale_arbitrary of float
     | Scale_x of int
+    | Scale_x_arbitrary of float
     | Scale_y of int
+    | Scale_y_arbitrary of float
     | Skew_x of int
+    | Skew_x_arbitrary of Css.angle
     | Skew_y of int
+    | Skew_y_arbitrary of Css.angle
     | (* Combined translate utilities *)
       Translate_full
     | Translate_1_2
@@ -172,9 +180,46 @@ module Handler = struct
             | _ -> Error (`Msg ("Invalid length unit: " ^ unit_s))))
     else Error (`Msg ("Not a bracket value: " ^ s))
 
+  let parse_bracket_angle s : (Css.angle, _) result =
+    if String.length s >= 3 && s.[0] = '[' && s.[String.length s - 1] = ']' then (
+      let inner = String.sub s 1 (String.length s - 2) in
+      let slen = String.length inner in
+      let i = ref 0 in
+      while
+        !i < slen
+        && ((inner.[!i] >= '0' && inner.[!i] <= '9')
+           || inner.[!i] = '.'
+           || inner.[!i] = '-')
+      do
+        incr i
+      done;
+      if !i = 0 || !i = slen then Error (`Msg ("Invalid angle value: " ^ inner))
+      else
+        let num_s = String.sub inner 0 !i in
+        let unit_s = String.sub inner !i (slen - !i) in
+        match Float.of_string_opt num_s with
+        | Option.None -> Error (`Msg ("Invalid angle value: " ^ inner))
+        | Option.Some n -> (
+            match unit_s with
+            | "deg" -> Ok (Css.Deg n : Css.angle)
+            | "rad" -> Ok (Rad n)
+            | "turn" -> Ok (Turn n)
+            | "grad" -> Ok (Grad n)
+            | _ -> Error (`Msg ("Invalid angle unit: " ^ unit_s))))
+    else Error (`Msg ("Not a bracket value: " ^ s))
+
+  let parse_bracket_number s : (float, _) result =
+    if String.length s >= 3 && s.[0] = '[' && s.[String.length s - 1] = ']' then
+      let inner = String.sub s 1 (String.length s - 2) in
+      match Float.of_string_opt inner with
+      | Some f -> Ok f
+      | None -> Error (`Msg ("Invalid number: " ^ inner))
+    else Error (`Msg ("Not a bracket value: " ^ s))
+
   (** {1 2D Transform Utilities} *)
 
   let rotate n = style [ Css.rotate (Deg (float_of_int n)) ]
+  let rotate_arbitrary angle = style [ Css.rotate angle ]
 
   let translate_axis axis_var n =
     let spacing_decl, spacing_ref =
@@ -199,6 +244,28 @@ module Handler = struct
 
   let translate_x n = translate_axis tw_translate_x_var n
   let translate_y n = translate_axis tw_translate_y_var n
+
+  let translate_x_arbitrary len =
+    let axis_decl, _ = Var.binding tw_translate_x_var len in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    let props =
+      collect_property_rules
+        [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
+    in
+    style ~property_rules:props
+      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
+  let translate_y_arbitrary len =
+    let axis_decl, _ = Var.binding tw_translate_y_var len in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    let props =
+      collect_property_rules
+        [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
+    in
+    style ~property_rules:props
+      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
 
   let scale n =
     let value : Css.number_percentage = Css.Pct (float_of_int n) in
@@ -226,6 +293,29 @@ module Handler = struct
     let d, _ = Var.binding tw_scale_y_var value in
     style (d :: [ Css.transform (Scale_y (float_of_int n /. 100.0)) ])
 
+  let scale_arbitrary f =
+    let value : Css.number_percentage = Css.Num f in
+    let dx, _ = Var.binding tw_scale_x_var value in
+    let dy, _ = Var.binding tw_scale_y_var value in
+    let dz, _ = Var.binding tw_scale_z_var value in
+    let props =
+      collect_property_rules [ tw_scale_x_var; tw_scale_y_var; tw_scale_z_var ]
+    in
+    let scale_x_ref = Var.reference tw_scale_x_var in
+    let scale_y_ref = Var.reference tw_scale_y_var in
+    style ~property_rules:props
+      (dx :: dy :: dz :: [ Css.scale (XY (Var scale_x_ref, Var scale_y_ref)) ])
+
+  let scale_x_arbitrary f =
+    let value : Css.number_percentage = Css.Num f in
+    let d, _ = Var.binding tw_scale_x_var value in
+    style (d :: [ Css.transform (Scale_x f) ])
+
+  let scale_y_arbitrary f =
+    let value : Css.number_percentage = Css.Num f in
+    let d, _ = Var.binding tw_scale_y_var value in
+    style (d :: [ Css.transform (Scale_y f) ])
+
   let skew_axis var mk_transform deg =
     let transform_val = mk_transform (Css.Deg (float_of_int deg)) in
     let d, _ = Var.binding var transform_val in
@@ -233,6 +323,16 @@ module Handler = struct
 
   let skew_x deg = skew_axis tw_skew_x_var (fun a -> Css.Skew_x a) deg
   let skew_y deg = skew_axis tw_skew_y_var (fun a -> Css.Skew_y a) deg
+
+  let skew_x_arbitrary angle =
+    let transform_val = Css.Skew_x angle in
+    let d, _ = Var.binding tw_skew_x_var transform_val in
+    style [ d; Css.transform transform_val ]
+
+  let skew_y_arbitrary angle =
+    let transform_val = Css.Skew_y angle in
+    let d, _ = Var.binding tw_skew_y_var transform_val in
+    style [ d; Css.transform transform_val ]
 
   (* Combined translate utilities *)
   let translate_full =
@@ -439,19 +539,27 @@ module Handler = struct
 
   let to_style = function
     | Rotate n -> rotate n
+    | Rotate_arbitrary a -> rotate_arbitrary a
     | Translate_x n -> translate_x n
+    | Translate_x_arbitrary len -> translate_x_arbitrary len
     | Translate_y n -> translate_y n
+    | Translate_y_arbitrary len -> translate_y_arbitrary len
     | Translate_full -> translate_full
     | Translate_1_2 -> translate_1_2
     | Neg_translate_x_1_2 -> neg_translate_x_1_2
     | Neg_translate_y_1_2 -> neg_translate_y_1_2
     | Translate_z n -> translate_z n
     | Scale n -> scale n
+    | Scale_arbitrary f -> scale_arbitrary f
     | Scale_x n -> scale_x n
+    | Scale_x_arbitrary f -> scale_x_arbitrary f
     | Scale_y n -> scale_y n
+    | Scale_y_arbitrary f -> scale_y_arbitrary f
     | Scale_z n -> scale_z n
     | Skew_x n -> skew_x n
+    | Skew_x_arbitrary a -> skew_x_arbitrary a
     | Skew_y n -> skew_y n
+    | Skew_y_arbitrary a -> skew_y_arbitrary a
     | Rotate_x n -> rotate_x n
     | Rotate_y n -> rotate_y n
     | Rotate_z n -> rotate_z n
@@ -492,26 +600,34 @@ module Handler = struct
     | Translate_full -> 91
     (* Translate utilities come first *)
     | Translate_x n -> 100 + n
+    | Translate_x_arbitrary _ -> 199
     | Neg_translate_x_1_2 -> 150
     | Translate_y n -> 200 + n
+    | Translate_y_arbitrary _ -> 299
     | Neg_translate_y_1_2 -> 250
     | Translate_z n -> 300 + n
     (* Scale utilities *)
     | Scale n -> 400 + n
+    | Scale_arbitrary _ -> 499
     | Scale_x n -> 500 + n
+    | Scale_x_arbitrary _ -> 599
     | Scale_y n -> 600 + n
+    | Scale_y_arbitrary _ -> 699
     | Scale_z n -> 700 + n
     (* Rotate utilities *)
     | Rotate n -> 800 + n
+    | Rotate_arbitrary _ -> 899
     | Rotate_x n -> 900 + n
     | Rotate_y n -> 1000 + n
     | Rotate_z n -> 1100 + n
     (* Skew utilities *)
     | Skew_x n -> 1200 + n
+    | Skew_x_arbitrary _ -> 1299
     | Skew_y n -> 1300 + n
+    | Skew_y_arbitrary _ -> 1398
     (* Other transform utilities - arbitrary before named (alphabetical by
        class) *)
-    | Perspective_arbitrary _ -> 1399
+    | Perspective_arbitrary _ -> 1400
     | Perspective_dramatic -> 1400
     | Perspective_none -> 1401
     | Perspective_normal -> 1402
@@ -539,8 +655,20 @@ module Handler = struct
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
     match parts with
+    | [ "rotate"; n ] when String.length n > 0 && n.[0] = '[' -> (
+        match parse_bracket_angle n with
+        | Ok a -> Ok (Rotate_arbitrary a)
+        | Error _ -> err_not_utility)
     | [ "rotate"; n ] -> Parse.int_any n >|= fun n -> Rotate n
+    | [ "translate"; "x"; n ] when String.length n > 0 && n.[0] = '[' -> (
+        match parse_bracket_length n with
+        | Ok len -> Ok (Translate_x_arbitrary len)
+        | Error _ -> err_not_utility)
     | [ "translate"; "x"; n ] -> Parse.int_any n >|= fun n -> Translate_x n
+    | [ "translate"; "y"; n ] when String.length n > 0 && n.[0] = '[' -> (
+        match parse_bracket_length n with
+        | Ok len -> Ok (Translate_y_arbitrary len)
+        | Error _ -> err_not_utility)
     | [ "translate"; "y"; n ] -> Parse.int_any n >|= fun n -> Translate_y n
     | [ "translate"; "z"; n ] -> Parse.int_any n >|= fun n -> Translate_z n
     | [ "translate"; "full" ] -> Ok Translate_full
@@ -553,14 +681,34 @@ module Handler = struct
         Parse.int_pos ~name:"translate-y" n >|= fun n -> Translate_y (-n)
     | [ ""; "translate"; "z"; n ] ->
         Parse.int_pos ~name:"translate-z" n >|= fun n -> Translate_z (-n)
+    | [ "scale"; n ] when String.length n > 0 && n.[0] = '[' -> (
+        match parse_bracket_number n with
+        | Ok f -> Ok (Scale_arbitrary f)
+        | Error _ -> err_not_utility)
     | [ "scale"; n ] -> Parse.int_pos ~name:"scale" n >|= fun n -> Scale n
+    | [ "scale"; "x"; n ] when String.length n > 0 && n.[0] = '[' -> (
+        match parse_bracket_number n with
+        | Ok f -> Ok (Scale_x_arbitrary f)
+        | Error _ -> err_not_utility)
     | [ "scale"; "x"; n ] ->
         Parse.int_pos ~name:"scale-x" n >|= fun n -> Scale_x n
+    | [ "scale"; "y"; n ] when String.length n > 0 && n.[0] = '[' -> (
+        match parse_bracket_number n with
+        | Ok f -> Ok (Scale_y_arbitrary f)
+        | Error _ -> err_not_utility)
     | [ "scale"; "y"; n ] ->
         Parse.int_pos ~name:"scale-y" n >|= fun n -> Scale_y n
     | [ "scale"; "z"; n ] ->
         Parse.int_pos ~name:"scale-z" n >|= fun n -> Scale_z n
+    | [ "skew"; "x"; n ] when String.length n > 0 && n.[0] = '[' -> (
+        match parse_bracket_angle n with
+        | Ok a -> Ok (Skew_x_arbitrary a)
+        | Error _ -> err_not_utility)
     | [ "skew"; "x"; n ] -> Parse.int_any n >|= fun n -> Skew_x n
+    | [ "skew"; "y"; n ] when String.length n > 0 && n.[0] = '[' -> (
+        match parse_bracket_angle n with
+        | Ok a -> Ok (Skew_y_arbitrary a)
+        | Error _ -> err_not_utility)
     | [ "skew"; "y"; n ] -> Parse.int_any n >|= fun n -> Skew_y n
     | [ "rotate"; "x"; n ] -> Parse.int_any n >|= fun n -> Rotate_x n
     | [ "rotate"; "y"; n ] -> Parse.int_any n >|= fun n -> Rotate_y n
@@ -596,21 +744,39 @@ module Handler = struct
     | [ "origin"; "bottom"; "right" ] -> Ok Origin_bottom_right
     | _ -> err_not_utility
 
+  let pp_angle_bracket a = "[" ^ Css.Pp.to_string Css.pp_angle a ^ "]"
+
+  let pp_length_bracket len =
+    "[" ^ Css.Pp.to_string (pp_length ~always:true) len ^ "]"
+
+  let pp_number_bracket f =
+    let s = string_of_float f in
+    let s = if String.ends_with ~suffix:"." s then s ^ "0" else s in
+    "[" ^ s ^ "]"
+
   let to_class = function
     | Rotate n -> "rotate-" ^ string_of_int n
+    | Rotate_arbitrary a -> "rotate-" ^ pp_angle_bracket a
     | Translate_x n -> neg_class "translate-x-" n
+    | Translate_x_arbitrary len -> "translate-x-" ^ pp_length_bracket len
     | Translate_y n -> neg_class "translate-y-" n
+    | Translate_y_arbitrary len -> "translate-y-" ^ pp_length_bracket len
     | Translate_z n -> neg_class "translate-z-" n
     | Translate_full -> "translate-full"
     | Translate_1_2 -> "translate-1/2"
     | Neg_translate_x_1_2 -> "-translate-x-1/2"
     | Neg_translate_y_1_2 -> "-translate-y-1/2"
     | Scale n -> "scale-" ^ string_of_int n
+    | Scale_arbitrary f -> "scale-" ^ pp_number_bracket f
     | Scale_x n -> "scale-x-" ^ string_of_int n
+    | Scale_x_arbitrary f -> "scale-x-" ^ pp_number_bracket f
     | Scale_y n -> "scale-y-" ^ string_of_int n
+    | Scale_y_arbitrary f -> "scale-y-" ^ pp_number_bracket f
     | Scale_z n -> "scale-z-" ^ string_of_int n
     | Skew_x n -> neg_class "skew-x-" n
+    | Skew_x_arbitrary a -> "skew-x-" ^ pp_angle_bracket a
     | Skew_y n -> neg_class "skew-y-" n
+    | Skew_y_arbitrary a -> "skew-y-" ^ pp_angle_bracket a
     | Rotate_x n -> neg_class "rotate-x-" n
     | Rotate_y n -> neg_class "rotate-y-" n
     | Rotate_z n -> neg_class "rotate-z-" n
