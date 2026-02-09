@@ -208,4 +208,10 @@ val place_self_center : t
 val place_self_stretch : t
 (** [place_self_stretch] stretches self to fill. *)
 
+val place_self_center_safe : t
+(** [place_self_center_safe] places self at center with safe overflow. *)
+
+val place_self_end_safe : t
+(** [place_self_end_safe] places self at end with safe overflow. *)
+
 module Handler : Utility.Handler

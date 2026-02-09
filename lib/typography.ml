@@ -763,6 +763,8 @@ module Typography_late = struct
     | Underline_offset_2
     | Underline_offset_4
     | Underline_offset_8
+    | Underline_offset_px of float
+    | Underline_offset_neg_px of float
     | (* Antialiased *)
       Antialiased
     | Subpixel_antialiased
@@ -883,6 +885,14 @@ module Typography_late = struct
     | [ "underline"; "offset"; "2" ] -> Ok Underline_offset_2
     | [ "underline"; "offset"; "4" ] -> Ok Underline_offset_4
     | [ "underline"; "offset"; "8" ] -> Ok Underline_offset_8
+    | [ "underline"; "offset"; n ] -> (
+        match float_of_string_opt n with
+        | Some px -> Ok (Underline_offset_px px)
+        | None -> err_not_utility)
+    | [ ""; "underline"; "offset"; n ] -> (
+        match float_of_string_opt n with
+        | Some px -> Ok (Underline_offset_neg_px px)
+        | None -> err_not_utility)
     | [ "antialiased" ] -> Ok Antialiased
     | [ "subpixel"; "antialiased" ] -> Ok Subpixel_antialiased
     | [ "text"; "ellipsis" ] -> Ok Text_ellipsis
@@ -990,6 +1000,22 @@ module Typography_late = struct
     | Underline_offset_2 -> "underline-offset-2"
     | Underline_offset_4 -> "underline-offset-4"
     | Underline_offset_8 -> "underline-offset-8"
+    | Underline_offset_px px ->
+        let s = string_of_float px in
+        let s =
+          if String.ends_with ~suffix:"." s then
+            String.sub s 0 (String.length s - 1)
+          else s
+        in
+        "underline-offset-" ^ s
+    | Underline_offset_neg_px px ->
+        let s = string_of_float px in
+        let s =
+          if String.ends_with ~suffix:"." s then
+            String.sub s 0 (String.length s - 1)
+          else s
+        in
+        "-underline-offset-" ^ s
     | Antialiased -> "antialiased"
     | Subpixel_antialiased -> "subpixel-antialiased"
     | Text_ellipsis -> "text-ellipsis"
@@ -1094,6 +1120,8 @@ module Typography_late = struct
     | Underline_offset_2 -> 8803
     | Underline_offset_4 -> 8804
     | Underline_offset_8 -> 8805
+    | Underline_offset_px px -> 8806 + int_of_float px
+    | Underline_offset_neg_px px -> 8900 + int_of_float px
     (* Antialiased *)
     | Antialiased -> 8900
     | Subpixel_antialiased -> 8901
@@ -1489,6 +1517,13 @@ module Typography_late = struct
     | Underline_offset_2 -> underline_offset_2
     | Underline_offset_4 -> underline_offset_4
     | Underline_offset_8 -> underline_offset_8
+    | Underline_offset_px px -> style [ text_underline_offset (Px px) ]
+    | Underline_offset_neg_px px ->
+        style
+          [
+            text_underline_offset
+              (Calc (Calc.mul (Calc.length (Px px)) (Calc.float (-1.))));
+          ]
     | Antialiased -> antialiased
     | Subpixel_antialiased -> subpixel_antialiased
     | Text_ellipsis -> text_ellipsis
