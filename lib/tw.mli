@@ -3210,6 +3210,24 @@ val scroll_auto : t
 val scroll_smooth : t
 (** [scroll_smooth] uses smooth scroll behavior. *)
 
+(** {2 Touch Action}
+    @see <https://tailwindcss.com/docs/touch-action> Touch Action *)
+
+val touch_auto : t
+(** [touch_auto] sets touch-action to auto. *)
+
+val touch_none : t
+(** [touch_none] disables touch gestures. *)
+
+val touch_manipulation : t
+(** [touch_manipulation] enables panning and pinch zoom gestures. *)
+
+val touch_pan_x : t
+(** [touch_pan_x] enables horizontal panning. *)
+
+val touch_pan_y : t
+(** [touch_pan_y] enables vertical panning. *)
+
 (** {2 Scroll Margin}
     @see <https://tailwindcss.com/docs/scroll-margin> Scroll Margin *)
 

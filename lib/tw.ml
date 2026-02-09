@@ -38,6 +38,7 @@ include Borders
 include Effects
 include Transforms
 include Cursor
+include Touch
 include Interactivity
 include Containers
 include Filters
