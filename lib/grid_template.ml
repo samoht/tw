@@ -217,8 +217,8 @@ module Handler = struct
           Ok (Grid_cols_arbitrary inner)
         else
           match int_of_string_opt n with
-          | Some i -> Ok (Grid_cols i)
-          | None -> err_invalid_cols)
+          | Some i when i >= 1 && i <= 999 -> Ok (Grid_cols i)
+          | Some _ | None -> err_invalid_cols)
     | [ "grid"; "rows"; "none" ] -> Ok Grid_rows_none
     | [ "grid"; "rows"; "subgrid" ] -> Ok Grid_rows_subgrid
     | [ "grid"; "rows"; n ] -> (
@@ -228,8 +228,8 @@ module Handler = struct
           Ok (Grid_rows_arbitrary inner)
         else
           match int_of_string_opt n with
-          | Some i -> Ok (Grid_rows i)
-          | None -> err_invalid_rows)
+          | Some i when i >= 1 && i <= 999 -> Ok (Grid_rows i)
+          | Some _ | None -> err_invalid_rows)
     | [ "grid"; "flow"; "row" ] -> Ok Grid_flow_row
     | [ "grid"; "flow"; "col" ] -> Ok Grid_flow_col
     | [ "grid"; "flow"; "dense" ] -> Ok Grid_flow_dense

@@ -49,6 +49,11 @@ module Handler = struct
     | Content_around
     | Content_evenly
     | Content_stretch
+    | Content_baseline
+    | Content_normal
+    | Content_center_safe
+    | Content_end_safe
+    | Content_start_safe
     | (* Align self *)
       Self_auto
     | Self_start
@@ -65,6 +70,8 @@ module Handler = struct
     | Justify_items_end
     | Justify_items_center
     | Justify_items_stretch
+    | Justify_items_center_safe
+    | Justify_items_end_safe
     | (* Justify self *)
       Justify_self_auto
     | Justify_self_start
@@ -120,9 +127,9 @@ module Handler = struct
   let justify_normal = style [ justify_content Normal ]
   let justify_stretch = style [ justify_content Stretch ]
 
-  (* Safe variants - safe is the default behavior in CSS *)
-  let justify_center_safe = style [ justify_content Center ]
-  let justify_end_safe = style [ justify_content Flex_end ]
+  (* Safe variants - explicit safe keyword *)
+  let justify_center_safe = style [ justify_content Safe_center ]
+  let justify_end_safe = style [ justify_content Safe_flex_end ]
   let items_start = style [ align_items Flex_start ]
   let items_end = style [ align_items Flex_end ]
   let items_center = style [ align_items Center ]
@@ -130,17 +137,22 @@ module Handler = struct
   let items_stretch = style [ align_items Stretch ]
   let items_baseline_last = style [ align_items Last_baseline ]
 
-  (* Safe variants - safe is the default behavior in CSS *)
-  let items_center_safe = style [ align_items Center ]
-  let items_end_safe = style [ align_items Flex_end ]
-  let items_start_safe = style [ align_items Flex_start ]
-  let content_start = style [ align_content Start ]
-  let content_end = style [ align_content End ]
+  (* Safe variants - explicit safe keyword *)
+  let items_center_safe = style [ align_items Safe_center ]
+  let items_end_safe = style [ align_items Safe_flex_end ]
+  let items_start_safe = style [ align_items Safe_flex_start ]
+  let content_start = style [ align_content Flex_start ]
+  let content_end = style [ align_content Flex_end ]
   let content_center = style [ align_content Center ]
   let content_between = style [ align_content Space_between ]
   let content_around = style [ align_content Space_around ]
   let content_evenly = style [ align_content Space_evenly ]
   let content_stretch = style [ align_content Stretch ]
+  let content_baseline = style [ align_content Baseline ]
+  let content_normal = style [ align_content Normal ]
+  let content_center_safe = style [ align_content Safe_center ]
+  let content_end_safe = style [ align_content Safe_flex_end ]
+  let content_start_safe = style [ align_content Safe_flex_start ]
   let self_auto = style [ align_self Auto ]
   let self_start = style [ align_self Flex_start ]
   let self_end = style [ align_self Flex_end ]
@@ -149,14 +161,16 @@ module Handler = struct
   let self_baseline_last = style [ align_self Last_baseline ]
   let self_stretch = style [ align_self Stretch ]
 
-  (* Safe variants - safe is the default behavior in CSS *)
-  let self_center_safe = style [ align_self Center ]
-  let self_end_safe = style [ align_self Flex_end ]
-  let self_start_safe = style [ align_self Flex_start ]
+  (* Safe variants - explicit safe keyword *)
+  let self_center_safe = style [ align_self Safe_center ]
+  let self_end_safe = style [ align_self Safe_flex_end ]
+  let self_start_safe = style [ align_self Safe_flex_start ]
   let justify_items_start = style [ justify_items Start ]
   let justify_items_end = style [ justify_items End ]
   let justify_items_center = style [ justify_items Center ]
   let justify_items_stretch = style [ justify_items Stretch ]
+  let justify_items_center_safe = style [ justify_items Safe_center ]
+  let justify_items_end_safe = style [ justify_items Safe_end ]
   let justify_self_auto = style [ justify_self Auto ]
   let justify_self_start = style [ justify_self Flex_start ]
   let justify_self_end = style [ justify_self Flex_end ]
@@ -223,6 +237,11 @@ module Handler = struct
     | Content_around -> content_around
     | Content_evenly -> content_evenly
     | Content_stretch -> content_stretch
+    | Content_baseline -> content_baseline
+    | Content_normal -> content_normal
+    | Content_center_safe -> content_center_safe
+    | Content_end_safe -> content_end_safe
+    | Content_start_safe -> content_start_safe
     (* Align self *)
     | Self_auto -> self_auto
     | Self_start -> self_start
@@ -239,6 +258,8 @@ module Handler = struct
     | Justify_items_end -> justify_items_end
     | Justify_items_center -> justify_items_center
     | Justify_items_stretch -> justify_items_stretch
+    | Justify_items_center_safe -> justify_items_center_safe
+    | Justify_items_end_safe -> justify_items_end_safe
     (* Justify self *)
     | Justify_self_auto -> justify_self_auto
     | Justify_self_start -> justify_self_start
@@ -301,12 +322,17 @@ module Handler = struct
     | Place_items_stretch -> 17
     (* Align content (20-29) - alphabetical *)
     | Content_around -> 20
-    | Content_between -> 21
-    | Content_center -> 22
-    | Content_end -> 23
-    | Content_evenly -> 24
-    | Content_start -> 25
-    | Content_stretch -> 26
+    | Content_baseline -> 21
+    | Content_between -> 22
+    | Content_center -> 23
+    | Content_center_safe -> 24
+    | Content_end -> 25
+    | Content_end_safe -> 26
+    | Content_evenly -> 27
+    | Content_normal -> 28
+    | Content_start -> 29
+    | Content_start_safe -> 30
+    | Content_stretch -> 31
     (* Align items (30-49) - alphabetical *)
     | Items_baseline -> 30
     | Items_baseline_last -> 31
@@ -330,9 +356,11 @@ module Handler = struct
     | Justify_stretch -> 59
     (* Justify items (70-79) - alphabetical *)
     | Justify_items_center -> 70
-    | Justify_items_end -> 71
-    | Justify_items_start -> 72
-    | Justify_items_stretch -> 73
+    | Justify_items_center_safe -> 71
+    | Justify_items_end -> 72
+    | Justify_items_end_safe -> 73
+    | Justify_items_start -> 74
+    | Justify_items_stretch -> 75
     (* Self alignments: 76000+ (after gap's max of 75000 for gap-y-full) *)
     (* Place self (76000-76009) - alphabetical *)
     | Place_self_auto -> 76000
@@ -391,6 +419,11 @@ module Handler = struct
     | "content-around" -> Ok Content_around
     | "content-evenly" -> Ok Content_evenly
     | "content-stretch" -> Ok Content_stretch
+    | "content-baseline" -> Ok Content_baseline
+    | "content-normal" -> Ok Content_normal
+    | "content-center-safe" -> Ok Content_center_safe
+    | "content-end-safe" -> Ok Content_end_safe
+    | "content-start-safe" -> Ok Content_start_safe
     (* Align self *)
     | "self-auto" -> Ok Self_auto
     | "self-start" -> Ok Self_start
@@ -407,6 +440,8 @@ module Handler = struct
     | "justify-items-end" -> Ok Justify_items_end
     | "justify-items-center" -> Ok Justify_items_center
     | "justify-items-stretch" -> Ok Justify_items_stretch
+    | "justify-items-center-safe" -> Ok Justify_items_center_safe
+    | "justify-items-end-safe" -> Ok Justify_items_end_safe
     (* Justify self *)
     | "justify-self-auto" -> Ok Justify_self_auto
     | "justify-self-start" -> Ok Justify_self_start
@@ -475,6 +510,11 @@ module Handler = struct
     | Content_around -> "content-around"
     | Content_evenly -> "content-evenly"
     | Content_stretch -> "content-stretch"
+    | Content_baseline -> "content-baseline"
+    | Content_normal -> "content-normal"
+    | Content_center_safe -> "content-center-safe"
+    | Content_end_safe -> "content-end-safe"
+    | Content_start_safe -> "content-start-safe"
     (* Align self *)
     | Self_auto -> "self-auto"
     | Self_start -> "self-start"
@@ -491,6 +531,8 @@ module Handler = struct
     | Justify_items_end -> "justify-items-end"
     | Justify_items_center -> "justify-items-center"
     | Justify_items_stretch -> "justify-items-stretch"
+    | Justify_items_center_safe -> "justify-items-center-safe"
+    | Justify_items_end_safe -> "justify-items-end-safe"
     (* Justify self *)
     | Justify_self_auto -> "justify-self-auto"
     | Justify_self_start -> "justify-self-start"
@@ -563,6 +605,11 @@ let content_between = utility Content_between
 let content_around = utility Content_around
 let content_evenly = utility Content_evenly
 let content_stretch = utility Content_stretch
+let content_baseline = utility Content_baseline
+let content_normal = utility Content_normal
+let content_center_safe = utility Content_center_safe
+let content_end_safe = utility Content_end_safe
+let content_start_safe = utility Content_start_safe
 
 (** {1 Align Self Utilities} *)
 let self_auto = utility Self_auto
@@ -579,6 +626,8 @@ let justify_items_start = utility Justify_items_start
 let justify_items_end = utility Justify_items_end
 let justify_items_center = utility Justify_items_center
 let justify_items_stretch = utility Justify_items_stretch
+let justify_items_center_safe = utility Justify_items_center_safe
+let justify_items_end_safe = utility Justify_items_end_safe
 
 (** {1 Justify Self Utilities} *)
 let justify_self_auto = utility Justify_self_auto
