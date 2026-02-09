@@ -1,0 +1,136 @@
+(** Columns utilities for multi-column layout
+
+    @see <https://tailwindcss.com/docs/columns>
+      Tailwind CSS Columns documentation *)
+
+module Handler = struct
+  open Style
+  open Css
+
+  type t =
+    | Columns_auto
+    | Columns_count of int
+    | Columns_3xs
+    | Columns_2xs
+    | Columns_xs
+    | Columns_sm
+    | Columns_md
+    | Columns_lg
+    | Columns_xl
+    | Columns_2xl
+    | Columns_3xl
+    | Columns_4xl
+    | Columns_5xl
+    | Columns_6xl
+    | Columns_7xl
+    | Columns_arbitrary of int
+
+  type Utility.base += Self of t
+
+  let name = "columns"
+  let priority = 12
+
+  let to_style = function
+    | Columns_auto -> style [ columns Auto ]
+    | Columns_count n -> style [ columns (Count n) ]
+    | Columns_3xs -> style [ columns (Width (Rem 16.0)) ]
+    | Columns_2xs -> style [ columns (Width (Rem 18.0)) ]
+    | Columns_xs -> style [ columns (Width (Rem 20.0)) ]
+    | Columns_sm -> style [ columns (Width (Rem 24.0)) ]
+    | Columns_md -> style [ columns (Width (Rem 28.0)) ]
+    | Columns_lg -> style [ columns (Width (Rem 32.0)) ]
+    | Columns_xl -> style [ columns (Width (Rem 36.0)) ]
+    | Columns_2xl -> style [ columns (Width (Rem 42.0)) ]
+    | Columns_3xl -> style [ columns (Width (Rem 48.0)) ]
+    | Columns_4xl -> style [ columns (Width (Rem 56.0)) ]
+    | Columns_5xl -> style [ columns (Width (Rem 64.0)) ]
+    | Columns_6xl -> style [ columns (Width (Rem 72.0)) ]
+    | Columns_7xl -> style [ columns (Width (Rem 80.0)) ]
+    | Columns_arbitrary n -> style [ columns (Count n) ]
+
+  let suborder = function
+    | Columns_auto -> 0
+    | Columns_count n -> n
+    | Columns_3xs -> 1000
+    | Columns_2xs -> 1001
+    | Columns_xs -> 1002
+    | Columns_sm -> 1003
+    | Columns_md -> 1004
+    | Columns_lg -> 1005
+    | Columns_xl -> 1006
+    | Columns_2xl -> 1007
+    | Columns_3xl -> 1008
+    | Columns_4xl -> 1009
+    | Columns_5xl -> 1010
+    | Columns_6xl -> 1011
+    | Columns_7xl -> 1012
+    | Columns_arbitrary _ -> 1100
+
+  let of_class class_name =
+    let parts = String.split_on_char '-' class_name in
+    match parts with
+    | [ "columns"; "auto" ] -> Ok Columns_auto
+    | [ "columns"; "3xs" ] -> Ok Columns_3xs
+    | [ "columns"; "2xs" ] -> Ok Columns_2xs
+    | [ "columns"; "xs" ] -> Ok Columns_xs
+    | [ "columns"; "sm" ] -> Ok Columns_sm
+    | [ "columns"; "md" ] -> Ok Columns_md
+    | [ "columns"; "lg" ] -> Ok Columns_lg
+    | [ "columns"; "xl" ] -> Ok Columns_xl
+    | [ "columns"; "2xl" ] -> Ok Columns_2xl
+    | [ "columns"; "3xl" ] -> Ok Columns_3xl
+    | [ "columns"; "4xl" ] -> Ok Columns_4xl
+    | [ "columns"; "5xl" ] -> Ok Columns_5xl
+    | [ "columns"; "6xl" ] -> Ok Columns_6xl
+    | [ "columns"; "7xl" ] -> Ok Columns_7xl
+    | [ "columns"; n ] -> (
+        let len = String.length n in
+        if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
+          let inner = String.sub n 1 (len - 2) in
+          match int_of_string_opt inner with
+          | Some i -> Ok (Columns_arbitrary i)
+          | None -> Error (`Msg "Invalid columns arbitrary value")
+        else
+          match int_of_string_opt n with
+          | Some i -> Ok (Columns_count i)
+          | None -> Error (`Msg "Invalid columns value"))
+    | _ -> Error (`Msg "Not a columns utility")
+
+  let to_class = function
+    | Columns_auto -> "columns-auto"
+    | Columns_count n -> "columns-" ^ string_of_int n
+    | Columns_3xs -> "columns-3xs"
+    | Columns_2xs -> "columns-2xs"
+    | Columns_xs -> "columns-xs"
+    | Columns_sm -> "columns-sm"
+    | Columns_md -> "columns-md"
+    | Columns_lg -> "columns-lg"
+    | Columns_xl -> "columns-xl"
+    | Columns_2xl -> "columns-2xl"
+    | Columns_3xl -> "columns-3xl"
+    | Columns_4xl -> "columns-4xl"
+    | Columns_5xl -> "columns-5xl"
+    | Columns_6xl -> "columns-6xl"
+    | Columns_7xl -> "columns-7xl"
+    | Columns_arbitrary n -> "columns-[" ^ string_of_int n ^ "]"
+end
+
+open Handler
+
+let () = Utility.register (module Handler)
+let utility x = Utility.base (Self x)
+let columns_auto = utility Columns_auto
+let columns n = utility (Columns_count n)
+let columns_3xs = utility Columns_3xs
+let columns_2xs = utility Columns_2xs
+let columns_xs = utility Columns_xs
+let columns_sm = utility Columns_sm
+let columns_md = utility Columns_md
+let columns_lg = utility Columns_lg
+let columns_xl = utility Columns_xl
+let columns_2xl = utility Columns_2xl
+let columns_3xl = utility Columns_3xl
+let columns_4xl = utility Columns_4xl
+let columns_5xl = utility Columns_5xl
+let columns_6xl = utility Columns_6xl
+let columns_7xl = utility Columns_7xl
