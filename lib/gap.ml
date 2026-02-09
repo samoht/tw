@@ -7,22 +7,24 @@ module Handler = struct
   type t =
     | Gap of { axis : [ `All | `X | `Y ]; value : spacing }
     | Space of { negative : bool; axis : [ `X | `Y ]; value : spacing }
+    | Space_x_reverse
+    | Space_y_reverse
 
   type Utility.base += Self of t
 
   let name = "gap"
   let priority = 17
 
-  (** Space-y reverse variable for flex-row-reverse support. Property order -1
-      ensures this comes FIRST in {i \@layer properties} (Tailwind places it
+  (** Space reverse variables for flex-reverse support. Property order -1
+      ensures these come FIRST in {i \@layer properties} (Tailwind places them
       before --tw-border-style). *)
+  let space_x_reverse_var =
+    Var.property_default Css.Number_percentage ~initial:(Css.Num 0.0)
+      ~property_order:(-2) "tw-space-x-reverse"
+
   let space_y_reverse_var =
     Var.property_default Css.Number_percentage ~initial:(Css.Num 0.0)
       ~property_order:(-1) "tw-space-y-reverse"
-
-  (* TODO: Space-x reverse variable for flex-col-reverse support let
-     space_x_reverse_var = Var.property_default Css.Float ~initial:0.0
-     ~property_order:25 "tw-space-x-reverse" *)
 
   (** {2 Typed Gap Utilities} *)
 
@@ -145,6 +147,30 @@ module Handler = struct
         let units = f /. 0.25 in
         int_of_float (units *. 10.)
 
+  (* space-x-reverse utility sets --tw-space-x-reverse: 1 on children *)
+  let space_x_reverse_style () =
+    let selector =
+      Css.Selector.(where [ class_ "space-x-reverse" >> not [ Last_child ] ])
+    in
+    let decl, _ = Var.binding space_x_reverse_var (Css.Num 1.0) in
+    let property_rules =
+      [ Var.property_rule space_x_reverse_var ] |> List.filter_map Fun.id
+    in
+    let rule = Css.rule ~selector [ decl ] in
+    style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
+
+  (* space-y-reverse utility sets --tw-space-y-reverse: 1 on children *)
+  let space_y_reverse_style () =
+    let selector =
+      Css.Selector.(where [ class_ "space-y-reverse" >> not [ Last_child ] ])
+    in
+    let decl, _ = Var.binding space_y_reverse_var (Css.Num 1.0) in
+    let property_rules =
+      [ Var.property_rule space_y_reverse_var ] |> List.filter_map Fun.id
+    in
+    let rule = Css.rule ~selector [ decl ] in
+    style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
+
   let to_style t =
     match t with
     | Gap { axis; value } -> (
@@ -161,6 +187,8 @@ module Handler = struct
         in
         let n = if negative then -n else n in
         match axis with `X -> space_x n | `Y -> space_y n)
+    | Space_x_reverse -> space_x_reverse_style ()
+    | Space_y_reverse -> space_y_reverse_style ()
 
   let suborder = function
     | Gap { axis; value } ->
@@ -172,6 +200,9 @@ module Handler = struct
         let neg_offset = if negative then 100000 else 0 in
         let axis_offset = match axis with `X -> 0 | `Y -> 10000 in
         20000 + neg_offset + axis_offset + spacing_value_order value
+    (* Reverse utilities come after their regular counterparts *)
+    | Space_x_reverse -> 130000
+    | Space_y_reverse -> 140000
 
   let to_class = function
     | Gap { axis; value } -> (
@@ -186,6 +217,8 @@ module Handler = struct
         match axis with
         | `X -> prefix ^ "space-x-" ^ suffix
         | `Y -> prefix ^ "space-y-" ^ suffix)
+    | Space_x_reverse -> "space-x-reverse"
+    | Space_y_reverse -> "space-y-reverse"
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
@@ -214,27 +247,31 @@ module Handler = struct
               else if value = "full" then Ok (Gap { axis = `Y; value = `Full })
               else err_not_utility)
       | [ "space"; "x"; value ] -> (
-          match Parse.int_pos ~name:"space-x" value with
-          | Ok n ->
-              Ok
-                (Space
-                   {
-                     negative = false;
-                     axis = `X;
-                     value = `Rem (float_of_int n *. 0.25);
-                   })
-          | Error _ -> err_not_utility)
+          if value = "reverse" then Ok Space_x_reverse
+          else
+            match Parse.int_pos ~name:"space-x" value with
+            | Ok n ->
+                Ok
+                  (Space
+                     {
+                       negative = false;
+                       axis = `X;
+                       value = `Rem (float_of_int n *. 0.25);
+                     })
+            | Error _ -> err_not_utility)
       | [ "space"; "y"; value ] -> (
-          match Parse.int_pos ~name:"space-y" value with
-          | Ok n ->
-              Ok
-                (Space
-                   {
-                     negative = false;
-                     axis = `Y;
-                     value = `Rem (float_of_int n *. 0.25);
-                   })
-          | Error _ -> err_not_utility)
+          if value = "reverse" then Ok Space_y_reverse
+          else
+            match Parse.int_pos ~name:"space-y" value with
+            | Ok n ->
+                Ok
+                  (Space
+                     {
+                       negative = false;
+                       axis = `Y;
+                       value = `Rem (float_of_int n *. 0.25);
+                     })
+            | Error _ -> err_not_utility)
       | [ ""; "space"; "x"; value ] -> (
           match Parse.int_pos ~name:"space-x" value with
           | Ok n ->
