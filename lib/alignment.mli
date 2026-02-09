@@ -158,6 +158,18 @@ val place_items_center : t
 val place_items_stretch : t
 (** [place_items_stretch] stretches items to fill. *)
 
+val place_items_baseline : t
+(** [place_items_baseline] aligns items to baseline. *)
+
+val place_items_center_safe : t
+(** [place_items_center_safe] places items at center with safe overflow. *)
+
+val place_items_end_safe : t
+(** [place_items_end_safe] places items at end with safe overflow. *)
+
+val place_items_start_safe : t
+(** [place_items_start_safe] places items at start with safe overflow. *)
+
 (** {1 Place Self Utilities} *)
 
 val place_self_auto : t
