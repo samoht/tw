@@ -91,6 +91,10 @@ module Handler = struct
     | Place_items_end
     | Place_items_center
     | Place_items_stretch
+    | Place_items_baseline
+    | Place_items_center_safe
+    | Place_items_end_safe
+    | Place_items_start_safe
     | (* Place self *)
       Place_self_auto
     | Place_self_start
@@ -178,7 +182,11 @@ module Handler = struct
   let place_items_start = style [ place_items Start ]
   let place_items_end = style [ place_items End ]
   let place_items_center = style [ place_items Center ]
-  let place_items_stretch = style [ place_items Stretch ]
+  let place_items_stretch = style [ place_items Stretch_stretch ]
+  let place_items_baseline = style [ place_items Baseline ]
+  let place_items_center_safe = style [ place_items Center_safe ]
+  let place_items_end_safe = style [ place_items End_safe ]
+  let place_items_start_safe = style [ place_items Start_safe ]
   let place_self_auto = style [ place_self (Auto, Auto) ]
   let place_self_start = style [ place_self (Start, Start) ]
   let place_self_end = style [ place_self (End, End) ]
@@ -257,6 +265,10 @@ module Handler = struct
     | Place_items_end -> place_items_end
     | Place_items_center -> place_items_center
     | Place_items_stretch -> place_items_stretch
+    | Place_items_baseline -> place_items_baseline
+    | Place_items_center_safe -> place_items_center_safe
+    | Place_items_end_safe -> place_items_end_safe
+    | Place_items_start_safe -> place_items_start_safe
     (* Place self *)
     | Place_self_auto -> place_self_auto
     | Place_self_start -> place_self_start
@@ -280,9 +292,13 @@ module Handler = struct
     | Place_content_stretch -> 10
     (* Place items (10-19) - alphabetical *)
     | Place_items_center -> 10
-    | Place_items_end -> 11
-    | Place_items_start -> 12
-    | Place_items_stretch -> 13
+    | Place_items_baseline -> 11
+    | Place_items_center_safe -> 12
+    | Place_items_end -> 13
+    | Place_items_end_safe -> 14
+    | Place_items_start -> 15
+    | Place_items_start_safe -> 16
+    | Place_items_stretch -> 17
     (* Align content (20-29) - alphabetical *)
     | Content_around -> 20
     | Content_between -> 21
@@ -417,6 +433,10 @@ module Handler = struct
     | "place-items-end" -> Ok Place_items_end
     | "place-items-center" -> Ok Place_items_center
     | "place-items-stretch" -> Ok Place_items_stretch
+    | "place-items-baseline" -> Ok Place_items_baseline
+    | "place-items-center-safe" -> Ok Place_items_center_safe
+    | "place-items-end-safe" -> Ok Place_items_end_safe
+    | "place-items-start-safe" -> Ok Place_items_start_safe
     (* Place self *)
     | "place-self-auto" -> Ok Place_self_auto
     | "place-self-start" -> Ok Place_self_start
@@ -497,6 +517,10 @@ module Handler = struct
     | Place_items_end -> "place-items-end"
     | Place_items_center -> "place-items-center"
     | Place_items_stretch -> "place-items-stretch"
+    | Place_items_baseline -> "place-items-baseline"
+    | Place_items_center_safe -> "place-items-center-safe"
+    | Place_items_end_safe -> "place-items-end-safe"
+    | Place_items_start_safe -> "place-items-start-safe"
     (* Place self *)
     | Place_self_auto -> "place-self-auto"
     | Place_self_start -> "place-self-start"
@@ -580,6 +604,10 @@ let place_items_start = utility Place_items_start
 let place_items_end = utility Place_items_end
 let place_items_center = utility Place_items_center
 let place_items_stretch = utility Place_items_stretch
+let place_items_baseline = utility Place_items_baseline
+let place_items_center_safe = utility Place_items_center_safe
+let place_items_end_safe = utility Place_items_end_safe
+let place_items_start_safe = utility Place_items_start_safe
 
 (** {1 Place Self Utilities} *)
 let place_self_auto = utility Place_self_auto

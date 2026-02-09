@@ -12,8 +12,12 @@ module Handler = struct
       Rotate of int
     | Rotate_arbitrary of Css.angle
     | Translate_x of int
+    | Translate_x_full
+    | Translate_x_px
     | Translate_x_arbitrary of Css.length
     | Translate_y of int
+    | Translate_y_full
+    | Translate_y_px
     | Translate_y_arbitrary of Css.length
     | Scale of int
     | Scale_arbitrary of float
@@ -28,8 +32,12 @@ module Handler = struct
     | (* Combined translate utilities *)
       Translate_full
     | Translate_1_2
-    | (* Negative translate utilities for centering *)
-      Neg_translate_x_1_2
+    | Translate_arbitrary of Css.length
+    | (* Negative translate utilities *)
+      Neg_translate_full
+    | Neg_translate_x_full
+    | Neg_translate_x_1_2
+    | Neg_translate_y_full
     | Neg_translate_y_1_2
     | (* 3D Transforms *)
       Translate_z of int
@@ -227,6 +235,10 @@ module Handler = struct
   let rotate n = style [ Css.rotate (Deg (float_of_int n)) ]
   let rotate_arbitrary angle = style [ Css.rotate angle ]
 
+  let translate_props =
+    collect_property_rules
+      [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
+
   let translate_axis axis_var n =
     let spacing_decl, spacing_ref =
       Var.binding Theme.spacing_var (Css.Rem 0.25)
@@ -240,37 +252,67 @@ module Handler = struct
     let axis_decl, _ = Var.binding axis_var spacing_value in
     let tx_ref = Var.reference tw_translate_x_var in
     let ty_ref = Var.reference tw_translate_y_var in
-    let props =
-      collect_property_rules
-        [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
-    in
-    style ~property_rules:props
+    style ~property_rules:translate_props
       (spacing_decl :: axis_decl
       :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
 
   let translate_x n = translate_axis tw_translate_x_var n
   let translate_y n = translate_axis tw_translate_y_var n
 
+  let translate_x_full =
+    let axis_decl, _ = Var.binding tw_translate_x_var (Pct 100.0) in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    style ~property_rules:translate_props
+      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
+  let translate_x_px =
+    let axis_decl, _ = Var.binding tw_translate_x_var (Px 1.0) in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    style ~property_rules:translate_props
+      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
   let translate_x_arbitrary len =
     let axis_decl, _ = Var.binding tw_translate_x_var len in
     let tx_ref = Var.reference tw_translate_x_var in
     let ty_ref = Var.reference tw_translate_y_var in
-    let props =
-      collect_property_rules
-        [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
-    in
-    style ~property_rules:props
+    style ~property_rules:translate_props
+      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
+  let translate_y_full =
+    let axis_decl, _ = Var.binding tw_translate_y_var (Pct 100.0) in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    style ~property_rules:translate_props
+      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
+  let translate_y_px =
+    let axis_decl, _ = Var.binding tw_translate_y_var (Px 1.0) in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    style ~property_rules:translate_props
       (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
 
   let translate_y_arbitrary len =
     let axis_decl, _ = Var.binding tw_translate_y_var len in
     let tx_ref = Var.reference tw_translate_x_var in
     let ty_ref = Var.reference tw_translate_y_var in
-    let props =
-      collect_property_rules
-        [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
-    in
-    style ~property_rules:props
+    style ~property_rules:translate_props
+      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
+  let neg_translate_x_full =
+    let axis_decl, _ = Var.binding tw_translate_x_var (Pct (-100.0)) in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    style ~property_rules:translate_props
+      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
+  let neg_translate_y_full =
+    let axis_decl, _ = Var.binding tw_translate_y_var (Pct (-100.0)) in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    style ~property_rules:translate_props
       (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
 
   let scale n =
@@ -363,6 +405,30 @@ module Handler = struct
     in
     let dx, _ = Var.binding tw_translate_x_var half_pct in
     let dy, _ = Var.binding tw_translate_y_var half_pct in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    let props =
+      collect_property_rules
+        [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
+    in
+    style ~property_rules:props
+      (dx :: dy :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
+  let translate_arbitrary len =
+    let dx, _ = Var.binding tw_translate_x_var len in
+    let dy, _ = Var.binding tw_translate_y_var len in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    let props =
+      collect_property_rules
+        [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
+    in
+    style ~property_rules:props
+      (dx :: dy :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
+  let neg_translate_full =
+    let dx, _ = Var.binding tw_translate_x_var (Pct (-100.0)) in
+    let dy, _ = Var.binding tw_translate_y_var (Pct (-100.0)) in
     let tx_ref = Var.reference tw_translate_x_var in
     let ty_ref = Var.reference tw_translate_y_var in
     let props =
@@ -569,12 +635,20 @@ module Handler = struct
     | Rotate n -> rotate n
     | Rotate_arbitrary a -> rotate_arbitrary a
     | Translate_x n -> translate_x n
+    | Translate_x_full -> translate_x_full
+    | Translate_x_px -> translate_x_px
     | Translate_x_arbitrary len -> translate_x_arbitrary len
     | Translate_y n -> translate_y n
+    | Translate_y_full -> translate_y_full
+    | Translate_y_px -> translate_y_px
     | Translate_y_arbitrary len -> translate_y_arbitrary len
     | Translate_full -> translate_full
     | Translate_1_2 -> translate_1_2
+    | Translate_arbitrary len -> translate_arbitrary len
+    | Neg_translate_full -> neg_translate_full
+    | Neg_translate_x_full -> neg_translate_x_full
     | Neg_translate_x_1_2 -> neg_translate_x_1_2
+    | Neg_translate_y_full -> neg_translate_y_full
     | Neg_translate_y_1_2 -> neg_translate_y_1_2
     | Translate_z n -> translate_z n
     | Scale n -> scale n
@@ -629,15 +703,24 @@ module Handler = struct
     | Transform_cpu -> 2001
     | Transform_gpu -> 2002
     | Transform_none -> 2003
-    (* Combined translate utilities - alphabetical: 1/2 before full *)
+    (* Combined translate utilities - alphabetical: arbitrary, 1/2, full,
+       -full *)
+    | Translate_arbitrary _ -> 89
     | Translate_1_2 -> 90
     | Translate_full -> 91
+    | Neg_translate_full -> 92
     (* Translate utilities come first *)
     | Translate_x n -> 100 + n
+    | Translate_x_full -> 110
+    | Translate_x_px -> 111
     | Translate_x_arbitrary _ -> 199
+    | Neg_translate_x_full -> 140
     | Neg_translate_x_1_2 -> 150
     | Translate_y n -> 200 + n
+    | Translate_y_full -> 210
+    | Translate_y_px -> 211
     | Translate_y_arbitrary _ -> 299
+    | Neg_translate_y_full -> 240
     | Neg_translate_y_1_2 -> 250
     | Translate_z n -> 300 + n
     (* Scale utilities *)
@@ -704,19 +787,36 @@ module Handler = struct
         match parse_bracket_length n with
         | Ok len -> Ok (Translate_x_arbitrary len)
         | Error _ -> err_not_utility)
+    | [ "translate"; "x"; "full" ] -> Ok Translate_x_full
+    | [ "translate"; "x"; "px" ] -> Ok Translate_x_px
     | [ "translate"; "x"; n ] -> Parse.int_any n >|= fun n -> Translate_x n
     | [ "translate"; "y"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_length n with
         | Ok len -> Ok (Translate_y_arbitrary len)
         | Error _ -> err_not_utility)
+    | [ "translate"; "y"; "full" ] -> Ok Translate_y_full
+    | [ "translate"; "y"; "px" ] -> Ok Translate_y_px
     | [ "translate"; "y"; n ] -> Parse.int_any n >|= fun n -> Translate_y n
     | [ "translate"; "z"; n ] -> Parse.int_any n >|= fun n -> Translate_z n
     | [ "translate"; "full" ] -> Ok Translate_full
     | [ "translate"; "1/2" ] -> Ok Translate_1_2
+    | "translate" :: rest
+      when match rest with
+           | [] | [ "x"; _ ] | [ "y"; _ ] | [ "z"; _ ] | [ "full" ] | [ "1/2" ]
+             ->
+               false
+           | _ -> true -> (
+        let value = String.concat "-" rest in
+        match parse_bracket_length value with
+        | Ok len -> Ok (Translate_arbitrary len)
+        | Error _ -> err_not_utility)
     (* Negative translate utilities: -translate-x-N, -translate-y-N,
        -translate-z-N Split by '-' gives [""; "translate"; axis; n] *)
+    | [ ""; "translate"; "full" ] -> Ok Neg_translate_full
+    | [ ""; "translate"; "x"; "full" ] -> Ok Neg_translate_x_full
     | [ ""; "translate"; "x"; n ] ->
         Parse.int_pos ~name:"translate-x" n >|= fun n -> Translate_x (-n)
+    | [ ""; "translate"; "y"; "full" ] -> Ok Neg_translate_y_full
     | [ ""; "translate"; "y"; n ] ->
         Parse.int_pos ~name:"translate-y" n >|= fun n -> Translate_y (-n)
     | [ ""; "translate"; "z"; n ] ->
@@ -824,13 +924,21 @@ module Handler = struct
     | Rotate n -> "rotate-" ^ string_of_int n
     | Rotate_arbitrary a -> "rotate-" ^ pp_angle_bracket a
     | Translate_x n -> neg_class "translate-x-" n
+    | Translate_x_full -> "translate-x-full"
+    | Translate_x_px -> "translate-x-px"
     | Translate_x_arbitrary len -> "translate-x-" ^ pp_length_bracket len
     | Translate_y n -> neg_class "translate-y-" n
+    | Translate_y_full -> "translate-y-full"
+    | Translate_y_px -> "translate-y-px"
     | Translate_y_arbitrary len -> "translate-y-" ^ pp_length_bracket len
     | Translate_z n -> neg_class "translate-z-" n
     | Translate_full -> "translate-full"
     | Translate_1_2 -> "translate-1/2"
+    | Translate_arbitrary len -> "translate-" ^ pp_length_bracket len
+    | Neg_translate_full -> "-translate-full"
+    | Neg_translate_x_full -> "-translate-x-full"
     | Neg_translate_x_1_2 -> "-translate-x-1/2"
+    | Neg_translate_y_full -> "-translate-y-full"
     | Neg_translate_y_1_2 -> "-translate-y-1/2"
     | Scale n -> "scale-" ^ string_of_int n
     | Scale_arbitrary f -> "scale-" ^ pp_number_bracket f
