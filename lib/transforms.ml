@@ -47,6 +47,11 @@ module Handler = struct
     | Perspective_origin_bottom
     | Perspective_origin_left
     | Perspective_origin_right
+    | Perspective_origin_top_left
+    | Perspective_origin_top_right
+    | Perspective_origin_bottom_left
+    | Perspective_origin_bottom_right
+    | Perspective_origin_arbitrary of string
     | (* Transform style *)
       Transform_style_3d
     | Transform_style_flat
@@ -409,10 +414,27 @@ module Handler = struct
     style [ perspective_origin Css.Perspective_bottom ]
 
   let perspective_origin_left =
-    style [ perspective_origin Css.Perspective_left ]
+    style [ perspective_origin (Css.Perspective_x (Pct 0.0)) ]
 
   let perspective_origin_right =
-    style [ perspective_origin Css.Perspective_right ]
+    style [ perspective_origin (Css.Perspective_x (Pct 100.0)) ]
+
+  let perspective_origin_top_left =
+    style [ perspective_origin (Css.Perspective_xy (Pct 0.0, Pct 0.0)) ]
+
+  let perspective_origin_top_right =
+    style [ perspective_origin (Css.Perspective_xy (Pct 100.0, Pct 0.0)) ]
+
+  let perspective_origin_bottom_left =
+    style [ perspective_origin (Css.Perspective_xy (Pct 0.0, Pct 100.0)) ]
+
+  let perspective_origin_bottom_right =
+    style [ perspective_origin (Css.Perspective_xy (Pct 100.0, Pct 100.0)) ]
+
+  let perspective_origin_arbitrary s =
+    (* Convert underscore to space for arbitrary values like 50px_100px *)
+    let value = String.map (fun c -> if c = '_' then ' ' else c) s in
+    style [ perspective_origin (Css.Perspective_arbitrary value) ]
 
   let transform_style_3d = style [ transform_style Preserve_3d ]
   let transform_style_flat = style [ transform_style Flat ]
@@ -578,6 +600,11 @@ module Handler = struct
     | Perspective_origin_bottom -> perspective_origin_bottom
     | Perspective_origin_left -> perspective_origin_left
     | Perspective_origin_right -> perspective_origin_right
+    | Perspective_origin_top_left -> perspective_origin_top_left
+    | Perspective_origin_top_right -> perspective_origin_top_right
+    | Perspective_origin_bottom_left -> perspective_origin_bottom_left
+    | Perspective_origin_bottom_right -> perspective_origin_bottom_right
+    | Perspective_origin_arbitrary s -> perspective_origin_arbitrary s
     | Transform_style_3d -> transform_style_3d
     | Transform_style_flat -> transform_style_flat
     | Backface_visible -> backface_visible
@@ -638,11 +665,16 @@ module Handler = struct
     | Perspective_dramatic -> 1400
     | Perspective_none -> 1401
     | Perspective_normal -> 1402
-    | Perspective_origin_center -> 1500
-    | Perspective_origin_top -> 1501
-    | Perspective_origin_bottom -> 1502
-    | Perspective_origin_left -> 1503
-    | Perspective_origin_right -> 1504
+    | Perspective_origin_arbitrary _ -> 1499
+    | Perspective_origin_bottom -> 1500
+    | Perspective_origin_bottom_left -> 1501
+    | Perspective_origin_bottom_right -> 1502
+    | Perspective_origin_center -> 1503
+    | Perspective_origin_left -> 1504
+    | Perspective_origin_right -> 1505
+    | Perspective_origin_top -> 1506
+    | Perspective_origin_top_left -> 1507
+    | Perspective_origin_top_right -> 1508
     | Transform_style_3d -> 1600
     | Transform_style_flat -> 1601
     | Backface_visible -> 1602
@@ -735,6 +767,23 @@ module Handler = struct
     | [ "perspective"; "origin"; "bottom" ] -> Ok Perspective_origin_bottom
     | [ "perspective"; "origin"; "left" ] -> Ok Perspective_origin_left
     | [ "perspective"; "origin"; "right" ] -> Ok Perspective_origin_right
+    | [ "perspective"; "origin"; "top"; "left" ] ->
+        Ok Perspective_origin_top_left
+    | [ "perspective"; "origin"; "top"; "right" ] ->
+        Ok Perspective_origin_top_right
+    | [ "perspective"; "origin"; "bottom"; "left" ] ->
+        Ok Perspective_origin_bottom_left
+    | [ "perspective"; "origin"; "bottom"; "right" ] ->
+        Ok Perspective_origin_bottom_right
+    | "perspective" :: "origin" :: rest when List.length rest > 0 ->
+        let value = String.concat "-" rest in
+        let len = String.length value in
+        if len > 2 && value.[0] = '[' && value.[len - 1] = ']' then
+          let inner = String.sub value 1 (len - 2) in
+          (* Convert underscores to spaces *)
+          let inner = String.map (fun c -> if c = '_' then ' ' else c) inner in
+          Ok (Perspective_origin_arbitrary inner)
+        else err_not_utility
     | [ "transform"; "style"; "3d" ] -> Ok Transform_style_3d
     | [ "transform"; "style"; "flat" ] -> Ok Transform_style_flat
     | [ "transform" ] -> Ok Transform
@@ -807,6 +856,13 @@ module Handler = struct
     | Perspective_origin_bottom -> "perspective-origin-bottom"
     | Perspective_origin_left -> "perspective-origin-left"
     | Perspective_origin_right -> "perspective-origin-right"
+    | Perspective_origin_top_left -> "perspective-origin-top-left"
+    | Perspective_origin_top_right -> "perspective-origin-top-right"
+    | Perspective_origin_bottom_left -> "perspective-origin-bottom-left"
+    | Perspective_origin_bottom_right -> "perspective-origin-bottom-right"
+    | Perspective_origin_arbitrary s ->
+        let s = String.map (fun c -> if c = ' ' then '_' else c) s in
+        "perspective-origin-[" ^ s ^ "]"
     | Transform_style_3d -> "transform-style-3d"
     | Transform_style_flat -> "transform-style-flat"
     | Backface_visible -> "backface-visible"
