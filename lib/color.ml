@@ -1183,6 +1183,13 @@ module Handler = struct
     | Border_current
     (* Accent colors *)
     | Accent of color * int
+    | Accent_current
+    | Accent_inherit
+    (* Caret colors *)
+    | Caret of color * int
+    | Caret_current
+    | Caret_inherit
+    | Caret_transparent
 
   (** Extensible variant for color utilities *)
   type Utility.base += Self of t
@@ -1215,9 +1222,18 @@ module Handler = struct
         match shade_of_strings color_parts with
         | Ok (color, shade) -> Ok (Border (color, shade))
         | Error e -> Error e)
+    | [ "accent"; "current" ] -> Ok Accent_current
+    | [ "accent"; "inherit" ] -> Ok Accent_inherit
     | "accent" :: color_parts -> (
         match shade_of_strings color_parts with
         | Ok (color, shade) -> Ok (Accent (color, shade))
+        | Error e -> Error e)
+    | [ "caret"; "current" ] -> Ok Caret_current
+    | [ "caret"; "inherit" ] -> Ok Caret_inherit
+    | [ "caret"; "transparent" ] -> Ok Caret_transparent
+    | "caret" :: color_parts -> (
+        match shade_of_strings color_parts with
+        | Ok (color, shade) -> Ok (Caret (color, shade))
         | Error e -> Error e)
     | _ -> Error (`Msg "Not a color utility")
 
@@ -1283,6 +1299,27 @@ module Handler = struct
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.accent_color (Var color_ref) ])
 
+  let accent_current = style [ Css.accent_color Current ]
+  let accent_inherit = style [ Css.accent_color Inherit ]
+
+  (** Caret color utilities *)
+
+  let caret' color shade =
+    if is_custom_color color then
+      let css_color = to_css color shade in
+      style [ Css.caret_color css_color ]
+    else
+      let color_var = get_color_var color shade in
+      let color_value =
+        to_css color (if is_base_color color then 500 else shade)
+      in
+      let decl, color_ref = Var.binding color_var color_value in
+      style (decl :: [ Css.caret_color (Var color_ref) ])
+
+  let caret_current = style [ Css.caret_color Current ]
+  let caret_inherit = style [ Css.caret_color Inherit ]
+  let caret_transparent = style [ Css.caret_color (Css.hex "#0000") ]
+
   let to_style = function
     | Bg (color, shade) -> bg' color shade
     | Bg_transparent -> bg_transparent
@@ -1295,6 +1332,12 @@ module Handler = struct
     | Border_transparent -> border_transparent
     | Border_current -> border_current
     | Accent (color, shade) -> accent' color shade
+    | Accent_current -> accent_current
+    | Accent_inherit -> accent_inherit
+    | Caret (color, shade) -> caret' color shade
+    | Caret_current -> caret_current
+    | Caret_inherit -> caret_inherit
+    | Caret_transparent -> caret_transparent
 
   (* Suborder determines order within the color priority group. Tailwind orders:
      border -> bg -> text So we use: border (0-9999), bg (10000-19999), text
@@ -1336,6 +1379,30 @@ module Handler = struct
            50000 base to ensure accent always comes after text regardless of
            color. *)
         50000 + base
+    | Accent_current -> 50000
+    | Accent_inherit -> 50000
+    (* Caret comes after accent. Alphabetical: current, inherit, [colors],
+       transparent We use: - current: 60000 (c comes before colors, except
+       blue=60003) - inherit: 60000 + 9*1000 = 69000 (i comes after h, before
+       l=lime) - colors: 60000 + color_order * 1000 + shade (blue=3*1000,
+       red=15*1000) - transparent: 60000 + 25*1000 = 85000 (t comes after all
+       colors) Actually simpler: just use character-based ordering for special
+       keywords *)
+    | Caret (color, shade) ->
+        let base =
+          if is_base_color color then
+            suborder_with_shade (color_to_string color)
+          else
+            suborder_with_shade
+              (color_to_string color ^ "-" ^ string_of_int shade)
+        in
+        60000 + base
+    | Caret_current ->
+        60000 + (4 * 1000) (* c -> between cyan(4) and emerald(5) *)
+    | Caret_inherit ->
+        60000 + (9 * 1000) (* i -> between indigo(9) and lime(10) *)
+    | Caret_transparent -> 60000 + (25 * 1000)
+  (* t -> after all colors (max=24) *)
 
   let to_class = function
     | Bg (c, shade) ->
@@ -1359,6 +1426,15 @@ module Handler = struct
         if is_base_color c || is_custom_color c then
           "accent-" ^ color_to_string c
         else "accent-" ^ color_to_string c ^ "-" ^ string_of_int shade
+    | Accent_current -> "accent-current"
+    | Accent_inherit -> "accent-inherit"
+    | Caret (c, shade) ->
+        if is_base_color c || is_custom_color c then
+          "caret-" ^ color_to_string c
+        else "caret-" ^ color_to_string c ^ "-" ^ string_of_int shade
+    | Caret_current -> "caret-current"
+    | Caret_inherit -> "caret-inherit"
+    | Caret_transparent -> "caret-transparent"
 end
 
 open Handler
@@ -1380,6 +1456,12 @@ let text_inherit = utility Text_inherit
 let border_transparent = utility Border_transparent
 let border_current = utility Border_current
 let accent color shade = utility (Accent (color, shade))
+let accent_current = utility Accent_current
+let accent_inherit = utility Accent_inherit
+let caret color shade = utility (Caret (color, shade))
+let caret_current = utility Caret_current
+let caret_inherit = utility Caret_inherit
+let caret_transparent = utility Caret_transparent
 
 (* Convenient semantic wrappers for default 500 shade *)
 let bg_black = bg black 500

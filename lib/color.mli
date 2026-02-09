@@ -446,6 +446,24 @@ val border_rose : t
 val accent : color -> int -> t
 (** [accent color shade] sets the accent color for form controls. *)
 
+val accent_current : t
+(** [accent_current] sets accent color to currentColor. *)
+
+val accent_inherit : t
+(** [accent_inherit] sets accent color to inherit. *)
+
+val caret : color -> int -> t
+(** [caret color shade] sets the caret color for text input elements. *)
+
+val caret_current : t
+(** [caret_current] sets caret color to currentColor. *)
+
+val caret_inherit : t
+(** [caret_inherit] sets caret color to inherit. *)
+
+val caret_transparent : t
+(** [caret_transparent] sets caret color to transparent. *)
+
 val shade_of_strings : string list -> (color * int, [ `Msg of string ]) result
 (** [shade_of_strings parts] parses a color and shade from a list of strings.
     Example: ["blue"; "500"] -> Ok (Blue, 500). *)
