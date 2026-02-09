@@ -68,6 +68,7 @@ module Handler = struct
     | Origin_top_right
     | Origin_bottom_left
     | Origin_bottom_right
+    | Origin_arbitrary of string
 
   type Utility.base += Self of t
 
@@ -432,6 +433,11 @@ module Handler = struct
   let origin_bottom_right =
     style [ transform_origin (XY (Pct 100.0, Pct 100.0)) ]
 
+  let origin_arbitrary s =
+    (* Convert underscore to space for arbitrary values like 50px_100px *)
+    let value = String.map (fun c -> if c = '_' then ' ' else c) s in
+    style [ transform_origin (Arbitrary value) ]
+
   (** {1 Transform Control Utilities} *)
 
   (* Tailwind v4 transform utility uses individual rotate-x/y/z and skew-x/y
@@ -589,6 +595,7 @@ module Handler = struct
     | Origin_top_right -> origin_top_right
     | Origin_bottom_left -> origin_bottom_left
     | Origin_bottom_right -> origin_bottom_right
+    | Origin_arbitrary s -> origin_arbitrary s
 
   let suborder = function
     | Transform -> 2000
@@ -651,6 +658,7 @@ module Handler = struct
     | Origin_top -> 1706
     | Origin_top_left -> 1707
     | Origin_top_right -> 1708
+    | Origin_arbitrary _ -> 1699
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
@@ -742,6 +750,15 @@ module Handler = struct
     | [ "origin"; "top"; "right" ] -> Ok Origin_top_right
     | [ "origin"; "bottom"; "left" ] -> Ok Origin_bottom_left
     | [ "origin"; "bottom"; "right" ] -> Ok Origin_bottom_right
+    | "origin" :: rest when List.length rest > 0 ->
+        let value = String.concat "-" rest in
+        let len = String.length value in
+        if len > 2 && value.[0] = '[' && value.[len - 1] = ']' then
+          let inner = String.sub value 1 (len - 2) in
+          (* Convert underscores to spaces *)
+          let inner = String.map (fun c -> if c = '_' then ' ' else c) inner in
+          Ok (Origin_arbitrary inner)
+        else err_not_utility
     | _ -> err_not_utility
 
   let pp_angle_bracket a = "[" ^ Css.Pp.to_string Css.pp_angle a ^ "]"
@@ -807,6 +824,10 @@ module Handler = struct
     | Origin_top_right -> "origin-top-right"
     | Origin_bottom_left -> "origin-bottom-left"
     | Origin_bottom_right -> "origin-bottom-right"
+    | Origin_arbitrary s ->
+        (* Convert spaces back to underscores for class name *)
+        let s = String.map (fun c -> if c = ' ' then '_' else c) s in
+        "origin-[" ^ s ^ "]"
 end
 
 open Handler
