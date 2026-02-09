@@ -306,18 +306,20 @@ module Handler = struct
   (* Named width theme variable *)
   let width_xl = Var.theme Css.Length "width-xl" ~order:(5, 20)
 
-  (* Container size theme variables *)
-  let container_xs = Var.theme Css.Length "container-xs" ~order:(5, 0)
-  let container_sm = Var.theme Css.Length "container-sm" ~order:(5, 1)
-  let container_md = Var.theme Css.Length "container-md" ~order:(5, 2)
-  let container_lg = Var.theme Css.Length "container-lg" ~order:(5, 3)
-  let container_xl = Var.theme Css.Length "container-xl" ~order:(5, 4)
-  let container_2xl = Var.theme Css.Length "container-2xl" ~order:(5, 5)
-  let container_3xl = Var.theme Css.Length "container-3xl" ~order:(5, 6)
-  let container_4xl = Var.theme Css.Length "container-4xl" ~order:(5, 7)
-  let container_5xl = Var.theme Css.Length "container-5xl" ~order:(5, 8)
-  let container_6xl = Var.theme Css.Length "container-6xl" ~order:(5, 9)
-  let container_7xl = Var.theme Css.Length "container-7xl" ~order:(5, 10)
+  (* Container size theme variables - ordered from smallest to largest *)
+  let container_3xs = Var.theme Css.Length "container-3xs" ~order:(5, 0)
+  let container_2xs = Var.theme Css.Length "container-2xs" ~order:(5, 1)
+  let container_xs = Var.theme Css.Length "container-xs" ~order:(5, 2)
+  let container_sm = Var.theme Css.Length "container-sm" ~order:(5, 3)
+  let container_md = Var.theme Css.Length "container-md" ~order:(5, 4)
+  let container_lg = Var.theme Css.Length "container-lg" ~order:(5, 5)
+  let container_xl = Var.theme Css.Length "container-xl" ~order:(5, 6)
+  let container_2xl = Var.theme Css.Length "container-2xl" ~order:(5, 7)
+  let container_3xl = Var.theme Css.Length "container-3xl" ~order:(5, 8)
+  let container_4xl = Var.theme Css.Length "container-4xl" ~order:(5, 9)
+  let container_5xl = Var.theme Css.Length "container-5xl" ~order:(5, 10)
+  let container_6xl = Var.theme Css.Length "container-6xl" ~order:(5, 11)
+  let container_7xl = Var.theme Css.Length "container-7xl" ~order:(5, 12)
   let max_w_none' = style [ max_width None ]
 
   let max_w_xs' =
@@ -1744,3 +1746,18 @@ let aspect_ratio w h = utility (Aspect_ratio (w, h))
 (* Order exposure for this module *)
 let order (u : Utility.base) =
   match u with Self x -> Some (priority, suborder x) | _ -> None
+
+(* Export container theme variables for use by other modules (e.g., Columns) *)
+let container_3xs = Handler.container_3xs
+let container_2xs = Handler.container_2xs
+let container_xs = Handler.container_xs
+let container_sm = Handler.container_sm
+let container_md = Handler.container_md
+let container_lg = Handler.container_lg
+let container_xl = Handler.container_xl
+let container_2xl = Handler.container_2xl
+let container_3xl = Handler.container_3xl
+let container_4xl = Handler.container_4xl
+let container_5xl = Handler.container_5xl
+let container_6xl = Handler.container_6xl
+let container_7xl = Handler.container_7xl

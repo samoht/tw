@@ -52,6 +52,7 @@ include Svg
 include Accessibility
 include Modifiers
 include Prose
+include Columns
 
 (* CSS rule generation from Rules module *)
 let to_css ?(base = Rules.default_config.base) ?forms
@@ -121,6 +122,7 @@ module Modifiers = Modifiers
 module Var = Var
 module Theme = Theme
 module Utility = Utility
+module Columns = Columns
 
 (* Include flex utilities *)
 include Flex

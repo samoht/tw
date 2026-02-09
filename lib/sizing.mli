@@ -300,3 +300,44 @@ val aspect_ratio : int -> int -> t
 
 (** [suborder core] returns the suborder for a sizing utility class name.
     Heights come before widths, with numeric values sorted numerically. *)
+
+(** {1 Container Theme Variables} *)
+
+val container_3xs : Css.length Var.theme
+(** [container_3xs] is the theme variable for 3xs container width (16rem). *)
+
+val container_2xs : Css.length Var.theme
+(** [container_2xs] is the theme variable for 2xs container width (18rem). *)
+
+val container_xs : Css.length Var.theme
+(** [container_xs] is the theme variable for xs container width (20rem). *)
+
+val container_sm : Css.length Var.theme
+(** [container_sm] is the theme variable for sm container width (24rem). *)
+
+val container_md : Css.length Var.theme
+(** [container_md] is the theme variable for md container width (28rem). *)
+
+val container_lg : Css.length Var.theme
+(** [container_lg] is the theme variable for lg container width (32rem). *)
+
+val container_xl : Css.length Var.theme
+(** [container_xl] is the theme variable for xl container width (36rem). *)
+
+val container_2xl : Css.length Var.theme
+(** [container_2xl] is the theme variable for 2xl container width (42rem). *)
+
+val container_3xl : Css.length Var.theme
+(** [container_3xl] is the theme variable for 3xl container width (48rem). *)
+
+val container_4xl : Css.length Var.theme
+(** [container_4xl] is the theme variable for 4xl container width (56rem). *)
+
+val container_5xl : Css.length Var.theme
+(** [container_5xl] is the theme variable for 5xl container width (64rem). *)
+
+val container_6xl : Css.length Var.theme
+(** [container_6xl] is the theme variable for 6xl container width (72rem). *)
+
+val container_7xl : Css.length Var.theme
+(** [container_7xl] is the theme variable for 7xl container width (80rem). *)

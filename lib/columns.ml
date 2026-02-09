@@ -30,41 +30,71 @@ module Handler = struct
   let name = "columns"
   let priority = 12
 
+  (* Helper to create a columns style with a container variable. Container theme
+     variables are exported from Sizing module. *)
+  let columns_with_var var default_value =
+    let decl, ref_ = Var.binding var default_value in
+    style [ decl; columns (Width (Var ref_)) ]
+
   let to_style = function
     | Columns_auto -> style [ columns Auto ]
     | Columns_count n -> style [ columns (Count n) ]
-    | Columns_3xs -> style [ columns (Width (Rem 16.0)) ]
-    | Columns_2xs -> style [ columns (Width (Rem 18.0)) ]
-    | Columns_xs -> style [ columns (Width (Rem 20.0)) ]
-    | Columns_sm -> style [ columns (Width (Rem 24.0)) ]
-    | Columns_md -> style [ columns (Width (Rem 28.0)) ]
-    | Columns_lg -> style [ columns (Width (Rem 32.0)) ]
-    | Columns_xl -> style [ columns (Width (Rem 36.0)) ]
-    | Columns_2xl -> style [ columns (Width (Rem 42.0)) ]
-    | Columns_3xl -> style [ columns (Width (Rem 48.0)) ]
-    | Columns_4xl -> style [ columns (Width (Rem 56.0)) ]
-    | Columns_5xl -> style [ columns (Width (Rem 64.0)) ]
-    | Columns_6xl -> style [ columns (Width (Rem 72.0)) ]
-    | Columns_7xl -> style [ columns (Width (Rem 80.0)) ]
+    | Columns_3xs -> columns_with_var Sizing.container_3xs (Rem 16.0)
+    | Columns_2xs -> columns_with_var Sizing.container_2xs (Rem 18.0)
+    | Columns_xs -> columns_with_var Sizing.container_xs (Rem 20.0)
+    | Columns_sm -> columns_with_var Sizing.container_sm (Rem 24.0)
+    | Columns_md -> columns_with_var Sizing.container_md (Rem 28.0)
+    | Columns_lg -> columns_with_var Sizing.container_lg (Rem 32.0)
+    | Columns_xl -> columns_with_var Sizing.container_xl (Rem 36.0)
+    | Columns_2xl -> columns_with_var Sizing.container_2xl (Rem 42.0)
+    | Columns_3xl -> columns_with_var Sizing.container_3xl (Rem 48.0)
+    | Columns_4xl -> columns_with_var Sizing.container_4xl (Rem 56.0)
+    | Columns_5xl -> columns_with_var Sizing.container_5xl (Rem 64.0)
+    | Columns_6xl -> columns_with_var Sizing.container_6xl (Rem 72.0)
+    | Columns_7xl -> columns_with_var Sizing.container_7xl (Rem 80.0)
     | Columns_arbitrary n -> style [ columns (Count n) ]
 
-  let suborder = function
-    | Columns_auto -> 0
-    | Columns_count n -> n
-    | Columns_3xs -> 1000
-    | Columns_2xs -> 1001
-    | Columns_xs -> 1002
-    | Columns_sm -> 1003
-    | Columns_md -> 1004
-    | Columns_lg -> 1005
-    | Columns_xl -> 1006
-    | Columns_2xl -> 1007
-    | Columns_3xl -> 1008
-    | Columns_4xl -> 1009
-    | Columns_5xl -> 1010
-    | Columns_6xl -> 1011
-    | Columns_7xl -> 1012
-    | Columns_arbitrary _ -> 1100
+  (* Tailwind sorts column utilities lexicographically by their suffix. This
+     function computes a sort key that preserves lexicographic order: "1" < "10"
+     < "11" < "12" < "2" < "2xl" < "2xs" < "3" < ... < "auto" < "lg" < ... Uses
+     large weights so first character dominates the comparison. *)
+  let string_to_sortkey s =
+    let rec aux acc i =
+      if i >= String.length s || i >= 4 then acc
+      else
+        (* Each position uses 256x smaller weight than previous *)
+        let weight =
+          match i with
+          | 0 -> 256 * 256 * 256 (* 16777216 *)
+          | 1 -> 256 * 256 (* 65536 *)
+          | 2 -> 256
+          | _ -> 1
+        in
+        aux (acc + (Char.code s.[i] * weight)) (i + 1)
+    in
+    aux 0 0
+
+  let suborder t =
+    let suffix =
+      match t with
+      | Columns_auto -> "auto"
+      | Columns_count n -> string_of_int n
+      | Columns_3xs -> "3xs"
+      | Columns_2xs -> "2xs"
+      | Columns_xs -> "xs"
+      | Columns_sm -> "sm"
+      | Columns_md -> "md"
+      | Columns_lg -> "lg"
+      | Columns_xl -> "xl"
+      | Columns_2xl -> "2xl"
+      | Columns_3xl -> "3xl"
+      | Columns_4xl -> "4xl"
+      | Columns_5xl -> "5xl"
+      | Columns_6xl -> "6xl"
+      | Columns_7xl -> "7xl"
+      | Columns_arbitrary n -> "[" ^ string_of_int n ^ "]"
+    in
+    string_to_sortkey suffix
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
