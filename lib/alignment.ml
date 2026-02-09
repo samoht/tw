@@ -82,6 +82,10 @@ module Handler = struct
     | Place_content_around
     | Place_content_evenly
     | Place_content_stretch
+    | Place_content_baseline
+    | Place_content_center_safe
+    | Place_content_end_safe
+    | Place_content_start_safe
     | (* Place items *)
       Place_items_start
     | Place_items_end
@@ -164,6 +168,13 @@ module Handler = struct
   let place_content_around = style [ place_content Space_around ]
   let place_content_evenly = style [ place_content Space_evenly ]
   let place_content_stretch = style [ place_content Stretch ]
+
+  let place_content_baseline =
+    style [ place_content (Align_justify (Baseline, Start)) ]
+
+  let place_content_center_safe = style [ place_content Safe_center ]
+  let place_content_end_safe = style [ place_content Safe_end ]
+  let place_content_start_safe = style [ place_content Safe_start ]
   let place_items_start = style [ place_items Start ]
   let place_items_end = style [ place_items End ]
   let place_items_center = style [ place_items Center ]
@@ -237,6 +248,10 @@ module Handler = struct
     | Place_content_around -> place_content_around
     | Place_content_evenly -> place_content_evenly
     | Place_content_stretch -> place_content_stretch
+    | Place_content_baseline -> place_content_baseline
+    | Place_content_center_safe -> place_content_center_safe
+    | Place_content_end_safe -> place_content_end_safe
+    | Place_content_start_safe -> place_content_start_safe
     (* Place items *)
     | Place_items_start -> place_items_start
     | Place_items_end -> place_items_end
@@ -251,14 +266,18 @@ module Handler = struct
 
   let suborder = function
     (* Container alignments: 0-999 (before gap's 25000+) *)
-    (* Place content (0-9) - alphabetical *)
+    (* Place content (0-14) - alphabetical *)
     | Place_content_around -> 0
-    | Place_content_between -> 1
-    | Place_content_center -> 2
-    | Place_content_end -> 3
-    | Place_content_evenly -> 4
-    | Place_content_start -> 5
-    | Place_content_stretch -> 6
+    | Place_content_baseline -> 1
+    | Place_content_between -> 2
+    | Place_content_center -> 3
+    | Place_content_center_safe -> 4
+    | Place_content_end -> 5
+    | Place_content_end_safe -> 6
+    | Place_content_evenly -> 7
+    | Place_content_start -> 8
+    | Place_content_start_safe -> 9
+    | Place_content_stretch -> 10
     (* Place items (10-19) - alphabetical *)
     | Place_items_center -> 10
     | Place_items_end -> 11
@@ -389,6 +408,10 @@ module Handler = struct
     | "place-content-around" -> Ok Place_content_around
     | "place-content-evenly" -> Ok Place_content_evenly
     | "place-content-stretch" -> Ok Place_content_stretch
+    | "place-content-baseline" -> Ok Place_content_baseline
+    | "place-content-center-safe" -> Ok Place_content_center_safe
+    | "place-content-end-safe" -> Ok Place_content_end_safe
+    | "place-content-start-safe" -> Ok Place_content_start_safe
     (* Place items *)
     | "place-items-start" -> Ok Place_items_start
     | "place-items-end" -> Ok Place_items_end
@@ -465,6 +488,10 @@ module Handler = struct
     | Place_content_around -> "place-content-around"
     | Place_content_evenly -> "place-content-evenly"
     | Place_content_stretch -> "place-content-stretch"
+    | Place_content_baseline -> "place-content-baseline"
+    | Place_content_center_safe -> "place-content-center-safe"
+    | Place_content_end_safe -> "place-content-end-safe"
+    | Place_content_start_safe -> "place-content-start-safe"
     (* Place items *)
     | Place_items_start -> "place-items-start"
     | Place_items_end -> "place-items-end"
