@@ -24,6 +24,7 @@ module Handler = struct
     | Inset_shadow_2xl
     (* Opacity *)
     | Opacity of int
+    | Opacity_arbitrary of float
     (* Rings *)
     | Ring_none
     | Ring_xs
@@ -837,6 +838,7 @@ module Handler = struct
     | Inset_shadow_xl -> inset_shadow_xl
     | Inset_shadow_2xl -> inset_shadow_2xl
     | Opacity n -> opacity n
+    | Opacity_arbitrary f -> style [ Css.opacity f ]
     | Ring_none -> ring_none
     | Ring_xs -> ring_xs
     | Ring_sm -> ring_sm
@@ -903,6 +905,15 @@ module Handler = struct
     | [ "inset"; "shadow"; "lg" ] -> Ok Inset_shadow_lg
     | [ "inset"; "shadow"; "xl" ] -> Ok Inset_shadow_xl
     | [ "inset"; "shadow"; "2xl" ] -> Ok Inset_shadow_2xl
+    | [ "opacity"; n ] when String.length n > 0 && n.[0] = '[' ->
+        (* arbitrary value like opacity-[0.75] *)
+        let len = String.length n in
+        if len > 2 && n.[len - 1] = ']' then
+          let inner = String.sub n 1 (len - 2) in
+          match float_of_string_opt inner with
+          | Some f -> Ok (Opacity_arbitrary f)
+          | None -> err_not_utility
+        else err_not_utility
     | [ "opacity"; n ] ->
         Parse.int_bounded ~name:"opacity" ~min:0 ~max:100 n >|= fun n ->
         Opacity n
@@ -983,6 +994,7 @@ module Handler = struct
     | Inset_shadow_xl -> "inset-shadow-xl"
     | Inset_shadow_2xl -> "inset-shadow-2xl"
     | Opacity n -> "opacity-" ^ string_of_int n
+    | Opacity_arbitrary f -> Printf.sprintf "opacity-[%g]" f
     | Ring_none -> "ring-0"
     | Ring_xs -> "ring-1"
     | Ring_sm -> "ring-2"
@@ -1034,6 +1046,7 @@ module Handler = struct
 
   let suborder = function
     | Opacity n -> n
+    | Opacity_arbitrary _ -> 200 (* arbitrary values come after named values *)
     (* Shadow utilities - alphabetical order *)
     | Shadow -> 1000
     | Shadow_2xl -> 1001
