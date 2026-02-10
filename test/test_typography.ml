@@ -142,10 +142,16 @@ let test_vertical_align () =
   check "align-super"
 
 let test_font_stretch () =
-  check "font-stretch-normal";
+  check "font-stretch-ultra-condensed";
+  check "font-stretch-extra-condensed";
   check "font-stretch-condensed";
+  check "font-stretch-semi-condensed";
+  check "font-stretch-normal";
+  check "font-stretch-semi-expanded";
   check "font-stretch-expanded";
-  check "font-stretch-150"
+  check "font-stretch-extra-expanded";
+  check "font-stretch-ultra-expanded";
+  check "font-stretch-150%"
 
 let test_numeric_variants () =
   check "normal-nums";
