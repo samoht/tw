@@ -1900,8 +1900,8 @@ let initial_values_of = Property.initial_values
 (* Browser detection condition for properties layer *)
 let browser_detection =
   Css.Supports.Raw
-    "(((-webkit-hyphens:none)) and (not (margin-trim:inline))) or \
-     ((-moz-orient:inline) and (not (color:rgb(from red r g b))))"
+    "(((-webkit-hyphens: none)) and (not (margin-trim: inline))) or \
+     ((-moz-orient: inline) and (not (color: rgb(from red r g b))))"
 
 (* Build a mapping from property names to their first-usage index. Tailwind
    orders properties in @supports and @property by first usage order in the
