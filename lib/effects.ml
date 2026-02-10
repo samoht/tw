@@ -24,6 +24,7 @@ module Handler = struct
     | Inset_shadow_2xl
     (* Opacity *)
     | Opacity of int
+    | Opacity_decimal of float (* For values like opacity-2.5 *)
     | Opacity_arbitrary of float
     (* Rings *)
     | Ring_none
@@ -838,6 +839,9 @@ module Handler = struct
     | Inset_shadow_xl -> inset_shadow_xl
     | Inset_shadow_2xl -> inset_shadow_2xl
     | Opacity n -> opacity n
+    | Opacity_decimal f ->
+        let value = f /. 100.0 in
+        style [ Css.opacity (Css.Opacity_number value) ]
     | Opacity_arbitrary f -> style [ Css.opacity (Css.Opacity_number f) ]
     | Ring_none -> ring_none
     | Ring_xs -> ring_xs
@@ -914,9 +918,14 @@ module Handler = struct
           | Some f -> Ok (Opacity_arbitrary f)
           | None -> err_not_utility
         else err_not_utility
-    | [ "opacity"; n ] ->
-        Parse.int_bounded ~name:"opacity" ~min:0 ~max:100 n >|= fun n ->
-        Opacity n
+    | [ "opacity"; n ] -> (
+        (* Try parsing as decimal first (e.g., "2.5") *)
+        match float_of_string_opt n with
+        | Some f when String.contains n '.' -> Ok (Opacity_decimal f)
+        | _ ->
+            (* Fall back to integer parsing *)
+            Parse.int_bounded ~name:"opacity" ~min:0 ~max:100 n >|= fun n ->
+            Opacity n)
     | [ "ring" ] -> Ok Ring_md
     | [ "ring"; "0" ] -> Ok Ring_none
     | [ "ring"; "1" ] -> Ok Ring_xs
@@ -994,6 +1003,7 @@ module Handler = struct
     | Inset_shadow_xl -> "inset-shadow-xl"
     | Inset_shadow_2xl -> "inset-shadow-2xl"
     | Opacity n -> "opacity-" ^ string_of_int n
+    | Opacity_decimal f -> Printf.sprintf "opacity-%g" f
     | Opacity_arbitrary f -> Printf.sprintf "opacity-[%g]" f
     | Ring_none -> "ring-0"
     | Ring_xs -> "ring-1"
@@ -1046,6 +1056,7 @@ module Handler = struct
 
   let suborder = function
     | Opacity n -> n
+    | Opacity_decimal f -> int_of_float (f *. 10.0) (* for values like 2.5 *)
     | Opacity_arbitrary _ -> 200 (* arbitrary values come after named values *)
     (* Shadow utilities - alphabetical order *)
     | Shadow -> 1000
