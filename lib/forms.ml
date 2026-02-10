@@ -131,7 +131,7 @@ module Handler = struct
         rule ~selector:(compound [ base_sel; Focus ]) input_focus_decls;
         rule
           ~selector:(compound [ base_sel; Placeholder ])
-          [ color gray_500; opacity 1. ];
+          [ color gray_500; opacity (Opacity_number 1.) ];
         rule
           ~selector:(compound [ base_sel; Webkit_datetime_edit_fields_wrapper ])
           [ padding [ Px 0. ] ];
@@ -386,7 +386,7 @@ module Select = struct
         rule ~selector:(compound [ base_sel; Focus ]) input_focus_decls;
         rule
           ~selector:(compound [ base_sel; Placeholder ])
-          [ color gray_500; opacity 1. ];
+          [ color gray_500; opacity (Opacity_number 1.) ];
       ]
     in
     style ~rules:(Some rules) []
@@ -649,7 +649,7 @@ let text_inputs_base () =
             [
               element "input" && Placeholder; element "textarea" && Placeholder;
             ])
-      [ color gray_500; opacity 1. ];
+      [ color gray_500; opacity (Opacity_number 1.) ];
     (* Webkit datetime edit rules - forms plugin specific. These provide
        additional styling beyond preflight *)
     rule ~selector:Selector.Webkit_datetime_edit_fields_wrapper

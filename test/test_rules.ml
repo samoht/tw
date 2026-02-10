@@ -963,7 +963,7 @@ let test_classify () =
         ();
       Tw.Rules.starting_style
         ~selector:(Css.Selector.class_ "animate-in")
-        ~props:[ Css.opacity 0.0 ]
+        ~props:[ Css.opacity (Css.Opacity_number 0.0) ]
         ();
       Tw.Rules.regular
         ~selector:(Css.Selector.class_ "m-2")

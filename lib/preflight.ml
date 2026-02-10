@@ -310,7 +310,7 @@ let form_control_resets () =
         font_variation_settings Inherit;
         letter_spacing Inherit;
         color Inherit;
-        opacity 1.0;
+        opacity (Opacity_number 1.0);
         background_color (hex "#0000");
         border_radius Zero;
       ];
@@ -321,7 +321,7 @@ let form_control_resets () =
         font_variation_settings Inherit;
         letter_spacing Inherit;
         color Inherit;
-        opacity 1.0;
+        opacity (Opacity_number 1.0);
         background_color (hex "#0000");
         border_radius Zero;
       ];
@@ -343,7 +343,7 @@ let select_resets () =
 (** Form placeholder and textarea resets *)
 let form_misc_resets () =
   [
-    rule ~selector:Placeholder [ opacity 1.0 ];
+    rule ~selector:Placeholder [ opacity (Opacity_number 1.0) ];
     rule ~selector:(Selector.element "textarea") [ resize Vertical ];
   ]
 
