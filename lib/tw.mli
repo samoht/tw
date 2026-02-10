@@ -3228,6 +3228,30 @@ val touch_pan_x : t
 val touch_pan_y : t
 (** [touch_pan_y] enables vertical panning. *)
 
+val touch_pan_left : t
+(** [touch_pan_left] enables left panning. *)
+
+val touch_pan_right : t
+(** [touch_pan_right] enables right panning. *)
+
+val touch_pan_up : t
+(** [touch_pan_up] enables upward panning. *)
+
+val touch_pan_down : t
+(** [touch_pan_down] enables downward panning. *)
+
+val touch_pinch_zoom : t
+(** [touch_pinch_zoom] enables pinch-to-zoom gesture. *)
+
+(** {2 Divide}
+    @see <https://tailwindcss.com/docs/divide-width> Divide Width *)
+
+val divide_x_reverse : t
+(** [divide_x_reverse] reverses horizontal divide borders for RTL layouts. *)
+
+val divide_y_reverse : t
+(** [divide_y_reverse] reverses vertical divide borders. *)
+
 (** {2 Scroll Margin}
     @see <https://tailwindcss.com/docs/scroll-margin> Scroll Margin *)
 

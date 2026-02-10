@@ -39,6 +39,7 @@ include Effects
 include Transforms
 include Cursor
 include Touch
+include Divide
 include Interactivity
 include Containers
 include Filters
