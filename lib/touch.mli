@@ -23,3 +23,20 @@ val touch_pan_x : t
 
 val touch_pan_y : t
 (** [touch_pan_y] enables vertical panning. *)
+
+val touch_pan_left : t
+(** [touch_pan_left] enables left panning. *)
+
+val touch_pan_right : t
+(** [touch_pan_right] enables right panning. *)
+
+val touch_pan_up : t
+(** [touch_pan_up] enables upward panning. *)
+
+val touch_pan_down : t
+(** [touch_pan_down] enables downward panning. *)
+
+val touch_pinch_zoom : t
+(** [touch_pinch_zoom] enables pinch-to-zoom gesture. *)
+
+module Handler : Utility.Handler
