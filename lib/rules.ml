@@ -1897,7 +1897,8 @@ let partition_properties = Property.split
 let dedup_properties = Property.dedup
 let initial_values_of = Property.initial_values
 
-(* Browser detection condition for properties layer *)
+(* Browser detection condition for properties layer. Uses Raw with spaces - the
+   pp function strips spaces when minifying. *)
 let browser_detection =
   Css.Supports.Raw
     "(((-webkit-hyphens: none)) and (not (margin-trim: inline))) or \
