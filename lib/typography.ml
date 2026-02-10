@@ -791,9 +791,15 @@ module Typography_late = struct
     | Hyphens_manual
     | Hyphens_auto
     | (* Font stretch *)
-      Font_stretch_normal
+      Font_stretch_ultra_condensed
+    | Font_stretch_extra_condensed
     | Font_stretch_condensed
+    | Font_stretch_semi_condensed
+    | Font_stretch_normal
+    | Font_stretch_semi_expanded
     | Font_stretch_expanded
+    | Font_stretch_extra_expanded
+    | Font_stretch_ultra_expanded
     | Font_stretch_percent of int
     | (* Numeric variants *)
       Normal_nums
@@ -912,10 +918,27 @@ module Typography_late = struct
     | [ "hyphens"; "none" ] -> Ok Hyphens_none
     | [ "hyphens"; "manual" ] -> Ok Hyphens_manual
     | [ "hyphens"; "auto" ] -> Ok Hyphens_auto
-    | [ "font"; "stretch"; "normal" ] -> Ok Font_stretch_normal
+    | [ "font"; "stretch"; "ultra"; "condensed" ] ->
+        Ok Font_stretch_ultra_condensed
+    | [ "font"; "stretch"; "extra"; "condensed" ] ->
+        Ok Font_stretch_extra_condensed
     | [ "font"; "stretch"; "condensed" ] -> Ok Font_stretch_condensed
+    | [ "font"; "stretch"; "semi"; "condensed" ] ->
+        Ok Font_stretch_semi_condensed
+    | [ "font"; "stretch"; "normal" ] -> Ok Font_stretch_normal
+    | [ "font"; "stretch"; "semi"; "expanded" ] -> Ok Font_stretch_semi_expanded
     | [ "font"; "stretch"; "expanded" ] -> Ok Font_stretch_expanded
+    | [ "font"; "stretch"; "extra"; "expanded" ] ->
+        Ok Font_stretch_extra_expanded
+    | [ "font"; "stretch"; "ultra"; "expanded" ] ->
+        Ok Font_stretch_ultra_expanded
     | [ "font"; "stretch"; n ] ->
+        (* Handle both "50" and "50%" formats *)
+        let n =
+          if String.ends_with ~suffix:"%" n then
+            String.sub n 0 (String.length n - 1)
+          else n
+        in
         Parse.int_bounded ~name:"font-stretch" ~min:50 ~max:200 n >|= fun i ->
         Font_stretch_percent i
     | [ "normal"; "nums" ] -> Ok Normal_nums
@@ -1035,10 +1058,16 @@ module Typography_late = struct
     | Hyphens_none -> "hyphens-none"
     | Hyphens_manual -> "hyphens-manual"
     | Hyphens_auto -> "hyphens-auto"
-    | Font_stretch_normal -> "font-stretch-normal"
+    | Font_stretch_ultra_condensed -> "font-stretch-ultra-condensed"
+    | Font_stretch_extra_condensed -> "font-stretch-extra-condensed"
     | Font_stretch_condensed -> "font-stretch-condensed"
+    | Font_stretch_semi_condensed -> "font-stretch-semi-condensed"
+    | Font_stretch_normal -> "font-stretch-normal"
+    | Font_stretch_semi_expanded -> "font-stretch-semi-expanded"
     | Font_stretch_expanded -> "font-stretch-expanded"
-    | Font_stretch_percent n -> "font-stretch-" ^ string_of_int n
+    | Font_stretch_extra_expanded -> "font-stretch-extra-expanded"
+    | Font_stretch_ultra_expanded -> "font-stretch-ultra-expanded"
+    | Font_stretch_percent n -> "font-stretch-" ^ string_of_int n ^ "%"
     | Normal_nums -> "normal-nums"
     | Ordinal -> "ordinal"
     | Slashed_zero -> "slashed-zero"
@@ -1147,10 +1176,16 @@ module Typography_late = struct
     | Hyphens_auto -> 9400
     | Hyphens_manual -> 9401
     | Hyphens_none -> 9402
-    (* Font stretch *)
-    | Font_stretch_normal -> 9500
-    | Font_stretch_condensed -> 9501
-    | Font_stretch_expanded -> 9502
+    (* Font stretch - ordered by % value *)
+    | Font_stretch_ultra_condensed -> 9500
+    | Font_stretch_extra_condensed -> 9501
+    | Font_stretch_condensed -> 9502
+    | Font_stretch_semi_condensed -> 9503
+    | Font_stretch_normal -> 9504
+    | Font_stretch_semi_expanded -> 9505
+    | Font_stretch_expanded -> 9506
+    | Font_stretch_extra_expanded -> 9507
+    | Font_stretch_ultra_expanded -> 9508
     | Font_stretch_percent n -> 9600 + n
     (* Numeric variants - alphabetical order with normal-nums last *)
     | Diagonal_fractions -> 9700
@@ -1370,9 +1405,15 @@ module Typography_late = struct
   let hyphens_none = style [ webkit_hyphens None; hyphens None ]
   let hyphens_manual = style [ webkit_hyphens Manual; hyphens Manual ]
   let hyphens_auto = style [ webkit_hyphens Auto; hyphens Auto ]
-  let font_stretch_normal = style [ font_stretch (Pct 100.) ]
-  let font_stretch_condensed = style [ font_stretch (Pct 75.) ]
-  let font_stretch_expanded = style [ font_stretch (Pct 125.) ]
+  let font_stretch_ultra_condensed = style [ font_stretch Ultra_condensed ]
+  let font_stretch_extra_condensed = style [ font_stretch Extra_condensed ]
+  let font_stretch_condensed = style [ font_stretch Condensed ]
+  let font_stretch_semi_condensed = style [ font_stretch Semi_condensed ]
+  let font_stretch_normal = style [ font_stretch Normal ]
+  let font_stretch_semi_expanded = style [ font_stretch Semi_expanded ]
+  let font_stretch_expanded = style [ font_stretch Expanded ]
+  let font_stretch_extra_expanded = style [ font_stretch Extra_expanded ]
+  let font_stretch_ultra_expanded = style [ font_stretch Ultra_expanded ]
   let font_stretch_percent n = style [ font_stretch (Pct (float_of_int n)) ]
   let normal_nums = style [ font_variant_numeric (Tokens [ Normal ]) ]
 
@@ -1543,9 +1584,15 @@ module Typography_late = struct
     | Hyphens_none -> hyphens_none
     | Hyphens_manual -> hyphens_manual
     | Hyphens_auto -> hyphens_auto
-    | Font_stretch_normal -> font_stretch_normal
+    | Font_stretch_ultra_condensed -> font_stretch_ultra_condensed
+    | Font_stretch_extra_condensed -> font_stretch_extra_condensed
     | Font_stretch_condensed -> font_stretch_condensed
+    | Font_stretch_semi_condensed -> font_stretch_semi_condensed
+    | Font_stretch_normal -> font_stretch_normal
+    | Font_stretch_semi_expanded -> font_stretch_semi_expanded
     | Font_stretch_expanded -> font_stretch_expanded
+    | Font_stretch_extra_expanded -> font_stretch_extra_expanded
+    | Font_stretch_ultra_expanded -> font_stretch_ultra_expanded
     | Font_stretch_percent n -> font_stretch_percent n
     | Normal_nums -> normal_nums
     | Ordinal -> ordinal
@@ -1697,9 +1744,30 @@ let overflow_wrap_break_word =
 let hyphens_none = utility_late Typography_late.Hyphens_none
 let hyphens_manual = utility_late Typography_late.Hyphens_manual
 let hyphens_auto = utility_late Typography_late.Hyphens_auto
-let font_stretch_normal = utility_late Typography_late.Font_stretch_normal
+
+let font_stretch_ultra_condensed =
+  utility_late Typography_late.Font_stretch_ultra_condensed
+
+let font_stretch_extra_condensed =
+  utility_late Typography_late.Font_stretch_extra_condensed
+
 let font_stretch_condensed = utility_late Typography_late.Font_stretch_condensed
+
+let font_stretch_semi_condensed =
+  utility_late Typography_late.Font_stretch_semi_condensed
+
+let font_stretch_normal = utility_late Typography_late.Font_stretch_normal
+
+let font_stretch_semi_expanded =
+  utility_late Typography_late.Font_stretch_semi_expanded
+
 let font_stretch_expanded = utility_late Typography_late.Font_stretch_expanded
+
+let font_stretch_extra_expanded =
+  utility_late Typography_late.Font_stretch_extra_expanded
+
+let font_stretch_ultra_expanded =
+  utility_late Typography_late.Font_stretch_ultra_expanded
 
 let font_stretch_percent n =
   utility_late (Typography_late.Font_stretch_percent n)
