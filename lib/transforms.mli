@@ -89,6 +89,24 @@ val transform_style_3d : t
 val transform_style_flat : t
 (** [transform_style_flat] flattens 3D positioning of child elements. *)
 
+val transform_box_border : t
+(** [transform_box_border] sets the reference box for transform to border-box.
+*)
+
+val transform_box_content : t
+(** [transform_box_content] sets the reference box for transform to content-box.
+*)
+
+val transform_box_fill : t
+(** [transform_box_fill] sets the reference box for transform to fill-box. *)
+
+val transform_box_stroke : t
+(** [transform_box_stroke] sets the reference box for transform to stroke-box.
+*)
+
+val transform_box_view : t
+(** [transform_box_view] sets the reference box for transform to view-box. *)
+
 val backface_visible : t
 (** [backface_visible] makes the back face visible when rotated. *)
 
