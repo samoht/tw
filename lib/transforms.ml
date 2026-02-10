@@ -71,6 +71,12 @@ module Handler = struct
     | (* Transform style *)
       Transform_style_3d
     | Transform_style_flat
+    | (* Transform box *)
+      Transform_box_border
+    | Transform_box_content
+    | Transform_box_fill
+    | Transform_box_stroke
+    | Transform_box_view
     | (* Backface visibility *)
       Backface_visible
     | Backface_hidden
@@ -643,6 +649,11 @@ module Handler = struct
 
   let transform_style_3d = style [ transform_style Preserve_3d ]
   let transform_style_flat = style [ transform_style Flat ]
+  let transform_box_border = style [ Css.transform_box Border_box ]
+  let transform_box_content = style [ Css.transform_box Content_box ]
+  let transform_box_fill = style [ Css.transform_box Fill_box ]
+  let transform_box_stroke = style [ Css.transform_box Stroke_box ]
+  let transform_box_view = style [ Css.transform_box View_box ]
   let backface_visible = style [ backface_visibility Visible ]
   let backface_hidden = style [ backface_visibility Hidden ]
 
@@ -828,6 +839,11 @@ module Handler = struct
     | Perspective_origin_arbitrary s -> perspective_origin_arbitrary s
     | Transform_style_3d -> transform_style_3d
     | Transform_style_flat -> transform_style_flat
+    | Transform_box_border -> transform_box_border
+    | Transform_box_content -> transform_box_content
+    | Transform_box_fill -> transform_box_fill
+    | Transform_box_stroke -> transform_box_stroke
+    | Transform_box_view -> transform_box_view
     | Backface_visible -> backface_visible
     | Backface_hidden -> backface_hidden
     | Transform -> transform
@@ -915,6 +931,11 @@ module Handler = struct
     | Perspective_origin_top_right -> 1508
     | Transform_style_3d -> 1600
     | Transform_style_flat -> 1601
+    | Transform_box_border -> 1604
+    | Transform_box_content -> 1605
+    | Transform_box_fill -> 1606
+    | Transform_box_stroke -> 1607
+    | Transform_box_view -> 1608
     | Backface_visible -> 1602
     | Backface_hidden -> 1603
     (* Transform origin - alphabetical: bottom, bottom-left, bottom-right,
@@ -1082,6 +1103,15 @@ module Handler = struct
         else err_not_utility
     | [ "transform"; "style"; "3d" ] -> Ok Transform_style_3d
     | [ "transform"; "style"; "flat" ] -> Ok Transform_style_flat
+    | [ "transform"; "3d" ] -> Ok Transform_style_3d
+    | [ "transform"; "flat" ] -> Ok Transform_style_flat
+    | [ "backface"; "hidden" ] -> Ok Backface_hidden
+    | [ "backface"; "visible" ] -> Ok Backface_visible
+    | [ "transform"; "border" ] -> Ok Transform_box_border
+    | [ "transform"; "content" ] -> Ok Transform_box_content
+    | [ "transform"; "fill" ] -> Ok Transform_box_fill
+    | [ "transform"; "stroke" ] -> Ok Transform_box_stroke
+    | [ "transform"; "view" ] -> Ok Transform_box_view
     | [ "transform" ] -> Ok Transform
     | [ "transform"; "cpu" ] -> Ok Transform_cpu
     | [ "transform"; "none" ] -> Ok Transform_none
@@ -1175,8 +1205,13 @@ module Handler = struct
     | Perspective_origin_arbitrary s ->
         let s = String.map (fun c -> if c = ' ' then '_' else c) s in
         "perspective-origin-[" ^ s ^ "]"
-    | Transform_style_3d -> "transform-style-3d"
-    | Transform_style_flat -> "transform-style-flat"
+    | Transform_style_3d -> "transform-3d"
+    | Transform_style_flat -> "transform-flat"
+    | Transform_box_border -> "transform-border"
+    | Transform_box_content -> "transform-content"
+    | Transform_box_fill -> "transform-fill"
+    | Transform_box_stroke -> "transform-stroke"
+    | Transform_box_view -> "transform-view"
     | Backface_visible -> "backface-visible"
     | Backface_hidden -> "backface-hidden"
     | Transform -> "transform"
@@ -1231,6 +1266,11 @@ let perspective_origin_left = utility Perspective_origin_left
 let perspective_origin_right = utility Perspective_origin_right
 let transform_style_3d = utility Transform_style_3d
 let transform_style_flat = utility Transform_style_flat
+let transform_box_border = utility Transform_box_border
+let transform_box_content = utility Transform_box_content
+let transform_box_fill = utility Transform_box_fill
+let transform_box_stroke = utility Transform_box_stroke
+let transform_box_view = utility Transform_box_view
 let backface_visible = utility Backface_visible
 let backface_hidden = utility Backface_hidden
 let transform = utility Transform
