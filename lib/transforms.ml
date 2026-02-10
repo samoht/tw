@@ -45,8 +45,11 @@ module Handler = struct
     | Neg_translate_z_px
     | Translate_3d
     | Rotate_x of int
+    | Rotate_x_arbitrary of Css.angle
     | Rotate_y of int
+    | Rotate_y_arbitrary of Css.angle
     | Rotate_z of int
+    | Rotate_z_arbitrary of Css.angle
     | Scale_z of int
     | Scale_3d
     | Perspective_none
@@ -161,6 +164,39 @@ module Handler = struct
 
   let collect_property_rules vars =
     List.filter_map Var.property_rule vars |> concat
+
+  (* Property rules for rotate/skew transform chain *)
+  let rotate_skew_props =
+    collect_property_rules
+      [
+        tw_rotate_x_var;
+        tw_rotate_y_var;
+        tw_rotate_z_var;
+        tw_skew_x_var;
+        tw_skew_y_var;
+      ]
+
+  (* Helper to create transform with variable chain: Sets one variable and
+     outputs transform with all rotate/skew vars *)
+  let transform_with_var var transform_val =
+    let d, _ = Var.binding var transform_val in
+    let rotate_x_ref = Var.reference_with_empty_fallback tw_rotate_x_var in
+    let rotate_y_ref = Var.reference_with_empty_fallback tw_rotate_y_var in
+    let rotate_z_ref = Var.reference_with_empty_fallback tw_rotate_z_var in
+    let skew_x_ref = Var.reference_with_empty_fallback tw_skew_x_var in
+    let skew_y_ref = Var.reference_with_empty_fallback tw_skew_y_var in
+    style ~property_rules:rotate_skew_props
+      [
+        d;
+        transforms
+          [
+            Var rotate_x_ref;
+            Var rotate_y_ref;
+            Var rotate_z_ref;
+            Var skew_x_ref;
+            Var skew_y_ref;
+          ];
+      ]
 
   let neg_class name n =
     let prefix = if n < 0 then "-" else "" in
@@ -368,23 +404,14 @@ module Handler = struct
     let d, _ = Var.binding tw_scale_y_var value in
     style (d :: [ Css.transform (Scale_y f) ])
 
-  let skew_axis var mk_transform deg =
-    let transform_val = mk_transform (Css.Deg (float_of_int deg)) in
-    let d, _ = Var.binding var transform_val in
-    style [ d; Css.transform transform_val ]
+  let skew_x deg =
+    transform_with_var tw_skew_x_var (Skew_x (Deg (float_of_int deg)))
 
-  let skew_x deg = skew_axis tw_skew_x_var (fun a -> Css.Skew_x a) deg
-  let skew_y deg = skew_axis tw_skew_y_var (fun a -> Css.Skew_y a) deg
+  let skew_y deg =
+    transform_with_var tw_skew_y_var (Skew_y (Deg (float_of_int deg)))
 
-  let skew_x_arbitrary angle =
-    let transform_val = Css.Skew_x angle in
-    let d, _ = Var.binding tw_skew_x_var transform_val in
-    style [ d; Css.transform transform_val ]
-
-  let skew_y_arbitrary angle =
-    let transform_val = Css.Skew_y angle in
-    let d, _ = Var.binding tw_skew_y_var transform_val in
-    style [ d; Css.transform transform_val ]
+  let skew_x_arbitrary angle = transform_with_var tw_skew_x_var (Skew_x angle)
+  let skew_y_arbitrary angle = transform_with_var tw_skew_y_var (Skew_y angle)
 
   (* Combined translate utilities *)
   let translate_full =
@@ -451,9 +478,23 @@ module Handler = struct
 
   (** {1 3D Transform Utilities} *)
 
-  let rotate_x n = style [ Css.transform (Rotate_x (Deg (float_of_int n))) ]
-  let rotate_y n = style [ Css.transform (Rotate_y (Deg (float_of_int n))) ]
-  let rotate_z n = style [ Css.transform (Rotate_z (Deg (float_of_int n))) ]
+  let rotate_x n =
+    transform_with_var tw_rotate_x_var (Rotate_x (Deg (float_of_int n)))
+
+  let rotate_x_arbitrary angle =
+    transform_with_var tw_rotate_x_var (Rotate_x angle)
+
+  let rotate_y n =
+    transform_with_var tw_rotate_y_var (Rotate_y (Deg (float_of_int n)))
+
+  let rotate_y_arbitrary angle =
+    transform_with_var tw_rotate_y_var (Rotate_y angle)
+
+  let rotate_z n =
+    transform_with_var tw_rotate_z_var (Rotate_z (Deg (float_of_int n)))
+
+  let rotate_z_arbitrary angle =
+    transform_with_var tw_rotate_z_var (Rotate_z angle)
 
   let translate_z n =
     let spacing_decl, spacing_ref =
@@ -719,8 +760,11 @@ module Handler = struct
     | Skew_y n -> skew_y n
     | Skew_y_arbitrary a -> skew_y_arbitrary a
     | Rotate_x n -> rotate_x n
+    | Rotate_x_arbitrary a -> rotate_x_arbitrary a
     | Rotate_y n -> rotate_y n
+    | Rotate_y_arbitrary a -> rotate_y_arbitrary a
     | Rotate_z n -> rotate_z n
+    | Rotate_z_arbitrary a -> rotate_z_arbitrary a
     | Perspective_none -> perspective_none
     | Perspective_dramatic -> perspective_dramatic
     | Perspective_normal -> perspective_normal
@@ -795,8 +839,11 @@ module Handler = struct
     | Rotate n -> 800 + n
     | Rotate_arbitrary _ -> 899
     | Rotate_x n -> 900 + n
+    | Rotate_x_arbitrary _ -> 999
     | Rotate_y n -> 1000 + n
+    | Rotate_y_arbitrary _ -> 1099
     | Rotate_z n -> 1100 + n
+    | Rotate_z_arbitrary _ -> 1199
     (* Skew utilities *)
     | Skew_x n -> 1200 + n
     | Skew_x_arbitrary _ -> 1299
@@ -914,8 +961,20 @@ module Handler = struct
         | Ok a -> Ok (Skew_y_arbitrary a)
         | Error _ -> err_not_utility)
     | [ "skew"; "y"; n ] -> Parse.int_any n >|= fun n -> Skew_y n
+    | [ "rotate"; "x"; n ] when String.length n > 0 && n.[0] = '[' -> (
+        match parse_bracket_angle n with
+        | Ok a -> Ok (Rotate_x_arbitrary a)
+        | Error _ -> err_not_utility)
     | [ "rotate"; "x"; n ] -> Parse.int_any n >|= fun n -> Rotate_x n
+    | [ "rotate"; "y"; n ] when String.length n > 0 && n.[0] = '[' -> (
+        match parse_bracket_angle n with
+        | Ok a -> Ok (Rotate_y_arbitrary a)
+        | Error _ -> err_not_utility)
     | [ "rotate"; "y"; n ] -> Parse.int_any n >|= fun n -> Rotate_y n
+    | [ "rotate"; "z"; n ] when String.length n > 0 && n.[0] = '[' -> (
+        match parse_bracket_angle n with
+        | Ok a -> Ok (Rotate_z_arbitrary a)
+        | Error _ -> err_not_utility)
     | [ "rotate"; "z"; n ] -> Parse.int_any n >|= fun n -> Rotate_z n
     (* Negative rotate: -rotate-N *)
     | [ ""; "rotate"; n ] ->
@@ -1043,8 +1102,11 @@ module Handler = struct
     | Skew_y n -> neg_class "skew-y-" n
     | Skew_y_arbitrary a -> "skew-y-" ^ pp_angle_bracket a
     | Rotate_x n -> neg_class "rotate-x-" n
+    | Rotate_x_arbitrary a -> "rotate-x-" ^ pp_angle_bracket a
     | Rotate_y n -> neg_class "rotate-y-" n
+    | Rotate_y_arbitrary a -> "rotate-y-" ^ pp_angle_bracket a
     | Rotate_z n -> neg_class "rotate-z-" n
+    | Rotate_z_arbitrary a -> "rotate-z-" ^ pp_angle_bracket a
     | Perspective_none -> "perspective-none"
     | Perspective_dramatic -> "perspective-dramatic"
     | Perspective_normal -> "perspective-normal"
