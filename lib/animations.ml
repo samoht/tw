@@ -106,7 +106,7 @@ module Handler = struct
                 [ Css.Keyframe.Percent 75.; Css.Keyframe.To ];
             keyframe_declarations =
               [
-                Css.Declaration.opacity 0.0;
+                Css.Declaration.opacity (Opacity_number 0.0);
                 Css.Declaration.transform (Scale (2.0, None));
               ];
           };
@@ -142,7 +142,8 @@ module Handler = struct
           {
             Css.Stylesheet.keyframe_selector =
               Css.Keyframe.Positions [ Css.Keyframe.Percent 50. ];
-            keyframe_declarations = [ Css.Declaration.opacity 0.5 ];
+            keyframe_declarations =
+              [ Css.Declaration.opacity (Opacity_number 0.5) ];
           };
         ]
     in

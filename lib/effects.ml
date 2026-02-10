@@ -781,7 +781,7 @@ module Handler = struct
 
   let opacity n =
     let value = float_of_int n /. 100.0 in
-    style [ opacity value ]
+    style [ opacity (Opacity_number value) ]
 
   let mix_blend_normal = style [ mix_blend_mode Normal ]
   let mix_blend_multiply = style [ mix_blend_mode Multiply ]
@@ -838,7 +838,7 @@ module Handler = struct
     | Inset_shadow_xl -> inset_shadow_xl
     | Inset_shadow_2xl -> inset_shadow_2xl
     | Opacity n -> opacity n
-    | Opacity_arbitrary f -> style [ Css.opacity f ]
+    | Opacity_arbitrary f -> style [ Css.opacity (Css.Opacity_number f) ]
     | Ring_none -> ring_none
     | Ring_xs -> ring_xs
     | Ring_sm -> ring_sm
