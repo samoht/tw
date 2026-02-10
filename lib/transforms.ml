@@ -236,8 +236,8 @@ module Handler = struct
 
   (** {1 2D Transform Utilities} *)
 
-  let rotate n = style [ Css.rotate (Deg (float_of_int n)) ]
-  let rotate_arbitrary angle = style [ Css.rotate angle ]
+  let rotate n = style [ Css.rotate (Angle (Deg (float_of_int n))) ]
+  let rotate_arbitrary angle = style [ Css.rotate (Angle angle) ]
 
   let translate_props =
     collect_property_rules
@@ -917,6 +917,29 @@ module Handler = struct
     | [ "rotate"; "x"; n ] -> Parse.int_any n >|= fun n -> Rotate_x n
     | [ "rotate"; "y"; n ] -> Parse.int_any n >|= fun n -> Rotate_y n
     | [ "rotate"; "z"; n ] -> Parse.int_any n >|= fun n -> Rotate_z n
+    (* Negative rotate: -rotate-N *)
+    | [ ""; "rotate"; n ] ->
+        Parse.int_pos ~name:"rotate" n >|= fun n -> Rotate (-n)
+    | [ ""; "rotate"; "x"; n ] ->
+        Parse.int_pos ~name:"rotate-x" n >|= fun n -> Rotate_x (-n)
+    | [ ""; "rotate"; "y"; n ] ->
+        Parse.int_pos ~name:"rotate-y" n >|= fun n -> Rotate_y (-n)
+    | [ ""; "rotate"; "z"; n ] ->
+        Parse.int_pos ~name:"rotate-z" n >|= fun n -> Rotate_z (-n)
+    (* Negative scale: -scale-N *)
+    | [ ""; "scale"; n ] ->
+        Parse.int_pos ~name:"scale" n >|= fun n -> Scale (-n)
+    | [ ""; "scale"; "x"; n ] ->
+        Parse.int_pos ~name:"scale-x" n >|= fun n -> Scale_x (-n)
+    | [ ""; "scale"; "y"; n ] ->
+        Parse.int_pos ~name:"scale-y" n >|= fun n -> Scale_y (-n)
+    | [ ""; "scale"; "z"; n ] ->
+        Parse.int_pos ~name:"scale-z" n >|= fun n -> Scale_z (-n)
+    (* Negative skew: -skew-x-N, -skew-y-N *)
+    | [ ""; "skew"; "x"; n ] ->
+        Parse.int_pos ~name:"skew-x" n >|= fun n -> Skew_x (-n)
+    | [ ""; "skew"; "y"; n ] ->
+        Parse.int_pos ~name:"skew-y" n >|= fun n -> Skew_y (-n)
     | [ "perspective"; "none" ] -> Ok Perspective_none
     | [ "perspective"; "dramatic" ] -> Ok Perspective_dramatic
     | [ "perspective"; "normal" ] -> Ok Perspective_normal
@@ -985,7 +1008,7 @@ module Handler = struct
     "[" ^ s ^ "]"
 
   let to_class = function
-    | Rotate n -> "rotate-" ^ string_of_int n
+    | Rotate n -> neg_class "rotate-" n
     | Rotate_arbitrary a -> "rotate-" ^ pp_angle_bracket a
     | Translate_x n -> neg_class "translate-x-" n
     | Translate_x_full -> "translate-x-full"
@@ -1007,13 +1030,13 @@ module Handler = struct
     | Neg_translate_x_1_2 -> "-translate-x-1/2"
     | Neg_translate_y_full -> "-translate-y-full"
     | Neg_translate_y_1_2 -> "-translate-y-1/2"
-    | Scale n -> "scale-" ^ string_of_int n
+    | Scale n -> neg_class "scale-" n
     | Scale_arbitrary f -> "scale-" ^ pp_number_bracket f
-    | Scale_x n -> "scale-x-" ^ string_of_int n
+    | Scale_x n -> neg_class "scale-x-" n
     | Scale_x_arbitrary f -> "scale-x-" ^ pp_number_bracket f
-    | Scale_y n -> "scale-y-" ^ string_of_int n
+    | Scale_y n -> neg_class "scale-y-" n
     | Scale_y_arbitrary f -> "scale-y-" ^ pp_number_bracket f
-    | Scale_z n -> "scale-z-" ^ string_of_int n
+    | Scale_z n -> neg_class "scale-z-" n
     | Scale_3d -> "scale-3d"
     | Skew_x n -> neg_class "skew-x-" n
     | Skew_x_arbitrary a -> "skew-x-" ^ pp_angle_bracket a
