@@ -59,6 +59,11 @@ module Handler = struct
     Var.channel ~needs_property:true ~property_order:22 Css.Timing_function
       "tw-ease"
 
+  (* Theme variable for transition-property-opacity *)
+  let transition_property_opacity_var =
+    Var.theme Css.Transition_property_value "transition-property-opacity"
+      ~order:(8, 2)
+
   let transition_none = style [ Css.transition_property [ Css.None ] ]
 
   let transition =
@@ -216,11 +221,16 @@ module Handler = struct
       Var.binding default_transition_timing_function_var
         (Css.Cubic_bezier (0.4, 0., 0.2, 1.))
     in
+    (* Create theme binding for --transition-property-opacity *)
+    let opacity_prop_decl, opacity_prop_ref =
+      Var.binding transition_property_opacity_var (Css.Property "opacity")
+    in
     style
       [
         duration_theme_decl;
         timing_theme_decl;
-        Css.transition_property [ Css.Property "opacity" ];
+        opacity_prop_decl;
+        Css.transition_property [ Css.Var opacity_prop_ref ];
         Css.transition_timing_function (Css.Var ease_ref);
         Css.transition_duration (Css.Var duration_ref);
       ]
