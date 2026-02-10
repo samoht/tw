@@ -29,6 +29,7 @@ module Handler = struct
     | Skew_x_arbitrary of Css.angle
     | Skew_y of int
     | Skew_y_arbitrary of Css.angle
+    | Skew of int
     | (* Combined translate utilities *)
       Translate_full
     | Translate_1_2
@@ -198,6 +199,39 @@ module Handler = struct
           ];
       ]
 
+  (* Helper to create an angle with calc for negative values *)
+  let make_angle deg =
+    if deg >= 0 then Deg (float_of_int deg)
+    else Calc (Expr (Val (Deg (float_of_int (abs deg))), Mul, Num (-1.)))
+
+  (* Helper to create a percentage with calc for negative values *)
+  let make_pct n : Css.number_percentage =
+    if n >= 0 then Pct (float_of_int n)
+    else Calc (Expr (Val (Pct (float_of_int (abs n))), Mul, Num (-1.)))
+
+  let transform_with_both_skew deg =
+    let angle = make_angle deg in
+    let skew_x_decl, _ = Var.binding tw_skew_x_var (Skew_x angle) in
+    let skew_y_decl, _ = Var.binding tw_skew_y_var (Skew_y angle) in
+    let rotate_x_ref = Var.reference_with_empty_fallback tw_rotate_x_var in
+    let rotate_y_ref = Var.reference_with_empty_fallback tw_rotate_y_var in
+    let rotate_z_ref = Var.reference_with_empty_fallback tw_rotate_z_var in
+    let skew_x_ref = Var.reference_with_empty_fallback tw_skew_x_var in
+    let skew_y_ref = Var.reference_with_empty_fallback tw_skew_y_var in
+    style ~property_rules:rotate_skew_props
+      [
+        skew_x_decl;
+        skew_y_decl;
+        transforms
+          [
+            Var rotate_x_ref;
+            Var rotate_y_ref;
+            Var rotate_z_ref;
+            Var skew_x_ref;
+            Var skew_y_ref;
+          ];
+      ]
+
   let neg_class name n =
     let prefix = if n < 0 then "-" else "" in
     prefix ^ name ^ string_of_int (abs n)
@@ -356,7 +390,7 @@ module Handler = struct
       (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
 
   let scale n =
-    let value : Css.number_percentage = Css.Pct (float_of_int n) in
+    let value = make_pct n in
     let dx, _ = Var.binding tw_scale_x_var value in
     let dy, _ = Var.binding tw_scale_y_var value in
     let dz, _ = Var.binding tw_scale_z_var value in
@@ -370,16 +404,26 @@ module Handler = struct
       (dx :: dy :: dz :: [ Css.scale (XY (Var scale_x_ref, Var scale_y_ref)) ])
 
   let scale_x n =
-    let value : Css.number_percentage = Css.Pct (float_of_int n) in
-    (* Only uses X variable *)
+    let value = make_pct n in
     let d, _ = Var.binding tw_scale_x_var value in
-    style (d :: [ Css.transform (Scale_x (float_of_int n /. 100.0)) ])
+    let props =
+      collect_property_rules [ tw_scale_x_var; tw_scale_y_var; tw_scale_z_var ]
+    in
+    let scale_x_ref = Var.reference tw_scale_x_var in
+    let scale_y_ref = Var.reference tw_scale_y_var in
+    style ~property_rules:props
+      (d :: [ Css.scale (XY (Var scale_x_ref, Var scale_y_ref)) ])
 
   let scale_y n =
-    let value : Css.number_percentage = Css.Pct (float_of_int n) in
-    (* Only uses Y variable *)
+    let value = make_pct n in
     let d, _ = Var.binding tw_scale_y_var value in
-    style (d :: [ Css.transform (Scale_y (float_of_int n /. 100.0)) ])
+    let props =
+      collect_property_rules [ tw_scale_x_var; tw_scale_y_var; tw_scale_z_var ]
+    in
+    let scale_x_ref = Var.reference tw_scale_x_var in
+    let scale_y_ref = Var.reference tw_scale_y_var in
+    style ~property_rules:props
+      (d :: [ Css.scale (XY (Var scale_x_ref, Var scale_y_ref)) ])
 
   let scale_arbitrary f =
     let value : Css.number_percentage = Css.Num f in
@@ -404,12 +448,8 @@ module Handler = struct
     let d, _ = Var.binding tw_scale_y_var value in
     style (d :: [ Css.transform (Scale_y f) ])
 
-  let skew_x deg =
-    transform_with_var tw_skew_x_var (Skew_x (Deg (float_of_int deg)))
-
-  let skew_y deg =
-    transform_with_var tw_skew_y_var (Skew_y (Deg (float_of_int deg)))
-
+  let skew_x deg = transform_with_var tw_skew_x_var (Skew_x (make_angle deg))
+  let skew_y deg = transform_with_var tw_skew_y_var (Skew_y (make_angle deg))
   let skew_x_arbitrary angle = transform_with_var tw_skew_x_var (Skew_x angle)
   let skew_y_arbitrary angle = transform_with_var tw_skew_y_var (Skew_y angle)
 
@@ -478,20 +518,17 @@ module Handler = struct
 
   (** {1 3D Transform Utilities} *)
 
-  let rotate_x n =
-    transform_with_var tw_rotate_x_var (Rotate_x (Deg (float_of_int n)))
+  let rotate_x n = transform_with_var tw_rotate_x_var (Rotate_x (make_angle n))
 
   let rotate_x_arbitrary angle =
     transform_with_var tw_rotate_x_var (Rotate_x angle)
 
-  let rotate_y n =
-    transform_with_var tw_rotate_y_var (Rotate_y (Deg (float_of_int n)))
+  let rotate_y n = transform_with_var tw_rotate_y_var (Rotate_y (make_angle n))
 
   let rotate_y_arbitrary angle =
     transform_with_var tw_rotate_y_var (Rotate_y angle)
 
-  let rotate_z n =
-    transform_with_var tw_rotate_z_var (Rotate_z (Deg (float_of_int n)))
+  let rotate_z n = transform_with_var tw_rotate_z_var (Rotate_z (make_angle n))
 
   let rotate_z_arbitrary angle =
     transform_with_var tw_rotate_z_var (Rotate_z angle)
@@ -538,9 +575,18 @@ module Handler = struct
       [ Css.translate (XYZ (Var tx_ref, Var ty_ref, Var tz_ref)) ]
 
   let scale_z n =
-    let value : Css.number_percentage = Css.Pct (float_of_int n) in
+    let value = make_pct n in
     let d, _ = Var.binding tw_scale_z_var value in
-    style (d :: [ Css.transform (Scale_z (float_of_int n /. 100.0)) ])
+    let props =
+      collect_property_rules [ tw_scale_x_var; tw_scale_y_var; tw_scale_z_var ]
+    in
+    let scale_x_ref = Var.reference tw_scale_x_var in
+    let scale_y_ref = Var.reference tw_scale_y_var in
+    let scale_z_ref = Var.reference tw_scale_z_var in
+    style ~property_rules:props
+      (d
+      :: [ Css.scale (XYZ (Var scale_x_ref, Var scale_y_ref, Var scale_z_ref)) ]
+      )
 
   let scale_3d =
     let props =
@@ -759,6 +805,7 @@ module Handler = struct
     | Skew_x_arbitrary a -> skew_x_arbitrary a
     | Skew_y n -> skew_y n
     | Skew_y_arbitrary a -> skew_y_arbitrary a
+    | Skew n -> transform_with_both_skew n
     | Rotate_x n -> rotate_x n
     | Rotate_x_arbitrary a -> rotate_x_arbitrary a
     | Rotate_y n -> rotate_y n
@@ -849,6 +896,7 @@ module Handler = struct
     | Skew_x_arbitrary _ -> 1299
     | Skew_y n -> 1300 + n
     | Skew_y_arbitrary _ -> 1398
+    | Skew n -> 1200 + n (* Combined skew, same order as skew-x *)
     (* Other transform utilities - arbitrary before named (alphabetical by
        class) *)
     | Perspective_arbitrary _ -> 1400
@@ -961,6 +1009,7 @@ module Handler = struct
         | Ok a -> Ok (Skew_y_arbitrary a)
         | Error _ -> err_not_utility)
     | [ "skew"; "y"; n ] -> Parse.int_any n >|= fun n -> Skew_y n
+    | [ "skew"; n ] -> Parse.int_any n >|= fun n -> Skew n
     | [ "rotate"; "x"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_angle n with
         | Ok a -> Ok (Rotate_x_arbitrary a)
@@ -994,11 +1043,12 @@ module Handler = struct
         Parse.int_pos ~name:"scale-y" n >|= fun n -> Scale_y (-n)
     | [ ""; "scale"; "z"; n ] ->
         Parse.int_pos ~name:"scale-z" n >|= fun n -> Scale_z (-n)
-    (* Negative skew: -skew-x-N, -skew-y-N *)
+    (* Negative skew: -skew-N, -skew-x-N, -skew-y-N *)
     | [ ""; "skew"; "x"; n ] ->
         Parse.int_pos ~name:"skew-x" n >|= fun n -> Skew_x (-n)
     | [ ""; "skew"; "y"; n ] ->
         Parse.int_pos ~name:"skew-y" n >|= fun n -> Skew_y (-n)
+    | [ ""; "skew"; n ] -> Parse.int_pos ~name:"skew" n >|= fun n -> Skew (-n)
     | [ "perspective"; "none" ] -> Ok Perspective_none
     | [ "perspective"; "dramatic" ] -> Ok Perspective_dramatic
     | [ "perspective"; "normal" ] -> Ok Perspective_normal
@@ -1101,6 +1151,7 @@ module Handler = struct
     | Skew_x_arbitrary a -> "skew-x-" ^ pp_angle_bracket a
     | Skew_y n -> neg_class "skew-y-" n
     | Skew_y_arbitrary a -> "skew-y-" ^ pp_angle_bracket a
+    | Skew n -> neg_class "skew-" n
     | Rotate_x n -> neg_class "rotate-x-" n
     | Rotate_x_arbitrary a -> "rotate-x-" ^ pp_angle_bracket a
     | Rotate_y n -> neg_class "rotate-y-" n
