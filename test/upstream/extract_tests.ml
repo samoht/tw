@@ -219,6 +219,9 @@ let parse_file filename =
   let run_pattern = Re.Pcre.regexp {|run\(\[([^\]]*)\]|} in
   let snapshot_start = Re.Pcre.regexp {|toMatchInlineSnapshot\(`|} in
   let snapshot_end = Re.Pcre.regexp {|`\)|} in
+  (* Pattern for .toEqual('') which means the classes should produce empty
+     output *)
+  let empty_expect = Re.Pcre.regexp {|\.toEqual\s*\(\s*['"]{2}\s*\)|} in
 
   let state = ref Outside in
   let current_classes = ref [] in
@@ -249,8 +252,12 @@ let parse_file filename =
                   (extract_quoted_strings content)
                   !current_classes
           | None -> ());
-          (* Check for array continuation *)
-          if
+          (* Check for .toEqual('') which means classes should produce empty
+             output. Flush test with empty expected, then clear classes. *)
+          if Re.execp empty_expect line then (
+            flush_test name (Some "");
+            current_classes := [] (* Check for array continuation *))
+          else if
             Astring.String.is_infix ~affix:"[" line
             && not (Astring.String.is_infix ~affix:"]" line)
           then state := InArray name (* Check for snapshot start *)

@@ -41,10 +41,14 @@ module Handler = struct
     | Neg_translate_y_1_2
     | (* 3D Transforms *)
       Translate_z of int
+    | Translate_z_px
+    | Neg_translate_z_px
+    | Translate_3d
     | Rotate_x of int
     | Rotate_y of int
     | Rotate_z of int
     | Scale_z of int
+    | Scale_3d
     | Perspective_none
     | Perspective_dramatic
     | Perspective_normal
@@ -452,12 +456,60 @@ module Handler = struct
   let rotate_z n = style [ Css.transform (Rotate_z (Deg (float_of_int n))) ]
 
   let translate_z n =
-    style [ Css.transform (Translate_z (Px (float_of_int n))) ]
+    let spacing_decl, spacing_ref =
+      Var.binding Theme.spacing_var (Css.Rem 0.25)
+    in
+    let spacing_value : Css.length =
+      Css.Calc
+        (Css.Calc.mul
+           (Css.Calc.length (Css.Var spacing_ref))
+           (Css.Calc.float (float_of_int n)))
+    in
+    let axis_decl, _ = Var.binding tw_translate_z_var spacing_value in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    let tz_ref = Var.reference tw_translate_z_var in
+    style ~property_rules:translate_props
+      (spacing_decl :: axis_decl
+      :: [ Css.translate (XYZ (Var tx_ref, Var ty_ref, Var tz_ref)) ])
+
+  let translate_z_px =
+    let axis_decl, _ = Var.binding tw_translate_z_var (Px 1.0) in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    let tz_ref = Var.reference tw_translate_z_var in
+    style ~property_rules:translate_props
+      (axis_decl :: [ Css.translate (XYZ (Var tx_ref, Var ty_ref, Var tz_ref)) ])
+
+  let neg_translate_z_px =
+    let axis_decl, _ = Var.binding tw_translate_z_var (Px (-1.0)) in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    let tz_ref = Var.reference tw_translate_z_var in
+    style ~property_rules:translate_props
+      (axis_decl :: [ Css.translate (XYZ (Var tx_ref, Var ty_ref, Var tz_ref)) ])
+
+  let translate_3d =
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    let tz_ref = Var.reference tw_translate_z_var in
+    style ~property_rules:translate_props
+      [ Css.translate (XYZ (Var tx_ref, Var ty_ref, Var tz_ref)) ]
 
   let scale_z n =
     let value : Css.number_percentage = Css.Pct (float_of_int n) in
     let d, _ = Var.binding tw_scale_z_var value in
     style (d :: [ Css.transform (Scale_z (float_of_int n /. 100.0)) ])
+
+  let scale_3d =
+    let props =
+      collect_property_rules [ tw_scale_x_var; tw_scale_y_var; tw_scale_z_var ]
+    in
+    let scale_x_ref = Var.reference tw_scale_x_var in
+    let scale_y_ref = Var.reference tw_scale_y_var in
+    let scale_z_ref = Var.reference tw_scale_z_var in
+    style ~property_rules:props
+      [ Css.scale (XYZ (Var scale_x_ref, Var scale_y_ref, Var scale_z_ref)) ]
 
   let perspective_none = style [ Css.perspective None ]
 
@@ -651,6 +703,9 @@ module Handler = struct
     | Neg_translate_y_full -> neg_translate_y_full
     | Neg_translate_y_1_2 -> neg_translate_y_1_2
     | Translate_z n -> translate_z n
+    | Translate_z_px -> translate_z_px
+    | Neg_translate_z_px -> neg_translate_z_px
+    | Translate_3d -> translate_3d
     | Scale n -> scale n
     | Scale_arbitrary f -> scale_arbitrary f
     | Scale_x n -> scale_x n
@@ -658,6 +713,7 @@ module Handler = struct
     | Scale_y n -> scale_y n
     | Scale_y_arbitrary f -> scale_y_arbitrary f
     | Scale_z n -> scale_z n
+    | Scale_3d -> scale_3d
     | Skew_x n -> skew_x n
     | Skew_x_arbitrary a -> skew_x_arbitrary a
     | Skew_y n -> skew_y n
@@ -723,6 +779,9 @@ module Handler = struct
     | Neg_translate_y_full -> 240
     | Neg_translate_y_1_2 -> 250
     | Translate_z n -> 300 + n
+    | Translate_z_px -> 310
+    | Neg_translate_z_px -> 311
+    | Translate_3d -> 320
     (* Scale utilities *)
     | Scale n -> 400 + n
     | Scale_arbitrary _ -> 499
@@ -731,6 +790,7 @@ module Handler = struct
     | Scale_y n -> 600 + n
     | Scale_y_arbitrary _ -> 699
     | Scale_z n -> 700 + n
+    | Scale_3d -> 750
     (* Rotate utilities *)
     | Rotate n -> 800 + n
     | Rotate_arbitrary _ -> 899
@@ -797,9 +857,11 @@ module Handler = struct
     | [ "translate"; "y"; "full" ] -> Ok Translate_y_full
     | [ "translate"; "y"; "px" ] -> Ok Translate_y_px
     | [ "translate"; "y"; n ] -> Parse.int_any n >|= fun n -> Translate_y n
+    | [ "translate"; "z"; "px" ] -> Ok Translate_z_px
     | [ "translate"; "z"; n ] -> Parse.int_any n >|= fun n -> Translate_z n
     | [ "translate"; "full" ] -> Ok Translate_full
     | [ "translate"; "1/2" ] -> Ok Translate_1_2
+    | [ "translate"; "3d" ] -> Ok Translate_3d
     | "translate" :: rest
       when match rest with
            | [] | [ "x"; _ ] | [ "y"; _ ] | [ "z"; _ ] | [ "full" ] | [ "1/2" ]
@@ -819,12 +881,14 @@ module Handler = struct
     | [ ""; "translate"; "y"; "full" ] -> Ok Neg_translate_y_full
     | [ ""; "translate"; "y"; n ] ->
         Parse.int_pos ~name:"translate-y" n >|= fun n -> Translate_y (-n)
+    | [ ""; "translate"; "z"; "px" ] -> Ok Neg_translate_z_px
     | [ ""; "translate"; "z"; n ] ->
         Parse.int_pos ~name:"translate-z" n >|= fun n -> Translate_z (-n)
     | [ "scale"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_number n with
         | Ok f -> Ok (Scale_arbitrary f)
         | Error _ -> err_not_utility)
+    | [ "scale"; "3d" ] -> Ok Scale_3d
     | [ "scale"; n ] -> Parse.int_pos ~name:"scale" n >|= fun n -> Scale n
     | [ "scale"; "x"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_number n with
@@ -932,6 +996,9 @@ module Handler = struct
     | Translate_y_px -> "translate-y-px"
     | Translate_y_arbitrary len -> "translate-y-" ^ pp_length_bracket len
     | Translate_z n -> neg_class "translate-z-" n
+    | Translate_z_px -> "translate-z-px"
+    | Neg_translate_z_px -> "-translate-z-px"
+    | Translate_3d -> "translate-3d"
     | Translate_full -> "translate-full"
     | Translate_1_2 -> "translate-1/2"
     | Translate_arbitrary len -> "translate-" ^ pp_length_bracket len
@@ -947,6 +1014,7 @@ module Handler = struct
     | Scale_y n -> "scale-y-" ^ string_of_int n
     | Scale_y_arbitrary f -> "scale-y-" ^ pp_number_bracket f
     | Scale_z n -> "scale-z-" ^ string_of_int n
+    | Scale_3d -> "scale-3d"
     | Skew_x n -> neg_class "skew-x-" n
     | Skew_x_arbitrary a -> "skew-x-" ^ pp_angle_bracket a
     | Skew_y n -> neg_class "skew-y-" n
