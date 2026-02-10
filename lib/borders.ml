@@ -158,6 +158,10 @@ module Handler = struct
     | Outline_offset_2
     | Outline_offset_4
     | Outline_offset_8
+    | Neg_outline_offset_1
+    | Neg_outline_offset_2
+    | Neg_outline_offset_4
+    | Neg_outline_offset_8
 
   type Utility.base += Self of t
 
@@ -810,6 +814,18 @@ module Handler = struct
   let outline_offset_4 = style [ Css.outline_offset (Px 4.) ]
   let outline_offset_8 = style [ Css.outline_offset (Px 8.) ]
 
+  (* Negative outline offset - use calc(Npx * -1) format *)
+  let neg_outline_offset n =
+    let calc : Css.length =
+      Calc (Expr (Val (Px (float_of_int n)), Mul, Num (-1.)))
+    in
+    style [ Css.outline_offset calc ]
+
+  let neg_outline_offset_1 = neg_outline_offset 1
+  let neg_outline_offset_2 = neg_outline_offset 2
+  let neg_outline_offset_4 = neg_outline_offset 4
+  let neg_outline_offset_8 = neg_outline_offset 8
+
   let to_style : t -> Style.t = function
     (* Border width utilities *)
     | Border -> border
@@ -949,6 +965,10 @@ module Handler = struct
     | Outline_offset_2 -> outline_offset_2
     | Outline_offset_4 -> outline_offset_4
     | Outline_offset_8 -> outline_offset_8
+    | Neg_outline_offset_1 -> neg_outline_offset_1
+    | Neg_outline_offset_2 -> neg_outline_offset_2
+    | Neg_outline_offset_4 -> neg_outline_offset_4
+    | Neg_outline_offset_8 -> neg_outline_offset_8
 
   let err_not_utility = Error (`Msg "Not a border utility")
 
@@ -1096,6 +1116,10 @@ module Handler = struct
     | Outline_offset_2 -> 2003
     | Outline_offset_4 -> 2004
     | Outline_offset_8 -> 2005
+    | Neg_outline_offset_1 -> 2006
+    | Neg_outline_offset_2 -> 2007
+    | Neg_outline_offset_4 -> 2008
+    | Neg_outline_offset_8 -> 2009
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
@@ -1234,6 +1258,11 @@ module Handler = struct
     | [ "outline"; "offset"; "2" ] -> Ok Outline_offset_2
     | [ "outline"; "offset"; "4" ] -> Ok Outline_offset_4
     | [ "outline"; "offset"; "8" ] -> Ok Outline_offset_8
+    (* Negative outline offset: -outline-offset-N starts with empty string *)
+    | [ ""; "outline"; "offset"; "1" ] -> Ok Neg_outline_offset_1
+    | [ ""; "outline"; "offset"; "2" ] -> Ok Neg_outline_offset_2
+    | [ ""; "outline"; "offset"; "4" ] -> Ok Neg_outline_offset_4
+    | [ ""; "outline"; "offset"; "8" ] -> Ok Neg_outline_offset_8
     (* ring* handled in Effects *)
     | _ -> err_not_utility
 
@@ -1372,6 +1401,10 @@ module Handler = struct
     | Outline_offset_2 -> "outline-offset-2"
     | Outline_offset_4 -> "outline-offset-4"
     | Outline_offset_8 -> "outline-offset-8"
+    | Neg_outline_offset_1 -> "-outline-offset-1"
+    | Neg_outline_offset_2 -> "-outline-offset-2"
+    | Neg_outline_offset_4 -> "-outline-offset-4"
+    | Neg_outline_offset_8 -> "-outline-offset-8"
 end
 
 open Handler
