@@ -1147,6 +1147,41 @@ let color_to_string (c : color) : string =
 
 (** Color parsing utilities *)
 
+(** Opacity modifier type *)
+type opacity_modifier =
+  | No_opacity
+  | Opacity_percent of float (* e.g., /50 means 50% *)
+  | Opacity_arbitrary of float (* e.g., /[0.5] means 0.5 *)
+
+(** Parse opacity modifier from a string that may contain /NN or /[N.N] *)
+let parse_opacity_modifier s =
+  match String.index_opt s '/' with
+  | None -> (s, No_opacity)
+  | Some idx -> (
+      let base = String.sub s 0 idx in
+      let opacity_str = String.sub s (idx + 1) (String.length s - idx - 1) in
+      if
+        String.length opacity_str > 2
+        && opacity_str.[0] = '['
+        && opacity_str.[String.length opacity_str - 1] = ']'
+      then
+        (* Arbitrary value like [0.5] or [50%] *)
+        let inner = String.sub opacity_str 1 (String.length opacity_str - 2) in
+        if String.ends_with ~suffix:"%" inner then
+          let num_str = String.sub inner 0 (String.length inner - 1) in
+          match float_of_string_opt num_str with
+          | Some f -> (base, Opacity_percent f)
+          | None -> (s, No_opacity)
+        else
+          match float_of_string_opt inner with
+          | Some f -> (base, Opacity_arbitrary f)
+          | None -> (s, No_opacity)
+      else
+        (* Numeric value like 50 or 2.5 *)
+        match float_of_string_opt opacity_str with
+        | Some f -> (base, Opacity_percent f)
+        | None -> (s, No_opacity))
+
 (* Parse color and shade from string list *)
 let shade_of_strings = function
   | [ color_str; shade_str ] -> (
@@ -1163,6 +1198,26 @@ let shade_of_strings = function
   | [] -> Error (`Msg "No color specified")
   | _ -> Error (`Msg "Too many color parts")
 
+(* Parse color, shade, and optional opacity modifier from string list. Handles
+   formats like ["red"; "500/50"] or ["red"; "500/[0.5]"] *)
+let shade_and_opacity_of_strings = function
+  | [ color_str; shade_opacity_str ] -> (
+      let shade_str, opacity = parse_opacity_modifier shade_opacity_str in
+      match of_string color_str with
+      | Ok color -> (
+          match int_of_string_opt shade_str with
+          | Some shade when shade >= 0 -> Ok (color, shade, opacity)
+          | _ -> Error (`Msg ("Invalid shade: " ^ shade_str)))
+      | Error _ -> Error (`Msg ("Invalid color: " ^ color_str)))
+  | [ color_str ] -> (
+      (* Could be "current/50" or just "black" *)
+      let base_str, opacity = parse_opacity_modifier color_str in
+      match of_string base_str with
+      | Ok color -> Ok (color, 500, opacity)
+      | Error _ -> Error (`Msg ("Invalid color: " ^ color_str)))
+  | [] -> Error (`Msg "No color specified")
+  | _ -> Error (`Msg "Too many color parts")
+
 (** {1 Parsing Functions} *)
 
 module Handler = struct
@@ -1170,24 +1225,34 @@ module Handler = struct
   type t =
     (* Background colors *)
     | Bg of color * int
+    | Bg_opacity of color * int * opacity_modifier
     | Bg_transparent
     | Bg_current
+    | Bg_current_opacity of opacity_modifier
     (* Text colors *)
     | Text of color * int
+    | Text_opacity of color * int * opacity_modifier
     | Text_transparent
     | Text_current
+    | Text_current_opacity of opacity_modifier
     | Text_inherit
     (* Border colors *)
     | Border of color * int
+    | Border_opacity of color * int * opacity_modifier
     | Border_transparent
     | Border_current
+    | Border_current_opacity of opacity_modifier
     (* Accent colors *)
     | Accent of color * int
+    | Accent_opacity of color * int * opacity_modifier
     | Accent_current
+    | Accent_current_opacity of opacity_modifier
     | Accent_inherit
     (* Caret colors *)
     | Caret of color * int
+    | Caret_opacity of color * int * opacity_modifier
     | Caret_current
+    | Caret_current_opacity of opacity_modifier
     | Caret_inherit
     | Caret_transparent
 
@@ -1200,37 +1265,89 @@ module Handler = struct
   let name = "color"
   let priority = 23
 
+  (* Helper to check if a string contains an opacity modifier *)
+  let has_opacity s = String.contains s '/'
+
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
     match parts with
     | [ "bg"; "transparent" ] -> Ok Bg_transparent
-    | [ "bg"; "current" ] -> Ok Bg_current
+    | [ "bg"; current_str ]
+      when String.starts_with ~prefix:"current" current_str -> (
+        let _, opacity = parse_opacity_modifier current_str in
+        match opacity with
+        | No_opacity -> Ok Bg_current
+        | _ -> Ok (Bg_current_opacity opacity))
+    | "bg" :: color_parts when List.exists has_opacity color_parts -> (
+        match shade_and_opacity_of_strings color_parts with
+        | Ok (color, shade, opacity) -> Ok (Bg_opacity (color, shade, opacity))
+        | Error e -> Error e)
     | "bg" :: color_parts -> (
         match shade_of_strings color_parts with
         | Ok (color, shade) -> Ok (Bg (color, shade))
         | Error e -> Error e)
     | [ "text"; "transparent" ] -> Ok Text_transparent
-    | [ "text"; "current" ] -> Ok Text_current
     | [ "text"; "inherit" ] -> Ok Text_inherit
+    | [ "text"; current_str ]
+      when String.starts_with ~prefix:"current" current_str -> (
+        let _, opacity = parse_opacity_modifier current_str in
+        match opacity with
+        | No_opacity -> Ok Text_current
+        | _ -> Ok (Text_current_opacity opacity))
+    | "text" :: color_parts when List.exists has_opacity color_parts -> (
+        match shade_and_opacity_of_strings color_parts with
+        | Ok (color, shade, opacity) ->
+            Ok (Text_opacity (color, shade, opacity))
+        | Error e -> Error e)
     | "text" :: color_parts -> (
         match shade_of_strings color_parts with
         | Ok (color, shade) -> Ok (Text (color, shade))
         | Error e -> Error e)
     | [ "border"; "transparent" ] -> Ok Border_transparent
-    | [ "border"; "current" ] -> Ok Border_current
+    | [ "border"; current_str ]
+      when String.starts_with ~prefix:"current" current_str -> (
+        let _, opacity = parse_opacity_modifier current_str in
+        match opacity with
+        | No_opacity -> Ok Border_current
+        | _ -> Ok (Border_current_opacity opacity))
+    | "border" :: color_parts when List.exists has_opacity color_parts -> (
+        match shade_and_opacity_of_strings color_parts with
+        | Ok (color, shade, opacity) ->
+            Ok (Border_opacity (color, shade, opacity))
+        | Error e -> Error e)
     | "border" :: color_parts -> (
         match shade_of_strings color_parts with
         | Ok (color, shade) -> Ok (Border (color, shade))
         | Error e -> Error e)
-    | [ "accent"; "current" ] -> Ok Accent_current
     | [ "accent"; "inherit" ] -> Ok Accent_inherit
+    | [ "accent"; current_str ]
+      when String.starts_with ~prefix:"current" current_str -> (
+        let _, opacity = parse_opacity_modifier current_str in
+        match opacity with
+        | No_opacity -> Ok Accent_current
+        | _ -> Ok (Accent_current_opacity opacity))
+    | "accent" :: color_parts when List.exists has_opacity color_parts -> (
+        match shade_and_opacity_of_strings color_parts with
+        | Ok (color, shade, opacity) ->
+            Ok (Accent_opacity (color, shade, opacity))
+        | Error e -> Error e)
     | "accent" :: color_parts -> (
         match shade_of_strings color_parts with
         | Ok (color, shade) -> Ok (Accent (color, shade))
         | Error e -> Error e)
-    | [ "caret"; "current" ] -> Ok Caret_current
     | [ "caret"; "inherit" ] -> Ok Caret_inherit
     | [ "caret"; "transparent" ] -> Ok Caret_transparent
+    | [ "caret"; current_str ]
+      when String.starts_with ~prefix:"current" current_str -> (
+        let _, opacity = parse_opacity_modifier current_str in
+        match opacity with
+        | No_opacity -> Ok Caret_current
+        | _ -> Ok (Caret_current_opacity opacity))
+    | "caret" :: color_parts when List.exists has_opacity color_parts -> (
+        match shade_and_opacity_of_strings color_parts with
+        | Ok (color, shade, opacity) ->
+            Ok (Caret_opacity (color, shade, opacity))
+        | Error e -> Error e)
     | "caret" :: color_parts -> (
         match shade_of_strings color_parts with
         | Ok (color, shade) -> Ok (Caret (color, shade))
@@ -1320,22 +1437,91 @@ module Handler = struct
   let caret_inherit = style [ Css.caret_color Inherit ]
   let caret_transparent = style [ Css.caret_color (Css.hex "#0000") ]
 
+  (** Convert opacity modifier to a percentage value (0-100) *)
+  let opacity_to_percent = function
+    | No_opacity -> 100.0
+    | Opacity_percent p -> p (* Already a percentage like 50 *)
+    | Opacity_arbitrary f -> f *. 100.0 (* e.g., 0.5 -> 50 *)
+
+  (** Generate color with opacity using color-mix. For now, generates fallback
+      using srgb color-mix. TODO: Add supports block for progressive enhancement
+      with oklab. *)
+  let color_with_opacity_style ~property c shade opacity =
+    let percent = opacity_to_percent opacity in
+    let oklch = to_oklch c shade in
+    (* Fallback: color-mix(in srgb, oklch(...) NN%, transparent) *)
+    let fallback_color =
+      Css.color_mix ~in_space:Srgb
+        (Css.oklch oklch.l oklch.c oklch.h)
+        Css.Transparent ~percent1:(int_of_float percent)
+    in
+    style [ property fallback_color ]
+
+  (** Background color with opacity *)
+  let bg_with_opacity c shade opacity =
+    color_with_opacity_style ~property:Css.background_color c shade opacity
+
+  (** Text color with opacity *)
+  let text_with_opacity c shade opacity =
+    color_with_opacity_style ~property:Css.color c shade opacity
+
+  (** Border color with opacity *)
+  let border_with_opacity c shade opacity =
+    color_with_opacity_style ~property:Css.border_color c shade opacity
+
+  (** Accent color with opacity *)
+  let accent_with_opacity c shade opacity =
+    color_with_opacity_style ~property:Css.accent_color c shade opacity
+
+  (** Caret color with opacity *)
+  let caret_with_opacity c shade opacity =
+    color_with_opacity_style ~property:Css.caret_color c shade opacity
+
+  (** Current color with opacity *)
+  let current_color_with_opacity ~property opacity =
+    let percent = opacity_to_percent opacity in
+    (* color-mix(in srgb, currentcolor NN%, transparent) *)
+    let mixed_color =
+      Css.color_mix ~in_space:Srgb Css.Current Css.Transparent
+        ~percent1:(int_of_float percent)
+    in
+    style [ property mixed_color ]
+
   let to_style = function
     | Bg (color, shade) -> bg' color shade
+    | Bg_opacity (color, shade, opacity) -> bg_with_opacity color shade opacity
     | Bg_transparent -> bg_transparent
     | Bg_current -> bg_current
+    | Bg_current_opacity opacity ->
+        current_color_with_opacity ~property:Css.background_color opacity
     | Text (color, shade) -> text' color shade
+    | Text_opacity (color, shade, opacity) ->
+        text_with_opacity color shade opacity
     | Text_transparent -> text_transparent
     | Text_current -> text_current
+    | Text_current_opacity opacity ->
+        current_color_with_opacity ~property:Css.color opacity
     | Text_inherit -> text_inherit
     | Border (color, shade) -> border_color' color shade
+    | Border_opacity (color, shade, opacity) ->
+        border_with_opacity color shade opacity
     | Border_transparent -> border_transparent
     | Border_current -> border_current
+    | Border_current_opacity opacity ->
+        current_color_with_opacity ~property:Css.border_color opacity
     | Accent (color, shade) -> accent' color shade
+    | Accent_opacity (color, shade, opacity) ->
+        accent_with_opacity color shade opacity
     | Accent_current -> accent_current
+    | Accent_current_opacity opacity ->
+        current_color_with_opacity ~property:Css.accent_color opacity
     | Accent_inherit -> accent_inherit
     | Caret (color, shade) -> caret' color shade
+    | Caret_opacity (color, shade, opacity) ->
+        caret_with_opacity color shade opacity
     | Caret_current -> caret_current
+    | Caret_current_opacity opacity ->
+        current_color_with_opacity ~property:Css.caret_color opacity
     | Caret_inherit -> caret_inherit
     | Caret_transparent -> caret_transparent
 
@@ -1349,23 +1535,35 @@ module Handler = struct
            alphabetical sorting, matching Tailwind v4 behavior. *)
         let _ = (color, shade) in
         10000
+    | Bg_opacity (color, shade, _) ->
+        let _ = (color, shade) in
+        10000
     | Bg_transparent -> 10000
     | Bg_current -> 10000
+    | Bg_current_opacity _ -> 10000
     | Text (color, shade) ->
         (* All text colors use the same suborder (20000) to allow alphabetical
            sorting, matching Tailwind v4 behavior. *)
         let _ = (color, shade) in
         20000
+    | Text_opacity (color, shade, _) ->
+        let _ = (color, shade) in
+        20000
     | Text_transparent -> 20000
     | Text_current -> 20000
+    | Text_current_opacity _ -> 20000
     | Text_inherit -> 20000
     | Border (color, shade) ->
         (* All border colors use the same suborder (0) to allow alphabetical
            sorting, matching Tailwind v4 behavior. *)
         let _ = (color, shade) in
         0
+    | Border_opacity (color, shade, _) ->
+        let _ = (color, shade) in
+        0
     | Border_transparent -> 0
     | Border_current -> 0
+    | Border_current_opacity _ -> 0
     | Accent (color, shade) ->
         let base =
           if is_base_color color then
@@ -1379,7 +1577,17 @@ module Handler = struct
            50000 base to ensure accent always comes after text regardless of
            color. *)
         50000 + base
+    | Accent_opacity (color, shade, _) ->
+        let base =
+          if is_base_color color then
+            suborder_with_shade (color_to_string color)
+          else
+            suborder_with_shade
+              (color_to_string color ^ "-" ^ string_of_int shade)
+        in
+        50000 + base
     | Accent_current -> 50000
+    | Accent_current_opacity _ -> 50000
     | Accent_inherit -> 50000
     (* Caret comes after accent. Alphabetical: current, inherit, [colors],
        transparent We use: - current: 60000 (c comes before colors, except
@@ -1397,42 +1605,97 @@ module Handler = struct
               (color_to_string color ^ "-" ^ string_of_int shade)
         in
         60000 + base
+    | Caret_opacity (color, shade, _) ->
+        let base =
+          if is_base_color color then
+            suborder_with_shade (color_to_string color)
+          else
+            suborder_with_shade
+              (color_to_string color ^ "-" ^ string_of_int shade)
+        in
+        60000 + base
     | Caret_current ->
         60000 + (4 * 1000) (* c -> between cyan(4) and emerald(5) *)
+    | Caret_current_opacity _ -> 60000 + (4 * 1000)
     | Caret_inherit ->
         60000 + (9 * 1000) (* i -> between indigo(9) and lime(10) *)
     | Caret_transparent -> 60000 + (25 * 1000)
   (* t -> after all colors (max=24) *)
 
+  (* Format opacity modifier for class names *)
+  let opacity_suffix = function
+    | No_opacity -> ""
+    | Opacity_percent p ->
+        if Float.is_integer p then Printf.sprintf "/%d" (int_of_float p)
+        else Printf.sprintf "/%g" p
+    | Opacity_arbitrary f -> Printf.sprintf "/[%g]" f
+
   let to_class = function
     | Bg (c, shade) ->
         if is_base_color c || is_custom_color c then "bg-" ^ color_to_string c
         else "bg-" ^ color_to_string c ^ "-" ^ string_of_int shade
+    | Bg_opacity (c, shade, opacity) ->
+        if is_base_color c || is_custom_color c then
+          "bg-" ^ color_to_string c ^ opacity_suffix opacity
+        else
+          "bg-" ^ color_to_string c ^ "-" ^ string_of_int shade
+          ^ opacity_suffix opacity
     | Bg_transparent -> "bg-transparent"
     | Bg_current -> "bg-current"
+    | Bg_current_opacity opacity -> "bg-current" ^ opacity_suffix opacity
     | Text (c, shade) ->
         if is_base_color c || is_custom_color c then "text-" ^ color_to_string c
         else "text-" ^ color_to_string c ^ "-" ^ string_of_int shade
+    | Text_opacity (c, shade, opacity) ->
+        if is_base_color c || is_custom_color c then
+          "text-" ^ color_to_string c ^ opacity_suffix opacity
+        else
+          "text-" ^ color_to_string c ^ "-" ^ string_of_int shade
+          ^ opacity_suffix opacity
     | Text_transparent -> "text-transparent"
     | Text_current -> "text-current"
+    | Text_current_opacity opacity -> "text-current" ^ opacity_suffix opacity
     | Text_inherit -> "text-inherit"
     | Border (c, shade) ->
         if is_base_color c || is_custom_color c then
           "border-" ^ color_to_string c
         else "border-" ^ color_to_string c ^ "-" ^ string_of_int shade
+    | Border_opacity (c, shade, opacity) ->
+        if is_base_color c || is_custom_color c then
+          "border-" ^ color_to_string c ^ opacity_suffix opacity
+        else
+          "border-" ^ color_to_string c ^ "-" ^ string_of_int shade
+          ^ opacity_suffix opacity
     | Border_transparent -> "border-transparent"
     | Border_current -> "border-current"
+    | Border_current_opacity opacity ->
+        "border-current" ^ opacity_suffix opacity
     | Accent (c, shade) ->
         if is_base_color c || is_custom_color c then
           "accent-" ^ color_to_string c
         else "accent-" ^ color_to_string c ^ "-" ^ string_of_int shade
+    | Accent_opacity (c, shade, opacity) ->
+        if is_base_color c || is_custom_color c then
+          "accent-" ^ color_to_string c ^ opacity_suffix opacity
+        else
+          "accent-" ^ color_to_string c ^ "-" ^ string_of_int shade
+          ^ opacity_suffix opacity
     | Accent_current -> "accent-current"
+    | Accent_current_opacity opacity ->
+        "accent-current" ^ opacity_suffix opacity
     | Accent_inherit -> "accent-inherit"
     | Caret (c, shade) ->
         if is_base_color c || is_custom_color c then
           "caret-" ^ color_to_string c
         else "caret-" ^ color_to_string c ^ "-" ^ string_of_int shade
+    | Caret_opacity (c, shade, opacity) ->
+        if is_base_color c || is_custom_color c then
+          "caret-" ^ color_to_string c ^ opacity_suffix opacity
+        else
+          "caret-" ^ color_to_string c ^ "-" ^ string_of_int shade
+          ^ opacity_suffix opacity
     | Caret_current -> "caret-current"
+    | Caret_current_opacity opacity -> "caret-current" ^ opacity_suffix opacity
     | Caret_inherit -> "caret-inherit"
     | Caret_transparent -> "caret-transparent"
 end
