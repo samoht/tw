@@ -153,6 +153,11 @@ module Handler = struct
     | Rounded_bl_full
     | (* Outline utilities *)
       Outline_none
+    | Outline_solid
+    | Outline_dashed
+    | Outline_dotted
+    | Outline_double
+    | Outline_hidden
     | Outline_offset_0
     | Outline_offset_1
     | Outline_offset_2
@@ -807,6 +812,26 @@ module Handler = struct
     let decl, _ = Var.binding outline_style_var Css.None in
     style [ decl; Css.outline_style Css.None ]
 
+  let outline_solid =
+    let decl, _ = Var.binding outline_style_var Css.Solid in
+    style [ decl; Css.outline_style Css.Solid ]
+
+  let outline_dashed =
+    let decl, _ = Var.binding outline_style_var Css.Dashed in
+    style [ decl; Css.outline_style Css.Dashed ]
+
+  let outline_dotted =
+    let decl, _ = Var.binding outline_style_var Css.Dotted in
+    style [ decl; Css.outline_style Css.Dotted ]
+
+  let outline_double =
+    let decl, _ = Var.binding outline_style_var Css.Double in
+    style [ decl; Css.outline_style Css.Double ]
+
+  let outline_hidden =
+    let decl, _ = Var.binding outline_style_var Css.None in
+    style [ decl; Css.outline_style Css.None ]
+
   (* Outline offset *)
   let outline_offset_0 = style [ Css.outline_offset (Px 0.) ]
   let outline_offset_1 = style [ Css.outline_offset (Px 1.) ]
@@ -960,6 +985,11 @@ module Handler = struct
     | Rounded_bl_full -> rounded_bl_full
     (* Outline utilities *)
     | Outline_none -> outline_none
+    | Outline_solid -> outline_solid
+    | Outline_dashed -> outline_dashed
+    | Outline_dotted -> outline_dotted
+    | Outline_double -> outline_double
+    | Outline_hidden -> outline_hidden
     | Outline_offset_0 -> outline_offset_0
     | Outline_offset_1 -> outline_offset_1
     | Outline_offset_2 -> outline_offset_2
@@ -1111,15 +1141,20 @@ module Handler = struct
     | Border_current -> 1500
     (* Outline utilities (2000-2099) *)
     | Outline_none -> 2000
-    | Outline_offset_0 -> 2001
-    | Outline_offset_1 -> 2002
-    | Outline_offset_2 -> 2003
-    | Outline_offset_4 -> 2004
-    | Outline_offset_8 -> 2005
-    | Neg_outline_offset_1 -> 2006
-    | Neg_outline_offset_2 -> 2007
-    | Neg_outline_offset_4 -> 2008
-    | Neg_outline_offset_8 -> 2009
+    | Outline_solid -> 2001
+    | Outline_dashed -> 2002
+    | Outline_dotted -> 2003
+    | Outline_double -> 2004
+    | Outline_hidden -> 2005
+    | Outline_offset_0 -> 2010
+    | Outline_offset_1 -> 2011
+    | Outline_offset_2 -> 2012
+    | Outline_offset_4 -> 2013
+    | Outline_offset_8 -> 2014
+    | Neg_outline_offset_1 -> 2015
+    | Neg_outline_offset_2 -> 2016
+    | Neg_outline_offset_4 -> 2017
+    | Neg_outline_offset_8 -> 2018
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
@@ -1253,6 +1288,11 @@ module Handler = struct
     | [ "rounded"; "bl"; "3xl" ] -> Ok Rounded_bl_3xl
     | [ "rounded"; "bl"; "full" ] -> Ok Rounded_bl_full
     | [ "outline"; "none" ] -> Ok Outline_none
+    | [ "outline"; "solid" ] -> Ok Outline_solid
+    | [ "outline"; "dashed" ] -> Ok Outline_dashed
+    | [ "outline"; "dotted" ] -> Ok Outline_dotted
+    | [ "outline"; "double" ] -> Ok Outline_double
+    | [ "outline"; "hidden" ] -> Ok Outline_hidden
     | [ "outline"; "offset"; "0" ] -> Ok Outline_offset_0
     | [ "outline"; "offset"; "1" ] -> Ok Outline_offset_1
     | [ "outline"; "offset"; "2" ] -> Ok Outline_offset_2
@@ -1396,6 +1436,11 @@ module Handler = struct
     | Rounded_bl_3xl -> "rounded-bl-3xl"
     | Rounded_bl_full -> "rounded-bl-full"
     | Outline_none -> "outline-none"
+    | Outline_solid -> "outline-solid"
+    | Outline_dashed -> "outline-dashed"
+    | Outline_dotted -> "outline-dotted"
+    | Outline_double -> "outline-double"
+    | Outline_hidden -> "outline-hidden"
     | Outline_offset_0 -> "outline-offset-0"
     | Outline_offset_1 -> "outline-offset-1"
     | Outline_offset_2 -> "outline-offset-2"
