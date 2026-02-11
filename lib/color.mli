@@ -464,9 +464,27 @@ val caret_inherit : t
 val caret_transparent : t
 (** [caret_transparent] sets caret color to transparent. *)
 
+(** {1 Opacity Modifiers} *)
+
+type opacity_modifier =
+  | No_opacity
+  | Opacity_percent of float  (** e.g., /50 means 50% *)
+  | Opacity_arbitrary of float  (** e.g., /[0.5] means 0.5 *)
+
+val parse_opacity_modifier : string -> string * opacity_modifier
+(** [parse_opacity_modifier s] parses an opacity modifier from a string. Returns
+    the base string and the opacity modifier. Example: "500/50" -> ("500",
+    Opacity_percent 50.0) *)
+
 val shade_of_strings : string list -> (color * int, [ `Msg of string ]) result
 (** [shade_of_strings parts] parses a color and shade from a list of strings.
     Example: ["blue"; "500"] -> Ok (Blue, 500). *)
+
+val shade_and_opacity_of_strings :
+  string list -> (color * int * opacity_modifier, [ `Msg of string ]) result
+(** [shade_and_opacity_of_strings parts] parses a color, shade, and optional
+    opacity modifier from a list of strings. Example: ["blue"; "500/50"] -> Ok
+    (Blue, 500, Opacity_percent 50.0) *)
 
 val theme_order : string -> int * int
 (** [theme_order c] returns the theme layer order for a color variable. *)
