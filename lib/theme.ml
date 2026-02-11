@@ -27,16 +27,28 @@ let spacing_base : Css.length = Rem 0.25
 let spacing_n_var n =
   Var.theme Css.Length (Printf.sprintf "spacing-%d" n) ~order:(3, n)
 
-(* Create a spacing length value. When scheme has explicit spacing for n,
-   returns var(--spacing-n). Otherwise returns calc(var(--spacing) * n). Returns
-   the theme declaration and the length. *)
+(* Create a spacing length value. When scheme has explicit spacing for |n|,
+   returns var(--spacing-|n|) or calc(var(--spacing-|n|) * -1) for negatives.
+   Otherwise returns calc(var(--spacing) * n). Returns the theme declaration and
+   the length. *)
 let spacing_calc n : Css.declaration * Css.length =
-  match Scheme.find_spacing !current_scheme n with
+  let abs_n = abs n in
+  let is_negative = n < 0 in
+  match Scheme.find_spacing !current_scheme abs_n with
   | Some explicit_length ->
-      (* Scheme has explicit spacing: use var(--spacing-n) *)
-      let spacing_n = spacing_n_var n in
+      (* Scheme has explicit spacing: use var(--spacing-|n|) *)
+      let spacing_n = spacing_n_var abs_n in
       let decl, spacing_ref = Var.binding spacing_n explicit_length in
-      (decl, Css.Var spacing_ref)
+      if is_negative then
+        (* Negative: wrap in calc(... * -1) *)
+        let neg_len : Css.length =
+          Css.Calc
+            (Css.Calc.mul
+               (Css.Calc.length (Css.Var spacing_ref))
+               (Css.Calc.float (-1.0)))
+        in
+        (decl, neg_len)
+      else (decl, (Css.Var spacing_ref : Css.length))
   | None ->
       (* Default: use calc(var(--spacing) * n) *)
       let decl, spacing_ref = Var.binding spacing_var spacing_base in

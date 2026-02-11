@@ -89,10 +89,10 @@ module Registry = struct
          ^ "', cannot assign to '" ^ name ^ "'")
     | _ -> ());
 
-    (* Check for name conflicts - fail if name already exists regardless of
-       order *)
+    (* Check for name conflicts - fail if name already exists with different
+       order, allow re-registration with same order (idempotent) *)
     (match Hashtbl.find_opt name_registry name with
-    | Some existing_order ->
+    | Some existing_order when existing_order <> order ->
         let order_str =
           match existing_order with
           | p, s -> "(" ^ string_of_int p ^ ", " ^ string_of_int s ^ ")"
@@ -100,8 +100,8 @@ module Registry = struct
         failwith
           ("Variable name conflict: variable '" ^ name
          ^ "' is already registered with order " ^ order_str
-         ^ ", cannot create duplicate")
-    | None -> ());
+         ^ ", cannot create duplicate with different order")
+    | _ -> ());
 
     (* Register the variable *)
     Hashtbl.replace order_registry order name;

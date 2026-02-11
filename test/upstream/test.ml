@@ -37,6 +37,82 @@ let selector_matches_input_class classes selector =
 let is_theme_selector selector =
   selector = ":root, :host" || selector = ":root" || selector = ":host"
 
+(** Extract selector strings from a CSS statement list *)
+let extract_selectors_from_rules rules =
+  List.filter_map
+    (fun stmt ->
+      match Css.as_rule stmt with
+      | Some (sel, _, _) -> Some (Css.Selector.to_string sel)
+      | None -> None)
+    rules
+
+(** Filter blocks to only include those with selectors matching input classes *)
+let filter_blocks_by_class classes blocks =
+  List.filter_map
+    (fun (pos, rules) ->
+      let selectors = extract_selectors_from_rules rules in
+      let matching =
+        List.filter (selector_matches_input_class classes) selectors
+      in
+      if matching <> [] then Some (pos, rules) else None)
+    blocks
+
+(** Extract and sort selectors from blocks (ignoring position) *)
+let selectors_from_blocks classes blocks =
+  blocks
+  |> List.concat_map (fun (_, rules) -> extract_selectors_from_rules rules)
+  |> List.filter (selector_matches_input_class classes)
+  |> List.sort String.compare
+
+(** Filter container diffs to only include relevant changes *)
+let rec filter_container_diff classes = function
+  | Tw_tools.Tree_diff.Container_block_structure_changed
+      { container_type; condition; expected_blocks; actual_blocks } ->
+      (* Filter both expected and actual blocks by input class *)
+      let filtered_expected = filter_blocks_by_class classes expected_blocks in
+      let filtered_actual = filter_blocks_by_class classes actual_blocks in
+      (* Compare selectors only (ignore position differences) *)
+      let expected_selectors = selectors_from_blocks classes expected_blocks in
+      let actual_selectors = selectors_from_blocks classes actual_blocks in
+      (* Only keep if the selectors differ (not just positions) *)
+      if expected_selectors <> actual_selectors then
+        Some
+          (Tw_tools.Tree_diff.Container_block_structure_changed
+             {
+               container_type;
+               condition;
+               expected_blocks = filtered_expected;
+               actual_blocks = filtered_actual;
+             })
+      else None
+  | Tw_tools.Tree_diff.Container_modified
+      { info; actual_rules; rule_changes; container_changes } ->
+      (* Recursively filter nested container changes *)
+      let filtered_containers =
+        List.filter_map (filter_container_diff classes) container_changes
+      in
+      (* Filter rule changes within the container *)
+      let filtered_rules =
+        List.filter
+          (function
+            | Tw_tools.Tree_diff.Rule_removed { selector; _ } ->
+                selector_matches_input_class classes selector
+            | Tw_tools.Tree_diff.Rule_reordered _ -> false
+            | _ -> true)
+          rule_changes
+      in
+      if filtered_rules <> [] || filtered_containers <> [] then
+        Some
+          (Tw_tools.Tree_diff.Container_modified
+             {
+               info;
+               actual_rules;
+               rule_changes = filtered_rules;
+               container_changes = filtered_containers;
+             })
+      else None
+  | other -> Some other
+
 (** Filter rule diffs to only include those that match input classes.
     Specifically, we ignore Rule_removed diffs for selectors that don't match
     any input class (since those are in expected CSS but not relevant). We also
@@ -59,7 +135,10 @@ let filter_irrelevant_diffs classes (diff : Tw_tools.Tree_diff.t) :
   let rules =
     List.filter (fun r -> Option.is_some (filter_rule r)) diff.rules
   in
-  { diff with rules }
+  let containers =
+    List.filter_map (filter_container_diff classes) diff.containers
+  in
+  { rules; containers }
 
 let read_test_cases filename =
   if not (Sys.file_exists filename) then []
