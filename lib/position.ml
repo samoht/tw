@@ -59,24 +59,9 @@ let named_inset_value name : Css.declaration * Css.length =
   let decl, ref = Var.binding var concrete_value in
   (decl, Css.Var ref)
 
-(* Create a spacing value using the named spacing variable --spacing-N. Returns
-   the theme declaration and a length that references the variable. For negative
-   values, uses calc(var(--spacing-N) * -1) where N is absolute. *)
-let spacing_value n : Css.declaration * Css.length =
-  let abs_n = abs n in
-  let spacing_var = Theme.get_spacing_var abs_n in
-  let concrete_value = Theme.spacing_value abs_n in
-  let decl, spacing_ref = Var.binding spacing_var concrete_value in
-  let len : Css.length =
-    if n < 0 then
-      (* For negative: calc(var(--spacing-N) * -1) *)
-      Css.Calc
-        (Css.Calc.mul
-           (Css.Calc.length (Css.Var spacing_ref))
-           (Css.Calc.float (-1.)))
-    else Css.Var spacing_ref
-  in
-  (decl, len)
+(* Create a spacing value using calc(var(--spacing) * n). Returns the theme
+   declaration and a length that references the variable. *)
+let spacing_value n : Css.declaration * Css.length = Theme.spacing_calc n
 
 module Handler = struct
   open Style
