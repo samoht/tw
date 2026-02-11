@@ -122,6 +122,7 @@ module Color = Color
 module Modifiers = Modifiers
 module Var = Var
 module Theme = Theme
+module Scheme = Scheme
 module Utility = Utility
 module Columns = Columns
 

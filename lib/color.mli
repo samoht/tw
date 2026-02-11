@@ -502,4 +502,11 @@ val suborder_with_shade : string -> int
     utility with shade (e.g., "blue-500" returns 500 + color order offset). Used
     for sorting color utilities within their priority group. *)
 
-module Handler : Utility.Handler
+module Handler : sig
+  include Utility.Handler
+
+  val set_scheme : Scheme.t -> unit
+  (** Set the current scheme for color generation. When a color is defined as
+      hex in the scheme, opacity modifiers will use hex+alpha fallback instead
+      of color-mix. *)
+end

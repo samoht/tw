@@ -3752,5 +3752,6 @@ module Svg = Svg
 module Accessibility = Accessibility
 module Rules = Rules
 module Theme = Theme
+module Scheme = Scheme
 module Utility = Utility
 module Spacing = Spacing

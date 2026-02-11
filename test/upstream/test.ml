@@ -129,9 +129,24 @@ let read_test_cases filename =
     parse lines;
     List.rev !tests
 
+(** Create scheme matching Tailwind test @theme.
+    Tailwind tests use hex colors and explicit spacing variables. *)
+let test_scheme : Tw.Scheme.t =
+  {
+    colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ];
+    spacing = [ (4, Css.Rem 1.0) ];
+  }
+
+(** Set up the test scheme for color and spacing generation *)
+let setup_test_scheme () =
+  Tw.Color.Handler.set_scheme test_scheme;
+  Tw.Theme.set_scheme test_scheme
+
 let run_test_case test () =
   if test.classes = [] then ()
-  else
+  else (
+    (* Set up the test scheme before generating CSS *)
+    setup_test_scheme ();
     (* Parse classes and generate our CSS *)
     let utilities =
       List.filter_map
@@ -180,7 +195,7 @@ let run_test_case test () =
       | Tw_tools.Css_compare.Both_errors (e1, e2) ->
           Alcotest.fail
             (Fmt.str "Parse errors:\nExpected: %s\nOurs: %s"
-               (Css.pp_parse_error e1) (Css.pp_parse_error e2))
+               (Css.pp_parse_error e1) (Css.pp_parse_error e2)))
 
 let () =
   let test_files = [ "utilities.txt"; "test/upstream/utilities.txt" ] in

@@ -39,12 +39,19 @@ type output =
       props : Css.declaration list;
       base_class : string option;
     }
+  | Supports_query of {
+      condition : Css.Supports.t;
+      selector : Css.Selector.t;
+      props : Css.declaration list;
+      base_class : string option;
+    }
 
 type by_type = {
   regular : output list;
   media : output list;
   container : output list;
   starting : output list;
+  supports : output list;
 }
 
 (* Indexed rule for sorting with typed fields *)
@@ -54,7 +61,8 @@ type indexed_rule = {
     [ `Regular
     | `Media of Css.Media.t
     | `Container of Css.Container.t
-    | `Starting ];
+    | `Starting
+    | `Supports of Css.Supports.t ];
   selector : Css.Selector.t;
   props : Css.declaration list;
   order : int * int;
@@ -114,6 +122,9 @@ let container_query ~condition ~selector ~props ?base_class () =
 
 let starting_style ~selector ~props ?base_class () =
   Starting_style { selector; props; base_class }
+
+let supports_query ~condition ~selector ~props ?base_class () =
+  Supports_query { condition; selector; props; base_class }
 
 (* ======================================================================== *)
 (* Basic Utilities *)
@@ -592,7 +603,8 @@ let outputs util =
             if props = [] then []
             else [ regular ~selector:sel ~props ~base_class:class_name () ]
         | Some rule_list ->
-            (* Extract nested at-rules (CSS nesting) for the base rule *)
+            (* Extract nested at-rules (CSS nesting) for the base rule. Both
+               @media and @supports blocks are kept nested inside the rule. *)
             let nested_atrules =
               rule_list
               |> List.filter (fun s ->
@@ -642,10 +654,38 @@ let outputs util =
                                              ~base_class:class_name ())
                                     | None -> None)
                                 |> fun l -> Some l
-                            | None -> None)))
+                            | None -> (
+                                (* Handle @supports with rules inside (top-level
+                                   style). Note: is_nested_supports only matches
+                                   @supports with bare declarations, so these
+                                   won't be filtered above. *)
+                                match Css.as_supports stmt with
+                                | Some (condition, statements) ->
+                                    statements
+                                    |> List.filter_map (fun inner ->
+                                        match Css.as_rule inner with
+                                        | Some (selector, declarations, _) ->
+                                            (* Replace placeholder selector "_"
+                                               with the actual utility class
+                                               selector *)
+                                            let actual_selector =
+                                              if
+                                                Css.Selector.to_string selector
+                                                = "._"
+                                              then sel
+                                              else selector
+                                            in
+                                            Some
+                                              (supports_query ~condition
+                                                 ~selector:actual_selector
+                                                 ~props:declarations
+                                                 ~base_class:class_name ())
+                                        | None -> None)
+                                    |> fun l -> Some l
+                                | None -> None))))
               |> List.concat
             in
-            (* Base rule with nested media (only if it has props or nested) *)
+            (* Base rule with nested atrules (only if it has props or nested) *)
             let base_rule =
               if props = [] && nested_atrules = [] then []
               else
@@ -735,15 +775,20 @@ let selector_props_pairs rules =
 (* ======================================================================== *)
 
 let classify_by_type all_rules =
-  let regular_rules, media_rules, container_rules, starting_rules =
+  let ( regular_rules,
+        media_rules,
+        container_rules,
+        starting_rules,
+        supports_rules ) =
     List.fold_left
-      (fun (reg, media, cont, start) rule ->
+      (fun (reg, media, cont, start, sup) rule ->
         match rule with
-        | Regular _ -> (rule :: reg, media, cont, start)
-        | Media_query _ -> (reg, rule :: media, cont, start)
-        | Container_query _ -> (reg, media, rule :: cont, start)
-        | Starting_style _ -> (reg, media, cont, rule :: start))
-      ([], [], [], []) all_rules
+        | Regular _ -> (rule :: reg, media, cont, start, sup)
+        | Media_query _ -> (reg, rule :: media, cont, start, sup)
+        | Container_query _ -> (reg, media, rule :: cont, start, sup)
+        | Starting_style _ -> (reg, media, cont, rule :: start, sup)
+        | Supports_query _ -> (reg, media, cont, start, rule :: sup))
+      ([], [], [], [], []) all_rules
   in
   (* Reverse to maintain original order since we prepended *)
   {
@@ -751,6 +796,7 @@ let classify_by_type all_rules =
     media = List.rev media_rules;
     container = List.rev container_rules;
     starting = List.rev starting_rules;
+    supports = List.rev supports_rules;
   }
 
 let is_hover_rule = function
@@ -910,6 +956,7 @@ let of_grouped ?(filter_custom_props = false) grouped_list =
 let rule_type_order = function
   | `Regular -> 0
   | `Media _ -> 0 (* Same as Regular to keep grouped *)
+  | `Supports _ -> 0 (* Same as Regular to keep grouped with base rule *)
   | `Container _ -> 1
   | `Starting -> 2
 
@@ -1194,12 +1241,8 @@ let compare_different_utility_regular_media sel1 sel2 order1 order2 media_type =
       match media_type with
       | Some Css.Media.Hover ->
           (* For modifier-based hover media (hover:, group-hover:), Regular
-             utilities come first, then @media (hover:hover) media queries. *)
-          let prio_cmp = Int.compare p1 p2 in
-          if prio_cmp <> 0 then prio_cmp
-          else
-            (* Same priority - Regular comes first *)
-            -1
+             utilities always come first, regardless of priority. *)
+          -1
       | Some (Css.Media.Min_width _) ->
           (* For responsive media (md:, lg:), Regular always comes before Media
              when comparing different utilities *)
@@ -1435,12 +1478,14 @@ let compare_indexed_rules r1 r2 =
       | `Regular -> "R"
       | `Media _ -> "M"
       | `Container _ -> "C"
-      | `Starting -> "S")
+      | `Starting -> "S"
+      | `Supports _ -> "U")
       (match r2.rule_type with
       | `Regular -> "R"
       | `Media _ -> "M"
       | `Container _ -> "C"
-      | `Starting -> "S");
+      | `Starting -> "S"
+      | `Supports _ -> "U");
   (* First compare by rule type group *)
   let type_cmp =
     Int.compare (rule_type_order r1.rule_type) (rule_type_order r2.rule_type)
@@ -1457,6 +1502,10 @@ let compare_indexed_rules r1 r2 =
     | `Media _, `Regular -> -compare_regular_vs_media r2 r1
     | `Starting, `Starting -> compare_starting_rules r1 r2
     | `Container _, `Container _ -> Int.compare r1.index r2.index
+    (* Supports rules should come after their base rule *)
+    | `Regular, `Supports _ -> -1
+    | `Supports _, `Regular -> 1
+    | `Supports _, `Supports _ -> Int.compare r1.index r2.index
     | _, _ -> Int.compare r1.index r2.index
 
 (* Filter properties to only include utilities layer declarations *)
@@ -1523,6 +1572,8 @@ let indexed_rule_to_statement r =
       else Css.media ~condition [ Css.rule ~selector:r.selector filtered_props ]
   | `Container condition ->
       Css.container ~condition [ Css.rule ~selector:r.selector filtered_props ]
+  | `Supports condition ->
+      Css.supports ~condition [ Css.rule ~selector:r.selector filtered_props ]
 
 (* Deduplicate typed triples while preserving first occurrence order *)
 let deduplicate_typed_triples triples =
@@ -1603,6 +1654,14 @@ let rule_to_triple = function
   | Starting_style { selector; props; base_class } ->
       Some
         ( `Starting,
+          selector,
+          props,
+          order_of_base base_class selector,
+          [],
+          base_class )
+  | Supports_query { condition; selector; props; base_class } ->
+      Some
+        ( `Supports condition,
           selector,
           props,
           order_of_base base_class selector,
@@ -1757,7 +1816,8 @@ let extract_non_tw_custom_declarations selector_props =
         extract_theme_from_statements theme_vars insertion_order nested
     | Media_query { props; _ }
     | Container_query { props; _ }
-    | Starting_style { props; _ } ->
+    | Starting_style { props; _ }
+    | Supports_query { props; _ } ->
         Css.custom_declarations ~layer:"theme" props
         |> List.iter (fun decl ->
             match Css.custom_declaration_name decl with
@@ -1861,7 +1921,7 @@ let placeholder_supports =
     Css.rule ~selector:placeholder
       [
         Css.color
-          (Css.color_mix ~in_space:Oklab ~percent1:50 Current Transparent);
+          (Css.color_mix ~in_space:Oklab ~percent1:50. Current Transparent);
       ]
   in
   let modern_support_stmt =

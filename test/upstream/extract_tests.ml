@@ -5,6 +5,25 @@
     - Utility class names
     - Expected CSS output from toMatchInlineSnapshot
 
+    {2 Generating utilities.txt}
+
+    The [utilities.txt] file is generated from the upstream Tailwind CSS test
+    suite. To regenerate it:
+
+    {v
+    # Clone tailwindcss repo (or use existing clone)
+    git clone https://github.com/tailwindlabs/tailwindcss.git /tmp/tailwindcss
+    cd /tmp/tailwindcss && git checkout v4.1.8  # or desired version
+
+    # Extract tests
+    dune exec test/upstream/extract_tests.exe -- \
+      /tmp/tailwindcss/packages/tailwindcss/src/utilities.test.ts \
+      > test/upstream/utilities.txt
+    v}
+
+    {b Do NOT edit utilities.txt directly.} If test expectations need updating,
+    regenerate from a newer Tailwind version or fix the extraction script.
+
     Usage: dune exec test/upstream/extract_tests.exe -- <utilities.test.ts> *)
 
 let is_valid_class s =

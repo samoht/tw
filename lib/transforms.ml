@@ -125,19 +125,18 @@ module Handler = struct
     Var.property_default Css.Length ~initial:Css.Zero ~universal:true
       ~property_order:2 ~family:`Translate "tw-translate-z"
 
-  (* Scale variables - use first-usage order with low property_order (5-7) for
-     tie-breaking *)
+  (* Scale variables - property_order (6-8) comes after duration (5) *)
   let tw_scale_x_var =
     Var.property_default Css.Number_percentage ~initial:(Num 1.0)
-      ~universal:true ~property_order:5 ~family:`Scale "tw-scale-x"
+      ~universal:true ~property_order:6 ~family:`Scale "tw-scale-x"
 
   let tw_scale_y_var =
     Var.property_default Css.Number_percentage ~initial:(Num 1.0)
-      ~universal:true ~property_order:6 ~family:`Scale "tw-scale-y"
+      ~universal:true ~property_order:7 ~family:`Scale "tw-scale-y"
 
   let tw_scale_z_var =
     Var.property_default Css.Number_percentage ~initial:(Num 1.0)
-      ~universal:true ~property_order:7 ~family:`Scale "tw-scale-z"
+      ~universal:true ~property_order:8 ~family:`Scale "tw-scale-z"
 
   (* Rotate and skew properties appear FIRST in @layer properties (0-4) *)
   let tw_rotate_x_var =
