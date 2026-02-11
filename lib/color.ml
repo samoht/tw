@@ -1255,6 +1255,12 @@ module Handler = struct
     | Caret_current_opacity of opacity_modifier
     | Caret_inherit
     | Caret_transparent
+    (* Outline colors *)
+    | Outline of color * int
+    | Outline_opacity of color * int * opacity_modifier
+    | Outline_current
+    | Outline_current_opacity of opacity_modifier
+    | Outline_inherit
 
   (** Extensible variant for color utilities *)
   type Utility.base += Self of t
@@ -1352,6 +1358,22 @@ module Handler = struct
         match shade_of_strings color_parts with
         | Ok (color, shade) -> Ok (Caret (color, shade))
         | Error e -> Error e)
+    | [ "outline"; "inherit" ] -> Ok Outline_inherit
+    | [ "outline"; current_str ]
+      when String.starts_with ~prefix:"current" current_str -> (
+        let _, opacity = parse_opacity_modifier current_str in
+        match opacity with
+        | No_opacity -> Ok Outline_current
+        | _ -> Ok (Outline_current_opacity opacity))
+    | "outline" :: color_parts when List.exists has_opacity color_parts -> (
+        match shade_and_opacity_of_strings color_parts with
+        | Ok (color, shade, opacity) ->
+            Ok (Outline_opacity (color, shade, opacity))
+        | Error e -> Error e)
+    | "outline" :: color_parts -> (
+        match shade_of_strings color_parts with
+        | Ok (color, shade) -> Ok (Outline (color, shade))
+        | Error e -> Error e)
     | _ -> Error (`Msg "Not a color utility")
 
   let bg' c shade =
@@ -1437,6 +1459,23 @@ module Handler = struct
   let caret_inherit = style [ Css.caret_color Inherit ]
   let caret_transparent = style [ Css.caret_color (Css.hex "#0000") ]
 
+  (** Outline color utilities *)
+
+  let outline' color shade =
+    if is_custom_color color then
+      let css_color = to_css color shade in
+      style [ Css.outline_color css_color ]
+    else
+      let color_var = get_color_var color shade in
+      let color_value =
+        to_css color (if is_base_color color then 500 else shade)
+      in
+      let decl, color_ref = Var.binding color_var color_value in
+      style (decl :: [ Css.outline_color (Var color_ref) ])
+
+  let outline_current = style [ Css.outline_color Current ]
+  let outline_inherit = style [ Css.outline_color Inherit ]
+
   (** Convert opacity modifier to a percentage value (0-100) *)
   let opacity_to_percent = function
     | No_opacity -> 100.0
@@ -1476,6 +1515,10 @@ module Handler = struct
   (** Caret color with opacity *)
   let caret_with_opacity c shade opacity =
     color_with_opacity_style ~property:Css.caret_color c shade opacity
+
+  (** Outline color with opacity *)
+  let outline_with_opacity c shade opacity =
+    color_with_opacity_style ~property:Css.outline_color c shade opacity
 
   (** Current color with opacity *)
   let current_color_with_opacity ~property opacity =
@@ -1524,6 +1567,13 @@ module Handler = struct
         current_color_with_opacity ~property:Css.caret_color opacity
     | Caret_inherit -> caret_inherit
     | Caret_transparent -> caret_transparent
+    | Outline (color, shade) -> outline' color shade
+    | Outline_opacity (color, shade, opacity) ->
+        outline_with_opacity color shade opacity
+    | Outline_current -> outline_current
+    | Outline_current_opacity opacity ->
+        current_color_with_opacity ~property:Css.outline_color opacity
+    | Outline_inherit -> outline_inherit
 
   (* Suborder determines order within the color priority group. Tailwind orders:
      border -> bg -> text So we use: border (0-9999), bg (10000-19999), text
@@ -1620,7 +1670,31 @@ module Handler = struct
     | Caret_inherit ->
         60000 + (9 * 1000) (* i -> between indigo(9) and lime(10) *)
     | Caret_transparent -> 60000 + (25 * 1000)
-  (* t -> after all colors (max=24) *)
+    (* t -> after all colors (max=24) *)
+    (* Outline comes after caret. Use 70000 base. *)
+    | Outline (color, shade) ->
+        let base =
+          if is_base_color color then
+            suborder_with_shade (color_to_string color)
+          else
+            suborder_with_shade
+              (color_to_string color ^ "-" ^ string_of_int shade)
+        in
+        70000 + base
+    | Outline_opacity (color, shade, _) ->
+        let base =
+          if is_base_color color then
+            suborder_with_shade (color_to_string color)
+          else
+            suborder_with_shade
+              (color_to_string color ^ "-" ^ string_of_int shade)
+        in
+        70000 + base
+    | Outline_current ->
+        70000 + (4 * 1000) (* c -> between cyan(4) and emerald(5) *)
+    | Outline_current_opacity _ -> 70000 + (4 * 1000)
+    | Outline_inherit -> 70000 + (9 * 1000)
+  (* i -> between indigo(9) and lime(10) *)
 
   (* Format opacity modifier for class names *)
   let opacity_suffix = function
@@ -1698,6 +1772,20 @@ module Handler = struct
     | Caret_current_opacity opacity -> "caret-current" ^ opacity_suffix opacity
     | Caret_inherit -> "caret-inherit"
     | Caret_transparent -> "caret-transparent"
+    | Outline (c, shade) ->
+        if is_base_color c || is_custom_color c then
+          "outline-" ^ color_to_string c
+        else "outline-" ^ color_to_string c ^ "-" ^ string_of_int shade
+    | Outline_opacity (c, shade, opacity) ->
+        if is_base_color c || is_custom_color c then
+          "outline-" ^ color_to_string c ^ opacity_suffix opacity
+        else
+          "outline-" ^ color_to_string c ^ "-" ^ string_of_int shade
+          ^ opacity_suffix opacity
+    | Outline_current -> "outline-current"
+    | Outline_current_opacity opacity ->
+        "outline-current" ^ opacity_suffix opacity
+    | Outline_inherit -> "outline-inherit"
 end
 
 open Handler
