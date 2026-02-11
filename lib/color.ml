@@ -1482,19 +1482,41 @@ module Handler = struct
     | Opacity_percent p -> p (* Already a percentage like 50 *)
     | Opacity_arbitrary f -> f *. 100.0 (* e.g., 0.5 -> 50 *)
 
-  (** Generate color with opacity using color-mix. For now, generates fallback
-      using srgb color-mix. TODO: Add supports block for progressive enhancement
-      with oklab. *)
+  (** Condition for progressive enhancement with color-mix in oklab *)
+  let color_mix_supports_condition =
+    Css.Supports.Property ("color", "color-mix(in lab, red, red)")
+
+  (** Generate color with opacity using color-mix with progressive enhancement.
+      Outputs:
+      - Fallback: color-mix(in srgb, oklch(...) NN%, transparent)
+      - @supports: color-mix(in oklab, var(--color-X) NN%, transparent) *)
   let color_with_opacity_style ~property c shade opacity =
     let percent = opacity_to_percent opacity in
+    let percent_int = int_of_float percent in
     let oklch = to_oklch c shade in
     (* Fallback: color-mix(in srgb, oklch(...) NN%, transparent) *)
     let fallback_color =
       Css.color_mix ~in_space:Srgb
         (Css.oklch oklch.l oklch.c oklch.h)
-        Css.Transparent ~percent1:(int_of_float percent)
+        Css.Transparent ~percent1:percent_int
     in
-    style [ property fallback_color ]
+    let fallback_decl = property fallback_color in
+    (* Progressive enhancement: color-mix(in oklab, var(--color-X) NN%,
+       transparent) *)
+    let color_var = get_color_var c shade in
+    let color_value = to_css c (if is_base_color c then 500 else shade) in
+    let theme_decl, color_ref = Var.binding color_var color_value in
+    let oklab_color =
+      Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+        ~percent1:percent_int
+    in
+    let oklab_decl = property oklab_color in
+    (* Create @supports block with oklab version *)
+    let supports_block =
+      Css.supports ~condition:color_mix_supports_condition
+        [ Css.declarations [ oklab_decl ] ]
+    in
+    style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
 
   (** Background color with opacity *)
   let bg_with_opacity c shade opacity =
@@ -1520,15 +1542,28 @@ module Handler = struct
   let outline_with_opacity c shade opacity =
     color_with_opacity_style ~property:Css.outline_color c shade opacity
 
-  (** Current color with opacity *)
+  (** Current color with opacity using color-mix with progressive enhancement *)
   let current_color_with_opacity ~property opacity =
     let percent = opacity_to_percent opacity in
-    (* color-mix(in srgb, currentcolor NN%, transparent) *)
-    let mixed_color =
+    let percent_int = int_of_float percent in
+    (* Fallback: color-mix(in srgb, currentcolor NN%, transparent) *)
+    let fallback_color =
       Css.color_mix ~in_space:Srgb Css.Current Css.Transparent
-        ~percent1:(int_of_float percent)
+        ~percent1:percent_int
     in
-    style [ property mixed_color ]
+    let fallback_decl = property fallback_color in
+    (* Progressive enhancement: color-mix(in oklab, currentcolor NN%,
+       transparent) *)
+    let oklab_color =
+      Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
+        ~percent1:percent_int
+    in
+    let oklab_decl = property oklab_color in
+    let supports_block =
+      Css.supports ~condition:color_mix_supports_condition
+        [ Css.declarations [ oklab_decl ] ]
+    in
+    style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
   let to_style = function
     | Bg (color, shade) -> bg' color shade

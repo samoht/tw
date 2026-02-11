@@ -592,8 +592,12 @@ let outputs util =
             if props = [] then []
             else [ regular ~selector:sel ~props ~base_class:class_name () ]
         | Some rule_list ->
-            (* Extract nested media (CSS nesting) for the base rule *)
-            let nested_media = rule_list |> List.filter Css.is_nested_media in
+            (* Extract nested at-rules (CSS nesting) for the base rule *)
+            let nested_atrules =
+              rule_list
+              |> List.filter (fun s ->
+                  Css.is_nested_media s || Css.is_nested_supports s)
+            in
             (* Process rules in order, preserving original sequence. This keeps
                media rules adjacent to their related state rules (e.g., @media
                (forced-colors:active) right after :checked state). *)
@@ -601,7 +605,8 @@ let outputs util =
             let ordered_rules =
               rule_list
               |> List.filter_map (fun stmt ->
-                  if Css.is_nested_media stmt then None
+                  if Css.is_nested_media stmt || Css.is_nested_supports stmt
+                  then None
                   else
                     match Css.as_rule stmt with
                     | Some (selector, declarations, nested) ->
@@ -642,11 +647,11 @@ let outputs util =
             in
             (* Base rule with nested media (only if it has props or nested) *)
             let base_rule =
-              if props = [] && nested_media = [] then []
+              if props = [] && nested_atrules = [] then []
               else
                 [
                   regular ~selector:sel ~props ~base_class:class_name
-                    ~nested:nested_media ();
+                    ~nested:nested_atrules ();
                 ]
             in
             (* Combine rules with base. If there are regular rules, they should
