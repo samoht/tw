@@ -142,7 +142,7 @@ module Handler = struct
     let fallback_color =
       Css.color_mix ~in_space:Srgb
         (Css.oklch oklch.l oklch.c oklch.h)
-        Css.Transparent ~percent1:(int_of_float percent)
+        Css.Transparent ~percent1:percent
     in
     let rule = Css.rule ~selector [ Css.border_color fallback_color ] in
     style ~rules:(Some [ rule ]) []
@@ -155,8 +155,7 @@ module Handler = struct
     in
     let percent = opacity_to_percent opacity in
     let mixed_color =
-      Css.color_mix ~in_space:Srgb Css.Current Css.Transparent
-        ~percent1:(int_of_float percent)
+      Css.color_mix ~in_space:Srgb Css.Current Css.Transparent ~percent1:percent
     in
     let rule = Css.rule ~selector [ Css.border_color mixed_color ] in
     style ~rules:(Some [ rule ]) []

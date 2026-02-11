@@ -53,12 +53,19 @@ type output =
       props : Css.declaration list;
       base_class : string option;
     }
+  | Supports_query of {
+      condition : Css.Supports.t;
+      selector : Css.Selector.t;
+      props : Css.declaration list;
+      base_class : string option;
+    }
 
 type by_type = {
   regular : output list;
   media : output list;
   container : output list;
   starting : output list;
+  supports : output list;
 }
 
 val regular :

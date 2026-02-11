@@ -50,13 +50,13 @@ module Handler = struct
 
   (* Variable for transition duration with @property *)
   let tw_duration_var =
-    (* Duration appears at position 21 in @layer properties *)
-    Var.channel ~needs_property:true ~property_order:21 ~family:`Duration
+    (* Duration appears after skew (4) but before scale (6-8) in properties *)
+    Var.channel ~needs_property:true ~property_order:5 ~family:`Duration
       Css.Duration "tw-duration"
 
   (* Variable for transition timing function with @property *)
   let tw_ease_var =
-    Var.channel ~needs_property:true ~property_order:22 Css.Timing_function
+    Var.channel ~needs_property:true ~property_order:5 Css.Timing_function
       "tw-ease"
 
   (* Theme variable for transition-property-opacity *)

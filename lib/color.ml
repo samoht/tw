@@ -166,6 +166,24 @@ let rgb_to_hex rgb =
   in
   "#" ^ to_hex_byte rgb.r ^ to_hex_byte rgb.g ^ to_hex_byte rgb.b
 
+(** Add alpha to a hex color string. Returns #RRGGBBAA format. The opacity is a
+    percentage (0-100). *)
+let hex_with_alpha hex_str opacity_percent =
+  let to_hex_byte n =
+    let hex = "0123456789abcdef" in
+    String.make 1 hex.[n / 16] ^ String.make 1 hex.[n mod 16]
+  in
+  (* Parse hex color *)
+  let hex_clean =
+    if String.length hex_str > 0 && hex_str.[0] = '#' then
+      String.sub hex_str 1 (String.length hex_str - 1)
+    else hex_str
+  in
+  (* Convert opacity percentage to 8-bit alpha value, with rounding *)
+  let alpha = int_of_float ((opacity_percent /. 100.0 *. 255.0) +. 0.5) in
+  let alpha_clamped = max 0 (min 255 alpha) in
+  "#" ^ hex_clean ^ to_hex_byte alpha_clamped
+
 let oklch_to_css oklch =
   let pp_oklch ctx oklch =
     Css.Pp.string ctx "oklch(";
@@ -1265,6 +1283,26 @@ module Handler = struct
   (** Extensible variant for color utilities *)
   type Utility.base += Self of t
 
+  (** Current scheme for color generation. Default uses oklch/color-mix. *)
+  let current_scheme : Scheme.t ref = ref Scheme.default
+
+  (** Set the current scheme for color generation *)
+  let set_scheme scheme = current_scheme := scheme
+
+  (** Get the scheme color name for a color and shade (e.g., "red-500"). Must be
+      defined before [open Css] to use the outer [color] type. *)
+  let scheme_color_name (c : color) shade =
+    let base = pp c in
+    if is_base_color c then base else base ^ "-" ^ string_of_int shade
+
+  (** Get the color value for a color and shade, checking scheme first. When
+      scheme defines the color as hex, returns hex. Otherwise returns oklch. *)
+  let get_color_value (c : color) shade =
+    let color_name = scheme_color_name c shade in
+    match Scheme.get_hex_color !current_scheme color_name with
+    | Some hex -> Css.hex hex
+    | None -> to_css c (if is_base_color c then 500 else shade)
+
   open Style
   open Css
 
@@ -1382,7 +1420,7 @@ module Handler = struct
       style [ Css.background_color css_color ]
     else
       let color_var = get_color_var c shade in
-      let color_value = to_css c (if is_base_color c then 500 else shade) in
+      let color_value = get_color_value c shade in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.background_color (Css.Var color_ref) ])
 
@@ -1397,9 +1435,7 @@ module Handler = struct
       style [ Css.color css_color ]
     else
       let color_var = get_color_var color shade in
-      let color_value =
-        to_css color (if is_base_color color then 500 else shade)
-      in
+      let color_value = get_color_value color shade in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.color (Var color_ref) ])
 
@@ -1415,9 +1451,7 @@ module Handler = struct
       style [ Css.border_color css_color ]
     else
       let color_var = get_color_var color shade in
-      let color_value =
-        to_css color (if is_base_color color then 500 else shade)
-      in
+      let color_value = get_color_value color shade in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.border_color (Var color_ref) ])
 
@@ -1432,9 +1466,7 @@ module Handler = struct
       style [ Css.accent_color css_color ]
     else
       let color_var = get_color_var color shade in
-      let color_value =
-        to_css color (if is_base_color color then 500 else shade)
-      in
+      let color_value = get_color_value color shade in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.accent_color (Var color_ref) ])
 
@@ -1449,9 +1481,7 @@ module Handler = struct
       style [ Css.caret_color css_color ]
     else
       let color_var = get_color_var color shade in
-      let color_value =
-        to_css color (if is_base_color color then 500 else shade)
-      in
+      let color_value = get_color_value color shade in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.caret_color (Var color_ref) ])
 
@@ -1467,9 +1497,7 @@ module Handler = struct
       style [ Css.outline_color css_color ]
     else
       let color_var = get_color_var color shade in
-      let color_value =
-        to_css color (if is_base_color color then 500 else shade)
-      in
+      let color_value = get_color_value color shade in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.outline_color (Var color_ref) ])
 
@@ -1486,37 +1514,65 @@ module Handler = struct
   let color_mix_supports_condition =
     Css.Supports.Property ("color", "color-mix(in lab, red, red)")
 
-  (** Generate color with opacity using color-mix with progressive enhancement.
-      Outputs:
-      - Fallback: color-mix(in srgb, oklch(...) NN%, transparent)
-      - @supports: color-mix(in oklab, var(--color-X) NN%, transparent) *)
+  (** Generate color with opacity using progressive enhancement.
+      Output depends on scheme:
+      - With hex scheme: fallback is hex+alpha, @supports has color-mix
+      - With oklch scheme (default): fallback is color-mix(srgb), @supports has color-mix(oklab) *)
   let color_with_opacity_style ~property c shade opacity =
     let percent = opacity_to_percent opacity in
-    let percent_int = int_of_float percent in
-    let oklch = to_oklch c shade in
-    (* Fallback: color-mix(in srgb, oklch(...) NN%, transparent) *)
-    let fallback_color =
-      Css.color_mix ~in_space:Srgb
-        (Css.oklch oklch.l oklch.c oklch.h)
-        Css.Transparent ~percent1:percent_int
-    in
-    let fallback_decl = property fallback_color in
-    (* Progressive enhancement: color-mix(in oklab, var(--color-X) NN%,
-       transparent) *)
-    let color_var = get_color_var c shade in
-    let color_value = to_css c (if is_base_color c then 500 else shade) in
-    let theme_decl, color_ref = Var.binding color_var color_value in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-        ~percent1:percent_int
-    in
-    let oklab_decl = property oklab_color in
-    (* Create @supports block with oklab version *)
-    let supports_block =
-      Css.supports ~condition:color_mix_supports_condition
-        [ Css.declarations [ oklab_decl ] ]
-    in
-    style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
+    let scheme = !current_scheme in
+    let color_name = scheme_color_name c shade in
+    (* Check if color is defined as hex in the scheme *)
+    match Scheme.get_hex_color scheme color_name with
+    | Some hex_value ->
+        (* Scheme has hex color: use hex+alpha fallback with top-level
+           @supports *)
+        let hex_with_alpha = hex_with_alpha hex_value percent in
+        let fallback_decl = property (Css.hex hex_with_alpha) in
+        (* Theme declaration for the variable *)
+        let color_var = get_color_var c shade in
+        let theme_decl, color_ref = Var.binding color_var (Css.hex hex_value) in
+        (* Progressive enhancement: color-mix(in oklab, var(--color-X) NN%,
+           transparent) *)
+        let oklab_color =
+          Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+            ~percent1:percent
+        in
+        let oklab_decl = property oklab_color in
+        (* Create @supports block with oklab version as top-level rule. Use
+           placeholder selector that rules.ml replaces with actual class. *)
+        let supports_block =
+          Css.supports ~condition:color_mix_supports_condition
+            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+        in
+        style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
+    | None ->
+        (* Default: use oklch and color-mix fallback *)
+        let oklch = to_oklch c shade in
+        (* Fallback: color-mix(in srgb, oklch(...) NN%, transparent) *)
+        let fallback_color =
+          Css.color_mix ~in_space:Srgb
+            (Css.oklch oklch.l oklch.c oklch.h)
+            Css.Transparent ~percent1:percent
+        in
+        let fallback_decl = property fallback_color in
+        (* Progressive enhancement: color-mix(in oklab, var(--color-X) NN%,
+           transparent) *)
+        let color_var = get_color_var c shade in
+        let color_value = to_css c (if is_base_color c then 500 else shade) in
+        let theme_decl, color_ref = Var.binding color_var color_value in
+        let oklab_color =
+          Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+            ~percent1:percent
+        in
+        let oklab_decl = property oklab_color in
+        (* Create @supports block with oklab version as top-level rule. Use
+           placeholder selector that rules.ml replaces with actual class. *)
+        let supports_block =
+          Css.supports ~condition:color_mix_supports_condition
+            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+        in
+        style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
 
   (** Background color with opacity *)
   let bg_with_opacity c shade opacity =
@@ -1545,23 +1601,20 @@ module Handler = struct
   (** Current color with opacity using color-mix with progressive enhancement *)
   let current_color_with_opacity ~property opacity =
     let percent = opacity_to_percent opacity in
-    let percent_int = int_of_float percent in
-    (* Fallback: color-mix(in srgb, currentcolor NN%, transparent) *)
-    let fallback_color =
-      Css.color_mix ~in_space:Srgb Css.Current Css.Transparent
-        ~percent1:percent_int
-    in
-    let fallback_decl = property fallback_color in
+    (* Fallback: just currentColor (browsers that don't support color-mix) *)
+    let fallback_decl = property Css.Current in
     (* Progressive enhancement: color-mix(in oklab, currentcolor NN%,
        transparent) *)
     let oklab_color =
       Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
-        ~percent1:percent_int
+        ~percent1:percent
     in
     let oklab_decl = property oklab_color in
+    (* Create @supports block with oklab version as top-level rule. Use
+       placeholder selector that rules.ml replaces with actual class. *)
     let supports_block =
       Css.supports ~condition:color_mix_supports_condition
-        [ Css.declarations [ oklab_decl ] ]
+        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
     in
     style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
