@@ -1514,10 +1514,11 @@ module Handler = struct
   let color_mix_supports_condition =
     Css.Supports.Property ("color", "color-mix(in lab, red, red)")
 
-  (** Generate color with opacity using progressive enhancement.
-      Output depends on scheme:
-      - With hex scheme: fallback is hex+alpha, @supports has color-mix
-      - With oklch scheme (default): fallback is color-mix(srgb), @supports has color-mix(oklab) *)
+  (** Generate color with opacity using progressive enhancement. Output depends
+      on scheme:
+      - With hex scheme: fallback is hex+alpha, [\@supports] has color-mix
+      - With oklch scheme (default): fallback is color-mix(srgb), [\@supports]
+        has color-mix(oklab) *)
   let color_with_opacity_style ~property c shade opacity =
     let percent = opacity_to_percent opacity in
     let scheme = !current_scheme in
@@ -1886,6 +1887,159 @@ let scheme_color_name = Handler.scheme_color_name
 
 let get_current_scheme () = !Handler.current_scheme
 let color_mix_supports_condition = Handler.color_mix_supports_condition
+
+(** {1 Color with Opacity Helpers}
+
+    Generic helpers for scheme-aware color generation with progressive
+    enhancement. These can be used by other modules (svg, divide) to avoid code
+    duplication. *)
+
+let generic_color_with_opacity ~property c shade opacity =
+  let open Handler in
+  let percent = opacity_to_percent opacity in
+  let color_name = scheme_color_name c shade in
+  match Scheme.get_hex_color !current_scheme color_name with
+  | Some hex_value ->
+      let hex_alpha = hex_with_alpha hex_value percent in
+      let fallback_decl = property (Css.hex hex_alpha) in
+      let oklab_color =
+        Css.color_mix ~in_space:Oklab (Css.hex hex_value) Css.Transparent
+          ~percent1:percent
+      in
+      let oklab_decl = property oklab_color in
+      let supports_block =
+        Css.supports ~condition:color_mix_supports_condition
+          [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+      in
+      Style.style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+  | None ->
+      let oklch = to_oklch c shade in
+      let fallback_color =
+        Css.color_mix ~in_space:Srgb
+          (Css.oklch oklch.l oklch.c oklch.h)
+          Css.Transparent ~percent1:percent
+      in
+      let fallback_decl = property fallback_color in
+      let color_var = get_color_var c shade in
+      let color_value = to_css c (if is_base_color c then 500 else shade) in
+      let theme_decl, color_ref = Var.binding color_var color_value in
+      let oklab_color =
+        Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+          ~percent1:percent
+      in
+      let oklab_decl = property oklab_color in
+      let supports_block =
+        Css.supports ~condition:color_mix_supports_condition
+          [
+            Css.rule ~selector:(Css.Selector.class_ "_")
+              [ theme_decl; oklab_decl ];
+          ]
+      in
+      Style.style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+
+let generic_current_with_opacity ~property opacity =
+  let open Handler in
+  let percent = opacity_to_percent opacity in
+  let fallback_color =
+    Css.color_mix ~in_space:Srgb Css.Current Css.Transparent ~percent1:percent
+  in
+  let fallback_decl = property fallback_color in
+  let oklab_color =
+    Css.color_mix ~in_space:Oklab Css.Current Css.Transparent ~percent1:percent
+  in
+  let oklab_decl = property oklab_color in
+  let supports_block =
+    Css.supports ~condition:color_mix_supports_condition
+      [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+  in
+  Style.style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+
+(* Fill/stroke helpers for SVG utilities *)
+let fill_with_opacity c shade opacity =
+  generic_color_with_opacity
+    ~property:(fun color -> Css.fill (Css.Color color))
+    c shade opacity
+
+let stroke_with_opacity c shade opacity =
+  generic_color_with_opacity
+    ~property:(fun color -> Css.stroke (Css.Color color))
+    c shade opacity
+
+let fill_current_with_opacity opacity =
+  generic_current_with_opacity
+    ~property:(fun color -> Css.fill (Css.Color color))
+    opacity
+
+let stroke_current_with_opacity opacity =
+  generic_current_with_opacity
+    ~property:(fun color -> Css.stroke (Css.Color color))
+    opacity
+
+(* Divide helpers with custom selector *)
+let divide_with_opacity_selector ~selector c shade opacity =
+  let open Handler in
+  let percent = opacity_to_percent opacity in
+  let color_name = scheme_color_name c shade in
+  match Scheme.get_hex_color !current_scheme color_name with
+  | Some hex_value ->
+      let hex_alpha = hex_with_alpha hex_value percent in
+      let fallback_rule =
+        Css.rule ~selector [ Css.border_color (Css.hex hex_alpha) ]
+      in
+      let oklab_color =
+        Css.color_mix ~in_space:Oklab (Css.hex hex_value) Css.Transparent
+          ~percent1:percent
+      in
+      let supports_rule = Css.rule ~selector [ Css.border_color oklab_color ] in
+      let supports_block =
+        Css.supports ~condition:color_mix_supports_condition [ supports_rule ]
+      in
+      Style.style ~rules:(Some [ fallback_rule; supports_block ]) []
+  | None ->
+      let oklch = to_oklch c shade in
+      let fallback_color =
+        Css.color_mix ~in_space:Srgb
+          (Css.oklch oklch.l oklch.c oklch.h)
+          Css.Transparent ~percent1:percent
+      in
+      let fallback_rule =
+        Css.rule ~selector [ Css.border_color fallback_color ]
+      in
+      let color_var = get_color_var c shade in
+      let theme_decl, color_ref = Var.binding color_var (to_css c shade) in
+      let oklab_color =
+        Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+          ~percent1:percent
+      in
+      let supports_rule =
+        Css.rule ~selector [ theme_decl; Css.border_color oklab_color ]
+      in
+      let supports_block =
+        Css.supports ~condition:color_mix_supports_condition [ supports_rule ]
+      in
+      Style.style ~rules:(Some [ fallback_rule; supports_block ]) []
+
+let divide_with_opacity c shade opacity selector =
+  divide_with_opacity_selector ~selector c shade opacity
+
+let divide_current_with_opacity_selector ~selector opacity =
+  let open Handler in
+  let percent = opacity_to_percent opacity in
+  let fallback_color =
+    Css.color_mix ~in_space:Srgb Css.Current Css.Transparent ~percent1:percent
+  in
+  let fallback_rule = Css.rule ~selector [ Css.border_color fallback_color ] in
+  let oklab_color =
+    Css.color_mix ~in_space:Oklab Css.Current Css.Transparent ~percent1:percent
+  in
+  let supports_rule = Css.rule ~selector [ Css.border_color oklab_color ] in
+  let supports_block =
+    Css.supports ~condition:color_mix_supports_condition [ supports_rule ]
+  in
+  Style.style ~rules:(Some [ fallback_rule; supports_block ]) []
+
+let divide_current_with_opacity opacity selector =
+  divide_current_with_opacity_selector ~selector opacity
 
 (** Public API *)
 let utility x = Utility.base (Self x)

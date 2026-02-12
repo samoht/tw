@@ -226,8 +226,8 @@ let read_test_cases filename =
     parse lines;
     List.rev !tests
 
-(** Create scheme matching Tailwind test @theme.
-    Tailwind tests use hex colors and explicit spacing variables. *)
+(** Create scheme matching Tailwind test [\@theme]. Tailwind tests use hex
+    colors and explicit spacing variables. *)
 let test_scheme : Tw.Scheme.t =
   {
     colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ];

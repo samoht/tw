@@ -27,12 +27,6 @@ module Handler = struct
   let name = "svg"
   let priority = 30
 
-  (* Convert opacity modifier to percentage *)
-  let opacity_to_percent = function
-    | Color.No_opacity -> 100.0
-    | Color.Opacity_percent p -> p
-    | Color.Opacity_arbitrary f -> f *. 100.0
-
   (* Format opacity modifier for class names *)
   let opacity_suffix = function
     | Color.No_opacity -> ""
@@ -43,170 +37,32 @@ module Handler = struct
 
   (* Fill color style with scheme support *)
   let fill_color_style color shade =
-    let color_name = Color.scheme_color_name color shade in
-    match Scheme.get_hex_color (Color.get_current_scheme ()) color_name with
-    | Some hex_value ->
-        let color_var = Color.get_color_var color shade in
-        let theme_decl, color_ref = Var.binding color_var (Css.hex hex_value) in
-        style [ theme_decl; Css.fill (Css.Color (Css.Var color_ref)) ]
-    | None ->
-        let color_var = Color.get_color_var color shade in
-        let color_value = Color.to_css color shade in
-        let theme_decl, color_ref = Var.binding color_var color_value in
-        style [ theme_decl; Css.fill (Css.Color (Css.Var color_ref)) ]
-
-  (* Fill color with opacity style *)
-  let fill_color_opacity_style color shade opacity =
-    let percent = opacity_to_percent opacity in
-    let color_name = Color.scheme_color_name color shade in
-    match Scheme.get_hex_color (Color.get_current_scheme ()) color_name with
-    | Some hex_value ->
-        let hex_with_alpha = Color.hex_with_alpha hex_value percent in
-        let fallback_decl = Css.fill (Css.Color (Css.hex hex_with_alpha)) in
-        (* Progressive enhancement: color-mix(in oklab) *)
-        let oklab_color =
-          Css.color_mix ~in_space:Oklab (Css.hex hex_value) Css.Transparent
-            ~percent1:percent
-        in
-        let oklab_decl = Css.fill (Css.Color oklab_color) in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-        in
-        style ~rules:(Some [ supports_block ]) [ fallback_decl ]
-    | None ->
-        let oklch = Color.to_oklch color shade in
-        let fallback_color =
-          Css.color_mix ~in_space:Srgb
-            (Css.oklch oklch.l oklch.c oklch.h)
-            Css.Transparent ~percent1:percent
-        in
-        let fallback_decl = Css.fill (Css.Color fallback_color) in
-        let color_var = Color.get_color_var color shade in
-        let theme_decl, color_ref =
-          Var.binding color_var (Color.to_css color shade)
-        in
-        let oklab_color =
-          Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-            ~percent1:percent
-        in
-        let oklab_decl = Css.fill (Css.Color oklab_color) in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [
-              Css.rule ~selector:(Css.Selector.class_ "_")
-                [ theme_decl; oklab_decl ];
-            ]
-        in
-        style ~rules:(Some [ supports_block ]) [ fallback_decl ]
-
-  (* Fill current color with opacity *)
-  let fill_current_opacity_style opacity =
-    let percent = opacity_to_percent opacity in
-    let fallback_color =
-      Css.color_mix ~in_space:Srgb Css.Current Css.Transparent ~percent1:percent
-    in
-    let fallback_decl = Css.fill (Css.Color fallback_color) in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
-        ~percent1:percent
-    in
-    let oklab_decl = Css.fill (Css.Color oklab_color) in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-    in
-    style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+    let color_var = Color.get_color_var color shade in
+    let color_value = Color.to_css color shade in
+    let theme_decl, color_ref = Var.binding color_var color_value in
+    style [ theme_decl; Css.fill (Css.Color (Css.Var color_ref)) ]
 
   (* Stroke color style with scheme support *)
   let stroke_color_style color shade =
-    let color_name = Color.scheme_color_name color shade in
-    match Scheme.get_hex_color (Color.get_current_scheme ()) color_name with
-    | Some hex_value ->
-        let color_var = Color.get_color_var color shade in
-        let theme_decl, color_ref = Var.binding color_var (Css.hex hex_value) in
-        style [ theme_decl; Css.stroke (Css.Color (Css.Var color_ref)) ]
-    | None ->
-        let color_var = Color.get_color_var color shade in
-        let color_value = Color.to_css color shade in
-        let theme_decl, color_ref = Var.binding color_var color_value in
-        style [ theme_decl; Css.stroke (Css.Color (Css.Var color_ref)) ]
-
-  (* Stroke color with opacity style *)
-  let stroke_color_opacity_style color shade opacity =
-    let percent = opacity_to_percent opacity in
-    let color_name = Color.scheme_color_name color shade in
-    match Scheme.get_hex_color (Color.get_current_scheme ()) color_name with
-    | Some hex_value ->
-        let hex_with_alpha = Color.hex_with_alpha hex_value percent in
-        let fallback_decl = Css.stroke (Css.Color (Css.hex hex_with_alpha)) in
-        let oklab_color =
-          Css.color_mix ~in_space:Oklab (Css.hex hex_value) Css.Transparent
-            ~percent1:percent
-        in
-        let oklab_decl = Css.stroke (Css.Color oklab_color) in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-        in
-        style ~rules:(Some [ supports_block ]) [ fallback_decl ]
-    | None ->
-        let oklch = Color.to_oklch color shade in
-        let fallback_color =
-          Css.color_mix ~in_space:Srgb
-            (Css.oklch oklch.l oklch.c oklch.h)
-            Css.Transparent ~percent1:percent
-        in
-        let fallback_decl = Css.stroke (Css.Color fallback_color) in
-        let color_var = Color.get_color_var color shade in
-        let theme_decl, color_ref =
-          Var.binding color_var (Color.to_css color shade)
-        in
-        let oklab_color =
-          Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-            ~percent1:percent
-        in
-        let oklab_decl = Css.stroke (Css.Color oklab_color) in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [
-              Css.rule ~selector:(Css.Selector.class_ "_")
-                [ theme_decl; oklab_decl ];
-            ]
-        in
-        style ~rules:(Some [ supports_block ]) [ fallback_decl ]
-
-  (* Stroke current color with opacity *)
-  let stroke_current_opacity_style opacity =
-    let percent = opacity_to_percent opacity in
-    let fallback_color =
-      Css.color_mix ~in_space:Srgb Css.Current Css.Transparent ~percent1:percent
-    in
-    let fallback_decl = Css.stroke (Css.Color fallback_color) in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
-        ~percent1:percent
-    in
-    let oklab_decl = Css.stroke (Css.Color oklab_color) in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-    in
-    style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+    let color_var = Color.get_color_var color shade in
+    let color_value = Color.to_css color shade in
+    let theme_decl, color_ref = Var.binding color_var color_value in
+    style [ theme_decl; Css.stroke (Css.Color (Css.Var color_ref)) ]
 
   let to_style = function
     | Fill_none -> style Css.[ fill None ]
     | Fill_current -> style Css.[ fill Current_color ]
-    | Fill_current_opacity opacity -> fill_current_opacity_style opacity
+    | Fill_current_opacity opacity -> Color.fill_current_with_opacity opacity
     | Fill_color (color, shade) -> fill_color_style color shade
     | Fill_color_opacity (color, shade, opacity) ->
-        fill_color_opacity_style color shade opacity
+        Color.fill_with_opacity color shade opacity
     | Stroke_none -> style Css.[ stroke None ]
     | Stroke_current -> style Css.[ stroke Current_color ]
-    | Stroke_current_opacity opacity -> stroke_current_opacity_style opacity
+    | Stroke_current_opacity opacity ->
+        Color.stroke_current_with_opacity opacity
     | Stroke_color (color, shade) -> stroke_color_style color shade
     | Stroke_color_opacity (color, shade, opacity) ->
-        stroke_color_opacity_style color shade opacity
+        Color.stroke_with_opacity color shade opacity
     | Stroke_0 -> style Css.[ stroke_width (Px 0.) ]
     | Stroke_1 -> style Css.[ stroke_width (Px 1.) ]
     | Stroke_2 -> style Css.[ stroke_width (Px 2.) ]
