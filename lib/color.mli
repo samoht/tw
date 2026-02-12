@@ -196,7 +196,8 @@ val get_current_scheme : unit -> Scheme.t
 (** [get_current_scheme ()] returns the current color scheme. *)
 
 val color_mix_supports_condition : Css.Supports.t
-(** The @supports condition for color-mix: [(color: color-mix(in lab, red, red))] *)
+(** The CSS supports condition for color-mix:
+    [(color: color-mix(in lab, red, red))] *)
 
 (** {1 Tailwind Colors} *)
 
@@ -524,3 +525,34 @@ module Handler : sig
       hex in the scheme, opacity modifiers will use hex+alpha fallback instead
       of color-mix. *)
 end
+
+(** {1 Color with Opacity Helpers}
+
+    These functions generate scheme-aware color styles with progressive
+    enhancement. They produce a fallback declaration plus a [\@supports] block
+    for color-mix. *)
+
+val fill_with_opacity : color -> int -> opacity_modifier -> Style.t
+(** [fill_with_opacity color shade opacity] generates fill style with opacity.
+*)
+
+val stroke_with_opacity : color -> int -> opacity_modifier -> Style.t
+(** [stroke_with_opacity color shade opacity] generates stroke style with
+    opacity. *)
+
+val fill_current_with_opacity : opacity_modifier -> Style.t
+(** [fill_current_with_opacity opacity] generates fill currentColor with
+    opacity. *)
+
+val stroke_current_with_opacity : opacity_modifier -> Style.t
+(** [stroke_current_with_opacity opacity] generates stroke currentColor with
+    opacity. *)
+
+val divide_with_opacity :
+  color -> int -> opacity_modifier -> Css.Selector.t -> Style.t
+(** [divide_with_opacity color shade opacity selector] generates divide
+    border-color with opacity using the given selector. *)
+
+val divide_current_with_opacity : opacity_modifier -> Css.Selector.t -> Style.t
+(** [divide_current_with_opacity opacity selector] generates divide currentColor
+    with opacity using the given selector. *)
