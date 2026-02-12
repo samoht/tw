@@ -184,6 +184,20 @@ val get_color_var : color -> int -> Css.color Var.theme
 (** [get_color_var color shade] gets or creates a memoized color variable for
     the given color and shade. *)
 
+val scheme_color_name : color -> int -> string
+(** [scheme_color_name color shade] returns the scheme color name (e.g.,
+    "red-500") for a color and shade. *)
+
+val hex_with_alpha : string -> float -> string
+(** [hex_with_alpha hex_str opacity_percent] adds alpha to a hex color string.
+    Returns #RRGGBBAA format. The opacity is a percentage (0-100). *)
+
+val get_current_scheme : unit -> Scheme.t
+(** [get_current_scheme ()] returns the current color scheme. *)
+
+val color_mix_supports_condition : Css.Supports.t
+(** The @supports condition for color-mix: [(color: color-mix(in lab, red, red))] *)
+
 (** {1 Tailwind Colors} *)
 
 (** Predefined Tailwind v4 color values *)
