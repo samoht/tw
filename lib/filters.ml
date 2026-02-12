@@ -6,6 +6,8 @@ module Handler = struct
   open Css
 
   type t =
+    | Filter
+    | Filter_none
     | Blur_none
     | Blur_xs
     | Blur_sm
@@ -22,6 +24,8 @@ module Handler = struct
     | Sepia of int
     | Invert of int
     | Hue_rotate of int
+    | Backdrop_filter
+    | Backdrop_filter_none
     | Backdrop_blur_none
     | Backdrop_blur_xs
     | Backdrop_blur_sm
@@ -144,7 +148,57 @@ module Handler = struct
   let backdrop_hue_rotate n =
     style [ backdrop_filter (Hue_rotate (Deg (float_of_int n))) ]
 
+  (* Composable filter using all the filter variables *)
+  let filter_ =
+    (* Build a list of var references with empty fallbacks for composable
+       filters Tailwind v4 uses: filter: var(--tw-blur, ) var(--tw-brightness, )
+       ... *)
+    let filter_value : Css.filter =
+      List
+        [
+          Css.filter_var_empty "tw-blur";
+          Css.filter_var_empty "tw-brightness";
+          Css.filter_var_empty "tw-contrast";
+          Css.filter_var_empty "tw-grayscale";
+          Css.filter_var_empty "tw-hue-rotate";
+          Css.filter_var_empty "tw-invert";
+          Css.filter_var_empty "tw-saturate";
+          Css.filter_var_empty "tw-sepia";
+          Css.filter_var_empty "tw-drop-shadow";
+        ]
+    in
+    style [ filter filter_value ]
+
+  let filter_none = style [ filter None ]
+
+  (* Composable backdrop-filter using all the backdrop-filter variables *)
+  let backdrop_filter_ =
+    let backdrop_filter_value : Css.filter =
+      List
+        [
+          Css.filter_var_empty "tw-backdrop-blur";
+          Css.filter_var_empty "tw-backdrop-brightness";
+          Css.filter_var_empty "tw-backdrop-contrast";
+          Css.filter_var_empty "tw-backdrop-grayscale";
+          Css.filter_var_empty "tw-backdrop-hue-rotate";
+          Css.filter_var_empty "tw-backdrop-invert";
+          Css.filter_var_empty "tw-backdrop-opacity";
+          Css.filter_var_empty "tw-backdrop-saturate";
+          Css.filter_var_empty "tw-backdrop-sepia";
+        ]
+    in
+    style
+      [
+        Css.webkit_backdrop_filter backdrop_filter_value;
+        backdrop_filter backdrop_filter_value;
+      ]
+
+  let backdrop_filter_none =
+    style [ Css.webkit_backdrop_filter None; backdrop_filter None ]
+
   let to_style = function
+    | Filter -> filter_
+    | Filter_none -> filter_none
     | Blur_none -> blur_none
     | Blur_xs -> blur_xs
     | Blur_sm -> blur_sm
@@ -181,50 +235,59 @@ module Handler = struct
     | Backdrop_sepia n ->
         if n = 100 then backdrop_sepia_default else backdrop_sepia n
     | Backdrop_hue_rotate n -> backdrop_hue_rotate n
+    | Backdrop_filter -> backdrop_filter_
+    | Backdrop_filter_none -> backdrop_filter_none
 
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not a filter utility")
 
   let suborder = function
     (* Alphabetical order by class name *)
-    | Blur -> 0 (* blur *)
-    | Blur_2xl -> 1 (* blur-2xl *)
-    | Blur_3xl -> 2 (* blur-3xl *)
-    | Blur_lg -> 3 (* blur-lg *)
-    | Blur_md -> 4 (* blur-md *)
-    | Blur_none -> 5 (* blur-none *)
-    | Blur_sm -> 6 (* blur-sm *)
-    | Blur_xl -> 7 (* blur-xl *)
-    | Blur_xs -> 8 (* blur-xs *)
-    | Brightness n -> 100 + n
-    | Contrast n -> 10000 + n
-    | Grayscale n -> 20000 + n
-    | Saturate n -> 30000 + n
-    | Sepia n -> 40000 + n
-    | Invert n -> 50000 + n
-    | Hue_rotate n -> 60000 + n
-    (* Alphabetical order by class name *)
-    | Backdrop_blur -> 100000 (* backdrop-blur *)
-    | Backdrop_blur_2xl -> 100001 (* backdrop-blur-2xl *)
-    | Backdrop_blur_3xl -> 100002 (* backdrop-blur-3xl *)
-    | Backdrop_blur_lg -> 100003 (* backdrop-blur-lg *)
-    | Backdrop_blur_md -> 100004 (* backdrop-blur-md *)
-    | Backdrop_blur_none -> 100005 (* backdrop-blur-none *)
-    | Backdrop_blur_sm -> 100006 (* backdrop-blur-sm *)
-    | Backdrop_blur_xl -> 100007 (* backdrop-blur-xl *)
-    | Backdrop_blur_xs -> 100008 (* backdrop-blur-xs *)
-    | Backdrop_brightness n -> 110000 + n
-    | Backdrop_contrast n -> 120000 + n
-    | Backdrop_opacity n -> 130000 + n
-    | Backdrop_saturate n -> 140000 + n
-    | Backdrop_grayscale n -> 150000 + n
-    | Backdrop_invert n -> 160000 + n
-    | Backdrop_sepia n -> 170000 + n
-    | Backdrop_hue_rotate n -> 180000 + n
+    | Backdrop_blur -> 0 (* backdrop-blur *)
+    | Backdrop_blur_2xl -> 1 (* backdrop-blur-2xl *)
+    | Backdrop_blur_3xl -> 2 (* backdrop-blur-3xl *)
+    | Backdrop_blur_lg -> 3 (* backdrop-blur-lg *)
+    | Backdrop_blur_md -> 4 (* backdrop-blur-md *)
+    | Backdrop_blur_none -> 5 (* backdrop-blur-none *)
+    | Backdrop_blur_sm -> 6 (* backdrop-blur-sm *)
+    | Backdrop_blur_xl -> 7 (* backdrop-blur-xl *)
+    | Backdrop_blur_xs -> 8 (* backdrop-blur-xs *)
+    | Backdrop_brightness n -> 10000 + n
+    | Backdrop_contrast n -> 20000 + n
+    | Backdrop_filter -> 30000 (* backdrop-filter *)
+    | Backdrop_filter_none -> 30001 (* backdrop-filter-none *)
+    | Backdrop_grayscale n -> 40000 + n
+    | Backdrop_hue_rotate n -> 50000 + n
+    | Backdrop_invert n -> 60000 + n
+    | Backdrop_opacity n -> 70000 + n
+    | Backdrop_saturate n -> 80000 + n
+    | Backdrop_sepia n -> 90000 + n
+    | Blur -> 100000 (* blur *)
+    | Blur_2xl -> 100001 (* blur-2xl *)
+    | Blur_3xl -> 100002 (* blur-3xl *)
+    | Blur_lg -> 100003 (* blur-lg *)
+    | Blur_md -> 100004 (* blur-md *)
+    | Blur_none -> 100005 (* blur-none *)
+    | Blur_sm -> 100006 (* blur-sm *)
+    | Blur_xl -> 100007 (* blur-xl *)
+    | Blur_xs -> 100008 (* blur-xs *)
+    | Brightness n -> 110000 + n
+    | Contrast n -> 120000 + n
+    | Filter -> 130000 (* filter *)
+    | Filter_none -> 130001 (* filter-none *)
+    | Grayscale n -> 140000 + n
+    | Hue_rotate n -> 150000 + n
+    | Invert n -> 160000 + n
+    | Saturate n -> 170000 + n
+    | Sepia n -> 180000 + n
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
     match parts with
+    | [ "filter" ] -> Ok Filter
+    | [ "filter"; "none" ] -> Ok Filter_none
+    | [ "backdrop"; "filter" ] -> Ok Backdrop_filter
+    | [ "backdrop"; "filter"; "none" ] -> Ok Backdrop_filter_none
     | [ "blur"; "none" ] -> Ok Blur_none
     | [ "blur"; "xs" ] -> Ok Blur_xs
     | [ "blur"; "sm" ] -> Ok Blur_sm
@@ -283,6 +346,10 @@ module Handler = struct
     | _ -> err_not_utility
 
   let to_class = function
+    | Filter -> "filter"
+    | Filter_none -> "filter-none"
+    | Backdrop_filter -> "backdrop-filter"
+    | Backdrop_filter_none -> "backdrop-filter-none"
     | Blur_none -> "blur-none"
     | Blur_xs -> "blur-xs"
     | Blur_sm -> "blur-sm"

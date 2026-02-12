@@ -43,6 +43,7 @@ include Divide
 include Interactivity
 include Containers
 include Filters
+include Masks
 include Clipping
 include Position
 include Animations
@@ -109,6 +110,7 @@ module Transforms = Transforms
 module Interactivity = Interactivity
 module Containers = Containers
 module Filters = Filters
+module Masks = Masks
 module Position = Position
 module Animations = Animations
 module Transitions = Transitions
