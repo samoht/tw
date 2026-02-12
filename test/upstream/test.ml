@@ -111,6 +111,24 @@ let rec filter_container_diff classes = function
                container_changes = filtered_containers;
              })
       else None
+  | Tw_tools.Tree_diff.Container_removed info ->
+      (* Only keep if any selector in the rules matches input classes *)
+      let selectors = extract_selectors_from_rules info.rules in
+      let has_matching_selector =
+        List.exists (selector_matches_input_class classes) selectors
+      in
+      if has_matching_selector then
+        Some (Tw_tools.Tree_diff.Container_removed info)
+      else None
+  | Tw_tools.Tree_diff.Container_added info ->
+      (* Only keep if any selector in the rules matches input classes *)
+      let selectors = extract_selectors_from_rules info.rules in
+      let has_matching_selector =
+        List.exists (selector_matches_input_class classes) selectors
+      in
+      if has_matching_selector then
+        Some (Tw_tools.Tree_diff.Container_added info)
+      else None
   | other -> Some other
 
 (** Filter rule diffs to only include those that match input classes.

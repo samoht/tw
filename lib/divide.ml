@@ -124,7 +124,7 @@ module Handler = struct
         else Printf.sprintf "/%g" p
     | Color.Opacity_arbitrary f -> Printf.sprintf "/[%g]" f
 
-  (* Divide color with opacity using color-mix *)
+  (* Divide color with opacity using color-mix with scheme-aware generation *)
   let divide_color_opacity_style color shade opacity =
     let base_class_name =
       if Color.is_base_color color || Color.is_custom_color color then
@@ -138,14 +138,56 @@ module Handler = struct
         where [ Combined (Class class_name, Child, Not [ Last_child ]) ])
     in
     let percent = opacity_to_percent opacity in
-    let oklch = Color.to_oklch color shade in
-    let fallback_color =
-      Css.color_mix ~in_space:Srgb
-        (Css.oklch oklch.l oklch.c oklch.h)
-        Css.Transparent ~percent1:percent
-    in
-    let rule = Css.rule ~selector [ Css.border_color fallback_color ] in
-    style ~rules:(Some [ rule ]) []
+    let color_name = Color.scheme_color_name color shade in
+    (* Check if color is defined as hex in the scheme *)
+    match Scheme.get_hex_color (Color.get_current_scheme ()) color_name with
+    | Some hex_value ->
+        (* Scheme has hex color: use hex+alpha fallback with @supports *)
+        let hex_with_alpha = Color.hex_with_alpha hex_value percent in
+        let fallback_rule =
+          Css.rule ~selector [ Css.border_color (Css.hex hex_with_alpha) ]
+        in
+        (* Progressive enhancement: color-mix(in oklab, hex NN%, transparent) *)
+        let oklab_color =
+          Css.color_mix ~in_space:Oklab (Css.hex hex_value) Css.Transparent
+            ~percent1:percent
+        in
+        let supports_rule =
+          Css.rule ~selector [ Css.border_color oklab_color ]
+        in
+        let supports_block =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [ supports_rule ]
+        in
+        style ~rules:(Some [ fallback_rule; supports_block ]) []
+    | None ->
+        (* Default: use oklch and color-mix fallback *)
+        let oklch = Color.to_oklch color shade in
+        let fallback_color =
+          Css.color_mix ~in_space:Srgb
+            (Css.oklch oklch.l oklch.c oklch.h)
+            Css.Transparent ~percent1:percent
+        in
+        let fallback_rule =
+          Css.rule ~selector [ Css.border_color fallback_color ]
+        in
+        (* Progressive enhancement: color-mix(in oklab) *)
+        let color_var = Color.get_color_var color shade in
+        let theme_decl, color_ref =
+          Var.binding color_var (Color.to_css color shade)
+        in
+        let oklab_color =
+          Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+            ~percent1:percent
+        in
+        let supports_rule =
+          Css.rule ~selector [ theme_decl; Css.border_color oklab_color ]
+        in
+        let supports_block =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [ supports_rule ]
+        in
+        style ~rules:(Some [ fallback_rule; supports_block ]) []
 
   let divide_current_opacity_style opacity =
     let class_name = "divide-current" ^ opacity_suffix opacity in
@@ -154,11 +196,24 @@ module Handler = struct
         where [ Combined (Class class_name, Child, Not [ Last_child ]) ])
     in
     let percent = opacity_to_percent opacity in
-    let mixed_color =
+    (* Fallback: color-mix(in srgb, currentcolor, transparent) *)
+    let fallback_color =
       Css.color_mix ~in_space:Srgb Css.Current Css.Transparent ~percent1:percent
     in
-    let rule = Css.rule ~selector [ Css.border_color mixed_color ] in
-    style ~rules:(Some [ rule ]) []
+    let fallback_rule =
+      Css.rule ~selector [ Css.border_color fallback_color ]
+    in
+    (* Progressive enhancement: color-mix(in oklab) *)
+    let oklab_color =
+      Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
+        ~percent1:percent
+    in
+    let supports_rule = Css.rule ~selector [ Css.border_color oklab_color ] in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [ supports_rule ]
+    in
+    style ~rules:(Some [ fallback_rule; supports_block ]) []
 
   (* Helper to check if a string contains an opacity modifier *)
   let has_opacity s = String.contains s '/'
