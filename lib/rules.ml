@@ -623,10 +623,17 @@ let outputs util =
                     match Css.as_rule stmt with
                     | Some (selector, declarations, nested) ->
                         has_regular_rules := true;
+                        (* Replace placeholder selector "_" with the actual
+                           utility class selector *)
+                        let actual_selector =
+                          if Css.Selector.to_string selector = "._" then sel
+                          else selector
+                        in
                         Some
                           [
-                            regular ~selector ~props:declarations
-                              ~base_class:class_name ~nested ();
+                            regular ~selector:actual_selector
+                              ~props:declarations ~base_class:class_name ~nested
+                              ();
                           ]
                     | None -> (
                         match Css.as_media stmt with
@@ -635,8 +642,16 @@ let outputs util =
                             |> List.filter_map (fun inner ->
                                 match Css.as_rule inner with
                                 | Some (selector, declarations, _) ->
+                                    (* Replace placeholder selector "_" with the
+                                       actual utility class selector *)
+                                    let actual_selector =
+                                      if Css.Selector.to_string selector = "._"
+                                      then sel
+                                      else selector
+                                    in
                                     Some
-                                      (media_query ~condition ~selector
+                                      (media_query ~condition
+                                         ~selector:actual_selector
                                          ~props:declarations
                                          ~base_class:class_name ())
                                 | None -> None)
