@@ -54,6 +54,7 @@ include Accessibility
 include Modifiers
 include Prose
 include Columns
+include Contain
 
 (* CSS rule generation from Rules module *)
 let to_css ?(base = Rules.default_config.base) ?forms
