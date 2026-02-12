@@ -707,6 +707,7 @@ module Typography_late = struct
   type t =
     | (* Decoration color *)
       Decoration_color of Color.color * int option
+    | Decoration_color_opacity of Color.color * int * Color.opacity_modifier
     | (* Text decoration lines *)
       Underline
     | Overline
@@ -851,8 +852,14 @@ module Typography_late = struct
             | Ok c -> Ok (Decoration_color (c, None))
             | Error _ -> err_not_utility))
     | [ "decoration"; color; shade ] -> (
-        match (Color.of_string color, Parse.int_any shade) with
-        | Ok c, Ok s -> Ok (Decoration_color (c, Some s))
+        (* Check for opacity modifier in shade (e.g., "500/50" or
+           "500/[0.5]") *)
+        let shade_str, opacity = Color.parse_opacity_modifier shade in
+        match (Color.of_string color, Parse.int_any shade_str) with
+        | Ok c, Ok s -> (
+            match opacity with
+            | Color.No_opacity -> Ok (Decoration_color (c, Some s))
+            | _ -> Ok (Decoration_color_opacity (c, s, opacity)))
         | _ -> err_not_utility)
     | [ "tracking"; "tighter" ] -> Ok Tracking_tighter
     | [ "tracking"; "tight" ] -> Ok Tracking_tight
@@ -975,6 +982,9 @@ module Typography_late = struct
     | Decoration_color (color, None) -> "decoration-" ^ Color.pp color
     | Decoration_color (color, Some shade) ->
         "decoration-" ^ Color.pp color ^ "-" ^ string_of_int shade
+    | Decoration_color_opacity (color, shade, opacity) ->
+        "decoration-" ^ Color.pp color ^ "-" ^ string_of_int shade ^ "/"
+        ^ Color.pp_opacity opacity
     | Underline -> "underline"
     | Overline -> "overline"
     | Line_through -> "line-through"
@@ -1089,6 +1099,11 @@ module Typography_late = struct
     (* Decoration color - comes first in late typography *)
     | Decoration_color (color, shade_opt) -> (
         let shade = match shade_opt with Some s -> s | None -> 500 in
+        try
+          let _, color_order = Color.utilities_order (Color.pp color) in
+          5000 + (color_order * 1000) + shade
+        with Not_found | Failure _ -> 5000 + shade)
+    | Decoration_color_opacity (color, shade, _) -> (
         try
           let _, color_order = Color.utilities_order (Color.pp color) in
           5000 + (color_order * 1000) + shade
@@ -1241,6 +1256,15 @@ module Typography_late = struct
           webkit_text_decoration_color (Css.Var color_ref);
           text_decoration_color (Css.Var color_ref);
         ]
+
+  let decoration_color_with_opacity (color : Color.color) shade opacity =
+    (* Tailwind outputs only unprefixed text-decoration-color in the fallback *)
+    match Color.get_hex_alpha_color color shade opacity with
+    | Some hex_alpha -> style [ text_decoration_color (Css.hex hex_alpha) ]
+    | None ->
+        (* Fallback for non-scheme colors *)
+        let css_color = Color.to_css color shade in
+        style [ text_decoration_color css_color ]
 
   let whitespace_normal = style [ white_space Normal ]
   let whitespace_nowrap = style [ white_space Nowrap ]
@@ -1510,6 +1534,8 @@ module Typography_late = struct
   let to_style = function
     | Decoration_color (color, None) -> decoration_color color
     | Decoration_color (color, Some shade) -> decoration_color ~shade color
+    | Decoration_color_opacity (color, shade, opacity) ->
+        decoration_color_with_opacity color shade opacity
     | Underline -> underline
     | Overline -> overline
     | Line_through -> line_through

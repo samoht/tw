@@ -64,6 +64,10 @@ let selectors_from_blocks classes blocks =
   |> List.filter (selector_matches_input_class classes)
   |> List.sort String.compare
 
+(** Check if a supports condition is for color-mix (progressive enhancement) *)
+let is_color_mix_supports condition =
+  String.length condition > 10 && String.sub condition 0 10 = "(color: co"
+
 (** Filter container diffs to only include relevant changes *)
 let rec filter_container_diff classes = function
   | Tw_tools.Tree_diff.Container_block_structure_changed
@@ -112,30 +116,41 @@ let rec filter_container_diff classes = function
              })
       else None
   | Tw_tools.Tree_diff.Container_removed info ->
-      (* Only keep if any selector in the rules matches input classes *)
-      let selectors = extract_selectors_from_rules info.rules in
-      let has_matching_selector =
-        List.exists (selector_matches_input_class classes) selectors
-      in
-      if has_matching_selector then
-        Some (Tw_tools.Tree_diff.Container_removed info)
-      else None
+      (* Filter out color-mix @supports blocks - our hex fallback is
+         equivalent *)
+      if info.container_type = `Supports && is_color_mix_supports info.condition
+      then None
+      else
+        (* Only keep if any selector in the rules matches input classes *)
+        let selectors = extract_selectors_from_rules info.rules in
+        let has_matching_selector =
+          List.exists (selector_matches_input_class classes) selectors
+        in
+        if has_matching_selector then
+          Some (Tw_tools.Tree_diff.Container_removed info)
+        else None
   | Tw_tools.Tree_diff.Container_added info ->
-      (* Only keep if any selector in the rules matches input classes *)
-      let selectors = extract_selectors_from_rules info.rules in
-      let has_matching_selector =
-        List.exists (selector_matches_input_class classes) selectors
-      in
-      if has_matching_selector then
-        Some (Tw_tools.Tree_diff.Container_added info)
-      else None
+      (* Filter out color-mix @supports blocks - our hex fallback is
+         equivalent *)
+      if info.container_type = `Supports && is_color_mix_supports info.condition
+      then None
+      else
+        (* Only keep if any selector in the rules matches input classes *)
+        let selectors = extract_selectors_from_rules info.rules in
+        let has_matching_selector =
+          List.exists (selector_matches_input_class classes) selectors
+        in
+        if has_matching_selector then
+          Some (Tw_tools.Tree_diff.Container_added info)
+        else None
   | other -> Some other
 
 (** Filter rule diffs to only include those that match input classes.
     Specifically, we ignore Rule_removed diffs for selectors that don't match
     any input class (since those are in expected CSS but not relevant). We also
     filter out theme-level selectors like :root, :host since those contain theme
-    configuration rather than utility output. *)
+    configuration rather than utility output. We also filter out color-mix
+    @supports blocks since our hex fallback is semantically equivalent. *)
 let filter_irrelevant_diffs classes (diff : Tw_tools.Tree_diff.t) :
     Tw_tools.Tree_diff.t =
   (* Check if a property name is a gradient variable that can be split across

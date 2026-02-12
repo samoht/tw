@@ -1886,7 +1886,22 @@ let () = Utility.register (module Handler)
 let scheme_color_name = Handler.scheme_color_name
 
 let opacity_to_percent = Handler.opacity_to_percent
+
+let pp_opacity = function
+  | No_opacity -> ""
+  | Opacity_percent pct -> string_of_int (int_of_float pct)
+  | Opacity_arbitrary f -> "[" ^ string_of_float f ^ "]"
+
 let get_current_scheme () = !Handler.current_scheme
+
+let get_hex_alpha_color c shade opacity =
+  let open Handler in
+  let percent = opacity_to_percent opacity in
+  let color_name = scheme_color_name c shade in
+  match Scheme.get_hex_color !current_scheme color_name with
+  | Some hex_value -> Some (hex_with_alpha hex_value percent)
+  | None -> None
+
 let color_mix_supports_condition = Handler.color_mix_supports_condition
 
 (** {1 Color with Opacity Helpers}

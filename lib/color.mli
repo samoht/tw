@@ -558,5 +558,14 @@ val divide_current_with_opacity : opacity_modifier -> Css.Selector.t -> Style.t
     with opacity using the given selector. *)
 
 val opacity_to_percent : opacity_modifier -> float
-(** [opacity_to_percent opacity] converts an opacity modifier to a float
-    percentage (0.0-100.0). *)
+(** [opacity_to_percent modifier] returns the opacity as a float percentage. *)
+
+val pp_opacity : opacity_modifier -> string
+(** [pp_opacity modifier] returns a string representation of the opacity
+    modifier for use in class names. E.g., Opacity_percent 50. -> "50",
+    Opacity_arbitrary 0.5 -> "[0.5]". *)
+
+val get_hex_alpha_color : color -> int -> opacity_modifier -> string option
+(** [get_hex_alpha_color color shade opacity] returns a hex color with alpha if
+    the color is defined in the scheme, otherwise None. This is useful for
+    properties where Tailwind outputs simple hex+alpha without @supports. *)
