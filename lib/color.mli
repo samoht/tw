@@ -556,3 +556,7 @@ val divide_with_opacity :
 val divide_current_with_opacity : opacity_modifier -> Css.Selector.t -> Style.t
 (** [divide_current_with_opacity opacity selector] generates divide currentColor
     with opacity using the given selector. *)
+
+val opacity_to_percent : opacity_modifier -> float
+(** [opacity_to_percent opacity] converts an opacity modifier to a float
+    percentage (0.0-100.0). *)

@@ -1885,6 +1885,7 @@ let () = Utility.register (module Handler)
 (** Re-export helper functions from Handler for use by other modules *)
 let scheme_color_name = Handler.scheme_color_name
 
+let opacity_to_percent = Handler.opacity_to_percent
 let get_current_scheme () = !Handler.current_scheme
 let color_mix_supports_condition = Handler.color_mix_supports_condition
 

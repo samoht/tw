@@ -830,7 +830,25 @@ module Handler = struct
 
   let outline_hidden =
     let decl, _ = Var.binding outline_style_var Css.None in
-    style [ decl; Css.outline_style Css.None ]
+    (* Base style: outline-style: none *)
+    (* In forced-colors mode, reset outline with shorthand + offset *)
+    let media_rule =
+      Css.media ~condition:(Css.Media.Forced_colors `Active)
+        [
+          Css.rule ~selector:(Css.Selector.class_ "_")
+            [
+              Css.outline_offset (Px 2.);
+              Css.outline
+                (Shorthand
+                   {
+                     width = Some (Px 2.);
+                     style = Some Solid;
+                     color = Some (Hex { hash = true; value = "0000" });
+                   });
+            ];
+        ]
+    in
+    style ~rules:(Some [ media_rule ]) [ decl; Css.outline_style Css.None ]
 
   (* Outline offset *)
   let outline_offset_0 = style [ Css.outline_offset (Px 0.) ]

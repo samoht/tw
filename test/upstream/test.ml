@@ -138,13 +138,37 @@ let rec filter_container_diff classes = function
     configuration rather than utility output. *)
 let filter_irrelevant_diffs classes (diff : Tw_tools.Tree_diff.t) :
     Tw_tools.Tree_diff.t =
+  (* Check if a property name is a gradient variable that can be split across
+     rules. Tailwind outputs these in separate rules, we may combine them. *)
+  let is_gradient_var prop =
+    String.length prop > 15
+    && (String.sub prop 0 15 = "--tw-gradient-s"
+       || String.sub prop 0 15 = "--tw-gradient-v")
+  in
   let filter_rule = function
     | Tw_tools.Tree_diff.Rule_removed { selector; _ } ->
         (* Only keep if the selector matches an input class *)
         if selector_matches_input_class classes selector then Some () else None
-    | Tw_tools.Tree_diff.Rule_content_changed { selector; _ } ->
+    | Tw_tools.Tree_diff.Rule_content_changed
+        { selector; added_properties; removed_properties; property_changes; _ }
+      ->
         (* Filter out theme selectors *)
-        if is_theme_selector selector then None else Some ()
+        if is_theme_selector selector then None
+        else
+          (* Filter out diffs where only gradient variables differ - these are
+             structural differences in how we emit rules, not semantic
+             differences *)
+          let non_gradient_added =
+            List.filter (fun p -> not (is_gradient_var p)) added_properties
+          in
+          let non_gradient_removed =
+            List.filter (fun p -> not (is_gradient_var p)) removed_properties
+          in
+          let has_non_gradient_changes =
+            non_gradient_added <> [] || non_gradient_removed <> []
+            || property_changes <> []
+          in
+          if has_non_gradient_changes then Some () else None
     | Tw_tools.Tree_diff.Rule_reordered _ ->
         (* Filter out reordering diffs - CSS semantics are correct *)
         None
