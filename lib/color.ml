@@ -1889,7 +1889,11 @@ let opacity_to_percent = Handler.opacity_to_percent
 
 let pp_opacity = function
   | No_opacity -> ""
-  | Opacity_percent pct -> string_of_int (int_of_float pct)
+  | Opacity_percent pct ->
+      (* Handle both integer and decimal values *)
+      let rounded = Float.round pct in
+      if Float.equal pct rounded then string_of_int (int_of_float pct)
+      else Printf.sprintf "%g" pct
   | Opacity_arbitrary f -> "[" ^ string_of_float f ^ "]"
 
 let get_current_scheme () = !Handler.current_scheme

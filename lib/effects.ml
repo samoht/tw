@@ -35,9 +35,12 @@ module Handler = struct
     | Ring_xl
     | Ring_inset
     | Ring_color of Color.color * int
+    | Ring_color_opacity of Color.color * int * Color.opacity_modifier
     | Ring_offset_width of int
     | Ring_offset_color of Color.color * int
+    | Ring_offset_color_opacity of Color.color * int * Color.opacity_modifier
     | Inset_ring_color of Color.color * int
+    | Inset_ring_color_opacity of Color.color * int * Color.opacity_modifier
     (* Mix blend modes *)
     | Mix_blend_normal
     | Mix_blend_multiply
@@ -749,6 +752,16 @@ module Handler = struct
     (* Include color_decl so the theme variable gets emitted to @layer theme *)
     style [ color_decl; d ]
 
+  let ring_color_with_opacity color shade opacity =
+    (* For opacity modifiers, output hex color with alpha directly *)
+    match Color.get_hex_alpha_color color shade opacity with
+    | Some hex_alpha ->
+        let d, _ = Var.binding ring_color_var (Css.hex hex_alpha) in
+        style [ d ]
+    | None ->
+        (* Fallback to regular ring_color if color not in scheme *)
+        ring_color color shade
+
   let ring_offset_width n =
     (* Sets --tw-ring-offset-width and --tw-ring-offset-shadow Format:
        var(--tw-ring-inset,) 0 0 0 var(--tw-ring-offset-width)
@@ -772,6 +785,14 @@ module Handler = struct
     let d, _ = Var.binding ring_offset_color_var (Css.Var color_ref) in
     style [ color_decl; d ]
 
+  let ring_offset_color_with_opacity color shade opacity =
+    (* For opacity modifiers, output hex color with alpha directly *)
+    match Color.get_hex_alpha_color color shade opacity with
+    | Some hex_alpha ->
+        let d, _ = Var.binding ring_offset_color_var (Css.hex hex_alpha) in
+        style [ d ]
+    | None -> ring_offset_color color shade
+
   let inset_ring_color color shade =
     (* Sets --tw-inset-ring-color to reference theme color variable *)
     let color_theme_var = Color.get_color_var color shade in
@@ -779,6 +800,14 @@ module Handler = struct
     let color_decl, color_ref = Var.binding color_theme_var color_value in
     let d, _ = Var.binding inset_ring_color_var (Css.Var color_ref) in
     style [ color_decl; d ]
+
+  let inset_ring_color_with_opacity color shade opacity =
+    (* For opacity modifiers, output hex color with alpha directly *)
+    match Color.get_hex_alpha_color color shade opacity with
+    | Some hex_alpha ->
+        let d, _ = Var.binding inset_ring_color_var (Css.hex hex_alpha) in
+        style [ d ]
+    | None -> inset_ring_color color shade
 
   let opacity n =
     let value = float_of_int n /. 100.0 in
@@ -851,9 +880,15 @@ module Handler = struct
     | Ring_xl -> ring_xl
     | Ring_inset -> ring_inset
     | Ring_color (color, shade) -> ring_color color shade
+    | Ring_color_opacity (color, shade, opacity) ->
+        ring_color_with_opacity color shade opacity
     | Ring_offset_width n -> ring_offset_width n
     | Ring_offset_color (color, shade) -> ring_offset_color color shade
+    | Ring_offset_color_opacity (color, shade, opacity) ->
+        ring_offset_color_with_opacity color shade opacity
     | Inset_ring_color (color, shade) -> inset_ring_color color shade
+    | Inset_ring_color_opacity (color, shade, opacity) ->
+        inset_ring_color_with_opacity color shade opacity
     | Mix_blend_normal -> mix_blend_normal
     | Mix_blend_multiply -> mix_blend_multiply
     | Mix_blend_screen -> mix_blend_screen
@@ -939,16 +974,30 @@ module Handler = struct
         | Ok width -> Ok (Ring_offset_width width)
         | Error _ -> err_not_utility)
     | [ "ring"; color; shade ] -> (
-        match (Color.of_string color, Parse.int_any shade) with
-        | Ok c, Ok s -> Ok (Ring_color (c, s))
+        (* Check for opacity modifier in shade (e.g., "500/50" or
+           "500/[0.5]") *)
+        let shade_str, opacity = Color.parse_opacity_modifier shade in
+        match (Color.of_string color, Parse.int_any shade_str) with
+        | Ok c, Ok s -> (
+            match opacity with
+            | Color.No_opacity -> Ok (Ring_color (c, s))
+            | _ -> Ok (Ring_color_opacity (c, s, opacity)))
         | _ -> err_not_utility)
     | [ "ring"; "offset"; color; shade ] -> (
-        match (Color.of_string color, Parse.int_any shade) with
-        | Ok c, Ok s -> Ok (Ring_offset_color (c, s))
+        let shade_str, opacity = Color.parse_opacity_modifier shade in
+        match (Color.of_string color, Parse.int_any shade_str) with
+        | Ok c, Ok s -> (
+            match opacity with
+            | Color.No_opacity -> Ok (Ring_offset_color (c, s))
+            | _ -> Ok (Ring_offset_color_opacity (c, s, opacity)))
         | _ -> err_not_utility)
     | [ "inset"; "ring"; color; shade ] -> (
-        match (Color.of_string color, Parse.int_any shade) with
-        | Ok c, Ok s -> Ok (Inset_ring_color (c, s))
+        let shade_str, opacity = Color.parse_opacity_modifier shade in
+        match (Color.of_string color, Parse.int_any shade_str) with
+        | Ok c, Ok s -> (
+            match opacity with
+            | Color.No_opacity -> Ok (Inset_ring_color (c, s))
+            | _ -> Ok (Inset_ring_color_opacity (c, s, opacity)))
         | _ -> err_not_utility)
     | [ "mix"; "blend"; "normal" ] -> Ok Mix_blend_normal
     | [ "mix"; "blend"; "multiply" ] -> Ok Mix_blend_multiply
@@ -1014,11 +1063,20 @@ module Handler = struct
     | Ring_inset -> "ring-inset"
     | Ring_color (color, shade) ->
         "ring-" ^ Color.pp color ^ "-" ^ string_of_int shade
+    | Ring_color_opacity (color, shade, opacity) ->
+        "ring-" ^ Color.pp color ^ "-" ^ string_of_int shade ^ "/"
+        ^ Color.pp_opacity opacity
     | Ring_offset_width n -> "ring-offset-" ^ string_of_int n
     | Ring_offset_color (color, shade) ->
         "ring-offset-" ^ Color.pp color ^ "-" ^ string_of_int shade
+    | Ring_offset_color_opacity (color, shade, opacity) ->
+        "ring-offset-" ^ Color.pp color ^ "-" ^ string_of_int shade ^ "/"
+        ^ Color.pp_opacity opacity
     | Inset_ring_color (color, shade) ->
         "inset-ring-" ^ Color.pp color ^ "-" ^ string_of_int shade
+    | Inset_ring_color_opacity (color, shade, opacity) ->
+        "inset-ring-" ^ Color.pp color ^ "-" ^ string_of_int shade ^ "/"
+        ^ Color.pp_opacity opacity
     | Mix_blend_normal -> "mix-blend-normal"
     | Mix_blend_multiply -> "mix-blend-multiply"
     | Mix_blend_screen -> "mix-blend-screen"
@@ -1123,11 +1181,20 @@ module Handler = struct
     | Ring_color (color, shade) ->
         20000
         + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
+    | Ring_color_opacity (color, shade, _) ->
+        20000
+        + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
     | Inset_ring_color (color, shade) ->
+        50000
+        + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
+    | Inset_ring_color_opacity (color, shade, _) ->
         50000
         + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
     | Ring_offset_width n -> 80000 + n
     | Ring_offset_color (color, shade) ->
+        100000
+        + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
+    | Ring_offset_color_opacity (color, shade, _) ->
         100000
         + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
     | Ring_inset -> 150000
