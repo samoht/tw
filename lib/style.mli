@@ -77,6 +77,13 @@ type modifier =
   | Peer_last
   | Peer_odd
   | Peer_even
+  | Pseudo_marker
+  | Pseudo_selection
+  | Pseudo_placeholder
+  | Pseudo_backdrop
+  | Pseudo_file
+  | Pseudo_first_letter
+  | Pseudo_first_line
 
 type t =
   | Style of {

@@ -179,6 +179,15 @@ let to_selector (modifier : modifier) cls =
           Subsequent_sibling universal
       in
       compound [ Class ("peer-even:" ^ cls); is_ [ rel ] ]
+  (* Pseudo-element variants *)
+  | Pseudo_marker -> compound [ Class ("marker:" ^ cls); Marker ]
+  | Pseudo_selection -> compound [ Class ("selection:" ^ cls); Selection ]
+  | Pseudo_placeholder -> compound [ Class ("placeholder:" ^ cls); Placeholder ]
+  | Pseudo_backdrop -> compound [ Class ("backdrop:" ^ cls); Backdrop ]
+  | Pseudo_file -> compound [ Class ("file:" ^ cls); File_selector_button ]
+  | Pseudo_first_letter ->
+      compound [ Class ("first-letter:" ^ cls); First_letter ]
+  | Pseudo_first_line -> compound [ Class ("first-line:" ^ cls); First_line ]
   | _ -> Css.Selector.Class cls (* fallback for complex modifiers *)
 
 (** Check if a modifier generates a hover rule *)
@@ -315,6 +324,15 @@ let peer_last styles = wrap Peer_last styles
 let peer_odd styles = wrap Peer_odd styles
 let peer_even styles = wrap Peer_even styles
 
+(* Pseudo-element variants *)
+let marker styles = wrap Pseudo_marker styles
+let selection styles = wrap Pseudo_selection styles
+let placeholder styles = wrap Pseudo_placeholder styles
+let backdrop styles = wrap Pseudo_backdrop styles
+let file styles = wrap Pseudo_file styles
+let first_letter styles = wrap Pseudo_first_letter styles
+let first_line styles = wrap Pseudo_first_line styles
+
 (* Parse modifiers (responsive, states) from class string. Handles brackets
    properly so has-[:checked]:bg-red-500 parses as modifiers=["has-[:checked]"]
    and base_class="bg-red-500" *)
@@ -414,6 +432,13 @@ let pp_modifier = function
   | Peer_last -> "peer-last"
   | Peer_odd -> "peer-odd"
   | Peer_even -> "peer-even"
+  | Pseudo_marker -> "marker"
+  | Pseudo_selection -> "selection"
+  | Pseudo_placeholder -> "placeholder"
+  | Pseudo_backdrop -> "backdrop"
+  | Pseudo_file -> "file"
+  | Pseudo_first_letter -> "first-letter"
+  | Pseudo_first_line -> "first-line"
 
 (* Apply a list of modifier strings to a base utility *)
 let apply modifiers base_utility =
@@ -727,6 +752,35 @@ let apply modifiers base_utility =
         match acc with
         | Utility.Group styles -> peer_even styles
         | single -> peer_even [ single ])
+    (* Pseudo-element variants *)
+    | "marker" -> (
+        match acc with
+        | Utility.Group styles -> marker styles
+        | single -> marker [ single ])
+    | "selection" -> (
+        match acc with
+        | Utility.Group styles -> selection styles
+        | single -> selection [ single ])
+    | "placeholder" -> (
+        match acc with
+        | Utility.Group styles -> placeholder styles
+        | single -> placeholder [ single ])
+    | "backdrop" -> (
+        match acc with
+        | Utility.Group styles -> backdrop styles
+        | single -> backdrop [ single ])
+    | "file" -> (
+        match acc with
+        | Utility.Group styles -> file styles
+        | single -> file [ single ])
+    | "first-letter" -> (
+        match acc with
+        | Utility.Group styles -> first_letter styles
+        | single -> first_letter [ single ])
+    | "first-line" -> (
+        match acc with
+        | Utility.Group styles -> first_line styles
+        | single -> first_line [ single ])
     | _ -> acc (* ignore unknown modifiers for now *)
   in
   (* Apply modifiers in reverse order so that the first modifier in the string
