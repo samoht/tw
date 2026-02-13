@@ -188,6 +188,17 @@ let to_selector (modifier : modifier) cls =
   | Pseudo_first_letter ->
       compound [ Class ("first-letter:" ^ cls); First_letter ]
   | Pseudo_first_line -> compound [ Class ("first-line:" ^ cls); First_line ]
+  | Pseudo_details_content ->
+      compound [ Class ("details-content:" ^ cls); Details_content ]
+  (* Child/descendant selectors - star variants *)
+  | Children ->
+      (* star:flex -> :is(.\star\:flex > star) *)
+      let child_sel = combine (Class ("*:" ^ cls)) Child universal in
+      is_ [ child_sel ]
+  | Descendants ->
+      (* starstar:flex -> :is(.\starstar\:flex star) *)
+      let desc_sel = combine (Class ("**:" ^ cls)) Descendant universal in
+      is_ [ desc_sel ]
   | _ -> Css.Selector.Class cls (* fallback for complex modifiers *)
 
 (** Check if a modifier generates a hover rule *)
@@ -332,6 +343,9 @@ let backdrop styles = wrap Pseudo_backdrop styles
 let file styles = wrap Pseudo_file styles
 let first_letter styles = wrap Pseudo_first_letter styles
 let first_line styles = wrap Pseudo_first_line styles
+let details_content styles = wrap Pseudo_details_content styles
+let children styles = wrap Children styles
+let descendants styles = wrap Descendants styles
 
 (* Parse modifiers (responsive, states) from class string. Handles brackets
    properly so has-[:checked]:bg-red-500 parses as modifiers=["has-[:checked]"]
@@ -439,6 +453,9 @@ let pp_modifier = function
   | Pseudo_file -> "file"
   | Pseudo_first_letter -> "first-letter"
   | Pseudo_first_line -> "first-line"
+  | Pseudo_details_content -> "details-content"
+  | Children -> "*"
+  | Descendants -> "**"
 
 (* Apply a list of modifier strings to a base utility *)
 let apply modifiers base_utility =
@@ -781,6 +798,18 @@ let apply modifiers base_utility =
         match acc with
         | Utility.Group styles -> first_line styles
         | single -> first_line [ single ])
+    | "details-content" -> (
+        match acc with
+        | Utility.Group styles -> details_content styles
+        | single -> details_content [ single ])
+    | "*" -> (
+        match acc with
+        | Utility.Group styles -> children styles
+        | single -> children [ single ])
+    | "**" -> (
+        match acc with
+        | Utility.Group styles -> descendants styles
+        | single -> descendants [ single ])
     | _ -> acc (* ignore unknown modifiers for now *)
   in
   (* Apply modifiers in reverse order so that the first modifier in the string

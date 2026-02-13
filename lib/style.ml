@@ -84,6 +84,9 @@ type modifier =
   | Pseudo_file
   | Pseudo_first_letter
   | Pseudo_first_line
+  | Pseudo_details_content
+  | Children (* * variant - all direct children *)
+  | Descendants (* ** variant - all descendants *)
 
 type t =
   | Style of {
@@ -192,6 +195,9 @@ let rec pp_modifier = function
   | Pseudo_file -> "file"
   | Pseudo_first_letter -> "first-letter"
   | Pseudo_first_line -> "first-line"
+  | Pseudo_details_content -> "details-content"
+  | Children -> "*"
+  | Descendants -> "**"
 
 let rec pp ppf = function
   | Style { props; _ } ->
