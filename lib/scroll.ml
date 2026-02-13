@@ -36,21 +36,16 @@ module Handler = struct
 
   let name = "scroll"
   let priority = 2
-  let spacing_var = Theme.spacing_var
 
-  let spacing_value spacing_ref n : Css.length =
-    if n = 0 then Css.Px 0.
+  (** Get (declaration, length) for spacing value using Theme.spacing_calc_float
+  *)
+  let spacing_to_decl_len ~negative n : Css.declaration * Css.length =
+    if n = 0 then
+      let decl, _ = Var.binding Theme.spacing_var (Css.Rem 0.25) in
+      (decl, Css.Px 0.)
     else
-      Css.Calc
-        (Css.Calc.mul
-           (Css.Calc.length (Css.Var spacing_ref))
-           (Css.Calc.float (Float.of_int n)))
-
-  let negative_spacing_value spacing_ref n : Css.length =
-    Css.Calc
-      (Css.Calc.mul
-         (Css.Calc.length (Css.Var spacing_ref))
-         (Css.Calc.float (Float.of_int (-n))))
+      let mult = if negative then float_of_int (-n) else float_of_int n in
+      Theme.spacing_calc_float mult
 
   let parse_arbitrary s : [ `Length of Css.length | `Var of string ] option =
     (* Parse [4px] or [1rem] or [var(--value)] etc. *)
@@ -122,13 +117,9 @@ module Handler = struct
       | Margin -> scroll_margin_prop axis
       | Padding -> scroll_padding_prop axis
     in
-    let decl, spacing_ref = Var.binding spacing_var (Css.Rem 0.25) in
     match value with
     | Spacing n ->
-        let len =
-          if negative then negative_spacing_value spacing_ref n
-          else spacing_value spacing_ref n
-        in
+        let decl, len = spacing_to_decl_len ~negative n in
         style [ decl; prop len ]
     | Arbitrary len ->
         if negative then
