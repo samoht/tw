@@ -127,6 +127,9 @@ let to_selector (modifier : modifier) cls =
   | Enabled -> compound [ Class ("enabled:" ^ cls); Enabled ]
   | Target -> compound [ Class ("target:" ^ cls); Target ]
   | Visited -> compound [ Class ("visited:" ^ cls); Visited ]
+  | Inert -> compound [ Class ("inert:" ^ cls); Inert ]
+  | User_valid -> compound [ Class ("user-valid:" ^ cls); User_valid ]
+  | User_invalid -> compound [ Class ("user-invalid:" ^ cls); User_invalid ]
   (* Group structural variants *)
   | Group_first ->
       let rel =
@@ -337,6 +340,70 @@ let to_selector (modifier : modifier) cls =
           Subsequent_sibling universal
       in
       compound [ Class ("peer-optional:" ^ cls); is_ [ rel ] ]
+  (* Group/peer read-only, read-write, inert, user-valid, user-invalid
+     variants *)
+  | Group_read_only ->
+      let rel =
+        combine (compound [ where [ group ]; Read_only ]) Descendant universal
+      in
+      compound [ Class ("group-read-only:" ^ cls); is_ [ rel ] ]
+  | Peer_read_only ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Read_only ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-read-only:" ^ cls); is_ [ rel ] ]
+  | Group_read_write ->
+      let rel =
+        combine (compound [ where [ group ]; Read_write ]) Descendant universal
+      in
+      compound [ Class ("group-read-write:" ^ cls); is_ [ rel ] ]
+  | Peer_read_write ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Read_write ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-read-write:" ^ cls); is_ [ rel ] ]
+  | Group_inert ->
+      let rel =
+        combine (compound [ where [ group ]; Inert ]) Descendant universal
+      in
+      compound [ Class ("group-inert:" ^ cls); is_ [ rel ] ]
+  | Peer_inert ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Inert ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-inert:" ^ cls); is_ [ rel ] ]
+  | Group_user_valid ->
+      let rel =
+        combine (compound [ where [ group ]; User_valid ]) Descendant universal
+      in
+      compound [ Class ("group-user-valid:" ^ cls); is_ [ rel ] ]
+  | Peer_user_valid ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; User_valid ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-user-valid:" ^ cls); is_ [ rel ] ]
+  | Group_user_invalid ->
+      let rel =
+        combine
+          (compound [ where [ group ]; User_invalid ])
+          Descendant universal
+      in
+      compound [ Class ("group-user-invalid:" ^ cls); is_ [ rel ] ]
+  | Peer_user_invalid ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; User_invalid ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-user-invalid:" ^ cls); is_ [ rel ] ]
   (* Pseudo-element variants *)
   | Pseudo_marker -> compound [ Class ("marker:" ^ cls); Marker ]
   | Pseudo_selection -> compound [ Class ("selection:" ^ cls); Selection ]
@@ -484,6 +551,9 @@ let open_ styles = wrap Open styles
 let enabled styles = wrap Enabled styles
 let target styles = wrap Target styles
 let visited styles = wrap Visited styles
+let inert styles = wrap Inert styles
+let user_valid styles = wrap User_valid styles
+let user_invalid styles = wrap User_invalid styles
 
 (* Group/peer structural variants *)
 let group_first styles = wrap Group_first styles
@@ -521,6 +591,16 @@ let peer_open styles = wrap Peer_open styles
 let peer_target styles = wrap Peer_target styles
 let group_optional styles = wrap Group_optional styles
 let peer_optional styles = wrap Peer_optional styles
+let group_read_only styles = wrap Group_read_only styles
+let peer_read_only styles = wrap Peer_read_only styles
+let group_read_write styles = wrap Group_read_write styles
+let peer_read_write styles = wrap Peer_read_write styles
+let group_inert styles = wrap Group_inert styles
+let peer_inert styles = wrap Peer_inert styles
+let group_user_valid styles = wrap Group_user_valid styles
+let peer_user_valid styles = wrap Peer_user_valid styles
+let group_user_invalid styles = wrap Group_user_invalid styles
+let peer_user_invalid styles = wrap Peer_user_invalid styles
 
 (* Pseudo-element variants *)
 let marker styles = wrap Pseudo_marker styles
@@ -627,6 +707,9 @@ let pp_modifier = function
   | Enabled -> "enabled"
   | Target -> "target"
   | Visited -> "visited"
+  | Inert -> "inert"
+  | User_valid -> "user-valid"
+  | User_invalid -> "user-invalid"
   | Group_first -> "group-first"
   | Group_last -> "group-last"
   | Group_odd -> "group-odd"
@@ -660,6 +743,16 @@ let pp_modifier = function
   | Peer_target -> "peer-target"
   | Group_optional -> "group-optional"
   | Peer_optional -> "peer-optional"
+  | Group_read_only -> "group-read-only"
+  | Peer_read_only -> "peer-read-only"
+  | Group_read_write -> "group-read-write"
+  | Peer_read_write -> "peer-read-write"
+  | Group_inert -> "group-inert"
+  | Peer_inert -> "peer-inert"
+  | Group_user_valid -> "group-user-valid"
+  | Peer_user_valid -> "peer-user-valid"
+  | Group_user_invalid -> "group-user-invalid"
+  | Peer_user_invalid -> "peer-user-invalid"
   | Pseudo_marker -> "marker"
   | Pseudo_selection -> "selection"
   | Pseudo_placeholder -> "placeholder"
@@ -957,6 +1050,18 @@ let apply modifiers base_utility =
         match acc with
         | Utility.Group styles -> visited styles
         | single -> visited [ single ])
+    | "inert" -> (
+        match acc with
+        | Utility.Group styles -> inert styles
+        | single -> inert [ single ])
+    | "user-valid" -> (
+        match acc with
+        | Utility.Group styles -> user_valid styles
+        | single -> user_valid [ single ])
+    | "user-invalid" -> (
+        match acc with
+        | Utility.Group styles -> user_invalid styles
+        | single -> user_invalid [ single ])
     (* Group structural variants *)
     | "group-first" -> (
         match acc with
@@ -1092,6 +1197,46 @@ let apply modifiers base_utility =
         match acc with
         | Utility.Group styles -> peer_optional styles
         | single -> peer_optional [ single ])
+    | "group-read-only" -> (
+        match acc with
+        | Utility.Group styles -> group_read_only styles
+        | single -> group_read_only [ single ])
+    | "peer-read-only" -> (
+        match acc with
+        | Utility.Group styles -> peer_read_only styles
+        | single -> peer_read_only [ single ])
+    | "group-read-write" -> (
+        match acc with
+        | Utility.Group styles -> group_read_write styles
+        | single -> group_read_write [ single ])
+    | "peer-read-write" -> (
+        match acc with
+        | Utility.Group styles -> peer_read_write styles
+        | single -> peer_read_write [ single ])
+    | "group-inert" -> (
+        match acc with
+        | Utility.Group styles -> group_inert styles
+        | single -> group_inert [ single ])
+    | "peer-inert" -> (
+        match acc with
+        | Utility.Group styles -> peer_inert styles
+        | single -> peer_inert [ single ])
+    | "group-user-valid" -> (
+        match acc with
+        | Utility.Group styles -> group_user_valid styles
+        | single -> group_user_valid [ single ])
+    | "peer-user-valid" -> (
+        match acc with
+        | Utility.Group styles -> peer_user_valid styles
+        | single -> peer_user_valid [ single ])
+    | "group-user-invalid" -> (
+        match acc with
+        | Utility.Group styles -> group_user_invalid styles
+        | single -> group_user_invalid [ single ])
+    | "peer-user-invalid" -> (
+        match acc with
+        | Utility.Group styles -> peer_user_invalid styles
+        | single -> peer_user_invalid [ single ])
     (* Pseudo-element variants *)
     | "marker" -> (
         match acc with
