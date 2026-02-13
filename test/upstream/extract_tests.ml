@@ -236,6 +236,8 @@ let parse_file filename =
   let lines = String.split_on_char '\n' content in
   let test_pattern = Re.Pcre.regexp {|^test\('([^']+)'|} in
   let run_pattern = Re.Pcre.regexp {|run\(\[([^\]]*)\]|} in
+  (* Pattern for standalone array lines like ['class1', 'class2'], *)
+  let standalone_array_pattern = Re.Pcre.regexp {|^\s*\[([^\]]*)\]|} in
   let snapshot_start = Re.Pcre.regexp {|toMatchInlineSnapshot\(`|} in
   let snapshot_end = Re.Pcre.regexp {|`\)|} in
   (* Pattern for .toEqual('') which means the classes should produce empty
@@ -270,7 +272,17 @@ let parse_file filename =
                 List.rev_append
                   (extract_quoted_strings content)
                   !current_classes
-          | None -> ());
+          | None -> (
+              (* Also check for standalone array lines like ['class1',
+                 'class2'], *)
+              match Re.exec_opt standalone_array_pattern line with
+              | Some groups ->
+                  let content = Re.Group.get groups 1 in
+                  current_classes :=
+                    List.rev_append
+                      (extract_quoted_strings content)
+                      !current_classes
+              | None -> ()));
           (* Check for .toEqual('') which means classes should produce empty
              output. Flush test with empty expected, then clear classes. *)
           if Re.execp empty_expect line then (
