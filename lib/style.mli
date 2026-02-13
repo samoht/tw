@@ -84,6 +84,9 @@ type modifier =
   | Pseudo_file
   | Pseudo_first_letter
   | Pseudo_first_line
+  | Pseudo_details_content
+  | Children
+  | Descendants
 
 type t =
   | Style of {
