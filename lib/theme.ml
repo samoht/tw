@@ -59,3 +59,26 @@ let spacing_calc n : Css.declaration * Css.length =
              (Css.Calc.float (float_of_int n)))
       in
       (decl, len)
+
+(* Create a spacing length value for float multipliers like 2.5. For integer
+   values, checks scheme for explicit spacing. Otherwise uses calc. This handles
+   cases like my-2.5 which need calc(var(--spacing) * 2.5). *)
+let spacing_calc_float (n : float) : Css.declaration * Css.length =
+  let abs_n = Float.abs n in
+  let is_negative = n < 0.0 in
+  (* Check if this is an integer value that might have explicit spacing *)
+  let is_integer = Float.is_integer abs_n in
+  if is_integer then
+    (* Use integer version which checks scheme *)
+    spacing_calc (int_of_float n)
+  else
+    (* Fractional value: always use calc *)
+    let decl, spacing_ref = Var.binding spacing_var spacing_base in
+    let mult = if is_negative then -.abs_n else abs_n in
+    let len : Css.length =
+      Css.Calc
+        (Css.Calc.mul
+           (Css.Calc.length (Css.Var spacing_ref))
+           (Css.Calc.float mult))
+    in
+    (decl, len)
