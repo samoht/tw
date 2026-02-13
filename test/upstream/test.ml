@@ -290,7 +290,10 @@ let run_test_case test () =
           match Tw.of_string cls with Ok u -> Some u | Error _ -> None)
         test.classes
     in
-    (* Generate our CSS (empty string if no utilities parsed) *)
+    (* Generate our CSS (empty string if no utilities parsed) Use ~layers:false
+       because Tailwind's run() tests don't include layer wrappers, and
+       compileCss() tests use different layer structure (@layer properties vs
+       our @layer utilities). *)
     let our_css =
       if utilities = [] then ""
       else
