@@ -65,6 +65,8 @@ type modifier =
   | Placeholder_shown
   | Autofill
   | Read_only
+  | Read_write
+  | Optional
   | Open
   | Enabled
   | Target
@@ -100,6 +102,8 @@ type modifier =
   | Peer_default
   | Peer_open
   | Peer_target
+  | Group_optional
+  | Peer_optional
   | Pseudo_marker
   | Pseudo_selection
   | Pseudo_placeholder
