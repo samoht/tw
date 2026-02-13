@@ -36,6 +36,7 @@ include Flex_layout
 include Alignment
 include Borders
 include Effects
+include Text_shadow
 include Transforms
 include Cursor
 include Touch
@@ -106,6 +107,7 @@ module Grid_item = Grid_item
 module Grid_template = Grid_template
 module Typography = Typography
 module Effects = Effects
+module Text_shadow = Text_shadow
 module Transforms = Transforms
 module Interactivity = Interactivity
 module Containers = Containers

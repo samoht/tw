@@ -14,6 +14,7 @@ module Handler = struct
     | Shadow_xl
     | Shadow_2xl
     | Shadow_inner
+    | Shadow_arbitrary of string (* For shadow-[12px_12px_#color] *)
     (* Inset shadows *)
     | Inset_shadow_none
     | Inset_shadow_sm
@@ -22,6 +23,7 @@ module Handler = struct
     | Inset_shadow_lg
     | Inset_shadow_xl
     | Inset_shadow_2xl
+    | Inset_shadow_arbitrary of string (* For inset-shadow-[12px_12px_#color] *)
     (* Opacity *)
     | Opacity of int
     | Opacity_decimal of float (* For values like opacity-2.5 *)
@@ -568,6 +570,100 @@ module Handler = struct
     style
       (d_inset :: d_inset_ring :: d_ring_offset :: d_ring :: [ box_shadow_decl ])
 
+  (* Parse arbitrary shadow value like "12px_12px_#0088cc" *)
+  let parse_arbitrary_shadow (s : string) :
+      (Css.length * Css.length * Css.length option * string option) option =
+    (* Replace underscores with spaces *)
+    let normalized = String.map (fun c -> if c = '_' then ' ' else c) s in
+    (* Split into parts *)
+    let parts = String.split_on_char ' ' normalized in
+    (* Parse lengths - we expect at least 2 (h_offset, v_offset) *)
+    let parse_length str : Css.length option =
+      let len = String.length str in
+      if len >= 1 then (
+        let num_end = ref 0 in
+        while
+          !num_end < len
+          && (str.[!num_end] = '-'
+             || str.[!num_end] = '.'
+             || (str.[!num_end] >= '0' && str.[!num_end] <= '9'))
+        do
+          incr num_end
+        done;
+        let num_str = String.sub str 0 !num_end in
+        let unit_str = String.sub str !num_end (len - !num_end) in
+        match float_of_string_opt num_str with
+        | Some n -> (
+            match unit_str with
+            | "px" -> Some (Px n)
+            | "rem" -> Some (Rem n)
+            | "em" -> Some (Em n)
+            | "" when n = 0.0 -> Some Zero
+            | _ -> None)
+        | None -> None)
+      else None
+    in
+    (* Extract color if present (starts with #) *)
+    let rec find_color_and_lengths acc (parts : string list) :
+        string list * string option =
+      match parts with
+      | [] -> (List.rev acc, Option.none)
+      | x :: _rest when String.length x > 0 && x.[0] = '#' ->
+          (List.rev acc, Option.some x)
+      | x :: rest -> find_color_and_lengths (x :: acc) rest
+    in
+    let length_strs, color_opt = find_color_and_lengths [] parts in
+    let lengths = List.filter_map parse_length length_strs in
+    match lengths with
+    | [ h; v ] -> Some (h, v, None, color_opt)
+    | [ h; v; blur ] -> Some (h, v, Some blur, color_opt)
+    | [ h; v; blur; _spread ] -> Some (h, v, Some blur, color_opt)
+    | _ -> None
+
+  let shadow_arbitrary (arb : string) =
+    match parse_arbitrary_shadow arb with
+    | Some (h_offset, v_offset, blur, color_opt) ->
+        (* For arbitrary shadows, extract color and use as fallback *)
+        let fallback_color =
+          match color_opt with
+          | Some c ->
+              (* Shorten hex color if possible: #0088cc -> #08c *)
+              let len = String.length c in
+              if len = 7 then
+                let r1, r2 = (c.[1], c.[2]) in
+                let g1, g2 = (c.[3], c.[4]) in
+                let b1, b2 = (c.[5], c.[6]) in
+                if r1 = r2 && g1 = g2 && b1 = b2 then
+                  Printf.sprintf "#%c%c%c" r1 g1 b1
+                else c
+              else c
+          | None -> "currentcolor"
+        in
+        let color_ref =
+          Var.reference_with_fallback shadow_color_var (Css.hex fallback_color)
+        in
+        let shadow_value =
+          Css.shadow ~h_offset ~v_offset ?blur ~color:(Var color_ref) ()
+        in
+        let d_shadow, v_shadow = Var.binding shadow_var shadow_value in
+        let v_inset = Var.reference inset_shadow_var in
+        let v_inset_ring = Var.reference inset_ring_shadow_var in
+        let v_ring_offset = Var.reference ring_offset_shadow_var in
+        let v_ring = Var.reference ring_shadow_var in
+        let box_shadow_vars : Css.shadow list =
+          [
+            Css.Var v_inset;
+            Css.Var v_inset_ring;
+            Css.Var v_ring_offset;
+            Css.Var v_ring;
+            Css.Var v_shadow;
+          ]
+        in
+        style [ d_shadow; Css.box_shadows box_shadow_vars ]
+    | None ->
+        (* Fallback: just output transparent shadow *)
+        shadow_none
+
   (* Inset shadow utilities - sets --tw-inset-shadow and composites
      box-shadow *)
   type inset_shadow_size = [ `None | `Sm | `Default | `Md | `Lg | `Xl | `Xxl ]
@@ -655,6 +751,54 @@ module Handler = struct
   let inset_shadow_lg = inset_shadow_internal `Lg
   let inset_shadow_xl = inset_shadow_internal `Xl
   let inset_shadow_2xl = inset_shadow_internal `Xxl
+
+  let inset_shadow_arbitrary (arb : string) =
+    match parse_arbitrary_shadow arb with
+    | Option.Some (h_offset, v_offset, blur, color_opt) ->
+        (* For arbitrary inset shadows, extract color and use as fallback *)
+        let fallback_color =
+          match color_opt with
+          | Option.Some c ->
+              (* Shorten hex color if possible: #0088cc -> #08c *)
+              let len = String.length c in
+              if len = 7 then
+                let r1, r2 = (c.[1], c.[2]) in
+                let g1, g2 = (c.[3], c.[4]) in
+                let b1, b2 = (c.[5], c.[6]) in
+                if r1 = r2 && g1 = g2 && b1 = b2 then
+                  Printf.sprintf "#%c%c%c" r1 g1 b1
+                else c
+              else c
+          | Option.None -> "currentcolor"
+        in
+        let color_ref =
+          Var.reference_with_fallback inset_shadow_color_var
+            (Css.hex fallback_color)
+        in
+        let inset_value =
+          Css.shadow ~inset:true ~h_offset ~v_offset ?blur
+            ~color:(Var color_ref) ()
+        in
+        let d_inset_shadow, v_inset_shadow =
+          Var.binding inset_shadow_var inset_value
+        in
+        let v_inset_ring = Var.reference inset_ring_shadow_var in
+        let v_ring_offset = Var.reference ring_offset_shadow_var in
+        let v_ring = Var.reference ring_shadow_var in
+        let v_shadow = Var.reference shadow_var in
+        let box_shadow_vars : Css.shadow list =
+          [
+            Css.Var v_inset_shadow;
+            Css.Var v_inset_ring;
+            Css.Var v_ring_offset;
+            Css.Var v_ring;
+            Css.Var v_shadow;
+          ]
+        in
+        style [ d_inset_shadow; Css.box_shadows box_shadow_vars ]
+    | Option.None ->
+        (* Fallback: just output transparent inset shadow *)
+        inset_shadow_none
 
   type ring_width = [ `None | `Xs | `Sm | `Md | `Lg | `Xl ]
 
@@ -860,6 +1004,7 @@ module Handler = struct
     | Shadow_xl -> shadow_xl
     | Shadow_2xl -> shadow_2xl
     | Shadow_inner -> shadow_inner
+    | Shadow_arbitrary arb -> shadow_arbitrary arb
     | Inset_shadow_none -> inset_shadow_none
     | Inset_shadow_sm -> inset_shadow_sm
     | Inset_shadow -> inset_shadow
@@ -867,6 +1012,7 @@ module Handler = struct
     | Inset_shadow_lg -> inset_shadow_lg
     | Inset_shadow_xl -> inset_shadow_xl
     | Inset_shadow_2xl -> inset_shadow_2xl
+    | Inset_shadow_arbitrary arb -> inset_shadow_arbitrary arb
     | Opacity n -> opacity n
     | Opacity_decimal f ->
         let value = f /. 100.0 in
@@ -937,6 +1083,13 @@ module Handler = struct
     | [ "shadow"; "xl" ] -> Ok Shadow_xl
     | [ "shadow"; "2xl" ] -> Ok Shadow_2xl
     | [ "shadow"; "inner" ] -> Ok Shadow_inner
+    | [ "shadow"; arb ] when String.length arb > 2 && arb.[0] = '[' ->
+        (* arbitrary value like shadow-[12px_12px_#color] *)
+        let len = String.length arb in
+        if arb.[len - 1] = ']' then
+          let inner = String.sub arb 1 (len - 2) in
+          Ok (Shadow_arbitrary inner)
+        else err_not_utility
     | [ "inset"; "shadow"; "none" ] -> Ok Inset_shadow_none
     | [ "inset"; "shadow"; "sm" ] -> Ok Inset_shadow_sm
     | [ "inset"; "shadow" ] -> Ok Inset_shadow
@@ -944,6 +1097,13 @@ module Handler = struct
     | [ "inset"; "shadow"; "lg" ] -> Ok Inset_shadow_lg
     | [ "inset"; "shadow"; "xl" ] -> Ok Inset_shadow_xl
     | [ "inset"; "shadow"; "2xl" ] -> Ok Inset_shadow_2xl
+    | [ "inset"; "shadow"; arb ] when String.length arb > 2 && arb.[0] = '[' ->
+        (* arbitrary value like inset-shadow-[12px_12px_#color] *)
+        let len = String.length arb in
+        if arb.[len - 1] = ']' then
+          let inner = String.sub arb 1 (len - 2) in
+          Ok (Inset_shadow_arbitrary inner)
+        else err_not_utility
     | [ "opacity"; n ] when String.length n > 0 && n.[0] = '[' ->
         (* arbitrary value like opacity-[0.75] *)
         let len = String.length n in
@@ -1044,6 +1204,7 @@ module Handler = struct
     | Shadow_xl -> "shadow-xl"
     | Shadow_2xl -> "shadow-2xl"
     | Shadow_inner -> "shadow-inner"
+    | Shadow_arbitrary arb -> "shadow-[" ^ arb ^ "]"
     | Inset_shadow_none -> "inset-shadow-none"
     | Inset_shadow_sm -> "inset-shadow-sm"
     | Inset_shadow -> "inset-shadow"
@@ -1051,6 +1212,7 @@ module Handler = struct
     | Inset_shadow_lg -> "inset-shadow-lg"
     | Inset_shadow_xl -> "inset-shadow-xl"
     | Inset_shadow_2xl -> "inset-shadow-2xl"
+    | Inset_shadow_arbitrary arb -> "inset-shadow-[" ^ arb ^ "]"
     | Opacity n -> "opacity-" ^ string_of_int n
     | Opacity_decimal f -> Printf.sprintf "opacity-%g" f
     | Opacity_arbitrary f -> Printf.sprintf "opacity-[%g]" f
@@ -1125,6 +1287,7 @@ module Handler = struct
     | Shadow_none -> 1005
     | Shadow_sm -> 1006
     | Shadow_xl -> 1007
+    | Shadow_arbitrary _ -> 1008 (* arbitrary values come after named values *)
     (* Inset shadow utilities - alphabetical order *)
     | Inset_shadow -> 1100
     | Inset_shadow_2xl -> 1101
@@ -1133,6 +1296,7 @@ module Handler = struct
     | Inset_shadow_none -> 1104
     | Inset_shadow_sm -> 1105
     | Inset_shadow_xl -> 1106
+    | Inset_shadow_arbitrary _ -> 1107 (* arbitrary values come after named *)
     (* Mix blend modes - alphabetical order *)
     | Mix_blend_color -> 2000
     | Mix_blend_color_burn -> 2001
