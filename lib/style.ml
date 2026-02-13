@@ -65,6 +65,8 @@ type modifier =
   | Placeholder_shown
   | Autofill
   | Read_only
+  | Read_write
+  | Optional
   | Open
   | Enabled
   | Target
@@ -100,6 +102,8 @@ type modifier =
   | Peer_default
   | Peer_open
   | Peer_target
+  | Group_optional
+  | Peer_optional
   | Pseudo_marker
   | Pseudo_selection
   | Pseudo_placeholder
@@ -199,6 +203,8 @@ let rec pp_modifier = function
   | Placeholder_shown -> "placeholder-shown"
   | Autofill -> "autofill"
   | Read_only -> "read-only"
+  | Read_write -> "read-write"
+  | Optional -> "optional"
   | Open -> "open"
   | Enabled -> "enabled"
   | Target -> "target"
@@ -234,6 +240,8 @@ let rec pp_modifier = function
   | Peer_default -> "peer-default"
   | Peer_open -> "peer-open"
   | Peer_target -> "peer-target"
+  | Group_optional -> "group-optional"
+  | Peer_optional -> "peer-optional"
   | Pseudo_marker -> "marker"
   | Pseudo_selection -> "selection"
   | Pseudo_placeholder -> "placeholder"

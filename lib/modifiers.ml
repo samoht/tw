@@ -121,6 +121,8 @@ let to_selector (modifier : modifier) cls =
       compound [ Class ("placeholder-shown:" ^ cls); Placeholder_shown ]
   | Autofill -> compound [ Class ("autofill:" ^ cls); Autofill ]
   | Read_only -> compound [ Class ("read-only:" ^ cls); Read_only ]
+  | Read_write -> compound [ Class ("read-write:" ^ cls); Read_write ]
+  | Optional -> compound [ Class ("optional:" ^ cls); Optional ]
   | Open -> compound [ Class ("open:" ^ cls); Popover_open ]
   | Enabled -> compound [ Class ("enabled:" ^ cls); Enabled ]
   | Target -> compound [ Class ("target:" ^ cls); Target ]
@@ -322,6 +324,19 @@ let to_selector (modifier : modifier) cls =
           Subsequent_sibling universal
       in
       compound [ Class ("peer-target:" ^ cls); is_ [ rel ] ]
+  (* Group/Peer optional variants *)
+  | Group_optional ->
+      let rel =
+        combine (compound [ where [ group ]; Optional ]) Descendant universal
+      in
+      compound [ Class ("group-optional:" ^ cls); is_ [ rel ] ]
+  | Peer_optional ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Optional ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-optional:" ^ cls); is_ [ rel ] ]
   (* Pseudo-element variants *)
   | Pseudo_marker -> compound [ Class ("marker:" ^ cls); Marker ]
   | Pseudo_selection -> compound [ Class ("selection:" ^ cls); Selection ]
@@ -463,6 +478,8 @@ let out_of_range styles = wrap Out_of_range styles
 let placeholder_shown styles = wrap Placeholder_shown styles
 let autofill styles = wrap Autofill styles
 let read_only styles = wrap Read_only styles
+let read_write styles = wrap Read_write styles
+let optional styles = wrap Optional styles
 let open_ styles = wrap Open styles
 let enabled styles = wrap Enabled styles
 let target styles = wrap Target styles
@@ -502,6 +519,8 @@ let peer_indeterminate styles = wrap Peer_indeterminate styles
 let peer_default styles = wrap Peer_default styles
 let peer_open styles = wrap Peer_open styles
 let peer_target styles = wrap Peer_target styles
+let group_optional styles = wrap Group_optional styles
+let peer_optional styles = wrap Peer_optional styles
 
 (* Pseudo-element variants *)
 let marker styles = wrap Pseudo_marker styles
@@ -602,6 +621,8 @@ let pp_modifier = function
   | Placeholder_shown -> "placeholder-shown"
   | Autofill -> "autofill"
   | Read_only -> "read-only"
+  | Read_write -> "read-write"
+  | Optional -> "optional"
   | Open -> "open"
   | Enabled -> "enabled"
   | Target -> "target"
@@ -637,6 +658,8 @@ let pp_modifier = function
   | Peer_default -> "peer-default"
   | Peer_open -> "peer-open"
   | Peer_target -> "peer-target"
+  | Group_optional -> "group-optional"
+  | Peer_optional -> "peer-optional"
   | Pseudo_marker -> "marker"
   | Pseudo_selection -> "selection"
   | Pseudo_placeholder -> "placeholder"
@@ -910,6 +933,14 @@ let apply modifiers base_utility =
         match acc with
         | Utility.Group styles -> read_only styles
         | single -> read_only [ single ])
+    | "read-write" -> (
+        match acc with
+        | Utility.Group styles -> read_write styles
+        | single -> read_write [ single ])
+    | "optional" -> (
+        match acc with
+        | Utility.Group styles -> optional styles
+        | single -> optional [ single ])
     | "open" -> (
         match acc with
         | Utility.Group styles -> open_ styles
@@ -1053,6 +1084,14 @@ let apply modifiers base_utility =
         match acc with
         | Utility.Group styles -> peer_target styles
         | single -> peer_target [ single ])
+    | "group-optional" -> (
+        match acc with
+        | Utility.Group styles -> group_optional styles
+        | single -> group_optional [ single ])
+    | "peer-optional" -> (
+        match acc with
+        | Utility.Group styles -> peer_optional styles
+        | single -> peer_optional [ single ])
     (* Pseudo-element variants *)
     | "marker" -> (
         match acc with
