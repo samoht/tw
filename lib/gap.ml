@@ -28,33 +28,34 @@ module Handler = struct
 
   (** {2 Typed Gap Utilities} *)
 
-  let gap (s : spacing) =
-    let spacing_decl, spacing_ref =
-      Var.binding Spacing.spacing_var (Rem 0.25)
-    in
-    let len = Spacing.to_length spacing_ref s in
-    let gap_value = { row_gap = Some len; column_gap = Some len } in
+  (** Convert spacing to (declaration, length) using Theme.spacing_calc_float.
+  *)
+  let spacing_to_decl_len (s : spacing) : Css.declaration * length =
     match s with
-    | `Rem _ -> style [ spacing_decl; gap gap_value ]
-    | _ -> style [ gap gap_value ]
+    | `Px ->
+        let len : length = Px 1. in
+        let decl, _ = Var.binding Spacing.spacing_var (Rem 0.25) in
+        (decl, len)
+    | `Full ->
+        let len : length = Pct 100. in
+        let decl, _ = Var.binding Spacing.spacing_var (Rem 0.25) in
+        (decl, len)
+    | `Rem f ->
+        let n = f /. 0.25 in
+        Theme.spacing_calc_float n
+
+  let gap (s : spacing) =
+    let decl, len = spacing_to_decl_len s in
+    let gap_value = { row_gap = Some len; column_gap = Some len } in
+    style [ decl; gap gap_value ]
 
   let gap_x (s : spacing) =
-    let spacing_decl, spacing_ref =
-      Var.binding Spacing.spacing_var (Rem 0.25)
-    in
-    let len = Spacing.to_length spacing_ref s in
-    match s with
-    | `Rem _ -> style [ spacing_decl; column_gap len ]
-    | _ -> style [ column_gap len ]
+    let decl, len = spacing_to_decl_len s in
+    style [ decl; column_gap len ]
 
   let gap_y (s : spacing) =
-    let spacing_decl, spacing_ref =
-      Var.binding Spacing.spacing_var (Rem 0.25)
-    in
-    let len = Spacing.to_length spacing_ref s in
-    match s with
-    | `Rem _ -> style [ spacing_decl; row_gap len ]
-    | _ -> style [ row_gap len ]
+    let decl, len = spacing_to_decl_len s in
+    style [ decl; row_gap len ]
 
   (** {2 Space Between Utilities} *)
 
