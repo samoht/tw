@@ -71,6 +71,9 @@ type modifier =
   | Enabled
   | Target
   | Visited
+  | Inert
+  | User_valid
+  | User_invalid
   | Group_first
   | Group_last
   | Group_odd
@@ -104,6 +107,16 @@ type modifier =
   | Peer_target
   | Group_optional
   | Peer_optional
+  | Group_read_only
+  | Peer_read_only
+  | Group_read_write
+  | Peer_read_write
+  | Group_inert
+  | Peer_inert
+  | Group_user_valid
+  | Peer_user_valid
+  | Group_user_invalid
+  | Peer_user_invalid
   | Pseudo_marker
   | Pseudo_selection
   | Pseudo_placeholder

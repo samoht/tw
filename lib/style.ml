@@ -71,6 +71,9 @@ type modifier =
   | Enabled
   | Target
   | Visited
+  | Inert
+  | User_valid
+  | User_invalid
   | Group_first
   | Group_last
   | Group_odd
@@ -104,6 +107,16 @@ type modifier =
   | Peer_target
   | Group_optional
   | Peer_optional
+  | Group_read_only
+  | Peer_read_only
+  | Group_read_write
+  | Peer_read_write
+  | Group_inert
+  | Peer_inert
+  | Group_user_valid
+  | Peer_user_valid
+  | Group_user_invalid
+  | Peer_user_invalid
   | Pseudo_marker
   | Pseudo_selection
   | Pseudo_placeholder
@@ -209,6 +222,9 @@ let rec pp_modifier = function
   | Enabled -> "enabled"
   | Target -> "target"
   | Visited -> "visited"
+  | Inert -> "inert"
+  | User_valid -> "user-valid"
+  | User_invalid -> "user-invalid"
   | Group_first -> "group-first"
   | Group_last -> "group-last"
   | Group_odd -> "group-odd"
@@ -242,6 +258,16 @@ let rec pp_modifier = function
   | Peer_target -> "peer-target"
   | Group_optional -> "group-optional"
   | Peer_optional -> "peer-optional"
+  | Group_read_only -> "group-read-only"
+  | Peer_read_only -> "peer-read-only"
+  | Group_read_write -> "group-read-write"
+  | Peer_read_write -> "peer-read-write"
+  | Group_inert -> "group-inert"
+  | Peer_inert -> "peer-inert"
+  | Group_user_valid -> "group-user-valid"
+  | Peer_user_valid -> "peer-user-valid"
+  | Group_user_invalid -> "group-user-invalid"
+  | Peer_user_invalid -> "peer-user-invalid"
   | Pseudo_marker -> "marker"
   | Pseudo_selection -> "selection"
   | Pseudo_placeholder -> "placeholder"
