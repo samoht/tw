@@ -179,6 +179,149 @@ let to_selector (modifier : modifier) cls =
           Subsequent_sibling universal
       in
       compound [ Class ("peer-even:" ^ cls); is_ [ rel ] ]
+  (* More group state variants *)
+  | Group_active ->
+      let rel =
+        combine (compound [ where [ group ]; Active ]) Descendant universal
+      in
+      compound [ Class ("group-active:" ^ cls); is_ [ rel ] ]
+  | Group_visited ->
+      let rel =
+        combine (compound [ where [ group ]; Visited ]) Descendant universal
+      in
+      compound [ Class ("group-visited:" ^ cls); is_ [ rel ] ]
+  | Group_disabled ->
+      let rel =
+        combine (compound [ where [ group ]; Disabled ]) Descendant universal
+      in
+      compound [ Class ("group-disabled:" ^ cls); is_ [ rel ] ]
+  | Group_checked ->
+      let rel =
+        combine (compound [ where [ group ]; Checked ]) Descendant universal
+      in
+      compound [ Class ("group-checked:" ^ cls); is_ [ rel ] ]
+  | Group_empty ->
+      let rel =
+        combine (compound [ where [ group ]; Empty ]) Descendant universal
+      in
+      compound [ Class ("group-empty:" ^ cls); is_ [ rel ] ]
+  | Group_required ->
+      let rel =
+        combine (compound [ where [ group ]; Required ]) Descendant universal
+      in
+      compound [ Class ("group-required:" ^ cls); is_ [ rel ] ]
+  | Group_valid ->
+      let rel =
+        combine (compound [ where [ group ]; Valid ]) Descendant universal
+      in
+      compound [ Class ("group-valid:" ^ cls); is_ [ rel ] ]
+  | Group_invalid ->
+      let rel =
+        combine (compound [ where [ group ]; Invalid ]) Descendant universal
+      in
+      compound [ Class ("group-invalid:" ^ cls); is_ [ rel ] ]
+  | Group_indeterminate ->
+      let rel =
+        combine
+          (compound [ where [ group ]; Indeterminate ])
+          Descendant universal
+      in
+      compound [ Class ("group-indeterminate:" ^ cls); is_ [ rel ] ]
+  | Group_default ->
+      let rel =
+        combine (compound [ where [ group ]; Default ]) Descendant universal
+      in
+      compound [ Class ("group-default:" ^ cls); is_ [ rel ] ]
+  | Group_open ->
+      let rel =
+        combine
+          (compound [ where [ group ]; Popover_open ])
+          Descendant universal
+      in
+      compound [ Class ("group-open:" ^ cls); is_ [ rel ] ]
+  | Group_target ->
+      let rel =
+        combine (compound [ where [ group ]; Target ]) Descendant universal
+      in
+      compound [ Class ("group-target:" ^ cls); is_ [ rel ] ]
+  (* More peer state variants *)
+  | Peer_active ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Active ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-active:" ^ cls); is_ [ rel ] ]
+  | Peer_visited ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Visited ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-visited:" ^ cls); is_ [ rel ] ]
+  | Peer_disabled ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Disabled ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-disabled:" ^ cls); is_ [ rel ] ]
+  | Peer_empty ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Empty ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-empty:" ^ cls); is_ [ rel ] ]
+  | Peer_required ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Required ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-required:" ^ cls); is_ [ rel ] ]
+  | Peer_valid ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Valid ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-valid:" ^ cls); is_ [ rel ] ]
+  | Peer_invalid ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Invalid ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-invalid:" ^ cls); is_ [ rel ] ]
+  | Peer_indeterminate ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Indeterminate ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-indeterminate:" ^ cls); is_ [ rel ] ]
+  | Peer_default ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Default ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-default:" ^ cls); is_ [ rel ] ]
+  | Peer_open ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Popover_open ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-open:" ^ cls); is_ [ rel ] ]
+  | Peer_target ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Target ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-target:" ^ cls); is_ [ rel ] ]
   (* Pseudo-element variants *)
   | Pseudo_marker -> compound [ Class ("marker:" ^ cls); Marker ]
   | Pseudo_selection -> compound [ Class ("selection:" ^ cls); Selection ]
@@ -335,6 +478,31 @@ let peer_last styles = wrap Peer_last styles
 let peer_odd styles = wrap Peer_odd styles
 let peer_even styles = wrap Peer_even styles
 
+(* More group/peer state variants *)
+let group_active styles = wrap Group_active styles
+let group_visited styles = wrap Group_visited styles
+let group_disabled styles = wrap Group_disabled styles
+let group_checked styles = wrap Group_checked styles
+let group_empty styles = wrap Group_empty styles
+let group_required styles = wrap Group_required styles
+let group_valid styles = wrap Group_valid styles
+let group_invalid styles = wrap Group_invalid styles
+let group_indeterminate styles = wrap Group_indeterminate styles
+let group_default styles = wrap Group_default styles
+let group_open styles = wrap Group_open styles
+let group_target styles = wrap Group_target styles
+let peer_active styles = wrap Peer_active styles
+let peer_visited styles = wrap Peer_visited styles
+let peer_disabled styles = wrap Peer_disabled styles
+let peer_empty styles = wrap Peer_empty styles
+let peer_required styles = wrap Peer_required styles
+let peer_valid styles = wrap Peer_valid styles
+let peer_invalid styles = wrap Peer_invalid styles
+let peer_indeterminate styles = wrap Peer_indeterminate styles
+let peer_default styles = wrap Peer_default styles
+let peer_open styles = wrap Peer_open styles
+let peer_target styles = wrap Peer_target styles
+
 (* Pseudo-element variants *)
 let marker styles = wrap Pseudo_marker styles
 let selection styles = wrap Pseudo_selection styles
@@ -446,6 +614,29 @@ let pp_modifier = function
   | Peer_last -> "peer-last"
   | Peer_odd -> "peer-odd"
   | Peer_even -> "peer-even"
+  | Group_active -> "group-active"
+  | Group_visited -> "group-visited"
+  | Group_disabled -> "group-disabled"
+  | Group_checked -> "group-checked"
+  | Group_empty -> "group-empty"
+  | Group_required -> "group-required"
+  | Group_valid -> "group-valid"
+  | Group_invalid -> "group-invalid"
+  | Group_indeterminate -> "group-indeterminate"
+  | Group_default -> "group-default"
+  | Group_open -> "group-open"
+  | Group_target -> "group-target"
+  | Peer_active -> "peer-active"
+  | Peer_visited -> "peer-visited"
+  | Peer_disabled -> "peer-disabled"
+  | Peer_empty -> "peer-empty"
+  | Peer_required -> "peer-required"
+  | Peer_valid -> "peer-valid"
+  | Peer_invalid -> "peer-invalid"
+  | Peer_indeterminate -> "peer-indeterminate"
+  | Peer_default -> "peer-default"
+  | Peer_open -> "peer-open"
+  | Peer_target -> "peer-target"
   | Pseudo_marker -> "marker"
   | Pseudo_selection -> "selection"
   | Pseudo_placeholder -> "placeholder"
@@ -769,6 +960,99 @@ let apply modifiers base_utility =
         match acc with
         | Utility.Group styles -> peer_even styles
         | single -> peer_even [ single ])
+    (* More group/peer state variants *)
+    | "group-active" -> (
+        match acc with
+        | Utility.Group styles -> group_active styles
+        | single -> group_active [ single ])
+    | "group-visited" -> (
+        match acc with
+        | Utility.Group styles -> group_visited styles
+        | single -> group_visited [ single ])
+    | "group-disabled" -> (
+        match acc with
+        | Utility.Group styles -> group_disabled styles
+        | single -> group_disabled [ single ])
+    | "group-checked" -> (
+        match acc with
+        | Utility.Group styles -> group_checked styles
+        | single -> group_checked [ single ])
+    | "group-empty" -> (
+        match acc with
+        | Utility.Group styles -> group_empty styles
+        | single -> group_empty [ single ])
+    | "group-required" -> (
+        match acc with
+        | Utility.Group styles -> group_required styles
+        | single -> group_required [ single ])
+    | "group-valid" -> (
+        match acc with
+        | Utility.Group styles -> group_valid styles
+        | single -> group_valid [ single ])
+    | "group-invalid" -> (
+        match acc with
+        | Utility.Group styles -> group_invalid styles
+        | single -> group_invalid [ single ])
+    | "group-indeterminate" -> (
+        match acc with
+        | Utility.Group styles -> group_indeterminate styles
+        | single -> group_indeterminate [ single ])
+    | "group-default" -> (
+        match acc with
+        | Utility.Group styles -> group_default styles
+        | single -> group_default [ single ])
+    | "group-open" -> (
+        match acc with
+        | Utility.Group styles -> group_open styles
+        | single -> group_open [ single ])
+    | "group-target" -> (
+        match acc with
+        | Utility.Group styles -> group_target styles
+        | single -> group_target [ single ])
+    | "peer-active" -> (
+        match acc with
+        | Utility.Group styles -> peer_active styles
+        | single -> peer_active [ single ])
+    | "peer-visited" -> (
+        match acc with
+        | Utility.Group styles -> peer_visited styles
+        | single -> peer_visited [ single ])
+    | "peer-disabled" -> (
+        match acc with
+        | Utility.Group styles -> peer_disabled styles
+        | single -> peer_disabled [ single ])
+    | "peer-empty" -> (
+        match acc with
+        | Utility.Group styles -> peer_empty styles
+        | single -> peer_empty [ single ])
+    | "peer-required" -> (
+        match acc with
+        | Utility.Group styles -> peer_required styles
+        | single -> peer_required [ single ])
+    | "peer-valid" -> (
+        match acc with
+        | Utility.Group styles -> peer_valid styles
+        | single -> peer_valid [ single ])
+    | "peer-invalid" -> (
+        match acc with
+        | Utility.Group styles -> peer_invalid styles
+        | single -> peer_invalid [ single ])
+    | "peer-indeterminate" -> (
+        match acc with
+        | Utility.Group styles -> peer_indeterminate styles
+        | single -> peer_indeterminate [ single ])
+    | "peer-default" -> (
+        match acc with
+        | Utility.Group styles -> peer_default styles
+        | single -> peer_default [ single ])
+    | "peer-open" -> (
+        match acc with
+        | Utility.Group styles -> peer_open styles
+        | single -> peer_open [ single ])
+    | "peer-target" -> (
+        match acc with
+        | Utility.Group styles -> peer_target styles
+        | single -> peer_target [ single ])
     (* Pseudo-element variants *)
     | "marker" -> (
         match acc with

@@ -77,6 +77,29 @@ type modifier =
   | Peer_last
   | Peer_odd
   | Peer_even
+  | Group_active
+  | Group_visited
+  | Group_disabled
+  | Group_checked
+  | Group_empty
+  | Group_required
+  | Group_valid
+  | Group_invalid
+  | Group_indeterminate
+  | Group_default
+  | Group_open
+  | Group_target
+  | Peer_active
+  | Peer_visited
+  | Peer_disabled
+  | Peer_empty
+  | Peer_required
+  | Peer_valid
+  | Peer_invalid
+  | Peer_indeterminate
+  | Peer_default
+  | Peer_open
+  | Peer_target
   | Pseudo_marker
   | Pseudo_selection
   | Pseudo_placeholder
@@ -188,6 +211,29 @@ let rec pp_modifier = function
   | Peer_last -> "peer-last"
   | Peer_odd -> "peer-odd"
   | Peer_even -> "peer-even"
+  | Group_active -> "group-active"
+  | Group_visited -> "group-visited"
+  | Group_disabled -> "group-disabled"
+  | Group_checked -> "group-checked"
+  | Group_empty -> "group-empty"
+  | Group_required -> "group-required"
+  | Group_valid -> "group-valid"
+  | Group_invalid -> "group-invalid"
+  | Group_indeterminate -> "group-indeterminate"
+  | Group_default -> "group-default"
+  | Group_open -> "group-open"
+  | Group_target -> "group-target"
+  | Peer_active -> "peer-active"
+  | Peer_visited -> "peer-visited"
+  | Peer_disabled -> "peer-disabled"
+  | Peer_empty -> "peer-empty"
+  | Peer_required -> "peer-required"
+  | Peer_valid -> "peer-valid"
+  | Peer_invalid -> "peer-invalid"
+  | Peer_indeterminate -> "peer-indeterminate"
+  | Peer_default -> "peer-default"
+  | Peer_open -> "peer-open"
+  | Peer_target -> "peer-target"
   | Pseudo_marker -> "marker"
   | Pseudo_selection -> "selection"
   | Pseudo_placeholder -> "placeholder"

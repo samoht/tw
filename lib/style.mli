@@ -77,6 +77,29 @@ type modifier =
   | Peer_last
   | Peer_odd
   | Peer_even
+  | Group_active
+  | Group_visited
+  | Group_disabled
+  | Group_checked
+  | Group_empty
+  | Group_required
+  | Group_valid
+  | Group_invalid
+  | Group_indeterminate
+  | Group_default
+  | Group_open
+  | Group_target
+  | Peer_active
+  | Peer_visited
+  | Peer_disabled
+  | Peer_empty
+  | Peer_required
+  | Peer_valid
+  | Peer_invalid
+  | Peer_indeterminate
+  | Peer_default
+  | Peer_open
+  | Peer_target
   | Pseudo_marker
   | Pseudo_selection
   | Pseudo_placeholder
