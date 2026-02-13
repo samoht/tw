@@ -45,6 +45,7 @@ include Interactivity
 include Containers
 include Filters
 include Masks
+include Mask_gradient
 include Clipping
 include Position
 include Animations
