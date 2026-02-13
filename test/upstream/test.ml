@@ -265,24 +265,37 @@ let read_test_cases filename =
     parse lines;
     List.rev !tests
 
-(** Create scheme matching Tailwind test [\@theme]. Tailwind tests use hex
-    colors and explicit spacing variables. *)
-let test_scheme : Tw.Scheme.t =
-  {
-    colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ];
-    spacing = [ (4, Css.Rem 1.0) ];
-  }
+(** Extract spacing values from expected CSS. Looks for patterns like:
+    --spacing-4: 1rem; or --spacing: .25rem; in :root, :host blocks. *)
+let extract_spacing_from_css css : (int * Css.length) list =
+  let spacing_pattern = Re.Pcre.regexp {|--spacing-(\d+):\s*([0-9.]+)rem|} in
+  let matches = Re.all spacing_pattern css in
+  List.filter_map
+    (fun m ->
+      try
+        let n = int_of_string (Re.Group.get m 1) in
+        let value = float_of_string (Re.Group.get m 2) in
+        Some (n, (Css.Rem value : Css.length))
+      with _ -> None)
+    matches
 
-(** Set up the test scheme for color and spacing generation *)
-let setup_test_scheme () =
-  Tw.Color.Handler.set_scheme test_scheme;
-  Tw.Theme.set_scheme test_scheme
+(** Create scheme from expected CSS. Extracts spacing values defined in :root,
+    :host blocks. *)
+let scheme_from_expected_css expected : Tw.Scheme.t =
+  let spacing = extract_spacing_from_css expected in
+  { colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ]; spacing }
+
+(** Set up the scheme for a specific test *)
+let setup_scheme_for_test expected =
+  let scheme = scheme_from_expected_css expected in
+  Tw.Color.Handler.set_scheme scheme;
+  Tw.Theme.set_scheme scheme
 
 let run_test_case test () =
   if test.classes = [] then ()
   else (
-    (* Set up the test scheme before generating CSS *)
-    setup_test_scheme ();
+    (* Set up scheme from expected CSS to match Tailwind's @theme config *)
+    setup_scheme_for_test test.expected;
     (* Parse classes and generate our CSS *)
     let utilities =
       List.filter_map

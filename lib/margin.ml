@@ -24,23 +24,37 @@ module Handler = struct
 
   (** {2 Typed Margin Utilities} *)
 
-  let v prop (m : margin) =
-    let spacing_decl, spacing_ref =
-      Var.binding Spacing.spacing_var (Rem 0.25)
-    in
-    let len = Spacing.margin_to_length spacing_ref m in
-    match m with
-    | `Auto -> style [ prop len ]
-    | #spacing -> style [ spacing_decl; prop len ]
+  (** Convert spacing to (declaration, length) using Theme.spacing_calc_float.
+      For rem values, checks scheme for explicit spacing variables. *)
+  let spacing_to_decl_len ~negative (s : Style.spacing) :
+      Css.declaration * length =
+    match s with
+    | `Px ->
+        let len : length = if negative then Px (-1.) else Px 1. in
+        let decl, _ = Var.binding Spacing.spacing_var (Rem 0.25) in
+        (decl, len)
+    | `Full ->
+        let len : length = if negative then Pct (-100.) else Pct 100. in
+        let decl, _ = Var.binding Spacing.spacing_var (Rem 0.25) in
+        (decl, len)
+    | `Rem f ->
+        let n = f /. 0.25 in
+        let n = if negative then -.n else n in
+        Theme.spacing_calc_float n
 
-  let vs prop (m : margin) =
-    let spacing_decl, spacing_ref =
-      Var.binding Spacing.spacing_var (Rem 0.25)
-    in
-    let len = Spacing.margin_to_length spacing_ref m in
+  let v (prop : length -> declaration) (m : margin) =
     match m with
-    | `Auto -> style [ prop [ len ] ]
-    | #spacing -> style [ spacing_decl; prop [ len ] ]
+    | `Auto -> style [ prop Auto ]
+    | #Style.spacing as s ->
+        let decl, len = spacing_to_decl_len ~negative:false s in
+        style [ decl; prop len ]
+
+  let vs (prop : length list -> declaration) (m : margin) =
+    match m with
+    | `Auto -> style [ prop [ Auto ] ]
+    | #Style.spacing as s ->
+        let decl, len = spacing_to_decl_len ~negative:false s in
+        style [ decl; prop [ len ] ]
 
   let m_fn = vs margin
   let mx = v margin_inline
@@ -75,25 +89,14 @@ module Handler = struct
 
   (** {1 Conversion Functions} *)
 
-  let margin_util_neg prop (m : margin) =
-    let spacing_decl, spacing_ref =
-      Var.binding Spacing.spacing_var (Rem 0.25)
-    in
-    match m with
-    | `Auto -> style [ prop (Spacing.margin_to_length spacing_ref m) ]
-    | #spacing as s ->
-        style
-          [ spacing_decl; prop (Spacing.margin_to_length_neg spacing_ref s) ]
+  let margin_util_neg (prop : length -> declaration) (s : Style.spacing) =
+    let decl, len = spacing_to_decl_len ~negative:true s in
+    style [ decl; prop len ]
 
-  let margin_list_util_neg prop (m : margin) =
-    let spacing_decl, spacing_ref =
-      Var.binding Spacing.spacing_var (Rem 0.25)
-    in
-    match m with
-    | `Auto -> style [ prop [ Spacing.margin_to_length spacing_ref m ] ]
-    | #spacing as s ->
-        style
-          [ spacing_decl; prop [ Spacing.margin_to_length_neg spacing_ref s ] ]
+  let margin_list_util_neg (prop : length list -> declaration)
+      (s : Style.spacing) =
+    let decl, len = spacing_to_decl_len ~negative:true s in
+    style [ decl; prop [ len ] ]
 
   let spacing_value_order = function
     | `Px -> 1
