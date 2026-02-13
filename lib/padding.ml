@@ -23,16 +23,29 @@ module Handler = struct
     in
     prefix ^ Spacing.pp_spacing_suffix value
 
-  let v prop t =
-    let spacing_decl, spacing_ref =
-      Var.binding Spacing.spacing_var (Rem 0.25)
-    in
-    let len = Spacing.to_length spacing_ref t.value in
-    match t.value with
-    | `Rem _ -> style [ spacing_decl; prop len ]
-    | _ -> style [ prop len ]
+  (** Convert spacing to (declaration, length) using Theme.spacing_calc_float.
+  *)
+  let spacing_to_decl_len (s : Style.spacing) : Css.declaration * length =
+    match s with
+    | `Px ->
+        let len : length = Px 1. in
+        let decl, _ = Var.binding Spacing.spacing_var (Rem 0.25) in
+        (decl, len)
+    | `Full ->
+        let len : length = Pct 100. in
+        let decl, _ = Var.binding Spacing.spacing_var (Rem 0.25) in
+        (decl, len)
+    | `Rem f ->
+        let n = f /. 0.25 in
+        Theme.spacing_calc_float n
 
-  let vs prop t = v (fun n -> prop [ n ]) t
+  let v (prop : length -> declaration) t =
+    let decl, len = spacing_to_decl_len t.value in
+    style [ decl; prop len ]
+
+  let vs (prop : length list -> declaration) t =
+    let decl, len = spacing_to_decl_len t.value in
+    style [ decl; prop [ len ] ]
 
   let spacing_value_order = function
     | `Px -> 1
