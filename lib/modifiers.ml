@@ -127,7 +127,11 @@ let to_selector (modifier : modifier) cls =
   | Enabled -> compound [ Class ("enabled:" ^ cls); Enabled ]
   | Target -> compound [ Class ("target:" ^ cls); Target ]
   | Visited -> compound [ Class ("visited:" ^ cls); Visited ]
-  | Inert -> compound [ Class ("inert:" ^ cls); Inert ]
+  | Inert ->
+      (* Tailwind uses :is([inert], [inert] star) for broader compatibility *)
+      let inert_attr = attribute "inert" Presence in
+      let inert_desc = combine inert_attr Descendant universal in
+      compound [ Class ("inert:" ^ cls); is_ [ inert_attr; inert_desc ] ]
   | User_valid -> compound [ Class ("user-valid:" ^ cls); User_valid ]
   | User_invalid -> compound [ Class ("user-invalid:" ^ cls); User_invalid ]
   (* Group structural variants *)
@@ -367,14 +371,22 @@ let to_selector (modifier : modifier) cls =
       in
       compound [ Class ("peer-read-write:" ^ cls); is_ [ rel ] ]
   | Group_inert ->
+      (* Tailwind: :is(:where(.group):is([inert], [inert] star) star) *)
+      let inert_attr = attribute "inert" Presence in
+      let inert_desc = combine inert_attr Descendant universal in
+      let inert_is = is_ [ inert_attr; inert_desc ] in
       let rel =
-        combine (compound [ where [ group ]; Inert ]) Descendant universal
+        combine (compound [ where [ group ]; inert_is ]) Descendant universal
       in
       compound [ Class ("group-inert:" ^ cls); is_ [ rel ] ]
   | Peer_inert ->
+      (* Tailwind: :is(:where(.peer):is([inert], [inert] star) ~ star) *)
+      let inert_attr = attribute "inert" Presence in
+      let inert_desc = combine inert_attr Descendant universal in
+      let inert_is = is_ [ inert_attr; inert_desc ] in
       let rel =
         combine
-          (compound [ where [ peer ]; Inert ])
+          (compound [ where [ peer ]; inert_is ])
           Subsequent_sibling universal
       in
       compound [ Class ("peer-inert:" ^ cls); is_ [ rel ] ]
