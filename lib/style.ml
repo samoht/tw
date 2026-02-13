@@ -77,6 +77,13 @@ type modifier =
   | Peer_last
   | Peer_odd
   | Peer_even
+  | Pseudo_marker
+  | Pseudo_selection
+  | Pseudo_placeholder
+  | Pseudo_backdrop
+  | Pseudo_file
+  | Pseudo_first_letter
+  | Pseudo_first_line
 
 type t =
   | Style of {
@@ -178,6 +185,13 @@ let rec pp_modifier = function
   | Peer_last -> "peer-last"
   | Peer_odd -> "peer-odd"
   | Peer_even -> "peer-even"
+  | Pseudo_marker -> "marker"
+  | Pseudo_selection -> "selection"
+  | Pseudo_placeholder -> "placeholder"
+  | Pseudo_backdrop -> "backdrop"
+  | Pseudo_file -> "file"
+  | Pseudo_first_letter -> "first-letter"
+  | Pseudo_first_line -> "first-line"
 
 let rec pp ppf = function
   | Style { props; _ } ->
