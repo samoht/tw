@@ -98,6 +98,87 @@ let to_selector (modifier : modifier) cls =
   | Motion_reduce -> Css.Selector.Class ("motion-reduce:" ^ cls)
   | Contrast_more -> Css.Selector.Class ("contrast-more:" ^ cls)
   | Contrast_less -> Css.Selector.Class ("contrast-less:" ^ cls)
+  (* Structural pseudo-class modifiers *)
+  | First -> compound [ Class ("first:" ^ cls); First_child ]
+  | Last -> compound [ Class ("last:" ^ cls); Last_child ]
+  | Only -> compound [ Class ("only:" ^ cls); Only_child ]
+  | Odd -> compound [ Class ("odd:" ^ cls); Nth_child (Odd, None) ]
+  | Even -> compound [ Class ("even:" ^ cls); Nth_child (Even, None) ]
+  | First_of_type -> compound [ Class ("first-of-type:" ^ cls); First_of_type ]
+  | Last_of_type -> compound [ Class ("last-of-type:" ^ cls); Last_of_type ]
+  | Only_of_type -> compound [ Class ("only-of-type:" ^ cls); Only_of_type ]
+  | Empty -> compound [ Class ("empty:" ^ cls); Empty ]
+  (* Form state modifiers *)
+  | Checked -> compound [ Class ("checked:" ^ cls); Checked ]
+  | Indeterminate -> compound [ Class ("indeterminate:" ^ cls); Indeterminate ]
+  | Default -> compound [ Class ("default:" ^ cls); Default ]
+  | Required -> compound [ Class ("required:" ^ cls); Required ]
+  | Valid -> compound [ Class ("valid:" ^ cls); Valid ]
+  | Invalid -> compound [ Class ("invalid:" ^ cls); Invalid ]
+  | In_range -> compound [ Class ("in-range:" ^ cls); In_range ]
+  | Out_of_range -> compound [ Class ("out-of-range:" ^ cls); Out_of_range ]
+  | Placeholder_shown ->
+      compound [ Class ("placeholder-shown:" ^ cls); Placeholder_shown ]
+  | Autofill -> compound [ Class ("autofill:" ^ cls); Autofill ]
+  | Read_only -> compound [ Class ("read-only:" ^ cls); Read_only ]
+  | Open -> compound [ Class ("open:" ^ cls); Popover_open ]
+  | Enabled -> compound [ Class ("enabled:" ^ cls); Enabled ]
+  | Target -> compound [ Class ("target:" ^ cls); Target ]
+  | Visited -> compound [ Class ("visited:" ^ cls); Visited ]
+  (* Group structural variants *)
+  | Group_first ->
+      let rel =
+        combine (compound [ where [ group ]; First_child ]) Descendant universal
+      in
+      compound [ Class ("group-first:" ^ cls); is_ [ rel ] ]
+  | Group_last ->
+      let rel =
+        combine (compound [ where [ group ]; Last_child ]) Descendant universal
+      in
+      compound [ Class ("group-last:" ^ cls); is_ [ rel ] ]
+  | Group_odd ->
+      let rel =
+        combine
+          (compound [ where [ group ]; Nth_child (Odd, None) ])
+          Descendant universal
+      in
+      compound [ Class ("group-odd:" ^ cls); is_ [ rel ] ]
+  | Group_even ->
+      let rel =
+        combine
+          (compound [ where [ group ]; Nth_child (Even, None) ])
+          Descendant universal
+      in
+      compound [ Class ("group-even:" ^ cls); is_ [ rel ] ]
+  (* Peer structural variants *)
+  | Peer_first ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; First_child ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-first:" ^ cls); is_ [ rel ] ]
+  | Peer_last ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Last_child ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-last:" ^ cls); is_ [ rel ] ]
+  | Peer_odd ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Nth_child (Odd, None) ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-odd:" ^ cls); is_ [ rel ] ]
+  | Peer_even ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Nth_child (Even, None) ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-even:" ^ cls); is_ [ rel ] ]
   | _ -> Css.Selector.Class cls (* fallback for complex modifiers *)
 
 (** Check if a modifier generates a hover rule *)
@@ -196,6 +277,44 @@ let data_custom key value style =
 let data_active styles = wrap Data_active styles
 let data_inactive styles = wrap Data_inactive styles
 
+(* Structural pseudo-class variants *)
+let first styles = wrap First styles
+let last styles = wrap Last styles
+let only styles = wrap Only styles
+let odd styles = wrap Odd styles
+let even styles = wrap Even styles
+let first_of_type styles = wrap First_of_type styles
+let last_of_type styles = wrap Last_of_type styles
+let only_of_type styles = wrap Only_of_type styles
+let empty styles = wrap Empty styles
+
+(* Form state variants *)
+let checked styles = wrap Checked styles
+let indeterminate styles = wrap Indeterminate styles
+let default styles = wrap Default styles
+let required styles = wrap Required styles
+let valid styles = wrap Valid styles
+let invalid styles = wrap Invalid styles
+let in_range styles = wrap In_range styles
+let out_of_range styles = wrap Out_of_range styles
+let placeholder_shown styles = wrap Placeholder_shown styles
+let autofill styles = wrap Autofill styles
+let read_only styles = wrap Read_only styles
+let open_ styles = wrap Open styles
+let enabled styles = wrap Enabled styles
+let target styles = wrap Target styles
+let visited styles = wrap Visited styles
+
+(* Group/peer structural variants *)
+let group_first styles = wrap Group_first styles
+let group_last styles = wrap Group_last styles
+let group_odd styles = wrap Group_odd styles
+let group_even styles = wrap Group_even styles
+let peer_first styles = wrap Peer_first styles
+let peer_last styles = wrap Peer_last styles
+let peer_odd styles = wrap Peer_odd styles
+let peer_even styles = wrap Peer_even styles
+
 (* Parse modifiers (responsive, states) from class string. Handles brackets
    properly so has-[:checked]:bg-red-500 parses as modifiers=["has-[:checked]"]
    and base_class="bg-red-500" *)
@@ -263,6 +382,38 @@ let pp_modifier = function
   | Contrast_less -> "contrast-less"
   | Pseudo_before -> "before"
   | Pseudo_after -> "after"
+  | First -> "first"
+  | Last -> "last"
+  | Only -> "only"
+  | Odd -> "odd"
+  | Even -> "even"
+  | First_of_type -> "first-of-type"
+  | Last_of_type -> "last-of-type"
+  | Only_of_type -> "only-of-type"
+  | Empty -> "empty"
+  | Checked -> "checked"
+  | Indeterminate -> "indeterminate"
+  | Default -> "default"
+  | Required -> "required"
+  | Valid -> "valid"
+  | Invalid -> "invalid"
+  | In_range -> "in-range"
+  | Out_of_range -> "out-of-range"
+  | Placeholder_shown -> "placeholder-shown"
+  | Autofill -> "autofill"
+  | Read_only -> "read-only"
+  | Open -> "open"
+  | Enabled -> "enabled"
+  | Target -> "target"
+  | Visited -> "visited"
+  | Group_first -> "group-first"
+  | Group_last -> "group-last"
+  | Group_odd -> "group-odd"
+  | Group_even -> "group-even"
+  | Peer_first -> "peer-first"
+  | Peer_last -> "peer-last"
+  | Peer_odd -> "peer-odd"
+  | Peer_even -> "peer-even"
 
 (* Apply a list of modifier strings to a base utility *)
 let apply modifiers base_utility =
@@ -444,6 +595,138 @@ let apply modifiers base_utility =
         match acc with
         | Utility.Group styles -> Containers.container_2xl styles
         | single -> Containers.container_2xl [ single ])
+    (* Structural pseudo-class variants *)
+    | "first" -> (
+        match acc with
+        | Utility.Group styles -> first styles
+        | single -> first [ single ])
+    | "last" -> (
+        match acc with
+        | Utility.Group styles -> last styles
+        | single -> last [ single ])
+    | "only" -> (
+        match acc with
+        | Utility.Group styles -> only styles
+        | single -> only [ single ])
+    | "odd" -> (
+        match acc with
+        | Utility.Group styles -> odd styles
+        | single -> odd [ single ])
+    | "even" -> (
+        match acc with
+        | Utility.Group styles -> even styles
+        | single -> even [ single ])
+    | "first-of-type" -> (
+        match acc with
+        | Utility.Group styles -> first_of_type styles
+        | single -> first_of_type [ single ])
+    | "last-of-type" -> (
+        match acc with
+        | Utility.Group styles -> last_of_type styles
+        | single -> last_of_type [ single ])
+    | "only-of-type" -> (
+        match acc with
+        | Utility.Group styles -> only_of_type styles
+        | single -> only_of_type [ single ])
+    | "empty" -> (
+        match acc with
+        | Utility.Group styles -> empty styles
+        | single -> empty [ single ])
+    (* Form state variants *)
+    | "checked" -> (
+        match acc with
+        | Utility.Group styles -> checked styles
+        | single -> checked [ single ])
+    | "indeterminate" -> (
+        match acc with
+        | Utility.Group styles -> indeterminate styles
+        | single -> indeterminate [ single ])
+    | "default" -> (
+        match acc with
+        | Utility.Group styles -> default styles
+        | single -> default [ single ])
+    | "required" -> (
+        match acc with
+        | Utility.Group styles -> required styles
+        | single -> required [ single ])
+    | "valid" -> (
+        match acc with
+        | Utility.Group styles -> valid styles
+        | single -> valid [ single ])
+    | "invalid" -> (
+        match acc with
+        | Utility.Group styles -> invalid styles
+        | single -> invalid [ single ])
+    | "in-range" -> (
+        match acc with
+        | Utility.Group styles -> in_range styles
+        | single -> in_range [ single ])
+    | "out-of-range" -> (
+        match acc with
+        | Utility.Group styles -> out_of_range styles
+        | single -> out_of_range [ single ])
+    | "placeholder-shown" -> (
+        match acc with
+        | Utility.Group styles -> placeholder_shown styles
+        | single -> placeholder_shown [ single ])
+    | "autofill" -> (
+        match acc with
+        | Utility.Group styles -> autofill styles
+        | single -> autofill [ single ])
+    | "read-only" -> (
+        match acc with
+        | Utility.Group styles -> read_only styles
+        | single -> read_only [ single ])
+    | "open" -> (
+        match acc with
+        | Utility.Group styles -> open_ styles
+        | single -> open_ [ single ])
+    | "enabled" -> (
+        match acc with
+        | Utility.Group styles -> enabled styles
+        | single -> enabled [ single ])
+    | "target" -> (
+        match acc with
+        | Utility.Group styles -> target styles
+        | single -> target [ single ])
+    | "visited" -> (
+        match acc with
+        | Utility.Group styles -> visited styles
+        | single -> visited [ single ])
+    (* Group structural variants *)
+    | "group-first" -> (
+        match acc with
+        | Utility.Group styles -> group_first styles
+        | single -> group_first [ single ])
+    | "group-last" -> (
+        match acc with
+        | Utility.Group styles -> group_last styles
+        | single -> group_last [ single ])
+    | "group-odd" -> (
+        match acc with
+        | Utility.Group styles -> group_odd styles
+        | single -> group_odd [ single ])
+    | "group-even" -> (
+        match acc with
+        | Utility.Group styles -> group_even styles
+        | single -> group_even [ single ])
+    (* Peer structural variants *)
+    | "peer-first" -> (
+        match acc with
+        | Utility.Group styles -> peer_first styles
+        | single -> peer_first [ single ])
+    | "peer-last" -> (
+        match acc with
+        | Utility.Group styles -> peer_last styles
+        | single -> peer_last [ single ])
+    | "peer-odd" -> (
+        match acc with
+        | Utility.Group styles -> peer_odd styles
+        | single -> peer_odd [ single ])
+    | "peer-even" -> (
+        match acc with
+        | Utility.Group styles -> peer_even styles
+        | single -> peer_even [ single ])
     | _ -> acc (* ignore unknown modifiers for now *)
   in
   (* Apply modifiers in reverse order so that the first modifier in the string
