@@ -45,6 +45,38 @@ type modifier =
   | Contrast_less
   | Pseudo_before
   | Pseudo_after
+  | First
+  | Last
+  | Only
+  | Odd
+  | Even
+  | First_of_type
+  | Last_of_type
+  | Only_of_type
+  | Empty
+  | Checked
+  | Indeterminate
+  | Default
+  | Required
+  | Valid
+  | Invalid
+  | In_range
+  | Out_of_range
+  | Placeholder_shown
+  | Autofill
+  | Read_only
+  | Open
+  | Enabled
+  | Target
+  | Visited
+  | Group_first
+  | Group_last
+  | Group_odd
+  | Group_even
+  | Peer_first
+  | Peer_last
+  | Peer_odd
+  | Peer_even
 
 type t =
   | Style of {
@@ -114,6 +146,38 @@ let rec pp_modifier = function
   | Contrast_less -> "contrast-less"
   | Pseudo_before -> "before"
   | Pseudo_after -> "after"
+  | First -> "first"
+  | Last -> "last"
+  | Only -> "only"
+  | Odd -> "odd"
+  | Even -> "even"
+  | First_of_type -> "first-of-type"
+  | Last_of_type -> "last-of-type"
+  | Only_of_type -> "only-of-type"
+  | Empty -> "empty"
+  | Checked -> "checked"
+  | Indeterminate -> "indeterminate"
+  | Default -> "default"
+  | Required -> "required"
+  | Valid -> "valid"
+  | Invalid -> "invalid"
+  | In_range -> "in-range"
+  | Out_of_range -> "out-of-range"
+  | Placeholder_shown -> "placeholder-shown"
+  | Autofill -> "autofill"
+  | Read_only -> "read-only"
+  | Open -> "open"
+  | Enabled -> "enabled"
+  | Target -> "target"
+  | Visited -> "visited"
+  | Group_first -> "group-first"
+  | Group_last -> "group-last"
+  | Group_odd -> "group-odd"
+  | Group_even -> "group-even"
+  | Peer_first -> "peer-first"
+  | Peer_last -> "peer-last"
+  | Peer_odd -> "peer-odd"
+  | Peer_even -> "peer-even"
 
 let rec pp ppf = function
   | Style { props; _ } ->

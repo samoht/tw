@@ -45,6 +45,38 @@ type modifier =
   | Contrast_less
   | Pseudo_before
   | Pseudo_after
+  | First
+  | Last
+  | Only
+  | Odd
+  | Even
+  | First_of_type
+  | Last_of_type
+  | Only_of_type
+  | Empty
+  | Checked
+  | Indeterminate
+  | Default
+  | Required
+  | Valid
+  | Invalid
+  | In_range
+  | Out_of_range
+  | Placeholder_shown
+  | Autofill
+  | Read_only
+  | Open
+  | Enabled
+  | Target
+  | Visited
+  | Group_first
+  | Group_last
+  | Group_odd
+  | Group_even
+  | Peer_first
+  | Peer_last
+  | Peer_odd
+  | Peer_even
 
 type t =
   | Style of {
