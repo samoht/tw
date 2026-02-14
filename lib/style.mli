@@ -160,6 +160,7 @@ type modifier =
   | Portrait
   | Landscape
   | Forced_colors
+  | Supports of string
 
 type t =
   | Style of {
