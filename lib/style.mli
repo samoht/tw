@@ -19,6 +19,7 @@ type modifier =
   | Group_focus
   | Dark
   | Responsive of breakpoint
+  | Max_responsive of breakpoint
   | Peer_hover
   | Peer_focus
   | Peer_checked

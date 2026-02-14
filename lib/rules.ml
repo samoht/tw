@@ -286,6 +286,31 @@ let responsive_rule breakpoint base_class selector props =
   media_query ~condition:(Css.Media.Min_width px_value) ~selector:new_selector
     ~props ~base_class:modified_class ()
 
+let max_responsive_rule breakpoint base_class selector props =
+  let prefix =
+    match breakpoint with
+    | `Sm -> "max-sm"
+    | `Md -> "max-md"
+    | `Lg -> "max-lg"
+    | `Xl -> "max-xl"
+    | `Xl_2 -> "max-2xl"
+  in
+  let px_value =
+    match breakpoint with
+    | `Sm -> 640.
+    | `Md -> 768.
+    | `Lg -> 1024.
+    | `Xl -> 1280.
+    | `Xl_2 -> 1536.
+  in
+  let modified_class = prefix ^ ":" ^ base_class in
+  let new_selector =
+    Rules_selector.replace_class_in_selector ~old_class:base_class
+      ~new_class:modified_class selector
+  in
+  media_query ~condition:(Css.Media.Not_min_width px_value)
+    ~selector:new_selector ~props ~base_class:modified_class ()
+
 let container_rule query base_class selector props =
   let prefix = Containers.container_query_to_class_prefix query in
   let modified_class = prefix ^ ":" ^ base_class in
@@ -467,6 +492,8 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
   (* Responsive and container *)
   | Style.Responsive breakpoint ->
       responsive_rule breakpoint base_class selector props
+  | Style.Max_responsive breakpoint ->
+      max_responsive_rule breakpoint base_class selector props
   | Style.Container query -> container_rule query base_class selector props
   (* :not() pseudo-class *)
   | Style.Not _modifier ->
