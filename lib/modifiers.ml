@@ -583,6 +583,20 @@ let to_selector (modifier : modifier) cls =
       (* starstar:flex -> :is(.\starstar\:flex star) *)
       let desc_sel = combine (Class ("**:" ^ cls)) Descendant universal in
       is_ [ desc_sel ]
+  | Ltr ->
+      (* ltr:flex -> .ltr\:flex:where(:dir(ltr), [dir="ltr"], [dir="ltr"]
+         star) *)
+      let dir_sel = Dir "ltr" in
+      let attr_sel = attribute "dir" (Exact "ltr") in
+      let desc_sel = combine attr_sel Descendant universal in
+      compound [ Class ("ltr:" ^ cls); where [ dir_sel; attr_sel; desc_sel ] ]
+  | Rtl ->
+      (* rtl:flex -> .rtl\:flex:where(:dir(rtl), [dir="rtl"], [dir="rtl"]
+         star) *)
+      let dir_sel = Dir "rtl" in
+      let attr_sel = attribute "dir" (Exact "rtl") in
+      let desc_sel = combine attr_sel Descendant universal in
+      compound [ Class ("rtl:" ^ cls); where [ dir_sel; attr_sel; desc_sel ] ]
   | _ -> Css.Selector.Class cls (* fallback for complex modifiers *)
 
 (** Check if a modifier generates a hover rule *)
@@ -795,6 +809,10 @@ let details_content styles = wrap Pseudo_details_content styles
 let children styles = wrap Children styles
 let descendants styles = wrap Descendants styles
 
+(* Directionality variants *)
+let ltr styles = wrap Ltr styles
+let rtl styles = wrap Rtl styles
+
 (* Parse modifiers (responsive, states) from class string. Handles brackets
    properly so has-[:checked]:bg-red-500 parses as modifiers=["has-[:checked]"]
    and base_class="bg-red-500" *)
@@ -966,6 +984,8 @@ let pp_modifier = function
   | Pseudo_details_content -> "details-content"
   | Children -> "*"
   | Descendants -> "**"
+  | Ltr -> "ltr"
+  | Rtl -> "rtl"
 
 (* Apply a list of modifier strings to a base utility *)
 let apply modifiers base_utility =
@@ -1569,6 +1589,14 @@ let apply modifiers base_utility =
         match acc with
         | Utility.Group styles -> descendants styles
         | single -> descendants [ single ])
+    | "ltr" -> (
+        match acc with
+        | Utility.Group styles -> ltr styles
+        | single -> ltr [ single ])
+    | "rtl" -> (
+        match acc with
+        | Utility.Group styles -> rtl styles
+        | single -> rtl [ single ])
     | _ -> acc (* ignore unknown modifiers for now *)
   in
   (* Apply modifiers in reverse order so that the first modifier in the string

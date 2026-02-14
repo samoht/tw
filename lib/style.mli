@@ -149,6 +149,8 @@ type modifier =
   | Pseudo_details_content
   | Children
   | Descendants
+  | Ltr
+  | Rtl
 
 type t =
   | Style of {
