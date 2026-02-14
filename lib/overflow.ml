@@ -32,77 +32,45 @@ module Handler = struct
   (* Overflow comes after alignment (17) in Tailwind's utility ordering. *)
   let priority = 18
 
-  (* Keep stable relative order among overflow variants. *)
-  let suborder = function
-    | Auto -> 550
-    | Clip -> 551
-    | Hidden -> 552
-    | Scroll -> 553
-    | Visible -> 554
-    | X_auto -> 555
-    | X_clip -> 556
-    | X_hidden -> 557
-    | X_scroll -> 558
-    | X_visible -> 559
-    | Y_auto -> 560
-    | Y_clip -> 561
-    | Y_hidden -> 562
-    | Y_scroll -> 563
-    | Y_visible -> 564
+  (* Single source of truth: (handler, class_suffix, style_fn, suborder) *)
+  let overflow_data =
+    [
+      (Auto, "auto", (fun () -> style [ overflow Auto ]), 550);
+      (Clip, "clip", (fun () -> style [ overflow Clip ]), 551);
+      (Hidden, "hidden", (fun () -> style [ overflow Hidden ]), 552);
+      (Scroll, "scroll", (fun () -> style [ overflow Scroll ]), 553);
+      (Visible, "visible", (fun () -> style [ overflow Visible ]), 554);
+      (X_auto, "x-auto", (fun () -> style [ overflow_x Auto ]), 555);
+      (X_clip, "x-clip", (fun () -> style [ overflow_x Clip ]), 556);
+      (X_hidden, "x-hidden", (fun () -> style [ overflow_x Hidden ]), 557);
+      (X_scroll, "x-scroll", (fun () -> style [ overflow_x Scroll ]), 558);
+      (X_visible, "x-visible", (fun () -> style [ overflow_x Visible ]), 559);
+      (Y_auto, "y-auto", (fun () -> style [ overflow_y Auto ]), 560);
+      (Y_clip, "y-clip", (fun () -> style [ overflow_y Clip ]), 561);
+      (Y_hidden, "y-hidden", (fun () -> style [ overflow_y Hidden ]), 562);
+      (Y_scroll, "y-scroll", (fun () -> style [ overflow_y Scroll ]), 563);
+      (Y_visible, "y-visible", (fun () -> style [ overflow_y Visible ]), 564);
+    ]
 
-  let to_class = function
-    | Auto -> "overflow-auto"
-    | Hidden -> "overflow-hidden"
-    | Clip -> "overflow-clip"
-    | Visible -> "overflow-visible"
-    | Scroll -> "overflow-scroll"
-    | X_auto -> "overflow-x-auto"
-    | X_clip -> "overflow-x-clip"
-    | X_hidden -> "overflow-x-hidden"
-    | X_visible -> "overflow-x-visible"
-    | X_scroll -> "overflow-x-scroll"
-    | Y_auto -> "overflow-y-auto"
-    | Y_clip -> "overflow-y-clip"
-    | Y_hidden -> "overflow-y-hidden"
-    | Y_visible -> "overflow-y-visible"
-    | Y_scroll -> "overflow-y-scroll"
+  (* Derived lookup tables *)
+  let to_class_map =
+    List.map (fun (t, s, _, _) -> (t, "overflow-" ^ s)) overflow_data
 
-  let to_style = function
-    | Auto -> style [ overflow Auto ]
-    | Hidden -> style [ overflow Hidden ]
-    | Clip -> style [ overflow Clip ]
-    | Visible -> style [ overflow Visible ]
-    | Scroll -> style [ overflow Scroll ]
-    | X_auto -> style [ overflow_x Auto ]
-    | X_clip -> style [ overflow_x Clip ]
-    | X_hidden -> style [ overflow_x Hidden ]
-    | X_visible -> style [ overflow_x Visible ]
-    | X_scroll -> style [ overflow_x Scroll ]
-    | Y_auto -> style [ overflow_y Auto ]
-    | Y_clip -> style [ overflow_y Clip ]
-    | Y_hidden -> style [ overflow_y Hidden ]
-    | Y_visible -> style [ overflow_y Visible ]
-    | Y_scroll -> style [ overflow_y Scroll ]
+  let to_style_map = List.map (fun (t, _, f, _) -> (t, f)) overflow_data
+  let suborder_map = List.map (fun (t, _, _, o) -> (t, o)) overflow_data
 
-  let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
-    match parts with
-    | [ "overflow"; "auto" ] -> Ok Auto
-    | [ "overflow"; "hidden" ] -> Ok Hidden
-    | [ "overflow"; "clip" ] -> Ok Clip
-    | [ "overflow"; "visible" ] -> Ok Visible
-    | [ "overflow"; "scroll" ] -> Ok Scroll
-    | [ "overflow"; "x"; "auto" ] -> Ok X_auto
-    | [ "overflow"; "x"; "clip" ] -> Ok X_clip
-    | [ "overflow"; "x"; "hidden" ] -> Ok X_hidden
-    | [ "overflow"; "x"; "visible" ] -> Ok X_visible
-    | [ "overflow"; "x"; "scroll" ] -> Ok X_scroll
-    | [ "overflow"; "y"; "auto" ] -> Ok Y_auto
-    | [ "overflow"; "y"; "clip" ] -> Ok Y_clip
-    | [ "overflow"; "y"; "hidden" ] -> Ok Y_hidden
-    | [ "overflow"; "y"; "visible" ] -> Ok Y_visible
-    | [ "overflow"; "y"; "scroll" ] -> Ok Y_scroll
-    | _ -> Error (`Msg "Not an overflow utility")
+  let of_class_map =
+    List.map (fun (t, s, _, _) -> ("overflow-" ^ s, t)) overflow_data
+
+  (* Handler functions derived from maps *)
+  let suborder t = List.assoc t suborder_map
+  let to_class t = List.assoc t to_class_map
+  let to_style t = (List.assoc t to_style_map) ()
+
+  let of_class cls =
+    match List.assoc_opt cls of_class_map with
+    | Some t -> Ok t
+    | None -> Error (`Msg "Not an overflow utility")
 end
 
 open Handler
