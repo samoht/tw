@@ -873,6 +873,7 @@ let print styles = wrap Print styles
 let portrait styles = wrap Portrait styles
 let landscape styles = wrap Landscape styles
 let forced_colors styles = wrap Forced_colors styles
+let supports cond styles = wrap (Supports cond) styles
 
 (* Parse modifiers (responsive, states) from class string. Handles brackets
    properly so has-[:checked]:bg-red-500 parses as modifiers=["has-[:checked]"]
@@ -1072,6 +1073,7 @@ let pp_modifier = function
   | Portrait -> "portrait"
   | Landscape -> "landscape"
   | Forced_colors -> "forced-colors"
+  | Supports cond -> "supports-[" ^ cond ^ "]"
 
 (* Apply a list of modifier strings to a base utility *)
 let apply modifiers base_utility =
@@ -1794,6 +1796,20 @@ let apply modifiers base_utility =
         match acc with
         | Utility.Group styles -> forced_colors styles
         | single -> forced_colors [ single ])
+    (* supports-[...] feature query variant *)
+    | _ when String.starts_with ~prefix:"supports-[" modifier -> (
+        let rest =
+          String.sub modifier
+            (String.length "supports-[")
+            (String.length modifier - String.length "supports-[")
+        in
+        match String.index_opt rest ']' with
+        | Some i -> (
+            let cond = String.sub rest 0 i in
+            match acc with
+            | Utility.Group styles -> supports cond styles
+            | single -> supports cond [ single ])
+        | None -> acc)
     | _ -> acc (* ignore unknown modifiers for now *)
   in
   (* Apply modifiers in reverse order so that the first modifier in the string

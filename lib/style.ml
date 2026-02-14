@@ -160,6 +160,7 @@ type modifier =
   | Portrait
   | Landscape
   | Forced_colors
+  | Supports of string
 
 type t =
   | Style of {
@@ -358,6 +359,7 @@ let rec pp_modifier = function
   | Portrait -> "portrait"
   | Landscape -> "landscape"
   | Forced_colors -> "forced-colors"
+  | Supports cond -> "supports-[" ^ cond ^ "]"
 
 let rec pp ppf = function
   | Style { props; _ } ->

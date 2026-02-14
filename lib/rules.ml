@@ -517,6 +517,24 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
       handle_media_like_modifier Style.Forced_colors
         ~condition:(Css.Media.Forced_colors `Active) ~inner_has_hover base_class
         selector props
+  (* Supports feature query *)
+  | Style.Supports condition_str ->
+      let modified_class = "supports-[" ^ condition_str ^ "]:" ^ base_class in
+      let new_selector =
+        Rules_selector.replace_class_in_selector ~old_class:base_class
+          ~new_class:modified_class selector
+      in
+      (* Wrap condition in parentheses if it's a property:value pair without
+         them *)
+      let formatted_condition =
+        if
+          String.contains condition_str ':'
+          && not (String.contains condition_str '(')
+        then "(" ^ condition_str ^ ")"
+        else condition_str
+      in
+      supports_query ~condition:(Css.Supports.Raw formatted_condition)
+        ~selector:new_selector ~props ~base_class:modified_class ()
   (* Responsive and container *)
   | Style.Responsive breakpoint ->
       responsive_rule breakpoint base_class selector props
