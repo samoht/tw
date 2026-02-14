@@ -50,159 +50,69 @@ module Handler = struct
   let name = "cursor"
   let priority = 11
 
-  let to_class = function
-    | Cursor_alias -> "cursor-alias"
-    | Cursor_all_scroll -> "cursor-all-scroll"
-    | Cursor_auto -> "cursor-auto"
-    | Cursor_cell -> "cursor-cell"
-    | Cursor_col_resize -> "cursor-col-resize"
-    | Cursor_context_menu -> "cursor-context-menu"
-    | Cursor_copy -> "cursor-copy"
-    | Cursor_crosshair -> "cursor-crosshair"
-    | Cursor_default -> "cursor-default"
-    | Cursor_e_resize -> "cursor-e-resize"
-    | Cursor_ew_resize -> "cursor-ew-resize"
-    | Cursor_grab -> "cursor-grab"
-    | Cursor_grabbing -> "cursor-grabbing"
-    | Cursor_help -> "cursor-help"
-    | Cursor_move -> "cursor-move"
-    | Cursor_n_resize -> "cursor-n-resize"
-    | Cursor_ne_resize -> "cursor-ne-resize"
-    | Cursor_nesw_resize -> "cursor-nesw-resize"
-    | Cursor_no_drop -> "cursor-no-drop"
-    | Cursor_none -> "cursor-none"
-    | Cursor_not_allowed -> "cursor-not-allowed"
-    | Cursor_ns_resize -> "cursor-ns-resize"
-    | Cursor_nw_resize -> "cursor-nw-resize"
-    | Cursor_nwse_resize -> "cursor-nwse-resize"
-    | Cursor_pointer -> "cursor-pointer"
-    | Cursor_progress -> "cursor-progress"
-    | Cursor_row_resize -> "cursor-row-resize"
-    | Cursor_s_resize -> "cursor-s-resize"
-    | Cursor_se_resize -> "cursor-se-resize"
-    | Cursor_sw_resize -> "cursor-sw-resize"
-    | Cursor_text -> "cursor-text"
-    | Cursor_vertical_text -> "cursor-vertical-text"
-    | Cursor_w_resize -> "cursor-w-resize"
-    | Cursor_wait -> "cursor-wait"
-    | Cursor_zoom_in -> "cursor-zoom-in"
-    | Cursor_zoom_out -> "cursor-zoom-out"
+  (* Single source of truth: (handler, class_suffix, css_value) *)
+  (* Alphabetically ordered - suborder derived from position *)
+  let cursor_data =
+    [
+      (Cursor_alias, "alias", Alias);
+      (Cursor_all_scroll, "all-scroll", All_scroll);
+      (Cursor_auto, "auto", Auto);
+      (Cursor_cell, "cell", Cell);
+      (Cursor_col_resize, "col-resize", Col_resize);
+      (Cursor_context_menu, "context-menu", Context_menu);
+      (Cursor_copy, "copy", Copy);
+      (Cursor_crosshair, "crosshair", Crosshair);
+      (Cursor_default, "default", Default);
+      (Cursor_e_resize, "e-resize", E_resize);
+      (Cursor_ew_resize, "ew-resize", Ew_resize);
+      (Cursor_grab, "grab", Grab);
+      (Cursor_grabbing, "grabbing", Grabbing);
+      (Cursor_help, "help", Help);
+      (Cursor_move, "move", Move);
+      (Cursor_n_resize, "n-resize", N_resize);
+      (Cursor_ne_resize, "ne-resize", Ne_resize);
+      (Cursor_nesw_resize, "nesw-resize", Nesw_resize);
+      (Cursor_no_drop, "no-drop", No_drop);
+      (Cursor_none, "none", None);
+      (Cursor_not_allowed, "not-allowed", Not_allowed);
+      (Cursor_ns_resize, "ns-resize", Ns_resize);
+      (Cursor_nw_resize, "nw-resize", Nw_resize);
+      (Cursor_nwse_resize, "nwse-resize", Nwse_resize);
+      (Cursor_pointer, "pointer", Pointer);
+      (Cursor_progress, "progress", Progress);
+      (Cursor_row_resize, "row-resize", Row_resize);
+      (Cursor_s_resize, "s-resize", S_resize);
+      (Cursor_se_resize, "se-resize", Se_resize);
+      (Cursor_sw_resize, "sw-resize", Sw_resize);
+      (Cursor_text, "text", Text);
+      (Cursor_vertical_text, "vertical-text", Vertical_text);
+      (Cursor_w_resize, "w-resize", W_resize);
+      (Cursor_wait, "wait", Wait);
+      (Cursor_zoom_in, "zoom-in", Zoom_in);
+      (Cursor_zoom_out, "zoom-out", Zoom_out);
+    ]
 
-  let to_style = function
-    | Cursor_alias -> style [ cursor Alias ]
-    | Cursor_all_scroll -> style [ cursor All_scroll ]
-    | Cursor_auto -> style [ cursor Auto ]
-    | Cursor_cell -> style [ cursor Cell ]
-    | Cursor_col_resize -> style [ cursor Col_resize ]
-    | Cursor_context_menu -> style [ cursor Context_menu ]
-    | Cursor_copy -> style [ cursor Copy ]
-    | Cursor_crosshair -> style [ cursor Crosshair ]
-    | Cursor_default -> style [ cursor Default ]
-    | Cursor_e_resize -> style [ cursor E_resize ]
-    | Cursor_ew_resize -> style [ cursor Ew_resize ]
-    | Cursor_grab -> style [ cursor Grab ]
-    | Cursor_grabbing -> style [ cursor Grabbing ]
-    | Cursor_help -> style [ cursor Help ]
-    | Cursor_move -> style [ cursor Move ]
-    | Cursor_n_resize -> style [ cursor N_resize ]
-    | Cursor_ne_resize -> style [ cursor Ne_resize ]
-    | Cursor_nesw_resize -> style [ cursor Nesw_resize ]
-    | Cursor_no_drop -> style [ cursor No_drop ]
-    | Cursor_none -> style [ cursor None ]
-    | Cursor_not_allowed -> style [ cursor Not_allowed ]
-    | Cursor_ns_resize -> style [ cursor Ns_resize ]
-    | Cursor_nw_resize -> style [ cursor Nw_resize ]
-    | Cursor_nwse_resize -> style [ cursor Nwse_resize ]
-    | Cursor_pointer -> style [ cursor Pointer ]
-    | Cursor_progress -> style [ cursor Progress ]
-    | Cursor_row_resize -> style [ cursor Row_resize ]
-    | Cursor_s_resize -> style [ cursor S_resize ]
-    | Cursor_se_resize -> style [ cursor Se_resize ]
-    | Cursor_sw_resize -> style [ cursor Sw_resize ]
-    | Cursor_text -> style [ cursor Text ]
-    | Cursor_vertical_text -> style [ cursor Vertical_text ]
-    | Cursor_w_resize -> style [ cursor W_resize ]
-    | Cursor_wait -> style [ cursor Wait ]
-    | Cursor_zoom_in -> style [ cursor Zoom_in ]
-    | Cursor_zoom_out -> style [ cursor Zoom_out ]
+  (* Derived lookup tables *)
+  let to_class_map =
+    List.map (fun (t, suffix, _) -> (t, "cursor-" ^ suffix)) cursor_data
 
-  let suborder = function
-    (* Alphabetical order *)
-    | Cursor_alias -> 0
-    | Cursor_all_scroll -> 1
-    | Cursor_auto -> 2
-    | Cursor_cell -> 3
-    | Cursor_col_resize -> 4
-    | Cursor_context_menu -> 5
-    | Cursor_copy -> 6
-    | Cursor_crosshair -> 7
-    | Cursor_default -> 8
-    | Cursor_e_resize -> 9
-    | Cursor_ew_resize -> 10
-    | Cursor_grab -> 11
-    | Cursor_grabbing -> 12
-    | Cursor_help -> 13
-    | Cursor_move -> 14
-    | Cursor_n_resize -> 15
-    | Cursor_ne_resize -> 16
-    | Cursor_nesw_resize -> 17
-    | Cursor_no_drop -> 18
-    | Cursor_none -> 19
-    | Cursor_not_allowed -> 20
-    | Cursor_ns_resize -> 21
-    | Cursor_nw_resize -> 22
-    | Cursor_nwse_resize -> 23
-    | Cursor_pointer -> 24
-    | Cursor_progress -> 25
-    | Cursor_row_resize -> 26
-    | Cursor_s_resize -> 27
-    | Cursor_se_resize -> 28
-    | Cursor_sw_resize -> 29
-    | Cursor_text -> 30
-    | Cursor_vertical_text -> 31
-    | Cursor_w_resize -> 32
-    | Cursor_wait -> 33
-    | Cursor_zoom_in -> 34
-    | Cursor_zoom_out -> 35
+  let to_style_map =
+    List.map (fun (t, _, css_val) -> (t, style [ cursor css_val ])) cursor_data
 
-  let of_class = function
-    | "cursor-alias" -> Ok Cursor_alias
-    | "cursor-all-scroll" -> Ok Cursor_all_scroll
-    | "cursor-auto" -> Ok Cursor_auto
-    | "cursor-cell" -> Ok Cursor_cell
-    | "cursor-col-resize" -> Ok Cursor_col_resize
-    | "cursor-context-menu" -> Ok Cursor_context_menu
-    | "cursor-copy" -> Ok Cursor_copy
-    | "cursor-crosshair" -> Ok Cursor_crosshair
-    | "cursor-default" -> Ok Cursor_default
-    | "cursor-e-resize" -> Ok Cursor_e_resize
-    | "cursor-ew-resize" -> Ok Cursor_ew_resize
-    | "cursor-grab" -> Ok Cursor_grab
-    | "cursor-grabbing" -> Ok Cursor_grabbing
-    | "cursor-help" -> Ok Cursor_help
-    | "cursor-move" -> Ok Cursor_move
-    | "cursor-n-resize" -> Ok Cursor_n_resize
-    | "cursor-ne-resize" -> Ok Cursor_ne_resize
-    | "cursor-nesw-resize" -> Ok Cursor_nesw_resize
-    | "cursor-no-drop" -> Ok Cursor_no_drop
-    | "cursor-none" -> Ok Cursor_none
-    | "cursor-not-allowed" -> Ok Cursor_not_allowed
-    | "cursor-ns-resize" -> Ok Cursor_ns_resize
-    | "cursor-nw-resize" -> Ok Cursor_nw_resize
-    | "cursor-nwse-resize" -> Ok Cursor_nwse_resize
-    | "cursor-pointer" -> Ok Cursor_pointer
-    | "cursor-progress" -> Ok Cursor_progress
-    | "cursor-row-resize" -> Ok Cursor_row_resize
-    | "cursor-s-resize" -> Ok Cursor_s_resize
-    | "cursor-se-resize" -> Ok Cursor_se_resize
-    | "cursor-sw-resize" -> Ok Cursor_sw_resize
-    | "cursor-text" -> Ok Cursor_text
-    | "cursor-vertical-text" -> Ok Cursor_vertical_text
-    | "cursor-w-resize" -> Ok Cursor_w_resize
-    | "cursor-wait" -> Ok Cursor_wait
-    | "cursor-zoom-in" -> Ok Cursor_zoom_in
-    | "cursor-zoom-out" -> Ok Cursor_zoom_out
-    | _ -> Error (`Msg "Not a cursor utility")
+  let suborder_map = List.mapi (fun i (t, _, _) -> (t, i)) cursor_data
+
+  let of_class_map =
+    List.map (fun (t, suffix, _) -> ("cursor-" ^ suffix, t)) cursor_data
+
+  (* Handler functions derived from maps *)
+  let to_class t = List.assoc t to_class_map
+  let to_style t = List.assoc t to_style_map
+  let suborder t = List.assoc t suborder_map
+
+  let of_class cls =
+    match List.assoc_opt cls of_class_map with
+    | Some t -> Ok t
+    | None -> Error (`Msg "Not a cursor utility")
 end
 
 open Handler
