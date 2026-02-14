@@ -20,6 +20,8 @@ type modifier =
   | Dark
   | Responsive of breakpoint
   | Max_responsive of breakpoint
+  | Min_arbitrary of float
+  | Max_arbitrary of float
   | Peer_hover
   | Peer_focus
   | Peer_checked
@@ -196,6 +198,18 @@ let rec pp_modifier = function
   | Max_responsive `Lg -> "max-lg"
   | Max_responsive `Xl -> "max-xl"
   | Max_responsive `Xl_2 -> "max-2xl"
+  | Min_arbitrary px ->
+      let px_str =
+        if Float.is_integer px then Int.to_string (Float.to_int px)
+        else Float.to_string px
+      in
+      String.concat "" [ "min-["; px_str; "px]" ]
+  | Max_arbitrary px ->
+      let px_str =
+        if Float.is_integer px then Int.to_string (Float.to_int px)
+        else Float.to_string px
+      in
+      String.concat "" [ "max-["; px_str; "px]" ]
   | Container Container_sm -> "@sm"
   | Container Container_md -> "@md"
   | Container Container_lg -> "@lg"
