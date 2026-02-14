@@ -76,12 +76,20 @@ type modifier =
   | User_invalid
   | Group_first
   | Group_last
+  | Group_only
   | Group_odd
   | Group_even
+  | Group_first_of_type
+  | Group_last_of_type
+  | Group_only_of_type
   | Peer_first
   | Peer_last
+  | Peer_only
   | Peer_odd
   | Peer_even
+  | Peer_first_of_type
+  | Peer_last_of_type
+  | Peer_only_of_type
   | Group_active
   | Group_visited
   | Group_disabled

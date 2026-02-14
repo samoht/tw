@@ -76,12 +76,20 @@ type modifier =
   | User_invalid
   | Group_first
   | Group_last
+  | Group_only
   | Group_odd
   | Group_even
+  | Group_first_of_type
+  | Group_last_of_type
+  | Group_only_of_type
   | Peer_first
   | Peer_last
+  | Peer_only
   | Peer_odd
   | Peer_even
+  | Peer_first_of_type
+  | Peer_last_of_type
+  | Peer_only_of_type
   | Group_active
   | Group_visited
   | Group_disabled
@@ -227,12 +235,20 @@ let rec pp_modifier = function
   | User_invalid -> "user-invalid"
   | Group_first -> "group-first"
   | Group_last -> "group-last"
+  | Group_only -> "group-only"
   | Group_odd -> "group-odd"
   | Group_even -> "group-even"
+  | Group_first_of_type -> "group-first-of-type"
+  | Group_last_of_type -> "group-last-of-type"
+  | Group_only_of_type -> "group-only-of-type"
   | Peer_first -> "peer-first"
   | Peer_last -> "peer-last"
+  | Peer_only -> "peer-only"
   | Peer_odd -> "peer-odd"
   | Peer_even -> "peer-even"
+  | Peer_first_of_type -> "peer-first-of-type"
+  | Peer_last_of_type -> "peer-last-of-type"
+  | Peer_only_of_type -> "peer-only-of-type"
   | Group_active -> "group-active"
   | Group_visited -> "group-visited"
   | Group_disabled -> "group-disabled"

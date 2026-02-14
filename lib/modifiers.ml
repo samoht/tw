@@ -159,6 +159,32 @@ let to_selector (modifier : modifier) cls =
           Descendant universal
       in
       compound [ Class ("group-even:" ^ cls); is_ [ rel ] ]
+  | Group_only ->
+      let rel =
+        combine (compound [ where [ group ]; Only_child ]) Descendant universal
+      in
+      compound [ Class ("group-only:" ^ cls); is_ [ rel ] ]
+  | Group_first_of_type ->
+      let rel =
+        combine
+          (compound [ where [ group ]; First_of_type ])
+          Descendant universal
+      in
+      compound [ Class ("group-first-of-type:" ^ cls); is_ [ rel ] ]
+  | Group_last_of_type ->
+      let rel =
+        combine
+          (compound [ where [ group ]; Last_of_type ])
+          Descendant universal
+      in
+      compound [ Class ("group-last-of-type:" ^ cls); is_ [ rel ] ]
+  | Group_only_of_type ->
+      let rel =
+        combine
+          (compound [ where [ group ]; Only_of_type ])
+          Descendant universal
+      in
+      compound [ Class ("group-only-of-type:" ^ cls); is_ [ rel ] ]
   (* Peer structural variants *)
   | Peer_first ->
       let rel =
@@ -188,6 +214,34 @@ let to_selector (modifier : modifier) cls =
           Subsequent_sibling universal
       in
       compound [ Class ("peer-even:" ^ cls); is_ [ rel ] ]
+  | Peer_only ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Only_child ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-only:" ^ cls); is_ [ rel ] ]
+  | Peer_first_of_type ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; First_of_type ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-first-of-type:" ^ cls); is_ [ rel ] ]
+  | Peer_last_of_type ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Last_of_type ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-last-of-type:" ^ cls); is_ [ rel ] ]
+  | Peer_only_of_type ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Only_of_type ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-only-of-type:" ^ cls); is_ [ rel ] ]
   (* More group state variants *)
   | Group_active ->
       let rel =
@@ -570,12 +624,20 @@ let user_invalid styles = wrap User_invalid styles
 (* Group/peer structural variants *)
 let group_first styles = wrap Group_first styles
 let group_last styles = wrap Group_last styles
+let group_only styles = wrap Group_only styles
 let group_odd styles = wrap Group_odd styles
 let group_even styles = wrap Group_even styles
+let group_first_of_type styles = wrap Group_first_of_type styles
+let group_last_of_type styles = wrap Group_last_of_type styles
+let group_only_of_type styles = wrap Group_only_of_type styles
 let peer_first styles = wrap Peer_first styles
 let peer_last styles = wrap Peer_last styles
+let peer_only styles = wrap Peer_only styles
 let peer_odd styles = wrap Peer_odd styles
 let peer_even styles = wrap Peer_even styles
+let peer_first_of_type styles = wrap Peer_first_of_type styles
+let peer_last_of_type styles = wrap Peer_last_of_type styles
+let peer_only_of_type styles = wrap Peer_only_of_type styles
 
 (* More group/peer state variants *)
 let group_active styles = wrap Group_active styles
@@ -724,12 +786,20 @@ let pp_modifier = function
   | User_invalid -> "user-invalid"
   | Group_first -> "group-first"
   | Group_last -> "group-last"
+  | Group_only -> "group-only"
   | Group_odd -> "group-odd"
   | Group_even -> "group-even"
+  | Group_first_of_type -> "group-first-of-type"
+  | Group_last_of_type -> "group-last-of-type"
+  | Group_only_of_type -> "group-only-of-type"
   | Peer_first -> "peer-first"
   | Peer_last -> "peer-last"
+  | Peer_only -> "peer-only"
   | Peer_odd -> "peer-odd"
   | Peer_even -> "peer-even"
+  | Peer_first_of_type -> "peer-first-of-type"
+  | Peer_last_of_type -> "peer-last-of-type"
+  | Peer_only_of_type -> "peer-only-of-type"
   | Group_active -> "group-active"
   | Group_visited -> "group-visited"
   | Group_disabled -> "group-disabled"
@@ -1091,6 +1161,22 @@ let apply modifiers base_utility =
         match acc with
         | Utility.Group styles -> group_even styles
         | single -> group_even [ single ])
+    | "group-only" -> (
+        match acc with
+        | Utility.Group styles -> group_only styles
+        | single -> group_only [ single ])
+    | "group-first-of-type" -> (
+        match acc with
+        | Utility.Group styles -> group_first_of_type styles
+        | single -> group_first_of_type [ single ])
+    | "group-last-of-type" -> (
+        match acc with
+        | Utility.Group styles -> group_last_of_type styles
+        | single -> group_last_of_type [ single ])
+    | "group-only-of-type" -> (
+        match acc with
+        | Utility.Group styles -> group_only_of_type styles
+        | single -> group_only_of_type [ single ])
     (* Peer structural variants *)
     | "peer-first" -> (
         match acc with
@@ -1108,6 +1194,22 @@ let apply modifiers base_utility =
         match acc with
         | Utility.Group styles -> peer_even styles
         | single -> peer_even [ single ])
+    | "peer-only" -> (
+        match acc with
+        | Utility.Group styles -> peer_only styles
+        | single -> peer_only [ single ])
+    | "peer-first-of-type" -> (
+        match acc with
+        | Utility.Group styles -> peer_first_of_type styles
+        | single -> peer_first_of_type [ single ])
+    | "peer-last-of-type" -> (
+        match acc with
+        | Utility.Group styles -> peer_last_of_type styles
+        | single -> peer_last_of_type [ single ])
+    | "peer-only-of-type" -> (
+        match acc with
+        | Utility.Group styles -> peer_only_of_type styles
+        | single -> peer_only_of_type [ single ])
     (* More group/peer state variants *)
     | "group-active" -> (
         match acc with
