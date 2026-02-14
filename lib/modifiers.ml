@@ -123,7 +123,10 @@ let to_selector (modifier : modifier) cls =
   | Read_only -> compound [ Class ("read-only:" ^ cls); Read_only ]
   | Read_write -> compound [ Class ("read-write:" ^ cls); Read_write ]
   | Optional -> compound [ Class ("optional:" ^ cls); Optional ]
-  | Open -> compound [ Class ("open:" ^ cls); Popover_open ]
+  | Open ->
+      (* Tailwind uses :is(:popover-open, [open]) for details/dialog/popover *)
+      let open_attr = attribute "open" Presence in
+      compound [ Class ("open:" ^ cls); is_ [ Popover_open; open_attr ] ]
   | Enabled -> compound [ Class ("enabled:" ^ cls); Enabled ]
   | Target -> compound [ Class ("target:" ^ cls); Target ]
   | Visited -> compound [ Class ("visited:" ^ cls); Visited ]
