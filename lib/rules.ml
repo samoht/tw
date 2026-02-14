@@ -269,13 +269,13 @@ let selector_with_data_key selector key value =
 
 let responsive_rule breakpoint base_class selector props =
   let prefix = string_of_breakpoint breakpoint in
-  let rem_value =
+  let px_value =
     match prefix with
-    | "sm" -> 40.
-    | "md" -> 48.
-    | "lg" -> 64.
-    | "xl" -> 80.
-    | "2xl" -> 96.
+    | "sm" -> 640.
+    | "md" -> 768.
+    | "lg" -> 1024.
+    | "xl" -> 1280.
+    | "2xl" -> 1536.
     | _ -> 0.
   in
   let modified_class = prefix ^ ":" ^ base_class in
@@ -283,7 +283,7 @@ let responsive_rule breakpoint base_class selector props =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
   in
-  media_query ~condition:(Css.Media.Min_width rem_value) ~selector:new_selector
+  media_query ~condition:(Css.Media.Min_width px_value) ~selector:new_selector
     ~props ~base_class:modified_class ()
 
 let container_rule query base_class selector props =
