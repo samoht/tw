@@ -19,6 +19,7 @@ type modifier =
   | Group_focus
   | Dark
   | Responsive of breakpoint
+  | Max_responsive of breakpoint
   | Peer_hover
   | Peer_focus
   | Peer_checked
@@ -190,6 +191,11 @@ let rec pp_modifier = function
   | Responsive `Lg -> "lg"
   | Responsive `Xl -> "xl"
   | Responsive `Xl_2 -> "2xl"
+  | Max_responsive `Sm -> "max-sm"
+  | Max_responsive `Md -> "max-md"
+  | Max_responsive `Lg -> "max-lg"
+  | Max_responsive `Xl -> "max-xl"
+  | Max_responsive `Xl_2 -> "max-2xl"
   | Container Container_sm -> "@sm"
   | Container Container_md -> "@md"
   | Container Container_lg -> "@lg"

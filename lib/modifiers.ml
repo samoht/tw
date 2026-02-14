@@ -685,6 +685,27 @@ let xl2 styles =
   validate_no_nested_responsive styles;
   wrap (Responsive `Xl_2) styles
 
+(* Max responsive variants *)
+let max_sm styles =
+  validate_no_nested_responsive styles;
+  wrap (Max_responsive `Sm) styles
+
+let max_md styles =
+  validate_no_nested_responsive styles;
+  wrap (Max_responsive `Md) styles
+
+let max_lg styles =
+  validate_no_nested_responsive styles;
+  wrap (Max_responsive `Lg) styles
+
+let max_xl styles =
+  validate_no_nested_responsive styles;
+  wrap (Max_responsive `Xl) styles
+
+let max_xl2 styles =
+  validate_no_nested_responsive styles;
+  wrap (Max_responsive `Xl_2) styles
+
 (* ARIA/Peer/Data variants *)
 let peer_checked styles = wrap Peer_checked styles
 let aria_checked styles = wrap Aria_checked styles
@@ -877,6 +898,13 @@ let pp_modifier = function
       | `Lg -> "lg"
       | `Xl -> "xl"
       | `Xl_2 -> "2xl")
+  | Max_responsive breakpoint -> (
+      match breakpoint with
+      | `Sm -> "max-sm"
+      | `Md -> "max-md"
+      | `Lg -> "max-lg"
+      | `Xl -> "max-xl"
+      | `Xl_2 -> "max-2xl")
   | Container query -> Containers.container_query_to_class_prefix query
   | Not _modifier -> "not" (* Simplified for class names *)
   | Has selector -> "has-[" ^ selector ^ "]"
@@ -1027,6 +1055,26 @@ let apply modifiers base_utility =
         match acc with
         | Utility.Group styles -> xl2 styles
         | single -> xl2 [ single ])
+    | "max-sm" -> (
+        match acc with
+        | Utility.Group styles -> max_sm styles
+        | single -> max_sm [ single ])
+    | "max-md" -> (
+        match acc with
+        | Utility.Group styles -> max_md styles
+        | single -> max_md [ single ])
+    | "max-lg" -> (
+        match acc with
+        | Utility.Group styles -> max_lg styles
+        | single -> max_lg [ single ])
+    | "max-xl" -> (
+        match acc with
+        | Utility.Group styles -> max_xl styles
+        | single -> max_xl [ single ])
+    | "max-2xl" -> (
+        match acc with
+        | Utility.Group styles -> max_xl2 styles
+        | single -> max_xl2 [ single ])
     | "hover" -> (
         match acc with
         | Utility.Group styles -> hover styles
