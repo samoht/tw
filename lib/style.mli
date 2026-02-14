@@ -151,6 +151,7 @@ type modifier =
   | Descendants
   | Ltr
   | Rtl
+  | Print
 
 type t =
   | Style of {

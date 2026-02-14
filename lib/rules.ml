@@ -446,6 +446,10 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
       handle_media_like_modifier Style.Contrast_less
         ~condition:(Css.Media.Prefers_contrast `Less) ~inner_has_hover
         base_class selector props
+  (* Print media *)
+  | Style.Print ->
+      handle_media_like_modifier Style.Print ~condition:Css.Media.Print
+        ~inner_has_hover base_class selector props
   (* Responsive and container *)
   | Style.Responsive breakpoint ->
       responsive_rule breakpoint base_class selector props
@@ -548,6 +552,11 @@ let apply_modifier_to_rule modifier = function
             media_query ~condition:(Css.Media.Prefers_reduced_motion `Reduce)
               ~selector:new_selector ~props:[] ?base_class
               ~nested:[ inner_media ] ();
+          ]
+      | Style.Print ->
+          [
+            media_query ~condition:Css.Media.Print ~selector:new_selector
+              ~props:[] ?base_class ~nested:[ inner_media ] ();
           ]
       | _ ->
           (* For other modifiers, return unchanged *)

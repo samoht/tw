@@ -151,6 +151,7 @@ type modifier =
   | Descendants (* ** variant - all descendants *)
   | Ltr
   | Rtl
+  | Print
 
 type t =
   | Style of {
@@ -326,6 +327,7 @@ let rec pp_modifier = function
   | Descendants -> "**"
   | Ltr -> "ltr"
   | Rtl -> "rtl"
+  | Print -> "print"
 
 let rec pp ppf = function
   | Style { props; _ } ->

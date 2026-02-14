@@ -597,6 +597,8 @@ let to_selector (modifier : modifier) cls =
       let attr_sel = attribute "dir" (Exact "rtl") in
       let desc_sel = combine attr_sel Descendant universal in
       compound [ Class ("rtl:" ^ cls); where [ dir_sel; attr_sel; desc_sel ] ]
+  (* Media query modifiers that only prefix the class *)
+  | Print -> Css.Selector.Class ("print:" ^ cls)
   | _ -> Css.Selector.Class cls (* fallback for complex modifiers *)
 
 (** Check if a modifier generates a hover rule *)
@@ -813,6 +815,9 @@ let descendants styles = wrap Descendants styles
 let ltr styles = wrap Ltr styles
 let rtl styles = wrap Rtl styles
 
+(* Media type variant *)
+let print styles = wrap Print styles
+
 (* Parse modifiers (responsive, states) from class string. Handles brackets
    properly so has-[:checked]:bg-red-500 parses as modifiers=["has-[:checked]"]
    and base_class="bg-red-500" *)
@@ -986,6 +991,7 @@ let pp_modifier = function
   | Descendants -> "**"
   | Ltr -> "ltr"
   | Rtl -> "rtl"
+  | Print -> "print"
 
 (* Apply a list of modifier strings to a base utility *)
 let apply modifiers base_utility =
@@ -1597,6 +1603,10 @@ let apply modifiers base_utility =
         match acc with
         | Utility.Group styles -> rtl styles
         | single -> rtl [ single ])
+    | "print" -> (
+        match acc with
+        | Utility.Group styles -> print styles
+        | single -> print [ single ])
     | _ -> acc (* ignore unknown modifiers for now *)
   in
   (* Apply modifiers in reverse order so that the first modifier in the string
