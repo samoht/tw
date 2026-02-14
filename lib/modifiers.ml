@@ -706,6 +706,15 @@ let max_xl2 styles =
   validate_no_nested_responsive styles;
   wrap (Max_responsive `Xl_2) styles
 
+(* Arbitrary breakpoint variants *)
+let min_arbitrary px styles =
+  validate_no_nested_responsive styles;
+  wrap (Min_arbitrary px) styles
+
+let max_arbitrary px styles =
+  validate_no_nested_responsive styles;
+  wrap (Max_arbitrary px) styles
+
 (* ARIA/Peer/Data variants *)
 let peer_checked styles = wrap Peer_checked styles
 let aria_checked styles = wrap Aria_checked styles
@@ -905,6 +914,18 @@ let pp_modifier = function
       | `Lg -> "max-lg"
       | `Xl -> "max-xl"
       | `Xl_2 -> "max-2xl")
+  | Min_arbitrary px ->
+      let px_str =
+        if Float.is_integer px then Int.to_string (Float.to_int px)
+        else Float.to_string px
+      in
+      "min-[" ^ px_str ^ "px]"
+  | Max_arbitrary px ->
+      let px_str =
+        if Float.is_integer px then Int.to_string (Float.to_int px)
+        else Float.to_string px
+      in
+      "max-[" ^ px_str ^ "px]"
   | Container query -> Containers.container_query_to_class_prefix query
   | Not _modifier -> "not" (* Simplified for class names *)
   | Has selector -> "has-[" ^ selector ^ "]"
@@ -1208,6 +1229,55 @@ let apply modifiers base_utility =
             match acc with
             | Utility.Group styles -> has sel styles
             | single -> has sel [ single ])
+        | None -> acc)
+    (* Arbitrary breakpoint modifiers: min-[...] and max-[...] *)
+    | _ when String.starts_with ~prefix:"min-[" modifier -> (
+        let rest =
+          String.sub modifier (String.length "min-[")
+            (String.length modifier - String.length "min-[")
+        in
+        match String.index_opt rest ']' with
+        | Some i -> (
+            let value_str = String.sub rest 0 i in
+            (* Extract numeric value - assume px suffix *)
+            let px_value =
+              if String.ends_with ~suffix:"px" value_str then
+                let num =
+                  String.sub value_str 0 (String.length value_str - 2)
+                in
+                try Some (float_of_string num) with Failure _ -> None
+              else try Some (float_of_string value_str) with Failure _ -> None
+            in
+            match px_value with
+            | Some px -> (
+                match acc with
+                | Utility.Group styles -> min_arbitrary px styles
+                | single -> min_arbitrary px [ single ])
+            | None -> acc)
+        | None -> acc)
+    | _ when String.starts_with ~prefix:"max-[" modifier -> (
+        let rest =
+          String.sub modifier (String.length "max-[")
+            (String.length modifier - String.length "max-[")
+        in
+        match String.index_opt rest ']' with
+        | Some i -> (
+            let value_str = String.sub rest 0 i in
+            (* Extract numeric value - assume px suffix *)
+            let px_value =
+              if String.ends_with ~suffix:"px" value_str then
+                let num =
+                  String.sub value_str 0 (String.length value_str - 2)
+                in
+                try Some (float_of_string num) with Failure _ -> None
+              else try Some (float_of_string value_str) with Failure _ -> None
+            in
+            match px_value with
+            | Some px -> (
+                match acc with
+                | Utility.Group styles -> max_arbitrary px styles
+                | single -> max_arbitrary px [ single ])
+            | None -> acc)
         | None -> acc)
     (* Container query modifiers (@sm, @md, @lg, @xl, @2xl) *)
     | "@sm" -> (

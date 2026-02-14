@@ -20,6 +20,8 @@ type modifier =
   | Dark
   | Responsive of breakpoint
   | Max_responsive of breakpoint
+  | Min_arbitrary of float
+  | Max_arbitrary of float
   | Peer_hover
   | Peer_focus
   | Peer_checked

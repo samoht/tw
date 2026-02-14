@@ -311,6 +311,34 @@ let max_responsive_rule breakpoint base_class selector props =
   media_query ~condition:(Css.Media.Not_min_width px_value)
     ~selector:new_selector ~props ~base_class:modified_class ()
 
+let min_arbitrary_rule px base_class selector props =
+  let px_str =
+    if Float.is_integer px then Int.to_string (Float.to_int px)
+    else Float.to_string px
+  in
+  let prefix = "min-[" ^ px_str ^ "px]" in
+  let modified_class = prefix ^ ":" ^ base_class in
+  let new_selector =
+    Rules_selector.replace_class_in_selector ~old_class:base_class
+      ~new_class:modified_class selector
+  in
+  media_query ~condition:(Css.Media.Min_width px) ~selector:new_selector ~props
+    ~base_class:modified_class ()
+
+let max_arbitrary_rule px base_class selector props =
+  let px_str =
+    if Float.is_integer px then Int.to_string (Float.to_int px)
+    else Float.to_string px
+  in
+  let prefix = "max-[" ^ px_str ^ "px]" in
+  let modified_class = prefix ^ ":" ^ base_class in
+  let new_selector =
+    Rules_selector.replace_class_in_selector ~old_class:base_class
+      ~new_class:modified_class selector
+  in
+  media_query ~condition:(Css.Media.Not_min_width px) ~selector:new_selector
+    ~props ~base_class:modified_class ()
+
 let container_rule query base_class selector props =
   let prefix = Containers.container_query_to_class_prefix query in
   let modified_class = prefix ^ ":" ^ base_class in
@@ -494,6 +522,8 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
       responsive_rule breakpoint base_class selector props
   | Style.Max_responsive breakpoint ->
       max_responsive_rule breakpoint base_class selector props
+  | Style.Min_arbitrary px -> min_arbitrary_rule px base_class selector props
+  | Style.Max_arbitrary px -> max_arbitrary_rule px base_class selector props
   | Style.Container query -> container_rule query base_class selector props
   (* :not() pseudo-class *)
   | Style.Not _modifier ->
