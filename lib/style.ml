@@ -149,6 +149,8 @@ type modifier =
   | Pseudo_details_content
   | Children (* * variant - all direct children *)
   | Descendants (* ** variant - all descendants *)
+  | Ltr
+  | Rtl
 
 type t =
   | Style of {
@@ -322,6 +324,8 @@ let rec pp_modifier = function
   | Pseudo_details_content -> "details-content"
   | Children -> "*"
   | Descendants -> "**"
+  | Ltr -> "ltr"
+  | Rtl -> "rtl"
 
 let rec pp ppf = function
   | Style { props; _ } ->
