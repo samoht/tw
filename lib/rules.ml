@@ -450,6 +450,15 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
   | Style.Print ->
       handle_media_like_modifier Style.Print ~condition:Css.Media.Print
         ~inner_has_hover base_class selector props
+  (* Orientation media *)
+  | Style.Portrait ->
+      handle_media_like_modifier Style.Portrait
+        ~condition:(Css.Media.Orientation `Portrait) ~inner_has_hover base_class
+        selector props
+  | Style.Landscape ->
+      handle_media_like_modifier Style.Landscape
+        ~condition:(Css.Media.Orientation `Landscape) ~inner_has_hover
+        base_class selector props
   (* Responsive and container *)
   | Style.Responsive breakpoint ->
       responsive_rule breakpoint base_class selector props
@@ -557,6 +566,18 @@ let apply_modifier_to_rule modifier = function
           [
             media_query ~condition:Css.Media.Print ~selector:new_selector
               ~props:[] ?base_class ~nested:[ inner_media ] ();
+          ]
+      | Style.Portrait ->
+          [
+            media_query ~condition:(Css.Media.Orientation `Portrait)
+              ~selector:new_selector ~props:[] ?base_class
+              ~nested:[ inner_media ] ();
+          ]
+      | Style.Landscape ->
+          [
+            media_query ~condition:(Css.Media.Orientation `Landscape)
+              ~selector:new_selector ~props:[] ?base_class
+              ~nested:[ inner_media ] ();
           ]
       | _ ->
           (* For other modifiers, return unchanged *)

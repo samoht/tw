@@ -152,6 +152,8 @@ type modifier =
   | Ltr
   | Rtl
   | Print
+  | Portrait
+  | Landscape
 
 type t =
   | Style of {
@@ -328,6 +330,8 @@ let rec pp_modifier = function
   | Ltr -> "ltr"
   | Rtl -> "rtl"
   | Print -> "print"
+  | Portrait -> "portrait"
+  | Landscape -> "landscape"
 
 let rec pp ppf = function
   | Style { props; _ } ->
