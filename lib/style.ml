@@ -56,6 +56,8 @@ type modifier =
   | First_of_type
   | Last_of_type
   | Only_of_type
+  | Nth of string
+  | Nth_last of string
   | Empty
   | Checked
   | Indeterminate
@@ -252,6 +254,8 @@ let rec pp_modifier = function
   | First_of_type -> "first-of-type"
   | Last_of_type -> "last-of-type"
   | Only_of_type -> "only-of-type"
+  | Nth expr -> "nth-[" ^ expr ^ "]"
+  | Nth_last expr -> "nth-last-[" ^ expr ^ "]"
   | Empty -> "empty"
   | Checked -> "checked"
   | Indeterminate -> "indeterminate"

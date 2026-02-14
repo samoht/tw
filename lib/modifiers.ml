@@ -107,6 +107,21 @@ let to_selector (modifier : modifier) cls =
   | First_of_type -> compound [ Class ("first-of-type:" ^ cls); First_of_type ]
   | Last_of_type -> compound [ Class ("last-of-type:" ^ cls); Last_of_type ]
   | Only_of_type -> compound [ Class ("only-of-type:" ^ cls); Only_of_type ]
+  | Nth expr ->
+      (* Parse the nth expression and create nth-child selector *)
+      let nth =
+        let reader = Css.Reader.of_string expr in
+        Css.Selector.read_nth reader
+      in
+      compound [ Class ("nth-[" ^ expr ^ "]:" ^ cls); Nth_child (nth, None) ]
+  | Nth_last expr ->
+      (* Parse the nth expression and create nth-last-child selector *)
+      let nth =
+        let reader = Css.Reader.of_string expr in
+        Css.Selector.read_nth reader
+      in
+      compound
+        [ Class ("nth-last-[" ^ expr ^ "]:" ^ cls); Nth_last_child (nth, None) ]
   | Empty -> compound [ Class ("empty:" ^ cls); Empty ]
   (* Form state modifiers *)
   | Checked -> compound [ Class ("checked:" ^ cls); Checked ]
@@ -742,6 +757,8 @@ let even styles = wrap Even styles
 let first_of_type styles = wrap First_of_type styles
 let last_of_type styles = wrap Last_of_type styles
 let only_of_type styles = wrap Only_of_type styles
+let nth expr styles = wrap (Nth expr) styles
+let nth_last expr styles = wrap (Nth_last expr) styles
 let empty styles = wrap Empty styles
 
 (* Form state variants *)
@@ -951,6 +968,8 @@ let pp_modifier = function
   | First_of_type -> "first-of-type"
   | Last_of_type -> "last-of-type"
   | Only_of_type -> "only-of-type"
+  | Nth expr -> "nth-[" ^ expr ^ "]"
+  | Nth_last expr -> "nth-last-[" ^ expr ^ "]"
   | Empty -> "empty"
   | Checked -> "checked"
   | Indeterminate -> "indeterminate"
@@ -1336,6 +1355,32 @@ let apply modifiers base_utility =
         match acc with
         | Utility.Group styles -> only_of_type styles
         | single -> only_of_type [ single ])
+    (* nth-[...] variants for arbitrary :nth-child expressions *)
+    | _ when String.starts_with ~prefix:"nth-[" modifier -> (
+        let rest =
+          String.sub modifier (String.length "nth-[")
+            (String.length modifier - String.length "nth-[")
+        in
+        match String.index_opt rest ']' with
+        | Some i -> (
+            let expr = String.sub rest 0 i in
+            match acc with
+            | Utility.Group styles -> nth expr styles
+            | single -> nth expr [ single ])
+        | None -> acc)
+    | _ when String.starts_with ~prefix:"nth-last-[" modifier -> (
+        let rest =
+          String.sub modifier
+            (String.length "nth-last-[")
+            (String.length modifier - String.length "nth-last-[")
+        in
+        match String.index_opt rest ']' with
+        | Some i -> (
+            let expr = String.sub rest 0 i in
+            match acc with
+            | Utility.Group styles -> nth_last expr styles
+            | single -> nth_last expr [ single ])
+        | None -> acc)
     | "empty" -> (
         match acc with
         | Utility.Group styles -> empty styles

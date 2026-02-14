@@ -56,6 +56,8 @@ type modifier =
   | First_of_type
   | Last_of_type
   | Only_of_type
+  | Nth of string
+  | Nth_last of string
   | Empty
   | Checked
   | Indeterminate
