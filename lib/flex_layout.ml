@@ -21,63 +21,40 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "flex_layout"
-
-  (** Priority 16 - after grid_template (15), before alignment (17) *)
   let priority = 16
 
-  (* Direction *)
-  let flex_row = style [ flex_direction Row ]
-  let flex_row_reverse = style [ flex_direction Row_reverse ]
-  let flex_col = style [ flex_direction Column ]
-  let flex_col_reverse = style [ flex_direction Column_reverse ]
+  let flex_data =
+    [
+      (Flex_col, "col", (fun () -> style [ flex_direction Column ]), 0);
+      ( Flex_col_reverse,
+        "col-reverse",
+        (fun () -> style [ flex_direction Column_reverse ]),
+        1 );
+      (Flex_row, "row", (fun () -> style [ flex_direction Row ]), 2);
+      ( Flex_row_reverse,
+        "row-reverse",
+        (fun () -> style [ flex_direction Row_reverse ]),
+        3 );
+      (Flex_nowrap, "nowrap", (fun () -> style [ flex_wrap Nowrap ]), 10);
+      (Flex_wrap, "wrap", (fun () -> style [ flex_wrap Wrap ]), 11);
+      ( Flex_wrap_reverse,
+        "wrap-reverse",
+        (fun () -> style [ flex_wrap Wrap_reverse ]),
+        12 );
+    ]
 
-  (* Wrap *)
-  let flex_wrap_utility = style [ flex_wrap Wrap ]
-  let flex_wrap_reverse_utility = style [ flex_wrap Wrap_reverse ]
-  let flex_nowrap_utility = style [ flex_wrap Nowrap ]
+  let to_class_map = List.map (fun (t, s, _, _) -> (t, "flex-" ^ s)) flex_data
+  let to_style_map = List.map (fun (t, _, f, _) -> (t, f)) flex_data
+  let suborder_map = List.map (fun (t, _, _, o) -> (t, o)) flex_data
+  let of_class_map = List.map (fun (t, s, _, _) -> ("flex-" ^ s, t)) flex_data
+  let to_style t = (List.assoc t to_style_map) ()
+  let suborder t = List.assoc t suborder_map
+  let to_class t = List.assoc t to_class_map
 
-  let to_style = function
-    | Flex_row -> flex_row
-    | Flex_row_reverse -> flex_row_reverse
-    | Flex_col -> flex_col
-    | Flex_col_reverse -> flex_col_reverse
-    | Flex_wrap -> flex_wrap_utility
-    | Flex_wrap_reverse -> flex_wrap_reverse_utility
-    | Flex_nowrap -> flex_nowrap_utility
-
-  let suborder : t -> int = function
-    (* Direction - alphabetical: col, col-reverse, row, row-reverse *)
-    | Flex_col -> 0
-    | Flex_col_reverse -> 1
-    | Flex_row -> 2
-    | Flex_row_reverse -> 3
-    (* Wrap - alphabetical: nowrap, wrap, wrap-reverse *)
-    | Flex_nowrap -> 10
-    | Flex_wrap -> 11
-    | Flex_wrap_reverse -> 12
-
-  let err_not_utility = Error (`Msg "Not a flex layout utility")
-
-  let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
-    match parts with
-    | [ "flex"; "row" ] -> Ok Flex_row
-    | [ "flex"; "row"; "reverse" ] -> Ok Flex_row_reverse
-    | [ "flex"; "col" ] -> Ok Flex_col
-    | [ "flex"; "col"; "reverse" ] -> Ok Flex_col_reverse
-    | [ "flex"; "wrap" ] -> Ok Flex_wrap
-    | [ "flex"; "wrap"; "reverse" ] -> Ok Flex_wrap_reverse
-    | [ "flex"; "nowrap" ] -> Ok Flex_nowrap
-    | _ -> err_not_utility
-
-  let to_class = function
-    | Flex_row -> "flex-row"
-    | Flex_row_reverse -> "flex-row-reverse"
-    | Flex_col -> "flex-col"
-    | Flex_col_reverse -> "flex-col-reverse"
-    | Flex_wrap -> "flex-wrap"
-    | Flex_wrap_reverse -> "flex-wrap-reverse"
-    | Flex_nowrap -> "flex-nowrap"
+  let of_class cls =
+    match List.assoc_opt cls of_class_map with
+    | Some t -> Ok t
+    | None -> Error (`Msg "Not a flex layout utility")
 end
 
 open Handler
