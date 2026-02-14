@@ -470,6 +470,99 @@ let to_selector (modifier : modifier) cls =
           Subsequent_sibling universal
       in
       compound [ Class ("peer-user-invalid:" ^ cls); is_ [ rel ] ]
+  (* More group/peer form state variants *)
+  | Group_placeholder_shown ->
+      let rel =
+        combine
+          (compound [ where [ group ]; Placeholder_shown ])
+          Descendant universal
+      in
+      compound [ Class ("group-placeholder-shown:" ^ cls); is_ [ rel ] ]
+  | Peer_placeholder_shown ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Placeholder_shown ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-placeholder-shown:" ^ cls); is_ [ rel ] ]
+  | Group_autofill ->
+      let rel =
+        combine (compound [ where [ group ]; Autofill ]) Descendant universal
+      in
+      compound [ Class ("group-autofill:" ^ cls); is_ [ rel ] ]
+  | Peer_autofill ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Autofill ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-autofill:" ^ cls); is_ [ rel ] ]
+  | Group_in_range ->
+      let rel =
+        combine (compound [ where [ group ]; In_range ]) Descendant universal
+      in
+      compound [ Class ("group-in-range:" ^ cls); is_ [ rel ] ]
+  | Peer_in_range ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; In_range ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-in-range:" ^ cls); is_ [ rel ] ]
+  | Group_out_of_range ->
+      let rel =
+        combine
+          (compound [ where [ group ]; Out_of_range ])
+          Descendant universal
+      in
+      compound [ Class ("group-out-of-range:" ^ cls); is_ [ rel ] ]
+  | Peer_out_of_range ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Out_of_range ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-out-of-range:" ^ cls); is_ [ rel ] ]
+  | Group_focus_within ->
+      let rel =
+        combine
+          (compound [ where [ group ]; Focus_within ])
+          Descendant universal
+      in
+      compound [ Class ("group-focus-within:" ^ cls); is_ [ rel ] ]
+  | Peer_focus_within ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Focus_within ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-focus-within:" ^ cls); is_ [ rel ] ]
+  | Group_focus_visible ->
+      let rel =
+        combine
+          (compound [ where [ group ]; Focus_visible ])
+          Descendant universal
+      in
+      compound [ Class ("group-focus-visible:" ^ cls); is_ [ rel ] ]
+  | Peer_focus_visible ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Focus_visible ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-focus-visible:" ^ cls); is_ [ rel ] ]
+  | Group_enabled ->
+      let rel =
+        combine (compound [ where [ group ]; Enabled ]) Descendant universal
+      in
+      compound [ Class ("group-enabled:" ^ cls); is_ [ rel ] ]
+  | Peer_enabled ->
+      let rel =
+        combine
+          (compound [ where [ peer ]; Enabled ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-enabled:" ^ cls); is_ [ rel ] ]
   (* Pseudo-element variants *)
   | Pseudo_marker -> compound [ Class ("marker:" ^ cls); Marker ]
   | Pseudo_selection -> compound [ Class ("selection:" ^ cls); Selection ]
@@ -675,6 +768,20 @@ let group_user_valid styles = wrap Group_user_valid styles
 let peer_user_valid styles = wrap Peer_user_valid styles
 let group_user_invalid styles = wrap Group_user_invalid styles
 let peer_user_invalid styles = wrap Peer_user_invalid styles
+let group_placeholder_shown styles = wrap Group_placeholder_shown styles
+let peer_placeholder_shown styles = wrap Peer_placeholder_shown styles
+let group_autofill styles = wrap Group_autofill styles
+let peer_autofill styles = wrap Peer_autofill styles
+let group_in_range styles = wrap Group_in_range styles
+let peer_in_range styles = wrap Peer_in_range styles
+let group_out_of_range styles = wrap Group_out_of_range styles
+let peer_out_of_range styles = wrap Peer_out_of_range styles
+let group_focus_within styles = wrap Group_focus_within styles
+let peer_focus_within styles = wrap Peer_focus_within styles
+let group_focus_visible styles = wrap Group_focus_visible styles
+let peer_focus_visible styles = wrap Peer_focus_visible styles
+let group_enabled styles = wrap Group_enabled styles
+let peer_enabled styles = wrap Peer_enabled styles
 
 (* Pseudo-element variants *)
 let marker styles = wrap Pseudo_marker styles
@@ -835,6 +942,20 @@ let pp_modifier = function
   | Peer_user_valid -> "peer-user-valid"
   | Group_user_invalid -> "group-user-invalid"
   | Peer_user_invalid -> "peer-user-invalid"
+  | Group_placeholder_shown -> "group-placeholder-shown"
+  | Peer_placeholder_shown -> "peer-placeholder-shown"
+  | Group_autofill -> "group-autofill"
+  | Peer_autofill -> "peer-autofill"
+  | Group_in_range -> "group-in-range"
+  | Peer_in_range -> "peer-in-range"
+  | Group_out_of_range -> "group-out-of-range"
+  | Peer_out_of_range -> "peer-out-of-range"
+  | Group_focus_within -> "group-focus-within"
+  | Peer_focus_within -> "peer-focus-within"
+  | Group_focus_visible -> "group-focus-visible"
+  | Peer_focus_visible -> "peer-focus-visible"
+  | Group_enabled -> "group-enabled"
+  | Peer_enabled -> "peer-enabled"
   | Pseudo_marker -> "marker"
   | Pseudo_selection -> "selection"
   | Pseudo_placeholder -> "placeholder"
@@ -1351,6 +1472,62 @@ let apply modifiers base_utility =
         match acc with
         | Utility.Group styles -> peer_user_invalid styles
         | single -> peer_user_invalid [ single ])
+    | "group-placeholder-shown" -> (
+        match acc with
+        | Utility.Group styles -> group_placeholder_shown styles
+        | single -> group_placeholder_shown [ single ])
+    | "peer-placeholder-shown" -> (
+        match acc with
+        | Utility.Group styles -> peer_placeholder_shown styles
+        | single -> peer_placeholder_shown [ single ])
+    | "group-autofill" -> (
+        match acc with
+        | Utility.Group styles -> group_autofill styles
+        | single -> group_autofill [ single ])
+    | "peer-autofill" -> (
+        match acc with
+        | Utility.Group styles -> peer_autofill styles
+        | single -> peer_autofill [ single ])
+    | "group-in-range" -> (
+        match acc with
+        | Utility.Group styles -> group_in_range styles
+        | single -> group_in_range [ single ])
+    | "peer-in-range" -> (
+        match acc with
+        | Utility.Group styles -> peer_in_range styles
+        | single -> peer_in_range [ single ])
+    | "group-out-of-range" -> (
+        match acc with
+        | Utility.Group styles -> group_out_of_range styles
+        | single -> group_out_of_range [ single ])
+    | "peer-out-of-range" -> (
+        match acc with
+        | Utility.Group styles -> peer_out_of_range styles
+        | single -> peer_out_of_range [ single ])
+    | "group-focus-within" -> (
+        match acc with
+        | Utility.Group styles -> group_focus_within styles
+        | single -> group_focus_within [ single ])
+    | "peer-focus-within" -> (
+        match acc with
+        | Utility.Group styles -> peer_focus_within styles
+        | single -> peer_focus_within [ single ])
+    | "group-focus-visible" -> (
+        match acc with
+        | Utility.Group styles -> group_focus_visible styles
+        | single -> group_focus_visible [ single ])
+    | "peer-focus-visible" -> (
+        match acc with
+        | Utility.Group styles -> peer_focus_visible styles
+        | single -> peer_focus_visible [ single ])
+    | "group-enabled" -> (
+        match acc with
+        | Utility.Group styles -> group_enabled styles
+        | single -> group_enabled [ single ])
+    | "peer-enabled" -> (
+        match acc with
+        | Utility.Group styles -> peer_enabled styles
+        | single -> peer_enabled [ single ])
     (* Pseudo-element variants *)
     | "marker" -> (
         match acc with

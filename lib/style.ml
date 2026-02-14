@@ -125,6 +125,20 @@ type modifier =
   | Peer_user_valid
   | Group_user_invalid
   | Peer_user_invalid
+  | Group_placeholder_shown
+  | Peer_placeholder_shown
+  | Group_autofill
+  | Peer_autofill
+  | Group_in_range
+  | Peer_in_range
+  | Group_out_of_range
+  | Peer_out_of_range
+  | Group_focus_within
+  | Peer_focus_within
+  | Group_focus_visible
+  | Peer_focus_visible
+  | Group_enabled
+  | Peer_enabled
   | Pseudo_marker
   | Pseudo_selection
   | Pseudo_placeholder
@@ -284,6 +298,20 @@ let rec pp_modifier = function
   | Peer_user_valid -> "peer-user-valid"
   | Group_user_invalid -> "group-user-invalid"
   | Peer_user_invalid -> "peer-user-invalid"
+  | Group_placeholder_shown -> "group-placeholder-shown"
+  | Peer_placeholder_shown -> "peer-placeholder-shown"
+  | Group_autofill -> "group-autofill"
+  | Peer_autofill -> "peer-autofill"
+  | Group_in_range -> "group-in-range"
+  | Peer_in_range -> "peer-in-range"
+  | Group_out_of_range -> "group-out-of-range"
+  | Peer_out_of_range -> "peer-out-of-range"
+  | Group_focus_within -> "group-focus-within"
+  | Peer_focus_within -> "peer-focus-within"
+  | Group_focus_visible -> "group-focus-visible"
+  | Peer_focus_visible -> "peer-focus-visible"
+  | Group_enabled -> "group-enabled"
+  | Peer_enabled -> "peer-enabled"
   | Pseudo_marker -> "marker"
   | Pseudo_selection -> "selection"
   | Pseudo_placeholder -> "placeholder"

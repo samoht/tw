@@ -125,6 +125,20 @@ type modifier =
   | Peer_user_valid
   | Group_user_invalid
   | Peer_user_invalid
+  | Group_placeholder_shown
+  | Peer_placeholder_shown
+  | Group_autofill
+  | Peer_autofill
+  | Group_in_range
+  | Peer_in_range
+  | Group_out_of_range
+  | Peer_out_of_range
+  | Group_focus_within
+  | Peer_focus_within
+  | Group_focus_visible
+  | Peer_focus_visible
+  | Group_enabled
+  | Peer_enabled
   | Pseudo_marker
   | Pseudo_selection
   | Pseudo_placeholder
