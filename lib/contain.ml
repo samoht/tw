@@ -20,27 +20,37 @@ module Handler = struct
   let name = "contain"
   let priority = 35
 
+  (* Single source of truth: (handler, class_suffix, suborder) for
+     non-arbitrary *)
+  let contain_data =
+    [
+      (None, "none", 0);
+      (Strict, "strict", 1);
+      (Content, "content", 2);
+      (Size, "size", 3);
+      (Inline_size, "inline-size", 4);
+      (Layout, "layout", 5);
+      (Paint, "paint", 6);
+      (Contain_style, "style", 7);
+    ]
+
   let suborder = function
-    | None -> 0
-    | Strict -> 1
-    | Content -> 2
-    | Size -> 3
-    | Inline_size -> 4
-    | Layout -> 5
-    | Paint -> 6
-    | Contain_style -> 7
     | Arbitrary _ -> 100
+    | t -> (
+        match
+          List.assoc_opt t (List.map (fun (t, _, o) -> (t, o)) contain_data)
+        with
+        | Some o -> o
+        | None -> 100)
 
   let to_class = function
-    | None -> "contain-none"
-    | Strict -> "contain-strict"
-    | Content -> "contain-content"
-    | Size -> "contain-size"
-    | Layout -> "contain-layout"
-    | Paint -> "contain-paint"
-    | Contain_style -> "contain-style"
-    | Inline_size -> "contain-inline-size"
     | Arbitrary s -> "contain-[" ^ s ^ "]"
+    | t -> (
+        match
+          List.assoc_opt t (List.map (fun (t, s, _) -> (t, s)) contain_data)
+        with
+        | Some suffix -> "contain-" ^ suffix
+        | None -> "contain-none")
 
   (* The composable contain value using all four variables with empty fallbacks.
      This allows combining multiple contain utilities - each sets its variable,
@@ -89,23 +99,20 @@ module Handler = struct
         | "revert-layer" -> style [ contain Css.Revert_layer ]
         | _ -> style [ contain (Css.Var s) ])
 
+  let of_class_map =
+    List.map (fun (t, s, _) -> ("contain-" ^ s, t)) contain_data
+
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
-    match parts with
-    | [ "contain"; "none" ] -> Ok None
-    | [ "contain"; "strict" ] -> Ok Strict
-    | [ "contain"; "content" ] -> Ok Content
-    | [ "contain"; "size" ] -> Ok Size
-    | [ "contain"; "layout" ] -> Ok Layout
-    | [ "contain"; "paint" ] -> Ok Paint
-    | [ "contain"; "style" ] -> Ok Contain_style
-    | [ "contain"; "inline"; "size" ] -> Ok Inline_size
-    | [ "contain"; s ] when String.length s > 2 && s.[0] = '[' ->
-        (* Arbitrary value: contain-[value] *)
-        let len = String.length s in
-        if s.[len - 1] = ']' then Ok (Arbitrary (String.sub s 1 (len - 2)))
-        else Error (`Msg "Invalid contain arbitrary value")
-    | _ -> Error (`Msg "Not a contain utility")
+    match List.assoc_opt class_name of_class_map with
+    | Some t -> Ok t
+    | None ->
+        (* Check for arbitrary value: contain-[value] *)
+        if String.starts_with ~prefix:"contain-[" class_name then
+          let len = String.length class_name in
+          if class_name.[len - 1] = ']' then
+            Ok (Arbitrary (String.sub class_name 9 (len - 10)))
+          else Error (`Msg "Invalid contain arbitrary value")
+        else Error (`Msg "Not a contain utility")
 
   let utility t = Utility.base (Self t)
 end
