@@ -152,6 +152,8 @@ type modifier =
   | Ltr
   | Rtl
   | Print
+  | Portrait
+  | Landscape
 
 type t =
   | Style of {
