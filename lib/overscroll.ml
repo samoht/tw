@@ -32,52 +32,48 @@ module Handler = struct
   (* Same priority as overflow (18) - these are related utilities *)
   let priority = 18
 
-  let suborder = function
-    | Auto -> 600
-    | Contain -> 601
-    | None_ -> 602
-    | X_auto -> 603
-    | X_contain -> 604
-    | X_none -> 605
-    | Y_auto -> 606
-    | Y_contain -> 607
-    | Y_none -> 608
+  (* Single source of truth: (handler, class_suffix, style_fn, suborder) *)
+  let overscroll_data =
+    [
+      (Auto, "auto", (fun () -> style [ overscroll_behavior Auto ]), 600);
+      ( Contain,
+        "contain",
+        (fun () -> style [ overscroll_behavior Contain ]),
+        601 );
+      (None_, "none", (fun () -> style [ overscroll_behavior None ]), 602);
+      (X_auto, "x-auto", (fun () -> style [ overscroll_behavior_x Auto ]), 603);
+      ( X_contain,
+        "x-contain",
+        (fun () -> style [ overscroll_behavior_x Contain ]),
+        604 );
+      (X_none, "x-none", (fun () -> style [ overscroll_behavior_x None ]), 605);
+      (Y_auto, "y-auto", (fun () -> style [ overscroll_behavior_y Auto ]), 606);
+      ( Y_contain,
+        "y-contain",
+        (fun () -> style [ overscroll_behavior_y Contain ]),
+        607 );
+      (Y_none, "y-none", (fun () -> style [ overscroll_behavior_y None ]), 608);
+    ]
 
-  let to_class = function
-    | Auto -> "overscroll-auto"
-    | Contain -> "overscroll-contain"
-    | None_ -> "overscroll-none"
-    | X_auto -> "overscroll-x-auto"
-    | X_contain -> "overscroll-x-contain"
-    | X_none -> "overscroll-x-none"
-    | Y_auto -> "overscroll-y-auto"
-    | Y_contain -> "overscroll-y-contain"
-    | Y_none -> "overscroll-y-none"
+  (* Derived lookup tables *)
+  let to_class_map =
+    List.map (fun (t, s, _, _) -> (t, "overscroll-" ^ s)) overscroll_data
 
-  let to_style = function
-    | Auto -> style [ overscroll_behavior Auto ]
-    | Contain -> style [ overscroll_behavior Contain ]
-    | None_ -> style [ overscroll_behavior None ]
-    | X_auto -> style [ overscroll_behavior_x Auto ]
-    | X_contain -> style [ overscroll_behavior_x Contain ]
-    | X_none -> style [ overscroll_behavior_x None ]
-    | Y_auto -> style [ overscroll_behavior_y Auto ]
-    | Y_contain -> style [ overscroll_behavior_y Contain ]
-    | Y_none -> style [ overscroll_behavior_y None ]
+  let to_style_map = List.map (fun (t, _, f, _) -> (t, f)) overscroll_data
+  let suborder_map = List.map (fun (t, _, _, o) -> (t, o)) overscroll_data
 
-  let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
-    match parts with
-    | [ "overscroll"; "auto" ] -> Ok Auto
-    | [ "overscroll"; "contain" ] -> Ok Contain
-    | [ "overscroll"; "none" ] -> Ok None_
-    | [ "overscroll"; "x"; "auto" ] -> Ok X_auto
-    | [ "overscroll"; "x"; "contain" ] -> Ok X_contain
-    | [ "overscroll"; "x"; "none" ] -> Ok X_none
-    | [ "overscroll"; "y"; "auto" ] -> Ok Y_auto
-    | [ "overscroll"; "y"; "contain" ] -> Ok Y_contain
-    | [ "overscroll"; "y"; "none" ] -> Ok Y_none
-    | _ -> Error (`Msg "Not an overscroll utility")
+  let of_class_map =
+    List.map (fun (t, s, _, _) -> ("overscroll-" ^ s, t)) overscroll_data
+
+  (* Handler functions derived from maps *)
+  let suborder t = List.assoc t suborder_map
+  let to_class t = List.assoc t to_class_map
+  let to_style t = (List.assoc t to_style_map) ()
+
+  let of_class cls =
+    match List.assoc_opt cls of_class_map with
+    | Some t -> Ok t
+    | None -> Error (`Msg "Not an overscroll utility")
 end
 
 open Handler
