@@ -48,69 +48,56 @@ module Handler = struct
     let pinch_zoom_ref = Var.reference_with_empty_fallback tw_pinch_zoom_var in
     touch_action (Vars [ pan_x_ref; pan_y_ref; pinch_zoom_ref ])
 
-  let to_class = function
-    | Touch_auto -> "touch-auto"
-    | Touch_none -> "touch-none"
-    | Touch_manipulation -> "touch-manipulation"
-    | Touch_pan_x -> "touch-pan-x"
-    | Touch_pan_y -> "touch-pan-y"
-    | Touch_pan_left -> "touch-pan-left"
-    | Touch_pan_right -> "touch-pan-right"
-    | Touch_pan_up -> "touch-pan-up"
-    | Touch_pan_down -> "touch-pan-down"
-    | Touch_pinch_zoom -> "touch-pinch-zoom"
+  (* Helper for composable touch styles *)
+  let composable_style var value =
+    let decl, _ = Var.binding var value in
+    style ~property_rules:touch_props [ decl; composable_touch_action () ]
 
-  let to_style = function
-    | Touch_auto -> style [ touch_action Auto ]
-    | Touch_none -> style [ touch_action None ]
-    | Touch_manipulation -> style [ touch_action Manipulation ]
-    | Touch_pan_x ->
-        let decl, _ = Var.binding tw_pan_x_var Pan_x in
-        style ~property_rules:touch_props [ decl; composable_touch_action () ]
-    | Touch_pan_y ->
-        let decl, _ = Var.binding tw_pan_y_var Pan_y in
-        style ~property_rules:touch_props [ decl; composable_touch_action () ]
-    | Touch_pan_left ->
-        let decl, _ = Var.binding tw_pan_x_var Pan_left in
-        style ~property_rules:touch_props [ decl; composable_touch_action () ]
-    | Touch_pan_right ->
-        let decl, _ = Var.binding tw_pan_x_var Pan_right in
-        style ~property_rules:touch_props [ decl; composable_touch_action () ]
-    | Touch_pan_up ->
-        let decl, _ = Var.binding tw_pan_y_var Pan_up in
-        style ~property_rules:touch_props [ decl; composable_touch_action () ]
-    | Touch_pan_down ->
-        let decl, _ = Var.binding tw_pan_y_var Pan_down in
-        style ~property_rules:touch_props [ decl; composable_touch_action () ]
-    | Touch_pinch_zoom ->
-        let decl, _ = Var.binding tw_pinch_zoom_var Pinch_zoom in
-        style ~property_rules:touch_props [ decl; composable_touch_action () ]
+  (* Single source of truth: (handler, class_suffix, style_fn) *)
+  (* Alphabetically ordered - suborder derived from position *)
+  let touch_data =
+    [
+      (Touch_auto, "auto", fun () -> style [ touch_action Auto ]);
+      ( Touch_manipulation,
+        "manipulation",
+        fun () -> style [ touch_action Manipulation ] );
+      (Touch_none, "none", fun () -> style [ touch_action None ]);
+      ( Touch_pan_down,
+        "pan-down",
+        fun () -> composable_style tw_pan_y_var Pan_down );
+      ( Touch_pan_left,
+        "pan-left",
+        fun () -> composable_style tw_pan_x_var Pan_left );
+      ( Touch_pan_right,
+        "pan-right",
+        fun () -> composable_style tw_pan_x_var Pan_right );
+      (Touch_pan_up, "pan-up", fun () -> composable_style tw_pan_y_var Pan_up);
+      (Touch_pan_x, "pan-x", fun () -> composable_style tw_pan_x_var Pan_x);
+      (Touch_pan_y, "pan-y", fun () -> composable_style tw_pan_y_var Pan_y);
+      ( Touch_pinch_zoom,
+        "pinch-zoom",
+        fun () -> composable_style tw_pinch_zoom_var Pinch_zoom );
+    ]
 
-  let suborder = function
-    | Touch_auto -> 0
-    | Touch_none -> 1
-    | Touch_manipulation -> 2
-    | Touch_pan_x -> 3
-    | Touch_pan_y -> 4
-    | Touch_pan_left -> 5
-    | Touch_pan_right -> 6
-    | Touch_pan_up -> 7
-    | Touch_pan_down -> 8
-    | Touch_pinch_zoom -> 9
+  (* Derived lookup tables *)
+  let to_class_map =
+    List.map (fun (t, suffix, _) -> (t, "touch-" ^ suffix)) touch_data
 
-  let of_class class_name =
-    match class_name with
-    | "touch-auto" -> Ok Touch_auto
-    | "touch-none" -> Ok Touch_none
-    | "touch-manipulation" -> Ok Touch_manipulation
-    | "touch-pan-x" -> Ok Touch_pan_x
-    | "touch-pan-y" -> Ok Touch_pan_y
-    | "touch-pan-left" -> Ok Touch_pan_left
-    | "touch-pan-right" -> Ok Touch_pan_right
-    | "touch-pan-up" -> Ok Touch_pan_up
-    | "touch-pan-down" -> Ok Touch_pan_down
-    | "touch-pinch-zoom" -> Ok Touch_pinch_zoom
-    | _ -> Error (`Msg "Not a touch-action utility")
+  let to_style_map = List.map (fun (t, _, style_fn) -> (t, style_fn)) touch_data
+  let suborder_map = List.mapi (fun i (t, _, _) -> (t, i)) touch_data
+
+  let of_class_map =
+    List.map (fun (t, suffix, _) -> ("touch-" ^ suffix, t)) touch_data
+
+  (* Handler functions derived from maps *)
+  let to_class t = List.assoc t to_class_map
+  let to_style t = (List.assoc t to_style_map) ()
+  let suborder t = List.assoc t suborder_map
+
+  let of_class cls =
+    match List.assoc_opt cls of_class_map with
+    | Some t -> Ok t
+    | None -> Error (`Msg "Not a touch-action utility")
 end
 
 open Handler
