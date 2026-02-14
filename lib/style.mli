@@ -154,6 +154,7 @@ type modifier =
   | Print
   | Portrait
   | Landscape
+  | Forced_colors
 
 type t =
   | Style of {

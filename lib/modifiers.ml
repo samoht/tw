@@ -601,6 +601,7 @@ let to_selector (modifier : modifier) cls =
   | Print -> Css.Selector.Class ("print:" ^ cls)
   | Portrait -> Css.Selector.Class ("portrait:" ^ cls)
   | Landscape -> Css.Selector.Class ("landscape:" ^ cls)
+  | Forced_colors -> Css.Selector.Class ("forced-colors:" ^ cls)
   | _ -> Css.Selector.Class cls (* fallback for complex modifiers *)
 
 (** Check if a modifier generates a hover rule *)
@@ -821,6 +822,7 @@ let rtl styles = wrap Rtl styles
 let print styles = wrap Print styles
 let portrait styles = wrap Portrait styles
 let landscape styles = wrap Landscape styles
+let forced_colors styles = wrap Forced_colors styles
 
 (* Parse modifiers (responsive, states) from class string. Handles brackets
    properly so has-[:checked]:bg-red-500 parses as modifiers=["has-[:checked]"]
@@ -998,6 +1000,7 @@ let pp_modifier = function
   | Print -> "print"
   | Portrait -> "portrait"
   | Landscape -> "landscape"
+  | Forced_colors -> "forced-colors"
 
 (* Apply a list of modifier strings to a base utility *)
 let apply modifiers base_utility =
@@ -1621,6 +1624,10 @@ let apply modifiers base_utility =
         match acc with
         | Utility.Group styles -> landscape styles
         | single -> landscape [ single ])
+    | "forced-colors" -> (
+        match acc with
+        | Utility.Group styles -> forced_colors styles
+        | single -> forced_colors [ single ])
     | _ -> acc (* ignore unknown modifiers for now *)
   in
   (* Apply modifiers in reverse order so that the first modifier in the string
