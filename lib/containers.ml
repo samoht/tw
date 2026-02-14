@@ -31,15 +31,15 @@ module Handler = struct
     let container_selector = Selector.class_ "container" in
     let media_rules =
       [
-        media ~condition:(Media.Min_width 40.)
+        media ~condition:(Media.Min_width 640.)
           [ rule ~selector:container_selector [ max_width (Rem 40.) ] ];
-        media ~condition:(Media.Min_width 48.)
+        media ~condition:(Media.Min_width 768.)
           [ rule ~selector:container_selector [ max_width (Rem 48.) ] ];
-        media ~condition:(Media.Min_width 64.)
+        media ~condition:(Media.Min_width 1024.)
           [ rule ~selector:container_selector [ max_width (Rem 64.) ] ];
-        media ~condition:(Media.Min_width 80.)
+        media ~condition:(Media.Min_width 1280.)
           [ rule ~selector:container_selector [ max_width (Rem 80.) ] ];
-        media ~condition:(Media.Min_width 96.)
+        media ~condition:(Media.Min_width 1536.)
           [ rule ~selector:container_selector [ max_width (Rem 96.) ] ];
       ]
     in
