@@ -1075,6 +1075,22 @@ let pp_modifier = function
   | Forced_colors -> "forced-colors"
   | Supports cond -> "supports-[" ^ cond ^ "]"
 
+(* Find matching closing bracket, handling nested brackets *)
+let find_matching_bracket s =
+  let len = String.length s in
+  let rec loop i depth =
+    if i >= len then None
+    else
+      match s.[i] with
+      | '[' -> loop (i + 1) (depth + 1)
+      | ']' when depth = 0 -> Some i
+      | ']' -> loop (i + 1) (depth - 1)
+      | '(' -> loop (i + 1) (depth + 1)
+      | ')' -> loop (i + 1) (depth - 1)
+      | _ -> loop (i + 1) depth
+  in
+  loop 0 0
+
 (* Apply a list of modifier strings to a base utility *)
 let apply modifiers base_utility =
   (* Apply a single modifier to an accumulated utility *)
@@ -1803,7 +1819,7 @@ let apply modifiers base_utility =
             (String.length "supports-[")
             (String.length modifier - String.length "supports-[")
         in
-        match String.index_opt rest ']' with
+        match find_matching_bracket rest with
         | Some i -> (
             let cond = String.sub rest 0 i in
             match acc with
