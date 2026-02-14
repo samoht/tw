@@ -1091,750 +1091,269 @@ let find_matching_bracket s =
   in
   loop 0 0
 
+(* Extract bracketed content from a string like "prefix-[content]" *)
+let extract_bracket_content ~prefix s =
+  if String.starts_with ~prefix s then
+    let rest =
+      String.sub s (String.length prefix)
+        (String.length s - String.length prefix)
+    in
+    Option.map (fun i -> String.sub rest 0 i) (find_matching_bracket rest)
+  else None
+
+(* Parse a pixel value from a string like "600px" or "600" *)
+let parse_px_value s =
+  let s =
+    if String.ends_with ~suffix:"px" s then String.sub s 0 (String.length s - 2)
+    else s
+  in
+  try Some (float_of_string s) with Failure _ -> None
+
+(* Try parsing a bracketed modifier, returning Some if matched *)
+let try_bracketed_modifier s =
+  let ( let* ) = Option.bind in
+  (* Try each bracketed pattern, returning first match *)
+  let try_pattern prefix make =
+    let* content = extract_bracket_content ~prefix s in
+    Some (make content)
+  in
+  let try_pattern_with prefix parse make =
+    let* content = extract_bracket_content ~prefix s in
+    let* value = parse content in
+    Some (make value)
+  in
+  (* Order matters - more specific prefixes first *)
+  match try_pattern "group-has-[" (fun sel -> Group_has sel) with
+  | Some _ as r -> r
+  | None -> (
+      match try_pattern "peer-has-[" (fun sel -> Peer_has sel) with
+      | Some _ as r -> r
+      | None -> (
+          match try_pattern "has-[" (fun sel -> Has sel) with
+          | Some _ as r -> r
+          | None -> (
+              match
+                try_pattern_with "min-[" parse_px_value (fun px ->
+                    Min_arbitrary px)
+              with
+              | Some _ as r -> r
+              | None -> (
+                  match
+                    try_pattern_with "max-[" parse_px_value (fun px ->
+                        Max_arbitrary px)
+                  with
+                  | Some _ as r -> r
+                  | None -> (
+                      match try_pattern "nth-last-[" (fun e -> Nth_last e) with
+                      | Some _ as r -> r
+                      | None -> (
+                          match try_pattern "nth-[" (fun e -> Nth e) with
+                          | Some _ as r -> r
+                          | None -> (
+                              match
+                                try_pattern "supports-[" (fun c -> Supports c)
+                              with
+                              | Some _ as r -> r
+                              | None ->
+                                  let* content =
+                                    extract_bracket_content ~prefix:"data-[" s
+                                  in
+                                  let key, value =
+                                    match String.index_opt content '=' with
+                                    | Some i ->
+                                        ( String.sub content 0 i,
+                                          String.sub content (i + 1)
+                                            (String.length content - i - 1) )
+                                    | None -> (content, "")
+                                  in
+                                  Some (Data_custom (key, value)))))))))
+
+(* Simple modifiers - direct string to modifier mapping *)
+let simple_modifiers =
+  [
+    (* Responsive breakpoints *)
+    ("sm", Responsive `Sm);
+    ("md", Responsive `Md);
+    ("lg", Responsive `Lg);
+    ("xl", Responsive `Xl);
+    ("2xl", Responsive `Xl_2);
+    (* Max responsive breakpoints *)
+    ("max-sm", Max_responsive `Sm);
+    ("max-md", Max_responsive `Md);
+    ("max-lg", Max_responsive `Lg);
+    ("max-xl", Max_responsive `Xl);
+    ("max-2xl", Max_responsive `Xl_2);
+    (* Interactive states *)
+    ("hover", Hover);
+    ("focus", Focus);
+    ("active", Active);
+    ("disabled", Disabled);
+    ("focus-within", Focus_within);
+    ("focus-visible", Focus_visible);
+    (* Appearance *)
+    ("dark", Dark);
+    ("motion-safe", Motion_safe);
+    ("motion-reduce", Motion_reduce);
+    ("contrast-more", Contrast_more);
+    ("contrast-less", Contrast_less);
+    ("forced-colors", Forced_colors);
+    ("print", Print);
+    ("portrait", Portrait);
+    ("landscape", Landscape);
+    ("ltr", Ltr);
+    ("rtl", Rtl);
+    (* Group states *)
+    ("group-hover", Group_hover);
+    ("group-focus", Group_focus);
+    ("group-active", Group_active);
+    ("group-visited", Group_visited);
+    ("group-disabled", Group_disabled);
+    ("group-checked", Group_checked);
+    ("group-empty", Group_empty);
+    ("group-required", Group_required);
+    ("group-valid", Group_valid);
+    ("group-invalid", Group_invalid);
+    ("group-indeterminate", Group_indeterminate);
+    ("group-default", Group_default);
+    ("group-open", Group_open);
+    ("group-target", Group_target);
+    ("group-first", Group_first);
+    ("group-last", Group_last);
+    ("group-only", Group_only);
+    ("group-odd", Group_odd);
+    ("group-even", Group_even);
+    ("group-first-of-type", Group_first_of_type);
+    ("group-last-of-type", Group_last_of_type);
+    ("group-only-of-type", Group_only_of_type);
+    ("group-optional", Group_optional);
+    ("group-read-only", Group_read_only);
+    ("group-read-write", Group_read_write);
+    ("group-inert", Group_inert);
+    ("group-user-valid", Group_user_valid);
+    ("group-user-invalid", Group_user_invalid);
+    ("group-placeholder-shown", Group_placeholder_shown);
+    ("group-autofill", Group_autofill);
+    ("group-in-range", Group_in_range);
+    ("group-out-of-range", Group_out_of_range);
+    ("group-focus-within", Group_focus_within);
+    ("group-focus-visible", Group_focus_visible);
+    ("group-enabled", Group_enabled);
+    (* Peer states *)
+    ("peer-hover", Peer_hover);
+    ("peer-focus", Peer_focus);
+    ("peer-checked", Peer_checked);
+    ("peer-active", Peer_active);
+    ("peer-visited", Peer_visited);
+    ("peer-disabled", Peer_disabled);
+    ("peer-empty", Peer_empty);
+    ("peer-required", Peer_required);
+    ("peer-valid", Peer_valid);
+    ("peer-invalid", Peer_invalid);
+    ("peer-indeterminate", Peer_indeterminate);
+    ("peer-default", Peer_default);
+    ("peer-open", Peer_open);
+    ("peer-target", Peer_target);
+    ("peer-first", Peer_first);
+    ("peer-last", Peer_last);
+    ("peer-only", Peer_only);
+    ("peer-odd", Peer_odd);
+    ("peer-even", Peer_even);
+    ("peer-first-of-type", Peer_first_of_type);
+    ("peer-last-of-type", Peer_last_of_type);
+    ("peer-only-of-type", Peer_only_of_type);
+    ("peer-optional", Peer_optional);
+    ("peer-read-only", Peer_read_only);
+    ("peer-read-write", Peer_read_write);
+    ("peer-inert", Peer_inert);
+    ("peer-user-valid", Peer_user_valid);
+    ("peer-user-invalid", Peer_user_invalid);
+    ("peer-placeholder-shown", Peer_placeholder_shown);
+    ("peer-autofill", Peer_autofill);
+    ("peer-in-range", Peer_in_range);
+    ("peer-out-of-range", Peer_out_of_range);
+    ("peer-focus-within", Peer_focus_within);
+    ("peer-focus-visible", Peer_focus_visible);
+    ("peer-enabled", Peer_enabled);
+    (* ARIA variants *)
+    ("aria-checked", Aria_checked);
+    ("aria-expanded", Aria_expanded);
+    ("aria-selected", Aria_selected);
+    ("aria-disabled", Aria_disabled);
+    (* Structural pseudo-classes *)
+    ("first", First);
+    ("last", Last);
+    ("only", Only);
+    ("odd", Odd);
+    ("even", Even);
+    ("first-of-type", First_of_type);
+    ("last-of-type", Last_of_type);
+    ("only-of-type", Only_of_type);
+    ("empty", Empty);
+    (* Form states *)
+    ("checked", Checked);
+    ("indeterminate", Indeterminate);
+    ("default", Default);
+    ("required", Required);
+    ("valid", Valid);
+    ("invalid", Invalid);
+    ("in-range", In_range);
+    ("out-of-range", Out_of_range);
+    ("placeholder-shown", Placeholder_shown);
+    ("autofill", Autofill);
+    ("read-only", Read_only);
+    ("read-write", Read_write);
+    ("optional", Optional);
+    ("open", Open);
+    ("enabled", Enabled);
+    ("target", Target);
+    ("visited", Visited);
+    ("inert", Inert);
+    ("user-valid", User_valid);
+    ("user-invalid", User_invalid);
+    (* Pseudo-elements *)
+    ("before", Pseudo_before);
+    ("after", Pseudo_after);
+    ("marker", Pseudo_marker);
+    ("selection", Pseudo_selection);
+    ("placeholder", Pseudo_placeholder);
+    ("backdrop", Pseudo_backdrop);
+    ("file", Pseudo_file);
+    ("first-letter", Pseudo_first_letter);
+    ("first-line", Pseudo_first_line);
+    ("details-content", Pseudo_details_content);
+    (* Other *)
+    ("starting", Starting);
+    ("*", Children);
+    ("**", Descendants);
+    (* Container queries *)
+    ("@sm", Container Container_sm);
+    ("@md", Container Container_md);
+    ("@lg", Container Container_lg);
+    ("@xl", Container Container_xl);
+    ("@2xl", Container Container_2xl);
+  ]
+
+(* Parse a modifier string into a typed Style.modifier *)
+let parse_modifier s : modifier option =
+  match List.assoc_opt s simple_modifiers with
+  | Some m -> Some m
+  | None -> try_bracketed_modifier s
+
 (* Apply a list of modifier strings to a base utility *)
 let apply modifiers base_utility =
-  (* Apply a single modifier to an accumulated utility *)
-  let apply_one acc modifier =
-    match modifier with
-    | "sm" -> (
-        match acc with
-        | Utility.Group styles -> sm styles
-        | single -> sm [ single ])
-    | "md" -> (
-        match acc with
-        | Utility.Group styles -> md styles
-        | single -> md [ single ])
-    | "lg" -> (
-        match acc with
-        | Utility.Group styles -> lg styles
-        | single -> lg [ single ])
-    | "xl" -> (
-        match acc with
-        | Utility.Group styles -> xl styles
-        | single -> xl [ single ])
-    | "2xl" -> (
-        match acc with
-        | Utility.Group styles -> xl2 styles
-        | single -> xl2 [ single ])
-    | "max-sm" -> (
-        match acc with
-        | Utility.Group styles -> max_sm styles
-        | single -> max_sm [ single ])
-    | "max-md" -> (
-        match acc with
-        | Utility.Group styles -> max_md styles
-        | single -> max_md [ single ])
-    | "max-lg" -> (
-        match acc with
-        | Utility.Group styles -> max_lg styles
-        | single -> max_lg [ single ])
-    | "max-xl" -> (
-        match acc with
-        | Utility.Group styles -> max_xl styles
-        | single -> max_xl [ single ])
-    | "max-2xl" -> (
-        match acc with
-        | Utility.Group styles -> max_xl2 styles
-        | single -> max_xl2 [ single ])
-    | "hover" -> (
-        match acc with
-        | Utility.Group styles -> hover styles
-        | single -> hover [ single ])
-    | "focus" -> (
-        match acc with
-        | Utility.Group styles -> focus styles
-        | single -> focus [ single ])
-    | "active" -> (
-        match acc with
-        | Utility.Group styles -> active styles
-        | single -> active [ single ])
-    | "disabled" -> (
-        match acc with
-        | Utility.Group styles -> disabled styles
-        | single -> disabled [ single ])
-    | "starting" -> (
-        match acc with
-        | Utility.Group styles -> starting styles
-        | single -> starting [ single ])
-    | "focus-within" -> (
-        match acc with
-        | Utility.Group styles -> focus_within styles
-        | single -> focus_within [ single ])
-    | "focus-visible" -> (
-        match acc with
-        | Utility.Group styles -> focus_visible styles
-        | single -> focus_visible [ single ])
-    | "dark" -> (
-        match acc with
-        | Utility.Group styles -> dark styles
-        | single -> dark [ single ])
-    | "motion-safe" -> (
-        match acc with
-        | Utility.Group styles -> motion_safe styles
-        | single -> motion_safe [ single ])
-    | "motion-reduce" -> (
-        match acc with
-        | Utility.Group styles -> motion_reduce styles
-        | single -> motion_reduce [ single ])
-    | "contrast-more" -> (
-        match acc with
-        | Utility.Group styles -> contrast_more styles
-        | single -> contrast_more [ single ])
-    | "contrast-less" -> (
-        match acc with
-        | Utility.Group styles -> contrast_less styles
-        | single -> contrast_less [ single ])
-    | "before" -> (
-        match acc with
-        | Utility.Group styles -> before styles
-        | single -> before [ single ])
-    | "after" -> (
-        match acc with
-        | Utility.Group styles -> after styles
-        | single -> after [ single ])
-    (* Group/peer variants *)
-    | "group-hover" -> (
-        match acc with
-        | Utility.Group styles -> group_hover styles
-        | single -> group_hover [ single ])
-    | "group-focus" -> (
-        match acc with
-        | Utility.Group styles -> group_focus styles
-        | single -> group_focus [ single ])
-    | "peer-hover" -> (
-        match acc with
-        | Utility.Group styles -> peer_hover styles
-        | single -> peer_hover [ single ])
-    | "peer-focus" -> (
-        match acc with
-        | Utility.Group styles -> peer_focus styles
-        | single -> peer_focus [ single ])
-    | "peer-checked" -> (
-        match acc with
-        | Utility.Group styles -> peer_checked styles
-        | single -> peer_checked [ single ])
-    (* ARIA variants *)
-    | "aria-checked" -> (
-        match acc with
-        | Utility.Group styles -> aria_checked styles
-        | single -> aria_checked [ single ])
-    | "aria-expanded" -> (
-        match acc with
-        | Utility.Group styles -> aria_expanded styles
-        | single -> aria_expanded [ single ])
-    | "aria-selected" -> (
-        match acc with
-        | Utility.Group styles -> aria_selected styles
-        | single -> aria_selected [ single ])
-    | "aria-disabled" -> (
-        match acc with
-        | Utility.Group styles -> aria_disabled styles
-        | single -> aria_disabled [ single ])
-    (* Bracketed :has() variants *)
-    | _ when String.starts_with ~prefix:"group-has-[" modifier -> (
-        let rest =
-          String.sub modifier
-            (String.length "group-has-[")
-            (String.length modifier - String.length "group-has-[")
-        in
-        (* rest is like "<selector>]..."; take up to ']' *)
-        match String.index_opt rest ']' with
-        | Some i -> (
-            let sel = String.sub rest 0 i in
-            match acc with
-            | Utility.Group styles -> group_has sel styles
-            | single -> group_has sel [ single ])
-        | None -> acc)
-    | _ when String.starts_with ~prefix:"peer-has-[" modifier -> (
-        let rest =
-          String.sub modifier
-            (String.length "peer-has-[")
-            (String.length modifier - String.length "peer-has-[")
-        in
-        match String.index_opt rest ']' with
-        | Some i -> (
-            let sel = String.sub rest 0 i in
-            match acc with
-            | Utility.Group styles -> peer_has sel styles
-            | single -> peer_has sel [ single ])
-        | None -> acc)
-    | _ when String.starts_with ~prefix:"has-[" modifier -> (
-        let rest =
-          String.sub modifier (String.length "has-[")
-            (String.length modifier - String.length "has-[")
-        in
-        match String.index_opt rest ']' with
-        | Some i -> (
-            let sel = String.sub rest 0 i in
-            match acc with
-            | Utility.Group styles -> has sel styles
-            | single -> has sel [ single ])
-        | None -> acc)
-    (* Arbitrary breakpoint modifiers: min-[...] and max-[...] *)
-    | _ when String.starts_with ~prefix:"min-[" modifier -> (
-        let rest =
-          String.sub modifier (String.length "min-[")
-            (String.length modifier - String.length "min-[")
-        in
-        match String.index_opt rest ']' with
-        | Some i -> (
-            let value_str = String.sub rest 0 i in
-            (* Extract numeric value - assume px suffix *)
-            let px_value =
-              if String.ends_with ~suffix:"px" value_str then
-                let num =
-                  String.sub value_str 0 (String.length value_str - 2)
-                in
-                try Some (float_of_string num) with Failure _ -> None
-              else try Some (float_of_string value_str) with Failure _ -> None
-            in
-            match px_value with
-            | Some px -> (
-                match acc with
-                | Utility.Group styles -> min_arbitrary px styles
-                | single -> min_arbitrary px [ single ])
-            | None -> acc)
-        | None -> acc)
-    | _ when String.starts_with ~prefix:"max-[" modifier -> (
-        let rest =
-          String.sub modifier (String.length "max-[")
-            (String.length modifier - String.length "max-[")
-        in
-        match String.index_opt rest ']' with
-        | Some i -> (
-            let value_str = String.sub rest 0 i in
-            (* Extract numeric value - assume px suffix *)
-            let px_value =
-              if String.ends_with ~suffix:"px" value_str then
-                let num =
-                  String.sub value_str 0 (String.length value_str - 2)
-                in
-                try Some (float_of_string num) with Failure _ -> None
-              else try Some (float_of_string value_str) with Failure _ -> None
-            in
-            match px_value with
-            | Some px -> (
-                match acc with
-                | Utility.Group styles -> max_arbitrary px styles
-                | single -> max_arbitrary px [ single ])
-            | None -> acc)
-        | None -> acc)
-    (* Container query modifiers (@sm, @md, @lg, @xl, @2xl) *)
-    | "@sm" -> (
-        match acc with
-        | Utility.Group styles -> Containers.container_sm styles
-        | single -> Containers.container_sm [ single ])
-    | "@md" -> (
-        match acc with
-        | Utility.Group styles -> Containers.container_md styles
-        | single -> Containers.container_md [ single ])
-    | "@lg" -> (
-        match acc with
-        | Utility.Group styles -> Containers.container_lg styles
-        | single -> Containers.container_lg [ single ])
-    | "@xl" -> (
-        match acc with
-        | Utility.Group styles -> Containers.container_xl styles
-        | single -> Containers.container_xl [ single ])
-    | "@2xl" -> (
-        match acc with
-        | Utility.Group styles -> Containers.container_2xl styles
-        | single -> Containers.container_2xl [ single ])
-    (* Structural pseudo-class variants *)
-    | "first" -> (
-        match acc with
-        | Utility.Group styles -> first styles
-        | single -> first [ single ])
-    | "last" -> (
-        match acc with
-        | Utility.Group styles -> last styles
-        | single -> last [ single ])
-    | "only" -> (
-        match acc with
-        | Utility.Group styles -> only styles
-        | single -> only [ single ])
-    | "odd" -> (
-        match acc with
-        | Utility.Group styles -> odd styles
-        | single -> odd [ single ])
-    | "even" -> (
-        match acc with
-        | Utility.Group styles -> even styles
-        | single -> even [ single ])
-    | "first-of-type" -> (
-        match acc with
-        | Utility.Group styles -> first_of_type styles
-        | single -> first_of_type [ single ])
-    | "last-of-type" -> (
-        match acc with
-        | Utility.Group styles -> last_of_type styles
-        | single -> last_of_type [ single ])
-    | "only-of-type" -> (
-        match acc with
-        | Utility.Group styles -> only_of_type styles
-        | single -> only_of_type [ single ])
-    (* nth-[...] variants for arbitrary :nth-child expressions *)
-    | _ when String.starts_with ~prefix:"nth-[" modifier -> (
-        let rest =
-          String.sub modifier (String.length "nth-[")
-            (String.length modifier - String.length "nth-[")
-        in
-        match String.index_opt rest ']' with
-        | Some i -> (
-            let expr = String.sub rest 0 i in
-            match acc with
-            | Utility.Group styles -> nth expr styles
-            | single -> nth expr [ single ])
-        | None -> acc)
-    | _ when String.starts_with ~prefix:"nth-last-[" modifier -> (
-        let rest =
-          String.sub modifier
-            (String.length "nth-last-[")
-            (String.length modifier - String.length "nth-last-[")
-        in
-        match String.index_opt rest ']' with
-        | Some i -> (
-            let expr = String.sub rest 0 i in
-            match acc with
-            | Utility.Group styles -> nth_last expr styles
-            | single -> nth_last expr [ single ])
-        | None -> acc)
-    | "empty" -> (
-        match acc with
-        | Utility.Group styles -> empty styles
-        | single -> empty [ single ])
-    (* Form state variants *)
-    | "checked" -> (
-        match acc with
-        | Utility.Group styles -> checked styles
-        | single -> checked [ single ])
-    | "indeterminate" -> (
-        match acc with
-        | Utility.Group styles -> indeterminate styles
-        | single -> indeterminate [ single ])
-    | "default" -> (
-        match acc with
-        | Utility.Group styles -> default styles
-        | single -> default [ single ])
-    | "required" -> (
-        match acc with
-        | Utility.Group styles -> required styles
-        | single -> required [ single ])
-    | "valid" -> (
-        match acc with
-        | Utility.Group styles -> valid styles
-        | single -> valid [ single ])
-    | "invalid" -> (
-        match acc with
-        | Utility.Group styles -> invalid styles
-        | single -> invalid [ single ])
-    | "in-range" -> (
-        match acc with
-        | Utility.Group styles -> in_range styles
-        | single -> in_range [ single ])
-    | "out-of-range" -> (
-        match acc with
-        | Utility.Group styles -> out_of_range styles
-        | single -> out_of_range [ single ])
-    | "placeholder-shown" -> (
-        match acc with
-        | Utility.Group styles -> placeholder_shown styles
-        | single -> placeholder_shown [ single ])
-    | "autofill" -> (
-        match acc with
-        | Utility.Group styles -> autofill styles
-        | single -> autofill [ single ])
-    | "read-only" -> (
-        match acc with
-        | Utility.Group styles -> read_only styles
-        | single -> read_only [ single ])
-    | "read-write" -> (
-        match acc with
-        | Utility.Group styles -> read_write styles
-        | single -> read_write [ single ])
-    | "optional" -> (
-        match acc with
-        | Utility.Group styles -> optional styles
-        | single -> optional [ single ])
-    | "open" -> (
-        match acc with
-        | Utility.Group styles -> open_ styles
-        | single -> open_ [ single ])
-    | "enabled" -> (
-        match acc with
-        | Utility.Group styles -> enabled styles
-        | single -> enabled [ single ])
-    | "target" -> (
-        match acc with
-        | Utility.Group styles -> target styles
-        | single -> target [ single ])
-    | "visited" -> (
-        match acc with
-        | Utility.Group styles -> visited styles
-        | single -> visited [ single ])
-    | "inert" -> (
-        match acc with
-        | Utility.Group styles -> inert styles
-        | single -> inert [ single ])
-    | "user-valid" -> (
-        match acc with
-        | Utility.Group styles -> user_valid styles
-        | single -> user_valid [ single ])
-    | "user-invalid" -> (
-        match acc with
-        | Utility.Group styles -> user_invalid styles
-        | single -> user_invalid [ single ])
-    (* Group structural variants *)
-    | "group-first" -> (
-        match acc with
-        | Utility.Group styles -> group_first styles
-        | single -> group_first [ single ])
-    | "group-last" -> (
-        match acc with
-        | Utility.Group styles -> group_last styles
-        | single -> group_last [ single ])
-    | "group-odd" -> (
-        match acc with
-        | Utility.Group styles -> group_odd styles
-        | single -> group_odd [ single ])
-    | "group-even" -> (
-        match acc with
-        | Utility.Group styles -> group_even styles
-        | single -> group_even [ single ])
-    | "group-only" -> (
-        match acc with
-        | Utility.Group styles -> group_only styles
-        | single -> group_only [ single ])
-    | "group-first-of-type" -> (
-        match acc with
-        | Utility.Group styles -> group_first_of_type styles
-        | single -> group_first_of_type [ single ])
-    | "group-last-of-type" -> (
-        match acc with
-        | Utility.Group styles -> group_last_of_type styles
-        | single -> group_last_of_type [ single ])
-    | "group-only-of-type" -> (
-        match acc with
-        | Utility.Group styles -> group_only_of_type styles
-        | single -> group_only_of_type [ single ])
-    (* Peer structural variants *)
-    | "peer-first" -> (
-        match acc with
-        | Utility.Group styles -> peer_first styles
-        | single -> peer_first [ single ])
-    | "peer-last" -> (
-        match acc with
-        | Utility.Group styles -> peer_last styles
-        | single -> peer_last [ single ])
-    | "peer-odd" -> (
-        match acc with
-        | Utility.Group styles -> peer_odd styles
-        | single -> peer_odd [ single ])
-    | "peer-even" -> (
-        match acc with
-        | Utility.Group styles -> peer_even styles
-        | single -> peer_even [ single ])
-    | "peer-only" -> (
-        match acc with
-        | Utility.Group styles -> peer_only styles
-        | single -> peer_only [ single ])
-    | "peer-first-of-type" -> (
-        match acc with
-        | Utility.Group styles -> peer_first_of_type styles
-        | single -> peer_first_of_type [ single ])
-    | "peer-last-of-type" -> (
-        match acc with
-        | Utility.Group styles -> peer_last_of_type styles
-        | single -> peer_last_of_type [ single ])
-    | "peer-only-of-type" -> (
-        match acc with
-        | Utility.Group styles -> peer_only_of_type styles
-        | single -> peer_only_of_type [ single ])
-    (* More group/peer state variants *)
-    | "group-active" -> (
-        match acc with
-        | Utility.Group styles -> group_active styles
-        | single -> group_active [ single ])
-    | "group-visited" -> (
-        match acc with
-        | Utility.Group styles -> group_visited styles
-        | single -> group_visited [ single ])
-    | "group-disabled" -> (
-        match acc with
-        | Utility.Group styles -> group_disabled styles
-        | single -> group_disabled [ single ])
-    | "group-checked" -> (
-        match acc with
-        | Utility.Group styles -> group_checked styles
-        | single -> group_checked [ single ])
-    | "group-empty" -> (
-        match acc with
-        | Utility.Group styles -> group_empty styles
-        | single -> group_empty [ single ])
-    | "group-required" -> (
-        match acc with
-        | Utility.Group styles -> group_required styles
-        | single -> group_required [ single ])
-    | "group-valid" -> (
-        match acc with
-        | Utility.Group styles -> group_valid styles
-        | single -> group_valid [ single ])
-    | "group-invalid" -> (
-        match acc with
-        | Utility.Group styles -> group_invalid styles
-        | single -> group_invalid [ single ])
-    | "group-indeterminate" -> (
-        match acc with
-        | Utility.Group styles -> group_indeterminate styles
-        | single -> group_indeterminate [ single ])
-    | "group-default" -> (
-        match acc with
-        | Utility.Group styles -> group_default styles
-        | single -> group_default [ single ])
-    | "group-open" -> (
-        match acc with
-        | Utility.Group styles -> group_open styles
-        | single -> group_open [ single ])
-    | "group-target" -> (
-        match acc with
-        | Utility.Group styles -> group_target styles
-        | single -> group_target [ single ])
-    | "peer-active" -> (
-        match acc with
-        | Utility.Group styles -> peer_active styles
-        | single -> peer_active [ single ])
-    | "peer-visited" -> (
-        match acc with
-        | Utility.Group styles -> peer_visited styles
-        | single -> peer_visited [ single ])
-    | "peer-disabled" -> (
-        match acc with
-        | Utility.Group styles -> peer_disabled styles
-        | single -> peer_disabled [ single ])
-    | "peer-empty" -> (
-        match acc with
-        | Utility.Group styles -> peer_empty styles
-        | single -> peer_empty [ single ])
-    | "peer-required" -> (
-        match acc with
-        | Utility.Group styles -> peer_required styles
-        | single -> peer_required [ single ])
-    | "peer-valid" -> (
-        match acc with
-        | Utility.Group styles -> peer_valid styles
-        | single -> peer_valid [ single ])
-    | "peer-invalid" -> (
-        match acc with
-        | Utility.Group styles -> peer_invalid styles
-        | single -> peer_invalid [ single ])
-    | "peer-indeterminate" -> (
-        match acc with
-        | Utility.Group styles -> peer_indeterminate styles
-        | single -> peer_indeterminate [ single ])
-    | "peer-default" -> (
-        match acc with
-        | Utility.Group styles -> peer_default styles
-        | single -> peer_default [ single ])
-    | "peer-open" -> (
-        match acc with
-        | Utility.Group styles -> peer_open styles
-        | single -> peer_open [ single ])
-    | "peer-target" -> (
-        match acc with
-        | Utility.Group styles -> peer_target styles
-        | single -> peer_target [ single ])
-    | "group-optional" -> (
-        match acc with
-        | Utility.Group styles -> group_optional styles
-        | single -> group_optional [ single ])
-    | "peer-optional" -> (
-        match acc with
-        | Utility.Group styles -> peer_optional styles
-        | single -> peer_optional [ single ])
-    | "group-read-only" -> (
-        match acc with
-        | Utility.Group styles -> group_read_only styles
-        | single -> group_read_only [ single ])
-    | "peer-read-only" -> (
-        match acc with
-        | Utility.Group styles -> peer_read_only styles
-        | single -> peer_read_only [ single ])
-    | "group-read-write" -> (
-        match acc with
-        | Utility.Group styles -> group_read_write styles
-        | single -> group_read_write [ single ])
-    | "peer-read-write" -> (
-        match acc with
-        | Utility.Group styles -> peer_read_write styles
-        | single -> peer_read_write [ single ])
-    | "group-inert" -> (
-        match acc with
-        | Utility.Group styles -> group_inert styles
-        | single -> group_inert [ single ])
-    | "peer-inert" -> (
-        match acc with
-        | Utility.Group styles -> peer_inert styles
-        | single -> peer_inert [ single ])
-    | "group-user-valid" -> (
-        match acc with
-        | Utility.Group styles -> group_user_valid styles
-        | single -> group_user_valid [ single ])
-    | "peer-user-valid" -> (
-        match acc with
-        | Utility.Group styles -> peer_user_valid styles
-        | single -> peer_user_valid [ single ])
-    | "group-user-invalid" -> (
-        match acc with
-        | Utility.Group styles -> group_user_invalid styles
-        | single -> group_user_invalid [ single ])
-    | "peer-user-invalid" -> (
-        match acc with
-        | Utility.Group styles -> peer_user_invalid styles
-        | single -> peer_user_invalid [ single ])
-    | "group-placeholder-shown" -> (
-        match acc with
-        | Utility.Group styles -> group_placeholder_shown styles
-        | single -> group_placeholder_shown [ single ])
-    | "peer-placeholder-shown" -> (
-        match acc with
-        | Utility.Group styles -> peer_placeholder_shown styles
-        | single -> peer_placeholder_shown [ single ])
-    | "group-autofill" -> (
-        match acc with
-        | Utility.Group styles -> group_autofill styles
-        | single -> group_autofill [ single ])
-    | "peer-autofill" -> (
-        match acc with
-        | Utility.Group styles -> peer_autofill styles
-        | single -> peer_autofill [ single ])
-    | "group-in-range" -> (
-        match acc with
-        | Utility.Group styles -> group_in_range styles
-        | single -> group_in_range [ single ])
-    | "peer-in-range" -> (
-        match acc with
-        | Utility.Group styles -> peer_in_range styles
-        | single -> peer_in_range [ single ])
-    | "group-out-of-range" -> (
-        match acc with
-        | Utility.Group styles -> group_out_of_range styles
-        | single -> group_out_of_range [ single ])
-    | "peer-out-of-range" -> (
-        match acc with
-        | Utility.Group styles -> peer_out_of_range styles
-        | single -> peer_out_of_range [ single ])
-    | "group-focus-within" -> (
-        match acc with
-        | Utility.Group styles -> group_focus_within styles
-        | single -> group_focus_within [ single ])
-    | "peer-focus-within" -> (
-        match acc with
-        | Utility.Group styles -> peer_focus_within styles
-        | single -> peer_focus_within [ single ])
-    | "group-focus-visible" -> (
-        match acc with
-        | Utility.Group styles -> group_focus_visible styles
-        | single -> group_focus_visible [ single ])
-    | "peer-focus-visible" -> (
-        match acc with
-        | Utility.Group styles -> peer_focus_visible styles
-        | single -> peer_focus_visible [ single ])
-    | "group-enabled" -> (
-        match acc with
-        | Utility.Group styles -> group_enabled styles
-        | single -> group_enabled [ single ])
-    | "peer-enabled" -> (
-        match acc with
-        | Utility.Group styles -> peer_enabled styles
-        | single -> peer_enabled [ single ])
-    (* Pseudo-element variants *)
-    | "marker" -> (
-        match acc with
-        | Utility.Group styles -> marker styles
-        | single -> marker [ single ])
-    | "selection" -> (
-        match acc with
-        | Utility.Group styles -> selection styles
-        | single -> selection [ single ])
-    | "placeholder" -> (
-        match acc with
-        | Utility.Group styles -> placeholder styles
-        | single -> placeholder [ single ])
-    | "backdrop" -> (
-        match acc with
-        | Utility.Group styles -> backdrop styles
-        | single -> backdrop [ single ])
-    | "file" -> (
-        match acc with
-        | Utility.Group styles -> file styles
-        | single -> file [ single ])
-    | "first-letter" -> (
-        match acc with
-        | Utility.Group styles -> first_letter styles
-        | single -> first_letter [ single ])
-    | "first-line" -> (
-        match acc with
-        | Utility.Group styles -> first_line styles
-        | single -> first_line [ single ])
-    | "details-content" -> (
-        match acc with
-        | Utility.Group styles -> details_content styles
-        | single -> details_content [ single ])
-    | "*" -> (
-        match acc with
-        | Utility.Group styles -> children styles
-        | single -> children [ single ])
-    | "**" -> (
-        match acc with
-        | Utility.Group styles -> descendants styles
-        | single -> descendants [ single ])
-    | "ltr" -> (
-        match acc with
-        | Utility.Group styles -> ltr styles
-        | single -> ltr [ single ])
-    | "rtl" -> (
-        match acc with
-        | Utility.Group styles -> rtl styles
-        | single -> rtl [ single ])
-    | "print" -> (
-        match acc with
-        | Utility.Group styles -> print styles
-        | single -> print [ single ])
-    | "portrait" -> (
-        match acc with
-        | Utility.Group styles -> portrait styles
-        | single -> portrait [ single ])
-    | "landscape" -> (
-        match acc with
-        | Utility.Group styles -> landscape styles
-        | single -> landscape [ single ])
-    | "forced-colors" -> (
-        match acc with
-        | Utility.Group styles -> forced_colors styles
-        | single -> forced_colors [ single ])
-    (* supports-[...] feature query variant *)
-    | _ when String.starts_with ~prefix:"supports-[" modifier -> (
-        let rest =
-          String.sub modifier
-            (String.length "supports-[")
-            (String.length modifier - String.length "supports-[")
-        in
-        match find_matching_bracket rest with
-        | Some i -> (
-            let cond = String.sub rest 0 i in
-            match acc with
-            | Utility.Group styles -> supports cond styles
-            | single -> supports cond [ single ])
-        | None -> acc)
-    | _ -> acc (* ignore unknown modifiers for now *)
+  (* Convert utility to a list for wrapping *)
+  let to_list = function
+    | Utility.Group styles -> styles
+    | single -> [ single ]
+  in
+  (* Apply a single parsed modifier to an accumulated utility *)
+  let apply_one acc modifier_str =
+    match parse_modifier modifier_str with
+    | Some m -> wrap m (to_list acc)
+    | None -> acc (* ignore unknown modifiers *)
   in
   (* Apply modifiers in reverse order so that the first modifier in the string
      (e.g., "dark" in "dark:hover:...") ends up as the outermost wrapper
      (Modified(Dark, Modified(Hover, base))). This matches how the programmatic
-     API works: dark [ hover [ ... ] ]
-
-     We apply ALL modifiers in reverse order to preserve their relative
-     positions. This handles both "dark:has-[:checked]:X" -> Modified(Dark,
-     Modified(Has, X)) and "group-has-[.y]:hover:m-2" -> Modified(Group_has,
-     Modified(Hover, X)). *)
+     API works: dark [ hover [ ... ] ] *)
   List.fold_left apply_one base_utility (List.rev modifiers)
