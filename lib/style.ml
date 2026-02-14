@@ -154,6 +154,7 @@ type modifier =
   | Print
   | Portrait
   | Landscape
+  | Forced_colors
 
 type t =
   | Style of {
@@ -332,6 +333,7 @@ let rec pp_modifier = function
   | Print -> "print"
   | Portrait -> "portrait"
   | Landscape -> "landscape"
+  | Forced_colors -> "forced-colors"
 
 let rec pp ppf = function
   | Style { props; _ } ->

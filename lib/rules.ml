@@ -459,6 +459,11 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
       handle_media_like_modifier Style.Landscape
         ~condition:(Css.Media.Orientation `Landscape) ~inner_has_hover
         base_class selector props
+  (* Forced colors *)
+  | Style.Forced_colors ->
+      handle_media_like_modifier Style.Forced_colors
+        ~condition:(Css.Media.Forced_colors `Active) ~inner_has_hover base_class
+        selector props
   (* Responsive and container *)
   | Style.Responsive breakpoint ->
       responsive_rule breakpoint base_class selector props
@@ -576,6 +581,12 @@ let apply_modifier_to_rule modifier = function
       | Style.Landscape ->
           [
             media_query ~condition:(Css.Media.Orientation `Landscape)
+              ~selector:new_selector ~props:[] ?base_class
+              ~nested:[ inner_media ] ();
+          ]
+      | Style.Forced_colors ->
+          [
+            media_query ~condition:(Css.Media.Forced_colors `Active)
               ~selector:new_selector ~props:[] ?base_class
               ~nested:[ inner_media ] ();
           ]
