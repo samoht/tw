@@ -338,6 +338,7 @@ module Handler = struct
   let border_current' = style [ Css.border_color Current ]
 
   (* Create radius theme variables with fallback values for inline mode *)
+  let radius_var = Var.theme Css.Length "radius" ~order:(6, 99)
   let radius_sm_var = Var.theme Css.Length "radius-sm" ~order:(7, 0)
   let radius_md_var = Var.theme Css.Length "radius-md" ~order:(7, 1)
   let radius_lg_var = Var.theme Css.Length "radius-lg" ~order:(7, 2)
@@ -347,10 +348,12 @@ module Handler = struct
   let rounded_none = style [ Css.border_radius Zero ]
 
   let rounded_sm =
-    let decl, r = Var.binding radius_sm_var (Rem 0.25) in
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
     style (decl :: [ Css.border_radius (Var r) ])
 
-  let rounded = style [ Css.border_radius (Rem 0.25) ]
+  let rounded =
+    let decl, r = Var.binding radius_var (Rem 0.25) in
+    style (decl :: [ Css.border_radius (Var r) ])
 
   let rounded_md =
     let decl, r = Var.binding radius_md_var (Rem 0.375) in
