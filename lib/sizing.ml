@@ -436,8 +436,20 @@ module Handler = struct
     ]
 
   let aspect_auto' = style [ Css.aspect_ratio Auto ]
-  let aspect_square' = style [ Css.aspect_ratio (Ratio (1., 1.)) ]
-  let aspect_video' = style [ Css.aspect_ratio (Ratio (16., 9.)) ]
+
+  (* Theme variables for aspect ratios *)
+  let aspect_square_var =
+    Var.theme Css.Aspect_ratio "aspect-square" ~order:(4, 0)
+
+  let aspect_video_var = Var.theme Css.Aspect_ratio "aspect-video" ~order:(4, 1)
+
+  let aspect_square' =
+    let decl, r = Var.binding aspect_square_var (Ratio (1., 1.)) in
+    style (decl :: [ Css.aspect_ratio (Var r) ])
+
+  let aspect_video' =
+    let decl, r = Var.binding aspect_video_var (Ratio (16., 9.)) in
+    style (decl :: [ Css.aspect_ratio (Var r) ])
 
   let aspect_ratio' w h =
     style [ Css.aspect_ratio (Ratio (float_of_int w, float_of_int h)) ]
