@@ -485,6 +485,7 @@ type opacity_modifier =
   | No_opacity
   | Opacity_percent of float  (** e.g., /50 means 50% *)
   | Opacity_arbitrary of float  (** e.g., /[0.5] means 0.5 *)
+  | Opacity_named of string  (** e.g., /half, /custom - theme-defined names *)
 
 val parse_opacity_modifier : string -> string * opacity_modifier
 (** [parse_opacity_modifier s] parses an opacity modifier from a string. Returns

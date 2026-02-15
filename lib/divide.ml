@@ -117,6 +117,7 @@ module Handler = struct
         if Float.is_integer p then Printf.sprintf "/%d" (int_of_float p)
         else Printf.sprintf "/%g" p
     | Color.Opacity_arbitrary f -> Printf.sprintf "/[%g]" f
+    | Color.Opacity_named name -> "/" ^ name
 
   (* Divide color with opacity using Color helpers *)
   let divide_color_opacity_style color shade opacity =

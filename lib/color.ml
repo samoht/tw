@@ -1170,6 +1170,7 @@ type opacity_modifier =
   | No_opacity
   | Opacity_percent of float (* e.g., /50 means 50% *)
   | Opacity_arbitrary of float (* e.g., /[0.5] means 0.5 *)
+  | Opacity_named of string (* e.g., /half, /custom - theme-defined names *)
 
 (** Parse opacity modifier from a string that may contain /NN or /[N.N] *)
 let parse_opacity_modifier s =
@@ -1195,10 +1196,13 @@ let parse_opacity_modifier s =
           | Some f -> (base, Opacity_arbitrary f)
           | None -> (s, No_opacity)
       else
-        (* Numeric value like 50 or 2.5 *)
+        (* Numeric value like 50 or 2.5, or named like half, custom *)
         match float_of_string_opt opacity_str with
         | Some f -> (base, Opacity_percent f)
-        | None -> (s, No_opacity))
+        | None ->
+            (* Not a number, treat as named opacity modifier *)
+            if opacity_str <> "" then (base, Opacity_named opacity_str)
+            else (s, No_opacity))
 
 (* Parse color and shade from string list *)
 let shade_of_strings = function
@@ -1509,6 +1513,9 @@ module Handler = struct
     | No_opacity -> 100.0
     | Opacity_percent p -> p (* Already a percentage like 50 *)
     | Opacity_arbitrary f -> f *. 100.0 (* e.g., 0.5 -> 50 *)
+    | Opacity_named _ ->
+        (* Named opacity requires theme variable lookup, default to 100% *)
+        100.0
 
   (** Condition for progressive enhancement with color-mix in oklab *)
   let color_mix_supports_condition =
@@ -1792,6 +1799,7 @@ module Handler = struct
         if Float.is_integer p then Printf.sprintf "/%d" (int_of_float p)
         else Printf.sprintf "/%g" p
     | Opacity_arbitrary f -> Printf.sprintf "/[%g]" f
+    | Opacity_named name -> "/" ^ name
 
   let to_class = function
     | Bg (c, shade) ->
@@ -1895,6 +1903,7 @@ let pp_opacity = function
       if Float.equal pct rounded then string_of_int (int_of_float pct)
       else Printf.sprintf "%g" pct
   | Opacity_arbitrary f -> "[" ^ string_of_float f ^ "]"
+  | Opacity_named name -> name
 
 let get_current_scheme () = !Handler.current_scheme
 
