@@ -34,6 +34,7 @@ module Handler = struct
         if Float.is_integer p then Printf.sprintf "/%d" (int_of_float p)
         else Printf.sprintf "/%g" p
     | Color.Opacity_arbitrary f -> Printf.sprintf "/[%g]" f
+    | Color.Opacity_named name -> "/" ^ name
 
   (* Fill color style with scheme support *)
   let fill_color_style color shade =

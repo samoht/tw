@@ -56,6 +56,7 @@ module Handler = struct
         if Float.is_integer p then Printf.sprintf "/%d" (int_of_float p)
         else Printf.sprintf "/%g" p
     | Color.Opacity_arbitrary f -> Printf.sprintf "/[%g]" f
+    | Color.Opacity_named name -> "/" ^ name
 
   let to_class (t : t) =
     match t with
