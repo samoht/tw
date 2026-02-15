@@ -40,7 +40,7 @@ module Handler = struct
     | Border_collapse -> style [ Css.border_collapse Collapse ]
     | Border_separate -> style [ Css.border_collapse Separate ]
     | Border_spacing n ->
-        style [ Css.border_spacing (Rem (float_of_int n *. 0.25)) ]
+        style [ Css.border_spacing [ Rem (float_of_int n *. 0.25) ] ]
     | Table_auto -> style [ Css.table_layout Auto ]
     | Table_fixed -> style [ Css.table_layout Fixed ]
     | Caption_top -> style [ Css.caption_side Top ]
