@@ -60,135 +60,84 @@ module Handler = struct
   (** {2 Space Between Utilities} *)
 
   let space_x n =
-    let s = Spacing.int n in
     let class_name = "space-x-" ^ string_of_int (abs n) in
     (* Tailwind v4 uses flat selector: :where(.space-x-N > :not(:last-child)) *)
     let selector =
       Css.Selector.(where [ class_ class_name >> not [ Last_child ] ])
     in
-    match s with
-    | `Rem _ ->
-        let spacing_decl, spacing_ref =
-          Var.binding Spacing.spacing_var (Rem 0.25)
-        in
-        let n_units =
-          int_of_float ((match s with `Rem f -> f | _ -> 0.) /. 0.25)
-        in
-        (* Create reverse_decl and reverse_ref for --tw-space-x-reverse var *)
-        let reverse_decl, reverse_ref =
-          Var.binding space_x_reverse_var (Css.Num 0.0)
-        in
-        let reverse_var_name = Css.var_name reverse_ref in
-        let spacing_times_n =
-          Calc.(mul (length (Var spacing_ref)) (float (float_of_int n_units)))
-        in
-        (* margin-inline-start = calc(calc(var(--spacing) * N) *
-           var(--tw-space-x-reverse)) *)
-        let margin_start : Css.length =
-          Calc Calc.(mul (nested spacing_times_n) (var reverse_var_name))
-        in
-        (* margin-inline-end = calc(calc(var(--spacing) * N) * calc(1 -
-           var(--tw-space-x-reverse))) *)
-        let margin_end : Css.length =
-          Calc
-            Calc.(
-              mul (nested spacing_times_n)
-                (nested (sub (float 1.0) (var reverse_var_name))))
-        in
-        let property_rules =
-          [ Var.property_rule space_x_reverse_var ] |> List.filter_map Fun.id
-        in
-        let rule =
-          Css.rule ~selector
-            [
-              spacing_decl;
-              reverse_decl;
-              margin_inline_start margin_start;
-              margin_inline_end margin_end;
-            ]
-        in
-        style ~rules:(Some [ rule ])
-          ~property_rules:(Css.concat property_rules)
-          []
-    | `Px ->
-        let rule =
-          Css.rule ~selector
-            [ margin_inline_start (Px 1.); margin_inline_end Zero ]
-        in
-        style ~rules:(Some [ rule ]) []
-    | `Full ->
-        let rule =
-          Css.rule ~selector
-            [ margin_inline_start (Pct 100.0); margin_inline_end Zero ]
-        in
-        style ~rules:(Some [ rule ]) []
+    (* Use Theme.spacing_calc to get scheme-aware spacing value *)
+    let spacing_decl, spacing_len = Theme.spacing_calc n in
+    (* Create reverse_decl and reverse_ref for --tw-space-x-reverse var *)
+    let reverse_decl, reverse_ref =
+      Var.binding space_x_reverse_var (Css.Num 0.0)
+    in
+    let reverse_var_name = Css.var_name reverse_ref in
+    (* margin-inline-start = calc(var(--spacing-N) *
+       var(--tw-space-x-reverse)) *)
+    let margin_start : Css.length =
+      Calc Calc.(mul (length spacing_len) (var reverse_var_name))
+    in
+    (* margin-inline-end = calc(var(--spacing-N) * (1 -
+       var(--tw-space-x-reverse))) *)
+    let margin_end : Css.length =
+      Calc
+        Calc.(
+          mul (length spacing_len)
+            (nested (sub (float 1.0) (var reverse_var_name))))
+    in
+    let property_rules =
+      [ Var.property_rule space_x_reverse_var ] |> List.filter_map Fun.id
+    in
+    let rule =
+      Css.rule ~selector
+        [
+          spacing_decl;
+          reverse_decl;
+          margin_inline_start margin_start;
+          margin_inline_end margin_end;
+        ]
+    in
+    style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
 
   let space_y n =
-    let s = Spacing.int n in
     let class_name = "space-y-" ^ string_of_int (abs n) in
-    (* Tailwind v4 minified output uses flat selector: :where(.space-y-N >
-       :not(:last-child)) This matches exactly what Tailwind's minifier
-       produces. *)
+    (* Tailwind v4 uses flat selector: :where(.space-y-N > :not(:last-child)) *)
     let selector =
       Css.Selector.(where [ class_ class_name >> not [ Last_child ] ])
     in
-    match s with
-    | `Rem _ ->
-        let spacing_decl, spacing_ref =
-          Var.binding Spacing.spacing_var (Rem 0.25)
-        in
-        let n_units =
-          int_of_float ((match s with `Rem f -> f | _ -> 0.) /. 0.25)
-        in
-        (* Create reverse_decl and reverse_ref for the --tw-space-y-reverse
-           var *)
-        let reverse_decl, reverse_ref =
-          Var.binding space_y_reverse_var (Css.Num 0.0)
-        in
-        (* margin-block-start = calc(calc(var(--spacing) * N) *
-           var(--tw-space-y-reverse)) - matches Tailwind's nested calc format *)
-        let reverse_var_name = Css.var_name reverse_ref in
-        let spacing_times_n =
-          Calc.(mul (length (Var spacing_ref)) (float (float_of_int n_units)))
-        in
-        let margin_start : Css.length =
-          Calc Calc.(mul (nested spacing_times_n) (var reverse_var_name))
-        in
-        (* margin-block-end = calc(calc(var(--spacing) * N) * calc(1 -
-           var(--tw-space-y-reverse))) - matches Tailwind's format *)
-        let margin_end : Css.length =
-          Calc
-            Calc.(
-              mul (nested spacing_times_n)
-                (nested (sub (float 1.0) (var reverse_var_name))))
-        in
-        let property_rules =
-          [ Var.property_rule space_y_reverse_var ] |> List.filter_map Fun.id
-        in
-        let rule =
-          Css.rule ~selector
-            [
-              spacing_decl;
-              reverse_decl;
-              margin_block_start margin_start;
-              margin_block_end margin_end;
-            ]
-        in
-        style ~rules:(Some [ rule ])
-          ~property_rules:(Css.concat property_rules)
-          []
-    | `Px ->
-        let rule =
-          Css.rule ~selector
-            [ margin_block_start (Px 1.); margin_block_end Zero ]
-        in
-        style ~rules:(Some [ rule ]) []
-    | `Full ->
-        let rule =
-          Css.rule ~selector
-            [ margin_block_start (Pct 100.0); margin_block_end Zero ]
-        in
-        style ~rules:(Some [ rule ]) []
+    (* Use Theme.spacing_calc to get scheme-aware spacing value *)
+    let spacing_decl, spacing_len = Theme.spacing_calc n in
+    (* Create reverse_decl and reverse_ref for --tw-space-y-reverse var *)
+    let reverse_decl, reverse_ref =
+      Var.binding space_y_reverse_var (Css.Num 0.0)
+    in
+    let reverse_var_name = Css.var_name reverse_ref in
+    (* margin-block-start = calc(var(--spacing-N) *
+       var(--tw-space-y-reverse)) *)
+    let margin_start : Css.length =
+      Calc Calc.(mul (length spacing_len) (var reverse_var_name))
+    in
+    (* margin-block-end = calc(var(--spacing-N) * (1 -
+       var(--tw-space-y-reverse))) *)
+    let margin_end : Css.length =
+      Calc
+        Calc.(
+          mul (length spacing_len)
+            (nested (sub (float 1.0) (var reverse_var_name))))
+    in
+    let property_rules =
+      [ Var.property_rule space_y_reverse_var ] |> List.filter_map Fun.id
+    in
+    let rule =
+      Css.rule ~selector
+        [
+          spacing_decl;
+          reverse_decl;
+          margin_block_start margin_start;
+          margin_block_end margin_end;
+        ]
+    in
+    style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
 
   let spacing_value_order = function
     | `Px -> 1
