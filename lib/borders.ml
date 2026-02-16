@@ -218,7 +218,8 @@ module Handler = struct
     | Rounded_es_3xl
     | Rounded_es_full
     | (* Outline utilities *)
-      Outline_none
+      Outline
+    | Outline_none
     | Outline_solid
     | Outline_dashed
     | Outline_dotted
@@ -1308,6 +1309,19 @@ module Handler = struct
       ~initial:(Auto : Css.outline_style)
       ~property_order:0 ~family:`Border "tw-outline-style"
 
+  (* Base outline utility - sets outline-style from var and width to 1px *)
+  let outline =
+    let oref = Var.reference outline_style_var in
+    let property_rule =
+      match Var.property_rule outline_style_var with
+      | Some rule -> rule
+      | None -> Css.empty
+    in
+    (* var_name returns name without --, but CSS var() syntax needs -- prefix *)
+    let vname = "--" ^ Css.var_name oref in
+    style ~property_rules:property_rule
+      [ Css.outline_style (Css.Var vname); Css.outline_width (Px 1.) ]
+
   (* Outline style utilities that set the variable *)
   let outline_none =
     let decl, _ = Var.binding outline_style_var Css.None in
@@ -1560,6 +1574,7 @@ module Handler = struct
     | Rounded_es_3xl -> rounded_es_3xl
     | Rounded_es_full -> rounded_es_full ()
     (* Outline utilities *)
+    | Outline -> outline
     | Outline_none -> outline_none
     | Outline_solid -> outline_solid
     | Outline_dashed -> outline_dashed
@@ -1773,6 +1788,7 @@ module Handler = struct
     | Border_transparent -> 1500
     | Border_current -> 1500
     (* Outline utilities (2000-2099) *)
+    | Outline -> 1999
     | Outline_none -> 2000
     | Outline_solid -> 2001
     | Outline_dashed -> 2002
@@ -1977,6 +1993,7 @@ module Handler = struct
     | [ "rounded"; "es"; "2xl" ] -> Ok Rounded_es_2xl
     | [ "rounded"; "es"; "3xl" ] -> Ok Rounded_es_3xl
     | [ "rounded"; "es"; "full" ] -> Ok Rounded_es_full
+    | [ "outline" ] -> Ok Outline
     | [ "outline"; "none" ] -> Ok Outline_none
     | [ "outline"; "solid" ] -> Ok Outline_solid
     | [ "outline"; "dashed" ] -> Ok Outline_dashed
@@ -2180,6 +2197,7 @@ module Handler = struct
     | Rounded_es_2xl -> "rounded-es-2xl"
     | Rounded_es_3xl -> "rounded-es-3xl"
     | Rounded_es_full -> "rounded-es-full"
+    | Outline -> "outline"
     | Outline_none -> "outline-none"
     | Outline_solid -> "outline-solid"
     | Outline_dashed -> "outline-dashed"
@@ -2414,6 +2432,7 @@ let rounded_es_full = utility Rounded_es_full
 
 (** {1 Outline Utilities} *)
 
+let outline = utility Outline
 let outline_none = utility Outline_none
 let outline_offset_0 = utility Outline_offset_0
 let outline_offset_1 = utility Outline_offset_1
