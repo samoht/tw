@@ -279,17 +279,44 @@ let extract_spacing_from_css css : (int * Css.length) list =
       with _ -> None)
     matches
 
-(** Create scheme from expected CSS. Extracts spacing values defined in :root,
-    :host blocks. *)
+(** Extract radius values from expected CSS. Looks for patterns like:
+    --radius-none: 0; --radius-full: 9999px; in :root, :host blocks. *)
+let extract_radius_from_css css : (string * Css.length) list =
+  (* Match --radius-NAME: VALUE patterns *)
+  let radius_pattern =
+    Re.Pcre.regexp {|--radius-([a-zA-Z0-9-]+):\s*([0-9.]+)(px|rem)?|}
+  in
+  let matches = Re.all radius_pattern css in
+  List.filter_map
+    (fun m ->
+      try
+        let name = Re.Group.get m 1 in
+        let value = float_of_string (Re.Group.get m 2) in
+        let unit = try Re.Group.get m 3 with _ -> "" in
+        let length : Css.length =
+          match unit with
+          | "px" -> Px value
+          | "rem" -> Rem value
+          | "" when value = 0.0 -> Zero
+          | _ -> Px value
+        in
+        Some (name, length)
+      with _ -> None)
+    matches
+
+(** Create scheme from expected CSS. Extracts spacing and radius values defined
+    in :root, :host blocks. *)
 let scheme_from_expected_css expected : Tw.Scheme.t =
   let spacing = extract_spacing_from_css expected in
-  { colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ]; spacing }
+  let radius = extract_radius_from_css expected in
+  { colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ]; spacing; radius }
 
 (** Set up the scheme for a specific test *)
 let setup_scheme_for_test expected =
   let scheme = scheme_from_expected_css expected in
   Tw.Color.Handler.set_scheme scheme;
-  Tw.Theme.set_scheme scheme
+  Tw.Theme.set_scheme scheme;
+  Tw.Borders.set_scheme scheme
 
 let run_test_case test () =
   if test.classes = [] then ()

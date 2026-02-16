@@ -15,6 +15,12 @@
       ["ring"; "2"], ["outline"; "offset"; "4"]. Unknown tokens yield `Error
       (`Msg "Not a border utility")`. *)
 
+(* Current scheme for radius overrides *)
+let current_scheme : Scheme.t ref = ref Scheme.default
+
+(* Set the current scheme for radius generation *)
+let set_scheme scheme = current_scheme := scheme
+
 module Handler = struct
   open Style
   open Css
@@ -348,9 +354,15 @@ module Handler = struct
   let radius_2xl_var = Var.theme Css.Length "radius-2xl" ~order:(7, 4)
   let radius_3xl_var = Var.theme Css.Length "radius-3xl" ~order:(7, 5)
 
-  let rounded_none =
-    let decl, r = Var.binding radius_none_var (Px 0.) in
-    style (decl :: [ Css.border_radius (Var r) ])
+  let rounded_none () =
+    match Scheme.find_radius !current_scheme "none" with
+    | Some explicit_length ->
+        (* Scheme has explicit radius: use var(--radius-none) *)
+        let decl, r = Var.binding radius_none_var explicit_length in
+        style (decl :: [ Css.border_radius (Var r) ])
+    | None ->
+        (* Default: use raw value *)
+        style [ Css.border_radius Zero ]
 
   let rounded_sm =
     let decl, r = Var.binding radius_sm_var (Rem 0.125) in
@@ -380,9 +392,15 @@ module Handler = struct
     let decl, r = Var.binding radius_3xl_var (Rem 1.5) in
     style (decl :: [ Css.border_radius (Var r) ])
 
-  let rounded_full =
-    let decl, r = Var.binding radius_full_var (Px 9999.) in
-    style (decl :: [ Css.border_radius (Var r) ])
+  let rounded_full () =
+    match Scheme.find_radius !current_scheme "full" with
+    | Some explicit_length ->
+        (* Scheme has explicit radius: use var(--radius-full) *)
+        let decl, r = Var.binding radius_full_var explicit_length in
+        style (decl :: [ Css.border_radius (Var r) ])
+    | None ->
+        (* Default: use raw value - 9999px represented as large float *)
+        style [ Css.border_radius (Px 3.40282e38) ]
 
   (** Side-specific rounded utilities - top *)
   let rounded_t =
@@ -972,14 +990,14 @@ module Handler = struct
     | Border_current -> border_current'
     (* Border radius utilities *)
     | Rounded -> rounded
-    | Rounded_none -> rounded_none
+    | Rounded_none -> rounded_none ()
     | Rounded_sm -> rounded_sm
     | Rounded_md -> rounded_md
     | Rounded_lg -> rounded_lg
     | Rounded_xl -> rounded_xl
     | Rounded_2xl -> rounded_2xl
     | Rounded_3xl -> rounded_3xl
-    | Rounded_full -> rounded_full
+    | Rounded_full -> rounded_full ()
     (* Side-specific rounded utilities - top *)
     | Rounded_t -> rounded_t
     | Rounded_t_none -> rounded_t_none

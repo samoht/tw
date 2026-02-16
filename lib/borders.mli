@@ -370,4 +370,11 @@ val outline_offset_4 : t
 val outline_offset_8 : t
 (** [outline_offset_8] sets outline offset to 8px. *)
 
+(** {1 Configuration} *)
+
+val set_scheme : Scheme.t -> unit
+(** [set_scheme scheme] sets the current theme scheme for radius generation.
+    When a radius is defined in the scheme, utilities use [var(--radius-NAME)]
+    instead of raw values. *)
+
 module Handler : Utility.Handler
