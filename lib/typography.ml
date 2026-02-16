@@ -1404,12 +1404,15 @@ module Typography_late = struct
   let align_text_bottom = style [ vertical_align Text_bottom ]
   let align_sub = style [ vertical_align Sub ]
   let align_super = style [ vertical_align Super ]
-  let list_none = style [ list_style_type None ]
+  let list_none = style [ list_style_type (Var "--list-style-type-none") ]
   let list_disc = style [ list_style_type Disc ]
   let list_decimal = style [ list_style_type Decimal ]
   let list_inside = style [ list_style_position Inside ]
   let list_outside = style [ list_style_position Outside ]
-  let list_image_none = style [ list_style_image None ]
+
+  let list_image_none =
+    style [ list_style_image (List_image_var "--list-style-image-none") ]
+
   let text_ellipsis = style [ text_overflow Ellipsis ]
   let text_clip = style [ text_overflow Clip ]
 
