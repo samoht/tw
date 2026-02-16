@@ -54,7 +54,7 @@ module Handler = struct
   let col_arbitrary s = style [ grid_column (Arbitrary s, Auto) ]
 
   let col_auto =
-    style [ grid_column (Arbitrary "var(--grid-column-auto)", Auto) ]
+    style [ grid_column (Var (Css.var_ref "grid-column-auto"), Auto) ]
 
   let col_span n = style [ grid_column (Span n, Span n) ]
   let col_span_full = style [ grid_column (Num 1, Num (-1)) ]
@@ -66,7 +66,7 @@ module Handler = struct
   let col_start_arbitrary s = style [ grid_column_start (Arbitrary s) ]
 
   let col_start_auto =
-    style [ grid_column_start (Arbitrary "var(--grid-column-start-auto)") ]
+    style [ grid_column_start (Var (Css.var_ref "grid-column-start-auto")) ]
 
   let col_end n = style [ grid_column_end (Num n) ]
 
@@ -76,7 +76,7 @@ module Handler = struct
   let col_end_arbitrary s = style [ grid_column_end (Arbitrary s) ]
 
   let col_end_auto =
-    style [ grid_column_end (Arbitrary "var(--grid-column-end-auto)") ]
+    style [ grid_column_end (Var (Css.var_ref "grid-column-end-auto")) ]
 
   let row n = style [ grid_row (Num n, Auto) ]
 
@@ -84,7 +84,7 @@ module Handler = struct
     style [ grid_row (Calc ("calc(" ^ string_of_int n ^ " * -1)"), Auto) ]
 
   let row_arbitrary s = style [ grid_row (Arbitrary s, Auto) ]
-  let row_auto = style [ grid_row (Arbitrary "var(--grid-row-auto)", Auto) ]
+  let row_auto = style [ grid_row (Var (Css.var_ref "grid-row-auto"), Auto) ]
   let row_span n = style [ grid_row (Span n, Span n) ]
   let row_span_full = style [ grid_row (Num 1, Num (-1)) ]
   let row_start n = style [ grid_row_start (Num n) ]
@@ -95,7 +95,7 @@ module Handler = struct
   let row_start_arbitrary s = style [ grid_row_start (Arbitrary s) ]
 
   let row_start_auto =
-    style [ grid_row_start (Arbitrary "var(--grid-row-start-auto)") ]
+    style [ grid_row_start (Var (Css.var_ref "grid-row-start-auto")) ]
 
   let row_end n = style [ grid_row_end (Num n) ]
 
@@ -105,7 +105,7 @@ module Handler = struct
   let row_end_arbitrary s = style [ grid_row_end (Arbitrary s) ]
 
   let row_end_auto =
-    style [ grid_row_end (Arbitrary "var(--grid-row-end-auto)") ]
+    style [ grid_row_end (Var (Css.var_ref "grid-row-end-auto")) ]
 
   let to_style = function
     | Col n -> col n

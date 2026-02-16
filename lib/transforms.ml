@@ -619,74 +619,74 @@ module Handler = struct
   (* Tailwind v4: perspective-origin utilities use theme variable references and
      also set the perspective property with the same variable *)
   let perspective_origin_center =
-    let var = "var(--perspective-origin-center)" in
     style
       [
-        perspective_origin (Css.Perspective_arbitrary var);
+        perspective_origin
+          (Css.Perspective_var (Css.var_ref "perspective-origin-center"));
         Css.perspective (Var (Css.var_ref "perspective-origin-center"));
       ]
 
   let perspective_origin_top =
-    let var = "var(--perspective-origin-top)" in
     style
       [
-        perspective_origin (Css.Perspective_arbitrary var);
+        perspective_origin
+          (Css.Perspective_var (Css.var_ref "perspective-origin-top"));
         Css.perspective (Var (Css.var_ref "perspective-origin-top"));
       ]
 
   let perspective_origin_bottom =
-    let var = "var(--perspective-origin-bottom)" in
     style
       [
-        perspective_origin (Css.Perspective_arbitrary var);
+        perspective_origin
+          (Css.Perspective_var (Css.var_ref "perspective-origin-bottom"));
         Css.perspective (Var (Css.var_ref "perspective-origin-bottom"));
       ]
 
   let perspective_origin_left =
-    let var = "var(--perspective-origin-left)" in
     style
       [
-        perspective_origin (Css.Perspective_arbitrary var);
+        perspective_origin
+          (Css.Perspective_var (Css.var_ref "perspective-origin-left"));
         Css.perspective (Var (Css.var_ref "perspective-origin-left"));
       ]
 
   let perspective_origin_right =
-    let var = "var(--perspective-origin-right)" in
     style
       [
-        perspective_origin (Css.Perspective_arbitrary var);
+        perspective_origin
+          (Css.Perspective_var (Css.var_ref "perspective-origin-right"));
         Css.perspective (Var (Css.var_ref "perspective-origin-right"));
       ]
 
   let perspective_origin_top_left =
-    let var = "var(--perspective-origin-top-left)" in
     style
       [
-        perspective_origin (Css.Perspective_arbitrary var);
+        perspective_origin
+          (Css.Perspective_var (Css.var_ref "perspective-origin-top-left"));
         Css.perspective (Var (Css.var_ref "perspective-origin-top-left"));
       ]
 
   let perspective_origin_top_right =
-    let var = "var(--perspective-origin-top-right)" in
     style
       [
-        perspective_origin (Css.Perspective_arbitrary var);
+        perspective_origin
+          (Css.Perspective_var (Css.var_ref "perspective-origin-top-right"));
         Css.perspective (Var (Css.var_ref "perspective-origin-top-right"));
       ]
 
   let perspective_origin_bottom_left =
-    let var = "var(--perspective-origin-bottom-left)" in
     style
       [
-        perspective_origin (Css.Perspective_arbitrary var);
+        perspective_origin
+          (Css.Perspective_var (Css.var_ref "perspective-origin-bottom-left"));
         Css.perspective (Var (Css.var_ref "perspective-origin-bottom-left"));
       ]
 
   let perspective_origin_bottom_right =
-    let var = "var(--perspective-origin-bottom-right)" in
     style
       [
-        perspective_origin (Css.Perspective_arbitrary var);
+        perspective_origin
+          (Css.Perspective_var (Css.var_ref "perspective-origin-bottom-right"));
         Css.perspective (Var (Css.var_ref "perspective-origin-bottom-right"));
       ]
 
@@ -711,32 +711,33 @@ module Handler = struct
       variables are defined. *)
 
   let origin_center =
-    style [ transform_origin (Arbitrary "var(--transform-origin-center)") ]
+    style [ transform_origin (Var (Css.var_ref "transform-origin-center")) ]
 
   let origin_top =
-    style [ transform_origin (Arbitrary "var(--transform-origin-top)") ]
+    style [ transform_origin (Var (Css.var_ref "transform-origin-top")) ]
 
   let origin_bottom =
-    style [ transform_origin (Arbitrary "var(--transform-origin-bottom)") ]
+    style [ transform_origin (Var (Css.var_ref "transform-origin-bottom")) ]
 
   let origin_left =
-    style [ transform_origin (Arbitrary "var(--transform-origin-left)") ]
+    style [ transform_origin (Var (Css.var_ref "transform-origin-left")) ]
 
   let origin_right =
-    style [ transform_origin (Arbitrary "var(--transform-origin-right)") ]
+    style [ transform_origin (Var (Css.var_ref "transform-origin-right")) ]
 
   let origin_top_left =
-    style [ transform_origin (Arbitrary "var(--transform-origin-top-left)") ]
+    style [ transform_origin (Var (Css.var_ref "transform-origin-top-left")) ]
 
   let origin_top_right =
-    style [ transform_origin (Arbitrary "var(--transform-origin-top-right)") ]
+    style [ transform_origin (Var (Css.var_ref "transform-origin-top-right")) ]
 
   let origin_bottom_left =
-    style [ transform_origin (Arbitrary "var(--transform-origin-bottom-left)") ]
+    style
+      [ transform_origin (Var (Css.var_ref "transform-origin-bottom-left")) ]
 
   let origin_bottom_right =
     style
-      [ transform_origin (Arbitrary "var(--transform-origin-bottom-right)") ]
+      [ transform_origin (Var (Css.var_ref "transform-origin-bottom-right")) ]
 
   let origin_arbitrary s =
     (* Convert underscore to space for arbitrary values like 50px_100px *)
