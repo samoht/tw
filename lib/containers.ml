@@ -31,15 +31,15 @@ module Handler = struct
     let container_selector = Selector.class_ "container" in
     let media_rules =
       [
-        media ~condition:(Media.Min_width 640.)
+        media ~condition:(Media.Min_width_rem 40.)
           [ rule ~selector:container_selector [ max_width (Rem 40.) ] ];
-        media ~condition:(Media.Min_width 768.)
+        media ~condition:(Media.Min_width_rem 48.)
           [ rule ~selector:container_selector [ max_width (Rem 48.) ] ];
-        media ~condition:(Media.Min_width 1024.)
+        media ~condition:(Media.Min_width_rem 64.)
           [ rule ~selector:container_selector [ max_width (Rem 64.) ] ];
-        media ~condition:(Media.Min_width 1280.)
+        media ~condition:(Media.Min_width_rem 80.)
           [ rule ~selector:container_selector [ max_width (Rem 80.) ] ];
-        media ~condition:(Media.Min_width 1536.)
+        media ~condition:(Media.Min_width_rem 96.)
           [ rule ~selector:container_selector [ max_width (Rem 96.) ] ];
       ]
     in
@@ -61,7 +61,7 @@ module Handler = struct
     | Container_named _ -> 0
     | Container -> 1
     | Container_normal -> 2
-    | Layout_container -> 0 (* Very low to appear early with media queries *)
+    | Layout_container -> 3 (* After @container utilities *)
 
   let of_class = function
     | "container" -> Ok Layout_container
