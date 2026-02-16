@@ -752,7 +752,7 @@ let test_rule_sets_md_media () =
       (fun acc stmt ->
         match (acc, Css.as_media stmt) with
         | Some _, _ -> acc
-        | None, Some (cond, inner) when cond = Css.Media.Min_width 48. ->
+        | None, Some (cond, inner) when cond = Css.Media.Min_width_rem 48. ->
             Some inner
         | None, _ -> None)
       None css
@@ -953,7 +953,7 @@ let test_classify () =
         ~selector:(Css.Selector.class_ "p-4")
         ~props:[ Css.padding [ Css.Rem 1.0 ] ]
         ();
-      Tw.Rules.media_query ~condition:(Css.Media.Min_width 40.)
+      Tw.Rules.media_query ~condition:(Css.Media.Min_width_rem 40.)
         ~selector:(Css.Selector.class_ "sm\\:p-4")
         ~props:[ Css.padding [ Css.Rem 1.0 ] ]
         ();
@@ -1797,7 +1797,7 @@ let test_media_query_deduplication () =
   let count_48rem =
     List.fold_left ( + ) 0
       (List.map
-         (count_toplevel_media (Tw.Css.Media.Min_width 48.))
+         (count_toplevel_media (Tw.Css.Media.Min_width_rem 48.))
          (Tw.Css.statements css))
   in
 
