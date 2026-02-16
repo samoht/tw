@@ -19,6 +19,10 @@ type t = {
       (** Explicit spacing variables. Key is the multiplier (e.g., 4 for
           --spacing-4). When defined, utilities use var(--spacing-N) instead of
           calc(var(--spacing) * N). *)
+  radius : (string * Css.length) list;
+      (** Explicit radius variables. Key is the radius name (e.g., "none",
+          "full", "sm"). When defined, utilities use var(--radius-NAME) instead
+          of raw values. *)
 }
 (** Theme scheme configuration *)
 
@@ -40,3 +44,9 @@ val get_hex_color : t -> string -> string option
 
 val has_explicit_spacing : t -> int -> bool
 (** Check if spacing has an explicit variable *)
+
+val find_radius : t -> string -> Css.length option
+(** Lookup a radius value in the scheme *)
+
+val has_explicit_radius : t -> string -> bool
+(** Check if radius has an explicit variable *)

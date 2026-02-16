@@ -19,12 +19,16 @@ type t = {
       (** Explicit spacing variables. Key is the multiplier (e.g., 4 for
           --spacing-4). When defined, utilities use var(--spacing-N) instead of
           calc(var(--spacing) * N). *)
+  radius : (string * Css.length) list;
+      (** Explicit radius variables. Key is the radius name (e.g., "none",
+          "full", "sm"). When defined, utilities use var(--radius-NAME) instead
+          of raw values. *)
 }
 (** Theme scheme configuration *)
 
 (** Default scheme - uses oklch colors and calc-based spacing (matches Tailwind
     v4 default) *)
-let default : t = { colors = []; spacing = [] }
+let default : t = { colors = []; spacing = []; radius = [] }
 
 (** Lookup a color in the scheme *)
 let find_color scheme name = List.assoc_opt name scheme.colors
@@ -42,3 +46,9 @@ let get_hex_color scheme name =
 
 (** Check if spacing has an explicit variable *)
 let has_explicit_spacing scheme n = Option.is_some (find_spacing scheme n)
+
+(** Lookup a radius value in the scheme *)
+let find_radius scheme name = List.assoc_opt name scheme.radius
+
+(** Check if radius has an explicit variable *)
+let has_explicit_radius scheme name = Option.is_some (find_radius scheme name)
