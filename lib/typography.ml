@@ -1369,12 +1369,13 @@ module Typography_late = struct
       ]
 
   let line_clamp_none_style =
+    (* Tailwind v4: uses theme var and keeps webkit-box display *)
     style
       [
-        webkit_line_clamp Unset;
-        webkit_box_orient Horizontal;
-        display Block;
-        overflow Visible;
+        webkit_line_clamp (Clamp_var "--line-clamp-none");
+        webkit_box_orient Vertical;
+        display Webkit_box;
+        overflow Hidden;
       ]
 
   let content_none =
