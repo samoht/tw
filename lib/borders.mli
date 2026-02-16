@@ -520,6 +520,9 @@ val rounded_es_full : t
 
 (** {1 Outline Utilities} *)
 
+val outline : t
+(** [outline] sets outline-style from var and outline-width to 1px. *)
+
 val outline_none : t
 (** [outline_none] removes the outline. *)
 
