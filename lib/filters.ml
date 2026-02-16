@@ -242,44 +242,46 @@ module Handler = struct
   let err_not_utility = Error (`Msg "Not a filter utility")
 
   let suborder = function
-    (* Alphabetical order by class name *)
-    | Backdrop_blur -> 0 (* backdrop-blur *)
-    | Backdrop_blur_2xl -> 1 (* backdrop-blur-2xl *)
-    | Backdrop_blur_3xl -> 2 (* backdrop-blur-3xl *)
-    | Backdrop_blur_lg -> 3 (* backdrop-blur-lg *)
-    | Backdrop_blur_md -> 4 (* backdrop-blur-md *)
-    | Backdrop_blur_none -> 5 (* backdrop-blur-none *)
-    | Backdrop_blur_sm -> 6 (* backdrop-blur-sm *)
-    | Backdrop_blur_xl -> 7 (* backdrop-blur-xl *)
-    | Backdrop_blur_xs -> 8 (* backdrop-blur-xs *)
-    | Backdrop_brightness n -> 10000 + n
-    | Backdrop_contrast n -> 20000 + n
-    | Backdrop_filter -> 30000 (* backdrop-filter *)
-    | Backdrop_filter_none -> 30001 (* backdrop-filter-none *)
-    | Backdrop_grayscale n -> 40000 + n
-    | Backdrop_hue_rotate n -> 50000 + n
-    | Backdrop_invert n -> 60000 + n
-    | Backdrop_opacity n -> 70000 + n
-    | Backdrop_saturate n -> 80000 + n
-    | Backdrop_sepia n -> 90000 + n
-    | Blur -> 100000 (* blur *)
-    | Blur_2xl -> 100001 (* blur-2xl *)
-    | Blur_3xl -> 100002 (* blur-3xl *)
-    | Blur_lg -> 100003 (* blur-lg *)
-    | Blur_md -> 100004 (* blur-md *)
-    | Blur_none -> 100005 (* blur-none *)
-    | Blur_sm -> 100006 (* blur-sm *)
-    | Blur_xl -> 100007 (* blur-xl *)
-    | Blur_xs -> 100008 (* blur-xs *)
-    | Brightness n -> 110000 + n
-    | Contrast n -> 120000 + n
-    | Filter -> 130000 (* filter *)
-    | Filter_none -> 130001 (* filter-none *)
-    | Grayscale n -> 140000 + n
-    | Hue_rotate n -> 150000 + n
-    | Invert n -> 160000 + n
-    | Saturate n -> 170000 + n
-    | Sepia n -> 180000 + n
+    (* Non-backdrop filters come first, then backdrop filters. Within each
+       group, ordered by filter type alphabetically. *)
+    | Blur -> 0 (* blur - comes first *)
+    | Blur_2xl -> 1
+    | Blur_3xl -> 2
+    | Blur_lg -> 3
+    | Blur_md -> 4
+    | Blur_none -> 5
+    | Blur_sm -> 6
+    | Blur_xl -> 7
+    | Blur_xs -> 8
+    | Brightness n -> 1000 + n
+    | Contrast n -> 2000 + n
+    | Filter -> 3000
+    | Filter_none -> 3001
+    | Grayscale n -> 4000 + n
+    | Hue_rotate n -> 5000 + n
+    | Invert n -> 6000 + n
+    | Saturate n -> 7000 + n
+    | Sepia n -> 8000 + n
+    (* Backdrop filters come after regular filters *)
+    | Backdrop_blur -> 10000
+    | Backdrop_blur_2xl -> 10001
+    | Backdrop_blur_3xl -> 10002
+    | Backdrop_blur_lg -> 10003
+    | Backdrop_blur_md -> 10004
+    | Backdrop_blur_none -> 10005
+    | Backdrop_blur_sm -> 10006
+    | Backdrop_blur_xl -> 10007
+    | Backdrop_blur_xs -> 10008
+    | Backdrop_brightness n -> 11000 + n
+    | Backdrop_contrast n -> 12000 + n
+    | Backdrop_filter -> 13000
+    | Backdrop_filter_none -> 13001
+    | Backdrop_grayscale n -> 14000 + n
+    | Backdrop_hue_rotate n -> 15000 + n
+    | Backdrop_invert n -> 16000 + n
+    | Backdrop_opacity n -> 17000 + n
+    | Backdrop_saturate n -> 18000 + n
+    | Backdrop_sepia n -> 19000 + n
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
