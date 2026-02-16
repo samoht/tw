@@ -2,7 +2,8 @@
 
     What's included:
     - Border collapse: `border-collapse`, `border-separate`.
-    - Border spacing: `border-spacing-*` with numeric values.
+    - Border spacing: `border-spacing-*`, `border-spacing-x-*`,
+      `border-spacing-y-*` with numeric values using CSS variables.
     - Table layout: `table-auto`, `table-fixed`.
 
     What's not:
@@ -10,7 +11,8 @@
 
     Parsing contract (`of_string`):
     - Accepts tokens like ["border"; "collapse"], ["border"; "separate"],
-      ["border"; "spacing"; n], ["table"; "auto"], ["table"; "fixed"].
+      ["border"; "spacing"; n], ["border"; "spacing"; "x"; n],
+      ["border"; "spacing"; "y"; n], ["table"; "auto"], ["table"; "fixed"].
     - Unknown tokens yield `Error (`Msg "Not a table utility")`. *)
 
 module Handler = struct
@@ -22,6 +24,8 @@ module Handler = struct
     | Border_collapse
     | Border_separate
     | Border_spacing of int
+    | Border_spacing_x of int
+    | Border_spacing_y of int
     | Table_auto
     | Table_fixed
     | Caption_top
@@ -36,11 +40,82 @@ module Handler = struct
   let priority = 4
   let err_not_utility = Error (`Msg "Not a table utility")
 
+  (** CSS variables for border-spacing - initialized to 0 in properties layer *)
+  let border_spacing_x_var =
+    Var.property_default Css.Length ~initial:Zero ~universal:true
+      ~property_order:20 "tw-border-spacing-x"
+
+  let border_spacing_y_var =
+    Var.property_default Css.Length ~initial:Zero ~universal:true
+      ~property_order:21 "tw-border-spacing-y"
+
+  (** Get spacing value - uses theme variable var(--spacing-N) *)
+  let spacing_value n =
+    let decl, len = Theme.spacing_calc n in
+    (decl, len)
+
+  (** border-spacing: sets both x and y variables and outputs two-value
+      border-spacing *)
+  let border_spacing_style n =
+    let spacing_decl, spacing_len = spacing_value n in
+    (* Set --tw-border-spacing-x and --tw-border-spacing-y to the spacing
+       value *)
+    let decl_x, x_ref = Var.binding border_spacing_x_var spacing_len in
+    let decl_y, y_ref = Var.binding border_spacing_y_var spacing_len in
+    let property_rules =
+      [
+        Var.property_rule border_spacing_x_var;
+        Var.property_rule border_spacing_y_var;
+      ]
+      |> List.filter_map Fun.id
+    in
+    style
+      ~property_rules:(Css.concat property_rules)
+      [
+        spacing_decl;
+        decl_x;
+        decl_y;
+        Css.border_spacing [ Var x_ref; Var y_ref ];
+      ]
+
+  (** border-spacing-x: sets only x variable *)
+  let border_spacing_x_style n =
+    let spacing_decl, spacing_len = spacing_value n in
+    let decl_x, x_ref = Var.binding border_spacing_x_var spacing_len in
+    let _, y_ref = Var.binding border_spacing_y_var Zero in
+    let property_rules =
+      [
+        Var.property_rule border_spacing_x_var;
+        Var.property_rule border_spacing_y_var;
+      ]
+      |> List.filter_map Fun.id
+    in
+    style
+      ~property_rules:(Css.concat property_rules)
+      [ spacing_decl; decl_x; Css.border_spacing [ Var x_ref; Var y_ref ] ]
+
+  (** border-spacing-y: sets only y variable *)
+  let border_spacing_y_style n =
+    let spacing_decl, spacing_len = spacing_value n in
+    let _, x_ref = Var.binding border_spacing_x_var Zero in
+    let decl_y, y_ref = Var.binding border_spacing_y_var spacing_len in
+    let property_rules =
+      [
+        Var.property_rule border_spacing_x_var;
+        Var.property_rule border_spacing_y_var;
+      ]
+      |> List.filter_map Fun.id
+    in
+    style
+      ~property_rules:(Css.concat property_rules)
+      [ spacing_decl; decl_y; Css.border_spacing [ Var x_ref; Var y_ref ] ]
+
   let to_style = function
     | Border_collapse -> style [ Css.border_collapse Collapse ]
     | Border_separate -> style [ Css.border_collapse Separate ]
-    | Border_spacing n ->
-        style [ Css.border_spacing [ Rem (float_of_int n *. 0.25) ] ]
+    | Border_spacing n -> border_spacing_style n
+    | Border_spacing_x n -> border_spacing_x_style n
+    | Border_spacing_y n -> border_spacing_y_style n
     | Table_auto -> style [ Css.table_layout Auto ]
     | Table_fixed -> style [ Css.table_layout Fixed ]
     | Caption_top -> style [ Css.caption_side Top ]
@@ -57,6 +132,8 @@ module Handler = struct
     | Border_collapse -> 30
     | Border_separate -> 31
     | Border_spacing n -> 32 + n
+    | Border_spacing_x n -> 1032 + n
+    | Border_spacing_y n -> 2032 + n
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
@@ -66,6 +143,14 @@ module Handler = struct
     | [ "border"; "spacing"; n ] -> (
         match int_of_string_opt n with
         | Some i when i >= 0 -> Ok (Border_spacing i)
+        | _ -> err_not_utility)
+    | [ "border"; "spacing"; "x"; n ] -> (
+        match int_of_string_opt n with
+        | Some i when i >= 0 -> Ok (Border_spacing_x i)
+        | _ -> err_not_utility)
+    | [ "border"; "spacing"; "y"; n ] -> (
+        match int_of_string_opt n with
+        | Some i when i >= 0 -> Ok (Border_spacing_y i)
         | _ -> err_not_utility)
     | [ "table"; "auto" ] -> Ok Table_auto
     | [ "table"; "fixed" ] -> Ok Table_fixed
@@ -77,6 +162,8 @@ module Handler = struct
     | Border_collapse -> "border-collapse"
     | Border_separate -> "border-separate"
     | Border_spacing n -> "border-spacing-" ^ string_of_int n
+    | Border_spacing_x n -> "border-spacing-x-" ^ string_of_int n
+    | Border_spacing_y n -> "border-spacing-y-" ^ string_of_int n
     | Table_auto -> "table-auto"
     | Table_fixed -> "table-fixed"
     | Caption_top -> "caption-top"
@@ -94,6 +181,8 @@ let utility x = Utility.base (Self x)
 let border_collapse = utility Border_collapse
 let border_separate = utility Border_separate
 let border_spacing n = utility (Border_spacing n)
+let border_spacing_x n = utility (Border_spacing_x n)
+let border_spacing_y n = utility (Border_spacing_y n)
 let table_auto = utility Table_auto
 let table_fixed = utility Table_fixed
 let caption_top = utility Caption_top

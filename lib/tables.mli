@@ -15,7 +15,13 @@ val border_separate : t
 (** [border_separate] separates table borders. *)
 
 val border_spacing : int -> t
-(** [border_spacing n] sets uniform table border-spacing. *)
+(** [border_spacing n] sets uniform table border-spacing using CSS variables. *)
+
+val border_spacing_x : int -> t
+(** [border_spacing_x n] sets horizontal table border-spacing. *)
+
+val border_spacing_y : int -> t
+(** [border_spacing_y n] sets vertical table border-spacing. *)
 
 val table_auto : t
 (** [table_auto] uses automatic table layout. *)
