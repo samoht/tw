@@ -269,13 +269,14 @@ let selector_with_data_key selector key value =
 
 let responsive_rule breakpoint base_class selector props =
   let prefix = string_of_breakpoint breakpoint in
-  let px_value =
+  (* Use rem values matching Tailwind v4's theme breakpoints *)
+  let rem_value =
     match prefix with
-    | "sm" -> 640.
-    | "md" -> 768.
-    | "lg" -> 1024.
-    | "xl" -> 1280.
-    | "2xl" -> 1536.
+    | "sm" -> 40. (* 40rem = 640px *)
+    | "md" -> 48. (* 48rem = 768px *)
+    | "lg" -> 64. (* 64rem = 1024px *)
+    | "xl" -> 80. (* 80rem = 1280px *)
+    | "2xl" -> 96. (* 96rem = 1536px *)
     | _ -> 0.
   in
   let modified_class = prefix ^ ":" ^ base_class in
@@ -283,8 +284,8 @@ let responsive_rule breakpoint base_class selector props =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
   in
-  media_query ~condition:(Css.Media.Min_width px_value) ~selector:new_selector
-    ~props ~base_class:modified_class ()
+  media_query ~condition:(Css.Media.Min_width_rem rem_value)
+    ~selector:new_selector ~props ~base_class:modified_class ()
 
 let max_responsive_rule breakpoint base_class selector props =
   let prefix =
@@ -295,20 +296,21 @@ let max_responsive_rule breakpoint base_class selector props =
     | `Xl -> "max-xl"
     | `Xl_2 -> "max-2xl"
   in
-  let px_value =
+  (* Use rem values matching Tailwind v4's theme breakpoints *)
+  let rem_value =
     match breakpoint with
-    | `Sm -> 640.
-    | `Md -> 768.
-    | `Lg -> 1024.
-    | `Xl -> 1280.
-    | `Xl_2 -> 1536.
+    | `Sm -> 40. (* 40rem = 640px *)
+    | `Md -> 48. (* 48rem = 768px *)
+    | `Lg -> 64. (* 64rem = 1024px *)
+    | `Xl -> 80. (* 80rem = 1280px *)
+    | `Xl_2 -> 96. (* 96rem = 1536px *)
   in
   let modified_class = prefix ^ ":" ^ base_class in
   let new_selector =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
   in
-  media_query ~condition:(Css.Media.Not_min_width px_value)
+  media_query ~condition:(Css.Media.Not_min_width_rem rem_value)
     ~selector:new_selector ~props ~base_class:modified_class ()
 
 let min_arbitrary_rule px base_class selector props =
@@ -1453,7 +1455,10 @@ let compare_different_utility_regular_media sel1 sel2 order1 order2 media_type =
       else
         (* Same priority - Regular before its media variants *)
         match media_type with
-        | Some (Css.Media.Min_width _ | Css.Media.Hover) -> -1
+        | Some
+            (Css.Media.Min_width _ | Css.Media.Min_width_rem _ | Css.Media.Hover)
+          ->
+            -1
         | _ ->
             let sub_cmp = Int.compare s1 s2 in
             if sub_cmp <> 0 then sub_cmp else -1
@@ -1465,7 +1470,10 @@ let compare_different_utility_regular_media sel1 sel2 order1 order2 media_type =
       (* ALL focus: utilities come AFTER hover:hover and responsive media,
          regardless of their underlying utility's priority *)
       match media_type with
-      | Some (Css.Media.Hover | Css.Media.Min_width _) -> 1
+      | Some
+          (Css.Media.Hover | Css.Media.Min_width _ | Css.Media.Min_width_rem _)
+        ->
+          1
       | _ ->
           (* For other media types, compare by priority *)
           let prio_cmp = Int.compare p1 p2 in
@@ -1479,7 +1487,7 @@ let compare_different_utility_regular_media sel1 sel2 order1 order2 media_type =
           (* For modifier-based hover media (hover:, group-hover:), Regular
              utilities always come first, regardless of priority. *)
           -1
-      | Some (Css.Media.Min_width _) ->
+      | Some (Css.Media.Min_width _ | Css.Media.Min_width_rem _) ->
           (* For responsive media (md:, lg:), Regular always comes before Media
              when comparing different utilities *)
           -1
