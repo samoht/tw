@@ -375,7 +375,15 @@ let rec pp_modifier = function
   | Any_pointer_coarse -> "any-pointer-coarse"
   | Any_pointer_fine -> "any-pointer-fine"
   | Noscript -> "noscript"
-  | Supports cond -> "supports-[" ^ cond ^ "]"
+  | Supports cond ->
+      (* Handle shorthand supports-<property> vs supports-[condition] *)
+      if String.ends_with ~suffix:": var(--tw)" cond then
+        let prop_len =
+          String.length cond - 11
+          (* ": var(--tw)" is 11 chars *)
+        in
+        "supports-" ^ String.sub cond 0 prop_len
+      else "supports-[" ^ cond ^ "]"
 
 let rec pp ppf = function
   | Style { props; _ } ->

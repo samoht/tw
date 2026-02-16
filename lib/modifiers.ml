@@ -1171,18 +1171,29 @@ let try_bracketed_modifier s =
                               with
                               | Some _ as r -> r
                               | None ->
-                                  let* content =
-                                    extract_bracket_content ~prefix:"data-[" s
-                                  in
-                                  let key, value =
-                                    match String.index_opt content '=' with
-                                    | Some i ->
-                                        ( String.sub content 0 i,
-                                          String.sub content (i + 1)
-                                            (String.length content - i - 1) )
-                                    | None -> (content, "")
-                                  in
-                                  Some (Data_custom (key, value)))))))))
+                                  (* Handle supports-<property> shorthand *)
+                                  if
+                                    String.length s > 9
+                                    && String.sub s 0 9 = "supports-"
+                                    && not (String.contains s '[')
+                                  then
+                                    let prop =
+                                      String.sub s 9 (String.length s - 9)
+                                    in
+                                    Some (Supports (prop ^ ": var(--tw)"))
+                                  else
+                                    let* content =
+                                      extract_bracket_content ~prefix:"data-[" s
+                                    in
+                                    let key, value =
+                                      match String.index_opt content '=' with
+                                      | Some i ->
+                                          ( String.sub content 0 i,
+                                            String.sub content (i + 1)
+                                              (String.length content - i - 1) )
+                                      | None -> (content, "")
+                                    in
+                                    Some (Data_custom (key, value)))))))))
 
 (* Simple modifiers - direct string to modifier mapping *)
 let simple_modifiers =

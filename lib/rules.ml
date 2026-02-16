@@ -555,26 +555,39 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
         selector props
   (* Supports feature query *)
   | Style.Supports condition_str ->
-      let modified_class = "supports-[" ^ condition_str ^ "]:" ^ base_class in
+      (* Use shorthand class name for supports-<property> patterns, otherwise
+         use bracket notation *)
+      let modified_class =
+        if String.ends_with ~suffix:": var(--tw)" condition_str then
+          let prop_len = String.length condition_str - 11 in
+          "supports-" ^ String.sub condition_str 0 prop_len ^ ":" ^ base_class
+        else "supports-[" ^ condition_str ^ "]:" ^ base_class
+      in
       let new_selector =
         Rules_selector.replace_class_in_selector ~old_class:base_class
           ~new_class:modified_class selector
       in
-      (* Parse as Property(prop, value) for simple "property:value" patterns,
+      (* Parse as Property(prop, value) for "property: value" patterns,
          otherwise use Raw for complex conditions like "not (foo)" *)
       let condition =
         match String.index_opt condition_str ':' with
-        | Some colon_pos when not (String.contains condition_str '(') ->
-            (* Simple property:value - use structured type *)
+        | Some colon_pos ->
             let prop = String.sub condition_str 0 colon_pos |> String.trim in
             let value =
               String.sub condition_str (colon_pos + 1)
                 (String.length condition_str - colon_pos - 1)
               |> String.trim
             in
-            Css.Supports.Property (prop, value)
-        | _ ->
-            (* Complex condition - pass through as Raw *)
+            (* If value has balanced parens like var(--tw), use Property. Only
+               use Raw for complex conditions with operators *)
+            if
+              String.contains value ' '
+              && (String.contains value '(' || String.contains value ')')
+              && not (String.starts_with ~prefix:"var(" value)
+            then Css.Supports.Raw condition_str
+            else Css.Supports.Property (prop, value)
+        | None ->
+            (* No colon - use Raw for things like "not (display: grid)" *)
             Css.Supports.Raw condition_str
       in
       supports_query ~condition ~selector:new_selector ~props
