@@ -656,19 +656,38 @@ module Handler = struct
   let backface_visible = style [ backface_visibility Visible ]
   let backface_hidden = style [ backface_visibility Hidden ]
 
-  (** {1 Transform Origin Utilities} *)
+  (** {1 Transform Origin Utilities}
 
-  let origin_center = style [ transform_origin Center ]
-  let origin_top = style [ transform_origin Top ]
-  let origin_bottom = style [ transform_origin Bottom ]
-  let origin_left = style [ transform_origin (X (Pct 0.0)) ]
-  let origin_right = style [ transform_origin (X (Pct 100.0)) ]
-  let origin_top_left = style [ transform_origin (XY (Pct 0.0, Pct 0.0)) ]
-  let origin_top_right = style [ transform_origin (XY (Pct 100.0, Pct 0.0)) ]
-  let origin_bottom_left = style [ transform_origin (XY (Pct 0.0, Pct 100.0)) ]
+      Tailwind v4 uses theme variable references for origin utilities when theme
+      variables are defined. *)
+
+  let origin_center =
+    style [ transform_origin (Arbitrary "var(--transform-origin-center)") ]
+
+  let origin_top =
+    style [ transform_origin (Arbitrary "var(--transform-origin-top)") ]
+
+  let origin_bottom =
+    style [ transform_origin (Arbitrary "var(--transform-origin-bottom)") ]
+
+  let origin_left =
+    style [ transform_origin (Arbitrary "var(--transform-origin-left)") ]
+
+  let origin_right =
+    style [ transform_origin (Arbitrary "var(--transform-origin-right)") ]
+
+  let origin_top_left =
+    style [ transform_origin (Arbitrary "var(--transform-origin-top-left)") ]
+
+  let origin_top_right =
+    style [ transform_origin (Arbitrary "var(--transform-origin-top-right)") ]
+
+  let origin_bottom_left =
+    style [ transform_origin (Arbitrary "var(--transform-origin-bottom-left)") ]
 
   let origin_bottom_right =
-    style [ transform_origin (XY (Pct 100.0, Pct 100.0)) ]
+    style
+      [ transform_origin (Arbitrary "var(--transform-origin-bottom-right)") ]
 
   let origin_arbitrary s =
     (* Convert underscore to space for arbitrary values like 50px_100px *)
