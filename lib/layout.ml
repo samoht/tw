@@ -399,19 +399,36 @@ module Handler = struct
     | Object_fill -> style [ object_fit Fill ]
     | Object_none -> style [ object_fit None ]
     | Object_scale_down -> style [ object_fit Scale_down ]
-    | Object_center -> style [ object_position Center ]
-    | Object_top -> style [ object_position Top ]
-    | Object_bottom -> style [ object_position Bottom ]
-    | Object_left -> style [ object_position Left ]
-    | Object_right -> style [ object_position Right ]
-    | Object_bottom_left -> style [ object_position Bottom_left ]
-    | Object_bottom_right -> style [ object_position Bottom_right ]
-    | Object_left_bottom -> style [ object_position Left_bottom ]
-    | Object_left_top -> style [ object_position Left_top ]
-    | Object_right_bottom -> style [ object_position Right_bottom ]
-    | Object_right_top -> style [ object_position Right_top ]
-    | Object_top_left -> style [ object_position Top_left ]
-    | Object_top_right -> style [ object_position Top_right ]
+    | Object_center ->
+        style [ object_position (Arbitrary "var(--object-position-center)") ]
+    | Object_top ->
+        style [ object_position (Arbitrary "var(--object-position-top)") ]
+    | Object_bottom ->
+        style [ object_position (Arbitrary "var(--object-position-bottom)") ]
+    | Object_left ->
+        style [ object_position (Arbitrary "var(--object-position-left)") ]
+    | Object_right ->
+        style [ object_position (Arbitrary "var(--object-position-right)") ]
+    | Object_bottom_left ->
+        style
+          [ object_position (Arbitrary "var(--object-position-bottom-left)") ]
+    | Object_bottom_right ->
+        style
+          [ object_position (Arbitrary "var(--object-position-bottom-right)") ]
+    | Object_left_bottom ->
+        style
+          [ object_position (Arbitrary "var(--object-position-left-bottom)") ]
+    | Object_left_top ->
+        style [ object_position (Arbitrary "var(--object-position-left-top)") ]
+    | Object_right_bottom ->
+        style
+          [ object_position (Arbitrary "var(--object-position-right-bottom)") ]
+    | Object_right_top ->
+        style [ object_position (Arbitrary "var(--object-position-right-top)") ]
+    | Object_top_left ->
+        style [ object_position (Arbitrary "var(--object-position-top-left)") ]
+    | Object_top_right ->
+        style [ object_position (Arbitrary "var(--object-position-top-right)") ]
     | Float_left -> style [ Css.float Left ]
     | Float_right -> style [ Css.float Right ]
     | Float_none -> style [ Css.float None ]
