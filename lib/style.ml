@@ -167,7 +167,7 @@ type modifier =
   | Any_pointer_none
   | Any_pointer_coarse
   | Any_pointer_fine
-  | Scripting_none
+  | Noscript
   | Supports of string
 
 type t =
@@ -374,7 +374,7 @@ let rec pp_modifier = function
   | Any_pointer_none -> "any-pointer-none"
   | Any_pointer_coarse -> "any-pointer-coarse"
   | Any_pointer_fine -> "any-pointer-fine"
-  | Scripting_none -> "scripting-none"
+  | Noscript -> "noscript"
   | Supports cond -> "supports-[" ^ cond ^ "]"
 
 let rec pp ppf = function

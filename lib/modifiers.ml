@@ -627,7 +627,7 @@ let to_selector (modifier : modifier) cls =
   | Any_pointer_none -> Css.Selector.Class ("any-pointer-none:" ^ cls)
   | Any_pointer_coarse -> Css.Selector.Class ("any-pointer-coarse:" ^ cls)
   | Any_pointer_fine -> Css.Selector.Class ("any-pointer-fine:" ^ cls)
-  | Scripting_none -> Css.Selector.Class ("scripting-none:" ^ cls)
+  | Noscript -> Css.Selector.Class ("noscript:" ^ cls)
   | _ -> Css.Selector.Class cls (* fallback for complex modifiers *)
 
 (** Check if a modifier generates a hover rule *)
@@ -1088,7 +1088,7 @@ let pp_modifier = function
   | Any_pointer_none -> "any-pointer-none"
   | Any_pointer_coarse -> "any-pointer-coarse"
   | Any_pointer_fine -> "any-pointer-fine"
-  | Scripting_none -> "scripting-none"
+  | Noscript -> "noscript"
   | Supports cond -> "supports-[" ^ cond ^ "]"
 
 (* Find matching closing bracket, handling nested brackets *)
@@ -1220,7 +1220,7 @@ let simple_modifiers =
     ("any-pointer-none", Any_pointer_none);
     ("any-pointer-coarse", Any_pointer_coarse);
     ("any-pointer-fine", Any_pointer_fine);
-    ("scripting-none", Scripting_none);
+    ("noscript", Noscript);
     ("print", Print);
     ("portrait", Portrait);
     ("landscape", Landscape);

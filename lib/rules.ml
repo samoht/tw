@@ -549,8 +549,8 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
         ~condition:(Css.Media.Any_pointer `Fine) ~inner_has_hover base_class
         selector props
   (* Scripting media *)
-  | Style.Scripting_none ->
-      handle_media_like_modifier Style.Scripting_none
+  | Style.Noscript ->
+      handle_media_like_modifier Style.Noscript
         ~condition:(Css.Media.Scripting `None) ~inner_has_hover base_class
         selector props
   (* Supports feature query *)
@@ -751,7 +751,7 @@ let apply_modifier_to_rule modifier = function
               ~selector:new_selector ~props:[] ?base_class
               ~nested:[ inner_media ] ();
           ]
-      | Style.Scripting_none ->
+      | Style.Noscript ->
           [
             media_query ~condition:(Css.Media.Scripting `None)
               ~selector:new_selector ~props:[] ?base_class

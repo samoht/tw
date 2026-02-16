@@ -167,7 +167,7 @@ type modifier =
   | Any_pointer_none
   | Any_pointer_coarse
   | Any_pointer_fine
-  | Scripting_none
+  | Noscript
   | Supports of string
 
 type t =
