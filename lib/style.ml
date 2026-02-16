@@ -160,6 +160,14 @@ type modifier =
   | Portrait
   | Landscape
   | Forced_colors
+  | Inverted_colors
+  | Pointer_none
+  | Pointer_coarse
+  | Pointer_fine
+  | Any_pointer_none
+  | Any_pointer_coarse
+  | Any_pointer_fine
+  | Scripting_none
   | Supports of string
 
 type t =
@@ -359,6 +367,14 @@ let rec pp_modifier = function
   | Portrait -> "portrait"
   | Landscape -> "landscape"
   | Forced_colors -> "forced-colors"
+  | Inverted_colors -> "inverted-colors"
+  | Pointer_none -> "pointer-none"
+  | Pointer_coarse -> "pointer-coarse"
+  | Pointer_fine -> "pointer-fine"
+  | Any_pointer_none -> "any-pointer-none"
+  | Any_pointer_coarse -> "any-pointer-coarse"
+  | Any_pointer_fine -> "any-pointer-fine"
+  | Scripting_none -> "scripting-none"
   | Supports cond -> "supports-[" ^ cond ^ "]"
 
 let rec pp ppf = function

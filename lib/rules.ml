@@ -517,6 +517,42 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
       handle_media_like_modifier Style.Forced_colors
         ~condition:(Css.Media.Forced_colors `Active) ~inner_has_hover base_class
         selector props
+  (* Inverted colors *)
+  | Style.Inverted_colors ->
+      handle_media_like_modifier Style.Inverted_colors
+        ~condition:(Css.Media.Inverted_colors `Inverted) ~inner_has_hover
+        base_class selector props
+  (* Pointer media *)
+  | Style.Pointer_none ->
+      handle_media_like_modifier Style.Pointer_none
+        ~condition:(Css.Media.Pointer `None) ~inner_has_hover base_class
+        selector props
+  | Style.Pointer_coarse ->
+      handle_media_like_modifier Style.Pointer_coarse
+        ~condition:(Css.Media.Pointer `Coarse) ~inner_has_hover base_class
+        selector props
+  | Style.Pointer_fine ->
+      handle_media_like_modifier Style.Pointer_fine
+        ~condition:(Css.Media.Pointer `Fine) ~inner_has_hover base_class
+        selector props
+  (* Any pointer media *)
+  | Style.Any_pointer_none ->
+      handle_media_like_modifier Style.Any_pointer_none
+        ~condition:(Css.Media.Any_pointer `None) ~inner_has_hover base_class
+        selector props
+  | Style.Any_pointer_coarse ->
+      handle_media_like_modifier Style.Any_pointer_coarse
+        ~condition:(Css.Media.Any_pointer `Coarse) ~inner_has_hover base_class
+        selector props
+  | Style.Any_pointer_fine ->
+      handle_media_like_modifier Style.Any_pointer_fine
+        ~condition:(Css.Media.Any_pointer `Fine) ~inner_has_hover base_class
+        selector props
+  (* Scripting media *)
+  | Style.Scripting_none ->
+      handle_media_like_modifier Style.Scripting_none
+        ~condition:(Css.Media.Scripting `None) ~inner_has_hover base_class
+        selector props
   (* Supports feature query *)
   | Style.Supports condition_str ->
       let modified_class = "supports-[" ^ condition_str ^ "]:" ^ base_class in
@@ -670,6 +706,54 @@ let apply_modifier_to_rule modifier = function
       | Style.Forced_colors ->
           [
             media_query ~condition:(Css.Media.Forced_colors `Active)
+              ~selector:new_selector ~props:[] ?base_class
+              ~nested:[ inner_media ] ();
+          ]
+      | Style.Inverted_colors ->
+          [
+            media_query ~condition:(Css.Media.Inverted_colors `Inverted)
+              ~selector:new_selector ~props:[] ?base_class
+              ~nested:[ inner_media ] ();
+          ]
+      | Style.Pointer_none ->
+          [
+            media_query ~condition:(Css.Media.Pointer `None)
+              ~selector:new_selector ~props:[] ?base_class
+              ~nested:[ inner_media ] ();
+          ]
+      | Style.Pointer_coarse ->
+          [
+            media_query ~condition:(Css.Media.Pointer `Coarse)
+              ~selector:new_selector ~props:[] ?base_class
+              ~nested:[ inner_media ] ();
+          ]
+      | Style.Pointer_fine ->
+          [
+            media_query ~condition:(Css.Media.Pointer `Fine)
+              ~selector:new_selector ~props:[] ?base_class
+              ~nested:[ inner_media ] ();
+          ]
+      | Style.Any_pointer_none ->
+          [
+            media_query ~condition:(Css.Media.Any_pointer `None)
+              ~selector:new_selector ~props:[] ?base_class
+              ~nested:[ inner_media ] ();
+          ]
+      | Style.Any_pointer_coarse ->
+          [
+            media_query ~condition:(Css.Media.Any_pointer `Coarse)
+              ~selector:new_selector ~props:[] ?base_class
+              ~nested:[ inner_media ] ();
+          ]
+      | Style.Any_pointer_fine ->
+          [
+            media_query ~condition:(Css.Media.Any_pointer `Fine)
+              ~selector:new_selector ~props:[] ?base_class
+              ~nested:[ inner_media ] ();
+          ]
+      | Style.Scripting_none ->
+          [
+            media_query ~condition:(Css.Media.Scripting `None)
               ~selector:new_selector ~props:[] ?base_class
               ~nested:[ inner_media ] ();
           ]

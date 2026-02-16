@@ -620,6 +620,14 @@ let to_selector (modifier : modifier) cls =
   | Portrait -> Css.Selector.Class ("portrait:" ^ cls)
   | Landscape -> Css.Selector.Class ("landscape:" ^ cls)
   | Forced_colors -> Css.Selector.Class ("forced-colors:" ^ cls)
+  | Inverted_colors -> Css.Selector.Class ("inverted-colors:" ^ cls)
+  | Pointer_none -> Css.Selector.Class ("pointer-none:" ^ cls)
+  | Pointer_coarse -> Css.Selector.Class ("pointer-coarse:" ^ cls)
+  | Pointer_fine -> Css.Selector.Class ("pointer-fine:" ^ cls)
+  | Any_pointer_none -> Css.Selector.Class ("any-pointer-none:" ^ cls)
+  | Any_pointer_coarse -> Css.Selector.Class ("any-pointer-coarse:" ^ cls)
+  | Any_pointer_fine -> Css.Selector.Class ("any-pointer-fine:" ^ cls)
+  | Scripting_none -> Css.Selector.Class ("scripting-none:" ^ cls)
   | _ -> Css.Selector.Class cls (* fallback for complex modifiers *)
 
 (** Check if a modifier generates a hover rule *)
@@ -1073,6 +1081,14 @@ let pp_modifier = function
   | Portrait -> "portrait"
   | Landscape -> "landscape"
   | Forced_colors -> "forced-colors"
+  | Inverted_colors -> "inverted-colors"
+  | Pointer_none -> "pointer-none"
+  | Pointer_coarse -> "pointer-coarse"
+  | Pointer_fine -> "pointer-fine"
+  | Any_pointer_none -> "any-pointer-none"
+  | Any_pointer_coarse -> "any-pointer-coarse"
+  | Any_pointer_fine -> "any-pointer-fine"
+  | Scripting_none -> "scripting-none"
   | Supports cond -> "supports-[" ^ cond ^ "]"
 
 (* Find matching closing bracket, handling nested brackets *)
@@ -1197,6 +1213,14 @@ let simple_modifiers =
     ("contrast-more", Contrast_more);
     ("contrast-less", Contrast_less);
     ("forced-colors", Forced_colors);
+    ("inverted-colors", Inverted_colors);
+    ("pointer-none", Pointer_none);
+    ("pointer-coarse", Pointer_coarse);
+    ("pointer-fine", Pointer_fine);
+    ("any-pointer-none", Any_pointer_none);
+    ("any-pointer-coarse", Any_pointer_coarse);
+    ("any-pointer-fine", Any_pointer_fine);
+    ("scripting-none", Scripting_none);
     ("print", Print);
     ("portrait", Portrait);
     ("landscape", Landscape);

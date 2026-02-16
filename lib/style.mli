@@ -160,6 +160,14 @@ type modifier =
   | Portrait
   | Landscape
   | Forced_colors
+  | Inverted_colors
+  | Pointer_none
+  | Pointer_coarse
+  | Pointer_fine
+  | Any_pointer_none
+  | Any_pointer_coarse
+  | Any_pointer_fine
+  | Scripting_none
   | Supports of string
 
 type t =
