@@ -37,7 +37,7 @@ module Handler = struct
     style [ decl; columns (Width (Var ref_)) ]
 
   let to_style = function
-    | Columns_auto -> style [ columns Auto ]
+    | Columns_auto -> style [ columns (Var (Css.var_ref "columns-auto")) ]
     | Columns_count n -> style [ columns (Count n) ]
     | Columns_3xs -> columns_with_var Sizing.container_3xs (Rem 16.0)
     | Columns_2xs -> columns_with_var Sizing.container_2xs (Rem 18.0)
