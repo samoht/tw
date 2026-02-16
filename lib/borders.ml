@@ -157,6 +157,66 @@ module Handler = struct
     | Rounded_bl_2xl
     | Rounded_bl_3xl
     | Rounded_bl_full
+    | (* Logical property rounded utilities - start (inline-start) *)
+      Rounded_s
+    | Rounded_s_none
+    | Rounded_s_sm
+    | Rounded_s_md
+    | Rounded_s_lg
+    | Rounded_s_xl
+    | Rounded_s_2xl
+    | Rounded_s_3xl
+    | Rounded_s_full
+    | (* Logical property rounded utilities - end (inline-end) *)
+      Rounded_e
+    | Rounded_e_none
+    | Rounded_e_sm
+    | Rounded_e_md
+    | Rounded_e_lg
+    | Rounded_e_xl
+    | Rounded_e_2xl
+    | Rounded_e_3xl
+    | Rounded_e_full
+    | (* Logical corner rounded utilities - start-start *)
+      Rounded_ss
+    | Rounded_ss_none
+    | Rounded_ss_sm
+    | Rounded_ss_md
+    | Rounded_ss_lg
+    | Rounded_ss_xl
+    | Rounded_ss_2xl
+    | Rounded_ss_3xl
+    | Rounded_ss_full
+    | (* Logical corner rounded utilities - start-end *)
+      Rounded_se
+    | Rounded_se_none
+    | Rounded_se_sm
+    | Rounded_se_md
+    | Rounded_se_lg
+    | Rounded_se_xl
+    | Rounded_se_2xl
+    | Rounded_se_3xl
+    | Rounded_se_full
+    | (* Logical corner rounded utilities - end-end *)
+      Rounded_ee
+    | Rounded_ee_none
+    | Rounded_ee_sm
+    | Rounded_ee_md
+    | Rounded_ee_lg
+    | Rounded_ee_xl
+    | Rounded_ee_2xl
+    | Rounded_ee_3xl
+    | Rounded_ee_full
+    | (* Logical corner rounded utilities - end-start *)
+      Rounded_es
+    | Rounded_es_none
+    | Rounded_es_sm
+    | Rounded_es_md
+    | Rounded_es_lg
+    | Rounded_es_xl
+    | Rounded_es_2xl
+    | Rounded_es_3xl
+    | Rounded_es_full
     | (* Outline utilities *)
       Outline_none
     | Outline_solid
@@ -878,6 +938,370 @@ module Handler = struct
     let decl, r = Var.binding radius_full_var (Px 9999.) in
     style (decl :: [ Css.border_bottom_left_radius (Var r) ])
 
+  (** Logical property rounded utilities - start (inline-start) *)
+  let rounded_s =
+    let decl, r = Var.binding radius_var (Rem 0.25) in
+    style
+      (decl
+      :: [
+           Css.border_start_start_radius (Var r);
+           Css.border_end_start_radius (Var r);
+         ])
+
+  let rounded_s_none () =
+    match Scheme.find_radius !current_scheme "none" with
+    | Some explicit_length ->
+        let decl, r = Var.binding radius_none_var explicit_length in
+        style
+          (decl
+          :: [
+               Css.border_start_start_radius (Var r);
+               Css.border_end_start_radius (Var r);
+             ])
+    | None ->
+        style
+          [
+            Css.border_start_start_radius Zero; Css.border_end_start_radius Zero;
+          ]
+
+  let rounded_s_sm =
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+    style
+      (decl
+      :: [
+           Css.border_start_start_radius (Var r);
+           Css.border_end_start_radius (Var r);
+         ])
+
+  let rounded_s_md =
+    let decl, r = Var.binding radius_md_var (Rem 0.375) in
+    style
+      (decl
+      :: [
+           Css.border_start_start_radius (Var r);
+           Css.border_end_start_radius (Var r);
+         ])
+
+  let rounded_s_lg =
+    let decl, r = Var.binding radius_lg_var (Rem 0.5) in
+    style
+      (decl
+      :: [
+           Css.border_start_start_radius (Var r);
+           Css.border_end_start_radius (Var r);
+         ])
+
+  let rounded_s_xl =
+    let decl, r = Var.binding radius_xl_var (Rem 0.75) in
+    style
+      (decl
+      :: [
+           Css.border_start_start_radius (Var r);
+           Css.border_end_start_radius (Var r);
+         ])
+
+  let rounded_s_2xl =
+    let decl, r = Var.binding radius_2xl_var (Rem 1.0) in
+    style
+      (decl
+      :: [
+           Css.border_start_start_radius (Var r);
+           Css.border_end_start_radius (Var r);
+         ])
+
+  let rounded_s_3xl =
+    let decl, r = Var.binding radius_3xl_var (Rem 1.5) in
+    style
+      (decl
+      :: [
+           Css.border_start_start_radius (Var r);
+           Css.border_end_start_radius (Var r);
+         ])
+
+  let rounded_s_full () =
+    match Scheme.find_radius !current_scheme "full" with
+    | Some explicit_length ->
+        let decl, r = Var.binding radius_full_var explicit_length in
+        style
+          (decl
+          :: [
+               Css.border_start_start_radius (Var r);
+               Css.border_end_start_radius (Var r);
+             ])
+    | None ->
+        style
+          [
+            Css.border_start_start_radius (Px 3.40282e38);
+            Css.border_end_start_radius (Px 3.40282e38);
+          ]
+
+  (** Logical property rounded utilities - end (inline-end) *)
+  let rounded_e =
+    let decl, r = Var.binding radius_var (Rem 0.25) in
+    style
+      (decl
+      :: [
+           Css.border_start_end_radius (Var r);
+           Css.border_end_end_radius (Var r);
+         ])
+
+  let rounded_e_none () =
+    match Scheme.find_radius !current_scheme "none" with
+    | Some explicit_length ->
+        let decl, r = Var.binding radius_none_var explicit_length in
+        style
+          (decl
+          :: [
+               Css.border_start_end_radius (Var r);
+               Css.border_end_end_radius (Var r);
+             ])
+    | None ->
+        style
+          [ Css.border_start_end_radius Zero; Css.border_end_end_radius Zero ]
+
+  let rounded_e_sm =
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+    style
+      (decl
+      :: [
+           Css.border_start_end_radius (Var r);
+           Css.border_end_end_radius (Var r);
+         ])
+
+  let rounded_e_md =
+    let decl, r = Var.binding radius_md_var (Rem 0.375) in
+    style
+      (decl
+      :: [
+           Css.border_start_end_radius (Var r);
+           Css.border_end_end_radius (Var r);
+         ])
+
+  let rounded_e_lg =
+    let decl, r = Var.binding radius_lg_var (Rem 0.5) in
+    style
+      (decl
+      :: [
+           Css.border_start_end_radius (Var r);
+           Css.border_end_end_radius (Var r);
+         ])
+
+  let rounded_e_xl =
+    let decl, r = Var.binding radius_xl_var (Rem 0.75) in
+    style
+      (decl
+      :: [
+           Css.border_start_end_radius (Var r);
+           Css.border_end_end_radius (Var r);
+         ])
+
+  let rounded_e_2xl =
+    let decl, r = Var.binding radius_2xl_var (Rem 1.0) in
+    style
+      (decl
+      :: [
+           Css.border_start_end_radius (Var r);
+           Css.border_end_end_radius (Var r);
+         ])
+
+  let rounded_e_3xl =
+    let decl, r = Var.binding radius_3xl_var (Rem 1.5) in
+    style
+      (decl
+      :: [
+           Css.border_start_end_radius (Var r);
+           Css.border_end_end_radius (Var r);
+         ])
+
+  let rounded_e_full () =
+    match Scheme.find_radius !current_scheme "full" with
+    | Some explicit_length ->
+        let decl, r = Var.binding radius_full_var explicit_length in
+        style
+          (decl
+          :: [
+               Css.border_start_end_radius (Var r);
+               Css.border_end_end_radius (Var r);
+             ])
+    | None ->
+        style
+          [
+            Css.border_start_end_radius (Px 3.40282e38);
+            Css.border_end_end_radius (Px 3.40282e38);
+          ]
+
+  (** Logical corner rounded utilities - start-start *)
+  let rounded_ss =
+    let decl, r = Var.binding radius_var (Rem 0.25) in
+    style (decl :: [ Css.border_start_start_radius (Var r) ])
+
+  let rounded_ss_none () =
+    match Scheme.find_radius !current_scheme "none" with
+    | Some explicit_length ->
+        let decl, r = Var.binding radius_none_var explicit_length in
+        style (decl :: [ Css.border_start_start_radius (Var r) ])
+    | None -> style [ Css.border_start_start_radius Zero ]
+
+  let rounded_ss_sm =
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+    style (decl :: [ Css.border_start_start_radius (Var r) ])
+
+  let rounded_ss_md =
+    let decl, r = Var.binding radius_md_var (Rem 0.375) in
+    style (decl :: [ Css.border_start_start_radius (Var r) ])
+
+  let rounded_ss_lg =
+    let decl, r = Var.binding radius_lg_var (Rem 0.5) in
+    style (decl :: [ Css.border_start_start_radius (Var r) ])
+
+  let rounded_ss_xl =
+    let decl, r = Var.binding radius_xl_var (Rem 0.75) in
+    style (decl :: [ Css.border_start_start_radius (Var r) ])
+
+  let rounded_ss_2xl =
+    let decl, r = Var.binding radius_2xl_var (Rem 1.0) in
+    style (decl :: [ Css.border_start_start_radius (Var r) ])
+
+  let rounded_ss_3xl =
+    let decl, r = Var.binding radius_3xl_var (Rem 1.5) in
+    style (decl :: [ Css.border_start_start_radius (Var r) ])
+
+  let rounded_ss_full () =
+    match Scheme.find_radius !current_scheme "full" with
+    | Some explicit_length ->
+        let decl, r = Var.binding radius_full_var explicit_length in
+        style (decl :: [ Css.border_start_start_radius (Var r) ])
+    | None -> style [ Css.border_start_start_radius (Px 3.40282e38) ]
+
+  (** Logical corner rounded utilities - start-end *)
+  let rounded_se =
+    let decl, r = Var.binding radius_var (Rem 0.25) in
+    style (decl :: [ Css.border_start_end_radius (Var r) ])
+
+  let rounded_se_none () =
+    match Scheme.find_radius !current_scheme "none" with
+    | Some explicit_length ->
+        let decl, r = Var.binding radius_none_var explicit_length in
+        style (decl :: [ Css.border_start_end_radius (Var r) ])
+    | None -> style [ Css.border_start_end_radius Zero ]
+
+  let rounded_se_sm =
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+    style (decl :: [ Css.border_start_end_radius (Var r) ])
+
+  let rounded_se_md =
+    let decl, r = Var.binding radius_md_var (Rem 0.375) in
+    style (decl :: [ Css.border_start_end_radius (Var r) ])
+
+  let rounded_se_lg =
+    let decl, r = Var.binding radius_lg_var (Rem 0.5) in
+    style (decl :: [ Css.border_start_end_radius (Var r) ])
+
+  let rounded_se_xl =
+    let decl, r = Var.binding radius_xl_var (Rem 0.75) in
+    style (decl :: [ Css.border_start_end_radius (Var r) ])
+
+  let rounded_se_2xl =
+    let decl, r = Var.binding radius_2xl_var (Rem 1.0) in
+    style (decl :: [ Css.border_start_end_radius (Var r) ])
+
+  let rounded_se_3xl =
+    let decl, r = Var.binding radius_3xl_var (Rem 1.5) in
+    style (decl :: [ Css.border_start_end_radius (Var r) ])
+
+  let rounded_se_full () =
+    match Scheme.find_radius !current_scheme "full" with
+    | Some explicit_length ->
+        let decl, r = Var.binding radius_full_var explicit_length in
+        style (decl :: [ Css.border_start_end_radius (Var r) ])
+    | None -> style [ Css.border_start_end_radius (Px 3.40282e38) ]
+
+  (** Logical corner rounded utilities - end-end *)
+  let rounded_ee =
+    let decl, r = Var.binding radius_var (Rem 0.25) in
+    style (decl :: [ Css.border_end_end_radius (Var r) ])
+
+  let rounded_ee_none () =
+    match Scheme.find_radius !current_scheme "none" with
+    | Some explicit_length ->
+        let decl, r = Var.binding radius_none_var explicit_length in
+        style (decl :: [ Css.border_end_end_radius (Var r) ])
+    | None -> style [ Css.border_end_end_radius Zero ]
+
+  let rounded_ee_sm =
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+    style (decl :: [ Css.border_end_end_radius (Var r) ])
+
+  let rounded_ee_md =
+    let decl, r = Var.binding radius_md_var (Rem 0.375) in
+    style (decl :: [ Css.border_end_end_radius (Var r) ])
+
+  let rounded_ee_lg =
+    let decl, r = Var.binding radius_lg_var (Rem 0.5) in
+    style (decl :: [ Css.border_end_end_radius (Var r) ])
+
+  let rounded_ee_xl =
+    let decl, r = Var.binding radius_xl_var (Rem 0.75) in
+    style (decl :: [ Css.border_end_end_radius (Var r) ])
+
+  let rounded_ee_2xl =
+    let decl, r = Var.binding radius_2xl_var (Rem 1.0) in
+    style (decl :: [ Css.border_end_end_radius (Var r) ])
+
+  let rounded_ee_3xl =
+    let decl, r = Var.binding radius_3xl_var (Rem 1.5) in
+    style (decl :: [ Css.border_end_end_radius (Var r) ])
+
+  let rounded_ee_full () =
+    match Scheme.find_radius !current_scheme "full" with
+    | Some explicit_length ->
+        let decl, r = Var.binding radius_full_var explicit_length in
+        style (decl :: [ Css.border_end_end_radius (Var r) ])
+    | None -> style [ Css.border_end_end_radius (Px 3.40282e38) ]
+
+  (** Logical corner rounded utilities - end-start *)
+  let rounded_es =
+    let decl, r = Var.binding radius_var (Rem 0.25) in
+    style (decl :: [ Css.border_end_start_radius (Var r) ])
+
+  let rounded_es_none () =
+    match Scheme.find_radius !current_scheme "none" with
+    | Some explicit_length ->
+        let decl, r = Var.binding radius_none_var explicit_length in
+        style (decl :: [ Css.border_end_start_radius (Var r) ])
+    | None -> style [ Css.border_end_start_radius Zero ]
+
+  let rounded_es_sm =
+    let decl, r = Var.binding radius_sm_var (Rem 0.125) in
+    style (decl :: [ Css.border_end_start_radius (Var r) ])
+
+  let rounded_es_md =
+    let decl, r = Var.binding radius_md_var (Rem 0.375) in
+    style (decl :: [ Css.border_end_start_radius (Var r) ])
+
+  let rounded_es_lg =
+    let decl, r = Var.binding radius_lg_var (Rem 0.5) in
+    style (decl :: [ Css.border_end_start_radius (Var r) ])
+
+  let rounded_es_xl =
+    let decl, r = Var.binding radius_xl_var (Rem 0.75) in
+    style (decl :: [ Css.border_end_start_radius (Var r) ])
+
+  let rounded_es_2xl =
+    let decl, r = Var.binding radius_2xl_var (Rem 1.0) in
+    style (decl :: [ Css.border_end_start_radius (Var r) ])
+
+  let rounded_es_3xl =
+    let decl, r = Var.binding radius_3xl_var (Rem 1.5) in
+    style (decl :: [ Css.border_end_start_radius (Var r) ])
+
+  let rounded_es_full () =
+    match Scheme.find_radius !current_scheme "full" with
+    | Some explicit_length ->
+        let decl, r = Var.binding radius_full_var explicit_length in
+        style (decl :: [ Css.border_end_start_radius (Var r) ])
+    | None -> style [ Css.border_end_start_radius (Px 3.40282e38) ]
+
   (* Outline style variable - used by outline utilities that set the style *)
   let outline_style_var =
     Var.property_default Css.Outline_style
@@ -1078,6 +1502,63 @@ module Handler = struct
     | Rounded_bl_2xl -> rounded_bl_2xl
     | Rounded_bl_3xl -> rounded_bl_3xl
     | Rounded_bl_full -> rounded_bl_full
+    (* Logical property rounded utilities - start *)
+    | Rounded_s -> rounded_s
+    | Rounded_s_none -> rounded_s_none ()
+    | Rounded_s_sm -> rounded_s_sm
+    | Rounded_s_md -> rounded_s_md
+    | Rounded_s_lg -> rounded_s_lg
+    | Rounded_s_xl -> rounded_s_xl
+    | Rounded_s_2xl -> rounded_s_2xl
+    | Rounded_s_3xl -> rounded_s_3xl
+    | Rounded_s_full -> rounded_s_full ()
+    (* Logical property rounded utilities - end *)
+    | Rounded_e -> rounded_e
+    | Rounded_e_none -> rounded_e_none ()
+    | Rounded_e_sm -> rounded_e_sm
+    | Rounded_e_md -> rounded_e_md
+    | Rounded_e_lg -> rounded_e_lg
+    | Rounded_e_xl -> rounded_e_xl
+    | Rounded_e_2xl -> rounded_e_2xl
+    | Rounded_e_3xl -> rounded_e_3xl
+    | Rounded_e_full -> rounded_e_full ()
+    (* Logical corner rounded utilities - ss/se/ee/es *)
+    | Rounded_ss -> rounded_ss
+    | Rounded_ss_none -> rounded_ss_none ()
+    | Rounded_ss_sm -> rounded_ss_sm
+    | Rounded_ss_md -> rounded_ss_md
+    | Rounded_ss_lg -> rounded_ss_lg
+    | Rounded_ss_xl -> rounded_ss_xl
+    | Rounded_ss_2xl -> rounded_ss_2xl
+    | Rounded_ss_3xl -> rounded_ss_3xl
+    | Rounded_ss_full -> rounded_ss_full ()
+    | Rounded_se -> rounded_se
+    | Rounded_se_none -> rounded_se_none ()
+    | Rounded_se_sm -> rounded_se_sm
+    | Rounded_se_md -> rounded_se_md
+    | Rounded_se_lg -> rounded_se_lg
+    | Rounded_se_xl -> rounded_se_xl
+    | Rounded_se_2xl -> rounded_se_2xl
+    | Rounded_se_3xl -> rounded_se_3xl
+    | Rounded_se_full -> rounded_se_full ()
+    | Rounded_ee -> rounded_ee
+    | Rounded_ee_none -> rounded_ee_none ()
+    | Rounded_ee_sm -> rounded_ee_sm
+    | Rounded_ee_md -> rounded_ee_md
+    | Rounded_ee_lg -> rounded_ee_lg
+    | Rounded_ee_xl -> rounded_ee_xl
+    | Rounded_ee_2xl -> rounded_ee_2xl
+    | Rounded_ee_3xl -> rounded_ee_3xl
+    | Rounded_ee_full -> rounded_ee_full ()
+    | Rounded_es -> rounded_es
+    | Rounded_es_none -> rounded_es_none ()
+    | Rounded_es_sm -> rounded_es_sm
+    | Rounded_es_md -> rounded_es_md
+    | Rounded_es_lg -> rounded_es_lg
+    | Rounded_es_xl -> rounded_es_xl
+    | Rounded_es_2xl -> rounded_es_2xl
+    | Rounded_es_3xl -> rounded_es_3xl
+    | Rounded_es_full -> rounded_es_full ()
     (* Outline utilities *)
     | Outline_none -> outline_none
     | Outline_solid -> outline_solid
@@ -1188,6 +1669,63 @@ module Handler = struct
     | Rounded_bl_2xl -> 236
     | Rounded_bl_3xl -> 237
     | Rounded_bl_full -> 238
+    (* Logical property rounded utilities - start (240-248) *)
+    | Rounded_s -> 240
+    | Rounded_s_none -> 241
+    | Rounded_s_sm -> 242
+    | Rounded_s_md -> 243
+    | Rounded_s_lg -> 244
+    | Rounded_s_xl -> 245
+    | Rounded_s_2xl -> 246
+    | Rounded_s_3xl -> 247
+    | Rounded_s_full -> 248
+    (* Logical property rounded utilities - end (250-258) *)
+    | Rounded_e -> 250
+    | Rounded_e_none -> 251
+    | Rounded_e_sm -> 252
+    | Rounded_e_md -> 253
+    | Rounded_e_lg -> 254
+    | Rounded_e_xl -> 255
+    | Rounded_e_2xl -> 256
+    | Rounded_e_3xl -> 257
+    | Rounded_e_full -> 258
+    (* Logical corner rounded utilities (260-295) *)
+    | Rounded_ss -> 260
+    | Rounded_ss_none -> 261
+    | Rounded_ss_sm -> 262
+    | Rounded_ss_md -> 263
+    | Rounded_ss_lg -> 264
+    | Rounded_ss_xl -> 265
+    | Rounded_ss_2xl -> 266
+    | Rounded_ss_3xl -> 267
+    | Rounded_ss_full -> 268
+    | Rounded_se -> 270
+    | Rounded_se_none -> 271
+    | Rounded_se_sm -> 272
+    | Rounded_se_md -> 273
+    | Rounded_se_lg -> 274
+    | Rounded_se_xl -> 275
+    | Rounded_se_2xl -> 276
+    | Rounded_se_3xl -> 277
+    | Rounded_se_full -> 278
+    | Rounded_ee -> 280
+    | Rounded_ee_none -> 281
+    | Rounded_ee_sm -> 282
+    | Rounded_ee_md -> 283
+    | Rounded_ee_lg -> 284
+    | Rounded_ee_xl -> 285
+    | Rounded_ee_2xl -> 286
+    | Rounded_ee_3xl -> 287
+    | Rounded_ee_full -> 288
+    | Rounded_es -> 290
+    | Rounded_es_none -> 291
+    | Rounded_es_sm -> 292
+    | Rounded_es_md -> 293
+    | Rounded_es_lg -> 294
+    | Rounded_es_xl -> 295
+    | Rounded_es_2xl -> 296
+    | Rounded_es_3xl -> 297
+    | Rounded_es_full -> 298
     (* Border width utilities (1000-1099) *)
     | Border -> 1000
     | Border_0 -> 1001
@@ -1382,6 +1920,63 @@ module Handler = struct
     | [ "rounded"; "bl"; "2xl" ] -> Ok Rounded_bl_2xl
     | [ "rounded"; "bl"; "3xl" ] -> Ok Rounded_bl_3xl
     | [ "rounded"; "bl"; "full" ] -> Ok Rounded_bl_full
+    (* Logical property rounded utilities - start *)
+    | [ "rounded"; "s" ] -> Ok Rounded_s
+    | [ "rounded"; "s"; "none" ] -> Ok Rounded_s_none
+    | [ "rounded"; "s"; "sm" ] -> Ok Rounded_s_sm
+    | [ "rounded"; "s"; "md" ] -> Ok Rounded_s_md
+    | [ "rounded"; "s"; "lg" ] -> Ok Rounded_s_lg
+    | [ "rounded"; "s"; "xl" ] -> Ok Rounded_s_xl
+    | [ "rounded"; "s"; "2xl" ] -> Ok Rounded_s_2xl
+    | [ "rounded"; "s"; "3xl" ] -> Ok Rounded_s_3xl
+    | [ "rounded"; "s"; "full" ] -> Ok Rounded_s_full
+    (* Logical property rounded utilities - end *)
+    | [ "rounded"; "e" ] -> Ok Rounded_e
+    | [ "rounded"; "e"; "none" ] -> Ok Rounded_e_none
+    | [ "rounded"; "e"; "sm" ] -> Ok Rounded_e_sm
+    | [ "rounded"; "e"; "md" ] -> Ok Rounded_e_md
+    | [ "rounded"; "e"; "lg" ] -> Ok Rounded_e_lg
+    | [ "rounded"; "e"; "xl" ] -> Ok Rounded_e_xl
+    | [ "rounded"; "e"; "2xl" ] -> Ok Rounded_e_2xl
+    | [ "rounded"; "e"; "3xl" ] -> Ok Rounded_e_3xl
+    | [ "rounded"; "e"; "full" ] -> Ok Rounded_e_full
+    (* Logical corner rounded utilities *)
+    | [ "rounded"; "ss" ] -> Ok Rounded_ss
+    | [ "rounded"; "ss"; "none" ] -> Ok Rounded_ss_none
+    | [ "rounded"; "ss"; "sm" ] -> Ok Rounded_ss_sm
+    | [ "rounded"; "ss"; "md" ] -> Ok Rounded_ss_md
+    | [ "rounded"; "ss"; "lg" ] -> Ok Rounded_ss_lg
+    | [ "rounded"; "ss"; "xl" ] -> Ok Rounded_ss_xl
+    | [ "rounded"; "ss"; "2xl" ] -> Ok Rounded_ss_2xl
+    | [ "rounded"; "ss"; "3xl" ] -> Ok Rounded_ss_3xl
+    | [ "rounded"; "ss"; "full" ] -> Ok Rounded_ss_full
+    | [ "rounded"; "se" ] -> Ok Rounded_se
+    | [ "rounded"; "se"; "none" ] -> Ok Rounded_se_none
+    | [ "rounded"; "se"; "sm" ] -> Ok Rounded_se_sm
+    | [ "rounded"; "se"; "md" ] -> Ok Rounded_se_md
+    | [ "rounded"; "se"; "lg" ] -> Ok Rounded_se_lg
+    | [ "rounded"; "se"; "xl" ] -> Ok Rounded_se_xl
+    | [ "rounded"; "se"; "2xl" ] -> Ok Rounded_se_2xl
+    | [ "rounded"; "se"; "3xl" ] -> Ok Rounded_se_3xl
+    | [ "rounded"; "se"; "full" ] -> Ok Rounded_se_full
+    | [ "rounded"; "ee" ] -> Ok Rounded_ee
+    | [ "rounded"; "ee"; "none" ] -> Ok Rounded_ee_none
+    | [ "rounded"; "ee"; "sm" ] -> Ok Rounded_ee_sm
+    | [ "rounded"; "ee"; "md" ] -> Ok Rounded_ee_md
+    | [ "rounded"; "ee"; "lg" ] -> Ok Rounded_ee_lg
+    | [ "rounded"; "ee"; "xl" ] -> Ok Rounded_ee_xl
+    | [ "rounded"; "ee"; "2xl" ] -> Ok Rounded_ee_2xl
+    | [ "rounded"; "ee"; "3xl" ] -> Ok Rounded_ee_3xl
+    | [ "rounded"; "ee"; "full" ] -> Ok Rounded_ee_full
+    | [ "rounded"; "es" ] -> Ok Rounded_es
+    | [ "rounded"; "es"; "none" ] -> Ok Rounded_es_none
+    | [ "rounded"; "es"; "sm" ] -> Ok Rounded_es_sm
+    | [ "rounded"; "es"; "md" ] -> Ok Rounded_es_md
+    | [ "rounded"; "es"; "lg" ] -> Ok Rounded_es_lg
+    | [ "rounded"; "es"; "xl" ] -> Ok Rounded_es_xl
+    | [ "rounded"; "es"; "2xl" ] -> Ok Rounded_es_2xl
+    | [ "rounded"; "es"; "3xl" ] -> Ok Rounded_es_3xl
+    | [ "rounded"; "es"; "full" ] -> Ok Rounded_es_full
     | [ "outline"; "none" ] -> Ok Outline_none
     | [ "outline"; "solid" ] -> Ok Outline_solid
     | [ "outline"; "dashed" ] -> Ok Outline_dashed
@@ -1530,6 +2125,61 @@ module Handler = struct
     | Rounded_bl_2xl -> "rounded-bl-2xl"
     | Rounded_bl_3xl -> "rounded-bl-3xl"
     | Rounded_bl_full -> "rounded-bl-full"
+    (* Logical property rounded utilities *)
+    | Rounded_s -> "rounded-s"
+    | Rounded_s_none -> "rounded-s-none"
+    | Rounded_s_sm -> "rounded-s-sm"
+    | Rounded_s_md -> "rounded-s-md"
+    | Rounded_s_lg -> "rounded-s-lg"
+    | Rounded_s_xl -> "rounded-s-xl"
+    | Rounded_s_2xl -> "rounded-s-2xl"
+    | Rounded_s_3xl -> "rounded-s-3xl"
+    | Rounded_s_full -> "rounded-s-full"
+    | Rounded_e -> "rounded-e"
+    | Rounded_e_none -> "rounded-e-none"
+    | Rounded_e_sm -> "rounded-e-sm"
+    | Rounded_e_md -> "rounded-e-md"
+    | Rounded_e_lg -> "rounded-e-lg"
+    | Rounded_e_xl -> "rounded-e-xl"
+    | Rounded_e_2xl -> "rounded-e-2xl"
+    | Rounded_e_3xl -> "rounded-e-3xl"
+    | Rounded_e_full -> "rounded-e-full"
+    | Rounded_ss -> "rounded-ss"
+    | Rounded_ss_none -> "rounded-ss-none"
+    | Rounded_ss_sm -> "rounded-ss-sm"
+    | Rounded_ss_md -> "rounded-ss-md"
+    | Rounded_ss_lg -> "rounded-ss-lg"
+    | Rounded_ss_xl -> "rounded-ss-xl"
+    | Rounded_ss_2xl -> "rounded-ss-2xl"
+    | Rounded_ss_3xl -> "rounded-ss-3xl"
+    | Rounded_ss_full -> "rounded-ss-full"
+    | Rounded_se -> "rounded-se"
+    | Rounded_se_none -> "rounded-se-none"
+    | Rounded_se_sm -> "rounded-se-sm"
+    | Rounded_se_md -> "rounded-se-md"
+    | Rounded_se_lg -> "rounded-se-lg"
+    | Rounded_se_xl -> "rounded-se-xl"
+    | Rounded_se_2xl -> "rounded-se-2xl"
+    | Rounded_se_3xl -> "rounded-se-3xl"
+    | Rounded_se_full -> "rounded-se-full"
+    | Rounded_ee -> "rounded-ee"
+    | Rounded_ee_none -> "rounded-ee-none"
+    | Rounded_ee_sm -> "rounded-ee-sm"
+    | Rounded_ee_md -> "rounded-ee-md"
+    | Rounded_ee_lg -> "rounded-ee-lg"
+    | Rounded_ee_xl -> "rounded-ee-xl"
+    | Rounded_ee_2xl -> "rounded-ee-2xl"
+    | Rounded_ee_3xl -> "rounded-ee-3xl"
+    | Rounded_ee_full -> "rounded-ee-full"
+    | Rounded_es -> "rounded-es"
+    | Rounded_es_none -> "rounded-es-none"
+    | Rounded_es_sm -> "rounded-es-sm"
+    | Rounded_es_md -> "rounded-es-md"
+    | Rounded_es_lg -> "rounded-es-lg"
+    | Rounded_es_xl -> "rounded-es-xl"
+    | Rounded_es_2xl -> "rounded-es-2xl"
+    | Rounded_es_3xl -> "rounded-es-3xl"
+    | Rounded_es_full -> "rounded-es-full"
     | Outline_none -> "outline-none"
     | Outline_solid -> "outline-solid"
     | Outline_dashed -> "outline-dashed"
@@ -1698,6 +2348,69 @@ let rounded_bl_xl = utility Rounded_bl_xl
 let rounded_bl_2xl = utility Rounded_bl_2xl
 let rounded_bl_3xl = utility Rounded_bl_3xl
 let rounded_bl_full = utility Rounded_bl_full
+
+(** {2 Logical property rounded utilities - start} *)
+
+let rounded_s = utility Rounded_s
+let rounded_s_none = utility Rounded_s_none
+let rounded_s_sm = utility Rounded_s_sm
+let rounded_s_md = utility Rounded_s_md
+let rounded_s_lg = utility Rounded_s_lg
+let rounded_s_xl = utility Rounded_s_xl
+let rounded_s_2xl = utility Rounded_s_2xl
+let rounded_s_3xl = utility Rounded_s_3xl
+let rounded_s_full = utility Rounded_s_full
+
+(** {2 Logical property rounded utilities - end} *)
+
+let rounded_e = utility Rounded_e
+let rounded_e_none = utility Rounded_e_none
+let rounded_e_sm = utility Rounded_e_sm
+let rounded_e_md = utility Rounded_e_md
+let rounded_e_lg = utility Rounded_e_lg
+let rounded_e_xl = utility Rounded_e_xl
+let rounded_e_2xl = utility Rounded_e_2xl
+let rounded_e_3xl = utility Rounded_e_3xl
+let rounded_e_full = utility Rounded_e_full
+
+(** {2 Logical corner rounded utilities} *)
+
+let rounded_ss = utility Rounded_ss
+let rounded_ss_none = utility Rounded_ss_none
+let rounded_ss_sm = utility Rounded_ss_sm
+let rounded_ss_md = utility Rounded_ss_md
+let rounded_ss_lg = utility Rounded_ss_lg
+let rounded_ss_xl = utility Rounded_ss_xl
+let rounded_ss_2xl = utility Rounded_ss_2xl
+let rounded_ss_3xl = utility Rounded_ss_3xl
+let rounded_ss_full = utility Rounded_ss_full
+let rounded_se = utility Rounded_se
+let rounded_se_none = utility Rounded_se_none
+let rounded_se_sm = utility Rounded_se_sm
+let rounded_se_md = utility Rounded_se_md
+let rounded_se_lg = utility Rounded_se_lg
+let rounded_se_xl = utility Rounded_se_xl
+let rounded_se_2xl = utility Rounded_se_2xl
+let rounded_se_3xl = utility Rounded_se_3xl
+let rounded_se_full = utility Rounded_se_full
+let rounded_ee = utility Rounded_ee
+let rounded_ee_none = utility Rounded_ee_none
+let rounded_ee_sm = utility Rounded_ee_sm
+let rounded_ee_md = utility Rounded_ee_md
+let rounded_ee_lg = utility Rounded_ee_lg
+let rounded_ee_xl = utility Rounded_ee_xl
+let rounded_ee_2xl = utility Rounded_ee_2xl
+let rounded_ee_3xl = utility Rounded_ee_3xl
+let rounded_ee_full = utility Rounded_ee_full
+let rounded_es = utility Rounded_es
+let rounded_es_none = utility Rounded_es_none
+let rounded_es_sm = utility Rounded_es_sm
+let rounded_es_md = utility Rounded_es_md
+let rounded_es_lg = utility Rounded_es_lg
+let rounded_es_xl = utility Rounded_es_xl
+let rounded_es_2xl = utility Rounded_es_2xl
+let rounded_es_3xl = utility Rounded_es_3xl
+let rounded_es_full = utility Rounded_es_full
 
 (** {1 Outline Utilities} *)
 
