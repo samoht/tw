@@ -387,7 +387,7 @@ module Handler = struct
     | Z_30 -> style [ z_index (Index 30) ]
     | Z_40 -> style [ z_index (Index 40) ]
     | Z_50 -> style [ z_index (Index 50) ]
-    | Z_auto -> style [ z_index Auto ]
+    | Z_auto -> style [ z_index (Var (Css.var_ref "z-index-auto")) ]
     | Neg_z n -> style [ z_index (Calc ("calc(" ^ string_of_int n ^ " * -1)")) ]
     | Z_arbitrary s -> (
         (* Parse the arbitrary value as an integer if possible *)

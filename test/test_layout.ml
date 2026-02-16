@@ -50,10 +50,9 @@ let of_string_invalid () =
   (* Invalid display *)
   fail_maybe [ "table"; "invalid" ];
   (* Invalid table display *)
-  fail_maybe [ "z"; "60" ];
-  (* Invalid z-index *)
-  fail_maybe [ "z"; "-10" ];
-  (* Negative z-index *)
+  (* Note: z-60 is valid in Tailwind v4 (dynamic z-index), so not tested here *)
+  fail_maybe [ "z"; ""; "10" ];
+  (* Double dash z--10 is invalid *)
   fail_maybe [ "unknown" ]
 (* Unknown layout type *)
 
