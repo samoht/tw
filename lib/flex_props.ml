@@ -115,15 +115,15 @@ module Handler = struct
     | Order_none -> 202
     | Order_arbitrary _ -> 250
     (* Tailwind flex order: flex-1 < fractions < numbers < auto < initial <
-       none *)
-    | Flex_1 -> 10
+       none. Note: flex-* utilities come AFTER order-* utilities *)
+    | Flex_1 -> 1000
     (* Fractions: sorted by numerator then denominator (1/2 < 1/3 < 1/4 <
        2/3...) *)
-    | Flex_fraction (n, m) -> 20 + (n * 100) + m
+    | Flex_fraction (n, m) -> 1020 + (n * 100) + m
     (* flex-N values: after fractions, ordered by value *)
-    | Flex_n n -> 2000 + n
+    | Flex_n n -> 5000 + n
     (* Arbitrary flex values - after regular numbers *)
-    | Flex_arbitrary n -> 3000 + n
+    | Flex_arbitrary n -> 6000 + n
     (* Named shortcuts come last *)
     | Flex_auto -> 10000
     | Flex_initial -> 10001
