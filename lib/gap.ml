@@ -61,19 +61,67 @@ module Handler = struct
 
   let space_x n =
     let s = Spacing.int n in
+    let class_name = "space-x-" ^ string_of_int (abs n) in
+    (* Tailwind v4 uses flat selector: :where(.space-x-N > :not(:last-child)) *)
+    let selector =
+      Css.Selector.(where [ class_ class_name >> not [ Last_child ] ])
+    in
     match s with
     | `Rem _ ->
-        let decl, spacing_ref = Var.binding Spacing.spacing_var (Rem 0.25) in
+        let spacing_decl, spacing_ref =
+          Var.binding Spacing.spacing_var (Rem 0.25)
+        in
         let n_units =
           int_of_float ((match s with `Rem f -> f | _ -> 0.) /. 0.25)
         in
-        let len : Css.length =
-          Calc
-            Calc.(mul (length (Var spacing_ref)) (float (float_of_int n_units)))
+        (* Create reverse_decl and reverse_ref for --tw-space-x-reverse var *)
+        let reverse_decl, reverse_ref =
+          Var.binding space_x_reverse_var (Css.Num 0.0)
         in
-        style (decl :: [ margin_left len ])
-    | `Px -> style [ margin_left (Px 1.) ]
-    | `Full -> style [ margin_left (Pct 100.0) ]
+        let reverse_var_name = Css.var_name reverse_ref in
+        let spacing_times_n =
+          Calc.(mul (length (Var spacing_ref)) (float (float_of_int n_units)))
+        in
+        (* margin-inline-start = calc(calc(var(--spacing) * N) *
+           var(--tw-space-x-reverse)) *)
+        let margin_start : Css.length =
+          Calc Calc.(mul (nested spacing_times_n) (var reverse_var_name))
+        in
+        (* margin-inline-end = calc(calc(var(--spacing) * N) * calc(1 -
+           var(--tw-space-x-reverse))) *)
+        let margin_end : Css.length =
+          Calc
+            Calc.(
+              mul (nested spacing_times_n)
+                (nested (sub (float 1.0) (var reverse_var_name))))
+        in
+        let property_rules =
+          [ Var.property_rule space_x_reverse_var ] |> List.filter_map Fun.id
+        in
+        let rule =
+          Css.rule ~selector
+            [
+              spacing_decl;
+              reverse_decl;
+              margin_inline_start margin_start;
+              margin_inline_end margin_end;
+            ]
+        in
+        style ~rules:(Some [ rule ])
+          ~property_rules:(Css.concat property_rules)
+          []
+    | `Px ->
+        let rule =
+          Css.rule ~selector
+            [ margin_inline_start (Px 1.); margin_inline_end Zero ]
+        in
+        style ~rules:(Some [ rule ]) []
+    | `Full ->
+        let rule =
+          Css.rule ~selector
+            [ margin_inline_start (Pct 100.0); margin_inline_end Zero ]
+        in
+        style ~rules:(Some [ rule ]) []
 
   let space_y n =
     let s = Spacing.int n in
@@ -86,7 +134,7 @@ module Handler = struct
     in
     match s with
     | `Rem _ ->
-        let _spacing_decl, spacing_ref =
+        let spacing_decl, spacing_ref =
           Var.binding Spacing.spacing_var (Rem 0.25)
         in
         let n_units =
@@ -120,6 +168,7 @@ module Handler = struct
         let rule =
           Css.rule ~selector
             [
+              spacing_decl;
               reverse_decl;
               margin_block_start margin_start;
               margin_block_end margin_end;
