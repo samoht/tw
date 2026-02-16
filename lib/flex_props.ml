@@ -74,8 +74,8 @@ module Handler = struct
 
   (* Order *)
   let order_style n = style [ order (Order_int n) ]
-  let order_first = style [ order (Order_int (-9999)) ]
-  let order_last = style [ order (Order_int 9999) ]
+  let order_first = style [ order (Order_var "--order-first") ]
+  let order_last = style [ order (Order_var "--order-last") ]
   let order_none = style [ order (Order_int 0) ]
 
   let to_style = function

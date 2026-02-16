@@ -42,10 +42,9 @@ let of_string_invalid () =
     check_invalid_input (module Tw.Margin.Handler) class_name
   in
 
-  fail_maybe [ "m" ];
-  (* Missing value *)
-  fail_maybe [ "m"; "invalid" ]
-(* Invalid value *)
+  fail_maybe [ "m" ]
+(* Missing value - note: m-<name> is valid in Tailwind v4 as named spacing
+   var *)
 
 let all_utilities () =
   let open Tw in
