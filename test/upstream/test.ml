@@ -353,63 +353,92 @@ let setup_scheme_for_test expected =
   Tw.Theme.set_scheme scheme;
   Tw.Borders.set_scheme scheme
 
-(** Build a [resolve_var] function for theme-dependent CSS emission.
-
-    In Tailwind v4, [compileCss] resolves theme variables at compile time:
-    - [@theme \{ --var: value \}] → [var(--var)] reference kept
-    - [@theme inline \{ --var: value \}] → value inlined
-    - No [@theme] with that variable → hard-coded default used
-
-    This function returns a resolver that maps [Var_fallback] names to concrete
-    values when the theme configuration indicates the variable wouldn't exist or
-    should be inlined. *)
-let make_resolve_var config expected =
-  (* Check if a var name appears as var(--name) in the expected CSS. If it does,
-     the theme defines it and we should keep the nested var form. *)
-  let expected_has_var name =
-    let pattern = "var(--" ^ name ^ ")" in
-    Astring.String.is_infix ~affix:pattern expected
+(** Extract all CSS variable names referenced in expected CSS text. Finds all
+    [--name] patterns (both definitions and references). *)
+let extract_var_names expected =
+  let vars = ref Css.Pp.StringSet.empty in
+  let len = String.length expected in
+  let rec scan i =
+    if i < len - 2 && expected.[i] = '-' && expected.[i + 1] = '-' then (
+      let j = ref (i + 2) in
+      while
+        !j < len
+        &&
+        let c = expected.[!j] in
+        (c >= 'a' && c <= 'z')
+        || (c >= 'A' && c <= 'Z')
+        || (c >= '0' && c <= '9')
+        || c = '-' || c = '_'
+      do
+        incr j
+      done;
+      if !j > i + 2 then
+        vars :=
+          Css.Pp.StringSet.add (String.sub expected (i + 2) (!j - i - 2)) !vars;
+      scan !j)
+    else if i < len then scan (i + 1)
   in
-  (* Theme variable resolution table: (var_name, inline_value, default_value) *)
-  let theme_defaults =
+  scan 0;
+  !vars
+
+(** Build theme configuration for CSS emission.
+
+    Returns [(theme, theme_defaults)] where [theme] is the set of variable names
+    that should be kept as [var(--name)] references, and [theme_defaults] maps
+    variable names to concrete CSS default values. *)
+let make_theme_config config expected =
+  (* Hardcoded theme variable defaults: (var_name, inline_value,
+     default_value) *)
+  let hardcoded =
     [
       ("default-transition-timing-function", "ease", "ease");
       ("default-transition-duration", ".1s", "0s");
     ]
   in
-  match config with
-  | Run -> Css.Pp.no_resolve
-  | Theme ->
-      (* Resolve only vars that are NOT referenced in expected CSS *)
-      fun name ->
-        List.find_map
-          (fun (var_name, _inline, default) ->
-            if name = var_name && not (expected_has_var var_name) then
-              Some default
-            else None)
-          theme_defaults
-  | Theme_inline ->
-      (* Inline all known theme variable values *)
-      fun name ->
-        List.find_map
-          (fun (var_name, inline_val, _) ->
-            if name = var_name then Some inline_val else None)
-          theme_defaults
-  | No_theme ->
-      (* No theme vars available, use hard-coded defaults *)
-      fun name ->
+  let combined_defaults name =
+    match Tw.Var.resolve_theme_refs name with
+    | Some _ as result -> result
+    | None ->
         List.find_map
           (fun (var_name, _, default) ->
             if name = var_name then Some default else None)
-          theme_defaults
-  | Theme_reference | Theme_inline_reference -> Css.Pp.no_resolve
+          hardcoded
+  in
+  let hardcoded_only name =
+    List.find_map
+      (fun (var_name, _, default) ->
+        if name = var_name then Some default else None)
+      hardcoded
+  in
+  let inline_defaults name =
+    List.find_map
+      (fun (var_name, inline_val, _) ->
+        if name = var_name then Some inline_val else None)
+      hardcoded
+  in
+  match config with
+  | Run ->
+      (* No theme: all vars resolved to concrete defaults *)
+      (Css.Pp.StringSet.empty, combined_defaults)
+  | Theme ->
+      (* Vars in expected CSS kept as references, rest resolved *)
+      (extract_var_names expected, combined_defaults)
+  | Theme_inline ->
+      (* Inline all known theme variable values *)
+      (Css.Pp.StringSet.empty, inline_defaults)
+  | No_theme ->
+      (* No theme vars, only hardcoded defaults *)
+      (Css.Pp.StringSet.empty, hardcoded_only)
+  | Theme_reference | Theme_inline_reference ->
+      (* All vars kept as references *)
+      (extract_var_names expected, Css.Pp.no_theme_defaults)
 
 let run_test_case test () =
   if test.classes = [] then ()
   else (
     (* Set up scheme from expected CSS to match Tailwind's @theme config *)
     setup_scheme_for_test test.expected;
-    let resolve_var = make_resolve_var test.config test.expected in
+    let theme, theme_defaults = make_theme_config test.config test.expected in
     (* Parse classes and generate our CSS *)
     let utilities =
       List.filter_map
@@ -425,7 +454,7 @@ let run_test_case test () =
       if utilities = [] then ""
       else
         Tw.to_css ~base:false ~layers:false ~optimize:true utilities
-        |> Css.to_string ~minify:false ~resolve_var
+        |> Css.to_string ~minify:false ~theme ~theme_defaults
     in
     if our_css = "" && String.trim test.expected = "" then ()
     else

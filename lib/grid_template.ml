@@ -64,7 +64,15 @@ module Handler = struct
       style
         [ Css.grid_template_columns (Repeat (n, [ Min_max (Zero, Fr 1.0) ])) ]
 
-  let grid_cols_none = style [ Css.grid_template_columns None ]
+  let grid_cols_none =
+    let v : Css.grid_template =
+      Var
+        (Var.theme_ref "grid-template-columns-none"
+           ~default:(None : Css.grid_template)
+           ~default_css:"none")
+    in
+    style [ Css.grid_template_columns v ]
+
   let grid_cols_subgrid = style [ Css.grid_template_columns Subgrid ]
 
   let parse_arbitrary_length s : Css.length option =
@@ -122,7 +130,15 @@ module Handler = struct
     else
       style [ Css.grid_template_rows (Repeat (n, [ Min_max (Zero, Fr 1.0) ])) ]
 
-  let grid_rows_none = style [ Css.grid_template_rows None ]
+  let grid_rows_none =
+    let v : Css.grid_template =
+      Var
+        (Var.theme_ref "grid-template-rows-none"
+           ~default:(None : Css.grid_template)
+           ~default_css:"none")
+    in
+    style [ Css.grid_template_rows v ]
+
   let grid_rows_subgrid = style [ Css.grid_template_rows Subgrid ]
   let grid_flow_row = style [ Css.grid_auto_flow Row ]
   let grid_flow_col = style [ Css.grid_auto_flow Column ]

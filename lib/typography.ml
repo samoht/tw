@@ -1399,13 +1399,26 @@ module Typography_late = struct
   let align_text_bottom = style [ vertical_align Text_bottom ]
   let align_sub = style [ vertical_align Sub ]
   let align_super = style [ vertical_align Super ]
-  let list_none = style [ list_style_type (Var "--list-style-type-none") ]
+
+  let list_none =
+    let (_ : Css.list_style_type Css.var) =
+      Var.theme_ref "list-style-type-none"
+        ~default:(None : Css.list_style_type)
+        ~default_css:"none"
+    in
+    style [ list_style_type (Var "--list-style-type-none") ]
+
   let list_disc = style [ list_style_type Disc ]
   let list_decimal = style [ list_style_type Decimal ]
   let list_inside = style [ list_style_position Inside ]
   let list_outside = style [ list_style_position Outside ]
 
   let list_image_none =
+    let (_ : Css.list_style_image Css.var) =
+      Var.theme_ref "list-style-image-none"
+        ~default:(None : Css.list_style_image)
+        ~default_css:"none"
+    in
     style [ list_style_image (List_image_var "--list-style-image-none") ]
 
   let text_ellipsis = style [ text_overflow Ellipsis ]
