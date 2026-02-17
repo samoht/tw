@@ -1367,7 +1367,10 @@ module Typography_late = struct
     (* Tailwind v4: uses theme var and keeps webkit-box display *)
     style
       [
-        webkit_line_clamp (Clamp_var "--line-clamp-none");
+        webkit_line_clamp
+          (Var
+             (Var.theme_ref "line-clamp-none" ~default:Unset
+                ~default_css:"unset"));
         webkit_box_orient Vertical;
         display Webkit_box;
         overflow Hidden;
@@ -1401,12 +1404,14 @@ module Typography_late = struct
   let align_super = style [ vertical_align Super ]
 
   let list_none =
-    let (_ : Css.list_style_type Css.var) =
-      Var.theme_ref "list-style-type-none"
-        ~default:(None : Css.list_style_type)
-        ~default_css:"none"
-    in
-    style [ list_style_type (Var "--list-style-type-none") ]
+    style
+      [
+        list_style_type
+          (Var
+             (Var.theme_ref "list-style-type-none"
+                ~default:(None : Css.list_style_type)
+                ~default_css:"none"));
+      ]
 
   let list_disc = style [ list_style_type Disc ]
   let list_decimal = style [ list_style_type Decimal ]
@@ -1414,12 +1419,14 @@ module Typography_late = struct
   let list_outside = style [ list_style_position Outside ]
 
   let list_image_none =
-    let (_ : Css.list_style_image Css.var) =
-      Var.theme_ref "list-style-image-none"
-        ~default:(None : Css.list_style_image)
-        ~default_css:"none"
-    in
-    style [ list_style_image (List_image_var "--list-style-image-none") ]
+    style
+      [
+        list_style_image
+          (Var
+             (Var.theme_ref "list-style-image-none"
+                ~default:(None : Css.list_style_image)
+                ~default_css:"none"));
+      ]
 
   let text_ellipsis = style [ text_overflow Ellipsis ]
   let text_clip = style [ text_overflow Clip ]

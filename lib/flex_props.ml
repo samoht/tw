@@ -74,8 +74,26 @@ module Handler = struct
 
   (* Order *)
   let order_style n = style [ order (Order_int n) ]
-  let order_first = style [ order (Order_var "--order-first") ]
-  let order_last = style [ order (Order_var "--order-last") ]
+
+  let order_first =
+    style
+      [
+        order
+          (Var
+             (Var.theme_ref "order-first"
+                ~default:(Order_calc "calc(-infinity)")
+                ~default_css:"calc(-infinity)"));
+      ]
+
+  let order_last =
+    style
+      [
+        order
+          (Var
+             (Var.theme_ref "order-last" ~default:(Order_calc "calc(infinity)")
+                ~default_css:"calc(infinity)"));
+      ]
+
   let order_none = style [ order (Order_int 0) ]
 
   let to_style = function

@@ -1317,10 +1317,8 @@ module Handler = struct
       | Some rule -> rule
       | None -> Css.empty
     in
-    (* var_name returns name without --, but CSS var() syntax needs -- prefix *)
-    let vname = "--" ^ Css.var_name oref in
     style ~property_rules:property_rule
-      [ Css.outline_style (Css.Var vname); Css.outline_width (Px 1.) ]
+      [ Css.outline_style (Css.Var oref); Css.outline_width (Px 2.) ]
 
   (* Outline style utilities that set the variable *)
   let outline_none =

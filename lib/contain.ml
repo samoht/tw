@@ -56,12 +56,15 @@ module Handler = struct
      This allows combining multiple contain utilities - each sets its variable,
      and the contain property references all of them. *)
   let composable_contain_value =
+    let v name : Css.contain =
+      Css.Var (Css.var_ref ~fallback:(Css.Raw_fallback " ") name)
+    in
     Css.List
       [
-        Css.Var "--tw-contain-size,  ";
-        Css.Var "--tw-contain-layout,  ";
-        Css.Var "--tw-contain-paint,  ";
-        Css.Var "--tw-contain-style,  ";
+        v "tw-contain-size";
+        v "tw-contain-layout";
+        v "tw-contain-paint";
+        v "tw-contain-style";
       ]
 
   (* Create a composable contain style that sets one variable *)
@@ -97,7 +100,9 @@ module Handler = struct
         | "unset" -> style [ contain Css.Unset ]
         | "revert" -> style [ contain Css.Revert ]
         | "revert-layer" -> style [ contain Css.Revert_layer ]
-        | _ -> style [ contain (Css.Var s) ])
+        | _ ->
+            (* Unknown arbitrary value — wrap as bare var ref *)
+            style [ contain (Css.Var (Css.var_ref s)) ])
 
   let of_class_map =
     List.map (fun (t, s, _) -> ("contain-" ^ s, t)) contain_data
