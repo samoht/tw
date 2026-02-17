@@ -626,7 +626,14 @@ module Handler = struct
     let v : Css.perspective_origin =
       Perspective_var (Var.theme_ref name ~default ~default_css)
     in
-    style [ perspective_origin v ]
+    let perspective_ref : Css.length =
+      Css.Var (Css.var_ref ~layer:"theme" name)
+    in
+    style
+      [
+        perspective_origin v;
+        Css.theme_guarded ~var_name:name (Css.perspective perspective_ref);
+      ]
 
   let perspective_origin_center =
     po_with_ref "perspective-origin-center" Perspective_center "center"

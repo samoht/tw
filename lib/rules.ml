@@ -1753,16 +1753,23 @@ let compare_indexed_rules r1 r2 =
     | _, _ -> Int.compare r1.index r2.index
 
 (* Filter properties to only include utilities layer declarations *)
-let filter_utility_properties props =
-  List.filter
+let rec filter_utility_properties props =
+  List.filter_map
     (fun decl ->
-      match Css.custom_declaration_layer decl with
-      | Some layer when layer = "utilities" -> true
-      | Some _ -> false
+      match Css.as_theme_guarded decl with
+      | Some (var_name, inner) -> (
+          let filtered = filter_utility_properties [ inner ] in
+          match filtered with
+          | [ d ] -> Some (Css.theme_guarded ~var_name d)
+          | _ -> None)
       | None -> (
-          match Css.custom_declaration_name decl with
-          | None -> true
-          | Some _ -> false))
+          match Css.custom_declaration_layer decl with
+          | Some layer when layer = "utilities" -> Some decl
+          | Some _ -> None
+          | None -> (
+              match Css.custom_declaration_name decl with
+              | None -> Some decl
+              | Some _ -> None)))
     props
 
 (* Recursively filter theme declarations from nested statements *)
