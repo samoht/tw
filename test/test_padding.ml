@@ -30,8 +30,8 @@ let of_string_invalid () =
 
   fail_maybe [ "p" ];
   (* Missing value *)
-  fail_maybe [ "p"; "invalid" ];
-  (* Invalid value *)
+  fail_maybe [ "p"; "!!!" ];
+  (* Invalid value - non-alphanumeric *)
   fail_maybe [ "p"; "-1" ];
   (* Negative not allowed for padding *)
   fail_maybe [ "px"; "auto" ];

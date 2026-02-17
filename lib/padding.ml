@@ -4,7 +4,11 @@ module Handler = struct
   open Style
   open Css
 
-  type t = { axis : [ `All | `X | `Y | `T | `R | `B | `L ]; value : spacing }
+  type t = {
+    axis : [ `All | `X | `Y | `T | `R | `B | `L | `S | `E | `Bs | `Be ];
+    value : spacing;
+  }
+
   type Utility.base += Self of t
 
   let name = "padding"
@@ -20,36 +24,46 @@ module Handler = struct
       | `R -> "pr-"
       | `B -> "pb-"
       | `L -> "pl-"
+      | `S -> "ps-"
+      | `E -> "pe-"
+      | `Bs -> "pbs-"
+      | `Be -> "pbe-"
     in
     prefix ^ Spacing.pp_spacing_suffix value
 
-  (** Convert spacing to (declaration, length) using Theme.spacing_calc_float.
-  *)
-  let spacing_to_decl_len (s : Style.spacing) : Css.declaration * length =
+  (** Convert spacing to (declaration option, length) using
+      Theme.spacing_calc_float. *)
+  let spacing_to_decl_len (s : Style.spacing) : Css.declaration option * length
+      =
     match s with
     | `Px ->
         let len : length = Px 1. in
         let decl, _ = Var.binding Spacing.spacing_var (Rem 0.25) in
-        (decl, len)
+        (Some decl, len)
     | `Full ->
         let len : length = Pct 100. in
         let decl, _ = Var.binding Spacing.spacing_var (Rem 0.25) in
-        (decl, len)
+        (Some decl, len)
+    | `Named name ->
+        let len = Spacing.named_spacing_ref name in
+        (None, len)
     | `Rem f ->
         let n = f /. 0.25 in
-        Theme.spacing_calc_float n
+        let decl, len = Theme.spacing_calc_float n in
+        (Some decl, len)
 
   let v (prop : length -> declaration) t =
     let decl, len = spacing_to_decl_len t.value in
-    style [ decl; prop len ]
+    style (Option.to_list decl @ [ prop len ])
 
   let vs (prop : length list -> declaration) t =
     let decl, len = spacing_to_decl_len t.value in
-    style [ decl; prop [ len ] ]
+    style (Option.to_list decl @ [ prop [ len ] ])
 
   let spacing_value_order = function
     | `Px -> 1
     | `Full -> 10000
+    | `Named _ -> 20000
     | `Rem f ->
         let units = f /. 0.25 in
         int_of_float (units *. 10.)
@@ -60,9 +74,13 @@ module Handler = struct
     | `X -> v padding_inline t
     | `Y -> v padding_block t
     | `T -> v padding_top t
-    | `R -> v padding_bottom t
+    | `R -> v padding_right t
     | `B -> v padding_bottom t
     | `L -> v padding_left t
+    | `S -> v padding_inline_start t
+    | `E -> v padding_inline_end t
+    | `Bs -> v padding_block_start t
+    | `Be -> v padding_block_end t
 
   let suborder { axis; value } =
     let side_offset =
@@ -74,6 +92,10 @@ module Handler = struct
       | `R -> 40000
       | `B -> 50000
       | `L -> 60000
+      | `S -> 70000
+      | `E -> 80000
+      | `Bs -> 90000
+      | `Be -> 100000
     in
     side_offset + spacing_value_order value
 

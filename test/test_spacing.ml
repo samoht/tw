@@ -26,18 +26,20 @@ let test_pp_margin_suffix () =
 let test_int_constructor () =
   check
     (module struct
-      type t = [ `Px | `Full | `Rem of float ]
+      type t = [ `Px | `Full | `Rem of float | `Named of string ]
 
       let equal a b =
         match (a, b) with
         | `Px, `Px | `Full, `Full -> true
         | `Rem a, `Rem b -> Float.equal a b
+        | `Named a, `Named b -> String.equal a b
         | _ -> false
 
       let pp fmt = function
         | `Px -> Fmt.string fmt "Px"
         | `Full -> Fmt.string fmt "Full"
         | `Rem f -> Fmt.pf fmt "Rem %f" f
+        | `Named s -> Fmt.pf fmt "Named %s" s
     end)
     "int spacing" (`Rem 1.0) (int 4)
 

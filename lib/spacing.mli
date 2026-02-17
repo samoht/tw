@@ -71,8 +71,18 @@ val int : int -> Style.spacing
 
 (** {1 Shared Parsing Logic} *)
 
-type axis = [ `All | `X | `Y | `T | `R | `B | `L ]
-(** Axis for spacing utilities (all, x, y, top, right, bottom, left) *)
+val named_spacing_ref : string -> Css.length
+(** [named_spacing_ref name] creates a CSS variable reference
+    [var(--spacing-name)] for a named spacing value (e.g., "big" ->
+    [var(--spacing-big)]). *)
+
+val is_named_spacing : string -> bool
+(** [is_named_spacing value] checks if a string is a valid named spacing
+    identifier. *)
+
+type axis = [ `All | `X | `Y | `T | `R | `B | `L | `S | `E | `Bs | `Be ]
+(** Axis for spacing utilities (all, x, y, top, right, bottom, left,
+    inline-start, inline-end, block-start, block-end) *)
 
 val parse_value_string : allow_auto:bool -> string -> Style.margin option
 (** [parse_value_string ~allow_auto value] parses a spacing value string (px,

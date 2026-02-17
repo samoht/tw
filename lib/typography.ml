@@ -814,6 +814,7 @@ module Typography_late = struct
     | (* Content *)
       Content_none
     | Content of string
+    | Content_named of string
 
   type Utility.base += Self of t
 
@@ -970,6 +971,7 @@ module Typography_late = struct
         then
           let value = String.sub joined 2 (String.length joined - 4) in
           Ok (Content value)
+        else if Spacing.is_named_spacing joined then Ok (Content_named joined)
         else Ok (Content joined)
     | _ -> err_not_utility
 
@@ -1087,6 +1089,7 @@ module Typography_late = struct
     | Line_clamp_none -> "line-clamp-none"
     | Content_none -> "content-none"
     | Content s -> "content-[\"" ^ s ^ "\"]"
+    | Content_named s -> "content-" ^ s
 
   (** {1 Ordering Support} *)
 
@@ -1214,6 +1217,7 @@ module Typography_late = struct
     (* Content *)
     | Content_none -> 10000
     | Content _ -> 10001
+    | Content_named _ -> 10002
 
   (* Shared utility implementations *)
   let underline = style [ text_decoration_line Underline ]
@@ -1403,6 +1407,15 @@ module Typography_late = struct
         content_decl;
         content (Css.Var content_ref);
       ]
+
+  let content_named name =
+    let theme_ref : Css.content Css.var =
+      Css.var_ref ~layer:"theme" ("content-" ^ name)
+    in
+    let content_decl, content_ref = Var.binding content_var (Var theme_ref) in
+    let property_rules = Var.property_rules content_var in
+    let c : Css.content = Css.Var content_ref in
+    style ~property_rules [ content_decl; Css.content c ]
 
   let align_baseline = style [ vertical_align Baseline ]
   let align_top = style [ vertical_align Top ]
@@ -1663,6 +1676,7 @@ module Typography_late = struct
     | Line_clamp_none -> line_clamp_none_style
     | Content_none -> content_none
     | Content s -> content s
+    | Content_named name -> content_named name
 end
 
 (* Register both handlers *)

@@ -12,6 +12,7 @@ let spacing_var = Theme.spacing_var
 let pp_spacing_suffix : spacing -> string = function
   | `Px -> "px"
   | `Full -> "full"
+  | `Named name -> name
   | `Rem f ->
       let scale = f /. 0.25 in
       if Float.is_integer scale then string_of_int (abs (int_of_float scale))
@@ -35,9 +36,13 @@ let pp_margin_suffix : margin -> string = function
 
 (** {1 CSS Conversion} *)
 
+let named_spacing_ref name : Css.length =
+  Css.Var (Css.var_ref ("spacing-" ^ name))
+
 let to_length spacing_ref : spacing -> length = function
   | `Px -> Px 1.
   | `Full -> Pct 100.0
+  | `Named name -> named_spacing_ref name
   | `Rem f ->
       let n = int_of_float (f /. 0.25) in
       Calc
@@ -47,6 +52,7 @@ let margin_to_length spacing_ref : margin -> length = function
   | `Auto -> Auto
   | `Px -> Px 1.
   | `Full -> Pct 100.0
+  | `Named name -> named_spacing_ref name
   | `Rem f ->
       let n = f /. 0.25 in
       Calc (Calc.mul (Calc.length (Var spacing_ref)) (Calc.float n))
@@ -54,6 +60,7 @@ let margin_to_length spacing_ref : margin -> length = function
 let margin_to_length_neg spacing_ref : spacing -> length = function
   | `Px -> Px (-1.)
   | `Full -> Pct (-100.0)
+  | `Named name -> named_spacing_ref name
   | `Rem f ->
       let n = f /. 0.25 in
       Calc (Calc.mul (Calc.length (Var spacing_ref)) (Calc.float (-.n)))
@@ -64,6 +71,23 @@ let int n = `Rem (float_of_int n *. 0.25)
 
 (** {1 Shared Parsing Logic} *)
 
+(** Check if a string is a valid named spacing identifier (alphabetic, not a
+    keyword) *)
+let is_named_spacing value =
+  String.length value > 0
+  && (not (value = "px" || value = "full" || value = "auto"))
+  && String.for_all
+       (fun c ->
+         (c >= 'a' && c <= 'z')
+         || (c >= 'A' && c <= 'Z')
+         || (c >= '0' && c <= '9')
+         || c = '-')
+       value
+  &&
+  (* Must start with a letter *)
+  let c = value.[0] in
+  c >= 'a' && c <= 'z'
+
 (** Parse a spacing value from a string, with optional support for auto *)
 let parse_value_string ~allow_auto value : margin option =
   if value = "px" then Some `Px
@@ -72,9 +96,9 @@ let parse_value_string ~allow_auto value : margin option =
   else
     match Parse.spacing_value ~name:"spacing" value with
     | Ok f -> Some (`Rem (f *. 0.25))
-    | Error _ -> None
+    | Error _ -> if is_named_spacing value then Some (`Named value) else None
 
-type axis = [ `All | `X | `Y | `T | `R | `B | `L ]
+type axis = [ `All | `X | `Y | `T | `R | `B | `L | `S | `E | `Bs | `Be ]
 (** Parse axis from a prefix string *)
 
 let axis_of_prefix = function
@@ -85,11 +109,17 @@ let axis_of_prefix = function
   | "pr" | "mr" -> Some `R
   | "pb" | "mb" -> Some `B
   | "pl" | "ml" -> Some `L
+  | "ps" | "ms" -> Some `S
+  | "pe" | "me" -> Some `E
+  | "pbs" | "mbs" -> Some `Bs
+  | "pbe" | "mbe" -> Some `Be
   | _ -> None
 
 (** Check if a prefix is for margin (vs padding) *)
 let is_margin_prefix = function
-  | "m" | "mx" | "my" | "mt" | "mr" | "mb" | "ml" -> true
+  | "m" | "mx" | "my" | "mt" | "mr" | "mb" | "ml" | "ms" | "me" | "mbs" | "mbe"
+    ->
+      true
   | _ -> false
 
 (** Parse class name parts into (is_negative, prefix, value) *)

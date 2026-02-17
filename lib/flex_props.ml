@@ -29,6 +29,8 @@ module Handler = struct
     | Basis_1
     | Basis_auto
     | Basis_full
+    | Basis_fraction of int * int
+    | Basis_named of string
     (* Order *)
     | Order of int
     | Neg_order of int (* -order-4 = calc(4 * -1) *)
@@ -72,6 +74,17 @@ module Handler = struct
   let basis_auto = style [ flex_basis Auto ]
   let basis_full = style [ flex_basis (Pct 100.0) ]
 
+  let basis_fraction_style n m =
+    let raw = float_of_int n /. float_of_int m *. 100.0 in
+    let pct_value = Float.round (raw *. 10000.0) /. 10000.0 in
+    style [ flex_basis (Pct pct_value) ]
+
+  let basis_named_style name =
+    let ref : Css.length Css.var =
+      Css.var_ref ~layer:"theme" ("container-" ^ name)
+    in
+    style [ flex_basis (Var ref) ]
+
   (* Order *)
   let order_style n = style [ order (Order_int n) ]
 
@@ -112,6 +125,8 @@ module Handler = struct
     | Basis_1 -> basis_1
     | Basis_auto -> basis_auto
     | Basis_full -> basis_full
+    | Basis_fraction (n, m) -> basis_fraction_style n m
+    | Basis_named name -> basis_named_style name
     | Order n -> order_style n
     | Neg_order n ->
         style [ order (Order_calc ("calc(" ^ string_of_int n ^ " * -1)")) ]
@@ -157,6 +172,8 @@ module Handler = struct
     | Basis_1 -> 40001
     | Basis_auto -> 40002
     | Basis_full -> 40003
+    | Basis_fraction (n, m) -> 40100 + (n * 100) + m
+    | Basis_named _ -> 40500
 
   let err_not_utility = Error (`Msg "Not a flex property utility")
 
@@ -184,6 +201,12 @@ module Handler = struct
     | [ "basis"; "1" ] -> Ok Basis_1
     | [ "basis"; "auto" ] -> Ok Basis_auto
     | [ "basis"; "full" ] -> Ok Basis_full
+    | [ "basis"; value ] -> (
+        match parse_fraction value with
+        | Some (n, m) -> Ok (Basis_fraction (n, m))
+        | None ->
+            if Spacing.is_named_spacing value then Ok (Basis_named value)
+            else err_not_utility)
     | [ "order"; "first" ] -> Ok Order_first
     | [ "order"; "last" ] -> Ok Order_last
     | [ "order"; "none" ] -> Ok Order_none
@@ -242,6 +265,9 @@ module Handler = struct
     | Basis_1 -> "basis-1"
     | Basis_auto -> "basis-auto"
     | Basis_full -> "basis-full"
+    | Basis_fraction (n, m) ->
+        "basis-" ^ string_of_int n ^ "/" ^ string_of_int m
+    | Basis_named s -> "basis-" ^ s
     (* Order *)
     | Order n -> "order-" ^ string_of_int n
     | Neg_order n -> "-order-" ^ string_of_int n
