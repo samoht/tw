@@ -24,37 +24,42 @@ module Handler = struct
 
   (** {2 Typed Margin Utilities} *)
 
-  (** Convert spacing to (declaration, length) using Theme.spacing_calc_float.
-      For rem values, checks scheme for explicit spacing variables. *)
+  (** Convert spacing to (declaration option, length) using
+      Theme.spacing_calc_float. For rem values, checks scheme for explicit
+      spacing variables. *)
   let spacing_to_decl_len ~negative (s : Style.spacing) :
-      Css.declaration * length =
+      Css.declaration option * length =
     match s with
     | `Px ->
         let len : length = if negative then Px (-1.) else Px 1. in
         let decl, _ = Var.binding Spacing.spacing_var (Rem 0.25) in
-        (decl, len)
+        (Some decl, len)
     | `Full ->
         let len : length = if negative then Pct (-100.) else Pct 100. in
         let decl, _ = Var.binding Spacing.spacing_var (Rem 0.25) in
-        (decl, len)
+        (Some decl, len)
+    | `Named name ->
+        let len = Spacing.named_spacing_ref name in
+        (None, len)
     | `Rem f ->
         let n = f /. 0.25 in
         let n = if negative then -.n else n in
-        Theme.spacing_calc_float n
+        let decl, len = Theme.spacing_calc_float n in
+        (Some decl, len)
 
   let v (prop : length -> declaration) (m : margin) =
     match m with
     | `Auto -> style [ prop Auto ]
     | #Style.spacing as s ->
         let decl, len = spacing_to_decl_len ~negative:false s in
-        style [ decl; prop len ]
+        style (Option.to_list decl @ [ prop len ])
 
   let vs (prop : length list -> declaration) (m : margin) =
     match m with
     | `Auto -> style [ prop [ Auto ] ]
     | #Style.spacing as s ->
         let decl, len = spacing_to_decl_len ~negative:false s in
-        style [ decl; prop [ len ] ]
+        style (Option.to_list decl @ [ prop [ len ] ])
 
   let m_fn = vs margin
   let mx = v margin_inline
@@ -91,16 +96,17 @@ module Handler = struct
 
   let margin_util_neg (prop : length -> declaration) (s : Style.spacing) =
     let decl, len = spacing_to_decl_len ~negative:true s in
-    style [ decl; prop len ]
+    style (Option.to_list decl @ [ prop len ])
 
   let margin_list_util_neg (prop : length list -> declaration)
       (s : Style.spacing) =
     let decl, len = spacing_to_decl_len ~negative:true s in
-    style [ decl; prop [ len ] ]
+    style (Option.to_list decl @ [ prop [ len ] ])
 
   let spacing_value_order = function
     | `Px -> 1
     | `Full -> 10000
+    | `Named _ -> 20000
     | `Rem f ->
         let units = f /. 0.25 in
         int_of_float (units *. 10.)
@@ -335,6 +341,10 @@ module Handler = struct
                     | `R -> `R
                     | `B -> `B
                     | `L -> `L
+                    | `S -> `S
+                    | `E -> `E
+                    | `Bs -> `Bs
+                    | `Be -> `Be
                   in
                   let allow_auto = not is_negative in
                   match Spacing.parse_value_string ~allow_auto value with

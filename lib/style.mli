@@ -185,7 +185,7 @@ val pp : Format.formatter -> t -> unit
 type size =
   [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full | `Rem of float ]
 
-type spacing = [ `Px | `Full | `Rem of float ]
+type spacing = [ `Px | `Full | `Rem of float | `Named of string ]
 type margin = [ spacing | `Auto ]
 type scale = [ spacing | size | `Screen | `Min | `Max | `Fit ]
 type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
