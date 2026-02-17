@@ -815,19 +815,21 @@ module Handler = struct
       | `Xl -> 8
     in
 
-    (* Tailwind v4 ring-shadow format: var(--tw-ring-inset,)0 0 0 calc(Xpx +
-       var(--tw-ring-offset-width)) var(--tw-ring-color,currentColor) TODO:
-       Replace with typed shadow system once pp_shadow_parts spacing is unified
-       between CLI output and upstream test snapshots. *)
-    let ring_shadow_str =
-      Printf.sprintf
-        "var(--tw-ring-inset,)0 0 0 calc(%dpx + \
-         var(--tw-ring-offset-width))var(--tw-ring-color,currentColor)"
-        width_px
+    (* Build ring shadow using typed constructors: var(--tw-ring-inset,) 0 0 0
+       calc(Xpx + var(--tw-ring-offset-width)) var(--tw-ring-color,
+       currentcolor) *)
+    let offset_width_ref = Var.reference ring_offset_width_var in
+    let spread : Css.length =
+      Calc (Expr (Val (Px (float_of_int width_px)), Add, Var offset_width_ref))
     in
-    let d_ring =
-      Css.custom_property ~layer:"utilities" "--tw-ring-shadow" ring_shadow_str
+    let color : Css.color =
+      Var (Css.var_ref ~fallback:(Fallback Css.Current) "tw-ring-color")
     in
+    let ring_shadow_value =
+      Css.shadow ~inset_var:"tw-ring-inset" ~h_offset:Zero ~v_offset:Zero
+        ~blur:Zero ~spread ~color ()
+    in
+    let d_ring, _ = Var.binding ring_shadow_var ring_shadow_value in
 
     (* Reference shadow variables through @property defaults *)
     let v_inset = Var.reference inset_shadow_var in
