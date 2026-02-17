@@ -2,6 +2,7 @@
 
     This script parses the upstream Tailwind CSS test file and extracts:
     - Test names
+    - Theme configuration ({!theme_config})
     - Utility class names
     - Expected CSS output from toMatchInlineSnapshot
 
@@ -40,8 +41,32 @@ let extract_quoted_strings line =
   let pattern = Re.Pcre.regexp {|'([^']+)'|} in
   List.map (fun m -> Re.Group.get m 1) (Re.all pattern line)
 
+(** Theme configuration detected from the CSS template passed to compileCss.
+    Different configurations produce different CSS output for the same utility
+    classes (e.g., [Theme_inline] inlines variable values instead of using
+    [var()] references). *)
+type theme_config =
+  | Theme  (** [@theme { ... }] — standard theme with variable references *)
+  | Theme_inline
+      (** [@theme inline { ... }] — values inlined at compile time *)
+  | Theme_reference
+      (** [@theme reference { ... }] — reference-only, no [@property] rules *)
+  | Theme_inline_reference
+      (** [@theme inline reference { ... }] — inlined + reference *)
+  | No_theme  (** No [@theme] block, just [@tailwind utilities;] *)
+  | Run  (** Uses [run()] helper instead of [compileCss()] *)
+
+let config_to_string = function
+  | Theme -> "theme"
+  | Theme_inline -> "theme-inline"
+  | Theme_reference -> "theme-reference"
+  | Theme_inline_reference -> "theme-inline-reference"
+  | No_theme -> "none"
+  | Run -> "run"
+
 type test_case = {
   name : string;
+  config : theme_config;
   classes : string list;
   expected : string option;
 }
@@ -69,15 +94,27 @@ let parse_file filename =
      output *)
   let empty_expect = Re.Pcre.regexp {|\.toEqual\s*\(\s*['"]{2}\s*\)|} in
 
+  (* Config detection patterns — order matters: most specific first *)
+  let compile_css_re = Re.Pcre.regexp {|compileCss\s*\(|} in
+  let run_call_re = Re.Pcre.regexp {|\brun\s*\(|} in
+  let theme_inline_ref_re =
+    Re.Pcre.regexp {|@theme\s+inline\s+reference\s*\{|}
+  in
+  let theme_inline_re = Re.Pcre.regexp {|@theme\s+inline\s*\{|} in
+  let theme_ref_re = Re.Pcre.regexp {|@theme\s+reference\s*\{|} in
+  let theme_re = Re.Pcre.regexp {|@theme\s*\{|} in
+
   let state = ref Outside in
   let current_classes = ref [] in
+  let current_config = ref No_theme in
 
   let flush_test name expected =
     let classes =
       !current_classes |> List.rev |> List.filter is_valid_class
       |> List.sort_uniq String.compare
     in
-    if classes <> [] then tests := { name; classes; expected } :: !tests;
+    if classes <> [] then
+      tests := { name; config = !current_config; classes; expected } :: !tests;
     current_classes := []
   in
 
@@ -86,9 +123,27 @@ let parse_file filename =
       match !state with
       | Outside -> (
           match Re.exec_opt test_pattern line with
-          | Some groups -> state := InTest (Re.Group.get groups 1)
+          | Some groups ->
+              current_config := No_theme;
+              state := InTest (Re.Group.get groups 1)
           | None -> ())
       | InTest name ->
+          (* Detect compileCss/run calls to track theme configuration.
+             compileCss() resets config (each call has its own @theme). run()
+             uses built-in defaults. *)
+          if Re.execp compile_css_re line then current_config := No_theme
+          else if Re.execp run_call_re line then current_config := Run;
+
+          (* Detect @theme variants within compileCss CSS templates. Most
+             specific patterns checked first to avoid partial matches. *)
+          if Re.execp theme_inline_ref_re line then
+            current_config := Theme_inline_reference
+          else if Re.execp theme_inline_re line then
+            current_config := Theme_inline
+          else if Re.execp theme_ref_re line then
+            current_config := Theme_reference
+          else if Re.execp theme_re line then current_config := Theme;
+
           (* Check for run([...]) *)
           (match Re.exec_opt run_pattern line with
           | Some groups ->
@@ -123,6 +178,7 @@ let parse_file filename =
           else if Astring.String.is_prefix ~affix:"test('" line then (
             flush_test name None;
             current_classes := [];
+            current_config := No_theme;
             match Re.exec_opt test_pattern line with
             | Some groups -> state := InTest (Re.Group.get groups 1)
             | None -> state := Outside
@@ -130,6 +186,7 @@ let parse_file filename =
           else if Astring.String.is_prefix ~affix:"})" line then (
             flush_test name None;
             current_classes := [];
+            current_config := No_theme;
             state := Outside)
       | InArray name ->
           current_classes :=
@@ -169,11 +226,12 @@ let () =
   Fmt.epr "Parsing %s...@." filename;
   let tests = parse_file filename in
 
-  (* Output in simple delimiter format: # test-name class1 class2 --- css output
-     here with newlines preserved <<<>>> *)
+  (* Output format: # test-name @config <theme-config> class1 class2 --- css
+     output here with newlines preserved <<<>>> *)
   List.iter
     (fun test ->
       Fmt.pr "# %s@." test.name;
+      Fmt.pr "@config %s@." (config_to_string test.config);
       Fmt.pr "%s@." (String.concat " " test.classes);
       (match test.expected with
       | Some css ->
@@ -184,5 +242,17 @@ let () =
     tests;
 
   let with_expected = List.filter (fun t -> t.expected <> None) tests in
+  let config_counts =
+    List.fold_left
+      (fun acc t ->
+        let key = config_to_string t.config in
+        let count = try List.assoc key acc with Not_found -> 0 in
+        (key, count + 1) :: List.filter (fun (k, _) -> k <> key) acc)
+      [] tests
+  in
   Fmt.epr "Extracted %d test cases (%d with expected CSS)@." (List.length tests)
-    (List.length with_expected)
+    (List.length with_expected);
+  Fmt.epr "Config breakdown:@.";
+  List.iter
+    (fun (config, count) -> Fmt.epr "  %s: %d@." config count)
+    (List.sort compare config_counts)

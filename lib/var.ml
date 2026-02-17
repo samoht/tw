@@ -216,6 +216,7 @@ let value_to_css_string : type a. a Css.kind -> a -> string =
   | Css.Font_weight -> Css.Pp.to_string Css.pp_font_weight value
   | Css.Shadow -> "0 0 #0000"
   | Css.Border_style -> Css.Pp.to_string Css.pp_border_style value
+  | Css.Outline_style -> Css.Pp.to_string Css.pp_outline_style value
   | Css.Scroll_snap_strictness ->
       Css.Pp.to_string Css.pp_scroll_snap_strictness value
   | Css.Rgb -> (
