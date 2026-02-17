@@ -479,6 +479,26 @@ val ref_only : 'a Css.kind -> string -> fallback:'a -> 'a ref_only
     produced. This implements Pattern 4 - variables that are only referenced,
     never set. *)
 
+val theme_ref : string -> default:'a -> default_css:string -> 'a Css.var
+(** [theme_ref name ~default ~default_css] creates a bare var reference to an
+    optional theme variable. In variables mode, emits [var(--name)]. When the
+    var is resolved (e.g., for [\@config run] tests where the theme doesn't
+    define it), emits the concrete [default_css] string instead.
+
+    [default] is the typed value used for inline mode (when [pp_var] inlines the
+    default). [default_css] is the CSS string registered in the theme ref
+    registry for [resolve_theme_refs].
+
+    Used for keyword utilities like [z-auto] where:
+    - Without custom theme: output is [z-index: auto] (concrete)
+    - With [\@theme --z-index-auto: 42]: output is
+      [z-index: var(--z-index-auto)] *)
+
+val resolve_theme_refs : string -> string option
+(** [resolve_theme_refs name] returns the default CSS string value for a
+    [theme_ref] variable. Used as [theme_defaults] in [Pp.ctx] when theme
+    variables don't exist and should be replaced by their concrete defaults. *)
+
 val binding :
   ('a, [< `Theme | `Property_default | `Channel ]) t ->
   ?fallback:'a Css.fallback ->

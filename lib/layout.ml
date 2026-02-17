@@ -387,7 +387,15 @@ module Handler = struct
     | Z_30 -> style [ z_index (Index 30) ]
     | Z_40 -> style [ z_index (Index 40) ]
     | Z_50 -> style [ z_index (Index 50) ]
-    | Z_auto -> style [ z_index (Var (Css.var_ref "z-index-auto")) ]
+    | Z_auto ->
+        style
+          [
+            z_index
+              (Var
+                 (Var.theme_ref "z-index-auto"
+                    ~default:(Auto : Css.z_index)
+                    ~default_css:"auto"));
+          ]
     | Neg_z n -> style [ z_index (Calc ("calc(" ^ string_of_int n ^ " * -1)")) ]
     | Z_arbitrary s -> (
         (* Parse the arbitrary value as an integer if possible *)
@@ -399,38 +407,37 @@ module Handler = struct
     | Object_fill -> style [ object_fit Fill ]
     | Object_none -> style [ object_fit None ]
     | Object_scale_down -> style [ object_fit Scale_down ]
-    | Object_center ->
-        style [ object_position (Var (Css.var_ref "object-position-center")) ]
-    | Object_top ->
-        style [ object_position (Var (Css.var_ref "object-position-top")) ]
-    | Object_bottom ->
-        style [ object_position (Var (Css.var_ref "object-position-bottom")) ]
-    | Object_left ->
-        style [ object_position (Var (Css.var_ref "object-position-left")) ]
-    | Object_right ->
-        style [ object_position (Var (Css.var_ref "object-position-right")) ]
-    | Object_bottom_left ->
-        style
-          [ object_position (Var (Css.var_ref "object-position-bottom-left")) ]
-    | Object_bottom_right ->
-        style
-          [ object_position (Var (Css.var_ref "object-position-bottom-right")) ]
-    | Object_left_bottom ->
-        style
-          [ object_position (Var (Css.var_ref "object-position-left-bottom")) ]
-    | Object_left_top ->
-        style [ object_position (Var (Css.var_ref "object-position-left-top")) ]
-    | Object_right_bottom ->
-        style
-          [ object_position (Var (Css.var_ref "object-position-right-bottom")) ]
-    | Object_right_top ->
-        style
-          [ object_position (Var (Css.var_ref "object-position-right-top")) ]
-    | Object_top_left ->
-        style [ object_position (Var (Css.var_ref "object-position-top-left")) ]
-    | Object_top_right ->
-        style
-          [ object_position (Var (Css.var_ref "object-position-top-right")) ]
+    | ( Object_center | Object_top | Object_bottom | Object_left | Object_right
+      | Object_bottom_left | Object_bottom_right | Object_left_bottom
+      | Object_left_top | Object_right_bottom | Object_right_top
+      | Object_top_left | Object_top_right ) as obj ->
+        let name, (default : Css.position_value), default_css =
+          match obj with
+          | Object_center -> ("object-position-center", Center, "center")
+          | Object_top -> ("object-position-top", Top, "top")
+          | Object_bottom -> ("object-position-bottom", Bottom, "bottom")
+          | Object_left -> ("object-position-left", Left, "left")
+          | Object_right -> ("object-position-right", Right, "right")
+          | Object_bottom_left ->
+              ("object-position-bottom-left", Bottom_left, "left bottom")
+          | Object_bottom_right ->
+              ("object-position-bottom-right", Bottom_right, "right bottom")
+          | Object_left_bottom ->
+              ("object-position-left-bottom", Left_bottom, "left bottom")
+          | Object_left_top -> ("object-position-left-top", Left_top, "left top")
+          | Object_right_bottom ->
+              ("object-position-right-bottom", Right_bottom, "right bottom")
+          | Object_right_top ->
+              ("object-position-right-top", Right_top, "right top")
+          | Object_top_left -> ("object-position-top-left", Top_left, "left top")
+          | Object_top_right ->
+              ("object-position-top-right", Top_right, "right top")
+          | _ -> assert false
+        in
+        let v : Css.position_value =
+          Var (Var.theme_ref name ~default ~default_css)
+        in
+        style [ object_position v ]
     | Float_left -> style [ Css.float Left ]
     | Float_right -> style [ Css.float Right ]
     | Float_none -> style [ Css.float None ]

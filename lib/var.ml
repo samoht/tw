@@ -470,6 +470,16 @@ let ref_only kind name ~fallback =
   (* Create a utility variable that's only referenced, never set *)
   create kind ~fallback ~role:Ref_only name ~layer:Utility
 
+(* Registry for theme_ref variables: maps var name -> default CSS string *)
+let theme_ref_registry : (string, string) Hashtbl.t = Hashtbl.create 64
+
+let theme_ref : type a. string -> default:a -> default_css:string -> a Css.var =
+ fun name ~default ~default_css ->
+  Hashtbl.replace theme_ref_registry name default_css;
+  Css.var_ref ~default name
+
+let resolve_theme_refs name = Hashtbl.find_opt theme_ref_registry name
+
 (* Convert Property_info to the string value for properties layer This extracts
    the initial value and converts it to the appropriate CSS string *)
 let property_info_to_declaration_value (Css.Property_info info) =

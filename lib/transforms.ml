@@ -604,7 +604,13 @@ module Handler = struct
       [ Css.scale (XYZ (Var scale_x_ref, Var scale_y_ref, Var scale_z_ref)) ]
 
   let perspective_none =
-    style [ Css.perspective (Var (Css.var_ref "perspective-none")) ]
+    let v : Css.length =
+      Var
+        (Var.theme_ref "perspective-none"
+           ~default:(None : Css.length)
+           ~default_css:"none")
+    in
+    style [ Css.perspective v ]
 
   let perspective_dramatic =
     let decl, r = Var.binding perspective_dramatic_var (Px 100.0) in
@@ -616,79 +622,40 @@ module Handler = struct
 
   let perspective_arbitrary len = style [ Css.perspective len ]
 
-  (* Tailwind v4: perspective-origin utilities use theme variable references and
-     also set the perspective property with the same variable *)
+  let po_with_ref name (default : Css.perspective_origin) default_css =
+    let v : Css.perspective_origin =
+      Perspective_var (Var.theme_ref name ~default ~default_css)
+    in
+    style [ perspective_origin v ]
+
   let perspective_origin_center =
-    style
-      [
-        perspective_origin
-          (Css.Perspective_var (Css.var_ref "perspective-origin-center"));
-        Css.perspective (Var (Css.var_ref "perspective-origin-center"));
-      ]
+    po_with_ref "perspective-origin-center" Perspective_center "center"
 
   let perspective_origin_top =
-    style
-      [
-        perspective_origin
-          (Css.Perspective_var (Css.var_ref "perspective-origin-top"));
-        Css.perspective (Var (Css.var_ref "perspective-origin-top"));
-      ]
+    po_with_ref "perspective-origin-top" Perspective_top "top"
 
   let perspective_origin_bottom =
-    style
-      [
-        perspective_origin
-          (Css.Perspective_var (Css.var_ref "perspective-origin-bottom"));
-        Css.perspective (Var (Css.var_ref "perspective-origin-bottom"));
-      ]
+    po_with_ref "perspective-origin-bottom" Perspective_bottom "bottom"
 
   let perspective_origin_left =
-    style
-      [
-        perspective_origin
-          (Css.Perspective_var (Css.var_ref "perspective-origin-left"));
-        Css.perspective (Var (Css.var_ref "perspective-origin-left"));
-      ]
+    po_with_ref "perspective-origin-left" Perspective_left "0"
 
   let perspective_origin_right =
-    style
-      [
-        perspective_origin
-          (Css.Perspective_var (Css.var_ref "perspective-origin-right"));
-        Css.perspective (Var (Css.var_ref "perspective-origin-right"));
-      ]
+    po_with_ref "perspective-origin-right" Perspective_right "100%"
 
   let perspective_origin_top_left =
-    style
-      [
-        perspective_origin
-          (Css.Perspective_var (Css.var_ref "perspective-origin-top-left"));
-        Css.perspective (Var (Css.var_ref "perspective-origin-top-left"));
-      ]
+    po_with_ref "perspective-origin-top-left" Perspective_top_left "0 0"
 
   let perspective_origin_top_right =
-    style
-      [
-        perspective_origin
-          (Css.Perspective_var (Css.var_ref "perspective-origin-top-right"));
-        Css.perspective (Var (Css.var_ref "perspective-origin-top-right"));
-      ]
+    po_with_ref "perspective-origin-top-right" Perspective_top_right "100% 0"
 
   let perspective_origin_bottom_left =
-    style
-      [
-        perspective_origin
-          (Css.Perspective_var (Css.var_ref "perspective-origin-bottom-left"));
-        Css.perspective (Var (Css.var_ref "perspective-origin-bottom-left"));
-      ]
+    po_with_ref "perspective-origin-bottom-left" Perspective_bottom_left
+      "0 100%"
 
   let perspective_origin_bottom_right =
-    style
-      [
-        perspective_origin
-          (Css.Perspective_var (Css.var_ref "perspective-origin-bottom-right"));
-        Css.perspective (Var (Css.var_ref "perspective-origin-bottom-right"));
-      ]
+    po_with_ref "perspective-origin-bottom-right" Perspective_bottom_right
+      "100% 100%"
 
   let perspective_origin_arbitrary s =
     (* Convert underscore to space for arbitrary values like 50px_100px *)
@@ -710,34 +677,29 @@ module Handler = struct
       Tailwind v4 uses theme variable references for origin utilities when theme
       variables are defined. *)
 
-  let origin_center =
-    style [ transform_origin (Var (Css.var_ref "transform-origin-center")) ]
+  let origin_with_ref name (default : Css.transform_origin) default_css =
+    let v : Css.transform_origin =
+      Var (Var.theme_ref name ~default ~default_css)
+    in
+    style [ transform_origin v ]
 
-  let origin_top =
-    style [ transform_origin (Var (Css.var_ref "transform-origin-top")) ]
-
-  let origin_bottom =
-    style [ transform_origin (Var (Css.var_ref "transform-origin-bottom")) ]
-
-  let origin_left =
-    style [ transform_origin (Var (Css.var_ref "transform-origin-left")) ]
-
-  let origin_right =
-    style [ transform_origin (Var (Css.var_ref "transform-origin-right")) ]
+  let origin_center = origin_with_ref "transform-origin-center" Center "center"
+  let origin_top = origin_with_ref "transform-origin-top" Top "top"
+  let origin_bottom = origin_with_ref "transform-origin-bottom" Bottom "bottom"
+  let origin_left = origin_with_ref "transform-origin-left" Left "0"
+  let origin_right = origin_with_ref "transform-origin-right" Right "100%"
 
   let origin_top_left =
-    style [ transform_origin (Var (Css.var_ref "transform-origin-top-left")) ]
+    origin_with_ref "transform-origin-top-left" Top_left "0 0"
 
   let origin_top_right =
-    style [ transform_origin (Var (Css.var_ref "transform-origin-top-right")) ]
+    origin_with_ref "transform-origin-top-right" Top_right "100% 0"
 
   let origin_bottom_left =
-    style
-      [ transform_origin (Var (Css.var_ref "transform-origin-bottom-left")) ]
+    origin_with_ref "transform-origin-bottom-left" Bottom_left "0 100%"
 
   let origin_bottom_right =
-    style
-      [ transform_origin (Var (Css.var_ref "transform-origin-bottom-right")) ]
+    origin_with_ref "transform-origin-bottom-right" Bottom_right "100% 100%"
 
   let origin_arbitrary s =
     (* Convert underscore to space for arbitrary values like 50px_100px *)

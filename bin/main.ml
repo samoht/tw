@@ -349,9 +349,10 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
     | Some _, _, `Default -> Inline (* single-class defaults to inline mode *)
     | None, _, `Default -> Variables (* files/scan default to variables *)
   in
-  (* Diff mode defaults to minify=true and optimize=true for production
-     comparison *)
-  let resolved_minify = match backend with Diff -> true | _ -> minify in
+  (* Diff mode defaults to optimize=true but NOT minify, because minification
+     introduces optimization artifacts (e.g., Tailwind converts 'center' to
+     '50%') that create false differences. *)
+  let resolved_minify = minify in
   let resolved_optimize = match backend with Diff -> true | _ -> optimize in
   let opts : gen_opts =
     {
