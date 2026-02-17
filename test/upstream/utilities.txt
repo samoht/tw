@@ -18195,7 +18195,7 @@ outline
 
     .outline {
       outline-style: var(--tw-outline-style);
-      outline-width: 2px;
+      outline-width: 1px;
     }
 
     @property --tw-outline-style {

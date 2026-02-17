@@ -1318,7 +1318,7 @@ module Handler = struct
       | None -> Css.empty
     in
     style ~property_rules:property_rule
-      [ Css.outline_style (Css.Var oref); Css.outline_width (Px 2.) ]
+      [ Css.outline_style (Css.Var oref); Css.outline_width (Px 1.) ]
 
   (* Outline style utilities that set the variable *)
   let outline_none =
