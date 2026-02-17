@@ -1306,7 +1306,7 @@ module Handler = struct
   (* Outline style variable - used by outline utilities that set the style *)
   let outline_style_var =
     Var.property_default Css.Outline_style
-      ~initial:(Auto : Css.outline_style)
+      ~initial:(Solid : Css.outline_style)
       ~property_order:0 ~family:`Border "tw-outline-style"
 
   (* Base outline utility - sets outline-style from var and width to 1px *)

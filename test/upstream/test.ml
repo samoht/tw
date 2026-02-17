@@ -5,7 +5,29 @@
 
 open Alcotest
 
-type test_case = { name : string; classes : string list; expected : string }
+type theme_config =
+  | Theme
+  | Theme_inline
+  | Theme_reference
+  | Theme_inline_reference
+  | No_theme
+  | Run
+
+let config_of_string = function
+  | "theme" -> Theme
+  | "theme-inline" -> Theme_inline
+  | "theme-reference" -> Theme_reference
+  | "theme-inline-reference" -> Theme_inline_reference
+  | "none" -> No_theme
+  | "run" -> Run
+  | _ -> No_theme
+
+type test_case = {
+  name : string;
+  config : theme_config;
+  classes : string list;
+  expected : string;
+}
 
 (** Convert a Tailwind class name to the expected CSS selector. E.g., "-z-10" ->
     ".-z-10" or "z-[123]" -> ".z-\[123\]" *)
@@ -205,6 +227,12 @@ let read_test_cases filename =
     close_in ic;
     let tests = ref [] in
     let lines = String.split_on_char '\n' content in
+    let parse_config_line line =
+      let line = String.trim line in
+      if String.length line > 8 && String.sub line 0 8 = "@config " then
+        Some (config_of_string (String.sub line 8 (String.length line - 8)))
+      else None
+    in
     let rec parse lines =
       match lines with
       | [] -> ()
@@ -212,9 +240,16 @@ let read_test_cases filename =
           let line = String.trim line in
           if String.length line > 2 && line.[0] = '#' && line.[1] = ' ' then
             let name = String.sub line 2 (String.length line - 2) in
-            parse_classes name rest
+            parse_config name No_theme rest
           else parse rest
-    and parse_classes name lines =
+    and parse_config name default_config lines =
+      match lines with
+      | [] -> ()
+      | line :: rest -> (
+          match parse_config_line line with
+          | Some config -> parse_classes name config rest
+          | None -> parse_classes name default_config (line :: rest))
+    and parse_classes name config lines =
       match lines with
       | [] -> ()
       | line :: rest ->
@@ -222,45 +257,45 @@ let read_test_cases filename =
           if line = "<<<>>>" then parse rest
           else if line = "---" then
             (* No classes line before ---, skip *)
-            parse_expected name [] (Buffer.create 256) rest
+            parse_expected name config [] (Buffer.create 256) rest
           else if String.length line > 2 && line.[0] = '#' && line.[1] = ' '
           then
             (* New test without classes *)
             let new_name = String.sub line 2 (String.length line - 2) in
-            parse_classes new_name rest
+            parse_config new_name No_theme rest
           else
             let classes =
               String.split_on_char ' ' line
               |> List.filter (fun s -> String.length s > 0)
             in
-            parse_after_classes name classes rest
-    and parse_after_classes name classes lines =
+            parse_after_classes name config classes rest
+    and parse_after_classes name config classes lines =
       match lines with
       | [] -> ()
       | line :: rest ->
           let line = String.trim line in
           if line = "---" then
-            parse_expected name classes (Buffer.create 256) rest
+            parse_expected name config classes (Buffer.create 256) rest
           else if line = "<<<>>>" then
             (* No expected CSS, skip this test *)
             parse rest
           else parse rest
-    and parse_expected name classes buf lines =
+    and parse_expected name config classes buf lines =
       match lines with
       | [] ->
           let expected = Buffer.contents buf |> String.trim in
           if classes <> [] && expected <> "" then
-            tests := { name; classes; expected } :: !tests
+            tests := { name; config; classes; expected } :: !tests
       | line :: rest ->
           if String.trim line = "<<<>>>" then (
             let expected = Buffer.contents buf |> String.trim in
             if classes <> [] && expected <> "" then
-              tests := { name; classes; expected } :: !tests;
+              tests := { name; config; classes; expected } :: !tests;
             parse rest)
           else (
             if Buffer.length buf > 0 then Buffer.add_char buf '\n';
             Buffer.add_string buf line;
-            parse_expected name classes buf rest)
+            parse_expected name config classes buf rest)
     in
     parse lines;
     List.rev !tests
@@ -318,11 +353,63 @@ let setup_scheme_for_test expected =
   Tw.Theme.set_scheme scheme;
   Tw.Borders.set_scheme scheme
 
+(** Build a [resolve_var] function for theme-dependent CSS emission.
+
+    In Tailwind v4, [compileCss] resolves theme variables at compile time:
+    - [@theme \{ --var: value \}] → [var(--var)] reference kept
+    - [@theme inline \{ --var: value \}] → value inlined
+    - No [@theme] with that variable → hard-coded default used
+
+    This function returns a resolver that maps [Var_fallback] names to concrete
+    values when the theme configuration indicates the variable wouldn't exist or
+    should be inlined. *)
+let make_resolve_var config expected =
+  (* Check if a var name appears as var(--name) in the expected CSS. If it does,
+     the theme defines it and we should keep the nested var form. *)
+  let expected_has_var name =
+    let pattern = "var(--" ^ name ^ ")" in
+    Astring.String.is_infix ~affix:pattern expected
+  in
+  (* Theme variable resolution table: (var_name, inline_value, default_value) *)
+  let theme_defaults =
+    [
+      ("default-transition-timing-function", "ease", "ease");
+      ("default-transition-duration", ".1s", "0s");
+    ]
+  in
+  match config with
+  | Run -> Css.Pp.no_resolve
+  | Theme ->
+      (* Resolve only vars that are NOT referenced in expected CSS *)
+      fun name ->
+        List.find_map
+          (fun (var_name, _inline, default) ->
+            if name = var_name && not (expected_has_var var_name) then
+              Some default
+            else None)
+          theme_defaults
+  | Theme_inline ->
+      (* Inline all known theme variable values *)
+      fun name ->
+        List.find_map
+          (fun (var_name, inline_val, _) ->
+            if name = var_name then Some inline_val else None)
+          theme_defaults
+  | No_theme ->
+      (* No theme vars available, use hard-coded defaults *)
+      fun name ->
+        List.find_map
+          (fun (var_name, _, default) ->
+            if name = var_name then Some default else None)
+          theme_defaults
+  | Theme_reference | Theme_inline_reference -> Css.Pp.no_resolve
+
 let run_test_case test () =
   if test.classes = [] then ()
   else (
     (* Set up scheme from expected CSS to match Tailwind's @theme config *)
     setup_scheme_for_test test.expected;
+    let resolve_var = make_resolve_var test.config test.expected in
     (* Parse classes and generate our CSS *)
     let utilities =
       List.filter_map
@@ -338,7 +425,7 @@ let run_test_case test () =
       if utilities = [] then ""
       else
         Tw.to_css ~base:false ~layers:false ~optimize:true utilities
-        |> Css.to_string ~minify:false
+        |> Css.to_string ~minify:false ~resolve_var
     in
     if our_css = "" && String.trim test.expected = "" then ()
     else

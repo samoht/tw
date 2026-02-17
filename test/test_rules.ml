@@ -1312,8 +1312,9 @@ let test_priority_order_per_group () =
   let animation_utils = [ animate_spin; animate_pulse; animate_bounce ] in
   let filter_utils = [ blur_sm; blur; blur_lg ] in
 
-  (* Randomly pick one utility from each group *)
-  let pick_random lst = List.nth lst (Random.int (List.length lst)) in
+  let pick_random lst =
+    List.nth lst (Random.State.int Test_helpers.test_rng (List.length lst))
+  in
 
   let utilities =
     [
@@ -1738,13 +1739,12 @@ let test_random_utilities_with_minimization () =
     ]
   in
 
-  (* Pick random utilities *)
   let pick_random n lst =
     let arr = Array.of_list lst in
     let len = Array.length arr in
     let picked = ref [] in
     for _ = 1 to min n len do
-      let idx = Random.int len in
+      let idx = Random.State.int Test_helpers.test_rng len in
       picked := arr.(idx) :: !picked
     done;
     !picked

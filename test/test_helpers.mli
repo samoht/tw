@@ -108,9 +108,13 @@ val has_var_in_declarations : ?inline:bool -> Css.declaration list -> bool
 val spacing_values : int list
 (** Common spacing values used in Tailwind utilities *)
 
+val test_rng : Random.State.t
+(** Global RNG for randomized tests. Initialized with a random seed printed to
+    stderr. Set [TEST_SEED] env var to replay a specific seed. *)
+
 val shuffle : 'a list -> 'a list
 (** [shuffle lst] returns a shuffled copy of the list using Fisher-Yates
-    algorithm *)
+    algorithm with {!test_rng}. *)
 
 (** {1 Generic Test Patterns} *)
 

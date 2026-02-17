@@ -66,25 +66,22 @@ module Handler = struct
 
   let transition_none = style [ Css.transition_property [ Css.None ] ]
 
+  (* Shared ease and duration refs using nested var fallback to theme defaults.
+     Produces var(--tw-ease, var(--default-transition-timing-function)) and
+     var(--tw-duration, var(--default-transition-duration)). Note: standalone
+     tests (transition-all alone) expect direct fallbacks like ease/0s, but the
+     full-set test expects nested var. We match the full-set behavior since it's
+     correct when theme vars are declared. *)
+  let ease_ref =
+    Var.reference_with_var_fallback tw_ease_var
+      default_transition_timing_function_var
+      (Css.Cubic_bezier (0., 0., 0., 0.))
+
+  let duration_ref =
+    Var.reference_with_var_fallback tw_duration_var
+      default_transition_duration_var (Css.Ms 0.)
+
   let transition =
-    (* Use longhand properties with variable references like transition-all *)
-    let ease_ref =
-      Var.reference_with_var_fallback tw_ease_var
-        default_transition_timing_function_var
-        (Css.Cubic_bezier (0., 0., 0., 0.))
-    in
-    let duration_ref =
-      Var.reference_with_var_fallback tw_duration_var
-        default_transition_duration_var (Css.Ms 0.)
-    in
-    (* Include theme bindings for default transition values *)
-    let duration_theme_decl, _ =
-      Var.binding default_transition_duration_var (Css.Ms 150.)
-    in
-    let timing_theme_decl, _ =
-      Var.binding default_transition_timing_function_var
-        (Css.Cubic_bezier (0.4, 0., 0.2, 1.))
-    in
     (* Use typed variable names for gradient properties *)
     let gradient_from_name =
       Var.css_name Backgrounds.Handler.gradient_from_var
@@ -93,8 +90,6 @@ module Handler = struct
     let gradient_to_name = Var.css_name Backgrounds.Handler.gradient_to_var in
     style
       [
-        duration_theme_decl;
-        timing_theme_decl;
         Css.transition_property
           [
             Css.Property "color";
@@ -126,57 +121,14 @@ module Handler = struct
       ]
 
   let transition_all =
-    (* Use individual properties with nested var fallbacks Output:
-       transition-property: all; transition-timing-function: var(--tw-ease,
-       var(--default-transition-timing-function)); transition-duration:
-       var(--tw-duration, var(--default-transition-duration)); *)
-    let ease_ref =
-      Var.reference_with_var_fallback tw_ease_var
-        default_transition_timing_function_var
-        (Css.Cubic_bezier (0., 0., 0., 0.))
-    in
-    let duration_ref =
-      Var.reference_with_var_fallback tw_duration_var
-        default_transition_duration_var (Css.Ms 0.)
-    in
-    (* Include theme bindings for default transition values *)
-    let duration_theme_decl, _ =
-      Var.binding default_transition_duration_var (Css.Ms 150.)
-    in
-    let timing_theme_decl, _ =
-      Var.binding default_transition_timing_function_var
-        (Css.Cubic_bezier (0.4, 0., 0.2, 1.))
-    in
     style
       [
-        duration_theme_decl;
-        timing_theme_decl;
         Css.transition_property [ Css.All ];
         Css.transition_timing_function (Css.Var ease_ref);
         Css.transition_duration (Css.Var duration_ref);
       ]
 
   let transition_colors =
-    (* Use individual properties like Tailwind v4 *)
-    (* --tw-ease and --tw-duration have fallbacks to theme defaults *)
-    let ease_ref =
-      Var.reference_with_var_fallback tw_ease_var
-        default_transition_timing_function_var
-        (Css.Cubic_bezier (0., 0., 0., 0.))
-    in
-    let duration_ref =
-      Var.reference_with_var_fallback tw_duration_var
-        default_transition_duration_var (Css.Ms 0.)
-    in
-    (* Include theme bindings for default transition values *)
-    let duration_theme_decl, _ =
-      Var.binding default_transition_duration_var (Css.Ms 150.)
-    in
-    let timing_theme_decl, _ =
-      Var.binding default_transition_timing_function_var
-        (Css.Cubic_bezier (0.4, 0., 0.2, 1.))
-    in
-    (* Use typed variable names for gradient properties *)
     let gradient_from_name =
       Var.css_name Backgrounds.Handler.gradient_from_var
     in
@@ -184,8 +136,6 @@ module Handler = struct
     let gradient_to_name = Var.css_name Backgrounds.Handler.gradient_to_var in
     style
       [
-        duration_theme_decl;
-        timing_theme_decl;
         Css.transition_property
           [
             Css.Property "color";
@@ -204,31 +154,11 @@ module Handler = struct
       ]
 
   let transition_opacity =
-    (* Use longhand properties with variable references *)
-    let ease_ref =
-      Var.reference_with_var_fallback tw_ease_var
-        default_transition_timing_function_var
-        (Css.Cubic_bezier (0., 0., 0., 0.))
-    in
-    let duration_ref =
-      Var.reference_with_var_fallback tw_duration_var
-        default_transition_duration_var (Css.Ms 0.)
-    in
-    let duration_theme_decl, _ =
-      Var.binding default_transition_duration_var (Css.Ms 150.)
-    in
-    let timing_theme_decl, _ =
-      Var.binding default_transition_timing_function_var
-        (Css.Cubic_bezier (0.4, 0., 0.2, 1.))
-    in
-    (* Create theme binding for --transition-property-opacity *)
     let opacity_prop_decl, opacity_prop_ref =
       Var.binding transition_property_opacity_var (Css.Property "opacity")
     in
     style
       [
-        duration_theme_decl;
-        timing_theme_decl;
         opacity_prop_decl;
         Css.transition_property [ Css.Var opacity_prop_ref ];
         Css.transition_timing_function (Css.Var ease_ref);
@@ -236,52 +166,16 @@ module Handler = struct
       ]
 
   let transition_shadow =
-    let ease_ref =
-      Var.reference_with_var_fallback tw_ease_var
-        default_transition_timing_function_var
-        (Css.Cubic_bezier (0., 0., 0., 0.))
-    in
-    let duration_ref =
-      Var.reference_with_var_fallback tw_duration_var
-        default_transition_duration_var (Css.Ms 0.)
-    in
-    let duration_theme_decl, _ =
-      Var.binding default_transition_duration_var (Css.Ms 150.)
-    in
-    let timing_theme_decl, _ =
-      Var.binding default_transition_timing_function_var
-        (Css.Cubic_bezier (0.4, 0., 0.2, 1.))
-    in
     style
       [
-        duration_theme_decl;
-        timing_theme_decl;
         Css.transition_property [ Css.Property "box-shadow" ];
         Css.transition_timing_function (Css.Var ease_ref);
         Css.transition_duration (Css.Var duration_ref);
       ]
 
   let transition_transform =
-    let ease_ref =
-      Var.reference_with_var_fallback tw_ease_var
-        default_transition_timing_function_var
-        (Css.Cubic_bezier (0., 0., 0., 0.))
-    in
-    let duration_ref =
-      Var.reference_with_var_fallback tw_duration_var
-        default_transition_duration_var (Css.Ms 0.)
-    in
-    let duration_theme_decl, _ =
-      Var.binding default_transition_duration_var (Css.Ms 150.)
-    in
-    let timing_theme_decl, _ =
-      Var.binding default_transition_timing_function_var
-        (Css.Cubic_bezier (0.4, 0., 0.2, 1.))
-    in
     style
       [
-        duration_theme_decl;
-        timing_theme_decl;
         Css.transition_property
           [
             Css.Property "transform";
@@ -311,19 +205,28 @@ module Handler = struct
 
   (* Theme variables for easing functions - order (7, 6-8) places them after
      radius (7, 0-5) but before animate (7, 9-12) *)
-  let ease_in_var = Var.theme Css.Timing_function "ease-in" ~order:(7, 6)
-  let ease_out_var = Var.theme Css.Timing_function "ease-out" ~order:(7, 7)
-  let ease_in_out_var = Var.theme Css.Timing_function "ease-in-out" ~order:(7, 8)
+  let ease_linear_var =
+    Var.theme Css.Timing_function "ease-linear" ~order:(7, 15)
+
+  let ease_in_var = Var.theme Css.Timing_function "ease-in" ~order:(7, 16)
+  let ease_out_var = Var.theme Css.Timing_function "ease-out" ~order:(7, 17)
+
+  let ease_in_out_var =
+    Var.theme Css.Timing_function "ease-in-out" ~order:(7, 18)
 
   let ease_linear =
-    (* Set --tw-ease to linear and use it for transition-timing-function *)
-    let tw_ease_decl, _ = Var.binding tw_ease_var Linear in
+    let theme_decl, ease_linear_ref = Var.binding ease_linear_var Linear in
+    let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var ease_linear_ref) in
     let prop_rule = Var.property_rule tw_ease_var in
     let property_rules =
       match prop_rule with Some r -> r | None -> Css.empty
     in
     style ~property_rules
-      [ tw_ease_decl; Css.transition_timing_function Linear ]
+      [
+        theme_decl;
+        tw_ease_decl;
+        Css.transition_timing_function (Css.Var ease_linear_ref);
+      ]
 
   let ease_in =
     (* Set --tw-ease to var(--ease-in) and use the theme variable *)

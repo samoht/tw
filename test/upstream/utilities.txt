@@ -1,5 +1,5 @@
-Parsing /Users/samoht/git/tailwindcss/packages/tailwindcss/src/utilities.test.ts...
 # sr-only
+@config run
 sr-only
 ---
 .sr-only {
@@ -15,11 +15,13 @@ sr-only
     }
 <<<>>>
 # sr-only
+@config run
 -sr-only
 ---
 
 <<<>>>
 # not-sr-only
+@config run
 not-sr-only
 ---
 .not-sr-only {
@@ -34,11 +36,13 @@ not-sr-only
     }
 <<<>>>
 # not-sr-only
+@config run
 -not-sr-only
 ---
 
 <<<>>>
 # pointer-events
+@config run
 pointer-events-auto pointer-events-none
 ---
 .pointer-events-auto {
@@ -50,11 +54,13 @@ pointer-events-auto pointer-events-none
     }
 <<<>>>
 # pointer-events
+@config run
 -pointer-events-auto -pointer-events-none
 ---
 
 <<<>>>
 # visibility
+@config run
 collapse invisible visible
 ---
 .collapse {
@@ -70,11 +76,13 @@ collapse invisible visible
     }
 <<<>>>
 # visibility
+@config run
 -collapse -invisible -visible collapse/foo invisible/foo visible/foo
 ---
 
 <<<>>>
 # position
+@config run
 absolute fixed relative static sticky
 ---
 .absolute {
@@ -98,11 +106,13 @@ absolute fixed relative static sticky
     }
 <<<>>>
 # position
+@config run
 -absolute -fixed -relative -static -sticky absolute/foo fixed/foo relative/foo static/foo sticky/foo
 ---
 
 <<<>>>
 # inset
+@config theme
 -inset-4 -inset-full inset-3/4 inset-4 inset-[4px] inset-auto inset-full inset-shadow-sm inset-shadowned
 ---
 @layer properties {
@@ -248,11 +258,13 @@ absolute fixed relative static sticky
     }
 <<<>>>
 # inset
+@config run
 -inset-4/foo -inset-full/foo inset inset--1 inset--1/-2 inset--1/2 inset-1/-2 inset-3/4/foo inset-4/foo inset-[4px]/foo inset-auto/foo inset-full/foo
 ---
 
 <<<>>>
 # inset-x
+@config theme
 -inset-x-4 -inset-x-full inset-x-3/4 inset-x-4 inset-x-[4px] inset-x-auto inset-x-full inset-x-shadowned
 ---
 :root, :host {
@@ -293,11 +305,13 @@ absolute fixed relative static sticky
     }
 <<<>>>
 # inset-x
+@config theme-reference
 -inset-x-4/foo -inset-x-full/foo inset-x inset-x--1 inset-x--1/-2 inset-x--1/2 inset-x-1/-2 inset-x-3/4/foo inset-x-4/foo inset-x-[4px]/foo inset-x-auto/foo inset-x-full/foo inset-x-shadow-sm
 ---
 
 <<<>>>
 # inset-y
+@config theme
 -inset-y-4 -inset-y-full inset-y-3/4 inset-y-4 inset-y-[4px] inset-y-auto inset-y-full inset-y-shadowned
 ---
 :root, :host {
@@ -338,11 +352,13 @@ absolute fixed relative static sticky
     }
 <<<>>>
 # inset-y
+@config theme-reference
 -inset-y-4/foo -inset-y-full/foo inset-1/-2 inset-y inset-y--1 inset-y--1/-2 inset-y--1/2 inset-y-3/4/foo inset-y-4/foo inset-y-[4px]/foo inset-y-auto/foo inset-y-full/foo inset-y-shadow-sm
 ---
 
 <<<>>>
 # inset-s
+@config theme
 -inset-s-4 -inset-s-full inset-s-3/4 inset-s-4 inset-s-[4px] inset-s-auto inset-s-full inset-s-shadowned
 ---
 :root, :host {
@@ -383,11 +399,13 @@ absolute fixed relative static sticky
     }
 <<<>>>
 # inset-s
+@config theme-reference
 -inset-s-4/foo -inset-s-full/foo inset-s inset-s--1 inset-s--1/-2 inset-s--1/2 inset-s-1/-2 inset-s-3/4/foo inset-s-4/foo inset-s-[4px]/foo inset-s-auto/foo inset-s-full/foo inset-s-shadow-sm
 ---
 
 <<<>>>
 # inset-e
+@config theme
 -inset-e-4 -inset-e-full inset-e-3/4 inset-e-4 inset-e-[4px] inset-e-auto inset-e-full inset-e-shadowned
 ---
 :root, :host {
@@ -428,11 +446,13 @@ absolute fixed relative static sticky
     }
 <<<>>>
 # inset-e
+@config theme-reference
 -inset-e-4/foo -inset-e-full/foo inset-e inset-e--1 inset-e--1/-2 inset-e--1/2 inset-e-1/-2 inset-e-3/4/foo inset-e-4/foo inset-e-[4px]/foo inset-e-auto/foo inset-e-full/foo inset-e-shadow-sm
 ---
 
 <<<>>>
 # inset-bs
+@config theme
 -inset-bs-4 -inset-bs-full inset-bs-3/4 inset-bs-4 inset-bs-[4px] inset-bs-auto inset-bs-full inset-bs-shadowned
 ---
 :root, :host {
@@ -473,11 +493,13 @@ absolute fixed relative static sticky
     }
 <<<>>>
 # inset-bs
+@config theme-reference
 -inset-bs-4/foo -inset-bs-full/foo inset-bs inset-bs--1 inset-bs--1/-2 inset-bs--1/2 inset-bs-1/-2 inset-bs-3/4/foo inset-bs-4/foo inset-bs-[4px]/foo inset-bs-auto/foo inset-bs-full/foo inset-bs-shadow-sm
 ---
 
 <<<>>>
 # inset-be
+@config theme
 -inset-be-4 -inset-be-full inset-be-3/4 inset-be-4 inset-be-[4px] inset-be-auto inset-be-full inset-be-shadowned
 ---
 :root, :host {
@@ -518,11 +540,13 @@ absolute fixed relative static sticky
     }
 <<<>>>
 # inset-be
+@config theme-reference
 -inset-be-4/foo -inset-be-full/foo inset-be inset-be--1 inset-be--1/-2 inset-be--1/2 inset-be-1/-2 inset-be-3/4/foo inset-be-4/foo inset-be-[4px]/foo inset-be-auto/foo inset-be-full/foo inset-be-shadow-sm
 ---
 
 <<<>>>
 # top
+@config theme
 -top-4 -top-full top-3/4 top-4 top-[4px] top-auto top-full top-shadowned
 ---
 :root, :host {
@@ -563,11 +587,13 @@ absolute fixed relative static sticky
     }
 <<<>>>
 # top
+@config theme-reference
 -top-4/foo -top-full/foo top top--1 top--1/-2 top--1/2 top-1/-2 top-3/4/foo top-4/foo top-[4px]/foo top-auto/foo top-full/foo top-shadow-sm
 ---
 
 <<<>>>
 # right
+@config theme
 -right-4 -right-full right-3/4 right-4 right-[4px] right-auto right-full right-shadowned
 ---
 :root, :host {
@@ -608,11 +634,13 @@ absolute fixed relative static sticky
     }
 <<<>>>
 # right
+@config theme-reference
 -right-4/foo -right-full/foo right right--1 right--1/-2 right--1/2 right-1/-2 right-3/4/foo right-4/foo right-[4px]/foo right-auto/foo right-full/foo right-shadow-sm
 ---
 
 <<<>>>
 # bottom
+@config theme
 -bottom-4 -bottom-full bottom-3/4 bottom-4 bottom-[4px] bottom-auto bottom-full bottom-shadowned
 ---
 :root, :host {
@@ -653,11 +681,13 @@ absolute fixed relative static sticky
     }
 <<<>>>
 # bottom
+@config theme-reference
 -bottom-4/foo -bottom-full/foo bottom bottom--1 bottom--1/-2 bottom--1/2 bottom-1/-2 bottom-3/4/foo bottom-4/foo bottom-[4px]/foo bottom-auto/foo bottom-full/foo bottom-shadow-sm
 ---
 
 <<<>>>
 # left
+@config theme
 -left-4 -left-full left-3/4 left-4 left-[4px] left-auto left-full left-shadowned
 ---
 :root, :host {
@@ -698,11 +728,13 @@ absolute fixed relative static sticky
     }
 <<<>>>
 # left
+@config theme-reference
 -left-4/foo -left-full/foo left left--1 left--1/-2 left--1/2 left-1/-2 left-3/4/foo left-4/foo left-[4px]/foo left-auto/foo left-full/foo left-shadow-sm
 ---
 
 <<<>>>
 # isolation
+@config run
 isolate isolation-auto
 ---
 .isolate {
@@ -714,9 +746,11 @@ isolate isolation-auto
     }
 <<<>>>
 # isolation
+@config run
 -isolate -isolation-auto isolate/foo isolation-auto/foo
 <<<>>>
 # z-index
+@config run
 -z-10 z-10 z-auto
 ---
 .-z-10 {
@@ -740,11 +774,13 @@ isolate isolation-auto
       }
 <<<>>>
 # z-index
+@config run
 -z-10/foo -z-auto z z--1 z-10/foo z-123.5 z-[123]/foo z-auto/foo z-unknown
 ---
 
 <<<>>>
 # z-index
+@config theme
 z-auto
 ---
 :root, :host {
@@ -756,6 +792,7 @@ z-auto
     }
 <<<>>>
 # order
+@config run
 -order-4 order-4 order-[123]
 ---
 .-order-4 {
@@ -787,11 +824,13 @@ z-auto
     }
 <<<>>>
 # order
+@config run
 -order-4/foo -order-first -order-last -order-none order order--4 order-123.5 order-4/foo order-[123]/foo order-unknown
 ---
 
 <<<>>>
 # order
+@config theme
 order-first
 ---
 :root, :host {
@@ -803,6 +842,7 @@ order-first
     }
 <<<>>>
 # order
+@config theme
 order-last
 ---
 :root, :host {
@@ -814,6 +854,7 @@ order-last
     }
 <<<>>>
 # col
+@config run
 -col-12 col-11 col-[span_123/span_123] col-auto col-span-17 col-span-4 col-span-full
 ---
 .-col-12 {
@@ -849,11 +890,13 @@ order-last
     }
 <<<>>>
 # col
+@config run
 -col-span-4 col col-[span_123/span_123]/foo col-auto/foo col-span col-span--1 col-span-17/foo col-span-4/foo col-span-full/foo col-span-unknown
 ---
 
 <<<>>>
 # col
+@config theme
 col-auto
 ---
 :root, :host {
@@ -865,6 +908,7 @@ col-auto
     }
 <<<>>>
 # col-start
+@config theme
 col-start-4 col-start-99 col-start-[123] col-start-auto
 ---
 :root, :host {
@@ -896,11 +940,13 @@ col-start-4 col-start-99 col-start-[123] col-start-auto
     }
 <<<>>>
 # col-start
+@config run
 col-start col-start--1 col-start-4/foo col-start-99/foo col-start-[123]/foo col-start-auto/foo col-start-unknown
 ---
 
 <<<>>>
 # col-start
+@config theme
 col-start-auto
 ---
 :root, :host {
@@ -912,6 +958,7 @@ col-start-auto
     }
 <<<>>>
 # col-end
+@config theme
 col-end-4 col-end-99 col-end-auto
 ---
 :root, :host {
@@ -943,11 +990,13 @@ col-end-4 col-end-99 col-end-auto
     }
 <<<>>>
 # col-end
+@config run
 col-end col-end--1 col-end-4/foo col-end-99/foo col-end-[123]/foo col-end-auto/foo col-end-unknown
 ---
 
 <<<>>>
 # col-end
+@config theme
 col-end-auto
 ---
 :root, :host {
@@ -959,6 +1008,7 @@ col-end-auto
     }
 <<<>>>
 # row
+@config run
 -row-12 row-11 row-[span_123/span_123] row-auto row-span-17 row-span-4 row-span-full
 ---
 .-row-12 {
@@ -994,11 +1044,13 @@ col-end-auto
     }
 <<<>>>
 # row
+@config run
 -row-span-4 row row-[span_123/span_123]/foo row-auto/foo row-span row-span--1 row-span-17/foo row-span-4/foo row-span-full/foo row-span-unknown
 ---
 
 <<<>>>
 # row
+@config theme
 row-auto
 ---
 :root, :host {
@@ -1010,6 +1062,7 @@ row-auto
     }
 <<<>>>
 # row-start
+@config theme
 row-start-4 row-start-99 row-start-[123] row-start-auto
 ---
 :root, :host {
@@ -1041,11 +1094,13 @@ row-start-4 row-start-99 row-start-[123] row-start-auto
     }
 <<<>>>
 # row-start
+@config run
 row-start row-start--1 row-start-4/foo row-start-99/foo row-start-[123]/foo row-start-auto/foo row-start-unknown
 ---
 
 <<<>>>
 # row-start
+@config theme
 row-start-auto
 ---
 :root, :host {
@@ -1057,6 +1112,7 @@ row-start-auto
     }
 <<<>>>
 # row-end
+@config theme
 row-end-4 row-end-99 row-end-auto
 ---
 :root, :host {
@@ -1088,11 +1144,13 @@ row-end-4 row-end-99 row-end-auto
     }
 <<<>>>
 # row-end
+@config run
 row-end row-end--1 row-end-4/foo row-end-99/foo row-end-[123]/foo row-end-auto/foo row-end-unknown
 ---
 
 <<<>>>
 # row-end
+@config theme
 row-end-auto
 ---
 :root, :host {
@@ -1104,6 +1162,7 @@ row-end-auto
     }
 <<<>>>
 # float
+@config run
 float-end float-left float-none float-right float-start
 ---
 .float-end {
@@ -1127,11 +1186,13 @@ float-end float-left float-none float-right float-start
       }
 <<<>>>
 # float
+@config run
 -float-end -float-left -float-none -float-right -float-start float float-end/foo float-left/foo float-none/foo float-right/foo float-start/foo
 ---
 
 <<<>>>
 # clear
+@config run
 clear-both clear-end clear-left clear-none clear-right clear-start
 ---
 .clear-both {
@@ -1159,11 +1220,13 @@ clear-both clear-end clear-left clear-none clear-right clear-start
     }
 <<<>>>
 # clear
+@config run
 -clear-both -clear-end -clear-left -clear-none -clear-right -clear-start clear clear-both/foo clear-end/foo clear-left/foo clear-none/foo clear-right/foo clear-start/foo
 ---
 
 <<<>>>
 # margin
+@config theme
 m-4 m-auto
 ---
 :root, :host {
@@ -1191,11 +1254,13 @@ m-4 m-auto
     }
 <<<>>>
 # margin
+@config run
 m m-4/foo m-auto/foo
 ---
 
 <<<>>>
 # mx
+@config theme
 mx-1 mx-4 mx-99 mx-[4px] mx-auto mx-big
 ---
 :root, :host {
@@ -1248,11 +1313,13 @@ mx-1 mx-4 mx-99 mx-[4px] mx-auto mx-big
     }
 <<<>>>
 # mx
+@config run
 mx mx-4/foo mx-[4px]/foo mx-auto/foo
 ---
 
 <<<>>>
 # my
+@config theme
 my-1 my-2.5 my-99 my-[4px] my-big
 ---
 :root, :host {
@@ -1305,11 +1372,13 @@ my-1 my-2.5 my-99 my-[4px] my-big
     }
 <<<>>>
 # my
+@config run
 my my-4/foo my-[4px]/foo my-auto/foo
 ---
 
 <<<>>>
 # mt
+@config theme
 mt-1 mt-2.5 mt-99 mt-[4px] mt-big
 ---
 :root, :host {
@@ -1362,11 +1431,13 @@ mt-1 mt-2.5 mt-99 mt-[4px] mt-big
     }
 <<<>>>
 # mt
+@config run
 mt mt-4/foo mt-[4px]/foo mt-auto/foo
 ---
 
 <<<>>>
 # ms
+@config theme
 ms-1 ms-2.5 ms-99 ms-[4px] ms-big
 ---
 :root, :host {
@@ -1419,11 +1490,13 @@ ms-1 ms-2.5 ms-99 ms-[4px] ms-big
     }
 <<<>>>
 # ms
+@config run
 ms ms-4/foo ms-[4px]/foo ms-auto/foo
 ---
 
 <<<>>>
 # me
+@config theme
 me-1 me-2.5 me-99 me-[4px] me-big
 ---
 :root, :host {
@@ -1476,11 +1549,13 @@ me-1 me-2.5 me-99 me-[4px] me-big
     }
 <<<>>>
 # me
+@config run
 me me-4/foo me-[4px]/foo me-auto/foo
 ---
 
 <<<>>>
 # mbs
+@config theme
 mbs-1 mbs-2.5 mbs-99 mbs-[4px] mbs-big
 ---
 :root, :host {
@@ -1533,11 +1608,13 @@ mbs-1 mbs-2.5 mbs-99 mbs-[4px] mbs-big
     }
 <<<>>>
 # mbs
+@config run
 mbs mbs-4/foo mbs-[4px]/foo mbs-auto/foo
 ---
 
 <<<>>>
 # mbe
+@config theme
 mbe-1 mbe-2.5 mbe-99 mbe-[4px] mbe-big
 ---
 :root, :host {
@@ -1590,11 +1667,13 @@ mbe-1 mbe-2.5 mbe-99 mbe-[4px] mbe-big
     }
 <<<>>>
 # mbe
+@config run
 mbe mbe-4/foo mbe-[4px]/foo mbe-auto/foo
 ---
 
 <<<>>>
 # mr
+@config theme
 mr-1 mr-2.5 mr-99 mr-[4px] mr-big
 ---
 :root, :host {
@@ -1647,11 +1726,13 @@ mr-1 mr-2.5 mr-99 mr-[4px] mr-big
     }
 <<<>>>
 # mr
+@config run
 mr mr-4/foo mr-[4px]/foo mr-auto/foo
 ---
 
 <<<>>>
 # mb
+@config theme
 mb-1 mb-2.5 mb-99 mb-[4px] mb-big
 ---
 :root, :host {
@@ -1704,11 +1785,13 @@ mb-1 mb-2.5 mb-99 mb-[4px] mb-big
     }
 <<<>>>
 # mb
+@config run
 mb mb-4/foo mb-[4px]/foo mb-auto/foo
 ---
 
 <<<>>>
 # ml
+@config theme
 ml-1 ml-2.5 ml-99 ml-[4px] ml-big
 ---
 :root, :host {
@@ -1761,11 +1844,13 @@ ml-1 ml-2.5 ml-99 ml-[4px] ml-big
     }
 <<<>>>
 # ml
+@config run
 ml ml-4/foo ml-[4px]/foo ml-auto/foo
 ---
 
 <<<>>>
 # margin sort order
+@config theme
 m-4 mb-4 me-4 ml-4 mr-4 ms-4 mt-4 mx-4 my-4
 ---
 :root, :host {
@@ -1809,11 +1894,13 @@ m-4 mb-4 me-4 ml-4 mr-4 ms-4 mt-4 mx-4 my-4
     }
 <<<>>>
 # margin sort order
+@config run
 m m-4/foo mb-4/foo me-4/foo ml-4/foo mr-4/foo ms-4/foo mt-4/foo mx-4/foo my-4/foo
 ---
 
 <<<>>>
 # box-sizing
+@config run
 box-border box-content
 ---
 .box-border {
@@ -1825,11 +1912,13 @@ box-border box-content
     }
 <<<>>>
 # box-sizing
+@config run
 -box-border -box-content box box-border/foo box-content/foo
 ---
 
 <<<>>>
 # line-clamp
+@config run
 line-clamp-4 line-clamp-99
 ---
 .line-clamp-4 {
@@ -1861,11 +1950,13 @@ line-clamp-4 line-clamp-99
       }
 <<<>>>
 # line-clamp
+@config run
 -line-clamp-4 -line-clamp-[123] line-clamp line-clamp--4
 ---
 
 <<<>>>
 # line-clamp
+@config theme
 line-clamp-none
 ---
 :root, :host {
@@ -1880,6 +1971,7 @@ line-clamp-none
     }
 <<<>>>
 # display
+@config run
 block contents flex flow-root grid hidden inline inline-block inline-flex inline-grid inline-table list-item table table-caption table-cell table-column table-column-group table-footer-group table-header-group table-row table-row-group
 ---
 .block {
@@ -1967,11 +2059,13 @@ block contents flex flow-root grid hidden inline inline-block inline-flex inline
     }
 <<<>>>
 # display
+@config run
 -block -contents -flex -flow-root -grid -hidden -inline -inline-block -inline-flex -inline-grid -inline-table -list-item -table -table-caption -table-cell -table-column -table-column-group -table-footer-group -table-header-group -table-row -table-row-group block/foo contents/foo flex/foo flow-root/foo grid/foo hidden/foo inline-block/foo inline-flex/foo inline-grid/foo inline-table/foo inline/foo list-item/foo table-caption/foo table-cell/foo table-column-group/foo table-column/foo table-footer-group/foo table-header-group/foo table-row-group/foo table-row/foo table/foo
 ---
 
 <<<>>>
 # field-sizing
+@config run
 field-sizing-content field-sizing-fixed
 ---
 .field-sizing-content {
@@ -1983,6 +2077,7 @@ field-sizing-content field-sizing-fixed
     }
 <<<>>>
 # aspect-ratio
+@config theme
 aspect-video
 ---
 :root, :host {
@@ -2002,11 +2097,13 @@ aspect-video
     }
 <<<>>>
 # aspect-ratio
+@config run
 -aspect-[10/9] -aspect-video aspect aspect-potato
 ---
 
 <<<>>>
 # size
+@config theme
 size-1/2 size-4 size-[4px] size-auto size-fit size-full size-max size-min
 ---
 :root, :host {
@@ -2054,11 +2151,13 @@ size-1/2 size-4 size-[4px] size-auto size-fit size-full size-max size-min
     }
 <<<>>>
 # size
+@config run
 -size-1/2 -size-4 -size-[4px] size size--1 size--1/-2 size--1/2 size-1/-2
 ---
 
 <<<>>>
 # width
+@config theme
 w-1/2 w-4 w-[4px] w-auto w-dvw w-fit w-full w-lvw w-max w-min w-screen w-svw w-xl
 ---
 :root, :host {
@@ -2119,11 +2218,13 @@ w-1/2 w-4 w-[4px] w-auto w-dvw w-fit w-full w-lvw w-max w-min w-screen w-svw w-x
     }
 <<<>>>
 # width
+@config run
 -w-1/2 -w-4 -w-[4px] w w--1 w--1/-2 w--1/2 w-1/-2
 ---
 
 <<<>>>
 # min-width
+@config theme
 min-w-4 min-w-[4px] min-w-auto min-w-fit min-w-full min-w-max min-w-min min-w-xl
 ---
 :root, :host {
@@ -2164,11 +2265,13 @@ min-w-4 min-w-[4px] min-w-auto min-w-fit min-w-full min-w-max min-w-min min-w-xl
     }
 <<<>>>
 # min-width
+@config run
 -min-w-4 -min-w-[4px] min-w
 ---
 
 <<<>>>
 # max-width
+@config theme
 max-w-4 max-w-fit max-w-full max-w-max max-w-none max-w-xl
 ---
 :root, :host {
@@ -2205,11 +2308,13 @@ max-w-4 max-w-fit max-w-full max-w-max max-w-none max-w-xl
     }
 <<<>>>
 # max-width
+@config run
 -max-w-4 -max-w-[4px] max-w max-w-auto
 ---
 
 <<<>>>
 # height
+@config theme
 h-1/2 h-4 h-[4px] h-auto h-dvh h-fit h-full h-lh h-lvh h-max h-min h-screen h-svh
 ---
 :root, :host {
@@ -2269,11 +2374,13 @@ h-1/2 h-4 h-[4px] h-auto h-dvh h-fit h-full h-lh h-lvh h-max h-min h-screen h-sv
     }
 <<<>>>
 # height
+@config run
 -h-1/2 -h-4 -h-[4px] h h--1 h--1/-2 h--1/2 h-1/-2
 ---
 
 <<<>>>
 # min-height
+@config theme
 min-h-4 min-h-[4px] min-h-auto min-h-dvh min-h-fit min-h-full min-h-lh min-h-lvh min-h-max min-h-min min-h-screen min-h-svh
 ---
 :root, :host {
@@ -2329,11 +2436,13 @@ min-h-4 min-h-[4px] min-h-auto min-h-dvh min-h-fit min-h-full min-h-lh min-h-lvh
     }
 <<<>>>
 # min-height
+@config run
 -min-h-4 -min-h-[4px] min-h
 ---
 
 <<<>>>
 # max-height
+@config theme
 max-h-4 max-h-[4px] max-h-dvh max-h-fit max-h-full max-h-lh max-h-lvh max-h-max max-h-min max-h-none max-h-screen max-h-svh
 ---
 :root, :host {
@@ -2389,11 +2498,13 @@ max-h-4 max-h-[4px] max-h-dvh max-h-fit max-h-full max-h-lh max-h-lvh max-h-max 
     }
 <<<>>>
 # max-height
+@config run
 -max-h-4 -max-h-[4px] max-h max-h-auto
 ---
 
 <<<>>>
 # inline-size
+@config theme
 inline-1/2 inline-4 inline-[4px] inline-auto inline-dvw inline-fit inline-full inline-lvw inline-max inline-min inline-screen inline-svw inline-xl
 ---
 :root, :host {
@@ -2454,11 +2565,13 @@ inline-1/2 inline-4 inline-[4px] inline-auto inline-dvw inline-fit inline-full i
     }
 <<<>>>
 # inline-size
+@config run
 -inline-1/2 -inline-4 -inline-[4px] inline--1 inline--1/-2 inline--1/2 inline-1/-2
 ---
 
 <<<>>>
 # min-inline-size
+@config theme
 min-inline-4 min-inline-[4px] min-inline-auto min-inline-fit min-inline-full min-inline-max min-inline-min min-inline-xl
 ---
 :root, :host {
@@ -2499,11 +2612,13 @@ min-inline-4 min-inline-[4px] min-inline-auto min-inline-fit min-inline-full min
     }
 <<<>>>
 # min-inline-size
+@config run
 -min-inline-4 -min-inline-[4px] min-inline
 ---
 
 <<<>>>
 # max-inline-size
+@config theme
 max-inline-4 max-inline-[4px] max-inline-fit max-inline-full max-inline-max max-inline-none max-inline-xl
 ---
 :root, :host {
@@ -2540,11 +2655,13 @@ max-inline-4 max-inline-[4px] max-inline-fit max-inline-full max-inline-max max-
     }
 <<<>>>
 # max-inline-size
+@config run
 -max-inline-4 -max-inline-[4px] max-inline max-inline-auto
 ---
 
 <<<>>>
 # block-size
+@config theme
 block-1/2 block-4 block-[4px] block-auto block-dvh block-fit block-full block-lh block-lvh block-max block-min block-screen block-svh
 ---
 :root, :host {
@@ -2604,11 +2721,13 @@ block-1/2 block-4 block-[4px] block-auto block-dvh block-fit block-full block-lh
     }
 <<<>>>
 # block-size
+@config run
 -block-1/2 -block-4 -block-[4px] block--1 block--1/-2 block--1/2 block-1/-2
 ---
 
 <<<>>>
 # min-block-size
+@config theme
 min-block-4 min-block-[4px] min-block-auto min-block-dvh min-block-fit min-block-full min-block-lh min-block-lvh min-block-max min-block-min min-block-screen min-block-svh
 ---
 :root, :host {
@@ -2664,11 +2783,13 @@ min-block-4 min-block-[4px] min-block-auto min-block-dvh min-block-fit min-block
     }
 <<<>>>
 # min-block-size
+@config run
 -min-block-4 -min-block-[4px] min-block
 ---
 
 <<<>>>
 # max-block-size
+@config theme
 max-block-4 max-block-[4px] max-block-dvh max-block-fit max-block-full max-block-lh max-block-lvh max-block-max max-block-min max-block-none max-block-screen max-block-svh
 ---
 :root, :host {
@@ -2724,11 +2845,13 @@ max-block-4 max-block-[4px] max-block-dvh max-block-fit max-block-full max-block
     }
 <<<>>>
 # max-block-size
+@config run
 -max-block-4 -max-block-[4px] max-block max-block-auto
 ---
 
 <<<>>>
 # flex
+@config run
 flex-1 flex-1/2 flex-99 flex-[123] flex-auto flex-initial flex-none
 ---
 .flex-1 {
@@ -2760,11 +2883,13 @@ flex-1 flex-1/2 flex-99 flex-[123] flex-auto flex-initial flex-none
     }
 <<<>>>
 # flex
+@config run
 -flex-1 -flex-[123] -flex-auto -flex-initial -flex-none flex--1
 ---
 
 <<<>>>
 # flex-shrink
+@config run
 shrink shrink-0
 ---
 .shrink {
@@ -2780,11 +2905,13 @@ shrink shrink-0
     }
 <<<>>>
 # flex-shrink
+@config run
 -shrink -shrink-0 -shrink-[123] shrink--1 shrink-1.5
 ---
 
 <<<>>>
 # flex-grow
+@config run
 grow grow-0
 ---
 .grow {
@@ -2800,11 +2927,13 @@ grow grow-0
     }
 <<<>>>
 # flex-grow
+@config run
 -grow -grow-0 -grow-[123] grow--1 grow-1.5
 ---
 
 <<<>>>
 # flex-basis
+@config theme
 basis-11/12 basis-auto basis-full basis-xl
 ---
 :root, :host {
@@ -2832,11 +2961,13 @@ basis-11/12 basis-auto basis-full basis-xl
     }
 <<<>>>
 # flex-basis
+@config run
 -basis-[123px] -basis-full basis basis--1 basis--1/-2 basis--1/2 basis-1/-2
 ---
 
 <<<>>>
 # table-layout
+@config run
 table-auto table-fixed
 ---
 .table-auto {
@@ -2848,9 +2979,11 @@ table-auto table-fixed
     }
 <<<>>>
 # table-layout
+@config run
 -table-auto -table-fixed table-auto/foo table-fixed/foo
 <<<>>>
 # caption-side
+@config run
 caption-bottom caption-top
 ---
 .caption-bottom {
@@ -2862,11 +2995,13 @@ caption-bottom caption-top
     }
 <<<>>>
 # caption-side
+@config run
 -caption-bottom -caption-top caption-bottom/foo caption-top/foo
 ---
 
 <<<>>>
 # border-collapse
+@config run
 border-collapse border-separate
 ---
 .border-collapse {
@@ -2878,11 +3013,13 @@ border-collapse border-separate
     }
 <<<>>>
 # border-collapse
+@config run
 -border-collapse -border-separate border-collapse/foo border-separate/foo
 ---
 
 <<<>>>
 # border-spacing
+@config theme
 border-spacing-1
 ---
 @layer properties {
@@ -2923,11 +3060,13 @@ border-spacing-1
     }
 <<<>>>
 # border-spacing
+@config run
 -border-spacing-1 -border-spacing-[123px] border-spacing
 ---
 
 <<<>>>
 # border-spacing-x
+@config theme
 border-spacing-x-1
 ---
 @layer properties {
@@ -2966,11 +3105,13 @@ border-spacing-x-1
     }
 <<<>>>
 # border-spacing-x
+@config run
 -border-spacing-x-1 -border-spacing-x-[123px] border-spacing-x
 ---
 
 <<<>>>
 # border-spacing-y
+@config theme
 border-spacing-y-1
 ---
 @layer properties {
@@ -3009,11 +3150,13 @@ border-spacing-y-1
     }
 <<<>>>
 # border-spacing-y
+@config run
 -border-spacing-y-1 -border-spacing-y-[123px] border-spacing-x
 ---
 
 <<<>>>
 # origin
+@config run
 origin-[50px_100px] origin-bottom origin-bottom-left origin-bottom-right origin-center origin-left origin-right origin-top origin-top-left origin-top-right
 ---
 .origin-\[50px_100px\] {
@@ -3061,11 +3204,13 @@ origin-[50px_100px] origin-bottom origin-bottom-left origin-bottom-right origin-
     }
 <<<>>>
 # origin
+@config run
 -origin-center
 ---
 
 <<<>>>
 # origin
+@config theme
 origin-top
 ---
 :root, :host {
@@ -3077,6 +3222,7 @@ origin-top
     }
 <<<>>>
 # perspective-origin
+@config run
 perspective-origin-[50px_100px] perspective-origin-bottom perspective-origin-bottom-left perspective-origin-bottom-right perspective-origin-center perspective-origin-left perspective-origin-right perspective-origin-top perspective-origin-top-left perspective-origin-top-right
 ---
 .perspective-origin-\[50px_100px\] {
@@ -3124,11 +3270,13 @@ perspective-origin-[50px_100px] perspective-origin-bottom perspective-origin-bot
     }
 <<<>>>
 # perspective-origin
+@config run
 -perspective-origin-center
 ---
 
 <<<>>>
 # perspective-origin
+@config theme
 perspective-origin-top
 ---
 :root, :host {
@@ -3141,6 +3289,7 @@ perspective-origin-top
     }
 <<<>>>
 # translate
+@config run
 -translate-full translate-1/2 translate-[123px] translate-full
 ---
 @layer properties {
@@ -3202,11 +3351,13 @@ perspective-origin-top
     }
 <<<>>>
 # translate
+@config run
 -translate-full/foo translate translate--1 translate--1/-2 translate--1/2 translate-1/-2 translate-1/2/foo translate-[123px]/foo translate-full/foo
 ---
 
 <<<>>>
 # translate-x
+@config run
 -translate-x-full translate-x-full translate-x-px
 ---
 @layer properties {
@@ -3258,11 +3409,13 @@ perspective-origin-top
     }
 <<<>>>
 # translate-x
+@config run
 -translate-x-full/foo translate-x translate-x--1 translate-x--1/-2 translate-x--1/2 translate-x-1/-2 translate-x-full/foo translate-x-px/foo
 ---
 
 <<<>>>
 # translate-x
+@config theme
 -translate-x-full translate-x-full translate-x-px
 ---
 @layer properties {
@@ -3314,11 +3467,13 @@ perspective-origin-top
     }
 <<<>>>
 # translate-x
+@config run
 -perspective perspective perspective-123 perspective-[456px]/foo perspective-dramatic/foo perspective-none/foo perspective-normal/foo perspective-potato
 ---
 
 <<<>>>
 # translate-y
+@config run
 -translate-y-full translate-y-full translate-y-px
 ---
 @layer properties {
@@ -3370,11 +3525,13 @@ perspective-origin-top
     }
 <<<>>>
 # translate-y
+@config run
 -translate-y-full/foo translate-y translate-y--1 translate-y--1/-2 translate-y--1/2 translate-y-1/-2 translate-y-full/foo translate-y-px/foo
 ---
 
 <<<>>>
 # translate-y
+@config theme
 -translate-y-full translate-y-full translate-y-px
 ---
 @layer properties {
@@ -3426,11 +3583,13 @@ perspective-origin-top
     }
 <<<>>>
 # translate-y
+@config run
 -perspective perspective perspective-123 perspective-[456px]/foo perspective-dramatic/foo perspective-none/foo perspective-normal/foo perspective-potato
 ---
 
 <<<>>>
 # translate-z
+@config run
 -translate-z-px translate-z-px
 ---
 @layer properties {
@@ -3477,11 +3636,13 @@ perspective-origin-top
       }
 <<<>>>
 # translate-z
+@config run
 -translate-z-full translate-y-px/foo translate-z translate-z--1 translate-z--1/-2 translate-z--1/2 translate-z-1/-2 translate-z-1/2 translate-z-full
 ---
 
 <<<>>>
 # translate-3d
+@config run
 translate-3d
 ---
 @layer properties {
@@ -3517,11 +3678,13 @@ translate-3d
     }
 <<<>>>
 # translate-3d
+@config run
 -translate-3d translate-3d/foo
 ---
 
 <<<>>>
 # rotate
+@config run
 -rotate-45 rotate-45 rotate-[123deg]
 ---
 .-rotate-\(--var\) {
@@ -3553,11 +3716,13 @@ translate-3d
     }
 <<<>>>
 # rotate
+@config run
 -rotate-45/foo rotate rotate--2 rotate-45/foo rotate-[123deg]/foo rotate-unknown rotate-z
 ---
 
 <<<>>>
 # rotate-x
+@config run
 -rotate-x-45 rotate-x-45 rotate-x-[123deg]
 ---
 @layer properties {
@@ -3623,11 +3788,13 @@ translate-3d
     }
 <<<>>>
 # rotate-x
+@config run
 -rotate-x -rotate-x-45/foo rotate-x rotate-x--1 rotate-x-45/foo rotate-x-[123deg]/foo rotate-x-potato
 ---
 
 <<<>>>
 # rotate-y
+@config run
 rotate-y-45 rotate-y-[123deg]
 ---
 @layer properties {
@@ -3698,11 +3865,13 @@ rotate-y-45 rotate-y-[123deg]
     }
 <<<>>>
 # rotate-y
+@config run
 -rotate-y -rotate-y-45/foo rotate-y rotate-y--1 rotate-y-45/foo rotate-y-[123deg]/foo rotate-y-potato
 ---
 
 <<<>>>
 # rotate-z
+@config run
 rotate-z-45 rotate-z-[123deg]
 ---
 @layer properties {
@@ -3773,11 +3942,13 @@ rotate-z-45 rotate-z-[123deg]
     }
 <<<>>>
 # rotate-z
+@config run
 -rotate-z -rotate-z-45/foo rotate-z rotate-z--1 rotate-z-45/foo rotate-z-[123deg]/foo rotate-z-potato
 ---
 
 <<<>>>
 # skew
+@config run
 -skew-6 skew-6
 ---
 @layer properties {
@@ -3836,11 +4007,13 @@ rotate-z-45 rotate-z-[123deg]
     }
 <<<>>>
 # skew
+@config run
 -skew-6/foo skew skew--1 skew-6/foo skew-[123deg]/foo skew-unknown
 ---
 
 <<<>>>
 # skew-x
+@config run
 -skew-x-6 skew-x-6
 ---
 @layer properties {
@@ -3896,11 +4069,13 @@ rotate-z-45 rotate-z-[123deg]
     }
 <<<>>>
 # skew-x
+@config run
 -skew-x-6/foo skew-x skew-x--1 skew-x-6/foo skew-x-[123deg]/foo skew-x-unknown
 ---
 
 <<<>>>
 # skew-y
+@config run
 -skew-y-6 skew-y-6
 ---
 @layer properties {
@@ -3956,11 +4131,13 @@ rotate-z-45 rotate-z-[123deg]
     }
 <<<>>>
 # skew-y
+@config run
 -skew-y-6/foo skew-y skew-y--1 skew-y-6/foo skew-y-[123deg]/foo skew-y-unknown
 ---
 
 <<<>>>
 # scale
+@config run
 -scale-50 scale-50
 ---
 @layer properties {
@@ -4014,11 +4191,13 @@ rotate-z-45 rotate-z-[123deg]
       }
 <<<>>>
 # scale
+@config run
 -scale-50/foo scale scale--50 scale-1.5 scale-50/foo scale-[2]/foo scale-unknown
 ---
 
 <<<>>>
 # scale-3d
+@config run
 scale-3d
 ---
 @layer properties {
@@ -4054,11 +4233,13 @@ scale-3d
     }
 <<<>>>
 # scale-3d
+@config run
 -scale-3d scale-3d/foo
 ---
 
 <<<>>>
 # scale-x
+@config run
 -scale-x-50 scale-x-50
 ---
 @layer properties {
@@ -4105,6 +4286,7 @@ scale-3d
     }
 <<<>>>
 # scale-x
+@config run
 scale-200 scale-x-400
 ---
 @layer properties {
@@ -4148,11 +4330,13 @@ scale-200 scale-x-400
     }
 <<<>>>
 # scale-x
+@config run
 -scale-x-50/foo scale-200/foo scale-x scale-x--1 scale-x-1.5 scale-x-400/foo scale-x-50/foo scale-x-[2]/foo scale-x-unknown
 ---
 
 <<<>>>
 # scale-y
+@config run
 -scale-y-50 scale-y-50
 ---
 @layer properties {
@@ -4199,11 +4383,13 @@ scale-200 scale-x-400
     }
 <<<>>>
 # scale-y
+@config run
 -scale-y-50/foo scale-y scale-y--1 scale-y-1.5 scale-y-50/foo scale-y-[2]/foo scale-y-unknown
 ---
 
 <<<>>>
 # scale-z
+@config run
 -scale-z-50 scale-z-50
 ---
 @layer properties {
@@ -4250,11 +4436,13 @@ scale-200 scale-x-400
     }
 <<<>>>
 # scale-z
+@config run
 -scale-z-50/foo scale-z scale-z--1 scale-z-1.5 scale-z-50/foo scale-z-[123deg]/foo
 ---
 
 <<<>>>
 # transform
+@config run
 transform transform-cpu transform-gpu transform-none
 ---
 @layer properties {
@@ -4315,6 +4503,7 @@ transform transform-cpu transform-gpu transform-none
     }
 <<<>>>
 # transform
+@config run
 backface-hidden backface-visible transform-3d transform-border transform-content transform-fill transform-flat transform-stroke transform-view
 ---
 .backface-hidden {
@@ -4354,11 +4543,13 @@ backface-hidden backface-visible transform-3d transform-border transform-content
     }
 <<<>>>
 # transform
+@config run
 -transform -transform-cpu -transform-gpu -transform-none transform-cpu/foo transform-gpu/foo transform-none/foo transform/foo
 ---
 
 <<<>>>
 # perspective
+@config theme
 perspective-dramatic perspective-none perspective-normal
 ---
 :root, :host {
@@ -4383,11 +4574,13 @@ perspective-dramatic perspective-none perspective-normal
     }
 <<<>>>
 # perspective
+@config run
 -perspective perspective perspective-123 perspective-[456px]/foo perspective-dramatic/foo perspective-none/foo perspective-normal/foo perspective-potato
 ---
 
 <<<>>>
 # perspective
+@config theme
 perspective-none
 ---
 :root, :host {
@@ -4399,6 +4592,7 @@ perspective-none
     }
 <<<>>>
 # cursor
+@config theme
 cursor-alias cursor-all-scroll cursor-auto cursor-cell cursor-col-resize cursor-context-menu cursor-copy cursor-crosshair cursor-default cursor-e-resize cursor-ew-resize cursor-grab cursor-grabbing cursor-help cursor-move cursor-n-resize cursor-ne-resize cursor-nesw-resize cursor-no-drop cursor-none cursor-not-allowed cursor-ns-resize cursor-nw-resize cursor-nwse-resize cursor-pointer cursor-progress cursor-row-resize cursor-s-resize cursor-se-resize cursor-sw-resize cursor-text cursor-vertical-text cursor-w-resize cursor-wait cursor-zoom-in cursor-zoom-out
 ---
 :root, :host {
@@ -4558,11 +4752,13 @@ cursor-alias cursor-all-scroll cursor-auto cursor-cell cursor-col-resize cursor-
     }
 <<<>>>
 # cursor
+@config run
 -cursor-alias -cursor-all-scroll -cursor-auto -cursor-cell -cursor-col-resize -cursor-context-menu -cursor-copy -cursor-crosshair -cursor-default -cursor-e-resize -cursor-ew-resize -cursor-grab -cursor-grabbing -cursor-help -cursor-move -cursor-n-resize -cursor-ne-resize -cursor-nesw-resize -cursor-no-drop -cursor-none -cursor-not-allowed -cursor-ns-resize -cursor-nw-resize -cursor-nwse-resize -cursor-pointer -cursor-progress -cursor-row-resize -cursor-s-resize -cursor-se-resize -cursor-sw-resize -cursor-text -cursor-vertical-text -cursor-w-resize -cursor-wait -cursor-zoom-in -cursor-zoom-out cursor
 ---
 
 <<<>>>
 # touch-action
+@config run
 touch-auto touch-manipulation touch-none
 ---
 .touch-auto {
@@ -4578,11 +4774,13 @@ touch-auto touch-manipulation touch-none
     }
 <<<>>>
 # touch-action
+@config run
 -touch-auto -touch-manipulation -touch-none touch-auto/foo touch-manipulation/foo touch-none/foo
 ---
 
 <<<>>>
 # touch-pan
+@config run
 touch-pan-down touch-pan-left touch-pan-right touch-pan-up touch-pan-x touch-pan-y
 ---
 @layer properties {
@@ -4641,11 +4839,13 @@ touch-pan-down touch-pan-left touch-pan-right touch-pan-up touch-pan-x touch-pan
     }
 <<<>>>
 # touch-pan
+@config run
 -touch-pan-down -touch-pan-left -touch-pan-right -touch-pan-up -touch-pan-x -touch-pan-y touch-pan-down/foo touch-pan-left/foo touch-pan-right/foo touch-pan-up/foo touch-pan-x/foo touch-pan-y/foo
 ---
 
 <<<>>>
 # touch-pinch-zoom
+@config run
 touch-pinch-zoom
 ---
 @layer properties {
@@ -4679,11 +4879,13 @@ touch-pinch-zoom
     }
 <<<>>>
 # touch-pinch-zoom
+@config run
 -touch-pinch-zoom touch-pinch-zoom/foo
 ---
 
 <<<>>>
 # select
+@config run
 select-all select-auto select-none select-text
 ---
 .select-all {
@@ -4707,11 +4909,13 @@ select-all select-auto select-none select-text
       }
 <<<>>>
 # select
+@config run
 -select-all -select-auto -select-none -select-text select-all/foo select-auto/foo select-none/foo select-text/foo
 ---
 
 <<<>>>
 # resize
+@config run
 resize resize-none resize-x resize-y
 ---
 .resize {
@@ -4731,11 +4935,13 @@ resize resize-none resize-x resize-y
     }
 <<<>>>
 # resize
+@config run
 -resize -resize-none -resize-x -resize-y resize-none/foo resize-x/foo resize-y/foo resize/foo
 ---
 
 <<<>>>
 # scroll-snap-type
+@config run
 snap-both snap-none snap-x snap-y
 ---
 @layer properties {
@@ -4769,11 +4975,13 @@ snap-both snap-none snap-x snap-y
     }
 <<<>>>
 # scroll-snap-type
+@config run
 -snap-both -snap-none -snap-x -snap-y snap-both/foo snap-none/foo snap-x/foo snap-y/foo
 ---
 
 <<<>>>
 # --tw-scroll-snap-strictness
+@config run
 snap-mandatory snap-proximity
 ---
 @layer properties {
@@ -4799,11 +5007,13 @@ snap-mandatory snap-proximity
     }
 <<<>>>
 # --tw-scroll-snap-strictness
+@config run
 -snap-mandatory -snap-proximity snap-mandatory/foo snap-proximity/foo
 ---
 
 <<<>>>
 # scroll-snap-align
+@config run
 snap-align-none snap-center snap-end snap-start
 ---
 .snap-align-none {
@@ -4823,11 +5033,13 @@ snap-align-none snap-center snap-end snap-start
       }
 <<<>>>
 # scroll-snap-align
+@config run
 -snap-align-none -snap-center -snap-end -snap-start snap-align-none/foo snap-center/foo snap-end/foo snap-start/foo
 ---
 
 <<<>>>
 # scroll-snap-stop
+@config run
 snap-always snap-normal
 ---
 .snap-always {
@@ -4839,9 +5051,11 @@ snap-always snap-normal
     }
 <<<>>>
 # scroll-snap-stop
+@config run
 -snap-always -snap-normal snap-always/foo snap-normal/foo
 <<<>>>
 # scroll-m
+@config theme
 scroll-m-4
 ---
 :root, :host {
@@ -4865,11 +5079,13 @@ scroll-m-4
     }
 <<<>>>
 # scroll-m
+@config run
 scroll-m scroll-m-4/foo scroll-m-[4px]/foo
 ---
 
 <<<>>>
 # scroll-mx
+@config theme
 scroll-mx-4
 ---
 :root, :host {
@@ -4893,11 +5109,13 @@ scroll-mx-4
     }
 <<<>>>
 # scroll-mx
+@config run
 scroll-mx scroll-mx-4/foo scroll-mx-[4px]/foo
 ---
 
 <<<>>>
 # scroll-my
+@config theme
 scroll-my-4
 ---
 :root, :host {
@@ -4921,11 +5139,13 @@ scroll-my-4
     }
 <<<>>>
 # scroll-my
+@config run
 scroll-my scroll-my-4/foo scroll-my-[4px]/foo
 ---
 
 <<<>>>
 # scroll-ms
+@config theme
 scroll-ms-4
 ---
 :root, :host {
@@ -4949,11 +5169,13 @@ scroll-ms-4
     }
 <<<>>>
 # scroll-ms
+@config run
 scroll-ms scroll-ms-4/foo scroll-ms-[4px]/foo
 ---
 
 <<<>>>
 # scroll-me
+@config theme
 scroll-me-4
 ---
 :root, :host {
@@ -4977,11 +5199,13 @@ scroll-me-4
     }
 <<<>>>
 # scroll-me
+@config run
 scroll-me scroll-me-4/foo scroll-me-[4px]/foo
 ---
 
 <<<>>>
 # scroll-mbs
+@config theme
 scroll-mbs-4
 ---
 :root, :host {
@@ -5005,11 +5229,13 @@ scroll-mbs-4
     }
 <<<>>>
 # scroll-mbs
+@config run
 scroll-mbs scroll-mbs-4/foo scroll-mbs-[4px]/foo
 ---
 
 <<<>>>
 # scroll-mbe
+@config theme
 scroll-mbe-4
 ---
 :root, :host {
@@ -5033,11 +5259,13 @@ scroll-mbe-4
     }
 <<<>>>
 # scroll-mbe
+@config run
 scroll-mbe scroll-mbe-4/foo scroll-mbe-[4px]/foo
 ---
 
 <<<>>>
 # scroll-mt
+@config theme
 scroll-mt-4
 ---
 :root, :host {
@@ -5061,11 +5289,13 @@ scroll-mt-4
     }
 <<<>>>
 # scroll-mt
+@config run
 scroll-mt scroll-mt-4/foo scroll-mt-[4px]/foo
 ---
 
 <<<>>>
 # scroll-mr
+@config theme
 scroll-mr-4
 ---
 :root, :host {
@@ -5089,11 +5319,13 @@ scroll-mr-4
     }
 <<<>>>
 # scroll-mr
+@config run
 scroll-mr scroll-mr-4/foo scroll-mr-[4px]/foo
 ---
 
 <<<>>>
 # scroll-mb
+@config theme
 scroll-mb-4
 ---
 :root, :host {
@@ -5117,11 +5349,13 @@ scroll-mb-4
     }
 <<<>>>
 # scroll-mb
+@config run
 scroll-mb scroll-mb-4/foo scroll-mb-[4px]/foo
 ---
 
 <<<>>>
 # scroll-ml
+@config theme
 scroll-ml-4
 ---
 :root, :host {
@@ -5145,11 +5379,13 @@ scroll-ml-4
     }
 <<<>>>
 # scroll-ml
+@config run
 scroll-ml scroll-ml-4/foo scroll-ml-[4px]/foo
 ---
 
 <<<>>>
 # scroll-p
+@config theme
 scroll-p-4
 ---
 :root, :host {
@@ -5165,11 +5401,13 @@ scroll-p-4
     }
 <<<>>>
 # scroll-p
+@config run
 scroll-p scroll-p-4/foo scroll-p-[4px]/foo
 ---
 
 <<<>>>
 # scroll-px
+@config theme
 scroll-px-4
 ---
 :root, :host {
@@ -5185,11 +5423,13 @@ scroll-px-4
     }
 <<<>>>
 # scroll-px
+@config run
 scroll-px scroll-px-4/foo scroll-px-[4px]/foo
 ---
 
 <<<>>>
 # scroll-py
+@config theme
 scroll-py-4
 ---
 :root, :host {
@@ -5205,11 +5445,13 @@ scroll-py-4
     }
 <<<>>>
 # scroll-py
+@config run
 scroll-py scroll-py-4/foo scroll-py-[4px]/foo
 ---
 
 <<<>>>
 # scroll-ps
+@config theme
 scroll-ps-4
 ---
 :root, :host {
@@ -5225,11 +5467,13 @@ scroll-ps-4
     }
 <<<>>>
 # scroll-ps
+@config run
 scroll-ps scroll-ps-4/foo scroll-ps-[4px]/foo
 ---
 
 <<<>>>
 # scroll-pe
+@config theme
 scroll-pe-4
 ---
 :root, :host {
@@ -5245,11 +5489,13 @@ scroll-pe-4
     }
 <<<>>>
 # scroll-pe
+@config run
 scroll-pe scroll-pe-4/foo scroll-pe-[4px]/foo
 ---
 
 <<<>>>
 # scroll-pbs
+@config theme
 scroll-pbs-4
 ---
 :root, :host {
@@ -5265,11 +5511,13 @@ scroll-pbs-4
     }
 <<<>>>
 # scroll-pbs
+@config run
 scroll-pbs scroll-pbs-4/foo scroll-pbs-[4px]/foo
 ---
 
 <<<>>>
 # scroll-pbe
+@config theme
 scroll-pbe-4
 ---
 :root, :host {
@@ -5285,11 +5533,13 @@ scroll-pbe-4
     }
 <<<>>>
 # scroll-pbe
+@config run
 scroll-pbe scroll-pbe-4/foo scroll-pbe-[4px]/foo
 ---
 
 <<<>>>
 # scroll-pt
+@config theme
 scroll-pt-4
 ---
 :root, :host {
@@ -5305,11 +5555,13 @@ scroll-pt-4
     }
 <<<>>>
 # scroll-pt
+@config run
 scroll-pt scroll-pt-4/foo scroll-pt-[4px]/foo
 ---
 
 <<<>>>
 # scroll-pr
+@config theme
 scroll-pr-4
 ---
 :root, :host {
@@ -5325,11 +5577,13 @@ scroll-pr-4
     }
 <<<>>>
 # scroll-pr
+@config run
 scroll-pr scroll-pr-4/foo scroll-pr-[4px]/foo
 ---
 
 <<<>>>
 # scroll-pb
+@config theme
 scroll-pb-4
 ---
 :root, :host {
@@ -5345,11 +5599,13 @@ scroll-pb-4
     }
 <<<>>>
 # scroll-pb
+@config run
 scroll-pb scroll-pb-4/foo scroll-pb-[4px]/foo
 ---
 
 <<<>>>
 # scroll-pl
+@config theme
 scroll-pl-4
 ---
 :root, :host {
@@ -5365,11 +5621,13 @@ scroll-pl-4
     }
 <<<>>>
 # scroll-pl
+@config run
 scroll-pl scroll-pl-4/foo scroll-pl-[4px]/foo
 ---
 
 <<<>>>
 # list-style-position
+@config run
 list-inside list-outside
 ---
 .list-inside {
@@ -5381,11 +5639,13 @@ list-inside list-outside
     }
 <<<>>>
 # list-style-position
+@config run
 -list-inside -list-outside list-inside/foo list-outside/foo
 ---
 
 <<<>>>
 # list
+@config run
 list-decimal list-disc list-none
 ---
 .list-\[var\(--value\)\] {
@@ -5405,11 +5665,13 @@ list-decimal list-disc list-none
       }
 <<<>>>
 # list
+@config run
 -list-decimal -list-disc -list-none
 ---
 
 <<<>>>
 # list
+@config theme
 list-none
 ---
 :root, :host {
@@ -5421,6 +5683,7 @@ list-none
     }
 <<<>>>
 # list-image
+@config run
 list-image-none
 ---
 .list-image-\[var\(--value\)\] {
@@ -5432,11 +5695,13 @@ list-image-none
     }
 <<<>>>
 # list-image
+@config run
 -list-image-none list-image
 ---
 
 <<<>>>
 # list-image
+@config theme
 list-image-none
 ---
 :root, :host {
@@ -5448,6 +5713,7 @@ list-image-none
     }
 <<<>>>
 # appearance
+@config run
 appearance-auto appearance-none
 ---
 .appearance-auto {
@@ -5459,11 +5725,13 @@ appearance-auto appearance-none
     }
 <<<>>>
 # appearance
+@config run
 -appearance-auto -appearance-none appearance appearance-auto/foo appearance-none/foo
 ---
 
 <<<>>>
 # color-scheme
+@config run
 scheme-dark scheme-light scheme-light-dark scheme-normal scheme-only-dark scheme-only-light
 ---
 .scheme-dark {
@@ -5491,11 +5759,13 @@ scheme-dark scheme-light scheme-light-dark scheme-normal scheme-only-dark scheme
     }
 <<<>>>
 # color-scheme
+@config run
 -scheme-dark -scheme-dark-only -scheme-light -scheme-light-dark -scheme-light-only scheme
 ---
 
 <<<>>>
 # columns
+@config theme
 columns-3xs columns-4 columns-7xl columns-99 columns-[123] columns-auto
 ---
 :root, :host {
@@ -5532,11 +5802,13 @@ columns-3xs columns-4 columns-7xl columns-99 columns-[123] columns-auto
     }
 <<<>>>
 # columns
+@config run
 -columns-4 -columns-[123] columns columns--4
 ---
 
 <<<>>>
 # columns
+@config theme
 columns-auto
 ---
 :root, :host {
@@ -5548,6 +5820,7 @@ columns-auto
     }
 <<<>>>
 # break-before
+@config run
 break-before-all break-before-auto break-before-avoid break-before-avoid-page break-before-column break-before-left break-before-page break-before-right
 ---
 .break-before-all {
@@ -5583,11 +5856,13 @@ break-before-all break-before-auto break-before-avoid break-before-avoid-page br
     }
 <<<>>>
 # break-before
+@config run
 -break-before-all -break-before-auto -break-before-avoid -break-before-avoid-page -break-before-column -break-before-left -break-before-page -break-before-right break-before break-before-all/foo break-before-auto/foo break-before-avoid-page/foo break-before-avoid/foo break-before-column/foo break-before-left/foo break-before-page/foo break-before-right/foo
 ---
 
 <<<>>>
 # break-inside
+@config run
 break-inside-auto break-inside-avoid break-inside-avoid-column break-inside-avoid-page
 ---
 .break-inside-auto {
@@ -5607,11 +5882,13 @@ break-inside-auto break-inside-avoid break-inside-avoid-column break-inside-avoi
     }
 <<<>>>
 # break-inside
+@config run
 -break-inside-auto -break-inside-avoid -break-inside-avoid-column -break-inside-avoid-page break-inside break-inside-auto/foo break-inside-avoid-column/foo break-inside-avoid-page/foo break-inside-avoid/foo
 ---
 
 <<<>>>
 # break-after
+@config run
 break-after-all break-after-auto break-after-avoid break-after-avoid-page break-after-column break-after-left break-after-page break-after-right
 ---
 .break-after-all {
@@ -5647,11 +5924,13 @@ break-after-all break-after-auto break-after-avoid break-after-avoid-page break-
     }
 <<<>>>
 # break-after
+@config run
 -break-after-all -break-after-auto -break-after-avoid -break-after-avoid-page -break-after-column -break-after-left -break-after-page -break-after-right break-after break-after-all/foo break-after-auto/foo break-after-avoid-page/foo break-after-avoid/foo break-after-column/foo break-after-left/foo break-after-page/foo break-after-right/foo
 ---
 
 <<<>>>
 # auto-cols
+@config run
 auto-cols-[2fr] auto-cols-auto auto-cols-fr auto-cols-max auto-cols-min
 ---
 .auto-cols-\[2fr\] {
@@ -5675,11 +5954,13 @@ auto-cols-[2fr] auto-cols-auto auto-cols-fr auto-cols-max auto-cols-min
     }
 <<<>>>
 # auto-cols
+@config run
 -auto-cols-[2fr] -auto-cols-auto auto-cols
 ---
 
 <<<>>>
 # auto-cols
+@config theme
 auto-cols-auto
 ---
 :root, :host {
@@ -5691,6 +5972,7 @@ auto-cols-auto
     }
 <<<>>>
 # grid-flow
+@config run
 grid-flow-col grid-flow-col-dense grid-flow-dense grid-flow-row grid-flow-row-dense
 ---
 .grid-flow-col {
@@ -5714,11 +5996,13 @@ grid-flow-col grid-flow-col-dense grid-flow-dense grid-flow-row grid-flow-row-de
     }
 <<<>>>
 # grid-flow
+@config run
 -grid-flow-col -grid-flow-col-dense -grid-flow-dense -grid-flow-row -grid-flow-row-dense grid-flow grid-flow-col-dense/foo grid-flow-col/foo grid-flow-dense/foo grid-flow-row-dense/foo grid-flow-row/foo
 ---
 
 <<<>>>
 # auto-rows
+@config run
 auto-rows-[2fr] auto-rows-auto auto-rows-fr auto-rows-max auto-rows-min
 ---
 .auto-rows-\[2fr\] {
@@ -5742,11 +6026,13 @@ auto-rows-[2fr] auto-rows-auto auto-rows-fr auto-rows-max auto-rows-min
     }
 <<<>>>
 # auto-rows
+@config run
 -auto-rows-[2fr] -auto-rows-auto auto-rows
 ---
 
 <<<>>>
 # auto-rows
+@config theme
 auto-rows-auto
 ---
 :root, :host {
@@ -5758,6 +6044,7 @@ auto-rows-auto
     }
 <<<>>>
 # grid-cols
+@config run
 grid-cols-12 grid-cols-99 grid-cols-[123] grid-cols-none grid-cols-subgrid
 ---
 .grid-cols-12 {
@@ -5781,11 +6068,13 @@ grid-cols-12 grid-cols-99 grid-cols-[123] grid-cols-none grid-cols-subgrid
     }
 <<<>>>
 # grid-cols
+@config run
 -grid-cols-12 -grid-cols-[123] -grid-cols-none -grid-cols-subgrid grid-cols grid-cols--12 grid-cols-0
 ---
 
 <<<>>>
 # grid-cols
+@config theme
 grid-cols-none
 ---
 :root, :host {
@@ -5797,6 +6086,7 @@ grid-cols-none
     }
 <<<>>>
 # grid-rows
+@config run
 grid-rows-12 grid-rows-99 grid-rows-[123] grid-rows-none grid-rows-subgrid
 ---
 .grid-rows-12 {
@@ -5820,11 +6110,13 @@ grid-rows-12 grid-rows-99 grid-rows-[123] grid-rows-none grid-rows-subgrid
     }
 <<<>>>
 # grid-rows
+@config run
 -grid-rows-12 -grid-rows-[123] -grid-rows-none -grid-rows-subgrid grid-rows grid-rows--12 grid-rows-0
 ---
 
 <<<>>>
 # grid-rows
+@config theme
 grid-rows-none
 ---
 :root, :host {
@@ -5836,6 +6128,7 @@ grid-rows-none
     }
 <<<>>>
 # flex-direction
+@config run
 flex-col flex-col-reverse flex-row flex-row-reverse
 ---
 .flex-col {
@@ -5855,11 +6148,13 @@ flex-col flex-col-reverse flex-row flex-row-reverse
       }
 <<<>>>
 # flex-direction
+@config run
 -flex-col -flex-col-reverse -flex-row -flex-row-reverse flex-col-reverse/foo flex-col/foo flex-row-reverse/foo flex-row/foo
 ---
 
 <<<>>>
 # flex-wrap
+@config run
 flex-nowrap flex-wrap flex-wrap-reverse
 ---
 .flex-nowrap {
@@ -5875,11 +6170,13 @@ flex-nowrap flex-wrap flex-wrap-reverse
     }
 <<<>>>
 # flex-wrap
+@config run
 -flex-nowrap -flex-wrap -flex-wrap-reverse flex-nowrap/foo flex-wrap-reverse/foo flex-wrap/foo
 ---
 
 <<<>>>
 # place-content
+@config run
 place-content-around place-content-baseline place-content-between place-content-center place-content-center-safe place-content-end place-content-end-safe place-content-evenly place-content-start place-content-stretch
 ---
 .place-content-around {
@@ -5923,11 +6220,13 @@ place-content-around place-content-baseline place-content-between place-content-
     }
 <<<>>>
 # place-content
+@config run
 -place-content-around -place-content-baseline -place-content-between -place-content-center -place-content-end -place-content-evenly -place-content-start -place-content-stretch place-content place-content-around/foo place-content-baseline/foo place-content-between/foo place-content-center/foo place-content-end/foo place-content-evenly/foo place-content-start/foo place-content-stretch/foo
 ---
 
 <<<>>>
 # place-items
+@config run
 place-items-baseline place-items-center place-items-center-safe place-items-end place-items-end-safe place-items-start place-items-stretch
 ---
 .place-items-baseline {
@@ -5959,11 +6258,13 @@ place-items-baseline place-items-center place-items-center-safe place-items-end 
     }
 <<<>>>
 # place-items
+@config run
 -place-items-baseline -place-items-center -place-items-end -place-items-start -place-items-stretch place-items place-items-baseline/foo place-items-center/foo place-items-end/foo place-items-start/foo place-items-stretch/foo
 ---
 
 <<<>>>
 # align-content
+@config run
 content-around content-baseline content-between content-center content-center-safe content-end content-end-safe content-evenly content-normal content-start content-stretch
 ---
 .content-around {
@@ -6011,11 +6312,13 @@ content-around content-baseline content-between content-center content-center-sa
     }
 <<<>>>
 # align-content
+@config run
 -content-around -content-baseline -content-between -content-center -content-end -content-evenly -content-normal -content-start -content-stretch content content-around/foo content-baseline/foo content-between/foo content-center/foo content-end/foo content-evenly/foo content-normal/foo content-start/foo content-stretch/foo
 ---
 
 <<<>>>
 # items
+@config run
 items-baseline items-baseline-last items-center items-center-safe items-end items-end-safe items-start items-stretch
 ---
 .items-baseline {
@@ -6051,11 +6354,13 @@ items-baseline items-baseline-last items-center items-center-safe items-end item
     }
 <<<>>>
 # items
+@config run
 -items-baseline -items-center -items-end -items-first-baseline -items-last-baseline -items-start -items-stretch items items-baseline/foo items-center/foo items-end/foo items-start/foo items-stretch/foo
 ---
 
 <<<>>>
 # justify
+@config run
 justify-around justify-between justify-center justify-center-safe justify-end justify-end-safe justify-evenly justify-normal justify-start justify-stretch
 ---
 .justify-around {
@@ -6099,11 +6404,13 @@ justify-around justify-between justify-center justify-center-safe justify-end ju
     }
 <<<>>>
 # justify
+@config run
 -justify-around -justify-between -justify-center -justify-end -justify-evenly -justify-normal -justify-start -justify-stretch justify justify-around/foo justify-between/foo justify-center/foo justify-end/foo justify-evenly/foo justify-normal/foo justify-start/foo justify-stretch/foo
 ---
 
 <<<>>>
 # justify-items
+@config run
 justify-items-center justify-items-center-safe justify-items-end justify-items-end-safe justify-items-start justify-items-stretch
 ---
 .justify-items-center {
@@ -6131,11 +6438,13 @@ justify-items-center justify-items-center-safe justify-items-end justify-items-e
     }
 <<<>>>
 # justify-items
+@config run
 -justify-items-center -justify-items-end -justify-items-start -justify-items-stretch justify-items justify-items-center/foo justify-items-end/foo justify-items-start/foo justify-items-stretch/foo
 ---
 
 <<<>>>
 # gap
+@config theme
 gap-4
 ---
 :root, :host {
@@ -6151,11 +6460,13 @@ gap-4
     }
 <<<>>>
 # gap
+@config run
 -gap-4 gap
 ---
 
 <<<>>>
 # gap-x
+@config theme
 gap-x-4
 ---
 :root, :host {
@@ -6171,11 +6482,13 @@ gap-x-4
     }
 <<<>>>
 # gap-x
+@config run
 -gap-x-4 gap-x
 ---
 
 <<<>>>
 # gap-y
+@config theme
 gap-y-4
 ---
 :root, :host {
@@ -6191,11 +6504,13 @@ gap-y-4
     }
 <<<>>>
 # gap-y
+@config run
 -gap-y-4 gap-y
 ---
 
 <<<>>>
 # space-x
+@config theme
 space-x-4
 ---
 @layer properties {
@@ -6235,11 +6550,13 @@ space-x-4
     }
 <<<>>>
 # space-x
+@config run
 space-x space-x-4/foo
 ---
 
 <<<>>>
 # space-y
+@config theme
 space-y-4
 ---
 @layer properties {
@@ -6279,11 +6596,13 @@ space-y-4
     }
 <<<>>>
 # space-y
+@config run
 space-y space-y-4/foo
 ---
 
 <<<>>>
 # space-x-reverse
+@config run
 space-x-reverse
 ---
 @layer properties {
@@ -6305,11 +6624,13 @@ space-x-reverse
     }
 <<<>>>
 # space-x-reverse
+@config run
 -space-x-reverse space-x-reverse/foo
 ---
 
 <<<>>>
 # space-y-reverse
+@config run
 space-y-reverse
 ---
 @layer properties {
@@ -6331,11 +6652,13 @@ space-y-reverse
     }
 <<<>>>
 # space-y-reverse
+@config run
 -space-y-reverse space-y-reverse/foo
 ---
 
 <<<>>>
 # divide-x
+@config none
 divide-x divide-x-123 divide-x-4
 ---
 @layer properties {
@@ -6388,11 +6711,13 @@ divide-x divide-x-123 divide-x-4
     }
 <<<>>>
 # divide-x
+@config run
 -divide-x -divide-x-123 -divide-x-4 divide-x--4 divide-x-123/foo divide-x-4/foo divide-x-[4px]/foo divide-x-unknown divide-x/foo
 ---
 
 <<<>>>
 # divide-x with custom default border width
+@config theme
 divide-x
 ---
 @layer properties {
@@ -6424,11 +6749,13 @@ divide-x
     }
 <<<>>>
 # divide-x with custom default border width
+@config run
 divide-x/foo
 ---
 
 <<<>>>
 # divide-y
+@config none
 divide-y divide-y-123 divide-y-4
 ---
 @layer properties {
@@ -6485,11 +6812,13 @@ divide-y divide-y-123 divide-y-4
     }
 <<<>>>
 # divide-y
+@config run
 -divide-y -divide-y-123 -divide-y-4 divide-y--4 divide-y-123/foo divide-y-4/foo divide-y-[4px]/foo divide-y-unknown divide-y/foo
 ---
 
 <<<>>>
 # divide-y with custom default border width
+@config theme
 divide-y
 ---
 @layer properties {
@@ -6522,11 +6851,13 @@ divide-y
     }
 <<<>>>
 # divide-y with custom default border width
+@config run
 divide-y/foo
 ---
 
 <<<>>>
 # divide-x-reverse
+@config run
 divide-x-reverse
 ---
 @layer properties {
@@ -6548,11 +6879,13 @@ divide-x-reverse
     }
 <<<>>>
 # divide-x-reverse
+@config run
 -divide-x-reverse divide-x-reverse/foo
 ---
 
 <<<>>>
 # divide-y-reverse
+@config run
 divide-y-reverse
 ---
 @layer properties {
@@ -6574,11 +6907,13 @@ divide-y-reverse
     }
 <<<>>>
 # divide-y-reverse
+@config run
 -divide-y-reverse divide-y-reverse/foo
 ---
 
 <<<>>>
 # divide-style
+@config run
 divide-dashed divide-dotted divide-double divide-none divide-solid
 ---
 :where(.divide-dashed > :not(:last-child)) {
@@ -6607,11 +6942,13 @@ divide-dashed divide-dotted divide-double divide-none divide-solid
     }
 <<<>>>
 # divide-style
+@config run
 -divide-dashed -divide-dotted -divide-double -divide-none -divide-solid divide divide-dashed/foo divide-dotted/foo divide-double/foo divide-none/foo divide-solid/foo
 ---
 
 <<<>>>
 # accent
+@config theme
 accent-red-500 accent-red-500/2.25 accent-red-500/2.5 accent-red-500/2.75 accent-red-500/50 accent-red-500/[0.5]
 ---
 :root, :host {
@@ -6734,11 +7071,13 @@ accent-red-500 accent-red-500/2.25 accent-red-500/2.5 accent-red-500/2.75 accent
     }
 <<<>>>
 # accent
+@config run
 -accent-red-500 -accent-red-500/50 -accent-red-500/[0.5] accent accent-red-500/-50
 ---
 
 <<<>>>
 # caret
+@config theme
 caret-red-500 caret-red-500/2.25 caret-red-500/2.5 caret-red-500/2.75 caret-red-500/50 caret-red-500/[0.5]
 ---
 :root, :host {
@@ -6861,11 +7200,13 @@ caret-red-500 caret-red-500/2.25 caret-red-500/2.5 caret-red-500/2.75 caret-red-
     }
 <<<>>>
 # caret
+@config run
 -caret-red-500 -caret-red-500/50 -caret-red-500/[0.5] caret
 ---
 
 <<<>>>
 # divide-color
+@config theme
 divide-red-500 divide-red-500/2.25 divide-red-500/2.5 divide-red-500/2.75 divide-red-500/50 divide-red-500/[0.5]
 ---
 :root, :host {
@@ -6988,11 +7329,13 @@ divide-red-500 divide-red-500/2.25 divide-red-500/2.5 divide-red-500/2.75 divide
     }
 <<<>>>
 # divide-color
+@config run
 -divide-red-500 -divide-red-500/50 -divide-red-500/[0.5] divide
 ---
 
 <<<>>>
 # place-self
+@config run
 place-self-auto place-self-center place-self-center-safe place-self-end place-self-end-safe place-self-start place-self-stretch
 ---
 .place-self-auto {
@@ -7024,11 +7367,13 @@ place-self-auto place-self-center place-self-center-safe place-self-end place-se
     }
 <<<>>>
 # place-self
+@config run
 -place-self-auto -place-self-center -place-self-end -place-self-start -place-self-stretch place-self place-self-auto/foo place-self-center/foo place-self-end/foo place-self-start/foo place-self-stretch/foo
 ---
 
 <<<>>>
 # self
+@config run
 self-auto self-baseline self-baseline-last self-center self-center-safe self-end self-end-safe self-start self-stretch
 ---
 .self-auto {
@@ -7068,11 +7413,13 @@ self-auto self-baseline self-baseline-last self-center self-center-safe self-end
     }
 <<<>>>
 # self
+@config run
 -self-auto -self-baseline -self-center -self-end -self-start -self-stretch self self-auto/foo self-baseline/foo self-center/foo self-end/foo self-start/foo self-stretch/foo
 ---
 
 <<<>>>
 # justify-self
+@config run
 justify-self-auto justify-self-baseline justify-self-center justify-self-center-safe justify-self-end justify-self-end-safe justify-self-start justify-self-stretch
 ---
 .justify-self-auto {
@@ -7104,11 +7451,13 @@ justify-self-auto justify-self-baseline justify-self-center justify-self-center-
     }
 <<<>>>
 # justify-self
+@config run
 -justify-self-auto -justify-self-baseline -justify-self-center -justify-self-end -justify-self-start -justify-self-stretch justify-self justify-self-auto/foo justify-self-baseline/foo justify-self-center/foo justify-self-end/foo justify-self-start/foo justify-self-stretch/foo
 ---
 
 <<<>>>
 # overflow
+@config run
 overflow-auto overflow-clip overflow-hidden overflow-scroll overflow-visible
 ---
 .overflow-auto {
@@ -7132,11 +7481,13 @@ overflow-auto overflow-clip overflow-hidden overflow-scroll overflow-visible
     }
 <<<>>>
 # overflow
+@config run
 -overflow-auto -overflow-clip -overflow-hidden -overflow-scroll -overflow-visible overflow overflow-auto/foo overflow-clip/foo overflow-hidden/foo overflow-scroll/foo overflow-visible/foo
 ---
 
 <<<>>>
 # overflow-x
+@config run
 overflow-x-auto overflow-x-clip overflow-x-hidden overflow-x-scroll overflow-x-visible
 ---
 .overflow-x-auto {
@@ -7160,11 +7511,13 @@ overflow-x-auto overflow-x-clip overflow-x-hidden overflow-x-scroll overflow-x-v
     }
 <<<>>>
 # overflow-x
+@config run
 -overflow-x-auto -overflow-x-clip -overflow-x-hidden -overflow-x-scroll -overflow-x-visible overflow-x overflow-x-auto/foo overflow-x-clip/foo overflow-x-hidden/foo overflow-x-scroll/foo overflow-x-visible/foo
 ---
 
 <<<>>>
 # overflow-y
+@config run
 overflow-y-auto overflow-y-clip overflow-y-hidden overflow-y-scroll overflow-y-visible
 ---
 .overflow-y-auto {
@@ -7188,11 +7541,13 @@ overflow-y-auto overflow-y-clip overflow-y-hidden overflow-y-scroll overflow-y-v
     }
 <<<>>>
 # overflow-y
+@config run
 -overflow-y-auto -overflow-y-clip -overflow-y-hidden -overflow-y-scroll -overflow-y-visible overflow-y overflow-y-auto/foo overflow-y-clip/foo overflow-y-hidden/foo overflow-y-scroll/foo overflow-y-visible/foo
 ---
 
 <<<>>>
 # overscroll
+@config run
 overscroll-auto overscroll-contain overscroll-none
 ---
 .overscroll-auto {
@@ -7208,11 +7563,13 @@ overscroll-auto overscroll-contain overscroll-none
       }
 <<<>>>
 # overscroll
+@config run
 -overscroll-auto -overscroll-contain -overscroll-none overscroll overscroll-auto/foo overscroll-contain/foo overscroll-none/foo
 ---
 
 <<<>>>
 # overscroll-x
+@config run
 overscroll-x-auto overscroll-x-contain overscroll-x-none
 ---
 .overscroll-x-auto {
@@ -7228,11 +7585,13 @@ overscroll-x-auto overscroll-x-contain overscroll-x-none
       }
 <<<>>>
 # overscroll-x
+@config run
 -overscroll-x-auto -overscroll-x-contain -overscroll-x-none overscroll-x overscroll-x-auto/foo overscroll-x-contain/foo overscroll-x-none/foo
 ---
 
 <<<>>>
 # overscroll-y
+@config run
 overscroll-y-auto overscroll-y-contain overscroll-y-none
 ---
 .overscroll-y-auto {
@@ -7248,11 +7607,13 @@ overscroll-y-auto overscroll-y-contain overscroll-y-none
       }
 <<<>>>
 # overscroll-y
+@config run
 -overscroll-y-auto -overscroll-y-contain -overscroll-y-none overscroll-y overscroll-y-auto/foo overscroll-y-contain/foo overscroll-y-none/foo
 ---
 
 <<<>>>
 # scroll-behavior
+@config run
 scroll-auto scroll-smooth
 ---
 .scroll-auto {
@@ -7264,11 +7625,13 @@ scroll-auto scroll-smooth
     }
 <<<>>>
 # scroll-behavior
+@config run
 -scroll-auto -scroll-smooth scroll scroll-auto/foo scroll-smooth/foo
 ---
 
 <<<>>>
 # truncate
+@config run
 truncate
 ---
 .truncate {
@@ -7278,11 +7641,13 @@ truncate
     }
 <<<>>>
 # truncate
+@config run
 -truncate truncate/foo
 ---
 
 <<<>>>
 # text-overflow
+@config run
 text-clip text-ellipsis
 ---
 .text-clip {
@@ -7294,9 +7659,11 @@ text-clip text-ellipsis
     }
 <<<>>>
 # text-overflow
+@config run
 -text-clip -text-ellipsis text-clip/foo text-ellipsis/foo
 <<<>>>
 # hyphens
+@config run
 hyphens-auto hyphens-manual hyphens-none
 ---
 .hyphens-auto {
@@ -7315,11 +7682,13 @@ hyphens-auto hyphens-manual hyphens-none
     }
 <<<>>>
 # hyphens
+@config run
 -hyphens-auto -hyphens-manual -hyphens-none hyphens hyphens-auto/foo hyphens-manual/foo hyphens-none/foo
 ---
 
 <<<>>>
 # whitespace
+@config run
 whitespace-break-spaces whitespace-normal whitespace-nowrap whitespace-pre whitespace-pre-line whitespace-pre-wrap
 ---
 .whitespace-break-spaces {
@@ -7347,11 +7716,13 @@ whitespace-break-spaces whitespace-normal whitespace-nowrap whitespace-pre white
     }
 <<<>>>
 # whitespace
+@config run
 -whitespace-break-spaces -whitespace-normal -whitespace-nowrap -whitespace-pre -whitespace-pre-line -whitespace-pre-wrap whitespace whitespace-break-spaces/foo whitespace-normal/foo whitespace-nowrap/foo whitespace-pre-line/foo whitespace-pre-wrap/foo whitespace-pre/foo
 ---
 
 <<<>>>
 # text-wrap
+@config run
 text-balance text-nowrap text-pretty text-wrap
 ---
 .text-balance {
@@ -7371,11 +7742,13 @@ text-balance text-nowrap text-pretty text-wrap
       }
 <<<>>>
 # text-wrap
+@config run
 -text-balance -text-nowrap -text-pretty -text-wrap text-balance/foo text-nowrap/foo text-pretty/foo text-wrap/foo
 ---
 
 <<<>>>
 # word-break
+@config run
 break-all break-keep break-normal break-words
 ---
 .break-normal {
@@ -7396,11 +7769,13 @@ break-all break-keep break-normal break-words
       }
 <<<>>>
 # word-break
+@config run
 -break-all -break-keep -break-normal -break-words break-all/foo break-keep/foo break-normal/foo break-words/foo
 ---
 
 <<<>>>
 # overflow-wrap
+@config run
 wrap-anywhere wrap-break-word wrap-normal
 ---
 .wrap-anywhere {
@@ -7416,11 +7791,13 @@ wrap-anywhere wrap-break-word wrap-normal
     }
 <<<>>>
 # overflow-wrap
+@config run
 -wrap-anywhere -wrap-break-word -wrap-normal wrap-anywhere/foo wrap-break-word/foo wrap-normal/foo
 ---
 
 <<<>>>
 # rounded
+@config theme
 rounded rounded-full rounded-none rounded-sm
 ---
 :root, :host {
@@ -7449,6 +7826,7 @@ rounded rounded-full rounded-none rounded-sm
     }
 <<<>>>
 # rounded
+@config theme
 rounded-full
 ---
 :root, :host {
@@ -7460,11 +7838,13 @@ rounded-full
     }
 <<<>>>
 # rounded
+@config run
 -rounded -rounded-[4px] -rounded-full -rounded-none -rounded-sm
 ---
 
 <<<>>>
 # rounded-s
+@config theme
 rounded-s rounded-s-full rounded-s-none rounded-s-sm
 ---
 :root, :host {
@@ -7500,11 +7880,13 @@ rounded-s rounded-s-full rounded-s-none rounded-s-sm
     }
 <<<>>>
 # rounded-s
+@config run
 -rounded-s -rounded-s-[4px] -rounded-s-full -rounded-s-none -rounded-s-sm
 ---
 
 <<<>>>
 # rounded-e
+@config theme
 rounded-e rounded-e-full rounded-e-none rounded-e-sm
 ---
 :root, :host {
@@ -7540,11 +7922,13 @@ rounded-e rounded-e-full rounded-e-none rounded-e-sm
     }
 <<<>>>
 # rounded-e
+@config run
 -rounded-e -rounded-e-[4px] -rounded-e-full -rounded-e-none -rounded-e-sm
 ---
 
 <<<>>>
 # rounded-t
+@config theme
 rounded-t rounded-t-full rounded-t-none rounded-t-sm
 ---
 :root, :host {
@@ -7580,11 +7964,13 @@ rounded-t rounded-t-full rounded-t-none rounded-t-sm
     }
 <<<>>>
 # rounded-t
+@config run
 -rounded-t -rounded-t-[4px] -rounded-t-full -rounded-t-none -rounded-t-sm
 ---
 
 <<<>>>
 # rounded-r
+@config theme
 rounded-r rounded-r-full rounded-r-none rounded-r-sm
 ---
 :root, :host {
@@ -7620,11 +8006,13 @@ rounded-r rounded-r-full rounded-r-none rounded-r-sm
     }
 <<<>>>
 # rounded-r
+@config run
 -rounded-r -rounded-r-[4px] -rounded-r-full -rounded-r-none -rounded-r-sm
 ---
 
 <<<>>>
 # rounded-b
+@config theme
 rounded-b rounded-b-full rounded-b-none rounded-b-sm
 ---
 :root, :host {
@@ -7660,11 +8048,13 @@ rounded-b rounded-b-full rounded-b-none rounded-b-sm
     }
 <<<>>>
 # rounded-b
+@config run
 -rounded-b -rounded-b-[4px] -rounded-b-full -rounded-b-none -rounded-b-sm
 ---
 
 <<<>>>
 # rounded-l
+@config theme
 rounded-l rounded-l-full rounded-l-none rounded-l-sm
 ---
 :root, :host {
@@ -7700,11 +8090,13 @@ rounded-l rounded-l-full rounded-l-none rounded-l-sm
     }
 <<<>>>
 # rounded-l
+@config run
 -rounded-l -rounded-l-[4px] -rounded-l-full -rounded-l-none -rounded-l-sm
 ---
 
 <<<>>>
 # rounded-ss
+@config theme
 rounded-ss rounded-ss-full rounded-ss-none rounded-ss-sm
 ---
 :root, :host {
@@ -7735,11 +8127,13 @@ rounded-ss rounded-ss-full rounded-ss-none rounded-ss-sm
     }
 <<<>>>
 # rounded-ss
+@config run
 -rounded-ss -rounded-ss-[4px] -rounded-ss-full -rounded-ss-none -rounded-ss-sm
 ---
 
 <<<>>>
 # rounded-se
+@config theme
 rounded-se rounded-se-full rounded-se-none rounded-se-sm
 ---
 :root, :host {
@@ -7770,11 +8164,13 @@ rounded-se rounded-se-full rounded-se-none rounded-se-sm
     }
 <<<>>>
 # rounded-se
+@config run
 -rounded-se -rounded-se-[4px] -rounded-se-full -rounded-se-none -rounded-se-sm
 ---
 
 <<<>>>
 # rounded-ee
+@config theme
 rounded-ee rounded-ee-full rounded-ee-none rounded-ee-sm
 ---
 :root, :host {
@@ -7805,11 +8201,13 @@ rounded-ee rounded-ee-full rounded-ee-none rounded-ee-sm
     }
 <<<>>>
 # rounded-ee
+@config run
 -rounded-ee -rounded-ee-[4px] -rounded-ee-full -rounded-ee-none -rounded-ee-sm
 ---
 
 <<<>>>
 # rounded-es
+@config theme
 rounded-es rounded-es-full rounded-es-none rounded-es-sm
 ---
 :root, :host {
@@ -7840,11 +8238,13 @@ rounded-es rounded-es-full rounded-es-none rounded-es-sm
     }
 <<<>>>
 # rounded-es
+@config run
 -rounded-es -rounded-es-[4px] -rounded-es-full -rounded-es-none -rounded-es-sm
 ---
 
 <<<>>>
 # rounded-tl
+@config theme
 rounded-tl rounded-tl-full rounded-tl-none rounded-tl-sm
 ---
 :root, :host {
@@ -7875,11 +8275,13 @@ rounded-tl rounded-tl-full rounded-tl-none rounded-tl-sm
     }
 <<<>>>
 # rounded-tl
+@config run
 -rounded-tl -rounded-tl-[4px] -rounded-tl-full -rounded-tl-none -rounded-tl-sm
 ---
 
 <<<>>>
 # rounded-tr
+@config theme
 rounded-tr rounded-tr-full rounded-tr-none rounded-tr-sm
 ---
 :root, :host {
@@ -7910,11 +8312,13 @@ rounded-tr rounded-tr-full rounded-tr-none rounded-tr-sm
     }
 <<<>>>
 # rounded-tr
+@config run
 -rounded-tr -rounded-tr-[4px] -rounded-tr-full -rounded-tr-none -rounded-tr-sm
 ---
 
 <<<>>>
 # rounded-br
+@config theme
 rounded-br rounded-br-full rounded-br-none rounded-br-sm
 ---
 :root, :host {
@@ -7945,11 +8349,13 @@ rounded-br rounded-br-full rounded-br-none rounded-br-sm
     }
 <<<>>>
 # rounded-br
+@config run
 -rounded-br -rounded-br-[4px] -rounded-br-full -rounded-br-none -rounded-br-sm
 ---
 
 <<<>>>
 # rounded-bl
+@config theme
 rounded-bl rounded-bl-full rounded-bl-none rounded-bl-sm
 ---
 :root, :host {
@@ -7980,11 +8386,13 @@ rounded-bl rounded-bl-full rounded-bl-none rounded-bl-sm
     }
 <<<>>>
 # rounded-bl
+@config run
 -rounded-bl -rounded-bl-[4px] -rounded-bl-full -rounded-bl-none -rounded-bl-sm
 ---
 
 <<<>>>
 # border-style
+@config run
 border-dashed border-dotted border-double border-hidden border-none border-solid
 ---
 .border-dashed {
@@ -8018,11 +8426,13 @@ border-dashed border-dotted border-double border-hidden border-none border-solid
     }
 <<<>>>
 # border-style
+@config run
 -border-dashed -border-dotted -border-double -border-hidden -border-none -border-solid border-dashed/foo border-dotted/foo border-double/foo border-hidden/foo border-none/foo border-solid/foo
 ---
 
 <<<>>>
 # border with custom default border width
+@config theme
 border
 ---
 @layer properties {
@@ -8045,11 +8455,13 @@ border
     }
 <<<>>>
 # border with custom default border width
+@config run
 -border border/foo
 ---
 
 <<<>>>
 # bg
+@config theme
 bg-red-500 bg-red-500/2.25 bg-red-500/2.5 bg-red-500/2.75 bg-red-500/50 bg-red-500/[0.5]
 ---
 :root, :host {
@@ -8870,11 +9282,13 @@ bg-red-500 bg-red-500/2.25 bg-red-500/2.5 bg-red-500/2.75 bg-red-500/50 bg-red-5
     }
 <<<>>>
 # bg
+@config run
 -bg-red-500 -bg-red-500/50 -bg-red-500/[0.5] bg bg-unknown
 ---
 
 <<<>>>
 # bg
+@config theme-reference
 bg-current/custom bg-current/half
 ---
 .bg-current\/custom {
@@ -8908,16 +9322,19 @@ bg-current/custom bg-current/half
     }
 <<<>>>
 # bg-position
+@config run
 -bg-position -bg-position/foo bg-position bg-position-[120px_120px]/foo bg-position/foo
 ---
 
 <<<>>>
 # bg-size
+@config run
 -bg-size -bg-size/foo bg-size bg-size-[120px_120px]/foo bg-size/foo
 ---
 
 <<<>>>
 # from
+@config theme
 from-red-500 from-red-500/50 from-red-500/[0.5]
 ---
 @layer properties {
@@ -9224,11 +9641,13 @@ from-red-500 from-red-500/50 from-red-500/[0.5]
     }
 <<<>>>
 # from
+@config run
 -from-red-500 -from-red-500/50 -from-red-500/[0.5] from from--123 from--5% from-123 from-25.% from-25.0% from-unknown from-unknown%
 ---
 
 <<<>>>
 # via
+@config theme
 via-red-500 via-red-500/50 via-red-500/[0.5]
 ---
 @layer properties {
@@ -9555,11 +9974,13 @@ via-red-500 via-red-500/50 via-red-500/[0.5]
     }
 <<<>>>
 # via
+@config run
 -via-red-500 -via-red-500/50 -via-red-500/[0.5] via via--123 via--5% via-123 via-unknown via-unknown%
 ---
 
 <<<>>>
 # to
+@config theme
 to-red-500 to-red-500/50 to-red-500/[0.5]
 ---
 @layer properties {
@@ -9866,11 +10287,13 @@ to-red-500 to-red-500/50 to-red-500/[0.5]
     }
 <<<>>>
 # to
+@config run
 -to-red-500 -to-red-500/50 -to-red-500/[0.5] to to--123 to--5% to-123 to-unknown to-unknown%
 ---
 
 <<<>>>
 # mask
+@config theme
 mask-none
 ---
 .mask-\[image\:var\(--some-var\)\] {
@@ -10071,11 +10494,13 @@ mask-none
     }
 <<<>>>
 # mask
+@config run
 -mask-none mask mask-none/foo mask-unknown
 ---
 
 <<<>>>
 # mask
+@config theme-reference
 mask-current/custom mask-current/half
 ---
 .\[color\:red\]\/half {
@@ -10089,16 +10514,19 @@ mask-current/custom mask-current/half
     }
 <<<>>>
 # mask-position
+@config run
 -mask-position -mask-position/foo mask-position mask-position-[120px_120px]/foo mask-position/foo
 ---
 
 <<<>>>
 # mask-size
+@config run
 -mask-size -mask-size/foo mask-size mask-size-[120px_120px]/foo mask-size/foo
 ---
 
 <<<>>>
 # mask-t-from
+@config theme
 mask-t-from-0 mask-t-from-0% mask-t-from-1.5 mask-t-from-2 mask-t-from-2% mask-t-from-[0px]
 ---
 @layer properties {
@@ -10298,11 +10726,13 @@ mask-t-from-0 mask-t-from-0% mask-t-from-1.5 mask-t-from-2 mask-t-from-2% mask-t
     }
 <<<>>>
 # mask-t-from
+@config theme
 -mask-t-from-0 -mask-t-from-0% -mask-t-from-1.5 -mask-t-from-2 -mask-t-from-2% -mask-t-from-[0px] mask-t-from mask-t-from--1.5 mask-t-from--2 mask-t-from--5% mask-t-from-2.5% mask-t-from-2.8175 mask-t-from-unknown mask-t-from-unknown%
 ---
 
 <<<>>>
 # mask-t-to
+@config theme
 mask-t-to-0 mask-t-to-0% mask-t-to-1.5 mask-t-to-2 mask-t-to-2% mask-t-to-[0px]
 ---
 @layer properties {
@@ -10502,11 +10932,13 @@ mask-t-to-0 mask-t-to-0% mask-t-to-1.5 mask-t-to-2 mask-t-to-2% mask-t-to-[0px]
     }
 <<<>>>
 # mask-t-to
+@config theme
 -mask-t-to-0 -mask-t-to-0% -mask-t-to-1.5 -mask-t-to-2 -mask-t-to-2% -mask-t-to-[0px] mask-t-to mask-t-to--1.5 mask-t-to--2 mask-t-to--5% mask-t-to-2.5% mask-t-to-2.8175 mask-t-to-unknown mask-t-to-unknown%
 ---
 
 <<<>>>
 # mask-r-from
+@config theme
 mask-r-from-0 mask-r-from-0% mask-r-from-1.5 mask-r-from-2 mask-r-from-2% mask-r-from-[0px]
 ---
 @layer properties {
@@ -10706,11 +11138,13 @@ mask-r-from-0 mask-r-from-0% mask-r-from-1.5 mask-r-from-2 mask-r-from-2% mask-r
     }
 <<<>>>
 # mask-r-from
+@config theme
 -mask-r-from-0 -mask-r-from-0% -mask-r-from-1.5 -mask-r-from-2 -mask-r-from-2% -mask-r-from-[0px] mask-r-from mask-r-from--1.5 mask-r-from--2 mask-r-from--5% mask-r-from-2.5% mask-r-from-2.8175 mask-r-from-unknown mask-r-from-unknown%
 ---
 
 <<<>>>
 # mask-r-to
+@config theme
 mask-r-to-0 mask-r-to-0% mask-r-to-1.5 mask-r-to-2 mask-r-to-2% mask-r-to-[0px]
 ---
 @layer properties {
@@ -10910,11 +11344,13 @@ mask-r-to-0 mask-r-to-0% mask-r-to-1.5 mask-r-to-2 mask-r-to-2% mask-r-to-[0px]
     }
 <<<>>>
 # mask-r-to
+@config theme
 -mask-r-to-0 -mask-r-to-0% -mask-r-to-1.5 -mask-r-to-2 -mask-r-to-2% -mask-r-to-[0px] mask-r-to mask-r-to--1.5 mask-r-to--2 mask-r-to--5% mask-r-to-2.5% mask-r-to-2.8175 mask-r-to-unknown mask-r-to-unknown%
 ---
 
 <<<>>>
 # mask-b-from
+@config theme
 mask-b-from-0 mask-b-from-0% mask-b-from-1.5 mask-b-from-2 mask-b-from-2% mask-b-from-[0px]
 ---
 @layer properties {
@@ -11114,11 +11550,13 @@ mask-b-from-0 mask-b-from-0% mask-b-from-1.5 mask-b-from-2 mask-b-from-2% mask-b
     }
 <<<>>>
 # mask-b-from
+@config theme
 -mask-b-from-0 -mask-b-from-0% -mask-b-from-1.5 -mask-b-from-2 -mask-b-from-2% -mask-b-from-[0px] mask-b-from mask-b-from--1.5 mask-b-from--2 mask-b-from--5% mask-b-from-2.5% mask-b-from-2.8175 mask-b-from-unknown mask-b-from-unknown%
 ---
 
 <<<>>>
 # mask-b-to
+@config theme
 mask-b-to-0 mask-b-to-0% mask-b-to-1.5 mask-b-to-2 mask-b-to-2% mask-b-to-[0px]
 ---
 @layer properties {
@@ -11318,11 +11756,13 @@ mask-b-to-0 mask-b-to-0% mask-b-to-1.5 mask-b-to-2 mask-b-to-2% mask-b-to-[0px]
     }
 <<<>>>
 # mask-b-to
+@config theme
 -mask-b-to-0 -mask-b-to-0% -mask-b-to-1.5 -mask-b-to-2 -mask-b-to-2% -mask-b-to-[0px] mask-b-to mask-b-to--1.5 mask-b-to--2 mask-b-to--5% mask-b-to-2.5% mask-b-to-2.8175 mask-b-to-unknown mask-b-to-unknown%
 ---
 
 <<<>>>
 # mask-l-from
+@config theme
 mask-l-from-0 mask-l-from-0% mask-l-from-1.5 mask-l-from-2 mask-l-from-2% mask-l-from-[0px]
 ---
 @layer properties {
@@ -11522,11 +11962,13 @@ mask-l-from-0 mask-l-from-0% mask-l-from-1.5 mask-l-from-2 mask-l-from-2% mask-l
     }
 <<<>>>
 # mask-l-from
+@config theme
 -mask-l-from-0 -mask-l-from-0% -mask-l-from-1.5 -mask-l-from-2 -mask-l-from-2% -mask-l-from-[0px] mask-l-from mask-l-from--1.5 mask-l-from--2 mask-l-from--5% mask-l-from-2.5% mask-l-from-2.8175 mask-l-from-unknown mask-l-from-unknown%
 ---
 
 <<<>>>
 # mask-l-to
+@config theme
 mask-l-to-0 mask-l-to-0% mask-l-to-1.5 mask-l-to-2 mask-l-to-2% mask-l-to-[0px]
 ---
 @layer properties {
@@ -11726,11 +12168,13 @@ mask-l-to-0 mask-l-to-0% mask-l-to-1.5 mask-l-to-2 mask-l-to-2% mask-l-to-[0px]
     }
 <<<>>>
 # mask-l-to
+@config theme
 -mask-l-to-0 -mask-l-to-0% -mask-l-to-1.5 -mask-l-to-2 -mask-l-to-2% -mask-l-to-[0px] mask-l-to mask-l-to--1.5 mask-l-to--2 mask-l-to--5% mask-l-to-2.5% mask-l-to-2.8175 mask-l-to-unknown mask-l-to-unknown%
 ---
 
 <<<>>>
 # mask-x-from
+@config theme
 mask-x-from-0 mask-x-from-0% mask-x-from-1.5 mask-x-from-2 mask-x-from-2% mask-x-from-[0px]
 ---
 @layer properties {
@@ -11976,11 +12420,13 @@ mask-x-from-0 mask-x-from-0% mask-x-from-1.5 mask-x-from-2 mask-x-from-2% mask-x
     }
 <<<>>>
 # mask-x-from
+@config theme
 -mask-x-from-0 -mask-x-from-0% -mask-x-from-1.5 -mask-x-from-2 -mask-x-from-2% -mask-x-from-[0px] mask-x-from mask-x-from--1.5 mask-x-from--2 mask-x-from--5% mask-x-from-2.5% mask-x-from-2.8175 mask-x-from-unknown mask-x-from-unknown%
 ---
 
 <<<>>>
 # mask-x-to
+@config theme
 mask-x-to-0 mask-x-to-0% mask-x-to-1.5 mask-x-to-2 mask-x-to-2% mask-x-to-[0px]
 ---
 @layer properties {
@@ -12226,11 +12672,13 @@ mask-x-to-0 mask-x-to-0% mask-x-to-1.5 mask-x-to-2 mask-x-to-2% mask-x-to-[0px]
     }
 <<<>>>
 # mask-x-to
+@config theme
 -mask-x-to-0 -mask-x-to-0% -mask-x-to-1.5 -mask-x-to-2 -mask-x-to-2% -mask-x-to-[0px] mask-x-to mask-x-to--1.5 mask-x-to--2 mask-x-to--5% mask-x-to-2.5% mask-x-to-2.8175 mask-x-to-unknown mask-x-to-unknown%
 ---
 
 <<<>>>
 # mask-y-from
+@config theme
 mask-y-from-0 mask-y-from-0% mask-y-from-1.5 mask-y-from-2 mask-y-from-2% mask-y-from-[0px]
 ---
 @layer properties {
@@ -12476,11 +12924,13 @@ mask-y-from-0 mask-y-from-0% mask-y-from-1.5 mask-y-from-2 mask-y-from-2% mask-y
     }
 <<<>>>
 # mask-y-from
+@config theme
 -mask-y-from-0 -mask-y-from-0% -mask-y-from-1.5 -mask-y-from-2 -mask-y-from-2% -mask-y-from-[0px] mask-y-from mask-y-from--1.5 mask-y-from--2 mask-y-from--5% mask-y-from-2.5% mask-y-from-2.8175 mask-y-from-unknown mask-y-from-unknown%
 ---
 
 <<<>>>
 # mask-y-to
+@config theme
 mask-y-to-0 mask-y-to-0% mask-y-to-1.5 mask-y-to-2 mask-y-to-2% mask-y-to-[0px]
 ---
 @layer properties {
@@ -12726,11 +13176,13 @@ mask-y-to-0 mask-y-to-0% mask-y-to-1.5 mask-y-to-2 mask-y-to-2% mask-y-to-[0px]
     }
 <<<>>>
 # mask-y-to
+@config theme
 -mask-y-to-0 -mask-y-to-0% -mask-y-to-1.5 -mask-y-to-2 -mask-y-to-2% -mask-y-to-[0px] mask-y-to mask-y-to--1.5 mask-y-to--2 mask-y-to--5% mask-y-to-2.5% mask-y-to-2.8175 mask-y-to-unknown mask-y-to-unknown%
 ---
 
 <<<>>>
 # mask-linear
+@config none
 mask-linear-45
 ---
 @layer properties {
@@ -12830,11 +13282,13 @@ mask-linear-45
     }
 <<<>>>
 # mask-linear
+@config run
 -mask-linear -mask-linear-45/foo mask-linear mask-linear--75 mask-linear--75/foo mask-linear-45/foo mask-linear-[3rad]/foo mask-linear-unknown mask-linear-unknown/foo
 ---
 
 <<<>>>
 # mask-linear-from
+@config theme
 mask-linear-from-0 mask-linear-from-0% mask-linear-from-1.5 mask-linear-from-2 mask-linear-from-2% mask-linear-from-[0px]
 ---
 @layer properties {
@@ -13013,11 +13467,13 @@ mask-linear-from-0 mask-linear-from-0% mask-linear-from-1.5 mask-linear-from-2 m
     }
 <<<>>>
 # mask-linear-from
+@config theme
 -mask-linear-from-0 -mask-linear-from-0% -mask-linear-from-1.5 -mask-linear-from-2 -mask-linear-from-2% -mask-linear-from-[0px] mask-linear-from mask-linear-from--1.5 mask-linear-from--2 mask-linear-from--5% mask-linear-from-2.5% mask-linear-from-2.8175 mask-linear-from-unknown mask-linear-from-unknown%
 ---
 
 <<<>>>
 # mask-linear-to
+@config theme
 mask-linear-to-0 mask-linear-to-0% mask-linear-to-1.5 mask-linear-to-2 mask-linear-to-2% mask-linear-to-[0px]
 ---
 @layer properties {
@@ -13196,11 +13652,13 @@ mask-linear-to-0 mask-linear-to-0% mask-linear-to-1.5 mask-linear-to-2 mask-line
     }
 <<<>>>
 # mask-linear-to
+@config theme
 -mask-linear-to-0 -mask-linear-to-0% -mask-linear-to-1.5 -mask-linear-to-2 -mask-linear-to-2% -mask-linear-to-[0px] mask-linear-to mask-linear-to--1.5 mask-linear-to--2 mask-linear-to--5% mask-linear-to-2.5% mask-linear-to-2.8175 mask-linear-to-unknown mask-linear-to-unknown%
 ---
 
 <<<>>>
 # mask-radial
+@config none
 mask-circle mask-ellipse mask-radial-[25%_25%] mask-radial-closest-corner mask-radial-closest-side mask-radial-farthest-corner mask-radial-farthest-side
 ---
 @layer properties {
@@ -13316,11 +13774,13 @@ mask-circle mask-ellipse mask-radial-[25%_25%] mask-radial-closest-corner mask-r
     }
 <<<>>>
 # mask-radial
+@config run
 mask-radial mask-radial-[25%_25%]/foo
 ---
 
 <<<>>>
 # mask-radial-at
+@config theme
 mask-radial-at-[25%] mask-radial-at-bottom mask-radial-at-bottom-left mask-radial-at-bottom-right mask-radial-at-left mask-radial-at-right mask-radial-at-top mask-radial-at-top-left mask-radial-at-top-right
 ---
 .mask-radial-at-\[25\%\] {
@@ -13360,11 +13820,13 @@ mask-radial-at-[25%] mask-radial-at-bottom mask-radial-at-bottom-left mask-radia
     }
 <<<>>>
 # mask-radial-at
+@config run
 mask-radial-at mask-radial-at-25 mask-radial-at-[25%]/foo mask-radial-at-unknown mask-radial-at/foo
 ---
 
 <<<>>>
 # mask-radial-from
+@config theme
 mask-radial-from-0 mask-radial-from-0% mask-radial-from-1.5 mask-radial-from-2 mask-radial-from-2% mask-radial-from-[0px]
 ---
 @layer properties {
@@ -13557,11 +14019,13 @@ mask-radial-from-0 mask-radial-from-0% mask-radial-from-1.5 mask-radial-from-2 m
     }
 <<<>>>
 # mask-radial-from
+@config theme
 -mask-radial-from-0 -mask-radial-from-0% -mask-radial-from-1.5 -mask-radial-from-2 -mask-radial-from-2% -mask-radial-from-[0px] mask-radial-from mask-radial-from--1.5 mask-radial-from--2 mask-radial-from--5% mask-radial-from-2.5% mask-radial-from-2.8175 mask-radial-from-unknown mask-radial-from-unknown%
 ---
 
 <<<>>>
 # mask-radial-to
+@config theme
 mask-radial-to-0 mask-radial-to-0% mask-radial-to-1.5 mask-radial-to-2 mask-radial-to-2% mask-radial-to-[0px]
 ---
 @layer properties {
@@ -13754,11 +14218,13 @@ mask-radial-to-0 mask-radial-to-0% mask-radial-to-1.5 mask-radial-to-2 mask-radi
     }
 <<<>>>
 # mask-radial-to
+@config theme
 -mask-radial-to-0 -mask-radial-to-0% -mask-radial-to-1.5 -mask-radial-to-2 -mask-radial-to-2% -mask-radial-to-[0px] mask-radial-to mask-radial-to--1.5 mask-radial-to--2 mask-radial-to--5% mask-radial-to-2.5% mask-radial-to-2.8175 mask-radial-to-unknown mask-radial-to-unknown%
 ---
 
 <<<>>>
 # mask-conic
+@config none
 mask-conic-45
 ---
 @layer properties {
@@ -13858,11 +14324,13 @@ mask-conic-45
     }
 <<<>>>
 # mask-conic
+@config run
 -mask-conic -mask-conic-45/foo mask-conic mask-conic--75 mask-conic--75/foo mask-conic-45/foo mask-conic-[3rad]/foo mask-conic-unknown mask-conic-unknown/foo
 ---
 
 <<<>>>
 # mask-conic-from
+@config theme
 mask-conic-from-0 mask-conic-from-0% mask-conic-from-1.5 mask-conic-from-2 mask-conic-from-2% mask-conic-from-[0px]
 ---
 @layer properties {
@@ -14041,11 +14509,13 @@ mask-conic-from-0 mask-conic-from-0% mask-conic-from-1.5 mask-conic-from-2 mask-
     }
 <<<>>>
 # mask-conic-from
+@config theme
 -mask-conic-from-0 -mask-conic-from-0% -mask-conic-from-1.5 -mask-conic-from-2 -mask-conic-from-2% -mask-conic-from-[0px] mask-conic-from mask-conic-from--1.5 mask-conic-from--2 mask-conic-from--5% mask-conic-from-2.5% mask-conic-from-2.8175 mask-conic-from-unknown mask-conic-from-unknown%
 ---
 
 <<<>>>
 # mask-conic-to
+@config theme
 mask-conic-to-0 mask-conic-to-0% mask-conic-to-1.5 mask-conic-to-2 mask-conic-to-2% mask-conic-to-[0px]
 ---
 @layer properties {
@@ -14224,11 +14694,13 @@ mask-conic-to-0 mask-conic-to-0% mask-conic-to-1.5 mask-conic-to-2 mask-conic-to
     }
 <<<>>>
 # mask-conic-to
+@config theme
 -mask-conic-to-0 -mask-conic-to-0% -mask-conic-to-1.5 -mask-conic-to-2 -mask-conic-to-2% -mask-conic-to-[0px] mask-conic-to mask-conic-to--1.5 mask-conic-to--2 mask-conic-to--5% mask-conic-to-2.5% mask-conic-to-2.8175 mask-conic-to-unknown mask-conic-to-unknown%
 ---
 
 <<<>>>
 # box-decoration
+@config run
 box-decoration-clone box-decoration-slice
 ---
 .box-decoration-clone {
@@ -14242,11 +14714,13 @@ box-decoration-clone box-decoration-slice
     }
 <<<>>>
 # box-decoration
+@config run
 -box-decoration-clone -box-decoration-slice box box-decoration box-decoration-clone/foo box-decoration-slice/foo
 ---
 
 <<<>>>
 # bg-clip
+@config run
 bg-clip-border bg-clip-content bg-clip-padding bg-clip-text
 ---
 .bg-clip-border {
@@ -14267,11 +14741,13 @@ bg-clip-border bg-clip-content bg-clip-padding bg-clip-text
       }
 <<<>>>
 # bg-clip
+@config run
 -bg-clip-border -bg-clip-content -bg-clip-padding -bg-clip-text bg-clip bg-clip-border/foo bg-clip-content/foo bg-clip-padding/foo bg-clip-text/foo
 ---
 
 <<<>>>
 # bg-origin
+@config run
 bg-origin-border bg-origin-content bg-origin-padding
 ---
 .bg-origin-border {
@@ -14287,11 +14763,13 @@ bg-origin-border bg-origin-content bg-origin-padding
       }
 <<<>>>
 # bg-origin
+@config run
 -bg-origin-border -bg-origin-content -bg-origin-padding bg-origin bg-origin-border/foo bg-origin-content/foo bg-origin-padding/foo
 ---
 
 <<<>>>
 # mask-clip
+@config run
 mask-clip-border mask-clip-content mask-clip-fill mask-clip-padding mask-clip-stroke mask-clip-view mask-no-clip
 ---
 .mask-clip-border {
@@ -14330,11 +14808,13 @@ mask-clip-border mask-clip-content mask-clip-fill mask-clip-padding mask-clip-st
     }
 <<<>>>
 # mask-clip
+@config run
 -mask-clip-border -mask-clip-content -mask-clip-fill -mask-clip-padding -mask-clip-stroke -mask-clip-view -mask-no-clip mask-clip mask-clip-border/foo mask-clip-content/foo mask-clip-fill/foo mask-clip-padding/foo mask-clip-stroke/foo mask-clip-view/foo mask-no-clip/foo
 ---
 
 <<<>>>
 # mask-origin
+@config run
 mask-origin-border mask-origin-content mask-origin-fill mask-origin-padding mask-origin-stroke mask-origin-view
 ---
 .mask-origin-border {
@@ -14368,11 +14848,13 @@ mask-origin-border mask-origin-content mask-origin-fill mask-origin-padding mask
     }
 <<<>>>
 # mask-origin
+@config run
 -mask-origin-border -mask-origin-content -mask-origin-fill -mask-origin-padding -mask-origin-stroke -mask-origin-view mask-origin mask-origin-border/foo mask-origin-content/foo mask-origin-fill/foo mask-origin-padding/foo mask-origin-stroke/foo mask-origin-view/foo
 ---
 
 <<<>>>
 # bg-blend
+@config run
 bg-blend-color bg-blend-color-burn bg-blend-color-dodge bg-blend-darken bg-blend-difference bg-blend-exclusion bg-blend-hard-light bg-blend-hue bg-blend-lighten bg-blend-luminosity bg-blend-multiply bg-blend-normal bg-blend-overlay bg-blend-saturation bg-blend-screen bg-blend-soft-light
 ---
 .bg-blend-color {
@@ -14440,11 +14922,13 @@ bg-blend-color bg-blend-color-burn bg-blend-color-dodge bg-blend-darken bg-blend
     }
 <<<>>>
 # bg-blend
+@config run
 -bg-blend-color -bg-blend-color-burn -bg-blend-color-dodge -bg-blend-darken -bg-blend-difference -bg-blend-exclusion -bg-blend-hard-light -bg-blend-hue -bg-blend-lighten -bg-blend-luminosity -bg-blend-multiply -bg-blend-normal -bg-blend-overlay -bg-blend-saturation -bg-blend-screen -bg-blend-soft-light bg-blend bg-blend-color-burn/foo bg-blend-color-dodge/foo bg-blend-color/foo bg-blend-darken/foo bg-blend-difference/foo bg-blend-exclusion/foo bg-blend-hard-light/foo bg-blend-hue/foo bg-blend-lighten/foo bg-blend-luminosity/foo bg-blend-multiply/foo bg-blend-normal/foo bg-blend-overlay/foo bg-blend-saturation/foo bg-blend-screen/foo bg-blend-soft-light/foo
 ---
 
 <<<>>>
 # mix-blend
+@config run
 mix-blend-color mix-blend-color-burn mix-blend-color-dodge mix-blend-darken mix-blend-difference mix-blend-exclusion mix-blend-hard-light mix-blend-hue mix-blend-lighten mix-blend-luminosity mix-blend-multiply mix-blend-normal mix-blend-overlay mix-blend-plus-darker mix-blend-plus-lighter mix-blend-saturation mix-blend-screen mix-blend-soft-light
 ---
 .mix-blend-color {
@@ -14520,11 +15004,13 @@ mix-blend-color mix-blend-color-burn mix-blend-color-dodge mix-blend-darken mix-
     }
 <<<>>>
 # mix-blend
+@config run
 -mix-blend-color -mix-blend-color-burn -mix-blend-color-dodge -mix-blend-darken -mix-blend-difference -mix-blend-exclusion -mix-blend-hard-light -mix-blend-hue -mix-blend-lighten -mix-blend-luminosity -mix-blend-multiply -mix-blend-normal -mix-blend-overlay -mix-blend-plus-lighter -mix-blend-saturation -mix-blend-screen -mix-blend-soft-light mix-blend mix-blend-color-burn/foo mix-blend-color-dodge/foo mix-blend-color/foo mix-blend-darken/foo mix-blend-difference/foo mix-blend-exclusion/foo mix-blend-hard-light/foo mix-blend-hue/foo mix-blend-lighten/foo mix-blend-luminosity/foo mix-blend-multiply/foo mix-blend-normal/foo mix-blend-overlay/foo mix-blend-plus-darker/foo mix-blend-plus-lighter/foo mix-blend-saturation/foo mix-blend-screen/foo mix-blend-soft-light/foo
 ---
 
 <<<>>>
 # fill
+@config theme
 fill-red-500 fill-red-500/2.25 fill-red-500/2.5 fill-red-500/2.75 fill-red-500/50 fill-red-500/[0.5]
 ---
 :root, :host {
@@ -14647,11 +15133,13 @@ fill-red-500 fill-red-500/2.25 fill-red-500/2.5 fill-red-500/2.75 fill-red-500/5
     }
 <<<>>>
 # fill
+@config run
 -fill-red-500 -fill-red-500/50 -fill-red-500/[0.5] fill fill-unknown
 ---
 
 <<<>>>
 # stroke
+@config theme
 stroke-red-500 stroke-red-500/2.25 stroke-red-500/2.5 stroke-red-500/2.75 stroke-red-500/50 stroke-red-500/[0.5]
 ---
 :root, :host {
@@ -14866,11 +15354,13 @@ stroke-red-500 stroke-red-500/2.25 stroke-red-500/2.5 stroke-red-500/2.75 stroke
     }
 <<<>>>
 # stroke
+@config run
 -stroke-red-500 -stroke-red-500/50 -stroke-red-500/[0.5] stroke stroke-unknown
 ---
 
 <<<>>>
 # object
+@config run
 object-contain object-cover object-fill object-none object-scale-down
 ---
 .object-contain {
@@ -14950,11 +15440,13 @@ object-contain object-cover object-fill object-none object-scale-down
     }
 <<<>>>
 # object
+@config run
 -object-contain -object-cover -object-fill -object-none -object-scale-down object
 ---
 
 <<<>>>
 # object
+@config theme
 object-center
 ---
 :root, :host {
@@ -14966,6 +15458,7 @@ object-center
     }
 <<<>>>
 # p
+@config theme
 p-1 p-4 p-99 p-big
 ---
 :root, :host {
@@ -14994,11 +15487,13 @@ p-1 p-4 p-99 p-big
     }
 <<<>>>
 # p
+@config run
 -p-4 p
 ---
 
 <<<>>>
 # px
+@config theme
 px-1 px-2.5 px-99 px-big
 ---
 :root, :host {
@@ -15027,11 +15522,13 @@ px-1 px-2.5 px-99 px-big
     }
 <<<>>>
 # px
+@config run
 -px-4 px
 ---
 
 <<<>>>
 # py
+@config theme
 py-1 py-4 py-99 py-big
 ---
 :root, :host {
@@ -15060,11 +15557,13 @@ py-1 py-4 py-99 py-big
     }
 <<<>>>
 # py
+@config run
 -py-4 py
 ---
 
 <<<>>>
 # pt
+@config theme
 pt-1 pt-4 pt-99 pt-big
 ---
 :root, :host {
@@ -15093,11 +15592,13 @@ pt-1 pt-4 pt-99 pt-big
     }
 <<<>>>
 # pt
+@config run
 -pt-4 pt
 ---
 
 <<<>>>
 # ps
+@config theme
 ps-1 ps-4 ps-99 ps-big
 ---
 :root, :host {
@@ -15126,11 +15627,13 @@ ps-1 ps-4 ps-99 ps-big
     }
 <<<>>>
 # ps
+@config run
 -ps-4 ps
 ---
 
 <<<>>>
 # pe
+@config theme
 pe-1 pe-4 pe-99 pe-big
 ---
 :root, :host {
@@ -15159,11 +15662,13 @@ pe-1 pe-4 pe-99 pe-big
     }
 <<<>>>
 # pe
+@config run
 -pe-4 pe
 ---
 
 <<<>>>
 # pbs
+@config theme
 pbs-1 pbs-4 pbs-99 pbs-big
 ---
 :root, :host {
@@ -15192,11 +15697,13 @@ pbs-1 pbs-4 pbs-99 pbs-big
     }
 <<<>>>
 # pbs
+@config run
 -pbs-4 pbs
 ---
 
 <<<>>>
 # pbe
+@config theme
 pbe-1 pbe-4 pbe-99 pbe-big
 ---
 :root, :host {
@@ -15225,11 +15732,13 @@ pbe-1 pbe-4 pbe-99 pbe-big
     }
 <<<>>>
 # pbe
+@config run
 -pbe-4 pbe
 ---
 
 <<<>>>
 # pr
+@config theme
 pr-1 pr-4 pr-99 pr-big
 ---
 :root, :host {
@@ -15258,11 +15767,13 @@ pr-1 pr-4 pr-99 pr-big
     }
 <<<>>>
 # pr
+@config run
 -pr-4 pr
 ---
 
 <<<>>>
 # pb
+@config theme
 pb-1 pb-4 pb-99 pb-big
 ---
 :root, :host {
@@ -15291,11 +15802,13 @@ pb-1 pb-4 pb-99 pb-big
     }
 <<<>>>
 # pb
+@config run
 -pb-4 pb
 ---
 
 <<<>>>
 # pl
+@config theme
 pl-1 pl-4 pl-99 pl-big
 ---
 :root, :host {
@@ -15324,11 +15837,13 @@ pl-1 pl-4 pl-99 pl-big
     }
 <<<>>>
 # pl
+@config run
 -pl-4 pl
 ---
 
 <<<>>>
 # text-align
+@config run
 text-center text-end text-justify text-left text-right text-start
 ---
 .text-center {
@@ -15356,16 +15871,19 @@ text-center text-end text-justify text-left text-right text-start
     }
 <<<>>>
 # text-align
+@config run
 -text-center -text-end -text-justify -text-left -text-right -text-start text-center/foo text-end/foo text-justify/foo text-left/foo text-right/foo text-start/foo
 ---
 
 <<<>>>
 # indent
+@config run
 indent
 ---
 
 <<<>>>
 # align
+@config run
 align-baseline align-bottom align-middle align-sub align-super align-text-bottom align-text-top align-top
 ---
 .align-\[var\(--value\)\] {
@@ -15405,11 +15923,13 @@ align-baseline align-bottom align-middle align-sub align-super align-text-bottom
     }
 <<<>>>
 # align
+@config run
 -align-baseline -align-bottom -align-middle -align-sub -align-super -align-text-bottom -align-text-top -align-top align
 ---
 
 <<<>>>
 # font
+@config theme
 font-["arial_rounded"] font-sans
 ---
 @layer properties {
@@ -15468,11 +15988,13 @@ font-["arial_rounded"] font-sans
     }
 <<<>>>
 # font
+@config theme-reference
 -font-bold -font-sans font font-["arial_rounded"]/foo font-sans/foo font-weight-bold
 ---
 
 <<<>>>
 # font-features
+@config run
 font-features-["smcp"]
 ---
 .font-features-\(--my-features\) {
@@ -15492,11 +16014,13 @@ font-features-["smcp"]
     }
 <<<>>>
 # font-features
+@config run
 -font-features-["smcp"] font-features
 ---
 
 <<<>>>
 # text-transform
+@config run
 capitalize lowercase normal-case uppercase
 ---
 .capitalize {
@@ -15516,11 +16040,13 @@ capitalize lowercase normal-case uppercase
     }
 <<<>>>
 # text-transform
+@config run
 -capitalize -lowercase -normal-case -uppercase capitalize/foo lowercase/foo normal-case/foo uppercase/foo
 ---
 
 <<<>>>
 # font-style
+@config run
 italic not-italic
 ---
 .italic {
@@ -15532,11 +16058,13 @@ italic not-italic
     }
 <<<>>>
 # font-style
+@config run
 -italic -not-italic italic/foo not-italic/foo
 ---
 
 <<<>>>
 # font-stretch
+@config run
 font-stretch-200% font-stretch-50% font-stretch-ultra-expanded
 ---
 .font-stretch-50\% {
@@ -15552,11 +16080,13 @@ font-stretch-200% font-stretch-50% font-stretch-ultra-expanded
       }
 <<<>>>
 # font-stretch
+@config run
 font-stretch font-stretch-20% font-stretch-200%/foo font-stretch-400% font-stretch-50 font-stretch-50%/foo font-stretch-50.5% font-stretch-potato font-stretch-ultra-expanded/foo
 ---
 
 <<<>>>
 # text-decoration-line
+@config run
 line-through no-underline overline underline
 ---
 .line-through {
@@ -15576,11 +16106,13 @@ line-through no-underline overline underline
       }
 <<<>>>
 # text-decoration-line
+@config run
 -line-through -no-underline -overline -underline line-through/foo no-underline/foo overline/foo underline/foo
 ---
 
 <<<>>>
 # placeholder
+@config theme
 placeholder-red-500 placeholder-red-500/2.25 placeholder-red-500/2.5 placeholder-red-500/2.75 placeholder-red-500/50 placeholder-red-500/[0.5]
 ---
 :root, :host {
@@ -15698,11 +16230,13 @@ placeholder-red-500 placeholder-red-500/2.25 placeholder-red-500/2.5 placeholder
     }
 <<<>>>
 # placeholder
+@config run
 -placeholder-red-500 -placeholder-red-500/50 -placeholder-red-500/[0.5] placeholder
 ---
 
 <<<>>>
 # decoration
+@config theme
 decoration-red-500 decoration-red-500/50 decoration-red-500/[0.5]
 ---
 :root, :host {
@@ -15957,11 +16491,13 @@ decoration-red-500 decoration-red-500/50 decoration-red-500/[0.5]
     }
 <<<>>>
 # decoration
+@config run
 -decoration-red-500 -decoration-red-500/50 -decoration-red-500/[0.5] decoration
 ---
 
 <<<>>>
 # animate
+@config theme
 animate-none animate-spin
 ---
 :root, :host {
@@ -15981,11 +16517,13 @@ animate-none animate-spin
     }
 <<<>>>
 # animate
+@config run
 -animate-[bounce_1s_infinite] -animate-none -animate-spin animate
 ---
 
 <<<>>>
 # animate
+@config theme
 animate-none
 ---
 :root, :host {
@@ -15997,6 +16535,7 @@ animate-none
     }
 <<<>>>
 # filter
+@config theme-inline
 filter filter-none
 ---
 @layer properties {
@@ -16294,11 +16833,13 @@ filter filter-none
     }
 <<<>>>
 # filter
+@config run
 -filter -filter-none
 ---
 
 <<<>>>
 # filter
+@config theme
 blur-none
 ---
 @layer properties {
@@ -16397,6 +16938,7 @@ blur-none
     }
 <<<>>>
 # backdrop-filter
+@config theme
 backdrop-filter backdrop-filter-none
 ---
 @layer properties {
@@ -16660,11 +17202,13 @@ backdrop-filter backdrop-filter-none
     }
 <<<>>>
 # backdrop-filter
+@config run
 -backdrop-filter -backdrop-filter-none
 ---
 
 <<<>>>
 # backdrop-filter
+@config theme
 backdrop-blur-none
 ---
 @layer properties {
@@ -16739,6 +17283,7 @@ backdrop-blur-none
     }
 <<<>>>
 # transition
+@config theme
 transition transition-all transition-colors transition-none transition-opacity transition-shadow transition-transform
 ---
 :root, :host {
@@ -16794,6 +17339,7 @@ transition transition-all transition-colors transition-none transition-opacity t
     }
 <<<>>>
 # transition
+@config theme-inline
 transition transition-all transition-colors
 ---
 .transition {
@@ -16815,6 +17361,7 @@ transition transition-all transition-colors
     }
 <<<>>>
 # transition
+@config none
 transition-all
 ---
 .transition-all {
@@ -16824,11 +17371,13 @@ transition-all
     }
 <<<>>>
 # transition
+@config run
 -transition -transition-all -transition-none -transition-opacity
 ---
 
 <<<>>>
 # transition
+@config theme
 transition-colors
 ---
 :root, :host {
@@ -16842,6 +17391,7 @@ transition-colors
     }
 <<<>>>
 # transition-behavior
+@config run
 transition-discrete transition-normal
 ---
 .transition-discrete {
@@ -16853,11 +17403,13 @@ transition-discrete transition-normal
     }
 <<<>>>
 # transition-behavior
+@config run
 -transition-discrete -transition-normal
 ---
 
 <<<>>>
 # delay
+@config run
 delay-123 delay-200
 ---
 .delay-123 {
@@ -16873,11 +17425,13 @@ delay-123 delay-200
     }
 <<<>>>
 # delay
+@config run
 -delay-200 -delay-[300ms] delay delay--200
 ---
 
 <<<>>>
 # duration
+@config run
 duration-123 duration-200
 ---
 @layer properties {
@@ -16909,11 +17463,13 @@ duration-123 duration-200
     }
 <<<>>>
 # duration
+@config run
 -duration-200 -duration-[300ms] duration duration--200
 ---
 
 <<<>>>
 # ease
+@config theme
 ease-in ease-out
 ---
 @layer properties {
@@ -16950,11 +17506,13 @@ ease-in ease-out
     }
 <<<>>>
 # ease
+@config run
 -ease-in -ease-out
 ---
 
 <<<>>>
 # ease
+@config theme
 ease-linear
 ---
 @layer properties {
@@ -16980,6 +17538,7 @@ ease-linear
     }
 <<<>>>
 # will-change
+@config run
 will-change-auto will-change-contents will-change-scroll will-change-transform
 ---
 .will-change-\[var\(--value\)\] {
@@ -17003,11 +17562,13 @@ will-change-auto will-change-contents will-change-scroll will-change-transform
     }
 <<<>>>
 # will-change
+@config run
 -will-change-auto -will-change-contents -will-change-scroll -will-change-transform will-change
 ---
 
 <<<>>>
 # contain
+@config run
 contain-[unset] contain-content contain-inline-size contain-layout contain-none contain-paint contain-size contain-strict contain-style
 ---
 @layer properties {
@@ -17083,11 +17644,13 @@ contain-[unset] contain-content contain-inline-size contain-layout contain-none 
     }
 <<<>>>
 # contain
+@config run
 contain-[unset]/foo contain-content/foo contain-inline-size/foo contain-layout/foo contain-none/foo contain-paint/foo contain-size/foo contain-strict/foo contain-style/foo
 ---
 
 <<<>>>
 # content
+@config theme
 content-slash
 ---
 @layer properties {
@@ -17119,9 +17682,11 @@ content-slash
     }
 <<<>>>
 # content
+@config run
 content
 <<<>>>
 # forced-color-adjust
+@config run
 forced-color-adjust-auto forced-color-adjust-none
 ---
 .forced-color-adjust-auto {
@@ -17133,11 +17698,13 @@ forced-color-adjust-auto forced-color-adjust-none
       }
 <<<>>>
 # forced-color-adjust
+@config run
 -forced-color-adjust-auto -forced-color-adjust-none forced forced-color forced-color-adjust forced-color-adjust-auto/foo forced-color-adjust-none/foo
 ---
 
 <<<>>>
 # leading
+@config theme
 leading-6 leading-tight
 ---
 @layer properties {
@@ -17174,11 +17741,13 @@ leading-6 leading-tight
     }
 <<<>>>
 # leading
+@config run
 -leading-6 -leading-tight leading
 ---
 
 <<<>>>
 # leading
+@config theme
 leading-none
 ---
 @layer properties {
@@ -17204,6 +17773,7 @@ leading-none
     }
 <<<>>>
 # tracking
+@config theme
 tracking-normal tracking-wide
 ---
 @layer properties {
@@ -17245,11 +17815,13 @@ tracking-normal tracking-wide
     }
 <<<>>>
 # tracking
+@config run
 tracking tracking-normal/foo tracking-wide/foo
 ---
 
 <<<>>>
 # font-smoothing
+@config run
 antialiased subpixel-antialiased
 ---
 .antialiased {
@@ -17263,11 +17835,13 @@ antialiased subpixel-antialiased
     }
 <<<>>>
 # font-smoothing
+@config run
 -antialiased -subpixel-antialiased antialiased/foo subpixel-antialiased/foo
 ---
 
 <<<>>>
 # font-variant-numeric
+@config run
 diagonal-fractions lining-nums normal-nums oldstyle-nums ordinal proportional-nums slashed-zero stacked-fractions tabular-nums
 ---
 @layer properties {
@@ -17352,11 +17926,13 @@ diagonal-fractions lining-nums normal-nums oldstyle-nums ordinal proportional-nu
     }
 <<<>>>
 # font-variant-numeric
+@config run
 -diagonal-fractions -lining-nums -normal-nums -oldstyle-nums -ordinal -proportional-nums -slashed-zero -stacked-fractions -tabular-nums diagonal-fractions/foo lining-nums/foo normal-nums/foo oldstyle-nums/foo ordinal/foo proportional-nums/foo slashed-zero/foo stacked-fractions/foo tabular-nums/foo
 ---
 
 <<<>>>
 # outline
+@config theme
 outline outline-dashed outline-dotted outline-double outline-hidden outline-none outline-red-500 outline-red-500/50 outline-red-500/[0.5] outline-solid
 ---
 @layer properties {
@@ -17606,6 +18182,7 @@ outline outline-dashed outline-dotted outline-double outline-hidden outline-none
     }
 <<<>>>
 # outline
+@config theme
 outline
 ---
 @layer properties {
@@ -17628,11 +18205,13 @@ outline
     }
 <<<>>>
 # outline
+@config run
 -outline -outline-dashed -outline-dotted -outline-double -outline-none -outline-red-500 -outline-red-500/50 -outline-red-500/[0.5]
 ---
 
 <<<>>>
 # outline-offset
+@config run
 -outline-offset-4 outline-offset-4
 ---
 .-outline-offset-4 {
@@ -17652,11 +18231,13 @@ outline
     }
 <<<>>>
 # outline-offset
+@config run
 -outline-offset-4/foo outline-offset outline-offset--4 outline-offset-4/foo outline-offset-unknown
 ---
 
 <<<>>>
 # opacity
+@config run
 opacity-15 opacity-2.5 opacity-3.25 opacity-4.75
 ---
 .opacity-2\.5 {
@@ -17680,11 +18261,13 @@ opacity-15 opacity-2.5 opacity-3.25 opacity-4.75
     }
 <<<>>>
 # opacity
+@config run
 -opacity-15 opacity opacity--15 opacity-1.125
 ---
 
 <<<>>>
 # underline-offset
+@config theme
 -underline-offset-123 -underline-offset-4 underline-offset-123 underline-offset-4 underline-offset-auto
 ---
 .-underline-offset-4 {
@@ -17716,11 +18299,13 @@ opacity-15 opacity-2.5 opacity-3.25 opacity-4.75
     }
 <<<>>>
 # underline-offset
+@config run
 -underline-offset-123/foo -underline-offset-4/foo -underline-offset-auto underline-offset underline-offset--4 underline-offset-123/foo underline-offset-4/foo underline-offset-auto/foo underline-offset-unknown
 ---
 
 <<<>>>
 # underline-offset
+@config theme
 underline-offset-auto
 ---
 :root, :host {
@@ -17732,6 +18317,7 @@ underline-offset-auto
     }
 <<<>>>
 # text
+@config theme
 text-red-500 text-red-500/2.25 text-red-500/2.5 text-red-500/2.75 text-red-500/50 text-red-500/[0.5]
 ---
 :root, :host {
@@ -18005,11 +18591,13 @@ text-red-500 text-red-500/2.25 text-red-500/2.5 text-red-500/2.75 text-red-500/5
     }
 <<<>>>
 # text
+@config theme-inline-reference
 -text-red-500 -text-red-500/50 -text-red-500/[0.5] text
 ---
 
 <<<>>>
 # text-shadow
+@config theme
 text-shadow-2xs text-shadow-[12px_12px_#0088cc] text-shadow-none text-shadow-sm
 ---
 @layer properties {
@@ -18301,11 +18889,13 @@ text-shadow-2xs text-shadow-[12px_12px_#0088cc] text-shadow-none text-shadow-sm
     }
 <<<>>>
 # text-shadow
+@config run
 -shadow-none -shadow-red-500 -shadow-red-500/50 -shadow-red-500/[0.5] -shadow-xl
 ---
 
 <<<>>>
 # shadow
+@config theme
 shadow-[12px_12px_#0088cc] shadow-none shadow-sm shadow-xl
 ---
 @layer properties {
@@ -18705,11 +19295,13 @@ shadow-[12px_12px_#0088cc] shadow-none shadow-sm shadow-xl
     }
 <<<>>>
 # shadow
+@config run
 -shadow-none -shadow-red-500 -shadow-red-500/50 -shadow-red-500/[0.5] -shadow-xl
 ---
 
 <<<>>>
 # inset-shadow
+@config theme
 inset-shadow inset-shadow-[12px_12px_#0088cc] inset-shadow-none inset-shadow-sm
 ---
 @layer properties {
@@ -19118,11 +19710,13 @@ inset-shadow inset-shadow-[12px_12px_#0088cc] inset-shadow-none inset-shadow-sm
     }
 <<<>>>
 # inset-shadow
+@config run
 -inset-shadow-none -inset-shadow-red-500 -inset-shadow-red-500/50 -inset-shadow-red-500/[0.5] -inset-shadow-sm
 ---
 
 <<<>>>
 # ring
+@config theme
 ring-inset ring-red-500 ring-red-500/2.25 ring-red-500/2.5 ring-red-500/2.75 ring-red-500/50 ring-red-500/[0.5]
 ---
 @layer properties {
@@ -19444,6 +20038,7 @@ ring-inset ring-red-500 ring-red-500/2.25 ring-red-500/2.5 ring-red-500/2.75 rin
     }
 <<<>>>
 # ring
+@config theme
 ring
 ---
 @layer properties {
@@ -19552,11 +20147,13 @@ ring
     }
 <<<>>>
 # ring
+@config run
 -ring-inset -ring-red-500 -ring-red-500/50 -ring-red-500/[0.5]
 ---
 
 <<<>>>
 # inset-ring
+@config theme
 inset-ring-red-500 inset-ring-red-500/2.25 inset-ring-red-500/2.5 inset-ring-red-500/2.75 inset-ring-red-500/50 inset-ring-red-500/[0.5]
 ---
 @layer properties {
@@ -19869,11 +20466,13 @@ inset-ring-red-500 inset-ring-red-500/2.25 inset-ring-red-500/2.5 inset-ring-red
     }
 <<<>>>
 # inset-ring
+@config run
 -inset-ring-red-500 -inset-ring-red-500/50 -inset-ring-red-500/[0.5]
 ---
 
 <<<>>>
 # ring-offset
+@config theme
 ring-offset-inset ring-offset-red-500 ring-offset-red-500/50 ring-offset-red-500/[0.5]
 ---
 :root, :host {
@@ -20056,13 +20655,14 @@ ring-offset-inset ring-offset-red-500 ring-offset-red-500/50 ring-offset-red-500
     }
 <<<>>>
 # ring-offset
+@config run
 -ring-offset-inset -ring-offset-red-500 -ring-offset-red-500/50 -ring-offset-red-500/[0.5] ring-offset
 ---
 
 <<<>>>
 # @container
+@config run
 -@container -@container-normal -@container-normal/sidebar -@container-size -@container-size/sidebar -@container/sidebar
 ---
 
 <<<>>>
-Extracted 602 test cases (597 with expected CSS)

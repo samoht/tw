@@ -102,8 +102,17 @@ let tracking_wider_var = Var.theme Css.Length "tracking-wider" ~order:(6, 43)
 let tracking_widest_var = Var.theme Css.Length "tracking-widest" ~order:(6, 44)
 
 (* Theme variables for named leading values *)
+let leading_none_var = Var.theme Css.Line_height "leading-none" ~order:(6, 47)
+let leading_tight_var = Var.theme Css.Line_height "leading-tight" ~order:(6, 48)
+let leading_snug_var = Var.theme Css.Line_height "leading-snug" ~order:(6, 49)
+
+let leading_normal_var =
+  Var.theme Css.Line_height "leading-normal" ~order:(6, 50)
+
 let leading_relaxed_var =
-  Var.theme Css.Line_height "leading-relaxed" ~order:(6, 50)
+  Var.theme Css.Line_height "leading-relaxed" ~order:(6, 51)
+
+let leading_loose_var = Var.theme Css.Line_height "leading-loose" ~order:(6, 52)
 
 let leading_var =
   (* Leading appears in @layer properties after transforms (position 11) *)
@@ -619,42 +628,28 @@ module Typography_early = struct
   let text_start = style [ text_align Start ]
   let text_end = style [ text_align End ]
 
-  let leading_none =
-    let leading_decl, leading_ref = Var.binding leading_var (Num 1.0) in
-    style [ leading_decl; line_height (Css.Var leading_ref) ]
-
-  let leading_tight =
-    let leading_decl, leading_ref = Var.binding leading_var (Num 1.25) in
-    style [ leading_decl; line_height (Css.Var leading_ref) ]
-
-  let leading_snug =
-    let leading_decl, leading_ref = Var.binding leading_var (Num 1.375) in
-    style [ leading_decl; line_height (Css.Var leading_ref) ]
-
-  let leading_normal =
-    let leading_decl, leading_ref = Var.binding leading_var (Num 1.5) in
-    style [ leading_decl; line_height (Css.Var leading_ref) ]
-
-  let leading_relaxed =
-    (* Theme var: --leading-relaxed: 1.625 *)
-    let theme_decl, theme_ref = Var.binding leading_relaxed_var (Num 1.625) in
-    (* Channel var: --tw-leading: var(--leading-relaxed) *)
+  let leading_with_theme_var theme_var default_value =
+    let theme_decl, theme_ref = Var.binding theme_var default_value in
     let channel_decl, _ = Var.binding leading_var (Css.Var theme_ref) in
-    (* Property: line-height: var(--leading-relaxed) *)
     let property_rules =
       Var.property_rule leading_var |> Option.to_list |> Css.concat
     in
     style ~property_rules
       [ theme_decl; channel_decl; line_height (Css.Var theme_ref) ]
 
-  let leading_loose =
-    let leading_decl, leading_ref = Var.binding leading_var (Num 2.0) in
-    style [ leading_decl; line_height (Css.Var leading_ref) ]
+  let leading_none = leading_with_theme_var leading_none_var (Num 1.0)
+  let leading_tight = leading_with_theme_var leading_tight_var (Num 1.25)
+  let leading_snug = leading_with_theme_var leading_snug_var (Num 1.375)
+  let leading_normal = leading_with_theme_var leading_normal_var (Num 1.5)
+  let leading_relaxed = leading_with_theme_var leading_relaxed_var (Num 1.625)
+  let leading_loose = leading_with_theme_var leading_loose_var (Num 2.0)
 
   let leading n =
     let lh_value : line_height = Rem (float_of_int n *. 0.25) in
-    let leading_decl, leading_ref = Var.binding leading_var lh_value in
-    style [ leading_decl; line_height (Css.Var leading_ref) ]
+    let theme_var =
+      Var.theme Css.Line_height ("leading-" ^ string_of_int n) ~order:(6, 46)
+    in
+    leading_with_theme_var theme_var lh_value
 
   let to_style = function
     | Text_xs -> text_xs

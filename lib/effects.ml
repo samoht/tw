@@ -815,16 +815,14 @@ module Handler = struct
       | `Xl -> 8
     in
 
-    (* Tailwind v4 uses a complex ring-shadow format: var(--tw-ring-inset,) 0 0
-       0 calc(Xpx + var(--tw-ring-offset-width)) var(--tw-ring-color,
-       currentcolor)
-
-       Since our typed shadow system cannot express calc() in spread, we use
-       custom_property to create the raw CSS value directly. *)
+    (* Tailwind v4 ring-shadow format: var(--tw-ring-inset,)0 0 0 calc(Xpx +
+       var(--tw-ring-offset-width)) var(--tw-ring-color,currentColor) TODO:
+       Replace with typed shadow system once pp_shadow_parts spacing is unified
+       between CLI output and upstream test snapshots. *)
     let ring_shadow_str =
       Printf.sprintf
         "var(--tw-ring-inset,)0 0 0 calc(%dpx + \
-         var(--tw-ring-offset-width))var(--tw-ring-color,currentcolor)"
+         var(--tw-ring-offset-width))var(--tw-ring-color,currentColor)"
         width_px
     in
     let d_ring =

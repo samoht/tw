@@ -316,12 +316,26 @@ let has_var_in_declarations ?(inline = false) decls =
 let spacing_values =
   [ 0; 1; 2; 3; 4; 5; 6; 8; 10; 12; 16; 20; 24; 32; 40; 48; 64 ]
 
-(** Shuffle a list in place using Fisher-Yates algorithm *)
+(** Global RNG for randomized tests. Initialized with a random seed that is
+    printed to stderr for reproducibility. Set [TEST_SEED] env var to replay a
+    specific seed. *)
+let test_rng =
+  let seed =
+    match Sys.getenv_opt "TEST_SEED" with
+    | Some s -> int_of_string s
+    | None ->
+        Random.self_init ();
+        Random.bits ()
+  in
+  Fmt.epr "Test seed: %d (replay with TEST_SEED=%d)@." seed seed;
+  Random.State.make [| seed |]
+
+(** Shuffle a list using Fisher-Yates algorithm with the global test RNG. *)
 let shuffle lst =
   let arr = Array.of_list lst in
   let n = Array.length arr in
   for i = n - 1 downto 1 do
-    let j = Random.int (i + 1) in
+    let j = Random.State.int test_rng (i + 1) in
     let temp = arr.(i) in
     arr.(i) <- arr.(j);
     arr.(j) <- temp
