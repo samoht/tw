@@ -134,21 +134,28 @@ module Handler = struct
     in
     let gradient_via_name = Var.css_name Backgrounds.Handler.gradient_via_var in
     let gradient_to_name = Var.css_name Backgrounds.Handler.gradient_to_var in
+    let colors_list =
+      String.concat ", "
+        [
+          "color";
+          "background-color";
+          "border-color";
+          "outline-color";
+          "text-decoration-color";
+          "fill";
+          "stroke";
+          gradient_from_name;
+          gradient_via_name;
+          gradient_to_name;
+        ]
+    in
+    let colors_ref : Css.transition_property_value Css.var =
+      Var.theme_ref "transition-property-colors"
+        ~default:(Css.Property colors_list) ~default_css:colors_list
+    in
     style
       [
-        Css.transition_property
-          [
-            Css.Property "color";
-            Css.Property "background-color";
-            Css.Property "border-color";
-            Css.Property "outline-color";
-            Css.Property "text-decoration-color";
-            Css.Property "fill";
-            Css.Property "stroke";
-            Css.Property gradient_from_name;
-            Css.Property gradient_via_name;
-            Css.Property gradient_to_name;
-          ];
+        Css.transition_property [ Css.Var colors_ref ];
         Css.transition_timing_function (Css.Var ease_ref);
         Css.transition_duration (Css.Var duration_ref);
       ]

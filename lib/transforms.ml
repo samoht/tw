@@ -638,23 +638,29 @@ module Handler = struct
     po_with_ref "perspective-origin-bottom" Perspective_bottom "bottom"
 
   let perspective_origin_left =
-    po_with_ref "perspective-origin-left" Perspective_left "0"
+    po_with_ref "perspective-origin-left" (Perspective_x Zero) "0"
 
   let perspective_origin_right =
-    po_with_ref "perspective-origin-right" Perspective_right "100%"
+    po_with_ref "perspective-origin-right" (Perspective_x (Pct 100.)) "100%"
 
   let perspective_origin_top_left =
-    po_with_ref "perspective-origin-top-left" Perspective_top_left "0 0"
+    po_with_ref "perspective-origin-top-left"
+      (Perspective_xy (Zero, Zero))
+      "0 0"
 
   let perspective_origin_top_right =
-    po_with_ref "perspective-origin-top-right" Perspective_top_right "100% 0"
+    po_with_ref "perspective-origin-top-right"
+      (Perspective_xy (Pct 100., Zero))
+      "100% 0"
 
   let perspective_origin_bottom_left =
-    po_with_ref "perspective-origin-bottom-left" Perspective_bottom_left
+    po_with_ref "perspective-origin-bottom-left"
+      (Perspective_xy (Zero, Pct 100.))
       "0 100%"
 
   let perspective_origin_bottom_right =
-    po_with_ref "perspective-origin-bottom-right" Perspective_bottom_right
+    po_with_ref "perspective-origin-bottom-right"
+      (Perspective_xy (Pct 100., Pct 100.))
       "100% 100%"
 
   let perspective_origin_arbitrary s =
@@ -686,20 +692,26 @@ module Handler = struct
   let origin_center = origin_with_ref "transform-origin-center" Center "center"
   let origin_top = origin_with_ref "transform-origin-top" Top "top"
   let origin_bottom = origin_with_ref "transform-origin-bottom" Bottom "bottom"
-  let origin_left = origin_with_ref "transform-origin-left" Left "0"
-  let origin_right = origin_with_ref "transform-origin-right" Right "100%"
+  let origin_left = origin_with_ref "transform-origin-left" (X Zero) "0"
+
+  let origin_right =
+    origin_with_ref "transform-origin-right" (X (Pct 100.)) "100%"
 
   let origin_top_left =
-    origin_with_ref "transform-origin-top-left" Top_left "0 0"
+    origin_with_ref "transform-origin-top-left" (XY (Zero, Zero)) "0 0"
 
   let origin_top_right =
-    origin_with_ref "transform-origin-top-right" Top_right "100% 0"
+    origin_with_ref "transform-origin-top-right" (XY (Pct 100., Zero)) "100% 0"
 
   let origin_bottom_left =
-    origin_with_ref "transform-origin-bottom-left" Bottom_left "0 100%"
+    origin_with_ref "transform-origin-bottom-left"
+      (XY (Zero, Pct 100.))
+      "0 100%"
 
   let origin_bottom_right =
-    origin_with_ref "transform-origin-bottom-right" Bottom_right "100% 100%"
+    origin_with_ref "transform-origin-bottom-right"
+      (XY (Pct 100., Pct 100.))
+      "100% 100%"
 
   let origin_arbitrary s =
     (* Convert underscore to space for arbitrary values like 50px_100px *)
