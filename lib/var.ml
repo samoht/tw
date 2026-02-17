@@ -476,7 +476,7 @@ let theme_ref_registry : (string, string) Hashtbl.t = Hashtbl.create 64
 let theme_ref : type a. string -> default:a -> default_css:string -> a Css.var =
  fun name ~default ~default_css ->
   Hashtbl.replace theme_ref_registry name default_css;
-  Css.var_ref ~default name
+  Css.var_ref ~layer:"theme" ~default name
 
 let resolve_theme_refs name = Hashtbl.find_opt theme_ref_registry name
 
