@@ -7,6 +7,10 @@
 open Utility
 open Color
 
+val set_scheme : Scheme.t -> unit
+(** [set_scheme scheme] sets the current theme scheme for ring width defaults.
+*)
+
 val order : base -> (int * int) option
 (** [order u] returns the priority and suborder for the given effect utility. *)
 

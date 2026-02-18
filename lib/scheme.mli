@@ -23,6 +23,9 @@ type t = {
       (** Explicit radius variables. Key is the radius name (e.g., "none",
           "full", "sm"). When defined, utilities use var(--radius-NAME) instead
           of raw values. *)
+  default_ring_width : int;
+      (** Default ring width in pixels for bare [ring] utility. Corresponds to
+          Tailwind's [@theme \{ --default-ring-width: Npx \}]. Default: 1. *)
 }
 (** Theme scheme configuration *)
 

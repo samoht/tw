@@ -1,5 +1,8 @@
 (** Visual effects utilities for shadows, opacity, and filters. *)
 
+let current_scheme : Scheme.t ref = ref Scheme.default
+let set_scheme scheme = current_scheme := scheme
+
 module Handler = struct
   open Style
   open Css
@@ -803,21 +806,7 @@ module Handler = struct
         (* Fallback: just output transparent inset shadow *)
         inset_shadow_none
 
-  type ring_width = [ `None | `Xs | `Sm | `Md | `Lg | `Xl ]
-
-  let ring_internal (w : ring_width) =
-    (* Tailwind v4 ring widths: ring=1px, ring-1=1px, ring-2=2px, ring-4=4px,
-       ring-8=8px *)
-    let width_px =
-      match w with
-      | `None -> 0
-      | `Xs -> 1
-      | `Sm -> 2
-      | `Md -> 1 (* Default ring is 1px in v4 *)
-      | `Lg -> 4
-      | `Xl -> 8
-    in
-
+  let ring_internal width_px =
     (* Build ring shadow using typed constructors: var(--tw-ring-inset,) 0 0 0
        calc(Xpx + var(--tw-ring-offset-width)) var(--tw-ring-color,
        currentcolor) *)
@@ -876,12 +865,17 @@ module Handler = struct
       ~property_rules:(Css.concat property_rules)
       [ d_ring; Css.box_shadows box_shadow_vars ]
 
-  let ring_none = ring_internal `None
-  let ring_xs = ring_internal `Xs
-  let ring_sm = ring_internal `Sm
-  let ring_md = ring_internal `Md
-  let ring_lg = ring_internal `Lg
-  let ring_xl = ring_internal `Xl
+  (* Tailwind v4 ring widths: ring-0=0px, ring-1=1px, ring-2=2px, ring-4=4px,
+     ring-8=8px. Bare ring uses --default-ring-width (default 1px). *)
+  let ring_none = ring_internal 0
+  let ring_xs = ring_internal 1
+  let ring_sm = ring_internal 2
+  let ring_lg = ring_internal 4
+  let ring_xl = ring_internal 8
+
+  (** Bare [ring] — uses scheme's [default_ring_width] (configurable via
+      Tailwind's [@theme \{ --default-ring-width \}], default 1px). *)
+  let ring_default () = ring_internal !current_scheme.default_ring_width
 
   let ring_inset =
     let decl, _var_ref = Var.binding ring_inset_var "inset" in
@@ -1024,7 +1018,7 @@ module Handler = struct
     | Ring_none -> ring_none
     | Ring_xs -> ring_xs
     | Ring_sm -> ring_sm
-    | Ring_md -> ring_md
+    | Ring_md -> ring_default ()
     | Ring_lg -> ring_lg
     | Ring_xl -> ring_xl
     | Ring_inset -> ring_inset
@@ -1128,7 +1122,6 @@ module Handler = struct
     | [ "ring"; "0" ] -> Ok Ring_none
     | [ "ring"; "1" ] -> Ok Ring_xs
     | [ "ring"; "2" ] -> Ok Ring_sm
-    | [ "ring"; "3" ] -> Ok Ring_md
     | [ "ring"; "4" ] -> Ok Ring_lg
     | [ "ring"; "8" ] -> Ok Ring_xl
     | [ "ring"; "inset" ] -> Ok Ring_inset

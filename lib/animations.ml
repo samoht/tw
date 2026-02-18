@@ -27,23 +27,24 @@ module Handler = struct
 
   (* Match Tailwind ordering: animations after transforms, before cursor *)
   let priority = 10
+  let animate_none_var = Var.theme Css.Animation "animate-none" ~order:(7, 8)
 
   let animate_none =
-    style
-      [
-        Css.animation
-          (Css.Shorthand
-             {
-               name = Some "none";
-               duration = None;
-               timing_function = None;
-               delay = None;
-               iteration_count = None;
-               direction = None;
-               fill_mode = None;
-               play_state = None;
-             });
-      ]
+    let none_animation =
+      Css.Shorthand
+        {
+          name = Some "none";
+          duration = None;
+          timing_function = None;
+          delay = None;
+          iteration_count = None;
+          direction = None;
+          fill_mode = None;
+          play_state = None;
+        }
+    in
+    let theme_decl, none_var = Var.binding animate_none_var none_animation in
+    style [ theme_decl; Css.animation (Css.Var none_var) ]
 
   (* Theme variable for animate-spin - order (7, 9) places it after radius but
      before animate-pulse (7, 10) *)
