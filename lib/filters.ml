@@ -49,8 +49,23 @@ module Handler = struct
   let name = "filters"
   let priority = 28
 
+  (* Composable filter chain: filter: var(--tw-blur, ) var(--tw-brightness, )
+     ... *)
+  let composable_filter_chain : Css.filter =
+    List
+      [
+        Css.filter_var_empty "tw-blur";
+        Css.filter_var_empty "tw-brightness";
+        Css.filter_var_empty "tw-contrast";
+        Css.filter_var_empty "tw-grayscale";
+        Css.filter_var_empty "tw-hue-rotate";
+        Css.filter_var_empty "tw-invert";
+        Css.filter_var_empty "tw-saturate";
+        Css.filter_var_empty "tw-sepia";
+        Css.filter_var_empty "tw-drop-shadow";
+      ]
+
   let blur_internal = function
-    | `None -> style [ filter (Blur (Px 0.)) ]
     | `Xs -> style [ filter (Blur (Px 2.)) ]
     | `Sm -> style [ filter (Blur (Px 4.)) ]
     | `Md -> style [ filter (Blur (Px 8.)) ]
@@ -60,7 +75,18 @@ module Handler = struct
     | `Xl_3 -> style [ filter (Blur (Px 64.)) ]
     | `Full -> style [ filter (Blur (Px 9999.)) ]
 
-  let blur_none = blur_internal `None
+  let blur_none =
+    let default : Css.length = Px 0. in
+    let blur_none_ref : Css.length Css.var =
+      Var.theme_ref "blur-none" ~default ~default_css:"0"
+    in
+    let tw_blur : Css.filter = Blur (Var blur_none_ref) in
+    style
+      [
+        Css.custom_declaration ~layer:"utilities" "--tw-blur" Filter tw_blur;
+        filter composable_filter_chain;
+      ]
+
   let blur_xs = blur_internal `Xs
   let blur_sm = blur_internal `Sm
   let blur = blur_internal `Md (* Default blur *)
@@ -96,8 +122,22 @@ module Handler = struct
 
   let hue_rotate n = style [ filter (Hue_rotate (Deg (float_of_int n))) ]
 
+  (* Composable backdrop-filter chain *)
+  let composable_backdrop_filter_chain : Css.filter =
+    List
+      [
+        Css.filter_var_empty "tw-backdrop-blur";
+        Css.filter_var_empty "tw-backdrop-brightness";
+        Css.filter_var_empty "tw-backdrop-contrast";
+        Css.filter_var_empty "tw-backdrop-grayscale";
+        Css.filter_var_empty "tw-backdrop-hue-rotate";
+        Css.filter_var_empty "tw-backdrop-invert";
+        Css.filter_var_empty "tw-backdrop-opacity";
+        Css.filter_var_empty "tw-backdrop-saturate";
+        Css.filter_var_empty "tw-backdrop-sepia";
+      ]
+
   let backdrop_blur_internal = function
-    | `None -> style [ backdrop_filter (Blur (Px 0.)) ]
     | `Xs -> style [ backdrop_filter (Blur (Px 2.)) ]
     | `Sm -> style [ backdrop_filter (Blur (Px 4.)) ]
     | `Md -> style [ backdrop_filter (Blur (Px 8.)) ]
@@ -107,7 +147,20 @@ module Handler = struct
     | `Xl_3 -> style [ backdrop_filter (Blur (Px 64.)) ]
     | `Full -> style [ backdrop_filter (Blur (Px 9999.)) ]
 
-  let backdrop_blur_none = backdrop_blur_internal `None
+  let backdrop_blur_none =
+    let default : Css.length = Px 0. in
+    let blur_ref : Css.length Css.var =
+      Var.theme_ref "backdrop-blur-none" ~default ~default_css:"0"
+    in
+    let tw_backdrop_blur : Css.filter = Blur (Var blur_ref) in
+    style
+      [
+        Css.custom_declaration ~layer:"utilities" "--tw-backdrop-blur" Filter
+          tw_backdrop_blur;
+        Css.webkit_backdrop_filter composable_backdrop_filter_chain;
+        backdrop_filter composable_backdrop_filter_chain;
+      ]
+
   let backdrop_blur_xs = backdrop_blur_internal `Xs
   let backdrop_blur_sm = backdrop_blur_internal `Sm
   let backdrop_blur = backdrop_blur_internal `Md
@@ -149,48 +202,15 @@ module Handler = struct
     style [ backdrop_filter (Hue_rotate (Deg (float_of_int n))) ]
 
   (* Composable filter using all the filter variables *)
-  let filter_ =
-    (* Build a list of var references with empty fallbacks for composable
-       filters Tailwind v4 uses: filter: var(--tw-blur, ) var(--tw-brightness, )
-       ... *)
-    let filter_value : Css.filter =
-      List
-        [
-          Css.filter_var_empty "tw-blur";
-          Css.filter_var_empty "tw-brightness";
-          Css.filter_var_empty "tw-contrast";
-          Css.filter_var_empty "tw-grayscale";
-          Css.filter_var_empty "tw-hue-rotate";
-          Css.filter_var_empty "tw-invert";
-          Css.filter_var_empty "tw-saturate";
-          Css.filter_var_empty "tw-sepia";
-          Css.filter_var_empty "tw-drop-shadow";
-        ]
-    in
-    style [ filter filter_value ]
-
+  let filter_ = style [ filter composable_filter_chain ]
   let filter_none = style [ filter None ]
 
   (* Composable backdrop-filter using all the backdrop-filter variables *)
   let backdrop_filter_ =
-    let backdrop_filter_value : Css.filter =
-      List
-        [
-          Css.filter_var_empty "tw-backdrop-blur";
-          Css.filter_var_empty "tw-backdrop-brightness";
-          Css.filter_var_empty "tw-backdrop-contrast";
-          Css.filter_var_empty "tw-backdrop-grayscale";
-          Css.filter_var_empty "tw-backdrop-hue-rotate";
-          Css.filter_var_empty "tw-backdrop-invert";
-          Css.filter_var_empty "tw-backdrop-opacity";
-          Css.filter_var_empty "tw-backdrop-saturate";
-          Css.filter_var_empty "tw-backdrop-sepia";
-        ]
-    in
     style
       [
-        Css.webkit_backdrop_filter backdrop_filter_value;
-        backdrop_filter backdrop_filter_value;
+        Css.webkit_backdrop_filter composable_backdrop_filter_chain;
+        backdrop_filter composable_backdrop_filter_chain;
       ]
 
   let backdrop_filter_none =
