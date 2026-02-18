@@ -684,7 +684,10 @@ module Handler = struct
       | `Sm ->
           Css.shadow ~inset:true ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 1.)
             ~color:(Var color_ref) ()
-      | `Default | `Md ->
+      | `Default ->
+          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:(Px 2.) ~blur:(Px 4.)
+            ~color:(Var color_ref) ()
+      | `Md ->
           Css.shadow ~inset:true ~h_offset:Zero ~v_offset:(Px 4.) ~blur:(Px 6.)
             ~color:(Var color_ref) ()
       | `Lg ->

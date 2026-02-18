@@ -556,7 +556,7 @@ module Handler = struct
             | Error _ -> Ok (Inset_be_named n)))
     | [ ""; "inset"; "be"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Inset_be (-x))
-    | [ "inset"; n ] -> (
+    | [ "inset"; n ] when n <> "shadow" && n <> "ring" -> (
         match int_of_string_with_sign n with
         | Ok x -> Ok (Inset x)
         | Error _ -> (
