@@ -628,6 +628,49 @@ let to_selector (modifier : modifier) cls =
   | Any_pointer_coarse -> Css.Selector.Class ("any-pointer-coarse:" ^ cls)
   | Any_pointer_fine -> Css.Selector.Class ("any-pointer-fine:" ^ cls)
   | Noscript -> Css.Selector.Class ("noscript:" ^ cls)
+  (* Responsive breakpoint modifiers that only prefix the class *)
+  | Responsive breakpoint ->
+      let prefix =
+        match breakpoint with
+        | `Sm -> "sm"
+        | `Md -> "md"
+        | `Lg -> "lg"
+        | `Xl -> "xl"
+        | `Xl_2 -> "2xl"
+      in
+      Css.Selector.Class (prefix ^ ":" ^ cls)
+  | Min_responsive breakpoint ->
+      let prefix =
+        match breakpoint with
+        | `Sm -> "min-sm"
+        | `Md -> "min-md"
+        | `Lg -> "min-lg"
+        | `Xl -> "min-xl"
+        | `Xl_2 -> "min-2xl"
+      in
+      Css.Selector.Class (prefix ^ ":" ^ cls)
+  | Max_responsive breakpoint ->
+      let prefix =
+        match breakpoint with
+        | `Sm -> "max-sm"
+        | `Md -> "max-md"
+        | `Lg -> "max-lg"
+        | `Xl -> "max-xl"
+        | `Xl_2 -> "max-2xl"
+      in
+      Css.Selector.Class (prefix ^ ":" ^ cls)
+  | Min_arbitrary px ->
+      let px_str =
+        if Float.is_integer px then Int.to_string (Float.to_int px)
+        else Float.to_string px
+      in
+      Css.Selector.Class ("min-[" ^ px_str ^ "px]:" ^ cls)
+  | Max_arbitrary px ->
+      let px_str =
+        if Float.is_integer px then Int.to_string (Float.to_int px)
+        else Float.to_string px
+      in
+      Css.Selector.Class ("max-[" ^ px_str ^ "px]:" ^ cls)
   | _ -> Css.Selector.Class cls (* fallback for complex modifiers *)
 
 (** Check if a modifier generates a hover rule *)
