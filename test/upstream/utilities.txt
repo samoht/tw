@@ -1,3 +1,4 @@
+Parsing /Users/samoht/git/tailwindcss/packages/tailwindcss/src/utilities.test.ts...
 # sr-only
 @config run
 sr-only
@@ -16,7 +17,7 @@ sr-only
 <<<>>>
 # sr-only
 @config run
--sr-only
+-sr-only sr-only/foo
 ---
 
 <<<>>>
@@ -37,7 +38,7 @@ not-sr-only
 <<<>>>
 # not-sr-only
 @config run
--not-sr-only
+-not-sr-only not-sr-only/foo
 ---
 
 <<<>>>
@@ -55,7 +56,7 @@ pointer-events-auto pointer-events-none
 <<<>>>
 # pointer-events
 @config run
--pointer-events-auto -pointer-events-none
+-pointer-events-auto -pointer-events-none pointer-events-none/foo
 ---
 
 <<<>>>
@@ -751,7 +752,7 @@ isolate isolation-auto
 <<<>>>
 # z-index
 @config run
--z-10 z-10 z-auto
+-z-10 z-10 z-[123] z-auto
 ---
 .-z-10 {
         z-index: calc(10 * -1);
@@ -793,7 +794,7 @@ z-auto
 <<<>>>
 # order
 @config run
--order-4 order-4 order-[123]
+-order-4 order-4 order-[123] order-first order-last order-none
 ---
 .-order-4 {
       order: calc(4 * -1);
@@ -825,7 +826,7 @@ z-auto
 <<<>>>
 # order
 @config run
--order-4/foo -order-first -order-last -order-none order order--4 order-123.5 order-4/foo order-[123]/foo order-unknown
+-order-4/foo -order-first -order-last -order-none order order--4 order-123.5 order-4/foo order-[123]/foo order-first/foo order-last/foo order-none/foo order-unknown
 ---
 
 <<<>>>
@@ -909,7 +910,7 @@ col-auto
 <<<>>>
 # col-start
 @config theme
-col-start-4 col-start-99 col-start-[123] col-start-auto
+-col-start-4 col-start-4 col-start-99 col-start-[123] col-start-auto col-start-custom
 ---
 :root, :host {
       --grid-column-start-custom: 1 column-start;
@@ -941,7 +942,7 @@ col-start-4 col-start-99 col-start-[123] col-start-auto
 <<<>>>
 # col-start
 @config run
-col-start col-start--1 col-start-4/foo col-start-99/foo col-start-[123]/foo col-start-auto/foo col-start-unknown
+-col-start-4/foo col-start col-start--1 col-start-4/foo col-start-99/foo col-start-[123]/foo col-start-auto/foo col-start-unknown
 ---
 
 <<<>>>
@@ -959,7 +960,7 @@ col-start-auto
 <<<>>>
 # col-end
 @config theme
-col-end-4 col-end-99 col-end-auto
+-col-end-4 col-end-4 col-end-99 col-end-[123] col-end-auto col-end-custom
 ---
 :root, :host {
       --grid-column-end-custom: 1 column-end;
@@ -991,7 +992,7 @@ col-end-4 col-end-99 col-end-auto
 <<<>>>
 # col-end
 @config run
-col-end col-end--1 col-end-4/foo col-end-99/foo col-end-[123]/foo col-end-auto/foo col-end-unknown
+-col-end-4/foo col-end col-end--1 col-end-4/foo col-end-99/foo col-end-[123]/foo col-end-auto/foo col-end-unknown
 ---
 
 <<<>>>
@@ -1063,7 +1064,7 @@ row-auto
 <<<>>>
 # row-start
 @config theme
-row-start-4 row-start-99 row-start-[123] row-start-auto
+-row-start-4 row-start-4 row-start-99 row-start-[123] row-start-auto row-start-custom
 ---
 :root, :host {
       --grid-row-start-custom: 1 row-start;
@@ -1095,7 +1096,7 @@ row-start-4 row-start-99 row-start-[123] row-start-auto
 <<<>>>
 # row-start
 @config run
-row-start row-start--1 row-start-4/foo row-start-99/foo row-start-[123]/foo row-start-auto/foo row-start-unknown
+-row-start-4/foo row-start row-start--1 row-start-4/foo row-start-99/foo row-start-[123]/foo row-start-auto/foo row-start-unknown
 ---
 
 <<<>>>
@@ -1113,7 +1114,7 @@ row-start-auto
 <<<>>>
 # row-end
 @config theme
-row-end-4 row-end-99 row-end-auto
+-row-end-4 row-end-4 row-end-99 row-end-[123] row-end-auto row-end-custom
 ---
 :root, :host {
       --grid-row-end-custom: 1 row-end;
@@ -1145,7 +1146,7 @@ row-end-4 row-end-99 row-end-auto
 <<<>>>
 # row-end
 @config run
-row-end row-end--1 row-end-4/foo row-end-99/foo row-end-[123]/foo row-end-auto/foo row-end-unknown
+-row-end-4/foo row-end row-end--1 row-end-4/foo row-end-99/foo row-end-[123]/foo row-end-auto/foo row-end-unknown
 ---
 
 <<<>>>
@@ -1227,7 +1228,7 @@ clear-both clear-end clear-left clear-none clear-right clear-start
 <<<>>>
 # margin
 @config theme
-m-4 m-auto
+-m-4 m-4 m-[4px] m-auto
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -1255,13 +1256,13 @@ m-4 m-auto
 <<<>>>
 # margin
 @config run
-m m-4/foo m-auto/foo
+-m-4/foo m m-4/foo m-[4px]/foo m-auto/foo
 ---
 
 <<<>>>
 # mx
 @config theme
-mx-1 mx-4 mx-99 mx-[4px] mx-auto mx-big
+-mx-4 -mx-[4px] -mx-big mx-1 mx-4 mx-99 mx-[4px] mx-auto mx-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1314,13 +1315,13 @@ mx-1 mx-4 mx-99 mx-[4px] mx-auto mx-big
 <<<>>>
 # mx
 @config run
-mx mx-4/foo mx-[4px]/foo mx-auto/foo
+-mx-4/foo mx mx-4/foo mx-[4px]/foo mx-auto/foo
 ---
 
 <<<>>>
 # my
 @config theme
-my-1 my-2.5 my-99 my-[4px] my-big
+-my-2.5 -my-4 -my-[4px] -my-big my-1 my-2.5 my-99 my-[4px] my-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1373,13 +1374,13 @@ my-1 my-2.5 my-99 my-[4px] my-big
 <<<>>>
 # my
 @config run
-my my-4/foo my-[4px]/foo my-auto/foo
+-my-4/foo my my-4/foo my-[4px]/foo my-auto/foo
 ---
 
 <<<>>>
 # mt
 @config theme
-mt-1 mt-2.5 mt-99 mt-[4px] mt-big
+-mt-2.5 -mt-4 -mt-[4px] -mt-big mt-1 mt-2.5 mt-99 mt-[4px] mt-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1432,13 +1433,13 @@ mt-1 mt-2.5 mt-99 mt-[4px] mt-big
 <<<>>>
 # mt
 @config run
-mt mt-4/foo mt-[4px]/foo mt-auto/foo
+-mt-4/foo mt mt-4/foo mt-[4px]/foo mt-auto/foo
 ---
 
 <<<>>>
 # ms
 @config theme
-ms-1 ms-2.5 ms-99 ms-[4px] ms-big
+-ms-2.5 -ms-4 -ms-[4px] -ms-big ms-1 ms-2.5 ms-99 ms-[4px] ms-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1491,13 +1492,13 @@ ms-1 ms-2.5 ms-99 ms-[4px] ms-big
 <<<>>>
 # ms
 @config run
-ms ms-4/foo ms-[4px]/foo ms-auto/foo
+-ms-4/foo ms ms-4/foo ms-[4px]/foo ms-auto/foo
 ---
 
 <<<>>>
 # me
 @config theme
-me-1 me-2.5 me-99 me-[4px] me-big
+-me-2.5 -me-4 -me-[4px] -me-big me-1 me-2.5 me-99 me-[4px] me-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1550,13 +1551,13 @@ me-1 me-2.5 me-99 me-[4px] me-big
 <<<>>>
 # me
 @config run
-me me-4/foo me-[4px]/foo me-auto/foo
+-me-4/foo me me-4/foo me-[4px]/foo me-auto/foo
 ---
 
 <<<>>>
 # mbs
 @config theme
-mbs-1 mbs-2.5 mbs-99 mbs-[4px] mbs-big
+-mbs-2.5 -mbs-4 -mbs-[4px] -mbs-big mbs-1 mbs-2.5 mbs-99 mbs-[4px] mbs-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1609,13 +1610,13 @@ mbs-1 mbs-2.5 mbs-99 mbs-[4px] mbs-big
 <<<>>>
 # mbs
 @config run
-mbs mbs-4/foo mbs-[4px]/foo mbs-auto/foo
+-mbs-4/foo mbs mbs-4/foo mbs-[4px]/foo mbs-auto/foo
 ---
 
 <<<>>>
 # mbe
 @config theme
-mbe-1 mbe-2.5 mbe-99 mbe-[4px] mbe-big
+-mbe-2.5 -mbe-4 -mbe-[4px] -mbe-big mbe-1 mbe-2.5 mbe-99 mbe-[4px] mbe-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1668,13 +1669,13 @@ mbe-1 mbe-2.5 mbe-99 mbe-[4px] mbe-big
 <<<>>>
 # mbe
 @config run
-mbe mbe-4/foo mbe-[4px]/foo mbe-auto/foo
+-mbe-4/foo mbe mbe-4/foo mbe-[4px]/foo mbe-auto/foo
 ---
 
 <<<>>>
 # mr
 @config theme
-mr-1 mr-2.5 mr-99 mr-[4px] mr-big
+-mr-2.5 -mr-4 -mr-[4px] -mr-big mr-1 mr-2.5 mr-99 mr-[4px] mr-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1727,13 +1728,13 @@ mr-1 mr-2.5 mr-99 mr-[4px] mr-big
 <<<>>>
 # mr
 @config run
-mr mr-4/foo mr-[4px]/foo mr-auto/foo
+-mr-4/foo mr mr-4/foo mr-[4px]/foo mr-auto/foo
 ---
 
 <<<>>>
 # mb
 @config theme
-mb-1 mb-2.5 mb-99 mb-[4px] mb-big
+-mb-2.5 -mb-4 -mb-[4px] -mb-big mb-1 mb-2.5 mb-99 mb-[4px] mb-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1786,13 +1787,13 @@ mb-1 mb-2.5 mb-99 mb-[4px] mb-big
 <<<>>>
 # mb
 @config run
-mb mb-4/foo mb-[4px]/foo mb-auto/foo
+-mb-4/foo mb mb-4/foo mb-[4px]/foo mb-auto/foo
 ---
 
 <<<>>>
 # ml
 @config theme
-ml-1 ml-2.5 ml-99 ml-[4px] ml-big
+-ml-2.5 -ml-4 -ml-[4px] -ml-big ml-1 ml-2.5 ml-99 ml-[4px] ml-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -1845,7 +1846,7 @@ ml-1 ml-2.5 ml-99 ml-[4px] ml-big
 <<<>>>
 # ml
 @config run
-ml ml-4/foo ml-[4px]/foo ml-auto/foo
+-ml-4/foo ml ml-4/foo ml-[4px]/foo ml-auto/foo
 ---
 
 <<<>>>
@@ -1919,7 +1920,7 @@ box-border box-content
 <<<>>>
 # line-clamp
 @config run
-line-clamp-4 line-clamp-99
+line-clamp-4 line-clamp-99 line-clamp-[123] line-clamp-none
 ---
 .line-clamp-4 {
         -webkit-line-clamp: 4;
@@ -1951,7 +1952,7 @@ line-clamp-4 line-clamp-99
 <<<>>>
 # line-clamp
 @config run
--line-clamp-4 -line-clamp-[123] line-clamp line-clamp--4
+-line-clamp-4 -line-clamp-[123] -line-clamp-none line-clamp line-clamp--4 line-clamp-123.5 line-clamp-4/foo line-clamp-99/foo line-clamp-[123]/foo line-clamp-none/foo line-clamp-unknown
 ---
 
 <<<>>>
@@ -2076,9 +2077,15 @@ field-sizing-content field-sizing-fixed
       field-sizing: fixed;
     }
 <<<>>>
+# field-sizing
+@config run
+-field-sizing-content -field-sizing-fixed field-sizing-[other]
+---
+
+<<<>>>
 # aspect-ratio
 @config theme
-aspect-video
+aspect-4/3 aspect-[10/9] aspect-video
 ---
 :root, :host {
       --aspect-video: 16 / 9;
@@ -2098,7 +2105,7 @@ aspect-video
 <<<>>>
 # aspect-ratio
 @config run
--aspect-[10/9] -aspect-video aspect aspect-potato
+-aspect-[10/9] -aspect-video aspect aspect--4/-3 aspect--4/3 aspect-4/-3 aspect-4/3/foo aspect-[10/9]/foo aspect-foo/bar aspect-potato aspect-video/foo
 ---
 
 <<<>>>
@@ -2152,7 +2159,7 @@ size-1/2 size-4 size-[4px] size-auto size-fit size-full size-max size-min
 <<<>>>
 # size
 @config run
--size-1/2 -size-4 -size-[4px] size size--1 size--1/-2 size--1/2 size-1/-2
+-size-1/2 -size-4 -size-[4px] size size--1 size--1/-2 size--1/2 size-1/-2 size-1/2/foo size-4/foo size-[4px]/foo size-auto/foo size-fit/foo size-full/foo size-max/foo size-min/foo
 ---
 
 <<<>>>
@@ -2219,7 +2226,7 @@ w-1/2 w-4 w-[4px] w-auto w-dvw w-fit w-full w-lvw w-max w-min w-screen w-svw w-x
 <<<>>>
 # width
 @config run
--w-1/2 -w-4 -w-[4px] w w--1 w--1/-2 w--1/2 w-1/-2
+-w-1/2 -w-4 -w-[4px] w w--1 w--1/-2 w--1/2 w-1/-2 w-1/2/foo w-4/foo w-[4px]/foo w-auto/foo w-dvw/foo w-fit/foo w-full/foo w-lvw/foo w-max/foo w-min/foo w-screen/foo w-svw/foo w-xl/foo
 ---
 
 <<<>>>
@@ -2266,13 +2273,13 @@ min-w-4 min-w-[4px] min-w-auto min-w-fit min-w-full min-w-max min-w-min min-w-xl
 <<<>>>
 # min-width
 @config run
--min-w-4 -min-w-[4px] min-w
+-min-w-4 -min-w-[4px] min-w min-w-4/foo min-w-[4px]/foo min-w-auto/foo min-w-fit/foo min-w-full/foo min-w-max/foo min-w-min/foo min-w-xl/foo
 ---
 
 <<<>>>
 # max-width
 @config theme
-max-w-4 max-w-fit max-w-full max-w-max max-w-none max-w-xl
+max-w-4 max-w-[4px] max-w-fit max-w-full max-w-max max-w-none max-w-xl
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -2309,7 +2316,7 @@ max-w-4 max-w-fit max-w-full max-w-max max-w-none max-w-xl
 <<<>>>
 # max-width
 @config run
--max-w-4 -max-w-[4px] max-w max-w-auto
+-max-w-4 -max-w-[4px] max-w max-w-4/foo max-w-[4px]/foo max-w-auto max-w-fit/foo max-w-full/foo max-w-max/foo max-w-none/foo max-w-xl/foo
 ---
 
 <<<>>>
@@ -2375,7 +2382,7 @@ h-1/2 h-4 h-[4px] h-auto h-dvh h-fit h-full h-lh h-lvh h-max h-min h-screen h-sv
 <<<>>>
 # height
 @config run
--h-1/2 -h-4 -h-[4px] h h--1 h--1/-2 h--1/2 h-1/-2
+-h-1/2 -h-4 -h-[4px] h h--1 h--1/-2 h--1/2 h-1/-2 h-1/2/foo h-4/foo h-[4px]/foo h-auto/foo h-dvh/foo h-fit/foo h-full/foo h-lh/foo h-lvh/foo h-max/foo h-min/foo h-screen/foo h-svh/foo
 ---
 
 <<<>>>
@@ -2437,7 +2444,7 @@ min-h-4 min-h-[4px] min-h-auto min-h-dvh min-h-fit min-h-full min-h-lh min-h-lvh
 <<<>>>
 # min-height
 @config run
--min-h-4 -min-h-[4px] min-h
+-min-h-4 -min-h-[4px] min-h min-h-4/foo min-h-[4px]/foo min-h-auto/foo min-h-dvh/foo min-h-fit/foo min-h-full/foo min-h-lh/foo min-h-lvh/foo min-h-max/foo min-h-min/foo min-h-screen/foo min-h-svh/foo
 ---
 
 <<<>>>
@@ -2499,7 +2506,7 @@ max-h-4 max-h-[4px] max-h-dvh max-h-fit max-h-full max-h-lh max-h-lvh max-h-max 
 <<<>>>
 # max-height
 @config run
--max-h-4 -max-h-[4px] max-h max-h-auto
+-max-h-4 -max-h-[4px] max-h max-h-4/foo max-h-[4px]/foo max-h-auto max-h-dvh/foo max-h-fit/foo max-h-full/foo max-h-lh/foo max-h-lvh/foo max-h-max/foo max-h-min/foo max-h-none/foo max-h-screen/foo max-h-svh/foo
 ---
 
 <<<>>>
@@ -2566,7 +2573,7 @@ inline-1/2 inline-4 inline-[4px] inline-auto inline-dvw inline-fit inline-full i
 <<<>>>
 # inline-size
 @config run
--inline-1/2 -inline-4 -inline-[4px] inline--1 inline--1/-2 inline--1/2 inline-1/-2
+-inline-1/2 -inline-4 -inline-[4px] inline--1 inline--1/-2 inline--1/2 inline-1/-2 inline-1/2/foo inline-4/foo inline-[4px]/foo inline-auto/foo inline-dvw/foo inline-fit/foo inline-full/foo inline-lvw/foo inline-max/foo inline-min/foo inline-screen/foo inline-svw/foo inline-xl/foo
 ---
 
 <<<>>>
@@ -2613,7 +2620,7 @@ min-inline-4 min-inline-[4px] min-inline-auto min-inline-fit min-inline-full min
 <<<>>>
 # min-inline-size
 @config run
--min-inline-4 -min-inline-[4px] min-inline
+-min-inline-4 -min-inline-[4px] min-inline min-inline-4/foo min-inline-[4px]/foo min-inline-auto/foo min-inline-fit/foo min-inline-full/foo min-inline-max/foo min-inline-min/foo min-inline-xl/foo
 ---
 
 <<<>>>
@@ -2656,7 +2663,7 @@ max-inline-4 max-inline-[4px] max-inline-fit max-inline-full max-inline-max max-
 <<<>>>
 # max-inline-size
 @config run
--max-inline-4 -max-inline-[4px] max-inline max-inline-auto
+-max-inline-4 -max-inline-[4px] max-inline max-inline-4/foo max-inline-[4px]/foo max-inline-auto max-inline-fit/foo max-inline-full/foo max-inline-max/foo max-inline-none/foo max-inline-xl/foo
 ---
 
 <<<>>>
@@ -2722,7 +2729,7 @@ block-1/2 block-4 block-[4px] block-auto block-dvh block-fit block-full block-lh
 <<<>>>
 # block-size
 @config run
--block-1/2 -block-4 -block-[4px] block--1 block--1/-2 block--1/2 block-1/-2
+-block-1/2 -block-4 -block-[4px] block--1 block--1/-2 block--1/2 block-1/-2 block-1/2/foo block-4/foo block-[4px]/foo block-auto/foo block-dvh/foo block-fit/foo block-full/foo block-lh/foo block-lvh/foo block-max/foo block-min/foo block-screen/foo block-svh/foo
 ---
 
 <<<>>>
@@ -2784,7 +2791,7 @@ min-block-4 min-block-[4px] min-block-auto min-block-dvh min-block-fit min-block
 <<<>>>
 # min-block-size
 @config run
--min-block-4 -min-block-[4px] min-block
+-min-block-4 -min-block-[4px] min-block min-block-4/foo min-block-[4px]/foo min-block-auto/foo min-block-dvh/foo min-block-fit/foo min-block-full/foo min-block-lh/foo min-block-lvh/foo min-block-max/foo min-block-min/foo min-block-screen/foo min-block-svh/foo
 ---
 
 <<<>>>
@@ -2846,7 +2853,7 @@ max-block-4 max-block-[4px] max-block-dvh max-block-fit max-block-full max-block
 <<<>>>
 # max-block-size
 @config run
--max-block-4 -max-block-[4px] max-block max-block-auto
+-max-block-4 -max-block-[4px] max-block max-block-4/foo max-block-[4px]/foo max-block-auto max-block-dvh/foo max-block-fit/foo max-block-full/foo max-block-lh/foo max-block-lvh/foo max-block-max/foo max-block-min/foo max-block-none/foo max-block-screen/foo max-block-svh/foo
 ---
 
 <<<>>>
@@ -2884,13 +2891,13 @@ flex-1 flex-1/2 flex-99 flex-[123] flex-auto flex-initial flex-none
 <<<>>>
 # flex
 @config run
--flex-1 -flex-[123] -flex-auto -flex-initial -flex-none flex--1
+-flex-1 -flex-[123] -flex-auto -flex-initial -flex-none flex--1 flex--1/-2 flex--1/2 flex-1/-2 flex-1/2/foo flex-1/foo flex-99/foo flex-[123]/foo flex-auto/foo flex-initial/foo flex-none/foo flex-unknown
 ---
 
 <<<>>>
 # flex-shrink
 @config run
-shrink shrink-0
+shrink shrink-0 shrink-[123]
 ---
 .shrink {
       flex-shrink: 1;
@@ -2906,13 +2913,13 @@ shrink shrink-0
 <<<>>>
 # flex-shrink
 @config run
--shrink -shrink-0 -shrink-[123] shrink--1 shrink-1.5
+-shrink -shrink-0 -shrink-[123] shrink--1 shrink-0/foo shrink-1.5 shrink-[123]/foo shrink-unknown shrink/foo
 ---
 
 <<<>>>
 # flex-grow
 @config run
-grow grow-0
+grow grow-0 grow-[123]
 ---
 .grow {
       flex-grow: 1;
@@ -2928,13 +2935,13 @@ grow grow-0
 <<<>>>
 # flex-grow
 @config run
--grow -grow-0 -grow-[123] grow--1 grow-1.5
+-grow -grow-0 -grow-[123] grow--1 grow-0/foo grow-1.5 grow-[123]/foo grow-unknown grow/foo
 ---
 
 <<<>>>
 # flex-basis
 @config theme
-basis-11/12 basis-auto basis-full basis-xl
+basis-11/12 basis-[123px] basis-auto basis-full basis-xl
 ---
 :root, :host {
       --container-xl: 36rem;
@@ -2962,7 +2969,7 @@ basis-11/12 basis-auto basis-full basis-xl
 <<<>>>
 # flex-basis
 @config run
--basis-[123px] -basis-full basis basis--1 basis--1/-2 basis--1/2 basis-1/-2
+-basis-[123px] -basis-full basis basis--1 basis--1/-2 basis--1/2 basis-1/-2 basis-11/12/foo basis-[123px]/foo basis-auto/foo basis-full/foo basis-xl/foo
 ---
 
 <<<>>>
@@ -3020,7 +3027,7 @@ border-collapse border-separate
 <<<>>>
 # border-spacing
 @config theme
-border-spacing-1
+border-spacing-1 border-spacing-[123px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -3061,13 +3068,13 @@ border-spacing-1
 <<<>>>
 # border-spacing
 @config run
--border-spacing-1 -border-spacing-[123px] border-spacing
+-border-spacing-1 -border-spacing-[123px] border-spacing border-spacing-1/foo border-spacing-[123px]/foo
 ---
 
 <<<>>>
 # border-spacing-x
 @config theme
-border-spacing-x-1
+border-spacing-x-1 border-spacing-x-[123px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -3106,13 +3113,13 @@ border-spacing-x-1
 <<<>>>
 # border-spacing-x
 @config run
--border-spacing-x-1 -border-spacing-x-[123px] border-spacing-x
+-border-spacing-x-1 -border-spacing-x-[123px] border-spacing-x border-spacing-x-1/foo border-spacing-x-[123px]/foo
 ---
 
 <<<>>>
 # border-spacing-y
 @config theme
-border-spacing-y-1
+border-spacing-y-1 border-spacing-y-[123px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -3151,7 +3158,7 @@ border-spacing-y-1
 <<<>>>
 # border-spacing-y
 @config run
--border-spacing-y-1 -border-spacing-y-[123px] border-spacing-x
+-border-spacing-y-1 -border-spacing-y-[123px] border-spacing-x border-spacing-y-1/foo border-spacing-y-[123px]/foo
 ---
 
 <<<>>>
@@ -3205,7 +3212,7 @@ origin-[50px_100px] origin-bottom origin-bottom-left origin-bottom-right origin-
 <<<>>>
 # origin
 @config run
--origin-center
+-origin-center origin-[50px_100px]/foo origin-bottom-left/foo origin-bottom-right/foo origin-bottom/foo origin-center/foo origin-left/foo origin-right/foo origin-top-left/foo origin-top-right/foo origin-top/foo
 ---
 
 <<<>>>
@@ -3271,7 +3278,7 @@ perspective-origin-[50px_100px] perspective-origin-bottom perspective-origin-bot
 <<<>>>
 # perspective-origin
 @config run
--perspective-origin-center
+-perspective-origin-center perspective-origin-[50px_100px]/foo perspective-origin-bottom-left/foo perspective-origin-bottom-right/foo perspective-origin-bottom/foo perspective-origin-center/foo perspective-origin-left/foo perspective-origin-right/foo perspective-origin-top-left/foo perspective-origin-top-right/foo perspective-origin-top/foo
 ---
 
 <<<>>>
@@ -3685,7 +3692,7 @@ translate-3d
 <<<>>>
 # rotate
 @config run
--rotate-45 rotate-45 rotate-[123deg]
+-rotate-45 -rotate-[123deg] rotate-45 rotate-[0.3_0.7_1_45deg] rotate-[123deg]
 ---
 .-rotate-\(--var\) {
       rotate: calc(var(--var) * -1);
@@ -3717,7 +3724,7 @@ translate-3d
 <<<>>>
 # rotate
 @config run
--rotate-45/foo rotate rotate--2 rotate-45/foo rotate-[123deg]/foo rotate-unknown rotate-z
+-rotate-45/foo rotate rotate--2 rotate-45/foo rotate-[0.3_0.7_1_45deg]/foo rotate-[123deg]/foo rotate-unknown rotate-z
 ---
 
 <<<>>>
@@ -3795,7 +3802,7 @@ translate-3d
 <<<>>>
 # rotate-y
 @config run
-rotate-y-45 rotate-y-[123deg]
+-rotate-y-45 -rotate-y-[123deg] rotate-y-45 rotate-y-[123deg]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -3872,7 +3879,7 @@ rotate-y-45 rotate-y-[123deg]
 <<<>>>
 # rotate-z
 @config run
-rotate-z-45 rotate-z-[123deg]
+-rotate-z-45 -rotate-z-[123deg] rotate-z-45 rotate-z-[123deg]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -3949,7 +3956,7 @@ rotate-z-45 rotate-z-[123deg]
 <<<>>>
 # skew
 @config run
--skew-6 skew-6
+-skew-6 skew-6 skew-[123deg]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -4014,7 +4021,7 @@ rotate-z-45 rotate-z-[123deg]
 <<<>>>
 # skew-x
 @config run
--skew-x-6 skew-x-6
+-skew-x-6 skew-x-6 skew-x-[123deg]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -4076,7 +4083,7 @@ rotate-z-45 rotate-z-[123deg]
 <<<>>>
 # skew-y
 @config run
--skew-y-6 skew-y-6
+-skew-y-6 skew-y-6 skew-y-[123deg]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -4138,7 +4145,7 @@ rotate-z-45 rotate-z-[123deg]
 <<<>>>
 # scale
 @config run
--scale-50 scale-50
+-scale-50 scale-50 scale-[2] scale-[2_1.5_3]
 ---
 @layer properties {
         @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -4192,7 +4199,7 @@ rotate-z-45 rotate-z-[123deg]
 <<<>>>
 # scale
 @config run
--scale-50/foo scale scale--50 scale-1.5 scale-50/foo scale-[2]/foo scale-unknown
+-scale-50/foo scale scale--50 scale-1.5 scale-50/foo scale-[2]/foo scale-[2_1.5_3]/foo scale-unknown
 ---
 
 <<<>>>
@@ -4240,7 +4247,7 @@ scale-3d
 <<<>>>
 # scale-x
 @config run
--scale-x-50 scale-x-50
+-scale-x-50 scale-x-50 scale-x-[2]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -4337,7 +4344,7 @@ scale-200 scale-x-400
 <<<>>>
 # scale-y
 @config run
--scale-y-50 scale-y-50
+-scale-y-50 scale-y-50 scale-y-[2]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -4390,7 +4397,7 @@ scale-200 scale-x-400
 <<<>>>
 # scale-z
 @config run
--scale-z-50 scale-z-50
+-scale-z-50 scale-z-50 scale-z-[123deg]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -4544,13 +4551,13 @@ backface-hidden backface-visible transform-3d transform-border transform-content
 <<<>>>
 # transform
 @config run
--transform -transform-cpu -transform-gpu -transform-none transform-cpu/foo transform-gpu/foo transform-none/foo transform/foo
+-transform -transform-cpu -transform-gpu -transform-none backface-hidden/foo backface-visible/foo transform-3d/foo transform-border/foo transform-content/foo transform-cpu/foo transform-fill/foo transform-flat/foo transform-gpu/foo transform-none/foo transform-stroke/foo transform-view/foo transform/foo
 ---
 
 <<<>>>
 # perspective
 @config theme
-perspective-dramatic perspective-none perspective-normal
+perspective-[456px] perspective-dramatic perspective-none perspective-normal
 ---
 :root, :host {
       --perspective-dramatic: 100px;
@@ -4593,7 +4600,7 @@ perspective-none
 <<<>>>
 # cursor
 @config theme
-cursor-alias cursor-all-scroll cursor-auto cursor-cell cursor-col-resize cursor-context-menu cursor-copy cursor-crosshair cursor-default cursor-e-resize cursor-ew-resize cursor-grab cursor-grabbing cursor-help cursor-move cursor-n-resize cursor-ne-resize cursor-nesw-resize cursor-no-drop cursor-none cursor-not-allowed cursor-ns-resize cursor-nw-resize cursor-nwse-resize cursor-pointer cursor-progress cursor-row-resize cursor-s-resize cursor-se-resize cursor-sw-resize cursor-text cursor-vertical-text cursor-w-resize cursor-wait cursor-zoom-in cursor-zoom-out
+cursor-alias cursor-all-scroll cursor-auto cursor-cell cursor-col-resize cursor-context-menu cursor-copy cursor-crosshair cursor-custom cursor-default cursor-e-resize cursor-ew-resize cursor-grab cursor-grabbing cursor-help cursor-move cursor-n-resize cursor-ne-resize cursor-nesw-resize cursor-no-drop cursor-none cursor-not-allowed cursor-ns-resize cursor-nw-resize cursor-nwse-resize cursor-pointer cursor-progress cursor-row-resize cursor-s-resize cursor-se-resize cursor-sw-resize cursor-text cursor-vertical-text cursor-w-resize cursor-wait cursor-zoom-in cursor-zoom-out
 ---
 :root, :host {
       --cursor-custom: url("/my-cursor.png");
@@ -4753,7 +4760,7 @@ cursor-alias cursor-all-scroll cursor-auto cursor-cell cursor-col-resize cursor-
 <<<>>>
 # cursor
 @config run
--cursor-alias -cursor-all-scroll -cursor-auto -cursor-cell -cursor-col-resize -cursor-context-menu -cursor-copy -cursor-crosshair -cursor-default -cursor-e-resize -cursor-ew-resize -cursor-grab -cursor-grabbing -cursor-help -cursor-move -cursor-n-resize -cursor-ne-resize -cursor-nesw-resize -cursor-no-drop -cursor-none -cursor-not-allowed -cursor-ns-resize -cursor-nw-resize -cursor-nwse-resize -cursor-pointer -cursor-progress -cursor-row-resize -cursor-s-resize -cursor-se-resize -cursor-sw-resize -cursor-text -cursor-vertical-text -cursor-w-resize -cursor-wait -cursor-zoom-in -cursor-zoom-out cursor
+-cursor-alias -cursor-all-scroll -cursor-auto -cursor-cell -cursor-col-resize -cursor-context-menu -cursor-copy -cursor-crosshair -cursor-custom -cursor-default -cursor-e-resize -cursor-ew-resize -cursor-grab -cursor-grabbing -cursor-help -cursor-move -cursor-n-resize -cursor-ne-resize -cursor-nesw-resize -cursor-no-drop -cursor-none -cursor-not-allowed -cursor-ns-resize -cursor-nw-resize -cursor-nwse-resize -cursor-pointer -cursor-progress -cursor-row-resize -cursor-s-resize -cursor-se-resize -cursor-sw-resize -cursor-text -cursor-vertical-text -cursor-w-resize -cursor-wait -cursor-zoom-in -cursor-zoom-out cursor cursor-alias/foo cursor-all-scroll/foo cursor-auto/foo cursor-cell/foo cursor-col-resize/foo cursor-context-menu/foo cursor-copy/foo cursor-crosshair/foo cursor-custom/foo cursor-default/foo cursor-e-resize/foo cursor-ew-resize/foo cursor-grab/foo cursor-grabbing/foo cursor-help/foo cursor-move/foo cursor-n-resize/foo cursor-ne-resize/foo cursor-nesw-resize/foo cursor-no-drop/foo cursor-none/foo cursor-not-allowed/foo cursor-ns-resize/foo cursor-nw-resize/foo cursor-nwse-resize/foo cursor-pointer/foo cursor-progress/foo cursor-row-resize/foo cursor-s-resize/foo cursor-se-resize/foo cursor-sw-resize/foo cursor-text/foo cursor-vertical-text/foo cursor-w-resize/foo cursor-wait/foo cursor-zoom-in/foo cursor-zoom-out/foo
 ---
 
 <<<>>>
@@ -5056,7 +5063,7 @@ snap-always snap-normal
 <<<>>>
 # scroll-m
 @config theme
-scroll-m-4
+-scroll-m-4 scroll-m-4 scroll-m-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5080,13 +5087,13 @@ scroll-m-4
 <<<>>>
 # scroll-m
 @config run
-scroll-m scroll-m-4/foo scroll-m-[4px]/foo
+-scroll-m-4/foo scroll-m scroll-m-4/foo scroll-m-[4px]/foo
 ---
 
 <<<>>>
 # scroll-mx
 @config theme
-scroll-mx-4
+-scroll-mx-4 scroll-mx-4 scroll-mx-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5110,13 +5117,13 @@ scroll-mx-4
 <<<>>>
 # scroll-mx
 @config run
-scroll-mx scroll-mx-4/foo scroll-mx-[4px]/foo
+-scroll-mx-4/foo scroll-mx scroll-mx-4/foo scroll-mx-[4px]/foo
 ---
 
 <<<>>>
 # scroll-my
 @config theme
-scroll-my-4
+-scroll-my-4 scroll-my-4 scroll-my-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5140,13 +5147,13 @@ scroll-my-4
 <<<>>>
 # scroll-my
 @config run
-scroll-my scroll-my-4/foo scroll-my-[4px]/foo
+-scroll-my-4/foo scroll-my scroll-my-4/foo scroll-my-[4px]/foo
 ---
 
 <<<>>>
 # scroll-ms
 @config theme
-scroll-ms-4
+-scroll-ms-4 scroll-ms-4 scroll-ms-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5170,13 +5177,13 @@ scroll-ms-4
 <<<>>>
 # scroll-ms
 @config run
-scroll-ms scroll-ms-4/foo scroll-ms-[4px]/foo
+-scroll-ms-4/foo scroll-ms scroll-ms-4/foo scroll-ms-[4px]/foo
 ---
 
 <<<>>>
 # scroll-me
 @config theme
-scroll-me-4
+-scroll-me-4 scroll-me-4 scroll-me-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5200,13 +5207,13 @@ scroll-me-4
 <<<>>>
 # scroll-me
 @config run
-scroll-me scroll-me-4/foo scroll-me-[4px]/foo
+-scroll-me-4/foo scroll-me scroll-me-4/foo scroll-me-[4px]/foo
 ---
 
 <<<>>>
 # scroll-mbs
 @config theme
-scroll-mbs-4
+-scroll-mbs-4 scroll-mbs-4 scroll-mbs-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5230,13 +5237,13 @@ scroll-mbs-4
 <<<>>>
 # scroll-mbs
 @config run
-scroll-mbs scroll-mbs-4/foo scroll-mbs-[4px]/foo
+-scroll-mbs-4/foo scroll-mbs scroll-mbs-4/foo scroll-mbs-[4px]/foo
 ---
 
 <<<>>>
 # scroll-mbe
 @config theme
-scroll-mbe-4
+-scroll-mbe-4 scroll-mbe-4 scroll-mbe-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5260,13 +5267,13 @@ scroll-mbe-4
 <<<>>>
 # scroll-mbe
 @config run
-scroll-mbe scroll-mbe-4/foo scroll-mbe-[4px]/foo
+-scroll-mbe-4/foo scroll-mbe scroll-mbe-4/foo scroll-mbe-[4px]/foo
 ---
 
 <<<>>>
 # scroll-mt
 @config theme
-scroll-mt-4
+-scroll-mt-4 scroll-mt-4 scroll-mt-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5290,13 +5297,13 @@ scroll-mt-4
 <<<>>>
 # scroll-mt
 @config run
-scroll-mt scroll-mt-4/foo scroll-mt-[4px]/foo
+-scroll-mt-4/foo scroll-mt scroll-mt-4/foo scroll-mt-[4px]/foo
 ---
 
 <<<>>>
 # scroll-mr
 @config theme
-scroll-mr-4
+-scroll-mr-4 scroll-mr-4 scroll-mr-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5320,13 +5327,13 @@ scroll-mr-4
 <<<>>>
 # scroll-mr
 @config run
-scroll-mr scroll-mr-4/foo scroll-mr-[4px]/foo
+-scroll-mr-4/foo scroll-mr scroll-mr-4/foo scroll-mr-[4px]/foo
 ---
 
 <<<>>>
 # scroll-mb
 @config theme
-scroll-mb-4
+-scroll-mb-4 scroll-mb-4 scroll-mb-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5350,13 +5357,13 @@ scroll-mb-4
 <<<>>>
 # scroll-mb
 @config run
-scroll-mb scroll-mb-4/foo scroll-mb-[4px]/foo
+-scroll-mb-4/foo scroll-mb scroll-mb-4/foo scroll-mb-[4px]/foo
 ---
 
 <<<>>>
 # scroll-ml
 @config theme
-scroll-ml-4
+-scroll-ml-4 scroll-ml-4 scroll-ml-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5380,13 +5387,13 @@ scroll-ml-4
 <<<>>>
 # scroll-ml
 @config run
-scroll-ml scroll-ml-4/foo scroll-ml-[4px]/foo
+-scroll-ml-4/foo scroll-ml scroll-ml-4/foo scroll-ml-[4px]/foo
 ---
 
 <<<>>>
 # scroll-p
 @config theme
-scroll-p-4
+-scroll-p-4 scroll-p-4 scroll-p-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5402,13 +5409,13 @@ scroll-p-4
 <<<>>>
 # scroll-p
 @config run
-scroll-p scroll-p-4/foo scroll-p-[4px]/foo
+-scroll-p-4/foo scroll-p scroll-p-4/foo scroll-p-[4px]/foo
 ---
 
 <<<>>>
 # scroll-px
 @config theme
-scroll-px-4
+-scroll-px-4 scroll-px-4 scroll-px-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5424,13 +5431,13 @@ scroll-px-4
 <<<>>>
 # scroll-px
 @config run
-scroll-px scroll-px-4/foo scroll-px-[4px]/foo
+-scroll-px-4/foo scroll-px scroll-px-4/foo scroll-px-[4px]/foo
 ---
 
 <<<>>>
 # scroll-py
 @config theme
-scroll-py-4
+-scroll-py-4 scroll-py-4 scroll-py-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5446,13 +5453,13 @@ scroll-py-4
 <<<>>>
 # scroll-py
 @config run
-scroll-py scroll-py-4/foo scroll-py-[4px]/foo
+-scroll-py-4/foo scroll-py scroll-py-4/foo scroll-py-[4px]/foo
 ---
 
 <<<>>>
 # scroll-ps
 @config theme
-scroll-ps-4
+-scroll-ps-4 scroll-ps-4 scroll-ps-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5468,13 +5475,13 @@ scroll-ps-4
 <<<>>>
 # scroll-ps
 @config run
-scroll-ps scroll-ps-4/foo scroll-ps-[4px]/foo
+-scroll-ps-4/foo scroll-ps scroll-ps-4/foo scroll-ps-[4px]/foo
 ---
 
 <<<>>>
 # scroll-pe
 @config theme
-scroll-pe-4
+-scroll-pe-4 scroll-pe-4 scroll-pe-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5490,13 +5497,13 @@ scroll-pe-4
 <<<>>>
 # scroll-pe
 @config run
-scroll-pe scroll-pe-4/foo scroll-pe-[4px]/foo
+-scroll-pe-4/foo scroll-pe scroll-pe-4/foo scroll-pe-[4px]/foo
 ---
 
 <<<>>>
 # scroll-pbs
 @config theme
-scroll-pbs-4
+scroll-pbs-4 scroll-pbs-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5512,13 +5519,13 @@ scroll-pbs-4
 <<<>>>
 # scroll-pbs
 @config run
-scroll-pbs scroll-pbs-4/foo scroll-pbs-[4px]/foo
+-scroll-pbs-4 scroll-pbs scroll-pbs-4/foo scroll-pbs-[4px]/foo
 ---
 
 <<<>>>
 # scroll-pbe
 @config theme
-scroll-pbe-4
+scroll-pbe-4 scroll-pbe-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5534,13 +5541,13 @@ scroll-pbe-4
 <<<>>>
 # scroll-pbe
 @config run
-scroll-pbe scroll-pbe-4/foo scroll-pbe-[4px]/foo
+-scroll-pbe-4 scroll-pbe scroll-pbe-4/foo scroll-pbe-[4px]/foo
 ---
 
 <<<>>>
 # scroll-pt
 @config theme
-scroll-pt-4
+-scroll-pt-4 scroll-pt-4 scroll-pt-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5556,13 +5563,13 @@ scroll-pt-4
 <<<>>>
 # scroll-pt
 @config run
-scroll-pt scroll-pt-4/foo scroll-pt-[4px]/foo
+-scroll-pt-4/foo scroll-pt scroll-pt-4/foo scroll-pt-[4px]/foo
 ---
 
 <<<>>>
 # scroll-pr
 @config theme
-scroll-pr-4
+-scroll-pr-4 scroll-pr-4 scroll-pr-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5578,13 +5585,13 @@ scroll-pr-4
 <<<>>>
 # scroll-pr
 @config run
-scroll-pr scroll-pr-4/foo scroll-pr-[4px]/foo
+-scroll-pr-4/foo scroll-pr scroll-pr-4/foo scroll-pr-[4px]/foo
 ---
 
 <<<>>>
 # scroll-pb
 @config theme
-scroll-pb-4
+-scroll-pb-4 scroll-pb-4 scroll-pb-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5600,13 +5607,13 @@ scroll-pb-4
 <<<>>>
 # scroll-pb
 @config run
-scroll-pb scroll-pb-4/foo scroll-pb-[4px]/foo
+-scroll-pb-4/foo scroll-pb scroll-pb-4/foo scroll-pb-[4px]/foo
 ---
 
 <<<>>>
 # scroll-pl
 @config theme
-scroll-pl-4
+-scroll-pl-4 scroll-pl-4 scroll-pl-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -5622,7 +5629,7 @@ scroll-pl-4
 <<<>>>
 # scroll-pl
 @config run
-scroll-pl scroll-pl-4/foo scroll-pl-[4px]/foo
+-scroll-pl-4/foo scroll-pl scroll-pl-4/foo scroll-pl-[4px]/foo
 ---
 
 <<<>>>
@@ -5666,7 +5673,7 @@ list-decimal list-disc list-none
 <<<>>>
 # list
 @config run
--list-decimal -list-disc -list-none
+-list-decimal -list-disc -list-none list-decimal/foo list-disc/foo list-none/foo
 ---
 
 <<<>>>
@@ -5696,7 +5703,7 @@ list-image-none
 <<<>>>
 # list-image
 @config run
--list-image-none list-image
+-list-image-none list-image list-image-none/foo
 ---
 
 <<<>>>
@@ -5803,7 +5810,7 @@ columns-3xs columns-4 columns-7xl columns-99 columns-[123] columns-auto
 <<<>>>
 # columns
 @config run
--columns-4 -columns-[123] columns columns--4
+-columns-4 -columns-[123] columns columns--4 columns-3xs/foo columns-4/foo columns-7xl/foo columns-99/foo columns-[123]/foo columns-auto/foo columns-unknown
 ---
 
 <<<>>>
@@ -5955,7 +5962,7 @@ auto-cols-[2fr] auto-cols-auto auto-cols-fr auto-cols-max auto-cols-min
 <<<>>>
 # auto-cols
 @config run
--auto-cols-[2fr] -auto-cols-auto auto-cols
+-auto-cols-[2fr] -auto-cols-auto auto-cols auto-cols-[2fr]/foo auto-cols-auto/foo auto-cols-fr/foo auto-cols-max/foo auto-cols-min/foo
 ---
 
 <<<>>>
@@ -6027,7 +6034,7 @@ auto-rows-[2fr] auto-rows-auto auto-rows-fr auto-rows-max auto-rows-min
 <<<>>>
 # auto-rows
 @config run
--auto-rows-[2fr] -auto-rows-auto auto-rows
+-auto-rows-[2fr] -auto-rows-auto auto-rows auto-rows-[2fr]/foo auto-rows-auto/foo auto-rows-fr/foo auto-rows-max/foo auto-rows-min/foo
 ---
 
 <<<>>>
@@ -6069,7 +6076,7 @@ grid-cols-12 grid-cols-99 grid-cols-[123] grid-cols-none grid-cols-subgrid
 <<<>>>
 # grid-cols
 @config run
--grid-cols-12 -grid-cols-[123] -grid-cols-none -grid-cols-subgrid grid-cols grid-cols--12 grid-cols-0
+-grid-cols-12 -grid-cols-[123] -grid-cols-none -grid-cols-subgrid grid-cols grid-cols--12 grid-cols-0 grid-cols-12/foo grid-cols-99/foo grid-cols-[123]/foo grid-cols-none/foo grid-cols-subgrid/foo grid-cols-unknown
 ---
 
 <<<>>>
@@ -6111,7 +6118,7 @@ grid-rows-12 grid-rows-99 grid-rows-[123] grid-rows-none grid-rows-subgrid
 <<<>>>
 # grid-rows
 @config run
--grid-rows-12 -grid-rows-[123] -grid-rows-none -grid-rows-subgrid grid-rows grid-rows--12 grid-rows-0
+-grid-rows-12 -grid-rows-[123] -grid-rows-none -grid-rows-subgrid grid-rows grid-rows--12 grid-rows-0 grid-rows-12/foo grid-rows-99/foo grid-rows-[123]/foo grid-rows-none/foo grid-rows-subgrid/foo grid-rows-unknown
 ---
 
 <<<>>>
@@ -6445,7 +6452,7 @@ justify-items-center justify-items-center-safe justify-items-end justify-items-e
 <<<>>>
 # gap
 @config theme
-gap-4
+gap-4 gap-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -6461,13 +6468,13 @@ gap-4
 <<<>>>
 # gap
 @config run
--gap-4 gap
+-gap-4 -gap-[4px] gap gap-4/foo gap-[4px]/foo
 ---
 
 <<<>>>
 # gap-x
 @config theme
-gap-x-4
+gap-x-4 gap-x-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -6483,13 +6490,13 @@ gap-x-4
 <<<>>>
 # gap-x
 @config run
--gap-x-4 gap-x
+-gap-x-4 -gap-x-[4px] gap-x gap-x-4/foo gap-x-[4px]/foo
 ---
 
 <<<>>>
 # gap-y
 @config theme
-gap-y-4
+gap-y-4 gap-y-[4px]
 ---
 :root, :host {
       --spacing-4: 1rem;
@@ -6505,13 +6512,13 @@ gap-y-4
 <<<>>>
 # gap-y
 @config run
--gap-y-4 gap-y
+-gap-y-4 -gap-y-[4px] gap-y gap-y-4/foo gap-y-[4px]/foo
 ---
 
 <<<>>>
 # space-x
 @config theme
-space-x-4
+-space-x-4 space-x-4 space-x-[4px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -6551,13 +6558,13 @@ space-x-4
 <<<>>>
 # space-x
 @config run
-space-x space-x-4/foo
+-space-x-4/foo space-x space-x-4/foo space-x-[4px]/foo
 ---
 
 <<<>>>
 # space-y
 @config theme
-space-y-4
+-space-y-4 space-y-4 space-y-[4px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -6597,7 +6604,7 @@ space-y-4
 <<<>>>
 # space-y
 @config run
-space-y space-y-4/foo
+-space-y-4/foo space-y space-y-4/foo space-y-[4px]/foo
 ---
 
 <<<>>>
@@ -6659,7 +6666,7 @@ space-y-reverse
 <<<>>>
 # divide-x
 @config none
-divide-x divide-x-123 divide-x-4
+divide-x divide-x-123 divide-x-4 divide-x-[4px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -6756,7 +6763,7 @@ divide-x/foo
 <<<>>>
 # divide-y
 @config none
-divide-y divide-y-123 divide-y-4
+divide-y divide-y-123 divide-y-4 divide-y-[4px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -6949,7 +6956,7 @@ divide-dashed divide-dotted divide-double divide-none divide-solid
 <<<>>>
 # accent
 @config theme
-accent-red-500 accent-red-500/2.25 accent-red-500/2.5 accent-red-500/2.75 accent-red-500/50 accent-red-500/[0.5]
+accent-[#0088cc] accent-[#0088cc]/50 accent-[#0088cc]/[0.5] accent-[#0088cc]/[50%] accent-blue-500 accent-current accent-current/50 accent-current/[0.5] accent-current/[50%] accent-inherit accent-red-500 accent-red-500/2.25 accent-red-500/2.5 accent-red-500/2.75 accent-red-500/50 accent-red-500/[0.5] accent-red-500/[50%] accent-transparent
 ---
 :root, :host {
       --color-red-500: #ef4444;
@@ -7072,13 +7079,13 @@ accent-red-500 accent-red-500/2.25 accent-red-500/2.5 accent-red-500/2.75 accent
 <<<>>>
 # accent
 @config run
--accent-red-500 -accent-red-500/50 -accent-red-500/[0.5] accent accent-red-500/-50
+-accent-[#0088cc] -accent-[#0088cc]/50 -accent-[#0088cc]/[0.5] -accent-[#0088cc]/[50%] -accent-current -accent-current/50 -accent-current/[0.5] -accent-current/[50%] -accent-inherit -accent-red-500 -accent-red-500/50 -accent-red-500/[0.5] -accent-red-500/[50%] -accent-transparent accent accent-[#0088cc]/-50 accent-[#0088cc]/50/foo accent-[#0088cc]/[0.5]/foo accent-[#0088cc]/[50%]/foo accent-[#0088cc]/foo accent-current/50/foo accent-current/[0.5]/foo accent-current/[50%]/foo accent-current/foo accent-inherit/foo accent-red-500/-50 accent-red-500/50/foo accent-red-500/[0.5]/foo accent-red-500/[50%]/foo accent-red-500/foo accent-transparent/foo
 ---
 
 <<<>>>
 # caret
 @config theme
-caret-red-500 caret-red-500/2.25 caret-red-500/2.5 caret-red-500/2.75 caret-red-500/50 caret-red-500/[0.5]
+caret-[#0088cc] caret-[#0088cc]/50 caret-[#0088cc]/[0.5] caret-[#0088cc]/[50%] caret-blue-500 caret-current caret-current/50 caret-current/[0.5] caret-current/[50%] caret-inherit caret-red-500 caret-red-500/2.25 caret-red-500/2.5 caret-red-500/2.75 caret-red-500/50 caret-red-500/[0.5] caret-red-500/[50%] caret-transparent
 ---
 :root, :host {
       --color-red-500: #ef4444;
@@ -7201,13 +7208,13 @@ caret-red-500 caret-red-500/2.25 caret-red-500/2.5 caret-red-500/2.75 caret-red-
 <<<>>>
 # caret
 @config run
--caret-red-500 -caret-red-500/50 -caret-red-500/[0.5] caret
+-caret-[#0088cc] -caret-[#0088cc]/50 -caret-[#0088cc]/[0.5] -caret-[#0088cc]/[50%] -caret-current -caret-current/50 -caret-current/[0.5] -caret-current/[50%] -caret-inherit -caret-red-500 -caret-red-500/50 -caret-red-500/[0.5] -caret-red-500/[50%] -caret-transparent caret caret-[#0088cc]/50/foo caret-[#0088cc]/[0.5]/foo caret-[#0088cc]/[50%]/foo caret-[#0088cc]/foo caret-current/50/foo caret-current/[0.5]/foo caret-current/[50%]/foo caret-current/foo caret-inherit/foo caret-red-500/50/foo caret-red-500/[0.5]/foo caret-red-500/[50%]/foo caret-red-500/foo caret-transparent/foo
 ---
 
 <<<>>>
 # divide-color
 @config theme
-divide-red-500 divide-red-500/2.25 divide-red-500/2.5 divide-red-500/2.75 divide-red-500/50 divide-red-500/[0.5]
+divide-[#0088cc] divide-[#0088cc]/50 divide-[#0088cc]/[0.5] divide-[#0088cc]/[50%] divide-best-blue divide-current divide-current/50 divide-current/[0.5] divide-current/[50%] divide-inherit divide-red-500 divide-red-500/2.25 divide-red-500/2.5 divide-red-500/2.75 divide-red-500/50 divide-red-500/[0.5] divide-red-500/[50%] divide-transparent
 ---
 :root, :host {
       --color-red-500: #ef4444;
@@ -7330,7 +7337,7 @@ divide-red-500 divide-red-500/2.25 divide-red-500/2.5 divide-red-500/2.75 divide
 <<<>>>
 # divide-color
 @config run
--divide-red-500 -divide-red-500/50 -divide-red-500/[0.5] divide
+-divide-[#0088cc] -divide-[#0088cc]/50 -divide-[#0088cc]/[0.5] -divide-[#0088cc]/[50%] -divide-current -divide-current/50 -divide-current/[0.5] -divide-current/[50%] -divide-inherit -divide-red-500 -divide-red-500/50 -divide-red-500/[0.5] -divide-red-500/[50%] -divide-transparent divide divide-[#0088cc]/50/foo divide-[#0088cc]/[0.5]/foo divide-[#0088cc]/[50%]/foo divide-[#0088cc]/foo divide-current/50/foo divide-current/[0.5]/foo divide-current/[50%]/foo divide-current/foo divide-inherit/foo divide-red-500/50/foo divide-red-500/[0.5]/foo divide-red-500/[50%]/foo divide-red-500/foo divide-transparent/foo
 ---
 
 <<<>>>
@@ -7798,7 +7805,7 @@ wrap-anywhere wrap-break-word wrap-normal
 <<<>>>
 # rounded
 @config theme
-rounded rounded-full rounded-none rounded-sm
+rounded rounded-[4px] rounded-full rounded-none rounded-sm
 ---
 :root, :host {
       --radius-sm: .125rem;
@@ -7839,13 +7846,13 @@ rounded-full
 <<<>>>
 # rounded
 @config run
--rounded -rounded-[4px] -rounded-full -rounded-none -rounded-sm
+-rounded -rounded-[4px] -rounded-full -rounded-none -rounded-sm rounded-[4px]/foo rounded-full/foo rounded-none/foo rounded-sm/foo rounded/foo
 ---
 
 <<<>>>
 # rounded-s
 @config theme
-rounded-s rounded-s-full rounded-s-none rounded-s-sm
+rounded-s rounded-s-[4px] rounded-s-full rounded-s-none rounded-s-sm
 ---
 :root, :host {
       --radius-none: 0px;
@@ -7881,13 +7888,13 @@ rounded-s rounded-s-full rounded-s-none rounded-s-sm
 <<<>>>
 # rounded-s
 @config run
--rounded-s -rounded-s-[4px] -rounded-s-full -rounded-s-none -rounded-s-sm
+-rounded-s -rounded-s-[4px] -rounded-s-full -rounded-s-none -rounded-s-sm rounded-s-[4px]/foo rounded-s-full/foo rounded-s-none/foo rounded-s-sm/foo rounded-s/foo
 ---
 
 <<<>>>
 # rounded-e
 @config theme
-rounded-e rounded-e-full rounded-e-none rounded-e-sm
+rounded-e rounded-e-[4px] rounded-e-full rounded-e-none rounded-e-sm
 ---
 :root, :host {
       --radius-none: 0px;
@@ -7923,13 +7930,13 @@ rounded-e rounded-e-full rounded-e-none rounded-e-sm
 <<<>>>
 # rounded-e
 @config run
--rounded-e -rounded-e-[4px] -rounded-e-full -rounded-e-none -rounded-e-sm
+-rounded-e -rounded-e-[4px] -rounded-e-full -rounded-e-none -rounded-e-sm rounded-e-[4px]/foo rounded-e-full/foo rounded-e-none/foo rounded-e-sm/foo rounded-e/foo
 ---
 
 <<<>>>
 # rounded-t
 @config theme
-rounded-t rounded-t-full rounded-t-none rounded-t-sm
+rounded-t rounded-t-[4px] rounded-t-full rounded-t-none rounded-t-sm
 ---
 :root, :host {
       --radius-none: 0px;
@@ -7965,13 +7972,13 @@ rounded-t rounded-t-full rounded-t-none rounded-t-sm
 <<<>>>
 # rounded-t
 @config run
--rounded-t -rounded-t-[4px] -rounded-t-full -rounded-t-none -rounded-t-sm
+-rounded-t -rounded-t-[4px] -rounded-t-full -rounded-t-none -rounded-t-sm rounded-t-[4px]/foo rounded-t-full/foo rounded-t-none/foo rounded-t-sm/foo rounded-t/foo
 ---
 
 <<<>>>
 # rounded-r
 @config theme
-rounded-r rounded-r-full rounded-r-none rounded-r-sm
+rounded-r rounded-r-[4px] rounded-r-full rounded-r-none rounded-r-sm
 ---
 :root, :host {
       --radius-none: 0px;
@@ -8007,13 +8014,13 @@ rounded-r rounded-r-full rounded-r-none rounded-r-sm
 <<<>>>
 # rounded-r
 @config run
--rounded-r -rounded-r-[4px] -rounded-r-full -rounded-r-none -rounded-r-sm
+-rounded-r -rounded-r-[4px] -rounded-r-full -rounded-r-none -rounded-r-sm rounded-r-[4px]/foo rounded-r-full/foo rounded-r-none/foo rounded-r-sm/foo rounded-r/foo
 ---
 
 <<<>>>
 # rounded-b
 @config theme
-rounded-b rounded-b-full rounded-b-none rounded-b-sm
+rounded-b rounded-b-[4px] rounded-b-full rounded-b-none rounded-b-sm
 ---
 :root, :host {
       --radius-none: 0px;
@@ -8049,13 +8056,13 @@ rounded-b rounded-b-full rounded-b-none rounded-b-sm
 <<<>>>
 # rounded-b
 @config run
--rounded-b -rounded-b-[4px] -rounded-b-full -rounded-b-none -rounded-b-sm
+-rounded-b -rounded-b-[4px] -rounded-b-full -rounded-b-none -rounded-b-sm rounded-b-[4px]/foo rounded-b-full/foo rounded-b-none/foo rounded-b-sm/foo rounded-b/foo
 ---
 
 <<<>>>
 # rounded-l
 @config theme
-rounded-l rounded-l-full rounded-l-none rounded-l-sm
+rounded-l rounded-l-[4px] rounded-l-full rounded-l-none rounded-l-sm
 ---
 :root, :host {
       --radius-none: 0px;
@@ -8091,13 +8098,13 @@ rounded-l rounded-l-full rounded-l-none rounded-l-sm
 <<<>>>
 # rounded-l
 @config run
--rounded-l -rounded-l-[4px] -rounded-l-full -rounded-l-none -rounded-l-sm
+-rounded-l -rounded-l-[4px] -rounded-l-full -rounded-l-none -rounded-l-sm rounded-l-[4px]/foo rounded-l-full/foo rounded-l-none/foo rounded-l-sm/foo rounded-l/foo
 ---
 
 <<<>>>
 # rounded-ss
 @config theme
-rounded-ss rounded-ss-full rounded-ss-none rounded-ss-sm
+rounded-ss rounded-ss-[4px] rounded-ss-full rounded-ss-none rounded-ss-sm
 ---
 :root, :host {
       --radius-none: 0px;
@@ -8128,13 +8135,13 @@ rounded-ss rounded-ss-full rounded-ss-none rounded-ss-sm
 <<<>>>
 # rounded-ss
 @config run
--rounded-ss -rounded-ss-[4px] -rounded-ss-full -rounded-ss-none -rounded-ss-sm
+-rounded-ss -rounded-ss-[4px] -rounded-ss-full -rounded-ss-none -rounded-ss-sm rounded-ss-[4px]/foo rounded-ss-full/foo rounded-ss-none/foo rounded-ss-sm/foo rounded-ss/foo
 ---
 
 <<<>>>
 # rounded-se
 @config theme
-rounded-se rounded-se-full rounded-se-none rounded-se-sm
+rounded-se rounded-se-[4px] rounded-se-full rounded-se-none rounded-se-sm
 ---
 :root, :host {
       --radius-none: 0px;
@@ -8165,13 +8172,13 @@ rounded-se rounded-se-full rounded-se-none rounded-se-sm
 <<<>>>
 # rounded-se
 @config run
--rounded-se -rounded-se-[4px] -rounded-se-full -rounded-se-none -rounded-se-sm
+-rounded-se -rounded-se-[4px] -rounded-se-full -rounded-se-none -rounded-se-sm rounded-se-[4px]/foo rounded-se-full/foo rounded-se-none/foo rounded-se-sm/foo rounded-se/foo
 ---
 
 <<<>>>
 # rounded-ee
 @config theme
-rounded-ee rounded-ee-full rounded-ee-none rounded-ee-sm
+rounded-ee rounded-ee-[4px] rounded-ee-full rounded-ee-none rounded-ee-sm
 ---
 :root, :host {
       --radius-none: 0px;
@@ -8202,13 +8209,13 @@ rounded-ee rounded-ee-full rounded-ee-none rounded-ee-sm
 <<<>>>
 # rounded-ee
 @config run
--rounded-ee -rounded-ee-[4px] -rounded-ee-full -rounded-ee-none -rounded-ee-sm
+-rounded-ee -rounded-ee-[4px] -rounded-ee-full -rounded-ee-none -rounded-ee-sm rounded-ee-[4px]/foo rounded-ee-full/foo rounded-ee-none/foo rounded-ee-sm/foo rounded-ee/foo
 ---
 
 <<<>>>
 # rounded-es
 @config theme
-rounded-es rounded-es-full rounded-es-none rounded-es-sm
+rounded-es rounded-es-[4px] rounded-es-full rounded-es-none rounded-es-sm
 ---
 :root, :host {
       --radius-none: 0px;
@@ -8239,13 +8246,13 @@ rounded-es rounded-es-full rounded-es-none rounded-es-sm
 <<<>>>
 # rounded-es
 @config run
--rounded-es -rounded-es-[4px] -rounded-es-full -rounded-es-none -rounded-es-sm
+-rounded-es -rounded-es-[4px] -rounded-es-full -rounded-es-none -rounded-es-sm rounded-es-[4px]/foo rounded-es-full/foo rounded-es-none/foo rounded-es-sm/foo rounded-es/foo
 ---
 
 <<<>>>
 # rounded-tl
 @config theme
-rounded-tl rounded-tl-full rounded-tl-none rounded-tl-sm
+rounded-tl rounded-tl-[4px] rounded-tl-full rounded-tl-none rounded-tl-sm
 ---
 :root, :host {
       --radius-none: 0px;
@@ -8276,13 +8283,13 @@ rounded-tl rounded-tl-full rounded-tl-none rounded-tl-sm
 <<<>>>
 # rounded-tl
 @config run
--rounded-tl -rounded-tl-[4px] -rounded-tl-full -rounded-tl-none -rounded-tl-sm
+-rounded-tl -rounded-tl-[4px] -rounded-tl-full -rounded-tl-none -rounded-tl-sm rounded-tl-[4px]/foo rounded-tl-full/foo rounded-tl-none/foo rounded-tl-sm/foo rounded-tl/foo
 ---
 
 <<<>>>
 # rounded-tr
 @config theme
-rounded-tr rounded-tr-full rounded-tr-none rounded-tr-sm
+rounded-tr rounded-tr-[4px] rounded-tr-full rounded-tr-none rounded-tr-sm
 ---
 :root, :host {
       --radius-none: 0px;
@@ -8313,13 +8320,13 @@ rounded-tr rounded-tr-full rounded-tr-none rounded-tr-sm
 <<<>>>
 # rounded-tr
 @config run
--rounded-tr -rounded-tr-[4px] -rounded-tr-full -rounded-tr-none -rounded-tr-sm
+-rounded-tr -rounded-tr-[4px] -rounded-tr-full -rounded-tr-none -rounded-tr-sm rounded-tr-[4px]/foo rounded-tr-full/foo rounded-tr-none/foo rounded-tr-sm/foo rounded-tr/foo
 ---
 
 <<<>>>
 # rounded-br
 @config theme
-rounded-br rounded-br-full rounded-br-none rounded-br-sm
+rounded-br rounded-br-[4px] rounded-br-full rounded-br-none rounded-br-sm
 ---
 :root, :host {
       --radius-none: 0px;
@@ -8350,13 +8357,13 @@ rounded-br rounded-br-full rounded-br-none rounded-br-sm
 <<<>>>
 # rounded-br
 @config run
--rounded-br -rounded-br-[4px] -rounded-br-full -rounded-br-none -rounded-br-sm
+-rounded-br -rounded-br-[4px] -rounded-br-full -rounded-br-none -rounded-br-sm rounded-br-[4px]/foo rounded-br-full/foo rounded-br-none/foo rounded-br-sm/foo rounded-br/foo
 ---
 
 <<<>>>
 # rounded-bl
 @config theme
-rounded-bl rounded-bl-full rounded-bl-none rounded-bl-sm
+rounded-bl rounded-bl-[4px] rounded-bl-full rounded-bl-none rounded-bl-sm
 ---
 :root, :host {
       --radius-none: 0px;
@@ -8387,7 +8394,7 @@ rounded-bl rounded-bl-full rounded-bl-none rounded-bl-sm
 <<<>>>
 # rounded-bl
 @config run
--rounded-bl -rounded-bl-[4px] -rounded-bl-full -rounded-bl-none -rounded-bl-sm
+-rounded-bl -rounded-bl-[4px] -rounded-bl-full -rounded-bl-none -rounded-bl-sm rounded-bl-[4px]/foo rounded-bl-full/foo rounded-bl-none/foo rounded-bl-sm/foo rounded-bl/foo
 ---
 
 <<<>>>
@@ -8462,7 +8469,7 @@ border
 <<<>>>
 # bg
 @config theme
-bg-red-500 bg-red-500/2.25 bg-red-500/2.5 bg-red-500/2.75 bg-red-500/50 bg-red-500/[0.5]
+-bg-conic-45/oklab -bg-linear-45 -bg-linear-45/oklab -bg-linear-[1.3rad] -bg-linear-[125deg] bg-[#0088cc] bg-[#0088cc]/50 bg-[#0088cc]/[0.5] bg-[#0088cc]/[50%] bg-[120px] bg-[120px_120px] bg-[50%] bg-[contain] bg-[cover] bg-[length:120px_120px] bg-[position:120px_120px] bg-[size:120px_120px] bg-auto bg-blue-500 bg-bottom bg-bottom-left bg-bottom-right bg-center bg-conic-45/[in_hsl_longer_hue] bg-conic-45/oklab bg-conic-45/shorter bg-conic/[in_hsl_longer_hue] bg-conic/decreasing bg-conic/hsl bg-conic/increasing bg-conic/longer bg-conic/oklab bg-conic/oklch bg-conic/shorter bg-conic/srgb bg-contain bg-cover bg-current bg-current/50 bg-current/[0.5] bg-current/[50%] bg-fixed bg-inherit bg-left bg-left-bottom bg-left-top bg-linear-45 bg-linear-45/[in_hsl_longer_hue] bg-linear-45/oklab bg-linear-45/shorter bg-linear-[1.3rad] bg-linear-[125deg] bg-linear-[to_bottom] bg-linear-to-b bg-linear-to-bl bg-linear-to-br bg-linear-to-l bg-linear-to-r bg-linear-to-r/[in_hsl_longer_hue] bg-linear-to-r/[longer] bg-linear-to-r/decreasing bg-linear-to-r/hsl bg-linear-to-r/increasing bg-linear-to-r/longer bg-linear-to-r/oklab bg-linear-to-r/oklch bg-linear-to-r/shorter bg-linear-to-r/srgb bg-linear-to-t bg-linear-to-tl bg-linear-to-tr bg-local bg-no-repeat bg-none bg-radial-[circle_at_center] bg-radial/[in_hsl_longer_hue] bg-radial/decreasing bg-radial/hsl bg-radial/increasing bg-radial/longer bg-radial/oklab bg-radial/oklch bg-radial/shorter bg-radial/srgb bg-red-500 bg-red-500/100 bg-red-500/2.25 bg-red-500/2.5 bg-red-500/2.75 bg-red-500/50 bg-red-500/[0.5] bg-red-500/[100%] bg-red-500/[50%] bg-repeat bg-repeat-round bg-repeat-space bg-repeat-x bg-repeat-y bg-right bg-right-bottom bg-right-top bg-scroll bg-top bg-top-left bg-top-right bg-transparent
 ---
 :root, :host {
       --color-red-500: #ef4444;
@@ -9283,13 +9290,13 @@ bg-red-500 bg-red-500/2.25 bg-red-500/2.5 bg-red-500/2.75 bg-red-500/50 bg-red-5
 <<<>>>
 # bg
 @config run
--bg-red-500 -bg-red-500/50 -bg-red-500/[0.5] bg bg-unknown
+-bg-[#0088cc] -bg-[#0088cc]/50 -bg-[#0088cc]/[0.5] -bg-[#0088cc]/[50%] -bg-auto -bg-bottom -bg-center -bg-contain -bg-cover -bg-current -bg-current/50 -bg-current/[0.5] -bg-current/[50%] -bg-fixed -bg-gradient-to-br -bg-inherit -bg-left -bg-left-bottom -bg-left-top -bg-linear-[to_bottom] -bg-linear-to-br -bg-local -bg-no-repeat -bg-none -bg-red-500 -bg-red-500/50 -bg-red-500/[0.5] -bg-red-500/[50%] -bg-repeat -bg-repeat-x -bg-repeat-y -bg-right-bottom -bg-right-top -bg-round -bg-scroll -bg-space -bg-top -bg-transparent bg bg-[120px]/foo bg-[120px_120px]/foo bg-[50%]/foo bg-[contain]/foo bg-[cover]/foo bg-[length:120px_120px]/foo bg-[position:120px_120px]/foo bg-[size:120px_120px]/foo bg-auto/foo bg-bottom/foo bg-center/foo bg-conic-[45deg]/hsl bg-conic-[circle_at_center]/hsl bg-contain/foo bg-cover/foo bg-fixed/foo bg-left-bottom/foo bg-left-top/foo bg-left/foo bg-linear-[to_bottom]/hsl bg-local/foo bg-no-repeat/foo bg-none/foo bg-repeat-x/foo bg-repeat-y/foo bg-repeat/foo bg-right-bottom/foo bg-right-top/foo bg-round/foo bg-scroll/foo bg-space/foo bg-top/foo bg-unknown
 ---
 
 <<<>>>
 # bg
 @config theme-reference
-bg-current/custom bg-current/half
+[color:red]/half bg-current/custom bg-current/half
 ---
 .bg-current\/custom {
       background-color: currentColor;
@@ -9322,20 +9329,52 @@ bg-current/custom bg-current/half
     }
 <<<>>>
 # bg-position
+@config theme
+bg-position-[120px] bg-position-[120px_120px]
+---
+.bg-position-\[120px\] {
+      background-position: 120px;
+    }
+
+    .bg-position-\[120px_120px\] {
+      background-position: 120px 120px;
+    }
+
+    .bg-position-\[var\(--some-var\)\] {
+      background-position: var(--some-var);
+    }
+<<<>>>
+# bg-position
 @config run
--bg-position -bg-position/foo bg-position bg-position-[120px_120px]/foo bg-position/foo
+-bg-position -bg-position-[120px_120px] -bg-position-[120px_120px]/foo -bg-position/foo bg-position bg-position-[120px_120px]/foo bg-position/foo
 ---
 
 <<<>>>
 # bg-size
+@config theme
+bg-size-[120px] bg-size-[120px_120px]
+---
+.bg-size-\[120px\] {
+      background-size: 120px;
+    }
+
+    .bg-size-\[120px_120px\] {
+      background-size: 120px 120px;
+    }
+
+    .bg-size-\[var\(--some-var\)\] {
+      background-size: var(--some-var);
+    }
+<<<>>>
+# bg-size
 @config run
--bg-size -bg-size/foo bg-size bg-size-[120px_120px]/foo bg-size/foo
+-bg-size -bg-size-[120px_120px] -bg-size-[120px_120px]/foo -bg-size/foo bg-size bg-size-[120px_120px]/foo bg-size/foo
 ---
 
 <<<>>>
 # from
 @config theme
-from-red-500 from-red-500/50 from-red-500/[0.5]
+from-0% from-100% from-5% from-[#0088cc] from-[#0088cc]/50 from-[#0088cc]/[0.5] from-[#0088cc]/[50%] from-[50%] from-[50px] from-current from-current/50 from-current/[0.5] from-current/[50%] from-inherit from-red-500 from-red-500/50 from-red-500/[0.5] from-red-500/[50%] from-transparent
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -9642,13 +9681,13 @@ from-red-500 from-red-500/50 from-red-500/[0.5]
 <<<>>>
 # from
 @config run
--from-red-500 -from-red-500/50 -from-red-500/[0.5] from from--123 from--5% from-123 from-25.% from-25.0% from-unknown from-unknown%
+-from-0% -from-100% -from-5% -from-[#0088cc] -from-[#0088cc]/50 -from-[#0088cc]/[0.5] -from-[#0088cc]/[50%] -from-current -from-current/50 -from-current/[0.5] -from-current/[50%] -from-inherit -from-red-500 -from-red-500/50 -from-red-500/[0.5] -from-red-500/[50%] -from-transparent from from--123 from--5% from-123 from-25.% from-25.0% from-unknown from-unknown%
 ---
 
 <<<>>>
 # via
 @config theme
-via-red-500 via-red-500/50 via-red-500/[0.5]
+via-0% via-100% via-5% via-[#0088cc] via-[#0088cc]/50 via-[#0088cc]/[0.5] via-[#0088cc]/[50%] via-[50%] via-[50px] via-current via-current/50 via-current/[0.5] via-current/[50%] via-inherit via-red-500 via-red-500/50 via-red-500/[0.5] via-red-500/[50%] via-transparent
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -9975,13 +10014,13 @@ via-red-500 via-red-500/50 via-red-500/[0.5]
 <<<>>>
 # via
 @config run
--via-red-500 -via-red-500/50 -via-red-500/[0.5] via via--123 via--5% via-123 via-unknown via-unknown%
+-via-0% -via-100% -via-5% -via-[#0088cc] -via-[#0088cc]/50 -via-[#0088cc]/[0.5] -via-[#0088cc]/[50%] -via-current -via-current/50 -via-current/[0.5] -via-current/[50%] -via-inherit -via-red-500 -via-red-500/50 -via-red-500/[0.5] -via-red-500/[50%] -via-transparent via via--123 via--5% via-123 via-unknown via-unknown%
 ---
 
 <<<>>>
 # to
 @config theme
-to-red-500 to-red-500/50 to-red-500/[0.5]
+to-0% to-100% to-5% to-[#0088cc] to-[#0088cc]/50 to-[#0088cc]/[0.5] to-[#0088cc]/[50%] to-[50%] to-[50px] to-current to-current/50 to-current/[0.5] to-current/[50%] to-inherit to-red-500 to-red-500/50 to-red-500/[0.5] to-red-500/[50%] to-transparent
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -10288,13 +10327,13 @@ to-red-500 to-red-500/50 to-red-500/[0.5]
 <<<>>>
 # to
 @config run
--to-red-500 -to-red-500/50 -to-red-500/[0.5] to to--123 to--5% to-123 to-unknown to-unknown%
+-to-0% -to-100% -to-5% -to-[#0088cc] -to-[#0088cc]/50 -to-[#0088cc]/[0.5] -to-[#0088cc]/[50%] -to-current -to-current/50 -to-current/[0.5] -to-current/[50%] -to-inherit -to-red-500 -to-red-500/50 -to-red-500/[0.5] -to-red-500/[50%] -to-transparent to to--123 to--5% to-123 to-unknown to-unknown%
 ---
 
 <<<>>>
 # mask
 @config theme
-mask-none
+mask-[120px] mask-[120px_120px] mask-[50%] mask-[contain] mask-[cover] mask-[length:120px_120px] mask-[position:120px_120px] mask-[size:120px_120px] mask-add mask-alpha mask-auto mask-bottom mask-bottom-left mask-bottom-right mask-center mask-contain mask-cover mask-exclude mask-intersect mask-left mask-luminance mask-match mask-no-repeat mask-none mask-repeat mask-repeat-round mask-repeat-space mask-repeat-x mask-repeat-y mask-right mask-subtract mask-top mask-top-left mask-top-right mask-type-alpha mask-type-luminance
 ---
 .mask-\[image\:var\(--some-var\)\] {
       -webkit-mask-image: var(--some-var);
@@ -10495,13 +10534,13 @@ mask-none
 <<<>>>
 # mask
 @config run
--mask-none mask mask-none/foo mask-unknown
+-mask-add -mask-alpha -mask-auto -mask-auto/foo -mask-bottom -mask-bottom/foo -mask-center -mask-center/foo -mask-contain -mask-contain/foo -mask-cover -mask-cover/foo -mask-exclude -mask-intersect -mask-left -mask-left-bottom -mask-left-bottom/foo -mask-left-top -mask-left-top/foo -mask-left/foo -mask-luminance -mask-match -mask-no-repeat -mask-no-repeat/foo -mask-none -mask-repeat -mask-repeat-x -mask-repeat-x/foo -mask-repeat-y -mask-repeat-y/foo -mask-repeat/foo -mask-right-bottom -mask-right-bottom/foo -mask-right-top -mask-right-top/foo -mask-round -mask-round/foo -mask-space -mask-space/foo -mask-subtract -mask-top -mask-top/foo -mask-type-alpha -mask-type-luminance mask mask-add/foo mask-alpha/foo mask-exclude/foo mask-intersect/foo mask-luminance/foo mask-match/foo mask-no-repeat/foo mask-none/foo mask-repeat-x/foo mask-repeat-y/foo mask-repeat/foo mask-round/foo mask-space/foo mask-subtract/foo mask-type-alpha/foo mask-type-luminance/foo mask-unknown
 ---
 
 <<<>>>
 # mask
 @config theme-reference
-mask-current/custom mask-current/half
+[color:red]/half mask-current/custom mask-current/half
 ---
 .\[color\:red\]\/half {
       color: color-mix(in srgb, red .5, transparent);
@@ -10514,20 +10553,60 @@ mask-current/custom mask-current/half
     }
 <<<>>>
 # mask-position
+@config theme
+mask-position-[120px] mask-position-[120px_120px]
+---
+.mask-position-\[120px\] {
+      -webkit-mask-position: 120px;
+      mask-position: 120px;
+    }
+
+    .mask-position-\[120px_120px\] {
+      -webkit-mask-position: 120px 120px;
+      mask-position: 120px 120px;
+    }
+
+    .mask-position-\[var\(--some-var\)\] {
+      -webkit-mask-position: var(--some-var);
+      -webkit-mask-position: var(--some-var);
+      mask-position: var(--some-var);
+    }
+<<<>>>
+# mask-position
 @config run
--mask-position -mask-position/foo mask-position mask-position-[120px_120px]/foo mask-position/foo
+-mask-position -mask-position-[120px_120px] -mask-position-[120px_120px]/foo -mask-position/foo mask-position mask-position-[120px_120px]/foo mask-position/foo
 ---
 
 <<<>>>
 # mask-size
+@config theme
+mask-size-[120px] mask-size-[120px_120px]
+---
+.mask-size-\[120px\] {
+      -webkit-mask-size: 120px;
+      mask-size: 120px;
+    }
+
+    .mask-size-\[120px_120px\] {
+      -webkit-mask-size: 120px 120px;
+      mask-size: 120px 120px;
+    }
+
+    .mask-size-\[var\(--some-var\)\] {
+      -webkit-mask-size: var(--some-var);
+      -webkit-mask-size: var(--some-var);
+      mask-size: var(--some-var);
+    }
+<<<>>>
+# mask-size
 @config run
--mask-size -mask-size/foo mask-size mask-size-[120px_120px]/foo mask-size/foo
+-mask-size -mask-size-[120px_120px] -mask-size-[120px_120px]/foo -mask-size/foo mask-size mask-size-[120px_120px]/foo mask-size/foo
 ---
 
 <<<>>>
 # mask-t-from
 @config theme
-mask-t-from-0 mask-t-from-0% mask-t-from-1.5 mask-t-from-2 mask-t-from-2% mask-t-from-[0px]
+mask-t-from-0 mask-t-from-0% mask-t-from-1.5 mask-t-from-2 mask-t-from-2% mask-t-from-[0%] mask-t-from-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -10727,13 +10806,13 @@ mask-t-from-0 mask-t-from-0% mask-t-from-1.5 mask-t-from-2 mask-t-from-2% mask-t
 <<<>>>
 # mask-t-from
 @config theme
--mask-t-from-0 -mask-t-from-0% -mask-t-from-1.5 -mask-t-from-2 -mask-t-from-2% -mask-t-from-[0px] mask-t-from mask-t-from--1.5 mask-t-from--2 mask-t-from--5% mask-t-from-2.5% mask-t-from-2.8175 mask-t-from-unknown mask-t-from-unknown%
+-mask-l-from-[-25%] -mask-l-from-[-25%]/foo -mask-l-from-[25%]/foo -mask-t-from-0 -mask-t-from-0% -mask-t-from-1.5 -mask-t-from-2 -mask-t-from-2% -mask-t-from-[0%] -mask-t-from-[0px] mask-l-from-[-25%] mask-l-from-[-25%]/foo mask-l-from-[25%]/foo mask-t-from mask-t-from--1.5 mask-t-from--2 mask-t-from--5% mask-t-from-2.5% mask-t-from-2.8175 mask-t-from-unknown mask-t-from-unknown%
 ---
 
 <<<>>>
 # mask-t-to
 @config theme
-mask-t-to-0 mask-t-to-0% mask-t-to-1.5 mask-t-to-2 mask-t-to-2% mask-t-to-[0px]
+mask-t-to-0 mask-t-to-0% mask-t-to-1.5 mask-t-to-2 mask-t-to-2% mask-t-to-[0%] mask-t-to-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -10933,13 +11012,13 @@ mask-t-to-0 mask-t-to-0% mask-t-to-1.5 mask-t-to-2 mask-t-to-2% mask-t-to-[0px]
 <<<>>>
 # mask-t-to
 @config theme
--mask-t-to-0 -mask-t-to-0% -mask-t-to-1.5 -mask-t-to-2 -mask-t-to-2% -mask-t-to-[0px] mask-t-to mask-t-to--1.5 mask-t-to--2 mask-t-to--5% mask-t-to-2.5% mask-t-to-2.8175 mask-t-to-unknown mask-t-to-unknown%
+-mask-l-from-[-25%] -mask-l-from-[-25%]/foo -mask-l-from-[25%]/foo -mask-t-to-0 -mask-t-to-0% -mask-t-to-1.5 -mask-t-to-2 -mask-t-to-2% -mask-t-to-[0%] -mask-t-to-[0px] mask-l-from-[-25%] mask-l-from-[-25%]/foo mask-l-from-[25%]/foo mask-t-to mask-t-to--1.5 mask-t-to--2 mask-t-to--5% mask-t-to-2.5% mask-t-to-2.8175 mask-t-to-unknown mask-t-to-unknown%
 ---
 
 <<<>>>
 # mask-r-from
 @config theme
-mask-r-from-0 mask-r-from-0% mask-r-from-1.5 mask-r-from-2 mask-r-from-2% mask-r-from-[0px]
+mask-r-from-0 mask-r-from-0% mask-r-from-1.5 mask-r-from-2 mask-r-from-2% mask-r-from-[0%] mask-r-from-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -11139,13 +11218,13 @@ mask-r-from-0 mask-r-from-0% mask-r-from-1.5 mask-r-from-2 mask-r-from-2% mask-r
 <<<>>>
 # mask-r-from
 @config theme
--mask-r-from-0 -mask-r-from-0% -mask-r-from-1.5 -mask-r-from-2 -mask-r-from-2% -mask-r-from-[0px] mask-r-from mask-r-from--1.5 mask-r-from--2 mask-r-from--5% mask-r-from-2.5% mask-r-from-2.8175 mask-r-from-unknown mask-r-from-unknown%
+-mask-r-from-0 -mask-r-from-0% -mask-r-from-1.5 -mask-r-from-2 -mask-r-from-2% -mask-r-from-[-25%] -mask-r-from-[-25%]/foo -mask-r-from-[0%] -mask-r-from-[0px] -mask-r-from-[25%]/foo mask-r-from mask-r-from--1.5 mask-r-from--2 mask-r-from--5% mask-r-from-2.5% mask-r-from-2.8175 mask-r-from-[-25%] mask-r-from-[-25%]/foo mask-r-from-[25%]/foo mask-r-from-unknown mask-r-from-unknown%
 ---
 
 <<<>>>
 # mask-r-to
 @config theme
-mask-r-to-0 mask-r-to-0% mask-r-to-1.5 mask-r-to-2 mask-r-to-2% mask-r-to-[0px]
+mask-r-to-0 mask-r-to-0% mask-r-to-1.5 mask-r-to-2 mask-r-to-2% mask-r-to-[0%] mask-r-to-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -11345,13 +11424,13 @@ mask-r-to-0 mask-r-to-0% mask-r-to-1.5 mask-r-to-2 mask-r-to-2% mask-r-to-[0px]
 <<<>>>
 # mask-r-to
 @config theme
--mask-r-to-0 -mask-r-to-0% -mask-r-to-1.5 -mask-r-to-2 -mask-r-to-2% -mask-r-to-[0px] mask-r-to mask-r-to--1.5 mask-r-to--2 mask-r-to--5% mask-r-to-2.5% mask-r-to-2.8175 mask-r-to-unknown mask-r-to-unknown%
+-mask-r-to-0 -mask-r-to-0% -mask-r-to-1.5 -mask-r-to-2 -mask-r-to-2% -mask-r-to-[-25%] -mask-r-to-[-25%]/foo -mask-r-to-[0%] -mask-r-to-[0px] -mask-r-to-[25%]/foo mask-r-to mask-r-to--1.5 mask-r-to--2 mask-r-to--5% mask-r-to-2.5% mask-r-to-2.8175 mask-r-to-[-25%] mask-r-to-[-25%]/foo mask-r-to-[25%]/foo mask-r-to-unknown mask-r-to-unknown%
 ---
 
 <<<>>>
 # mask-b-from
 @config theme
-mask-b-from-0 mask-b-from-0% mask-b-from-1.5 mask-b-from-2 mask-b-from-2% mask-b-from-[0px]
+mask-b-from-0 mask-b-from-0% mask-b-from-1.5 mask-b-from-2 mask-b-from-2% mask-b-from-[0%] mask-b-from-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -11551,13 +11630,13 @@ mask-b-from-0 mask-b-from-0% mask-b-from-1.5 mask-b-from-2 mask-b-from-2% mask-b
 <<<>>>
 # mask-b-from
 @config theme
--mask-b-from-0 -mask-b-from-0% -mask-b-from-1.5 -mask-b-from-2 -mask-b-from-2% -mask-b-from-[0px] mask-b-from mask-b-from--1.5 mask-b-from--2 mask-b-from--5% mask-b-from-2.5% mask-b-from-2.8175 mask-b-from-unknown mask-b-from-unknown%
+-mask-b-from-0 -mask-b-from-0% -mask-b-from-1.5 -mask-b-from-2 -mask-b-from-2% -mask-b-from-[-25%] -mask-b-from-[-25%]/foo -mask-b-from-[0%] -mask-b-from-[0px] -mask-b-from-[25%]/foo mask-b-from mask-b-from--1.5 mask-b-from--2 mask-b-from--5% mask-b-from-2.5% mask-b-from-2.8175 mask-b-from-[-25%] mask-b-from-[-25%]/foo mask-b-from-[25%]/foo mask-b-from-unknown mask-b-from-unknown%
 ---
 
 <<<>>>
 # mask-b-to
 @config theme
-mask-b-to-0 mask-b-to-0% mask-b-to-1.5 mask-b-to-2 mask-b-to-2% mask-b-to-[0px]
+mask-b-to-0 mask-b-to-0% mask-b-to-1.5 mask-b-to-2 mask-b-to-2% mask-b-to-[0%] mask-b-to-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -11757,13 +11836,13 @@ mask-b-to-0 mask-b-to-0% mask-b-to-1.5 mask-b-to-2 mask-b-to-2% mask-b-to-[0px]
 <<<>>>
 # mask-b-to
 @config theme
--mask-b-to-0 -mask-b-to-0% -mask-b-to-1.5 -mask-b-to-2 -mask-b-to-2% -mask-b-to-[0px] mask-b-to mask-b-to--1.5 mask-b-to--2 mask-b-to--5% mask-b-to-2.5% mask-b-to-2.8175 mask-b-to-unknown mask-b-to-unknown%
+-mask-b-to-0 -mask-b-to-0% -mask-b-to-1.5 -mask-b-to-2 -mask-b-to-2% -mask-b-to-[-25%] -mask-b-to-[-25%]/foo -mask-b-to-[0%] -mask-b-to-[0px] -mask-b-to-[25%]/foo mask-b-to mask-b-to--1.5 mask-b-to--2 mask-b-to--5% mask-b-to-2.5% mask-b-to-2.8175 mask-b-to-[-25%] mask-b-to-[-25%]/foo mask-b-to-[25%]/foo mask-b-to-unknown mask-b-to-unknown%
 ---
 
 <<<>>>
 # mask-l-from
 @config theme
-mask-l-from-0 mask-l-from-0% mask-l-from-1.5 mask-l-from-2 mask-l-from-2% mask-l-from-[0px]
+mask-l-from-0 mask-l-from-0% mask-l-from-1.5 mask-l-from-2 mask-l-from-2% mask-l-from-[0%] mask-l-from-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -11963,13 +12042,13 @@ mask-l-from-0 mask-l-from-0% mask-l-from-1.5 mask-l-from-2 mask-l-from-2% mask-l
 <<<>>>
 # mask-l-from
 @config theme
--mask-l-from-0 -mask-l-from-0% -mask-l-from-1.5 -mask-l-from-2 -mask-l-from-2% -mask-l-from-[0px] mask-l-from mask-l-from--1.5 mask-l-from--2 mask-l-from--5% mask-l-from-2.5% mask-l-from-2.8175 mask-l-from-unknown mask-l-from-unknown%
+-mask-l-from-0 -mask-l-from-0% -mask-l-from-1.5 -mask-l-from-2 -mask-l-from-2% -mask-l-from-[-25%] -mask-l-from-[-25%]/foo -mask-l-from-[0%] -mask-l-from-[0px] -mask-l-from-[25%]/foo mask-l-from mask-l-from--1.5 mask-l-from--2 mask-l-from--5% mask-l-from-2.5% mask-l-from-2.8175 mask-l-from-[-25%] mask-l-from-[-25%]/foo mask-l-from-[25%]/foo mask-l-from-unknown mask-l-from-unknown%
 ---
 
 <<<>>>
 # mask-l-to
 @config theme
-mask-l-to-0 mask-l-to-0% mask-l-to-1.5 mask-l-to-2 mask-l-to-2% mask-l-to-[0px]
+mask-l-to-0 mask-l-to-0% mask-l-to-1.5 mask-l-to-2 mask-l-to-2% mask-l-to-[0%] mask-l-to-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -12169,13 +12248,13 @@ mask-l-to-0 mask-l-to-0% mask-l-to-1.5 mask-l-to-2 mask-l-to-2% mask-l-to-[0px]
 <<<>>>
 # mask-l-to
 @config theme
--mask-l-to-0 -mask-l-to-0% -mask-l-to-1.5 -mask-l-to-2 -mask-l-to-2% -mask-l-to-[0px] mask-l-to mask-l-to--1.5 mask-l-to--2 mask-l-to--5% mask-l-to-2.5% mask-l-to-2.8175 mask-l-to-unknown mask-l-to-unknown%
+-mask-l-to-0 -mask-l-to-0% -mask-l-to-1.5 -mask-l-to-2 -mask-l-to-2% -mask-l-to-[-25%] -mask-l-to-[-25%]/foo -mask-l-to-[0%] -mask-l-to-[0px] -mask-l-to-[25%]/foo mask-l-to mask-l-to--1.5 mask-l-to--2 mask-l-to--5% mask-l-to-2.5% mask-l-to-2.8175 mask-l-to-[-25%] mask-l-to-[-25%]/foo mask-l-to-[25%]/foo mask-l-to-unknown mask-l-to-unknown%
 ---
 
 <<<>>>
 # mask-x-from
 @config theme
-mask-x-from-0 mask-x-from-0% mask-x-from-1.5 mask-x-from-2 mask-x-from-2% mask-x-from-[0px]
+mask-x-from-0 mask-x-from-0% mask-x-from-1.5 mask-x-from-2 mask-x-from-2% mask-x-from-[0%] mask-x-from-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -12421,13 +12500,13 @@ mask-x-from-0 mask-x-from-0% mask-x-from-1.5 mask-x-from-2 mask-x-from-2% mask-x
 <<<>>>
 # mask-x-from
 @config theme
--mask-x-from-0 -mask-x-from-0% -mask-x-from-1.5 -mask-x-from-2 -mask-x-from-2% -mask-x-from-[0px] mask-x-from mask-x-from--1.5 mask-x-from--2 mask-x-from--5% mask-x-from-2.5% mask-x-from-2.8175 mask-x-from-unknown mask-x-from-unknown%
+-mask-x-from-0 -mask-x-from-0% -mask-x-from-1.5 -mask-x-from-2 -mask-x-from-2% -mask-x-from-[-25%] -mask-x-from-[-25%]/foo -mask-x-from-[0%] -mask-x-from-[0px] -mask-x-from-[25%]/foo mask-x-from mask-x-from--1.5 mask-x-from--2 mask-x-from--5% mask-x-from-2.5% mask-x-from-2.8175 mask-x-from-[-25%] mask-x-from-[-25%]/foo mask-x-from-[25%]/foo mask-x-from-unknown mask-x-from-unknown%
 ---
 
 <<<>>>
 # mask-x-to
 @config theme
-mask-x-to-0 mask-x-to-0% mask-x-to-1.5 mask-x-to-2 mask-x-to-2% mask-x-to-[0px]
+mask-x-to-0 mask-x-to-0% mask-x-to-1.5 mask-x-to-2 mask-x-to-2% mask-x-to-[0%] mask-x-to-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -12673,13 +12752,13 @@ mask-x-to-0 mask-x-to-0% mask-x-to-1.5 mask-x-to-2 mask-x-to-2% mask-x-to-[0px]
 <<<>>>
 # mask-x-to
 @config theme
--mask-x-to-0 -mask-x-to-0% -mask-x-to-1.5 -mask-x-to-2 -mask-x-to-2% -mask-x-to-[0px] mask-x-to mask-x-to--1.5 mask-x-to--2 mask-x-to--5% mask-x-to-2.5% mask-x-to-2.8175 mask-x-to-unknown mask-x-to-unknown%
+-mask-x-to-0 -mask-x-to-0% -mask-x-to-1.5 -mask-x-to-2 -mask-x-to-2% -mask-x-to-[-25%] -mask-x-to-[-25%]/foo -mask-x-to-[0%] -mask-x-to-[0px] -mask-x-to-[25%]/foo mask-x-to mask-x-to--1.5 mask-x-to--2 mask-x-to--5% mask-x-to-2.5% mask-x-to-2.8175 mask-x-to-[-25%] mask-x-to-[-25%]/foo mask-x-to-[25%]/foo mask-x-to-unknown mask-x-to-unknown%
 ---
 
 <<<>>>
 # mask-y-from
 @config theme
-mask-y-from-0 mask-y-from-0% mask-y-from-1.5 mask-y-from-2 mask-y-from-2% mask-y-from-[0px]
+mask-y-from-0 mask-y-from-0% mask-y-from-1.5 mask-y-from-2 mask-y-from-2% mask-y-from-[0%] mask-y-from-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -12925,13 +13004,13 @@ mask-y-from-0 mask-y-from-0% mask-y-from-1.5 mask-y-from-2 mask-y-from-2% mask-y
 <<<>>>
 # mask-y-from
 @config theme
--mask-y-from-0 -mask-y-from-0% -mask-y-from-1.5 -mask-y-from-2 -mask-y-from-2% -mask-y-from-[0px] mask-y-from mask-y-from--1.5 mask-y-from--2 mask-y-from--5% mask-y-from-2.5% mask-y-from-2.8175 mask-y-from-unknown mask-y-from-unknown%
+-mask-y-from-0 -mask-y-from-0% -mask-y-from-1.5 -mask-y-from-2 -mask-y-from-2% -mask-y-from-[-25%] -mask-y-from-[-25%]/foo -mask-y-from-[0%] -mask-y-from-[0px] -mask-y-from-[25%]/foo mask-y-from mask-y-from--1.5 mask-y-from--2 mask-y-from--5% mask-y-from-2.5% mask-y-from-2.8175 mask-y-from-[-25%] mask-y-from-[-25%]/foo mask-y-from-[25%]/foo mask-y-from-unknown mask-y-from-unknown%
 ---
 
 <<<>>>
 # mask-y-to
 @config theme
-mask-y-to-0 mask-y-to-0% mask-y-to-1.5 mask-y-to-2 mask-y-to-2% mask-y-to-[0px]
+mask-y-to-0 mask-y-to-0% mask-y-to-1.5 mask-y-to-2 mask-y-to-2% mask-y-to-[0%] mask-y-to-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -13177,13 +13256,13 @@ mask-y-to-0 mask-y-to-0% mask-y-to-1.5 mask-y-to-2 mask-y-to-2% mask-y-to-[0px]
 <<<>>>
 # mask-y-to
 @config theme
--mask-y-to-0 -mask-y-to-0% -mask-y-to-1.5 -mask-y-to-2 -mask-y-to-2% -mask-y-to-[0px] mask-y-to mask-y-to--1.5 mask-y-to--2 mask-y-to--5% mask-y-to-2.5% mask-y-to-2.8175 mask-y-to-unknown mask-y-to-unknown%
+-mask-y-to-0 -mask-y-to-0% -mask-y-to-1.5 -mask-y-to-2 -mask-y-to-2% -mask-y-to-[-25%] -mask-y-to-[-25%]/foo -mask-y-to-[0%] -mask-y-to-[0px] -mask-y-to-[25%]/foo mask-y-to mask-y-to--1.5 mask-y-to--2 mask-y-to--5% mask-y-to-2.5% mask-y-to-2.8175 mask-y-to-[-25%] mask-y-to-[-25%]/foo mask-y-to-[25%]/foo mask-y-to-unknown mask-y-to-unknown%
 ---
 
 <<<>>>
 # mask-linear
 @config none
-mask-linear-45
+-mask-linear-45 mask-linear-45 mask-linear-[3rad]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -13283,13 +13362,13 @@ mask-linear-45
 <<<>>>
 # mask-linear
 @config run
--mask-linear -mask-linear-45/foo mask-linear mask-linear--75 mask-linear--75/foo mask-linear-45/foo mask-linear-[3rad]/foo mask-linear-unknown mask-linear-unknown/foo
+-mask-linear -mask-linear-45/foo -mask-linear-[3rad]/foo mask-linear mask-linear--75 mask-linear--75/foo mask-linear-45/foo mask-linear-[3rad]/foo mask-linear-unknown mask-linear-unknown/foo
 ---
 
 <<<>>>
 # mask-linear-from
 @config theme
-mask-linear-from-0 mask-linear-from-0% mask-linear-from-1.5 mask-linear-from-2 mask-linear-from-2% mask-linear-from-[0px]
+mask-linear-from-0 mask-linear-from-0% mask-linear-from-1.5 mask-linear-from-2 mask-linear-from-2% mask-linear-from-[0%] mask-linear-from-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -13468,13 +13547,13 @@ mask-linear-from-0 mask-linear-from-0% mask-linear-from-1.5 mask-linear-from-2 m
 <<<>>>
 # mask-linear-from
 @config theme
--mask-linear-from-0 -mask-linear-from-0% -mask-linear-from-1.5 -mask-linear-from-2 -mask-linear-from-2% -mask-linear-from-[0px] mask-linear-from mask-linear-from--1.5 mask-linear-from--2 mask-linear-from--5% mask-linear-from-2.5% mask-linear-from-2.8175 mask-linear-from-unknown mask-linear-from-unknown%
+-mask-linear-from-0 -mask-linear-from-0% -mask-linear-from-1.5 -mask-linear-from-2 -mask-linear-from-2% -mask-linear-from-[-25%] -mask-linear-from-[-25%]/foo -mask-linear-from-[0%] -mask-linear-from-[0px] -mask-linear-from-[25%]/foo mask-linear-from mask-linear-from--1.5 mask-linear-from--2 mask-linear-from--5% mask-linear-from-2.5% mask-linear-from-2.8175 mask-linear-from-[-25%] mask-linear-from-[-25%]/foo mask-linear-from-[25%]/foo mask-linear-from-unknown mask-linear-from-unknown%
 ---
 
 <<<>>>
 # mask-linear-to
 @config theme
-mask-linear-to-0 mask-linear-to-0% mask-linear-to-1.5 mask-linear-to-2 mask-linear-to-2% mask-linear-to-[0px]
+mask-linear-to-0 mask-linear-to-0% mask-linear-to-1.5 mask-linear-to-2 mask-linear-to-2% mask-linear-to-[0%] mask-linear-to-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -13653,7 +13732,7 @@ mask-linear-to-0 mask-linear-to-0% mask-linear-to-1.5 mask-linear-to-2 mask-line
 <<<>>>
 # mask-linear-to
 @config theme
--mask-linear-to-0 -mask-linear-to-0% -mask-linear-to-1.5 -mask-linear-to-2 -mask-linear-to-2% -mask-linear-to-[0px] mask-linear-to mask-linear-to--1.5 mask-linear-to--2 mask-linear-to--5% mask-linear-to-2.5% mask-linear-to-2.8175 mask-linear-to-unknown mask-linear-to-unknown%
+-mask-linear-to-0 -mask-linear-to-0% -mask-linear-to-1.5 -mask-linear-to-2 -mask-linear-to-2% -mask-linear-to-[-25%] -mask-linear-to-[-25%]/foo -mask-linear-to-[0%] -mask-linear-to-[0px] -mask-linear-to-[25%]/foo mask-linear-to mask-linear-to--1.5 mask-linear-to--2 mask-linear-to--5% mask-linear-to-2.5% mask-linear-to-2.8175 mask-linear-to-[-25%] mask-linear-to-[-25%]/foo mask-linear-to-[25%]/foo mask-linear-to-unknown mask-linear-to-unknown%
 ---
 
 <<<>>>
@@ -13775,7 +13854,7 @@ mask-circle mask-ellipse mask-radial-[25%_25%] mask-radial-closest-corner mask-r
 <<<>>>
 # mask-radial
 @config run
-mask-radial mask-radial-[25%_25%]/foo
+-mask-radial -mask-radial-[25%_25%] -mask-radial-[25%_25%]/foo -mask-radial-from-[-25%] -mask-radial-from-[-25%]/foo -mask-radial-from-[25%]/foo -mask-radial/foo mask-radial mask-radial-[25%_25%]/foo mask-radial-from-[-25%] mask-radial-from-[-25%]/foo mask-radial-from-[25%]/foo mask-radial/foo
 ---
 
 <<<>>>
@@ -13821,13 +13900,13 @@ mask-radial-at-[25%] mask-radial-at-bottom mask-radial-at-bottom-left mask-radia
 <<<>>>
 # mask-radial-at
 @config run
-mask-radial-at mask-radial-at-25 mask-radial-at-[25%]/foo mask-radial-at-unknown mask-radial-at/foo
+-mask-radial-at -mask-radial-at-25 -mask-radial-at-[-25%] -mask-radial-at-[-25%]/foo -mask-radial-at-[25%] -mask-radial-at-[25%]/foo -mask-radial-at-bottom -mask-radial-at-bottom-left -mask-radial-at-bottom-right -mask-radial-at-left -mask-radial-at-right -mask-radial-at-top -mask-radial-at-top-left -mask-radial-at-top-right -mask-radial-at-unknown -mask-radial-at/foo mask-radial-at mask-radial-at-25 mask-radial-at-[-25%]/foo mask-radial-at-[25%]/foo mask-radial-at-bottom-left/foo mask-radial-at-bottom-right/foo mask-radial-at-bottom/foo mask-radial-at-left/foo mask-radial-at-right/foo mask-radial-at-top-left/foo mask-radial-at-top-right/foo mask-radial-at-top/foo mask-radial-at-unknown mask-radial-at/foo
 ---
 
 <<<>>>
 # mask-radial-from
 @config theme
-mask-radial-from-0 mask-radial-from-0% mask-radial-from-1.5 mask-radial-from-2 mask-radial-from-2% mask-radial-from-[0px]
+mask-radial-from-0 mask-radial-from-0% mask-radial-from-1.5 mask-radial-from-2 mask-radial-from-2% mask-radial-from-[0%] mask-radial-from-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -14020,13 +14099,13 @@ mask-radial-from-0 mask-radial-from-0% mask-radial-from-1.5 mask-radial-from-2 m
 <<<>>>
 # mask-radial-from
 @config theme
--mask-radial-from-0 -mask-radial-from-0% -mask-radial-from-1.5 -mask-radial-from-2 -mask-radial-from-2% -mask-radial-from-[0px] mask-radial-from mask-radial-from--1.5 mask-radial-from--2 mask-radial-from--5% mask-radial-from-2.5% mask-radial-from-2.8175 mask-radial-from-unknown mask-radial-from-unknown%
+-mask-radial-from-0 -mask-radial-from-0% -mask-radial-from-1.5 -mask-radial-from-2 -mask-radial-from-2% -mask-radial-from-[-25%] -mask-radial-from-[-25%]/foo -mask-radial-from-[0%] -mask-radial-from-[0px] -mask-radial-from-[25%]/foo mask-radial-from mask-radial-from--1.5 mask-radial-from--2 mask-radial-from--5% mask-radial-from-2.5% mask-radial-from-2.8175 mask-radial-from-[-25%] mask-radial-from-[-25%]/foo mask-radial-from-[25%]/foo mask-radial-from-unknown mask-radial-from-unknown%
 ---
 
 <<<>>>
 # mask-radial-to
 @config theme
-mask-radial-to-0 mask-radial-to-0% mask-radial-to-1.5 mask-radial-to-2 mask-radial-to-2% mask-radial-to-[0px]
+mask-radial-to-0 mask-radial-to-0% mask-radial-to-1.5 mask-radial-to-2 mask-radial-to-2% mask-radial-to-[0%] mask-radial-to-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -14219,13 +14298,13 @@ mask-radial-to-0 mask-radial-to-0% mask-radial-to-1.5 mask-radial-to-2 mask-radi
 <<<>>>
 # mask-radial-to
 @config theme
--mask-radial-to-0 -mask-radial-to-0% -mask-radial-to-1.5 -mask-radial-to-2 -mask-radial-to-2% -mask-radial-to-[0px] mask-radial-to mask-radial-to--1.5 mask-radial-to--2 mask-radial-to--5% mask-radial-to-2.5% mask-radial-to-2.8175 mask-radial-to-unknown mask-radial-to-unknown%
+-mask-radial-to-0 -mask-radial-to-0% -mask-radial-to-1.5 -mask-radial-to-2 -mask-radial-to-2% -mask-radial-to-[-25%] -mask-radial-to-[-25%]/foo -mask-radial-to-[0%] -mask-radial-to-[0px] -mask-radial-to-[25%]/foo mask-radial-to mask-radial-to--1.5 mask-radial-to--2 mask-radial-to--5% mask-radial-to-2.5% mask-radial-to-2.8175 mask-radial-to-[-25%] mask-radial-to-[-25%]/foo mask-radial-to-[25%]/foo mask-radial-to-unknown mask-radial-to-unknown%
 ---
 
 <<<>>>
 # mask-conic
 @config none
-mask-conic-45
+-mask-conic-45 mask-conic-45 mask-conic-[3rad]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -14325,13 +14404,13 @@ mask-conic-45
 <<<>>>
 # mask-conic
 @config run
--mask-conic -mask-conic-45/foo mask-conic mask-conic--75 mask-conic--75/foo mask-conic-45/foo mask-conic-[3rad]/foo mask-conic-unknown mask-conic-unknown/foo
+-mask-conic -mask-conic-45/foo -mask-conic-[3rad]/foo mask-conic mask-conic--75 mask-conic--75/foo mask-conic-45/foo mask-conic-[3rad]/foo mask-conic-unknown mask-conic-unknown/foo
 ---
 
 <<<>>>
 # mask-conic-from
 @config theme
-mask-conic-from-0 mask-conic-from-0% mask-conic-from-1.5 mask-conic-from-2 mask-conic-from-2% mask-conic-from-[0px]
+mask-conic-from-0 mask-conic-from-0% mask-conic-from-1.5 mask-conic-from-2 mask-conic-from-2% mask-conic-from-[0%] mask-conic-from-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -14510,13 +14589,13 @@ mask-conic-from-0 mask-conic-from-0% mask-conic-from-1.5 mask-conic-from-2 mask-
 <<<>>>
 # mask-conic-from
 @config theme
--mask-conic-from-0 -mask-conic-from-0% -mask-conic-from-1.5 -mask-conic-from-2 -mask-conic-from-2% -mask-conic-from-[0px] mask-conic-from mask-conic-from--1.5 mask-conic-from--2 mask-conic-from--5% mask-conic-from-2.5% mask-conic-from-2.8175 mask-conic-from-unknown mask-conic-from-unknown%
+-mask-conic-from-0 -mask-conic-from-0% -mask-conic-from-1.5 -mask-conic-from-2 -mask-conic-from-2% -mask-conic-from-[-25%] -mask-conic-from-[-25%]/foo -mask-conic-from-[0%] -mask-conic-from-[0px] -mask-conic-from-[25%]/foo mask-conic-from mask-conic-from--1.5 mask-conic-from--2 mask-conic-from--5% mask-conic-from-2.5% mask-conic-from-2.8175 mask-conic-from-[-25%] mask-conic-from-[-25%]/foo mask-conic-from-[25%]/foo mask-conic-from-unknown mask-conic-from-unknown%
 ---
 
 <<<>>>
 # mask-conic-to
 @config theme
-mask-conic-to-0 mask-conic-to-0% mask-conic-to-1.5 mask-conic-to-2 mask-conic-to-2% mask-conic-to-[0px]
+mask-conic-to-0 mask-conic-to-0% mask-conic-to-1.5 mask-conic-to-2 mask-conic-to-2% mask-conic-to-[0%] mask-conic-to-[0px]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -14695,7 +14774,7 @@ mask-conic-to-0 mask-conic-to-0% mask-conic-to-1.5 mask-conic-to-2 mask-conic-to
 <<<>>>
 # mask-conic-to
 @config theme
--mask-conic-to-0 -mask-conic-to-0% -mask-conic-to-1.5 -mask-conic-to-2 -mask-conic-to-2% -mask-conic-to-[0px] mask-conic-to mask-conic-to--1.5 mask-conic-to--2 mask-conic-to--5% mask-conic-to-2.5% mask-conic-to-2.8175 mask-conic-to-unknown mask-conic-to-unknown%
+-mask-conic-to-0 -mask-conic-to-0% -mask-conic-to-1.5 -mask-conic-to-2 -mask-conic-to-2% -mask-conic-to-[-25%] -mask-conic-to-[-25%]/foo -mask-conic-to-[0%] -mask-conic-to-[0px] -mask-conic-to-[25%]/foo mask-conic-to mask-conic-to--1.5 mask-conic-to--2 mask-conic-to--5% mask-conic-to-2.5% mask-conic-to-2.8175 mask-conic-to-[-25%] mask-conic-to-[-25%]/foo mask-conic-to-[25%]/foo mask-conic-to-unknown mask-conic-to-unknown%
 ---
 
 <<<>>>
@@ -15011,7 +15090,7 @@ mix-blend-color mix-blend-color-burn mix-blend-color-dodge mix-blend-darken mix-
 <<<>>>
 # fill
 @config theme
-fill-red-500 fill-red-500/2.25 fill-red-500/2.5 fill-red-500/2.75 fill-red-500/50 fill-red-500/[0.5]
+fill-[#0088cc] fill-[#0088cc]/50 fill-[#0088cc]/[0.5] fill-[#0088cc]/[50%] fill-blue-500 fill-current fill-current/50 fill-current/[0.5] fill-current/[50%] fill-inherit fill-red-500 fill-red-500/2.25 fill-red-500/2.5 fill-red-500/2.75 fill-red-500/50 fill-red-500/[0.5] fill-red-500/[50%] fill-transparent
 ---
 :root, :host {
       --color-red-500: #ef4444;
@@ -15134,13 +15213,13 @@ fill-red-500 fill-red-500/2.25 fill-red-500/2.5 fill-red-500/2.75 fill-red-500/5
 <<<>>>
 # fill
 @config run
--fill-red-500 -fill-red-500/50 -fill-red-500/[0.5] fill fill-unknown
+-fill-[#0088cc] -fill-[#0088cc]/50 -fill-[#0088cc]/[0.5] -fill-[#0088cc]/[50%] -fill-current -fill-current/50 -fill-current/[0.5] -fill-current/[50%] -fill-inherit -fill-red-500 -fill-red-500/50 -fill-red-500/[0.5] -fill-red-500/[50%] -fill-transparent fill fill-unknown
 ---
 
 <<<>>>
 # stroke
 @config theme
-stroke-red-500 stroke-red-500/2.25 stroke-red-500/2.5 stroke-red-500/2.75 stroke-red-500/50 stroke-red-500/[0.5]
+stroke-0 stroke-1 stroke-2 stroke-[#0088cc] stroke-[#0088cc]/50 stroke-[#0088cc]/[0.5] stroke-[#0088cc]/[50%] stroke-[1.5] stroke-[12px] stroke-[50%] stroke-blue-500 stroke-current stroke-current/50 stroke-current/[0.5] stroke-current/[50%] stroke-inherit stroke-none stroke-red-500 stroke-red-500/2.25 stroke-red-500/2.5 stroke-red-500/2.75 stroke-red-500/50 stroke-red-500/[0.5] stroke-red-500/[50%] stroke-transparent
 ---
 :root, :host {
       --color-red-500: #ef4444;
@@ -15355,13 +15434,13 @@ stroke-red-500 stroke-red-500/2.25 stroke-red-500/2.5 stroke-red-500/2.75 stroke
 <<<>>>
 # stroke
 @config run
--stroke-red-500 -stroke-red-500/50 -stroke-red-500/[0.5] stroke stroke-unknown
+-stroke-0 -stroke-[#0088cc] -stroke-[#0088cc]/50 -stroke-[#0088cc]/[0.5] -stroke-[#0088cc]/[50%] -stroke-current -stroke-current/50 -stroke-current/[0.5] -stroke-current/[50%] -stroke-inherit -stroke-red-500 -stroke-red-500/50 -stroke-red-500/[0.5] -stroke-red-500/[50%] -stroke-transparent stroke stroke--1 stroke-unknown
 ---
 
 <<<>>>
 # object
 @config run
-object-contain object-cover object-fill object-none object-scale-down
+object-bottom object-bottom-left object-bottom-right object-center object-contain object-cover object-fill object-left object-left-bottom object-left-top object-none object-right object-right-bottom object-right-top object-scale-down object-top object-top-left object-top-right
 ---
 .object-contain {
       object-fit: contain;
@@ -15441,7 +15520,7 @@ object-contain object-cover object-fill object-none object-scale-down
 <<<>>>
 # object
 @config run
--object-contain -object-cover -object-fill -object-none -object-scale-down object
+-object-bottom -object-contain -object-cover -object-fill -object-none -object-scale-down object object-bottom/foo object-center/foo object-contain/foo object-cover/foo object-fill/foo object-left-bottom/foo object-left-top/foo object-left/foo object-none/foo object-right-bottom/foo object-right-top/foo object-right/foo object-scale-down/foo object-top/foo
 ---
 
 <<<>>>
@@ -15459,7 +15538,7 @@ object-center
 <<<>>>
 # p
 @config theme
-p-1 p-4 p-99 p-big
+p-1 p-4 p-99 p-[4px] p-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -15488,13 +15567,13 @@ p-1 p-4 p-99 p-big
 <<<>>>
 # p
 @config run
--p-4 p
+-p-4 -p-[4px] p p-4/foo p-[4px]/foo
 ---
 
 <<<>>>
 # px
 @config theme
-px-1 px-2.5 px-99 px-big
+px-1 px-2.5 px-99 px-[4px] px-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -15523,13 +15602,13 @@ px-1 px-2.5 px-99 px-big
 <<<>>>
 # px
 @config run
--px-4 px
+-px-4 -px-[4px] px px-4/foo px-[4px]/foo
 ---
 
 <<<>>>
 # py
 @config theme
-py-1 py-4 py-99 py-big
+py-1 py-4 py-99 py-[4px] py-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -15558,13 +15637,13 @@ py-1 py-4 py-99 py-big
 <<<>>>
 # py
 @config run
--py-4 py
+-py-4 -py-[4px] py py-4/foo py-[4px]/foo
 ---
 
 <<<>>>
 # pt
 @config theme
-pt-1 pt-4 pt-99 pt-big
+pt-1 pt-4 pt-99 pt-[4px] pt-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -15593,13 +15672,13 @@ pt-1 pt-4 pt-99 pt-big
 <<<>>>
 # pt
 @config run
--pt-4 pt
+-pt-4 -pt-[4px] pt pt-4/foo pt-[4px]/foo
 ---
 
 <<<>>>
 # ps
 @config theme
-ps-1 ps-4 ps-99 ps-big
+ps-1 ps-4 ps-99 ps-[4px] ps-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -15628,13 +15707,13 @@ ps-1 ps-4 ps-99 ps-big
 <<<>>>
 # ps
 @config run
--ps-4 ps
+-ps-4 -ps-[4px] ps ps-4/foo ps-[4px]/foo
 ---
 
 <<<>>>
 # pe
 @config theme
-pe-1 pe-4 pe-99 pe-big
+pe-1 pe-4 pe-99 pe-[4px] pe-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -15663,13 +15742,13 @@ pe-1 pe-4 pe-99 pe-big
 <<<>>>
 # pe
 @config run
--pe-4 pe
+-pe-4 -pe-[4px] pe pe-4/foo pe-[4px]/foo
 ---
 
 <<<>>>
 # pbs
 @config theme
-pbs-1 pbs-4 pbs-99 pbs-big
+pbs-1 pbs-4 pbs-99 pbs-[4px] pbs-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -15698,13 +15777,13 @@ pbs-1 pbs-4 pbs-99 pbs-big
 <<<>>>
 # pbs
 @config run
--pbs-4 pbs
+-pbs-4 -pbs-[4px] pbs pbs-4/foo pbs-[4px]/foo
 ---
 
 <<<>>>
 # pbe
 @config theme
-pbe-1 pbe-4 pbe-99 pbe-big
+pbe-1 pbe-4 pbe-99 pbe-[4px] pbe-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -15733,13 +15812,13 @@ pbe-1 pbe-4 pbe-99 pbe-big
 <<<>>>
 # pbe
 @config run
--pbe-4 pbe
+-pbe-4 -pbe-[4px] pbe pbe-4/foo pbe-[4px]/foo
 ---
 
 <<<>>>
 # pr
 @config theme
-pr-1 pr-4 pr-99 pr-big
+pr-1 pr-4 pr-99 pr-[4px] pr-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -15768,13 +15847,13 @@ pr-1 pr-4 pr-99 pr-big
 <<<>>>
 # pr
 @config run
--pr-4 pr
+-pr-4 -pr-[4px] pr pr-4/foo pr-[4px]/foo
 ---
 
 <<<>>>
 # pb
 @config theme
-pb-1 pb-4 pb-99 pb-big
+pb-1 pb-4 pb-99 pb-[4px] pb-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -15803,13 +15882,13 @@ pb-1 pb-4 pb-99 pb-big
 <<<>>>
 # pb
 @config run
--pb-4 pb
+-pb-4 -pb-[4px] pb pb-4/foo pb-[4px]/foo
 ---
 
 <<<>>>
 # pl
 @config theme
-pl-1 pl-4 pl-99 pl-big
+pl-1 pl-4 pl-99 pl-[4px] pl-big
 ---
 :root, :host {
       --spacing: .25rem;
@@ -15838,7 +15917,7 @@ pl-1 pl-4 pl-99 pl-big
 <<<>>>
 # pl
 @config run
--pl-4 pl
+-pl-4 -pl-[4px] pl pl-4/foo pl-[4px]/foo
 ---
 
 <<<>>>
@@ -15878,7 +15957,19 @@ text-center text-end text-justify text-left text-right text-start
 <<<>>>
 # indent
 @config run
-indent
+-indent-[4px] indent-[4px]
+---
+.-indent-\[4px\] {
+      text-indent: -4px;
+    }
+
+    .indent-\[4px\] {
+      text-indent: 4px;
+    }
+<<<>>>
+# indent
+@config run
+-indent-[4px]/foo indent indent-[4px]/foo
 ---
 
 <<<>>>
@@ -15924,13 +16015,13 @@ align-baseline align-bottom align-middle align-sub align-super align-text-bottom
 <<<>>>
 # align
 @config run
--align-baseline -align-bottom -align-middle -align-sub -align-super -align-text-bottom -align-text-top -align-top align
+-align-baseline -align-bottom -align-middle -align-sub -align-super -align-text-bottom -align-text-top -align-top align align-baseline/foo align-bottom/foo align-middle/foo align-sub/foo align-super/foo align-text-bottom/foo align-text-top/foo align-top/foo
 ---
 
 <<<>>>
 # font
 @config theme
-font-["arial_rounded"] font-sans
+font-["arial_rounded"] font-[100] font-[ui-sans-serif] font-bold font-sans
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -15989,13 +16080,13 @@ font-["arial_rounded"] font-sans
 <<<>>>
 # font
 @config theme-reference
--font-bold -font-sans font font-["arial_rounded"]/foo font-sans/foo font-weight-bold
+-font-bold -font-sans font font-["arial_rounded"]/foo font-[100]/foo font-[ui-sans-serif]/foo font-bold/foo font-sans/foo font-weight-bold
 ---
 
 <<<>>>
 # font-features
 @config run
-font-features-["smcp"]
+font-features-["c2sc","smcp"] font-features-["smcp"]
 ---
 .font-features-\(--my-features\) {
       font-feature-settings: var(--my-features);
@@ -16015,7 +16106,7 @@ font-features-["smcp"]
 <<<>>>
 # font-features
 @config run
--font-features-["smcp"] font-features
+-font-features-["smcp"] font-features font-features-["smcp"]/foo font-features-smcp
 ---
 
 <<<>>>
@@ -16113,7 +16204,7 @@ line-through no-underline overline underline
 <<<>>>
 # placeholder
 @config theme
-placeholder-red-500 placeholder-red-500/2.25 placeholder-red-500/2.5 placeholder-red-500/2.75 placeholder-red-500/50 placeholder-red-500/[0.5]
+placeholder-[#0088cc] placeholder-[#0088cc]/50 placeholder-[#0088cc]/[0.5] placeholder-[#0088cc]/[50%] placeholder-current placeholder-current/50 placeholder-current/[0.5] placeholder-current/[50%] placeholder-inherit placeholder-red-500 placeholder-red-500/2.25 placeholder-red-500/2.5 placeholder-red-500/2.75 placeholder-red-500/50 placeholder-red-500/[0.5] placeholder-red-500/[50%] placeholder-transparent
 ---
 :root, :host {
       --color-red-500: #ef4444;
@@ -16231,13 +16322,13 @@ placeholder-red-500 placeholder-red-500/2.25 placeholder-red-500/2.5 placeholder
 <<<>>>
 # placeholder
 @config run
--placeholder-red-500 -placeholder-red-500/50 -placeholder-red-500/[0.5] placeholder
+-placeholder-[#0088cc] -placeholder-[#0088cc]/50 -placeholder-[#0088cc]/[0.5] -placeholder-[#0088cc]/[50%] -placeholder-current -placeholder-current/50 -placeholder-current/[0.5] -placeholder-current/[50%] -placeholder-inherit -placeholder-red-500 -placeholder-red-500/50 -placeholder-red-500/[0.5] -placeholder-red-500/[50%] -placeholder-transparent placeholder
 ---
 
 <<<>>>
 # decoration
 @config theme
-decoration-red-500 decoration-red-500/50 decoration-red-500/[0.5]
+decoration-0 decoration-1 decoration-123 decoration-2 decoration-4 decoration-[#0088cc] decoration-[#0088cc]/50 decoration-[#0088cc]/[0.5] decoration-[#0088cc]/[50%] decoration-[12px] decoration-[50%] decoration-auto decoration-blue-500 decoration-current decoration-current/50 decoration-current/[0.5] decoration-current/[50%] decoration-dashed decoration-dotted decoration-double decoration-from-font decoration-inherit decoration-red-500 decoration-red-500/50 decoration-red-500/[0.5] decoration-red-500/[50%] decoration-solid decoration-transparent decoration-wavy
 ---
 :root, :host {
       --color-red-500: #ef4444;
@@ -16492,13 +16583,13 @@ decoration-red-500 decoration-red-500/50 decoration-red-500/[0.5]
 <<<>>>
 # decoration
 @config run
--decoration-red-500 -decoration-red-500/50 -decoration-red-500/[0.5] decoration
+-decoration-0 -decoration-1 -decoration-123 -decoration-2 -decoration-4 -decoration-[#0088cc] -decoration-[#0088cc]/50 -decoration-[#0088cc]/[0.5] -decoration-[#0088cc]/[50%] -decoration-auto -decoration-current -decoration-current/50 -decoration-current/[0.5] -decoration-current/[50%] -decoration-dashed -decoration-dotted -decoration-double -decoration-from-font -decoration-red-500 -decoration-red-500/50 -decoration-red-500/[0.5] -decoration-red-500/[50%] -decoration-solid -decoration-transparent -decoration-wavy decoration decoration--2 decoration-0/foo decoration-1/foo decoration-123/foo decoration-2/foo decoration-4/foo decoration-[12px]/foo decoration-[50%]/foo decoration-auto/foo decoration-dashed/foo decoration-dotted/foo decoration-double/foo decoration-from-font/foo decoration-solid/foo decoration-wavy/foo
 ---
 
 <<<>>>
 # animate
 @config theme
-animate-none animate-spin
+animate-[bounce_1s_infinite] animate-none animate-not-found animate-spin
 ---
 :root, :host {
       --animate-spin: spin 1s linear infinite;
@@ -16518,7 +16609,7 @@ animate-none animate-spin
 <<<>>>
 # animate
 @config run
--animate-[bounce_1s_infinite] -animate-none -animate-spin animate
+-animate-[bounce_1s_infinite] -animate-none -animate-not-found -animate-spin animate animate-[bounce_1s_infinite]/foo animate-none/foo animate-not-found/foo animate-spin/foo
 ---
 
 <<<>>>
@@ -16536,7 +16627,7 @@ animate-none
 <<<>>>
 # filter
 @config theme-inline
-filter filter-none
+-hue-rotate-15 -hue-rotate-[45deg] blur-[4px] blur-none blur-xl brightness-50 brightness-[1.23] contrast-50 contrast-[1.23] drop-shadow drop-shadow-[0_0_red] drop-shadow-inherit drop-shadow-multi drop-shadow-none drop-shadow-red-500 drop-shadow-red-500/50 drop-shadow-xl drop-shadow/25 filter filter-none grayscale grayscale-0 hue-rotate-15 hue-rotate-[45deg] invert invert-0 saturate-0 saturate-[1.75] sepia sepia-0 sepia-[50%]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -16834,7 +16925,7 @@ filter filter-none
 <<<>>>
 # filter
 @config run
--filter -filter-none
+-blur-[4px] -blur-xl -brightness-50 -brightness-[1.23] -contrast-50 -contrast-[1.23] -drop-shadow-[0_0_red] -drop-shadow-red-500 -drop-shadow-red-500/50 -drop-shadow-red-500/foo -drop-shadow-xl -drop-shadow/25 -drop-shadow/foo -filter -filter-none -grayscale -grayscale-0 -invert -invert-0 -saturate-0 -saturate-[1.75] -sepia -sepia-0 -sepia-[50%] blur-[4px]/foo blur-none/foo blur-xl/foo brightness--50 brightness-50/foo brightness-[1.23]/foo brightness-unknown contrast--50 contrast-50/foo contrast-[1.23]/foo contrast-unknown drop-shadow-[0_0_red]/foo drop-shadow-red-500/foo drop-shadow-xl/foo drop-shadow/foo filter-none/foo filter/foo grayscale--1 grayscale-0/foo grayscale-unknown grayscale/foo hue-rotate--5 hue-rotate-15/foo hue-rotate-[45deg]/foo hue-rotate-unknown invert--5 invert-0/foo invert-unknown invert/foo saturate--5 saturate-0/foo saturate-[1.75]/foo saturate-saturate sepia--50 sepia-0/foo sepia-[50%]/foo sepia-unknown sepia/foo
 ---
 
 <<<>>>
@@ -16939,7 +17030,7 @@ blur-none
 <<<>>>
 # backdrop-filter
 @config theme
-backdrop-filter backdrop-filter-none
+-backdrop-hue-rotate-15 -backdrop-hue-rotate-[45deg] backdrop-blur-[4px] backdrop-blur-none backdrop-blur-xl backdrop-brightness-50 backdrop-brightness-[1.23] backdrop-contrast-50 backdrop-contrast-[1.23] backdrop-filter backdrop-filter-none backdrop-grayscale backdrop-grayscale-0 backdrop-hue-rotate-15 backdrop-hue-rotate-[45deg] backdrop-invert backdrop-invert-0 backdrop-opacity-1.25 backdrop-opacity-2.5 backdrop-opacity-3.75 backdrop-opacity-50 backdrop-opacity-71 backdrop-opacity-[0.5] backdrop-saturate-0 backdrop-saturate-[1.75] backdrop-sepia backdrop-sepia-0 backdrop-sepia-[50%]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -17203,7 +17294,7 @@ backdrop-filter backdrop-filter-none
 <<<>>>
 # backdrop-filter
 @config run
--backdrop-filter -backdrop-filter-none
+-backdrop-blur-[4px] -backdrop-blur-xl -backdrop-brightness-50 -backdrop-brightness-[1.23] -backdrop-contrast-50 -backdrop-contrast-[1.23] -backdrop-filter -backdrop-filter-none -backdrop-grayscale -backdrop-grayscale-0 -backdrop-invert -backdrop-invert-0 -backdrop-opacity-50 -backdrop-opacity-[0.5] -backdrop-saturate-0 -backdrop-saturate-[1.75] -backdrop-sepia -backdrop-sepia-0 -backdrop-sepia-[50%] backdrop-blur-[4px]/foo backdrop-blur-none/foo backdrop-blur-xl/foo backdrop-brightness--50 backdrop-brightness-50/foo backdrop-brightness-[1.23]/foo backdrop-brightness-unknown backdrop-contrast--50 backdrop-contrast-50/foo backdrop-contrast-[1.23]/foo backdrop-contrast-unknown backdrop-filter-none/foo backdrop-filter/foo backdrop-grayscale--1 backdrop-grayscale-0/foo backdrop-grayscale-unknown backdrop-grayscale/foo backdrop-hue-rotate--15 backdrop-hue-rotate-15/foo backdrop-hue-rotate-[45deg]/foo backdrop-hue-rotate-unknown backdrop-invert--1 backdrop-invert-0/foo backdrop-invert-unknown backdrop-invert/foo backdrop-opacity--50 backdrop-opacity-50/foo backdrop-opacity-71/foo backdrop-opacity-[0.5]/foo backdrop-opacity-unknown backdrop-saturate--50 backdrop-saturate-0/foo backdrop-saturate-[1.75]/foo backdrop-saturate-unknown backdrop-sepia--50 backdrop-sepia-0/foo backdrop-sepia-[50%]/foo backdrop-sepia-unknown backdrop-sepia/foo
 ---
 
 <<<>>>
@@ -17372,7 +17463,7 @@ transition-all
 <<<>>>
 # transition
 @config run
--transition -transition-all -transition-none -transition-opacity
+-transition -transition-all -transition-none -transition-opacity transition-all/foo transition-colors/foo transition-none/foo transition-opacity/foo transition-shadow/foo transition-transform/foo transition/foo
 ---
 
 <<<>>>
@@ -17410,7 +17501,7 @@ transition-discrete transition-normal
 <<<>>>
 # delay
 @config run
-delay-123 delay-200
+delay-123 delay-200 delay-[300ms]
 ---
 .delay-123 {
       transition-delay: .123s;
@@ -17426,13 +17517,13 @@ delay-123 delay-200
 <<<>>>
 # delay
 @config run
--delay-200 -delay-[300ms] delay delay--200
+-delay-200 -delay-[300ms] delay delay--200 delay-123/foo delay-200/foo delay-[300ms]/foo delay-unknown
 ---
 
 <<<>>>
 # duration
 @config run
-duration-123 duration-200
+duration-123 duration-200 duration-[300ms]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -17464,7 +17555,7 @@ duration-123 duration-200
 <<<>>>
 # duration
 @config run
--duration-200 -duration-[300ms] duration duration--200
+-duration-200 -duration-[300ms] duration duration--200 duration-123/foo duration-200/foo duration-[300ms]/foo
 ---
 
 <<<>>>
@@ -17507,7 +17598,7 @@ ease-in ease-out
 <<<>>>
 # ease
 @config run
--ease-in -ease-out
+-ease-in -ease-out ease-in/foo ease-out/foo
 ---
 
 <<<>>>
@@ -17563,7 +17654,7 @@ will-change-auto will-change-contents will-change-scroll will-change-transform
 <<<>>>
 # will-change
 @config run
--will-change-auto -will-change-contents -will-change-scroll -will-change-transform will-change
+-will-change-auto -will-change-contents -will-change-scroll -will-change-transform will-change will-change-auto/foo will-change-contents/foo will-change-scroll/foo will-change-transform/foo
 ---
 
 <<<>>>
@@ -17651,7 +17742,7 @@ contain-[unset]/foo contain-content/foo contain-inline-size/foo contain-layout/f
 <<<>>>
 # content
 @config theme
-content-slash
+content-["hello_world"] content-slash
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -17683,7 +17774,7 @@ content-slash
 <<<>>>
 # content
 @config run
-content
+-content-["hello_world"] content content-["hello_world"]/foo
 <<<>>>
 # forced-color-adjust
 @config run
@@ -17742,7 +17833,7 @@ leading-6 leading-tight
 <<<>>>
 # leading
 @config run
--leading-6 -leading-tight leading
+-leading-6 -leading-tight leading leading-6/foo leading-tight/foo
 ---
 
 <<<>>>
@@ -17933,7 +18024,7 @@ diagonal-fractions lining-nums normal-nums oldstyle-nums ordinal proportional-nu
 <<<>>>
 # outline
 @config theme
-outline outline-dashed outline-dotted outline-double outline-hidden outline-none outline-red-500 outline-red-500/50 outline-red-500/[0.5] outline-solid
+outline outline-0 outline-[#0088cc] outline-[#0088cc]/50 outline-[#0088cc]/[0.5] outline-[#0088cc]/[50%] outline-[1.5] outline-[12px] outline-[50%] outline-[black] outline-[black]/50 outline-[black]/[0.5] outline-[black]/[50%] outline-blue-500 outline-current outline-current/50 outline-current/[0.5] outline-current/[50%] outline-dashed outline-dotted outline-double outline-hidden outline-inherit outline-none outline-red-500 outline-red-500/50 outline-red-500/[0.5] outline-red-500/[50%] outline-solid outline-transparent
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -18195,7 +18286,7 @@ outline
 
     .outline {
       outline-style: var(--tw-outline-style);
-      outline-width: 1px;
+      outline-width: 2px;
     }
 
     @property --tw-outline-style {
@@ -18206,7 +18297,7 @@ outline
 <<<>>>
 # outline
 @config run
--outline -outline-dashed -outline-dotted -outline-double -outline-none -outline-red-500 -outline-red-500/50 -outline-red-500/[0.5]
+-outline -outline-0 -outline-[#0088cc] -outline-[#0088cc]/50 -outline-[#0088cc]/[0.5] -outline-[#0088cc]/[50%] -outline-[black] -outline-current -outline-current/50 -outline-current/[0.5] -outline-current/[50%] -outline-dashed -outline-dotted -outline-double -outline-inherit -outline-none -outline-red-500 -outline-red-500/50 -outline-red-500/[0.5] -outline-red-500/[50%] -outline-transparent outline--10 outline-dashed/foo outline-dotted/foo outline-double/foo outline-none/foo outline-solid/foo outline/foo
 ---
 
 <<<>>>
@@ -18262,7 +18353,7 @@ opacity-15 opacity-2.5 opacity-3.25 opacity-4.75
 <<<>>>
 # opacity
 @config run
--opacity-15 opacity opacity--15 opacity-1.125
+-opacity-15 opacity opacity--15 opacity-1.125 opacity-15/foo opacity-unknown
 ---
 
 <<<>>>
@@ -18318,7 +18409,7 @@ underline-offset-auto
 <<<>>>
 # text
 @config theme
-text-red-500 text-red-500/2.25 text-red-500/2.5 text-red-500/2.75 text-red-500/50 text-red-500/[0.5]
+text-[#0088cc] text-[#0088cc]/50 text-[#0088cc]/[0.5] text-[#0088cc]/[50%] text-[10px]/none text-[12px] text-[12px]/6 text-[50%] text-[50%]/6 text-[larger] text-[larger]/6 text-[xx-large] text-[xx-large]/6 text-blue-500 text-current text-current/50 text-current/[0.5] text-current/[50%] text-inherit text-red-500 text-red-500/2.25 text-red-500/2.5 text-red-500/2.75 text-red-500/50 text-red-500/[0.5] text-red-500/[50%] text-sm text-sm/6 text-sm/[4px] text-sm/none text-sm/snug text-transparent
 ---
 :root, :host {
       --spacing: .25rem;
@@ -18592,13 +18683,13 @@ text-red-500 text-red-500/2.25 text-red-500/2.5 text-red-500/2.75 text-red-500/5
 <<<>>>
 # text
 @config theme-inline-reference
--text-red-500 -text-red-500/50 -text-red-500/[0.5] text
+-text-[#0088cc] -text-[#0088cc]/50 -text-[#0088cc]/[0.5] -text-[#0088cc]/[50%] -text-current -text-current/50 -text-current/[0.5] -text-current/[50%] -text-inherit -text-red-500 -text-red-500/50 -text-red-500/[0.5] -text-red-500/[50%] -text-sm -text-sm/6 -text-sm/[4px] -text-transparent text text-[10px]/foo text-sm/foo
 ---
 
 <<<>>>
 # text-shadow
 @config theme
-text-shadow-2xs text-shadow-[12px_12px_#0088cc] text-shadow-none text-shadow-sm
+text-shadow-2xs text-shadow-[#0088cc] text-shadow-[#0088cc]/50 text-shadow-[#0088cc]/[0.5] text-shadow-[#0088cc]/[50%] text-shadow-[10px_10px] text-shadow-[10px_10px]/25 text-shadow-[12px_12px_#0088cc] text-shadow-[12px_12px_#0088cc]/25 text-shadow-current text-shadow-current/50 text-shadow-current/[0.5] text-shadow-current/[50%] text-shadow-inherit text-shadow-none text-shadow-red-500 text-shadow-red-500/2.25 text-shadow-red-500/2.5 text-shadow-red-500/2.75 text-shadow-red-500/50 text-shadow-red-500/[0.5] text-shadow-red-500/[50%] text-shadow-sm text-shadow-sm/25 text-shadow-transparent
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -18890,13 +18981,13 @@ text-shadow-2xs text-shadow-[12px_12px_#0088cc] text-shadow-none text-shadow-sm
 <<<>>>
 # text-shadow
 @config run
--shadow-none -shadow-red-500 -shadow-red-500/50 -shadow-red-500/[0.5] -shadow-xl
+-shadow-[#0088cc] -shadow-[#0088cc]/50 -shadow-[#0088cc]/[0.5] -shadow-[#0088cc]/[50%] -shadow-current -shadow-current/50 -shadow-current/[0.5] -shadow-current/[50%] -shadow-inherit -shadow-none -shadow-red-500 -shadow-red-500/50 -shadow-red-500/[0.5] -shadow-red-500/[50%] -shadow-transparent -shadow-xl
 ---
 
 <<<>>>
 # shadow
 @config theme
-shadow-[12px_12px_#0088cc] shadow-none shadow-sm shadow-xl
+shadow-[#0088cc] shadow-[#0088cc]/50 shadow-[#0088cc]/[0.5] shadow-[#0088cc]/[50%] shadow-[10px_10px] shadow-[10px_10px]/25 shadow-[12px_12px_#0088cc] shadow-[12px_12px_#0088cc]/25 shadow-blue-500 shadow-current shadow-current/50 shadow-current/[0.5] shadow-current/[50%] shadow-inherit shadow-none shadow-red-500 shadow-red-500/2.25 shadow-red-500/2.5 shadow-red-500/2.75 shadow-red-500/50 shadow-red-500/[0.5] shadow-red-500/[50%] shadow-sm shadow-sm/25 shadow-transparent shadow-xl
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -19296,13 +19387,13 @@ shadow-[12px_12px_#0088cc] shadow-none shadow-sm shadow-xl
 <<<>>>
 # shadow
 @config run
--shadow-none -shadow-red-500 -shadow-red-500/50 -shadow-red-500/[0.5] -shadow-xl
+-shadow-[#0088cc] -shadow-[#0088cc]/50 -shadow-[#0088cc]/[0.5] -shadow-[#0088cc]/[50%] -shadow-current -shadow-current/50 -shadow-current/[0.5] -shadow-current/[50%] -shadow-inherit -shadow-none -shadow-red-500 -shadow-red-500/50 -shadow-red-500/[0.5] -shadow-red-500/[50%] -shadow-transparent -shadow-xl
 ---
 
 <<<>>>
 # inset-shadow
 @config theme
-inset-shadow inset-shadow-[12px_12px_#0088cc] inset-shadow-none inset-shadow-sm
+inset-shadow inset-shadow-[#0088cc] inset-shadow-[#0088cc]/50 inset-shadow-[#0088cc]/[0.5] inset-shadow-[#0088cc]/[50%] inset-shadow-[10px_10px] inset-shadow-[10px_10px]/25 inset-shadow-[12px_12px_#0088cc] inset-shadow-[12px_12px_#0088cc]/25 inset-shadow-current inset-shadow-current/50 inset-shadow-current/[0.5] inset-shadow-current/[50%] inset-shadow-inherit inset-shadow-none inset-shadow-red-500 inset-shadow-red-500/2.25 inset-shadow-red-500/2.5 inset-shadow-red-500/2.75 inset-shadow-red-500/50 inset-shadow-red-500/[0.5] inset-shadow-red-500/[50%] inset-shadow-sm inset-shadow-sm/25 inset-shadow-transparent
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -19711,13 +19802,13 @@ inset-shadow inset-shadow-[12px_12px_#0088cc] inset-shadow-none inset-shadow-sm
 <<<>>>
 # inset-shadow
 @config run
--inset-shadow-none -inset-shadow-red-500 -inset-shadow-red-500/50 -inset-shadow-red-500/[0.5] -inset-shadow-sm
+-inset-shadow-[#0088cc] -inset-shadow-[#0088cc]/50 -inset-shadow-[#0088cc]/[0.5] -inset-shadow-[#0088cc]/[50%] -inset-shadow-current -inset-shadow-current/50 -inset-shadow-current/[0.5] -inset-shadow-current/[50%] -inset-shadow-inherit -inset-shadow-none -inset-shadow-red-500 -inset-shadow-red-500/50 -inset-shadow-red-500/[0.5] -inset-shadow-red-500/[50%] -inset-shadow-sm -inset-shadow-transparent
 ---
 
 <<<>>>
 # ring
 @config theme
-ring-inset ring-red-500 ring-red-500/2.25 ring-red-500/2.5 ring-red-500/2.75 ring-red-500/50 ring-red-500/[0.5]
+ring ring-0 ring-1 ring-2 ring-4 ring-[#0088cc] ring-[#0088cc]/50 ring-[#0088cc]/[0.5] ring-[#0088cc]/[50%] ring-[12px] ring-blue-500 ring-current ring-current/50 ring-current/[0.5] ring-current/[50%] ring-inherit ring-inset ring-red-500 ring-red-500/2.25 ring-red-500/2.5 ring-red-500/2.75 ring-red-500/50 ring-red-500/[0.5] ring-red-500/[50%] ring-transparent
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -20148,13 +20239,13 @@ ring
 <<<>>>
 # ring
 @config run
--ring-inset -ring-red-500 -ring-red-500/50 -ring-red-500/[0.5]
+-ring -ring-0 -ring-1 -ring-2 -ring-4 -ring-[#0088cc] -ring-[#0088cc]/50 -ring-[#0088cc]/[0.5] -ring-[#0088cc]/[50%] -ring-current -ring-current/50 -ring-current/[0.5] -ring-current/[50%] -ring-inherit -ring-inset -ring-red-500 -ring-red-500/50 -ring-red-500/[0.5] -ring-red-500/[50%] -ring-transparent ring--1 ring-0/foo ring-1/foo ring-2/foo ring-4/foo ring-[12px]/foo ring/foo
 ---
 
 <<<>>>
 # inset-ring
 @config theme
-inset-ring-red-500 inset-ring-red-500/2.25 inset-ring-red-500/2.5 inset-ring-red-500/2.75 inset-ring-red-500/50 inset-ring-red-500/[0.5]
+inset-ring inset-ring-0 inset-ring-1 inset-ring-2 inset-ring-4 inset-ring-[#0088cc] inset-ring-[#0088cc]/50 inset-ring-[#0088cc]/[0.5] inset-ring-[#0088cc]/[50%] inset-ring-[12px] inset-ring-current inset-ring-current/50 inset-ring-current/[0.5] inset-ring-current/[50%] inset-ring-inherit inset-ring-red-500 inset-ring-red-500/2.25 inset-ring-red-500/2.5 inset-ring-red-500/2.75 inset-ring-red-500/50 inset-ring-red-500/[0.5] inset-ring-red-500/[50%] inset-ring-transparent
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -20467,13 +20558,13 @@ inset-ring-red-500 inset-ring-red-500/2.25 inset-ring-red-500/2.5 inset-ring-red
 <<<>>>
 # inset-ring
 @config run
--inset-ring-red-500 -inset-ring-red-500/50 -inset-ring-red-500/[0.5]
+-inset-ring -inset-ring-0 -inset-ring-1 -inset-ring-2 -inset-ring-4 -inset-ring-[#0088cc] -inset-ring-[#0088cc]/50 -inset-ring-[#0088cc]/[0.5] -inset-ring-[#0088cc]/[50%] -inset-ring-current -inset-ring-current/50 -inset-ring-current/[0.5] -inset-ring-current/[50%] -inset-ring-inherit -inset-ring-red-500 -inset-ring-red-500/50 -inset-ring-red-500/[0.5] -inset-ring-red-500/[50%] -inset-ring-transparent inset-ring--1 inset-ring-0/foo inset-ring-1/foo inset-ring-2/foo inset-ring-4/foo inset-ring-[12px]/foo inset-ring/foo
 ---
 
 <<<>>>
 # ring-offset
 @config theme
-ring-offset-inset ring-offset-red-500 ring-offset-red-500/50 ring-offset-red-500/[0.5]
+ring-offset-0 ring-offset-1 ring-offset-2 ring-offset-4 ring-offset-[#0088cc] ring-offset-[#0088cc]/50 ring-offset-[#0088cc]/[0.5] ring-offset-[#0088cc]/[50%] ring-offset-[12px] ring-offset-blue-500 ring-offset-current ring-offset-current/50 ring-offset-current/[0.5] ring-offset-current/[50%] ring-offset-inherit ring-offset-inset ring-offset-red-500 ring-offset-red-500/50 ring-offset-red-500/[0.5] ring-offset-red-500/[50%] ring-offset-transparent
 ---
 :root, :host {
       --color-red-500: #ef4444;
@@ -20656,7 +20747,7 @@ ring-offset-inset ring-offset-red-500 ring-offset-red-500/50 ring-offset-red-500
 <<<>>>
 # ring-offset
 @config run
--ring-offset-inset -ring-offset-red-500 -ring-offset-red-500/50 -ring-offset-red-500/[0.5] ring-offset
+-ring-offset-0 -ring-offset-1 -ring-offset-2 -ring-offset-4 -ring-offset-[#0088cc] -ring-offset-[#0088cc]/50 -ring-offset-[#0088cc]/[0.5] -ring-offset-[#0088cc]/[50%] -ring-offset-current -ring-offset-current/50 -ring-offset-current/[0.5] -ring-offset-current/[50%] -ring-offset-inherit -ring-offset-inset -ring-offset-red-500 -ring-offset-red-500/50 -ring-offset-red-500/[0.5] -ring-offset-red-500/[50%] -ring-offset-transparent ring-offset ring-offset--1 ring-offset-0/foo ring-offset-1/foo ring-offset-2/foo ring-offset-4/foo ring-offset-[12px]/foo
 ---
 
 <<<>>>
@@ -20666,3 +20757,11 @@ ring-offset-inset ring-offset-red-500 ring-offset-red-500/50 ring-offset-red-500
 ---
 
 <<<>>>
+Extracted 608 test cases (603 with expected CSS)
+Config breakdown:
+  none: 6
+  run: 379
+  theme: 207
+  theme-inline: 2
+  theme-inline-reference: 1
+  theme-reference: 13

@@ -1,5 +1,6 @@
 Parsing /Users/samoht/git/tailwindcss/packages/tailwindcss/src/variants.test.ts...
 # *
+@config run
 *:flex
 ---
 :is(.\*\:flex > *) {
@@ -7,11 +8,13 @@ Parsing /Users/samoht/git/tailwindcss/packages/tailwindcss/src/variants.test.ts.
     }
 <<<>>>
 # *
+@config run
 */foo:flex
 ---
 
 <<<>>>
 # **
+@config run
 **:flex
 ---
 :is(.\*\*\:flex *) {
@@ -19,11 +22,13 @@ Parsing /Users/samoht/git/tailwindcss/packages/tailwindcss/src/variants.test.ts.
     }
 <<<>>>
 # **
+@config run
 **/foo:flex
 ---
 
 <<<>>>
 # first-letter
+@config run
 first-letter:flex
 ---
 .first-letter\:flex:first-letter {
@@ -31,11 +36,13 @@ first-letter:flex
     }
 <<<>>>
 # first-letter
+@config run
 first-letter/foo:flex
 ---
 
 <<<>>>
 # first-line
+@config run
 first-line:flex
 ---
 .first-line\:flex:first-line {
@@ -43,11 +50,13 @@ first-line:flex
     }
 <<<>>>
 # first-line
+@config run
 first-line/foo:flex
 ---
 
 <<<>>>
 # marker
+@config run
 marker:flex
 ---
 .marker\:flex ::marker {
@@ -67,11 +76,13 @@ marker:flex
     }
 <<<>>>
 # marker
+@config run
 marker/foo:flex
 ---
 
 <<<>>>
 # selection
+@config run
 selection:flex
 ---
 .selection\:flex ::selection {
@@ -83,11 +94,13 @@ selection:flex
     }
 <<<>>>
 # selection
+@config run
 selection/foo:flex
 ---
 
 <<<>>>
 # file
+@config run
 file:flex
 ---
 .file\:flex::file-selector-button {
@@ -95,11 +108,13 @@ file:flex
     }
 <<<>>>
 # file
+@config run
 file/foo:flex
 ---
 
 <<<>>>
 # placeholder
+@config run
 placeholder:flex
 ---
 .placeholder\:flex::placeholder {
@@ -107,11 +122,13 @@ placeholder:flex
     }
 <<<>>>
 # placeholder
+@config run
 placeholder/foo:flex
 ---
 
 <<<>>>
 # backdrop
+@config run
 backdrop:flex
 ---
 .backdrop\:flex::backdrop {
@@ -119,11 +136,13 @@ backdrop:flex
     }
 <<<>>>
 # backdrop
+@config run
 backdrop/foo:flex
 ---
 
 <<<>>>
 # details-content
+@config run
 details-content:flex
 ---
 .details-content\:flex::details-content {
@@ -131,11 +150,13 @@ details-content:flex
     }
 <<<>>>
 # details-content
+@config run
 details-content/foo:flex
 ---
 
 <<<>>>
 # before
+@config run
 before:flex
 ---
 @layer properties {
@@ -158,11 +179,13 @@ before:flex
     }
 <<<>>>
 # before
+@config run
 before/foo:flex
 ---
 
 <<<>>>
 # after
+@config run
 after:flex
 ---
 @layer properties {
@@ -185,11 +208,13 @@ after:flex
     }
 <<<>>>
 # after
+@config run
 after/foo:flex
 ---
 
 <<<>>>
 # first
+@config run
 first:flex group-first:flex peer-first:flex
 ---
 .group-first\:flex:is(:where(.group):first-child *), .peer-first\:flex:is(:where(.peer):first-child ~ *), .first\:flex:first-child {
@@ -197,11 +222,13 @@ first:flex group-first:flex peer-first:flex
     }
 <<<>>>
 # first
+@config run
 first/foo:flex
 ---
 
 <<<>>>
 # last
+@config run
 group-last:flex last:flex peer-last:flex
 ---
 .group-last\:flex:is(:where(.group):last-child *), .peer-last\:flex:is(:where(.peer):last-child ~ *), .last\:flex:last-child {
@@ -209,11 +236,13 @@ group-last:flex last:flex peer-last:flex
     }
 <<<>>>
 # last
+@config run
 last/foo:flex
 ---
 
 <<<>>>
 # only
+@config run
 group-only:flex only:flex peer-only:flex
 ---
 .group-only\:flex:is(:where(.group):only-child *), .peer-only\:flex:is(:where(.peer):only-child ~ *), .only\:flex:only-child {
@@ -221,11 +250,13 @@ group-only:flex only:flex peer-only:flex
     }
 <<<>>>
 # only
+@config run
 only/foo:flex
 ---
 
 <<<>>>
 # odd
+@config run
 group-odd:flex odd:flex peer-odd:flex
 ---
 .group-odd\:flex:is(:where(.group):nth-child(odd) *), .peer-odd\:flex:is(:where(.peer):nth-child(odd) ~ *), .odd\:flex:nth-child(odd) {
@@ -233,11 +264,13 @@ group-odd:flex odd:flex peer-odd:flex
     }
 <<<>>>
 # odd
+@config run
 odd/foo:flex
 ---
 
 <<<>>>
 # even
+@config run
 even:flex group-even:flex peer-even:flex
 ---
 .group-even\:flex:is(:where(.group):nth-child(2n) *), .peer-even\:flex:is(:where(.peer):nth-child(2n) ~ *), .even\:flex:nth-child(2n) {
@@ -245,11 +278,13 @@ even:flex group-even:flex peer-even:flex
     }
 <<<>>>
 # even
+@config run
 even/foo:flex
 ---
 
 <<<>>>
 # first-of-type
+@config run
 first-of-type:flex group-first-of-type:flex peer-first-of-type:flex
 ---
 .group-first-of-type\:flex:is(:where(.group):first-of-type *), .peer-first-of-type\:flex:is(:where(.peer):first-of-type ~ *), .first-of-type\:flex:first-of-type {
@@ -257,11 +292,13 @@ first-of-type:flex group-first-of-type:flex peer-first-of-type:flex
       }
 <<<>>>
 # first-of-type
+@config run
 first-of-type/foo:flex
 ---
 
 <<<>>>
 # last-of-type
+@config run
 group-last-of-type:flex last-of-type:flex peer-last-of-type:flex
 ---
 .group-last-of-type\:flex:is(:where(.group):last-of-type *), .peer-last-of-type\:flex:is(:where(.peer):last-of-type ~ *), .last-of-type\:flex:last-of-type {
@@ -269,11 +306,13 @@ group-last-of-type:flex last-of-type:flex peer-last-of-type:flex
       }
 <<<>>>
 # last-of-type
+@config run
 last-of-type/foo:flex
 ---
 
 <<<>>>
 # only-of-type
+@config run
 group-only-of-type:flex only-of-type:flex peer-only-of-type:flex
 ---
 .group-only-of-type\:flex:is(:where(.group):only-of-type *), .peer-only-of-type\:flex:is(:where(.peer):only-of-type ~ *), .only-of-type\:flex:only-of-type {
@@ -281,11 +320,13 @@ group-only-of-type:flex only-of-type:flex peer-only-of-type:flex
       }
 <<<>>>
 # only-of-type
+@config run
 only-of-type/foo:flex
 ---
 
 <<<>>>
 # visited
+@config run
 group-visited:flex peer-visited:flex visited:flex
 ---
 .group-visited\:flex:is(:where(.group):visited *), .peer-visited\:flex:is(:where(.peer):visited ~ *), .visited\:flex:visited {
@@ -293,11 +334,13 @@ group-visited:flex peer-visited:flex visited:flex
       }
 <<<>>>
 # visited
+@config run
 visited/foo:flex
 ---
 
 <<<>>>
 # target
+@config run
 group-target:flex peer-target:flex target:flex
 ---
 .group-target\:flex:is(:where(.group):target *), .peer-target\:flex:is(:where(.peer):target ~ *), .target\:flex:target {
@@ -305,11 +348,13 @@ group-target:flex peer-target:flex target:flex
       }
 <<<>>>
 # target
+@config run
 target/foo:flex
 ---
 
 <<<>>>
 # open
+@config run
 group-open:flex not-open:flex open:flex peer-open:flex
 ---
 .not-open\:flex:not(:is([open], :popover-open, :open)), .group-open\:flex:is(:where(.group):is([open], :popover-open, :open) *), .peer-open\:flex:is(:where(.peer):is([open], :popover-open, :open) ~ *), .open\:flex:is([open], :popover-open, :open) {
@@ -317,11 +362,13 @@ group-open:flex not-open:flex open:flex peer-open:flex
       }
 <<<>>>
 # open
+@config run
 open/foo:flex
 ---
 
 <<<>>>
 # default
+@config run
 default:flex group-default:flex peer-default:flex
 ---
 .group-default\:flex:is(:where(.group):default *), .peer-default\:flex:is(:where(.peer):default ~ *), .default\:flex:default {
@@ -329,11 +376,13 @@ default:flex group-default:flex peer-default:flex
       }
 <<<>>>
 # default
+@config run
 default/foo:flex
 ---
 
 <<<>>>
 # checked
+@config run
 checked:flex group-checked:flex peer-checked:flex
 ---
 .group-checked\:flex:is(:where(.group):checked *), .peer-checked\:flex:is(:where(.peer):checked ~ *), .checked\:flex:checked {
@@ -341,11 +390,13 @@ checked:flex group-checked:flex peer-checked:flex
       }
 <<<>>>
 # checked
+@config run
 checked/foo:flex
 ---
 
 <<<>>>
 # indeterminate
+@config run
 group-indeterminate:flex indeterminate:flex peer-indeterminate:flex
 ---
 .group-indeterminate\:flex:is(:where(.group):indeterminate *), .peer-indeterminate\:flex:is(:where(.peer):indeterminate ~ *), .indeterminate\:flex:indeterminate {
@@ -353,11 +404,13 @@ group-indeterminate:flex indeterminate:flex peer-indeterminate:flex
       }
 <<<>>>
 # indeterminate
+@config run
 indeterminate/foo:flex
 ---
 
 <<<>>>
 # placeholder-shown
+@config run
 group-placeholder-shown:flex peer-placeholder-shown:flex placeholder-shown:flex
 ---
 .group-placeholder-shown\:flex:is(:where(.group):placeholder-shown *), .peer-placeholder-shown\:flex:is(:where(.peer):placeholder-shown ~ *), .placeholder-shown\:flex:placeholder-shown {
@@ -365,11 +418,13 @@ group-placeholder-shown:flex peer-placeholder-shown:flex placeholder-shown:flex
     }
 <<<>>>
 # placeholder-shown
+@config run
 placeholder-shown/foo:flex
 ---
 
 <<<>>>
 # autofill
+@config run
 autofill:flex group-autofill:flex peer-autofill:flex
 ---
 .group-autofill\:flex:is(:where(.group):autofill *), .peer-autofill\:flex:is(:where(.peer):autofill ~ *), .autofill\:flex:autofill {
@@ -377,11 +432,13 @@ autofill:flex group-autofill:flex peer-autofill:flex
       }
 <<<>>>
 # autofill
+@config run
 autofill/foo:flex
 ---
 
 <<<>>>
 # optional
+@config run
 group-optional:flex optional:flex peer-optional:flex
 ---
 .group-optional\:flex:is(:where(.group):optional *), .peer-optional\:flex:is(:where(.peer):optional ~ *), .optional\:flex:optional {
@@ -389,11 +446,13 @@ group-optional:flex optional:flex peer-optional:flex
       }
 <<<>>>
 # optional
+@config run
 optional/foo:flex
 ---
 
 <<<>>>
 # required
+@config run
 group-required:flex peer-required:flex required:flex
 ---
 .group-required\:flex:is(:where(.group):required *), .peer-required\:flex:is(:where(.peer):required ~ *), .required\:flex:required {
@@ -401,11 +460,13 @@ group-required:flex peer-required:flex required:flex
       }
 <<<>>>
 # required
+@config run
 required/foo:flex
 ---
 
 <<<>>>
 # valid
+@config run
 group-valid:flex peer-valid:flex valid:flex
 ---
 .group-valid\:flex:is(:where(.group):valid *), .peer-valid\:flex:is(:where(.peer):valid ~ *), .valid\:flex:valid {
@@ -413,11 +474,13 @@ group-valid:flex peer-valid:flex valid:flex
     }
 <<<>>>
 # valid
+@config run
 valid/foo:flex
 ---
 
 <<<>>>
 # invalid
+@config run
 group-invalid:flex invalid:flex peer-invalid:flex
 ---
 .group-invalid\:flex:is(:where(.group):invalid *), .peer-invalid\:flex:is(:where(.peer):invalid ~ *), .invalid\:flex:invalid {
@@ -425,11 +488,13 @@ group-invalid:flex invalid:flex peer-invalid:flex
       }
 <<<>>>
 # invalid
+@config run
 invalid/foo:flex
 ---
 
 <<<>>>
 # user-valid
+@config run
 group-user-valid:flex peer-user-valid:flex user-valid:flex
 ---
 .group-user-valid\:flex:is(:where(.group):user-valid *), .peer-user-valid\:flex:is(:where(.peer):user-valid ~ *) {
@@ -441,11 +506,13 @@ group-user-valid:flex peer-user-valid:flex user-valid:flex
       }
 <<<>>>
 # user-valid
+@config run
 user-valid/foo:flex
 ---
 
 <<<>>>
 # user-invalid
+@config run
 group-user-invalid:flex peer-user-invalid:flex user-invalid:flex
 ---
 .group-user-invalid\:flex:is(:where(.group):user-invalid *), .peer-user-invalid\:flex:is(:where(.peer):user-invalid ~ *) {
@@ -457,11 +524,13 @@ group-user-invalid:flex peer-user-invalid:flex user-invalid:flex
       }
 <<<>>>
 # user-invalid
+@config run
 invalid/foo:flex
 ---
 
 <<<>>>
 # in-range
+@config run
 group-in-range:flex in-range:flex peer-in-range:flex
 ---
 .group-in-range\:flex:is(:where(.group):in-range *), .peer-in-range\:flex:is(:where(.peer):in-range ~ *), .in-range\:flex:in-range {
@@ -469,11 +538,13 @@ group-in-range:flex in-range:flex peer-in-range:flex
       }
 <<<>>>
 # in-range
+@config run
 in-range/foo:flex
 ---
 
 <<<>>>
 # out-of-range
+@config run
 group-out-of-range:flex out-of-range:flex peer-out-of-range:flex
 ---
 .group-out-of-range\:flex:is(:where(.group):out-of-range *), .peer-out-of-range\:flex:is(:where(.peer):out-of-range ~ *), .out-of-range\:flex:out-of-range {
@@ -481,11 +552,13 @@ group-out-of-range:flex out-of-range:flex peer-out-of-range:flex
       }
 <<<>>>
 # out-of-range
+@config run
 out-of-range/foo:flex
 ---
 
 <<<>>>
 # read-only
+@config run
 group-read-only:flex peer-read-only:flex read-only:flex
 ---
 .group-read-only\:flex:is(:where(.group):read-only *), .peer-read-only\:flex:is(:where(.peer):read-only ~ *), .read-only\:flex:read-only {
@@ -493,11 +566,13 @@ group-read-only:flex peer-read-only:flex read-only:flex
       }
 <<<>>>
 # read-only
+@config run
 read-only/foo:flex
 ---
 
 <<<>>>
 # empty
+@config run
 empty:flex group-empty:flex peer-empty:flex
 ---
 .group-empty\:flex:is(:where(.group):empty *), .peer-empty\:flex:is(:where(.peer):empty ~ *), .empty\:flex:empty {
@@ -505,11 +580,13 @@ empty:flex group-empty:flex peer-empty:flex
     }
 <<<>>>
 # empty
+@config run
 empty/foo:flex
 ---
 
 <<<>>>
 # focus-within
+@config run
 focus-within:flex group-focus-within:flex peer-focus-within:flex
 ---
 .group-focus-within\:flex:is(:where(.group):focus-within *), .peer-focus-within\:flex:is(:where(.peer):focus-within ~ *), .focus-within\:flex:focus-within {
@@ -517,11 +594,13 @@ focus-within:flex group-focus-within:flex peer-focus-within:flex
       }
 <<<>>>
 # focus-within
+@config run
 focus-within/foo:flex
 ---
 
 <<<>>>
 # hover
+@config run
 group-hover:flex hover:flex peer-hover:flex
 ---
 @media (hover: hover) {
@@ -531,11 +610,13 @@ group-hover:flex hover:flex peer-hover:flex
     }
 <<<>>>
 # hover
+@config run
 hover/foo:flex
 ---
 
 <<<>>>
 # focus
+@config run
 focus:flex group-focus:flex peer-focus:flex
 ---
 .group-focus\:flex:is(:where(.group):focus *), .peer-focus\:flex:is(:where(.peer):focus ~ *), .focus\:flex:focus {
@@ -543,11 +624,13 @@ focus:flex group-focus:flex peer-focus:flex
     }
 <<<>>>
 # focus
+@config run
 focus/foo:flex
 ---
 
 <<<>>>
 # group-hover group-focus sorting
+@config run
 group-focus:flex group-hover:flex
 ---
 @media (hover: hover) {
@@ -561,6 +644,7 @@ group-focus:flex group-hover:flex
     }
 <<<>>>
 # group-hover group-focus sorting
+@config run
 group-focus:flex group-hover:flex
 ---
 @media (hover: hover) {
@@ -574,6 +658,7 @@ group-focus:flex group-hover:flex
     }
 <<<>>>
 # focus-visible
+@config run
 focus-visible:flex group-focus-visible:flex peer-focus-visible:flex
 ---
 .group-focus-visible\:flex:is(:where(.group):focus-visible *), .peer-focus-visible\:flex:is(:where(.peer):focus-visible ~ *), .focus-visible\:flex:focus-visible {
@@ -581,11 +666,13 @@ focus-visible:flex group-focus-visible:flex peer-focus-visible:flex
       }
 <<<>>>
 # focus-visible
+@config run
 focus-visible/foo:flex
 ---
 
 <<<>>>
 # active
+@config run
 active:flex group-active:flex peer-active:flex
 ---
 .group-active\:flex:is(:where(.group):active *), .peer-active\:flex:is(:where(.peer):active ~ *), .active\:flex:active {
@@ -593,11 +680,13 @@ active:flex group-active:flex peer-active:flex
       }
 <<<>>>
 # active
+@config run
 active/foo:flex
 ---
 
 <<<>>>
 # enabled
+@config run
 enabled:flex group-enabled:flex peer-enabled:flex
 ---
 .group-enabled\:flex:is(:where(.group):enabled *), .peer-enabled\:flex:is(:where(.peer):enabled ~ *), .enabled\:flex:enabled {
@@ -605,11 +694,13 @@ enabled:flex group-enabled:flex peer-enabled:flex
       }
 <<<>>>
 # enabled
+@config run
 enabled/foo:flex
 ---
 
 <<<>>>
 # disabled
+@config run
 disabled:flex group-disabled:flex peer-disabled:flex
 ---
 .group-disabled\:flex:is(:where(.group):disabled *), .peer-disabled\:flex:is(:where(.peer):disabled ~ *), .disabled\:flex:disabled {
@@ -617,11 +708,13 @@ disabled:flex group-disabled:flex peer-disabled:flex
       }
 <<<>>>
 # disabled
+@config run
 disabled/foo:flex
 ---
 
 <<<>>>
 # inert
+@config run
 group-inert:flex inert:flex peer-inert:flex
 ---
 .group-inert\:flex:is(:where(.group):is([inert], [inert] *) *), .peer-inert\:flex:is(:where(.peer):is([inert], [inert] *) ~ *), .inert\:flex:is([inert], [inert] *) {
@@ -629,12 +722,14 @@ group-inert:flex inert:flex peer-inert:flex
     }
 <<<>>>
 # inert
+@config run
 inert/foo:flex
 ---
 
 <<<>>>
 # group-[...]
-group-[&_p]:flex
+@config run
+group-[&:hover]:group-[&_p]:flex group-[&_p]:flex group-[&_p]:hover:flex hover:group-[&_p]:flex hover:group-[&_p]:hover:flex
 ---
 .group-\[\&_p\]\:flex:is(:where(.group) p *), .group-\[\&\:hover\]\:group-\[\&_p\]\:flex:is(:where(.group):hover *):is(:where(.group) p *) {
       display: flex;
@@ -652,7 +747,14 @@ group-[&_p]:flex
       }
     }
 <<<>>>
+# group-[...]
+@config none
+group-[>img]:flex group-[@media_foo]:flex group-[]:flex group-hover/[]:flex
+---
+
+<<<>>>
 # group-*
+@config none
 group-focus:flex group-focus:group-hover:flex group-hocus:flex group-hover:flex group-hover:group-focus:flex
 ---
 @media (hover: hover) {
@@ -676,12 +778,14 @@ group-focus:flex group-focus:group-hover:flex group-hocus:flex group-hover:flex 
     }
 <<<>>>
 # group-*
+@config none
 group-custom-at-rule:flex group-nested-selectors:flex
 ---
 
 <<<>>>
 # peer-[...]
-peer-[&_p]:flex
+@config run
+hover:peer-[&_p]:flex hover:peer-[&_p]:focus:flex peer-[&:hover]:peer-[&_p]:flex peer-[&_p]:flex peer-[&_p]:hover:flex
 ---
 .peer-\[\&_p\]\:flex:is(:where(.peer) p ~ *), .peer-\[\&\:hover\]\:peer-\[\&_p\]\:flex:is(:where(.peer):hover ~ *):is(:where(.peer) p ~ *) {
       display: flex;
@@ -693,7 +797,14 @@ peer-[&_p]:flex
       }
     }
 <<<>>>
+# peer-[...]
+@config none
+peer-[>img]:flex peer-[@media_foo]:flex peer-[]:flex peer-hover/[]:flex
+---
+
+<<<>>>
 # peer-*
+@config none
 peer-focus:flex peer-focus:peer-hover:flex peer-hocus:flex peer-hover:flex peer-hover:peer-focus:flex
 ---
 @media (hover: hover) {
@@ -717,11 +828,13 @@ peer-focus:flex peer-focus:peer-hover:flex peer-hocus:flex peer-hover:flex peer-
     }
 <<<>>>
 # peer-*
+@config none
 peer-custom-at-rule:flex peer-nested-selectors:flex
 ---
 
 <<<>>>
 # ltr
+@config run
 ltr:flex
 ---
 .ltr\:flex:where(:dir(ltr), [dir="ltr"], [dir="ltr"] *) {
@@ -729,11 +842,13 @@ ltr:flex
     }
 <<<>>>
 # ltr
+@config run
 ltr/foo:flex
 ---
 
 <<<>>>
 # rtl
+@config run
 rtl:flex
 ---
 .rtl\:flex:where(:dir(rtl), [dir="rtl"], [dir="rtl"] *) {
@@ -741,11 +856,13 @@ rtl:flex
     }
 <<<>>>
 # rtl
+@config run
 rtl/foo:flex
 ---
 
 <<<>>>
 # motion-safe
+@config run
 motion-safe:flex
 ---
 @media (prefers-reduced-motion: no-preference) {
@@ -755,11 +872,13 @@ motion-safe:flex
     }
 <<<>>>
 # motion-safe
+@config run
 motion-safe/foo:flex
 ---
 
 <<<>>>
 # motion-reduce
+@config run
 motion-reduce:flex
 ---
 @media (prefers-reduced-motion: reduce) {
@@ -769,11 +888,13 @@ motion-reduce:flex
     }
 <<<>>>
 # motion-reduce
+@config run
 motion-reduce/foo:flex
 ---
 
 <<<>>>
 # dark
+@config run
 dark:flex
 ---
 @media (prefers-color-scheme: dark) {
@@ -783,11 +904,13 @@ dark:flex
     }
 <<<>>>
 # dark
+@config run
 dark/foo:flex
 ---
 
 <<<>>>
 # starting
+@config run
 starting:opacity-0
 ---
 @starting-style {
@@ -797,11 +920,13 @@ starting:opacity-0
     }
 <<<>>>
 # starting
+@config run
 starting/foo:flex
 ---
 
 <<<>>>
 # print
+@config run
 print:flex
 ---
 @media print {
@@ -811,11 +936,13 @@ print:flex
     }
 <<<>>>
 # print
+@config run
 print/foo:flex
 ---
 
 <<<>>>
 # default breakpoints
+@config theme
 2xl:flex lg:flex md:flex sm:flex xl:flex
 ---
 @media (min-width: 640px) {
@@ -849,11 +976,13 @@ print/foo:flex
     }
 <<<>>>
 # default breakpoints
+@config theme-reference
 2xl/foo:flex lg/foo:flex md/foo:flex sm/foo:flex xl/foo:flex
 ---
 
 <<<>>>
 # custom breakpoint
+@config theme
 10xl:flex
 ---
 @media (min-width: 5000px) {
@@ -863,6 +992,7 @@ print/foo:flex
     }
 <<<>>>
 # max-*
+@config theme
 max-lg:flex max-md:flex max-sm:flex
 ---
 @media not all and (min-width: 1024px) {
@@ -884,11 +1014,13 @@ max-lg:flex max-md:flex max-sm:flex
     }
 <<<>>>
 # max-*
+@config theme-reference
 max-lg/foo:flex max-md/foo:flex max-sm/foo:flex
 ---
 
 <<<>>>
 # min-*
+@config theme
 min-lg:flex min-md:flex min-sm:flex
 ---
 @media (min-width: 640px) {
@@ -910,11 +1042,13 @@ min-lg:flex min-md:flex min-sm:flex
     }
 <<<>>>
 # min-*
+@config theme-reference
 min-lg/foo:flex min-md/foo:flex min-sm/foo:flex
 ---
 
 <<<>>>
 # sorting stacked min-* and max-* variants
+@config theme
 min-md:max-lg:flex min-sm:max-lg:flex min-sm:max-xl:flex min-xs:max-sm:flex
 ---
 @media (min-width: 280px) {
@@ -948,6 +1082,7 @@ min-md:max-lg:flex min-sm:max-lg:flex min-sm:max-xl:flex min-xs:max-sm:flex
     }
 <<<>>>
 # stacked min-* and max-* variants should come after unprefixed variants
+@config theme
 md:flex min-md:max-lg:flex min-sm:max-lg:flex sm:flex
 ---
 @media (min-width: 640px) {
@@ -975,7 +1110,8 @@ md:flex min-md:max-lg:flex min-sm:max-lg:flex sm:flex
     }
 <<<>>>
 # min, max and unprefixed breakpoints
-lg-sm-potato:flex max-[1000px]:flex max-lg-sm-potato:flex max-lg:flex max-sm:flex min-lg-sm-potato:flex min-lg:flex
+@config theme
+lg-sm-potato:flex lg:flex max-[1000px]:flex max-lg-sm-potato:flex max-lg:flex max-md:flex max-sm:flex md:flex min-[700px]:flex min-lg-sm-potato:flex min-lg:flex min-md:flex min-sm:flex sm:flex
 ---
 @media not all and (min-width: 1024px) {
       .max-lg\:flex {
@@ -1026,7 +1162,8 @@ lg-sm-potato:flex max-[1000px]:flex max-lg-sm-potato:flex max-lg:flex max-sm:fle
     }
 <<<>>>
 # sorting `min` and `max` should sort by unit, then by value, then alphabetically
-min-[10px]:flex
+@config run
+max-[10em]:flex max-[10px]:flex max-[10rem]:flex max-[10vh]:flex max-[12em]:flex max-[12px]:flex max-[12rem]:flex max-[12vh]:flex min-[10em]:flex min-[10px]:flex min-[10rem]:flex min-[10vh]:flex min-[12em]:flex min-[12px]:flex min-[12rem]:flex min-[12vh]:flex
 ---
 @media not all and (min-width: calc(1000px + 12em)) {
       .max-\[calc\(1000px\+12em\)\]\:flex {
@@ -1149,7 +1286,8 @@ min-[10px]:flex
     }
 <<<>>>
 # supports
-supports-[display:grid]:flex supports-gap:grid
+@config run
+supports-[--test]:flex supports-[display:grid]:flex supports-gap:grid
 ---
 @supports (gap: var(--tw)) {
       .supports-gap\:grid {
@@ -1200,12 +1338,14 @@ supports-[display:grid]:flex supports-gap:grid
     }
 <<<>>>
 # supports
+@config run
 supports-[display:grid]/foo:flex supports-gap/foo:grid
 ---
 
 <<<>>>
 # not
-not-[:checked]:flex
+@config theme
+group-not-[:checked]/parent-name:flex group-not-[:checked]:flex group-not-checked:flex group-not-device-hocus:flex group-not-hocus/parent-name:flex group-not-hocus:flex group-not-hover:flex not-[:checked]:flex not-[@media_print]:flex not-active:flex not-aria-selected:flex not-autofill:flex not-checked:flex not-contrast-less:flex not-contrast-more:flex not-dark:flex not-data-foo:flex not-default:flex not-device-hocus:flex not-disabled:flex not-empty:flex not-enabled:flex not-even:flex not-first-of-type:flex not-first:flex not-focus-visible:flex not-focus-within:flex not-focus:flex not-forced-colors:flex not-has-checked:flex not-hocus:flex not-hover:flex not-in-range:flex not-indeterminate:flex not-inert:flex not-invalid:flex not-landscape:flex not-last-of-type:flex not-last:flex not-ltr:flex not-max-[130px]:flex not-max-sm:flex not-min-[130px]:flex not-min-sm:flex not-motion-reduce:flex not-motion-safe:flex not-noscript:flex not-nth-2:flex not-odd:flex not-only-of-type:flex not-only:flex not-open:flex not-optional:flex not-out-of-range:flex not-placeholder-shown:flex not-portrait:flex not-print:flex not-read-only:flex not-required:flex not-rtl:flex not-sm:flex not-supports-grid:flex not-target:flex not-valid:flex not-visited:flex peer-not-[:checked]/sibling-name:flex peer-not-[:checked]:flex peer-not-checked:flex peer-not-hocus/sibling-name:flex peer-not-hocus:flex
 ---
 .not-first\:flex:not(:first-child), .not-last\:flex:not(:last-child), .not-only\:flex:not(:only-child), .not-odd\:flex:not(:nth-child(odd)), .not-even\:flex:not(:nth-child(2n)), .not-first-of-type\:flex:not(:first-of-type), .not-last-of-type\:flex:not(:last-of-type), .not-only-of-type\:flex:not(:only-of-type), .not-visited\:flex:not(:visited), .not-target\:flex:not(:target), .not-open\:flex:not(:is([open], :popover-open, :open)), .not-default\:flex:not(:default), .not-checked\:flex:not(:checked), .not-indeterminate\:flex:not(:indeterminate), .not-placeholder-shown\:flex:not(:placeholder-shown), .not-autofill\:flex:not(:autofill), .not-optional\:flex:not(:optional), .not-required\:flex:not(:required), .not-valid\:flex:not(:valid), .not-invalid\:flex:not(:invalid), .not-in-range\:flex:not(:in-range), .not-out-of-range\:flex:not(:out-of-range), .not-read-only\:flex:not(:read-only), .not-empty\:flex:not(:empty), .not-focus-within\:flex:not(:focus-within), .not-hover\:flex:not(:hover) {
       display: flex;
@@ -1358,59 +1498,69 @@ not-[:checked]:flex
     }
 <<<>>>
 # not
-not-[>img]:flex
+@config none
+not-*:flex not-[+img]:flex not-[:checked]/foo:flex not-[>img]:flex not-[@media_not_screen,not_print]:flex not-[@media_not_screen,print]:flex not-[@media_screen,print]:flex not-[~img]:flex not-after:flex not-backdrop:flex not-before:flex not-file:flex not-first-letter:flex not-first-line:flex not-force:flex not-marker:flex not-multiple-media-conditions:flex not-nested-at-rules:flex not-nested-style-rules:flex not-parallel-at-rules:flex not-parallel-mixed-rules:flex not-parallel-style-rules:flex not-placeholder:flex not-selection:flex not-starting:flex
 ---
 
 <<<>>>
 # in
-in-[p]:flex
+@config run
+in-[.group]:flex in-[p]:flex in-data-visible:flex not-in-[.group]:flex not-in-[p]:flex
 ---
 .not-in-\[\.group\]\:flex:not(:where(.group) *), .not-in-\[p\]\:flex:not(:where(:is(p)) *), :where([data-visible]) .in-data-visible\:flex, :where(.group) .in-\[\.group\]\:flex, :where(:is(p)) .in-\[p\]\:flex {
       display: flex;
     }
 <<<>>>
 # in
+@config run
 in-foo-bar:flex in-p:flex
 ---
 
 <<<>>>
 # has
-has-[:checked]:flex has-checked:flex
+@config none
+group-has-[&>img]/parent-name:flex group-has-[&>img]:flex group-has-[+img]:flex group-has-[:checked]/parent-name:flex group-has-[:checked]:flex group-has-[>img]/parent-name:flex group-has-[>img]:flex group-has-[~img]:flex group-has-checked/parent-name:flex group-has-checked:flex group-has-hocus/parent-name:flex group-has-hocus:flex has-[&>img]:flex has-[+img]:flex has-[:checked]:flex has-[>img]:flex has-[~img]:flex has-checked:flex has-hocus:flex peer-has-[&>img]/sibling-name:flex peer-has-[&>img]:flex peer-has-[+img]:flex peer-has-[:checked]/sibling-name:flex peer-has-[:checked]:flex peer-has-[>img]/sibling-name:flex peer-has-[>img]:flex peer-has-[~img]:flex peer-has-checked/sibling-name:flex peer-has-checked:flex peer-has-hocus/sibling-name:flex peer-has-hocus:flex
 ---
 .group-has-checked\:flex:is(:where(.group):has(:checked) *), .group-has-checked\/parent-name\:flex:is(:where(.group\/parent-name):has(:checked) *), .group-has-hocus\:flex:is(:where(.group):has(:hover, :focus) *), .group-has-hocus\/parent-name\:flex:is(:where(.group\/parent-name):has(:hover, :focus) *), .group-has-\[\:checked\]\:flex:is(:where(.group):has(:checked) *), .group-has-\[\:checked\]\/parent-name\:flex:is(:where(.group\/parent-name):has(:checked) *), .group-has-\[\&\>img\]\:flex:is(:where(.group):has(* > img) *), .group-has-\[\&\>img\]\/parent-name\:flex:is(:where(.group\/parent-name):has(* > img) *), .group-has-\[\+img\]\:flex:is(:where(.group):has( + img) *), .group-has-\[\>img\]\:flex:is(:where(.group):has( > img) *), .group-has-\[\>img\]\/parent-name\:flex:is(:where(.group\/parent-name):has( > img) *), .group-has-\[\~img\]\:flex:is(:where(.group):has( ~ img) *), .peer-has-checked\:flex:is(:where(.peer):has(:checked) ~ *), .peer-has-checked\/sibling-name\:flex:is(:where(.peer\/sibling-name):has(:checked) ~ *), .peer-has-hocus\:flex:is(:where(.peer):has(:hover, :focus) ~ *), .peer-has-hocus\/sibling-name\:flex:is(:where(.peer\/sibling-name):has(:hover, :focus) ~ *), .peer-has-\[\:checked\]\:flex:is(:where(.peer):has(:checked) ~ *), .peer-has-\[\:checked\]\/sibling-name\:flex:is(:where(.peer\/sibling-name):has(:checked) ~ *), .peer-has-\[\&\>img\]\:flex:is(:where(.peer):has(* > img) ~ *), .peer-has-\[\&\>img\]\/sibling-name\:flex:is(:where(.peer\/sibling-name):has(* > img) ~ *), .peer-has-\[\+img\]\:flex:is(:where(.peer):has( + img) ~ *), .peer-has-\[\>img\]\:flex:is(:where(.peer):has( > img) ~ *), .peer-has-\[\>img\]\/sibling-name\:flex:is(:where(.peer\/sibling-name):has( > img) ~ *), .peer-has-\[\~img\]\:flex:is(:where(.peer):has( ~ img) ~ *), .has-checked\:flex:has(:checked), .has-hocus\:flex:has(:hover, :focus), .has-\[\:checked\]\:flex:has(:checked), .has-\[\&\>img\]\:flex:has(* > img), .has-\[\+img\]\:flex:has( + img), .has-\[\>img\]\:flex:has( > img), .has-\[\~img\]\:flex:has( ~ img) {
       display: flex;
     }
 <<<>>>
 # has
-has-[:checked]/foo:flex
+@config none
+has-[:checked]/foo:flex has-[@media_print]:flex has-custom-at-rule:flex has-nested-selectors:flex
 ---
 
 <<<>>>
 # aria
-aria-[invalid=spelling]:flex aria-checked:flex
+@config run
+aria-[invalid=spelling]:flex aria-[valuenow=1]:flex aria-[valuenow_=_"1"]:flex aria-checked:flex group-aria-[modal]/parent-name:flex group-aria-[modal]:flex group-aria-[valuenow=1]/parent-name:flex group-aria-[valuenow=1]:flex group-aria-checked/parent-name:flex group-aria-checked:flex peer-aria-[modal]/sibling-name:flex peer-aria-[modal]:flex peer-aria-[valuenow=1]/sibling-name:flex peer-aria-[valuenow=1]:flex peer-aria-checked/sibling-name:flex peer-aria-checked:flex
 ---
 .group-aria-checked\:flex:is(:where(.group)[aria-checked="true"] *), .group-aria-checked\/parent-name\:flex:is(:where(.group\/parent-name)[aria-checked="true"] *), .group-aria-\[modal\]\:flex:is(:where(.group)[aria-modal] *), .group-aria-\[modal\]\/parent-name\:flex:is(:where(.group\/parent-name)[aria-modal] *), .group-aria-\[valuenow\=1\]\:flex:is(:where(.group)[aria-valuenow="1"] *), .group-aria-\[valuenow\=1\]\/parent-name\:flex:is(:where(.group\/parent-name)[aria-valuenow="1"] *), .peer-aria-checked\:flex:is(:where(.peer)[aria-checked="true"] ~ *), .peer-aria-checked\/sibling-name\:flex:is(:where(.peer\/sibling-name)[aria-checked="true"] ~ *), .peer-aria-\[modal\]\:flex:is(:where(.peer)[aria-modal] ~ *), .peer-aria-\[modal\]\/sibling-name\:flex:is(:where(.peer\/sibling-name)[aria-modal] ~ *), .peer-aria-\[valuenow\=1\]\:flex:is(:where(.peer)[aria-valuenow="1"] ~ *), .peer-aria-\[valuenow\=1\]\/sibling-name\:flex:is(:where(.peer\/sibling-name)[aria-valuenow="1"] ~ *), .aria-checked\:flex[aria-checked="true"], .aria-\[invalid\=spelling\]\:flex[aria-invalid="spelling"], .aria-\[valuenow_\=_\"1\"\]\:flex[aria-valuenow="1"], .aria-\[valuenow\=1\]\:flex[aria-valuenow="1"] {
       display: flex;
     }
 <<<>>>
 # aria
-aria-checked/foo:flex
+@config run
+aria-[invalid=spelling]/foo:flex aria-checked/foo:flex
 ---
 
 <<<>>>
 # data
-data-[potato=salad]:flex data-disabled:flex
+@config run
+bar data-[foo$=bar_baz_i]:flex data-[foo=1]:flex data-[foo=bar_baz]:flex data-[potato="^_="]:flex data-[potato=salad]:flex data-[potato_=_"salad"]:flex data-[potato_^=_"salad"]:flex data-disabled:flex group-data-[disabled]/parent-name:flex group-data-[disabled]:flex group-data-[foo$=bar_baz_i]/parent-name:flex group-data-[foo=1]/parent-name:flex group-data-[foo=1]:flex group-data-[foo=bar baz]/parent-name:flex peer-data-[disabled]/sibling-name:flex peer-data-[disabled]:flex peer-data-[foo$=bar_baz_i]/sibling-name:flex peer-data-[foo=1]/sibling-name:flex peer-data-[foo=1]:flex peer-data-[foo=bar baz]/sibling-name:flex
 ---
 .group-data-\[disabled\]\:flex:is(:where(.group)[data-disabled] *), .group-data-\[disabled\]\/parent-name\:flex:is(:where(.group\/parent-name)[data-disabled] *), .group-data-\[foo\$\=\'bar\'_i\]\/parent-name\:flex:is(:where(.group\/parent-name)[data-foo$="bar" i] *), .group-data-\[foo\$\=bar_baz_i\]\/parent-name\:flex:is(:where(.group\/parent-name)[data-foo$="bar baz" i] *), .group-data-\[foo\=1\]\:flex:is(:where(.group)[data-foo="1"] *), .group-data-\[foo\=1\]\/parent-name\:flex:is(:where(.group\/parent-name)[data-foo="1"] *), .group-data-\[foo\=bar\ baz\]\/parent-name\:flex:is(:where(.group\/parent-name)[data-foo="bar baz"] *), .peer-data-\[disabled\]\:flex:is(:where(.peer)[data-disabled] ~ *), .peer-data-\[disabled\]\/sibling-name\:flex:is(:where(.peer\/sibling-name)[data-disabled] ~ *), .peer-data-\[foo\$\=\'bar\'_i\]\/sibling-name\:flex:is(:where(.peer\/sibling-name)[data-foo$="bar" i] ~ *), .peer-data-\[foo\$\=bar_baz_i\]\/sibling-name\:flex:is(:where(.peer\/sibling-name)[data-foo$="bar baz" i] ~ *), .peer-data-\[foo\=1\]\:flex:is(:where(.peer)[data-foo="1"] ~ *), .peer-data-\[foo\=1\]\/sibling-name\:flex:is(:where(.peer\/sibling-name)[data-foo="1"] ~ *), .peer-data-\[foo\=bar\ baz\]\/sibling-name\:flex:is(:where(.peer\/sibling-name)[data-foo="bar baz"] ~ *), .data-disabled\:flex[data-disabled], .data-\[foo\$\=\'bar\'_i\]\:flex[data-foo$="bar" i], .data-\[foo\$\=bar_baz_i\]\:flex[data-foo$="bar baz" i], .data-\[foo\=1\]\:flex[data-foo="1"], .data-\[foo\=bar_baz\]\:flex[data-foo="bar baz"], .data-\[potato_\=_\"salad\"\]\:flex[data-potato="salad"], .data-\[potato_\^\=_\"salad\"\]\:flex[data-potato^="salad"], .data-\[potato\=\"\^_\=\"\]\:flex[data-potato="^ ="], .data-\[potato\=salad\]\:flex[data-potato="salad"] {
       display: flex;
     }
 <<<>>>
 # data
-data-[]:flex
+@config run
+data-[]:flex data-[foo_^_=_"bar"]:flex data-[potato=salad]/foo:flex data-disabled/foo:flex
 ---
 
 <<<>>>
 # portrait
+@config run
 portrait:flex
 ---
 @media (orientation: portrait) {
@@ -1420,11 +1570,13 @@ portrait:flex
     }
 <<<>>>
 # portrait
+@config run
 portrait/foo:flex
 ---
 
 <<<>>>
 # landscape
+@config run
 landscape:flex
 ---
 @media (orientation: landscape) {
@@ -1434,11 +1586,13 @@ landscape:flex
     }
 <<<>>>
 # landscape
+@config run
 landscape/foo:flex
 ---
 
 <<<>>>
 # contrast-more
+@config run
 contrast-more:flex
 ---
 @media (prefers-contrast: more) {
@@ -1448,11 +1602,13 @@ contrast-more:flex
     }
 <<<>>>
 # contrast-more
+@config run
 contrast-more/foo:flex
 ---
 
 <<<>>>
 # contrast-less
+@config run
 contrast-less:flex
 ---
 @media (prefers-contrast: less) {
@@ -1462,11 +1618,13 @@ contrast-less:flex
     }
 <<<>>>
 # contrast-less
+@config run
 contrast-less/foo:flex
 ---
 
 <<<>>>
 # forced-colors
+@config run
 forced-colors:flex
 ---
 @media (forced-colors: active) {
@@ -1476,11 +1634,13 @@ forced-colors:flex
     }
 <<<>>>
 # forced-colors
+@config run
 forced-colors/foo:flex
 ---
 
 <<<>>>
 # inverted-colors
+@config run
 inverted-colors:flex
 ---
 @media (inverted-colors: inverted) {
@@ -1490,6 +1650,7 @@ inverted-colors:flex
     }
 <<<>>>
 # pointer-none
+@config run
 pointer-none:flex
 ---
 @media (pointer: none) {
@@ -1499,6 +1660,7 @@ pointer-none:flex
     }
 <<<>>>
 # pointer-coarse
+@config run
 pointer-coarse:flex
 ---
 @media (pointer: coarse) {
@@ -1508,6 +1670,7 @@ pointer-coarse:flex
     }
 <<<>>>
 # pointer-fine
+@config run
 pointer-fine:flex
 ---
 @media (pointer: fine) {
@@ -1517,6 +1680,7 @@ pointer-fine:flex
     }
 <<<>>>
 # any-pointer-none
+@config run
 any-pointer-none:flex
 ---
 @media (any-pointer: none) {
@@ -1526,6 +1690,7 @@ any-pointer-none:flex
     }
 <<<>>>
 # any-pointer-coarse
+@config run
 any-pointer-coarse:flex
 ---
 @media (any-pointer: coarse) {
@@ -1535,6 +1700,7 @@ any-pointer-coarse:flex
     }
 <<<>>>
 # any-pointer-fine
+@config run
 any-pointer-fine:flex
 ---
 @media (any-pointer: fine) {
@@ -1544,6 +1710,7 @@ any-pointer-fine:flex
     }
 <<<>>>
 # scripting-none
+@config run
 noscript:flex
 ---
 @media (scripting: none) {
@@ -1553,24 +1720,28 @@ noscript:flex
     }
 <<<>>>
 # nth
-nth-3:flex nth-[2n+1]:flex
+@config run
+nth-3:flex nth-[2n+1]:flex nth-[2n+1_of_.foo]:flex nth-last-3:flex nth-last-[2n+1]:flex nth-last-[2n+1_of_.foo]:flex nth-last-of-type-3:flex nth-last-of-type-[2n+1]:flex nth-of-type-3:flex nth-of-type-[2n+1]:flex
 ---
 .nth-3\:flex:nth-child(3), .nth-\[2n\+1\]\:flex:nth-child(odd), .nth-\[2n\+1_of_\.foo\]\:flex:nth-child(odd of .foo), .nth-last-3\:flex:nth-last-child(3), .nth-last-\[2n\+1\]\:flex:nth-last-child(odd), .nth-last-\[2n\+1_of_\.foo\]\:flex:nth-last-child(odd of .foo), .nth-of-type-3\:flex:nth-of-type(3), .nth-of-type-\[2n\+1\]\:flex:nth-of-type(odd), .nth-last-of-type-3\:flex:nth-last-of-type(3), .nth-last-of-type-\[2n\+1\]\:flex:nth-last-of-type(odd) {
       display: flex;
     }
 <<<>>>
 # nth
+@config run
 nth-foo:flex nth-last-foo:flex nth-last-of-type-foo:flex nth-of-type-foo:flex
 ---
 
 <<<>>>
 # nth
-nth--3:flex nth-3/foo:flex nth-[2n+1]/foo:flex
+@config run
+nth--3:flex nth-3/foo:flex nth-[2n+1]/foo:flex nth-[2n+1_of_.foo]/foo:flex nth-last--3:flex nth-last-3/foo:flex nth-last-[2n+1]/foo:flex nth-last-[2n+1_of_.foo]/foo:flex nth-last-of-type--3:flex nth-last-of-type-3/foo:flex nth-last-of-type-[2n+1]/foo:flex nth-of-type--3:flex nth-of-type-3/foo:flex nth-of-type-[2n+1]/foo:flex
 ---
 
 <<<>>>
 # variant order
-[&_p]:flex
+@config theme
+2xl:flex [&_p]:flex active:flex after:flex aria-[custom=true]:flex aria-busy:flex aria-checked:flex aria-disabled:flex aria-expanded:flex aria-hidden:flex aria-pressed:flex aria-readonly:flex aria-required:flex aria-selected:flex autofill:flex backdrop:flex before:flex checked:flex contrast-less:flex contrast-more:flex dark:flex data-[custom=true]:flex data-custom:flex default:flex details-content:flex disabled:flex empty:flex enabled:flex even:flex file:flex first-letter:flex first-line:flex first-of-type:flex first:flex focus-visible:flex focus-within:flex focus:flex forced-colors:flex group-hover:flex has-[:hover]:flex hover:flex in-range:flex indeterminate:flex invalid:flex landscape:flex last-of-type:flex last:flex lg:flex ltr:flex marker:flex md:flex motion-reduce:flex motion-safe:flex odd:flex only-of-type:flex only:flex open:flex optional:flex out-of-range:flex peer-hover:flex placeholder-shown:flex placeholder:flex portrait:flex print:flex read-only:flex required:flex rtl:flex selection:flex sm:flex supports-[display:flex]:flex target:flex valid:flex visited:flex xl:flex
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -1750,16 +1921,24 @@ nth--3:flex nth-3/foo:flex nth-[2n+1]/foo:flex
     }
 <<<>>>
 # variants with the same root are sorted deterministically
-data-[foo]:flex data-active:flex data-focus:flex data-hover:flex
+@config none
+data-[bar]:flex data-[baz]:flex data-[foo]:flex data-active:flex data-focus:flex data-hover:flex
 <<<>>>
 # matchVariant sorts deterministically
-is-data-[potato]:flex is-data-bar:flex is-data-foo:flex is-data:flex
+@config none
+is-data-[potato]:flex is-data-[sandwich]:flex is-data-bar:flex is-data-foo:flex is-data:flex
 <<<>>>
 # move modifier of compound variant to sub-variant if its also a compound variant
+@config run
 group-peer-focus/name:flex has-group-focus/name:flex in-group-focus/name:flex not-group-focus/name:flex
 ---
 .not-group-focus\/name\:flex:not(:is(:where(.group\/name):focus *)), .group-peer-focus\/name\:flex:is(:where(.group\/name):is(:where(.peer):focus ~ *) *), :where(:is(:where(.group\/name):focus *)) .in-group-focus\/name\:flex, .has-group-focus\/name\:flex:has(:is(:where(.group\/name):focus *)) {
       display: flex;
     }
 <<<>>>
-Extracted 162 test cases (160 with expected CSS)
+Extracted 164 test cases (162 with expected CSS)
+Config breakdown:
+  none: 11
+  run: 141
+  theme: 9
+  theme-reference: 3

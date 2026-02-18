@@ -41,6 +41,33 @@ let extract_quoted_strings line =
   let pattern = Re.Pcre.regexp {|'([^']+)'|} in
   List.map (fun m -> Re.Group.get m 1) (Re.all pattern line)
 
+(* Strip quoted strings from a line so we can detect unquoted brackets. E.g.
+   ['z-\[123\]', 'foo'] becomes [, ] — the ] inside quotes is removed. *)
+let strip_quoted s =
+  let buf = Buffer.create (String.length s) in
+  let len = String.length s in
+  let rec loop i =
+    if i >= len then Buffer.contents buf
+    else
+      match s.[i] with
+      | '\'' ->
+          let j = ref (i + 1) in
+          while !j < len && s.[!j] <> '\'' do
+            incr j
+          done;
+          loop (min (!j + 1) len)
+      | '"' ->
+          let j = ref (i + 1) in
+          while !j < len && s.[!j] <> '"' do
+            incr j
+          done;
+          loop (min (!j + 1) len)
+      | c ->
+          Buffer.add_char buf c;
+          loop (i + 1)
+  in
+  loop 0
+
 (** Theme configuration detected from the CSS template passed to compileCss.
     Different configurations produce different CSS output for the same utility
     classes (e.g., [Theme_inline] inlines variable values instead of using
@@ -85,9 +112,14 @@ let parse_file filename =
   let tests = ref [] in
   let lines = String.split_on_char '\n' content in
   let test_pattern = Re.Pcre.regexp {|^test\('([^']+)'|} in
-  let run_pattern = Re.Pcre.regexp {|run\(\[([^\]]*)\]|} in
+  (* Match array content between [ and ], handling ] inside quoted strings *)
+  let run_pattern =
+    Re.Pcre.regexp {|run\(\[((?:[^\]'"]|'[^']*'|"[^"]*")*)\]|}
+  in
   (* Pattern for standalone array lines like ['class1', 'class2'], *)
-  let standalone_array_pattern = Re.Pcre.regexp {|^\s*\[([^\]]*)\]|} in
+  let standalone_array_pattern =
+    Re.Pcre.regexp {|^\s*\[((?:[^\]'"]|'[^']*'|"[^"]*")*)\]|}
+  in
   let snapshot_start = Re.Pcre.regexp {|toMatchInlineSnapshot\(`|} in
   let snapshot_end = Re.Pcre.regexp {|`\)|} in
   (* Pattern for .toEqual('') which means the classes should produce empty
@@ -169,8 +201,9 @@ let parse_file filename =
             flush_test name (Some "");
             current_classes := [] (* Check for array continuation *))
           else if
-            Astring.String.is_infix ~affix:"[" line
-            && not (Astring.String.is_infix ~affix:"]" line)
+            let stripped = strip_quoted line in
+            Astring.String.is_infix ~affix:"[" stripped
+            && not (Astring.String.is_infix ~affix:"]" stripped)
           then state := InArray name (* Check for snapshot start *)
           else if Re.execp snapshot_start line then
             state := InSnapshot (name, !current_classes, Buffer.create 256)
@@ -191,7 +224,11 @@ let parse_file filename =
       | InArray name ->
           current_classes :=
             List.rev_append (extract_quoted_strings line) !current_classes;
-          if Astring.String.is_infix ~affix:"]" line then state := InTest name
+          (* Check for unquoted ] to detect array end — don't be fooled by ]
+             inside quoted class names like 'z-[123]' *)
+          let stripped = strip_quoted line in
+          if Astring.String.is_infix ~affix:"]" stripped then
+            state := InTest name
       | InSnapshot (name, classes, buf) ->
           if Re.execp snapshot_end line then (
             current_classes := List.rev classes;

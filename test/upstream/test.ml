@@ -1,9 +1,24 @@
 (** Upstream Tailwind CSS test runner.
 
-    KEEP THIS TESTER AS DUMB AS POSSIBLE. The workflow is: 1. Extract tests from
-    upstream into .txt files (see extract_tests.ml) 2. Run each test with tw 3.
-    Compare expected output vs what we got 4. Fail for ANY difference (even
-    spaces)
+    KEEP THIS TESTER AS DUMB AS POSSIBLE.
+
+    The workflow is:
+
+    {ol
+     {- Extract tests from upstream into .txt files (see [extract_tests.ml]):
+        {v
+    dune exec test/upstream/extract_tests.exe -- \
+      <tailwindcss>/packages/tailwindcss/src/utilities.test.ts \
+      > test/upstream/utilities.txt
+    dune exec test/upstream/extract_tests.exe -- \
+      <tailwindcss>/packages/tailwindcss/src/variants.test.ts \
+      > test/upstream/variants.txt
+        v}
+     }
+     {- Run each test with tw }
+     {- Compare expected output vs what we got }
+     {- Fail for ANY difference (even spaces) }
+    }
 
     No filtering, no tree diffing, no special-casing. If a test fails, either
     fix our code or fix the extraction.
