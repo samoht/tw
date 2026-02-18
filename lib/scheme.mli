@@ -26,6 +26,10 @@ type t = {
   default_ring_width : int;
       (** Default ring width in pixels for bare [ring] utility. Corresponds to
           Tailwind's [@theme \{ --default-ring-width: Npx \}]. Default: 1. *)
+  default_border_width : int;
+      (** Default border width in pixels for bare [border] utility. Corresponds
+          to Tailwind's [@theme \{ --default-border-width: Npx \}]. Default: 1.
+      *)
 }
 (** Theme scheme configuration *)
 

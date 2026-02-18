@@ -265,7 +265,13 @@ module Handler = struct
     let decl, _ = Var.binding border_style_var border_style_value in
     style [ decl; border_style border_style_value ]
 
-  let border = make_border_util [ Css.border_width (Px 1.) ]
+  let border_default () =
+    make_border_util
+      [
+        Css.border_width
+          (Px (float_of_int !current_scheme.default_border_width));
+      ]
+
   let border_0 = make_border_util [ Css.border_width (Px 0.) ]
   let border_2 = make_border_util [ Css.border_width (Px 2.) ]
   let border_4 = make_border_util [ Css.border_width (Px 4.) ]
@@ -1384,7 +1390,7 @@ module Handler = struct
 
   let to_style : t -> Style.t = function
     (* Border width utilities *)
-    | Border -> border
+    | Border -> border_default ()
     | Border_0 -> border_0
     | Border_2 -> border_2
     | Border_4 -> border_4
