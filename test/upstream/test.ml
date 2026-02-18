@@ -186,6 +186,9 @@ let filter_irrelevant_diffs classes (diff : Tw_tools.Tree_diff.t) :
     | Tw_tools.Tree_diff.Rule_removed { selector; _ } ->
         (* Only keep if the selector matches an input class *)
         if selector_matches_input_class classes selector then Some () else None
+    | Tw_tools.Tree_diff.Rule_added { selector; _ } ->
+        (* Only keep if the selector matches an input class *)
+        if selector_matches_input_class classes selector then Some () else None
     | Tw_tools.Tree_diff.Rule_content_changed
         { selector; added_properties; removed_properties; property_changes; _ }
       ->
