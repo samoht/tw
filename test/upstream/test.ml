@@ -341,17 +341,35 @@ let extract_radius_from_css css : (string * Css.length) list =
 
 (** Create scheme from expected CSS. Extracts spacing and radius values defined
     in :root, :host blocks. *)
+let extract_default_ring_width_from_css css : int =
+  (* Look for calc(Npx + var(--tw-ring-offset-width)) inside .ring { } to
+     determine the configured --default-ring-width *)
+  let pattern =
+    Re.Pcre.regexp
+      {|\.ring\s*\{[^}]*calc\((\d+)px\s*\+\s*var\(--tw-ring-offset-width\)\)|}
+  in
+  match Re.exec_opt pattern css with
+  | Some m -> ( try int_of_string (Re.Group.get m 1) with _ -> 1)
+  | None -> 1
+
 let scheme_from_expected_css expected : Tw.Scheme.t =
   let spacing = extract_spacing_from_css expected in
   let radius = extract_radius_from_css expected in
-  { colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ]; spacing; radius }
+  let default_ring_width = extract_default_ring_width_from_css expected in
+  {
+    colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ];
+    spacing;
+    radius;
+    default_ring_width;
+  }
 
 (** Set up the scheme for a specific test *)
 let setup_scheme_for_test expected =
   let scheme = scheme_from_expected_css expected in
   Tw.Color.Handler.set_scheme scheme;
   Tw.Theme.set_scheme scheme;
-  Tw.Borders.set_scheme scheme
+  Tw.Borders.set_scheme scheme;
+  Tw.Effects.set_scheme scheme
 
 (** Extract all CSS variable names referenced in expected CSS text. Finds all
     [--name] patterns (both definitions and references). *)

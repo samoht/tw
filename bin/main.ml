@@ -83,11 +83,13 @@ let setup_test_scheme () =
       colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ];
       spacing = [ (4, Css.Rem 1.0) ];
       radius = [];
+      default_ring_width = 1;
     }
   in
   Tw.Color.Handler.set_scheme scheme;
   Tw.Theme.set_scheme scheme;
-  Tw.Borders.set_scheme scheme
+  Tw.Borders.set_scheme scheme;
+  Tw.Effects.set_scheme scheme
 
 let eval_flag flag ~default =
   match flag with `Enable -> true | `Disable -> false | `Default -> default
