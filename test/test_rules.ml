@@ -58,8 +58,8 @@ let check_extract_responsive () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      (* Match Tailwind's minified output: (min-width:40rem) *)
-      check string "media condition" "(min-width:40rem)"
+      (* Match Tailwind's minified output: (min-width:640px) *)
+      check string "media condition" "(min-width:640px)"
         (Css.Media.to_string condition);
       check Test_helpers.selector_testable "sm selector"
         (Css.Selector.class_ "sm:p-4")
@@ -71,8 +71,8 @@ let check_extract_responsive_md () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      (* md breakpoint should be 48rem *)
-      check string "md media condition" "(min-width:48rem)"
+      (* md breakpoint should be 768px *)
+      check string "md media condition" "(min-width:768px)"
         (Css.Media.to_string condition);
       check Test_helpers.selector_testable "md selector"
         (Css.Selector.class_ "md:p-4")
@@ -84,7 +84,7 @@ let check_extract_responsive_lg () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      check string "lg media condition" "(min-width:64rem)"
+      check string "lg media condition" "(min-width:1024px)"
         (Css.Media.to_string condition);
       check Test_helpers.selector_testable "lg selector"
         (Css.Selector.class_ "lg:p-4")
@@ -96,7 +96,7 @@ let check_extract_responsive_xl () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      check string "xl media condition" "(min-width:80rem)"
+      check string "xl media condition" "(min-width:1280px)"
         (Css.Media.to_string condition);
       check Test_helpers.selector_testable "xl selector"
         (Css.Selector.class_ "xl:p-4")
@@ -108,7 +108,7 @@ let check_extract_responsive_2xl () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      check string "2xl media condition" "(min-width:96rem)"
+      check string "2xl media condition" "(min-width:1536px)"
         (Css.Media.to_string condition);
       check Test_helpers.selector_testable "2xl selector"
         (Css.Selector.class_ "2xl:p-4")
@@ -728,7 +728,7 @@ let test_rule_sets_hover_media () =
     "hover selector in media" [ expected ] selectors
 
 let test_rule_sets_md_media () =
-  (* Multiple md[...] utilities should group under a single (min-width:48rem)
+  (* Multiple md[...] utilities should group under a single (min-width:768px)
      when optimized *)
   let css =
     Tw.Rules.to_css
@@ -743,8 +743,8 @@ let test_rule_sets_md_media () =
       [ md [ p 4 ]; md [ m 2 ] ]
   in
   (* Check for exact media condition *)
-  check bool "has (min-width:48rem) media query" true
-    (has_media_condition "(min-width:48rem)" css);
+  check bool "has (min-width:768px) media query" true
+    (has_media_condition "(min-width:768px)" css);
 
   (* Find the md media block and verify both selectors are inside it *)
   let md_block =
@@ -752,7 +752,7 @@ let test_rule_sets_md_media () =
       (fun acc stmt ->
         match (acc, Css.as_media stmt) with
         | Some _, _ -> acc
-        | None, Some (cond, inner) when cond = Css.Media.Min_width_rem 48. ->
+        | None, Some (cond, inner) when cond = Css.Media.Min_width 768. ->
             Some inner
         | None, _ -> None)
       None css
@@ -784,12 +784,12 @@ let test_media_grouping_order () =
   (* Conditions present and in order *)
   let conditions = media_conditions css in
   check (list string) "media conditions order"
-    [ "(min-width:40rem)"; "(min-width:48rem)"; "(min-width:64rem)" ]
+    [ "(min-width:640px)"; "(min-width:768px)"; "(min-width:1024px)" ]
     conditions;
   (* Each block contains only its selectors *)
-  let sm_sels = selectors_in_media_sel ~condition:"(min-width:40rem)" css in
-  let md_sels = selectors_in_media_sel ~condition:"(min-width:48rem)" css in
-  let lg_sels = selectors_in_media_sel ~condition:"(min-width:64rem)" css in
+  let sm_sels = selectors_in_media_sel ~condition:"(min-width:640px)" css in
+  let md_sels = selectors_in_media_sel ~condition:"(min-width:768px)" css in
+  let lg_sels = selectors_in_media_sel ~condition:"(min-width:1024px)" css in
   check
     (list Test_helpers.selector_testable)
     "sm selectors"
@@ -809,7 +809,7 @@ let test_media_grouping_order () =
 let test_md_media_dedup () =
   let css = Tw.Rules.to_css [ md [ p 4 ]; md [ p 4 ] ] in
   check int "only one .md:p-4 in media (structural)" 1
-    (count_selector_in_media_sel ~condition:"(min-width:48rem)"
+    (count_selector_in_media_sel ~condition:"(min-width:768px)"
        ~selector:(Css.Selector.class_ "md:p-4")
        css)
 
@@ -820,7 +820,7 @@ let test_md_hover_no_extra_media () =
     (has_media_condition "(hover:hover)" css);
   (* Selector is inside md media block with :hover pseudo, assert
      structurally *)
-  let md_sels = selectors_in_media_sel ~condition:"(min-width:48rem)" css in
+  let md_sels = selectors_in_media_sel ~condition:"(min-width:768px)" css in
   let expected =
     Css.Selector.compound
       [ Css.Selector.class_ "md:hover:p-4"; Css.Selector.Hover ]
@@ -953,7 +953,7 @@ let test_classify () =
         ~selector:(Css.Selector.class_ "p-4")
         ~props:[ Css.padding [ Css.Rem 1.0 ] ]
         ();
-      Tw.Rules.media_query ~condition:(Css.Media.Min_width_rem 40.)
+      Tw.Rules.media_query ~condition:(Css.Media.Min_width 640.)
         ~selector:(Css.Selector.class_ "sm\\:p-4")
         ~props:[ Css.padding [ Css.Rem 1.0 ] ]
         ();
@@ -1776,8 +1776,8 @@ let test_media_query_deduplication () =
    *
    * Example output:
    *   .container { width: 100% }
-   *   @media (min-width:48rem) { .container { max-width: 48rem } }
-   *   @media (min-width:48rem) { .md\:grid-cols-2 { ... } }
+   *   @media (min-width:768px) { .container { max-width: 48rem } }
+   *   @media (min-width:768px) { .md\:grid-cols-2 { ... } }
    *)
   let utilities = Tw.[ container; md [ grid_cols 2 ] ] in
   let css = Tw.to_css ~base:false ~optimize:false utilities in
@@ -1794,17 +1794,17 @@ let test_media_query_deduplication () =
         | None -> 0)
   in
 
-  let count_48rem =
+  let count_768px =
     List.fold_left ( + ) 0
       (List.map
-         (count_toplevel_media (Tw.Css.Media.Min_width_rem 48.))
+         (count_toplevel_media (Tw.Css.Media.Min_width 768.))
          (Tw.Css.statements css))
   in
 
-  (* Should have 2 top-level media queries at 48rem: one for container, one for
+  (* Should have 2 top-level media queries at 768px: one for container, one for
      md:grid-cols-2 *)
   Alcotest.(check int)
-    "preserves cascade with nested and top-level media" 2 count_48rem
+    "preserves cascade with nested and top-level media" 2 count_768px
 
 let test_border_width_color_ordering () =
   (* Test that border width utilities (borders.ml, priority 16) come before
