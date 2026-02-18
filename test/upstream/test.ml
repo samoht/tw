@@ -352,15 +352,25 @@ let extract_default_ring_width_from_css css : int =
   | Some m -> ( try int_of_string (Re.Group.get m 1) with _ -> 1)
   | None -> 1
 
+let extract_default_border_width_from_css css : int =
+  (* Look for border-width: Npx inside .border { } to determine the configured
+     --default-border-width *)
+  let pattern = Re.Pcre.regexp {|\.border\s*\{[^}]*border-width:\s*(\d+)px|} in
+  match Re.exec_opt pattern css with
+  | Some m -> ( try int_of_string (Re.Group.get m 1) with _ -> 1)
+  | None -> 1
+
 let scheme_from_expected_css expected : Tw.Scheme.t =
   let spacing = extract_spacing_from_css expected in
   let radius = extract_radius_from_css expected in
   let default_ring_width = extract_default_ring_width_from_css expected in
+  let default_border_width = extract_default_border_width_from_css expected in
   {
     colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ];
     spacing;
     radius;
     default_ring_width;
+    default_border_width;
   }
 
 (** Set up the scheme for a specific test *)

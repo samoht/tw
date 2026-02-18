@@ -84,6 +84,7 @@ let setup_test_scheme () =
       spacing = [ (4, Css.Rem 1.0) ];
       radius = [];
       default_ring_width = 1;
+      default_border_width = 1;
     }
   in
   Tw.Color.Handler.set_scheme scheme;

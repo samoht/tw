@@ -26,13 +26,23 @@ type t = {
   default_ring_width : int;
       (** Default ring width in pixels for bare [ring] utility. Corresponds to
           Tailwind's [@theme \{ --default-ring-width: Npx \}]. Default: 1. *)
+  default_border_width : int;
+      (** Default border width in pixels for bare [border] utility. Corresponds
+          to Tailwind's [@theme \{ --default-border-width: Npx \}]. Default: 1.
+      *)
 }
 (** Theme scheme configuration *)
 
 (** Default scheme - uses oklch colors and calc-based spacing (matches Tailwind
     v4 default) *)
 let default : t =
-  { colors = []; spacing = []; radius = []; default_ring_width = 1 }
+  {
+    colors = [];
+    spacing = [];
+    radius = [];
+    default_ring_width = 1;
+    default_border_width = 1;
+  }
 
 (** Lookup a color in the scheme *)
 let find_color scheme name = List.assoc_opt name scheme.colors
