@@ -179,6 +179,9 @@ module Rules_selector = struct
           ( replace_class_in_selector ~old_class ~new_class a,
             comb,
             replace_class_in_selector ~old_class ~new_class b )
+    | Css.Selector.Relative (comb, b) ->
+        Css.Selector.Relative
+          (comb, replace_class_in_selector ~old_class ~new_class b)
     | Css.Selector.List selectors ->
         Css.Selector.List
           (List.map (replace_class_in_selector ~old_class ~new_class) selectors)
@@ -262,6 +265,52 @@ module Rules_selector = struct
     in
     transform selector
 end
+
+let breakpoint_px = function
+  | `Sm -> 640.
+  | `Md -> 768.
+  | `Lg -> 1024.
+  | `Xl -> 1280.
+  | `Xl_2 -> 1536.
+
+(** Get the media condition and class prefix for a responsive modifier. *)
+let responsive_modifier_condition = function
+  | Style.Responsive bp ->
+      let prefix = string_of_breakpoint bp in
+      (Css.Media.Min_width (breakpoint_px bp), prefix)
+  | Style.Min_responsive bp ->
+      let prefix =
+        match bp with
+        | `Sm -> "min-sm"
+        | `Md -> "min-md"
+        | `Lg -> "min-lg"
+        | `Xl -> "min-xl"
+        | `Xl_2 -> "min-2xl"
+      in
+      (Css.Media.Min_width (breakpoint_px bp), prefix)
+  | Style.Max_responsive bp ->
+      let prefix =
+        match bp with
+        | `Sm -> "max-sm"
+        | `Md -> "max-md"
+        | `Lg -> "max-lg"
+        | `Xl -> "max-xl"
+        | `Xl_2 -> "max-2xl"
+      in
+      (Css.Media.Not_min_width (breakpoint_px bp), prefix)
+  | Style.Min_arbitrary px ->
+      let px_str =
+        if Float.is_integer px then Int.to_string (Float.to_int px)
+        else Float.to_string px
+      in
+      (Css.Media.Min_width px, "min-[" ^ px_str ^ "px]")
+  | Style.Max_arbitrary px ->
+      let px_str =
+        if Float.is_integer px then Int.to_string (Float.to_int px)
+        else Float.to_string px
+      in
+      (Css.Media.Not_min_width px, "max-[" ^ px_str ^ "px]")
+  | _ -> failwith "not a responsive modifier"
 
 let selector_with_data_key selector key value =
   let attr_selector = Css.Selector.attribute key (Exact value) in
@@ -799,6 +848,13 @@ let apply_modifier_to_rule modifier = function
               ~selector:new_selector ~props:[] ?base_class
               ~nested:[ inner_media ] ();
           ]
+      | Style.Responsive _ | Style.Min_responsive _ | Style.Max_responsive _
+      | Style.Min_arbitrary _ | Style.Max_arbitrary _ ->
+          let outer_condition, _ = responsive_modifier_condition modifier in
+          [
+            media_query ~condition:outer_condition ~selector:new_selector
+              ~props:[] ?base_class ~nested:[ inner_media ] ();
+          ]
       | _ ->
           (* For other modifiers, return unchanged *)
           [
@@ -1120,6 +1176,7 @@ let classify_selector sel =
       | Css.Selector.Compound sels -> List.exists has_has_pseudo sels
       | Css.Selector.Combined (left, _, right) ->
           has_has_pseudo left || has_has_pseudo right
+      | Css.Selector.Relative (_, right) -> has_has_pseudo right
       | Css.Selector.List sels -> List.exists has_has_pseudo sels
       | Css.Selector.Not sels -> List.exists has_has_pseudo sels
       | Css.Selector.Is sels -> List.exists has_has_pseudo sels
@@ -1132,6 +1189,7 @@ let classify_selector sel =
       | Css.Selector.Compound sels -> List.exists has_aria_attr sels
       | Css.Selector.Combined (left, _, right) ->
           has_aria_attr left || has_aria_attr right
+      | Css.Selector.Relative (_, right) -> has_aria_attr right
       | Css.Selector.List sels -> List.exists has_aria_attr sels
       | Css.Selector.Not sels -> List.exists has_aria_attr sels
       | Css.Selector.Is sels -> List.exists has_aria_attr sels

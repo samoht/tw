@@ -4,5 +4,5 @@
 
 (test
  (name test)
- (libraries alcotest tw tw_tools tw.css fmt)
+ (libraries alcotest tw tw.css fmt re)
  (deps utilities.txt))
