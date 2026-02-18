@@ -936,6 +936,13 @@ let pp_modifier = function
       | `Lg -> "lg"
       | `Xl -> "xl"
       | `Xl_2 -> "2xl")
+  | Min_responsive breakpoint -> (
+      match breakpoint with
+      | `Sm -> "min-sm"
+      | `Md -> "min-md"
+      | `Lg -> "min-lg"
+      | `Xl -> "min-xl"
+      | `Xl_2 -> "min-2xl")
   | Max_responsive breakpoint -> (
       match breakpoint with
       | `Sm -> "max-sm"
@@ -1204,6 +1211,12 @@ let simple_modifiers =
     ("lg", Responsive `Lg);
     ("xl", Responsive `Xl);
     ("2xl", Responsive `Xl_2);
+    (* Min responsive breakpoints (explicit min-width, same as unprefixed) *)
+    ("min-sm", Min_responsive `Sm);
+    ("min-md", Min_responsive `Md);
+    ("min-lg", Min_responsive `Lg);
+    ("min-xl", Min_responsive `Xl);
+    ("min-2xl", Min_responsive `Xl_2);
     (* Max responsive breakpoints *)
     ("max-sm", Max_responsive `Sm);
     ("max-md", Max_responsive `Md);

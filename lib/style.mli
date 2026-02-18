@@ -19,6 +19,7 @@ type modifier =
   | Group_focus
   | Dark
   | Responsive of breakpoint
+  | Min_responsive of breakpoint
   | Max_responsive of breakpoint
   | Min_arbitrary of float
   | Max_arbitrary of float

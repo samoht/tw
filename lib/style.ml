@@ -19,6 +19,7 @@ type modifier =
   | Group_focus
   | Dark
   | Responsive of breakpoint
+  | Min_responsive of breakpoint
   | Max_responsive of breakpoint
   | Min_arbitrary of float
   | Max_arbitrary of float
@@ -204,6 +205,11 @@ let rec pp_modifier = function
   | Responsive `Lg -> "lg"
   | Responsive `Xl -> "xl"
   | Responsive `Xl_2 -> "2xl"
+  | Min_responsive `Sm -> "min-sm"
+  | Min_responsive `Md -> "min-md"
+  | Min_responsive `Lg -> "min-lg"
+  | Min_responsive `Xl -> "min-xl"
+  | Min_responsive `Xl_2 -> "min-2xl"
   | Max_responsive `Sm -> "max-sm"
   | Max_responsive `Md -> "max-md"
   | Max_responsive `Lg -> "max-lg"

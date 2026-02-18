@@ -269,14 +269,14 @@ let selector_with_data_key selector key value =
 
 let responsive_rule breakpoint base_class selector props =
   let prefix = string_of_breakpoint breakpoint in
-  (* Use rem values matching Tailwind v4's theme breakpoints *)
-  let rem_value =
+  (* Use px values matching Tailwind v4's default breakpoints *)
+  let px_value =
     match prefix with
-    | "sm" -> 40. (* 40rem = 640px *)
-    | "md" -> 48. (* 48rem = 768px *)
-    | "lg" -> 64. (* 64rem = 1024px *)
-    | "xl" -> 80. (* 80rem = 1280px *)
-    | "2xl" -> 96. (* 96rem = 1536px *)
+    | "sm" -> 640.
+    | "md" -> 768.
+    | "lg" -> 1024.
+    | "xl" -> 1280.
+    | "2xl" -> 1536.
     | _ -> 0.
   in
   let modified_class = prefix ^ ":" ^ base_class in
@@ -284,8 +284,33 @@ let responsive_rule breakpoint base_class selector props =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
   in
-  media_query ~condition:(Css.Media.Min_width_rem rem_value)
-    ~selector:new_selector ~props ~base_class:modified_class ()
+  media_query ~condition:(Css.Media.Min_width px_value) ~selector:new_selector
+    ~props ~base_class:modified_class ()
+
+let min_responsive_rule breakpoint base_class selector props =
+  let prefix =
+    match breakpoint with
+    | `Sm -> "min-sm"
+    | `Md -> "min-md"
+    | `Lg -> "min-lg"
+    | `Xl -> "min-xl"
+    | `Xl_2 -> "min-2xl"
+  in
+  let px_value =
+    match breakpoint with
+    | `Sm -> 640.
+    | `Md -> 768.
+    | `Lg -> 1024.
+    | `Xl -> 1280.
+    | `Xl_2 -> 1536.
+  in
+  let modified_class = prefix ^ ":" ^ base_class in
+  let new_selector =
+    Rules_selector.replace_class_in_selector ~old_class:base_class
+      ~new_class:modified_class selector
+  in
+  media_query ~condition:(Css.Media.Min_width px_value) ~selector:new_selector
+    ~props ~base_class:modified_class ()
 
 let max_responsive_rule breakpoint base_class selector props =
   let prefix =
@@ -296,21 +321,21 @@ let max_responsive_rule breakpoint base_class selector props =
     | `Xl -> "max-xl"
     | `Xl_2 -> "max-2xl"
   in
-  (* Use rem values matching Tailwind v4's theme breakpoints *)
-  let rem_value =
+  (* Use px values matching Tailwind v4's default breakpoints *)
+  let px_value =
     match breakpoint with
-    | `Sm -> 40. (* 40rem = 640px *)
-    | `Md -> 48. (* 48rem = 768px *)
-    | `Lg -> 64. (* 64rem = 1024px *)
-    | `Xl -> 80. (* 80rem = 1280px *)
-    | `Xl_2 -> 96. (* 96rem = 1536px *)
+    | `Sm -> 640.
+    | `Md -> 768.
+    | `Lg -> 1024.
+    | `Xl -> 1280.
+    | `Xl_2 -> 1536.
   in
   let modified_class = prefix ^ ":" ^ base_class in
   let new_selector =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
   in
-  media_query ~condition:(Css.Media.Not_min_width_rem rem_value)
+  media_query ~condition:(Css.Media.Not_min_width px_value)
     ~selector:new_selector ~props ~base_class:modified_class ()
 
 let min_arbitrary_rule px base_class selector props =
@@ -597,6 +622,8 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
   (* Responsive and container *)
   | Style.Responsive breakpoint ->
       responsive_rule breakpoint base_class selector props
+  | Style.Min_responsive breakpoint ->
+      min_responsive_rule breakpoint base_class selector props
   | Style.Max_responsive breakpoint ->
       max_responsive_rule breakpoint base_class selector props
   | Style.Min_arbitrary px -> min_arbitrary_rule px base_class selector props
