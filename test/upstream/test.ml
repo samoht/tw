@@ -118,12 +118,12 @@ let read_test_cases filename =
       match lines with
       | [] ->
           let expected = Buffer.contents buf |> String.trim in
-          if classes <> [] && expected <> "" then
+          if classes <> [] then
             tests := { name; config; classes; expected } :: !tests
       | line :: rest ->
           if String.trim line = "<<<>>>" then (
             let expected = Buffer.contents buf |> String.trim in
-            if classes <> [] && expected <> "" then
+            if classes <> [] then
               tests := { name; config; classes; expected } :: !tests;
             parse rest)
           else (

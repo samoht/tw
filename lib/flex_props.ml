@@ -128,8 +128,7 @@ module Handler = struct
     | Basis_fraction (n, m) -> basis_fraction_style n m
     | Basis_named name -> basis_named_style name
     | Order n -> order_style n
-    | Neg_order n ->
-        style [ order (Order_calc ("calc(" ^ string_of_int n ^ " * -1)")) ]
+    | Neg_order n -> style [ order (Order_int (-n)) ]
     | Order_arbitrary s -> (
         match int_of_string_opt s with
         | Some n -> style [ order (Order_int n) ]

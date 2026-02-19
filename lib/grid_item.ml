@@ -47,10 +47,7 @@ module Handler = struct
   let priority = 1
 
   let col n = style [ grid_column (Num n, Auto) ]
-
-  let neg_col n =
-    style [ grid_column (Calc ("calc(" ^ string_of_int n ^ " * -1)"), Auto) ]
-
+  let neg_col n = style [ grid_column (Num (-n), Auto) ]
   let col_arbitrary s = style [ grid_column (Arbitrary s, Auto) ]
 
   let col_auto =
@@ -65,10 +62,7 @@ module Handler = struct
   let col_span n = style [ grid_column (Span n, Span n) ]
   let col_span_full = style [ grid_column (Num 1, Num (-1)) ]
   let col_start n = style [ grid_column_start (Num n) ]
-
-  let neg_col_start n =
-    style [ grid_column_start (Calc ("calc(" ^ string_of_int n ^ " * -1)")) ]
-
+  let neg_col_start n = style [ grid_column_start (Num (-n)) ]
   let col_start_arbitrary s = style [ grid_column_start (Arbitrary s) ]
 
   let col_start_auto =
@@ -81,10 +75,7 @@ module Handler = struct
     style [ grid_column_start v ]
 
   let col_end n = style [ grid_column_end (Num n) ]
-
-  let neg_col_end n =
-    style [ grid_column_end (Calc ("calc(" ^ string_of_int n ^ " * -1)")) ]
-
+  let neg_col_end n = style [ grid_column_end (Num (-n)) ]
   let col_end_arbitrary s = style [ grid_column_end (Arbitrary s) ]
 
   let col_end_auto =
@@ -97,10 +88,7 @@ module Handler = struct
     style [ grid_column_end v ]
 
   let row n = style [ grid_row (Num n, Auto) ]
-
-  let neg_row n =
-    style [ grid_row (Calc ("calc(" ^ string_of_int n ^ " * -1)"), Auto) ]
-
+  let neg_row n = style [ grid_row (Num (-n), Auto) ]
   let row_arbitrary s = style [ grid_row (Arbitrary s, Auto) ]
 
   let row_auto =
@@ -115,10 +103,7 @@ module Handler = struct
   let row_span n = style [ grid_row (Span n, Span n) ]
   let row_span_full = style [ grid_row (Num 1, Num (-1)) ]
   let row_start n = style [ grid_row_start (Num n) ]
-
-  let neg_row_start n =
-    style [ grid_row_start (Calc ("calc(" ^ string_of_int n ^ " * -1)")) ]
-
+  let neg_row_start n = style [ grid_row_start (Num (-n)) ]
   let row_start_arbitrary s = style [ grid_row_start (Arbitrary s) ]
 
   let row_start_auto =
@@ -131,10 +116,7 @@ module Handler = struct
     style [ grid_row_start v ]
 
   let row_end n = style [ grid_row_end (Num n) ]
-
-  let neg_row_end n =
-    style [ grid_row_end (Calc ("calc(" ^ string_of_int n ^ " * -1)")) ]
-
+  let neg_row_end n = style [ grid_row_end (Num (-n)) ]
   let row_end_arbitrary s = style [ grid_row_end (Arbitrary s) ]
 
   let row_end_auto =

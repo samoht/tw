@@ -34,8 +34,9 @@ let is_valid_class s =
   String.length s > 0
   (* Filter out @layer, @apply, etc. - these are directives, not classes *)
   && s.[0] <> '@'
-  (* Filter out function-like syntax - not valid class names *)
-  && not (String.contains s '(')
+  (* Filter out function-like syntax (e.g. theme(...)) - but allow parens inside
+     arbitrary brackets like z-[var(--value)] or bg-[rgb(0,0,0)] *)
+  && ((not (String.contains s '(')) || String.contains s '[')
 
 let extract_quoted_strings line =
   let pattern = Re.Pcre.regexp {|'([^']+)'|} in
