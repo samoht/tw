@@ -1,4 +1,3 @@
-Parsing /Users/samoht/git/tailwindcss/packages/tailwindcss/src/variants.test.ts...
 # *
 @config run
 *:flex
@@ -1163,7 +1162,7 @@ lg-sm-potato:flex lg:flex max-[1000px]:flex max-lg-sm-potato:flex max-lg:flex ma
 <<<>>>
 # sorting `min` and `max` should sort by unit, then by value, then alphabetically
 @config run
-max-[10em]:flex max-[10px]:flex max-[10rem]:flex max-[10vh]:flex max-[12em]:flex max-[12px]:flex max-[12rem]:flex max-[12vh]:flex min-[10em]:flex min-[10px]:flex min-[10rem]:flex min-[10vh]:flex min-[12em]:flex min-[12px]:flex min-[12rem]:flex min-[12vh]:flex
+max-[10em]:flex max-[10px]:flex max-[10rem]:flex max-[10vh]:flex max-[12em]:flex max-[12px]:flex max-[12rem]:flex max-[12vh]:flex max-[calc(1000px+12em)]:flex max-[calc(50vh+12em)]:flex min-[10em]:flex min-[10px]:flex min-[10rem]:flex min-[10vh]:flex min-[12em]:flex min-[12px]:flex min-[12rem]:flex min-[12vh]:flex min-[calc(1000px+12em)]:flex min-[calc(50vh+12em)]:flex
 ---
 @media not all and (min-width: calc(1000px + 12em)) {
       .max-\[calc\(1000px\+12em\)\]\:flex {
@@ -1287,7 +1286,7 @@ max-[10em]:flex max-[10px]:flex max-[10rem]:flex max-[10vh]:flex max-[12em]:flex
 <<<>>>
 # supports
 @config run
-supports-[--test]:flex supports-[display:grid]:flex supports-gap:grid
+supports-[(display:grid)_and_font-format(opentype)]:grid supports-[--test]:flex supports-[display:grid]:flex supports-[font-format(opentype)]:grid supports-[font-tech(color-COLRv1)]:flex supports-[selector(A_>_B)]:flex supports-[var(--test)]:flex supports-gap:grid
 ---
 @supports (gap: var(--tw)) {
       .supports-gap\:grid {
@@ -1339,13 +1338,13 @@ supports-[--test]:flex supports-[display:grid]:flex supports-gap:grid
 <<<>>>
 # supports
 @config run
-supports-[display:grid]/foo:flex supports-gap/foo:grid
+supports-[(display:grid)_and_font-format(opentype)]/foo:grid supports-[display:grid]/foo:flex supports-[font-format(opentype)]/foo:grid supports-[font-tech(color-COLRv1)]/foo:flex supports-[selector(A_>_B)]/foo:flex supports-[var(--test)]/foo:flex supports-gap/foo:grid
 ---
 
 <<<>>>
 # not
 @config theme
-group-not-[:checked]/parent-name:flex group-not-[:checked]:flex group-not-checked:flex group-not-device-hocus:flex group-not-hocus/parent-name:flex group-not-hocus:flex group-not-hover:flex not-[:checked]:flex not-[@media_print]:flex not-active:flex not-aria-selected:flex not-autofill:flex not-checked:flex not-contrast-less:flex not-contrast-more:flex not-dark:flex not-data-foo:flex not-default:flex not-device-hocus:flex not-disabled:flex not-empty:flex not-enabled:flex not-even:flex not-first-of-type:flex not-first:flex not-focus-visible:flex not-focus-within:flex not-focus:flex not-forced-colors:flex not-has-checked:flex not-hocus:flex not-hover:flex not-in-range:flex not-indeterminate:flex not-inert:flex not-invalid:flex not-landscape:flex not-last-of-type:flex not-last:flex not-ltr:flex not-max-[130px]:flex not-max-sm:flex not-min-[130px]:flex not-min-sm:flex not-motion-reduce:flex not-motion-safe:flex not-noscript:flex not-nth-2:flex not-odd:flex not-only-of-type:flex not-only:flex not-open:flex not-optional:flex not-out-of-range:flex not-placeholder-shown:flex not-portrait:flex not-print:flex not-read-only:flex not-required:flex not-rtl:flex not-sm:flex not-supports-grid:flex not-target:flex not-valid:flex not-visited:flex peer-not-[:checked]/sibling-name:flex peer-not-[:checked]:flex peer-not-checked:flex peer-not-hocus/sibling-name:flex peer-not-hocus:flex
+group-not-[:checked]/parent-name:flex group-not-[:checked]:flex group-not-checked:flex group-not-device-hocus:flex group-not-hocus/parent-name:flex group-not-hocus:flex group-not-hover:flex not-[:checked]:flex not-[@media(orientation:portrait)]:flex not-[@media_(orientation:landscape)]:flex not-[@media_not_(orientation:portrait)]:flex not-[@media_print]:flex not-active:flex not-aria-selected:flex not-autofill:flex not-checked:flex not-contrast-less:flex not-contrast-more:flex not-dark:flex not-data-foo:flex not-default:flex not-device-hocus:flex not-disabled:flex not-empty:flex not-enabled:flex not-even:flex not-first-of-type:flex not-first:flex not-focus-visible:flex not-focus-within:flex not-focus:flex not-forced-colors:flex not-has-checked:flex not-hocus:flex not-hover:flex not-in-range:flex not-indeterminate:flex not-inert:flex not-invalid:flex not-landscape:flex not-last-of-type:flex not-last:flex not-ltr:flex not-max-[130px]:flex not-max-sm:flex not-min-[130px]:flex not-min-sm:flex not-motion-reduce:flex not-motion-safe:flex not-noscript:flex not-nth-2:flex not-odd:flex not-only-of-type:flex not-only:flex not-open:flex not-optional:flex not-out-of-range:flex not-placeholder-shown:flex not-portrait:flex not-print:flex not-read-only:flex not-required:flex not-rtl:flex not-sm:flex not-supports-grid:flex not-target:flex not-valid:flex not-visited:flex peer-not-[:checked]/sibling-name:flex peer-not-[:checked]:flex peer-not-checked:flex peer-not-hocus/sibling-name:flex peer-not-hocus:flex
 ---
 .not-first\:flex:not(:first-child), .not-last\:flex:not(:last-child), .not-only\:flex:not(:only-child), .not-odd\:flex:not(:nth-child(odd)), .not-even\:flex:not(:nth-child(2n)), .not-first-of-type\:flex:not(:first-of-type), .not-last-of-type\:flex:not(:last-of-type), .not-only-of-type\:flex:not(:only-of-type), .not-visited\:flex:not(:visited), .not-target\:flex:not(:target), .not-open\:flex:not(:is([open], :popover-open, :open)), .not-default\:flex:not(:default), .not-checked\:flex:not(:checked), .not-indeterminate\:flex:not(:indeterminate), .not-placeholder-shown\:flex:not(:placeholder-shown), .not-autofill\:flex:not(:autofill), .not-optional\:flex:not(:optional), .not-required\:flex:not(:required), .not-valid\:flex:not(:valid), .not-invalid\:flex:not(:invalid), .not-in-range\:flex:not(:in-range), .not-out-of-range\:flex:not(:out-of-range), .not-read-only\:flex:not(:read-only), .not-empty\:flex:not(:empty), .not-focus-within\:flex:not(:focus-within), .not-hover\:flex:not(:hover) {
       display: flex;
@@ -1936,9 +1935,3 @@ group-peer-focus/name:flex has-group-focus/name:flex in-group-focus/name:flex no
       display: flex;
     }
 <<<>>>
-Extracted 164 test cases (162 with expected CSS)
-Config breakdown:
-  none: 11
-  run: 141
-  theme: 9
-  theme-reference: 3

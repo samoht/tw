@@ -396,7 +396,7 @@ module Handler = struct
                     ~default:(Auto : Css.z_index)
                     ~default_css:"auto"));
           ]
-    | Neg_z n -> style [ z_index (Calc ("calc(" ^ string_of_int n ^ " * -1)")) ]
+    | Neg_z n -> style [ z_index (Index (-n)) ]
     | Z_arbitrary s -> (
         (* Parse the arbitrary value as an integer if possible *)
         match int_of_string_opt s with

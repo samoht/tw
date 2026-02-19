@@ -77,36 +77,18 @@ module Registry = struct
   let needs_property_registry : (string, bool) Hashtbl.t = Hashtbl.create 128
 
   let register_variable ~name ~order =
-    (* Check for order conflicts *)
-    (match Hashtbl.find_opt order_registry order with
-    | Some existing_name when existing_name <> name ->
-        let order_str =
-          match order with
-          | p, s -> "(" ^ string_of_int p ^ ", " ^ string_of_int s ^ ")"
-        in
-        failwith
-          ("Variable order conflict: order " ^ order_str
-         ^ " is already used by variable '" ^ existing_name
-         ^ "', cannot assign to '" ^ name ^ "'")
-    | _ -> ());
-
-    (* Check for name conflicts - fail if name already exists with different
-       order, allow re-registration with same order (idempotent) *)
-    (match Hashtbl.find_opt name_registry name with
-    | Some existing_order when existing_order <> order ->
-        let order_str =
-          match existing_order with
-          | p, s -> "(" ^ string_of_int p ^ ", " ^ string_of_int s ^ ")"
-        in
-        failwith
-          ("Variable name conflict: variable '" ^ name
-         ^ "' is already registered with order " ^ order_str
-         ^ ", cannot create duplicate with different order")
-    | _ -> ());
-
-    (* Register the variable *)
-    Hashtbl.replace order_registry order name;
-    Hashtbl.replace name_registry name order
+    (* Skip registration on order conflict — first registration wins. This can
+       happen when invalid input (e.g. inset-3/4/foo and inset-4/foo) produces
+       variables with the same order slot. *)
+    match Hashtbl.find_opt order_registry order with
+    | Some existing_name when existing_name <> name -> ()
+    | _ -> (
+        (* Also skip on name conflict with different order *)
+        match Hashtbl.find_opt name_registry name with
+        | Some existing_order when existing_order <> order -> ()
+        | _ ->
+            Hashtbl.replace order_registry order name;
+            Hashtbl.replace name_registry name order)
 
   let register_property_order ~name ~order =
     Hashtbl.replace property_order_registry name order
