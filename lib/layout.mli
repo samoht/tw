@@ -81,6 +81,9 @@ val isolate : t
 val isolation_auto : t
 (** [isolation_auto] does not create a new stacking context (auto). *)
 
+val z : int -> t
+(** [z n] sets z-index to [n]. *)
+
 val z_0 : t
 (** [z_0] sets z-index to 0. *)
 

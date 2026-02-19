@@ -972,7 +972,8 @@ module Typography_late = struct
           let value = String.sub joined 2 (String.length joined - 4) in
           Ok (Content value)
         else if Spacing.is_named_spacing joined then Ok (Content_named joined)
-        else Ok (Content joined)
+        else if Parse.is_valid_theme_name joined then Ok (Content joined)
+        else err_not_utility
     | _ -> err_not_utility
 
   let to_class = function

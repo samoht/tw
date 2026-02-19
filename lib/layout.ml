@@ -98,6 +98,7 @@ module Handler = struct
     | Z of int (* Dynamic z-index: z-5, z-100, etc. *)
     | Neg_z of int (* Negative z-index: -z-10, -z-50, etc. *)
     | Z_arbitrary of string (* Arbitrary values: z-[123] *)
+    | Neg_z_arbitrary of string (* Negative arbitrary: -z-[var(--value)] *)
     | (* Object fit *)
       Object_contain
     | Object_cover
@@ -197,8 +198,8 @@ module Handler = struct
     (* Isolation - order: isolate, isolation-auto *)
     | Isolate -> 200
     | Isolation_auto -> 201
-    (* Z-index - order: negative first, then positive, then auto, then
-       arbitrary *)
+    (* Z-index - order: negative first, then positive, then arbitrary, then
+       auto *)
     | Neg_z n -> 500 + n (* -z-50 = 550, -z-10 = 510 *)
     | Z_0 -> 600
     | Z n -> 601 + n (* z-10 = 611 *)
@@ -207,8 +208,9 @@ module Handler = struct
     | Z_30 -> 631
     | Z_40 -> 641
     | Z_50 -> 651
-    | Z_auto -> 700
-    | Z_arbitrary _ -> 750
+    | Neg_z_arbitrary _ -> 560
+    | Z_arbitrary _ -> 700
+    | Z_auto -> 750
     (* Object fit *)
     | Object_contain -> 600
     | Object_cover -> 601
@@ -305,6 +307,7 @@ module Handler = struct
     | Z_auto -> "z-auto"
     | Neg_z n -> "-z-" ^ string_of_int n
     | Z_arbitrary s -> "z-[" ^ s ^ "]"
+    | Neg_z_arbitrary s -> "-z-[" ^ s ^ "]"
     | Object_contain -> "object-contain"
     | Object_cover -> "object-cover"
     | Object_fill -> "object-fill"
@@ -402,6 +405,10 @@ module Handler = struct
         match int_of_string_opt s with
         | Some n -> style [ z_index (Index n) ]
         | None -> style [ z_index (Calc s) ])
+    | Neg_z_arbitrary s -> (
+        match int_of_string_opt s with
+        | Some n -> style [ z_index (Index (-n)) ]
+        | None -> style [ z_index (Calc ("calc(" ^ s ^ " * -1)")) ])
     | Object_contain -> style [ object_fit Contain ]
     | Object_cover -> style [ object_fit Cover ]
     | Object_fill -> style [ object_fit Fill ]
@@ -530,11 +537,20 @@ module Handler = struct
         match int_of_string_opt n with
         | Some i -> Ok (Z i)
         | None -> Error (`Msg ("Invalid z-index value: " ^ n)))
-    | [ ""; "z"; n ] -> (
-        (* Negative z-index: -z-10, -z-50, etc. *)
-        match int_of_string_opt n with
-        | Some i -> Ok (Neg_z i)
-        | None -> Error (`Msg ("Invalid negative z-index value: " ^ n)))
+    | "" :: "z" :: rest when rest <> [] -> (
+        (* Negative z-index: -z-10, -z-50, -z-[var(--value)], etc. *)
+        let value = String.concat "-" rest in
+        if
+          String.length value > 2
+          && value.[0] = '['
+          && value.[String.length value - 1] = ']'
+        then
+          let inner = String.sub value 1 (String.length value - 2) in
+          Ok (Neg_z_arbitrary inner)
+        else
+          match int_of_string_opt value with
+          | Some i -> Ok (Neg_z i)
+          | None -> Error (`Msg ("Invalid negative z-index value: " ^ value)))
     | [ "object"; "contain" ] -> Ok Object_contain
     | [ "object"; "cover" ] -> Ok Object_cover
     | [ "object"; "fill" ] -> Ok Object_fill
@@ -631,6 +647,7 @@ let z_20 = utility Z_20
 let z_30 = utility Z_30
 let z_40 = utility Z_40
 let z_50 = utility Z_50
+let z n = utility (Z n)
 let z_auto = utility Z_auto
 let object_contain = utility Object_contain
 let object_cover = utility Object_cover

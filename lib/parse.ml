@@ -34,4 +34,8 @@ let int_bounded ~name ~min ~max s =
           ^ string_of_int max ^ ": " ^ s))
   | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
 
+(* Check if a value is a valid theme variable name. Theme variable names must
+   not contain '/' — values with '/' that aren't handled as explicit fractions
+   (like 3/4) are invalid class suffixes, not theme references. *)
+let is_valid_theme_name s = not (String.contains s '/')
 let ( >|= ) r f = Result.map f r
