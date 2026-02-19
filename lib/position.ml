@@ -165,7 +165,6 @@ module Handler = struct
     | End_auto
     | End_full
     | End_3_4
-    | Z of int
 
   (** Extensible variant for position utilities *)
   type Utility.base += Self of t
@@ -331,7 +330,6 @@ module Handler = struct
     | End_auto -> style [ Css.inset_inline_end Auto ]
     | End_full -> style [ Css.inset_inline_end (Pct 100.0) ]
     | End_3_4 -> style [ Css.inset_inline_end (Pct 75.0) ]
-    | Z n -> style [ Css.z_index (Css.Index n) ]
 
   let int_of_string_with_sign = Parse.int_any
 
@@ -457,7 +455,6 @@ module Handler = struct
     | End_auto -> 951
     | End_full -> 952
     | End n -> 1000 + n
-    | Z n -> 1100 + n
 
   let of_class class_name =
     let parts = String.split_on_char '-' class_name in
@@ -488,7 +485,8 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Inset_x_arbitrary len)
-            | Error _ -> Ok (Inset_x_named n)))
+            | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_x_named n)
+            | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; "x"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Inset_x (-x))
     | [ "inset"; "y"; n ] -> (
@@ -497,7 +495,8 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Inset_y_arbitrary len)
-            | Error _ -> Ok (Inset_y_named n)))
+            | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_y_named n)
+            | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; "y"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Inset_y (-x))
     (* inset-s = inset-inline-start *)
@@ -511,7 +510,8 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Inset_s_arbitrary len)
-            | Error _ -> Ok (Inset_s_named n)))
+            | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_s_named n)
+            | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; "s"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Inset_s (-x))
     (* inset-e = inset-inline-end *)
@@ -525,7 +525,8 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Inset_e_arbitrary len)
-            | Error _ -> Ok (Inset_e_named n)))
+            | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_e_named n)
+            | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; "e"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Inset_e (-x))
     (* inset-bs = inset-block-start *)
@@ -539,7 +540,8 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Inset_bs_arbitrary len)
-            | Error _ -> Ok (Inset_bs_named n)))
+            | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_bs_named n)
+            | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; "bs"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Inset_bs (-x))
     (* inset-be = inset-block-end *)
@@ -553,7 +555,8 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Inset_be_arbitrary len)
-            | Error _ -> Ok (Inset_be_named n)))
+            | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_be_named n)
+            | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; "be"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Inset_be (-x))
     | [ "inset"; n ] when n <> "shadow" && n <> "ring" -> (
@@ -562,7 +565,8 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Inset_arbitrary len)
-            | Error _ -> Ok (Inset_named n)))
+            | Error _ when Parse.is_valid_theme_name n -> Ok (Inset_named n)
+            | Error _ -> Error (`Msg "invalid")))
     | [ ""; "inset"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Inset (-x))
     | [ "top"; "1/2" ] -> Ok Top_1_2
@@ -576,7 +580,8 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Top_arbitrary len)
-            | Error _ -> Ok (Top_named n)))
+            | Error _ when Parse.is_valid_theme_name n -> Ok (Top_named n)
+            | Error _ -> Error (`Msg "invalid")))
     | [ ""; "top"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Top (-x))
     | [ "right"; "3/4" ] -> Ok Right_3_4
@@ -589,7 +594,8 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Right_arbitrary len)
-            | Error _ -> Ok (Right_named n)))
+            | Error _ when Parse.is_valid_theme_name n -> Ok (Right_named n)
+            | Error _ -> Error (`Msg "invalid")))
     | [ ""; "right"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Right (-x))
     | [ "bottom"; "3/4" ] -> Ok Bottom_3_4
@@ -602,7 +608,8 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Bottom_arbitrary len)
-            | Error _ -> Ok (Bottom_named n)))
+            | Error _ when Parse.is_valid_theme_name n -> Ok (Bottom_named n)
+            | Error _ -> Error (`Msg "invalid")))
     | [ ""; "bottom"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Bottom (-x))
     | [ "left"; "1/2" ] -> Ok Left_1_2
@@ -616,7 +623,8 @@ module Handler = struct
         | Error _ -> (
             match parse_bracket_length n with
             | Ok len -> Ok (Left_arbitrary len)
-            | Error _ -> Ok (Left_named n)))
+            | Error _ when Parse.is_valid_theme_name n -> Ok (Left_named n)
+            | Error _ -> Error (`Msg "invalid")))
     | [ ""; "left"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> Left (-x))
     | [ "start"; "3/4" ] -> Ok Start_3_4
@@ -632,7 +640,6 @@ module Handler = struct
     | [ "end"; n ] -> int_of_string_with_sign n |> Result.map (fun x -> End x)
     | [ ""; "end"; n ] ->
         int_of_string_with_sign n |> Result.map (fun x -> End (-x))
-    | [ "z"; n ] -> int_of_string_with_sign n |> Result.map (fun x -> Z x)
     | _ -> Error (`Msg "Not a position utility")
 
   let to_class = function
@@ -772,7 +779,6 @@ module Handler = struct
     | End n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "end-" ^ string_of_int (abs n)
-    | Z n -> "z-" ^ string_of_int n
 end
 
 open Handler
@@ -798,4 +804,3 @@ let bottom n = utility (Bottom n)
 let left n = utility (Left n)
 let top_1_2 = utility Top_1_2
 let left_1_2 = utility Left_1_2
-let z n = utility (Z n)

@@ -52,7 +52,4 @@ val top_1_2 : t
 val left_1_2 : t
 (** [left_1_2] sets left to 50%. *)
 
-val z : int -> t
-(** [z n] sets z-index. *)
-
 module Handler : Utility.Handler

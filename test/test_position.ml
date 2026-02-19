@@ -7,10 +7,7 @@ let check class_name =
         (Tw.Position.Handler.to_class util)
   | Error (`Msg msg) -> fail msg
 
-let test_inset_and_z () =
-  check "inset-0";
-  check "z-10"
-
+let test_inset_and_z () = check "inset-0"
 let test_negative () = check "-top-4"
 
 let test_position_utilities () =

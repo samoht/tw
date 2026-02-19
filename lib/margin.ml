@@ -287,7 +287,7 @@ module Handler = struct
           }
     | Some `Auto when not is_negative ->
         Some { negative = false; axis = `All; value = Standard `Auto }
-    | None when not is_negative ->
+    | None when (not is_negative) && Parse.is_valid_theme_name value ->
         (* Try as a named spacing: mx-big *)
         Some { negative = false; axis = `All; value = Named value }
     | _ -> None
@@ -350,8 +350,8 @@ module Handler = struct
                   match Spacing.parse_value_string ~allow_auto value with
                   | None ->
                       (* Try as a named spacing: mx-big *)
-                      if not is_negative then
-                        Ok { negative = false; axis; value = Named value }
+                      if (not is_negative) && Parse.is_valid_theme_name value
+                      then Ok { negative = false; axis; value = Named value }
                       else Error (`Msg "Not a margin utility")
                   | Some (#spacing as spacing_val) ->
                       Ok
