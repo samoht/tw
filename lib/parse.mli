@@ -35,6 +35,23 @@ val ( >|= ) : ('a, 'e) result -> ('a -> 'b) -> ('b, 'e) result
 (** Infix map over [result]: [r >|= f] maps [Ok x] to [Ok (f x)] and leaves
     [Error e] unchanged. *)
 
+val extract_var_name : string -> string
+(** [extract_var_name s] extracts the bare variable name from ["var(--name)"],
+    returning ["name"]. If [s] is not a var() reference, returns [s] unchanged.
+*)
+
+val is_bracket_value : string -> bool
+(** [is_bracket_value s] returns [true] if [s] is a bracket-wrapped value like
+    ["[...]"]. *)
+
+val bracket_inner : string -> string
+(** [bracket_inner s] extracts the inner content from ["[foo]"], returning
+    ["foo"]. If [s] is not bracket-wrapped, returns [s] unchanged. *)
+
+val is_bracket_var : string -> bool
+(** [is_bracket_var s] returns [true] if [s] is a bracket-wrapped var()
+    reference like ["[var(--value)]"]. *)
+
 val split_class : string -> string list
 (** [split_class class_name] splits a class name on ['-'] but treats ['[...]']
     as atomic, so brackets containing dashes are preserved. E.g.

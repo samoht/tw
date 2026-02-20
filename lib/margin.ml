@@ -140,13 +140,7 @@ module Handler = struct
           style [ prop (Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))) ]
         else style [ prop len ]
     | ArbitraryVar var_str ->
-        (* Extract bare name from "var(--name)" → "name" *)
-        let bare_name =
-          if String.length var_str > 6 && String.sub var_str 0 6 = "var(--" then
-            let inner = String.sub var_str 6 (String.length var_str - 7) in
-            String.trim inner
-          else var_str
-        in
+        let bare_name = Parse.extract_var_name var_str in
         let len : Css.length =
           if negative then
             Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))

@@ -40,6 +40,29 @@ let int_bounded ~name ~min ~max s =
 let is_valid_theme_name s = not (String.contains s '/')
 let ( >|= ) r f = Result.map f r
 
+(** Extract the bare variable name from a "var(--name)" string. Returns "name"
+    for "var(--name)", or the original string if not a var() reference. *)
+let extract_var_name s =
+  let len = String.length s in
+  if len > 6 && String.sub s 0 6 = "var(--" && s.[len - 1] = ')' then
+    String.trim (String.sub s 6 (len - 7))
+  else s
+
+(** Check if a string is a bracket-wrapped value like "[...]" *)
+let is_bracket_value s =
+  String.length s > 2 && s.[0] = '[' && s.[String.length s - 1] = ']'
+
+(** Extract the inner content from a bracket value "[foo]" → "foo" *)
+let bracket_inner s =
+  if is_bracket_value s then String.sub s 1 (String.length s - 2) else s
+
+(** Check if a bracket value contains a var() reference *)
+let is_bracket_var s =
+  if is_bracket_value s then
+    let inner = bracket_inner s in
+    String.length inner > 4 && String.sub inner 0 4 = "var("
+  else false
+
 (** Split a class name on '-' but treat '[...]' as atomic. E.g.
     "m-[var(--value)]" → ["m"; "[var(--value)]"] E.g. "-m-[var(--value)]" →
     [""; "m"; "[var(--value)]"] *)
