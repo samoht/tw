@@ -131,12 +131,12 @@ module Handler = struct
             ]
         else style [ prop len ]
     | ArbitraryVar var_str ->
-        (* For var references, use Calc.var *)
+        let bare_name = Parse.extract_var_name var_str in
         let len : Css.length =
           if negative then
             Css.Calc
-              (Css.Calc.mul (Css.Calc.var var_str) (Css.Calc.float (-1.)))
-          else Css.Calc (Css.Calc.var var_str)
+              (Css.Calc.mul (Css.Calc.var bare_name) (Css.Calc.float (-1.)))
+          else Css.Var (Css.var_ref bare_name)
         in
         style [ prop len ]
 
@@ -241,6 +241,8 @@ module Handler = struct
           else (None, "")
         in
         match (kind, axis_of_suffix axis_suffix) with
+        | Some Padding, _ when negative ->
+            Error (`Msg "Negative scroll-padding not supported")
         | Some kind, Some axis -> (
             (* Try as integer spacing *)
             match int_of_string_opt value with
@@ -276,6 +278,8 @@ module Handler = struct
           else (None, "")
         in
         match (kind, axis_of_suffix axis_suffix) with
+        | Some Padding, _ when negative ->
+            Error (`Msg "Negative scroll-padding not supported")
         | Some kind, Some axis -> (
             match int_of_string_opt value3 with
             | Some n -> Ok { kind; negative; axis; value = Spacing n }
