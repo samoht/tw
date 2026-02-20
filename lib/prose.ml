@@ -2053,7 +2053,7 @@ module Handler = struct
     | Not_prose -> "not-prose"
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "prose" ] -> Ok Prose
     | [ "prose"; "sm" ] -> Ok Prose_sm
@@ -2114,7 +2114,7 @@ module Color_Handler = struct
     | Prose_invert -> "prose-invert"
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "prose"; "gray" ] -> Ok Prose_gray
     | [ "prose"; "slate" ] -> Ok Prose_slate

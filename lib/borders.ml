@@ -1810,7 +1810,7 @@ module Handler = struct
     | Neg_outline_offset_8 -> 2018
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "border" ] -> Ok Border
     | [ "border"; "0" ] -> Ok Border_0

@@ -502,7 +502,7 @@ module Handler = struct
     | Bg_clip_text -> 150003
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "bg"; "gradient"; "to"; "b" ] -> Ok (Bg_gradient_to Bottom)
     | [ "bg"; "gradient"; "to"; "br" ] -> Ok (Bg_gradient_to Bottom_right)

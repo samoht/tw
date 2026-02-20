@@ -1001,7 +1001,7 @@ module Handler = struct
     | Origin_arbitrary _ -> 1699
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "rotate"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_angle n with

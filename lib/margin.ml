@@ -7,6 +7,7 @@ module Handler = struct
   type margin_value =
     | Standard of margin (* auto, spacing values *)
     | Arbitrary of Css.length (* mx-[4px] *)
+    | ArbitraryVar of string (* mx-[var(--value)] *)
     | Named of string (* mx-big - custom spacing *)
 
   type t = {
@@ -138,6 +139,20 @@ module Handler = struct
         if negative then
           style [ prop (Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))) ]
         else style [ prop len ]
+    | ArbitraryVar var_str ->
+        (* Extract bare name from "var(--name)" → "name" *)
+        let bare_name =
+          if String.length var_str > 6 && String.sub var_str 0 6 = "var(--" then
+            let inner = String.sub var_str 6 (String.length var_str - 7) in
+            String.trim inner
+          else var_str
+        in
+        let len : Css.length =
+          if negative then
+            Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
+          else Var (Css.var_ref bare_name)
+        in
+        style [ prop len ]
     | Named name ->
         let decl, len = named_margin_value name in
         if negative then
@@ -176,18 +191,18 @@ module Handler = struct
         | true, _, `Auto -> failwith "Negative auto margin not supported")
 
   let suborder { negative; axis; value } =
-    let neg_offset = if negative then 5000000 else 0 in
+    let neg_offset = if negative then -5000000 else 0 in
     let side_offset =
       match axis with
       | `All -> 0
       | `X -> 100000
       | `Y -> 200000
-      | `T -> 300000
-      | `R -> 400000
-      | `B -> 500000
-      | `L -> 600000
-      | `S -> 700000
-      | `E -> 800000
+      | `S -> 300000
+      | `E -> 400000
+      | `T -> 500000
+      | `R -> 600000
+      | `B -> 700000
+      | `L -> 800000
       | `Bs -> 900000
       | `Be -> 1000000
     in
@@ -195,6 +210,7 @@ module Handler = struct
       match value with
       | Standard m -> margin_value_order m
       | Arbitrary _ -> 50000 (* after numbered, before auto *)
+      | ArbitraryVar _ -> 55000
       | Named _ -> 60000 (* after arbitrary *)
     in
     neg_offset + side_offset + value_order
@@ -232,25 +248,28 @@ module Handler = struct
       match value with
       | Standard m -> Spacing.pp_margin_suffix m
       | Arbitrary len -> pp_length_suffix len
+      | ArbitraryVar s -> "[" ^ s ^ "]"
       | Named name -> name
     in
     neg_prefix ^ prefix ^ value_suffix
 
-  let parse_arbitrary s : Css.length option =
-    (* Parse [4px] or [1rem] etc. *)
+  let parse_arbitrary s : margin_value option =
+    (* Parse [4px], [1rem], or [var(--value)] etc. *)
     let len = String.length s in
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
-      (* Try to parse as a length *)
-      if String.ends_with ~suffix:"px" inner then
+      (* Check if it's a var reference *)
+      if String.length inner > 4 && String.sub inner 0 4 = "var(" then
+        Some (ArbitraryVar inner)
+      else if String.ends_with ~suffix:"px" inner then
         let n = String.sub inner 0 (String.length inner - 2) in
         match float_of_string_opt n with
-        | Some f -> Some (Css.Px f)
+        | Some f -> Some (Arbitrary (Css.Px f))
         | None -> None
       else if String.ends_with ~suffix:"rem" inner then
         let n = String.sub inner 0 (String.length inner - 3) in
         match float_of_string_opt n with
-        | Some f -> Some (Css.Rem f)
+        | Some f -> Some (Arbitrary (Css.Rem f))
         | None -> None
       else None
     else None
@@ -294,19 +313,17 @@ module Handler = struct
 
   (** Parse string parts to margin utility using shared logic *)
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
-    (* Handle arbitrary values: mx-[4px] *)
+    (* Handle arbitrary values: mx-[4px], mx-[var(--value)] *)
     | [ prefix; arb ] when String.length arb > 0 && arb.[0] = '[' -> (
         match (axis_of_prefix_ext prefix, parse_arbitrary arb) with
-        | Some axis, Some len ->
-            Ok { negative = false; axis; value = Arbitrary len }
+        | Some axis, Some value -> Ok { negative = false; axis; value }
         | _ -> Error (`Msg "Not a margin utility"))
-    (* Handle negative arbitrary: -mx-[4px] *)
+    (* Handle negative arbitrary: -mx-[4px], -mx-[var(--value)] *)
     | [ ""; prefix; arb ] when String.length arb > 0 && arb.[0] = '[' -> (
         match (axis_of_prefix_ext prefix, parse_arbitrary arb) with
-        | Some axis, Some len ->
-            Ok { negative = true; axis; value = Arbitrary len }
+        | Some axis, Some value -> Ok { negative = true; axis; value }
         | _ -> Error (`Msg "Not a margin utility"))
     (* Handle extended axes (ms, me, mbs, mbe) with values *)
     | [ prefix; value ] when is_extended_margin_prefix prefix -> (

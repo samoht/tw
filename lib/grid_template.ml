@@ -222,7 +222,7 @@ module Handler = struct
     | Auto_rows_arbitrary _ -> 15104
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "grid"; "cols"; "none" ] -> Ok Grid_cols_none
     | [ "grid"; "cols"; "subgrid" ] -> Ok Grid_cols_subgrid

@@ -104,7 +104,7 @@ module Handler = struct
     string_to_sortkey suffix
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "columns"; "auto" ] -> Ok Columns_auto
     | [ "columns"; "3xs" ] -> Ok Columns_3xs

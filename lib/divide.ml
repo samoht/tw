@@ -202,7 +202,7 @@ module Handler = struct
     | Divide_transparent -> 100 + (25 * 1000)
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "divide"; "x"; "reverse" ] -> Ok Divide_x_reverse
     | [ "divide"; "y"; "reverse" ] -> Ok Divide_y_reverse

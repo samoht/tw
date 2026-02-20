@@ -34,3 +34,8 @@ val is_valid_theme_name : string -> bool
 val ( >|= ) : ('a, 'e) result -> ('a -> 'b) -> ('b, 'e) result
 (** Infix map over [result]: [r >|= f] maps [Ok x] to [Ok (f x)] and leaves
     [Error e] unchanged. *)
+
+val split_class : string -> string list
+(** [split_class class_name] splits a class name on ['-'] but treats ['[...]']
+    as atomic, so brackets containing dashes are preserved. E.g.
+    ["m-[var(--value)]"] becomes [["m"; "[var(--value)]"]]. *)

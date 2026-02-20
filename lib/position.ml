@@ -457,7 +457,7 @@ module Handler = struct
     | End n -> 1000 + n
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "static" ] -> Ok Position_static
     | [ "relative" ] -> Ok Position_relative

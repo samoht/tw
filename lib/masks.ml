@@ -198,7 +198,7 @@ module Handler = struct
     | Mask_type_luminance -> 23
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "mask"; "none" ] -> Ok Mask_none
     | [ "mask"; "add" ] -> Ok Mask_add

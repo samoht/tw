@@ -204,7 +204,7 @@ module Handler = struct
   let err_not_utility = Error (`Msg "Not a text shadow utility")
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "text"; "shadow"; "none" ] -> Ok Text_shadow_none
     | [ "text"; "shadow"; "2xs" ] -> Ok Text_shadow_2xs
