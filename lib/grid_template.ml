@@ -193,15 +193,16 @@ module Handler = struct
 
   let suborder = function
     (* Grid template columns (10000-10999) *)
+    (* Order: numeric → arbitrary → keywords alphabetical *)
     | Grid_cols n -> 10000 + n
+    | Grid_cols_arbitrary _ -> 10800
     | Grid_cols_none -> 10900
     | Grid_cols_subgrid -> 10901
-    | Grid_cols_arbitrary _ -> 10902
     (* Grid template rows (11000-11999) *)
     | Grid_rows n -> 11000 + n
+    | Grid_rows_arbitrary _ -> 11800
     | Grid_rows_none -> 11900
     | Grid_rows_subgrid -> 11901
-    | Grid_rows_arbitrary _ -> 11902
     (* Grid auto flow (14000-14099) - alphabetical order *)
     | Grid_flow_col -> 14000
     | Grid_flow_col_dense -> 14001
@@ -209,17 +210,18 @@ module Handler = struct
     | Grid_flow_row -> 14003
     | Grid_flow_row_dense -> 14004
     (* Grid auto columns (15000-15099) *)
-    | Auto_cols_auto -> 15000
-    | Auto_cols_min -> 15001
-    | Auto_cols_max -> 15002
-    | Auto_cols_fr -> 15003
-    | Auto_cols_arbitrary _ -> 15004
+    (* Order: arbitrary → keywords alphabetical *)
+    | Auto_cols_arbitrary _ -> 15000
+    | Auto_cols_auto -> 15001
+    | Auto_cols_fr -> 15002
+    | Auto_cols_max -> 15003
+    | Auto_cols_min -> 15004
     (* Grid auto rows (15100-15199) *)
-    | Auto_rows_auto -> 15100
-    | Auto_rows_min -> 15101
-    | Auto_rows_max -> 15102
-    | Auto_rows_fr -> 15103
-    | Auto_rows_arbitrary _ -> 15104
+    | Auto_rows_arbitrary _ -> 15100
+    | Auto_rows_auto -> 15101
+    | Auto_rows_fr -> 15102
+    | Auto_rows_max -> 15103
+    | Auto_rows_min -> 15104
 
   let of_class class_name =
     let parts = Parse.split_class class_name in

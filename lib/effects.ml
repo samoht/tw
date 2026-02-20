@@ -990,7 +990,6 @@ module Handler = struct
   let bg_blend_saturation = style [ background_blend_mode Saturation ]
   let bg_blend_color = style [ background_blend_mode Color ]
   let bg_blend_luminosity = style [ background_blend_mode Luminosity ]
-  let ( >|= ) = Parse.( >|= )
 
   let to_style = function
     | Shadow_none -> shadow_none
@@ -1111,13 +1110,12 @@ module Handler = struct
           | None -> err_not_utility
         else err_not_utility
     | [ "opacity"; n ] -> (
-        (* Try parsing as decimal first (e.g., "2.5") *)
-        match float_of_string_opt n with
-        | Some f when String.contains n '.' -> Ok (Opacity_decimal f)
-        | _ ->
-            (* Fall back to integer parsing *)
-            Parse.int_bounded ~name:"opacity" ~min:0 ~max:100 n >|= fun n ->
-            Opacity n)
+        match Parse.spacing_value ~name:"opacity" n with
+        | Ok f when String.contains n '.' -> Ok (Opacity_decimal f)
+        | Ok f ->
+            let i = int_of_float f in
+            if i >= 0 && i <= 100 then Ok (Opacity i) else err_not_utility
+        | Error _ -> err_not_utility)
     | [ "ring" ] -> Ok Ring_md
     | [ "ring"; "0" ] -> Ok Ring_none
     | [ "ring"; "1" ] -> Ok Ring_xs

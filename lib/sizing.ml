@@ -1025,197 +1025,182 @@ module Handler = struct
     (integer * 4) + frac_order
 
   let suborder = function
-    (* Height utilities (0-99999) Tailwind sorts: spacing values first, then
-       keywords alphabetically (auto, fit, full, max, min, px, screen).
-       Fractions sort with their integer part. *)
-    | H_spacing n -> spacing_suborder n
+    (* Tailwind ordering within each utility group:
+       fractions → spacing → arbitrary → keywords (alphabetical) *)
+    (* Height utilities (0-99999) *)
     | H_fraction f -> (
-        (* Extract the numerator to sort fractions with their integer part *)
         match String.split_on_char '/' f with
-        | [ num; _ ] -> (
-            try int_of_string num * 10000
-            with Failure _ -> 50000 (* Invalid numerator *))
-        | _ -> 50000)
-    | H_auto -> 90000
-    | H_fit -> 90001
-    | H_full -> 90002
-    | H_max -> 90003
-    | H_min -> 90004
-    | H_px -> 90005
-    | H_screen -> 90006
-    | H_dvh -> 90007
-    | H_lh -> 90008
-    | H_lvh -> 90009
-    | H_svh -> 90010
-    | H_arbitrary _ -> 95000
-    (* Max-height utilities (100000-199999) - comes after height *)
-    (* Order: fit, full, max, min, none, screen *)
-    | Max_h_fit -> 100000
-    | Max_h_full -> 100001
-    | Max_h_max -> 100002
-    | Max_h_min -> 100003
-    | Max_h_none -> 100004
-    | Max_h_screen -> 100005
-    | Max_h_dvh -> 100006
-    | Max_h_lvh -> 100007
-    | Max_h_svh -> 100008
-    | Max_h_lh -> 100009
-    | Max_h_spacing n -> 100100 + spacing_suborder n
-    | Max_h_arbitrary _ -> 100200
-    (* Min-height utilities (200000-299999) - comes after max-height *)
+        | [ num; _ ] -> ( try int_of_string num * 10 with Failure _ -> 999)
+        | _ -> 999)
+    | H_spacing n -> 1000 + spacing_suborder n
+    | H_arbitrary _ -> 5000
+    | H_auto -> 6000
+    | H_dvh -> 6001
+    | H_fit -> 6002
+    | H_full -> 6003
+    | H_lh -> 6004
+    | H_lvh -> 6005
+    | H_max -> 6006
+    | H_min -> 6007
+    | H_px -> 6008
+    | H_screen -> 6009
+    | H_svh -> 6010
+    (* Max-height utilities (100000-199999) *)
+    | Max_h_spacing n -> 100000 + spacing_suborder n
+    | Max_h_arbitrary _ -> 105000
+    | Max_h_dvh -> 106000
+    | Max_h_fit -> 106001
+    | Max_h_full -> 106002
+    | Max_h_lh -> 106003
+    | Max_h_lvh -> 106004
+    | Max_h_max -> 106005
+    | Max_h_min -> 106006
+    | Max_h_none -> 106007
+    | Max_h_screen -> 106008
+    | Max_h_svh -> 106009
+    (* Min-height utilities (200000-299999) *)
     | Min_h_0 -> 200000
-    | Min_h_full -> 200001
-    | Min_h_screen -> 200002
-    | Min_h_min -> 200003
-    | Min_h_max -> 200004
-    | Min_h_fit -> 200005
-    | Min_h_auto -> 200006
-    | Min_h_dvh -> 200007
-    | Min_h_lvh -> 200008
-    | Min_h_svh -> 200009
-    | Min_h_lh -> 200010
-    | Min_h_spacing n -> 200100 + spacing_suborder n
-    | Min_h_arbitrary _ -> 200200
-    (* Width utilities (300000-399999) Numeric widths (w-0, w-1, etc.) are
-       ordered by their numeric value via spacing_suborder. Keyword widths
-       (w-auto, w-full, etc.) use fixed suborders and sort alphabetically within
-       that group. *)
-    | W_spacing n -> 300000 + spacing_suborder n
-    (* Keyword widths: use a suborder range (300500-300599) that comes after all
-       numeric widths (which max out around 300000 + 96*4 = 300384 for w-96),
-       allowing them to sort alphabetically. *)
-    | W_auto -> 300500
-    | W_fit -> 300501
-    | W_full -> 300502
-    | W_max -> 300503
-    | W_min -> 300504
-    | W_px -> 300505
-    | W_screen -> 300506
-    | W_dvw -> 300507
-    | W_lvw -> 300508
-    | W_svw -> 300509
-    (* Named widths after dvw/lvw/svw *)
-    | W_xl -> 300510
-    (* Fractions come after keywords *)
-    | W_fraction _ -> 300600
-    | W_arbitrary _ -> 300700
-    (* Max-width utilities (400000-499999) - comes after width *)
-    (* Numbered containers first *)
-    | Max_w_xs -> 400000
-    | Max_w_sm -> 400001
-    | Max_w_md -> 400002
-    | Max_w_lg -> 400003
-    | Max_w_xl -> 400004
-    | Max_w_2xl -> 400005
-    | Max_w_3xl -> 400006
-    | Max_w_4xl -> 400007
-    | Max_w_5xl -> 400008
-    | Max_w_6xl -> 400009
-    | Max_w_7xl -> 400010
-    (* Keywords after numbered containers - order: fit, full, max, min, none,
-       prose *)
-    | Max_w_fit -> 400011
-    | Max_w_full -> 400012
-    | Max_w_max -> 400013
-    | Max_w_min -> 400014
-    | Max_w_none -> 400015
-    | Max_w_prose -> 400016
-    | Max_w_screen_sm -> 400020
-    | Max_w_screen_md -> 400021
-    | Max_w_screen_lg -> 400022
-    | Max_w_screen_xl -> 400023
-    | Max_w_screen_2xl -> 400024
-    | Max_w_spacing n -> 400100 + spacing_suborder n
-    (* Min-width utilities (500000-599999) - comes after max-width *)
+    | Min_h_spacing n -> 200000 + spacing_suborder n
+    | Min_h_arbitrary _ -> 205000
+    | Min_h_auto -> 206000
+    | Min_h_dvh -> 206001
+    | Min_h_fit -> 206002
+    | Min_h_full -> 206003
+    | Min_h_lh -> 206004
+    | Min_h_lvh -> 206005
+    | Min_h_max -> 206006
+    | Min_h_min -> 206007
+    | Min_h_screen -> 206008
+    | Min_h_svh -> 206009
+    (* Width utilities (300000-399999) *)
+    | W_fraction _ -> 300000
+    | W_spacing n -> 301000 + spacing_suborder n
+    | W_arbitrary _ -> 305000
+    | W_auto -> 306000
+    | W_dvw -> 306001
+    | W_fit -> 306002
+    | W_full -> 306003
+    | W_lvw -> 306004
+    | W_max -> 306005
+    | W_min -> 306006
+    | W_px -> 306007
+    | W_screen -> 306008
+    | W_svw -> 306009
+    | W_xl -> 306010
+    (* Max-width utilities (400000-499999) *)
+    | Max_w_spacing n -> 400000 + spacing_suborder n
+    | Max_w_2xl -> 406000
+    | Max_w_3xl -> 406001
+    | Max_w_4xl -> 406002
+    | Max_w_5xl -> 406003
+    | Max_w_6xl -> 406004
+    | Max_w_7xl -> 406005
+    | Max_w_fit -> 406006
+    | Max_w_full -> 406007
+    | Max_w_lg -> 406008
+    | Max_w_max -> 406009
+    | Max_w_md -> 406010
+    | Max_w_min -> 406011
+    | Max_w_none -> 406012
+    | Max_w_prose -> 406013
+    | Max_w_screen_2xl -> 406014
+    | Max_w_screen_lg -> 406015
+    | Max_w_screen_md -> 406016
+    | Max_w_screen_sm -> 406017
+    | Max_w_screen_xl -> 406018
+    | Max_w_sm -> 406019
+    | Max_w_xl -> 406020
+    | Max_w_xs -> 406021
+    (* Min-width utilities (500000-599999) *)
     | Min_w_0 -> 500000
-    | Min_w_full -> 500001
-    | Min_w_min -> 500002
-    | Min_w_max -> 500003
-    | Min_w_fit -> 500004
-    | Min_w_auto -> 500005
-    | Min_w_spacing n -> 500100 + spacing_suborder n
-    | Min_w_arbitrary _ -> 500200
-    | Min_w_xl -> 500006
+    | Min_w_spacing n -> 500000 + spacing_suborder n
+    | Min_w_arbitrary _ -> 505000
+    | Min_w_auto -> 506000
+    | Min_w_fit -> 506001
+    | Min_w_full -> 506002
+    | Min_w_max -> 506003
+    | Min_w_min -> 506004
+    | Min_w_xl -> 506005
     (* Size utilities (600000-699999) *)
-    | Size_auto -> 600000
-    | Size_full -> 600001
-    | Size_min -> 600002
-    | Size_max -> 600003
-    | Size_fit -> 600004
-    | Size_spacing n -> 600100 + spacing_suborder n
-    | Size_fraction _ -> 650000
-    | Size_arbitrary _ -> 660000
-    (* inline-size utilities (700000-799999) *)
-    | Inline_spacing n -> 700000 + spacing_suborder n
-    | Inline_fraction _ -> 700500
-    | Inline_arbitrary _ -> 700600
-    | Inline_auto -> 700700
-    | Inline_dvw -> 700701
-    | Inline_fit -> 700702
-    | Inline_full -> 700703
-    | Inline_lvw -> 700704
-    | Inline_max -> 700705
-    | Inline_min -> 700706
-    | Inline_screen -> 700707
-    | Inline_svw -> 700708
-    | Inline_xl -> 700709
-    (* min-inline-size utilities (750000-799999) *)
+    | Size_fraction _ -> 600000
+    | Size_spacing n -> 601000 + spacing_suborder n
+    | Size_arbitrary _ -> 605000
+    | Size_auto -> 606000
+    | Size_fit -> 606001
+    | Size_full -> 606002
+    | Size_max -> 606003
+    | Size_min -> 606004
+    (* inline-size utilities (700000-749999) *)
+    | Inline_fraction _ -> 700000
+    | Inline_spacing n -> 701000 + spacing_suborder n
+    | Inline_arbitrary _ -> 705000
+    | Inline_auto -> 706000
+    | Inline_dvw -> 706001
+    | Inline_fit -> 706002
+    | Inline_full -> 706003
+    | Inline_lvw -> 706004
+    | Inline_max -> 706005
+    | Inline_min -> 706006
+    | Inline_screen -> 706007
+    | Inline_svw -> 706008
+    | Inline_xl -> 706009
+    (* min-inline-size utilities (750000-779999) *)
     | Min_inline_spacing n -> 750000 + spacing_suborder n
-    | Min_inline_arbitrary _ -> 750500
-    | Min_inline_auto -> 750600
-    | Min_inline_fit -> 750601
-    | Min_inline_full -> 750602
-    | Min_inline_max -> 750603
-    | Min_inline_min -> 750604
-    | Min_inline_xl -> 750605
+    | Min_inline_arbitrary _ -> 755000
+    | Min_inline_auto -> 756000
+    | Min_inline_fit -> 756001
+    | Min_inline_full -> 756002
+    | Min_inline_max -> 756003
+    | Min_inline_min -> 756004
+    | Min_inline_xl -> 756005
     (* max-inline-size utilities (780000-799999) *)
     | Max_inline_spacing n -> 780000 + spacing_suborder n
-    | Max_inline_arbitrary _ -> 780500
-    | Max_inline_fit -> 780600
-    | Max_inline_full -> 780601
-    | Max_inline_max -> 780602
-    | Max_inline_none -> 780603
-    | Max_inline_xl -> 780604
-    (* block-size utilities (800000-899999) *)
-    | Block_spacing n -> 800000 + spacing_suborder n
-    | Block_fraction _ -> 800500
-    | Block_arbitrary _ -> 800600
-    | Block_auto -> 800700
-    | Block_dvh -> 800701
-    | Block_fit -> 800702
-    | Block_full -> 800703
-    | Block_lh -> 800704
-    | Block_lvh -> 800705
-    | Block_max -> 800706
-    | Block_min -> 800707
-    | Block_screen -> 800708
-    | Block_svh -> 800709
-    (* min-block-size utilities (850000-899999) *)
+    | Max_inline_arbitrary _ -> 785000
+    | Max_inline_fit -> 786000
+    | Max_inline_full -> 786001
+    | Max_inline_max -> 786002
+    | Max_inline_none -> 786003
+    | Max_inline_xl -> 786004
+    (* block-size utilities (800000-849999) *)
+    | Block_fraction _ -> 800000
+    | Block_spacing n -> 801000 + spacing_suborder n
+    | Block_arbitrary _ -> 805000
+    | Block_auto -> 806000
+    | Block_dvh -> 806001
+    | Block_fit -> 806002
+    | Block_full -> 806003
+    | Block_lh -> 806004
+    | Block_lvh -> 806005
+    | Block_max -> 806006
+    | Block_min -> 806007
+    | Block_screen -> 806008
+    | Block_svh -> 806009
+    (* min-block-size utilities (850000-879999) *)
     | Min_block_spacing n -> 850000 + spacing_suborder n
-    | Min_block_arbitrary _ -> 850500
-    | Min_block_auto -> 850600
-    | Min_block_dvh -> 850601
-    | Min_block_fit -> 850602
-    | Min_block_full -> 850603
-    | Min_block_lh -> 850604
-    | Min_block_lvh -> 850605
-    | Min_block_max -> 850606
-    | Min_block_min -> 850607
-    | Min_block_screen -> 850608
-    | Min_block_svh -> 850609
+    | Min_block_arbitrary _ -> 855000
+    | Min_block_auto -> 856000
+    | Min_block_dvh -> 856001
+    | Min_block_fit -> 856002
+    | Min_block_full -> 856003
+    | Min_block_lh -> 856004
+    | Min_block_lvh -> 856005
+    | Min_block_max -> 856006
+    | Min_block_min -> 856007
+    | Min_block_screen -> 856008
+    | Min_block_svh -> 856009
     (* max-block-size utilities (880000-899999) *)
     | Max_block_spacing n -> 880000 + spacing_suborder n
-    | Max_block_arbitrary _ -> 880500
-    | Max_block_dvh -> 880600
-    | Max_block_fit -> 880601
-    | Max_block_full -> 880602
-    | Max_block_lh -> 880603
-    | Max_block_lvh -> 880604
-    | Max_block_max -> 880605
-    | Max_block_min -> 880606
-    | Max_block_none -> 880607
-    | Max_block_screen -> 880608
-    | Max_block_svh -> 880609
+    | Max_block_arbitrary _ -> 885000
+    | Max_block_dvh -> 886000
+    | Max_block_fit -> 886001
+    | Max_block_full -> 886002
+    | Max_block_lh -> 886003
+    | Max_block_lvh -> 886004
+    | Max_block_max -> 886005
+    | Max_block_min -> 886006
+    | Max_block_none -> 886007
+    | Max_block_screen -> 886008
+    | Max_block_svh -> 886009
     (* Aspect utilities (900000-) *)
     | Aspect_auto -> 900000
     | Aspect_square -> 900001

@@ -1190,17 +1190,17 @@ module Typography_late = struct
     | Hyphens_auto -> 9400
     | Hyphens_manual -> 9401
     | Hyphens_none -> 9402
-    (* Font stretch - ordered by % value *)
-    | Font_stretch_ultra_condensed -> 9500
-    | Font_stretch_extra_condensed -> 9501
-    | Font_stretch_condensed -> 9502
-    | Font_stretch_semi_condensed -> 9503
-    | Font_stretch_normal -> 9504
-    | Font_stretch_semi_expanded -> 9505
-    | Font_stretch_expanded -> 9506
-    | Font_stretch_extra_expanded -> 9507
-    | Font_stretch_ultra_expanded -> 9508
-    | Font_stretch_percent n -> 9600 + n
+    (* Font stretch - percentages first (sorted by value), then keywords *)
+    | Font_stretch_percent n -> 9500 + n
+    | Font_stretch_condensed -> 9700
+    | Font_stretch_expanded -> 9701
+    | Font_stretch_extra_condensed -> 9702
+    | Font_stretch_extra_expanded -> 9703
+    | Font_stretch_normal -> 9704
+    | Font_stretch_semi_condensed -> 9705
+    | Font_stretch_semi_expanded -> 9706
+    | Font_stretch_ultra_condensed -> 9707
+    | Font_stretch_ultra_expanded -> 9708
     (* Numeric variants - alphabetical order with normal-nums last *)
     | Diagonal_fractions -> 9700
     | Lining_nums -> 9701
