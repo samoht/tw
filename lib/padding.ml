@@ -100,7 +100,7 @@ module Handler = struct
     side_offset + spacing_value_order value
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match Spacing.parse_class_parts parts with
     | Some (true, _, _) ->
         (* Padding doesn't support negative values *)

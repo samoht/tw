@@ -1070,7 +1070,7 @@ module Handler = struct
   let err_not_utility = Error (`Msg "Not an effects utility")
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "shadow"; "none" ] -> Ok Shadow_none
     | [ "shadow"; "sm" ] -> Ok Shadow_sm

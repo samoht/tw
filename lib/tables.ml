@@ -136,7 +136,7 @@ module Handler = struct
     | Border_spacing_y n -> 2032 + n
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "border"; "collapse" ] -> Ok Border_collapse
     | [ "border"; "separate" ] -> Ok Border_separate

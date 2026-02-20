@@ -344,7 +344,7 @@ module Typography_early = struct
   let err_not_utility = Error (`Msg "Not an early typography utility")
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "text"; "xs" ] -> Ok Text_xs
     | [ "text"; "sm" ] -> Ok Text_sm
@@ -824,7 +824,7 @@ module Typography_late = struct
   let err_not_utility = Error (`Msg "Not a late typography utility")
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "underline" ] -> Ok Underline
     | [ "overline" ] -> Ok Overline

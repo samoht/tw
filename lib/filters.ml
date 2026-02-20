@@ -304,7 +304,7 @@ module Handler = struct
     | Backdrop_sepia n -> 19000 + n
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "filter" ] -> Ok Filter
     | [ "filter"; "none" ] -> Ok Filter_none

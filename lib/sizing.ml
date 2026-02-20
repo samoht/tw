@@ -715,7 +715,7 @@ module Handler = struct
     else None
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     let parse_w = function
       | "auto" -> Ok W_auto
       | "px" -> Ok W_px

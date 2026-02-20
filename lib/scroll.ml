@@ -142,7 +142,7 @@ module Handler = struct
 
   let suborder { kind; negative; axis; value } =
     let kind_offset = match kind with Margin -> 0 | Padding -> 10000000 in
-    let neg_offset = if negative then 5000000 else 0 in
+    let neg_offset = if negative then -5000000 else 0 in
     let axis_offset =
       match axis with
       | All -> 0
@@ -221,7 +221,7 @@ module Handler = struct
     | _ -> None
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     (* scroll-m-4, scroll-p-4, scroll-mx-4, scroll-py-4, etc. *)
     | [ "scroll"; kind_axis; value ] | [ ""; "scroll"; kind_axis; value ] -> (

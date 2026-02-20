@@ -202,7 +202,7 @@ module Handler = struct
         in
         25000 + axis_offset + spacing_value_order value
     | Space { negative; axis; value } ->
-        let neg_offset = if negative then 100000 else 0 in
+        let neg_offset = if negative then -100000 else 0 in
         let axis_offset = match axis with `X -> 0 | `Y -> 10000 in
         20000 + neg_offset + axis_offset + spacing_value_order value
     (* Reverse utilities come after their regular counterparts *)
@@ -226,7 +226,7 @@ module Handler = struct
     | Space_y_reverse -> "space-y-reverse"
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     let err_not_utility = Error (`Msg "Not a gap utility") in
     let parse_class = function
       | [ "gap"; value ] -> (

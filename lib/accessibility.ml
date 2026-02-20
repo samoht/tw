@@ -34,7 +34,7 @@ module Handler = struct
     | Forced_color_adjust_none -> 1
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "forced"; "color"; "adjust"; "auto" ] -> Ok Forced_color_adjust_auto
     | [ "forced"; "color"; "adjust"; "none" ] -> Ok Forced_color_adjust_none

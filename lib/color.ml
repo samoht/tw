@@ -1317,7 +1317,7 @@ module Handler = struct
   let has_opacity s = String.contains s '/'
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "bg"; "transparent" ] -> Ok Bg_transparent
     | [ "bg"; current_str ]

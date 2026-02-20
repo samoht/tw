@@ -39,3 +39,35 @@ let int_bounded ~name ~min ~max s =
    (like 3/4) are invalid class suffixes, not theme references. *)
 let is_valid_theme_name s = not (String.contains s '/')
 let ( >|= ) r f = Result.map f r
+
+(** Split a class name on '-' but treat '[...]' as atomic. E.g.
+    "m-[var(--value)]" → ["m"; "[var(--value)]"] E.g. "-m-[var(--value)]" →
+    [""; "m"; "[var(--value)]"] *)
+let split_class class_name =
+  let len = String.length class_name in
+  let buf = Buffer.create 16 in
+  let parts = ref [] in
+  let i = ref 0 in
+  while !i < len do
+    let c = class_name.[!i] in
+    if c = '[' then (
+      (* Read until matching ']', including nested brackets *)
+      let depth = ref 1 in
+      Buffer.add_char buf c;
+      incr i;
+      while !i < len && !depth > 0 do
+        let c = class_name.[!i] in
+        Buffer.add_char buf c;
+        if c = '[' then incr depth else if c = ']' then decr depth;
+        incr i
+      done)
+    else if c = '-' then (
+      parts := Buffer.contents buf :: !parts;
+      Buffer.clear buf;
+      incr i)
+    else (
+      Buffer.add_char buf c;
+      incr i)
+  done;
+  parts := Buffer.contents buf :: !parts;
+  List.rev !parts

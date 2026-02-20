@@ -50,7 +50,7 @@ module Screen_reader_handler = struct
           ]
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "sr"; "only" ] -> Ok Sr_only
     | [ "not"; "sr"; "only" ] -> Ok Not_sr_only
@@ -495,7 +495,7 @@ module Handler = struct
   (** {1 Parsing Functions} *)
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "block" ] -> Ok Block
     | [ "contents" ] -> Ok Contents

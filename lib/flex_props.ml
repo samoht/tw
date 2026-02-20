@@ -34,6 +34,7 @@ module Handler = struct
     (* Order *)
     | Order of int
     | Neg_order of int (* -order-4 = calc(4 * -1) *)
+    | Neg_order_arbitrary of string (* -order-[var(--value)] *)
     | Order_arbitrary of string (* order-[123] *)
     | Order_first
     | Order_last
@@ -93,9 +94,8 @@ module Handler = struct
       [
         order
           (Var
-             (Var.theme_ref "order-first"
-                ~default:(Order_calc "calc(-infinity)")
-                ~default_css:"calc(-infinity)"));
+             (Var.theme_ref "order-first" ~default:(Order_int (-9999))
+                ~default_css:"-9999"));
       ]
 
   let order_last =
@@ -103,8 +103,8 @@ module Handler = struct
       [
         order
           (Var
-             (Var.theme_ref "order-last" ~default:(Order_calc "calc(infinity)")
-                ~default_css:"calc(infinity)"));
+             (Var.theme_ref "order-last" ~default:(Order_int 9999)
+                ~default_css:"9999"));
       ]
 
   let order_none = style [ order (Order_int 0) ]
@@ -129,6 +129,10 @@ module Handler = struct
     | Basis_named name -> basis_named_style name
     | Order n -> order_style n
     | Neg_order n -> style [ order (Order_int (-n)) ]
+    | Neg_order_arbitrary s -> (
+        match int_of_string_opt s with
+        | Some n -> style [ order (Order_int (-n)) ]
+        | None -> style [ order (Order_calc ("calc(" ^ s ^ " * -1)")) ])
     | Order_arbitrary s -> (
         match int_of_string_opt s with
         | Some n -> style [ order (Order_int n) ]
@@ -141,11 +145,12 @@ module Handler = struct
     (* Order - comes first in Tailwind's output. Ordering: negative first, then
        positive, then first/last/none, then arbitrary *)
     | Neg_order n -> n (* negative comes first *)
+    | Neg_order_arbitrary _ -> 50 (* negative arbitrary after negative ints *)
     | Order n -> 100 + n
+    | Order_arbitrary _ -> 150
     | Order_first -> 200
     | Order_last -> 201
     | Order_none -> 202
-    | Order_arbitrary _ -> 250
     (* Tailwind flex order: flex-1 < fractions < numbers < auto < initial <
        none. Note: flex-* utilities come AFTER order-* utilities *)
     | Flex_1 -> 1000
@@ -186,7 +191,7 @@ module Handler = struct
     | _ -> None
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "flex"; "1" ] -> Ok Flex_1
     | [ "flex"; "auto" ] -> Ok Flex_auto
@@ -209,21 +214,33 @@ module Handler = struct
     | [ "order"; "first" ] -> Ok Order_first
     | [ "order"; "last" ] -> Ok Order_last
     | [ "order"; "none" ] -> Ok Order_none
-    | [ "order"; n ] when String.length n > 0 && n.[0] = '[' ->
-        (* Arbitrary value: order-[123] *)
-        let len = String.length n in
-        if len > 2 && n.[len - 1] = ']' then
-          Ok (Order_arbitrary (String.sub n 1 (len - 2)))
-        else err_not_utility
-    | [ "order"; n ] -> (
-        match int_of_string_opt n with
-        | Some n when n >= 1 -> Ok (Order n)
-        | _ -> err_not_utility)
-    | [ ""; "order"; n ] -> (
-        (* Negative order: -order-4 *)
-        match int_of_string_opt n with
-        | Some n when n >= 1 -> Ok (Neg_order n)
-        | _ -> err_not_utility)
+    | "order" :: rest when rest <> [] -> (
+        let value = String.concat "-" rest in
+        if
+          String.length value > 2
+          && value.[0] = '['
+          && value.[String.length value - 1] = ']'
+        then
+          let inner = String.sub value 1 (String.length value - 2) in
+          Ok (Order_arbitrary inner)
+        else
+          match int_of_string_opt value with
+          | Some n when n >= 1 -> Ok (Order n)
+          | _ -> err_not_utility)
+    | "" :: "order" :: rest when rest <> [] -> (
+        (* Negative order: -order-4, -order-[var(--value)] *)
+        let value = String.concat "-" rest in
+        if
+          String.length value > 2
+          && value.[0] = '['
+          && value.[String.length value - 1] = ']'
+        then
+          let inner = String.sub value 1 (String.length value - 2) in
+          Ok (Neg_order_arbitrary inner)
+        else
+          match int_of_string_opt value with
+          | Some n when n >= 1 -> Ok (Neg_order n)
+          | _ -> err_not_utility)
     | [ "flex"; value ] when String.length value > 0 && value.[0] = '[' ->
         (* Arbitrary flex: flex-[123] *)
         let len = String.length value in
@@ -270,6 +287,7 @@ module Handler = struct
     (* Order *)
     | Order n -> "order-" ^ string_of_int n
     | Neg_order n -> "-order-" ^ string_of_int n
+    | Neg_order_arbitrary s -> "-order-[" ^ s ^ "]"
     | Order_arbitrary s -> "order-[" ^ s ^ "]"
     | Order_first -> "order-first"
     | Order_last -> "order-last"

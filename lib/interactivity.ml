@@ -237,7 +237,7 @@ module Handler = struct
     | Scheme_only_light -> 45
 
   let of_class class_name =
-    let parts = String.split_on_char '-' class_name in
+    let parts = Parse.split_class class_name in
     match parts with
     | [ "select"; "none" ] -> Ok Select_none
     | [ "select"; "text" ] -> Ok Select_text
