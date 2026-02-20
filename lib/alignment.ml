@@ -317,9 +317,9 @@ module Handler = struct
       (* Place items *)
       (Place_items_start, "place-items-start", place_items_start, 15);
       (Place_items_end, "place-items-end", place_items_end, 13);
-      (Place_items_center, "place-items-center", place_items_center, 10);
+      (Place_items_center, "place-items-center", place_items_center, 11);
       (Place_items_stretch, "place-items-stretch", place_items_stretch, 17);
-      (Place_items_baseline, "place-items-baseline", place_items_baseline, 11);
+      (Place_items_baseline, "place-items-baseline", place_items_baseline, 10);
       ( Place_items_center_safe,
         "place-items-center-safe",
         place_items_center_safe,

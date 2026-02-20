@@ -9,12 +9,16 @@ let int_pos ~name s =
   | Some _ -> Error (`Msg (name ^ " must be non-negative: " ^ s))
   | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
 
-(* Parse decimal values like "0.5", "1.5" for spacing utilities *)
+(* Parse decimal values like "0.5", "1.5" for spacing utilities. Valid decimals
+   must be multiples of 0.25 (i.e., value * 4 is integer). *)
 let decimal_pos ~name s =
   try
     let f = Float.of_string s in
-    if f >= 0.0 then Ok f
-    else Error (`Msg (name ^ " must be non-negative: " ^ s))
+    if f < 0.0 then Error (`Msg (name ^ " must be non-negative: " ^ s))
+    else
+      let scaled = f *. 4.0 in
+      if Float.is_integer scaled then Ok f
+      else Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
   with Failure _ -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
 
 (* Parse spacing values - handles both integers and decimals *)

@@ -978,15 +978,18 @@ module Handler = struct
     | Perspective_origin_top -> 1506
     | Perspective_origin_top_left -> 1507
     | Perspective_origin_top_right -> 1508
-    | Transform_style_3d -> 1600
-    | Transform_style_flat -> 1601
-    | Transform_box_border -> 1604
-    | Transform_box_content -> 1605
-    | Transform_box_fill -> 1606
+    (* Alphabetical by class name: backface-hidden, backface-visible,
+       transform-3d, transform-border, ..., transform-flat, ...,
+       transform-view *)
+    | Backface_hidden -> 1600
+    | Backface_visible -> 1601
+    | Transform_style_3d -> 1602
+    | Transform_box_border -> 1603
+    | Transform_box_content -> 1604
+    | Transform_box_fill -> 1605
+    | Transform_style_flat -> 1606
     | Transform_box_stroke -> 1607
     | Transform_box_view -> 1608
-    | Backface_visible -> 1602
-    | Backface_hidden -> 1603
     (* Transform origin - alphabetical: bottom, bottom-left, bottom-right,
        center, left, right, top, top-left, top-right *)
     | Origin_bottom -> 1700

@@ -171,13 +171,13 @@ module Handler = struct
     (* Grow *)
     | Flex_grow -> 30000
     | Flex_grow_0 -> 30001
-    (* Basis *)
-    | Basis_0 -> 40000
-    | Basis_1 -> 40001
-    | Basis_auto -> 40002
-    | Basis_full -> 40003
-    | Basis_fraction (n, m) -> 40100 + (n * 100) + m
-    | Basis_named _ -> 40500
+    (* Basis: fractions → keywords alphabetical → named *)
+    | Basis_fraction (n, m) -> 40000 + (n * 100) + m
+    | Basis_0 -> 40100
+    | Basis_1 -> 40101
+    | Basis_auto -> 40200
+    | Basis_full -> 40201
+    | Basis_named _ -> 40300
 
   let err_not_utility = Error (`Msg "Not a flex property utility")
 

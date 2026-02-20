@@ -62,17 +62,18 @@ module Handler = struct
         "manipulation",
         fun () -> style [ touch_action Manipulation ] );
       (Touch_none, "none", fun () -> style [ touch_action None ]);
-      ( Touch_pan_down,
-        "pan-down",
-        fun () -> composable_style tw_pan_y_var Pan_down );
+      (* x-axis pan utilities come before y-axis *)
       ( Touch_pan_left,
         "pan-left",
         fun () -> composable_style tw_pan_x_var Pan_left );
       ( Touch_pan_right,
         "pan-right",
         fun () -> composable_style tw_pan_x_var Pan_right );
-      (Touch_pan_up, "pan-up", fun () -> composable_style tw_pan_y_var Pan_up);
       (Touch_pan_x, "pan-x", fun () -> composable_style tw_pan_x_var Pan_x);
+      ( Touch_pan_down,
+        "pan-down",
+        fun () -> composable_style tw_pan_y_var Pan_down );
+      (Touch_pan_up, "pan-up", fun () -> composable_style tw_pan_y_var Pan_up);
       (Touch_pan_y, "pan-y", fun () -> composable_style tw_pan_y_var Pan_y);
       ( Touch_pinch_zoom,
         "pinch-zoom",
