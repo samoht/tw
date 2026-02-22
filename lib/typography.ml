@@ -894,7 +894,10 @@ module Typography_late = struct
     | [ "list"; "image"; "none" ] -> Ok List_image_none
     | [ "list"; "image"; value ] when Parse.is_bracket_var value ->
         Ok (List_image_bracket_var (Parse.bracket_inner value))
-    | "list" :: "image" :: rest -> Ok (List_image_url (String.concat "-" rest))
+    | "list" :: "image" :: rest when rest <> [] ->
+        let url = String.concat "-" rest in
+        if Parse.is_valid_theme_name url then Ok (List_image_url url)
+        else err_not_utility
     | [ "underline"; "offset"; "auto" ] -> Ok Underline_offset_auto
     | [ "underline"; "offset"; "0" ] -> Ok Underline_offset_0
     | [ "underline"; "offset"; "1" ] -> Ok Underline_offset_1
