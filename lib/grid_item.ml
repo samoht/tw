@@ -3,6 +3,112 @@
     These utilities control how grid items are placed within a grid container.
     They come before display utilities in the cascade order. *)
 
+(* Generate themed grid_column style: custom declaration + var reference when
+   theme value is set, otherwise bare theme_ref fallback *)
+let themed_decl name value_str =
+  match int_of_string_opt value_str with
+  | Some n -> Css.custom_declaration ~layer:"theme" ("--" ^ name) Css.Int n
+  | None ->
+      Css.custom_declaration ~layer:"theme" ("--" ^ name) Css.String value_str
+
+let grid_col_themed_style name () =
+  match Var.get_theme_value name with
+  | Some value_str ->
+      let decl = themed_decl name value_str in
+      let ref : Css.grid_line Css.var = Css.var_ref ~layer:"theme" name in
+      Style.style [ decl; Css.grid_column (Var ref, Auto) ]
+  | None ->
+      Style.style
+        [
+          Css.grid_column
+            ( Var
+                (Var.theme_ref name
+                   ~default:(Css.Auto : Css.grid_line)
+                   ~default_css:"auto"),
+              Auto );
+        ]
+
+let grid_col_start_themed_style name () =
+  match Var.get_theme_value name with
+  | Some value_str ->
+      let decl = themed_decl name value_str in
+      let ref : Css.grid_line Css.var = Css.var_ref ~layer:"theme" name in
+      Style.style [ decl; Css.grid_column_start (Var ref) ]
+  | None ->
+      Style.style
+        [
+          Css.grid_column_start
+            (Var
+               (Var.theme_ref name
+                  ~default:(Css.Auto : Css.grid_line)
+                  ~default_css:"auto"));
+        ]
+
+let grid_col_end_themed_style name () =
+  match Var.get_theme_value name with
+  | Some value_str ->
+      let decl = themed_decl name value_str in
+      let ref : Css.grid_line Css.var = Css.var_ref ~layer:"theme" name in
+      Style.style [ decl; Css.grid_column_end (Var ref) ]
+  | None ->
+      Style.style
+        [
+          Css.grid_column_end
+            (Var
+               (Var.theme_ref name
+                  ~default:(Css.Auto : Css.grid_line)
+                  ~default_css:"auto"));
+        ]
+
+let grid_row_themed_style name () =
+  match Var.get_theme_value name with
+  | Some value_str ->
+      let decl = themed_decl name value_str in
+      let ref : Css.grid_line Css.var = Css.var_ref ~layer:"theme" name in
+      Style.style [ decl; Css.grid_row (Var ref, Auto) ]
+  | None ->
+      Style.style
+        [
+          Css.grid_row
+            ( Var
+                (Var.theme_ref name
+                   ~default:(Css.Auto : Css.grid_line)
+                   ~default_css:"auto"),
+              Auto );
+        ]
+
+let grid_row_start_themed_style name () =
+  match Var.get_theme_value name with
+  | Some value_str ->
+      let decl = themed_decl name value_str in
+      let ref : Css.grid_line Css.var = Css.var_ref ~layer:"theme" name in
+      Style.style [ decl; Css.grid_row_start (Var ref) ]
+  | None ->
+      Style.style
+        [
+          Css.grid_row_start
+            (Var
+               (Var.theme_ref name
+                  ~default:(Css.Auto : Css.grid_line)
+                  ~default_css:"auto"));
+        ]
+
+let grid_row_end_themed_style name () =
+  match Var.get_theme_value name with
+  | Some value_str ->
+      let decl = themed_decl name value_str in
+      let ref : Css.grid_line Css.var = Css.var_ref ~layer:"theme" name in
+      Style.style [ decl; Css.grid_row_end (Var ref) ]
+  | None ->
+      Style.style
+        [
+          Css.grid_row_end
+            (Var
+               (Var.theme_ref name
+                  ~default:(Css.Auto : Css.grid_line)
+                  ~default_css:"auto"));
+        ]
+
 module Handler = struct
   open Style
   open Css
@@ -20,10 +126,12 @@ module Handler = struct
     | Neg_col_start of int
     | Col_start_auto
     | Col_start_arbitrary of string
+    | Col_start_named of string (* col-start-custom *)
     | Col_end of int
     | Neg_col_end of int
     | Col_end_auto
     | Col_end_arbitrary of string
+    | Col_end_named of string (* col-end-custom *)
     (* Row *)
     | Row of int
     | Neg_row of int
@@ -36,10 +144,12 @@ module Handler = struct
     | Neg_row_start of int
     | Row_start_auto
     | Row_start_arbitrary of string
+    | Row_start_named of string (* row-start-custom *)
     | Row_end of int
     | Neg_row_end of int
     | Row_end_auto
     | Row_end_arbitrary of string
+    | Row_end_named of string (* row-end-custom *)
 
   type Utility.base += Self of t
 
@@ -51,16 +161,7 @@ module Handler = struct
   let col n = style [ grid_column (Num n, Auto) ]
   let neg_col n = style [ grid_column (Num (-n), Auto) ]
   let col_arbitrary s = style [ grid_column (Arbitrary s, Auto) ]
-
-  let col_auto =
-    let v : Css.grid_line =
-      Var
-        (Var.theme_ref "grid-column-auto"
-           ~default:(Auto : Css.grid_line)
-           ~default_css:"auto")
-    in
-    style [ grid_column (v, Auto) ]
-
+  let col_auto () = grid_col_themed_style "grid-column-auto" ()
   let col_span n = style [ grid_column (Span n, Span n) ]
 
   let col_span_arbitrary s =
@@ -71,41 +172,21 @@ module Handler = struct
   let neg_col_start n = style [ grid_column_start (Num (-n)) ]
   let col_start_arbitrary s = style [ grid_column_start (Arbitrary s) ]
 
-  let col_start_auto =
-    let v : Css.grid_line =
-      Var
-        (Var.theme_ref "grid-column-start-auto"
-           ~default:(Auto : Css.grid_line)
-           ~default_css:"auto")
-    in
-    style [ grid_column_start v ]
+  let col_start_auto () =
+    grid_col_start_themed_style "grid-column-start-auto" ()
+
+  let col_start_named s =
+    grid_col_start_themed_style ("grid-column-start-" ^ s) ()
 
   let col_end n = style [ grid_column_end (Num n) ]
   let neg_col_end n = style [ grid_column_end (Num (-n)) ]
   let col_end_arbitrary s = style [ grid_column_end (Arbitrary s) ]
-
-  let col_end_auto =
-    let v : Css.grid_line =
-      Var
-        (Var.theme_ref "grid-column-end-auto"
-           ~default:(Auto : Css.grid_line)
-           ~default_css:"auto")
-    in
-    style [ grid_column_end v ]
-
+  let col_end_auto () = grid_col_end_themed_style "grid-column-end-auto" ()
+  let col_end_named s = grid_col_end_themed_style ("grid-column-end-" ^ s) ()
   let row n = style [ grid_row (Num n, Auto) ]
   let neg_row n = style [ grid_row (Num (-n), Auto) ]
   let row_arbitrary s = style [ grid_row (Arbitrary s, Auto) ]
-
-  let row_auto =
-    let v : Css.grid_line =
-      Var
-        (Var.theme_ref "grid-row-auto"
-           ~default:(Auto : Css.grid_line)
-           ~default_css:"auto")
-    in
-    style [ grid_row (v, Auto) ]
-
+  let row_auto () = grid_row_themed_style "grid-row-auto" ()
   let row_span n = style [ grid_row (Span n, Span n) ]
 
   let row_span_arbitrary s =
@@ -115,60 +196,49 @@ module Handler = struct
   let row_start n = style [ grid_row_start (Num n) ]
   let neg_row_start n = style [ grid_row_start (Num (-n)) ]
   let row_start_arbitrary s = style [ grid_row_start (Arbitrary s) ]
-
-  let row_start_auto =
-    let v : Css.grid_line =
-      Var
-        (Var.theme_ref "grid-row-start-auto"
-           ~default:(Auto : Css.grid_line)
-           ~default_css:"auto")
-    in
-    style [ grid_row_start v ]
-
+  let row_start_auto () = grid_row_start_themed_style "grid-row-start-auto" ()
+  let row_start_named s = grid_row_start_themed_style ("grid-row-start-" ^ s) ()
   let row_end n = style [ grid_row_end (Num n) ]
   let neg_row_end n = style [ grid_row_end (Num (-n)) ]
   let row_end_arbitrary s = style [ grid_row_end (Arbitrary s) ]
-
-  let row_end_auto =
-    let v : Css.grid_line =
-      Var
-        (Var.theme_ref "grid-row-end-auto"
-           ~default:(Auto : Css.grid_line)
-           ~default_css:"auto")
-    in
-    style [ grid_row_end v ]
+  let row_end_auto () = grid_row_end_themed_style "grid-row-end-auto" ()
+  let row_end_named s = grid_row_end_themed_style ("grid-row-end-" ^ s) ()
 
   let to_style = function
     | Col n -> col n
     | Neg_col n -> neg_col n
     | Col_arbitrary s -> col_arbitrary s
-    | Col_auto -> col_auto
+    | Col_auto -> col_auto ()
     | Col_span n -> col_span n
     | Col_span_arbitrary s -> col_span_arbitrary s
     | Col_span_full -> col_span_full
     | Col_start n -> col_start n
     | Neg_col_start n -> neg_col_start n
     | Col_start_arbitrary s -> col_start_arbitrary s
-    | Col_start_auto -> col_start_auto
+    | Col_start_auto -> col_start_auto ()
+    | Col_start_named s -> col_start_named s
     | Col_end n -> col_end n
     | Neg_col_end n -> neg_col_end n
     | Col_end_arbitrary s -> col_end_arbitrary s
-    | Col_end_auto -> col_end_auto
+    | Col_end_auto -> col_end_auto ()
+    | Col_end_named s -> col_end_named s
     | Row n -> row n
     | Neg_row n -> neg_row n
     | Row_arbitrary s -> row_arbitrary s
-    | Row_auto -> row_auto
+    | Row_auto -> row_auto ()
     | Row_span n -> row_span n
     | Row_span_arbitrary s -> row_span_arbitrary s
     | Row_span_full -> row_span_full
     | Row_start n -> row_start n
     | Neg_row_start n -> neg_row_start n
     | Row_start_arbitrary s -> row_start_arbitrary s
-    | Row_start_auto -> row_start_auto
+    | Row_start_auto -> row_start_auto ()
+    | Row_start_named s -> row_start_named s
     | Row_end n -> row_end n
     | Neg_row_end n -> neg_row_end n
     | Row_end_arbitrary s -> row_end_arbitrary s
-    | Row_end_auto -> row_end_auto
+    | Row_end_auto -> row_end_auto ()
+    | Row_end_named s -> row_end_named s
 
   let suborder = function
     (* Column utilities - negative, positive, arbitrary, auto, span, span-arb,
@@ -182,12 +252,14 @@ module Handler = struct
     | Col_span_full -> 600
     | Neg_col_start n -> 700 + n
     | Col_start n -> 800 + n
-    | Col_start_auto -> 900
-    | Col_start_arbitrary _ -> 950
+    | Col_start_arbitrary _ -> 900
+    | Col_start_auto -> 950
+    | Col_start_named _ -> 960
     | Neg_col_end n -> 1000 + n
     | Col_end n -> 1100 + n
-    | Col_end_auto -> 1200
-    | Col_end_arbitrary _ -> 1250
+    | Col_end_arbitrary _ -> 1200
+    | Col_end_auto -> 1250
+    | Col_end_named _ -> 1260
     (* Row utilities *)
     | Neg_row n -> 1300 + n
     | Row n -> 1400 + n
@@ -198,12 +270,14 @@ module Handler = struct
     | Row_span_full -> 1900
     | Neg_row_start n -> 2000 + n
     | Row_start n -> 2100 + n
-    | Row_start_auto -> 2200
-    | Row_start_arbitrary _ -> 2250
+    | Row_start_arbitrary _ -> 2200
+    | Row_start_auto -> 2250
+    | Row_start_named _ -> 2260
     | Neg_row_end n -> 2300 + n
     | Row_end n -> 2400 + n
-    | Row_end_auto -> 2500
-    | Row_end_arbitrary _ -> 2550
+    | Row_end_arbitrary _ -> 2500
+    | Row_end_auto -> 2550
+    | Row_end_named _ -> 2560
 
   let err_not_utility = Error (`Msg "Not a grid item utility")
 
@@ -236,7 +310,12 @@ module Handler = struct
     | [ "col"; "start"; n ] -> (
         match Parse.int_pos ~name:"col-start" n with
         | Ok i -> Ok (Col_start i)
-        | Error _ -> err_not_utility)
+        | Error _ ->
+            if
+              (not (String.contains n '/'))
+              && Var.get_theme_value ("grid-column-start-" ^ n) <> None
+            then Ok (Col_start_named n)
+            else err_not_utility)
     | [ ""; "col"; "start"; n ] -> (
         (* Negative col-start: -col-start-12 *)
         match Parse.int_pos ~name:"-col-start" n with
@@ -250,7 +329,12 @@ module Handler = struct
     | [ "col"; "end"; n ] -> (
         match Parse.int_pos ~name:"col-end" n with
         | Ok i -> Ok (Col_end i)
-        | Error _ -> err_not_utility)
+        | Error _ ->
+            if
+              (not (String.contains n '/'))
+              && Var.get_theme_value ("grid-column-end-" ^ n) <> None
+            then Ok (Col_end_named n)
+            else err_not_utility)
     | [ ""; "col"; "end"; n ] -> (
         (* Negative col-end: -col-end-12 *)
         match Parse.int_pos ~name:"-col-end" n with
@@ -302,7 +386,12 @@ module Handler = struct
     | [ "row"; "start"; n ] -> (
         match Parse.int_pos ~name:"row-start" n with
         | Ok i -> Ok (Row_start i)
-        | Error _ -> err_not_utility)
+        | Error _ ->
+            if
+              (not (String.contains n '/'))
+              && Var.get_theme_value ("grid-row-start-" ^ n) <> None
+            then Ok (Row_start_named n)
+            else err_not_utility)
     | [ ""; "row"; "start"; n ] -> (
         (* Negative row-start: -row-start-12 *)
         match Parse.int_pos ~name:"-row-start" n with
@@ -316,7 +405,12 @@ module Handler = struct
     | [ "row"; "end"; n ] -> (
         match Parse.int_pos ~name:"row-end" n with
         | Ok i -> Ok (Row_end i)
-        | Error _ -> err_not_utility)
+        | Error _ ->
+            if
+              (not (String.contains n '/'))
+              && Var.get_theme_value ("grid-row-end-" ^ n) <> None
+            then Ok (Row_end_named n)
+            else err_not_utility)
     | [ ""; "row"; "end"; n ] -> (
         (* Negative row-end: -row-end-12 *)
         match Parse.int_pos ~name:"-row-end" n with
@@ -341,10 +435,12 @@ module Handler = struct
     | Neg_col_start n -> "-col-start-" ^ string_of_int n
     | Col_start_arbitrary s -> "col-start-" ^ to_class_arbitrary s
     | Col_start_auto -> "col-start-auto"
+    | Col_start_named s -> "col-start-" ^ s
     | Col_end n -> "col-end-" ^ string_of_int n
     | Neg_col_end n -> "-col-end-" ^ string_of_int n
     | Col_end_arbitrary s -> "col-end-" ^ to_class_arbitrary s
     | Col_end_auto -> "col-end-auto"
+    | Col_end_named s -> "col-end-" ^ s
     (* Row *)
     | Row n -> "row-" ^ string_of_int n
     | Neg_row n -> "-row-" ^ string_of_int n
@@ -357,10 +453,12 @@ module Handler = struct
     | Neg_row_start n -> "-row-start-" ^ string_of_int n
     | Row_start_arbitrary s -> "row-start-" ^ to_class_arbitrary s
     | Row_start_auto -> "row-start-auto"
+    | Row_start_named s -> "row-start-" ^ s
     | Row_end n -> "row-end-" ^ string_of_int n
     | Neg_row_end n -> "-row-end-" ^ string_of_int n
     | Row_end_arbitrary s -> "row-end-" ^ to_class_arbitrary s
     | Row_end_auto -> "row-end-auto"
+    | Row_end_named s -> "row-end-" ^ s
 end
 
 open Handler
