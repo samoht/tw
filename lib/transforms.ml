@@ -699,10 +699,14 @@ module Handler = struct
   let origin_center = origin_with_ref "transform-origin-center" Center "center"
   let origin_top = origin_with_ref "transform-origin-top" Top "top"
   let origin_bottom = origin_with_ref "transform-origin-bottom" Bottom "bottom"
-  let origin_left = origin_with_ref "transform-origin-left" (X Zero) "0"
+
+  let origin_left =
+    origin_with_ref "transform-origin-left" (XY (Zero, Zero)) "0 0"
 
   let origin_right =
-    origin_with_ref "transform-origin-right" (X (Pct 100.)) "100%"
+    origin_with_ref "transform-origin-right"
+      (XY (Pct 100., Pct 100.))
+      "100% 100%"
 
   let origin_top_left =
     origin_with_ref "transform-origin-top-left" (XY (Zero, Zero)) "0 0"
@@ -723,6 +727,11 @@ module Handler = struct
   let origin_arbitrary s =
     (* Convert underscore to space for arbitrary values like 50px_100px *)
     let value = String.map (fun c -> if c = '_' then ' ' else c) s in
+    (* If value has no spaces (single value like var(--x)), duplicate for x and
+       y *)
+    let value =
+      if not (String.contains value ' ') then value ^ " " ^ value else value
+    in
     style [ transform_origin (Arbitrary value) ]
 
   (** {1 Transform Control Utilities} *)
