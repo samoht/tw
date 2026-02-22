@@ -11,6 +11,10 @@ module Handler = struct
     | (* 2D Transforms *)
       Rotate of int
     | Rotate_arbitrary of Css.angle
+    | Rotate_3d_arbitrary of float * float * float * Css.angle
+    | Rotate_bare_var of string
+    | Neg_rotate_bare_var of string
+    | Neg_rotate_arbitrary of Css.angle
     | Translate_x of int
     | Translate_x_full
     | Translate_x_px
@@ -317,6 +321,28 @@ module Handler = struct
 
   let rotate n = style [ Css.rotate (Angle (Deg (float_of_int n))) ]
   let rotate_arbitrary angle = style [ Css.rotate (Angle angle) ]
+
+  let rotate_3d_arbitrary x y z angle =
+    style [ Css.rotate (Axis (x, y, z, angle)) ]
+
+  let rotate_bare_var name =
+    (* name is "--var", strip the -- prefix *)
+    let bare = String.sub name 2 (String.length name - 2) in
+    let ref : Css.angle Css.var = Css.var_ref bare in
+    style [ Css.rotate (Angle (Var ref)) ]
+
+  let neg_rotate_bare_var name =
+    (* name is "--var", strip the -- prefix for Calc.var *)
+    let bare = String.sub name 2 (String.length name - 2) in
+    let neg_angle : Css.angle =
+      Calc (Expr (Var (Css.var_ref bare), Mul, Num (-1.)))
+    in
+    style [ Css.rotate (Angle neg_angle) ]
+
+  let neg_rotate_arbitrary angle =
+    (* Negate the angle for CSS output *)
+    let neg = match angle with Css.Deg d -> Css.Deg (-.d) | a -> a in
+    style [ Css.rotate (Angle neg) ]
 
   let translate_props =
     collect_property_rules
@@ -926,6 +952,10 @@ module Handler = struct
   let to_style = function
     | Rotate n -> rotate n
     | Rotate_arbitrary a -> rotate_arbitrary a
+    | Rotate_3d_arbitrary (x, y, z, a) -> rotate_3d_arbitrary x y z a
+    | Rotate_bare_var name -> rotate_bare_var name
+    | Neg_rotate_bare_var name -> neg_rotate_bare_var name
+    | Neg_rotate_arbitrary a -> neg_rotate_arbitrary a
     | Translate_x n -> translate_x n
     | Translate_x_full -> translate_x_full
     | Translate_x_px -> translate_x_px
@@ -1047,8 +1077,12 @@ module Handler = struct
     | Scale_y_arbitrary _ -> 699
     | Scale_z n -> 700 + n
     | Scale_3d -> 750
-    (* Rotate utilities *)
-    | Rotate n -> 800 + n
+    (* Rotate utilities - negative before positive, bare var before int/arb *)
+    | Neg_rotate_bare_var _ -> 750
+    | Neg_rotate_arbitrary _ -> 799
+    | Rotate_bare_var _ -> 800
+    | Rotate n -> 801 + n
+    | Rotate_3d_arbitrary _ -> 898
     | Rotate_arbitrary _ -> 899
     | Rotate_x n -> 900 + n
     | Rotate_x_arbitrary _ -> 999
@@ -1106,10 +1140,33 @@ module Handler = struct
   let of_class class_name =
     let parts = Parse.split_class class_name in
     match parts with
+    | [ "rotate"; n ] when Parse.is_bare_var n ->
+        Ok (Rotate_bare_var (Parse.bare_var_inner n))
     | [ "rotate"; n ] when String.length n > 0 && n.[0] = '[' -> (
-        match parse_bracket_angle n with
-        | Ok a -> Ok (Rotate_arbitrary a)
-        | Error _ -> err_not_utility)
+        let inner = String.sub n 1 (String.length n - 2) in
+        (* Check for 3D rotation: x y z angle (underscores as spaces) *)
+        let inner_spaced =
+          String.map (fun c -> if c = '_' then ' ' else c) inner
+        in
+        let parts_3d = String.split_on_char ' ' inner_spaced in
+        match parts_3d with
+        | [ x; y; z; a ] -> (
+            match
+              ( Float.of_string_opt x,
+                Float.of_string_opt y,
+                Float.of_string_opt z,
+                parse_bracket_angle ("[" ^ a ^ "]") )
+            with
+            | Some fx, Some fy, Some fz, Ok angle ->
+                Ok (Rotate_3d_arbitrary (fx, fy, fz, angle))
+            | _ -> (
+                match parse_bracket_angle n with
+                | Ok a -> Ok (Rotate_arbitrary a)
+                | Error _ -> err_not_utility))
+        | _ -> (
+            match parse_bracket_angle n with
+            | Ok a -> Ok (Rotate_arbitrary a)
+            | Error _ -> err_not_utility))
     | [ "rotate"; n ] -> Parse.int_any n >|= fun n -> Rotate n
     | [ "translate"; "x"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_bracket_length n with
@@ -1210,7 +1267,13 @@ module Handler = struct
         | Ok a -> Ok (Rotate_z_arbitrary a)
         | Error _ -> err_not_utility)
     | [ "rotate"; "z"; n ] -> Parse.int_any n >|= fun n -> Rotate_z n
-    (* Negative rotate: -rotate-N *)
+    (* Negative rotate: -rotate-N, -rotate-(--var), -rotate-[123deg] *)
+    | [ ""; "rotate"; n ] when Parse.is_bare_var n ->
+        Ok (Neg_rotate_bare_var (Parse.bare_var_inner n))
+    | [ ""; "rotate"; n ] when String.length n > 0 && n.[0] = '[' -> (
+        match parse_bracket_angle n with
+        | Ok a -> Ok (Neg_rotate_arbitrary a)
+        | Error _ -> err_not_utility)
     | [ ""; "rotate"; n ] ->
         Parse.int_pos ~name:"rotate" n >|= fun n -> Rotate (-n)
     | [ ""; "rotate"; "x"; n ] ->
@@ -1313,6 +1376,19 @@ module Handler = struct
   let to_class = function
     | Rotate n -> neg_class "rotate-" n
     | Rotate_arbitrary a -> "rotate-" ^ pp_angle_bracket a
+    | Rotate_3d_arbitrary (x, y, z, a) ->
+        let pp f =
+          let s = string_of_float f in
+          if String.ends_with ~suffix:"." s then
+            String.sub s 0 (String.length s - 1)
+          else s
+        in
+        "rotate-[" ^ pp x ^ "_" ^ pp y ^ "_" ^ pp z ^ "_"
+        ^ Css.Pp.to_string Css.pp_angle a
+        ^ "]"
+    | Rotate_bare_var name -> "rotate-(" ^ name ^ ")"
+    | Neg_rotate_bare_var name -> "-rotate-(" ^ name ^ ")"
+    | Neg_rotate_arbitrary a -> "-rotate-" ^ pp_angle_bracket a
     | Translate_x n -> neg_class "translate-x-" n
     | Translate_x_full -> "translate-x-full"
     | Translate_x_px -> "translate-x-px"

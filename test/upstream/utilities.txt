@@ -3691,7 +3691,7 @@ translate-3d
 <<<>>>
 # rotate
 @config run
--rotate-45 -rotate-[123deg] rotate-45 rotate-[0.3_0.7_1_45deg] rotate-[123deg]
+-rotate-(--var) -rotate-45 -rotate-[123deg] rotate-(--var) rotate-45 rotate-[0.3_0.7_1_45deg] rotate-[123deg]
 ---
 .-rotate-\(--var\) {
       rotate: calc(var(--var) * -1);

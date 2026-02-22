@@ -52,7 +52,15 @@ val is_bracket_var : string -> bool
 (** [is_bracket_var s] returns [true] if [s] is a bracket-wrapped var()
     reference like ["[var(--value)]"]. *)
 
+val is_bare_var : string -> bool
+(** [is_bare_var s] returns [true] if [s] is a bare var reference like
+    ["(--name)"]. *)
+
+val bare_var_inner : string -> string
+(** [bare_var_inner s] extracts the inner content from ["(--name)"], returning
+    ["--name"]. *)
+
 val split_class : string -> string list
 (** [split_class class_name] splits a class name on ['-'] but treats ['[...]']
-    as atomic, so brackets containing dashes are preserved. E.g.
-    ["m-[var(--value)]"] becomes [["m"; "[var(--value)]"]]. *)
+    and ['(...)'] as atomic, so brackets and parentheses containing dashes are
+    preserved. E.g. ["m-[var(--value)]"] becomes [["m"; "[var(--value)]"]]. *)
