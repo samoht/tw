@@ -37,8 +37,10 @@ module Handler = struct
     | (* Negative translate utilities *)
       Neg_translate_arbitrary of string
     | Neg_translate_full
+    | Neg_translate_x_arbitrary of string
     | Neg_translate_x_full
     | Neg_translate_x_1_2
+    | Neg_translate_y_arbitrary of string
     | Neg_translate_y_full
     | Neg_translate_y_1_2
     | (* 3D Transforms *)
@@ -376,6 +378,28 @@ module Handler = struct
 
   let translate_y_arbitrary len =
     let axis_decl, _ = Var.binding tw_translate_y_var len in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    style ~property_rules:translate_props
+      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
+  let neg_translate_x_arbitrary_style s =
+    let bare_name = Parse.extract_var_name s in
+    let neg_len : Css.length =
+      Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
+    in
+    let axis_decl, _ = Var.binding tw_translate_x_var neg_len in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    style ~property_rules:translate_props
+      (axis_decl :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
+  let neg_translate_y_arbitrary_style s =
+    let bare_name = Parse.extract_var_name s in
+    let neg_len : Css.length =
+      Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
+    in
+    let axis_decl, _ = Var.binding tw_translate_y_var neg_len in
     let tx_ref = Var.reference tw_translate_x_var in
     let ty_ref = Var.reference tw_translate_y_var in
     style ~property_rules:translate_props
@@ -902,8 +926,10 @@ module Handler = struct
     | Translate_arbitrary len -> translate_arbitrary len
     | Neg_translate_arbitrary s -> neg_translate_arbitrary_style s
     | Neg_translate_full -> neg_translate_full
+    | Neg_translate_x_arbitrary s -> neg_translate_x_arbitrary_style s
     | Neg_translate_x_full -> neg_translate_x_full
     | Neg_translate_x_1_2 -> neg_translate_x_1_2
+    | Neg_translate_y_arbitrary s -> neg_translate_y_arbitrary_style s
     | Neg_translate_y_full -> neg_translate_y_full
     | Neg_translate_y_1_2 -> neg_translate_y_1_2
     | Translate_z n -> translate_z n
@@ -979,18 +1005,20 @@ module Handler = struct
     | Translate_arbitrary _ -> 89
     | Translate_full -> 91
     (* Translate utilities come first *)
-    | Translate_x n -> 100 + n
-    | Translate_x_full -> 110
-    | Translate_x_px -> 111
+    | Neg_translate_x_arbitrary _ -> 100
+    | Neg_translate_x_full -> 101
+    | Neg_translate_x_1_2 -> 102
+    | Translate_x n -> 110 + n
+    | Translate_x_full -> 130
+    | Translate_x_px -> 131
     | Translate_x_arbitrary _ -> 199
-    | Neg_translate_x_full -> 140
-    | Neg_translate_x_1_2 -> 150
-    | Translate_y n -> 200 + n
-    | Translate_y_full -> 210
-    | Translate_y_px -> 211
+    | Neg_translate_y_arbitrary _ -> 200
+    | Neg_translate_y_full -> 201
+    | Neg_translate_y_1_2 -> 202
+    | Translate_y n -> 210 + n
+    | Translate_y_full -> 230
+    | Translate_y_px -> 231
     | Translate_y_arbitrary _ -> 299
-    | Neg_translate_y_full -> 240
-    | Neg_translate_y_1_2 -> 250
     | Translate_z n -> 300 + n
     | Translate_z_px -> 310
     | Neg_translate_z_px -> 311
@@ -1103,9 +1131,15 @@ module Handler = struct
         let inner = Parse.bracket_inner value in
         Ok (Neg_translate_arbitrary inner)
     | [ ""; "translate"; "full" ] -> Ok Neg_translate_full
+    | [ ""; "translate"; "x"; value ] when Parse.is_bracket_var value ->
+        let inner = Parse.bracket_inner value in
+        Ok (Neg_translate_x_arbitrary inner)
     | [ ""; "translate"; "x"; "full" ] -> Ok Neg_translate_x_full
     | [ ""; "translate"; "x"; n ] ->
         Parse.int_pos ~name:"translate-x" n >|= fun n -> Translate_x (-n)
+    | [ ""; "translate"; "y"; value ] when Parse.is_bracket_var value ->
+        let inner = Parse.bracket_inner value in
+        Ok (Neg_translate_y_arbitrary inner)
     | [ ""; "translate"; "y"; "full" ] -> Ok Neg_translate_y_full
     | [ ""; "translate"; "y"; n ] ->
         Parse.int_pos ~name:"translate-y" n >|= fun n -> Translate_y (-n)
@@ -1277,6 +1311,8 @@ module Handler = struct
     | Translate_1_2 -> "translate-1/2"
     | Translate_arbitrary len -> "translate-" ^ pp_length_bracket len
     | Neg_translate_arbitrary s -> "-translate-[" ^ s ^ "]"
+    | Neg_translate_x_arbitrary s -> "-translate-x-[" ^ s ^ "]"
+    | Neg_translate_y_arbitrary s -> "-translate-y-[" ^ s ^ "]"
     | Neg_translate_full -> "-translate-full"
     | Neg_translate_x_full -> "-translate-x-full"
     | Neg_translate_x_1_2 -> "-translate-x-1/2"
