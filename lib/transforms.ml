@@ -24,11 +24,12 @@ module Handler = struct
     | Translate_y_px
     | Translate_y_arbitrary of Css.length
     | Scale of int
-    | Scale_arbitrary of float
     | Scale_x of int
     | Scale_x_arbitrary of float
     | Scale_y of int
     | Scale_y_arbitrary of float
+    | Scale_raw_1 of float
+    | Scale_raw_3 of float * float * float
     | Skew_x of int
     | Skew_x_arbitrary of Css.angle
     | Skew_y of int
@@ -513,19 +514,6 @@ module Handler = struct
     let scale_y_ref = Var.reference tw_scale_y_var in
     style ~property_rules:props
       (d :: [ Css.scale (XY (Var scale_x_ref, Var scale_y_ref)) ])
-
-  let scale_arbitrary f =
-    let value : Css.number_percentage = Css.Num f in
-    let dx, _ = Var.binding tw_scale_x_var value in
-    let dy, _ = Var.binding tw_scale_y_var value in
-    let dz, _ = Var.binding tw_scale_z_var value in
-    let props =
-      collect_property_rules [ tw_scale_x_var; tw_scale_y_var; tw_scale_z_var ]
-    in
-    let scale_x_ref = Var.reference tw_scale_x_var in
-    let scale_y_ref = Var.reference tw_scale_y_var in
-    style ~property_rules:props
-      (dx :: dy :: dz :: [ Css.scale (XY (Var scale_x_ref, Var scale_y_ref)) ])
 
   let scale_x_arbitrary f =
     let value : Css.number_percentage = Css.Num f in
@@ -1061,11 +1049,12 @@ module Handler = struct
     | Neg_translate_z_px -> neg_translate_z_px
     | Translate_3d -> translate_3d
     | Scale n -> scale n
-    | Scale_arbitrary f -> scale_arbitrary f
     | Scale_x n -> scale_x n
     | Scale_x_arbitrary f -> scale_x_arbitrary f
     | Scale_y n -> scale_y n
     | Scale_y_arbitrary f -> scale_y_arbitrary f
+    | Scale_raw_1 f -> style [ Css.scale (X (Num f)) ]
+    | Scale_raw_3 (x, y, z) -> style [ Css.scale (XYZ (Num x, Num y, Num z)) ]
     | Scale_z n -> scale_z n
     | Scale_3d -> scale_3d
     | Skew_x n -> skew_x n
@@ -1160,11 +1149,12 @@ module Handler = struct
     | Translate_3d -> 320
     (* Scale utilities *)
     | Scale n -> 400 + n
-    | Scale_arbitrary _ -> 499
     | Scale_x n -> 500 + n
     | Scale_x_arbitrary _ -> 599
     | Scale_y n -> 600 + n
     | Scale_y_arbitrary _ -> 699
+    | Scale_raw_1 _ -> 498
+    | Scale_raw_3 _ -> 499
     | Scale_z n -> 700 + n
     | Scale_3d -> 750
     (* Rotate utilities - negative before positive, bare var before int/arb *)
@@ -1322,9 +1312,25 @@ module Handler = struct
     | [ ""; "translate"; "z"; n ] ->
         Parse.int_pos ~name:"translate-z" n >|= fun n -> Translate_z (-n)
     | [ "scale"; n ] when String.length n > 0 && n.[0] = '[' -> (
-        match parse_bracket_number n with
-        | Ok f -> Ok (Scale_arbitrary f)
-        | Error _ -> err_not_utility)
+        let inner = String.sub n 1 (String.length n - 2) in
+        (* Check for multi-value: x_y_z *)
+        let parts =
+          String.split_on_char '_' inner |> List.filter (fun s -> s <> "")
+        in
+        match parts with
+        | [ x; y; z ] -> (
+            match
+              ( Float.of_string_opt x,
+                Float.of_string_opt y,
+                Float.of_string_opt z )
+            with
+            | Some fx, Some fy, Some fz -> Ok (Scale_raw_3 (fx, fy, fz))
+            | _ -> err_not_utility)
+        | [ _ ] -> (
+            match Float.of_string_opt inner with
+            | Some f -> Ok (Scale_raw_1 f)
+            | None -> err_not_utility)
+        | _ -> err_not_utility)
     | [ "scale"; "3d" ] -> Ok Scale_3d
     | [ "scale"; n ] -> Parse.int_pos ~name:"scale" n >|= fun n -> Scale n
     | [ "scale"; "x"; n ] when String.length n > 0 && n.[0] = '[' -> (
@@ -1542,11 +1548,26 @@ module Handler = struct
     | Neg_translate_y_full -> "-translate-y-full"
     | Neg_translate_y_1_2 -> "-translate-y-1/2"
     | Scale n -> neg_class "scale-" n
-    | Scale_arbitrary f -> "scale-" ^ pp_number_bracket f
     | Scale_x n -> neg_class "scale-x-" n
     | Scale_x_arbitrary f -> "scale-x-" ^ pp_number_bracket f
     | Scale_y n -> neg_class "scale-y-" n
     | Scale_y_arbitrary f -> "scale-y-" ^ pp_number_bracket f
+    | Scale_raw_1 f ->
+        let s = string_of_float f in
+        let s =
+          if String.ends_with ~suffix:"." s then
+            String.sub s 0 (String.length s - 1)
+          else s
+        in
+        "scale-[" ^ s ^ "]"
+    | Scale_raw_3 (x, y, z) ->
+        let pp f =
+          let s = string_of_float f in
+          if String.ends_with ~suffix:"." s then
+            String.sub s 0 (String.length s - 1)
+          else s
+        in
+        "scale-[" ^ pp x ^ "_" ^ pp y ^ "_" ^ pp z ^ "]"
     | Scale_z n -> neg_class "scale-z-" n
     | Scale_3d -> "scale-3d"
     | Skew_x n -> neg_class "skew-x-" n
