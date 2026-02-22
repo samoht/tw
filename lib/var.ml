@@ -462,6 +462,17 @@ let theme_ref : type a. string -> default:a -> default_css:string -> a Css.var =
 
 let resolve_theme_refs name = Hashtbl.find_opt theme_ref_registry name
 
+(* Theme value overrides: maps var name -> CSS string value. When set, theme_ref
+   utilities produce custom declarations for the theme layer (e.g.,
+   --z-index-auto: 42 in :root, :host). *)
+let theme_value_overrides : (string, string) Hashtbl.t = Hashtbl.create 16
+
+let set_theme_value name value =
+  Hashtbl.replace theme_value_overrides name value
+
+let get_theme_value name = Hashtbl.find_opt theme_value_overrides name
+let clear_theme_values () = Hashtbl.clear theme_value_overrides
+
 (* Convert Property_info to the string value for properties layer This extracts
    the initial value and converts it to the appropriate CSS string *)
 let property_info_to_declaration_value (Css.Property_info info) =

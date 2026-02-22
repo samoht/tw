@@ -232,6 +232,21 @@ let extract_var_names expected =
   scan 0;
   !vars
 
+(** Extract all CSS custom property definitions from :root, :host block. Returns
+    (name, value) pairs where name is without the -- prefix. E.g.,
+    "--spacing-big: 100rem" → ("spacing-big", "100rem") *)
+let extract_root_vars expected =
+  let pattern = Re.Pcre.regexp {|--([a-zA-Z0-9_-]+):\s*([^;}]+)|} in
+  let matches = Re.all pattern expected in
+  List.filter_map
+    (fun m ->
+      try
+        let name = Re.Group.get m 1 in
+        let value = String.trim (Re.Group.get m 2) in
+        Some (name, value)
+      with _ -> None)
+    matches
+
 (** Build theme configuration for CSS emission. *)
 let make_theme_config config expected =
   let hardcoded =
@@ -240,14 +255,18 @@ let make_theme_config config expected =
       ("default-transition-duration", ".1s", "0s");
     ]
   in
+  let root_vars = extract_root_vars expected in
   let combined_defaults name =
     match Tw.Var.resolve_theme_refs name with
     | Some _ as result -> result
-    | None ->
-        List.find_map
-          (fun (var_name, _, default) ->
-            if name = var_name then Some default else None)
-          hardcoded
+    | None -> (
+        match List.assoc_opt name root_vars with
+        | Some _ as result -> result
+        | None ->
+            List.find_map
+              (fun (var_name, _, default) ->
+                if name = var_name then Some default else None)
+              hardcoded)
   in
   let hardcoded_only name =
     List.find_map
@@ -280,10 +299,30 @@ let normalize_css css =
     | Ok ast -> Css.to_string ~minify:false ~newline:false ast |> String.trim
     | Error _ -> trimmed
 
+(** Set theme value overrides for non-spacing root vars from expected CSS.
+    This enables utilities like z-auto and order-first to produce custom
+    declarations in the :root, :host block when @config theme is used. *)
+let setup_theme_overrides config expected =
+  Tw.Var.clear_theme_values ();
+  match config with
+  | Theme | Theme_reference | Theme_inline_reference ->
+      let root_vars = extract_root_vars expected in
+      List.iter
+        (fun (name, value) ->
+          (* Skip spacing/tw- vars which are handled via the scheme *)
+          if
+            not
+              ((String.length name > 8 && String.sub name 0 8 = "spacing-")
+              || (String.length name > 3 && String.sub name 0 3 = "tw-"))
+          then Tw.Var.set_theme_value name value)
+        root_vars
+  | Run | Theme_inline | No_theme -> ()
+
 let run_test_case test () =
   if test.classes = [] then ()
   else (
     setup_scheme_for_test test.expected;
+    setup_theme_overrides test.config test.expected;
     let theme, theme_defaults = make_theme_config test.config test.expected in
     let utilities =
       List.filter_map

@@ -57,6 +57,35 @@ module Screen_reader_handler = struct
     | _ -> Error (`Msg "Not a screen reader utility")
 end
 
+(* Theme variable for z-index-auto. When a theme override is set (e.g., via
+   set_theme_value "z-index-auto" "42"), produces a custom declaration
+   --z-index-auto: 42 in the :root, :host block. *)
+let z_index_auto_var = Var.theme Css.Z_index "z-index-auto" ~order:(4, 750)
+
+(* Generate z-auto style: either theme var with custom declaration, or bare
+   theme_ref fallback *)
+let z_auto_style () =
+  match Var.get_theme_value "z-index-auto" with
+  | Some value_str ->
+      (* Parse theme value as z_index *)
+      let z_value : Css.z_index =
+        match value_str with
+        | "auto" -> Auto
+        | s -> (
+            match int_of_string_opt s with Some n -> Index n | None -> Calc s)
+      in
+      let decl, ref = Var.binding z_index_auto_var z_value in
+      Style.style [ decl; Css.z_index (Var ref) ]
+  | None ->
+      Style.style
+        [
+          Css.z_index
+            (Var
+               (Var.theme_ref "z-index-auto"
+                  ~default:(Auto : Css.z_index)
+                  ~default_css:"auto"));
+        ]
+
 module Handler = struct
   open Style
   open Css
@@ -390,15 +419,7 @@ module Handler = struct
     | Z_30 -> style [ z_index (Index 30) ]
     | Z_40 -> style [ z_index (Index 40) ]
     | Z_50 -> style [ z_index (Index 50) ]
-    | Z_auto ->
-        style
-          [
-            z_index
-              (Var
-                 (Var.theme_ref "z-index-auto"
-                    ~default:(Auto : Css.z_index)
-                    ~default_css:"auto"));
-          ]
+    | Z_auto -> z_auto_style ()
     | Neg_z n -> style [ z_index (Index (-n)) ]
     | Z_arbitrary s -> (
         (* Parse the arbitrary value as an integer if possible *)
