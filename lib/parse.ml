@@ -67,6 +67,19 @@ let is_bracket_var s =
     String.length inner > 4 && String.sub inner 0 4 = "var("
   else false
 
+(** Check if a string is a bare var reference like "(--name)" *)
+let is_bare_var s =
+  String.length s > 4
+  && s.[0] = '('
+  && s.[String.length s - 1] = ')'
+  && String.length s > 3
+  && s.[1] = '-'
+  && s.[2] = '-'
+
+(** Extract the var name from a bare var "(--name)" → "--name" *)
+let bare_var_inner s =
+  if is_bare_var s then String.sub s 1 (String.length s - 2) else s
+
 (** Split a class name on '-' but treat '[...]' as atomic. E.g.
     "m-[var(--value)]" → ["m"; "[var(--value)]"] E.g. "-m-[var(--value)]" →
     [""; "m"; "[var(--value)]"] *)
@@ -86,6 +99,17 @@ let split_class class_name =
         let c = class_name.[!i] in
         Buffer.add_char buf c;
         if c = '[' then incr depth else if c = ']' then decr depth;
+        incr i
+      done)
+    else if c = '(' then (
+      (* Read until matching ')', including nested parens *)
+      let depth = ref 1 in
+      Buffer.add_char buf c;
+      incr i;
+      while !i < len && !depth > 0 do
+        let c = class_name.[!i] in
+        Buffer.add_char buf c;
+        if c = '(' then incr depth else if c = ')' then decr depth;
         incr i
       done)
     else if c = '-' then (
