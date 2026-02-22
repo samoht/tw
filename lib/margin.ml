@@ -39,9 +39,27 @@ module Handler = struct
         let len : length = if negative then Pct (-100.) else Pct 100. in
         let decl, _ = Var.binding Spacing.spacing_var (Rem 0.25) in
         (Some decl, len)
-    | `Named name ->
-        let len = Spacing.named_spacing_ref name in
-        (None, len)
+    | `Named name -> (
+        let prop_name = "spacing-" ^ name in
+        match Var.get_theme_value prop_name with
+        | Some value_str ->
+            let decl =
+              Css.custom_declaration ~layer:"theme" ("--" ^ prop_name)
+                Css.String value_str
+            in
+            let ref : Css.length Css.var =
+              Css.var_ref ~layer:"theme" prop_name
+            in
+            let len : Css.length = Var ref in
+            if negative then
+              ( Some decl,
+                Calc (Calc.mul (Calc.var prop_name) (Calc.float (-1.))) )
+            else (Some decl, len)
+        | None ->
+            let len = Spacing.named_spacing_ref name in
+            if negative then
+              (None, Calc (Calc.mul (Calc.length len) (Calc.float (-1.))))
+            else (None, len))
     | `Rem f ->
         let n = f /. 0.25 in
         let n = if negative then -.n else n in
@@ -74,24 +92,19 @@ module Handler = struct
   let mbs = v margin_block_start
   let mbe = v margin_block_end
 
-  (* Cache for named spacing variables *)
-  let named_spacing_cache : (string, Css.length Var.theme) Hashtbl.t =
-    Hashtbl.create 16
-
-  let get_named_spacing_var name =
-    match Hashtbl.find_opt named_spacing_cache name with
-    | Some v -> v
+  let named_margin_value name : Css.declaration option * Css.length =
+    let prop_name = "spacing-" ^ name in
+    match Var.get_theme_value prop_name with
+    | Some value_str ->
+        let decl =
+          Css.custom_declaration ~layer:"theme" ("--" ^ prop_name) Css.String
+            value_str
+        in
+        let ref : Css.length Css.var = Css.var_ref ~layer:"theme" prop_name in
+        (Some decl, Css.Var ref)
     | None ->
-        let v = Var.theme Css.Length ("spacing-" ^ name) ~order:(3, 400) in
-        Hashtbl.add named_spacing_cache name v;
-        v
-
-  let named_margin_value name : Css.declaration * Css.length =
-    let var = get_named_spacing_var name in
-    (* Use 1940px as placeholder value - from Tailwind test config *)
-    let concrete_value : Css.length = Px 1940. in
-    let decl, ref = Var.binding var concrete_value in
-    (decl, Css.Var ref)
+        let ref = Spacing.named_spacing_ref name in
+        (None, ref)
 
   (** {1 Conversion Functions} *)
 
@@ -107,7 +120,7 @@ module Handler = struct
   let spacing_value_order = function
     | `Px -> 1
     | `Full -> 10000
-    | `Named _ -> 20000
+    | `Named _ -> 150000 (* after auto (99999) *)
     | `Rem f ->
         let units = f /. 0.25 in
         int_of_float (units *. 10.)
@@ -137,7 +150,16 @@ module Handler = struct
     match value with
     | Arbitrary len ->
         if negative then
-          style [ prop (Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))) ]
+          (* For simple values, use direct negation: -4px instead of calc(4px *
+             -1) *)
+          let neg_len : Css.length =
+            match len with
+            | Px f -> Px (-.f)
+            | Rem f -> Rem (-.f)
+            | Pct f -> Pct (-.f)
+            | _ -> Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))
+          in
+          style [ prop neg_len ]
         else style [ prop len ]
     | ArbitraryVar var_str ->
         let bare_name = Parse.extract_var_name var_str in
@@ -148,13 +170,13 @@ module Handler = struct
         in
         style [ prop len ]
     | Named name ->
-        let decl, len = named_margin_value name in
+        let decl_opt, len = named_margin_value name in
+        let decls = Option.to_list decl_opt in
         if negative then
           style
-            [
-              decl; prop (Calc (Calc.mul (Calc.length len) (Calc.float (-1.))));
-            ]
-        else style [ decl; prop len ]
+            (decls
+            @ [ prop (Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))) ])
+        else style (decls @ [ prop len ])
     | Standard m -> (
         let abs_value =
           match m with `Rem f -> `Rem (Float.abs f) | other -> other
@@ -360,9 +382,9 @@ module Handler = struct
                   let allow_auto = not is_negative in
                   match Spacing.parse_value_string ~allow_auto value with
                   | None ->
-                      (* Try as a named spacing: mx-big *)
-                      if (not is_negative) && Parse.is_valid_theme_name value
-                      then Ok { negative = false; axis; value = Named value }
+                      (* Try as a named spacing: mx-big, -mx-big *)
+                      if Parse.is_valid_theme_name value then
+                        Ok { negative = is_negative; axis; value = Named value }
                       else Error (`Msg "Not a margin utility")
                   | Some (#spacing as spacing_val) ->
                       Ok

@@ -309,12 +309,21 @@ let setup_theme_overrides config expected =
       let root_vars = extract_root_vars expected in
       List.iter
         (fun (name, value) ->
-          (* Skip spacing/tw- vars which are handled via the scheme *)
-          if
-            not
-              ((String.length name > 8 && String.sub name 0 8 = "spacing-")
-              || (String.length name > 3 && String.sub name 0 3 = "tw-"))
-          then Tw.Var.set_theme_value name value)
+          (* Skip numbered spacing (spacing-N) and tw- vars handled via scheme.
+             Named spacings like spacing-big are passed through. *)
+          let is_numbered_spacing =
+            String.length name > 8
+            && String.sub name 0 8 = "spacing-"
+            &&
+            let rest = String.sub name 8 (String.length name - 8) in
+            match int_of_string_opt rest with Some _ -> true | None -> false
+          in
+          let is_bare_spacing = name = "spacing" in
+          let is_tw_var =
+            String.length name > 3 && String.sub name 0 3 = "tw-"
+          in
+          if not (is_numbered_spacing || is_bare_spacing || is_tw_var) then
+            Tw.Var.set_theme_value name value)
         root_vars
   | Run | Theme_inline | No_theme -> ()
 
