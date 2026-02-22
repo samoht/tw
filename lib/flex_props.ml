@@ -102,10 +102,18 @@ module Handler = struct
     style [ flex_basis (Pct pct_value) ]
 
   let basis_named_style name =
-    let ref : Css.length Css.var =
-      Css.var_ref ~layer:"theme" ("container-" ^ name)
-    in
-    style [ flex_basis (Var ref) ]
+    let var_name = "container-" ^ name in
+    match Var.get_theme_value var_name with
+    | Some value_str ->
+        let decl =
+          Css.custom_declaration ~layer:"theme" ("--" ^ var_name) Css.String
+            value_str
+        in
+        let ref : Css.length Css.var = Css.var_ref ~layer:"theme" var_name in
+        style [ decl; flex_basis (Var ref) ]
+    | None ->
+        let ref : Css.length Css.var = Css.var_ref ~layer:"theme" var_name in
+        style [ flex_basis (Var ref) ]
 
   (* Order *)
   let order_style n = style [ order (Order_int n) ]
