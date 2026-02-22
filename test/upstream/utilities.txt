@@ -3729,7 +3729,7 @@ translate-3d
 <<<>>>
 # rotate-x
 @config run
--rotate-x-45 rotate-x-45 rotate-x-[123deg]
+-rotate-x-(--var) -rotate-x-45 rotate-x-(--var) rotate-x-45 rotate-x-[123deg]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -3801,7 +3801,7 @@ translate-3d
 <<<>>>
 # rotate-y
 @config run
--rotate-y-45 -rotate-y-[123deg] rotate-y-45 rotate-y-[123deg]
+-rotate-y-(--var) -rotate-y-45 -rotate-y-[123deg] rotate-y-(--var) rotate-y-45 rotate-y-[123deg]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
@@ -3878,7 +3878,7 @@ translate-3d
 <<<>>>
 # rotate-z
 @config run
--rotate-z-45 -rotate-z-[123deg] rotate-z-45 rotate-z-[123deg]
+-rotate-z-(--var) -rotate-z-45 -rotate-z-[123deg] rotate-z-(--var) rotate-z-45 rotate-z-[123deg]
 ---
 @layer properties {
       @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
