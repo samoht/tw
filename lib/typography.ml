@@ -748,6 +748,7 @@ module Typography_late = struct
       List_none
     | List_disc
     | List_decimal
+    | List_bracket_var of string
     | List_inside
     | List_outside
     | List_image_none
@@ -882,6 +883,8 @@ module Typography_late = struct
     | [ "align"; "text"; "bottom" ] -> Ok Align_text_bottom
     | [ "align"; "sub" ] -> Ok Align_sub
     | [ "align"; "super" ] -> Ok Align_super
+    | [ "list"; value ] when Parse.is_bracket_var value ->
+        Ok (List_bracket_var (Parse.bracket_inner value))
     | [ "list"; "none" ] -> Ok List_none
     | [ "list"; "disc" ] -> Ok List_disc
     | [ "list"; "decimal" ] -> Ok List_decimal
@@ -1027,6 +1030,7 @@ module Typography_late = struct
     | List_none -> "list-none"
     | List_disc -> "list-disc"
     | List_decimal -> "list-decimal"
+    | List_bracket_var s -> "list-[" ^ s ^ "]"
     | List_inside -> "list-inside"
     | List_outside -> "list-outside"
     | List_image_none -> "list-image-none"
@@ -1156,6 +1160,7 @@ module Typography_late = struct
     | Align_text_top -> 8606
     | Align_top -> 8607
     (* List utilities - alphabetical order *)
+    | List_bracket_var _ -> 8699
     | List_decimal -> 8700
     | List_disc -> 8701
     | List_image_none -> 8702
@@ -1469,6 +1474,11 @@ module Typography_late = struct
                 ~default_css:"none"));
       ]
 
+  let list_bracket_var s =
+    let inner = Parse.extract_var_name s in
+    let ref : Css.list_style_type Css.var = Css.var_ref inner in
+    style [ list_style_type (Var ref) ]
+
   let list_disc = style [ list_style_type Disc ]
   let list_decimal = style [ list_style_type Decimal ]
   let list_inside = style [ list_style_position Inside ]
@@ -1649,6 +1659,7 @@ module Typography_late = struct
     | List_none -> list_none
     | List_disc -> list_disc
     | List_decimal -> list_decimal
+    | List_bracket_var s -> list_bracket_var s
     | List_inside -> list_inside
     | List_outside -> list_outside
     | List_image_none -> list_image_none
