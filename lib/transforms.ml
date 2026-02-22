@@ -622,53 +622,67 @@ module Handler = struct
 
   let perspective_arbitrary len = style [ Css.perspective len ]
 
-  let po_with_ref name (default : Css.perspective_origin) default_css =
-    let v : Css.perspective_origin =
-      Perspective_var (Var.theme_ref name ~default ~default_css)
-    in
-    let perspective_ref : Css.length =
-      Css.Var (Css.var_ref ~layer:"theme" name)
-    in
-    style
-      [
-        perspective_origin v;
-        Css.theme_guarded ~var_name:name (Css.perspective perspective_ref);
-      ]
+  let po_with_ref name (default : Css.perspective_origin) default_css () =
+    match Var.get_theme_value name with
+    | Some value_str ->
+        let decl =
+          Css.custom_declaration ~layer:"theme" ("--" ^ name) Css.String
+            value_str
+        in
+        let ref : Css.perspective_origin =
+          Perspective_var (Css.var_ref ~layer:"theme" name)
+        in
+        let perspective_ref : Css.length =
+          Css.Var (Css.var_ref ~layer:"theme" name)
+        in
+        style [ decl; perspective_origin ref; Css.perspective perspective_ref ]
+    | None ->
+        let v : Css.perspective_origin =
+          Perspective_var (Var.theme_ref name ~default ~default_css)
+        in
+        let perspective_ref : Css.length =
+          Css.Var (Css.var_ref ~layer:"theme" name)
+        in
+        style
+          [
+            perspective_origin v;
+            Css.theme_guarded ~var_name:name (Css.perspective perspective_ref);
+          ]
 
-  let perspective_origin_center =
-    po_with_ref "perspective-origin-center" Perspective_center "center"
+  let perspective_origin_center () =
+    po_with_ref "perspective-origin-center" Perspective_center "center" ()
 
-  let perspective_origin_top =
-    po_with_ref "perspective-origin-top" Perspective_top "top"
+  let perspective_origin_top () =
+    po_with_ref "perspective-origin-top" Perspective_top "top" ()
 
-  let perspective_origin_bottom =
-    po_with_ref "perspective-origin-bottom" Perspective_bottom "bottom"
+  let perspective_origin_bottom () =
+    po_with_ref "perspective-origin-bottom" Perspective_bottom "bottom" ()
 
-  let perspective_origin_left =
-    po_with_ref "perspective-origin-left" (Perspective_x Zero) "0"
+  let perspective_origin_left () =
+    po_with_ref "perspective-origin-left" (Perspective_x Zero) "0" ()
 
-  let perspective_origin_right =
-    po_with_ref "perspective-origin-right" (Perspective_x (Pct 100.)) "100%"
+  let perspective_origin_right () =
+    po_with_ref "perspective-origin-right" (Perspective_x (Pct 100.)) "100%" ()
 
-  let perspective_origin_top_left =
+  let perspective_origin_top_left () =
     po_with_ref "perspective-origin-top-left"
       (Perspective_xy (Zero, Zero))
-      "0 0"
+      "0 0" ()
 
-  let perspective_origin_top_right =
+  let perspective_origin_top_right () =
     po_with_ref "perspective-origin-top-right"
       (Perspective_xy (Pct 100., Zero))
-      "100% 0"
+      "100% 0" ()
 
-  let perspective_origin_bottom_left =
+  let perspective_origin_bottom_left () =
     po_with_ref "perspective-origin-bottom-left"
       (Perspective_xy (Zero, Pct 100.))
-      "0 100%"
+      "0 100%" ()
 
-  let perspective_origin_bottom_right =
+  let perspective_origin_bottom_right () =
     po_with_ref "perspective-origin-bottom-right"
       (Perspective_xy (Pct 100., Pct 100.))
-      "100% 100%"
+      "100% 100%" ()
 
   let perspective_origin_arbitrary s =
     (* Convert underscore to space for arbitrary values like 50px_100px *)
@@ -900,15 +914,15 @@ module Handler = struct
     | Perspective_dramatic -> perspective_dramatic
     | Perspective_normal -> perspective_normal
     | Perspective_arbitrary len -> perspective_arbitrary len
-    | Perspective_origin_center -> perspective_origin_center
-    | Perspective_origin_top -> perspective_origin_top
-    | Perspective_origin_bottom -> perspective_origin_bottom
-    | Perspective_origin_left -> perspective_origin_left
-    | Perspective_origin_right -> perspective_origin_right
-    | Perspective_origin_top_left -> perspective_origin_top_left
-    | Perspective_origin_top_right -> perspective_origin_top_right
-    | Perspective_origin_bottom_left -> perspective_origin_bottom_left
-    | Perspective_origin_bottom_right -> perspective_origin_bottom_right
+    | Perspective_origin_center -> perspective_origin_center ()
+    | Perspective_origin_top -> perspective_origin_top ()
+    | Perspective_origin_bottom -> perspective_origin_bottom ()
+    | Perspective_origin_left -> perspective_origin_left ()
+    | Perspective_origin_right -> perspective_origin_right ()
+    | Perspective_origin_top_left -> perspective_origin_top_left ()
+    | Perspective_origin_top_right -> perspective_origin_top_right ()
+    | Perspective_origin_bottom_left -> perspective_origin_bottom_left ()
+    | Perspective_origin_bottom_right -> perspective_origin_bottom_right ()
     | Perspective_origin_arbitrary s -> perspective_origin_arbitrary s
     | Transform_style_3d -> transform_style_3d
     | Transform_style_flat -> transform_style_flat
