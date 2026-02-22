@@ -71,6 +71,7 @@ module Handler = struct
     | Neg_rotate_z_bare_var of string
     | Neg_rotate_z_arbitrary of Css.angle
     | Scale_z of int
+    | Scale_z_arbitrary of string
     | Scale_3d
     | Perspective_none
     | Perspective_dramatic
@@ -754,6 +755,19 @@ module Handler = struct
       :: [ Css.scale (XYZ (Var scale_x_ref, Var scale_y_ref, Var scale_z_ref)) ]
       )
 
+  let scale_z_arbitrary s =
+    let d = Css.custom_declaration ~layer:"utilities" "--tw-scale-z" String s in
+    let props =
+      collect_property_rules [ tw_scale_x_var; tw_scale_y_var; tw_scale_z_var ]
+    in
+    let scale_x_ref = Var.reference tw_scale_x_var in
+    let scale_y_ref = Var.reference tw_scale_y_var in
+    let scale_z_ref = Var.reference tw_scale_z_var in
+    style ~property_rules:props
+      (d
+      :: [ Css.scale (XYZ (Var scale_x_ref, Var scale_y_ref, Var scale_z_ref)) ]
+      )
+
   let scale_3d =
     let props =
       collect_property_rules [ tw_scale_x_var; tw_scale_y_var; tw_scale_z_var ]
@@ -1068,6 +1082,7 @@ module Handler = struct
     | Scale_raw_1 f -> style [ Css.scale (X (Num f)) ]
     | Scale_raw_3 (x, y, z) -> style [ Css.scale (XYZ (Num x, Num y, Num z)) ]
     | Scale_z n -> scale_z n
+    | Scale_z_arbitrary s -> scale_z_arbitrary s
     | Scale_3d -> scale_3d
     | Skew_x n -> skew_x n
     | Skew_x_arbitrary a -> skew_x_arbitrary a
@@ -1168,6 +1183,7 @@ module Handler = struct
     | Scale_raw_1 _ -> 498
     | Scale_raw_3 _ -> 499
     | Scale_z n -> 700 + n
+    | Scale_z_arbitrary _ -> 799
     | Scale_3d -> 750
     (* Rotate utilities - negative before positive, bare var before int/arb *)
     | Neg_rotate_bare_var _ -> 750
@@ -1357,6 +1373,8 @@ module Handler = struct
         | Error _ -> err_not_utility)
     | [ "scale"; "y"; n ] ->
         Parse.int_pos ~name:"scale-y" n >|= fun n -> Scale_y n
+    | [ "scale"; "z"; n ] when Parse.is_bracket_value n ->
+        Ok (Scale_z_arbitrary (Parse.bracket_inner n))
     | [ "scale"; "z"; n ] ->
         Parse.int_pos ~name:"scale-z" n >|= fun n -> Scale_z n
     | [ "skew"; "x"; n ] when String.length n > 0 && n.[0] = '[' -> (
@@ -1584,6 +1602,7 @@ module Handler = struct
         in
         "scale-[" ^ pp x ^ "_" ^ pp y ^ "_" ^ pp z ^ "]"
     | Scale_z n -> neg_class "scale-z-" n
+    | Scale_z_arbitrary s -> "scale-z-[" ^ s ^ "]"
     | Scale_3d -> "scale-3d"
     | Skew_x n -> neg_class "skew-x-" n
     | Skew_x_arbitrary a -> "skew-x-" ^ pp_angle_bracket a
