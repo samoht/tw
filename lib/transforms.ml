@@ -46,6 +46,7 @@ module Handler = struct
     | (* 3D Transforms *)
       Translate_z of int
     | Translate_z_px
+    | Neg_translate_z_arbitrary of string
     | Neg_translate_z_px
     | Translate_3d
     | Rotate_x of int
@@ -606,6 +607,18 @@ module Handler = struct
     style ~property_rules:translate_props
       (axis_decl :: [ Css.translate (XYZ (Var tx_ref, Var ty_ref, Var tz_ref)) ])
 
+  let neg_translate_z_arbitrary_style s =
+    let bare_name = Parse.extract_var_name s in
+    let neg_len : Css.length =
+      Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
+    in
+    let axis_decl, _ = Var.binding tw_translate_z_var neg_len in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    let tz_ref = Var.reference tw_translate_z_var in
+    style ~property_rules:translate_props
+      (axis_decl :: [ Css.translate (XYZ (Var tx_ref, Var ty_ref, Var tz_ref)) ])
+
   let neg_translate_z_px =
     let axis_decl, _ = Var.binding tw_translate_z_var (Px (-1.0)) in
     let tx_ref = Var.reference tw_translate_x_var in
@@ -934,6 +947,7 @@ module Handler = struct
     | Neg_translate_y_1_2 -> neg_translate_y_1_2
     | Translate_z n -> translate_z n
     | Translate_z_px -> translate_z_px
+    | Neg_translate_z_arbitrary s -> neg_translate_z_arbitrary_style s
     | Neg_translate_z_px -> neg_translate_z_px
     | Translate_3d -> translate_3d
     | Scale n -> scale n
@@ -1019,9 +1033,10 @@ module Handler = struct
     | Translate_y_full -> 230
     | Translate_y_px -> 231
     | Translate_y_arbitrary _ -> 299
-    | Translate_z n -> 300 + n
-    | Translate_z_px -> 310
-    | Neg_translate_z_px -> 311
+    | Neg_translate_z_arbitrary _ -> 299
+    | Neg_translate_z_px -> 300
+    | Translate_z n -> 301 + n
+    | Translate_z_px -> 320
     | Translate_3d -> 320
     (* Scale utilities *)
     | Scale n -> 400 + n
@@ -1143,6 +1158,9 @@ module Handler = struct
     | [ ""; "translate"; "y"; "full" ] -> Ok Neg_translate_y_full
     | [ ""; "translate"; "y"; n ] ->
         Parse.int_pos ~name:"translate-y" n >|= fun n -> Translate_y (-n)
+    | [ ""; "translate"; "z"; value ] when Parse.is_bracket_var value ->
+        let inner = Parse.bracket_inner value in
+        Ok (Neg_translate_z_arbitrary inner)
     | [ ""; "translate"; "z"; "px" ] -> Ok Neg_translate_z_px
     | [ ""; "translate"; "z"; n ] ->
         Parse.int_pos ~name:"translate-z" n >|= fun n -> Translate_z (-n)
@@ -1305,6 +1323,7 @@ module Handler = struct
     | Translate_y_arbitrary len -> "translate-y-" ^ pp_length_bracket len
     | Translate_z n -> neg_class "translate-z-" n
     | Translate_z_px -> "translate-z-px"
+    | Neg_translate_z_arbitrary s -> "-translate-z-[" ^ s ^ "]"
     | Neg_translate_z_px -> "-translate-z-px"
     | Translate_3d -> "translate-3d"
     | Translate_full -> "translate-full"
