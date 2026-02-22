@@ -499,6 +499,17 @@ val resolve_theme_refs : string -> string option
     [theme_ref] variable. Used as [theme_defaults] in [Pp.ctx] when theme
     variables don't exist and should be replaced by their concrete defaults. *)
 
+val set_theme_value : string -> string -> unit
+(** [set_theme_value name value] registers a theme value override. When set,
+    utilities using [theme_ref] for this name will produce custom declarations
+    in the theme layer (e.g., [--z-index-auto: 42] in [:root, :host]). *)
+
+val get_theme_value : string -> string option
+(** [get_theme_value name] returns the overridden theme value, if any. *)
+
+val clear_theme_values : unit -> unit
+(** [clear_theme_values ()] removes all theme value overrides. *)
+
 val binding :
   ('a, [< `Theme | `Property_default | `Channel ]) t ->
   ?fallback:'a Css.fallback ->
