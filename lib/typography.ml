@@ -1386,14 +1386,42 @@ module Typography_late = struct
         overflow Hidden;
       ]
 
-  let line_clamp_none_style =
-    style
-      [
-        webkit_line_clamp Unset;
-        webkit_box_orient Horizontal;
-        display Block;
-        overflow Visible;
-      ]
+  let line_clamp_none_style () =
+    match Var.get_theme_value "line-clamp-none" with
+    | Some value_str -> (
+        match int_of_string_opt value_str with
+        | Some n ->
+            let decl =
+              Css.custom_declaration ~layer:"theme" "--line-clamp-none" Css.Int
+                n
+            in
+            let ref : Css.webkit_line_clamp Css.var =
+              Css.var_ref ~layer:"theme" "line-clamp-none"
+            in
+            style
+              [
+                decl;
+                webkit_line_clamp (Var ref);
+                webkit_box_orient Vertical;
+                display Webkit_box;
+                overflow Hidden;
+              ]
+        | None ->
+            style
+              [
+                webkit_line_clamp Unset;
+                webkit_box_orient Horizontal;
+                display Block;
+                overflow Visible;
+              ])
+    | None ->
+        style
+          [
+            webkit_line_clamp Unset;
+            webkit_box_orient Horizontal;
+            display Block;
+            overflow Visible;
+          ]
 
   let content_none =
     let content_decl, content_ref = Var.binding content_var None in
@@ -1679,7 +1707,7 @@ module Typography_late = struct
     | Indent n -> indent n
     | Line_clamp n -> line_clamp n
     | Line_clamp_arbitrary n -> line_clamp n
-    | Line_clamp_none -> line_clamp_none_style
+    | Line_clamp_none -> line_clamp_none_style ()
     | Content_none -> content_none
     | Content s -> content s
     | Content_named name -> content_named name
