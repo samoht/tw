@@ -5,6 +5,24 @@
     inline-flex), see Flex module. For direction/wrap utilities, see Flex_layout
     module. *)
 
+(* Generate themed order style: custom declaration + var reference when theme
+   value is set, otherwise bare theme_ref fallback *)
+let order_themed_style name ~default ~default_css () =
+  match Var.get_theme_value name with
+  | Some value_str -> (
+      match int_of_string_opt value_str with
+      | Some n ->
+          let decl =
+            Css.custom_declaration ~layer:"theme" ("--" ^ name) Css.Int n
+          in
+          let ref : Css.order Css.var = Css.var_ref ~layer:"theme" name in
+          Style.style [ decl; Css.order (Var ref) ]
+      | None ->
+          Style.style
+            [ Css.order (Var (Var.theme_ref name ~default ~default_css)) ])
+  | None ->
+      Style.style [ Css.order (Var (Var.theme_ref name ~default ~default_css)) ]
+
 module Handler = struct
   open Style
   open Css
@@ -21,9 +39,11 @@ module Handler = struct
     (* Grow *)
     | Flex_grow
     | Flex_grow_0
+    | Flex_grow_arbitrary of int (* grow-[123] *)
     (* Shrink *)
     | Flex_shrink
     | Flex_shrink_0
+    | Flex_shrink_arbitrary of int (* shrink-[123] *)
     (* Basis *)
     | Basis_0
     | Basis_1
@@ -31,6 +51,7 @@ module Handler = struct
     | Basis_full
     | Basis_fraction of int * int
     | Basis_named of string
+    | Basis_arbitrary of Css.length (* basis-[123px] *)
     (* Order *)
     | Order of int
     | Neg_order of int (* -order-4 = calc(4 * -1) *)
@@ -89,23 +110,13 @@ module Handler = struct
   (* Order *)
   let order_style n = style [ order (Order_int n) ]
 
-  let order_first =
-    style
-      [
-        order
-          (Var
-             (Var.theme_ref "order-first" ~default:(Order_int (-9999))
-                ~default_css:"-9999"));
-      ]
+  let order_first () =
+    order_themed_style "order-first" ~default:(Order_int (-9999))
+      ~default_css:"-9999" ()
 
-  let order_last =
-    style
-      [
-        order
-          (Var
-             (Var.theme_ref "order-last" ~default:(Order_int 9999)
-                ~default_css:"9999"));
-      ]
+  let order_last () =
+    order_themed_style "order-last" ~default:(Order_int 9999)
+      ~default_css:"9999" ()
 
   let order_none = style [ order (Order_int 0) ]
 
@@ -119,14 +130,17 @@ module Handler = struct
     | Flex_arbitrary n -> flex_n_style n
     | Flex_grow -> flex_grow_utility
     | Flex_grow_0 -> flex_grow_0_utility
+    | Flex_grow_arbitrary n -> style [ flex_grow (float_of_int n) ]
     | Flex_shrink -> flex_shrink_utility
     | Flex_shrink_0 -> flex_shrink_0_utility
+    | Flex_shrink_arbitrary n -> style [ flex_shrink (float_of_int n) ]
     | Basis_0 -> basis_0
     | Basis_1 -> basis_1
     | Basis_auto -> basis_auto
     | Basis_full -> basis_full
     | Basis_fraction (n, m) -> basis_fraction_style n m
     | Basis_named name -> basis_named_style name
+    | Basis_arbitrary len -> style [ flex_basis len ]
     | Order n -> order_style n
     | Neg_order n -> style [ order (Order_int (-n)) ]
     | Neg_order_arbitrary s -> (
@@ -137,8 +151,8 @@ module Handler = struct
         match int_of_string_opt s with
         | Some n -> style [ order (Order_int n) ]
         | None -> style [ order (Order_calc s) ])
-    | Order_first -> order_first
-    | Order_last -> order_last
+    | Order_first -> order_first ()
+    | Order_last -> order_last ()
     | Order_none -> order_none
 
   let suborder : t -> int = function
@@ -168,16 +182,19 @@ module Handler = struct
     (* Shrink *)
     | Flex_shrink -> 20000
     | Flex_shrink_0 -> 20001
+    | Flex_shrink_arbitrary _ -> 20002
     (* Grow *)
     | Flex_grow -> 30000
     | Flex_grow_0 -> 30001
-    (* Basis: fractions → keywords alphabetical → named *)
-    | Basis_fraction (n, m) -> 40000 + (n * 100) + m
-    | Basis_0 -> 40100
-    | Basis_1 -> 40101
-    | Basis_auto -> 40200
-    | Basis_full -> 40201
-    | Basis_named _ -> 40300
+    | Flex_grow_arbitrary _ -> 30002
+    (* Basis: fractions → arbitrary → keywords alphabetical → named *)
+    | Basis_fraction (n, m) -> 40000 + (n * 10) + m
+    | Basis_arbitrary _ -> 42000
+    | Basis_0 -> 43000
+    | Basis_1 -> 43001
+    | Basis_auto -> 43002
+    | Basis_full -> 43003
+    | Basis_named _ -> 44000
 
   let err_not_utility = Error (`Msg "Not a flex property utility")
 
@@ -199,12 +216,35 @@ module Handler = struct
     | [ "flex"; "none" ] -> Ok Flex_none
     | [ "flex"; "grow" ] | [ "grow" ] -> Ok Flex_grow
     | [ "flex"; "grow"; "0" ] | [ "grow"; "0" ] -> Ok Flex_grow_0
+    | [ "grow"; n ] when Parse.is_bracket_value n -> (
+        let inner = Parse.bracket_inner n in
+        match int_of_string_opt inner with
+        | Some i -> Ok (Flex_grow_arbitrary i)
+        | None -> err_not_utility)
     | [ "flex"; "shrink" ] | [ "shrink" ] -> Ok Flex_shrink
     | [ "flex"; "shrink"; "0" ] | [ "shrink"; "0" ] -> Ok Flex_shrink_0
+    | [ "shrink"; n ] when Parse.is_bracket_value n -> (
+        let inner = Parse.bracket_inner n in
+        match int_of_string_opt inner with
+        | Some i -> Ok (Flex_shrink_arbitrary i)
+        | None -> err_not_utility)
     | [ "basis"; "0" ] -> Ok Basis_0
     | [ "basis"; "1" ] -> Ok Basis_1
     | [ "basis"; "auto" ] -> Ok Basis_auto
     | [ "basis"; "full" ] -> Ok Basis_full
+    | [ "basis"; value ] when Parse.is_bracket_value value ->
+        let inner = Parse.bracket_inner value in
+        if String.ends_with ~suffix:"px" inner then
+          let n = String.sub inner 0 (String.length inner - 2) in
+          match float_of_string_opt n with
+          | Some f -> Ok (Basis_arbitrary (Css.Px f))
+          | None -> err_not_utility
+        else if String.ends_with ~suffix:"rem" inner then
+          let n = String.sub inner 0 (String.length inner - 3) in
+          match float_of_string_opt n with
+          | Some f -> Ok (Basis_arbitrary (Css.Rem f))
+          | None -> err_not_utility
+        else err_not_utility
     | [ "basis"; value ] -> (
         match parse_fraction value with
         | Some (n, m) -> Ok (Basis_fraction (n, m))
@@ -273,9 +313,11 @@ module Handler = struct
     (* Grow - Tailwind v4 uses shorter names *)
     | Flex_grow -> "grow"
     | Flex_grow_0 -> "grow-0"
+    | Flex_grow_arbitrary n -> "grow-[" ^ string_of_int n ^ "]"
     (* Shrink - Tailwind v4 uses shorter names *)
     | Flex_shrink -> "shrink"
     | Flex_shrink_0 -> "shrink-0"
+    | Flex_shrink_arbitrary n -> "shrink-[" ^ string_of_int n ^ "]"
     (* Basis *)
     | Basis_0 -> "basis-0"
     | Basis_1 -> "basis-1"
@@ -284,6 +326,25 @@ module Handler = struct
     | Basis_fraction (n, m) ->
         "basis-" ^ string_of_int n ^ "/" ^ string_of_int m
     | Basis_named s -> "basis-" ^ s
+    | Basis_arbitrary len -> (
+        match len with
+        | Px n ->
+            let s = string_of_float n in
+            let s =
+              if String.ends_with ~suffix:"." s then
+                String.sub s 0 (String.length s - 1)
+              else s
+            in
+            "basis-[" ^ s ^ "px]"
+        | Rem n ->
+            let s = string_of_float n in
+            let s =
+              if String.ends_with ~suffix:"." s then
+                String.sub s 0 (String.length s - 1)
+              else s
+            in
+            "basis-[" ^ s ^ "rem]"
+        | _ -> "basis-[<length>]")
     (* Order *)
     | Order n -> "order-" ^ string_of_int n
     | Neg_order n -> "-order-" ^ string_of_int n
