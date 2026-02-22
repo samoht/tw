@@ -1464,15 +1464,20 @@ module Typography_late = struct
   let align_sub = style [ vertical_align Sub ]
   let align_super = style [ vertical_align Super ]
 
-  let list_none =
-    style
-      [
-        list_style_type
-          (Var
-             (Var.theme_ref "list-style-type-none"
-                ~default:(None : Css.list_style_type)
-                ~default_css:"none"));
-      ]
+  let list_none () =
+    let var_name = "list-style-type-none" in
+    let ref =
+      Var.theme_ref var_name
+        ~default:(None : Css.list_style_type)
+        ~default_css:"none"
+    in
+    match Var.get_theme_value var_name with
+    | Some value ->
+        let theme_decl =
+          Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String value
+        in
+        style [ theme_decl; list_style_type (Var ref) ]
+    | None -> style [ list_style_type (Var ref) ]
 
   let list_bracket_var s =
     let inner = Parse.extract_var_name s in
@@ -1656,7 +1661,7 @@ module Typography_late = struct
     | Align_text_bottom -> align_text_bottom
     | Align_sub -> align_sub
     | Align_super -> align_super
-    | List_none -> list_none
+    | List_none -> list_none ()
     | List_disc -> list_disc
     | List_decimal -> list_decimal
     | List_bracket_var s -> list_bracket_var s
