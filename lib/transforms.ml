@@ -105,6 +105,7 @@ module Handler = struct
     | Transform_cpu
     | Transform_none
     | Transform_gpu
+    | Transform_arbitrary of string
     | (* Transform origin *)
       Origin_center
     | Origin_top
@@ -1132,6 +1133,9 @@ module Handler = struct
     | Transform_cpu -> transform_cpu
     | Transform_none -> transform_none
     | Transform_gpu -> transform_gpu
+    | Transform_arbitrary s ->
+        let value = String.map (fun c -> if c = '_' then ' ' else c) s in
+        style [ Css.transform (Arbitrary value) ]
     | Origin_center -> origin_center ()
     | Origin_top -> origin_top ()
     | Origin_bottom -> origin_bottom ()
@@ -1145,9 +1149,10 @@ module Handler = struct
 
   let suborder = function
     | Transform -> 2000
-    | Transform_cpu -> 2001
-    | Transform_gpu -> 2002
-    | Transform_none -> 2003
+    | Transform_arbitrary _ -> 2001
+    | Transform_cpu -> 2002
+    | Transform_gpu -> 2003
+    | Transform_none -> 2004
     (* Combined translate utilities: negative first, then positive *)
     | Neg_translate_arbitrary _ -> 85
     | Neg_translate_full -> 86
@@ -1503,6 +1508,8 @@ module Handler = struct
     | [ "transform"; "fill" ] -> Ok Transform_box_fill
     | [ "transform"; "stroke" ] -> Ok Transform_box_stroke
     | [ "transform"; "view" ] -> Ok Transform_box_view
+    | [ "transform"; value ] when Parse.is_bracket_value value ->
+        Ok (Transform_arbitrary (Parse.bracket_inner value))
     | [ "transform" ] -> Ok Transform
     | [ "transform"; "cpu" ] -> Ok Transform_cpu
     | [ "transform"; "none" ] -> Ok Transform_none
@@ -1655,6 +1662,7 @@ module Handler = struct
     | Transform_cpu -> "transform-cpu"
     | Transform_none -> "transform-none"
     | Transform_gpu -> "transform-gpu"
+    | Transform_arbitrary s -> "transform-[" ^ s ^ "]"
     | Origin_center -> "origin-center"
     | Origin_top -> "origin-top"
     | Origin_bottom -> "origin-bottom"
