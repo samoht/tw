@@ -810,6 +810,7 @@ module Typography_late = struct
     | (* Indent and line clamp *)
       Indent of int
     | Line_clamp of int
+    | Line_clamp_arbitrary of int
     | Line_clamp_none
     | (* Content *)
       Content_none
@@ -955,6 +956,11 @@ module Typography_late = struct
     | [ "stacked"; "fractions" ] -> Ok Stacked_fractions
     | [ "indent"; n ] -> Parse.int_any n >|= fun i -> Indent i
     | [ "line"; "clamp"; "none" ] -> Ok Line_clamp_none
+    | [ "line"; "clamp"; n ] when Parse.is_bracket_value n -> (
+        let inner = Parse.bracket_inner n in
+        match int_of_string_opt inner with
+        | Some i -> Ok (Line_clamp_arbitrary i)
+        | None -> err_not_utility)
     | [ "line"; "clamp"; n ] ->
         Parse.int_bounded ~name:"line-clamp" ~min:0 ~max:999 n >|= fun i ->
         Line_clamp i
@@ -1087,6 +1093,7 @@ module Typography_late = struct
     | Stacked_fractions -> "stacked-fractions"
     | Indent n -> "indent-" ^ string_of_int n
     | Line_clamp n -> "line-clamp-" ^ string_of_int n
+    | Line_clamp_arbitrary n -> "line-clamp-[" ^ string_of_int n ^ "]"
     | Line_clamp_none -> "line-clamp-none"
     | Content_none -> "content-none"
     | Content s -> "content-[\"" ^ s ^ "\"]"
@@ -1213,10 +1220,11 @@ module Typography_late = struct
     | Normal_nums -> 9708
     (* Indent and line clamp *)
     | Indent n -> 9800 + n
-    | Line_clamp n -> 9900 + n
-    | Line_clamp_none -> 9999
+    | Line_clamp n -> 10000 + n
+    | Line_clamp_arbitrary _ -> 11000
+    | Line_clamp_none -> 12000
     (* Content *)
-    | Content_none -> 10000
+    | Content_none -> 13000
     | Content _ -> 10001
     | Content_named _ -> 10002
 
@@ -1379,16 +1387,12 @@ module Typography_late = struct
       ]
 
   let line_clamp_none_style =
-    (* Tailwind v4: uses theme var and keeps webkit-box display *)
     style
       [
-        webkit_line_clamp
-          (Var
-             (Var.theme_ref "line-clamp-none" ~default:Unset
-                ~default_css:"unset"));
-        webkit_box_orient Vertical;
-        display Webkit_box;
-        overflow Hidden;
+        webkit_line_clamp Unset;
+        webkit_box_orient Horizontal;
+        display Block;
+        overflow Visible;
       ]
 
   let content_none =
@@ -1674,6 +1678,7 @@ module Typography_late = struct
     | Stacked_fractions -> stacked_fractions
     | Indent n -> indent n
     | Line_clamp n -> line_clamp n
+    | Line_clamp_arbitrary n -> line_clamp n
     | Line_clamp_none -> line_clamp_none_style
     | Content_none -> content_none
     | Content s -> content s
