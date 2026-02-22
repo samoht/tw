@@ -35,7 +35,8 @@ module Handler = struct
     | Translate_1_2
     | Translate_arbitrary of Css.length
     | (* Negative translate utilities *)
-      Neg_translate_full
+      Neg_translate_arbitrary of string
+    | Neg_translate_full
     | Neg_translate_x_full
     | Neg_translate_x_1_2
     | Neg_translate_y_full
@@ -502,6 +503,23 @@ module Handler = struct
     style ~property_rules:props
       (dx :: dy :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
 
+  let neg_translate_arbitrary_style s =
+    (* Parse var name and negate: calc(var(--value) * -1) *)
+    let bare_name = Parse.extract_var_name s in
+    let neg_len : Css.length =
+      Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
+    in
+    let dx, _ = Var.binding tw_translate_x_var neg_len in
+    let dy, _ = Var.binding tw_translate_y_var neg_len in
+    let tx_ref = Var.reference tw_translate_x_var in
+    let ty_ref = Var.reference tw_translate_y_var in
+    let props =
+      collect_property_rules
+        [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
+    in
+    style ~property_rules:props
+      (dx :: dy :: [ Css.translate (XY (Var tx_ref, Var ty_ref)) ])
+
   let neg_translate_full =
     let dx, _ = Var.binding tw_translate_x_var (Pct (-100.0)) in
     let dy, _ = Var.binding tw_translate_y_var (Pct (-100.0)) in
@@ -882,6 +900,7 @@ module Handler = struct
     | Translate_full -> translate_full
     | Translate_1_2 -> translate_1_2
     | Translate_arbitrary len -> translate_arbitrary len
+    | Neg_translate_arbitrary s -> neg_translate_arbitrary_style s
     | Neg_translate_full -> neg_translate_full
     | Neg_translate_x_full -> neg_translate_x_full
     | Neg_translate_x_1_2 -> neg_translate_x_1_2
@@ -953,12 +972,12 @@ module Handler = struct
     | Transform_cpu -> 2001
     | Transform_gpu -> 2002
     | Transform_none -> 2003
-    (* Combined translate utilities - alphabetical: arbitrary, 1/2, full,
-       -full *)
+    (* Combined translate utilities: negative first, then positive *)
+    | Neg_translate_arbitrary _ -> 85
+    | Neg_translate_full -> 86
+    | Translate_1_2 -> 87
     | Translate_arbitrary _ -> 89
-    | Translate_1_2 -> 90
     | Translate_full -> 91
-    | Neg_translate_full -> 92
     (* Translate utilities come first *)
     | Translate_x n -> 100 + n
     | Translate_x_full -> 110
@@ -1080,6 +1099,9 @@ module Handler = struct
         | Error _ -> err_not_utility)
     (* Negative translate utilities: -translate-x-N, -translate-y-N,
        -translate-z-N Split by '-' gives [""; "translate"; axis; n] *)
+    | [ ""; "translate"; value ] when Parse.is_bracket_var value ->
+        let inner = Parse.bracket_inner value in
+        Ok (Neg_translate_arbitrary inner)
     | [ ""; "translate"; "full" ] -> Ok Neg_translate_full
     | [ ""; "translate"; "x"; "full" ] -> Ok Neg_translate_x_full
     | [ ""; "translate"; "x"; n ] ->
@@ -1254,6 +1276,7 @@ module Handler = struct
     | Translate_full -> "translate-full"
     | Translate_1_2 -> "translate-1/2"
     | Translate_arbitrary len -> "translate-" ^ pp_length_bracket len
+    | Neg_translate_arbitrary s -> "-translate-[" ^ s ^ "]"
     | Neg_translate_full -> "-translate-full"
     | Neg_translate_x_full -> "-translate-x-full"
     | Neg_translate_x_1_2 -> "-translate-x-1/2"
