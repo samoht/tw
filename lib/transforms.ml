@@ -518,12 +518,24 @@ module Handler = struct
   let scale_x_arbitrary f =
     let value : Css.number_percentage = Css.Num f in
     let d, _ = Var.binding tw_scale_x_var value in
-    style (d :: [ Css.transform (Scale_x f) ])
+    let props =
+      collect_property_rules [ tw_scale_x_var; tw_scale_y_var; tw_scale_z_var ]
+    in
+    let scale_x_ref = Var.reference tw_scale_x_var in
+    let scale_y_ref = Var.reference tw_scale_y_var in
+    style ~property_rules:props
+      (d :: [ Css.scale (XY (Var scale_x_ref, Var scale_y_ref)) ])
 
   let scale_y_arbitrary f =
     let value : Css.number_percentage = Css.Num f in
     let d, _ = Var.binding tw_scale_y_var value in
-    style (d :: [ Css.transform (Scale_y f) ])
+    let props =
+      collect_property_rules [ tw_scale_x_var; tw_scale_y_var; tw_scale_z_var ]
+    in
+    let scale_x_ref = Var.reference tw_scale_x_var in
+    let scale_y_ref = Var.reference tw_scale_y_var in
+    style ~property_rules:props
+      (d :: [ Css.scale (XY (Var scale_x_ref, Var scale_y_ref)) ])
 
   let skew_x deg = transform_with_var tw_skew_x_var (Skew_x (make_angle deg))
   let skew_y deg = transform_with_var tw_skew_y_var (Skew_y (make_angle deg))
@@ -1504,7 +1516,10 @@ module Handler = struct
 
   let pp_number_bracket f =
     let s = string_of_float f in
-    let s = if String.ends_with ~suffix:"." s then s ^ "0" else s in
+    let s =
+      if String.ends_with ~suffix:"." s then String.sub s 0 (String.length s - 1)
+      else s
+    in
     "[" ^ s ^ "]"
 
   let to_class = function
