@@ -14,6 +14,7 @@ module Handler = struct
     | Col_arbitrary of string (* col-[span_123/span_123] *)
     | Col_auto
     | Col_span of int
+    | Col_span_arbitrary of string (* col-span-[var(--my-variable)] *)
     | Col_span_full
     | Col_start of int
     | Neg_col_start of int
@@ -29,6 +30,7 @@ module Handler = struct
     | Row_arbitrary of string
     | Row_auto
     | Row_span of int
+    | Row_span_arbitrary of string (* row-span-[var(--my-variable)] *)
     | Row_span_full
     | Row_start of int
     | Neg_row_start of int
@@ -60,6 +62,10 @@ module Handler = struct
     style [ grid_column (v, Auto) ]
 
   let col_span n = style [ grid_column (Span n, Span n) ]
+
+  let col_span_arbitrary s =
+    style [ grid_column (Arbitrary ("span " ^ s), Arbitrary ("span " ^ s)) ]
+
   let col_span_full = style [ grid_column (Num 1, Num (-1)) ]
   let col_start n = style [ grid_column_start (Num n) ]
   let neg_col_start n = style [ grid_column_start (Num (-n)) ]
@@ -101,6 +107,10 @@ module Handler = struct
     style [ grid_row (v, Auto) ]
 
   let row_span n = style [ grid_row (Span n, Span n) ]
+
+  let row_span_arbitrary s =
+    style [ grid_row (Arbitrary ("span " ^ s), Arbitrary ("span " ^ s)) ]
+
   let row_span_full = style [ grid_row (Num 1, Num (-1)) ]
   let row_start n = style [ grid_row_start (Num n) ]
   let neg_row_start n = style [ grid_row_start (Num (-n)) ]
@@ -134,6 +144,7 @@ module Handler = struct
     | Col_arbitrary s -> col_arbitrary s
     | Col_auto -> col_auto
     | Col_span n -> col_span n
+    | Col_span_arbitrary s -> col_span_arbitrary s
     | Col_span_full -> col_span_full
     | Col_start n -> col_start n
     | Neg_col_start n -> neg_col_start n
@@ -148,6 +159,7 @@ module Handler = struct
     | Row_arbitrary s -> row_arbitrary s
     | Row_auto -> row_auto
     | Row_span n -> row_span n
+    | Row_span_arbitrary s -> row_span_arbitrary s
     | Row_span_full -> row_span_full
     | Row_start n -> row_start n
     | Neg_row_start n -> neg_row_start n
@@ -159,37 +171,39 @@ module Handler = struct
     | Row_end_auto -> row_end_auto
 
   let suborder = function
-    (* Column utilities - negative comes first, then positive, then auto, then
-       arbitrary *)
-    | Neg_col n -> -100 + n
-    | Col n -> -20 + n
-    | Col_auto -> 0
-    | Col_arbitrary _ -> 5
-    | Col_span n -> 10 + n
-    | Col_span_full -> 23
-    | Neg_col_start n -> 25 + n
-    | Col_start n -> 30 + n
-    | Col_start_auto -> 43
-    | Col_start_arbitrary _ -> 45
-    | Neg_col_end n -> 47 + n
-    | Col_end n -> 50 + n
-    | Col_end_auto -> 63
-    | Col_end_arbitrary _ -> 64
+    (* Column utilities - negative, positive, arbitrary, auto, span, span-arb,
+       span-full *)
+    | Neg_col n -> n
+    | Col n -> 100 + n
+    | Col_arbitrary _ -> 200
+    | Col_auto -> 300
+    | Col_span n -> 400 + n
+    | Col_span_arbitrary _ -> 500
+    | Col_span_full -> 600
+    | Neg_col_start n -> 700 + n
+    | Col_start n -> 800 + n
+    | Col_start_auto -> 900
+    | Col_start_arbitrary _ -> 950
+    | Neg_col_end n -> 1000 + n
+    | Col_end n -> 1100 + n
+    | Col_end_auto -> 1200
+    | Col_end_arbitrary _ -> 1250
     (* Row utilities *)
-    | Neg_row n -> 65 + n
-    | Row n -> 75 + n
-    | Row_auto -> 80
-    | Row_arbitrary _ -> 82
-    | Row_span n -> 90 + n
-    | Row_span_full -> 103
-    | Neg_row_start n -> 105 + n
-    | Row_start n -> 110 + n
-    | Row_start_auto -> 123
-    | Row_start_arbitrary _ -> 125
-    | Neg_row_end n -> 127 + n
-    | Row_end n -> 130 + n
-    | Row_end_auto -> 143
-    | Row_end_arbitrary _ -> 145
+    | Neg_row n -> 1300 + n
+    | Row n -> 1400 + n
+    | Row_arbitrary _ -> 1500
+    | Row_auto -> 1600
+    | Row_span n -> 1700 + n
+    | Row_span_arbitrary _ -> 1800
+    | Row_span_full -> 1900
+    | Neg_row_start n -> 2000 + n
+    | Row_start n -> 2100 + n
+    | Row_start_auto -> 2200
+    | Row_start_arbitrary _ -> 2250
+    | Neg_row_end n -> 2300 + n
+    | Row_end n -> 2400 + n
+    | Row_end_auto -> 2500
+    | Row_end_arbitrary _ -> 2550
 
   let err_not_utility = Error (`Msg "Not a grid item utility")
 
@@ -206,6 +220,10 @@ module Handler = struct
     match parts with
     | [ "col"; "auto" ] -> Ok Col_auto
     | [ "col"; "span"; "full" ] -> Ok Col_span_full
+    | [ "col"; "span"; n ] when String.length n > 0 && n.[0] = '[' -> (
+        match parse_arbitrary n with
+        | Some v -> Ok (Col_span_arbitrary v)
+        | None -> err_not_utility)
     | [ "col"; "span"; n ] -> (
         match Parse.int_pos ~name:"col-span" n with
         | Ok i -> Ok (Col_span i)
@@ -254,6 +272,10 @@ module Handler = struct
         | Error _ -> err_not_utility)
     | [ "row"; "auto" ] -> Ok Row_auto
     | [ "row"; "span"; "full" ] -> Ok Row_span_full
+    | [ "row"; "span"; n ] when String.length n > 0 && n.[0] = '[' -> (
+        match parse_arbitrary n with
+        | Some v -> Ok (Row_span_arbitrary v)
+        | None -> err_not_utility)
     | [ "row"; "span"; n ] -> (
         match Parse.int_pos ~name:"row-span" n with
         | Ok i -> Ok (Row_span i)
@@ -313,6 +335,7 @@ module Handler = struct
     | Col_arbitrary s -> "col-" ^ to_class_arbitrary s
     | Col_auto -> "col-auto"
     | Col_span n -> "col-span-" ^ string_of_int n
+    | Col_span_arbitrary s -> "col-span-" ^ to_class_arbitrary s
     | Col_span_full -> "col-span-full"
     | Col_start n -> "col-start-" ^ string_of_int n
     | Neg_col_start n -> "-col-start-" ^ string_of_int n
@@ -328,6 +351,7 @@ module Handler = struct
     | Row_arbitrary s -> "row-" ^ to_class_arbitrary s
     | Row_auto -> "row-auto"
     | Row_span n -> "row-span-" ^ string_of_int n
+    | Row_span_arbitrary s -> "row-span-" ^ to_class_arbitrary s
     | Row_span_full -> "row-span-full"
     | Row_start n -> "row-start-" ^ string_of_int n
     | Neg_row_start n -> "-row-start-" ^ string_of_int n
