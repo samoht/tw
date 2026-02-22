@@ -752,6 +752,7 @@ module Typography_late = struct
     | List_inside
     | List_outside
     | List_image_none
+    | List_image_bracket_var of string
     | List_image_url of string
     | (* Underline offset *)
       Underline_offset_auto
@@ -891,6 +892,8 @@ module Typography_late = struct
     | [ "list"; "inside" ] -> Ok List_inside
     | [ "list"; "outside" ] -> Ok List_outside
     | [ "list"; "image"; "none" ] -> Ok List_image_none
+    | [ "list"; "image"; value ] when Parse.is_bracket_var value ->
+        Ok (List_image_bracket_var (Parse.bracket_inner value))
     | "list" :: "image" :: rest -> Ok (List_image_url (String.concat "-" rest))
     | [ "underline"; "offset"; "auto" ] -> Ok Underline_offset_auto
     | [ "underline"; "offset"; "0" ] -> Ok Underline_offset_0
@@ -1034,6 +1037,7 @@ module Typography_late = struct
     | List_inside -> "list-inside"
     | List_outside -> "list-outside"
     | List_image_none -> "list-image-none"
+    | List_image_bracket_var s -> "list-image-[" ^ s ^ "]"
     | List_image_url url -> "list-image-" ^ url
     | Underline_offset_auto -> "underline-offset-auto"
     | Underline_offset_0 -> "underline-offset-0"
@@ -1163,6 +1167,7 @@ module Typography_late = struct
     | List_bracket_var _ -> 8699
     | List_decimal -> 8700
     | List_disc -> 8701
+    | List_image_bracket_var _ -> 8698
     | List_image_none -> 8702
     | List_inside -> 8703
     | List_none -> 8704
@@ -1489,6 +1494,11 @@ module Typography_late = struct
   let list_inside = style [ list_style_position Inside ]
   let list_outside = style [ list_style_position Outside ]
 
+  let list_image_bracket_var s =
+    let inner = Parse.extract_var_name s in
+    let ref : Css.list_style_image Css.var = Css.var_ref inner in
+    style [ list_style_image (Var ref) ]
+
   let list_image_none =
     style
       [
@@ -1668,6 +1678,7 @@ module Typography_late = struct
     | List_inside -> list_inside
     | List_outside -> list_outside
     | List_image_none -> list_image_none
+    | List_image_bracket_var s -> list_image_bracket_var s
     | List_image_url url -> list_image_url url
     | Underline_offset_auto -> underline_offset_auto
     | Underline_offset_0 -> underline_offset_0
