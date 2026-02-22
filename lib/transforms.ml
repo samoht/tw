@@ -690,39 +690,54 @@ module Handler = struct
       Tailwind v4 uses theme variable references for origin utilities when theme
       variables are defined. *)
 
-  let origin_with_ref name (default : Css.transform_origin) default_css =
-    let v : Css.transform_origin =
-      Var (Var.theme_ref name ~default ~default_css)
-    in
-    style [ transform_origin v ]
+  let origin_with_ref name (default : Css.transform_origin) default_css () =
+    match Var.get_theme_value name with
+    | Some value_str ->
+        let decl =
+          Css.custom_declaration ~layer:"theme" ("--" ^ name) Css.String
+            value_str
+        in
+        let ref_str = "var(--" ^ name ^ ") var(--" ^ name ^ ")" in
+        style [ decl; transform_origin (Arbitrary ref_str) ]
+    | None ->
+        let v : Css.transform_origin =
+          Var (Var.theme_ref name ~default ~default_css)
+        in
+        style [ transform_origin v ]
 
-  let origin_center = origin_with_ref "transform-origin-center" Center "center"
-  let origin_top = origin_with_ref "transform-origin-top" Top "top"
-  let origin_bottom = origin_with_ref "transform-origin-bottom" Bottom "bottom"
+  let origin_center () =
+    origin_with_ref "transform-origin-center" Center "center" ()
 
-  let origin_left =
-    origin_with_ref "transform-origin-left" (XY (Zero, Zero)) "0 0"
+  let origin_top () = origin_with_ref "transform-origin-top" Top "top" ()
 
-  let origin_right =
+  let origin_bottom () =
+    origin_with_ref "transform-origin-bottom" Bottom "bottom" ()
+
+  let origin_left () =
+    origin_with_ref "transform-origin-left" (XY (Zero, Zero)) "0 0" ()
+
+  let origin_right () =
     origin_with_ref "transform-origin-right"
       (XY (Pct 100., Pct 100.))
-      "100% 100%"
+      "100% 100%" ()
 
-  let origin_top_left =
-    origin_with_ref "transform-origin-top-left" (XY (Zero, Zero)) "0 0"
+  let origin_top_left () =
+    origin_with_ref "transform-origin-top-left" (XY (Zero, Zero)) "0 0" ()
 
-  let origin_top_right =
-    origin_with_ref "transform-origin-top-right" (XY (Pct 100., Zero)) "100% 0"
+  let origin_top_right () =
+    origin_with_ref "transform-origin-top-right"
+      (XY (Pct 100., Zero))
+      "100% 0" ()
 
-  let origin_bottom_left =
+  let origin_bottom_left () =
     origin_with_ref "transform-origin-bottom-left"
       (XY (Zero, Pct 100.))
-      "0 100%"
+      "0 100%" ()
 
-  let origin_bottom_right =
+  let origin_bottom_right () =
     origin_with_ref "transform-origin-bottom-right"
       (XY (Pct 100., Pct 100.))
-      "100% 100%"
+      "100% 100%" ()
 
   let origin_arbitrary s =
     (* Convert underscore to space for arbitrary values like 50px_100px *)
@@ -908,15 +923,15 @@ module Handler = struct
     | Transform_cpu -> transform_cpu
     | Transform_none -> transform_none
     | Transform_gpu -> transform_gpu
-    | Origin_center -> origin_center
-    | Origin_top -> origin_top
-    | Origin_bottom -> origin_bottom
-    | Origin_left -> origin_left
-    | Origin_right -> origin_right
-    | Origin_top_left -> origin_top_left
-    | Origin_top_right -> origin_top_right
-    | Origin_bottom_left -> origin_bottom_left
-    | Origin_bottom_right -> origin_bottom_right
+    | Origin_center -> origin_center ()
+    | Origin_top -> origin_top ()
+    | Origin_bottom -> origin_bottom ()
+    | Origin_left -> origin_left ()
+    | Origin_right -> origin_right ()
+    | Origin_top_left -> origin_top_left ()
+    | Origin_top_right -> origin_top_right ()
+    | Origin_bottom_left -> origin_bottom_left ()
+    | Origin_bottom_right -> origin_bottom_right ()
     | Origin_arbitrary s -> origin_arbitrary s
 
   let suborder = function
