@@ -8,6 +8,10 @@ module Handler = struct
   open Css
 
   type t =
+    | Divide_x of int (* divide-x = 1, divide-x-4 = 4 *)
+    | Divide_y of int
+    | Divide_x_arb of Css.border_width (* divide-x-[4px] *)
+    | Divide_y_arb of Css.border_width
     | Divide_x_reverse
     | Divide_y_reverse
     | Divide_color of Color.color * int
@@ -30,6 +34,86 @@ module Handler = struct
   let divide_y_reverse_var =
     Var.property_default Css.Number_percentage ~initial:(Num 0.0)
       ~universal:true ~property_order:11 "tw-divide-y-reverse"
+
+  (* Reference to --tw-border-style (defined in borders.ml). Use
+     property_order:25 to match Tailwind's ordering where border-style comes
+     after divide-reverse vars in properties layer. *)
+  let border_style_var =
+    Var.property_default Css.Border_style
+      ~initial:(Solid : Css.border_style)
+      ~property_order:25 ~family:`Border "tw-border-style"
+
+  (* {2 Divide Width Utilities} *)
+
+  let divide_x_width_style ~class_name ~(width : Css.border_width) =
+    let selector =
+      Css.Selector.(where [ class_ class_name >> not [ Last_child ] ])
+    in
+    let reverse_decl, reverse_ref =
+      Var.binding divide_x_reverse_var (Css.Num 0.0)
+    in
+    let reverse_var_name = Css.var_name reverse_ref in
+    let border_style_ref = Var.reference border_style_var in
+    let start_width : Css.border_width =
+      Calc Css.Calc.(mul (Val width) (var reverse_var_name))
+    in
+    let end_width : Css.border_width =
+      Calc
+        Css.Calc.(
+          mul (Val width) (parens (sub (Num 1.0) (var reverse_var_name))))
+    in
+    let property_rules =
+      [
+        Var.property_rule divide_x_reverse_var;
+        Var.property_rule border_style_var;
+      ]
+      |> List.filter_map Fun.id
+    in
+    let rule =
+      Css.rule ~selector
+        [
+          reverse_decl;
+          border_inline_style (Var border_style_ref);
+          border_inline_start_width start_width;
+          border_inline_end_width end_width;
+        ]
+    in
+    style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
+
+  let divide_y_width_style ~class_name ~(width : Css.border_width) =
+    let selector =
+      Css.Selector.(where [ class_ class_name >> not [ Last_child ] ])
+    in
+    let reverse_decl, reverse_ref =
+      Var.binding divide_y_reverse_var (Css.Num 0.0)
+    in
+    let reverse_var_name = Css.var_name reverse_ref in
+    let border_style_ref = Var.reference border_style_var in
+    let start_width : Css.border_width =
+      Calc Css.Calc.(mul (Val width) (var reverse_var_name))
+    in
+    let end_width : Css.border_width =
+      Calc
+        Css.Calc.(
+          mul (Val width) (parens (sub (Num 1.0) (var reverse_var_name))))
+    in
+    let property_rules =
+      [
+        Var.property_rule divide_y_reverse_var;
+        Var.property_rule border_style_var;
+      ]
+      |> List.filter_map Fun.id
+    in
+    let rule =
+      Css.rule ~selector
+        [
+          reverse_decl;
+          border_block_style (Var border_style_ref);
+          border_block_start_width start_width;
+          border_block_end_width end_width;
+        ]
+    in
+    style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
 
   (* divide-x-reverse utility sets --tw-divide-x-reverse: 1 on children *)
   let divide_x_reverse_style () =
@@ -145,6 +229,30 @@ module Handler = struct
   let has_opacity s = String.contains s '/'
 
   let to_class = function
+    | Divide_x n -> if n = 1 then "divide-x" else "divide-x-" ^ string_of_int n
+    | Divide_y n -> if n = 1 then "divide-y" else "divide-y-" ^ string_of_int n
+    | Divide_x_arb len -> (
+        match len with
+        | Px f ->
+            let s = string_of_float f in
+            let s =
+              if String.ends_with ~suffix:"." s then
+                String.sub s 0 (String.length s - 1)
+              else s
+            in
+            "divide-x-[" ^ s ^ "px]"
+        | _ -> "divide-x-[<length>]")
+    | Divide_y_arb len -> (
+        match len with
+        | Px f ->
+            let s = string_of_float f in
+            let s =
+              if String.ends_with ~suffix:"." s then
+                String.sub s 0 (String.length s - 1)
+              else s
+            in
+            "divide-y-[" ^ s ^ "px]"
+        | _ -> "divide-y-[<length>]")
     | Divide_x_reverse -> "divide-x-reverse"
     | Divide_y_reverse -> "divide-y-reverse"
     | Divide_color (c, shade) ->
@@ -164,6 +272,22 @@ module Handler = struct
     | Divide_inherit -> "divide-inherit"
 
   let to_style = function
+    | Divide_x n ->
+        let class_name =
+          if n = 1 then "divide-x" else "divide-x-" ^ string_of_int n
+        in
+        divide_x_width_style ~class_name ~width:(Px (float_of_int n))
+    | Divide_y n ->
+        let class_name =
+          if n = 1 then "divide-y" else "divide-y-" ^ string_of_int n
+        in
+        divide_y_width_style ~class_name ~width:(Px (float_of_int n))
+    | Divide_x_arb len ->
+        let class_name = to_class (Divide_x_arb len) in
+        divide_x_width_style ~class_name ~width:len
+    | Divide_y_arb len ->
+        let class_name = to_class (Divide_y_arb len) in
+        divide_y_width_style ~class_name ~width:len
     | Divide_x_reverse -> divide_x_reverse_style ()
     | Divide_y_reverse -> divide_y_reverse_style ()
     | Divide_color (color, shade) -> divide_color_style color shade
@@ -175,6 +299,10 @@ module Handler = struct
     | Divide_inherit -> divide_inherit_style ()
 
   let suborder = function
+    | Divide_x n -> -20000 + n
+    | Divide_y n -> -10000 + n
+    | Divide_x_arb _ -> -20000 + 50000
+    | Divide_y_arb _ -> -10000 + 50000
     | Divide_x_reverse -> 0
     | Divide_y_reverse -> 1
     (* Colors come after reverse utilities, use 100+ for ordering *)
@@ -201,11 +329,40 @@ module Handler = struct
     | Divide_inherit -> 100 + (9 * 1000)
     | Divide_transparent -> 100 + (25 * 1000)
 
+  let parse_bracket_width s : Css.border_width option =
+    let len = String.length s in
+    if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
+      let inner = String.sub s 1 (len - 2) in
+      if String.ends_with ~suffix:"px" inner then
+        let n = String.sub inner 0 (String.length inner - 2) in
+        match float_of_string_opt n with Some f -> Some (Px f) | None -> None
+      else if String.ends_with ~suffix:"rem" inner then
+        let n = String.sub inner 0 (String.length inner - 3) in
+        match float_of_string_opt n with Some f -> Some (Rem f) | None -> None
+      else None
+    else None
+
   let of_class class_name =
     let parts = Parse.split_class class_name in
     match parts with
+    | [ "divide"; "x" ] -> Ok (Divide_x 1)
+    | [ "divide"; "y" ] -> Ok (Divide_y 1)
     | [ "divide"; "x"; "reverse" ] -> Ok Divide_x_reverse
     | [ "divide"; "y"; "reverse" ] -> Ok Divide_y_reverse
+    | [ "divide"; "x"; value ] -> (
+        match parse_bracket_width value with
+        | Some w -> Ok (Divide_x_arb w)
+        | None -> (
+            match int_of_string_opt value with
+            | Some n when n >= 0 -> Ok (Divide_x n)
+            | _ -> Error (`Msg "Not a divide utility")))
+    | [ "divide"; "y"; value ] -> (
+        match parse_bracket_width value with
+        | Some w -> Ok (Divide_y_arb w)
+        | None -> (
+            match int_of_string_opt value with
+            | Some n when n >= 0 -> Ok (Divide_y n)
+            | _ -> Error (`Msg "Not a divide utility")))
     | [ "divide"; "transparent" ] -> Ok Divide_transparent
     | [ "divide"; "inherit" ] -> Ok Divide_inherit
     | [ "divide"; current_str ]
