@@ -41,7 +41,7 @@ let int_bounded ~name ~min ~max s =
 (* Check if a value is a valid theme variable name. Theme variable names must
    not contain '/' — values with '/' that aren't handled as explicit fractions
    (like 3/4) are invalid class suffixes, not theme references. *)
-let is_valid_theme_name s = not (String.contains s '/')
+let is_valid_theme_name s = s <> "" && not (String.contains s '/')
 let ( >|= ) r f = Result.map f r
 
 (** Extract the bare variable name from a "var(--name)" string. Returns "name"
