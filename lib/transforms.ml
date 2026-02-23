@@ -181,9 +181,6 @@ module Handler = struct
       Css.Transform "tw-skew-y"
 
   (* Perspective theme variables *)
-  let perspective_none_var =
-    Var.theme Css.Length "perspective-none" ~order:(7, 12)
-
   let perspective_dramatic_var =
     Var.theme Css.Length "perspective-dramatic" ~order:(7, 13)
 
@@ -782,9 +779,7 @@ module Handler = struct
     style ~property_rules:props
       [ Css.scale (XYZ (Var scale_x_ref, Var scale_y_ref, Var scale_z_ref)) ]
 
-  let perspective_none =
-    let decl, r = Var.binding perspective_none_var (Px 400.0) in
-    style (decl :: [ Css.perspective (Var r) ])
+  let perspective_none = style [ Css.perspective None ]
 
   let perspective_dramatic =
     let decl, r = Var.binding perspective_dramatic_var (Px 100.0) in
