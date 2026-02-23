@@ -180,10 +180,21 @@ let extract_default_ring_width_from_css css : int =
   | None -> 1
 
 let extract_default_border_width_from_css css : int =
-  let pattern = Re.Pcre.regexp {|\.border\s*\{[^}]*border-width:\s*(\d+)px|} in
-  match Re.exec_opt pattern css with
+  let border_pattern =
+    Re.Pcre.regexp {|\.border\s*\{[^}]*border-width:\s*(\d+)px|}
+  in
+  match Re.exec_opt border_pattern css with
   | Some m -> ( try int_of_string (Re.Group.get m 1) with _ -> 1)
-  | None -> 1
+  | None -> (
+      (* Also check divide-x/divide-y patterns: calc(Npx *
+         var(--tw-divide-...)) *)
+      let divide_pattern =
+        Re.Pcre.regexp
+          {|calc\((\d+)px \* (?:var\(--tw-divide-[xy]-reverse\)|\(1)|}
+      in
+      match Re.exec_opt divide_pattern css with
+      | Some m -> ( try int_of_string (Re.Group.get m 1) with _ -> 1)
+      | None -> 1)
 
 let scheme_from_expected_css expected : Tw.Scheme.t =
   let spacing = extract_spacing_from_css expected in
@@ -203,7 +214,8 @@ let setup_scheme_for_test expected =
   Tw.Color.Handler.set_scheme scheme;
   Tw.Theme.set_scheme scheme;
   Tw.Borders.set_scheme scheme;
-  Tw.Effects.set_scheme scheme
+  Tw.Effects.set_scheme scheme;
+  Tw.Divide.set_scheme scheme
 
 (** Extract all CSS variable names referenced in expected CSS text. *)
 let extract_var_names expected =
