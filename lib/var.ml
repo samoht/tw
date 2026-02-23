@@ -6,6 +6,11 @@
 (* Layer classification for CSS variables *)
 type layer = Theme | Utility
 
+(* Registry for custom properties-layer initial CSS values. Some variables need
+   a different string in the properties layer than what pp_length produces
+   (e.g., ring-offset-width needs "0px" in properties but "0" in @property). *)
+let properties_layer_overrides : (string, string) Hashtbl.t = Hashtbl.create 8
+
 (* Variable definition - the main currency *)
 type 'a property_info = {
   initial : 'a option;
@@ -285,8 +290,11 @@ let theme kind name ~order =
   create kind ?property:None ?order:(Some order) ~role:Theme name ~layer:Theme
 
 let property_default kind ~initial ?(inherits = false) ?(universal = false)
-    ?property_order ?family name =
+    ?initial_css ?property_order ?family name =
   let property = property_info ~initial ~inherits ~universal () in
+  (match initial_css with
+  | Some css -> Hashtbl.replace properties_layer_overrides ("--" ^ name) css
+  | None -> ());
   create kind ~property ?property_order ?family ~role:Property_default name
     ~layer:Utility
 
@@ -368,7 +376,7 @@ let property_rule : type a r. (a, r) t -> Css.t option =
   | Property_default | Channel -> (
       match var.property with
       | None -> None
-      | Some { initial; inherits; universal } ->
+      | Some { initial; inherits; universal; _ } ->
           let name = "--" ^ var.name in
           Some (create_property ~name var.kind initial ~inherits ~universal))
   | _ -> None (* Other roles don't generate @property rules *)
@@ -476,26 +484,29 @@ let clear_theme_values () = Hashtbl.clear theme_value_overrides
 (* Convert Property_info to the string value for properties layer This extracts
    the initial value and converts it to the appropriate CSS string *)
 let property_info_to_declaration_value (Css.Property_info info) =
-  match info.initial_value with
-  | None -> "initial"
-  | Some v -> (
-      let open Css.Variables in
-      match info.syntax with
-      | Universal -> v (* Universal syntax already stores strings *)
-      | _ -> (
-          let
-          (* For non-Universal syntax, we shouldn't be in the properties layer
-             but handle it gracefully using the existing pp functions *)
-          open
-            Css.Values in
+  match Hashtbl.find_opt properties_layer_overrides info.name with
+  | Some css -> css
+  | None -> (
+      match info.initial_value with
+      | None -> "initial"
+      | Some v -> (
+          let open Css.Variables in
           match info.syntax with
-          | Length -> (
-              match v with
-              | Zero -> "0px"
-              | Px f when f = 0. -> "0px"
-              | _ -> Css.Pp.to_string (pp_length ~always:true) v)
-          | Number -> Pp.float v ^ "%"
-          | syntax -> Css.Pp.to_string (pp_value syntax) v))
+          | Universal -> v (* Universal syntax already stores strings *)
+          | _ -> (
+              let
+              (* For non-Universal syntax, we shouldn't be in the properties
+                 layer but handle it gracefully using the existing pp
+                 functions *)
+              open
+                Css.Values in
+              match info.syntax with
+              | Length -> (
+                  match v with
+                  | Zero -> "0"
+                  | _ -> Css.Pp.to_string (pp_length ~always:true) v)
+              | Number -> Pp.float v ^ "%"
+              | syntax -> Css.Pp.to_string (pp_value syntax) v)))
 
 let css_name var = "--" ^ var.name
 
