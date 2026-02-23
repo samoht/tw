@@ -108,6 +108,7 @@ module Grid = Grid
 module Grid_item = Grid_item
 module Grid_template = Grid_template
 module Typography = Typography
+module Divide = Divide
 module Effects = Effects
 module Text_shadow = Text_shadow
 module Transforms = Transforms

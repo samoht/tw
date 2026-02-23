@@ -5,6 +5,10 @@
 
 open Utility
 
+val set_scheme : Scheme.t -> unit
+(** [set_scheme scheme] sets the current theme scheme for divide width defaults.
+*)
+
 (** {1 Divide Reverse Utilities} *)
 
 val divide_x_reverse : t

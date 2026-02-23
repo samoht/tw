@@ -3,6 +3,12 @@
     @see <https://tailwindcss.com/docs/divide-width>
       Tailwind CSS Divide Width documentation *)
 
+(* Current scheme for default border width *)
+let current_scheme : Scheme.t ref = ref Scheme.default
+
+(* Set the current scheme for divide generation *)
+let set_scheme scheme = current_scheme := scheme
+
 module Handler = struct
   open Style
   open Css
@@ -20,6 +26,7 @@ module Handler = struct
     | Divide_current
     | Divide_current_opacity of Color.opacity_modifier
     | Divide_inherit
+    | Divide_style of Css.border_style
 
   type Utility.base += Self of t
 
@@ -108,9 +115,10 @@ module Handler = struct
       Css.rule ~selector
         [
           reverse_decl;
-          border_block_style (Var border_style_ref);
-          border_block_start_width start_width;
-          border_block_end_width end_width;
+          border_bottom_style (Var border_style_ref);
+          border_top_style (Var border_style_ref);
+          border_top_width start_width;
+          border_bottom_width end_width;
         ]
     in
     style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
@@ -194,6 +202,39 @@ module Handler = struct
     let rule = Css.rule ~selector [ Css.border_color Css.Inherit ] in
     style ~rules:(Some [ rule ]) []
 
+  let divide_style_of_string (s : string) =
+    let open Css in
+    let r : border_style option =
+      match s with
+      | "dashed" -> Some Dashed
+      | "dotted" -> Some Dotted
+      | "double" -> Some Double
+      | "none" -> Some None
+      | "solid" -> Some Solid
+      | _ -> Stdlib.Option.none
+    in
+    r
+
+  let border_style_to_string (bs : Css.border_style) =
+    match bs with
+    | Dashed -> "dashed"
+    | Dotted -> "dotted"
+    | Double -> "double"
+    | None -> "none"
+    | Solid -> "solid"
+    | _ -> "solid"
+
+  let divide_style_style (bs : Css.border_style) =
+    let name = border_style_to_string bs in
+    let class_name = "divide-" ^ name in
+    let selector =
+      Css.Selector.(
+        where [ Combined (Class class_name, Child, Not [ Last_child ]) ])
+    in
+    let decl, _ = Var.binding border_style_var bs in
+    let rule = Css.rule ~selector [ decl; Css.border_style bs ] in
+    style ~rules:(Some [ rule ]) []
+
   (* Format opacity modifier for class names *)
   let opacity_suffix = function
     | Color.No_opacity -> ""
@@ -270,18 +311,21 @@ module Handler = struct
     | Divide_current_opacity opacity ->
         "divide-current" ^ opacity_suffix opacity
     | Divide_inherit -> "divide-inherit"
+    | Divide_style bs -> "divide-" ^ border_style_to_string bs
 
   let to_style = function
     | Divide_x n ->
         let class_name =
           if n = 1 then "divide-x" else "divide-x-" ^ string_of_int n
         in
-        divide_x_width_style ~class_name ~width:(Px (float_of_int n))
+        let w = if n = 1 then !current_scheme.default_border_width else n in
+        divide_x_width_style ~class_name ~width:(Px (float_of_int w))
     | Divide_y n ->
         let class_name =
           if n = 1 then "divide-y" else "divide-y-" ^ string_of_int n
         in
-        divide_y_width_style ~class_name ~width:(Px (float_of_int n))
+        let w = if n = 1 then !current_scheme.default_border_width else n in
+        divide_y_width_style ~class_name ~width:(Px (float_of_int w))
     | Divide_x_arb len ->
         let class_name = to_class (Divide_x_arb len) in
         divide_x_width_style ~class_name ~width:len
@@ -297,6 +341,7 @@ module Handler = struct
     | Divide_current -> divide_current_style ()
     | Divide_current_opacity opacity -> divide_current_opacity_style opacity
     | Divide_inherit -> divide_inherit_style ()
+    | Divide_style bs -> divide_style_style bs
 
   let suborder = function
     | Divide_x n -> -20000 + n
@@ -328,6 +373,7 @@ module Handler = struct
     | Divide_current_opacity _ -> 100 + (4 * 1000)
     | Divide_inherit -> 100 + (9 * 1000)
     | Divide_transparent -> 100 + (25 * 1000)
+    | Divide_style _ -> -30000
 
   let parse_bracket_width s : Css.border_width option =
     let len = String.length s in
@@ -365,6 +411,9 @@ module Handler = struct
             | _ -> Error (`Msg "Not a divide utility")))
     | [ "divide"; "transparent" ] -> Ok Divide_transparent
     | [ "divide"; "inherit" ] -> Ok Divide_inherit
+    | [ "divide"; style_str ]
+      when Stdlib.Option.is_some (divide_style_of_string style_str) ->
+        Ok (Divide_style (Stdlib.Option.get (divide_style_of_string style_str)))
     | [ "divide"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
         let _, opacity = Color.parse_opacity_modifier current_str in

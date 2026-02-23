@@ -90,7 +90,8 @@ let setup_test_scheme () =
   Tw.Color.Handler.set_scheme scheme;
   Tw.Theme.set_scheme scheme;
   Tw.Borders.set_scheme scheme;
-  Tw.Effects.set_scheme scheme
+  Tw.Effects.set_scheme scheme;
+  Tw.Divide.set_scheme scheme
 
 let eval_flag flag ~default =
   match flag with `Enable -> true | `Disable -> false | `Default -> default
