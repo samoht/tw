@@ -1234,13 +1234,13 @@ let parse_opacity_modifier s =
           | Some f -> (base, Opacity_arbitrary f)
           | None -> (s, No_opacity)
       else
-        (* Numeric value like 50 or 2.5, or named like half, custom *)
+        (* Numeric value like 50 or 2.5 *)
         match float_of_string_opt opacity_str with
-        | Some f -> (base, Opacity_percent f)
-        | None ->
-            (* Not a number, treat as named opacity modifier *)
-            if opacity_str <> "" then (base, Opacity_named opacity_str)
-            else (s, No_opacity))
+        | Some f when f >= 0. -> (base, Opacity_percent f)
+        | _ ->
+            (* Not a valid non-negative number — treat as no opacity. Return the
+               full original string so the caller doesn't see a split. *)
+            (s, No_opacity))
 
 (* Parse color and shade from string list *)
 let shade_of_strings = function
@@ -1403,9 +1403,10 @@ module Handler = struct
     | [ "bg"; "transparent" ] -> Ok Bg_transparent
     | [ "bg"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let _, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier current_str in
         match opacity with
-        | No_opacity -> Ok Bg_current
+        | No_opacity when base = "current" -> Ok Bg_current
+        | No_opacity -> Error (`Msg ("Invalid bg: " ^ current_str))
         | _ -> Ok (Bg_current_opacity opacity))
     | "bg" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings color_parts with
@@ -1419,9 +1420,10 @@ module Handler = struct
     | [ "text"; "inherit" ] -> Ok Text_inherit
     | [ "text"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let _, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier current_str in
         match opacity with
-        | No_opacity -> Ok Text_current
+        | No_opacity when base = "current" -> Ok Text_current
+        | No_opacity -> Error (`Msg ("Invalid text: " ^ current_str))
         | _ -> Ok (Text_current_opacity opacity))
     | "text" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings color_parts with
@@ -1435,9 +1437,10 @@ module Handler = struct
     | [ "border"; "transparent" ] -> Ok Border_transparent
     | [ "border"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let _, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier current_str in
         match opacity with
-        | No_opacity -> Ok Border_current
+        | No_opacity when base = "current" -> Ok Border_current
+        | No_opacity -> Error (`Msg ("Invalid border: " ^ current_str))
         | _ -> Ok (Border_current_opacity opacity))
     | "border" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings color_parts with
@@ -1452,9 +1455,10 @@ module Handler = struct
     | [ "accent"; "inherit" ] -> Ok Accent_inherit
     | [ "accent"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let _, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier current_str in
         match opacity with
-        | No_opacity -> Ok Accent_current
+        | No_opacity when base = "current" -> Ok Accent_current
+        | No_opacity -> Error (`Msg ("Invalid accent: " ^ current_str))
         | _ -> Ok (Accent_current_opacity opacity))
     | "accent" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings color_parts with
@@ -1469,9 +1473,10 @@ module Handler = struct
     | [ "caret"; "transparent" ] -> Ok Caret_transparent
     | [ "caret"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let _, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier current_str in
         match opacity with
-        | No_opacity -> Ok Caret_current
+        | No_opacity when base = "current" -> Ok Caret_current
+        | No_opacity -> Error (`Msg ("Invalid caret: " ^ current_str))
         | _ -> Ok (Caret_current_opacity opacity))
     | "caret" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings color_parts with
@@ -1485,9 +1490,10 @@ module Handler = struct
     | [ "outline"; "inherit" ] -> Ok Outline_inherit
     | [ "outline"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let _, opacity = parse_opacity_modifier current_str in
+        let base, opacity = parse_opacity_modifier current_str in
         match opacity with
-        | No_opacity -> Ok Outline_current
+        | No_opacity when base = "current" -> Ok Outline_current
+        | No_opacity -> Error (`Msg ("Invalid outline: " ^ current_str))
         | _ -> Ok (Outline_current_opacity opacity))
     | "outline" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings color_parts with
@@ -1571,8 +1577,12 @@ module Handler = struct
       let css_color = to_css color shade in
       style [ Css.caret_color css_color ]
     else
-      let color_var = get_color_var color shade in
-      let color_value = get_color_value color shade in
+      let color_var =
+        get_property_color_var ~property_prefix:"caret-color" color shade
+      in
+      let color_value =
+        get_property_color_value ~property_prefix:"caret-color" color shade
+      in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.caret_color (Var color_ref) ])
 
@@ -1720,7 +1730,8 @@ module Handler = struct
 
   (** Caret color with opacity *)
   let caret_with_opacity c shade opacity =
-    color_with_opacity_style ~property:Css.caret_color c shade opacity
+    color_with_opacity_style ~property:Css.caret_color
+      ~property_prefix:"caret-color" c shade opacity
 
   (** Outline color with opacity *)
   let outline_with_opacity c shade opacity =
@@ -1851,29 +1862,17 @@ module Handler = struct
        colors) Actually simpler: just use character-based ordering for special
        keywords *)
     | Caret (color, shade) ->
-        let base =
-          if is_base_color color then
-            suborder_with_shade (color_to_string color)
-          else
-            suborder_with_shade
-              (color_to_string color ^ "-" ^ string_of_int shade)
-        in
-        60000 + base
+        (* All caret colors use the same suborder (60000) to allow alphabetical
+           sorting, matching Tailwind v4 behavior. *)
+        let _ = (color, shade) in
+        60000
     | Caret_opacity (color, shade, _) ->
-        let base =
-          if is_base_color color then
-            suborder_with_shade (color_to_string color)
-          else
-            suborder_with_shade
-              (color_to_string color ^ "-" ^ string_of_int shade)
-        in
-        60000 + base
-    | Caret_current ->
-        60000 + (4 * 1000) (* c -> between cyan(4) and emerald(5) *)
-    | Caret_current_opacity _ -> 60000 + (4 * 1000)
-    | Caret_inherit ->
-        60000 + (9 * 1000) (* i -> between indigo(9) and lime(10) *)
-    | Caret_transparent -> 60000 + (25 * 1000)
+        let _ = (color, shade) in
+        60000
+    | Caret_current -> 60000
+    | Caret_current_opacity _ -> 60000
+    | Caret_inherit -> 60000
+    | Caret_transparent -> 60000
     (* t -> after all colors (max=24) *)
     (* Outline comes after caret. Use 70000 base. *)
     | Outline (color, shade) ->
