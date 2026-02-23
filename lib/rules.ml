@@ -1673,6 +1673,36 @@ let is_outline_utility bc =
       idx + 8 <= String.length s && String.sub s idx 8 = ":outline"
   | None -> false
 
+(* Natural sort comparison: treats consecutive digit sequences as integers.
+   E.g., "2.5" < "2.25" because 5 < 25 when compared as numbers. This matches
+   Tailwind v4's selector ordering for opacity modifiers like /2.5 vs /2.25. *)
+let natural_compare s1 s2 =
+  let len1 = String.length s1 and len2 = String.length s2 in
+  let is_digit c = c >= '0' && c <= '9' in
+  let extract_number s i =
+    let rec go j acc =
+      if j >= String.length s || not (is_digit s.[j]) then (acc, j)
+      else go (j + 1) ((acc * 10) + Char.code s.[j] - Char.code '0')
+    in
+    go i 0
+  in
+  let rec compare_at i1 i2 =
+    if i1 >= len1 && i2 >= len2 then 0
+    else if i1 >= len1 then -1
+    else if i2 >= len2 then 1
+    else
+      let c1 = s1.[i1] and c2 = s2.[i2] in
+      if is_digit c1 && is_digit c2 then
+        let n1, end1 = extract_number s1 i1 in
+        let n2, end2 = extract_number s2 i2 in
+        let num_cmp = Int.compare n1 n2 in
+        if num_cmp <> 0 then num_cmp else compare_at end1 end2
+      else
+        let char_cmp = Char.compare c1 c2 in
+        if char_cmp <> 0 then char_cmp else compare_at (i1 + 1) (i2 + 1)
+  in
+  compare_at 0 0
+
 let compare_late_modifiers r1 r2 kind1 kind2 =
   let k1 = complex_selector_order kind1 and k2 = complex_selector_order kind2 in
   if k1 <> k2 then Int.compare k1 k2
@@ -1766,10 +1796,10 @@ let compare_cross_utility_regular r1 r2 =
               else if late1 && late2 then
                 compare_late_modifiers r1 r2 kind1 kind2
               else
-                (* Not late modifiers - sort alphabetically by selector name. In
-                   Tailwind v4, utilities with the same priority AND suborder
-                   are sorted alphabetically by selector name. *)
-                String.compare
+                (* Not late modifiers - sort by selector name using natural sort
+                   (numeric-aware). Tailwind v4 uses natural sort so that e.g.
+                   /2.5 comes before /2.25 (5 < 25 as integers). *)
+                natural_compare
                   (Css.Selector.to_string r1.selector)
                   (Css.Selector.to_string r2.selector)
 
@@ -1831,10 +1861,37 @@ let compare_indexed_rules r1 r2 =
     | `Media _, `Regular -> -compare_regular_vs_media r2 r1
     | `Starting, `Starting -> compare_starting_rules r1 r2
     | `Container _, `Container _ -> Int.compare r1.index r2.index
-    (* Supports rules should come after their base rule *)
-    | `Regular, `Supports _ -> -1
-    | `Supports _, `Regular -> 1
-    | `Supports _, `Supports _ -> Int.compare r1.index r2.index
+    (* Supports rules should come right after their base rule, not after all
+       regular rules. Compare by order first so @supports is interleaved. When
+       orders are equal, use natural sort on selector for consistent ordering
+       across Regular/Supports pairs from different utilities. *)
+    | `Regular, `Supports _ ->
+        let order_cmp = compare r1.order r2.order in
+        if order_cmp <> 0 then order_cmp
+        else
+          let sel_cmp =
+            natural_compare
+              (Css.Selector.to_string r1.selector)
+              (Css.Selector.to_string r2.selector)
+          in
+          if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
+    | `Supports _, `Regular ->
+        let order_cmp = compare r1.order r2.order in
+        if order_cmp <> 0 then order_cmp
+        else
+          let sel_cmp =
+            natural_compare
+              (Css.Selector.to_string r1.selector)
+              (Css.Selector.to_string r2.selector)
+          in
+          if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
+    | `Supports _, `Supports _ ->
+        let sel_cmp =
+          natural_compare
+            (Css.Selector.to_string r1.selector)
+            (Css.Selector.to_string r2.selector)
+        in
+        if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
     | _, _ -> Int.compare r1.index r2.index
 
 (* Filter properties to only include utilities layer declarations *)
@@ -1888,13 +1945,31 @@ let rec filter_theme_from_statements statements =
                       | None -> stmt)))))
     statements
 
+(* Compute the merge key from a base class name. The merge key is the utility
+   name without modifier prefixes (before ':') and without opacity suffixes
+   (from '/' onward). This allows rules like accent-current and
+   accent-current/50 to be combined when they produce identical declarations. *)
+let merge_key_of_base_class base_class =
+  match base_class with
+  | None -> None
+  | Some class_name ->
+      let base = extract_base_utility class_name in
+      let key =
+        match String.index_opt base '/' with
+        | Some slash_pos -> String.sub base 0 slash_pos
+        | None -> base
+      in
+      Some key
+
 (* Convert indexed rule to CSS statement *)
 let indexed_rule_to_statement r =
   let filtered_props = filter_utility_properties r.props in
   let filtered_nested = filter_theme_from_statements r.nested in
+  let merge_key = merge_key_of_base_class r.base_class in
   match r.rule_type with
   | `Regular ->
-      Css.rule ~selector:r.selector ~nested:filtered_nested filtered_props
+      Css.rule ~selector:r.selector ?merge_key ~nested:filtered_nested
+        filtered_props
   | `Starting ->
       (* Wrap selector+declarations in @starting-style block
          (Tailwind-compatible format) *)
@@ -1905,11 +1980,15 @@ let indexed_rule_to_statement r =
       if filtered_nested <> [] then
         (* Has nested statements (e.g., @media (hover:hover) { ... }) *)
         Css.media ~condition filtered_nested
-      else Css.media ~condition [ Css.rule ~selector:r.selector filtered_props ]
+      else
+        Css.media ~condition
+          [ Css.rule ~selector:r.selector ?merge_key filtered_props ]
   | `Container condition ->
-      Css.container ~condition [ Css.rule ~selector:r.selector filtered_props ]
+      Css.container ~condition
+        [ Css.rule ~selector:r.selector ?merge_key filtered_props ]
   | `Supports condition ->
-      Css.supports ~condition [ Css.rule ~selector:r.selector filtered_props ]
+      Css.supports ~condition
+        [ Css.rule ~selector:r.selector ?merge_key filtered_props ]
 
 (* Deduplicate typed triples while preserving first occurrence order *)
 let deduplicate_typed_triples triples =
