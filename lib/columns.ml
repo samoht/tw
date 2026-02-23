@@ -38,14 +38,21 @@ module Handler = struct
     style [ decl; columns (Width (Var ref_)) ]
 
   let to_style = function
-    | Columns_auto ->
-        let v : Css.columns_value =
-          Var
-            (Var.theme_ref "columns-auto"
-               ~default:(Auto : Css.columns_value)
-               ~default_css:"auto")
+    | Columns_auto -> (
+        let var_name = "columns-auto" in
+        let ref =
+          Var.theme_ref var_name
+            ~default:(Auto : Css.columns_value)
+            ~default_css:"auto"
         in
-        style [ columns v ]
+        match Var.get_theme_value var_name with
+        | Some value ->
+            let theme_decl =
+              Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String
+                value
+            in
+            style [ theme_decl; columns (Var ref) ]
+        | None -> style [ columns (Var ref) ])
     | Columns_count n -> style [ columns (Count n) ]
     | Columns_3xs -> columns_with_var Sizing.container_3xs (Rem 16.0)
     | Columns_2xs -> columns_with_var Sizing.container_2xs (Rem 18.0)
