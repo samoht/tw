@@ -491,8 +491,8 @@ let property_info_to_declaration_value (Css.Property_info info) =
           match info.syntax with
           | Length -> (
               match v with
-              | Zero -> "0"
-              | Px f when f = 0. -> "0"
+              | Zero -> "0px"
+              | Px f when f = 0. -> "0px"
               | _ -> Css.Pp.to_string (pp_length ~always:true) v)
           | Number -> Pp.float v ^ "%"
           | syntax -> Css.Pp.to_string (pp_value syntax) v))
