@@ -24,6 +24,7 @@ module Handler = struct
     | Columns_6xl
     | Columns_7xl
     | Columns_arbitrary of int
+    | Columns_bracket_var of string
 
   type Utility.base += Self of t
 
@@ -60,6 +61,10 @@ module Handler = struct
     | Columns_6xl -> columns_with_var Sizing.container_6xl (Rem 72.0)
     | Columns_7xl -> columns_with_var Sizing.container_7xl (Rem 80.0)
     | Columns_arbitrary n -> style [ columns (Count n) ]
+    | Columns_bracket_var s ->
+        let inner = Parse.extract_var_name s in
+        let ref : Css.columns_value Css.var = Css.var_ref inner in
+        style [ columns (Var ref) ]
 
   (* Tailwind sorts column utilities lexicographically by their suffix. This
      function computes a sort key that preserves lexicographic order: "1" < "10"
@@ -100,6 +105,7 @@ module Handler = struct
       | Columns_6xl -> "6xl"
       | Columns_7xl -> "7xl"
       | Columns_arbitrary n -> "[" ^ string_of_int n ^ "]"
+      | Columns_bracket_var _ -> "[z"
     in
     string_to_sortkey suffix
 
@@ -120,6 +126,8 @@ module Handler = struct
     | [ "columns"; "5xl" ] -> Ok Columns_5xl
     | [ "columns"; "6xl" ] -> Ok Columns_6xl
     | [ "columns"; "7xl" ] -> Ok Columns_7xl
+    | [ "columns"; value ] when Parse.is_bracket_var value ->
+        Ok (Columns_bracket_var (Parse.bracket_inner value))
     | [ "columns"; n ] -> (
         let len = String.length n in
         if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
@@ -150,6 +158,7 @@ module Handler = struct
     | Columns_6xl -> "columns-6xl"
     | Columns_7xl -> "columns-7xl"
     | Columns_arbitrary n -> "columns-[" ^ string_of_int n ^ "]"
+    | Columns_bracket_var s -> "columns-[" ^ s ^ "]"
 end
 
 open Handler
