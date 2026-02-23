@@ -406,6 +406,7 @@ val property_default :
   initial:'a ->
   ?inherits:bool ->
   ?universal:bool ->
+  ?initial_css:string ->
   ?property_order:int ->
   ?family:family ->
   string ->
