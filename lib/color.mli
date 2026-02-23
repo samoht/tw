@@ -485,6 +485,8 @@ type opacity_modifier =
   | No_opacity
   | Opacity_percent of float  (** e.g., /50 means 50% *)
   | Opacity_arbitrary of float  (** e.g., /[0.5] means 0.5 *)
+  | Opacity_bracket_percent of float
+      (** e.g., /[50%] means 50% but preserves bracket form in class name *)
   | Opacity_named of string  (** e.g., /half, /custom - theme-defined names *)
 
 val parse_opacity_modifier : string -> string * opacity_modifier

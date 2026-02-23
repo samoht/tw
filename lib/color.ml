@@ -98,6 +98,34 @@ let rgb_to_oklch rgb =
 
   { l = lightness; c = chroma; h = hue }
 
+let rgb_to_oklab rgb =
+  let r_lin = linearize_channel rgb.r in
+  let g_lin = linearize_channel rgb.g in
+  let b_lin = linearize_channel rgb.b in
+  let l =
+    (0.4122214708 *. r_lin) +. (0.5363325363 *. g_lin) +. (0.0514459929 *. b_lin)
+  in
+  let m =
+    (0.2119034982 *. r_lin) +. (0.6806995451 *. g_lin) +. (0.1073969566 *. b_lin)
+  in
+  let s =
+    (0.0883024619 *. r_lin) +. (0.2817188376 *. g_lin) +. (0.6299787005 *. b_lin)
+  in
+  let cbrt x = if x < 0.0 then -.(-.x ** (1.0 /. 3.0)) else x ** (1.0 /. 3.0) in
+  let l' = cbrt l in
+  let m' = cbrt m in
+  let s' = cbrt s in
+  let ok_l =
+    (0.2104542553 *. l') +. (0.7936177850 *. m') -. (0.0040720468 *. s')
+  in
+  let ok_a =
+    (1.9779984951 *. l') -. (2.4285922050 *. m') +. (0.4505937099 *. s')
+  in
+  let ok_b =
+    (0.0259040371 *. l') +. (0.7827717662 *. m') -. (0.8086757660 *. s')
+  in
+  (ok_l *. 100.0, ok_a, ok_b)
+
 let oklch_to_rgb oklch =
   (* Convert LCH to Lab *)
   let ok_l = oklch.l /. 100.0 in
@@ -701,7 +729,14 @@ let of_string = function
   | "fuchsia" -> Ok Fuchsia
   | "pink" -> Ok Pink
   | "rose" -> Ok Rose
-  | s -> Error (`Msg ("Unknown color: " ^ s))
+  | s ->
+      let len = String.length s in
+      if len >= 4 && s.[0] = '[' && s.[1] = '#' && s.[len - 1] = ']' then
+        (* Arbitrary bracket hex value like [#0088cc]. Store original hex
+           (unshortened) so class names preserve it. Shortening happens later in
+           to_css for CSS output. *)
+        Ok (Hex (String.sub s 2 (len - 3)))
+      else Error (`Msg ("Unknown color: " ^ s))
 
 let rgb r g b =
   if r < 0 || r > 255 then
@@ -806,13 +841,14 @@ let to_css color shade =
   | White -> Css.Hex { hash = true; value = "fff" }
   | Hex hex ->
       (* For arbitrary hex colors, always output valid CSS with # prefix. Per
-         MDN spec, hex colors MUST have # prefix. *)
+         MDN spec, hex colors MUST have # prefix. Shorten hex for CSS output
+         (e.g., 0088cc -> 08c) while class names preserve original. *)
       let hex_value =
         if String.starts_with ~prefix:"#" hex then
           String.sub hex 1 (String.length hex - 1)
         else hex
       in
-      Css.Hex { hash = true; value = hex_value }
+      Css.Hex { hash = true; value = shorten_hex_str hex_value }
   | Oklch oklch ->
       (* Use the new Oklch constructor *)
       Css.oklch oklch.l oklch.c oklch.h
@@ -1170,6 +1206,8 @@ type opacity_modifier =
   | No_opacity
   | Opacity_percent of float (* e.g., /50 means 50% *)
   | Opacity_arbitrary of float (* e.g., /[0.5] means 0.5 *)
+  | Opacity_bracket_percent of
+      float (* e.g., /[50%] means 50% but preserves bracket form *)
   | Opacity_named of string (* e.g., /half, /custom - theme-defined names *)
 
 (** Parse opacity modifier from a string that may contain /NN or /[N.N] *)
@@ -1189,7 +1227,7 @@ let parse_opacity_modifier s =
         if String.ends_with ~suffix:"%" inner then
           let num_str = String.sub inner 0 (String.length inner - 1) in
           match float_of_string_opt num_str with
-          | Some f -> (base, Opacity_percent f)
+          | Some f -> (base, Opacity_bracket_percent f)
           | None -> (s, No_opacity)
         else
           match float_of_string_opt inner with
@@ -1267,6 +1305,7 @@ module Handler = struct
     (* Accent colors *)
     | Accent of color * int
     | Accent_opacity of color * int * opacity_modifier
+    | Accent_transparent
     | Accent_current
     | Accent_current_opacity of opacity_modifier
     | Accent_inherit
@@ -1306,6 +1345,48 @@ module Handler = struct
     match Scheme.get_hex_color !current_scheme color_name with
     | Some hex -> Css.hex hex
     | None -> to_css c (if is_base_color c then 500 else shade)
+
+  (** Get a property-scoped color variable. For scheme colors, uses the standard
+      [--color-{name}]. For non-scheme colors, uses [--{property_prefix}-{name}]
+      (e.g., [--accent-color-blue-500]). *)
+  let get_property_color_var ~property_prefix (c : color) shade =
+    let color_name = scheme_color_name c shade in
+    let is_scheme =
+      Scheme.get_hex_color !current_scheme color_name <> Stdlib.Option.none
+    in
+    if is_scheme then get_color_var c shade
+    else
+      let base = pp c in
+      let name = property_prefix ^ "-" ^ color_name in
+      match Hashtbl.find_opt color_var_cache name with
+      | Some var -> var
+      | Stdlib.Option.None ->
+          let var_order =
+            if is_base_color c then theme_order_with_shade base 0
+            else theme_order_with_shade base shade
+          in
+          let var = Var.theme Css.Color name ~order:var_order in
+          Hashtbl.add color_var_cache name var;
+          var
+
+  (** Get the color value for use with property-scoped variables. Checks scheme
+      first, then theme value overrides for property-scoped name, then converts
+      from oklch as fallback. *)
+  let get_property_color_value ~property_prefix (c : color) shade =
+    let color_name = scheme_color_name c shade in
+    match Scheme.get_hex_color !current_scheme color_name with
+    | Some hex -> Css.hex hex
+    | None -> (
+        (* Check theme value overrides for property-scoped name *)
+        let prop_name = property_prefix ^ "-" ^ color_name in
+        match Var.get_theme_value prop_name with
+        | Some value -> Css.hex value
+        | None ->
+            let oklch_val =
+              to_oklch c (if is_base_color c then 500 else shade)
+            in
+            let rgb_val = oklch_to_rgb oklch_val in
+            Css.hex (rgb_to_hex rgb_val))
 
   open Style
   open Css
@@ -1367,6 +1448,7 @@ module Handler = struct
         match shade_of_strings color_parts with
         | Ok (color, shade) -> Ok (Border (color, shade))
         | Error e -> Error e)
+    | [ "accent"; "transparent" ] -> Ok Accent_transparent
     | [ "accent"; "inherit" ] -> Ok Accent_inherit
     | [ "accent"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
@@ -1469,11 +1551,16 @@ module Handler = struct
       let css_color = to_css color shade in
       style [ Css.accent_color css_color ]
     else
-      let color_var = get_color_var color shade in
-      let color_value = get_color_value color shade in
+      let color_var =
+        get_property_color_var ~property_prefix:"accent-color" color shade
+      in
+      let color_value =
+        get_property_color_value ~property_prefix:"accent-color" color shade
+      in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.accent_color (Var color_ref) ])
 
+  let accent_transparent = style [ Css.accent_color (Css.hex "#0000") ]
   let accent_current = style [ Css.accent_color Current ]
   let accent_inherit = style [ Css.accent_color Inherit ]
 
@@ -1512,6 +1599,7 @@ module Handler = struct
   let opacity_to_percent = function
     | No_opacity -> 100.0
     | Opacity_percent p -> p (* Already a percentage like 50 *)
+    | Opacity_bracket_percent p -> p (* [50%] is also a percentage *)
     | Opacity_arbitrary f -> f *. 100.0 (* e.g., 0.5 -> 50 *)
     | Opacity_named _ ->
         (* Named opacity requires theme variable lookup, default to 100% *)
@@ -1526,61 +1614,92 @@ module Handler = struct
       - With hex scheme: fallback is hex+alpha, [\@supports] has color-mix
       - With oklch scheme (default): fallback is color-mix(srgb), [\@supports]
         has color-mix(oklab) *)
-  let color_with_opacity_style ~property c shade opacity =
+  let color_with_opacity_style ~property ?property_prefix c shade opacity =
     let percent = opacity_to_percent opacity in
-    let scheme = !current_scheme in
-    let color_name = scheme_color_name c shade in
-    (* Check if color is defined as hex in the scheme *)
-    match Scheme.get_hex_color scheme color_name with
-    | Some hex_value ->
-        (* Scheme has hex color: use hex+alpha fallback with top-level
-           @supports *)
-        let hex_with_alpha = hex_with_alpha hex_value percent in
-        let fallback_decl = property (Css.hex hex_with_alpha) in
-        (* Theme declaration for the variable *)
-        let color_var = get_color_var c shade in
-        let theme_decl, color_ref = Var.binding color_var (Css.hex hex_value) in
-        (* Progressive enhancement: color-mix(in oklab, var(--color-X) NN%,
-           transparent) *)
-        let oklab_color =
-          Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-            ~percent1:percent
-        in
-        let oklab_decl = property oklab_color in
-        (* Create @supports block with oklab version as top-level rule. Use
-           placeholder selector that rules.ml replaces with actual class. *)
-        let supports_block =
-          Css.supports ~condition:color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-        in
-        style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
-    | None ->
-        (* Default: use oklch and color-mix fallback *)
-        let oklch = to_oklch c shade in
-        (* Fallback: color-mix(in srgb, oklch(...) NN%, transparent) *)
-        let fallback_color =
-          Css.color_mix ~in_space:Srgb
-            (Css.oklch oklch.l oklch.c oklch.h)
-            Css.Transparent ~percent1:percent
-        in
-        let fallback_decl = property fallback_color in
-        (* Progressive enhancement: color-mix(in oklab, var(--color-X) NN%,
-           transparent) *)
-        let color_var = get_color_var c shade in
-        let color_value = to_css c (if is_base_color c then 500 else shade) in
-        let theme_decl, color_ref = Var.binding color_var color_value in
-        let oklab_color =
-          Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-            ~percent1:percent
-        in
-        let oklab_decl = property oklab_color in
-        (* Create @supports block with oklab version as top-level rule. Use
-           placeholder selector that rules.ml replaces with actual class. *)
-        let supports_block =
-          Css.supports ~condition:color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-        in
-        style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
+    if is_custom_color c then
+      (* Custom/arbitrary colors (hex, rgb): output oklab() directly. No theme
+         variables, no @supports, no hex+alpha fallback. *)
+      let ok_l, ok_a, ok_b =
+        match c with
+        | Hex h -> (
+            match hex_to_rgb h with
+            | Some rgb -> rgb_to_oklab rgb
+            | None -> (0.0, 0.0, 0.0))
+        | Rgb { red; green; blue } ->
+            rgb_to_oklab { r = red; g = green; b = blue }
+        | _ -> (0.0, 0.0, 0.0)
+      in
+      (* Round to match Tailwind precision: L to 4 decimals, a/b to 3 *)
+      let round_n n f =
+        let factor = 10.0 ** float_of_int n in
+        Float.round (f *. factor) /. factor
+      in
+      let alpha = percent /. 100.0 in
+      let oklab_value =
+        Css.oklaba (round_n 4 ok_l) (round_n 3 ok_a) (round_n 3 ok_b) alpha
+      in
+      style [ property oklab_value ]
+    else
+      let scheme = !current_scheme in
+      let color_name = scheme_color_name c shade in
+      (* Check if color is defined as hex in the scheme *)
+      match Scheme.get_hex_color scheme color_name with
+      | Some hex_value ->
+          (* Scheme has hex color: use hex+alpha fallback with top-level
+             @supports *)
+          let hex_with_alpha = hex_with_alpha hex_value percent in
+          let fallback_decl = property (Css.hex hex_with_alpha) in
+          (* Theme declaration for the variable *)
+          let color_var = get_color_var c shade in
+          let theme_decl, color_ref =
+            Var.binding color_var (Css.hex hex_value)
+          in
+          (* Progressive enhancement: color-mix(in oklab, var(--color-X) NN%,
+             transparent) *)
+          let oklab_color =
+            Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+              ~percent1:percent
+          in
+          let oklab_decl = property oklab_color in
+          (* Create @supports block with oklab version as top-level rule. Use
+             placeholder selector that rules.ml replaces with actual class. *)
+          let supports_block =
+            Css.supports ~condition:color_mix_supports_condition
+              [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+          in
+          style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
+      | None ->
+          (* Non-scheme color: use property-scoped variable if prefix given *)
+          let color_var =
+            match property_prefix with
+            | Some prefix ->
+                get_property_color_var ~property_prefix:prefix c shade
+            | Stdlib.Option.None -> get_color_var c shade
+          in
+          let color_value =
+            match property_prefix with
+            | Some prefix ->
+                get_property_color_value ~property_prefix:prefix c shade
+            | Stdlib.Option.None ->
+                to_css c (if is_base_color c then 500 else shade)
+          in
+          (* Fallback: hex+alpha from converted value *)
+          let oklch = to_oklch c shade in
+          let rgb = oklch_to_rgb oklch in
+          let hex_value = rgb_to_hex rgb in
+          let hex_with_alpha_str = hex_with_alpha hex_value percent in
+          let fallback_decl = property (Css.hex hex_with_alpha_str) in
+          let theme_decl, color_ref = Var.binding color_var color_value in
+          let oklab_color =
+            Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+              ~percent1:percent
+          in
+          let oklab_decl = property oklab_color in
+          let supports_block =
+            Css.supports ~condition:color_mix_supports_condition
+              [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+          in
+          style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
 
   (** Background color with opacity *)
   let bg_with_opacity c shade opacity =
@@ -1596,7 +1715,8 @@ module Handler = struct
 
   (** Accent color with opacity *)
   let accent_with_opacity c shade opacity =
-    color_with_opacity_style ~property:Css.accent_color c shade opacity
+    color_with_opacity_style ~property:Css.accent_color
+      ~property_prefix:"accent-color" c shade opacity
 
   (** Caret color with opacity *)
   let caret_with_opacity c shade opacity =
@@ -1651,6 +1771,7 @@ module Handler = struct
     | Accent (color, shade) -> accent' color shade
     | Accent_opacity (color, shade, opacity) ->
         accent_with_opacity color shade opacity
+    | Accent_transparent -> accent_transparent
     | Accent_current -> accent_current
     | Accent_current_opacity opacity ->
         current_color_with_opacity ~property:Css.accent_color opacity
@@ -1711,27 +1832,14 @@ module Handler = struct
     | Border_current -> 0
     | Border_current_opacity _ -> 0
     | Accent (color, shade) ->
-        let base =
-          if is_base_color color then
-            suborder_with_shade (color_to_string color)
-          else
-            suborder_with_shade
-              (color_to_string color ^ "-" ^ string_of_int shade)
-        in
-        (* Accent comes after ALL text colors. Since text uses 20000 +
-           color*1000 and colors go up to ~25, max text suborder is ~45000. Use
-           50000 base to ensure accent always comes after text regardless of
-           color. *)
-        50000 + base
+        (* All accent colors use the same suborder (50000) to allow alphabetical
+           sorting, matching Tailwind v4 behavior. *)
+        let _ = (color, shade) in
+        50000
     | Accent_opacity (color, shade, _) ->
-        let base =
-          if is_base_color color then
-            suborder_with_shade (color_to_string color)
-          else
-            suborder_with_shade
-              (color_to_string color ^ "-" ^ string_of_int shade)
-        in
-        50000 + base
+        let _ = (color, shade) in
+        50000
+    | Accent_transparent -> 50000
     | Accent_current -> 50000
     | Accent_current_opacity _ -> 50000
     | Accent_inherit -> 50000
@@ -1798,6 +1906,9 @@ module Handler = struct
     | Opacity_percent p ->
         if Float.is_integer p then Printf.sprintf "/%d" (int_of_float p)
         else Printf.sprintf "/%g" p
+    | Opacity_bracket_percent p ->
+        if Float.is_integer p then Printf.sprintf "/[%d%%]" (int_of_float p)
+        else Printf.sprintf "/[%g%%]" p
     | Opacity_arbitrary f -> Printf.sprintf "/[%g]" f
     | Opacity_named name -> "/" ^ name
 
@@ -1851,6 +1962,7 @@ module Handler = struct
         else
           "accent-" ^ color_to_string c ^ "-" ^ string_of_int shade
           ^ opacity_suffix opacity
+    | Accent_transparent -> "accent-transparent"
     | Accent_current -> "accent-current"
     | Accent_current_opacity opacity ->
         "accent-current" ^ opacity_suffix opacity
@@ -1902,6 +2014,11 @@ let pp_opacity = function
       let rounded = Float.round pct in
       if Float.equal pct rounded then string_of_int (int_of_float pct)
       else Printf.sprintf "%g" pct
+  | Opacity_bracket_percent pct ->
+      let rounded = Float.round pct in
+      if Float.equal pct rounded then
+        "[" ^ string_of_int (int_of_float pct) ^ "%]"
+      else Printf.sprintf "[%g%%]" pct
   | Opacity_arbitrary f -> "[" ^ string_of_float f ^ "]"
   | Opacity_named name -> name
 
