@@ -64,14 +64,15 @@ module Handler = struct
       style
         [ Css.grid_template_columns (Repeat (n, [ Min_max (Zero, Fr 1.0) ])) ]
 
-  let grid_cols_none =
-    let v : Css.grid_template =
-      Var
-        (Var.theme_ref "grid-template-columns-none"
-           ~default:(None : Css.grid_template)
-           ~default_css:"none")
-    in
-    style [ Css.grid_template_columns v ]
+  let grid_cols_none () =
+    let var_name = "grid-template-columns-none" in
+    match Var.get_theme_value var_name with
+    | Some value ->
+        let theme_decl =
+          Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String value
+        in
+        style [ theme_decl; Css.grid_template_columns Auto ]
+    | None -> style [ Css.grid_template_columns None ]
 
   let grid_cols_subgrid = style [ Css.grid_template_columns Subgrid ]
 
@@ -130,14 +131,15 @@ module Handler = struct
     else
       style [ Css.grid_template_rows (Repeat (n, [ Min_max (Zero, Fr 1.0) ])) ]
 
-  let grid_rows_none =
-    let v : Css.grid_template =
-      Var
-        (Var.theme_ref "grid-template-rows-none"
-           ~default:(None : Css.grid_template)
-           ~default_css:"none")
-    in
-    style [ Css.grid_template_rows v ]
+  let grid_rows_none () =
+    let var_name = "grid-template-rows-none" in
+    match Var.get_theme_value var_name with
+    | Some value ->
+        let theme_decl =
+          Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String value
+        in
+        style [ theme_decl; Css.grid_template_rows Auto ]
+    | None -> style [ Css.grid_template_rows None ]
 
   let grid_rows_subgrid = style [ Css.grid_template_rows Subgrid ]
   let grid_flow_row = style [ Css.grid_auto_flow Row ]
@@ -145,7 +147,17 @@ module Handler = struct
   let grid_flow_dense = style [ Css.grid_auto_flow Dense ]
   let grid_flow_row_dense = style [ Css.grid_auto_flow Row_dense ]
   let grid_flow_col_dense = style [ Css.grid_auto_flow Column_dense ]
-  let auto_cols_auto = style [ Css.grid_auto_columns Auto ]
+
+  let auto_cols_auto () =
+    let var_name = "grid-auto-columns-auto" in
+    match Var.get_theme_value var_name with
+    | Some value ->
+        let theme_decl =
+          Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String value
+        in
+        style [ theme_decl; Css.grid_auto_columns Auto ]
+    | None -> style [ Css.grid_auto_columns Auto ]
+
   let auto_cols_min = style [ Css.grid_auto_columns Min_content ]
   let auto_cols_max = style [ Css.grid_auto_columns Max_content ]
   let auto_cols_fr = style [ Css.grid_auto_columns (Min_max (Zero, Fr 1.0)) ]
@@ -156,7 +168,16 @@ module Handler = struct
 
   (** {1 Grid Auto Rows} *)
 
-  let auto_rows_auto = style [ Css.grid_auto_rows Auto ]
+  let auto_rows_auto () =
+    let var_name = "grid-auto-rows-auto" in
+    match Var.get_theme_value var_name with
+    | Some value ->
+        let theme_decl =
+          Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String value
+        in
+        style [ theme_decl; Css.grid_auto_rows Auto ]
+    | None -> style [ Css.grid_auto_rows Auto ]
+
   let auto_rows_min = style [ Css.grid_auto_rows Min_content ]
   let auto_rows_max = style [ Css.grid_auto_rows Max_content ]
   let auto_rows_fr = style [ Css.grid_auto_rows (Min_max (Zero, Fr 1.0)) ]
@@ -168,11 +189,11 @@ module Handler = struct
   (** Convert grid template utility to style *)
   let to_style = function
     | Grid_cols n -> grid_cols n
-    | Grid_cols_none -> grid_cols_none
+    | Grid_cols_none -> grid_cols_none ()
     | Grid_cols_subgrid -> grid_cols_subgrid
     | Grid_cols_arbitrary s -> grid_cols_arbitrary s
     | Grid_rows n -> grid_rows n
-    | Grid_rows_none -> grid_rows_none
+    | Grid_rows_none -> grid_rows_none ()
     | Grid_rows_subgrid -> grid_rows_subgrid
     | Grid_rows_arbitrary s -> grid_rows_arbitrary s
     | Grid_flow_row -> grid_flow_row
@@ -180,12 +201,12 @@ module Handler = struct
     | Grid_flow_dense -> grid_flow_dense
     | Grid_flow_row_dense -> grid_flow_row_dense
     | Grid_flow_col_dense -> grid_flow_col_dense
-    | Auto_cols_auto -> auto_cols_auto
+    | Auto_cols_auto -> auto_cols_auto ()
     | Auto_cols_min -> auto_cols_min
     | Auto_cols_max -> auto_cols_max
     | Auto_cols_fr -> auto_cols_fr
     | Auto_cols_arbitrary s -> auto_cols_arbitrary s
-    | Auto_rows_auto -> auto_rows_auto
+    | Auto_rows_auto -> auto_rows_auto ()
     | Auto_rows_min -> auto_rows_min
     | Auto_rows_max -> auto_rows_max
     | Auto_rows_fr -> auto_rows_fr
