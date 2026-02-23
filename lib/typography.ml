@@ -1502,15 +1502,20 @@ module Typography_late = struct
     let ref : Css.list_style_image Css.var = Css.var_ref inner in
     style [ list_style_image (Var ref) ]
 
-  let list_image_none =
-    style
-      [
-        list_style_image
-          (Var
-             (Var.theme_ref "list-style-image-none"
-                ~default:(None : Css.list_style_image)
-                ~default_css:"none"));
-      ]
+  let list_image_none () =
+    let var_name = "list-style-image-none" in
+    let ref =
+      Var.theme_ref var_name
+        ~default:(None : Css.list_style_image)
+        ~default_css:"none"
+    in
+    match Var.get_theme_value var_name with
+    | Some value ->
+        let theme_decl =
+          Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String value
+        in
+        style [ theme_decl; list_style_image (Var ref) ]
+    | None -> style [ list_style_image (Var ref) ]
 
   let text_ellipsis = style [ text_overflow Ellipsis ]
   let text_clip = style [ text_overflow Clip ]
@@ -1680,7 +1685,7 @@ module Typography_late = struct
     | List_bracket_var s -> list_bracket_var s
     | List_inside -> list_inside
     | List_outside -> list_outside
-    | List_image_none -> list_image_none
+    | List_image_none -> list_image_none ()
     | List_image_bracket_var s -> list_image_bracket_var s
     | List_image_url url -> list_image_url url
     | Underline_offset_auto -> underline_offset_auto
