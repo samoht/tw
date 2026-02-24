@@ -1034,12 +1034,29 @@ let outputs util =
 (* ======================================================================== *)
 
 (** Strip modifier prefixes (sm:, md:, hover:, etc.) to extract base utility
-    name. Modifier prefixes come before the utility name. *)
+    name. Modifier prefixes come before the utility name. Colons inside bracket
+    values (e.g., [family-name:var(...)]) are not modifier separators. *)
 let extract_base_utility class_name_no_pseudo =
-  match String.rindex_opt class_name_no_pseudo ':' with
+  let len = String.length class_name_no_pseudo in
+  (* Find the last colon that is NOT inside brackets *)
+  let rec find_last_colon_outside_brackets i bracket_depth last_colon =
+    if i >= len then last_colon
+    else
+      match class_name_no_pseudo.[i] with
+      | '[' ->
+          find_last_colon_outside_brackets (i + 1) (bracket_depth + 1)
+            last_colon
+      | ']' ->
+          find_last_colon_outside_brackets (i + 1)
+            (max 0 (bracket_depth - 1))
+            last_colon
+      | ':' when bracket_depth = 0 ->
+          find_last_colon_outside_brackets (i + 1) bracket_depth (Some i)
+      | _ -> find_last_colon_outside_brackets (i + 1) bracket_depth last_colon
+  in
+  match find_last_colon_outside_brackets 0 0 None with
   | Some colon_pos ->
-      String.sub class_name_no_pseudo (colon_pos + 1)
-        (String.length class_name_no_pseudo - colon_pos - 1)
+      String.sub class_name_no_pseudo (colon_pos + 1) (len - colon_pos - 1)
   | None -> class_name_no_pseudo
 
 (** Parse utility and get ordering, with fallback for non-utility classes *)
@@ -1947,8 +1964,9 @@ let rec filter_theme_from_statements statements =
 
 (* Compute the merge key from a base class name. The merge key is the utility
    name without modifier prefixes (before ':') and without opacity suffixes
-   (from '/' onward). This allows rules like accent-current and
-   accent-current/50 to be combined when they produce identical declarations. *)
+   (from '/' onward). For bracket values, use the prefix before '[' so that
+   classes like font-[family-name:...] and font-[generic-name:...] get the same
+   merge key and can be combined when they produce identical declarations. *)
 let merge_key_of_base_class base_class =
   match base_class with
   | None -> None
@@ -1958,6 +1976,12 @@ let merge_key_of_base_class base_class =
         match String.index_opt base '/' with
         | Some slash_pos -> String.sub base 0 slash_pos
         | None -> base
+      in
+      (* Strip bracket content so bracket variants with identical CSS merge *)
+      let key =
+        match String.index_opt key '[' with
+        | Some bracket_pos -> String.sub key 0 bracket_pos
+        | None -> key
       in
       Some key
 

@@ -313,6 +313,14 @@ module Typography_early = struct
     | Font_bold
     | Font_extrabold
     | Font_black
+    | (* Arbitrary font values - store (bracket_content, parsed_value) *)
+      Font_bracket_weight of string * int (* font-[100] *)
+    | Font_bracket_weight_var of string * string
+      (* font-[number:var(--x)] or font-[var(--x)] *)
+    | Font_bracket_family_quoted of string * string (* font-["arial_rounded"] *)
+    | Font_bracket_family_name of string * string (* font-[ui-sans-serif] *)
+    | Font_bracket_family_var of string * string
+      (* font-[family-name:var(--x)] or font-[generic-name:var(--x)] *)
     | (* Font families *)
       Font_sans
     | Font_serif
@@ -359,6 +367,42 @@ module Typography_early = struct
     | [ "text"; "7xl" ] -> Ok Text_7xl
     | [ "text"; "8xl" ] -> Ok Text_8xl
     | [ "text"; "9xl" ] -> Ok Text_9xl
+    | [ "font"; v ] when Parse.is_bracket_value v -> (
+        let inner = Parse.bracket_inner v in
+        if String.length inner > 0 && inner.[0] = '"' then
+          (* font-["arial_rounded"] → quoted font family *)
+          let unquoted =
+            let s =
+              if
+                String.length inner >= 2
+                && inner.[String.length inner - 1] = '"'
+              then String.sub inner 1 (String.length inner - 2)
+              else inner
+            in
+            String.map (fun c -> if c = '_' then ' ' else c) s
+          in
+          Ok (Font_bracket_family_quoted (inner, unquoted))
+        else if
+          String.length inner >= 12 && String.sub inner 0 12 = "family-name:"
+        then
+          let rest = String.sub inner 12 (String.length inner - 12) in
+          Ok (Font_bracket_family_var (inner, rest))
+        else if
+          String.length inner >= 13 && String.sub inner 0 13 = "generic-name:"
+        then
+          let rest = String.sub inner 13 (String.length inner - 13) in
+          Ok (Font_bracket_family_var (inner, rest))
+        else if String.length inner >= 7 && String.sub inner 0 7 = "number:"
+        then
+          let rest = String.sub inner 7 (String.length inner - 7) in
+          Ok (Font_bracket_weight_var (inner, rest))
+        else
+          match int_of_string_opt inner with
+          | Some n -> Ok (Font_bracket_weight (inner, n))
+          | None ->
+              if String.length inner > 4 && String.sub inner 0 4 = "var(" then
+                Ok (Font_bracket_weight_var (inner, inner))
+              else Ok (Font_bracket_family_name (inner, inner)))
     | [ "font"; "thin" ] -> Ok Font_thin
     | [ "font"; "extralight" ] -> Ok Font_extralight
     | [ "font"; "light" ] -> Ok Font_light
@@ -413,6 +457,11 @@ module Typography_early = struct
     | Font_bold -> "font-bold"
     | Font_extrabold -> "font-extrabold"
     | Font_black -> "font-black"
+    | Font_bracket_weight (raw, _) -> "font-[" ^ raw ^ "]"
+    | Font_bracket_weight_var (raw, _) -> "font-[" ^ raw ^ "]"
+    | Font_bracket_family_quoted (raw, _) -> "font-[" ^ raw ^ "]"
+    | Font_bracket_family_name (raw, _) -> "font-[" ^ raw ^ "]"
+    | Font_bracket_family_var (raw, _) -> "font-[" ^ raw ^ "]"
     | Font_sans -> "font-sans"
     | Font_serif -> "font-serif"
     | Font_mono -> "font-mono"
@@ -442,6 +491,11 @@ module Typography_early = struct
     | Text_left -> 1004
     | Text_right -> 1005
     | Text_start -> 1006
+    (* Bracket font families come before named font families *)
+    | Font_bracket_family_quoted _ -> 1500
+    | Font_bracket_family_var _ -> 1500
+    | Font_bracket_family_name _ -> 1500
+    (* Bracket font weights come before named font weights *)
     (* Font family - comes between text-align and text-size *)
     | Font_sans -> 1501
     | Font_serif -> 1502
@@ -469,6 +523,9 @@ module Typography_early = struct
     | Leading_snug -> 3005
     | Leading_tight -> 3006
     | Leading n -> 3100 + n
+    (* Bracket font weights come before named font weights *)
+    | Font_bracket_weight _ -> 4000
+    | Font_bracket_weight_var _ -> 4000
     (* Font weight comes fourth - alphabetical order *)
     | Font_black -> 4100
     | Font_bold -> 4200
@@ -674,6 +731,50 @@ module Typography_early = struct
     | Font_bold -> font_bold
     | Font_extrabold -> font_extrabold
     | Font_black -> font_black
+    | Font_bracket_weight (_, n) ->
+        let weight_util_decl, _ = Var.binding font_weight_var (Weight n) in
+        let property_rules =
+          match Var.property_rule font_weight_var with
+          | None -> Css.empty
+          | Some rule -> rule
+        in
+        style ~property_rules [ weight_util_decl; font_weight (Weight n) ]
+    | Font_bracket_weight_var (_, var_str) ->
+        let bare_name = Parse.extract_var_name var_str in
+        let var_ref : Css.font_weight Css.var = Css.var_ref bare_name in
+        let weight_util_decl, _ =
+          Var.binding font_weight_var (Css.Var var_ref)
+        in
+        let property_rules =
+          match Var.property_rule font_weight_var with
+          | None -> Css.empty
+          | Some rule -> rule
+        in
+        style ~property_rules [ weight_util_decl; font_weight (Var var_ref) ]
+    | Font_bracket_family_quoted (_, s) -> style [ font_family (Name s) ]
+    | Font_bracket_family_name (_, s) ->
+        (* Parse known generic family names *)
+        let family =
+          match s with
+          | "ui-sans-serif" -> Css.Ui_sans_serif
+          | "ui-serif" -> Css.Ui_serif
+          | "ui-monospace" -> Css.Ui_monospace
+          | "ui-rounded" -> Css.Ui_rounded
+          | "sans-serif" -> Css.Sans_serif
+          | "serif" -> Css.Serif
+          | "monospace" -> Css.Monospace
+          | "cursive" -> Css.Cursive
+          | "fantasy" -> Css.Fantasy
+          | "system-ui" -> Css.System_ui
+          | "emoji" -> Css.Emoji
+          | "math" -> Css.Math
+          | _ -> Css.Name s
+        in
+        style [ font_family family ]
+    | Font_bracket_family_var (_, var_str) ->
+        let bare_name = Parse.extract_var_name var_str in
+        let var_ref : Css.font_family Css.var = Css.var_ref bare_name in
+        style [ font_family (Var var_ref) ]
     | Font_sans -> font_sans
     | Font_serif -> font_serif
     | Font_mono -> font_mono
