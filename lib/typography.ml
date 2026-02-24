@@ -321,6 +321,9 @@ module Typography_early = struct
     | Font_bracket_family_name of string * string (* font-[ui-sans-serif] *)
     | Font_bracket_family_var of string * string
       (* font-[family-name:var(--x)] or font-[generic-name:var(--x)] *)
+    | (* Font feature settings *)
+      Font_features_quoted of string (* font-features-["smcp"] *)
+    | Font_features_var of string (* font-features-[var(--x)] *)
     | (* Font families *)
       Font_sans
     | Font_serif
@@ -403,6 +406,11 @@ module Typography_early = struct
               if String.length inner > 4 && String.sub inner 0 4 = "var(" then
                 Ok (Font_bracket_weight_var (inner, inner))
               else Ok (Font_bracket_family_name (inner, inner)))
+    | [ "font"; "features"; v ] when Parse.is_bracket_value v ->
+        let inner = Parse.bracket_inner v in
+        if String.length inner > 4 && String.sub inner 0 4 = "var(" then
+          Ok (Font_features_var inner)
+        else Ok (Font_features_quoted inner)
     | [ "font"; "thin" ] -> Ok Font_thin
     | [ "font"; "extralight" ] -> Ok Font_extralight
     | [ "font"; "light" ] -> Ok Font_light
@@ -462,6 +470,8 @@ module Typography_early = struct
     | Font_bracket_family_quoted (raw, _) -> "font-[" ^ raw ^ "]"
     | Font_bracket_family_name (raw, _) -> "font-[" ^ raw ^ "]"
     | Font_bracket_family_var (raw, _) -> "font-[" ^ raw ^ "]"
+    | Font_features_quoted raw -> "font-features-[" ^ raw ^ "]"
+    | Font_features_var raw -> "font-features-[" ^ raw ^ "]"
     | Font_sans -> "font-sans"
     | Font_serif -> "font-serif"
     | Font_mono -> "font-mono"
@@ -536,6 +546,9 @@ module Typography_early = struct
     | Font_normal -> 4700
     | Font_semibold -> 4800
     | Font_thin -> 4900
+    (* Font feature settings *)
+    | Font_features_quoted _ -> 5000
+    | Font_features_var _ -> 5000
     (* Italic *)
     | Italic -> 7001
     | Not_italic -> 7002
@@ -775,6 +788,19 @@ module Typography_early = struct
         let bare_name = Parse.extract_var_name var_str in
         let var_ref : Css.font_family Css.var = Css.var_ref bare_name in
         style [ font_family (Var var_ref) ]
+    | Font_features_quoted s ->
+        (* Normalize comma spacing: "c2sc","smcp" → "c2sc", "smcp" *)
+        let normalized =
+          String.split_on_char ',' s |> List.map String.trim
+          |> String.concat ", "
+        in
+        style [ font_feature_settings (Feature_list normalized) ]
+    | Font_features_var var_str ->
+        let bare_name = Parse.extract_var_name var_str in
+        let var_ref : Css.font_feature_settings Css.var =
+          Css.var_ref bare_name
+        in
+        style [ font_feature_settings (Var var_ref) ]
     | Font_sans -> font_sans
     | Font_serif -> font_serif
     | Font_mono -> font_mono

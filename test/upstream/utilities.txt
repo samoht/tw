@@ -16087,11 +16087,7 @@ font-["arial_rounded"] font-[100] font-[family-name:var(--my-family)] font-[gene
 @config run
 font-features-["c2sc","smcp"] font-features-["smcp"] font-features-[var(--my-features)]
 ---
-.font-features-\(--my-features\) {
-      font-feature-settings: var(--my-features);
-    }
-
-    .font-features-\[\"c2sc\"\,\"smcp\"\] {
+.font-features-\[\"c2sc\"\,\"smcp\"\] {
       font-feature-settings: "c2sc","smcp";
     }
 
