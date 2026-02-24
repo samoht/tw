@@ -40,6 +40,7 @@ type color =
   | Hex of string
   | Rgb of { red : int; green : int; blue : int }
   | Oklch of oklch
+  | Theme_named of string
 
 open Utility
 
@@ -180,9 +181,23 @@ val is_base_color : color -> bool
 val is_custom_color : color -> bool
 (** [is_custom_color color] checks if a color is a custom color (hex or rgb). *)
 
+val is_shadeless : color -> bool
+(** [is_shadeless color] checks if a color should NOT have a shade suffix in
+    class names (base colors, custom colors, or theme-named colors). *)
+
 val get_color_var : color -> int -> Css.color Var.theme
 (** [get_color_var color shade] gets or creates a memoized color variable for
     the given color and shade. *)
+
+val get_property_color_var :
+  property_prefix:string -> color -> int -> Css.color Var.theme
+(** [get_property_color_var ~property_prefix color shade] gets or creates a
+    property-scoped color variable (e.g., [--border-color-blue-500]). *)
+
+val get_property_color_value :
+  property_prefix:string -> color -> int -> Css.color
+(** [get_property_color_value ~property_prefix color shade] returns the CSS
+    color value for a property-scoped color variable. *)
 
 val scheme_color_name : color -> int -> string
 (** [scheme_color_name color shade] returns the scheme color name (e.g.,

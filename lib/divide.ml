@@ -152,8 +152,7 @@ module Handler = struct
      space-x-reverse does. *)
   let divide_color_style color shade =
     let class_name =
-      if Color.is_base_color color || Color.is_custom_color color then
-        "divide-" ^ Color.color_to_string color
+      if Color.is_shadeless color then "divide-" ^ Color.color_to_string color
       else "divide-" ^ Color.color_to_string color ^ "-" ^ string_of_int shade
     in
     let selector =
@@ -165,13 +164,14 @@ module Handler = struct
       let rule = Css.rule ~selector [ Css.border_color css_color ] in
       style ~rules:(Some [ rule ]) []
     else
-      let color_var = Color.get_color_var color shade in
+      let color_var =
+        Color.get_property_color_var ~property_prefix:"border-color" color shade
+      in
       let color_value =
-        Color.to_css color (if Color.is_base_color color then 500 else shade)
+        Color.get_property_color_value ~property_prefix:"border-color" color
+          shade
       in
       let decl, color_ref = Var.binding color_var color_value in
-      (* Include theme decl in the rule so it gets extracted, but props stays
-         empty to avoid emitting an empty .divide-X {} marker class *)
       let rule =
         Css.rule ~selector [ decl; Css.border_color (Css.Var color_ref) ]
       in
@@ -241,14 +241,16 @@ module Handler = struct
     | Color.Opacity_percent p ->
         if Float.is_integer p then Printf.sprintf "/%d" (int_of_float p)
         else Printf.sprintf "/%g" p
+    | Color.Opacity_bracket_percent p ->
+        if Float.is_integer p then Printf.sprintf "/[%d%%]" (int_of_float p)
+        else Printf.sprintf "/[%g%%]" p
     | Color.Opacity_arbitrary f -> Printf.sprintf "/[%g]" f
     | Color.Opacity_named name -> "/" ^ name
 
   (* Divide color with opacity using Color helpers *)
   let divide_color_opacity_style color shade opacity =
     let base_class_name =
-      if Color.is_base_color color || Color.is_custom_color color then
-        "divide-" ^ Color.color_to_string color
+      if Color.is_shadeless color then "divide-" ^ Color.color_to_string color
       else "divide-" ^ Color.color_to_string color ^ "-" ^ string_of_int shade
     in
     let class_name = base_class_name ^ opacity_suffix opacity in
@@ -297,11 +299,10 @@ module Handler = struct
     | Divide_x_reverse -> "divide-x-reverse"
     | Divide_y_reverse -> "divide-y-reverse"
     | Divide_color (c, shade) ->
-        if Color.is_base_color c || Color.is_custom_color c then
-          "divide-" ^ Color.color_to_string c
+        if Color.is_shadeless c then "divide-" ^ Color.color_to_string c
         else "divide-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
     | Divide_color_opacity (c, shade, opacity) ->
-        if Color.is_base_color c || Color.is_custom_color c then
+        if Color.is_shadeless c then
           "divide-" ^ Color.color_to_string c ^ opacity_suffix opacity
         else
           "divide-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
@@ -350,29 +351,11 @@ module Handler = struct
     | Divide_y_arb _ -> -10000 + 50000
     | Divide_x_reverse -> 0
     | Divide_y_reverse -> 1
-    (* Colors come after reverse utilities, use 100+ for ordering *)
-    | Divide_color (color, shade) ->
-        let base =
-          if Color.is_base_color color then
-            Color.suborder_with_shade (Color.color_to_string color)
-          else
-            Color.suborder_with_shade
-              (Color.color_to_string color ^ "-" ^ string_of_int shade)
-        in
-        100 + base
-    | Divide_color_opacity (color, shade, _) ->
-        let base =
-          if Color.is_base_color color then
-            Color.suborder_with_shade (Color.color_to_string color)
-          else
-            Color.suborder_with_shade
-              (Color.color_to_string color ^ "-" ^ string_of_int shade)
-        in
-        100 + base
-    | Divide_current -> 100 + (4 * 1000)
-    | Divide_current_opacity _ -> 100 + (4 * 1000)
-    | Divide_inherit -> 100 + (9 * 1000)
-    | Divide_transparent -> 100 + (25 * 1000)
+    (* All divide color utilities use flat suborder for natural sort *)
+    | Divide_color _ | Divide_color_opacity _ -> 70000
+    | Divide_current | Divide_current_opacity _ -> 70000
+    | Divide_inherit -> 70000
+    | Divide_transparent -> 70000
     | Divide_style _ -> -30000
 
   let parse_bracket_width s : Css.border_width option =
@@ -416,19 +399,31 @@ module Handler = struct
         Ok (Divide_style (Stdlib.Option.get (divide_style_of_string style_str)))
     | [ "divide"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
-        let _, opacity = Color.parse_opacity_modifier current_str in
+        let base, opacity = Color.parse_opacity_modifier current_str in
         match opacity with
-        | Color.No_opacity -> Ok Divide_current
+        | Color.No_opacity when base = "current" -> Ok Divide_current
+        | Color.No_opacity -> Error (`Msg ("Invalid divide: " ^ current_str))
         | _ -> Ok (Divide_current_opacity opacity))
     | "divide" :: color_parts when List.exists has_opacity color_parts -> (
         match Color.shade_and_opacity_of_strings color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Divide_color_opacity (color, shade, opacity))
-        | Error e -> Error e)
+        | Error _ ->
+            (* Try as theme-named color *)
+            let name = String.concat "-" color_parts in
+            let base, opacity = Color.parse_opacity_modifier name in
+            if Var.get_theme_value ("border-color-" ^ base) <> None then
+              Ok (Divide_color_opacity (Theme_named base, 500, opacity))
+            else Error (`Msg ("Invalid divide color: " ^ name)))
     | "divide" :: color_parts -> (
         match Color.shade_of_strings color_parts with
         | Ok (color, shade) -> Ok (Divide_color (color, shade))
-        | Error e -> Error e)
+        | Error _ ->
+            (* Try as theme-named color *)
+            let name = String.concat "-" color_parts in
+            if Var.get_theme_value ("border-color-" ^ name) <> None then
+              Ok (Divide_color (Theme_named name, 500))
+            else Error (`Msg ("Invalid divide color: " ^ name)))
     | _ -> Error (`Msg "Not a divide utility")
 end
 
