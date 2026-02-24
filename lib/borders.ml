@@ -21,6 +21,23 @@ let current_scheme : Scheme.t ref = ref Scheme.default
 (* Set the current scheme for radius generation *)
 let set_scheme scheme = current_scheme := scheme
 
+type rounded_position =
+  | Rp_all
+  | Rp_s
+  | Rp_e
+  | Rp_t
+  | Rp_r
+  | Rp_b
+  | Rp_l
+  | Rp_ss
+  | Rp_se
+  | Rp_ee
+  | Rp_es
+  | Rp_tl
+  | Rp_tr
+  | Rp_br
+  | Rp_bl
+
 module Handler = struct
   open Style
   open Css
@@ -217,6 +234,8 @@ module Handler = struct
     | Rounded_es_2xl
     | Rounded_es_3xl
     | Rounded_es_full
+    | (* Arbitrary bracket value rounded utilities *)
+      Rounded_arbitrary of rounded_position * string
     | (* Outline utilities *)
       Outline
     | Outline_none
@@ -411,15 +430,15 @@ module Handler = struct
   let border_current' = style [ Css.border_color Current ]
 
   (* Create radius theme variables with fallback values for inline mode *)
-  let radius_none_var = Var.theme Css.Length "radius-none" ~order:(6, 97)
-  let radius_full_var = Var.theme Css.Length "radius-full" ~order:(6, 98)
-  let radius_var = Var.theme Css.Length "radius" ~order:(6, 99)
-  let radius_sm_var = Var.theme Css.Length "radius-sm" ~order:(7, 0)
-  let radius_md_var = Var.theme Css.Length "radius-md" ~order:(7, 1)
-  let radius_lg_var = Var.theme Css.Length "radius-lg" ~order:(7, 2)
-  let radius_xl_var = Var.theme Css.Length "radius-xl" ~order:(7, 3)
-  let radius_2xl_var = Var.theme Css.Length "radius-2xl" ~order:(7, 4)
-  let radius_3xl_var = Var.theme Css.Length "radius-3xl" ~order:(7, 5)
+  let radius_none_var = Var.theme Css.Length "radius-none" ~order:(7, 0)
+  let radius_full_var = Var.theme Css.Length "radius-full" ~order:(7, 1)
+  let radius_sm_var = Var.theme Css.Length "radius-sm" ~order:(7, 2)
+  let radius_var = Var.theme Css.Length "radius" ~order:(7, 3)
+  let radius_md_var = Var.theme Css.Length "radius-md" ~order:(7, 4)
+  let radius_lg_var = Var.theme Css.Length "radius-lg" ~order:(7, 5)
+  let radius_xl_var = Var.theme Css.Length "radius-xl" ~order:(7, 6)
+  let radius_2xl_var = Var.theme Css.Length "radius-2xl" ~order:(7, 7)
+  let radius_3xl_var = Var.theme Css.Length "radius-3xl" ~order:(7, 8)
 
   let rounded_none () =
     match Scheme.find_radius !current_scheme "none" with
@@ -639,8 +658,8 @@ module Handler = struct
     style
       (decl
       :: [
-           Css.border_bottom_left_radius (Var r);
            Css.border_bottom_right_radius (Var r);
+           Css.border_bottom_left_radius (Var r);
          ])
 
   let rounded_b_none =
@@ -648,8 +667,8 @@ module Handler = struct
     style
       (decl
       :: [
-           Css.border_bottom_left_radius (Var r);
            Css.border_bottom_right_radius (Var r);
+           Css.border_bottom_left_radius (Var r);
          ])
 
   let rounded_b_sm =
@@ -657,8 +676,8 @@ module Handler = struct
     style
       (decl
       :: [
-           Css.border_bottom_left_radius (Var r);
            Css.border_bottom_right_radius (Var r);
+           Css.border_bottom_left_radius (Var r);
          ])
 
   let rounded_b_md =
@@ -666,8 +685,8 @@ module Handler = struct
     style
       (decl
       :: [
-           Css.border_bottom_left_radius (Var r);
            Css.border_bottom_right_radius (Var r);
+           Css.border_bottom_left_radius (Var r);
          ])
 
   let rounded_b_lg =
@@ -675,8 +694,8 @@ module Handler = struct
     style
       (decl
       :: [
-           Css.border_bottom_left_radius (Var r);
            Css.border_bottom_right_radius (Var r);
+           Css.border_bottom_left_radius (Var r);
          ])
 
   let rounded_b_xl =
@@ -684,8 +703,8 @@ module Handler = struct
     style
       (decl
       :: [
-           Css.border_bottom_left_radius (Var r);
            Css.border_bottom_right_radius (Var r);
+           Css.border_bottom_left_radius (Var r);
          ])
 
   let rounded_b_2xl =
@@ -693,8 +712,8 @@ module Handler = struct
     style
       (decl
       :: [
-           Css.border_bottom_left_radius (Var r);
            Css.border_bottom_right_radius (Var r);
+           Css.border_bottom_left_radius (Var r);
          ])
 
   let rounded_b_3xl =
@@ -702,8 +721,8 @@ module Handler = struct
     style
       (decl
       :: [
-           Css.border_bottom_left_radius (Var r);
            Css.border_bottom_right_radius (Var r);
+           Css.border_bottom_left_radius (Var r);
          ])
 
   let rounded_b_full =
@@ -711,8 +730,8 @@ module Handler = struct
     style
       (decl
       :: [
-           Css.border_bottom_left_radius (Var r);
            Css.border_bottom_right_radius (Var r);
+           Css.border_bottom_left_radius (Var r);
          ])
 
   (** Side-specific rounded utilities - left *)
@@ -1388,6 +1407,66 @@ module Handler = struct
   let neg_outline_offset_4 = neg_outline_offset 4
   let neg_outline_offset_8 = neg_outline_offset 8
 
+  let parse_length str : length option =
+    let len = String.length str in
+    if len >= 1 then (
+      let num_end = ref 0 in
+      while
+        !num_end < len
+        && (str.[!num_end] = '-'
+           || str.[!num_end] = '.'
+           || (str.[!num_end] >= '0' && str.[!num_end] <= '9'))
+      do
+        incr num_end
+      done;
+      let num_str = String.sub str 0 !num_end in
+      let unit_str = String.sub str !num_end (len - !num_end) in
+      match float_of_string_opt num_str with
+      | Some n -> (
+          match unit_str with
+          | "px" -> Some (Px n)
+          | "rem" -> Some (Rem n)
+          | "em" -> Some (Em n)
+          | "%" -> Some (Pct n)
+          | "" when n = 0.0 -> Some Zero
+          | _ -> None)
+      | None -> None)
+    else None
+
+  let rounded_arbitrary_style pos value =
+    let make_decls len =
+      match pos with
+      | Rp_all -> [ Css.border_radius len ]
+      | Rp_t ->
+          [ Css.border_top_left_radius len; Css.border_top_right_radius len ]
+      | Rp_r ->
+          [
+            Css.border_top_right_radius len; Css.border_bottom_right_radius len;
+          ]
+      | Rp_b ->
+          [
+            Css.border_bottom_right_radius len;
+            Css.border_bottom_left_radius len;
+          ]
+      | Rp_l ->
+          [ Css.border_top_left_radius len; Css.border_bottom_left_radius len ]
+      | Rp_tl -> [ Css.border_top_left_radius len ]
+      | Rp_tr -> [ Css.border_top_right_radius len ]
+      | Rp_br -> [ Css.border_bottom_right_radius len ]
+      | Rp_bl -> [ Css.border_bottom_left_radius len ]
+      | Rp_s ->
+          [ Css.border_start_start_radius len; Css.border_end_start_radius len ]
+      | Rp_e ->
+          [ Css.border_start_end_radius len; Css.border_end_end_radius len ]
+      | Rp_ss -> [ Css.border_start_start_radius len ]
+      | Rp_se -> [ Css.border_start_end_radius len ]
+      | Rp_ee -> [ Css.border_end_end_radius len ]
+      | Rp_es -> [ Css.border_end_start_radius len ]
+    in
+    match parse_length value with
+    | Some len -> style (make_decls len)
+    | None -> style (make_decls (Px 0.))
+
   let to_style : t -> Style.t = function
     (* Border width utilities *)
     | Border -> border_default ()
@@ -1577,6 +1656,8 @@ module Handler = struct
     | Rounded_es_2xl -> rounded_es_2xl
     | Rounded_es_3xl -> rounded_es_3xl
     | Rounded_es_full -> rounded_es_full ()
+    (* Arbitrary bracket value rounded *)
+    | Rounded_arbitrary (pos, value) -> rounded_arbitrary_style pos value
     (* Outline utilities *)
     | Outline -> outline
     | Outline_none -> outline_none
@@ -1598,153 +1679,76 @@ module Handler = struct
   let err_not_utility = Error (`Msg "Not a border utility")
 
   let suborder = function
-    (* Border radius utilities (0-99) - alphabetical, comes before border *)
-    | Rounded -> 0
-    | Rounded_2xl -> 1
-    | Rounded_3xl -> 2
-    | Rounded_full -> 3
-    | Rounded_lg -> 4
-    | Rounded_md -> 5
-    | Rounded_none -> 6
-    | Rounded_sm -> 7
-    | Rounded_xl -> 8
-    (* Side-specific rounded utilities - top (100-109) *)
-    | Rounded_t -> 100
-    | Rounded_t_none -> 101
-    | Rounded_t_sm -> 102
-    | Rounded_t_md -> 103
-    | Rounded_t_lg -> 104
-    | Rounded_t_xl -> 105
-    | Rounded_t_2xl -> 106
-    | Rounded_t_3xl -> 107
-    | Rounded_t_full -> 108
-    (* Side-specific rounded utilities - right (110-119) *)
-    | Rounded_r -> 110
-    | Rounded_r_none -> 111
-    | Rounded_r_sm -> 112
-    | Rounded_r_md -> 113
-    | Rounded_r_lg -> 114
-    | Rounded_r_xl -> 115
-    | Rounded_r_2xl -> 116
-    | Rounded_r_3xl -> 117
-    | Rounded_r_full -> 118
-    (* Side-specific rounded utilities - bottom (120-129) *)
-    | Rounded_b -> 120
-    | Rounded_b_none -> 121
-    | Rounded_b_sm -> 122
-    | Rounded_b_md -> 123
-    | Rounded_b_lg -> 124
-    | Rounded_b_xl -> 125
-    | Rounded_b_2xl -> 126
-    | Rounded_b_3xl -> 127
-    | Rounded_b_full -> 128
-    (* Side-specific rounded utilities - left (130-139) *)
-    | Rounded_l -> 130
-    | Rounded_l_none -> 131
-    | Rounded_l_sm -> 132
-    | Rounded_l_md -> 133
-    | Rounded_l_lg -> 134
-    | Rounded_l_xl -> 135
-    | Rounded_l_2xl -> 136
-    | Rounded_l_3xl -> 137
-    | Rounded_l_full -> 138
-    (* Corner-specific rounded utilities - top-left (200-209) *)
-    | Rounded_tl -> 200
-    | Rounded_tl_none -> 201
-    | Rounded_tl_sm -> 202
-    | Rounded_tl_md -> 203
-    | Rounded_tl_lg -> 204
-    | Rounded_tl_xl -> 205
-    | Rounded_tl_2xl -> 206
-    | Rounded_tl_3xl -> 207
-    | Rounded_tl_full -> 208
-    (* Corner-specific rounded utilities - top-right (210-219) *)
-    | Rounded_tr -> 210
-    | Rounded_tr_none -> 211
-    | Rounded_tr_sm -> 212
-    | Rounded_tr_md -> 213
-    | Rounded_tr_lg -> 214
-    | Rounded_tr_xl -> 215
-    | Rounded_tr_2xl -> 216
-    | Rounded_tr_3xl -> 217
-    | Rounded_tr_full -> 218
-    (* Corner-specific rounded utilities - bottom-right (220-229) *)
-    | Rounded_br -> 220
-    | Rounded_br_none -> 221
-    | Rounded_br_sm -> 222
-    | Rounded_br_md -> 223
-    | Rounded_br_lg -> 224
-    | Rounded_br_xl -> 225
-    | Rounded_br_2xl -> 226
-    | Rounded_br_3xl -> 227
-    | Rounded_br_full -> 228
-    (* Corner-specific rounded utilities - bottom-left (230-239) *)
-    | Rounded_bl -> 230
-    | Rounded_bl_none -> 231
-    | Rounded_bl_sm -> 232
-    | Rounded_bl_md -> 233
-    | Rounded_bl_lg -> 234
-    | Rounded_bl_xl -> 235
-    | Rounded_bl_2xl -> 236
-    | Rounded_bl_3xl -> 237
-    | Rounded_bl_full -> 238
-    (* Logical property rounded utilities - start (240-248) *)
-    | Rounded_s -> 240
-    | Rounded_s_none -> 241
-    | Rounded_s_sm -> 242
-    | Rounded_s_md -> 243
-    | Rounded_s_lg -> 244
-    | Rounded_s_xl -> 245
-    | Rounded_s_2xl -> 246
-    | Rounded_s_3xl -> 247
-    | Rounded_s_full -> 248
-    (* Logical property rounded utilities - end (250-258) *)
-    | Rounded_e -> 250
-    | Rounded_e_none -> 251
-    | Rounded_e_sm -> 252
-    | Rounded_e_md -> 253
-    | Rounded_e_lg -> 254
-    | Rounded_e_xl -> 255
-    | Rounded_e_2xl -> 256
-    | Rounded_e_3xl -> 257
-    | Rounded_e_full -> 258
-    (* Logical corner rounded utilities (260-295) *)
-    | Rounded_ss -> 260
-    | Rounded_ss_none -> 261
-    | Rounded_ss_sm -> 262
-    | Rounded_ss_md -> 263
-    | Rounded_ss_lg -> 264
-    | Rounded_ss_xl -> 265
-    | Rounded_ss_2xl -> 266
-    | Rounded_ss_3xl -> 267
-    | Rounded_ss_full -> 268
-    | Rounded_se -> 270
-    | Rounded_se_none -> 271
-    | Rounded_se_sm -> 272
-    | Rounded_se_md -> 273
-    | Rounded_se_lg -> 274
-    | Rounded_se_xl -> 275
-    | Rounded_se_2xl -> 276
-    | Rounded_se_3xl -> 277
-    | Rounded_se_full -> 278
-    | Rounded_ee -> 280
-    | Rounded_ee_none -> 281
-    | Rounded_ee_sm -> 282
-    | Rounded_ee_md -> 283
-    | Rounded_ee_lg -> 284
-    | Rounded_ee_xl -> 285
-    | Rounded_ee_2xl -> 286
-    | Rounded_ee_3xl -> 287
-    | Rounded_ee_full -> 288
-    | Rounded_es -> 290
-    | Rounded_es_none -> 291
-    | Rounded_es_sm -> 292
-    | Rounded_es_md -> 293
-    | Rounded_es_lg -> 294
-    | Rounded_es_xl -> 295
-    | Rounded_es_2xl -> 296
-    | Rounded_es_3xl -> 297
-    | Rounded_es_full -> 298
+    (* Border radius utilities - flat suborder per position group for natural
+       sort by class name *)
+    | Rounded | Rounded_2xl | Rounded_3xl | Rounded_full | Rounded_lg
+    | Rounded_md | Rounded_none | Rounded_sm | Rounded_xl
+    | Rounded_arbitrary (Rp_all, _) ->
+        0
+    | Rounded_t | Rounded_t_none | Rounded_t_sm | Rounded_t_md | Rounded_t_lg
+    | Rounded_t_xl | Rounded_t_2xl | Rounded_t_3xl | Rounded_t_full
+    | Rounded_arbitrary (Rp_t, _) ->
+        100
+    | Rounded_r | Rounded_r_none | Rounded_r_sm | Rounded_r_md | Rounded_r_lg
+    | Rounded_r_xl | Rounded_r_2xl | Rounded_r_3xl | Rounded_r_full
+    | Rounded_arbitrary (Rp_r, _) ->
+        110
+    | Rounded_b | Rounded_b_none | Rounded_b_sm | Rounded_b_md | Rounded_b_lg
+    | Rounded_b_xl | Rounded_b_2xl | Rounded_b_3xl | Rounded_b_full
+    | Rounded_arbitrary (Rp_b, _) ->
+        120
+    | Rounded_l | Rounded_l_none | Rounded_l_sm | Rounded_l_md | Rounded_l_lg
+    | Rounded_l_xl | Rounded_l_2xl | Rounded_l_3xl | Rounded_l_full
+    | Rounded_arbitrary (Rp_l, _) ->
+        130
+    | Rounded_tl | Rounded_tl_none | Rounded_tl_sm | Rounded_tl_md
+    | Rounded_tl_lg | Rounded_tl_xl | Rounded_tl_2xl | Rounded_tl_3xl
+    | Rounded_tl_full
+    | Rounded_arbitrary (Rp_tl, _) ->
+        200
+    | Rounded_tr | Rounded_tr_none | Rounded_tr_sm | Rounded_tr_md
+    | Rounded_tr_lg | Rounded_tr_xl | Rounded_tr_2xl | Rounded_tr_3xl
+    | Rounded_tr_full
+    | Rounded_arbitrary (Rp_tr, _) ->
+        210
+    | Rounded_br | Rounded_br_none | Rounded_br_sm | Rounded_br_md
+    | Rounded_br_lg | Rounded_br_xl | Rounded_br_2xl | Rounded_br_3xl
+    | Rounded_br_full
+    | Rounded_arbitrary (Rp_br, _) ->
+        220
+    | Rounded_bl | Rounded_bl_none | Rounded_bl_sm | Rounded_bl_md
+    | Rounded_bl_lg | Rounded_bl_xl | Rounded_bl_2xl | Rounded_bl_3xl
+    | Rounded_bl_full
+    | Rounded_arbitrary (Rp_bl, _) ->
+        230
+    | Rounded_s | Rounded_s_none | Rounded_s_sm | Rounded_s_md | Rounded_s_lg
+    | Rounded_s_xl | Rounded_s_2xl | Rounded_s_3xl | Rounded_s_full
+    | Rounded_arbitrary (Rp_s, _) ->
+        240
+    | Rounded_e | Rounded_e_none | Rounded_e_sm | Rounded_e_md | Rounded_e_lg
+    | Rounded_e_xl | Rounded_e_2xl | Rounded_e_3xl | Rounded_e_full
+    | Rounded_arbitrary (Rp_e, _) ->
+        250
+    | Rounded_ss | Rounded_ss_none | Rounded_ss_sm | Rounded_ss_md
+    | Rounded_ss_lg | Rounded_ss_xl | Rounded_ss_2xl | Rounded_ss_3xl
+    | Rounded_ss_full
+    | Rounded_arbitrary (Rp_ss, _) ->
+        260
+    | Rounded_se | Rounded_se_none | Rounded_se_sm | Rounded_se_md
+    | Rounded_se_lg | Rounded_se_xl | Rounded_se_2xl | Rounded_se_3xl
+    | Rounded_se_full
+    | Rounded_arbitrary (Rp_se, _) ->
+        270
+    | Rounded_ee | Rounded_ee_none | Rounded_ee_sm | Rounded_ee_md
+    | Rounded_ee_lg | Rounded_ee_xl | Rounded_ee_2xl | Rounded_ee_3xl
+    | Rounded_ee_full
+    | Rounded_arbitrary (Rp_ee, _) ->
+        280
+    | Rounded_es | Rounded_es_none | Rounded_es_sm | Rounded_es_md
+    | Rounded_es_lg | Rounded_es_xl | Rounded_es_2xl | Rounded_es_3xl
+    | Rounded_es_full
+    | Rounded_arbitrary (Rp_es, _) ->
+        290
     (* Border width utilities (1000-1099) *)
     | Border -> 1000
     | Border_0 -> 1001
@@ -1997,6 +2001,27 @@ module Handler = struct
     | [ "rounded"; "es"; "2xl" ] -> Ok Rounded_es_2xl
     | [ "rounded"; "es"; "3xl" ] -> Ok Rounded_es_3xl
     | [ "rounded"; "es"; "full" ] -> Ok Rounded_es_full
+    (* Arbitrary bracket value rounded utilities *)
+    | [ "rounded"; v ] when Parse.is_bracket_value v ->
+        Ok (Rounded_arbitrary (Rp_all, Parse.bracket_inner v))
+    | [ "rounded"; pos; v ] when Parse.is_bracket_value v -> (
+        let inner = Parse.bracket_inner v in
+        match pos with
+        | "s" -> Ok (Rounded_arbitrary (Rp_s, inner))
+        | "e" -> Ok (Rounded_arbitrary (Rp_e, inner))
+        | "t" -> Ok (Rounded_arbitrary (Rp_t, inner))
+        | "r" -> Ok (Rounded_arbitrary (Rp_r, inner))
+        | "b" -> Ok (Rounded_arbitrary (Rp_b, inner))
+        | "l" -> Ok (Rounded_arbitrary (Rp_l, inner))
+        | "ss" -> Ok (Rounded_arbitrary (Rp_ss, inner))
+        | "se" -> Ok (Rounded_arbitrary (Rp_se, inner))
+        | "ee" -> Ok (Rounded_arbitrary (Rp_ee, inner))
+        | "es" -> Ok (Rounded_arbitrary (Rp_es, inner))
+        | "tl" -> Ok (Rounded_arbitrary (Rp_tl, inner))
+        | "tr" -> Ok (Rounded_arbitrary (Rp_tr, inner))
+        | "br" -> Ok (Rounded_arbitrary (Rp_br, inner))
+        | "bl" -> Ok (Rounded_arbitrary (Rp_bl, inner))
+        | _ -> err_not_utility)
     | [ "outline" ] -> Ok Outline
     | [ "outline"; "none" ] -> Ok Outline_none
     | [ "outline"; "solid" ] -> Ok Outline_solid
@@ -2201,6 +2226,26 @@ module Handler = struct
     | Rounded_es_2xl -> "rounded-es-2xl"
     | Rounded_es_3xl -> "rounded-es-3xl"
     | Rounded_es_full -> "rounded-es-full"
+    | Rounded_arbitrary (pos, value) ->
+        let prefix =
+          match pos with
+          | Rp_all -> "rounded"
+          | Rp_s -> "rounded-s"
+          | Rp_e -> "rounded-e"
+          | Rp_t -> "rounded-t"
+          | Rp_r -> "rounded-r"
+          | Rp_b -> "rounded-b"
+          | Rp_l -> "rounded-l"
+          | Rp_ss -> "rounded-ss"
+          | Rp_se -> "rounded-se"
+          | Rp_ee -> "rounded-ee"
+          | Rp_es -> "rounded-es"
+          | Rp_tl -> "rounded-tl"
+          | Rp_tr -> "rounded-tr"
+          | Rp_br -> "rounded-br"
+          | Rp_bl -> "rounded-bl"
+        in
+        prefix ^ "-[" ^ value ^ "]"
     | Outline -> "outline"
     | Outline_none -> "outline-none"
     | Outline_solid -> "outline-solid"
