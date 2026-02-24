@@ -40,6 +40,7 @@ type color =
   | Hex of string
   | Rgb of { red : int; green : int; blue : int }
   | Oklch of oklch
+  | Theme_named of string
 
 let linearize_channel c =
   let c' = float_of_int c /. 255.0 in
@@ -917,6 +918,7 @@ let to_name = function
         Css.Pp.string ctx ")]"
       in
       Css.Pp.to_string ~minify:false pp_oklch oklch
+  | Theme_named name -> name
 
 (* Pretty printer for colors *)
 let pp = function
@@ -975,12 +977,19 @@ let pp = function
         Css.Pp.string ctx ")"
       in
       Css.Pp.to_string ~minify:false pp_oklch_val (l, c, h)
+  | Theme_named name -> name
 
 (* Check if a color is black or white *)
 let is_base_color = function Black | White -> true | _ -> false
 
 (* Check if a color is a custom color (hex, rgb, or oklch) *)
 let is_custom_color = function Hex _ | Rgb _ | Oklch _ -> true | _ -> false
+
+(* Check if a color is a theme-named color (no shade suffix) *)
+let is_theme_named = function Theme_named _ -> true | _ -> false
+
+(* Check if a color should NOT have a shade suffix in class names *)
+let is_shadeless c = is_base_color c || is_custom_color c || is_theme_named c
 
 (** {1 Color Application Utilities} *)
 
@@ -1198,6 +1207,7 @@ let color_to_string (c : color) : string =
           Css.Pp.float ctx o.h;
           Css.Pp.string ctx ")]")
         oklch
+  | Theme_named name -> name
 
 (** Color parsing utilities *)
 
@@ -1336,7 +1346,9 @@ module Handler = struct
       defined before [open Css] to use the outer [color] type. *)
   let scheme_color_name (c : color) shade =
     let base = pp c in
-    if is_base_color c then base else base ^ "-" ^ string_of_int shade
+    match c with
+    | Black | White | Theme_named _ -> base
+    | _ -> base ^ "-" ^ string_of_int shade
 
   (** Get the color value for a color and shade, checking scheme first. When
       scheme defines the color as hex, returns hex. Otherwise returns oklch. *)
@@ -2004,6 +2016,8 @@ let () = Utility.register (module Handler)
 (** Re-export helper functions from Handler for use by other modules *)
 let scheme_color_name = Handler.scheme_color_name
 
+let get_property_color_var = Handler.get_property_color_var
+let get_property_color_value = Handler.get_property_color_value
 let opacity_to_percent = Handler.opacity_to_percent
 
 let pp_opacity = function
@@ -2124,45 +2138,80 @@ let stroke_current_with_opacity opacity =
 let divide_with_opacity_selector ~selector c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
-  let color_name = scheme_color_name c shade in
-  match Scheme.get_hex_color !current_scheme color_name with
-  | Some hex_value ->
-      let hex_alpha = hex_with_alpha hex_value percent in
-      let fallback_rule =
-        Css.rule ~selector [ Css.border_color (Css.hex hex_alpha) ]
-      in
-      let oklab_color =
-        Css.color_mix ~in_space:Oklab (Css.hex hex_value) Css.Transparent
-          ~percent1:percent
-      in
-      let supports_rule = Css.rule ~selector [ Css.border_color oklab_color ] in
-      let supports_block =
-        Css.supports ~condition:color_mix_supports_condition [ supports_rule ]
-      in
-      Style.style ~rules:(Some [ fallback_rule; supports_block ]) []
-  | None ->
-      let oklch = to_oklch c shade in
-      let fallback_color =
-        Css.color_mix ~in_space:Srgb
-          (Css.oklch oklch.l oklch.c oklch.h)
-          Css.Transparent ~percent1:percent
-      in
-      let fallback_rule =
-        Css.rule ~selector [ Css.border_color fallback_color ]
-      in
-      let color_var = get_color_var c shade in
-      let theme_decl, color_ref = Var.binding color_var (to_css c shade) in
-      let oklab_color =
-        Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-          ~percent1:percent
-      in
-      let supports_rule =
-        Css.rule ~selector [ theme_decl; Css.border_color oklab_color ]
-      in
-      let supports_block =
-        Css.supports ~condition:color_mix_supports_condition [ supports_rule ]
-      in
-      Style.style ~rules:(Some [ fallback_rule; supports_block ]) []
+  if is_custom_color c then
+    (* Custom/arbitrary colors (hex, rgb): output oklab() directly. No theme
+       variables, no @supports, no hex+alpha fallback. *)
+    let ok_l, ok_a, ok_b =
+      match c with
+      | Hex h -> (
+          match hex_to_rgb h with
+          | Some rgb -> rgb_to_oklab rgb
+          | None -> (0.0, 0.0, 0.0))
+      | Rgb { red; green; blue } ->
+          rgb_to_oklab { r = red; g = green; b = blue }
+      | _ -> (0.0, 0.0, 0.0)
+    in
+    let round_n n f =
+      let factor = 10.0 ** float_of_int n in
+      Float.round (f *. factor) /. factor
+    in
+    let alpha = percent /. 100.0 in
+    let oklab_value =
+      Css.oklaba (round_n 4 ok_l) (round_n 3 ok_a) (round_n 3 ok_b) alpha
+    in
+    let rule = Css.rule ~selector [ Css.border_color oklab_value ] in
+    Style.style ~rules:(Some [ rule ]) []
+  else
+    let color_name = scheme_color_name c shade in
+    match Scheme.get_hex_color !current_scheme color_name with
+    | Some hex_value ->
+        (* Scheme has hex color: hex+alpha fallback, @supports with var ref *)
+        let hex_alpha = hex_with_alpha hex_value percent in
+        let fallback_rule =
+          Css.rule ~selector [ Css.border_color (Css.hex hex_alpha) ]
+        in
+        let color_var = get_color_var c shade in
+        let _theme_decl, color_ref =
+          Var.binding color_var (Css.hex hex_value)
+        in
+        let oklab_color =
+          Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+            ~percent1:percent
+        in
+        let supports_rule =
+          Css.rule ~selector [ Css.border_color oklab_color ]
+        in
+        let supports_block =
+          Css.supports ~condition:color_mix_supports_condition [ supports_rule ]
+        in
+        Style.style ~rules:(Some [ fallback_rule; supports_block ]) []
+    | None ->
+        (* Non-scheme color: use property-scoped variable *)
+        let color_var =
+          get_property_color_var ~property_prefix:"border-color" c shade
+        in
+        let color_value =
+          get_property_color_value ~property_prefix:"border-color" c shade
+        in
+        let oklch = to_oklch c shade in
+        let rgb = oklch_to_rgb oklch in
+        let hex_value = rgb_to_hex rgb in
+        let hex_alpha = hex_with_alpha hex_value percent in
+        let fallback_rule =
+          Css.rule ~selector [ Css.border_color (Css.hex hex_alpha) ]
+        in
+        let theme_decl, color_ref = Var.binding color_var color_value in
+        let oklab_color =
+          Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+            ~percent1:percent
+        in
+        let supports_rule =
+          Css.rule ~selector [ theme_decl; Css.border_color oklab_color ]
+        in
+        let supports_block =
+          Css.supports ~condition:color_mix_supports_condition [ supports_rule ]
+        in
+        Style.style ~rules:(Some [ fallback_rule; supports_block ]) []
 
 let divide_with_opacity c shade opacity selector =
   divide_with_opacity_selector ~selector c shade opacity
@@ -2170,10 +2219,8 @@ let divide_with_opacity c shade opacity selector =
 let divide_current_with_opacity_selector ~selector opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
-  let fallback_color =
-    Css.color_mix ~in_space:Srgb Css.Current Css.Transparent ~percent1:percent
-  in
-  let fallback_rule = Css.rule ~selector [ Css.border_color fallback_color ] in
+  (* Fallback: just currentColor (browsers that don't support color-mix) *)
+  let fallback_rule = Css.rule ~selector [ Css.border_color Css.Current ] in
   let oklab_color =
     Css.color_mix ~in_space:Oklab Css.Current Css.Transparent ~percent1:percent
   in
