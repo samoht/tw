@@ -39,6 +39,20 @@ let pp_margin_suffix : margin -> string = function
 let named_spacing_ref name : Css.length =
   Css.Var (Css.var_ref ("spacing-" ^ name))
 
+let named_spacing_binding name : Css.declaration option * Css.length =
+  let prop_name = "spacing-" ^ name in
+  match Var.get_theme_value prop_name with
+  | Some value_str ->
+      let decl =
+        Css.custom_declaration ~layer:"theme" ("--" ^ prop_name) Css.String
+          value_str
+      in
+      let ref : Css.length Css.var = Css.var_ref ~layer:"theme" prop_name in
+      (Some decl, Css.Var ref)
+  | None ->
+      let ref = named_spacing_ref name in
+      (None, ref)
+
 let to_length spacing_ref : spacing -> length = function
   | `Px -> Px 1.
   | `Full -> Pct 100.0

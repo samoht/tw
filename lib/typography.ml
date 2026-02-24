@@ -744,6 +744,7 @@ module Typography_late = struct
     | Align_text_bottom
     | Align_sub
     | Align_super
+    | Align_arbitrary_var of string
     | (* List utilities *)
       List_none
     | List_disc
@@ -811,6 +812,8 @@ module Typography_late = struct
     | Stacked_fractions
     | (* Indent and line clamp *)
       Indent of int
+    | Indent_arbitrary of string
+    | Indent_neg_arbitrary of string
     | Line_clamp of int
     | Line_clamp_arbitrary of int
     | Line_clamp_none
@@ -876,6 +879,8 @@ module Typography_late = struct
     | [ "whitespace"; "pre"; "line" ] -> Ok Whitespace_pre_line
     | [ "whitespace"; "pre"; "wrap" ] -> Ok Whitespace_pre_wrap
     | [ "whitespace"; "break"; "spaces" ] -> Ok Whitespace_break_spaces
+    | [ "align"; v ] when Parse.is_bracket_var v ->
+        Ok (Align_arbitrary_var (Parse.bracket_inner v))
     | [ "align"; "baseline" ] -> Ok Align_baseline
     | [ "align"; "top" ] -> Ok Align_top
     | [ "align"; "middle" ] -> Ok Align_middle
@@ -963,6 +968,10 @@ module Typography_late = struct
     | [ "tabular"; "nums" ] -> Ok Tabular_nums
     | [ "diagonal"; "fractions" ] -> Ok Diagonal_fractions
     | [ "stacked"; "fractions" ] -> Ok Stacked_fractions
+    | [ "indent"; n ] when Parse.is_bracket_value n ->
+        Ok (Indent_arbitrary (Parse.bracket_inner n))
+    | [ ""; "indent"; n ] when Parse.is_bracket_value n ->
+        Ok (Indent_neg_arbitrary (Parse.bracket_inner n))
     | [ "indent"; n ] -> Parse.int_any n >|= fun i -> Indent i
     | [ "line"; "clamp"; "none" ] -> Ok Line_clamp_none
     | [ "line"; "clamp"; n ] when Parse.is_bracket_value n -> (
@@ -1025,6 +1034,7 @@ module Typography_late = struct
     | Whitespace_pre_line -> "whitespace-pre-line"
     | Whitespace_pre_wrap -> "whitespace-pre-wrap"
     | Whitespace_break_spaces -> "whitespace-break-spaces"
+    | Align_arbitrary_var s -> "align-[" ^ s ^ "]"
     | Align_baseline -> "align-baseline"
     | Align_top -> "align-top"
     | Align_middle -> "align-middle"
@@ -1103,6 +1113,8 @@ module Typography_late = struct
     | Diagonal_fractions -> "diagonal-fractions"
     | Stacked_fractions -> "stacked-fractions"
     | Indent n -> "indent-" ^ string_of_int n
+    | Indent_arbitrary s -> "indent-[" ^ s ^ "]"
+    | Indent_neg_arbitrary s -> "-indent-[" ^ s ^ "]"
     | Line_clamp n -> "line-clamp-" ^ string_of_int n
     | Line_clamp_arbitrary n -> "line-clamp-[" ^ string_of_int n ^ "]"
     | Line_clamp_none -> "line-clamp-none"
@@ -1158,6 +1170,7 @@ module Typography_late = struct
     | Whitespace_pre_line -> 8504
     | Whitespace_pre_wrap -> 8505
     (* Vertical align - alphabetical order *)
+    | Align_arbitrary_var _ -> 8600
     | Align_baseline -> 8600
     | Align_bottom -> 8601
     | Align_middle -> 8602
@@ -1233,6 +1246,8 @@ module Typography_late = struct
     | Normal_nums -> 9708
     (* Indent and line clamp *)
     | Indent n -> 9800 + n
+    | Indent_arbitrary _ -> 9800
+    | Indent_neg_arbitrary _ -> 9800
     | Line_clamp n -> 10000 + n
     | Line_clamp_arbitrary _ -> 11000
     | Line_clamp_none -> 12000
@@ -1381,6 +1396,32 @@ module Typography_late = struct
 
   let list_image_url url = style [ list_style_image (Url url) ]
 
+  let parse_length_value str : Css.length option =
+    let len = String.length str in
+    if len = 0 then None
+    else
+      let num_end = ref 0 in
+      while
+        !num_end < len
+        &&
+        let c = str.[!num_end] in
+        (c >= '0' && c <= '9') || c = '.' || c = '-'
+      do
+        incr num_end
+      done;
+      let num_str = String.sub str 0 !num_end in
+      let unit_str = String.sub str !num_end (len - !num_end) in
+      match float_of_string_opt num_str with
+      | Some n -> (
+          match unit_str with
+          | "px" -> Some (Px n)
+          | "rem" -> Some (Rem n)
+          | "em" -> Some (Em n)
+          | "%" -> Some (Pct n)
+          | "" when n = 0.0 -> Some Zero
+          | _ -> None)
+      | None -> None
+
   let indent n =
     let spacing_decl, spacing_ref = Var.binding Theme.spacing_var (Rem 0.25) in
     style
@@ -1389,6 +1430,19 @@ module Typography_late = struct
         text_indent
           (Calc Calc.(length (Css.Var spacing_ref) * float (float_of_int n)));
       ]
+
+  let indent_arbitrary s =
+    match parse_length_value s with
+    | Some len -> style [ text_indent len ]
+    | None -> style [ text_indent (Px 0.) ]
+
+  let indent_neg_arbitrary s =
+    match parse_length_value s with
+    | Some (Px n) -> style [ text_indent (Px (-.n)) ]
+    | Some (Rem n) -> style [ text_indent (Rem (-.n)) ]
+    | Some (Em n) -> style [ text_indent (Em (-.n)) ]
+    | Some (Pct n) -> style [ text_indent (Pct (-.n)) ]
+    | _ -> style [ text_indent (Px 0.) ]
 
   let line_clamp n =
     style
@@ -1671,6 +1725,9 @@ module Typography_late = struct
     | Whitespace_pre_line -> whitespace_pre_line
     | Whitespace_pre_wrap -> whitespace_pre_wrap
     | Whitespace_break_spaces -> whitespace_break_spaces
+    | Align_arbitrary_var var_str ->
+        let bare_name = Parse.extract_var_name var_str in
+        style [ vertical_align (Var (Css.var_ref bare_name)) ]
     | Align_baseline -> align_baseline
     | Align_top -> align_top
     | Align_middle -> align_middle
@@ -1740,6 +1797,8 @@ module Typography_late = struct
     | Diagonal_fractions -> diagonal_fractions
     | Stacked_fractions -> stacked_fractions
     | Indent n -> indent n
+    | Indent_arbitrary s -> indent_arbitrary s
+    | Indent_neg_arbitrary s -> indent_neg_arbitrary s
     | Line_clamp n -> line_clamp n
     | Line_clamp_arbitrary n -> line_clamp n
     | Line_clamp_none -> line_clamp_none_style ()
