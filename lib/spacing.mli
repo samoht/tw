@@ -76,6 +76,11 @@ val named_spacing_ref : string -> Css.length
     [var(--spacing-name)] for a named spacing value (e.g., "big" ->
     [var(--spacing-big)]). *)
 
+val named_spacing_binding : string -> Css.declaration option * Css.length
+(** [named_spacing_binding name] creates a theme variable binding for a named
+    spacing value, returning both the theme declaration (if theme value is set)
+    and a var reference. *)
+
 val is_named_spacing : string -> bool
 (** [is_named_spacing value] checks if a string is a valid named spacing
     identifier. *)
