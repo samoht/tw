@@ -346,6 +346,7 @@ module Typography_early = struct
     | Leading_relaxed
     | Leading_loose
     | Leading of int
+    | Leading_var of string (* leading-[var(--value)] *)
 
   type Utility.base += Self of t
 
@@ -437,6 +438,11 @@ module Typography_early = struct
     | [ "leading"; "normal" ] -> Ok Leading_normal
     | [ "leading"; "relaxed" ] -> Ok Leading_relaxed
     | [ "leading"; "loose" ] -> Ok Leading_loose
+    | [ "leading"; v ] when Parse.is_bracket_value v ->
+        let inner = Parse.bracket_inner v in
+        if String.length inner > 4 && String.sub inner 0 4 = "var(" then
+          Ok (Leading_var inner)
+        else err_not_utility
     | [ "leading"; n ] ->
         Parse.int_bounded ~name:"leading" ~min:3 ~max:10 n >|= fun i ->
         Leading i
@@ -490,6 +496,7 @@ module Typography_early = struct
     | Leading_relaxed -> "leading-relaxed"
     | Leading_loose -> "leading-loose"
     | Leading n -> "leading-" ^ string_of_int n
+    | Leading_var v -> "leading-[" ^ v ^ "]"
 
   (** {1 Ordering Support} *)
 
@@ -524,15 +531,16 @@ module Typography_early = struct
     | Text_sm -> 2011
     | Text_xl -> 2012
     | Text_xs -> 2013
-    (* Leading comes third — Tailwind uses alphabetical order: loose, none,
-       normal, relaxed, snug, tight *)
-    | Leading_loose -> 3001
-    | Leading_none -> 3002
-    | Leading_normal -> 3003
-    | Leading_relaxed -> 3004
-    | Leading_snug -> 3005
-    | Leading_tight -> 3006
-    | Leading n -> 3100 + n
+    (* Leading comes third — numeric first, then arbitrary, then named
+       (alphabetical: loose, none, normal, relaxed, snug, tight) *)
+    | Leading n -> 3000 + n
+    | Leading_var _ -> 3100
+    | Leading_loose -> 3201
+    | Leading_none -> 3202
+    | Leading_normal -> 3203
+    | Leading_relaxed -> 3204
+    | Leading_snug -> 3205
+    | Leading_tight -> 3206
     (* Bracket font weights come before named font weights *)
     | Font_bracket_weight _ -> 4000
     | Font_bracket_weight_var _ -> 4000
@@ -717,7 +725,7 @@ module Typography_early = struct
   let leading n =
     let lh_value : line_height = Rem (float_of_int n *. 0.25) in
     let theme_var =
-      Var.theme Css.Line_height ("leading-" ^ string_of_int n) ~order:(6, 46)
+      Var.theme Css.Line_height ("leading-" ^ string_of_int n) ~order:(6, 53)
     in
     leading_with_theme_var theme_var lh_value
 
@@ -819,6 +827,14 @@ module Typography_early = struct
     | Leading_relaxed -> leading_relaxed
     | Leading_loose -> leading_loose
     | Leading n -> leading n
+    | Leading_var v ->
+        let bare_name = Parse.extract_var_name v in
+        let var_ref : Css.line_height Css.var = Css.var_ref bare_name in
+        let channel_decl, _ = Var.binding leading_var (Css.Var var_ref) in
+        let property_rules =
+          Var.property_rule leading_var |> Option.to_list |> Css.concat
+        in
+        style ~property_rules [ channel_decl; line_height (Css.Var var_ref) ]
 end
 
 (** Late typography handler - comes after color utilities (priority 24) *)
@@ -844,7 +860,9 @@ module Typography_late = struct
     | Decoration_thickness of int
     | Decoration_from_font
     | (* Tracking *)
-      Tracking_tighter
+      Tracking_var of string
+    | Neg_tracking_var of string
+    | Tracking_tighter
     | Tracking_tight
     | Tracking_normal
     | Tracking_wide
@@ -990,6 +1008,19 @@ module Typography_late = struct
             | Color.No_opacity -> Ok (Decoration_color (c, Some s))
             | _ -> Ok (Decoration_color_opacity (c, s, opacity)))
         | _ -> err_not_utility)
+    | [ "tracking"; v ] when Parse.is_bracket_value v ->
+        let inner = Parse.bracket_inner v in
+        if String.length inner > 4 && String.sub inner 0 4 = "var(" then
+          Ok (Tracking_var inner)
+        else err_not_utility
+    | "" :: "tracking" :: rest when rest <> [] ->
+        let value = String.concat "-" rest in
+        if Parse.is_bracket_value value then
+          let inner = Parse.bracket_inner value in
+          if String.length inner > 4 && String.sub inner 0 4 = "var(" then
+            Ok (Neg_tracking_var inner)
+          else err_not_utility
+        else err_not_utility
     | [ "tracking"; "tighter" ] -> Ok Tracking_tighter
     | [ "tracking"; "tight" ] -> Ok Tracking_tight
     | [ "tracking"; "normal" ] -> Ok Tracking_normal
@@ -1145,6 +1176,8 @@ module Typography_late = struct
     | Decoration_wavy -> "decoration-wavy"
     | Decoration_thickness n -> "decoration-" ^ string_of_int n
     | Decoration_from_font -> "decoration-from-font"
+    | Tracking_var v -> "tracking-[" ^ v ^ "]"
+    | Neg_tracking_var v -> "-tracking-[" ^ v ^ "]"
     | Tracking_tighter -> "tracking-tighter"
     | Tracking_tight -> "tracking-tight"
     | Tracking_normal -> "tracking-normal"
@@ -1277,7 +1310,9 @@ module Typography_late = struct
     | Decoration_wavy -> 8104
     | Decoration_thickness n -> 8200 + n
     | Decoration_from_font -> 8210
-    (* Tracking *)
+    (* Tracking — negative first, then arbitrary, then named *)
+    | Neg_tracking_var _ -> 8250
+    | Tracking_var _ -> 8260
     | Tracking_tighter -> 8300
     | Tracking_tight -> 8301
     | Tracking_normal -> 8302
@@ -1836,6 +1871,24 @@ module Typography_late = struct
     | Decoration_wavy -> decoration_wavy
     | Decoration_thickness n -> decoration_thickness n
     | Decoration_from_font -> decoration_from_font
+    | Tracking_var v ->
+        let bare_name = Parse.extract_var_name v in
+        let var_ref : Css.length Css.var = Css.var_ref bare_name in
+        let channel_decl, _ = Var.binding tracking_var (Css.Var var_ref) in
+        let property_rules =
+          Var.property_rule tracking_var |> Option.to_list |> Css.concat
+        in
+        style ~property_rules [ channel_decl; letter_spacing (Css.Var var_ref) ]
+    | Neg_tracking_var v ->
+        let bare_name = Parse.extract_var_name v in
+        let neg_len : Css.length =
+          Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
+        in
+        let channel_decl, _ = Var.binding tracking_var neg_len in
+        let property_rules =
+          Var.property_rule tracking_var |> Option.to_list |> Css.concat
+        in
+        style ~property_rules [ channel_decl; letter_spacing neg_len ]
     | Tracking_tighter -> tracking_tighter
     | Tracking_tight -> tracking_tight
     | Tracking_normal -> tracking_normal
