@@ -20,6 +20,7 @@ type output =
       base_class : string option; (* Base class name without the dot *)
       has_hover : bool; (* Track if this rule has hover modifier *)
       nested : Css.statement list; (* Nested statements (e.g., @media) *)
+      merge_key : string option;
     }
   | Media_query of {
       condition : Css.Media.t;
@@ -44,6 +45,7 @@ type output =
       selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
+      merge_key : string option;
     }
 
 type by_type = {
@@ -68,6 +70,7 @@ type indexed_rule = {
   order : int * int;
   nested : Css.statement list;
   base_class : string option;
+  merge_key : string option;
 }
 
 (* Result of building individual layers *)
@@ -110,9 +113,9 @@ type rule_relationship =
 (* Smart constructors for output *)
 (* ======================================================================== *)
 
-let regular ~selector ~props ?base_class ?(has_hover = false) ?(nested = []) ()
-    =
-  Regular { selector; props; base_class; has_hover; nested }
+let regular ~selector ~props ?base_class ?(has_hover = false) ?(nested = [])
+    ?merge_key () =
+  Regular { selector; props; base_class; has_hover; nested; merge_key }
 
 let media_query ~condition ~selector ~props ?base_class ?(nested = []) () =
   Media_query { condition; selector; props; base_class; nested }
@@ -123,8 +126,8 @@ let container_query ~condition ~selector ~props ?base_class () =
 let starting_style ~selector ~props ?base_class () =
   Starting_style { selector; props; base_class }
 
-let supports_query ~condition ~selector ~props ?base_class () =
-  Supports_query { condition; selector; props; base_class }
+let supports_query ~condition ~selector ~props ?base_class ?merge_key () =
+  Supports_query { condition; selector; props; base_class; merge_key }
 
 (* ======================================================================== *)
 (* Basic Utilities *)
@@ -901,13 +904,17 @@ let handle_group class_name util_inner styles extract_fn =
 
 let outputs util =
   let rec extract_with_class class_name util_inner = function
-    | Style.Style { props; rules; _ } -> (
+    | Style.Style { props; rules; merge_key; _ } -> (
         let sel = Css.Selector.Class class_name in
         match rules with
         | None ->
             (* Do not emit empty marker classes like .group or .peer *)
             if props = [] then []
-            else [ regular ~selector:sel ~props ~base_class:class_name () ]
+            else
+              [
+                regular ~selector:sel ~props ~base_class:class_name ?merge_key
+                  ();
+              ]
         | Some rule_list ->
             (* Extract nested at-rules (CSS nesting) for the base rule. Both
                @media and @supports blocks are kept nested inside the rule. *)
@@ -939,7 +946,7 @@ let outputs util =
                           [
                             regular ~selector:actual_selector
                               ~props:declarations ~base_class:class_name ~nested
-                              ();
+                              ?merge_key ();
                           ]
                     | None -> (
                         match Css.as_media stmt with
@@ -1000,7 +1007,8 @@ let outputs util =
                                               (supports_query ~condition
                                                  ~selector:actual_selector
                                                  ~props:declarations
-                                                 ~base_class:class_name ())
+                                                 ~base_class:class_name
+                                                 ?merge_key ())
                                         | None -> None)
                                     |> fun l -> Some l
                                 | None -> None))))
@@ -1012,7 +1020,7 @@ let outputs util =
               else
                 [
                   regular ~selector:sel ~props ~base_class:class_name
-                    ~nested:nested_atrules ();
+                    ~nested:nested_atrules ?merge_key ();
                 ]
             in
             (* Combine rules with base. If there are regular rules, they should
@@ -1970,64 +1978,38 @@ let rec filter_theme_from_statements statements =
                       | None -> stmt)))))
     statements
 
-(* Compute the merge key from a base class name. The merge key is the utility
-   name without modifier prefixes (before ':') and without opacity suffixes
-   (from '/' onward). For bracket values containing hex colors, vars, or typed
-   values, use the prefix before '[' so that classes like font-[family-name:...]
-   and font-[generic-name:...] get the same merge key and can be combined when
-   they produce identical declarations. For bracket values containing named
-   colors (like [black]), use the full name to prevent merging of different
-   opacity variants. *)
+(* Compute merge key from a base class name as a fallback when the utility
+   handler does not provide a typed merge_key via Style.t. For bracket
+   utilities, strips both bracket content and opacity so that e.g.
+   accent-[#0088cc]/50 and accent-[#0088cc]/[0.5] share key "accent-". For
+   non-bracket utilities, strips opacity suffix so that e.g. outline-red-500/50
+   and outline-red-500/[0.5] share key "outline-red-500". Handlers that need
+   finer control (e.g. preventing merging for named bracket colors) should set
+   merge_key via Style.t instead. *)
 let merge_key_of_base_class base_class =
   match base_class with
   | None -> None
-  | Some class_name -> (
+  | Some class_name ->
       let base = extract_base_utility class_name in
-      (* Check if this has a bracket value *)
-      match String.index_opt base '[' with
-      | Some bracket_pos -> (
-          (* Find the matching closing bracket *)
-          let after_bracket = bracket_pos + 1 in
-          let end_bracket =
-            match String.index_from_opt base after_bracket ']' with
-            | Some i -> i
-            | None -> String.length base - 1
-          in
-          let bracket_content =
-            String.sub base after_bracket (end_bracket - after_bracket)
-          in
-          (* Check if bracket content is a mergeable type: - hex colors: #0088cc
-             - typed values: color:var(--value), length:var(--x) - var
-             references: var(--value) *)
-          let is_mergeable =
-            String.length bracket_content > 0
-            && (bracket_content.[0] = '#'
-               || String.contains bracket_content ':'
-               ||
-               let len = String.length bracket_content in
-               len >= 4 && String.sub bracket_content 0 4 = "var(")
-          in
-          match is_mergeable with
-          | true ->
-              (* Hex, typed, or var - strip bracket content and opacity *)
-              Some (String.sub base 0 bracket_pos)
-          | false ->
-              (* Named color or bare value - use full name to prevent merging *)
-              Some base)
-      | None ->
-          (* No brackets - just strip opacity for merging *)
-          let key =
+      let key =
+        match String.index_opt base '[' with
+        | Some bracket_pos -> String.sub base 0 bracket_pos
+        | None -> (
             match String.index_opt base '/' with
             | Some slash_pos -> String.sub base 0 slash_pos
-            | None -> base
-          in
-          Some key)
+            | None -> base)
+      in
+      Some key
 
 (* Convert indexed rule to CSS statement *)
 let indexed_rule_to_statement r =
   let filtered_props = filter_utility_properties r.props in
   let filtered_nested = filter_theme_from_statements r.nested in
-  let merge_key = merge_key_of_base_class r.base_class in
+  let merge_key =
+    match r.merge_key with
+    | Some _ as mk -> mk
+    | None -> merge_key_of_base_class r.base_class
+  in
   match r.rule_type with
   | `Regular ->
       Css.rule ~selector:r.selector ?merge_key ~nested:filtered_nested
@@ -2056,7 +2038,7 @@ let indexed_rule_to_statement r =
 let deduplicate_typed_triples triples =
   let seen = Hashtbl.create (List.length triples) in
   List.filter
-    (fun (typ, sel, props, _order, nested, _base_class) ->
+    (fun (typ, sel, props, _order, nested, _base_class, _merge_key) ->
       let key = (typ, Css.Selector.to_string sel, props, nested) in
       if Hashtbl.mem seen key then false
       else (
@@ -2094,7 +2076,7 @@ let order_of_base base_class selector =
 
 (* Convert each rule type to typed triple *)
 let rule_to_triple = function
-  | Regular { selector; props; base_class; nested; has_hover } ->
+  | Regular { selector; props; base_class; nested; has_hover; merge_key } ->
       if has_hover then
         (* Hover rules become Media rules with (hover:hover) condition *)
         Some
@@ -2103,7 +2085,8 @@ let rule_to_triple = function
             props,
             order_of_base base_class selector,
             nested,
-            base_class )
+            base_class,
+            merge_key )
       else
         Some
           ( `Regular,
@@ -2111,7 +2094,8 @@ let rule_to_triple = function
             props,
             order_of_base base_class selector,
             nested,
-            base_class )
+            base_class,
+            merge_key )
   | Media_query { condition; selector; props; base_class; nested } ->
       Some
         ( `Media condition,
@@ -2119,7 +2103,8 @@ let rule_to_triple = function
           props,
           order_of_base base_class selector,
           nested,
-          base_class )
+          base_class,
+          None )
   | Container_query { condition; selector; props; base_class } ->
       Some
         ( `Container condition,
@@ -2127,7 +2112,8 @@ let rule_to_triple = function
           props,
           order_of_base base_class selector,
           [],
-          base_class )
+          base_class,
+          None )
   | Starting_style { selector; props; base_class } ->
       Some
         ( `Starting,
@@ -2135,20 +2121,22 @@ let rule_to_triple = function
           props,
           order_of_base base_class selector,
           [],
-          base_class )
-  | Supports_query { condition; selector; props; base_class } ->
+          base_class,
+          None )
+  | Supports_query { condition; selector; props; base_class; merge_key } ->
       Some
         ( `Supports condition,
           selector,
           props,
           order_of_base base_class selector,
           [],
-          base_class )
+          base_class,
+          merge_key )
 
 (* Add index to each triple for stable sorting *)
 let add_index triples =
   List.mapi
-    (fun i (typ, sel, props, order, nested, base_class) ->
+    (fun i (typ, sel, props, order, nested, base_class, merge_key) ->
       {
         index = i;
         rule_type = typ;
@@ -2157,6 +2145,7 @@ let add_index triples =
         order;
         nested;
         base_class;
+        merge_key;
       })
     triples
 

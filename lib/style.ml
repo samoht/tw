@@ -176,6 +176,7 @@ type t =
       props : Css.declaration list;
       rules : Css.statement list option;
       property_rules : Css.t;
+      merge_key : string option;
     }
   | Modified of modifier * t
   | Group of t list
@@ -190,8 +191,8 @@ type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
 (* Helper to create a style *)
-let style ?(rules = None) ?(property_rules = Css.empty) props =
-  Style { props; rules; property_rules }
+let style ?(rules = None) ?(property_rules = Css.empty) ?merge_key props =
+  Style { props; rules; property_rules; merge_key }
 
 (* Convert modifier to string prefix *)
 let rec pp_modifier = function

@@ -34,6 +34,7 @@ type output =
       base_class : string option;
       has_hover : bool;
       nested : Css.statement list;
+      merge_key : string option;
     }
   | Media_query of {
       condition : Css.Media.t;
@@ -58,6 +59,7 @@ type output =
       selector : Css.Selector.t;
       props : Css.declaration list;
       base_class : string option;
+      merge_key : string option;
     }
 
 type by_type = {
@@ -74,10 +76,14 @@ val regular :
   ?base_class:string ->
   ?has_hover:bool ->
   ?nested:Css.statement list ->
+  ?merge_key:string ->
   unit ->
   output
-(** [regular ~selector ~props ?base_class ?has_hover ?nested ()] constructs a
-    regular rule with optional nested statements (e.g., {i \@media} queries). *)
+(** [regular ~selector ~props ?base_class ?has_hover ?nested ?merge_key ()]
+    constructs a regular rule with optional nested statements (e.g., {i \@media}
+    queries). When [merge_key] is provided, the CSS optimizer uses it to merge
+    consecutive rules with identical declarations instead of inferring it from
+    the class name string. *)
 
 val media_query :
   condition:Css.Media.t ->
