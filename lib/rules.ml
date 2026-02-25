@@ -1909,6 +1909,14 @@ let compare_indexed_rules r1 r2 =
             (Css.Selector.to_string r2.selector)
         in
         if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
+    | `Supports _, `Media _ ->
+        (* Supports should be positioned near its base Regular rule, so use
+           order-based comparison like Regular vs Media *)
+        let order_cmp = compare r1.order r2.order in
+        if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
+    | `Media _, `Supports _ ->
+        let order_cmp = compare r1.order r2.order in
+        if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
     | _, _ -> Int.compare r1.index r2.index
 
 (* Filter properties to only include utilities layer declarations *)
@@ -1964,26 +1972,56 @@ let rec filter_theme_from_statements statements =
 
 (* Compute the merge key from a base class name. The merge key is the utility
    name without modifier prefixes (before ':') and without opacity suffixes
-   (from '/' onward). For bracket values, use the prefix before '[' so that
-   classes like font-[family-name:...] and font-[generic-name:...] get the same
-   merge key and can be combined when they produce identical declarations. *)
+   (from '/' onward). For bracket values containing hex colors, vars, or typed
+   values, use the prefix before '[' so that classes like font-[family-name:...]
+   and font-[generic-name:...] get the same merge key and can be combined when
+   they produce identical declarations. For bracket values containing named
+   colors (like [black]), use the full name to prevent merging of different
+   opacity variants. *)
 let merge_key_of_base_class base_class =
   match base_class with
   | None -> None
-  | Some class_name ->
+  | Some class_name -> (
       let base = extract_base_utility class_name in
-      let key =
-        match String.index_opt base '/' with
-        | Some slash_pos -> String.sub base 0 slash_pos
-        | None -> base
-      in
-      (* Strip bracket content so bracket variants with identical CSS merge *)
-      let key =
-        match String.index_opt key '[' with
-        | Some bracket_pos -> String.sub key 0 bracket_pos
-        | None -> key
-      in
-      Some key
+      (* Check if this has a bracket value *)
+      match String.index_opt base '[' with
+      | Some bracket_pos -> (
+          (* Find the matching closing bracket *)
+          let after_bracket = bracket_pos + 1 in
+          let end_bracket =
+            match String.index_from_opt base after_bracket ']' with
+            | Some i -> i
+            | None -> String.length base - 1
+          in
+          let bracket_content =
+            String.sub base after_bracket (end_bracket - after_bracket)
+          in
+          (* Check if bracket content is a mergeable type: - hex colors: #0088cc
+             - typed values: color:var(--value), length:var(--x) - var
+             references: var(--value) *)
+          let is_mergeable =
+            String.length bracket_content > 0
+            && (bracket_content.[0] = '#'
+               || String.contains bracket_content ':'
+               ||
+               let len = String.length bracket_content in
+               len >= 4 && String.sub bracket_content 0 4 = "var(")
+          in
+          match is_mergeable with
+          | true ->
+              (* Hex, typed, or var - strip bracket content and opacity *)
+              Some (String.sub base 0 bracket_pos)
+          | false ->
+              (* Named color or bare value - use full name to prevent merging *)
+              Some base)
+      | None ->
+          (* No brackets - just strip opacity for merging *)
+          let key =
+            match String.index_opt base '/' with
+            | Some slash_pos -> String.sub base 0 slash_pos
+            | None -> base
+          in
+          Some key)
 
 (* Convert indexed rule to CSS statement *)
 let indexed_rule_to_statement r =

@@ -238,21 +238,23 @@ module Handler = struct
       Rounded_arbitrary of rounded_position * string
     | (* Outline utilities *)
       Outline
-    | Outline_none
-    | Outline_solid
-    | Outline_dashed
-    | Outline_dotted
-    | Outline_double
+    | Outline_0
+    | Outline_width_bracket of string (* outline-[12px], outline-[1.5], etc. *)
+    | Outline_width_var of string (* outline-[length:var(...)], etc. *)
+    (* Outline style utilities (dashed, dotted, etc.) are in
+       Outline_style_handler *)
     | Outline_hidden
     | Outline_offset_0
     | Outline_offset_1
     | Outline_offset_2
     | Outline_offset_4
     | Outline_offset_8
+    | Outline_offset_var of string (* outline-offset-[var(--value)] *)
     | Neg_outline_offset_1
     | Neg_outline_offset_2
     | Neg_outline_offset_4
     | Neg_outline_offset_8
+    | Neg_outline_offset_var of string (* -outline-offset-[var(--value)] *)
 
   type Utility.base += Self of t
 
@@ -1345,27 +1347,63 @@ module Handler = struct
     style ~property_rules:property_rule
       [ Css.outline_style (Css.Var oref); Css.outline_width (Px 1.) ]
 
+  (* Outline-0: style from var + width: 0 *)
+  let outline_0 =
+    let oref = Var.reference outline_style_var in
+    let property_rule =
+      match Var.property_rule outline_style_var with
+      | Some rule -> rule
+      | None -> Css.empty
+    in
+    style ~property_rules:property_rule
+      [ Css.outline_style (Css.Var oref); Css.outline_width Zero ]
+
+  (* Outline bracket width: outline-[12px], outline-[1.5], outline-[50%] *)
+  let outline_width_bracket_style inner =
+    let oref = Var.reference outline_style_var in
+    let property_rule =
+      match Var.property_rule outline_style_var with
+      | Some rule -> rule
+      | None -> Css.empty
+    in
+    let width : Css.length =
+      if
+        String.length inner > 2
+        && String.sub inner (String.length inner - 2) 2 = "px"
+      then
+        let n = String.sub inner 0 (String.length inner - 2) in
+        Px (float_of_string n)
+      else if String.length inner > 1 && inner.[String.length inner - 1] = '%'
+      then
+        let n = String.sub inner 0 (String.length inner - 1) in
+        Pct (float_of_string n)
+      else
+        (* Bare number → px *)
+        Px (float_of_string inner)
+    in
+    style ~property_rules:property_rule
+      [ Css.outline_style (Css.Var oref); Css.outline_width width ]
+
+  (* Outline typed bracket width: outline-[length:var(...)], etc. *)
+  let outline_width_var_style v =
+    let oref = Var.reference outline_style_var in
+    let property_rule =
+      match Var.property_rule outline_style_var with
+      | Some rule -> rule
+      | None -> Css.empty
+    in
+    (* Strip type prefix like "length:" before extracting var name *)
+    let var_part =
+      match String.index_opt v ':' with
+      | Some i -> String.sub v (i + 1) (String.length v - i - 1)
+      | None -> v
+    in
+    let bare_name = Parse.extract_var_name var_part in
+    let var_ref : Css.length Css.var = Css.var_ref bare_name in
+    style ~property_rules:property_rule
+      [ Css.outline_style (Css.Var oref); Css.outline_width (Var var_ref) ]
+
   (* Outline style utilities that set the variable *)
-  let outline_none =
-    let decl, _ = Var.binding outline_style_var Css.None in
-    style [ decl; Css.outline_style Css.None ]
-
-  let outline_solid =
-    let decl, _ = Var.binding outline_style_var Css.Solid in
-    style [ decl; Css.outline_style Css.Solid ]
-
-  let outline_dashed =
-    let decl, _ = Var.binding outline_style_var Css.Dashed in
-    style [ decl; Css.outline_style Css.Dashed ]
-
-  let outline_dotted =
-    let decl, _ = Var.binding outline_style_var Css.Dotted in
-    style [ decl; Css.outline_style Css.Dotted ]
-
-  let outline_double =
-    let decl, _ = Var.binding outline_style_var Css.Double in
-    style [ decl; Css.outline_style Css.Double ]
-
   let outline_hidden =
     let decl, _ = Var.binding outline_style_var Css.None in
     (* Base style: outline-style: none *)
@@ -1406,6 +1444,18 @@ module Handler = struct
   let neg_outline_offset_2 = neg_outline_offset 2
   let neg_outline_offset_4 = neg_outline_offset 4
   let neg_outline_offset_8 = neg_outline_offset 8
+
+  let outline_offset_var_style v =
+    let bare_name = Parse.extract_var_name v in
+    let var_ref : Css.length Css.var = Css.var_ref bare_name in
+    style [ Css.outline_offset (Var var_ref) ]
+
+  let neg_outline_offset_var_style v =
+    let bare_name = Parse.extract_var_name v in
+    let neg_len : Css.length =
+      Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
+    in
+    style [ Css.outline_offset neg_len ]
 
   let parse_length str : length option =
     let len = String.length str in
@@ -1660,21 +1710,21 @@ module Handler = struct
     | Rounded_arbitrary (pos, value) -> rounded_arbitrary_style pos value
     (* Outline utilities *)
     | Outline -> outline
-    | Outline_none -> outline_none
-    | Outline_solid -> outline_solid
-    | Outline_dashed -> outline_dashed
-    | Outline_dotted -> outline_dotted
-    | Outline_double -> outline_double
+    | Outline_0 -> outline_0
+    | Outline_width_bracket v -> outline_width_bracket_style v
+    | Outline_width_var v -> outline_width_var_style v
     | Outline_hidden -> outline_hidden
     | Outline_offset_0 -> outline_offset_0
     | Outline_offset_1 -> outline_offset_1
     | Outline_offset_2 -> outline_offset_2
     | Outline_offset_4 -> outline_offset_4
     | Outline_offset_8 -> outline_offset_8
+    | Outline_offset_var v -> outline_offset_var_style v
     | Neg_outline_offset_1 -> neg_outline_offset_1
     | Neg_outline_offset_2 -> neg_outline_offset_2
     | Neg_outline_offset_4 -> neg_outline_offset_4
     | Neg_outline_offset_8 -> neg_outline_offset_8
+    | Neg_outline_offset_var v -> neg_outline_offset_var_style v
 
   let err_not_utility = Error (`Msg "Not a border utility")
 
@@ -1795,23 +1845,26 @@ module Handler = struct
         1500
     | Border_transparent -> 1500
     | Border_current -> 1500
-    (* Outline utilities (2000-2099) *)
+    (* Outline utilities — hidden first, then width, then styles last *)
+    | Outline_hidden -> 1990
     | Outline -> 1999
-    | Outline_none -> 2000
-    | Outline_solid -> 2001
-    | Outline_dashed -> 2002
-    | Outline_dotted -> 2003
-    | Outline_double -> 2004
-    | Outline_hidden -> 2005
-    | Outline_offset_0 -> 2010
-    | Outline_offset_1 -> 2011
-    | Outline_offset_2 -> 2012
-    | Outline_offset_4 -> 2013
-    | Outline_offset_8 -> 2014
-    | Neg_outline_offset_1 -> 2015
-    | Neg_outline_offset_2 -> 2016
-    | Neg_outline_offset_4 -> 2017
-    | Neg_outline_offset_8 -> 2018
+    | Outline_0 -> 2000
+    | Outline_width_bracket _ -> 2001
+    | Outline_width_var _ -> 2002
+    (* Outline styles come after colors (which are in Color handler at
+       priority 23 > borders priority 19, so they naturally sort after) *)
+    (* Outline offset *)
+    | Outline_offset_0 -> 2200
+    | Outline_offset_1 -> 2201
+    | Outline_offset_2 -> 2202
+    | Outline_offset_4 -> 2203
+    | Outline_offset_8 -> 2204
+    | Outline_offset_var _ -> 2205
+    | Neg_outline_offset_1 -> 2210
+    | Neg_outline_offset_2 -> 2211
+    | Neg_outline_offset_4 -> 2212
+    | Neg_outline_offset_8 -> 2213
+    | Neg_outline_offset_var _ -> 2214
 
   let of_class class_name =
     let parts = Parse.split_class class_name in
@@ -2023,22 +2076,58 @@ module Handler = struct
         | "bl" -> Ok (Rounded_arbitrary (Rp_bl, inner))
         | _ -> err_not_utility)
     | [ "outline" ] -> Ok Outline
-    | [ "outline"; "none" ] -> Ok Outline_none
-    | [ "outline"; "solid" ] -> Ok Outline_solid
-    | [ "outline"; "dashed" ] -> Ok Outline_dashed
-    | [ "outline"; "dotted" ] -> Ok Outline_dotted
-    | [ "outline"; "double" ] -> Ok Outline_double
+    | [ "outline"; "0" ] -> Ok Outline_0
+    | [ "outline"; v ] when Parse.is_bracket_value v ->
+        let inner = Parse.bracket_inner v in
+        let starts prefix s =
+          String.length s >= String.length prefix
+          && String.sub s 0 (String.length prefix) = prefix
+        in
+        if starts "length:" inner then Ok (Outline_width_var inner)
+        else if starts "number:" inner then Ok (Outline_width_var inner)
+        else if starts "percentage:" inner then Ok (Outline_width_var inner)
+        else if starts "var(" inner then
+          (* Bare var() defaults to color for outline, not width *)
+          err_not_utility
+        else if starts "color:" inner then err_not_utility
+        else if starts "#" inner then err_not_utility
+        else
+          (* Only accept if it looks like a number/length/percentage, not a
+             named color like "black" *)
+          let is_numeric_start c =
+            (c >= '0' && c <= '9') || c = '.' || c = '-'
+          in
+          if String.length inner > 0 && is_numeric_start inner.[0] then
+            Ok (Outline_width_bracket inner)
+          else err_not_utility
+    (* outline-none/solid/dashed/dotted/double handled by
+       Outline_style_handler *)
     | [ "outline"; "hidden" ] -> Ok Outline_hidden
+    | [ "outline"; "offset"; v ] when Parse.is_bracket_value v ->
+        let inner = Parse.bracket_inner v in
+        if String.length inner > 4 && String.sub inner 0 4 = "var(" then
+          Ok (Outline_offset_var inner)
+        else err_not_utility
     | [ "outline"; "offset"; "0" ] -> Ok Outline_offset_0
     | [ "outline"; "offset"; "1" ] -> Ok Outline_offset_1
     | [ "outline"; "offset"; "2" ] -> Ok Outline_offset_2
     | [ "outline"; "offset"; "4" ] -> Ok Outline_offset_4
     | [ "outline"; "offset"; "8" ] -> Ok Outline_offset_8
     (* Negative outline offset: -outline-offset-N starts with empty string *)
-    | [ ""; "outline"; "offset"; "1" ] -> Ok Neg_outline_offset_1
-    | [ ""; "outline"; "offset"; "2" ] -> Ok Neg_outline_offset_2
-    | [ ""; "outline"; "offset"; "4" ] -> Ok Neg_outline_offset_4
-    | [ ""; "outline"; "offset"; "8" ] -> Ok Neg_outline_offset_8
+    | "" :: "outline" :: "offset" :: rest when rest <> [] -> (
+        let value = String.concat "-" rest in
+        if Parse.is_bracket_value value then
+          let inner = Parse.bracket_inner value in
+          if String.length inner > 4 && String.sub inner 0 4 = "var(" then
+            Ok (Neg_outline_offset_var inner)
+          else err_not_utility
+        else
+          match value with
+          | "1" -> Ok Neg_outline_offset_1
+          | "2" -> Ok Neg_outline_offset_2
+          | "4" -> Ok Neg_outline_offset_4
+          | "8" -> Ok Neg_outline_offset_8
+          | _ -> err_not_utility)
     (* ring* handled in Effects *)
     | _ -> err_not_utility
 
@@ -2247,27 +2336,86 @@ module Handler = struct
         in
         prefix ^ "-[" ^ value ^ "]"
     | Outline -> "outline"
-    | Outline_none -> "outline-none"
-    | Outline_solid -> "outline-solid"
-    | Outline_dashed -> "outline-dashed"
-    | Outline_dotted -> "outline-dotted"
-    | Outline_double -> "outline-double"
+    | Outline_0 -> "outline-0"
+    | Outline_width_bracket v -> "outline-[" ^ v ^ "]"
+    | Outline_width_var v -> "outline-[" ^ v ^ "]"
     | Outline_hidden -> "outline-hidden"
     | Outline_offset_0 -> "outline-offset-0"
     | Outline_offset_1 -> "outline-offset-1"
     | Outline_offset_2 -> "outline-offset-2"
     | Outline_offset_4 -> "outline-offset-4"
     | Outline_offset_8 -> "outline-offset-8"
+    | Outline_offset_var v -> "outline-offset-[" ^ v ^ "]"
     | Neg_outline_offset_1 -> "-outline-offset-1"
     | Neg_outline_offset_2 -> "-outline-offset-2"
     | Neg_outline_offset_4 -> "-outline-offset-4"
     | Neg_outline_offset_8 -> "-outline-offset-8"
+    | Neg_outline_offset_var v -> "-outline-offset-[" ^ v ^ "]"
 end
 
 open Handler
 
 let () = Utility.register (module Handler)
 let utility x = Utility.base (Self x)
+
+(** Separate handler for outline style utilities that need to come after outline
+    colors (priority 23). These are: outline-dashed, outline-dotted,
+    outline-double, outline-none, outline-solid. *)
+module Outline_style_handler = struct
+  open Style
+
+  type t = Dashed | Dotted | Double | None_ | Solid
+  type Utility.base += Self of t
+
+  let name = "outline_style"
+  let priority = 24
+
+  let to_style = function
+    | Dashed ->
+        let decl, _ = Var.binding Handler.outline_style_var Css.Dashed in
+        style [ decl; Css.outline_style Css.Dashed ]
+    | Dotted ->
+        let decl, _ = Var.binding Handler.outline_style_var Css.Dotted in
+        style [ decl; Css.outline_style Css.Dotted ]
+    | Double ->
+        let decl, _ = Var.binding Handler.outline_style_var Css.Double in
+        style [ decl; Css.outline_style Css.Double ]
+    | None_ ->
+        let decl, _ = Var.binding Handler.outline_style_var Css.None in
+        style [ decl; Css.outline_style Css.None ]
+    | Solid ->
+        let decl, _ = Var.binding Handler.outline_style_var Css.Solid in
+        style [ decl; Css.outline_style Css.Solid ]
+
+  let suborder = function
+    | Dashed -> 0
+    | Dotted -> 1
+    | Double -> 2
+    | None_ -> 3
+    | Solid -> 4
+
+  let err_not_utility = Error (`Msg "Not an outline style utility")
+
+  let of_class class_name =
+    let parts = Parse.split_class class_name in
+    match parts with
+    | [ "outline"; "dashed" ] -> Ok Dashed
+    | [ "outline"; "dotted" ] -> Ok Dotted
+    | [ "outline"; "double" ] -> Ok Double
+    | [ "outline"; "none" ] -> Ok None_
+    | [ "outline"; "solid" ] -> Ok Solid
+    | _ -> err_not_utility
+
+  let to_class = function
+    | Dashed -> "outline-dashed"
+    | Dotted -> "outline-dotted"
+    | Double -> "outline-double"
+    | None_ -> "outline-none"
+    | Solid -> "outline-solid"
+end
+
+let () = Utility.register (module Outline_style_handler)
+let outline_style_utility x = Utility.base (Outline_style_handler.Self x)
 
 (** {1 Border Width Utilities} *)
 
@@ -2482,7 +2630,7 @@ let rounded_es_full = utility Rounded_es_full
 (** {1 Outline Utilities} *)
 
 let outline = utility Outline
-let outline_none = utility Outline_none
+let outline_none = outline_style_utility Outline_style_handler.None_
 let outline_offset_0 = utility Outline_offset_0
 let outline_offset_1 = utility Outline_offset_1
 let outline_offset_2 = utility Outline_offset_2

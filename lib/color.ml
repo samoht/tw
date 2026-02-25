@@ -1332,6 +1332,13 @@ module Handler = struct
     | Outline_current
     | Outline_current_opacity of opacity_modifier
     | Outline_inherit
+    | Outline_transparent
+    | Outline_bracket_color of string (* outline-[#0088cc], outline-[black] *)
+    | Outline_bracket_color_opacity of string * opacity_modifier
+    | Outline_bracket_var of string (* outline-[var(--value)] *)
+    | Outline_bracket_var_opacity of string * opacity_modifier
+    | Outline_bracket_typed_var of string (* outline-[color:var(--value)] *)
+    | Outline_bracket_typed_var_opacity of string * opacity_modifier
 
   (** Extensible variant for color utilities *)
   type Utility.base += Self of t
@@ -1399,6 +1406,11 @@ module Handler = struct
             in
             let rgb_val = oklch_to_rgb oklch_val in
             Css.hex (rgb_to_hex rgb_val))
+
+  (* Aliases for color constructors/functions that will be shadowed by open
+     Css *)
+  let mk_color_hex s : color = Hex s
+  let color_of_string = of_string
 
   open Style
   open Css
@@ -1499,6 +1511,7 @@ module Handler = struct
         match shade_of_strings color_parts with
         | Ok (color, shade) -> Ok (Caret (color, shade))
         | Error e -> Error e)
+    | [ "outline"; "transparent" ] -> Ok Outline_transparent
     | [ "outline"; "inherit" ] -> Ok Outline_inherit
     | [ "outline"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
@@ -1507,6 +1520,34 @@ module Handler = struct
         | No_opacity when base = "current" -> Ok Outline_current
         | No_opacity -> Error (`Msg ("Invalid outline: " ^ current_str))
         | _ -> Ok (Outline_current_opacity opacity))
+    | [ "outline"; v ]
+      when String.length v > 0
+           && v.[0] = '['
+           && Parse.is_bracket_value (fst (parse_opacity_modifier v)) ->
+        let base_str, opacity = parse_opacity_modifier v in
+        let base_inner = Parse.bracket_inner base_str in
+        let starts prefix s =
+          String.length s >= String.length prefix
+          && String.sub s 0 (String.length prefix) = prefix
+        in
+        if starts "color:" base_inner then
+          let var_part =
+            String.sub base_inner 6 (String.length base_inner - 6)
+          in
+          match opacity with
+          | No_opacity -> Ok (Outline_bracket_typed_var var_part)
+          | _ -> Ok (Outline_bracket_typed_var_opacity (var_part, opacity))
+        else if starts "var(" base_inner then
+          match opacity with
+          | No_opacity -> Ok (Outline_bracket_var base_inner)
+          | _ -> Ok (Outline_bracket_var_opacity (base_inner, opacity))
+        else if
+          starts "#" base_inner || Result.is_ok (color_of_string base_inner)
+        then
+          match opacity with
+          | No_opacity -> Ok (Outline_bracket_color base_inner)
+          | _ -> Ok (Outline_bracket_color_opacity (base_inner, opacity))
+        else Error (`Msg ("Invalid outline bracket value: " ^ base_inner))
     | "outline" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings color_parts with
         | Ok (color, shade, opacity) ->
@@ -1609,13 +1650,38 @@ module Handler = struct
       let css_color = to_css color shade in
       style [ Css.outline_color css_color ]
     else
-      let color_var = get_color_var color shade in
-      let color_value = get_color_value color shade in
+      let color_var =
+        get_property_color_var ~property_prefix:"outline-color" color shade
+      in
+      let color_value =
+        get_property_color_value ~property_prefix:"outline-color" color shade
+      in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.outline_color (Var color_ref) ])
 
   let outline_current = style [ Css.outline_color Current ]
   let outline_inherit = style [ Css.outline_color Inherit ]
+  let outline_transparent = style [ Css.outline_color (Css.hex "#0000") ]
+
+  let outline_bracket_color_style inner =
+    (* Parse bracket value: "#0088cc" → hex color, "black" → named color *)
+    if String.length inner > 0 && inner.[0] = '#' then
+      let shortened = shorten_hex_str inner in
+      style [ Css.outline_color (Css.hex ("#" ^ shortened)) ]
+    else
+      match color_of_string inner with
+      | Ok c ->
+          let css_color = to_css c 500 in
+          style [ Css.outline_color css_color ]
+      | Error _ -> style [ Css.outline_color (Css.hex "#000") ]
+
+  let outline_bracket_var_style v =
+    let bare_name = Parse.extract_var_name v in
+    style [ Css.outline_color (Css.Var (Css.var_ref bare_name)) ]
+
+  let outline_bracket_typed_var_style v =
+    let bare_name = Parse.extract_var_name v in
+    style [ Css.outline_color (Css.Var (Css.var_ref bare_name)) ]
 
   (** Convert opacity modifier to a percentage value (0-100) *)
   let opacity_to_percent = function
@@ -1658,7 +1724,8 @@ module Handler = struct
       in
       let alpha = percent /. 100.0 in
       let oklab_value =
-        Css.oklaba (round_n 4 ok_l) (round_n 3 ok_a) (round_n 3 ok_b) alpha
+        Css.oklaba_none_zeros (round_n 4 ok_l) (round_n 3 ok_a) (round_n 3 ok_b)
+          alpha
       in
       style [ property oklab_value ]
     else
@@ -1747,7 +1814,8 @@ module Handler = struct
 
   (** Outline color with opacity *)
   let outline_with_opacity c shade opacity =
-    color_with_opacity_style ~property:Css.outline_color c shade opacity
+    color_with_opacity_style ~property:Css.outline_color
+      ~property_prefix:"outline-color" c shade opacity
 
   (** Current color with opacity using color-mix with progressive enhancement *)
   let current_color_with_opacity ~property opacity =
@@ -1763,6 +1831,56 @@ module Handler = struct
     let oklab_decl = property oklab_color in
     (* Create @supports block with oklab version as top-level rule. Use
        placeholder selector that rules.ml replaces with actual class. *)
+    let supports_block =
+      Css.supports ~condition:color_mix_supports_condition
+        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+    in
+    style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+
+  (** Convert a bracket color string to a custom Hex color for opacity handling.
+      Named colors like "black" are converted to their hex equivalent so they go
+      through the direct oklab path (is_custom_color = true). *)
+  let bracket_color_to_custom inner =
+    if String.length inner > 0 && inner.[0] = '#' then
+      mk_color_hex (String.sub inner 1 (String.length inner - 1))
+    else
+      match color_of_string inner with
+      | Ok Black -> mk_color_hex "000000"
+      | Ok White -> mk_color_hex "ffffff"
+      | Ok c ->
+          let oklch = to_oklch c 500 in
+          let rgb = oklch_to_rgb oklch in
+          mk_color_hex (rgb_to_hex rgb)
+      | Error _ -> mk_color_hex "000000"
+
+  let outline_bracket_color_opacity_style inner opacity =
+    let c = bracket_color_to_custom inner in
+    color_with_opacity_style ~property:Css.outline_color c 500 opacity
+
+  let outline_bracket_var_opacity_style v opacity =
+    let bare_name = Parse.extract_var_name v in
+    let percent = opacity_to_percent opacity in
+    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let fallback_decl = Css.outline_color var_color in
+    let oklab_color =
+      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
+    in
+    let oklab_decl = Css.outline_color oklab_color in
+    let supports_block =
+      Css.supports ~condition:color_mix_supports_condition
+        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+    in
+    style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+
+  let outline_bracket_typed_var_opacity_style v opacity =
+    let bare_name = Parse.extract_var_name v in
+    let percent = opacity_to_percent opacity in
+    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let fallback_decl = Css.outline_color var_color in
+    let oklab_color =
+      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
+    in
+    let oklab_decl = Css.outline_color oklab_color in
     let supports_block =
       Css.supports ~condition:color_mix_supports_condition
         [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
@@ -1814,6 +1932,16 @@ module Handler = struct
     | Outline_current_opacity opacity ->
         current_color_with_opacity ~property:Css.outline_color opacity
     | Outline_inherit -> outline_inherit
+    | Outline_transparent -> outline_transparent
+    | Outline_bracket_color inner -> outline_bracket_color_style inner
+    | Outline_bracket_color_opacity (inner, opacity) ->
+        outline_bracket_color_opacity_style inner opacity
+    | Outline_bracket_var v -> outline_bracket_var_style v
+    | Outline_bracket_var_opacity (v, opacity) ->
+        outline_bracket_var_opacity_style v opacity
+    | Outline_bracket_typed_var v -> outline_bracket_typed_var_style v
+    | Outline_bracket_typed_var_opacity (v, opacity) ->
+        outline_bracket_typed_var_opacity_style v opacity
 
   (* Suborder determines order within the color priority group. Tailwind orders:
      border -> bg -> text So we use: border (0-9999), bg (10000-19999), text
@@ -1909,7 +2037,15 @@ module Handler = struct
         70000 + (4 * 1000) (* c -> between cyan(4) and emerald(5) *)
     | Outline_current_opacity _ -> 70000 + (4 * 1000)
     | Outline_inherit -> 70000 + (9 * 1000)
-  (* i -> between indigo(9) and lime(10) *)
+    (* i -> between indigo(9) and lime(10) *)
+    | Outline_transparent -> 70000 + (22 * 1000)
+    (* t -> between teal and violet *)
+    | Outline_bracket_color _ -> 70000
+    | Outline_bracket_color_opacity _ -> 70000
+    | Outline_bracket_var _ -> 70000
+    | Outline_bracket_var_opacity _ -> 70000
+    | Outline_bracket_typed_var _ -> 70000
+    | Outline_bracket_typed_var_opacity _ -> 70000
 
   (* Format opacity modifier for class names *)
   let opacity_suffix = function
@@ -2006,6 +2142,16 @@ module Handler = struct
     | Outline_current_opacity opacity ->
         "outline-current" ^ opacity_suffix opacity
     | Outline_inherit -> "outline-inherit"
+    | Outline_transparent -> "outline-transparent"
+    | Outline_bracket_color v -> "outline-[" ^ v ^ "]"
+    | Outline_bracket_color_opacity (v, opacity) ->
+        "outline-[" ^ v ^ "]" ^ opacity_suffix opacity
+    | Outline_bracket_var v -> "outline-[" ^ v ^ "]"
+    | Outline_bracket_var_opacity (v, opacity) ->
+        "outline-[" ^ v ^ "]" ^ opacity_suffix opacity
+    | Outline_bracket_typed_var v -> "outline-[color:" ^ v ^ "]"
+    | Outline_bracket_typed_var_opacity (v, opacity) ->
+        "outline-[color:" ^ v ^ "]" ^ opacity_suffix opacity
 end
 
 open Handler
