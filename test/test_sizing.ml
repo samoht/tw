@@ -95,8 +95,7 @@ let test_aspect_classes () =
   let open Tw in
   Alcotest.check string "square class" "aspect-square" (Tw.pp aspect_square);
   Alcotest.check string "video class" "aspect-video" (Tw.pp aspect_video);
-  Alcotest.check string "ratio class" "aspect-[16/9]"
-    (Tw.pp (aspect_ratio 16 9))
+  Alcotest.check string "ratio class" "aspect-16/9" (Tw.pp (aspect_ratio 16 9))
 
 let test_aspect_css () =
   let open Tw in

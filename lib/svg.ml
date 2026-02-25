@@ -33,6 +33,9 @@ module Handler = struct
     | Color.Opacity_percent p ->
         if Float.is_integer p then Printf.sprintf "/%d" (int_of_float p)
         else Printf.sprintf "/%g" p
+    | Color.Opacity_bracket_percent p ->
+        if Float.is_integer p then Printf.sprintf "/[%d%%]" (int_of_float p)
+        else Printf.sprintf "/[%g%%]" p
     | Color.Opacity_arbitrary f -> Printf.sprintf "/[%g]" f
     | Color.Opacity_named name -> "/" ^ name
 

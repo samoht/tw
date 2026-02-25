@@ -72,6 +72,7 @@ module Handler = struct
     | Max_w_screen_xl
     | Max_w_screen_2xl
     | Max_w_spacing of float
+    | Max_w_arbitrary of Css.length
     (* Min-height utilities *)
     | Min_h_0
     | Min_h_full
@@ -183,7 +184,8 @@ module Handler = struct
     | Aspect_auto
     | Aspect_square
     | Aspect_video
-    | Aspect_ratio of int * int
+    | Aspect_ratio of int * int (* aspect-4/3 *)
+    | Aspect_bracket of int * int (* aspect-[10/9] *)
 
   type Utility.base += Self of t
 
@@ -545,6 +547,7 @@ module Handler = struct
     | Max_w_screen_xl -> max_w_screen_xl'
     | Max_w_screen_2xl -> max_w_screen_2xl'
     | Max_w_spacing n -> max_w' (`Rem n)
+    | Max_w_arbitrary len -> style [ max_width len ]
     (* Min-height utilities *)
     | Min_h_0 -> min_h_0'
     | Min_h_full -> min_h_full'
@@ -690,6 +693,7 @@ module Handler = struct
     | Aspect_square -> aspect_square'
     | Aspect_video -> aspect_video'
     | Aspect_ratio (w, h) -> aspect_ratio' w h
+    | Aspect_bracket (w, h) -> aspect_ratio' w h
 
   let err_not_utility = Error (`Msg "Not a sizing utility")
 
@@ -820,6 +824,14 @@ module Handler = struct
       | "max" -> Ok Max_w_max
       | "fit" -> Ok Max_w_fit
       | "prose" -> Ok Max_w_prose
+      | v when Parse.is_bracket_value v ->
+          let inner = Parse.bracket_inner v in
+          if String.ends_with ~suffix:"px" inner then
+            let s = String.sub inner 0 (String.length inner - 2) in
+            match float_of_string_opt s with
+            | Some f -> Ok (Max_w_arbitrary (Css.Px f))
+            | None -> err_invalid_value "max-width" v
+          else err_invalid_value "max-width" v
       | v -> (
           match float_of_string_opt v with
           | Some n when n >= 0. -> Ok (Max_w_spacing (n *. 0.25))
@@ -1006,6 +1018,23 @@ module Handler = struct
     | [ "aspect"; "auto" ] -> Ok Aspect_auto
     | [ "aspect"; "square" ] -> Ok Aspect_square
     | [ "aspect"; "video" ] -> Ok Aspect_video
+    | [ "aspect"; value ] when Parse.is_bracket_value value -> (
+        (* aspect-[10/9] *)
+        let inner = Parse.bracket_inner value in
+        match String.split_on_char '/' inner with
+        | [ w; h ] -> (
+            match (int_of_string_opt w, int_of_string_opt h) with
+            | Some w, Some h when w > 0 && h > 0 -> Ok (Aspect_bracket (w, h))
+            | _ -> err_not_utility)
+        | _ -> err_not_utility)
+    | [ "aspect"; value ] -> (
+        (* aspect-4/3 *)
+        match String.split_on_char '/' value with
+        | [ w; h ] -> (
+            match (int_of_string_opt w, int_of_string_opt h) with
+            | Some w, Some h when w > 0 && h > 0 -> Ok (Aspect_ratio (w, h))
+            | _ -> err_not_utility)
+        | _ -> err_not_utility)
     | _ -> err_not_utility
 
   (* Tailwind spacing order helper: matches canonical spacing scale order. n is
@@ -1089,6 +1118,7 @@ module Handler = struct
     | W_xl -> 306010
     (* Max-width utilities (400000-499999) *)
     | Max_w_spacing n -> 400000 + spacing_suborder n
+    | Max_w_arbitrary _ -> 405000
     | Max_w_2xl -> 406000
     | Max_w_3xl -> 406001
     | Max_w_4xl -> 406002
@@ -1201,11 +1231,12 @@ module Handler = struct
     | Max_block_none -> 886007
     | Max_block_screen -> 886008
     | Max_block_svh -> 886009
-    (* Aspect utilities (900000-) *)
-    | Aspect_auto -> 900000
-    | Aspect_square -> 900001
-    | Aspect_video -> 900002
-    | Aspect_ratio (w, h) -> 900100 + (w * 100) + h
+    (* Aspect utilities (900000-): ratios → brackets → keywords *)
+    | Aspect_ratio (w, h) -> 900000 + (w * 10) + h
+    | Aspect_bracket (w, h) -> 901000 + (w * 10) + h
+    | Aspect_auto -> 902000
+    | Aspect_square -> 902001
+    | Aspect_video -> 902002
 
   let to_class = function
     (* Width utilities *)
@@ -1311,6 +1342,15 @@ module Handler = struct
     | Max_w_screen_xl -> "max-w-screen-xl"
     | Max_w_screen_2xl -> "max-w-screen-2xl"
     | Max_w_spacing n -> "max-w-" ^ Css.Pp.to_string Css.Pp.float (n *. 4.)
+    | Max_w_arbitrary (Px n) ->
+        let s = string_of_float n in
+        let s =
+          if String.ends_with ~suffix:"." s then
+            String.sub s 0 (String.length s - 1)
+          else s
+        in
+        "max-w-[" ^ s ^ "px]"
+    | Max_w_arbitrary _ -> "max-w-[<length>]"
     (* Min-height utilities *)
     | Min_h_0 -> "min-h-0"
     | Min_h_full -> "min-h-full"
@@ -1543,7 +1583,8 @@ module Handler = struct
     | Aspect_auto -> "aspect-auto"
     | Aspect_square -> "aspect-square"
     | Aspect_video -> "aspect-video"
-    | Aspect_ratio (w, h) ->
+    | Aspect_ratio (w, h) -> "aspect-" ^ string_of_int w ^ "/" ^ string_of_int h
+    | Aspect_bracket (w, h) ->
         "aspect-[" ^ string_of_int w ^ "/" ^ string_of_int h ^ "]"
 end
 
