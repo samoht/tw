@@ -176,6 +176,7 @@ type t =
       props : Css.declaration list;
       rules : Css.statement list option;
       property_rules : Css.t;
+      merge_key : string option;
     }
   | Modified of modifier * t
   | Group of t list
@@ -198,6 +199,7 @@ val pp_modifier : modifier -> string
 val style :
   ?rules:Css.statement list option ->
   ?property_rules:Css.t ->
+  ?merge_key:string ->
   Css.declaration list ->
   t
 (** [style ?rules ?property_rules props] defines a utility with CSS [props].

@@ -1400,7 +1400,7 @@ module Handler = struct
     in
     let bare_name = Parse.extract_var_name var_part in
     let var_ref : Css.length Css.var = Css.var_ref bare_name in
-    style ~property_rules:property_rule
+    style ~merge_key:"outline-" ~property_rules:property_rule
       [ Css.outline_style (Css.Var oref); Css.outline_width (Var var_ref) ]
 
   (* Outline style utilities that set the variable *)

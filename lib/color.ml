@@ -1667,7 +1667,8 @@ module Handler = struct
     (* Parse bracket value: "#0088cc" → hex color, "black" → named color *)
     if String.length inner > 0 && inner.[0] = '#' then
       let shortened = shorten_hex_str inner in
-      style [ Css.outline_color (Css.hex ("#" ^ shortened)) ]
+      style ~merge_key:"outline-"
+        [ Css.outline_color (Css.hex ("#" ^ shortened)) ]
     else
       match color_of_string inner with
       | Ok c ->
@@ -1677,11 +1678,13 @@ module Handler = struct
 
   let outline_bracket_var_style v =
     let bare_name = Parse.extract_var_name v in
-    style [ Css.outline_color (Css.Var (Css.var_ref bare_name)) ]
+    style ~merge_key:"outline-"
+      [ Css.outline_color (Css.Var (Css.var_ref bare_name)) ]
 
   let outline_bracket_typed_var_style v =
     let bare_name = Parse.extract_var_name v in
-    style [ Css.outline_color (Css.Var (Css.var_ref bare_name)) ]
+    style ~merge_key:"outline-"
+      [ Css.outline_color (Css.Var (Css.var_ref bare_name)) ]
 
   (** Convert opacity modifier to a percentage value (0-100) *)
   let opacity_to_percent = function
@@ -1702,7 +1705,8 @@ module Handler = struct
       - With hex scheme: fallback is hex+alpha, [\@supports] has color-mix
       - With oklch scheme (default): fallback is color-mix(srgb), [\@supports]
         has color-mix(oklab) *)
-  let color_with_opacity_style ~property ?property_prefix c shade opacity =
+  let color_with_opacity_style ~property ?property_prefix ?merge_key c shade
+      opacity =
     let percent = opacity_to_percent opacity in
     if is_custom_color c then
       (* Custom/arbitrary colors (hex, rgb): output oklab() directly. No theme
@@ -1727,7 +1731,7 @@ module Handler = struct
         Css.oklaba_none_zeros (round_n 4 ok_l) (round_n 3 ok_a) (round_n 3 ok_b)
           alpha
       in
-      style [ property oklab_value ]
+      style ?merge_key [ property oklab_value ]
     else
       let scheme = !current_scheme in
       let color_name = scheme_color_name c shade in
@@ -1756,7 +1760,8 @@ module Handler = struct
             Css.supports ~condition:color_mix_supports_condition
               [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
           in
-          style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
+          style ?merge_key ~rules:(Some [ supports_block ])
+            [ theme_decl; fallback_decl ]
       | None ->
           (* Non-scheme color: use property-scoped variable if prefix given *)
           let color_var =
@@ -1788,7 +1793,8 @@ module Handler = struct
             Css.supports ~condition:color_mix_supports_condition
               [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
           in
-          style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
+          style ?merge_key ~rules:(Some [ supports_block ])
+            [ theme_decl; fallback_decl ]
 
   (** Background color with opacity *)
   let bg_with_opacity c shade opacity =
@@ -1855,7 +1861,26 @@ module Handler = struct
 
   let outline_bracket_color_opacity_style inner opacity =
     let c = bracket_color_to_custom inner in
-    color_with_opacity_style ~property:Css.outline_color c 500 opacity
+    let merge_key =
+      if String.length inner > 0 && inner.[0] = '#' then
+        (* Hex bracket colors: strip bracket+opacity for merging *)
+        "outline-"
+      else
+        (* Named bracket colors: unique per variant to prevent merging.
+           Different opacity syntaxes (e.g. /50 vs /[0.5]) produce identical CSS
+           but Tailwind keeps them separate. *)
+        let opacity_tag =
+          match opacity with
+          | No_opacity -> ""
+          | Opacity_percent p -> "/" ^ string_of_float p
+          | Opacity_arbitrary f -> "/[" ^ string_of_float f ^ "]"
+          | Opacity_bracket_percent p -> "/[" ^ string_of_float p ^ "%]"
+          | Opacity_named n -> "/" ^ n
+        in
+        "outline-[" ^ inner ^ "]" ^ opacity_tag
+    in
+    color_with_opacity_style ~property:Css.outline_color ~merge_key c 500
+      opacity
 
   let outline_bracket_var_opacity_style v opacity =
     let bare_name = Parse.extract_var_name v in
@@ -1870,7 +1895,8 @@ module Handler = struct
       Css.supports ~condition:color_mix_supports_condition
         [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
     in
-    style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+    style ~merge_key:"outline-" ~rules:(Some [ supports_block ])
+      [ fallback_decl ]
 
   let outline_bracket_typed_var_opacity_style v opacity =
     let bare_name = Parse.extract_var_name v in
@@ -1885,7 +1911,8 @@ module Handler = struct
       Css.supports ~condition:color_mix_supports_condition
         [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
     in
-    style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+    style ~merge_key:"outline-" ~rules:(Some [ supports_block ])
+      [ fallback_decl ]
 
   let to_style = function
     | Bg (color, shade) -> bg' color shade
