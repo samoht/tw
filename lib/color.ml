@@ -732,11 +732,21 @@ let of_string = function
   | "rose" -> Ok Rose
   | s ->
       let len = String.length s in
-      if len >= 4 && s.[0] = '[' && s.[1] = '#' && s.[len - 1] = ']' then
+      if len >= 4 && s.[0] = '[' && s.[1] = '#' && s.[len - 1] = ']' then (
         (* Arbitrary bracket hex value like [#0088cc]. Store original hex
            (unshortened) so class names preserve it. Shortening happens later in
-           to_css for CSS output. *)
-        Ok (Hex (String.sub s 2 (len - 3)))
+           to_css for CSS output. Validate hex chars to avoid matching
+           [#0088cc]/[0.5] where the ] belongs to a different bracket. *)
+        let hex = String.sub s 2 (len - 3) in
+        let is_hex c =
+          (c >= '0' && c <= '9')
+          || (c >= 'a' && c <= 'f')
+          || (c >= 'A' && c <= 'F')
+        in
+        let valid = ref true in
+        String.iter (fun c -> if not (is_hex c) then valid := false) hex;
+        if !valid && String.length hex >= 3 then Ok (Hex hex)
+        else Error (`Msg ("Unknown color: " ^ s)))
       else Error (`Msg ("Unknown color: " ^ s))
 
 let rgb r g b =
@@ -1564,8 +1574,12 @@ module Handler = struct
       let css_color = to_css c shade in
       style [ Css.background_color css_color ]
     else
-      let color_var = get_color_var c shade in
-      let color_value = get_color_value c shade in
+      let color_var =
+        get_property_color_var ~property_prefix:"background-color" c shade
+      in
+      let color_value =
+        get_property_color_value ~property_prefix:"background-color" c shade
+      in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.background_color (Css.Var color_ref) ])
 
@@ -1798,7 +1812,8 @@ module Handler = struct
 
   (** Background color with opacity *)
   let bg_with_opacity c shade opacity =
-    color_with_opacity_style ~property:Css.background_color c shade opacity
+    color_with_opacity_style ~property:Css.background_color
+      ~property_prefix:"background-color" c shade opacity
 
   (** Text color with opacity *)
   let text_with_opacity c shade opacity =
@@ -1916,7 +1931,11 @@ module Handler = struct
 
   let to_style = function
     | Bg (color, shade) -> bg' color shade
-    | Bg_opacity (color, shade, opacity) -> bg_with_opacity color shade opacity
+    | Bg_opacity (color, shade, opacity) ->
+        (* 100% opacity: same as base color, no @supports needed *)
+        if opacity_to_percent opacity >= 100. && not (is_custom_color color)
+        then bg' color shade
+        else bg_with_opacity color shade opacity
     | Bg_transparent -> bg_transparent
     | Bg_current -> bg_current
     | Bg_current_opacity opacity ->

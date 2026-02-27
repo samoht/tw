@@ -30,6 +30,21 @@ module Handler = struct
   (* Helper to check if a string contains an opacity modifier *)
   let has_opacity s = String.contains s '/'
 
+  type position_name =
+    | Pos_bottom
+    | Pos_bottom_left
+    | Pos_bottom_right
+    | Pos_center
+    | Pos_left
+    | Pos_left_bottom
+    | Pos_left_top
+    | Pos_right
+    | Pos_right_bottom
+    | Pos_right_top
+    | Pos_top
+    | Pos_top_left
+    | Pos_top_right
+
   type t =
     | Bg of Color.color * int
     | Bg_gradient_to of direction
@@ -46,6 +61,55 @@ module Handler = struct
     | Bg_clip_padding
     | Bg_clip_content
     | Bg_clip_text
+    (* Background color keywords *)
+    | Bg_inherit
+    (* Background image *)
+    | Bg_none
+    (* Background size *)
+    | Bg_auto
+    | Bg_cover
+    | Bg_contain
+    (* Background attachment *)
+    | Bg_fixed
+    | Bg_local
+    | Bg_scroll
+    (* Background repeat *)
+    | Bg_repeat
+    | Bg_no_repeat
+    | Bg_repeat_x
+    | Bg_repeat_y
+    | Bg_repeat_round
+    | Bg_repeat_space
+    (* Background position *)
+    | Bg_position of position_name
+    (* Bracket notation: bg-[contain], bg-[cover] → background-size *)
+    | Bg_bracket_contain
+    | Bg_bracket_cover
+    (* Bracket notation: bg-[length:...] or bg-[size:...] → background-size *)
+    | Bg_bracket_size of string
+    (* Bracket notation: bg-[50%], bg-[120px], bg-[120px_120px] →
+       background-position *)
+    | Bg_bracket_position of string
+    (* Bracket notation: bg-[position:...] → background-position *)
+    | Bg_bracket_typed_position of string
+    (* Bracket notation: bg-[color:var(--x)] → background-color *)
+    | Bg_bracket_color_var of string
+    (* Bracket notation: bg-[var(--x)] → background-color *)
+    | Bg_bracket_var of string
+    (* Bracket notation: bg-[image:var(--x)] → background-image *)
+    | Bg_bracket_image_var of string
+    (* Bracket notation: bg-[url(...)] → background-image *)
+    | Bg_bracket_url of string
+    (* Bracket notation: bg-[url:var(--x)] → background-image *)
+    | Bg_bracket_url_var of string
+    (* Bracket notation: bg-[linear-gradient(...)] → background-image *)
+    | Bg_bracket_linear_gradient of string
+    (* bg-linear-to-* direction utilities *)
+    | Bg_linear_to of direction
+    (* bg-position-[...] bracket notation *)
+    | Bg_position_bracket of string
+    (* bg-size-[...] bracket notation *)
+    | Bg_size_bracket of string
 
   type Utility.base += Self of t
 
@@ -117,6 +181,56 @@ module Handler = struct
     | Bg_clip_padding -> "bg-clip-padding"
     | Bg_clip_content -> "bg-clip-content"
     | Bg_clip_text -> "bg-clip-text"
+    | Bg_inherit -> "bg-inherit"
+    | Bg_none -> "bg-none"
+    | Bg_auto -> "bg-auto"
+    | Bg_cover -> "bg-cover"
+    | Bg_contain -> "bg-contain"
+    | Bg_fixed -> "bg-fixed"
+    | Bg_local -> "bg-local"
+    | Bg_scroll -> "bg-scroll"
+    | Bg_repeat -> "bg-repeat"
+    | Bg_no_repeat -> "bg-no-repeat"
+    | Bg_repeat_x -> "bg-repeat-x"
+    | Bg_repeat_y -> "bg-repeat-y"
+    | Bg_repeat_round -> "bg-repeat-round"
+    | Bg_repeat_space -> "bg-repeat-space"
+    | Bg_position Pos_bottom -> "bg-bottom"
+    | Bg_position Pos_bottom_left -> "bg-bottom-left"
+    | Bg_position Pos_bottom_right -> "bg-bottom-right"
+    | Bg_position Pos_center -> "bg-center"
+    | Bg_position Pos_left -> "bg-left"
+    | Bg_position Pos_left_bottom -> "bg-left-bottom"
+    | Bg_position Pos_left_top -> "bg-left-top"
+    | Bg_position Pos_right -> "bg-right"
+    | Bg_position Pos_right_bottom -> "bg-right-bottom"
+    | Bg_position Pos_right_top -> "bg-right-top"
+    | Bg_position Pos_top -> "bg-top"
+    | Bg_position Pos_top_left -> "bg-top-left"
+    | Bg_position Pos_top_right -> "bg-top-right"
+    | Bg_bracket_contain -> "bg-[contain]"
+    | Bg_bracket_cover -> "bg-[cover]"
+    | Bg_bracket_size v -> "bg-[" ^ v ^ "]"
+    | Bg_bracket_position v -> "bg-[" ^ v ^ "]"
+    | Bg_bracket_typed_position v -> "bg-[position:" ^ v ^ "]"
+    | Bg_bracket_color_var v -> "bg-[color:" ^ v ^ "]"
+    | Bg_bracket_var v -> "bg-[" ^ v ^ "]"
+    | Bg_bracket_image_var v -> "bg-[image:" ^ v ^ "]"
+    | Bg_bracket_url v -> "bg-[url(" ^ v ^ ")]"
+    | Bg_bracket_url_var v -> "bg-[url:" ^ v ^ "]"
+    | Bg_bracket_linear_gradient v -> "bg-[linear-gradient(" ^ v ^ ")]"
+    | Bg_linear_to dir -> (
+        match dir with
+        | Bottom -> "bg-linear-to-b"
+        | Bottom_right -> "bg-linear-to-br"
+        | Right -> "bg-linear-to-r"
+        | Top_right -> "bg-linear-to-tr"
+        | Top -> "bg-linear-to-t"
+        | Top_left -> "bg-linear-to-tl"
+        | Left -> "bg-linear-to-l"
+        | Bottom_left -> "bg-linear-to-bl")
+    | Bg_position_bracket v -> "bg-position-[" ^ v ^ "]"
+    | Bg_size_bracket v -> "bg-size-[" ^ v ^ "]"
 
   let to_spec (dir : direction) : Css.gradient_direction =
     match dir with
@@ -317,6 +431,150 @@ module Handler = struct
   let bg_clip_text =
     style [ Css.webkit_background_clip Text; Css.background_clip Text ]
 
+  let bg_inherit' = style [ Css.background_color Inherit ]
+  let bg_none' = style [ Css.background_image None ]
+  let bg_auto' = style [ Css.background_size Auto ]
+  let bg_cover' = style [ Css.background_size Cover ]
+  let bg_contain' = style [ Css.background_size Contain ]
+  let bg_fixed' = style [ Css.background_attachment Fixed ]
+  let bg_local' = style [ Css.background_attachment Local ]
+  let bg_scroll' = style [ Css.background_attachment Scroll ]
+  let bg_repeat' = style [ Css.background_repeat Repeat ]
+  let bg_no_repeat' = style [ Css.background_repeat No_repeat ]
+  let bg_repeat_x' = style [ Css.background_repeat Repeat_x ]
+  let bg_repeat_y' = style [ Css.background_repeat Repeat_y ]
+  let bg_repeat_round' = style [ Css.background_repeat Round ]
+  let bg_repeat_space' = style [ Css.background_repeat Space ]
+  let bg_position' pos = style [ Css.background_position pos ]
+
+  (* Parse a bracket size value like "120px_120px" or "120px" *)
+  let parse_bracket_size inner =
+    let parts =
+      String.split_on_char '_' inner |> List.filter (fun s -> s <> "")
+    in
+    match parts with
+    | [ w; h ] -> (
+        (* Two values: width height *)
+        let parse_len s =
+          if String.ends_with ~suffix:"px" s then
+            let n =
+              String.sub s 0 (String.length s - 2) |> float_of_string_opt
+            in
+            Option.map (fun f -> (Css.Px f : Css.length)) n
+          else if String.ends_with ~suffix:"%" s then
+            let n =
+              String.sub s 0 (String.length s - 1) |> float_of_string_opt
+            in
+            Option.map (fun f -> (Css.Pct f : Css.length)) n
+          else if String.ends_with ~suffix:"rem" s then
+            let n =
+              String.sub s 0 (String.length s - 3) |> float_of_string_opt
+            in
+            Option.map (fun f -> (Css.Rem f : Css.length)) n
+          else None
+        in
+        let wl = parse_len w in
+        let hl = parse_len h in
+        match (wl, hl) with
+        | Some w, Some h -> Some (Css.background_size (Size (w, h)))
+        | _ -> None)
+    | [ v ] ->
+        let parse_len s =
+          if String.ends_with ~suffix:"px" s then
+            let n =
+              String.sub s 0 (String.length s - 2) |> float_of_string_opt
+            in
+            Option.map (fun f -> (Css.Px f : Css.background_size)) n
+          else if String.ends_with ~suffix:"%" s then
+            let n =
+              String.sub s 0 (String.length s - 1) |> float_of_string_opt
+            in
+            Option.map (fun f -> (Css.Pct f : Css.background_size)) n
+          else None
+        in
+        Option.map Css.background_size (parse_len v)
+    | _ -> None
+
+  (* Parse a bracket position value like "120px_120px" or "120px" or "50%" *)
+  let parse_bracket_position inner =
+    let parts =
+      String.split_on_char '_' inner |> List.filter (fun s -> s <> "")
+    in
+    let parse_pos_val s : Css.position_value option =
+      if String.ends_with ~suffix:"px" s then
+        let n = String.sub s 0 (String.length s - 2) |> float_of_string_opt in
+        Option.map (fun f -> (Css.XY (Px f, Px f) : Css.position_value)) n
+      else if String.ends_with ~suffix:"%" s then
+        let n = String.sub s 0 (String.length s - 1) |> float_of_string_opt in
+        Option.map (fun f -> (Css.XY (Pct f, Pct f) : Css.position_value)) n
+      else None
+    in
+    match parts with
+    | [ x; y ] -> (
+        (* Two values - but Tailwind seems to collapse to single in some
+           cases *)
+        let parse_len s : Css.length option =
+          if String.ends_with ~suffix:"px" s then
+            let n =
+              String.sub s 0 (String.length s - 2) |> float_of_string_opt
+            in
+            Option.map (fun f -> (Css.Px f : Css.length)) n
+          else if String.ends_with ~suffix:"%" s then
+            let n =
+              String.sub s 0 (String.length s - 1) |> float_of_string_opt
+            in
+            Option.map (fun f -> (Css.Pct f : Css.length)) n
+          else None
+        in
+        let xl = parse_len x in
+        let yl = parse_len y in
+        match (xl, yl) with
+        | Some xv, Some yv -> Some (Css.background_position [ Css.XY (xv, yv) ])
+        | _ -> None)
+    | [ v ] ->
+        Option.map (fun pv -> Css.background_position [ pv ]) (parse_pos_val v)
+    | _ -> None
+
+  let gradient_supports_condition =
+    Css.Supports.Property
+      ("background-image", "linear-gradient(in lab, red, red)")
+
+  let gradient_property_rules =
+    [
+      Var.property_rule gradient_position_var;
+      Var.property_rule gradient_stops_var;
+    ]
+    |> List.filter_map (fun x -> x)
+    |> Css.concat
+
+  (** Helper: build the 3-rule pattern for gradient direction utilities. Returns
+      [base_decl; @supports { interp_decl }; bg-image rule]. *)
+  let gradient_direction_rules ~base_decl ~interp_decl =
+    let base_rule =
+      Css.rule ~selector:(Css.Selector.class_ "_") [ base_decl ]
+    in
+    let supports_rule =
+      Css.supports ~condition:gradient_supports_condition
+        [ Css.rule ~selector:(Css.Selector.class_ "_") [ interp_decl ] ]
+    in
+    let stops_ref = Var.reference gradient_stops_var in
+    let bg_image_rule =
+      Css.rule ~selector:(Css.Selector.class_ "_")
+        [ Css.background_image (Linear_gradient_var stops_ref) ]
+    in
+    [ base_rule; supports_rule; bg_image_rule ]
+
+  (* bg-linear-to-* with @supports for color interpolation *)
+  let bg_linear_to' dir =
+    let dir_val = to_spec dir in
+    let dir_with_interp : Css.gradient_direction =
+      With_interpolation (dir_val, In_oklab)
+    in
+    let base_decl, _ = Var.binding gradient_position_var dir_val in
+    let interp_decl, _ = Var.binding gradient_position_var dir_with_interp in
+    let rules = gradient_direction_rules ~base_decl ~interp_decl in
+    style ~property_rules:gradient_property_rules ~rules:(Some rules) []
+
   (* Gradient color with opacity - generates same structure as Tailwind: 1.
      Fallback rule with hex alpha (for scheme colors) 2. @supports block with
      color-mix using theme variable 3. Separate rule with --tw-gradient-stops *)
@@ -479,6 +737,81 @@ module Handler = struct
     | Bg_clip_padding -> bg_clip_padding
     | Bg_clip_content -> bg_clip_content
     | Bg_clip_text -> bg_clip_text
+    | Bg_inherit -> bg_inherit'
+    | Bg_none -> bg_none'
+    | Bg_auto -> bg_auto'
+    | Bg_cover -> bg_cover'
+    | Bg_contain -> bg_contain'
+    | Bg_fixed -> bg_fixed'
+    | Bg_local -> bg_local'
+    | Bg_scroll -> bg_scroll'
+    | Bg_repeat -> bg_repeat'
+    | Bg_no_repeat -> bg_no_repeat'
+    | Bg_repeat_x -> bg_repeat_x'
+    | Bg_repeat_y -> bg_repeat_y'
+    | Bg_repeat_round -> bg_repeat_round'
+    | Bg_repeat_space -> bg_repeat_space'
+    | Bg_position pos ->
+        let pos_val : Css.position_value list =
+          match pos with
+          | Pos_bottom -> [ Center_bottom ]
+          | Pos_bottom_left -> [ XY (Px 0., Pct 100.) ]
+          | Pos_bottom_right -> [ XY (Pct 100., Pct 100.) ]
+          | Pos_center -> [ Center ]
+          | Pos_left -> [ XY (Px 0., Px 0.) ]
+          | Pos_left_bottom -> [ XY (Px 0., Pct 100.) ]
+          | Pos_left_top -> [ XY (Px 0., Px 0.) ]
+          | Pos_right -> [ XY (Pct 100., Pct 100.) ]
+          | Pos_right_bottom -> [ XY (Pct 100., Pct 100.) ]
+          | Pos_right_top -> [ XY (Pct 100., Px 0.) ]
+          | Pos_top -> [ Center_top ]
+          | Pos_top_left -> [ XY (Px 0., Px 0.) ]
+          | Pos_top_right -> [ XY (Pct 100., Px 0.) ]
+        in
+        bg_position' pos_val
+    | Bg_bracket_contain -> style [ Css.background_size Contain ]
+    | Bg_bracket_cover -> style [ Css.background_size Cover ]
+    | Bg_bracket_size inner -> (
+        match parse_bracket_size inner with
+        | Some decl -> style [ decl ]
+        | None -> style [ Css.background_size Auto ])
+    | Bg_bracket_position inner -> (
+        match parse_bracket_position inner with
+        | Some decl -> style [ decl ]
+        | None -> style [ Css.background_position [ Center ] ])
+    | Bg_bracket_typed_position inner -> (
+        match parse_bracket_position inner with
+        | Some decl -> style [ decl ]
+        | None -> style [ Css.background_position [ Center ] ])
+    | Bg_bracket_color_var v ->
+        let bare = Parse.extract_var_name v in
+        let var_ref : Css.color Css.var = Css.var_ref bare in
+        style [ Css.background_color (Var var_ref) ]
+    | Bg_bracket_var v ->
+        let bare = Parse.extract_var_name v in
+        let var_ref : Css.color Css.var = Css.var_ref bare in
+        style [ Css.background_color (Var var_ref) ]
+    | Bg_bracket_image_var v ->
+        let bare = Parse.extract_var_name v in
+        let var_ref : Css.background_image Css.var = Css.var_ref bare in
+        style [ Css.background_image (Var var_ref) ]
+    | Bg_bracket_url url -> style [ Css.background_image (Url url) ]
+    | Bg_bracket_url_var v ->
+        let bare = Parse.extract_var_name v in
+        let var_ref : Css.background_image Css.var = Css.var_ref bare in
+        style [ Css.background_image (Var var_ref) ]
+    | Bg_bracket_linear_gradient _v ->
+        (* TODO: parse linear-gradient content *)
+        style [ Css.background_image None ]
+    | Bg_linear_to dir -> bg_linear_to' dir
+    | Bg_position_bracket inner -> (
+        match parse_bracket_position inner with
+        | Some decl -> style [ decl ]
+        | None -> style [ Css.background_position [ Center ] ])
+    | Bg_size_bracket inner -> (
+        match parse_bracket_size inner with
+        | Some decl -> style [ decl ]
+        | None -> style [ Css.background_size Auto ])
 
   let suborder = function
     (* Tailwind order: solid bg-colors before gradient utilities *)
@@ -503,6 +836,58 @@ module Handler = struct
     | Bg_clip_content -> 150001
     | Bg_clip_padding -> 150002
     | Bg_clip_text -> 150003
+    (* bg-inherit sorts with other bg-color utilities *)
+    | Bg_inherit -> Color.suborder_with_shade "inherit"
+    (* bg-none: background-image: none *)
+    | Bg_none -> 210000
+    (* bg-size utilities *)
+    | Bg_auto -> 300000
+    | Bg_contain -> 300001
+    | Bg_cover -> 300002
+    (* bg-attachment utilities *)
+    | Bg_fixed -> 400000
+    | Bg_local -> 400001
+    | Bg_scroll -> 400002
+    (* bg-position utilities *)
+    | Bg_position Pos_bottom -> 500000
+    | Bg_position Pos_bottom_left -> 500001
+    | Bg_position Pos_bottom_right -> 500002
+    | Bg_position Pos_center -> 500003
+    | Bg_position Pos_left -> 500004
+    | Bg_position Pos_left_bottom -> 500005
+    | Bg_position Pos_left_top -> 500006
+    | Bg_position Pos_right -> 500007
+    | Bg_position Pos_right_bottom -> 500008
+    | Bg_position Pos_right_top -> 500009
+    | Bg_position Pos_top -> 500010
+    | Bg_position Pos_top_left -> 500011
+    | Bg_position Pos_top_right -> 500012
+    (* bg-repeat utilities *)
+    | Bg_no_repeat -> 600000
+    | Bg_repeat -> 600001
+    | Bg_repeat_round -> 600002
+    | Bg_repeat_space -> 600003
+    | Bg_repeat_x -> 600004
+    | Bg_repeat_y -> 600005
+    (* Bracket size variants *)
+    | Bg_bracket_contain -> 300010
+    | Bg_bracket_cover -> 300011
+    | Bg_bracket_size _ -> 300012
+    | Bg_size_bracket _ -> 300013
+    (* Bracket position variants *)
+    | Bg_bracket_position _ -> 500020
+    | Bg_bracket_typed_position _ -> 500021
+    | Bg_position_bracket _ -> 500022
+    (* Bracket color/var variants *)
+    | Bg_bracket_color_var _ -> 50000
+    | Bg_bracket_var _ -> 50001
+    (* Bracket image variants *)
+    | Bg_bracket_image_var _ -> 210010
+    | Bg_bracket_url _ -> 210011
+    | Bg_bracket_url_var _ -> 210012
+    | Bg_bracket_linear_gradient _ -> 210013
+    (* bg-linear-to *)
+    | Bg_linear_to _ -> 100010
 
   let of_class class_name =
     let parts = Parse.split_class class_name in
@@ -522,6 +907,94 @@ module Handler = struct
     | [ "bg"; "clip"; "padding" ] -> Ok Bg_clip_padding
     | [ "bg"; "clip"; "content" ] -> Ok Bg_clip_content
     | [ "bg"; "clip"; "text" ] -> Ok Bg_clip_text
+    (* Background color keywords *)
+    | [ "bg"; "inherit" ] -> Ok Bg_inherit
+    (* Background image *)
+    | [ "bg"; "none" ] -> Ok Bg_none
+    (* Background size *)
+    | [ "bg"; "auto" ] -> Ok Bg_auto
+    | [ "bg"; "cover" ] -> Ok Bg_cover
+    | [ "bg"; "contain" ] -> Ok Bg_contain
+    (* Background attachment *)
+    | [ "bg"; "fixed" ] -> Ok Bg_fixed
+    | [ "bg"; "local" ] -> Ok Bg_local
+    | [ "bg"; "scroll" ] -> Ok Bg_scroll
+    (* Background repeat *)
+    | [ "bg"; "repeat" ] -> Ok Bg_repeat
+    | [ "bg"; "no"; "repeat" ] -> Ok Bg_no_repeat
+    | [ "bg"; "repeat"; "x" ] -> Ok Bg_repeat_x
+    | [ "bg"; "repeat"; "y" ] -> Ok Bg_repeat_y
+    | [ "bg"; "repeat"; "round" ] -> Ok Bg_repeat_round
+    | [ "bg"; "repeat"; "space" ] -> Ok Bg_repeat_space
+    (* Background position *)
+    | [ "bg"; "bottom" ] -> Ok (Bg_position Pos_bottom)
+    | [ "bg"; "bottom"; "left" ] -> Ok (Bg_position Pos_bottom_left)
+    | [ "bg"; "bottom"; "right" ] -> Ok (Bg_position Pos_bottom_right)
+    | [ "bg"; "center" ] -> Ok (Bg_position Pos_center)
+    | [ "bg"; "left" ] -> Ok (Bg_position Pos_left)
+    | [ "bg"; "left"; "bottom" ] -> Ok (Bg_position Pos_left_bottom)
+    | [ "bg"; "left"; "top" ] -> Ok (Bg_position Pos_left_top)
+    | [ "bg"; "right" ] -> Ok (Bg_position Pos_right)
+    | [ "bg"; "right"; "bottom" ] -> Ok (Bg_position Pos_right_bottom)
+    | [ "bg"; "right"; "top" ] -> Ok (Bg_position Pos_right_top)
+    | [ "bg"; "top" ] -> Ok (Bg_position Pos_top)
+    | [ "bg"; "top"; "left" ] -> Ok (Bg_position Pos_top_left)
+    | [ "bg"; "top"; "right" ] -> Ok (Bg_position Pos_top_right)
+    (* bg-linear-to-* direction utilities *)
+    | [ "bg"; "linear"; "to"; "b" ] -> Ok (Bg_linear_to Bottom)
+    | [ "bg"; "linear"; "to"; "br" ] -> Ok (Bg_linear_to Bottom_right)
+    | [ "bg"; "linear"; "to"; "r" ] -> Ok (Bg_linear_to Right)
+    | [ "bg"; "linear"; "to"; "tr" ] -> Ok (Bg_linear_to Top_right)
+    | [ "bg"; "linear"; "to"; "t" ] -> Ok (Bg_linear_to Top)
+    | [ "bg"; "linear"; "to"; "tl" ] -> Ok (Bg_linear_to Top_left)
+    | [ "bg"; "linear"; "to"; "l" ] -> Ok (Bg_linear_to Left)
+    | [ "bg"; "linear"; "to"; "bl" ] -> Ok (Bg_linear_to Bottom_left)
+    (* bg-position-[...] bracket notation *)
+    | [ "bg"; "position"; bracket ] when Parse.is_bracket_value bracket ->
+        Ok (Bg_position_bracket (Parse.bracket_inner bracket))
+    (* bg-size-[...] bracket notation *)
+    | [ "bg"; "size"; bracket ] when Parse.is_bracket_value bracket ->
+        Ok (Bg_size_bracket (Parse.bracket_inner bracket))
+    (* Bracket notation: bg-[...] *)
+    | [ "bg"; bracket ] when Parse.is_bracket_value bracket -> (
+        let inner = Parse.bracket_inner bracket in
+        match inner with
+        | "contain" -> Ok Bg_bracket_contain
+        | "cover" -> Ok Bg_bracket_cover
+        | _ when String.length inner > 9 && String.sub inner 0 7 = "length:" ->
+            Ok (Bg_bracket_size (String.sub inner 7 (String.length inner - 7)))
+        | _ when String.length inner > 5 && String.sub inner 0 5 = "size:" ->
+            Ok (Bg_bracket_size (String.sub inner 5 (String.length inner - 5)))
+        | _ when String.length inner > 9 && String.sub inner 0 9 = "position:"
+          ->
+            Ok
+              (Bg_bracket_typed_position
+                 (String.sub inner 9 (String.length inner - 9)))
+        | _ when String.length inner > 6 && String.sub inner 0 6 = "color:" ->
+            Ok
+              (Bg_bracket_color_var
+                 (String.sub inner 6 (String.length inner - 6)))
+        | _ when String.length inner > 6 && String.sub inner 0 6 = "image:" ->
+            Ok
+              (Bg_bracket_image_var
+                 (String.sub inner 6 (String.length inner - 6)))
+        | _ when String.length inner > 4 && String.sub inner 0 4 = "url:" ->
+            Ok
+              (Bg_bracket_url_var (String.sub inner 4 (String.length inner - 4)))
+        | _ when String.length inner > 4 && String.sub inner 0 4 = "url(" ->
+            (* Extract URL from url(...) *)
+            let url_content = String.sub inner 4 (String.length inner - 5) in
+            Ok (Bg_bracket_url url_content)
+        | _
+          when String.length inner > 16
+               && String.sub inner 0 16 = "linear-gradient(" ->
+            Ok (Bg_bracket_linear_gradient inner)
+        | _ when Parse.is_var inner -> Ok (Bg_bracket_var inner)
+        | _ ->
+            (* Try to parse as position value (e.g., 50%, 120px, 120px_120px) *)
+            if parse_bracket_position inner <> None then
+              Ok (Bg_bracket_position inner)
+            else Error (`Msg ("Unknown bg bracket value: " ^ inner)))
     | "bg" :: rest -> (
         match Color.shade_of_strings rest with
         | Ok (color, shade) -> Ok (Bg (color, shade))
