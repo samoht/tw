@@ -69,4 +69,21 @@ let () =
       Test_utility.suite;
       Test_spacing.suite;
       Test_escape_debug.suite;
+      Test_box_sizing.suite;
+      Test_columns.suite;
+      Test_contain.suite;
+      Test_divide.suite;
+      Test_field_sizing.suite;
+      Test_flex_layout.suite;
+      Test_mask_gradient.suite;
+      Test_masks.suite;
+      Test_overflow.suite;
+      Test_overflow_wrap.suite;
+      Test_overscroll.suite;
+      Test_property.suite;
+      Test_scheme.suite;
+      Test_scroll.suite;
+      Test_text_shadow.suite;
+      Test_touch.suite;
+      Test_transitions.suite;
     ]
