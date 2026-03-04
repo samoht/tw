@@ -692,8 +692,8 @@ module Handler = struct
       | None -> String.map (fun c -> if c = '_' then ' ' else c) inner
     else String.map (fun c -> if c = '_' then ' ' else c) inner
 
-  (** bg-linear-to-*/interp - direction with specific interpolation.
-      Uses 3-rule pattern: base → @supports → bg-image. *)
+  (** bg-linear-to-*/interp - direction with specific interpolation. Uses 3-rule
+      pattern: base → [@supports] → bg-image. *)
   let bg_linear_to_interp' dir interp_str =
     let dir_val = to_spec dir in
     let base_decl, _ = Var.binding gradient_position_var dir_val in
@@ -708,7 +708,7 @@ module Handler = struct
         style ~property_rules:gradient_property_rules ~rules:(Some rules) []
     | None -> bg_linear_to' dir
 
-  (** bg-linear-{angle} with @supports for default oklab interpolation *)
+  (** [bg-linear-{angle}] with [@supports] for default oklab interpolation *)
   let bg_linear_angle' angle_deg =
     let dir_val : Css.gradient_direction =
       Angle (Deg (float_of_int angle_deg))
@@ -721,7 +721,7 @@ module Handler = struct
     let rules = gradient_direction_rules ~base_decl ~interp_decl in
     style ~property_rules:gradient_property_rules ~rules:(Some rules) []
 
-  (** -bg-linear-{angle} - negated angle with @supports *)
+  (** [-bg-linear-{angle}] - negated angle with [@supports] *)
   let bg_linear_angle_neg' angle_deg =
     let angle_calc : Css.gradient_direction =
       Angle (Calc (Expr (Val (Deg (float_of_int angle_deg)), Mul, Num (-1.0))))
@@ -734,7 +734,7 @@ module Handler = struct
     let rules = gradient_direction_rules ~base_decl ~interp_decl in
     style ~property_rules:gradient_property_rules ~rules:(Some rules) []
 
-  (** bg-linear-{angle}/interp - angle with specific interpolation *)
+  (** [bg-linear-{angle}/interp] - angle with specific interpolation *)
   let bg_linear_angle_interp' angle_deg interp_str =
     let dir_val : Css.gradient_direction =
       Angle (Deg (float_of_int angle_deg))
@@ -750,7 +750,7 @@ module Handler = struct
         style ~property_rules:gradient_property_rules ~rules:(Some rules) []
     | None -> bg_linear_angle' angle_deg
 
-  (** -bg-linear-{angle}/interp *)
+  (** [-bg-linear-{angle}/interp] *)
   let bg_linear_angle_neg_interp' angle_deg interp_str =
     let angle_calc : Css.gradient_direction =
       Angle (Calc (Expr (Val (Deg (float_of_int angle_deg)), Mul, Num (-1.0))))
@@ -766,10 +766,10 @@ module Handler = struct
         style ~property_rules:gradient_property_rules ~rules:(Some rules) []
     | None -> bg_linear_angle_neg' angle_deg
 
-  (** bg-linear-[value] - bracket linear gradient (no @supports).
-      Output: --tw-gradient-position: {value};
-              background-image: linear-gradient(var(--tw-gradient-stops, {value}))
-      The value_str is the raw bracket inner; we convert rad→deg and _→space. *)
+  (** [bg-linear-[value]] - bracket linear gradient (no [@supports]). Output:
+      [--tw-gradient-position: {value}; background-image:
+       linear-gradient(var(--tw-gradient-stops, {value}))] The value_str is the
+      raw bracket inner; we convert rad→deg and _→space. *)
   let bg_linear_bracket' value_str =
     let css_val = bracket_value_to_css value_str in
     let position_decl =
@@ -794,7 +794,8 @@ module Handler = struct
     style ~property_rules:gradient_property_rules
       [ position_decl; Css.background_image (Linear_gradient_var stops_ref) ]
 
-  (** bg-conic/interp - conic gradient with interpolation only (no @supports) *)
+  (** [bg-conic/interp] - conic gradient with interpolation only (no
+      [@supports]) *)
   let bg_conic_interp' interp_str =
     match interp_to_css_string interp_str with
     | Some interp_css ->
@@ -807,7 +808,7 @@ module Handler = struct
           [ position_decl; Css.background_image (Conic_gradient_var stops_ref) ]
     | None -> style []
 
-  (** bg-conic-{angle}/interp - conic with angle and interpolation *)
+  (** [bg-conic-{angle}/interp] - conic with angle and interpolation *)
   let bg_conic_angle_interp' angle_deg interp_str =
     match interp_to_css_string interp_str with
     | Some interp_css ->
@@ -823,7 +824,7 @@ module Handler = struct
           [ position_decl; Css.background_image (Conic_gradient_var stops_ref) ]
     | None -> style []
 
-  (** -bg-conic-{angle}/interp *)
+  (** [-bg-conic-{angle}/interp] *)
   let bg_conic_angle_neg_interp' angle_deg interp_str =
     match interp_to_css_string interp_str with
     | Some interp_css ->
