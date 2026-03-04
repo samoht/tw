@@ -67,12 +67,9 @@ let of_string_invalid () =
   fail_props [ "order"; "0" ];
   fail_props []
 
-let all_utilities () =
-  let open Tw in
-  [ flex; inline_flex ]
-
 let suborder_matches_tailwind () =
-  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+  let open Tw in
+  let shuffled = Test_helpers.shuffle [ flex; inline_flex ] in
 
   Test_helpers.check_ordering_matches
     ~test_name:"flex suborder matches Tailwind" shuffled

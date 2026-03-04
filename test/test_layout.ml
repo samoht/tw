@@ -87,24 +87,24 @@ let test_layout_container_matches_tailwind () =
   Test_helpers.check_ordering_matches ~forms:false
     ~test_name:"container matches Tailwind .container ordering" [ Tw.container ]
 
-let all_utilities () =
-  let open Tw in
-  [
-    block;
-    inline;
-    inline_block;
-    hidden;
-    object_contain;
-    object_cover;
-    object_fill;
-    sr_only;
-    not_sr_only;
-    table_auto;
-    table_fixed;
-  ]
-
 let suborder_matches_tailwind () =
-  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+  let open Tw in
+  let utilities =
+    [
+      block;
+      inline;
+      inline_block;
+      hidden;
+      object_contain;
+      object_cover;
+      object_fill;
+      sr_only;
+      not_sr_only;
+      table_auto;
+      table_fixed;
+    ]
+  in
+  let shuffled = Test_helpers.shuffle utilities in
 
   Test_helpers.check_ordering_matches
     ~test_name:"layout suborder matches Tailwind" shuffled

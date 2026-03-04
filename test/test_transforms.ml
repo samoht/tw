@@ -62,12 +62,11 @@ let test_of_string_invalid () =
   test_invalid []
 (* Empty *)
 
-let all_utilities () =
-  let open Tw in
-  [ translate_x 4; translate_y 2; rotate 90; scale 50 ]
-
 let suborder_matches_tailwind () =
-  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+  let open Tw in
+  let shuffled =
+    Test_helpers.shuffle [ translate_x 4; translate_y 2; rotate 90; scale 50 ]
+  in
 
   Test_helpers.check_ordering_matches
     ~test_name:"transforms suborder matches Tailwind" shuffled

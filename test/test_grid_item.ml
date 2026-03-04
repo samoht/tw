@@ -65,30 +65,30 @@ let of_string_invalid () =
   fail_maybe [ "row"; "end" ]
 (* Missing end value *)
 
-let all_utilities () =
-  let open Tw in
-  [
-    col_auto;
-    col_span 1;
-    col_span 2;
-    col_span 6;
-    col_span_full;
-    col_start 1;
-    col_start_auto;
-    col_end 1;
-    col_end_auto;
-    row_auto;
-    row_span 1;
-    row_span 3;
-    row_span_full;
-    row_start 2;
-    row_start_auto;
-    row_end 7;
-    row_end_auto;
-  ]
-
 let suborder_matches_tailwind () =
-  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+  let open Tw in
+  let utilities =
+    [
+      col_auto;
+      col_span 1;
+      col_span 2;
+      col_span 6;
+      col_span_full;
+      col_start 1;
+      col_start_auto;
+      col_end 1;
+      col_end_auto;
+      row_auto;
+      row_span 1;
+      row_span 3;
+      row_span_full;
+      row_start 2;
+      row_start_auto;
+      row_end 7;
+      row_end_auto;
+    ]
+  in
+  let shuffled = Test_helpers.shuffle utilities in
 
   Test_helpers.check_ordering_matches
     ~test_name:"grid_item suborder matches Tailwind" shuffled

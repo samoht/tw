@@ -77,13 +77,13 @@ let of_string_invalid () =
   fail_maybe [ "auto"; "rows"; "invalid" ]
 (* Invalid value *)
 
-let all_utilities () =
-  let open Tw in
-  List.init 12 (fun i -> grid_cols (i + 1))
-  @ List.init 6 (fun i -> grid_rows (i + 1))
-
 let suborder_matches_tailwind () =
-  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+  let open Tw in
+  let utilities =
+    List.init 12 (fun i -> grid_cols (i + 1))
+    @ List.init 6 (fun i -> grid_rows (i + 1))
+  in
+  let shuffled = Test_helpers.shuffle utilities in
 
   Test_helpers.check_ordering_matches
     ~test_name:"grid_template suborder matches Tailwind" shuffled

@@ -51,37 +51,31 @@ let of_string_invalid () =
   (* Invalid - must be >= 1 *)
   fail_maybe []
 
-let all_utilities () =
-  let open Tw in
-  [
-    (* Note: Direction and Wrap utilities are now in Flex_layout module *)
-    (* Flex shortcuts *)
-    flex_1;
-    flex_auto;
-    flex_initial;
-    flex_none;
-    (* Grow *)
-    flex_grow;
-    flex_grow_0;
-    (* Shrink *)
-    flex_shrink;
-    flex_shrink_0;
-    (* Basis *)
-    basis_0;
-    basis_1;
-    basis_auto;
-    basis_full;
-    (* Order *)
-    order 1;
-    order 3;
-    order 6;
-    order_first;
-    order_last;
-    order_none;
-  ]
-
 let suborder_matches_tailwind () =
-  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+  let open Tw in
+  let utilities =
+    [
+      flex_1;
+      flex_auto;
+      flex_initial;
+      flex_none;
+      flex_grow;
+      flex_grow_0;
+      flex_shrink;
+      flex_shrink_0;
+      basis_0;
+      basis_1;
+      basis_auto;
+      basis_full;
+      order 1;
+      order 3;
+      order 6;
+      order_first;
+      order_last;
+      order_none;
+    ]
+  in
+  let shuffled = Test_helpers.shuffle utilities in
 
   Test_helpers.check_ordering_matches
     ~test_name:"flex_props suborder matches Tailwind" shuffled

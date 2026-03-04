@@ -7,5 +7,5 @@ let () =
       Test_tailwind_gen.suite;
       Test_css_compare.suite;
       Test_string_diff.suite;
-      ("tree_diff", Test_tree_diff.suite);
+      Test_tree_diff.suite;
     ]

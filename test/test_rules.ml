@@ -1424,29 +1424,175 @@ let test_handler_priority_ordering () =
 
 (* Test 2: Verify suborder within same group *)
 let test_suborder_within_group () =
+  let open Tw in
   let test_groups =
     [
-      ("margin", Test_margin.all_utilities ());
-      ("padding", Test_padding.all_utilities ());
-      ("sizing", Test_sizing.all_utilities ());
-      ("gap", Test_gap.all_utilities ());
-      ("backgrounds", Test_backgrounds.all_utilities ());
-      ("flex", Test_flex.all_utilities ());
-      ("grid", Test_grid_template.all_utilities ());
-      ("typography", Test_typography.all_utilities ());
-      ("borders", Test_borders.all_utilities ());
-      ("cursor", Test_cursor.all_utilities ());
-      ("alignment", Test_alignment.all_utilities ());
-      ("layout", Test_layout.all_utilities ());
-      ("grid_placement", Test_grid.all_utilities ());
-      ("effects", Test_effects.all_utilities ());
-      ("position", Test_position.all_utilities ());
-      ("forms", Test_forms.all_utilities ());
-      ("transforms", Test_transforms.all_utilities ());
-      ("interactivity", Test_interactivity.all_utilities ());
-      ("filters", Test_filters.all_utilities ());
-      ("containers", Test_containers.all_utilities ());
-      ("animations", Test_animations.all_utilities ());
+      ( "margin",
+        List.concat_map
+          (fun n -> [ m n; mx n; my n; mt n; mb n; ml n; mr n ])
+          Test_helpers.spacing_values );
+      ( "padding",
+        List.concat_map
+          (fun n -> [ p n; px n; py n; pt n; pb n; pl n; pr n ])
+          Test_helpers.spacing_values );
+      ( "sizing",
+        List.concat_map
+          (fun n -> [ w n; h n ])
+          [ 0; 1; 2; 4; 8; 12; 16; 24; 32 ]
+        @ [
+            min_w 0;
+            min_h 0;
+            max_w_none;
+            max_w_full;
+            max_w_2xl;
+            max_w_3xl;
+            max_w_4xl;
+            max_w_5xl;
+            max_w_6xl;
+          ] );
+      ( "gap",
+        List.concat_map
+          (fun n -> [ gap n; gap_x n; gap_y n ])
+          Test_helpers.spacing_values );
+      ( "backgrounds",
+        let colors = [ red; blue; green; yellow; purple; pink ] in
+        let shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900 ] in
+        List.concat_map
+          (fun color -> List.map (fun shade -> bg color shade) shades)
+          colors );
+      ("flex", [ flex; inline_flex ]);
+      ( "grid",
+        List.init 12 (fun i -> grid_cols (i + 1))
+        @ List.init 6 (fun i -> grid_rows (i + 1)) );
+      ( "typography",
+        [
+          text_xs;
+          text_sm;
+          text_base;
+          text_lg;
+          text_xl;
+          text_2xl;
+          text_3xl;
+          font_thin;
+          font_light;
+          font_normal;
+          font_medium;
+          font_semibold;
+          font_bold;
+          font_extrabold;
+          font_black;
+          text_left;
+          text_center;
+          text_right;
+          text_justify;
+        ] );
+      ( "borders",
+        [
+          border_xs;
+          border_sm;
+          border_md;
+          border_lg;
+          border_solid;
+          border_dashed;
+          border_dotted;
+          border_double;
+          border_none;
+          rounded_none;
+          rounded_sm;
+          rounded;
+          rounded_md;
+          rounded_lg;
+          rounded_xl;
+          rounded_2xl;
+          rounded_3xl;
+          rounded_full;
+        ] );
+      ( "cursor",
+        [
+          cursor_auto;
+          cursor_default;
+          cursor_pointer;
+          cursor_wait;
+          cursor_move;
+          cursor_not_allowed;
+        ] );
+      ( "alignment",
+        [
+          justify_start;
+          justify_end;
+          justify_center;
+          justify_between;
+          items_start;
+          items_end;
+          items_center;
+          items_baseline;
+          content_start;
+          content_end;
+          content_center;
+          self_auto;
+          self_start;
+          self_end;
+          justify_items_start;
+          justify_self_auto;
+          place_content_start;
+          place_items_start;
+          place_self_auto;
+        ] );
+      ( "layout",
+        [
+          block;
+          inline;
+          inline_block;
+          hidden;
+          object_contain;
+          object_cover;
+          object_fill;
+          sr_only;
+          not_sr_only;
+          table_auto;
+          table_fixed;
+        ] );
+      ("grid_placement", [ grid; inline_grid ]);
+      ( "effects",
+        [
+          shadow_sm;
+          shadow;
+          shadow_md;
+          shadow_lg;
+          shadow_none;
+          opacity 0;
+          opacity 50;
+          opacity 100;
+        ] );
+      ( "position",
+        [ static; fixed; absolute; relative; sticky; inset 0; top 4; left 2 ] );
+      ( "forms",
+        [ form_input; form_checkbox; form_radio; form_select; form_textarea ] );
+      ("transforms", [ translate_x 4; translate_y 2; rotate 90; scale 50 ]);
+      ( "interactivity",
+        [ select_none; select_text; select_all; scroll_auto; scroll_smooth ] );
+      ( "filters",
+        [ blur_sm; blur; blur_2xl; backdrop_blur; backdrop_opacity 50 ] );
+      ( "containers",
+        [
+          container;
+          at_container;
+          at_container_normal;
+          at_container_named "sidebar";
+          at_container_named "header";
+          at_container_named "main";
+        ] );
+      ( "animations",
+        [
+          animate_spin;
+          animate_ping;
+          animate_pulse;
+          animate_bounce;
+          transition_all;
+          transition_none;
+          duration 150;
+          delay 200;
+        ] );
     ]
   in
 
