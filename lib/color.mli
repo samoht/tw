@@ -211,8 +211,8 @@ val get_current_scheme : unit -> Scheme.t
 (** [get_current_scheme ()] returns the current color scheme. *)
 
 val color_mix_supports_condition : Css.Supports.t
-(** The CSS supports condition for color-mix:
-    [(color: color-mix(in lab, red, red))] *)
+(** [color_mix_supports_condition] is the CSS supports condition for color-mix:
+    [(color: color-mix(in lab, red, red))]. *)
 
 (** {1 Tailwind Colors} *)
 
@@ -507,7 +507,7 @@ type opacity_modifier =
 val parse_opacity_modifier : string -> string * opacity_modifier
 (** [parse_opacity_modifier s] parses an opacity modifier from a string. Returns
     the base string and the opacity modifier. Example: "500/50" -> ("500",
-    Opacity_percent 50.0) *)
+    Opacity_percent 50.0). *)
 
 val shade_of_strings : string list -> (color * int, [ `Msg of string ]) result
 (** [shade_of_strings parts] parses a color and shade from a list of strings.
@@ -517,7 +517,7 @@ val shade_and_opacity_of_strings :
   string list -> (color * int * opacity_modifier, [ `Msg of string ]) result
 (** [shade_and_opacity_of_strings parts] parses a color, shade, and optional
     opacity modifier from a list of strings. Example: ["blue"; "500/50"] -> Ok
-    (Blue, 500, Opacity_percent 50.0) *)
+    (Blue, 500, Opacity_percent 50.0). *)
 
 val theme_order : string -> int * int
 (** [theme_order c] returns the theme layer order for a color variable. *)
@@ -587,3 +587,15 @@ val get_hex_alpha_color : color -> int -> opacity_modifier -> string option
 (** [get_hex_alpha_color color shade opacity] returns a hex color with alpha if
     the color is defined in the scheme, otherwise None. This is useful for
     properties where Tailwind outputs simple hex+alpha without @supports. *)
+
+val bg_with_opacity : color -> int -> opacity_modifier -> Style.t
+(** [bg_with_opacity color shade opacity] generates background-color style with
+    opacity. Scheme-aware: uses hex+alpha fallback with theme variable in
+    [\@supports] block. *)
+
+val bg_current_with_opacity : opacity_modifier -> Style.t
+(** [bg_current_with_opacity opacity] generates background-color currentColor
+    with opacity using color-mix progressive enhancement. *)
+
+val rgb_to_oklab : rgb -> float * float * float
+(** [rgb_to_oklab rgb] converts RGB to OKLab (L, a, b) components. *)

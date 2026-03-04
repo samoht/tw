@@ -115,7 +115,7 @@ module type Handler = sig
 end
 
 val register : (module Handler with type t = 'a) -> unit
-(** [register (module H)] registers a utility handler module. *)
+(** [register h] registers a utility handler module. *)
 
 val base_of_class : string -> (base, [ `Msg of string ]) result
 (** [base_of_class class_name] parses a class name into a base utility (without

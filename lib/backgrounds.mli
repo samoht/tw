@@ -41,6 +41,11 @@ module Handler : sig
   (** Gradient variables for use by other modules (e.g., transition-colors) *)
 
   val gradient_from_var : Css.color Var.property_default
+  (** [gradient_from_var] is the [--tw-gradient-from] variable. *)
+
   val gradient_via_var : Css.color Var.property_default
+  (** [gradient_via_var] is the [--tw-gradient-via] variable. *)
+
   val gradient_to_var : Css.color Var.property_default
+  (** [gradient_to_var] is the [--tw-gradient-to] variable. *)
 end

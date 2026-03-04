@@ -304,13 +304,13 @@ val txt : string -> t
 (** [txt s] creates a text node from string [s]. *)
 
 val txtf : string list -> t
-(** [txtf ["a"; "b"]] is equivalent to [txt "ab"]. *)
+(** [txtf strs] concatenates [strs] and creates a text node. *)
 
 val raw : string -> t
 (** [raw html] creates a node from raw HTML string. Use with caution. *)
 
 val rawf : string list -> t
-(** [rawf ["a"; "b"]] is equivalent to [raw "ab"]. *)
+(** [rawf strs] concatenates [strs] and creates a raw HTML node. *)
 
 val empty : t
 (** [empty] is the empty element, equivalent to no content. *)

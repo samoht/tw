@@ -37,27 +37,31 @@ type t = {
 }
 (** Theme scheme configuration *)
 
+val pp : Format.formatter -> t -> unit
+(** [pp fmt t] pretty-prints a scheme configuration. *)
+
 val default : t
-(** Default scheme - uses oklch colors and calc-based spacing (matches Tailwind
-    v4 default) *)
+(** [default] is the default scheme using oklch colors and calc-based spacing
+    (matches Tailwind v4 default). *)
 
 val find_color : t -> string -> color_value option
-(** Lookup a color in the scheme *)
+(** [find_color t name] looks up a color in the scheme. *)
 
 val find_spacing : t -> int -> Css.length option
-(** Lookup a spacing value in the scheme *)
+(** [find_spacing t n] looks up a spacing value in the scheme. *)
 
 val is_hex_color : t -> string -> bool
-(** Check if a color is defined as hex in the scheme *)
+(** [is_hex_color t name] checks if a color is defined as hex in the scheme. *)
 
 val get_hex_color : t -> string -> string option
-(** Get hex value for a color if defined as hex *)
+(** [get_hex_color t name] returns the hex value for a color if defined as hex.
+*)
 
 val has_explicit_spacing : t -> int -> bool
-(** Check if spacing has an explicit variable *)
+(** [has_explicit_spacing t n] checks if spacing has an explicit variable. *)
 
 val find_radius : t -> string -> Css.length option
-(** Lookup a radius value in the scheme *)
+(** [find_radius t name] looks up a radius value in the scheme. *)
 
 val has_explicit_radius : t -> string -> bool
-(** Check if radius has an explicit variable *)
+(** [has_explicit_radius t name] checks if radius has an explicit variable. *)
