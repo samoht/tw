@@ -7,7 +7,7 @@ module Handler = struct
   type gap_value =
     | Standard of spacing
     | Arbitrary of Css.length (* gap-[4px] *)
-    | ArbitraryVar of string (* gap-[var(--value)] *)
+    | Arbitrary_var of string (* gap-[var(--value)] *)
 
   type t =
     | Gap of { axis : [ `All | `X | `Y ]; value : gap_value }
@@ -90,7 +90,7 @@ module Handler = struct
         | `All -> gap_arb len
         | `X -> gap_x_arb len
         | `Y -> gap_y_arb len)
-    | ArbitraryVar var_str -> (
+    | Arbitrary_var var_str -> (
         let len = gap_var_ref var_str in
         match axis with
         | `All -> gap_arb len
@@ -311,7 +311,7 @@ module Handler = struct
   let gap_value_order = function
     | Standard s -> spacing_value_order s
     | Arbitrary _ -> 50000
-    | ArbitraryVar _ -> 55000
+    | Arbitrary_var _ -> 55000
 
   let suborder = function
     | Gap { axis; value } ->
@@ -338,7 +338,7 @@ module Handler = struct
         | Rem n -> "[" ^ pp_float n ^ "rem]"
         | Pct n -> "[" ^ pp_float n ^ "%]"
         | _ -> "[<length>]")
-    | ArbitraryVar s -> "[" ^ s ^ "]"
+    | Arbitrary_var s -> "[" ^ s ^ "]"
 
   let to_class = function
     | Gap { axis; value } -> (
@@ -363,7 +363,7 @@ module Handler = struct
     let len = String.length s in
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
-      if Parse.is_var inner then Some (ArbitraryVar inner)
+      if Parse.is_var inner then Some (Arbitrary_var inner)
       else if String.ends_with ~suffix:"px" inner then
         let n = String.sub inner 0 (String.length inner - 2) in
         match float_of_string_opt n with

@@ -7,7 +7,7 @@ module Handler = struct
   type padding_value =
     | Standard of spacing
     | Arbitrary of Css.length (* p-[4px] *)
-    | ArbitraryVar of string (* p-[var(--value)] *)
+    | Arbitrary_var of string (* p-[var(--value)] *)
 
   type t = {
     axis : [ `All | `X | `Y | `T | `R | `B | `L | `S | `E | `Bs | `Be ];
@@ -50,7 +50,7 @@ module Handler = struct
       match value with
       | Standard s -> Spacing.pp_spacing_suffix s
       | Arbitrary len -> pp_length_suffix len
-      | ArbitraryVar s -> "[" ^ s ^ "]"
+      | Arbitrary_var s -> "[" ^ s ^ "]"
     in
     prefix ^ value_suffix
 
@@ -92,7 +92,7 @@ module Handler = struct
   let value_order = function
     | Standard s -> spacing_value_order s
     | Arbitrary _ -> 20000
-    | ArbitraryVar _ -> 20000
+    | Arbitrary_var _ -> 20000
 
   let apply_prop axis (prop_v : length -> declaration)
       (prop_vs : length list -> declaration) value =
@@ -101,7 +101,7 @@ module Handler = struct
         if axis = `All then vs_spacing prop_vs s else v_spacing prop_v s
     | Arbitrary len ->
         if axis = `All then style [ prop_vs [ len ] ] else style [ prop_v len ]
-    | ArbitraryVar var_str ->
+    | Arbitrary_var var_str ->
         let bare_name = Parse.extract_var_name var_str in
         let var_len : Css.length = Var (Css.var_ref bare_name) in
         if axis = `All then style [ prop_vs [ var_len ] ]
@@ -142,7 +142,7 @@ module Handler = struct
     let len = String.length s in
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
-      if Parse.is_var inner then Some (ArbitraryVar inner)
+      if Parse.is_var inner then Some (Arbitrary_var inner)
       else if String.ends_with ~suffix:"px" inner then
         let n = String.sub inner 0 (String.length inner - 2) in
         match float_of_string_opt n with
