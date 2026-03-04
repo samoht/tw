@@ -101,9 +101,9 @@ type test_case = {
 
 type parse_state =
   | Outside
-  | InTest of string
-  | InArray of string
-  | InSnapshot of string * string list * Buffer.t
+  | In_test of string
+  | In_array of string
+  | In_snapshot of string * string list * Buffer.t
 
 let parse_file filename =
   let ic = open_in filename in
@@ -158,9 +158,9 @@ let parse_file filename =
           match Re.exec_opt test_pattern line with
           | Some groups ->
               current_config := No_theme;
-              state := InTest (Re.Group.get groups 1)
+              state := In_test (Re.Group.get groups 1)
           | None -> ())
-      | InTest name ->
+      | In_test name ->
           (* Detect compileCss/run calls to track theme configuration.
              compileCss() resets config (each call has its own @theme). run()
              uses built-in defaults. *)
@@ -205,16 +205,16 @@ let parse_file filename =
             let stripped = strip_quoted line in
             Astring.String.is_infix ~affix:"[" stripped
             && not (Astring.String.is_infix ~affix:"]" stripped)
-          then state := InArray name (* Check for snapshot start *)
+          then state := In_array name (* Check for snapshot start *)
           else if Re.execp snapshot_start line then
-            state := InSnapshot (name, !current_classes, Buffer.create 256)
+            state := In_snapshot (name, !current_classes, Buffer.create 256)
             (* Check for new test *)
           else if Astring.String.is_prefix ~affix:"test('" line then (
             flush_test name None;
             current_classes := [];
             current_config := No_theme;
             match Re.exec_opt test_pattern line with
-            | Some groups -> state := InTest (Re.Group.get groups 1)
+            | Some groups -> state := In_test (Re.Group.get groups 1)
             | None -> state := Outside
             (* Check for test end without snapshot *))
           else if Astring.String.is_prefix ~affix:"})" line then (
@@ -222,15 +222,15 @@ let parse_file filename =
             current_classes := [];
             current_config := No_theme;
             state := Outside)
-      | InArray name ->
+      | In_array name ->
           current_classes :=
             List.rev_append (extract_quoted_strings line) !current_classes;
           (* Check for unquoted ] to detect array end — don't be fooled by ]
              inside quoted class names like 'z-[123]' *)
           let stripped = strip_quoted line in
           if Astring.String.is_infix ~affix:"]" stripped then
-            state := InTest name
-      | InSnapshot (name, classes, buf) ->
+            state := In_test name
+      | In_snapshot (name, classes, buf) ->
           if Re.execp snapshot_end line then (
             current_classes := List.rev classes;
             let expected = Buffer.contents buf |> String.trim in
@@ -247,7 +247,7 @@ let parse_file filename =
             in
             flush_test name (Some expected);
             current_classes := [];
-            state := InTest name)
+            state := In_test name)
           else (
             Buffer.add_string buf line;
             Buffer.add_char buf '\n'))

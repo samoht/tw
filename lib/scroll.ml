@@ -23,7 +23,7 @@ module Handler = struct
   type scroll_value =
     | Spacing of int (* scroll-m-4 *)
     | Arbitrary of Css.length (* scroll-m-[4px] *)
-    | ArbitraryVar of string (* scroll-m-[var(--value)] *)
+    | Arbitrary_var of string (* scroll-m-[var(--value)] *)
 
   type t = {
     kind : scroll_kind;
@@ -129,7 +129,7 @@ module Handler = struct
                    (Css.Calc.mul (Css.Calc.length len) (Css.Calc.float (-1.))));
             ]
         else style [ prop len ]
-    | ArbitraryVar var_str ->
+    | Arbitrary_var var_str ->
         let bare_name = Parse.extract_var_name var_str in
         let len : Css.length =
           if negative then
@@ -160,7 +160,7 @@ module Handler = struct
       match value with
       | Spacing n -> n * 10
       | Arbitrary _ -> 50000
-      | ArbitraryVar _ -> 50001
+      | Arbitrary_var _ -> 50001
     in
     kind_offset + neg_offset + axis_offset + value_order
 
@@ -201,7 +201,7 @@ module Handler = struct
       match value with
       | Spacing n -> string_of_int (abs n)
       | Arbitrary len -> pp_length_suffix len
-      | ArbitraryVar s -> "[" ^ s ^ "]"
+      | Arbitrary_var s -> "[" ^ s ^ "]"
     in
     neg_prefix ^ kind_prefix ^ axis_str ^ "-" ^ value_suffix
 
@@ -252,7 +252,7 @@ module Handler = struct
                 | Some (`Length len) ->
                     Ok { kind; negative; axis; value = Arbitrary len }
                 | Some (`Var var_str) ->
-                    Ok { kind; negative; axis; value = ArbitraryVar var_str }
+                    Ok { kind; negative; axis; value = Arbitrary_var var_str }
                 | None -> Error (`Msg "Not a scroll utility")))
         | _ -> Error (`Msg "Not a scroll utility"))
     (* Handle block-start/end with longer axis names: scroll-mbs-4 *)
@@ -287,7 +287,7 @@ module Handler = struct
                 | Some (`Length len) ->
                     Ok { kind; negative; axis; value = Arbitrary len }
                 | Some (`Var var_str) ->
-                    Ok { kind; negative; axis; value = ArbitraryVar var_str }
+                    Ok { kind; negative; axis; value = Arbitrary_var var_str }
                 | None -> Error (`Msg "Not a scroll utility")))
         | _ -> Error (`Msg "Not a scroll utility"))
     | _ -> Error (`Msg "Not a scroll utility")

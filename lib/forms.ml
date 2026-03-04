@@ -860,7 +860,7 @@ let file_input_base () =
              {
                width = Some (Px 1.);
                style = Some Solid;
-               color = Some (System ButtonText);
+               color = Some (System Button_text);
              });
         outline
           (Shorthand

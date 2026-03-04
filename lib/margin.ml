@@ -7,7 +7,7 @@ module Handler = struct
   type margin_value =
     | Standard of margin (* auto, spacing values *)
     | Arbitrary of Css.length (* mx-[4px] *)
-    | ArbitraryVar of string (* mx-[var(--value)] *)
+    | Arbitrary_var of string (* mx-[var(--value)] *)
     | Named of string (* mx-big - custom spacing *)
 
   type t = {
@@ -161,7 +161,7 @@ module Handler = struct
           in
           style [ prop neg_len ]
         else style [ prop len ]
-    | ArbitraryVar var_str ->
+    | Arbitrary_var var_str ->
         let bare_name = Parse.extract_var_name var_str in
         let len : Css.length =
           if negative then
@@ -226,7 +226,7 @@ module Handler = struct
       match value with
       | Standard m -> margin_value_order m
       | Arbitrary _ -> 50000 (* after numbered, before auto *)
-      | ArbitraryVar _ -> 55000
+      | Arbitrary_var _ -> 55000
       | Named _ -> 60000 (* after arbitrary *)
     in
     neg_offset + side_offset + value_order
@@ -264,7 +264,7 @@ module Handler = struct
       match value with
       | Standard m -> Spacing.pp_margin_suffix m
       | Arbitrary len -> pp_length_suffix len
-      | ArbitraryVar s -> "[" ^ s ^ "]"
+      | Arbitrary_var s -> "[" ^ s ^ "]"
       | Named name -> name
     in
     neg_prefix ^ prefix ^ value_suffix
@@ -275,7 +275,7 @@ module Handler = struct
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
       (* Check if it's a var reference *)
-      if Parse.is_var inner then Some (ArbitraryVar inner)
+      if Parse.is_var inner then Some (Arbitrary_var inner)
       else if String.ends_with ~suffix:"px" inner then
         let n = String.sub inner 0 (String.length inner - 2) in
         match float_of_string_opt n with
