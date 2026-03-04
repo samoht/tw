@@ -270,7 +270,7 @@ let extract_root_vars expected =
     matches
 
 (** Build theme configuration for CSS emission. *)
-let make_theme_config config expected =
+let theme_config config expected =
   let hardcoded =
     [
       ("default-transition-timing-function", "ease", "ease");
@@ -354,7 +354,7 @@ let run_test_case test () =
   else (
     setup_scheme_for_test test.expected;
     setup_theme_overrides test.config test.expected;
-    let theme, theme_defaults = make_theme_config test.config test.expected in
+    let theme, theme_defaults = theme_config test.config test.expected in
     let utilities =
       List.filter_map
         (fun cls ->
@@ -376,15 +376,15 @@ let run_test_case test () =
            (String.concat " " test.classes)
            expected our_css))
 
-let find_test_file basename =
+let test_file basename =
   let paths = [ basename; "test/upstream/" ^ basename ] in
   List.find_opt Sys.file_exists paths
 
 let () =
   let utilities_file =
-    find_test_file "utilities.txt" |> Option.value ~default:"utilities.txt"
+    test_file "utilities.txt" |> Option.value ~default:"utilities.txt"
   in
-  let variants_file = find_test_file "variants.txt" in
+  let variants_file = test_file "variants.txt" in
 
   if not (Sys.file_exists utilities_file) then (
     Fmt.epr "No test file found. Run extract_tests.exe first.@.";

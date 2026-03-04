@@ -421,7 +421,7 @@ module Handler = struct
       let css_color = Color.to_css color shade in
       style [ Css.border_color css_color ]
     else
-      let color_var = Color.get_color_var color shade in
+      let color_var = Color.color_var color shade in
       let color_value =
         Color.to_css color (if Color.is_base_color color then 500 else shade)
       in
@@ -443,7 +443,7 @@ module Handler = struct
   let radius_3xl_var = Var.theme Css.Length "radius-3xl" ~order:(7, 8)
 
   let rounded_none () =
-    match Scheme.find_radius !current_scheme "none" with
+    match Scheme.radius !current_scheme "none" with
     | Some explicit_length ->
         (* Scheme has explicit radius: use var(--radius-none) *)
         let decl, r = Var.binding radius_none_var explicit_length in
@@ -481,7 +481,7 @@ module Handler = struct
     style (decl :: [ Css.border_radius (Var r) ])
 
   let rounded_full () =
-    match Scheme.find_radius !current_scheme "full" with
+    match Scheme.radius !current_scheme "full" with
     | Some explicit_length ->
         (* Scheme has explicit radius: use var(--radius-full) *)
         let decl, r = Var.binding radius_full_var explicit_length in
@@ -977,7 +977,7 @@ module Handler = struct
          ])
 
   let rounded_s_none () =
-    match Scheme.find_radius !current_scheme "none" with
+    match Scheme.radius !current_scheme "none" with
     | Some explicit_length ->
         let decl, r = Var.binding radius_none_var explicit_length in
         style
@@ -1047,7 +1047,7 @@ module Handler = struct
          ])
 
   let rounded_s_full () =
-    match Scheme.find_radius !current_scheme "full" with
+    match Scheme.radius !current_scheme "full" with
     | Some explicit_length ->
         let decl, r = Var.binding radius_full_var explicit_length in
         style
@@ -1074,7 +1074,7 @@ module Handler = struct
          ])
 
   let rounded_e_none () =
-    match Scheme.find_radius !current_scheme "none" with
+    match Scheme.radius !current_scheme "none" with
     | Some explicit_length ->
         let decl, r = Var.binding radius_none_var explicit_length in
         style
@@ -1142,7 +1142,7 @@ module Handler = struct
          ])
 
   let rounded_e_full () =
-    match Scheme.find_radius !current_scheme "full" with
+    match Scheme.radius !current_scheme "full" with
     | Some explicit_length ->
         let decl, r = Var.binding radius_full_var explicit_length in
         style
@@ -1164,7 +1164,7 @@ module Handler = struct
     style (decl :: [ Css.border_start_start_radius (Var r) ])
 
   let rounded_ss_none () =
-    match Scheme.find_radius !current_scheme "none" with
+    match Scheme.radius !current_scheme "none" with
     | Some explicit_length ->
         let decl, r = Var.binding radius_none_var explicit_length in
         style (decl :: [ Css.border_start_start_radius (Var r) ])
@@ -1195,7 +1195,7 @@ module Handler = struct
     style (decl :: [ Css.border_start_start_radius (Var r) ])
 
   let rounded_ss_full () =
-    match Scheme.find_radius !current_scheme "full" with
+    match Scheme.radius !current_scheme "full" with
     | Some explicit_length ->
         let decl, r = Var.binding radius_full_var explicit_length in
         style (decl :: [ Css.border_start_start_radius (Var r) ])
@@ -1207,7 +1207,7 @@ module Handler = struct
     style (decl :: [ Css.border_start_end_radius (Var r) ])
 
   let rounded_se_none () =
-    match Scheme.find_radius !current_scheme "none" with
+    match Scheme.radius !current_scheme "none" with
     | Some explicit_length ->
         let decl, r = Var.binding radius_none_var explicit_length in
         style (decl :: [ Css.border_start_end_radius (Var r) ])
@@ -1238,7 +1238,7 @@ module Handler = struct
     style (decl :: [ Css.border_start_end_radius (Var r) ])
 
   let rounded_se_full () =
-    match Scheme.find_radius !current_scheme "full" with
+    match Scheme.radius !current_scheme "full" with
     | Some explicit_length ->
         let decl, r = Var.binding radius_full_var explicit_length in
         style (decl :: [ Css.border_start_end_radius (Var r) ])
@@ -1250,7 +1250,7 @@ module Handler = struct
     style (decl :: [ Css.border_end_end_radius (Var r) ])
 
   let rounded_ee_none () =
-    match Scheme.find_radius !current_scheme "none" with
+    match Scheme.radius !current_scheme "none" with
     | Some explicit_length ->
         let decl, r = Var.binding radius_none_var explicit_length in
         style (decl :: [ Css.border_end_end_radius (Var r) ])
@@ -1281,7 +1281,7 @@ module Handler = struct
     style (decl :: [ Css.border_end_end_radius (Var r) ])
 
   let rounded_ee_full () =
-    match Scheme.find_radius !current_scheme "full" with
+    match Scheme.radius !current_scheme "full" with
     | Some explicit_length ->
         let decl, r = Var.binding radius_full_var explicit_length in
         style (decl :: [ Css.border_end_end_radius (Var r) ])
@@ -1293,7 +1293,7 @@ module Handler = struct
     style (decl :: [ Css.border_end_start_radius (Var r) ])
 
   let rounded_es_none () =
-    match Scheme.find_radius !current_scheme "none" with
+    match Scheme.radius !current_scheme "none" with
     | Some explicit_length ->
         let decl, r = Var.binding radius_none_var explicit_length in
         style (decl :: [ Css.border_end_start_radius (Var r) ])
@@ -1324,7 +1324,7 @@ module Handler = struct
     style (decl :: [ Css.border_end_start_radius (Var r) ])
 
   let rounded_es_full () =
-    match Scheme.find_radius !current_scheme "full" with
+    match Scheme.radius !current_scheme "full" with
     | Some explicit_length ->
         let decl, r = Var.binding radius_full_var explicit_length in
         style (decl :: [ Css.border_end_start_radius (Var r) ])

@@ -15,9 +15,9 @@ val delta_debug : ('a list -> bool) -> 'a list -> 'a list
 (** [delta_debug check_fails lst] uses delta debugging (ddmin algorithm) to
     minimize a failing test case. *)
 
-val find_minimal_pair : ('a list -> bool) -> 'a list -> 'a list option
-(** [find_minimal_pair check_fails lst] finds the first pair of elements that
-    causes the check to fail. *)
+val minimal_pair : ('a list -> bool) -> 'a list -> 'a list option
+(** [minimal_pair check_fails lst] finds the first pair of elements that causes
+    the check to fail. *)
 
 val minimize_failing_case : ('a list -> bool) -> 'a list -> 'a list option
 (** [minimize_failing_case check_fails initial] minimizes a failing test case to

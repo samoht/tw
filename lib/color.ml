@@ -1121,7 +1121,7 @@ let color_var_cache : (string, Css.color Var.theme) Hashtbl.t =
 
 (* Helper to create a color variable with memoization. Creates theme layer
    variables with deterministic ordering based on color and shade. *)
-let get_color_var color shade =
+let color_var color shade =
   let base = pp color in
   (* Escape brackets in variable names - CSS variable names can't have unescaped
      [] *)
@@ -1373,19 +1373,19 @@ module Handler = struct
       scheme defines the color as hex, returns hex. Otherwise returns oklch. *)
   let get_color_value (c : color) shade =
     let color_name = scheme_color_name c shade in
-    match Scheme.get_hex_color !current_scheme color_name with
+    match Scheme.hex_color !current_scheme color_name with
     | Some hex -> Css.hex hex
     | None -> to_css c (if is_base_color c then 500 else shade)
 
   (** Get a property-scoped color variable. For scheme colors, uses the standard
       [--color-{name}]. For non-scheme colors, uses [--{property_prefix}-{name}]
       (e.g., [--accent-color-blue-500]). *)
-  let get_property_color_var ~property_prefix (c : color) shade =
+  let property_color_var ~property_prefix (c : color) shade =
     let color_name = scheme_color_name c shade in
     let is_scheme =
-      Scheme.get_hex_color !current_scheme color_name <> Stdlib.Option.none
+      Scheme.hex_color !current_scheme color_name <> Stdlib.Option.none
     in
-    if is_scheme then get_color_var c shade
+    if is_scheme then color_var c shade
     else
       let base = pp c in
       let name = property_prefix ^ "-" ^ color_name in
@@ -1403,14 +1403,14 @@ module Handler = struct
   (** Get the color value for use with property-scoped variables. Checks scheme
       first, then theme value overrides for property-scoped name, then converts
       from oklch as fallback. *)
-  let get_property_color_value ~property_prefix (c : color) shade =
+  let property_color_value ~property_prefix (c : color) shade =
     let color_name = scheme_color_name c shade in
-    match Scheme.get_hex_color !current_scheme color_name with
+    match Scheme.hex_color !current_scheme color_name with
     | Some hex -> Css.hex hex
     | None -> (
         (* Check theme value overrides for property-scoped name *)
         let prop_name = property_prefix ^ "-" ^ color_name in
-        match Var.get_theme_value prop_name with
+        match Var.theme_value prop_name with
         | Some value -> Css.hex value
         | None ->
             let oklch_val =
@@ -1577,10 +1577,10 @@ module Handler = struct
       style [ Css.background_color css_color ]
     else
       let color_var =
-        get_property_color_var ~property_prefix:"background-color" c shade
+        property_color_var ~property_prefix:"background-color" c shade
       in
       let color_value =
-        get_property_color_value ~property_prefix:"background-color" c shade
+        property_color_value ~property_prefix:"background-color" c shade
       in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.background_color (Css.Var color_ref) ])
@@ -1595,7 +1595,7 @@ module Handler = struct
       let css_color = to_css color shade in
       style [ Css.color css_color ]
     else
-      let color_var = get_color_var color shade in
+      let color_var = color_var color shade in
       let color_value = get_color_value color shade in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.color (Var color_ref) ])
@@ -1611,7 +1611,7 @@ module Handler = struct
       let css_color = to_css color shade in
       style [ Css.border_color css_color ]
     else
-      let color_var = get_color_var color shade in
+      let color_var = color_var color shade in
       let color_value = get_color_value color shade in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.border_color (Var color_ref) ])
@@ -1627,10 +1627,10 @@ module Handler = struct
       style [ Css.accent_color css_color ]
     else
       let color_var =
-        get_property_color_var ~property_prefix:"accent-color" color shade
+        property_color_var ~property_prefix:"accent-color" color shade
       in
       let color_value =
-        get_property_color_value ~property_prefix:"accent-color" color shade
+        property_color_value ~property_prefix:"accent-color" color shade
       in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.accent_color (Var color_ref) ])
@@ -1647,10 +1647,10 @@ module Handler = struct
       style [ Css.caret_color css_color ]
     else
       let color_var =
-        get_property_color_var ~property_prefix:"caret-color" color shade
+        property_color_var ~property_prefix:"caret-color" color shade
       in
       let color_value =
-        get_property_color_value ~property_prefix:"caret-color" color shade
+        property_color_value ~property_prefix:"caret-color" color shade
       in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.caret_color (Var color_ref) ])
@@ -1667,10 +1667,10 @@ module Handler = struct
       style [ Css.outline_color css_color ]
     else
       let color_var =
-        get_property_color_var ~property_prefix:"outline-color" color shade
+        property_color_var ~property_prefix:"outline-color" color shade
       in
       let color_value =
-        get_property_color_value ~property_prefix:"outline-color" color shade
+        property_color_value ~property_prefix:"outline-color" color shade
       in
       let decl, color_ref = Var.binding color_var color_value in
       style (decl :: [ Css.outline_color (Var color_ref) ])
@@ -1752,14 +1752,14 @@ module Handler = struct
       let scheme = !current_scheme in
       let color_name = scheme_color_name c shade in
       (* Check if color is defined as hex in the scheme *)
-      match Scheme.get_hex_color scheme color_name with
+      match Scheme.hex_color scheme color_name with
       | Some hex_value ->
           (* Scheme has hex color: use hex+alpha fallback with top-level
              @supports *)
           let hex_with_alpha = hex_with_alpha hex_value percent in
           let fallback_decl = property (Css.hex hex_with_alpha) in
           (* Theme declaration for the variable *)
-          let color_var = get_color_var c shade in
+          let color_var = color_var c shade in
           let theme_decl, color_ref =
             Var.binding color_var (Css.hex hex_value)
           in
@@ -1782,14 +1782,13 @@ module Handler = struct
           (* Non-scheme color: use property-scoped variable if prefix given *)
           let color_var =
             match property_prefix with
-            | Some prefix ->
-                get_property_color_var ~property_prefix:prefix c shade
-            | Stdlib.Option.None -> get_color_var c shade
+            | Some prefix -> property_color_var ~property_prefix:prefix c shade
+            | Stdlib.Option.None -> color_var c shade
           in
           let color_value =
             match property_prefix with
             | Some prefix ->
-                get_property_color_value ~property_prefix:prefix c shade
+                property_color_value ~property_prefix:prefix c shade
             | Stdlib.Option.None ->
                 to_css c (if is_base_color c then 500 else shade)
           in
@@ -2210,8 +2209,8 @@ let () = Utility.register (module Handler)
 (** Re-export helper functions from Handler for use by other modules *)
 let scheme_color_name = Handler.scheme_color_name
 
-let get_property_color_var = Handler.get_property_color_var
-let get_property_color_value = Handler.get_property_color_value
+let property_color_var = Handler.property_color_var
+let property_color_value = Handler.property_color_value
 let opacity_to_percent = Handler.opacity_to_percent
 
 let pp_opacity = function
@@ -2229,13 +2228,13 @@ let pp_opacity = function
   | Opacity_arbitrary f -> "[" ^ string_of_float f ^ "]"
   | Opacity_named name -> name
 
-let get_current_scheme () = !Handler.current_scheme
+let current_scheme () = !Handler.current_scheme
 
-let get_hex_alpha_color c shade opacity =
+let hex_alpha_color c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
   let color_name = scheme_color_name c shade in
-  match Scheme.get_hex_color !current_scheme color_name with
+  match Scheme.hex_color !current_scheme color_name with
   | Some hex_value -> Some (hex_with_alpha hex_value percent)
   | None -> None
 
@@ -2251,7 +2250,7 @@ let generic_color_with_opacity ~property c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
   let color_name = scheme_color_name c shade in
-  match Scheme.get_hex_color !current_scheme color_name with
+  match Scheme.hex_color !current_scheme color_name with
   | Some hex_value ->
       let hex_alpha = hex_with_alpha hex_value percent in
       let fallback_decl = property (Css.hex hex_alpha) in
@@ -2273,7 +2272,7 @@ let generic_color_with_opacity ~property c shade opacity =
           Css.Transparent ~percent1:percent
       in
       let fallback_decl = property fallback_color in
-      let color_var = get_color_var c shade in
+      let color_var = color_var c shade in
       let color_value = to_css c (if is_base_color c then 500 else shade) in
       let theme_decl, color_ref = Var.binding color_var color_value in
       let oklab_color =
@@ -2357,14 +2356,14 @@ let divide_with_opacity_selector ~selector c shade opacity =
     Style.style ~rules:(Some [ rule ]) []
   else
     let color_name = scheme_color_name c shade in
-    match Scheme.get_hex_color !current_scheme color_name with
+    match Scheme.hex_color !current_scheme color_name with
     | Some hex_value ->
         (* Scheme has hex color: hex+alpha fallback, @supports with var ref *)
         let hex_alpha = hex_with_alpha hex_value percent in
         let fallback_rule =
           Css.rule ~selector [ Css.border_color (Css.hex hex_alpha) ]
         in
-        let color_var = get_color_var c shade in
+        let color_var = color_var c shade in
         let _theme_decl, color_ref =
           Var.binding color_var (Css.hex hex_value)
         in
@@ -2382,10 +2381,10 @@ let divide_with_opacity_selector ~selector c shade opacity =
     | None ->
         (* Non-scheme color: use property-scoped variable *)
         let color_var =
-          get_property_color_var ~property_prefix:"border-color" c shade
+          property_color_var ~property_prefix:"border-color" c shade
         in
         let color_value =
-          get_property_color_value ~property_prefix:"border-color" c shade
+          property_color_value ~property_prefix:"border-color" c shade
         in
         let oklch = to_oklch c shade in
         let rgb = oklch_to_rgb oklch in
@@ -2435,9 +2434,9 @@ let bg_with_opacity c shade opacity =
   (* 100% opacity = fully opaque, same as no opacity. Use theme var directly. *)
   if percent >= 100.0 then
     let color_name = scheme_color_name c shade in
-    match Scheme.get_hex_color !current_scheme color_name with
+    match Scheme.hex_color !current_scheme color_name with
     | Some hex_value ->
-        let color_var = get_color_var c shade in
+        let color_var = color_var c shade in
         let _d, color_ref = Var.binding color_var (Css.hex hex_value) in
         Style.style [ Css.background_color (Var color_ref) ]
     | None ->
@@ -2467,11 +2466,11 @@ let bg_with_opacity c shade opacity =
     Style.style [ Css.background_color oklab_value ]
   else
     let color_name = scheme_color_name c shade in
-    match Scheme.get_hex_color !current_scheme color_name with
+    match Scheme.hex_color !current_scheme color_name with
     | Some hex_value ->
         let hex_alpha = hex_with_alpha hex_value percent in
         let fallback_decl = Css.background_color (Css.hex hex_alpha) in
-        let color_var = get_color_var c shade in
+        let color_var = color_var c shade in
         let theme_decl, color_ref = Var.binding color_var (Css.hex hex_value) in
         let oklab_color =
           Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
@@ -2485,7 +2484,7 @@ let bg_with_opacity c shade opacity =
         Style.style ~rules:(Some [ supports_block ])
           [ theme_decl; fallback_decl ]
     | None ->
-        let color_var = get_color_var c shade in
+        let color_var = color_var c shade in
         let color_value = to_css c (if is_base_color c then 500 else shade) in
         let oklch = to_oklch c shade in
         let rgb = oklch_to_rgb oklch in

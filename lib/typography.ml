@@ -1455,7 +1455,7 @@ module Typography_late = struct
           text_decoration_color css_color;
         ]
     else
-      let color_var = Color.get_color_var color shade in
+      let color_var = Color.color_var color shade in
       let default_color =
         Color.to_css color (if Color.is_base_color color then 500 else shade)
       in
@@ -1469,7 +1469,7 @@ module Typography_late = struct
 
   let decoration_color_with_opacity (color : Color.color) shade opacity =
     (* Tailwind outputs only unprefixed text-decoration-color in the fallback *)
-    match Color.get_hex_alpha_color color shade opacity with
+    match Color.hex_alpha_color color shade opacity with
     | Some hex_alpha -> style [ text_decoration_color (Css.hex hex_alpha) ]
     | None ->
         (* Fallback for non-scheme colors *)
@@ -1546,7 +1546,7 @@ module Typography_late = struct
   let normal_case = style [ text_transform None ]
 
   let underline_offset_auto () =
-    match Var.get_theme_value "text-underline-offset-auto" with
+    match Var.theme_value "text-underline-offset-auto" with
     | Some _ ->
         let decl, ref_ =
           Var.binding underline_offset_auto_var (Auto : Css.length)
@@ -1635,7 +1635,7 @@ module Typography_late = struct
       ]
 
   let line_clamp_none_style () =
-    match Var.get_theme_value "line-clamp-none" with
+    match Var.theme_value "line-clamp-none" with
     | Some value_str -> (
         match int_of_string_opt value_str with
         | Some n ->
@@ -1687,7 +1687,7 @@ module Typography_late = struct
   let content_named name =
     let var_name = "content-" ^ name in
     let content_decl, content_ref =
-      match Var.get_theme_value var_name with
+      match Var.theme_value var_name with
       | Some _ ->
           let tv = Var.theme Css.Content var_name ~order:(6, 60) in
           let theme_decl, theme_ref = Var.binding tv (String "") in
@@ -1720,7 +1720,7 @@ module Typography_late = struct
         ~default:(None : Css.list_style_type)
         ~default_css:"none"
     in
-    match Var.get_theme_value var_name with
+    match Var.theme_value var_name with
     | Some value ->
         let theme_decl =
           Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String value
@@ -1750,7 +1750,7 @@ module Typography_late = struct
         ~default:(None : Css.list_style_image)
         ~default_css:"none"
     in
-    match Var.get_theme_value var_name with
+    match Var.theme_value var_name with
     | Some value ->
         let theme_decl =
           Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String value

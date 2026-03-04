@@ -44,24 +44,23 @@ val default : t
 (** [default] is the default scheme using oklch colors and calc-based spacing
     (matches Tailwind v4 default). *)
 
-val find_color : t -> string -> color_value option
-(** [find_color t name] looks up a color in the scheme. *)
+val color : t -> string -> color_value option
+(** [color t name] looks up a color in the scheme. *)
 
-val find_spacing : t -> int -> Css.length option
-(** [find_spacing t n] looks up a spacing value in the scheme. *)
+val spacing : t -> int -> Css.length option
+(** [spacing t n] looks up a spacing value in the scheme. *)
 
 val is_hex_color : t -> string -> bool
 (** [is_hex_color t name] checks if a color is defined as hex in the scheme. *)
 
-val get_hex_color : t -> string -> string option
-(** [get_hex_color t name] returns the hex value for a color if defined as hex.
-*)
+val hex_color : t -> string -> string option
+(** [hex_color t name] returns the hex value for a color if defined as hex. *)
 
 val has_explicit_spacing : t -> int -> bool
 (** [has_explicit_spacing t n] checks if spacing has an explicit variable. *)
 
-val find_radius : t -> string -> Css.length option
-(** [find_radius t name] looks up a radius value in the scheme. *)
+val radius : t -> string -> Css.length option
+(** [radius t name] looks up a radius value in the scheme. *)
 
 val has_explicit_radius : t -> string -> bool
 (** [has_explicit_radius t name] checks if radius has an explicit variable. *)

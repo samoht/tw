@@ -41,7 +41,7 @@ module Handler = struct
         (Some decl, len)
     | `Named name -> (
         let prop_name = "spacing-" ^ name in
-        match Var.get_theme_value prop_name with
+        match Var.theme_value prop_name with
         | Some value_str ->
             let decl =
               Css.custom_declaration ~layer:"theme" ("--" ^ prop_name)
@@ -94,7 +94,7 @@ module Handler = struct
 
   let named_margin_value name : Css.declaration option * Css.length =
     let prop_name = "spacing-" ^ name in
-    match Var.get_theme_value prop_name with
+    match Var.theme_value prop_name with
     | Some value_str ->
         let decl =
           Css.custom_declaration ~layer:"theme" ("--" ^ prop_name) Css.String

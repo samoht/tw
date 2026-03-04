@@ -8,7 +8,7 @@
 (* Generate themed order style: custom declaration + var reference when theme
    value is set, otherwise bare theme_ref fallback *)
 let order_themed_style name ~default ~default_css () =
-  match Var.get_theme_value name with
+  match Var.theme_value name with
   | Some value_str -> (
       match int_of_string_opt value_str with
       | Some n ->
@@ -103,7 +103,7 @@ module Handler = struct
 
   let basis_named_style name =
     let var_name = "container-" ^ name in
-    match Var.get_theme_value var_name with
+    match Var.theme_value var_name with
     | Some value_str ->
         let decl =
           Css.custom_declaration ~layer:"theme" ("--" ^ var_name) Css.String

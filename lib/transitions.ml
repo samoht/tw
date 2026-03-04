@@ -88,11 +88,9 @@ module Handler = struct
      are set, so @config none tests don't get the :root, :host block. *)
   let default_theme_decls () =
     let has_timing =
-      Var.get_theme_value "default-transition-timing-function" <> None
+      Var.theme_value "default-transition-timing-function" <> None
     in
-    let has_duration =
-      Var.get_theme_value "default-transition-duration" <> None
-    in
+    let has_duration = Var.theme_value "default-transition-duration" <> None in
     let timing =
       if has_timing then
         let d, _ =
@@ -185,7 +183,7 @@ module Handler = struct
         ]
     in
     let theme_decls =
-      match Var.get_theme_value "transition-property-colors" with
+      match Var.theme_value "transition-property-colors" with
       | Some _ ->
           let d, _ =
             Var.binding transition_property_colors_var

@@ -45,7 +45,7 @@ module Handler = struct
             ~default:(Auto : Css.columns_value)
             ~default_css:"auto"
         in
-        match Var.get_theme_value var_name with
+        match Var.theme_value var_name with
         | Some value ->
             let theme_decl =
               Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String

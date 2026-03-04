@@ -66,7 +66,7 @@ module Handler = struct
 
   let grid_cols_none () =
     let var_name = "grid-template-columns-none" in
-    match Var.get_theme_value var_name with
+    match Var.theme_value var_name with
     | Some value ->
         let theme_decl =
           Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String value
@@ -133,7 +133,7 @@ module Handler = struct
 
   let grid_rows_none () =
     let var_name = "grid-template-rows-none" in
-    match Var.get_theme_value var_name with
+    match Var.theme_value var_name with
     | Some value ->
         let theme_decl =
           Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String value
@@ -150,7 +150,7 @@ module Handler = struct
 
   let auto_cols_auto () =
     let var_name = "grid-auto-columns-auto" in
-    match Var.get_theme_value var_name with
+    match Var.theme_value var_name with
     | Some value ->
         let theme_decl =
           Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String value
@@ -170,7 +170,7 @@ module Handler = struct
 
   let auto_rows_auto () =
     let var_name = "grid-auto-rows-auto" in
-    match Var.get_theme_value var_name with
+    match Var.theme_value var_name with
     | Some value ->
         let theme_decl =
           Css.custom_declaration ~layer:"theme" ("--" ^ var_name) String value

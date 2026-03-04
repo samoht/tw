@@ -86,7 +86,7 @@ let default_style = { use_tree = false }
 let tree_style = { use_tree = true }
 
 (* Get Fmt style for change type - using git diff colors *)
-let get_style action =
+let fmt_style action =
   match action with
   | "add" ->
       (* Green foreground *)
@@ -119,7 +119,7 @@ let pp_declarations ?(style = default_style) ?(parent_prefix = "") fmt action
     | "remove" -> "-"
     | _ -> action (* fallback for other actions like "declarations" *)
   in
-  let styled = get_style action in
+  let styled = fmt_style action in
   (* Properties don't get tree connectors - just indentation continuation *)
   let indent =
     if style.use_tree then parent_prefix ^ "   " else parent_prefix ^ "    "
@@ -141,8 +141,8 @@ let pp_property_diff ?(style = default_style) ?(parent_prefix = "") fmt
   let indent =
     if style.use_tree then parent_prefix ^ "   " else parent_prefix ^ "    "
   in
-  let red_styled = get_style "remove" in
-  let green_styled = get_style "add" in
+  let red_styled = fmt_style "remove" in
+  let green_styled = fmt_style "add" in
   match String_diff.first_diff_pos expected_value actual_value with
   | None ->
       (* Shouldn't happen but handle gracefully *)
@@ -171,7 +171,7 @@ let pp_property_diffs ?(style = default_style) ?(parent_prefix = "") fmt
   List.iter (pp_property_diff ~style ~parent_prefix fmt) prop_diffs
 
 (* Helper to find adjacent property swap *)
-let find_adjacent_swap lst1 lst2 =
+let adjacent_swap lst1 lst2 =
   let rec scan l1 l2 =
     match (l1, l2) with
     | x1 :: x2 :: _, y1 :: y2 :: _ when x1 = y2 && x2 = y1 -> Some (x1, x2)
@@ -181,7 +181,7 @@ let find_adjacent_swap lst1 lst2 =
   scan lst1 lst2
 
 (* Helper to find property moves (up to max_count) *)
-let find_property_moves ~max_count prop_names1 prop_names2 =
+let property_moves ~max_count prop_names1 prop_names2 =
   let rec scan lst1 lst2 acc count =
     if count >= max_count then List.rev acc
     else
@@ -225,12 +225,12 @@ let pp_reorder ?(style = default_style) ?(parent_prefix = "") decls1 decls2 fmt
        = List.sort String.compare prop_names2
   in
   if same_props && prop_names1 <> prop_names2 then
-    match find_adjacent_swap prop_names1 prop_names2 with
+    match adjacent_swap prop_names1 prop_names2 with
     | Some (prop1, prop2) ->
         let truncate s = String_diff.truncate_middle 20 s in
         Fmt.pf fmt "%s* %s ↔ %s@," indent (truncate prop1) (truncate prop2)
     | None ->
-        let moves = find_property_moves ~max_count:3 prop_names1 prop_names2 in
+        let moves = property_moves ~max_count:3 prop_names1 prop_names2 in
         if moves <> [] then
           let total_diffs =
             List.fold_left2
@@ -266,8 +266,8 @@ let pp_rule_diff ?(style = default_style) ?(is_last = false)
       let indent =
         if style.use_tree then child_prefix ^ "   " else child_prefix ^ "    "
       in
-      let green_styled = get_style "add" in
-      let red_styled = get_style "remove" in
+      let green_styled = fmt_style "add" in
+      let red_styled = fmt_style "remove" in
 
       (* Show property changes *)
       let has_prop_changes = property_changes <> [] in
@@ -594,8 +594,8 @@ let rec pp_container_diff ?(style = default_style) ?(is_last = false)
       let indent =
         if style.use_tree then child_prefix ^ "   " else child_prefix ^ "    "
       in
-      let red_styled = get_style "remove" in
-      let green_styled = get_style "add" in
+      let red_styled = fmt_style "remove" in
+      let green_styled = fmt_style "add" in
 
       (* Show the merge/split summary *)
       let exp_count = List.length expected_blocks in

@@ -12,7 +12,7 @@ let themed_decl name value_str =
       Css.custom_declaration ~layer:"theme" ("--" ^ name) Css.String value_str
 
 let grid_col_themed_style name () =
-  match Var.get_theme_value name with
+  match Var.theme_value name with
   | Some value_str ->
       let decl = themed_decl name value_str in
       let ref : Css.grid_line Css.var = Css.var_ref ~layer:"theme" name in
@@ -29,7 +29,7 @@ let grid_col_themed_style name () =
         ]
 
 let grid_col_start_themed_style name () =
-  match Var.get_theme_value name with
+  match Var.theme_value name with
   | Some value_str ->
       let decl = themed_decl name value_str in
       let ref : Css.grid_line Css.var = Css.var_ref ~layer:"theme" name in
@@ -45,7 +45,7 @@ let grid_col_start_themed_style name () =
         ]
 
 let grid_col_end_themed_style name () =
-  match Var.get_theme_value name with
+  match Var.theme_value name with
   | Some value_str ->
       let decl = themed_decl name value_str in
       let ref : Css.grid_line Css.var = Css.var_ref ~layer:"theme" name in
@@ -61,7 +61,7 @@ let grid_col_end_themed_style name () =
         ]
 
 let grid_row_themed_style name () =
-  match Var.get_theme_value name with
+  match Var.theme_value name with
   | Some value_str ->
       let decl = themed_decl name value_str in
       let ref : Css.grid_line Css.var = Css.var_ref ~layer:"theme" name in
@@ -78,7 +78,7 @@ let grid_row_themed_style name () =
         ]
 
 let grid_row_start_themed_style name () =
-  match Var.get_theme_value name with
+  match Var.theme_value name with
   | Some value_str ->
       let decl = themed_decl name value_str in
       let ref : Css.grid_line Css.var = Css.var_ref ~layer:"theme" name in
@@ -94,7 +94,7 @@ let grid_row_start_themed_style name () =
         ]
 
 let grid_row_end_themed_style name () =
-  match Var.get_theme_value name with
+  match Var.theme_value name with
   | Some value_str ->
       let decl = themed_decl name value_str in
       let ref : Css.grid_line Css.var = Css.var_ref ~layer:"theme" name in
@@ -313,7 +313,7 @@ module Handler = struct
         | Error _ ->
             if
               (not (String.contains n '/'))
-              && Var.get_theme_value ("grid-column-start-" ^ n) <> None
+              && Var.theme_value ("grid-column-start-" ^ n) <> None
             then Ok (Col_start_named n)
             else err_not_utility)
     | [ ""; "col"; "start"; n ] -> (
@@ -332,7 +332,7 @@ module Handler = struct
         | Error _ ->
             if
               (not (String.contains n '/'))
-              && Var.get_theme_value ("grid-column-end-" ^ n) <> None
+              && Var.theme_value ("grid-column-end-" ^ n) <> None
             then Ok (Col_end_named n)
             else err_not_utility)
     | [ ""; "col"; "end"; n ] -> (
@@ -389,7 +389,7 @@ module Handler = struct
         | Error _ ->
             if
               (not (String.contains n '/'))
-              && Var.get_theme_value ("grid-row-start-" ^ n) <> None
+              && Var.theme_value ("grid-row-start-" ^ n) <> None
             then Ok (Row_start_named n)
             else err_not_utility)
     | [ ""; "row"; "start"; n ] -> (
@@ -408,7 +408,7 @@ module Handler = struct
         | Error _ ->
             if
               (not (String.contains n '/'))
-              && Var.get_theme_value ("grid-row-end-" ^ n) <> None
+              && Var.theme_value ("grid-row-end-" ^ n) <> None
             then Ok (Row_end_named n)
             else err_not_utility)
     | [ ""; "row"; "end"; n ] -> (

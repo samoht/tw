@@ -185,19 +185,18 @@ val is_shadeless : color -> bool
 (** [is_shadeless color] checks if a color should NOT have a shade suffix in
     class names (base colors, custom colors, or theme-named colors). *)
 
-val get_color_var : color -> int -> Css.color Var.theme
-(** [get_color_var color shade] gets or creates a memoized color variable for
-    the given color and shade. *)
+val color_var : color -> int -> Css.color Var.theme
+(** [color_var color shade] gets or creates a memoized color variable for the
+    given color and shade. *)
 
-val get_property_color_var :
+val property_color_var :
   property_prefix:string -> color -> int -> Css.color Var.theme
-(** [get_property_color_var ~property_prefix color shade] gets or creates a
+(** [property_color_var ~property_prefix color shade] gets or creates a
     property-scoped color variable (e.g., [--border-color-blue-500]). *)
 
-val get_property_color_value :
-  property_prefix:string -> color -> int -> Css.color
-(** [get_property_color_value ~property_prefix color shade] returns the CSS
-    color value for a property-scoped color variable. *)
+val property_color_value : property_prefix:string -> color -> int -> Css.color
+(** [property_color_value ~property_prefix color shade] returns the CSS color
+    value for a property-scoped color variable. *)
 
 val scheme_color_name : color -> int -> string
 (** [scheme_color_name color shade] returns the scheme color name (e.g.,
@@ -207,8 +206,8 @@ val hex_with_alpha : string -> float -> string
 (** [hex_with_alpha hex_str opacity_percent] adds alpha to a hex color string.
     Returns #RRGGBBAA format. The opacity is a percentage (0-100). *)
 
-val get_current_scheme : unit -> Scheme.t
-(** [get_current_scheme ()] returns the current color scheme. *)
+val current_scheme : unit -> Scheme.t
+(** [current_scheme ()] returns the current color scheme. *)
 
 val color_mix_supports_condition : Css.Supports.t
 (** [color_mix_supports_condition] is the CSS supports condition for color-mix:
@@ -583,9 +582,9 @@ val pp_opacity : opacity_modifier -> string
     modifier for use in class names. E.g., Opacity_percent 50. -> "50",
     Opacity_arbitrary 0.5 -> "[0.5]". *)
 
-val get_hex_alpha_color : color -> int -> opacity_modifier -> string option
-(** [get_hex_alpha_color color shade opacity] returns a hex color with alpha if
-    the color is defined in the scheme, otherwise None. This is useful for
+val hex_alpha_color : color -> int -> opacity_modifier -> string option
+(** [hex_alpha_color color shade opacity] returns a hex color with alpha if the
+    color is defined in the scheme, otherwise None. This is useful for
     properties where Tailwind outputs simple hex+alpha without [@supports]. *)
 
 val bg_with_opacity : color -> int -> opacity_modifier -> Style.t

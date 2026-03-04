@@ -39,7 +39,7 @@ let inset_named_cache : (string, Css.length Var.theme) Hashtbl.t =
 (* Get or create a theme variable for a named inset value like
    --inset-shadowned. Uses order (3, 200) to place in theme layer after numbered
    spacing variables (which are at 3, 100+n). *)
-let get_inset_named_var name =
+let inset_named_var name =
   match Hashtbl.find_opt inset_named_cache name with
   | Some var -> var
   | None ->
@@ -53,7 +53,7 @@ let get_inset_named_var name =
 (* Create a named inset value using a theme variable like --inset-shadowned.
    Returns the theme declaration and a length that references the variable. *)
 let named_inset_value name : Css.declaration * Css.length =
-  let var = get_inset_named_var name in
+  let var = inset_named_var name in
   (* Use 1940px as placeholder value - this comes from Tailwind test config *)
   let concrete_value : Css.length = Px 1940. in
   let decl, ref = Var.binding var concrete_value in

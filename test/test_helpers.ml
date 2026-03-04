@@ -99,7 +99,7 @@ let delta_debug check_fails lst =
   ddmin lst 2
 
 (** Find minimal failing pair from a list *)
-let find_minimal_pair check_fails lst =
+let minimal_pair check_fails lst =
   let rec find_pair lst =
     match lst with
     | [] | [ _ ] -> None
@@ -123,7 +123,7 @@ let minimize_failing_case check_fails initial =
     (* If we have more than 2 items, try to find a minimal pair *)
     let final =
       if List.length minimal > 2 then
-        match find_minimal_pair check_fails minimal with
+        match minimal_pair check_fails minimal with
         | Some pair -> pair
         | None -> minimal
       else minimal
@@ -131,7 +131,7 @@ let minimize_failing_case check_fails initial =
     Some final
 
 (** Get rule selector ordering from Tailwind CSS *)
-let get_tailwind_order ?(forms = false) classes =
+let tailwind_order ?(forms = false) classes =
   let tailwind_css_str =
     Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true ~forms classes
   in
@@ -146,7 +146,7 @@ let get_tailwind_order ?(forms = false) classes =
   extract_rule_selectors tailwind_utilities_rules
 
 (** Get rule selector ordering from our implementation *)
-let get_our_order utilities =
+let our_order utilities =
   let tw_css = Tw.to_css ~base:true ~optimize:true utilities in
   let tw_utilities_rules = extract_utilities_layer_rules tw_css in
   extract_rule_selectors tw_utilities_rules
@@ -154,11 +154,11 @@ let get_our_order utilities =
 (** Compare ordering between our implementation and Tailwind *)
 let check_ordering_matches ?(forms = false) ~test_name utilities =
   let classes = List.map Tw.pp utilities in
-  let tailwind_order = get_tailwind_order ~forms classes in
-  let our_order = get_our_order utilities in
+  let tw_order = tailwind_order ~forms classes in
+  let ours = our_order utilities in
 
   (* If ordering doesn't match, try to minimize the test case *)
-  if tailwind_order <> our_order then (
+  if tw_order <> ours then (
     Fmt.epr "@.Ordering mismatch detected. Minimizing test case...@.";
     match minimize_failing_case (check_ordering_fails ~forms) utilities with
     | Some minimal ->
@@ -167,8 +167,8 @@ let check_ordering_matches ?(forms = false) ~test_name utilities =
           (List.length minimal)
           Fmt.(list ~sep:(const string " ") string)
           minimal_classes;
-        let minimal_tw_order = get_tailwind_order ~forms minimal_classes in
-        let minimal_our_order = get_our_order minimal in
+        let minimal_tw_order = tailwind_order ~forms minimal_classes in
+        let minimal_our_order = our_order minimal in
         Fmt.epr "@.Expected (Tailwind): %a@."
           Fmt.(list ~sep:(const string ", ") (quote string))
           minimal_tw_order;
@@ -180,10 +180,10 @@ let check_ordering_matches ?(forms = false) ~test_name utilities =
           test_name minimal_tw_order minimal_our_order
     | None ->
         (* No minimization possible, fail with full test case *)
-        Alcotest.(check (list string)) test_name tailwind_order our_order)
+        Alcotest.(check (list string)) test_name tw_order ours)
   else
     (* Test passes *)
-    Alcotest.(check (list string)) test_name tailwind_order our_order
+    Alcotest.(check (list string)) test_name tw_order ours
 
 (** CSS Test Helpers *)
 

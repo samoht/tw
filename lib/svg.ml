@@ -41,14 +41,14 @@ module Handler = struct
 
   (* Fill color style with scheme support *)
   let fill_color_style color shade =
-    let color_var = Color.get_color_var color shade in
+    let color_var = Color.color_var color shade in
     let color_value = Color.to_css color shade in
     let theme_decl, color_ref = Var.binding color_var color_value in
     style [ theme_decl; Css.fill (Css.Color (Css.Var color_ref)) ]
 
   (* Stroke color style with scheme support *)
   let stroke_color_style color shade =
-    let color_var = Color.get_color_var color shade in
+    let color_var = Color.color_var color shade in
     let color_value = Color.to_css color shade in
     let theme_decl, color_ref = Var.binding color_var color_value in
     style [ theme_decl; Css.stroke (Css.Color (Css.Var color_ref)) ]
