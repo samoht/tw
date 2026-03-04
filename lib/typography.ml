@@ -1685,13 +1685,24 @@ module Typography_late = struct
     style ~property_rules [ content_decl; content (Css.Var content_ref) ]
 
   let content_named name =
-    let theme_ref : Css.content Css.var =
-      Css.var_ref ~layer:"theme" ("content-" ^ name)
+    let var_name = "content-" ^ name in
+    let content_decl, content_ref =
+      match Var.get_theme_value var_name with
+      | Some _ ->
+          let tv = Var.theme Css.Content var_name ~order:(6, 60) in
+          let theme_decl, theme_ref = Var.binding tv (String "") in
+          let cd, cr = Var.binding content_var (Var theme_ref) in
+          ([ theme_decl; cd ], cr)
+      | None ->
+          let theme_ref : Css.content Css.var =
+            Css.var_ref ~layer:"theme" var_name
+          in
+          let cd, cr = Var.binding content_var (Var theme_ref) in
+          ([ cd ], cr)
     in
-    let content_decl, content_ref = Var.binding content_var (Var theme_ref) in
     let property_rules = Var.property_rules content_var in
     let c : Css.content = Css.Var content_ref in
-    style ~property_rules [ content_decl; Css.content c ]
+    style ~property_rules (content_decl @ [ Css.content c ])
 
   let align_baseline = style [ vertical_align Baseline ]
   let align_top = style [ vertical_align Top ]
