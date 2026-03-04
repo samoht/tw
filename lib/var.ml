@@ -310,7 +310,7 @@ let channel ?(needs_property = false) ?property_order ?family kind name =
 (* Place after [reference] to avoid forward reference issues *)
 
 (* Helper to create @property with correct syntax based on kind *)
-let make_property : type a.
+let property : type a.
     name:string ->
     a Css.kind ->
     a option ->
@@ -377,7 +377,7 @@ let property_rule : type a r. (a, r) t -> Css.t option =
       | None -> None
       | Some { initial; inherits; universal; _ } ->
           let name = "--" ^ var.name in
-          Some (make_property ~name var.kind initial ~inherits ~universal))
+          Some (property ~name var.kind initial ~inherits ~universal))
   | _ -> None (* Other roles don't generate @property rules *)
 
 (* Convenience function for property_default variables to get property rules or
@@ -509,7 +509,7 @@ let property_info_to_declaration_value (Css.Property_info info) =
 
 let css_name var = "--" ^ var.name
 
-let var_needs_property v =
+let needs_property_rule v =
   match Css.var_meta v with
   | None ->
       (* Variables without metadata (e.g., raw theme variable references like

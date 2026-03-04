@@ -2579,7 +2579,7 @@ let rec extract_vars_and_property_rules_from_style = function
 
 (* Filter variables that need @property rules *)
 let vars_needing_property vars =
-  List.filter (fun (Css.V v) -> Var.var_needs_property v) vars
+  List.filter (fun (Css.V v) -> Var.needs_property_rule v) vars
 
 (* Extract names from explicit @property rules into a set *)
 let property_names_of statements =
