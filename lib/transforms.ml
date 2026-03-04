@@ -783,7 +783,7 @@ module Handler = struct
       [ Css.scale (XYZ (Var scale_x_ref, Var scale_y_ref, Var scale_z_ref)) ]
 
   let perspective_none () =
-    match Var.get_theme_value "perspective-none" with
+    match Var.theme_value "perspective-none" with
     | Some value_str ->
         let len : Css.length =
           if String.ends_with ~suffix:"px" value_str then
@@ -806,7 +806,7 @@ module Handler = struct
   let perspective_arbitrary len = style [ Css.perspective len ]
 
   let po_with_ref name (default : Css.perspective_origin) default_css () =
-    match Var.get_theme_value name with
+    match Var.theme_value name with
     | Some value_str ->
         let decl =
           Css.custom_declaration ~layer:"theme" ("--" ^ name) Css.String
@@ -888,7 +888,7 @@ module Handler = struct
       variables are defined. *)
 
   let origin_with_ref name (default : Css.transform_origin) default_css () =
-    match Var.get_theme_value name with
+    match Var.theme_value name with
     | Some value_str ->
         let decl =
           Css.custom_declaration ~layer:"theme" ("--" ^ name) Css.String

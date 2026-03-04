@@ -885,7 +885,7 @@ module Handler = struct
   let ring_color color shade =
     (* Use theme color variable reference like text color does: --tw-ring-color:
        var(--color-blue-400) *)
-    let color_theme_var = Color.get_color_var color shade in
+    let color_theme_var = Color.color_var color shade in
     let color_value = Color.to_css color shade in
     (* Bind the theme variable to get its declaration and reference *)
     let color_decl, color_ref = Var.binding color_theme_var color_value in
@@ -896,7 +896,7 @@ module Handler = struct
 
   let ring_color_with_opacity color shade opacity =
     (* For opacity modifiers, output hex color with alpha directly *)
-    match Color.get_hex_alpha_color color shade opacity with
+    match Color.hex_alpha_color color shade opacity with
     | Some hex_alpha ->
         let d, _ = Var.binding ring_color_var (Css.hex hex_alpha) in
         style [ d ]
@@ -921,7 +921,7 @@ module Handler = struct
 
   let ring_offset_color color shade =
     (* Sets --tw-ring-offset-color to reference theme color variable *)
-    let color_theme_var = Color.get_color_var color shade in
+    let color_theme_var = Color.color_var color shade in
     let color_value = Color.to_css color shade in
     let color_decl, color_ref = Var.binding color_theme_var color_value in
     let d, _ = Var.binding ring_offset_color_var (Css.Var color_ref) in
@@ -929,7 +929,7 @@ module Handler = struct
 
   let ring_offset_color_with_opacity color shade opacity =
     (* For opacity modifiers, output hex color with alpha directly *)
-    match Color.get_hex_alpha_color color shade opacity with
+    match Color.hex_alpha_color color shade opacity with
     | Some hex_alpha ->
         let d, _ = Var.binding ring_offset_color_var (Css.hex hex_alpha) in
         style [ d ]
@@ -937,7 +937,7 @@ module Handler = struct
 
   let inset_ring_color color shade =
     (* Sets --tw-inset-ring-color to reference theme color variable *)
-    let color_theme_var = Color.get_color_var color shade in
+    let color_theme_var = Color.color_var color shade in
     let color_value = Color.to_css color shade in
     let color_decl, color_ref = Var.binding color_theme_var color_value in
     let d, _ = Var.binding inset_ring_color_var (Css.Var color_ref) in
@@ -945,7 +945,7 @@ module Handler = struct
 
   let inset_ring_color_with_opacity color shade opacity =
     (* For opacity modifiers, output hex color with alpha directly *)
-    match Color.get_hex_alpha_color color shade opacity with
+    match Color.hex_alpha_color color shade opacity with
     | Some hex_alpha ->
         let d, _ = Var.binding inset_ring_color_var (Css.hex hex_alpha) in
         style [ d ]

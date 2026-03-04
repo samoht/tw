@@ -56,24 +56,24 @@ let pp fmt t =
     t.default_ring_width t.default_border_width t.default_outline_width
 
 (** Lookup a color in the scheme *)
-let find_color scheme name = List.assoc_opt name scheme.colors
+let color scheme name = List.assoc_opt name scheme.colors
 
 (** Lookup a spacing value in the scheme *)
-let find_spacing scheme n = List.assoc_opt n scheme.spacing
+let spacing scheme n = List.assoc_opt n scheme.spacing
 
 (** Check if a color is defined as hex in the scheme *)
 let is_hex_color scheme name =
-  match find_color scheme name with Some (Hex _) -> true | _ -> false
+  match color scheme name with Some (Hex _) -> true | _ -> false
 
 (** Get hex value for a color if defined as hex *)
-let get_hex_color scheme name =
-  match find_color scheme name with Some (Hex h) -> Some h | _ -> None
+let hex_color scheme name =
+  match color scheme name with Some (Hex h) -> Some h | _ -> None
 
 (** Check if spacing has an explicit variable *)
-let has_explicit_spacing scheme n = Option.is_some (find_spacing scheme n)
+let has_explicit_spacing scheme n = Option.is_some (spacing scheme n)
 
 (** Lookup a radius value in the scheme *)
-let find_radius scheme name = List.assoc_opt name scheme.radius
+let radius scheme name = List.assoc_opt name scheme.radius
 
 (** Check if radius has an explicit variable *)
-let has_explicit_radius scheme name = Option.is_some (find_radius scheme name)
+let has_explicit_radius scheme name = Option.is_some (radius scheme name)

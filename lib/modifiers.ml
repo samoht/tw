@@ -1142,7 +1142,7 @@ let pp_modifier = function
   | Supports cond -> "supports-[" ^ cond ^ "]"
 
 (* Find matching closing bracket, handling nested brackets *)
-let find_matching_bracket s =
+let matching_bracket s =
   let len = String.length s in
   let rec loop i depth =
     if i >= len then None
@@ -1164,7 +1164,7 @@ let extract_bracket_content ~prefix s =
       String.sub s (String.length prefix)
         (String.length s - String.length prefix)
     in
-    Option.map (fun i -> String.sub rest 0 i) (find_matching_bracket rest)
+    Option.map (fun i -> String.sub rest 0 i) (matching_bracket rest)
   else None
 
 (* Parse a pixel value from a string like "600px" or "600" *)

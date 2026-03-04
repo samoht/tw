@@ -456,22 +456,22 @@ val channel :
     block. Ideal for composition patterns where contributing utilities set
     declarations and aggregators reference values. *)
 
-val get_property_order : string -> int option
-(** [get_property_order name] returns the property order for a variable name,
-    used for sorting properties in the {i \@layer properties \@supports} block.
+val property_order : string -> int option
+(** [property_order name] returns the property order for a variable name, used
+    for sorting properties in the {i \@layer properties \@supports} block.
     Returns [None] if no order was registered. *)
 
-val get_order : string -> (int * int) option
-(** [get_order name] returns the theme layer order for a variable name. None if
-    no order was set (i.e., not a theme variable). *)
+val order : string -> (int * int) option
+(** [order name] returns the theme layer order for a variable name. None if no
+    order was set (i.e., not a theme variable). *)
 
-val get_family : string -> family option
-(** [get_family name] returns the family for a variable name. None if the
-    variable is not registered. *)
+val family : string -> family option
+(** [family name] returns the family for a variable name. None if the variable
+    is not registered. *)
 
-val get_needs_property : string -> bool
-(** [get_needs_property name] returns whether a variable needs an [\@property]
-    rule. Returns [false] if the variable is not registered or doesn't need
+val needs_property : string -> bool
+(** [needs_property name] returns whether a variable needs an [\@property] rule.
+    Returns [false] if the variable is not registered or doesn't need
     [\@property]. *)
 
 val ref_only : 'a Css.kind -> string -> fallback:'a -> 'a ref_only
@@ -505,8 +505,8 @@ val set_theme_value : string -> string -> unit
     utilities using [theme_ref] for this name will produce custom declarations
     in the theme layer (e.g., [--z-index-auto: 42] in [:root, :host]). *)
 
-val get_theme_value : string -> string option
-(** [get_theme_value name] returns the overridden theme value, if any. *)
+val theme_value : string -> string option
+(** [theme_value name] returns the overridden theme value, if any. *)
 
 val clear_theme_values : unit -> unit
 (** [clear_theme_values ()] removes all theme value overrides. *)

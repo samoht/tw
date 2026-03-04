@@ -65,7 +65,7 @@ let z_index_auto_var = Var.theme Css.Z_index "z-index-auto" ~order:(4, 750)
 (* Generate z-auto style: either theme var with custom declaration, or bare
    theme_ref fallback *)
 let z_auto_style () =
-  match Var.get_theme_value "z-index-auto" with
+  match Var.theme_value "z-index-auto" with
   | Some value_str ->
       (* Parse theme value as z_index *)
       let z_value : Css.z_index =
@@ -467,7 +467,7 @@ module Handler = struct
               ("object-position-top-right", Top_right, "right top")
           | _ -> assert false
         in
-        match Var.get_theme_value name with
+        match Var.theme_value name with
         | Some _ ->
             let tv = Var.theme Css.Length name ~order:(6, 40) in
             let theme_decl, theme_ref = Var.binding tv (Zero : Css.length) in

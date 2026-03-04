@@ -1894,29 +1894,14 @@ let compare_indexed_rules r1 r2 =
         let order_cmp = compare r1.order r2.order in
         if order_cmp <> 0 then order_cmp
         else
-          let sel_cmp =
-            natural_compare
-              (Css.Selector.to_string r1.selector)
-              (Css.Selector.to_string r2.selector)
-          in
-          if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
+          (* Use index to keep Regular+Supports pairs adjacent *)
+          Int.compare r1.index r2.index
     | `Supports _, `Regular ->
         let order_cmp = compare r1.order r2.order in
-        if order_cmp <> 0 then order_cmp
-        else
-          let sel_cmp =
-            natural_compare
-              (Css.Selector.to_string r1.selector)
-              (Css.Selector.to_string r2.selector)
-          in
-          if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
+        if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
     | `Supports _, `Supports _ ->
-        let sel_cmp =
-          natural_compare
-            (Css.Selector.to_string r1.selector)
-            (Css.Selector.to_string r2.selector)
-        in
-        if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
+        let order_cmp = compare r1.order r2.order in
+        if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
     | `Supports _, `Media _ ->
         (* Supports should be positioned near its base Regular rule, so use
            order-based comparison like Regular vs Media *)
@@ -2185,7 +2170,7 @@ let sort_vars_by_property_order vars =
         String.sub name 2 (String.length name - 2)
       else name
     in
-    match Var.get_property_order name_without_prefix with
+    match Var.property_order name_without_prefix with
     | Some o -> o
     | None -> 1000 (* Default for vars without property_order *)
   in
@@ -2208,7 +2193,7 @@ let all_var_names_from_sorted_rules sorted_rules =
         all_vars
         |> List.filter (fun (Css.V v) ->
             let name = Css.var_name v in
-            Var.get_needs_property name)
+            Var.needs_property name)
         |> List.map (fun (Css.V v) -> "--" ^ Css.var_name v)
       in
       (* Sort all vars from this utility by property_order *)
@@ -2452,7 +2437,7 @@ let build_first_usage_order set_var_names =
 
 (* Get property order from static registry. *)
 let property_order_from name =
-  match Var.get_property_order name with
+  match Var.property_order name with
   | Some o -> o
   | None ->
       failwith
@@ -2466,7 +2451,7 @@ let build_family_order first_usage_order =
   let family_order = Hashtbl.create 16 in
   Hashtbl.iter
     (fun name idx ->
-      match Var.get_family name with
+      match Var.family name with
       | Some fam -> (
           match Hashtbl.find_opt family_order fam with
           | None -> Hashtbl.add family_order fam idx
@@ -2517,7 +2502,7 @@ let compare_property_vars ~get_family_order n1 n2 po1 po2 fam1 fam2 =
 let sort_properties_by_order first_usage_order initial_values =
   let family_order = build_family_order first_usage_order in
   let get_family_order name =
-    match Var.get_family name with
+    match Var.family name with
     | Some fam -> (
         match Hashtbl.find_opt family_order fam with
         | Some o -> o
@@ -2525,8 +2510,8 @@ let sort_properties_by_order first_usage_order initial_values =
     | None -> 1000
   in
   let cmp (n1, _) (n2, _) =
-    let fam1 = Var.get_family n1 in
-    let fam2 = Var.get_family n2 in
+    let fam1 = Var.family n1 in
+    let fam2 = Var.family n2 in
     let po1 = property_order_from n1 in
     let po2 = property_order_from n2 in
     compare_property_vars ~get_family_order n1 n2 po1 po2 fam1 fam2
@@ -2673,7 +2658,7 @@ let assemble_all_layers ~layers ~include_base ~properties_layer ~theme_layer
   (* Sort @property rules using family-based first-usage order *)
   let family_order = build_family_order first_usage_order in
   let get_family_order name =
-    match Var.get_family name with
+    match Var.family name with
     | Some fam -> (
         match Hashtbl.find_opt family_order fam with
         | Some o -> o
@@ -2695,8 +2680,8 @@ let assemble_all_layers ~layers ~include_base ~properties_layer ~theme_layer
         match (Css.as_property s1, Css.as_property s2) with
         | ( Some (Css.Property_info { name = n1; _ }),
             Some (Css.Property_info { name = n2; _ }) ) ->
-            let fam1 = Var.get_family n1 in
-            let fam2 = Var.get_family n2 in
+            let fam1 = Var.family n1 in
+            let fam2 = Var.family n2 in
             let po1 = property_order_from n1 in
             let po2 = property_order_from n2 in
             (* Variables with no family and negative property_order come
@@ -2900,12 +2885,12 @@ let build_layers ~layers ~include_base ?forms ~selector_props tw_classes
         let var_name1 = "animate-" ^ name1 in
         let var_name2 = "animate-" ^ name2 in
         let order1 =
-          match Var.get_order var_name1 with
+          match Var.order var_name1 with
           | Some (p, s) -> (p * 1000) + s
           | None -> 1000000 (* Unknown keyframes sort last *)
         in
         let order2 =
-          match Var.get_order var_name2 with
+          match Var.order var_name2 with
           | Some (p, s) -> (p * 1000) + s
           | None -> 1000000
         in

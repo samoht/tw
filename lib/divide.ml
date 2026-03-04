@@ -165,11 +165,10 @@ module Handler = struct
       style ~rules:(Some [ rule ]) []
     else
       let color_var =
-        Color.get_property_color_var ~property_prefix:"border-color" color shade
+        Color.property_color_var ~property_prefix:"border-color" color shade
       in
       let color_value =
-        Color.get_property_color_value ~property_prefix:"border-color" color
-          shade
+        Color.property_color_value ~property_prefix:"border-color" color shade
       in
       let decl, color_ref = Var.binding color_var color_value in
       let rule =
@@ -412,7 +411,7 @@ module Handler = struct
             (* Try as theme-named color *)
             let name = String.concat "-" color_parts in
             let base, opacity = Color.parse_opacity_modifier name in
-            if Var.get_theme_value ("border-color-" ^ base) <> None then
+            if Var.theme_value ("border-color-" ^ base) <> None then
               Ok (Divide_color_opacity (Theme_named base, 500, opacity))
             else Error (`Msg ("Invalid divide color: " ^ name)))
     | "divide" :: color_parts -> (
@@ -421,7 +420,7 @@ module Handler = struct
         | Error _ ->
             (* Try as theme-named color *)
             let name = String.concat "-" color_parts in
-            if Var.get_theme_value ("border-color-" ^ name) <> None then
+            if Var.theme_value ("border-color-" ^ name) <> None then
               Ok (Divide_color (Theme_named name, 500))
             else Error (`Msg ("Invalid divide color: " ^ name)))
     | _ -> Error (`Msg "Not a divide utility")

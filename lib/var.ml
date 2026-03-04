@@ -98,7 +98,7 @@ module Registry = struct
   let register_property_order ~name ~order =
     Hashtbl.replace property_order_registry name order
 
-  let get_property_order name =
+  let property_order name =
     (* Strip leading -- if present *)
     let name =
       if String.starts_with ~prefix:"--" name then
@@ -107,7 +107,7 @@ module Registry = struct
     in
     Hashtbl.find_opt property_order_registry name
 
-  let get_order name =
+  let order name =
     (* Strip leading -- if present *)
     let name =
       if String.starts_with ~prefix:"--" name then
@@ -119,7 +119,7 @@ module Registry = struct
   let register_family ~name ~family =
     Hashtbl.replace family_registry name family
 
-  let get_family name =
+  let family name =
     (* Strip leading -- if present *)
     let name =
       if String.starts_with ~prefix:"--" name then
@@ -131,7 +131,7 @@ module Registry = struct
   let register_needs_property ~name ~needs =
     Hashtbl.replace needs_property_registry name needs
 
-  let get_needs_property name =
+  let needs_property name =
     (* Strip leading -- if present *)
     let name =
       if String.starts_with ~prefix:"--" name then
@@ -144,10 +144,10 @@ module Registry = struct
 end
 
 (* Get property order for a variable name (for external use in rules.ml) *)
-let get_property_order = Registry.get_property_order
-let get_order = Registry.get_order
-let get_family = Registry.get_family
-let get_needs_property = Registry.get_needs_property
+let property_order = Registry.property_order
+let order = Registry.order
+let family = Registry.family
+let needs_property = Registry.needs_property
 
 type family = Registry.family
 
@@ -310,7 +310,7 @@ let channel ?(needs_property = false) ?property_order ?family kind name =
 (* Place after [reference] to avoid forward reference issues *)
 
 (* Helper to create @property with correct syntax based on kind *)
-let create_property : type a.
+let make_property : type a.
     name:string ->
     a Css.kind ->
     a option ->
@@ -377,7 +377,7 @@ let property_rule : type a r. (a, r) t -> Css.t option =
       | None -> None
       | Some { initial; inherits; universal; _ } ->
           let name = "--" ^ var.name in
-          Some (create_property ~name var.kind initial ~inherits ~universal))
+          Some (make_property ~name var.kind initial ~inherits ~universal))
   | _ -> None (* Other roles don't generate @property rules *)
 
 (* Convenience function for property_default variables to get property rules or
@@ -477,7 +477,7 @@ let theme_value_overrides : (string, string) Hashtbl.t = Hashtbl.create 16
 let set_theme_value name value =
   Hashtbl.replace theme_value_overrides name value
 
-let get_theme_value name = Hashtbl.find_opt theme_value_overrides name
+let theme_value name = Hashtbl.find_opt theme_value_overrides name
 let clear_theme_values () = Hashtbl.clear theme_value_overrides
 
 (* Convert Property_info to the string value for properties layer This extracts

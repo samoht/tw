@@ -34,7 +34,7 @@ let spacing_n_var n =
 let spacing_calc n : Css.declaration * Css.length =
   let abs_n = abs n in
   let is_negative = n < 0 in
-  match Scheme.find_spacing !current_scheme abs_n with
+  match Scheme.spacing !current_scheme abs_n with
   | Some explicit_length ->
       (* Scheme has explicit spacing: use var(--spacing-|n|) *)
       let spacing_n = spacing_n_var abs_n in

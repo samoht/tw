@@ -10,10 +10,10 @@ let test_find_color () =
   in
   Alcotest.(check bool)
     "finds defined color" true
-    (Tw.Scheme.get_hex_color s "red-500" <> None);
+    (Tw.Scheme.hex_color s "red-500" <> None);
   Alcotest.(check bool)
     "missing color returns none" true
-    (Tw.Scheme.get_hex_color s "blue-500" = None)
+    (Tw.Scheme.hex_color s "blue-500" = None)
 
 let tests =
   Alcotest.
