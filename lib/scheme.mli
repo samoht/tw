@@ -1,7 +1,7 @@
 (** Theme scheme configuration for customizing CSS output.
 
     A scheme defines theme overrides that affect how utilities generate CSS.
-    This allows matching Tailwind's test expectations which use custom @theme
+    This allows matching Tailwind's test expectations which use custom [@theme]
     definitions with hex colors and explicit spacing variables. *)
 
 (** Color value - either hex string or oklch components *)
