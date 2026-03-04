@@ -385,7 +385,8 @@ val pp_modifier : modifier -> string
 (** [pp_modifier m] returns the string prefix for a modifier (e.g., "hover" for
     Hover). *)
 
-val apply : string list -> t -> t
+val apply : string list -> t -> t option
 (** [apply modifiers style] applies a list of modifier strings to a base style.
-    Example: [apply ["hover"; "sm"] (bg blue 500)] creates a
-    hover:sm:bg-blue-500 style. *)
+    Returns [None] if any modifier is unrecognized. Example:
+    [apply ["hover"; "sm"] (bg blue 500)] creates a hover:sm:bg-blue-500 style.
+*)

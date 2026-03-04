@@ -94,8 +94,8 @@ let test_apply () =
   let style1 = apply [ "hover" ] (p 4) in
   check bool "hover modifier applied" true
     (match style1 with
-    | Group [ Modified (Hover, _) ] -> true
-    | Modified (Hover, _) -> true
+    | Some (Group [ Modified (Hover, _) ]) -> true
+    | Some (Modified (Hover, _)) -> true
     | _ -> false);
 
   (* Test multiple modifiers - "sm:hover:..." means sm is outermost, hover is
@@ -104,32 +104,29 @@ let test_apply () =
   let style2 = apply [ "sm"; "hover" ] (bg blue 500) in
   check bool "multiple modifiers applied" true
     (match style2 with
-    | Group [ Modified (Responsive `Sm, Modified (Hover, _)) ] -> true
-    | Modified (Responsive `Sm, Modified (Hover, _)) -> true
+    | Some (Group [ Modified (Responsive `Sm, Modified (Hover, _)) ]) -> true
+    | Some (Modified (Responsive `Sm, Modified (Hover, _))) -> true
     | _ -> false);
 
-  (* Test unknown modifier (should be ignored) *)
+  (* Test unknown modifier (should reject the entire class) *)
   let style3 = apply [ "unknown"; "hover" ] (p 4) in
-  check bool "unknown modifier ignored" true
-    (match style3 with
-    | Group [ Modified (Hover, _) ] -> true
-    | Modified (Hover, _) -> true
-    | _ -> false);
+  check bool "unknown modifier rejects class" true
+    (match style3 with None -> true | _ -> false);
 
   (* Test responsive modifiers *)
   let style4 = apply [ "md" ] (m 2) in
   check bool "md modifier applied" true
     (match style4 with
-    | Group [ Modified (Responsive `Md, _) ] -> true
-    | Modified (Responsive `Md, _) -> true
+    | Some (Group [ Modified (Responsive `Md, _) ]) -> true
+    | Some (Modified (Responsive `Md, _)) -> true
     | _ -> false);
 
   (* Test dark mode *)
   let style5 = apply [ "dark" ] (bg gray 900) in
   check bool "dark modifier applied" true
     (match style5 with
-    | Group [ Modified (Dark, _) ] -> true
-    | Modified (Dark, _) -> true
+    | Some (Group [ Modified (Dark, _) ]) -> true
+    | Some (Modified (Dark, _)) -> true
     | _ -> false);
 
   (* Test modifier order - modifiers are applied so that the first modifier in
@@ -141,8 +138,8 @@ let test_apply () =
   let style6 = apply [ "hover"; "sm" ] (p 4) in
   check bool "modifier order correct" true
     (match style6 with
-    | Group [ Modified (Hover, Modified (Responsive `Sm, _)) ] -> true
-    | Modified (Hover, Modified (Responsive `Sm, _)) -> true
+    | Some (Group [ Modified (Hover, Modified (Responsive `Sm, _)) ]) -> true
+    | Some (Modified (Hover, Modified (Responsive `Sm, _))) -> true
     | _ -> false)
 
 (* Test modifier class name format *)
@@ -371,15 +368,16 @@ let test_pp_modifier_strings () =
 (* Test apply with bracketed has/group-has/peer-has modifiers *)
 let test_apply_bracketed_has () =
   let u1 = apply [ "has-[.x]" ] (p 4) in
-  check string "has-[.x]:p-4" "has-[.x]:p-4" (Tw.Utility.to_class u1);
+  check string "has-[.x]:p-4" "has-[.x]:p-4"
+    (Tw.Utility.to_class (Option.get u1));
 
   let u2 = apply [ "group-has-[.y]"; "hover" ] (m 2) in
   check string "group-has + hover order" "group-has-[.y]:hover:m-2"
-    (Tw.Utility.to_class u2);
+    (Tw.Utility.to_class (Option.get u2));
 
   let u3 = apply [ "peer-has-[.z]" ] (bg blue 500) in
   check string "peer-has class" "peer-has-[.z]:bg-blue-500"
-    (Tw.Utility.to_class u3)
+    (Tw.Utility.to_class (Option.get u3))
 
 (* Test ARIA and data modifiers class names *)
 let test_aria_and_data_modifiers () =

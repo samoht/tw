@@ -79,9 +79,11 @@ let of_string class_str =
   let modifiers, base_class = modifiers_of_string class_str in
   match Utility.base_of_class base_class with
   | Error _ -> Error (`Msg ("Unknown class: " ^ class_str))
-  | Ok base_utility ->
+  | Ok base_utility -> (
       let base_util = Utility.base base_utility in
-      Ok (Modifiers.apply modifiers base_util)
+      match Modifiers.apply modifiers base_util with
+      | Some u -> Ok u
+      | None -> Error (`Msg ("Unknown modifier in: " ^ class_str)))
 
 (** {1 Module Exports} *)
 
