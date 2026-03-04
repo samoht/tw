@@ -1242,7 +1242,7 @@ let parse_opacity_modifier s =
         && opacity_str.[0] = '['
         && opacity_str.[String.length opacity_str - 1] = ']'
       then
-        (* Arbitrary value like [0.5] or [50%] *)
+        (* Arbitrary value like [0.5] or [50%] or [var(--x)] *)
         let inner = String.sub opacity_str 1 (String.length opacity_str - 2) in
         if String.ends_with ~suffix:"%" inner then
           let num_str = String.sub inner 0 (String.length inner - 1) in
@@ -1252,7 +1252,9 @@ let parse_opacity_modifier s =
         else
           match float_of_string_opt inner with
           | Some f -> (base, Opacity_arbitrary f)
-          | None -> (s, No_opacity)
+          | None ->
+              if Parse.is_var inner then (base, Opacity_named inner)
+              else (s, No_opacity)
       else
         (* Numeric value like 50 or 2.5 *)
         match float_of_string_opt opacity_str with
@@ -1890,7 +1892,7 @@ module Handler = struct
           | Opacity_percent p -> "/" ^ string_of_float p
           | Opacity_arbitrary f -> "/[" ^ string_of_float f ^ "]"
           | Opacity_bracket_percent p -> "/[" ^ string_of_float p ^ "%]"
-          | Opacity_named n -> "/" ^ n
+          | Opacity_named n -> "/[" ^ n ^ "]"
         in
         "outline-[" ^ inner ^ "]" ^ opacity_tag
     in
@@ -2103,7 +2105,7 @@ module Handler = struct
         if Float.is_integer p then Printf.sprintf "/[%d%%]" (int_of_float p)
         else Printf.sprintf "/[%g%%]" p
     | Opacity_arbitrary f -> Printf.sprintf "/[%g]" f
-    | Opacity_named name -> "/" ^ name
+    | Opacity_named name -> "/[" ^ name ^ "]"
 
   let to_class = function
     | Bg (c, shade) ->
@@ -2424,6 +2426,108 @@ let divide_current_with_opacity_selector ~selector opacity =
 
 let divide_current_with_opacity opacity selector =
   divide_current_with_opacity_selector ~selector opacity
+
+(** Background color with opacity - scheme-aware. Uses hex+alpha fallback with
+    theme variable in [@supports] block. *)
+let bg_with_opacity c shade opacity =
+  let open Handler in
+  let percent = opacity_to_percent opacity in
+  (* 100% opacity = fully opaque, same as no opacity. Use theme var directly. *)
+  if percent >= 100.0 then
+    let color_name = scheme_color_name c shade in
+    match Scheme.get_hex_color !current_scheme color_name with
+    | Some hex_value ->
+        let color_var = get_color_var c shade in
+        let _d, color_ref = Var.binding color_var (Css.hex hex_value) in
+        Style.style [ Css.background_color (Var color_ref) ]
+    | None ->
+        let color_value = to_css c (if is_base_color c then 500 else shade) in
+        Style.style [ Css.background_color color_value ]
+  else if is_custom_color c then
+    (* Custom colors (hex, rgb): output oklab() directly *)
+    let ok_l, ok_a, ok_b =
+      match c with
+      | Hex h -> (
+          match hex_to_rgb h with
+          | Some rgb -> rgb_to_oklab rgb
+          | None -> (0.0, 0.0, 0.0))
+      | Rgb { red; green; blue } ->
+          rgb_to_oklab { r = red; g = green; b = blue }
+      | _ -> (0.0, 0.0, 0.0)
+    in
+    let round_n n f =
+      let factor = 10.0 ** float_of_int n in
+      Float.round (f *. factor) /. factor
+    in
+    let alpha = percent /. 100.0 in
+    let oklab_value =
+      Css.oklaba_none_zeros (round_n 4 ok_l) (round_n 3 ok_a) (round_n 3 ok_b)
+        alpha
+    in
+    Style.style [ Css.background_color oklab_value ]
+  else
+    let color_name = scheme_color_name c shade in
+    match Scheme.get_hex_color !current_scheme color_name with
+    | Some hex_value ->
+        let hex_alpha = hex_with_alpha hex_value percent in
+        let fallback_decl = Css.background_color (Css.hex hex_alpha) in
+        let color_var = get_color_var c shade in
+        let theme_decl, color_ref = Var.binding color_var (Css.hex hex_value) in
+        let oklab_color =
+          Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+            ~percent1:percent
+        in
+        let oklab_decl = Css.background_color oklab_color in
+        let supports_block =
+          Css.supports ~condition:color_mix_supports_condition
+            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+        in
+        Style.style ~rules:(Some [ supports_block ])
+          [ theme_decl; fallback_decl ]
+    | None ->
+        let color_var = get_color_var c shade in
+        let color_value = to_css c (if is_base_color c then 500 else shade) in
+        let oklch = to_oklch c shade in
+        let rgb = oklch_to_rgb oklch in
+        let hex_value = rgb_to_hex rgb in
+        let hex_alpha = hex_with_alpha hex_value percent in
+        let fallback_decl = Css.background_color (Css.hex hex_alpha) in
+        let theme_decl, color_ref = Var.binding color_var color_value in
+        let oklab_color =
+          Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+            ~percent1:percent
+        in
+        let oklab_decl = Css.background_color oklab_color in
+        let supports_block =
+          Css.supports ~condition:color_mix_supports_condition
+            [
+              Css.rule ~selector:(Css.Selector.class_ "_")
+                [ theme_decl; oklab_decl ];
+            ]
+        in
+        Style.style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+
+(** Background currentColor with opacity *)
+let bg_current_with_opacity opacity =
+  let open Handler in
+  let fallback_decl = Css.background_color Css.Current in
+  let oklab_color =
+    match opacity with
+    | Opacity_named var_str ->
+        let bare = Parse.extract_var_name var_str in
+        Css.color_mix_var_percent ~in_space:Oklab ~var_name:bare Css.Current
+          Css.Transparent
+    | _ ->
+        let percent = opacity_to_percent opacity in
+        Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
+          ~percent1:percent
+  in
+  let oklab_decl = Css.background_color oklab_color in
+  let supports_block =
+    Css.supports ~condition:color_mix_supports_condition
+      [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+  in
+  Style.style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
 (** Public API *)
 let utility x = Utility.base (Self x)
