@@ -133,6 +133,18 @@ module Handler = struct
     (* Bracket color/var with opacity *)
     | Bg_bracket_color_var_opacity of string * Color.opacity_modifier
     | Bg_bracket_var_opacity of string * Color.opacity_modifier
+    (* Bracket hex color: bg-[#0088cc] *)
+    | Bg_bracket_hex of string
+    (* Bracket hex color with opacity: bg-[#0088cc]/50 *)
+    | Bg_bracket_hex_opacity of string * Color.opacity_modifier
+    (* bg-current *)
+    | Bg_current
+    (* bg-current with opacity: bg-current/50, bg-current/[0.5] *)
+    | Bg_current_opacity of Color.opacity_modifier
+    (* bg-transparent *)
+    | Bg_transparent
+    (* Named color with opacity: bg-red-500/50, bg-blue-500/[0.5] *)
+    | Bg_opacity of Color.color * int * Color.opacity_modifier
     (* bg-[length:...] - explicit length prefix for bracket size *)
     | Bg_bracket_length of string
     (* bg-position-[...] bracket notation *)
@@ -152,7 +164,7 @@ module Handler = struct
         if Float.is_integer p then Printf.sprintf "/[%d%%]" (int_of_float p)
         else Printf.sprintf "/[%g%%]" p
     | Color.Opacity_arbitrary f -> Printf.sprintf "/[%g]" f
-    | Color.Opacity_named name -> "/" ^ name
+    | Color.Opacity_named name -> "/[" ^ name ^ "]"
 
   let to_class (t : t) =
     match t with
@@ -253,6 +265,19 @@ module Handler = struct
         "bg-[color:" ^ v ^ "]" ^ opacity_suffix opacity
     | Bg_bracket_var_opacity (v, opacity) ->
         "bg-[" ^ v ^ "]" ^ opacity_suffix opacity
+    | Bg_bracket_hex hex -> "bg-[#" ^ hex ^ "]"
+    | Bg_bracket_hex_opacity (hex, opacity) ->
+        "bg-[#" ^ hex ^ "]" ^ opacity_suffix opacity
+    | Bg_current -> "bg-current"
+    | Bg_current_opacity opacity -> "bg-current" ^ opacity_suffix opacity
+    | Bg_transparent -> "bg-transparent"
+    | Bg_opacity (color, shade, opacity) ->
+        let base =
+          if Color.is_base_color color || Color.is_custom_color color then
+            "bg-" ^ Color.pp color
+          else "bg-" ^ Color.pp color ^ "-" ^ string_of_int shade
+        in
+        base ^ opacity_suffix opacity
     | Bg_linear_to dir -> (
         match dir with
         | Bottom -> "bg-linear-to-b"
@@ -385,17 +410,7 @@ module Handler = struct
     let d_position, _ = Var.binding gradient_position_var dir_val in
     (* Reference --tw-gradient-stops for linear-gradient *)
     let stops_ref = Var.reference gradient_stops_var in
-    (* Include property rules for the variables *)
-    let property_rules =
-      [
-        Var.property_rule gradient_position_var;
-        Var.property_rule gradient_stops_var;
-      ]
-      |> List.filter_map (fun x -> x)
-      |> Css.concat
-    in
-    style ~property_rules
-      [ d_position; Css.background_image (Linear_gradient_var stops_ref) ]
+    style [ d_position; Css.background_image (Linear_gradient_var stops_ref) ]
 
   (** Helper to get color value and optional theme variable declaration. For
       custom/arbitrary colors: returns ([], color_value) - no theme variable.
@@ -407,7 +422,7 @@ module Handler = struct
       ([], color_value)
     else
       (* Named color: create theme variable *)
-      let color_theme_var = Color.get_color_var color shade in
+      let color_theme_var = Color.color_var color shade in
       let d_color, color_ref = Var.binding color_theme_var color_value in
       ([ d_color ], (Var color_ref : Css.color))
 
@@ -509,7 +524,7 @@ module Handler = struct
       if Color.is_base_color color then "background-color-" ^ base
       else "background-color-" ^ base ^ "-" ^ string_of_int shade
     in
-    match Var.get_theme_value bg_var_name with
+    match Var.theme_value bg_var_name with
     | Some theme_val ->
         (* Property-scoped bg color: --background-color-<name> *)
         let tv = Var.theme Css.Color bg_var_name ~order:(5, 50) in
@@ -637,13 +652,10 @@ module Handler = struct
     Css.Supports.Property
       ("background-image", "linear-gradient(in lab, red, red)")
 
-  let gradient_property_rules =
-    [
-      Var.property_rule gradient_position_var;
-      Var.property_rule gradient_stops_var;
-    ]
-    |> List.filter_map (fun x -> x)
-    |> Css.concat
+  (* Gradient direction utilities do NOT register property_rules. Only
+     from/to/via (gradient color) utilities need the @layer properties block for
+     initial values. *)
+  let gradient_property_rules = Css.empty
 
   (** Helper: build the 3-rule pattern for gradient direction utilities. Returns
       [base_decl; @supports { interp_decl }; bg-image rule]. *)
@@ -901,7 +913,7 @@ module Handler = struct
   let gradient_color_opacity ~prefix ~set_var ?(shade = 500) color opacity =
     let percent = Color.opacity_to_percent opacity in
     let color_name = Color.scheme_color_name color shade in
-    let scheme = Color.get_current_scheme () in
+    let scheme = Color.current_scheme () in
 
     (* Build variable references for gradient stops *)
     let position_ref = Var.reference gradient_position_var in
@@ -967,7 +979,7 @@ module Handler = struct
       |> Css.concat
     in
 
-    match Scheme.get_hex_color scheme color_name with
+    match Scheme.hex_color scheme color_name with
     | Some hex_value ->
         (* Scheme color: generate fallback + @supports + stops (same as
            Tailwind) Tailwind outputs: 1. .from-X/N { --tw-gradient-from:
@@ -979,7 +991,7 @@ module Handler = struct
         let d_fallback, _ = Var.binding set_var (Css.hex hex_alpha) in
 
         (* Theme variable for @supports block *)
-        let color_var = Color.get_color_var color shade in
+        let color_var = Color.color_var color shade in
         let theme_decl, color_ref = Var.binding color_var (Css.hex hex_value) in
         let oklab_color =
           Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
@@ -1142,6 +1154,16 @@ module Handler = struct
         bg_bracket_color_var_opacity' v opacity
     | Bg_bracket_var_opacity (v, opacity) ->
         bg_bracket_color_var_opacity' v opacity
+    | Bg_bracket_hex hex ->
+        let color_value = Color.to_css (Color.Hex hex) 500 in
+        style [ Css.background_color color_value ]
+    | Bg_bracket_hex_opacity (hex, opacity) ->
+        Color.bg_with_opacity (Color.Hex hex) 500 opacity
+    | Bg_current -> style [ Css.background_color Css.Current ]
+    | Bg_current_opacity opacity -> Color.bg_current_with_opacity opacity
+    | Bg_transparent -> style [ Css.background_color (Css.hex "#0000") ]
+    | Bg_opacity (color, shade, opacity) ->
+        Color.bg_with_opacity color shade opacity
     | Bg_bracket_length inner -> (
         match parse_bracket_size inner with
         | Some decl -> style [ decl ]
@@ -1156,54 +1178,61 @@ module Handler = struct
         | None -> style [ Css.background_size Auto ])
 
   let suborder = function
-    (* Tailwind order: solid bg-colors before gradient utilities *)
-    | Bg (color, shade) ->
-        Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
-    | Bg_gradient_to _ -> 100000
-    | From (color, shade) | From_opacity (color, shade, _) ->
-        110000
-        + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
-    | Via (color, shade) | Via_opacity (color, shade, _) ->
-        120000
-        + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
-    | To (color, shade) | To_opacity (color, shade, _) ->
-        130000
-        + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
-    (* bg-origin utilities - alphabetical: border, content, padding *)
+    (* All bg-color utilities share the same suborder (10000) to allow
+       alphabetical selector sorting within the optimizer. This matches
+       Tailwind's output ordering. *)
+    | Bg _ | Bg_inherit | Bg_bracket_color_var _ | Bg_bracket_var _
+    | Bg_bracket_color_var_opacity _ | Bg_bracket_var_opacity _
+    | Bg_bracket_hex _ | Bg_bracket_hex_opacity _ | Bg_current
+    | Bg_current_opacity _ | Bg_transparent | Bg_opacity _ ->
+        10000
+    (* Gradient direction utilities - same suborder for alphabetical sorting *)
+    | Bg_gradient_to _ | Bg_linear_to _ | Bg_linear_to_interp _
+    | Bg_linear_angle _ | Bg_linear_angle_neg _ | Bg_linear_angle_interp _
+    | Bg_linear_angle_neg_interp _ ->
+        100000
+    (* Conic/radial/bracket gradients - same suborder for alphabetical *)
+    | Bg_linear_bracket _ | Bg_linear_bracket_neg _ | Bg_conic_interp _
+    | Bg_conic_angle_interp _ | Bg_conic_angle_neg_interp _ | Bg_radial_interp _
+    | Bg_radial_bracket _ ->
+        200000
+    (* Gradient color utilities *)
+    | From _ | From_opacity _ -> 110000
+    | Via _ | Via_opacity _ -> 120000
+    | To _ | To_opacity _ -> 130000
+    (* bg-origin utilities *)
     | Bg_origin_border -> 140000
     | Bg_origin_content -> 140001
     | Bg_origin_padding -> 140002
-    (* bg-clip utilities - alphabetical: border, content, padding, text *)
+    (* bg-clip utilities *)
     | Bg_clip_border -> 150000
     | Bg_clip_content -> 150001
     | Bg_clip_padding -> 150002
     | Bg_clip_text -> 150003
-    (* bg-inherit sorts with other bg-color utilities *)
-    | Bg_inherit -> Color.suborder_with_shade "inherit"
-    (* bg-none: background-image: none *)
+    (* Bracket image variants *)
+    | Bg_bracket_image_var _ -> 210010
+    | Bg_bracket_url _ -> 210011
+    | Bg_bracket_url_var _ -> 210012
+    | Bg_bracket_linear_gradient _ -> 210013
     | Bg_none -> 210000
     (* bg-size utilities *)
     | Bg_auto -> 300000
     | Bg_contain -> 300001
     | Bg_cover -> 300002
+    | Bg_bracket_contain -> 300010
+    | Bg_bracket_cover -> 300011
+    | Bg_bracket_size _ -> 300012
+    | Bg_size_bracket _ -> 300013
+    | Bg_bracket_length _ -> 300014
     (* bg-attachment utilities *)
     | Bg_fixed -> 400000
     | Bg_local -> 400001
     | Bg_scroll -> 400002
     (* bg-position utilities *)
-    | Bg_position Pos_bottom -> 500000
-    | Bg_position Pos_bottom_left -> 500001
-    | Bg_position Pos_bottom_right -> 500002
-    | Bg_position Pos_center -> 500003
-    | Bg_position Pos_left -> 500004
-    | Bg_position Pos_left_bottom -> 500005
-    | Bg_position Pos_left_top -> 500006
-    | Bg_position Pos_right -> 500007
-    | Bg_position Pos_right_bottom -> 500008
-    | Bg_position Pos_right_top -> 500009
-    | Bg_position Pos_top -> 500010
-    | Bg_position Pos_top_left -> 500011
-    | Bg_position Pos_top_right -> 500012
+    | Bg_bracket_position _ -> 500020
+    | Bg_bracket_typed_position _ -> 500021
+    | Bg_position_bracket _ -> 500022
+    | Bg_position _ -> 500000
     (* bg-repeat utilities *)
     | Bg_no_repeat -> 600000
     | Bg_repeat -> 600001
@@ -1211,43 +1240,6 @@ module Handler = struct
     | Bg_repeat_space -> 600003
     | Bg_repeat_x -> 600004
     | Bg_repeat_y -> 600005
-    (* Bracket size variants *)
-    | Bg_bracket_contain -> 300010
-    | Bg_bracket_cover -> 300011
-    | Bg_bracket_size _ -> 300012
-    | Bg_size_bracket _ -> 300013
-    (* Bracket position variants *)
-    | Bg_bracket_position _ -> 500020
-    | Bg_bracket_typed_position _ -> 500021
-    | Bg_position_bracket _ -> 500022
-    (* Bracket color/var variants *)
-    | Bg_bracket_color_var _ -> 50000
-    | Bg_bracket_var _ -> 50001
-    (* Bracket image variants *)
-    | Bg_bracket_image_var _ -> 210010
-    | Bg_bracket_url _ -> 210011
-    | Bg_bracket_url_var _ -> 210012
-    | Bg_bracket_linear_gradient _ -> 210013
-    (* bg-linear-to *)
-    | Bg_linear_to _ -> 100010
-    | Bg_linear_to_interp (_, _) -> 100015
-    | Bg_linear_angle _ -> 100020
-    | Bg_linear_angle_neg _ -> 100025
-    | Bg_linear_angle_interp (_, _) -> 100030
-    | Bg_linear_angle_neg_interp (_, _) -> 100035
-    | Bg_linear_bracket _ -> 100040
-    | Bg_linear_bracket_neg _ -> 100045
-    (* bg-conic *)
-    | Bg_conic_interp _ -> 200000
-    | Bg_conic_angle_interp (_, _) -> 200010
-    | Bg_conic_angle_neg_interp (_, _) -> 200015
-    (* bg-radial *)
-    | Bg_radial_interp _ -> 200020
-    | Bg_radial_bracket _ -> 200030
-    (* Bracket color/var with opacity *)
-    | Bg_bracket_color_var_opacity _ -> 50010
-    | Bg_bracket_var_opacity _ -> 50011
-    | Bg_bracket_length _ -> 300014
 
   (** Split a string on the first '/' into (base, modifier_opt). E.g. "r/oklab"
       → ("r", Some "oklab"), "45" → ("45", None) *)
@@ -1277,6 +1269,14 @@ module Handler = struct
     | [ "bg"; "clip"; "text" ] -> Ok Bg_clip_text
     (* Background color keywords *)
     | [ "bg"; "inherit" ] -> Ok Bg_inherit
+    | [ "bg"; "transparent" ] -> Ok Bg_transparent
+    | [ "bg"; current_str ]
+      when String.starts_with ~prefix:"current" current_str -> (
+        let base, opacity = Color.parse_opacity_modifier current_str in
+        match opacity with
+        | Color.No_opacity when base = "current" -> Ok Bg_current
+        | Color.No_opacity -> Error (`Msg ("Invalid bg: " ^ current_str))
+        | _ -> Ok (Bg_current_opacity opacity))
     (* Background image *)
     | [ "bg"; "none" ] -> Ok Bg_none
     (* Background size *)
@@ -1421,6 +1421,9 @@ module Handler = struct
               if String.length inner > 6 && String.sub inner 0 6 = "color:" then
                 let var_str = String.sub inner 6 (String.length inner - 6) in
                 Ok (Bg_bracket_color_var_opacity (var_str, opacity))
+              else if String.length inner > 0 && inner.[0] = '#' then
+                let hex = String.sub inner 1 (String.length inner - 1) in
+                Ok (Bg_bracket_hex_opacity (hex, opacity))
               else if Parse.is_var inner then
                 Ok (Bg_bracket_var_opacity (inner, opacity))
               else Error (`Msg ("Unknown bg bracket value: " ^ bracket_stuff))
@@ -1463,11 +1466,18 @@ module Handler = struct
             when String.length inner > 16
                  && String.sub inner 0 16 = "linear-gradient(" ->
               Ok (Bg_bracket_linear_gradient inner)
+          | _ when String.length inner > 0 && inner.[0] = '#' ->
+              let hex = String.sub inner 1 (String.length inner - 1) in
+              Ok (Bg_bracket_hex hex)
           | _ when Parse.is_var inner -> Ok (Bg_bracket_var inner)
           | _ ->
               if parse_bracket_position inner <> None then
                 Ok (Bg_bracket_position inner)
               else Error (`Msg ("Unknown bg bracket value: " ^ inner)))
+    | "bg" :: rest when List.exists has_opacity rest -> (
+        match Color.shade_and_opacity_of_strings rest with
+        | Ok (color, shade, opacity) -> Ok (Bg_opacity (color, shade, opacity))
+        | Error e -> Error e)
     | "bg" :: rest -> (
         match Color.shade_of_strings rest with
         | Ok (color, shade) -> Ok (Bg (color, shade))
