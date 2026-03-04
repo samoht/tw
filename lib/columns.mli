@@ -51,3 +51,5 @@ val columns_6xl : t
 
 val columns_7xl : t
 (** [columns_7xl] sets column width to --container-7xl. *)
+
+module Handler : Utility.Handler

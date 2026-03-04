@@ -135,6 +135,11 @@ module Theme = Theme
 module Scheme = Scheme
 module Utility = Utility
 module Columns = Columns
+module Contain = Contain
+module Scroll = Scroll
+module Touch = Touch
+module Mask_gradient = Mask_gradient
+module Property = Property
 
 (* Include flex utilities *)
 include Flex
