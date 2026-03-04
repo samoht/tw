@@ -49,6 +49,12 @@ let default : t =
     default_outline_width = 1;
   }
 
+let pp fmt t =
+  Format.fprintf fmt
+    "{colors=%d; spacing=%d; radius=%d; ring=%d; border=%d; outline=%d}"
+    (List.length t.colors) (List.length t.spacing) (List.length t.radius)
+    t.default_ring_width t.default_border_width t.default_outline_width
+
 (** Lookup a color in the scheme *)
 let find_color scheme name = List.assoc_opt name scheme.colors
 

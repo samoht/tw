@@ -274,7 +274,7 @@ val theme_layer_of : ?default_decls:Css.declaration list -> t list -> Css.t
 
 val build_utilities_layer :
   layers:bool -> statements:Css.statement list -> Css.t
-(** [build_utilities_layer ~statements] builds the utilities layer. The
+(** [build_utilities_layer ~layers ~statements] builds the utilities layer. The
     statements should already be in the correct order with media queries
     interleaved. Consecutive media queries with the same condition will be
     merged to reduce output size while preserving cascade order. *)

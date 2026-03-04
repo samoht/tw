@@ -265,105 +265,280 @@ val data_inactive : t list -> t
 (** {1 Group Structural Variants} *)
 
 val group_first : t list -> t
+(** [group_first styles] applies [styles] when in a group-first context. *)
+
 val group_last : t list -> t
+(** [group_last styles] applies [styles] when in a group-last context. *)
+
 val group_only : t list -> t
+(** [group_only styles] applies [styles] when in a group-only context. *)
+
 val group_odd : t list -> t
+(** [group_odd styles] applies [styles] when in a group-odd context. *)
+
 val group_even : t list -> t
+(** [group_even styles] applies [styles] when in a group-even context. *)
+
 val group_first_of_type : t list -> t
+(** [group_first_of_type styles] applies [styles] when in a group-first-of-type
+    context. *)
+
 val group_last_of_type : t list -> t
+(** [group_last_of_type styles] applies [styles] when in a group-last-of-type
+    context. *)
+
 val group_only_of_type : t list -> t
+(** [group_only_of_type styles] applies [styles] when in a group-only-of-type
+    context. *)
 
 (** {1 Peer Structural Variants} *)
 
 val peer_first : t list -> t
+(** [peer_first styles] applies [styles] when a peer is first. *)
+
 val peer_last : t list -> t
+(** [peer_last styles] applies [styles] when a peer is last. *)
+
 val peer_only : t list -> t
+(** [peer_only styles] applies [styles] when a peer is only. *)
+
 val peer_odd : t list -> t
+(** [peer_odd styles] applies [styles] when a peer is odd. *)
+
 val peer_even : t list -> t
+(** [peer_even styles] applies [styles] when a peer is even. *)
+
 val peer_first_of_type : t list -> t
+(** [peer_first_of_type styles] applies [styles] when a peer is first-of-type.
+*)
+
 val peer_last_of_type : t list -> t
+(** [peer_last_of_type styles] applies [styles] when a peer is last-of-type. *)
+
 val peer_only_of_type : t list -> t
+(** [peer_only_of_type styles] applies [styles] when a peer is only-of-type. *)
 
 (** {1 Group State Variants} *)
 
 val group_active : t list -> t
+(** [group_active styles] applies [styles] when the group is active. *)
+
 val group_visited : t list -> t
+(** [group_visited styles] applies [styles] when the group is visited. *)
+
 val group_disabled : t list -> t
+(** [group_disabled styles] applies [styles] when the group is disabled. *)
+
 val group_checked : t list -> t
+(** [group_checked styles] applies [styles] when the group is checked. *)
+
 val group_empty : t list -> t
+(** [group_empty styles] applies [styles] when the group is empty. *)
+
 val group_required : t list -> t
+(** [group_required styles] applies [styles] when the group is required. *)
+
 val group_valid : t list -> t
+(** [group_valid styles] applies [styles] when the group is valid. *)
+
 val group_invalid : t list -> t
+(** [group_invalid styles] applies [styles] when the group is invalid. *)
+
 val group_indeterminate : t list -> t
+(** [group_indeterminate styles] applies [styles] when the group is
+    indeterminate. *)
+
 val group_default : t list -> t
+(** [group_default styles] applies [styles] when the group is default. *)
+
 val group_open : t list -> t
+(** [group_open styles] applies [styles] when the group is open. *)
+
 val group_target : t list -> t
+(** [group_target styles] applies [styles] when the group is the target. *)
+
 val group_optional : t list -> t
+(** [group_optional styles] applies [styles] when the group is optional. *)
+
 val group_read_only : t list -> t
+(** [group_read_only styles] applies [styles] when the group is read-only. *)
+
 val group_read_write : t list -> t
+(** [group_read_write styles] applies [styles] when the group is read-write. *)
+
 val group_inert : t list -> t
+(** [group_inert styles] applies [styles] when the group is inert. *)
+
 val group_user_valid : t list -> t
+(** [group_user_valid styles] applies [styles] when the group is user-valid. *)
+
 val group_user_invalid : t list -> t
+(** [group_user_invalid styles] applies [styles] when the group is user-invalid.
+*)
+
 val group_placeholder_shown : t list -> t
+(** [group_placeholder_shown styles] applies [styles] when the group placeholder
+    is shown. *)
+
 val group_autofill : t list -> t
+(** [group_autofill styles] applies [styles] when the group is autofilled. *)
+
 val group_in_range : t list -> t
+(** [group_in_range styles] applies [styles] when the group is in range. *)
+
 val group_out_of_range : t list -> t
+(** [group_out_of_range styles] applies [styles] when the group is out of range.
+*)
+
 val group_focus_within : t list -> t
+(** [group_focus_within styles] applies [styles] when focus is within the group.
+*)
+
 val group_focus_visible : t list -> t
+(** [group_focus_visible styles] applies [styles] when group focus is visible.
+*)
+
 val group_enabled : t list -> t
+(** [group_enabled styles] applies [styles] when the group is enabled. *)
 
 (** {1 Peer State Variants} *)
 
 val peer_active : t list -> t
+(** [peer_active styles] applies [styles] when a peer is active. *)
+
 val peer_visited : t list -> t
+(** [peer_visited styles] applies [styles] when a peer is visited. *)
+
 val peer_disabled : t list -> t
+(** [peer_disabled styles] applies [styles] when a peer is disabled. *)
+
 val peer_empty : t list -> t
+(** [peer_empty styles] applies [styles] when a peer is empty. *)
+
 val peer_required : t list -> t
+(** [peer_required styles] applies [styles] when a peer is required. *)
+
 val peer_valid : t list -> t
+(** [peer_valid styles] applies [styles] when a peer is valid. *)
+
 val peer_invalid : t list -> t
+(** [peer_invalid styles] applies [styles] when a peer is invalid. *)
+
 val peer_indeterminate : t list -> t
+(** [peer_indeterminate styles] applies [styles] when a peer is indeterminate.
+*)
+
 val peer_default : t list -> t
+(** [peer_default styles] applies [styles] when a peer is default. *)
+
 val peer_open : t list -> t
+(** [peer_open styles] applies [styles] when a peer is open. *)
+
 val peer_target : t list -> t
+(** [peer_target styles] applies [styles] when a peer is the target. *)
+
 val peer_optional : t list -> t
+(** [peer_optional styles] applies [styles] when a peer is optional. *)
+
 val peer_read_only : t list -> t
+(** [peer_read_only styles] applies [styles] when a peer is read-only. *)
+
 val peer_read_write : t list -> t
+(** [peer_read_write styles] applies [styles] when a peer is read-write. *)
+
 val peer_inert : t list -> t
+(** [peer_inert styles] applies [styles] when a peer is inert. *)
+
 val peer_user_valid : t list -> t
+(** [peer_user_valid styles] applies [styles] when a peer is user-valid. *)
+
 val peer_user_invalid : t list -> t
+(** [peer_user_invalid styles] applies [styles] when a peer is user-invalid. *)
+
 val peer_placeholder_shown : t list -> t
+(** [peer_placeholder_shown styles] applies [styles] when a peer placeholder is
+    shown. *)
+
 val peer_autofill : t list -> t
+(** [peer_autofill styles] applies [styles] when a peer is autofilled. *)
+
 val peer_in_range : t list -> t
+(** [peer_in_range styles] applies [styles] when a peer is in range. *)
+
 val peer_out_of_range : t list -> t
+(** [peer_out_of_range styles] applies [styles] when a peer is out of range. *)
+
 val peer_focus_within : t list -> t
+(** [peer_focus_within styles] applies [styles] when focus is within a peer. *)
+
 val peer_focus_visible : t list -> t
+(** [peer_focus_visible styles] applies [styles] when peer focus is visible. *)
+
 val peer_enabled : t list -> t
+(** [peer_enabled styles] applies [styles] when a peer is enabled. *)
 
 (** {1 Pseudo-element Variants} *)
 
 val marker : t list -> t
+(** [marker styles] applies [styles] to the [::marker] pseudo-element. *)
+
 val selection : t list -> t
+(** [selection styles] applies [styles] to the [::selection] pseudo-element. *)
+
 val placeholder : t list -> t
+(** [placeholder styles] applies [styles] to the [::placeholder] pseudo-element.
+*)
+
 val backdrop : t list -> t
+(** [backdrop styles] applies [styles] to the [::backdrop] pseudo-element. *)
+
 val file : t list -> t
+(** [file styles] applies [styles] to the [::file-selector-button]
+    pseudo-element. *)
+
 val first_letter : t list -> t
+(** [first_letter styles] applies [styles] to the [::first-letter]
+    pseudo-element. *)
+
 val first_line : t list -> t
+(** [first_line styles] applies [styles] to the [::first-line] pseudo-element.
+*)
+
 val details_content : t list -> t
+(** [details_content styles] applies [styles] to the [::details-content]
+    pseudo-element. *)
+
 val children : t list -> t
+(** [children styles] applies [styles] to direct children. *)
+
 val descendants : t list -> t
+(** [descendants styles] applies [styles] to all descendants. *)
 
 (** {1 Directionality Variants} *)
 
 val ltr : t list -> t
+(** [ltr styles] applies [styles] in left-to-right direction. *)
+
 val rtl : t list -> t
+(** [rtl styles] applies [styles] in right-to-left direction. *)
 
 (** {1 Media Variants} *)
 
 val print : t list -> t
+(** [print styles] applies [styles] in print media. *)
+
 val portrait : t list -> t
+(** [portrait styles] applies [styles] in portrait orientation. *)
+
 val landscape : t list -> t
+(** [landscape styles] applies [styles] in landscape orientation. *)
+
 val forced_colors : t list -> t
+(** [forced_colors styles] applies [styles] when forced colors are active. *)
+
 val supports : string -> t list -> t
+(** [supports condition styles] applies [styles] when the CSS condition is
+    supported. *)
 
 (** {1 Validation} *)
 

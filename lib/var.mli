@@ -493,7 +493,7 @@ val theme_ref : string -> default:'a -> default_css:string -> 'a Css.var
     Used for keyword utilities like [z-auto] where:
     - Without custom theme: output is [z-index: auto] (concrete)
     - With [\@theme --z-index-auto: 42]: output is
-      [z-index: var(--z-index-auto)] *)
+      [z-index: var(--z-index-auto)]. *)
 
 val resolve_theme_refs : string -> string option
 (** [resolve_theme_refs name] returns the default CSS string value for a
