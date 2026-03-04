@@ -504,8 +504,20 @@ module Handler = struct
     gradient_color ~prefix:"to-" ~set_var:gradient_to_var ~shade color
 
   let bg' ?(shade = 500) color =
-    let theme_decls, color_value = color_binding ~shade color in
-    style (theme_decls @ [ Css.background_color color_value ])
+    let bg_var_name =
+      let base = Color.pp color in
+      if Color.is_base_color color then "background-color-" ^ base
+      else "background-color-" ^ base ^ "-" ^ string_of_int shade
+    in
+    match Var.get_theme_value bg_var_name with
+    | Some theme_val ->
+        (* Property-scoped bg color: --background-color-<name> *)
+        let tv = Var.theme Css.Color bg_var_name ~order:(5, 50) in
+        let d, r = Var.binding tv (Css.hex theme_val) in
+        style [ d; Css.background_color (Var r) ]
+    | None ->
+        let theme_decls, color_value = color_binding ~shade color in
+        style (theme_decls @ [ Css.background_color color_value ])
 
   let bg_origin_border = style [ Css.background_origin Border_box ]
   let bg_origin_padding = style [ Css.background_origin Padding_box ]
