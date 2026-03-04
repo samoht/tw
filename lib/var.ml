@@ -220,7 +220,7 @@ let value_to_css_string : type a. a Css.kind -> a -> string =
 let initial_to_universal = value_to_css_string
 
 (* Create a variable template *)
-let create : type a r.
+let v : type a r.
     a Css.kind ->
     ?property:a property_info ->
     ?order:int * int ->
@@ -287,7 +287,7 @@ let create : type a r.
 (* Convenience constructors to encode patterns safely *)
 
 let theme kind name ~order =
-  create kind ?property:None ?order:(Some order) ~role:Theme name ~layer:Theme
+  v kind ?property:None ?order:(Some order) ~role:Theme name ~layer:Theme
 
 let property_default kind ~initial ?(inherits = false) ?(universal = false)
     ?initial_css ?property_order ?family name =
@@ -295,7 +295,7 @@ let property_default kind ~initial ?(inherits = false) ?(universal = false)
   (match initial_css with
   | Some css -> Hashtbl.replace properties_layer_overrides ("--" ^ name) css
   | None -> ());
-  create kind ~property ?property_order ?family ~role:Property_default name
+  v kind ~property ?property_order ?family ~role:Property_default name
     ~layer:Utility
 
 let channel ?(needs_property = false) ?property_order ?family kind name =
@@ -304,9 +304,8 @@ let channel ?(needs_property = false) ?property_order ?family kind name =
     let property =
       property_info ?initial:None ~inherits:false ~universal:true ()
     in
-    create kind ~property ?property_order ?family ~role:Channel name
-      ~layer:Utility
-  else create kind ?property_order ?family ~role:Channel name ~layer:Utility
+    v kind ~property ?property_order ?family ~role:Channel name ~layer:Utility
+  else v kind ?property_order ?family ~role:Channel name ~layer:Utility
 
 (* Place after [reference] to avoid forward reference issues *)
 
@@ -458,7 +457,7 @@ let reference_with_var_fallback : type a.
 
 let ref_only kind name ~fallback =
   (* Create a utility variable that's only referenced, never set *)
-  create kind ~fallback ~role:Ref_only name ~layer:Utility
+  v kind ~fallback ~role:Ref_only name ~layer:Utility
 
 (* Registry for theme_ref variables: maps var name -> default CSS string *)
 let theme_ref_registry : (string, string) Hashtbl.t = Hashtbl.create 64

@@ -586,7 +586,7 @@ val pp_opacity : opacity_modifier -> string
 val get_hex_alpha_color : color -> int -> opacity_modifier -> string option
 (** [get_hex_alpha_color color shade opacity] returns a hex color with alpha if
     the color is defined in the scheme, otherwise None. This is useful for
-    properties where Tailwind outputs simple hex+alpha without @supports. *)
+    properties where Tailwind outputs simple hex+alpha without [@supports]. *)
 
 val bg_with_opacity : color -> int -> opacity_modifier -> Style.t
 (** [bg_with_opacity color shade opacity] generates background-color style with
