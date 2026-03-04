@@ -196,17 +196,27 @@ let extract_default_border_width_from_css css : int =
       | Some m -> ( try int_of_string (Re.Group.get m 1) with _ -> 1)
       | None -> 1)
 
+let extract_default_outline_width_from_css css : int =
+  let pattern =
+    Re.Pcre.regexp {|\.outline\s*\{[^}]*outline-width:\s*(\d+)px|}
+  in
+  match Re.exec_opt pattern css with
+  | Some m -> ( try int_of_string (Re.Group.get m 1) with _ -> 1)
+  | None -> 1
+
 let scheme_from_expected_css expected : Tw.Scheme.t =
   let spacing = extract_spacing_from_css expected in
   let radius = extract_radius_from_css expected in
   let default_ring_width = extract_default_ring_width_from_css expected in
   let default_border_width = extract_default_border_width_from_css expected in
+  let default_outline_width = extract_default_outline_width_from_css expected in
   {
     colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ];
     spacing;
     radius;
     default_ring_width;
     default_border_width;
+    default_outline_width;
   }
 
 let setup_scheme_for_test expected =
@@ -264,15 +274,15 @@ let make_theme_config config expected =
   let hardcoded =
     [
       ("default-transition-timing-function", "ease", "ease");
-      ("default-transition-duration", ".1s", "0s");
+      ("default-transition-duration", ".1s", "0");
     ]
   in
   let root_vars = extract_root_vars expected in
   let combined_defaults name =
-    match Tw.Var.resolve_theme_refs name with
+    match List.assoc_opt name root_vars with
     | Some _ as result -> result
     | None -> (
-        match List.assoc_opt name root_vars with
+        match Tw.Var.resolve_theme_refs name with
         | Some _ as result -> result
         | None ->
             List.find_map

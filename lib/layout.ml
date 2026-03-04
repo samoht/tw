@@ -148,6 +148,7 @@ module Handler = struct
     | Object_right_top
     | Object_top_left
     | Object_top_right
+    | Object_arbitrary of string
     | (* Float *)
       Float_left
     | Float_right
@@ -260,6 +261,7 @@ module Handler = struct
     | Object_top -> 710
     | Object_top_left -> 711
     | Object_top_right -> 712
+    | Object_arbitrary _ -> 650
     (* Float - alphabetical order: end, left, none, right, start *)
     | Float_end -> 800
     | Float_left -> 801
@@ -355,6 +357,7 @@ module Handler = struct
     | Object_right_top -> "object-right-top"
     | Object_top_left -> "object-top-left"
     | Object_top_right -> "object-top-right"
+    | Object_arbitrary s -> "object-[" ^ s ^ "]"
     | Float_left -> "float-left"
     | Float_right -> "float-right"
     | Float_none -> "float-none"
@@ -442,10 +445,12 @@ module Handler = struct
         let name, (default : Css.position_value), default_css =
           match obj with
           | Object_center -> ("object-position-center", Center, "center")
-          | Object_top -> ("object-position-top", Top, "top")
-          | Object_bottom -> ("object-position-bottom", Bottom, "bottom")
-          | Object_left -> ("object-position-left", Left, "left")
-          | Object_right -> ("object-position-right", Right, "right")
+          | Object_top -> ("object-position-top", Center_top, "center top")
+          | Object_bottom ->
+              ("object-position-bottom", Center_bottom, "center bottom")
+          | Object_left -> ("object-position-left", Left_center, "left center")
+          | Object_right ->
+              ("object-position-right", Right_center, "right center")
           | Object_bottom_left ->
               ("object-position-bottom-left", Bottom_left, "left bottom")
           | Object_bottom_right ->
@@ -466,6 +471,10 @@ module Handler = struct
           Var (Var.theme_ref name ~default ~default_css)
         in
         style [ object_position v ]
+    | Object_arbitrary var_str ->
+        let bare_name = Parse.extract_var_name var_str in
+        let lv : Css.length = Var (Css.var_ref bare_name) in
+        style [ object_position (XY (lv, lv)) ]
     | Float_left -> style [ Css.float Left ]
     | Float_right -> style [ Css.float Right ]
     | Float_none -> style [ Css.float None ]
@@ -590,6 +599,8 @@ module Handler = struct
     | [ "object"; "right"; "top" ] -> Ok Object_right_top
     | [ "object"; "top"; "left" ] -> Ok Object_top_left
     | [ "object"; "top"; "right" ] -> Ok Object_top_right
+    | [ "object"; value ] when Parse.is_bracket_value value ->
+        Ok (Object_arbitrary (Parse.bracket_inner value))
     | [ "float"; "left" ] -> Ok Float_left
     | [ "float"; "right" ] -> Ok Float_right
     | [ "float"; "none" ] -> Ok Float_none
