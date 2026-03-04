@@ -114,6 +114,9 @@ let leading_relaxed_var =
 
 let leading_loose_var = Var.theme Css.Line_height "leading-loose" ~order:(6, 52)
 
+let underline_offset_auto_var =
+  Var.theme Css.Length "text-underline-offset-auto" ~order:(6, 55)
+
 let leading_var =
   (* Leading appears in @layer properties after transforms (position 11) *)
   Var.channel ~needs_property:true ~property_order:11 ~family:`Leading
@@ -404,13 +407,12 @@ module Typography_early = struct
           match int_of_string_opt inner with
           | Some n -> Ok (Font_bracket_weight (inner, n))
           | None ->
-              if String.length inner > 4 && String.sub inner 0 4 = "var(" then
+              if Parse.is_var inner then
                 Ok (Font_bracket_weight_var (inner, inner))
               else Ok (Font_bracket_family_name (inner, inner)))
     | [ "font"; "features"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
-        if String.length inner > 4 && String.sub inner 0 4 = "var(" then
-          Ok (Font_features_var inner)
+        if Parse.is_var inner then Ok (Font_features_var inner)
         else Ok (Font_features_quoted inner)
     | [ "font"; "thin" ] -> Ok Font_thin
     | [ "font"; "extralight" ] -> Ok Font_extralight
@@ -440,9 +442,7 @@ module Typography_early = struct
     | [ "leading"; "loose" ] -> Ok Leading_loose
     | [ "leading"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
-        if String.length inner > 4 && String.sub inner 0 4 = "var(" then
-          Ok (Leading_var inner)
-        else err_not_utility
+        if Parse.is_var inner then Ok (Leading_var inner) else err_not_utility
     | [ "leading"; n ] ->
         Parse.int_bounded ~name:"leading" ~min:3 ~max:10 n >|= fun i ->
         Leading i
@@ -908,7 +908,9 @@ module Typography_late = struct
     | Underline_offset_4
     | Underline_offset_8
     | Underline_offset_px of float
+    | Underline_offset_var of string
     | Underline_offset_neg_px of float
+    | Underline_offset_neg_var of string
     | (* Antialiased *)
       Antialiased
     | Subpixel_antialiased
@@ -1010,15 +1012,12 @@ module Typography_late = struct
         | _ -> err_not_utility)
     | [ "tracking"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
-        if String.length inner > 4 && String.sub inner 0 4 = "var(" then
-          Ok (Tracking_var inner)
-        else err_not_utility
+        if Parse.is_var inner then Ok (Tracking_var inner) else err_not_utility
     | "" :: "tracking" :: rest when rest <> [] ->
         let value = String.concat "-" rest in
         if Parse.is_bracket_value value then
           let inner = Parse.bracket_inner value in
-          if String.length inner > 4 && String.sub inner 0 4 = "var(" then
-            Ok (Neg_tracking_var inner)
+          if Parse.is_var inner then Ok (Neg_tracking_var inner)
           else err_not_utility
         else err_not_utility
     | [ "tracking"; "tighter" ] -> Ok Tracking_tighter
@@ -1067,10 +1066,24 @@ module Typography_late = struct
     | [ "underline"; "offset"; "2" ] -> Ok Underline_offset_2
     | [ "underline"; "offset"; "4" ] -> Ok Underline_offset_4
     | [ "underline"; "offset"; "8" ] -> Ok Underline_offset_8
+    | [ "underline"; "offset"; n ] when Parse.is_bracket_value n -> (
+        let inner = Parse.bracket_inner n in
+        if Parse.is_var inner then Ok (Underline_offset_var inner)
+        else
+          match float_of_string_opt inner with
+          | Some px -> Ok (Underline_offset_px px)
+          | None -> err_not_utility)
     | [ "underline"; "offset"; n ] -> (
         match float_of_string_opt n with
         | Some px -> Ok (Underline_offset_px px)
         | None -> err_not_utility)
+    | [ ""; "underline"; "offset"; n ] when Parse.is_bracket_value n -> (
+        let inner = Parse.bracket_inner n in
+        if Parse.is_var inner then Ok (Underline_offset_neg_var inner)
+        else
+          match float_of_string_opt inner with
+          | Some px -> Ok (Underline_offset_neg_px px)
+          | None -> err_not_utility)
     | [ ""; "underline"; "offset"; n ] -> (
         match float_of_string_opt n with
         | Some px -> Ok (Underline_offset_neg_px px)
@@ -1108,13 +1121,8 @@ module Typography_late = struct
         Ok Font_stretch_extra_expanded
     | [ "font"; "stretch"; "ultra"; "expanded" ] ->
         Ok Font_stretch_ultra_expanded
-    | [ "font"; "stretch"; n ] ->
-        (* Handle both "50" and "50%" formats *)
-        let n =
-          if String.ends_with ~suffix:"%" n then
-            String.sub n 0 (String.length n - 1)
-          else n
-        in
+    | [ "font"; "stretch"; n ] when String.ends_with ~suffix:"%" n ->
+        let n = String.sub n 0 (String.length n - 1) in
         Parse.int_bounded ~name:"font-stretch" ~min:50 ~max:200 n >|= fun i ->
         Font_stretch_percent i
     | [ "normal"; "nums" ] -> Ok Normal_nums
@@ -1226,6 +1234,7 @@ module Typography_late = struct
           else s
         in
         "underline-offset-" ^ s
+    | Underline_offset_var v -> "underline-offset-[" ^ v ^ "]"
     | Underline_offset_neg_px px ->
         let s = string_of_float px in
         let s =
@@ -1234,6 +1243,7 @@ module Typography_late = struct
           else s
         in
         "-underline-offset-" ^ s
+    | Underline_offset_neg_var v -> "-underline-offset-[" ^ v ^ "]"
     | Antialiased -> "antialiased"
     | Subpixel_antialiased -> "subpixel-antialiased"
     | Text_ellipsis -> "text-ellipsis"
@@ -1351,18 +1361,20 @@ module Typography_late = struct
     | List_none -> 8704
     | List_outside -> 8705
     | List_image_url _ -> 8706
-    (* Underline offset *)
-    | Underline_offset_auto -> 8800
-    | Underline_offset_0 -> 8801
-    | Underline_offset_1 -> 8802
-    | Underline_offset_2 -> 8803
-    | Underline_offset_4 -> 8804
-    | Underline_offset_8 -> 8805
-    | Underline_offset_px px -> 8806 + int_of_float px
-    | Underline_offset_neg_px px -> 8900 + int_of_float px
+    (* Underline offset — negatives first, then positives, then auto *)
+    | Underline_offset_neg_px px -> 50000 + int_of_float px
+    | Underline_offset_neg_var _ -> 59990
+    | Underline_offset_0 -> 60000
+    | Underline_offset_1 -> 60001
+    | Underline_offset_2 -> 60002
+    | Underline_offset_4 -> 60003
+    | Underline_offset_8 -> 60004
+    | Underline_offset_px px -> 60005 + int_of_float px
+    | Underline_offset_var _ -> 69990
+    | Underline_offset_auto -> 69999
     (* Antialiased *)
-    | Antialiased -> 8900
-    | Subpixel_antialiased -> 8901
+    | Antialiased -> 70000
+    | Subpixel_antialiased -> 70001
     (* Text overflow - alphabetical order: text-clip, text-ellipsis, truncate *)
     | Text_clip -> 9000
     | Text_ellipsis -> 9001
@@ -1533,15 +1545,22 @@ module Typography_late = struct
   let capitalize = style [ text_transform Capitalize ]
   let normal_case = style [ text_transform None ]
 
-  let underline_offset_auto =
-    style
-      [
-        text_underline_offset
-          (Var
-             (Var.theme_ref "text-underline-offset-auto"
-                ~default:(Auto : Css.length)
-                ~default_css:"auto"));
-      ]
+  let underline_offset_auto () =
+    match Var.get_theme_value "text-underline-offset-auto" with
+    | Some _ ->
+        let decl, ref_ =
+          Var.binding underline_offset_auto_var (Auto : Css.length)
+        in
+        style [ decl; text_underline_offset (Var ref_) ]
+    | None ->
+        style
+          [
+            text_underline_offset
+              (Var
+                 (Var.theme_ref "text-underline-offset-auto"
+                    ~default:(Auto : Css.length)
+                    ~default_css:"auto"));
+          ]
 
   let underline_offset_0 = style [ text_underline_offset Zero ]
   let underline_offset_1 = style [ text_underline_offset (Px 1.) ]
@@ -1659,16 +1678,11 @@ module Typography_late = struct
       [ content (Css.Var content_ref); content_decl; content None ]
 
   let content s =
-    (* The content value is the string itself, not double-quoted *)
-    (* The class name needs to escape the quotes properly for CSS *)
-    let content_decl, content_ref = Var.binding content_var (String s) in
+    (* Convert underscores to spaces in content values *)
+    let value = String.map (fun c -> if c = '_' then ' ' else c) s in
+    let content_decl, content_ref = Var.binding content_var (String value) in
     let property_rules = Var.property_rules content_var in
-    style ~property_rules
-      [
-        content (Css.Var content_ref);
-        content_decl;
-        content (Css.Var content_ref);
-      ]
+    style ~property_rules [ content_decl; content (Css.Var content_ref) ]
 
   let content_named name =
     let theme_ref : Css.content Css.var =
@@ -1925,18 +1939,29 @@ module Typography_late = struct
     | List_image_none -> list_image_none ()
     | List_image_bracket_var s -> list_image_bracket_var s
     | List_image_url url -> list_image_url url
-    | Underline_offset_auto -> underline_offset_auto
+    | Underline_offset_auto -> underline_offset_auto ()
     | Underline_offset_0 -> underline_offset_0
     | Underline_offset_1 -> underline_offset_1
     | Underline_offset_2 -> underline_offset_2
     | Underline_offset_4 -> underline_offset_4
     | Underline_offset_8 -> underline_offset_8
     | Underline_offset_px px -> style [ text_underline_offset (Px px) ]
+    | Underline_offset_var v ->
+        let bare_name = Parse.extract_var_name v in
+        let var_ref : Css.length Css.var = Css.var_ref bare_name in
+        style [ text_underline_offset (Var var_ref) ]
     | Underline_offset_neg_px px ->
         style
           [
             text_underline_offset
               (Calc (Calc.mul (Calc.length (Px px)) (Calc.float (-1.))));
+          ]
+    | Underline_offset_neg_var v ->
+        let bare_name = Parse.extract_var_name v in
+        style
+          [
+            text_underline_offset
+              (Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.))));
           ]
     | Antialiased -> antialiased
     | Subpixel_antialiased -> subpixel_antialiased

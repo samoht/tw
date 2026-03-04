@@ -49,6 +49,7 @@ module Handler = struct
     | Will_change_scroll
     | Will_change_contents
     | Will_change_transform
+    | Will_change_arbitrary of string
     | Group  (** Marker class for group parent *)
     | Peer  (** Marker class for peer sibling *)
     | Scheme_dark
@@ -186,6 +187,9 @@ module Handler = struct
     | Will_change_scroll -> will_change_scroll_s
     | Will_change_contents -> will_change_contents_s
     | Will_change_transform -> will_change_transform_s
+    | Will_change_arbitrary var_str ->
+        let bare_name = Parse.extract_var_name var_str in
+        style [ will_change (Var (Css.var_ref bare_name)) ]
     | Group -> group_s
     | Peer -> peer_s
     | Scheme_dark -> scheme_dark_s
@@ -227,6 +231,7 @@ module Handler = struct
     | Will_change_contents -> 32
     | Will_change_scroll -> 33
     | Will_change_transform -> 34
+    | Will_change_arbitrary _ -> 30
     | Group -> 35
     | Peer -> 36
     | Scheme_dark -> 40
@@ -269,6 +274,8 @@ module Handler = struct
     | [ "will"; "change"; "scroll" ] -> Ok Will_change_scroll
     | [ "will"; "change"; "contents" ] -> Ok Will_change_contents
     | [ "will"; "change"; "transform" ] -> Ok Will_change_transform
+    | [ "will"; "change"; value ] when Parse.is_bracket_value value ->
+        Ok (Will_change_arbitrary (Parse.bracket_inner value))
     | [ "group" ] -> Ok Group
     | [ "peer" ] -> Ok Peer
     | [ "scheme"; "dark" ] -> Ok Scheme_dark
@@ -310,6 +317,7 @@ module Handler = struct
     | Will_change_scroll -> "will-change-scroll"
     | Will_change_contents -> "will-change-contents"
     | Will_change_transform -> "will-change-transform"
+    | Will_change_arbitrary s -> "will-change-[" ^ s ^ "]"
     | Group -> "group"
     | Peer -> "peer"
     | Scheme_dark -> "scheme-dark"
