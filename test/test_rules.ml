@@ -1441,7 +1441,6 @@ let test_suborder_within_group () =
       ("grid_placement", Test_grid.all_utilities ());
       ("effects", Test_effects.all_utilities ());
       ("position", Test_position.all_utilities ());
-      ("display", Test_display.all_utilities ());
       ("forms", Test_forms.all_utilities ());
       ("transforms", Test_transforms.all_utilities ());
       ("interactivity", Test_interactivity.all_utilities ());

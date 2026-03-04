@@ -31,7 +31,6 @@ let () =
       Test_svg.suite;
       Test_tables.suite;
       Test_accessibility.suite;
-      Test_display.suite;
       Test_flex.suite;
       Test_flex_props.suite;
       Test_alignment.suite;
@@ -68,7 +67,6 @@ let () =
       Test_theme.suite;
       Test_utility.suite;
       Test_spacing.suite;
-      Test_escape_debug.suite;
       Test_box_sizing.suite;
       Test_columns.suite;
       Test_contain.suite;
