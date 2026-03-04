@@ -441,7 +441,7 @@ module Handler = struct
     | ( Object_center | Object_top | Object_bottom | Object_left | Object_right
       | Object_bottom_left | Object_bottom_right | Object_left_bottom
       | Object_left_top | Object_right_bottom | Object_right_top
-      | Object_top_left | Object_top_right ) as obj ->
+      | Object_top_left | Object_top_right ) as obj -> (
         let name, (default : Css.position_value), default_css =
           match obj with
           | Object_center -> ("object-position-center", Center, "center")
@@ -467,10 +467,17 @@ module Handler = struct
               ("object-position-top-right", Top_right, "right top")
           | _ -> assert false
         in
-        let v : Css.position_value =
-          Var (Var.theme_ref name ~default ~default_css)
-        in
-        style [ object_position v ]
+        match Var.get_theme_value name with
+        | Some _ ->
+            let tv = Var.theme Css.Length name ~order:(6, 40) in
+            let theme_decl, theme_ref = Var.binding tv (Zero : Css.length) in
+            let lv : Css.length = Var theme_ref in
+            style [ theme_decl; object_position (XY (lv, lv)) ]
+        | None ->
+            let v : Css.position_value =
+              Var (Var.theme_ref name ~default ~default_css)
+            in
+            style [ object_position v ])
     | Object_arbitrary var_str ->
         let bare_name = Parse.extract_var_name var_str in
         let lv : Css.length = Var (Css.var_ref bare_name) in
