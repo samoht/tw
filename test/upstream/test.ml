@@ -46,7 +46,7 @@ let config_of_string = function
   | "run" -> Run
   | _ -> No_theme
 
-type test_case = {
+type case = {
   name : string;
   config : theme_config;
   classes : string list;
@@ -376,15 +376,15 @@ let run_test_case test () =
            (String.concat " " test.classes)
            expected our_css))
 
-let test_file basename =
+let file basename =
   let paths = [ basename; "test/upstream/" ^ basename ] in
   List.find_opt Sys.file_exists paths
 
 let () =
   let utilities_file =
-    test_file "utilities.txt" |> Option.value ~default:"utilities.txt"
+    file "utilities.txt" |> Option.value ~default:"utilities.txt"
   in
-  let variants_file = test_file "variants.txt" in
+  let variants_file = file "variants.txt" in
 
   if not (Sys.file_exists utilities_file) then (
     Fmt.epr "No test file found. Run extract_tests.exe first.@.";

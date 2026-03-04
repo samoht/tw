@@ -602,8 +602,8 @@ val css_name : ('a, _) t -> string
     example, [css_name gradient_from_var] returns ["--tw-gradient-from"]. Use
     this when you need the property name (e.g., for [transition-property]). *)
 
-val var_needs_property : 'a Css.var -> bool
-(** [var_needs_property v] is [true] if [v]'s underlying Var.t has property
+val needs_property_rule : 'a Css.var -> bool
+(** [needs_property_rule v] is [true] if [v]'s underlying Var.t has property
     metadata. *)
 
 val order_of_declaration : Css.declaration -> (int * int) option
