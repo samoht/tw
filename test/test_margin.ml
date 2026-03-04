@@ -46,14 +46,14 @@ let of_string_invalid () =
 (* Missing value - note: m-<name> is valid in Tailwind v4 as named spacing
    var *)
 
-let all_utilities () =
-  let open Tw in
-  List.concat_map
-    (fun n -> [ m n; mx n; my n; mt n; mb n; ml n; mr n ])
-    Test_helpers.spacing_values
-
 let suborder_matches_tailwind () =
-  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+  let open Tw in
+  let utilities =
+    List.concat_map
+      (fun n -> [ m n; mx n; my n; mt n; mb n; ml n; mr n ])
+      Test_helpers.spacing_values
+  in
+  let shuffled = Test_helpers.shuffle utilities in
 
   Test_helpers.check_ordering_matches
     ~test_name:"margin suborder matches Tailwind" shuffled

@@ -105,21 +105,6 @@ let test_aspect_css () =
   Alcotest.check bool "has 16/9" true
     (Astring.String.is_infix ~affix:"16/9" css)
 
-let all_utilities () =
-  let open Tw in
-  List.concat_map (fun n -> [ w n; h n ]) [ 0; 1; 2; 4; 8; 12; 16; 24; 32 ]
-  @ [
-      min_w 0;
-      min_h 0;
-      max_w_none;
-      max_w_full;
-      max_w_2xl;
-      max_w_3xl;
-      max_w_4xl;
-      max_w_5xl;
-      max_w_6xl;
-    ]
-
 (** Test that the programmatic API generates correct class names *)
 let test_class_generation () =
   let open Tw in
@@ -163,7 +148,22 @@ let test_class_generation () =
     (Astring.String.is_infix ~affix:"*4)" (css_for (size 4)))
 
 let suborder_matches_tailwind () =
-  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+  let open Tw in
+  let utilities =
+    List.concat_map (fun n -> [ w n; h n ]) [ 0; 1; 2; 4; 8; 12; 16; 24; 32 ]
+    @ [
+        min_w 0;
+        min_h 0;
+        max_w_none;
+        max_w_full;
+        max_w_2xl;
+        max_w_3xl;
+        max_w_4xl;
+        max_w_5xl;
+        max_w_6xl;
+      ]
+  in
+  let shuffled = Test_helpers.shuffle utilities in
 
   Test_helpers.check_ordering_matches
     ~test_name:"sizing suborder matches Tailwind" shuffled

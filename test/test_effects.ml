@@ -73,21 +73,21 @@ let of_string_invalid () =
   fail_maybe [ "unknown" ]
 (* Unknown effects type *)
 
-let all_utilities () =
-  let open Tw in
-  [
-    shadow_sm;
-    shadow;
-    shadow_md;
-    shadow_lg;
-    shadow_none;
-    opacity 0;
-    opacity 50;
-    opacity 100;
-  ]
-
 let suborder_matches_tailwind () =
-  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+  let open Tw in
+  let utilities =
+    [
+      shadow_sm;
+      shadow;
+      shadow_md;
+      shadow_lg;
+      shadow_none;
+      opacity 0;
+      opacity 50;
+      opacity 100;
+    ]
+  in
+  let shuffled = Test_helpers.shuffle utilities in
 
   Test_helpers.check_ordering_matches
     ~test_name:"effects suborder matches Tailwind" shuffled

@@ -83,21 +83,21 @@ let test_transition_css () =
     true
     (has_transition_property (to_css [ transition_none ]))
 
-let all_utilities () =
-  let open Tw in
-  [
-    animate_spin;
-    animate_ping;
-    animate_pulse;
-    animate_bounce;
-    transition_all;
-    transition_none;
-    duration 150;
-    delay 200;
-  ]
-
 let suborder_matches_tailwind () =
-  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+  let open Tw in
+  let utilities =
+    [
+      animate_spin;
+      animate_ping;
+      animate_pulse;
+      animate_bounce;
+      transition_all;
+      transition_none;
+      duration 150;
+      delay 200;
+    ]
+  in
+  let shuffled = Test_helpers.shuffle utilities in
 
   Test_helpers.check_ordering_matches
     ~test_name:"animations suborder matches Tailwind" shuffled

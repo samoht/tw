@@ -17,12 +17,12 @@ let test_position_utilities () =
   check "relative";
   check "sticky"
 
-let all_utilities () =
-  let open Tw in
-  [ static; fixed; absolute; relative; sticky; inset 0; top 4; left 2 ]
-
 let suborder_matches_tailwind () =
-  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+  let open Tw in
+  let shuffled =
+    Test_helpers.shuffle
+      [ static; fixed; absolute; relative; sticky; inset 0; top 4; left 2 ]
+  in
 
   Test_helpers.check_ordering_matches
     ~test_name:"position suborder matches Tailwind" shuffled

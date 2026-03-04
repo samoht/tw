@@ -54,19 +54,19 @@ let test_of_string_invalid () =
   test_invalid [ "type"; "size" ]
 (* Missing container prefix *)
 
-let all_utilities () =
-  let open Tw in
-  [
-    container;
-    at_container;
-    at_container_normal;
-    at_container_named "sidebar";
-    at_container_named "header";
-    at_container_named "main";
-  ]
-
 let suborder_matches_tailwind () =
-  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+  let open Tw in
+  let utilities =
+    [
+      container;
+      at_container;
+      at_container_normal;
+      at_container_named "sidebar";
+      at_container_named "header";
+      at_container_named "main";
+    ]
+  in
+  let shuffled = Test_helpers.shuffle utilities in
   Test_helpers.check_ordering_matches
     ~test_name:"containers suborder matches Tailwind" shuffled
 

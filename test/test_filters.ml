@@ -14,12 +14,12 @@ let test_backdrop () =
   check "backdrop-opacity-50";
   check "backdrop-invert"
 
-let all_utilities () =
-  let open Tw in
-  [ blur_sm; blur; blur_2xl; backdrop_blur; backdrop_opacity 50 ]
-
 let suborder_matches_tailwind () =
-  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+  let open Tw in
+  let shuffled =
+    Test_helpers.shuffle
+      [ blur_sm; blur; blur_2xl; backdrop_blur; backdrop_opacity 50 ]
+  in
 
   Test_helpers.check_ordering_matches
     ~test_name:"filters suborder matches Tailwind" shuffled

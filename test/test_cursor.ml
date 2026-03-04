@@ -33,19 +33,19 @@ let of_string_invalid () =
   fail_maybe [ "cursor"; "invalid" ];
   fail_maybe []
 
-let all_utilities () =
-  let open Tw in
-  [
-    cursor_auto;
-    cursor_default;
-    cursor_pointer;
-    cursor_wait;
-    cursor_move;
-    cursor_not_allowed;
-  ]
-
 let suborder_matches_tailwind () =
-  let shuffled = Test_helpers.shuffle (all_utilities ()) in
+  let open Tw in
+  let utilities =
+    [
+      cursor_auto;
+      cursor_default;
+      cursor_pointer;
+      cursor_wait;
+      cursor_move;
+      cursor_not_allowed;
+    ]
+  in
+  let shuffled = Test_helpers.shuffle utilities in
 
   Test_helpers.check_ordering_matches
     ~test_name:"cursor suborder matches Tailwind" shuffled

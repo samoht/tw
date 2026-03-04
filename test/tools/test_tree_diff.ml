@@ -720,79 +720,83 @@ let test_property_swap_display () =
 (* ===== Test Suite ===== *)
 
 let suite =
-  [
-    (* Core functionality *)
-    test_case "is_empty" `Quick test_is_empty;
-    test_case "empty_diff" `Quick test_empty_diff;
-    test_case "diff_with_rules" `Quick test_diff_with_rules;
-    test_case "diff_with_containers" `Quick test_diff_with_containers;
-    test_case "diff_with_both" `Quick test_diff_with_both;
-    (* Direct Tree_diff.diff tests *)
-    test_case "diff_identical_css" `Quick test_diff_identical_css;
-    test_case "diff_rule_added" `Quick test_diff_rule_added;
-    test_case "diff_rule_removed" `Quick test_diff_rule_removed;
-    test_case "diff_rule_content_changed" `Quick test_diff_rule_content_changed;
-    test_case "diff_rule_reordered" `Quick test_diff_rule_reordered;
-    test_case "diff_media_query" `Quick test_diff_media_query;
-    test_case "diff_nested_media" `Quick test_diff_nested_media;
-    test_case "diff_multiple_changes" `Quick test_diff_multiple_changes;
-    test_case "diff_keyframes" `Quick test_diff_keyframes;
-    (* Rule type structure *)
-    test_case "rule_added_structure" `Quick test_rule_added_structure;
-    test_case "rule_removed_structure" `Quick test_rule_removed_structure;
-    test_case "rule_content_changed_structure" `Quick
-      test_rule_content_changed_structure;
-    test_case "rule_selector_changed_structure" `Quick
-      test_rule_selector_changed_structure;
-    test_case "rule_reordered_structure" `Quick test_rule_reordered_structure;
-    (* Container type structure *)
-    test_case "container_added_structure" `Quick test_container_added_structure;
-    test_case "container_removed_structure" `Quick
-      test_container_removed_structure;
-    test_case "container_modified_structure" `Quick
-      test_container_modified_structure;
-    test_case "container_types" `Quick test_container_types;
-    (* Property changes *)
-    test_case "property_change_structure" `Quick test_property_change_structure;
-    test_case "property_modification_detection" `Quick
-      test_property_modification_detection;
-    test_case "property_removal_only" `Quick test_property_removal_only;
-    (* Keyframes tests *)
-    test_case "keyframes_frame_add_remove" `Quick
-      test_keyframes_frame_add_remove;
-    test_case "keyframes_rename" `Quick test_keyframes_rename;
-    (* Font-face tests *)
-    test_case "font_face_changes" `Quick test_font_face_changes;
-    (* Vendor prefix tests *)
-    test_case "vendor_prefixes" `Quick test_vendor_prefixes;
-    (* Selector tests *)
-    test_case "selector_list_duplicates_and_whitespace" `Quick
-      test_selector_list_reordering;
-    test_case "escaped_selectors" `Quick test_escaped_selectors;
-    (* Nested structures *)
-    test_case "nested_rule_changes" `Quick test_nested_rule_changes;
-    (* Edge cases *)
-    test_case "selector_change_shared_parent" `Quick
-      test_selector_change_shared_parent;
-    test_case "pseudo_element_changes" `Quick test_pseudo_element_changes;
-    test_case "attribute_selector_changes" `Quick
-      test_attribute_selector_changes;
-    test_case "important_property_changes" `Quick
-      test_important_property_changes;
-    test_case "empty_rules" `Quick test_empty_rules;
-    test_case "css_variable_references" `Quick test_css_variable_references;
-    (* Nested structure tests *)
-    test_case "nested_media_in_media" `Quick test_nested_media_in_media;
-    test_case "nested_layer_in_media" `Quick test_nested_layer_in_media;
-    test_case "nested_supports_in_layer" `Quick test_nested_supports_in_layer;
-    test_case "deep_nesting_changes" `Quick test_deep_nesting_changes;
-    test_case "mixed_nested_changes" `Quick test_mixed_nested_changes;
-    (* Complex cases *)
-    test_case "large_diff_structure" `Quick test_large_diff_structure;
-    (* Property addition/removal field tests *)
-    test_case "property_added_field" `Quick test_property_added_field;
-    test_case "property_removed_field" `Quick test_property_removed_field;
-    test_case "property_added_and_removed" `Quick
-      test_property_added_and_removed;
-    test_case "property_swap_display" `Quick test_property_swap_display;
-  ]
+  ( "tree_diff",
+    [
+      (* Core functionality *)
+      test_case "is_empty" `Quick test_is_empty;
+      test_case "empty_diff" `Quick test_empty_diff;
+      test_case "diff_with_rules" `Quick test_diff_with_rules;
+      test_case "diff_with_containers" `Quick test_diff_with_containers;
+      test_case "diff_with_both" `Quick test_diff_with_both;
+      (* Direct Tree_diff.diff tests *)
+      test_case "diff_identical_css" `Quick test_diff_identical_css;
+      test_case "diff_rule_added" `Quick test_diff_rule_added;
+      test_case "diff_rule_removed" `Quick test_diff_rule_removed;
+      test_case "diff_rule_content_changed" `Quick
+        test_diff_rule_content_changed;
+      test_case "diff_rule_reordered" `Quick test_diff_rule_reordered;
+      test_case "diff_media_query" `Quick test_diff_media_query;
+      test_case "diff_nested_media" `Quick test_diff_nested_media;
+      test_case "diff_multiple_changes" `Quick test_diff_multiple_changes;
+      test_case "diff_keyframes" `Quick test_diff_keyframes;
+      (* Rule type structure *)
+      test_case "rule_added_structure" `Quick test_rule_added_structure;
+      test_case "rule_removed_structure" `Quick test_rule_removed_structure;
+      test_case "rule_content_changed_structure" `Quick
+        test_rule_content_changed_structure;
+      test_case "rule_selector_changed_structure" `Quick
+        test_rule_selector_changed_structure;
+      test_case "rule_reordered_structure" `Quick test_rule_reordered_structure;
+      (* Container type structure *)
+      test_case "container_added_structure" `Quick
+        test_container_added_structure;
+      test_case "container_removed_structure" `Quick
+        test_container_removed_structure;
+      test_case "container_modified_structure" `Quick
+        test_container_modified_structure;
+      test_case "container_types" `Quick test_container_types;
+      (* Property changes *)
+      test_case "property_change_structure" `Quick
+        test_property_change_structure;
+      test_case "property_modification_detection" `Quick
+        test_property_modification_detection;
+      test_case "property_removal_only" `Quick test_property_removal_only;
+      (* Keyframes tests *)
+      test_case "keyframes_frame_add_remove" `Quick
+        test_keyframes_frame_add_remove;
+      test_case "keyframes_rename" `Quick test_keyframes_rename;
+      (* Font-face tests *)
+      test_case "font_face_changes" `Quick test_font_face_changes;
+      (* Vendor prefix tests *)
+      test_case "vendor_prefixes" `Quick test_vendor_prefixes;
+      (* Selector tests *)
+      test_case "selector_list_duplicates_and_whitespace" `Quick
+        test_selector_list_reordering;
+      test_case "escaped_selectors" `Quick test_escaped_selectors;
+      (* Nested structures *)
+      test_case "nested_rule_changes" `Quick test_nested_rule_changes;
+      (* Edge cases *)
+      test_case "selector_change_shared_parent" `Quick
+        test_selector_change_shared_parent;
+      test_case "pseudo_element_changes" `Quick test_pseudo_element_changes;
+      test_case "attribute_selector_changes" `Quick
+        test_attribute_selector_changes;
+      test_case "important_property_changes" `Quick
+        test_important_property_changes;
+      test_case "empty_rules" `Quick test_empty_rules;
+      test_case "css_variable_references" `Quick test_css_variable_references;
+      (* Nested structure tests *)
+      test_case "nested_media_in_media" `Quick test_nested_media_in_media;
+      test_case "nested_layer_in_media" `Quick test_nested_layer_in_media;
+      test_case "nested_supports_in_layer" `Quick test_nested_supports_in_layer;
+      test_case "deep_nesting_changes" `Quick test_deep_nesting_changes;
+      test_case "mixed_nested_changes" `Quick test_mixed_nested_changes;
+      (* Complex cases *)
+      test_case "large_diff_structure" `Quick test_large_diff_structure;
+      (* Property addition/removal field tests *)
+      test_case "property_added_field" `Quick test_property_added_field;
+      test_case "property_removed_field" `Quick test_property_removed_field;
+      test_case "property_added_and_removed" `Quick
+        test_property_added_and_removed;
+      test_case "property_swap_display" `Quick test_property_swap_display;
+    ] )
