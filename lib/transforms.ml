@@ -187,6 +187,9 @@ module Handler = struct
   let perspective_normal_var =
     Var.theme Css.Length "perspective-normal" ~order:(7, 14)
 
+  let perspective_none_var =
+    Var.theme Css.Length "perspective-none" ~order:(7, 15)
+
   (** {1 Helpers} *)
 
   let collect_property_rules vars =
@@ -779,7 +782,18 @@ module Handler = struct
     style ~property_rules:props
       [ Css.scale (XYZ (Var scale_x_ref, Var scale_y_ref, Var scale_z_ref)) ]
 
-  let perspective_none = style [ Css.perspective None ]
+  let perspective_none () =
+    match Var.get_theme_value "perspective-none" with
+    | Some value_str ->
+        let len : Css.length =
+          if String.ends_with ~suffix:"px" value_str then
+            let n = String.sub value_str 0 (String.length value_str - 2) in
+            match float_of_string_opt n with Some f -> Px f | None -> Px 0.
+          else Px 0.
+        in
+        let decl, r = Var.binding perspective_none_var len in
+        style (decl :: [ Css.perspective (Var r) ])
+    | None -> style [ Css.perspective None ]
 
   let perspective_dramatic =
     let decl, r = Var.binding perspective_dramatic_var (Px 100.0) in
@@ -1099,7 +1113,7 @@ module Handler = struct
     | Rotate_z_bare_var name -> rotate_z_bare_var name
     | Neg_rotate_z_bare_var name -> neg_rotate_z_bare_var name
     | Neg_rotate_z_arbitrary a -> neg_rotate_z_arbitrary a
-    | Perspective_none -> perspective_none
+    | Perspective_none -> perspective_none ()
     | Perspective_dramatic -> perspective_dramatic
     | Perspective_normal -> perspective_normal
     | Perspective_arbitrary len -> perspective_arbitrary len

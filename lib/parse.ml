@@ -60,12 +60,12 @@ let is_bracket_value s =
 let bracket_inner s =
   if is_bracket_value s then String.sub s 1 (String.length s - 2) else s
 
+(** Check if a string starts with "var(" — works on inner bracket content *)
+let is_var s = String.length s > 4 && String.sub s 0 4 = "var("
+
 (** Check if a bracket value contains a var() reference *)
 let is_bracket_var s =
-  if is_bracket_value s then
-    let inner = bracket_inner s in
-    String.length inner > 4 && String.sub inner 0 4 = "var("
-  else false
+  if is_bracket_value s then is_var (bracket_inner s) else false
 
 (** Check if a string is a bare var reference like "(--name)" *)
 let is_bare_var s =

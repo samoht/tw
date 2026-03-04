@@ -1439,12 +1439,15 @@ let apply modifiers base_utility =
   in
   (* Apply a single parsed modifier to an accumulated utility *)
   let apply_one acc modifier_str =
-    match parse_modifier modifier_str with
-    | Some m -> wrap m (to_list acc)
-    | None -> acc (* ignore unknown modifiers *)
+    match acc with
+    | None -> None
+    | Some u -> (
+        match parse_modifier modifier_str with
+        | Some m -> Some (wrap m (to_list u))
+        | None -> None)
   in
   (* Apply modifiers in reverse order so that the first modifier in the string
      (e.g., "dark" in "dark:hover:...") ends up as the outermost wrapper
      (Modified(Dark, Modified(Hover, base))). This matches how the programmatic
      API works: dark [ hover [ ... ] ] *)
-  List.fold_left apply_one base_utility (List.rev modifiers)
+  List.fold_left apply_one (Some base_utility) (List.rev modifiers)

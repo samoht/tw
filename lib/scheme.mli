@@ -30,6 +30,10 @@ type t = {
       (** Default border width in pixels for bare [border] utility. Corresponds
           to Tailwind's [@theme \{ --default-border-width: Npx \}]. Default: 1.
       *)
+  default_outline_width : int;
+      (** Default outline width in pixels for bare [outline] utility.
+          Corresponds to Tailwind's [@theme \{ --default-outline-width: Npx \}].
+          Default: 1. *)
 }
 (** Theme scheme configuration *)
 

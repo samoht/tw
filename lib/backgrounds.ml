@@ -106,6 +106,35 @@ module Handler = struct
     | Bg_bracket_linear_gradient of string
     (* bg-linear-to-* direction utilities *)
     | Bg_linear_to of direction
+    (* bg-linear-to-*/interp - direction with interpolation modifier *)
+    | Bg_linear_to_interp of direction * string
+    (* bg-linear-{angle} - linear gradient with angle *)
+    | Bg_linear_angle of int
+    (* -bg-linear-{angle} - negated angle *)
+    | Bg_linear_angle_neg of int
+    (* bg-linear-{angle}/interp - angle with interpolation *)
+    | Bg_linear_angle_interp of int * string
+    (* -bg-linear-{angle}/interp *)
+    | Bg_linear_angle_neg_interp of int * string
+    (* bg-linear-[value] - bracket linear gradient value *)
+    | Bg_linear_bracket of string
+    (* -bg-linear-[value] - negated bracket *)
+    | Bg_linear_bracket_neg of string
+    (* bg-conic/interp - conic gradient with interpolation *)
+    | Bg_conic_interp of string
+    (* bg-conic-{angle}/interp - conic with angle and interpolation *)
+    | Bg_conic_angle_interp of int * string
+    (* -bg-conic-{angle}/interp *)
+    | Bg_conic_angle_neg_interp of int * string
+    (* bg-radial/interp - radial gradient with interpolation *)
+    | Bg_radial_interp of string
+    (* bg-radial-[value] - bracket radial gradient value *)
+    | Bg_radial_bracket of string
+    (* Bracket color/var with opacity *)
+    | Bg_bracket_color_var_opacity of string * Color.opacity_modifier
+    | Bg_bracket_var_opacity of string * Color.opacity_modifier
+    (* bg-[length:...] - explicit length prefix for bracket size *)
+    | Bg_bracket_length of string
     (* bg-position-[...] bracket notation *)
     | Bg_position_bracket of string
     (* bg-size-[...] bracket notation *)
@@ -210,7 +239,8 @@ module Handler = struct
     | Bg_position Pos_top_right -> "bg-top-right"
     | Bg_bracket_contain -> "bg-[contain]"
     | Bg_bracket_cover -> "bg-[cover]"
-    | Bg_bracket_size v -> "bg-[" ^ v ^ "]"
+    | Bg_bracket_size v -> "bg-[size:" ^ v ^ "]"
+    | Bg_bracket_length v -> "bg-[length:" ^ v ^ "]"
     | Bg_bracket_position v -> "bg-[" ^ v ^ "]"
     | Bg_bracket_typed_position v -> "bg-[position:" ^ v ^ "]"
     | Bg_bracket_color_var v -> "bg-[color:" ^ v ^ "]"
@@ -218,7 +248,11 @@ module Handler = struct
     | Bg_bracket_image_var v -> "bg-[image:" ^ v ^ "]"
     | Bg_bracket_url v -> "bg-[url(" ^ v ^ ")]"
     | Bg_bracket_url_var v -> "bg-[url:" ^ v ^ "]"
-    | Bg_bracket_linear_gradient v -> "bg-[linear-gradient(" ^ v ^ ")]"
+    | Bg_bracket_linear_gradient v -> "bg-[" ^ v ^ "]"
+    | Bg_bracket_color_var_opacity (v, opacity) ->
+        "bg-[color:" ^ v ^ "]" ^ opacity_suffix opacity
+    | Bg_bracket_var_opacity (v, opacity) ->
+        "bg-[" ^ v ^ "]" ^ opacity_suffix opacity
     | Bg_linear_to dir -> (
         match dir with
         | Bottom -> "bg-linear-to-b"
@@ -229,6 +263,34 @@ module Handler = struct
         | Top_left -> "bg-linear-to-tl"
         | Left -> "bg-linear-to-l"
         | Bottom_left -> "bg-linear-to-bl")
+    | Bg_linear_to_interp (dir, interp) ->
+        let dir_s =
+          match dir with
+          | Bottom -> "b"
+          | Bottom_right -> "br"
+          | Right -> "r"
+          | Top_right -> "tr"
+          | Top -> "t"
+          | Top_left -> "tl"
+          | Left -> "l"
+          | Bottom_left -> "bl"
+        in
+        "bg-linear-to-" ^ dir_s ^ "/" ^ interp
+    | Bg_linear_angle n -> "bg-linear-" ^ string_of_int n
+    | Bg_linear_angle_neg n -> "-bg-linear-" ^ string_of_int n
+    | Bg_linear_angle_interp (n, interp) ->
+        "bg-linear-" ^ string_of_int n ^ "/" ^ interp
+    | Bg_linear_angle_neg_interp (n, interp) ->
+        "-bg-linear-" ^ string_of_int n ^ "/" ^ interp
+    | Bg_linear_bracket v -> "bg-linear-[" ^ v ^ "]"
+    | Bg_linear_bracket_neg v -> "-bg-linear-[" ^ v ^ "]"
+    | Bg_conic_interp interp -> "bg-conic/" ^ interp
+    | Bg_conic_angle_interp (n, interp) ->
+        "bg-conic-" ^ string_of_int n ^ "/" ^ interp
+    | Bg_conic_angle_neg_interp (n, interp) ->
+        "-bg-conic-" ^ string_of_int n ^ "/" ^ interp
+    | Bg_radial_interp interp -> "bg-radial/" ^ interp
+    | Bg_radial_bracket v -> "bg-radial-[" ^ v ^ "]"
     | Bg_position_bracket v -> "bg-position-[" ^ v ^ "]"
     | Bg_size_bracket v -> "bg-size-[" ^ v ^ "]"
 
@@ -242,6 +304,30 @@ module Handler = struct
     | Top_left -> To_top_left
     | Left -> To_left
     | Bottom_left -> To_bottom_left
+
+  (** Parse a direction suffix string to a direction value *)
+  let parse_direction = function
+    | "b" -> Some Bottom
+    | "br" -> Some Bottom_right
+    | "r" -> Some Right
+    | "tr" -> Some Top_right
+    | "t" -> Some Top
+    | "tl" -> Some Top_left
+    | "l" -> Some Left
+    | "bl" -> Some Bottom_left
+    | _ -> None
+
+  (** Convert direction to CSS string for raw property output *)
+  let direction_to_css_string (dir : direction) =
+    match dir with
+    | Bottom -> "to bottom"
+    | Bottom_right -> "to bottom right"
+    | Right -> "to right"
+    | Top_right -> "to top right"
+    | Top -> "to top"
+    | Top_left -> "to top left"
+    | Left -> "to left"
+    | Bottom_left -> "to bottom left"
 
   open Style
   open Css
@@ -575,6 +661,227 @@ module Handler = struct
     let rules = gradient_direction_rules ~base_decl ~interp_decl in
     style ~property_rules:gradient_property_rules ~rules:(Some rules) []
 
+  (** Convert an interpolation modifier to its CSS string. Named modifiers map
+      to specific CSS values. Bracket modifiers have underscores replaced with
+      spaces. *)
+  let interp_to_css_string = function
+    | "oklab" -> Some "in oklab"
+    | "oklch" -> Some "in oklch"
+    | "hsl" -> Some "in hsl"
+    | "srgb" -> Some "in srgb"
+    | "shorter" -> Some "in oklch shorter hue"
+    | "longer" -> Some "in oklch longer hue"
+    | "increasing" -> Some "in oklch increasing hue"
+    | "decreasing" -> Some "in oklch decreasing hue"
+    | s when String.length s > 1 && s.[0] = '[' && s.[String.length s - 1] = ']'
+      ->
+        let inner = String.sub s 1 (String.length s - 2) in
+        Some (String.map (fun c -> if c = '_' then ' ' else c) inner)
+    | _ -> None
+
+  (** Convert a bracket gradient value to its CSS string. "125deg" → "125deg",
+      "1.3rad" → "74.4845deg", "to_bottom" → "to bottom", "circle_at_center" →
+      "circle at center" *)
+  let bracket_value_to_css inner =
+    if String.ends_with ~suffix:"rad" inner then
+      let rad_s = String.sub inner 0 (String.length inner - 3) in
+      match float_of_string_opt rad_s with
+      | Some rad ->
+          let deg = rad *. 180.0 /. Float.pi in
+          Printf.sprintf "%gdeg" deg
+      | None -> String.map (fun c -> if c = '_' then ' ' else c) inner
+    else String.map (fun c -> if c = '_' then ' ' else c) inner
+
+  (** bg-linear-to-*/interp - direction with specific interpolation.
+      Uses 3-rule pattern: base → @supports → bg-image. *)
+  let bg_linear_to_interp' dir interp_str =
+    let dir_val = to_spec dir in
+    let base_decl, _ = Var.binding gradient_position_var dir_val in
+    match interp_to_css_string interp_str with
+    | Some interp_css ->
+        let dir_css = direction_to_css_string dir in
+        let interp_decl =
+          Css.custom_property ~layer:"utilities" "--tw-gradient-position"
+            (dir_css ^ " " ^ interp_css)
+        in
+        let rules = gradient_direction_rules ~base_decl ~interp_decl in
+        style ~property_rules:gradient_property_rules ~rules:(Some rules) []
+    | None -> bg_linear_to' dir
+
+  (** bg-linear-{angle} with @supports for default oklab interpolation *)
+  let bg_linear_angle' angle_deg =
+    let dir_val : Css.gradient_direction =
+      Angle (Deg (float_of_int angle_deg))
+    in
+    let dir_with_interp : Css.gradient_direction =
+      With_interpolation (dir_val, In_oklab)
+    in
+    let base_decl, _ = Var.binding gradient_position_var dir_val in
+    let interp_decl, _ = Var.binding gradient_position_var dir_with_interp in
+    let rules = gradient_direction_rules ~base_decl ~interp_decl in
+    style ~property_rules:gradient_property_rules ~rules:(Some rules) []
+
+  (** -bg-linear-{angle} - negated angle with @supports *)
+  let bg_linear_angle_neg' angle_deg =
+    let angle_calc : Css.gradient_direction =
+      Angle (Calc (Expr (Val (Deg (float_of_int angle_deg)), Mul, Num (-1.0))))
+    in
+    let angle_calc_interp : Css.gradient_direction =
+      With_interpolation (angle_calc, In_oklab)
+    in
+    let base_decl, _ = Var.binding gradient_position_var angle_calc in
+    let interp_decl, _ = Var.binding gradient_position_var angle_calc_interp in
+    let rules = gradient_direction_rules ~base_decl ~interp_decl in
+    style ~property_rules:gradient_property_rules ~rules:(Some rules) []
+
+  (** bg-linear-{angle}/interp - angle with specific interpolation *)
+  let bg_linear_angle_interp' angle_deg interp_str =
+    let dir_val : Css.gradient_direction =
+      Angle (Deg (float_of_int angle_deg))
+    in
+    let base_decl, _ = Var.binding gradient_position_var dir_val in
+    match interp_to_css_string interp_str with
+    | Some interp_css ->
+        let interp_decl =
+          Css.custom_property ~layer:"utilities" "--tw-gradient-position"
+            (string_of_int angle_deg ^ "deg " ^ interp_css)
+        in
+        let rules = gradient_direction_rules ~base_decl ~interp_decl in
+        style ~property_rules:gradient_property_rules ~rules:(Some rules) []
+    | None -> bg_linear_angle' angle_deg
+
+  (** -bg-linear-{angle}/interp *)
+  let bg_linear_angle_neg_interp' angle_deg interp_str =
+    let angle_calc : Css.gradient_direction =
+      Angle (Calc (Expr (Val (Deg (float_of_int angle_deg)), Mul, Num (-1.0))))
+    in
+    let base_decl, _ = Var.binding gradient_position_var angle_calc in
+    match interp_to_css_string interp_str with
+    | Some interp_css ->
+        let interp_decl =
+          Css.custom_property ~layer:"utilities" "--tw-gradient-position"
+            ("calc(" ^ string_of_int angle_deg ^ "deg * -1) " ^ interp_css)
+        in
+        let rules = gradient_direction_rules ~base_decl ~interp_decl in
+        style ~property_rules:gradient_property_rules ~rules:(Some rules) []
+    | None -> bg_linear_angle_neg' angle_deg
+
+  (** bg-linear-[value] - bracket linear gradient (no @supports).
+      Output: --tw-gradient-position: {value};
+              background-image: linear-gradient(var(--tw-gradient-stops, {value}))
+      The value_str is the raw bracket inner; we convert rad→deg and _→space. *)
+  let bg_linear_bracket' value_str =
+    let css_val = bracket_value_to_css value_str in
+    let position_decl =
+      Css.custom_property ~layer:"utilities" "--tw-gradient-position" css_val
+    in
+    let stops_ref : Css.gradient_stop Css.var =
+      Css.var_ref ~fallback:(Raw_fallback css_val) "tw-gradient-stops"
+    in
+    style ~property_rules:gradient_property_rules
+      [ position_decl; Css.background_image (Linear_gradient_var stops_ref) ]
+
+  (** -bg-linear-[value] - negated bracket *)
+  let bg_linear_bracket_neg' value_str =
+    let css_val = bracket_value_to_css value_str in
+    let neg_str = "calc(" ^ css_val ^ " * -1)" in
+    let position_decl =
+      Css.custom_property ~layer:"utilities" "--tw-gradient-position" neg_str
+    in
+    let stops_ref : Css.gradient_stop Css.var =
+      Css.var_ref ~fallback:(Raw_fallback neg_str) "tw-gradient-stops"
+    in
+    style ~property_rules:gradient_property_rules
+      [ position_decl; Css.background_image (Linear_gradient_var stops_ref) ]
+
+  (** bg-conic/interp - conic gradient with interpolation only (no @supports) *)
+  let bg_conic_interp' interp_str =
+    match interp_to_css_string interp_str with
+    | Some interp_css ->
+        let position_decl =
+          Css.custom_property ~layer:"utilities" "--tw-gradient-position"
+            interp_css
+        in
+        let stops_ref = Var.reference gradient_stops_var in
+        style ~property_rules:gradient_property_rules
+          [ position_decl; Css.background_image (Conic_gradient_var stops_ref) ]
+    | None -> style []
+
+  (** bg-conic-{angle}/interp - conic with angle and interpolation *)
+  let bg_conic_angle_interp' angle_deg interp_str =
+    match interp_to_css_string interp_str with
+    | Some interp_css ->
+        let position_css =
+          "from " ^ string_of_int angle_deg ^ "deg " ^ interp_css
+        in
+        let position_decl =
+          Css.custom_property ~layer:"utilities" "--tw-gradient-position"
+            position_css
+        in
+        let stops_ref = Var.reference gradient_stops_var in
+        style ~property_rules:gradient_property_rules
+          [ position_decl; Css.background_image (Conic_gradient_var stops_ref) ]
+    | None -> style []
+
+  (** -bg-conic-{angle}/interp *)
+  let bg_conic_angle_neg_interp' angle_deg interp_str =
+    match interp_to_css_string interp_str with
+    | Some interp_css ->
+        let position_css =
+          "from calc(" ^ string_of_int angle_deg ^ "deg * -1) " ^ interp_css
+        in
+        let position_decl =
+          Css.custom_property ~layer:"utilities" "--tw-gradient-position"
+            position_css
+        in
+        let stops_ref = Var.reference gradient_stops_var in
+        style ~property_rules:gradient_property_rules
+          [ position_decl; Css.background_image (Conic_gradient_var stops_ref) ]
+    | None -> style []
+
+  (** bg-radial/interp - radial gradient with interpolation *)
+  let bg_radial_interp' interp_str =
+    match interp_to_css_string interp_str with
+    | Some interp_css ->
+        let position_decl =
+          Css.custom_property ~layer:"utilities" "--tw-gradient-position"
+            interp_css
+        in
+        let stops_ref = Var.reference gradient_stops_var in
+        style ~property_rules:gradient_property_rules
+          [
+            position_decl; Css.background_image (Radial_gradient_var stops_ref);
+          ]
+    | None -> style []
+
+  (** bg-radial-[value] - bracket radial gradient *)
+  let bg_radial_bracket' value_str =
+    let css_val = bracket_value_to_css value_str in
+    let position_decl =
+      Css.custom_property ~layer:"utilities" "--tw-gradient-position" css_val
+    in
+    let stops_ref : Css.gradient_stop Css.var =
+      Css.var_ref ~fallback:(Raw_fallback css_val) "tw-gradient-stops"
+    in
+    style ~property_rules:gradient_property_rules
+      [ position_decl; Css.background_image (Radial_gradient_var stops_ref) ]
+
+  (** Bracket color var with opacity: bg-[color:var(--x)]/50 *)
+  let bg_bracket_color_var_opacity' var_str opacity =
+    let bare = Parse.extract_var_name var_str in
+    let var_ref : Css.color Css.var = Css.var_ref bare in
+    let percent = Color.opacity_to_percent opacity in
+    let fallback_decl = Css.background_color (Var var_ref) in
+    let oklab_color =
+      Css.color_mix ~in_space:Oklab (Var var_ref) Transparent ~percent1:percent
+    in
+    let oklab_decl = Css.background_color oklab_color in
+    let supports_rule =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+    in
+    style ~rules:(Some [ supports_rule ]) [ fallback_decl ]
+
   (* Gradient color with opacity - generates same structure as Tailwind: 1.
      Fallback rule with hex alpha (for scheme colors) 2. @supports block with
      color-mix using theme variable 3. Separate rule with --tw-gradient-stops *)
@@ -804,6 +1111,28 @@ module Handler = struct
         (* TODO: parse linear-gradient content *)
         style [ Css.background_image None ]
     | Bg_linear_to dir -> bg_linear_to' dir
+    | Bg_linear_to_interp (dir, interp) -> bg_linear_to_interp' dir interp
+    | Bg_linear_angle n -> bg_linear_angle' n
+    | Bg_linear_angle_neg n -> bg_linear_angle_neg' n
+    | Bg_linear_angle_interp (n, interp) -> bg_linear_angle_interp' n interp
+    | Bg_linear_angle_neg_interp (n, interp) ->
+        bg_linear_angle_neg_interp' n interp
+    | Bg_linear_bracket v -> bg_linear_bracket' v
+    | Bg_linear_bracket_neg v -> bg_linear_bracket_neg' v
+    | Bg_conic_interp interp -> bg_conic_interp' interp
+    | Bg_conic_angle_interp (n, interp) -> bg_conic_angle_interp' n interp
+    | Bg_conic_angle_neg_interp (n, interp) ->
+        bg_conic_angle_neg_interp' n interp
+    | Bg_radial_interp interp -> bg_radial_interp' interp
+    | Bg_radial_bracket v -> bg_radial_bracket' v
+    | Bg_bracket_color_var_opacity (v, opacity) ->
+        bg_bracket_color_var_opacity' v opacity
+    | Bg_bracket_var_opacity (v, opacity) ->
+        bg_bracket_color_var_opacity' v opacity
+    | Bg_bracket_length inner -> (
+        match parse_bracket_size inner with
+        | Some decl -> style [ decl ]
+        | None -> style [ Css.background_size Auto ])
     | Bg_position_bracket inner -> (
         match parse_bracket_position inner with
         | Some decl -> style [ decl ]
@@ -888,6 +1217,32 @@ module Handler = struct
     | Bg_bracket_linear_gradient _ -> 210013
     (* bg-linear-to *)
     | Bg_linear_to _ -> 100010
+    | Bg_linear_to_interp (_, _) -> 100015
+    | Bg_linear_angle _ -> 100020
+    | Bg_linear_angle_neg _ -> 100025
+    | Bg_linear_angle_interp (_, _) -> 100030
+    | Bg_linear_angle_neg_interp (_, _) -> 100035
+    | Bg_linear_bracket _ -> 100040
+    | Bg_linear_bracket_neg _ -> 100045
+    (* bg-conic *)
+    | Bg_conic_interp _ -> 200000
+    | Bg_conic_angle_interp (_, _) -> 200010
+    | Bg_conic_angle_neg_interp (_, _) -> 200015
+    (* bg-radial *)
+    | Bg_radial_interp _ -> 200020
+    | Bg_radial_bracket _ -> 200030
+    (* Bracket color/var with opacity *)
+    | Bg_bracket_color_var_opacity _ -> 50010
+    | Bg_bracket_var_opacity _ -> 50011
+    | Bg_bracket_length _ -> 300014
+
+  (** Split a string on the first '/' into (base, modifier_opt). E.g. "r/oklab"
+      → ("r", Some "oklab"), "45" → ("45", None) *)
+  let split_mod s =
+    match String.index_opt s '/' with
+    | Some i ->
+        (String.sub s 0 i, Some (String.sub s (i + 1) (String.length s - i - 1)))
+    | None -> (s, None)
 
   let of_class class_name =
     let parts = Parse.split_class class_name in
@@ -940,61 +1295,166 @@ module Handler = struct
     | [ "bg"; "top" ] -> Ok (Bg_position Pos_top)
     | [ "bg"; "top"; "left" ] -> Ok (Bg_position Pos_top_left)
     | [ "bg"; "top"; "right" ] -> Ok (Bg_position Pos_top_right)
-    (* bg-linear-to-* direction utilities *)
-    | [ "bg"; "linear"; "to"; "b" ] -> Ok (Bg_linear_to Bottom)
-    | [ "bg"; "linear"; "to"; "br" ] -> Ok (Bg_linear_to Bottom_right)
-    | [ "bg"; "linear"; "to"; "r" ] -> Ok (Bg_linear_to Right)
-    | [ "bg"; "linear"; "to"; "tr" ] -> Ok (Bg_linear_to Top_right)
-    | [ "bg"; "linear"; "to"; "t" ] -> Ok (Bg_linear_to Top)
-    | [ "bg"; "linear"; "to"; "tl" ] -> Ok (Bg_linear_to Top_left)
-    | [ "bg"; "linear"; "to"; "l" ] -> Ok (Bg_linear_to Left)
-    | [ "bg"; "linear"; "to"; "bl" ] -> Ok (Bg_linear_to Bottom_left)
+    (* bg-linear-to-* direction utilities (with optional /interp modifier) *)
+    | [ "bg"; "linear"; "to"; dir_mod ] -> (
+        let dir_s, interp_opt = split_mod dir_mod in
+        match (parse_direction dir_s, interp_opt) with
+        | Some dir, None -> Ok (Bg_linear_to dir)
+        | Some dir, Some interp -> Ok (Bg_linear_to_interp (dir, interp))
+        | None, _ -> Error (`Msg ("Unknown direction: " ^ dir_s)))
+    (* bg-linear-[value] - bracket linear gradient *)
+    | [ "bg"; "linear"; bracket ] when Parse.is_bracket_value bracket ->
+        let inner = Parse.bracket_inner bracket in
+        Ok (Bg_linear_bracket inner)
+    (* bg-linear-{angle} and bg-linear-{angle}/interp *)
+    | [ "bg"; "linear"; angle_mod ] -> (
+        let angle_s, interp_opt = split_mod angle_mod in
+        match (int_of_string_opt angle_s, interp_opt) with
+        | Some n, None -> Ok (Bg_linear_angle n)
+        | Some n, Some interp -> Ok (Bg_linear_angle_interp (n, interp))
+        | None, _ -> Error (`Msg ("Invalid bg-linear angle: " ^ angle_mod)))
+    (* -bg-linear-[value] - negated bracket linear gradient *)
+    | [ ""; "bg"; "linear"; bracket ] when Parse.is_bracket_value bracket ->
+        let inner = Parse.bracket_inner bracket in
+        Ok (Bg_linear_bracket_neg inner)
+    (* -bg-linear-{angle} and -bg-linear-{angle}/interp *)
+    | [ ""; "bg"; "linear"; angle_mod ] -> (
+        let angle_s, interp_opt = split_mod angle_mod in
+        match (int_of_string_opt angle_s, interp_opt) with
+        | Some n, None -> Ok (Bg_linear_angle_neg n)
+        | Some n, Some interp -> Ok (Bg_linear_angle_neg_interp (n, interp))
+        | None, _ -> Error (`Msg ("Invalid -bg-linear angle: " ^ angle_mod)))
+    (* bg-conic/interp - conic gradient with modifier only *)
+    | [ "bg"; conic_mod ]
+      when String.length conic_mod > 6 && String.sub conic_mod 0 6 = "conic/" ->
+        let interp = String.sub conic_mod 6 (String.length conic_mod - 6) in
+        Ok (Bg_conic_interp interp)
+    (* bg-conic-{angle}/interp - conic with angle *)
+    | [ "bg"; "conic"; angle_mod ] -> (
+        let angle_s, interp_opt = split_mod angle_mod in
+        match (int_of_string_opt angle_s, interp_opt) with
+        | Some n, Some interp -> Ok (Bg_conic_angle_interp (n, interp))
+        | _ -> Error (`Msg ("Invalid bg-conic angle: " ^ angle_mod)))
+    (* -bg-conic-{angle}/interp *)
+    | [ ""; "bg"; "conic"; angle_mod ] -> (
+        let angle_s, interp_opt = split_mod angle_mod in
+        match (int_of_string_opt angle_s, interp_opt) with
+        | Some n, Some interp -> Ok (Bg_conic_angle_neg_interp (n, interp))
+        | _ -> Error (`Msg ("Invalid -bg-conic angle: " ^ angle_mod)))
+    (* bg-radial/interp - radial gradient with modifier only *)
+    | [ "bg"; radial_mod ]
+      when String.length radial_mod > 7 && String.sub radial_mod 0 7 = "radial/"
+      ->
+        let interp = String.sub radial_mod 7 (String.length radial_mod - 7) in
+        Ok (Bg_radial_interp interp)
+    (* bg-radial-[value] - bracket radial gradient *)
+    | [ "bg"; "radial"; bracket ] when Parse.is_bracket_value bracket ->
+        let inner = Parse.bracket_inner bracket in
+        Ok (Bg_radial_bracket inner)
     (* bg-position-[...] bracket notation *)
     | [ "bg"; "position"; bracket ] when Parse.is_bracket_value bracket ->
         Ok (Bg_position_bracket (Parse.bracket_inner bracket))
     (* bg-size-[...] bracket notation *)
     | [ "bg"; "size"; bracket ] when Parse.is_bracket_value bracket ->
         Ok (Bg_size_bracket (Parse.bracket_inner bracket))
-    (* Bracket notation: bg-[...] *)
-    | [ "bg"; bracket ] when Parse.is_bracket_value bracket -> (
-        let inner = Parse.bracket_inner bracket in
-        match inner with
-        | "contain" -> Ok Bg_bracket_contain
-        | "cover" -> Ok Bg_bracket_cover
-        | _ when String.length inner > 9 && String.sub inner 0 7 = "length:" ->
-            Ok (Bg_bracket_size (String.sub inner 7 (String.length inner - 7)))
-        | _ when String.length inner > 5 && String.sub inner 0 5 = "size:" ->
-            Ok (Bg_bracket_size (String.sub inner 5 (String.length inner - 5)))
-        | _ when String.length inner > 9 && String.sub inner 0 9 = "position:"
-          ->
-            Ok
-              (Bg_bracket_typed_position
-                 (String.sub inner 9 (String.length inner - 9)))
-        | _ when String.length inner > 6 && String.sub inner 0 6 = "color:" ->
-            Ok
-              (Bg_bracket_color_var
-                 (String.sub inner 6 (String.length inner - 6)))
-        | _ when String.length inner > 6 && String.sub inner 0 6 = "image:" ->
-            Ok
-              (Bg_bracket_image_var
-                 (String.sub inner 6 (String.length inner - 6)))
-        | _ when String.length inner > 4 && String.sub inner 0 4 = "url:" ->
-            Ok
-              (Bg_bracket_url_var (String.sub inner 4 (String.length inner - 4)))
-        | _ when String.length inner > 4 && String.sub inner 0 4 = "url(" ->
-            (* Extract URL from url(...) *)
-            let url_content = String.sub inner 4 (String.length inner - 5) in
-            Ok (Bg_bracket_url url_content)
-        | _
-          when String.length inner > 16
-               && String.sub inner 0 16 = "linear-gradient(" ->
-            Ok (Bg_bracket_linear_gradient inner)
-        | _ when Parse.is_var inner -> Ok (Bg_bracket_var inner)
-        | _ ->
-            (* Try to parse as position value (e.g., 50%, 120px, 120px_120px) *)
-            if parse_bracket_position inner <> None then
-              Ok (Bg_bracket_position inner)
-            else Error (`Msg ("Unknown bg bracket value: " ^ inner)))
+    (* Bracket notation: bg-[...] and bg-[...]/opacity *)
+    | [ "bg"; bracket_stuff ]
+      when String.length bracket_stuff > 1 && bracket_stuff.[0] = '[' -> (
+        (* Find the matching ] for the first [ *)
+        let len = String.length bracket_stuff in
+        let close = ref (-1) in
+        let depth = ref 0 in
+        for i = 0 to len - 1 do
+          if !close < 0 then
+            if bracket_stuff.[i] = '[' then incr depth
+            else if bracket_stuff.[i] = ']' then (
+              decr depth;
+              if !depth = 0 then close := i)
+        done;
+        let parse_opacity s =
+          if String.length s > 1 && s.[0] = '[' && s.[String.length s - 1] = ']'
+          then
+            let inner_o = String.sub s 1 (String.length s - 2) in
+            if String.ends_with ~suffix:"%" inner_o then
+              let num_s = String.sub inner_o 0 (String.length inner_o - 1) in
+              match float_of_string_opt num_s with
+              | Some f -> Some (Color.Opacity_bracket_percent f)
+              | None ->
+                  if Parse.is_var inner_o then
+                    Some (Color.Opacity_named inner_o)
+                  else None
+            else
+              match float_of_string_opt inner_o with
+              | Some f -> Some (Color.Opacity_arbitrary f)
+              | None ->
+                  if Parse.is_var inner_o then
+                    Some (Color.Opacity_named inner_o)
+                  else None
+          else
+            match float_of_string_opt s with
+            | Some f -> Some (Color.Opacity_percent f)
+            | None -> None
+        in
+        if !close >= 0 && !close + 1 < len && bracket_stuff.[!close + 1] = '/'
+        then
+          (* Bracket with opacity: [color:var(--x)]/50 *)
+          let bracket = String.sub bracket_stuff 0 (!close + 1) in
+          let opacity_str =
+            String.sub bracket_stuff (!close + 2) (len - !close - 2)
+          in
+          let inner = Parse.bracket_inner bracket in
+          match parse_opacity opacity_str with
+          | Some opacity ->
+              if String.length inner > 6 && String.sub inner 0 6 = "color:" then
+                let var_str = String.sub inner 6 (String.length inner - 6) in
+                Ok (Bg_bracket_color_var_opacity (var_str, opacity))
+              else if Parse.is_var inner then
+                Ok (Bg_bracket_var_opacity (inner, opacity))
+              else Error (`Msg ("Unknown bg bracket value: " ^ bracket_stuff))
+          | None -> Error (`Msg ("Invalid opacity: " ^ bracket_stuff))
+        else
+          (* Regular bracket notation: bg-[...] *)
+          let inner = Parse.bracket_inner bracket_stuff in
+          match inner with
+          | "contain" -> Ok Bg_bracket_contain
+          | "cover" -> Ok Bg_bracket_cover
+          | _ when String.length inner > 7 && String.sub inner 0 7 = "length:"
+            ->
+              Ok
+                (Bg_bracket_length
+                   (String.sub inner 7 (String.length inner - 7)))
+          | _ when String.length inner > 5 && String.sub inner 0 5 = "size:" ->
+              Ok
+                (Bg_bracket_size (String.sub inner 5 (String.length inner - 5)))
+          | _ when String.length inner > 9 && String.sub inner 0 9 = "position:"
+            ->
+              Ok
+                (Bg_bracket_typed_position
+                   (String.sub inner 9 (String.length inner - 9)))
+          | _ when String.length inner > 6 && String.sub inner 0 6 = "color:" ->
+              Ok
+                (Bg_bracket_color_var
+                   (String.sub inner 6 (String.length inner - 6)))
+          | _ when String.length inner > 6 && String.sub inner 0 6 = "image:" ->
+              Ok
+                (Bg_bracket_image_var
+                   (String.sub inner 6 (String.length inner - 6)))
+          | _ when String.length inner > 4 && String.sub inner 0 4 = "url:" ->
+              Ok
+                (Bg_bracket_url_var
+                   (String.sub inner 4 (String.length inner - 4)))
+          | _ when String.length inner > 4 && String.sub inner 0 4 = "url(" ->
+              let url_content = String.sub inner 4 (String.length inner - 5) in
+              Ok (Bg_bracket_url url_content)
+          | _
+            when String.length inner > 16
+                 && String.sub inner 0 16 = "linear-gradient(" ->
+              Ok (Bg_bracket_linear_gradient inner)
+          | _ when Parse.is_var inner -> Ok (Bg_bracket_var inner)
+          | _ ->
+              if parse_bracket_position inner <> None then
+                Ok (Bg_bracket_position inner)
+              else Error (`Msg ("Unknown bg bracket value: " ^ inner)))
     | "bg" :: rest -> (
         match Color.shade_of_strings rest with
         | Ok (color, shade) -> Ok (Bg (color, shade))

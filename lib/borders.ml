@@ -1336,16 +1336,17 @@ module Handler = struct
       ~initial:(Solid : Css.outline_style)
       ~property_order:0 ~family:`Border "tw-outline-style"
 
-  (* Base outline utility - sets outline-style from var and width to 1px *)
-  let outline =
+  (* Base outline utility - sets outline-style from var and width from scheme *)
+  let outline () =
     let oref = Var.reference outline_style_var in
     let property_rule =
       match Var.property_rule outline_style_var with
       | Some rule -> rule
       | None -> Css.empty
     in
+    let width = float_of_int !current_scheme.default_outline_width in
     style ~property_rules:property_rule
-      [ Css.outline_style (Css.Var oref); Css.outline_width (Px 1.) ]
+      [ Css.outline_style (Css.Var oref); Css.outline_width (Px width) ]
 
   (* Outline-0: style from var + width: 0 *)
   let outline_0 =
@@ -1709,7 +1710,7 @@ module Handler = struct
     (* Arbitrary bracket value rounded *)
     | Rounded_arbitrary (pos, value) -> rounded_arbitrary_style pos value
     (* Outline utilities *)
-    | Outline -> outline
+    | Outline -> outline ()
     | Outline_0 -> outline_0
     | Outline_width_bracket v -> outline_width_bracket_style v
     | Outline_width_var v -> outline_width_var_style v
@@ -1853,18 +1854,18 @@ module Handler = struct
     | Outline_width_var _ -> 2002
     (* Outline styles come after colors (which are in Color handler at
        priority 23 > borders priority 19, so they naturally sort after) *)
-    (* Outline offset *)
-    | Outline_offset_0 -> 2200
-    | Outline_offset_1 -> 2201
-    | Outline_offset_2 -> 2202
-    | Outline_offset_4 -> 2203
-    | Outline_offset_8 -> 2204
-    | Outline_offset_var _ -> 2205
-    | Neg_outline_offset_1 -> 2210
-    | Neg_outline_offset_2 -> 2211
-    | Neg_outline_offset_4 -> 2212
-    | Neg_outline_offset_8 -> 2213
-    | Neg_outline_offset_var _ -> 2214
+    (* Outline offset — negatives before positives *)
+    | Neg_outline_offset_1 -> 2200
+    | Neg_outline_offset_2 -> 2201
+    | Neg_outline_offset_4 -> 2202
+    | Neg_outline_offset_8 -> 2203
+    | Neg_outline_offset_var _ -> 2204
+    | Outline_offset_0 -> 2210
+    | Outline_offset_1 -> 2211
+    | Outline_offset_2 -> 2212
+    | Outline_offset_4 -> 2213
+    | Outline_offset_8 -> 2214
+    | Outline_offset_var _ -> 2215
 
   let of_class class_name =
     let parts = Parse.split_class class_name in
@@ -2105,8 +2106,7 @@ module Handler = struct
     | [ "outline"; "hidden" ] -> Ok Outline_hidden
     | [ "outline"; "offset"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
-        if String.length inner > 4 && String.sub inner 0 4 = "var(" then
-          Ok (Outline_offset_var inner)
+        if Parse.is_var inner then Ok (Outline_offset_var inner)
         else err_not_utility
     | [ "outline"; "offset"; "0" ] -> Ok Outline_offset_0
     | [ "outline"; "offset"; "1" ] -> Ok Outline_offset_1
@@ -2118,8 +2118,7 @@ module Handler = struct
         let value = String.concat "-" rest in
         if Parse.is_bracket_value value then
           let inner = Parse.bracket_inner value in
-          if String.length inner > 4 && String.sub inner 0 4 = "var(" then
-            Ok (Neg_outline_offset_var inner)
+          if Parse.is_var inner then Ok (Neg_outline_offset_var inner)
           else err_not_utility
         else
           match value with

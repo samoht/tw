@@ -85,6 +85,7 @@ let setup_test_scheme () =
       radius = [];
       default_ring_width = 1;
       default_border_width = 1;
+      default_outline_width = 1;
     }
   in
   Tw.Color.Handler.set_scheme scheme;

@@ -31,6 +31,7 @@ module Handler = struct
     | Opacity of int
     | Opacity_decimal of float (* For values like opacity-2.5 *)
     | Opacity_arbitrary of float
+    | Opacity_var of string (* opacity-[var(--value)] *)
     (* Rings *)
     | Ring_none
     | Ring_xs
@@ -1014,6 +1015,10 @@ module Handler = struct
         let value = f /. 100.0 in
         style [ Css.opacity (Css.Opacity_number value) ]
     | Opacity_arbitrary f -> style [ Css.opacity (Css.Opacity_number f) ]
+    | Opacity_var v ->
+        let bare_name = Parse.extract_var_name v in
+        let var_ref : Css.opacity Css.var = Css.var_ref bare_name in
+        style [ Css.opacity (Css.Var var_ref) ]
     | Ring_none -> ring_none
     | Ring_xs -> ring_xs
     | Ring_sm -> ring_sm
@@ -1101,13 +1106,14 @@ module Handler = struct
           Ok (Inset_shadow_arbitrary inner)
         else err_not_utility
     | [ "opacity"; n ] when String.length n > 0 && n.[0] = '[' ->
-        (* arbitrary value like opacity-[0.75] *)
         let len = String.length n in
         if len > 2 && n.[len - 1] = ']' then
           let inner = String.sub n 1 (len - 2) in
-          match float_of_string_opt inner with
-          | Some f -> Ok (Opacity_arbitrary f)
-          | None -> err_not_utility
+          if Parse.is_var inner then Ok (Opacity_var inner)
+          else
+            match float_of_string_opt inner with
+            | Some f -> Ok (Opacity_arbitrary f)
+            | None -> err_not_utility
         else err_not_utility
     | [ "opacity"; n ] -> (
         match Parse.spacing_value ~name:"opacity" n with
@@ -1210,6 +1216,7 @@ module Handler = struct
     | Opacity n -> "opacity-" ^ string_of_int n
     | Opacity_decimal f -> Printf.sprintf "opacity-%g" f
     | Opacity_arbitrary f -> Printf.sprintf "opacity-[%g]" f
+    | Opacity_var v -> "opacity-[" ^ v ^ "]"
     | Ring_none -> "ring-0"
     | Ring_xs -> "ring-1"
     | Ring_sm -> "ring-2"
@@ -1269,9 +1276,10 @@ module Handler = struct
     | Bg_blend_luminosity -> "bg-blend-luminosity"
 
   let suborder = function
-    | Opacity n -> n
-    | Opacity_decimal f -> int_of_float (f *. 10.0) (* for values like 2.5 *)
-    | Opacity_arbitrary _ -> 200 (* arbitrary values come after named values *)
+    | Opacity n -> n * 100
+    | Opacity_decimal f -> int_of_float (f *. 100.0)
+    | Opacity_arbitrary _ -> 20000
+    | Opacity_var _ -> 20001
     (* Shadow utilities - alphabetical order *)
     | Shadow -> 1000
     | Shadow_2xl -> 1001

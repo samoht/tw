@@ -48,6 +48,10 @@ val bracket_inner : string -> string
 (** [bracket_inner s] extracts the inner content from ["[foo]"], returning
     ["foo"]. If [s] is not bracket-wrapped, returns [s] unchanged. *)
 
+val is_var : string -> bool
+(** [is_var s] returns [true] if [s] starts with ["var("]. Works on inner
+    bracket content (without surrounding brackets). *)
+
 val is_bracket_var : string -> bool
 (** [is_bracket_var s] returns [true] if [s] is a bracket-wrapped var()
     reference like ["[var(--value)]"]. *)

@@ -275,8 +275,7 @@ module Handler = struct
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
       (* Check if it's a var reference *)
-      if String.length inner > 4 && String.sub inner 0 4 = "var(" then
-        Some (ArbitraryVar inner)
+      if Parse.is_var inner then Some (ArbitraryVar inner)
       else if String.ends_with ~suffix:"px" inner then
         let n = String.sub inner 0 (String.length inner - 2) in
         match float_of_string_opt n with
