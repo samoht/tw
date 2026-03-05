@@ -1517,97 +1517,58 @@ let is_focus_modifier_rule sel_kind selector =
   Css.Selector.contains_modifier_colon selector
   && match sel_kind with Complex { has_focus = true; _ } -> true | _ -> false
 
+(** Compare by (priority, suborder), defaulting to [regular_first] (-1). *)
+let compare_by_order_regular_first (p1, s1) (p2, s2) =
+  let prio_cmp = Int.compare p1 p2 in
+  if prio_cmp <> 0 then prio_cmp
+  else
+    let sub_cmp = Int.compare s1 s2 in
+    if sub_cmp <> 0 then sub_cmp else -1
+
 (** Compare Regular vs Media rules from different utilities. Uses selector
     classification to determine ordering. *)
 let compare_different_utility_regular_media sel1 sel2 order1 order2 media_type =
   let kind1 = classify_selector sel1 in
-  (* Check if regular rule is a focus: modifier rule *)
-  let is_focus = is_focus_modifier_rule kind1 sel1 in
-  (* Check if this is truly modifier-prefixed media (like dark:hover:,
-     motion-safe:hover:) vs plain media with modifiers in the class name (like
-     hover:bg in @media (hover:hover)) *)
-  let is_modifier_prefixed_media =
-    Css.Selector.contains_modifier_colon sel2
-    &&
-    match media_type with
-    | Some
-        ( Css.Media.Prefers_color_scheme _ | Css.Media.Prefers_reduced_motion _
-        | Css.Media.Prefers_contrast _ ) ->
-        true
-    | _ -> false
-  in
-  (* Check focus modifier rules FIRST - they should come after ALL media
-     queries *)
-  if is_focus then
-    (* ALL focus: utilities come AFTER all media queries (hover, responsive,
-       preference) *)
-    1
-  else if is_modifier_prefixed_media then
-    (* Modifier-prefixed media (like motion-safe:, dark:, contrast-more:) *)
-    if is_late_modifier kind1 sel1 then
-      (* Late modifiers (group-has, peer-has, focus-within, etc.) come after *)
-      1
-    else
-      (* Other regular rules come before modifier-prefixed media *)
-      -1
+  (* Focus modifier rules come after ALL media queries *)
+  if is_focus_modifier_rule kind1 sel1 then 1
   else
-    (* Plain/built-in media (e.g., container breakpoints, hover:hover without
-       modifier prefix). Check if this is truly built-in media (no modifier
-       colon in selector) vs modifier-based responsive media (like md:). *)
-    let has_modifier_colon = Css.Selector.contains_modifier_colon sel2 in
-    let p1, s1 = order1 in
-    let p2, s2 = order2 in
-
-    if not has_modifier_colon then
-      (* Built-in media (e.g., container breakpoints) - respect priority *)
-      let prio_cmp = Int.compare p1 p2 in
-      if prio_cmp <> 0 then prio_cmp
-      else
-        (* Same priority - Regular before its media variants *)
-        match media_type with
-        | Some
-            (Css.Media.Min_width _ | Css.Media.Min_width_rem _ | Css.Media.Hover)
-          ->
-            -1
-        | _ ->
-            let sub_cmp = Int.compare s1 s2 in
-            if sub_cmp <> 0 then sub_cmp else -1
-    else if
-      (* Modifier-based responsive/hover media (md:, lg:, hover:, group-hover:) *)
-      (* Check focus FIRST before media type to ensure all focus utilities group together *)
-      is_focus
-    then
-      (* ALL focus: utilities come AFTER hover:hover and responsive media,
-         regardless of their underlying utility's priority *)
+    (* Check if this is truly modifier-prefixed media (like dark:hover:,
+       motion-safe:hover:) vs plain media with modifiers in the class name *)
+    let is_modifier_prefixed_media =
+      Css.Selector.contains_modifier_colon sel2
+      &&
       match media_type with
       | Some
-          (Css.Media.Hover | Css.Media.Min_width _ | Css.Media.Min_width_rem _)
+          ( Css.Media.Prefers_color_scheme _
+          | Css.Media.Prefers_reduced_motion _ | Css.Media.Prefers_contrast _ )
         ->
-          1
-      | _ ->
-          (* For other media types, compare by priority *)
-          let prio_cmp = Int.compare p1 p2 in
-          if prio_cmp <> 0 then prio_cmp
-          else
-            let sub_cmp = Int.compare s1 s2 in
-            if sub_cmp <> 0 then sub_cmp else -1
+          true
+      | _ -> false
+    in
+    if is_modifier_prefixed_media then
+      if is_late_modifier kind1 sel1 then 1 else -1
     else
-      match media_type with
-      | Some Css.Media.Hover ->
-          (* For modifier-based hover media (hover:, group-hover:), Regular
-             utilities always come first, regardless of priority. *)
-          -1
-      | Some (Css.Media.Min_width _ | Css.Media.Min_width_rem _) ->
-          (* For responsive media (md:, lg:), Regular always comes before Media
-             when comparing different utilities *)
-          -1
-      | _ ->
-          (* For other media types, compare by priority *)
-          let prio_cmp = Int.compare p1 p2 in
-          if prio_cmp <> 0 then prio_cmp
-          else
-            let sub_cmp = Int.compare s1 s2 in
-            if sub_cmp <> 0 then sub_cmp else -1
+      (* Plain/built-in media or modifier-based responsive/hover media *)
+      let has_modifier_colon = Css.Selector.contains_modifier_colon sel2 in
+      if not has_modifier_colon then
+        (* Built-in media (e.g., container breakpoints) - respect priority *)
+        let prio_cmp = Int.compare (fst order1) (fst order2) in
+        if prio_cmp <> 0 then prio_cmp
+        else
+          match media_type with
+          | Some
+              ( Css.Media.Min_width _ | Css.Media.Min_width_rem _
+              | Css.Media.Hover ) ->
+              -1
+          | _ -> compare_by_order_regular_first order1 order2
+      else
+        (* Modifier-based responsive/hover media (md:, lg:, hover:) *)
+        match media_type with
+        | Some
+            (Css.Media.Hover | Css.Media.Min_width _ | Css.Media.Min_width_rem _)
+          ->
+            -1
+        | _ -> compare_by_order_regular_first order1 order2
 
 (** Compare Regular vs Media rules using rule relationship dispatch. *)
 let compare_regular_vs_media r1 r2 =

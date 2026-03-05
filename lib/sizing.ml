@@ -1000,6 +1000,14 @@ module Handler = struct
           | Some n when n >= 0. -> Ok (Max_block_spacing (n *. 0.25))
           | _ -> err_invalid_value "max-block-size" v)
     in
+    let parse_aspect_ratio s mk =
+      match String.split_on_char '/' s with
+      | [ w; h ] -> (
+          match (int_of_string_opt w, int_of_string_opt h) with
+          | Some w, Some h when w > 0 && h > 0 -> Ok (mk w h)
+          | _ -> err_not_utility)
+      | _ -> err_not_utility
+    in
     match parts with
     | [ "w"; value ] -> parse_w value
     | [ "h"; value ] -> parse_h value
@@ -1018,23 +1026,11 @@ module Handler = struct
     | [ "aspect"; "auto" ] -> Ok Aspect_auto
     | [ "aspect"; "square" ] -> Ok Aspect_square
     | [ "aspect"; "video" ] -> Ok Aspect_video
-    | [ "aspect"; value ] when Parse.is_bracket_value value -> (
-        (* aspect-[10/9] *)
-        let inner = Parse.bracket_inner value in
-        match String.split_on_char '/' inner with
-        | [ w; h ] -> (
-            match (int_of_string_opt w, int_of_string_opt h) with
-            | Some w, Some h when w > 0 && h > 0 -> Ok (Aspect_bracket (w, h))
-            | _ -> err_not_utility)
-        | _ -> err_not_utility)
-    | [ "aspect"; value ] -> (
-        (* aspect-4/3 *)
-        match String.split_on_char '/' value with
-        | [ w; h ] -> (
-            match (int_of_string_opt w, int_of_string_opt h) with
-            | Some w, Some h when w > 0 && h > 0 -> Ok (Aspect_ratio (w, h))
-            | _ -> err_not_utility)
-        | _ -> err_not_utility)
+    | [ "aspect"; value ] when Parse.is_bracket_value value ->
+        parse_aspect_ratio (Parse.bracket_inner value) (fun w h ->
+            Aspect_bracket (w, h))
+    | [ "aspect"; value ] ->
+        parse_aspect_ratio value (fun w h -> Aspect_ratio (w, h))
     | _ -> err_not_utility
 
   (* Tailwind spacing order helper: matches canonical spacing scale order. n is
