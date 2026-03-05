@@ -206,6 +206,11 @@ val hex_with_alpha : string -> float -> string
 (** [hex_with_alpha hex_str opacity_percent] adds alpha to a hex color string.
     Returns #RRGGBBAA format. The opacity is a percentage (0-100). *)
 
+val hex_to_oklab_alpha : string -> float -> Css.color
+(** [hex_to_oklab_alpha hex alpha] converts a hex color to an oklab CSS color
+    with the given alpha (0.0-1.0). Used for bracket hex colors with opacity
+    where the color is known at compile time. *)
+
 val current_scheme : unit -> Scheme.t
 (** [current_scheme ()] returns the current color scheme. *)
 

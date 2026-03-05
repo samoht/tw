@@ -1283,81 +1283,81 @@ module Handler = struct
     | Opacity_decimal f -> int_of_float (f *. 100.0)
     | Opacity_arbitrary _ -> 20000
     | Opacity_var _ -> 20001
-    (* Shadow utilities - alphabetical order *)
-    | Shadow -> 1000
-    | Shadow_2xl -> 1001
-    | Shadow_inner -> 1002
-    | Shadow_lg -> 1003
-    | Shadow_md -> 1004
-    | Shadow_none -> 1005
-    | Shadow_sm -> 1006
-    | Shadow_xl -> 1007
-    | Shadow_arbitrary _ -> 1008 (* arbitrary values come after named values *)
-    (* Inset shadow utilities - alphabetical order *)
-    | Inset_shadow -> 1100
-    | Inset_shadow_2xl -> 1101
-    | Inset_shadow_lg -> 1102
-    | Inset_shadow_md -> 1103
-    | Inset_shadow_none -> 1104
-    | Inset_shadow_sm -> 1105
-    | Inset_shadow_xl -> 1106
-    | Inset_shadow_arbitrary _ -> 1107 (* arbitrary values come after named *)
-    (* Mix blend modes - alphabetical order *)
-    | Mix_blend_color -> 2000
-    | Mix_blend_color_burn -> 2001
-    | Mix_blend_color_dodge -> 2002
-    | Mix_blend_darken -> 2003
-    | Mix_blend_difference -> 2004
-    | Mix_blend_exclusion -> 2005
-    | Mix_blend_hard_light -> 2006
-    | Mix_blend_hue -> 2007
-    | Mix_blend_lighten -> 2008
-    | Mix_blend_luminosity -> 2009
-    | Mix_blend_multiply -> 2010
-    | Mix_blend_normal -> 2011
-    | Mix_blend_overlay -> 2012
-    | Mix_blend_plus_darker -> 2013
-    | Mix_blend_plus_lighter -> 2014
-    | Mix_blend_saturation -> 2015
-    | Mix_blend_screen -> 2016
-    | Mix_blend_soft_light -> 2017
-    (* Background blend modes - alphabetical order *)
-    | Bg_blend_color -> 3000
-    | Bg_blend_color_burn -> 3001
-    | Bg_blend_color_dodge -> 3002
-    | Bg_blend_darken -> 3003
-    | Bg_blend_difference -> 3004
-    | Bg_blend_exclusion -> 3005
-    | Bg_blend_hard_light -> 3006
-    | Bg_blend_hue -> 3007
-    | Bg_blend_lighten -> 3008
-    | Bg_blend_luminosity -> 3009
-    | Bg_blend_multiply -> 3010
-    | Bg_blend_normal -> 3011
-    | Bg_blend_overlay -> 3012
-    | Bg_blend_saturation -> 3013
-    | Bg_blend_screen -> 3014
-    | Bg_blend_soft_light -> 3015
-    (* Ring utilities ordered to match Tailwind: 1. ring widths, 2. ring-color,
-       3. inset-ring-color, 4. ring-offset-width, 5. ring-offset-color, 6.
-       ring-inset *)
-    | Ring_md -> 10000 (* ring - comes first *)
-    | Ring_none -> 10001 (* ring-0 *)
-    | Ring_xs -> 10002 (* ring-1 *)
-    | Ring_sm -> 10003 (* ring-2 *)
-    | Ring_lg -> 10004 (* ring-4 *)
-    | Ring_xl -> 10005 (* ring-8 *)
+    (* Shadow utilities come after all opacity values *)
+    | Shadow -> 30000
+    | Shadow_2xl -> 30001
+    | Shadow_inner -> 30002
+    | Shadow_lg -> 30003
+    | Shadow_md -> 30004
+    | Shadow_none -> 30005
+    | Shadow_sm -> 30006
+    | Shadow_xl -> 30007
+    | Shadow_arbitrary _ -> 30008
+    (* Inset shadow utilities *)
+    | Inset_shadow -> 31000
+    | Inset_shadow_2xl -> 31001
+    | Inset_shadow_lg -> 31002
+    | Inset_shadow_md -> 31003
+    | Inset_shadow_none -> 31004
+    | Inset_shadow_sm -> 31005
+    | Inset_shadow_xl -> 31006
+    | Inset_shadow_arbitrary _ -> 31007
+    (* Background blend modes come after opacity, before mix-blend *)
+    | Bg_blend_color -> 22000
+    | Bg_blend_color_burn -> 22001
+    | Bg_blend_color_dodge -> 22002
+    | Bg_blend_darken -> 22003
+    | Bg_blend_difference -> 22004
+    | Bg_blend_exclusion -> 22005
+    | Bg_blend_hard_light -> 22006
+    | Bg_blend_hue -> 22007
+    | Bg_blend_lighten -> 22008
+    | Bg_blend_luminosity -> 22009
+    | Bg_blend_multiply -> 22010
+    | Bg_blend_normal -> 22011
+    | Bg_blend_overlay -> 22012
+    | Bg_blend_saturation -> 22013
+    | Bg_blend_screen -> 22014
+    | Bg_blend_soft_light -> 22015
+    (* Mix blend modes come after bg-blend, before shadows *)
+    | Mix_blend_color -> 24000
+    | Mix_blend_color_burn -> 24001
+    | Mix_blend_color_dodge -> 24002
+    | Mix_blend_darken -> 24003
+    | Mix_blend_difference -> 24004
+    | Mix_blend_exclusion -> 24005
+    | Mix_blend_hard_light -> 24006
+    | Mix_blend_hue -> 24007
+    | Mix_blend_lighten -> 24008
+    | Mix_blend_luminosity -> 24009
+    | Mix_blend_multiply -> 24010
+    | Mix_blend_normal -> 24011
+    | Mix_blend_overlay -> 24012
+    | Mix_blend_plus_darker -> 24013
+    | Mix_blend_plus_lighter -> 24014
+    | Mix_blend_saturation -> 24015
+    | Mix_blend_screen -> 24016
+    | Mix_blend_soft_light -> 24017
+    (* Ring utilities come after shadows. Ordered to match Tailwind: 1. ring
+       widths, 2. ring-color, 3. inset-ring-color, 4. ring-offset-width, 5.
+       ring-offset-color, 6. ring-inset *)
+    | Ring_md -> 40000
+    | Ring_none -> 40001
+    | Ring_xs -> 40002
+    | Ring_sm -> 40003
+    | Ring_lg -> 40004
+    | Ring_xl -> 40005
     | Ring_color (color, shade) ->
-        20000
+        50000
         + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
     | Ring_color_opacity (color, shade, _) ->
-        20000
+        50000
         + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
     | Inset_ring_color (color, shade) ->
-        50000
+        60000
         + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
     | Inset_ring_color_opacity (color, shade, _) ->
-        50000
+        60000
         + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
     | Ring_offset_width n -> 80000 + n
     | Ring_offset_color (color, shade) ->

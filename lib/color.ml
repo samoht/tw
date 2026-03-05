@@ -230,6 +230,14 @@ let hex_to_oklch_css hex =
   | Some rgb -> oklch_to_css (rgb_to_oklch rgb)
   | None -> hex (* Fallback to original hex if parsing fails *)
 
+let hex_to_oklab_alpha hex alpha : Css.color =
+  match hex_to_rgb hex with
+  | Some rgb ->
+      let l, a, b = rgb_to_oklab rgb in
+      (* rgb_to_oklab returns l in 0-100 range already *)
+      Css.oklaba l a b alpha
+  | None -> Css.hex hex
+
 module Tailwind = struct
   let gray =
     [

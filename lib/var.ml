@@ -349,6 +349,10 @@ let property : type a.
         property ~name Length_percentage
           ~initial_value:(Pct (match v with Pct f -> f | _ -> 0.0))
           ~inherits ()
+    (* Length_percentage - use length-percentage syntax *)
+    | Length_percentage, None -> property ~name Length_percentage ~inherits ()
+    | Length_percentage, Some v ->
+        property ~name Length_percentage ~initial_value:v ~inherits ()
     (* Number_percentage - use universal syntax *)
     | Number_percentage, None -> property ~name Universal ~inherits ()
     | Number_percentage, Some v ->
