@@ -1628,7 +1628,7 @@ let compare_base_class_option bc1 bc2 =
   | None, Some _ -> 1
   | None, None -> 0
 
-let compare_by_priority_suborder_baseclass_index r1 r2 =
+let compare_by_priority_index r1 r2 =
   let p1, s1 = r1.order and p2, s2 = r2.order in
   let prio_cmp = Int.compare p1 p2 in
   if prio_cmp <> 0 then prio_cmp
@@ -1691,15 +1691,14 @@ let natural_compare s1 s2 =
 
 let compare_late_modifiers r1 r2 kind1 kind2 =
   let k1 = complex_selector_order kind1 and k2 = complex_selector_order kind2 in
-  if k1 <> k2 then Int.compare k1 k2
-  else compare_by_priority_suborder_baseclass_index r1 r2
+  if k1 <> k2 then Int.compare k1 k2 else compare_by_priority_index r1 r2
 
 let compare_focus_modifiers r1 r2 =
   let outline1 = is_outline_utility r1.base_class in
   let outline2 = is_outline_utility r2.base_class in
   if outline1 && not outline2 then 1
   else if outline2 && not outline1 then -1
-  else compare_by_priority_suborder_baseclass_index r1 r2
+  else compare_by_priority_index r1 r2
 
 let compare_cross_utility_regular r1 r2 =
   let p1, s1 = r1.order and p2, s2 = r2.order in
@@ -1751,11 +1750,10 @@ let compare_cross_utility_regular r1 r2 =
       else if focus_visible1 && (not focus_visible2) && not state2 then 1
       else if focus_visible2 && (not focus_visible1) && not state1 then -1
       else if focus_visible1 && focus_visible2 then
-        compare_by_priority_suborder_baseclass_index r1 r2
+        compare_by_priority_index r1 r2
       else if state1 && not state2 then 1
       else if state2 && not state1 then -1
-      else if state1 && state2 then
-        compare_by_priority_suborder_baseclass_index r1 r2
+      else if state1 && state2 then compare_by_priority_index r1 r2
       else
         (* Check for other focus-modified rules BEFORE priority - they always
            come late *)
@@ -1847,22 +1845,21 @@ let compare_indexed_rules r1 r2 =
     | `Media _, `Regular -> -compare_regular_vs_media r2 r1
     | `Starting, `Starting -> compare_starting_rules r1 r2
     | `Container _, `Container _ -> Int.compare r1.index r2.index
-    (* Supports rules should come right after their base rule, not after all
-       regular rules. Compare by order first so @supports is interleaved. When
-       orders are equal, use natural sort on selector for consistent ordering
-       across Regular/Supports pairs from different utilities. *)
-    | `Regular, `Supports _ ->
+    (* Supports rules should come right after their base rule. Compare by order
+       first, then natural sort on selector so Regular+Supports pairs stay
+       grouped and groups are in the correct cross-utility order. Index is the
+       final tiebreaker (keeps Regular before its own Supports). *)
+    | `Regular, `Supports _ | `Supports _, `Regular | `Supports _, `Supports _
+      ->
         let order_cmp = compare r1.order r2.order in
         if order_cmp <> 0 then order_cmp
         else
-          (* Use index to keep Regular+Supports pairs adjacent *)
-          Int.compare r1.index r2.index
-    | `Supports _, `Regular ->
-        let order_cmp = compare r1.order r2.order in
-        if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
-    | `Supports _, `Supports _ ->
-        let order_cmp = compare r1.order r2.order in
-        if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
+          let sel_cmp =
+            natural_compare
+              (Css.Selector.to_string r1.selector)
+              (Css.Selector.to_string r2.selector)
+          in
+          if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
     | `Supports _, `Media _ ->
         (* Supports should be positioned near its base Regular rule, so use
            order-based comparison like Regular vs Media *)
@@ -2142,7 +2139,7 @@ let sort_vars_by_property_order vars =
    are REFERENCED and need @property (e.g., transform refs rotate/skew) Within
    each utility, vars are sorted by property_order to ensure consistent family
    ordering (e.g., ring before inset-ring regardless of CSS value order). *)
-let all_var_names_from_sorted_rules sorted_rules =
+let var_names_of_sorted_rules sorted_rules =
   sorted_rules
   |> List.concat_map (fun r ->
       (* Vars that this utility SETS *)
@@ -2305,8 +2302,7 @@ let theme_layer_rule ~layers = function
       else Css.v [ rule ]
 
 (* Internal helper to compute theme layer from pre-extracted outputs. *)
-let compute_theme_layer_from_selector_props ?(layers = true)
-    ?(default_decls = []) selector_props =
+let theme_layer_of_props ?(layers = true) ?(default_decls = []) selector_props =
   let extracted = extract_non_tw_custom_declarations selector_props in
   let pre_defaults, post_defaults = split_defaults default_decls in
 
@@ -2323,7 +2319,7 @@ let compute_theme_layer_from_selector_props ?(layers = true)
 
 let theme_layer_of ?(default_decls = []) tw_classes =
   let selector_props = collect_selector_props tw_classes in
-  compute_theme_layer_from_selector_props ~default_decls selector_props
+  theme_layer_of_props ~default_decls selector_props
 
 let placeholder_supports =
   let placeholder = Css.Selector.Placeholder in
@@ -2518,7 +2514,7 @@ let set_var_names_from_props props = Css.custom_prop_names props
     - all_vars: all referenced variables (for theme layer)
     - set_var_names: names of variables that are SET via Custom_declaration
     - property_rules: explicit property rules from utilities *)
-let rec extract_vars_and_property_rules_from_style = function
+let rec extract_style_vars_and_rules = function
   | Style.Style { props; rules; property_rules; _ } ->
       let vars_from_props = Css.vars_of_declarations props in
       let vars_from_rules =
@@ -2526,9 +2522,9 @@ let rec extract_vars_and_property_rules_from_style = function
       in
       let set_names = set_var_names_from_props props in
       (vars_from_props @ vars_from_rules, set_names, [ property_rules ])
-  | Style.Modified (_, t) -> extract_vars_and_property_rules_from_style t
+  | Style.Modified (_, t) -> extract_style_vars_and_rules t
   | Style.Group ts ->
-      let results = List.map extract_vars_and_property_rules_from_style ts in
+      let results = List.map extract_style_vars_and_rules ts in
       let vars_list, set_names_list, prop_rules_list =
         List.fold_right
           (fun (v, s, p) (vs, ss, ps) -> (v :: vs, s :: ss, p :: ps))
@@ -2692,7 +2688,7 @@ let assemble_all_layers ~layers ~include_base ~properties_layer ~theme_layer
 (* Extract variables, set var names, and property rules from all utilities *)
 let extract_vars_and_rules utilities =
   let styles = List.map Utility.to_style utilities in
-  let results = List.map extract_vars_and_property_rules_from_style styles in
+  let results = List.map extract_style_vars_and_rules styles in
   let vars_list, set_names_list, prop_rules_list =
     List.fold_right
       (fun (v, s, p) (vs, ss, ps) -> (v :: vs, s :: ss, p :: ps))
@@ -2732,7 +2728,7 @@ let has_pseudo_elements tw_classes =
   List.exists check_utility tw_classes
 
 (* Detect if focus:ring + contrast-more combination is used *)
-let has_focus_ring_and_contrast_more tw_classes =
+let has_focus_ring_contrast tw_classes =
   let has_focus_ring =
     let rec check_utility = function
       | Utility.Modified (Style.Focus, Utility.Base u) ->
@@ -2765,8 +2761,7 @@ let build_individual_layers ~layers ~include_base ~forms_base first_usage_order
     if include_base then Typography.default_font_family_declarations else []
   in
   let theme_layer =
-    compute_theme_layer_from_selector_props ~layers
-      ~default_decls:theme_defaults selector_props
+    theme_layer_of_props ~layers ~default_decls:theme_defaults selector_props
   in
   let base_layer =
     build_base_layer ~supports:placeholder_supports ~forms_base ()
@@ -2807,9 +2802,9 @@ let build_layers ~layers ~include_base ?forms ~selector_props tw_classes
   (* Build first-usage order from ALL vars per utility in utility order. For
      each utility, collects SET vars then REFERENCED vars needing @property.
      Within each utility, vars are sorted by property_order (done in
-     all_var_names_from_sorted_rules). Across utilities, we preserve first-usage
-     order to match Tailwind's behavior. *)
-  let all_vars = all_var_names_from_sorted_rules sorted_rules in
+     var_names_of_sorted_rules). Across utilities, we preserve first-usage order
+     to match Tailwind's behavior. *)
+  let all_vars = var_names_of_sorted_rules sorted_rules in
   let first_usage_order = build_first_usage_order all_vars in
   let base_property_rules = flatten_property_rules property_rules_lists in
   (* Add content_var's property_rule if before/after pseudo-elements are used *)
@@ -2901,8 +2896,7 @@ let to_css ?(config = default_config) tw_classes =
   (* When focus:ring + contrast-more are used, include base .ring utility to
      match Tailwind *)
   let tw_classes_with_ring =
-    if has_focus_ring_and_contrast_more tw_classes then
-      tw_classes @ [ Effects.ring ]
+    if has_focus_ring_contrast tw_classes then tw_classes @ [ Effects.ring ]
     else tw_classes
   in
   (* Extract once and share for rule sets and theme layer *)
