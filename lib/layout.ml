@@ -469,10 +469,10 @@ module Handler = struct
         in
         match Var.theme_value name with
         | Some _ ->
-            let tv = Var.theme Css.Length name ~order:(6, 40) in
-            let theme_decl, theme_ref = Var.binding tv (Zero : Css.length) in
-            let lv : Css.length = Var theme_ref in
-            style [ theme_decl; object_position (XY (lv, lv)) ]
+            let tv = Var.theme Css.String name ~order:(6, 40) in
+            let theme_decl, _theme_ref = Var.binding tv default_css in
+            let pos_ref : Css.position_value Css.var = Css.var_ref name in
+            style [ theme_decl; object_position (Var pos_ref) ]
         | None ->
             let v : Css.position_value =
               Var (Var.theme_ref name ~default ~default_css)
@@ -480,8 +480,8 @@ module Handler = struct
             style [ object_position v ])
     | Object_arbitrary var_str ->
         let bare_name = Parse.extract_var_name var_str in
-        let lv : Css.length = Var (Css.var_ref bare_name) in
-        style [ object_position (XY (lv, lv)) ]
+        let pos_ref : Css.position_value Css.var = Css.var_ref bare_name in
+        style [ object_position (Var pos_ref) ]
     | Float_left -> style [ Css.float Left ]
     | Float_right -> style [ Css.float Right ]
     | Float_none -> style [ Css.float None ]
