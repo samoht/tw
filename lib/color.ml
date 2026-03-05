@@ -230,12 +230,16 @@ let hex_to_oklch_css hex =
   | Some rgb -> oklch_to_css (rgb_to_oklch rgb)
   | None -> hex (* Fallback to original hex if parsing fails *)
 
+let round_n n f =
+  let factor = 10.0 ** float_of_int n in
+  Float.round (f *. factor) /. factor
+
 let hex_to_oklab_alpha hex alpha : Css.color =
   match hex_to_rgb hex with
   | Some rgb ->
       let l, a, b = rgb_to_oklab rgb in
-      (* rgb_to_oklab returns l in 0-100 range already *)
-      Css.oklaba l a b alpha
+      (* Round to match Tailwind: L to 4 decimals, a/b to 3 *)
+      Css.oklaba (round_n 4 l) (round_n 3 a) (round_n 3 b) alpha
   | None -> Css.hex hex
 
 module Tailwind = struct
@@ -1747,11 +1751,6 @@ module Handler = struct
             rgb_to_oklab { r = red; g = green; b = blue }
         | _ -> (0.0, 0.0, 0.0)
       in
-      (* Round to match Tailwind precision: L to 4 decimals, a/b to 3 *)
-      let round_n n f =
-        let factor = 10.0 ** float_of_int n in
-        Float.round (f *. factor) /. factor
-      in
       let alpha = percent /. 100.0 in
       let oklab_value =
         Css.oklaba_none_zeros (round_n 4 ok_l) (round_n 3 ok_a) (round_n 3 ok_b)
@@ -2354,10 +2353,6 @@ let divide_with_opacity_selector ~selector c shade opacity =
           rgb_to_oklab { r = red; g = green; b = blue }
       | _ -> (0.0, 0.0, 0.0)
     in
-    let round_n n f =
-      let factor = 10.0 ** float_of_int n in
-      Float.round (f *. factor) /. factor
-    in
     let alpha = percent /. 100.0 in
     let oklab_value =
       Css.oklaba (round_n 4 ok_l) (round_n 3 ok_a) (round_n 3 ok_b) alpha
@@ -2463,10 +2458,6 @@ let bg_with_opacity c shade opacity =
       | Rgb { red; green; blue } ->
           rgb_to_oklab { r = red; g = green; b = blue }
       | _ -> (0.0, 0.0, 0.0)
-    in
-    let round_n n f =
-      let factor = 10.0 ** float_of_int n in
-      Float.round (f *. factor) /. factor
     in
     let alpha = percent /. 100.0 in
     let oklab_value =

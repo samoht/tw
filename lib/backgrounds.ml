@@ -1044,10 +1044,13 @@ module Handler = struct
           Css.rule ~selector:(Css.Selector.class_ "_") stops_decls
         in
 
-        (* Props has fallback, rules has @supports then stops *)
+        (* Three separate rules: fallback, @supports, stops *)
+        let fallback_rule =
+          Css.rule ~selector:(Css.Selector.class_ "_") [ d_fallback ]
+        in
         style ~property_rules
-          ~rules:(Some [ supports_rule; stops_rule ])
-          [ d_fallback ]
+          ~rules:(Some [ fallback_rule; supports_rule; stops_rule ])
+          []
     | None ->
         (* Non-scheme color: use color-mix directly *)
         let oklch = Color.to_oklch color shade in
@@ -1147,6 +1150,9 @@ module Handler = struct
       Css.color_mix ~in_space:Oklab mix_color Css.Transparent ~percent1:percent
     in
     let d_oklab, _ = Var.binding set_var oklab_color in
+    let fallback_rule =
+      Css.rule ~selector:(Css.Selector.class_ "_") [ d_fallback ]
+    in
     let supports_rule =
       Css.supports ~condition:Color.color_mix_supports_condition
         [
@@ -1161,8 +1167,8 @@ module Handler = struct
         (stops_as_decls d_stops d_via_stops_opt)
     in
     style ~property_rules
-      ~rules:(Some [ supports_rule; stops_rule ])
-      [ d_fallback ]
+      ~rules:(Some [ fallback_rule; supports_rule; stops_rule ])
+      []
 
   (** Convert gradient target to set_var and prefix *)
   let gradient_target_info = function
