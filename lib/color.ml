@@ -214,16 +214,9 @@ let hex_with_alpha hex_str opacity_percent =
   "#" ^ hex_clean ^ to_hex_byte alpha_clamped
 
 let oklch_to_css oklch =
-  let pp_oklch ctx oklch =
-    Css.Pp.string ctx "oklch(";
-    Css.Pp.float_n 1 ctx oklch.l;
-    Css.Pp.string ctx "% ";
-    Css.Pp.float_n 3 ctx oklch.c;
-    Css.Pp.string ctx " ";
-    Css.Pp.float_n 3 ctx oklch.h;
-    Css.Pp.string ctx ")"
-  in
-  Css.Pp.to_string ~minify:false pp_oklch oklch
+  let f n = Css.Pp.float_to_string ~drop_leading_zero:true ~max_decimals:n in
+  String.concat ""
+    [ "oklch("; f 1 oklch.l; "% "; f 3 oklch.c; " "; f 3 oklch.h; ")" ]
 
 let hex_to_oklch_css hex =
   match hex_to_rgb hex with
