@@ -616,7 +616,7 @@ let charts_section =
 
 (* ========== Main Layout ========== *)
 
-let main_content =
+let content =
   main
     ~tw:Tw.[ flex_1; bg gray 50; dark [ bg gray 900 ]; min_w 0 ]
     [
@@ -664,7 +664,7 @@ let page_view =
         ("viewport", "width=device-width, initial-scale=1.0");
       ]
     []
-    [ div ~tw:Tw.[ flex; min_h_screen ] [ sidebar; main_content ] ]
+    [ div ~tw:Tw.[ flex; min_h_screen ] [ sidebar; content ] ]
 
 let () =
   let html_str = html page_view in

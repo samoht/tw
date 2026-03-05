@@ -392,8 +392,8 @@ let rec pp_modifier = function
         "supports-" ^ String.sub cond 0 prop_len
       else "supports-[" ^ cond ^ "]"
 
-let rec pp ppf = function
+let rec pp = function
   | Style { props; _ } ->
-      Format.fprintf ppf "Style(%d props)" (List.length props)
-  | Modified (m, s) -> Format.fprintf ppf "%s:%a" (pp_modifier m) pp s
-  | Group styles -> Format.fprintf ppf "Group(%d)" (List.length styles)
+      Pp.str [ "Style("; Pp.int (List.length props); " props)" ]
+  | Modified (m, s) -> Pp.str [ pp_modifier m; ":"; pp s ]
+  | Group styles -> Pp.str [ "Group("; Pp.int (List.length styles); ")" ]

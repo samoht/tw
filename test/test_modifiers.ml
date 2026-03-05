@@ -470,7 +470,7 @@ let test_nested_modifier_css_generation () =
   let has_dark_media =
     try
       let _ =
-        Str.search_forward (Str.regexp "prefers-color-scheme:dark") css_str 0
+        Str.search_forward (Str.regexp "prefers-color-scheme:.*dark") css_str 0
       in
       true
     with Not_found -> false

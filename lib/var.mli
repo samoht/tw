@@ -357,8 +357,8 @@ val property_info :
 type ('a, 'r) t
 (** The type for CSS variables with phantom type for role *)
 
-val pp : Format.formatter -> ('a, 'r) t -> unit
-(** [pp ppf v] pretty-prints a variable. *)
+val pp : ('a, 'r) t -> string
+(** [pp v] returns a string representation of a variable. *)
 
 (** {2 Type shortcuts for common patterns} *)
 

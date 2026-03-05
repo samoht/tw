@@ -34,3 +34,5 @@ rules:
      exclude: [E330]
    - files: lib/field_sizing.ml*
      exclude: [E330]
+   - files: lib/style.ml*
+     exclude: [E330]

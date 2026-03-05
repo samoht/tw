@@ -61,11 +61,11 @@ module Handler = struct
     match s with
     | `Px ->
         let len : length = Px 1. in
-        let decl, _ = Var.binding Spacing.spacing_var (Rem 0.25) in
+        let decl, _ = Var.binding Spacing.var (Rem 0.25) in
         (Some decl, len)
     | `Full ->
         let len : length = Pct 100. in
-        let decl, _ = Var.binding Spacing.spacing_var (Rem 0.25) in
+        let decl, _ = Var.binding Spacing.var (Rem 0.25) in
         (Some decl, len)
     | `Named name -> Spacing.named_spacing_binding name
     | `Rem f ->

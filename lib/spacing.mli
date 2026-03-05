@@ -2,8 +2,8 @@
 
 (** {1 Spacing Variable} *)
 
-val spacing_var : Css.length Var.theme
-(** [spacing_var] shared spacing variable. *)
+val var : Css.length Var.theme
+(** [var] shared spacing variable. *)
 
 (** {1 Class Name Formatting} *)
 
