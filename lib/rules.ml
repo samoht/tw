@@ -646,7 +646,26 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
         Rules_selector.replace_class_in_selector ~old_class:base_class
           ~new_class:modified_class selector
       in
-      let condition = Css.Supports.of_string ("(" ^ condition_str ^ ")") in
+      let condition_input =
+        if
+          String.length condition_str > 2
+          && condition_str.[0] = '-'
+          && condition_str.[1] = '-'
+          && not (String.contains condition_str ':')
+        then
+          (* Bare custom property: --test → (--test: var(--tw)) *)
+          "(" ^ condition_str ^ ": var(--tw))"
+        else if condition_str <> "" && condition_str.[0] = '(' then
+          (* Already wrapped in parens *)
+          condition_str
+        else if String.contains condition_str ':' then
+          (* Property: value → wrap in parens *)
+          "(" ^ condition_str ^ ")"
+        else
+          (* Function call like font-format(opentype) or var(--test) *)
+          condition_str
+      in
+      let condition = Css.Supports.of_string condition_input in
       supports_query ~condition ~selector:new_selector ~props
         ~base_class:modified_class ()
   (* Responsive and container *)
@@ -1698,8 +1717,15 @@ let compare_cross_utility_regular r1 r2 =
       | Simple -> "Simple"
       | Pseudo_element -> "Pseudo_element"
       | Complex _ -> "Complex"));
-  (* Check pseudo-elements BEFORE priority *)
-  match compare_pseudo_elements kind1 kind2 r1.selector r2.selector with
+  (* Check pseudo-elements, but only within the same priority group. Across
+     different priorities, priority wins (e.g., form-input::placeholder at
+     priority 3 comes before form-textarea at priority 8). *)
+  let same_priority = p1 = p2 in
+  match
+    if same_priority then
+      compare_pseudo_elements kind1 kind2 r1.selector r2.selector
+    else None
+  with
   | Some cmp -> cmp
   | None ->
       (* Check for focus-visible modifiers BEFORE priority *)
