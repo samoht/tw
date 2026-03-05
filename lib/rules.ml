@@ -269,18 +269,18 @@ module Rules_selector = struct
     transform selector
 end
 
-let breakpoint_px = function
-  | `Sm -> 640.
-  | `Md -> 768.
-  | `Lg -> 1024.
-  | `Xl -> 1280.
-  | `Xl_2 -> 1536.
+let breakpoint_rem = function
+  | `Sm -> 40.
+  | `Md -> 48.
+  | `Lg -> 64.
+  | `Xl -> 80.
+  | `Xl_2 -> 96.
 
 (** Get the media condition and class prefix for a responsive modifier. *)
 let responsive_modifier_condition = function
   | Style.Responsive bp ->
       let prefix = string_of_breakpoint bp in
-      (Css.Media.Min_width (breakpoint_px bp), prefix)
+      (Css.Media.Min_width_rem (breakpoint_rem bp), prefix)
   | Style.Min_responsive bp ->
       let prefix =
         match bp with
@@ -290,7 +290,7 @@ let responsive_modifier_condition = function
         | `Xl -> "min-xl"
         | `Xl_2 -> "min-2xl"
       in
-      (Css.Media.Min_width (breakpoint_px bp), prefix)
+      (Css.Media.Min_width_rem (breakpoint_rem bp), prefix)
   | Style.Max_responsive bp ->
       let prefix =
         match bp with
@@ -300,7 +300,7 @@ let responsive_modifier_condition = function
         | `Xl -> "max-xl"
         | `Xl_2 -> "max-2xl"
       in
-      (Css.Media.Not_min_width (breakpoint_px bp), prefix)
+      (Css.Media.Not_min_width_rem (breakpoint_rem bp), prefix)
   | Style.Min_arbitrary px ->
       let px_str =
         if Float.is_integer px then Int.to_string (Float.to_int px)
@@ -321,23 +321,14 @@ let selector_with_data_key selector key value =
 
 let responsive_rule breakpoint base_class selector props =
   let prefix = string_of_breakpoint breakpoint in
-  (* Use px values matching Tailwind v4's default breakpoints *)
-  let px_value =
-    match prefix with
-    | "sm" -> 640.
-    | "md" -> 768.
-    | "lg" -> 1024.
-    | "xl" -> 1280.
-    | "2xl" -> 1536.
-    | _ -> 0.
-  in
   let modified_class = prefix ^ ":" ^ base_class in
   let new_selector =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
   in
-  media_query ~condition:(Css.Media.Min_width px_value) ~selector:new_selector
-    ~props ~base_class:modified_class ()
+  media_query
+    ~condition:(Css.Media.Min_width_rem (breakpoint_rem breakpoint))
+    ~selector:new_selector ~props ~base_class:modified_class ()
 
 let min_responsive_rule breakpoint base_class selector props =
   let prefix =
@@ -348,21 +339,14 @@ let min_responsive_rule breakpoint base_class selector props =
     | `Xl -> "min-xl"
     | `Xl_2 -> "min-2xl"
   in
-  let px_value =
-    match breakpoint with
-    | `Sm -> 640.
-    | `Md -> 768.
-    | `Lg -> 1024.
-    | `Xl -> 1280.
-    | `Xl_2 -> 1536.
-  in
   let modified_class = prefix ^ ":" ^ base_class in
   let new_selector =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
   in
-  media_query ~condition:(Css.Media.Min_width px_value) ~selector:new_selector
-    ~props ~base_class:modified_class ()
+  media_query
+    ~condition:(Css.Media.Min_width_rem (breakpoint_rem breakpoint))
+    ~selector:new_selector ~props ~base_class:modified_class ()
 
 let max_responsive_rule breakpoint base_class selector props =
   let prefix =
@@ -373,21 +357,13 @@ let max_responsive_rule breakpoint base_class selector props =
     | `Xl -> "max-xl"
     | `Xl_2 -> "max-2xl"
   in
-  (* Use px values matching Tailwind v4's default breakpoints *)
-  let px_value =
-    match breakpoint with
-    | `Sm -> 640.
-    | `Md -> 768.
-    | `Lg -> 1024.
-    | `Xl -> 1280.
-    | `Xl_2 -> 1536.
-  in
   let modified_class = prefix ^ ":" ^ base_class in
   let new_selector =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
   in
-  media_query ~condition:(Css.Media.Not_min_width px_value)
+  media_query
+    ~condition:(Css.Media.Not_min_width_rem (breakpoint_rem breakpoint))
     ~selector:new_selector ~props ~base_class:modified_class ()
 
 let min_arbitrary_rule px base_class selector props =
@@ -646,24 +622,28 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
         Rules_selector.replace_class_in_selector ~old_class:base_class
           ~new_class:modified_class selector
       in
+      (* Convert underscores to spaces (Tailwind bracket notation) *)
+      let cond =
+        String.map (fun c -> if c = '_' then ' ' else c) condition_str
+      in
       let condition_input =
         if
-          String.length condition_str > 2
-          && condition_str.[0] = '-'
-          && condition_str.[1] = '-'
-          && not (String.contains condition_str ':')
+          String.length cond > 2
+          && cond.[0] = '-'
+          && cond.[1] = '-'
+          && not (String.contains cond ':')
         then
           (* Bare custom property: --test → (--test: var(--tw)) *)
-          "(" ^ condition_str ^ ": var(--tw))"
-        else if condition_str <> "" && condition_str.[0] = '(' then
+          "(" ^ cond ^ ": var(--tw))"
+        else if cond <> "" && cond.[0] = '(' then
           (* Already wrapped in parens *)
-          condition_str
-        else if String.contains condition_str ':' then
+          cond
+        else if String.contains cond ':' then
           (* Property: value → wrap in parens *)
-          "(" ^ condition_str ^ ")"
+          "(" ^ cond ^ ")"
         else
           (* Function call like font-format(opentype) or var(--test) *)
-          condition_str
+          cond
       in
       let condition = Css.Supports.of_string condition_input in
       supports_query ~condition ~selector:new_selector ~props
