@@ -45,15 +45,30 @@ module Handler = struct
     | Pos_top_left
     | Pos_top_right
 
+  (* Gradient color source - shared by from/via/to *)
+  type gradient_color_source =
+    | Gc_named of Color.color * int
+    | Gc_named_opacity of Color.color * int * Color.opacity_modifier
+    | Gc_current
+    | Gc_current_opacity of Color.opacity_modifier
+    | Gc_inherit
+    | Gc_transparent
+    | Gc_bracket_hex of string
+    | Gc_bracket_hex_opacity of string * Color.opacity_modifier
+    | Gc_bracket_color_var of string
+    | Gc_bracket_color_var_opacity of string * Color.opacity_modifier
+    | Gc_bracket_var of string
+    | Gc_bracket_var_opacity of string * Color.opacity_modifier
+
+  (* Gradient position source *)
+  type gradient_position_source = Gp_pct of float | Gp_bracket of string
+  type gradient_target = Gradient_from | Gradient_via | Gradient_to
+
   type t =
     | Bg of Color.color * int
     | Bg_gradient_to of direction
-    | From of Color.color * int
-    | From_opacity of Color.color * int * Color.opacity_modifier
-    | Via of Color.color * int
-    | Via_opacity of Color.color * int * Color.opacity_modifier
-    | To of Color.color * int
-    | To_opacity of Color.color * int * Color.opacity_modifier
+    | Gradient_color of gradient_target * gradient_color_source
+    | Gradient_position of gradient_target * gradient_position_source
     | Bg_origin_border
     | Bg_origin_padding
     | Bg_origin_content
@@ -182,39 +197,55 @@ module Handler = struct
         | Top_left -> "bg-gradient-to-tl"
         | Left -> "bg-gradient-to-l"
         | Bottom_left -> "bg-gradient-to-bl")
-    | From (color, shade) ->
-        if Color.is_base_color color || Color.is_custom_color color then
-          "from-" ^ Color.pp color
-        else "from-" ^ Color.pp color ^ "-" ^ string_of_int shade
-    | From_opacity (color, shade, opacity) ->
-        let base =
-          if Color.is_base_color color || Color.is_custom_color color then
-            "from-" ^ Color.pp color
-          else "from-" ^ Color.pp color ^ "-" ^ string_of_int shade
+    | Gradient_color (target, src) ->
+        let prefix =
+          match target with
+          | Gradient_from -> "from-"
+          | Gradient_via -> "via-"
+          | Gradient_to -> "to-"
         in
-        base ^ opacity_suffix opacity
-    | Via (color, shade) ->
-        if Color.is_base_color color || Color.is_custom_color color then
-          "via-" ^ Color.pp color
-        else "via-" ^ Color.pp color ^ "-" ^ string_of_int shade
-    | Via_opacity (color, shade, opacity) ->
-        let base =
-          if Color.is_base_color color || Color.is_custom_color color then
-            "via-" ^ Color.pp color
-          else "via-" ^ Color.pp color ^ "-" ^ string_of_int shade
+        let color_class = function
+          | Gc_named (color, shade) ->
+              if Color.is_base_color color || Color.is_custom_color color then
+                Color.pp color
+              else Color.pp color ^ "-" ^ string_of_int shade
+          | Gc_named_opacity (color, shade, opacity) ->
+              let base =
+                if Color.is_base_color color || Color.is_custom_color color then
+                  Color.pp color
+                else Color.pp color ^ "-" ^ string_of_int shade
+              in
+              base ^ opacity_suffix opacity
+          | Gc_current -> "current"
+          | Gc_current_opacity opacity -> "current" ^ opacity_suffix opacity
+          | Gc_inherit -> "inherit"
+          | Gc_transparent -> "transparent"
+          | Gc_bracket_hex h -> "[#" ^ h ^ "]"
+          | Gc_bracket_hex_opacity (h, opacity) ->
+              "[#" ^ h ^ "]" ^ opacity_suffix opacity
+          | Gc_bracket_color_var v -> "[color:" ^ v ^ "]"
+          | Gc_bracket_color_var_opacity (v, opacity) ->
+              "[color:" ^ v ^ "]" ^ opacity_suffix opacity
+          | Gc_bracket_var v -> "[" ^ v ^ "]"
+          | Gc_bracket_var_opacity (v, opacity) ->
+              "[" ^ v ^ "]" ^ opacity_suffix opacity
         in
-        base ^ opacity_suffix opacity
-    | To (color, shade) ->
-        if Color.is_base_color color || Color.is_custom_color color then
-          "to-" ^ Color.pp color
-        else "to-" ^ Color.pp color ^ "-" ^ string_of_int shade
-    | To_opacity (color, shade, opacity) ->
-        let base =
-          if Color.is_base_color color || Color.is_custom_color color then
-            "to-" ^ Color.pp color
-          else "to-" ^ Color.pp color ^ "-" ^ string_of_int shade
+        prefix ^ color_class src
+    | Gradient_position (target, src) -> (
+        let prefix =
+          match target with
+          | Gradient_from -> "from-"
+          | Gradient_via -> "via-"
+          | Gradient_to -> "to-"
         in
-        base ^ opacity_suffix opacity
+        match src with
+        | Gp_pct p ->
+            let p_str =
+              if Float.is_integer p then string_of_int (int_of_float p)
+              else string_of_float p
+            in
+            prefix ^ p_str ^ "%"
+        | Gp_bracket v -> prefix ^ "[" ^ v ^ "]")
     | Bg_origin_border -> "bg-origin-border"
     | Bg_origin_padding -> "bg-origin-padding"
     | Bg_origin_content -> "bg-origin-content"
@@ -511,15 +542,6 @@ module Handler = struct
     in
 
     style ~property_rules declarations
-
-  let from_color' ?(shade = 500) color =
-    gradient_color ~prefix:"from-" ~set_var:gradient_from_var ~shade color
-
-  let via_color' ?(shade = 500) color =
-    gradient_color ~prefix:"via-" ~set_var:gradient_via_var ~shade color
-
-  let to_color' ?(shade = 500) color =
-    gradient_color ~prefix:"to-" ~set_var:gradient_to_var ~shade color
 
   let bg' ?(shade = 500) color =
     let bg_var_name =
@@ -1042,30 +1064,179 @@ module Handler = struct
         in
         style ~property_rules declarations
 
-  let from_color_opacity' ?(shade = 500) color opacity =
-    gradient_color_opacity ~prefix:"from-" ~set_var:gradient_from_var ~shade
-      color opacity
+  (** Build gradient stops declarations for a given prefix (from-/via-/to-).
+      Returns (d_stops, d_via_stops_opt) *)
+  let gradient_stops_decls prefix =
+    let position_ref = Var.reference gradient_position_var in
+    let from_ref = Var.reference gradient_from_var in
+    let from_pos_ref = Var.reference gradient_from_position_var in
+    let to_ref = Var.reference gradient_to_var in
+    let to_pos_ref = Var.reference gradient_to_position_var in
+    let fallback_stops : Css.gradient_stop =
+      List
+        [
+          Direction (Var position_ref);
+          Color_percentage (Var from_ref, Some (Var from_pos_ref), None);
+          Color_percentage (Var to_ref, Some (Var to_pos_ref), None);
+        ]
+    in
+    match prefix with
+    | "via-" ->
+        let via_ref = Var.reference gradient_via_var in
+        let via_pos_ref = Var.reference gradient_via_position_var in
+        let via_stop_list : Css.gradient_stop =
+          List
+            [
+              Direction (Var position_ref);
+              Color_percentage (Var from_ref, Some (Var from_pos_ref), None);
+              Color_percentage (Var via_ref, Some (Var via_pos_ref), None);
+              Color_percentage (Var to_ref, Some (Var to_pos_ref), None);
+            ]
+        in
+        let d_via_stops, via_stops_ref =
+          Var.binding gradient_via_stops_var via_stop_list
+        in
+        let d_stops_via, _ =
+          Var.binding gradient_stops_var (Var via_stops_ref)
+        in
+        (d_stops_via, Some d_via_stops)
+    | _ ->
+        let via_stops_ref =
+          Var.reference_with_fallback gradient_via_stops_var fallback_stops
+        in
+        let d_stops, _ = Var.binding gradient_stops_var (Var via_stops_ref) in
+        (d_stops, None)
 
-  let via_color_opacity' ?(shade = 500) color opacity =
-    gradient_color_opacity ~prefix:"via-" ~set_var:gradient_via_var ~shade color
-      opacity
+  (* All gradient @property rules *)
+  let gradient_all_property_rules () =
+    [
+      Var.property_rule gradient_position_var;
+      Var.property_rule gradient_from_var;
+      Var.property_rule gradient_via_var;
+      Var.property_rule gradient_to_var;
+      Var.property_rule gradient_stops_var;
+      Var.property_rule gradient_via_stops_var;
+      Var.property_rule gradient_from_position_var;
+      Var.property_rule gradient_via_position_var;
+      Var.property_rule gradient_to_position_var;
+    ]
+    |> List.filter_map (fun x -> x)
+    |> Css.concat
 
-  let to_color_opacity' ?(shade = 500) color opacity =
-    gradient_color_opacity ~prefix:"to-" ~set_var:gradient_to_var ~shade color
-      opacity
+  (** Flatten stops into declaration list *)
+  let stops_as_decls d_stops d_via_stops_opt =
+    match d_via_stops_opt with
+    | Some d_via_stops -> [ d_via_stops; d_stops ]
+    | None -> [ d_stops ]
+
+  (** Gradient with a simple color value + stops (no opacity) *)
+  let gradient_simple ~prefix ~set_var color_value extra_decls =
+    let d_var, _ = Var.binding set_var color_value in
+    let d_stops, d_via_stops_opt = gradient_stops_decls prefix in
+    let property_rules = gradient_all_property_rules () in
+    let declarations =
+      extra_decls @ [ d_var ] @ stops_as_decls d_stops d_via_stops_opt
+    in
+    style ~property_rules declarations
+
+  (* Gradient with opacity: fallback + @supports color-mix + stops *)
+  let gradient_with_opacity ~prefix ~set_var (fallback_color : Css.color)
+      (mix_color : Css.color) ?(extra_supports_decls = []) percent =
+    let d_fallback, _ = Var.binding set_var fallback_color in
+    let oklab_color =
+      Css.color_mix ~in_space:Oklab mix_color Css.Transparent ~percent1:percent
+    in
+    let d_oklab, _ = Var.binding set_var oklab_color in
+    let supports_rule =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [
+          Css.rule ~selector:(Css.Selector.class_ "_")
+            (extra_supports_decls @ [ d_oklab ]);
+        ]
+    in
+    let d_stops, d_via_stops_opt = gradient_stops_decls prefix in
+    let property_rules = gradient_all_property_rules () in
+    let stops_rule =
+      Css.rule ~selector:(Css.Selector.class_ "_")
+        (stops_as_decls d_stops d_via_stops_opt)
+    in
+    style ~property_rules
+      ~rules:(Some [ supports_rule; stops_rule ])
+      [ d_fallback ]
+
+  (** Convert gradient target to set_var and prefix *)
+  let gradient_target_info = function
+    | Gradient_from -> ("from-", gradient_from_var, gradient_from_position_var)
+    | Gradient_via -> ("via-", gradient_via_var, gradient_via_position_var)
+    | Gradient_to -> ("to-", gradient_to_var, gradient_to_position_var)
+
+  (** Gradient position: from-0%, from-[50%], from-[50px], etc. *)
+  let gradient_position_style pos_var value =
+    let d_var, _ = Var.binding pos_var value in
+    let property_rules =
+      [
+        Var.property_rule gradient_from_position_var;
+        Var.property_rule gradient_via_position_var;
+        Var.property_rule gradient_to_position_var;
+      ]
+      |> List.filter_map (fun x -> x)
+      |> Css.concat
+    in
+    style ~property_rules [ d_var ]
+
+  (** Convert a var string to a typed CSS color value *)
+  let color_var_ref v : Css.color =
+    let bare = Parse.extract_var_name v in
+    let vr : Css.color Css.var = Css.var_ref bare in
+    Var vr
+
+  (** Convert a non-named gradient_color_source to a Css.color *)
+  let css_color_of_source = function
+    | Gc_current | Gc_current_opacity _ -> Css.Current
+    | Gc_inherit -> Css.Inherit
+    | Gc_transparent -> Css.Transparent
+    | Gc_bracket_hex h | Gc_bracket_hex_opacity (h, _) -> Css.hex h
+    | Gc_bracket_color_var v | Gc_bracket_color_var_opacity (v, _) ->
+        color_var_ref v
+    | Gc_bracket_var v | Gc_bracket_var_opacity (v, _) -> color_var_ref v
+    | Gc_named _ | Gc_named_opacity _ -> assert false
+
+  (** Extract opacity from a gradient_color_source, if present *)
+  let opacity_of_source = function
+    | Gc_current_opacity o
+    | Gc_bracket_hex_opacity (_, o)
+    | Gc_bracket_color_var_opacity (_, o)
+    | Gc_bracket_var_opacity (_, o) ->
+        Some o
+    | _ -> None
 
   let to_style = function
     | Bg (color, shade) -> bg' ~shade color
     | Bg_gradient_to dir -> bg_gradient_to' dir
-    | From (color, shade) -> from_color' ~shade color
-    | From_opacity (color, shade, opacity) ->
-        from_color_opacity' ~shade color opacity
-    | Via (color, shade) -> via_color' ~shade color
-    | Via_opacity (color, shade, opacity) ->
-        via_color_opacity' ~shade color opacity
-    | To (color, shade) -> to_color' ~shade color
-    | To_opacity (color, shade, opacity) ->
-        to_color_opacity' ~shade color opacity
+    | Gradient_color (target, src) -> (
+        let prefix, set_var, _pos_var = gradient_target_info target in
+        (* Named colors use the scheme system with theme variables *)
+        match src with
+        | Gc_named (color, shade) ->
+            gradient_color ~prefix ~set_var ~shade color
+        | Gc_named_opacity (color, shade, opacity) ->
+            gradient_color_opacity ~prefix ~set_var ~shade color opacity
+        | _ -> (
+            (* All other sources: keyword, hex, bracket var *)
+            let color = css_color_of_source src in
+            match opacity_of_source src with
+            | None -> gradient_simple ~prefix ~set_var color []
+            | Some opacity ->
+                let percent = Color.opacity_to_percent opacity in
+                gradient_with_opacity ~prefix ~set_var color color percent))
+    | Gradient_position (target, src) -> (
+        let _prefix, _set_var, pos_var = gradient_target_info target in
+        match src with
+        | Gp_pct p -> gradient_position_style pos_var (Pct p)
+        | Gp_bracket v ->
+            let bare = Parse.extract_var_name v in
+            let ref : Css.percentage Css.var = Css.var_ref bare in
+            gradient_position_style pos_var (Var ref))
     | Bg_origin_border -> bg_origin_border
     | Bg_origin_padding -> bg_origin_padding
     | Bg_origin_content -> bg_origin_content
@@ -1178,34 +1349,19 @@ module Handler = struct
     | Bg_position_bracket inner -> (
         match parse_bracket_position inner with
         | Some decl -> style [ decl ]
-        | None ->
-            (* Handle var(--name) references *)
-            let css_val =
-              String.map (fun c -> if c = '_' then ' ' else c) inner
-            in
-            if
-              String.starts_with ~prefix:"var(--" css_val
-              && String.ends_with ~suffix:")" css_val
-            then
-              let var_name = String.sub css_val 6 (String.length css_val - 7) in
-              let ref : Css.position_value Css.var = Css.var_ref var_name in
-              style [ Css.background_position [ Var ref ] ]
-            else style [ Css.background_position [ Center ] ])
+        | None when Parse.is_var inner ->
+            let var_name = Parse.extract_var_name inner in
+            let ref : Css.position_value Css.var = Css.var_ref var_name in
+            style [ Css.background_position [ Var ref ] ]
+        | None -> style [ Css.background_position [ Center ] ])
     | Bg_size_bracket inner -> (
         match parse_bracket_size inner with
         | Some decl -> style [ decl ]
-        | None ->
-            let css_val =
-              String.map (fun c -> if c = '_' then ' ' else c) inner
-            in
-            if
-              String.starts_with ~prefix:"var(--" css_val
-              && String.ends_with ~suffix:")" css_val
-            then
-              let var_name = String.sub css_val 6 (String.length css_val - 7) in
-              let ref : Css.background_size Css.var = Css.var_ref var_name in
-              style [ Css.background_size (Var ref) ]
-            else style [ Css.background_size Auto ])
+        | None when Parse.is_var inner ->
+            let var_name = Parse.extract_var_name inner in
+            let ref : Css.background_size Css.var = Css.var_ref var_name in
+            style [ Css.background_size (Var ref) ]
+        | None -> style [ Css.background_size Auto ])
 
   let suborder = function
     (* All bg-color utilities share the same suborder (10000) to allow
@@ -1227,9 +1383,13 @@ module Handler = struct
     | Bg_radial_bracket _ ->
         200000
     (* Gradient color utilities *)
-    | From _ | From_opacity _ -> 110000
-    | Via _ | Via_opacity _ -> 120000
-    | To _ | To_opacity _ -> 130000
+    | Gradient_color (Gradient_from, _) -> 110000
+    | Gradient_color (Gradient_via, _) -> 120000
+    | Gradient_color (Gradient_to, _) -> 130000
+    (* Gradient position utilities *)
+    | Gradient_position (Gradient_from, _) -> 110001
+    | Gradient_position (Gradient_via, _) -> 120001
+    | Gradient_position (Gradient_to, _) -> 130001
     (* bg-origin utilities *)
     | Bg_origin_border -> 140000
     | Bg_origin_content -> 140001
@@ -1278,6 +1438,71 @@ module Handler = struct
     | Some i ->
         (String.sub s 0 i, Some (String.sub s (i + 1) (String.length s - i - 1)))
     | None -> (s, None)
+
+  (** Parse gradient color/position from token list for a given target *)
+  let parse_gradient_color target rest =
+    let gc src = Ok (Gradient_color (target, src)) in
+    let gp src = Ok (Gradient_position (target, src)) in
+    match rest with
+    (* Keywords *)
+    | [ "current" ] -> gc Gc_current
+    | [ current_str ] when String.starts_with ~prefix:"current/" current_str ->
+        let _, opacity = Color.parse_opacity_modifier current_str in
+        gc (Gc_current_opacity opacity)
+    | [ "inherit" ] -> gc Gc_inherit
+    | [ "transparent" ] -> gc Gc_transparent
+    (* Percentage positions: from-0%, from-100% *)
+    | [ pct_str ] when String.ends_with ~suffix:"%" pct_str -> (
+        let num_s = String.sub pct_str 0 (String.length pct_str - 1) in
+        match float_of_string_opt num_s with
+        | Some p -> gp (Gp_pct p)
+        | None -> Error (`Msg "Invalid gradient position"))
+    (* Bracket notation *)
+    | [ bracket ] when Parse.is_bracket_value bracket ->
+        let inner = Parse.bracket_inner bracket in
+        (* Check for opacity modifier: [#0088cc]/50 is handled by has_opacity *)
+        if String.length inner > 6 && String.sub inner 0 6 = "color:" then
+          let var_str = String.sub inner 6 (String.length inner - 6) in
+          gc (Gc_bracket_color_var var_str)
+        else if String.length inner > 0 && inner.[0] = '#' then
+          gc (Gc_bracket_hex (String.sub inner 1 (String.length inner - 1)))
+        else if Parse.is_var inner then gc (Gc_bracket_var inner)
+        else gp (Gp_bracket inner)
+    (* Bracket with opacity: [#0088cc]/50 or [var(--x)]/50 *)
+    | [ bracket_opacity ] when has_opacity bracket_opacity -> (
+        let base, opacity_opt = Color.parse_opacity_modifier bracket_opacity in
+        match opacity_opt with
+        | Color.No_opacity ->
+            Error (`Msg "Invalid gradient bracket with opacity")
+        | opacity when Parse.is_bracket_value base ->
+            let inner = Parse.bracket_inner base in
+            if String.length inner > 6 && String.sub inner 0 6 = "color:" then
+              let var_str = String.sub inner 6 (String.length inner - 6) in
+              gc (Gc_bracket_color_var_opacity (var_str, opacity))
+            else if String.length inner > 0 && inner.[0] = '#' then
+              gc
+                (Gc_bracket_hex_opacity
+                   (String.sub inner 1 (String.length inner - 1), opacity))
+            else if Parse.is_var inner then
+              gc (Gc_bracket_var_opacity (inner, opacity))
+            else Error (`Msg "Invalid gradient bracket with opacity")
+        | _ -> (
+            (* Named color with opacity *)
+            match Color.shade_and_opacity_of_strings rest with
+            | Ok (color, shade, opacity) ->
+                gc (Gc_named_opacity (color, shade, opacity))
+            | Error e -> Error e))
+    (* Named color with opacity via has_opacity on rest *)
+    | _ when List.exists has_opacity rest -> (
+        match Color.shade_and_opacity_of_strings rest with
+        | Ok (color, shade, opacity) ->
+            gc (Gc_named_opacity (color, shade, opacity))
+        | Error e -> Error e)
+    (* Named color *)
+    | _ -> (
+        match Color.shade_of_strings rest with
+        | Ok (color, shade) -> gc (Gc_named (color, shade))
+        | Error _ -> Error (`Msg "Invalid gradient color"))
 
   let of_class class_name =
     let parts = Parse.split_class class_name in
@@ -1523,31 +1748,9 @@ module Handler = struct
         match Color.shade_of_strings rest with
         | Ok (color, shade) -> Ok (Bg (color, shade))
         | Error _ -> Error (`Msg "Invalid background color"))
-    | "from" :: rest when List.exists has_opacity rest -> (
-        match Color.shade_and_opacity_of_strings rest with
-        | Ok (color, shade, opacity) ->
-            Ok (From_opacity (color, shade, opacity))
-        | Error e -> Error e)
-    | "from" :: rest -> (
-        match Color.shade_of_strings rest with
-        | Ok (color, shade) -> Ok (From (color, shade))
-        | Error _ -> Error (`Msg "Invalid from color"))
-    | "via" :: rest when List.exists has_opacity rest -> (
-        match Color.shade_and_opacity_of_strings rest with
-        | Ok (color, shade, opacity) -> Ok (Via_opacity (color, shade, opacity))
-        | Error e -> Error e)
-    | "via" :: rest -> (
-        match Color.shade_of_strings rest with
-        | Ok (color, shade) -> Ok (Via (color, shade))
-        | Error _ -> Error (`Msg "Invalid via color"))
-    | "to" :: rest when List.exists has_opacity rest -> (
-        match Color.shade_and_opacity_of_strings rest with
-        | Ok (color, shade, opacity) -> Ok (To_opacity (color, shade, opacity))
-        | Error e -> Error e)
-    | "to" :: rest -> (
-        match Color.shade_of_strings rest with
-        | Ok (color, shade) -> Ok (To (color, shade))
-        | Error _ -> Error (`Msg "Invalid to color"))
+    | "from" :: rest -> parse_gradient_color Gradient_from rest
+    | "via" :: rest -> parse_gradient_color Gradient_via rest
+    | "to" :: rest -> parse_gradient_color Gradient_to rest
     | _ -> Error (`Msg "Unknown background class")
 end
 
@@ -1557,6 +1760,12 @@ let () = Utility.register (module Handler)
 let utility x = Utility.base (Self x)
 let bg color shade = utility (Bg (color, shade))
 let bg_gradient_to dir = utility (Bg_gradient_to dir)
-let from_color ?(shade = 500) color = utility (From (color, shade))
-let via_color ?(shade = 500) color = utility (Via (color, shade))
-let to_color ?(shade = 500) color = utility (To (color, shade))
+
+let from_color ?(shade = 500) color =
+  utility (Gradient_color (Gradient_from, Gc_named (color, shade)))
+
+let via_color ?(shade = 500) color =
+  utility (Gradient_color (Gradient_via, Gc_named (color, shade)))
+
+let to_color ?(shade = 500) color =
+  utility (Gradient_color (Gradient_to, Gc_named (color, shade)))
