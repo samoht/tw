@@ -170,7 +170,7 @@ let extract_radius_from_css css : (string * Css.length) list =
       with _ -> None)
     matches
 
-let extract_default_ring_width_from_css css : int =
+let extract_ring_width css : int =
   let pattern =
     Re.Pcre.regexp
       {|\.ring\s*\{[^}]*calc\((\d+)px\s*\+\s*var\(--tw-ring-offset-width\)\)|}
@@ -179,7 +179,7 @@ let extract_default_ring_width_from_css css : int =
   | Some m -> ( try int_of_string (Re.Group.get m 1) with _ -> 1)
   | None -> 1
 
-let extract_default_border_width_from_css css : int =
+let extract_border_width css : int =
   let border_pattern =
     Re.Pcre.regexp {|\.border\s*\{[^}]*border-width:\s*(\d+)px|}
   in
@@ -196,7 +196,7 @@ let extract_default_border_width_from_css css : int =
       | Some m -> ( try int_of_string (Re.Group.get m 1) with _ -> 1)
       | None -> 1)
 
-let extract_default_outline_width_from_css css : int =
+let extract_outline_width css : int =
   let pattern =
     Re.Pcre.regexp {|\.outline\s*\{[^}]*outline-width:\s*(\d+)px|}
   in
@@ -207,9 +207,9 @@ let extract_default_outline_width_from_css css : int =
 let scheme_from_expected_css expected : Tw.Scheme.t =
   let spacing = extract_spacing_from_css expected in
   let radius = extract_radius_from_css expected in
-  let default_ring_width = extract_default_ring_width_from_css expected in
-  let default_border_width = extract_default_border_width_from_css expected in
-  let default_outline_width = extract_default_outline_width_from_css expected in
+  let default_ring_width = extract_ring_width expected in
+  let default_border_width = extract_border_width expected in
+  let default_outline_width = extract_outline_width expected in
   {
     colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ];
     spacing;
@@ -229,7 +229,7 @@ let setup_scheme_for_test expected =
 
 (** Extract all CSS variable names referenced in expected CSS text. *)
 let extract_var_names expected =
-  let vars = ref Css.Pp.StringSet.empty in
+  let vars = ref Css.Pp.String_set.empty in
   let len = String.length expected in
   let rec scan i =
     if i < len - 2 && expected.[i] = '-' && expected.[i + 1] = '-' then (
@@ -247,7 +247,7 @@ let extract_var_names expected =
       done;
       if !j > i + 2 then
         vars :=
-          Css.Pp.StringSet.add (String.sub expected (i + 2) (!j - i - 2)) !vars;
+          Css.Pp.String_set.add (String.sub expected (i + 2) (!j - i - 2)) !vars;
       scan !j)
     else if i < len then scan (i + 1)
   in
@@ -303,10 +303,10 @@ let theme_config config expected =
       hardcoded
   in
   match config with
-  | Run -> (Css.Pp.StringSet.empty, combined_defaults)
+  | Run -> (Css.Pp.String_set.empty, combined_defaults)
   | Theme -> (extract_var_names expected, combined_defaults)
-  | Theme_inline -> (Css.Pp.StringSet.empty, inline_defaults)
-  | No_theme -> (Css.Pp.StringSet.empty, hardcoded_only)
+  | Theme_inline -> (Css.Pp.String_set.empty, inline_defaults)
+  | No_theme -> (Css.Pp.String_set.empty, hardcoded_only)
   | Theme_reference | Theme_inline_reference ->
       (extract_var_names expected, Css.Pp.no_theme_defaults)
 

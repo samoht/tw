@@ -1423,6 +1423,8 @@ module Handler = struct
      Css *)
   let mk_color_hex s : color = Hex s
   let color_of_string = of_string
+  let pp_int = Pp.int
+  let pp_float = Pp.float
 
   open Style
   open Css
@@ -1914,7 +1916,7 @@ module Handler = struct
     style ~merge_key:"outline-" ~rules:(Some [ supports_block ])
       [ fallback_decl ]
 
-  let outline_bracket_typed_var_opacity_style v opacity =
+  let outline_bracket_var_opacity v opacity =
     let bare_name = Parse.extract_var_name v in
     let percent = opacity_to_percent opacity in
     let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
@@ -1988,7 +1990,7 @@ module Handler = struct
         outline_bracket_var_opacity_style v opacity
     | Outline_bracket_typed_var v -> outline_bracket_typed_var_style v
     | Outline_bracket_typed_var_opacity (v, opacity) ->
-        outline_bracket_typed_var_opacity_style v opacity
+        outline_bracket_var_opacity v opacity
 
   (* Suborder determines order within the color priority group. Tailwind orders:
      border -> bg -> text So we use: border (0-9999), bg (10000-19999), text
@@ -2098,12 +2100,12 @@ module Handler = struct
   let opacity_suffix = function
     | No_opacity -> ""
     | Opacity_percent p ->
-        if Float.is_integer p then Printf.sprintf "/%d" (int_of_float p)
-        else Printf.sprintf "/%g" p
+        if Float.is_integer p then "/" ^ pp_int (int_of_float p)
+        else "/" ^ pp_float p
     | Opacity_bracket_percent p ->
-        if Float.is_integer p then Printf.sprintf "/[%d%%]" (int_of_float p)
-        else Printf.sprintf "/[%g%%]" p
-    | Opacity_arbitrary f -> Printf.sprintf "/[%g]" f
+        if Float.is_integer p then "/[" ^ pp_int (int_of_float p) ^ "%]"
+        else "/[" ^ pp_float p ^ "%]"
+    | Opacity_arbitrary f -> "/[" ^ pp_float f ^ "]"
     | Opacity_named name -> "/[" ^ name ^ "]"
 
   let to_class = function
@@ -2219,12 +2221,12 @@ let pp_opacity = function
       (* Handle both integer and decimal values *)
       let rounded = Float.round pct in
       if Float.equal pct rounded then string_of_int (int_of_float pct)
-      else Printf.sprintf "%g" pct
+      else Pp.float pct
   | Opacity_bracket_percent pct ->
       let rounded = Float.round pct in
       if Float.equal pct rounded then
         "[" ^ string_of_int (int_of_float pct) ^ "%]"
-      else Printf.sprintf "[%g%%]" pct
+      else "[" ^ Pp.float pct ^ "%]"
   | Opacity_arbitrary f -> "[" ^ string_of_float f ^ "]"
   | Opacity_named name -> name
 

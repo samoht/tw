@@ -76,7 +76,8 @@ module Handler = struct
       let r1, r2 = (c.[1], c.[2]) in
       let g1, g2 = (c.[3], c.[4]) in
       let b1, b2 = (c.[5], c.[6]) in
-      if r1 = r2 && g1 = g2 && b1 = b2 then Printf.sprintf "#%c%c%c" r1 g1 b1
+      if r1 = r2 && g1 = g2 && b1 = b2 then
+        "#" ^ String.make 1 r1 ^ String.make 1 g1 ^ String.make 1 b1
       else c
     else c
 

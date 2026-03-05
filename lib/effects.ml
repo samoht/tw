@@ -5,6 +5,9 @@ let set_scheme scheme = current_scheme := scheme
 
 module Handler = struct
   open Style
+
+  let pp_float = Pp.float
+
   open Css
 
   type t =
@@ -638,7 +641,7 @@ module Handler = struct
                 let g1, g2 = (c.[3], c.[4]) in
                 let b1, b2 = (c.[5], c.[6]) in
                 if r1 = r2 && g1 = g2 && b1 = b2 then
-                  Printf.sprintf "#%c%c%c" r1 g1 b1
+                  "#" ^ String.make 1 r1 ^ String.make 1 g1 ^ String.make 1 b1
                 else c
               else c
           | None -> "currentcolor"
@@ -773,7 +776,7 @@ module Handler = struct
                 let g1, g2 = (c.[3], c.[4]) in
                 let b1, b2 = (c.[5], c.[6]) in
                 if r1 = r2 && g1 = g2 && b1 = b2 then
-                  Printf.sprintf "#%c%c%c" r1 g1 b1
+                  "#" ^ String.make 1 r1 ^ String.make 1 g1 ^ String.make 1 b1
                 else c
               else c
           | Option.None -> "currentcolor"
@@ -1214,8 +1217,8 @@ module Handler = struct
     | Inset_shadow_2xl -> "inset-shadow-2xl"
     | Inset_shadow_arbitrary arb -> "inset-shadow-[" ^ arb ^ "]"
     | Opacity n -> "opacity-" ^ string_of_int n
-    | Opacity_decimal f -> Printf.sprintf "opacity-%g" f
-    | Opacity_arbitrary f -> Printf.sprintf "opacity-[%g]" f
+    | Opacity_decimal f -> "opacity-" ^ pp_float f
+    | Opacity_arbitrary f -> "opacity-[" ^ pp_float f ^ "]"
     | Opacity_var v -> "opacity-[" ^ v ^ "]"
     | Ring_none -> "ring-0"
     | Ring_xs -> "ring-1"
