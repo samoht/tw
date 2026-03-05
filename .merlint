@@ -1,10 +1,38 @@
 rules:
+   - files: tmp/*
+     exclude: [*]
    - files: lib/prose.ml*
      exclude: [E330]
    - files: lib/color.ml*
      exclude: [E330]
-   - files: test/**
-     exclude: [E005]
+   - files: lib/columns.ml*
+     exclude: [E330]
+   - files: lib/containers.ml*
+     exclude: [E330]
+   - files: lib/cursor.ml*
+     exclude: [E330]
+   - files: lib/flex.ml*
+     exclude: [E330]
+   - files: lib/gap.ml*
+     exclude: [E330]
+   - files: lib/overflow.ml*
+     exclude: [E330]
+   - files: lib/touch.ml*
+     exclude: [E330]
+   - files: lib/text_shadow.ml*
+     exclude: [E330]
+   - files: lib/spacing.ml*
+     exclude: [E330]
+   - files: lib/scroll.ml*
+     exclude: [E330]
+   - files: lib/grid.ml*
+     exclude: [E330]
+   - files: lib/contain.ml*
+     exclude: [E330]
+   - files: lib/overscroll.ml*
+     exclude: [E330]
+   - files: lib/divide.ml*
+     exclude: [E330]
    - files: test/test_helpers.ml*
      exclude:  [E600, E610, E615, E620]
    - files: test/css/test_helpers.ml*
