@@ -69,7 +69,7 @@ let test_layout_container () =
     (String.contains css_string 'c');
   Alcotest.(check bool) "has width:100%" true (String.contains css_string 'w')
 
-let test_layout_container_vs_at_container () =
+let test_container_vs_at_container () =
   (* Test the difference between layout .container and @container query *)
   let layout = Tw.to_css [ Tw.container ] in
   let query = Tw.to_css [ Tw.at_container ] in
@@ -118,7 +118,7 @@ let tests =
     test_case "screen reader utilities" `Quick test_screen_reader;
     test_case "layout container" `Quick test_layout_container;
     test_case "layout container vs @container" `Quick
-      test_layout_container_vs_at_container;
+      test_container_vs_at_container;
     test_case "layout container matches Tailwind" `Quick
       test_layout_container_matches_tailwind;
     test_case "layout of_string - invalid values" `Quick of_string_invalid;

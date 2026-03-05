@@ -4,7 +4,7 @@ let test_escape_in_selector () =
   | Ok _stylesheet -> ()
   | Error e ->
       Alcotest.fail
-        (Printf.sprintf "Failed to parse escaped selector: %s"
+        (Format.asprintf "Failed to parse escaped selector: %s"
            (Css.pp_parse_error e))
 
 let tests =

@@ -158,12 +158,12 @@ module Handler = struct
   let opacity_suffix = function
     | Color.No_opacity -> ""
     | Color.Opacity_percent p ->
-        if Float.is_integer p then Printf.sprintf "/%d" (int_of_float p)
-        else Printf.sprintf "/%g" p
+        if Float.is_integer p then "/" ^ Pp.int (int_of_float p)
+        else "/" ^ Pp.float p
     | Color.Opacity_bracket_percent p ->
-        if Float.is_integer p then Printf.sprintf "/[%d%%]" (int_of_float p)
-        else Printf.sprintf "/[%g%%]" p
-    | Color.Opacity_arbitrary f -> Printf.sprintf "/[%g]" f
+        if Float.is_integer p then "/[" ^ Pp.int (int_of_float p) ^ "%]"
+        else "/[" ^ Pp.float p ^ "%]"
+    | Color.Opacity_arbitrary f -> "/[" ^ Pp.float f ^ "]"
     | Color.Opacity_named name -> "/[" ^ name ^ "]"
 
   let to_class (t : t) =
@@ -355,6 +355,9 @@ module Handler = struct
     | Bottom_left -> "to bottom left"
 
   open Style
+
+  let pp_float = Pp.float
+
   open Css
 
   let name = "backgrounds"
@@ -712,7 +715,7 @@ module Handler = struct
       match float_of_string_opt rad_s with
       | Some rad ->
           let deg = rad *. 180.0 /. Float.pi in
-          Printf.sprintf "%gdeg" deg
+          pp_float deg ^ "deg"
       | None -> String.map (fun c -> if c = '_' then ' ' else c) inner
     else String.map (fun c -> if c = '_' then ' ' else c) inner
 
@@ -1209,29 +1212,29 @@ module Handler = struct
     | Bg_clip_content -> 150001
     | Bg_clip_padding -> 150002
     | Bg_clip_text -> 150003
-    (* Bracket image variants *)
+    (* Bracket image variants — before bg-none *)
     | Bg_bracket_image_var _ -> 210010
     | Bg_bracket_url _ -> 210011
     | Bg_bracket_url_var _ -> 210012
     | Bg_bracket_linear_gradient _ -> 210013
-    | Bg_none -> 210000
-    (* bg-size utilities *)
+    | Bg_none -> 210020
+    (* bg-size: bracket before named; length before size for merge order *)
+    | Bg_bracket_contain -> 299990
+    | Bg_bracket_cover -> 299991
+    | Bg_bracket_length _ -> 299992
+    | Bg_bracket_size _ -> 299993
+    | Bg_size_bracket _ -> 299994
     | Bg_auto -> 300000
     | Bg_contain -> 300001
     | Bg_cover -> 300002
-    | Bg_bracket_contain -> 300010
-    | Bg_bracket_cover -> 300011
-    | Bg_bracket_size _ -> 300012
-    | Bg_size_bracket _ -> 300013
-    | Bg_bracket_length _ -> 300014
     (* bg-attachment utilities *)
     | Bg_fixed -> 400000
     | Bg_local -> 400001
     | Bg_scroll -> 400002
-    (* bg-position utilities *)
-    | Bg_bracket_position _ -> 500020
-    | Bg_bracket_typed_position _ -> 500021
-    | Bg_position_bracket _ -> 500022
+    (* bg-position: bracket before named *)
+    | Bg_bracket_position _ -> 499980
+    | Bg_bracket_typed_position _ -> 499981
+    | Bg_position_bracket _ -> 499982
     | Bg_position _ -> 500000
     (* bg-repeat utilities *)
     | Bg_no_repeat -> 600000

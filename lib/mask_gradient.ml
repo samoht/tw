@@ -8,6 +8,10 @@
 
 module Handler = struct
   open Style
+
+  let pp_int = Pp.int
+  let pp_float = Pp.float
+
   open Css
 
   type direction =
@@ -90,11 +94,11 @@ module Handler = struct
     | Spacing n ->
         if n = 0.0 then "calc(var(--spacing) * 0)"
         else if Float.is_integer n then
-          Printf.sprintf "calc(var(--spacing) * %d)" (int_of_float n)
-        else Printf.sprintf "calc(var(--spacing) * %g)" n
+          "calc(var(--spacing) * " ^ pp_int (int_of_float n) ^ ")"
+        else "calc(var(--spacing) * " ^ pp_float n ^ ")"
     | Percent p ->
-        if Float.is_integer p then Printf.sprintf "%d%%" (int_of_float p)
-        else Printf.sprintf "%g%%" p
+        if Float.is_integer p then pp_int (int_of_float p) ^ "%"
+        else pp_float p ^ "%"
     | Arbitrary v -> v
 
   (* Common mask image using List of three var references *)
@@ -114,11 +118,10 @@ module Handler = struct
   (* Generate the gradient value for a direction *)
   let gradient_for_direction dir =
     let dir_name = direction_name dir in
-    Printf.sprintf
-      "linear-gradient(to %s, var(--tw-mask-%s-from-color) \
-       var(--tw-mask-%s-from-position), var(--tw-mask-%s-to-color) \
-       var(--tw-mask-%s-to-position))"
-      dir_name dir_name dir_name dir_name dir_name
+    "linear-gradient(to " ^ dir_name ^ ", var(--tw-mask-" ^ dir_name
+    ^ "-from-color) var(--tw-mask-" ^ dir_name
+    ^ "-from-position), var(--tw-mask-" ^ dir_name ^ "-to-color) var(--tw-mask-"
+    ^ dir_name ^ "-to-position))"
 
   (* Radial mask uses a stops variable for composability *)
   let radial_stops_decl =
@@ -168,17 +171,14 @@ module Handler = struct
     let pos_value = format_position_value value in
 
     (* The variable being set *)
-    let var_name =
-      Printf.sprintf "--tw-mask-%s-%s-position" dir_name pos_name
-    in
+    let var_name = "--tw-mask-" ^ dir_name ^ "-" ^ pos_name ^ "-position" in
 
     (* Common declarations for all directional masks *)
     let common_decls =
       mask_image_decls
       @ [
           custom_property ~layer:"utilities" "--tw-mask-linear" mask_linear_decl;
-          custom_property ~layer:"utilities"
-            (Printf.sprintf "--tw-mask-%s" dir_name)
+          custom_property ~layer:"utilities" ("--tw-mask-" ^ dir_name)
             (gradient_for_direction dir);
           custom_property ~layer:"utilities" var_name pos_value;
         ]
@@ -199,10 +199,10 @@ module Handler = struct
           custom_property ~layer:"utilities" "--tw-mask-right"
             (gradient_for_direction Right);
           custom_property ~layer:"utilities"
-            (Printf.sprintf "--tw-mask-left-%s-position" pos_name)
+            ("--tw-mask-left-" ^ pos_name ^ "-position")
             pos_value;
           custom_property ~layer:"utilities"
-            (Printf.sprintf "--tw-mask-right-%s-position" pos_name)
+            ("--tw-mask-right-" ^ pos_name ^ "-position")
             pos_value;
         ]
     in
@@ -222,10 +222,10 @@ module Handler = struct
           custom_property ~layer:"utilities" "--tw-mask-bottom"
             (gradient_for_direction Bottom);
           custom_property ~layer:"utilities"
-            (Printf.sprintf "--tw-mask-top-%s-position" pos_name)
+            ("--tw-mask-top-" ^ pos_name ^ "-position")
             pos_value;
           custom_property ~layer:"utilities"
-            (Printf.sprintf "--tw-mask-bottom-%s-position" pos_name)
+            ("--tw-mask-bottom-" ^ pos_name ^ "-position")
             pos_value;
         ]
     in
@@ -244,7 +244,7 @@ module Handler = struct
           custom_property ~layer:"utilities" "--tw-mask-linear"
             linear_gradient_decl;
           custom_property ~layer:"utilities"
-            (Printf.sprintf "--tw-mask-linear-%s-position" pos_name)
+            ("--tw-mask-linear-" ^ pos_name ^ "-position")
             pos_value;
         ]
     in
@@ -263,7 +263,7 @@ module Handler = struct
           custom_property ~layer:"utilities" "--tw-mask-radial"
             radial_gradient_decl;
           custom_property ~layer:"utilities"
-            (Printf.sprintf "--tw-mask-radial-%s-position" pos_name)
+            ("--tw-mask-radial-" ^ pos_name ^ "-position")
             pos_value;
         ]
     in
@@ -337,7 +337,7 @@ module Handler = struct
           custom_property ~layer:"utilities" "--tw-mask-conic"
             conic_gradient_decl;
           custom_property ~layer:"utilities"
-            (Printf.sprintf "--tw-mask-conic-%s-position" pos_name)
+            ("--tw-mask-conic-" ^ pos_name ^ "-position")
             pos_value;
         ]
     in
@@ -649,15 +649,14 @@ module Handler = struct
         if Float.is_integer n then string_of_int (int_of_float n)
         else string_of_float n
     | Percent p ->
-        if Float.is_integer p then Printf.sprintf "%d%%" (int_of_float p)
-        else Printf.sprintf "%g%%" p
-    | Arbitrary v -> Printf.sprintf "[%s]" v
+        if Float.is_integer p then pp_int (int_of_float p) ^ "%"
+        else pp_float p ^ "%"
+    | Arbitrary v -> "[" ^ v ^ "]"
 
   let to_class = function
     | Mask_position (dir, pos_end, value) ->
-        Printf.sprintf "mask-%s-%s-%s" (direction_short dir)
-          (position_end_name pos_end)
-          (format_value value)
+        "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end ^ "-"
+        ^ format_value value
     | Mask_linear_angle (Angle_int n) ->
         if n < 0 then "-mask-linear-" ^ string_of_int (-n)
         else "mask-linear-" ^ string_of_int n
@@ -668,10 +667,8 @@ module Handler = struct
     | Mask_conic_angle (Angle_arb s) -> "mask-conic-[" ^ s ^ "]"
     | Mask_radial -> "mask-radial"
     | Mask_radial_at (At_keyword pos) ->
-        Printf.sprintf "mask-radial-at-%s"
-          (String.concat "-" (String.split_on_char ' ' pos))
-    | Mask_radial_at (At_arbitrary pos) ->
-        Printf.sprintf "mask-radial-at-[%s]" pos
+        "mask-radial-at-" ^ String.concat "-" (String.split_on_char ' ' pos)
+    | Mask_radial_at (At_arbitrary pos) -> "mask-radial-at-[" ^ pos ^ "]"
     | Mask_radial_shape Circle -> "mask-circle"
     | Mask_radial_shape Ellipse -> "mask-ellipse"
     | Mask_radial_size Closest_corner -> "mask-radial-closest-corner"
@@ -680,7 +677,7 @@ module Handler = struct
     | Mask_radial_size Farthest_side -> "mask-radial-farthest-side"
     | Mask_radial_size (Arbitrary_size s) ->
         let escaped = String.map (fun c -> if c = ' ' then '_' else c) s in
-        Printf.sprintf "mask-radial-[%s]" escaped
+        "mask-radial-[" ^ escaped ^ "]"
 end
 
 open Handler

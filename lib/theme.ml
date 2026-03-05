@@ -24,8 +24,7 @@ let spacing_var = Var.theme Css.Length "spacing" ~order:(3, 0)
 let spacing_base : Css.length = Rem 0.25
 
 (* Create a spacing variable for explicit spacing values (e.g., --spacing-4) *)
-let spacing_n_var n =
-  Var.theme Css.Length (Printf.sprintf "spacing-%d" n) ~order:(3, n)
+let spacing_n_var n = Var.theme Css.Length ("spacing-" ^ Pp.int n) ~order:(3, n)
 
 (* Create a spacing length value. When scheme has explicit spacing for |n|,
    returns var(--spacing-|n|) or calc(var(--spacing-|n|) * -1) for negatives.

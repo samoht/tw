@@ -2,13 +2,15 @@
 
 open Cmdliner
 
+let err_read path msg = Error (`Msg (Fmt.str "Error reading %s: %s" path msg))
+
 let read_file path =
   try
     let ic = open_in path in
     let content = really_input_string ic (in_channel_length ic) in
     close_in ic;
     Ok content
-  with Sys_error msg -> Error (`Msg (Fmt.str "Error reading %s: %s" path msg))
+  with Sys_error msg -> err_read path msg
 
 type diff_mode = Auto | Tree | String
 
@@ -87,7 +89,7 @@ let diff_mode_arg =
   in
   Arg.(value & opt diff_mode_conv Auto & info [ "diff" ] ~docv:"MODE" ~doc)
 
-let cssdiff_t =
+let term =
   let open Term in
   (* CSSDIFF_COLOR env var for auto|always|never *)
   let style_renderer_with_env =
@@ -150,6 +152,6 @@ let cmd =
     ]
   in
   let info = Cmd.info "cssdiff" ~version:"%%VERSION%%" ~doc ~man in
-  Cmd.v info cssdiff_t
+  Cmd.v info term
 
 let () = exit (Cmd.eval cmd)

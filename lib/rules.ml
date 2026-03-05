@@ -1505,9 +1505,8 @@ let is_state_modifier_rule sel_kind selector =
     | Complex _ ->
         (* Check for :active or :disabled pseudo-classes in the selector *)
         let sel_str = Css.Selector.to_string selector in
-        String.contains sel_str ':'
-        && (Str.string_match (Str.regexp ".*:active$") sel_str 0
-           || Str.string_match (Str.regexp ".*:disabled$") sel_str 0)
+        String.ends_with ~suffix:":active" sel_str
+        || String.ends_with ~suffix:":disabled" sel_str
     | _ -> false
 
 (** Check if a selector is a focus: modifier rule (has :focus pseudo-class and

@@ -11,6 +11,10 @@ let set_scheme scheme = current_scheme := scheme
 
 module Handler = struct
   open Style
+
+  let pp_int = Pp.int
+  let pp_float = Pp.float
+
   open Css
 
   type t =
@@ -238,12 +242,12 @@ module Handler = struct
   let opacity_suffix = function
     | Color.No_opacity -> ""
     | Color.Opacity_percent p ->
-        if Float.is_integer p then Printf.sprintf "/%d" (int_of_float p)
-        else Printf.sprintf "/%g" p
+        if Float.is_integer p then "/" ^ pp_int (int_of_float p)
+        else "/" ^ pp_float p
     | Color.Opacity_bracket_percent p ->
-        if Float.is_integer p then Printf.sprintf "/[%d%%]" (int_of_float p)
-        else Printf.sprintf "/[%g%%]" p
-    | Color.Opacity_arbitrary f -> Printf.sprintf "/[%g]" f
+        if Float.is_integer p then "/[" ^ pp_int (int_of_float p) ^ "%]"
+        else "/[" ^ pp_float p ^ "%]"
+    | Color.Opacity_arbitrary f -> "/[" ^ pp_float f ^ "]"
     | Color.Opacity_named name -> "/" ^ name
 
   (* Divide color with opacity using Color helpers *)

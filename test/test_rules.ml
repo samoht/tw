@@ -390,7 +390,7 @@ let check_properties_layer_internal_order () =
   check (list string) "properties layer initial-order prefix" expected
     (take (List.length expected) names)
 
-let check_property_rules_trailing_and_order () =
+let check_property_rules_order () =
   let sheet = sheet_of [ Tw.Effects.shadow_sm ] in
   let names = property_rule_names sheet in
   let expected =
@@ -680,7 +680,7 @@ let test_theme_layer_media_refs () =
   check bool "includes --text-xl--line-height var" true
     (List.exists (fun v -> v = "--text-xl--line-height") all_vars)
 
-let test_theme_layer_media_refs_md () =
+let test_theme_media_refs_md () =
   (* Vars referenced only under md media queries should still end up in
      theme. *)
   let theme_layer =
@@ -813,7 +813,7 @@ let test_md_media_dedup () =
        ~selector:(Css.Selector.class_ "md:p-4")
        css)
 
-let test_md_hover_no_extra_media () =
+let test_md_hover_extra_media () =
   (* Responsive+hover should not introduce a separate (hover:hover) gate *)
   let css = Tw.Rules.to_css [ md [ hover [ p 4 ] ] ] in
   check bool "no (hover:hover) condition" false
@@ -1965,7 +1965,7 @@ let test_border_width_color_ordering () =
   Test_helpers.check_ordering_matches
     ~test_name:"border width and color ordering" utilities
 
-let test_regular_before_media_same_priority () =
+let test_regular_before_media () =
   (* Test that regular rules ALWAYS come before media queries, regardless of their priorities.
    * Example: max-w-4xl (regular, priority 8) and md:grid-cols-2 (media, priority 12).
    * Even though md:grid-cols-2 has higher priority, max-w-4xl (regular) should come first
@@ -2005,8 +2005,7 @@ let tests =
     test_case "layer decl + order" `Quick check_layer_declaration_and_ordering;
     test_case "properties layer internal order" `Quick
       check_properties_layer_internal_order;
-    test_case "@property trailing and order" `Quick
-      check_property_rules_trailing_and_order;
+    test_case "@property trailing and order" `Quick check_property_rules_order;
     (* New tests for exposed functions *)
     test_case "color_order" `Quick test_color_order;
     test_case "is_hover_rule" `Quick test_is_hover_rule;
@@ -2021,18 +2020,18 @@ let tests =
     test_case "theme_layer_collects_media_refs" `Quick
       test_theme_layer_media_refs;
     test_case "theme_layer_collects_media_refs (md)" `Quick
-      test_theme_layer_media_refs_md;
+      test_theme_media_refs_md;
     test_case "rule_sets_injects_hover_media_query" `Quick
       test_rule_sets_hover_media;
     test_case "rule_sets_groups_md_media_query" `Quick test_rule_sets_md_media;
     test_case "multi-breakpoint grouping+order" `Quick test_media_grouping_order;
     test_case "md media dedup" `Quick test_md_media_dedup;
     test_case "md:hover has no global hover gate" `Quick
-      test_md_hover_no_extra_media;
+      test_md_hover_extra_media;
     test_case "container + media together" `Quick test_container_and_media;
     test_case "media query deduplication" `Quick test_media_query_deduplication;
     test_case "regular before media same priority" `Quick
-      test_regular_before_media_same_priority;
+      test_regular_before_media;
     test_case "modifier_to_rule" `Quick test_modifier_to_rule;
     test_case "rule_sets" `Quick test_rule_sets;
     test_case "build_utilities_layer" `Quick test_build_utilities_layer;

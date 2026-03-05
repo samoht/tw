@@ -31,12 +31,12 @@ module Handler = struct
   let opacity_suffix = function
     | Color.No_opacity -> ""
     | Color.Opacity_percent p ->
-        if Float.is_integer p then Printf.sprintf "/%d" (int_of_float p)
-        else Printf.sprintf "/%g" p
+        if Float.is_integer p then "/" ^ Pp.int (int_of_float p)
+        else "/" ^ Pp.float p
     | Color.Opacity_bracket_percent p ->
-        if Float.is_integer p then Printf.sprintf "/[%d%%]" (int_of_float p)
-        else Printf.sprintf "/[%g%%]" p
-    | Color.Opacity_arbitrary f -> Printf.sprintf "/[%g]" f
+        if Float.is_integer p then "/[" ^ Pp.int (int_of_float p) ^ "%]"
+        else "/[" ^ Pp.float p ^ "%]"
+    | Color.Opacity_arbitrary f -> "/[" ^ Pp.float f ^ "]"
     | Color.Opacity_named name -> "/" ^ name
 
   (* Fill color style with scheme support *)

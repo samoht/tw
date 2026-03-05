@@ -389,24 +389,17 @@ let prose_invert_bullets_d, _prose_invert_bullets_v = theme.invert_bullets
 let prose_invert_hr_d, _prose_invert_hr_v = theme.invert_hr
 let prose_invert_quotes_d, _prose_invert_quotes_v = theme.invert_quotes
 
-let prose_invert_quote_borders_d, _prose_invert_quote_borders_v =
+let prose_invert_quote_borders_d, _invert_quote_borders_v =
   theme.invert_quote_borders
 
 let prose_invert_captions_d, _prose_invert_captions_v = theme.invert_captions
 let prose_invert_kbd_d, _prose_invert_kbd_v = theme.invert_kbd
-
-let prose_invert_kbd_shadows_d, _prose_invert_kbd_shadows_v =
-  theme.invert_kbd_shadows
-
+let prose_invert_kbd_shadows_d, _invert_kbd_shadows_v = theme.invert_kbd_shadows
 let prose_invert_code_d, _prose_invert_code_v = theme.invert_code
-let prose_invert_pre_code_d, _prose_invert_pre_code_v = theme.invert_pre_code
-let prose_invert_pre_bg_d, _prose_invert_pre_bg_v = theme.invert_pre_bg
-
-let prose_invert_th_borders_d, _prose_invert_th_borders_v =
-  theme.invert_th_borders
-
-let prose_invert_td_borders_d, _prose_invert_td_borders_v =
-  theme.invert_td_borders
+let prose_invert_pre_code_d, _invert_pre_code_v = theme.invert_pre_code
+let prose_invert_pre_bg_d, _invert_pre_bg_v = theme.invert_pre_bg
+let prose_invert_th_borders_d, _invert_th_borders_v = theme.invert_th_borders
+let prose_invert_td_borders_d, _invert_td_borders_v = theme.invert_td_borders
 
 (** Collect all CSS variable declarations *)
 let css_variables =
