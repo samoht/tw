@@ -47,39 +47,37 @@ module Handler = struct
       let mult = if negative then float_of_int (-n) else float_of_int n in
       Theme.spacing_calc_float mult
 
+  let try_parse_length inner =
+    let unit_table : (string * int * (float -> Css.length)) list =
+      [
+        ("rem", 3, fun f -> Css.Rem f);
+        ("px", 2, fun f -> Css.Px f);
+        ("em", 2, fun f -> Css.Em f);
+        ("%", 1, fun f -> Css.Pct f);
+      ]
+    in
+    let rec try_units = function
+      | [] -> None
+      | (suffix, suffix_len, mk) :: rest ->
+          if String.ends_with ~suffix inner then
+            let n = String.sub inner 0 (String.length inner - suffix_len) in
+            match float_of_string_opt n with
+            | Some f -> Some (`Length (mk f : Css.length))
+            | None -> None
+          else try_units rest
+    in
+    try_units unit_table
+
   let parse_arbitrary s : [ `Length of Css.length | `Var of string ] option =
     (* Parse [4px] or [1rem] or [var(--value)] etc. *)
     let len = String.length s in
     if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
       let inner = String.sub s 1 (len - 2) in
-      (* Check if it's a var reference *)
       if Parse.is_var inner then Some (`Var inner)
-      else if
-        (* Try to parse as a length *)
-        String.ends_with ~suffix:"px" inner
-      then
-        let n = String.sub inner 0 (String.length inner - 2) in
-        match float_of_string_opt n with
-        | Some f -> Some (`Length (Css.Px f : Css.length))
-        | None -> None
-      else if String.ends_with ~suffix:"rem" inner then
-        let n = String.sub inner 0 (String.length inner - 3) in
-        match float_of_string_opt n with
-        | Some f -> Some (`Length (Css.Rem f : Css.length))
-        | None -> None
-      else if String.ends_with ~suffix:"em" inner then
-        let n = String.sub inner 0 (String.length inner - 2) in
-        match float_of_string_opt n with
-        | Some f -> Some (`Length (Css.Em f : Css.length))
-        | None -> None
-      else if String.ends_with ~suffix:"%" inner then
-        let n = String.sub inner 0 (String.length inner - 1) in
-        match float_of_string_opt n with
-        | Some f -> Some (`Length (Css.Pct f : Css.length))
-        | None -> None
       else
-        (* Unknown format, try as var *)
-        Some (`Var inner)
+        match try_parse_length inner with
+        | Some _ as result -> result
+        | None -> Some (`Var inner)
     else None
 
   (* Get the CSS property function for scroll margin by axis *)
