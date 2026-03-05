@@ -553,4 +553,4 @@ let properties vars =
   in
   Css.v filtered
 
-let pp ppf v = Format.fprintf ppf "Var(--%s)" v.name
+let pp v = Pp.str [ "Var(--"; v.name; ")" ]

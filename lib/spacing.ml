@@ -5,7 +5,7 @@ open Css
 
 (** {1 Spacing Variable} *)
 
-let spacing_var = Theme.spacing_var
+let var = Theme.spacing_var
 
 (** {1 Class Name Formatting} *)
 

@@ -356,7 +356,7 @@ module Handler = struct
 
   open Style
 
-  let pp_float = Pp.float
+  let pp_float_n = Pp.float_n
 
   open Css
 
@@ -619,10 +619,10 @@ module Handler = struct
     let parse_pos_val s : Css.position_value option =
       if String.ends_with ~suffix:"px" s then
         let n = String.sub s 0 (String.length s - 2) |> float_of_string_opt in
-        Option.map (fun f -> (Css.XY (Px f, Px f) : Css.position_value)) n
+        Option.map (fun f -> (Css.Single (Px f) : Css.position_value)) n
       else if String.ends_with ~suffix:"%" s then
         let n = String.sub s 0 (String.length s - 1) |> float_of_string_opt in
-        Option.map (fun f -> (Css.XY (Pct f, Pct f) : Css.position_value)) n
+        Option.map (fun f -> (Css.Single (Pct f) : Css.position_value)) n
       else None
     in
     match parts with
@@ -715,7 +715,8 @@ module Handler = struct
       match float_of_string_opt rad_s with
       | Some rad ->
           let deg = rad *. 180.0 /. Float.pi in
-          pp_float deg ^ "deg"
+          (* Round to 4 decimal places to match Lightning CSS *)
+          pp_float_n 4 deg ^ "deg"
       | None -> String.map (fun c -> if c = '_' then ' ' else c) inner
     else String.map (fun c -> if c = '_' then ' ' else c) inner
 
@@ -1093,10 +1094,10 @@ module Handler = struct
           | Pos_bottom_left -> [ XY (Px 0., Pct 100.) ]
           | Pos_bottom_right -> [ XY (Pct 100., Pct 100.) ]
           | Pos_center -> [ Center ]
-          | Pos_left -> [ XY (Px 0., Px 0.) ]
+          | Pos_left -> [ Single (Px 0.) ]
           | Pos_left_bottom -> [ XY (Px 0., Pct 100.) ]
           | Pos_left_top -> [ XY (Px 0., Px 0.) ]
-          | Pos_right -> [ XY (Pct 100., Pct 100.) ]
+          | Pos_right -> [ Single (Pct 100.) ]
           | Pos_right_bottom -> [ XY (Pct 100., Pct 100.) ]
           | Pos_right_top -> [ XY (Pct 100., Px 0.) ]
           | Pos_top -> [ Center_top ]
@@ -1135,9 +1136,12 @@ module Handler = struct
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Css.var_ref bare in
         style [ Css.background_image (Var var_ref) ]
-    | Bg_bracket_linear_gradient _v ->
-        (* TODO: parse linear-gradient content *)
-        style [ Css.background_image None ]
+    | Bg_bracket_linear_gradient v ->
+        let css_str = String.map (fun c -> if c = '_' then ' ' else c) v in
+        let reader = Css.Reader.of_string css_str in
+        let img = Css.read_background_image reader in
+        let img = Css.minify_background_image img in
+        style [ Css.background_image img ]
     | Bg_linear_to dir -> bg_linear_to' dir
     | Bg_linear_to_interp (dir, interp) -> bg_linear_to_interp' dir interp
     | Bg_linear_angle n -> bg_linear_angle' n
@@ -1174,11 +1178,34 @@ module Handler = struct
     | Bg_position_bracket inner -> (
         match parse_bracket_position inner with
         | Some decl -> style [ decl ]
-        | None -> style [ Css.background_position [ Center ] ])
+        | None ->
+            (* Handle var(--name) references *)
+            let css_val =
+              String.map (fun c -> if c = '_' then ' ' else c) inner
+            in
+            if
+              String.starts_with ~prefix:"var(--" css_val
+              && String.ends_with ~suffix:")" css_val
+            then
+              let var_name = String.sub css_val 6 (String.length css_val - 7) in
+              let ref : Css.position_value Css.var = Css.var_ref var_name in
+              style [ Css.background_position [ Var ref ] ]
+            else style [ Css.background_position [ Center ] ])
     | Bg_size_bracket inner -> (
         match parse_bracket_size inner with
         | Some decl -> style [ decl ]
-        | None -> style [ Css.background_size Auto ])
+        | None ->
+            let css_val =
+              String.map (fun c -> if c = '_' then ' ' else c) inner
+            in
+            if
+              String.starts_with ~prefix:"var(--" css_val
+              && String.ends_with ~suffix:")" css_val
+            then
+              let var_name = String.sub css_val 6 (String.length css_val - 7) in
+              let ref : Css.background_size Css.var = Css.var_ref var_name in
+              style [ Css.background_size (Var ref) ]
+            else style [ Css.background_size Auto ])
 
   let suborder = function
     (* All bg-color utilities share the same suborder (10000) to allow
@@ -1214,9 +1241,9 @@ module Handler = struct
     | Bg_clip_text -> 150003
     (* Bracket image variants — before bg-none *)
     | Bg_bracket_image_var _ -> 210010
-    | Bg_bracket_url _ -> 210011
-    | Bg_bracket_url_var _ -> 210012
-    | Bg_bracket_linear_gradient _ -> 210013
+    | Bg_bracket_linear_gradient _ -> 210011
+    | Bg_bracket_url _ -> 210012
+    | Bg_bracket_url_var _ -> 210013
     | Bg_none -> 210020
     (* bg-size: bracket before named; length before size for merge order *)
     | Bg_bracket_contain -> 299990
@@ -1329,10 +1356,21 @@ module Handler = struct
         | Some n, None -> Ok (Bg_linear_angle n)
         | Some n, Some interp -> Ok (Bg_linear_angle_interp (n, interp))
         | None, _ -> Error (`Msg ("Invalid bg-linear angle: " ^ angle_mod)))
-    (* -bg-linear-[value] - negated bracket linear gradient *)
+    (* -bg-linear-[value] - negated bracket linear gradient (only angles) *)
     | [ ""; "bg"; "linear"; bracket ] when Parse.is_bracket_value bracket ->
         let inner = Parse.bracket_inner bracket in
-        Ok (Bg_linear_bracket_neg inner)
+        (* Only accept angle values for negation: 125deg, 1.3rad, etc. *)
+        let is_angle =
+          String.ends_with ~suffix:"deg" inner
+          && float_of_string_opt (String.sub inner 0 (String.length inner - 3))
+             <> None
+          || String.ends_with ~suffix:"rad" inner
+             && float_of_string_opt
+                  (String.sub inner 0 (String.length inner - 3))
+                <> None
+        in
+        if is_angle then Ok (Bg_linear_bracket_neg inner)
+        else Error (`Msg ("Invalid -bg-linear bracket value: " ^ inner))
     (* -bg-linear-{angle} and -bg-linear-{angle}/interp *)
     | [ ""; "bg"; "linear"; angle_mod ] -> (
         let angle_s, interp_opt = split_mod angle_mod in

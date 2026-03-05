@@ -58,8 +58,7 @@ let check_extract_responsive () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      (* Match Tailwind's minified output: (min-width:640px) *)
-      check string "media condition" "(min-width:640px)"
+      check string "media condition" "(min-width: 640px)"
         (Css.Media.to_string condition);
       check Test_helpers.selector_testable "sm selector"
         (Css.Selector.class_ "sm:p-4")
@@ -71,8 +70,7 @@ let check_extract_responsive_md () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      (* md breakpoint should be 768px *)
-      check string "md media condition" "(min-width:768px)"
+      check string "md media condition" "(min-width: 768px)"
         (Css.Media.to_string condition);
       check Test_helpers.selector_testable "md selector"
         (Css.Selector.class_ "md:p-4")
@@ -84,7 +82,7 @@ let check_extract_responsive_lg () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      check string "lg media condition" "(min-width:1024px)"
+      check string "lg media condition" "(min-width: 1024px)"
         (Css.Media.to_string condition);
       check Test_helpers.selector_testable "lg selector"
         (Css.Selector.class_ "lg:p-4")
@@ -96,7 +94,7 @@ let check_extract_responsive_xl () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      check string "xl media condition" "(min-width:1280px)"
+      check string "xl media condition" "(min-width: 1280px)"
         (Css.Media.to_string condition);
       check Test_helpers.selector_testable "xl selector"
         (Css.Selector.class_ "xl:p-4")
@@ -108,7 +106,7 @@ let check_extract_responsive_2xl () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      check string "2xl media condition" "(min-width:1536px)"
+      check string "2xl media condition" "(min-width: 1536px)"
         (Css.Media.to_string condition);
       check Test_helpers.selector_testable "2xl selector"
         (Css.Selector.class_ "2xl:p-4")
@@ -716,9 +714,9 @@ let test_rule_sets_hover_media () =
   let css = Tw.Rules.to_css ~config [ hover [ p 4 ] ] in
   (* Check for exact media condition *)
   check bool "has (hover:hover) media query" true
-    (has_media_condition "(hover:hover)" css);
+    (has_media_condition "(hover: hover)" css);
   (* Extract selectors from within the (hover:hover) media query *)
-  let selectors = selectors_in_media_sel ~condition:"(hover:hover)" css in
+  let selectors = selectors_in_media_sel ~condition:"(hover: hover)" css in
   let expected =
     Css.Selector.compound
       [ Css.Selector.class_ "hover:p-4"; Css.Selector.Hover ]
@@ -743,8 +741,8 @@ let test_rule_sets_md_media () =
       [ md [ p 4 ]; md [ m 2 ] ]
   in
   (* Check for exact media condition *)
-  check bool "has (min-width:768px) media query" true
-    (has_media_condition "(min-width:768px)" css);
+  check bool "has (min-width: 768px) media query" true
+    (has_media_condition "(min-width: 768px)" css);
 
   (* Find the md media block and verify both selectors are inside it *)
   let md_block =
@@ -784,12 +782,12 @@ let test_media_grouping_order () =
   (* Conditions present and in order *)
   let conditions = media_conditions css in
   check (list string) "media conditions order"
-    [ "(min-width:640px)"; "(min-width:768px)"; "(min-width:1024px)" ]
+    [ "(min-width: 640px)"; "(min-width: 768px)"; "(min-width: 1024px)" ]
     conditions;
   (* Each block contains only its selectors *)
-  let sm_sels = selectors_in_media_sel ~condition:"(min-width:640px)" css in
-  let md_sels = selectors_in_media_sel ~condition:"(min-width:768px)" css in
-  let lg_sels = selectors_in_media_sel ~condition:"(min-width:1024px)" css in
+  let sm_sels = selectors_in_media_sel ~condition:"(min-width: 640px)" css in
+  let md_sels = selectors_in_media_sel ~condition:"(min-width: 768px)" css in
+  let lg_sels = selectors_in_media_sel ~condition:"(min-width: 1024px)" css in
   check
     (list Test_helpers.selector_testable)
     "sm selectors"
@@ -809,7 +807,7 @@ let test_media_grouping_order () =
 let test_md_media_dedup () =
   let css = Tw.Rules.to_css [ md [ p 4 ]; md [ p 4 ] ] in
   check int "only one .md:p-4 in media (structural)" 1
-    (count_selector_in_media_sel ~condition:"(min-width:768px)"
+    (count_selector_in_media_sel ~condition:"(min-width: 768px)"
        ~selector:(Css.Selector.class_ "md:p-4")
        css)
 
@@ -817,10 +815,10 @@ let test_md_hover_extra_media () =
   (* Responsive+hover should not introduce a separate (hover:hover) gate *)
   let css = Tw.Rules.to_css [ md [ hover [ p 4 ] ] ] in
   check bool "no (hover:hover) condition" false
-    (has_media_condition "(hover:hover)" css);
+    (has_media_condition "(hover: hover)" css);
   (* Selector is inside md media block with :hover pseudo, assert
      structurally *)
-  let md_sels = selectors_in_media_sel ~condition:"(min-width:768px)" css in
+  let md_sels = selectors_in_media_sel ~condition:"(min-width: 768px)" css in
   let expected =
     Css.Selector.compound
       [ Css.Selector.class_ "md:hover:p-4"; Css.Selector.Hover ]

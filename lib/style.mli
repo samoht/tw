@@ -181,8 +181,8 @@ type t =
   | Modified of modifier * t
   | Group of t list
 
-val pp : Format.formatter -> t -> unit
-(** [pp ppf t] pretty-prints a style. *)
+val pp : t -> string
+(** [pp t] returns a string representation of a style. *)
 
 type size =
   [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full | `Rem of float ]

@@ -33,11 +33,11 @@ module Handler = struct
     match s with
     | `Px ->
         let len : length = if negative then Px (-1.) else Px 1. in
-        let decl, _ = Var.binding Spacing.spacing_var (Rem 0.25) in
+        let decl, _ = Var.binding Spacing.var (Rem 0.25) in
         (Some decl, len)
     | `Full ->
         let len : length = if negative then Pct (-100.) else Pct 100. in
-        let decl, _ = Var.binding Spacing.spacing_var (Rem 0.25) in
+        let decl, _ = Var.binding Spacing.var (Rem 0.25) in
         (Some decl, len)
     | `Named name -> (
         let prop_name = "spacing-" ^ name in

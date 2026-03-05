@@ -37,8 +37,8 @@ type t = {
 }
 (** Theme scheme configuration *)
 
-val pp : Format.formatter -> t -> unit
-(** [pp fmt t] pretty-prints a scheme configuration. *)
+val pp : t -> string
+(** [pp t] returns a string representation of a scheme configuration. *)
 
 val default : t
 (** [default] is the default scheme using oklch colors and calc-based spacing
