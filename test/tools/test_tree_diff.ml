@@ -2,7 +2,7 @@
 
 open Alcotest
 module Td = Tw_tools.Tree_diff
-open Test_helpers
+open Tools_test_helpers
 
 (* ===== Testable Types ===== *)
 

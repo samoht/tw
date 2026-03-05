@@ -1,6 +1,7 @@
 rules:
    - files: tmp/*
      exclude: [*]
+   # Modules included in tw.ml need E330 exceptions to expose the proper API
    - files: lib/prose.ml*
      exclude: [E330]
    - files: lib/color.ml*
@@ -21,8 +22,6 @@ rules:
      exclude: [E330]
    - files: lib/text_shadow.ml*
      exclude: [E330]
-   - files: lib/spacing.ml*
-     exclude: [E330]
    - files: lib/scroll.ml*
      exclude: [E330]
    - files: lib/grid.ml*
@@ -33,9 +32,5 @@ rules:
      exclude: [E330]
    - files: lib/divide.ml*
      exclude: [E330]
-   - files: test/test_helpers.ml*
-     exclude:  [E600, E610, E615, E620]
-   - files: test/css/test_helpers.ml*
-     exclude:  [E600, E610, E615, E620]
-   - files: test/tools/test_helpers.ml*
-     exclude:  [E600, E610, E615, E620]
+   - files: lib/field_sizing.ml*
+     exclude: [E330]

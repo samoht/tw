@@ -2,7 +2,7 @@ open Alcotest
 module Cc = Tw_tools.Css_compare
 module Td = Tw_tools.Tree_diff
 open Cc
-open Test_helpers
+open Tools_test_helpers
 
 let pp_css fmt css =
   match Css.of_string css with

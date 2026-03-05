@@ -1,6 +1,6 @@
 (test
  (name test)
- (libraries tw tw.html alcotest re astring fmt tw_tools str))
+ (libraries tw tw.html alcotest re astring fmt tw_tools str test_helpers))
 
 ; (test
 ;  (name test_selector_escape)
