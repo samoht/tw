@@ -426,16 +426,16 @@ module Handler = struct
       Gradient_stop "tw-gradient-via-stops"
 
   let gradient_from_position_var =
-    Var.property_default Percentage ~initial:(Pct 0.) ~property_order:13
+    Var.property_default Length_percentage ~initial:(Pct 0.) ~property_order:13
       ~family:`Gradient "tw-gradient-from-position"
 
   let gradient_via_position_var =
-    Var.property_default Percentage ~initial:(Pct 50.) ~property_order:14
+    Var.property_default Length_percentage ~initial:(Pct 50.) ~property_order:14
       ~family:`Gradient "tw-gradient-via-position"
 
   let gradient_to_position_var =
-    Var.property_default Percentage ~initial:(Pct 100.) ~property_order:15
-      ~family:`Gradient "tw-gradient-to-position"
+    Var.property_default Length_percentage ~initial:(Pct 100.)
+      ~property_order:15 ~family:`Gradient "tw-gradient-to-position"
 
   let bg_gradient_to' dir =
     (* Set --tw-gradient-position to the typed direction with oklab
@@ -1131,7 +1131,7 @@ module Handler = struct
 
   (** Gradient with a simple color value + stops (no opacity) *)
   let gradient_simple ~prefix ~set_var color_value extra_decls =
-    let d_var, _ = Var.binding set_var color_value in
+    let d_var, _ = Var.binding set_var (Css.minify_color color_value) in
     let d_stops, d_via_stops_opt = gradient_stops_decls prefix in
     let property_rules = gradient_all_property_rules () in
     let declarations =
@@ -1170,19 +1170,49 @@ module Handler = struct
     | Gradient_via -> ("via-", gradient_via_var, gradient_via_position_var)
     | Gradient_to -> ("to-", gradient_to_var, gradient_to_position_var)
 
-  (** Gradient position: from-0%, from-[50%], from-[50px], etc. *)
-  let gradient_position_style pos_var value =
+  (* Shared @property rules for gradient positions *)
+  let gradient_position_property_rules () =
+    [
+      Var.property_rule gradient_from_position_var;
+      Var.property_rule gradient_via_position_var;
+      Var.property_rule gradient_to_position_var;
+    ]
+    |> List.filter_map (fun x -> x)
+    |> Css.concat
+
+  (* Gradient position from a length_percentage value *)
+  let gradient_position_style pos_var (value : Css.length_percentage) =
     let d_var, _ = Var.binding pos_var value in
-    let property_rules =
-      [
-        Var.property_rule gradient_from_position_var;
-        Var.property_rule gradient_via_position_var;
-        Var.property_rule gradient_to_position_var;
-      ]
-      |> List.filter_map (fun x -> x)
-      |> Css.concat
-    in
-    style ~property_rules [ d_var ]
+    style ~property_rules:(gradient_position_property_rules ()) [ d_var ]
+
+  (* Parse bracket inner to a length_percentage value *)
+  let parse_bracket_position_value (inner : string) : Css.length_percentage =
+    if String.ends_with ~suffix:"%" inner then
+      let num_s = String.sub inner 0 (String.length inner - 1) in
+      match float_of_string_opt num_s with
+      | Some p -> Pct p
+      | None -> Pct 0. (* fallback *)
+    else if String.ends_with ~suffix:"px" inner then
+      let num_s = String.sub inner 0 (String.length inner - 2) in
+      match float_of_string_opt num_s with
+      | Some p -> Length (Px p)
+      | None -> Pct 0. (* fallback *)
+    else if Parse.is_var inner then
+      let bare = Parse.extract_var_name inner in
+      let vr : Css.length_percentage Css.var = Css.var_ref bare in
+      Var vr
+    else if String.length inner > 11 && String.sub inner 0 11 = "percentage:"
+    then
+      let var_str = String.sub inner 11 (String.length inner - 11) in
+      let bare = Parse.extract_var_name var_str in
+      let vr : Css.length_percentage Css.var = Css.var_ref bare in
+      Var vr
+    else if String.length inner > 7 && String.sub inner 0 7 = "length:" then
+      let var_str = String.sub inner 7 (String.length inner - 7) in
+      let bare = Parse.extract_var_name var_str in
+      let vr : Css.length_percentage Css.var = Css.var_ref bare in
+      Var vr
+    else Pct 0. (* fallback *)
 
   (** Convert a var string to a typed CSS color value *)
   let color_var_ref v : Css.color =
@@ -1221,8 +1251,13 @@ module Handler = struct
             gradient_color ~prefix ~set_var ~shade color
         | Gc_named_opacity (color, shade, opacity) ->
             gradient_color_opacity ~prefix ~set_var ~shade color opacity
+        | Gc_bracket_hex_opacity (h, opacity) ->
+            (* Hex is known at compile time: compute oklab directly *)
+            let alpha = Color.opacity_to_percent opacity /. 100.0 in
+            let color = Color.hex_to_oklab_alpha h alpha in
+            gradient_simple ~prefix ~set_var color []
         | _ -> (
-            (* All other sources: keyword, hex, bracket var *)
+            (* All other sources: keyword, bracket var *)
             let color = css_color_of_source src in
             match opacity_of_source src with
             | None -> gradient_simple ~prefix ~set_var color []
@@ -1234,9 +1269,7 @@ module Handler = struct
         match src with
         | Gp_pct p -> gradient_position_style pos_var (Pct p)
         | Gp_bracket v ->
-            let bare = Parse.extract_var_name v in
-            let ref : Css.percentage Css.var = Css.var_ref bare in
-            gradient_position_style pos_var (Var ref))
+            gradient_position_style pos_var (parse_bracket_position_value v))
     | Bg_origin_border -> bg_origin_border
     | Bg_origin_padding -> bg_origin_padding
     | Bg_origin_content -> bg_origin_content
@@ -1457,21 +1490,20 @@ module Handler = struct
         match float_of_string_opt num_s with
         | Some p -> gp (Gp_pct p)
         | None -> Error (`Msg "Invalid gradient position"))
-    (* Bracket notation *)
-    | [ bracket ] when Parse.is_bracket_value bracket ->
-        let inner = Parse.bracket_inner bracket in
-        (* Check for opacity modifier: [#0088cc]/50 is handled by has_opacity *)
-        if String.length inner > 6 && String.sub inner 0 6 = "color:" then
-          let var_str = String.sub inner 6 (String.length inner - 6) in
-          gc (Gc_bracket_color_var var_str)
-        else if String.length inner > 0 && inner.[0] = '#' then
-          gc (Gc_bracket_hex (String.sub inner 1 (String.length inner - 1)))
-        else if Parse.is_var inner then gc (Gc_bracket_var inner)
-        else gp (Gp_bracket inner)
-    (* Bracket with opacity: [#0088cc]/50 or [var(--x)]/50 *)
+    (* Bracket with opacity: [#0088cc]/50, [#0088cc]/[0.5], [var(--x)]/50 *)
     | [ bracket_opacity ] when has_opacity bracket_opacity -> (
         let base, opacity_opt = Color.parse_opacity_modifier bracket_opacity in
         match opacity_opt with
+        | Color.No_opacity when Parse.is_bracket_value bracket_opacity ->
+            (* No valid opacity found — treat as plain bracket *)
+            let inner = Parse.bracket_inner bracket_opacity in
+            if String.length inner > 6 && String.sub inner 0 6 = "color:" then
+              let var_str = String.sub inner 6 (String.length inner - 6) in
+              gc (Gc_bracket_color_var var_str)
+            else if String.length inner > 0 && inner.[0] = '#' then
+              gc (Gc_bracket_hex (String.sub inner 1 (String.length inner - 1)))
+            else if Parse.is_var inner then gc (Gc_bracket_var inner)
+            else gp (Gp_bracket inner)
         | Color.No_opacity ->
             Error (`Msg "Invalid gradient bracket with opacity")
         | opacity when Parse.is_bracket_value base ->
@@ -1492,6 +1524,16 @@ module Handler = struct
             | Ok (color, shade, opacity) ->
                 gc (Gc_named_opacity (color, shade, opacity))
             | Error e -> Error e))
+    (* Bracket notation without opacity *)
+    | [ bracket ] when Parse.is_bracket_value bracket ->
+        let inner = Parse.bracket_inner bracket in
+        if String.length inner > 6 && String.sub inner 0 6 = "color:" then
+          let var_str = String.sub inner 6 (String.length inner - 6) in
+          gc (Gc_bracket_color_var var_str)
+        else if String.length inner > 0 && inner.[0] = '#' then
+          gc (Gc_bracket_hex (String.sub inner 1 (String.length inner - 1)))
+        else if Parse.is_var inner then gc (Gc_bracket_var inner)
+        else gp (Gp_bracket inner)
     (* Named color with opacity via has_opacity on rest *)
     | _ when List.exists has_opacity rest -> (
         match Color.shade_and_opacity_of_strings rest with

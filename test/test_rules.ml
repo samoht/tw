@@ -30,8 +30,8 @@ let check_theme_layer_with_color () =
   in
   let theme_layer = Tw.Rules.theme_layer_of ~default_decls [ bg blue 500 ] in
   (* Should include color variable when referenced *)
-  check bool "includes --color-blue-500" true
-    (has_var_in_layer "--color-blue-500" "theme" theme_layer);
+  check bool "includes --background-color-blue-500" true
+    (has_var_in_layer "--background-color-blue-500" "theme" theme_layer);
   (* Should still include font variables *)
   check bool "includes --font-sans" true
     (has_var_in_layer "--font-sans" "theme" theme_layer)
@@ -540,7 +540,7 @@ let extract_theme_color_vars sheet =
   Css.layer_block "theme" sheet
   |> Option.map Css.rules_from_statements
   |> Option.map Css.custom_props_from_rules
-  |> Option.map (extract_var_names_with_prefix "--color-")
+  |> Option.map (extract_var_names_with_prefix "--background-color-")
   |> Option.value ~default:[]
 
 let extract_utility_selectors sheet =
