@@ -1490,11 +1490,11 @@ module Handler = struct
         gc (Gc_current_opacity opacity)
     | [ "inherit" ] -> gc Gc_inherit
     | [ "transparent" ] -> gc Gc_transparent
-    (* Percentage positions: from-0%, from-100% *)
+    (* Percentage positions: from-0%, from-100% (integer only) *)
     | [ pct_str ] when String.ends_with ~suffix:"%" pct_str -> (
         let num_s = String.sub pct_str 0 (String.length pct_str - 1) in
-        match float_of_string_opt num_s with
-        | Some p -> gp (Gp_pct p)
+        match int_of_string_opt num_s with
+        | Some p -> gp (Gp_pct (float_of_int p))
         | None -> Error (`Msg "Invalid gradient position"))
     (* Bracket with opacity: [#0088cc]/50, [#0088cc]/[0.5], [var(--x)]/50 *)
     | [ bracket_opacity ] when has_opacity bracket_opacity -> (
