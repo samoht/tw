@@ -3767,4 +3767,5 @@ module Overscroll = Overscroll
 module Scroll = Scroll
 module Text_shadow = Text_shadow
 module Touch = Touch
+module Arbitrary = Arbitrary
 module Property = Property
