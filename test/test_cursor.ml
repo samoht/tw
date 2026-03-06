@@ -30,7 +30,8 @@ let of_string_invalid () =
   in
 
   fail_maybe [ "cursor" ];
-  fail_maybe [ "cursor"; "invalid" ];
+  (* Note: "cursor-invalid" is valid — Tailwind v4 supports theme cursor values
+     via --cursor-* variables, so any valid name is accepted. *)
   fail_maybe []
 
 let suborder_matches_tailwind () =

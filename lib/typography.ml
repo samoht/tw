@@ -1682,7 +1682,12 @@ module Typography_late = struct
     let value = String.map (fun c -> if c = '_' then ' ' else c) s in
     let content_decl, content_ref = Var.binding content_var (String value) in
     let property_rules = Var.property_rules content_var in
-    style ~property_rules [ content_decl; content (Css.Var content_ref) ]
+    style ~property_rules
+      [
+        content (Css.Var content_ref);
+        content_decl;
+        content (Css.Var content_ref);
+      ]
 
   let content_named name =
     let var_name = "content-" ^ name in
@@ -1702,7 +1707,7 @@ module Typography_late = struct
     in
     let property_rules = Var.property_rules content_var in
     let c : Css.content = Css.Var content_ref in
-    style ~property_rules (content_decl @ [ Css.content c ])
+    style ~property_rules ([ Css.content c ] @ content_decl @ [ Css.content c ])
 
   let align_baseline = style [ vertical_align Baseline ]
   let align_top = style [ vertical_align Top ]

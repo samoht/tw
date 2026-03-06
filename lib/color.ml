@@ -1261,13 +1261,15 @@ let parse_opacity_modifier s =
               if Parse.is_var inner then (base, Opacity_named inner)
               else (s, No_opacity)
       else
-        (* Numeric value like 50 or 2.5 *)
+        (* Numeric value like 50 or 2.5, or named opacity like half/custom *)
         match float_of_string_opt opacity_str with
         | Some f when f >= 0. -> (base, Opacity_percent f)
         | _ ->
-            (* Not a valid non-negative number — treat as no opacity. Return the
-               full original string so the caller doesn't see a split. *)
-            (s, No_opacity))
+            (* Not a number — check if it's a valid theme name for named opacity
+               (e.g., /half, /custom) *)
+            if Parse.is_valid_theme_name opacity_str then
+              (base, Opacity_named opacity_str)
+            else (s, No_opacity))
 
 (* Parse color and shade from string list *)
 let shade_of_strings = function
@@ -1890,7 +1892,7 @@ module Handler = struct
           | Opacity_percent p -> "/" ^ string_of_float p
           | Opacity_arbitrary f -> "/[" ^ string_of_float f ^ "]"
           | Opacity_bracket_percent p -> "/[" ^ string_of_float p ^ "%]"
-          | Opacity_named n -> "/[" ^ n ^ "]"
+          | Opacity_named n -> "/" ^ n
         in
         "outline-[" ^ inner ^ "]" ^ opacity_tag
     in
@@ -2103,7 +2105,7 @@ module Handler = struct
         if Float.is_integer p then "/[" ^ pp_int (int_of_float p) ^ "%]"
         else "/[" ^ pp_float p ^ "%]"
     | Opacity_arbitrary f -> "/[" ^ pp_float f ^ "]"
-    | Opacity_named name -> "/[" ^ name ^ "]"
+    | Opacity_named name -> "/" ^ name
 
   let to_class = function
     | Bg (c, shade) ->
@@ -2503,10 +2505,12 @@ let bg_current_with_opacity opacity =
   let fallback_decl = Css.background_color Css.Current in
   let oklab_color =
     match opacity with
-    | Opacity_named var_str ->
-        let bare = Parse.extract_var_name var_str in
-        Css.color_mix_var_percent ~in_space:Oklab ~var_name:bare Css.Current
-          Css.Transparent
+    | Opacity_named name ->
+        let bare = Parse.extract_var_name name in
+        let var_name = "opacity-" ^ bare in
+        let fallback_name = bare ^ "-opacity" in
+        Css.color_mix_var_percent_with_fallback ~in_space:Oklab ~var_name
+          ~fallback_name Css.Current Css.Transparent
     | _ ->
         let percent = opacity_to_percent opacity in
         Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
