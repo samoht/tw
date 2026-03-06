@@ -2504,7 +2504,8 @@ let bg_with_opacity c shade opacity =
     theme defines a var reference (e.g., "var(--custom-opacity)"), use
     [Var_fallback] with the inner var name. Otherwise fall back to the
     conventional [name-opacity] pattern. *)
-let opacity_fallback_for_theme_value var_name bare =
+let opacity_fallback_for_theme_value var_name bare : Css.percentage Css.fallback
+    =
   match Var.theme_value var_name with
   | Some value when String.length value > 4 && String.sub value 0 4 = "var(" ->
       (* Theme value is a var reference like "var(--custom-opacity)" *)
