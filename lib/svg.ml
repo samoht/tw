@@ -38,6 +38,7 @@ module Handler = struct
         else "/[" ^ Pp.float p ^ "%]"
     | Color.Opacity_arbitrary f -> "/[" ^ Pp.float f ^ "]"
     | Color.Opacity_named name -> "/" ^ name
+    | Color.Opacity_var v -> "/[" ^ v ^ "]"
 
   (* Fill color style with scheme support *)
   let fill_color_style color shade =

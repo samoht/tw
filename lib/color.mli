@@ -218,6 +218,11 @@ val color_mix_supports_condition : Css.Supports.t
 (** [color_mix_supports_condition] is the CSS supports condition for color-mix:
     [(color: color-mix(in lab, red, red))]. *)
 
+val opacity_fallback_for_theme_value :
+  string -> string -> Css.percentage Css.fallback
+(** [opacity_fallback_for_theme_value var_name bare] determines the appropriate
+    fallback for an opacity theme variable. *)
+
 (** {1 Tailwind Colors} *)
 
 (** Predefined Tailwind v4 color values *)
@@ -507,6 +512,8 @@ type opacity_modifier =
   | Opacity_bracket_percent of float
       (** e.g., /[50%] means 50% but preserves bracket form in class name *)
   | Opacity_named of string  (** e.g., /half, /custom - theme-defined names *)
+  | Opacity_var of string
+      (** e.g., /[var(--x)] - var ref used directly as percentage *)
 
 val parse_opacity_modifier : string -> string * opacity_modifier
 (** [parse_opacity_modifier s] parses an opacity modifier from a string. Returns
