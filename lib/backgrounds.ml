@@ -179,7 +179,7 @@ module Handler = struct
         if Float.is_integer p then "/[" ^ Pp.int (int_of_float p) ^ "%]"
         else "/[" ^ Pp.float p ^ "%]"
     | Color.Opacity_arbitrary f -> "/[" ^ Pp.float f ^ "]"
-    | Color.Opacity_named name -> "/[" ^ name ^ "]"
+    | Color.Opacity_named name -> "/" ^ name
 
   let to_class (t : t) =
     match t with

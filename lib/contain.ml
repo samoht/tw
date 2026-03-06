@@ -56,9 +56,7 @@ module Handler = struct
      This allows combining multiple contain utilities - each sets its variable,
      and the contain property references all of them. *)
   let composable_contain_value =
-    let v name : Css.contain =
-      Css.Var (Css.var_ref ~fallback:(Css.Raw_fallback " ") name)
-    in
+    let v name : Css.contain = Css.Var (Css.var_ref ~fallback:Css.Empty name) in
     Css.List
       [
         v "tw-contain-size";

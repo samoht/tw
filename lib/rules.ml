@@ -1372,9 +1372,9 @@ let compare_complex_selectors sel1 sel2 kind1 kind2 s1 s2 i1 i2 =
       if sel_cmp <> 0 then sel_cmp else Int.compare i1 i2
 
 (** Compare rules by priority, then suborder, then by selector kind. Uses
-    type-directed dispatch based on selector classification. Pseudo-elements,
-    simple, and complex selectors are all sorted by priority/suborder/index,
-    with pseudo-elements coming before complex at same priority/suborder. *)
+    type-directed dispatch based on selector classification. At the same
+    priority/suborder, cross-kind comparisons preserve source order (index) to
+    match tailwindcss output exactly. *)
 let compare_by_priority_suborder_alpha sel1 sel2 (p1, s1) (p2, s2) i1 i2 =
   (* Priority comes first *)
   let prio_cmp = Int.compare p1 p2 in
@@ -1395,16 +1395,22 @@ let compare_by_priority_suborder_alpha sel1 sel2 (p1, s1) (p2, s2) i1 i2 =
           (* At same priority/suborder, preserve source order via index *)
           Int.compare i1 i2
       | Pseudo_element, Complex _ ->
-          (* Pseudo-elements before complex selectors *)
-          -1
+          (* At same priority/suborder, preserve source order via index. Prose
+             rules need pseudo-elements after complex selectors to match
+             tailwindcss output exactly. *)
+          Int.compare i1 i2
       | Simple, Pseudo_element ->
           (* At same priority/suborder, preserve source order via index *)
           Int.compare i1 i2
-      | Simple, Complex _ -> -1 (* Simple before complex *)
+      | Simple, Complex _ ->
+          (* At same priority/suborder, preserve source order via index *)
+          Int.compare i1 i2
       | Complex _, Pseudo_element ->
-          (* Complex after pseudo-elements *)
-          1
-      | Complex _, Simple -> 1
+          (* At same priority/suborder, preserve source order via index *)
+          Int.compare i1 i2
+      | Complex _, Simple ->
+          (* At same priority/suborder, preserve source order via index *)
+          Int.compare i1 i2
       | Complex _, Complex _ ->
           compare_complex_selectors sel1 sel2 kind1 kind2 s1 s2 i1 i2
 
