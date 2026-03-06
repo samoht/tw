@@ -658,15 +658,24 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
   | Style.Min_arbitrary px -> min_arbitrary_rule px base_class selector props
   | Style.Max_arbitrary px -> max_arbitrary_rule px base_class selector props
   | Style.Container query -> container_rule query base_class selector props
-  (* :not() pseudo-class *)
-  | Style.Not _modifier ->
+  (* :not() pseudo-class — negate the inner modifier's selector *)
+  | Style.Not inner_modifier ->
+      let inner_sel = Modifiers.to_selector inner_modifier base_class in
+      (* Extract the condition part (everything after the class prefix) *)
+      let condition =
+        match inner_sel with
+        | Css.Selector.Compound (_ :: rest) when rest <> [] ->
+            Css.Selector.compound rest
+        | _ -> inner_sel
+      in
+      let modified_class =
+        "not-" ^ Modifiers.pp_modifier inner_modifier ^ ":" ^ base_class
+      in
+      let not_sel = Css.Selector.Not [ condition ] in
       regular
         ~selector:
-          (Css.Selector.Class
-             ("not-" ^ base_class ^ ":not("
-             ^ Css.Selector.to_string selector
-             ^ ")"))
-        ~props ~base_class ()
+          (Css.Selector.compound [ Css.Selector.Class modified_class; not_sel ])
+        ~props ~base_class:modified_class ()
   (* :has() variants *)
   | Style.Has _ | Style.Group_has _ | Style.Peer_has _ ->
       route_has_modifier modifier base_class props

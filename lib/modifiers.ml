@@ -139,9 +139,9 @@ let to_selector (modifier : modifier) cls =
   | Read_write -> compound [ Class ("read-write:" ^ cls); Read_write ]
   | Optional -> compound [ Class ("optional:" ^ cls); Optional ]
   | Open ->
-      (* Tailwind uses :is(:popover-open, [open]) for details/dialog/popover *)
+      (* Tailwind uses :is([open], :popover-open, :open) *)
       let open_attr = attribute "open" Presence in
-      compound [ Class ("open:" ^ cls); is_ [ Popover_open; open_attr ] ]
+      compound [ Class ("open:" ^ cls); is_ [ open_attr; Popover_open; Open ] ]
   | Enabled -> compound [ Class ("enabled:" ^ cls); Enabled ]
   | Target -> compound [ Class ("target:" ^ cls); Target ]
   | Visited -> compound [ Class ("visited:" ^ cls); Visited ]
@@ -314,10 +314,9 @@ let to_selector (modifier : modifier) cls =
       in
       compound [ Class ("group-default:" ^ cls); is_ [ rel ] ]
   | Group_open ->
+      let open_is = is_ [ attribute "open" Presence; Popover_open; Open ] in
       let rel =
-        combine
-          (compound [ where [ group ]; Popover_open ])
-          Descendant universal
+        combine (compound [ where [ group ]; open_is ]) Descendant universal
       in
       compound [ Class ("group-open:" ^ cls); is_ [ rel ] ]
   | Group_target ->
@@ -390,9 +389,10 @@ let to_selector (modifier : modifier) cls =
       in
       compound [ Class ("peer-default:" ^ cls); is_ [ rel ] ]
   | Peer_open ->
+      let open_is = is_ [ attribute "open" Presence; Popover_open; Open ] in
       let rel =
         combine
-          (compound [ where [ peer ]; Popover_open ])
+          (compound [ where [ peer ]; open_is ])
           Subsequent_sibling universal
       in
       compound [ Class ("peer-open:" ^ cls); is_ [ rel ] ]
@@ -1428,7 +1428,17 @@ let simple_modifiers =
 let parse_modifier s : modifier option =
   match List.assoc_opt s simple_modifiers with
   | Some m -> Some m
-  | None -> try_bracketed_modifier s
+  | None -> (
+      match try_bracketed_modifier s with
+      | Some _ as r -> r
+      | None ->
+          (* Try not-* prefix: strip "not-" and wrap inner modifier *)
+          if String.length s > 4 && String.sub s 0 4 = "not-" then
+            let inner = String.sub s 4 (String.length s - 4) in
+            match List.assoc_opt inner simple_modifiers with
+            | Some m -> Some (Not m)
+            | None -> None
+          else None)
 
 (* Apply a list of modifier strings to a base utility *)
 let apply modifiers base_utility =
