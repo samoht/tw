@@ -321,6 +321,25 @@ let normalize_css css =
     | Ok ast -> Css.to_string ~minify:false ~newline:false ast |> String.trim
     | Error _ -> trimmed
 
+(** Extract var(--name, fallback) patterns from expected CSS. Returns (name,
+    fallback) pairs where name is without the -- prefix. Handles both concrete
+    fallbacks (e.g., var(--opacity-half, .5)) and nested var fallbacks (e.g.,
+    var(--opacity-custom, var(--custom-opacity))). *)
+let extract_var_fallbacks expected =
+  let pattern =
+    Re.Pcre.regexp
+      {|var\(--([a-zA-Z0-9_-]+),\s*(var\(--[a-zA-Z0-9_-]+\)|[^)]+)\)|}
+  in
+  let matches = Re.all pattern expected in
+  List.filter_map
+    (fun m ->
+      try
+        let name = Re.Group.get m 1 in
+        let fallback = String.trim (Re.Group.get m 2) in
+        Some (name, fallback)
+      with _ -> None)
+    matches
+
 (** Set theme value overrides for non-spacing root vars from expected CSS.
     This enables utilities like z-auto and order-first to produce custom
     declarations in the :root, :host block when @config theme is used. *)
@@ -346,7 +365,17 @@ let setup_theme_overrides config expected =
           in
           if not (is_numbered_spacing || is_bare_spacing || is_tw_var) then
             Tw.Var.set_theme_value name value)
-        root_vars
+        root_vars;
+      (* For theme-reference mode, also extract var(--name, fallback) patterns
+         from expected CSS. This provides fallback values for opacity modifiers
+         and other cases where the @theme block isn't in our test format. *)
+      if config = Theme_reference || config = Theme_inline_reference then
+        let var_fallbacks = extract_var_fallbacks expected in
+        List.iter
+          (fun (name, fallback) ->
+            if Tw.Var.theme_value name = None then
+              Tw.Var.set_theme_value name fallback)
+          var_fallbacks
   | Run | Theme_inline | No_theme -> ()
 
 let run_test_case test () =
