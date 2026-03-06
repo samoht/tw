@@ -3,7 +3,7 @@
 open Utility
 
 val mask_none : t
-(** [mask_none] is the [mask-composite: none] utility. *)
+(** [mask_none] is the [mask-image: none] utility. *)
 
 val mask_add : t
 (** [mask_add] is the [mask-composite: add] utility. *)
@@ -34,6 +34,57 @@ val mask_type_luminance : t
 
 val mask_auto : t
 (** [mask_auto] is the [mask-size: auto] utility. *)
+
+val mask_contain : t
+(** [mask_contain] is the [mask-size: contain] utility. *)
+
+val mask_cover : t
+(** [mask_cover] is the [mask-size: cover] utility. *)
+
+val mask_bottom : t
+(** [mask_bottom] is the [mask-position: center bottom] utility. *)
+
+val mask_bottom_left : t
+(** [mask_bottom_left] is the [mask-position: 0 100%] utility. *)
+
+val mask_bottom_right : t
+(** [mask_bottom_right] is the [mask-position: 100% 100%] utility. *)
+
+val mask_center : t
+(** [mask_center] is the [mask-position: center] utility. *)
+
+val mask_left : t
+(** [mask_left] is the [mask-position: 0] utility. *)
+
+val mask_right : t
+(** [mask_right] is the [mask-position: 100%] utility. *)
+
+val mask_top : t
+(** [mask_top] is the [mask-position: center top] utility. *)
+
+val mask_top_left : t
+(** [mask_top_left] is the [mask-position: 0 0] utility. *)
+
+val mask_top_right : t
+(** [mask_top_right] is the [mask-position: 100% 0] utility. *)
+
+val mask_no_repeat : t
+(** [mask_no_repeat] is the [mask-repeat: no-repeat] utility. *)
+
+val mask_repeat : t
+(** [mask_repeat] is the [mask-repeat: repeat] utility. *)
+
+val mask_repeat_round : t
+(** [mask_repeat_round] is the [mask-repeat: round] utility. *)
+
+val mask_repeat_space : t
+(** [mask_repeat_space] is the [mask-repeat: space] utility. *)
+
+val mask_repeat_x : t
+(** [mask_repeat_x] is the [mask-repeat: repeat-x] utility. *)
+
+val mask_repeat_y : t
+(** [mask_repeat_y] is the [mask-repeat: repeat-y] utility. *)
 
 val mask_clip_border : t
 (** [mask_clip_border] is the [mask-clip: border-box] utility. *)
