@@ -180,6 +180,7 @@ module Handler = struct
         else "/[" ^ Pp.float p ^ "%]"
     | Color.Opacity_arbitrary f -> "/[" ^ Pp.float f ^ "]"
     | Color.Opacity_named name -> "/" ^ name
+    | Color.Opacity_var v -> "/[" ^ v ^ "]"
 
   let to_class (t : t) =
     match t with
@@ -1707,15 +1708,13 @@ module Handler = struct
               match float_of_string_opt num_s with
               | Some f -> Some (Color.Opacity_bracket_percent f)
               | None ->
-                  if Parse.is_var inner_o then
-                    Some (Color.Opacity_named inner_o)
+                  if Parse.is_var inner_o then Some (Color.Opacity_var inner_o)
                   else None
             else
               match float_of_string_opt inner_o with
               | Some f -> Some (Color.Opacity_arbitrary f)
               | None ->
-                  if Parse.is_var inner_o then
-                    Some (Color.Opacity_named inner_o)
+                  if Parse.is_var inner_o then Some (Color.Opacity_var inner_o)
                   else None
           else
             match float_of_string_opt s with

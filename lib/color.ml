@@ -214,7 +214,7 @@ let hex_with_alpha hex_str opacity_percent =
   "#" ^ hex_clean ^ to_hex_byte alpha_clamped
 
 let oklch_to_css oklch =
-  let f n = Css.Pp.float_to_string ~drop_leading_zero:true ~max_decimals:n in
+  let f n = Css.Pp.float_to_string ~drop_leading_zero:false ~max_decimals:n in
   String.concat ""
     [ "oklch("; f 1 oklch.l; "% "; f 3 oklch.c; " "; f 3 oklch.h; ")" ]
 
@@ -1234,6 +1234,7 @@ type opacity_modifier =
   | Opacity_bracket_percent of
       float (* e.g., /[50%] means 50% but preserves bracket form *)
   | Opacity_named of string (* e.g., /half, /custom - theme-defined names *)
+  | Opacity_var of string (* e.g., /[var(--x)] - var ref used as percentage *)
 
 (** Parse opacity modifier from a string that may contain /NN or /[N.N] *)
 let parse_opacity_modifier s =
@@ -1258,17 +1259,19 @@ let parse_opacity_modifier s =
           match float_of_string_opt inner with
           | Some f -> (base, Opacity_arbitrary f)
           | None ->
-              if Parse.is_var inner then (base, Opacity_named inner)
+              if Parse.is_var inner then (base, Opacity_var inner)
               else (s, No_opacity)
       else
         (* Numeric value like 50 or 2.5, or named opacity like half/custom *)
         match float_of_string_opt opacity_str with
         | Some f when f >= 0. -> (base, Opacity_percent f)
         | _ ->
-            (* Not a number — check if it's a valid theme name for named opacity
-               (e.g., /half, /custom) *)
-            if Parse.is_valid_theme_name opacity_str then
-              (base, Opacity_named opacity_str)
+            (* Not a number — check if it's a named opacity defined in the theme
+               (e.g., /half when --opacity-half exists) *)
+            if
+              Parse.is_valid_theme_name opacity_str
+              && Var.theme_value ("opacity-" ^ opacity_str) <> None
+            then (base, Opacity_named opacity_str)
             else (s, No_opacity))
 
 (* Parse color and shade from string list *)
@@ -1714,8 +1717,8 @@ module Handler = struct
     | Opacity_percent p -> p (* Already a percentage like 50 *)
     | Opacity_bracket_percent p -> p (* [50%] is also a percentage *)
     | Opacity_arbitrary f -> f *. 100.0 (* e.g., 0.5 -> 50 *)
-    | Opacity_named _ ->
-        (* Named opacity requires theme variable lookup, default to 100% *)
+    | Opacity_named _ | Opacity_var _ ->
+        (* Named/var opacity requires variable lookup, default to 100% *)
         100.0
 
   (** Condition for progressive enhancement with color-mix in oklab *)
@@ -1893,6 +1896,7 @@ module Handler = struct
           | Opacity_arbitrary f -> "/[" ^ string_of_float f ^ "]"
           | Opacity_bracket_percent p -> "/[" ^ string_of_float p ^ "%]"
           | Opacity_named n -> "/" ^ n
+          | Opacity_var v -> "/[" ^ v ^ "]"
         in
         "outline-[" ^ inner ^ "]" ^ opacity_tag
     in
@@ -2106,6 +2110,7 @@ module Handler = struct
         else "/[" ^ pp_float p ^ "%]"
     | Opacity_arbitrary f -> "/[" ^ pp_float f ^ "]"
     | Opacity_named name -> "/" ^ name
+    | Opacity_var v -> "/[" ^ v ^ "]"
 
   let to_class = function
     | Bg (c, shade) ->
@@ -2228,6 +2233,7 @@ let pp_opacity = function
       else "[" ^ Pp.float pct ^ "%]"
   | Opacity_arbitrary f -> "[" ^ string_of_float f ^ "]"
   | Opacity_named name -> name
+  | Opacity_var v -> "[" ^ v ^ "]"
 
 let current_scheme () = !Handler.current_scheme
 
@@ -2534,6 +2540,10 @@ let bg_current_with_opacity opacity =
         let fallback = opacity_fallback_for_theme_value var_name bare in
         Css.color_mix_var_percent_with_fallback ~in_space:Oklab ~var_name
           ~fallback Css.Current Css.Transparent
+    | Opacity_var var_str ->
+        let bare = Parse.extract_var_name var_str in
+        Css.color_mix_var_percent ~in_space:Oklab ~var_name:bare Css.Current
+          Css.Transparent
     | _ ->
         let percent = opacity_to_percent opacity in
         Css.color_mix ~in_space:Oklab Css.Current Css.Transparent

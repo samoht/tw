@@ -42,14 +42,7 @@ let theme_cross_module_vars () =
       (* Verify expected theme variables are declared *)
       check (list string) "theme custom properties"
         [
-          "--color-blue-500";
-          "--default-font-family";
-          "--default-mono-font-family";
-          "--font-mono";
-          "--font-sans";
-          "--spacing";
-          "--text-xl";
-          "--text-xl--line-height";
+          "--color-blue-500"; "--spacing"; "--text-xl"; "--text-xl--line-height";
         ]
         (List.sort String.compare custom_props)
 

@@ -249,6 +249,7 @@ module Handler = struct
         else "/[" ^ pp_float p ^ "%]"
     | Color.Opacity_arbitrary f -> "/[" ^ pp_float f ^ "]"
     | Color.Opacity_named name -> "/" ^ name
+    | Color.Opacity_var v -> "/[" ^ v ^ "]"
 
   (* Divide color with opacity using Color helpers *)
   let divide_color_opacity_style color shade opacity =

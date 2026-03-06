@@ -1447,7 +1447,7 @@ let compare_media_conditions group1 sub1 sub2 cond1 cond2 =
    order and avoid artificial media block merging *)
 
 let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 nested1 nested2
-    =
+    bc1 bc2 =
   (* First, check nesting status - nested/compound media queries (like
      contrast-more:dark:text-white) should come after all simple media queries,
      regardless of their group order. This matches Tailwind v4 behavior where
@@ -1472,13 +1472,20 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 nested1 nested2
       let cond_cmp = compare_media_conditions group1 sub1 sub2 cond1 cond2 in
       if cond_cmp <> 0 then cond_cmp
       else
-        (* Same media condition - compare by priority/suborder first to match
-           Tailwind's ordering. Within the same media query (e.g., @media
-           (min-width:48rem)), utilities are sorted by priority/suborder, not by
-           selector complexity. For example, md:space-y-6 (priority 17) comes
-           before md:p-6 (priority 21) even though space-y has a complex
-           :where() selector. *)
-        compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+        (* Same media condition - check if same utility first *)
+        let same_utility =
+          match (bc1, bc2) with
+          | Some b1, Some b2 -> String.equal b1 b2
+          | _ -> false
+        in
+        if same_utility then
+          (* Same utility in same media: preserve source order (like prose rules
+             inside @media (hover:hover)) *)
+          let order_cmp = compare order1 order2 in
+          if order_cmp <> 0 then order_cmp else Int.compare i1 i2
+        else
+          (* Different utilities - sort by priority/suborder/selector *)
+          compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
 
 (* ======================================================================== *)
 (* Regular vs Media Comparison - Type-directed comparison for mixed rules *)
@@ -1865,7 +1872,8 @@ let compare_indexed_rules r1 r2 =
     | `Regular, `Regular -> compare_regular_rules r1 r2
     | `Media _, `Media _ ->
         compare_media_rules r1.rule_type r2.rule_type r1.selector r2.selector
-          r1.order r2.order r1.index r2.index r1.nested r2.nested
+          r1.order r2.order r1.index r2.index r1.nested r2.nested r1.base_class
+          r2.base_class
     | `Regular, `Media _ -> compare_regular_vs_media r1 r2
     | `Media _, `Regular -> -compare_regular_vs_media r2 r1
     | `Starting, `Starting -> compare_starting_rules r1 r2

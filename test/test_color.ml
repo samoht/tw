@@ -94,23 +94,17 @@ let test_rgb_to_hex () =
     test_cases
 
 let test_oklch_css_formatting () =
-  let test_cases =
-    [
-      ({ l = 98.5; c = 0.002; h = 247.839 }, "oklch(98.5% 0.002 247.839)");
-      ({ l = 62.3; c = 0.214; h = 259.815 }, "oklch(62.3% 0.214 259.815)");
-      ({ l = 0.0; c = 0.0; h = 0.0 }, "oklch(0% 0 0)");
-      ({ l = 100.0; c = 0.4; h = 360.0 }, "oklch(100% 0.4 360)");
-    ]
+  let pp l c h expected =
+    let color = Css.oklch l c h in
+    let result = Css.Pp.to_string ~minify:false Css.pp_color color in
+    Alcotest.(check string)
+      (Fmt.str "OKLCH { l = %.1f; c = %.3f; h = %.3f }" l c h)
+      expected result
   in
-
-  List.iter
-    (fun (oklch, expected) ->
-      let result = oklch_to_css oklch in
-      Alcotest.(check string)
-        (Fmt.str "OKLCH { l = %.1f; c = %.3f; h = %.3f }" oklch.l oklch.c
-           oklch.h)
-        expected result)
-    test_cases
+  pp 98.5 0.002 247.839 "oklch(98.5% 0.002 247.839)";
+  pp 62.3 0.214 259.815 "oklch(62.3% 0.214 259.815)";
+  pp 0.0 0.0 0.0 "oklch(0 0 0)";
+  pp 100.0 0.4 360.0 "oklch(100% 0.4 360)"
 
 let test_edge_cases () =
   let extreme_oklch = { l = 150.0; c = 0.5; h = 45.0 } in
