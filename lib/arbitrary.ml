@@ -220,11 +220,41 @@ module Handler = struct
                   let op_part =
                     String.sub opacity_str 1 (String.length opacity_str - 1)
                   in
-                  snd (Color.parse_opacity_modifier op_part)
+                  (* Parse the opacity part directly (already split after /) *)
+                  if
+                    String.length op_part > 2
+                    && op_part.[0] = '['
+                    && op_part.[String.length op_part - 1] = ']'
+                  then
+                    let inner =
+                      String.sub op_part 1 (String.length op_part - 2)
+                    in
+                    if String.ends_with ~suffix:"%" inner then
+                      let num_str =
+                        String.sub inner 0 (String.length inner - 1)
+                      in
+                      match float_of_string_opt num_str with
+                      | Some f -> Color.Opacity_bracket_percent f
+                      | None -> Color.No_opacity
+                    else
+                      match float_of_string_opt inner with
+                      | Some f -> Color.Opacity_arbitrary f
+                      | None ->
+                          if Parse.is_var inner then Color.Opacity_var inner
+                          else Color.No_opacity
+                  else
+                    match float_of_string_opt op_part with
+                    | Some f when f >= 0. -> Color.Opacity_percent f
+                    | _ ->
+                        if
+                          Parse.is_valid_theme_name op_part
+                          && Var.theme_value ("opacity-" ^ op_part) <> None
+                        then Color.Opacity_named op_part
+                        else Color.No_opacity
                 else Color.No_opacity
               in
               if opacity = Color.No_opacity && opacity_str = "" then
-                err_not_utility (* Only handle cases with opacity for now *)
+                err_not_utility
               else if
                 opacity = Color.No_opacity && String.length opacity_str > 0
               then err_not_utility
