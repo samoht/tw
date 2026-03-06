@@ -30,8 +30,8 @@ let check_theme_layer_with_color () =
   in
   let theme_layer = Tw.Rules.theme_layer_of ~default_decls [ bg blue 500 ] in
   (* Should include color variable when referenced *)
-  check bool "includes --background-color-blue-500" true
-    (has_var_in_layer "--background-color-blue-500" "theme" theme_layer);
+  check bool "includes --color-blue-500" true
+    (has_var_in_layer "--color-blue-500" "theme" theme_layer);
   (* Should still include font variables *)
   check bool "includes --font-sans" true
     (has_var_in_layer "--font-sans" "theme" theme_layer)
@@ -58,7 +58,7 @@ let check_extract_responsive () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      check string "media condition" "(min-width: 640px)"
+      check string "media condition" "(min-width: 40rem)"
         (Css.Media.to_string condition);
       check Test_helpers.selector_testable "sm selector"
         (Css.Selector.class_ "sm:p-4")
@@ -70,7 +70,7 @@ let check_extract_responsive_md () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      check string "md media condition" "(min-width: 768px)"
+      check string "md media condition" "(min-width: 48rem)"
         (Css.Media.to_string condition);
       check Test_helpers.selector_testable "md selector"
         (Css.Selector.class_ "md:p-4")
@@ -82,7 +82,7 @@ let check_extract_responsive_lg () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      check string "lg media condition" "(min-width: 1024px)"
+      check string "lg media condition" "(min-width: 64rem)"
         (Css.Media.to_string condition);
       check Test_helpers.selector_testable "lg selector"
         (Css.Selector.class_ "lg:p-4")
@@ -94,7 +94,7 @@ let check_extract_responsive_xl () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      check string "xl media condition" "(min-width: 1280px)"
+      check string "xl media condition" "(min-width: 80rem)"
         (Css.Media.to_string condition);
       check Test_helpers.selector_testable "xl selector"
         (Css.Selector.class_ "xl:p-4")
@@ -106,7 +106,7 @@ let check_extract_responsive_2xl () =
   check int "single rule extracted" 1 (List.length rules);
   match rules with
   | [ Media_query { condition; selector; _ } ] ->
-      check string "2xl media condition" "(min-width: 1536px)"
+      check string "2xl media condition" "(min-width: 96rem)"
         (Css.Media.to_string condition);
       check Test_helpers.selector_testable "2xl selector"
         (Css.Selector.class_ "2xl:p-4")
@@ -540,7 +540,7 @@ let extract_theme_color_vars sheet =
   Css.layer_block "theme" sheet
   |> Option.map Css.rules_from_statements
   |> Option.map Css.custom_props_from_rules
-  |> Option.map (extract_var_names_with_prefix "--background-color-")
+  |> Option.map (extract_var_names_with_prefix "--color-")
   |> Option.value ~default:[]
 
 let extract_utility_selectors sheet =
@@ -741,8 +741,8 @@ let test_rule_sets_md_media () =
       [ md [ p 4 ]; md [ m 2 ] ]
   in
   (* Check for exact media condition *)
-  check bool "has (min-width: 768px) media query" true
-    (has_media_condition "(min-width: 768px)" css);
+  check bool "has (min-width: 48rem) media query" true
+    (has_media_condition "(min-width: 48rem)" css);
 
   (* Find the md media block and verify both selectors are inside it *)
   let md_block =
@@ -750,7 +750,7 @@ let test_rule_sets_md_media () =
       (fun acc stmt ->
         match (acc, Css.as_media stmt) with
         | Some _, _ -> acc
-        | None, Some (cond, inner) when cond = Css.Media.Min_width 768. ->
+        | None, Some (cond, inner) when cond = Css.Media.Min_width_rem 48. ->
             Some inner
         | None, _ -> None)
       None css
@@ -782,12 +782,12 @@ let test_media_grouping_order () =
   (* Conditions present and in order *)
   let conditions = media_conditions css in
   check (list string) "media conditions order"
-    [ "(min-width: 640px)"; "(min-width: 768px)"; "(min-width: 1024px)" ]
+    [ "(min-width: 40rem)"; "(min-width: 48rem)"; "(min-width: 64rem)" ]
     conditions;
   (* Each block contains only its selectors *)
-  let sm_sels = selectors_in_media_sel ~condition:"(min-width: 640px)" css in
-  let md_sels = selectors_in_media_sel ~condition:"(min-width: 768px)" css in
-  let lg_sels = selectors_in_media_sel ~condition:"(min-width: 1024px)" css in
+  let sm_sels = selectors_in_media_sel ~condition:"(min-width: 40rem)" css in
+  let md_sels = selectors_in_media_sel ~condition:"(min-width: 48rem)" css in
+  let lg_sels = selectors_in_media_sel ~condition:"(min-width: 64rem)" css in
   check
     (list Test_helpers.selector_testable)
     "sm selectors"
@@ -807,7 +807,7 @@ let test_media_grouping_order () =
 let test_md_media_dedup () =
   let css = Tw.Rules.to_css [ md [ p 4 ]; md [ p 4 ] ] in
   check int "only one .md:p-4 in media (structural)" 1
-    (count_selector_in_media_sel ~condition:"(min-width: 768px)"
+    (count_selector_in_media_sel ~condition:"(min-width: 48rem)"
        ~selector:(Css.Selector.class_ "md:p-4")
        css)
 
@@ -818,7 +818,7 @@ let test_md_hover_extra_media () =
     (has_media_condition "(hover: hover)" css);
   (* Selector is inside md media block with :hover pseudo, assert
      structurally *)
-  let md_sels = selectors_in_media_sel ~condition:"(min-width: 768px)" css in
+  let md_sels = selectors_in_media_sel ~condition:"(min-width: 48rem)" css in
   let expected =
     Css.Selector.compound
       [ Css.Selector.class_ "md:hover:p-4"; Css.Selector.Hover ]

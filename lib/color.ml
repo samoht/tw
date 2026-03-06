@@ -1583,13 +1583,10 @@ module Handler = struct
       let css_color = to_css c shade in
       style [ Css.background_color css_color ]
     else
-      let color_var =
-        property_color_var ~property_prefix:"background-color" c shade
-      in
-      let color_value =
-        property_color_value ~property_prefix:"background-color" c shade
-      in
-      let decl, color_ref = Var.binding color_var color_value in
+      (* Use shared color variable to match tailwindcss output exactly. *)
+      let cv = color_var c shade in
+      let color_value = get_color_value c shade in
+      let decl, color_ref = Var.binding cv color_value in
       style (decl :: [ Css.background_color (Css.Var color_ref) ])
 
   let bg_transparent = style [ Css.background_color (Css.hex "#0000") ]
