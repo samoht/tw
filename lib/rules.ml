@@ -701,9 +701,36 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
 (* Extract selector and properties from a single Utility *)
 (* Apply modifier to extracted rule *)
 let apply_modifier_to_rule modifier = function
-  | Regular { selector; props; base_class; has_hover; _ } ->
+  | Regular { selector; props; base_class; has_hover; _ } -> (
       let bc = Option.value base_class ~default:"" in
-      [ modifier_to_rule ~inner_has_hover:has_hover modifier bc selector props ]
+      match modifier with
+      | Style.Pseudo_marker ->
+          (* Marker needs separate rules for browser compatibility — an invalid
+             pseudo-element in a comma list causes the entire rule to be
+             dropped. *)
+          let c = Css.Selector.Class ("marker:" ^ bc) in
+          let mc = "marker:" ^ bc in
+          let open Css.Selector in
+          List.map
+            (fun sel -> regular ~selector:sel ~props ~base_class:mc ())
+            [
+              combine c Descendant Marker;
+              compound [ c; Marker ];
+              combine c Descendant Webkit_details_marker;
+              compound [ c; Webkit_details_marker ];
+            ]
+      | Style.Pseudo_selection ->
+          let c = Css.Selector.Class ("selection:" ^ bc) in
+          let mc = "selection:" ^ bc in
+          let open Css.Selector in
+          List.map
+            (fun sel -> regular ~selector:sel ~props ~base_class:mc ())
+            [ combine c Descendant Selection; compound [ c; Selection ] ]
+      | _ ->
+          [
+            modifier_to_rule ~inner_has_hover:has_hover modifier bc selector
+              props;
+          ])
   | Media_query
       { condition = inner_condition; selector; props; base_class; nested; _ }
     -> (
