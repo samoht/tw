@@ -2499,6 +2499,28 @@ let bg_with_opacity c shade opacity =
         in
         Style.style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
+(** Determine the appropriate fallback for an opacity theme variable. If the
+    theme defines a concrete value (e.g., "0.5"), use [Fallback (Num f)]. If the
+    theme defines a var reference (e.g., "var(--custom-opacity)"), use
+    [Var_fallback] with the inner var name. Otherwise fall back to the
+    conventional [name-opacity] pattern. *)
+let opacity_fallback_for_theme_value var_name bare =
+  match Var.theme_value var_name with
+  | Some value when String.length value > 4 && String.sub value 0 4 = "var(" ->
+      (* Theme value is a var reference like "var(--custom-opacity)" *)
+      let inner = String.sub value 4 (String.length value - 5) in
+      let name =
+        if String.length inner > 2 && String.sub inner 0 2 = "--" then
+          String.sub inner 2 (String.length inner - 2)
+        else inner
+      in
+      Css.Var_fallback name
+  | Some value -> (
+      match float_of_string_opt (String.trim value) with
+      | Some f -> Css.Fallback (Css.Num f)
+      | None -> Css.Var_fallback (bare ^ "-opacity"))
+  | None -> Css.Var_fallback (bare ^ "-opacity")
+
 (** Background currentColor with opacity *)
 let bg_current_with_opacity opacity =
   let open Handler in
@@ -2508,9 +2530,9 @@ let bg_current_with_opacity opacity =
     | Opacity_named name ->
         let bare = Parse.extract_var_name name in
         let var_name = "opacity-" ^ bare in
-        let fallback_name = bare ^ "-opacity" in
+        let fallback = opacity_fallback_for_theme_value var_name bare in
         Css.color_mix_var_percent_with_fallback ~in_space:Oklab ~var_name
-          ~fallback_name Css.Current Css.Transparent
+          ~fallback Css.Current Css.Transparent
     | _ ->
         let percent = opacity_to_percent opacity in
         Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
