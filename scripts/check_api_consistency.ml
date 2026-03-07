@@ -293,46 +293,32 @@ let check_module_consistency lib_css test_css mod_name =
           let expected_check_name t = if t = "t" then mod_name else t in
 
           (* Check for wrong check_ calls *)
+          let expected_for_tname = expected_check_name tname in
+          let valid_check_names = List.map expected_check_name valid_types in
+          let tname_is_valid_type =
+            List.exists (fun t -> expected_test_name t = tname) valid_types
+          in
+
           List.iter
             (fun c ->
-              let expected_for_tname = expected_check_name tname in
-              let valid_check_names =
-                List.map expected_check_name valid_types
+              let is_wrong =
+                c <> expected_for_tname && c <> "value" && c <> "parse_fails"
+                && (((not tname_is_valid_type) && List.mem c valid_check_names)
+                   || tname_is_valid_type)
               in
-              if c <> expected_for_tname && c <> "value" && c <> "parse_fails"
-              then
-                if
-                  (not
-                     (List.exists
-                        (fun t -> expected_test_name t = tname)
-                        valid_types))
-                  && List.mem c valid_check_names
-                then wrong_checks := (tname, c) :: !wrong_checks
-                else if
-                  List.exists
-                    (fun t -> expected_test_name t = tname)
-                    valid_types
-                then wrong_checks := (tname, c) :: !wrong_checks)
+              if is_wrong then wrong_checks := (tname, c) :: !wrong_checks)
             checks;
 
           (* Check for wrong neg read_ calls *)
           List.iter
             (fun n ->
-              let expected_for_tname = expected_check_name tname in
-              if n <> expected_for_tname then
-                if
-                  (not
-                     (List.exists
-                        (fun t -> expected_test_name t = tname)
-                        valid_types))
-                  && List.mem n valid_types
-                then wrong_checks := (tname, "neg read_" ^ n) :: !wrong_checks
-                else if
-                  List.exists
-                    (fun t -> expected_test_name t = tname)
-                    valid_types
-                  && List.mem n valid_types
-                then wrong_checks := (tname, "neg read_" ^ n) :: !wrong_checks)
+              let is_wrong =
+                n <> expected_for_tname
+                && (((not tname_is_valid_type) && List.mem n valid_types)
+                   || (tname_is_valid_type && List.mem n valid_types))
+              in
+              if is_wrong then
+                wrong_checks := (tname, "neg read_" ^ n) :: !wrong_checks)
             neg_reads;
 
           (* Check for missing neg patterns - only for functions that test
@@ -381,12 +367,12 @@ let print_module_results
         (colored yellow "Warning -")
         mod_name;
       let wrong_unique = List.sort_uniq compare wrong_checks in
-      List.iter
-        (fun (y, x) ->
-          if String.starts_with ~prefix:"neg read_" x then
-            Fmt.pr "  test_%s: %s@." y x
-          else Fmt.pr "  test_%s: check_%s@." y x)
-        wrong_unique;
+      let pp_wrong (y, x) =
+        if String.starts_with ~prefix:"neg read_" x then
+          Fmt.pr "  test_%s: %s@." y x
+        else Fmt.pr "  test_%s: check_%s@." y x
+      in
+      List.iter pp_wrong wrong_unique;
       Fmt.pr "@.");
 
     if missing_tests <> [] then (
@@ -449,36 +435,32 @@ let check_var_usage () =
   let var_create_re = Re.Perl.compile_pat "\\bVar\\.create\\s+\"([^\"]+)\"" in
   let css_var_ref_re = Re.Perl.compile_pat "\\bCss\\.var_ref\\b" in
 
+  let relative_path file =
+    if String.starts_with ~prefix:(root ^ "/") file then
+      String.sub file
+        (String.length root + 1)
+        (String.length file - String.length root - 1)
+    else file
+  in
+  let scan_line relative_file idx line =
+    (match Re.exec_opt var_create_re line with
+    | Some g ->
+        let var_name = Re.Group.get g 1 in
+        let location = (relative_file, idx + 1) in
+        let existing =
+          try Hashtbl.find var_creates var_name with Not_found -> []
+        in
+        Hashtbl.replace var_creates var_name (location :: existing)
+    | None -> ());
+    if
+      Re.execp css_var_ref_re line
+      && not (String.ends_with ~suffix:"var.ml" relative_file)
+    then var_ref_uses := (relative_file, idx + 1, line) :: !var_ref_uses
+  in
   List.iter
     (fun file ->
-      let lines = Fs.read_lines file in
-      let relative_file =
-        if String.starts_with ~prefix:(root ^ "/") file then
-          String.sub file
-            (String.length root + 1)
-            (String.length file - String.length root - 1)
-        else file
-      in
-
-      List.iteri
-        (fun idx line ->
-          (* Check for Var.create *)
-          (match Re.exec_opt var_create_re line with
-          | Some g ->
-              let var_name = Re.Group.get g 1 in
-              let location = (relative_file, idx + 1) in
-              let existing =
-                try Hashtbl.find var_creates var_name with Not_found -> []
-              in
-              Hashtbl.replace var_creates var_name (location :: existing)
-          | None -> ());
-
-          (* Check for Css.var_ref - exclude var.ml (implementation module) *)
-          if
-            Re.execp css_var_ref_re line
-            && not (String.ends_with ~suffix:"var.ml" relative_file)
-          then var_ref_uses := (relative_file, idx + 1, line) :: !var_ref_uses)
-        lines)
+      let relative_file = relative_path file in
+      List.iteri (scan_line relative_file) (Fs.read_lines file))
     ml_files;
 
   (* Find duplicates *)
