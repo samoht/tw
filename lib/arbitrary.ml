@@ -87,8 +87,8 @@ module Handler = struct
             in
             let fallback_decl = prop srgb_fallback in
             let oklab_color =
-              Css.color_mix_var_percent_with_fallback ~in_space:Oklab ~var_name
-                ~fallback color Css.Transparent
+              Css.color_mix_var_pct_fallback ~in_space:Oklab ~var_name ~fallback
+                color Css.Transparent
             in
             let oklab_decl = prop oklab_color in
             let supports_block =

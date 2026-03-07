@@ -1,6 +1,10 @@
 rules:
    - files: tmp/*
      exclude: [*]
+   - files: lib/*
+     exclude: [E205]
+   - files: lib/css/*
+     exclude: [E205]
    # Modules included in tw.ml need E330 exceptions to expose the proper API
    - files: lib/prose.ml*
      exclude: [E330]
