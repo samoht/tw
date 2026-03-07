@@ -1672,10 +1672,9 @@ module Typography_late = struct
           ]
 
   let content_none =
-    let content_decl, content_ref = Var.binding content_var None in
+    let content_decl, _content_ref = Var.binding content_var None in
     let property_rules = Var.property_rules content_var in
-    style ~property_rules
-      [ content (Css.Var content_ref); content_decl; content None ]
+    style ~property_rules [ content_decl; content None ]
 
   let content s =
     (* Convert underscores to spaces in content values *)
