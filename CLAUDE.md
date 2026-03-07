@@ -71,7 +71,8 @@ The `tw` binary supports three backend modes:
 **Important**: `--diff` mode always uses:
 - Variables mode (ignores `--inline` flag)
 - Base layer included (ignores `--no-base` flag)
-- This ensures consistent comparison conditions
+- Minified and optimized output (forces `--minify --optimize`)
+- This ensures 1:1 equivalence comparison with Tailwind's optimized+minified output
 
 Example diff output:
 ```bash
