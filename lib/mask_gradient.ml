@@ -435,14 +435,14 @@ module Handler = struct
           position_str;
       ]
     in
-    style ~property_rules:radial_property_rules decls
+    style decls
 
   (* Build the style for mask-circle/mask-ellipse *)
   let build_radial_shape_style shape =
     let shape_str =
       match shape with Circle -> "circle" | Ellipse -> "ellipse"
     in
-    style ~property_rules:radial_property_rules
+    style
       [ custom_property ~layer:"utilities" "--tw-mask-radial-shape" shape_str ]
 
   (* Build the style for mask-radial size keywords and arbitrary sizes *)
@@ -455,7 +455,8 @@ module Handler = struct
       | Farthest_side -> "farthest-side"
       | Arbitrary_size s -> s
     in
-    (* Arbitrary sizes get full mask setup, keywords just set the variable *)
+    (* Arbitrary sizes get full mask setup with property_rules, keywords just
+       set the variable without property rules *)
     match size with
     | Arbitrary_size _ ->
         let common_decls =
@@ -471,7 +472,7 @@ module Handler = struct
         style ~property_rules:radial_property_rules
           (common_decls @ composite_decls)
     | _ ->
-        style ~property_rules:radial_property_rules
+        style
           [
             custom_property ~layer:"utilities" "--tw-mask-radial-size" size_str;
           ]
@@ -901,15 +902,24 @@ module Handler = struct
     | "mask" :: "radial" :: "at" :: rest when rest <> [] ->
         let position = String.concat " " rest in
         (* Handle arbitrary values - strip brackets *)
-        let pos =
-          if
-            String.length position > 2
-            && position.[0] = '['
-            && position.[String.length position - 1] = ']'
-          then At_arbitrary (String.sub position 1 (String.length position - 2))
-          else At_keyword position
-        in
-        Ok (Mask_radial_at pos)
+        if
+          String.length position > 2
+          && position.[0] = '['
+          && position.[String.length position - 1] = ']'
+        then
+          let inner = String.sub position 1 (String.length position - 2) in
+          Ok (Mask_radial_at (At_arbitrary inner))
+        else
+          (* Validate keyword positions: top, bottom, left, right, center and
+             combinations *)
+          let is_valid_keyword =
+            List.for_all
+              (fun w ->
+                List.mem w [ "top"; "bottom"; "left"; "right"; "center" ])
+              rest
+          in
+          if is_valid_keyword then Ok (Mask_radial_at (At_keyword position))
+          else Error (`Msg ("Invalid mask-radial-at position: " ^ position))
     (* mask-radial-from-*, mask-radial-to-* *)
     | "mask" :: "radial" :: "from" :: rest when rest <> [] ->
         parse_directional Radial From rest
