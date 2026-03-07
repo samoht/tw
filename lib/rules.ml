@@ -1735,22 +1735,28 @@ let compare_cross_utility_regular r1 r2 =
   let kind1 = classify_selector r1.selector in
   let kind2 = classify_selector r2.selector in
   if !debug_compare then (
-    Format.eprintf "compare_cross_prio: %s (%d,%d) vs %s (%d,%d)@."
-      (Css.Selector.to_string r1.selector)
-      p1 s1
-      (Css.Selector.to_string r2.selector)
-      p2 s2;
-    Format.eprintf "compare_cross_kind: %s (%s) vs %s (%s)@."
-      (Css.Selector.to_string r1.selector)
-      (match kind1 with
-      | Simple -> "Simple"
-      | Pseudo_element -> "Pseudo_element"
-      | Complex _ -> "Complex")
-      (Css.Selector.to_string r2.selector)
-      (match kind2 with
-      | Simple -> "Simple"
-      | Pseudo_element -> "Pseudo_element"
-      | Complex _ -> "Complex"));
+    prerr_string
+      ("compare_cross_prio: "
+      ^ Css.Selector.to_string r1.selector
+      ^ " (" ^ string_of_int p1 ^ "," ^ string_of_int s1 ^ ") vs "
+      ^ Css.Selector.to_string r2.selector
+      ^ " (" ^ string_of_int p2 ^ "," ^ string_of_int s2 ^ ")\n");
+    prerr_string
+      ("compare_cross_kind: "
+      ^ Css.Selector.to_string r1.selector
+      ^ " ("
+      ^ (match kind1 with
+        | Simple -> "Simple"
+        | Pseudo_element -> "Pseudo_element"
+        | Complex _ -> "Complex")
+      ^ ") vs "
+      ^ Css.Selector.to_string r2.selector
+      ^ " ("
+      ^ (match kind2 with
+        | Simple -> "Simple"
+        | Pseudo_element -> "Pseudo_element"
+        | Complex _ -> "Complex")
+      ^ ")\n"));
   (* Check pseudo-elements, but only within the same priority group. Across
      different priorities, priority wins (e.g., form-input::placeholder at
      priority 3 comes before form-textarea at priority 8). *)
@@ -1828,12 +1834,16 @@ let compare_cross_utility_regular r1 r2 =
 let compare_regular_rules r1 r2 =
   let rel = rule_relationship r1 r2 in
   if !debug_compare then
-    Format.eprintf "compare_regular: %s vs %s -> %s@."
-      (Css.Selector.to_string r1.selector)
-      (Css.Selector.to_string r2.selector)
-      (match rel with
-      | Same_utility bc -> "Same:" ^ bc
-      | Different_utilities -> "Different");
+    prerr_string
+      ("compare_regular: "
+      ^ Css.Selector.to_string r1.selector
+      ^ " vs "
+      ^ Css.Selector.to_string r2.selector
+      ^ " -> "
+      ^ (match rel with
+        | Same_utility bc -> "Same:" ^ bc
+        | Different_utilities -> "Different")
+      ^ "\n");
   match rel with
   | Same_utility _ -> compare_same_utility_regular r1 r2
   | Different_utilities -> compare_cross_utility_regular r1 r2
@@ -1851,21 +1861,26 @@ let compare_starting_rules r1 r2 =
     rule_type. *)
 let compare_indexed_rules r1 r2 =
   if !debug_compare then
-    Format.eprintf "compare_indexed: %s vs %s (types: %s/%s)@."
-      (Css.Selector.to_string r1.selector)
-      (Css.Selector.to_string r2.selector)
-      (match r1.rule_type with
-      | `Regular -> "R"
-      | `Media _ -> "M"
-      | `Container _ -> "C"
-      | `Starting -> "S"
-      | `Supports _ -> "U")
-      (match r2.rule_type with
-      | `Regular -> "R"
-      | `Media _ -> "M"
-      | `Container _ -> "C"
-      | `Starting -> "S"
-      | `Supports _ -> "U");
+    prerr_string
+      ("compare_indexed: "
+      ^ Css.Selector.to_string r1.selector
+      ^ " vs "
+      ^ Css.Selector.to_string r2.selector
+      ^ " (types: "
+      ^ (match r1.rule_type with
+        | `Regular -> "R"
+        | `Media _ -> "M"
+        | `Container _ -> "C"
+        | `Starting -> "S"
+        | `Supports _ -> "U")
+      ^ "/"
+      ^ (match r2.rule_type with
+        | `Regular -> "R"
+        | `Media _ -> "M"
+        | `Container _ -> "C"
+        | `Starting -> "S"
+        | `Supports _ -> "U")
+      ^ ")\n");
   (* First compare by rule type group *)
   let type_cmp =
     Int.compare (rule_type_order r1.rule_type) (rule_type_order r2.rule_type)

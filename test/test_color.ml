@@ -165,9 +165,9 @@ let test_css_mode_with_colors () =
   let css_string = Css.to_string css in
 
   (* Debug: print CSS and class names *)
-  Format.eprintf "bg_blue class: '%s'\n" (Tw.to_classes [ bg_blue ]);
-  Format.eprintf "text_red class: '%s'\n" (Tw.to_classes [ text_red ]);
-  Format.eprintf "Generated CSS:\n%s\n" css_string;
+  Fmt.epr "bg_blue class: '%s'\n" (Tw.to_classes [ bg_blue ]);
+  Fmt.epr "text_red class: '%s'\n" (Tw.to_classes [ text_red ]);
+  Fmt.epr "Generated CSS:\n%s\n" css_string;
 
   (* Test that Variables mode is the default and uses CSS variables *)
   Alcotest.(check bool)

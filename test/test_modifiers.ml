@@ -277,22 +277,16 @@ let test_motion_reduce_transition_none () =
 
   (* Should contain transition-property:none *)
   let has_transition_property =
-    try
-      let _ = Str.search_forward (Str.regexp "transition-property") css_str 0 in
-      true
-    with Not_found -> false
+    Astring.String.is_infix ~affix:"transition-property" css_str
   in
   check bool "has transition-property (not transition shorthand)" true
     has_transition_property;
 
   (* Should NOT contain the shorthand 'transition: none' (with zero duration) *)
   let has_shorthand =
-    try
-      let _ =
-        Str.search_forward (Str.regexp "transition: *none *0s") css_str 0
-      in
-      true
-    with Not_found -> false
+    Astring.String.is_infix ~affix:"transition:" css_str
+    && Astring.String.is_infix ~affix:"none" css_str
+    && Astring.String.is_infix ~affix:"0s" css_str
   in
   check bool "should NOT have shorthand transition: none 0s" false has_shorthand
 
@@ -457,23 +451,14 @@ let test_nested_modifier_css_generation () =
 
   (* Should contain the escaped class name *)
   let has_class =
-    try
-      let _ =
-        Str.search_forward (Str.regexp {|dark\\:hover\\:bg-blue-500|}) css_str 0
-      in
-      true
-    with Not_found -> false
+    Astring.String.is_infix ~affix:{|dark\:hover\:bg-blue-500|} css_str
   in
   check bool "CSS contains dark:hover: class selector" true has_class;
 
   (* Should contain prefers-color-scheme:dark media query *)
   let has_dark_media =
-    try
-      let _ =
-        Str.search_forward (Str.regexp "prefers-color-scheme:.*dark") css_str 0
-      in
-      true
-    with Not_found -> false
+    Astring.String.is_infix ~affix:"prefers-color-scheme" css_str
+    && Astring.String.is_infix ~affix:"dark" css_str
   in
   check bool "CSS contains dark mode media query" true has_dark_media;
 

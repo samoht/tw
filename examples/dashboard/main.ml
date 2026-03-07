@@ -464,7 +464,7 @@ let bar_chart =
             hover [ bg color 300 ];
             dark [ bg color 700; hover [ bg color 600 ] ];
           ]
-      ~at:[ At.v "style" (Printf.sprintf "height: %d%%" height) ]
+      ~at:[ At.v "style" ("height: " ^ string_of_int height ^ "%") ]
       []
   in
   div
