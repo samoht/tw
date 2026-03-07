@@ -461,6 +461,13 @@ val property_order : string -> int option
     for sorting properties in the {i \@layer properties \@supports} block.
     Returns [None] if no order was registered. *)
 
+val register_property_order : name:string -> order:int -> unit
+(** [register_property_order ~name ~order] registers a property order for a
+    variable name. Used by modules that create [\@property] rules directly
+    (without using [Var.property_default]) and need to participate in the
+    properties layer ordering. The [name] should be without the ["--"] prefix.
+*)
+
 val order : string -> (int * int) option
 (** [order name] returns the theme layer order for a variable name. None if no
     order was set (i.e., not a theme variable). *)
