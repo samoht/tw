@@ -98,59 +98,50 @@ let keyframe_section =
     ]
 
 (* Transitions section *)
+let transition_base =
+  Tw.[ p 6; rounded_lg; text_center; font_medium; duration 300 ]
+
+let color_transition_demo =
+  div
+    ~tw:
+      Tw.(
+        [
+          bg blue 500;
+          text_white;
+          transition;
+          transition_colors;
+          hover [ bg blue 700 ];
+        ]
+        @ transition_base)
+    [ txt "Hover for color transition" ]
+
+let scale_transition_demo =
+  div
+    ~tw:
+      Tw.(
+        [ bg green 500; text_white; transition_transform; hover [ scale 105 ] ]
+        @ transition_base)
+    [ txt "Hover for scale" ]
+
+let shadow_transition_demo =
+  div
+    ~tw:
+      Tw.(
+        [
+          bg_white;
+          text gray 700;
+          shadow_sm;
+          transition_shadow;
+          hover [ shadow_xl ];
+          dark [ bg gray 700; text_white ];
+        ]
+        @ transition_base)
+    [ txt "Hover for shadow" ]
+
 let transition_hover_demos =
   div
     ~tw:Tw.[ grid; grid_cols 1; gap 4; md [ grid_cols 3 ] ]
-    [
-      div
-        ~tw:
-          Tw.
-            [
-              p 6;
-              bg blue 500;
-              text_white;
-              rounded_lg;
-              text_center;
-              font_medium;
-              transition;
-              transition_colors;
-              duration 300;
-              hover [ bg blue 700 ];
-            ]
-        [ txt "Hover for color transition" ];
-      div
-        ~tw:
-          Tw.
-            [
-              p 6;
-              bg green 500;
-              text_white;
-              rounded_lg;
-              text_center;
-              font_medium;
-              transition_transform;
-              duration 300;
-              hover [ scale 105 ];
-            ]
-        [ txt "Hover for scale" ];
-      div
-        ~tw:
-          Tw.
-            [
-              p 6;
-              bg_white;
-              text gray 700;
-              rounded_lg;
-              text_center;
-              font_medium;
-              shadow_sm;
-              transition_shadow;
-              duration 300;
-              hover [ shadow_xl ];
-              dark [ bg gray 700; text_white ];
-            ]
-        [ txt "Hover for shadow" ];
-    ]
+    [ color_transition_demo; scale_transition_demo; shadow_transition_demo ]
 
 let timing_functions_demos =
   div

@@ -13,6 +13,27 @@
 let blue_600 = Css.oklch 54.6 0.245 262.881
 let gray_500 = Css.oklch 55.1 0.027 264.364
 
+let make_ring_offset_shadow () =
+  let open Css in
+  let spread : length = Var (var_ref "tw-ring-offset-width") in
+  let color : color = Var (var_ref "tw-ring-offset-color") in
+  shadow ~inset:false ~inset_var:"tw-ring-inset" ~h_offset:Zero ~v_offset:Zero
+    ~blur:Zero ~spread ~color ()
+
+let make_ring_shadow ~ring_width_px =
+  let open Css in
+  let offset_width_default : length = Px 0. in
+  let spread : length =
+    Calc
+      Calc.(
+        add
+          (px (float_of_int ring_width_px))
+          (var ~default:offset_width_default "tw-ring-offset-width"))
+  in
+  let color : color = Var (var_ref "tw-ring-color") in
+  shadow ~inset:false ~inset_var:"tw-ring-inset" ~h_offset:Zero ~v_offset:Zero
+    ~blur:Zero ~spread ~color ()
+
 let focus_ring_decls ~offset_width ~ring_width_px =
   let open Css in
   let d_ring_inset, _ =
@@ -25,39 +46,19 @@ let focus_ring_decls ~offset_width ~ring_width_px =
     Var.binding Effects.ring_offset_color_var (hex "#fff")
   in
   let d_ring_color, _ = Var.binding Effects.ring_color_var blue_600 in
-  let offset_shadow_spread : length = Var (var_ref "tw-ring-offset-width") in
-  let offset_shadow_color : color = Var (var_ref "tw-ring-offset-color") in
-  let ring_offset_shadow_value =
-    shadow ~inset:false ~inset_var:"tw-ring-inset" ~h_offset:Zero ~v_offset:Zero
-      ~blur:Zero ~spread:offset_shadow_spread ~color:offset_shadow_color ()
-  in
   let d_ring_offset_shadow, _ =
-    Var.binding Effects.ring_offset_shadow_var ring_offset_shadow_value
-  in
-  let offset_width_default : length = Px 0. in
-  let ring_shadow_spread : length =
-    Calc
-      Calc.(
-        add
-          (px (float_of_int ring_width_px))
-          (var ~default:offset_width_default "tw-ring-offset-width"))
-  in
-  let ring_shadow_color : color = Var (var_ref "tw-ring-color") in
-  let ring_shadow_value =
-    shadow ~inset:false ~inset_var:"tw-ring-inset" ~h_offset:Zero ~v_offset:Zero
-      ~blur:Zero ~spread:ring_shadow_spread ~color:ring_shadow_color ()
+    Var.binding Effects.ring_offset_shadow_var (make_ring_offset_shadow ())
   in
   let d_ring_shadow, _ =
-    Var.binding Effects.ring_shadow_var ring_shadow_value
+    Var.binding Effects.ring_shadow_var (make_ring_shadow ~ring_width_px)
   in
-  let v_ring_offset = Var.reference Effects.ring_offset_shadow_var in
-  let v_ring = Var.reference Effects.ring_shadow_var in
-  let v_shadow = Var.reference Effects.shadow_var in
   let box_shadow_vars : Css.shadow list =
-    [ Var v_ring_offset; Var v_ring; Var v_shadow ]
+    [
+      Var (Var.reference Effects.ring_offset_shadow_var);
+      Var (Var.reference Effects.ring_shadow_var);
+      Var (Var.reference Effects.shadow_var);
+    ]
   in
-  (* Note: does NOT include outline - that goes last, after optional
-     border_color *)
   [
     outline_offset (Px 2.);
     d_ring_inset;

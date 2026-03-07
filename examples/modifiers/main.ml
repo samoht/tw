@@ -543,6 +543,79 @@ let pseudo_section =
     ]
 
 (* ARIA and Data Attributes Section *)
+let aria_expanded_demo =
+  div
+    [
+      h3 ~tw:demo_label [ txt "aria-expanded" ];
+      button
+        ~at:
+          [
+            At.v "aria-expanded" "false";
+            At.v "onclick"
+              "this.setAttribute('aria-expanded', \
+               this.getAttribute('aria-expanded') === 'true' ? 'false' : \
+               'true')";
+          ]
+        ~tw:
+          Tw.
+            [
+              w_full;
+              px 4;
+              py 3;
+              bg_white;
+              rounded_lg;
+              shadow_sm;
+              text_left;
+              flex;
+              items_center;
+              justify_between;
+              aria_expanded [ bg blue 100 ];
+              dark [ bg gray 700; aria_expanded [ bg blue 900 ] ];
+            ]
+        [
+          span
+            ~tw:Tw.[ font_medium; text gray 800; dark [ text_white ] ]
+            [ txt "Click to toggle" ];
+          span
+            ~tw:
+              Tw.
+                [
+                  transition_transform;
+                  duration 200;
+                  aria_expanded [ rotate 180 ];
+                ]
+            [ txt "v" ];
+        ];
+    ]
+
+let aria_selected_demo =
+  div
+    [
+      h3 ~tw:demo_label [ txt "aria-selected (tabs)" ];
+      div
+        ~tw:Tw.[ flex; gap 2 ]
+        (List.mapi
+           (fun i label ->
+             button
+               ~at:[ At.v "aria-selected" (if i = 0 then "true" else "false") ]
+               ~tw:
+                 Tw.
+                   [
+                     px 4;
+                     py 2;
+                     rounded_lg;
+                     text gray 600;
+                     aria_selected [ bg blue 500; text_white ];
+                     dark
+                       [
+                         text gray 400;
+                         aria_selected [ bg blue 600; text_white ];
+                       ];
+                   ]
+               [ txt label ])
+           [ "Tab 1"; "Tab 2"; "Tab 3" ]);
+    ]
+
 let aria_section =
   section
     ~at:[ At.v "aria-labelledby" "aria-heading" ]
@@ -560,83 +633,7 @@ let aria_section =
         ];
       div
         ~tw:Tw.[ grid; grid_cols 1; gap 6; md [ grid_cols 2 ] ]
-        [
-          (* aria-expanded *)
-          div
-            [
-              h3 ~tw:demo_label [ txt "aria-expanded" ];
-              button
-                ~at:
-                  [
-                    At.v "aria-expanded" "false";
-                    At.v "onclick"
-                      "this.setAttribute('aria-expanded', \
-                       this.getAttribute('aria-expanded') === 'true' ? 'false' \
-                       : 'true')";
-                  ]
-                ~tw:
-                  Tw.
-                    [
-                      w_full;
-                      px 4;
-                      py 3;
-                      bg_white;
-                      rounded_lg;
-                      shadow_sm;
-                      text_left;
-                      flex;
-                      items_center;
-                      justify_between;
-                      aria_expanded [ bg blue 100 ];
-                      dark [ bg gray 700; aria_expanded [ bg blue 900 ] ];
-                    ]
-                [
-                  span
-                    ~tw:Tw.[ font_medium; text gray 800; dark [ text_white ] ]
-                    [ txt "Click to toggle" ];
-                  span
-                    ~tw:
-                      Tw.
-                        [
-                          transition_transform;
-                          duration 200;
-                          aria_expanded [ rotate 180 ];
-                        ]
-                    [ txt "v" ];
-                ];
-            ];
-          (* aria-selected *)
-          div
-            [
-              h3 ~tw:demo_label [ txt "aria-selected (tabs)" ];
-              div
-                ~tw:Tw.[ flex; gap 2 ]
-                (List.mapi
-                   (fun i label ->
-                     button
-                       ~at:
-                         [
-                           At.v "aria-selected"
-                             (if i = 0 then "true" else "false");
-                         ]
-                       ~tw:
-                         Tw.
-                           [
-                             px 4;
-                             py 2;
-                             rounded_lg;
-                             text gray 600;
-                             aria_selected [ bg blue 500; text_white ];
-                             dark
-                               [
-                                 text gray 400;
-                                 aria_selected [ bg blue 600; text_white ];
-                               ];
-                           ]
-                       [ txt label ])
-                   [ "Tab 1"; "Tab 2"; "Tab 3" ]);
-            ];
-        ];
+        [ aria_expanded_demo; aria_selected_demo ];
     ]
 
 (* Main page *)
