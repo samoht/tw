@@ -281,66 +281,64 @@ let check_module_consistency lib_css test_css mod_name =
     let wrong_checks = ref [] in
     let missing_neg = ref [] in
 
+    let check_test_patterns tname body =
+      let checks, neg_reads, has_neg =
+        analyze_test_patterns tname body mod_name
+      in
+      let expected_check_name t = if t = "t" then mod_name else t in
+      let expected_for_tname = expected_check_name tname in
+      let valid_check_names = List.map expected_check_name valid_types in
+      let tname_is_valid_type =
+        List.exists (fun t -> expected_test_name t = tname) valid_types
+      in
+      (* Wrong check_ calls *)
+      List.iter
+        (fun c ->
+          let is_wrong =
+            c <> expected_for_tname && c <> "value" && c <> "parse_fails"
+            && (((not tname_is_valid_type) && List.mem c valid_check_names)
+               || tname_is_valid_type)
+          in
+          if is_wrong then wrong_checks := (tname, c) :: !wrong_checks)
+        checks;
+      (* Wrong neg read_ calls *)
+      List.iter
+        (fun n ->
+          if
+            n <> expected_for_tname
+            && (((not tname_is_valid_type) && List.mem n valid_types)
+               || (tname_is_valid_type && List.mem n valid_types))
+          then wrong_checks := (tname, "neg read_" ^ n) :: !wrong_checks)
+        neg_reads;
+      (* Missing neg patterns *)
+      let type_for_tname =
+        List.find_opt (fun t -> expected_test_name t = tname) valid_types
+      in
+      match type_for_tname with
+      | Some typename ->
+          let mli_path = lib_css // (mod_name ^ ".mli") in
+          let read_name =
+            if typename = "t" then "read" else "read_" ^ typename
+          in
+          if
+            (not has_neg) && Sys.file_exists mli_path
+            && file_has_val mli_path read_name
+          then missing_neg := tname :: !missing_neg
+      | None -> ()
+    in
+
     List.iter
       (fun (tname, body, (_hdr, _ln, ignored)) ->
-        if not ignored then (
-          let checks, neg_reads, has_neg =
-            analyze_test_patterns tname body mod_name
-          in
-
-          (* Special case: for type 't', expect check_<module_name> instead of
-             check_t *)
-          let expected_check_name t = if t = "t" then mod_name else t in
-
-          (* Check for wrong check_ calls *)
-          let expected_for_tname = expected_check_name tname in
-          let valid_check_names = List.map expected_check_name valid_types in
-          let tname_is_valid_type =
-            List.exists (fun t -> expected_test_name t = tname) valid_types
-          in
-
-          List.iter
-            (fun c ->
-              let is_wrong =
-                c <> expected_for_tname && c <> "value" && c <> "parse_fails"
-                && (((not tname_is_valid_type) && List.mem c valid_check_names)
-                   || tname_is_valid_type)
-              in
-              if is_wrong then wrong_checks := (tname, c) :: !wrong_checks)
-            checks;
-
-          (* Check for wrong neg read_ calls *)
-          List.iter
-            (fun n ->
-              let is_wrong =
-                n <> expected_for_tname
-                && (((not tname_is_valid_type) && List.mem n valid_types)
-                   || (tname_is_valid_type && List.mem n valid_types))
-              in
-              if is_wrong then
-                wrong_checks := (tname, "neg read_" ^ n) :: !wrong_checks)
-            neg_reads;
-
-          (* Check for missing neg patterns - only for functions that test
-             actual types and have read functions *)
-          let type_for_tname =
-            List.find_opt (fun t -> expected_test_name t = tname) valid_types
-          in
-          match type_for_tname with
-          | Some typename ->
-              (* Check if this type has a read function *)
-              let mli_path = lib_css // (mod_name ^ ".mli") in
-              let read_name =
-                if typename = "t" then "read" else "read_" ^ typename
-              in
-              if
-                (not has_neg) && Sys.file_exists mli_path
-                && file_has_val mli_path read_name
-              then missing_neg := tname :: !missing_neg
-          | None -> ()))
+        if not ignored then check_test_patterns tname body)
       tests;
 
     Some (mod_name, invalid_tests, missing_tests, !wrong_checks, !missing_neg)
+
+let print_warning_section mod_name header items pp_item =
+  if items <> [] then (
+    Fmt.pr "%s %s in test_%s.ml:@." (colored yellow "Warning -") header mod_name;
+    List.iter pp_item items;
+    Fmt.pr "@.")
 
 (* Print consistency results for a module *)
 let print_module_results
@@ -353,45 +351,23 @@ let print_module_results
     Fmt.pr "@.%s@."
       (colored bold (String.capitalize_ascii mod_name ^ " Tests Consistency:"));
 
-    if invalid_tests <> [] then (
-      Fmt.pr "%s invalid test_ names in test_%s.ml:@."
-        (colored yellow "Warning -")
-        mod_name;
-      List.iter
-        (fun n -> Fmt.pr "  test_%s (not in %s_intf)@." n mod_name)
-        invalid_tests;
-      Fmt.pr "@.");
+    print_warning_section mod_name "invalid test_ names" invalid_tests (fun n ->
+        Fmt.pr "  test_%s (not in %s_intf)@." n mod_name);
 
-    if wrong_checks <> [] then (
-      Fmt.pr "%s wrong check_x inside test_y in test_%s.ml:@."
-        (colored yellow "Warning -")
-        mod_name;
-      let wrong_unique = List.sort_uniq compare wrong_checks in
-      let pp_wrong (y, x) =
-        if String.starts_with ~prefix:"neg read_" x then
-          Fmt.pr "  test_%s: %s@." y x
-        else Fmt.pr "  test_%s: check_%s@." y x
-      in
-      List.iter pp_wrong wrong_unique;
-      Fmt.pr "@.");
+    let pp_wrong (y, x) =
+      if String.starts_with ~prefix:"neg read_" x then
+        Fmt.pr "  test_%s: %s@." y x
+      else Fmt.pr "  test_%s: check_%s@." y x
+    in
+    print_warning_section mod_name "wrong check_x inside test_y"
+      (List.sort_uniq compare wrong_checks)
+      pp_wrong;
 
-    if missing_tests <> [] then (
-      Fmt.pr "%s missing test_x functions in test_%s.ml:@."
-        (colored yellow "Warning -")
-        mod_name;
-      List.iter
-        (fun n -> Fmt.pr "  test_%s@." n)
-        (List.sort compare missing_tests);
-      Fmt.pr "@.");
+    print_warning_section mod_name "missing test_x functions"
+      (List.sort compare missing_tests) (fun n -> Fmt.pr "  test_%s@." n);
 
-    if missing_neg <> [] then (
-      Fmt.pr "%s missing neg read_x inside test_x in test_%s.ml:@."
-        (colored yellow "Warning -")
-        mod_name;
-      List.iter
-        (fun n -> Fmt.pr "  test_%s@." n)
-        (List.sort compare missing_neg);
-      Fmt.pr "@."))
+    print_warning_section mod_name "missing neg read_x inside test_x"
+      (List.sort compare missing_neg) (fun n -> Fmt.pr "  test_%s@." n))
 
 (* Project root detected by looking for dune-project file. *)
 let project_root () =
@@ -416,12 +392,18 @@ let check_var_usage () =
   let ml_files =
     let rec collect_ml_files acc dir =
       let items = Fs.list_dir dir in
+      let classify item =
+        let path = dir // item in
+        if Sys.is_directory path then `Dir path
+        else if Filename.check_suffix item ".ml" then `Ml path
+        else `Skip
+      in
       List.fold_left
         (fun acc item ->
-          let path = dir // item in
-          if Sys.is_directory path then collect_ml_files acc path
-          else if Filename.check_suffix item ".ml" then path :: acc
-          else acc)
+          match classify item with
+          | `Dir path -> collect_ml_files acc path
+          | `Ml path -> path :: acc
+          | `Skip -> acc)
         acc items
     in
     collect_ml_files [] lib_dir
