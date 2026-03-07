@@ -61,12 +61,82 @@ let nav_item ~active ~icon label =
   in
   div ~tw:(base_styles @ state_styles) [ icon; txt label ]
 
+let sidebar_logo =
+  div
+    ~tw:
+      Tw.
+        [ p 6; border_b; border_color gray 200; dark [ border_color gray 700 ] ]
+    [
+      div
+        ~tw:Tw.[ flex; items_center; gap 3 ]
+        [
+          div
+            ~tw:
+              Tw.
+                [
+                  w 10;
+                  h 10;
+                  rounded_lg;
+                  bg_gradient_to Bottom_right;
+                  from_color ~shade:500 blue;
+                  to_color ~shade:600 indigo;
+                  flex;
+                  items_center;
+                  justify_center;
+                  text_white;
+                  font_bold;
+                ]
+            [ txt "D" ];
+          span
+            ~tw:Tw.[ text_xl; font_bold; text gray 900; dark [ text_white ] ]
+            [ txt "Dashboard" ];
+        ];
+    ]
+
+let sidebar_user =
+  div
+    ~tw:
+      Tw.
+        [ p 4; border_t; border_color gray 200; dark [ border_color gray 700 ] ]
+    [
+      div
+        ~tw:Tw.[ flex; items_center; gap 3 ]
+        [
+          div
+            ~tw:
+              Tw.
+                [
+                  w 10;
+                  h 10;
+                  rounded_full;
+                  bg gray 300;
+                  flex;
+                  items_center;
+                  justify_center;
+                  text gray 600;
+                  font_medium;
+                ]
+            [ txt "JD" ];
+          div
+            ~tw:Tw.[ flex_1 ]
+            [
+              p
+                ~tw:
+                  Tw.
+                    [ text_sm; font_medium; text gray 900; dark [ text_white ] ]
+                [ txt "John Doe" ];
+              p
+                ~tw:Tw.[ text_xs; text gray 500; dark [ text gray 400 ] ]
+                [ txt "Admin" ];
+            ];
+        ];
+    ]
+
 let sidebar =
   aside
     ~tw:
       Tw.
         [
-          (* Hidden on mobile, shown on lg screens *)
           hidden;
           lg [ flex; w 64 ];
           min_h_screen;
@@ -77,44 +147,7 @@ let sidebar =
           dark [ bg gray 800; border_color gray 700 ];
         ]
     [
-      (* Logo *)
-      div
-        ~tw:
-          Tw.
-            [
-              p 6;
-              border_b;
-              border_color gray 200;
-              dark [ border_color gray 700 ];
-            ]
-        [
-          div
-            ~tw:Tw.[ flex; items_center; gap 3 ]
-            [
-              div
-                ~tw:
-                  Tw.
-                    [
-                      w 10;
-                      h 10;
-                      rounded_lg;
-                      bg_gradient_to Bottom_right;
-                      from_color ~shade:500 blue;
-                      to_color ~shade:600 indigo;
-                      flex;
-                      items_center;
-                      justify_center;
-                      text_white;
-                      font_bold;
-                    ]
-                [ txt "D" ];
-              span
-                ~tw:
-                  Tw.[ text_xl; font_bold; text gray 900; dark [ text_white ] ]
-                [ txt "Dashboard" ];
-            ];
-        ];
-      (* Navigation *)
+      sidebar_logo;
       nav
         ~tw:Tw.[ flex_1; p 4; space_y 2 ]
         [
@@ -123,54 +156,7 @@ let sidebar =
           nav_item ~active:false ~icon:icon_users "Customers";
           nav_item ~active:false ~icon:icon_settings "Settings";
         ];
-      (* User profile at bottom *)
-      div
-        ~tw:
-          Tw.
-            [
-              p 4;
-              border_t;
-              border_color gray 200;
-              dark [ border_color gray 700 ];
-            ]
-        [
-          div
-            ~tw:Tw.[ flex; items_center; gap 3 ]
-            [
-              div
-                ~tw:
-                  Tw.
-                    [
-                      w 10;
-                      h 10;
-                      rounded_full;
-                      bg gray 300;
-                      flex;
-                      items_center;
-                      justify_center;
-                      text gray 600;
-                      font_medium;
-                    ]
-                [ txt "JD" ];
-              div
-                ~tw:Tw.[ flex_1 ]
-                [
-                  p
-                    ~tw:
-                      Tw.
-                        [
-                          text_sm;
-                          font_medium;
-                          text gray 900;
-                          dark [ text_white ];
-                        ]
-                    [ txt "John Doe" ];
-                  p
-                    ~tw:Tw.[ text_xs; text gray 500; dark [ text gray 400 ] ]
-                    [ txt "Admin" ];
-                ];
-            ];
-        ];
+      sidebar_user;
     ]
 
 (* ========== Header ========== *)
@@ -205,6 +191,82 @@ let mobile_logo =
         [ txt "Dashboard" ];
     ]
 
+let header_search =
+  div
+    ~tw:
+      Tw.
+        [
+          hidden;
+          md [ flex ];
+          items_center;
+          gap 3;
+          bg gray 100;
+          rounded_lg;
+          px 4;
+          py 2;
+          flex_1;
+          max_w_md;
+          dark [ bg gray 700 ];
+        ]
+    [
+      icon_search;
+      span
+        ~tw:Tw.[ text_sm; text gray 500; dark [ text gray 400 ] ]
+        [ txt "Search..." ];
+    ]
+
+let header_actions =
+  div
+    ~tw:Tw.[ flex; items_center; gap 2; md [ gap 4 ] ]
+    [
+      div
+        ~tw:
+          Tw.
+            [
+              md [ hidden ];
+              p 2;
+              rounded_lg;
+              hover [ bg gray 100 ];
+              cursor_pointer;
+              dark [ hover [ bg gray 700 ] ];
+            ]
+        [ icon_search ];
+      div
+        ~tw:
+          Tw.
+            [
+              relative;
+              p 2;
+              rounded_lg;
+              hover [ bg gray 100 ];
+              cursor_pointer;
+              transition_colors;
+              dark [ hover [ bg gray 700 ] ];
+            ]
+        [
+          icon_bell;
+          span
+            ~tw:
+              Tw.
+                [
+                  absolute;
+                  top 0;
+                  right 0;
+                  w 5;
+                  h 5;
+                  bg red 500;
+                  text_white;
+                  text_xs;
+                  font_bold;
+                  rounded_full;
+                  flex;
+                  items_center;
+                  justify_center;
+                ]
+            [ txt "3" ];
+        ];
+    ]
+
 let header_section =
   header
     ~tw:
@@ -222,11 +284,9 @@ let header_section =
       div
         ~tw:Tw.[ flex; items_center; justify_between; gap 4 ]
         [
-          (* Mobile: menu button and logo *)
           div
             ~tw:Tw.[ flex; items_center; gap 3 ]
             [
-              (* Menu button - only on mobile *)
               div
                 ~tw:
                   Tw.
@@ -241,87 +301,58 @@ let header_section =
                 [ icon_menu ];
               mobile_logo;
             ];
-          (* Search bar - hidden on small screens, shown from md *)
-          div
-            ~tw:
-              Tw.
-                [
-                  hidden;
-                  md [ flex ];
-                  items_center;
-                  gap 3;
-                  bg gray 100;
-                  rounded_lg;
-                  px 4;
-                  py 2;
-                  flex_1;
-                  max_w_md;
-                  dark [ bg gray 700 ];
-                ]
-            [
-              icon_search;
-              span
-                ~tw:Tw.[ text_sm; text gray 500; dark [ text gray 400 ] ]
-                [ txt "Search..." ];
-            ];
-          (* Right side actions *)
-          div
-            ~tw:Tw.[ flex; items_center; gap 2; md [ gap 4 ] ]
-            [
-              (* Search icon on mobile *)
-              div
-                ~tw:
-                  Tw.
-                    [
-                      md [ hidden ];
-                      p 2;
-                      rounded_lg;
-                      hover [ bg gray 100 ];
-                      cursor_pointer;
-                      dark [ hover [ bg gray 700 ] ];
-                    ]
-                [ icon_search ];
-              (* Notifications *)
-              div
-                ~tw:
-                  Tw.
-                    [
-                      relative;
-                      p 2;
-                      rounded_lg;
-                      hover [ bg gray 100 ];
-                      cursor_pointer;
-                      transition_colors;
-                      dark [ hover [ bg gray 700 ] ];
-                    ]
-                [
-                  icon_bell;
-                  (* Notification badge *)
-                  span
-                    ~tw:
-                      Tw.
-                        [
-                          absolute;
-                          top 0;
-                          right 0;
-                          w 5;
-                          h 5;
-                          bg red 500;
-                          text_white;
-                          text_xs;
-                          font_bold;
-                          rounded_full;
-                          flex;
-                          items_center;
-                          justify_center;
-                        ]
-                    [ txt "3" ];
-                ];
-            ];
+          header_search;
+          header_actions;
         ];
     ]
 
 (* ========== Stats Cards ========== *)
+
+let stat_card_accent ~gradient_from ~gradient_to =
+  div
+    ~tw:
+      Tw.
+        [
+          absolute;
+          top 0;
+          right 0;
+          w 32;
+          h 32;
+          bg_gradient_to Bottom_left;
+          from_color ~shade:100 gradient_from;
+          to_color ~shade:50 gradient_to;
+          rounded_full;
+          opacity 50;
+          dark [ opacity 20 ];
+        ]
+    []
+
+let stat_card_content ~title ~value ~change ~trend =
+  div
+    ~tw:Tw.[ relative ]
+    [
+      p
+        ~tw:Tw.[ text_sm; font_medium; text gray 500; dark [ text gray 400 ] ]
+        [ txt title ];
+      p
+        ~tw:Tw.[ text_3xl; font_bold; text gray 900; mt 2; dark [ text_white ] ]
+        [ txt value ];
+      div
+        ~tw:Tw.[ flex; items_center; gap 2; mt 2 ]
+        [
+          span
+            ~tw:
+              (if trend = "up" then Tw.[ text_sm; font_medium; text green 600 ]
+               else Tw.[ text_sm; font_medium; text red 600 ])
+            [
+              txt
+                (if trend = "up" then "+" ^ change ^ "%" else "-" ^ change ^ "%");
+            ];
+          span
+            ~tw:Tw.[ text_sm; text gray 500; dark [ text gray 400 ] ]
+            [ txt "vs last month" ];
+        ];
+    ]
 
 let stat_card ~title ~value ~change ~trend ~gradient_from ~gradient_to =
   div
@@ -340,57 +371,8 @@ let stat_card ~title ~value ~change ~trend ~gradient_from ~gradient_to =
           dark [ bg gray 800 ];
         ]
     [
-      (* Gradient accent *)
-      div
-        ~tw:
-          Tw.
-            [
-              absolute;
-              top 0;
-              right 0;
-              w 32;
-              h 32;
-              bg_gradient_to Bottom_left;
-              from_color ~shade:100 gradient_from;
-              to_color ~shade:50 gradient_to;
-              rounded_full;
-              opacity 50;
-              dark [ opacity 20 ];
-            ]
-        [];
-      (* Content *)
-      div
-        ~tw:Tw.[ relative ]
-        [
-          p
-            ~tw:
-              Tw.[ text_sm; font_medium; text gray 500; dark [ text gray 400 ] ]
-            [ txt title ];
-          p
-            ~tw:
-              Tw.
-                [
-                  text_3xl; font_bold; text gray 900; mt 2; dark [ text_white ];
-                ]
-            [ txt value ];
-          div
-            ~tw:Tw.[ flex; items_center; gap 2; mt 2 ]
-            [
-              span
-                ~tw:
-                  (if trend = "up" then
-                     Tw.[ text_sm; font_medium; text green 600 ]
-                   else Tw.[ text_sm; font_medium; text red 600 ])
-                [
-                  txt
-                    (if trend = "up" then "+" ^ change ^ "%"
-                     else "-" ^ change ^ "%");
-                ];
-              span
-                ~tw:Tw.[ text_sm; text gray 500; dark [ text gray 400 ] ]
-                [ txt "vs last month" ];
-            ];
-        ];
+      stat_card_accent ~gradient_from ~gradient_to;
+      stat_card_content ~title ~value ~change ~trend;
     ]
 
 let stats_section =
