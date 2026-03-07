@@ -8,11 +8,15 @@ module Handler = struct
 
   type t =
     | Fill_none
+    | Fill_inherit
+    | Fill_transparent
     | Fill_current
     | Fill_current_opacity of Color.opacity_modifier
     | Fill_color of Color.color * int
     | Fill_color_opacity of Color.color * int * Color.opacity_modifier
     | Stroke_none
+    | Stroke_inherit
+    | Stroke_transparent
     | Stroke_current
     | Stroke_current_opacity of Color.opacity_modifier
     | Stroke_color of Color.color * int
@@ -42,27 +46,48 @@ module Handler = struct
 
   (* Fill color style with scheme support *)
   let fill_color_style color shade =
-    let color_var = Color.color_var color shade in
-    let color_value = Color.to_css color shade in
-    let theme_decl, color_ref = Var.binding color_var color_value in
-    style [ theme_decl; Css.fill (Css.Color (Css.Var color_ref)) ]
+    if Color.is_custom_color color then
+      let css_color = Color.to_css color shade in
+      style [ Css.fill (Css.Color css_color) ]
+    else
+      let color_var =
+        Color.property_color_var ~property_prefix:"fill" color shade
+      in
+      let color_value =
+        Color.property_color_value ~property_prefix:"fill" color shade
+      in
+      let theme_decl, color_ref = Var.binding color_var color_value in
+      style [ theme_decl; Css.fill (Css.Color (Css.Var color_ref)) ]
 
   (* Stroke color style with scheme support *)
   let stroke_color_style color shade =
-    let color_var = Color.color_var color shade in
-    let color_value = Color.to_css color shade in
-    let theme_decl, color_ref = Var.binding color_var color_value in
-    style [ theme_decl; Css.stroke (Css.Color (Css.Var color_ref)) ]
+    if Color.is_custom_color color then
+      let css_color = Color.to_css color shade in
+      style [ Css.stroke (Css.Color css_color) ]
+    else
+      let color_var =
+        Color.property_color_var ~property_prefix:"stroke" color shade
+      in
+      let color_value =
+        Color.property_color_value ~property_prefix:"stroke" color shade
+      in
+      let theme_decl, color_ref = Var.binding color_var color_value in
+      style [ theme_decl; Css.stroke (Css.Color (Css.Var color_ref)) ]
 
   let to_style = function
     | Fill_none -> style Css.[ fill None ]
-    | Fill_current -> style Css.[ fill Current_color ]
+    | Fill_inherit -> style Css.[ fill Inherit ]
+    | Fill_transparent -> style Css.[ fill (Color (Css.hex "0000")) ]
+    | Fill_current -> style ~merge_key:"fill-current" Css.[ fill Current_color ]
     | Fill_current_opacity opacity -> Color.fill_current_with_opacity opacity
     | Fill_color (color, shade) -> fill_color_style color shade
     | Fill_color_opacity (color, shade, opacity) ->
         Color.fill_with_opacity color shade opacity
     | Stroke_none -> style Css.[ stroke None ]
-    | Stroke_current -> style Css.[ stroke Current_color ]
+    | Stroke_inherit -> style Css.[ stroke Inherit ]
+    | Stroke_transparent -> style Css.[ stroke (Color (Css.hex "0000")) ]
+    | Stroke_current ->
+        style ~merge_key:"stroke-current" Css.[ stroke Current_color ]
     | Stroke_current_opacity opacity ->
         Color.stroke_current_with_opacity opacity
     | Stroke_color (color, shade) -> stroke_color_style color shade
@@ -73,56 +98,46 @@ module Handler = struct
     | Stroke_2 -> style Css.[ stroke_width (Px 2.) ]
     | Stroke_width n -> style Css.[ stroke_width (Px (float_of_int n)) ]
 
+  (* Alphabetical suborder from first 4 chars of a string *)
+  let alpha_order s =
+    let v = ref 0 in
+    for i = 0 to min 3 (String.length s - 1) do
+      v := (!v * 256) + Char.code s.[i]
+    done;
+    !v
+
+  let color_suffix color shade =
+    if Color.is_base_color color || Color.is_custom_color color then
+      Color.color_to_string color
+    else Color.color_to_string color ^ "-" ^ string_of_int shade
+
   let suborder = function
-    | Fill_none -> 0
-    | Fill_current -> 1
-    | Fill_current_opacity _ -> 2
-    | Fill_color (color, shade) ->
-        let base =
-          if Color.is_base_color color then
-            Color.suborder_with_shade (Color.color_to_string color)
-          else
-            Color.suborder_with_shade
-              (Color.color_to_string color ^ "-" ^ string_of_int shade)
-        in
-        100 + base
+    | Fill_none -> alpha_order "none"
+    | Fill_inherit -> alpha_order "inherit"
+    | Fill_transparent -> alpha_order "transparent"
+    | Fill_current -> alpha_order "current"
+    | Fill_current_opacity _ -> alpha_order "current"
+    | Fill_color (color, shade) -> alpha_order (color_suffix color shade)
     | Fill_color_opacity (color, shade, _) ->
-        let base =
-          if Color.is_base_color color then
-            Color.suborder_with_shade (Color.color_to_string color)
-          else
-            Color.suborder_with_shade
-              (Color.color_to_string color ^ "-" ^ string_of_int shade)
-        in
-        100 + base
-    | Stroke_none -> 1000
-    | Stroke_current -> 1001
-    | Stroke_current_opacity _ -> 1002
+        alpha_order (color_suffix color shade)
+    | Stroke_none -> 0x10000000 + alpha_order "none"
+    | Stroke_inherit -> 0x10000000 + alpha_order "inherit"
+    | Stroke_transparent -> 0x10000000 + alpha_order "transparent"
+    | Stroke_current -> 0x10000000 + alpha_order "current"
+    | Stroke_current_opacity _ -> 0x10000000 + alpha_order "current"
     | Stroke_color (color, shade) ->
-        let base =
-          if Color.is_base_color color then
-            Color.suborder_with_shade (Color.color_to_string color)
-          else
-            Color.suborder_with_shade
-              (Color.color_to_string color ^ "-" ^ string_of_int shade)
-        in
-        1100 + base
+        0x10000000 + alpha_order (color_suffix color shade)
     | Stroke_color_opacity (color, shade, _) ->
-        let base =
-          if Color.is_base_color color then
-            Color.suborder_with_shade (Color.color_to_string color)
-          else
-            Color.suborder_with_shade
-              (Color.color_to_string color ^ "-" ^ string_of_int shade)
-        in
-        1100 + base
-    | Stroke_0 -> 2000
-    | Stroke_1 -> 2001
-    | Stroke_2 -> 2002
-    | Stroke_width n -> 2010 + n
+        0x10000000 + alpha_order (color_suffix color shade)
+    | Stroke_0 -> 0x20000000
+    | Stroke_1 -> 0x20000001
+    | Stroke_2 -> 0x20000002
+    | Stroke_width n -> 0x20000010 + n
 
   let to_class = function
     | Fill_none -> "fill-none"
+    | Fill_inherit -> "fill-inherit"
+    | Fill_transparent -> "fill-transparent"
     | Fill_current -> "fill-current"
     | Fill_current_opacity opacity -> "fill-current" ^ opacity_suffix opacity
     | Fill_color (c, shade) ->
@@ -136,6 +151,8 @@ module Handler = struct
           "fill-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
           ^ opacity_suffix opacity
     | Stroke_none -> "stroke-none"
+    | Stroke_inherit -> "stroke-inherit"
+    | Stroke_transparent -> "stroke-transparent"
     | Stroke_current -> "stroke-current"
     | Stroke_current_opacity opacity ->
         "stroke-current" ^ opacity_suffix opacity
@@ -160,6 +177,8 @@ module Handler = struct
     let parts = Parse.split_class class_name in
     match parts with
     | [ "fill"; "none" ] -> Ok Fill_none
+    | [ "fill"; "inherit" ] -> Ok Fill_inherit
+    | [ "fill"; "transparent" ] -> Ok Fill_transparent
     | [ "fill"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
         let _, opacity = Color.parse_opacity_modifier current_str in
@@ -176,6 +195,8 @@ module Handler = struct
         | Ok (color, shade) -> Ok (Fill_color (color, shade))
         | Error e -> Error e)
     | [ "stroke"; "none" ] -> Ok Stroke_none
+    | [ "stroke"; "inherit" ] -> Ok Stroke_inherit
+    | [ "stroke"; "transparent" ] -> Ok Stroke_transparent
     | [ "stroke"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
         let _, opacity = Color.parse_opacity_modifier current_str in

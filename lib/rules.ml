@@ -688,21 +688,12 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
   | Style.Hover | Style.Focus | Style.Active | Style.Focus_within
   | Style.Focus_visible | Style.Disabled ->
       handle_pseudo_class_modifier modifier base_class selector props
-  (* Pseudo-elements ::before and ::after - add content property if not already
-     set by the inner utility *)
+  (* Pseudo-elements ::before and ::after - always prepend content property *)
   | Style.Pseudo_before | Style.Pseudo_after ->
       let sel = Modifiers.to_selector modifier base_class in
-      (* Check if any prop already sets the content property *)
-      let has_content_prop =
-        List.exists (fun decl -> Css.declaration_name decl = "content") props
-      in
-      let final_props =
-        if has_content_prop then props
-        else
-          let content_ref = Var.reference Typography.content_var in
-          let content_decl = Css.content (Var content_ref) in
-          content_decl :: props
-      in
+      let content_ref = Var.reference Typography.content_var in
+      let content_decl = Css.content (Var content_ref) in
+      let final_props = content_decl :: props in
       regular ~selector:sel ~props:final_props ~base_class ()
   (* Fallback for other modifiers *)
   | _ -> handle_fallback_modifier modifier base_class props

@@ -2309,11 +2309,9 @@ let generic_color_with_opacity ~property c shade opacity =
         oklab_with_supports ~property ~fallback_decl:(property fallback_color) c
           shade percent
 
-let generic_current_with_opacity ?merge_key ~property opacity =
+let generic_current_with_opacity ?merge_key ~fallback_decl ~property opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
-  (* Tailwind uses plain currentColor as fallback, not srgb color-mix *)
-  let fallback_decl = property Css.Current in
   let oklab_color =
     Css.color_mix ~in_space:Oklab Css.Current Css.Transparent ~percent1:percent
   in
@@ -2337,11 +2335,13 @@ let stroke_with_opacity c shade opacity =
 
 let fill_current_with_opacity opacity =
   generic_current_with_opacity ~merge_key:"fill-current"
+    ~fallback_decl:(Css.fill Current_color)
     ~property:(fun color -> Css.fill (Css.Color color))
     opacity
 
 let stroke_current_with_opacity opacity =
   generic_current_with_opacity ~merge_key:"stroke-current"
+    ~fallback_decl:(Css.stroke Current_color)
     ~property:(fun color -> Css.stroke (Css.Color color))
     opacity
 
