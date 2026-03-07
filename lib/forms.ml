@@ -13,14 +13,14 @@
 let blue_600 = Css.oklch 54.6 0.245 262.881
 let gray_500 = Css.oklch 55.1 0.027 264.364
 
-let make_ring_offset_shadow () =
+let ring_offset_shadow () =
   let open Css in
   let spread : length = Var (var_ref "tw-ring-offset-width") in
   let color : color = Var (var_ref "tw-ring-offset-color") in
   shadow ~inset:false ~inset_var:"tw-ring-inset" ~h_offset:Zero ~v_offset:Zero
     ~blur:Zero ~spread ~color ()
 
-let make_ring_shadow ~ring_width_px =
+let ring_shadow ~ring_width_px =
   let open Css in
   let offset_width_default : length = Px 0. in
   let spread : length =
@@ -47,10 +47,10 @@ let focus_ring_decls ~offset_width ~ring_width_px =
   in
   let d_ring_color, _ = Var.binding Effects.ring_color_var blue_600 in
   let d_ring_offset_shadow, _ =
-    Var.binding Effects.ring_offset_shadow_var (make_ring_offset_shadow ())
+    Var.binding Effects.ring_offset_shadow_var (ring_offset_shadow ())
   in
   let d_ring_shadow, _ =
-    Var.binding Effects.ring_shadow_var (make_ring_shadow ~ring_width_px)
+    Var.binding Effects.ring_shadow_var (ring_shadow ~ring_width_px)
   in
   let box_shadow_vars : Css.shadow list =
     [
