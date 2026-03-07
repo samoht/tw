@@ -216,17 +216,41 @@ module Handler = struct
         prop ~order:(order_base + 3) (dir_name ^ "-to-color") "transparent";
       ]
 
-  (* Full @property rules for a directional mask (t/r/b/l) *)
-  let directional_property_rules dir =
-    let dir_name = direction_name dir in
+  (* Pre-compute property rules for all directions at module load time to avoid
+     re-registering property orders dynamically during tests. X/Y use different
+     order_bases so their sub-directions sort correctly in properties layer. *)
+  let top_property_rules =
     concat
       [
         common_property_rules;
         directional_gradient_property_rules;
-        direction_endpoint_rules dir_name;
+        direction_endpoint_rules "top";
       ]
 
-  (* @property rules for X direction (right before left in properties layer) *)
+  let right_property_rules =
+    concat
+      [
+        common_property_rules;
+        directional_gradient_property_rules;
+        direction_endpoint_rules "right";
+      ]
+
+  let bottom_property_rules =
+    concat
+      [
+        common_property_rules;
+        directional_gradient_property_rules;
+        direction_endpoint_rules "bottom";
+      ]
+
+  let left_property_rules =
+    concat
+      [
+        common_property_rules;
+        directional_gradient_property_rules;
+        direction_endpoint_rules "left";
+      ]
+
   let x_property_rules =
     concat
       [
@@ -236,7 +260,6 @@ module Handler = struct
         direction_endpoint_rules ~order_base:66 "left";
       ]
 
-  (* @property rules for Y direction (top before bottom in properties layer) *)
   let y_property_rules =
     concat
       [
@@ -246,26 +269,47 @@ module Handler = struct
         direction_endpoint_rules ~order_base:66 "bottom";
       ]
 
-  (* @property rules for linear gradient *)
+  (* Linear/radial/conic property rules always include the position @property
+     (used by both angle and from/to modes) *)
   let linear_property_rules =
-    concat [ common_property_rules; direction_endpoint_rules "linear" ]
+    concat
+      [
+        common_property_rules;
+        concat [ prop ~order:61 "linear-position" "0deg" ];
+        direction_endpoint_rules "linear";
+      ]
 
-  (* @property rules for radial gradient *)
   let radial_property_rules =
-    concat [ common_property_rules; direction_endpoint_rules "radial" ]
+    concat
+      [
+        common_property_rules;
+        direction_endpoint_rules "radial";
+        concat
+          [
+            prop ~order:70 "radial-shape" "ellipse";
+            prop ~order:71 "radial-size" "farthest-corner";
+            prop ~order:72 "radial-position" "center";
+          ];
+      ]
 
-  (* @property rules for conic gradient *)
   let conic_property_rules =
-    concat [ common_property_rules; direction_endpoint_rules "conic" ]
+    concat
+      [
+        common_property_rules;
+        concat [ prop ~order:61 "conic-position" "0deg" ];
+        direction_endpoint_rules "conic";
+      ]
 
-  (* Get the right property rules for a direction *)
   let property_rules_for_direction = function
-    | Top | Right | Bottom | Left -> directional_property_rules
-    | X -> fun _ -> x_property_rules
-    | Y -> fun _ -> y_property_rules
-    | Linear -> fun _ -> linear_property_rules
-    | Radial -> fun _ -> radial_property_rules
-    | Conic -> fun _ -> conic_property_rules
+    | Top -> top_property_rules
+    | Right -> right_property_rules
+    | Bottom -> bottom_property_rules
+    | Left -> left_property_rules
+    | X -> x_property_rules
+    | Y -> y_property_rules
+    | Linear -> linear_property_rules
+    | Radial -> radial_property_rules
+    | Conic -> conic_property_rules
 
   (* Build the style for a directional mask position *)
   let build_directional_style dir pos_end value =
@@ -276,7 +320,7 @@ module Handler = struct
     (* The variable being set *)
     let var_name = "--tw-mask-" ^ dir_name ^ "-" ^ pos_name ^ "-position" in
 
-    let property_rules = (property_rules_for_direction dir) dir in
+    let property_rules = property_rules_for_direction dir in
 
     (* Common declarations for all directional masks *)
     let common_decls =
@@ -299,15 +343,16 @@ module Handler = struct
       spacing_theme_decl value @ mask_image_decls
       @ [
           custom_property ~layer:"utilities" "--tw-mask-linear" mask_linear_decl;
-          custom_property ~layer:"utilities" "--tw-mask-left"
-            (gradient_for_direction Left);
+          (* Right group first, then left group — interleaved order *)
           custom_property ~layer:"utilities" "--tw-mask-right"
             (gradient_for_direction Right);
           custom_property ~layer:"utilities"
-            ("--tw-mask-left-" ^ pos_name ^ "-position")
-            pos_value;
-          custom_property ~layer:"utilities"
             ("--tw-mask-right-" ^ pos_name ^ "-position")
+            pos_value;
+          custom_property ~layer:"utilities" "--tw-mask-left"
+            (gradient_for_direction Left);
+          custom_property ~layer:"utilities"
+            ("--tw-mask-left-" ^ pos_name ^ "-position")
             pos_value;
         ]
     in
@@ -322,13 +367,14 @@ module Handler = struct
       spacing_theme_decl value @ mask_image_decls
       @ [
           custom_property ~layer:"utilities" "--tw-mask-linear" mask_linear_decl;
+          (* Top group first, then bottom group — interleaved order *)
           custom_property ~layer:"utilities" "--tw-mask-top"
             (gradient_for_direction Top);
-          custom_property ~layer:"utilities" "--tw-mask-bottom"
-            (gradient_for_direction Bottom);
           custom_property ~layer:"utilities"
             ("--tw-mask-top-" ^ pos_name ^ "-position")
             pos_value;
+          custom_property ~layer:"utilities" "--tw-mask-bottom"
+            (gradient_for_direction Bottom);
           custom_property ~layer:"utilities"
             ("--tw-mask-bottom-" ^ pos_name ^ "-position")
             pos_value;
@@ -389,14 +435,14 @@ module Handler = struct
           position_str;
       ]
     in
-    style decls
+    style ~property_rules:radial_property_rules decls
 
   (* Build the style for mask-circle/mask-ellipse *)
   let build_radial_shape_style shape =
     let shape_str =
       match shape with Circle -> "circle" | Ellipse -> "ellipse"
     in
-    style
+    style ~property_rules:radial_property_rules
       [ custom_property ~layer:"utilities" "--tw-mask-radial-shape" shape_str ]
 
   (* Build the style for mask-radial size keywords and arbitrary sizes *)
@@ -422,9 +468,10 @@ module Handler = struct
                 size_str;
             ]
         in
-        style (common_decls @ composite_decls)
+        style ~property_rules:radial_property_rules
+          (common_decls @ composite_decls)
     | _ ->
-        style
+        style ~property_rules:radial_property_rules
           [
             custom_property ~layer:"utilities" "--tw-mask-radial-size" size_str;
           ]
@@ -522,10 +569,19 @@ module Handler = struct
         ("var(" ^ var_name ^ ")");
     ]
 
+  (* Helper to get the stops + gradient decls for a gradient-type direction *)
+  let stops_based_decls dir_name stops_decl gradient_decl =
+    [
+      custom_property ~layer:"utilities"
+        ("--tw-mask-" ^ dir_name ^ "-stops")
+        stops_decl;
+      custom_property ~layer:"utilities" ("--tw-mask-" ^ dir_name) gradient_decl;
+    ]
+
   (* Build the style for parenthesized var reference setting position *)
   let build_var_ref_style dir pos_end var_name =
     let pos_name = position_end_name pos_end in
-    let property_rules = (property_rules_for_direction dir) dir in
+    let property_rules = property_rules_for_direction dir in
     let merge_key =
       "mask-" ^ direction_short dir ^ "-" ^ pos_name ^ "-var-position"
     in
@@ -537,6 +593,27 @@ module Handler = struct
       | Y ->
           single_dir_var_decls "top" pos_name "position" var_name
           @ single_dir_var_decls "bottom" pos_name "position" var_name
+      | Linear ->
+          stops_based_decls "linear" linear_stops_decl linear_gradient_decl
+          @ [
+              custom_property ~layer:"utilities"
+                ("--tw-mask-linear-" ^ pos_name ^ "-position")
+                ("var(" ^ var_name ^ ")");
+            ]
+      | Radial ->
+          stops_based_decls "radial" radial_stops_decl radial_gradient_decl
+          @ [
+              custom_property ~layer:"utilities"
+                ("--tw-mask-radial-" ^ pos_name ^ "-position")
+                ("var(" ^ var_name ^ ")");
+            ]
+      | Conic ->
+          stops_based_decls "conic" conic_stops_decl conic_gradient_decl
+          @ [
+              custom_property ~layer:"utilities"
+                ("--tw-mask-conic-" ^ pos_name ^ "-position")
+                ("var(" ^ var_name ^ ")");
+            ]
       | _ ->
           let dir_name = direction_name dir in
           [
@@ -547,19 +624,24 @@ module Handler = struct
               ("var(" ^ var_name ^ ")");
           ]
     in
-    let common_decls =
-      mask_image_decls
-      @ [
-          custom_property ~layer:"utilities" "--tw-mask-linear" mask_linear_decl;
-        ]
-      @ dir_decls
+    (* For Linear/Radial/Conic, dir_decls already sets --tw-mask-linear via
+       stops_based_decls. For others, we need the mask_linear_decl. *)
+    let linear_decl =
+      match dir with
+      | Linear | Radial | Conic -> []
+      | _ ->
+          [
+            custom_property ~layer:"utilities" "--tw-mask-linear"
+              mask_linear_decl;
+          ]
     in
+    let common_decls = mask_image_decls @ linear_decl @ dir_decls in
     style ~merge_key ~property_rules (common_decls @ composite_decls)
 
   (* Build the style for parenthesized var reference setting color *)
   let build_color_ref_style dir pos_end var_name =
     let pos_name = position_end_name pos_end in
-    let property_rules = (property_rules_for_direction dir) dir in
+    let property_rules = property_rules_for_direction dir in
     let dir_decls =
       match dir with
       | X ->
@@ -568,6 +650,27 @@ module Handler = struct
       | Y ->
           single_dir_var_decls "top" pos_name "color" var_name
           @ single_dir_var_decls "bottom" pos_name "color" var_name
+      | Linear ->
+          stops_based_decls "linear" linear_stops_decl linear_gradient_decl
+          @ [
+              custom_property ~layer:"utilities"
+                ("--tw-mask-linear-" ^ pos_name ^ "-color")
+                ("var(" ^ var_name ^ ")");
+            ]
+      | Radial ->
+          stops_based_decls "radial" radial_stops_decl radial_gradient_decl
+          @ [
+              custom_property ~layer:"utilities"
+                ("--tw-mask-radial-" ^ pos_name ^ "-color")
+                ("var(" ^ var_name ^ ")");
+            ]
+      | Conic ->
+          stops_based_decls "conic" conic_stops_decl conic_gradient_decl
+          @ [
+              custom_property ~layer:"utilities"
+                ("--tw-mask-conic-" ^ pos_name ^ "-color")
+                ("var(" ^ var_name ^ ")");
+            ]
       | _ ->
           let dir_name = direction_name dir in
           [
@@ -578,13 +681,16 @@ module Handler = struct
               ("var(" ^ var_name ^ ")");
           ]
     in
-    let common_decls =
-      mask_image_decls
-      @ [
-          custom_property ~layer:"utilities" "--tw-mask-linear" mask_linear_decl;
-        ]
-      @ dir_decls
+    let linear_decl =
+      match dir with
+      | Linear | Radial | Conic -> []
+      | _ ->
+          [
+            custom_property ~layer:"utilities" "--tw-mask-linear"
+              mask_linear_decl;
+          ]
     in
+    let common_decls = mask_image_decls @ linear_decl @ dir_decls in
     style ~property_rules (common_decls @ composite_decls)
 
   let to_style = function
@@ -661,6 +767,7 @@ module Handler = struct
     | Mask_linear_angle _ -> 650
     | Mask_conic_angle _ -> 850
     | Mask_radial -> 750
+    | Mask_radial_size (Arbitrary_size _) -> 755
     | Mask_radial_at _ -> 760
     | Mask_radial_shape Circle -> 770
     | Mask_radial_shape Ellipse -> 771
@@ -668,29 +775,34 @@ module Handler = struct
     | Mask_radial_size Closest_side -> 781
     | Mask_radial_size Farthest_corner -> 782
     | Mask_radial_size Farthest_side -> 783
-    | Mask_radial_size (Arbitrary_size _) -> 785
+
+  (* Check if a float is a valid Tailwind spacing multiplier: non-negative,
+     either an integer or ending in .5 *)
+  let is_valid_spacing n =
+    n >= 0.0 && (Float.is_integer n || Float.is_integer (n *. 2.0))
 
   (* Parse a value from the class suffix *)
   let parse_value suffix =
     if String.length suffix > 0 && suffix.[0] = '[' then
-      (* Arbitrary value *)
+      (* Arbitrary value - reject negative values *)
       let len = String.length suffix in
       if len > 2 && suffix.[len - 1] = ']' then
         let inner = String.sub suffix 1 (len - 2) in
-        Option.some (Arbitrary inner)
+        if String.length inner > 0 && inner.[0] = '-' then Option.none
+        else Option.some (Arbitrary inner)
       else Option.none
     else if String.length suffix > 0 && suffix.[String.length suffix - 1] = '%'
     then
-      (* Percentage *)
+      (* Percentage - must be non-negative integer *)
       let num_str = String.sub suffix 0 (String.length suffix - 1) in
-      match float_of_string_opt num_str with
-      | Some n -> Option.some (Percent n)
-      | None -> Option.none
+      match int_of_string_opt num_str with
+      | Some n when n >= 0 -> Option.some (Percent (Float.of_int n))
+      | _ -> Option.none
     else
-      (* Spacing multiplier *)
+      (* Spacing multiplier - must be non-negative, integer or half *)
       match float_of_string_opt suffix with
-      | Some n -> Option.some (Spacing n)
-      | None -> Option.none
+      | Some n when is_valid_spacing n -> Option.some (Spacing n)
+      | _ -> Option.none
 
   (* Parse a parenthesized var reference like "(--var)", "(length:--var)",
      "(color:--var)". Returns `Some (is_color, var_name)` or None. *)
