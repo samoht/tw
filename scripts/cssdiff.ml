@@ -99,58 +99,57 @@ let term =
     (const compare_files $ file1_arg $ file2_arg $ style_renderer_with_env
    $ diff_mode_arg)
 
+let man =
+  [
+    `S Manpage.s_description;
+    `P
+      "$(tname) compares two CSS files and reports structural differences \
+       using a tree-based diff format with syntax highlighting.";
+    `P "The comparison parses both CSS files and detects:";
+    `I ("•", "Added, removed, or modified rules");
+    `I ("•", "Property value changes");
+    `I ("•", "Reordered rules");
+    `I ("•", "Changes in @media, @layer, and other at-rules");
+    `S Manpage.s_options;
+    `P "The --diff option controls the comparison mode:";
+    `I
+      ( "--diff=auto",
+        "Smart detection: use tree diff for structural changes, string diff \
+         otherwise (default)" );
+    `I
+      ( "--diff=tree",
+        "Force structural tree-based diff (useful for debugging CSS parser \
+         behavior)" );
+    `I
+      ( "--diff=string",
+        "Force character-by-character string diff (faster, less intelligent)" );
+    `S Manpage.s_exit_status;
+    `P "$(tname) exits with:";
+    `I ("0", "if the CSS files are identical");
+    `I ("1", "if the CSS files differ or an error occurred");
+    `S Manpage.s_environment;
+    `P "Color output can be controlled via environment variables:";
+    `I
+      ( "NO_COLOR",
+        "When set to any non-empty value, disables color output (see \
+         https://no-color.org/)" );
+    `I
+      ( "CSSDIFF_COLOR",
+        "Set to 'auto', 'always', or 'never' to control color output \
+         (overridden by NO_COLOR)" );
+    `S Manpage.s_examples;
+    `P "Compare two CSS files:";
+    `Pre "  $(tname) reference.css output.css";
+    `P "Disable colors using flag:";
+    `Pre "  $(tname) --color=never reference.css output.css";
+    `P "Disable colors using NO_COLOR environment variable:";
+    `Pre "  NO_COLOR=1 $(tname) reference.css output.css";
+    `S Manpage.s_bugs;
+    `P "Report bugs at https://github.com/samoht/cascade";
+  ]
+
 let cmd =
   let doc = "Compare two CSS files with structural analysis" in
-  let man =
-    [
-      `S Manpage.s_description;
-      `P
-        "$(tname) compares two CSS files and reports structural differences \
-         using a tree-based diff format with syntax highlighting.";
-      `P "The comparison parses both CSS files and detects:";
-      `I ("•", "Added, removed, or modified rules");
-      `I ("•", "Property value changes");
-      `I ("•", "Reordered rules");
-      `I ("•", "Changes in @media, @layer, and other at-rules");
-      `S Manpage.s_options;
-      `P "The --diff option controls the comparison mode:";
-      `I
-        ( "--diff=auto",
-          "Smart detection: use tree diff for structural changes, string diff \
-           otherwise (default)" );
-      `I
-        ( "--diff=tree",
-          "Force structural tree-based diff (useful for debugging CSS parser \
-           behavior)" );
-      `I
-        ( "--diff=string",
-          "Force character-by-character string diff (faster, less intelligent)"
-        );
-      `S Manpage.s_exit_status;
-      `P "$(tname) exits with:";
-      `I ("0", "if the CSS files are identical");
-      `I ("1", "if the CSS files differ or an error occurred");
-      `S Manpage.s_environment;
-      `P "Color output can be controlled via environment variables:";
-      `I
-        ( "NO_COLOR",
-          "When set to any non-empty value, disables color output (see \
-           https://no-color.org/)" );
-      `I
-        ( "CSSDIFF_COLOR",
-          "Set to 'auto', 'always', or 'never' to control color output \
-           (overridden by NO_COLOR)" );
-      `S Manpage.s_examples;
-      `P "Compare two CSS files:";
-      `Pre "  $(tname) reference.css output.css";
-      `P "Disable colors using flag:";
-      `Pre "  $(tname) --color=never reference.css output.css";
-      `P "Disable colors using NO_COLOR environment variable:";
-      `Pre "  NO_COLOR=1 $(tname) reference.css output.css";
-      `S Manpage.s_bugs;
-      `P "Report bugs at https://github.com/samoht/cascade";
-    ]
-  in
   let info = Cmd.info "cssdiff" ~version:"%%VERSION%%" ~doc ~man in
   Cmd.v info term
 

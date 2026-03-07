@@ -311,67 +311,62 @@ let channel ?(needs_property = false) ?property_order ?family kind name =
 (* Place after [reference] to avoid forward reference issues *)
 
 (* Helper to create @property with correct syntax based on kind *)
-let property : type a.
-    name:string ->
-    a Css.kind ->
-    a option ->
-    inherits:bool ->
-    universal:bool ->
-    Css.t =
- fun ~name kind initial ~inherits ~universal ->
+let property_universal : type a.
+    name:string -> a Css.kind -> a option -> inherits:bool -> Css.t =
+ fun ~name kind initial ~inherits ->
   let open Css in
-  if universal then
-    match initial with
-    | None -> property ~name Universal ~inherits ()
-    | Some v -> (
-        match (kind, v) with
-        | Gradient_stop, List [] -> property ~name Universal ~inherits ()
-        | Percentage, Pct 0. -> property ~name Universal ~inherits ()
-        | Gradient_direction, To_bottom -> property ~name Universal ~inherits ()
-        | _ ->
-            let initial_str = value_to_css_string kind v in
-            property ~name Universal ~initial_value:initial_str ~inherits ())
-  else
-    match (kind, initial) with
-    (* Length - use length-percentage syntax when there's a value *)
-    | Length, None -> property ~name Universal ~inherits ()
-    | Length, Some v -> property ~name Length ~initial_value:v ~inherits ()
-    (* Float as Percentage *)
-    | Float, None -> property ~name Percentage ~inherits ()
-    | Float, Some v ->
-        property ~name Percentage ~initial_value:(Pct v) ~inherits ()
-    (* Color - use universal syntax when no initial value, color syntax
-       otherwise *)
-    | Color, None -> property ~name Universal ~inherits ()
-    | Color, Some v -> property ~name Color ~initial_value:v ~inherits ()
-    (* Percentage - use length-percentage syntax *)
-    | Percentage, None -> property ~name Length_percentage ~inherits ()
-    | Percentage, Some v ->
-        property ~name Length_percentage
-          ~initial_value:(Pct (match v with Pct f -> f | _ -> 0.0))
-          ~inherits ()
-    (* Length_percentage - use length-percentage syntax *)
-    | Length_percentage, None -> property ~name Length_percentage ~inherits ()
-    | Length_percentage, Some v ->
-        property ~name Length_percentage ~initial_value:v ~inherits ()
-    (* Number_percentage - use universal syntax *)
-    | Number_percentage, None -> property ~name Universal ~inherits ()
-    | Number_percentage, Some v ->
-        let initial_str = number_percentage_to_string v in
-        property ~name Universal ~initial_value:initial_str ~inherits ()
-    (* Gradient_stops - special handling *)
-    | Gradient_stop, None -> property ~name Universal ~inherits ()
-    | Gradient_stop, Some (List []) ->
-        (* Empty list means no initial-value, just like None *)
-        property ~name Universal ~inherits ()
-    | Gradient_stop, Some v ->
-        let initial_str = initial_to_universal kind v in
-        property ~name Universal ~initial_value:initial_str ~inherits ()
-    (* Everything else - use Universal syntax *)
-    | _, None -> property ~name Universal ~inherits ()
-    | _, Some v ->
-        let initial_str = initial_to_universal kind v in
-        property ~name Universal ~initial_value:initial_str ~inherits ()
+  match initial with
+  | None -> property ~name Universal ~inherits ()
+  | Some v -> (
+      match (kind, v) with
+      | Gradient_stop, List []
+      | Percentage, Pct 0.
+      | Gradient_direction, To_bottom
+      | String, "initial" ->
+          property ~name Universal ~inherits ()
+      | _ ->
+          let initial_str = value_to_css_string kind v in
+          property ~name Universal ~initial_value:initial_str ~inherits ())
+
+let property_typed : type a.
+    name:string -> a Css.kind -> a option -> inherits:bool -> Css.t =
+ fun ~name kind initial ~inherits ->
+  let open Css in
+  match (kind, initial) with
+  | Length, None -> property ~name Universal ~inherits ()
+  | Length, Some v -> property ~name Length ~initial_value:v ~inherits ()
+  | Float, None -> property ~name Percentage ~inherits ()
+  | Float, Some v ->
+      property ~name Percentage ~initial_value:(Pct v) ~inherits ()
+  | Color, None -> property ~name Universal ~inherits ()
+  | Color, Some v -> property ~name Color ~initial_value:v ~inherits ()
+  | Percentage, None -> property ~name Length_percentage ~inherits ()
+  | Percentage, Some v ->
+      property ~name Length_percentage
+        ~initial_value:(Pct (match v with Pct f -> f | _ -> 0.0))
+        ~inherits ()
+  | Length_percentage, None -> property ~name Length_percentage ~inherits ()
+  | Length_percentage, Some v ->
+      property ~name Length_percentage ~initial_value:v ~inherits ()
+  | Number_percentage, None -> property ~name Universal ~inherits ()
+  | Number_percentage, Some v ->
+      let initial_str = number_percentage_to_string v in
+      property ~name Universal ~initial_value:initial_str ~inherits ()
+  | Gradient_stop, None -> property ~name Universal ~inherits ()
+  | Gradient_stop, Some (List []) -> property ~name Universal ~inherits ()
+  | Gradient_stop, Some v ->
+      property ~name Universal
+        ~initial_value:(initial_to_universal kind v)
+        ~inherits ()
+  | _, None -> property ~name Universal ~inherits ()
+  | _, Some v ->
+      property ~name Universal
+        ~initial_value:(initial_to_universal kind v)
+        ~inherits ()
+
+let property ~name kind initial ~inherits ~universal =
+  if universal then property_universal ~name kind initial ~inherits
+  else property_typed ~name kind initial ~inherits
 
 (* Get @property rule if metadata present *)
 let property_rule : type a r. (a, r) t -> Css.t option =

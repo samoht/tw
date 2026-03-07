@@ -122,6 +122,26 @@ let extract_var_types path : string list =
   loop [] None lines
 
 (* Extract test functions from a test file *)
+let re_test_header =
+  Re.Perl.compile_pat "^[\\s]*let[\\s]+test_([A-Za-z0-9_]+)[\\s]*\\(\\)[\\s]*="
+
+let re_toplevel_let = Re.Perl.compile_pat "^let[\\s]+[A-Za-z_][A-Za-z0-9_]*"
+
+let prev_nonempty lines idx =
+  let rec go i =
+    if i < 0 then None
+    else
+      let pl = List.nth lines i in
+      if String.trim pl = "" then go (i - 1) else Some pl
+  in
+  go (idx - 1)
+
+let is_ignored_comment lines idx =
+  match prev_nonempty lines idx with
+  | Some pl ->
+      contains_sub pl "Not a roundtrip test" || contains_sub pl "ignore-test"
+  | None -> false
+
 let extract_test_functions test_file =
   if not (Sys.file_exists test_file) then []
   else
@@ -132,14 +152,14 @@ let extract_test_functions test_file =
     let current_line = ref 0 in
     let current_ignored = ref false in
     let buf = Buffer.create 4096 in
-
     let flush_current () =
       match !current_name with
       | None -> ()
       | Some name ->
-          let body = Buffer.contents buf in
           tests :=
-            (name, body, (!current_header, !current_line, !current_ignored))
+            ( name,
+              Buffer.contents buf,
+              (!current_header, !current_line, !current_ignored) )
             :: !tests;
           Buffer.clear buf;
           current_name := None;
@@ -147,37 +167,15 @@ let extract_test_functions test_file =
           current_line := 0;
           current_ignored := false
     in
-
-    let re_header =
-      Re.Perl.compile_pat
-        "^[\\s]*let[\\s]+test_([A-Za-z0-9_]+)[\\s]*\\(\\)[\\s]*="
-    in
-    let re_toplevel_let =
-      Re.Perl.compile_pat "^let[\\s]+[A-Za-z_][A-Za-z0-9_]*"
-    in
-
     List.iteri
       (fun idx l ->
-        match Re.exec_opt re_header l with
-        | Some g -> (
+        match Re.exec_opt re_test_header l with
+        | Some g ->
             flush_current ();
-            let name = Re.Group.get g 1 in
-            current_name := Some name;
+            current_name := Some (Re.Group.get g 1);
             current_header := l;
             current_line := idx + 1;
-            let rec find_prev_nonempty i =
-              if i < 0 then None
-              else
-                let pl = List.nth lines i in
-                if String.trim pl = "" then find_prev_nonempty (i - 1)
-                else Some pl
-            in
-            match find_prev_nonempty (idx - 1) with
-            | Some pl ->
-                current_ignored :=
-                  contains_sub pl "Not a roundtrip test"
-                  || contains_sub pl "ignore-test"
-            | None -> current_ignored := false)
+            current_ignored := is_ignored_comment lines idx
         | None ->
             (match !current_name with
             | Some _ -> Buffer.add_string buf (l ^ "\n")
@@ -244,94 +242,81 @@ let file_has_val mli_path name : bool =
   List.exists (fun l -> Re.execp rex l) (Fs.read_lines mli_path)
 
 (* Check consistency for a single CSS module *)
+let invalid_tests tests valid_types expected_test_name =
+  tests
+  |> List.filter (fun (n, _body, (_hdr, _ln, ign)) ->
+      (not ign)
+      && not (List.exists (fun t -> expected_test_name t = n) valid_types))
+  |> List.map (fun (n, _, _) -> n)
+  |> List.sort_uniq compare
+
+let missing_tests test_names valid_types expected_test_name =
+  List.filter
+    (fun t ->
+      let expected_name = expected_test_name t in
+      (not (List.mem t ignored_types))
+      && not (List.mem expected_name test_names))
+    valid_types
+  |> List.map expected_test_name
+  |> List.sort_uniq compare
+
+let check_test_patterns ~lib_css ~mod_name ~valid_types ~expected_test_name
+    ~wrong_checks ~missing_neg tname body =
+  let checks, neg_reads, has_neg = analyze_test_patterns tname body mod_name in
+  let expected_check_name t = if t = "t" then mod_name else t in
+  let expected_for_tname = expected_check_name tname in
+  let valid_check_names = List.map expected_check_name valid_types in
+  let tname_is_valid_type =
+    List.exists (fun t -> expected_test_name t = tname) valid_types
+  in
+  List.iter
+    (fun c ->
+      let is_wrong =
+        c <> expected_for_tname && c <> "value" && c <> "parse_fails"
+        && (((not tname_is_valid_type) && List.mem c valid_check_names)
+           || tname_is_valid_type)
+      in
+      if is_wrong then wrong_checks := (tname, c) :: !wrong_checks)
+    checks;
+  List.iter
+    (fun n ->
+      if
+        n <> expected_for_tname
+        && (((not tname_is_valid_type) && List.mem n valid_types)
+           || (tname_is_valid_type && List.mem n valid_types))
+      then wrong_checks := (tname, "neg read_" ^ n) :: !wrong_checks)
+    neg_reads;
+  match List.find_opt (fun t -> expected_test_name t = tname) valid_types with
+  | Some typename ->
+      let mli_path = lib_css // (mod_name ^ ".mli") in
+      let read_name = if typename = "t" then "read" else "read_" ^ typename in
+      if
+        (not has_neg) && Sys.file_exists mli_path
+        && file_has_val mli_path read_name
+      then missing_neg := tname :: !missing_neg
+  | None -> ()
+
 let check_module_consistency lib_css test_css mod_name =
   let intf_file = lib_css // (mod_name ^ "_intf.ml") in
   let test_file = test_css // ("test_" ^ mod_name ^ ".ml") in
-
   if not (Sys.file_exists intf_file) then None
   else
     let valid_types = extract_types intf_file |> List.sort_uniq compare in
     let tests = extract_test_functions test_file in
     let test_names = List.map (fun (n, _, _) -> n) tests in
-
-    (* Special case: for type 't', expect test_<module_name> instead of
-       test_t *)
     let expected_test_name t = if t = "t" then mod_name else t in
-
-    let invalid_tests =
-      tests
-      |> List.filter (fun (n, _body, (_hdr, _ln, ign)) ->
-          (not ign)
-          && not (List.exists (fun t -> expected_test_name t = n) valid_types))
-      |> List.map (fun (n, _, _) -> n)
-      |> List.sort_uniq compare
-    in
-
+    let invalid_tests = invalid_tests tests valid_types expected_test_name in
     let missing_tests =
-      List.filter
-        (fun t ->
-          let expected_name = expected_test_name t in
-          (not (List.mem t ignored_types))
-          && not (List.mem expected_name test_names))
-        valid_types
-      |> List.map expected_test_name
-      |> List.sort_uniq compare
+      missing_tests test_names valid_types expected_test_name
     in
-
     let wrong_checks = ref [] in
     let missing_neg = ref [] in
-
-    let check_test_patterns tname body =
-      let checks, neg_reads, has_neg =
-        analyze_test_patterns tname body mod_name
-      in
-      let expected_check_name t = if t = "t" then mod_name else t in
-      let expected_for_tname = expected_check_name tname in
-      let valid_check_names = List.map expected_check_name valid_types in
-      let tname_is_valid_type =
-        List.exists (fun t -> expected_test_name t = tname) valid_types
-      in
-      (* Wrong check_ calls *)
-      List.iter
-        (fun c ->
-          let is_wrong =
-            c <> expected_for_tname && c <> "value" && c <> "parse_fails"
-            && (((not tname_is_valid_type) && List.mem c valid_check_names)
-               || tname_is_valid_type)
-          in
-          if is_wrong then wrong_checks := (tname, c) :: !wrong_checks)
-        checks;
-      (* Wrong neg read_ calls *)
-      List.iter
-        (fun n ->
-          if
-            n <> expected_for_tname
-            && (((not tname_is_valid_type) && List.mem n valid_types)
-               || (tname_is_valid_type && List.mem n valid_types))
-          then wrong_checks := (tname, "neg read_" ^ n) :: !wrong_checks)
-        neg_reads;
-      (* Missing neg patterns *)
-      let type_for_tname =
-        List.find_opt (fun t -> expected_test_name t = tname) valid_types
-      in
-      match type_for_tname with
-      | Some typename ->
-          let mli_path = lib_css // (mod_name ^ ".mli") in
-          let read_name =
-            if typename = "t" then "read" else "read_" ^ typename
-          in
-          if
-            (not has_neg) && Sys.file_exists mli_path
-            && file_has_val mli_path read_name
-          then missing_neg := tname :: !missing_neg
-      | None -> ()
-    in
-
     List.iter
       (fun (tname, body, (_hdr, _ln, ignored)) ->
-        if not ignored then check_test_patterns tname body)
+        if not ignored then
+          check_test_patterns ~lib_css ~mod_name ~valid_types
+            ~expected_test_name ~wrong_checks ~missing_neg tname body)
       tests;
-
     Some (mod_name, invalid_tests, missing_tests, !wrong_checks, !missing_neg)
 
 let print_warning_section mod_name header items pp_item =
@@ -387,99 +372,77 @@ let test_css = root // "test" // "css"
 let variables_path = lib_css // "variables.ml"
 
 (* Check for duplicate Var.create calls and direct Css.var_ref usage *)
-let check_var_usage () =
-  let lib_dir = root // "lib" in
-  let ml_files =
-    let rec collect_ml_files acc dir =
-      let items = Fs.list_dir dir in
-      let classify item =
-        let path = dir // item in
-        if Sys.is_directory path then `Dir path
-        else if Filename.check_suffix item ".ml" then `Ml path
-        else `Skip
-      in
-      List.fold_left
-        (fun acc item ->
-          match classify item with
-          | `Dir path -> collect_ml_files acc path
-          | `Ml path -> path :: acc
-          | `Skip -> acc)
-        acc items
-    in
-    collect_ml_files [] lib_dir
-  in
+let rec collect_ml_files acc dir =
+  let items = Fs.list_dir dir in
+  List.fold_left
+    (fun acc item ->
+      let path = dir // item in
+      if Sys.is_directory path then collect_ml_files acc path
+      else if Filename.check_suffix item ".ml" then path :: acc
+      else acc)
+    acc items
 
-  (* Track Var.create calls *)
+let relative_path ~root file =
+  if String.starts_with ~prefix:(root ^ "/") file then
+    String.sub file
+      (String.length root + 1)
+      (String.length file - String.length root - 1)
+  else file
+
+let report_var_issues duplicates var_ref_uses =
+  Fmt.pr "@.%s@." (colored bold "Variable System Issues:");
+  Fmt.pr "%s@.@." (String.make 50 '=');
+  if duplicates <> [] then (
+    Fmt.pr "%s Duplicate Var.create calls found:@." (colored red "Critical:");
+    List.iter
+      (fun (name, locations) ->
+        Fmt.pr "  Variable \"%s\" created in multiple locations:@."
+          (colored yellow name);
+        List.iter (fun (file, line) -> Fmt.pr "    %s:%d@." file line) locations;
+        Fmt.pr "@.")
+      (List.sort compare duplicates));
+  if var_ref_uses <> [] then (
+    Fmt.pr "%s Direct Css.var_ref usage found (use typed Var instead):@."
+      (colored red "Critical:");
+    List.iter
+      (fun (file, line, _) -> Fmt.pr "  %s:%d@." file line)
+      (List.rev var_ref_uses);
+    Fmt.pr "@.")
+
+let check_var_usage () =
+  let ml_files = collect_ml_files [] (root // "lib") in
   let var_creates = Hashtbl.create 50 in
   let var_ref_uses = ref [] in
-
-  (* Patterns to detect *)
   let var_create_re = Re.Perl.compile_pat "\\bVar\\.create\\s+\"([^\"]+)\"" in
   let css_var_ref_re = Re.Perl.compile_pat "\\bCss\\.var_ref\\b" in
-
-  let relative_path file =
-    if String.starts_with ~prefix:(root ^ "/") file then
-      String.sub file
-        (String.length root + 1)
-        (String.length file - String.length root - 1)
-    else file
-  in
-  let scan_line relative_file idx line =
+  let scan_line rel_file idx line =
     (match Re.exec_opt var_create_re line with
     | Some g ->
         let var_name = Re.Group.get g 1 in
-        let location = (relative_file, idx + 1) in
         let existing =
           try Hashtbl.find var_creates var_name with Not_found -> []
         in
-        Hashtbl.replace var_creates var_name (location :: existing)
+        Hashtbl.replace var_creates var_name ((rel_file, idx + 1) :: existing)
     | None -> ());
     if
       Re.execp css_var_ref_re line
-      && not (String.ends_with ~suffix:"var.ml" relative_file)
-    then var_ref_uses := (relative_file, idx + 1, line) :: !var_ref_uses
+      && not (String.ends_with ~suffix:"var.ml" rel_file)
+    then var_ref_uses := (rel_file, idx + 1, line) :: !var_ref_uses
   in
   List.iter
     (fun file ->
-      let relative_file = relative_path file in
-      List.iteri (scan_line relative_file) (Fs.read_lines file))
+      let rel = relative_path ~root file in
+      List.iteri (scan_line rel) (Fs.read_lines file))
     ml_files;
-
-  (* Find duplicates *)
-  let duplicates = ref [] in
-  Hashtbl.iter
-    (fun name locations ->
-      if List.length locations > 1 then
-        duplicates := (name, List.rev locations) :: !duplicates)
-    var_creates;
-
-  (* Report issues *)
-  let has_issues = !duplicates <> [] || !var_ref_uses <> [] in
-
+  let duplicates =
+    Hashtbl.fold
+      (fun name locs acc ->
+        if List.length locs > 1 then (name, List.rev locs) :: acc else acc)
+      var_creates []
+  in
+  let has_issues = duplicates <> [] || !var_ref_uses <> [] in
   if has_issues then (
-    Fmt.pr "@.%s@." (colored bold "Variable System Issues:");
-    Fmt.pr "%s@.@." (String.make 50 '=');
-
-    if !duplicates <> [] then (
-      Fmt.pr "%s Duplicate Var.create calls found:@." (colored red "Critical:");
-      List.iter
-        (fun (name, locations) ->
-          Fmt.pr "  Variable \"%s\" created in multiple locations:@."
-            (colored yellow name);
-          List.iter
-            (fun (file, line) -> Fmt.pr "    %s:%d@." file line)
-            locations;
-          Fmt.pr "@.")
-        (List.sort compare !duplicates));
-
-    if !var_ref_uses <> [] then (
-      Fmt.pr "%s Direct Css.var_ref usage found (use typed Var instead):@."
-        (colored red "Critical:");
-      List.iter
-        (fun (file, line, _) -> Fmt.pr "  %s:%d@." file line)
-        (List.rev !var_ref_uses);
-      Fmt.pr "@.");
-
+    report_var_issues duplicates !var_ref_uses;
     true)
   else false
 
