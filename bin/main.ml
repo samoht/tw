@@ -102,7 +102,7 @@ let process_single_class class_str flag ~(opts : gen_opts) =
   if opts.test_scheme then setup_test_scheme ();
   match opts.backend with
   | Diff -> (
-      (* For diff mode: always use variables mode and include base layer *)
+      (* Diff mode: variables, base layer, minify+optimize *)
       try
         (* Generate legacy Tailwind CSS *)
         let legacy_css =
@@ -214,7 +214,7 @@ let process_files paths flag ~(opts : gen_opts) =
   if opts.test_scheme then setup_test_scheme ();
   match opts.backend with
   | Diff -> (
-      (* For diff mode: always use variables mode and include base layer *)
+      (* Diff mode: variables, base layer, minify+optimize *)
       try
         let all_files = collect_files paths in
         let all_classes_raw =
@@ -354,10 +354,8 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
     | Some _, _, `Default -> Inline (* single-class defaults to inline mode *)
     | None, _, `Default -> Variables (* files/scan default to variables *)
   in
-  (* Diff mode defaults to optimize=true but NOT minify, because minification
-     introduces optimization artifacts (e.g., Tailwind converts 'center' to
-     '50%') that create false differences. *)
-  let resolved_minify = minify in
+  (* Diff mode forces both minify and optimize to match Tailwind's output *)
+  let resolved_minify = match backend with Diff -> true | _ -> minify in
   let resolved_optimize = match backend with Diff -> true | _ -> optimize in
   let opts : gen_opts =
     {
@@ -413,9 +411,8 @@ let quiet_flag =
 let backend_vflag =
   let doc_tailwind = "Use the real tailwindcss tool to generate CSS" in
   let doc_diff =
-    "Compare tw output with real Tailwind CSS (shows differences). Always uses \
-     --variables --base mode and defaults to --minify --optimize for \
-     production comparison."
+    "Compare tw output with real Tailwind CSS (shows differences). Forces \
+     --variables --base --minify --optimize for 1:1 equivalence comparison."
   in
   Arg.(
     value
