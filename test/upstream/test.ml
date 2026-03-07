@@ -144,7 +144,7 @@ let extract_spacing_from_css css : (int * Css.length) list =
         let n = int_of_string (Re.Group.get m 1) in
         let value = float_of_string (Re.Group.get m 2) in
         Some (n, (Css.Rem value : Css.length))
-      with _ -> None)
+      with Not_found | Failure _ -> None)
     matches
 
 (** Extract radius values from expected CSS. *)
@@ -158,7 +158,7 @@ let extract_radius_from_css css : (string * Css.length) list =
       try
         let name = Re.Group.get m 1 in
         let value = float_of_string (Re.Group.get m 2) in
-        let unit = try Re.Group.get m 3 with _ -> "" in
+        let unit = try Re.Group.get m 3 with Not_found -> "" in
         let length : Css.length =
           match unit with
           | "px" -> Px value
@@ -167,7 +167,7 @@ let extract_radius_from_css css : (string * Css.length) list =
           | _ -> Px value
         in
         Some (name, length)
-      with _ -> None)
+      with Not_found | Failure _ -> None)
     matches
 
 let extract_ring_width css : int =
@@ -176,7 +176,8 @@ let extract_ring_width css : int =
       {|\.ring\s*\{[^}]*calc\((\d+)px\s*\+\s*var\(--tw-ring-offset-width\)\)|}
   in
   match Re.exec_opt pattern css with
-  | Some m -> ( try int_of_string (Re.Group.get m 1) with _ -> 1)
+  | Some m -> (
+      try int_of_string (Re.Group.get m 1) with Not_found | Failure _ -> 1)
   | None -> 1
 
 let extract_border_width css : int =
@@ -184,7 +185,8 @@ let extract_border_width css : int =
     Re.Pcre.regexp {|\.border\s*\{[^}]*border-width:\s*(\d+)px|}
   in
   match Re.exec_opt border_pattern css with
-  | Some m -> ( try int_of_string (Re.Group.get m 1) with _ -> 1)
+  | Some m -> (
+      try int_of_string (Re.Group.get m 1) with Not_found | Failure _ -> 1)
   | None -> (
       (* Also check divide-x/divide-y patterns: calc(Npx *
          var(--tw-divide-...)) *)
@@ -193,7 +195,8 @@ let extract_border_width css : int =
           {|calc\((\d+)px \* (?:var\(--tw-divide-[xy]-reverse\)|\(1)|}
       in
       match Re.exec_opt divide_pattern css with
-      | Some m -> ( try int_of_string (Re.Group.get m 1) with _ -> 1)
+      | Some m -> (
+          try int_of_string (Re.Group.get m 1) with Not_found | Failure _ -> 1)
       | None -> 1)
 
 let extract_outline_width css : int =
@@ -201,7 +204,8 @@ let extract_outline_width css : int =
     Re.Pcre.regexp {|\.outline\s*\{[^}]*outline-width:\s*(\d+)px|}
   in
   match Re.exec_opt pattern css with
-  | Some m -> ( try int_of_string (Re.Group.get m 1) with _ -> 1)
+  | Some m -> (
+      try int_of_string (Re.Group.get m 1) with Not_found | Failure _ -> 1)
   | None -> 1
 
 let scheme_from_expected_css expected : Tw.Scheme.t =
@@ -266,7 +270,7 @@ let extract_root_vars expected =
         let name = Re.Group.get m 1 in
         let value = String.trim (Re.Group.get m 2) in
         Some (name, value)
-      with _ -> None)
+      with Not_found | Failure _ -> None)
     matches
 
 (** Build theme configuration for CSS emission. *)
@@ -337,7 +341,7 @@ let extract_var_fallbacks expected =
         let name = Re.Group.get m 1 in
         let fallback = String.trim (Re.Group.get m 2) in
         Some (name, fallback)
-      with _ -> None)
+      with Not_found | Failure _ -> None)
     matches
 
 (** Set theme value overrides for non-spacing root vars from expected CSS.

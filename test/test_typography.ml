@@ -8,7 +8,9 @@ let check_late = check_handler_roundtrip (module Tw.Typography.Typography_late)
 
 (* Try both handlers - the utility could be in either *)
 let check class_name =
-  try check_early class_name with _ -> check_late class_name
+  match Tw.Typography.Typography_early.of_class class_name with
+  | Ok _ -> check_early class_name
+  | Error _ -> check_late class_name
 
 let test_font_family () =
   check "font-sans";
@@ -170,11 +172,18 @@ let of_string_invalid () =
   (* Invalid typography values *)
   let fail_maybe input =
     let class_name = String.concat "-" input in
-    (* Try both handlers - should fail on both *)
-    (try check_invalid_input (module Tw.Typography.Typography_early) class_name
-     with _ -> ());
-    try check_invalid_input (module Tw.Typography.Typography_late) class_name
-    with _ -> ()
+    (* Both handlers should reject the input *)
+    (match Tw.Typography.Typography_early.of_class class_name with
+    | Error _ -> ()
+    | Ok _ ->
+        Alcotest.fail
+          (String.concat ""
+             [ "Expected early handler to reject: "; class_name ]));
+    match Tw.Typography.Typography_late.of_class class_name with
+    | Error _ -> ()
+    | Ok _ ->
+        Alcotest.fail
+          (String.concat "" [ "Expected late handler to reject: "; class_name ])
   in
 
   fail_maybe [ "font"; "invalid" ];

@@ -52,9 +52,7 @@ let test_inline_styles () =
     (String.length inline > 0);
 
   (* Check that CSS variables are filtered out - no "--" should appear *)
-  let has_css_vars =
-    try Astring.String.is_infix ~affix:"--" inline with _ -> false
-  in
+  let has_css_vars = Astring.String.is_infix ~affix:"--" inline in
   Alcotest.(check bool) "no CSS variables in inline styles" false has_css_vars;
 
   (* Color variants only set CSS variables, so they have no inline styles *)
