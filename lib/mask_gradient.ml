@@ -51,8 +51,14 @@ module Handler = struct
     | Angle_arb of string
   (* mask-linear-[3rad] → original value, converted at style time *)
 
+  type var_ref_kind = Plain_var | Length_var
+
   type t =
     | Mask_position of direction * position_end * value
+    | Mask_var_ref of direction * position_end * var_ref_kind * string
+      (* (--var) or (length:--var) → sets position to var(--var) *)
+    | Mask_color_ref of direction * position_end * string
+      (* (color:--var) → sets color to var(--var) *)
     | Mask_linear_angle of mask_angle
     | Mask_conic_angle of mask_angle
     | Mask_radial (* just mask-radial with no position *)
@@ -100,6 +106,15 @@ module Handler = struct
         if Float.is_integer p then pp_int (int_of_float p) ^ "%"
         else pp_float p ^ "%"
     | Arbitrary v -> v
+
+  (* When using Spacing values, we need to emit the theme declaration for
+     --spacing so that :root, :host { --spacing: .25rem } appears *)
+  let spacing_theme_decl value =
+    match value with
+    | Spacing _ ->
+        let decl, _ = Var.binding Theme.spacing_var Theme.spacing_base in
+        [ decl ]
+    | Percent _ | Arbitrary _ -> []
 
   (* Common mask image using List of three var references *)
   let mask_image_list : background_image =
@@ -164,6 +179,94 @@ module Handler = struct
       mask_image mask_image_list;
     ]
 
+  (* @property rule helpers - creates rule AND registers property_order *)
+  let prop ?(order = 100) name initial =
+    Var.register_property_order ~name:("tw-mask-" ^ name) ~order;
+    property ~name:("--tw-mask-" ^ name) Universal ~initial_value:initial
+      ~inherits:false ()
+
+  (* Common @property rules for mask-image vars *)
+  let common_property_rules =
+    concat
+      [
+        prop ~order:55 "linear" "linear-gradient(#fff, #fff)";
+        prop ~order:56 "radial" "linear-gradient(#fff, #fff)";
+        prop ~order:57 "conic" "linear-gradient(#fff, #fff)";
+      ]
+
+  (* @property rules for directional gradient vars (left, right, bottom, top) *)
+  let directional_gradient_property_rules =
+    concat
+      [
+        prop ~order:58 "left" "linear-gradient(#fff, #fff)";
+        prop ~order:59 "right" "linear-gradient(#fff, #fff)";
+        prop ~order:60 "bottom" "linear-gradient(#fff, #fff)";
+        prop ~order:61 "top" "linear-gradient(#fff, #fff)";
+      ]
+
+  (* @property rules for a specific direction's from/to vars. Order offset
+     varies by direction so that e.g. left endpoints sort before right endpoints
+     in the properties layer. *)
+  let direction_endpoint_rules ?(order_base = 62) dir_name =
+    concat
+      [
+        prop ~order:order_base (dir_name ^ "-from-position") "0%";
+        prop ~order:(order_base + 1) (dir_name ^ "-to-position") "100%";
+        prop ~order:(order_base + 2) (dir_name ^ "-from-color") "black";
+        prop ~order:(order_base + 3) (dir_name ^ "-to-color") "transparent";
+      ]
+
+  (* Full @property rules for a directional mask (t/r/b/l) *)
+  let directional_property_rules dir =
+    let dir_name = direction_name dir in
+    concat
+      [
+        common_property_rules;
+        directional_gradient_property_rules;
+        direction_endpoint_rules dir_name;
+      ]
+
+  (* @property rules for X direction (right before left in properties layer) *)
+  let x_property_rules =
+    concat
+      [
+        common_property_rules;
+        directional_gradient_property_rules;
+        direction_endpoint_rules ~order_base:62 "right";
+        direction_endpoint_rules ~order_base:66 "left";
+      ]
+
+  (* @property rules for Y direction (top before bottom in properties layer) *)
+  let y_property_rules =
+    concat
+      [
+        common_property_rules;
+        directional_gradient_property_rules;
+        direction_endpoint_rules ~order_base:62 "top";
+        direction_endpoint_rules ~order_base:66 "bottom";
+      ]
+
+  (* @property rules for linear gradient *)
+  let linear_property_rules =
+    concat [ common_property_rules; direction_endpoint_rules "linear" ]
+
+  (* @property rules for radial gradient *)
+  let radial_property_rules =
+    concat [ common_property_rules; direction_endpoint_rules "radial" ]
+
+  (* @property rules for conic gradient *)
+  let conic_property_rules =
+    concat [ common_property_rules; direction_endpoint_rules "conic" ]
+
+  (* Get the right property rules for a direction *)
+  let property_rules_for_direction = function
+    | Top | Right | Bottom | Left -> directional_property_rules
+    | X -> fun _ -> x_property_rules
+    | Y -> fun _ -> y_property_rules
+    | Linear -> fun _ -> linear_property_rules
+    | Radial -> fun _ -> radial_property_rules
+    | Conic -> fun _ -> conic_property_rules
+
   (* Build the style for a directional mask position *)
   let build_directional_style dir pos_end value =
     let dir_name = direction_name dir in
@@ -173,9 +276,11 @@ module Handler = struct
     (* The variable being set *)
     let var_name = "--tw-mask-" ^ dir_name ^ "-" ^ pos_name ^ "-position" in
 
+    let property_rules = (property_rules_for_direction dir) dir in
+
     (* Common declarations for all directional masks *)
     let common_decls =
-      mask_image_decls
+      spacing_theme_decl value @ mask_image_decls
       @ [
           custom_property ~layer:"utilities" "--tw-mask-linear" mask_linear_decl;
           custom_property ~layer:"utilities" ("--tw-mask-" ^ dir_name)
@@ -183,7 +288,7 @@ module Handler = struct
           custom_property ~layer:"utilities" var_name pos_value;
         ]
     in
-    style (common_decls @ composite_decls)
+    style ~property_rules (common_decls @ composite_decls)
 
   (* Build the style for mask-x (both left and right) *)
   let build_x_style pos_end value =
@@ -191,7 +296,7 @@ module Handler = struct
     let pos_value = format_position_value value in
 
     let common_decls =
-      mask_image_decls
+      spacing_theme_decl value @ mask_image_decls
       @ [
           custom_property ~layer:"utilities" "--tw-mask-linear" mask_linear_decl;
           custom_property ~layer:"utilities" "--tw-mask-left"
@@ -206,7 +311,7 @@ module Handler = struct
             pos_value;
         ]
     in
-    style (common_decls @ composite_decls)
+    style ~property_rules:x_property_rules (common_decls @ composite_decls)
 
   (* Build the style for mask-y (both top and bottom) *)
   let build_y_style pos_end value =
@@ -214,7 +319,7 @@ module Handler = struct
     let pos_value = format_position_value value in
 
     let common_decls =
-      mask_image_decls
+      spacing_theme_decl value @ mask_image_decls
       @ [
           custom_property ~layer:"utilities" "--tw-mask-linear" mask_linear_decl;
           custom_property ~layer:"utilities" "--tw-mask-top"
@@ -229,7 +334,7 @@ module Handler = struct
             pos_value;
         ]
     in
-    style (common_decls @ composite_decls)
+    style ~property_rules:y_property_rules (common_decls @ composite_decls)
 
   (* Build the style for mask-linear (generic linear gradient) *)
   let build_linear_style pos_end value =
@@ -237,7 +342,7 @@ module Handler = struct
     let pos_value = format_position_value value in
 
     let common_decls =
-      mask_image_decls
+      spacing_theme_decl value @ mask_image_decls
       @ [
           custom_property ~layer:"utilities" "--tw-mask-linear-stops"
             linear_stops_decl;
@@ -248,7 +353,7 @@ module Handler = struct
             pos_value;
         ]
     in
-    style (common_decls @ composite_decls)
+    style ~property_rules:linear_property_rules (common_decls @ composite_decls)
 
   (* Build the style for mask-radial position *)
   let build_radial_style pos_end value =
@@ -256,7 +361,7 @@ module Handler = struct
     let pos_value = format_position_value value in
 
     let common_decls =
-      mask_image_decls
+      spacing_theme_decl value @ mask_image_decls
       @ [
           custom_property ~layer:"utilities" "--tw-mask-radial-stops"
             radial_stops_decl;
@@ -267,7 +372,7 @@ module Handler = struct
             pos_value;
         ]
     in
-    style (common_decls @ composite_decls)
+    style ~property_rules:radial_property_rules (common_decls @ composite_decls)
 
   (* Build the style for mask-radial (no position) - produces no output in
      Tailwind *)
@@ -330,7 +435,7 @@ module Handler = struct
     let pos_value = format_position_value value in
 
     let common_decls =
-      mask_image_decls
+      spacing_theme_decl value @ mask_image_decls
       @ [
           custom_property ~layer:"utilities" "--tw-mask-conic-stops"
             conic_stops_decl;
@@ -341,7 +446,7 @@ module Handler = struct
             pos_value;
         ]
     in
-    style (common_decls @ composite_decls)
+    style ~property_rules:conic_property_rules (common_decls @ composite_decls)
 
   (* Convert arbitrary angle values (e.g. "3rad") to degrees *)
   let convert_angle_to_css s =
@@ -384,7 +489,7 @@ module Handler = struct
             pos_value;
         ]
     in
-    style (decls @ composite_decls)
+    style ~property_rules:linear_property_rules (decls @ composite_decls)
 
   (* Build the style for mask-conic-N (angle shorthand) *)
   let build_conic_angle_style angle =
@@ -399,7 +504,88 @@ module Handler = struct
             pos_value;
         ]
     in
-    style (decls @ composite_decls)
+    style ~property_rules:conic_property_rules (decls @ composite_decls)
+
+  (* Build directional var ref/color ref declarations for a single direction *)
+  let single_dir_var_decls dir_name pos_name prop var_name =
+    [
+      custom_property ~layer:"utilities" ("--tw-mask-" ^ dir_name)
+        (gradient_for_direction
+           (match dir_name with
+           | "left" -> Left
+           | "right" -> Right
+           | "top" -> Top
+           | "bottom" -> Bottom
+           | d -> failwith ("unexpected direction " ^ d)));
+      custom_property ~layer:"utilities"
+        ("--tw-mask-" ^ dir_name ^ "-" ^ pos_name ^ "-" ^ prop)
+        ("var(" ^ var_name ^ ")");
+    ]
+
+  (* Build the style for parenthesized var reference setting position *)
+  let build_var_ref_style dir pos_end var_name =
+    let pos_name = position_end_name pos_end in
+    let property_rules = (property_rules_for_direction dir) dir in
+    let merge_key =
+      "mask-" ^ direction_short dir ^ "-" ^ pos_name ^ "-var-position"
+    in
+    let dir_decls =
+      match dir with
+      | X ->
+          single_dir_var_decls "right" pos_name "position" var_name
+          @ single_dir_var_decls "left" pos_name "position" var_name
+      | Y ->
+          single_dir_var_decls "top" pos_name "position" var_name
+          @ single_dir_var_decls "bottom" pos_name "position" var_name
+      | _ ->
+          let dir_name = direction_name dir in
+          [
+            custom_property ~layer:"utilities" ("--tw-mask-" ^ dir_name)
+              (gradient_for_direction dir);
+            custom_property ~layer:"utilities"
+              ("--tw-mask-" ^ dir_name ^ "-" ^ pos_name ^ "-position")
+              ("var(" ^ var_name ^ ")");
+          ]
+    in
+    let common_decls =
+      mask_image_decls
+      @ [
+          custom_property ~layer:"utilities" "--tw-mask-linear" mask_linear_decl;
+        ]
+      @ dir_decls
+    in
+    style ~merge_key ~property_rules (common_decls @ composite_decls)
+
+  (* Build the style for parenthesized var reference setting color *)
+  let build_color_ref_style dir pos_end var_name =
+    let pos_name = position_end_name pos_end in
+    let property_rules = (property_rules_for_direction dir) dir in
+    let dir_decls =
+      match dir with
+      | X ->
+          single_dir_var_decls "right" pos_name "color" var_name
+          @ single_dir_var_decls "left" pos_name "color" var_name
+      | Y ->
+          single_dir_var_decls "top" pos_name "color" var_name
+          @ single_dir_var_decls "bottom" pos_name "color" var_name
+      | _ ->
+          let dir_name = direction_name dir in
+          [
+            custom_property ~layer:"utilities" ("--tw-mask-" ^ dir_name)
+              (gradient_for_direction dir);
+            custom_property ~layer:"utilities"
+              ("--tw-mask-" ^ dir_name ^ "-" ^ pos_name ^ "-color")
+              ("var(" ^ var_name ^ ")");
+          ]
+    in
+    let common_decls =
+      mask_image_decls
+      @ [
+          custom_property ~layer:"utilities" "--tw-mask-linear" mask_linear_decl;
+        ]
+      @ dir_decls
+    in
+    style ~property_rules (common_decls @ composite_decls)
 
   let to_style = function
     | Mask_position (Top, pos_end, value) ->
@@ -421,9 +607,13 @@ module Handler = struct
     | Mask_radial_at pos -> build_radial_at_style pos
     | Mask_radial_shape shape -> build_radial_shape_style shape
     | Mask_radial_size size -> build_radial_size_style size
+    | Mask_var_ref (dir, pos_end, _, var_name) ->
+        build_var_ref_style dir pos_end var_name
+    | Mask_color_ref (dir, pos_end, var_name) ->
+        build_color_ref_style dir pos_end var_name
 
   let suborder = function
-    | Mask_position (dir, pos_end, _) ->
+    | Mask_color_ref (dir, pos_end, _) ->
         let dir_offset =
           match dir with
           | Top -> 0
@@ -438,6 +628,36 @@ module Handler = struct
         in
         let pos_offset = match pos_end with From -> 0 | To -> 50 in
         dir_offset + pos_offset
+    | Mask_var_ref (dir, pos_end, _, _) ->
+        let dir_offset =
+          match dir with
+          | Top -> 0
+          | Right -> 100
+          | Bottom -> 200
+          | Left -> 300
+          | X -> 400
+          | Y -> 500
+          | Linear -> 600
+          | Radial -> 700
+          | Conic -> 800
+        in
+        let pos_offset = match pos_end with From -> 0 | To -> 50 in
+        dir_offset + pos_offset + 1
+    | Mask_position (dir, pos_end, _) ->
+        let dir_offset =
+          match dir with
+          | Top -> 0
+          | Right -> 100
+          | Bottom -> 200
+          | Left -> 300
+          | X -> 400
+          | Y -> 500
+          | Linear -> 600
+          | Radial -> 700
+          | Conic -> 800
+        in
+        let pos_offset = match pos_end with From -> 0 | To -> 50 in
+        dir_offset + pos_offset + 10
     | Mask_linear_angle _ -> 650
     | Mask_conic_angle _ -> 850
     | Mask_radial -> 750
@@ -472,86 +692,82 @@ module Handler = struct
       | Some n -> Option.some (Spacing n)
       | None -> Option.none
 
+  (* Parse a parenthesized var reference like "(--var)", "(length:--var)",
+     "(color:--var)". Returns `Some (is_color, var_name)` or None. *)
+  let parse_paren_var suffix =
+    let len = String.length suffix in
+    if len > 2 && suffix.[0] = '(' && suffix.[len - 1] = ')' then
+      let inner = String.sub suffix 1 (len - 2) in
+      if String.length inner > 7 && String.sub inner 0 6 = "color:" then
+        (* (color:--var-name) → color ref *)
+        let var_name = String.sub inner 6 (String.length inner - 6) in
+        Some (`Color, var_name)
+      else if String.length inner > 9 && String.sub inner 0 7 = "length:" then
+        (* (length:--var-name) → position ref with length prefix *)
+        let var_name = String.sub inner 7 (String.length inner - 7) in
+        Some (`Length, var_name)
+      else if String.length inner > 2 && inner.[0] = '-' && inner.[1] = '-' then
+        (* (--var-name) → position ref *)
+        Some (`Position, inner)
+      else None
+    else None
+
+  (* Parse directional from/to with support for values and paren refs *)
+  let parse_directional dir pos_end rest =
+    let suffix = String.concat "-" rest in
+    match parse_paren_var suffix with
+    | Some (`Color, var_name) -> Ok (Mask_color_ref (dir, pos_end, var_name))
+    | Some (`Length, var_name) ->
+        Ok (Mask_var_ref (dir, pos_end, Length_var, var_name))
+    | Some (`Position, var_name) ->
+        Ok (Mask_var_ref (dir, pos_end, Plain_var, var_name))
+    | None -> (
+        match parse_value suffix with
+        | Some value -> Ok (Mask_position (dir, pos_end, value))
+        | None ->
+            Error
+              (`Msg
+                 ("Invalid mask-" ^ direction_short dir ^ "-"
+                ^ position_end_name pos_end ^ " value")))
+
   let of_class class_name =
     let parts = Parse.split_class class_name in
     match parts with
     (* mask-t-from-*, mask-t-to-* *)
-    | "mask" :: "t" :: "from" :: rest when rest <> [] -> (
-        let suffix = String.concat "-" rest in
-        match parse_value suffix with
-        | Some value -> Ok (Mask_position (Top, From, value))
-        | None -> Error (`Msg "Invalid mask-t-from value"))
-    | "mask" :: "t" :: "to" :: rest when rest <> [] -> (
-        let suffix = String.concat "-" rest in
-        match parse_value suffix with
-        | Some value -> Ok (Mask_position (Top, To, value))
-        | None -> Error (`Msg "Invalid mask-t-to value"))
+    | "mask" :: "t" :: "from" :: rest when rest <> [] ->
+        parse_directional Top From rest
+    | "mask" :: "t" :: "to" :: rest when rest <> [] ->
+        parse_directional Top To rest
     (* mask-r-from-*, mask-r-to-* *)
-    | "mask" :: "r" :: "from" :: rest when rest <> [] -> (
-        let suffix = String.concat "-" rest in
-        match parse_value suffix with
-        | Some value -> Ok (Mask_position (Right, From, value))
-        | None -> Error (`Msg "Invalid mask-r-from value"))
-    | "mask" :: "r" :: "to" :: rest when rest <> [] -> (
-        let suffix = String.concat "-" rest in
-        match parse_value suffix with
-        | Some value -> Ok (Mask_position (Right, To, value))
-        | None -> Error (`Msg "Invalid mask-r-to value"))
+    | "mask" :: "r" :: "from" :: rest when rest <> [] ->
+        parse_directional Right From rest
+    | "mask" :: "r" :: "to" :: rest when rest <> [] ->
+        parse_directional Right To rest
     (* mask-b-from-*, mask-b-to-* *)
-    | "mask" :: "b" :: "from" :: rest when rest <> [] -> (
-        let suffix = String.concat "-" rest in
-        match parse_value suffix with
-        | Some value -> Ok (Mask_position (Bottom, From, value))
-        | None -> Error (`Msg "Invalid mask-b-from value"))
-    | "mask" :: "b" :: "to" :: rest when rest <> [] -> (
-        let suffix = String.concat "-" rest in
-        match parse_value suffix with
-        | Some value -> Ok (Mask_position (Bottom, To, value))
-        | None -> Error (`Msg "Invalid mask-b-to value"))
+    | "mask" :: "b" :: "from" :: rest when rest <> [] ->
+        parse_directional Bottom From rest
+    | "mask" :: "b" :: "to" :: rest when rest <> [] ->
+        parse_directional Bottom To rest
     (* mask-l-from-*, mask-l-to-* *)
-    | "mask" :: "l" :: "from" :: rest when rest <> [] -> (
-        let suffix = String.concat "-" rest in
-        match parse_value suffix with
-        | Some value -> Ok (Mask_position (Left, From, value))
-        | None -> Error (`Msg "Invalid mask-l-from value"))
-    | "mask" :: "l" :: "to" :: rest when rest <> [] -> (
-        let suffix = String.concat "-" rest in
-        match parse_value suffix with
-        | Some value -> Ok (Mask_position (Left, To, value))
-        | None -> Error (`Msg "Invalid mask-l-to value"))
+    | "mask" :: "l" :: "from" :: rest when rest <> [] ->
+        parse_directional Left From rest
+    | "mask" :: "l" :: "to" :: rest when rest <> [] ->
+        parse_directional Left To rest
     (* mask-x-from-*, mask-x-to-* *)
-    | "mask" :: "x" :: "from" :: rest when rest <> [] -> (
-        let suffix = String.concat "-" rest in
-        match parse_value suffix with
-        | Some value -> Ok (Mask_position (X, From, value))
-        | None -> Error (`Msg "Invalid mask-x-from value"))
-    | "mask" :: "x" :: "to" :: rest when rest <> [] -> (
-        let suffix = String.concat "-" rest in
-        match parse_value suffix with
-        | Some value -> Ok (Mask_position (X, To, value))
-        | None -> Error (`Msg "Invalid mask-x-to value"))
+    | "mask" :: "x" :: "from" :: rest when rest <> [] ->
+        parse_directional X From rest
+    | "mask" :: "x" :: "to" :: rest when rest <> [] ->
+        parse_directional X To rest
     (* mask-y-from-*, mask-y-to-* *)
-    | "mask" :: "y" :: "from" :: rest when rest <> [] -> (
-        let suffix = String.concat "-" rest in
-        match parse_value suffix with
-        | Some value -> Ok (Mask_position (Y, From, value))
-        | None -> Error (`Msg "Invalid mask-y-from value"))
-    | "mask" :: "y" :: "to" :: rest when rest <> [] -> (
-        let suffix = String.concat "-" rest in
-        match parse_value suffix with
-        | Some value -> Ok (Mask_position (Y, To, value))
-        | None -> Error (`Msg "Invalid mask-y-to value"))
+    | "mask" :: "y" :: "from" :: rest when rest <> [] ->
+        parse_directional Y From rest
+    | "mask" :: "y" :: "to" :: rest when rest <> [] ->
+        parse_directional Y To rest
     (* mask-linear-from-*, mask-linear-to-* *)
-    | "mask" :: "linear" :: "from" :: rest when rest <> [] -> (
-        let suffix = String.concat "-" rest in
-        match parse_value suffix with
-        | Some value -> Ok (Mask_position (Linear, From, value))
-        | None -> Error (`Msg "Invalid mask-linear-from value"))
-    | "mask" :: "linear" :: "to" :: rest when rest <> [] -> (
-        let suffix = String.concat "-" rest in
-        match parse_value suffix with
-        | Some value -> Ok (Mask_position (Linear, To, value))
-        | None -> Error (`Msg "Invalid mask-linear-to value"))
+    | "mask" :: "linear" :: "from" :: rest when rest <> [] ->
+        parse_directional Linear From rest
+    | "mask" :: "linear" :: "to" :: rest when rest <> [] ->
+        parse_directional Linear To rest
     (* mask-linear-N (angle), mask-linear-[arb] *)
     | [ "mask"; "linear"; n ] -> (
         if String.length n > 2 && n.[0] = '[' && n.[String.length n - 1] = ']'
@@ -583,27 +799,15 @@ module Handler = struct
         in
         Ok (Mask_radial_at pos)
     (* mask-radial-from-*, mask-radial-to-* *)
-    | "mask" :: "radial" :: "from" :: rest when rest <> [] -> (
-        let suffix = String.concat "-" rest in
-        match parse_value suffix with
-        | Some value -> Ok (Mask_position (Radial, From, value))
-        | None -> Error (`Msg "Invalid mask-radial-from value"))
-    | "mask" :: "radial" :: "to" :: rest when rest <> [] -> (
-        let suffix = String.concat "-" rest in
-        match parse_value suffix with
-        | Some value -> Ok (Mask_position (Radial, To, value))
-        | None -> Error (`Msg "Invalid mask-radial-to value"))
+    | "mask" :: "radial" :: "from" :: rest when rest <> [] ->
+        parse_directional Radial From rest
+    | "mask" :: "radial" :: "to" :: rest when rest <> [] ->
+        parse_directional Radial To rest
     (* mask-conic-from-*, mask-conic-to-* *)
-    | "mask" :: "conic" :: "from" :: rest when rest <> [] -> (
-        let suffix = String.concat "-" rest in
-        match parse_value suffix with
-        | Some value -> Ok (Mask_position (Conic, From, value))
-        | None -> Error (`Msg "Invalid mask-conic-from value"))
-    | "mask" :: "conic" :: "to" :: rest when rest <> [] -> (
-        let suffix = String.concat "-" rest in
-        match parse_value suffix with
-        | Some value -> Ok (Mask_position (Conic, To, value))
-        | None -> Error (`Msg "Invalid mask-conic-to value"))
+    | "mask" :: "conic" :: "from" :: rest when rest <> [] ->
+        parse_directional Conic From rest
+    | "mask" :: "conic" :: "to" :: rest when rest <> [] ->
+        parse_directional Conic To rest
     (* mask-conic-N (angle), mask-conic-[arb] *)
     | [ "mask"; "conic"; n ] -> (
         if String.length n > 2 && n.[0] = '[' && n.[String.length n - 1] = ']'
@@ -657,6 +861,15 @@ module Handler = struct
     | Mask_position (dir, pos_end, value) ->
         "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end ^ "-"
         ^ format_value value
+    | Mask_var_ref (dir, pos_end, Plain_var, var_name) ->
+        "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end ^ "-("
+        ^ var_name ^ ")"
+    | Mask_var_ref (dir, pos_end, Length_var, var_name) ->
+        "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end
+        ^ "-(length:" ^ var_name ^ ")"
+    | Mask_color_ref (dir, pos_end, var_name) ->
+        "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end
+        ^ "-(color:" ^ var_name ^ ")"
     | Mask_linear_angle (Angle_int n) ->
         if n < 0 then "-mask-linear-" ^ string_of_int (-n)
         else "mask-linear-" ^ string_of_int n

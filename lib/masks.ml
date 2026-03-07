@@ -64,6 +64,11 @@ module Handler = struct
     | Mask_bracket_url_var of string
     | Mask_bracket_var of string
     | Mask_bracket_linear_gradient of string
+    (* Sub-property bracket notation: mask-position-[...], mask-size-[...] *)
+    | Mask_position_bracket of string
+    | Mask_position_bracket_var of string
+    | Mask_size_bracket of string
+    | Mask_size_bracket_var of string
 
   type Utility.base += Self of t
 
@@ -246,6 +251,28 @@ module Handler = struct
                 Css.mask_size (Size (wl, hl));
               ]
         | _ -> None)
+    | [ v ] ->
+        let parse_size_val s : Css.background_size option =
+          if String.ends_with ~suffix:"px" s then
+            let n =
+              String.sub s 0 (String.length s - 2) |> float_of_string_opt
+            in
+            Option.map (fun f -> (Css.Px f : Css.background_size)) n
+          else if String.ends_with ~suffix:"%" s then
+            let n =
+              String.sub s 0 (String.length s - 1) |> float_of_string_opt
+            in
+            Option.map (fun f -> (Css.Pct f : Css.background_size)) n
+          else if String.ends_with ~suffix:"rem" s then
+            let n =
+              String.sub s 0 (String.length s - 3) |> float_of_string_opt
+            in
+            Option.map (fun f -> (Css.Rem f : Css.background_size)) n
+          else None
+        in
+        Option.map
+          (fun s -> [ Css.webkit_mask_size s; Css.mask_size s ])
+          (parse_size_val v)
     | _ -> None
 
   let parse_bracket_position inner =
@@ -378,6 +405,38 @@ module Handler = struct
         let img = Css.read_background_image reader in
         let img = Css.minify_background_image img in
         style [ Css.webkit_mask_image img; Css.mask_image img ]
+    (* Sub-property bracket notation *)
+    | Mask_position_bracket inner -> (
+        match parse_bracket_position inner with
+        | Some decls -> style decls
+        | None ->
+            style
+              [
+                Css.webkit_mask_position [ Center ];
+                Css.mask_position [ Center ];
+              ])
+    | Mask_position_bracket_var v ->
+        let bare = Parse.extract_var_name v in
+        let var_ref : Css.position_value Css.var = Css.var_ref bare in
+        style
+          [
+            Css.webkit_mask_position [ Var var_ref ];
+            Css.webkit_mask_position [ Var var_ref ];
+            Css.mask_position [ Var var_ref ];
+          ]
+    | Mask_size_bracket inner -> (
+        match parse_bracket_size inner with
+        | Some decls -> style decls
+        | None -> style [ Css.webkit_mask_size Auto; Css.mask_size Auto ])
+    | Mask_size_bracket_var v ->
+        let bare = Parse.extract_var_name v in
+        let var_ref : Css.background_size Css.var = Css.var_ref bare in
+        style
+          [
+            Css.webkit_mask_size (Var var_ref);
+            Css.webkit_mask_size (Var var_ref);
+            Css.mask_size (Var var_ref);
+          ]
 
   let suborder = function
     | Mask_bracket_image_var _ -> 100
@@ -432,6 +491,10 @@ module Handler = struct
     | Mask_origin_padding -> 803
     | Mask_origin_stroke -> 804
     | Mask_origin_view -> 805
+    | Mask_position_bracket _ -> 511
+    | Mask_position_bracket_var _ -> 512
+    | Mask_size_bracket _ -> 407
+    | Mask_size_bracket_var _ -> 408
 
   let of_class class_name =
     let parts = Parse.split_class class_name in
@@ -481,6 +544,15 @@ module Handler = struct
     | [ "mask"; "origin"; "fill" ] -> Ok Mask_origin_fill
     | [ "mask"; "origin"; "stroke" ] -> Ok Mask_origin_stroke
     | [ "mask"; "origin"; "view" ] -> Ok Mask_origin_view
+    (* Sub-property bracket notation: mask-position-[...], mask-size-[...] *)
+    | [ "mask"; "position"; bracket ] when Parse.is_bracket_value bracket ->
+        let inner = Parse.bracket_inner bracket in
+        if Parse.is_var inner then Ok (Mask_position_bracket_var inner)
+        else Ok (Mask_position_bracket inner)
+    | [ "mask"; "size"; bracket ] when Parse.is_bracket_value bracket ->
+        let inner = Parse.bracket_inner bracket in
+        if Parse.is_var inner then Ok (Mask_size_bracket_var inner)
+        else Ok (Mask_size_bracket inner)
     (* Bracket notation: mask-[...] *)
     | [ "mask"; bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
@@ -574,6 +646,10 @@ module Handler = struct
     | Mask_bracket_url_var v -> "mask-[url:" ^ v ^ "]"
     | Mask_bracket_var v -> "mask-[" ^ v ^ "]"
     | Mask_bracket_linear_gradient v -> "mask-[" ^ v ^ "]"
+    | Mask_position_bracket v -> "mask-position-[" ^ v ^ "]"
+    | Mask_position_bracket_var v -> "mask-position-[" ^ v ^ "]"
+    | Mask_size_bracket v -> "mask-size-[" ^ v ^ "]"
+    | Mask_size_bracket_var v -> "mask-size-[" ^ v ^ "]"
 end
 
 open Handler

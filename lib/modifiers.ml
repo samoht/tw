@@ -931,22 +931,31 @@ let supports cond styles = wrap (Supports cond) styles
    and base_class="bg-red-500" *)
 let of_string class_str =
   let len = String.length class_str in
-  let rec split_parts acc current_start i bracket_depth =
+  let rec split_parts acc current_start i bracket_depth paren_depth =
     if i >= len then
       (* End of string - add final part *)
       let part = String.sub class_str current_start (len - current_start) in
       List.rev (part :: acc)
     else
       match class_str.[i] with
-      | '[' -> split_parts acc current_start (i + 1) (bracket_depth + 1)
-      | ']' -> split_parts acc current_start (i + 1) (max 0 (bracket_depth - 1))
-      | ':' when bracket_depth = 0 ->
-          (* Split here - colon outside brackets *)
+      | '[' ->
+          split_parts acc current_start (i + 1) (bracket_depth + 1) paren_depth
+      | ']' ->
+          split_parts acc current_start (i + 1)
+            (max 0 (bracket_depth - 1))
+            paren_depth
+      | '(' ->
+          split_parts acc current_start (i + 1) bracket_depth (paren_depth + 1)
+      | ')' ->
+          split_parts acc current_start (i + 1) bracket_depth
+            (max 0 (paren_depth - 1))
+      | ':' when bracket_depth = 0 && paren_depth = 0 ->
+          (* Split here - colon outside brackets and parens *)
           let part = String.sub class_str current_start (i - current_start) in
-          split_parts (part :: acc) (i + 1) (i + 1) 0
-      | _ -> split_parts acc current_start (i + 1) bracket_depth
+          split_parts (part :: acc) (i + 1) (i + 1) 0 0
+      | _ -> split_parts acc current_start (i + 1) bracket_depth paren_depth
   in
-  let parts = split_parts [] 0 0 0 in
+  let parts = split_parts [] 0 0 0 0 in
   match List.rev parts with
   | [] -> ([], class_str)
   | cls :: modifiers -> (List.rev modifiers, cls)

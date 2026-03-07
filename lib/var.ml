@@ -145,6 +145,7 @@ end
 
 (* Get property order for a variable name (for external use in rules.ml) *)
 let property_order = Registry.property_order
+let register_property_order = Registry.register_property_order
 let order = Registry.order
 let family = Registry.family
 let needs_property = Registry.needs_property

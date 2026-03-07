@@ -35,8 +35,12 @@ let is_valid_class s =
   (* Filter out @layer, @apply, etc. - these are directives, not classes *)
   && s.[0] <> '@'
   (* Filter out function-like syntax (e.g. theme(...)) - but allow parens inside
-     arbitrary brackets like z-[var(--value)] or bg-[rgb(0,0,0)] *)
-  && ((not (String.contains s '(')) || String.contains s '[')
+     arbitrary brackets like z-[var(--value)] or bg-[rgb(0,0,0)], and also allow
+     parenthesized bracket notation like mask-t-from-(color:--my-var) where the
+     paren is preceded by a dash *)
+  && ((not (String.contains s '('))
+     || String.contains s '['
+     || Re.execp (Re.Pcre.regexp {|-\(|}) s)
 
 let extract_quoted_strings line =
   let pattern = Re.Pcre.regexp {|'([^']+)'|} in
