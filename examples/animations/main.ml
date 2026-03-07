@@ -23,74 +23,59 @@ let page_header =
 let anim_label =
   Tw.[ text_sm; font_medium; text gray 700; dark [ text gray 300 ] ]
 
+let keyframe_desc = Tw.[ text_xs; text gray 500; text_center ]
+
+let keyframe_demo ~anim_el ~name ~description =
+  div
+    ~tw:Tw.[ flex; flex_col; items_center; gap 3 ]
+    [
+      anim_el;
+      span ~tw:anim_label [ txt name ];
+      span ~tw:keyframe_desc [ txt description ];
+    ]
+
+let ping_el =
+  div
+    ~tw:Tw.[ relative; w 16; h 16 ]
+    [
+      div
+        ~tw:Tw.[ absolute; inset 0; bg green 500; rounded_full; animate_ping ]
+        [];
+      div ~tw:Tw.[ absolute; inset 2; bg green 600; rounded_full ] [];
+    ]
+
 let keyframe_demos =
   div
     ~tw:Tw.[ grid; grid_cols 2; gap 6; md [ grid_cols 4 ] ]
     [
-      div
-        ~tw:Tw.[ flex; flex_col; items_center; gap 3 ]
-        [
-          div
-            ~tw:
-              Tw.
-                [
-                  w 16;
-                  h 16;
-                  rounded_full;
-                  border_lg;
-                  border_color blue 600;
-                  animate_spin;
-                ]
-            [];
-          span ~tw:anim_label [ txt "Spin" ];
-          span
-            ~tw:Tw.[ text_xs; text gray 500; text_center ]
-            [ txt "Loading spinners" ];
-        ];
-      div
-        ~tw:Tw.[ flex; flex_col; items_center; gap 3 ]
-        [
-          div
-            ~tw:Tw.[ relative; w 16; h 16 ]
-            [
-              div
-                ~tw:
-                  Tw.
-                    [
-                      absolute;
-                      inset 0;
-                      bg green 500;
-                      rounded_full;
-                      animate_ping;
-                    ]
-                [];
-              div ~tw:Tw.[ absolute; inset 2; bg green 600; rounded_full ] [];
-            ];
-          span ~tw:anim_label [ txt "Ping" ];
-          span
-            ~tw:Tw.[ text_xs; text gray 500; text_center ]
-            [ txt "Notifications" ];
-        ];
-      div
-        ~tw:Tw.[ flex; flex_col; items_center; gap 3 ]
-        [
-          div ~tw:Tw.[ w 16; h 16; bg purple 500; rounded_lg; animate_pulse ] [];
-          span ~tw:anim_label [ txt "Pulse" ];
-          span
-            ~tw:Tw.[ text_xs; text gray 500; text_center ]
-            [ txt "Skeleton loading" ];
-        ];
-      div
-        ~tw:Tw.[ flex; flex_col; items_center; gap 3 ]
-        [
-          div
-            ~tw:Tw.[ w 16; h 16; bg amber 500; rounded_full; animate_bounce ]
-            [];
-          span ~tw:anim_label [ txt "Bounce" ];
-          span
-            ~tw:Tw.[ text_xs; text gray 500; text_center ]
-            [ txt "Scroll indicators" ];
-        ];
+      keyframe_demo
+        ~anim_el:
+          (div
+             ~tw:
+               Tw.
+                 [
+                   w 16;
+                   h 16;
+                   rounded_full;
+                   border_lg;
+                   border_color blue 600;
+                   animate_spin;
+                 ]
+             [])
+        ~name:"Spin" ~description:"Loading spinners";
+      keyframe_demo ~anim_el:ping_el ~name:"Ping" ~description:"Notifications";
+      keyframe_demo
+        ~anim_el:
+          (div
+             ~tw:Tw.[ w 16; h 16; bg purple 500; rounded_lg; animate_pulse ]
+             [])
+        ~name:"Pulse" ~description:"Skeleton loading";
+      keyframe_demo
+        ~anim_el:
+          (div
+             ~tw:Tw.[ w 16; h 16; bg amber 500; rounded_full; animate_bounce ]
+             [])
+        ~name:"Bounce" ~description:"Scroll indicators";
     ]
 
 let keyframe_section =

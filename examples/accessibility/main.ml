@@ -112,67 +112,53 @@ let contrast_section =
     ]
 
 (* Motion preferences section *)
+let motion_demo_label = Tw.[ text_sm; text gray 500; dark [ text gray 400 ] ]
+
+let motion_demo_item ~styles label =
+  div
+    ~tw:Tw.[ flex; flex_col; items_center; gap 2 ]
+    [ div ~tw:styles []; span ~tw:motion_demo_label [ txt label ] ]
+
 let motion_demos =
   div
     ~tw:Tw.[ flex; gap 8; items_center; justify_center; flex_wrap ]
     [
-      div
-        ~tw:Tw.[ flex; flex_col; items_center; gap 2 ]
-        [
-          div
-            ~tw:
-              Tw.
-                [
-                  w 12;
-                  h 12;
-                  bg blue 500;
-                  rounded_full;
-                  motion_safe [ animate_pulse ];
-                  motion_reduce [ opacity 100 ];
-                ]
-            [];
-          span
-            ~tw:Tw.[ text_sm; text gray 500; dark [ text gray 400 ] ]
-            [ txt "Pulse" ];
-        ];
-      div
-        ~tw:Tw.[ flex; flex_col; items_center; gap 2 ]
-        [
-          div
-            ~tw:
-              Tw.
-                [
-                  w 12;
-                  h 12;
-                  border_lg;
-                  border_color blue 600;
-                  rounded_full;
-                  motion_safe [ animate_spin ];
-                ]
-            [];
-          span
-            ~tw:Tw.[ text_sm; text gray 500; dark [ text gray 400 ] ]
-            [ txt "Spinner" ];
-        ];
-      div
-        ~tw:Tw.[ flex; flex_col; items_center; gap 2 ]
-        [
-          div
-            ~tw:
-              Tw.
-                [
-                  w 12;
-                  h 12;
-                  bg green 500;
-                  rounded_lg;
-                  motion_safe [ animate_bounce ];
-                  motion_reduce [ opacity 100 ];
-                ]
-            [];
-          span
-            ~tw:Tw.[ text_sm; text gray 500; dark [ text gray 400 ] ]
-            [ txt "Bounce" ];
-        ];
+      motion_demo_item
+        ~styles:
+          Tw.
+            [
+              w 12;
+              h 12;
+              bg blue 500;
+              rounded_full;
+              motion_safe [ animate_pulse ];
+              motion_reduce [ opacity 100 ];
+            ]
+        "Pulse";
+      motion_demo_item
+        ~styles:
+          Tw.
+            [
+              w 12;
+              h 12;
+              border_lg;
+              border_color blue 600;
+              rounded_full;
+              motion_safe [ animate_spin ];
+            ]
+        "Spinner";
+      motion_demo_item
+        ~styles:
+          Tw.
+            [
+              w 12;
+              h 12;
+              bg green 500;
+              rounded_lg;
+              motion_safe [ animate_bounce ];
+              motion_reduce [ opacity 100 ];
+            ]
+        "Bounce";
     ]
 
 let motion_section =

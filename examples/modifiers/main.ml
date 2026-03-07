@@ -19,7 +19,94 @@ let page_header =
         ];
     ]
 
+(* Shared demo styles *)
+let demo_label =
+  Tw.[ text_sm; font_semibold; text gray 700; mb 2; dark [ text gray 300 ] ]
+
 (* State Variants Section *)
+let hover_demo =
+  div
+    [
+      h3 ~tw:demo_label [ txt "hover" ];
+      button
+        ~tw:
+          Tw.
+            [
+              w_full;
+              px 4;
+              py 3;
+              bg blue 500;
+              text_white;
+              rounded_lg;
+              transition_colors;
+              duration 200;
+              hover [ bg blue 700 ];
+            ]
+        [ txt "Hover me" ];
+    ]
+
+let focus_demo =
+  div
+    [
+      h3 ~tw:demo_label [ txt "focus" ];
+      input
+        ~tw:
+          Tw.
+            [
+              w_full;
+              px 4;
+              py 3;
+              border;
+              border_color gray 300;
+              rounded_lg;
+              focus [ ring_md; ring_color blue 500; outline_none ];
+              dark [ bg gray 700; border_color gray 600; text_white ];
+            ]
+        ~at:[ At.placeholder "Click or tab to focus" ]
+        ();
+    ]
+
+let active_demo =
+  div
+    [
+      h3 ~tw:demo_label [ txt "active" ];
+      button
+        ~tw:
+          Tw.
+            [
+              w_full;
+              px 4;
+              py 3;
+              bg green 500;
+              text_white;
+              rounded_lg;
+              transition_all;
+              duration 150;
+              active [ bg green 700; scale 95 ];
+            ]
+        [ txt "Press and hold" ];
+    ]
+
+let disabled_demo =
+  div
+    [
+      h3 ~tw:demo_label [ txt "disabled" ];
+      button
+        ~at:[ At.v "disabled" "" ]
+        ~tw:
+          Tw.
+            [
+              w_full;
+              px 4;
+              py 3;
+              bg gray 300;
+              text gray 500;
+              rounded_lg;
+              disabled [ opacity 50; cursor_not_allowed ];
+            ]
+        [ txt "Disabled button" ];
+    ]
+
 let state_section =
   section
     ~at:[ At.v "aria-labelledby" "state-heading" ]
@@ -38,130 +125,151 @@ let state_section =
         ];
       div
         ~tw:Tw.[ grid; grid_cols 1; gap 4; md [ grid_cols 2 ] ]
+        [ hover_demo; focus_demo; active_demo; disabled_demo ];
+    ]
+
+(* Group and Peer Section *)
+let group_hover_demo =
+  div
+    [
+      h3 ~tw:demo_label [ txt "group-hover" ];
+      div
+        ~tw:
+          Tw.
+            [
+              group;
+              p 4;
+              bg gray 100;
+              rounded_lg;
+              cursor_pointer;
+              transition_colors;
+              duration 200;
+              hover [ bg gray 200 ];
+              dark [ bg gray 700; hover [ bg gray 600 ] ];
+            ]
         [
-          (* Hover *)
-          div
+          h4
+            ~tw:
+              Tw.
+                [
+                  font_semibold;
+                  text gray 800;
+                  group_hover [ text blue 600 ];
+                  dark [ text_white; group_hover [ text blue 400 ] ];
+                ]
+            [ txt "Hover this card" ];
+          p
+            ~tw:
+              Tw.
+                [
+                  text gray 600;
+                  text_sm;
+                  group_hover [ text gray 900 ];
+                  dark [ text gray 400; group_hover [ text gray 200 ] ];
+                ]
+            [ txt "Child elements respond to parent hover" ];
+        ];
+    ]
+
+let group_focus_demo =
+  div
+    [
+      h3 ~tw:demo_label [ txt "group-focus" ];
+      div
+        ~tw:Tw.[ group; p 4; bg gray 100; rounded_lg; dark [ bg gray 700 ] ]
+        [
+          input
+            ~tw:
+              Tw.
+                [
+                  w_full;
+                  px 3;
+                  py 2;
+                  border;
+                  border_color gray 300;
+                  rounded_md;
+                  mb 2;
+                  focus [ outline_none; ring_md; ring_color blue 500 ];
+                  dark [ bg gray 600; border_color gray 500; text_white ];
+                ]
+            ~at:[ At.placeholder "Focus this input" ]
+            ();
+          p
+            ~tw:
+              Tw.
+                [
+                  text_sm;
+                  text gray 500;
+                  group_focus [ text blue 600; font_semibold ];
+                  dark [ text gray 400; group_focus [ text blue 400 ] ];
+                ]
+            [ txt "This text responds to input focus" ];
+        ];
+    ]
+
+let peer_checked_demo =
+  div
+    [
+      h3 ~tw:demo_label [ txt "peer-checked" ];
+      div
+        ~tw:Tw.[ p 4; bg gray 100; rounded_lg; dark [ bg gray 700 ] ]
+        [
+          label
+            ~tw:Tw.[ flex; items_center; gap 3; cursor_pointer ]
             [
-              h3
+              input ~tw:Tw.[ peer; w 5; h 5 ] ~at:[ At.type' "checkbox" ] ();
+              span
                 ~tw:
                   Tw.
                     [
-                      text_sm;
-                      font_semibold;
                       text gray 700;
-                      mb 2;
-                      dark [ text gray 300 ];
+                      peer_checked [ text green 600; font_semibold ];
+                      dark [ text gray 300; peer_checked [ text green 400 ] ];
                     ]
-                [ txt "hover" ];
-              button
-                ~tw:
-                  Tw.
-                    [
-                      w_full;
-                      px 4;
-                      py 3;
-                      bg blue 500;
-                      text_white;
-                      rounded_lg;
-                      transition_colors;
-                      duration 200;
-                      hover [ bg blue 700 ];
-                    ]
-                [ txt "Hover me" ];
-            ];
-          (* Focus *)
-          div
-            [
-              h3
-                ~tw:
-                  Tw.
-                    [
-                      text_sm;
-                      font_semibold;
-                      text gray 700;
-                      mb 2;
-                      dark [ text gray 300 ];
-                    ]
-                [ txt "focus" ];
-              input
-                ~tw:
-                  Tw.
-                    [
-                      w_full;
-                      px 4;
-                      py 3;
-                      border;
-                      border_color gray 300;
-                      rounded_lg;
-                      focus [ ring_md; ring_color blue 500; outline_none ];
-                      dark [ bg gray 700; border_color gray 600; text_white ];
-                    ]
-                ~at:[ At.placeholder "Click or tab to focus" ]
-                ();
-            ];
-          (* Active *)
-          div
-            [
-              h3
-                ~tw:
-                  Tw.
-                    [
-                      text_sm;
-                      font_semibold;
-                      text gray 700;
-                      mb 2;
-                      dark [ text gray 300 ];
-                    ]
-                [ txt "active" ];
-              button
-                ~tw:
-                  Tw.
-                    [
-                      w_full;
-                      px 4;
-                      py 3;
-                      bg green 500;
-                      text_white;
-                      rounded_lg;
-                      transition_all;
-                      duration 150;
-                      active [ bg green 700; scale 95 ];
-                    ]
-                [ txt "Press and hold" ];
-            ];
-          (* Disabled *)
-          div
-            [
-              h3
-                ~tw:
-                  Tw.
-                    [
-                      text_sm;
-                      font_semibold;
-                      text gray 700;
-                      mb 2;
-                      dark [ text gray 300 ];
-                    ]
-                [ txt "disabled" ];
-              button
-                ~at:[ At.v "disabled" "" ]
-                ~tw:
-                  Tw.
-                    [
-                      w_full;
-                      px 4;
-                      py 3;
-                      bg gray 300;
-                      text gray 500;
-                      rounded_lg;
-                      disabled [ opacity 50; cursor_not_allowed ];
-                    ]
-                [ txt "Disabled button" ];
+                [ txt "Check to enable" ];
             ];
         ];
     ]
 
-(* Group and Peer Section *)
+let peer_has_demo =
+  div
+    [
+      h3 ~tw:demo_label [ txt "peer-has (validation)" ];
+      div
+        ~tw:Tw.[ p 4; bg gray 100; rounded_lg; dark [ bg gray 700 ] ]
+        [
+          input
+            ~tw:
+              Tw.
+                [
+                  peer;
+                  w_full;
+                  px 3;
+                  py 2;
+                  border;
+                  border_color gray 300;
+                  rounded_md;
+                  mb 2;
+                  focus [ outline_none; ring_md ];
+                  dark [ bg gray 600; border_color gray 500; text_white ];
+                ]
+            ~at:[ At.type' "email"; At.placeholder "Enter email" ]
+            ();
+          p
+            ~tw:
+              Tw.
+                [
+                  text_sm;
+                  text red 500;
+                  opacity 0;
+                  transition_opacity;
+                  duration 200;
+                  peer_has ":invalid:not(:placeholder-shown)" [ opacity 100 ];
+                ]
+            [ txt "Please enter a valid email address" ];
+        ];
+    ]
+
 let group_peer_section =
   section
     ~at:[ At.v "aria-labelledby" "group-peer-heading" ]
@@ -180,201 +288,75 @@ let group_peer_section =
         ];
       div
         ~tw:Tw.[ grid; grid_cols 1; gap 6; lg [ grid_cols 2 ] ]
+        [ group_hover_demo; group_focus_demo; peer_checked_demo; peer_has_demo ];
+    ]
+
+(* Has Selector Section *)
+let has_checked_demo =
+  div
+    [
+      h3 ~tw:demo_label [ txt "has(:checked)" ];
+      div
+        ~tw:
+          Tw.
+            [
+              p 4;
+              bg gray 100;
+              rounded_lg;
+              border_md;
+              border_transparent;
+              transition_colors;
+              duration 200;
+              has ":checked" [ bg green 100; border_color green 500 ];
+              dark
+                [
+                  bg gray 700;
+                  has ":checked" [ bg green 900; border_color green 400 ];
+                ];
+            ]
         [
-          (* Group hover *)
-          div
+          label
+            ~tw:Tw.[ flex; items_center; gap 3; cursor_pointer ]
             [
-              h3
-                ~tw:
-                  Tw.
-                    [
-                      text_sm;
-                      font_semibold;
-                      text gray 700;
-                      mb 2;
-                      dark [ text gray 300 ];
-                    ]
-                [ txt "group-hover" ];
-              div
-                ~tw:
-                  Tw.
-                    [
-                      group;
-                      p 4;
-                      bg gray 100;
-                      rounded_lg;
-                      cursor_pointer;
-                      transition_colors;
-                      duration 200;
-                      hover [ bg gray 200 ];
-                      dark [ bg gray 700; hover [ bg gray 600 ] ];
-                    ]
-                [
-                  h4
-                    ~tw:
-                      Tw.
-                        [
-                          font_semibold;
-                          text gray 800;
-                          group_hover [ text blue 600 ];
-                          dark [ text_white; group_hover [ text blue 400 ] ];
-                        ]
-                    [ txt "Hover this card" ];
-                  p
-                    ~tw:
-                      Tw.
-                        [
-                          text gray 600;
-                          text_sm;
-                          group_hover [ text gray 900 ];
-                          dark [ text gray 400; group_hover [ text gray 200 ] ];
-                        ]
-                    [ txt "Child elements respond to parent hover" ];
-                ];
-            ];
-          (* Group focus *)
-          div
-            [
-              h3
-                ~tw:
-                  Tw.
-                    [
-                      text_sm;
-                      font_semibold;
-                      text gray 700;
-                      mb 2;
-                      dark [ text gray 300 ];
-                    ]
-                [ txt "group-focus" ];
-              div
-                ~tw:
-                  Tw.
-                    [
-                      group; p 4; bg gray 100; rounded_lg; dark [ bg gray 700 ];
-                    ]
-                [
-                  input
-                    ~tw:
-                      Tw.
-                        [
-                          w_full;
-                          px 3;
-                          py 2;
-                          border;
-                          border_color gray 300;
-                          rounded_md;
-                          mb 2;
-                          focus [ outline_none; ring_md; ring_color blue 500 ];
-                          dark
-                            [ bg gray 600; border_color gray 500; text_white ];
-                        ]
-                    ~at:[ At.placeholder "Focus this input" ]
-                    ();
-                  p
-                    ~tw:
-                      Tw.
-                        [
-                          text_sm;
-                          text gray 500;
-                          group_focus [ text blue 600; font_semibold ];
-                          dark [ text gray 400; group_focus [ text blue 400 ] ];
-                        ]
-                    [ txt "This text responds to input focus" ];
-                ];
-            ];
-          (* Peer checked *)
-          div
-            [
-              h3
-                ~tw:
-                  Tw.
-                    [
-                      text_sm;
-                      font_semibold;
-                      text gray 700;
-                      mb 2;
-                      dark [ text gray 300 ];
-                    ]
-                [ txt "peer-checked" ];
-              div
-                ~tw:Tw.[ p 4; bg gray 100; rounded_lg; dark [ bg gray 700 ] ]
-                [
-                  label
-                    ~tw:Tw.[ flex; items_center; gap 3; cursor_pointer ]
-                    [
-                      input
-                        ~tw:Tw.[ peer; w 5; h 5 ]
-                        ~at:[ At.type' "checkbox" ]
-                        ();
-                      span
-                        ~tw:
-                          Tw.
-                            [
-                              text gray 700;
-                              peer_checked [ text green 600; font_semibold ];
-                              dark
-                                [
-                                  text gray 300; peer_checked [ text green 400 ];
-                                ];
-                            ]
-                        [ txt "Check to enable" ];
-                    ];
-                ];
-            ];
-          (* Peer has (validation) *)
-          div
-            [
-              h3
-                ~tw:
-                  Tw.
-                    [
-                      text_sm;
-                      font_semibold;
-                      text gray 700;
-                      mb 2;
-                      dark [ text gray 300 ];
-                    ]
-                [ txt "peer-has (validation)" ];
-              div
-                ~tw:Tw.[ p 4; bg gray 100; rounded_lg; dark [ bg gray 700 ] ]
-                [
-                  input
-                    ~tw:
-                      Tw.
-                        [
-                          peer;
-                          w_full;
-                          px 3;
-                          py 2;
-                          border;
-                          border_color gray 300;
-                          rounded_md;
-                          mb 2;
-                          focus [ outline_none; ring_md ];
-                          dark
-                            [ bg gray 600; border_color gray 500; text_white ];
-                        ]
-                    ~at:[ At.type' "email"; At.placeholder "Enter email" ]
-                    ();
-                  p
-                    ~tw:
-                      Tw.
-                        [
-                          text_sm;
-                          text red 500;
-                          opacity 0;
-                          transition_opacity;
-                          duration 200;
-                          peer_has ":invalid:not(:placeholder-shown)"
-                            [ opacity 100 ];
-                        ]
-                    [ txt "Please enter a valid email address" ];
-                ];
+              input ~tw:Tw.[ w 5; h 5 ] ~at:[ At.type' "checkbox" ] ();
+              span
+                ~tw:Tw.[ text gray 700; dark [ text gray 300 ] ]
+                [ txt "Check to change wrapper style" ];
             ];
         ];
     ]
 
-(* Has Selector Section *)
+let group_has_demo =
+  div
+    [
+      h3 ~tw:demo_label [ txt "group-has" ];
+      div
+        ~tw:Tw.[ group; p 4; bg gray 100; rounded_lg; dark [ bg gray 700 ] ]
+        [
+          div
+            ~tw:Tw.[ flex; flex_col; gap 2; mb 4 ]
+            [
+              label
+                ~tw:Tw.[ flex; items_center; gap 2; cursor_pointer ]
+                [ input ~at:[ At.type' "checkbox" ] (); txt "Option 1" ];
+              label
+                ~tw:Tw.[ flex; items_center; gap 2; cursor_pointer ]
+                [ input ~at:[ At.type' "checkbox" ] (); txt "Option 2" ];
+            ];
+          p
+            ~tw:
+              Tw.
+                [
+                  text_sm;
+                  text gray 500;
+                  group_has ":checked" [ text green 600; font_semibold ];
+                  dark
+                    [ text gray 400; group_has ":checked" [ text green 400 ] ];
+                ]
+            [ txt "Selection status" ];
+        ];
+    ]
+
 let has_section =
   section
     ~at:[ At.v "aria-labelledby" "has-heading" ]
@@ -393,102 +375,85 @@ let has_section =
         ];
       div
         ~tw:Tw.[ grid; grid_cols 1; gap 6; md [ grid_cols 2 ] ]
-        [
-          (* Has checked checkbox *)
-          div
-            [
-              h3
-                ~tw:
-                  Tw.
-                    [
-                      text_sm;
-                      font_semibold;
-                      text gray 700;
-                      mb 2;
-                      dark [ text gray 300 ];
-                    ]
-                [ txt "has(:checked)" ];
-              div
-                ~tw:
-                  Tw.
-                    [
-                      p 4;
-                      bg gray 100;
-                      rounded_lg;
-                      border_md;
-                      border_transparent;
-                      transition_colors;
-                      duration 200;
-                      has ":checked" [ bg green 100; border_color green 500 ];
-                      dark
-                        [
-                          bg gray 700;
-                          has ":checked"
-                            [ bg green 900; border_color green 400 ];
-                        ];
-                    ]
-                [
-                  label
-                    ~tw:Tw.[ flex; items_center; gap 3; cursor_pointer ]
-                    [
-                      input ~tw:Tw.[ w 5; h 5 ] ~at:[ At.type' "checkbox" ] ();
-                      span
-                        ~tw:Tw.[ text gray 700; dark [ text gray 300 ] ]
-                        [ txt "Check to change wrapper style" ];
-                    ];
-                ];
-            ];
-          (* Group has *)
-          div
-            [
-              h3
-                ~tw:
-                  Tw.
-                    [
-                      text_sm;
-                      font_semibold;
-                      text gray 700;
-                      mb 2;
-                      dark [ text gray 300 ];
-                    ]
-                [ txt "group-has" ];
-              div
-                ~tw:
-                  Tw.
-                    [
-                      group; p 4; bg gray 100; rounded_lg; dark [ bg gray 700 ];
-                    ]
-                [
-                  div
-                    ~tw:Tw.[ flex; flex_col; gap 2; mb 4 ]
-                    [
-                      label
-                        ~tw:Tw.[ flex; items_center; gap 2; cursor_pointer ]
-                        [ input ~at:[ At.type' "checkbox" ] (); txt "Option 1" ];
-                      label
-                        ~tw:Tw.[ flex; items_center; gap 2; cursor_pointer ]
-                        [ input ~at:[ At.type' "checkbox" ] (); txt "Option 2" ];
-                    ];
-                  p
-                    ~tw:
-                      Tw.
-                        [
-                          text_sm;
-                          text gray 500;
-                          group_has ":checked" [ text green 600; font_semibold ];
-                          dark
-                            [
-                              text gray 400;
-                              group_has ":checked" [ text green 400 ];
-                            ];
-                        ]
-                    [ txt "Selection status" ];
-                ];
-            ];
-        ];
+        [ has_checked_demo; group_has_demo ];
     ]
 
 (* Focus Variants Section *)
+let focus_within_demo =
+  div
+    [
+      h3 ~tw:demo_label [ txt "focus-within (wrapper)" ];
+      div
+        ~tw:
+          Tw.
+            [
+              p 4;
+              bg gray 100;
+              rounded_lg;
+              border_md;
+              border_transparent;
+              transition_all;
+              duration 200;
+              focus_within [ border_color blue 500; shadow_md ];
+              dark [ bg gray 700 ];
+            ]
+        [
+          label
+            ~tw:
+              Tw.
+                [
+                  block;
+                  text_sm;
+                  font_medium;
+                  text gray 700;
+                  mb 1;
+                  dark [ text gray 300 ];
+                ]
+            [ txt "Username" ];
+          input
+            ~tw:
+              Tw.
+                [
+                  w_full;
+                  px 3;
+                  py 2;
+                  border;
+                  border_color gray 300;
+                  rounded_md;
+                  focus [ outline_none ];
+                  dark [ bg gray 600; border_color gray 500; text_white ];
+                ]
+            ~at:[ At.placeholder "Enter username" ]
+            ();
+        ];
+    ]
+
+let focus_visible_demo =
+  div
+    [
+      h3 ~tw:demo_label [ txt "focus-visible (keyboard only)" ];
+      div
+        ~tw:Tw.[ p 4; bg gray 100; rounded_lg; dark [ bg gray 700 ] ]
+        [
+          p
+            ~tw:Tw.[ text_sm; text gray 600; mb 3; dark [ text gray 400 ] ]
+            [ txt "Click vs Tab to see the difference:" ];
+          button
+            ~tw:
+              Tw.
+                [
+                  px 4;
+                  py 2;
+                  bg blue 500;
+                  text_white;
+                  rounded_lg;
+                  focus [ outline_none ];
+                  focus_visible [ ring_md; ring_color blue 400 ];
+                ]
+            [ txt "Tab to focus" ];
+        ];
+    ]
+
 let focus_section =
   section
     ~at:[ At.v "aria-labelledby" "focus-heading" ]
@@ -503,107 +468,63 @@ let focus_section =
         [ txt "Different focus states for various accessibility and UX needs." ];
       div
         ~tw:Tw.[ grid; grid_cols 1; gap 6; md [ grid_cols 2 ] ]
-        [
-          (* focus-within *)
-          div
-            [
-              h3
-                ~tw:
-                  Tw.
-                    [
-                      text_sm;
-                      font_semibold;
-                      text gray 700;
-                      mb 2;
-                      dark [ text gray 300 ];
-                    ]
-                [ txt "focus-within (wrapper)" ];
-              div
-                ~tw:
-                  Tw.
-                    [
-                      p 4;
-                      bg gray 100;
-                      rounded_lg;
-                      border_md;
-                      border_transparent;
-                      transition_all;
-                      duration 200;
-                      focus_within [ border_color blue 500; shadow_md ];
-                      dark [ bg gray 700 ];
-                    ]
-                [
-                  label
-                    ~tw:
-                      Tw.
-                        [
-                          block;
-                          text_sm;
-                          font_medium;
-                          text gray 700;
-                          mb 1;
-                          dark [ text gray 300 ];
-                        ]
-                    [ txt "Username" ];
-                  input
-                    ~tw:
-                      Tw.
-                        [
-                          w_full;
-                          px 3;
-                          py 2;
-                          border;
-                          border_color gray 300;
-                          rounded_md;
-                          focus [ outline_none ];
-                          dark
-                            [ bg gray 600; border_color gray 500; text_white ];
-                        ]
-                    ~at:[ At.placeholder "Enter username" ]
-                    ();
-                ];
-            ];
-          (* focus-visible *)
-          div
-            [
-              h3
-                ~tw:
-                  Tw.
-                    [
-                      text_sm;
-                      font_semibold;
-                      text gray 700;
-                      mb 2;
-                      dark [ text gray 300 ];
-                    ]
-                [ txt "focus-visible (keyboard only)" ];
-              div
-                ~tw:Tw.[ p 4; bg gray 100; rounded_lg; dark [ bg gray 700 ] ]
-                [
-                  p
-                    ~tw:
-                      Tw.
-                        [ text_sm; text gray 600; mb 3; dark [ text gray 400 ] ]
-                    [ txt "Click vs Tab to see the difference:" ];
-                  button
-                    ~tw:
-                      Tw.
-                        [
-                          px 4;
-                          py 2;
-                          bg blue 500;
-                          text_white;
-                          rounded_lg;
-                          focus [ outline_none ];
-                          focus_visible [ ring_md; ring_color blue 400 ];
-                        ]
-                    [ txt "Tab to focus" ];
-                ];
-            ];
-        ];
+        [ focus_within_demo; focus_visible_demo ];
     ]
 
 (* Pseudo-elements Section *)
+let before_demo =
+  div
+    [
+      h3 ~tw:demo_label [ txt "before" ];
+      div
+        ~tw:
+          Tw.
+            [
+              relative;
+              p 4;
+              pl 8;
+              bg gray 100;
+              rounded_lg;
+              before
+                [ absolute; left 3; top 4; w 2; h 2; bg blue 500; rounded_full ];
+              dark [ bg gray 700 ];
+            ]
+        [
+          span
+            ~tw:Tw.[ text gray 700; dark [ text gray 300 ] ]
+            [ txt "List item with custom bullet" ];
+        ];
+    ]
+
+let after_demo =
+  div
+    [
+      h3 ~tw:demo_label [ txt "after" ];
+      div
+        ~tw:
+          Tw.
+            [
+              relative;
+              inline_block;
+              px 4;
+              py 2;
+              bg blue 500;
+              text_white;
+              rounded_lg;
+              after
+                [
+                  absolute;
+                  right (-1);
+                  top (-1);
+                  w 3;
+                  h 3;
+                  bg red 500;
+                  rounded_full;
+                ];
+            ]
+        [ txt "Badge with notification dot" ];
+    ]
+
 let pseudo_section =
   section
     ~at:[ At.v "aria-labelledby" "pseudo-heading" ]
@@ -618,87 +539,7 @@ let pseudo_section =
         [ txt "Style ::before and ::after pseudo-elements." ];
       div
         ~tw:Tw.[ grid; grid_cols 1; gap 6; md [ grid_cols 2 ] ]
-        [
-          (* Before *)
-          div
-            [
-              h3
-                ~tw:
-                  Tw.
-                    [
-                      text_sm;
-                      font_semibold;
-                      text gray 700;
-                      mb 2;
-                      dark [ text gray 300 ];
-                    ]
-                [ txt "before" ];
-              div
-                ~tw:
-                  Tw.
-                    [
-                      relative;
-                      p 4;
-                      pl 8;
-                      bg gray 100;
-                      rounded_lg;
-                      before
-                        [
-                          absolute;
-                          left 3;
-                          top 4;
-                          w 2;
-                          h 2;
-                          bg blue 500;
-                          rounded_full;
-                        ];
-                      dark [ bg gray 700 ];
-                    ]
-                [
-                  span
-                    ~tw:Tw.[ text gray 700; dark [ text gray 300 ] ]
-                    [ txt "List item with custom bullet" ];
-                ];
-            ];
-          (* After *)
-          div
-            [
-              h3
-                ~tw:
-                  Tw.
-                    [
-                      text_sm;
-                      font_semibold;
-                      text gray 700;
-                      mb 2;
-                      dark [ text gray 300 ];
-                    ]
-                [ txt "after" ];
-              div
-                ~tw:
-                  Tw.
-                    [
-                      relative;
-                      inline_block;
-                      px 4;
-                      py 2;
-                      bg blue 500;
-                      text_white;
-                      rounded_lg;
-                      after
-                        [
-                          absolute;
-                          right (-1);
-                          top (-1);
-                          w 3;
-                          h 3;
-                          bg red 500;
-                          rounded_full;
-                        ];
-                    ]
-                [ txt "Badge with notification dot" ];
-            ];
-        ];
+        [ before_demo; after_demo ];
     ]
 
 (* ARIA and Data Attributes Section *)
@@ -723,17 +564,7 @@ let aria_section =
           (* aria-expanded *)
           div
             [
-              h3
-                ~tw:
-                  Tw.
-                    [
-                      text_sm;
-                      font_semibold;
-                      text gray 700;
-                      mb 2;
-                      dark [ text gray 300 ];
-                    ]
-                [ txt "aria-expanded" ];
+              h3 ~tw:demo_label [ txt "aria-expanded" ];
               button
                 ~at:
                   [
@@ -777,17 +608,7 @@ let aria_section =
           (* aria-selected *)
           div
             [
-              h3
-                ~tw:
-                  Tw.
-                    [
-                      text_sm;
-                      font_semibold;
-                      text gray 700;
-                      mb 2;
-                      dark [ text gray 300 ];
-                    ]
-                [ txt "aria-selected (tabs)" ];
+              h3 ~tw:demo_label [ txt "aria-selected (tabs)" ];
               div
                 ~tw:Tw.[ flex; gap 2 ]
                 (List.mapi
@@ -819,6 +640,35 @@ let aria_section =
     ]
 
 (* Main page *)
+let page_intro =
+  div
+    ~tw:Tw.[ text_center; py 8 ]
+    [
+      h1
+        ~tw:
+          Tw.
+            [
+              text_3xl;
+              md [ text_4xl ];
+              font_bold;
+              text gray 900;
+              mb 4;
+              dark [ text_white ];
+            ]
+        [ txt "Modifier Utilities" ];
+      p
+        ~tw:
+          Tw.
+            [
+              text_lg; text gray 600; max_w_2xl; mx_auto; dark [ text gray 400 ];
+            ]
+        [
+          txt
+            "Conditional styling with state variants, group/peer modifiers, \
+             pseudo-elements, and ARIA support.";
+        ];
+    ]
+
 let page_view =
   page ~title:"Modifiers Demo" ~tw_css:"modifiers.css" []
     [
@@ -830,38 +680,7 @@ let page_view =
           div
             ~tw:Tw.[ flex; flex_col; gap 8 ]
             [
-              (* Introduction *)
-              div
-                ~tw:Tw.[ text_center; py 8 ]
-                [
-                  h1
-                    ~tw:
-                      Tw.
-                        [
-                          text_3xl;
-                          md [ text_4xl ];
-                          font_bold;
-                          text gray 900;
-                          mb 4;
-                          dark [ text_white ];
-                        ]
-                    [ txt "Modifier Utilities" ];
-                  p
-                    ~tw:
-                      Tw.
-                        [
-                          text_lg;
-                          text gray 600;
-                          max_w_2xl;
-                          mx_auto;
-                          dark [ text gray 400 ];
-                        ]
-                    [
-                      txt
-                        "Conditional styling with state variants, group/peer \
-                         modifiers, pseudo-elements, and ARIA support.";
-                    ];
-                ];
+              page_intro;
               state_section;
               group_peer_section;
               has_section;

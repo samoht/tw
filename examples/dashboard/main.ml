@@ -215,6 +215,27 @@ let header_search =
         [ txt "Search..." ];
     ]
 
+let notification_badge =
+  span
+    ~tw:
+      Tw.
+        [
+          absolute;
+          top 0;
+          right 0;
+          w 5;
+          h 5;
+          bg red 500;
+          text_white;
+          text_xs;
+          font_bold;
+          rounded_full;
+          flex;
+          items_center;
+          justify_center;
+        ]
+    [ txt "3" ]
+
 let header_actions =
   div
     ~tw:Tw.[ flex; items_center; gap 2; md [ gap 4 ] ]
@@ -243,28 +264,7 @@ let header_actions =
               transition_colors;
               dark [ hover [ bg gray 700 ] ];
             ]
-        [
-          icon_bell;
-          span
-            ~tw:
-              Tw.
-                [
-                  absolute;
-                  top 0;
-                  right 0;
-                  w 5;
-                  h 5;
-                  bg red 500;
-                  text_white;
-                  text_xs;
-                  font_bold;
-                  rounded_full;
-                  flex;
-                  items_center;
-                  justify_center;
-                ]
-            [ txt "3" ];
-        ];
+        [ icon_bell; notification_badge ];
     ]
 
 let header_section =
@@ -471,6 +471,62 @@ let bar_chart =
     ]
 
 (* Recent activity *)
+let status_badge_style = function
+  | "success" ->
+      Tw.
+        [
+          text_xs;
+          font_medium;
+          text green 600;
+          bg green 100;
+          px 2;
+          py 1;
+          rounded_full;
+          dark [ bg green 900; text green 300 ];
+        ]
+  | "pending" ->
+      Tw.
+        [
+          text_xs;
+          font_medium;
+          text yellow 600;
+          bg yellow 100;
+          px 2;
+          py 1;
+          rounded_full;
+          dark [ bg yellow 900; text yellow 300 ];
+        ]
+  | _ ->
+      Tw.
+        [
+          text_xs;
+          font_medium;
+          text gray 600;
+          bg gray 100;
+          px 2;
+          py 1;
+          rounded_full;
+          dark [ bg gray 700; text gray 300 ];
+        ]
+
+let activity_avatar name =
+  div
+    ~tw:
+      Tw.
+        [
+          w 10;
+          h 10;
+          rounded_full;
+          bg gray 200;
+          flex;
+          items_center;
+          justify_center;
+          font_medium;
+          text gray 600;
+          dark [ bg gray 600; text gray 300 ];
+        ]
+    [ txt (String.sub name 0 1) ]
+
 let activity_row ~name ~action ~time ~status =
   div
     ~tw:
@@ -488,22 +544,7 @@ let activity_row ~name ~action ~time ~status =
       div
         ~tw:Tw.[ flex; items_center; gap 3 ]
         [
-          div
-            ~tw:
-              Tw.
-                [
-                  w 10;
-                  h 10;
-                  rounded_full;
-                  bg gray 200;
-                  flex;
-                  items_center;
-                  justify_center;
-                  font_medium;
-                  text gray 600;
-                  dark [ bg gray 600; text gray 300 ];
-                ]
-            [ txt (String.sub name 0 1) ];
+          activity_avatar name;
           div
             [
               p
@@ -522,46 +563,7 @@ let activity_row ~name ~action ~time ~status =
           p
             ~tw:Tw.[ text_xs; text gray 500; dark [ text gray 400 ] ]
             [ txt time ];
-          span
-            ~tw:
-              (match status with
-              | "success" ->
-                  Tw.
-                    [
-                      text_xs;
-                      font_medium;
-                      text green 600;
-                      bg green 100;
-                      px 2;
-                      py 1;
-                      rounded_full;
-                      dark [ bg green 900; text green 300 ];
-                    ]
-              | "pending" ->
-                  Tw.
-                    [
-                      text_xs;
-                      font_medium;
-                      text yellow 600;
-                      bg yellow 100;
-                      px 2;
-                      py 1;
-                      rounded_full;
-                      dark [ bg yellow 900; text yellow 300 ];
-                    ]
-              | _ ->
-                  Tw.
-                    [
-                      text_xs;
-                      font_medium;
-                      text gray 600;
-                      bg gray 100;
-                      px 2;
-                      py 1;
-                      rounded_full;
-                      dark [ bg gray 700; text gray 300 ];
-                    ])
-            [ txt status ];
+          span ~tw:(status_badge_style status) [ txt status ];
         ];
     ]
 
