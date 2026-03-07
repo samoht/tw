@@ -2538,8 +2538,8 @@ let bg_current_with_opacity opacity =
         let bare = Parse.extract_var_name name in
         let var_name = "opacity-" ^ bare in
         let fallback = opacity_fallback_for_theme_value var_name bare in
-        Css.color_mix_var_percent_with_fallback ~in_space:Oklab ~var_name
-          ~fallback Css.Current Css.Transparent
+        Css.color_mix_var_pct_fallback ~in_space:Oklab ~var_name ~fallback
+          Css.Current Css.Transparent
     | Opacity_var var_str ->
         let bare = Parse.extract_var_name var_str in
         Css.color_mix_var_percent ~in_space:Oklab ~var_name:bare Css.Current
