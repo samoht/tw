@@ -718,297 +718,296 @@ module Handler = struct
       else None
     else None
 
+  let parse_w = function
+    | "auto" -> Ok W_auto
+    | "px" -> Ok W_px
+    | "full" -> Ok W_full
+    | "screen" -> Ok W_screen
+    | "min" -> Ok W_min
+    | "max" -> Ok W_max
+    | "fit" -> Ok W_fit
+    | "dvw" -> Ok W_dvw
+    | "lvw" -> Ok W_lvw
+    | "svw" -> Ok W_svw
+    | "xl" -> Ok W_xl
+    | frac when String.contains frac '/' ->
+        if List.mem_assoc frac fraction_table then Ok (W_fraction frac)
+        else err_invalid_value "width fraction" frac
+    | v when String.length v > 0 && v.[0] = '[' -> (
+        match parse_arbitrary v with
+        | Some len -> Ok (W_arbitrary len)
+        | None -> err_invalid_value "width" v)
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (W_spacing (n *. 0.25))
+        | _ -> err_invalid_value "width" v)
+
+  let parse_h = function
+    | "auto" -> Ok H_auto
+    | "px" -> Ok H_px
+    | "full" -> Ok H_full
+    | "screen" -> Ok H_screen
+    | "min" -> Ok H_min
+    | "max" -> Ok H_max
+    | "fit" -> Ok H_fit
+    | "dvh" -> Ok H_dvh
+    | "lvh" -> Ok H_lvh
+    | "svh" -> Ok H_svh
+    | "lh" -> Ok H_lh
+    | frac when String.contains frac '/' ->
+        if List.mem_assoc frac fraction_table then Ok (H_fraction frac)
+        else err_invalid_value "height fraction" frac
+    | v when String.length v > 0 && v.[0] = '[' -> (
+        match parse_arbitrary v with
+        | Some len -> Ok (H_arbitrary len)
+        | None -> err_invalid_value "height" v)
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (H_spacing (n *. 0.25))
+        | _ -> err_invalid_value "height" v)
+
+  let parse_min_w = function
+    | "0" -> Ok Min_w_0
+    | "full" -> Ok Min_w_full
+    | "min" -> Ok Min_w_min
+    | "max" -> Ok Min_w_max
+    | "fit" -> Ok Min_w_fit
+    | "auto" -> Ok Min_w_auto
+    | "xl" -> Ok Min_w_xl
+    | v when String.length v > 0 && v.[0] = '[' -> (
+        match parse_arbitrary v with
+        | Some len -> Ok (Min_w_arbitrary len)
+        | None -> err_invalid_value "min-width" v)
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (Min_w_spacing (n *. 0.25))
+        | _ -> err_invalid_value "min-width" v)
+
+  let parse_min_h = function
+    | "0" -> Ok Min_h_0
+    | "full" -> Ok Min_h_full
+    | "screen" -> Ok Min_h_screen
+    | "min" -> Ok Min_h_min
+    | "max" -> Ok Min_h_max
+    | "fit" -> Ok Min_h_fit
+    | "auto" -> Ok Min_h_auto
+    | "dvh" -> Ok Min_h_dvh
+    | "lvh" -> Ok Min_h_lvh
+    | "svh" -> Ok Min_h_svh
+    | "lh" -> Ok Min_h_lh
+    | v when String.length v > 0 && v.[0] = '[' -> (
+        match parse_arbitrary v with
+        | Some len -> Ok (Min_h_arbitrary len)
+        | None -> err_invalid_value "min-height" v)
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (Min_h_spacing (n *. 0.25))
+        | _ -> err_invalid_value "min-height" v)
+
+  let parse_max_w = function
+    | "none" -> Ok Max_w_none
+    | "xs" -> Ok Max_w_xs
+    | "sm" -> Ok Max_w_sm
+    | "md" -> Ok Max_w_md
+    | "lg" -> Ok Max_w_lg
+    | "xl" -> Ok Max_w_xl
+    | "2xl" -> Ok Max_w_2xl
+    | "3xl" -> Ok Max_w_3xl
+    | "4xl" -> Ok Max_w_4xl
+    | "5xl" -> Ok Max_w_5xl
+    | "6xl" -> Ok Max_w_6xl
+    | "7xl" -> Ok Max_w_7xl
+    | "full" -> Ok Max_w_full
+    | "min" -> Ok Max_w_min
+    | "max" -> Ok Max_w_max
+    | "fit" -> Ok Max_w_fit
+    | "prose" -> Ok Max_w_prose
+    | v when Parse.is_bracket_value v ->
+        let inner = Parse.bracket_inner v in
+        if String.ends_with ~suffix:"px" inner then
+          let s = String.sub inner 0 (String.length inner - 2) in
+          match float_of_string_opt s with
+          | Some f -> Ok (Max_w_arbitrary (Css.Px f))
+          | None -> err_invalid_value "max-width" v
+        else err_invalid_value "max-width" v
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (Max_w_spacing (n *. 0.25))
+        | _ -> err_invalid_value "max-width" v)
+
+  let parse_max_w_screen = function
+    | "sm" -> Ok Max_w_screen_sm
+    | "md" -> Ok Max_w_screen_md
+    | "lg" -> Ok Max_w_screen_lg
+    | "xl" -> Ok Max_w_screen_xl
+    | "2xl" -> Ok Max_w_screen_2xl
+    | s -> err_invalid_value "max-width screen size" s
+
+  let parse_max_h = function
+    | "none" -> Ok Max_h_none
+    | "full" -> Ok Max_h_full
+    | "screen" -> Ok Max_h_screen
+    | "min" -> Ok Max_h_min
+    | "max" -> Ok Max_h_max
+    | "fit" -> Ok Max_h_fit
+    | "dvh" -> Ok Max_h_dvh
+    | "lvh" -> Ok Max_h_lvh
+    | "svh" -> Ok Max_h_svh
+    | "lh" -> Ok Max_h_lh
+    | v when String.length v > 0 && v.[0] = '[' -> (
+        match parse_arbitrary v with
+        | Some len -> Ok (Max_h_arbitrary len)
+        | None -> err_invalid_value "max-height" v)
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (Max_h_spacing (n *. 0.25))
+        | _ -> err_invalid_value "max-height" v)
+
+  let parse_size = function
+    | "auto" -> Ok Size_auto
+    | "full" -> Ok Size_full
+    | "min" -> Ok Size_min
+    | "max" -> Ok Size_max
+    | "fit" -> Ok Size_fit
+    | frac when String.contains frac '/' ->
+        if List.mem_assoc frac fraction_table then Ok (Size_fraction frac)
+        else err_invalid_value "size fraction" frac
+    | v when String.length v > 0 && v.[0] = '[' -> (
+        match parse_arbitrary v with
+        | Some len -> Ok (Size_arbitrary len)
+        | None -> err_invalid_value "size" v)
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (Size_spacing (n *. 0.25))
+        | _ -> err_invalid_value "size" v)
+
+  let parse_inline = function
+    | "auto" -> Ok Inline_auto
+    | "dvw" -> Ok Inline_dvw
+    | "fit" -> Ok Inline_fit
+    | "full" -> Ok Inline_full
+    | "lvw" -> Ok Inline_lvw
+    | "max" -> Ok Inline_max
+    | "min" -> Ok Inline_min
+    | "screen" -> Ok Inline_screen
+    | "svw" -> Ok Inline_svw
+    | "xl" -> Ok Inline_xl
+    | frac when String.contains frac '/' ->
+        if List.mem_assoc frac fraction_table then Ok (Inline_fraction frac)
+        else err_invalid_value "inline-size fraction" frac
+    | v when String.length v > 0 && v.[0] = '[' -> (
+        match parse_arbitrary v with
+        | Some len -> Ok (Inline_arbitrary len)
+        | None -> err_invalid_value "inline-size" v)
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (Inline_spacing (n *. 0.25))
+        | _ -> err_invalid_value "inline-size" v)
+
+  let parse_min_inline = function
+    | "auto" -> Ok Min_inline_auto
+    | "fit" -> Ok Min_inline_fit
+    | "full" -> Ok Min_inline_full
+    | "max" -> Ok Min_inline_max
+    | "min" -> Ok Min_inline_min
+    | "xl" -> Ok Min_inline_xl
+    | v when String.length v > 0 && v.[0] = '[' -> (
+        match parse_arbitrary v with
+        | Some len -> Ok (Min_inline_arbitrary len)
+        | None -> err_invalid_value "min-inline-size" v)
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (Min_inline_spacing (n *. 0.25))
+        | _ -> err_invalid_value "min-inline-size" v)
+
+  let parse_max_inline = function
+    | "fit" -> Ok Max_inline_fit
+    | "full" -> Ok Max_inline_full
+    | "max" -> Ok Max_inline_max
+    | "none" -> Ok Max_inline_none
+    | "xl" -> Ok Max_inline_xl
+    | v when String.length v > 0 && v.[0] = '[' -> (
+        match parse_arbitrary v with
+        | Some len -> Ok (Max_inline_arbitrary len)
+        | None -> err_invalid_value "max-inline-size" v)
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (Max_inline_spacing (n *. 0.25))
+        | _ -> err_invalid_value "max-inline-size" v)
+
+  let parse_block = function
+    | "auto" -> Ok Block_auto
+    | "dvh" -> Ok Block_dvh
+    | "fit" -> Ok Block_fit
+    | "full" -> Ok Block_full
+    | "lh" -> Ok Block_lh
+    | "lvh" -> Ok Block_lvh
+    | "max" -> Ok Block_max
+    | "min" -> Ok Block_min
+    | "screen" -> Ok Block_screen
+    | "svh" -> Ok Block_svh
+    | frac when String.contains frac '/' ->
+        if List.mem_assoc frac fraction_table then Ok (Block_fraction frac)
+        else err_invalid_value "block-size fraction" frac
+    | v when String.length v > 0 && v.[0] = '[' -> (
+        match parse_arbitrary v with
+        | Some len -> Ok (Block_arbitrary len)
+        | None -> err_invalid_value "block-size" v)
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (Block_spacing (n *. 0.25))
+        | _ -> err_invalid_value "block-size" v)
+
+  let parse_min_block = function
+    | "auto" -> Ok Min_block_auto
+    | "dvh" -> Ok Min_block_dvh
+    | "fit" -> Ok Min_block_fit
+    | "full" -> Ok Min_block_full
+    | "lh" -> Ok Min_block_lh
+    | "lvh" -> Ok Min_block_lvh
+    | "max" -> Ok Min_block_max
+    | "min" -> Ok Min_block_min
+    | "screen" -> Ok Min_block_screen
+    | "svh" -> Ok Min_block_svh
+    | v when String.length v > 0 && v.[0] = '[' -> (
+        match parse_arbitrary v with
+        | Some len -> Ok (Min_block_arbitrary len)
+        | None -> err_invalid_value "min-block-size" v)
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (Min_block_spacing (n *. 0.25))
+        | _ -> err_invalid_value "min-block-size" v)
+
+  let parse_max_block = function
+    | "dvh" -> Ok Max_block_dvh
+    | "fit" -> Ok Max_block_fit
+    | "full" -> Ok Max_block_full
+    | "lh" -> Ok Max_block_lh
+    | "lvh" -> Ok Max_block_lvh
+    | "max" -> Ok Max_block_max
+    | "min" -> Ok Max_block_min
+    | "none" -> Ok Max_block_none
+    | "screen" -> Ok Max_block_screen
+    | "svh" -> Ok Max_block_svh
+    | v when String.length v > 0 && v.[0] = '[' -> (
+        match parse_arbitrary v with
+        | Some len -> Ok (Max_block_arbitrary len)
+        | None -> err_invalid_value "max-block-size" v)
+    | v -> (
+        match float_of_string_opt v with
+        | Some n when n >= 0. -> Ok (Max_block_spacing (n *. 0.25))
+        | _ -> err_invalid_value "max-block-size" v)
+
+  let parse_aspect_ratio s mk =
+    match String.split_on_char '/' s with
+    | [ w; h ] -> (
+        match (int_of_string_opt w, int_of_string_opt h) with
+        | Some w, Some h when w > 0 && h > 0 -> Ok (mk w h)
+        | _ -> err_not_utility)
+    | _ -> err_not_utility
+
   let of_class class_name =
-    let parts = Parse.split_class class_name in
-    let parse_w = function
-      | "auto" -> Ok W_auto
-      | "px" -> Ok W_px
-      | "full" -> Ok W_full
-      | "screen" -> Ok W_screen
-      | "min" -> Ok W_min
-      | "max" -> Ok W_max
-      | "fit" -> Ok W_fit
-      | "dvw" -> Ok W_dvw
-      | "lvw" -> Ok W_lvw
-      | "svw" -> Ok W_svw
-      | "xl" -> Ok W_xl
-      | frac when String.contains frac '/' ->
-          if List.mem_assoc frac fraction_table then Ok (W_fraction frac)
-          else err_invalid_value "width fraction" frac
-      | v when String.length v > 0 && v.[0] = '[' -> (
-          match parse_arbitrary v with
-          | Some len -> Ok (W_arbitrary len)
-          | None -> err_invalid_value "width" v)
-      | v -> (
-          match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (W_spacing (n *. 0.25))
-          | _ -> err_invalid_value "width" v)
-    in
-    let parse_h = function
-      | "auto" -> Ok H_auto
-      | "px" -> Ok H_px
-      | "full" -> Ok H_full
-      | "screen" -> Ok H_screen
-      | "min" -> Ok H_min
-      | "max" -> Ok H_max
-      | "fit" -> Ok H_fit
-      | "dvh" -> Ok H_dvh
-      | "lvh" -> Ok H_lvh
-      | "svh" -> Ok H_svh
-      | "lh" -> Ok H_lh
-      | frac when String.contains frac '/' ->
-          if List.mem_assoc frac fraction_table then Ok (H_fraction frac)
-          else err_invalid_value "height fraction" frac
-      | v when String.length v > 0 && v.[0] = '[' -> (
-          match parse_arbitrary v with
-          | Some len -> Ok (H_arbitrary len)
-          | None -> err_invalid_value "height" v)
-      | v -> (
-          match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (H_spacing (n *. 0.25))
-          | _ -> err_invalid_value "height" v)
-    in
-    let parse_min_w = function
-      | "0" -> Ok Min_w_0
-      | "full" -> Ok Min_w_full
-      | "min" -> Ok Min_w_min
-      | "max" -> Ok Min_w_max
-      | "fit" -> Ok Min_w_fit
-      | "auto" -> Ok Min_w_auto
-      | "xl" -> Ok Min_w_xl
-      | v when String.length v > 0 && v.[0] = '[' -> (
-          match parse_arbitrary v with
-          | Some len -> Ok (Min_w_arbitrary len)
-          | None -> err_invalid_value "min-width" v)
-      | v -> (
-          match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (Min_w_spacing (n *. 0.25))
-          | _ -> err_invalid_value "min-width" v)
-    in
-    let parse_min_h = function
-      | "0" -> Ok Min_h_0
-      | "full" -> Ok Min_h_full
-      | "screen" -> Ok Min_h_screen
-      | "min" -> Ok Min_h_min
-      | "max" -> Ok Min_h_max
-      | "fit" -> Ok Min_h_fit
-      | "auto" -> Ok Min_h_auto
-      | "dvh" -> Ok Min_h_dvh
-      | "lvh" -> Ok Min_h_lvh
-      | "svh" -> Ok Min_h_svh
-      | "lh" -> Ok Min_h_lh
-      | v when String.length v > 0 && v.[0] = '[' -> (
-          match parse_arbitrary v with
-          | Some len -> Ok (Min_h_arbitrary len)
-          | None -> err_invalid_value "min-height" v)
-      | v -> (
-          match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (Min_h_spacing (n *. 0.25))
-          | _ -> err_invalid_value "min-height" v)
-    in
-    let parse_max_w = function
-      | "none" -> Ok Max_w_none
-      | "xs" -> Ok Max_w_xs
-      | "sm" -> Ok Max_w_sm
-      | "md" -> Ok Max_w_md
-      | "lg" -> Ok Max_w_lg
-      | "xl" -> Ok Max_w_xl
-      | "2xl" -> Ok Max_w_2xl
-      | "3xl" -> Ok Max_w_3xl
-      | "4xl" -> Ok Max_w_4xl
-      | "5xl" -> Ok Max_w_5xl
-      | "6xl" -> Ok Max_w_6xl
-      | "7xl" -> Ok Max_w_7xl
-      | "full" -> Ok Max_w_full
-      | "min" -> Ok Max_w_min
-      | "max" -> Ok Max_w_max
-      | "fit" -> Ok Max_w_fit
-      | "prose" -> Ok Max_w_prose
-      | v when Parse.is_bracket_value v ->
-          let inner = Parse.bracket_inner v in
-          if String.ends_with ~suffix:"px" inner then
-            let s = String.sub inner 0 (String.length inner - 2) in
-            match float_of_string_opt s with
-            | Some f -> Ok (Max_w_arbitrary (Css.Px f))
-            | None -> err_invalid_value "max-width" v
-          else err_invalid_value "max-width" v
-      | v -> (
-          match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (Max_w_spacing (n *. 0.25))
-          | _ -> err_invalid_value "max-width" v)
-    in
-    let parse_max_w_screen = function
-      | "sm" -> Ok Max_w_screen_sm
-      | "md" -> Ok Max_w_screen_md
-      | "lg" -> Ok Max_w_screen_lg
-      | "xl" -> Ok Max_w_screen_xl
-      | "2xl" -> Ok Max_w_screen_2xl
-      | s -> err_invalid_value "max-width screen size" s
-    in
-    let parse_max_h = function
-      | "none" -> Ok Max_h_none
-      | "full" -> Ok Max_h_full
-      | "screen" -> Ok Max_h_screen
-      | "min" -> Ok Max_h_min
-      | "max" -> Ok Max_h_max
-      | "fit" -> Ok Max_h_fit
-      | "dvh" -> Ok Max_h_dvh
-      | "lvh" -> Ok Max_h_lvh
-      | "svh" -> Ok Max_h_svh
-      | "lh" -> Ok Max_h_lh
-      | v when String.length v > 0 && v.[0] = '[' -> (
-          match parse_arbitrary v with
-          | Some len -> Ok (Max_h_arbitrary len)
-          | None -> err_invalid_value "max-height" v)
-      | v -> (
-          match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (Max_h_spacing (n *. 0.25))
-          | _ -> err_invalid_value "max-height" v)
-    in
-    let parse_size = function
-      | "auto" -> Ok Size_auto
-      | "full" -> Ok Size_full
-      | "min" -> Ok Size_min
-      | "max" -> Ok Size_max
-      | "fit" -> Ok Size_fit
-      | frac when String.contains frac '/' ->
-          if List.mem_assoc frac fraction_table then Ok (Size_fraction frac)
-          else err_invalid_value "size fraction" frac
-      | v when String.length v > 0 && v.[0] = '[' -> (
-          match parse_arbitrary v with
-          | Some len -> Ok (Size_arbitrary len)
-          | None -> err_invalid_value "size" v)
-      | v -> (
-          match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (Size_spacing (n *. 0.25))
-          | _ -> err_invalid_value "size" v)
-    in
-    let parse_inline = function
-      | "auto" -> Ok Inline_auto
-      | "dvw" -> Ok Inline_dvw
-      | "fit" -> Ok Inline_fit
-      | "full" -> Ok Inline_full
-      | "lvw" -> Ok Inline_lvw
-      | "max" -> Ok Inline_max
-      | "min" -> Ok Inline_min
-      | "screen" -> Ok Inline_screen
-      | "svw" -> Ok Inline_svw
-      | "xl" -> Ok Inline_xl
-      | frac when String.contains frac '/' ->
-          if List.mem_assoc frac fraction_table then Ok (Inline_fraction frac)
-          else err_invalid_value "inline-size fraction" frac
-      | v when String.length v > 0 && v.[0] = '[' -> (
-          match parse_arbitrary v with
-          | Some len -> Ok (Inline_arbitrary len)
-          | None -> err_invalid_value "inline-size" v)
-      | v -> (
-          match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (Inline_spacing (n *. 0.25))
-          | _ -> err_invalid_value "inline-size" v)
-    in
-    let parse_min_inline = function
-      | "auto" -> Ok Min_inline_auto
-      | "fit" -> Ok Min_inline_fit
-      | "full" -> Ok Min_inline_full
-      | "max" -> Ok Min_inline_max
-      | "min" -> Ok Min_inline_min
-      | "xl" -> Ok Min_inline_xl
-      | v when String.length v > 0 && v.[0] = '[' -> (
-          match parse_arbitrary v with
-          | Some len -> Ok (Min_inline_arbitrary len)
-          | None -> err_invalid_value "min-inline-size" v)
-      | v -> (
-          match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (Min_inline_spacing (n *. 0.25))
-          | _ -> err_invalid_value "min-inline-size" v)
-    in
-    let parse_max_inline = function
-      | "fit" -> Ok Max_inline_fit
-      | "full" -> Ok Max_inline_full
-      | "max" -> Ok Max_inline_max
-      | "none" -> Ok Max_inline_none
-      | "xl" -> Ok Max_inline_xl
-      | v when String.length v > 0 && v.[0] = '[' -> (
-          match parse_arbitrary v with
-          | Some len -> Ok (Max_inline_arbitrary len)
-          | None -> err_invalid_value "max-inline-size" v)
-      | v -> (
-          match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (Max_inline_spacing (n *. 0.25))
-          | _ -> err_invalid_value "max-inline-size" v)
-    in
-    let parse_block = function
-      | "auto" -> Ok Block_auto
-      | "dvh" -> Ok Block_dvh
-      | "fit" -> Ok Block_fit
-      | "full" -> Ok Block_full
-      | "lh" -> Ok Block_lh
-      | "lvh" -> Ok Block_lvh
-      | "max" -> Ok Block_max
-      | "min" -> Ok Block_min
-      | "screen" -> Ok Block_screen
-      | "svh" -> Ok Block_svh
-      | frac when String.contains frac '/' ->
-          if List.mem_assoc frac fraction_table then Ok (Block_fraction frac)
-          else err_invalid_value "block-size fraction" frac
-      | v when String.length v > 0 && v.[0] = '[' -> (
-          match parse_arbitrary v with
-          | Some len -> Ok (Block_arbitrary len)
-          | None -> err_invalid_value "block-size" v)
-      | v -> (
-          match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (Block_spacing (n *. 0.25))
-          | _ -> err_invalid_value "block-size" v)
-    in
-    let parse_min_block = function
-      | "auto" -> Ok Min_block_auto
-      | "dvh" -> Ok Min_block_dvh
-      | "fit" -> Ok Min_block_fit
-      | "full" -> Ok Min_block_full
-      | "lh" -> Ok Min_block_lh
-      | "lvh" -> Ok Min_block_lvh
-      | "max" -> Ok Min_block_max
-      | "min" -> Ok Min_block_min
-      | "screen" -> Ok Min_block_screen
-      | "svh" -> Ok Min_block_svh
-      | v when String.length v > 0 && v.[0] = '[' -> (
-          match parse_arbitrary v with
-          | Some len -> Ok (Min_block_arbitrary len)
-          | None -> err_invalid_value "min-block-size" v)
-      | v -> (
-          match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (Min_block_spacing (n *. 0.25))
-          | _ -> err_invalid_value "min-block-size" v)
-    in
-    let parse_max_block = function
-      | "dvh" -> Ok Max_block_dvh
-      | "fit" -> Ok Max_block_fit
-      | "full" -> Ok Max_block_full
-      | "lh" -> Ok Max_block_lh
-      | "lvh" -> Ok Max_block_lvh
-      | "max" -> Ok Max_block_max
-      | "min" -> Ok Max_block_min
-      | "none" -> Ok Max_block_none
-      | "screen" -> Ok Max_block_screen
-      | "svh" -> Ok Max_block_svh
-      | v when String.length v > 0 && v.[0] = '[' -> (
-          match parse_arbitrary v with
-          | Some len -> Ok (Max_block_arbitrary len)
-          | None -> err_invalid_value "max-block-size" v)
-      | v -> (
-          match float_of_string_opt v with
-          | Some n when n >= 0. -> Ok (Max_block_spacing (n *. 0.25))
-          | _ -> err_invalid_value "max-block-size" v)
-    in
-    let parse_aspect_ratio s mk =
-      match String.split_on_char '/' s with
-      | [ w; h ] -> (
-          match (int_of_string_opt w, int_of_string_opt h) with
-          | Some w, Some h when w > 0 && h > 0 -> Ok (mk w h)
-          | _ -> err_not_utility)
-      | _ -> err_not_utility
-    in
-    match parts with
+    match Parse.split_class class_name with
     | [ "w"; value ] -> parse_w value
     | [ "h"; value ] -> parse_h value
     | [ "min"; "w"; value ] -> parse_min_w value

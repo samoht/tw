@@ -84,6 +84,108 @@ let strip_header css =
 let tree_diff ~(expected : Css.t) ~(actual : Css.t) : Tree_diff.t =
   D.diff ~expected ~actual
 
+(* Collect all rules with their path-qualified selector keys *)
+let rec collect_keyed_rules acc path stmts =
+  List.fold_left
+    (fun acc stmt ->
+      match Css.as_rule stmt with
+      | Some (sel, decls, _) ->
+          let key = String.concat " " (path @ [ Css.Selector.to_string sel ]) in
+          (key, decls) :: acc
+      | None -> (
+          match at_rule_path_and_inner stmt with
+          | Some (segment, inner) ->
+              collect_keyed_rules acc (path @ [ segment ]) inner
+          | None -> acc))
+    acc stmts
+
+let sig_of_decls decls =
+  decls
+  |> List.map (fun d -> (Css.declaration_name d, Css.declaration_value d))
+  |> List.sort (fun (a1, b1) (a2, b2) ->
+      let c = String.compare a1 a2 in
+      if c <> 0 then c else String.compare b1 b2)
+
+let group_into_table rules =
+  let tbl = Hashtbl.create 128 in
+  List.iter
+    (fun (k, d) ->
+      let lst = match Hashtbl.find_opt tbl k with Some l -> l | None -> [] in
+      Hashtbl.replace tbl k (lst @ [ d ]))
+    rules;
+  tbl
+
+(* Compare two declaration lists with the same key and emit diffs *)
+let diff_same_key_pair key d1 d2 =
+  let sig1 = sig_of_decls d1 in
+  let sig2 = sig_of_decls d2 in
+  if sig1 = sig2 && d1 <> d2 then
+    Some
+      (D.Rule_reordered
+         {
+           selector = key;
+           expected_pos = -1;
+           actual_pos = -1;
+           swapped_with = None;
+           old_declarations = Some d1;
+           new_declarations = Some d2;
+         })
+  else if sig1 <> sig2 then
+    Some
+      (D.Rule_content_changed
+         {
+           selector = key;
+           old_declarations = d1;
+           new_declarations = d2;
+           property_changes = [];
+           added_properties =
+             List.filter_map
+               (fun (p, _) -> if List.mem_assoc p sig1 then None else Some p)
+               sig2;
+           removed_properties =
+             List.filter_map
+               (fun (p, _) -> if List.mem_assoc p sig2 then None else Some p)
+               sig1;
+         })
+  else None
+
+let diff_count_mismatch key ds1 ds2 =
+  let n1 = List.length ds1 in
+  let n2 = List.length ds2 in
+  if n2 > n1 then
+    D.Rule_added
+      { selector = key ^ " (duplicate)"; declarations = List.nth ds2 (n2 - 1) }
+  else
+    D.Rule_removed
+      { selector = key ^ " (missing)"; declarations = List.nth ds1 (n1 - 1) }
+
+(* Detect declaration-reordering-only differences throughout a stylesheet *)
+let build_reorder_diff expected_css actual_css =
+  let rules1 =
+    collect_keyed_rules [] [] (Css.statements expected_css) |> List.rev
+  in
+  let rules2 =
+    collect_keyed_rules [] [] (Css.statements actual_css) |> List.rev
+  in
+  let tbl1 = group_into_table rules1 in
+  let tbl2 = group_into_table rules2 in
+  let diffs = ref [] in
+  Hashtbl.iter
+    (fun key ds1 ->
+      match Hashtbl.find_opt tbl2 key with
+      | Some ds2 when List.length ds1 = List.length ds2 ->
+          List.iter2
+            (fun d1 d2 ->
+              match diff_same_key_pair key d1 d2 with
+              | Some d -> diffs := d :: !diffs
+              | None -> ())
+            ds1 ds2
+      | Some ds2 -> diffs := diff_count_mismatch key ds1 ds2 :: !diffs
+      | None -> ())
+    tbl1;
+  if !diffs = [] then None
+  else Some D.{ rules = List.rev !diffs; containers = [] }
+
 (* Compare two CSS strings for structural and formatting equality *)
 let compare css1 css2 =
   let css1 = strip_header css1 in
@@ -128,133 +230,7 @@ let diff ~expected ~actual =
              declaration ordering-only differences throughout the stylesheet
              (recursively inside containers) as structural Rule_reordered
              changes. If none detected, fall back to string diff. *)
-          let build_reorder_diff () =
-            let rec collect acc path stmts =
-              List.fold_left
-                (fun acc stmt ->
-                  match Css.as_rule stmt with
-                  | Some (sel, decls, _) ->
-                      let key =
-                        String.concat " " (path @ [ Css.Selector.to_string sel ])
-                      in
-                      (key, decls) :: acc
-                  | None -> (
-                      match at_rule_path_and_inner stmt with
-                      | Some (segment, inner) ->
-                          collect acc (path @ [ segment ]) inner
-                      | None -> acc))
-                acc stmts
-            in
-            let sig_of_decls decls =
-              decls
-              |> List.map (fun d ->
-                  (Css.declaration_name d, Css.declaration_value d))
-              |> List.sort (fun (a1, b1) (a2, b2) ->
-                  let c = String.compare a1 a2 in
-                  if c <> 0 then c else String.compare b1 b2)
-            in
-            let rules1 =
-              collect [] [] (Css.statements expected_norm) |> List.rev
-            in
-            let rules2 =
-              collect [] [] (Css.statements actual_norm) |> List.rev
-            in
-            let tbl1 = Hashtbl.create 128 and tbl2 = Hashtbl.create 128 in
-            List.iter
-              (fun (k, d) ->
-                let lst =
-                  match Hashtbl.find_opt tbl1 k with Some l -> l | None -> []
-                in
-                Hashtbl.replace tbl1 k (lst @ [ d ]))
-              rules1;
-            List.iter
-              (fun (k, d) ->
-                let lst =
-                  match Hashtbl.find_opt tbl2 k with Some l -> l | None -> []
-                in
-                Hashtbl.replace tbl2 k (lst @ [ d ]))
-              rules2;
-            let diffs = ref [] in
-            Hashtbl.iter
-              (fun key ds1 ->
-                match Hashtbl.find_opt tbl2 key with
-                | Some ds2 when List.length ds1 = List.length ds2 ->
-                    let pairs = List.combine ds1 ds2 in
-                    List.iter
-                      (fun (d1, d2) ->
-                        let sig1 = sig_of_decls d1 in
-                        let sig2 = sig_of_decls d2 in
-                        let same_set = sig1 = sig2 in
-                        let same_order = d1 = d2 in
-                        if same_set && not same_order then
-                          (* Same properties but different order within rule *)
-                          diffs :=
-                            D.Rule_reordered
-                              {
-                                selector = key;
-                                expected_pos = -1;
-                                actual_pos = -1;
-                                swapped_with = None;
-                                old_declarations = Some d1;
-                                new_declarations = Some d2;
-                              }
-                            :: !diffs
-                        else if not same_set then
-                          (* Different properties at same selector position -
-                             this is a content change, not just reordering *)
-                          diffs :=
-                            D.Rule_content_changed
-                              {
-                                selector = key;
-                                old_declarations = d1;
-                                new_declarations = d2;
-                                property_changes = [];
-                                added_properties =
-                                  List.filter_map
-                                    (fun (p, _) ->
-                                      if List.mem_assoc p sig1 then None
-                                      else Some p)
-                                    sig2;
-                                removed_properties =
-                                  List.filter_map
-                                    (fun (p, _) ->
-                                      if List.mem_assoc p sig2 then None
-                                      else Some p)
-                                    sig1;
-                              }
-                            :: !diffs)
-                      pairs
-                | Some ds2 ->
-                    (* Different number of rules with same selector - report as
-                       structural difference. ds1 = expected (tailwind), ds2 =
-                       actual (ours) *)
-                    let n1 = List.length ds1 in
-                    let n2 = List.length ds2 in
-                    if n2 > n1 then
-                      (* Actual has more rules than expected - we have extra *)
-                      diffs :=
-                        D.Rule_added
-                          {
-                            selector = key ^ " (duplicate)";
-                            declarations = List.nth ds2 (n2 - 1);
-                          }
-                        :: !diffs
-                    else
-                      (* Expected has more rules than actual - we're missing
-                         some *)
-                      diffs :=
-                        D.Rule_removed
-                          {
-                            selector = key ^ " (missing)";
-                            declarations = List.nth ds1 (n1 - 1);
-                          }
-                        :: !diffs
-                | None -> ())
-              tbl1;
-            if !diffs = [] then None
-            else Some D.{ rules = List.rev !diffs; containers = [] }
-          in
-          match build_reorder_diff () with
+          match build_reorder_diff expected_norm actual_norm with
           | Some d -> Tree_diff d
           | None -> (
               (* Use original (header-stripped) strings for string diff *)
