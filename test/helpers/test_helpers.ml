@@ -42,35 +42,34 @@ let check_ordering_fails ?(forms = false) utilities =
 
 (** Delta Debugging (ddmin algorithm by Zeller) Minimizes a failing test case by
     binary search *)
+let rec take k l =
+  match (k, l) with
+  | 0, _ | _, [] -> ([], l)
+  | k, x :: xs ->
+      let taken, rest = take (k - 1) xs in
+      (x :: taken, rest)
+
+let split_into_subsets subset_size lst =
+  let rec go acc remaining =
+    if remaining = [] then List.rev acc
+    else
+      let subset, rest = take subset_size remaining in
+      go (subset :: acc) rest
+  in
+  go [] lst
+
 let delta_debug check_fails lst =
   let rec ddmin lst n =
     let len = List.length lst in
     if len = 1 then lst
     else
-      (* Split into n subsets *)
-      let subset_size = max 1 (len / n) in
-      let rec make_subsets acc remaining =
-        if remaining = [] then List.rev acc
-        else
-          let rec take k l =
-            match (k, l) with
-            | 0, _ | _, [] -> ([], l)
-            | k, x :: xs ->
-                let taken, rest = take (k - 1) xs in
-                (x :: taken, rest)
-          in
-          let subset, rest = take subset_size remaining in
-          make_subsets (subset :: acc) rest
-      in
-      let subsets = make_subsets [] lst in
-
+      let subsets = split_into_subsets (max 1 (len / n)) lst in
       (* Test 1: Try each subset alone (reduce to subset) *)
       let rec try_subsets = function
         | [] -> None
         | subset :: rest ->
             if check_fails subset then Some subset else try_subsets rest
       in
-
       match try_subsets subsets with
       | Some subset ->
           Fmt.epr "Reduced to %d items@." (List.length subset);
@@ -87,7 +86,6 @@ let delta_debug check_fails lst =
                   Some complement
                 else try_complements (idx + 1) rest
           in
-
           match try_complements 0 subsets with
           | Some complement ->
               Fmt.epr "Reduced to %d items@." (List.length complement);

@@ -543,18 +543,20 @@ let extract_theme_color_vars sheet =
   |> Option.map (extract_var_names_with_prefix "--color-")
   |> Option.value ~default:[]
 
+let extract_bg_color_name sel_str =
+  if String.length sel_str > 4 && String.sub sel_str 0 4 = ".bg-" then
+    let rest = String.sub sel_str 4 (String.length sel_str - 4) in
+    match String.index_opt rest '-' with
+    | Some idx -> Some (String.sub rest 0 idx)
+    | None -> None
+  else None
+
 let extract_utility_selectors sheet =
   Css.layer_block "utilities" sheet
   |> Option.map (fun stmts ->
       Css.rules_from_statements stmts
       |> List.filter_map (fun (sel, _) ->
-          let sel_str = Css.Selector.to_string sel in
-          if String.length sel_str > 4 && String.sub sel_str 0 4 = ".bg-" then
-            let rest = String.sub sel_str 4 (String.length sel_str - 4) in
-            match String.index_opt rest '-' with
-            | Some idx -> Some (String.sub rest 0 idx)
-            | None -> None
-          else None))
+          extract_bg_color_name (Css.Selector.to_string sel)))
   |> Option.value ~default:[]
 
 let test_theme_layer_color_order () =
