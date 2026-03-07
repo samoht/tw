@@ -29,6 +29,42 @@ let page_header =
     ]
 
 (* High contrast section *)
+let contrast_buttons =
+  div
+    ~tw:Tw.[ mt 6; flex; gap 4; flex_wrap ]
+    [
+      button
+        ~tw:
+          Tw.
+            [
+              px 4;
+              py 2;
+              rounded_lg;
+              bg blue 600;
+              text_white;
+              hover [ bg blue 700 ];
+              focus [ ring_md; ring_color blue 500 ];
+              contrast_more [ border_md; border_color blue 900 ];
+            ]
+        [ txt "Primary Action" ];
+      button
+        ~tw:
+          Tw.
+            [
+              px 4;
+              py 2;
+              rounded_lg;
+              border;
+              border_color gray 300;
+              text gray 700;
+              hover [ bg gray 100 ];
+              focus [ ring_md; ring_color gray 500 ];
+              contrast_more [ border_lg; border_color gray 900; text_black ];
+              dark [ border_color gray 600; text gray 300 ];
+            ]
+        [ txt "Secondary" ];
+    ]
+
 let contrast_section =
   section
     ~at:[ At.v "aria-labelledby" "contrast-heading" ]
@@ -72,43 +108,73 @@ let contrast_section =
              adapts automatically. Borders become thicker, and colors become \
              more distinct.";
         ];
-      div
-        ~tw:Tw.[ mt 6; flex; gap 4; flex_wrap ]
-        [
-          button
-            ~tw:
-              Tw.
-                [
-                  px 4;
-                  py 2;
-                  rounded_lg;
-                  bg blue 600;
-                  text_white;
-                  hover [ bg blue 700 ];
-                  focus [ ring_md; ring_color blue 500 ];
-                  contrast_more [ border_md; border_color blue 900 ];
-                ]
-            [ txt "Primary Action" ];
-          button
-            ~tw:
-              Tw.
-                [
-                  px 4;
-                  py 2;
-                  rounded_lg;
-                  border;
-                  border_color gray 300;
-                  text gray 700;
-                  hover [ bg gray 100 ];
-                  focus [ ring_md; ring_color gray 500 ];
-                  contrast_more [ border_lg; border_color gray 900; text_black ];
-                  dark [ border_color gray 600; text gray 300 ];
-                ]
-            [ txt "Secondary" ];
-        ];
+      contrast_buttons;
     ]
 
 (* Motion preferences section *)
+let motion_demos =
+  div
+    ~tw:Tw.[ flex; gap 8; items_center; justify_center; flex_wrap ]
+    [
+      div
+        ~tw:Tw.[ flex; flex_col; items_center; gap 2 ]
+        [
+          div
+            ~tw:
+              Tw.
+                [
+                  w 12;
+                  h 12;
+                  bg blue 500;
+                  rounded_full;
+                  motion_safe [ animate_pulse ];
+                  motion_reduce [ opacity 100 ];
+                ]
+            [];
+          span
+            ~tw:Tw.[ text_sm; text gray 500; dark [ text gray 400 ] ]
+            [ txt "Pulse" ];
+        ];
+      div
+        ~tw:Tw.[ flex; flex_col; items_center; gap 2 ]
+        [
+          div
+            ~tw:
+              Tw.
+                [
+                  w 12;
+                  h 12;
+                  border_lg;
+                  border_color blue 600;
+                  rounded_full;
+                  motion_safe [ animate_spin ];
+                ]
+            [];
+          span
+            ~tw:Tw.[ text_sm; text gray 500; dark [ text gray 400 ] ]
+            [ txt "Spinner" ];
+        ];
+      div
+        ~tw:Tw.[ flex; flex_col; items_center; gap 2 ]
+        [
+          div
+            ~tw:
+              Tw.
+                [
+                  w 12;
+                  h 12;
+                  bg green 500;
+                  rounded_lg;
+                  motion_safe [ animate_bounce ];
+                  motion_reduce [ opacity 100 ];
+                ]
+            [];
+          span
+            ~tw:Tw.[ text_sm; text gray 500; dark [ text gray 400 ] ]
+            [ txt "Bounce" ];
+        ];
+    ]
+
 let motion_section =
   section
     ~at:[ At.v "aria-labelledby" "motion-heading" ]
@@ -125,70 +191,7 @@ let motion_section =
             "These animations respect the prefers-reduced-motion media query. \
              Users who prefer reduced motion will see still elements instead.";
         ];
-      div
-        ~tw:Tw.[ flex; gap 8; items_center; justify_center; flex_wrap ]
-        [
-          (* Pulsing indicator *)
-          div
-            ~tw:Tw.[ flex; flex_col; items_center; gap 2 ]
-            [
-              div
-                ~tw:
-                  Tw.
-                    [
-                      w 12;
-                      h 12;
-                      bg blue 500;
-                      rounded_full;
-                      motion_safe [ animate_pulse ];
-                      motion_reduce [ opacity 100 ];
-                    ]
-                [];
-              span
-                ~tw:Tw.[ text_sm; text gray 500; dark [ text gray 400 ] ]
-                [ txt "Pulse" ];
-            ];
-          (* Spinning loader *)
-          div
-            ~tw:Tw.[ flex; flex_col; items_center; gap 2 ]
-            [
-              div
-                ~tw:
-                  Tw.
-                    [
-                      w 12;
-                      h 12;
-                      border_lg;
-                      border_color blue 600;
-                      rounded_full;
-                      motion_safe [ animate_spin ];
-                    ]
-                [];
-              span
-                ~tw:Tw.[ text_sm; text gray 500; dark [ text gray 400 ] ]
-                [ txt "Spinner" ];
-            ];
-          (* Bouncing element *)
-          div
-            ~tw:Tw.[ flex; flex_col; items_center; gap 2 ]
-            [
-              div
-                ~tw:
-                  Tw.
-                    [
-                      w 12;
-                      h 12;
-                      bg green 500;
-                      rounded_lg;
-                      motion_safe [ animate_bounce ];
-                      motion_reduce [ opacity 100 ];
-                    ]
-                [];
-              span
-                ~tw:Tw.[ text_sm; text gray 500; dark [ text gray 400 ] ]
-                [ txt "Bounce" ];
-            ];
-        ];
+      motion_demos;
     ]
 
 (* Color scheme section *)
@@ -230,6 +233,57 @@ let color_section =
     ]
 
 (* Focus states demonstration *)
+let focus_examples =
+  div
+    ~tw:Tw.[ flex; flex_wrap; gap 4 ]
+    [
+      input
+        ~at:
+          [
+            At.v "type" "text";
+            At.v "placeholder" "Focus me with Tab";
+            At.v "aria-label" "Example text input";
+          ]
+        ~tw:
+          Tw.
+            [
+              px 4;
+              py 2;
+              rounded_lg;
+              border;
+              border_color gray 300;
+              focus [ ring_md; ring_color blue 500; outline_none ];
+              dark [ bg gray 700; border_color gray 600; text_white ];
+            ]
+        ();
+      a
+        ~at:[ At.href "#" ]
+        ~tw:
+          Tw.
+            [
+              px 4;
+              py 2;
+              text blue 600;
+              underline;
+              rounded;
+              focus [ ring_md; ring_color blue 500 ];
+              dark [ text blue 400 ];
+            ]
+        [ txt "Focusable Link" ];
+      button
+        ~tw:
+          Tw.
+            [
+              px 4;
+              py 2;
+              bg blue 600;
+              text_white;
+              rounded_lg;
+              focus [ ring_md; ring_color blue 400 ];
+            ]
+        [ txt "Button" ];
+    ]
+
 let focus_section =
   section
     ~at:[ At.v "aria-labelledby" "focus-heading" ]
@@ -246,61 +300,44 @@ let focus_section =
             "Use Tab to navigate these interactive elements. Each has a clear \
              focus indicator for keyboard users.";
         ];
-      div
-        ~tw:Tw.[ flex; flex_wrap; gap 4 ]
-        [
-          (* Text input with focus ring *)
-          input
-            ~at:
-              [
-                At.v "type" "text";
-                At.v "placeholder" "Focus me with Tab";
-                At.v "aria-label" "Example text input";
-              ]
-            ~tw:
-              Tw.
-                [
-                  px 4;
-                  py 2;
-                  rounded_lg;
-                  border;
-                  border_color gray 300;
-                  focus [ ring_md; ring_color blue 500; outline_none ];
-                  dark [ bg gray 700; border_color gray 600; text_white ];
-                ]
-            ();
-          (* Link with focus styling *)
-          a
-            ~at:[ At.href "#" ]
-            ~tw:
-              Tw.
-                [
-                  px 4;
-                  py 2;
-                  text blue 600;
-                  underline;
-                  rounded;
-                  focus [ ring_md; ring_color blue 500 ];
-                  dark [ text blue 400 ];
-                ]
-            [ txt "Focusable Link" ];
-          (* Button with focus *)
-          button
-            ~tw:
-              Tw.
-                [
-                  px 4;
-                  py 2;
-                  bg blue 600;
-                  text_white;
-                  rounded_lg;
-                  focus [ ring_md; ring_color blue 400 ];
-                ]
-            [ txt "Button" ];
-        ];
+      focus_examples;
     ]
 
 (* Screen reader content section *)
+let sr_button_style =
+  Tw.
+    [
+      flex;
+      items_center;
+      gap 2;
+      px 4;
+      py 2;
+      bg_white;
+      rounded_lg;
+      shadow_sm;
+      hover [ shadow_md ];
+      focus [ ring_md; ring_color blue 500 ];
+      dark [ bg gray 800 ];
+    ]
+
+let sr_buttons =
+  div
+    ~tw:Tw.[ flex; gap 4; flex_wrap ]
+    [
+      button ~tw:sr_button_style
+        [
+          span ~tw:Tw.[ text_xl ] [ txt "!" ];
+          span ~tw:Tw.[ sr_only ] [ txt "Important notification" ];
+          span ~tw:Tw.[ text gray 700; dark [ text gray 300 ] ] [ txt "Alert" ];
+        ];
+      button ~tw:sr_button_style
+        [
+          span ~tw:Tw.[ text_xl ] [ txt "i" ];
+          span ~tw:Tw.[ sr_only ] [ txt "More information" ];
+          span ~tw:Tw.[ text gray 700; dark [ text gray 300 ] ] [ txt "Info" ];
+        ];
+    ]
+
 let sr_section =
   section
     ~at:[ At.v "aria-labelledby" "sr-heading" ]
@@ -317,56 +354,7 @@ let sr_section =
             "The sr-only class hides content visually while keeping it \
              accessible to screen readers.";
         ];
-      div
-        ~tw:Tw.[ flex; gap 4; flex_wrap ]
-        [
-          button
-            ~tw:
-              Tw.
-                [
-                  flex;
-                  items_center;
-                  gap 2;
-                  px 4;
-                  py 2;
-                  bg_white;
-                  rounded_lg;
-                  shadow_sm;
-                  hover [ shadow_md ];
-                  focus [ ring_md; ring_color blue 500 ];
-                  dark [ bg gray 800 ];
-                ]
-            [
-              span ~tw:Tw.[ text_xl ] [ txt "!" ];
-              span ~tw:Tw.[ sr_only ] [ txt "Important notification" ];
-              span
-                ~tw:Tw.[ text gray 700; dark [ text gray 300 ] ]
-                [ txt "Alert" ];
-            ];
-          button
-            ~tw:
-              Tw.
-                [
-                  flex;
-                  items_center;
-                  gap 2;
-                  px 4;
-                  py 2;
-                  bg_white;
-                  rounded_lg;
-                  shadow_sm;
-                  hover [ shadow_md ];
-                  focus [ ring_md; ring_color blue 500 ];
-                  dark [ bg gray 800 ];
-                ]
-            [
-              span ~tw:Tw.[ text_xl ] [ txt "i" ];
-              span ~tw:Tw.[ sr_only ] [ txt "More information" ];
-              span
-                ~tw:Tw.[ text gray 700; dark [ text gray 300 ] ]
-                [ txt "Info" ];
-            ];
-        ];
+      sr_buttons;
       p
         ~tw:Tw.[ text_sm; text gray 500; mt 4; dark [ text gray 400 ] ]
         [
@@ -377,6 +365,35 @@ let sr_section =
     ]
 
 (* Main page *)
+let page_intro =
+  div
+    ~tw:Tw.[ text_center; py 8 ]
+    [
+      h1
+        ~tw:
+          Tw.
+            [
+              text_3xl;
+              md [ text_4xl ];
+              font_bold;
+              text gray 900;
+              mb 4;
+              dark [ text_white ];
+            ]
+        [ txt "Building Accessible Interfaces" ];
+      p
+        ~tw:
+          Tw.
+            [
+              text_lg; text gray 600; max_w_2xl; mx_auto; dark [ text gray 400 ];
+            ]
+        [
+          txt
+            "This demo showcases Tailwind accessibility utilities for \
+             contrast, motion, focus states, and screen reader support.";
+        ];
+    ]
+
 let page_view =
   page ~title:"Accessibility Demo" ~tw_css:"accessibility.css" []
     [
@@ -388,39 +405,7 @@ let page_view =
           div
             ~tw:Tw.[ flex; flex_col; gap 8 ]
             [
-              (* Introduction *)
-              div
-                ~tw:Tw.[ text_center; py 8 ]
-                [
-                  h1
-                    ~tw:
-                      Tw.
-                        [
-                          text_3xl;
-                          md [ text_4xl ];
-                          font_bold;
-                          text gray 900;
-                          mb 4;
-                          dark [ text_white ];
-                        ]
-                    [ txt "Building Accessible Interfaces" ];
-                  p
-                    ~tw:
-                      Tw.
-                        [
-                          text_lg;
-                          text gray 600;
-                          max_w_2xl;
-                          mx_auto;
-                          dark [ text gray 400 ];
-                        ]
-                    [
-                      txt
-                        "This demo showcases Tailwind accessibility utilities \
-                         for contrast, motion, focus states, and screen reader \
-                         support.";
-                    ];
-                ];
+              page_intro;
               contrast_section;
               motion_section;
               color_section;

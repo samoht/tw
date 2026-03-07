@@ -97,63 +97,44 @@ let setup_test_scheme () =
 let eval_flag flag ~default =
   match flag with `Enable -> true | `Disable -> false | `Default -> default
 
+let print_diff_result label diff =
+  match diff with
+  | Tw_tools.Css_compare.No_diff -> Fmt.pr "✓ No differences found%s@." label
+  | _ ->
+      Fmt.pr "Differences found%s:@.@." label;
+      Tw_tools.Css_compare.pp ~expected:"Tailwind" ~actual:"tw" Fmt.stdout diff;
+      Fmt.pr "@."
+
+let diff_single_class class_str ~(opts : gen_opts) =
+  try
+    let legacy_css =
+      Tw_tools.Tailwind_gen.generate ~minify:opts.minify ~optimize:opts.optimize
+        ~forms:true [ class_str ]
+    in
+    let tw_styles = parse_classes ~warn:false class_str in
+    let styles = match tw_styles with [] -> [] | s -> s in
+    let stylesheet = Tw.to_css ~base:true ~mode:Variables styles in
+    let our_css =
+      Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize stylesheet
+    in
+    let diff = Tw_tools.Css_compare.diff ~expected:legacy_css ~actual:our_css in
+    match tw_styles with
+    | [] when class_str = "" ->
+        print_diff_result " (empty/base only)" diff;
+        `Ok ()
+    | [] -> `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
+    | _ ->
+        print_diff_result
+          (Fmt.str " between Tailwind and tw for '%s'" class_str)
+          diff;
+        `Ok ()
+  with e ->
+    `Error (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e))
+
 let process_single_class class_str flag ~(opts : gen_opts) =
-  (* Set up test scheme if requested *)
   if opts.test_scheme then setup_test_scheme ();
   match opts.backend with
-  | Diff -> (
-      (* Diff mode: variables, base layer, minify+optimize *)
-      try
-        (* Generate legacy Tailwind CSS *)
-        let legacy_css =
-          Tw_tools.Tailwind_gen.generate ~minify:opts.minify
-            ~optimize:opts.optimize ~forms:true [ class_str ]
-        in
-
-        (* Generate our CSS with variables mode and base layer *)
-        let include_base = true in
-        let tw_styles = parse_classes ~warn:false class_str in
-        let styles = match tw_styles with [] -> [] | s -> s in
-        let stylesheet = Tw.to_css ~base:include_base ~mode:Variables styles in
-        let our_css =
-          Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize
-            stylesheet
-        in
-        match tw_styles with
-        | [] when class_str = "" ->
-            (* Empty class string - just output base layer *)
-            let diff =
-              Tw_tools.Css_compare.diff ~expected:legacy_css ~actual:our_css
-            in
-            (match diff with
-            | Tw_tools.Css_compare.No_diff ->
-                Fmt.pr "✓ No differences found (empty/base only)@."
-            | _ ->
-                Fmt.pr "Differences found (empty/base only):@.@.";
-                Tw_tools.Css_compare.pp ~expected:"Tailwind" ~actual:"tw"
-                  Fmt.stdout diff;
-                Fmt.pr "@.");
-            `Ok ()
-        | [] -> `Error (false, Fmt.str "Error: Unknown class: %s" class_str)
-        | _ ->
-            (* Compare the two outputs *)
-            let diff =
-              Tw_tools.Css_compare.diff ~expected:legacy_css ~actual:our_css
-            in
-            (match diff with
-            | Tw_tools.Css_compare.No_diff ->
-                Fmt.pr
-                  "✓ No differences found between Tailwind and tw for '%s'@."
-                  class_str
-            | _ ->
-                Fmt.pr "Differences found for '%s':@.@." class_str;
-                Tw_tools.Css_compare.pp ~expected:"Tailwind" ~actual:"tw"
-                  Fmt.stdout diff;
-                Fmt.pr "@.");
-            `Ok ()
-      with e ->
-        `Error
-          (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e)))
+  | Diff -> diff_single_class class_str ~opts
   | Tailwind -> (
       try
         let css =
@@ -209,83 +190,92 @@ let print_stats ~quiet ~known ~unknown =
       Fmt.epr "Unknown (first 20): %s...@."
         (String.concat ", " (List.filteri (fun i _ -> i < 20) unique_unknown)))
 
+let split_class_names raw_classes =
+  raw_classes
+  |> List.concat_map (fun s ->
+      String.split_on_char ' ' s |> List.filter (fun s -> String.length s > 0))
+  |> List.sort_uniq String.compare
+
+let parse_styles_from_raw raw_classes =
+  List.concat_map
+    (fun classes_str ->
+      String.split_on_char ' ' classes_str
+      |> List.filter (fun s -> String.length s > 0)
+      |> List.filter_map (fun cls ->
+          match Tw.of_string cls with Ok style -> Some style | Error _ -> None))
+    raw_classes
+
+let diff_files paths ~(opts : gen_opts) =
+  try
+    let all_files = collect_files paths in
+    let all_classes_raw =
+      List.concat_map extract_classes_from_file all_files
+      |> List.sort_uniq String.compare
+    in
+    let all_classes = split_class_names all_classes_raw in
+    let legacy_css =
+      Tw_tools.Tailwind_gen.generate ~minify:opts.minify ~optimize:opts.optimize
+        ~forms:true all_classes
+    in
+    let tw_styles = parse_styles_from_raw all_classes_raw in
+    let stylesheet = Tw.to_css ~base:true ~mode:Variables tw_styles in
+    let our_css =
+      Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize stylesheet
+    in
+    let diff = Tw_tools.Css_compare.diff ~expected:legacy_css ~actual:our_css in
+    print_diff_result "" diff;
+    `Ok ()
+  with e ->
+    `Error (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e))
+
+let native_files paths flag ~(opts : gen_opts) =
+  let include_base = eval_flag flag ~default:true in
+  try
+    let all_files = collect_files paths in
+    let all_classes =
+      List.concat_map extract_classes_from_file all_files
+      |> List.sort_uniq String.compare
+    in
+    let unknown_classes = ref [] in
+    let known_classes = ref [] in
+    let tw_styles =
+      List.concat_map
+        (fun classes_str ->
+          String.split_on_char ' ' classes_str
+          |> List.filter (fun s -> String.length s > 0)
+          |> List.filter_map (fun cls ->
+              match Tw.of_string cls with
+              | Ok style ->
+                  known_classes := cls :: !known_classes;
+                  Some style
+              | Error _ ->
+                  unknown_classes := cls :: !unknown_classes;
+                  if not opts.quiet then
+                    Fmt.epr "Warning: Unknown class '%s'@." cls;
+                  None))
+        all_classes
+    in
+    let stylesheet =
+      Tw.to_css ~base:include_base ~mode:opts.css_mode tw_styles
+    in
+    print_string
+      (Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize stylesheet);
+    print_stats ~quiet:opts.quiet ~known:!known_classes
+      ~unknown:!unknown_classes;
+    `Ok ()
+  with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))
+
 let process_files paths flag ~(opts : gen_opts) =
-  (* Set up test scheme if requested *)
   if opts.test_scheme then setup_test_scheme ();
   match opts.backend with
-  | Diff -> (
-      (* Diff mode: variables, base layer, minify+optimize *)
-      try
-        let all_files = collect_files paths in
-        let all_classes_raw =
-          List.concat_map extract_classes_from_file all_files
-          |> List.sort_uniq String.compare
-        in
-        let all_classes =
-          all_classes_raw
-          |> List.concat_map (fun classes_str ->
-              String.split_on_char ' ' classes_str
-              |> List.filter (fun s -> String.length s > 0))
-          |> List.sort_uniq String.compare
-        in
-
-        (* Generate legacy Tailwind CSS *)
-        let legacy_css =
-          Tw_tools.Tailwind_gen.generate ~minify:opts.minify
-            ~optimize:opts.optimize ~forms:true all_classes
-        in
-
-        (* Generate our CSS with variables mode and base layer *)
-        let include_base = true in
-        let tw_styles =
-          List.concat_map
-            (fun classes_str ->
-              let class_names =
-                String.split_on_char ' ' classes_str
-                |> List.filter (fun s -> String.length s > 0)
-              in
-              List.filter_map
-                (fun cls ->
-                  match Tw.of_string cls with
-                  | Ok style -> Some style
-                  | Error _ -> None)
-                class_names)
-            all_classes_raw
-        in
-        let stylesheet =
-          Tw.to_css ~base:include_base ~mode:Variables tw_styles
-        in
-        let our_css =
-          Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize
-            stylesheet
-        in
-
-        (* Compare the two outputs *)
-        let diff =
-          Tw_tools.Css_compare.diff ~expected:legacy_css ~actual:our_css
-        in
-        (match diff with
-        | Tw_tools.Css_compare.No_diff ->
-            Fmt.pr "✓ No differences found between Tailwind and tw@."
-        | _ ->
-            Fmt.pr "Differences found:@.@.";
-            Tw_tools.Css_compare.pp ~expected:"Tailwind" ~actual:"tw" Fmt.stdout
-              diff;
-            Fmt.pr "@.");
-        `Ok ()
-      with e ->
-        `Error
-          (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e)))
+  | Diff -> diff_files paths ~opts
   | Tailwind -> (
       try
         let all_files = collect_files paths in
         let all_classes =
           List.concat_map extract_classes_from_file all_files
           |> List.sort_uniq String.compare
-          |> List.concat_map (fun classes_str ->
-              String.split_on_char ' ' classes_str
-              |> List.filter (fun s -> String.length s > 0))
-          |> List.sort_uniq String.compare
+          |> split_class_names
         in
         let css =
           Tw_tools.Tailwind_gen.generate ~minify:opts.minify
@@ -298,50 +288,7 @@ let process_files paths flag ~(opts : gen_opts) =
           ( false,
             Fmt.str "Error generating with Tailwind: %s" (Printexc.to_string e)
           ))
-  | Native -> (
-      let include_base = eval_flag flag ~default:true in
-      try
-        let all_files = collect_files paths in
-        let all_classes =
-          List.concat_map extract_classes_from_file all_files
-          |> List.sort_uniq String.compare
-        in
-        let unknown_classes = ref [] in
-        let known_classes = ref [] in
-        let tw_styles =
-          List.concat_map
-            (fun classes_str ->
-              let class_names =
-                String.split_on_char ' ' classes_str
-                |> List.filter (fun s -> String.length s > 0)
-              in
-              List.filter_map
-                (fun cls ->
-                  match Tw.of_string cls with
-                  | Ok style ->
-                      known_classes := cls :: !known_classes;
-                      Some style
-                  | Error _ ->
-                      unknown_classes := cls :: !unknown_classes;
-                      if not opts.quiet then
-                        Fmt.epr "Warning: Unknown class '%s'@." cls;
-                      None)
-                class_names)
-            all_classes
-        in
-        let stylesheet =
-          Tw.to_css ~base:include_base ~mode:opts.css_mode tw_styles
-        in
-        print_string
-          (Tw.Css.to_string ~minify:opts.minify ~optimize:opts.optimize
-             stylesheet);
-
-        (* Print statistics to stderr *)
-        print_stats ~quiet:opts.quiet ~known:!known_classes
-          ~unknown:!unknown_classes;
-
-        `Ok ()
-      with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e)))
+  | Native -> native_files paths flag ~opts
 
 let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
     ~test_scheme paths =
