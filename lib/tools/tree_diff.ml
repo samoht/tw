@@ -456,24 +456,64 @@ let selectors_of_rules rules =
       | None -> None)
     rules
 
+let pp_block_structure_changed ~style ~is_last ~parent_prefix fmt
+    ~container_type ~condition ~expected_blocks ~actual_blocks =
+  let cont_prefix = container_prefix container_type in
+  let prefix = tree_prefix ~style ~is_last ~parent_prefix in
+  let child_prefix = tree_continuation ~style ~is_last ~parent_prefix in
+  let indent =
+    if style.use_tree then child_prefix ^ "   " else child_prefix ^ "    "
+  in
+  let red_styled = fmt_style "remove" in
+  let green_styled = fmt_style "add" in
+
+  (* Show the merge/split summary *)
+  let exp_count = List.length expected_blocks in
+  let act_count = List.length actual_blocks in
+
+  (* Report block structure changes - this is a meaningful difference even if
+     selectors are identical *)
+  if exp_count > act_count then
+    Fmt.pf fmt "%s%s %s (%d blocks merged into %d)@," prefix cont_prefix
+      condition exp_count act_count
+  else if exp_count < act_count then
+    Fmt.pf fmt "%s%s %s (%d block split into %d)@," prefix cont_prefix condition
+      exp_count act_count
+  else
+    (* Same count but different positions *)
+    Fmt.pf fmt "%s%s %s (%d blocks at different positions)@," prefix cont_prefix
+      condition exp_count;
+
+  let pp_blocks sign styled blocks =
+    List.iter
+      (fun (pos, rules) ->
+        let selectors = selectors_of_rules rules in
+        if selectors <> [] then
+          Fmt.pf fmt "%s%a@," indent styled
+            (Fmt.str "%s Block at position %d: %s" sign pos
+               (String.concat ", " selectors)))
+      blocks
+  in
+  pp_blocks "-" red_styled expected_blocks;
+  pp_blocks "+" green_styled actual_blocks
+
+let pp_container_add_remove ~style ~is_last ~parent_prefix ~label fmt
+    container_type condition rules =
+  let prefix = tree_prefix ~style ~is_last ~parent_prefix in
+  let child_prefix = tree_continuation ~style ~is_last ~parent_prefix in
+  Fmt.pf fmt "%s%s %s (%s)@," prefix
+    (container_prefix container_type)
+    condition label;
+  pp_container_rules ~style ~parent_prefix:child_prefix ~label fmt rules
+
 let rec pp_container_diff ?(style = default_style) ?(is_last = false)
     ?(parent_prefix = "") fmt = function
   | Container_added { container_type; condition; rules } ->
-      let prefix = tree_prefix ~style ~is_last ~parent_prefix in
-      let child_prefix = tree_continuation ~style ~is_last ~parent_prefix in
-      Fmt.pf fmt "%s%s %s (added)@," prefix
-        (container_prefix container_type)
-        condition;
-      pp_container_rules ~style ~parent_prefix:child_prefix ~label:"added" fmt
-        rules
+      pp_container_add_remove ~style ~is_last ~parent_prefix ~label:"added" fmt
+        container_type condition rules
   | Container_removed { container_type; condition; rules } ->
-      let prefix = tree_prefix ~style ~is_last ~parent_prefix in
-      let child_prefix = tree_continuation ~style ~is_last ~parent_prefix in
-      Fmt.pf fmt "%s%s %s (removed)@," prefix
-        (container_prefix container_type)
-        condition;
-      pp_container_rules ~style ~parent_prefix:child_prefix ~label:"removed" fmt
-        rules
+      pp_container_add_remove ~style ~is_last ~parent_prefix ~label:"removed"
+        fmt container_type condition rules
   | Container_modified
       {
         info = { container_type; condition; rules = _ };
@@ -516,44 +556,8 @@ let rec pp_container_diff ?(style = default_style) ?(is_last = false)
         expected_pos actual_pos
   | Container_block_structure_changed
       { container_type; condition; expected_blocks; actual_blocks } ->
-      let cont_prefix = container_prefix container_type in
-      let prefix = tree_prefix ~style ~is_last ~parent_prefix in
-      let child_prefix = tree_continuation ~style ~is_last ~parent_prefix in
-      let indent =
-        if style.use_tree then child_prefix ^ "   " else child_prefix ^ "    "
-      in
-      let red_styled = fmt_style "remove" in
-      let green_styled = fmt_style "add" in
-
-      (* Show the merge/split summary *)
-      let exp_count = List.length expected_blocks in
-      let act_count = List.length actual_blocks in
-
-      (* Report block structure changes - this is a meaningful difference even
-         if selectors are identical *)
-      if exp_count > act_count then
-        Fmt.pf fmt "%s%s %s (%d blocks merged into %d)@," prefix cont_prefix
-          condition exp_count act_count
-      else if exp_count < act_count then
-        Fmt.pf fmt "%s%s %s (%d block split into %d)@," prefix cont_prefix
-          condition exp_count act_count
-      else
-        (* Same count but different positions *)
-        Fmt.pf fmt "%s%s %s (%d blocks at different positions)@," prefix
-          cont_prefix condition exp_count;
-
-      let pp_blocks sign styled blocks =
-        List.iter
-          (fun (pos, rules) ->
-            let selectors = selectors_of_rules rules in
-            if selectors <> [] then
-              Fmt.pf fmt "%s%a@," indent styled
-                (Fmt.str "%s Block at position %d: %s" sign pos
-                   (String.concat ", " selectors)))
-          blocks
-      in
-      pp_blocks "-" red_styled expected_blocks;
-      pp_blocks "+" green_styled actual_blocks
+      pp_block_structure_changed ~style ~is_last ~parent_prefix fmt
+        ~container_type ~condition ~expected_blocks ~actual_blocks
 
 let pp_diff_headers fmt expected actual =
   Fmt.pf fmt "%a %a@."
@@ -1144,109 +1148,95 @@ let selector_position sel rules =
     rules
   |> List.find_map Fun.id |> Option.value ~default:(-1)
 
+let selector_at_position pos rules =
+  Option.bind (List.nth_opt rules pos) describe_statement
+
+let content_changed selector old_decls new_decls =
+  let property_changes, added_props, removed_props =
+    properties_diff old_decls new_decls
+  in
+  Rule_content_changed
+    {
+      selector;
+      old_declarations = old_decls;
+      new_declarations = new_decls;
+      property_changes;
+      added_properties = added_props;
+      removed_properties = removed_props;
+    }
+
+let reordered ~rules1 ~rules2 sel1 sel2 selector =
+  let expected_pos = selector_position sel1 rules1 in
+  let actual_pos = selector_position sel2 rules2 in
+  let swapped_with = selector_at_position expected_pos rules2 in
+  Rule_reordered
+    {
+      selector;
+      expected_pos;
+      actual_pos;
+      swapped_with;
+      old_declarations = None;
+      new_declarations = None;
+    }
+
+let position_changed ~rules1 ~rules2 sel1 sel2 =
+  let expected_pos = selector_position sel1 rules1 in
+  let actual_pos = selector_position sel2 rules2 in
+  expected_pos <> actual_pos
+
+let is_pure_decl_reordering decls1 decls2 =
+  let property_changes, added_props, removed_props =
+    properties_diff decls1 decls2
+  in
+  let pure =
+    property_changes = [] && added_props = [] && removed_props = []
+    && decls_signature decls1 = decls_signature decls2
+  in
+  (pure, property_changes, added_props, removed_props)
+
+let decl_level_reorder selector decls1 decls2 =
+  Rule_reordered
+    {
+      selector;
+      expected_pos = -1;
+      actual_pos = -1;
+      swapped_with = None;
+      old_declarations = Some decls1;
+      new_declarations = Some decls2;
+    }
+
 let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
   let sel1_str = Css.Selector.to_string sel1 in
   let sel2_str = Css.Selector.to_string sel2 in
-
-  let selector_at_position pos rules =
-    Option.bind (List.nth_opt rules pos) describe_statement
-  in
-
-  let make_content_changed selector old_decls new_decls =
-    let property_changes, added_props, removed_props =
-      properties_diff old_decls new_decls
-    in
-    Rule_content_changed
-      {
-        selector;
-        old_declarations = old_decls;
-        new_declarations = new_decls;
-        property_changes;
-        added_properties = added_props;
-        removed_properties = removed_props;
-      }
-  in
-
-  (* Helper to create Rule_reordered for position changes *)
-  let make_reordered selector =
-    let expected_pos = selector_position sel1 rules1 in
-    let actual_pos = selector_position sel2 rules2 in
-    let swapped_with = selector_at_position expected_pos rules2 in
-    Rule_reordered
-      {
-        selector;
-        expected_pos;
-        actual_pos;
-        swapped_with;
-        old_declarations = None;
-        new_declarations = None;
-      }
-  in
-
-  (* Helper to check if rule position changed *)
-  let position_changed () =
-    let expected_pos = selector_position sel1 rules1 in
-    let actual_pos = selector_position sel2 rules2 in
-    expected_pos <> actual_pos
+  let position_changed () = position_changed ~rules1 ~rules2 sel1 sel2 in
+  let reordered selector = reordered ~rules1 ~rules2 sel1 sel2 selector in
+  let reorder_or_content selector d1 d2 =
+    if position_changed () then reordered selector
+    else content_changed selector d1 d2
   in
 
   (* Handle each modification case *)
   match (decls1, decls2) with
-  | [], [] ->
-      (* Both empty *)
-      if position_changed () then make_reordered sel1_str
-      else make_content_changed sel1_str decls1 decls2
-  | [], _ | _, [] ->
-      (* Properties added or removed *)
-      make_content_changed sel1_str decls1 decls2
+  | [], [] -> reorder_or_content sel1_str decls1 decls2
+  | [], _ | _, [] -> content_changed sel1_str decls1 decls2
   | _, _ when sel1_str <> sel2_str ->
-      (* Selector changed *)
       Rule_selector_changed
         {
           old_selector = sel1_str;
           new_selector = sel2_str;
           declarations = decls2;
         }
-  | _, _ when decls1 = decls2 ->
-      (* Same declarations *)
-      if position_changed () then make_reordered sel1_str
-      else make_content_changed sel1_str decls1 decls2
+  | _, _ when decls1 = decls2 -> reorder_or_content sel1_str decls1 decls2
   | _, _ ->
-      (* Content differs - check if it's pure property reordering *)
-      let property_changes, added_props, removed_props =
-        properties_diff decls1 decls2
+      let pure, property_changes, added_props, removed_props =
+        is_pure_decl_reordering decls1 decls2
       in
-      let is_pure_reordering =
-        property_changes = [] && added_props = [] && removed_props = []
-        && decls_signature decls1 = decls_signature decls2
-      in
-      if is_pure_reordering then
-        (* Pure declaration reordering inside the rule: classify as
-           Rule_reordered and carry declarations to pretty-print a reorder
-           summary. If the rule position also changed, expected_pos/actual_pos
-           will reflect that via make_reordered; otherwise, mark as a
-           declaration-level reorder with sentinel positions. *)
-        if position_changed () then make_reordered sel1_str
-        else
-          Rule_reordered
-            {
-              selector = sel1_str;
-              expected_pos = -1;
-              actual_pos = -1;
-              swapped_with = None;
-              old_declarations = Some decls1;
-              new_declarations = Some decls2;
-            }
+      if pure then
+        if position_changed () then reordered sel1_str
+        else decl_level_reorder sel1_str decls1 decls2
       else if property_changes <> [] || added_props <> [] || removed_props <> []
-      then
-        (* Properties changed *)
-        make_content_changed sel1_str decls1 decls2
-      else if position_changed () then
-        (* Position changed but content is the same *)
-        make_reordered sel1_str
-      else
-        (* No actual changes - should not happen in modified list *)
-        make_content_changed sel1_str decls1 decls2
+      then content_changed sel1_str decls1 decls2
+      else reorder_or_content sel1_str decls1 decls2
 
 (* Assemble rule changes (added/removed/modified) between two rule lists *)
 let to_rule_changes rules1 rules2 : rule_diff list =

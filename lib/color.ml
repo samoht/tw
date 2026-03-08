@@ -2345,6 +2345,46 @@ let stroke_current_with_opacity opacity =
     ~property:(fun color -> Css.stroke (Css.Color color))
     opacity
 
+let divide_opacity_via_property ~selector c shade percent =
+  let cvar = property_color_var ~property_prefix:"border-color" c shade in
+  let color_value =
+    property_color_value ~property_prefix:"border-color" c shade
+  in
+  let hex_alpha =
+    let oklch = to_oklch c shade in
+    hex_with_alpha (rgb_to_hex (oklch_to_rgb oklch)) percent
+  in
+  let fallback_rule =
+    Css.rule ~selector [ Css.border_color (Css.hex hex_alpha) ]
+  in
+  let theme_decl, color_ref = Var.binding cvar color_value in
+  let oklab_color =
+    Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+      ~percent1:percent
+  in
+  let supports_rule =
+    Css.rule ~selector [ theme_decl; Css.border_color oklab_color ]
+  in
+  let supports_block = color_mix_supports_stmts ~stmts:[ supports_rule ] in
+  Style.style ~rules:(Some [ fallback_rule; supports_block ]) []
+
+let bg_opacity_via_property c shade percent =
+  let cvar = color_var c shade in
+  let color_value = to_css c (if is_base_color c then 500 else shade) in
+  let hex_alpha =
+    let oklch = to_oklch c shade in
+    hex_with_alpha (rgb_to_hex (oklch_to_rgb oklch)) percent
+  in
+  let fallback_decl = Css.background_color (Css.hex hex_alpha) in
+  let theme_decl, color_ref = Var.binding cvar color_value in
+  let oklab_decl =
+    Css.background_color
+      (Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+         ~percent1:percent)
+  in
+  let supports_block = color_mix_supports ~decls:[ theme_decl; oklab_decl ] in
+  Style.style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+
 (* Divide helpers with custom selector *)
 let divide_with_opacity_selector ~selector c shade opacity =
   let open Handler in
@@ -2378,30 +2418,7 @@ let divide_with_opacity_selector ~selector c shade opacity =
           color_mix_supports_stmts ~stmts:[ supports_rule ]
         in
         Style.style ~rules:(Some [ fallback_rule; supports_block ]) []
-    | None ->
-        let cvar = property_color_var ~property_prefix:"border-color" c shade in
-        let color_value =
-          property_color_value ~property_prefix:"border-color" c shade
-        in
-        let hex_alpha =
-          let oklch = to_oklch c shade in
-          hex_with_alpha (rgb_to_hex (oklch_to_rgb oklch)) percent
-        in
-        let fallback_rule =
-          Css.rule ~selector [ Css.border_color (Css.hex hex_alpha) ]
-        in
-        let theme_decl, color_ref = Var.binding cvar color_value in
-        let oklab_color =
-          Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-            ~percent1:percent
-        in
-        let supports_rule =
-          Css.rule ~selector [ theme_decl; Css.border_color oklab_color ]
-        in
-        let supports_block =
-          color_mix_supports_stmts ~stmts:[ supports_rule ]
-        in
-        Style.style ~rules:(Some [ fallback_rule; supports_block ]) []
+    | None -> divide_opacity_via_property ~selector c shade percent
 
 let divide_with_opacity c shade opacity selector =
   divide_with_opacity_selector ~selector c shade opacity
@@ -2463,24 +2480,7 @@ let bg_with_opacity c shade opacity =
         let supports_block = color_mix_supports ~decls:[ oklab_decl ] in
         Style.style ~rules:(Some [ supports_block ])
           [ theme_decl; fallback_decl ]
-    | None ->
-        let cvar = color_var c shade in
-        let color_value = to_css c (if is_base_color c then 500 else shade) in
-        let hex_alpha =
-          let oklch = to_oklch c shade in
-          hex_with_alpha (rgb_to_hex (oklch_to_rgb oklch)) percent
-        in
-        let fallback_decl = Css.background_color (Css.hex hex_alpha) in
-        let theme_decl, color_ref = Var.binding cvar color_value in
-        let oklab_decl =
-          Css.background_color
-            (Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-               ~percent1:percent)
-        in
-        let supports_block =
-          color_mix_supports ~decls:[ theme_decl; oklab_decl ]
-        in
-        Style.style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+    | None -> bg_opacity_via_property c shade percent
 
 (** Determine the appropriate fallback for an opacity theme variable. If the
     theme defines a concrete value (e.g., "0.5"), use [Fallback (Num f)]. If the

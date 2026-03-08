@@ -572,42 +572,9 @@ let kbd_rules base =
       ];
   ]
 
-(* Code styles *)
-let code_rules base =
+(* Pre code block styles *)
+let pre_code_rules base =
   [
-    Css.rule ~selector:(where base code)
-      [
-        Css.color (Css.Var prose_code_v);
-        Css.font_size (Em 0.875);
-        Css.font_weight (Weight 600);
-      ];
-    (* Code pseudo-elements come AFTER code rule to match Tailwind *)
-    Css.rule
-      ~selector:
-        (Css.Selector.list
-           [ with_before (where base code); with_after (where base code) ])
-      [ content (String "`") ];
-    (* Code inherits color in certain contexts *)
-    Css.rule
-      ~selector:
-        (Css.Selector.list [ where base (a ++ code); where base (h1 ++ code) ])
-      [ Css.color Inherit ];
-    Css.rule
-      ~selector:(where base (h2 ++ code))
-      [ Css.color Inherit; Css.font_size (Em 0.875) ];
-    Css.rule
-      ~selector:(where base (h3 ++ code))
-      [ Css.color Inherit; Css.font_size (Em 0.9) ];
-    Css.rule
-      ~selector:
-        (Css.Selector.list
-           [
-             where base (h4 ++ code);
-             where base blockquote_code;
-             where base thead_th_code;
-           ])
-      [ Css.color Inherit ];
-    (* Pre code block styles *)
     Css.rule ~selector:(where base pre)
       [
         Css.color (Css.Var prose_pre_code_v);
@@ -645,6 +612,44 @@ let code_rules base =
            ])
       [ content None ];
   ]
+
+(* Code styles *)
+let code_rules base =
+  [
+    Css.rule ~selector:(where base code)
+      [
+        Css.color (Css.Var prose_code_v);
+        Css.font_size (Em 0.875);
+        Css.font_weight (Weight 600);
+      ];
+    (* Code pseudo-elements come AFTER code rule to match Tailwind *)
+    Css.rule
+      ~selector:
+        (Css.Selector.list
+           [ with_before (where base code); with_after (where base code) ])
+      [ content (String "`") ];
+    (* Code inherits color in certain contexts *)
+    Css.rule
+      ~selector:
+        (Css.Selector.list [ where base (a ++ code); where base (h1 ++ code) ])
+      [ Css.color Inherit ];
+    Css.rule
+      ~selector:(where base (h2 ++ code))
+      [ Css.color Inherit; Css.font_size (Em 0.875) ];
+    Css.rule
+      ~selector:(where base (h3 ++ code))
+      [ Css.color Inherit; Css.font_size (Em 0.9) ];
+    Css.rule
+      ~selector:
+        (Css.Selector.list
+           [
+             where base (h4 ++ code);
+             where base blockquote_code;
+             where base thead_th_code;
+           ])
+      [ Css.color Inherit ];
+  ]
+  @ pre_code_rules base
 
 (* Table styles *)
 let table_rules base =
@@ -707,21 +712,9 @@ let figure_rules base =
       ];
   ]
 
-(* Additional list and spacing rules *)
-let additional_rules base =
+(* Nested list paragraph first/last child spacing *)
+let nested_list_paragraph_rules base =
   [
-    (* Picture img special handling *)
-    Css.rule
-      ~selector:(where base (picture >> img))
-      [ Css.margin_top Zero; Css.margin_bottom Zero ];
-    (* List item styles *)
-    Css.rule ~selector:(where base li)
-      [ Css.margin_top (Em 0.5); Css.margin_bottom (Em 0.5) ];
-    Css.rule
-      ~selector:
-        (Css.Selector.list [ where base (ol >> li); where base (ul >> li) ])
-      [ Css.padding_inline_start (Em 0.375) ];
-    (* Nested list paragraph spacing *)
     Css.rule
       ~selector:
         (where base
@@ -762,26 +755,38 @@ let additional_rules base =
               Child
               (ol >> (li >> (p && last_child)))))
       [ Css.margin_bottom (Em 1.25) ];
-    (* Nested lists *)
-    Css.rule ~selector:(where base nested_lists)
-      [ Css.margin_top (Em 0.75); Css.margin_bottom (Em 0.75) ];
-    (* Definition lists *)
-    Css.rule ~selector:(where base dl)
-      [ Css.margin_top (Em 1.25); Css.margin_bottom (Em 1.25) ];
-    Css.rule ~selector:(where base dd)
-      [ Css.margin_top (Em 0.5); padding_inline_start (Em 1.625) ];
-    (* Adjacent element spacing *)
+  ]
+
+(* List spacing rules *)
+let list_spacing_rules base =
+  [
+    (* Picture img special handling *)
+    Css.rule
+      ~selector:(where base (picture >> img))
+      [ Css.margin_top Zero; Css.margin_bottom Zero ];
+    (* List item styles *)
+    Css.rule ~selector:(where base li)
+      [ Css.margin_top (Em 0.5); Css.margin_bottom (Em 0.5) ];
     Css.rule
       ~selector:
-        (Css.Selector.list
-           [
-             where base (sibling hr);
-             where base (sibling h2);
-             where base (sibling h3);
-             where base (sibling h4);
-           ])
-      [ Css.margin_top Zero ];
-    (* Table column padding *)
+        (Css.Selector.list [ where base (ol >> li); where base (ul >> li) ])
+      [ Css.padding_inline_start (Em 0.375) ];
+  ]
+  @ nested_list_paragraph_rules base
+  @ [
+      (* Nested lists *)
+      Css.rule ~selector:(where base nested_lists)
+        [ Css.margin_top (Em 0.75); Css.margin_bottom (Em 0.75) ];
+      (* Definition lists *)
+      Css.rule ~selector:(where base dl)
+        [ Css.margin_top (Em 1.25); Css.margin_bottom (Em 1.25) ];
+      Css.rule ~selector:(where base dd)
+        [ Css.margin_top (Em 0.5); padding_inline_start (Em 1.625) ];
+    ]
+
+(* Table spacing rules *)
+let table_spacing_rules base =
+  [
     Css.rule
       ~selector:(where base (thead ++ (th && first_child)))
       [ Css.padding_inline_start Zero ];
@@ -808,7 +813,26 @@ let additional_rules base =
            (Css.Selector.list
               [ tbody ++ (td && last_child); tfoot ++ (td && last_child) ]))
       [ Css.padding_inline_end Zero ];
-    (* Figure *)
+  ]
+
+(* Adjacent element spacing rules *)
+let adjacent_element_spacing_rules base =
+  [
+    Css.rule
+      ~selector:
+        (Css.Selector.list
+           [
+             where base (sibling hr);
+             where base (sibling h2);
+             where base (sibling h3);
+             where base (sibling h4);
+           ])
+      [ Css.margin_top Zero ];
+  ]
+
+(* Figure and boundary rules *)
+let figure_and_boundary_rules base =
+  [
     Css.rule ~selector:(where base figure)
       [ Css.margin_top (Em 2.0); Css.margin_bottom (Em 2.0) ];
     (* First and last child margins *)
@@ -828,145 +852,158 @@ let additional_rules base =
       [ Css.margin_bottom Zero ];
   ]
 
-(* Base prose rules - combines all element rules *)
-let base_prose_rules () =
-  (* Simplified prose rules to match Tailwind exactly *)
-  let base = "prose" in
+(* Additional list and spacing rules *)
+let additional_rules base =
+  list_spacing_rules base
+  @ adjacent_element_spacing_rules base
+  @ table_spacing_rules base
+  @ figure_and_boundary_rules base
 
-  (* Main prose rule with basic styles only *)
-  let main_rule =
+(* Paragraph and text rules *)
+let paragraph_and_text_rules base =
+  [
+    (* Paragraphs *)
+    Css.rule ~selector:(where base p)
+      [ Css.margin_top (Em 1.25); Css.margin_bottom (Em 1.25) ];
+    (* Lead text *)
     Css.rule
-      ~selector:(Css.Selector.class_ "prose")
-      [ Css.color (Css.Var prose_body_v); Css.max_width (Ch 65.0) ]
-  in
+      ~selector:(where base (class_attr "lead"))
+      [
+        color (Css.Var prose_lead_v);
+        margin_top (Em 1.2);
+        margin_bottom (Em 1.2);
+        font_size (Em 1.25);
+        line_height (Num 1.6);
+      ];
+  ]
 
-  (* Create a separate rule for CSS variables - like Tailwind does *)
-  let variables_rule =
+(* Link and strong rules *)
+let link_and_strong_rules base =
+  [
+    (* Links *)
+    Css.rule ~selector:(where base a)
+      [
+        color (Css.Var prose_links_v);
+        Css.font_weight (Weight 500);
+        text_decoration
+          (Shorthand
+             {
+               lines = [ Underline ];
+               style = None;
+               color = None;
+               thickness = None;
+             });
+      ];
+    (* Strong *)
+    Css.rule ~selector:(where base strong)
+      [ Css.color (Css.Var prose_bold_v); Css.font_weight (Weight 600) ];
+    (* Strong inherit rules - group multiple selectors *)
     Css.rule
-      ~selector:(Css.Selector.class_ "prose")
-      (css_variables @ [ Css.font_size (Rem 1.0); Css.line_height (Num 1.75) ])
-  in
+      ~selector:
+        (Css.Selector.list
+           [
+             where base (Css.Selector.combine a Css.Selector.Descendant strong);
+             where base
+               (Css.Selector.combine blockquote Css.Selector.Descendant strong);
+             where base
+               (Css.Selector.combine
+                  (Css.Selector.combine thead Css.Selector.Descendant th)
+                  Css.Selector.Descendant strong);
+           ])
+      [ Css.color Inherit ];
+  ]
 
-  (* Split into organized utility rule functions *)
-  let paragraph_and_text_rules =
-    [
-      (* Paragraphs *)
-      Css.rule ~selector:(where base p)
-        [ Css.margin_top (Em 1.25); Css.margin_bottom (Em 1.25) ];
-      (* Lead text *)
-      Css.rule
-        ~selector:(where base (class_attr "lead"))
-        [
-          color (Css.Var prose_lead_v);
-          margin_top (Em 1.2);
-          margin_bottom (Em 1.2);
-          font_size (Em 1.25);
-          line_height (Num 1.6);
-        ];
-    ]
-  in
+(* Ordered list type variant rules *)
+let ol_type_variant_rules base =
+  [
+    Css.rule
+      ~selector:(where base (Css.Selector.compound [ ol; type_attr "A" ]))
+      [ list_style_type Upper_alpha ];
+    Css.rule
+      ~selector:(where base (Css.Selector.compound [ ol; type_attr "a" ]))
+      [ list_style_type Lower_alpha ];
+    Css.rule
+      ~selector:
+        (where base
+           (Css.Selector.compound
+              [
+                ol;
+                Css.Selector.attribute ~flag:Case_sensitive "type" (Exact "A");
+              ]))
+      [ list_style_type Upper_alpha ];
+    Css.rule
+      ~selector:
+        (where base
+           (Css.Selector.compound
+              [
+                ol;
+                Css.Selector.attribute ~flag:Case_sensitive "type" (Exact "a");
+              ]))
+      [ list_style_type Lower_alpha ];
+    Css.rule
+      ~selector:(where base (Css.Selector.compound [ ol; type_attr "I" ]))
+      [ list_style_type Upper_roman ];
+    Css.rule
+      ~selector:(where base (Css.Selector.compound [ ol; type_attr "i" ]))
+      [ list_style_type Lower_roman ];
+    Css.rule
+      ~selector:
+        (where base
+           (Css.Selector.compound
+              [
+                ol;
+                Css.Selector.attribute ~flag:Case_sensitive "type" (Exact "I");
+              ]))
+      [ list_style_type Upper_roman ];
+    Css.rule
+      ~selector:
+        (where base
+           (Css.Selector.compound
+              [
+                ol;
+                Css.Selector.attribute ~flag:Case_sensitive "type" (Exact "i");
+              ]))
+      [ list_style_type Lower_roman ];
+    Css.rule
+      ~selector:(where base (Css.Selector.compound [ ol; type_attr "1" ]))
+      [ list_style_type Decimal ];
+  ]
 
-  let link_and_strong_rules =
-    [
-      (* Links *)
-      Css.rule ~selector:(where base a)
-        [
-          color (Css.Var prose_links_v);
-          Css.font_weight (Weight 500);
-          text_decoration
-            (Shorthand
-               {
-                 lines = [ Underline ];
-                 style = None;
-                 color = None;
-                 thickness = None;
-               });
-        ];
-      (* Strong *)
-      Css.rule ~selector:(where base strong)
-        [ Css.color (Css.Var prose_bold_v); Css.font_weight (Weight 600) ];
-      (* Strong inherit rules - group multiple selectors *)
-      Css.rule
-        ~selector:
-          (Css.Selector.list
-             [
-               where base
-                 (Css.Selector.combine a Css.Selector.Descendant strong);
-               where base
-                 (Css.Selector.combine blockquote Css.Selector.Descendant strong);
-               where base
-                 (Css.Selector.combine
-                    (Css.Selector.combine thead Css.Selector.Descendant th)
-                    Css.Selector.Descendant strong);
-             ])
-        [ Css.color Inherit ];
-    ]
-  in
+(* List marker rules *)
+let list_marker_rules base =
+  [
+    Css.rule
+      ~selector:
+        (Css.Selector.compound
+           [
+             where base (Css.Selector.combine ol Css.Selector.Child li);
+             Css.Selector.Marker;
+           ])
+      [ Css.color (Css.Var prose_counters_v); Css.font_weight (Weight 400) ];
+    Css.rule
+      ~selector:
+        (Css.Selector.compound
+           [
+             where base (Css.Selector.combine ul Css.Selector.Child li);
+             Css.Selector.Marker;
+           ])
+      [ Css.color (Css.Var prose_bullets_v) ];
+  ]
 
-  (* All prose rules to match Tailwind exactly *)
-  (* Lists with markers (markers come AFTER the ul rule like Tailwind) *)
-  let list_and_marker_rules =
-    [
-      (* Lists *)
-      Css.rule ~selector:(where base ol)
-        [
-          margin_top (Em 1.25);
-          margin_bottom (Em 1.25);
-          padding_inline_start (Em 1.625);
-          list_style_type Decimal;
-        ];
-      (* List type variants - compound selector without space *)
-      Css.rule
-        ~selector:(where base (Css.Selector.compound [ ol; type_attr "A" ]))
-        [ list_style_type Upper_alpha ];
-      Css.rule
-        ~selector:(where base (Css.Selector.compound [ ol; type_attr "a" ]))
-        [ list_style_type Lower_alpha ];
-      Css.rule
-        ~selector:
-          (where base
-             (Css.Selector.compound
-                [
-                  ol;
-                  Css.Selector.attribute ~flag:Case_sensitive "type" (Exact "A");
-                ]))
-        [ list_style_type Upper_alpha ];
-      Css.rule
-        ~selector:
-          (where base
-             (Css.Selector.compound
-                [
-                  ol;
-                  Css.Selector.attribute ~flag:Case_sensitive "type" (Exact "a");
-                ]))
-        [ list_style_type Lower_alpha ];
-      Css.rule
-        ~selector:(where base (Css.Selector.compound [ ol; type_attr "I" ]))
-        [ list_style_type Upper_roman ];
-      Css.rule
-        ~selector:(where base (Css.Selector.compound [ ol; type_attr "i" ]))
-        [ list_style_type Lower_roman ];
-      Css.rule
-        ~selector:
-          (where base
-             (Css.Selector.compound
-                [
-                  ol;
-                  Css.Selector.attribute ~flag:Case_sensitive "type" (Exact "I");
-                ]))
-        [ list_style_type Upper_roman ];
-      Css.rule
-        ~selector:
-          (where base
-             (Css.Selector.compound
-                [
-                  ol;
-                  Css.Selector.attribute ~flag:Case_sensitive "type" (Exact "i");
-                ]))
-        [ list_style_type Lower_roman ];
-      Css.rule
-        ~selector:(where base (Css.Selector.compound [ ol; type_attr "1" ]))
-        [ list_style_type Decimal ];
+(* Lists with markers (markers come AFTER the ul rule like Tailwind) *)
+let list_and_marker_rules base =
+  [
+    (* Lists *)
+    Css.rule ~selector:(where base ol)
+      [
+        margin_top (Em 1.25);
+        margin_bottom (Em 1.25);
+        padding_inline_start (Em 1.625);
+        list_style_type Decimal;
+      ];
+  ]
+  @ ol_type_variant_rules base
+  @ [
       Css.rule ~selector:(where base ul)
         [
           margin_top (Em 1.25);
@@ -974,92 +1011,95 @@ let base_prose_rules () =
           padding_inline_start (Em 1.625);
           list_style_type Disc;
         ];
-      (* Markers come AFTER ul rule to match Tailwind *)
-      Css.rule
-        ~selector:
-          (Css.Selector.compound
-             [
-               where base (Css.Selector.combine ol Css.Selector.Child li);
-               Css.Selector.Marker;
-             ])
-        [ Css.color (Css.Var prose_counters_v); Css.font_weight (Weight 400) ];
-      Css.rule
-        ~selector:
-          (Css.Selector.compound
-             [
-               where base (Css.Selector.combine ul Css.Selector.Child li);
-               Css.Selector.Marker;
-             ])
-        [ Css.color (Css.Var prose_bullets_v) ];
     ]
+  (* Markers come AFTER ul rule to match Tailwind *)
+  @ list_marker_rules base
+
+(* Blockquote and pseudo-element rules *)
+let blockquote_rules base =
+  [
+    Css.rule ~selector:(where base blockquote)
+      [
+        color (Css.Var prose_quotes_v);
+        border_inline_start_width (Rem 0.25);
+        border_inline_start_color (Css.Var prose_quote_borders_v);
+        quotes
+          (Pairs
+             [
+               (* " and " - left/right double quotes *)
+               ("\xe2\x80\x9c", "\xe2\x80\x9d");
+               (* ' and ' - left/right single quotes *)
+               ("\xe2\x80\x98", "\xe2\x80\x99");
+             ]);
+        margin_top (Em 1.6);
+        margin_bottom (Em 1.6);
+        padding_inline_start (Em 1.0);
+        font_style Italic;
+        Css.font_weight (Weight 500);
+      ];
+    (* Blockquote pseudo-elements come AFTER blockquote rule *)
+    Css.rule
+      ~selector:
+        (with_before
+           (where base
+              (Css.Selector.compound
+                 [
+                   Css.Selector.combine blockquote Css.Selector.Descendant p;
+                   Css.Selector.First_of_type;
+                 ])))
+      [ content Open_quote ];
+    Css.rule
+      ~selector:
+        (with_after
+           (where base
+              (Css.Selector.compound
+                 [
+                   Css.Selector.combine blockquote Css.Selector.Descendant p;
+                   Css.Selector.Last_of_type;
+                 ])))
+      [ content Close_quote ];
+  ]
+
+(* Structural elements with blockquote pseudo-elements interleaved *)
+let structural_element_rules base =
+  [
+    (* Definition terms *)
+    Css.rule ~selector:(where base dt)
+      [
+        color (Css.Var prose_headings_v);
+        margin_top (Em 1.25);
+        Css.font_weight (Weight 600);
+      ];
+    (* Horizontal rules *)
+    Css.rule ~selector:(where base hr)
+      [
+        border_color (Css.Var prose_hr_v);
+        border_top_width (Px 1.0);
+        margin_top (Em 3.0);
+        margin_bottom (Em 3.0);
+      ];
+  ]
+  @ blockquote_rules base
+
+(* Base prose rules - combines all element rules *)
+let base_prose_rules () =
+  let base = "prose" in
+  let main_rule =
+    Css.rule
+      ~selector:(Css.Selector.class_ "prose")
+      [ Css.color (Css.Var prose_body_v); Css.max_width (Ch 65.0) ]
   in
-  (* Structural elements with blockquote pseudo-elements interleaved *)
-  let structural_element_rules =
-    [
-      (* Definition terms *)
-      Css.rule ~selector:(where base dt)
-        [
-          color (Css.Var prose_headings_v);
-          margin_top (Em 1.25);
-          Css.font_weight (Weight 600);
-        ];
-      (* Horizontal rules *)
-      Css.rule ~selector:(where base hr)
-        [
-          border_color (Css.Var prose_hr_v);
-          border_top_width (Px 1.0);
-          margin_top (Em 3.0);
-          margin_bottom (Em 3.0);
-        ];
-      (* Blockquotes *)
-      Css.rule ~selector:(where base blockquote)
-        [
-          color (Css.Var prose_quotes_v);
-          border_inline_start_width (Rem 0.25);
-          border_inline_start_color (Css.Var prose_quote_borders_v);
-          quotes
-            (Pairs
-               [
-                 (* " and " - left/right double quotes *)
-                 ("\xe2\x80\x9c", "\xe2\x80\x9d");
-                 (* ' and ' - left/right single quotes *)
-                 ("\xe2\x80\x98", "\xe2\x80\x99");
-               ]);
-          margin_top (Em 1.6);
-          margin_bottom (Em 1.6);
-          padding_inline_start (Em 1.0);
-          font_style Italic;
-          Css.font_weight (Weight 500);
-        ];
-      (* Blockquote pseudo-elements come AFTER blockquote rule *)
-      Css.rule
-        ~selector:
-          (with_before
-             (where base
-                (Css.Selector.compound
-                   [
-                     Css.Selector.combine blockquote Css.Selector.Descendant p;
-                     Css.Selector.First_of_type;
-                   ])))
-        [ content Open_quote ];
-      Css.rule
-        ~selector:
-          (with_after
-             (where base
-                (Css.Selector.compound
-                   [
-                     Css.Selector.combine blockquote Css.Selector.Descendant p;
-                     Css.Selector.Last_of_type;
-                   ])))
-        [ content Close_quote ];
-    ]
+  let variables_rule =
+    Css.rule
+      ~selector:(Css.Selector.class_ "prose")
+      (css_variables @ [ Css.font_size (Rem 1.0); Css.line_height (Num 1.75) ])
   in
-  (* Put main_rule first, then element rules in the same order as before *)
-  [ main_rule ] @ paragraph_and_text_rules @ link_and_strong_rules
-  @ list_and_marker_rules @ structural_element_rules @ heading_rules base
-  @ media_rules base @ kbd_rules base @ code_rules base @ table_rules base
-  @ figure_rules base
-  @ [ variables_rule ] (* Variables rule at the end like Tailwind *)
+  [ main_rule ]
+  @ paragraph_and_text_rules base
+  @ link_and_strong_rules base @ list_and_marker_rules base
+  @ structural_element_rules base
+  @ heading_rules base @ media_rules base @ kbd_rules base @ code_rules base
+  @ table_rules base @ figure_rules base @ [ variables_rule ]
   @ additional_rules base
 
 (* Configuration type for typography sizes *)
@@ -1128,38 +1168,10 @@ type size_config = {
   figcaption_line_height : float;
 }
 
-(* Helper function to generate typography rules for different sizes *)
-let typography_rules selector c =
-  (* Combinator to avoid repeating pattern *)
+(* Typography heading rules for size variants *)
+let typography_heading_rules selector c =
   let open Selector in
   [
-    (* Base rule *)
-    Css.rule ~selector
-      [
-        Css.font_size c.base_font_size; Css.line_height (Num c.base_line_height);
-      ];
-    (* Paragraph *)
-    Css.rule
-      ~selector:(selector ++ prose_where_element p)
-      [ Css.margin_top c.p_margin_y; Css.margin_bottom c.p_margin_y ];
-    (* Lead paragraph *)
-    Css.rule
-      ~selector:(selector ++ prose_where_element (class_attr "lead"))
-      [
-        Css.margin_top c.lead_margin_top;
-        Css.margin_bottom c.lead_margin_bottom;
-        Css.font_size c.lead_font_size;
-        Css.line_height (Num c.lead_line_height);
-      ];
-    (* Blockquote *)
-    Css.rule
-      ~selector:(selector ++ prose_where_element blockquote)
-      [
-        Css.margin_top c.blockquote_margin_y;
-        Css.margin_bottom c.blockquote_margin_y;
-        Css.padding_inline_start c.blockquote_padding_start;
-      ];
-    (* Headings *)
     Css.rule
       ~selector:(selector ++ prose_where_element h1)
       [
@@ -1191,79 +1203,12 @@ let typography_rules selector c =
         Css.margin_bottom c.h4_margin_bottom;
         Css.line_height (Num c.h4_line_height);
       ];
-    (* Images *)
-    Css.rule
-      ~selector:
-        (Css.Selector.list
-           [
-             selector ++ prose_where_element img;
-             selector ++ prose_where_element picture;
-           ])
-      [ Css.margin_top c.img_margin_y; Css.margin_bottom c.img_margin_y ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element (picture >> img))
-      [ Css.margin_top Zero; Css.margin_bottom Zero ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element video)
-      [ Css.margin_top c.img_margin_y; Css.margin_bottom c.img_margin_y ];
-    (* Code elements *)
-    Css.rule
-      ~selector:(selector ++ prose_where_element (element "kbd"))
-      [
-        Css.padding_top c.kbd_padding_y;
-        Css.padding_inline_end c.kbd_padding_x;
-        Css.padding_bottom c.kbd_padding_y;
-        border_radius c.kbd_border_radius;
-        Css.padding_inline_start c.kbd_padding_x;
-        Css.font_size c.kbd_font_size;
-      ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element code)
-      [ Css.font_size c.code_font_size ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element (h2 ++ code))
-      [ Css.font_size c.h2_code_font_size ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element (h3 ++ code))
-      [ Css.font_size c.h3_code_font_size ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element pre)
-      [
-        Css.padding_top c.pre_padding_y;
-        Css.padding_inline_end c.pre_padding_x;
-        Css.padding_bottom c.pre_padding_y;
-        border_radius c.pre_border_radius;
-        Css.margin_top c.pre_margin_top;
-        Css.margin_bottom c.pre_margin_bottom;
-        Css.padding_inline_start c.pre_padding_x;
-        Css.font_size c.pre_font_size;
-        Css.line_height (Num c.pre_line_height);
-      ];
-    (* Lists *)
-    Css.rule
-      ~selector:
-        (Css.Selector.list
-           [
-             selector ++ prose_where_element ol;
-             selector ++ prose_where_element ul;
-           ])
-      [
-        Css.margin_top c.list_margin_y;
-        Css.margin_bottom c.list_margin_y;
-        Css.padding_inline_start c.list_padding_start;
-      ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element li)
-      [ Css.margin_top c.li_margin_y; Css.margin_bottom c.li_margin_y ];
-    (* List items with padding *)
-    Css.rule
-      ~selector:
-        (Css.Selector.list
-           [
-             selector ++ prose_where_element (ol >> li);
-             selector ++ prose_where_element (ul >> li);
-           ])
-      [ Css.padding_inline_start c.li_padding_start ];
+  ]
+
+(* Typography nested list paragraph and definition list rules *)
+let typography_list_nested_rules selector c =
+  let open Selector in
+  [
     (* Nested list paragraphs *)
     Css.rule
       ~selector:(prose_child_selector selector (ul >> li ++ p))
@@ -1299,42 +1244,43 @@ let typography_rules selector c =
       [
         Css.margin_top c.dd_margin_top; padding_inline_start c.dd_padding_start;
       ];
-    (* Horizontal rule *)
-    Css.rule
-      ~selector:(selector ++ prose_where_element hr)
-      [ Css.margin_top c.hr_margin_y; Css.margin_bottom c.hr_margin_y ];
-    (* Following elements *)
+  ]
+
+(* Typography list rules for size variants *)
+let typography_list_rules selector c =
+  let open Selector in
+  [
     Css.rule
       ~selector:
         (Css.Selector.list
            [
-             selector ++ prose_where_element (sibling hr);
-             selector ++ prose_where_element (sibling h2);
-             selector ++ prose_where_element (sibling h3);
-             selector ++ prose_where_element (sibling h4);
+             selector ++ prose_where_element ol;
+             selector ++ prose_where_element ul;
            ])
-      [ Css.margin_top Zero ];
-    (* Tables *)
-    Css.rule
-      ~selector:(selector ++ prose_where_element table)
       [
-        Css.font_size c.table_font_size;
-        Css.line_height (Num c.table_line_height);
+        Css.margin_top c.list_margin_y;
+        Css.margin_bottom c.list_margin_y;
+        Css.padding_inline_start c.list_padding_start;
       ];
     Css.rule
-      ~selector:(selector ++ prose_where_element (thead ++ th))
-      [
-        Css.padding_inline_end c.thead_th_padding_x;
-        Css.padding_bottom c.thead_th_padding_bottom;
-        Css.padding_inline_start c.thead_th_padding_x;
-      ];
+      ~selector:(selector ++ prose_where_element li)
+      [ Css.margin_top c.li_margin_y; Css.margin_bottom c.li_margin_y ];
+    (* List items with padding *)
     Css.rule
-      ~selector:(selector ++ prose_where_element (thead ++ (th && first_child)))
-      [ Css.padding_inline_start Zero ];
-    Css.rule
-      ~selector:(selector ++ prose_where_element (thead ++ (th && last_child)))
-      [ Css.padding_inline_end Zero ];
-    (* Table body and footer cells *)
+      ~selector:
+        (Css.Selector.list
+           [
+             selector ++ prose_where_element (ol >> li);
+             selector ++ prose_where_element (ul >> li);
+           ])
+      [ Css.padding_inline_start c.li_padding_start ];
+  ]
+  @ typography_list_nested_rules selector c
+
+(* Typography table body and footer cell rules *)
+let typography_table_cell_rules selector c =
+  let open Selector in
+  [
     Css.rule
       ~selector:
         (selector
@@ -1362,7 +1308,38 @@ let typography_rules selector c =
              (Css.Selector.list
                 [ tbody ++ (td && last_child); tfoot ++ (td && last_child) ]))
       [ Css.padding_inline_end Zero ];
-    (* Figure *)
+  ]
+
+(* Typography table rules for size variants *)
+let typography_table_rules selector c =
+  let open Selector in
+  [
+    Css.rule
+      ~selector:(selector ++ prose_where_element table)
+      [
+        Css.font_size c.table_font_size;
+        Css.line_height (Num c.table_line_height);
+      ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element (thead ++ th))
+      [
+        Css.padding_inline_end c.thead_th_padding_x;
+        Css.padding_bottom c.thead_th_padding_bottom;
+        Css.padding_inline_start c.thead_th_padding_x;
+      ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element (thead ++ (th && first_child)))
+      [ Css.padding_inline_start Zero ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element (thead ++ (th && last_child)))
+      [ Css.padding_inline_end Zero ];
+  ]
+  @ typography_table_cell_rules selector c
+
+(* Typography figure and boundary rules for size variants *)
+let typography_figure_rules selector c =
+  let open Selector in
+  [
     Css.rule
       ~selector:(selector ++ prose_where_element figure)
       [ Css.margin_top c.figure_margin_y; Css.margin_bottom c.figure_margin_y ];
@@ -1385,6 +1362,123 @@ let typography_rules selector c =
       ~selector:(prose_child_selector selector last_child)
       [ Css.margin_bottom Zero ];
   ]
+
+(* Typography image and media rules for size variants *)
+let typography_media_rules selector c =
+  let open Selector in
+  [
+    Css.rule
+      ~selector:
+        (Css.Selector.list
+           [
+             selector ++ prose_where_element img;
+             selector ++ prose_where_element picture;
+           ])
+      [ Css.margin_top c.img_margin_y; Css.margin_bottom c.img_margin_y ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element (picture >> img))
+      [ Css.margin_top Zero; Css.margin_bottom Zero ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element video)
+      [ Css.margin_top c.img_margin_y; Css.margin_bottom c.img_margin_y ];
+  ]
+
+(* Typography code element rules for size variants *)
+let typography_code_rules selector c =
+  let open Selector in
+  [
+    Css.rule
+      ~selector:(selector ++ prose_where_element (element "kbd"))
+      [
+        Css.padding_top c.kbd_padding_y;
+        Css.padding_inline_end c.kbd_padding_x;
+        Css.padding_bottom c.kbd_padding_y;
+        border_radius c.kbd_border_radius;
+        Css.padding_inline_start c.kbd_padding_x;
+        Css.font_size c.kbd_font_size;
+      ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element code)
+      [ Css.font_size c.code_font_size ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element (h2 ++ code))
+      [ Css.font_size c.h2_code_font_size ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element (h3 ++ code))
+      [ Css.font_size c.h3_code_font_size ];
+    Css.rule
+      ~selector:(selector ++ prose_where_element pre)
+      [
+        Css.padding_top c.pre_padding_y;
+        Css.padding_inline_end c.pre_padding_x;
+        Css.padding_bottom c.pre_padding_y;
+        border_radius c.pre_border_radius;
+        Css.margin_top c.pre_margin_top;
+        Css.margin_bottom c.pre_margin_bottom;
+        Css.padding_inline_start c.pre_padding_x;
+        Css.font_size c.pre_font_size;
+        Css.line_height (Num c.pre_line_height);
+      ];
+  ]
+
+(* Typography horizontal rule and following element rules *)
+let typography_hr_rules selector c =
+  let open Selector in
+  [
+    Css.rule
+      ~selector:(selector ++ prose_where_element hr)
+      [ Css.margin_top c.hr_margin_y; Css.margin_bottom c.hr_margin_y ];
+    (* Following elements *)
+    Css.rule
+      ~selector:
+        (Css.Selector.list
+           [
+             selector ++ prose_where_element (sibling hr);
+             selector ++ prose_where_element (sibling h2);
+             selector ++ prose_where_element (sibling h3);
+             selector ++ prose_where_element (sibling h4);
+           ])
+      [ Css.margin_top Zero ];
+  ]
+
+(* Helper function to generate typography rules for different sizes *)
+let typography_rules selector c =
+  let open Selector in
+  [
+    (* Base rule *)
+    Css.rule ~selector
+      [
+        Css.font_size c.base_font_size; Css.line_height (Num c.base_line_height);
+      ];
+    (* Paragraph *)
+    Css.rule
+      ~selector:(selector ++ prose_where_element p)
+      [ Css.margin_top c.p_margin_y; Css.margin_bottom c.p_margin_y ];
+    (* Lead paragraph *)
+    Css.rule
+      ~selector:(selector ++ prose_where_element (class_attr "lead"))
+      [
+        Css.margin_top c.lead_margin_top;
+        Css.margin_bottom c.lead_margin_bottom;
+        Css.font_size c.lead_font_size;
+        Css.line_height (Num c.lead_line_height);
+      ];
+    (* Blockquote *)
+    Css.rule
+      ~selector:(selector ++ prose_where_element blockquote)
+      [
+        Css.margin_top c.blockquote_margin_y;
+        Css.margin_bottom c.blockquote_margin_y;
+        Css.padding_inline_start c.blockquote_padding_start;
+      ];
+  ]
+  @ typography_heading_rules selector c
+  @ typography_media_rules selector c
+  @ typography_code_rules selector c
+  @ typography_list_rules selector c
+  @ typography_hr_rules selector c
+  @ typography_table_rules selector c
+  @ typography_figure_rules selector c
 
 (* Size configuration for prose-sm *)
 let sm_config =
@@ -1666,256 +1760,108 @@ let xl_size_rules selector =
 let xl2_size_rules selector =
   typography_rules (Css.Selector.class_ selector) xl2_config
 
+(* Helper to create declarations from a list of (var, value) pairs *)
+let bind_prose_vars bindings =
+  List.map (fun (var, value) -> fst (Var.binding var value)) bindings
+
+(* Gray theme: normal bindings *)
+let gray_normal_bindings =
+  [
+    (prose_body_var, Css.oklch 37.3 0.034 259.733);
+    (prose_headings_var, Css.oklch 21.0 0.034 264.665);
+    (prose_lead_var, Css.oklch 44.6 0.030 256.802);
+    (prose_links_var, Css.oklch 21.0 0.034 264.665);
+    (prose_bold_var, Css.oklch 21.0 0.034 264.665);
+    (prose_counters_var, Css.oklch 55.1 0.027 264.364);
+    (prose_bullets_var, Css.oklch 87.2 0.010 258.338);
+    (prose_hr_var, Css.oklch 92.8 0.006 264.531);
+    (prose_quotes_var, Css.oklch 21.0 0.034 264.665);
+    (prose_quote_borders_var, Css.oklch 92.8 0.006 264.531);
+    (prose_captions_var, Css.oklch 55.1 0.027 264.364);
+    (prose_kbd_var, Css.oklch 21.0 0.034 264.665);
+    (prose_kbd_shadows_var, Css.oklaba 21.0 (-0.00316127) (-0.0338527) 0.1);
+    (prose_code_var, Css.oklch 21.0 0.034 264.665);
+    (prose_pre_code_var, Css.oklch 92.8 0.006 264.531);
+    (prose_pre_bg_var, Css.oklch 27.8 0.033 256.848);
+    (prose_th_borders_var, Css.oklch 87.2 0.010 258.338);
+    (prose_td_borders_var, Css.oklch 92.8 0.006 264.531);
+  ]
+
+(* Gray theme: invert bindings *)
+let gray_invert_bindings =
+  [
+    (prose_invert_body_var, Css.oklch 87.2 0.010 258.338);
+    (prose_invert_headings_var, Css.hex "fff");
+    (prose_invert_lead_var, Css.oklch 70.7 0.022 261.325);
+    (prose_invert_links_var, Css.hex "fff");
+    (prose_invert_bold_var, Css.hex "fff");
+    (prose_invert_counters_var, Css.oklch 70.7 0.022 261.325);
+    (prose_invert_bullets_var, Css.oklch 44.6 0.030 256.802);
+    (prose_invert_hr_var, Css.oklch 37.3 0.034 259.733);
+    (prose_invert_quotes_var, Css.oklch 96.7 0.003 264.542);
+    (prose_invert_quote_borders_var, Css.oklch 37.3 0.034 259.733);
+    (prose_invert_captions_var, Css.oklch 70.7 0.022 261.325);
+    (prose_invert_kbd_var, Css.hex "fff");
+    (prose_invert_kbd_shadows_var, Css.hex "#ffffff1a");
+    (prose_invert_code_var, Css.hex "fff");
+    (prose_invert_pre_code_var, Css.oklch 87.2 0.010 258.338);
+    (prose_invert_pre_bg_var, Css.hex "00000080");
+    (prose_invert_th_borders_var, Css.oklch 44.6 0.030 256.802);
+    (prose_invert_td_borders_var, Css.oklch 37.3 0.034 259.733);
+  ]
+
+(* Slate theme: normal bindings *)
+let slate_normal_bindings =
+  [
+    (prose_body_var, Css.oklch 37.2 0.044 257.287);
+    (prose_headings_var, Css.oklch 20.8 0.042 265.755);
+    (prose_lead_var, Css.oklch 44.6 0.043 257.281);
+    (prose_links_var, Css.oklch 20.8 0.042 265.755);
+    (prose_bold_var, Css.oklch 20.8 0.042 265.755);
+    (prose_counters_var, Css.oklch 55.4 0.046 257.417);
+    (prose_bullets_var, Css.oklch 86.9 0.022 252.894);
+    (prose_hr_var, Css.oklch 92.9 0.013 255.508);
+    (prose_quotes_var, Css.oklch 20.8 0.042 265.755);
+    (prose_quote_borders_var, Css.oklch 92.9 0.013 255.508);
+    (prose_captions_var, Css.oklch 55.4 0.046 257.417);
+    (prose_kbd_var, Css.oklch 20.8 0.042 265.755);
+    (prose_kbd_shadows_var, Css.oklaba 20.8 (-0.00310889) (-0.0418848) 0.1);
+    (prose_code_var, Css.oklch 20.8 0.042 265.755);
+    (prose_pre_code_var, Css.oklch 92.9 0.013 255.508);
+    (prose_pre_bg_var, Css.oklch 27.9 0.041 260.031);
+    (prose_th_borders_var, Css.oklch 86.9 0.022 252.894);
+    (prose_td_borders_var, Css.oklch 92.9 0.013 255.508);
+  ]
+
+(* Slate theme: invert bindings *)
+let slate_invert_bindings =
+  [
+    (prose_invert_body_var, Css.oklch 86.9 0.022 252.894);
+    (prose_invert_headings_var, Css.hex "fff");
+    (prose_invert_lead_var, Css.oklch 70.4 0.040 256.788);
+    (prose_invert_links_var, Css.hex "fff");
+    (prose_invert_bold_var, Css.hex "fff");
+    (prose_invert_counters_var, Css.oklch 70.4 0.040 256.788);
+    (prose_invert_bullets_var, Css.oklch 44.6 0.043 257.281);
+    (prose_invert_hr_var, Css.oklch 37.2 0.044 257.287);
+    (prose_invert_quotes_var, Css.oklch 96.8 0.007 247.896);
+    (prose_invert_quote_borders_var, Css.oklch 37.2 0.044 257.287);
+    (prose_invert_captions_var, Css.oklch 70.4 0.040 256.788);
+    (prose_invert_kbd_var, Css.hex "fff");
+    (prose_invert_kbd_shadows_var, Css.hex "#ffffff1a");
+    (prose_invert_code_var, Css.hex "fff");
+    (prose_invert_pre_code_var, Css.oklch 86.9 0.022 252.894);
+    (prose_invert_pre_bg_var, Css.hex "00000080");
+    (prose_invert_th_borders_var, Css.oklch 44.6 0.043 257.281);
+    (prose_invert_td_borders_var, Css.oklch 37.2 0.044 257.287);
+  ]
+
 (* Helper to create color variable bindings for color themes - returns
    declarations *)
 let color_theme_bindings theme_name =
   match theme_name with
-  | "gray" ->
-      (* Normal theme *)
-      let d1, _ = Var.binding prose_body_var (Css.oklch 37.3 0.034 259.733) in
-      let d2, _ =
-        Var.binding prose_headings_var (Css.oklch 21.0 0.034 264.665)
-      in
-      let d3, _ = Var.binding prose_lead_var (Css.oklch 44.6 0.030 256.802) in
-      let d4, _ = Var.binding prose_links_var (Css.oklch 21.0 0.034 264.665) in
-      let d5, _ = Var.binding prose_bold_var (Css.oklch 21.0 0.034 264.665) in
-      let d6, _ =
-        Var.binding prose_counters_var (Css.oklch 55.1 0.027 264.364)
-      in
-      let d7, _ =
-        Var.binding prose_bullets_var (Css.oklch 87.2 0.010 258.338)
-      in
-      let d8, _ = Var.binding prose_hr_var (Css.oklch 92.8 0.006 264.531) in
-      let d9, _ = Var.binding prose_quotes_var (Css.oklch 21.0 0.034 264.665) in
-      let d10, _ =
-        Var.binding prose_quote_borders_var (Css.oklch 92.8 0.006 264.531)
-      in
-      let d11, _ =
-        Var.binding prose_captions_var (Css.oklch 55.1 0.027 264.364)
-      in
-      let d12, _ = Var.binding prose_kbd_var (Css.oklch 21.0 0.034 264.665) in
-      let d13, _ =
-        Var.binding prose_kbd_shadows_var
-          (Css.oklaba 21.0 (-0.00316127) (-0.0338527) 0.1)
-      in
-      let d14, _ = Var.binding prose_code_var (Css.oklch 21.0 0.034 264.665) in
-      let d15, _ =
-        Var.binding prose_pre_code_var (Css.oklch 92.8 0.006 264.531)
-      in
-      let d16, _ =
-        Var.binding prose_pre_bg_var (Css.oklch 27.8 0.033 256.848)
-      in
-      let d17, _ =
-        Var.binding prose_th_borders_var (Css.oklch 87.2 0.010 258.338)
-      in
-      let d18, _ =
-        Var.binding prose_td_borders_var (Css.oklch 92.8 0.006 264.531)
-      in
-      (* Invert theme *)
-      let d19, _ =
-        Var.binding prose_invert_body_var (Css.oklch 87.2 0.010 258.338)
-      in
-      let d20, _ = Var.binding prose_invert_headings_var (Css.hex "fff") in
-      let d21, _ =
-        Var.binding prose_invert_lead_var (Css.oklch 70.7 0.022 261.325)
-      in
-      let d22, _ = Var.binding prose_invert_links_var (Css.hex "fff") in
-      let d23, _ = Var.binding prose_invert_bold_var (Css.hex "fff") in
-      let d24, _ =
-        Var.binding prose_invert_counters_var (Css.oklch 70.7 0.022 261.325)
-      in
-      let d25, _ =
-        Var.binding prose_invert_bullets_var (Css.oklch 44.6 0.030 256.802)
-      in
-      let d26, _ =
-        Var.binding prose_invert_hr_var (Css.oklch 37.3 0.034 259.733)
-      in
-      let d27, _ =
-        Var.binding prose_invert_quotes_var (Css.oklch 96.7 0.003 264.542)
-      in
-      let d28, _ =
-        Var.binding prose_invert_quote_borders_var
-          (Css.oklch 37.3 0.034 259.733)
-      in
-      let d29, _ =
-        Var.binding prose_invert_captions_var (Css.oklch 70.7 0.022 261.325)
-      in
-      let d30, _ = Var.binding prose_invert_kbd_var (Css.hex "fff") in
-      let d31, _ =
-        Var.binding prose_invert_kbd_shadows_var (Css.hex "#ffffff1a")
-      in
-      let d32, _ = Var.binding prose_invert_code_var (Css.hex "fff") in
-      let d33, _ =
-        Var.binding prose_invert_pre_code_var (Css.oklch 87.2 0.010 258.338)
-      in
-      let d34, _ = Var.binding prose_invert_pre_bg_var (Css.hex "00000080") in
-      let d35, _ =
-        Var.binding prose_invert_th_borders_var (Css.oklch 44.6 0.030 256.802)
-      in
-      let d36, _ =
-        Var.binding prose_invert_td_borders_var (Css.oklch 37.3 0.034 259.733)
-      in
-      [
-        d1;
-        d2;
-        d3;
-        d4;
-        d5;
-        d6;
-        d7;
-        d8;
-        d9;
-        d10;
-        d11;
-        d12;
-        d13;
-        d14;
-        d15;
-        d16;
-        d17;
-        d18;
-        d19;
-        d20;
-        d21;
-        d22;
-        d23;
-        d24;
-        d25;
-        d26;
-        d27;
-        d28;
-        d29;
-        d30;
-        d31;
-        d32;
-        d33;
-        d34;
-        d35;
-        d36;
-      ]
-  | "slate" ->
-      (* Normal theme *)
-      let d1, _ = Var.binding prose_body_var (Css.oklch 37.2 0.044 257.287) in
-      let d2, _ =
-        Var.binding prose_headings_var (Css.oklch 20.8 0.042 265.755)
-      in
-      let d3, _ = Var.binding prose_lead_var (Css.oklch 44.6 0.043 257.281) in
-      let d4, _ = Var.binding prose_links_var (Css.oklch 20.8 0.042 265.755) in
-      let d5, _ = Var.binding prose_bold_var (Css.oklch 20.8 0.042 265.755) in
-      let d6, _ =
-        Var.binding prose_counters_var (Css.oklch 55.4 0.046 257.417)
-      in
-      let d7, _ =
-        Var.binding prose_bullets_var (Css.oklch 86.9 0.022 252.894)
-      in
-      let d8, _ = Var.binding prose_hr_var (Css.oklch 92.9 0.013 255.508) in
-      let d9, _ = Var.binding prose_quotes_var (Css.oklch 20.8 0.042 265.755) in
-      let d10, _ =
-        Var.binding prose_quote_borders_var (Css.oklch 92.9 0.013 255.508)
-      in
-      let d11, _ =
-        Var.binding prose_captions_var (Css.oklch 55.4 0.046 257.417)
-      in
-      let d12, _ = Var.binding prose_kbd_var (Css.oklch 20.8 0.042 265.755) in
-      let d13, _ =
-        Var.binding prose_kbd_shadows_var
-          (Css.oklaba 20.8 (-0.00310889) (-0.0418848) 0.1)
-      in
-      let d14, _ = Var.binding prose_code_var (Css.oklch 20.8 0.042 265.755) in
-      let d15, _ =
-        Var.binding prose_pre_code_var (Css.oklch 92.9 0.013 255.508)
-      in
-      let d16, _ =
-        Var.binding prose_pre_bg_var (Css.oklch 27.9 0.041 260.031)
-      in
-      let d17, _ =
-        Var.binding prose_th_borders_var (Css.oklch 86.9 0.022 252.894)
-      in
-      let d18, _ =
-        Var.binding prose_td_borders_var (Css.oklch 92.9 0.013 255.508)
-      in
-      (* Invert theme *)
-      let d19, _ =
-        Var.binding prose_invert_body_var (Css.oklch 86.9 0.022 252.894)
-      in
-      let d20, _ = Var.binding prose_invert_headings_var (Css.hex "fff") in
-      let d21, _ =
-        Var.binding prose_invert_lead_var (Css.oklch 70.4 0.040 256.788)
-      in
-      let d22, _ = Var.binding prose_invert_links_var (Css.hex "fff") in
-      let d23, _ = Var.binding prose_invert_bold_var (Css.hex "fff") in
-      let d24, _ =
-        Var.binding prose_invert_counters_var (Css.oklch 70.4 0.040 256.788)
-      in
-      let d25, _ =
-        Var.binding prose_invert_bullets_var (Css.oklch 44.6 0.043 257.281)
-      in
-      let d26, _ =
-        Var.binding prose_invert_hr_var (Css.oklch 37.2 0.044 257.287)
-      in
-      let d27, _ =
-        Var.binding prose_invert_quotes_var (Css.oklch 96.8 0.007 247.896)
-      in
-      let d28, _ =
-        Var.binding prose_invert_quote_borders_var
-          (Css.oklch 37.2 0.044 257.287)
-      in
-      let d29, _ =
-        Var.binding prose_invert_captions_var (Css.oklch 70.4 0.040 256.788)
-      in
-      let d30, _ = Var.binding prose_invert_kbd_var (Css.hex "fff") in
-      let d31, _ =
-        Var.binding prose_invert_kbd_shadows_var (Css.hex "#ffffff1a")
-      in
-      let d32, _ = Var.binding prose_invert_code_var (Css.hex "fff") in
-      let d33, _ =
-        Var.binding prose_invert_pre_code_var (Css.oklch 86.9 0.022 252.894)
-      in
-      let d34, _ = Var.binding prose_invert_pre_bg_var (Css.hex "00000080") in
-      let d35, _ =
-        Var.binding prose_invert_th_borders_var (Css.oklch 44.6 0.043 257.281)
-      in
-      let d36, _ =
-        Var.binding prose_invert_td_borders_var (Css.oklch 37.2 0.044 257.287)
-      in
-      [
-        d1;
-        d2;
-        d3;
-        d4;
-        d5;
-        d6;
-        d7;
-        d8;
-        d9;
-        d10;
-        d11;
-        d12;
-        d13;
-        d14;
-        d15;
-        d16;
-        d17;
-        d18;
-        d19;
-        d20;
-        d21;
-        d22;
-        d23;
-        d24;
-        d25;
-        d26;
-        d27;
-        d28;
-        d29;
-        d30;
-        d31;
-        d32;
-        d33;
-        d34;
-        d35;
-        d36;
-      ]
+  | "gray" -> bind_prose_vars (gray_normal_bindings @ gray_invert_bindings)
+  | "slate" -> bind_prose_vars (slate_normal_bindings @ slate_invert_bindings)
   | "zinc" -> [] (* TODO: Add zinc theme bindings *)
   | "neutral" -> [] (* TODO: Add neutral theme bindings *)
   | "stone" -> [] (* TODO: Add stone theme bindings *)
