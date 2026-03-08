@@ -26,4 +26,5 @@
   re
   (alcotest :with-test)
   (astring :with-test)
-  (crunch :with-test)))
+  (crunch :with-test)
+  (crowbar :with-test)))

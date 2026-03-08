@@ -18,6 +18,7 @@ depends: [
   "alcotest" {with-test}
   "astring" {with-test}
   "crunch" {with-test}
+  "crowbar" {with-test}
   "odoc" {with-doc}
 ]
 build: [

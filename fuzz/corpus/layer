@@ -1,0 +1,1 @@
+@layer utilities { .foo { color: red; } }
