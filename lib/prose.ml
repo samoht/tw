@@ -913,60 +913,33 @@ let link_and_strong_rules base =
       [ Css.color Inherit ];
   ]
 
+(* Case-insensitive ol[type] rule *)
+let ol_type_ci base letter style =
+  Css.rule
+    ~selector:(where base (Css.Selector.compound [ ol; type_attr letter ]))
+    [ list_style_type style ]
+
+(* Case-sensitive ol[type] rule *)
+let ol_type_cs base letter style =
+  let cs_attr =
+    Css.Selector.attribute ~flag:Case_sensitive "type" (Exact letter)
+  in
+  Css.rule
+    ~selector:(where base (Css.Selector.compound [ ol; cs_attr ]))
+    [ list_style_type style ]
+
 (* Ordered list type variant rules *)
 let ol_type_variant_rules base =
   [
-    Css.rule
-      ~selector:(where base (Css.Selector.compound [ ol; type_attr "A" ]))
-      [ list_style_type Upper_alpha ];
-    Css.rule
-      ~selector:(where base (Css.Selector.compound [ ol; type_attr "a" ]))
-      [ list_style_type Lower_alpha ];
-    Css.rule
-      ~selector:
-        (where base
-           (Css.Selector.compound
-              [
-                ol;
-                Css.Selector.attribute ~flag:Case_sensitive "type" (Exact "A");
-              ]))
-      [ list_style_type Upper_alpha ];
-    Css.rule
-      ~selector:
-        (where base
-           (Css.Selector.compound
-              [
-                ol;
-                Css.Selector.attribute ~flag:Case_sensitive "type" (Exact "a");
-              ]))
-      [ list_style_type Lower_alpha ];
-    Css.rule
-      ~selector:(where base (Css.Selector.compound [ ol; type_attr "I" ]))
-      [ list_style_type Upper_roman ];
-    Css.rule
-      ~selector:(where base (Css.Selector.compound [ ol; type_attr "i" ]))
-      [ list_style_type Lower_roman ];
-    Css.rule
-      ~selector:
-        (where base
-           (Css.Selector.compound
-              [
-                ol;
-                Css.Selector.attribute ~flag:Case_sensitive "type" (Exact "I");
-              ]))
-      [ list_style_type Upper_roman ];
-    Css.rule
-      ~selector:
-        (where base
-           (Css.Selector.compound
-              [
-                ol;
-                Css.Selector.attribute ~flag:Case_sensitive "type" (Exact "i");
-              ]))
-      [ list_style_type Lower_roman ];
-    Css.rule
-      ~selector:(where base (Css.Selector.compound [ ol; type_attr "1" ]))
-      [ list_style_type Decimal ];
+    ol_type_ci base "A" Upper_alpha;
+    ol_type_ci base "a" Lower_alpha;
+    ol_type_cs base "A" Upper_alpha;
+    ol_type_cs base "a" Lower_alpha;
+    ol_type_ci base "I" Upper_roman;
+    ol_type_ci base "i" Lower_roman;
+    ol_type_cs base "I" Upper_roman;
+    ol_type_cs base "i" Lower_roman;
+    ol_type_ci base "1" Decimal;
   ]
 
 (* List marker rules *)

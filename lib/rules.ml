@@ -269,6 +269,9 @@ module Rules_selector = struct
     transform selector
 end
 
+let current_scheme = ref Scheme.default
+let set_scheme scheme = current_scheme := scheme
+
 let breakpoint_rem = function
   | `Sm -> 40.
   | `Md -> 48.
@@ -276,11 +279,26 @@ let breakpoint_rem = function
   | `Xl -> 80.
   | `Xl_2 -> 96.
 
+(** Get the media condition for a breakpoint, using px from scheme if available,
+    otherwise rem. *)
+let breakpoint_condition bp =
+  let name = string_of_breakpoint bp in
+  match Scheme.breakpoint !current_scheme name with
+  | Some px -> Css.Media.Min_width px
+  | None -> Css.Media.Min_width_rem (breakpoint_rem bp)
+
+(** Get the negated media condition for max-* breakpoints. *)
+let breakpoint_not_condition bp =
+  let name = string_of_breakpoint bp in
+  match Scheme.breakpoint !current_scheme name with
+  | Some px -> Css.Media.Not_min_width px
+  | None -> Css.Media.Not_min_width_rem (breakpoint_rem bp)
+
 (** Get the media condition and class prefix for a responsive modifier. *)
 let responsive_modifier_condition = function
   | Style.Responsive bp ->
       let prefix = string_of_breakpoint bp in
-      (Css.Media.Min_width_rem (breakpoint_rem bp), prefix)
+      (breakpoint_condition bp, prefix)
   | Style.Min_responsive bp ->
       let prefix =
         match bp with
@@ -290,7 +308,7 @@ let responsive_modifier_condition = function
         | `Xl -> "min-xl"
         | `Xl_2 -> "min-2xl"
       in
-      (Css.Media.Min_width_rem (breakpoint_rem bp), prefix)
+      (breakpoint_condition bp, prefix)
   | Style.Max_responsive bp ->
       let prefix =
         match bp with
@@ -300,7 +318,7 @@ let responsive_modifier_condition = function
         | `Xl -> "max-xl"
         | `Xl_2 -> "max-2xl"
       in
-      (Css.Media.Not_min_width_rem (breakpoint_rem bp), prefix)
+      (breakpoint_not_condition bp, prefix)
   | Style.Min_arbitrary px ->
       let px_str =
         if Float.is_integer px then Int.to_string (Float.to_int px)
@@ -327,7 +345,7 @@ let responsive_rule breakpoint base_class selector props =
       ~new_class:modified_class selector
   in
   media_query
-    ~condition:(Css.Media.Min_width_rem (breakpoint_rem breakpoint))
+    ~condition:(breakpoint_condition breakpoint)
     ~selector:new_selector ~props ~base_class:modified_class ()
 
 let min_responsive_rule breakpoint base_class selector props =
@@ -345,7 +363,7 @@ let min_responsive_rule breakpoint base_class selector props =
       ~new_class:modified_class selector
   in
   media_query
-    ~condition:(Css.Media.Min_width_rem (breakpoint_rem breakpoint))
+    ~condition:(breakpoint_condition breakpoint)
     ~selector:new_selector ~props ~base_class:modified_class ()
 
 let max_responsive_rule breakpoint base_class selector props =
@@ -363,7 +381,7 @@ let max_responsive_rule breakpoint base_class selector props =
       ~new_class:modified_class selector
   in
   media_query
-    ~condition:(Css.Media.Not_min_width_rem (breakpoint_rem breakpoint))
+    ~condition:(breakpoint_not_condition breakpoint)
     ~selector:new_selector ~props ~base_class:modified_class ()
 
 let min_arbitrary_rule px base_class selector props =
@@ -2373,9 +2391,10 @@ let gradient_family_index n =
 
 let uses_direct_property_order = function
   | Some
-      ( `Gradient | `Translate | `Rotate | `Skew | `Scale | `Font_weight
-      | `Leading ) ->
-      false (* Transforms, gradient, and typography use first-usage order *)
+      ( `Gradient | `Translate | `Rotate | `Skew | `Scale | `Duration
+      | `Font_weight | `Leading ) ->
+      false
+      (* Transforms, gradient, duration, and typography use first-usage order *)
   | Some _ -> true (* All other families use property_order *)
   | None -> true (* Variables without families also use property_order *)
 
@@ -2541,11 +2560,13 @@ let sort_property_rules_by_usage first_usage_order property_rules_for_end =
   in
   (* Check if a family uses property_order directly *)
   let uses_direct_property_order = function
-    | Some (`Gradient | `Translate | `Rotate | `Skew | `Font_weight | `Leading)
-      ->
-        false (* Transforms and typography use first-usage order *)
-    | Some _ ->
-        true (* All other families (including Scale) use property_order *)
+    | Some
+        ( `Gradient | `Translate | `Rotate | `Skew | `Scale | `Duration
+        | `Font_weight | `Leading ) ->
+        false
+        (* Transforms, gradient, duration, and typography use first-usage
+           order *)
+    | Some _ -> true (* All other families use property_order *)
     | None -> true (* Variables without families also use property_order *)
   in
   property_rules_for_end

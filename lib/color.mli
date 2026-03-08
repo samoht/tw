@@ -610,3 +610,16 @@ val bg_current_with_opacity : opacity_modifier -> Style.t
 
 val rgb_to_oklab : rgb -> float * float * float
 (** [rgb_to_oklab rgb] converts RGB to OKLab (L, a, b) components. *)
+
+val shorten_hex_str : string -> string
+(** [shorten_hex_str hex] shortens a hex color string if possible. *)
+
+val bracket_color_to_custom : string -> color
+(** [bracket_color_to_custom inner] converts a bracket color string to a custom
+    color for opacity handling. *)
+
+val round_n : int -> float -> float
+(** [round_n n f] rounds [f] to [n] significant figures. *)
+
+val scheme : unit -> Scheme.t
+(** [scheme ()] returns the current color scheme reference. *)

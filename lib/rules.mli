@@ -172,6 +172,11 @@ val to_inline_style : t list -> string
 (** [to_inline_style styles] generates inline CSS string from Tailwind classes.
 *)
 
+val set_scheme : Scheme.t -> unit
+(** [set_scheme scheme] sets the current theme scheme for breakpoint generation.
+    When the scheme has breakpoints defined, media queries use px values instead
+    of rem. *)
+
 (** {2 Tailwind v4 Layer Model}
 
     The generator follows Tailwind v4's cascade layering model with a pragmatic

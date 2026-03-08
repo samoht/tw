@@ -864,6 +864,16 @@ module Typography_late = struct
     | (* Decoration color *)
       Decoration_color of Color.color * int option
     | Decoration_color_opacity of Color.color * int * Color.opacity_modifier
+    | Decoration_transparent
+    | Decoration_current
+    | Decoration_current_opacity of Color.opacity_modifier
+    | Decoration_inherit
+    | Decoration_bracket_hex of string
+    | Decoration_bracket_hex_opacity of string * Color.opacity_modifier
+    | Decoration_bracket_var of string
+    | Decoration_bracket_var_opacity of string * Color.opacity_modifier
+    | Decoration_bracket_color_var of string
+    | Decoration_bracket_color_var_opacity of string * Color.opacity_modifier
     | (* Text decoration lines *)
       Underline
     | Overline
@@ -877,6 +887,11 @@ module Typography_late = struct
     | Decoration_wavy
     | Decoration_thickness of int
     | Decoration_from_font
+    | Decoration_auto
+    | Decoration_bracket_thickness of string
+    | Decoration_bracket_pct of string
+    | Decoration_bracket_length_var of string
+    | Decoration_bracket_pct_var of string
     | (* Tracking *)
       Tracking_var of string
     | Neg_tracking_var of string
@@ -1007,17 +1022,61 @@ module Typography_late = struct
     | [ "decoration"; "dashed" ] -> Ok Decoration_dashed
     | [ "decoration"; "wavy" ] -> Ok Decoration_wavy
     | [ "decoration"; "from"; "font" ] -> Ok Decoration_from_font
+    | [ "decoration"; "auto" ] -> Ok Decoration_auto
+    | [ "decoration"; "transparent" ] -> Ok Decoration_transparent
+    | [ "decoration"; "inherit" ] -> Ok Decoration_inherit
     | [ "decoration"; n ] -> (
-        (* Try parsing as number first (decoration thickness) *)
-        match
-          Parse.int_bounded ~name:"decoration-thickness" ~min:0 ~max:8 n
-        with
-        | Ok i -> Ok (Decoration_thickness i)
-        | Error _ -> (
-            (* If not a number, try parsing as color *)
-            match Color.of_string n with
-            | Ok c -> Ok (Decoration_color (c, None))
-            | Error _ -> err_not_utility))
+        (* Parse opacity modifier first *)
+        let base_str, opacity = Color.parse_opacity_modifier n in
+        (* Check for "current" with optional opacity *)
+        match (base_str, opacity) with
+        | "current", Color.No_opacity -> Ok Decoration_current
+        | "current", opacity -> Ok (Decoration_current_opacity opacity)
+        | _ -> (
+            if
+              (* Check for bracket values *)
+              Parse.is_bracket_value base_str
+            then
+              let inner = Parse.bracket_inner base_str in
+              if String.starts_with ~prefix:"color:" inner then
+                let var_part = String.sub inner 6 (String.length inner - 6) in
+                match opacity with
+                | Color.No_opacity -> Ok (Decoration_bracket_color_var var_part)
+                | _ ->
+                    Ok
+                      (Decoration_bracket_color_var_opacity (var_part, opacity))
+              else if String.starts_with ~prefix:"var(" inner then
+                match opacity with
+                | Color.No_opacity -> Ok (Decoration_bracket_var inner)
+                | _ -> Ok (Decoration_bracket_var_opacity (inner, opacity))
+              else if String.starts_with ~prefix:"length:" inner then
+                let var_part = String.sub inner 7 (String.length inner - 7) in
+                Ok (Decoration_bracket_length_var var_part)
+              else if String.starts_with ~prefix:"percentage:" inner then
+                let var_part = String.sub inner 11 (String.length inner - 11) in
+                Ok (Decoration_bracket_pct_var var_part)
+              else if
+                String.length inner > 0
+                && inner.[0] = '#'
+                && opacity <> Color.No_opacity
+              then Ok (Decoration_bracket_hex_opacity (inner, opacity))
+              else if String.length inner > 0 && inner.[0] = '#' then
+                Ok (Decoration_bracket_hex inner)
+              else if
+                String.length inner > 0 && inner.[String.length inner - 1] = '%'
+              then Ok (Decoration_bracket_pct inner)
+              else Ok (Decoration_bracket_thickness inner)
+            else
+              (* Try parsing as number (decoration thickness) *)
+              match Parse.int_any base_str with
+              | Ok i when opacity = Color.No_opacity ->
+                  Ok (Decoration_thickness i)
+              | _ -> (
+                  (* Try parsing as color *)
+                  match Color.of_string base_str with
+                  | Ok c when opacity = Color.No_opacity ->
+                      Ok (Decoration_color (c, None))
+                  | _ -> err_not_utility)))
     | [ "decoration"; color; shade ] -> (
         (* Check for opacity modifier in shade (e.g., "500/50" or
            "500/[0.5]") *)
@@ -1191,6 +1250,20 @@ module Typography_late = struct
     | Decoration_color_opacity (color, shade, opacity) ->
         "decoration-" ^ Color.pp color ^ "-" ^ string_of_int shade ^ "/"
         ^ Color.pp_opacity opacity
+    | Decoration_transparent -> "decoration-transparent"
+    | Decoration_current -> "decoration-current"
+    | Decoration_current_opacity opacity ->
+        "decoration-current/" ^ Color.pp_opacity opacity
+    | Decoration_inherit -> "decoration-inherit"
+    | Decoration_bracket_hex v -> "decoration-[" ^ v ^ "]"
+    | Decoration_bracket_hex_opacity (v, opacity) ->
+        "decoration-[" ^ v ^ "]/" ^ Color.pp_opacity opacity
+    | Decoration_bracket_var v -> "decoration-[" ^ v ^ "]"
+    | Decoration_bracket_var_opacity (v, opacity) ->
+        "decoration-[" ^ v ^ "]/" ^ Color.pp_opacity opacity
+    | Decoration_bracket_color_var v -> "decoration-[color:" ^ v ^ "]"
+    | Decoration_bracket_color_var_opacity (v, opacity) ->
+        "decoration-[color:" ^ v ^ "]/" ^ Color.pp_opacity opacity
     | Underline -> "underline"
     | Overline -> "overline"
     | Line_through -> "line-through"
@@ -1202,6 +1275,11 @@ module Typography_late = struct
     | Decoration_wavy -> "decoration-wavy"
     | Decoration_thickness n -> "decoration-" ^ string_of_int n
     | Decoration_from_font -> "decoration-from-font"
+    | Decoration_auto -> "decoration-auto"
+    | Decoration_bracket_thickness v -> "decoration-[" ^ v ^ "]"
+    | Decoration_bracket_pct v -> "decoration-[" ^ v ^ "]"
+    | Decoration_bracket_length_var v -> "decoration-[length:" ^ v ^ "]"
+    | Decoration_bracket_pct_var v -> "decoration-[percentage:" ^ v ^ "]"
     | Tracking_var v -> "tracking-[" ^ v ^ "]"
     | Neg_tracking_var v -> "-tracking-[" ^ v ^ "]"
     | Tracking_tighter -> "tracking-tighter"
@@ -1313,31 +1391,41 @@ module Typography_late = struct
   (** {1 Ordering Support} *)
 
   let suborder = function
-    (* Decoration color - comes first in late typography *)
-    | Decoration_color (color, shade_opt) -> (
-        let shade = match shade_opt with Some s -> s | None -> 500 in
-        try
-          let _, color_order = Color.utilities_order (Color.pp color) in
-          5000 + (color_order * 1000) + shade
-        with Not_found | Failure _ -> 5000 + shade)
-    | Decoration_color_opacity (color, shade, _) -> (
-        try
-          let _, color_order = Color.utilities_order (Color.pp color) in
-          5000 + (color_order * 1000) + shade
-        with Not_found | Failure _ -> 5000 + shade)
+    (* Decoration color - comes first in late typography. All color variants use
+       the same suborder so the optimizer sorts them alphabetically by class
+       name. *)
+    | Decoration_color _ -> 5000
+    | Decoration_color_opacity _ -> 5000
+    | Decoration_transparent -> 5000
+    | Decoration_current -> 5000
+    | Decoration_current_opacity _ -> 5000
+    | Decoration_inherit -> 5000
+    | Decoration_bracket_hex _ -> 4000
+    | Decoration_bracket_hex_opacity _ -> 4000
+    | Decoration_bracket_color_var _ -> 4100
+    | Decoration_bracket_color_var_opacity _ -> 4100
+    | Decoration_bracket_var _ -> 4200
+    | Decoration_bracket_var_opacity _ -> 4200
     (* Text decoration lines - suborder >= 8000 (alphabetical) *)
     | Line_through -> 8000
     | No_underline -> 8001
     | Overline -> 8002
     | Underline -> 8003
-    (* Decoration styles *)
+    (* Decoration styles - same suborder, sorted by class name *)
     | Decoration_solid -> 8100
-    | Decoration_double -> 8101
-    | Decoration_dotted -> 8102
-    | Decoration_dashed -> 8103
-    | Decoration_wavy -> 8104
+    | Decoration_double -> 8100
+    | Decoration_dotted -> 8100
+    | Decoration_dashed -> 8100
+    | Decoration_wavy -> 8100
+    (* Decoration thickness - numeric values by n, then brackets, then
+       auto/from-font *)
     | Decoration_thickness n -> 8200 + n
-    | Decoration_from_font -> 8210
+    | Decoration_bracket_thickness _ -> 8400
+    | Decoration_bracket_pct _ -> 8400
+    | Decoration_bracket_length_var _ -> 8400
+    | Decoration_bracket_pct_var _ -> 8400
+    | Decoration_auto -> 8500
+    | Decoration_from_font -> 8500
     (* Tracking — negative first, then arbitrary, then named *)
     | Neg_tracking_var _ -> 8250
     | Tracking_var _ -> 8260
@@ -1463,6 +1551,33 @@ module Typography_late = struct
     style [ text_decoration_thickness (Px (float_of_int n)) ]
 
   let decoration_from_font = style [ text_decoration_thickness From_font ]
+  let decoration_auto = style [ text_decoration_thickness Auto ]
+
+  let decoration_bracket_thickness v =
+    (* Parse px value from bracket: "12px" → Px 12. *)
+    let len = String.length v in
+    if len > 2 && String.sub v (len - 2) 2 = "px" then
+      let n = float_of_string (String.sub v 0 (len - 2)) in
+      style [ text_decoration_thickness (Px n) ]
+    else style [ text_decoration_thickness (Px (float_of_string v)) ]
+
+  let decoration_bracket_pct v =
+    (* Tailwind converts percentage to em: 50% → .5em *)
+    let len = String.length v in
+    if len > 1 && v.[len - 1] = '%' then
+      let pct = float_of_string (String.sub v 0 (len - 1)) in
+      style [ text_decoration_thickness (Em (pct /. 100.0)) ]
+    else style [ text_decoration_thickness (Em (float_of_string v /. 100.0)) ]
+
+  let decoration_bracket_length_var v =
+    let bare_name = Parse.extract_var_name v in
+    let var_ref : Css.length Css.var = Css.var_ref bare_name in
+    style [ text_decoration_thickness (Var var_ref) ]
+
+  let decoration_bracket_pct_var v =
+    let bare_name = Parse.extract_var_name v in
+    let var_ref : Css.length Css.var = Css.var_ref bare_name in
+    style [ text_decoration_thickness (Var var_ref) ]
 
   let decoration_color ?(shade = 500) (color : Color.color) =
     if Color.is_custom_color color then
@@ -1473,11 +1588,15 @@ module Typography_late = struct
           text_decoration_color css_color;
         ]
     else
-      let color_var = Color.color_var color shade in
-      let default_color =
-        Color.to_css color (if Color.is_base_color color then 500 else shade)
+      let color_var =
+        Color.property_color_var ~property_prefix:"text-decoration-color" color
+          shade
       in
-      let color_decl, color_ref = Var.binding color_var default_color in
+      let color_value =
+        Color.property_color_value ~property_prefix:"text-decoration-color"
+          color shade
+      in
+      let color_decl, color_ref = Var.binding color_var color_value in
       style
         [
           color_decl;
@@ -1486,13 +1605,133 @@ module Typography_late = struct
         ]
 
   let decoration_color_with_opacity (color : Color.color) shade opacity =
-    (* Tailwind outputs only unprefixed text-decoration-color in the fallback *)
-    match Color.hex_alpha_color color shade opacity with
-    | Some hex_alpha -> style [ text_decoration_color (Css.hex hex_alpha) ]
+    let percent = Color.opacity_to_percent opacity in
+    let scheme = Color.scheme () in
+    let color_name = Color.scheme_color_name color shade in
+    match Scheme.hex_color scheme color_name with
+    | Some hex_value ->
+        (* Scheme has hex: fallback is hex+alpha, @supports has color-mix with
+           webkit *)
+        let hex_with_alpha = Color.hex_with_alpha hex_value percent in
+        let fallback_decl = text_decoration_color (Css.hex hex_with_alpha) in
+        let color_var = Color.color_var color shade in
+        let theme_decl, color_ref = Var.binding color_var (Css.hex hex_value) in
+        let oklab_color =
+          Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+            ~percent1:percent
+        in
+        let webkit_decl = webkit_text_decoration_color oklab_color in
+        let oklab_decl = text_decoration_color oklab_color in
+        let supports_block =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [
+              Css.rule ~selector:(Css.Selector.class_ "_")
+                [ webkit_decl; oklab_decl ];
+            ]
+        in
+        style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
     | None ->
-        (* Fallback for non-scheme colors *)
-        let css_color = Color.to_css color shade in
-        style [ text_decoration_color css_color ]
+        (* No scheme hex: use property-scoped variable *)
+        let color_var =
+          Color.property_color_var ~property_prefix:"text-decoration-color"
+            color shade
+        in
+        let color_value =
+          Color.property_color_value ~property_prefix:"text-decoration-color"
+            color shade
+        in
+        let oklch = Color.to_oklch color shade in
+        let rgb = Color.oklch_to_rgb oklch in
+        let hex_value = Color.rgb_to_hex rgb in
+        let hex_with_alpha = Color.hex_with_alpha hex_value percent in
+        let fallback_decl = text_decoration_color (Css.hex hex_with_alpha) in
+        let theme_decl, color_ref = Var.binding color_var color_value in
+        let oklab_color =
+          Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+            ~percent1:percent
+        in
+        let webkit_decl = webkit_text_decoration_color oklab_color in
+        let oklab_decl = text_decoration_color oklab_color in
+        let supports_block =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [
+              Css.rule ~selector:(Css.Selector.class_ "_")
+                [ webkit_decl; oklab_decl ];
+            ]
+        in
+        style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
+
+  let decoration_transparent = style [ text_decoration_color (Css.hex "#0000") ]
+  let decoration_current = style [ text_decoration_color Current ]
+
+  let decoration_inherit =
+    style
+      [ webkit_text_decoration_color Inherit; text_decoration_color Inherit ]
+
+  let decoration_current_with_opacity opacity =
+    let percent = Color.opacity_to_percent opacity in
+    let fallback_decl = text_decoration_color Current in
+    let oklab_color =
+      Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
+        ~percent1:percent
+    in
+    let webkit_decl = webkit_text_decoration_color oklab_color in
+    let oklab_decl = text_decoration_color oklab_color in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [
+          Css.rule ~selector:(Css.Selector.class_ "_")
+            [ webkit_decl; oklab_decl ];
+        ]
+    in
+    style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+
+  let decoration_bracket_hex inner =
+    let shortened = Color.shorten_hex_str inner in
+    style ~merge_key:"decoration-"
+      [ text_decoration_color (Css.hex ("#" ^ shortened)) ]
+
+  let decoration_bracket_hex_with_opacity inner opacity =
+    let percent = Color.opacity_to_percent opacity in
+    let alpha = percent /. 100.0 in
+    match Color.hex_to_rgb (String.sub inner 1 (String.length inner - 1)) with
+    | Some rgb ->
+        let ok_l, ok_a, ok_b = Color.rgb_to_oklab rgb in
+        let oklab_value =
+          Css.oklaba_none_zeros (Color.round_n 4 ok_l) (Color.round_n 3 ok_a)
+            (Color.round_n 3 ok_b) alpha
+        in
+        style ~merge_key:"decoration-" [ text_decoration_color oklab_value ]
+    | None -> style [ text_decoration_color (Css.hex "#000") ]
+
+  let decoration_bracket_var_style v =
+    let bare_name = Parse.extract_var_name v in
+    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    style ~merge_key:"decoration-"
+      [
+        webkit_text_decoration_color var_color; text_decoration_color var_color;
+      ]
+
+  let decoration_bracket_var_with_opacity v opacity =
+    let bare_name = Parse.extract_var_name v in
+    let percent = Color.opacity_to_percent opacity in
+    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let fallback_webkit = webkit_text_decoration_color var_color in
+    let fallback_decl = text_decoration_color var_color in
+    let oklab_color =
+      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
+    in
+    let webkit_decl = webkit_text_decoration_color oklab_color in
+    let oklab_decl = text_decoration_color oklab_color in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [
+          Css.rule ~selector:(Css.Selector.class_ "_")
+            [ webkit_decl; oklab_decl ];
+        ]
+    in
+    style ~merge_key:"decoration-" ~rules:(Some [ supports_block ])
+      [ fallback_webkit; fallback_decl ]
 
   let whitespace_normal = style [ white_space Normal ]
   let whitespace_nowrap = style [ white_space Nowrap ]
@@ -1902,6 +2141,20 @@ module Typography_late = struct
     | Decoration_color (color, Some shade) -> decoration_color ~shade color
     | Decoration_color_opacity (color, shade, opacity) ->
         decoration_color_with_opacity color shade opacity
+    | Decoration_transparent -> decoration_transparent
+    | Decoration_current -> decoration_current
+    | Decoration_current_opacity opacity ->
+        decoration_current_with_opacity opacity
+    | Decoration_inherit -> decoration_inherit
+    | Decoration_bracket_hex inner -> decoration_bracket_hex inner
+    | Decoration_bracket_hex_opacity (inner, opacity) ->
+        decoration_bracket_hex_with_opacity inner opacity
+    | Decoration_bracket_var v -> decoration_bracket_var_style v
+    | Decoration_bracket_var_opacity (v, opacity) ->
+        decoration_bracket_var_with_opacity v opacity
+    | Decoration_bracket_color_var v -> decoration_bracket_var_style v
+    | Decoration_bracket_color_var_opacity (v, opacity) ->
+        decoration_bracket_var_with_opacity v opacity
     | Underline -> underline
     | Overline -> overline
     | Line_through -> line_through
@@ -1913,6 +2166,11 @@ module Typography_late = struct
     | Decoration_wavy -> decoration_wavy
     | Decoration_thickness n -> decoration_thickness n
     | Decoration_from_font -> decoration_from_font
+    | Decoration_auto -> decoration_auto
+    | Decoration_bracket_thickness v -> decoration_bracket_thickness v
+    | Decoration_bracket_pct v -> decoration_bracket_pct v
+    | Decoration_bracket_length_var v -> decoration_bracket_length_var v
+    | Decoration_bracket_pct_var v -> decoration_bracket_pct_var v
     | Tracking_var v ->
         let bare_name = Parse.extract_var_name v in
         let var_ref : Css.length Css.var = Css.var_ref bare_name in

@@ -34,6 +34,10 @@ type t = {
       (** Default outline width in pixels for bare [outline] utility.
           Corresponds to Tailwind's [@theme \{ --default-outline-width: Npx \}].
           Default: 1. *)
+  breakpoints : (string * float) list;
+      (** Explicit breakpoint values in px. Key is breakpoint name (e.g., "sm").
+          When defined, responsive media queries use [@media (min-width: Xpx)]
+          instead of rem-based values. *)
 }
 (** Theme scheme configuration *)
 
@@ -47,6 +51,7 @@ let default : t =
     default_ring_width = 1;
     default_border_width = 1;
     default_outline_width = 1;
+    breakpoints = [];
   }
 
 let pp t =
@@ -64,6 +69,8 @@ let pp t =
       Pp.int t.default_border_width;
       "; outline=";
       Pp.int t.default_outline_width;
+      "; breakpoints=";
+      Pp.int (List.length t.breakpoints);
       "}";
     ]
 
@@ -89,3 +96,6 @@ let radius scheme name = List.assoc_opt name scheme.radius
 
 (** Check if radius has an explicit variable *)
 let has_explicit_radius scheme name = Option.is_some (radius scheme name)
+
+(** Lookup a breakpoint px value in the scheme *)
+let breakpoint scheme name = List.assoc_opt name scheme.breakpoints

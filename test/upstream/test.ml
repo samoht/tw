@@ -208,12 +208,36 @@ let extract_outline_width css : int =
       try int_of_string (Re.Group.get m 1) with Not_found | Failure _ -> 1)
   | None -> 1
 
+(** Extract breakpoint values from expected CSS. Looks for patterns like
+    [@media (min-width: 640px)] and maps them to standard breakpoint names using
+    the known Tailwind v4 breakpoint→px mapping. Returns all standard
+    breakpoints when any px-based breakpoint is found. *)
+let extract_breakpoints_from_css expected =
+  let pattern = Re.Pcre.regexp {|@media[^(]*\(min-width:\s*(\d+)px\)|} in
+  let matches = Re.all pattern expected in
+  let px_values =
+    List.filter_map
+      (fun m ->
+        try Some (float_of_string (Re.Group.get m 1))
+        with Not_found | Failure _ -> None)
+      matches
+  in
+  (* Standard Tailwind v4 breakpoints *)
+  let standard =
+    [ ("sm", 640.); ("md", 768.); ("lg", 1024.); ("xl", 1280.); ("2xl", 1536.) ]
+  in
+  (* If any px-based breakpoint is found in expected CSS, return all standard
+     breakpoints that appear in the expected CSS *)
+  if px_values = [] then []
+  else List.filter (fun (_, px) -> List.mem px px_values) standard
+
 let scheme_from_expected_css expected : Tw.Scheme.t =
   let spacing = extract_spacing_from_css expected in
   let radius = extract_radius_from_css expected in
   let default_ring_width = extract_ring_width expected in
   let default_border_width = extract_border_width expected in
   let default_outline_width = extract_outline_width expected in
+  let breakpoints = extract_breakpoints_from_css expected in
   {
     colors = [ ("red-500", Tw.Scheme.Hex "#ef4444") ];
     spacing;
@@ -221,6 +245,7 @@ let scheme_from_expected_css expected : Tw.Scheme.t =
     default_ring_width;
     default_border_width;
     default_outline_width;
+    breakpoints;
   }
 
 let setup_scheme_for_test expected =
@@ -229,7 +254,8 @@ let setup_scheme_for_test expected =
   Tw.Theme.set_scheme scheme;
   Tw.Borders.set_scheme scheme;
   Tw.Effects.set_scheme scheme;
-  Tw.Divide.set_scheme scheme
+  Tw.Divide.set_scheme scheme;
+  Tw.Rules.set_scheme scheme
 
 (** Extract all CSS variable names referenced in expected CSS text. *)
 let extract_var_names expected =

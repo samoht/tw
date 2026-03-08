@@ -2340,6 +2340,10 @@ let pp_opacity = function
   | Opacity_var v -> "[" ^ v ^ "]"
 
 let current_scheme () = !Handler.current_scheme
+let scheme () = !Handler.current_scheme
+let shorten_hex_str = shorten_hex_str
+let bracket_color_to_custom = Handler.bracket_color_to_custom
+let round_n = round_n
 
 let hex_alpha_color c shade opacity =
   let open Handler in
