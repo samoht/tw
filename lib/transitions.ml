@@ -45,10 +45,10 @@ module Handler = struct
   (* Theme variables for default transition settings *)
   let default_transition_timing_function_var =
     Var.theme Css.Timing_function "default-transition-timing-function"
-      ~order:(8, 0)
+      ~order:(8, 1)
 
   let default_transition_duration_var =
-    Var.theme Css.Duration "default-transition-duration" ~order:(8, 1)
+    Var.theme Css.Duration "default-transition-duration" ~order:(8, 0)
 
   (* Variable for transition duration with @property *)
   let tw_duration_var =
@@ -84,28 +84,17 @@ module Handler = struct
       default_transition_duration_var (Css.Ms 0.)
 
   (* Theme declarations for the default transition vars. These go into :root,
-     :host when transition utilities are used. Only included when theme values
-     are set, so @config none tests don't get the :root, :host block. *)
+     :host when transition utilities are used. Added inline to transition
+     utility styles so extract_non_tw_custom_declarations picks them up. *)
   let default_theme_decls () =
-    let has_timing =
-      Var.theme_value "default-transition-timing-function" <> None
+    let duration_decl, _ =
+      Var.binding default_transition_duration_var (Css.Ms 150.)
     in
-    let has_duration = Var.theme_value "default-transition-duration" <> None in
-    let timing =
-      if has_timing then
-        let d, _ =
-          Var.binding default_transition_timing_function_var Css.Ease
-        in
-        [ d ]
-      else []
+    let timing_decl, _ =
+      Var.binding default_transition_timing_function_var
+        (Css.Cubic_bezier (0.4, 0., 0.2, 1.))
     in
-    let duration =
-      if has_duration then
-        let d, _ = Var.binding default_transition_duration_var (Css.Ms 100.) in
-        [ d ]
-      else []
-    in
-    timing @ duration
+    [ duration_decl; timing_decl ]
 
   let transition () =
     (* Use typed variable names for gradient properties *)

@@ -34,6 +34,10 @@ type t = {
       (** Default outline width in pixels for bare [outline] utility.
           Corresponds to Tailwind's [@theme \{ --default-outline-width: Npx \}].
           Default: 1. *)
+  breakpoints : (string * float) list;
+      (** Explicit breakpoint values in px. Key is breakpoint name (e.g., "sm").
+          When defined, responsive media queries use [@media (min-width: Xpx)]
+          instead of rem-based values. *)
 }
 (** Theme scheme configuration *)
 
@@ -64,3 +68,6 @@ val radius : t -> string -> Css.length option
 
 val has_explicit_radius : t -> string -> bool
 (** [has_explicit_radius t name] checks if radius has an explicit variable. *)
+
+val breakpoint : t -> string -> float option
+(** [breakpoint t name] looks up a breakpoint px value in the scheme. *)

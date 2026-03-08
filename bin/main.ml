@@ -86,6 +86,7 @@ let setup_test_scheme () =
       default_ring_width = 1;
       default_border_width = 1;
       default_outline_width = 1;
+      breakpoints = [];
     }
   in
   Tw.Color.Handler.set_scheme scheme;
