@@ -600,32 +600,62 @@ let checkbox_focus_ring_decls =
            });
     ]
 
+(** Webkit datetime edit pseudo-element rules for text inputs *)
+let webkit_datetime_rules () =
+  let open Css in
+  [
+    rule ~selector:Selector.Webkit_datetime_edit_fields_wrapper
+      [ padding [ Px 0. ] ];
+    rule ~selector:Selector.Webkit_date_and_time_value [ min_height (Em 1.5) ];
+    rule ~selector:Selector.Webkit_date_and_time_value [ text_align Inherit ];
+    rule ~selector:Selector.Webkit_datetime_edit [ display Inline_flex ];
+    rule ~selector:Selector.Webkit_datetime_edit
+      [ padding_top (Px 0.); padding_bottom (Px 0.) ];
+    rule ~selector:Selector.Webkit_datetime_edit_year_field
+      [ padding_top (Px 0.); padding_bottom (Px 0.) ];
+    rule ~selector:Selector.Webkit_datetime_edit_month_field
+      [ padding_top (Px 0.); padding_bottom (Px 0.) ];
+    rule ~selector:Selector.Webkit_datetime_edit_day_field
+      [ padding_top (Px 0.); padding_bottom (Px 0.) ];
+    rule ~selector:Selector.Webkit_datetime_edit_hour_field
+      [ padding_top (Px 0.); padding_bottom (Px 0.) ];
+    rule ~selector:Selector.Webkit_datetime_edit_minute_field
+      [ padding_top (Px 0.); padding_bottom (Px 0.) ];
+    rule ~selector:Selector.Webkit_datetime_edit_second_field
+      [ padding_top (Px 0.); padding_bottom (Px 0.) ];
+    rule ~selector:Selector.Webkit_datetime_edit_millisecond_field
+      [ padding_top (Px 0.); padding_bottom (Px 0.) ];
+    rule ~selector:Selector.Webkit_datetime_edit_meridiem_field
+      [ padding_top (Px 0.); padding_bottom (Px 0.) ];
+  ]
+
+let text_input_items =
+  let open Css in
+  [
+    type_text;
+    input_no_type;
+    type_email;
+    type_url;
+    type_password;
+    type_number;
+    type_date;
+    type_datetime_local;
+    type_month;
+    type_search;
+    type_tel;
+    type_time;
+    type_week;
+    multiple;
+    Selector.element "textarea";
+    Selector.element "select";
+  ]
+
 (** Text inputs base styles *)
 let text_inputs_base () =
   let open Css in
   let d_shadow, _ =
     Var.binding Effects.shadow_var
       (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
-  in
-  let text_input_items =
-    [
-      type_text;
-      input_no_type;
-      type_email;
-      type_url;
-      type_password;
-      type_number;
-      type_date;
-      type_datetime_local;
-      type_month;
-      type_search;
-      type_tel;
-      type_time;
-      type_week;
-      multiple;
-      Selector.element "textarea";
-      Selector.element "select";
-    ]
   in
   [
     rule ~selector:text_inputs
@@ -651,32 +681,8 @@ let text_inputs_base () =
               element "input" && Placeholder; element "textarea" && Placeholder;
             ])
       [ color gray_500; opacity (Opacity_number 1.) ];
-    (* Webkit datetime edit rules - forms plugin specific. These provide
-       additional styling beyond preflight *)
-    rule ~selector:Selector.Webkit_datetime_edit_fields_wrapper
-      [ padding [ Px 0. ] ];
-    rule ~selector:Selector.Webkit_date_and_time_value [ min_height (Em 1.5) ];
-    rule ~selector:Selector.Webkit_date_and_time_value [ text_align Inherit ];
-    rule ~selector:Selector.Webkit_datetime_edit [ display Inline_flex ];
-    rule ~selector:Selector.Webkit_datetime_edit
-      [ padding_top (Px 0.); padding_bottom (Px 0.) ];
-    rule ~selector:Selector.Webkit_datetime_edit_year_field
-      [ padding_top (Px 0.); padding_bottom (Px 0.) ];
-    rule ~selector:Selector.Webkit_datetime_edit_month_field
-      [ padding_top (Px 0.); padding_bottom (Px 0.) ];
-    rule ~selector:Selector.Webkit_datetime_edit_day_field
-      [ padding_top (Px 0.); padding_bottom (Px 0.) ];
-    rule ~selector:Selector.Webkit_datetime_edit_hour_field
-      [ padding_top (Px 0.); padding_bottom (Px 0.) ];
-    rule ~selector:Selector.Webkit_datetime_edit_minute_field
-      [ padding_top (Px 0.); padding_bottom (Px 0.) ];
-    rule ~selector:Selector.Webkit_datetime_edit_second_field
-      [ padding_top (Px 0.); padding_bottom (Px 0.) ];
-    rule ~selector:Selector.Webkit_datetime_edit_millisecond_field
-      [ padding_top (Px 0.); padding_bottom (Px 0.) ];
-    rule ~selector:Selector.Webkit_datetime_edit_meridiem_field
-      [ padding_top (Px 0.); padding_bottom (Px 0.) ];
   ]
+  @ webkit_datetime_rules ()
 
 (** Select dropdown base styles *)
 let select_base () =
@@ -713,6 +719,98 @@ let select_base () =
         print_color_adjust Unset;
         padding_right (Rem 0.75);
       ];
+  ]
+
+let forced_colors_checked_appearance selector =
+  let open Css in
+  media ~condition:(Media.Forced_colors `Active)
+    [ rule ~selector [ appearance Auto ] ]
+
+(** Checked state rules for checkbox/radio *)
+let checkbox_checked_rules () =
+  let open Css in
+  [
+    rule
+      ~selector:
+        Selector.(list [ type_checkbox && Checked; type_radio && Checked ])
+      [
+        background_color Current;
+        background_position [ XY (Pct 50., Pct 50.) ];
+        background_repeat No_repeat;
+        background_size (Size (Pct 100., Pct 100.));
+        border_color (hex "#0000");
+      ];
+    rule
+      ~selector:Selector.(type_checkbox && Checked)
+      [
+        background_image
+          (Url
+             "data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' \
+              xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 \
+              1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 \
+              9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+      ];
+    forced_colors_checked_appearance Selector.(type_checkbox && Checked);
+    rule
+      ~selector:Selector.(type_radio && Checked)
+      [
+        background_image
+          (Url
+             "data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' \
+              xmlns='http://www.w3.org/2000/svg'%3e%3ccircle cx='8' cy='8' \
+              r='3'/%3e%3c/svg%3e");
+      ];
+    forced_colors_checked_appearance Selector.(type_radio && Checked);
+    rule
+      ~selector:
+        Selector.(
+          list
+            [
+              type_checkbox && Checked && Hover;
+              type_checkbox && Checked && Focus;
+              type_radio && Checked && Hover;
+              type_radio && Checked && Focus;
+            ])
+      [ background_color Current; border_color (hex "#0000") ];
+  ]
+
+(** Indeterminate state rules for checkbox *)
+let checkbox_indeterminate_rules () =
+  let open Css in
+  [
+    (* 11. checkbox:indeterminate - all properties *)
+    rule
+      ~selector:Selector.(type_checkbox && Indeterminate)
+      [
+        background_color Current;
+        background_image
+          (Url
+             "data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' \
+              fill='none' viewBox='0 0 16 16'%3e%3cpath stroke='white' \
+              stroke-linecap='round' stroke-linejoin='round' stroke-width='2' \
+              d='M4 8h8'/%3e%3c/svg%3e");
+        background_position [ XY (Pct 50., Pct 50.) ];
+        background_repeat No_repeat;
+        background_size (Size (Pct 100., Pct 100.));
+        border_color (hex "#0000");
+      ];
+    (* 12. @media (forced-colors:active) checkbox:indeterminate *)
+    media ~condition:(Media.Forced_colors `Active)
+      [
+        rule
+          ~selector:Selector.(type_checkbox && Indeterminate)
+          [ appearance Auto ];
+      ];
+    (* 13. Indeterminate hover/focus *)
+    rule
+      ~selector:
+        Selector.(
+          list
+            [
+              type_checkbox && Indeterminate && Hover;
+              type_checkbox && Indeterminate && Focus;
+            ])
+      [ background_color Current; border_color (hex "#0000") ];
   ]
 
 (** Checkbox and radio base styles - order matches Tailwind exactly with
@@ -753,90 +851,9 @@ let checkbox_radio_base () =
     rule
       ~selector:Selector.(list [ type_checkbox && Focus; type_radio && Focus ])
       checkbox_focus_ring_decls;
-    (* 5. Checked state for both - common properties *)
-    rule
-      ~selector:
-        Selector.(list [ type_checkbox && Checked; type_radio && Checked ])
-      [
-        background_color Current;
-        background_position [ XY (Pct 50., Pct 50.) ];
-        background_repeat No_repeat;
-        background_size (Size (Pct 100., Pct 100.));
-        border_color (hex "#0000");
-      ];
-    (* 6. checkbox:checked background-image (checkmark) *)
-    rule
-      ~selector:Selector.(type_checkbox && Checked)
-      [
-        background_image
-          (Url
-             "data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' \
-              xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 \
-              1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 \
-              9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
-      ];
-    (* 7. @media (forced-colors:active) checkbox:checked *)
-    media ~condition:(Media.Forced_colors `Active)
-      [ rule ~selector:Selector.(type_checkbox && Checked) [ appearance Auto ] ];
-    (* 8. radio:checked background-image (circle) *)
-    rule
-      ~selector:Selector.(type_radio && Checked)
-      [
-        background_image
-          (Url
-             "data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' \
-              xmlns='http://www.w3.org/2000/svg'%3e%3ccircle cx='8' cy='8' \
-              r='3'/%3e%3c/svg%3e");
-      ];
-    (* 9. @media (forced-colors:active) radio:checked *)
-    media ~condition:(Media.Forced_colors `Active)
-      [ rule ~selector:Selector.(type_radio && Checked) [ appearance Auto ] ];
-    (* 10. Checked hover/focus for both *)
-    rule
-      ~selector:
-        Selector.(
-          list
-            [
-              type_checkbox && Checked && Hover;
-              type_checkbox && Checked && Focus;
-              type_radio && Checked && Hover;
-              type_radio && Checked && Focus;
-            ])
-      [ background_color Current; border_color (hex "#0000") ];
-    (* 11. checkbox:indeterminate - all properties *)
-    rule
-      ~selector:Selector.(type_checkbox && Indeterminate)
-      [
-        background_color Current;
-        background_image
-          (Url
-             "data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' \
-              fill='none' viewBox='0 0 16 16'%3e%3cpath stroke='white' \
-              stroke-linecap='round' stroke-linejoin='round' stroke-width='2' \
-              d='M4 8h8'/%3e%3c/svg%3e");
-        background_position [ XY (Pct 50., Pct 50.) ];
-        background_repeat No_repeat;
-        background_size (Size (Pct 100., Pct 100.));
-        border_color (hex "#0000");
-      ];
-    (* 12. @media (forced-colors:active) checkbox:indeterminate *)
-    media ~condition:(Media.Forced_colors `Active)
-      [
-        rule
-          ~selector:Selector.(type_checkbox && Indeterminate)
-          [ appearance Auto ];
-      ];
-    (* 13. Indeterminate hover/focus *)
-    rule
-      ~selector:
-        Selector.(
-          list
-            [
-              type_checkbox && Indeterminate && Hover;
-              type_checkbox && Indeterminate && Focus;
-            ])
-      [ background_color Current; border_color (hex "#0000") ];
   ]
+  @ checkbox_checked_rules ()
+  @ checkbox_indeterminate_rules ()
 
 (** File input base styles *)
 let file_input_base () =

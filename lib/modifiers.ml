@@ -14,11 +14,6 @@ let hover cls = build_class "hover:" cls
 let focus cls = build_class "focus:" cls
 let active cls = build_class "active:" cls
 let disabled cls = build_class "disabled:" cls
-let group_hover cls = build_class "group-hover:" cls
-let group_focus cls = build_class "group-focus:" cls
-let peer_hover cls = build_class "peer-hover:" cls
-let peer_focus cls = build_class "peer-focus:" cls
-let peer_checked cls = build_class "peer-checked:" cls
 let aria_checked cls = build_class "aria-checked:" cls
 let aria_expanded cls = build_class "aria-expanded:" cls
 let aria_selected cls = build_class "aria-selected:" cls
@@ -35,46 +30,81 @@ let group = Css.Selector.Class "group"
 
 let peer = Css.Selector.Class "peer"
 
+(** Helper: compound selector with class prefix and pseudo-class *)
+let class_pseudo prefix cls pseudo =
+  Css.Selector.compound [ Css.Selector.Class (prefix ^ ":" ^ cls); pseudo ]
+
+(** Helper: parse an nth expression string *)
+let parse_nth expr =
+  let reader = Css.Reader.of_string expr in
+  Css.Selector.read_nth reader
+
+(** Helper: breakpoint name for responsive modifiers *)
+let breakpoint_name qual bp =
+  let base =
+    match bp with
+    | `Sm -> "sm"
+    | `Md -> "md"
+    | `Lg -> "lg"
+    | `Xl -> "xl"
+    | `Xl_2 -> "2xl"
+  in
+  match qual with "" -> base | q -> q ^ "-" ^ base
+
+(** Helper: arbitrary breakpoint class selector *)
+let arbitrary_breakpoint_class prefix px cls =
+  let px_str =
+    if Float.is_integer px then Int.to_string (Float.to_int px)
+    else Float.to_string px
+  in
+  Css.Selector.Class (prefix ^ "[" ^ px_str ^ "px]:" ^ cls)
+
+(** Helper: direction selector (ltr/rtl) *)
+let dir_selector dir cls =
+  let open Css.Selector in
+  let dir_sel = Dir dir in
+  let attr_sel = attribute "dir" (Exact dir) in
+  let desc_sel = combine attr_sel Descendant universal in
+  compound [ Class (dir ^ ":" ^ cls); where [ dir_sel; attr_sel; desc_sel ] ]
+
+(** Helper: inert pseudo-selector *)
+let inert_pseudo () =
+  let open Css.Selector in
+  let inert_attr = attribute "inert" Presence in
+  let inert_desc = combine inert_attr Descendant universal in
+  is_ [ inert_attr; inert_desc ]
+
+(** Helper: open pseudo-selector *)
+let open_pseudo () =
+  let open Css.Selector in
+  is_ [ attribute "open" Presence; Popover_open; Open ]
+
 (** Generate CSS selector for a modifier and base class *)
 let to_selector (modifier : modifier) cls =
   let open Css.Selector in
+  let gp prefix pseudo =
+    let rel =
+      combine (compound [ where [ group ]; pseudo ]) Descendant universal
+    in
+    compound [ Class (prefix ^ ":" ^ cls); is_ [ rel ] ]
+  in
+  let pp prefix pseudo =
+    let rel =
+      combine (compound [ where [ peer ]; pseudo ]) Subsequent_sibling universal
+    in
+    compound [ Class (prefix ^ ":" ^ cls); is_ [ rel ] ]
+  in
+  let cp = class_pseudo in
   match modifier with
   | Hover -> compound [ hover cls; Hover ]
   | Focus -> compound [ focus cls; Focus ]
   | Active -> compound [ active cls; Active ]
   | Disabled -> compound [ disabled cls; Disabled ]
-  | Group_hover ->
-      (* Tailwind uses: .group-hover\:cls:is(:where(.group):hover x) *)
-      let rel =
-        combine (compound [ where [ group ]; Hover ]) Descendant universal
-      in
-      compound [ group_hover cls; is_ [ rel ] ]
-  | Group_focus ->
-      let rel =
-        combine (compound [ where [ group ]; Focus ]) Descendant universal
-      in
-      compound [ group_focus cls; is_ [ rel ] ]
-  | Peer_hover ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Hover ])
-          Subsequent_sibling universal
-      in
-      compound [ peer_hover cls; is_ [ rel ] ]
-  | Peer_focus ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Focus ])
-          Subsequent_sibling universal
-      in
-      compound [ peer_focus cls; is_ [ rel ] ]
-  | Peer_checked ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Checked ])
-          Subsequent_sibling universal
-      in
-      compound [ peer_checked cls; is_ [ rel ] ]
+  | Group_hover -> gp "group-hover" Hover
+  | Group_focus -> gp "group-focus" Focus
+  | Peer_hover -> pp "peer-hover" Hover
+  | Peer_focus -> pp "peer-focus" Focus
+  | Peer_checked -> pp "peer-checked" Checked
   | Aria_checked ->
       compound [ aria_checked cls; attribute "aria-checked" (Exact "true") ]
   | Aria_expanded ->
@@ -91,586 +121,164 @@ let to_selector (modifier : modifier) cls =
   | Focus_visible -> compound [ focus_visible cls; Focus_visible ]
   | Pseudo_before -> compound [ before cls; Before ]
   | Pseudo_after -> compound [ after cls; After ]
-  (* Media-like modifiers that only prefix the class; actual media gating is
-     handled by rules. *)
-  | Dark -> Css.Selector.Class ("dark:" ^ cls)
-  | Motion_safe -> Css.Selector.Class ("motion-safe:" ^ cls)
-  | Motion_reduce -> Css.Selector.Class ("motion-reduce:" ^ cls)
-  | Contrast_more -> Css.Selector.Class ("contrast-more:" ^ cls)
-  | Contrast_less -> Css.Selector.Class ("contrast-less:" ^ cls)
+  (* Media-like modifiers that only prefix the class *)
+  | Dark -> Class ("dark:" ^ cls)
+  | Motion_safe -> Class ("motion-safe:" ^ cls)
+  | Motion_reduce -> Class ("motion-reduce:" ^ cls)
+  | Contrast_more -> Class ("contrast-more:" ^ cls)
+  | Contrast_less -> Class ("contrast-less:" ^ cls)
   (* Structural pseudo-class modifiers *)
-  | First -> compound [ Class ("first:" ^ cls); First_child ]
-  | Last -> compound [ Class ("last:" ^ cls); Last_child ]
-  | Only -> compound [ Class ("only:" ^ cls); Only_child ]
-  | Odd -> compound [ Class ("odd:" ^ cls); Nth_child (Odd, None) ]
-  | Even -> compound [ Class ("even:" ^ cls); Nth_child (Even, None) ]
-  | First_of_type -> compound [ Class ("first-of-type:" ^ cls); First_of_type ]
-  | Last_of_type -> compound [ Class ("last-of-type:" ^ cls); Last_of_type ]
-  | Only_of_type -> compound [ Class ("only-of-type:" ^ cls); Only_of_type ]
+  | First -> cp "first" cls First_child
+  | Last -> cp "last" cls Last_child
+  | Only -> cp "only" cls Only_child
+  | Odd -> cp "odd" cls (Nth_child (Odd, None))
+  | Even -> cp "even" cls (Nth_child (Even, None))
+  | First_of_type -> cp "first-of-type" cls First_of_type
+  | Last_of_type -> cp "last-of-type" cls Last_of_type
+  | Only_of_type -> cp "only-of-type" cls Only_of_type
   | Nth expr ->
-      (* Parse the nth expression and create nth-child selector *)
-      let nth =
-        let reader = Css.Reader.of_string expr in
-        Css.Selector.read_nth reader
-      in
+      let nth = parse_nth expr in
       compound [ Class ("nth-[" ^ expr ^ "]:" ^ cls); Nth_child (nth, None) ]
   | Nth_last expr ->
-      (* Parse the nth expression and create nth-last-child selector *)
-      let nth =
-        let reader = Css.Reader.of_string expr in
-        Css.Selector.read_nth reader
-      in
+      let nth = parse_nth expr in
       compound
         [ Class ("nth-last-[" ^ expr ^ "]:" ^ cls); Nth_last_child (nth, None) ]
-  | Empty -> compound [ Class ("empty:" ^ cls); Empty ]
+  | Empty -> cp "empty" cls Empty
   (* Form state modifiers *)
-  | Checked -> compound [ Class ("checked:" ^ cls); Checked ]
-  | Indeterminate -> compound [ Class ("indeterminate:" ^ cls); Indeterminate ]
-  | Default -> compound [ Class ("default:" ^ cls); Default ]
-  | Required -> compound [ Class ("required:" ^ cls); Required ]
-  | Valid -> compound [ Class ("valid:" ^ cls); Valid ]
-  | Invalid -> compound [ Class ("invalid:" ^ cls); Invalid ]
-  | In_range -> compound [ Class ("in-range:" ^ cls); In_range ]
-  | Out_of_range -> compound [ Class ("out-of-range:" ^ cls); Out_of_range ]
-  | Placeholder_shown ->
-      compound [ Class ("placeholder-shown:" ^ cls); Placeholder_shown ]
-  | Autofill -> compound [ Class ("autofill:" ^ cls); Autofill ]
-  | Read_only -> compound [ Class ("read-only:" ^ cls); Read_only ]
-  | Read_write -> compound [ Class ("read-write:" ^ cls); Read_write ]
-  | Optional -> compound [ Class ("optional:" ^ cls); Optional ]
+  | Checked -> cp "checked" cls Checked
+  | Indeterminate -> cp "indeterminate" cls Indeterminate
+  | Default -> cp "default" cls Default
+  | Required -> cp "required" cls Required
+  | Valid -> cp "valid" cls Valid
+  | Invalid -> cp "invalid" cls Invalid
+  | In_range -> cp "in-range" cls In_range
+  | Out_of_range -> cp "out-of-range" cls Out_of_range
+  | Placeholder_shown -> cp "placeholder-shown" cls Placeholder_shown
+  | Autofill -> cp "autofill" cls Autofill
+  | Read_only -> cp "read-only" cls Read_only
+  | Read_write -> cp "read-write" cls Read_write
+  | Optional -> cp "optional" cls Optional
   | Open ->
-      (* Tailwind uses :is([open], :popover-open, :open) *)
-      let open_attr = attribute "open" Presence in
-      compound [ Class ("open:" ^ cls); is_ [ open_attr; Popover_open; Open ] ]
-  | Enabled -> compound [ Class ("enabled:" ^ cls); Enabled ]
-  | Target -> compound [ Class ("target:" ^ cls); Target ]
-  | Visited -> compound [ Class ("visited:" ^ cls); Visited ]
-  | Inert ->
-      (* Tailwind uses :is([inert], [inert] star) for broader compatibility *)
-      let inert_attr = attribute "inert" Presence in
-      let inert_desc = combine inert_attr Descendant universal in
-      compound [ Class ("inert:" ^ cls); is_ [ inert_attr; inert_desc ] ]
-  | User_valid -> compound [ Class ("user-valid:" ^ cls); User_valid ]
-  | User_invalid -> compound [ Class ("user-invalid:" ^ cls); User_invalid ]
+      compound
+        [
+          Class ("open:" ^ cls);
+          is_ [ attribute "open" Presence; Popover_open; Open ];
+        ]
+  | Enabled -> cp "enabled" cls Enabled
+  | Target -> cp "target" cls Target
+  | Visited -> cp "visited" cls Visited
+  | Inert -> compound [ Class ("inert:" ^ cls); inert_pseudo () ]
+  | User_valid -> cp "user-valid" cls User_valid
+  | User_invalid -> cp "user-invalid" cls User_invalid
   (* Group structural variants *)
-  | Group_first ->
-      let rel =
-        combine (compound [ where [ group ]; First_child ]) Descendant universal
-      in
-      compound [ Class ("group-first:" ^ cls); is_ [ rel ] ]
-  | Group_last ->
-      let rel =
-        combine (compound [ where [ group ]; Last_child ]) Descendant universal
-      in
-      compound [ Class ("group-last:" ^ cls); is_ [ rel ] ]
-  | Group_odd ->
-      let rel =
-        combine
-          (compound [ where [ group ]; Nth_child (Odd, None) ])
-          Descendant universal
-      in
-      compound [ Class ("group-odd:" ^ cls); is_ [ rel ] ]
-  | Group_even ->
-      let rel =
-        combine
-          (compound [ where [ group ]; Nth_child (Even, None) ])
-          Descendant universal
-      in
-      compound [ Class ("group-even:" ^ cls); is_ [ rel ] ]
-  | Group_only ->
-      let rel =
-        combine (compound [ where [ group ]; Only_child ]) Descendant universal
-      in
-      compound [ Class ("group-only:" ^ cls); is_ [ rel ] ]
-  | Group_first_of_type ->
-      let rel =
-        combine
-          (compound [ where [ group ]; First_of_type ])
-          Descendant universal
-      in
-      compound [ Class ("group-first-of-type:" ^ cls); is_ [ rel ] ]
-  | Group_last_of_type ->
-      let rel =
-        combine
-          (compound [ where [ group ]; Last_of_type ])
-          Descendant universal
-      in
-      compound [ Class ("group-last-of-type:" ^ cls); is_ [ rel ] ]
-  | Group_only_of_type ->
-      let rel =
-        combine
-          (compound [ where [ group ]; Only_of_type ])
-          Descendant universal
-      in
-      compound [ Class ("group-only-of-type:" ^ cls); is_ [ rel ] ]
+  | Group_first -> gp "group-first" First_child
+  | Group_last -> gp "group-last" Last_child
+  | Group_odd -> gp "group-odd" (Nth_child (Odd, None))
+  | Group_even -> gp "group-even" (Nth_child (Even, None))
+  | Group_only -> gp "group-only" Only_child
+  | Group_first_of_type -> gp "group-first-of-type" First_of_type
+  | Group_last_of_type -> gp "group-last-of-type" Last_of_type
+  | Group_only_of_type -> gp "group-only-of-type" Only_of_type
   (* Peer structural variants *)
-  | Peer_first ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; First_child ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-first:" ^ cls); is_ [ rel ] ]
-  | Peer_last ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Last_child ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-last:" ^ cls); is_ [ rel ] ]
-  | Peer_odd ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Nth_child (Odd, None) ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-odd:" ^ cls); is_ [ rel ] ]
-  | Peer_even ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Nth_child (Even, None) ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-even:" ^ cls); is_ [ rel ] ]
-  | Peer_only ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Only_child ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-only:" ^ cls); is_ [ rel ] ]
-  | Peer_first_of_type ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; First_of_type ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-first-of-type:" ^ cls); is_ [ rel ] ]
-  | Peer_last_of_type ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Last_of_type ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-last-of-type:" ^ cls); is_ [ rel ] ]
-  | Peer_only_of_type ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Only_of_type ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-only-of-type:" ^ cls); is_ [ rel ] ]
-  (* More group state variants *)
-  | Group_active ->
-      let rel =
-        combine (compound [ where [ group ]; Active ]) Descendant universal
-      in
-      compound [ Class ("group-active:" ^ cls); is_ [ rel ] ]
-  | Group_visited ->
-      let rel =
-        combine (compound [ where [ group ]; Visited ]) Descendant universal
-      in
-      compound [ Class ("group-visited:" ^ cls); is_ [ rel ] ]
-  | Group_disabled ->
-      let rel =
-        combine (compound [ where [ group ]; Disabled ]) Descendant universal
-      in
-      compound [ Class ("group-disabled:" ^ cls); is_ [ rel ] ]
-  | Group_checked ->
-      let rel =
-        combine (compound [ where [ group ]; Checked ]) Descendant universal
-      in
-      compound [ Class ("group-checked:" ^ cls); is_ [ rel ] ]
-  | Group_empty ->
-      let rel =
-        combine (compound [ where [ group ]; Empty ]) Descendant universal
-      in
-      compound [ Class ("group-empty:" ^ cls); is_ [ rel ] ]
-  | Group_required ->
-      let rel =
-        combine (compound [ where [ group ]; Required ]) Descendant universal
-      in
-      compound [ Class ("group-required:" ^ cls); is_ [ rel ] ]
-  | Group_valid ->
-      let rel =
-        combine (compound [ where [ group ]; Valid ]) Descendant universal
-      in
-      compound [ Class ("group-valid:" ^ cls); is_ [ rel ] ]
-  | Group_invalid ->
-      let rel =
-        combine (compound [ where [ group ]; Invalid ]) Descendant universal
-      in
-      compound [ Class ("group-invalid:" ^ cls); is_ [ rel ] ]
-  | Group_indeterminate ->
-      let rel =
-        combine
-          (compound [ where [ group ]; Indeterminate ])
-          Descendant universal
-      in
-      compound [ Class ("group-indeterminate:" ^ cls); is_ [ rel ] ]
-  | Group_default ->
-      let rel =
-        combine (compound [ where [ group ]; Default ]) Descendant universal
-      in
-      compound [ Class ("group-default:" ^ cls); is_ [ rel ] ]
-  | Group_open ->
-      let open_is = is_ [ attribute "open" Presence; Popover_open; Open ] in
-      let rel =
-        combine (compound [ where [ group ]; open_is ]) Descendant universal
-      in
-      compound [ Class ("group-open:" ^ cls); is_ [ rel ] ]
-  | Group_target ->
-      let rel =
-        combine (compound [ where [ group ]; Target ]) Descendant universal
-      in
-      compound [ Class ("group-target:" ^ cls); is_ [ rel ] ]
-  (* More peer state variants *)
-  | Peer_active ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Active ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-active:" ^ cls); is_ [ rel ] ]
-  | Peer_visited ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Visited ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-visited:" ^ cls); is_ [ rel ] ]
-  | Peer_disabled ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Disabled ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-disabled:" ^ cls); is_ [ rel ] ]
-  | Peer_empty ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Empty ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-empty:" ^ cls); is_ [ rel ] ]
-  | Peer_required ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Required ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-required:" ^ cls); is_ [ rel ] ]
-  | Peer_valid ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Valid ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-valid:" ^ cls); is_ [ rel ] ]
-  | Peer_invalid ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Invalid ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-invalid:" ^ cls); is_ [ rel ] ]
-  | Peer_indeterminate ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Indeterminate ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-indeterminate:" ^ cls); is_ [ rel ] ]
-  | Peer_default ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Default ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-default:" ^ cls); is_ [ rel ] ]
-  | Peer_open ->
-      let open_is = is_ [ attribute "open" Presence; Popover_open; Open ] in
-      let rel =
-        combine
-          (compound [ where [ peer ]; open_is ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-open:" ^ cls); is_ [ rel ] ]
-  | Peer_target ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Target ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-target:" ^ cls); is_ [ rel ] ]
+  | Peer_first -> pp "peer-first" First_child
+  | Peer_last -> pp "peer-last" Last_child
+  | Peer_odd -> pp "peer-odd" (Nth_child (Odd, None))
+  | Peer_even -> pp "peer-even" (Nth_child (Even, None))
+  | Peer_only -> pp "peer-only" Only_child
+  | Peer_first_of_type -> pp "peer-first-of-type" First_of_type
+  | Peer_last_of_type -> pp "peer-last-of-type" Last_of_type
+  | Peer_only_of_type -> pp "peer-only-of-type" Only_of_type
+  (* Group state variants *)
+  | Group_active -> gp "group-active" Active
+  | Group_visited -> gp "group-visited" Visited
+  | Group_disabled -> gp "group-disabled" Disabled
+  | Group_checked -> gp "group-checked" Checked
+  | Group_empty -> gp "group-empty" Empty
+  | Group_required -> gp "group-required" Required
+  | Group_valid -> gp "group-valid" Valid
+  | Group_invalid -> gp "group-invalid" Invalid
+  | Group_indeterminate -> gp "group-indeterminate" Indeterminate
+  | Group_default -> gp "group-default" Default
+  | Group_open -> gp "group-open" (open_pseudo ())
+  | Group_target -> gp "group-target" Target
+  (* Peer state variants *)
+  | Peer_active -> pp "peer-active" Active
+  | Peer_visited -> pp "peer-visited" Visited
+  | Peer_disabled -> pp "peer-disabled" Disabled
+  | Peer_empty -> pp "peer-empty" Empty
+  | Peer_required -> pp "peer-required" Required
+  | Peer_valid -> pp "peer-valid" Valid
+  | Peer_invalid -> pp "peer-invalid" Invalid
+  | Peer_indeterminate -> pp "peer-indeterminate" Indeterminate
+  | Peer_default -> pp "peer-default" Default
+  | Peer_open -> pp "peer-open" (open_pseudo ())
+  | Peer_target -> pp "peer-target" Target
   (* Group/Peer optional variants *)
-  | Group_optional ->
-      let rel =
-        combine (compound [ where [ group ]; Optional ]) Descendant universal
-      in
-      compound [ Class ("group-optional:" ^ cls); is_ [ rel ] ]
-  | Peer_optional ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Optional ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-optional:" ^ cls); is_ [ rel ] ]
-  (* Group/peer read-only, read-write, inert, user-valid, user-invalid
-     variants *)
-  | Group_read_only ->
-      let rel =
-        combine (compound [ where [ group ]; Read_only ]) Descendant universal
-      in
-      compound [ Class ("group-read-only:" ^ cls); is_ [ rel ] ]
-  | Peer_read_only ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Read_only ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-read-only:" ^ cls); is_ [ rel ] ]
-  | Group_read_write ->
-      let rel =
-        combine (compound [ where [ group ]; Read_write ]) Descendant universal
-      in
-      compound [ Class ("group-read-write:" ^ cls); is_ [ rel ] ]
-  | Peer_read_write ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Read_write ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-read-write:" ^ cls); is_ [ rel ] ]
-  | Group_inert ->
-      (* Tailwind: :is(:where(.group):is([inert], [inert] star) star) *)
-      let inert_attr = attribute "inert" Presence in
-      let inert_desc = combine inert_attr Descendant universal in
-      let inert_is = is_ [ inert_attr; inert_desc ] in
-      let rel =
-        combine (compound [ where [ group ]; inert_is ]) Descendant universal
-      in
-      compound [ Class ("group-inert:" ^ cls); is_ [ rel ] ]
-  | Peer_inert ->
-      (* Tailwind: :is(:where(.peer):is([inert], [inert] star) ~ star) *)
-      let inert_attr = attribute "inert" Presence in
-      let inert_desc = combine inert_attr Descendant universal in
-      let inert_is = is_ [ inert_attr; inert_desc ] in
-      let rel =
-        combine
-          (compound [ where [ peer ]; inert_is ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-inert:" ^ cls); is_ [ rel ] ]
-  | Group_user_valid ->
-      let rel =
-        combine (compound [ where [ group ]; User_valid ]) Descendant universal
-      in
-      compound [ Class ("group-user-valid:" ^ cls); is_ [ rel ] ]
-  | Peer_user_valid ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; User_valid ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-user-valid:" ^ cls); is_ [ rel ] ]
-  | Group_user_invalid ->
-      let rel =
-        combine
-          (compound [ where [ group ]; User_invalid ])
-          Descendant universal
-      in
-      compound [ Class ("group-user-invalid:" ^ cls); is_ [ rel ] ]
-  | Peer_user_invalid ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; User_invalid ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-user-invalid:" ^ cls); is_ [ rel ] ]
-  (* More group/peer form state variants *)
-  | Group_placeholder_shown ->
-      let rel =
-        combine
-          (compound [ where [ group ]; Placeholder_shown ])
-          Descendant universal
-      in
-      compound [ Class ("group-placeholder-shown:" ^ cls); is_ [ rel ] ]
-  | Peer_placeholder_shown ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Placeholder_shown ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-placeholder-shown:" ^ cls); is_ [ rel ] ]
-  | Group_autofill ->
-      let rel =
-        combine (compound [ where [ group ]; Autofill ]) Descendant universal
-      in
-      compound [ Class ("group-autofill:" ^ cls); is_ [ rel ] ]
-  | Peer_autofill ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Autofill ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-autofill:" ^ cls); is_ [ rel ] ]
-  | Group_in_range ->
-      let rel =
-        combine (compound [ where [ group ]; In_range ]) Descendant universal
-      in
-      compound [ Class ("group-in-range:" ^ cls); is_ [ rel ] ]
-  | Peer_in_range ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; In_range ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-in-range:" ^ cls); is_ [ rel ] ]
-  | Group_out_of_range ->
-      let rel =
-        combine
-          (compound [ where [ group ]; Out_of_range ])
-          Descendant universal
-      in
-      compound [ Class ("group-out-of-range:" ^ cls); is_ [ rel ] ]
-  | Peer_out_of_range ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Out_of_range ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-out-of-range:" ^ cls); is_ [ rel ] ]
-  | Group_focus_within ->
-      let rel =
-        combine
-          (compound [ where [ group ]; Focus_within ])
-          Descendant universal
-      in
-      compound [ Class ("group-focus-within:" ^ cls); is_ [ rel ] ]
-  | Peer_focus_within ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Focus_within ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-focus-within:" ^ cls); is_ [ rel ] ]
-  | Group_focus_visible ->
-      let rel =
-        combine
-          (compound [ where [ group ]; Focus_visible ])
-          Descendant universal
-      in
-      compound [ Class ("group-focus-visible:" ^ cls); is_ [ rel ] ]
-  | Peer_focus_visible ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Focus_visible ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-focus-visible:" ^ cls); is_ [ rel ] ]
-  | Group_enabled ->
-      let rel =
-        combine (compound [ where [ group ]; Enabled ]) Descendant universal
-      in
-      compound [ Class ("group-enabled:" ^ cls); is_ [ rel ] ]
-  | Peer_enabled ->
-      let rel =
-        combine
-          (compound [ where [ peer ]; Enabled ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-enabled:" ^ cls); is_ [ rel ] ]
+  | Group_optional -> gp "group-optional" Optional
+  | Peer_optional -> pp "peer-optional" Optional
+  (* Group/peer read-only, read-write, inert, user-valid, user-invalid *)
+  | Group_read_only -> gp "group-read-only" Read_only
+  | Peer_read_only -> pp "peer-read-only" Read_only
+  | Group_read_write -> gp "group-read-write" Read_write
+  | Peer_read_write -> pp "peer-read-write" Read_write
+  | Group_inert -> gp "group-inert" (inert_pseudo ())
+  | Peer_inert -> pp "peer-inert" (inert_pseudo ())
+  | Group_user_valid -> gp "group-user-valid" User_valid
+  | Peer_user_valid -> pp "peer-user-valid" User_valid
+  | Group_user_invalid -> gp "group-user-invalid" User_invalid
+  | Peer_user_invalid -> pp "peer-user-invalid" User_invalid
+  (* Group/peer form state variants *)
+  | Group_placeholder_shown -> gp "group-placeholder-shown" Placeholder_shown
+  | Peer_placeholder_shown -> pp "peer-placeholder-shown" Placeholder_shown
+  | Group_autofill -> gp "group-autofill" Autofill
+  | Peer_autofill -> pp "peer-autofill" Autofill
+  | Group_in_range -> gp "group-in-range" In_range
+  | Peer_in_range -> pp "peer-in-range" In_range
+  | Group_out_of_range -> gp "group-out-of-range" Out_of_range
+  | Peer_out_of_range -> pp "peer-out-of-range" Out_of_range
+  | Group_focus_within -> gp "group-focus-within" Focus_within
+  | Peer_focus_within -> pp "peer-focus-within" Focus_within
+  | Group_focus_visible -> gp "group-focus-visible" Focus_visible
+  | Peer_focus_visible -> pp "peer-focus-visible" Focus_visible
+  | Group_enabled -> gp "group-enabled" Enabled
+  | Peer_enabled -> pp "peer-enabled" Enabled
   (* Pseudo-element variants *)
-  | Pseudo_marker -> compound [ Class ("marker:" ^ cls); Marker ]
-  | Pseudo_selection -> compound [ Class ("selection:" ^ cls); Selection ]
-  | Pseudo_placeholder -> compound [ Class ("placeholder:" ^ cls); Placeholder ]
-  | Pseudo_backdrop -> compound [ Class ("backdrop:" ^ cls); Backdrop ]
-  | Pseudo_file -> compound [ Class ("file:" ^ cls); File_selector_button ]
-  | Pseudo_first_letter ->
-      compound [ Class ("first-letter:" ^ cls); First_letter ]
-  | Pseudo_first_line -> compound [ Class ("first-line:" ^ cls); First_line ]
-  | Pseudo_details_content ->
-      compound [ Class ("details-content:" ^ cls); Details_content ]
+  | Pseudo_marker -> cp "marker" cls Marker
+  | Pseudo_selection -> cp "selection" cls Selection
+  | Pseudo_placeholder -> cp "placeholder" cls Placeholder
+  | Pseudo_backdrop -> cp "backdrop" cls Backdrop
+  | Pseudo_file -> cp "file" cls File_selector_button
+  | Pseudo_first_letter -> cp "first-letter" cls First_letter
+  | Pseudo_first_line -> cp "first-line" cls First_line
+  | Pseudo_details_content -> cp "details-content" cls Details_content
   (* Child/descendant selectors - star variants *)
   | Children ->
-      (* star:flex -> :is(.\star\:flex > star) *)
       let child_sel = combine (Class ("*:" ^ cls)) Child universal in
       is_ [ child_sel ]
   | Descendants ->
-      (* starstar:flex -> :is(.\starstar\:flex star) *)
       let desc_sel = combine (Class ("**:" ^ cls)) Descendant universal in
       is_ [ desc_sel ]
-  | Ltr ->
-      (* ltr:flex -> .ltr\:flex:where(:dir(ltr), [dir="ltr"], [dir="ltr"]
-         star) *)
-      let dir_sel = Dir "ltr" in
-      let attr_sel = attribute "dir" (Exact "ltr") in
-      let desc_sel = combine attr_sel Descendant universal in
-      compound [ Class ("ltr:" ^ cls); where [ dir_sel; attr_sel; desc_sel ] ]
-  | Rtl ->
-      (* rtl:flex -> .rtl\:flex:where(:dir(rtl), [dir="rtl"], [dir="rtl"]
-         star) *)
-      let dir_sel = Dir "rtl" in
-      let attr_sel = attribute "dir" (Exact "rtl") in
-      let desc_sel = combine attr_sel Descendant universal in
-      compound [ Class ("rtl:" ^ cls); where [ dir_sel; attr_sel; desc_sel ] ]
+  | Ltr -> dir_selector "ltr" cls
+  | Rtl -> dir_selector "rtl" cls
   (* Media query modifiers that only prefix the class *)
-  | Print -> Css.Selector.Class ("print:" ^ cls)
-  | Portrait -> Css.Selector.Class ("portrait:" ^ cls)
-  | Landscape -> Css.Selector.Class ("landscape:" ^ cls)
-  | Forced_colors -> Css.Selector.Class ("forced-colors:" ^ cls)
-  | Inverted_colors -> Css.Selector.Class ("inverted-colors:" ^ cls)
-  | Pointer_none -> Css.Selector.Class ("pointer-none:" ^ cls)
-  | Pointer_coarse -> Css.Selector.Class ("pointer-coarse:" ^ cls)
-  | Pointer_fine -> Css.Selector.Class ("pointer-fine:" ^ cls)
-  | Any_pointer_none -> Css.Selector.Class ("any-pointer-none:" ^ cls)
-  | Any_pointer_coarse -> Css.Selector.Class ("any-pointer-coarse:" ^ cls)
-  | Any_pointer_fine -> Css.Selector.Class ("any-pointer-fine:" ^ cls)
-  | Noscript -> Css.Selector.Class ("noscript:" ^ cls)
+  | Print -> Class ("print:" ^ cls)
+  | Portrait -> Class ("portrait:" ^ cls)
+  | Landscape -> Class ("landscape:" ^ cls)
+  | Forced_colors -> Class ("forced-colors:" ^ cls)
+  | Inverted_colors -> Class ("inverted-colors:" ^ cls)
+  | Pointer_none -> Class ("pointer-none:" ^ cls)
+  | Pointer_coarse -> Class ("pointer-coarse:" ^ cls)
+  | Pointer_fine -> Class ("pointer-fine:" ^ cls)
+  | Any_pointer_none -> Class ("any-pointer-none:" ^ cls)
+  | Any_pointer_coarse -> Class ("any-pointer-coarse:" ^ cls)
+  | Any_pointer_fine -> Class ("any-pointer-fine:" ^ cls)
+  | Noscript -> Class ("noscript:" ^ cls)
   (* Responsive breakpoint modifiers that only prefix the class *)
-  | Responsive breakpoint ->
-      let prefix =
-        match breakpoint with
-        | `Sm -> "sm"
-        | `Md -> "md"
-        | `Lg -> "lg"
-        | `Xl -> "xl"
-        | `Xl_2 -> "2xl"
-      in
-      Css.Selector.Class (prefix ^ ":" ^ cls)
-  | Min_responsive breakpoint ->
-      let prefix =
-        match breakpoint with
-        | `Sm -> "min-sm"
-        | `Md -> "min-md"
-        | `Lg -> "min-lg"
-        | `Xl -> "min-xl"
-        | `Xl_2 -> "min-2xl"
-      in
-      Css.Selector.Class (prefix ^ ":" ^ cls)
-  | Max_responsive breakpoint ->
-      let prefix =
-        match breakpoint with
-        | `Sm -> "max-sm"
-        | `Md -> "max-md"
-        | `Lg -> "max-lg"
-        | `Xl -> "max-xl"
-        | `Xl_2 -> "max-2xl"
-      in
-      Css.Selector.Class (prefix ^ ":" ^ cls)
-  | Min_arbitrary px ->
-      let px_str =
-        if Float.is_integer px then Int.to_string (Float.to_int px)
-        else Float.to_string px
-      in
-      Css.Selector.Class ("min-[" ^ px_str ^ "px]:" ^ cls)
-  | Max_arbitrary px ->
-      let px_str =
-        if Float.is_integer px then Int.to_string (Float.to_int px)
-        else Float.to_string px
-      in
-      Css.Selector.Class ("max-[" ^ px_str ^ "px]:" ^ cls)
+  | Responsive bp -> Class (breakpoint_name "" bp ^ ":" ^ cls)
+  | Min_responsive bp -> Class (breakpoint_name "min" bp ^ ":" ^ cls)
+  | Max_responsive bp -> Class (breakpoint_name "max" bp ^ ":" ^ cls)
+  | Min_arbitrary px -> arbitrary_breakpoint_class "min-" px cls
+  | Max_arbitrary px -> arbitrary_breakpoint_class "max-" px cls
   | _ -> Css.Selector.Class cls (* fallback for complex modifiers *)
 
 (** Check if a modifier generates a hover rule *)
@@ -1187,7 +795,6 @@ let parse_px_value s =
 (* Try parsing a bracketed modifier, returning Some if matched *)
 let try_bracketed_modifier s =
   let ( let* ) = Option.bind in
-  (* Try each bracketed pattern, returning first match *)
   let try_pattern prefix make =
     let* content = extract_bracket_content ~prefix s in
     Some (make content)
@@ -1198,61 +805,41 @@ let try_bracketed_modifier s =
     Some (make value)
   in
   (* Order matters - more specific prefixes first *)
-  match try_pattern "group-has-[" (fun sel -> Group_has sel) with
+  let patterns =
+    [
+      (fun () -> try_pattern "group-has-[" (fun sel -> Group_has sel));
+      (fun () -> try_pattern "peer-has-[" (fun sel -> Peer_has sel));
+      (fun () -> try_pattern "has-[" (fun sel -> Has sel));
+      (fun () ->
+        try_pattern_with "min-[" parse_px_value (fun px -> Min_arbitrary px));
+      (fun () ->
+        try_pattern_with "max-[" parse_px_value (fun px -> Max_arbitrary px));
+      (fun () -> try_pattern "nth-last-[" (fun e -> Nth_last e));
+      (fun () -> try_pattern "nth-[" (fun e -> Nth e));
+      (fun () -> try_pattern "supports-[" (fun c -> Supports c));
+    ]
+  in
+  match List.find_map (fun f -> f ()) patterns with
   | Some _ as r -> r
-  | None -> (
-      match try_pattern "peer-has-[" (fun sel -> Peer_has sel) with
-      | Some _ as r -> r
-      | None -> (
-          match try_pattern "has-[" (fun sel -> Has sel) with
-          | Some _ as r -> r
-          | None -> (
-              match
-                try_pattern_with "min-[" parse_px_value (fun px ->
-                    Min_arbitrary px)
-              with
-              | Some _ as r -> r
-              | None -> (
-                  match
-                    try_pattern_with "max-[" parse_px_value (fun px ->
-                        Max_arbitrary px)
-                  with
-                  | Some _ as r -> r
-                  | None -> (
-                      match try_pattern "nth-last-[" (fun e -> Nth_last e) with
-                      | Some _ as r -> r
-                      | None -> (
-                          match try_pattern "nth-[" (fun e -> Nth e) with
-                          | Some _ as r -> r
-                          | None -> (
-                              match
-                                try_pattern "supports-[" (fun c -> Supports c)
-                              with
-                              | Some _ as r -> r
-                              | None ->
-                                  (* Handle supports-<property> shorthand *)
-                                  if
-                                    String.length s > 9
-                                    && String.sub s 0 9 = "supports-"
-                                    && not (String.contains s '[')
-                                  then
-                                    let prop =
-                                      String.sub s 9 (String.length s - 9)
-                                    in
-                                    Some (Supports (prop ^ ": var(--tw)"))
-                                  else
-                                    let* content =
-                                      extract_bracket_content ~prefix:"data-[" s
-                                    in
-                                    let key, value =
-                                      match String.index_opt content '=' with
-                                      | Some i ->
-                                          ( String.sub content 0 i,
-                                            String.sub content (i + 1)
-                                              (String.length content - i - 1) )
-                                      | None -> (content, "")
-                                    in
-                                    Some (Data_custom (key, value)))))))))
+  | None ->
+      (* Handle supports-<property> shorthand *)
+      if
+        String.length s > 9
+        && String.sub s 0 9 = "supports-"
+        && not (String.contains s '[')
+      then
+        let prop = String.sub s 9 (String.length s - 9) in
+        Some (Supports (prop ^ ": var(--tw)"))
+      else
+        let* content = extract_bracket_content ~prefix:"data-[" s in
+        let key, value =
+          match String.index_opt content '=' with
+          | Some i ->
+              ( String.sub content 0 i,
+                String.sub content (i + 1) (String.length content - i - 1) )
+          | None -> (content, "")
+        in
+        Some (Data_custom (key, value))
 
 (* Simple modifiers - direct string to modifier mapping *)
 let simple_modifiers =

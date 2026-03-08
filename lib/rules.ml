@@ -523,6 +523,92 @@ let handle_fallback_modifier modifier base_class props =
   let has_hover = Modifiers.is_hover modifier in
   regular ~selector:sel ~props ~base_class:modified_class ~has_hover ()
 
+(** Normalize a supports condition string into a valid CSS @supports
+    condition. Converts underscores to spaces and wraps in parens as needed. *)
+let normalize_supports_condition condition_str =
+  (* Convert underscores to spaces (Tailwind bracket notation) *)
+  let cond = String.map (fun c -> if c = '_' then ' ' else c) condition_str in
+  if
+    String.length cond > 2
+    && cond.[0] = '-'
+    && cond.[1] = '-'
+    && not (String.contains cond ':')
+  then
+    (* Bare custom property: --test → (--test: var(--tw)) *)
+    "(" ^ cond ^ ": var(--tw))"
+  else if cond <> "" && cond.[0] = '(' then
+    (* Already wrapped in parens *)
+    cond
+  else if String.contains cond ':' then
+    (* Property: value → wrap in parens *)
+    "(" ^ cond ^ ")"
+  else
+    (* Function call like font-format(opentype) or var(--test) *)
+    cond
+
+(** Handle @supports modifier: builds modified class name, updates selector,
+    normalizes condition, and emits a supports query rule. *)
+let handle_supports_modifier condition_str base_class selector props =
+  (* Use shorthand class name for supports-<property> patterns, otherwise use
+     bracket notation *)
+  let modified_class =
+    if String.ends_with ~suffix:": var(--tw)" condition_str then
+      let prop_len = String.length condition_str - 11 in
+      "supports-" ^ String.sub condition_str 0 prop_len ^ ":" ^ base_class
+    else "supports-[" ^ condition_str ^ "]:" ^ base_class
+  in
+  let new_selector =
+    Rules_selector.replace_class_in_selector ~old_class:base_class
+      ~new_class:modified_class selector
+  in
+  let condition_input = normalize_supports_condition condition_str in
+  let condition = Css.Supports.of_string condition_input in
+  supports_query ~condition ~selector:new_selector ~props
+    ~base_class:modified_class ()
+
+(** Handle :not() pseudo-class modifier: negates the inner modifier's selector
+    and wraps it in a :not() compound selector. *)
+let handle_not_modifier inner_modifier base_class props =
+  let inner_sel = Modifiers.to_selector inner_modifier base_class in
+  (* Extract the condition part (everything after the class prefix) *)
+  let condition =
+    match inner_sel with
+    | Css.Selector.Compound (_ :: rest) when rest <> [] ->
+        Css.Selector.compound rest
+    | _ -> inner_sel
+  in
+  let modified_class =
+    "not-" ^ Modifiers.pp_modifier inner_modifier ^ ":" ^ base_class
+  in
+  let not_sel = Css.Selector.Not [ condition ] in
+  regular
+    ~selector:
+      (Css.Selector.compound [ Css.Selector.Class modified_class; not_sel ])
+    ~props ~base_class:modified_class ()
+
+(** Map a media-like modifier to its corresponding Css.Media.t condition.
+    Returns [Some condition] for modifiers that map to media queries, [None] for
+    non-media modifiers. *)
+let media_condition_of_modifier = function
+  | Style.Dark -> Some (Css.Media.Prefers_color_scheme `Dark)
+  | Style.Motion_safe -> Some (Css.Media.Prefers_reduced_motion `No_preference)
+  | Style.Motion_reduce -> Some (Css.Media.Prefers_reduced_motion `Reduce)
+  | Style.Contrast_more -> Some (Css.Media.Prefers_contrast `More)
+  | Style.Contrast_less -> Some (Css.Media.Prefers_contrast `Less)
+  | Style.Print -> Some Css.Media.Print
+  | Style.Portrait -> Some (Css.Media.Orientation `Portrait)
+  | Style.Landscape -> Some (Css.Media.Orientation `Landscape)
+  | Style.Forced_colors -> Some (Css.Media.Forced_colors `Active)
+  | Style.Inverted_colors -> Some (Css.Media.Inverted_colors `Inverted)
+  | Style.Pointer_none -> Some (Css.Media.Pointer `None)
+  | Style.Pointer_coarse -> Some (Css.Media.Pointer `Coarse)
+  | Style.Pointer_fine -> Some (Css.Media.Pointer `Fine)
+  | Style.Any_pointer_none -> Some (Css.Media.Any_pointer `None)
+  | Style.Any_pointer_coarse -> Some (Css.Media.Any_pointer `Coarse)
+  | Style.Any_pointer_fine -> Some (Css.Media.Any_pointer `Fine)
+  | Style.Noscript -> Some (Css.Media.Scripting `None)
+  | _ -> None
+
 (** Convert a modifier and its context to a CSS rule. [inner_has_hover]
     indicates if the inner rule has a hover modifier that needs to be wrapped in
     CSS nesting with {i \@media (hover:hover)}. *)
@@ -532,122 +618,15 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
   (* Data modifiers *)
   | Style.Data_state _ | Style.Data_variant _ | Style.Data_custom _ ->
       route_data_modifier modifier base_class selector props
-  (* Color scheme *)
-  | Style.Dark ->
-      handle_media_like_modifier Style.Dark
-        ~condition:(Css.Media.Prefers_color_scheme `Dark) ~inner_has_hover
-        base_class selector props
-  (* Preference media modifiers *)
-  | Style.Motion_safe ->
-      handle_media_like_modifier Style.Motion_safe
-        ~condition:(Css.Media.Prefers_reduced_motion `No_preference)
-        ~inner_has_hover base_class selector props
-  | Style.Motion_reduce ->
-      handle_media_like_modifier Style.Motion_reduce
-        ~condition:(Css.Media.Prefers_reduced_motion `Reduce) ~inner_has_hover
-        base_class selector props
-  | Style.Contrast_more ->
-      handle_media_like_modifier Style.Contrast_more
-        ~condition:(Css.Media.Prefers_contrast `More) ~inner_has_hover
-        base_class selector props
-  | Style.Contrast_less ->
-      handle_media_like_modifier Style.Contrast_less
-        ~condition:(Css.Media.Prefers_contrast `Less) ~inner_has_hover
-        base_class selector props
-  (* Print media *)
-  | Style.Print ->
-      handle_media_like_modifier Style.Print ~condition:Css.Media.Print
-        ~inner_has_hover base_class selector props
-  (* Orientation media *)
-  | Style.Portrait ->
-      handle_media_like_modifier Style.Portrait
-        ~condition:(Css.Media.Orientation `Portrait) ~inner_has_hover base_class
-        selector props
-  | Style.Landscape ->
-      handle_media_like_modifier Style.Landscape
-        ~condition:(Css.Media.Orientation `Landscape) ~inner_has_hover
-        base_class selector props
-  (* Forced colors *)
-  | Style.Forced_colors ->
-      handle_media_like_modifier Style.Forced_colors
-        ~condition:(Css.Media.Forced_colors `Active) ~inner_has_hover base_class
-        selector props
-  (* Inverted colors *)
-  | Style.Inverted_colors ->
-      handle_media_like_modifier Style.Inverted_colors
-        ~condition:(Css.Media.Inverted_colors `Inverted) ~inner_has_hover
-        base_class selector props
-  (* Pointer media *)
-  | Style.Pointer_none ->
-      handle_media_like_modifier Style.Pointer_none
-        ~condition:(Css.Media.Pointer `None) ~inner_has_hover base_class
-        selector props
-  | Style.Pointer_coarse ->
-      handle_media_like_modifier Style.Pointer_coarse
-        ~condition:(Css.Media.Pointer `Coarse) ~inner_has_hover base_class
-        selector props
-  | Style.Pointer_fine ->
-      handle_media_like_modifier Style.Pointer_fine
-        ~condition:(Css.Media.Pointer `Fine) ~inner_has_hover base_class
-        selector props
-  (* Any pointer media *)
-  | Style.Any_pointer_none ->
-      handle_media_like_modifier Style.Any_pointer_none
-        ~condition:(Css.Media.Any_pointer `None) ~inner_has_hover base_class
-        selector props
-  | Style.Any_pointer_coarse ->
-      handle_media_like_modifier Style.Any_pointer_coarse
-        ~condition:(Css.Media.Any_pointer `Coarse) ~inner_has_hover base_class
-        selector props
-  | Style.Any_pointer_fine ->
-      handle_media_like_modifier Style.Any_pointer_fine
-        ~condition:(Css.Media.Any_pointer `Fine) ~inner_has_hover base_class
-        selector props
-  (* Scripting media *)
-  | Style.Noscript ->
-      handle_media_like_modifier Style.Noscript
-        ~condition:(Css.Media.Scripting `None) ~inner_has_hover base_class
+  (* Media-like modifiers: dark, motion, contrast, print, orientation,
+     forced-colors, inverted-colors, pointer, any-pointer, noscript *)
+  | _ when Option.is_some (media_condition_of_modifier modifier) ->
+      let condition = Option.get (media_condition_of_modifier modifier) in
+      handle_media_like_modifier modifier ~condition ~inner_has_hover base_class
         selector props
   (* Supports feature query *)
   | Style.Supports condition_str ->
-      (* Use shorthand class name for supports-<property> patterns, otherwise
-         use bracket notation *)
-      let modified_class =
-        if String.ends_with ~suffix:": var(--tw)" condition_str then
-          let prop_len = String.length condition_str - 11 in
-          "supports-" ^ String.sub condition_str 0 prop_len ^ ":" ^ base_class
-        else "supports-[" ^ condition_str ^ "]:" ^ base_class
-      in
-      let new_selector =
-        Rules_selector.replace_class_in_selector ~old_class:base_class
-          ~new_class:modified_class selector
-      in
-      (* Convert underscores to spaces (Tailwind bracket notation) *)
-      let cond =
-        String.map (fun c -> if c = '_' then ' ' else c) condition_str
-      in
-      let condition_input =
-        if
-          String.length cond > 2
-          && cond.[0] = '-'
-          && cond.[1] = '-'
-          && not (String.contains cond ':')
-        then
-          (* Bare custom property: --test → (--test: var(--tw)) *)
-          "(" ^ cond ^ ": var(--tw))"
-        else if cond <> "" && cond.[0] = '(' then
-          (* Already wrapped in parens *)
-          cond
-        else if String.contains cond ':' then
-          (* Property: value → wrap in parens *)
-          "(" ^ cond ^ ")"
-        else
-          (* Function call like font-format(opentype) or var(--test) *)
-          cond
-      in
-      let condition = Css.Supports.of_string condition_input in
-      supports_query ~condition ~selector:new_selector ~props
-        ~base_class:modified_class ()
+      handle_supports_modifier condition_str base_class selector props
   (* Responsive and container *)
   | Style.Responsive breakpoint ->
       responsive_rule breakpoint base_class selector props
@@ -660,22 +639,7 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
   | Style.Container query -> container_rule query base_class selector props
   (* :not() pseudo-class — negate the inner modifier's selector *)
   | Style.Not inner_modifier ->
-      let inner_sel = Modifiers.to_selector inner_modifier base_class in
-      (* Extract the condition part (everything after the class prefix) *)
-      let condition =
-        match inner_sel with
-        | Css.Selector.Compound (_ :: rest) when rest <> [] ->
-            Css.Selector.compound rest
-        | _ -> inner_sel
-      in
-      let modified_class =
-        "not-" ^ Modifiers.pp_modifier inner_modifier ^ ":" ^ base_class
-      in
-      let not_sel = Css.Selector.Not [ condition ] in
-      regular
-        ~selector:
-          (Css.Selector.compound [ Css.Selector.Class modified_class; not_sel ])
-        ~props ~base_class:modified_class ()
+      handle_not_modifier inner_modifier base_class props
   (* :has() variants *)
   | Style.Has _ | Style.Group_has _ | Style.Peer_has _ ->
       route_has_modifier modifier base_class props
@@ -698,172 +662,53 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
   (* Fallback for other modifiers *)
   | _ -> handle_fallback_modifier modifier base_class props
 
-(* Extract selector and properties from a single Utility *)
-(* Apply modifier to extracted rule *)
-let apply_modifier_to_rule modifier = function
-  | Regular { selector; props; base_class; has_hover; _ } -> (
-      let bc = Option.value base_class ~default:"" in
+(** Generate pseudo-element rules with separate selectors for browser
+    compatibility. An invalid pseudo-element in a comma list causes the entire
+    rule to be dropped, so each variant gets its own rule. *)
+let pseudo_element_rules ~pseudo_selectors bc props prefix =
+  let c = Css.Selector.Class (prefix ^ ":" ^ bc) in
+  let mc = prefix ^ ":" ^ bc in
+  let open Css.Selector in
+  List.map
+    (fun sel -> regular ~selector:sel ~props ~base_class:mc ())
+    (List.map
+       (fun ps -> [ combine c Descendant ps; compound [ c; ps ] ])
+       pseudo_selectors
+    |> List.concat)
+
+(** Apply a modifier to a Media_query rule by wrapping it in an outer media
+    query. Handles media-like modifiers, responsive modifiers, and falls back to
+    returning the rule unchanged. *)
+let apply_modifier_to_media_query modifier ~inner_condition ~selector ~props
+    ~base_class ~nested =
+  let bc = Option.value base_class ~default:"" in
+  let modified_base_selector = Modifiers.to_selector modifier bc in
+  let modified_class =
+    Rules_selector.extract_modified_class_name modified_base_selector bc
+  in
+  let new_selector =
+    Rules_selector.transform_selector_with_modifier modified_base_selector bc
+      modified_class selector
+  in
+  let inner_rule = Css.rule ~selector:new_selector props in
+  let inner_media =
+    Css.media ~condition:inner_condition (inner_rule :: nested)
+  in
+  let wrap_in_media condition =
+    [
+      media_query ~condition ~selector:new_selector ~props:[] ?base_class
+        ~nested:[ inner_media ] ();
+    ]
+  in
+  match media_condition_of_modifier modifier with
+  | Some condition -> wrap_in_media condition
+  | None -> (
       match modifier with
-      | Style.Pseudo_marker ->
-          (* Marker needs separate rules for browser compatibility — an invalid
-             pseudo-element in a comma list causes the entire rule to be
-             dropped. *)
-          let c = Css.Selector.Class ("marker:" ^ bc) in
-          let mc = "marker:" ^ bc in
-          let open Css.Selector in
-          List.map
-            (fun sel -> regular ~selector:sel ~props ~base_class:mc ())
-            [
-              combine c Descendant Marker;
-              compound [ c; Marker ];
-              combine c Descendant Webkit_details_marker;
-              compound [ c; Webkit_details_marker ];
-            ]
-      | Style.Pseudo_selection ->
-          let c = Css.Selector.Class ("selection:" ^ bc) in
-          let mc = "selection:" ^ bc in
-          let open Css.Selector in
-          List.map
-            (fun sel -> regular ~selector:sel ~props ~base_class:mc ())
-            [ combine c Descendant Selection; compound [ c; Selection ] ]
-      | _ ->
-          [
-            modifier_to_rule ~inner_has_hover:has_hover modifier bc selector
-              props;
-          ])
-  | Media_query
-      { condition = inner_condition; selector; props; base_class; nested; _ }
-    -> (
-      (* Wrap media query in another media query for stacked modifiers like
-         contrast-more:dark:text-white. The structure is: @media
-         (outer-condition) { @media (inner-condition) {
-         .contrast-more\:dark\:text-white { props } nested... } } The selector
-         needs to be updated to include the outer modifier prefix. *)
-      let bc = Option.value base_class ~default:"" in
-      let modified_base_selector = Modifiers.to_selector modifier bc in
-      let modified_class =
-        Rules_selector.extract_modified_class_name modified_base_selector bc
-      in
-      let new_selector =
-        Rules_selector.transform_selector_with_modifier modified_base_selector
-          bc modified_class selector
-      in
-      let inner_rule = Css.rule ~selector:new_selector props in
-      let inner_media =
-        Css.media ~condition:inner_condition (inner_rule :: nested)
-      in
-      match modifier with
-      | Style.Dark ->
-          [
-            media_query ~condition:(Css.Media.Prefers_color_scheme `Dark)
-              ~selector:new_selector ~props:[] ?base_class
-              ~nested:[ inner_media ] ();
-          ]
-      | Style.Contrast_more ->
-          [
-            media_query ~condition:(Css.Media.Prefers_contrast `More)
-              ~selector:new_selector ~props:[] ?base_class
-              ~nested:[ inner_media ] ();
-          ]
-      | Style.Contrast_less ->
-          [
-            media_query ~condition:(Css.Media.Prefers_contrast `Less)
-              ~selector:new_selector ~props:[] ?base_class
-              ~nested:[ inner_media ] ();
-          ]
-      | Style.Motion_safe ->
-          [
-            media_query
-              ~condition:(Css.Media.Prefers_reduced_motion `No_preference)
-              ~selector:new_selector ~props:[] ?base_class
-              ~nested:[ inner_media ] ();
-          ]
-      | Style.Motion_reduce ->
-          [
-            media_query ~condition:(Css.Media.Prefers_reduced_motion `Reduce)
-              ~selector:new_selector ~props:[] ?base_class
-              ~nested:[ inner_media ] ();
-          ]
-      | Style.Print ->
-          [
-            media_query ~condition:Css.Media.Print ~selector:new_selector
-              ~props:[] ?base_class ~nested:[ inner_media ] ();
-          ]
-      | Style.Portrait ->
-          [
-            media_query ~condition:(Css.Media.Orientation `Portrait)
-              ~selector:new_selector ~props:[] ?base_class
-              ~nested:[ inner_media ] ();
-          ]
-      | Style.Landscape ->
-          [
-            media_query ~condition:(Css.Media.Orientation `Landscape)
-              ~selector:new_selector ~props:[] ?base_class
-              ~nested:[ inner_media ] ();
-          ]
-      | Style.Forced_colors ->
-          [
-            media_query ~condition:(Css.Media.Forced_colors `Active)
-              ~selector:new_selector ~props:[] ?base_class
-              ~nested:[ inner_media ] ();
-          ]
-      | Style.Inverted_colors ->
-          [
-            media_query ~condition:(Css.Media.Inverted_colors `Inverted)
-              ~selector:new_selector ~props:[] ?base_class
-              ~nested:[ inner_media ] ();
-          ]
-      | Style.Pointer_none ->
-          [
-            media_query ~condition:(Css.Media.Pointer `None)
-              ~selector:new_selector ~props:[] ?base_class
-              ~nested:[ inner_media ] ();
-          ]
-      | Style.Pointer_coarse ->
-          [
-            media_query ~condition:(Css.Media.Pointer `Coarse)
-              ~selector:new_selector ~props:[] ?base_class
-              ~nested:[ inner_media ] ();
-          ]
-      | Style.Pointer_fine ->
-          [
-            media_query ~condition:(Css.Media.Pointer `Fine)
-              ~selector:new_selector ~props:[] ?base_class
-              ~nested:[ inner_media ] ();
-          ]
-      | Style.Any_pointer_none ->
-          [
-            media_query ~condition:(Css.Media.Any_pointer `None)
-              ~selector:new_selector ~props:[] ?base_class
-              ~nested:[ inner_media ] ();
-          ]
-      | Style.Any_pointer_coarse ->
-          [
-            media_query ~condition:(Css.Media.Any_pointer `Coarse)
-              ~selector:new_selector ~props:[] ?base_class
-              ~nested:[ inner_media ] ();
-          ]
-      | Style.Any_pointer_fine ->
-          [
-            media_query ~condition:(Css.Media.Any_pointer `Fine)
-              ~selector:new_selector ~props:[] ?base_class
-              ~nested:[ inner_media ] ();
-          ]
-      | Style.Noscript ->
-          [
-            media_query ~condition:(Css.Media.Scripting `None)
-              ~selector:new_selector ~props:[] ?base_class
-              ~nested:[ inner_media ] ();
-          ]
       | Style.Responsive _ | Style.Min_responsive _ | Style.Max_responsive _
       | Style.Min_arbitrary _ | Style.Max_arbitrary _ ->
           let outer_condition, _ = responsive_modifier_condition modifier in
-          [
-            media_query ~condition:outer_condition ~selector:new_selector
-              ~props:[] ?base_class ~nested:[ inner_media ] ();
-          ]
+          wrap_in_media outer_condition
       | _ ->
-          (* For other modifiers, return unchanged *)
           [
             Media_query
               {
@@ -874,6 +719,31 @@ let apply_modifier_to_rule modifier = function
                 nested;
               };
           ])
+
+(* Extract selector and properties from a single Utility *)
+(* Apply modifier to extracted rule *)
+let apply_modifier_to_rule modifier = function
+  | Regular { selector; props; base_class; has_hover; _ } -> (
+      let bc = Option.value base_class ~default:"" in
+      match modifier with
+      | Style.Pseudo_marker ->
+          let open Css.Selector in
+          pseudo_element_rules
+            ~pseudo_selectors:[ Marker; Webkit_details_marker ]
+            bc props "marker"
+      | Style.Pseudo_selection ->
+          let open Css.Selector in
+          pseudo_element_rules ~pseudo_selectors:[ Selection ] bc props
+            "selection"
+      | _ ->
+          [
+            modifier_to_rule ~inner_has_hover:has_hover modifier bc selector
+              props;
+          ])
+  | Media_query
+      { condition = inner_condition; selector; props; base_class; nested; _ } ->
+      apply_modifier_to_media_query modifier ~inner_condition ~selector ~props
+        ~base_class ~nested
   | other -> [ other ]
 
 (* Handle Modified style by recursively extracting and applying modifier *)
@@ -906,13 +776,109 @@ let handle_group class_name util_inner styles extract_fn =
       List.map2 extract_item styles util_items |> List.concat
   | _ -> List.concat_map (extract_fn class_name util_inner) styles
 
+(** Replace placeholder selector "_" with the actual utility class selector *)
+let resolve_placeholder_selector sel selector =
+  if Css.Selector.to_string selector = "._" then sel else selector
+
+(** Extract outputs from a @media statement's inner rules *)
+let extract_media_outputs ~class_name ~sel condition statements =
+  statements
+  |> List.filter_map (fun inner ->
+      match Css.as_rule inner with
+      | Some (selector, declarations, _) ->
+          let actual_selector = resolve_placeholder_selector sel selector in
+          Some
+            (media_query ~condition ~selector:actual_selector
+               ~props:declarations ~base_class:class_name ())
+      | None -> None)
+
+(** Extract outputs from a @container statement's inner rules *)
+let extract_container_outputs ~class_name condition statements =
+  statements
+  |> List.filter_map (fun inner ->
+      match Css.as_rule inner with
+      | Some (selector, declarations, _) ->
+          Some
+            (container_query ~condition ~selector ~props:declarations
+               ~base_class:class_name ())
+      | None -> None)
+
+(** Extract outputs from a @supports statement's inner rules *)
+let extract_supports_outputs ~class_name ~sel ?merge_key condition statements =
+  statements
+  |> List.filter_map (fun inner ->
+      match Css.as_rule inner with
+      | Some (selector, declarations, _) ->
+          let actual_selector = resolve_placeholder_selector sel selector in
+          Some
+            (supports_query ~condition ~selector:actual_selector
+               ~props:declarations ~base_class:class_name ?merge_key ())
+      | None -> None)
+
+(** Process a non-nested statement from a rule_list, returning outputs. Sets
+    [has_regular_rules] to true when a regular rule is found. *)
+let process_rule_list_stmt ~sel ~class_name ?merge_key ~has_regular_rules stmt =
+  match Css.as_rule stmt with
+  | Some (selector, declarations, nested) ->
+      has_regular_rules := true;
+      let actual_selector = resolve_placeholder_selector sel selector in
+      Some
+        [
+          regular ~selector:actual_selector ~props:declarations
+            ~base_class:class_name ~nested ?merge_key ();
+        ]
+  | None -> (
+      match Css.as_media stmt with
+      | Some (condition, statements) ->
+          Some (extract_media_outputs ~class_name ~sel condition statements)
+      | None -> (
+          match Css.as_container stmt with
+          | Some (_, condition, statements) ->
+              Some (extract_container_outputs ~class_name condition statements)
+          | None -> (
+              match Css.as_supports stmt with
+              | Some (condition, statements) ->
+                  Some
+                    (extract_supports_outputs ~class_name ~sel ?merge_key
+                       condition statements)
+              | None -> None)))
+
+(** Process a Style with a rule_list into output rules. Extracts nested
+    at-rules, processes ordered rules, and combines them with a base rule. *)
+let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
+  let nested_atrules =
+    rule_list
+    |> List.filter (fun s -> Css.is_nested_media s || Css.is_nested_supports s)
+  in
+  let has_regular_rules = ref false in
+  let ordered_rules =
+    rule_list
+    |> List.filter_map (fun stmt ->
+        if Css.is_nested_media stmt || Css.is_nested_supports stmt then None
+        else
+          process_rule_list_stmt ~sel ~class_name ?merge_key ~has_regular_rules
+            stmt)
+    |> List.concat
+  in
+  let base_rule =
+    if props = [] && nested_atrules = [] then []
+    else
+      [
+        regular ~selector:sel ~props ~base_class:class_name
+          ~nested:nested_atrules ?merge_key ();
+      ]
+  in
+  (* If there are regular rules, they come first (forms plugin has interleaved
+     regular/media rules). Otherwise base comes first. *)
+  if !has_regular_rules then ordered_rules @ base_rule
+  else base_rule @ ordered_rules
+
 let outputs util =
   let rec extract_with_class class_name util_inner = function
     | Style.Style { props; rules; merge_key; _ } -> (
         let sel = Css.Selector.Class class_name in
         match rules with
         | None ->
-            (* Do not emit empty marker classes like .group or .peer *)
             if props = [] then []
             else
               [
@@ -920,118 +886,8 @@ let outputs util =
                   ();
               ]
         | Some rule_list ->
-            (* Extract nested at-rules (CSS nesting) for the base rule. Both
-               @media and @supports blocks are kept nested inside the rule. *)
-            let nested_atrules =
-              rule_list
-              |> List.filter (fun s ->
-                  Css.is_nested_media s || Css.is_nested_supports s)
-            in
-            (* Process rules in order, preserving original sequence. This keeps
-               media rules adjacent to their related state rules (e.g., @media
-               (forced-colors:active) right after :checked state). *)
-            let has_regular_rules = ref false in
-            let ordered_rules =
-              rule_list
-              |> List.filter_map (fun stmt ->
-                  if Css.is_nested_media stmt || Css.is_nested_supports stmt
-                  then None
-                  else
-                    match Css.as_rule stmt with
-                    | Some (selector, declarations, nested) ->
-                        has_regular_rules := true;
-                        (* Replace placeholder selector "_" with the actual
-                           utility class selector *)
-                        let actual_selector =
-                          if Css.Selector.to_string selector = "._" then sel
-                          else selector
-                        in
-                        Some
-                          [
-                            regular ~selector:actual_selector
-                              ~props:declarations ~base_class:class_name ~nested
-                              ?merge_key ();
-                          ]
-                    | None -> (
-                        match Css.as_media stmt with
-                        | Some (condition, statements) ->
-                            statements
-                            |> List.filter_map (fun inner ->
-                                match Css.as_rule inner with
-                                | Some (selector, declarations, _) ->
-                                    (* Replace placeholder selector "_" with the
-                                       actual utility class selector *)
-                                    let actual_selector =
-                                      if Css.Selector.to_string selector = "._"
-                                      then sel
-                                      else selector
-                                    in
-                                    Some
-                                      (media_query ~condition
-                                         ~selector:actual_selector
-                                         ~props:declarations
-                                         ~base_class:class_name ())
-                                | None -> None)
-                            |> fun l -> Some l
-                        | None -> (
-                            match Css.as_container stmt with
-                            | Some (_, condition, statements) ->
-                                statements
-                                |> List.filter_map (fun inner ->
-                                    match Css.as_rule inner with
-                                    | Some (selector, declarations, _) ->
-                                        Some
-                                          (container_query ~condition ~selector
-                                             ~props:declarations
-                                             ~base_class:class_name ())
-                                    | None -> None)
-                                |> fun l -> Some l
-                            | None -> (
-                                (* Handle @supports with rules inside (top-level
-                                   style). Note: is_nested_supports only matches
-                                   @supports with bare declarations, so these
-                                   won't be filtered above. *)
-                                match Css.as_supports stmt with
-                                | Some (condition, statements) ->
-                                    statements
-                                    |> List.filter_map (fun inner ->
-                                        match Css.as_rule inner with
-                                        | Some (selector, declarations, _) ->
-                                            (* Replace placeholder selector "_"
-                                               with the actual utility class
-                                               selector *)
-                                            let actual_selector =
-                                              if
-                                                Css.Selector.to_string selector
-                                                = "._"
-                                              then sel
-                                              else selector
-                                            in
-                                            Some
-                                              (supports_query ~condition
-                                                 ~selector:actual_selector
-                                                 ~props:declarations
-                                                 ~base_class:class_name
-                                                 ?merge_key ())
-                                        | None -> None)
-                                    |> fun l -> Some l
-                                | None -> None))))
-              |> List.concat
-            in
-            (* Base rule with nested atrules (only if it has props or nested) *)
-            let base_rule =
-              if props = [] && nested_atrules = [] then []
-              else
-                [
-                  regular ~selector:sel ~props ~base_class:class_name
-                    ~nested:nested_atrules ?merge_key ();
-                ]
-            in
-            (* Combine rules with base. If there are regular rules, they should
-               come first (forms plugin has interleaved regular/media rules). If
-               there are only media rules, base comes first (container). *)
-            if !has_regular_rules then ordered_rules @ base_rule
-            else base_rule @ ordered_rules)
+            extract_style_with_rules ~sel ~class_name ?merge_key ~props
+              rule_list)
     | Style.Modified (modifier, base_style) ->
         handle_modified util_inner modifier base_style extract_with_class
     | Style.Group styles ->
@@ -1721,6 +1577,68 @@ let compare_focus_modifiers r1 r2 =
   else if outline2 && not outline1 then -1
   else compare_by_priority_index r1 r2
 
+(** Check if a selector kind is a focus-visible late modifier *)
+let is_focus_visible_late_modifier kind selector =
+  is_late_modifier kind selector
+  &&
+  match kind with
+  | Complex { has_focus_visible = true; _ } -> true
+  | _ -> false
+
+(** Compare focus-visible and state modifier ordering. Returns [Some cmp] if at
+    least one rule is a focus-visible or state modifier, [None] otherwise. *)
+let compare_focus_visible_state r1 r2 kind1 kind2 =
+  let fv1 = is_focus_visible_late_modifier kind1 r1.selector in
+  let fv2 = is_focus_visible_late_modifier kind2 r2.selector in
+  let s1 = is_state_modifier_rule kind1 r1.selector in
+  let s2 = is_state_modifier_rule kind2 r2.selector in
+  (* Order: focus-visible < state modifiers *)
+  if fv1 && s2 then Some (-1)
+  else if s1 && fv2 then Some 1
+  else if fv1 && (not fv2) && not s2 then Some 1
+  else if fv2 && (not fv1) && not s1 then Some (-1)
+  else if fv1 && fv2 then Some (compare_by_priority_index r1 r2)
+  else if s1 && not s2 then Some 1
+  else if s2 && not s1 then Some (-1)
+  else if s1 && s2 then Some (compare_by_priority_index r1 r2)
+  else None
+
+(** Compare focus modifier ordering. Returns [Some cmp] if at least one rule is
+    a focus modifier, [None] otherwise. *)
+let compare_focus_modifier_ordering r1 r2 kind1 kind2 =
+  let f1 = is_focus_modifier_rule kind1 r1.selector in
+  let f2 = is_focus_modifier_rule kind2 r2.selector in
+  if f1 && not f2 then Some 1
+  else if f2 && not f1 then Some (-1)
+  else if f1 && f2 then Some (compare_focus_modifiers r1 r2)
+  else None
+
+(** Compare by priority, suborder, late modifiers, then natural selector sort.
+    Used as the final comparison when focus-visible/state/focus modifiers don't
+    apply. *)
+let compare_by_prio_sub_late r1 r2 kind1 kind2 =
+  let p1, _ = r1.order and p2, _ = r2.order in
+  let prio_cmp = Int.compare p1 p2 in
+  if prio_cmp <> 0 then prio_cmp
+  else
+    let _, s1 = r1.order and _, s2 = r2.order in
+    let sub_cmp = Int.compare s1 s2 in
+    if sub_cmp <> 0 then sub_cmp
+    else
+      (* When priority and suborder are equal, check late modifiers first *)
+      let late1 = is_late_modifier kind1 r1.selector in
+      let late2 = is_late_modifier kind2 r2.selector in
+      if late1 && not late2 then 1
+      else if late2 && not late1 then -1
+      else if late1 && late2 then compare_late_modifiers r1 r2 kind1 kind2
+      else
+        (* Not late modifiers - sort by selector name using natural sort
+           (numeric-aware). Tailwind v4 uses natural sort so that e.g. /2.5
+           comes before /2.25 (5 < 25 as integers). *)
+        natural_compare
+          (Css.Selector.to_string r1.selector)
+          (Css.Selector.to_string r2.selector)
+
 let compare_cross_utility_regular r1 r2 =
   let p1, s1 = r1.order and p2, s2 = r2.order in
   let kind1 = classify_selector r1.selector in
@@ -1773,68 +1691,13 @@ let compare_cross_utility_regular r1 r2 =
     else None
   with
   | Some cmp -> cmp
-  | None ->
-      (* Check for focus-visible modifiers BEFORE priority *)
-      let focus_visible1 =
-        is_late_modifier kind1 r1.selector
-        &&
-        match kind1 with
-        | Complex { has_focus_visible = true; _ } -> true
-        | _ -> false
-      in
-      let focus_visible2 =
-        is_late_modifier kind2 r2.selector
-        &&
-        match kind2 with
-        | Complex { has_focus_visible = true; _ } -> true
-        | _ -> false
-      in
-      (* Check for state-modified rules *)
-      let state1 = is_state_modifier_rule kind1 r1.selector in
-      let state2 = is_state_modifier_rule kind2 r2.selector in
-
-      (* Order: focus-visible < state modifiers *)
-      if focus_visible1 && state2 then -1 (* focus-visible before state *)
-      else if state1 && focus_visible2 then 1 (* state after focus-visible *)
-      else if focus_visible1 && (not focus_visible2) && not state2 then 1
-      else if focus_visible2 && (not focus_visible1) && not state1 then -1
-      else if focus_visible1 && focus_visible2 then
-        compare_by_priority_index r1 r2
-      else if state1 && not state2 then 1
-      else if state2 && not state1 then -1
-      else if state1 && state2 then compare_by_priority_index r1 r2
-      else
-        (* Check for other focus-modified rules BEFORE priority - they always
-           come late *)
-        let focus1 = is_focus_modifier_rule kind1 r1.selector in
-        let focus2 = is_focus_modifier_rule kind2 r2.selector in
-        if focus1 && not focus2 then 1
-        else if focus2 && not focus1 then -1
-        else if focus1 && focus2 then compare_focus_modifiers r1 r2
-        else
-          (* Compare by priority *)
-          let prio_cmp = Int.compare p1 p2 in
-          if prio_cmp <> 0 then prio_cmp
-          else
-            (* Same priority - compare by suborder *)
-            let sub_cmp = Int.compare s1 s2 in
-            if sub_cmp <> 0 then sub_cmp
-            else
-              (* When priority and suborder are equal, check late modifiers
-                 first *)
-              let late1 = is_late_modifier kind1 r1.selector in
-              let late2 = is_late_modifier kind2 r2.selector in
-              if late1 && not late2 then 1
-              else if late2 && not late1 then -1
-              else if late1 && late2 then
-                compare_late_modifiers r1 r2 kind1 kind2
-              else
-                (* Not late modifiers - sort by selector name using natural sort
-                   (numeric-aware). Tailwind v4 uses natural sort so that e.g.
-                   /2.5 comes before /2.25 (5 < 25 as integers). *)
-                natural_compare
-                  (Css.Selector.to_string r1.selector)
-                  (Css.Selector.to_string r2.selector)
+  | None -> (
+      match compare_focus_visible_state r1 r2 kind1 kind2 with
+      | Some cmp -> cmp
+      | None -> (
+          match compare_focus_modifier_ordering r1 r2 kind1 kind2 with
+          | Some cmp -> cmp
+          | None -> compare_by_prio_sub_late r1 r2 kind1 kind2))
 
 (** Compare two Regular rules using rule relationship dispatch. *)
 let compare_regular_rules r1 r2 =
@@ -2660,6 +2523,70 @@ let build_layer_declaration ~has_properties ~include_base =
   in
   Css.v [ Css.layer_decl names ]
 
+(** Sort @property rules using family-based first-usage order *)
+let sort_property_rules_by_usage first_usage_order property_rules_for_end =
+  let family_order = build_family_order first_usage_order in
+  let get_family_order name =
+    match Var.family name with
+    | Some fam -> (
+        match Hashtbl.find_opt family_order fam with
+        | Some o -> o
+        | None -> 1000)
+    | None -> 1000
+  in
+  (* Check if a family uses property_order directly *)
+  let uses_direct_property_order = function
+    | Some (`Gradient | `Translate | `Rotate | `Skew | `Font_weight | `Leading)
+      ->
+        false (* Transforms and typography use first-usage order *)
+    | Some _ ->
+        true (* All other families (including Scale) use property_order *)
+    | None -> true (* Variables without families also use property_order *)
+  in
+  property_rules_for_end
+  |> List.sort (fun s1 s2 ->
+      match (Css.as_property s1, Css.as_property s2) with
+      | ( Some (Css.Property_info { name = n1; _ }),
+          Some (Css.Property_info { name = n2; _ }) ) ->
+          let fam1 = Var.family n1 in
+          let fam2 = Var.family n2 in
+          let po1 = property_order_from n1 in
+          let po2 = property_order_from n2 in
+          (* Variables with no family and negative property_order come first *)
+          let no_family_negative_first =
+            match (fam1, fam2) with
+            | None, Some _ when po1 < 0 -> -1
+            | Some _, None when po2 < 0 -> 1
+            | _ -> 0
+          in
+          if no_family_negative_first <> 0 then no_family_negative_first
+          else if
+            uses_direct_property_order fam1 && uses_direct_property_order fam2
+          then compare po1 po2
+          else
+            let fo1 = get_family_order n1 in
+            let fo2 = get_family_order n2 in
+            if fo1 <> fo2 then compare fo1 fo2 else compare po1 po2
+      | _ -> 0)
+
+(** Deduplicate keyframes by name, keeping first occurrence, then convert to CSS
+    statements *)
+let dedup_keyframes_to_css keyframes =
+  let seen = Hashtbl.create 8 in
+  let deduped =
+    List.filter
+      (fun (name, _) ->
+        if Hashtbl.mem seen name then false
+        else (
+          Hashtbl.add seen name ();
+          true))
+      keyframes
+  in
+  let stmts =
+    List.map (fun (name, frames) -> Css.keyframes name frames) deduped
+  in
+  if stmts = [] then [] else [ Css.v stmts ]
+
 (** Assemble all CSS layers in the correct order *)
 let assemble_all_layers ~layers ~include_base ~properties_layer ~theme_layer
     ~base_layer ~utilities_layer ~property_rules_for_end ~keyframes
@@ -2682,77 +2609,13 @@ let assemble_all_layers ~layers ~include_base ~properties_layer ~theme_layer
       @ [ components_declaration; utilities_layer ]
     else initial_layers @ base_layers @ [ utilities_layer ]
   in
-  (* Sort @property rules using family-based first-usage order *)
-  let family_order = build_family_order first_usage_order in
-  let get_family_order name =
-    match Var.family name with
-    | Some fam -> (
-        match Hashtbl.find_opt family_order fam with
-        | Some o -> o
-        | None -> 1000)
-    | None -> 1000
-  in
-  (* Check if a family uses property_order directly *)
-  let uses_direct_property_order = function
-    | Some (`Gradient | `Translate | `Rotate | `Skew | `Font_weight | `Leading)
-      ->
-        false (* Transforms and typography use first-usage order *)
-    | Some _ ->
-        true (* All other families (including Scale) use property_order *)
-    | None -> true (* Variables without families also use property_order *)
-  in
   let sorted_property_rules =
-    property_rules_for_end
-    |> List.sort (fun s1 s2 ->
-        match (Css.as_property s1, Css.as_property s2) with
-        | ( Some (Css.Property_info { name = n1; _ }),
-            Some (Css.Property_info { name = n2; _ }) ) ->
-            let fam1 = Var.family n1 in
-            let fam2 = Var.family n2 in
-            let po1 = property_order_from n1 in
-            let po2 = property_order_from n2 in
-            (* Variables with no family and negative property_order come
-               first *)
-            let no_family_negative_first =
-              match (fam1, fam2) with
-              | None, Some _ when po1 < 0 -> -1
-              | Some _, None when po2 < 0 -> 1
-              | _ -> 0
-            in
-            if no_family_negative_first <> 0 then no_family_negative_first
-            else if
-              uses_direct_property_order fam1 && uses_direct_property_order fam2
-            then
-              (* These families use property_order directly *)
-              compare po1 po2
-            else
-              let fo1 = get_family_order n1 in
-              let fo2 = get_family_order n2 in
-              if fo1 <> fo2 then compare fo1 fo2 else compare po1 po2
-        | _ -> 0)
+    sort_property_rules_by_usage first_usage_order property_rules_for_end
   in
   let property_rules_css =
     if sorted_property_rules = [] then [] else [ Css.v sorted_property_rules ]
   in
-  (* Convert keyframes to statements - preserve first-usage order (matching
-     Tailwind) and deduplicate by name (keeping first occurrence) *)
-  let dedup_keyframes kfs =
-    let seen = Hashtbl.create 8 in
-    List.filter
-      (fun (name, _) ->
-        if Hashtbl.mem seen name then false
-        else (
-          Hashtbl.add seen name ();
-          true))
-      kfs
-  in
-  let keyframes_stmts =
-    keyframes |> dedup_keyframes
-    |> List.map (fun (name, frames) -> Css.keyframes name frames)
-  in
-  let keyframes_css =
-    if keyframes_stmts = [] then [] else [ Css.v keyframes_stmts ]
-  in
+  let keyframes_css = dedup_keyframes_to_css keyframes in
   layers_without_property @ property_rules_css @ keyframes_css
 
 (* Extract variables, set var names, and property rules from all utilities *)
@@ -2860,6 +2723,24 @@ let rec collect_keyframes acc = function
   | Style.Modified (_, t) -> collect_keyframes acc t
   | Style.Group ts -> List.fold_left collect_keyframes acc ts
 
+(** Sort keyframes by their associated theme variable order. Keyframes like
+    "spin"/"pulse"/"bounce" are associated with theme variables
+    "animate-spin"/"animate-pulse"/"animate-bounce" that have explicit
+    (priority, suborder) tuples registered. *)
+let sort_keyframes_by_var_order keyframes =
+  keyframes
+  |> List.sort (fun (name1, _) (name2, _) ->
+      let keyframe_var_order name =
+        match Var.order ("animate-" ^ name) with
+        | Some (p, s) -> (p * 1000) + s
+        | None -> 1000000 (* Unknown keyframes sort last *)
+      in
+      let order_cmp =
+        Int.compare (keyframe_var_order name1) (keyframe_var_order name2)
+      in
+      if order_cmp <> 0 then order_cmp
+      else String.compare name1 name2 (* Stable sort for same order *))
+
 (** Build all CSS layers from utilities and rules *)
 let build_layers ~layers ~include_base ?forms ~selector_props tw_classes
     statements =
@@ -2899,30 +2780,9 @@ let build_layers ~layers ~include_base ?forms ~selector_props tw_classes
     build_individual_layers ~layers ~include_base ~forms_base first_usage_order
       selector_props all_property_statements statements
   in
-  (* Extract keyframes from all utilities and sort by theme variable order.
-     Keyframes like "spin"/"pulse"/"bounce" are associated with theme variables
-     "animate-spin"/"animate-pulse"/"animate-bounce" that have explicit
-     (priority, suborder) tuples registered. Convert to integer for
-     comparison. *)
   let keyframes =
     List.fold_left collect_keyframes [] styles
-    |> List.rev
-    |> List.sort (fun (name1, _) (name2, _) ->
-        let var_name1 = "animate-" ^ name1 in
-        let var_name2 = "animate-" ^ name2 in
-        let order1 =
-          match Var.order var_name1 with
-          | Some (p, s) -> (p * 1000) + s
-          | None -> 1000000 (* Unknown keyframes sort last *)
-        in
-        let order2 =
-          match Var.order var_name2 with
-          | Some (p, s) -> (p * 1000) + s
-          | None -> 1000000
-        in
-        let order_cmp = Int.compare order1 order2 in
-        if order_cmp <> 0 then order_cmp
-        else String.compare name1 name2 (* Stable sort for same order *))
+    |> List.rev |> sort_keyframes_by_var_order
   in
   assemble_all_layers ~layers ~include_base
     ~properties_layer:individual.properties_layer
