@@ -1,0 +1,43 @@
+(executables
+ (names fuzz gen_corpus)
+ (libraries css crowbar fmt unix)
+ (modules
+  fuzz
+  gen_corpus
+  fuzz_reader
+  fuzz_selector
+  fuzz_values
+  fuzz_stylesheet
+  fuzz_supports
+  fuzz_font_face
+  fuzz_keyframe))
+
+; Property-based testing during dune test
+
+(rule
+ (alias runtest)
+ (deps fuzz.exe)
+ (action
+  (run %{exe:fuzz.exe})))
+
+; AFL fuzzing with corpus generation
+
+(rule
+ (alias fuzz)
+ (deps
+  (source_tree corpus)
+  fuzz.exe
+  gen_corpus.exe)
+ (action
+  (run %{exe:fuzz.exe})))
+
+; AFL-instrumented build target (use with --profile=afl)
+
+(rule
+ (alias fuzz-afl)
+ (deps
+  (source_tree corpus)
+  fuzz.exe
+  gen_corpus.exe)
+ (action
+  (echo "AFL fuzzer built: %{exe:fuzz.exe}\n")))

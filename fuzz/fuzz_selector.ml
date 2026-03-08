@@ -1,0 +1,74 @@
+(** Fuzz tests for the CSS Selector module.
+
+    Tests crash safety of selector parsing and roundtrip consistency. *)
+
+open Crowbar
+
+(** Selector.of_string — must not crash on arbitrary input. *)
+let test_of_string buf =
+  try ignore (Css.Selector.of_string buf) with
+  | Css.Reader.Parse_error _ -> ()
+  | Invalid_argument _ -> ()
+
+(** Selector.read — must not crash. *)
+let test_read buf =
+  let r = Css.Reader.of_string buf in
+  try ignore (Css.Selector.read r) with Css.Reader.Parse_error _ -> ()
+
+(** Selector.read_selector_list — must not crash. *)
+let test_read_selector_list buf =
+  let r = Css.Reader.of_string buf in
+  try ignore (Css.Selector.read_selector_list r)
+  with Css.Reader.Parse_error _ -> ()
+
+(** Selector.read_combinator — must not crash. *)
+let test_read_combinator buf =
+  let r = Css.Reader.of_string buf in
+  try ignore (Css.Selector.read_combinator r)
+  with Css.Reader.Parse_error _ -> ()
+
+(** Selector.read_attribute_match — must not crash. *)
+let test_read_attribute_match buf =
+  let r = Css.Reader.of_string buf in
+  try ignore (Css.Selector.read_attribute_match r)
+  with Css.Reader.Parse_error _ -> ()
+
+(** Selector.read_nth — must not crash. *)
+let test_read_nth buf =
+  let r = Css.Reader.of_string buf in
+  try ignore (Css.Selector.read_nth r) with Css.Reader.Parse_error _ -> ()
+
+(** Roundtrip: parse → to_string → parse should not crash. *)
+let test_roundtrip buf =
+  match
+    try Some (Css.Selector.of_string buf)
+    with Css.Reader.Parse_error _ | Invalid_argument _ -> None
+  with
+  | None -> ()
+  | Some sel -> (
+      let s = Css.Selector.to_string sel in
+      try ignore (Css.Selector.of_string s)
+      with Css.Reader.Parse_error _ | Invalid_argument _ ->
+        fail "roundtrip re-parse crashed")
+
+(** pp — must not crash on any parsed selector. *)
+let test_pp buf =
+  match
+    try Some (Css.Selector.of_string buf)
+    with Css.Reader.Parse_error _ | Invalid_argument _ -> None
+  with
+  | None -> ()
+  | Some sel -> ignore (Css.Selector.to_string sel)
+
+let run () =
+  add_test ~name:"selector: of_string crash safety" [ bytes ] test_of_string;
+  add_test ~name:"selector: read crash safety" [ bytes ] test_read;
+  add_test ~name:"selector: read_selector_list crash safety" [ bytes ]
+    test_read_selector_list;
+  add_test ~name:"selector: read_combinator crash safety" [ bytes ]
+    test_read_combinator;
+  add_test ~name:"selector: read_attribute_match crash safety" [ bytes ]
+    test_read_attribute_match;
+  add_test ~name:"selector: read_nth crash safety" [ bytes ] test_read_nth;
+  add_test ~name:"selector: roundtrip" [ bytes ] test_roundtrip;
+  add_test ~name:"selector: pp crash safety" [ bytes ] test_pp
