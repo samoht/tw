@@ -219,7 +219,7 @@ module Handler = struct
                   4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 \
                   011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 \
                   0z'/%3e%3c/svg%3e");
-            background_position [ XY (Pct 50., Pct 50.) ];
+            background_position [ Single (Pct 50.) ];
             background_repeat No_repeat;
             background_size (Size (Pct 100., Pct 100.));
             border_color (hex "#0000");
@@ -246,7 +246,7 @@ module Handler = struct
                   fill='none' viewBox='0 0 16 16'%3e%3cpath stroke='white' \
                   stroke-linecap='round' stroke-linejoin='round' \
                   stroke-width='2' d='M4 8h8'/%3e%3c/svg%3e");
-            background_position [ XY (Pct 50., Pct 50.) ];
+            background_position [ Single (Pct 50.) ];
             background_repeat No_repeat;
             background_size (Size (Pct 100., Pct 100.));
             border_color (hex "#0000");
@@ -309,7 +309,7 @@ module Handler = struct
                  "data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' \
                   xmlns='http://www.w3.org/2000/svg'%3e%3ccircle cx='8' cy='8' \
                   r='3'/%3e%3c/svg%3e");
-            background_position [ XY (Pct 50., Pct 50.) ];
+            background_position [ Single (Pct 50.) ];
             background_repeat No_repeat;
             background_size (Size (Pct 100., Pct 100.));
             border_color (hex "#0000");
@@ -735,7 +735,7 @@ let checkbox_checked_rules () =
         Selector.(list [ type_checkbox && Checked; type_radio && Checked ])
       [
         background_color Current;
-        background_position [ XY (Pct 50., Pct 50.) ];
+        background_position [ Single (Pct 50.) ];
         background_repeat No_repeat;
         background_size (Size (Pct 100., Pct 100.));
         border_color (hex "#0000");
@@ -789,7 +789,7 @@ let checkbox_indeterminate_rules () =
               fill='none' viewBox='0 0 16 16'%3e%3cpath stroke='white' \
               stroke-linecap='round' stroke-linejoin='round' stroke-width='2' \
               d='M4 8h8'/%3e%3c/svg%3e");
-        background_position [ XY (Pct 50., Pct 50.) ];
+        background_position [ Single (Pct 50.) ];
         background_repeat No_repeat;
         background_size (Size (Pct 100., Pct 100.));
         border_color (hex "#0000");
