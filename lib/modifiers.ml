@@ -79,8 +79,8 @@ let open_pseudo () =
   let open Css.Selector in
   is_ [ attribute "open" Presence; Popover_open; Open ]
 
-(** Generate CSS selector for a modifier and base class *)
-let to_selector (modifier : modifier) cls =
+(** Group variant selector — :where(.group):pseudo descendant *)
+let group_selector cls modifier =
   let open Css.Selector in
   let gp prefix pseudo =
     let rel =
@@ -88,23 +88,202 @@ let to_selector (modifier : modifier) cls =
     in
     compound [ Class (prefix ^ ":" ^ cls); is_ [ rel ] ]
   in
+  match modifier with
+  | Group_hover -> gp "group-hover" Hover
+  | Group_focus -> gp "group-focus" Focus
+  | Group_first -> gp "group-first" First_child
+  | Group_last -> gp "group-last" Last_child
+  | Group_odd -> gp "group-odd" (Nth_child (Odd, None))
+  | Group_even -> gp "group-even" (Nth_child (Even, None))
+  | Group_only -> gp "group-only" Only_child
+  | Group_first_of_type -> gp "group-first-of-type" First_of_type
+  | Group_last_of_type -> gp "group-last-of-type" Last_of_type
+  | Group_only_of_type -> gp "group-only-of-type" Only_of_type
+  | Group_active -> gp "group-active" Active
+  | Group_visited -> gp "group-visited" Visited
+  | Group_disabled -> gp "group-disabled" Disabled
+  | Group_checked -> gp "group-checked" Checked
+  | Group_empty -> gp "group-empty" Empty
+  | Group_required -> gp "group-required" Required
+  | Group_valid -> gp "group-valid" Valid
+  | Group_invalid -> gp "group-invalid" Invalid
+  | Group_indeterminate -> gp "group-indeterminate" Indeterminate
+  | Group_default -> gp "group-default" Default
+  | Group_open -> gp "group-open" (open_pseudo ())
+  | Group_target -> gp "group-target" Target
+  | Group_optional -> gp "group-optional" Optional
+  | Group_read_only -> gp "group-read-only" Read_only
+  | Group_read_write -> gp "group-read-write" Read_write
+  | Group_inert -> gp "group-inert" (inert_pseudo ())
+  | Group_user_valid -> gp "group-user-valid" User_valid
+  | Group_user_invalid -> gp "group-user-invalid" User_invalid
+  | Group_placeholder_shown -> gp "group-placeholder-shown" Placeholder_shown
+  | Group_autofill -> gp "group-autofill" Autofill
+  | Group_in_range -> gp "group-in-range" In_range
+  | Group_out_of_range -> gp "group-out-of-range" Out_of_range
+  | Group_focus_within -> gp "group-focus-within" Focus_within
+  | Group_focus_visible -> gp "group-focus-visible" Focus_visible
+  | Group_enabled -> gp "group-enabled" Enabled
+  | _ -> Class cls
+
+(** Peer variant selector — :where(.peer):pseudo ~ *)
+let peer_selector cls modifier =
+  let open Css.Selector in
   let pp prefix pseudo =
     let rel =
       combine (compound [ where [ peer ]; pseudo ]) Subsequent_sibling universal
     in
     compound [ Class (prefix ^ ":" ^ cls); is_ [ rel ] ]
   in
+  match modifier with
+  | Peer_hover -> pp "peer-hover" Hover
+  | Peer_focus -> pp "peer-focus" Focus
+  | Peer_checked -> pp "peer-checked" Checked
+  | Peer_first -> pp "peer-first" First_child
+  | Peer_last -> pp "peer-last" Last_child
+  | Peer_odd -> pp "peer-odd" (Nth_child (Odd, None))
+  | Peer_even -> pp "peer-even" (Nth_child (Even, None))
+  | Peer_only -> pp "peer-only" Only_child
+  | Peer_first_of_type -> pp "peer-first-of-type" First_of_type
+  | Peer_last_of_type -> pp "peer-last-of-type" Last_of_type
+  | Peer_only_of_type -> pp "peer-only-of-type" Only_of_type
+  | Peer_active -> pp "peer-active" Active
+  | Peer_visited -> pp "peer-visited" Visited
+  | Peer_disabled -> pp "peer-disabled" Disabled
+  | Peer_empty -> pp "peer-empty" Empty
+  | Peer_required -> pp "peer-required" Required
+  | Peer_valid -> pp "peer-valid" Valid
+  | Peer_invalid -> pp "peer-invalid" Invalid
+  | Peer_indeterminate -> pp "peer-indeterminate" Indeterminate
+  | Peer_default -> pp "peer-default" Default
+  | Peer_open -> pp "peer-open" (open_pseudo ())
+  | Peer_target -> pp "peer-target" Target
+  | Peer_optional -> pp "peer-optional" Optional
+  | Peer_read_only -> pp "peer-read-only" Read_only
+  | Peer_read_write -> pp "peer-read-write" Read_write
+  | Peer_inert -> pp "peer-inert" (inert_pseudo ())
+  | Peer_user_valid -> pp "peer-user-valid" User_valid
+  | Peer_user_invalid -> pp "peer-user-invalid" User_invalid
+  | Peer_placeholder_shown -> pp "peer-placeholder-shown" Placeholder_shown
+  | Peer_autofill -> pp "peer-autofill" Autofill
+  | Peer_in_range -> pp "peer-in-range" In_range
+  | Peer_out_of_range -> pp "peer-out-of-range" Out_of_range
+  | Peer_focus_within -> pp "peer-focus-within" Focus_within
+  | Peer_focus_visible -> pp "peer-focus-visible" Focus_visible
+  | Peer_enabled -> pp "peer-enabled" Enabled
+  | _ -> Class cls
+
+(** Form state modifier selector dispatch *)
+let form_state_selector cls modifier =
+  let cp = class_pseudo in
+  match modifier with
+  | Checked -> cp "checked" cls Css.Selector.Checked
+  | Indeterminate -> cp "indeterminate" cls Css.Selector.Indeterminate
+  | Default -> cp "default" cls Css.Selector.Default
+  | Required -> cp "required" cls Css.Selector.Required
+  | Valid -> cp "valid" cls Css.Selector.Valid
+  | Invalid -> cp "invalid" cls Css.Selector.Invalid
+  | In_range -> cp "in-range" cls Css.Selector.In_range
+  | Out_of_range -> cp "out-of-range" cls Css.Selector.Out_of_range
+  | Placeholder_shown ->
+      cp "placeholder-shown" cls Css.Selector.Placeholder_shown
+  | Autofill -> cp "autofill" cls Css.Selector.Autofill
+  | Read_only -> cp "read-only" cls Css.Selector.Read_only
+  | Read_write -> cp "read-write" cls Css.Selector.Read_write
+  | Optional -> cp "optional" cls Css.Selector.Optional
+  | Open ->
+      Css.Selector.compound
+        [
+          Css.Selector.Class ("open:" ^ cls);
+          Css.Selector.is_
+            [ Css.Selector.attribute "open" Presence; Popover_open; Open ];
+        ]
+  | Enabled -> cp "enabled" cls Css.Selector.Enabled
+  | Target -> cp "target" cls Css.Selector.Target
+  | Visited -> cp "visited" cls Css.Selector.Visited
+  | Inert ->
+      Css.Selector.compound
+        [ Css.Selector.Class ("inert:" ^ cls); inert_pseudo () ]
+  | User_valid -> cp "user-valid" cls Css.Selector.User_valid
+  | User_invalid -> cp "user-invalid" cls Css.Selector.User_invalid
+  | _ -> group_selector cls modifier
+
+(** Media and responsive modifiers that prefix the class name *)
+let media_prefix_selector cls modifier =
+  match modifier with
+  | Dark -> Css.Selector.Class ("dark:" ^ cls)
+  | Motion_safe -> Css.Selector.Class ("motion-safe:" ^ cls)
+  | Motion_reduce -> Css.Selector.Class ("motion-reduce:" ^ cls)
+  | Contrast_more -> Css.Selector.Class ("contrast-more:" ^ cls)
+  | Contrast_less -> Css.Selector.Class ("contrast-less:" ^ cls)
+  | Print -> Css.Selector.Class ("print:" ^ cls)
+  | Portrait -> Css.Selector.Class ("portrait:" ^ cls)
+  | Landscape -> Css.Selector.Class ("landscape:" ^ cls)
+  | Forced_colors -> Css.Selector.Class ("forced-colors:" ^ cls)
+  | Inverted_colors -> Css.Selector.Class ("inverted-colors:" ^ cls)
+  | Pointer_none -> Css.Selector.Class ("pointer-none:" ^ cls)
+  | Pointer_coarse -> Css.Selector.Class ("pointer-coarse:" ^ cls)
+  | Pointer_fine -> Css.Selector.Class ("pointer-fine:" ^ cls)
+  | Any_pointer_none -> Css.Selector.Class ("any-pointer-none:" ^ cls)
+  | Any_pointer_coarse -> Css.Selector.Class ("any-pointer-coarse:" ^ cls)
+  | Any_pointer_fine -> Css.Selector.Class ("any-pointer-fine:" ^ cls)
+  | Noscript -> Css.Selector.Class ("noscript:" ^ cls)
+  | Responsive bp -> Css.Selector.Class (breakpoint_name "" bp ^ ":" ^ cls)
+  | Min_responsive bp ->
+      Css.Selector.Class (breakpoint_name "min" bp ^ ":" ^ cls)
+  | Max_responsive bp ->
+      Css.Selector.Class (breakpoint_name "max" bp ^ ":" ^ cls)
+  | Min_arbitrary px -> arbitrary_breakpoint_class "min-" px cls
+  | Max_arbitrary px -> arbitrary_breakpoint_class "max-" px cls
+  | Peer_hover | Peer_focus | Peer_checked | Peer_first | Peer_last | Peer_odd
+  | Peer_even | Peer_only | Peer_first_of_type | Peer_last_of_type
+  | Peer_only_of_type | Peer_active | Peer_visited | Peer_disabled | Peer_empty
+  | Peer_required | Peer_valid | Peer_invalid | Peer_indeterminate
+  | Peer_default | Peer_open | Peer_target | Peer_optional | Peer_read_only
+  | Peer_read_write | Peer_inert | Peer_user_valid | Peer_user_invalid
+  | Peer_placeholder_shown | Peer_autofill | Peer_in_range | Peer_out_of_range
+  | Peer_focus_within | Peer_focus_visible | Peer_enabled ->
+      peer_selector cls modifier
+  | _ -> form_state_selector cls modifier
+
+(** Structural pseudo-class modifiers *)
+let structural_selector cls modifier =
+  let cp = class_pseudo in
+  match modifier with
+  | First -> cp "first" cls Css.Selector.First_child
+  | Last -> cp "last" cls Css.Selector.Last_child
+  | Only -> cp "only" cls Css.Selector.Only_child
+  | Odd -> cp "odd" cls Css.Selector.(Nth_child (Odd, None))
+  | Even -> cp "even" cls Css.Selector.(Nth_child (Even, None))
+  | First_of_type -> cp "first-of-type" cls Css.Selector.First_of_type
+  | Last_of_type -> cp "last-of-type" cls Css.Selector.Last_of_type
+  | Only_of_type -> cp "only-of-type" cls Css.Selector.Only_of_type
+  | Nth expr ->
+      let nth = parse_nth expr in
+      Css.Selector.compound
+        [
+          Css.Selector.Class ("nth-[" ^ expr ^ "]:" ^ cls);
+          Css.Selector.Nth_child (nth, None);
+        ]
+  | Nth_last expr ->
+      let nth = parse_nth expr in
+      Css.Selector.compound
+        [
+          Css.Selector.Class ("nth-last-[" ^ expr ^ "]:" ^ cls);
+          Css.Selector.Nth_last_child (nth, None);
+        ]
+  | Empty -> cp "empty" cls Css.Selector.Empty
+  | _ -> media_prefix_selector cls modifier
+
+(** Generate CSS selector for a modifier and base class *)
+let to_selector (modifier : modifier) cls =
+  let open Css.Selector in
   let cp = class_pseudo in
   match modifier with
   | Hover -> compound [ hover cls; Hover ]
   | Focus -> compound [ focus cls; Focus ]
   | Active -> compound [ active cls; Active ]
   | Disabled -> compound [ disabled cls; Disabled ]
-  | Group_hover -> gp "group-hover" Hover
-  | Group_focus -> gp "group-focus" Focus
-  | Peer_hover -> pp "peer-hover" Hover
-  | Peer_focus -> pp "peer-focus" Focus
-  | Peer_checked -> pp "peer-checked" Checked
   | Aria_checked ->
       compound [ aria_checked cls; attribute "aria-checked" (Exact "true") ]
   | Aria_expanded ->
@@ -121,127 +300,6 @@ let to_selector (modifier : modifier) cls =
   | Focus_visible -> compound [ focus_visible cls; Focus_visible ]
   | Pseudo_before -> compound [ before cls; Before ]
   | Pseudo_after -> compound [ after cls; After ]
-  (* Media-like modifiers that only prefix the class *)
-  | Dark -> Class ("dark:" ^ cls)
-  | Motion_safe -> Class ("motion-safe:" ^ cls)
-  | Motion_reduce -> Class ("motion-reduce:" ^ cls)
-  | Contrast_more -> Class ("contrast-more:" ^ cls)
-  | Contrast_less -> Class ("contrast-less:" ^ cls)
-  (* Structural pseudo-class modifiers *)
-  | First -> cp "first" cls First_child
-  | Last -> cp "last" cls Last_child
-  | Only -> cp "only" cls Only_child
-  | Odd -> cp "odd" cls (Nth_child (Odd, None))
-  | Even -> cp "even" cls (Nth_child (Even, None))
-  | First_of_type -> cp "first-of-type" cls First_of_type
-  | Last_of_type -> cp "last-of-type" cls Last_of_type
-  | Only_of_type -> cp "only-of-type" cls Only_of_type
-  | Nth expr ->
-      let nth = parse_nth expr in
-      compound [ Class ("nth-[" ^ expr ^ "]:" ^ cls); Nth_child (nth, None) ]
-  | Nth_last expr ->
-      let nth = parse_nth expr in
-      compound
-        [ Class ("nth-last-[" ^ expr ^ "]:" ^ cls); Nth_last_child (nth, None) ]
-  | Empty -> cp "empty" cls Empty
-  (* Form state modifiers *)
-  | Checked -> cp "checked" cls Checked
-  | Indeterminate -> cp "indeterminate" cls Indeterminate
-  | Default -> cp "default" cls Default
-  | Required -> cp "required" cls Required
-  | Valid -> cp "valid" cls Valid
-  | Invalid -> cp "invalid" cls Invalid
-  | In_range -> cp "in-range" cls In_range
-  | Out_of_range -> cp "out-of-range" cls Out_of_range
-  | Placeholder_shown -> cp "placeholder-shown" cls Placeholder_shown
-  | Autofill -> cp "autofill" cls Autofill
-  | Read_only -> cp "read-only" cls Read_only
-  | Read_write -> cp "read-write" cls Read_write
-  | Optional -> cp "optional" cls Optional
-  | Open ->
-      compound
-        [
-          Class ("open:" ^ cls);
-          is_ [ attribute "open" Presence; Popover_open; Open ];
-        ]
-  | Enabled -> cp "enabled" cls Enabled
-  | Target -> cp "target" cls Target
-  | Visited -> cp "visited" cls Visited
-  | Inert -> compound [ Class ("inert:" ^ cls); inert_pseudo () ]
-  | User_valid -> cp "user-valid" cls User_valid
-  | User_invalid -> cp "user-invalid" cls User_invalid
-  (* Group structural variants *)
-  | Group_first -> gp "group-first" First_child
-  | Group_last -> gp "group-last" Last_child
-  | Group_odd -> gp "group-odd" (Nth_child (Odd, None))
-  | Group_even -> gp "group-even" (Nth_child (Even, None))
-  | Group_only -> gp "group-only" Only_child
-  | Group_first_of_type -> gp "group-first-of-type" First_of_type
-  | Group_last_of_type -> gp "group-last-of-type" Last_of_type
-  | Group_only_of_type -> gp "group-only-of-type" Only_of_type
-  (* Peer structural variants *)
-  | Peer_first -> pp "peer-first" First_child
-  | Peer_last -> pp "peer-last" Last_child
-  | Peer_odd -> pp "peer-odd" (Nth_child (Odd, None))
-  | Peer_even -> pp "peer-even" (Nth_child (Even, None))
-  | Peer_only -> pp "peer-only" Only_child
-  | Peer_first_of_type -> pp "peer-first-of-type" First_of_type
-  | Peer_last_of_type -> pp "peer-last-of-type" Last_of_type
-  | Peer_only_of_type -> pp "peer-only-of-type" Only_of_type
-  (* Group state variants *)
-  | Group_active -> gp "group-active" Active
-  | Group_visited -> gp "group-visited" Visited
-  | Group_disabled -> gp "group-disabled" Disabled
-  | Group_checked -> gp "group-checked" Checked
-  | Group_empty -> gp "group-empty" Empty
-  | Group_required -> gp "group-required" Required
-  | Group_valid -> gp "group-valid" Valid
-  | Group_invalid -> gp "group-invalid" Invalid
-  | Group_indeterminate -> gp "group-indeterminate" Indeterminate
-  | Group_default -> gp "group-default" Default
-  | Group_open -> gp "group-open" (open_pseudo ())
-  | Group_target -> gp "group-target" Target
-  (* Peer state variants *)
-  | Peer_active -> pp "peer-active" Active
-  | Peer_visited -> pp "peer-visited" Visited
-  | Peer_disabled -> pp "peer-disabled" Disabled
-  | Peer_empty -> pp "peer-empty" Empty
-  | Peer_required -> pp "peer-required" Required
-  | Peer_valid -> pp "peer-valid" Valid
-  | Peer_invalid -> pp "peer-invalid" Invalid
-  | Peer_indeterminate -> pp "peer-indeterminate" Indeterminate
-  | Peer_default -> pp "peer-default" Default
-  | Peer_open -> pp "peer-open" (open_pseudo ())
-  | Peer_target -> pp "peer-target" Target
-  (* Group/Peer optional variants *)
-  | Group_optional -> gp "group-optional" Optional
-  | Peer_optional -> pp "peer-optional" Optional
-  (* Group/peer read-only, read-write, inert, user-valid, user-invalid *)
-  | Group_read_only -> gp "group-read-only" Read_only
-  | Peer_read_only -> pp "peer-read-only" Read_only
-  | Group_read_write -> gp "group-read-write" Read_write
-  | Peer_read_write -> pp "peer-read-write" Read_write
-  | Group_inert -> gp "group-inert" (inert_pseudo ())
-  | Peer_inert -> pp "peer-inert" (inert_pseudo ())
-  | Group_user_valid -> gp "group-user-valid" User_valid
-  | Peer_user_valid -> pp "peer-user-valid" User_valid
-  | Group_user_invalid -> gp "group-user-invalid" User_invalid
-  | Peer_user_invalid -> pp "peer-user-invalid" User_invalid
-  (* Group/peer form state variants *)
-  | Group_placeholder_shown -> gp "group-placeholder-shown" Placeholder_shown
-  | Peer_placeholder_shown -> pp "peer-placeholder-shown" Placeholder_shown
-  | Group_autofill -> gp "group-autofill" Autofill
-  | Peer_autofill -> pp "peer-autofill" Autofill
-  | Group_in_range -> gp "group-in-range" In_range
-  | Peer_in_range -> pp "peer-in-range" In_range
-  | Group_out_of_range -> gp "group-out-of-range" Out_of_range
-  | Peer_out_of_range -> pp "peer-out-of-range" Out_of_range
-  | Group_focus_within -> gp "group-focus-within" Focus_within
-  | Peer_focus_within -> pp "peer-focus-within" Focus_within
-  | Group_focus_visible -> gp "group-focus-visible" Focus_visible
-  | Peer_focus_visible -> pp "peer-focus-visible" Focus_visible
-  | Group_enabled -> gp "group-enabled" Enabled
-  | Peer_enabled -> pp "peer-enabled" Enabled
   (* Pseudo-element variants *)
   | Pseudo_marker -> cp "marker" cls Marker
   | Pseudo_selection -> cp "selection" cls Selection
@@ -251,7 +309,7 @@ let to_selector (modifier : modifier) cls =
   | Pseudo_first_letter -> cp "first-letter" cls First_letter
   | Pseudo_first_line -> cp "first-line" cls First_line
   | Pseudo_details_content -> cp "details-content" cls Details_content
-  (* Child/descendant selectors - star variants *)
+  (* Child/descendant selectors *)
   | Children ->
       let child_sel = combine (Class ("*:" ^ cls)) Child universal in
       is_ [ child_sel ]
@@ -260,26 +318,8 @@ let to_selector (modifier : modifier) cls =
       is_ [ desc_sel ]
   | Ltr -> dir_selector "ltr" cls
   | Rtl -> dir_selector "rtl" cls
-  (* Media query modifiers that only prefix the class *)
-  | Print -> Class ("print:" ^ cls)
-  | Portrait -> Class ("portrait:" ^ cls)
-  | Landscape -> Class ("landscape:" ^ cls)
-  | Forced_colors -> Class ("forced-colors:" ^ cls)
-  | Inverted_colors -> Class ("inverted-colors:" ^ cls)
-  | Pointer_none -> Class ("pointer-none:" ^ cls)
-  | Pointer_coarse -> Class ("pointer-coarse:" ^ cls)
-  | Pointer_fine -> Class ("pointer-fine:" ^ cls)
-  | Any_pointer_none -> Class ("any-pointer-none:" ^ cls)
-  | Any_pointer_coarse -> Class ("any-pointer-coarse:" ^ cls)
-  | Any_pointer_fine -> Class ("any-pointer-fine:" ^ cls)
-  | Noscript -> Class ("noscript:" ^ cls)
-  (* Responsive breakpoint modifiers that only prefix the class *)
-  | Responsive bp -> Class (breakpoint_name "" bp ^ ":" ^ cls)
-  | Min_responsive bp -> Class (breakpoint_name "min" bp ^ ":" ^ cls)
-  | Max_responsive bp -> Class (breakpoint_name "max" bp ^ ":" ^ cls)
-  | Min_arbitrary px -> arbitrary_breakpoint_class "min-" px cls
-  | Max_arbitrary px -> arbitrary_breakpoint_class "max-" px cls
-  | _ -> Css.Selector.Class cls (* fallback for complex modifiers *)
+  (* Structural, media, peer, form state — dispatched to sub-functions *)
+  | _ -> structural_selector cls modifier
 
 (** Check if a modifier generates a hover rule *)
 let is_hover = function Hover | Group_hover | Peer_hover -> true | _ -> false
