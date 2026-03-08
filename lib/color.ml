@@ -1361,6 +1361,15 @@ module Handler = struct
     | Outline_bracket_var_opacity of string * opacity_modifier
     | Outline_bracket_typed_var of string (* outline-[color:var(--value)] *)
     | Outline_bracket_typed_var_opacity of string * opacity_modifier
+    (* Placeholder colors *)
+    | Placeholder of color * int
+    | Placeholder_opacity of color * int * opacity_modifier
+    | Placeholder_transparent
+    | Placeholder_current
+    | Placeholder_current_opacity of opacity_modifier
+    | Placeholder_inherit
+    | Placeholder_bracket_color of string
+    | Placeholder_bracket_color_opacity of string * opacity_modifier
 
   (** Extensible variant for color utilities *)
   type Utility.base += Self of t
@@ -1580,6 +1589,38 @@ module Handler = struct
     | "outline" :: color_parts -> (
         match shade_of_strings color_parts with
         | Ok (color, shade) -> Ok (Outline (color, shade))
+        | Error e -> Error e)
+    | [ "placeholder"; "transparent" ] -> Ok Placeholder_transparent
+    | [ "placeholder"; "inherit" ] -> Ok Placeholder_inherit
+    | [ "placeholder"; current_str ]
+      when String.starts_with ~prefix:"current" current_str -> (
+        let base, opacity = parse_opacity_modifier current_str in
+        match opacity with
+        | No_opacity when base = "current" -> Ok Placeholder_current
+        | No_opacity -> Error (`Msg ("Invalid placeholder: " ^ current_str))
+        | _ -> Ok (Placeholder_current_opacity opacity))
+    | [ "placeholder"; v ]
+      when String.length v > 0
+           && v.[0] = '['
+           && Parse.is_bracket_value (fst (parse_opacity_modifier v)) ->
+        let base_str, opacity = parse_opacity_modifier v in
+        let base_inner = Parse.bracket_inner base_str in
+        if
+          String.length base_inner > 0
+          && (base_inner.[0] = '#' || Result.is_ok (color_of_string base_inner))
+        then
+          match opacity with
+          | No_opacity -> Ok (Placeholder_bracket_color base_inner)
+          | _ -> Ok (Placeholder_bracket_color_opacity (base_inner, opacity))
+        else Error (`Msg ("Invalid placeholder bracket value: " ^ base_inner))
+    | "placeholder" :: color_parts when List.exists has_opacity color_parts -> (
+        match shade_and_opacity_of_strings color_parts with
+        | Ok (color, shade, opacity) ->
+            Ok (Placeholder_opacity (color, shade, opacity))
+        | Error e -> Error e)
+    | "placeholder" :: color_parts -> (
+        match shade_of_strings color_parts with
+        | Ok (color, shade) -> Ok (Placeholder (color, shade))
         | Error e -> Error e)
     | _ -> Error (`Msg "Not a color utility")
 
@@ -1935,6 +1976,10 @@ module Handler = struct
     style ~merge_key:"outline-" ~rules:(Some [ supports_block ])
       [ fallback_decl ]
 
+  let with_pseudo pseudo = function
+    | Style.Style s -> Style.Style { s with pseudo_suffix = Some pseudo }
+    | other -> other
+
   let to_style = function
     | Bg (color, shade) -> bg' color shade
     | Bg_opacity (color, shade, opacity) ->
@@ -1994,6 +2039,38 @@ module Handler = struct
     | Outline_bracket_typed_var v -> outline_bracket_typed_var_style v
     | Outline_bracket_typed_var_opacity (v, opacity) ->
         outline_bracket_var_opacity v opacity
+    | Placeholder (color, shade) ->
+        with_pseudo Css.Selector.Placeholder (text' color shade)
+    | Placeholder_opacity (color, shade, opacity) ->
+        if opacity_to_percent opacity >= 100. && not (is_custom_color color)
+        then with_pseudo Css.Selector.Placeholder (text' color shade)
+        else
+          with_pseudo Css.Selector.Placeholder
+            (text_with_opacity color shade opacity)
+    | Placeholder_transparent ->
+        with_pseudo Css.Selector.Placeholder text_transparent
+    | Placeholder_current -> with_pseudo Css.Selector.Placeholder text_current
+    | Placeholder_current_opacity opacity ->
+        with_pseudo Css.Selector.Placeholder
+          (current_color_with_opacity ~property:Css.color opacity)
+    | Placeholder_inherit -> with_pseudo Css.Selector.Placeholder text_inherit
+    | Placeholder_bracket_color inner ->
+        let s =
+          if String.length inner > 0 && inner.[0] = '#' then
+            let shortened = shorten_hex_str inner in
+            style [ Css.color (Css.hex ("#" ^ shortened)) ]
+          else
+            match color_of_string inner with
+            | Ok c ->
+                let css_color = to_css c 500 in
+                style [ Css.color css_color ]
+            | Error _ -> style [ Css.color (Css.hex "#000") ]
+        in
+        with_pseudo Css.Selector.Placeholder s
+    | Placeholder_bracket_color_opacity (inner, opacity) ->
+        let c = bracket_color_to_custom inner in
+        with_pseudo Css.Selector.Placeholder
+          (color_with_opacity_style ~property:Css.color c 500 opacity)
 
   (* Suborder determines order within the color priority group. Tailwind orders:
      border -> bg -> text So we use: border (0-9999), bg (10000-19999), text
@@ -2098,6 +2175,15 @@ module Handler = struct
     | Outline_bracket_var_opacity _ -> 70000
     | Outline_bracket_typed_var _ -> 70000
     | Outline_bracket_typed_var_opacity _ -> 70000
+    (* Placeholder colors: 80000 base *)
+    | Placeholder _ -> 80000
+    | Placeholder_opacity _ -> 80000
+    | Placeholder_transparent -> 80000
+    | Placeholder_current -> 80000
+    | Placeholder_current_opacity _ -> 80000
+    | Placeholder_inherit -> 80000
+    | Placeholder_bracket_color _ -> 80000
+    | Placeholder_bracket_color_opacity _ -> 80000
 
   (* Format opacity modifier for class names *)
   let opacity_suffix = function
@@ -2205,6 +2291,24 @@ module Handler = struct
     | Outline_bracket_typed_var v -> "outline-[color:" ^ v ^ "]"
     | Outline_bracket_typed_var_opacity (v, opacity) ->
         "outline-[color:" ^ v ^ "]" ^ opacity_suffix opacity
+    | Placeholder (c, shade) ->
+        if is_base_color c || is_custom_color c then
+          "placeholder-" ^ color_to_string c
+        else "placeholder-" ^ color_to_string c ^ "-" ^ string_of_int shade
+    | Placeholder_opacity (c, shade, opacity) ->
+        if is_base_color c || is_custom_color c then
+          "placeholder-" ^ color_to_string c ^ opacity_suffix opacity
+        else
+          "placeholder-" ^ color_to_string c ^ "-" ^ string_of_int shade
+          ^ opacity_suffix opacity
+    | Placeholder_transparent -> "placeholder-transparent"
+    | Placeholder_current -> "placeholder-current"
+    | Placeholder_current_opacity opacity ->
+        "placeholder-current" ^ opacity_suffix opacity
+    | Placeholder_inherit -> "placeholder-inherit"
+    | Placeholder_bracket_color v -> "placeholder-[" ^ v ^ "]"
+    | Placeholder_bracket_color_opacity (v, opacity) ->
+        "placeholder-[" ^ v ^ "]" ^ opacity_suffix opacity
 end
 
 open Handler

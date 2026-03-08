@@ -875,8 +875,13 @@ let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
 
 let outputs util =
   let rec extract_with_class class_name util_inner = function
-    | Style.Style { props; rules; merge_key; _ } -> (
-        let sel = Css.Selector.Class class_name in
+    | Style.Style { props; rules; merge_key; pseudo_suffix; _ } -> (
+        let sel =
+          match pseudo_suffix with
+          | None -> Css.Selector.Class class_name
+          | Some pseudo ->
+              Css.Selector.compound [ Css.Selector.Class class_name; pseudo ]
+        in
         match rules with
         | None ->
             if props = [] then []
