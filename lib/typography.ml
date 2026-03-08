@@ -327,6 +327,7 @@ module Typography_early = struct
     | (* Font feature settings *)
       Font_features_quoted of string (* font-features-["smcp"] *)
     | Font_features_var of string (* font-features-[var(--x)] *)
+    | Font_features_bare_var of string (* font-features-(--my-var) *)
     | (* Font families *)
       Font_sans
     | Font_serif
@@ -414,6 +415,8 @@ module Typography_early = struct
         let inner = Parse.bracket_inner v in
         if Parse.is_var inner then Ok (Font_features_var inner)
         else Ok (Font_features_quoted inner)
+    | [ "font"; "features"; v ] when Parse.is_bare_var v ->
+        Ok (Font_features_bare_var v)
     | [ "font"; "thin" ] -> Ok Font_thin
     | [ "font"; "extralight" ] -> Ok Font_extralight
     | [ "font"; "light" ] -> Ok Font_light
@@ -478,6 +481,7 @@ module Typography_early = struct
     | Font_bracket_family_var (raw, _) -> "font-[" ^ raw ^ "]"
     | Font_features_quoted raw -> "font-features-[" ^ raw ^ "]"
     | Font_features_var raw -> "font-features-[" ^ raw ^ "]"
+    | Font_features_bare_var raw -> "font-features-" ^ raw
     | Font_sans -> "font-sans"
     | Font_serif -> "font-serif"
     | Font_mono -> "font-mono"
@@ -557,6 +561,7 @@ module Typography_early = struct
     (* Font feature settings *)
     | Font_features_quoted _ -> 5000
     | Font_features_var _ -> 5000
+    | Font_features_bare_var _ -> 5000
     (* Italic *)
     | Italic -> 7001
     | Not_italic -> 7002
@@ -805,6 +810,19 @@ module Typography_early = struct
         style [ font_feature_settings (Feature_list normalized) ]
     | Font_features_var var_str ->
         let bare_name = Parse.extract_var_name var_str in
+        let var_ref : Css.font_feature_settings Css.var =
+          Css.var_ref bare_name
+        in
+        style [ font_feature_settings (Var var_ref) ]
+    | Font_features_bare_var v ->
+        (* bare_var_inner "(--my-features)" → "--my-features"; strip the --
+           prefix since var_ref adds it *)
+        let inner = Parse.bare_var_inner v in
+        let bare_name =
+          if String.length inner > 2 && String.sub inner 0 2 = "--" then
+            String.sub inner 2 (String.length inner - 2)
+          else inner
+        in
         let var_ref : Css.font_feature_settings Css.var =
           Css.var_ref bare_name
         in
