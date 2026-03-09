@@ -1287,6 +1287,32 @@ let try_not_shorthand inner =
     Some (Not (Nth expr))
   else None
 
+(** Check if a modifier is compatible with not-* negation. Pseudo-elements,
+    starting style, children/descendants, and container queries cannot be
+    negated. *)
+let is_not_compatible = function
+  | Pseudo_before | Pseudo_after | Pseudo_marker | Pseudo_selection
+  | Pseudo_placeholder | Pseudo_backdrop | Pseudo_file | Pseudo_first_letter
+  | Pseudo_first_line | Pseudo_details_content | Starting | Children
+  | Descendants ->
+      false
+  | _ -> true
+
+(** Check if bracket content is valid for not-[...] patterns. Rejects combinator
+    selectors (+, >, ~), media conditions with commas, and bare selectors. *)
+let is_valid_not_bracket_content content =
+  if String.length content = 0 then false
+  else
+    (* Reject combinator selectors: +img, >img, ~img *)
+    let first = content.[0] in
+    if first = '+' || first = '>' || first = '~' then false
+    else if
+      (* Reject media conditions with commas (complex media) *)
+      (String.length content > 6 && String.sub content 0 6 = "@media")
+      || (String.length content > 7 && String.sub content 0 7 = "@media_")
+    then not (String.contains content ',')
+    else true
+
 (** Try parsing a not-[...] bracket pattern. Returns the Not_bracket modifier
     for pseudo-class or media bracket content. *)
 let try_not_bracket inner =
@@ -1295,7 +1321,15 @@ let try_not_bracket inner =
     match matching_bracket rest with
     | Some i when i = String.length rest - 1 ->
         let content = String.sub rest 0 i in
-        Some (Not_bracket content)
+        if is_valid_not_bracket_content content then Some (Not_bracket content)
+        else None
+    | Some i ->
+        (* There's content after the bracket — check for /name suffix *)
+        let remainder = String.sub rest (i + 1) (String.length rest - i - 1) in
+        if String.length remainder > 0 && remainder.[0] = '/' then
+          (* not-[:checked]/foo — named not-bracket variants are invalid *)
+          None
+        else None
     | _ -> None
   else None
 
@@ -1361,7 +1395,9 @@ let parse_modifier s : modifier option =
             let inner = String.sub s 4 (String.length s - 4) in
             (* 1. Try simple modifier lookup *)
             match List.assoc_opt inner simple_modifiers with
-            | Some m -> Some (Not m)
+            | Some m when is_not_compatible m -> Some (Not m)
+            | Some _ ->
+                None (* Pseudo-elements, starting, etc. can't be negated *)
             | None -> (
                 (* 2. Try bracket pattern: not-[...] *)
                 match try_not_bracket inner with
