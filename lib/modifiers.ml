@@ -951,6 +951,8 @@ let rec pp_modifier = function
       "group-not-" ^ pp_modifier inner ^ "/" ^ name
   | Peer_not (inner, None) -> "peer-not-" ^ pp_modifier inner
   | Peer_not (inner, Some name) -> "peer-not-" ^ pp_modifier inner ^ "/" ^ name
+  | In_bracket content -> "in-[" ^ content ^ "]"
+  | In_data attr -> "in-data-" ^ attr
 
 (* Find matching closing bracket, handling nested brackets *)
 let matching_bracket s =
@@ -1377,8 +1379,34 @@ let parse_modifier s : modifier option =
       match try_bracketed_modifier s with
       | Some _ as r -> r
       | None ->
-          (* group-not-* pattern *)
-          if String.length s > 10 && String.sub s 0 10 = "group-not-" then
+          (* in-* pattern: in-[selector] or in-data-attr *)
+          if String.length s > 3 && String.sub s 0 3 = "in-" then
+            let rest = String.sub s 3 (String.length s - 3) in
+            if rest <> "" && rest.[0] = '[' then
+              let after = String.sub rest 1 (String.length rest - 1) in
+              match matching_bracket after with
+              | Some i when i = String.length after - 1 ->
+                  let content = String.sub after 0 i in
+                  Some (In_bracket content)
+              | _ -> try_custom_breakpoint s
+            else if String.length rest > 5 && String.sub rest 0 5 = "data-" then
+              let attr = String.sub rest 5 (String.length rest - 5) in
+              Some (In_data attr)
+            else try_custom_breakpoint s
+          else if
+            (* not-in-[...] pattern: only bracket form *)
+            String.length s > 8 && String.sub s 0 7 = "not-in-" && s.[7] = '['
+          then
+            let rest = String.sub s 8 (String.length s - 8) in
+            match matching_bracket rest with
+            | Some i when i = String.length rest - 1 ->
+                let content = String.sub rest 0 i in
+                Some (Not (In_bracket content))
+            | _ -> try_custom_breakpoint s
+          else if
+            (* group-not-* pattern *)
+            String.length s > 10 && String.sub s 0 10 = "group-not-"
+          then
             let rest = String.sub s 10 (String.length s - 10) in
             match parse_group_peer_not_inner rest with
             | Some (inner, name) -> Some (Group_not (inner, name))
