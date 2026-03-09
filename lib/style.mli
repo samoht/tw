@@ -170,6 +170,10 @@ type modifier =
   | Any_pointer_fine
   | Noscript
   | Supports of string
+  | Group_hocus
+  | Peer_hocus
+  | Group_arbitrary of string
+  | Peer_arbitrary of string
 
 type t =
   | Style of {

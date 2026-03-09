@@ -170,6 +170,10 @@ type modifier =
   | Any_pointer_fine
   | Noscript
   | Supports of string
+  | Group_hocus
+  | Peer_hocus
+  | Group_arbitrary of string
+  | Peer_arbitrary of string
 
 type t =
   | Style of {
@@ -393,6 +397,10 @@ let rec pp_modifier = function
         in
         "supports-" ^ String.sub cond 0 prop_len
       else "supports-[" ^ cond ^ "]"
+  | Group_hocus -> "group-hocus"
+  | Peer_hocus -> "peer-hocus"
+  | Group_arbitrary sel -> "group-[" ^ sel ^ "]"
+  | Peer_arbitrary sel -> "peer-[" ^ sel ^ "]"
 
 let rec pp = function
   | Style { props; _ } ->

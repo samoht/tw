@@ -79,6 +79,52 @@ let open_pseudo () =
   let open Css.Selector in
   is_ [ attribute "open" Presence; Popover_open; Open ]
 
+(** Parse arbitrary bracket content into a selector tree. In bracket content:
+    [_] = space, [&] = anchor (group/peer). E.g. "&_p" with group anchor ->
+    ":where(.group) p" E.g. "&:hover" with group anchor ->
+    ":where(.group):hover" *)
+let parse_arbitrary_selector_content content anchor =
+  let open Css.Selector in
+  (* Replace _ with space for Tailwind convention *)
+  let s = String.map (fun c -> if c = '_' then ' ' else c) content in
+  (* Split on & to find the anchor positions *)
+  let parts = String.split_on_char '&' s in
+  match parts with
+  | [ ""; rest ] ->
+      (* Content starts with & — most common case *)
+      let rest = String.trim rest in
+      if rest = "" then
+        (* Just "&" → :where(.group/peer) descendant *)
+        combine (where [ anchor ]) Descendant universal
+      else if rest.[0] = ':' then
+        (* "&:hover" → :where(.group):hover descendant *)
+        let pseudo_str = String.sub rest 1 (String.length rest - 1) in
+        let pseudo_sel =
+          match pseudo_str with
+          | "hover" -> Hover
+          | "focus" -> Focus
+          | "active" -> Active
+          | "focus-within" -> Focus_within
+          | "focus-visible" -> Focus_visible
+          | "checked" -> Checked
+          | "disabled" -> Disabled
+          | "first-child" -> First_child
+          | "last-child" -> Last_child
+          | _ -> Class (":" ^ pseudo_str)
+        in
+        combine (compound [ where [ anchor ]; pseudo_sel ]) Descendant universal
+      else
+        (* "& p" → :where(.group) p * — content after & is a descendant
+           element *)
+        let trimmed = String.trim rest in
+        let element_sel = Element (None, trimmed) in
+        combine
+          (combine (where [ anchor ]) Descendant element_sel)
+          Descendant universal
+  | _ ->
+      (* Fallback — just use the anchor as descendant *)
+      combine (where [ anchor ]) Descendant universal
+
 (** Group variant selector — :where(.group):pseudo descendant *)
 let group_selector cls modifier =
   let open Css.Selector in
@@ -124,6 +170,21 @@ let group_selector cls modifier =
   | Group_focus_within -> gp "group-focus-within" Focus_within
   | Group_focus_visible -> gp "group-focus-visible" Focus_visible
   | Group_enabled -> gp "group-enabled" Enabled
+  | Group_hocus ->
+      let rel =
+        combine
+          (is_
+             [
+               compound [ where [ group ]; Hover ];
+               compound [ where [ group ]; Focus ];
+             ])
+          Descendant universal
+      in
+      compound [ Class ("group-hocus:" ^ cls); is_ [ rel ] ]
+  | Group_arbitrary sel ->
+      let prefix = "group-[" ^ sel ^ "]" in
+      let rel = parse_arbitrary_selector_content sel group in
+      compound [ Class (prefix ^ ":" ^ cls); is_ [ rel ] ]
   | _ -> Class cls
 
 (** Peer variant selector — :where(.peer):pseudo ~ *)
@@ -171,6 +232,28 @@ let peer_selector cls modifier =
   | Peer_focus_within -> pp "peer-focus-within" Focus_within
   | Peer_focus_visible -> pp "peer-focus-visible" Focus_visible
   | Peer_enabled -> pp "peer-enabled" Enabled
+  | Peer_hocus ->
+      let rel =
+        combine
+          (is_
+             [
+               compound [ where [ peer ]; Hover ];
+               compound [ where [ peer ]; Focus ];
+             ])
+          Subsequent_sibling universal
+      in
+      compound [ Class ("peer-hocus:" ^ cls); is_ [ rel ] ]
+  | Peer_arbitrary sel ->
+      let prefix = "peer-[" ^ sel ^ "]" in
+      let rel = parse_arbitrary_selector_content sel peer in
+      (* For peer, replace outermost Descendant with Subsequent_sibling (~) *)
+      let peer_rel =
+        match rel with
+        | Combined (left, Descendant, (Universal _ as right)) ->
+            Combined (left, Subsequent_sibling, right)
+        | other -> other
+      in
+      compound [ Class (prefix ^ ":" ^ cls); is_ [ peer_rel ] ]
   | _ -> Class cls
 
 (** Form state modifier selector dispatch *)
@@ -242,7 +325,8 @@ let media_prefix_selector cls modifier =
   | Peer_default | Peer_open | Peer_target | Peer_optional | Peer_read_only
   | Peer_read_write | Peer_inert | Peer_user_valid | Peer_user_invalid
   | Peer_placeholder_shown | Peer_autofill | Peer_in_range | Peer_out_of_range
-  | Peer_focus_within | Peer_focus_visible | Peer_enabled ->
+  | Peer_focus_within | Peer_focus_visible | Peer_enabled | Peer_hocus
+  | Peer_arbitrary _ ->
       peer_selector cls modifier
   | _ -> form_state_selector cls modifier
 
@@ -346,6 +430,8 @@ let group_hover = wrap Group_hover
 let group_focus = wrap Group_focus
 let peer_hover = wrap Peer_hover
 let peer_focus = wrap Peer_focus
+let group_hocus = wrap Group_hocus
+let peer_hocus = wrap Peer_hocus
 
 (* :has() helpers *)
 let has selector styles = wrap (Has selector) styles
@@ -797,6 +883,10 @@ let pp_modifier = function
   | Any_pointer_fine -> "any-pointer-fine"
   | Noscript -> "noscript"
   | Supports cond -> "supports-[" ^ cond ^ "]"
+  | Group_hocus -> "group-hocus"
+  | Peer_hocus -> "peer-hocus"
+  | Group_arbitrary sel -> "group-[" ^ sel ^ "]"
+  | Peer_arbitrary sel -> "peer-[" ^ sel ^ "]"
 
 (* Find matching closing bracket, handling nested brackets *)
 let matching_bracket s =
@@ -857,6 +947,16 @@ let try_bracketed_modifier s =
       (fun () -> try_pattern "nth-last-[" (fun e -> Nth_last e));
       (fun () -> try_pattern "nth-[" (fun e -> Nth e));
       (fun () -> try_pattern "supports-[" (fun c -> Supports c));
+      (fun () ->
+        try_pattern_with "group-["
+          (fun sel ->
+            if sel <> "" && String.contains sel '&' then Some sel else None)
+          (fun sel -> Group_arbitrary sel));
+      (fun () ->
+        try_pattern_with "peer-["
+          (fun sel ->
+            if sel <> "" && String.contains sel '&' then Some sel else None)
+          (fun sel -> Peer_arbitrary sel));
     ]
   in
   match List.find_map (fun f -> f ()) patterns with
@@ -965,6 +1065,7 @@ let simple_modifiers =
     ("group-focus-within", Group_focus_within);
     ("group-focus-visible", Group_focus_visible);
     ("group-enabled", Group_enabled);
+    ("group-hocus", Group_hocus);
     (* Peer states *)
     ("peer-hover", Peer_hover);
     ("peer-focus", Peer_focus);
@@ -1001,6 +1102,7 @@ let simple_modifiers =
     ("peer-focus-within", Peer_focus_within);
     ("peer-focus-visible", Peer_focus_visible);
     ("peer-enabled", Peer_enabled);
+    ("peer-hocus", Peer_hocus);
     (* ARIA variants *)
     ("aria-checked", Aria_checked);
     ("aria-expanded", Aria_expanded);
