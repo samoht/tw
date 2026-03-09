@@ -35,6 +35,7 @@ type output =
       has_hover : bool;
       nested : Css.statement list;
       merge_key : string option;
+      not_order : int;
     }
   | Media_query of {
       condition : Css.Media.t;
@@ -42,6 +43,7 @@ type output =
       props : Css.declaration list;
       base_class : string option;
       nested : Css.statement list;
+      not_order : int;
     }
   | Container_query of {
       condition : Css.Container.t;
@@ -60,6 +62,7 @@ type output =
       props : Css.declaration list;
       base_class : string option;
       merge_key : string option;
+      not_order : int;
     }
 
 type by_type = {
@@ -77,6 +80,7 @@ val regular :
   ?has_hover:bool ->
   ?nested:Css.statement list ->
   ?merge_key:string ->
+  ?not_order:int ->
   unit ->
   output
 (** [regular ~selector ~props ?base_class ?has_hover ?nested ?merge_key ()]
@@ -91,6 +95,7 @@ val media_query :
   props:Css.declaration list ->
   ?base_class:string ->
   ?nested:Css.statement list ->
+  ?not_order:int ->
   unit ->
   output
 (** [media_query ~condition ~selector ~props ?base_class ?nested ()] constructs

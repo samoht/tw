@@ -179,6 +179,14 @@ type modifier =
   | Max_custom of string
   | Group_arbitrary of string
   | Peer_arbitrary of string
+  | Hocus  (** [:hover, :focus] compound selector (no media query) *)
+  | Device_hocus  (** [:hover, :focus] compound + [@media (hover: hover)] *)
+  | Not_bracket of string
+      (** [not-[...]] bracket patterns — stores raw bracket content *)
+  | Group_not of modifier * string option
+      (** [group-not-X/name] — inner modifier + optional group name *)
+  | Peer_not of modifier * string option
+      (** [peer-not-X/name] — inner modifier + optional peer name *)
 
 type t =
   | Style of {
