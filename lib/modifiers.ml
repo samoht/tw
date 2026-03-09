@@ -449,6 +449,10 @@ let to_selector (modifier : modifier) cls =
       is_ [ desc_sel ]
   | Ltr -> dir_selector "ltr" cls
   | Rtl -> dir_selector "rtl" cls
+  (* Hocus/Device_hocus — compound :hover, :focus *)
+  | Hocus -> compound [ Class ("hocus:" ^ cls); is_ [ Hover; Focus ] ]
+  | Device_hocus ->
+      compound [ Class ("device-hocus:" ^ cls); is_ [ Hover; Focus ] ]
   (* Structural, media, peer, form state — dispatched to sub-functions *)
   | _ -> structural_selector cls modifier
 
@@ -742,7 +746,7 @@ let of_string class_str =
   | cls :: modifiers -> (List.rev modifiers, cls)
 
 (* Convert modifier to its string prefix *)
-let pp_modifier = function
+let rec pp_modifier = function
   | Hover -> "hover"
   | Focus -> "focus"
   | Active -> "active"
@@ -796,7 +800,7 @@ let pp_modifier = function
       in
       "max-[" ^ px_str ^ "px]"
   | Container query -> Containers.container_query_to_class_prefix query
-  | Not _modifier -> "not" (* Simplified for class names *)
+  | Not m -> "not-" ^ pp_modifier m
   | Has selector -> "has-[" ^ selector ^ "]"
   | Group_has selector -> "group-has-[" ^ selector ^ "]"
   | Peer_has selector -> "peer-has-[" ^ selector ^ "]"
@@ -939,6 +943,14 @@ let pp_modifier = function
   | Peer_arbitrary sel -> "peer-[" ^ sel ^ "]"
   | Min_arbitrary_length l -> "min-[" ^ compact_length l ^ "]"
   | Max_arbitrary_length l -> "max-[" ^ compact_length l ^ "]"
+  | Hocus -> "hocus"
+  | Device_hocus -> "device-hocus"
+  | Not_bracket content -> "[" ^ content ^ "]"
+  | Group_not (inner, None) -> "group-not-" ^ pp_modifier inner
+  | Group_not (inner, Some name) ->
+      "group-not-" ^ pp_modifier inner ^ "/" ^ name
+  | Peer_not (inner, None) -> "peer-not-" ^ pp_modifier inner
+  | Peer_not (inner, Some name) -> "peer-not-" ^ pp_modifier inner ^ "/" ^ name
 
 (* Find matching closing bracket, handling nested brackets *)
 let matching_bracket s =
@@ -1220,6 +1232,8 @@ let simple_modifiers =
     ("starting", Starting);
     ("*", Children);
     ("**", Descendants);
+    ("hocus", Hocus);
+    ("device-hocus", Device_hocus);
     (* Container queries *)
     ("@sm", Container Container_sm);
     ("@md", Container Container_md);
@@ -1247,6 +1261,80 @@ let try_custom_breakpoint s =
         | None -> None
       else None
 
+(** Try not-* shorthand patterns that aren't in simple_modifiers or bracket
+    patterns. These are modifiers like data-foo, has-checked, nth-2 that work as
+    shorthands in the not-* context. *)
+let try_not_shorthand inner =
+  (* supports-X shorthand *)
+  if
+    String.length inner > 9
+    && String.sub inner 0 9 = "supports-"
+    && (not (String.contains inner '['))
+    && not (String.contains inner '/')
+  then
+    let prop = String.sub inner 9 (String.length inner - 9) in
+    Some (Not (Supports (prop ^ ": var(--tw)")))
+    (* data-X shorthand — attribute presence check *)
+  else if String.length inner > 5 && String.sub inner 0 5 = "data-" then
+    let attr = String.sub inner 5 (String.length inner - 5) in
+    Some (Not (Data_custom (attr, "")))
+    (* has-X shorthand — :has(:X) pseudo-class *)
+  else if String.length inner > 4 && String.sub inner 0 4 = "has-" then
+    let pseudo = String.sub inner 4 (String.length inner - 4) in
+    Some (Not (Has (":" ^ pseudo))) (* nth-X shorthand — :nth-child(X) *)
+  else if String.length inner > 4 && String.sub inner 0 4 = "nth-" then
+    let expr = String.sub inner 4 (String.length inner - 4) in
+    Some (Not (Nth expr))
+  else None
+
+(** Try parsing a not-[...] bracket pattern. Returns the Not_bracket modifier
+    for pseudo-class or media bracket content. *)
+let try_not_bracket inner =
+  if inner <> "" && inner.[0] = '[' then
+    let rest = String.sub inner 1 (String.length inner - 1) in
+    match matching_bracket rest with
+    | Some i when i = String.length rest - 1 ->
+        let content = String.sub rest 0 i in
+        Some (Not_bracket content)
+    | _ -> None
+  else None
+
+(** Parse group-not-* or peer-not-* pattern. Splits the rest into inner modifier
+    and optional /name suffix. *)
+let parse_group_peer_not_inner rest =
+  (* Check for bracket content first: [...]/name or [...] *)
+  if rest <> "" && rest.[0] = '[' then
+    let after_bracket = String.sub rest 1 (String.length rest - 1) in
+    match matching_bracket after_bracket with
+    | Some i ->
+        let content = String.sub after_bracket 0 i in
+        let remainder =
+          String.sub after_bracket (i + 1) (String.length after_bracket - i - 1)
+        in
+        let name =
+          if String.length remainder > 1 && remainder.[0] = '/' then
+            Some (String.sub remainder 1 (String.length remainder - 1))
+          else None
+        in
+        Some (Not_bracket content, name)
+    | None -> None
+  else
+    (* Non-bracket: split on / for name suffix *)
+    match String.index_opt rest '/' with
+    | Some i ->
+        let inner_str = String.sub rest 0 i in
+        let name = String.sub rest (i + 1) (String.length rest - i - 1) in
+        let inner_mod =
+          match List.assoc_opt inner_str simple_modifiers with
+          | Some m -> Some m
+          | None -> None
+        in
+        Option.map (fun m -> (m, Some name)) inner_mod
+    | None -> (
+        match List.assoc_opt rest simple_modifiers with
+        | Some m -> Some (m, None)
+        | None -> None)
+
 (* Parse a modifier string into a typed Style.modifier *)
 let parse_modifier s : modifier option =
   match List.assoc_opt s simple_modifiers with
@@ -1255,14 +1343,38 @@ let parse_modifier s : modifier option =
       match try_bracketed_modifier s with
       | Some _ as r -> r
       | None ->
-          if
-            (* Try not-* prefix: strip "not-" and wrap inner modifier *)
+          (* group-not-* pattern *)
+          if String.length s > 10 && String.sub s 0 10 = "group-not-" then
+            let rest = String.sub s 10 (String.length s - 10) in
+            match parse_group_peer_not_inner rest with
+            | Some (inner, name) -> Some (Group_not (inner, name))
+            | None -> try_custom_breakpoint s
+          else if String.length s > 9 && String.sub s 0 9 = "peer-not-" then
+            let rest = String.sub s 9 (String.length s - 9) in
+            match parse_group_peer_not_inner rest with
+            | Some (inner, name) -> Some (Peer_not (inner, name))
+            | None -> try_custom_breakpoint s
+          else if
+            (* not-* prefix: strip "not-" and wrap inner modifier *)
             String.length s > 4 && String.sub s 0 4 = "not-"
           then
             let inner = String.sub s 4 (String.length s - 4) in
+            (* 1. Try simple modifier lookup *)
             match List.assoc_opt inner simple_modifiers with
             | Some m -> Some (Not m)
-            | None -> try_custom_breakpoint s
+            | None -> (
+                (* 2. Try bracket pattern: not-[...] *)
+                match try_not_bracket inner with
+                | Some _ as r -> r
+                | None -> (
+                    (* 3. Try bracketed modifier (min-[...], max-[...], etc.) *)
+                    match try_bracketed_modifier inner with
+                    | Some m -> Some (Not m)
+                    | None -> (
+                        (* 4. Try shorthands (data, has, nth, supports) *)
+                        match try_not_shorthand inner with
+                        | Some _ as r -> r
+                        | None -> try_custom_breakpoint s)))
           else
             (* Try custom breakpoint as final fallback *)
             try_custom_breakpoint s)

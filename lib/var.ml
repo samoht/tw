@@ -76,7 +76,9 @@ module Registry = struct
     | `Font_weight
     | `Duration
     | `Tracking
-    | `Text_shadow ]
+    | `Text_shadow
+    | `Filter
+    | `Drop_shadow ]
 
   let family_registry : (string, family) Hashtbl.t = Hashtbl.create 128
   let needs_property_registry : (string, bool) Hashtbl.t = Hashtbl.create 128

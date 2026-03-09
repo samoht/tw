@@ -179,6 +179,14 @@ type modifier =
   | Max_custom of string
   | Group_arbitrary of string
   | Peer_arbitrary of string
+  | Hocus  (** [:hover, :focus] compound selector (no media query) *)
+  | Device_hocus  (** [:hover, :focus] compound + [@media (hover: hover)] *)
+  | Not_bracket of string
+      (** [not-[...]] bracket patterns — stores raw bracket content *)
+  | Group_not of modifier * string option
+      (** [group-not-X/name] — inner modifier + optional group name *)
+  | Peer_not of modifier * string option
+      (** [peer-not-X/name] — inner modifier + optional peer name *)
 
 type t =
   | Style of {
@@ -413,6 +421,17 @@ let rec pp_modifier = function
   | Peer_hocus -> "peer-hocus"
   | Group_arbitrary sel -> "group-[" ^ sel ^ "]"
   | Peer_arbitrary sel -> "peer-[" ^ sel ^ "]"
+  | Hocus -> "hocus"
+  | Device_hocus -> "device-hocus"
+  | Not_bracket content -> "not-[" ^ content ^ "]"
+  | Group_not (inner, None) ->
+      String.concat "" [ "group-not-"; pp_modifier inner ]
+  | Group_not (inner, Some name) ->
+      String.concat "" [ "group-not-"; pp_modifier inner; "/"; name ]
+  | Peer_not (inner, None) ->
+      String.concat "" [ "peer-not-"; pp_modifier inner ]
+  | Peer_not (inner, Some name) ->
+      String.concat "" [ "peer-not-"; pp_modifier inner; "/"; name ]
 
 let rec pp = function
   | Style { props; _ } ->

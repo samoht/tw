@@ -378,7 +378,9 @@ type family =
   | `Font_weight
   | `Duration
   | `Tracking
-  | `Text_shadow ]
+  | `Text_shadow
+  | `Filter
+  | `Drop_shadow ]
 
 type 'a theme = ('a, [ `Theme ]) t
 (** Theme variables (Pattern 1) - design tokens set in theme layer *)
