@@ -46,7 +46,7 @@ let test_filters_css_generation () =
         Filters.blur;
         Filters.backdrop_blur_lg;
         Filters.backdrop_brightness 125;
-        Filters.backdrop_opacity 50;
+        Filters.backdrop_opacity 50.;
       ]
     |> Css.to_string
   in

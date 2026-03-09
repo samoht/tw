@@ -61,7 +61,7 @@ module Handler = struct
     | Backdrop_brightness_arbitrary of string
     | Backdrop_contrast of int
     | Backdrop_contrast_arbitrary of string
-    | Backdrop_opacity of int
+    | Backdrop_opacity of float
     | Backdrop_opacity_arbitrary of string
     | Backdrop_saturate of int
     | Backdrop_saturate_arbitrary of string
@@ -133,6 +133,43 @@ module Handler = struct
     Var.channel ~needs_property:true ~property_order:72 ~family:`Drop_shadow
       Css.Filter "tw-drop-shadow-size"
 
+  (* Register backdrop-filter variables in the Var system *)
+  let backdrop_blur_var =
+    Var.channel ~needs_property:true ~property_order:80 ~family:`Backdrop_filter
+      Css.Filter "tw-backdrop-blur"
+
+  let backdrop_brightness_var =
+    Var.channel ~needs_property:true ~property_order:81 ~family:`Backdrop_filter
+      Css.Filter "tw-backdrop-brightness"
+
+  let backdrop_contrast_var =
+    Var.channel ~needs_property:true ~property_order:82 ~family:`Backdrop_filter
+      Css.Filter "tw-backdrop-contrast"
+
+  let backdrop_grayscale_var =
+    Var.channel ~needs_property:true ~property_order:83 ~family:`Backdrop_filter
+      Css.Filter "tw-backdrop-grayscale"
+
+  let backdrop_hue_rotate_var =
+    Var.channel ~needs_property:true ~property_order:84 ~family:`Backdrop_filter
+      Css.Filter "tw-backdrop-hue-rotate"
+
+  let backdrop_invert_var =
+    Var.channel ~needs_property:true ~property_order:85 ~family:`Backdrop_filter
+      Css.Filter "tw-backdrop-invert"
+
+  let backdrop_opacity_var =
+    Var.channel ~needs_property:true ~property_order:86 ~family:`Backdrop_filter
+      Css.Filter "tw-backdrop-opacity"
+
+  let backdrop_saturate_var =
+    Var.channel ~needs_property:true ~property_order:87 ~family:`Backdrop_filter
+      Css.Filter "tw-backdrop-saturate"
+
+  let backdrop_sepia_var =
+    Var.channel ~needs_property:true ~property_order:88 ~family:`Backdrop_filter
+      Css.Filter "tw-backdrop-sepia"
+
   let property_rule_or_empty var =
     match Var.property_rule var with None -> Css.empty | Some r -> r
 
@@ -153,6 +190,21 @@ module Handler = struct
         property_rule_or_empty drop_shadow_color_var;
         Var.property_rules drop_shadow_alpha_var;
         property_rule_or_empty drop_shadow_size_var;
+      ]
+
+  (* Property rules for all backdrop-filter variables *)
+  let backdrop_filter_property_rules =
+    Css.concat
+      [
+        property_rule_or_empty backdrop_blur_var;
+        property_rule_or_empty backdrop_brightness_var;
+        property_rule_or_empty backdrop_contrast_var;
+        property_rule_or_empty backdrop_grayscale_var;
+        property_rule_or_empty backdrop_hue_rotate_var;
+        property_rule_or_empty backdrop_invert_var;
+        property_rule_or_empty backdrop_opacity_var;
+        property_rule_or_empty backdrop_saturate_var;
+        property_rule_or_empty backdrop_sepia_var;
       ]
 
   (* Composable filter chain: filter: var(--tw-blur, ) var(--tw-brightness, )
@@ -552,7 +604,7 @@ module Handler = struct
   (* Helper: set a --tw-backdrop-<name> var and output composable backdrop
      chain *)
   let set_backdrop_var var_name (value : Css.filter) =
-    style
+    style ~property_rules:backdrop_filter_property_rules
       [
         Css.custom_declaration ~layer:"utilities" var_name Filter value;
         Css.webkit_backdrop_filter composable_backdrop_filter_chain;
@@ -561,8 +613,36 @@ module Handler = struct
 
   let set_backdrop_var_theme var_name theme_name
       (make_filter : Css.length -> Css.filter) () =
-    let ref_ : Css.length Css.var = Css.var_ref ~layer:"theme" theme_name in
-    set_backdrop_var var_name (make_filter (Var ref_))
+    (* Tailwind uses themeKeys: ['--backdrop-X', '--X'] fallback. Check
+       backdrop-specific theme first, then base theme. *)
+    let fallback_name =
+      let prefix = "backdrop-" in
+      let plen = String.length prefix in
+      if
+        String.length theme_name > plen && String.sub theme_name 0 plen = prefix
+      then Some (String.sub theme_name plen (String.length theme_name - plen))
+      else None
+    in
+    let actual_theme_name =
+      match Var.theme_value theme_name with
+      | Some _ -> theme_name
+      | None -> (
+          match fallback_name with
+          | Some fb -> (
+              match Var.theme_value fb with Some _ -> fb | None -> theme_name)
+          | None -> theme_name)
+    in
+    let ref_ : Css.length Css.var =
+      Css.var_ref ~layer:"theme" actual_theme_name
+    in
+    style ~property_rules:backdrop_filter_property_rules
+      (theme_decl_if_set actual_theme_name
+      @ [
+          Css.custom_declaration ~layer:"utilities" var_name Filter
+            (make_filter (Var ref_));
+          Css.webkit_backdrop_filter composable_backdrop_filter_chain;
+          backdrop_filter composable_backdrop_filter_chain;
+        ])
 
   let backdrop_blur_none () =
     match Var.theme_value "backdrop-blur-none" with
@@ -570,13 +650,19 @@ module Handler = struct
         set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-none"
           (fun l -> Blur l)
           ()
-    | None ->
-        style
-          [
-            Css.custom_property ~layer:"utilities" "--tw-backdrop-blur" "";
-            Css.webkit_backdrop_filter composable_backdrop_filter_chain;
-            backdrop_filter composable_backdrop_filter_chain;
-          ]
+    | None -> (
+        match Var.theme_value "blur-none" with
+        | Some _ ->
+            set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-none"
+              (fun l -> Blur l)
+              ()
+        | None ->
+            style ~property_rules:backdrop_filter_property_rules
+              [
+                Css.custom_property ~layer:"utilities" "--tw-backdrop-blur" "";
+                Css.webkit_backdrop_filter composable_backdrop_filter_chain;
+                backdrop_filter composable_backdrop_filter_chain;
+              ])
 
   let backdrop_blur_xs =
     set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-xs" (fun l ->
@@ -639,7 +725,7 @@ module Handler = struct
     set_backdrop_var "--tw-backdrop-contrast" (Contrast np)
 
   let backdrop_opacity n =
-    set_backdrop_var "--tw-backdrop-opacity" (Opacity (Pct (float_of_int n)))
+    set_backdrop_var "--tw-backdrop-opacity" (Opacity (Pct n))
 
   let backdrop_opacity_arbitrary s =
     let inner = Parse.bracket_inner s in
@@ -704,7 +790,7 @@ module Handler = struct
 
   (* Composable backdrop-filter using all the backdrop-filter variables *)
   let backdrop_filter_ =
-    style
+    style ~property_rules:backdrop_filter_property_rules
       [
         Css.webkit_backdrop_filter composable_backdrop_filter_chain;
         backdrop_filter composable_backdrop_filter_chain;
@@ -806,18 +892,17 @@ module Handler = struct
 
   let suborder = function
     (* Non-backdrop filters come first, then backdrop filters. Order matches
-       Tailwind v4: alphabetical by filter type, within each type:
-       arbitrary/named values, then none/inherit. *)
-    | Blur_arbitrary _ -> 0
-    | Blur_none -> 1
-    | Blur -> 2
-    | Blur_xs -> 3
-    | Blur_sm -> 4
+       Tailwind v4: alphabetical by class name within each filter type. *)
+    | Blur -> 0
+    | Blur_2xl -> 1
+    | Blur_3xl -> 2
+    | Blur_arbitrary _ -> 3
+    | Blur_lg -> 4
     | Blur_md -> 5
-    | Blur_lg -> 6
-    | Blur_xl -> 7
-    | Blur_2xl -> 8
-    | Blur_3xl -> 9
+    | Blur_none -> 6
+    | Blur_sm -> 7
+    | Blur_xl -> 8
+    | Blur_xs -> 9
     | Brightness n -> 1000 + n
     | Brightness_arbitrary _ -> 1500
     | Contrast n -> 2000 + n
@@ -845,37 +930,40 @@ module Handler = struct
     | Saturate_arbitrary _ -> 7500
     | Sepia n -> 8000 + (100 - n)
     | Sepia_arbitrary _ -> 8500
-    (* Backdrop filters come after regular filters *)
-    | Backdrop_blur -> 10000
-    | Backdrop_blur_2xl -> 10001
-    | Backdrop_blur_3xl -> 10002
-    | Backdrop_blur_lg -> 10003
-    | Backdrop_blur_md -> 10004
-    | Backdrop_blur_none -> 10005
-    | Backdrop_blur_sm -> 10006
+    (* Backdrop filters come after regular filters. Order: backdrop-blur,
+       brightness, contrast, filter, grayscale, hue-rotate (neg then pos),
+       invert, opacity, saturate, sepia. Within each: arbitrary first, then
+       none, then named values. *)
+    | Backdrop_blur_arbitrary _ -> 10000
+    | Backdrop_blur_none -> 10001
+    | Backdrop_blur_xs -> 10002
+    | Backdrop_blur_sm -> 10003
+    | Backdrop_blur -> 10004
+    | Backdrop_blur_md -> 10005
+    | Backdrop_blur_lg -> 10006
     | Backdrop_blur_xl -> 10007
-    | Backdrop_blur_xs -> 10008
-    | Backdrop_blur_arbitrary _ -> 10009
+    | Backdrop_blur_2xl -> 10008
+    | Backdrop_blur_3xl -> 10009
     | Backdrop_brightness n -> 11000 + n
     | Backdrop_brightness_arbitrary _ -> 11500
     | Backdrop_contrast n -> 12000 + n
     | Backdrop_contrast_arbitrary _ -> 12500
-    | Backdrop_filter -> 13000
-    | Backdrop_filter_none -> 13001
-    | Backdrop_filter_arbitrary _ -> 13002
-    | Backdrop_grayscale n -> 14000 + n
+    | Backdrop_filter -> 21000
+    | Backdrop_filter_arbitrary _ -> 21001
+    | Backdrop_filter_none -> 21002
+    | Backdrop_grayscale n -> 14000 + (100 - n)
     | Backdrop_grayscale_arbitrary _ -> 14500
+    | Neg_backdrop_hue_rotate_arbitrary _ -> 14990
     | Backdrop_hue_rotate n -> 15000 + n
     | Backdrop_hue_rotate_arbitrary _ -> 15500
-    | Neg_backdrop_hue_rotate_arbitrary _ -> 15600
-    | Backdrop_invert n -> 16000 + n
+    | Backdrop_invert n -> 16000 + (100 - n)
     | Backdrop_invert_arbitrary _ -> 16500
-    | Backdrop_opacity n -> 17000 + n
-    | Backdrop_opacity_arbitrary _ -> 17500
-    | Backdrop_saturate n -> 18000 + n
-    | Backdrop_saturate_arbitrary _ -> 18500
-    | Backdrop_sepia n -> 19000 + n
-    | Backdrop_sepia_arbitrary _ -> 19500
+    | Backdrop_opacity n -> 17000 + Float.to_int (n *. 10.)
+    | Backdrop_opacity_arbitrary _ -> 18100
+    | Backdrop_saturate n -> 19000 + n
+    | Backdrop_saturate_arbitrary _ -> 19500
+    | Backdrop_sepia n -> 20000 + (100 - n)
+    | Backdrop_sepia_arbitrary _ -> 20500
 
   let of_class class_name =
     let parts = Parse.split_class class_name in
@@ -993,8 +1081,10 @@ module Handler = struct
         Backdrop_contrast x
     | [ "backdrop"; "opacity"; s ] when Parse.is_bracket_value s ->
         Ok (Backdrop_opacity_arbitrary s)
-    | [ "backdrop"; "opacity"; n ] ->
-        Parse.int_pos ~name:"backdrop-opacity" n >|= fun x -> Backdrop_opacity x
+    | [ "backdrop"; "opacity"; n ] -> (
+        match float_of_string_opt n with
+        | Some f when f >= 0. -> Ok (Backdrop_opacity f)
+        | _ -> err_not_utility)
     | [ "backdrop"; "saturate"; s ] when Parse.is_bracket_value s ->
         Ok (Backdrop_saturate_arbitrary s)
     | [ "backdrop"; "saturate"; n ] ->
@@ -1115,7 +1205,11 @@ module Handler = struct
     | Backdrop_brightness_arbitrary s -> "backdrop-brightness-" ^ s
     | Backdrop_contrast n -> "backdrop-contrast-" ^ string_of_int n
     | Backdrop_contrast_arbitrary s -> "backdrop-contrast-" ^ s
-    | Backdrop_opacity n -> "backdrop-opacity-" ^ string_of_int n
+    | Backdrop_opacity n ->
+        "backdrop-opacity-"
+        ^
+        if Float.is_integer n then string_of_int (Float.to_int n)
+        else Css.Pp.float_to_string n
     | Backdrop_opacity_arbitrary s -> "backdrop-opacity-" ^ s
     | Backdrop_saturate n -> "backdrop-saturate-" ^ string_of_int n
     | Backdrop_saturate_arbitrary s -> "backdrop-saturate-" ^ s

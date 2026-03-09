@@ -380,7 +380,8 @@ type family =
   | `Tracking
   | `Text_shadow
   | `Filter
-  | `Drop_shadow ]
+  | `Drop_shadow
+  | `Backdrop_filter ]
 
 type 'a theme = ('a, [ `Theme ]) t
 (** Theme variables (Pattern 1) - design tokens set in theme layer *)

@@ -95,7 +95,7 @@ val backdrop_contrast : int -> t
 (** [backdrop_contrast n] sets backdrop contrast to n% (0-200, 100 is normal).
 *)
 
-val backdrop_opacity : int -> t
+val backdrop_opacity : float -> t
 (** [backdrop_opacity n] sets backdrop opacity to n% (0-100). *)
 
 val backdrop_saturate : int -> t
