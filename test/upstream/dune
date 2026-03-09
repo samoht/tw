@@ -1,8 +1,10 @@
 (executable
  (name extract_tests)
+ (modules extract_tests)
  (libraries re fmt astring))
 
 (test
  (name test)
+ (modules test)
  (libraries alcotest tw tw.css fmt re)
  (deps utilities.txt))
