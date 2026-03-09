@@ -923,7 +923,11 @@ let extract_bracket_content ~prefix s =
       String.sub s (String.length prefix)
         (String.length s - String.length prefix)
     in
-    Option.map (fun i -> String.sub rest 0 i) (matching_bracket rest)
+    match matching_bracket rest with
+    | Some i when i = String.length rest - 1 ->
+        (* Closing bracket must be at end - reject trailing chars like /foo *)
+        Some (String.sub rest 0 i)
+    | _ -> None
   else None
 
 (* Parse a pixel value from a string like "600px" or "600" *)
@@ -978,7 +982,8 @@ let try_bracketed_modifier s =
       if
         String.length s > 9
         && String.sub s 0 9 = "supports-"
-        && not (String.contains s '[')
+        && (not (String.contains s '['))
+        && not (String.contains s '/')
       then
         let prop = String.sub s 9 (String.length s - 9) in
         Some (Supports (prop ^ ": var(--tw)"))
