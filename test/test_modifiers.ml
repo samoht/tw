@@ -351,9 +351,9 @@ let test_pp_modifier_strings () =
     (pp_modifier (Container (Tw.Style.Container_named ("", 600))));
   check string "pp has[...]" "has-[.foo]" (pp_modifier (Has ".foo"));
   check string "pp group-has[...]" "group-has-[.bar]"
-    (pp_modifier (Group_has ".bar"));
+    (pp_modifier (Group_has (".bar", None)));
   check string "pp peer-has[...]" "peer-has-[.baz]"
-    (pp_modifier (Peer_has ".baz"));
+    (pp_modifier (Peer_has (".baz", None)));
   check string "pp data state bracketed" "data-[state=open]"
     (pp_modifier (Data_state "open"));
   check string "pp before" "before" (pp_modifier Pseudo_before);

@@ -75,11 +75,13 @@ val peer_hocus : t list -> t
 val has : string -> t list -> t
 (** [has selector styles] applies [styles] with :has([selector]). *)
 
-val group_has : string -> t list -> t
-(** [group_has selector styles] applies [styles] with .group:has([selector]). *)
+val group_has : ?name:string -> string -> t list -> t
+(** [group_has ?name selector styles] applies [styles] with
+    .group:has([selector]). Optional [name] for named groups. *)
 
-val peer_has : string -> t list -> t
-(** [peer_has selector styles] applies [styles] with .peer:has([selector]). *)
+val peer_has : ?name:string -> string -> t list -> t
+(** [peer_has ?name selector styles] applies [styles] with
+    .peer:has([selector]). Optional [name] for named peers. *)
 
 (** {1 Theme/Motion/Contrast Variants} *)
 

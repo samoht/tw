@@ -40,8 +40,8 @@ type modifier =
   | Container of container_query
   | Not of modifier
   | Has of string
-  | Group_has of string
-  | Peer_has of string
+  | Group_has of string * string option
+  | Peer_has of string * string option
   | Starting
   | Focus_within
   | Focus_visible
@@ -279,8 +279,11 @@ let rec pp_modifier = function
   | Data_custom (k, v) -> String.concat "" [ "data-"; k; "="; v ]
   | Not m -> String.concat "" [ "not("; pp_modifier m; ")" ]
   | Has s -> String.concat "" [ "has-["; s; "]" ]
-  | Group_has s -> String.concat "" [ "group-has-["; s; "]" ]
-  | Peer_has s -> String.concat "" [ "peer-has-["; s; "]" ]
+  | Group_has (s, None) -> String.concat "" [ "group-has-["; s; "]" ]
+  | Group_has (s, Some name) ->
+      String.concat "" [ "group-has-["; s; "]/"; name ]
+  | Peer_has (s, None) -> String.concat "" [ "peer-has-["; s; "]" ]
+  | Peer_has (s, Some name) -> String.concat "" [ "peer-has-["; s; "]/"; name ]
   | Starting -> "starting"
   | Focus_within -> "focus-within"
   | Focus_visible -> "focus-visible"

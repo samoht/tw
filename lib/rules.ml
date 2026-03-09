@@ -548,30 +548,42 @@ let preprocess_has_selector s =
   done;
   Buffer.contents buf
 
-let has_like_selector kind selector_str base_class props =
+let has_like_selector kind ?name selector_str base_class props =
   let open Css.Selector in
   let processed = preprocess_has_selector selector_str in
   let reader = Css.Reader.of_string processed in
-  let parsed_selector = Css.Selector.read reader in
+  let parsed_selector = Css.Selector.read_relative reader in
   match kind with
   | `Has ->
       let class_name = "has-[" ^ selector_str ^ "]:" ^ base_class in
       let sel = compound [ class_ class_name; has [ parsed_selector ] ] in
       regular ~selector:sel ~props ~base_class:class_name ()
   | `Group_has ->
-      let class_name = "group-has-[" ^ selector_str ^ "]:" ^ base_class in
+      let name_suffix = match name with Some n -> "/" ^ n | None -> "" in
+      let class_name =
+        "group-has-[" ^ selector_str ^ "]" ^ name_suffix ^ ":" ^ base_class
+      in
+      let group_class =
+        match name with Some n -> "group/" ^ n | None -> "group"
+      in
       let rel =
         combine
-          (compound [ where [ Class "group" ]; has [ parsed_selector ] ])
+          (compound [ where [ Class group_class ]; has [ parsed_selector ] ])
           Descendant universal
       in
       let sel = compound [ Class class_name; is_ [ rel ] ] in
       regular ~selector:sel ~props ~base_class:class_name ()
   | `Peer_has ->
-      let class_name = "peer-has-[" ^ selector_str ^ "]:" ^ base_class in
+      let name_suffix = match name with Some n -> "/" ^ n | None -> "" in
+      let class_name =
+        "peer-has-[" ^ selector_str ^ "]" ^ name_suffix ^ ":" ^ base_class
+      in
+      let peer_class =
+        match name with Some n -> "peer/" ^ n | None -> "peer"
+      in
       let rel =
         combine
-          (compound [ where [ Class "peer" ]; has [ parsed_selector ] ])
+          (compound [ where [ Class peer_class ]; has [ parsed_selector ] ])
           Subsequent_sibling universal
       in
       let sel = compound [ Class class_name; is_ [ rel ] ] in
@@ -659,14 +671,14 @@ let route_data_modifier modifier base_class selector props =
 
 (* Route :has() variants to appropriate handler *)
 let route_has_modifier modifier base_class props =
-  let kind, selector_str =
+  let kind, selector_str, name =
     match modifier with
-    | Style.Has s -> (`Has, s)
-    | Style.Group_has s -> (`Group_has, s)
-    | Style.Peer_has s -> (`Peer_has, s)
+    | Style.Has s -> (`Has, s, None)
+    | Style.Group_has (s, name) -> (`Group_has, s, name)
+    | Style.Peer_has (s, name) -> (`Peer_has, s, name)
     | _ -> failwith "Invalid has modifier"
   in
-  has_like_selector kind selector_str base_class props
+  has_like_selector kind ?name selector_str base_class props
 
 (* Handle fallback for unmatched modifiers. Must extract modified_class so that
    outer modifiers like dark: can properly transform the selector. *)
@@ -2675,7 +2687,13 @@ let merge_key_of_base_class base_class =
       let base = extract_base_utility class_name in
       let key =
         match String.index_opt base '[' with
-        | Some bracket_pos -> String.sub base 0 bracket_pos
+        | Some bracket_pos ->
+            let k = String.sub base 0 bracket_pos in
+            (* Strip trailing / before [ so "bg-red-500/[50%]" and
+               "bg-red-500/50" share the same key "bg-red-500" *)
+            if String.ends_with ~suffix:"/" k then
+              String.sub k 0 (String.length k - 1)
+            else k
         | None -> (
             match String.index_opt base '/' with
             | Some slash_pos -> String.sub base 0 slash_pos

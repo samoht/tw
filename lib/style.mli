@@ -40,8 +40,8 @@ type modifier =
   | Container of container_query
   | Not of modifier
   | Has of string
-  | Group_has of string
-  | Peer_has of string
+  | Group_has of string * string option
+  | Peer_has of string * string option
   | Starting
   | Focus_within
   | Focus_visible
