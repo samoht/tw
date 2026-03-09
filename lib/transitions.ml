@@ -281,7 +281,7 @@ module Handler = struct
 
   (* Theme variables for easing functions - order (7, 6-8) places them after
      radius (7, 0-5) but before animate (7, 9-12) *)
-  let _ease_linear_var =
+  let ease_linear_var =
     Var.theme Css.Timing_function "ease-linear" ~order:(7, 15)
 
   let ease_in_var = Var.theme Css.Timing_function "ease-in" ~order:(7, 16)
@@ -291,13 +291,18 @@ module Handler = struct
     Var.theme Css.Timing_function "ease-in-out" ~order:(7, 18)
 
   let ease_linear =
-    let tw_ease_decl, _ = Var.binding tw_ease_var Css.Linear in
+    let theme_decl, ease_linear_ref = Var.binding ease_linear_var Css.Linear in
+    let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var ease_linear_ref) in
     let prop_rule = Var.property_rule tw_ease_var in
     let property_rules =
       match prop_rule with Some r -> r | None -> Css.empty
     in
     style ~property_rules
-      [ tw_ease_decl; Css.transition_timing_function Css.Linear ]
+      [
+        theme_decl;
+        tw_ease_decl;
+        Css.transition_timing_function (Css.Var ease_linear_ref);
+      ]
 
   let ease_in =
     (* Set --tw-ease to var(--ease-in) and use the theme variable *)
