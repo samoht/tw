@@ -331,6 +331,27 @@ let responsive_modifier_condition = function
         else Float.to_string px
       in
       (Css.Media.Not_min_width px, "max-[" ^ px_str ^ "px]")
+  | Style.Custom_responsive name ->
+      let px =
+        match Scheme.breakpoint !current_scheme name with
+        | Some px -> px
+        | None -> failwith ("unknown custom breakpoint: " ^ name)
+      in
+      (Css.Media.Min_width px, name)
+  | Style.Min_custom name ->
+      let px =
+        match Scheme.breakpoint !current_scheme name with
+        | Some px -> px
+        | None -> failwith ("unknown custom breakpoint: " ^ name)
+      in
+      (Css.Media.Min_width px, "min-" ^ name)
+  | Style.Max_custom name ->
+      let px =
+        match Scheme.breakpoint !current_scheme name with
+        | Some px -> px
+        | None -> failwith ("unknown custom breakpoint: " ^ name)
+      in
+      (Css.Media.Not_min_width px, "max-" ^ name)
   | _ -> failwith "not a responsive modifier"
 
 let selector_with_data_key selector key value =
@@ -405,6 +426,48 @@ let max_arbitrary_rule px base_class selector props =
   in
   let prefix = "max-[" ^ px_str ^ "px]" in
   let modified_class = prefix ^ ":" ^ base_class in
+  let new_selector =
+    Rules_selector.replace_class_in_selector ~old_class:base_class
+      ~new_class:modified_class selector
+  in
+  media_query ~condition:(Css.Media.Not_min_width px) ~selector:new_selector
+    ~props ~base_class:modified_class ()
+
+let custom_responsive_rule name base_class selector props =
+  let px =
+    match Scheme.breakpoint !current_scheme name with
+    | Some px -> px
+    | None -> failwith ("unknown custom breakpoint: " ^ name)
+  in
+  let modified_class = name ^ ":" ^ base_class in
+  let new_selector =
+    Rules_selector.replace_class_in_selector ~old_class:base_class
+      ~new_class:modified_class selector
+  in
+  media_query ~condition:(Css.Media.Min_width px) ~selector:new_selector ~props
+    ~base_class:modified_class ()
+
+let min_custom_rule name base_class selector props =
+  let px =
+    match Scheme.breakpoint !current_scheme name with
+    | Some px -> px
+    | None -> failwith ("unknown custom breakpoint: " ^ name)
+  in
+  let modified_class = "min-" ^ name ^ ":" ^ base_class in
+  let new_selector =
+    Rules_selector.replace_class_in_selector ~old_class:base_class
+      ~new_class:modified_class selector
+  in
+  media_query ~condition:(Css.Media.Min_width px) ~selector:new_selector ~props
+    ~base_class:modified_class ()
+
+let max_custom_rule name base_class selector props =
+  let px =
+    match Scheme.breakpoint !current_scheme name with
+    | Some px -> px
+    | None -> failwith ("unknown custom breakpoint: " ^ name)
+  in
+  let modified_class = "max-" ^ name ^ ":" ^ base_class in
   let new_selector =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
@@ -669,6 +732,10 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
       max_responsive_rule breakpoint base_class selector props
   | Style.Min_arbitrary px -> min_arbitrary_rule px base_class selector props
   | Style.Max_arbitrary px -> max_arbitrary_rule px base_class selector props
+  | Style.Custom_responsive name ->
+      custom_responsive_rule name base_class selector props
+  | Style.Min_custom name -> min_custom_rule name base_class selector props
+  | Style.Max_custom name -> max_custom_rule name base_class selector props
   | Style.Container query -> container_rule query base_class selector props
   (* :not() pseudo-class — negate the inner modifier's selector *)
   | Style.Not inner_modifier ->
@@ -741,7 +808,8 @@ let apply_modifier_to_media_query modifier ~inner_condition ~selector ~props
   | None -> (
       match modifier with
       | Style.Responsive _ | Style.Min_responsive _ | Style.Max_responsive _
-      | Style.Min_arbitrary _ | Style.Max_arbitrary _ ->
+      | Style.Min_arbitrary _ | Style.Max_arbitrary _
+      | Style.Custom_responsive _ | Style.Min_custom _ | Style.Max_custom _ ->
           let outer_condition, _ = responsive_modifier_condition modifier in
           wrap_in_media outer_condition
       | _ ->
@@ -1398,20 +1466,33 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 nested1 nested2
         in
         if depth_cmp <> 0 then depth_cmp
         else
-          (* Same media condition - check if same utility first *)
-          let same_utility =
-            match (bc1, bc2) with
-            | Some b1, Some b2 -> String.equal b1 b2
-            | _ -> false
+          (* Compare by nested media condition when both have nested media. This
+             sorts stacked min/max variants like min-sm:max-xl vs min-sm:max-lg
+             by the inner media condition. *)
+          let nested_media_cmp =
+            match (nested1, nested2) with
+            | [ n1 ], [ n2 ] -> (
+                match (Css.as_media n1, Css.as_media n2) with
+                | Some (c1, _), Some (c2, _) -> Css.Media.compare c1 c2
+                | _ -> 0)
+            | _ -> 0
           in
-          if same_utility then
-            (* Same utility in same media: preserve source order (like prose
-               rules inside @media (hover:hover)) *)
-            let order_cmp = compare order1 order2 in
-            if order_cmp <> 0 then order_cmp else Int.compare i1 i2
+          if nested_media_cmp <> 0 then nested_media_cmp
           else
-            (* Different utilities - sort by priority/suborder/selector *)
-            compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+            (* Same media condition - check if same utility first *)
+            let same_utility =
+              match (bc1, bc2) with
+              | Some b1, Some b2 -> String.equal b1 b2
+              | _ -> false
+            in
+            if same_utility then
+              (* Same utility in same media: preserve source order (like prose
+                 rules inside @media (hover:hover)) *)
+              let order_cmp = compare order1 order2 in
+              if order_cmp <> 0 then order_cmp else Int.compare i1 i2
+            else
+              (* Different utilities - sort by priority/suborder/selector *)
+              compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
 
 (* ======================================================================== *)
 (* Regular vs Media Comparison - Type-directed comparison for mixed rules *)

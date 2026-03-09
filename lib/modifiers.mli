@@ -13,6 +13,13 @@ val to_selector : modifier -> string -> Css.Selector.t
 val is_hover : modifier -> bool
 (** [is_hover m] returns true if the modifier generates a :hover rule. *)
 
+val register_custom_breakpoints : (string * float) list -> unit
+(** [register_custom_breakpoints bps] sets the custom breakpoint names and their
+    px values for modifier parsing. *)
+
+val clear_custom_breakpoints : unit -> unit
+(** [clear_custom_breakpoints ()] clears the custom breakpoint registry. *)
+
 (** {1 State Variants} *)
 
 val hover : t list -> t
