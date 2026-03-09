@@ -42,13 +42,15 @@ module Handler = struct
   let priority =
     30 (* Transition utilities come after all other styling utilities *)
 
-  (* Theme variables for default transition settings *)
+  (* Theme variables for default transition settings. Timing-function has lower
+     order (8,0) so it appears before duration (8,1) in the theme layer output,
+     matching Tailwind's order. *)
+  let default_transition_duration_var =
+    Var.theme Css.Duration "default-transition-duration" ~order:(8, 1)
+
   let default_transition_timing_function_var =
     Var.theme Css.Timing_function "default-transition-timing-function"
-      ~order:(8, 1)
-
-  let default_transition_duration_var =
-    Var.theme Css.Duration "default-transition-duration" ~order:(8, 0)
+      ~order:(8, 0)
 
   (* Variable for transition duration with @property *)
   let tw_duration_var =
@@ -84,17 +86,28 @@ module Handler = struct
       default_transition_duration_var (Css.Ms 0.)
 
   (* Theme declarations for the default transition vars. These go into :root,
-     :host when transition utilities are used. Added inline to transition
-     utility styles so extract_non_tw_custom_declarations picks them up. *)
+     :host when transition utilities are used. Only included when theme values
+     are set, so @config none tests don't get the :root, :host block. *)
   let default_theme_decls () =
-    let duration_decl, _ =
-      Var.binding default_transition_duration_var (Css.Ms 150.)
+    let has_timing =
+      Var.theme_value "default-transition-timing-function" <> None
     in
-    let timing_decl, _ =
-      Var.binding default_transition_timing_function_var
-        (Css.Cubic_bezier (0.4, 0., 0.2, 1.))
+    let has_duration = Var.theme_value "default-transition-duration" <> None in
+    let timing =
+      if has_timing then
+        let d, _ =
+          Var.binding default_transition_timing_function_var Css.Ease
+        in
+        [ d ]
+      else []
     in
-    [ duration_decl; timing_decl ]
+    let duration =
+      if has_duration then
+        let d, _ = Var.binding default_transition_duration_var (Css.Ms 100.) in
+        [ d ]
+      else []
+    in
+    timing @ duration
 
   let transition () =
     (* Use typed variable names for gradient properties *)
@@ -156,52 +169,61 @@ module Handler = struct
     in
     let gradient_via_name = Var.css_name Backgrounds.Handler.gradient_via_var in
     let gradient_to_name = Var.css_name Backgrounds.Handler.gradient_to_var in
-    let colors_list =
-      String.concat ", "
-        [
-          "color";
-          "background-color";
-          "border-color";
-          "outline-color";
-          "text-decoration-color";
-          "fill";
-          "stroke";
-          gradient_from_name;
-          gradient_via_name;
-          gradient_to_name;
-        ]
-    in
-    let theme_decls =
-      match Var.theme_value "transition-property-colors" with
-      | Some _ ->
-          let d, _ =
-            Var.binding transition_property_colors_var
-              (Css.Property colors_list)
-          in
-          [ d ]
-      | None -> []
-    in
-    let colors_ref : Css.transition_property_value Css.var =
-      Var.theme_ref "transition-property-colors"
-        ~default:(Css.Property colors_list) ~default_css:colors_list
+    (* When --transition-property-colors is set in theme, use the var reference;
+       otherwise inline the full property list *)
+    let has_theme_var = Var.theme_value "transition-property-colors" <> None in
+    let extra_decls, (transition_props : Css.transition_property_value list) =
+      if has_theme_var then
+        let colors_decl, colors_ref =
+          Var.binding transition_property_colors_var
+            (Css.Property
+               (String.concat ", "
+                  [
+                    "color";
+                    "background-color";
+                    "border-color";
+                    "outline-color";
+                    "text-decoration-color";
+                    "fill";
+                    "stroke";
+                    gradient_from_name;
+                    gradient_via_name;
+                    gradient_to_name;
+                  ]))
+        in
+        ([ colors_decl ], [ Css.Var colors_ref ])
+      else
+        ( [],
+          [
+            Css.Property "color";
+            Css.Property "background-color";
+            Css.Property "border-color";
+            Css.Property "outline-color";
+            Css.Property "text-decoration-color";
+            Css.Property "fill";
+            Css.Property "stroke";
+            Css.Property gradient_from_name;
+            Css.Property gradient_via_name;
+            Css.Property gradient_to_name;
+          ] )
     in
     style
-      (default_theme_decls () @ theme_decls
+      (default_theme_decls () @ extra_decls
       @ [
-          Css.transition_property [ Css.Var colors_ref ];
+          Css.transition_property transition_props;
           Css.transition_timing_function (Css.Var ease_ref);
           Css.transition_duration (Css.Var duration_ref);
         ])
 
   let transition_opacity () =
-    let opacity_prop_decl, opacity_prop_ref =
+    let opacity_decl, opacity_ref =
       Var.binding transition_property_opacity_var (Css.Property "opacity")
     in
     style
       (default_theme_decls ()
       @ [
-          opacity_prop_decl;
-          Css.transition_property [ Css.Var opacity_prop_ref ];
+          opacity_decl;
+          Css.transition_property [ Css.Var opacity_ref ];
           Css.transition_timing_function (Css.Var ease_ref);
           Css.transition_duration (Css.Var duration_ref);
         ])
@@ -259,7 +281,7 @@ module Handler = struct
 
   (* Theme variables for easing functions - order (7, 6-8) places them after
      radius (7, 0-5) but before animate (7, 9-12) *)
-  let ease_linear_var =
+  let _ease_linear_var =
     Var.theme Css.Timing_function "ease-linear" ~order:(7, 15)
 
   let ease_in_var = Var.theme Css.Timing_function "ease-in" ~order:(7, 16)
@@ -269,18 +291,13 @@ module Handler = struct
     Var.theme Css.Timing_function "ease-in-out" ~order:(7, 18)
 
   let ease_linear =
-    let theme_decl, ease_linear_ref = Var.binding ease_linear_var Linear in
-    let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var ease_linear_ref) in
+    let tw_ease_decl, _ = Var.binding tw_ease_var Css.Linear in
     let prop_rule = Var.property_rule tw_ease_var in
     let property_rules =
       match prop_rule with Some r -> r | None -> Css.empty
     in
     style ~property_rules
-      [
-        theme_decl;
-        tw_ease_decl;
-        Css.transition_timing_function (Css.Var ease_linear_ref);
-      ]
+      [ tw_ease_decl; Css.transition_timing_function Css.Linear ]
 
   let ease_in =
     (* Set --tw-ease to var(--ease-in) and use the theme variable *)

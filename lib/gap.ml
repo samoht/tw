@@ -113,8 +113,8 @@ module Handler = struct
       if negative then
         Css.Calc.(
           mul (mul base neg_factor)
-            (parens (sub (float 1.0) (var reverse_var_name))))
-      else Css.Calc.(mul base (parens (sub (float 1.0) (var reverse_var_name))))
+            (nested (sub (float 1.0) (var reverse_var_name))))
+      else Css.Calc.(mul base (nested (sub (float 1.0) (var reverse_var_name))))
     in
     ((Css.Calc start_expr : Css.length), (Css.Calc end_expr : Css.length))
 
@@ -195,7 +195,7 @@ module Handler = struct
     let margin_end : Css.length =
       Calc
         Calc.(
-          mul (length len) (parens (sub (float 1.0) (var reverse_var_name))))
+          mul (length len) (nested (sub (float 1.0) (var reverse_var_name))))
     in
     let property_rules =
       [ Var.property_rule space_x_reverse_var ] |> List.filter_map Fun.id
@@ -224,7 +224,7 @@ module Handler = struct
     let margin_end : Css.length =
       Calc
         Calc.(
-          mul (length len) (parens (sub (float 1.0) (var reverse_var_name))))
+          mul (length len) (nested (sub (float 1.0) (var reverse_var_name))))
     in
     let property_rules =
       [ Var.property_rule space_y_reverse_var ] |> List.filter_map Fun.id
