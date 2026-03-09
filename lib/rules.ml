@@ -452,7 +452,8 @@ let has_like_selector kind selector_str base_class props =
 
 (* Pseudo-class modifiers: transform the base selector and mark hover when
    needed. *)
-let handle_pseudo_class_modifier modifier base_class selector props =
+let handle_pseudo_class_modifier ?(inner_has_hover = false) modifier base_class
+    selector props =
   let modified_base_selector = Modifiers.to_selector modifier base_class in
   let modified_class =
     Rules_selector.extract_modified_class_name modified_base_selector base_class
@@ -462,7 +463,16 @@ let handle_pseudo_class_modifier modifier base_class selector props =
       base_class modified_class selector
   in
   let has_hover = Modifiers.is_hover modifier in
-  regular ~selector:new_selector ~props ~base_class:modified_class ~has_hover ()
+  if has_hover && inner_has_hover then
+    (* Nested hover: wrap in @media (hover:hover) { @media (hover:hover) { }
+       } *)
+    let inner_rule = Css.rule ~selector:new_selector props in
+    let inner_media = Css.media ~condition:Css.Media.Hover [ inner_rule ] in
+    media_query ~condition:Css.Media.Hover ~selector:new_selector ~props:[]
+      ~base_class:modified_class ~nested:[ inner_media ] ()
+  else
+    regular ~selector:new_selector ~props ~base_class:modified_class ~has_hover
+      ()
 
 (** Handle data attribute modifiers (data-state, data-variant, etc.) *)
 let handle_data_modifier key value selector props base_class =
@@ -533,13 +543,18 @@ let route_has_modifier modifier base_class props =
 
 (* Handle fallback for unmatched modifiers. Must extract modified_class so that
    outer modifiers like dark: can properly transform the selector. *)
-let handle_fallback_modifier modifier base_class props =
-  let sel = Modifiers.to_selector modifier base_class in
+let handle_fallback_modifier ?(inner_has_hover = false) modifier base_class
+    selector props =
+  let modified_base_selector = Modifiers.to_selector modifier base_class in
   let modified_class =
-    Rules_selector.extract_modified_class_name sel base_class
+    Rules_selector.extract_modified_class_name modified_base_selector base_class
   in
-  let has_hover = Modifiers.is_hover modifier in
-  regular ~selector:sel ~props ~base_class:modified_class ~has_hover ()
+  let new_selector =
+    Rules_selector.transform_selector_with_modifier modified_base_selector
+      base_class modified_class selector
+  in
+  let has_hover = Modifiers.is_hover modifier || inner_has_hover in
+  regular ~selector:new_selector ~props ~base_class:modified_class ~has_hover ()
 
 (** Normalize a supports condition string into a valid CSS @supports
     condition. Converts underscores to spaces and wraps in parens as needed. *)
@@ -669,7 +684,8 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
   (* Interactive pseudo-classes *)
   | Style.Hover | Style.Focus | Style.Active | Style.Focus_within
   | Style.Focus_visible | Style.Disabled ->
-      handle_pseudo_class_modifier modifier base_class selector props
+      handle_pseudo_class_modifier ~inner_has_hover modifier base_class selector
+        props
   (* Pseudo-elements ::before and ::after - always prepend content property *)
   | Style.Pseudo_before | Style.Pseudo_after ->
       let sel = Modifiers.to_selector modifier base_class in
@@ -678,7 +694,9 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
       let final_props = content_decl :: props in
       regular ~selector:sel ~props:final_props ~base_class ()
   (* Fallback for other modifiers *)
-  | _ -> handle_fallback_modifier modifier base_class props
+  | _ ->
+      handle_fallback_modifier ~inner_has_hover modifier base_class selector
+        props
 
 (** Generate pseudo-element rules with separate selectors for browser
     compatibility. An invalid pseudo-element in a comma list causes the entire
@@ -1186,6 +1204,26 @@ let of_grouped ?(filter_custom_props = false) grouped_list =
 
 (* Type-directed helpers for rule sorting and construction *)
 
+(** Count modifier colons in a selector's first class name. Used to determine
+    modifier stacking depth for hover media interleaving. *)
+let selector_modifier_depth sel =
+  match Css.Selector.first_class sel with
+  | Some cls ->
+      String.fold_left (fun acc c -> if c = ':' then acc + 1 else acc) 0 cls
+  | None -> 0
+
+(** Check if a selector contains :hover pseudo-class at any depth (used to
+    detect compound variants like group-hocus that combine hover+focus). *)
+let rec selector_has_hover = function
+  | Css.Selector.Hover -> true
+  | Css.Selector.Compound sels -> List.exists selector_has_hover sels
+  | Css.Selector.Combined (l, _, r) ->
+      selector_has_hover l || selector_has_hover r
+  | Css.Selector.Is sels | Css.Selector.Where sels ->
+      List.exists selector_has_hover sels
+  | Css.Selector.List sels -> List.exists selector_has_hover sels
+  | _ -> false
+
 (* Determine sort group for rule types. Regular and Media are grouped together
    to preserve utility grouping - media queries appear immediately after their
    base utility rule. *)
@@ -1347,20 +1385,33 @@ let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 nested1 nested2
       let cond_cmp = compare_media_conditions group1 sub1 sub2 cond1 cond2 in
       if cond_cmp <> 0 then cond_cmp
       else
-        (* Same media condition - check if same utility first *)
-        let same_utility =
-          match (bc1, bc2) with
-          | Some b1, Some b2 -> String.equal b1 b2
-          | _ -> false
+        (* For hover media, separate rules by modifier depth so that
+           single-modifier hover rules (group-hover:flex) form a separate block
+           from stacked hover rules (group-focus:group-hover:flex) *)
+        let depth_cmp =
+          match (cond1, cond2) with
+          | Some Css.Media.Hover, Some Css.Media.Hover ->
+              Int.compare
+                (selector_modifier_depth sel1)
+                (selector_modifier_depth sel2)
+          | _ -> 0
         in
-        if same_utility then
-          (* Same utility in same media: preserve source order (like prose rules
-             inside @media (hover:hover)) *)
-          let order_cmp = compare order1 order2 in
-          if order_cmp <> 0 then order_cmp else Int.compare i1 i2
+        if depth_cmp <> 0 then depth_cmp
         else
-          (* Different utilities - sort by priority/suborder/selector *)
-          compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+          (* Same media condition - check if same utility first *)
+          let same_utility =
+            match (bc1, bc2) with
+            | Some b1, Some b2 -> String.equal b1 b2
+            | _ -> false
+          in
+          if same_utility then
+            (* Same utility in same media: preserve source order (like prose
+               rules inside @media (hover:hover)) *)
+            let order_cmp = compare order1 order2 in
+            if order_cmp <> 0 then order_cmp else Int.compare i1 i2
+          else
+            (* Different utilities - sort by priority/suborder/selector *)
+            compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
 
 (* ======================================================================== *)
 (* Regular vs Media Comparison - Type-directed comparison for mixed rules *)
@@ -1429,46 +1480,64 @@ let compare_by_order_regular_first (p1, s1) (p2, s2) =
     classification to determine ordering. *)
 let compare_different_utility_regular_media sel1 sel2 order1 order2 media_type =
   let kind1 = classify_selector sel1 in
-  (* Focus modifier rules come after ALL media queries *)
-  if is_focus_modifier_rule kind1 sel1 then 1
-  else
-    (* Check if this is truly modifier-prefixed media (like dark:hover:,
-       motion-safe:hover:) vs plain media with modifiers in the class name *)
-    let is_modifier_prefixed_media =
-      Css.Selector.contains_modifier_colon sel2
-      &&
-      match media_type with
-      | Some
-          ( Css.Media.Prefers_color_scheme _
-          | Css.Media.Prefers_reduced_motion _ | Css.Media.Prefers_contrast _ )
-        ->
-          true
-      | _ -> false
-    in
-    if is_modifier_prefixed_media then
-      if is_late_modifier kind1 sel1 then 1 else -1
-    else
-      (* Plain/built-in media or modifier-based responsive/hover media *)
-      let has_modifier_colon = Css.Selector.contains_modifier_colon sel2 in
-      if not has_modifier_colon then
-        (* Built-in media (e.g., container breakpoints) - respect priority *)
-        let prio_cmp = Int.compare (fst order1) (fst order2) in
-        if prio_cmp <> 0 then prio_cmp
-        else
+  (* For hover media, interleave by modifier depth: non-hover regular rules at
+     depth N come between hover media at depth N and depth N+1. Compound
+     variants (which contain :hover in selector, like group-hocus) stay after
+     all hover media regardless of depth. *)
+  (match media_type with
+    | Some Css.Media.Hover when is_focus_modifier_rule kind1 sel1 ->
+        let d1 = selector_modifier_depth sel1 in
+        let d2 = selector_modifier_depth sel2 in
+        let has_hov = selector_has_hover sel1 in
+        if d2 > d1 && not has_hov then Some (-1) else Some 1
+    | _ -> None)
+  |> function
+  | Some c -> c
+  | None -> (
+      if
+        (* Focus modifier rules come after ALL media queries *)
+        is_focus_modifier_rule kind1 sel1
+      then 1
+      else
+        (* Check if this is truly modifier-prefixed media (like dark:hover:,
+           motion-safe:hover:) vs plain media with modifiers in the class
+           name *)
+        let is_modifier_prefixed_media =
+          Css.Selector.contains_modifier_colon sel2
+          &&
           match media_type with
           | Some
-              ( Css.Media.Min_width _ | Css.Media.Min_width_rem _
-              | Css.Media.Hover ) ->
-              -1
-          | _ -> compare_by_order_regular_first order1 order2
-      else
-        (* Modifier-based responsive/hover media (md:, lg:, hover:) *)
-        match media_type with
-        | Some
-            (Css.Media.Hover | Css.Media.Min_width _ | Css.Media.Min_width_rem _)
-          ->
-            -1
-        | _ -> compare_by_order_regular_first order1 order2
+              ( Css.Media.Prefers_color_scheme _
+              | Css.Media.Prefers_reduced_motion _
+              | Css.Media.Prefers_contrast _ ) ->
+              true
+          | _ -> false
+        in
+        if is_modifier_prefixed_media then
+          if is_late_modifier kind1 sel1 then 1 else -1
+        else
+          (* Plain/built-in media or modifier-based responsive/hover media *)
+          let has_modifier_colon = Css.Selector.contains_modifier_colon sel2 in
+          if not has_modifier_colon then
+            (* Built-in media (e.g., container breakpoints) - respect
+               priority *)
+            let prio_cmp = Int.compare (fst order1) (fst order2) in
+            if prio_cmp <> 0 then prio_cmp
+            else
+              match media_type with
+              | Some
+                  ( Css.Media.Min_width _ | Css.Media.Min_width_rem _
+                  | Css.Media.Hover ) ->
+                  -1
+              | _ -> compare_by_order_regular_first order1 order2
+          else
+            (* Modifier-based responsive/hover media (md:, lg:, hover:) *)
+            match media_type with
+            | Some
+                ( Css.Media.Hover | Css.Media.Min_width _
+                | Css.Media.Min_width_rem _ ) ->
+                -1
+            | _ -> compare_by_order_regular_first order1 order2)
 
 (** Compare Regular vs Media rules using rule relationship dispatch. *)
 let compare_regular_vs_media r1 r2 =
@@ -2046,11 +2115,13 @@ let rule_sets_from_selector_props all_rules =
   (* All rules (including hover) are now sorted together. Hover rules are
      converted to Media "(hover:hover)" rules in rule_to_triple, so they
      participate in the normal media query sorting. *)
-  all_rules
-  |> List.filter_map rule_to_triple
-  |> deduplicate_typed_triples |> add_index
-  |> List.sort compare_indexed_rules
-  |> List.map indexed_rule_to_statement
+  let indexed =
+    all_rules
+    |> List.filter_map rule_to_triple
+    |> deduplicate_typed_triples |> add_index
+  in
+  let sorted = List.sort compare_indexed_rules indexed in
+  sorted |> List.map indexed_rule_to_statement
 
 let build_utilities_layer ~layers ~statements =
   (* Statements are already in the correct order with media queries interleaved.

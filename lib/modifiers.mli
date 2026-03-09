@@ -55,6 +55,12 @@ val peer_focus : t list -> t
 (** [peer_focus styles] applies [styles] when a preceding .peer:focus matches.
 *)
 
+val group_hocus : t list -> t
+(** [group_hocus styles] applies [styles] when .group:hover or .group:focus. *)
+
+val peer_hocus : t list -> t
+(** [peer_hocus styles] applies [styles] when .peer:hover or .peer:focus. *)
+
 val has : string -> t list -> t
 (** [has selector styles] applies [styles] with :has([selector]). *)
 
