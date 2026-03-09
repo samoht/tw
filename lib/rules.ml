@@ -1045,6 +1045,66 @@ let parse_bracket_pseudo content =
   | ":focus-visible" -> Css.Selector.Focus_visible
   | _ -> Css.Selector.Class content
 
+(** Parse in-[...] bracket content into an ancestor selector. Class selectors
+    (starting with .) are used directly; others are wrapped in :is(). *)
+let in_bracket_ancestor content =
+  if content <> "" && content.[0] = '.' then
+    (* Class selector: .group → Class "group" inside :where() *)
+    let cls = String.sub content 1 (String.length content - 1) in
+    Css.Selector.Class cls
+  else
+    (* Element or other selector: p → :is(p) inside :where() *)
+    Css.Selector.Is [ Css.Selector.Element (None, content) ]
+
+(** Handle in-[...] bracket modifier. Returns a list of rules. *)
+let handle_in_bracket content base_class props =
+  let modified_class = "in-[" ^ content ^ "]:" ^ base_class in
+  let ancestor = in_bracket_ancestor content in
+  let sel =
+    Css.Selector.combine (Css.Selector.Where [ ancestor ])
+      Css.Selector.Descendant (Css.Selector.Class modified_class)
+  in
+  [
+    regular ~selector:sel ~props ~base_class:modified_class ~merge_key:"in"
+      ~not_order:300 ();
+  ]
+
+(** Handle in-data-X modifier. Returns a list of rules. *)
+let handle_in_data attr base_class props =
+  let modified_class = "in-data-" ^ attr ^ ":" ^ base_class in
+  let sel =
+    Css.Selector.combine
+      (Css.Selector.Where
+         [
+           Css.Selector.Attribute (None, Data attr, Css.Selector.Presence, None);
+         ])
+      Css.Selector.Descendant (Css.Selector.Class modified_class)
+  in
+  [
+    regular ~selector:sel ~props ~base_class:modified_class ~merge_key:"in"
+      ~not_order:200 ();
+  ]
+
+(** Handle not-in-[...] bracket modifier. Returns a list of rules. *)
+let handle_not_in_bracket content base_class props =
+  let modified_class = "not-in-[" ^ content ^ "]:" ^ base_class in
+  let ancestor = in_bracket_ancestor content in
+  let sel =
+    Css.Selector.compound
+      [
+        Css.Selector.Class modified_class;
+        Css.Selector.Not
+          [
+            Css.Selector.combine (Css.Selector.Where [ ancestor ])
+              Css.Selector.Descendant (Css.Selector.Universal None);
+          ];
+      ]
+  in
+  [
+    regular ~selector:sel ~props ~base_class:modified_class ~merge_key:"in"
+      ~not_order:100 ();
+  ]
+
 (** Handle not-[...] bracket modifier. Returns a list of rules. *)
 let handle_not_bracket content base_class props =
   let modified_class = "not-[" ^ content ^ "]:" ^ base_class in
@@ -1314,9 +1374,13 @@ let apply_modifier_to_rule modifier = function
           let open Css.Selector in
           pseudo_element_rules ~pseudo_selectors:[ Selection ] bc props
             "selection"
-      | Style.Not inner_modifier ->
-          handle_not_modifier inner_modifier bc selector props
+      | Style.Not inner_modifier -> (
+          match inner_modifier with
+          | Style.In_bracket content -> handle_not_in_bracket content bc props
+          | _ -> handle_not_modifier inner_modifier bc selector props)
       | Style.Not_bracket content -> handle_not_bracket content bc props
+      | Style.In_bracket content -> handle_in_bracket content bc props
+      | Style.In_data attr -> handle_in_data attr bc props
       | Style.Group_not (inner, name_opt) ->
           handle_group_not_modifier inner name_opt bc props
       | Style.Peer_not (inner, name_opt) ->
@@ -2429,8 +2493,23 @@ let compare_indexed_rules r1 r2 =
     let order_cmp = compare r1.order r2.order in
     if order_cmp <> 0 then order_cmp
     else
-      (* Same order: preserve source order (Regular before its Media pair) *)
-      Int.compare r1.index r2.index
+      (* Same order: compare by base_class with Tailwind normalization: -
+         underscores -> spaces (bracket content convention) - brackets [] -> ~
+         (sort bracket patterns after non-bracket) - slashes -> ~ (sort named
+         groups after unnamed) *)
+      let normalize_for_sort s =
+        String.map
+          (function '_' -> ' ' | '[' | ']' -> '~' | '/' -> '|' | c -> c)
+          s
+      in
+      let bc1 =
+        match r1.base_class with Some s -> normalize_for_sort s | None -> ""
+      in
+      let bc2 =
+        match r2.base_class with Some s -> normalize_for_sort s | None -> ""
+      in
+      let class_cmp = String.compare bc1 bc2 in
+      if class_cmp <> 0 then class_cmp else Int.compare r1.index r2.index
   else
     (* First compare by rule type group *)
     let type_cmp =

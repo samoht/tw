@@ -183,6 +183,11 @@ type modifier =
   | Device_hocus  (** [:hover, :focus] compound + [@media (hover: hover)] *)
   | Not_bracket of string
       (** [not-[...]] bracket patterns — stores raw bracket content *)
+  | In_bracket of string
+      (** [in-[...]] ancestor patterns — element must be descendant of selector
+      *)
+  | In_data of string
+      (** [in-data-X] — element must be descendant of [data-X] *)
   | Group_not of modifier * string option
       (** [group-not-X/name] — inner modifier + optional group name *)
   | Peer_not of modifier * string option

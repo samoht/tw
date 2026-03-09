@@ -183,6 +183,11 @@ type modifier =
   | Device_hocus  (** [:hover, :focus] compound + [@media (hover: hover)] *)
   | Not_bracket of string
       (** [not-[...]] bracket patterns — stores raw bracket content *)
+  | In_bracket of string
+      (** [in-[...]] ancestor patterns — element must be descendant of selector
+      *)
+  | In_data of string
+      (** [in-data-X] — element must be descendant of [data-X] *)
   | Group_not of modifier * string option
       (** [group-not-X/name] — inner modifier + optional group name *)
   | Peer_not of modifier * string option
@@ -424,6 +429,8 @@ let rec pp_modifier = function
   | Hocus -> "hocus"
   | Device_hocus -> "device-hocus"
   | Not_bracket content -> "not-[" ^ content ^ "]"
+  | In_bracket content -> "in-[" ^ content ^ "]"
+  | In_data attr -> "in-data-" ^ attr
   | Group_not (inner, None) ->
       String.concat "" [ "group-not-"; pp_modifier inner ]
   | Group_not (inner, Some name) ->
