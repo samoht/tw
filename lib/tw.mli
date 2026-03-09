@@ -3627,12 +3627,12 @@ val peer_focus : t list -> t
 val has : string -> t list -> t
 (** [has selector styles] applies [styles] with [:has(selector)]. *)
 
-val group_has : string -> t list -> t
-(** [group_has selector styles] applies [styles] under [.group:has(selector)].
-*)
+val group_has : ?name:string -> string -> t list -> t
+(** [group_has ?name selector styles] applies [styles] under
+    [.group:has(selector)]. *)
 
-val peer_has : string -> t list -> t
-(** [peer_has selector styles] applies [styles] when a preceding
+val peer_has : ?name:string -> string -> t list -> t
+(** [peer_has ?name selector styles] applies [styles] when a preceding
     [.peer:has(selector)]. *)
 
 (** {2 Theme/Motion/Contrast} *)

@@ -2554,15 +2554,12 @@ let bg_with_opacity c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
   if percent >= 100.0 then
-    let color_name = scheme_color_name c shade in
-    match Scheme.hex_color !current_scheme color_name with
-    | Some hex_value ->
-        let cvar = color_var c shade in
-        let _d, color_ref = Var.binding cvar (Css.hex hex_value) in
-        Style.style [ Css.background_color (Var color_ref) ]
-    | None ->
-        let color_value = to_css c (if is_base_color c then 500 else shade) in
-        Style.style [ Css.background_color color_value ]
+    (* 100% opacity = no transparency. Tailwind outputs the plain color var
+       reference, identical to the no-opacity case. *)
+    let cvar = color_var c shade in
+    let color_value = to_css c (if is_base_color c then 500 else shade) in
+    let _d, color_ref = Var.binding cvar color_value in
+    Style.style [ Css.background_color (Var color_ref) ]
   else if is_custom_color c then
     let ok_l, ok_a, ok_b = custom_color_to_oklab c in
     let alpha = percent /. 100.0 in

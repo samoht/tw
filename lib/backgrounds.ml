@@ -811,7 +811,7 @@ module Handler = struct
     | Some interp_css ->
         let interp_decl =
           Css.custom_property ~layer:"utilities" "--tw-gradient-position"
-            ("calc(" ^ string_of_int angle_deg ^ "deg * -1) " ^ interp_css)
+            ("calc(" ^ string_of_int angle_deg ^ "deg*-1)" ^ interp_css)
         in
         let rules = gradient_direction_rules ~base_decl ~interp_decl in
         style ~property_rules:gradient_property_rules ~rules:(Some rules) []
@@ -835,7 +835,7 @@ module Handler = struct
   (** -bg-linear-[value] - negated bracket *)
   let bg_linear_bracket_neg' value_str =
     let css_val = bracket_value_to_css value_str in
-    let neg_str = "calc(" ^ css_val ^ " * -1)" in
+    let neg_str = "calc(" ^ css_val ^ "*-1)" in
     let position_decl =
       Css.custom_property ~layer:"utilities" "--tw-gradient-position" neg_str
     in
@@ -880,7 +880,7 @@ module Handler = struct
     match interp_to_css_string interp_str with
     | Some interp_css ->
         let position_css =
-          "from calc(" ^ string_of_int angle_deg ^ "deg * -1) " ^ interp_css
+          "from calc(" ^ string_of_int angle_deg ^ "deg*-1)" ^ interp_css
         in
         let position_decl =
           Css.custom_property ~layer:"utilities" "--tw-gradient-position"
@@ -1304,7 +1304,7 @@ module Handler = struct
           | Pos_bottom -> [ Center_bottom ]
           | Pos_bottom_left -> [ XY (Px 0., Pct 100.) ]
           | Pos_bottom_right -> [ XY (Pct 100., Pct 100.) ]
-          | Pos_center -> [ Center ]
+          | Pos_center -> [ Single (Pct 50.) ]
           | Pos_left -> [ Single (Px 0.) ]
           | Pos_left_bottom -> [ XY (Px 0., Pct 100.) ]
           | Pos_left_top -> [ XY (Px 0., Px 0.) ]

@@ -548,20 +548,24 @@ let preprocess_has_selector s =
   done;
   Buffer.contents buf
 
-let has_like_selector kind ?name selector_str base_class props =
+let has_like_selector kind ?name ?shorthand ~not_order selector_str base_class
+    props =
   let open Css.Selector in
   let processed = preprocess_has_selector selector_str in
   let reader = Css.Reader.of_string processed in
   let parsed_selector = Css.Selector.read_relative reader in
+  let has_part s =
+    match shorthand with Some sh -> sh | None -> "[" ^ s ^ "]"
+  in
   match kind with
   | `Has ->
-      let class_name = "has-[" ^ selector_str ^ "]:" ^ base_class in
+      let class_name = "has-" ^ has_part selector_str ^ ":" ^ base_class in
       let sel = compound [ class_ class_name; has [ parsed_selector ] ] in
-      regular ~selector:sel ~props ~base_class:class_name ()
+      regular ~selector:sel ~props ~base_class:class_name ~not_order ()
   | `Group_has ->
       let name_suffix = match name with Some n -> "/" ^ n | None -> "" in
       let class_name =
-        "group-has-[" ^ selector_str ^ "]" ^ name_suffix ^ ":" ^ base_class
+        "group-has-" ^ has_part selector_str ^ name_suffix ^ ":" ^ base_class
       in
       let group_class =
         match name with Some n -> "group/" ^ n | None -> "group"
@@ -572,11 +576,11 @@ let has_like_selector kind ?name selector_str base_class props =
           Descendant universal
       in
       let sel = compound [ Class class_name; is_ [ rel ] ] in
-      regular ~selector:sel ~props ~base_class:class_name ()
+      regular ~selector:sel ~props ~base_class:class_name ~not_order ()
   | `Peer_has ->
       let name_suffix = match name with Some n -> "/" ^ n | None -> "" in
       let class_name =
-        "peer-has-[" ^ selector_str ^ "]" ^ name_suffix ^ ":" ^ base_class
+        "peer-has-" ^ has_part selector_str ^ name_suffix ^ ":" ^ base_class
       in
       let peer_class =
         match name with Some n -> "peer/" ^ n | None -> "peer"
@@ -587,7 +591,7 @@ let has_like_selector kind ?name selector_str base_class props =
           Subsequent_sibling universal
       in
       let sel = compound [ Class class_name; is_ [ rel ] ] in
-      regular ~selector:sel ~props ~base_class:class_name ()
+      regular ~selector:sel ~props ~base_class:class_name ~not_order ()
 
 (* Pseudo-class modifiers: transform the base selector and mark hover when
    needed. *)
@@ -669,16 +673,46 @@ let route_data_modifier modifier base_class selector props =
       handle_data_modifier k v selector props base_class
   | _ -> regular ~selector ~props ~base_class ()
 
+(* Resolve has-shorthand names to CSS selector strings *)
+let resolve_has_shorthand = function
+  | "checked" -> ":checked"
+  | "hocus" -> ":hover, :focus"
+  | s -> s
+
 (* Route :has() variants to appropriate handler *)
 let route_has_modifier modifier base_class props =
-  let kind, selector_str, name =
+  let kind, raw_str, name =
     match modifier with
     | Style.Has s -> (`Has, s, None)
     | Style.Group_has (s, name) -> (`Group_has, s, name)
     | Style.Peer_has (s, name) -> (`Peer_has, s, name)
     | _ -> failwith "Invalid has modifier"
   in
-  has_like_selector kind ?name selector_str base_class props
+  (* Shorthand forms like "checked" are stored without colon prefix. Bracket
+     forms like ":checked" start with colon or other CSS chars. *)
+  let is_shorthand =
+    raw_str <> ""
+    && raw_str.[0] <> ':'
+    && raw_str.[0] <> '&'
+    && raw_str.[0] <> '+'
+    && raw_str.[0] <> '>'
+    && raw_str.[0] <> '~'
+    && raw_str.[0] <> '.'
+    && not (String.contains raw_str ' ')
+  in
+  let selector_str = resolve_has_shorthand raw_str in
+  let shorthand = if is_shorthand then Some raw_str else None in
+  (* Ordering: shorthands before brackets; pseudo-class brackets before
+     combinator brackets. Named vs unnamed ordering handled by
+     normalize_for_sort since '/' maps to '|' which sorts after ':' → '!'. *)
+  let base_order =
+    if is_shorthand then 10
+    else if raw_str <> "" && raw_str.[0] = ':' then 20
+    else 30
+  in
+  let not_order = base_order in
+  has_like_selector kind ?name ?shorthand ~not_order selector_str base_class
+    props
 
 (* Handle fallback for unmatched modifiers. Must extract modified_class so that
    outer modifiers like dark: can properly transform the selector. *)
@@ -861,6 +895,7 @@ let not_class_prefix inner_modifier =
   | Style.Has pseudo_str
     when String.length pseudo_str > 0 && pseudo_str.[0] = ':' ->
       "has-" ^ String.sub pseudo_str 1 (String.length pseudo_str - 1)
+  | Style.Has shorthand_name -> "has-" ^ shorthand_name
   | Style.Nth expr -> "nth-" ^ expr
   | Style.Supports cond when String.ends_with ~suffix:": var(--tw)" cond ->
       let prop_len = String.length cond - 11 in
@@ -2536,7 +2571,8 @@ let compare_indexed_rules r1 r2 =
          groups after unnamed) *)
       let normalize_for_sort s =
         String.map
-          (function '_' -> ' ' | '[' | ']' -> '~' | '/' -> '|' | c -> c)
+          (function
+            | '_' -> ' ' | '[' | ']' -> '~' | '/' -> '|' | ':' -> '!' | c -> c)
           s
       in
       let bc1 =

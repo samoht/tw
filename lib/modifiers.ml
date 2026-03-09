@@ -1400,11 +1400,9 @@ let parse_group_peer_not_inner rest =
         | Some m -> Some (m, None)
         | None -> None)
 
-(* Has-shorthand pseudo-class names *)
-let has_shorthand_pseudo = function
-  | "checked" -> Some ":checked"
-  | "hocus" -> Some ":hover, :focus"
-  | _ -> None
+(* Valid has-shorthand names. These are stored as-is (without : prefix) so they
+   remain distinct from bracket forms like has-[:checked]. *)
+let is_has_shorthand = function "checked" | "hocus" -> true | _ -> false
 
 (* Extract name suffix from "rest" after prefix, e.g. "checked/name" ->
    ("checked", Some "name") *)
@@ -1421,15 +1419,15 @@ let split_name rest =
 let try_has_shorthand s =
   if String.length s > 4 && String.sub s 0 4 = "has-" then
     let rest = String.sub s 4 (String.length s - 4) in
-    has_shorthand_pseudo rest |> Option.map (fun sel -> Has sel)
+    if is_has_shorthand rest then Some (Has rest) else None
   else if String.length s > 10 && String.sub s 0 10 = "group-has-" then
     let rest = String.sub s 10 (String.length s - 10) in
     let base, name = split_name rest in
-    has_shorthand_pseudo base |> Option.map (fun sel -> Group_has (sel, name))
+    if is_has_shorthand base then Some (Group_has (base, name)) else None
   else if String.length s > 9 && String.sub s 0 9 = "peer-has-" then
     let rest = String.sub s 9 (String.length s - 9) in
     let base, name = split_name rest in
-    has_shorthand_pseudo base |> Option.map (fun sel -> Peer_has (sel, name))
+    if is_has_shorthand base then Some (Peer_has (base, name)) else None
   else None
 
 (* Parse a modifier string into a typed Style.modifier *)
