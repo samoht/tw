@@ -1947,8 +1947,38 @@ let compare_indexed_rules r1 r2 =
        first, then natural sort on selector so Regular+Supports pairs stay
        grouped and groups are in the correct cross-utility order. Index is the
        final tiebreaker (keeps Regular before its own Supports). *)
-    | `Regular, `Supports _ | `Supports _, `Regular | `Supports _, `Supports _
-      ->
+    | `Supports _, `Supports _ ->
+        (* Sort supports rules: shorthand (supports-gap) before bracket
+           (supports-[...]), then by unescaped selector. Strip CSS backslash
+           escapes so [(display...] sorts by the actual characters. *)
+        let strip_escapes s =
+          let buf = Buffer.create (String.length s) in
+          let len = String.length s in
+          let rec loop i =
+            if i >= len then Buffer.contents buf
+            else if s.[i] = '\\' && i + 1 < len then (
+              Buffer.add_char buf s.[i + 1];
+              loop (i + 2))
+            else (
+              Buffer.add_char buf s.[i];
+              loop (i + 1))
+          in
+          loop 0
+        in
+        let s1 = strip_escapes (Css.Selector.to_string r1.selector) in
+        let s2 = strip_escapes (Css.Selector.to_string r2.selector) in
+        let has_bracket s = String.contains s '[' in
+        let k1 = if has_bracket s1 then 1 else 0 in
+        let k2 = if has_bracket s2 then 1 else 0 in
+        let kind_cmp = Int.compare k1 k2 in
+        if kind_cmp <> 0 then kind_cmp
+        else
+          let sel_cmp = natural_compare s1 s2 in
+          if sel_cmp <> 0 then sel_cmp
+          else
+            let order_cmp = compare r1.order r2.order in
+            if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
+    | `Regular, `Supports _ | `Supports _, `Regular ->
         let order_cmp = compare r1.order r2.order in
         if order_cmp <> 0 then order_cmp
         else
