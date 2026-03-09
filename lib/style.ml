@@ -172,6 +172,9 @@ type modifier =
   | Supports of string
   | Group_hocus
   | Peer_hocus
+  | Custom_responsive of string
+  | Min_custom of string
+  | Max_custom of string
   | Group_arbitrary of string
   | Peer_arbitrary of string
 
@@ -397,6 +400,9 @@ let rec pp_modifier = function
         in
         "supports-" ^ String.sub cond 0 prop_len
       else "supports-[" ^ cond ^ "]"
+  | Custom_responsive name -> name
+  | Min_custom name -> "min-" ^ name
+  | Max_custom name -> "max-" ^ name
   | Group_hocus -> "group-hocus"
   | Peer_hocus -> "peer-hocus"
   | Group_arbitrary sel -> "group-[" ^ sel ^ "]"

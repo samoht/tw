@@ -65,62 +65,54 @@ module Handler = struct
         Css.filter_var_empty "tw-drop-shadow";
       ]
 
-  let blur_internal = function
-    | `Xs -> style [ filter (Blur (Px 2.)) ]
-    | `Sm -> style [ filter (Blur (Px 4.)) ]
-    | `Md -> style [ filter (Blur (Px 8.)) ]
-    | `Lg -> style [ filter (Blur (Px 16.)) ]
-    | `Xl -> style [ filter (Blur (Px 24.)) ]
-    | `Xl_2 -> style [ filter (Blur (Px 40.)) ]
-    | `Xl_3 -> style [ filter (Blur (Px 64.)) ]
-    | `Full -> style [ filter (Blur (Px 9999.)) ]
-
-  let blur_none =
-    let default : Css.length = Px 0. in
-    let blur_none_ref : Css.length Css.var =
-      Var.theme_ref "blur-none" ~default ~default_css:"0"
-    in
-    let tw_blur : Css.filter = Blur (Var blur_none_ref) in
+  (* Helper: set a --tw-<name> filter var and output composable chain *)
+  let set_filter_var var_name (value : Css.filter) =
     style
       [
-        Css.custom_declaration ~layer:"utilities" "--tw-blur" Filter tw_blur;
+        Css.custom_declaration ~layer:"utilities" var_name Filter value;
         filter composable_filter_chain;
       ]
 
-  let blur_xs = blur_internal `Xs
-  let blur_sm = blur_internal `Sm
-  let blur = blur_internal `Md (* Default blur *)
-  let blur_md = blur_internal `Md
-  let blur_lg = blur_internal `Lg
-  let blur_xl = blur_internal `Xl
-  let blur_2xl = blur_internal `Xl_2
-  let blur_3xl = blur_internal `Xl_3
+  (* Helper: set a --tw-<name> filter var using a theme var reference. Creates
+     var(--theme-name) without fallback since the theme defines it. *)
+  let set_filter_var_theme var_name theme_name
+      (make_filter : Css.length -> Css.filter) =
+    let ref_ : Css.length Css.var = Css.var_ref ~layer:"theme" theme_name in
+    set_filter_var var_name (make_filter (Var ref_))
+
+  let blur_none =
+    style
+      [
+        Css.custom_property ~layer:"utilities" "--tw-blur" "";
+        filter composable_filter_chain;
+      ]
+
+  let blur_xs = set_filter_var_theme "--tw-blur" "blur-xs" (fun l -> Blur l)
+  let blur_sm = set_filter_var_theme "--tw-blur" "blur-sm" (fun l -> Blur l)
+  let blur = set_filter_var_theme "--tw-blur" "blur" (fun l -> Blur l)
+  let blur_md = set_filter_var_theme "--tw-blur" "blur-md" (fun l -> Blur l)
+  let blur_lg = set_filter_var_theme "--tw-blur" "blur-lg" (fun l -> Blur l)
+  let blur_xl = set_filter_var_theme "--tw-blur" "blur-xl" (fun l -> Blur l)
+  let blur_2xl = set_filter_var_theme "--tw-blur" "blur-2xl" (fun l -> Blur l)
+  let blur_3xl = set_filter_var_theme "--tw-blur" "blur-3xl" (fun l -> Blur l)
 
   let brightness n =
-    let value : Css.number = Num (float_of_int n /. 100.0) in
-    style [ filter (Brightness value) ]
+    set_filter_var "--tw-brightness" (Brightness (Pct (float_of_int n)))
 
   let contrast n =
-    let value : Css.number = Num (float_of_int n /. 100.0) in
-    style [ filter (Contrast value) ]
+    set_filter_var "--tw-contrast" (Contrast (Pct (float_of_int n)))
 
   let grayscale n =
-    let value : Css.number = Num (float_of_int n /. 100.0) in
-    style [ filter (Grayscale value) ]
+    set_filter_var "--tw-grayscale" (Grayscale (Pct (float_of_int n)))
 
   let saturate n =
-    let value : Css.number = Num (float_of_int n /. 100.0) in
-    style [ filter (Saturate value) ]
+    set_filter_var "--tw-saturate" (Saturate (Pct (float_of_int n)))
 
-  let sepia n =
-    let value : Css.number = Num (float_of_int n /. 100.0) in
-    style [ filter (Sepia value) ]
+  let sepia n = set_filter_var "--tw-sepia" (Sepia (Pct (float_of_int n)))
+  let invert n = set_filter_var "--tw-invert" (Invert (Pct (float_of_int n)))
 
-  let invert n =
-    let value : Css.number = Num (float_of_int n /. 100.0) in
-    style [ filter (Invert value) ]
-
-  let hue_rotate n = style [ filter (Hue_rotate (Deg (float_of_int n))) ]
+  let hue_rotate n =
+    set_filter_var "--tw-hue-rotate" (Hue_rotate (Deg (float_of_int n)))
 
   (* Composable backdrop-filter chain *)
   let composable_backdrop_filter_chain : Css.filter =
@@ -137,69 +129,96 @@ module Handler = struct
         Css.filter_var_empty "tw-backdrop-sepia";
       ]
 
-  let backdrop_blur_internal = function
-    | `Xs -> style [ backdrop_filter (Blur (Px 2.)) ]
-    | `Sm -> style [ backdrop_filter (Blur (Px 4.)) ]
-    | `Md -> style [ backdrop_filter (Blur (Px 8.)) ]
-    | `Lg -> style [ backdrop_filter (Blur (Px 12.)) ]
-    | `Xl -> style [ backdrop_filter (Blur (Px 24.)) ]
-    | `Xl_2 -> style [ backdrop_filter (Blur (Px 40.)) ]
-    | `Xl_3 -> style [ backdrop_filter (Blur (Px 64.)) ]
-    | `Full -> style [ backdrop_filter (Blur (Px 9999.)) ]
-
-  let backdrop_blur_none =
-    let default : Css.length = Px 0. in
-    let blur_ref : Css.length Css.var =
-      Var.theme_ref "backdrop-blur-none" ~default ~default_css:"0"
-    in
-    let tw_backdrop_blur : Css.filter = Blur (Var blur_ref) in
+  (* Helper: set a --tw-backdrop-<name> var and output composable backdrop
+     chain *)
+  let set_backdrop_var var_name (value : Css.filter) =
     style
       [
-        Css.custom_declaration ~layer:"utilities" "--tw-backdrop-blur" Filter
-          tw_backdrop_blur;
+        Css.custom_declaration ~layer:"utilities" var_name Filter value;
         Css.webkit_backdrop_filter composable_backdrop_filter_chain;
         backdrop_filter composable_backdrop_filter_chain;
       ]
 
-  let backdrop_blur_xs = backdrop_blur_internal `Xs
-  let backdrop_blur_sm = backdrop_blur_internal `Sm
-  let backdrop_blur = backdrop_blur_internal `Md
-  let backdrop_blur_md = backdrop_blur_internal `Md
-  let backdrop_blur_lg = backdrop_blur_internal `Lg
-  let backdrop_blur_xl = backdrop_blur_internal `Xl
-  let backdrop_blur_2xl = backdrop_blur_internal `Xl_2
-  let backdrop_blur_3xl = backdrop_blur_internal `Xl_3
+  let set_backdrop_var_theme var_name theme_name
+      (make_filter : Css.length -> Css.filter) =
+    let ref_ : Css.length Css.var = Css.var_ref ~layer:"theme" theme_name in
+    set_backdrop_var var_name (make_filter (Var ref_))
+
+  let backdrop_blur_none =
+    style
+      [
+        Css.custom_property ~layer:"utilities" "--tw-backdrop-blur" "";
+        Css.webkit_backdrop_filter composable_backdrop_filter_chain;
+        backdrop_filter composable_backdrop_filter_chain;
+      ]
+
+  let backdrop_blur_xs =
+    set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-xs" (fun l ->
+        Blur l)
+
+  let backdrop_blur_sm =
+    set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-sm" (fun l ->
+        Blur l)
+
+  let backdrop_blur =
+    set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur" (fun l ->
+        Blur l)
+
+  let backdrop_blur_md =
+    set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-md" (fun l ->
+        Blur l)
+
+  let backdrop_blur_lg =
+    set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-lg" (fun l ->
+        Blur l)
+
+  let backdrop_blur_xl =
+    set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-xl" (fun l ->
+        Blur l)
+
+  let backdrop_blur_2xl =
+    set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-2xl" (fun l ->
+        Blur l)
+
+  let backdrop_blur_3xl =
+    set_backdrop_var_theme "--tw-backdrop-blur" "backdrop-blur-3xl" (fun l ->
+        Blur l)
 
   let backdrop_brightness n =
-    style [ backdrop_filter (Brightness (Num (float_of_int n /. 100.0))) ]
+    set_backdrop_var "--tw-backdrop-brightness"
+      (Brightness (Pct (float_of_int n)))
 
   let backdrop_contrast n =
-    style [ backdrop_filter (Contrast (Num (float_of_int n /. 100.0))) ]
+    set_backdrop_var "--tw-backdrop-contrast" (Contrast (Pct (float_of_int n)))
 
   let backdrop_opacity n =
-    style [ backdrop_filter (Opacity (Num (float_of_int n /. 100.0))) ]
+    set_backdrop_var "--tw-backdrop-opacity" (Opacity (Pct (float_of_int n)))
 
   let backdrop_saturate n =
-    style [ backdrop_filter (Saturate (Num (float_of_int n /. 100.0))) ]
+    set_backdrop_var "--tw-backdrop-saturate" (Saturate (Pct (float_of_int n)))
 
   let backdrop_grayscale_default =
-    style [ backdrop_filter (Grayscale (Num 1.0)) ]
+    set_backdrop_var "--tw-backdrop-grayscale" (Grayscale (Pct 100.))
 
   let backdrop_grayscale n =
-    style [ backdrop_filter (Grayscale (Num (float_of_int n /. 100.0))) ]
+    set_backdrop_var "--tw-backdrop-grayscale"
+      (Grayscale (Pct (float_of_int n)))
 
-  let backdrop_invert_default = style [ backdrop_filter (Invert (Num 1.0)) ]
+  let backdrop_invert_default =
+    set_backdrop_var "--tw-backdrop-invert" (Invert (Pct 100.))
 
   let backdrop_invert n =
-    style [ backdrop_filter (Invert (Num (float_of_int n /. 100.0))) ]
+    set_backdrop_var "--tw-backdrop-invert" (Invert (Pct (float_of_int n)))
 
-  let backdrop_sepia_default = style [ backdrop_filter (Sepia (Num 1.0)) ]
+  let backdrop_sepia_default =
+    set_backdrop_var "--tw-backdrop-sepia" (Sepia (Pct 100.))
 
   let backdrop_sepia n =
-    style [ backdrop_filter (Sepia (Num (float_of_int n /. 100.0))) ]
+    set_backdrop_var "--tw-backdrop-sepia" (Sepia (Pct (float_of_int n)))
 
   let backdrop_hue_rotate n =
-    style [ backdrop_filter (Hue_rotate (Deg (float_of_int n))) ]
+    set_backdrop_var "--tw-backdrop-hue-rotate"
+      (Hue_rotate (Deg (float_of_int n)))
 
   (* Composable filter using all the filter variables *)
   let filter_ = style [ filter composable_filter_chain ]

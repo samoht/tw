@@ -172,6 +172,9 @@ type modifier =
   | Supports of string
   | Group_hocus
   | Peer_hocus
+  | Custom_responsive of string
+  | Min_custom of string
+  | Max_custom of string
   | Group_arbitrary of string
   | Peer_arbitrary of string
 

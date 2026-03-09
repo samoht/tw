@@ -59,6 +59,12 @@ let arbitrary_breakpoint_class prefix px cls =
   in
   Css.Selector.Class (prefix ^ "[" ^ px_str ^ "px]:" ^ cls)
 
+(** Registry for custom breakpoint names (set via scheme) *)
+let custom_breakpoints : (string * float) list ref = ref []
+
+let register_custom_breakpoints bps = custom_breakpoints := bps
+let clear_custom_breakpoints () = custom_breakpoints := []
+
 (** Helper: direction selector (ltr/rtl) *)
 let dir_selector dir cls =
   let open Css.Selector in
@@ -318,6 +324,9 @@ let media_prefix_selector cls modifier =
       Css.Selector.Class (breakpoint_name "max" bp ^ ":" ^ cls)
   | Min_arbitrary px -> arbitrary_breakpoint_class "min-" px cls
   | Max_arbitrary px -> arbitrary_breakpoint_class "max-" px cls
+  | Custom_responsive name -> Css.Selector.Class (name ^ ":" ^ cls)
+  | Min_custom name -> Css.Selector.Class ("min-" ^ name ^ ":" ^ cls)
+  | Max_custom name -> Css.Selector.Class ("max-" ^ name ^ ":" ^ cls)
   | Peer_hover | Peer_focus | Peer_checked | Peer_first | Peer_last | Peer_odd
   | Peer_even | Peer_only | Peer_first_of_type | Peer_last_of_type
   | Peer_only_of_type | Peer_active | Peer_visited | Peer_disabled | Peer_empty
@@ -883,6 +892,9 @@ let pp_modifier = function
   | Any_pointer_fine -> "any-pointer-fine"
   | Noscript -> "noscript"
   | Supports cond -> "supports-[" ^ cond ^ "]"
+  | Custom_responsive name -> name
+  | Min_custom name -> "min-" ^ name
+  | Max_custom name -> "max-" ^ name
   | Group_hocus -> "group-hocus"
   | Peer_hocus -> "peer-hocus"
   | Group_arbitrary sel -> "group-[" ^ sel ^ "]"
@@ -1162,6 +1174,25 @@ let simple_modifiers =
     ("@2xl", Container Container_2xl);
   ]
 
+(* Try looking up a custom breakpoint (e.g., "10xl", "min-10xl", "max-10xl") *)
+let try_custom_breakpoint s =
+  (* Direct name: e.g., "10xl" → Custom_responsive *)
+  match List.assoc_opt s !custom_breakpoints with
+  | Some _px -> Some (Custom_responsive s)
+  | None ->
+      (* min-<name>: e.g., "min-10xl" → Min_custom *)
+      if String.length s > 4 && String.sub s 0 4 = "min-" then
+        let name = String.sub s 4 (String.length s - 4) in
+        match List.assoc_opt name !custom_breakpoints with
+        | Some _px -> Some (Min_custom name)
+        | None -> None
+      else if String.length s > 4 && String.sub s 0 4 = "max-" then
+        let name = String.sub s 4 (String.length s - 4) in
+        match List.assoc_opt name !custom_breakpoints with
+        | Some _px -> Some (Max_custom name)
+        | None -> None
+      else None
+
 (* Parse a modifier string into a typed Style.modifier *)
 let parse_modifier s : modifier option =
   match List.assoc_opt s simple_modifiers with
@@ -1170,13 +1201,17 @@ let parse_modifier s : modifier option =
       match try_bracketed_modifier s with
       | Some _ as r -> r
       | None ->
-          (* Try not-* prefix: strip "not-" and wrap inner modifier *)
-          if String.length s > 4 && String.sub s 0 4 = "not-" then
+          if
+            (* Try not-* prefix: strip "not-" and wrap inner modifier *)
+            String.length s > 4 && String.sub s 0 4 = "not-"
+          then
             let inner = String.sub s 4 (String.length s - 4) in
             match List.assoc_opt inner simple_modifiers with
             | Some m -> Some (Not m)
-            | None -> None
-          else None)
+            | None -> try_custom_breakpoint s
+          else
+            (* Try custom breakpoint as final fallback *)
+            try_custom_breakpoint s)
 
 (* Apply a list of modifier strings to a base utility *)
 let apply modifiers base_utility =

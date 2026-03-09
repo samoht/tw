@@ -255,7 +255,15 @@ let setup_scheme_for_test expected =
   Tw.Borders.set_scheme scheme;
   Tw.Effects.set_scheme scheme;
   Tw.Divide.set_scheme scheme;
-  Tw.Rules.set_scheme scheme
+  Tw.Rules.set_scheme scheme;
+  (* Register custom breakpoints for modifier parsing *)
+  let standard_names = [ "sm"; "md"; "lg"; "xl"; "2xl" ] in
+  let custom_bps =
+    List.filter
+      (fun (name, _) -> not (List.mem name standard_names))
+      scheme.breakpoints
+  in
+  Tw.Modifiers.register_custom_breakpoints custom_bps
 
 (** Extract all CSS variable names referenced in expected CSS text. *)
 let extract_var_names expected =
@@ -408,10 +416,167 @@ let setup_theme_overrides config expected =
           var_fallbacks
   | Run | Theme_inline | No_theme -> ()
 
+(** Extract custom breakpoints by matching input class modifiers with px values
+    from expected CSS. Handles bare custom names (e.g. "10xl:flex"), and names
+    within min-/max- prefixes (e.g. "min-xs:max-sm:flex"). *)
+let extract_custom_breakpoints classes expected =
+  let standard_names = [ "sm"; "md"; "lg"; "xl"; "2xl" ] in
+  (* Split each class into modifier segments and extract breakpoint names. For
+     "min-xs:max-sm:flex", segments are ["min-xs"; "max-sm"; "flex"]. We extract
+     "xs" from "min-xs" and recognize it as a custom breakpoint. *)
+  let extract_bp_name segment =
+    (* Strip min-/max- prefix to get the breakpoint name *)
+    let name =
+      if String.length segment > 4 && String.sub segment 0 4 = "min-" then
+        Some (String.sub segment 4 (String.length segment - 4))
+      else if String.length segment > 4 && String.sub segment 0 4 = "max-" then
+        Some (String.sub segment 4 (String.length segment - 4))
+      else Some segment
+    in
+    match name with
+    | Some n when String.contains n '[' -> None (* arbitrary value *)
+    | Some n when List.mem n standard_names -> None (* standard *)
+    | Some n -> Some n
+    | None -> None
+  in
+  let is_known_modifier s =
+    let known =
+      [
+        "hover";
+        "focus";
+        "active";
+        "disabled";
+        "dark";
+        "motion-safe";
+        "motion-reduce";
+        "contrast-more";
+        "contrast-less";
+        "print";
+        "portrait";
+        "landscape";
+        "ltr";
+        "rtl";
+        "before";
+        "after";
+        "first";
+        "last";
+        "odd";
+        "even";
+        "open";
+        "checked";
+        "starting";
+        "focus-within";
+        "focus-visible";
+        "forced-colors";
+        "inverted-colors";
+        "noscript";
+        "marker";
+        "selection";
+        "placeholder";
+        "backdrop";
+        "file";
+        "first-letter";
+        "first-line";
+        "details-content";
+        "empty";
+        "default";
+        "required";
+        "valid";
+        "invalid";
+        "in-range";
+        "out-of-range";
+        "placeholder-shown";
+        "autofill";
+        "read-only";
+        "read-write";
+        "optional";
+        "enabled";
+        "target";
+        "visited";
+        "inert";
+        "user-valid";
+        "user-invalid";
+        "first-of-type";
+        "last-of-type";
+        "only-of-type";
+        "only";
+        "indeterminate";
+        "pointer-none";
+        "pointer-coarse";
+        "pointer-fine";
+        "any-pointer-none";
+        "any-pointer-coarse";
+        "any-pointer-fine";
+        "*";
+        "**";
+      ]
+    in
+    List.mem s known
+    || String.starts_with ~prefix:"group-" s
+    || String.starts_with ~prefix:"peer-" s
+    || String.starts_with ~prefix:"aria-" s
+    || String.starts_with ~prefix:"data-" s
+    || String.starts_with ~prefix:"not-" s
+    || String.starts_with ~prefix:"has-" s
+    || String.starts_with ~prefix:"supports-" s
+    || String.starts_with ~prefix:"@" s
+    || String.starts_with ~prefix:"nth-" s
+    || String.starts_with ~prefix:"in-" s
+    || String.contains s '['
+  in
+  let custom_names = ref [] in
+  List.iter
+    (fun cls ->
+      let parts = String.split_on_char ':' cls in
+      (* All parts except the last are modifiers *)
+      let modifiers =
+        match List.rev parts with _ :: rest -> List.rev rest | [] -> []
+      in
+      List.iter
+        (fun seg ->
+          if not (is_known_modifier seg) then
+            match extract_bp_name seg with
+            | Some name when name <> "" ->
+                if not (List.mem name !custom_names) then
+                  custom_names := name :: !custom_names
+            | _ -> ())
+        modifiers)
+    classes;
+  let custom_names = List.rev !custom_names in
+  (* Extract all px values from expected CSS *)
+  let px_pattern = Re.Pcre.regexp {|min-width:\s*(\d+)px|} in
+  let px_matches = Re.all px_pattern expected in
+  let px_values =
+    List.filter_map
+      (fun m ->
+        try Some (float_of_string (Re.Group.get m 1))
+        with Not_found | Failure _ -> None)
+      px_matches
+  in
+  let standard_px = [ 640.; 768.; 1024.; 1280.; 1536. ] in
+  let custom_px =
+    List.filter (fun px -> not (List.mem px standard_px)) px_values
+    |> List.sort_uniq Float.compare
+  in
+  match (custom_names, custom_px) with
+  | [ name ], [ px ] -> [ (name, px) ]
+  | names, pxs when List.length names = List.length pxs ->
+      List.combine names pxs
+  | _ -> []
+
 let run_test_case test () =
   if test.classes = [] then ()
   else (
     setup_scheme_for_test test.expected;
+    (* Register custom breakpoints before parsing classes *)
+    let custom_bps = extract_custom_breakpoints test.classes test.expected in
+    if custom_bps <> [] then (
+      let scheme = scheme_from_expected_css test.expected in
+      let updated_scheme =
+        { scheme with breakpoints = scheme.breakpoints @ custom_bps }
+      in
+      Tw.Rules.set_scheme updated_scheme;
+      Tw.Modifiers.register_custom_breakpoints custom_bps);
     setup_theme_overrides test.config test.expected;
     let theme, theme_defaults = theme_config test.config test.expected in
     let utilities =
