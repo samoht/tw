@@ -524,9 +524,34 @@ let container_rule query base_class selector props =
   let condition = Containers.container_query_to_condition query in
   container_query ~condition ~selector:new_selector ~props ~base_class ()
 
+(** Preprocess a has-[...] selector string for CSS parsing. Replaces & with *
+    (nesting reference) and ensures combinators (+, >, ~) have proper spacing.
+*)
+let preprocess_has_selector s =
+  let buf = Buffer.create (String.length s + 4) in
+  let len = String.length s in
+  let i = ref 0 in
+  while !i < len do
+    (match s.[!i] with
+    | '&' -> Buffer.add_char buf '*'
+    | ('+' | '>' | '~') as c ->
+        (* Add space before combinator if not already present *)
+        if
+          Buffer.length buf = 0
+          || Buffer.contents buf |> fun b -> b.[String.length b - 1] <> ' '
+        then Buffer.add_char buf ' ';
+        Buffer.add_char buf c;
+        (* Add space after combinator if not already present *)
+        if !i + 1 < len && s.[!i + 1] <> ' ' then Buffer.add_char buf ' '
+    | c -> Buffer.add_char buf c);
+    incr i
+  done;
+  Buffer.contents buf
+
 let has_like_selector kind selector_str base_class props =
   let open Css.Selector in
-  let reader = Css.Reader.of_string selector_str in
+  let processed = preprocess_has_selector selector_str in
+  let reader = Css.Reader.of_string processed in
   let parsed_selector = Css.Selector.read reader in
   match kind with
   | `Has ->

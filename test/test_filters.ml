@@ -18,7 +18,7 @@ let suborder_matches_tailwind () =
   let open Tw in
   let shuffled =
     Test_helpers.shuffle
-      [ blur_sm; blur; blur_2xl; backdrop_blur; backdrop_opacity 50 ]
+      [ blur_sm; blur; blur_2xl; backdrop_blur; backdrop_opacity 50. ]
   in
 
   Test_helpers.check_ordering_matches

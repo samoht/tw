@@ -1572,7 +1572,7 @@ let test_suborder_within_group () =
       ( "interactivity",
         [ select_none; select_text; select_all; scroll_auto; scroll_smooth ] );
       ( "filters",
-        [ blur_sm; blur; blur_2xl; backdrop_blur; backdrop_opacity 50 ] );
+        [ blur_sm; blur; blur_2xl; backdrop_blur; backdrop_opacity 50. ] );
       ( "containers",
         [
           container;

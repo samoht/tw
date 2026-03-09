@@ -357,7 +357,7 @@ let test_pp_modifier_strings () =
   check string "pp data state bracketed" "data-[state=open]"
     (pp_modifier (Data_state "open"));
   check string "pp before" "before" (pp_modifier Pseudo_before);
-  check string "pp not simplified" "not" (pp_modifier (Not Hover))
+  check string "pp not-hover" "not-hover" (pp_modifier (Not Hover))
 
 (* Test apply with bracketed has/group-has/peer-has modifiers *)
 let test_apply_bracketed_has () =
