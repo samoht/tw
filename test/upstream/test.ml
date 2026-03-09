@@ -334,7 +334,7 @@ let theme_config config expected =
         if name = var_name then Some default else None)
       hardcoded
   in
-  let inline_defaults name =
+  let _inline_defaults name =
     List.find_map
       (fun (var_name, inline_val, _) ->
         if name = var_name then Some inline_val else None)
@@ -343,7 +343,7 @@ let theme_config config expected =
   match config with
   | Run -> (Css.Pp.String_set.empty, combined_defaults)
   | Theme -> (extract_var_names expected, combined_defaults)
-  | Theme_inline -> (Css.Pp.String_set.empty, inline_defaults)
+  | Theme_inline -> (Css.Pp.String_set.empty, combined_defaults)
   | No_theme -> (Css.Pp.String_set.empty, hardcoded_only)
   | Theme_reference | Theme_inline_reference ->
       (extract_var_names expected, Css.Pp.no_theme_defaults)
@@ -384,7 +384,7 @@ let extract_var_fallbacks expected =
 let setup_theme_overrides config expected =
   Tw.Var.clear_theme_values ();
   match config with
-  | Theme | Theme_reference | Theme_inline_reference ->
+  | Theme | Theme_inline | Theme_reference | Theme_inline_reference ->
       let root_vars = extract_root_vars expected in
       List.iter
         (fun (name, value) ->
@@ -414,7 +414,7 @@ let setup_theme_overrides config expected =
             if Tw.Var.theme_value name = None then
               Tw.Var.set_theme_value name fallback)
           var_fallbacks
-  | Run | Theme_inline | No_theme -> ()
+  | Run | No_theme -> ()
 
 (** Extract custom breakpoints by matching input class modifiers with px values
     from expected CSS. Handles bare custom names (e.g. "10xl:flex"), and names

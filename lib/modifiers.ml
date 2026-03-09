@@ -59,6 +59,42 @@ let arbitrary_breakpoint_class prefix px cls =
   in
   Css.Selector.Class (prefix ^ "[" ^ px_str ^ "px]:" ^ cls)
 
+(** Render a CSS length in compact form (no spaces in calc operators) for class
+    names. *)
+let format_float f =
+  if Float.is_integer f then Int.to_string (Float.to_int f)
+  else Float.to_string f
+
+let rec compact_length (l : Css.length) =
+  match l with
+  | Px f -> format_float f ^ "px"
+  | Em f -> format_float f ^ "em"
+  | Rem f -> format_float f ^ "rem"
+  | Vh f -> format_float f ^ "vh"
+  | Vw f -> format_float f ^ "vw"
+  | Cm f -> format_float f ^ "cm"
+  | Mm f -> format_float f ^ "mm"
+  | In f -> format_float f ^ "in"
+  | Pt f -> format_float f ^ "pt"
+  | Calc c -> "calc(" ^ compact_calc c ^ ")"
+  | _ -> Css.Pp.to_string (Css.pp_length ~always:true) l
+
+and compact_calc : Css.length Css.calc -> string = function
+  | Val l -> compact_length l
+  | Num n -> format_float n
+  | Expr (left, Add, right) -> compact_calc left ^ "+" ^ compact_calc right
+  | Expr (left, Sub, right) -> compact_calc left ^ "-" ^ compact_calc right
+  | Expr (left, Mul, right) -> compact_calc left ^ "*" ^ compact_calc right
+  | Expr (left, Div, right) -> compact_calc left ^ "/" ^ compact_calc right
+  | Var v -> "var(--" ^ Css.var_name v ^ ")"
+  | Nested inner -> "calc(" ^ compact_calc inner ^ ")"
+  | Parens inner -> "(" ^ compact_calc inner ^ ")"
+
+(** Build class selector for an arbitrary length breakpoint *)
+let arbitrary_length_class prefix (l : Css.length) cls =
+  let len_str = compact_length l in
+  Css.Selector.Class (prefix ^ "[" ^ len_str ^ "]:" ^ cls)
+
 (** Registry for custom breakpoint names (set via scheme) *)
 let custom_breakpoints : (string * float) list ref = ref []
 
@@ -324,6 +360,8 @@ let media_prefix_selector cls modifier =
       Css.Selector.Class (breakpoint_name "max" bp ^ ":" ^ cls)
   | Min_arbitrary px -> arbitrary_breakpoint_class "min-" px cls
   | Max_arbitrary px -> arbitrary_breakpoint_class "max-" px cls
+  | Min_arbitrary_length l -> arbitrary_length_class "min-" l cls
+  | Max_arbitrary_length l -> arbitrary_length_class "max-" l cls
   | Custom_responsive name -> Css.Selector.Class (name ^ ":" ^ cls)
   | Min_custom name -> Css.Selector.Class ("min-" ^ name ^ ":" ^ cls)
   | Max_custom name -> Css.Selector.Class ("max-" ^ name ^ ":" ^ cls)
@@ -899,6 +937,8 @@ let pp_modifier = function
   | Peer_hocus -> "peer-hocus"
   | Group_arbitrary sel -> "group-[" ^ sel ^ "]"
   | Peer_arbitrary sel -> "peer-[" ^ sel ^ "]"
+  | Min_arbitrary_length l -> "min-[" ^ compact_length l ^ "]"
+  | Max_arbitrary_length l -> "max-[" ^ compact_length l ^ "]"
 
 (* Find matching closing bracket, handling nested brackets *)
 let matching_bracket s =
@@ -930,6 +970,9 @@ let extract_bracket_content ~prefix s =
     | _ -> None
   else None
 
+(* Parse a CSS length from a string like "600px", "40rem", "100vh" *)
+let parse_css_length s : Css.length option = Css.parse_length s
+
 (* Parse a pixel value from a string like "600px" or "600" *)
 let parse_px_value s =
   let s =
@@ -960,6 +1003,12 @@ let try_bracketed_modifier s =
         try_pattern_with "min-[" parse_px_value (fun px -> Min_arbitrary px));
       (fun () ->
         try_pattern_with "max-[" parse_px_value (fun px -> Max_arbitrary px));
+      (fun () ->
+        try_pattern_with "min-[" parse_css_length (fun l ->
+            Min_arbitrary_length l));
+      (fun () ->
+        try_pattern_with "max-[" parse_css_length (fun l ->
+            Max_arbitrary_length l));
       (fun () -> try_pattern "nth-last-[" (fun e -> Nth_last e));
       (fun () -> try_pattern "nth-[" (fun e -> Nth e));
       (fun () -> try_pattern "supports-[" (fun c -> Supports c));

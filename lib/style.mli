@@ -23,6 +23,8 @@ type modifier =
   | Max_responsive of breakpoint
   | Min_arbitrary of float
   | Max_arbitrary of float
+  | Min_arbitrary_length of Css.length
+  | Max_arbitrary_length of Css.length
   | Peer_hover
   | Peer_focus
   | Peer_checked

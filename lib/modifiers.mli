@@ -6,6 +6,10 @@ open Utility
 
 (** {1 Internal Helpers} *)
 
+val compact_length : Css.length -> string
+(** [compact_length l] renders a CSS length without spaces (for use in class
+    names). *)
+
 val to_selector : modifier -> string -> Css.Selector.t
 (** [to_selector modifier base_class] generates the CSS selector for a modifier
     applied to a base class. *)
