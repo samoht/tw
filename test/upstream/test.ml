@@ -378,9 +378,9 @@ let extract_var_fallbacks expected =
       with Not_found | Failure _ -> None)
     matches
 
-(** Set theme value overrides for non-spacing root vars from expected CSS.
-    This enables utilities like z-auto and order-first to produce custom
-    declarations in the :root, :host block when @config theme is used. *)
+(** Set theme value overrides for non-spacing root vars from expected CSS. This
+    enables utilities like z-auto and order-first to produce custom declarations
+    in the :root, :host block when [@config] theme is used. *)
 let setup_theme_overrides config expected =
   Tw.Var.clear_theme_values ();
   match config with

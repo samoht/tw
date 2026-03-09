@@ -619,7 +619,7 @@ let handle_fallback_modifier ?(inner_has_hover = false) modifier base_class
   let has_hover = Modifiers.is_hover modifier || inner_has_hover in
   regular ~selector:new_selector ~props ~base_class:modified_class ~has_hover ()
 
-(** Normalize a supports condition string into a valid CSS @supports
+(** Normalize a supports condition string into a valid CSS [@supports]
     condition. Converts underscores to spaces and wraps in parens as needed. *)
 let normalize_supports_condition condition_str =
   (* Convert underscores to spaces (Tailwind bracket notation) *)
@@ -642,7 +642,7 @@ let normalize_supports_condition condition_str =
     (* Function call like font-format(opentype) or var(--test) *)
     cond
 
-(** Handle @supports modifier: builds modified class name, updates selector,
+(** Handle [@supports] modifier: builds modified class name, updates selector,
     normalizes condition, and emits a supports query rule. *)
 let handle_supports_modifier condition_str base_class selector props =
   (* Use shorthand class name for supports-<property> patterns, otherwise use
@@ -884,7 +884,7 @@ let handle_group class_name util_inner styles extract_fn =
 let resolve_placeholder_selector sel selector =
   if Css.Selector.to_string selector = "._" then sel else selector
 
-(** Extract outputs from a @media statement's inner rules *)
+(** Extract outputs from a [@media] statement's inner rules *)
 let extract_media_outputs ~class_name ~sel condition statements =
   statements
   |> List.filter_map (fun inner ->
@@ -896,7 +896,7 @@ let extract_media_outputs ~class_name ~sel condition statements =
                ~props:declarations ~base_class:class_name ())
       | None -> None)
 
-(** Extract outputs from a @container statement's inner rules *)
+(** Extract outputs from a [@container] statement's inner rules *)
 let extract_container_outputs ~class_name condition statements =
   statements
   |> List.filter_map (fun inner ->
@@ -907,7 +907,7 @@ let extract_container_outputs ~class_name condition statements =
                ~base_class:class_name ())
       | None -> None)
 
-(** Extract outputs from a @supports statement's inner rules *)
+(** Extract outputs from a [@supports] statement's inner rules *)
 let extract_supports_outputs ~class_name ~sel ?merge_key condition statements =
   statements
   |> List.filter_map (fun inner ->
@@ -2699,7 +2699,7 @@ let build_layer_declaration ~has_properties ~include_base =
   in
   Css.v [ Css.layer_decl names ]
 
-(** Sort @property rules using family-based first-usage order *)
+(** Sort [@property] rules using family-based first-usage order *)
 let sort_property_rules_by_usage first_usage_order property_rules_for_end =
   let family_order = build_family_order first_usage_order in
   let get_family_order name =
