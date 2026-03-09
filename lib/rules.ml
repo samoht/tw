@@ -331,6 +331,12 @@ let responsive_modifier_condition = function
         else Float.to_string px
       in
       (Css.Media.Not_min_width px, "max-[" ^ px_str ^ "px]")
+  | Style.Min_arbitrary_length l ->
+      let len_str = Modifiers.compact_length l in
+      (Css.media_min_width_length l, "min-[" ^ len_str ^ "]")
+  | Style.Max_arbitrary_length l ->
+      let len_str = Modifiers.compact_length l in
+      (Css.media_not_min_width_length l, "max-[" ^ len_str ^ "]")
   | Style.Custom_responsive name ->
       let px =
         match Scheme.breakpoint !current_scheme name with
@@ -432,6 +438,30 @@ let max_arbitrary_rule px base_class selector props =
   in
   media_query ~condition:(Css.Media.Not_min_width px) ~selector:new_selector
     ~props ~base_class:modified_class ()
+
+let min_arbitrary_length_rule l base_class selector props =
+  let len_str = Modifiers.compact_length l in
+  let prefix = "min-[" ^ len_str ^ "]" in
+  let modified_class = prefix ^ ":" ^ base_class in
+  let new_selector =
+    Rules_selector.replace_class_in_selector ~old_class:base_class
+      ~new_class:modified_class selector
+  in
+  media_query
+    ~condition:(Css.media_min_width_length l)
+    ~selector:new_selector ~props ~base_class:modified_class ()
+
+let max_arbitrary_length_rule l base_class selector props =
+  let len_str = Modifiers.compact_length l in
+  let prefix = "max-[" ^ len_str ^ "]" in
+  let modified_class = prefix ^ ":" ^ base_class in
+  let new_selector =
+    Rules_selector.replace_class_in_selector ~old_class:base_class
+      ~new_class:modified_class selector
+  in
+  media_query
+    ~condition:(Css.media_not_min_width_length l)
+    ~selector:new_selector ~props ~base_class:modified_class ()
 
 let custom_responsive_rule name base_class selector props =
   let px =
@@ -732,6 +762,10 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
       max_responsive_rule breakpoint base_class selector props
   | Style.Min_arbitrary px -> min_arbitrary_rule px base_class selector props
   | Style.Max_arbitrary px -> max_arbitrary_rule px base_class selector props
+  | Style.Min_arbitrary_length l ->
+      min_arbitrary_length_rule l base_class selector props
+  | Style.Max_arbitrary_length l ->
+      max_arbitrary_length_rule l base_class selector props
   | Style.Custom_responsive name ->
       custom_responsive_rule name base_class selector props
   | Style.Min_custom name -> min_custom_rule name base_class selector props
@@ -809,6 +843,7 @@ let apply_modifier_to_media_query modifier ~inner_condition ~selector ~props
       match modifier with
       | Style.Responsive _ | Style.Min_responsive _ | Style.Max_responsive _
       | Style.Min_arbitrary _ | Style.Max_arbitrary _
+      | Style.Min_arbitrary_length _ | Style.Max_arbitrary_length _
       | Style.Custom_responsive _ | Style.Min_custom _ | Style.Max_custom _ ->
           let outer_condition, _ = responsive_modifier_condition modifier in
           wrap_in_media outer_condition
@@ -2415,12 +2450,15 @@ let compare_orders order_a order_b =
   | None, Some _ -> 1
   | None, None -> 0
 
-(* Sort declarations by their Var order metadata *)
+(* Sort declarations by their Var order metadata, alphabetical fallback *)
 let sort_by_var_order decls =
   decls
-  |> List.map (fun d -> (d, Var.order_of_declaration d))
-  |> List.sort (fun (_, a) (_, b) -> compare_orders a b)
-  |> List.map fst
+  |> List.map (fun d ->
+      (d, Var.order_of_declaration d, Css.custom_declaration_name d))
+  |> List.sort (fun (_, a, na) (_, b, nb) ->
+      let c = compare_orders a b in
+      if c <> 0 then c else compare na nb)
+  |> List.map (fun (d, _, _) -> d)
 
 (* Build theme layer rule from declarations *)
 let theme_layer_rule ~layers = function

@@ -23,6 +23,8 @@ type modifier =
   | Max_responsive of breakpoint
   | Min_arbitrary of float
   | Max_arbitrary of float
+  | Min_arbitrary_length of Css.length
+  | Max_arbitrary_length of Css.length
   | Peer_hover
   | Peer_focus
   | Peer_checked
@@ -237,6 +239,10 @@ let rec pp_modifier = function
         else Float.to_string px
       in
       String.concat "" [ "max-["; px_str; "px]" ]
+  | Min_arbitrary_length l ->
+      "min-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) l ^ "]"
+  | Max_arbitrary_length l ->
+      "max-[" ^ Css.Pp.to_string (Css.pp_length ~always:true) l ^ "]"
   | Container Container_sm -> "@sm"
   | Container Container_md -> "@md"
   | Container Container_lg -> "@lg"
