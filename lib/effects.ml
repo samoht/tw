@@ -970,26 +970,42 @@ module Handler = struct
     style [ decl ]
 
   let ring_color color shade =
-    (* Use theme color variable reference like text color does: --tw-ring-color:
-       var(--color-blue-400) *)
-    let color_theme_var = Color.color_var color shade in
-    let color_value = Color.to_css color shade in
-    (* Bind the theme variable to get its declaration and reference *)
-    let color_decl, color_ref = Var.binding color_theme_var color_value in
-    (* Now set ring-color-var to reference the theme variable *)
+    let cvar =
+      Color.property_color_var ~property_prefix:"ring-color" color shade
+    in
+    let color_value =
+      Color.property_color_value ~property_prefix:"ring-color" color shade
+    in
+    let color_decl, color_ref = Var.binding cvar color_value in
     let d, _ = Var.binding ring_color_var (Css.Var color_ref) in
-    (* Include color_decl so the theme variable gets emitted to @layer theme *)
     style [ color_decl; d ]
 
   let ring_color_with_opacity color shade opacity =
-    (* For opacity modifiers, output hex color with alpha directly *)
+    let percent = Color.opacity_to_percent opacity in
     match Color.hex_alpha_color color shade opacity with
     | Some hex_alpha ->
-        let d, _ = Var.binding ring_color_var (Css.hex hex_alpha) in
-        style [ d ]
-    | None ->
-        (* Fallback to regular ring_color if color not in scheme *)
-        ring_color color shade
+        let fallback, _ = Var.binding ring_color_var (Css.hex hex_alpha) in
+        let cvar =
+          Color.property_color_var ~property_prefix:"ring-color" color shade
+        in
+        let color_value =
+          Color.property_color_value ~property_prefix:"ring-color" color shade
+        in
+        let theme_decl, color_ref = Var.binding cvar color_value in
+        let oklab_decl, _ =
+          Var.binding ring_color_var
+            (Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+               ~percent1:percent)
+        in
+        let supports_block =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [
+              Css.rule ~selector:(Css.Selector.class_ "_")
+                [ theme_decl; oklab_decl ];
+            ]
+        in
+        Style.style ~rules:(Some [ supports_block ]) [ fallback ]
+    | None -> ring_color color shade
 
   let ring_offset_width n =
     (* Sets --tw-ring-offset-width and --tw-ring-offset-shadow Format:
@@ -1198,9 +1214,13 @@ module Handler = struct
 
   (* Inset-ring utilities *)
   let inset_ring_color color shade =
-    let color_theme_var = Color.color_var color shade in
-    let color_value = Color.to_css color shade in
-    let color_decl, color_ref = Var.binding color_theme_var color_value in
+    let cvar =
+      Color.property_color_var ~property_prefix:"inset-ring-color" color shade
+    in
+    let color_value =
+      Color.property_color_value ~property_prefix:"inset-ring-color" color shade
+    in
+    let color_decl, color_ref = Var.binding cvar color_value in
     let d, _ = Var.binding inset_ring_color_var (Css.Var color_ref) in
     style [ color_decl; d ]
 
@@ -1211,8 +1231,14 @@ module Handler = struct
         let fallback, _ =
           Var.binding inset_ring_color_var (Css.hex hex_alpha)
         in
-        let cvar = Color.color_var color shade in
-        let color_value = Color.to_css color shade in
+        let cvar =
+          Color.property_color_var ~property_prefix:"inset-ring-color" color
+            shade
+        in
+        let color_value =
+          Color.property_color_value ~property_prefix:"inset-ring-color" color
+            shade
+        in
         let theme_decl, color_ref = Var.binding cvar color_value in
         let oklab_decl, _ =
           Var.binding inset_ring_color_var
@@ -2089,12 +2115,14 @@ module Handler = struct
     | Ring_sm -> 40003
     | Ring_lg -> 40004
     | Ring_xl -> 40005
+    | Ring_bracket_length _ -> 40010
     | Ring_color _ | Ring_color_opacity _ | Ring_transparent | Ring_current
     | Ring_current_opacity _ | Ring_inherit | Ring_bracket_hex _
     | Ring_bracket_hex_opacity _ | Ring_bracket_color_var _
     | Ring_bracket_color_var_opacity _ | Ring_bracket_var _
-    | Ring_bracket_var_opacity _ | Ring_bracket_length _ ->
+    | Ring_bracket_var_opacity _ ->
         50000
+    | Ring_inset -> 51000
     | Inset_ring_default -> 55000
     | Inset_ring_width n -> 55001 + n
     | Inset_ring_bracket_length _ -> 55100
@@ -2113,7 +2141,6 @@ module Handler = struct
     | Ring_offset_bracket_color_var _ | Ring_offset_bracket_color_var_opacity _
     | Ring_offset_bracket_var _ | Ring_offset_bracket_var_opacity _ ->
         100000
-    | Ring_inset -> 150000
 end
 
 open Handler
