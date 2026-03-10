@@ -2989,20 +2989,47 @@ let compare_indexed_rules r1 r2 =
          stay grouped and groups are in the correct cross-utility order. Index
          is the final tiebreaker (keeps Regular before its own Supports). *)
       | `Supports _, `Supports _ ->
-          (* Compare by order first for cross-utility consistency (ensures color
-             @supports with suborder 10000 comes before gradient @supports with
-             suborder 100000). This must match the Regular vs Supports
-             comparison to maintain transitivity. Within same order, sort by
-             selector then index. *)
-          let order_cmp = compare r1.order r2.order in
-          if order_cmp <> 0 then order_cmp
-          else
-            let sel_cmp =
-              natural_compare
-                (Css.Selector.to_string r1.selector)
-                (Css.Selector.to_string r2.selector)
+          (* Two kinds of supports rules: 1. Modifier supports
+             (supports-gap:grid, supports-[...]:flex) have base_class starting
+             with "supports-" — sort by class name with non-bracket before
+             bracket. 2. Utility supports (color-mix, etc.) — sort by order to
+             stay near their base utility rule. *)
+          let is_modifier_supports bc =
+            match bc with
+            | Some s -> String.length s > 9 && String.sub s 0 9 = "supports-"
+            | None -> false
+          in
+          let m1 = is_modifier_supports r1.base_class in
+          let m2 = is_modifier_supports r2.base_class in
+          if m1 && m2 then
+            (* Both are modifier supports: sort by class name *)
+            let supports_sort_key bc =
+              match bc with
+              | Some s when String.length s > 9 ->
+                  let after = String.sub s 9 (String.length s - 9) in
+                  if String.length after > 0 && after.[0] = '[' then (1, after)
+                  else (0, after)
+              | Some s -> (0, s)
+              | None -> (0, "")
             in
-            if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
+            let g1, k1 = supports_sort_key r1.base_class in
+            let g2, k2 = supports_sort_key r2.base_class in
+            let grp_cmp = Int.compare g1 g2 in
+            if grp_cmp <> 0 then grp_cmp
+            else
+              let key_cmp = natural_compare k1 k2 in
+              if key_cmp <> 0 then key_cmp else Int.compare r1.index r2.index
+          else
+            (* Utility supports or mixed: sort by order then selector *)
+            let order_cmp = compare r1.order r2.order in
+            if order_cmp <> 0 then order_cmp
+            else
+              let sel_cmp =
+                natural_compare
+                  (Css.Selector.to_string r1.selector)
+                  (Css.Selector.to_string r2.selector)
+              in
+              if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
       | `Regular, `Supports _ | `Supports _, `Regular ->
           let order_cmp = compare r1.order r2.order in
           if order_cmp <> 0 then order_cmp
