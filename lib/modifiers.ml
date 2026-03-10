@@ -1113,7 +1113,9 @@ let try_bracketed_modifier s =
           extract_bracket_content_with_name ~prefix:"peer-data-[" s
         in
         Some (Peer_data (expr, name)));
-      (fun () -> try_pattern "data-[" (fun expr -> Data_bracket expr));
+      (fun () ->
+        let* expr = extract_bracket_content ~prefix:"data-[" s in
+        if expr = "" then None else Some (Data_bracket expr));
       (fun () ->
         let* sel, name =
           extract_bracket_content_with_name ~prefix:"group-has-[" s
