@@ -351,6 +351,18 @@ module Typography_early = struct
     | Leading_loose
     | Leading of int
     | Leading_var of string (* leading-[var(--value)] *)
+    | (* Font-size with explicit line-height modifier (text-sm/6) *)
+      Text_named_lh of string * lh_modifier
+    | (* Arbitrary font-size (text-[12px]) *)
+      Text_bracket_fs of string
+    | (* Arbitrary font-size with line-height (text-[12px]/6) *)
+      Text_bracket_fs_lh of string * lh_modifier
+
+  and lh_modifier =
+    | Lh_int of int (* /6 → calc(var(--spacing) * 6) *)
+    | Lh_none (* /none → line-height: 1 *)
+    | Lh_named of string (* /snug → var(--leading-snug) *)
+    | Lh_bracket of string (* /[4px] → 4px *)
 
   type Utility.base += Self of t
 
@@ -358,6 +370,65 @@ module Typography_early = struct
   let priority = 22
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not an early typography utility")
+
+  let named_sizes =
+    [
+      "xs";
+      "sm";
+      "base";
+      "lg";
+      "xl";
+      "2xl";
+      "3xl";
+      "4xl";
+      "5xl";
+      "6xl";
+      "7xl";
+      "8xl";
+      "9xl";
+    ]
+
+  let is_named_size s = List.mem s named_sizes
+
+  (** Check if bracket content looks like a color (should go to color handler).
+  *)
+  let is_color_bracket inner =
+    (* Hex color *)
+    (String.length inner > 0 && inner.[0] = '#')
+    (* color: typed prefix *)
+    || (String.length inner >= 6 && String.sub inner 0 6 = "color:")
+    (* bare var() without type prefix defaults to color *)
+    || Parse.is_var inner
+
+  (** Split on first '/' outside brackets/parens. *)
+  let split_on_slash s =
+    let len = String.length s in
+    let rec find i depth =
+      if i >= len then Stdlib.Option.None
+      else
+        match s.[i] with
+        | '[' | '(' -> find (i + 1) (depth + 1)
+        | ']' | ')' -> find (i + 1) (depth - 1)
+        | '/' when depth = 0 ->
+            Stdlib.Option.Some
+              (String.sub s 0 i, String.sub s (i + 1) (len - i - 1))
+        | _ -> find (i + 1) depth
+    in
+    find 0 0
+
+  let known_leading_names =
+    [ "none"; "tight"; "snug"; "normal"; "relaxed"; "loose" ]
+
+  let parse_lh_modifier s =
+    if s = "none" then Stdlib.Option.Some Lh_none
+    else if Parse.is_bracket_value s then
+      Stdlib.Option.Some (Lh_bracket (Parse.bracket_inner s))
+    else
+      match int_of_string_opt s with
+      | Stdlib.Option.Some n when n > 0 -> Stdlib.Option.Some (Lh_int n)
+      | _ ->
+          if List.mem s known_leading_names then Stdlib.Option.Some (Lh_named s)
+          else Stdlib.Option.None
 
   let of_class class_name =
     let parts = Parse.split_class class_name in
@@ -449,7 +520,32 @@ module Typography_early = struct
     | [ "leading"; n ] ->
         Parse.int_bounded ~name:"leading" ~min:3 ~max:10 n >|= fun i ->
         Leading i
+    | [ "text"; part ] -> (
+        match split_on_slash part with
+        | Stdlib.Option.Some (base, lh_str) -> (
+            match parse_lh_modifier lh_str with
+            | Stdlib.Option.Some lh_mod ->
+                if Parse.is_bracket_value base then
+                  let inner = Parse.bracket_inner base in
+                  if is_color_bracket inner then err_not_utility
+                  else Ok (Text_bracket_fs_lh (inner, lh_mod))
+                else if is_named_size base then
+                  Ok (Text_named_lh (base, lh_mod))
+                else err_not_utility
+            | Stdlib.Option.None -> err_not_utility)
+        | Stdlib.Option.None ->
+            if Parse.is_bracket_value part then
+              let inner = Parse.bracket_inner part in
+              if is_color_bracket inner then err_not_utility
+              else Ok (Text_bracket_fs inner)
+            else err_not_utility)
     | _ -> err_not_utility
+
+  let lh_to_string = function
+    | Lh_int n -> string_of_int n
+    | Lh_none -> "none"
+    | Lh_named name -> name
+    | Lh_bracket v -> "[" ^ v ^ "]"
 
   let to_class = function
     | Text_xs -> "text-xs"
@@ -501,6 +597,9 @@ module Typography_early = struct
     | Leading_loose -> "leading-loose"
     | Leading n -> "leading-" ^ string_of_int n
     | Leading_var v -> "leading-[" ^ v ^ "]"
+    | Text_named_lh (name, lh) -> "text-" ^ name ^ "/" ^ lh_to_string lh
+    | Text_bracket_fs raw -> "text-[" ^ raw ^ "]"
+    | Text_bracket_fs_lh (raw, lh) -> "text-[" ^ raw ^ "]/" ^ lh_to_string lh
 
   (** {1 Ordering Support} *)
 
@@ -521,6 +620,8 @@ module Typography_early = struct
     | Font_sans -> 1501
     | Font_serif -> 1502
     | Font_mono -> 1503
+    (* Bracket font-size with line-height modifier — before named sizes *)
+    | Text_bracket_fs_lh _ -> 2000
     (* Font sizes come second - alphabetical order *)
     | Text_2xl -> 2001
     | Text_3xl -> 2002
@@ -535,6 +636,25 @@ module Typography_early = struct
     | Text_sm -> 2011
     | Text_xl -> 2012
     | Text_xs -> 2013
+    (* Named size with line-height modifier — same suborder as base size *)
+    | Text_named_lh (name, _) -> (
+        match name with
+        | "2xl" -> 2001
+        | "3xl" -> 2002
+        | "4xl" -> 2003
+        | "5xl" -> 2004
+        | "6xl" -> 2005
+        | "7xl" -> 2006
+        | "8xl" -> 2007
+        | "9xl" -> 2008
+        | "base" -> 2009
+        | "lg" -> 2010
+        | "sm" -> 2011
+        | "xl" -> 2012
+        | "xs" -> 2013
+        | _ -> 2000)
+    (* Bracket font-size without modifier — after named sizes *)
+    | Text_bracket_fs _ -> 2100
     (* Leading comes third — numeric first, then arbitrary, then named
        (alphabetical: loose, none, normal, relaxed, snug, tight) *)
     | Leading n -> 3000 + n
@@ -734,6 +854,237 @@ module Typography_early = struct
     in
     leading_with_theme_var theme_var lh_value
 
+  (* Lookup table for named text sizes: (name, size_var, default_rem) *)
+  let text_size_data =
+    [
+      ("xs", text_xs_var, 0.75);
+      ("sm", text_sm_var, 0.875);
+      ("base", text_base_var, 1.0);
+      ("lg", text_lg_var, 1.125);
+      ("xl", text_xl_var, 1.25);
+      ("2xl", text_2xl_var, 1.5);
+      ("3xl", text_3xl_var, 1.875);
+      ("4xl", text_4xl_var, 2.25);
+      ("5xl", text_5xl_var, 3.0);
+      ("6xl", text_6xl_var, 3.75);
+      ("7xl", text_7xl_var, 4.5);
+      ("8xl", text_8xl_var, 6.0);
+      ("9xl", text_9xl_var, 8.0);
+    ]
+
+  (** Convert a line-height modifier to (extra_declarations, line_height_value).
+  *)
+  let lh_modifier_to_css = function
+    | Lh_int n ->
+        let spacing_decl, _spacing_ref =
+          Var.binding Theme.spacing_var (Css.Rem 0.25)
+        in
+        let lh_spacing_ref : Css.line_height Css.var = Css.var_ref "spacing" in
+        let lh : Css.line_height =
+          Calc (Css.Calc.mul (Var lh_spacing_ref) (Num (float_of_int n)))
+        in
+        ([ spacing_decl ], lh)
+    | Lh_none -> ([], Num 1.0)
+    | Lh_named name -> (
+        let leading_data =
+          [
+            ("none", leading_none_var, (Num 1.0 : Css.line_height));
+            ("tight", leading_tight_var, Num 1.25);
+            ("snug", leading_snug_var, Num 1.375);
+            ("normal", leading_normal_var, Num 1.5);
+            ("relaxed", leading_relaxed_var, Num 1.625);
+            ("loose", leading_loose_var, Num 2.0);
+          ]
+        in
+        let assoc = List.map (fun (n, v, d) -> (n, (v, d))) leading_data in
+        match List.assoc_opt name assoc with
+        | Stdlib.Option.Some (theme_var, default_val) ->
+            let decl, ref_ = Var.binding theme_var default_val in
+            ([ decl ], Var ref_)
+        | Stdlib.Option.None ->
+            let ref_ : Css.line_height Css.var =
+              Css.var_ref ("leading-" ^ name)
+            in
+            ([], Var ref_))
+    | Lh_bracket value ->
+        (* Parse bracket value as line-height *)
+        let lh =
+          if String.ends_with ~suffix:"px" value then
+            let n = String.sub value 0 (String.length value - 2) in
+            match float_of_string_opt n with
+            | Stdlib.Option.Some f -> (Css.Px f : Css.line_height)
+            | Stdlib.Option.None -> Css.Num 0.
+          else if String.ends_with ~suffix:"rem" value then
+            let n = String.sub value 0 (String.length value - 3) in
+            match float_of_string_opt n with
+            | Stdlib.Option.Some f -> Css.Rem f
+            | Stdlib.Option.None -> Css.Num 0.
+          else
+            match float_of_string_opt value with
+            | Stdlib.Option.Some f -> Css.Num f
+            | Stdlib.Option.None -> Css.Num 0.
+        in
+        ([], lh)
+
+  (** Generate font-size + line-height style for a named text size with
+      modifier. *)
+  let text_named_with_lh name lh_mod =
+    match
+      List.assoc_opt name
+        (List.map (fun (n, v, d) -> (n, (v, d))) text_size_data)
+    with
+    | Stdlib.Option.Some (size_var, default_rem) ->
+        let size_decl, size_ref = Var.binding size_var (Rem default_rem) in
+        let lh_extra, lh_value = lh_modifier_to_css lh_mod in
+        ( (size_decl :: lh_extra) @ [ font_size (Css.Var size_ref) ],
+          [ line_height lh_value ] )
+    | Stdlib.Option.None ->
+        (* Fallback — should not happen for valid named sizes *)
+        ([], [])
+
+  (** Font-size keyword lookup. *)
+  let font_size_keyword = function
+    | "larger" -> Stdlib.Option.Some Css.Larger
+    | "smaller" -> Stdlib.Option.Some Css.Smaller
+    | "xx-large" -> Stdlib.Option.Some Css.Xx_large
+    | "x-large" -> Stdlib.Option.Some Css.X_large
+    | "large" -> Stdlib.Option.Some Css.Large
+    | "medium" -> Stdlib.Option.Some Css.Medium
+    | "small" -> Stdlib.Option.Some Css.Small
+    | "x-small" -> Stdlib.Option.Some Css.X_small
+    | "xx-small" -> Stdlib.Option.Some Css.Xx_small
+    | "xxx-large" -> Stdlib.Option.Some Css.Xxx_large
+    | _ -> Stdlib.Option.None
+
+  (** Try to parse a string as a CSS length value. *)
+  let try_parse_length_value s =
+    let unit_table : (string * int * (float -> Css.length)) list =
+      [
+        ("rem", 3, fun f -> Css.Rem f);
+        ("px", 2, fun f -> Css.Px f);
+        ("em", 2, fun f -> Css.Em f);
+        ("%", 1, fun f -> Css.Pct f);
+      ]
+    in
+    let rec try_units = function
+      | [] -> Stdlib.Option.None
+      | (suffix, suffix_len, mk) :: rest ->
+          if String.ends_with ~suffix s then
+            let n = String.sub s 0 (String.length s - suffix_len) in
+            match float_of_string_opt n with
+            | Stdlib.Option.Some f -> Stdlib.Option.Some (mk f)
+            | Stdlib.Option.None -> try_units rest
+          else try_units rest
+    in
+    try_units unit_table
+
+  (** Split a type prefix like "absolute-size:var(--my-size)" into (prefix,
+      value). Finds first ':' outside parens/brackets. *)
+  let split_type_prefix inner =
+    let len = String.length inner in
+    let rec find i depth =
+      if i >= len then Stdlib.Option.None
+      else
+        match inner.[i] with
+        | '(' | '[' -> find (i + 1) (depth + 1)
+        | ')' | ']' -> find (i + 1) (depth - 1)
+        | ':' when depth = 0 ->
+            Stdlib.Option.Some
+              (String.sub inner 0 i, String.sub inner (i + 1) (len - i - 1))
+        | _ -> find (i + 1) depth
+    in
+    find 0 0
+
+  (** Try to simplify clamp(min, val, max) when all values are static and same
+      unit. Returns [Some simplified_value] or [None]. *)
+  let simplify_clamp args_str =
+    (* Split on commas outside parens *)
+    let parts =
+      let len = String.length args_str in
+      let buf = Buffer.create 16 in
+      let parts = ref [] in
+      let depth = ref 0 in
+      for i = 0 to len - 1 do
+        match args_str.[i] with
+        | '(' ->
+            incr depth;
+            Buffer.add_char buf '('
+        | ')' ->
+            decr depth;
+            Buffer.add_char buf ')'
+        | ',' when !depth = 0 ->
+            parts := String.trim (Buffer.contents buf) :: !parts;
+            Buffer.clear buf
+        | c -> Buffer.add_char buf c
+      done;
+      parts := String.trim (Buffer.contents buf) :: !parts;
+      List.rev !parts
+    in
+    match parts with
+    | [ min_s; val_s; max_s ] -> (
+        match
+          ( try_parse_length_value min_s,
+            try_parse_length_value val_s,
+            try_parse_length_value max_s )
+        with
+        | ( Stdlib.Option.Some (Css.Rem min_v),
+            Stdlib.Option.Some (Css.Rem val_v),
+            Stdlib.Option.Some (Css.Rem max_v) ) ->
+            let clamped = Float.max min_v (Float.min val_v max_v) in
+            Stdlib.Option.Some (Css.Rem clamped : Css.length)
+        | ( Stdlib.Option.Some (Css.Px min_v),
+            Stdlib.Option.Some (Css.Px val_v),
+            Stdlib.Option.Some (Css.Px max_v) ) ->
+            let clamped = Float.max min_v (Float.min val_v max_v) in
+            Stdlib.Option.Some (Css.Px clamped : Css.length)
+        | ( Stdlib.Option.Some (Css.Em min_v),
+            Stdlib.Option.Some (Css.Em val_v),
+            Stdlib.Option.Some (Css.Em max_v) ) ->
+            let clamped = Float.max min_v (Float.min val_v max_v) in
+            Stdlib.Option.Some (Css.Em clamped : Css.length)
+        | _ -> Stdlib.Option.None)
+    | _ -> Stdlib.Option.None
+
+  (** Parse bracket content as font-size declarations (without line-height). *)
+  let bracket_font_size_decls inner =
+    (* Check for type prefix *)
+    match split_type_prefix inner with
+    | Stdlib.Option.Some (prefix, value)
+      when prefix = "absolute-size" || prefix = "relative-size"
+           || prefix = "length" || prefix = "percentage" ->
+        (* Typed arbitrary — strip prefix, use the value *)
+        if Parse.is_var value then
+          let bare = Parse.extract_var_name value in
+          [ font_size (Css.Var (Css.var_ref bare)) ]
+        else [ font_size (Css.Var (Css.var_ref value)) ]
+    | _ -> (
+        (* Check for keyword *)
+        match font_size_keyword inner with
+        | Stdlib.Option.Some kw -> [ Css.font_size_kw kw ]
+        | Stdlib.Option.None -> (
+            (* Try as length *)
+            match try_parse_length_value inner with
+            | Stdlib.Option.Some fs_len -> [ font_size fs_len ]
+            | Stdlib.Option.None ->
+                (* Try as clamp/calc function *)
+                if
+                  String.length inner > 6
+                  && String.sub inner 0 6 = "clamp("
+                  && inner.[String.length inner - 1] = ')'
+                then
+                  let args = String.sub inner 6 (String.length inner - 7) in
+                  (* Try to simplify static clamp *)
+                  match simplify_clamp args with
+                  | Stdlib.Option.Some simplified -> [ font_size simplified ]
+                  | Stdlib.Option.None -> [ font_size (Css.Clamp args) ]
+                else if Parse.is_var inner then
+                  let bare = Parse.extract_var_name inner in
+                  [ font_size (Css.Var (Css.var_ref bare)) ]
+                else [ font_size (Css.Var (Css.var_ref inner)) ]))
+
+  (** Generate font-size-only style for bracket value. *)
+  let bracket_font_size_style raw = style (bracket_font_size_decls raw)
+
   let to_style = function
     | Text_xs -> text_xs
     | Text_sm -> text_sm
@@ -853,6 +1204,14 @@ module Typography_early = struct
           Var.property_rule leading_var |> Option.to_list |> Css.concat
         in
         style ~property_rules [ channel_decl; line_height (Css.Var var_ref) ]
+    | Text_named_lh (name, lh_mod) ->
+        let fs_decl, lh_decls = text_named_with_lh name lh_mod in
+        style (fs_decl @ lh_decls)
+    | Text_bracket_fs raw -> bracket_font_size_style raw
+    | Text_bracket_fs_lh (raw, lh_mod) ->
+        let fs_decls = bracket_font_size_decls raw in
+        let lh_extra, lh_value = lh_modifier_to_css lh_mod in
+        style (fs_decls @ lh_extra @ [ line_height lh_value ])
 end
 
 (** Late typography handler - comes after color utilities (priority 24) *)

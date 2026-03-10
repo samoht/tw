@@ -21,21 +21,23 @@ module Handler = struct
   let priority = 35
 
   (* Single source of truth: (handler, class_suffix, suborder) for
-     non-arbitrary *)
+     non-arbitrary. Composable utilities (inline-size, layout, paint, size,
+     style) come first alphabetically, then arbitrary, then simple ones
+     (content, none, strict) alphabetically. *)
   let contain_data =
     [
-      (None, "none", 0);
-      (Strict, "strict", 1);
-      (Content, "content", 2);
+      (Inline_size, "inline-size", 0);
+      (Layout, "layout", 1);
+      (Paint, "paint", 2);
       (Size, "size", 3);
-      (Inline_size, "inline-size", 4);
-      (Layout, "layout", 5);
-      (Paint, "paint", 6);
-      (Contain_style, "style", 7);
+      (Contain_style, "style", 4);
+      (Content, "content", 6);
+      (None, "none", 7);
+      (Strict, "strict", 8);
     ]
 
   let suborder = function
-    | Arbitrary _ -> 100
+    | Arbitrary _ -> 5
     | t -> (
         match
           List.assoc_opt t (List.map (fun (t, _, o) -> (t, o)) contain_data)
@@ -52,6 +54,36 @@ module Handler = struct
         | Some suffix -> "contain-" ^ suffix
         | None -> "contain-none")
 
+  (* Channel variables for composable contain — these generate @property rules
+     and initial-value declarations in the properties layer. property_order
+     groups them together; they use syntax: "*" with no initial-value. *)
+  let tw_contain_size_var =
+    Var.channel ~needs_property:true ~property_order:50 Css.String
+      "tw-contain-size"
+
+  let tw_contain_layout_var =
+    Var.channel ~needs_property:true ~property_order:50 Css.String
+      "tw-contain-layout"
+
+  let tw_contain_paint_var =
+    Var.channel ~needs_property:true ~property_order:50 Css.String
+      "tw-contain-paint"
+
+  let tw_contain_style_var =
+    Var.channel ~needs_property:true ~property_order:50 Css.String
+      "tw-contain-style"
+
+  let all_contain_vars =
+    [
+      tw_contain_size_var;
+      tw_contain_layout_var;
+      tw_contain_paint_var;
+      tw_contain_style_var;
+    ]
+
+  let contain_property_rules =
+    List.filter_map Var.property_rule all_contain_vars |> concat
+
   (* The composable contain value using all four variables with empty fallbacks.
      This allows combining multiple contain utilities - each sets its variable,
      and the contain property references all of them. *)
@@ -66,22 +98,20 @@ module Handler = struct
       ]
 
   (* Create a composable contain style that sets one variable *)
-  let composable_contain var_name set_value =
-    style
-      [
-        custom_property ~layer:"utilities" ("--" ^ var_name) set_value;
-        contain composable_contain_value;
-      ]
+  let composable_contain var set_value =
+    let decl, _ = Var.binding var set_value in
+    style ~property_rules:contain_property_rules
+      [ decl; contain composable_contain_value ]
 
   let to_style = function
     | None -> style [ contain Css.None ]
     | Strict -> style [ contain Css.Strict ]
     | Content -> style [ contain Css.Content ]
-    | Size -> composable_contain "tw-contain-size" "size"
-    | Inline_size -> composable_contain "tw-contain-size" "inline-size"
-    | Layout -> composable_contain "tw-contain-layout" "layout"
-    | Paint -> composable_contain "tw-contain-paint" "paint"
-    | Contain_style -> composable_contain "tw-contain-style" "style"
+    | Size -> composable_contain tw_contain_size_var "size"
+    | Inline_size -> composable_contain tw_contain_size_var "inline-size"
+    | Layout -> composable_contain tw_contain_layout_var "layout"
+    | Paint -> composable_contain tw_contain_paint_var "paint"
+    | Contain_style -> composable_contain tw_contain_style_var "style"
     | Arbitrary s -> (
         (* Parse the arbitrary value *)
         match String.lowercase_ascii s with
