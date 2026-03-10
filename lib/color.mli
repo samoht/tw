@@ -619,7 +619,7 @@ val bracket_color_to_custom : string -> color
     color for opacity handling. *)
 
 val round_n : int -> float -> float
-(** [round_n n f] rounds [f] to [n] significant figures. *)
+(** [round_n n f] rounds [f] to [n] decimal places. *)
 
 val scheme : unit -> Scheme.t
 (** [scheme ()] returns the current color scheme reference. *)

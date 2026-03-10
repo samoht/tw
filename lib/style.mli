@@ -206,6 +206,14 @@ type modifier =
       (** [group-aria-X/name] — group aria variant with optional name *)
   | Peer_aria of string * string option
       (** [peer-aria-X/name] — peer aria variant with optional name *)
+  | Not_named_group of modifier * string
+      (** [not-group-X/name] — negate named group variant *)
+  | Has_named_group of modifier * string
+      (** [has-group-X/name] — has named group variant *)
+  | In_named_group of modifier * string
+      (** [in-group-X/name] — descendant of named group variant *)
+  | Group_peer_named of modifier * string
+      (** [group-peer-X/name] — peer-X within named group *)
 
 type t =
   | Style of {
