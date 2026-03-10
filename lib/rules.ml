@@ -673,6 +673,143 @@ let route_data_modifier modifier base_class selector props =
       handle_data_modifier k v selector props base_class
   | _ -> regular ~selector ~props ~base_class ()
 
+(* Parse a data bracket expression into attribute name, match operator, and
+   optional flag. Handles $=, ^=, *=, ~=, |= operators and trailing i/s flags.
+   Underscores in the value part are converted to spaces. *)
+let parse_data_expr raw_expr =
+  (* Find the match operator in raw content (before underscore conversion) *)
+  let len = String.length raw_expr in
+  let in_quotes = ref false in
+  let rec find_op i =
+    if i >= len then None
+    else
+      match raw_expr.[i] with
+      | '"' | '\'' ->
+          in_quotes := not !in_quotes;
+          find_op (i + 1)
+      | ('$' | '^' | '*' | '~' | '|')
+        when (not !in_quotes) && i + 1 < len && raw_expr.[i + 1] = '=' ->
+          Some (i, 2, raw_expr.[i])
+      | '=' when not !in_quotes -> Some (i, 1, '=')
+      | _ -> find_op (i + 1)
+  in
+  match find_op 0 with
+  | None ->
+      (* No operator — bare attribute presence *)
+      let attr = String.map (fun c -> if c = '_' then ' ' else c) raw_expr in
+      let attr = String.trim attr in
+      ("data-" ^ attr, Css.Selector.Presence, None)
+  | Some (op_pos, op_len, op_char) ->
+      let raw_attr = String.sub raw_expr 0 op_pos in
+      let raw_value =
+        String.sub raw_expr (op_pos + op_len) (len - op_pos - op_len)
+      in
+      (* Convert underscores to spaces *)
+      let attr =
+        String.trim (String.map (fun c -> if c = '_' then ' ' else c) raw_attr)
+      in
+      let value_str =
+        String.trim (String.map (fun c -> if c = '_' then ' ' else c) raw_value)
+      in
+      (* Parse optional trailing flag (i or s) *)
+      let value_str, flag =
+        let vlen = String.length value_str in
+        if vlen >= 2 && value_str.[vlen - 1] = 'i' && value_str.[vlen - 2] = ' '
+        then
+          ( String.trim (String.sub value_str 0 (vlen - 2)),
+            Some Css.Selector.Case_insensitive )
+        else if
+          vlen >= 2 && value_str.[vlen - 1] = 's' && value_str.[vlen - 2] = ' '
+        then
+          ( String.trim (String.sub value_str 0 (vlen - 2)),
+            Some Css.Selector.Case_sensitive )
+        else (value_str, None)
+      in
+      (* Strip surrounding quotes *)
+      let value =
+        let vlen = String.length value_str in
+        if vlen >= 2 then
+          match (value_str.[0], value_str.[vlen - 1]) with
+          | '"', '"' | '\'', '\'' -> String.sub value_str 1 (vlen - 2)
+          | _ -> value_str
+        else value_str
+      in
+      let match_op =
+        match op_char with
+        | '$' -> Css.Selector.Suffix value
+        | '^' -> Css.Selector.Prefix value
+        | '*' -> Css.Selector.Substring value
+        | '~' -> Css.Selector.Whitespace_list value
+        | '|' -> Css.Selector.Hyphen_list value
+        | _ -> Css.Selector.Exact value
+      in
+      ("data-" ^ attr, match_op, flag)
+
+(* Known data shorthand names *)
+let _is_data_shorthand_name = function
+  | "disabled" | "active" | "inactive" -> true
+  | _ -> false
+
+(* Route data bracket variants to appropriate handler *)
+let route_data_bracket_modifier modifier base_class props =
+  let kind, raw_str, name_opt =
+    match modifier with
+    | Style.Data_bracket s -> (`Data, s, None)
+    | Style.Group_data (s, n) -> (`Group_data, s, n)
+    | Style.Peer_data (s, n) -> (`Peer_data, s, n)
+    | _ -> failwith "Invalid data bracket modifier"
+  in
+  let attr_name, attr_match, attr_flag = parse_data_expr raw_str in
+  let open Css.Selector in
+  let class_part = "[" ^ raw_str ^ "]" in
+  let not_order = 20 in
+  match kind with
+  | `Data ->
+      let class_name = "data-" ^ class_part ^ ":" ^ base_class in
+      let sel =
+        compound
+          [ class_ class_name; attribute ?flag:attr_flag attr_name attr_match ]
+      in
+      regular ~selector:sel ~props ~base_class:class_name ~not_order ()
+  | `Group_data ->
+      let name_suffix = match name_opt with Some n -> "/" ^ n | None -> "" in
+      let class_name =
+        "group-data-" ^ class_part ^ name_suffix ^ ":" ^ base_class
+      in
+      let group_class =
+        match name_opt with Some n -> "group/" ^ n | None -> "group"
+      in
+      let rel =
+        combine
+          (compound
+             [
+               where [ Class group_class ];
+               attribute ?flag:attr_flag attr_name attr_match;
+             ])
+          Descendant universal
+      in
+      let sel = compound [ Class class_name; is_ [ rel ] ] in
+      regular ~selector:sel ~props ~base_class:class_name ~not_order ()
+  | `Peer_data ->
+      let name_suffix = match name_opt with Some n -> "/" ^ n | None -> "" in
+      let class_name =
+        "peer-data-" ^ class_part ^ name_suffix ^ ":" ^ base_class
+      in
+      let peer_class =
+        match name_opt with Some n -> "peer/" ^ n | None -> "peer"
+      in
+      let rel =
+        combine
+          (compound
+             [
+               where [ Class peer_class ];
+               attribute ?flag:attr_flag attr_name attr_match;
+             ])
+          Subsequent_sibling universal
+      in
+      let sel = compound [ Class class_name; is_ [ rel ] ] in
+      regular ~selector:sel ~props ~base_class:class_name ~not_order ()
+
 (* Resolve has-shorthand names to CSS selector strings *)
 let resolve_has_shorthand = function
   | "checked" -> ":checked"
@@ -931,6 +1068,9 @@ let not_variant_order = function
   | Style.Group_aria _ -> 3385
   | Style.Peer_aria _ -> 3390
   | Style.Data_custom _ -> 3400
+  | Style.Data_bracket _ -> 3401
+  | Style.Group_data _ -> 3402
+  | Style.Peer_data _ -> 3403
   | Style.Data_state _ -> 3410
   | Style.Data_variant _ -> 3420
   | Style.Data_active -> 3430
@@ -1439,6 +1579,9 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
   (* Aria bracket and group/peer aria variants *)
   | Style.Aria_bracket _ | Style.Group_aria _ | Style.Peer_aria _ ->
       route_aria_modifier modifier base_class props
+  (* Data bracket and group/peer data variants *)
+  | Style.Data_bracket _ | Style.Group_data _ | Style.Peer_data _ ->
+      route_data_bracket_modifier modifier base_class props
   (* Starting style - selector includes starting: prefix *)
   | Style.Starting ->
       let modified_class = "starting:" ^ base_class in
@@ -1700,10 +1843,11 @@ let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
           ?merge_key ();
       ]
   in
-  (* Base rule first, then ordered entries preserving original interleaving.
-     This keeps the fallback → @supports cascade order for color utilities and
-     the pos → @supports → image order for gradient utilities. *)
-  base_rule @ ordered_entries
+  (* If the rule_list contains regular rules (forms plugin, gradient utilities),
+     they come first so custom selectors precede the base props rule. Otherwise,
+     base comes first to maintain fallback → @supports cascade order. *)
+  if !has_regular_rules then ordered_entries @ base_rule
+  else base_rule @ ordered_entries
 
 let outputs util =
   let rec extract_with_class class_name util_inner = function
@@ -2720,34 +2864,16 @@ let compare_indexed_rules r1 r2 =
              @supports with suborder 10000 comes before gradient @supports with
              suborder 100000). This must match the Regular vs Supports
              comparison to maintain transitivity. Within same order, sort by
-             unescaped selector then index. *)
+             selector then index. *)
           let order_cmp = compare r1.order r2.order in
           if order_cmp <> 0 then order_cmp
           else
-            let strip_escapes s =
-              let buf = Buffer.create (String.length s) in
-              let len = String.length s in
-              let rec loop i =
-                if i >= len then Buffer.contents buf
-                else if s.[i] = '\\' && i + 1 < len then (
-                  Buffer.add_char buf s.[i + 1];
-                  loop (i + 2))
-                else (
-                  Buffer.add_char buf s.[i];
-                  loop (i + 1))
-              in
-              loop 0
+            let sel_cmp =
+              natural_compare
+                (Css.Selector.to_string r1.selector)
+                (Css.Selector.to_string r2.selector)
             in
-            let s1 = strip_escapes (Css.Selector.to_string r1.selector) in
-            let s2 = strip_escapes (Css.Selector.to_string r2.selector) in
-            let has_bracket s = String.contains s '[' in
-            let k1 = if has_bracket s1 then 1 else 0 in
-            let k2 = if has_bracket s2 then 1 else 0 in
-            let kind_cmp = Int.compare k1 k2 in
-            if kind_cmp <> 0 then kind_cmp
-            else
-              let sel_cmp = natural_compare s1 s2 in
-              if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
+            if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
       | `Regular, `Supports _ | `Supports _, `Regular ->
           let order_cmp = compare r1.order r2.order in
           if order_cmp <> 0 then order_cmp

@@ -192,6 +192,13 @@ type modifier =
       (** [group-not-X/name] — inner modifier + optional group name *)
   | Peer_not of modifier * string option
       (** [peer-not-X/name] — inner modifier + optional peer name *)
+  | Data_bracket of string
+      (** [data-[expr]] — full CSS attribute expression, e.g. "foo$=bar_baz_i"
+      *)
+  | Group_data of string * string option
+      (** [group-data-[expr]/name] — group data variant with optional name *)
+  | Peer_data of string * string option
+      (** [peer-data-[expr]/name] — peer data variant with optional name *)
   | Aria_bracket of string
       (** [aria-[expr]] — arbitrary aria attribute, e.g. "modal", "valuenow=1"
       *)
@@ -449,6 +456,13 @@ let rec pp_modifier = function
       String.concat "" [ "peer-not-"; pp_modifier inner ]
   | Peer_not (inner, Some name) ->
       String.concat "" [ "peer-not-"; pp_modifier inner; "/"; name ]
+  | Data_bracket expr -> "data-[" ^ expr ^ "]"
+  | Group_data (expr, None) -> "group-data-[" ^ expr ^ "]"
+  | Group_data (expr, Some name) ->
+      String.concat "" [ "group-data-["; expr; "]/"; name ]
+  | Peer_data (expr, None) -> "peer-data-[" ^ expr ^ "]"
+  | Peer_data (expr, Some name) ->
+      String.concat "" [ "peer-data-["; expr; "]/"; name ]
   | Aria_bracket expr -> "aria-[" ^ expr ^ "]"
   | Group_aria (expr, None) -> "group-aria-" ^ expr
   | Group_aria (expr, Some name) ->
