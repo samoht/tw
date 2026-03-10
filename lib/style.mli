@@ -61,6 +61,8 @@ type modifier =
   | Only_of_type
   | Nth of string
   | Nth_last of string
+  | Nth_of_type of string
+  | Nth_last_of_type of string
   | Empty
   | Checked
   | Indeterminate
@@ -237,6 +239,13 @@ type margin = [ spacing | `Auto ]
 type scale = [ spacing | size | `Screen | `Min | `Max | `Fit ]
 type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
+
+val is_numeric : string -> bool
+(** [is_numeric s] returns true if [s] is a non-empty string of digits. *)
+
+val pp_nth : string -> string -> string
+(** [pp_nth prefix expr] formats an nth modifier, using numeric or bracket form.
+*)
 
 val pp_modifier : modifier -> string
 (** [pp_modifier m] converts a modifier to its string representation. *)

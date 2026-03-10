@@ -1077,6 +1077,8 @@ let not_variant_order = function
   | Style.Data_inactive -> 3440
   | Style.Nth _ -> 3500
   | Style.Nth_last _ -> 3550
+  | Style.Nth_of_type _ -> 3600
+  | Style.Nth_last_of_type _ -> 3650
   (* @supports *)
   | Style.Supports _ -> 4000
   (* Media: accessibility preferences *)
@@ -1124,7 +1126,10 @@ let not_class_prefix inner_modifier =
     when String.length pseudo_str > 0 && pseudo_str.[0] = ':' ->
       "has-" ^ String.sub pseudo_str 1 (String.length pseudo_str - 1)
   | Style.Has shorthand_name -> "has-" ^ shorthand_name
-  | Style.Nth expr -> "nth-" ^ expr
+  | Style.Nth expr -> Style.pp_nth "nth" expr
+  | Style.Nth_last expr -> Style.pp_nth "nth-last" expr
+  | Style.Nth_of_type expr -> Style.pp_nth "nth-of-type" expr
+  | Style.Nth_last_of_type expr -> Style.pp_nth "nth-last-of-type" expr
   | Style.Supports cond when String.ends_with ~suffix:": var(--tw)" cond ->
       let prop_len = String.length cond - 11 in
       "supports-" ^ String.sub cond 0 prop_len
