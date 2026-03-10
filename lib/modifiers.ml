@@ -955,6 +955,11 @@ let rec pp_modifier = function
   | Peer_not (inner, Some name) -> "peer-not-" ^ pp_modifier inner ^ "/" ^ name
   | In_bracket content -> "in-[" ^ content ^ "]"
   | In_data attr -> "in-data-" ^ attr
+  | Data_bracket expr -> "data-[" ^ expr ^ "]"
+  | Group_data (expr, None) -> "group-data-[" ^ expr ^ "]"
+  | Group_data (expr, Some name) -> "group-data-[" ^ expr ^ "]/" ^ name
+  | Peer_data (expr, None) -> "peer-data-[" ^ expr ^ "]"
+  | Peer_data (expr, Some name) -> "peer-data-[" ^ expr ^ "]/" ^ name
   | Aria_bracket expr -> "aria-[" ^ expr ^ "]"
   | Group_aria (expr, None) -> "group-aria-" ^ expr
   | Group_aria (expr, Some name) -> "group-aria-" ^ expr ^ "/" ^ name
@@ -1081,6 +1086,17 @@ let try_bracketed_modifier s =
         Some (Peer_aria (expr, name)));
       (fun () -> try_pattern "aria-[" (fun expr -> Aria_bracket expr));
       (fun () ->
+        let* expr, name =
+          extract_bracket_content_with_name ~prefix:"group-data-[" s
+        in
+        Some (Group_data (expr, name)));
+      (fun () ->
+        let* expr, name =
+          extract_bracket_content_with_name ~prefix:"peer-data-[" s
+        in
+        Some (Peer_data (expr, name)));
+      (fun () -> try_pattern "data-[" (fun expr -> Data_bracket expr));
+      (fun () ->
         let* sel, name =
           extract_bracket_content_with_name ~prefix:"group-has-[" s
         in
@@ -1130,16 +1146,7 @@ let try_bracketed_modifier s =
       then
         let prop = String.sub s 9 (String.length s - 9) in
         Some (Supports (prop ^ ": var(--tw)"))
-      else
-        let* content = extract_bracket_content ~prefix:"data-[" s in
-        let key, value =
-          match String.index_opt content '=' with
-          | Some i ->
-              ( String.sub content 0 i,
-                String.sub content (i + 1) (String.length content - i - 1) )
-          | None -> (content, "")
-        in
-        Some (Data_custom (key, value))
+      else None
 
 (* Simple modifiers - direct string to modifier mapping *)
 let simple_modifiers =

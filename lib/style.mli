@@ -192,6 +192,13 @@ type modifier =
       (** [group-not-X/name] — inner modifier + optional group name *)
   | Peer_not of modifier * string option
       (** [peer-not-X/name] — inner modifier + optional peer name *)
+  | Data_bracket of string
+      (** [data-[expr]] — full CSS attribute expression, e.g. "foo$=bar_baz_i"
+      *)
+  | Group_data of string * string option
+      (** [group-data-[expr]/name] — group data variant with optional name *)
+  | Peer_data of string * string option
+      (** [peer-data-[expr]/name] — peer data variant with optional name *)
   | Aria_bracket of string
       (** [aria-[expr]] — arbitrary aria attribute, e.g. "modal", "valuenow=1"
       *)
