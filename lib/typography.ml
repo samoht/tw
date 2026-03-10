@@ -2056,10 +2056,7 @@ module Typography_late = struct
     match Color.hex_to_rgb (String.sub inner 1 (String.length inner - 1)) with
     | Some rgb ->
         let ok_l, ok_a, ok_b = Color.rgb_to_oklab rgb in
-        let oklab_value =
-          Css.oklaba_none_zeros (Color.round_n 4 ok_l) (Color.round_n 3 ok_a)
-            (Color.round_n 3 ok_b) alpha
-        in
+        let oklab_value = Css.oklaba_none_zeros ok_l ok_a ok_b alpha in
         style ~merge_key:"decoration-" [ text_decoration_color oklab_value ]
     | None -> style [ text_decoration_color (Css.hex "#000") ]
 

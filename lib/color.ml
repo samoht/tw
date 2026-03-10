@@ -231,8 +231,9 @@ let hex_to_oklab_alpha hex alpha : Css.color =
   match hex_to_rgb hex with
   | Some rgb ->
       let l, a, b = rgb_to_oklab rgb in
-      (* Round to match Tailwind test data: L to 4 decimals, a/b to 3 *)
-      Css.oklaba (round_n 4 l) (round_n 3 a) (round_n 3 b) alpha
+      (* Raw floats — precision is controlled at CSS emission time in
+         pp_oklab *)
+      Css.oklaba l a b alpha
   | None -> Css.hex hex
 
 module Tailwind = struct
@@ -1823,10 +1824,7 @@ module Handler = struct
         | _ -> (0.0, 0.0, 0.0)
       in
       let alpha = percent /. 100.0 in
-      let oklab_value =
-        Css.oklaba_none_zeros (round_n 4 ok_l) (round_n 3 ok_a) (round_n 3 ok_b)
-          alpha
-      in
+      let oklab_value = Css.oklaba_none_zeros ok_l ok_a ok_b alpha in
       style ?merge_key [ property oklab_value ]
     else
       let scheme = !current_scheme in
@@ -2496,9 +2494,7 @@ let generic_color_with_opacity ~property c shade opacity =
   if is_custom_color c then
     let ok_l, ok_a, ok_b = custom_color_to_oklab c in
     let alpha = percent /. 100.0 in
-    let oklab_value =
-      Css.oklaba (round_n 4 ok_l) (round_n 3 ok_a) (round_n 3 ok_b) alpha
-    in
+    let oklab_value = Css.oklaba ok_l ok_a ok_b alpha in
     Style.style [ property oklab_value ]
   else
     let color_name = scheme_color_name c shade in
@@ -2601,9 +2597,7 @@ let divide_with_opacity_selector ~selector c shade opacity =
   if is_custom_color c then
     let ok_l, ok_a, ok_b = custom_color_to_oklab c in
     let alpha = percent /. 100.0 in
-    let oklab_value =
-      Css.oklaba (round_n 4 ok_l) (round_n 3 ok_a) (round_n 3 ok_b) alpha
-    in
+    let oklab_value = Css.oklaba ok_l ok_a ok_b alpha in
     let rule = Css.rule ~selector [ Css.border_color oklab_value ] in
     Style.style ~rules:(Some [ rule ]) []
   else
@@ -2664,10 +2658,7 @@ let bg_with_opacity c shade opacity =
   else if is_custom_color c then
     let ok_l, ok_a, ok_b = custom_color_to_oklab c in
     let alpha = percent /. 100.0 in
-    let oklab_value =
-      Css.oklaba_none_zeros (round_n 4 ok_l) (round_n 3 ok_a) (round_n 3 ok_b)
-        alpha
-    in
+    let oklab_value = Css.oklaba_none_zeros ok_l ok_a ok_b alpha in
     Style.style [ Css.background_color oklab_value ]
   else
     let color_name = scheme_color_name c shade in
