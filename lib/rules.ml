@@ -1807,11 +1807,13 @@ let apply_modifier_to_rule modifier = function
           handle_in_named_group inner name bc props
       | Style.Group_peer_named (inner, name) ->
           handle_group_peer_named inner name bc props
-      | _ ->
-          [
-            modifier_to_rule ~inner_has_hover:has_hover modifier bc selector
-              props;
-          ])
+      | _ -> (
+          try
+            [
+              modifier_to_rule ~inner_has_hover:has_hover modifier bc selector
+                props;
+            ]
+          with Invalid_argument _ -> []))
   | Media_query
       { condition = inner_condition; selector; props; base_class; nested; _ } ->
       apply_modifier_to_media_query modifier ~inner_condition ~selector ~props
