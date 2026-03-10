@@ -1016,6 +1016,36 @@ let parse_px_value s =
   in
   try Some (float_of_string s) with Failure _ -> None
 
+(* Preprocess a has-selector string: & → * and ensure combinator spacing. *)
+let preprocess_has_selector s =
+  let buf = Buffer.create (String.length s + 4) in
+  let len = String.length s in
+  for i = 0 to len - 1 do
+    match s.[i] with
+    | '&' -> Buffer.add_char buf '*'
+    | ('+' | '>' | '~') as c ->
+        if
+          Buffer.length buf > 0
+          &&
+          let b = Buffer.contents buf in
+          b.[String.length b - 1] <> ' '
+        then Buffer.add_char buf ' ';
+        Buffer.add_char buf c;
+        if i + 1 < len && s.[i + 1] <> ' ' then Buffer.add_char buf ' '
+    | c -> Buffer.add_char buf c
+  done;
+  Buffer.contents buf
+
+(* Validate that a has-selector string can be parsed as a CSS selector. Rejects
+   invalid selectors like "@media_print" at parse time. *)
+let is_valid_has_selector sel =
+  try
+    let processed = preprocess_has_selector sel in
+    let reader = Css.Reader.of_string processed in
+    ignore (Css.Selector.read_relative reader);
+    true
+  with _ -> false
+
 (* Try parsing a bracketed modifier, returning Some if matched *)
 let try_bracketed_modifier s =
   let ( let* ) = Option.bind in
@@ -1028,6 +1058,9 @@ let try_bracketed_modifier s =
     let* value = parse content in
     Some (make value)
   in
+  let try_has_pattern sel make =
+    if is_valid_has_selector sel then Some (make sel) else None
+  in
   (* Order matters - more specific prefixes first *)
   let patterns =
     [
@@ -1035,13 +1068,15 @@ let try_bracketed_modifier s =
         let* sel, name =
           extract_bracket_content_with_name ~prefix:"group-has-[" s
         in
-        Some (Group_has (sel, name)));
+        try_has_pattern sel (fun s -> Group_has (s, name)));
       (fun () ->
         let* sel, name =
           extract_bracket_content_with_name ~prefix:"peer-has-[" s
         in
-        Some (Peer_has (sel, name)));
-      (fun () -> try_pattern "has-[" (fun sel -> Has sel));
+        try_has_pattern sel (fun s -> Peer_has (s, name)));
+      (fun () ->
+        let* sel = extract_bracket_content ~prefix:"has-[" s in
+        try_has_pattern sel (fun s -> Has s));
       (fun () ->
         try_pattern_with "min-[" parse_px_value (fun px -> Min_arbitrary px));
       (fun () ->
