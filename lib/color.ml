@@ -1680,9 +1680,15 @@ module Handler = struct
       let css_color = to_css color shade in
       style [ Css.color css_color ]
     else
-      (* Use shared color variable to match tailwindcss output exactly. *)
-      let cv = color_var color shade in
-      let color_value = get_color_value color shade in
+      let color_name = scheme_color_name color shade in
+      let prop_name = "text-color-" ^ color_name in
+      let has_property_scoped = Var.theme_value prop_name <> None in
+      let cv, color_value =
+        if has_property_scoped then
+          ( property_color_var ~property_prefix:"text-color" color shade,
+            property_color_value ~property_prefix:"text-color" color shade )
+        else (color_var color shade, get_color_value color shade)
+      in
       let decl, color_ref = Var.binding cv color_value in
       style (decl :: [ Css.color (Var color_ref) ])
 
@@ -1896,7 +1902,15 @@ module Handler = struct
 
   (** Text color with opacity *)
   let text_with_opacity c shade opacity =
-    color_with_opacity_style ~property:Css.color c shade opacity
+    let property_prefix =
+      if not (is_custom_color c) then
+        let color_name = scheme_color_name c shade in
+        let prop_name = "text-color-" ^ color_name in
+        if Var.theme_value prop_name <> None then Some "text-color" else None
+      else None
+    in
+    color_with_opacity_style ~property:Css.color ?property_prefix c shade
+      opacity
 
   (** Border color with opacity *)
   let border_with_opacity c shade opacity =

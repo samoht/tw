@@ -375,6 +375,24 @@ let theme_config config expected =
   | Theme_reference | Theme_inline_reference ->
       (extract_var_names expected, Css.Pp.no_theme_defaults)
 
+(** Sort declarations inside [:root, :host \{ ... \}] blocks alphabetically.
+    This normalizes ordering differences between Tailwind's @theme insertion
+    order and our category-based sort order. *)
+let sort_root_declarations css =
+  let root_re = Re.Pcre.regexp {|(:root,\s*:host\s*\{)([\s\S]*?)(\})|} in
+  Re.replace root_re css ~f:(fun group ->
+      let prefix = Re.Group.get group 1 in
+      let body = Re.Group.get group 2 in
+      let suffix = Re.Group.get group 3 in
+      let lines =
+        String.split_on_char '\n' body
+        |> List.map String.trim
+        |> List.filter (fun s -> s <> "")
+      in
+      let sorted = List.sort String.compare lines in
+      let body_str = String.concat "\n  " ("" :: sorted) ^ "\n" in
+      prefix ^ body_str ^ suffix)
+
 (** Normalize a CSS string by parsing and re-emitting through our formatter.
     This eliminates whitespace/formatting differences from JS template literals
     so we can do a direct string comparison. *)
@@ -619,7 +637,8 @@ let run_test_case test () =
         |> Css.to_string ~minify:false ~theme ~theme_defaults
         |> String.trim
     in
-    let expected = normalize_css test.expected in
+    let expected = normalize_css test.expected |> sort_root_declarations in
+    let our_css = sort_root_declarations our_css in
     if our_css = "" && expected = "" then ()
     else if our_css <> expected then
       Alcotest.fail
