@@ -76,6 +76,7 @@ type indexed_rule = {
   base_class : string option;
   merge_key : string option;
   not_order : int;
+  variant_order : int;
 }
 
 (* Result of building individual layers *)
@@ -1115,6 +1116,129 @@ let not_variant_order = function
   | Style.Peer_not _ -> 12100
   (* Fallback *)
   | _ -> 5500
+
+(** Variant order for modifier prefixes. Maps a modifier prefix string (the part
+    before the last ":" in base_class) to a position number in the Tailwind v4
+    variant cascade. Used to sort variant rules across rule types. *)
+let variant_order_of_prefix prefix =
+  match prefix with
+  (* Pseudo-elements *)
+  | "group-hover" | "peer-hover" -> 500
+  | "first-letter" | "first-line" -> 1000
+  | "marker" -> 1100
+  | "selection" -> 1200
+  | "file" -> 1300
+  | "placeholder" | "backdrop" -> 1400
+  | "details-content" -> 1500
+  | "before" -> 1600
+  | "after" -> 1601
+  (* Block 1: structural pseudo-classes *)
+  | "first" -> 10100
+  | "last" -> 10200
+  | "only" -> 10300
+  | "odd" -> 10400
+  | "even" -> 10500
+  | "first-of-type" -> 10600
+  | "last-of-type" -> 10700
+  | "only-of-type" -> 10800
+  | "visited" -> 10900
+  | "target" -> 11000
+  | "open" -> 11100
+  | "default" -> 11200
+  | "checked" -> 11300
+  | "indeterminate" -> 11400
+  | "placeholder-shown" -> 11500
+  | "autofill" -> 11600
+  | "optional" -> 11700
+  | "required" -> 11800
+  | "valid" -> 11900
+  | "invalid" -> 12000
+  | "in-range" -> 12100
+  | "out-of-range" -> 12200
+  | "read-only" -> 12300
+  | "empty" -> 12400
+  | "focus-within" -> 12500
+  (* Hover — in @media(hover:hover) but between block 1 and block 2 *)
+  | "hover" -> 20000
+  (* Block 2: interactive pseudo-classes *)
+  | "focus" -> 30100
+  | "focus-visible" -> 30200
+  | "active" -> 30300
+  | "enabled" -> 30400
+  | "disabled" -> 30500
+  | "inert" -> 30550
+  | "data-custom" | "data-active" | "data-inactive" -> 30800
+  (* Hocus *)
+  | "hocus" | "device-hocus" -> 35000
+  | "portrait" -> 70000
+  | "landscape" -> 70100
+  (* Directionality *)
+  | "ltr" -> 80000
+  | "rtl" -> 80100
+  (* Appearance media *)
+  | "dark" -> 90000
+  | "print" -> 91000
+  | "forced-colors" -> 92000
+  | "noscript" -> 93000
+  | "inverted-colors" -> 93100
+  | _ ->
+      let starts_with s p =
+        String.length s >= String.length p
+        && String.sub s 0 (String.length p) = p
+      in
+      if starts_with prefix "has-" then 30600
+      else if starts_with prefix "aria-" then
+        (* Named aria: aria-busy=30700, aria-checked=30701, etc.
+           (alphabetical) *)
+        if String.length prefix > 5 && prefix.[5] <> '[' then 30700
+        else (* aria-[...] bracket *) 30790
+      else if starts_with prefix "data-" then
+        if String.length prefix > 5 && prefix.[5] = '[' then 30810 else 30800
+      else if starts_with prefix "supports-" || starts_with prefix "supports"
+      then 40000
+      else if prefix = "motion-safe" then 50000
+      else if prefix = "motion-reduce" then 50100
+      else if prefix = "contrast-more" then 50200
+      else if prefix = "contrast-less" then 50300
+      else if starts_with prefix "pointer-" then 50400
+      else if starts_with prefix "any-pointer-" then 50500
+      else if prefix = "sm" then 60000
+      else if prefix = "md" then 60100
+      else if prefix = "lg" then 60200
+      else if prefix = "xl" then 60300
+      else if prefix = "2xl" then 60400
+      else if starts_with prefix "min-" || starts_with prefix "max-" then 60500
+      else if String.length prefix > 0 && prefix.[0] = '[' then 100000
+      else if String.length prefix > 0 && prefix.[0] = '@' then 110000
+      else 0
+
+(** Compute variant_order from base_class and selector. Extracts the modifier
+    prefix from base_class (everything before the last ":") and maps it to a
+    variant order number. Special-cases before/after which have base_class=None.
+*)
+let compute_variant_order base_class selector =
+  match base_class with
+  | None ->
+      (* before/after pseudo-elements have no prefix in base_class *)
+      let sel_str = Css.Selector.to_string selector in
+      if String.contains sel_str ':' then
+        let has_sub s pat =
+          let slen = String.length s and plen = String.length pat in
+          let rec check i =
+            i + plen <= slen && (String.sub s i plen = pat || check (i + 1))
+          in
+          check 0
+        in
+        if has_sub sel_str "::before" then 1600
+        else if has_sub sel_str "::after" then 1601
+        else 0
+      else 0
+  | Some bc -> (
+      match String.rindex_opt bc ':' with
+      | None -> 0
+      | Some i ->
+          let prefix = String.sub bc 0 i in
+          variant_order_of_prefix prefix)
 
 (** Build the class name prefix for a not-* inner modifier. Handles shorthand
     forms like data-foo, has-checked, nth-2 that need different class names than
@@ -2736,20 +2860,35 @@ let natural_compare s1 s2 =
     in
     go i 0
   in
+  (* Skip CSS escape backslash before '#': compare \# as #. Tailwind v4 sorts by
+     unescaped class names, but Css.Selector.to_string returns escaped form. '#'
+     (0x23) sorts below digits but '\' (0x5C) sorts above them, so \[\#0088cc\]
+     wrongly sorts after \[10px...\]. Only unescape \# — other escapes like \/
+     need the backslash for correct opacity modifier ordering. *)
+  let skip_hash_escape s i len =
+    if i < len && s.[i] = '\\' && i + 1 < len && s.[i + 1] = '#' then i + 1
+    else i
+  in
   let rec compare_at i1 i2 =
     if i1 >= len1 && i2 >= len2 then 0
     else if i1 >= len1 then -1
     else if i2 >= len2 then 1
     else
-      let c1 = s1.[i1] and c2 = s2.[i2] in
-      if is_digit c1 && is_digit c2 then
-        let n1, end1 = extract_number s1 i1 in
-        let n2, end2 = extract_number s2 i2 in
-        let num_cmp = Int.compare n1 n2 in
-        if num_cmp <> 0 then num_cmp else compare_at end1 end2
+      let i1 = skip_hash_escape s1 i1 len1 in
+      let i2 = skip_hash_escape s2 i2 len2 in
+      if i1 >= len1 && i2 >= len2 then 0
+      else if i1 >= len1 then -1
+      else if i2 >= len2 then 1
       else
-        let char_cmp = Char.compare c1 c2 in
-        if char_cmp <> 0 then char_cmp else compare_at (i1 + 1) (i2 + 1)
+        let c1 = s1.[i1] and c2 = s2.[i2] in
+        if is_digit c1 && is_digit c2 then
+          let n1, end1 = extract_number s1 i1 in
+          let n2, end2 = extract_number s2 i2 in
+          let num_cmp = Int.compare n1 n2 in
+          if num_cmp <> 0 then num_cmp else compare_at end1 end2
+        else
+          let char_cmp = Char.compare c1 c2 in
+          if char_cmp <> 0 then char_cmp else compare_at (i1 + 1) (i2 + 1)
   in
   compare_at 0 0
 
@@ -2940,18 +3079,36 @@ let compare_indexed_rules r1 r2 =
             rule_type_str r2.rule_type;
             ")\n";
           ]));
-  (* For not-* variants, sort by order tuple to respect variant ordering. The
-     order tuple has not_variant_order baked into the suborder, so comparing
-     order tuples gives the correct variant-level ordering regardless of rule
-     types (Regular, Media, Supports). *)
-  if r1.not_order > 0 || r2.not_order > 0 then
+  (* Variant ordering: when any rule has variant_order > 0, sort by priority
+     then variant_order. This overrides rule_type ordering so that modifier
+     variants sort in Tailwind's cascade order across Regular/Media/Supports. *)
+  if r1.variant_order > 0 || r2.variant_order > 0 then
+    let p1, s1 = r1.order and p2, s2 = r2.order in
+    let prio_cmp = Int.compare p1 p2 in
+    if prio_cmp <> 0 then prio_cmp
+    else
+      let vo_cmp = Int.compare r1.variant_order r2.variant_order in
+      if vo_cmp <> 0 then vo_cmp
+      else
+        let sub_cmp = Int.compare s1 s2 in
+        if sub_cmp <> 0 then sub_cmp
+        else
+          (* Same variant_order + suborder: sort by base_class alphabetically
+             for stable ordering within merged selector blocks *)
+          let bc1 = match r1.base_class with Some s -> s | None -> "" in
+          let bc2 = match r2.base_class with Some s -> s | None -> "" in
+          let class_cmp = String.compare bc1 bc2 in
+          if class_cmp <> 0 then class_cmp else Int.compare r1.index r2.index
+  else if
+    (* For not-* variants, sort by order tuple to respect variant ordering. The
+       order tuple has not_variant_order baked into the suborder, so comparing
+       order tuples gives the correct variant-level ordering regardless of rule
+       types (Regular, Media, Supports). *)
+    r1.not_order > 0 || r2.not_order > 0
+  then
     let order_cmp = compare r1.order r2.order in
     if order_cmp <> 0 then order_cmp
     else
-      (* Same order: compare by base_class with Tailwind normalization: -
-         underscores -> spaces (bracket content convention) - brackets [] -> ~
-         (sort bracket patterns after non-bracket) - slashes -> ~ (sort named
-         groups after unnamed) *)
       let normalize_for_sort s =
         String.map
           (function
@@ -3299,6 +3456,7 @@ let add_index triples =
         base_class;
         merge_key;
         not_order;
+        variant_order = compute_variant_order base_class sel;
       })
     triples
 
