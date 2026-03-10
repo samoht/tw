@@ -1942,7 +1942,7 @@ let test_media_query_deduplication () =
   let count_768px =
     List.fold_left ( + ) 0
       (List.map
-         (count_toplevel_media (Tw.Css.Media.Min_width 768.))
+         (count_toplevel_media (Tw.Css.Media.Min_width_rem 48.))
          (Tw.Css.statements css))
   in
 
