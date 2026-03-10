@@ -955,6 +955,11 @@ let rec pp_modifier = function
   | Peer_not (inner, Some name) -> "peer-not-" ^ pp_modifier inner ^ "/" ^ name
   | In_bracket content -> "in-[" ^ content ^ "]"
   | In_data attr -> "in-data-" ^ attr
+  | Aria_bracket expr -> "aria-[" ^ expr ^ "]"
+  | Group_aria (expr, None) -> "group-aria-" ^ expr
+  | Group_aria (expr, Some name) -> "group-aria-" ^ expr ^ "/" ^ name
+  | Peer_aria (expr, None) -> "peer-aria-" ^ expr
+  | Peer_aria (expr, Some name) -> "peer-aria-" ^ expr ^ "/" ^ name
 
 (* Find matching closing bracket, handling nested brackets *)
 let matching_bracket s =
@@ -1064,6 +1069,17 @@ let try_bracketed_modifier s =
   (* Order matters - more specific prefixes first *)
   let patterns =
     [
+      (fun () ->
+        let* expr, name =
+          extract_bracket_content_with_name ~prefix:"group-aria-[" s
+        in
+        Some (Group_aria (expr, name)));
+      (fun () ->
+        let* expr, name =
+          extract_bracket_content_with_name ~prefix:"peer-aria-[" s
+        in
+        Some (Peer_aria (expr, name)));
+      (fun () -> try_pattern "aria-[" (fun expr -> Aria_bracket expr));
       (fun () ->
         let* sel, name =
           extract_bracket_content_with_name ~prefix:"group-has-[" s
@@ -1451,6 +1467,23 @@ let split_name rest =
 
 (* Try parsing has-shorthand modifiers like has-checked,
    group-has-checked/name *)
+(* Known aria shorthand names that map to [aria-X=true] *)
+let is_aria_shorthand = function
+  | "checked" | "expanded" | "selected" | "disabled" -> true
+  | _ -> false
+
+(* Try parsing group-aria-*/peer-aria-* shorthand with optional /name *)
+let try_aria_shorthand s =
+  if String.length s > 11 && String.sub s 0 11 = "group-aria-" then
+    let rest = String.sub s 11 (String.length s - 11) in
+    let base, name = split_name rest in
+    if is_aria_shorthand base then Some (Group_aria (base, name)) else None
+  else if String.length s > 10 && String.sub s 0 10 = "peer-aria-" then
+    let rest = String.sub s 10 (String.length s - 10) in
+    let base, name = split_name rest in
+    if is_aria_shorthand base then Some (Peer_aria (base, name)) else None
+  else None
+
 let try_has_shorthand s =
   if String.length s > 4 && String.sub s 0 4 = "has-" then
     let rest = String.sub s 4 (String.length s - 4) in
@@ -1473,77 +1506,85 @@ let parse_modifier s : modifier option =
       match try_bracketed_modifier s with
       | Some _ as r -> r
       | None -> (
-          (* has-shorthand: has-checked, group-has-checked/name, etc. *)
-          match try_has_shorthand s with
+          (* aria-shorthand: group-aria-checked/name, peer-aria-checked, etc. *)
+          match try_aria_shorthand s with
           | Some _ as r -> r
-          | None ->
-              (* in-* pattern: in-[selector] or in-data-attr *)
-              if String.length s > 3 && String.sub s 0 3 = "in-" then
-                let rest = String.sub s 3 (String.length s - 3) in
-                if rest <> "" && rest.[0] = '[' then
-                  let after = String.sub rest 1 (String.length rest - 1) in
-                  match matching_bracket after with
-                  | Some i when i = String.length after - 1 ->
-                      let content = String.sub after 0 i in
-                      Some (In_bracket content)
-                  | _ -> try_custom_breakpoint s
-                else if String.length rest > 5 && String.sub rest 0 5 = "data-"
-                then
-                  let attr = String.sub rest 5 (String.length rest - 5) in
-                  Some (In_data attr)
-                else try_custom_breakpoint s
-              else if
-                (* not-in-[...] pattern: only bracket form *)
-                String.length s > 8
-                && String.sub s 0 7 = "not-in-"
-                && s.[7] = '['
-              then
-                let rest = String.sub s 8 (String.length s - 8) in
-                match matching_bracket rest with
-                | Some i when i = String.length rest - 1 ->
-                    let content = String.sub rest 0 i in
-                    Some (Not (In_bracket content))
-                | _ -> try_custom_breakpoint s
-              else if
-                (* group-not-* pattern *)
-                String.length s > 10 && String.sub s 0 10 = "group-not-"
-              then
-                let rest = String.sub s 10 (String.length s - 10) in
-                match parse_group_peer_not_inner rest with
-                | Some (inner, name) -> Some (Group_not (inner, name))
-                | None -> try_custom_breakpoint s
-              else if String.length s > 9 && String.sub s 0 9 = "peer-not-" then
-                let rest = String.sub s 9 (String.length s - 9) in
-                match parse_group_peer_not_inner rest with
-                | Some (inner, name) -> Some (Peer_not (inner, name))
-                | None -> try_custom_breakpoint s
-              else if
-                (* not-* prefix: strip "not-" and wrap inner modifier *)
-                String.length s > 4 && String.sub s 0 4 = "not-"
-              then
-                let inner = String.sub s 4 (String.length s - 4) in
-                (* 1. Try simple modifier lookup *)
-                match List.assoc_opt inner simple_modifiers with
-                | Some m when is_not_compatible m -> Some (Not m)
-                | Some _ ->
-                    None (* Pseudo-elements, starting, etc. can't be negated *)
-                | None -> (
-                    (* 2. Try bracket pattern: not-[...] *)
-                    match try_not_bracket inner with
-                    | Some _ as r -> r
+          | None -> (
+              (* has-shorthand: has-checked, group-has-checked/name, etc. *)
+              match try_has_shorthand s with
+              | Some _ as r -> r
+              | None ->
+                  (* in-* pattern: in-[selector] or in-data-attr *)
+                  if String.length s > 3 && String.sub s 0 3 = "in-" then
+                    let rest = String.sub s 3 (String.length s - 3) in
+                    if rest <> "" && rest.[0] = '[' then
+                      let after = String.sub rest 1 (String.length rest - 1) in
+                      match matching_bracket after with
+                      | Some i when i = String.length after - 1 ->
+                          let content = String.sub after 0 i in
+                          Some (In_bracket content)
+                      | _ -> try_custom_breakpoint s
+                    else if
+                      String.length rest > 5 && String.sub rest 0 5 = "data-"
+                    then
+                      let attr = String.sub rest 5 (String.length rest - 5) in
+                      Some (In_data attr)
+                    else try_custom_breakpoint s
+                  else if
+                    (* not-in-[...] pattern: only bracket form *)
+                    String.length s > 8
+                    && String.sub s 0 7 = "not-in-"
+                    && s.[7] = '['
+                  then
+                    let rest = String.sub s 8 (String.length s - 8) in
+                    match matching_bracket rest with
+                    | Some i when i = String.length rest - 1 ->
+                        let content = String.sub rest 0 i in
+                        Some (Not (In_bracket content))
+                    | _ -> try_custom_breakpoint s
+                  else if
+                    (* group-not-* pattern *)
+                    String.length s > 10 && String.sub s 0 10 = "group-not-"
+                  then
+                    let rest = String.sub s 10 (String.length s - 10) in
+                    match parse_group_peer_not_inner rest with
+                    | Some (inner, name) -> Some (Group_not (inner, name))
+                    | None -> try_custom_breakpoint s
+                  else if String.length s > 9 && String.sub s 0 9 = "peer-not-"
+                  then
+                    let rest = String.sub s 9 (String.length s - 9) in
+                    match parse_group_peer_not_inner rest with
+                    | Some (inner, name) -> Some (Peer_not (inner, name))
+                    | None -> try_custom_breakpoint s
+                  else if
+                    (* not-* prefix: strip "not-" and wrap inner modifier *)
+                    String.length s > 4 && String.sub s 0 4 = "not-"
+                  then
+                    let inner = String.sub s 4 (String.length s - 4) in
+                    (* 1. Try simple modifier lookup *)
+                    match List.assoc_opt inner simple_modifiers with
+                    | Some m when is_not_compatible m -> Some (Not m)
+                    | Some _ ->
+                        None
+                        (* Pseudo-elements, starting, etc. can't be negated *)
                     | None -> (
-                        (* 3. Try bracketed modifier (min-[...], max-[...],
-                           etc.) *)
-                        match try_bracketed_modifier inner with
-                        | Some m -> Some (Not m)
+                        (* 2. Try bracket pattern: not-[...] *)
+                        match try_not_bracket inner with
+                        | Some _ as r -> r
                         | None -> (
-                            (* 4. Try shorthands (data, has, nth, supports) *)
-                            match try_not_shorthand inner with
-                            | Some _ as r -> r
-                            | None -> try_custom_breakpoint s)))
-              else
-                (* Try custom breakpoint as final fallback *)
-                try_custom_breakpoint s))
+                            (* 3. Try bracketed modifier (min-[...], max-[...],
+                               etc.) *)
+                            match try_bracketed_modifier inner with
+                            | Some m -> Some (Not m)
+                            | None -> (
+                                (* 4. Try shorthands (data, has, nth,
+                                   supports) *)
+                                match try_not_shorthand inner with
+                                | Some _ as r -> r
+                                | None -> try_custom_breakpoint s)))
+                  else
+                    (* Try custom breakpoint as final fallback *)
+                    try_custom_breakpoint s)))
 
 (* Apply a list of modifier strings to a base utility *)
 let apply modifiers base_utility =
