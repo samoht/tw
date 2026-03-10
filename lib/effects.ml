@@ -71,6 +71,7 @@ module Handler = struct
     | Inset_ring_bracket_color_var_opacity of string * Color.opacity_modifier
     | Inset_ring_bracket_var of string
     | Inset_ring_bracket_var_opacity of string * Color.opacity_modifier
+    | Inset_ring_default
     | Inset_ring_width of int
     | Inset_ring_bracket_length of string
     | Ring_transparent
@@ -915,6 +916,55 @@ module Handler = struct
       Tailwind's [@theme \{ --default-ring-width \}], default 1px). *)
   let ring_default () = ring_internal !current_scheme.default_ring_width
 
+  let inset_ring_internal width_px =
+    let spread : Css.length = Px (float_of_int width_px) in
+    let color : Css.color =
+      Var (Css.var_ref ~fallback:(Fallback Css.Current) "tw-inset-ring-color")
+    in
+    let shadow_value =
+      Css.shadow ~inset:true ~h_offset:Zero ~v_offset:Zero ~blur:Zero ~spread
+        ~color ()
+    in
+    let d, _ = Var.binding inset_ring_shadow_var shadow_value in
+    let v_inset = Var.reference inset_shadow_var in
+    let v_inset_ring = Var.reference inset_ring_shadow_var in
+    let v_ring_offset = Var.reference ring_offset_shadow_var in
+    let v_ring = Var.reference ring_shadow_var in
+    let v_shadow = Var.reference shadow_var in
+    let box_shadow_vars : Css.shadow list =
+      [
+        Css.Var v_inset;
+        Css.Var v_inset_ring;
+        Css.Var v_ring_offset;
+        Css.Var v_ring;
+        Css.Var v_shadow;
+      ]
+    in
+    let property_rules =
+      [
+        Var.property_rule shadow_var;
+        Var.property_rule shadow_color_var;
+        Var.property_rule shadow_alpha_var;
+        Var.property_rule inset_shadow_var;
+        Var.property_rule inset_shadow_color_var;
+        Var.property_rule inset_shadow_alpha_var;
+        Var.property_rule ring_color_var;
+        Var.property_rule ring_shadow_var;
+        Var.property_rule inset_ring_color_var;
+        Var.property_rule inset_ring_shadow_var;
+        Var.property_rule ring_inset_var;
+        Var.property_rule ring_offset_width_var;
+        Var.property_rule ring_offset_color_var;
+        Var.property_rule ring_offset_shadow_var;
+      ]
+      |> List.filter_map (fun x -> x)
+    in
+    style
+      ~property_rules:(Css.concat property_rules)
+      [ d; Css.box_shadows box_shadow_vars ]
+
+  let inset_ring_default () = inset_ring_internal 1
+
   let ring_inset =
     let decl, _var_ref = Var.binding ring_inset_var "inset" in
     style [ decl ]
@@ -1523,18 +1573,8 @@ module Handler = struct
     | Inset_ring_bracket_var v -> inset_ring_bracket_var v
     | Inset_ring_bracket_var_opacity (v, o) ->
         inset_ring_bracket_var_with_opacity v o
-    | Inset_ring_width n ->
-        let spread : Css.length = Px (float_of_int n) in
-        let color : Css.color =
-          Var
-            (Css.var_ref ~fallback:(Fallback Css.Current) "tw-inset-ring-color")
-        in
-        let shadow_value =
-          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:Zero ~blur:Zero
-            ~spread ~color ()
-        in
-        let d, _ = Var.binding inset_ring_shadow_var shadow_value in
-        style [ d ]
+    | Inset_ring_default -> inset_ring_default ()
+    | Inset_ring_width n -> inset_ring_internal n
     | Inset_ring_bracket_length inner ->
         let spread = parse_bracket_width inner in
         let color : Css.color =
@@ -1546,7 +1586,42 @@ module Handler = struct
             ~spread ~color ()
         in
         let d, _ = Var.binding inset_ring_shadow_var shadow_value in
-        style [ d ]
+        let v_inset = Var.reference inset_shadow_var in
+        let v_inset_ring = Var.reference inset_ring_shadow_var in
+        let v_ring_offset = Var.reference ring_offset_shadow_var in
+        let v_ring = Var.reference ring_shadow_var in
+        let v_shadow = Var.reference shadow_var in
+        let box_shadow_vars : Css.shadow list =
+          [
+            Css.Var v_inset;
+            Css.Var v_inset_ring;
+            Css.Var v_ring_offset;
+            Css.Var v_ring;
+            Css.Var v_shadow;
+          ]
+        in
+        let property_rules =
+          [
+            Var.property_rule shadow_var;
+            Var.property_rule shadow_color_var;
+            Var.property_rule shadow_alpha_var;
+            Var.property_rule inset_shadow_var;
+            Var.property_rule inset_shadow_color_var;
+            Var.property_rule inset_shadow_alpha_var;
+            Var.property_rule ring_color_var;
+            Var.property_rule ring_shadow_var;
+            Var.property_rule inset_ring_color_var;
+            Var.property_rule inset_ring_shadow_var;
+            Var.property_rule ring_inset_var;
+            Var.property_rule ring_offset_width_var;
+            Var.property_rule ring_offset_color_var;
+            Var.property_rule ring_offset_shadow_var;
+          ]
+          |> List.filter_map (fun x -> x)
+        in
+        style
+          ~property_rules:(Css.concat property_rules)
+          [ d; Css.box_shadows box_shadow_vars ]
     | Mix_blend_normal -> mix_blend_normal
     | Mix_blend_multiply -> mix_blend_multiply
     | Mix_blend_screen -> mix_blend_screen
@@ -1757,6 +1832,7 @@ module Handler = struct
             | Color.No_opacity -> Ok (Ring_offset_color (c, s))
             | _ -> Ok (Ring_offset_color_opacity (c, s, opacity)))
         | _ -> err_not_utility)
+    | [ "inset"; "ring" ] -> Ok Inset_ring_default
     | [ "inset"; "ring"; "transparent" ] -> Ok Inset_ring_transparent
     | [ "inset"; "ring"; "inherit" ] -> Ok Inset_ring_inherit
     | [ "inset"; "ring"; current_str ]
@@ -1906,6 +1982,7 @@ module Handler = struct
     | Inset_ring_bracket_var v -> "inset-ring-[" ^ v ^ "]"
     | Inset_ring_bracket_var_opacity (v, o) ->
         "inset-ring-[" ^ v ^ "]/" ^ Color.pp_opacity o
+    | Inset_ring_default -> "inset-ring"
     | Inset_ring_width n -> "inset-ring-" ^ string_of_int n
     | Inset_ring_bracket_length l -> "inset-ring-[" ^ l ^ "]"
     | Mix_blend_normal -> "mix-blend-normal"
@@ -2018,14 +2095,15 @@ module Handler = struct
     | Ring_bracket_color_var_opacity _ | Ring_bracket_var _
     | Ring_bracket_var_opacity _ | Ring_bracket_length _ ->
         50000
+    | Inset_ring_default -> 55000
+    | Inset_ring_width n -> 55001 + n
+    | Inset_ring_bracket_length _ -> 55100
     | Inset_ring_color _ | Inset_ring_color_opacity _ | Inset_ring_transparent
     | Inset_ring_current | Inset_ring_current_opacity _ | Inset_ring_inherit
     | Inset_ring_bracket_hex _ | Inset_ring_bracket_hex_opacity _
     | Inset_ring_bracket_color_var _ | Inset_ring_bracket_color_var_opacity _
     | Inset_ring_bracket_var _ | Inset_ring_bracket_var_opacity _ ->
         60000
-    | Inset_ring_width n -> 70000 + n
-    | Inset_ring_bracket_length _ -> 70100
     | Ring_offset_width n -> 80000 + n
     | Ring_offset_bracket_length _ -> 80100
     | Ring_offset_color _ | Ring_offset_color_opacity _
@@ -2068,6 +2146,7 @@ let ring_md = utility Ring_md
 let ring_lg = utility Ring_lg
 let ring_xl = utility Ring_xl
 let ring_color color shade = utility (Ring_color (color, shade))
+let inset_ring = utility Inset_ring_default
 let opacity n = utility (Opacity n)
 let mix_blend_normal = utility Mix_blend_normal
 let mix_blend_multiply = utility Mix_blend_multiply

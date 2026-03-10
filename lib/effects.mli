@@ -91,6 +91,9 @@ val ring_lg : t
 val ring_xl : t
 (** [ring_xl] applies an extra-large ring. *)
 
+val inset_ring : t
+(** [inset_ring] applies a default (1px) inset ring. *)
+
 val ring_color : color -> int -> t
 (** [ring_color color shade] sets the ring color class, e.g., [ring blue 500].
 *)
