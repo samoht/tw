@@ -1532,6 +1532,109 @@ let handle_peer_not_modifier inner name_opt base_class props =
         ~props ~base_class:modified_class ();
     ]
 
+(** Convert a base modifier to its CSS pseudo-class selector. *)
+let pseudo_selector_of_modifier = function
+  | Style.Hover -> Css.Selector.Hover
+  | Style.Focus -> Css.Selector.Focus
+  | Style.Active -> Css.Selector.Active
+  | Style.Disabled -> Css.Selector.Disabled
+  | Style.Checked -> Css.Selector.Checked
+  | Style.First -> Css.Selector.First_child
+  | Style.Last -> Css.Selector.Last_child
+  | Style.Odd -> Css.Selector.(Nth_child (Odd, None))
+  | Style.Even -> Css.Selector.(Nth_child (Even, None))
+  | Style.Only -> Css.Selector.Only_child
+  | Style.First_of_type -> Css.Selector.First_of_type
+  | Style.Last_of_type -> Css.Selector.Last_of_type
+  | Style.Only_of_type -> Css.Selector.Only_of_type
+  | Style.Visited -> Css.Selector.Visited
+  | Style.Target -> Css.Selector.Target
+  | Style.Default -> Css.Selector.Default
+  | Style.Indeterminate -> Css.Selector.Indeterminate
+  | Style.Placeholder_shown -> Css.Selector.Placeholder_shown
+  | Style.Autofill -> Css.Selector.Autofill
+  | Style.Optional -> Css.Selector.Optional
+  | Style.Required -> Css.Selector.Required
+  | Style.Valid -> Css.Selector.Valid
+  | Style.Invalid -> Css.Selector.Invalid
+  | Style.In_range -> Css.Selector.In_range
+  | Style.Out_of_range -> Css.Selector.Out_of_range
+  | Style.Read_only -> Css.Selector.Read_only
+  | Style.Read_write -> Css.Selector.Read_write
+  | Style.User_valid -> Css.Selector.User_valid
+  | Style.User_invalid -> Css.Selector.User_invalid
+  | Style.Enabled -> Css.Selector.Enabled
+  | Style.Empty -> Css.Selector.Empty
+  | Style.Focus_within -> Css.Selector.Focus_within
+  | Style.Focus_visible -> Css.Selector.Focus_visible
+  | Style.Open ->
+      Css.Selector.(is_ [ attribute "open" Presence; Popover_open; Open ])
+  | _ -> Css.Selector.Focus (* fallback *)
+
+(** Build the group-STATE selector rel: :where(.group/name):STATE descendant *)
+let named_group_rel name pseudo =
+  let open Css.Selector in
+  combine
+    (compound [ where [ Class ("group/" ^ name) ]; pseudo ])
+    Descendant universal
+
+(** Handle not-group-STATE/name compound variant *)
+let handle_not_named_group inner name base_class props =
+  let inner_str = Modifiers.pp_modifier inner in
+  let modified_class =
+    "not-group-" ^ inner_str ^ "/" ^ name ^ ":" ^ base_class
+  in
+  let pseudo = pseudo_selector_of_modifier inner in
+  let rel = named_group_rel name pseudo in
+  let open Css.Selector in
+  let sel = compound [ Class modified_class; Not [ is_ [ rel ] ] ] in
+  [ regular ~selector:sel ~props ~base_class:modified_class () ]
+
+(** Handle has-group-STATE/name compound variant *)
+let handle_has_named_group inner name base_class props =
+  let inner_str = Modifiers.pp_modifier inner in
+  let modified_class =
+    "has-group-" ^ inner_str ^ "/" ^ name ^ ":" ^ base_class
+  in
+  let pseudo = pseudo_selector_of_modifier inner in
+  let rel = named_group_rel name pseudo in
+  let open Css.Selector in
+  let sel = compound [ Class modified_class; Has [ is_ [ rel ] ] ] in
+  [ regular ~selector:sel ~props ~base_class:modified_class () ]
+
+(** Handle in-group-STATE/name compound variant — ancestor pattern *)
+let handle_in_named_group inner name base_class props =
+  let inner_str = Modifiers.pp_modifier inner in
+  let modified_class =
+    "in-group-" ^ inner_str ^ "/" ^ name ^ ":" ^ base_class
+  in
+  let pseudo = pseudo_selector_of_modifier inner in
+  let rel = named_group_rel name pseudo in
+  let open Css.Selector in
+  let sel = combine (Where [ is_ [ rel ] ]) Descendant (Class modified_class) in
+  [ regular ~selector:sel ~props ~base_class:modified_class () ]
+
+(** Handle group-peer-STATE/name compound variant *)
+let handle_group_peer_named inner name base_class props =
+  let inner_str = Modifiers.pp_modifier inner in
+  let modified_class =
+    "group-peer-" ^ inner_str ^ "/" ^ name ^ ":" ^ base_class
+  in
+  let pseudo = pseudo_selector_of_modifier inner in
+  let open Css.Selector in
+  let peer_rel =
+    combine
+      (compound [ where [ Class "peer" ]; pseudo ])
+      Subsequent_sibling universal
+  in
+  let group_rel =
+    combine
+      (compound [ where [ Class ("group/" ^ name) ]; is_ [ peer_rel ] ])
+      Descendant universal
+  in
+  let sel = compound [ Class modified_class; is_ [ group_rel ] ] in
+  [ regular ~selector:sel ~props ~base_class:modified_class () ]
+
 (** Convert a modifier and its context to a CSS rule. [inner_has_hover]
     indicates if the inner rule has a hover modifier that needs to be wrapped in
     CSS nesting with {i \@media (hover:hover)}. *)
@@ -1691,6 +1794,14 @@ let apply_modifier_to_rule modifier = function
           handle_group_not_modifier inner name_opt bc props
       | Style.Peer_not (inner, name_opt) ->
           handle_peer_not_modifier inner name_opt bc props
+      | Style.Not_named_group (inner, name) ->
+          handle_not_named_group inner name bc props
+      | Style.Has_named_group (inner, name) ->
+          handle_has_named_group inner name bc props
+      | Style.In_named_group (inner, name) ->
+          handle_in_named_group inner name bc props
+      | Style.Group_peer_named (inner, name) ->
+          handle_group_peer_named inner name bc props
       | _ ->
           [
             modifier_to_rule ~inner_has_hover:has_hover modifier bc selector

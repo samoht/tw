@@ -1679,9 +1679,10 @@ module Handler = struct
       let css_color = to_css color shade in
       style [ Css.color css_color ]
     else
-      let color_var = color_var color shade in
+      (* Use shared color variable to match tailwindcss output exactly. *)
+      let cv = color_var color shade in
       let color_value = get_color_value color shade in
-      let decl, color_ref = Var.binding color_var color_value in
+      let decl, color_ref = Var.binding cv color_value in
       style (decl :: [ Css.color (Var color_ref) ])
 
   let text_transparent = style [ Css.color (Css.hex "#0000") ]

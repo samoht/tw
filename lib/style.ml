@@ -206,6 +206,14 @@ type modifier =
       (** [group-aria-X/name] — group aria variant with optional name *)
   | Peer_aria of string * string option
       (** [peer-aria-X/name] — peer aria variant with optional name *)
+  | Not_named_group of modifier * string
+      (** [not-group-X/name] — negate named group variant *)
+  | Has_named_group of modifier * string
+      (** [has-group-X/name] — has named group variant *)
+  | In_named_group of modifier * string
+      (** [in-group-X/name] — descendant of named group variant *)
+  | Group_peer_named of modifier * string
+      (** [group-peer-X/name] — peer-X within named group *)
 
 type t =
   | Style of {
@@ -470,6 +478,13 @@ let rec pp_modifier = function
   | Peer_aria (expr, None) -> "peer-aria-" ^ expr
   | Peer_aria (expr, Some name) ->
       String.concat "" [ "peer-aria-"; expr; "/"; name ]
+  | Not_named_group (inner, name) ->
+      "not-group-" ^ pp_modifier inner ^ "/" ^ name
+  | Has_named_group (inner, name) ->
+      "has-group-" ^ pp_modifier inner ^ "/" ^ name
+  | In_named_group (inner, name) -> "in-group-" ^ pp_modifier inner ^ "/" ^ name
+  | Group_peer_named (inner, name) ->
+      "group-peer-" ^ pp_modifier inner ^ "/" ^ name
 
 let rec pp = function
   | Style { props; _ } ->
