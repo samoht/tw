@@ -1647,8 +1647,19 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
     props =
   match modifier with
   (* Data modifiers *)
-  | Style.Data_state _ | Style.Data_variant _ | Style.Data_custom _ ->
+  | Style.Data_state _ | Style.Data_variant _ ->
       route_data_modifier modifier base_class selector props
+  | Style.Data_custom _ ->
+      let modified_base_selector = Modifiers.to_selector modifier base_class in
+      let modified_class =
+        Rules_selector.extract_modified_class_name modified_base_selector
+          base_class
+      in
+      let new_selector =
+        Rules_selector.transform_selector_with_modifier modified_base_selector
+          base_class modified_class selector
+      in
+      regular ~selector:new_selector ~props ~base_class:modified_class ()
   (* Media-like modifiers: dark, motion, contrast, print, orientation,
      forced-colors, inverted-colors, pointer, any-pointer, noscript *)
   | _ when Option.is_some (media_condition_of_modifier modifier) ->

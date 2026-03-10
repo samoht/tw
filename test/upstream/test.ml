@@ -53,6 +53,30 @@ type case = {
   expected : string;
 }
 
+(** Split a class line by spaces, but don't split inside brackets. *)
+let split_classes line =
+  let len = String.length line in
+  let buf = Buffer.create 64 in
+  let acc = ref [] in
+  let depth = ref 0 in
+  for i = 0 to len - 1 do
+    let c = line.[i] in
+    if c = '[' then (
+      incr depth;
+      Buffer.add_char buf c)
+    else if c = ']' then (
+      decr depth;
+      Buffer.add_char buf c)
+    else if c = ' ' && !depth = 0 then (
+      let s = Buffer.contents buf in
+      if s <> "" then acc := s :: !acc;
+      Buffer.clear buf)
+    else Buffer.add_char buf c
+  done;
+  let s = Buffer.contents buf in
+  if s <> "" then acc := s :: !acc;
+  List.rev !acc
+
 let read_test_cases filename =
   if not (Sys.file_exists filename) then []
   else
@@ -98,10 +122,7 @@ let read_test_cases filename =
             let new_name = String.sub line 2 (String.length line - 2) in
             parse_config new_name No_theme rest
           else
-            let classes =
-              String.split_on_char ' ' line
-              |> List.filter (fun s -> String.length s > 0)
-            in
+            let classes = split_classes line in
             parse_after_classes name config classes rest
     and parse_after_classes name config classes lines =
       match lines with
