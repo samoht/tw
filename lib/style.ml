@@ -61,6 +61,8 @@ type modifier =
   | Only_of_type
   | Nth of string
   | Nth_last of string
+  | Nth_of_type of string
+  | Nth_last_of_type of string
   | Empty
   | Checked
   | Indeterminate
@@ -240,6 +242,11 @@ let style ?(rules = None) ?(property_rules = Css.empty) ?merge_key
     ?pseudo_suffix props =
   Style { props; rules; property_rules; merge_key; pseudo_suffix }
 
+let is_numeric s = s <> "" && String.for_all (fun c -> c >= '0' && c <= '9') s
+
+let pp_nth prefix expr =
+  if is_numeric expr then prefix ^ "-" ^ expr else prefix ^ "-[" ^ expr ^ "]"
+
 (* Convert modifier to string prefix *)
 let rec pp_modifier = function
   | Hover -> "hover"
@@ -323,8 +330,10 @@ let rec pp_modifier = function
   | First_of_type -> "first-of-type"
   | Last_of_type -> "last-of-type"
   | Only_of_type -> "only-of-type"
-  | Nth expr -> "nth-[" ^ expr ^ "]"
-  | Nth_last expr -> "nth-last-[" ^ expr ^ "]"
+  | Nth expr -> pp_nth "nth" expr
+  | Nth_last expr -> pp_nth "nth-last" expr
+  | Nth_of_type expr -> pp_nth "nth-of-type" expr
+  | Nth_last_of_type expr -> pp_nth "nth-last-of-type" expr
   | Empty -> "empty"
   | Checked -> "checked"
   | Indeterminate -> "indeterminate"
