@@ -436,6 +436,18 @@ let to_selector (modifier : modifier) cls =
       compound [ data_active cls; attribute "data-active" Presence ]
   | Data_inactive ->
       compound [ data_inactive cls; attribute "data-inactive" Presence ]
+  | Data_custom (attr, "") ->
+      compound
+        [
+          Class ("data-" ^ attr ^ ":" ^ cls);
+          attribute ("data-" ^ attr) Presence;
+        ]
+  | Data_custom (attr, value) ->
+      compound
+        [
+          Class ("data-[" ^ attr ^ "=" ^ value ^ "]:" ^ cls);
+          attribute ("data-" ^ attr) (Exact value);
+        ]
   | Focus_within -> compound [ focus_within cls; Focus_within ]
   | Focus_visible -> compound [ focus_visible cls; Focus_visible ]
   | Pseudo_before -> compound [ before cls; Before ]
@@ -773,6 +785,7 @@ let rec pp_modifier = function
   | Data_variant value -> "data-[variant=" ^ value ^ "]"
   | Data_active -> "data-active"
   | Data_inactive -> "data-inactive"
+  | Data_custom (key, "") -> "data-" ^ key
   | Data_custom (key, value) -> "data-[" ^ key ^ "=" ^ value ^ "]"
   | Dark -> "dark"
   | Responsive breakpoint -> (
@@ -1719,6 +1732,15 @@ let parse_modifier s : modifier option =
                                         match try_not_shorthand inner with
                                         | Some _ as r -> r
                                         | None -> try_custom_breakpoint s)))
+                          else if
+                            (* data-X shorthand: attribute presence check *)
+                            String.length s > 5
+                            && String.sub s 0 5 = "data-"
+                            && (not (String.contains s '['))
+                            && not (String.contains s '/')
+                          then
+                            let attr = String.sub s 5 (String.length s - 5) in
+                            Some (Data_custom (attr, ""))
                           else
                             (* Try custom breakpoint as final fallback *)
                             try_custom_breakpoint s)))))
