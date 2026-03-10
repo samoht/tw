@@ -231,7 +231,7 @@ let hex_to_oklab_alpha hex alpha : Css.color =
   match hex_to_rgb hex with
   | Some rgb ->
       let l, a, b = rgb_to_oklab rgb in
-      (* Round to match Tailwind: L to 4 decimals, a/b to 3 *)
+      (* Round to match Tailwind test data: L to 4 decimals, a/b to 3 *)
       Css.oklaba (round_n 4 l) (round_n 3 a) (round_n 3 b) alpha
   | None -> Css.hex hex
 
@@ -1328,6 +1328,12 @@ module Handler = struct
     | Text_current
     | Text_current_opacity of opacity_modifier
     | Text_inherit
+    | Text_bracket_color of string (* text-[#0088cc], text-[black] *)
+    | Text_bracket_color_opacity of string * opacity_modifier
+    | Text_bracket_var of string (* text-[var(--value)] *)
+    | Text_bracket_var_opacity of string * opacity_modifier
+    | Text_bracket_typed_var of string (* text-[color:var(--value)] *)
+    | Text_bracket_typed_var_opacity of string * opacity_modifier
     (* Border colors *)
     | Border of color * int
     | Border_opacity of color * int * opacity_modifier
@@ -1482,6 +1488,34 @@ module Handler = struct
         | No_opacity when base = "current" -> Ok Text_current
         | No_opacity -> Error (`Msg ("Invalid text: " ^ current_str))
         | _ -> Ok (Text_current_opacity opacity))
+    | [ "text"; v ]
+      when String.length v > 0
+           && v.[0] = '['
+           && Parse.is_bracket_value (fst (parse_opacity_modifier v)) ->
+        let base_str, opacity = parse_opacity_modifier v in
+        let base_inner = Parse.bracket_inner base_str in
+        let starts prefix s =
+          String.length s >= String.length prefix
+          && String.sub s 0 (String.length prefix) = prefix
+        in
+        if starts "color:" base_inner then
+          let var_part =
+            String.sub base_inner 6 (String.length base_inner - 6)
+          in
+          match opacity with
+          | No_opacity -> Ok (Text_bracket_typed_var var_part)
+          | _ -> Ok (Text_bracket_typed_var_opacity (var_part, opacity))
+        else if starts "var(" base_inner then
+          match opacity with
+          | No_opacity -> Ok (Text_bracket_var base_inner)
+          | _ -> Ok (Text_bracket_var_opacity (base_inner, opacity))
+        else if
+          starts "#" base_inner || Result.is_ok (color_of_string base_inner)
+        then
+          match opacity with
+          | No_opacity -> Ok (Text_bracket_color base_inner)
+          | _ -> Ok (Text_bracket_color_opacity (base_inner, opacity))
+        else Error (`Msg ("Invalid text bracket value: " ^ base_inner))
     | "text" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings color_parts with
         | Ok (color, shade, opacity) ->
@@ -1999,6 +2033,57 @@ module Handler = struct
     | Text_current_opacity opacity ->
         current_color_with_opacity ~property:Css.color opacity
     | Text_inherit -> text_inherit
+    | Text_bracket_color inner -> (
+        if String.length inner > 0 && inner.[0] = '#' then
+          let shortened = shorten_hex_str inner in
+          style ~merge_key:"text-" [ Css.color (Css.hex ("#" ^ shortened)) ]
+        else
+          match color_of_string inner with
+          | Ok c ->
+              let css_color = to_css c 500 in
+              style [ Css.color css_color ]
+          | Error _ -> style [ Css.color (Css.hex "#000") ])
+    | Text_bracket_color_opacity (inner, opacity) ->
+        let c = bracket_color_to_custom inner in
+        color_with_opacity_style ~property:Css.color c 500 opacity
+    | Text_bracket_var v ->
+        let bare_name = Parse.extract_var_name v in
+        style ~merge_key:"text-" [ Css.color (Css.Var (Css.var_ref bare_name)) ]
+    | Text_bracket_var_opacity (v, opacity) ->
+        let bare_name = Parse.extract_var_name v in
+        let percent = opacity_to_percent opacity in
+        let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+        let fallback_decl = Css.color var_color in
+        let oklab_color =
+          Css.color_mix ~in_space:Oklab var_color Css.Transparent
+            ~percent1:percent
+        in
+        let oklab_decl = Css.color oklab_color in
+        let supports_block =
+          Css.supports ~condition:color_mix_supports_condition
+            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+        in
+        style ~merge_key:"text-" ~rules:(Some [ supports_block ])
+          [ fallback_decl ]
+    | Text_bracket_typed_var v ->
+        let bare_name = Parse.extract_var_name v in
+        style ~merge_key:"text-" [ Css.color (Css.Var (Css.var_ref bare_name)) ]
+    | Text_bracket_typed_var_opacity (v, opacity) ->
+        let bare_name = Parse.extract_var_name v in
+        let percent = opacity_to_percent opacity in
+        let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+        let fallback_decl = Css.color var_color in
+        let oklab_color =
+          Css.color_mix ~in_space:Oklab var_color Css.Transparent
+            ~percent1:percent
+        in
+        let oklab_decl = Css.color oklab_color in
+        let supports_block =
+          Css.supports ~condition:color_mix_supports_condition
+            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+        in
+        style ~merge_key:"text-" ~rules:(Some [ supports_block ])
+          [ fallback_decl ]
     | Border (color, shade) -> border_color' color shade
     | Border_opacity (color, shade, opacity) ->
         border_with_opacity color shade opacity
@@ -2100,6 +2185,12 @@ module Handler = struct
     | Text_current -> 20000
     | Text_current_opacity _ -> 20000
     | Text_inherit -> 20000
+    | Text_bracket_color _ -> 20000
+    | Text_bracket_color_opacity _ -> 20000
+    | Text_bracket_var _ -> 20000
+    | Text_bracket_var_opacity _ -> 20000
+    | Text_bracket_typed_var _ -> 20000
+    | Text_bracket_typed_var_opacity _ -> 20000
     | Border (color, shade) ->
         (* All border colors use the same suborder (0) to allow alphabetical
            sorting, matching Tailwind v4 behavior. *)
@@ -2224,6 +2315,15 @@ module Handler = struct
     | Text_current -> "text-current"
     | Text_current_opacity opacity -> "text-current" ^ opacity_suffix opacity
     | Text_inherit -> "text-inherit"
+    | Text_bracket_color v -> "text-[" ^ v ^ "]"
+    | Text_bracket_color_opacity (v, opacity) ->
+        "text-[" ^ v ^ "]" ^ opacity_suffix opacity
+    | Text_bracket_var v -> "text-[" ^ v ^ "]"
+    | Text_bracket_var_opacity (v, opacity) ->
+        "text-[" ^ v ^ "]" ^ opacity_suffix opacity
+    | Text_bracket_typed_var v -> "text-[color:" ^ v ^ "]"
+    | Text_bracket_typed_var_opacity (v, opacity) ->
+        "text-[color:" ^ v ^ "]" ^ opacity_suffix opacity
     | Border (c, shade) ->
         if is_base_color c || is_custom_color c then
           "border-" ^ color_to_string c

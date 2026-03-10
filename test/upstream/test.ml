@@ -334,16 +334,22 @@ let theme_config config expected =
         if name = var_name then Some default else None)
       hardcoded
   in
-  let _inline_defaults name =
-    List.find_map
-      (fun (var_name, inline_val, _) ->
-        if name = var_name then Some inline_val else None)
-      hardcoded
+  let combined_inline_defaults name =
+    match List.assoc_opt name root_vars with
+    | Some _ as result -> result
+    | None -> (
+        match Tw.Var.resolve_theme_refs name with
+        | Some _ as result -> result
+        | None ->
+            List.find_map
+              (fun (var_name, inline_val, _) ->
+                if name = var_name then Some inline_val else None)
+              hardcoded)
   in
   match config with
   | Run -> (Css.Pp.String_set.empty, combined_defaults)
   | Theme -> (extract_var_names expected, combined_defaults)
-  | Theme_inline -> (Css.Pp.String_set.empty, combined_defaults)
+  | Theme_inline -> (Css.Pp.String_set.empty, combined_inline_defaults)
   | No_theme -> (Css.Pp.String_set.empty, hardcoded_only)
   | Theme_reference | Theme_inline_reference ->
       (extract_var_names expected, Css.Pp.no_theme_defaults)

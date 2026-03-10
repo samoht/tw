@@ -46,10 +46,44 @@ module Handler = struct
     | Ring_color of Color.color * int
     | Ring_color_opacity of Color.color * int * Color.opacity_modifier
     | Ring_offset_width of int
+    | Ring_offset_bracket_length of string
     | Ring_offset_color of Color.color * int
     | Ring_offset_color_opacity of Color.color * int * Color.opacity_modifier
+    | Ring_offset_transparent
+    | Ring_offset_current
+    | Ring_offset_current_opacity of Color.opacity_modifier
+    | Ring_offset_inherit
+    | Ring_offset_bracket_hex of string
+    | Ring_offset_bracket_hex_opacity of string * Color.opacity_modifier
+    | Ring_offset_bracket_color_var of string
+    | Ring_offset_bracket_color_var_opacity of string * Color.opacity_modifier
+    | Ring_offset_bracket_var of string
+    | Ring_offset_bracket_var_opacity of string * Color.opacity_modifier
     | Inset_ring_color of Color.color * int
     | Inset_ring_color_opacity of Color.color * int * Color.opacity_modifier
+    | Inset_ring_transparent
+    | Inset_ring_current
+    | Inset_ring_current_opacity of Color.opacity_modifier
+    | Inset_ring_inherit
+    | Inset_ring_bracket_hex of string
+    | Inset_ring_bracket_hex_opacity of string * Color.opacity_modifier
+    | Inset_ring_bracket_color_var of string
+    | Inset_ring_bracket_color_var_opacity of string * Color.opacity_modifier
+    | Inset_ring_bracket_var of string
+    | Inset_ring_bracket_var_opacity of string * Color.opacity_modifier
+    | Inset_ring_width of int
+    | Inset_ring_bracket_length of string
+    | Ring_transparent
+    | Ring_current
+    | Ring_current_opacity of Color.opacity_modifier
+    | Ring_inherit
+    | Ring_bracket_hex of string
+    | Ring_bracket_hex_opacity of string * Color.opacity_modifier
+    | Ring_bracket_color_var of string
+    | Ring_bracket_color_var_opacity of string * Color.opacity_modifier
+    | Ring_bracket_var of string
+    | Ring_bracket_var_opacity of string * Color.opacity_modifier
+    | Ring_bracket_length of string
     (* Mix blend modes *)
     | Mix_blend_normal
     | Mix_blend_multiply
@@ -923,23 +957,197 @@ module Handler = struct
     style [ d_width; d_shadow ]
 
   let ring_offset_color color shade =
-    (* Sets --tw-ring-offset-color to reference theme color variable *)
-    let color_theme_var = Color.color_var color shade in
-    let color_value = Color.to_css color shade in
+    (* Sets --tw-ring-offset-color to reference theme color variable. Uses
+       property-scoped variable: --ring-offset-color-blue-500 *)
+    let color_theme_var =
+      Color.property_color_var ~property_prefix:"ring-offset-color" color shade
+    in
+    let color_value =
+      Color.property_color_value ~property_prefix:"ring-offset-color" color
+        shade
+    in
     let color_decl, color_ref = Var.binding color_theme_var color_value in
     let d, _ = Var.binding ring_offset_color_var (Css.Var color_ref) in
     style [ color_decl; d ]
 
+  let parse_bracket_width inner : Css.length =
+    if String.length inner > 6 && String.sub inner 0 7 = "length:" then
+      let v = String.sub inner 7 (String.length inner - 7) in
+      let bare = Parse.extract_var_name v in
+      Var (Css.var_ref bare)
+    else if
+      String.length inner > 2
+      && String.sub inner (String.length inner - 2) 2 = "px"
+    then
+      let num_str = String.sub inner 0 (String.length inner - 2) in
+      match float_of_string_opt num_str with Some f -> Px f | None -> Px 0.
+    else if
+      String.length inner > 3
+      && String.sub inner (String.length inner - 3) 3 = "rem"
+    then
+      let num_str = String.sub inner 0 (String.length inner - 3) in
+      match float_of_string_opt num_str with Some f -> Rem f | None -> Rem 0.
+    else match float_of_string_opt inner with Some f -> Px f | None -> Px 0.
+
+  let parse_bracket_width_opt inner =
+    if String.length inner > 6 && String.sub inner 0 7 = "length:" then
+      Some (parse_bracket_width inner)
+    else if
+      String.length inner > 2
+      && String.sub inner (String.length inner - 2) 2 = "px"
+    then
+      let num_str = String.sub inner 0 (String.length inner - 2) in
+      match float_of_string_opt num_str with
+      | Some _ -> Some (parse_bracket_width inner)
+      | None -> None
+    else if
+      String.length inner > 3
+      && String.sub inner (String.length inner - 3) 3 = "rem"
+    then
+      let num_str = String.sub inner 0 (String.length inner - 3) in
+      match float_of_string_opt num_str with
+      | Some _ -> Some (parse_bracket_width inner)
+      | None -> None
+    else
+      match float_of_string_opt inner with
+      | Some _ -> Some (parse_bracket_width inner)
+      | None -> None
+
+  (* Ring-offset color utilities *)
   let ring_offset_color_with_opacity color shade opacity =
-    (* For opacity modifiers, output hex color with alpha directly *)
+    let percent = Color.opacity_to_percent opacity in
     match Color.hex_alpha_color color shade opacity with
     | Some hex_alpha ->
-        let d, _ = Var.binding ring_offset_color_var (Css.hex hex_alpha) in
-        style [ d ]
+        let fallback, _ =
+          Var.binding ring_offset_color_var (Css.hex hex_alpha)
+        in
+        let cvar =
+          Color.property_color_var ~property_prefix:"ring-offset-color" color
+            shade
+        in
+        let color_value =
+          Color.property_color_value ~property_prefix:"ring-offset-color" color
+            shade
+        in
+        let theme_decl, color_ref = Var.binding cvar color_value in
+        let oklab_decl, _ =
+          Var.binding ring_offset_color_var
+            (Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+               ~percent1:percent)
+        in
+        let supports_block =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [
+              Css.rule ~selector:(Css.Selector.class_ "_")
+                [ theme_decl; oklab_decl ];
+            ]
+        in
+        Style.style ~rules:(Some [ supports_block ]) [ fallback ]
     | None -> ring_offset_color color shade
 
+  let ring_offset_transparent =
+    let d, _ = Var.binding ring_offset_color_var Css.Transparent in
+    style [ d ]
+
+  let ring_offset_current =
+    let d, _ = Var.binding ring_offset_color_var Css.Current in
+    style [ d ]
+
+  let ring_offset_current_with_opacity opacity =
+    let percent = Color.opacity_to_percent opacity in
+    let fallback, _ = Var.binding ring_offset_color_var Css.Current in
+    let oklab_color =
+      Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
+        ~percent1:percent
+    in
+    let oklab_decl, _ = Var.binding ring_offset_color_var oklab_color in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+    in
+    Style.style ~rules:(Some [ supports_block ]) [ fallback ]
+
+  let ring_offset_inherit =
+    let d, _ = Var.binding ring_offset_color_var Css.Inherit in
+    style [ d ]
+
+  let ring_offset_bracket_length inner =
+    let width_value = parse_bracket_width inner in
+    let d_width, width_ref = Var.binding ring_offset_width_var width_value in
+    let color_ref = Var.reference ring_offset_color_var in
+    let shadow_value =
+      Css.shadow ~inset:false ~inset_var:"tw-ring-inset" ~h_offset:Zero
+        ~v_offset:Zero ~blur:Zero ~spread:(Var width_ref) ~color:(Var color_ref)
+        ()
+    in
+    let d_shadow, _ = Var.binding ring_offset_shadow_var shadow_value in
+    style [ d_width; d_shadow ]
+
+  let ring_offset_bracket_hex inner =
+    let c = Color.hex inner in
+    let css_color = Color.to_css c 500 in
+    let d, _ = Var.binding ring_offset_color_var css_color in
+    style [ d ]
+
+  let ring_offset_bracket_hex_with_opacity inner opacity =
+    let percent = Color.opacity_to_percent opacity in
+    let hex =
+      if String.starts_with ~prefix:"#" inner then inner else "#" ^ inner
+    in
+    let alpha = percent /. 100.0 in
+    let d, _ =
+      Var.binding ring_offset_color_var (Color.hex_to_oklab_alpha hex alpha)
+    in
+    style [ d ]
+
+  let ring_offset_bracket_color_var v =
+    let bare_name = Parse.extract_var_name v in
+    let d, _ =
+      Var.binding ring_offset_color_var (Css.Var (Css.var_ref bare_name))
+    in
+    Style.style ~merge_key:("ring-offset-color:" ^ v) [ d ]
+
+  let ring_offset_bracket_color_var_with_opacity v opacity =
+    let percent = Color.opacity_to_percent opacity in
+    let bare_name = Parse.extract_var_name v in
+    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let fallback, _ = Var.binding ring_offset_color_var var_color in
+    let oklab_color =
+      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
+    in
+    let oklab_decl, _ = Var.binding ring_offset_color_var oklab_color in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+    in
+    Style.style ~merge_key:("ring-offset-color:" ^ v)
+      ~rules:(Some [ supports_block ]) [ fallback ]
+
+  let ring_offset_bracket_var v =
+    let bare_name = Parse.extract_var_name v in
+    let d, _ =
+      Var.binding ring_offset_color_var (Css.Var (Css.var_ref bare_name))
+    in
+    Style.style ~merge_key:("ring-offset-" ^ v) [ d ]
+
+  let ring_offset_bracket_var_with_opacity v opacity =
+    let percent = Color.opacity_to_percent opacity in
+    let bare_name = Parse.extract_var_name v in
+    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let fallback, _ = Var.binding ring_offset_color_var var_color in
+    let oklab_color =
+      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
+    in
+    let oklab_decl, _ = Var.binding ring_offset_color_var oklab_color in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+    in
+    Style.style ~merge_key:("ring-offset-" ^ v) ~rules:(Some [ supports_block ])
+      [ fallback ]
+
+  (* Inset-ring utilities *)
   let inset_ring_color color shade =
-    (* Sets --tw-inset-ring-color to reference theme color variable *)
     let color_theme_var = Color.color_var color shade in
     let color_value = Color.to_css color shade in
     let color_decl, color_ref = Var.binding color_theme_var color_value in
@@ -947,12 +1155,204 @@ module Handler = struct
     style [ color_decl; d ]
 
   let inset_ring_color_with_opacity color shade opacity =
-    (* For opacity modifiers, output hex color with alpha directly *)
+    let percent = Color.opacity_to_percent opacity in
     match Color.hex_alpha_color color shade opacity with
     | Some hex_alpha ->
-        let d, _ = Var.binding inset_ring_color_var (Css.hex hex_alpha) in
-        style [ d ]
+        let fallback, _ =
+          Var.binding inset_ring_color_var (Css.hex hex_alpha)
+        in
+        let cvar = Color.color_var color shade in
+        let color_value = Color.to_css color shade in
+        let theme_decl, color_ref = Var.binding cvar color_value in
+        let oklab_decl, _ =
+          Var.binding inset_ring_color_var
+            (Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
+               ~percent1:percent)
+        in
+        let supports_block =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [
+              Css.rule ~selector:(Css.Selector.class_ "_")
+                [ theme_decl; oklab_decl ];
+            ]
+        in
+        Style.style ~rules:(Some [ supports_block ]) [ fallback ]
     | None -> inset_ring_color color shade
+
+  let inset_ring_transparent =
+    let d, _ = Var.binding inset_ring_color_var Css.Transparent in
+    style [ d ]
+
+  let inset_ring_current =
+    let d, _ = Var.binding inset_ring_color_var Css.Current in
+    style [ d ]
+
+  let inset_ring_current_with_opacity opacity =
+    let percent = Color.opacity_to_percent opacity in
+    let fallback, _ = Var.binding inset_ring_color_var Css.Current in
+    let oklab_color =
+      Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
+        ~percent1:percent
+    in
+    let oklab_decl, _ = Var.binding inset_ring_color_var oklab_color in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+    in
+    Style.style ~rules:(Some [ supports_block ]) [ fallback ]
+
+  let inset_ring_inherit =
+    let d, _ = Var.binding inset_ring_color_var Css.Inherit in
+    style [ d ]
+
+  let inset_ring_bracket_hex inner =
+    let c = Color.hex inner in
+    let css_color = Color.to_css c 500 in
+    let d, _ = Var.binding inset_ring_color_var css_color in
+    style [ d ]
+
+  let inset_ring_bracket_hex_with_opacity inner opacity =
+    let percent = Color.opacity_to_percent opacity in
+    let hex =
+      if String.starts_with ~prefix:"#" inner then inner else "#" ^ inner
+    in
+    let alpha = percent /. 100.0 in
+    let d, _ =
+      Var.binding inset_ring_color_var (Color.hex_to_oklab_alpha hex alpha)
+    in
+    style [ d ]
+
+  let inset_ring_bracket_color_var v =
+    let bare_name = Parse.extract_var_name v in
+    let d, _ =
+      Var.binding inset_ring_color_var (Css.Var (Css.var_ref bare_name))
+    in
+    Style.style ~merge_key:("inset-ring-color:" ^ v) [ d ]
+
+  let inset_ring_bracket_color_var_with_opacity v opacity =
+    let percent = Color.opacity_to_percent opacity in
+    let bare_name = Parse.extract_var_name v in
+    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let fallback, _ = Var.binding inset_ring_color_var var_color in
+    let oklab_color =
+      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
+    in
+    let oklab_decl, _ = Var.binding inset_ring_color_var oklab_color in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+    in
+    Style.style ~merge_key:("inset-ring-color:" ^ v)
+      ~rules:(Some [ supports_block ]) [ fallback ]
+
+  let inset_ring_bracket_var v =
+    let bare_name = Parse.extract_var_name v in
+    let d, _ =
+      Var.binding inset_ring_color_var (Css.Var (Css.var_ref bare_name))
+    in
+    Style.style ~merge_key:("inset-ring-" ^ v) [ d ]
+
+  let inset_ring_bracket_var_with_opacity v opacity =
+    let percent = Color.opacity_to_percent opacity in
+    let bare_name = Parse.extract_var_name v in
+    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let fallback, _ = Var.binding inset_ring_color_var var_color in
+    let oklab_color =
+      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
+    in
+    let oklab_decl, _ = Var.binding inset_ring_color_var oklab_color in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+    in
+    Style.style ~merge_key:("inset-ring-" ^ v) ~rules:(Some [ supports_block ])
+      [ fallback ]
+
+  (* Ring color utilities *)
+  let ring_transparent =
+    let d, _ = Var.binding ring_color_var Css.Transparent in
+    style [ d ]
+
+  let ring_current =
+    let d, _ = Var.binding ring_color_var Css.Current in
+    style [ d ]
+
+  let ring_current_with_opacity opacity =
+    let percent = Color.opacity_to_percent opacity in
+    let fallback, _ = Var.binding ring_color_var Css.Current in
+    let oklab_color =
+      Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
+        ~percent1:percent
+    in
+    let oklab_decl, _ = Var.binding ring_color_var oklab_color in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+    in
+    Style.style ~rules:(Some [ supports_block ]) [ fallback ]
+
+  let ring_inherit =
+    let d, _ = Var.binding ring_color_var Css.Inherit in
+    style [ d ]
+
+  let ring_bracket_hex inner =
+    let c = Color.hex inner in
+    let css_color = Color.to_css c 500 in
+    let d, _ = Var.binding ring_color_var css_color in
+    style [ d ]
+
+  let ring_bracket_hex_with_opacity inner opacity =
+    let percent = Color.opacity_to_percent opacity in
+    let hex =
+      if String.starts_with ~prefix:"#" inner then inner else "#" ^ inner
+    in
+    let alpha = percent /. 100.0 in
+    let d, _ =
+      Var.binding ring_color_var (Color.hex_to_oklab_alpha hex alpha)
+    in
+    style [ d ]
+
+  let ring_bracket_color_var v =
+    let bare_name = Parse.extract_var_name v in
+    let d, _ = Var.binding ring_color_var (Css.Var (Css.var_ref bare_name)) in
+    Style.style ~merge_key:("ring-color:" ^ v) [ d ]
+
+  let ring_bracket_color_var_with_opacity v opacity =
+    let percent = Color.opacity_to_percent opacity in
+    let bare_name = Parse.extract_var_name v in
+    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let fallback, _ = Var.binding ring_color_var var_color in
+    let oklab_color =
+      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
+    in
+    let oklab_decl, _ = Var.binding ring_color_var oklab_color in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+    in
+    Style.style ~merge_key:("ring-color:" ^ v) ~rules:(Some [ supports_block ])
+      [ fallback ]
+
+  let ring_bracket_var v =
+    let bare_name = Parse.extract_var_name v in
+    let d, _ = Var.binding ring_color_var (Css.Var (Css.var_ref bare_name)) in
+    Style.style ~merge_key:("ring-" ^ v) [ d ]
+
+  let ring_bracket_var_with_opacity v opacity =
+    let percent = Color.opacity_to_percent opacity in
+    let bare_name = Parse.extract_var_name v in
+    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let fallback, _ = Var.binding ring_color_var var_color in
+    let oklab_color =
+      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
+    in
+    let oklab_decl, _ = Var.binding ring_color_var oklab_color in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
+    in
+    Style.style ~merge_key:("ring-" ^ v) ~rules:(Some [ supports_block ])
+      [ fallback ]
 
   let opacity n =
     let value = float_of_int n /. 100.0 in
@@ -1032,13 +1432,121 @@ module Handler = struct
     | Ring_color (color, shade) -> ring_color color shade
     | Ring_color_opacity (color, shade, opacity) ->
         ring_color_with_opacity color shade opacity
+    | Ring_transparent -> ring_transparent
+    | Ring_current -> ring_current
+    | Ring_current_opacity opacity -> ring_current_with_opacity opacity
+    | Ring_inherit -> ring_inherit
+    | Ring_bracket_hex h -> ring_bracket_hex h
+    | Ring_bracket_hex_opacity (h, o) -> ring_bracket_hex_with_opacity h o
+    | Ring_bracket_color_var v -> ring_bracket_color_var v
+    | Ring_bracket_color_var_opacity (v, o) ->
+        ring_bracket_color_var_with_opacity v o
+    | Ring_bracket_var v -> ring_bracket_var v
+    | Ring_bracket_var_opacity (v, o) -> ring_bracket_var_with_opacity v o
+    | Ring_bracket_length inner ->
+        let width_value = parse_bracket_width inner in
+        (* Build ring shadow like ring_internal but with bracket length *)
+        let offset_width_ref = Var.reference ring_offset_width_var in
+        let spread : Css.length =
+          Calc (Expr (Val width_value, Add, Var offset_width_ref))
+        in
+        let color : Css.color =
+          Var (Css.var_ref ~fallback:(Fallback Css.Current) "tw-ring-color")
+        in
+        let ring_shadow_value =
+          Css.shadow ~inset_var:"tw-ring-inset" ~h_offset:Zero ~v_offset:Zero
+            ~blur:Zero ~spread ~color ()
+        in
+        let d_ring, _ = Var.binding ring_shadow_var ring_shadow_value in
+        let v_inset = Var.reference inset_shadow_var in
+        let v_inset_ring = Var.reference inset_ring_shadow_var in
+        let v_ring_offset = Var.reference ring_offset_shadow_var in
+        let v_ring = Var.reference ring_shadow_var in
+        let v_shadow = Var.reference shadow_var in
+        let box_shadow_vars : Css.shadow list =
+          [
+            Css.Var v_inset;
+            Css.Var v_inset_ring;
+            Css.Var v_ring_offset;
+            Css.Var v_ring;
+            Css.Var v_shadow;
+          ]
+        in
+        let property_rules =
+          [
+            Var.property_rule shadow_var;
+            Var.property_rule inset_shadow_var;
+            Var.property_rule ring_shadow_var;
+            Var.property_rule inset_ring_shadow_var;
+            Var.property_rule ring_offset_width_var;
+            Var.property_rule ring_offset_color_var;
+            Var.property_rule ring_offset_shadow_var;
+          ]
+          |> List.filter_map (fun x -> x)
+        in
+        style
+          ~property_rules:(Css.concat property_rules)
+          [ d_ring; Css.box_shadows box_shadow_vars ]
     | Ring_offset_width n -> ring_offset_width n
+    | Ring_offset_bracket_length inner -> ring_offset_bracket_length inner
     | Ring_offset_color (color, shade) -> ring_offset_color color shade
     | Ring_offset_color_opacity (color, shade, opacity) ->
         ring_offset_color_with_opacity color shade opacity
+    | Ring_offset_transparent -> ring_offset_transparent
+    | Ring_offset_current -> ring_offset_current
+    | Ring_offset_current_opacity opacity ->
+        ring_offset_current_with_opacity opacity
+    | Ring_offset_inherit -> ring_offset_inherit
+    | Ring_offset_bracket_hex h -> ring_offset_bracket_hex h
+    | Ring_offset_bracket_hex_opacity (h, o) ->
+        ring_offset_bracket_hex_with_opacity h o
+    | Ring_offset_bracket_color_var v -> ring_offset_bracket_color_var v
+    | Ring_offset_bracket_color_var_opacity (v, o) ->
+        ring_offset_bracket_color_var_with_opacity v o
+    | Ring_offset_bracket_var v -> ring_offset_bracket_var v
+    | Ring_offset_bracket_var_opacity (v, o) ->
+        ring_offset_bracket_var_with_opacity v o
     | Inset_ring_color (color, shade) -> inset_ring_color color shade
     | Inset_ring_color_opacity (color, shade, opacity) ->
         inset_ring_color_with_opacity color shade opacity
+    | Inset_ring_transparent -> inset_ring_transparent
+    | Inset_ring_current -> inset_ring_current
+    | Inset_ring_current_opacity opacity ->
+        inset_ring_current_with_opacity opacity
+    | Inset_ring_inherit -> inset_ring_inherit
+    | Inset_ring_bracket_hex h -> inset_ring_bracket_hex h
+    | Inset_ring_bracket_hex_opacity (h, o) ->
+        inset_ring_bracket_hex_with_opacity h o
+    | Inset_ring_bracket_color_var v -> inset_ring_bracket_color_var v
+    | Inset_ring_bracket_color_var_opacity (v, o) ->
+        inset_ring_bracket_color_var_with_opacity v o
+    | Inset_ring_bracket_var v -> inset_ring_bracket_var v
+    | Inset_ring_bracket_var_opacity (v, o) ->
+        inset_ring_bracket_var_with_opacity v o
+    | Inset_ring_width n ->
+        let spread : Css.length = Px (float_of_int n) in
+        let color : Css.color =
+          Var
+            (Css.var_ref ~fallback:(Fallback Css.Current) "tw-inset-ring-color")
+        in
+        let shadow_value =
+          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:Zero ~blur:Zero
+            ~spread ~color ()
+        in
+        let d, _ = Var.binding inset_ring_shadow_var shadow_value in
+        style [ d ]
+    | Inset_ring_bracket_length inner ->
+        let spread = parse_bracket_width inner in
+        let color : Css.color =
+          Var
+            (Css.var_ref ~fallback:(Fallback Css.Current) "tw-inset-ring-color")
+        in
+        let shadow_value =
+          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:Zero ~blur:Zero
+            ~spread ~color ()
+        in
+        let d, _ = Var.binding inset_ring_shadow_var shadow_value in
+        style [ d ]
     | Mix_blend_normal -> mix_blend_normal
     | Mix_blend_multiply -> mix_blend_multiply
     | Mix_blend_screen -> mix_blend_screen
@@ -1075,6 +1583,73 @@ module Handler = struct
     | Bg_blend_luminosity -> bg_blend_luminosity
 
   let err_not_utility = Error (`Msg "Not an effects utility")
+
+  let parse_ring_bracket kind v =
+    let base_str, opacity = Color.parse_opacity_modifier v in
+    let inner = Parse.bracket_inner base_str in
+    let starts prefix s =
+      String.length s >= String.length prefix
+      && String.sub s 0 (String.length prefix) = prefix
+    in
+    match kind with
+    | `Ring -> (
+        if starts "color:" inner then
+          let var_part = String.sub inner 6 (String.length inner - 6) in
+          match opacity with
+          | Color.No_opacity -> Ok (Ring_bracket_color_var var_part)
+          | _ -> Ok (Ring_bracket_color_var_opacity (var_part, opacity))
+        else if starts "var(" inner then
+          match opacity with
+          | Color.No_opacity -> Ok (Ring_bracket_var inner)
+          | _ -> Ok (Ring_bracket_var_opacity (inner, opacity))
+        else if starts "#" inner then
+          match opacity with
+          | Color.No_opacity -> Ok (Ring_bracket_hex inner)
+          | _ -> Ok (Ring_bracket_hex_opacity (inner, opacity))
+        else if starts "length:" inner then Ok (Ring_bracket_length inner)
+        else
+          match parse_bracket_width_opt inner with
+          | Some _ -> Ok (Ring_bracket_length inner)
+          | None -> err_not_utility)
+    | `Ring_offset -> (
+        if starts "color:" inner then
+          let var_part = String.sub inner 6 (String.length inner - 6) in
+          match opacity with
+          | Color.No_opacity -> Ok (Ring_offset_bracket_color_var var_part)
+          | _ -> Ok (Ring_offset_bracket_color_var_opacity (var_part, opacity))
+        else if starts "var(" inner then
+          match opacity with
+          | Color.No_opacity -> Ok (Ring_offset_bracket_var inner)
+          | _ -> Ok (Ring_offset_bracket_var_opacity (inner, opacity))
+        else if starts "#" inner then
+          match opacity with
+          | Color.No_opacity -> Ok (Ring_offset_bracket_hex inner)
+          | _ -> Ok (Ring_offset_bracket_hex_opacity (inner, opacity))
+        else if starts "length:" inner then
+          Ok (Ring_offset_bracket_length inner)
+        else
+          match parse_bracket_width_opt inner with
+          | Some _ -> Ok (Ring_offset_bracket_length inner)
+          | None -> err_not_utility)
+    | `Inset_ring -> (
+        if starts "color:" inner then
+          let var_part = String.sub inner 6 (String.length inner - 6) in
+          match opacity with
+          | Color.No_opacity -> Ok (Inset_ring_bracket_color_var var_part)
+          | _ -> Ok (Inset_ring_bracket_color_var_opacity (var_part, opacity))
+        else if starts "var(" inner then
+          match opacity with
+          | Color.No_opacity -> Ok (Inset_ring_bracket_var inner)
+          | _ -> Ok (Inset_ring_bracket_var_opacity (inner, opacity))
+        else if starts "#" inner then
+          match opacity with
+          | Color.No_opacity -> Ok (Inset_ring_bracket_hex inner)
+          | _ -> Ok (Inset_ring_bracket_hex_opacity (inner, opacity))
+        else if starts "length:" inner then Ok (Inset_ring_bracket_length inner)
+        else
+          match parse_bracket_width_opt inner with
+          | Some _ -> Ok (Inset_ring_bracket_length inner)
+          | None -> err_not_utility)
 
   let of_class class_name =
     let parts = Parse.split_class class_name in
@@ -1132,6 +1707,34 @@ module Handler = struct
     | [ "ring"; "4" ] -> Ok Ring_lg
     | [ "ring"; "8" ] -> Ok Ring_xl
     | [ "ring"; "inset" ] -> Ok Ring_inset
+    | [ "ring"; "transparent" ] -> Ok Ring_transparent
+    | [ "ring"; "inherit" ] -> Ok Ring_inherit
+    | [ "ring"; current_str ]
+      when String.starts_with ~prefix:"current" current_str -> (
+        let base, opacity = Color.parse_opacity_modifier current_str in
+        match opacity with
+        | Color.No_opacity when base = "current" -> Ok Ring_current
+        | Color.No_opacity -> err_not_utility
+        | _ -> Ok (Ring_current_opacity opacity))
+    | [ "ring"; v ]
+      when String.length v > 0
+           && v.[0] = '['
+           && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
+        parse_ring_bracket `Ring v
+    | [ "ring"; "offset"; "transparent" ] -> Ok Ring_offset_transparent
+    | [ "ring"; "offset"; "inherit" ] -> Ok Ring_offset_inherit
+    | [ "ring"; "offset"; current_str ]
+      when String.starts_with ~prefix:"current" current_str -> (
+        let base, opacity = Color.parse_opacity_modifier current_str in
+        match opacity with
+        | Color.No_opacity when base = "current" -> Ok Ring_offset_current
+        | Color.No_opacity -> err_not_utility
+        | _ -> Ok (Ring_offset_current_opacity opacity))
+    | [ "ring"; "offset"; v ]
+      when String.length v > 0
+           && v.[0] = '['
+           && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
+        parse_ring_bracket `Ring_offset v
     | [ "ring"; "offset"; n ] -> (
         match Parse.int_any n with
         | Ok width -> Ok (Ring_offset_width width)
@@ -1154,6 +1757,24 @@ module Handler = struct
             | Color.No_opacity -> Ok (Ring_offset_color (c, s))
             | _ -> Ok (Ring_offset_color_opacity (c, s, opacity)))
         | _ -> err_not_utility)
+    | [ "inset"; "ring"; "transparent" ] -> Ok Inset_ring_transparent
+    | [ "inset"; "ring"; "inherit" ] -> Ok Inset_ring_inherit
+    | [ "inset"; "ring"; current_str ]
+      when String.starts_with ~prefix:"current" current_str -> (
+        let base, opacity = Color.parse_opacity_modifier current_str in
+        match opacity with
+        | Color.No_opacity when base = "current" -> Ok Inset_ring_current
+        | Color.No_opacity -> err_not_utility
+        | _ -> Ok (Inset_ring_current_opacity opacity))
+    | [ "inset"; "ring"; v ]
+      when String.length v > 0
+           && v.[0] = '['
+           && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
+        parse_ring_bracket `Inset_ring v
+    | [ "inset"; "ring"; n ] -> (
+        match Parse.int_any n with
+        | Ok width -> Ok (Inset_ring_width width)
+        | Error _ -> err_not_utility)
     | [ "inset"; "ring"; color; shade ] -> (
         let shade_str, opacity = Color.parse_opacity_modifier shade in
         match (Color.of_string color, Parse.int_any shade_str) with
@@ -1232,17 +1853,61 @@ module Handler = struct
     | Ring_color_opacity (color, shade, opacity) ->
         "ring-" ^ Color.pp color ^ "-" ^ string_of_int shade ^ "/"
         ^ Color.pp_opacity opacity
+    | Ring_transparent -> "ring-transparent"
+    | Ring_current -> "ring-current"
+    | Ring_current_opacity o -> "ring-current/" ^ Color.pp_opacity o
+    | Ring_inherit -> "ring-inherit"
+    | Ring_bracket_hex h -> "ring-[" ^ h ^ "]"
+    | Ring_bracket_hex_opacity (h, o) ->
+        "ring-[" ^ h ^ "]/" ^ Color.pp_opacity o
+    | Ring_bracket_color_var v -> "ring-[color:" ^ v ^ "]"
+    | Ring_bracket_color_var_opacity (v, o) ->
+        "ring-[color:" ^ v ^ "]/" ^ Color.pp_opacity o
+    | Ring_bracket_var v -> "ring-[" ^ v ^ "]"
+    | Ring_bracket_var_opacity (v, o) ->
+        "ring-[" ^ v ^ "]/" ^ Color.pp_opacity o
+    | Ring_bracket_length l -> "ring-[" ^ l ^ "]"
     | Ring_offset_width n -> "ring-offset-" ^ string_of_int n
+    | Ring_offset_bracket_length l -> "ring-offset-[" ^ l ^ "]"
     | Ring_offset_color (color, shade) ->
         "ring-offset-" ^ Color.pp color ^ "-" ^ string_of_int shade
     | Ring_offset_color_opacity (color, shade, opacity) ->
         "ring-offset-" ^ Color.pp color ^ "-" ^ string_of_int shade ^ "/"
         ^ Color.pp_opacity opacity
+    | Ring_offset_transparent -> "ring-offset-transparent"
+    | Ring_offset_current -> "ring-offset-current"
+    | Ring_offset_current_opacity o ->
+        "ring-offset-current/" ^ Color.pp_opacity o
+    | Ring_offset_inherit -> "ring-offset-inherit"
+    | Ring_offset_bracket_hex h -> "ring-offset-[" ^ h ^ "]"
+    | Ring_offset_bracket_hex_opacity (h, o) ->
+        "ring-offset-[" ^ h ^ "]/" ^ Color.pp_opacity o
+    | Ring_offset_bracket_color_var v -> "ring-offset-[color:" ^ v ^ "]"
+    | Ring_offset_bracket_color_var_opacity (v, o) ->
+        "ring-offset-[color:" ^ v ^ "]/" ^ Color.pp_opacity o
+    | Ring_offset_bracket_var v -> "ring-offset-[" ^ v ^ "]"
+    | Ring_offset_bracket_var_opacity (v, o) ->
+        "ring-offset-[" ^ v ^ "]/" ^ Color.pp_opacity o
     | Inset_ring_color (color, shade) ->
         "inset-ring-" ^ Color.pp color ^ "-" ^ string_of_int shade
     | Inset_ring_color_opacity (color, shade, opacity) ->
         "inset-ring-" ^ Color.pp color ^ "-" ^ string_of_int shade ^ "/"
         ^ Color.pp_opacity opacity
+    | Inset_ring_transparent -> "inset-ring-transparent"
+    | Inset_ring_current -> "inset-ring-current"
+    | Inset_ring_current_opacity o -> "inset-ring-current/" ^ Color.pp_opacity o
+    | Inset_ring_inherit -> "inset-ring-inherit"
+    | Inset_ring_bracket_hex h -> "inset-ring-[" ^ h ^ "]"
+    | Inset_ring_bracket_hex_opacity (h, o) ->
+        "inset-ring-[" ^ h ^ "]/" ^ Color.pp_opacity o
+    | Inset_ring_bracket_color_var v -> "inset-ring-[color:" ^ v ^ "]"
+    | Inset_ring_bracket_color_var_opacity (v, o) ->
+        "inset-ring-[color:" ^ v ^ "]/" ^ Color.pp_opacity o
+    | Inset_ring_bracket_var v -> "inset-ring-[" ^ v ^ "]"
+    | Inset_ring_bracket_var_opacity (v, o) ->
+        "inset-ring-[" ^ v ^ "]/" ^ Color.pp_opacity o
+    | Inset_ring_width n -> "inset-ring-" ^ string_of_int n
+    | Inset_ring_bracket_length l -> "inset-ring-[" ^ l ^ "]"
     | Mix_blend_normal -> "mix-blend-normal"
     | Mix_blend_multiply -> "mix-blend-multiply"
     | Mix_blend_screen -> "mix-blend-screen"
@@ -1347,25 +2012,29 @@ module Handler = struct
     | Ring_sm -> 40003
     | Ring_lg -> 40004
     | Ring_xl -> 40005
-    | Ring_color (color, shade) ->
+    | Ring_color _ | Ring_color_opacity _ | Ring_transparent | Ring_current
+    | Ring_current_opacity _ | Ring_inherit | Ring_bracket_hex _
+    | Ring_bracket_hex_opacity _ | Ring_bracket_color_var _
+    | Ring_bracket_color_var_opacity _ | Ring_bracket_var _
+    | Ring_bracket_var_opacity _ | Ring_bracket_length _ ->
         50000
-        + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
-    | Ring_color_opacity (color, shade, _) ->
-        50000
-        + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
-    | Inset_ring_color (color, shade) ->
+    | Inset_ring_color _ | Inset_ring_color_opacity _ | Inset_ring_transparent
+    | Inset_ring_current | Inset_ring_current_opacity _ | Inset_ring_inherit
+    | Inset_ring_bracket_hex _ | Inset_ring_bracket_hex_opacity _
+    | Inset_ring_bracket_color_var _ | Inset_ring_bracket_color_var_opacity _
+    | Inset_ring_bracket_var _ | Inset_ring_bracket_var_opacity _ ->
         60000
-        + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
-    | Inset_ring_color_opacity (color, shade, _) ->
-        60000
-        + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
+    | Inset_ring_width n -> 70000 + n
+    | Inset_ring_bracket_length _ -> 70100
     | Ring_offset_width n -> 80000 + n
-    | Ring_offset_color (color, shade) ->
+    | Ring_offset_bracket_length _ -> 80100
+    | Ring_offset_color _ | Ring_offset_color_opacity _
+    | Ring_offset_transparent | Ring_offset_current
+    | Ring_offset_current_opacity _ | Ring_offset_inherit
+    | Ring_offset_bracket_hex _ | Ring_offset_bracket_hex_opacity _
+    | Ring_offset_bracket_color_var _ | Ring_offset_bracket_color_var_opacity _
+    | Ring_offset_bracket_var _ | Ring_offset_bracket_var_opacity _ ->
         100000
-        + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
-    | Ring_offset_color_opacity (color, shade, _) ->
-        100000
-        + Color.suborder_with_shade (Color.pp color ^ "-" ^ string_of_int shade)
     | Ring_inset -> 150000
 end
 
