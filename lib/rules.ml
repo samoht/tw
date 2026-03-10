@@ -714,6 +714,91 @@ let route_has_modifier modifier base_class props =
   has_like_selector kind ?name ?shorthand ~not_order selector_str base_class
     props
 
+(* Parse an aria expression string into an attribute name and match. "modal" →
+   ("aria-modal", Presence) "valuenow=1" → ("aria-valuenow", Exact "1")
+   "invalid=spelling" → ("aria-invalid", Exact "spelling") Underscores in values
+   are replaced with spaces. *)
+let parse_aria_expr expr =
+  let expr = String.map (fun c -> if c = '_' then ' ' else c) expr in
+  let expr = String.trim expr in
+  match String.index_opt expr '=' with
+  | None -> ("aria-" ^ expr, Css.Selector.Presence)
+  | Some i ->
+      let attr = String.trim (String.sub expr 0 i) in
+      let raw_value =
+        String.trim (String.sub expr (i + 1) (String.length expr - i - 1))
+      in
+      (* Strip surrounding quotes if present *)
+      let value =
+        let len = String.length raw_value in
+        if len >= 2 && raw_value.[0] = '"' && raw_value.[len - 1] = '"' then
+          String.sub raw_value 1 (len - 2)
+        else raw_value
+      in
+      ("aria-" ^ attr, Css.Selector.Exact value)
+
+(* Known aria shorthand names *)
+let is_aria_shorthand_name = function
+  | "checked" | "expanded" | "selected" | "disabled" -> true
+  | _ -> false
+
+(* Route aria variants to appropriate handler *)
+let route_aria_modifier modifier base_class props =
+  let kind, raw_str, name_opt =
+    match modifier with
+    | Style.Aria_bracket s -> (`Aria, s, None)
+    | Style.Group_aria (s, n) -> (`Group_aria, s, n)
+    | Style.Peer_aria (s, n) -> (`Peer_aria, s, n)
+    | _ -> failwith "Invalid aria modifier"
+  in
+  let open Css.Selector in
+  let is_shorthand = is_aria_shorthand_name raw_str in
+  let aria_attr, aria_match =
+    if is_shorthand then ("aria-" ^ raw_str, Exact "true")
+    else parse_aria_expr raw_str
+  in
+  let class_part = if is_shorthand then raw_str else "[" ^ raw_str ^ "]" in
+  let not_order = if is_shorthand then 10 else 20 in
+  match kind with
+  | `Aria ->
+      let class_name = "aria-" ^ class_part ^ ":" ^ base_class in
+      let sel =
+        compound [ class_ class_name; attribute aria_attr aria_match ]
+      in
+      regular ~selector:sel ~props ~base_class:class_name ~not_order ()
+  | `Group_aria ->
+      let name_suffix = match name_opt with Some n -> "/" ^ n | None -> "" in
+      let class_name =
+        "group-aria-" ^ class_part ^ name_suffix ^ ":" ^ base_class
+      in
+      let group_class =
+        match name_opt with Some n -> "group/" ^ n | None -> "group"
+      in
+      let rel =
+        combine
+          (compound
+             [ where [ Class group_class ]; attribute aria_attr aria_match ])
+          Descendant universal
+      in
+      let sel = compound [ Class class_name; is_ [ rel ] ] in
+      regular ~selector:sel ~props ~base_class:class_name ~not_order ()
+  | `Peer_aria ->
+      let name_suffix = match name_opt with Some n -> "/" ^ n | None -> "" in
+      let class_name =
+        "peer-aria-" ^ class_part ^ name_suffix ^ ":" ^ base_class
+      in
+      let peer_class =
+        match name_opt with Some n -> "peer/" ^ n | None -> "peer"
+      in
+      let rel =
+        combine
+          (compound
+             [ where [ Class peer_class ]; attribute aria_attr aria_match ])
+          Subsequent_sibling universal
+      in
+      let sel = compound [ Class class_name; is_ [ rel ] ] in
+      regular ~selector:sel ~props ~base_class:class_name ~not_order ()
+
 (* Handle fallback for unmatched modifiers. Must extract modified_class so that
    outer modifiers like dark: can properly transform the selector. *)
 let handle_fallback_modifier ?(inner_has_hover = false) modifier base_class
@@ -842,6 +927,9 @@ let not_variant_order = function
   | Style.Aria_checked -> 3350
   | Style.Aria_expanded -> 3360
   | Style.Aria_disabled -> 3370
+  | Style.Aria_bracket _ -> 3380
+  | Style.Group_aria _ -> 3385
+  | Style.Peer_aria _ -> 3390
   | Style.Data_custom _ -> 3400
   | Style.Data_state _ -> 3410
   | Style.Data_variant _ -> 3420
@@ -1348,6 +1436,9 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
   (* :has() variants *)
   | Style.Has _ | Style.Group_has _ | Style.Peer_has _ ->
       route_has_modifier modifier base_class props
+  (* Aria bracket and group/peer aria variants *)
+  | Style.Aria_bracket _ | Style.Group_aria _ | Style.Peer_aria _ ->
+      route_aria_modifier modifier base_class props
   (* Starting style - selector includes starting: prefix *)
   | Style.Starting ->
       let modified_class = "starting:" ^ base_class in
@@ -1565,35 +1656,54 @@ let process_rule_list_stmt ~sel ~class_name ?merge_key ~has_regular_rules stmt =
                        condition statements)
               | None -> None)))
 
-(** Process a Style with a rule_list into output rules. Extracts nested
-    at-rules, processes ordered rules, and combines them with a base rule. *)
+(** Process a Style with a rule_list into output rules. Processes rule_list
+    items in order, preserving the original interleaving of Regular rules,
+    @supports blocks, and @media queries.
+
+    @supports blocks become separate [Supports_query] entries so they sort
+    independently and don't prevent the base rule from being combined by the
+    optimizer. @media blocks that appear at the top level of rule_list are
+    collected and nested on the base rule (they represent modifier-based
+    media that must stay grouped with the utility). *)
 let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
-  let nested_atrules =
-    rule_list
-    |> List.filter (fun s -> Css.is_nested_media s || Css.is_nested_supports s)
-  in
+  (* Collect top-level @media for nesting on the base rule *)
+  let nested_media = rule_list |> List.filter Css.is_nested_media in
+  (* Process rule_list items in order, preserving interleaving *)
   let has_regular_rules = ref false in
-  let ordered_rules =
+  let ordered_entries =
     rule_list
-    |> List.filter_map (fun stmt ->
-        if Css.is_nested_media stmt || Css.is_nested_supports stmt then None
+    |> List.concat_map (fun stmt ->
+        if Css.is_nested_media stmt then
+          (* @media stays nested on base rule, skip here *)
+          []
+        else if Css.is_nested_supports stmt then
+          (* @supports → hoist to Supports_query entries *)
+          match Css.as_supports stmt with
+          | Some (condition, statements) ->
+              extract_supports_outputs ~class_name ~sel ?merge_key condition
+                statements
+          | None -> []
         else
-          process_rule_list_stmt ~sel ~class_name ?merge_key ~has_regular_rules
-            stmt)
-    |> List.concat
+          match
+            process_rule_list_stmt ~sel ~class_name ?merge_key
+              ~has_regular_rules stmt
+          with
+          | Some entries -> entries
+          | None -> [])
   in
+  (* Base rule with props and nested @media *)
   let base_rule =
-    if props = [] && nested_atrules = [] then []
+    if props = [] && nested_media = [] then []
     else
       [
-        regular ~selector:sel ~props ~base_class:class_name
-          ~nested:nested_atrules ?merge_key ();
+        regular ~selector:sel ~props ~base_class:class_name ~nested:nested_media
+          ?merge_key ();
       ]
   in
-  (* If there are regular rules, they come first (forms plugin has interleaved
-     regular/media rules). Otherwise base comes first. *)
-  if !has_regular_rules then ordered_rules @ base_rule
-  else base_rule @ ordered_rules
+  (* Base rule first, then ordered entries preserving original interleaving.
+     This keeps the fallback → @supports cascade order for color utilities and
+     the pos → @supports → image order for gradient utilities. *)
+  base_rule @ ordered_entries
 
 let outputs util =
   let rec extract_with_class class_name util_inner = function
@@ -2606,37 +2716,38 @@ let compare_indexed_rules r1 r2 =
          stay grouped and groups are in the correct cross-utility order. Index
          is the final tiebreaker (keeps Regular before its own Supports). *)
       | `Supports _, `Supports _ ->
-          (* Sort supports rules: shorthand (supports-gap) before bracket
-             (supports-[...]), then by unescaped selector. Strip CSS backslash
-             escapes so [(display...] sorts by the actual characters. *)
-          let strip_escapes s =
-            let buf = Buffer.create (String.length s) in
-            let len = String.length s in
-            let rec loop i =
-              if i >= len then Buffer.contents buf
-              else if s.[i] = '\\' && i + 1 < len then (
-                Buffer.add_char buf s.[i + 1];
-                loop (i + 2))
-              else (
-                Buffer.add_char buf s.[i];
-                loop (i + 1))
-            in
-            loop 0
-          in
-          let s1 = strip_escapes (Css.Selector.to_string r1.selector) in
-          let s2 = strip_escapes (Css.Selector.to_string r2.selector) in
-          let has_bracket s = String.contains s '[' in
-          let k1 = if has_bracket s1 then 1 else 0 in
-          let k2 = if has_bracket s2 then 1 else 0 in
-          let kind_cmp = Int.compare k1 k2 in
-          if kind_cmp <> 0 then kind_cmp
+          (* Compare by order first for cross-utility consistency (ensures color
+             @supports with suborder 10000 comes before gradient @supports with
+             suborder 100000). This must match the Regular vs Supports
+             comparison to maintain transitivity. Within same order, sort by
+             unescaped selector then index. *)
+          let order_cmp = compare r1.order r2.order in
+          if order_cmp <> 0 then order_cmp
           else
-            let sel_cmp = natural_compare s1 s2 in
-            if sel_cmp <> 0 then sel_cmp
+            let strip_escapes s =
+              let buf = Buffer.create (String.length s) in
+              let len = String.length s in
+              let rec loop i =
+                if i >= len then Buffer.contents buf
+                else if s.[i] = '\\' && i + 1 < len then (
+                  Buffer.add_char buf s.[i + 1];
+                  loop (i + 2))
+                else (
+                  Buffer.add_char buf s.[i];
+                  loop (i + 1))
+              in
+              loop 0
+            in
+            let s1 = strip_escapes (Css.Selector.to_string r1.selector) in
+            let s2 = strip_escapes (Css.Selector.to_string r2.selector) in
+            let has_bracket s = String.contains s '[' in
+            let k1 = if has_bracket s1 then 1 else 0 in
+            let k2 = if has_bracket s2 then 1 else 0 in
+            let kind_cmp = Int.compare k1 k2 in
+            if kind_cmp <> 0 then kind_cmp
             else
-              let order_cmp = compare r1.order r2.order in
-              if order_cmp <> 0 then order_cmp
-              else Int.compare r1.index r2.index
+              let sel_cmp = natural_compare s1 s2 in
+              if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
       | `Regular, `Supports _ | `Supports _, `Regular ->
           let order_cmp = compare r1.order r2.order in
           if order_cmp <> 0 then order_cmp

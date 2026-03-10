@@ -192,6 +192,13 @@ type modifier =
       (** [group-not-X/name] — inner modifier + optional group name *)
   | Peer_not of modifier * string option
       (** [peer-not-X/name] — inner modifier + optional peer name *)
+  | Aria_bracket of string
+      (** [aria-[expr]] — arbitrary aria attribute, e.g. "modal", "valuenow=1"
+      *)
+  | Group_aria of string * string option
+      (** [group-aria-X/name] — group aria variant with optional name *)
+  | Peer_aria of string * string option
+      (** [peer-aria-X/name] — peer aria variant with optional name *)
 
 type t =
   | Style of {
