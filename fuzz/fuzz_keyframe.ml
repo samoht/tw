@@ -43,12 +43,16 @@ let test_position_compare buf1 buf2 =
       if c = 0 && c' <> 0 then fail "compare not antisymmetric"
   | _ -> ()
 
-let suite () =
-  add_test ~name:"keyframe: position crash safety" [ bytes ] test_position;
-  add_test ~name:"keyframe: selector crash safety" [ bytes ] test_selector;
-  add_test ~name:"keyframe: position roundtrip" [ bytes ]
-    test_position_roundtrip;
-  add_test ~name:"keyframe: selector roundtrip" [ bytes ]
-    test_selector_roundtrip;
-  add_test ~name:"keyframe: position_compare antisymmetry" [ bytes; bytes ]
-    test_position_compare
+let suite =
+  ( "keyframe",
+    [
+      (fun () -> add_test ~name:"position crash safety" [ bytes ] test_position);
+      (fun () -> add_test ~name:"selector crash safety" [ bytes ] test_selector);
+      (fun () ->
+        add_test ~name:"position roundtrip" [ bytes ] test_position_roundtrip);
+      (fun () ->
+        add_test ~name:"selector roundtrip" [ bytes ] test_selector_roundtrip);
+      (fun () ->
+        add_test ~name:"position_compare antisymmetry" [ bytes; bytes ]
+          test_position_compare);
+    ] )

@@ -60,15 +60,20 @@ let test_pct buf =
   let r = Css.Reader.of_string buf in
   try ignore (Css.Reader.pct r) with Css.Reader.Parse_error _ -> ()
 
-let suite () =
-  add_test ~name:"reader: of_string crash safety" [ bytes ] test_of_string;
-  add_test ~name:"reader: ident crash safety" [ bytes ] test_ident;
-  add_test ~name:"reader: token crash safety" [ bytes ] test_token;
-  add_test ~name:"reader: number crash safety" [ bytes ] test_number;
-  add_test ~name:"reader: int crash safety" [ bytes ] test_int;
-  add_test ~name:"reader: string crash safety" [ bytes ] test_string;
-  add_test ~name:"reader: hex crash safety" [ bytes ] test_hex;
-  add_test ~name:"reader: css_value crash safety" [ bytes ] test_css_value;
-  add_test ~name:"reader: url crash safety" [ bytes ] test_url;
-  add_test ~name:"reader: bool crash safety" [ bytes ] test_bool;
-  add_test ~name:"reader: pct crash safety" [ bytes ] test_pct
+let suite =
+  ( "reader",
+    [
+      (fun () ->
+        add_test ~name:"of_string crash safety" [ bytes ] test_of_string);
+      (fun () -> add_test ~name:"ident crash safety" [ bytes ] test_ident);
+      (fun () -> add_test ~name:"token crash safety" [ bytes ] test_token);
+      (fun () -> add_test ~name:"number crash safety" [ bytes ] test_number);
+      (fun () -> add_test ~name:"int crash safety" [ bytes ] test_int);
+      (fun () -> add_test ~name:"string crash safety" [ bytes ] test_string);
+      (fun () -> add_test ~name:"hex crash safety" [ bytes ] test_hex);
+      (fun () ->
+        add_test ~name:"css_value crash safety" [ bytes ] test_css_value);
+      (fun () -> add_test ~name:"url crash safety" [ bytes ] test_url);
+      (fun () -> add_test ~name:"bool crash safety" [ bytes ] test_bool);
+      (fun () -> add_test ~name:"pct crash safety" [ bytes ] test_pct);
+    ] )

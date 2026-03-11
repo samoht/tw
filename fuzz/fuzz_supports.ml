@@ -44,8 +44,13 @@ let test_compare buf1 buf2 =
       ignore (Css.Supports.equal a b)
   | _ -> ()
 
-let suite () =
-  add_test ~name:"supports: of_string crash safety" [ bytes ] test_of_string;
-  add_test ~name:"supports: roundtrip" [ bytes ] test_roundtrip;
-  add_test ~name:"supports: pp crash safety" [ bytes ] test_pp;
-  add_test ~name:"supports: compare crash safety" [ bytes; bytes ] test_compare
+let suite =
+  ( "supports",
+    [
+      (fun () ->
+        add_test ~name:"of_string crash safety" [ bytes ] test_of_string);
+      (fun () -> add_test ~name:"roundtrip" [ bytes ] test_roundtrip);
+      (fun () -> add_test ~name:"pp crash safety" [ bytes ] test_pp);
+      (fun () ->
+        add_test ~name:"compare crash safety" [ bytes; bytes ] test_compare);
+    ] )

@@ -60,15 +60,22 @@ let test_pp buf =
   | None -> ()
   | Some sel -> ignore (Css.Selector.to_string sel)
 
-let suite () =
-  add_test ~name:"selector: of_string crash safety" [ bytes ] test_of_string;
-  add_test ~name:"selector: read crash safety" [ bytes ] test_read;
-  add_test ~name:"selector: read_selector_list crash safety" [ bytes ]
-    test_read_selector_list;
-  add_test ~name:"selector: read_combinator crash safety" [ bytes ]
-    test_read_combinator;
-  add_test ~name:"selector: read_attribute_match crash safety" [ bytes ]
-    test_read_attribute_match;
-  add_test ~name:"selector: read_nth crash safety" [ bytes ] test_read_nth;
-  add_test ~name:"selector: roundtrip" [ bytes ] test_roundtrip;
-  add_test ~name:"selector: pp crash safety" [ bytes ] test_pp
+let suite =
+  ( "selector",
+    [
+      (fun () ->
+        add_test ~name:"of_string crash safety" [ bytes ] test_of_string);
+      (fun () -> add_test ~name:"read crash safety" [ bytes ] test_read);
+      (fun () ->
+        add_test ~name:"read_selector_list crash safety" [ bytes ]
+          test_read_selector_list);
+      (fun () ->
+        add_test ~name:"read_combinator crash safety" [ bytes ]
+          test_read_combinator);
+      (fun () ->
+        add_test ~name:"read_attribute_match crash safety" [ bytes ]
+          test_read_attribute_match);
+      (fun () -> add_test ~name:"read_nth crash safety" [ bytes ] test_read_nth);
+      (fun () -> add_test ~name:"roundtrip" [ bytes ] test_roundtrip);
+      (fun () -> add_test ~name:"pp crash safety" [ bytes ] test_pp);
+    ] )

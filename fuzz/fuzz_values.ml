@@ -127,35 +127,56 @@ let test_color_roundtrip buf =
       try ignore (Css.Values.read_color r2)
       with Css.Reader.Parse_error _ -> fail "color roundtrip re-parse failed")
 
-let suite () =
-  add_test ~name:"values: read_color crash safety" [ bytes ] test_read_color;
-  add_test ~name:"values: read_length crash safety" [ bytes ] test_read_length;
-  add_test ~name:"values: read_angle crash safety" [ bytes ] test_read_angle;
-  add_test ~name:"values: read_duration crash safety" [ bytes ]
-    test_read_duration;
-  add_test ~name:"values: read_time crash safety" [ bytes ] test_read_time;
-  add_test ~name:"values: read_number crash safety" [ bytes ] test_read_number;
-  add_test ~name:"values: read_percentage crash safety" [ bytes ]
-    test_read_percentage;
-  add_test ~name:"values: read_length_percentage crash safety" [ bytes ]
-    test_read_length_percentage;
-  add_test ~name:"values: read_number_percentage crash safety" [ bytes ]
-    test_read_number_percentage;
-  add_test ~name:"values: read_color_name crash safety" [ bytes ]
-    test_read_color_name;
-  add_test ~name:"values: read_color_space crash safety" [ bytes ]
-    test_read_color_space;
-  add_test ~name:"values: read_system_color crash safety" [ bytes ]
-    test_read_system_color;
-  add_test ~name:"values: read_hue crash safety" [ bytes ] test_read_hue;
-  add_test ~name:"values: read_alpha crash safety" [ bytes ] test_read_alpha;
-  add_test ~name:"values: read_hue_interpolation crash safety" [ bytes ]
-    test_read_hue_interpolation;
-  add_test ~name:"values: read_calc crash safety" [ bytes ] test_read_calc;
-  add_test ~name:"values: read_channel crash safety" [ bytes ] test_read_channel;
-  add_test ~name:"values: read_component crash safety" [ bytes ]
-    test_read_component;
-  add_test ~name:"values: read_rgb crash safety" [ bytes ] test_read_rgb;
-  add_test ~name:"values: read_transition_behavior crash safety" [ bytes ]
-    test_read_transition_behavior;
-  add_test ~name:"values: color roundtrip" [ bytes ] test_color_roundtrip
+let suite =
+  ( "values",
+    [
+      (fun () ->
+        add_test ~name:"read_color crash safety" [ bytes ] test_read_color);
+      (fun () ->
+        add_test ~name:"read_length crash safety" [ bytes ] test_read_length);
+      (fun () ->
+        add_test ~name:"read_angle crash safety" [ bytes ] test_read_angle);
+      (fun () ->
+        add_test ~name:"read_duration crash safety" [ bytes ] test_read_duration);
+      (fun () ->
+        add_test ~name:"read_time crash safety" [ bytes ] test_read_time);
+      (fun () ->
+        add_test ~name:"read_number crash safety" [ bytes ] test_read_number);
+      (fun () ->
+        add_test ~name:"read_percentage crash safety" [ bytes ]
+          test_read_percentage);
+      (fun () ->
+        add_test ~name:"read_length_percentage crash safety" [ bytes ]
+          test_read_length_percentage);
+      (fun () ->
+        add_test ~name:"read_number_percentage crash safety" [ bytes ]
+          test_read_number_percentage);
+      (fun () ->
+        add_test ~name:"read_color_name crash safety" [ bytes ]
+          test_read_color_name);
+      (fun () ->
+        add_test ~name:"read_color_space crash safety" [ bytes ]
+          test_read_color_space);
+      (fun () ->
+        add_test ~name:"read_system_color crash safety" [ bytes ]
+          test_read_system_color);
+      (fun () -> add_test ~name:"read_hue crash safety" [ bytes ] test_read_hue);
+      (fun () ->
+        add_test ~name:"read_alpha crash safety" [ bytes ] test_read_alpha);
+      (fun () ->
+        add_test ~name:"read_hue_interpolation crash safety" [ bytes ]
+          test_read_hue_interpolation);
+      (fun () ->
+        add_test ~name:"read_calc crash safety" [ bytes ] test_read_calc);
+      (fun () ->
+        add_test ~name:"read_channel crash safety" [ bytes ] test_read_channel);
+      (fun () ->
+        add_test ~name:"read_component crash safety" [ bytes ]
+          test_read_component);
+      (fun () -> add_test ~name:"read_rgb crash safety" [ bytes ] test_read_rgb);
+      (fun () ->
+        add_test ~name:"read_transition_behavior crash safety" [ bytes ]
+          test_read_transition_behavior);
+      (fun () ->
+        add_test ~name:"color roundtrip" [ bytes ] test_color_roundtrip);
+    ] )
