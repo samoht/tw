@@ -877,7 +877,9 @@ let parse_aria_expr expr =
 
 (* Known aria shorthand names *)
 let is_aria_shorthand_name = function
-  | "checked" | "expanded" | "selected" | "disabled" -> true
+  | "busy" | "checked" | "disabled" | "expanded" | "hidden" | "pressed"
+  | "readonly" | "required" | "selected" ->
+      true
   | _ -> false
 
 (* Route aria variants to appropriate handler *)
@@ -1128,7 +1130,8 @@ let variant_order_of_prefix prefix =
   | "marker" -> 1100
   | "selection" -> 1200
   | "file" -> 1300
-  | "placeholder" | "backdrop" -> 1400
+  | "placeholder" -> 1400
+  | "backdrop" -> 1401
   | "details-content" -> 1500
   | "before" -> 1600
   | "after" -> 1601
@@ -1202,43 +1205,48 @@ let variant_order_of_prefix prefix =
       else if prefix = "contrast-less" then 50300
       else if starts_with prefix "pointer-" then 50400
       else if starts_with prefix "any-pointer-" then 50500
-      else if prefix = "sm" then 60000
-      else if prefix = "md" then 60100
-      else if prefix = "lg" then 60200
-      else if prefix = "xl" then 60300
-      else if prefix = "2xl" then 60400
-      else if starts_with prefix "min-" || starts_with prefix "max-" then 60500
+      else if
+        prefix = "sm" || prefix = "md" || prefix = "lg" || prefix = "xl"
+        || prefix = "2xl" || starts_with prefix "min-"
+        || starts_with prefix "max-"
+      then
+        (* All responsive variants share the same variant_order. Within this
+           group, Css.Media.compare handles the correct ordering: max-* before
+           min-*, descending breakpoint for max-*, ascending for min-*. *)
+        60000
       else if String.length prefix > 0 && prefix.[0] = '[' then 100000
       else if String.length prefix > 0 && prefix.[0] = '@' then 110000
       else 0
 
+(** Check if string [s] contains substring [pat]. *)
+let has_substring s pat =
+  let slen = String.length s and plen = String.length pat in
+  let rec check i =
+    i + plen <= slen && (String.sub s i plen = pat || check (i + 1))
+  in
+  check 0
+
 (** Compute variant_order from base_class and selector. Extracts the modifier
     prefix from base_class (everything before the last ":") and maps it to a
-    variant order number. Special-cases before/after which have base_class=None.
-*)
+    variant order number. For before/after, the base_class is the raw utility
+    name without prefix, so we detect them from the selector content. *)
 let compute_variant_order base_class selector =
-  match base_class with
-  | None ->
-      (* before/after pseudo-elements have no prefix in base_class *)
-      let sel_str = Css.Selector.to_string selector in
-      if String.contains sel_str ':' then
-        let has_sub s pat =
-          let slen = String.length s and plen = String.length pat in
-          let rec check i =
-            i + plen <= slen && (String.sub s i plen = pat || check (i + 1))
-          in
-          check 0
-        in
-        if has_sub sel_str "::before" then 1600
-        else if has_sub sel_str "::after" then 1601
-        else 0
-      else 0
-  | Some bc -> (
-      match String.rindex_opt bc ':' with
-      | None -> 0
-      | Some i ->
-          let prefix = String.sub bc 0 i in
-          variant_order_of_prefix prefix)
+  let from_base_class bc =
+    match String.rindex_opt bc ':' with
+    | Some i ->
+        let prefix = String.sub bc 0 i in
+        variant_order_of_prefix prefix
+    | None -> 0
+  in
+  let vo = match base_class with None -> 0 | Some bc -> from_base_class bc in
+  (* If no variant_order from base_class, check selector for pseudo-elements
+     that don't include their prefix in base_class (before/after) *)
+  if vo > 0 then vo
+  else
+    let sel_str = Css.Selector.to_string selector in
+    if has_substring sel_str "::before" then 1600
+    else if has_substring sel_str "::after" then 1601
+    else 0
 
 (** Build the class name prefix for a not-* inner modifier. Handles shorthand
     forms like data-foo, has-checked, nth-2 that need different class names than
@@ -1820,7 +1828,17 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
   | Style.Has _ | Style.Group_has _ | Style.Peer_has _ ->
       route_has_modifier modifier base_class props
   (* Aria bracket and group/peer aria variants *)
-  | Style.Aria_bracket _ | Style.Group_aria _ | Style.Peer_aria _ ->
+  | Style.Aria_bracket _ | Style.Group_aria _ | Style.Peer_aria _
+  | Style.Aria_checked | Style.Aria_expanded | Style.Aria_selected
+  | Style.Aria_disabled ->
+      let modifier =
+        match modifier with
+        | Style.Aria_checked -> Style.Aria_bracket "checked"
+        | Style.Aria_expanded -> Style.Aria_bracket "expanded"
+        | Style.Aria_selected -> Style.Aria_bracket "selected"
+        | Style.Aria_disabled -> Style.Aria_bracket "disabled"
+        | m -> m
+      in
       route_aria_modifier modifier base_class props
   (* Data bracket and group/peer data variants *)
   | Style.Data_bracket _ | Style.Group_data _ | Style.Peer_data _ ->
@@ -1842,6 +1860,27 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
       let content_decl = Css.content (Var content_ref) in
       let final_props = content_decl :: props in
       regular ~selector:sel ~props:final_props ~base_class ()
+  (* Arbitrary selector: [&_p] → .class p *)
+  | Style.Arbitrary_selector content ->
+      let open Css.Selector in
+      (* Replace underscores with spaces and & with the class anchor *)
+      let s = String.map (fun c -> if c = '_' then ' ' else c) content in
+      let modified_class = "[" ^ content ^ "]:" ^ base_class in
+      (* Parse the & pattern — split on & *)
+      let parts = String.split_on_char '&' s in
+      let sel =
+        match parts with
+        | [ ""; rest ] ->
+            (* &_p → class + descendant p *)
+            let rest = String.trim rest in
+            if rest = "" then Class modified_class
+            else
+              let reader = Css.Reader.of_string rest in
+              let descendant_sel = Css.Selector.read reader in
+              combine (Class modified_class) Descendant descendant_sel
+        | _ -> Class modified_class
+      in
+      regular ~selector:sel ~props ~base_class:modified_class ()
   (* Fallback for other modifiers *)
   | _ ->
       handle_fallback_modifier ~inner_has_hover modifier base_class selector
@@ -3079,10 +3118,11 @@ let compare_indexed_rules r1 r2 =
             rule_type_str r2.rule_type;
             ")\n";
           ]));
-  (* Variant ordering: when any rule has variant_order > 0, sort by priority
+  (* Variant ordering: when BOTH rules have variant_order > 0, sort by priority
      then variant_order. This overrides rule_type ordering so that modifier
-     variants sort in Tailwind's cascade order across Regular/Media/Supports. *)
-  if r1.variant_order > 0 || r2.variant_order > 0 then
+     variants sort in Tailwind's cascade order across Regular/Media/Supports.
+     When only one has variant_order, fall through to type-based dispatch. *)
+  if r1.variant_order > 0 && r2.variant_order > 0 then
     let p1, s1 = r1.order and p2, s2 = r2.order in
     let prio_cmp = Int.compare p1 p2 in
     if prio_cmp <> 0 then prio_cmp
@@ -3093,12 +3133,55 @@ let compare_indexed_rules r1 r2 =
         let sub_cmp = Int.compare s1 s2 in
         if sub_cmp <> 0 then sub_cmp
         else
-          (* Same variant_order + suborder: sort by base_class alphabetically
-             for stable ordering within merged selector blocks *)
-          let bc1 = match r1.base_class with Some s -> s | None -> "" in
-          let bc2 = match r2.base_class with Some s -> s | None -> "" in
-          let class_cmp = String.compare bc1 bc2 in
-          if class_cmp <> 0 then class_cmp else Int.compare r1.index r2.index
+          (* Same variant_order + suborder: for Media rules, compare by media
+             condition (breakpoint value) for correct responsive ordering. For
+             other rule types, compare by normalized base_class. *)
+          let media_cmp =
+            match (r1.rule_type, r2.rule_type) with
+            | `Media c1, `Media c2 ->
+                let cmp = Css.Media.compare c1 c2 in
+                if cmp <> 0 then cmp
+                else
+                  (* Same outer media condition - simple rules (no nested) come
+                     before nested rules, then compare nested media *)
+                  let nested_cmp =
+                    match (r1.nested, r2.nested) with
+                    | [], [] -> 0
+                    | [], _ -> -1
+                    | _, [] -> 1
+                    | [ n1 ], [ n2 ] -> (
+                        match (Css.as_media n1, Css.as_media n2) with
+                        | Some (c1, _), Some (c2, _) -> Css.Media.compare c1 c2
+                        | _ -> 0)
+                    | _ -> 0
+                  in
+                  nested_cmp
+            | _ -> 0
+          in
+          if media_cmp <> 0 then media_cmp
+          else
+            let normalize_for_sort s =
+              String.map
+                (function
+                  | '_' -> ' '
+                  | '[' | ']' -> '~'
+                  | '/' -> '|'
+                  | ':' -> '!'
+                  | c -> c)
+                s
+            in
+            let bc1 =
+              match r1.base_class with
+              | Some s -> normalize_for_sort s
+              | None -> ""
+            in
+            let bc2 =
+              match r2.base_class with
+              | Some s -> normalize_for_sort s
+              | None -> ""
+            in
+            let class_cmp = String.compare bc1 bc2 in
+            if class_cmp <> 0 then class_cmp else Int.compare r1.index r2.index
   else if
     (* For not-* variants, sort by order tuple to respect variant ordering. The
        order tuple has not_variant_order baked into the suborder, so comparing

@@ -216,6 +216,9 @@ type modifier =
       (** [in-group-X/name] — descendant of named group variant *)
   | Group_peer_named of modifier * string
       (** [group-peer-X/name] — peer-X within named group *)
+  | Arbitrary_selector of string
+      (** [[&_p]] — arbitrary selector variant, [&] is replaced by the element's
+          own class selector *)
 
 type t =
   | Style of {
@@ -494,6 +497,7 @@ let rec pp_modifier = function
   | In_named_group (inner, name) -> "in-group-" ^ pp_modifier inner ^ "/" ^ name
   | Group_peer_named (inner, name) ->
       "group-peer-" ^ pp_modifier inner ^ "/" ^ name
+  | Arbitrary_selector content -> "[" ^ content ^ "]"
 
 let rec pp = function
   | Style { props; _ } ->
