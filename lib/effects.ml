@@ -570,20 +570,27 @@ module Handler = struct
 
   (* ============ Shadow color utilities ============ *)
 
-  let shadow_color_hex c shade =
+  let shadow_color_hex ~property_prefix c shade =
     let color_name = Color.scheme_color_name c shade in
     match Scheme.hex_color (Color.scheme ()) color_name with
     | Stdlib.Option.Some h -> h
     | Stdlib.Option.None -> (
-        match Var.theme_value ("color-" ^ color_name) with
+        (* Check property-scoped theme value first *)
+        let prop_name = property_prefix ^ "-" ^ color_name in
+        match Var.theme_value prop_name with
         | Stdlib.Option.Some h -> h
-        | Stdlib.Option.None ->
-            let oklch = Color.to_oklch c shade in
-            let rgb = Color.oklch_to_rgb oklch in
-            Color.rgb_to_hex rgb)
+        | Stdlib.Option.None -> (
+            match Var.theme_value ("color-" ^ color_name) with
+            | Stdlib.Option.Some h -> h
+            | Stdlib.Option.None ->
+                let oklch = Color.to_oklch c shade in
+                let rgb = Color.oklch_to_rgb oklch in
+                Color.rgb_to_hex rgb))
 
   let set_shadow_color c shade =
-    let hex_value = shadow_color_hex c shade in
+    let hex_value =
+      shadow_color_hex ~property_prefix:"box-shadow-color" c shade
+    in
     let base_decl, _ = Var.binding shadow_color_var (Css.hex hex_value) in
     let theme_color_var =
       Color.property_color_var ~property_prefix:"box-shadow-color" c shade
@@ -602,7 +609,9 @@ module Handler = struct
 
   let set_shadow_color_opacity c shade opacity =
     let percent = Color.opacity_to_percent opacity in
-    let hex_value = shadow_color_hex c shade in
+    let hex_value =
+      shadow_color_hex ~property_prefix:"box-shadow-color" c shade
+    in
     let hex_with_alpha = Color.hex_with_alpha hex_value percent in
     let base_decl, _ = Var.binding shadow_color_var (Css.hex hex_with_alpha) in
     let theme_color_var =
@@ -1098,20 +1107,26 @@ module Handler = struct
 
   (* ============ Inset shadow color utilities ============ *)
 
-  let inset_shadow_color_hex c shade =
+  let inset_shadow_color_hex ~property_prefix c shade =
     let color_name = Color.scheme_color_name c shade in
     match Scheme.hex_color (Color.scheme ()) color_name with
     | Stdlib.Option.Some h -> h
     | Stdlib.Option.None -> (
-        match Var.theme_value ("color-" ^ color_name) with
+        let prop_name = property_prefix ^ "-" ^ color_name in
+        match Var.theme_value prop_name with
         | Stdlib.Option.Some h -> h
-        | Stdlib.Option.None ->
-            let oklch = Color.to_oklch c shade in
-            let rgb = Color.oklch_to_rgb oklch in
-            Color.rgb_to_hex rgb)
+        | Stdlib.Option.None -> (
+            match Var.theme_value ("color-" ^ color_name) with
+            | Stdlib.Option.Some h -> h
+            | Stdlib.Option.None ->
+                let oklch = Color.to_oklch c shade in
+                let rgb = Color.oklch_to_rgb oklch in
+                Color.rgb_to_hex rgb))
 
   let set_inset_shadow_color c shade =
-    let hex_value = inset_shadow_color_hex c shade in
+    let hex_value =
+      inset_shadow_color_hex ~property_prefix:"inset-box-shadow-color" c shade
+    in
     let base_decl, _ = Var.binding inset_shadow_color_var (Css.hex hex_value) in
     let theme_color_var =
       Color.property_color_var ~property_prefix:"inset-box-shadow-color" c shade
@@ -1130,7 +1145,9 @@ module Handler = struct
 
   let set_inset_shadow_color_opacity c shade opacity =
     let percent = Color.opacity_to_percent opacity in
-    let hex_value = inset_shadow_color_hex c shade in
+    let hex_value =
+      inset_shadow_color_hex ~property_prefix:"inset-box-shadow-color" c shade
+    in
     let hex_with_alpha = Color.hex_with_alpha hex_value percent in
     let base_decl, _ =
       Var.binding inset_shadow_color_var (Css.hex hex_with_alpha)

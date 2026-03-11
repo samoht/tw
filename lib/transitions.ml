@@ -63,10 +63,8 @@ module Handler = struct
     Var.channel ~needs_property:true ~property_order:5 Css.Timing_function
       "tw-ease"
 
-  (* Theme variable for transition-property-opacity *)
-  let transition_property_opacity_var =
-    Var.theme Css.Transition_property_value "transition-property-opacity"
-      ~order:(8, 2)
+  (* transition-property-opacity is NOT a Tailwind v4 theme variable. The value
+     'opacity' is inlined directly. *)
 
   let transition_none = style [ Css.transition_property [ Css.None ] ]
 
@@ -216,14 +214,10 @@ module Handler = struct
         ])
 
   let transition_opacity () =
-    let opacity_decl, opacity_ref =
-      Var.binding transition_property_opacity_var (Css.Property "opacity")
-    in
     style
       (default_theme_decls ()
       @ [
-          opacity_decl;
-          Css.transition_property [ Css.Var opacity_ref ];
+          Css.transition_property [ Css.Property "opacity" ];
           Css.transition_timing_function (Css.Var ease_ref);
           Css.transition_duration (Css.Var duration_ref);
         ])
@@ -281,28 +275,22 @@ module Handler = struct
 
   (* Theme variables for easing functions - order (7, 6-8) places them after
      radius (7, 0-5) but before animate (7, 9-12) *)
-  let ease_linear_var =
-    Var.theme Css.Timing_function "ease-linear" ~order:(7, 15)
-
   let ease_in_var = Var.theme Css.Timing_function "ease-in" ~order:(7, 16)
   let ease_out_var = Var.theme Css.Timing_function "ease-out" ~order:(7, 17)
 
   let ease_in_out_var =
     Var.theme Css.Timing_function "ease-in-out" ~order:(7, 18)
 
+  (* ease-linear uses CSS keyword 'linear' directly — no theme variable needed
+     since 'linear' is a builtin CSS value, not a custom theme value *)
   let ease_linear =
-    let theme_decl, ease_linear_ref = Var.binding ease_linear_var Css.Linear in
-    let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var ease_linear_ref) in
+    let tw_ease_decl, _ = Var.binding tw_ease_var Css.Linear in
     let prop_rule = Var.property_rule tw_ease_var in
     let property_rules =
       match prop_rule with Some r -> r | None -> Css.empty
     in
     style ~property_rules
-      [
-        theme_decl;
-        tw_ease_decl;
-        Css.transition_timing_function (Css.Var ease_linear_ref);
-      ]
+      [ tw_ease_decl; Css.transition_timing_function Css.Linear ]
 
   let ease_in =
     (* Set --tw-ease to var(--ease-in) and use the theme variable *)

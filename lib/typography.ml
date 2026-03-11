@@ -171,7 +171,7 @@ let default_line_height_theme : line_height_theme =
 (* Content variable *)
 let content_var =
   Var.property_default Content ~initial:(String "") ~universal:true
-    ~property_order:100 "tw-content"
+    ~property_order:100 ~family:`Content "tw-content"
 
 (* Default theme for font variant numeric variables *)
 type font_variant_theme = {

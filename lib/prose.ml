@@ -544,6 +544,7 @@ let kbd_rules base =
               {
                 inset = false;
                 inset_var = None;
+                inset_var_no_fallback = false;
                 h_offset = Zero;
                 v_offset = Zero;
                 blur = Some Zero;
@@ -554,6 +555,7 @@ let kbd_rules base =
               {
                 inset = false;
                 inset_var = None;
+                inset_var_no_fallback = false;
                 h_offset = Zero;
                 v_offset = Px 3.0;
                 blur = Some Zero;

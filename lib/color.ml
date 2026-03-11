@@ -1403,31 +1403,54 @@ module Handler = struct
     | Some hex -> Css.hex hex
     | None -> to_css c (if is_base_color c then 500 else shade)
 
-  (** Get a color variable for a property. Always uses the standard
-      [--color-{name}] naming (e.g., [--color-blue-500]) matching Tailwind v4.
-      The [~property_prefix] is kept for API compatibility but no longer affects
-      the variable name. *)
-  let property_color_var ~property_prefix:_ (c : color) shade =
-    color_var c shade
-
-  (** Get the color value for use with color variables. Checks scheme first,
-      then theme value overrides for the standard color name, then converts from
-      oklch as fallback. *)
-  let property_color_value ~property_prefix:_ (c : color) shade =
+  (** Get a color variable for a property. Checks if a property-scoped theme
+      value exists (e.g., [--accent-color-blue-500]) and if so creates a
+      property-scoped variable. Otherwise falls back to the generic
+      [--color-{name}] variable. *)
+  let property_color_var ~property_prefix (c : color) shade =
     let color_name = scheme_color_name c shade in
-    match Scheme.hex_color !current_scheme color_name with
-    | Some hex -> Css.hex hex
-    | None -> (
-        (* Check theme value overrides for standard color name *)
-        let std_name = "color-" ^ color_name in
-        match Var.theme_value std_name with
-        | Some value -> Css.hex value
+    let prop_name = property_prefix ^ "-" ^ color_name in
+    match Var.theme_value prop_name with
+    | Some _ -> (
+        (* Property-scoped theme value exists, create scoped variable *)
+        let name = prop_name in
+        match Hashtbl.find_opt color_var_cache name with
+        | Some var -> var
         | None ->
-            let oklch_val =
-              to_oklch c (if is_base_color c then 500 else shade)
+            let base = pp c in
+            let var_order =
+              if is_shadeless c then theme_order_with_shade base 0
+              else theme_order_with_shade base shade
             in
-            let rgb_val = oklch_to_rgb oklch_val in
-            Css.hex (rgb_to_hex rgb_val))
+            let var = Var.theme Css.Color name ~order:var_order in
+            Hashtbl.add color_var_cache name var;
+            var)
+    | None ->
+        (* Fall back to generic --color-{name} *)
+        color_var c shade
+
+  (** Get the color value for use with color variables. Checks for
+      property-scoped theme value first, then scheme, then generic theme value,
+      then converts from oklch as fallback. *)
+  let property_color_value ~property_prefix (c : color) shade =
+    let color_name = scheme_color_name c shade in
+    let prop_name = property_prefix ^ "-" ^ color_name in
+    match Var.theme_value prop_name with
+    | Some value -> Css.hex value
+    | None -> (
+        match Scheme.hex_color !current_scheme color_name with
+        | Some hex -> Css.hex hex
+        | None -> (
+            (* Check theme value overrides for standard color name *)
+            let std_name = "color-" ^ color_name in
+            match Var.theme_value std_name with
+            | Some value -> Css.hex value
+            | None ->
+                let oklch_val =
+                  to_oklch c (if is_base_color c then 500 else shade)
+                in
+                let rgb_val = oklch_to_rgb oklch_val in
+                Css.hex (rgb_to_hex rgb_val)))
 
   (* Aliases for color constructors/functions that will be shadowed by open
      Css *)

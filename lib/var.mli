@@ -378,6 +378,7 @@ type family =
   | `Font_weight
   | `Duration
   | `Tracking
+  | `Content
   | `Text_shadow
   | `Filter
   | `Drop_shadow

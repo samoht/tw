@@ -416,17 +416,22 @@ module Handler = struct
             (* Try as theme-named color *)
             let name = String.concat "-" color_parts in
             let base, opacity = Color.parse_opacity_modifier name in
-            if Var.theme_value ("color-" ^ base) <> None then
-              Ok (Divide_color_opacity (Theme_named base, 500, opacity))
+            if
+              Var.theme_value ("color-" ^ base) <> None
+              || Var.theme_value ("border-color-" ^ base) <> None
+            then Ok (Divide_color_opacity (Theme_named base, 500, opacity))
             else Error (`Msg ("Invalid divide color: " ^ name)))
     | "divide" :: color_parts -> (
         match Color.shade_of_strings color_parts with
         | Ok (color, shade) -> Ok (Divide_color (color, shade))
         | Error _ ->
-            (* Try as theme-named color *)
+            (* Try as theme-named color - check both generic and property-scoped
+               theme values *)
             let name = String.concat "-" color_parts in
-            if Var.theme_value ("color-" ^ name) <> None then
-              Ok (Divide_color (Theme_named name, 500))
+            if
+              Var.theme_value ("color-" ^ name) <> None
+              || Var.theme_value ("border-color-" ^ name) <> None
+            then Ok (Divide_color (Theme_named name, 500))
             else Error (`Msg ("Invalid divide color: " ^ name)))
     | _ -> Error (`Msg "Not a divide utility")
 end

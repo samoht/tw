@@ -1185,7 +1185,11 @@ let variant_order_of_prefix prefix =
         String.length s >= String.length p
         && String.sub s 0 (String.length p) = p
       in
-      if starts_with prefix "has-" then 30600
+      if starts_with prefix "group-" then 500
+        (* All group-* variants: same order as group-hover *)
+      else if starts_with prefix "peer-" then 600
+        (* All peer-* variants: after group-*, before pseudo-elements *)
+      else if starts_with prefix "has-" then 30600
       else if starts_with prefix "aria-" then
         (* Named aria: aria-busy=30700, aria-checked=30701, etc.
            (alphabetical) *)
@@ -1229,19 +1233,29 @@ let has_substring s pat =
 let compute_variant_order base_class selector =
   let from_base_class bc =
     match String.rindex_opt bc ':' with
-    | Some i ->
+    | Some i -> (
         let prefix = String.sub bc 0 i in
-        variant_order_of_prefix prefix
+        let vo = variant_order_of_prefix prefix in
+        if vo > 0 then vo
+        else
+          (* For compound prefixes like "dark:group-focus", try the outermost
+             modifier (before the first colon in the prefix). *)
+          match String.index_opt prefix ':' with
+          | Some j -> variant_order_of_prefix (String.sub prefix 0 j)
+          | None -> 0)
     | None -> 0
   in
   let vo = match base_class with None -> 0 | Some bc -> from_base_class bc in
-  (* If no variant_order from base_class, check selector for pseudo-elements
-     that don't include their prefix in base_class (before/after) *)
+  (* If no variant_order from base_class, check selector for modifier-based
+     pseudo-elements (before:/after: modifiers). Only detect when the selector
+     class name contains the escaped modifier prefix (e.g., "before\:absolute")
+     to avoid matching utility-generated pseudo-elements like prose's
+     ::before. *)
   if vo > 0 then vo
   else
     let sel_str = Css.Selector.to_string selector in
-    if has_substring sel_str "::before" then 1600
-    else if has_substring sel_str "::after" then 1601
+    if has_substring sel_str "before\\:" then 1600
+    else if has_substring sel_str "after\\:" then 1601
     else 0
 
 (** Build the class name prefix for a not-* inner modifier. Handles shorthand
@@ -3118,24 +3132,103 @@ let compare_variant_ordered r1 r2 =
       let vo_cmp = Int.compare r1.variant_order r2.variant_order in
       if vo_cmp <> 0 then vo_cmp
       else
-        (* Same variant_order: for media rules, compare media condition first so
-           that responsive breakpoints sort by ascending breakpoint value (e.g.,
-           sm before md before lg) regardless of utility priority. *)
-        let media_cmp =
-          match (r1.rule_type, r2.rule_type) with
-          | `Media c1, `Media c2 ->
-              let cmp = Css.Media.compare c1 c2 in
-              if cmp <> 0 then cmp else compare_nested_media r1 r2
-          | _ -> 0
+        (* Same variant_order: first sort by inner variant order for compound
+           modifiers (e.g., dark:group-focus vs dark:hover). This must come
+           before media_cmp because compare_nested_media would otherwise put
+           rules without nested media before rules with nested media, overriding
+           the intended inner modifier ordering. *)
+        let variant_prefix bc =
+          match bc with
+          | Some s -> (
+              match String.rindex_opt s ':' with
+              | Some i -> String.sub s 0 i
+              | None -> "")
+          | None -> ""
         in
-        if media_cmp <> 0 then media_cmp
+        let inner_vo prefix =
+          let starts_with s p =
+            String.length s >= String.length p
+            && String.sub s 0 (String.length p) = p
+          in
+          let strip_group_peer_vo p =
+            if starts_with p "group-" then
+              variant_order_of_prefix (String.sub p 6 (String.length p - 6))
+            else if starts_with p "peer-" then
+              variant_order_of_prefix (String.sub p 5 (String.length p - 5))
+            else variant_order_of_prefix p
+          in
+          match String.index_opt prefix ':' with
+          | Some j ->
+              let outer = String.sub prefix 0 j in
+              if starts_with outer "group-" || starts_with outer "peer-" then
+                (* For group-*/peer-* compound modifiers (e.g.,
+                   group-focus:group-hover), use max stripped vo + 1 to place
+                   compounds just after their highest-ordered constituent *)
+                let parts = String.split_on_char ':' prefix in
+                let max_vo =
+                  List.fold_left
+                    (fun acc p -> max acc (strip_group_peer_vo p))
+                    0 parts
+                in
+                max_vo + 1
+              else
+                let inner =
+                  String.sub prefix (j + 1) (String.length prefix - j - 1)
+                in
+                variant_order_of_prefix inner
+          | None ->
+              (* Only strip group-*/peer-* to get inner variant order. For all
+                 other prefixes (e.g., "dark"), return 0 to preserve existing
+                 ordering within consolidated media blocks. *)
+              if starts_with prefix "group-" then
+                variant_order_of_prefix
+                  (String.sub prefix 6 (String.length prefix - 6))
+              else if starts_with prefix "peer-" then
+                variant_order_of_prefix
+                  (String.sub prefix 5 (String.length prefix - 5))
+              else 0
+        in
+        let p1_prefix = variant_prefix r1.base_class in
+        let p2_prefix = variant_prefix r2.base_class in
+        let ivo_cmp = Int.compare (inner_vo p1_prefix) (inner_vo p2_prefix) in
+        if ivo_cmp <> 0 then ivo_cmp
         else
-          let p1, s1 = r1.order and p2, s2 = r2.order in
-          let prio_cmp = Int.compare p1 p2 in
-          if prio_cmp <> 0 then prio_cmp
+          (* Same inner variant order: rules with nested media (e.g.,
+             dark:group-hover with nested @media (hover:hover)) come before
+             rules without nested media. This matches Tailwind's ordering and
+             ensures that non-nested rules remain adjacent for selector
+             combining (e.g., group-has + peer-checked). *)
+          let nested_cmp =
+            let has_nested = function [] -> 0 | _ -> -1 in
+            Int.compare (has_nested r1.nested) (has_nested r2.nested)
+          in
+          if nested_cmp <> 0 then nested_cmp
           else
-            let sub_cmp = Int.compare s1 s2 in
-            if sub_cmp <> 0 then sub_cmp else compare_by_base_class r1 r2
+            (* Same nesting: compare media conditions so that responsive
+               breakpoints sort by ascending breakpoint value (e.g., sm before
+               md before lg) regardless of utility priority. *)
+            let media_cmp =
+              match (r1.rule_type, r2.rule_type) with
+              | `Media c1, `Media c2 ->
+                  let cmp = Css.Media.compare c1 c2 in
+                  if cmp <> 0 then cmp else compare_nested_media r1 r2
+              | _ -> 0
+            in
+            if media_cmp <> 0 then media_cmp
+            else
+              (* Within same inner variant order and same media condition, sort
+                 by variant prefix string to keep rules with the same modifier
+                 prefix together (e.g., all group-focus rules before all
+                 group-has rules). *)
+              let prefix_cmp = String.compare p1_prefix p2_prefix in
+              if prefix_cmp <> 0 then prefix_cmp
+              else
+                let p1, s1 = r1.order and p2, s2 = r2.order in
+                let prio_cmp = Int.compare p1 p2 in
+                if prio_cmp <> 0 then prio_cmp
+                else
+                  let sub_cmp = Int.compare s1 s2 in
+                  if sub_cmp <> 0 then sub_cmp else compare_by_base_class r1 r2
 
 (* Compare two Supports rules *)
 let compare_supports_rules r1 r2 =
@@ -3175,6 +3268,10 @@ let compare_indexed_rules r1 r2 =
           ]));
   if r1.variant_order > 0 && r2.variant_order > 0 then
     compare_variant_ordered r1 r2
+  else if r1.variant_order > 0 then 1
+    (* variant-ordered rules always come after non-variant rules *)
+  else if r2.variant_order > 0 then -1
+    (* non-variant rules always come before variant-ordered rules *)
   else if r1.not_order > 0 || r2.not_order > 0 then
     let order_cmp = compare r1.order r2.order in
     if order_cmp <> 0 then order_cmp else compare_by_base_class r1 r2
@@ -3426,6 +3523,20 @@ let rule_sets_from_selector_props all_rules =
     |> deduplicate_typed_triples |> add_index
   in
   let sorted = List.sort compare_indexed_rules indexed in
+  if !debug_compare then
+    List.iter
+      (fun r ->
+        Printf.eprintf "SORTED: vo=%d base=%s type=%s nested=%d\n"
+          r.variant_order
+          (match r.base_class with Some s -> s | None -> "<none>")
+          (match r.rule_type with
+          | `Regular -> "R"
+          | `Media m -> "M:" ^ Css.Media.to_string m
+          | `Container _ -> "C"
+          | `Starting -> "S"
+          | `Supports _ -> "U")
+          (List.length r.nested))
+      sorted;
   sorted |> List.map indexed_rule_to_statement
 
 let build_utilities_layer ~layers ~statements =
@@ -3941,10 +4052,10 @@ let sort_property_rules_by_usage first_usage_order property_rules_for_end =
   let uses_direct_property_order = function
     | Some
         ( `Gradient | `Translate | `Rotate | `Skew | `Scale | `Duration
-        | `Font_weight | `Leading ) ->
+        | `Font_weight | `Leading | `Content ) ->
         false
-        (* Transforms, gradient, duration, and typography use first-usage
-           order *)
+        (* Transforms, gradient, duration, typography, and content use
+           first-usage order *)
     | Some _ -> true (* All other families use property_order *)
     | None -> true (* Variables without families also use property_order *)
   in
