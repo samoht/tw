@@ -36,3 +36,6 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/username/tw.git"
+pin-depends: [
+  ["crowbar.0.2.2" "git+https://tangled.org/gazagnaire.org/crowbar.git"]
+]

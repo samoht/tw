@@ -1,3 +1,3 @@
 (** Fuzz tests for the CSS Values module. *)
 
-val suite : string * (unit -> unit) list
+val suite : string * Crowbar.test_case list

@@ -47,10 +47,8 @@ let test_compare buf1 buf2 =
 let suite =
   ( "supports",
     [
-      (fun () ->
-        add_test ~name:"of_string crash safety" [ bytes ] test_of_string);
-      (fun () -> add_test ~name:"roundtrip" [ bytes ] test_roundtrip);
-      (fun () -> add_test ~name:"pp crash safety" [ bytes ] test_pp);
-      (fun () ->
-        add_test ~name:"compare crash safety" [ bytes; bytes ] test_compare);
+      test_case "of_string crash safety" [ bytes ] test_of_string;
+      test_case "roundtrip" [ bytes ] test_roundtrip;
+      test_case "pp crash safety" [ bytes ] test_pp;
+      test_case "compare crash safety" [ bytes; bytes ] test_compare;
     ] )

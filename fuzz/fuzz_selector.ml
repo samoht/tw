@@ -63,19 +63,14 @@ let test_pp buf =
 let suite =
   ( "selector",
     [
-      (fun () ->
-        add_test ~name:"of_string crash safety" [ bytes ] test_of_string);
-      (fun () -> add_test ~name:"read crash safety" [ bytes ] test_read);
-      (fun () ->
-        add_test ~name:"read_selector_list crash safety" [ bytes ]
-          test_read_selector_list);
-      (fun () ->
-        add_test ~name:"read_combinator crash safety" [ bytes ]
-          test_read_combinator);
-      (fun () ->
-        add_test ~name:"read_attribute_match crash safety" [ bytes ]
-          test_read_attribute_match);
-      (fun () -> add_test ~name:"read_nth crash safety" [ bytes ] test_read_nth);
-      (fun () -> add_test ~name:"roundtrip" [ bytes ] test_roundtrip);
-      (fun () -> add_test ~name:"pp crash safety" [ bytes ] test_pp);
+      test_case "of_string crash safety" [ bytes ] test_of_string;
+      test_case "read crash safety" [ bytes ] test_read;
+      test_case "read_selector_list crash safety" [ bytes ]
+        test_read_selector_list;
+      test_case "read_combinator crash safety" [ bytes ] test_read_combinator;
+      test_case "read_attribute_match crash safety" [ bytes ]
+        test_read_attribute_match;
+      test_case "read_nth crash safety" [ bytes ] test_read_nth;
+      test_case "roundtrip" [ bytes ] test_roundtrip;
+      test_case "pp crash safety" [ bytes ] test_pp;
     ] )

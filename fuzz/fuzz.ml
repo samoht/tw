@@ -2,10 +2,8 @@
 
     Registers all fuzz test modules and runs them with Crowbar. *)
 
-let run_suite (_name, tests) = List.iter (fun f -> f ()) tests
-
 let () =
-  List.iter run_suite
+  Crowbar.run "css"
     [
       Fuzz_reader.suite;
       Fuzz_selector.suite;
