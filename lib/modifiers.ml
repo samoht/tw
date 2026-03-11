@@ -996,6 +996,7 @@ let rec pp_modifier = function
   | In_named_group (inner, name) -> "in-group-" ^ pp_modifier inner ^ "/" ^ name
   | Group_peer_named (inner, name) ->
       "group-peer-" ^ pp_modifier inner ^ "/" ^ name
+  | Arbitrary_selector content -> "[" ^ content ^ "]"
 
 (* Find matching closing bracket, handling nested brackets *)
 let matching_bracket s =
@@ -1167,6 +1168,17 @@ let try_bracketed_modifier s =
           (fun sel ->
             if sel <> "" && String.contains sel '&' then Some sel else None)
           (fun sel -> Peer_arbitrary sel));
+      (* Arbitrary selector: [&_p], [&:hover], etc. *)
+      (fun () ->
+        if
+          String.length s >= 3
+          && s.[0] = '['
+          && s.[String.length s - 1] = ']'
+          && String.contains s '&'
+        then
+          let content = String.sub s 1 (String.length s - 2) in
+          Some (Arbitrary_selector content)
+        else None);
     ]
   in
   match List.find_map (fun f -> f ()) patterns with
@@ -1531,7 +1543,9 @@ let split_name rest =
    group-has-checked/name *)
 (* Known aria shorthand names that map to [aria-X=true] *)
 let is_aria_shorthand = function
-  | "checked" | "expanded" | "selected" | "disabled" -> true
+  | "busy" | "checked" | "disabled" | "expanded" | "hidden" | "pressed"
+  | "readonly" | "required" | "selected" ->
+      true
   | _ -> false
 
 (* Try parsing group-aria-*/peer-aria-* shorthand with optional /name *)
@@ -1741,6 +1755,15 @@ let parse_modifier s : modifier option =
                           then
                             let attr = String.sub s 5 (String.length s - 5) in
                             Some (Data_custom (attr, ""))
+                          else if
+                            (* aria-X shorthand without brackets: aria-busy,
+                               aria-hidden, etc. *)
+                            String.length s > 5
+                            && String.sub s 0 5 = "aria-"
+                            && not (String.contains s '[')
+                          then
+                            let attr = String.sub s 5 (String.length s - 5) in
+                            Some (Aria_bracket attr)
                           else
                             (* Try custom breakpoint as final fallback *)
                             try_custom_breakpoint s)))))

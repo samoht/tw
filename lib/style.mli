@@ -216,6 +216,7 @@ type modifier =
       (** [in-group-X/name] — descendant of named group variant *)
   | Group_peer_named of modifier * string
       (** [group-peer-X/name] — peer-X within named group *)
+  | Arbitrary_selector of string  (** [[&_p]] — arbitrary selector variant *)
 
 type t =
   | Style of {
