@@ -4091,12 +4091,38 @@ let has_focus_ring_contrast tw_classes =
   in
   has_focus_ring && has_contrast_more
 
+let has_transition_utility selector_props =
+  List.exists
+    (fun r ->
+      let bc =
+        match r with
+        | Regular { base_class; _ }
+        | Media_query { base_class; _ }
+        | Container_query { base_class; _ }
+        | Starting_style { base_class; _ }
+        | Supports_query { base_class; _ } ->
+            base_class
+      in
+      match bc with
+      | Some c ->
+          String.length c >= 10
+          && String.sub c 0 10 = "transition"
+          && c <> "transition-none"
+      | None -> false)
+    selector_props
+
 let build_individual_layers ~layers ~include_base ~forms_base first_usage_order
     selector_props all_property_statements statements =
-  (* Only include font family defaults when base is enabled - these are defaults
-     that should not appear in bare utility-only output *)
   let theme_defaults =
-    if include_base then Typography.default_font_family_declarations else []
+    let font_defaults =
+      if include_base then Typography.default_font_family_declarations else []
+    in
+    let transition_defaults =
+      if include_base && has_transition_utility selector_props then
+        Transitions.default_transition_declarations
+      else []
+    in
+    font_defaults @ transition_defaults
   in
   let theme_layer =
     theme_layer_of_props ~layers ~default_decls:theme_defaults selector_props

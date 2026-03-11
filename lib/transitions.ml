@@ -42,15 +42,15 @@ module Handler = struct
   let priority =
     30 (* Transition utilities come after all other styling utilities *)
 
-  (* Theme variables for default transition settings. Timing-function has lower
-     order (8,0) so it appears before duration (8,1) in the theme layer output,
+  (* Theme variables for default transition settings. Duration has lower order
+     (8,0) so it appears before timing-function (8,1) in the theme layer output,
      matching Tailwind's order. *)
   let default_transition_duration_var =
-    Var.theme Css.Duration "default-transition-duration" ~order:(8, 1)
+    Var.theme Css.Duration "default-transition-duration" ~order:(8, 0)
 
   let default_transition_timing_function_var =
     Var.theme Css.Timing_function "default-transition-timing-function"
-      ~order:(8, 0)
+      ~order:(8, 1)
 
   (* Variable for transition duration with @property *)
   let tw_duration_var =
