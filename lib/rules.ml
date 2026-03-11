@@ -2551,72 +2551,62 @@ let compare_media_conditions group1 sub1 sub2 cond1 cond2 =
    compare_by_priority_suborder_alpha for all media groups to preserve source
    order and avoid artificial media block merging *)
 
+(* For hover media, separate rules by modifier depth so that single-modifier
+   hover rules (group-hover:flex) form a separate block from stacked hover rules
+   (group-focus:group-hover:flex) *)
+let compare_hover_depth cond1 cond2 sel1 sel2 =
+  match (cond1, cond2) with
+  | Some Css.Media.Hover, Some Css.Media.Hover ->
+      Int.compare (selector_modifier_depth sel1) (selector_modifier_depth sel2)
+  | _ -> 0
+
+(* Compare by nested media condition when both have nested media. This sorts
+   stacked min/max variants like min-sm:max-xl vs min-sm:max-lg by the inner
+   media condition. *)
+let compare_nested_media_cond nested1 nested2 =
+  match (nested1, nested2) with
+  | [ n1 ], [ n2 ] -> (
+      match (Css.as_media n1, Css.as_media n2) with
+      | Some (c1, _), Some (c2, _) -> Css.Media.compare c1 c2
+      | _ -> 0)
+  | _ -> 0
+
+let compare_same_media_group sel1 sel2 order1 order2 i1 i2 nested1 nested2 bc1
+    bc2 cond1 cond2 =
+  let depth_cmp = compare_hover_depth cond1 cond2 sel1 sel2 in
+  if depth_cmp <> 0 then depth_cmp
+  else
+    let nested_media_cmp = compare_nested_media_cond nested1 nested2 in
+    if nested_media_cmp <> 0 then nested_media_cmp
+    else
+      let same_utility =
+        match (bc1, bc2) with
+        | Some b1, Some b2 -> String.equal b1 b2
+        | _ -> false
+      in
+      if same_utility then
+        let order_cmp = compare order1 order2 in
+        if order_cmp <> 0 then order_cmp else Int.compare i1 i2
+      else compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+
 let compare_media_rules typ1 typ2 sel1 sel2 order1 order2 i1 i2 nested1 nested2
     bc1 bc2 =
-  (* First, check nesting status - nested/compound media queries (like
-     contrast-more:dark:text-white) should come after all simple media queries,
-     regardless of their group order. This matches Tailwind v4 behavior where
-     simple media queries (hover, motion-*, contrast-more, md, dark) all come
-     before compound queries (contrast-more > dark nested). *)
-  let has_nested1 = nested1 <> [] in
-  let has_nested2 = nested2 <> [] in
-  let nested_cmp = Bool.compare has_nested1 has_nested2 in
+  (* Nested/compound media queries come after simple ones *)
+  let nested_cmp = Bool.compare (nested1 <> []) (nested2 <> []) in
   if nested_cmp <> 0 then nested_cmp
   else
-    (* Both are nested or both are simple - compare by group *)
     let group1, sub1 = extract_media_sort_key typ1 in
     let group2, sub2 = extract_media_sort_key typ2 in
     let key_cmp = Int.compare group1 group2 in
     if key_cmp <> 0 then key_cmp
     else
-      (* Same media group. For Responsive (2000), sort by rem value (ascending).
-         For Preference_accessibility (1000), use preference_condition_order.
-         For Preference_appearance (3000) and others, use Css.Media.compare. *)
       let cond1 = match typ1 with `Media c -> Some c | _ -> None in
       let cond2 = match typ2 with `Media c -> Some c | _ -> None in
       let cond_cmp = compare_media_conditions group1 sub1 sub2 cond1 cond2 in
       if cond_cmp <> 0 then cond_cmp
       else
-        (* For hover media, separate rules by modifier depth so that
-           single-modifier hover rules (group-hover:flex) form a separate block
-           from stacked hover rules (group-focus:group-hover:flex) *)
-        let depth_cmp =
-          match (cond1, cond2) with
-          | Some Css.Media.Hover, Some Css.Media.Hover ->
-              Int.compare
-                (selector_modifier_depth sel1)
-                (selector_modifier_depth sel2)
-          | _ -> 0
-        in
-        if depth_cmp <> 0 then depth_cmp
-        else
-          (* Compare by nested media condition when both have nested media. This
-             sorts stacked min/max variants like min-sm:max-xl vs min-sm:max-lg
-             by the inner media condition. *)
-          let nested_media_cmp =
-            match (nested1, nested2) with
-            | [ n1 ], [ n2 ] -> (
-                match (Css.as_media n1, Css.as_media n2) with
-                | Some (c1, _), Some (c2, _) -> Css.Media.compare c1 c2
-                | _ -> 0)
-            | _ -> 0
-          in
-          if nested_media_cmp <> 0 then nested_media_cmp
-          else
-            (* Same media condition - check if same utility first *)
-            let same_utility =
-              match (bc1, bc2) with
-              | Some b1, Some b2 -> String.equal b1 b2
-              | _ -> false
-            in
-            if same_utility then
-              (* Same utility in same media: preserve source order (like prose
-                 rules inside @media (hover:hover)) *)
-              let order_cmp = compare order1 order2 in
-              if order_cmp <> 0 then order_cmp else Int.compare i1 i2
-            else
-              (* Different utilities - sort by priority/suborder/selector *)
-              compare_by_priority_suborder_alpha sel1 sel2 order1 order2 i1 i2
+        compare_same_media_group sel1 sel2 order1 order2 i1 i2 nested1 nested2
+          bc1 bc2 cond1 cond2
 
 (* ======================================================================== *)
 (* Regular vs Media Comparison - Type-directed comparison for mixed rules *)
@@ -2837,40 +2827,50 @@ let is_outline_utility bc =
 (* Natural sort comparison: treats consecutive digit sequences as integers.
    E.g., "2.5" < "2.25" because 5 < 25 when compared as numbers. This matches
    Tailwind v4's selector ordering for opacity modifiers like /2.5 vs /2.25. *)
+let natural_is_digit c = c >= '0' && c <= '9'
+
+let natural_extract_number s i =
+  let rec go j acc =
+    if j >= String.length s || not (natural_is_digit s.[j]) then (acc, j)
+    else go (j + 1) ((acc * 10) + Char.code s.[j] - Char.code '0')
+  in
+  go i 0
+
+(* Skip CSS escape backslash before '#': compare \# as #. Tailwind v4 sorts by
+   unescaped class names, but Css.Selector.to_string returns escaped form. '#'
+   (0x23) sorts below digits but '\' (0x5C) sorts above them, so \[\#0088cc\]
+   wrongly sorts after \[10px...\]. Only unescape \# — other escapes like \/
+   need the backslash for correct opacity modifier ordering. *)
+let natural_skip_hash_escape s i len =
+  if i < len && s.[i] = '\\' && i + 1 < len && s.[i + 1] = '#' then i + 1 else i
+
+let boundary_compare i1 len1 i2 len2 =
+  if i1 >= len1 && i2 >= len2 then `Equal
+  else if i1 >= len1 then `Less
+  else if i2 >= len2 then `Greater
+  else `Continue
+
 let natural_compare s1 s2 =
   let len1 = String.length s1 and len2 = String.length s2 in
-  let is_digit c = c >= '0' && c <= '9' in
-  let extract_number s i =
-    let rec go j acc =
-      if j >= String.length s || not (is_digit s.[j]) then (acc, j)
-      else go (j + 1) ((acc * 10) + Char.code s.[j] - Char.code '0')
-    in
-    go i 0
-  in
-  (* Skip CSS escape backslash before '#': compare \# as #. Tailwind v4 sorts by
-     unescaped class names, but Css.Selector.to_string returns escaped form. '#'
-     (0x23) sorts below digits but '\' (0x5C) sorts above them, so \[\#0088cc\]
-     wrongly sorts after \[10px...\]. Only unescape \# — other escapes like \/
-     need the backslash for correct opacity modifier ordering. *)
-  let skip_hash_escape s i len =
-    if i < len && s.[i] = '\\' && i + 1 < len && s.[i + 1] = '#' then i + 1
-    else i
-  in
   let rec compare_at i1 i2 =
-    if i1 >= len1 && i2 >= len2 then 0
-    else if i1 >= len1 then -1
-    else if i2 >= len2 then 1
-    else
-      let i1 = skip_hash_escape s1 i1 len1 in
-      let i2 = skip_hash_escape s2 i2 len2 in
-      if i1 >= len1 && i2 >= len2 then 0
-      else if i1 >= len1 then -1
-      else if i2 >= len2 then 1
-      else
+    match boundary_compare i1 len1 i2 len2 with
+    | `Equal -> 0
+    | `Less -> -1
+    | `Greater -> 1
+    | `Continue ->
+        let i1 = natural_skip_hash_escape s1 i1 len1 in
+        let i2 = natural_skip_hash_escape s2 i2 len2 in
+        compare_at_chars i1 i2
+  and compare_at_chars i1 i2 =
+    match boundary_compare i1 len1 i2 len2 with
+    | `Equal -> 0
+    | `Less -> -1
+    | `Greater -> 1
+    | `Continue ->
         let c1 = s1.[i1] and c2 = s2.[i2] in
-        if is_digit c1 && is_digit c2 then
-          let n1, end1 = extract_number s1 i1 in
-          let n2, end2 = extract_number s2 i2 in
+        if natural_is_digit c1 && natural_is_digit c2 then
+          let n1, end1 = natural_extract_number s1 i1 in
+          let n2, end2 = natural_extract_number s2 i2 in
           let num_cmp = Int.compare n1 n2 in
           if num_cmp <> 0 then num_cmp else compare_at end1 end2
         else
