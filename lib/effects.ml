@@ -575,7 +575,7 @@ module Handler = struct
     match Scheme.hex_color (Color.scheme ()) color_name with
     | Stdlib.Option.Some h -> h
     | Stdlib.Option.None -> (
-        match Var.theme_value ("box-shadow-color-" ^ color_name) with
+        match Var.theme_value ("color-" ^ color_name) with
         | Stdlib.Option.Some h -> h
         | Stdlib.Option.None ->
             let oklch = Color.to_oklch c shade in
@@ -1103,7 +1103,7 @@ module Handler = struct
     match Scheme.hex_color (Color.scheme ()) color_name with
     | Stdlib.Option.Some h -> h
     | Stdlib.Option.None -> (
-        match Var.theme_value ("inset-box-shadow-color-" ^ color_name) with
+        match Var.theme_value ("color-" ^ color_name) with
         | Stdlib.Option.Some h -> h
         | Stdlib.Option.None ->
             let oklch = Color.to_oklch c shade in

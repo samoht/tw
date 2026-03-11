@@ -1141,7 +1141,7 @@ let color_var color shade =
     String.of_seq (List.to_seq escaped)
   in
   let name =
-    if is_base_color color then "color-" ^ escaped_base
+    if is_shadeless color then "color-" ^ escaped_base
     else "color-" ^ escaped_base ^ "-" ^ string_of_int shade
   in
   (* Check if variable already exists in cache *)
@@ -1156,7 +1156,7 @@ let color_var color shade =
          input, not by a fixed ordering. Our implementation uses a fixed
          ordering for determinism and consistency. *)
       let var_order =
-        if is_base_color color then theme_order_with_shade base 0
+        if is_shadeless color then theme_order_with_shade base 0
         else theme_order_with_shade base shade
       in
       let var = Var.theme Css.Color name ~order:var_order in
@@ -1403,40 +1403,24 @@ module Handler = struct
     | Some hex -> Css.hex hex
     | None -> to_css c (if is_base_color c then 500 else shade)
 
-  (** Get a property-scoped color variable. For scheme colors, uses the standard
-      [--color-{name}]. For non-scheme colors, uses [--{property_prefix}-{name}]
-      (e.g., [--accent-color-blue-500]). *)
-  let property_color_var ~property_prefix (c : color) shade =
-    let color_name = scheme_color_name c shade in
-    let is_scheme =
-      Scheme.hex_color !current_scheme color_name <> Stdlib.Option.none
-    in
-    if is_scheme then color_var c shade
-    else
-      let base = pp c in
-      let name = property_prefix ^ "-" ^ color_name in
-      match Hashtbl.find_opt color_var_cache name with
-      | Some var -> var
-      | Stdlib.Option.None ->
-          let var_order =
-            if is_base_color c then theme_order_with_shade base 0
-            else theme_order_with_shade base shade
-          in
-          let var = Var.theme Css.Color name ~order:var_order in
-          Hashtbl.add color_var_cache name var;
-          var
+  (** Get a color variable for a property. Always uses the standard
+      [--color-{name}] naming (e.g., [--color-blue-500]) matching Tailwind v4.
+      The [~property_prefix] is kept for API compatibility but no longer affects
+      the variable name. *)
+  let property_color_var ~property_prefix:_ (c : color) shade =
+    color_var c shade
 
-  (** Get the color value for use with property-scoped variables. Checks scheme
-      first, then theme value overrides for property-scoped name, then converts
-      from oklch as fallback. *)
-  let property_color_value ~property_prefix (c : color) shade =
+  (** Get the color value for use with color variables. Checks scheme first,
+      then theme value overrides for the standard color name, then converts from
+      oklch as fallback. *)
+  let property_color_value ~property_prefix:_ (c : color) shade =
     let color_name = scheme_color_name c shade in
     match Scheme.hex_color !current_scheme color_name with
     | Some hex -> Css.hex hex
     | None -> (
-        (* Check theme value overrides for property-scoped name *)
-        let prop_name = property_prefix ^ "-" ^ color_name in
-        match Var.theme_value prop_name with
+        (* Check theme value overrides for standard color name *)
+        let std_name = "color-" ^ color_name in
+        match Var.theme_value std_name with
         | Some value -> Css.hex value
         | None ->
             let oklch_val =
