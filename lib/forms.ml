@@ -17,8 +17,8 @@ let ring_offset_shadow () =
   let open Css in
   let spread : length = Var (var_ref "tw-ring-offset-width") in
   let color : color = Var (var_ref "tw-ring-offset-color") in
-  shadow ~inset:false ~inset_var:"tw-ring-inset" ~h_offset:Zero ~v_offset:Zero
-    ~blur:Zero ~spread ~color ()
+  shadow ~inset:false ~inset_var:"tw-ring-inset" ~inset_var_no_fallback:true
+    ~h_offset:Zero ~v_offset:Zero ~blur:Zero ~spread ~color ()
 
 let ring_shadow ~ring_width_px =
   let open Css in
@@ -31,8 +31,8 @@ let ring_shadow ~ring_width_px =
           (var ~default:offset_width_default "tw-ring-offset-width"))
   in
   let color : color = Var (var_ref "tw-ring-color") in
-  shadow ~inset:false ~inset_var:"tw-ring-inset" ~h_offset:Zero ~v_offset:Zero
-    ~blur:Zero ~spread ~color ()
+  shadow ~inset:false ~inset_var:"tw-ring-inset" ~inset_var_no_fallback:true
+    ~h_offset:Zero ~v_offset:Zero ~blur:Zero ~spread ~color ()
 
 let focus_ring_decls ~offset_width ~ring_width_px =
   let open Css in

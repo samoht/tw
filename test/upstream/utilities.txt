@@ -6959,7 +6959,7 @@ accent-[#0088cc] accent-[#0088cc]/50 accent-[#0088cc]/[0.5] accent-[#0088cc]/[50
 ---
 :root, :host {
       --color-red-500: #ef4444;
-      --color-blue-500: #3b82f6;
+      --accent-color-blue-500: #3b82f6;
     }
 
     .accent-\[\#0088cc\] {
@@ -6971,7 +6971,7 @@ accent-[#0088cc] accent-[#0088cc]/50 accent-[#0088cc]/[0.5] accent-[#0088cc]/[50
     }
 
     .accent-blue-500 {
-      accent-color: var(--color-blue-500);
+      accent-color: var(--accent-color-blue-500);
     }
 
     .accent-current, .accent-current\/50 {
@@ -7088,7 +7088,7 @@ caret-[#0088cc] caret-[#0088cc]/50 caret-[#0088cc]/[0.5] caret-[#0088cc]/[50%] c
 ---
 :root, :host {
       --color-red-500: #ef4444;
-      --color-blue-500: #3b82f6;
+      --caret-color-blue-500: #3b82f6;
     }
 
     .caret-\[\#0088cc\] {
@@ -7100,7 +7100,7 @@ caret-[#0088cc] caret-[#0088cc]/50 caret-[#0088cc]/[0.5] caret-[#0088cc]/[50%] c
     }
 
     .caret-blue-500 {
-      caret-color: var(--color-blue-500);
+      caret-color: var(--caret-color-blue-500);
     }
 
     .caret-current, .caret-current\/50 {
@@ -7217,7 +7217,7 @@ divide-[#0088cc] divide-[#0088cc]/50 divide-[#0088cc]/[0.5] divide-[#0088cc]/[50
 ---
 :root, :host {
       --color-red-500: #ef4444;
-      --color-best-blue: #6495ed;
+      --border-color-best-blue: #6495ed;
     }
 
     :where(.divide-\[\#0088cc\] > :not(:last-child)) {
@@ -7229,7 +7229,7 @@ divide-[#0088cc] divide-[#0088cc]/50 divide-[#0088cc]/[0.5] divide-[#0088cc]/[50
     }
 
     :where(.divide-best-blue > :not(:last-child)) {
-      border-color: var(--color-best-blue);
+      border-color: var(--border-color-best-blue);
     }
 
     :where(.divide-current > :not(:last-child)), :where(.divide-current\/50 > :not(:last-child)) {
@@ -8472,7 +8472,7 @@ border
 ---
 :root, :host {
       --color-red-500: #ef4444;
-      --color-blue-500: #3b82f6;
+      --background-color-blue-500: #3b82f6;
     }
 
     .bg-\[\#0088cc\] {
@@ -8544,7 +8544,7 @@ border
     }
 
     .bg-blue-500 {
-      background-color: var(--color-blue-500);
+      background-color: var(--background-color-blue-500);
     }
 
     .bg-current, .bg-current\/50 {
@@ -15093,7 +15093,7 @@ fill-[#0088cc] fill-[#0088cc]/50 fill-[#0088cc]/[0.5] fill-[#0088cc]/[50%] fill-
 ---
 :root, :host {
       --color-red-500: #ef4444;
-      --color-blue-500: #3b82f6;
+      --fill-blue-500: #3b82f6;
     }
 
     .fill-\[\#0088cc\] {
@@ -15105,7 +15105,7 @@ fill-[#0088cc] fill-[#0088cc]/50 fill-[#0088cc]/[0.5] fill-[#0088cc]/[50%] fill-
     }
 
     .fill-blue-500 {
-      fill: var(--color-blue-500);
+      fill: var(--fill-blue-500);
     }
 
     .fill-current, .fill-current\/50 {
@@ -15222,7 +15222,7 @@ stroke-0 stroke-1 stroke-2 stroke-[#0088cc] stroke-[#0088cc]/50 stroke-[#0088cc]
 ---
 :root, :host {
       --color-red-500: #ef4444;
-      --color-blue-500: #3b82f6;
+      --stroke-blue-500: #3b82f6;
     }
 
     .stroke-\[\#0088cc\] {
@@ -15294,7 +15294,7 @@ stroke-0 stroke-1 stroke-2 stroke-[#0088cc] stroke-[#0088cc]/50 stroke-[#0088cc]
     }
 
     .stroke-blue-500 {
-      stroke: var(--color-blue-500);
+      stroke: var(--stroke-blue-500);
     }
 
     .stroke-current, .stroke-current\/50 {
@@ -16331,7 +16331,7 @@ decoration-0 decoration-1 decoration-123 decoration-2 decoration-4 decoration-[#
 ---
 :root, :host {
       --color-red-500: #ef4444;
-      --color-blue-500: #3b82f6;
+      --text-decoration-color-blue-500: #3b82f6;
     }
 
     .decoration-\[\#0088cc\] {
@@ -16427,9 +16427,9 @@ decoration-0 decoration-1 decoration-123 decoration-2 decoration-4 decoration-[#
     }
 
     .decoration-blue-500 {
-      -webkit-text-decoration-color: var(--color-blue-500);
-      -webkit-text-decoration-color: var(--color-blue-500);
-      text-decoration-color: var(--color-blue-500);
+      -webkit-text-decoration-color: var(--text-decoration-color-blue-500);
+      -webkit-text-decoration-color: var(--text-decoration-color-blue-500);
+      text-decoration-color: var(--text-decoration-color-blue-500);
     }
 
     .decoration-current, .decoration-current\/50 {
@@ -18035,7 +18035,7 @@ outline outline-0 outline-[#0088cc] outline-[#0088cc]/50 outline-[#0088cc]/[0.5]
 
     :root, :host {
       --color-red-500: #ef4444;
-      --color-blue-500: #3b82f6;
+      --outline-color-blue-500: #3b82f6;
     }
 
     .outline-hidden {
@@ -18165,7 +18165,7 @@ outline outline-0 outline-[#0088cc] outline-[#0088cc]/50 outline-[#0088cc]/[0.5]
     }
 
     .outline-blue-500 {
-      outline-color: var(--color-blue-500);
+      outline-color: var(--outline-color-blue-500);
     }
 
     .outline-current, .outline-current\/50 {
@@ -18413,7 +18413,7 @@ text-[#0088cc] text-[#0088cc]/50 text-[#0088cc]/[0.5] text-[#0088cc]/[50%] text-
 :root, :host {
       --spacing: .25rem;
       --color-red-500: #ef4444;
-      --color-blue-500: #3b82f6;
+      --text-color-blue-500: #3b82f6;
       --text-sm: .875rem;
       --text-sm--line-height: 1.25rem;
       --leading-snug: 1.375;
@@ -18575,7 +18575,7 @@ text-[#0088cc] text-[#0088cc]/50 text-[#0088cc]/[0.5] text-[#0088cc]/[50%] text-
     }
 
     .text-blue-500 {
-      color: var(--color-blue-500);
+      color: var(--text-color-blue-500);
     }
 
     .text-current, .text-current\/50 {
@@ -19011,7 +19011,7 @@ shadow-[#0088cc] shadow-[#0088cc]/50 shadow-[#0088cc]/[0.5] shadow-[#0088cc]/[50
 
     :root, :host {
       --color-red-500: #ef4444;
-      --color-blue-500: #3b82f6;
+      --box-shadow-color-blue-500: #3b82f6;
     }
 
     .shadow-\[12px_12px_var\(--value\)\]\/25 {
@@ -19177,7 +19177,7 @@ shadow-[#0088cc] shadow-[#0088cc]/50 shadow-[#0088cc]/[0.5] shadow-[#0088cc]/[50
 
     @supports (color: color-mix(in lab, red, red)) {
       .shadow-blue-500 {
-        --tw-shadow-color: color-mix(in oklab, var(--color-blue-500) var(--tw-shadow-alpha), transparent);
+        --tw-shadow-color: color-mix(in oklab, var(--box-shadow-color-blue-500) var(--tw-shadow-alpha), transparent);
       }
     }
 
@@ -19832,7 +19832,7 @@ ring ring-0 ring-1 ring-2 ring-4 ring-[#0088cc] ring-[#0088cc]/50 ring-[#0088cc]
 
     :root, :host {
       --color-red-500: #ef4444;
-      --color-blue-500: #3b82f6;
+      --ring-color-blue-500: #3b82f6;
     }
 
     .ring {
@@ -19939,7 +19939,7 @@ ring ring-0 ring-1 ring-2 ring-4 ring-[#0088cc] ring-[#0088cc]/50 ring-[#0088cc]
     }
 
     .ring-blue-500 {
-      --tw-ring-color: var(--color-blue-500);
+      --tw-ring-color: var(--ring-color-blue-500);
     }
 
     .ring-current, .ring-current\/50 {
@@ -20567,7 +20567,7 @@ ring-offset-0 ring-offset-1 ring-offset-2 ring-offset-4 ring-offset-[#0088cc] ri
 ---
 :root, :host {
       --color-red-500: #ef4444;
-      --color-blue-500: #3b82f6;
+      --ring-offset-color-blue-500: #3b82f6;
     }
 
     .ring-offset-0 {
@@ -20669,7 +20669,7 @@ ring-offset-0 ring-offset-1 ring-offset-2 ring-offset-4 ring-offset-[#0088cc] ri
     }
 
     .ring-offset-blue-500 {
-      --tw-ring-offset-color: var(--color-blue-500);
+      --tw-ring-offset-color: var(--ring-offset-color-blue-500);
     }
 
     .ring-offset-current, .ring-offset-current\/50 {
