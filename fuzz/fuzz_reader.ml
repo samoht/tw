@@ -60,7 +60,7 @@ let test_pct buf =
   let r = Css.Reader.of_string buf in
   try ignore (Css.Reader.pct r) with Css.Reader.Parse_error _ -> ()
 
-let run () =
+let suite () =
   add_test ~name:"reader: of_string crash safety" [ bytes ] test_of_string;
   add_test ~name:"reader: ident crash safety" [ bytes ] test_ident;
   add_test ~name:"reader: token crash safety" [ bytes ] test_token;

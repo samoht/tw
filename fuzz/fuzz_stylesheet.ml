@@ -77,7 +77,7 @@ let test_stylesheet_roundtrip buf =
       with Css.Reader.Parse_error _ ->
         fail "stylesheet roundtrip re-parse failed")
 
-let run () =
+let suite () =
   add_test ~name:"stylesheet: read_stylesheet crash safety" [ bytes ]
     test_read_stylesheet;
   add_test ~name:"stylesheet: read_rule crash safety" [ bytes ] test_read_rule;

@@ -3,10 +3,10 @@
     Registers all fuzz test modules and runs them with Crowbar. *)
 
 let () =
-  Fuzz_reader.run ();
-  Fuzz_selector.run ();
-  Fuzz_values.run ();
-  Fuzz_stylesheet.run ();
-  Fuzz_supports.run ();
-  Fuzz_font_face.run ();
-  Fuzz_keyframe.run ()
+  Fuzz_reader.suite ();
+  Fuzz_selector.suite ();
+  Fuzz_values.suite ();
+  Fuzz_stylesheet.suite ();
+  Fuzz_supports.suite ();
+  Fuzz_font_face.suite ();
+  Fuzz_keyframe.suite ()
