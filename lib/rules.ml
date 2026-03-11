@@ -3360,8 +3360,8 @@ let apply_not_order (prio, sub) not_order =
   if not_order = 0 then (prio, sub) else (prio, sub + not_order)
 
 (* Convert each rule type to typed triple *)
-let make_triple typ ~selector ~props ~order ~nested ~base_class ~merge_key
-    ~not_order =
+let triple typ ~selector ~props ~order ~nested ~base_class ~merge_key ~not_order
+    =
   Some (typ, selector, props, order, nested, base_class, merge_key, not_order)
 
 let rule_to_triple = function
@@ -3372,20 +3372,20 @@ let rule_to_triple = function
         apply_not_order (order_of_base base_class selector) not_order
       in
       let typ = if has_hover then `Media Css.Media.Hover else `Regular in
-      make_triple typ ~selector ~props ~order ~nested ~base_class ~merge_key
+      triple typ ~selector ~props ~order ~nested ~base_class ~merge_key
         ~not_order
   | Media_query { condition; selector; props; base_class; nested; not_order } ->
       let order =
         apply_not_order (order_of_base base_class selector) not_order
       in
-      make_triple (`Media condition) ~selector ~props ~order ~nested ~base_class
+      triple (`Media condition) ~selector ~props ~order ~nested ~base_class
         ~merge_key:None ~not_order
   | Container_query { condition; selector; props; base_class } ->
-      make_triple (`Container condition) ~selector ~props
+      triple (`Container condition) ~selector ~props
         ~order:(order_of_base base_class selector)
         ~nested:[] ~base_class ~merge_key:None ~not_order:0
   | Starting_style { selector; props; base_class } ->
-      make_triple `Starting ~selector ~props
+      triple `Starting ~selector ~props
         ~order:(order_of_base base_class selector)
         ~nested:[] ~base_class ~merge_key:None ~not_order:0
   | Supports_query
@@ -3393,7 +3393,7 @@ let rule_to_triple = function
       let order =
         apply_not_order (order_of_base base_class selector) not_order
       in
-      make_triple (`Supports condition) ~selector ~props ~order ~nested:[]
+      triple (`Supports condition) ~selector ~props ~order ~nested:[]
         ~base_class ~merge_key ~not_order
 
 (* Add index to each triple for stable sorting *)
