@@ -1090,19 +1090,11 @@ let is_valid_has_selector sel =
 
 (* Try parsing a bracketed modifier, returning Some if matched *)
 (* Build the list of bracket pattern matchers for a given input string *)
-let bracket_patterns s =
+let bracket_named_patterns s =
   let ( let* ) = Option.bind in
   let try_pattern prefix make =
     let* content = extract_bracket_content ~prefix s in
     Some (make content)
-  in
-  let try_pattern_with prefix parse make =
-    let* content = extract_bracket_content ~prefix s in
-    let* value = parse content in
-    Some (make value)
-  in
-  let try_has sel make =
-    if is_valid_has_selector sel then Some (make sel) else None
   in
   let try_named prefix make =
     let* expr, name = extract_bracket_content_with_name ~prefix s in
@@ -1110,7 +1102,7 @@ let bracket_patterns s =
   in
   let try_named_has prefix make =
     let* sel, name = extract_bracket_content_with_name ~prefix s in
-    try_has sel (fun s -> make s name)
+    if is_valid_has_selector sel then Some (make sel name) else None
   in
   [
     (fun () -> try_named "group-aria-[" (fun e n -> Group_aria (e, n)));
@@ -1125,29 +1117,39 @@ let bracket_patterns s =
     (fun () -> try_named_has "peer-has-[" (fun s n -> Peer_has (s, n)));
     (fun () ->
       let* sel = extract_bracket_content ~prefix:"has-[" s in
-      try_has sel (fun s -> Has s));
+      if is_valid_has_selector sel then Some (Has sel) else None);
+  ]
+
+let bracket_value_patterns s =
+  let ( let* ) = Option.bind in
+  let try_pattern prefix make =
+    let* content = extract_bracket_content ~prefix s in
+    Some (make content)
+  in
+  let try_with prefix parse make =
+    let* content = extract_bracket_content ~prefix s in
+    let* value = parse content in
+    Some (make value)
+  in
+  [
+    (fun () -> try_with "min-[" parse_px_value (fun px -> Min_arbitrary px));
+    (fun () -> try_with "max-[" parse_px_value (fun px -> Max_arbitrary px));
     (fun () ->
-      try_pattern_with "min-[" parse_px_value (fun px -> Min_arbitrary px));
+      try_with "min-[" parse_css_length (fun l -> Min_arbitrary_length l));
     (fun () ->
-      try_pattern_with "max-[" parse_px_value (fun px -> Max_arbitrary px));
-    (fun () ->
-      try_pattern_with "min-[" parse_css_length (fun l ->
-          Min_arbitrary_length l));
-    (fun () ->
-      try_pattern_with "max-[" parse_css_length (fun l ->
-          Max_arbitrary_length l));
+      try_with "max-[" parse_css_length (fun l -> Max_arbitrary_length l));
     (fun () -> try_pattern "nth-last-of-type-[" (fun e -> Nth_last_of_type e));
     (fun () -> try_pattern "nth-of-type-[" (fun e -> Nth_of_type e));
     (fun () -> try_pattern "nth-last-[" (fun e -> Nth_last e));
     (fun () -> try_pattern "nth-[" (fun e -> Nth e));
     (fun () -> try_pattern "supports-[" (fun c -> Supports c));
     (fun () ->
-      try_pattern_with "group-["
+      try_with "group-["
         (fun sel ->
           if sel <> "" && String.contains sel '&' then Some sel else None)
         (fun sel -> Group_arbitrary sel));
     (fun () ->
-      try_pattern_with "peer-["
+      try_with "peer-["
         (fun sel ->
           if sel <> "" && String.contains sel '&' then Some sel else None)
         (fun sel -> Peer_arbitrary sel));
@@ -1160,6 +1162,8 @@ let bracket_patterns s =
       then Some (Arbitrary_selector (String.sub s 1 (String.length s - 2)))
       else None);
   ]
+
+let bracket_patterns s = bracket_named_patterns s @ bracket_value_patterns s
 
 (* Try supports-<property> shorthand: supports-grid → Supports "grid:
    var(--tw)" *)
