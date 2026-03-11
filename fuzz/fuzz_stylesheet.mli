@@ -1,3 +1,3 @@
 (** Fuzz tests for the CSS Stylesheet module. *)
 
-val suite : unit -> unit
+val suite : string * (unit -> unit) list

@@ -45,12 +45,17 @@ let test_src_roundtrip buf =
       with Css.Reader.Parse_error _ | Invalid_argument _ | Failure _ ->
         fail "src roundtrip failed")
 
-let suite () =
-  add_test ~name:"font_face: metric_override crash safety" [ bytes ]
-    test_metric_override;
-  add_test ~name:"font_face: size_adjust crash safety" [ bytes ]
-    test_size_adjust;
-  add_test ~name:"font_face: src crash safety" [ bytes ] test_src;
-  add_test ~name:"font_face: metric_override roundtrip" [ bytes ]
-    test_metric_override_roundtrip;
-  add_test ~name:"font_face: src roundtrip" [ bytes ] test_src_roundtrip
+let suite =
+  ( "font_face",
+    [
+      (fun () ->
+        add_test ~name:"metric_override crash safety" [ bytes ]
+          test_metric_override);
+      (fun () ->
+        add_test ~name:"size_adjust crash safety" [ bytes ] test_size_adjust);
+      (fun () -> add_test ~name:"src crash safety" [ bytes ] test_src);
+      (fun () ->
+        add_test ~name:"metric_override roundtrip" [ bytes ]
+          test_metric_override_roundtrip);
+      (fun () -> add_test ~name:"src roundtrip" [ bytes ] test_src_roundtrip);
+    ] )

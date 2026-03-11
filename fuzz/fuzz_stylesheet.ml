@@ -77,22 +77,33 @@ let test_stylesheet_roundtrip buf =
       with Css.Reader.Parse_error _ ->
         fail "stylesheet roundtrip re-parse failed")
 
-let suite () =
-  add_test ~name:"stylesheet: read_stylesheet crash safety" [ bytes ]
-    test_read_stylesheet;
-  add_test ~name:"stylesheet: read_rule crash safety" [ bytes ] test_read_rule;
-  add_test ~name:"stylesheet: read_block crash safety" [ bytes ] test_read_block;
-  add_test ~name:"stylesheet: read crash safety" [ bytes ] test_read;
-  add_test ~name:"stylesheet: read_import_rule crash safety" [ bytes ]
-    test_read_import_rule;
-  add_test ~name:"stylesheet: read_config crash safety" [ bytes ]
-    test_read_config;
-  add_test ~name:"declaration: read_declaration crash safety" [ bytes ]
-    test_read_declaration;
-  add_test ~name:"declaration: read_declarations crash safety" [ bytes ]
-    test_read_declarations;
-  add_test ~name:"declaration: read_property_name crash safety" [ bytes ]
-    test_read_property_name;
-  add_test ~name:"declaration: read_property_value crash safety" [ bytes ]
-    test_read_property_value;
-  add_test ~name:"stylesheet: roundtrip" [ bytes ] test_stylesheet_roundtrip
+let suite =
+  ( "stylesheet",
+    [
+      (fun () ->
+        add_test ~name:"read_stylesheet crash safety" [ bytes ]
+          test_read_stylesheet);
+      (fun () ->
+        add_test ~name:"read_rule crash safety" [ bytes ] test_read_rule);
+      (fun () ->
+        add_test ~name:"read_block crash safety" [ bytes ] test_read_block);
+      (fun () -> add_test ~name:"read crash safety" [ bytes ] test_read);
+      (fun () ->
+        add_test ~name:"read_import_rule crash safety" [ bytes ]
+          test_read_import_rule);
+      (fun () ->
+        add_test ~name:"read_config crash safety" [ bytes ] test_read_config);
+      (fun () ->
+        add_test ~name:"read_declaration crash safety" [ bytes ]
+          test_read_declaration);
+      (fun () ->
+        add_test ~name:"read_declarations crash safety" [ bytes ]
+          test_read_declarations);
+      (fun () ->
+        add_test ~name:"read_property_name crash safety" [ bytes ]
+          test_read_property_name);
+      (fun () ->
+        add_test ~name:"read_property_value crash safety" [ bytes ]
+          test_read_property_value);
+      (fun () -> add_test ~name:"roundtrip" [ bytes ] test_stylesheet_roundtrip);
+    ] )
