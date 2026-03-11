@@ -48,14 +48,10 @@ let test_src_roundtrip buf =
 let suite =
   ( "font_face",
     [
-      (fun () ->
-        add_test ~name:"metric_override crash safety" [ bytes ]
-          test_metric_override);
-      (fun () ->
-        add_test ~name:"size_adjust crash safety" [ bytes ] test_size_adjust);
-      (fun () -> add_test ~name:"src crash safety" [ bytes ] test_src);
-      (fun () ->
-        add_test ~name:"metric_override roundtrip" [ bytes ]
-          test_metric_override_roundtrip);
-      (fun () -> add_test ~name:"src roundtrip" [ bytes ] test_src_roundtrip);
+      test_case "metric_override crash safety" [ bytes ] test_metric_override;
+      test_case "size_adjust crash safety" [ bytes ] test_size_adjust;
+      test_case "src crash safety" [ bytes ] test_src;
+      test_case "metric_override roundtrip" [ bytes ]
+        test_metric_override_roundtrip;
+      test_case "src roundtrip" [ bytes ] test_src_roundtrip;
     ] )

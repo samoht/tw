@@ -80,30 +80,18 @@ let test_stylesheet_roundtrip buf =
 let suite =
   ( "stylesheet",
     [
-      (fun () ->
-        add_test ~name:"read_stylesheet crash safety" [ bytes ]
-          test_read_stylesheet);
-      (fun () ->
-        add_test ~name:"read_rule crash safety" [ bytes ] test_read_rule);
-      (fun () ->
-        add_test ~name:"read_block crash safety" [ bytes ] test_read_block);
-      (fun () -> add_test ~name:"read crash safety" [ bytes ] test_read);
-      (fun () ->
-        add_test ~name:"read_import_rule crash safety" [ bytes ]
-          test_read_import_rule);
-      (fun () ->
-        add_test ~name:"read_config crash safety" [ bytes ] test_read_config);
-      (fun () ->
-        add_test ~name:"read_declaration crash safety" [ bytes ]
-          test_read_declaration);
-      (fun () ->
-        add_test ~name:"read_declarations crash safety" [ bytes ]
-          test_read_declarations);
-      (fun () ->
-        add_test ~name:"read_property_name crash safety" [ bytes ]
-          test_read_property_name);
-      (fun () ->
-        add_test ~name:"read_property_value crash safety" [ bytes ]
-          test_read_property_value);
-      (fun () -> add_test ~name:"roundtrip" [ bytes ] test_stylesheet_roundtrip);
+      test_case "read_stylesheet crash safety" [ bytes ] test_read_stylesheet;
+      test_case "read_rule crash safety" [ bytes ] test_read_rule;
+      test_case "read_block crash safety" [ bytes ] test_read_block;
+      test_case "read crash safety" [ bytes ] test_read;
+      test_case "read_import_rule crash safety" [ bytes ] test_read_import_rule;
+      test_case "read_config crash safety" [ bytes ] test_read_config;
+      test_case "read_declaration crash safety" [ bytes ] test_read_declaration;
+      test_case "read_declarations crash safety" [ bytes ]
+        test_read_declarations;
+      test_case "read_property_name crash safety" [ bytes ]
+        test_read_property_name;
+      test_case "read_property_value crash safety" [ bytes ]
+        test_read_property_value;
+      test_case "roundtrip" [ bytes ] test_stylesheet_roundtrip;
     ] )

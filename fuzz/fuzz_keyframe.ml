@@ -46,13 +46,10 @@ let test_position_compare buf1 buf2 =
 let suite =
   ( "keyframe",
     [
-      (fun () -> add_test ~name:"position crash safety" [ bytes ] test_position);
-      (fun () -> add_test ~name:"selector crash safety" [ bytes ] test_selector);
-      (fun () ->
-        add_test ~name:"position roundtrip" [ bytes ] test_position_roundtrip);
-      (fun () ->
-        add_test ~name:"selector roundtrip" [ bytes ] test_selector_roundtrip);
-      (fun () ->
-        add_test ~name:"position_compare antisymmetry" [ bytes; bytes ]
-          test_position_compare);
+      test_case "position crash safety" [ bytes ] test_position;
+      test_case "selector crash safety" [ bytes ] test_selector;
+      test_case "position roundtrip" [ bytes ] test_position_roundtrip;
+      test_case "selector roundtrip" [ bytes ] test_selector_roundtrip;
+      test_case "position_compare antisymmetry" [ bytes; bytes ]
+        test_position_compare;
     ] )

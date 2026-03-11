@@ -63,17 +63,15 @@ let test_pct buf =
 let suite =
   ( "reader",
     [
-      (fun () ->
-        add_test ~name:"of_string crash safety" [ bytes ] test_of_string);
-      (fun () -> add_test ~name:"ident crash safety" [ bytes ] test_ident);
-      (fun () -> add_test ~name:"token crash safety" [ bytes ] test_token);
-      (fun () -> add_test ~name:"number crash safety" [ bytes ] test_number);
-      (fun () -> add_test ~name:"int crash safety" [ bytes ] test_int);
-      (fun () -> add_test ~name:"string crash safety" [ bytes ] test_string);
-      (fun () -> add_test ~name:"hex crash safety" [ bytes ] test_hex);
-      (fun () ->
-        add_test ~name:"css_value crash safety" [ bytes ] test_css_value);
-      (fun () -> add_test ~name:"url crash safety" [ bytes ] test_url);
-      (fun () -> add_test ~name:"bool crash safety" [ bytes ] test_bool);
-      (fun () -> add_test ~name:"pct crash safety" [ bytes ] test_pct);
+      test_case "of_string crash safety" [ bytes ] test_of_string;
+      test_case "ident crash safety" [ bytes ] test_ident;
+      test_case "token crash safety" [ bytes ] test_token;
+      test_case "number crash safety" [ bytes ] test_number;
+      test_case "int crash safety" [ bytes ] test_int;
+      test_case "string crash safety" [ bytes ] test_string;
+      test_case "hex crash safety" [ bytes ] test_hex;
+      test_case "css_value crash safety" [ bytes ] test_css_value;
+      test_case "url crash safety" [ bytes ] test_url;
+      test_case "bool crash safety" [ bytes ] test_bool;
+      test_case "pct crash safety" [ bytes ] test_pct;
     ] )
