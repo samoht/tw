@@ -25,7 +25,7 @@ module Handler = struct
     | Text_shadow_bracket_hex of string
     | Text_shadow_bracket_hex_opacity of string * Color.opacity_modifier
     | Text_shadow_bracket_color_var of string
-    | Text_shadow_bracket_color_var_opacity of string * Color.opacity_modifier
+    | Text_shadow_bracket_cvar_opacity of string * Color.opacity_modifier
     | Text_shadow_bracket_shadow of string
     | Text_shadow_bracket_var of string
     | Text_shadow_arbitrary of string
@@ -450,7 +450,7 @@ module Handler = struct
     | Text_shadow_bracket_hex_opacity (hex, opacity) ->
         set_bracket_hex_opacity hex opacity
     | Text_shadow_bracket_color_var var_expr -> set_bracket_color_var var_expr
-    | Text_shadow_bracket_color_var_opacity (var_expr, opacity) ->
+    | Text_shadow_bracket_cvar_opacity (var_expr, opacity) ->
         set_bracket_color_var_opacity var_expr opacity
     | Text_shadow_bracket_shadow var_expr ->
         style ~property_rules:text_shadow_property_rules
@@ -475,24 +475,28 @@ module Handler = struct
     (* A shadow value has explicit length dimensions like "10px_10px" *)
     let has_length_unit s =
       let len = String.length s in
-      let rec check i =
-        if i >= len - 1 then false
-        else if s.[i] >= '0' && s.[i] <= '9' then (
-          (* Found a digit, check if followed by a unit *)
-          let j = ref (i + 1) in
+      (* Scan past digits (and optional decimal part), return position after *)
+      let scan_number i =
+        let j = ref i in
+        while !j < len && s.[!j] >= '0' && s.[!j] <= '9' do
+          incr j
+        done;
+        if !j < len && s.[!j] = '.' then (
+          incr j;
           while !j < len && s.[!j] >= '0' && s.[!j] <= '9' do
             incr j
-          done;
-          if !j < len && s.[!j] = '.' then (
-            incr j;
-            while !j < len && s.[!j] >= '0' && s.[!j] <= '9' do
-              incr j
-            done);
-          let rest =
-            if !j < len then String.sub s !j (min 3 (len - !j)) else ""
-          in
-          starts_with "px" rest || starts_with "rem" rest
-          || starts_with "em" rest || check !j)
+          done);
+        !j
+      in
+      let has_unit_at j =
+        let rest = if j < len then String.sub s j (min 3 (len - j)) else "" in
+        starts_with "px" rest || starts_with "rem" rest || starts_with "em" rest
+      in
+      let rec check i =
+        if i >= len - 1 then false
+        else if s.[i] >= '0' && s.[i] <= '9' then
+          let j = scan_number (i + 1) in
+          has_unit_at j || check j
         else check (i + 1)
       in
       check 0
@@ -535,7 +539,7 @@ module Handler = struct
               let var_part = String.sub inner 6 (String.length inner - 6) in
               match opacity with
               | Color.No_opacity -> Ok (Text_shadow_bracket_color_var var_part)
-              | op -> Ok (Text_shadow_bracket_color_var_opacity (var_part, op))
+              | op -> Ok (Text_shadow_bracket_cvar_opacity (var_part, op))
             else if starts_with "shadow:" inner then
               let var_part = String.sub inner 7 (String.length inner - 7) in
               Ok (Text_shadow_bracket_shadow var_part)
@@ -600,7 +604,7 @@ module Handler = struct
         "text-shadow-[#" ^ hex ^ "]/" ^ Color.pp_opacity opacity
     | Text_shadow_bracket_color_var var_expr ->
         "text-shadow-[color:" ^ var_expr ^ "]"
-    | Text_shadow_bracket_color_var_opacity (var_expr, opacity) ->
+    | Text_shadow_bracket_cvar_opacity (var_expr, opacity) ->
         "text-shadow-[color:" ^ var_expr ^ "]/" ^ Color.pp_opacity opacity
     | Text_shadow_bracket_shadow var_expr ->
         "text-shadow-[shadow:" ^ var_expr ^ "]"

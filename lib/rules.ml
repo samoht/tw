@@ -677,6 +677,31 @@ let route_data_modifier modifier base_class selector props =
 (* Parse a data bracket expression into attribute name, match operator, and
    optional flag. Handles $=, ^=, *=, ~=, |= operators and trailing i/s flags.
    Underscores in the value part are converted to spaces. *)
+(* Parse trailing case-sensitivity flag and strip surrounding quotes *)
+let parse_value_and_flag value_str =
+  let vlen = String.length value_str in
+  let value_str, flag =
+    if vlen >= 2 && value_str.[vlen - 1] = 'i' && value_str.[vlen - 2] = ' '
+    then
+      ( String.trim (String.sub value_str 0 (vlen - 2)),
+        Some Css.Selector.Case_insensitive )
+    else if
+      vlen >= 2 && value_str.[vlen - 1] = 's' && value_str.[vlen - 2] = ' '
+    then
+      ( String.trim (String.sub value_str 0 (vlen - 2)),
+        Some Css.Selector.Case_sensitive )
+    else (value_str, None)
+  in
+  let value =
+    let vlen = String.length value_str in
+    if vlen >= 2 then
+      match (value_str.[0], value_str.[vlen - 1]) with
+      | '"', '"' | '\'', '\'' -> String.sub value_str 1 (vlen - 2)
+      | _ -> value_str
+    else value_str
+  in
+  (value, flag)
+
 let parse_data_expr raw_expr =
   (* Find the match operator in raw content (before underscore conversion) *)
   let len = String.length raw_expr in
@@ -694,47 +719,18 @@ let parse_data_expr raw_expr =
       | '=' when not !in_quotes -> Some (i, 1, '=')
       | _ -> find_op (i + 1)
   in
+  let underscore_to_space s =
+    String.trim (String.map (fun c -> if c = '_' then ' ' else c) s)
+  in
   match find_op 0 with
-  | None ->
-      (* No operator — bare attribute presence *)
-      let attr = String.map (fun c -> if c = '_' then ' ' else c) raw_expr in
-      let attr = String.trim attr in
-      ("data-" ^ attr, Css.Selector.Presence, None)
+  | None -> ("data-" ^ underscore_to_space raw_expr, Css.Selector.Presence, None)
   | Some (op_pos, op_len, op_char) ->
-      let raw_attr = String.sub raw_expr 0 op_pos in
-      let raw_value =
-        String.sub raw_expr (op_pos + op_len) (len - op_pos - op_len)
-      in
-      (* Convert underscores to spaces *)
-      let attr =
-        String.trim (String.map (fun c -> if c = '_' then ' ' else c) raw_attr)
-      in
+      let attr = underscore_to_space (String.sub raw_expr 0 op_pos) in
       let value_str =
-        String.trim (String.map (fun c -> if c = '_' then ' ' else c) raw_value)
+        underscore_to_space
+          (String.sub raw_expr (op_pos + op_len) (len - op_pos - op_len))
       in
-      (* Parse optional trailing flag (i or s) *)
-      let value_str, flag =
-        let vlen = String.length value_str in
-        if vlen >= 2 && value_str.[vlen - 1] = 'i' && value_str.[vlen - 2] = ' '
-        then
-          ( String.trim (String.sub value_str 0 (vlen - 2)),
-            Some Css.Selector.Case_insensitive )
-        else if
-          vlen >= 2 && value_str.[vlen - 1] = 's' && value_str.[vlen - 2] = ' '
-        then
-          ( String.trim (String.sub value_str 0 (vlen - 2)),
-            Some Css.Selector.Case_sensitive )
-        else (value_str, None)
-      in
-      (* Strip surrounding quotes *)
-      let value =
-        let vlen = String.length value_str in
-        if vlen >= 2 then
-          match (value_str.[0], value_str.[vlen - 1]) with
-          | '"', '"' | '\'', '\'' -> String.sub value_str 1 (vlen - 2)
-          | _ -> value_str
-        else value_str
-      in
+      let value, flag = parse_value_and_flag value_str in
       let match_op =
         match op_char with
         | '$' -> Css.Selector.Suffix value
@@ -1319,6 +1315,14 @@ let not_selector_rule ?(not_order = 0) inner_modifier modified_class base_class
       (Css.Selector.compound [ Css.Selector.Class modified_class; not_sel ])
     ~props ~base_class:modified_class ()
 
+(* Create a single not-media rule *)
+let not_media_rule ~nvo ~condition modified_class props =
+  [
+    media_query ~not_order:nvo ~condition
+      ~selector:(Css.Selector.Class modified_class) ~props
+      ~base_class:modified_class ();
+  ]
+
 (** Handle :not() pseudo-class modifier: dispatches to the right rule type based
     on the inner modifier. Returns a list of rules since some modifiers (like
     hover) produce both a selector rule and a media rule. *)
@@ -1327,110 +1331,53 @@ let handle_not_modifier inner_modifier base_class _selector props =
     "not-" ^ not_class_prefix inner_modifier ^ ":" ^ base_class
   in
   let nvo = not_variant_order inner_modifier in
+  let sel_rule () =
+    not_selector_rule ~not_order:nvo inner_modifier modified_class base_class
+      props
+  in
+  let not_hover_media () =
+    not_media_rule ~nvo ~condition:(Css.Media.Negated Css.Media.Hover)
+      modified_class props
+  in
   match inner_modifier with
-  (* Hover produces BOTH :not(:hover) selector AND @media not all and (hover:
-     hover) *)
-  | Style.Hover ->
-      let selector_rule =
-        not_selector_rule ~not_order:nvo inner_modifier modified_class
-          base_class props
-      in
-      let media_rule =
-        media_query ~not_order:nvo
-          ~condition:(Css.Media.Negated Css.Media.Hover)
-          ~selector:(Css.Selector.Class modified_class) ~props
-          ~base_class:modified_class ()
-      in
-      [ selector_rule; media_rule ]
-  (* Device_hocus produces BOTH :not(:hover, :focus) selector AND @media not all
-     and (hover: hover) *)
-  | Style.Device_hocus ->
-      let selector_rule =
-        not_selector_rule ~not_order:nvo inner_modifier modified_class
-          base_class props
-      in
-      let media_rule =
-        media_query ~not_order:nvo
-          ~condition:(Css.Media.Negated Css.Media.Hover)
-          ~selector:(Css.Selector.Class modified_class) ~props
-          ~base_class:modified_class ()
-      in
-      [ selector_rule; media_rule ]
-  (* Hocus produces :not(:hover, :focus) selector only (no media) *)
-  | Style.Hocus ->
-      [
-        not_selector_rule ~not_order:nvo inner_modifier modified_class
-          base_class props;
-      ]
-  (* Media-only modifiers produce @media not all and (...) *)
+  | Style.Hover -> [ sel_rule () ] @ not_hover_media ()
+  | Style.Device_hocus -> [ sel_rule () ] @ not_hover_media ()
+  | Style.Hocus -> [ sel_rule () ]
   | _ when Option.is_some (media_condition_of_modifier inner_modifier) ->
       let condition = Option.get (media_condition_of_modifier inner_modifier) in
-      let negated_condition = Css.Media.Negated condition in
-      [
-        media_query ~not_order:nvo ~condition:negated_condition
-          ~selector:(Css.Selector.Class modified_class) ~props
-          ~base_class:modified_class ();
-      ]
-  (* Supports produces @supports not (...) *)
+      not_media_rule ~nvo ~condition:(Css.Media.Negated condition)
+        modified_class props
   | Style.Supports condition_str ->
       let condition_input = normalize_supports_condition condition_str in
       let inner_condition = Css.Supports.of_string condition_input in
-      let negated_condition = Css.Supports.Not inner_condition in
       [
-        supports_query ~not_order:nvo ~condition:negated_condition
+        supports_query ~not_order:nvo
+          ~condition:(Css.Supports.Not inner_condition)
           ~selector:(Css.Selector.Class modified_class) ~props
           ~base_class:modified_class ();
       ]
-  (* Responsive modifiers: negate the breakpoint *)
   | Style.Responsive bp | Style.Min_responsive bp ->
-      (* not-sm, not-min-sm → @media not all and (min-width: Xpx) *)
-      [
-        media_query ~not_order:nvo
-          ~condition:(breakpoint_not_condition bp)
-          ~selector:(Css.Selector.Class modified_class) ~props
-          ~base_class:modified_class ();
-      ]
+      not_media_rule ~nvo
+        ~condition:(breakpoint_not_condition bp)
+        modified_class props
   | Style.Max_responsive bp ->
-      (* not-max-sm → @media (min-width: Xpx) — double negation *)
-      [
-        media_query ~not_order:nvo ~condition:(breakpoint_condition bp)
-          ~selector:(Css.Selector.Class modified_class) ~props
-          ~base_class:modified_class ();
-      ]
+      not_media_rule ~nvo ~condition:(breakpoint_condition bp) modified_class
+        props
   | Style.Min_arbitrary px ->
-      (* not-min-[130px] → @media not all and (min-width: 130px) *)
-      [
-        media_query ~not_order:nvo ~condition:(Css.Media.Not_min_width px)
-          ~selector:(Css.Selector.Class modified_class) ~props
-          ~base_class:modified_class ();
-      ]
+      not_media_rule ~nvo ~condition:(Css.Media.Not_min_width px) modified_class
+        props
   | Style.Max_arbitrary px ->
-      (* not-max-[130px] → @media (min-width: 130px) — double negation *)
-      [
-        media_query ~not_order:nvo ~condition:(Css.Media.Min_width px)
-          ~selector:(Css.Selector.Class modified_class) ~props
-          ~base_class:modified_class ();
-      ]
+      not_media_rule ~nvo ~condition:(Css.Media.Min_width px) modified_class
+        props
   | Style.Min_arbitrary_length l ->
-      [
-        media_query ~not_order:nvo
-          ~condition:(Css.media_not_min_width_length l)
-          ~selector:(Css.Selector.Class modified_class) ~props
-          ~base_class:modified_class ();
-      ]
+      not_media_rule ~nvo
+        ~condition:(Css.media_not_min_width_length l)
+        modified_class props
   | Style.Max_arbitrary_length l ->
-      [
-        media_query ~not_order:nvo
-          ~condition:(Css.media_min_width_length l)
-          ~selector:(Css.Selector.Class modified_class) ~props
-          ~base_class:modified_class ();
-      ]
-  (* Selector-only modifiers: :not(pseudo) selector *)
-  | _ ->
-      [
-        not_selector_rule ~not_order:nvo inner_modifier modified_class
-          base_class props;
-      ]
+      not_media_rule ~nvo
+        ~condition:(Css.media_min_width_length l)
+        modified_class props
+  | _ -> [ sel_rule () ]
 
 (** Parse a bracket media condition string (from not-[@media...]) and return the
     appropriate negated media condition. Handles double negation: not of "not
@@ -1772,6 +1719,25 @@ let handle_group_peer_named inner name base_class props =
   let sel = compound [ Class modified_class; is_ [ group_rel ] ] in
   [ regular ~selector:sel ~props ~base_class:modified_class () ]
 
+(* Arbitrary selector: [&_p] → .class p *)
+let arbitrary_selector_rule content base_class props =
+  let open Css.Selector in
+  let s = String.map (fun c -> if c = '_' then ' ' else c) content in
+  let modified_class = "[" ^ content ^ "]:" ^ base_class in
+  let parts = String.split_on_char '&' s in
+  let sel =
+    match parts with
+    | [ ""; rest ] ->
+        let rest = String.trim rest in
+        if rest = "" then Class modified_class
+        else
+          let reader = Css.Reader.of_string rest in
+          let descendant_sel = Css.Selector.read reader in
+          combine (Class modified_class) Descendant descendant_sel
+    | _ -> Class modified_class
+  in
+  regular ~selector:sel ~props ~base_class:modified_class ()
+
 (** Convert a modifier and its context to a CSS rule. [inner_has_hover]
     indicates if the inner rule has a hover modifier that needs to be wrapped in
     CSS nesting with {i \@media (hover:hover)}. *)
@@ -1860,27 +1826,8 @@ let modifier_to_rule ?(inner_has_hover = false) modifier base_class selector
       let content_decl = Css.content (Var content_ref) in
       let final_props = content_decl :: props in
       regular ~selector:sel ~props:final_props ~base_class ()
-  (* Arbitrary selector: [&_p] → .class p *)
   | Style.Arbitrary_selector content ->
-      let open Css.Selector in
-      (* Replace underscores with spaces and & with the class anchor *)
-      let s = String.map (fun c -> if c = '_' then ' ' else c) content in
-      let modified_class = "[" ^ content ^ "]:" ^ base_class in
-      (* Parse the & pattern — split on & *)
-      let parts = String.split_on_char '&' s in
-      let sel =
-        match parts with
-        | [ ""; rest ] ->
-            (* &_p → class + descendant p *)
-            let rest = String.trim rest in
-            if rest = "" then Class modified_class
-            else
-              let reader = Css.Reader.of_string rest in
-              let descendant_sel = Css.Selector.read reader in
-              combine (Class modified_class) Descendant descendant_sel
-        | _ -> Class modified_class
-      in
-      regular ~selector:sel ~props ~base_class:modified_class ()
+      arbitrary_selector_rule content base_class props
   (* Fallback for other modifiers *)
   | _ ->
       handle_fallback_modifier ~inner_has_hover modifier base_class selector
@@ -2734,22 +2681,23 @@ let compare_by_order_regular_first (p1, s1) (p2, s2) =
     let sub_cmp = Int.compare s1 s2 in
     if sub_cmp <> 0 then sub_cmp else -1
 
+(* For hover media, interleave by modifier depth: non-hover regular rules at
+   depth N come between hover media at depth N and depth N+1. *)
+
 (** Compare Regular vs Media rules from different utilities. Uses selector
     classification to determine ordering. *)
+let try_hover_media_interleave kind1 sel1 sel2 media_type =
+  match media_type with
+  | Some Css.Media.Hover when is_focus_modifier_rule kind1 sel1 ->
+      let d1 = selector_modifier_depth sel1 in
+      let d2 = selector_modifier_depth sel2 in
+      let has_hov = selector_has_hover sel1 in
+      if d2 > d1 && not has_hov then Some (-1) else Some 1
+  | _ -> None
+
 let compare_different_utility_regular_media sel1 sel2 order1 order2 media_type =
   let kind1 = classify_selector sel1 in
-  (* For hover media, interleave by modifier depth: non-hover regular rules at
-     depth N come between hover media at depth N and depth N+1. Compound
-     variants (which contain :hover in selector, like group-hocus) stay after
-     all hover media regardless of depth. *)
-  (match media_type with
-    | Some Css.Media.Hover when is_focus_modifier_rule kind1 sel1 ->
-        let d1 = selector_modifier_depth sel1 in
-        let d2 = selector_modifier_depth sel2 in
-        let has_hov = selector_has_hover sel1 in
-        if d2 > d1 && not has_hov then Some (-1) else Some 1
-    | _ -> None)
-  |> function
+  match try_hover_media_interleave kind1 sel1 sel2 media_type with
   | Some c -> c
   | None -> (
       if
@@ -3094,6 +3042,110 @@ let compare_starting_rules r1 r2 =
 (* Main Rule Comparison - Type-directed dispatch for all rule types *)
 (* ======================================================================== *)
 
+(* Normalize base_class for lexicographic comparison *)
+let normalize_for_sort s =
+  String.map
+    (function
+      | '_' -> ' ' | '[' | ']' -> '~' | '/' -> '|' | ':' -> '!' | c -> c)
+    s
+
+(* Compare by normalized base_class, then index *)
+let compare_by_base_class r1 r2 =
+  let bc1 =
+    match r1.base_class with Some s -> normalize_for_sort s | None -> ""
+  in
+  let bc2 =
+    match r2.base_class with Some s -> normalize_for_sort s | None -> ""
+  in
+  let class_cmp = String.compare bc1 bc2 in
+  if class_cmp <> 0 then class_cmp else Int.compare r1.index r2.index
+
+(* Sort key for supports modifier variants: named before bracket *)
+let supports_sort_key bc =
+  match bc with
+  | Some s when String.length s > 9 && String.sub s 0 9 = "supports-" ->
+      let after = String.sub s 9 (String.length s - 9) in
+      if String.length after > 0 && after.[0] = '[' then (1, after)
+      else (0, after)
+  | Some s -> (0, s)
+  | None -> (0, "")
+
+(* Compare supports modifier rules by sort key *)
+let compare_supports_by_key r1 r2 =
+  let g1, k1 = supports_sort_key r1.base_class in
+  let g2, k2 = supports_sort_key r2.base_class in
+  let grp_cmp = Int.compare g1 g2 in
+  if grp_cmp <> 0 then grp_cmp
+  else
+    let key_cmp = natural_compare k1 k2 in
+    if key_cmp <> 0 then key_cmp else Int.compare r1.index r2.index
+
+(* Compare by order tuple, then selector, then index *)
+let compare_by_order_then_selector r1 r2 =
+  let order_cmp = compare r1.order r2.order in
+  if order_cmp <> 0 then order_cmp
+  else
+    let sel_cmp =
+      natural_compare
+        (Css.Selector.to_string r1.selector)
+        (Css.Selector.to_string r2.selector)
+    in
+    if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
+
+(* Compare by order tuple, then index *)
+let compare_by_order_then_index r1 r2 =
+  let order_cmp = compare r1.order r2.order in
+  if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
+
+(* Compare nested media conditions *)
+let compare_nested_media r1 r2 =
+  match (r1.nested, r2.nested) with
+  | [], [] -> 0
+  | [], _ -> -1
+  | _, [] -> 1
+  | [ n1 ], [ n2 ] -> (
+      match (Css.as_media n1, Css.as_media n2) with
+      | Some (c1, _), Some (c2, _) -> Css.Media.compare c1 c2
+      | _ -> 0)
+  | _ -> 0
+
+(* Compare rules when both have variant_order > 0 *)
+let compare_variant_ordered r1 r2 =
+  match (r1.rule_type, r2.rule_type) with
+  | `Supports _, `Supports _ when r1.variant_order = r2.variant_order ->
+      compare_supports_by_key r1 r2
+  | _ ->
+      let p1, s1 = r1.order and p2, s2 = r2.order in
+      let prio_cmp = Int.compare p1 p2 in
+      if prio_cmp <> 0 then prio_cmp
+      else
+        let vo_cmp = Int.compare r1.variant_order r2.variant_order in
+        if vo_cmp <> 0 then vo_cmp
+        else
+          let sub_cmp = Int.compare s1 s2 in
+          if sub_cmp <> 0 then sub_cmp
+          else
+            let media_cmp =
+              match (r1.rule_type, r2.rule_type) with
+              | `Media c1, `Media c2 ->
+                  let cmp = Css.Media.compare c1 c2 in
+                  if cmp <> 0 then cmp else compare_nested_media r1 r2
+              | _ -> 0
+            in
+            if media_cmp <> 0 then media_cmp else compare_by_base_class r1 r2
+
+(* Compare two Supports rules *)
+let compare_supports_rules r1 r2 =
+  let is_modifier_supports bc =
+    match bc with
+    | Some s -> String.length s > 9 && String.sub s 0 9 = "supports-"
+    | None -> false
+  in
+  let m1 = is_modifier_supports r1.base_class in
+  let m2 = is_modifier_supports r2.base_class in
+  if m1 && m2 then compare_supports_by_key r1 r2
+  else compare_by_order_then_selector r1 r2
+
 (** Compare indexed rules for sorting. Uses type-directed dispatch based on
     rule_type. *)
 let compare_indexed_rules r1 r2 =
@@ -3118,127 +3170,17 @@ let compare_indexed_rules r1 r2 =
             rule_type_str r2.rule_type;
             ")\n";
           ]));
-  (* Variant ordering: when BOTH rules have variant_order > 0, sort by priority
-     then variant_order. This overrides rule_type ordering so that modifier
-     variants sort in Tailwind's cascade order across Regular/Media/Supports.
-     When only one has variant_order, fall through to type-based dispatch. *)
   if r1.variant_order > 0 && r2.variant_order > 0 then
-    (* For Supports modifier rules with same variant_order, sort by condition
-       (named before bracket, then alphabetical by class) instead of by utility
-       priority. Tailwind groups supports variants by condition, not utility. *)
-    match (r1.rule_type, r2.rule_type) with
-    | `Supports _, `Supports _ when r1.variant_order = r2.variant_order ->
-        let supports_sort_key bc =
-          match bc with
-          | Some s when String.length s > 9 && String.sub s 0 9 = "supports-" ->
-              let after = String.sub s 9 (String.length s - 9) in
-              if String.length after > 0 && after.[0] = '[' then (1, after)
-              else (0, after)
-          | Some s -> (0, s)
-          | None -> (0, "")
-        in
-        let g1, k1 = supports_sort_key r1.base_class in
-        let g2, k2 = supports_sort_key r2.base_class in
-        let grp_cmp = Int.compare g1 g2 in
-        if grp_cmp <> 0 then grp_cmp
-        else
-          let key_cmp = natural_compare k1 k2 in
-          if key_cmp <> 0 then key_cmp else Int.compare r1.index r2.index
-    | _ ->
-        let p1, s1 = r1.order and p2, s2 = r2.order in
-        let prio_cmp = Int.compare p1 p2 in
-        if prio_cmp <> 0 then prio_cmp
-        else
-          let vo_cmp = Int.compare r1.variant_order r2.variant_order in
-          if vo_cmp <> 0 then vo_cmp
-          else
-            let sub_cmp = Int.compare s1 s2 in
-            if sub_cmp <> 0 then sub_cmp
-            else
-              (* Same variant_order + suborder: for Media rules, compare by
-                 media condition (breakpoint value) for correct responsive
-                 ordering. For other rule types, compare by normalized
-                 base_class. *)
-              let media_cmp =
-                match (r1.rule_type, r2.rule_type) with
-                | `Media c1, `Media c2 ->
-                    let cmp = Css.Media.compare c1 c2 in
-                    if cmp <> 0 then cmp
-                    else
-                      (* Same outer media condition - simple rules (no nested)
-                         come before nested rules, then compare nested media *)
-                      let nested_cmp =
-                        match (r1.nested, r2.nested) with
-                        | [], [] -> 0
-                        | [], _ -> -1
-                        | _, [] -> 1
-                        | [ n1 ], [ n2 ] -> (
-                            match (Css.as_media n1, Css.as_media n2) with
-                            | Some (c1, _), Some (c2, _) ->
-                                Css.Media.compare c1 c2
-                            | _ -> 0)
-                        | _ -> 0
-                      in
-                      nested_cmp
-                | _ -> 0
-              in
-              if media_cmp <> 0 then media_cmp
-              else
-                let normalize_for_sort s =
-                  String.map
-                    (function
-                      | '_' -> ' '
-                      | '[' | ']' -> '~'
-                      | '/' -> '|'
-                      | ':' -> '!'
-                      | c -> c)
-                    s
-                in
-                let bc1 =
-                  match r1.base_class with
-                  | Some s -> normalize_for_sort s
-                  | None -> ""
-                in
-                let bc2 =
-                  match r2.base_class with
-                  | Some s -> normalize_for_sort s
-                  | None -> ""
-                in
-                let class_cmp = String.compare bc1 bc2 in
-                if class_cmp <> 0 then class_cmp
-                else Int.compare r1.index r2.index
-  else if
-    (* For not-* variants, sort by order tuple to respect variant ordering. The
-       order tuple has not_variant_order baked into the suborder, so comparing
-       order tuples gives the correct variant-level ordering regardless of rule
-       types (Regular, Media, Supports). *)
-    r1.not_order > 0 || r2.not_order > 0
-  then
+    compare_variant_ordered r1 r2
+  else if r1.not_order > 0 || r2.not_order > 0 then
     let order_cmp = compare r1.order r2.order in
-    if order_cmp <> 0 then order_cmp
-    else
-      let normalize_for_sort s =
-        String.map
-          (function
-            | '_' -> ' ' | '[' | ']' -> '~' | '/' -> '|' | ':' -> '!' | c -> c)
-          s
-      in
-      let bc1 =
-        match r1.base_class with Some s -> normalize_for_sort s | None -> ""
-      in
-      let bc2 =
-        match r2.base_class with Some s -> normalize_for_sort s | None -> ""
-      in
-      let class_cmp = String.compare bc1 bc2 in
-      if class_cmp <> 0 then class_cmp else Int.compare r1.index r2.index
+    if order_cmp <> 0 then order_cmp else compare_by_base_class r1 r2
   else
-    (* First compare by rule type group *)
     let type_cmp =
       Int.compare (rule_type_order r1.rule_type) (rule_type_order r2.rule_type)
     in
     if type_cmp <> 0 then type_cmp
     else
-      (* Same rule type group - dispatch to specialized comparators *)
       match (r1.rule_type, r2.rule_type) with
       | `Regular, `Regular -> compare_regular_rules r1 r2
       | `Media _, `Media _ ->
@@ -3249,70 +3191,11 @@ let compare_indexed_rules r1 r2 =
       | `Media _, `Regular -> -compare_regular_vs_media r2 r1
       | `Starting, `Starting -> compare_starting_rules r1 r2
       | `Container _, `Container _ -> Int.compare r1.index r2.index
-      (* Supports rules should come right after their base rule. Compare by
-         order first, then natural sort on selector so Regular+Supports pairs
-         stay grouped and groups are in the correct cross-utility order. Index
-         is the final tiebreaker (keeps Regular before its own Supports). *)
-      | `Supports _, `Supports _ ->
-          (* Two kinds of supports rules: 1. Modifier supports
-             (supports-gap:grid, supports-[...]:flex) have base_class starting
-             with "supports-" — sort by class name with non-bracket before
-             bracket. 2. Utility supports (color-mix, etc.) — sort by order to
-             stay near their base utility rule. *)
-          let is_modifier_supports bc =
-            match bc with
-            | Some s -> String.length s > 9 && String.sub s 0 9 = "supports-"
-            | None -> false
-          in
-          let m1 = is_modifier_supports r1.base_class in
-          let m2 = is_modifier_supports r2.base_class in
-          if m1 && m2 then
-            (* Both are modifier supports: sort by class name *)
-            let supports_sort_key bc =
-              match bc with
-              | Some s when String.length s > 9 ->
-                  let after = String.sub s 9 (String.length s - 9) in
-                  if String.length after > 0 && after.[0] = '[' then (1, after)
-                  else (0, after)
-              | Some s -> (0, s)
-              | None -> (0, "")
-            in
-            let g1, k1 = supports_sort_key r1.base_class in
-            let g2, k2 = supports_sort_key r2.base_class in
-            let grp_cmp = Int.compare g1 g2 in
-            if grp_cmp <> 0 then grp_cmp
-            else
-              let key_cmp = natural_compare k1 k2 in
-              if key_cmp <> 0 then key_cmp else Int.compare r1.index r2.index
-          else
-            (* Utility supports or mixed: sort by order then selector *)
-            let order_cmp = compare r1.order r2.order in
-            if order_cmp <> 0 then order_cmp
-            else
-              let sel_cmp =
-                natural_compare
-                  (Css.Selector.to_string r1.selector)
-                  (Css.Selector.to_string r2.selector)
-              in
-              if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
+      | `Supports _, `Supports _ -> compare_supports_rules r1 r2
       | `Regular, `Supports _ | `Supports _, `Regular ->
-          let order_cmp = compare r1.order r2.order in
-          if order_cmp <> 0 then order_cmp
-          else
-            let sel_cmp =
-              natural_compare
-                (Css.Selector.to_string r1.selector)
-                (Css.Selector.to_string r2.selector)
-            in
-            if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
-      | `Supports _, `Media _ ->
-          (* Supports should be positioned near its base Regular rule, so use
-             order-based comparison like Regular vs Media *)
-          let order_cmp = compare r1.order r2.order in
-          if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
-      | `Media _, `Supports _ ->
-          let order_cmp = compare r1.order r2.order in
-          if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
+          compare_by_order_then_selector r1 r2
+      | `Supports _, `Media _ | `Media _, `Supports _ ->
+          compare_by_order_then_index r1 r2
       | _, _ -> Int.compare r1.index r2.index
 
 (* Filter properties to only include utilities layer declarations *)
@@ -3474,6 +3357,10 @@ let apply_not_order (prio, sub) not_order =
   if not_order = 0 then (prio, sub) else (prio, sub + not_order)
 
 (* Convert each rule type to typed triple *)
+let make_triple typ ~selector ~props ~order ~nested ~base_class ~merge_key
+    ~not_order =
+  Some (typ, selector, props, order, nested, base_class, merge_key, not_order)
+
 let rule_to_triple = function
   | Regular
       { selector; props; base_class; nested; has_hover; merge_key; not_order }
@@ -3481,74 +3368,30 @@ let rule_to_triple = function
       let order =
         apply_not_order (order_of_base base_class selector) not_order
       in
-      if has_hover then
-        (* Hover rules become Media rules with (hover:hover) condition *)
-        Some
-          ( `Media Css.Media.Hover,
-            selector,
-            props,
-            order,
-            nested,
-            base_class,
-            merge_key,
-            not_order )
-      else
-        Some
-          ( `Regular,
-            selector,
-            props,
-            order,
-            nested,
-            base_class,
-            merge_key,
-            not_order )
+      let typ = if has_hover then `Media Css.Media.Hover else `Regular in
+      make_triple typ ~selector ~props ~order ~nested ~base_class ~merge_key
+        ~not_order
   | Media_query { condition; selector; props; base_class; nested; not_order } ->
       let order =
         apply_not_order (order_of_base base_class selector) not_order
       in
-      Some
-        ( `Media condition,
-          selector,
-          props,
-          order,
-          nested,
-          base_class,
-          None,
-          not_order )
+      make_triple (`Media condition) ~selector ~props ~order ~nested ~base_class
+        ~merge_key:None ~not_order
   | Container_query { condition; selector; props; base_class } ->
-      Some
-        ( `Container condition,
-          selector,
-          props,
-          order_of_base base_class selector,
-          [],
-          base_class,
-          None,
-          0 )
+      make_triple (`Container condition) ~selector ~props
+        ~order:(order_of_base base_class selector)
+        ~nested:[] ~base_class ~merge_key:None ~not_order:0
   | Starting_style { selector; props; base_class } ->
-      Some
-        ( `Starting,
-          selector,
-          props,
-          order_of_base base_class selector,
-          [],
-          base_class,
-          None,
-          0 )
+      make_triple `Starting ~selector ~props
+        ~order:(order_of_base base_class selector)
+        ~nested:[] ~base_class ~merge_key:None ~not_order:0
   | Supports_query
       { condition; selector; props; base_class; merge_key; not_order } ->
       let order =
         apply_not_order (order_of_base base_class selector) not_order
       in
-      Some
-        ( `Supports condition,
-          selector,
-          props,
-          order,
-          [],
-          base_class,
-          merge_key,
-          not_order )
+      make_triple (`Supports condition) ~selector ~props ~order ~nested:[]
+        ~base_class ~merge_key ~not_order
 
 (* Add index to each triple for stable sorting *)
 let add_index triples =

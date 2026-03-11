@@ -569,25 +569,24 @@ let extract_custom_breakpoints classes expected =
     || String.starts_with ~prefix:"in-" s
     || String.contains s '['
   in
-  let custom_names = ref [] in
-  List.iter
-    (fun cls ->
-      let parts = String.split_on_char ':' cls in
-      (* All parts except the last are modifiers *)
-      let modifiers =
-        match List.rev parts with _ :: rest -> List.rev rest | [] -> []
-      in
-      List.iter
-        (fun seg ->
-          if not (is_known_modifier seg) then
-            match extract_bp_name seg with
-            | Some name when name <> "" ->
-                if not (List.mem name !custom_names) then
-                  custom_names := name :: !custom_names
-            | _ -> ())
-        modifiers)
-    classes;
-  let custom_names = List.rev !custom_names in
+  let collect_custom_name acc seg =
+    if is_known_modifier seg then acc
+    else
+      match extract_bp_name seg with
+      | Some name when name <> "" && not (List.mem name acc) -> name :: acc
+      | _ -> acc
+  in
+  let modifiers_of_class cls =
+    let parts = String.split_on_char ':' cls in
+    match List.rev parts with _ :: rest -> List.rev rest | [] -> []
+  in
+  let custom_names =
+    List.fold_left
+      (fun acc cls ->
+        List.fold_left collect_custom_name acc (modifiers_of_class cls))
+      [] classes
+    |> List.rev
+  in
   (* Extract all px values from expected CSS *)
   let px_pattern = Re.Pcre.regexp {|min-width:\s*(\d+)px|} in
   let px_matches = Re.all px_pattern expected in
