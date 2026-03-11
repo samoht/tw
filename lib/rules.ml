@@ -3123,65 +3123,90 @@ let compare_indexed_rules r1 r2 =
      variants sort in Tailwind's cascade order across Regular/Media/Supports.
      When only one has variant_order, fall through to type-based dispatch. *)
   if r1.variant_order > 0 && r2.variant_order > 0 then
-    let p1, s1 = r1.order and p2, s2 = r2.order in
-    let prio_cmp = Int.compare p1 p2 in
-    if prio_cmp <> 0 then prio_cmp
-    else
-      let vo_cmp = Int.compare r1.variant_order r2.variant_order in
-      if vo_cmp <> 0 then vo_cmp
-      else
-        let sub_cmp = Int.compare s1 s2 in
-        if sub_cmp <> 0 then sub_cmp
+    (* For Supports modifier rules with same variant_order, sort by condition
+       (named before bracket, then alphabetical by class) instead of by utility
+       priority. Tailwind groups supports variants by condition, not utility. *)
+    match (r1.rule_type, r2.rule_type) with
+    | `Supports _, `Supports _ when r1.variant_order = r2.variant_order ->
+        let supports_sort_key bc =
+          match bc with
+          | Some s when String.length s > 9 && String.sub s 0 9 = "supports-" ->
+              let after = String.sub s 9 (String.length s - 9) in
+              if String.length after > 0 && after.[0] = '[' then (1, after)
+              else (0, after)
+          | Some s -> (0, s)
+          | None -> (0, "")
+        in
+        let g1, k1 = supports_sort_key r1.base_class in
+        let g2, k2 = supports_sort_key r2.base_class in
+        let grp_cmp = Int.compare g1 g2 in
+        if grp_cmp <> 0 then grp_cmp
         else
-          (* Same variant_order + suborder: for Media rules, compare by media
-             condition (breakpoint value) for correct responsive ordering. For
-             other rule types, compare by normalized base_class. *)
-          let media_cmp =
-            match (r1.rule_type, r2.rule_type) with
-            | `Media c1, `Media c2 ->
-                let cmp = Css.Media.compare c1 c2 in
-                if cmp <> 0 then cmp
-                else
-                  (* Same outer media condition - simple rules (no nested) come
-                     before nested rules, then compare nested media *)
-                  let nested_cmp =
-                    match (r1.nested, r2.nested) with
-                    | [], [] -> 0
-                    | [], _ -> -1
-                    | _, [] -> 1
-                    | [ n1 ], [ n2 ] -> (
-                        match (Css.as_media n1, Css.as_media n2) with
-                        | Some (c1, _), Some (c2, _) -> Css.Media.compare c1 c2
-                        | _ -> 0)
-                    | _ -> 0
-                  in
-                  nested_cmp
-            | _ -> 0
-          in
-          if media_cmp <> 0 then media_cmp
+          let key_cmp = natural_compare k1 k2 in
+          if key_cmp <> 0 then key_cmp else Int.compare r1.index r2.index
+    | _ ->
+        let p1, s1 = r1.order and p2, s2 = r2.order in
+        let prio_cmp = Int.compare p1 p2 in
+        if prio_cmp <> 0 then prio_cmp
+        else
+          let vo_cmp = Int.compare r1.variant_order r2.variant_order in
+          if vo_cmp <> 0 then vo_cmp
           else
-            let normalize_for_sort s =
-              String.map
-                (function
-                  | '_' -> ' '
-                  | '[' | ']' -> '~'
-                  | '/' -> '|'
-                  | ':' -> '!'
-                  | c -> c)
-                s
-            in
-            let bc1 =
-              match r1.base_class with
-              | Some s -> normalize_for_sort s
-              | None -> ""
-            in
-            let bc2 =
-              match r2.base_class with
-              | Some s -> normalize_for_sort s
-              | None -> ""
-            in
-            let class_cmp = String.compare bc1 bc2 in
-            if class_cmp <> 0 then class_cmp else Int.compare r1.index r2.index
+            let sub_cmp = Int.compare s1 s2 in
+            if sub_cmp <> 0 then sub_cmp
+            else
+              (* Same variant_order + suborder: for Media rules, compare by
+                 media condition (breakpoint value) for correct responsive
+                 ordering. For other rule types, compare by normalized
+                 base_class. *)
+              let media_cmp =
+                match (r1.rule_type, r2.rule_type) with
+                | `Media c1, `Media c2 ->
+                    let cmp = Css.Media.compare c1 c2 in
+                    if cmp <> 0 then cmp
+                    else
+                      (* Same outer media condition - simple rules (no nested)
+                         come before nested rules, then compare nested media *)
+                      let nested_cmp =
+                        match (r1.nested, r2.nested) with
+                        | [], [] -> 0
+                        | [], _ -> -1
+                        | _, [] -> 1
+                        | [ n1 ], [ n2 ] -> (
+                            match (Css.as_media n1, Css.as_media n2) with
+                            | Some (c1, _), Some (c2, _) ->
+                                Css.Media.compare c1 c2
+                            | _ -> 0)
+                        | _ -> 0
+                      in
+                      nested_cmp
+                | _ -> 0
+              in
+              if media_cmp <> 0 then media_cmp
+              else
+                let normalize_for_sort s =
+                  String.map
+                    (function
+                      | '_' -> ' '
+                      | '[' | ']' -> '~'
+                      | '/' -> '|'
+                      | ':' -> '!'
+                      | c -> c)
+                    s
+                in
+                let bc1 =
+                  match r1.base_class with
+                  | Some s -> normalize_for_sort s
+                  | None -> ""
+                in
+                let bc2 =
+                  match r2.base_class with
+                  | Some s -> normalize_for_sort s
+                  | None -> ""
+                in
+                let class_cmp = String.compare bc1 bc2 in
+                if class_cmp <> 0 then class_cmp
+                else Int.compare r1.index r2.index
   else if
     (* For not-* variants, sort by order tuple to respect variant ordering. The
        order tuple has not_variant_order baked into the suborder, so comparing
