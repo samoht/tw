@@ -60,7 +60,7 @@ let test_pp buf =
   | None -> ()
   | Some sel -> ignore (Css.Selector.to_string sel)
 
-let run () =
+let suite () =
   add_test ~name:"selector: of_string crash safety" [ bytes ] test_of_string;
   add_test ~name:"selector: read crash safety" [ bytes ] test_read;
   add_test ~name:"selector: read_selector_list crash safety" [ bytes ]

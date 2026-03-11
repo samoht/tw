@@ -127,7 +127,7 @@ let test_color_roundtrip buf =
       try ignore (Css.Values.read_color r2)
       with Css.Reader.Parse_error _ -> fail "color roundtrip re-parse failed")
 
-let run () =
+let suite () =
   add_test ~name:"values: read_color crash safety" [ bytes ] test_read_color;
   add_test ~name:"values: read_length crash safety" [ bytes ] test_read_length;
   add_test ~name:"values: read_angle crash safety" [ bytes ] test_read_angle;
