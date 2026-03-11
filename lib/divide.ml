@@ -71,7 +71,7 @@ module Handler = struct
     let end_width : Css.border_width =
       Calc
         Css.Calc.(
-          mul (Val width) (parens (sub (Num 1.0) (var reverse_var_name))))
+          mul (Val width) (nested (sub (Num 1.0) (var reverse_var_name))))
     in
     let property_rules =
       [
@@ -106,7 +106,7 @@ module Handler = struct
     let end_width : Css.border_width =
       Calc
         Css.Calc.(
-          mul (Val width) (parens (sub (Num 1.0) (var reverse_var_name))))
+          mul (Val width) (nested (sub (Num 1.0) (var reverse_var_name))))
     in
     let property_rules =
       [
