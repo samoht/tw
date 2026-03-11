@@ -3115,24 +3115,27 @@ let compare_variant_ordered r1 r2 =
   | `Supports _, `Supports _ when r1.variant_order = r2.variant_order ->
       compare_supports_by_key r1 r2
   | _ ->
-      let p1, s1 = r1.order and p2, s2 = r2.order in
-      let prio_cmp = Int.compare p1 p2 in
-      if prio_cmp <> 0 then prio_cmp
+      let vo_cmp = Int.compare r1.variant_order r2.variant_order in
+      if vo_cmp <> 0 then vo_cmp
       else
-        let vo_cmp = Int.compare r1.variant_order r2.variant_order in
-        if vo_cmp <> 0 then vo_cmp
+        (* Same variant_order: for media rules, compare media condition first so
+           that responsive breakpoints sort by ascending breakpoint value (e.g.,
+           sm before md before lg) regardless of utility priority. *)
+        let media_cmp =
+          match (r1.rule_type, r2.rule_type) with
+          | `Media c1, `Media c2 ->
+              let cmp = Css.Media.compare c1 c2 in
+              if cmp <> 0 then cmp else compare_nested_media r1 r2
+          | _ -> 0
+        in
+        if media_cmp <> 0 then media_cmp
         else
-          let sub_cmp = Int.compare s1 s2 in
-          if sub_cmp <> 0 then sub_cmp
+          let p1, s1 = r1.order and p2, s2 = r2.order in
+          let prio_cmp = Int.compare p1 p2 in
+          if prio_cmp <> 0 then prio_cmp
           else
-            let media_cmp =
-              match (r1.rule_type, r2.rule_type) with
-              | `Media c1, `Media c2 ->
-                  let cmp = Css.Media.compare c1 c2 in
-                  if cmp <> 0 then cmp else compare_nested_media r1 r2
-              | _ -> 0
-            in
-            if media_cmp <> 0 then media_cmp else compare_by_base_class r1 r2
+            let sub_cmp = Int.compare s1 s2 in
+            if sub_cmp <> 0 then sub_cmp else compare_by_base_class r1 r2
 
 (* Compare two Supports rules *)
 let compare_supports_rules r1 r2 =
