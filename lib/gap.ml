@@ -104,18 +104,24 @@ module Handler = struct
   let space_margin_calcs ~negative ~spacing_len ~reverse_var_name =
     let base = Css.Calc.length spacing_len in
     let neg_factor = Css.Calc.float (-1.0) in
+    (* Wrap sub-expression as an explicit calc() call, matching Tailwind's
+       output: calc(... * calc(1 - var(--tw-space-y-reverse))) *)
+    let one_minus_reverse =
+      Css.Calc.length
+        (Css.Calc
+           (Css.Calc.sub (Css.Calc.float 1.0) (Css.Calc.var reverse_var_name)))
+    in
     let start_expr =
       if negative then
-        Css.Calc.(mul (nested (mul base neg_factor)) (var reverse_var_name))
+        Css.Calc.(
+          mul (length (Css.Calc (mul base neg_factor))) (var reverse_var_name))
       else Css.Calc.(mul base (var reverse_var_name))
     in
     let end_expr =
       if negative then
         Css.Calc.(
-          mul
-            (nested (mul base neg_factor))
-            (nested (sub (float 1.0) (var reverse_var_name))))
-      else Css.Calc.(mul base (nested (sub (float 1.0) (var reverse_var_name))))
+          mul (length (Css.Calc (mul base neg_factor))) one_minus_reverse)
+      else Css.Calc.(mul base one_minus_reverse)
     in
     ((Css.Calc start_expr : Css.length), (Css.Calc end_expr : Css.length))
 

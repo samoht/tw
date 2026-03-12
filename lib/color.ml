@@ -1445,12 +1445,7 @@ module Handler = struct
             let std_name = "color-" ^ color_name in
             match Var.theme_value std_name with
             | Some value -> Css.hex value
-            | None ->
-                let oklch_val =
-                  to_oklch c (if is_base_color c then 500 else shade)
-                in
-                let rgb_val = oklch_to_rgb oklch_val in
-                Css.hex (rgb_to_hex rgb_val)))
+            | None -> to_css c (if is_base_color c then 500 else shade)))
 
   (* Aliases for color constructors/functions that will be shadowed by open
      Css *)
