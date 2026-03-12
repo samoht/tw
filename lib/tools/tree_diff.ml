@@ -1205,37 +1205,48 @@ let decl_level_reorder selector decls1 decls2 =
       new_declarations = Some decls2;
     }
 
+let decls_str_equal d1 d2 =
+  List.length d1 = List.length d2
+  && List.for_all2
+       (fun x y -> decl_to_prop_value x = decl_to_prop_value y)
+       d1 d2
+
 let convert_modified_rule ~rules1 ~rules2 (sel1, sel2, decls1, decls2) =
   let sel1_str = Css.Selector.to_string sel1 in
   let sel2_str = Css.Selector.to_string sel2 in
   let position_changed () = position_changed ~rules1 ~rules2 sel1 sel2 in
   let reordered selector = reordered ~rules1 ~rules2 sel1 sel2 selector in
   let reorder_or_content selector d1 d2 =
-    if position_changed () then reordered selector
-    else content_changed selector d1 d2
+    if position_changed () then Some (reordered selector)
+    else Some (content_changed selector d1 d2)
   in
 
   (* Handle each modification case *)
   match (decls1, decls2) with
   | [], [] -> reorder_or_content sel1_str decls1 decls2
-  | [], _ | _, [] -> content_changed sel1_str decls1 decls2
+  | [], _ | _, [] -> Some (content_changed sel1_str decls1 decls2)
   | _, _ when sel1_str <> sel2_str ->
-      Rule_selector_changed
-        {
-          old_selector = sel1_str;
-          new_selector = sel2_str;
-          declarations = decls2;
-        }
+      Some
+        (Rule_selector_changed
+           {
+             old_selector = sel1_str;
+             new_selector = sel2_str;
+             declarations = decls2;
+           })
   | _, _ when decls1 = decls2 -> reorder_or_content sel1_str decls1 decls2
   | _, _ ->
       let pure, property_changes, added_props, removed_props =
         is_pure_decl_reordering decls1 decls2
       in
       if pure then
-        if position_changed () then reordered sel1_str
-        else decl_level_reorder sel1_str decls1 decls2
+        if position_changed () then Some (reordered sel1_str)
+        else if decls_str_equal decls1 decls2 then
+          (* OCaml ASTs differ but string output is identical (e.g., Nested vs
+             bare expression after calc() normalization) — no real difference *)
+          None
+        else Some (decl_level_reorder sel1_str decls1 decls2)
       else if property_changes <> [] || added_props <> [] || removed_props <> []
-      then content_changed sel1_str decls1 decls2
+      then Some (content_changed sel1_str decls1 decls2)
       else reorder_or_content sel1_str decls1 decls2
 
 (* Assemble rule changes (added/removed/modified) between two rule lists *)
@@ -1243,7 +1254,7 @@ let to_rule_changes rules1 rules2 : rule_diff list =
   let r_added, r_removed, r_modified = rule_diffs rules1 rules2 in
   List.map convert_added_rule r_added
   @ List.map convert_removed_rule r_removed
-  @ List.map (convert_modified_rule ~rules1 ~rules2) r_modified
+  @ List.filter_map (convert_modified_rule ~rules1 ~rules2) r_modified
 
 (* Mutual recursion declarations *)
 (* Check if two rule-lists under the same media condition differ *)
@@ -1968,7 +1979,7 @@ let diff ~(expected : Css.t) ~(actual : Css.t) : t =
   let rule_changes =
     List.map convert_added_rule added
     @ List.map convert_removed_rule removed
-    @ List.map (convert_modified_rule ~rules1 ~rules2) modified
+    @ List.filter_map (convert_modified_rule ~rules1 ~rules2) modified
   in
 
   (* Delegate all container and nested-container diffs to the generic walker *)
