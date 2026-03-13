@@ -584,3 +584,22 @@ val apply : string list -> t -> t option
     Returns [None] if any modifier is unrecognized. Example:
     [apply ["hover"; "sm"] (bg blue 500)] creates a hover:sm:bg-blue-500 style.
 *)
+
+(** {1 Variant Ordering} *)
+
+val not_variant_order : modifier -> int
+(** [not_variant_order m] returns the cascade sort key for a [not-*] inner
+    modifier. Matches the ordering of [variant_order_of_prefix] for the
+    corresponding pseudo-class/media prefix. *)
+
+val variant_order_of_prefix : string -> int
+(** [variant_order_of_prefix prefix] returns the position of a modifier prefix
+    string in the Tailwind v4 variant cascade. The prefix is the part before the
+    last ":" in a base class name (e.g. ["hover"], ["dark:group-hover"]).
+    Returns 0 for unknown prefixes. *)
+
+val variant_order_of_media_cond : Css.Media.t -> int
+(** [variant_order_of_media_cond cond] returns the same sort key as
+    [variant_order_of_prefix] for the corresponding CSS media condition. Used to
+    derive the cascade position of rules whose ordering comes from a nested
+    media query rather than from the class-name prefix alone. *)

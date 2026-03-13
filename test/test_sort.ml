@@ -1035,4 +1035,4 @@ let tests =
       test_random_utilities_with_minimization;
   ]
 
-let suite = ("rules", tests)
+let suite = ("sort", tests)

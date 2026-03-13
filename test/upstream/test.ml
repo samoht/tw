@@ -276,7 +276,7 @@ let setup_scheme_for_test expected =
   Tw.Borders.set_scheme scheme;
   Tw.Effects.set_scheme scheme;
   Tw.Divide.set_scheme scheme;
-  Tw.Rules.set_scheme scheme;
+  Tw.Rule.set_scheme scheme;
   (* Register custom breakpoints for modifier parsing *)
   let standard_names = [ "sm"; "md"; "lg"; "xl"; "2xl" ] in
   let custom_bps =
@@ -619,7 +619,7 @@ let run_test_case test () =
       let updated_scheme =
         { scheme with breakpoints = scheme.breakpoints @ custom_bps }
       in
-      Tw.Rules.set_scheme updated_scheme;
+      Tw.Rule.set_scheme updated_scheme;
       Tw.Modifiers.register_custom_breakpoints custom_bps);
     setup_theme_overrides test.config test.expected;
     let theme, theme_defaults = theme_config test.config test.expected in
