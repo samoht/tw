@@ -284,31 +284,23 @@ module Handler = struct
     style ~property_rules
       [ tw_duration_decl; Css.transition_duration duration_val ]
 
-  (* Theme variables for easing functions - order (7, 6-8) places them after
-     radius (7, 0-5) but before animate (7, 9-12) *)
-  let ease_linear_var =
-    Var.theme Css.Timing_function "ease-linear" ~order:(7, 15)
-
-  let ease_in_var = Var.theme Css.Timing_function "ease-in" ~order:(7, 16)
-  let ease_out_var = Var.theme Css.Timing_function "ease-out" ~order:(7, 17)
+  (* Theme variables for easing functions - order (7, 9-11) places them after
+     radius (7, 0-8) but before animate (7, 12-16) *)
+  let ease_in_var = Var.theme Css.Timing_function "ease-in" ~order:(7, 9)
+  let ease_out_var = Var.theme Css.Timing_function "ease-out" ~order:(7, 10)
 
   let ease_in_out_var =
-    Var.theme Css.Timing_function "ease-in-out" ~order:(7, 18)
+    Var.theme Css.Timing_function "ease-in-out" ~order:(7, 11)
 
   let ease_linear =
-    let ease_value = Css.Steps (4, None) in
-    let theme_decl, ease_linear_ref = Var.binding ease_linear_var ease_value in
-    let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var ease_linear_ref) in
+    (* Tailwind uses the CSS 'linear' keyword directly - no theme variable *)
+    let tw_ease_decl, _ = Var.binding tw_ease_var Css.Linear in
     let prop_rule = Var.property_rule tw_ease_var in
     let property_rules =
       match prop_rule with Some r -> r | None -> Css.empty
     in
     style ~property_rules
-      [
-        theme_decl;
-        tw_ease_decl;
-        Css.transition_timing_function (Css.Var ease_linear_ref);
-      ]
+      [ tw_ease_decl; Css.transition_timing_function Css.Linear ]
 
   let ease_in =
     (* Set --tw-ease to var(--ease-in) and use the theme variable *)

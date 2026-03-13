@@ -1115,6 +1115,29 @@ let not_variant_order = function
   (* Fallback *)
   | _ -> 5500
 
+(** Variant order for a media condition. Maps the condition directly to the same
+    ordering as variant_order_of_prefix for the corresponding prefix string. Used
+    to compute inner_vo from nested media statements (e.g., dark:group-hover has
+    nested @media(hover:hover), giving inner_vo=20000 rather than 500 from the
+    "group-hover" prefix). This ensures hover-nested rules sort after non-nested
+    peer-/group- rules but before has-* and aria-* rules. *)
+let variant_order_of_media_cond cond =
+  let open Css.Media in
+  match cond with
+  | Hover -> 20000
+  | Prefers_reduced_motion `No_preference -> 50000
+  | Prefers_reduced_motion `Reduce -> 50100
+  | Prefers_contrast `More -> 50200
+  | Prefers_contrast `Less -> 50300
+  | Orientation `Portrait -> 70000
+  | Orientation `Landscape -> 70100
+  | Prefers_color_scheme `Dark -> 90000
+  | Prefers_color_scheme `Light -> 90000
+  | Print -> 91000
+  | Forced_colors `Active -> 92000
+  | Inverted_colors `Inverted -> 93100
+  | _ -> 0
+
 (** Variant order for modifier prefixes. Maps a modifier prefix string (the part
     before the last ":" in base_class) to a position number in the Tailwind v4
     variant cascade. Used to sort variant rules across rule types. *)
@@ -1180,6 +1203,8 @@ let variant_order_of_prefix prefix =
   | "forced-colors" -> 92000
   | "noscript" -> 93000
   | "inverted-colors" -> 93100
+  (* @starting-style: comes after all media queries including dark:hover *)
+  | "starting" -> 95000
   | _ ->
       let starts_with s p =
         String.length s >= String.length p
@@ -3190,14 +3215,36 @@ let compare_variant_ordered r1 r2 =
         in
         let p1_prefix = variant_prefix r1.base_class in
         let p2_prefix = variant_prefix r2.base_class in
-        let ivo_cmp = Int.compare (inner_vo p1_prefix) (inner_vo p2_prefix) in
+        (* When inner_vo is 0 (prefix doesn't explicitly encode an inner order,
+           e.g., plain "dark" prefix), use the nested media condition's order to
+           distinguish compound rules. For example, contrast-more:dark with
+           base_class "dark:text-white" gets inner_vo=0, but its nested
+           @media(prefers-color-scheme:dark) gives effective_ivo=90000,
+           correctly placing it after plain dark:text-white (effective_ivo=0).
+           When inner_vo > 0 (prefix explicitly encodes order, e.g.,
+           "dark:group-hover"→500 or "dark:hover"→20000), keep that value so
+           that group-hover (500) sorts before hover (20000) and group-focus
+           (also 500 but non-nested) sorts after group-hover (nested-first). *)
+        let effective_ivo r prefix =
+          let ivo = inner_vo prefix in
+          if ivo > 0 then ivo
+          else
+            match r.nested with
+            | [ n ] -> (
+                match Css.as_media n with
+                | Some (cond, _) -> variant_order_of_media_cond cond
+                | None -> 0)
+            | _ -> 0
+        in
+        let ivo_cmp =
+          Int.compare (effective_ivo r1 p1_prefix) (effective_ivo r2 p2_prefix)
+        in
         if ivo_cmp <> 0 then ivo_cmp
         else
-          (* Same inner variant order: rules with nested media (e.g.,
-             dark:group-hover with nested @media (hover:hover)) come before
-             rules without nested media. This matches Tailwind's ordering and
-             ensures that non-nested rules remain adjacent for selector
-             combining (e.g., group-has + peer-checked). *)
+          (* Same effective inner variant order: nested media rules (like
+             group-hover with @media(hover:hover)) come before non-nested rules
+             with the same ivo (like group-focus). This matches Tailwind's
+             ordering where group-hover precedes group-focus within dark. *)
           let nested_cmp =
             let has_nested = function [] -> 0 | _ -> -1 in
             Int.compare (has_nested r1.nested) (has_nested r2.nested)
@@ -3885,8 +3932,10 @@ let uses_direct_property_order = function
       | `Font_weight | `Leading ) ->
       false
       (* Transforms, gradient, duration, and typography use first-usage order *)
-  | Some _ -> true (* All other families use property_order *)
-  | None -> true (* Variables without families also use property_order *)
+  | Some _ -> true (* All other named families use property_order directly *)
+  | None -> false
+(* Variables without families (e.g. --tw-ease) are NOT direct; get_family_order
+   returns 1000 for None, placing them last *)
 
 let compare_property_vars ~get_family_order n1 n2 po1 po2 fam1 fam2 =
   (* Variables with negative property_order and no family come FIRST *)
@@ -4048,17 +4097,6 @@ let sort_property_rules_by_usage first_usage_order property_rules_for_end =
         | None -> 1000)
     | None -> 1000
   in
-  (* Check if a family uses property_order directly *)
-  let uses_direct_property_order = function
-    | Some
-        ( `Gradient | `Translate | `Rotate | `Skew | `Scale | `Duration
-        | `Font_weight | `Leading | `Content ) ->
-        false
-        (* Transforms, gradient, duration, typography, and content use
-           first-usage order *)
-    | Some _ -> true (* All other families use property_order *)
-    | None -> true (* Variables without families also use property_order *)
-  in
   property_rules_for_end
   |> List.sort (fun s1 s2 ->
       match (Css.as_property s1, Css.as_property s2) with
@@ -4068,7 +4106,8 @@ let sort_property_rules_by_usage first_usage_order property_rules_for_end =
           let fam2 = Var.family n2 in
           let po1 = property_order_from n1 in
           let po2 = property_order_from n2 in
-          (* Variables with no family and negative property_order come first *)
+          (* Variables with no family and negative property_order (e.g.
+             --tw-space-x-reverse) always come before family variables *)
           let no_family_negative_first =
             match (fam1, fam2) with
             | None, Some _ when po1 < 0 -> -1
@@ -4077,6 +4116,11 @@ let sort_property_rules_by_usage first_usage_order property_rules_for_end =
           in
           if no_family_negative_first <> 0 then no_family_negative_first
           else if
+            (* Named families that use property_order directly (Ring,
+               Inset_ring, Shadow, Border, etc.) sort by property_order across
+               families. This groups Ring+Inset_ring correctly (po 13-20).
+               No-family vars (--tw-ease etc.) are NOT direct and get fo=1000,
+               so they appear after all named-family vars. *)
             uses_direct_property_order fam1 && uses_direct_property_order fam2
           then compare po1 po2
           else
@@ -4175,32 +4219,6 @@ let has_pseudo_elements tw_classes =
     | Utility.Group us -> List.exists check_utility us
   in
   List.exists check_utility tw_classes
-
-(* Detect if focus:ring + contrast-more combination is used *)
-let has_focus_ring_contrast tw_classes =
-  let has_focus_ring =
-    let rec check_utility = function
-      | Utility.Modified (Style.Focus, Utility.Base u) ->
-          let class_name = Utility.class_of_base u in
-          class_name = "ring" || check_utility (Utility.Base u)
-      | Utility.Modified (_, u) -> check_utility u
-      | Utility.Group us -> List.exists check_utility us
-      | Utility.Base u ->
-          let class_name = Utility.class_of_base u in
-          class_name = "ring"
-    in
-    List.exists check_utility tw_classes
-  in
-  let has_contrast_more =
-    let rec check_modifier = function
-      | Utility.Modified (Style.Contrast_more, _) -> true
-      | Utility.Modified (_, u) -> check_modifier u
-      | Utility.Group us -> List.exists check_modifier us
-      | Utility.Base _ -> false
-    in
-    List.exists check_modifier tw_classes
-  in
-  has_focus_ring && has_contrast_more
 
 let has_transition_utility selector_props =
   List.exists
@@ -4365,14 +4383,8 @@ let default_config =
   }
 
 let to_css ?(config = default_config) tw_classes =
-  (* When focus:ring + contrast-more are used, include base .ring utility to
-     match Tailwind *)
-  let tw_classes_with_ring =
-    if has_focus_ring_contrast tw_classes then tw_classes @ [ Effects.ring ]
-    else tw_classes
-  in
   (* Extract once and share for rule sets and theme layer *)
-  let selector_props = List.concat_map outputs tw_classes_with_ring in
+  let selector_props = List.concat_map outputs tw_classes in
 
   let statements = rule_sets_from_selector_props selector_props in
 
@@ -4383,7 +4395,7 @@ let to_css ?(config = default_config) tw_classes =
     | Css.Variables ->
         let layer_results =
           build_layers ~layers:config.layers ~include_base:config.base
-            ?forms:config.forms ~selector_props tw_classes_with_ring statements
+            ?forms:config.forms ~selector_props tw_classes statements
         in
         Css.concat layer_results
     | Css.Inline ->
