@@ -38,7 +38,7 @@ module Handler = struct
        animation: none directly. *)
     match Var.theme_value "animate-none" with
     | Some _ ->
-        let tv = Var.theme Css.Animation "animate-none" ~order:(7, 8) in
+        let tv = Var.theme Css.Animation "animate-none" ~order:(7, 12) in
         let none_animation =
           Css.Shorthand
             {
@@ -56,9 +56,9 @@ module Handler = struct
         style [ theme_decl; Css.animation (Css.Var none_var) ]
     | None -> style [ Css.animation None ]
 
-  (* Theme variable for animate-spin - order (7, 9) places it after radius but
-     before animate-pulse (7, 10) *)
-  let animate_spin_var = Var.theme Css.Animation "animate-spin" ~order:(7, 9)
+  (* Theme variable for animate-spin - order (7, 13) places it after ease (7,
+     9-11) *)
+  let animate_spin_var = Var.theme Css.Animation "animate-spin" ~order:(7, 13)
 
   let animate_spin () =
     let spin_animation =
@@ -94,9 +94,9 @@ module Handler = struct
     in
     style ~rules [ theme_decl; Css.animation (Css.Var spin_var) ]
 
-  (* Theme variable for animate-ping - order (7, 10) places it after
-     animate-spin (7, 9) *)
-  let animate_ping_var = Var.theme Css.Animation "animate-ping" ~order:(7, 10)
+  (* Theme variable for animate-ping - order (7, 14) places it after
+     animate-spin (7, 13) *)
+  let animate_ping_var = Var.theme Css.Animation "animate-ping" ~order:(7, 14)
 
   let animate_ping () =
     let ping_animation =
@@ -135,10 +135,9 @@ module Handler = struct
     in
     style ~rules [ theme_decl; Css.animation (Css.Var ping_var) ]
 
-  (* Theme variable for animate-pulse - order (7, 11) places it after
-     animate-ping (7, 10) but before default-font-family (9, x) to match
-     Tailwind ordering *)
-  let animate_pulse_var = Var.theme Css.Animation "animate-pulse" ~order:(7, 11)
+  (* Theme variable for animate-pulse - order (7, 15) places it after
+     animate-ping (7, 14) *)
+  let animate_pulse_var = Var.theme Css.Animation "animate-pulse" ~order:(7, 15)
 
   let animate_pulse () =
     let pulse_animation =
@@ -173,10 +172,10 @@ module Handler = struct
     in
     style ~rules [ theme_decl; Css.animation (Css.Var pulse_var) ]
 
-  (* Theme variable for animate-bounce - order (7, 12) places it after
-     animate-pulse (7, 11) *)
+  (* Theme variable for animate-bounce - order (7, 16) places it after
+     animate-pulse (7, 15) *)
   let animate_bounce_var =
-    Var.theme Css.Animation "animate-bounce" ~order:(7, 12)
+    Var.theme Css.Animation "animate-bounce" ~order:(7, 16)
 
   let animate_bounce () =
     let bounce_animation =
@@ -220,7 +219,7 @@ module Handler = struct
                     [
                       Css.Declaration.animation_timing_function
                         (Cubic_bezier (0., 0., 0.2, 1.));
-                      Css.Declaration.transform (Translate_y Zero);
+                      Css.Declaration.transform None;
                     ];
                 };
               ];
@@ -235,7 +234,7 @@ module Handler = struct
 
   let animate_named name =
     let var_name = "animate-" ^ name in
-    let tv = Var.theme Css.Animation var_name ~order:(7, 12) in
+    let tv = Var.theme Css.Animation var_name ~order:(7, 16) in
     let theme_decl, theme_ref =
       Var.binding tv
         (Shorthand
