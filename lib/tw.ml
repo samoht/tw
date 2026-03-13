@@ -61,13 +61,12 @@ include Contain
 include Scroll
 include Arbitrary
 
-(* CSS rule generation from Rules module *)
-let to_css ?(base = Rules.default_config.base) ?forms
-    ?(mode = Rules.default_config.mode) ?(layers = Rules.default_config.layers)
-    ?(optimize = Rules.default_config.optimize) utilities =
-  Rules.to_css ~config:{ base; forms; mode; layers; optimize } utilities
+let to_css ?(base = Build.default_config.base) ?forms
+    ?(mode = Build.default_config.mode) ?(layers = Build.default_config.layers)
+    ?(optimize = Build.default_config.optimize) utilities =
+  Build.to_css ~config:{ base; forms; mode; layers; optimize } utilities
 
-let to_inline_style utilities = Rules.to_inline_style utilities
+let to_inline_style utilities = Build.to_inline_style utilities
 let preflight = Preflight.stylesheet
 
 (* Class generation functions *)
@@ -126,7 +125,9 @@ module Forms = Forms
 module Tables = Tables
 module Svg = Svg
 module Accessibility = Accessibility
-module Rules = Rules
+module Output = Output
+module Rule = Rule
+module Build = Build
 module Prose = Prose
 module Css = Css
 module Color = Color

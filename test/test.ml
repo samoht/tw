@@ -58,7 +58,10 @@ let () =
       Test_interactivity.suite;
       Test_parse.suite;
       Test_position.suite;
-      Test_rules.suite;
+      Test_output.suite;
+      Test_rule.suite;
+      Test_build.suite;
+      Test_sort.suite;
       Test_preflight.suite;
       Test_transforms.suite;
       Test_var.suite;

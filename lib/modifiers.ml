@@ -1747,3 +1747,225 @@ let apply modifiers base_utility =
      (Modified(Dark, Modified(Hover, base))). This matches how the programmatic
      API works: dark [ hover [ ... ] ] *)
   List.fold_left apply_one (Some base_utility) (List.rev modifiers)
+
+(** {1 Variant Ordering}
+
+    These functions define the canonical Tailwind v4 cascade order for
+    modifiers. Ordering lives here — in the module that owns modifier semantics
+    — rather than in the assembly pipeline. *)
+
+(** [not_variant_order m] returns the sort key for a [not-*] inner modifier.
+    Used when building [:not()] selectors to preserve cascade ordering. *)
+let not_variant_order = function
+  (* Block 1: structural pseudo-classes *)
+  | First -> 100
+  | Last -> 200
+  | Only -> 300
+  | Odd -> 400
+  | Even -> 500
+  | First_of_type -> 600
+  | Last_of_type -> 700
+  | Only_of_type -> 800
+  (* Block 1: state pseudo-classes *)
+  | Visited -> 900
+  | Target -> 1000
+  | Open -> 1100
+  | Default -> 1200
+  | Checked -> 1300
+  | Indeterminate -> 1400
+  | Placeholder_shown -> 1500
+  | Autofill -> 1600
+  | Optional -> 1700
+  | Required -> 1800
+  | Valid -> 1900
+  | Invalid -> 2000
+  | In_range -> 2100
+  | Out_of_range -> 2200
+  | Read_only -> 2300
+  (* Block 1: misc before hover *)
+  | Empty -> 2400
+  | Focus_within -> 2500
+  | Hover -> 2600
+  (* Block 2: interactive pseudo-classes (after hover media) *)
+  | Focus -> 2700
+  | Focus_visible -> 2800
+  | Active -> 2900
+  | Enabled -> 3000
+  | Disabled -> 3100
+  | Inert -> 3200
+  (* Block 2: complex selectors *)
+  | Has _ -> 3300
+  | Aria_selected -> 3340
+  | Aria_checked -> 3350
+  | Aria_expanded -> 3360
+  | Aria_disabled -> 3370
+  | Aria_bracket _ -> 3380
+  | Group_aria _ -> 3385
+  | Peer_aria _ -> 3390
+  | Data_custom _ -> 3400
+  | Data_bracket _ -> 3401
+  | Group_data _ -> 3402
+  | Peer_data _ -> 3403
+  | Data_state _ -> 3410
+  | Data_variant _ -> 3420
+  | Data_active -> 3430
+  | Data_inactive -> 3440
+  | Nth _ -> 3500
+  | Nth_last _ -> 3550
+  | Nth_of_type _ -> 3600
+  | Nth_last_of_type _ -> 3650
+  (* @supports *)
+  | Supports _ -> 4000
+  (* Media: accessibility preferences *)
+  | Motion_safe -> 5000
+  | Motion_reduce -> 5100
+  | Contrast_more -> 5200
+  | Contrast_less -> 5300
+  (* Media: responsive — max first (descending), then min (ascending) *)
+  | Max_responsive _ -> 6000
+  | Max_arbitrary _ -> 6100
+  | Max_arbitrary_length _ -> 6150
+  | Min_arbitrary _ -> 6200
+  | Min_arbitrary_length _ -> 6250
+  | Min_responsive _ -> 6300
+  | Responsive _ -> 6400
+  (* Media: other *)
+  | Portrait -> 7000
+  | Landscape -> 7100
+  (* Selector: directionality *)
+  | Ltr -> 8000
+  | Rtl -> 8100
+  (* Media: appearance *)
+  | Dark -> 9000
+  | Print -> 9100
+  | Forced_colors -> 9200
+  | Noscript -> 9300
+  (* Custom: hocus/device-hocus *)
+  | Hocus -> 10000
+  | Device_hocus -> 10100
+  (* Bracket patterns *)
+  | Not_bracket _ -> 11000
+  (* Group/peer-not *)
+  | Group_not _ -> 12000
+  | Peer_not _ -> 12100
+  (* Fallback *)
+  | _ -> 5500
+
+let starts_with s p =
+  String.length s >= String.length p && String.sub s 0 (String.length p) = p
+
+(** [variant_order_of_prefix prefix] returns the position of a modifier prefix
+    string in the Tailwind v4 variant cascade. The prefix is the part before the
+    last ":" in a class name (e.g., "hover" in "hover:bg-blue-500", or
+    "dark:group-hover" in "dark:group-hover:text-white"). Returns 0 for unknown
+    or non-variant prefixes. *)
+let variant_order_of_prefix prefix =
+  match prefix with
+  (* Pseudo-elements *)
+  | "group-hover" | "peer-hover" -> 500
+  | "first-letter" | "first-line" -> 1000
+  | "marker" -> 1100
+  | "selection" -> 1200
+  | "file" -> 1300
+  | "placeholder" -> 1400
+  | "backdrop" -> 1401
+  | "details-content" -> 1500
+  | "before" -> 1600
+  | "after" -> 1601
+  (* Block 1: structural pseudo-classes *)
+  | "first" -> 10100
+  | "last" -> 10200
+  | "only" -> 10300
+  | "odd" -> 10400
+  | "even" -> 10500
+  | "first-of-type" -> 10600
+  | "last-of-type" -> 10700
+  | "only-of-type" -> 10800
+  | "visited" -> 10900
+  | "target" -> 11000
+  | "open" -> 11100
+  | "default" -> 11200
+  | "checked" -> 11300
+  | "indeterminate" -> 11400
+  | "placeholder-shown" -> 11500
+  | "autofill" -> 11600
+  | "optional" -> 11700
+  | "required" -> 11800
+  | "valid" -> 11900
+  | "invalid" -> 12000
+  | "in-range" -> 12100
+  | "out-of-range" -> 12200
+  | "read-only" -> 12300
+  | "empty" -> 12400
+  | "focus-within" -> 12500
+  (* Hover — in @media(hover:hover) but between block 1 and block 2 *)
+  | "hover" -> 20000
+  (* Block 2: interactive pseudo-classes *)
+  | "focus" -> 30100
+  | "focus-visible" -> 30200
+  | "active" -> 30300
+  | "enabled" -> 30400
+  | "disabled" -> 30500
+  | "inert" -> 30550
+  | "data-custom" | "data-active" | "data-inactive" -> 30800
+  (* Hocus *)
+  | "hocus" | "device-hocus" -> 35000
+  | "portrait" -> 70000
+  | "landscape" -> 70100
+  (* Directionality *)
+  | "ltr" -> 80000
+  | "rtl" -> 80100
+  (* Appearance media *)
+  | "dark" -> 90000
+  | "print" -> 91000
+  | "forced-colors" -> 92000
+  | "noscript" -> 93000
+  | "inverted-colors" -> 93100
+  (* @starting-style: comes after all media queries including dark:hover *)
+  | "starting" -> 95000
+  | _ ->
+      if starts_with prefix "group-" then 500
+      else if starts_with prefix "peer-" then 600
+      else if starts_with prefix "has-" then 30600
+      else if starts_with prefix "aria-" then
+        if String.length prefix > 5 && prefix.[5] <> '[' then 30700 else 30790
+      else if starts_with prefix "data-" then
+        if String.length prefix > 5 && prefix.[5] = '[' then 30810 else 30800
+      else if starts_with prefix "supports-" || starts_with prefix "supports"
+      then 40000
+      else if prefix = "motion-safe" then 50000
+      else if prefix = "motion-reduce" then 50100
+      else if prefix = "contrast-more" then 50200
+      else if prefix = "contrast-less" then 50300
+      else if starts_with prefix "pointer-" then 50400
+      else if starts_with prefix "any-pointer-" then 50500
+      else if
+        prefix = "sm" || prefix = "md" || prefix = "lg" || prefix = "xl"
+        || prefix = "2xl" || starts_with prefix "min-"
+        || starts_with prefix "max-"
+      then 60000
+      else if String.length prefix > 0 && prefix.[0] = '[' then 100000
+      else if String.length prefix > 0 && prefix.[0] = '@' then 110000
+      else 0
+
+(** [variant_order_of_media_cond cond] returns the same sort key as
+    [variant_order_of_prefix] for the corresponding CSS media condition. Used
+    to determine the cascade position of rules with nested media queries (e.g.,
+    dark:group-hover has a nested @media(hover:hover), so its effective inner
+    order is 20000, matching standalone hover). *)
+let variant_order_of_media_cond cond =
+  let open Css.Media in
+  match cond with
+  | Hover -> 20000
+  | Prefers_reduced_motion `No_preference -> 50000
+  | Prefers_reduced_motion `Reduce -> 50100
+  | Prefers_contrast `More -> 50200
+  | Prefers_contrast `Less -> 50300
+  | Orientation `Portrait -> 70000
+  | Orientation `Landscape -> 70100
+  | Prefers_color_scheme `Dark -> 90000
+  | Prefers_color_scheme `Light -> 90000
+  | Print -> 91000
+  | Forced_colors `Active -> 92000
+  | Inverted_colors `Inverted -> 93100
+  | _ -> 0

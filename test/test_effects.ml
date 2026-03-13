@@ -41,7 +41,7 @@ let test_filters_css_generation () =
   (* Spot-check a few filter/backdrop utilities *)
   let open Tw in
   let css =
-    Rules.to_css
+    Build.to_css
       [
         Filters.blur;
         Filters.backdrop_blur_lg;

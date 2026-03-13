@@ -207,7 +207,7 @@ let test_modifier_css_roundtrip () =
   in
 
   (* Generate CSS *)
-  let stylesheet = Tw.Rules.to_css test_utilities in
+  let stylesheet = Tw.Build.to_css test_utilities in
   let css_str = Tw.Css.to_string ~minify:true ~optimize:true stylesheet in
 
   (* Verify CSS was generated *)
@@ -225,7 +225,7 @@ let test_modifier_css_roundtrip () =
 (* Test that generated CSS has correct selector escaping *)
 let test_selector_escaping_in_css () =
   (* Generate CSS with modifiers that need escaping *)
-  let stylesheet = Tw.Rules.to_css [ motion_safe [ animate_pulse ] ] in
+  let stylesheet = Tw.Build.to_css [ motion_safe [ animate_pulse ] ] in
   let css_str = Tw.Css.to_string ~minify:true stylesheet in
 
   (* Verify single backslash in output (not double) *)
@@ -260,7 +260,7 @@ let test_combined_media_modifiers () =
   let utilities =
     [ sm [ motion_safe [ animate_pulse ] ]; md [ dark [ bg gray 900 ] ] ]
   in
-  let css_str = Tw.Css.to_string ~minify:true (Tw.Rules.to_css utilities) in
+  let css_str = Tw.Css.to_string ~minify:true (Tw.Build.to_css utilities) in
   match Tw.Css.of_string css_str with
   | Ok _ -> ()
   | Error e ->
@@ -272,7 +272,7 @@ let test_combined_media_modifiers () =
 (* Test that motion-reduce:transition-none outputs transition-property: none *)
 let test_motion_reduce_transition_none () =
   (* Tailwind v4 uses transition-property: none, not transition: none *)
-  let css = Tw.Rules.to_css [ motion_reduce [ transition_none ] ] in
+  let css = Tw.Build.to_css [ motion_reduce [ transition_none ] ] in
   let css_str = Tw.Css.to_string ~minify:true css in
 
   (* Should contain transition-property:none *)
@@ -447,7 +447,7 @@ let test_nested_modifier_class_names () =
 let test_nested_modifier_css_generation () =
   (* Ensure dark:hover: generates valid CSS with proper media query nesting *)
   let utilities = [ dark [ hover [ bg blue 500 ] ] ] in
-  let css_str = Tw.Css.to_string ~minify:true (Tw.Rules.to_css utilities) in
+  let css_str = Tw.Css.to_string ~minify:true (Tw.Build.to_css utilities) in
 
   (* Should contain the escaped class name *)
   let has_class =
