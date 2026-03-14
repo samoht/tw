@@ -67,6 +67,18 @@ let supports_query ~condition ~selector ~props ?base_class ?merge_key
   Supports_query
     { condition; selector; props; base_class; merge_key; not_order }
 
+let pp = function
+  | Regular { selector; _ } ->
+      "Regular(" ^ Css.Selector.to_string selector ^ ")"
+  | Media_query { selector; _ } ->
+      "Media_query(" ^ Css.Selector.to_string selector ^ ")"
+  | Container_query { selector; _ } ->
+      "Container_query(" ^ Css.Selector.to_string selector ^ ")"
+  | Starting_style { selector; _ } ->
+      "Starting_style(" ^ Css.Selector.to_string selector ^ ")"
+  | Supports_query { selector; _ } ->
+      "Supports_query(" ^ Css.Selector.to_string selector ^ ")"
+
 let is_hover_rule = function
   | Regular { has_hover; _ } -> has_hover
   | _ -> false

@@ -11,8 +11,7 @@
     {v
       Utility.t list
         |> List.concat_map Rule.outputs   (* Rule *)
-        |> Build.rule_sets_from_selector_props   (* Build *)
-        |> Build.build_utilities_layer    (* Build *)
+        |> Build.rule_sets               (* Build *)
     v} *)
 
 (** {1 Scheme}

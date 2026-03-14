@@ -116,6 +116,11 @@ val supports_query :
 (** [supports_query ~condition ~selector ~props ()] constructs a
     [Supports_query] rule wrapped in [@supports condition]. *)
 
+val pp : t -> string
+(** [pp r] returns a short human-readable description of [r], e.g.
+    ["Regular(.p-4)"] or ["Media_query(.sm\\:p-4)"]. Useful for test failure
+    messages and debug output. *)
+
 (** {1 Classification} *)
 
 type by_type = {
