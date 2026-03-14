@@ -435,7 +435,7 @@ module.exports = {
         Fmt.pr "@.Tailwind CSS:@.%s@." tailwind_css))
 
 let suite =
-  ( "html",
+  ( "tw_html",
     [
       test_case "txt" `Quick test_txt;
       test_case "element creation" `Quick test_element_creation;

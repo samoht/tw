@@ -786,6 +786,60 @@ let compare_nested_media r1 r2 =
       | _ -> 0)
   | _ -> 0
 
+(* Extract the modifier prefix from a base_class, e.g. "hover:p-4" -> "hover" *)
+let variant_prefix = function
+  | Some s -> (
+      match String.rindex_opt s ':' with
+      | Some i -> String.sub s 0 i
+      | None -> "")
+  | None -> ""
+
+let starts_with s p =
+  String.length s >= String.length p && String.sub s 0 (String.length p) = p
+
+(* Compute variant order for a modifier prefix, stripping group-/peer-
+   wrappers *)
+let strip_group_peer_vo p =
+  if starts_with p "group-" then
+    Modifiers.variant_order_of_prefix (String.sub p 6 (String.length p - 6))
+  else if starts_with p "peer-" then
+    Modifiers.variant_order_of_prefix (String.sub p 5 (String.length p - 5))
+  else Modifiers.variant_order_of_prefix p
+
+(* Compute the inner variant order for a compound prefix like "hover:focus" *)
+let inner_vo prefix =
+  match String.index_opt prefix ':' with
+  | Some j ->
+      let outer = String.sub prefix 0 j in
+      if starts_with outer "group-" || starts_with outer "peer-" then
+        let parts = String.split_on_char ':' prefix in
+        List.fold_left (fun acc p -> max acc (strip_group_peer_vo p)) 0 parts
+        + 1
+      else
+        let inner = String.sub prefix (j + 1) (String.length prefix - j - 1) in
+        Modifiers.variant_order_of_prefix inner
+  | None ->
+      if starts_with prefix "group-" then
+        Modifiers.variant_order_of_prefix
+          (String.sub prefix 6 (String.length prefix - 6))
+      else if starts_with prefix "peer-" then
+        Modifiers.variant_order_of_prefix
+          (String.sub prefix 5 (String.length prefix - 5))
+      else 0
+
+(* Effective inner variant order: prefer prefix-derived, fall back to nested
+   media *)
+let effective_ivo r prefix =
+  let ivo = inner_vo prefix in
+  if ivo > 0 then ivo
+  else
+    match r.nested with
+    | [ n ] -> (
+        match Css.as_media n with
+        | Some (cond, _) -> Modifiers.variant_order_of_media_cond cond
+        | None -> 0)
+    | _ -> 0
+
 (* Compare rules when both have variant_order > 0 *)
 let compare_variant_ordered r1 r2 =
   match (r1.rule_type, r2.rule_type) with
@@ -795,73 +849,15 @@ let compare_variant_ordered r1 r2 =
       let vo_cmp = Int.compare r1.variant_order r2.variant_order in
       if vo_cmp <> 0 then vo_cmp
       else
-        let variant_prefix bc =
-          match bc with
-          | Some s -> (
-              match String.rindex_opt s ':' with
-              | Some i -> String.sub s 0 i
-              | None -> "")
-          | None -> ""
-        in
-        let inner_vo prefix =
-          let starts_with s p =
-            String.length s >= String.length p
-            && String.sub s 0 (String.length p) = p
-          in
-          let strip_group_peer_vo p =
-            if starts_with p "group-" then
-              Modifiers.variant_order_of_prefix
-                (String.sub p 6 (String.length p - 6))
-            else if starts_with p "peer-" then
-              Modifiers.variant_order_of_prefix
-                (String.sub p 5 (String.length p - 5))
-            else Modifiers.variant_order_of_prefix p
-          in
-          match String.index_opt prefix ':' with
-          | Some j ->
-              let outer = String.sub prefix 0 j in
-              if starts_with outer "group-" || starts_with outer "peer-" then
-                let parts = String.split_on_char ':' prefix in
-                let max_vo =
-                  List.fold_left
-                    (fun acc p -> max acc (strip_group_peer_vo p))
-                    0 parts
-                in
-                max_vo + 1
-              else
-                let inner =
-                  String.sub prefix (j + 1) (String.length prefix - j - 1)
-                in
-                Modifiers.variant_order_of_prefix inner
-          | None ->
-              if starts_with prefix "group-" then
-                Modifiers.variant_order_of_prefix
-                  (String.sub prefix 6 (String.length prefix - 6))
-              else if starts_with prefix "peer-" then
-                Modifiers.variant_order_of_prefix
-                  (String.sub prefix 5 (String.length prefix - 5))
-              else 0
-        in
         let p1_prefix = variant_prefix r1.base_class in
         let p2_prefix = variant_prefix r2.base_class in
-        let effective_ivo r prefix =
-          let ivo = inner_vo prefix in
-          if ivo > 0 then ivo
-          else
-            match r.nested with
-            | [ n ] -> (
-                match Css.as_media n with
-                | Some (cond, _) -> Modifiers.variant_order_of_media_cond cond
-                | None -> 0)
-            | _ -> 0
-        in
         let ivo_cmp =
           Int.compare (effective_ivo r1 p1_prefix) (effective_ivo r2 p2_prefix)
         in
         if ivo_cmp <> 0 then ivo_cmp
         else
+          let has_nested = function [] -> 0 | _ -> -1 in
           let nested_cmp =
-            let has_nested = function [] -> 0 | _ -> -1 in
             Int.compare (has_nested r1.nested) (has_nested r2.nested)
           in
           if nested_cmp <> 0 then nested_cmp
