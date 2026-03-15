@@ -128,21 +128,17 @@ module Handler = struct
   let justify_evenly = style [ justify_content Space_evenly ]
   let justify_normal = style [ justify_content Normal ]
   let justify_stretch = style [ justify_content Stretch ]
-
-  (* Safe variants - same output as non-safe in Tailwind v4 *)
-  let justify_center_safe = style [ justify_content Center ]
-  let justify_end_safe = style [ justify_content Flex_end ]
+  let justify_center_safe = style [ justify_content Safe_center ]
+  let justify_end_safe = style [ justify_content Safe_flex_end ]
   let items_start = style [ align_items Flex_start ]
   let items_end = style [ align_items Flex_end ]
   let items_center = style [ align_items Center ]
   let items_baseline = style [ align_items Baseline ]
   let items_stretch = style [ align_items Stretch ]
   let items_baseline_last = style [ align_items Last_baseline ]
-
-  (* Safe variants - same output as non-safe in Tailwind v4 *)
-  let items_center_safe = style [ align_items Center ]
-  let items_end_safe = style [ align_items Flex_end ]
-  let items_start_safe = style [ align_items Flex_start ]
+  let items_center_safe = style [ align_items Safe_center ]
+  let items_end_safe = style [ align_items Safe_flex_end ]
+  let items_start_safe = style [ align_items Safe_flex_start ]
   let content_start = style [ align_content Flex_start ]
   let content_end = style [ align_content Flex_end ]
   let content_center = style [ align_content Center ]
@@ -162,11 +158,9 @@ module Handler = struct
   let self_baseline = style [ align_self Baseline ]
   let self_baseline_last = style [ align_self Last_baseline ]
   let self_stretch = style [ align_self Stretch ]
-
-  (* Safe variants - same output as non-safe in Tailwind v4 *)
-  let self_center_safe = style [ align_self Center ]
-  let self_end_safe = style [ align_self Flex_end ]
-  let self_start_safe = style [ align_self Flex_start ]
+  let self_center_safe = style [ align_self Safe_center ]
+  let self_end_safe = style [ align_self Safe_flex_end ]
+  let self_start_safe = style [ align_self Safe_flex_start ]
   let justify_items_start = style [ justify_items Start ]
   let justify_items_end = style [ justify_items End ]
   let justify_items_center = style [ justify_items Center ]
@@ -208,8 +202,8 @@ module Handler = struct
   let place_self_end = style [ place_self (End, End) ]
   let place_self_center = style [ place_self (Center, Center) ]
   let place_self_stretch = style [ place_self (Stretch, Stretch) ]
-  let place_self_center_safe = style [ place_self (Center, Center) ]
-  let place_self_end_safe = style [ place_self (End, End) ]
+  let place_self_center_safe = style [ place_self (Safe_center, Safe_center) ]
+  let place_self_end_safe = style [ place_self (Safe_end, Safe_end) ]
 
   (* Single source of truth: (handler, class_name, style, suborder) *)
   let alignment_data =
