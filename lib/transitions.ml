@@ -295,19 +295,35 @@ module Handler = struct
   let ease_linear_var =
     Var.theme Css.Timing_function "ease-linear" ~order:(7, 12)
 
-  let ease_linear =
-    let theme_decl, ease_linear_ref = Var.binding ease_linear_var Css.Linear in
-    let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var ease_linear_ref) in
-    let prop_rule = Var.property_rule tw_ease_var in
-    let property_rules =
-      match prop_rule with Some r -> r | None -> Css.empty
-    in
-    style ~property_rules
-      [
-        theme_decl;
-        tw_ease_decl;
-        Css.transition_timing_function (Css.Var ease_linear_ref);
-      ]
+  let ease_linear () =
+    (* Tailwind uses the raw 'linear' keyword by default, but uses
+       var(--ease-linear) when the theme defines --ease-linear. *)
+    match Var.theme_value "ease-linear" with
+    | Some _ ->
+        let theme_decl, ease_linear_ref =
+          Var.binding ease_linear_var Css.Linear
+        in
+        let tw_ease_decl, _ =
+          Var.binding tw_ease_var (Css.Var ease_linear_ref)
+        in
+        let prop_rule = Var.property_rule tw_ease_var in
+        let property_rules =
+          match prop_rule with Some r -> r | None -> Css.empty
+        in
+        style ~property_rules
+          [
+            theme_decl;
+            tw_ease_decl;
+            Css.transition_timing_function (Css.Var ease_linear_ref);
+          ]
+    | None ->
+        let tw_ease_decl, _ = Var.binding tw_ease_var Css.Linear in
+        let prop_rule = Var.property_rule tw_ease_var in
+        let property_rules =
+          match prop_rule with Some r -> r | None -> Css.empty
+        in
+        style ~property_rules
+          [ tw_ease_decl; Css.transition_timing_function Css.Linear ]
 
   let ease_in =
     (* Set --tw-ease to var(--ease-in) and use the theme variable *)
@@ -392,7 +408,7 @@ module Handler = struct
     | Duration_arbitrary (_, d) -> duration_arbitrary d
     | Delay n -> delay n
     | Delay_arbitrary (_, d) -> delay_arbitrary d
-    | Ease_linear -> ease_linear
+    | Ease_linear -> ease_linear ()
     | Ease_in -> ease_in
     | Ease_out -> ease_out
     | Ease_in_out -> ease_in_out
