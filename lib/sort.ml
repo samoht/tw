@@ -884,6 +884,46 @@ let effective_ivo r prefix =
         | None -> 0)
     | _ -> 0
 
+(** Classify bracket content: pseudo-class brackets ([:checked]) sort before
+    combinator/ampersand brackets ([&>img], [+img], etc.). *)
+let bracket_content_key p =
+  match String.index_opt p '[' with
+  | Some i when i + 1 < String.length p ->
+      let first_char = p.[i + 1] in
+      if first_char = ':' then 0 (* pseudo-class *)
+      else 1 (* combinator/ampersand/other *)
+  | _ -> 1
+
+(** Check if a prefix is an aria-/data- attribute variant where underscores
+    represent spaces. *)
+let is_attr_variant p =
+  starts_with p "aria-[" || starts_with p "data-["
+  || starts_with p "group-aria-["
+  || starts_with p "group-data-["
+  || starts_with p "peer-aria-["
+  || starts_with p "peer-data-["
+
+(** Compare two bracket-containing variant prefixes. Sorts by bracket content
+    type (pseudo-class before combinator), then by normalized name for
+    aria-/data- attributes, or plain string comparison otherwise. *)
+let compare_both_bracket_prefixes p1 p2 =
+  let bk_cmp = Int.compare (bracket_content_key p1) (bracket_content_key p2) in
+  if bk_cmp <> 0 then bk_cmp
+  else if is_attr_variant p1 || is_attr_variant p2 then
+    String.compare (normalize_for_sort p1) (normalize_for_sort p2)
+  else String.compare p1 p2
+
+(** Compare variant prefixes for bracket ordering. Named variants (has-checked)
+    sort before bracket variants (has-[:checked]) within the same variant group.
+*)
+let compare_bracket_prefixes p1_prefix p2_prefix =
+  let has_bracket p = String.length p > 0 && String.contains p '[' in
+  let b1 = has_bracket p1_prefix and b2 = has_bracket p2_prefix in
+  if b1 && not b2 then 1
+  else if b2 && not b1 then -1
+  else if b1 && b2 then compare_both_bracket_prefixes p1_prefix p2_prefix
+  else String.compare p1_prefix p2_prefix
+
 (* Compare rules when both have variant_order > 0 *)
 let compare_variant_ordered r1 r2 =
   match (r1.rule_type, r2.rule_type) with
@@ -915,52 +955,7 @@ let compare_variant_ordered r1 r2 =
             in
             if media_cmp <> 0 then media_cmp
             else
-              (* Named variants (has-checked) sort before bracket variants
-                 (has-[:checked]) within the same variant group *)
-              let has_bracket p =
-                String.length p > 0 && String.contains p '['
-              in
-              let b1 = has_bracket p1_prefix and b2 = has_bracket p2_prefix in
-              let prefix_cmp =
-                if b1 && not b2 then 1
-                else if b2 && not b1 then -1
-                else if b1 && b2 then
-                  (* Both have brackets: sort by bracket content type.
-                     Pseudo-class brackets ([:checked]) sort before
-                     combinator/ampersand brackets ([&>img], [+img], etc.) to
-                     match Tailwind's variant ordering. *)
-                  let bracket_content_key p =
-                    match String.index_opt p '[' with
-                    | Some i when i + 1 < String.length p ->
-                        let first_char = p.[i + 1] in
-                        if first_char = ':' then 0 (* pseudo-class *)
-                        else 1 (* combinator/ampersand/other *)
-                    | _ -> 1
-                  in
-                  let bk1 = bracket_content_key p1_prefix in
-                  let bk2 = bracket_content_key p2_prefix in
-                  let bk_cmp = Int.compare bk1 bk2 in
-                  if bk_cmp <> 0 then bk_cmp
-                  else
-                    (* Use normalized comparison for aria-/data- attribute
-                       variants where underscores represent spaces. For other
-                       bracket variants (peer-[&_p], nth-[...]), underscores are
-                       literal characters and should not be normalized. *)
-                    let is_attr_variant p =
-                      starts_with p "aria-[" || starts_with p "data-["
-                      || starts_with p "group-aria-["
-                      || starts_with p "group-data-["
-                      || starts_with p "peer-aria-["
-                      || starts_with p "peer-data-["
-                    in
-                    if is_attr_variant p1_prefix || is_attr_variant p2_prefix
-                    then
-                      String.compare
-                        (normalize_for_sort p1_prefix)
-                        (normalize_for_sort p2_prefix)
-                    else String.compare p1_prefix p2_prefix
-                else String.compare p1_prefix p2_prefix
-              in
+              let prefix_cmp = compare_bracket_prefixes p1_prefix p2_prefix in
               if prefix_cmp <> 0 then prefix_cmp
               else
                 let p1, s1 = r1.order and p2, s2 = r2.order in
