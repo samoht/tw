@@ -1893,6 +1893,8 @@ let variant_order_of_prefix prefix =
   | "required" -> 11800
   | "valid" -> 11900
   | "invalid" -> 12000
+  | "user-valid" -> 12010
+  | "user-invalid" -> 12020
   | "in-range" -> 12100
   | "out-of-range" -> 12200
   | "read-only" -> 12300
