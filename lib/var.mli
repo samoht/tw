@@ -491,20 +491,19 @@ val ref_only : 'a Css.kind -> string -> fallback:'a -> 'a ref_only
     produced. This implements Pattern 4 - variables that are only referenced,
     never set. *)
 
-val theme_ref : string -> default:'a -> default_css:string -> 'a Css.var
-(** [theme_ref name ~default ~default_css] creates a bare var reference to an
-    optional theme variable. In variables mode, emits [var(--name)]. When the
-    var is resolved (e.g., for [\@config run] tests where the theme doesn't
-    define it), emits the concrete [default_css] string instead.
+val theme_ref : ?default:'a -> ?default_css:string -> string -> 'a Css.var
+(** [theme_ref ?default ?default_css name] creates a bare var reference to a
+    theme variable. In variables mode, emits [var(--name)].
 
-    [default] is the typed value used for inline mode (when [pp_var] inlines the
-    default). [default_css] is the CSS string registered in the theme ref
-    registry for [resolve_theme_refs].
+    When [default] and [default_css] are provided, the variable is registered in
+    the resolution registry: when the theme doesn't define it, the concrete
+    [default_css] string is emitted instead. [default] is the typed value used
+    for inline mode.
 
-    Used for keyword utilities like [z-auto] where:
-    - Without custom theme: output is [z-index: auto] (concrete)
-    - With [\@theme --z-index-auto: 42]: output is
-      [z-index: var(--z-index-auto)]. *)
+    When [default] and [default_css] are omitted, the var reference is created
+    without resolution registration. Use this for dynamically-constructed theme
+    variable names (e.g., [blur-xl], [spacing-4]) where the theme value is
+    already registered elsewhere. *)
 
 val resolve_theme_refs : string -> string option
 (** [resolve_theme_refs name] returns the default CSS string value for a
@@ -624,3 +623,14 @@ val order_of_declaration : Css.declaration -> (int * int) option
 val property_initial_string : Css.property_info -> string
 (** [property_initial_string info] converts the typed initial value of a
     [@property] declaration into a string suitable for [initial-value:]. *)
+
+(** {1 Bracket Variable References}
+
+    For user-supplied CSS variable names from bracket notation like
+    [bg-[var(--my-color)]]. These are variables whose names come from user
+    input, not from our typed variable system. *)
+
+val bracket : ?fallback:'a Css.fallback -> string -> 'a Css.var
+(** [bracket ?fallback name] creates a reference to a user-supplied CSS variable
+    from bracket notation. The [name] is the bare variable name without [--]
+    prefix. *)

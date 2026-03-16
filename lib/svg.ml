@@ -100,7 +100,7 @@ module Handler = struct
   let bracket_var_style ~property ~merge_key v =
     let bare_name = Parse.extract_var_name v in
     style ~merge_key
-      [ property (Css.Color (Css.Var (Css.var_ref bare_name)) : Css.svg_paint) ]
+      [ property (Css.Color (Css.Var (Var.bracket bare_name)) : Css.svg_paint) ]
 
   (* Bracket color with opacity: hex colors → oklab *)
   let bracket_color_opacity_style ~property inner opacity =
@@ -116,7 +116,7 @@ module Handler = struct
   let bracket_var_opacity_style ~property ~merge_key v opacity =
     let percent = Color.opacity_to_percent opacity in
     let bare_name = Parse.extract_var_name v in
-    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let var_color : Css.color = Css.Var (Var.bracket bare_name) in
     let fallback_decl = property (Css.Color var_color : Css.svg_paint) in
     let oklab_color =
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
@@ -194,7 +194,7 @@ module Handler = struct
         in
         let bare_name = Parse.extract_var_name var_part in
         style ~merge_key:"stroke-width-"
-          [ Css.stroke_width (Var (Css.var_ref bare_name)) ]
+          [ Css.stroke_width (Var (Var.bracket bare_name)) ]
 
   (* Alphabetical suborder from first 4 chars of a string *)
   let alpha_order s =

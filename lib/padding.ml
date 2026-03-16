@@ -103,7 +103,7 @@ module Handler = struct
         if axis = `All then style [ prop_vs [ len ] ] else style [ prop_v len ]
     | Arbitrary_var var_str ->
         let bare_name = Parse.extract_var_name var_str in
-        let var_len : Css.length = Var (Css.var_ref bare_name) in
+        let var_len : Css.length = Var (Var.bracket bare_name) in
         if axis = `All then style [ prop_vs [ var_len ] ]
         else style [ prop_v var_len ]
 

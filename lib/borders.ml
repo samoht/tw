@@ -1388,7 +1388,7 @@ module Handler = struct
       | None -> v
     in
     let bare_name = Parse.extract_var_name var_part in
-    let var_ref : Css.length Css.var = Css.var_ref bare_name in
+    let var_ref : Css.length Css.var = Var.bracket bare_name in
     style ~merge_key:"outline-" ~property_rules:property_rule
       [ Css.outline_style (Css.Var oref); Css.outline_width (Var var_ref) ]
 
@@ -1436,7 +1436,7 @@ module Handler = struct
 
   let outline_offset_var_style v =
     let bare_name = Parse.extract_var_name v in
-    let var_ref : Css.length Css.var = Css.var_ref bare_name in
+    let var_ref : Css.length Css.var = Var.bracket bare_name in
     style [ Css.outline_offset (Var var_ref) ]
 
   let neg_outline_offset_var_style v =

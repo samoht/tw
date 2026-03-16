@@ -18,7 +18,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "contain"
-  let priority = 35
+  let priority = 32
 
   (* Single source of truth: (handler, class_suffix, suborder) for
      non-arbitrary. Composable utilities (inline-size, layout, paint, size,
@@ -88,7 +88,7 @@ module Handler = struct
      This allows combining multiple contain utilities - each sets its variable,
      and the contain property references all of them. *)
   let composable_contain_value =
-    let v name : Css.contain = Css.Var (Css.var_ref ~fallback:Css.Empty name) in
+    let v name : Css.contain = Css.Var (Var.bracket ~fallback:Css.Empty name) in
     Css.List
       [
         v "tw-contain-size";
@@ -130,7 +130,7 @@ module Handler = struct
         | "revert-layer" -> style [ contain Css.Revert_layer ]
         | _ ->
             (* Unknown arbitrary value — wrap as bare var ref *)
-            style [ contain (Css.Var (Css.var_ref s)) ])
+            style [ contain (Css.Var (Var.bracket s)) ])
 
   let of_class_map =
     List.map (fun (t, s, _) -> ("contain-" ^ s, t)) contain_data

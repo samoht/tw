@@ -372,7 +372,7 @@ module Handler = struct
               ])
     | Mask_bracket_image_var v ->
         let bare = Parse.extract_var_name v in
-        let var_ref : Css.background_image Css.var = Css.var_ref bare in
+        let var_ref : Css.background_image Css.var = Var.bracket bare in
         style
           [
             Css.webkit_mask_image (Var var_ref);
@@ -383,7 +383,7 @@ module Handler = struct
         style [ Css.webkit_mask_image (Url url); Css.mask_image (Url url) ]
     | Mask_bracket_url_var v ->
         let bare = Parse.extract_var_name v in
-        let var_ref : Css.background_image Css.var = Css.var_ref bare in
+        let var_ref : Css.background_image Css.var = Var.bracket bare in
         style
           [
             Css.webkit_mask_image (Var var_ref);
@@ -392,7 +392,7 @@ module Handler = struct
           ]
     | Mask_bracket_var v ->
         let bare = Parse.extract_var_name v in
-        let var_ref : Css.background_image Css.var = Css.var_ref bare in
+        let var_ref : Css.background_image Css.var = Var.bracket bare in
         style
           [
             Css.webkit_mask_image (Var var_ref);
@@ -417,7 +417,7 @@ module Handler = struct
               ])
     | Mask_position_bracket_var v ->
         let bare = Parse.extract_var_name v in
-        let var_ref : Css.position_value Css.var = Css.var_ref bare in
+        let var_ref : Css.position_value Css.var = Var.bracket bare in
         style
           [
             Css.webkit_mask_position [ Var var_ref ];
@@ -430,7 +430,7 @@ module Handler = struct
         | None -> style [ Css.webkit_mask_size Auto; Css.mask_size Auto ])
     | Mask_size_bracket_var v ->
         let bare = Parse.extract_var_name v in
-        let var_ref : Css.background_size Css.var = Css.var_ref bare in
+        let var_ref : Css.background_size Css.var = Var.bracket bare in
         style
           [
             Css.webkit_mask_size (Var var_ref);

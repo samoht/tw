@@ -15,7 +15,11 @@ let grid_col_themed_style name () =
   match Var.theme_value name with
   | Some value_str ->
       let decl = themed_decl name value_str in
-      let ref : Css.grid_line Css.var = Css.var_ref ~layer:"theme" name in
+      let ref : Css.grid_line Css.var =
+        Var.theme_ref name
+          ~default:(Css.Auto : Css.grid_line)
+          ~default_css:"auto"
+      in
       Style.style [ decl; Css.grid_column (Var ref, Auto) ]
   | None ->
       Style.style
@@ -32,7 +36,11 @@ let grid_col_start_themed_style name () =
   match Var.theme_value name with
   | Some value_str ->
       let decl = themed_decl name value_str in
-      let ref : Css.grid_line Css.var = Css.var_ref ~layer:"theme" name in
+      let ref : Css.grid_line Css.var =
+        Var.theme_ref name
+          ~default:(Css.Auto : Css.grid_line)
+          ~default_css:"auto"
+      in
       Style.style [ decl; Css.grid_column_start (Var ref) ]
   | None ->
       Style.style
@@ -48,7 +56,11 @@ let grid_col_end_themed_style name () =
   match Var.theme_value name with
   | Some value_str ->
       let decl = themed_decl name value_str in
-      let ref : Css.grid_line Css.var = Css.var_ref ~layer:"theme" name in
+      let ref : Css.grid_line Css.var =
+        Var.theme_ref name
+          ~default:(Css.Auto : Css.grid_line)
+          ~default_css:"auto"
+      in
       Style.style [ decl; Css.grid_column_end (Var ref) ]
   | None ->
       Style.style
@@ -64,7 +76,11 @@ let grid_row_themed_style name () =
   match Var.theme_value name with
   | Some value_str ->
       let decl = themed_decl name value_str in
-      let ref : Css.grid_line Css.var = Css.var_ref ~layer:"theme" name in
+      let ref : Css.grid_line Css.var =
+        Var.theme_ref name
+          ~default:(Css.Auto : Css.grid_line)
+          ~default_css:"auto"
+      in
       Style.style [ decl; Css.grid_row (Var ref, Auto) ]
   | None ->
       Style.style
@@ -81,7 +97,11 @@ let grid_row_start_themed_style name () =
   match Var.theme_value name with
   | Some value_str ->
       let decl = themed_decl name value_str in
-      let ref : Css.grid_line Css.var = Css.var_ref ~layer:"theme" name in
+      let ref : Css.grid_line Css.var =
+        Var.theme_ref name
+          ~default:(Css.Auto : Css.grid_line)
+          ~default_css:"auto"
+      in
       Style.style [ decl; Css.grid_row_start (Var ref) ]
   | None ->
       Style.style
@@ -97,7 +117,11 @@ let grid_row_end_themed_style name () =
   match Var.theme_value name with
   | Some value_str ->
       let decl = themed_decl name value_str in
-      let ref : Css.grid_line Css.var = Css.var_ref ~layer:"theme" name in
+      let ref : Css.grid_line Css.var =
+        Var.theme_ref name
+          ~default:(Css.Auto : Css.grid_line)
+          ~default_css:"auto"
+      in
       Style.style [ decl; Css.grid_row_end (Var ref) ]
   | None ->
       Style.style

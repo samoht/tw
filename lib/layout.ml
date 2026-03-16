@@ -471,7 +471,7 @@ module Handler = struct
         | Some _ ->
             let tv = Var.theme Css.String name ~order:(6, 40) in
             let theme_decl, _theme_ref = Var.binding tv default_css in
-            let pos_ref : Css.position_value Css.var = Css.var_ref name in
+            let pos_ref : Css.position_value Css.var = Var.bracket name in
             style [ theme_decl; object_position (Var pos_ref) ]
         | None ->
             let v : Css.position_value =
@@ -480,7 +480,7 @@ module Handler = struct
             style [ object_position v ])
     | Object_arbitrary var_str ->
         let bare_name = Parse.extract_var_name var_str in
-        let pos_ref : Css.position_value Css.var = Css.var_ref bare_name in
+        let pos_ref : Css.position_value Css.var = Var.bracket bare_name in
         style [ object_position (Var pos_ref) ]
     | Float_left -> style [ Css.float Left ]
     | Float_right -> style [ Css.float Right ]

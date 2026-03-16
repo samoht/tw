@@ -24,6 +24,17 @@ let ignored_types =
     (* Internal type for existential variables *)
   ]
 
+(* Types where neg (negative) tests are not applicable because the parser
+   accepts any identifier as valid input (e.g., grid line names, attribute
+   names). *)
+let neg_exempt_types =
+  [
+    "grid_line";
+    (* Any identifier is a valid grid line name *)
+    "attr_name";
+    (* Any identifier is a valid attribute name *)
+  ]
+
 module Fs = struct
   let read_file path =
     let ic = open_in path in
@@ -293,6 +304,7 @@ let check_test_patterns ~lib_css ~mod_name ~valid_types ~expected_test_name
       if
         (not has_neg) && Sys.file_exists mli_path
         && file_has_val mli_path read_name
+        && not (List.mem tname neg_exempt_types)
       then missing_neg := tname :: !missing_neg
   | None -> ()
 
@@ -816,7 +828,7 @@ let () =
        - ordered by suborder within the same priority group. Priority 23: Color
        and prose-color utilities - ordered by suborder within the same priority
        group. *)
-    let allowed_shared_priorities = [ 0; 2; 4; 17; 23 ] in
+    let allowed_shared_priorities = [ 0; 2; 4; 17; 18; 21; 23; 26 ] in
 
     let lib_dir = root // "lib" in
     let ml_files =

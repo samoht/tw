@@ -245,7 +245,7 @@ module Handler = struct
      utility evaluation time, not at module init time. *)
   let set_filter_var_theme var_name theme_name
       (make_filter : Css.length -> Css.filter) () =
-    let ref_ : Css.length Css.var = Css.var_ref ~layer:"theme" theme_name in
+    let ref_ : Css.length Css.var = Var.theme_ref theme_name in
     style ~property_rules:filter_property_rules
       (theme_decl_if_set theme_name
       @ [
@@ -328,7 +328,7 @@ module Handler = struct
   let parse_bracket_numpct inner : Css.number_percentage =
     if Parse.is_var inner then
       let bare = Parse.extract_var_name inner in
-      Var (Css.var_ref bare)
+      Var (Var.bracket bare)
     else
       let len = String.length inner in
       if len > 1 && inner.[len - 1] = '%' then
@@ -348,7 +348,7 @@ module Handler = struct
         let inner = Parse.bracket_inner s in
         if Parse.is_var inner then
           let bare = Parse.extract_var_name inner in
-          let ref_ : Css.length Css.var = Css.var_ref bare in
+          let ref_ : Css.length Css.var = Var.bracket bare in
           set_filter_var "--tw-blur" (Blur (Var ref_))
         else style []
 
@@ -582,7 +582,7 @@ module Handler = struct
     let inner = Parse.bracket_inner s in
     if Parse.is_var inner then
       let bare = Parse.extract_var_name inner in
-      let ref_ : Css.filter Css.var = Css.var_ref bare in
+      let ref_ : Css.filter Css.var = Var.bracket bare in
       style [ filter (Var ref_) ]
     else style [ Css.custom_property ~layer:"utilities" "filter" inner ]
 
@@ -632,9 +632,7 @@ module Handler = struct
               match Var.theme_value fb with Some _ -> fb | None -> theme_name)
           | None -> theme_name)
     in
-    let ref_ : Css.length Css.var =
-      Css.var_ref ~layer:"theme" actual_theme_name
-    in
+    let ref_ : Css.length Css.var = Var.theme_ref actual_theme_name in
     style ~property_rules:backdrop_filter_property_rules
       (theme_decl_if_set actual_theme_name
       @ [
@@ -703,7 +701,7 @@ module Handler = struct
         let inner = Parse.bracket_inner s in
         if Parse.is_var inner then
           let bare = Parse.extract_var_name inner in
-          let ref_ : Css.length Css.var = Css.var_ref bare in
+          let ref_ : Css.length Css.var = Var.bracket bare in
           set_backdrop_var "--tw-backdrop-blur" (Blur (Var ref_))
         else style []
 
@@ -803,7 +801,7 @@ module Handler = struct
     let inner = Parse.bracket_inner s in
     if Parse.is_var inner then
       let bare = Parse.extract_var_name inner in
-      let ref_ : Css.filter Css.var = Css.var_ref bare in
+      let ref_ : Css.filter Css.var = Var.bracket bare in
       style
         [ Css.webkit_backdrop_filter (Var ref_); backdrop_filter (Var ref_) ]
     else

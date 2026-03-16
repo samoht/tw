@@ -133,7 +133,7 @@ module Handler = struct
           if negative then
             Css.Calc
               (Css.Calc.mul (Css.Calc.var bare_name) (Css.Calc.float (-1.)))
-          else Css.Var (Css.var_ref bare_name)
+          else Css.Var (Var.bracket bare_name)
         in
         style [ prop len ]
 
