@@ -189,7 +189,7 @@ module Handler = struct
     | Will_change_transform -> will_change_transform_s
     | Will_change_arbitrary var_str ->
         let bare_name = Parse.extract_var_name var_str in
-        style [ will_change (Var (Css.var_ref bare_name)) ]
+        style [ will_change (Var (Var.bracket bare_name)) ]
     | Group -> group_s
     | Peer -> peer_s
     | Scheme_dark -> scheme_dark_s

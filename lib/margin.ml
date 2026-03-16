@@ -48,7 +48,9 @@ module Handler = struct
                 Css.String value_str
             in
             let ref : Css.length Css.var =
-              Css.var_ref ~layer:"theme" prop_name
+              Var.theme_ref prop_name
+                ~default:(Css.Zero : Css.length)
+                ~default_css:"0px"
             in
             let len : Css.length = Var ref in
             if negative then
@@ -100,7 +102,11 @@ module Handler = struct
           Css.custom_declaration ~layer:"theme" ("--" ^ prop_name) Css.String
             value_str
         in
-        let ref : Css.length Css.var = Css.var_ref ~layer:"theme" prop_name in
+        let ref : Css.length Css.var =
+          Var.theme_ref prop_name
+            ~default:(Css.Zero : Css.length)
+            ~default_css:"0px"
+        in
         (Some decl, Css.Var ref)
     | None ->
         let ref = Spacing.named_spacing_ref name in
@@ -166,7 +172,7 @@ module Handler = struct
         let len : Css.length =
           if negative then
             Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
-          else Var (Css.var_ref bare_name)
+          else Var (Var.bracket bare_name)
         in
         style [ prop len ]
     | Named name ->

@@ -879,7 +879,7 @@ module Typography_early = struct
         let spacing_decl, _spacing_ref =
           Var.binding Theme.spacing_var (Css.Rem 0.25)
         in
-        let lh_spacing_ref : Css.line_height Css.var = Css.var_ref "spacing" in
+        let lh_spacing_ref : Css.line_height Css.var = Var.bracket "spacing" in
         let lh : Css.line_height =
           Calc (Css.Calc.mul (Var lh_spacing_ref) (Num (float_of_int n)))
         in
@@ -903,7 +903,7 @@ module Typography_early = struct
             ([ decl ], Var ref_)
         | Stdlib.Option.None ->
             let ref_ : Css.line_height Css.var =
-              Css.var_ref ("leading-" ^ name)
+              Var.bracket ("leading-" ^ name)
             in
             ([], Var ref_))
     | Lh_bracket value ->
@@ -1055,8 +1055,8 @@ module Typography_early = struct
         (* Typed arbitrary — strip prefix, use the value *)
         if Parse.is_var value then
           let bare = Parse.extract_var_name value in
-          [ font_size (Css.Var (Css.var_ref bare)) ]
-        else [ font_size (Css.Var (Css.var_ref value)) ]
+          [ font_size (Css.Var (Var.bracket bare)) ]
+        else [ font_size (Css.Var (Var.bracket value)) ]
     | _ -> (
         (* Check for keyword *)
         match font_size_keyword inner with
@@ -1079,8 +1079,8 @@ module Typography_early = struct
                   | Stdlib.Option.None -> [ font_size (Css.Clamp args) ]
                 else if Parse.is_var inner then
                   let bare = Parse.extract_var_name inner in
-                  [ font_size (Css.Var (Css.var_ref bare)) ]
-                else [ font_size (Css.Var (Css.var_ref inner)) ]))
+                  [ font_size (Css.Var (Var.bracket bare)) ]
+                else [ font_size (Css.Var (Var.bracket inner)) ]))
 
   (** Generate font-size-only style for bracket value. *)
   let bracket_font_size_style raw = style (bracket_font_size_decls raw)
@@ -1118,7 +1118,7 @@ module Typography_early = struct
         style ~property_rules [ weight_util_decl; font_weight (Weight n) ]
     | Font_bracket_weight_var (_, var_str) ->
         let bare_name = Parse.extract_var_name var_str in
-        let var_ref : Css.font_weight Css.var = Css.var_ref bare_name in
+        let var_ref : Css.font_weight Css.var = Var.bracket bare_name in
         let weight_util_decl, _ =
           Var.binding font_weight_var (Css.Var var_ref)
         in
@@ -1150,7 +1150,7 @@ module Typography_early = struct
         style [ font_family family ]
     | Font_bracket_family_var (_, var_str) ->
         let bare_name = Parse.extract_var_name var_str in
-        let var_ref : Css.font_family Css.var = Css.var_ref bare_name in
+        let var_ref : Css.font_family Css.var = Var.bracket bare_name in
         style [ font_family (Var var_ref) ]
     | Font_features_quoted s ->
         (* Normalize comma spacing: "c2sc","smcp" → "c2sc", "smcp" *)
@@ -1162,7 +1162,7 @@ module Typography_early = struct
     | Font_features_var var_str ->
         let bare_name = Parse.extract_var_name var_str in
         let var_ref : Css.font_feature_settings Css.var =
-          Css.var_ref bare_name
+          Var.bracket bare_name
         in
         style [ font_feature_settings (Var var_ref) ]
     | Font_features_bare_var v ->
@@ -1175,7 +1175,7 @@ module Typography_early = struct
           else inner
         in
         let var_ref : Css.font_feature_settings Css.var =
-          Css.var_ref bare_name
+          Var.bracket bare_name
         in
         style [ font_feature_settings (Var var_ref) ]
     | Font_sans -> font_sans
@@ -1198,7 +1198,7 @@ module Typography_early = struct
     | Leading n -> leading n
     | Leading_var v ->
         let bare_name = Parse.extract_var_name v in
-        let var_ref : Css.line_height Css.var = Css.var_ref bare_name in
+        let var_ref : Css.line_height Css.var = Var.bracket bare_name in
         let channel_decl, _ = Var.binding leading_var (Css.Var var_ref) in
         let property_rules =
           Var.property_rule leading_var |> Option.to_list |> Css.concat
@@ -1930,12 +1930,12 @@ module Typography_late = struct
 
   let decoration_bracket_length_var v =
     let bare_name = Parse.extract_var_name v in
-    let var_ref : Css.length Css.var = Css.var_ref bare_name in
+    let var_ref : Css.length Css.var = Var.bracket bare_name in
     style [ text_decoration_thickness (Var var_ref) ]
 
   let decoration_bracket_pct_var v =
     let bare_name = Parse.extract_var_name v in
-    let var_ref : Css.length Css.var = Css.var_ref bare_name in
+    let var_ref : Css.length Css.var = Var.bracket bare_name in
     style [ text_decoration_thickness (Var var_ref) ]
 
   let decoration_color ?(shade = 500) (color : Color.color) =
@@ -2062,7 +2062,7 @@ module Typography_late = struct
 
   let decoration_bracket_var_style v =
     let bare_name = Parse.extract_var_name v in
-    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let var_color : Css.color = Css.Var (Var.bracket bare_name) in
     style ~merge_key:"decoration-"
       [
         webkit_text_decoration_color var_color; text_decoration_color var_color;
@@ -2071,7 +2071,7 @@ module Typography_late = struct
   let decoration_bracket_var_with_opacity v opacity =
     let bare_name = Parse.extract_var_name v in
     let percent = Color.opacity_to_percent opacity in
-    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let var_color : Css.color = Css.Var (Var.bracket bare_name) in
     let fallback_webkit = webkit_text_decoration_color var_color in
     let fallback_decl = text_decoration_color var_color in
     let oklab_color =
@@ -2257,7 +2257,8 @@ module Typography_late = struct
                 n
             in
             let ref : Css.webkit_line_clamp Css.var =
-              Css.var_ref ~layer:"theme" "line-clamp-none"
+              Var.theme_ref "line-clamp-none" ~default:Css.Unset
+                ~default_css:"unset"
             in
             style
               [
@@ -2307,7 +2308,9 @@ module Typography_late = struct
           ([ theme_decl; cd ], cr)
       | None ->
           let theme_ref : Css.content Css.var =
-            Css.var_ref ~layer:"theme" var_name
+            Var.theme_ref var_name
+              ~default:(String "" : Css.content)
+              ~default_css:"\"\""
           in
           let cd, cr = Var.binding content_var (Var theme_ref) in
           ([ cd ], cr)
@@ -2342,7 +2345,7 @@ module Typography_late = struct
 
   let list_bracket_var s =
     let inner = Parse.extract_var_name s in
-    let ref : Css.list_style_type Css.var = Css.var_ref inner in
+    let ref : Css.list_style_type Css.var = Var.bracket inner in
     style [ list_style_type (Var ref) ]
 
   let list_disc = style [ list_style_type Disc ]
@@ -2352,7 +2355,7 @@ module Typography_late = struct
 
   let list_image_bracket_var s =
     let inner = Parse.extract_var_name s in
-    let ref : Css.list_style_image Css.var = Css.var_ref inner in
+    let ref : Css.list_style_image Css.var = Var.bracket inner in
     style [ list_style_image (Var ref) ]
 
   let list_image_none () =
@@ -2529,7 +2532,7 @@ module Typography_late = struct
     | Decoration_bracket_pct_var v -> decoration_bracket_pct_var v
     | Tracking_var v ->
         let bare_name = Parse.extract_var_name v in
-        let var_ref : Css.length Css.var = Css.var_ref bare_name in
+        let var_ref : Css.length Css.var = Var.bracket bare_name in
         let channel_decl, _ = Var.binding tracking_var (Css.Var var_ref) in
         let property_rules =
           Var.property_rule tracking_var |> Option.to_list |> Css.concat
@@ -2563,7 +2566,7 @@ module Typography_late = struct
     | Whitespace_break_spaces -> whitespace_break_spaces
     | Align_arbitrary_var var_str ->
         let bare_name = Parse.extract_var_name var_str in
-        style [ vertical_align (Var (Css.var_ref bare_name)) ]
+        style [ vertical_align (Var (Var.bracket bare_name)) ]
     | Align_baseline -> align_baseline
     | Align_top -> align_top
     | Align_middle -> align_middle
@@ -2590,7 +2593,7 @@ module Typography_late = struct
     | Underline_offset_px px -> style [ text_underline_offset (Px px) ]
     | Underline_offset_var v ->
         let bare_name = Parse.extract_var_name v in
-        let var_ref : Css.length Css.var = Css.var_ref bare_name in
+        let var_ref : Css.length Css.var = Var.bracket bare_name in
         style [ text_underline_offset (Var var_ref) ]
     | Underline_offset_neg_px px ->
         style

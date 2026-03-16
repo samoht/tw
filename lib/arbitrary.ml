@@ -59,7 +59,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "arbitrary"
-  let priority = 35
+  let priority = 36
 
   let to_style (Color_opacity { property; value; opacity }) =
     match (color_property_of_name property, parse_css_color value) with

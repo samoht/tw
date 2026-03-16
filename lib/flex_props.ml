@@ -15,7 +15,9 @@ let order_themed_style name ~default ~default_css () =
           let decl =
             Css.custom_declaration ~layer:"theme" ("--" ^ name) Css.Int n
           in
-          let ref : Css.order Css.var = Css.var_ref ~layer:"theme" name in
+          let ref : Css.order Css.var =
+            Var.theme_ref name ~default ~default_css
+          in
           Style.style [ decl; Css.order (Var ref) ]
       | None ->
           Style.style
@@ -109,10 +111,18 @@ module Handler = struct
           Css.custom_declaration ~layer:"theme" ("--" ^ var_name) Css.String
             value_str
         in
-        let ref : Css.length Css.var = Css.var_ref ~layer:"theme" var_name in
+        let ref : Css.length Css.var =
+          Var.theme_ref var_name
+            ~default:(Css.Zero : Css.length)
+            ~default_css:"0px"
+        in
         style [ decl; flex_basis (Var ref) ]
     | None ->
-        let ref : Css.length Css.var = Css.var_ref ~layer:"theme" var_name in
+        let ref : Css.length Css.var =
+          Var.theme_ref var_name
+            ~default:(Css.Zero : Css.length)
+            ~default_css:"0px"
+        in
         style [ flex_basis (Var ref) ]
 
   (* Order *)

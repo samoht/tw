@@ -827,7 +827,7 @@ module Handler = struct
       Css.custom_property ~layer:"utilities" "--tw-gradient-position" css_val
     in
     let stops_ref : Css.gradient_stop Css.var =
-      Css.var_ref ~fallback:(Raw_fallback css_val) "tw-gradient-stops"
+      Var.bracket ~fallback:(Raw_fallback css_val) "tw-gradient-stops"
     in
     style ~property_rules:gradient_property_rules
       [ position_decl; Css.background_image (Linear_gradient_var stops_ref) ]
@@ -840,7 +840,7 @@ module Handler = struct
       Css.custom_property ~layer:"utilities" "--tw-gradient-position" neg_str
     in
     let stops_ref : Css.gradient_stop Css.var =
-      Css.var_ref ~fallback:(Raw_fallback neg_str) "tw-gradient-stops"
+      Var.bracket ~fallback:(Raw_fallback neg_str) "tw-gradient-stops"
     in
     style ~property_rules:gradient_property_rules
       [ position_decl; Css.background_image (Linear_gradient_var stops_ref) ]
@@ -913,7 +913,7 @@ module Handler = struct
       Css.custom_property ~layer:"utilities" "--tw-gradient-position" css_val
     in
     let stops_ref : Css.gradient_stop Css.var =
-      Css.var_ref ~fallback:(Raw_fallback css_val) "tw-gradient-stops"
+      Var.bracket ~fallback:(Raw_fallback css_val) "tw-gradient-stops"
     in
     style ~property_rules:gradient_property_rules
       [ position_decl; Css.background_image (Radial_gradient_var stops_ref) ]
@@ -921,7 +921,7 @@ module Handler = struct
   (** Bracket color var with opacity: bg-[color:var(--x)]/50 *)
   let bg_bracket_color_var_opacity' var_str opacity =
     let bare = Parse.extract_var_name var_str in
-    let var_ref : Css.color Css.var = Css.var_ref bare in
+    let var_ref : Css.color Css.var = Var.bracket bare in
     let percent = Color.opacity_to_percent opacity in
     let fallback_decl = Css.background_color (Var var_ref) in
     let oklab_color =
@@ -1206,25 +1206,25 @@ module Handler = struct
       | None -> Pct 0. (* fallback *)
     else if Parse.is_var inner then
       let bare = Parse.extract_var_name inner in
-      let vr : Css.length_percentage Css.var = Css.var_ref bare in
+      let vr : Css.length_percentage Css.var = Var.bracket bare in
       Var vr
     else if String.length inner > 11 && String.sub inner 0 11 = "percentage:"
     then
       let var_str = String.sub inner 11 (String.length inner - 11) in
       let bare = Parse.extract_var_name var_str in
-      let vr : Css.length_percentage Css.var = Css.var_ref bare in
+      let vr : Css.length_percentage Css.var = Var.bracket bare in
       Var vr
     else if String.length inner > 7 && String.sub inner 0 7 = "length:" then
       let var_str = String.sub inner 7 (String.length inner - 7) in
       let bare = Parse.extract_var_name var_str in
-      let vr : Css.length_percentage Css.var = Css.var_ref bare in
+      let vr : Css.length_percentage Css.var = Var.bracket bare in
       Var vr
     else Pct 0. (* fallback *)
 
   (** Convert a var string to a typed CSS color value *)
   let color_var_ref v : Css.color =
     let bare = Parse.extract_var_name v in
-    let vr : Css.color Css.var = Css.var_ref bare in
+    let vr : Css.color Css.var = Var.bracket bare in
     Var vr
 
   (** Convert a non-named gradient_color_source to a Css.color *)
@@ -1332,20 +1332,20 @@ module Handler = struct
         | None -> style [ Css.background_position [ Center ] ])
     | Bg_bracket_color_var v ->
         let bare = Parse.extract_var_name v in
-        let var_ref : Css.color Css.var = Css.var_ref bare in
+        let var_ref : Css.color Css.var = Var.bracket bare in
         style [ Css.background_color (Var var_ref) ]
     | Bg_bracket_var v ->
         let bare = Parse.extract_var_name v in
-        let var_ref : Css.color Css.var = Css.var_ref bare in
+        let var_ref : Css.color Css.var = Var.bracket bare in
         style [ Css.background_color (Var var_ref) ]
     | Bg_bracket_image_var v ->
         let bare = Parse.extract_var_name v in
-        let var_ref : Css.background_image Css.var = Css.var_ref bare in
+        let var_ref : Css.background_image Css.var = Var.bracket bare in
         style [ Css.background_image (Var var_ref) ]
     | Bg_bracket_url url -> style [ Css.background_image (Url url) ]
     | Bg_bracket_url_var v ->
         let bare = Parse.extract_var_name v in
-        let var_ref : Css.background_image Css.var = Css.var_ref bare in
+        let var_ref : Css.background_image Css.var = Var.bracket bare in
         style [ Css.background_image (Var var_ref) ]
     | Bg_bracket_linear_gradient v ->
         let css_str = String.map (fun c -> if c = '_' then ' ' else c) v in
@@ -1391,7 +1391,7 @@ module Handler = struct
         | Some decl -> style [ decl ]
         | None when Parse.is_var inner ->
             let var_name = Parse.extract_var_name inner in
-            let ref : Css.position_value Css.var = Css.var_ref var_name in
+            let ref : Css.position_value Css.var = Var.bracket var_name in
             style [ Css.background_position [ Var ref ] ]
         | None -> style [ Css.background_position [ Center ] ])
     | Bg_size_bracket inner -> (
@@ -1399,7 +1399,7 @@ module Handler = struct
         | Some decl -> style [ decl ]
         | None when Parse.is_var inner ->
             let var_name = Parse.extract_var_name inner in
-            let ref : Css.background_size Css.var = Css.var_ref var_name in
+            let ref : Css.background_size Css.var = Var.bracket var_name in
             style [ Css.background_size (Var ref) ]
         | None -> style [ Css.background_size Auto ])
 

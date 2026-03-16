@@ -116,7 +116,7 @@ module Handler = struct
   let to_style = function
     | Cursor_bracket_var s ->
         let inner = Parse.extract_var_name s in
-        let ref : Css.cursor Css.var = Css.var_ref inner in
+        let ref : Css.cursor Css.var = Var.bracket inner in
         style [ cursor (Var ref) ]
     | Cursor_theme name -> (
         let var_name = "cursor-" ^ name in

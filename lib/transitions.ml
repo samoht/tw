@@ -259,7 +259,7 @@ module Handler = struct
 
   let transition_arbitrary var_str =
     let bare_name = Parse.extract_var_name var_str in
-    let ref_ : Css.transition_property_value Css.var = Css.var_ref bare_name in
+    let ref_ : Css.transition_property_value Css.var = Var.bracket bare_name in
     style
       (default_theme_decls ()
       @ [
@@ -373,7 +373,7 @@ module Handler = struct
 
   let ease_arbitrary var_str =
     let bare_name = Parse.extract_var_name var_str in
-    let ref_ : Css.timing_function Css.var = Css.var_ref bare_name in
+    let ref_ : Css.timing_function Css.var = Var.bracket bare_name in
     let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var ref_) in
     let prop_rule = Var.property_rule tw_ease_var in
     let property_rules =

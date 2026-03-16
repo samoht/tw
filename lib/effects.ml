@@ -286,7 +286,7 @@ module Handler = struct
   let relative_color_supports =
     Css.Supports.Property ("color", "lab(from red l a b)")
 
-  let make_color_var vn : Css.color = Css.Var (Css.var_ref vn)
+  let make_color_var vn : Css.color = Css.Var (Var.bracket vn)
 
   let box_shadow_composition v_shadow =
     let v_inset = Var.reference inset_shadow_var in
@@ -518,7 +518,7 @@ module Handler = struct
                   (pp_float percent)
               in
               let enhanced_ref =
-                Css.var_ref ~fallback:(Raw_fallback raw_fb) "tw-shadow-color"
+                Var.bracket ~fallback:(Raw_fallback raw_fb) "tw-shadow-color"
               in
               let enhanced_shadow =
                 Css.shadow ~h_offset ~v_offset ?blur ~color:(Var enhanced_ref)
@@ -734,7 +734,7 @@ module Handler = struct
 
   let shadow_raw_var v =
     let var_name = Parse.extract_var_name v in
-    let shadow_value : Css.shadow = Css.Var (Css.var_ref var_name) in
+    let shadow_value : Css.shadow = Css.Var (Var.bracket var_name) in
     let d_shadow, v_shadow = Var.binding shadow_var shadow_value in
     style ~property_rules:shadow_property_rules
       [ d_shadow; box_shadow_composition v_shadow ]
@@ -900,8 +900,8 @@ module Handler = struct
     match extract_var_fallback v with
     | Stdlib.Option.Some fb ->
         let short_fb = shorten_hex_with_hash fb in
-        Css.Var (Css.var_ref ~fallback:(Raw_fallback short_fb) name)
-    | Stdlib.Option.None -> Css.Var (Css.var_ref name)
+        Css.Var (Var.bracket ~fallback:(Raw_fallback short_fb) name)
+    | Stdlib.Option.None -> Css.Var (Var.bracket name)
 
   (* Reconstruct a shortened var expression string like "var(--name, #08c)" *)
   let reconstruct_short_var (v : string) : string =
@@ -1046,7 +1046,7 @@ module Handler = struct
                           Printf.sprintf "oklab(from %s l a b / %s%%)"
                             var_with_fb (pp_float percent)
                         in
-                        Css.var_ref ~fallback:(Raw_fallback raw_fb)
+                        Var.bracket ~fallback:(Raw_fallback raw_fb)
                           "tw-inset-shadow-color"
                     | Arb_none ->
                         let color_mix_fallback =
@@ -1291,7 +1291,7 @@ module Handler = struct
       Calc (Expr (Val (Px (float_of_int width_px)), Add, Var offset_width_ref))
     in
     let color : Css.color =
-      Var (Css.var_ref ~fallback:(Fallback Css.Current) "tw-ring-color")
+      Var (Var.bracket ~fallback:(Fallback Css.Current) "tw-ring-color")
     in
     let ring_shadow_value =
       Css.shadow ~inset_var:"tw-ring-inset" ~h_offset:Zero ~v_offset:Zero
@@ -1356,7 +1356,7 @@ module Handler = struct
   let inset_ring_internal width_px =
     let spread : Css.length = Px (float_of_int width_px) in
     let color : Css.color =
-      Var (Css.var_ref ~fallback:(Fallback Css.Current) "tw-inset-ring-color")
+      Var (Var.bracket ~fallback:(Fallback Css.Current) "tw-inset-ring-color")
     in
     let shadow_value =
       Css.shadow ~inset:true ~h_offset:Zero ~v_offset:Zero ~blur:Zero ~spread
@@ -1477,7 +1477,7 @@ module Handler = struct
     if String.length inner > 6 && String.sub inner 0 7 = "length:" then
       let v = String.sub inner 7 (String.length inner - 7) in
       let bare = Parse.extract_var_name v in
-      Var (Css.var_ref bare)
+      Var (Var.bracket bare)
     else if
       String.length inner > 2
       && String.sub inner (String.length inner - 2) 2 = "px"
@@ -1606,14 +1606,14 @@ module Handler = struct
   let ring_offset_bracket_color_var v =
     let bare_name = Parse.extract_var_name v in
     let d, _ =
-      Var.binding ring_offset_color_var (Css.Var (Css.var_ref bare_name))
+      Var.binding ring_offset_color_var (Css.Var (Var.bracket bare_name))
     in
     Style.style ~merge_key:("ring-offset-color:" ^ v) [ d ]
 
   let ring_offset_bracket_cvar_opacity v opacity =
     let percent = Color.opacity_to_percent opacity in
     let bare_name = Parse.extract_var_name v in
-    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let var_color : Css.color = Css.Var (Var.bracket bare_name) in
     let fallback, _ = Var.binding ring_offset_color_var var_color in
     let oklab_color =
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
@@ -1629,14 +1629,14 @@ module Handler = struct
   let ring_offset_bracket_var v =
     let bare_name = Parse.extract_var_name v in
     let d, _ =
-      Var.binding ring_offset_color_var (Css.Var (Css.var_ref bare_name))
+      Var.binding ring_offset_color_var (Css.Var (Var.bracket bare_name))
     in
     Style.style ~merge_key:("ring-offset-" ^ v) [ d ]
 
   let ring_offset_bracket_var_opacity v opacity =
     let percent = Color.opacity_to_percent opacity in
     let bare_name = Parse.extract_var_name v in
-    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let var_color : Css.color = Css.Var (Var.bracket bare_name) in
     let fallback, _ = Var.binding ring_offset_color_var var_color in
     let oklab_color =
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
@@ -1738,14 +1738,14 @@ module Handler = struct
   let inset_ring_bracket_color_var v =
     let bare_name = Parse.extract_var_name v in
     let d, _ =
-      Var.binding inset_ring_color_var (Css.Var (Css.var_ref bare_name))
+      Var.binding inset_ring_color_var (Css.Var (Var.bracket bare_name))
     in
     Style.style ~merge_key:("inset-ring-color:" ^ v) [ d ]
 
   let inset_ring_bracket_cvar_opacity v opacity =
     let percent = Color.opacity_to_percent opacity in
     let bare_name = Parse.extract_var_name v in
-    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let var_color : Css.color = Css.Var (Var.bracket bare_name) in
     let fallback, _ = Var.binding inset_ring_color_var var_color in
     let oklab_color =
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
@@ -1761,14 +1761,14 @@ module Handler = struct
   let inset_ring_bracket_var v =
     let bare_name = Parse.extract_var_name v in
     let d, _ =
-      Var.binding inset_ring_color_var (Css.Var (Css.var_ref bare_name))
+      Var.binding inset_ring_color_var (Css.Var (Var.bracket bare_name))
     in
     Style.style ~merge_key:("inset-ring-" ^ v) [ d ]
 
   let inset_ring_bracket_var_opacity v opacity =
     let percent = Color.opacity_to_percent opacity in
     let bare_name = Parse.extract_var_name v in
-    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let var_color : Css.color = Css.Var (Var.bracket bare_name) in
     let fallback, _ = Var.binding inset_ring_color_var var_color in
     let oklab_color =
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
@@ -1827,13 +1827,13 @@ module Handler = struct
 
   let ring_bracket_color_var v =
     let bare_name = Parse.extract_var_name v in
-    let d, _ = Var.binding ring_color_var (Css.Var (Css.var_ref bare_name)) in
+    let d, _ = Var.binding ring_color_var (Css.Var (Var.bracket bare_name)) in
     Style.style ~merge_key:("ring-color:" ^ v) [ d ]
 
   let ring_bracket_cvar_opacity v opacity =
     let percent = Color.opacity_to_percent opacity in
     let bare_name = Parse.extract_var_name v in
-    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let var_color : Css.color = Css.Var (Var.bracket bare_name) in
     let fallback, _ = Var.binding ring_color_var var_color in
     let oklab_color =
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
@@ -1848,13 +1848,13 @@ module Handler = struct
 
   let ring_bracket_var v =
     let bare_name = Parse.extract_var_name v in
-    let d, _ = Var.binding ring_color_var (Css.Var (Css.var_ref bare_name)) in
+    let d, _ = Var.binding ring_color_var (Css.Var (Var.bracket bare_name)) in
     Style.style ~merge_key:("ring-" ^ v) [ d ]
 
   let ring_bracket_var_with_opacity v opacity =
     let percent = Color.opacity_to_percent opacity in
     let bare_name = Parse.extract_var_name v in
-    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let var_color : Css.color = Css.Var (Var.bracket bare_name) in
     let fallback, _ = Var.binding ring_color_var var_color in
     let oklab_color =
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
@@ -1972,7 +1972,7 @@ module Handler = struct
     | Opacity_arbitrary f -> style [ Css.opacity (Css.Opacity_number f) ]
     | Opacity_var v ->
         let bare_name = Parse.extract_var_name v in
-        let var_ref : Css.opacity Css.var = Css.var_ref bare_name in
+        let var_ref : Css.opacity Css.var = Var.bracket bare_name in
         style [ Css.opacity (Css.Var var_ref) ]
     | Ring_none -> ring_none
     | Ring_xs -> ring_xs
@@ -2002,7 +2002,7 @@ module Handler = struct
           Calc (Expr (Val width_value, Add, Var offset_width_ref))
         in
         let color : Css.color =
-          Var (Css.var_ref ~fallback:(Fallback Css.Current) "tw-ring-color")
+          Var (Var.bracket ~fallback:(Fallback Css.Current) "tw-ring-color")
         in
         let ring_shadow_value =
           Css.shadow ~inset_var:"tw-ring-inset" ~h_offset:Zero ~v_offset:Zero
@@ -2080,7 +2080,7 @@ module Handler = struct
         let spread = parse_bracket_width inner in
         let color : Css.color =
           Var
-            (Css.var_ref ~fallback:(Fallback Css.Current) "tw-inset-ring-color")
+            (Var.bracket ~fallback:(Fallback Css.Current) "tw-inset-ring-color")
         in
         let shadow_value =
           Css.shadow ~inset:true ~h_offset:Zero ~v_offset:Zero ~blur:Zero

@@ -1789,12 +1789,12 @@ module Handler = struct
   let outline_bracket_var_style v =
     let bare_name = Parse.extract_var_name v in
     style ~merge_key:"outline-"
-      [ Css.outline_color (Css.Var (Css.var_ref bare_name)) ]
+      [ Css.outline_color (Css.Var (Var.bracket bare_name)) ]
 
   let outline_bracket_typed_var_style v =
     let bare_name = Parse.extract_var_name v in
     style ~merge_key:"outline-"
-      [ Css.outline_color (Css.Var (Css.var_ref bare_name)) ]
+      [ Css.outline_color (Css.Var (Var.bracket bare_name)) ]
 
   (** Convert opacity modifier to a percentage value (0-100) *)
   let opacity_to_percent = function
@@ -1996,7 +1996,7 @@ module Handler = struct
   let outline_bracket_var_opacity_style v opacity =
     let bare_name = Parse.extract_var_name v in
     let percent = opacity_to_percent opacity in
-    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let var_color : Css.color = Css.Var (Var.bracket bare_name) in
     let fallback_decl = Css.outline_color var_color in
     let oklab_color =
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
@@ -2012,7 +2012,7 @@ module Handler = struct
   let outline_bracket_var_opacity v opacity =
     let bare_name = Parse.extract_var_name v in
     let percent = opacity_to_percent opacity in
-    let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+    let var_color : Css.color = Css.Var (Var.bracket bare_name) in
     let fallback_decl = Css.outline_color var_color in
     let oklab_color =
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
@@ -2063,11 +2063,11 @@ module Handler = struct
         color_with_opacity_style ~property:Css.color c 500 opacity
     | Text_bracket_var v ->
         let bare_name = Parse.extract_var_name v in
-        style ~merge_key:"text-" [ Css.color (Css.Var (Css.var_ref bare_name)) ]
+        style ~merge_key:"text-" [ Css.color (Css.Var (Var.bracket bare_name)) ]
     | Text_bracket_var_opacity (v, opacity) ->
         let bare_name = Parse.extract_var_name v in
         let percent = opacity_to_percent opacity in
-        let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+        let var_color : Css.color = Css.Var (Var.bracket bare_name) in
         let fallback_decl = Css.color var_color in
         let oklab_color =
           Css.color_mix ~in_space:Oklab var_color Css.Transparent
@@ -2082,11 +2082,11 @@ module Handler = struct
           [ fallback_decl ]
     | Text_bracket_typed_var v ->
         let bare_name = Parse.extract_var_name v in
-        style ~merge_key:"text-" [ Css.color (Css.Var (Css.var_ref bare_name)) ]
+        style ~merge_key:"text-" [ Css.color (Css.Var (Var.bracket bare_name)) ]
     | Text_bracket_typed_var_opacity (v, opacity) ->
         let bare_name = Parse.extract_var_name v in
         let percent = opacity_to_percent opacity in
-        let var_color : Css.color = Css.Var (Css.var_ref bare_name) in
+        let var_color : Css.color = Css.Var (Var.bracket bare_name) in
         let fallback_decl = Css.color var_color in
         let oklab_color =
           Css.color_mix ~in_space:Oklab var_color Css.Transparent

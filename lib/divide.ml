@@ -35,7 +35,7 @@ module Handler = struct
   type Utility.base += Self of t
 
   let name = "divide"
-  let priority = 8
+  let priority = 5
 
   (* CSS Variables for divide reverse. Property order 4/5 places these BEFORE
      --tw-border-style (order 6) in @layer properties, matching Tailwind. Must

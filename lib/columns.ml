@@ -70,7 +70,7 @@ module Handler = struct
     | Columns_arbitrary n -> style [ columns (Count n) ]
     | Columns_bracket_var s ->
         let inner = Parse.extract_var_name s in
-        let ref : Css.columns_value Css.var = Css.var_ref inner in
+        let ref : Css.columns_value Css.var = Var.bracket inner in
         style [ columns (Var ref) ]
 
   (* Tailwind sorts column utilities lexicographically by their suffix. This

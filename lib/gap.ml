@@ -76,7 +76,7 @@ module Handler = struct
 
   let gap_var_ref var_str : Css.length =
     let bare_name = Parse.extract_var_name var_str in
-    Css.Var (Css.var_ref bare_name)
+    Css.Var (Var.bracket bare_name)
 
   let gap_value axis (v : gap_value) =
     match v with

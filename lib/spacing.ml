@@ -37,7 +37,7 @@ let pp_margin_suffix : margin -> string = function
 (** {1 CSS Conversion} *)
 
 let named_spacing_ref name : Css.length =
-  Css.Var (Css.var_ref ("spacing-" ^ name))
+  Css.Var (Var.bracket ("spacing-" ^ name))
 
 let named_spacing_binding name : Css.declaration option * Css.length =
   let prop_name = "spacing-" ^ name in
@@ -47,7 +47,11 @@ let named_spacing_binding name : Css.declaration option * Css.length =
         Css.custom_declaration ~layer:"theme" ("--" ^ prop_name) Css.String
           value_str
       in
-      let ref : Css.length Css.var = Css.var_ref ~layer:"theme" prop_name in
+      let ref : Css.length Css.var =
+        Var.theme_ref prop_name
+          ~default:(Css.Zero : Css.length)
+          ~default_css:"0px"
+      in
       (Some decl, Css.Var ref)
   | None ->
       let ref = named_spacing_ref name in

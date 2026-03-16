@@ -15,7 +15,7 @@ module Handler = struct
   let name = "overflow_wrap"
 
   (* Typography-adjacent priority *)
-  let priority = 10
+  let priority = 13
   let suborder = function Anywhere -> 0 | Break_word -> 1 | Normal -> 2
 
   let to_class = function

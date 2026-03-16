@@ -64,7 +64,7 @@ module Handler = struct
   let relative_color_supports =
     Css.Supports.Property ("color", "lab(from red l a b)")
 
-  let make_color_var vn : Css.color = Css.Var (Css.var_ref vn)
+  let make_color_var vn : Css.color = Css.Var (Var.bracket vn)
 
   (* ============ Parse arbitrary shadow ============ *)
 
@@ -327,7 +327,7 @@ module Handler = struct
   (* ============ Arbitrary shadow styles ============ *)
 
   let make_text_shadow_var var_expr : Css.text_shadow =
-    Css.Var (Css.var_ref (Parse.extract_var_name var_expr))
+    Css.Var (Var.bracket (Parse.extract_var_name var_expr))
 
   let arbitrary_shadow_style arb =
     match parse_arbitrary_shadow arb with
@@ -379,7 +379,7 @@ module Handler = struct
                   (pp_float percent)
               in
               let enhanced_ref =
-                Css.var_ref ~fallback:(Raw_fallback raw_fb)
+                Var.bracket ~fallback:(Raw_fallback raw_fb)
                   "tw-text-shadow-color"
               in
               let enhanced_shadow =

@@ -366,14 +366,14 @@ module Handler = struct
   let rotate_bare_var name =
     (* name is "--var", strip the -- prefix *)
     let bare = String.sub name 2 (String.length name - 2) in
-    let ref : Css.angle Css.var = Css.var_ref bare in
+    let ref : Css.angle Css.var = Var.bracket bare in
     style [ Css.rotate (Angle (Var ref)) ]
 
   let neg_rotate_bare_var name =
     (* name is "--var", strip the -- prefix for Calc.var *)
     let bare = String.sub name 2 (String.length name - 2) in
     let neg_angle : Css.angle =
-      Calc (Expr (Var (Css.var_ref bare), Mul, Num (-1.)))
+      Calc (Expr (Var (Var.bracket bare), Mul, Num (-1.)))
     in
     style [ Css.rotate (Angle neg_angle) ]
 
@@ -636,13 +636,13 @@ module Handler = struct
 
   let rotate_x_bare_var name =
     let bare = String.sub name 2 (String.length name - 2) in
-    let ref : Css.angle Css.var = Css.var_ref bare in
+    let ref : Css.angle Css.var = Var.bracket bare in
     transform_with_var tw_rotate_x_var (Rotate_x (Var ref))
 
   let neg_rotate_x_bare_var name =
     let bare = String.sub name 2 (String.length name - 2) in
     let neg : Css.angle =
-      Calc (Expr (Var (Css.var_ref bare), Mul, Num (-1.)))
+      Calc (Expr (Var (Var.bracket bare), Mul, Num (-1.)))
     in
     transform_with_var tw_rotate_x_var (Rotate_x neg)
 
@@ -657,13 +657,13 @@ module Handler = struct
 
   let rotate_y_bare_var name =
     let bare = String.sub name 2 (String.length name - 2) in
-    let ref : Css.angle Css.var = Css.var_ref bare in
+    let ref : Css.angle Css.var = Var.bracket bare in
     transform_with_var tw_rotate_y_var (Rotate_y (Var ref))
 
   let neg_rotate_y_bare_var name =
     let bare = String.sub name 2 (String.length name - 2) in
     let neg : Css.angle =
-      Calc (Expr (Var (Css.var_ref bare), Mul, Num (-1.)))
+      Calc (Expr (Var (Var.bracket bare), Mul, Num (-1.)))
     in
     transform_with_var tw_rotate_y_var (Rotate_y neg)
 
@@ -678,13 +678,13 @@ module Handler = struct
 
   let rotate_z_bare_var name =
     let bare = String.sub name 2 (String.length name - 2) in
-    let ref : Css.angle Css.var = Css.var_ref bare in
+    let ref : Css.angle Css.var = Var.bracket bare in
     transform_with_var tw_rotate_z_var (Rotate_z (Var ref))
 
   let neg_rotate_z_bare_var name =
     let bare = String.sub name 2 (String.length name - 2) in
     let neg : Css.angle =
-      Calc (Expr (Var (Css.var_ref bare), Mul, Num (-1.)))
+      Calc (Expr (Var (Var.bracket bare), Mul, Num (-1.)))
     in
     transform_with_var tw_rotate_z_var (Rotate_z neg)
 
@@ -813,10 +813,11 @@ module Handler = struct
             value_str
         in
         let ref : Css.perspective_origin =
-          Perspective_var (Css.var_ref ~layer:"theme" name)
+          Perspective_var (Var.theme_ref name ~default ~default_css)
         in
         let perspective_ref : Css.length =
-          Css.Var (Css.var_ref ~layer:"theme" name)
+          Css.Var
+            (Var.theme_ref name ~default:(Css.Zero : Css.length) ~default_css)
         in
         style [ decl; perspective_origin ref; Css.perspective perspective_ref ]
     | None ->
@@ -824,7 +825,8 @@ module Handler = struct
           Perspective_var (Var.theme_ref name ~default ~default_css)
         in
         let perspective_ref : Css.length =
-          Css.Var (Css.var_ref ~layer:"theme" name)
+          Css.Var
+            (Var.theme_ref name ~default:(Css.Zero : Css.length) ~default_css)
         in
         style
           [
