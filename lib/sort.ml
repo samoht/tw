@@ -856,7 +856,7 @@ let compare_variant_ordered r1 r2 =
         in
         if ivo_cmp <> 0 then ivo_cmp
         else
-          let has_nested = function [] -> 0 | _ -> -1 in
+          let has_nested = function [] -> 0 | _ -> 1 in
           let nested_cmp =
             Int.compare (has_nested r1.nested) (has_nested r2.nested)
           in
@@ -871,7 +871,17 @@ let compare_variant_ordered r1 r2 =
             in
             if media_cmp <> 0 then media_cmp
             else
-              let prefix_cmp = String.compare p1_prefix p2_prefix in
+              (* Named variants (has-checked) sort before bracket variants
+                 (has-[:checked]) within the same variant group *)
+              let has_bracket p =
+                String.length p > 0 && String.contains p '['
+              in
+              let b1 = has_bracket p1_prefix and b2 = has_bracket p2_prefix in
+              let prefix_cmp =
+                if b1 && not b2 then 1
+                else if b2 && not b1 then -1
+                else String.compare p1_prefix p2_prefix
+              in
               if prefix_cmp <> 0 then prefix_cmp
               else
                 let p1, s1 = r1.order and p2, s2 = r2.order in
