@@ -170,15 +170,48 @@ let parse_arbitrary_selector_content content anchor =
       (* Fallback — just use the anchor as descendant *)
       combine (where [ anchor ]) Descendant universal
 
+(** Build an anchor-based variant selector: :where(.anchor):pseudo combinator *)
+let anchor_pseudo_selector ~anchor ~combinator cls prefix pseudo =
+  let open Css.Selector in
+  let rel =
+    combine (compound [ where [ anchor ]; pseudo ]) combinator universal
+  in
+  compound [ Class (prefix ^ ":" ^ cls); is_ [ rel ] ]
+
+(** Build a hocus (hover + focus) variant selector for an anchor *)
+let anchor_hocus_selector ~anchor ~combinator cls label =
+  let open Css.Selector in
+  let rel =
+    combine
+      (is_
+         [
+           compound [ where [ anchor ]; Hover ];
+           compound [ where [ anchor ]; Focus ];
+         ])
+      combinator universal
+  in
+  compound [ Class (label ^ ":" ^ cls); is_ [ rel ] ]
+
+(** Build an arbitrary bracket variant selector for an anchor *)
+let anchor_arbitrary_selector ~anchor ~combinator cls sel label =
+  let open Css.Selector in
+  let prefix = label ^ "-[" ^ sel ^ "]" in
+  let rel = parse_arbitrary_selector_content sel anchor in
+  let rel =
+    match combinator with
+    | Css.Selector.Subsequent_sibling -> (
+        (* For peer, replace outermost Descendant with Subsequent_sibling (~) *)
+        match rel with
+        | Combined (left, Descendant, (Universal _ as right)) ->
+            Combined (left, Subsequent_sibling, right)
+        | other -> other)
+    | _ -> rel
+  in
+  compound [ Class (prefix ^ ":" ^ cls); is_ [ rel ] ]
+
 (** Group variant selector — :where(.group):pseudo descendant *)
 let group_selector cls modifier =
-  let open Css.Selector in
-  let gp prefix pseudo =
-    let rel =
-      combine (compound [ where [ group ]; pseudo ]) Descendant universal
-    in
-    compound [ Class (prefix ^ ":" ^ cls); is_ [ rel ] ]
-  in
+  let gp = anchor_pseudo_selector ~anchor:group ~combinator:Descendant cls in
   match modifier with
   | Group_hover -> gp "group-hover" Hover
   | Group_focus -> gp "group-focus" Focus
@@ -216,30 +249,17 @@ let group_selector cls modifier =
   | Group_focus_visible -> gp "group-focus-visible" Focus_visible
   | Group_enabled -> gp "group-enabled" Enabled
   | Group_hocus ->
-      let rel =
-        combine
-          (is_
-             [
-               compound [ where [ group ]; Hover ];
-               compound [ where [ group ]; Focus ];
-             ])
-          Descendant universal
-      in
-      compound [ Class ("group-hocus:" ^ cls); is_ [ rel ] ]
+      anchor_hocus_selector ~anchor:group ~combinator:Descendant cls
+        "group-hocus"
   | Group_arbitrary sel ->
-      let prefix = "group-[" ^ sel ^ "]" in
-      let rel = parse_arbitrary_selector_content sel group in
-      compound [ Class (prefix ^ ":" ^ cls); is_ [ rel ] ]
-  | _ -> Class cls
+      anchor_arbitrary_selector ~anchor:group ~combinator:Descendant cls sel
+        "group"
+  | _ -> Css.Selector.Class cls
 
 (** Peer variant selector — :where(.peer):pseudo ~ *)
 let peer_selector cls modifier =
-  let open Css.Selector in
-  let pp prefix pseudo =
-    let rel =
-      combine (compound [ where [ peer ]; pseudo ]) Subsequent_sibling universal
-    in
-    compound [ Class (prefix ^ ":" ^ cls); is_ [ rel ] ]
+  let pp =
+    anchor_pseudo_selector ~anchor:peer ~combinator:Subsequent_sibling cls
   in
   match modifier with
   | Peer_hover -> pp "peer-hover" Hover
@@ -278,28 +298,12 @@ let peer_selector cls modifier =
   | Peer_focus_visible -> pp "peer-focus-visible" Focus_visible
   | Peer_enabled -> pp "peer-enabled" Enabled
   | Peer_hocus ->
-      let rel =
-        combine
-          (is_
-             [
-               compound [ where [ peer ]; Hover ];
-               compound [ where [ peer ]; Focus ];
-             ])
-          Subsequent_sibling universal
-      in
-      compound [ Class ("peer-hocus:" ^ cls); is_ [ rel ] ]
+      anchor_hocus_selector ~anchor:peer ~combinator:Subsequent_sibling cls
+        "peer-hocus"
   | Peer_arbitrary sel ->
-      let prefix = "peer-[" ^ sel ^ "]" in
-      let rel = parse_arbitrary_selector_content sel peer in
-      (* For peer, replace outermost Descendant with Subsequent_sibling (~) *)
-      let peer_rel =
-        match rel with
-        | Combined (left, Descendant, (Universal _ as right)) ->
-            Combined (left, Subsequent_sibling, right)
-        | other -> other
-      in
-      compound [ Class (prefix ^ ":" ^ cls); is_ [ peer_rel ] ]
-  | _ -> Class cls
+      anchor_arbitrary_selector ~anchor:peer ~combinator:Subsequent_sibling cls
+        sel "peer"
+  | _ -> Css.Selector.Class cls
 
 (** Form state modifier selector dispatch *)
 let form_state_selector cls modifier =
@@ -415,15 +419,10 @@ let structural_selector cls modifier =
   | Empty -> cp "empty" cls Css.Selector.Empty
   | _ -> media_prefix_selector cls modifier
 
-(** Generate CSS selector for a modifier and base class *)
-let to_selector (modifier : modifier) cls =
+(** Aria and data attribute modifier selectors *)
+let aria_data_selector cls modifier =
   let open Css.Selector in
-  let cp = class_pseudo in
   match modifier with
-  | Hover -> compound [ hover cls; Hover ]
-  | Focus -> compound [ focus cls; Focus ]
-  | Active -> compound [ active cls; Active ]
-  | Disabled -> compound [ disabled cls; Disabled ]
   | Aria_checked ->
       compound [ aria_checked cls; attribute "aria-checked" (Exact "true") ]
   | Aria_expanded ->
@@ -448,19 +447,35 @@ let to_selector (modifier : modifier) cls =
           Class ("data-[" ^ attr ^ "=" ^ value ^ "]:" ^ cls);
           attribute ("data-" ^ attr) (Exact value);
         ]
+  | _ -> structural_selector cls modifier
+
+(** Pseudo-element modifier selectors *)
+let pseudo_element_selector cls modifier =
+  let cp = class_pseudo in
+  match modifier with
+  | Pseudo_before -> Css.Selector.compound [ before cls; Css.Selector.Before ]
+  | Pseudo_after -> Css.Selector.compound [ after cls; Css.Selector.After ]
+  | Pseudo_marker -> cp "marker" cls Css.Selector.Marker
+  | Pseudo_selection -> cp "selection" cls Css.Selector.Selection
+  | Pseudo_placeholder -> cp "placeholder" cls Css.Selector.Placeholder
+  | Pseudo_backdrop -> cp "backdrop" cls Css.Selector.Backdrop
+  | Pseudo_file -> cp "file" cls Css.Selector.File_selector_button
+  | Pseudo_first_letter -> cp "first-letter" cls Css.Selector.First_letter
+  | Pseudo_first_line -> cp "first-line" cls Css.Selector.First_line
+  | Pseudo_details_content ->
+      cp "details-content" cls Css.Selector.Details_content
+  | _ -> aria_data_selector cls modifier
+
+(** Generate CSS selector for a modifier and base class *)
+let to_selector (modifier : modifier) cls =
+  let open Css.Selector in
+  match modifier with
+  | Hover -> compound [ hover cls; Hover ]
+  | Focus -> compound [ focus cls; Focus ]
+  | Active -> compound [ active cls; Active ]
+  | Disabled -> compound [ disabled cls; Disabled ]
   | Focus_within -> compound [ focus_within cls; Focus_within ]
   | Focus_visible -> compound [ focus_visible cls; Focus_visible ]
-  | Pseudo_before -> compound [ before cls; Before ]
-  | Pseudo_after -> compound [ after cls; After ]
-  (* Pseudo-element variants *)
-  | Pseudo_marker -> cp "marker" cls Marker
-  | Pseudo_selection -> cp "selection" cls Selection
-  | Pseudo_placeholder -> cp "placeholder" cls Placeholder
-  | Pseudo_backdrop -> cp "backdrop" cls Backdrop
-  | Pseudo_file -> cp "file" cls File_selector_button
-  | Pseudo_first_letter -> cp "first-letter" cls First_letter
-  | Pseudo_first_line -> cp "first-line" cls First_line
-  | Pseudo_details_content -> cp "details-content" cls Details_content
   (* Child/descendant selectors *)
   | Children ->
       let child_sel = combine (Class ("*:" ^ cls)) Child universal in
@@ -474,8 +489,8 @@ let to_selector (modifier : modifier) cls =
   | Hocus -> compound [ Class ("hocus:" ^ cls); is_ [ Hover; Focus ] ]
   | Device_hocus ->
       compound [ Class ("device-hocus:" ^ cls); is_ [ Hover; Focus ] ]
-  (* Structural, media, peer, form state — dispatched to sub-functions *)
-  | _ -> structural_selector cls modifier
+  (* Pseudo-elements, aria/data, structural, media, peer, form state *)
+  | _ -> pseudo_element_selector cls modifier
 
 (** Check if a modifier generates a hover rule *)
 let is_hover = function Hover | Group_hover | Peer_hover -> true | _ -> false
